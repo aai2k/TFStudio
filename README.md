@@ -7,6 +7,7 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](./LICENSE)
 ![Version](https://img.shields.io/badge/version-1.0.0-informational)
 ![Platform](https://img.shields.io/badge/platform-Windows%20%7C%20Linux%20%7C%20macOS-lightgrey)
+[![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.21196150.svg)](https://doi.org/10.5281/zenodo.21196150)
 
 
 </div>
@@ -98,7 +99,7 @@ User documentation is built into the app (Help menu) and lives in [`docs-site/`]
 
 ## Citing TFStudio
 
-If TFStudio contributes to your work, please cite it. Citation metadata is in [`CITATION.cff`](./CITATION.cff); GitHub renders a "Cite this repository" button from it. A software paper is available [[![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.21196320.svg)](https://doi.org/10.5281/zenodo.21196320)](https://doi.org/10.5281/zenodo.21196320)
+If TFStudio contributes to your work, please cite it. Citation metadata is in [`CITATION.cff`](./CITATION.cff); GitHub renders a "Cite this repository" button from it. A software paper is available https://doi.org/10.5281/zenodo.21196320
 
 ## Contributing
 
