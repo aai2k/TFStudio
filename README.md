@@ -98,7 +98,7 @@ User documentation is built into the app (Help menu) and lives in [`docs-site/`]
 
 ## Citing TFStudio
 
-If TFStudio contributes to your work, please cite it. Citation metadata is in [`CITATION.cff`](./CITATION.cff); GitHub renders a "Cite this repository" button from it. A software paper is in preparation.
+If TFStudio contributes to your work, please cite it. Citation metadata is in [`CITATION.cff`](./CITATION.cff); GitHub renders a "Cite this repository" button from it. A software paper is available [[![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.21196320.svg)](https://doi.org/10.5281/zenodo.21196320)](https://doi.org/10.5281/zenodo.21196320)
 
 ## Contributing
 
