@@ -37,6 +37,32 @@ Set-Location $proj
 function Section($msg) { Write-Host "`n=== $msg ===" -ForegroundColor Cyan }
 
 # -----------------------------------------------------------------------------
+# electron-builder's winCodeSign package contains symlinked darwin .dylib files.
+# 7za.exe (the bundled 7-Zip binary) extracts them for any target platform,
+# including win32-only builds, and it does not use the newer unprivileged-
+# symlink flag that PowerShell's own New-Item respects under Developer Mode.
+# It always needs the raw SeCreateSymbolicLinkPrivilege, which only an
+# elevated (UAC) token carries. Testing symlink creation via PowerShell is NOT
+# a reliable proxy for this -- it can succeed under Developer Mode while
+# 7za.exe still fails. So gate on elevation directly: if not elevated,
+# relaunch under UAC before starting the build.
+# -----------------------------------------------------------------------------
+$isAdmin = ([Security.Principal.WindowsPrincipal] `
+            [Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole( `
+            [Security.Principal.WindowsBuiltInRole]::Administrator)
+
+if (-not $isAdmin) {
+    Write-Host "Relaunching elevated (required for electron-builder's winCodeSign extraction)..." -ForegroundColor Yellow
+    $passArgs = @()
+    if ($SkipWasm) { $passArgs += '-SkipWasm' }
+    if ($NoPause)  { $passArgs += '-NoPause' }
+    if ($Win7)     { $passArgs += '-Win7' }
+    $psArgs = @('-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', $MyInvocation.MyCommand.Path) + $passArgs
+    $proc = Start-Process -FilePath 'powershell.exe' -ArgumentList $psArgs -Verb RunAs -Wait -PassThru
+    exit $proc.ExitCode
+}
+
+# -----------------------------------------------------------------------------
 # Decide UP FRONT whether to also build the Windows 7/8.1 legacy installers
 # (Electron 22), so the user can answer once and walk away rather than babysit
 # the multi-minute main build for a prompt at the end.
@@ -168,6 +194,23 @@ try {
         if ($LASTEXITCODE -ne 0) { throw "npm install failed (exit $LASTEXITCODE)." }
     } else {
         Write-Host "All build dependencies present." -ForegroundColor Green
+    }
+
+    $winCodeSignCache = Join-Path $env:LOCALAPPDATA 'electron-builder\Cache\winCodeSign'
+    if (Test-Path $winCodeSignCache) {
+        Remove-Item $winCodeSignCache -Recurse -Force -ErrorAction SilentlyContinue
+    }
+
+    # RII offline mirror: prefer the copy checked into the repo
+    # (refractiveindex-db\database) over the old external X:\reference path.
+    # tools/gen_material_seed.mjs must read TFS_RII_SOURCE if set and use it
+    # in place of its hardcoded path.
+    $riiRepoPath = Join-Path $proj 'refractiveindex-db\database'
+    if (Test-Path $riiRepoPath) {
+        $env:TFS_RII_SOURCE = $riiRepoPath
+        Write-Host "RII offline mirror: using repo copy at $riiRepoPath" -ForegroundColor Green
+    } else {
+        Write-Warning "refractiveindex-db\database not found in repo -- RII mirror will be skipped unless gen_material_seed.mjs finds it elsewhere."
     }
 
     $wasmPath = Join-Path $proj 'src\wasm\tmm_kernel.wasm'

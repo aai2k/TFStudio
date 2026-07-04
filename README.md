@@ -8,8 +8,6 @@
 ![Version](https://img.shields.io/badge/version-1.0.0-informational)
 ![Platform](https://img.shields.io/badge/platform-Windows%20%7C%20Linux%20%7C%20macOS-lightgrey)
 
-<!-- TODO: add hero screenshot — main window with a design + optical evaluation plot -->
-<!-- ![TFStudio main window](docs/screenshots/hero.png) -->
 
 </div>
 
@@ -19,9 +17,8 @@
 
 TFStudio is a professional desktop application for designing and analyzing **optical thin-film coatings** — antireflection coatings, mirrors, beamsplitters, bandpass and edge filters, and more. It combines a rigorous, double-precision optical engine with modern refinement and synthesis algorithms and a full analysis suite, in a docked, multi-window interface.
 
-It is built for correctness: every numerical method is grounded in the published literature and validated against reference data and established tools.
 
-> ⚠️ **Status:** TFStudio is independently developed research software. While the optical engine is validated against reference data (see [Scientific basis](#scientific-basis)), always verify critical designs against your own measurements before committing them to a production deposition run.
+> ⚠️ **Status:** TFStudio is independently developed software. While the optical engine is validated against reference data (see [Scientific basis](#scientific-basis)), always verify critical designs against your own measurements before committing them to a production deposition run.
 
 <img width="1776" height="1064" alt="Screenshot_5" src="https://github.com/user-attachments/assets/66373db5-aa9b-4075-b166-095885d84e49" />
 

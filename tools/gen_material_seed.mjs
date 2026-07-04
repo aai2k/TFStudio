@@ -26,8 +26,11 @@ import url from 'node:url';
 const ROOT = path.resolve(path.dirname(url.fileURLToPath(import.meta.url)), '..');
 const MATERIALS = path.join(ROOT, 'materials');
 const SEED = path.join(ROOT, 'build', 'seed');
-// RefractiveIndex.info local clone (CLAUDE.md: reference/refractiveindex-db).
-const RII_SRC = path.resolve(ROOT, '..', '..', 'reference', 'refractiveindex-db', 'database');
+// RefractiveIndex.info local clone. Prefers TFS_RII_SOURCE (set by
+// build-release.ps1 when refractiveindex-db/database is checked into the
+// repo), falling back to the old external CLAUDE.md location.
+const RII_SRC = process.env.TFS_RII_SOURCE
+    || path.resolve(ROOT, '..', '..', 'reference', 'refractiveindex-db', 'database');
 
 function mkdirp(p) { fs.mkdirSync(p, { recursive: true }); }
 function rmrf(p) { if (fs.existsSync(p)) fs.rmSync(p, { recursive: true, force: true }); }
