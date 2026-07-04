@@ -95,7 +95,7 @@ npm run build      # package a distributable (electron-builder)
 
 ## Documentation
 
-User documentation is built into the app (Help menu) and lives in [`docs-site/`](./docs-site). Online: [tfstudio.xyz](https://tfstudio.xyz).
+User documentation is built into the app (Help menu) and lives in [`docs-site/`](./docs-site).
 
 ## Citing TFStudio
 
