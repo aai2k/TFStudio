@@ -10,8 +10,8 @@
 
 
 </div>
+<img width="1776" height="1064" alt="Screenshot_5" src="https://github.com/user-attachments/assets/66373db5-aa9b-4075-b166-095885d84e49" />
 
----
 
 ## What is TFStudio?
 
@@ -20,7 +20,6 @@ TFStudio is a professional desktop application for designing and analyzing **opt
 
 > ⚠️ **Status:** TFStudio is independently developed software. While the optical engine is validated against reference data (see [Scientific basis](#scientific-basis)), always verify critical designs against your own measurements before committing them to a production deposition run.
 
-<img width="1776" height="1064" alt="Screenshot_5" src="https://github.com/user-attachments/assets/66373db5-aa9b-4075-b166-095885d84e49" />
 
 ## Key features
 
