@@ -1,0 +1,141 @@
+{
+  "name": "tfstudio",
+  "version": "1.0.0",
+  "description": "TFStudio - Optical Thin Film Coating Design",
+  "main": "src/main.js",
+  "scripts": {
+    "start": "electron .",
+    "dev": "electron . --dev",
+    "docs:install": "npm --prefix docs-site install",
+    "docs:dev": "npm --prefix docs-site run dev",
+    "docs:build": "npm --prefix docs-site run build",
+    "build:wasm": "emcc src/wasm/tmm_kernel.c -O3 --no-entry -sSTANDALONE_WASM=1 -sALLOW_MEMORY_GROWTH=1 -sEXPORTED_FUNCTIONS=_tmm_one,_tmm_spectrum,_tmm_jacobian,_tmm_needle_scan,_tmm_hessian,_malloc,_free -o src/wasm/tmm_kernel.wasm",
+    "test": "node tests/run-all.mjs",
+    "test:all": "node tests/run-all.mjs --all",
+    "test:bench": "node tests/run-all.mjs --bench",
+    "test:list": "node tests/run-all.mjs --list",
+    "i18n:scan": "node tools/i18n-scan.mjs",
+    "test:wasm": "node tests/wasm_tmm_equivalence.mjs",
+    "test:optilayer": "node tests/optilayer_parser_verification.mjs",
+    "seed": "node tools/gen_material_seed.mjs",
+    "build:renderer": "node tools/build-renderer.mjs",
+    "build:web": "node tools/build-renderer.mjs && node tools/gen-demo-catalogs.mjs && node tools/build-web-demo.mjs",
+    "build": "npm run seed && npm run docs:build && npm run build:renderer && cross-env CSC_IDENTITY_AUTO_DISCOVERY=false electron-builder",
+    "build:win": "npm run seed && npm run docs:build && npm run build:renderer && set CSC_IDENTITY_AUTO_DISCOVERY=false&& electron-builder",
+    "build:portable": "npm run seed && npm run docs:build && npm run build:renderer && cross-env CSC_IDENTITY_AUTO_DISCOVERY=false electron-builder --win portable",
+    "build:win7": "npm run seed && npm run docs:build && npm run build:renderer && cross-env CSC_IDENTITY_AUTO_DISCOVERY=false TFS_LEGACY=1 electron-builder --config build/electron-builder.win7.js",
+    "dist": "powershell -NoProfile -ExecutionPolicy Bypass -File build-release.ps1",
+    "dist:fast": "powershell -NoProfile -ExecutionPolicy Bypass -File build-release.ps1 -SkipWasm",
+    "dist:win7": "powershell -NoProfile -ExecutionPolicy Bypass -File build-release.ps1 -Win7",
+    "dist:win7-only": "powershell -NoProfile -ExecutionPolicy Bypass -File build-release-win7.ps1",
+    "locale-editor": "node tools/locale-editor/server.js"
+  },
+  "keywords": [
+    "optical",
+    "thin film",
+    "coating",
+    "tfstudio"
+  ],
+  "author": {
+    "name": "Andrey Achapovsky",
+    "url": "https://orcid.org/0009-0005-1497-6279"
+  },
+  "license": "MIT",
+  "homepage": "https://tfstudio.xyz",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/aai2k/TFStudio.git"
+  },
+  "devDependencies": {
+    "cross-env": "^7.0.3",
+    "decimal.js": "^10.6.0",
+    "electron": "^39.2.3",
+    "electron-builder": "^24.9.1",
+    "esbuild": "^0.27.7"
+  },
+  "dependencies": {
+    "katex": "^0.16.46",
+    "ml-levenberg-marquardt": "^5.0.1",
+    "plotly.js-dist-min": "^3.5.1",
+    "react": "^18.2.0",
+    "react-dom": "^18.2.0"
+  },
+  "build": {
+    "appId": "com.tfstudio.app",
+    "productName": "TFStudio",
+    "asar": true,
+    "asarUnpack": [
+      "**/*.ico",
+      "build/app/**"
+    ],
+    "forceCodeSigning": false,
+    "directories": {
+      "output": "dist",
+      "buildResources": "build"
+    },
+    "files": [
+      "build/app/**/*",
+      "build/icons/**/*",
+      "src/main.js",
+      "src/main/**/*",
+      "src/preload.js",
+      "src/constants/locales.js",
+      "src/wasm/tmm_kernel.wasm",
+      "node_modules/**/*",
+      "icons/**/*",
+      "LICENSE"
+    ],
+    "win": {
+      "target": [
+        {
+          "target": "nsis",
+          "arch": [
+            "x64"
+          ]
+        },
+        {
+          "target": "portable",
+          "arch": [
+            "x64"
+          ]
+        }
+      ],
+      "icon": "icons/tfstudio-purple2.ico",
+      "requestedExecutionLevel": "asInvoker",
+      "verifyUpdateCodeSignature": false
+    },
+    "extraResources": [
+      {
+        "from": "icons/tfstudio-purple2.ico",
+        "to": "tfstudio-purple2.ico"
+      },
+      {
+        "from": "docs-site/dist",
+        "to": "help"
+      },
+      {
+        "from": "build/seed",
+        "to": "materials-seed"
+      }
+    ],
+    "nsis": {
+      "oneClick": false,
+      "perMachine": false,
+      "allowElevation": false,
+      "allowToChangeInstallationDirectory": true,
+      "installerIcon": "icons/tfstudio-purple2.ico",
+      "uninstallerIcon": "icons/tfstudio-purple2.ico",
+      "installerHeaderIcon": "icons/tfstudio-purple2.ico",
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "shortcutName": "TFStudio",
+      "differentialPackage": false,
+      "unicode": true,
+      "deleteAppDataOnUninstall": false,
+      "include": "build/installer.nsh"
+    },
+    "portable": {
+      "artifactName": "${productName}-${version}-Portable.${ext}"
+    }
+  }
+}

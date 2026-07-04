@@ -1,0 +1,25 @@
+{
+  "name": "tfstudio-docs",
+  "type": "module",
+  "version": "0.1.0",
+  "private": true,
+  "description": "TFStudio documentation site (Astro Starlight). Built artifact ships inside the desktop app and on the web demo.",
+  "scripts": {
+    "dev": "astro dev",
+    "start": "astro dev",
+    "build": "astro build && node rebase-dist.mjs",
+    "preview": "astro preview",
+    "astro": "astro",
+    "translate": "node translate-docs.mjs",
+    "translate:dry": "node translate-docs.mjs --dry-run",
+    "translate:force": "node translate-docs.mjs --force"
+  },
+  "dependencies": {
+    "@astrojs/starlight": "^0.30.0",
+    "astro": "^5.0.0",
+    "sharp": "^0.33.5"
+  },
+  "devDependencies": {
+    "@anthropic-ai/sdk": "^0.40.0"
+  }
+}

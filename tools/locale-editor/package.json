@@ -1,0 +1,13 @@
+{
+  "name": "tfstudio-locale-editor",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Browser-based table editor for src/constants/locales.js (surgical, AST-based writes)",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "dependencies": {
+    "acorn": "^8.12.1"
+  }
+}

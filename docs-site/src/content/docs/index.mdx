@@ -1,0 +1,56 @@
+---
+title: TFStudio
+description: Optical thin-film coating design — reference manual.
+template: splash
+hero:
+  tagline: Optical thin-film coating design — physically correct, numerically stable, production-ready.
+  actions:
+    - text: Design Editor
+      link: /design/design-editor/
+      icon: right-arrow
+      variant: primary
+    - text: Optical Evaluation
+      link: /analysis/optical-evaluation/
+      icon: right-arrow
+---
+
+import { Card, CardGrid } from '@astrojs/starlight/components';
+
+## What is TFStudio?
+
+TFStudio is a desktop application for designing, analyzing and synthesizing
+multilayer optical thin-film coatings. It implements the Transfer Matrix
+Method (TMM) following Macleod's *Thin-Film Optical Filters* (5th ed.) and a
+full synthesis stack (Damped Least Squares refinement, Sullivan & Dobrowolski
+numerical needle, Tikhonravov gradual evolution).
+
+This site is the reference manual. Every tool window inside the app has a
+`?` button that opens the matching page here.
+
+<CardGrid>
+  <Card title="Design" icon="pencil">
+    Build the layer stack, pick materials, set targets.
+    See **[Design Editor](/design/design-editor/)**.
+  </Card>
+  <Card title="Analyze" icon="magnifier">
+    Spectra, color, admittance, E-field, sensitivity, tolerancing.
+    Start with **[Optical Evaluation](/analysis/optical-evaluation/)**.
+  </Card>
+  <Card title="Synthesize" icon="rocket">
+    Refinement, Needle, Gradual Evolution, Structural.
+    See **[Optimization Methods](/synthesis/optimization-methods/)**.
+  </Card>
+  <Card title="Simulate" icon="setting">
+    Broadband / monochromatic monitoring, process deposition.
+    See **[BBM Simulator](/simulation/bbm-simulator/)**.
+  </Card>
+</CardGrid>
+
+## Conventions used throughout this manual
+
+- **Wavelength** in nanometres (nm).
+- **Angle of incidence (AOI)** measured from the surface normal, degrees.
+- **Polarization** `s` (TE), `p` (TM), or `avg` = ½(R_s + R_p).
+- **Sign convention** of the complex refractive index: `ñ = n − ik`
+  (Macleod §2.2, the convention used in the TMM).
+- **Layer 1** = layer touching the substrate (first deposited).

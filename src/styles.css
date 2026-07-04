@@ -1,0 +1,254 @@
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+body {
+    overflow: hidden;
+    font-family: 'Segoe UI', 'Roboto', sans-serif;
+}
+
+/* Show focus ring only for keyboard navigation (Tab), not after a mouse click.
+   :focus-visible matches when the UA decides a focus indicator is warranted —
+   keyboard focus shows, click focus does not, so buttons/tabs/checkboxes don't
+   keep an outline after being clicked. */
+input:focus-visible, button:focus-visible {
+    outline: 2px solid var(--tf-accent, #4a90e2);
+    outline-offset: 2px;
+}
+input:focus, button:focus {
+    outline: none;
+}
+
+/* ── Modern select control (theme-aware via :root CSS vars) ──────────────── */
+select {
+    appearance: none;
+    background-image: url("data:image/svg+xml,%3Csvg width='10' height='6' viewBox='0 0 10 6' fill='none' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M1 1L5 5L9 1' stroke='%23999' stroke-width='1.6' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: right 9px center;
+    padding-right: 28px;
+    cursor: pointer;
+    border-radius: 4px;
+    transition: border-color 0.12s ease, box-shadow 0.12s ease,
+                background-color 0.12s ease;
+}
+
+select::-ms-expand { display: none; }
+
+select:hover {
+    border-color: var(--tf-accent, #4a90e2) !important;
+}
+
+select:focus {
+    outline: none;
+    border-color: var(--tf-accent, #4a90e2) !important;
+    box-shadow: 0 0 0 2px color-mix(in srgb, var(--tf-accent, #4a90e2) 35%, transparent);
+}
+
+/* Fallback (older engines): best-effort tint of the native popup. Modern
+   Chromium ignores option background in the OS popup — see @supports below. */
+select option,
+select optgroup {
+    background-color: var(--tf-panel, #353535);
+    color: var(--tf-text, #e0e0e0);
+}
+select option:checked {
+    background: color-mix(in srgb, var(--tf-accent, #4a90e2) 30%, var(--tf-panel, #353535));
+}
+
+/* ── Fully custom, theme-aware dropdown list (Chromium ≥130 / Electron 39) ──
+   `appearance: base-select` replaces the OS popup with a real DOM element
+   (::picker(select)) we can style end-to-end. Behind @supports so engines
+   without it keep the fallback above. */
+@supports (appearance: base-select) {
+    select,
+    ::picker(select) {
+        appearance: base-select;
+    }
+
+    select {
+        /* picker-icon now draws the chevron; drop the background SVG so it
+           isn't doubled, and reclaim the right padding it reserved. */
+        background-image: none;
+        padding-right: 8px;
+        /* base-select renders the select as a flex button — center its
+           content against the component's fixed height instead of letting
+           it sit top-left. */
+        display: inline-flex;
+        align-items: center;
+        line-height: 1.4;
+    }
+
+    /* The auto-generated content holding the chosen option's label.
+       Only clip horizontally (ellipsis) — never vertically, or descenders
+       (g/p/y) get cut at the baseline. */
+    select::selectedcontent {
+        overflow-x: hidden;
+        overflow-y: visible;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+        line-height: 1.4;
+    }
+
+    select::picker-icon {
+        /* Replace Chromium's default solid triangle with the same thin
+           chevron as the closed control; mask lets it inherit theme colour. */
+        content: '';
+        width: 10px;
+        height: 6px;
+        margin-left: auto;       /* push chevron to the right edge */
+        background-color: var(--tf-textdim, #999);
+        -webkit-mask: url("data:image/svg+xml,%3Csvg width='10' height='6' viewBox='0 0 10 6' fill='none' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M1 1L5 5L9 1' stroke='black' stroke-width='1.6' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E") no-repeat center / contain;
+                mask: url("data:image/svg+xml,%3Csvg width='10' height='6' viewBox='0 0 10 6' fill='none' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M1 1L5 5L9 1' stroke='black' stroke-width='1.6' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E") no-repeat center / contain;
+        transition: transform 0.18s ease;
+    }
+    select:open::picker-icon {
+        transform: rotate(180deg);
+    }
+
+    /* The popup surface. */
+    ::picker(select) {
+        background: var(--tf-panel, #353535);
+        border: 1px solid var(--tf-border, #454545);
+        border-radius: 7px;
+        box-shadow: 0 10px 28px rgba(0, 0, 0, 0.45);
+        padding: 4px;
+        margin-top: 4px;
+        /* subtle entrance */
+        opacity: 0;
+        transform: translateY(-4px);
+        transition: opacity 0.13s ease, transform 0.13s ease,
+                    overlay 0.13s allow-discrete, display 0.13s allow-discrete;
+    }
+    ::picker(select):popover-open {
+        opacity: 1;
+        transform: translateY(0);
+    }
+    @starting-style {
+        ::picker(select):popover-open {
+            opacity: 0;
+            transform: translateY(-4px);
+        }
+    }
+
+    /* Theme-aware, thin scrollbar inside the popup (long theme/locale lists
+       overflow it). Without these the popover renders the chunky default OS
+       scrollbar, which clashes with the styled list. */
+    ::picker(select) {
+        scrollbar-width: thin;
+        scrollbar-color: rgba(128, 128, 128, 0.45) transparent;
+    }
+    ::picker(select)::-webkit-scrollbar {
+        width: 8px;
+    }
+    ::picker(select)::-webkit-scrollbar-track {
+        background: transparent;
+    }
+    ::picker(select)::-webkit-scrollbar-thumb {
+        background: rgba(128, 128, 128, 0.4);
+        border-radius: 4px;
+        border: 2px solid transparent;
+        background-clip: content-box;
+    }
+    ::picker(select)::-webkit-scrollbar-thumb:hover {
+        background: rgba(128, 128, 128, 0.7);
+        background-clip: content-box;
+    }
+
+    select option {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        background: transparent;
+        color: var(--tf-text, #e0e0e0);
+        padding: 5px 10px;
+        border-radius: 4px;
+        cursor: pointer;
+        transition: background-color 0.1s ease;
+    }
+    select option:hover,
+    select option:focus {
+        background: var(--tf-hover, #454545);
+        outline: none;
+    }
+    select option:checked {
+        background: color-mix(in srgb, var(--tf-accent, #4a90e2) 32%, var(--tf-panel, #353535));
+        color: var(--tf-text, #e0e0e0);
+    }
+    /* Hide the default leading checkmark column for a cleaner list. */
+    select option::checkmark {
+        display: none;
+    }
+
+    select optgroup {
+        color: var(--tf-textdim, #999);
+        font-size: 0.85em;
+        padding: 4px 8px 2px;
+    }
+}
+
+button:hover {
+    opacity: 0.9;
+}
+
+button:active {
+    transform: translateY(1px);
+}
+
+::-webkit-scrollbar {
+    width: 7px;
+    height: 7px;
+}
+
+::-webkit-scrollbar-track {
+    background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+    background: rgba(128, 128, 128, 0.4);
+    border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+    background: rgba(128, 128, 128, 0.65);
+}
+
+/* Ribbon scrollbar — thin, reserved below the group labels */
+.tf-ribbon {
+    scrollbar-width: thin;
+    scrollbar-color: rgba(128, 128, 128, 0.4) transparent;
+}
+
+.tf-ribbon::-webkit-scrollbar {
+    height: 5px;
+}
+
+.tf-ribbon::-webkit-scrollbar-track {
+    background: transparent;
+}
+
+.tf-ribbon::-webkit-scrollbar-thumb {
+    background: rgba(128, 128, 128, 0.4);
+    border-radius: 3px;
+}
+
+/* Docking tab strip — scroll horizontally without a visible scrollbar
+   (overflow is reached via wheel, active-tab auto-scroll, and the "all tabs"
+   dropdown, so a 7px bar inside the 30px strip would only steal vertical room) */
+.tabstrip-noscrollbar::-webkit-scrollbar {
+    width: 0;
+    height: 0;
+    display: none;
+}
+
+@keyframes menuFadeIn {
+    from {
+        opacity: 0;
+        transform: translateY(-4px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}

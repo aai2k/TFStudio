@@ -1,0 +1,11 @@
+=== Multipassband synthesis diagnostic (3-line bandpass, lower MF = better) ===
+NOTE: pure-JS TMM (no WASM) — timings NOT production-representative; compare MF/layers.
+Thin vs thick seed: thin (160nm) is TOT-starved (needle adds no bulk); thick (~7000nm)
+supplies the TOT up front so needle can carve it — user finding 2026-06-02, PLAN §13.
+
+Per-method wall-clock budget: 90s (env DIAG_BUDGET_S to override).
+
+--- SEED: thin 160 nm (TiO2 60 / SiO2 100) — TOT-starved baseline — 2 layer(s), Σd=160 nm, start MF = 0.550434 (maxLayers=28) ---
+Needle GREEDY (break-first)  finalMF=0.441756  layers=  8  Σd=  463nm  time=   7.1s  steps=4 refines=6
+Needle DEEP (top-16)        finalMF=0.484074  layers=  6  Σd=  285nm  time=  51.8s  steps=6 refines=53
+Needle DEEP+ES (top-16)     finalMF=0.402791  layers= 14  Σd=  537nm  time=  90.5s  steps=8 refines=74 [TIMED OUT]

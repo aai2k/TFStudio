@@ -1,0 +1,7 @@
+{
+  "colorscale": "Jet",
+  "wavelength": 632.8,
+  "gridSize3D": 257,
+  "gridSize2D": 65,
+  "theme": "True Black"
+}

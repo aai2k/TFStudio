@@ -1,0 +1,520 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>TFStudio Localization Editor</title>
+<style>
+  :root {
+    --bg: #1e1f23; --panel: #26282d; --panel2: #2d2f35; --line: #3a3d44;
+    --text: #e6e7ea; --muted: #9aa0aa; --accent: #4a9eff; --accent2: #2f7fe0;
+    --warn: #e0a83a; --bad: #e05a5a; --good: #4fb87a; --dirty: #c98bff;
+    --mono: 'Cascadia Code','Consolas',monospace;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; height: 100%; background: var(--bg); color: var(--text);
+    font: 13px/1.4 'Segoe UI', system-ui, sans-serif; }
+  header { position: sticky; top: 0; z-index: 30; background: var(--panel);
+    border-bottom: 1px solid var(--line); padding: 8px 12px; display: flex;
+    flex-wrap: wrap; gap: 8px 14px; align-items: center; }
+  header h1 { font-size: 14px; margin: 0 8px 0 0; font-weight: 600; }
+  .spacer { flex: 1; }
+  input[type=text], select { background: var(--panel2); color: var(--text);
+    border: 1px solid var(--line); border-radius: 5px; padding: 5px 8px; font-size: 13px; }
+  input[type=text] { min-width: 240px; }
+  label.chk { display: inline-flex; align-items: center; gap: 5px; color: var(--muted);
+    cursor: pointer; user-select: none; }
+  button { background: var(--panel2); color: var(--text); border: 1px solid var(--line);
+    border-radius: 5px; padding: 6px 12px; font-size: 13px; cursor: pointer; }
+  button:hover { border-color: var(--accent); }
+  button.primary { background: var(--accent2); border-color: var(--accent2); color: #fff; font-weight: 600; }
+  button.primary:disabled { opacity: .45; cursor: default; }
+  .pill { font-size: 11px; padding: 1px 7px; border-radius: 10px; background: var(--panel2);
+    border: 1px solid var(--line); color: var(--muted); }
+  .pill.dirty { color: var(--dirty); border-color: var(--dirty); }
+  .pill.bad { color: var(--bad); border-color: var(--bad); }
+
+  #status { font-size: 12px; color: var(--muted); }
+  #wrap { padding: 0 0 120px; }
+
+  .grp { border-bottom: 1px solid var(--line); }
+  .grp-head { position: sticky; top: 49px; z-index: 20; background: var(--panel2);
+    padding: 6px 12px; font-weight: 600; cursor: pointer; display: flex; gap: 10px;
+    align-items: center; border-top: 1px solid var(--line); }
+  .grp-head .ns { color: var(--accent); }
+  .grp-head .ct { color: var(--muted); font-weight: 400; font-size: 12px; }
+
+  table { width: 100%; border-collapse: collapse; table-layout: fixed; }
+  col.k { width: 320px; }
+  col.st { width: 26px; }
+  thead.cols th { position: sticky; top: 49px; z-index: 15; background: var(--panel);
+    border-bottom: 1px solid var(--line); text-align: left; padding: 6px 10px;
+    font-size: 12px; color: var(--muted); cursor: pointer; user-select: none; }
+  thead.cols th .arrow { color: var(--accent); font-size: 10px; }
+  tbody td { border-bottom: 1px solid var(--line); vertical-align: top; padding: 4px 8px; }
+  tr:hover td { background: #24262b; }
+
+  .keycell { font-family: var(--mono); font-size: 12px; color: var(--text);
+    word-break: break-all; padding-top: 8px; }
+  .keycell .ns { color: var(--muted); }
+  .keycell .leaf { color: var(--accent); }
+  .badge { display: inline-block; font-size: 10px; padding: 0 5px; border-radius: 3px;
+    margin-left: 6px; vertical-align: middle; }
+  .badge.fn { background: #3a2d52; color: #c98bff; border: 1px solid #5a4a7a; }
+  .badge.dup { background: #2d3f52; color: #6fb0ff; border: 1px solid #3a5a7a; }
+
+  td.st { text-align: center; padding-top: 9px; }
+  .dot { display: inline-block; width: 9px; height: 9px; border-radius: 50%; }
+  .dot.ok { background: var(--good); } .dot.missing { background: var(--bad); }
+  .dot.empty { background: var(--warn); }
+
+  textarea { width: 100%; resize: none; overflow: hidden; min-height: 30px;
+    background: var(--panel); color: var(--text); border: 1px solid var(--line);
+    border-radius: 5px; padding: 5px 7px; font: 13px/1.4 'Segoe UI', system-ui, sans-serif; }
+  textarea:focus { outline: none; border-color: var(--accent); }
+  textarea.fn { font-family: var(--mono); font-size: 12px; color: #d7c2ff; }
+  textarea.missing { border-color: #5a3a3a; background: #2a2122; }
+  textarea.missing::placeholder { color: #8a5a5a; }
+  textarea.dirty { border-color: var(--dirty); box-shadow: 0 0 0 1px var(--dirty) inset; }
+  .members { font-family: var(--mono); font-size: 11px; color: var(--muted);
+    margin-top: 3px; max-height: 0; overflow: hidden; transition: none; }
+  .members.show { max-height: 400px; overflow: auto; }
+  .memtoggle { cursor: pointer; color: var(--accent); font-size: 11px; }
+  .mixed-note { font-size: 11px; color: var(--warn); margin-bottom: 2px; }
+  .readonly { color: var(--muted); white-space: pre-wrap; padding: 6px 7px;
+    font-size: 13px; word-break: break-word; }
+  #empty { padding: 40px; text-align: center; color: var(--muted); }
+</style>
+</head>
+<body>
+<header>
+  <h1>🌐 Localization</h1>
+  <input id="search" type="text" placeholder="Search key or text…" />
+  <select id="filter" title="Filter rows">
+    <option value="all">All keys</option>
+    <option value="issues">⚠ Untranslated / empty</option>
+    <option value="missing">Missing in a language</option>
+    <option value="functions">ƒ Functions only</option>
+    <option value="changed">Changed (unsaved)</option>
+  </select>
+  <label class="chk"><input type="checkbox" id="grpns" checked /> Group by feature</label>
+  <label class="chk"><input type="checkbox" id="dedupe" /> Merge identical EN</label>
+  <label class="chk" id="dupOnlyWrap" style="display:none"><input type="checkbox" id="dupOnly" /> only ×2+</label>
+  <span class="spacer"></span>
+  <span id="counts" class="pill"></span>
+  <span id="dirtyPill" class="pill dirty" style="display:none"></span>
+  <button id="reload">Reload</button>
+  <button id="save" class="primary" disabled>Save</button>
+  <span id="status"></span>
+</header>
+<div id="wrap"><div id="empty">Loading…</div></div>
+
+<script>
+const state = {
+  rows: [],            // from server
+  languages: [],
+  rowByPath: new Map(),
+  edits: new Map(),    // path -> Map(lang -> {value, kind})
+  sortKey: 'src',      // 'src' | 'key' | 'status' | lang code
+  sortDir: 1,
+  collapsed: new Set(),
+};
+
+const $ = (id) => document.getElementById(id);
+
+async function load() {
+  $('status').textContent = 'loading…';
+  const r = await fetch('/api/data');
+  const d = await r.json();
+  if (!d.ok) { $('status').textContent = 'error: ' + d.error; return; }
+  state.rows = d.rows;
+  state.languages = d.languages;
+  state.rowByPath = new Map(d.rows.map((row) => [row.path, row]));
+  state.edits.clear();
+  state.srcIndex = new Map(d.rows.map((row, i) => [row.path, i]));
+  $('status').textContent = 'loaded ' + d.rows.length + ' keys';
+  render();
+}
+
+// ---- edit state helpers ----
+function origText(row, lang) { return row.cells[lang].text || ''; }
+function curText(row, lang) {
+  const e = state.edits.get(row.path);
+  if (e && e.has(lang)) return e.get(lang).value;
+  return origText(row, lang);
+}
+function isDirty(row, lang) {
+  const e = state.edits.get(row.path);
+  return !!(e && e.has(lang));
+}
+function setEdit(path, lang, value) {
+  const row = state.rowByPath.get(path);
+  const orig = origText(row, lang);
+  const present = row.cells[lang].present;
+  // Not dirty if it equals original AND was already present (no new insertion).
+  if (present && value === orig) {
+    const e = state.edits.get(path);
+    if (e) { e.delete(lang); if (e.size === 0) state.edits.delete(path); }
+  } else if (!present && value === '') {
+    // typing nothing into a missing cell -> still not an edit
+    const e = state.edits.get(path);
+    if (e) { e.delete(lang); if (e.size === 0) state.edits.delete(path); }
+  } else {
+    let e = state.edits.get(path);
+    if (!e) { e = new Map(); state.edits.set(path, e); }
+    const kind = row.cells[lang].present ? row.cells[lang].kind : row.kind;
+    e.set(lang, { value, kind });
+  }
+}
+function totalDirty() {
+  let n = 0;
+  for (const e of state.edits.values()) n += e.size;
+  return n;
+}
+
+function rowStatus(row) {
+  let missing = false, empty = false;
+  for (const { code } of state.languages) {
+    if (!row.cells[code].present && !isDirty(row, code)) missing = true;
+    else if (curText(row, code).trim() === '') empty = true;
+  }
+  return missing ? 'missing' : empty ? 'empty' : 'ok';
+}
+
+// ---- filtering ----
+function matchesFilter(row) {
+  const f = $('filter').value;
+  if (f === 'functions') return row.kind === 'expr';
+  if (f === 'changed') return state.edits.has(row.path);
+  if (f === 'missing') return state.languages.some((l) => !row.cells[l.code].present && !isDirty(row, l.code));
+  if (f === 'issues') return rowStatus(row) !== 'ok';
+  return true;
+}
+function matchesSearch(row, q) {
+  if (!q) return true;
+  if (row.path.toLowerCase().includes(q)) return true;
+  for (const { code } of state.languages)
+    if (curText(row, code).toLowerCase().includes(q)) return true;
+  return false;
+}
+
+function visibleRows() {
+  const q = $('search').value.trim().toLowerCase();
+  return state.rows.filter((r) => matchesFilter(r) && matchesSearch(r, q));
+}
+
+// ---- sorting ----
+function sortRows(rows) {
+  const k = state.sortKey, dir = state.sortDir;
+  if (k === 'src') {
+    rows.sort((a, b) => (state.srcIndex.get(a.path) - state.srcIndex.get(b.path)) * dir);
+    return rows;
+  }
+  rows.sort((a, b) => {
+    let va, vb;
+    if (k === 'key') { va = a.path; vb = b.path; }
+    else if (k === 'status') {
+      const order = { missing: 0, empty: 1, ok: 2 };
+      va = order[rowStatus(a)]; vb = order[rowStatus(b)];
+    } else { va = curText(a, k).toLowerCase(); vb = curText(b, k).toLowerCase(); }
+    if (va < vb) return -1 * dir;
+    if (va > vb) return 1 * dir;
+    return (state.srcIndex.get(a.path) - state.srcIndex.get(b.path));
+  });
+  return rows;
+}
+
+// ---- textarea autosize ----
+function autosize(ta) { ta.style.height = 'auto'; ta.style.height = (ta.scrollHeight + 2) + 'px'; }
+// Batched: one write pass, one read pass, one write pass -> O(1) reflows for N
+// textareas instead of O(N) forced reflows. Hidden textareas are skipped
+// (scrollHeight 0); they get sized lazily when their group is expanded.
+function autosizeAll(tas) {
+  tas = tas.filter((ta) => ta.offsetParent !== null);
+  tas.forEach((ta) => { ta.style.height = 'auto'; });
+  const hs = tas.map((ta) => ta.scrollHeight);
+  tas.forEach((ta, i) => { ta.style.height = (hs[i] + 2) + 'px'; });
+}
+
+// ---- rendering ----
+function render() {
+  const wrap = $('wrap');
+  const dedupe = $('dedupe').checked;
+  $('dupOnlyWrap').style.display = dedupe ? '' : 'none';
+  let rows = visibleRows();
+
+  // counts
+  let miss = 0;
+  for (const r of state.rows)
+    if (state.languages.some((l) => !r.cells[l.code].present && !isDirty(r, l.code))) miss++;
+  $('counts').textContent = `${state.rows.length} keys · ${state.rows.length - miss} translated · ${miss} missing`;
+  const dn = totalDirty();
+  $('dirtyPill').style.display = dn ? '' : 'none';
+  $('dirtyPill').textContent = dn + ' unsaved';
+  $('save').disabled = dn === 0;
+
+  if (rows.length === 0) { wrap.innerHTML = '<div id="empty">No matching keys.</div>'; return; }
+
+  wrap.innerHTML = '';
+  if (dedupe) { renderDedupe(wrap, rows); autosizeAll([...wrap.querySelectorAll('textarea')]); }
+  else if ($('grpns').checked) renderGrouped(wrap, rows);   // each group self-sizes
+  else { renderFlat(wrap, sortRows(rows.slice())); autosizeAll([...wrap.querySelectorAll('textarea')]); }
+}
+
+function headerRow() {
+  const thead = document.createElement('thead');
+  thead.className = 'cols';
+  const tr = document.createElement('tr');
+  const arrow = (k) => state.sortKey === k ? `<span class="arrow">${state.sortDir > 0 ? '▲' : '▼'}</span>` : '';
+  tr.innerHTML = `<th data-sort="status" title="Sort by status"></th>
+    <th data-sort="key">Key ${arrow('key')}</th>` +
+    state.languages.map((l) => `<th data-sort="${l.code}">${l.name} <span class="pill">${l.code}</span> ${arrow(l.code)}</th>`).join('');
+  thead.appendChild(tr);
+  thead.querySelectorAll('th').forEach((th) => th.addEventListener('click', () => {
+    const k = th.dataset.sort;
+    if (state.sortKey === k) state.sortDir *= -1; else { state.sortKey = k; state.sortDir = 1; }
+    render();
+  }));
+  return thead;
+}
+
+function colgroup() {
+  const cg = document.createElement('colgroup');
+  cg.innerHTML = `<col class="st"/><col class="k"/>` + state.languages.map(() => '<col/>').join('');
+  return cg;
+}
+
+function makeTextarea(row, lang) {
+  const ta = document.createElement('textarea');
+  const cell = row.cells[lang];
+  const present = cell.present;
+  ta.value = curText(row, lang);
+  if (row.kind === 'expr') ta.classList.add('fn');
+  if (!present && !isDirty(row, lang)) { ta.classList.add('missing'); ta.placeholder = '(untranslated — type to add)'; }
+  if (isDirty(row, lang)) ta.classList.add('dirty');
+  ta.addEventListener('input', () => {
+    setEdit(row.path, lang, ta.value);
+    ta.classList.toggle('dirty', isDirty(row, lang));
+    ta.classList.toggle('missing', !row.cells[lang].present && !isDirty(row, lang));
+    autosize(ta);
+    refreshDirtyUI();
+  });
+  return ta;
+}
+
+function keyCellHTML(row) {
+  const parts = row.path.split('.');
+  const leaf = parts.pop();
+  const ns = parts.length ? `<span class="ns">${parts.join('.')}.</span>` : '';
+  const fn = row.kind === 'expr' ? '<span class="badge fn" title="function value — keep the (args)=> signature">ƒ</span>' : '';
+  return `${ns}<span class="leaf">${leaf}</span>${fn}`;
+}
+
+function buildTable(rows) {
+  const table = document.createElement('table');
+  table.appendChild(colgroup());
+  table.appendChild(headerRow());
+  const tb = document.createElement('tbody');
+  for (const row of rows) {
+    const tr = document.createElement('tr');
+    const st = rowStatus(row);
+    const tdSt = document.createElement('td');
+    tdSt.className = 'st';
+    tdSt.innerHTML = `<span class="dot ${st}" title="${st}"></span>`;
+    tr.appendChild(tdSt);
+    const tdKey = document.createElement('td');
+    tdKey.className = 'keycell';
+    tdKey.innerHTML = keyCellHTML(row);
+    tr.appendChild(tdKey);
+    for (const { code } of state.languages) {
+      const td = document.createElement('td');
+      td.appendChild(makeTextarea(row, code));
+      tr.appendChild(td);
+    }
+    tb.appendChild(tr);
+  }
+  table.appendChild(tb);
+  return table;
+}
+
+function renderFlat(wrap, rows) { wrap.appendChild(buildTable(rows)); }
+
+function renderGrouped(wrap, rows) {
+  // partition by namespace preserving source order of namespaces
+  const groups = new Map();
+  for (const r of rows) {
+    if (!groups.has(r.namespace)) groups.set(r.namespace, []);
+    groups.get(r.namespace).push(r);
+  }
+  for (const [ns, list] of groups) {
+    const div = document.createElement('div');
+    div.className = 'grp';
+    const head = document.createElement('div');
+    head.className = 'grp-head';
+    let missing = 0;
+    for (const r of list) if (state.languages.some((l) => !r.cells[l.code].present && !isDirty(r, l.code))) missing++;
+    const glyph = document.createElement('span');
+    glyph.className = 'glyph';
+    const meta = document.createElement('span');
+    meta.innerHTML = `<span class="ns">${ns}</span>
+      <span class="ct">${list.length} keys${missing ? ` · <span style="color:var(--bad)">${missing} missing</span>` : ''}</span>`;
+    head.appendChild(glyph);
+    head.appendChild(document.createTextNode(' '));
+    head.appendChild(meta);
+    div.appendChild(head);
+
+    // Build this group's table only when open; collapse just removes it.
+    // No full re-render -> collapsing 'menu' touches only menu's rows.
+    const setOpen = (open) => {
+      glyph.textContent = open ? '▼' : '▶';
+      const existing = div.querySelector('table');
+      if (open && !existing) {
+        const tbl = buildTable(sortRows(list.slice()));
+        div.appendChild(tbl);
+        autosizeAll([...tbl.querySelectorAll('textarea')]);
+      } else if (!open && existing) {
+        existing.remove();
+      }
+    };
+    setOpen(!state.collapsed.has(ns));
+    head.addEventListener('click', () => {
+      const willCollapse = !state.collapsed.has(ns);
+      if (willCollapse) state.collapsed.add(ns); else state.collapsed.delete(ns);
+      setOpen(!willCollapse);
+    });
+    wrap.appendChild(div);
+  }
+}
+
+// ---- dedupe (merge identical EN) ----
+function renderDedupe(wrap, rows) {
+  const enCode = 'en';
+  const dupOnly = $('dupOnly').checked;
+  // Only string rows participate in EN-merging; functions shown separately.
+  const groups = new Map(); // enText -> [rows]
+  const fnRows = [];
+  for (const r of rows) {
+    if (r.kind === 'expr') { fnRows.push(r); continue; }
+    const key = origText(r, enCode);
+    if (!groups.has(key)) groups.set(key, []);
+    groups.get(key).push(r);
+  }
+  let entries = [...groups.entries()];
+  if (dupOnly) entries = entries.filter(([, m]) => m.length >= 2);
+  // sort groups by member count desc, then alpha
+  entries.sort((a, b) => (b[1].length - a[1].length) || (a[0] < b[0] ? -1 : 1));
+
+  const table = document.createElement('table');
+  table.appendChild(colgroup());
+  // custom header (EN read-only here)
+  const thead = document.createElement('thead'); thead.className = 'cols';
+  thead.innerHTML = `<tr><th></th><th>English (source)</th>` +
+    state.languages.filter((l) => l.code !== enCode)
+      .map((l) => `<th>${l.name} <span class="pill">${l.code}</span></th>`).join('') + `</tr>`;
+  table.appendChild(thead);
+  const tb = document.createElement('tbody');
+
+  for (const [enText, members] of entries) {
+    const targets = state.languages.filter((l) => l.code !== enCode);
+    const tr = document.createElement('tr');
+    // status dot: missing if any member/lang missing
+    let anyMissing = members.some((r) => targets.some((l) => !r.cells[l.code].present && !isDirty(r, l.code)));
+    const tdSt = document.createElement('td'); tdSt.className = 'st';
+    tdSt.innerHTML = `<span class="dot ${anyMissing ? 'missing' : 'ok'}"></span>`;
+    tr.appendChild(tdSt);
+    // EN cell read-only + members
+    const tdEn = document.createElement('td');
+    const dup = members.length >= 2 ? `<span class="badge dup">×${members.length}</span>` : '';
+    const memList = members.map((m) => m.path).join('\n');
+    tdEn.innerHTML = `<div class="readonly">${escapeHTML(enText)} ${dup}</div>
+      <span class="memtoggle">${members.length} key${members.length>1?'s':''} ▾</span>
+      <div class="members"><pre style="margin:4px 0">${escapeHTML(memList)}</pre></div>`;
+    const tog = tdEn.querySelector('.memtoggle');
+    tog.addEventListener('click', () => tdEn.querySelector('.members').classList.toggle('show'));
+    tr.appendChild(tdEn);
+
+    for (const l of targets) {
+      const td = document.createElement('td');
+      // current values across members for this lang
+      const vals = new Set(members.map((m) => m.cells[l.code].present || isDirty(m, l.code) ? curText(m, l.code) : ' MISSING'));
+      const ta = document.createElement('textarea');
+      let unified = '';
+      let mixed = false;
+      if (vals.size === 1) {
+        const only = [...vals][0];
+        unified = only === ' MISSING' ? '' : only;
+        if (only === ' MISSING') { ta.classList.add('missing'); ta.placeholder = '(untranslated — type once for all ' + members.length + ')'; }
+      } else { mixed = true; ta.placeholder = '(mixed across keys — type to set all)'; }
+      ta.value = unified;
+      if (mixed) { const note = document.createElement('div'); note.className = 'mixed-note'; note.textContent = '⚠ members differ — typing overrides all'; td.appendChild(note); }
+      ta.addEventListener('input', () => {
+        for (const m of members) setEdit(m.path, l.code, ta.value);
+        autosize(ta); refreshDirtyUI();
+        ta.classList.toggle('missing', false);
+      });
+      td.appendChild(ta);
+      tr.appendChild(td);
+    }
+    tb.appendChild(tr);
+  }
+  // function rows (not merged)
+  table.appendChild(tb);
+  wrap.appendChild(table);
+
+  if (fnRows.length) {
+    const h = document.createElement('div'); h.className = 'grp-head';
+    h.innerHTML = `<span class="ns">ƒ functions</span> <span class="ct">${fnRows.length} (not merged)</span>`;
+    wrap.appendChild(h);
+    wrap.appendChild(buildTable(sortRows(fnRows.slice())));
+  }
+}
+
+function escapeHTML(s) { return String(s).replace(/[&<>]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' }[c])); }
+
+function refreshDirtyUI() {
+  const dn = totalDirty();
+  $('dirtyPill').style.display = dn ? '' : 'none';
+  $('dirtyPill').textContent = dn + ' unsaved';
+  $('save').disabled = dn === 0;
+}
+
+async function save() {
+  const edits = [];
+  for (const [path, langs] of state.edits)
+    for (const [lang, { value, kind }] of langs)
+      edits.push({ path, lang, kind, value });
+  if (!edits.length) return;
+  $('status').textContent = 'saving ' + edits.length + '…';
+  $('save').disabled = true;
+  try {
+    const r = await fetch('/api/save', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ edits }),
+    });
+    const d = await r.json();
+    if (!d.ok) { $('status').textContent = '❌ ' + d.error; $('save').disabled = false; return; }
+    $('status').textContent = `✓ saved ${d.written} change(s) · backup: ${d.backup.split(/[\\/]/).pop()}`;
+    await load();
+  } catch (err) {
+    $('status').textContent = '❌ ' + err.message; $('save').disabled = false;
+  }
+}
+
+// ---- wire up ----
+let searchTimer;
+$('search').addEventListener('input', () => { clearTimeout(searchTimer); searchTimer = setTimeout(render, 150); });
+$('filter').addEventListener('change', render);
+$('grpns').addEventListener('change', render);
+$('dedupe').addEventListener('change', render);
+$('dupOnly').addEventListener('change', render);
+$('reload').addEventListener('click', () => {
+  if (totalDirty() && !confirm('Discard unsaved changes and reload?')) return;
+  load();
+});
+$('save').addEventListener('click', save);
+window.addEventListener('beforeunload', (e) => { if (totalDirty()) { e.preventDefault(); e.returnValue = ''; } });
+
+load();
+</script>
+</body>
+</html>

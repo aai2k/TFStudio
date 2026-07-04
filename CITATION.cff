@@ -1,0 +1,29 @@
+cff-version: 1.0.0
+message: "If you use this software, please cite it as below."
+title: "TFStudio: An open-source design and optimization environment for optical thin-film coatings"
+type: software
+authors:
+  - given-names: Andrey
+    family-names: Achapovsky
+    orcid: "https://orcid.org/0009-0005-1497-6279"
+version: 1.0.0
+date-released: "2026-07-04"
+license: MIT
+repository-code: "https://github.com/aai2k/TFStudio"
+url: "https://tfstudio.xyz"
+keywords:
+  - optical thin films
+  - optical coatings
+  - transfer matrix method
+  - thin-film optimization
+  - needle synthesis
+  - gradual evolution
+  - optical design
+abstract: >-
+  TFStudio is an open-source desktop application for the design, analysis, and
+  optimization of optical thin-film coatings. It implements the transfer-matrix
+  method at oblique incidence for absorbing and dispersive media, a damped
+  least-squares / Levenberg-Marquardt refinement engine with an analytic
+  Jacobian, and numerical synthesis via the needle method and gradual evolution.
+  The optical engine is validated against published reference data and
+  established commercial tools.

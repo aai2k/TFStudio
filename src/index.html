@@ -1,0 +1,27 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self' 'unsafe-inline' 'unsafe-eval'; img-src 'self' data: blob:">
+    <title>TFStudio</title>
+    <link rel="stylesheet" href="styles.css">
+    <link rel="stylesheet" href="../node_modules/katex/dist/katex.min.css">
+</head>
+<body>
+    <div id="root"></div>
+
+    <!-- React (UMD builds - global) -->
+    <script src="../node_modules/react/umd/react.development.js"></script>
+    <script src="../node_modules/react-dom/umd/react-dom.development.js"></script>
+
+    <!-- Plotly for scientific charts -->
+    <script src="../node_modules/plotly.js-dist-min/plotly.min.js"></script>
+
+    <!-- KaTeX for LaTeX formula rendering -->
+    <script src="../node_modules/katex/dist/katex.min.js"></script>
+
+    <!-- Main app (ES6 module) -->
+    <script type="module" src="renderer-modular.js"></script>
+</body>
+</html>

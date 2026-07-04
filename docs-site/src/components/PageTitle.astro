@@ -1,0 +1,53 @@
+---
+// Override of Starlight's default PageTitle. Reads the page's frontmatter
+// `ribbonIcon` field; when present, stamps the corresponding ribbon SVG
+// (ported from src/components/Toolbar.js) next to the H1 so each ribbon-
+// feature page leads with its in-app icon + title.
+//
+// Pages without `ribbonIcon` fall back to the plain title.
+import { ICONS } from './ribbon-icons.js';
+
+const data = Astro.props.entry?.data ?? {};
+const ribbonIcon = data.ribbonIcon;
+const iconSvg = ribbonIcon ? ICONS[ribbonIcon] : null;
+---
+
+<div class="tfs-page-header">
+  {iconSvg && (
+    <span class="tfs-page-icon" set:html={iconSvg} aria-hidden="true" />
+  )}
+  <h1 id="_top" class="tfs-page-title">{data.title}</h1>
+</div>
+
+<style>
+  .tfs-page-header {
+    display: flex;
+    align-items: center;
+    gap: 0.85rem;
+    margin-top: 1rem;
+    margin-bottom: 0.5rem;
+  }
+  .tfs-page-icon {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 48px;
+    height: 48px;
+    padding: 6px;
+    border-radius: 8px;
+    background: var(--sl-color-gray-6, rgba(127, 127, 127, 0.12));
+    color: var(--sl-color-accent, currentColor);
+    flex-shrink: 0;
+  }
+  .tfs-page-icon :global(svg) {
+    width: 100%;
+    height: 100%;
+  }
+  .tfs-page-title {
+    margin: 0;
+    line-height: 1.1;
+    font-size: var(--sl-text-h1);
+    font-weight: 600;
+    color: var(--sl-color-white);
+  }
+</style>
