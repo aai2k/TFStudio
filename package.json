@@ -50,7 +50,7 @@
     "cross-env": "^7.0.3",
     "decimal.js": "^10.6.0",
     "electron": "^39.2.3",
-    "electron-builder": "^24.9.1",
+    "electron-builder": "^26.15.3",
     "esbuild": "^0.28.1"
   },
   "dependencies": {
