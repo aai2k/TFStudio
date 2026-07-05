@@ -1,0 +1,31 @@
+version: 2
+
+updates:
+  # ── npm dependencies ──────────────────────────────────────────────────────
+  - package-ecosystem: "npm"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+    open-pull-requests-limit: 5
+    groups:
+      # One PR for all dev-dependency updates (build tooling, test libs, etc.).
+      dev-dependencies:
+        dependency-type: "development"
+      # One PR for all patch/minor runtime-dependency updates. Major runtime
+      # bumps are intentionally left OUT of the group so each gets its own PR
+      # for individual review.
+      production-minor-patch:
+        dependency-type: "production"
+        update-types:
+          - "minor"
+          - "patch"
+
+  # ── GitHub Actions used in workflows ──────────────────────────────────────
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "monthly"
+    groups:
+      github-actions:
+        patterns:
+          - "*"
