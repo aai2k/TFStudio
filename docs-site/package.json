@@ -15,8 +15,8 @@
     "translate:force": "node translate-docs.mjs --force"
   },
   "dependencies": {
-    "@astrojs/starlight": "^0.30.0",
-    "astro": "^5.0.0",
+    "@astrojs/starlight": "^0.41.3",
+    "astro": "^7.0.6",
     "sharp": "^0.33.5"
   },
   "devDependencies": {
