@@ -1,0 +1,46 @@
+name: Tests
+
+# Lightweight regression gate. Runs ONLY the fast test suite (`npm test`).
+# It deliberately does NOT:
+#   - build the app (electron-builder) or the WASM kernel — that's the heavy
+#     `build.yml`, which stays manual-only.
+#   - run the slow optimizer benchmarks / reporting tools — those live in the
+#     BENCH set in tests/run-all.mjs and only run via `npm run test:all`.
+# WASM-dependent tests self-SKIP when the kernel isn't built, so no Emscripten
+# is needed here.
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+# Cancel an in-progress run if the same branch/PR is pushed again.
+concurrency:
+  group: tests-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+        env:
+          # Tests are pure Node — skip the ~100 MB Electron binary download.
+          ELECTRON_SKIP_BINARY_DOWNLOAD: '1'
+
+      - name: Run fast test suite
+        # -- --jobs=N runs tests concurrently (each test is an isolated process).
+        # GitHub's Linux runners have ~4 vCPUs; the serial suite (~2.5 min) drops
+        # to under a minute. The slow ones are real optimizer/synthesis runs.
+        run: npm test -- --jobs=4
