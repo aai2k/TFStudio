@@ -49,12 +49,12 @@
   "devDependencies": {
     "cross-env": "^7.0.3",
     "decimal.js": "^10.6.0",
-    "electron": "^39.2.3",
-    "electron-builder": "^24.9.1",
-    "esbuild": "^0.27.7"
+    "electron": "^39.8.5",
+    "electron-builder": "^26.15.3",
+    "esbuild": "^0.28.1"
   },
   "dependencies": {
-    "js-yaml": "^4.1.0",
+    "js-yaml": "^4.3.0",
     "katex": "^0.16.46",
     "ml-levenberg-marquardt": "^5.0.1",
     "plotly.js-dist-min": "^3.5.1",
