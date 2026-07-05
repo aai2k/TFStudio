@@ -77,6 +77,20 @@ committed, and the engine has a pure-JS fallback. Only rebuild it if you change
 | `tests/` | Node-based test suite and numerical validations |
 | `docs-site/` | User documentation (Astro Starlight) |
 
+### Tests
+
+TFStudio ships an extensive test suite — **~95 test files** in [`tests/`](./tests),
+covering the optical engine, optimizer and synthesis, material models, file I/O, and
+UI logic, including numerical validations against reference values. Please lean on it:
+
+- Run `npm test` (fast suite) before opening a PR — it must be green.
+- `npm run test:all` adds the slower optimizer benchmarks; `npm run test:list` shows
+  every test.
+- When you fix a bug, add a test that would have caught it. When you change anything
+  numerical, add/adjust a test that pins the expected result to a reference value.
+- The existing tests are also the best documentation of how a subsystem is expected
+  to behave — read the nearest one before changing engine code.
+
 ---
 
 ## The scientific-correctness bar
