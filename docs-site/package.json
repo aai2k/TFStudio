@@ -15,11 +15,11 @@
     "translate:force": "node translate-docs.mjs --force"
   },
   "dependencies": {
-    "@astrojs/starlight": "^0.30.0",
+    "@astrojs/starlight": "^0.41.3",
     "astro": "^5.0.0",
-    "sharp": "^0.33.5"
+    "sharp": "^0.35.3"
   },
   "devDependencies": {
-    "@anthropic-ai/sdk": "^0.40.0"
+    "@anthropic-ai/sdk": "^0.110.0"
   }
 }
