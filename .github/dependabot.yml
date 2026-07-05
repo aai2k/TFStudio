@@ -7,6 +7,14 @@ updates:
     schedule:
       interval: "weekly"
     open-pull-requests-limit: 5
+    ignore:
+      # React 19 is a major UI upgrade we are deliberately NOT taking for now.
+      # Ignore major bumps so Dependabot stops re-opening them every week;
+      # minor/patch security fixes for React still come through.
+      - dependency-name: "react"
+        update-types: ["version-update:semver-major"]
+      - dependency-name: "react-dom"
+        update-types: ["version-update:semver-major"]
     groups:
       # One PR for all patch/minor dev-dependency updates. Major dev bumps
       # (e.g. an Electron or electron-builder major) are left OUT of the group
@@ -22,6 +30,21 @@ updates:
       # for individual review.
       production-minor-patch:
         dependency-type: "production"
+        update-types:
+          - "minor"
+          - "patch"
+
+  # ── docs-site (Astro documentation site — separate npm project) ───────────
+  # Covers the astro/vite security alerts, which live here, not in the app.
+  - package-ecosystem: "npm"
+    directory: "/docs-site"
+    schedule:
+      interval: "weekly"
+    open-pull-requests-limit: 5
+    groups:
+      docs-site:
+        patterns:
+          - "*"
         update-types:
           - "minor"
           - "patch"
