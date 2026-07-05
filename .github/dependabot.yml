@@ -8,9 +8,15 @@ updates:
       interval: "weekly"
     open-pull-requests-limit: 5
     groups:
-      # One PR for all dev-dependency updates (build tooling, test libs, etc.).
+      # One PR for all patch/minor dev-dependency updates. Major dev bumps
+      # (e.g. an Electron or electron-builder major) are left OUT of the group
+      # so each gets its own PR for individual review — a major Electron jump
+      # should never be a rubber-stamp group merge.
       dev-dependencies:
         dependency-type: "development"
+        update-types:
+          - "minor"
+          - "patch"
       # One PR for all patch/minor runtime-dependency updates. Major runtime
       # bumps are intentionally left OUT of the group so each gets its own PR
       # for individual review.
