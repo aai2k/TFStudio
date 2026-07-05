@@ -1,0 +1,42 @@
+name: Feature request
+description: Suggest a new capability or improvement
+labels: ["enhancement"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Please describe the **use case** first. For anything touching the optical
+        engine, optimizer, or a physical model, cite the method you have in mind
+        (paper + equation) — TFStudio does not add unreferenced physics.
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem / use case
+      description: What are you trying to do that TFStudio doesn't support well today?
+      placeholder: When designing X, I need to ... but currently ...
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposed solution
+      description: What would you like TFStudio to do?
+    validations:
+      required: true
+  - type: textarea
+    id: reference
+    attributes:
+      label: Method / literature reference
+      description: >
+        If this involves a calculation or algorithm, cite the source (author,
+        paper/book, equation or page). Leave blank for pure UI/UX requests.
+      placeholder: "Amotchkina et al., Appl. Opt. 59, 2020, Eq. (4)"
+    validations:
+      required: false
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives considered
+      description: Other approaches or workarounds you've thought about.
+    validations:
+      required: false
