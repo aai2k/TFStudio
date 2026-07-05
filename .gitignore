@@ -26,6 +26,9 @@ Thumbs.db
 
 # Electron runtime data (generated at runtime, not source)
 AppData/
+# Machine-local app settings — app reads/writes its own copy in AppData and
+# falls back to hardcoded defaults, so this file is not source.
+settings.json
 
 # Editor / AI-assistant tooling config
 .vscode/

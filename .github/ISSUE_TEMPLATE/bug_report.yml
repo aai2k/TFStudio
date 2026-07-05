@@ -1,0 +1,80 @@
+name: Bug report
+description: Report something that is broken or produces a wrong result
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for taking the time to file a bug. For **numerical / physics** issues,
+        the reference value and the exact design are what make a report actionable —
+        please fill those sections in.
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: What happened?
+      description: A clear description of the bug and what you expected instead.
+      placeholder: I computed R(λ) for design X and got ..., but expected ...
+    validations:
+      required: true
+  - type: textarea
+    id: repro
+    attributes:
+      label: Steps to reproduce
+      description: How can someone else trigger this?
+      placeholder: |
+        1. Open ...
+        2. Set ...
+        3. Run ...
+        4. See ...
+    validations:
+      required: true
+  - type: textarea
+    id: design
+    attributes:
+      label: Design / inputs
+      description: >
+        The layer stack, materials, substrate, incidence angle, polarization,
+        wavelength range, and merit/target involved. If possible, attach the `.tfs`
+        design file (drag it into this box).
+      placeholder: |
+        Substrate: BK7 (3 mm), back uncoated
+        Stack (air→sub): SiO2 120 nm / TiO2 95 nm / ...
+        AOI: 0°, unpolarized, 400–700 nm
+    validations:
+      required: false
+  - type: textarea
+    id: reference
+    attributes:
+      label: Reference value (for numerical issues)
+      description: >
+        What do you believe the correct result is, and where does it come from?
+        (OptiLayer / TFCalc / a published figure / an analytic check.) Include the
+        numbers and the tolerance you expected.
+      placeholder: OptiLayer gives R = 0.0123 at 550 nm; TFStudio gives 0.0210.
+    validations:
+      required: false
+  - type: input
+    id: version
+    attributes:
+      label: TFStudio version
+      description: See Help → About, or the version in the title bar.
+      placeholder: 1.0.0
+    validations:
+      required: true
+  - type: dropdown
+    id: os
+    attributes:
+      label: Operating system
+      options:
+        - Windows
+        - macOS
+        - Linux
+    validations:
+      required: true
+  - type: textarea
+    id: logs
+    attributes:
+      label: Logs / screenshots
+      description: Relevant log output or screenshots, if any.
+    validations:
+      required: false

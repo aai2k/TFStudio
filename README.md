@@ -75,7 +75,8 @@ Grab the latest installer or portable build from the [**Releases**](../../releas
 Requires [Node.js](https://nodejs.org) 18+.
 
 ```bash
-git clone https://github.com/aai2k/TFStudio.git
+# --recursive pulls the refractiveindex.info database submodule
+git clone --recursive https://github.com/aai2k/TFStudio.git
 cd TFStudio
 npm install
 
@@ -103,7 +104,12 @@ If TFStudio contributes to your work, please cite it. Citation metadata is in [`
 
 ## Contributing
 
-Issues and pull requests are welcome. By contributing you agree that your contributions are licensed under the project's MIT license.
+Issues and pull requests are welcome. Because TFStudio is a scientific tool,
+contributions to the optical engine are held to a physics-correctness bar (cite
+your sources, validate against a reference, add a test). Please read
+[**CONTRIBUTING.md**](./CONTRIBUTING.md) before opening a pull request.
+
+By contributing you agree that your contributions are licensed under the project's MIT license.
 
 ## License
 
