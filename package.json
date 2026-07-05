@@ -55,9 +55,9 @@
   },
   "dependencies": {
     "js-yaml": "^4.3.0",
-    "katex": "^0.16.46",
+    "katex": "^0.17.0",
     "ml-levenberg-marquardt": "^5.0.1",
-    "plotly.js-dist-min": "^3.5.1",
+    "plotly.js-dist-min": "^3.7.0",
     "react": "^18.2.0",
     "react-dom": "^18.2.0"
   },
