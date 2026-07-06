@@ -31,6 +31,7 @@ import { evaluateSpectrumTotal }  from '../../utils/physics/thinFilmMath.js';
 import { getMaterialById }        from '../../utils/materials/catalogManager.js';
 import { getMaterial }            from '../../utils/materials/materialDatabase.js';
 import { buildAllProcessFiles }   from '../../utils/io/processFileExport.js';
+import { Checkbox }               from '../ui/Checkbox.js';
 
 const { createElement: h, useState, useEffect, useMemo, useCallback, useRef } = React;
 
@@ -681,8 +682,8 @@ export function ProcessSimulator({ c, theme, t }) {
             h('label', {
                 style: { display: 'flex', alignItems: 'center', gap: 5, fontSize: 11, color: c.text, cursor: 'pointer' },
             },
-                h('input', {
-                    type: 'checkbox', checked: showSteps,
+                h(Checkbox, {
+                    c, checked: showSteps,
                     onChange: (e) => setShowSteps(e.target.checked),
                 }),
                 sp.showStepCurves,

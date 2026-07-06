@@ -6,8 +6,10 @@ import { SurfaceModeControl } from '../SurfaceModeBar.js';
 import { MaterialPicker } from '../ui/MaterialPicker.js';
 import { DebouncedInput } from '../ui/DebouncedInput.js';
 import { LockIcon } from '../ui/LockIcon.js';
+import { Checkbox } from '../ui/Checkbox.js';
 import { usePersistentBool } from '../ui/usePersistentState.js';
 import { useTableShortcuts } from '../../hooks/useTableShortcuts.js';
+import { ReplaceMaterialsDialog } from '../dialogs/ReplaceMaterialsDialog.js';
 
 // Resolve a material by legacy or compound ID, returning a material object with getNK.
 function resolveMaterial(id) {
@@ -178,7 +180,7 @@ function ConeAngleControl({ design, updateDesign, c, t }) {
         style: { display: 'flex', alignItems: 'center', gap: 6, cursor: 'pointer', padding: '3px 0' },
         title: cc.enableTip,
     },
-        h('input', { type: 'checkbox', checked: !!cone.enabled, onChange: (e) => patch({ enabled: e.target.checked }) }),
+        h(Checkbox, { c, checked: !!cone.enabled, onChange: (e) => patch({ enabled: e.target.checked }) }),
         h('span', { style: { fontSize: 11, color: c.text } }, cc.enable || 'Average over illumination cone'),
     ));
 
@@ -533,7 +535,7 @@ const StackDiagram = React.memo(function StackDiagram({ design, c, t }) {
 function LayerList({ layers, side, design, c,
     addLayer, removeLayer, updateLayer, moveLayer, duplicateLayer,
     insertLayerAt, removeLayerAt, duplicateLayerAt,
-    invertActiveSide, setAllLocked, copyToOther,
+    invertActiveSide, setAllLocked, copyToOther, onOpenReplaceMaterials,
     refLambda, t }) {
 
     const [selectedId, setSelectedId] = useState(null);
@@ -695,7 +697,25 @@ function LayerList({ layers, side, design, c,
                 onClick: () => copyToOther && copyToOther(),
                 title: side === 'front' ? de.copyToBack : de.copyToFront,
                 c, style: { marginLeft: 4 }
-            }, side === 'front' ? de.copyToBack : de.copyToFront)
+            }, side === 'front' ? de.copyToBack : de.copyToFront),
+            h('div', { style: { width: 1, height: 20, background: c.border, margin: '0 2px' } }),
+            // Editing-tools menu (design-wide operations). Acts as a menu: it
+            // fires the chosen tool and snaps back to its placeholder label.
+            h('select', {
+                value: '',
+                title: de.tools.tip,
+                onChange: (e) => {
+                    if (e.target.value === 'replaceMaterial') onOpenReplaceMaterials && onOpenReplaceMaterials();
+                    e.target.value = '';
+                },
+                style: {
+                    height: 24, padding: '0 6px', fontSize: 12, cursor: 'pointer',
+                    backgroundColor: c.panel, color: c.text,
+                    border: `1px solid ${c.border}`, borderRadius: 4, outline: 'none',
+                },
+            },
+                h('option', { value: '', disabled: true }, de.tools.label),
+                h('option', { value: 'replaceMaterial' }, de.tools.replaceMaterial))
         ),
 
         // Column headers — the box model must match LayerRow EXACTLY or the
@@ -789,6 +809,7 @@ export function DesignEditor({ c, t }) {
     // Stack-geometry diagram is always visible; the media / λ₀ / cone settings
     // collapse so the layer list keeps its vertical space (persisted).
     const [settingsOpen, setSettingsOpen] = usePersistentBool('de.settingsOpen', true);
+    const [replaceOpen, setReplaceOpen] = useState(false);
 
     // ── Index-based layer helpers (used by keyboard shortcuts) ─────
     // These complement the id-based DesignContext API so that callers who
@@ -953,6 +974,7 @@ export function DesignEditor({ c, t }) {
                 addLayer, removeLayer, updateLayer, moveLayer, duplicateLayer,
                 insertLayerAt, removeLayerAt, duplicateLayerAt,
                 invertActiveSide, setAllLocked, copyToOther,
+                onOpenReplaceMaterials: () => setReplaceOpen(true),
                 refLambda, t
             })
         ),
@@ -1049,6 +1071,10 @@ export function DesignEditor({ c, t }) {
                     h(ConeAngleControl, { design, updateDesign, c, t })
                 );
             })()
-        )
+        ),
+
+        replaceOpen && h(ReplaceMaterialsDialog, {
+            design, updateDesign, c, t, onClose: () => setReplaceOpen(false),
+        })
     );
 }

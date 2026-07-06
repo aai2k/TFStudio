@@ -24,6 +24,7 @@ import {
 import { WorkerPool }             from '../../utils/workers/workerPool.js';
 import { MC_WORKER_URL }          from '../../workerUrls.js';
 import { DebouncedInput }         from '../ui/DebouncedInput.js';
+import { Checkbox }               from '../ui/Checkbox.js';
 
 const { createElement: h, useState, useEffect, useMemo, useCallback, useRef } = React;
 
@@ -754,9 +755,8 @@ export function MBSSimulator({ c, theme, t }) {
             numInput(sigmaImN, setSigmaImN, { min: 0, max: 1, step: 0.0001, width: 70 })),
         h('label', { style: { display:'flex', alignItems:'center', gap: 5,
                 padding: '2px 0', cursor: 'pointer', color: c.text, fontSize: 11 } },
-            h('input', { type:'checkbox', checked: perMaterial,
-                onChange: e => setPerMaterial(e.target.checked),
-                style:{ cursor:'pointer', accentColor: c.accent } }),
+            h(Checkbox, { c, checked: perMaterial,
+                onChange: e => setPerMaterial(e.target.checked) }),
             mm.perMaterial || 'per-material'),
         h('div', { style: { height: 1, background: c.border, margin: '6px 0' } }),
         field(c, atoms, mm.shutterMean || 'shutter μ',
@@ -815,9 +815,8 @@ export function MBSSimulator({ c, theme, t }) {
             ]),
         h('label', { style: { display:'flex', alignItems:'center', gap: 5,
                 padding: '2px 0', cursor: 'pointer', color: c.text, fontSize: 11 } },
-            h('input', { type:'checkbox', checked: useWorkers,
-                onChange: e => setUseWorkers(e.target.checked),
-                style:{ cursor:'pointer', accentColor: c.accent } }),
+            h(Checkbox, { c, checked: useWorkers,
+                onChange: e => setUseWorkers(e.target.checked) }),
             mm.useWorkers || 'Use worker pool'),
     );
 

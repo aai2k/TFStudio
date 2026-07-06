@@ -37,7 +37,8 @@ import {
 import {
     sideKeyFor, activeSide, densifyForRun, chunkArray, poolSize,
     resolveMat, matDisplayName, matFriendlyName, matColor, MAT_COLORS, MaterialPoolPanel, SynthesisHistoryTable,
-    useCatSelection, minOmfOf, WARN_BADGE_STYLE, buildARSeedCandidates,
+    useCatSelection, minOmfOf, WARN_BADGE_STYLE, buildARSeedCandidates, PlotlyChart,
+    computePareto, TopDesignsPanel as SharedTopDesignsPanel,
     getPoolMaterials as getPoolMaterialsShared,
 } from './synthesisHelpers.js';
 import { WorkerPool } from '../../utils/workers/workerPool.js';
@@ -54,13 +55,14 @@ import {
 } from '../../utils/synthesis/synthesisConfig.js';
 import { getTmmWasmBytesForWorker } from '../../utils/workers/tmmWasm.js';
 import { DebouncedInput } from '../ui/DebouncedInput.js';
+import { Checkbox } from '../ui/Checkbox.js';
 import { parseNumber } from '../../utils/misc/numberParsing.js';
 import { usePersistentNumber } from '../ui/usePersistentState.js';
 
 // Synthesis worker URL from the central registry (works unbundled + bundled).
 import { SYNTHESIS_WORKER_URL as SYNTH_WORKER_URL } from '../../workerUrls.js';
 
-const { createElement: h, useState, useEffect, useRef, useCallback } = React;
+const { createElement: h, useState, useEffect, useRef, useCallback, useMemo } = React;
 
 // ── Window-parameterized wrappers around the shared helpers ─────────────────────
 const GE_CATS_KEY = 'tfstudio_ge_selectedCats';
@@ -76,32 +78,23 @@ if (typeof window !== 'undefined' && typeof window.addEventListener === 'functio
 
 // ── MF Trend Chart ────────────────────────────────────────────────────────────
 
-function MFTrendChart({ cycles, c, theme }) {
-    const divRef = useRef(null);
-    const initRef = useRef(false);
-
-    useEffect(() => {
-        if (!divRef.current || typeof Plotly === 'undefined' || !cycles.length) return;
+function MFTrendChart({ cycles, c, theme, emptyMsg }) {
+    const build = () => {
         const bg    = c.bg    || '#1e1e1e';
         const panel = c.panel || '#252526';
         const grid  = c.border|| '#3a3a3a';
         const txt   = c.text  || '#ccc';
 
-        const needleCycles = cycles.filter(cy => cy.type === 'needle');
-        const geCycles     = cycles.filter(cy => cy.type === 'ge');
-        const allX = cycles.map(cy => cy.genNum);
-        const allY = cycles.map(cy => cy.mf);
-
+        const geCycles = cycles.filter(cy => cy.type === 'ge');
         const traces = [
             {
-                x: allX, y: allY,
+                x: cycles.map(cy => cy.genNum), y: cycles.map(cy => cy.mf),
                 type: 'scatter', mode: 'lines',
                 line: { color: '#42a5f5', width: 1.5 },
                 name: 'MF',
                 hovertemplate: 'Gen %{x}<br>MF: %{y:.6f}<extra></extra>',
             },
         ];
-
         if (geCycles.length) {
             traces.push({
                 x: geCycles.map(cy => cy.genNum),
@@ -113,58 +106,22 @@ function MFTrendChart({ cycles, c, theme }) {
                 customdata: geCycles.map(cy => cy.geStep),
             });
         }
-
         const layout = {
             margin: { l: 54, r: 8, t: 4, b: 30 },
             paper_bgcolor: panel, plot_bgcolor: bg,
             font: { color: txt, family: 'system-ui, sans-serif', size: 10 },
             xaxis: { title: { text: 'Generation', standoff: 4 }, gridcolor: grid },
             yaxis: { title: { text: 'MF', standoff: 4 }, gridcolor: grid, type: 'log',
-                tickformat: '.0e', exponentformat: 'e', hoverformat: '.6f', dtick: 'D2' },  // D2 = 1·2·5/decade, compact e-labels
+                tickformat: '.0e', exponentformat: 'e', hoverformat: '.6f', dtick: 'D2' },
             showlegend: true,
             legend: { font: { size: 10 }, bgcolor: 'transparent', x: 1, xanchor: 'right', y: 1 },
         };
-
-        if (!initRef.current) {
-            Plotly.newPlot(divRef.current, traces, layout, { responsive: true, displayModeBar: false });
-            initRef.current = true;
-        } else {
-            Plotly.react(divRef.current, traces, layout);
-        }
-    }, [cycles, theme]);
-
-    // Re-fit on PANEL resize. responsive:true only listens to window resizes, so a
-    // docking/panel height change left the chart at a stale, too-tall pixel size that
-    // overflowed the panel until a manual window resize. A ResizeObserver on the
-    // container resizes Plotly to its actual box on every change.
-    useEffect(() => {
-        const el = divRef.current;
-        if (!el || typeof ResizeObserver === 'undefined') return;
-        const ro = new ResizeObserver(() => {
-            if (divRef.current && typeof Plotly !== 'undefined') {
-                try { Plotly.Plots.resize(divRef.current); } catch (_) {}
-            }
-        });
-        ro.observe(el);
-        return () => ro.disconnect();
-    }, []);
-
-    // Purge the Plotly graph on unmount so it doesn't leak per docking tab switch.
-    useEffect(() => () => {
-        if (divRef.current && typeof Plotly !== 'undefined') Plotly.purge(divRef.current);
-        initRef.current = false;
-    }, []);
-
-    if (!cycles.length) {
-        return h('div', {
-            style: {
-                display: 'flex', alignItems: 'center', justifyContent: 'center',
-                height: '100%', color: c.textDim, fontSize: 11, fontStyle: 'italic',
-            }
-        }, 'Run to see MF trend chart.');
-    }
-
-    return h('div', { ref: divRef, style: { width: '100%', height: '100%' } });
+        return { traces, layout };
+    };
+    return h(PlotlyChart, {
+        build, hasData: cycles.length > 0, empty: emptyMsg,
+        deps: [cycles, theme], c,
+    });
 }
 
 // ── Control bar ───────────────────────────────────────────────────────────────
@@ -325,10 +282,9 @@ function LeftSidebar({ catalogs, selectedCats, onToggleCat, onSelectAllCats, onC
                 cursor: running ? 'default' : 'pointer', fontSize: 11, color: c.text, userSelect: 'none',
             }
         },
-            h('input', {
-                type: 'checkbox', defaultChecked: getVal(), disabled: running,
+            h(Checkbox, {
+                c, defaultChecked: getVal(), disabled: running,
                 onChange: e => setVal(e.target.checked),
-                style: { cursor: running ? 'default' : 'pointer' }
             }),
             h('span', null, label));
 
@@ -343,6 +299,7 @@ function LeftSidebar({ catalogs, selectedCats, onToggleCat, onSelectAllCats, onC
             catalogs, selectedCats, onToggleCat, onSelectAllCats, onClearCats,
             excludedMats, onToggleMat, running, c,
             labels: { materialPool: tg.materialPool, poolAll: tg.poolAll, poolClear: tg.poolClear },
+            warnLabel: t.pool.warn,
         }),
         // Settings — only the two everyday knobs stay visible; everything else
         // (and the technical dropdowns) lives under Advanced (user 2026-06-03).
@@ -1654,6 +1611,7 @@ export function GradualEvolution({ c, theme, t }) {
     // cycle inserted on, and per-side reset lives in the ControlBar.
     const showSideCol = (design?.surfaceMode || 'front_only') === 'both_independent';
     const renderableCycles = cycles.filter(cy => cy.type !== 'init');
+    const topDesigns = useMemo(() => computePareto(cycles.filter(cy => cy.type !== 'init')), [cycles]);
 
     return h('div', {
         style: {
@@ -1702,7 +1660,7 @@ export function GradualEvolution({ c, theme, t }) {
                         }
                     }, tg.mfTrend),
                     h('div', { style: { flex: 1, overflow: 'hidden', position: 'relative' } },
-                        h(MFTrendChart, { cycles, c, theme })
+                        h(MFTrendChart, { cycles, c, theme, emptyMsg: tg.noTrendYet })
                     )
                 ),
 
@@ -1727,6 +1685,10 @@ export function GradualEvolution({ c, theme, t }) {
                     })
                 )
             )
-        )
+        ),
+        h(SharedTopDesignsPanel, {
+            topDesigns, bestMF: bestMFVal, onRestore: handleRestore, c, genPrefix: 'Gen ',
+            labels: { topDesigns: tg.topDesigns, restore: tg.restore },
+        })
     );
 }

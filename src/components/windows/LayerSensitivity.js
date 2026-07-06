@@ -15,6 +15,7 @@ import { computeLayerSensitivity } from '../../utils/physics/errorAnalysis.js';
 import { EvalModeBadge } from '../SurfaceModeBar.js';
 import { SpecVerdict } from '../SpecVerdict.js';
 import { DebouncedInput } from '../ui/DebouncedInput.js';
+import { Checkbox } from '../ui/Checkbox.js';
 
 const { createElement: h, useState, useEffect, useMemo, useCallback, useRef } = React;
 
@@ -370,9 +371,8 @@ export function LayerSensitivity({ c, theme, t }) {
                 h('span', { style: { marginLeft: 2 } }, 'nm')
             ),
             h('label', { style: { display: 'flex', alignItems: 'center', gap: 4, cursor: 'pointer', color: c.text, fontSize: 11 } },
-                h('input', {
-                    type: 'checkbox', checked: includeLocked, onChange: e => setIncludeLocked(e.target.checked),
-                    style: { cursor: 'pointer', accentColor: c.accent }
+                h(Checkbox, {
+                    c, checked: includeLocked, onChange: e => setIncludeLocked(e.target.checked),
                 }),
                 ls.includeLocked
             ),

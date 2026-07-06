@@ -24,6 +24,7 @@ import {
     resolveAtom, collectUnknownSymbols, DEFAULT_SYMBOL_MAP,
 } from '../../utils/synthesis/stackFormula.js';
 import { MaterialPicker } from '../ui/MaterialPicker.js';
+import { Checkbox } from '../ui/Checkbox.js';
 
 const { createElement: h, useState, useMemo, useEffect, useRef, useCallback } = React;
 
@@ -369,7 +370,7 @@ export function StackFormulaDialog({ onClose, onCreateNew, folderName, hasActive
                         ),
                         h('label', { style: { display: 'flex', alignItems: 'center', gap: 6,
                                      fontSize: 12, color: c.textDim, marginTop: 14 } },
-                            h('input', { type: 'checkbox', checked: startFromSubstrate,
+                            h(Checkbox, { c, checked: startFromSubstrate,
                                 onChange: (e) => setStartFromSubstrate(e.target.checked) }),
                             h('span', { title: sf.startFromSubstrateTip }, sf.startFromSubstrate),
                         ),

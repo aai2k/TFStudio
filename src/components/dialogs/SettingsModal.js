@@ -4,6 +4,8 @@ import { availableLocales } from '../../constants/locales.js';
 // now live INSIDE the Needle + Gradual-Evolution windows (Advanced section) —
 // they belong with the synthesis tool, not the global app settings.
 
+import { Checkbox } from '../ui/Checkbox.js';
+
 const { createElement: h } = React;
 
 export const SettingsModal = ({ theme, setTheme, locale, setLocale, wasmTmm, setWasmTmm, ribbonStyle, setRibbonStyle, customThemes = {}, onImportTheme, onDeleteTheme, onClose, c, t }) => {
@@ -96,11 +98,11 @@ export const SettingsModal = ({ theme, setTheme, locale, setLocale, wasmTmm, set
                 h('label', { style: { display: 'block', fontSize: '13px', fontWeight: '600', marginBottom: '8px', color: c.textDim, textTransform: 'uppercase', letterSpacing: '0.5px' } },
                     t.settings.performance),
                 h('label', { style: { display: 'flex', alignItems: 'flex-start', gap: '10px', cursor: 'pointer' } },
-                    h('input', {
-                        type: 'checkbox',
+                    h(Checkbox, {
+                        c,
                         checked: !!wasmTmm,
                         onChange: (e) => setWasmTmm && setWasmTmm(e.target.checked),
-                        style: { marginTop: '2px', cursor: 'pointer' }
+                        style: { marginTop: '2px' }
                     }),
                     h('span', { style: { fontSize: '13px', color: c.text } },
                         h('span', { style: { fontWeight: '600' } }, t.settings.wasmAccel),

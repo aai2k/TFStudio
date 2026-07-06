@@ -25,80 +25,23 @@
 
 import { useDesign } from '../../state/DesignContext.js';
 import { OptimizeBadge, EvalModeBadge } from '../SurfaceModeBar.js';
-import { getMaterialById, getCatalogs } from '../../utils/materials/catalogManager.js';
-import { getMaterial } from '../../utils/materials/materialDatabase.js';
+import { getCatalogs } from '../../utils/materials/catalogManager.js';
+import { Checkbox } from '../ui/Checkbox.js';
 import {
     scanNeedlesPFunction, findOptimalNeedleThickness,
     insertNeedle, insertNeedleIntra, mirrorLayers,
     DLSOptimizer, resolveScanSide, isConstraint,
-    buildEvalContext, evaluateOperands, calcMF,
+    buildEvalContext, evaluateOperands, calcOMF,
 } from '../../utils/physics/optimizer.js';
-import { WARN_BADGE_STYLE } from './synthesisHelpers.js';
+import {
+    WARN_BADGE_STYLE, countPoolMaterials, POOL_MAX_SYNC,
+    MaterialPoolPanel, useCatSelection, resolveMat, matDisplayName, matColor,
+    getPoolMaterials,
+} from './synthesisHelpers.js';
 
 const { createElement: h, useState, useEffect, useRef, useCallback, useMemo } = React;
 
-// ── Helpers (mirrors the small ones in NeedleVariation, kept local) ───────────
-
-function resolveMat(id) {
-    if (!id) return getMaterial('Air');
-    return getMaterialById(id) || getMaterial(id) || getMaterial('Air');
-}
-
-function matDisplayName(id) {
-    if (!id) return '';
-    const parts = id.split(':');
-    return parts[parts.length - 1];
-}
-
-const MAT_COLORS = {
-    TiO2: '#e53935', SiO2: '#1e88e5', Ta2O5: '#8e24aa', Nb2O5: '#43a047',
-    HfO2: '#fb8c00', Al2O3: '#00acc1', ZnS:   '#fdd835', ZnSe:  '#f06292',
-    Si:   '#546e7a', Ge:    '#78909c', MgF2:  '#80cbc4', ITO:   '#aed581',
-    Au:   '#ffd54f', Ag:    '#b0bec5', Cr:    '#8d6e63', BK7:   '#ab47bc',
-};
-
-function matColor(id) {
-    const name = matDisplayName(id);
-    if (MAT_COLORS[name]) return MAT_COLORS[name];
-    let hsh = 0;
-    for (let i = 0; i < id.length; i++) hsh = (hsh * 31 + id.charCodeAt(i)) >>> 0;
-    return `hsl(${(hsh * 137) % 360}, 65%, 55%)`;
-}
-
 const NEEDLE_MANUAL_CATS_KEY = 'tfstudio_needleManual_selectedCats';
-
-function loadSavedCatSelection() {
-    try {
-        const raw = localStorage.getItem(NEEDLE_MANUAL_CATS_KEY);
-        if (raw) return new Set(JSON.parse(raw));
-    } catch (_) {}
-    return null;
-}
-function saveCatSelection(set) {
-    try { localStorage.setItem(NEEDLE_MANUAL_CATS_KEY, JSON.stringify([...set])); } catch (_) {}
-}
-
-// Candidate materials from the selected catalogs (skips Air/Vacuum + anything
-// with n < 1.05 at 550 nm — same gate as NeedleVariation's getPoolMaterials).
-function getPoolMaterials(selectedCatalogIds) {
-    const result = [];
-    for (const cat of getCatalogs()) {
-        if (!selectedCatalogIds.has(cat.id)) continue;
-        for (const [matKey] of Object.entries(cat.materials || {})) {
-            if (matKey === 'Air' || matKey === 'Vacuum') continue;
-            const fullId = cat.id === 'builtin' ? matKey : `${cat.id}:${matKey}`;
-            const mat    = getMaterialById(fullId);
-            if (!mat) continue;
-            try {
-                const nk = mat.getNK(550);
-                const n  = Array.isArray(nk) ? nk[0] : (nk?.n ?? 1);
-                if (typeof n === 'number' && n < 1.05) continue;
-            } catch (_) { continue; }
-            result.push({ id: fullId, mat, name: matDisplayName(fullId) });
-        }
-    }
-    return result;
-}
 
 // Which layer array a side maps to.
 const sideKey = (side) => (side === 'back' ? 'backLayers' : 'frontLayers');
@@ -223,22 +166,13 @@ function PFunctionPlot({ traces, boundaries, bands, totalZ, selected, onPick, c,
 
 function LeftSidebar({
     catalogs, selectedCats, onToggleCat, onSelectAllCats, onClearCats,
+    excludedMats, onToggleMat,
     deltaNm, dMin, nIntra, refineAfter, dlsIter,
     onDeltaNm, onDMin, onNIntra, onRefineAfter, onDlsIter,
     showSideRadio, requestedSide, onRequestedSide,
     busy, c, t,
 }) {
     const tn = t.needleManual;
-
-    const miniBtn = (label, onClick) => h('button', {
-        onClick, disabled: busy,
-        style: {
-            padding: '1px 8px', fontSize: 10, borderRadius: 2,
-            background: 'transparent', color: busy ? c.textDim : c.text,
-            border: `1px solid ${c.border}`, cursor: busy ? 'default' : 'pointer',
-            fontFamily: 'inherit', opacity: busy ? 0.5 : 1,
-        }
-    }, label);
 
     const numRow = (label, value, onChange, min, step = 1) =>
         h('div', { style: { display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 3 } },
@@ -260,30 +194,12 @@ function LeftSidebar({
             display: 'flex', flexDirection: 'column', background: c.panel, overflow: 'hidden',
         }
     },
-        // Material pool
-        h('div', {
-            style: { padding: '6px 8px', borderBottom: `1px solid ${c.border}`, flex: 1, overflow: 'auto' }
-        },
-            h('div', { style: { display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 5 } },
-                h('div', { style: { fontSize: 10, fontWeight: 700, color: c.textDim, textTransform: 'uppercase', letterSpacing: '0.05em' } }, tn.materialPool),
-                h('div', { style: { display: 'flex', gap: 4 } },
-                    miniBtn(tn.poolAll,   () => !busy && onSelectAllCats && onSelectAllCats()),
-                    miniBtn(tn.poolClear, () => !busy && onClearCats && onClearCats()),
-                )
-            ),
-            catalogs.map(cat => {
-                const matCount = Object.keys(cat.materials || {}).length;
-                const checked  = selectedCats.has(cat.id);
-                return h('label', {
-                    key: cat.id,
-                    style: { display: 'flex', alignItems: 'center', gap: 6, padding: '2px 0', cursor: busy ? 'default' : 'pointer', fontSize: 12, userSelect: 'none' }
-                },
-                    h('input', { type: 'checkbox', checked, disabled: busy, onChange: () => !busy && onToggleCat(cat.id) }),
-                    h('span', { style: { color: checked ? c.text : c.textDim } },
-                        cat.name, ' ', h('span', { style: { color: c.textDim, fontSize: 10 } }, `(${matCount})`))
-                );
-            })
-        ),
+        h(MaterialPoolPanel, {
+            catalogs, selectedCats, onToggleCat, onSelectAllCats, onClearCats,
+            excludedMats, onToggleMat, running: busy, c,
+            labels: { materialPool: tn.materialPool, poolAll: tn.poolAll, poolClear: tn.poolClear },
+            warnLabel: t.pool.warn,
+        }),
         // Settings
         h('div', { style: { padding: '6px 8px', flexShrink: 0 } },
             h('div', { style: { fontSize: 10, fontWeight: 700, color: c.textDim, textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 6 } }, tn.settings),
@@ -300,7 +216,7 @@ function LeftSidebar({
             numRow(tn.dMin,    dMin,    v => onDMin(Math.max(0.1, v)),     0.1,  1.0),
             numRow(tn.profileRes, nIntra, v => onNIntra(Math.max(2, Math.min(60, Math.round(v)))), 2, 1),
             h('label', { style: { display: 'flex', alignItems: 'center', gap: 6, fontSize: 11, color: c.textDim, margin: '4px 0 3px' } },
-                h('input', { type: 'checkbox', checked: refineAfter, disabled: busy, onChange: e => onRefineAfter(e.target.checked) }),
+                h(Checkbox, { c, checked: refineAfter, disabled: busy, onChange: e => onRefineAfter(e.target.checked) }),
                 tn.refineAfter),
             refineAfter && numRow(tn.dlsIter, dlsIter, v => onDlsIter(Math.max(10, Math.round(v))), 10)
         )
@@ -309,14 +225,14 @@ function LeftSidebar({
 
 // ── Insertion preview / apply panel ───────────────────────────────────────────
 
-function PreviewPanel({ selected, hostInfo, dNew, dRange, predictedMF, mf0, onDNew, onApply, busy, c, t }) {
+function PreviewPanel({ selected, hostInfo, dNew, dRange, predictedOMF, omf0, onDNew, onApply, busy, c, t }) {
     const tn = t.needleManual;
     if (!selected) {
         return h('div', { style: { padding: '12px 12px', color: c.textDim, fontSize: 12, fontStyle: 'italic' } }, tn.clickHint);
     }
 
     const name  = matDisplayName(selected.materialId);
-    const dMF   = (predictedMF != null && mf0 != null) ? (predictedMF - mf0) : null;
+    const dMF   = (predictedOMF != null && omf0 != null) ? (predictedOMF - omf0) : null;
     const dMFColor = dMF == null ? c.text : (dMF < 0 ? c.success : c.error);
 
     const geom = selected.intra
@@ -346,10 +262,14 @@ function PreviewPanel({ selected, hostInfo, dNew, dRange, predictedMF, mf0, onDN
             }),
             h('span', { style: { fontSize: 11, color: c.textDim } }, 'nm'),
         ),
-        // Predicted MF block (full MF — includes thickness constraints)
+        // Optical merit block. The needle scan is optical-only (constraints are
+        // dropped), and a freshly inserted thin needle always starts below MNT, so
+        // the preview reports OMF (constraint-free) — the full MF's transient
+        // penalty would swamp the optical gain the insertion actually delivers.
+        // Constraints are re-imposed by the DLS refine after Apply.
         h('div', { style: { display: 'flex', gap: 16, fontSize: 11, color: c.textDim } },
-            h('span', null, tn.mf0, ' ', h('b', { style: { color: c.text } }, mf0 == null ? '—' : mf0.toFixed(6))),
-            h('span', null, tn.mfPred, ' ', h('b', { style: { color: c.text } }, predictedMF == null ? '—' : predictedMF.toFixed(6))),
+            h('span', null, tn.omf0, ' ', h('b', { style: { color: c.text } }, omf0 == null ? '—' : omf0.toFixed(6))),
+            h('span', null, tn.omfPred, ' ', h('b', { style: { color: c.text } }, predictedOMF == null ? '—' : predictedOMF.toFixed(6))),
             h('span', null, tn.dMF, ' ', h('b', { style: { color: dMFColor } }, dMF == null ? '—' : (dMF < 0 ? '' : '+') + dMF.toFixed(6))),
         ),
         h('div', null,
@@ -378,23 +298,19 @@ export function NeedleManual({ c, theme, t }) {
     const [refineAfter, setRefineAfter] = useState(true);
     const [dlsIter,     setDlsIter]     = useState(80);
     const [requestedSide, setRequestedSide] = useState('front');
-    const [selectedCats, setSelectedCats] = useState(() => {
-        const saved  = loadSavedCatSelection();
-        const allIds = new Set(getCatalogs().map(cat => cat.id));
-        if (!saved) return allIds;
-        const filtered = new Set([...allIds].filter(id => saved.has(id)));
-        return filtered.size > 0 ? filtered : allIds;
-    });
+    const { selectedCats, handleToggleCat, handleSelectAllCats, handleClearCats,
+            excludedMats, handleToggleMat } = useCatSelection(NEEDLE_MANUAL_CATS_KEY);
 
     // Scan + selection state
     const [scan,      setScan]      = useState(null);   // { candidates, mf0, side, zb, layers }
     const [scanning,  setScanning]  = useState(false);
     const [refining,  setRefining]  = useState(false);
     const [statusMsg, setStatusMsg] = useState('');
+    const [scanBlocked, setScanBlocked] = useState(false);   // pool too large for the single-threaded scan
     const [selected,  setSelected]  = useState(null);   // { ...candidate, z, grad }
     const [dNew,      setDNew]       = useState(1.0);
-    const [predictedMF, setPredictedMF] = useState(null);   // full MF after insert
-    const [mfNow,  setMfNow]  = useState(null);             // full MF of current design
+    const [predictedOMF, setPredictedOMF] = useState(null);   // optical MF after insert
+    const [omfNow,  setOmfNow]  = useState(null);             // optical MF of current design
 
     const busy = scanning || refining;
     const surfaceMode = design?.surfaceMode || 'front_only';
@@ -413,7 +329,7 @@ export function NeedleManual({ c, theme, t }) {
 
     // Clear selection + scan when the design or active side changes.
     useEffect(() => {
-        setScan(null); setSelected(null); setPredictedMF(null); setStatusMsg('');
+        setScan(null); setSelected(null); setPredictedOMF(null); setStatusMsg('');
     }, [design?.id, effSide]);
 
     // ── Compute the P-function profile ──────────────────────────────────────────
@@ -421,10 +337,20 @@ export function NeedleManual({ c, theme, t }) {
         if (!design) return;
         const ops = operands.filter(op => !isConstraint(op.type));   // synthesis = unconstrained
         if (ops.length === 0) { setStatusMsg(tn.noOperands); return; }
-        const pool = getPoolMaterials(selectedCats);
+        // The profile scan runs synchronously on the UI thread; past POOL_MAX_SYNC
+        // candidate materials it freezes/crashes the renderer, so refuse rather than
+        // attempt it and leave the user with no way to stop.
+        const poolCount = countPoolMaterials(selectedCats, excludedMats);
+        if (poolCount > POOL_MAX_SYNC) {
+            setScanBlocked(true);
+            setStatusMsg(t.pool.tooMany(poolCount, POOL_MAX_SYNC));
+            return;
+        }
+        setScanBlocked(false);
+        const pool = getPoolMaterials(selectedCats, { excluded: excludedMats });
         if (!pool.length) { setStatusMsg(tn.noMaterials); return; }
 
-        setScanning(true); setStatusMsg(tn.scanning); setSelected(null); setPredictedMF(null);
+        setScanning(true); setStatusMsg(tn.scanning); setSelected(null); setPredictedOMF(null);
         // Defer so the "Scanning…" status paints before the (synchronous) scan.
         setTimeout(() => {
             try {
@@ -450,7 +376,7 @@ export function NeedleManual({ c, theme, t }) {
                 setScanning(false);
             }
         }, 0);
-    }, [design, operands, selectedCats, deltaNm, nIntra, requestedSide, effSide, tn]);
+    }, [design, operands, selectedCats, excludedMats, deltaNm, nIntra, requestedSide, effSide, tn]);
 
     // ── Build plot traces (one per candidate material) ──────────────────────────
     const plotData = useMemo(() => {
@@ -519,7 +445,7 @@ export function NeedleManual({ c, theme, t }) {
         const z = candidateDepth(cand, zb);
         setSelected({ ...cand, z, grad: cand.grad });
         // Initial d_new = golden-section optimum, clamped to the slider range.
-        const pool = getPoolMaterials(selectedCats);
+        const pool = getPoolMaterials(selectedCats, { excluded: excludedMats });
         const mat  = pool.find(p => p.id === cand.materialId)?.mat || resolveMat(cand.materialId);
         let d0 = dMin;
         try {
@@ -531,7 +457,7 @@ export function NeedleManual({ c, theme, t }) {
             if (!(d0 >= dMin)) d0 = dMin;
         } catch (_) { d0 = dMin; }
         setDNew(d0);
-    }, [scan, selectedCats, operands, design, dMin, requestedSide]);
+    }, [scan, selectedCats, excludedMats, operands, design, dMin, requestedSide]);
 
     // Clamp d_new into range when the selection / range changes.
     useEffect(() => {
@@ -539,27 +465,28 @@ export function NeedleManual({ c, theme, t }) {
         setDNew(prev => Math.min(Math.max(prev, dRange[0]), dRange[1]));
     }, [dRange[0], dRange[1], selected]);
 
-    // ── Predicted MF/OMF at d_new (exact, via calcMF on the inserted design) ─────
-    // We surface BOTH the full MF (with MNT/MXT/TT constraints) and the optical
-    // OMF (skipConstraints) for the current design and the post-insert design.
+    // ── Predicted optical merit at d_new (exact, via calcOMF on the inserted design) ─
+    // OMF drops the MNT/MXT/TT constraints. The needle scan is itself optical-only,
+    // and a thin needle always starts below MNT; showing the full MF here would
+    // report a large, transient constraint penalty rather than the optical benefit.
     useEffect(() => {
         if (!selected || !scan || !design) {
-            setPredictedMF(null); setMfNow(null);
+            setPredictedOMF(null); setOmfNow(null);
             return;
         }
         const id = setTimeout(() => {
             try {
-                const ops = operands;   // full enabled set (mf0 from scan also used all enabled ops)
+                const ops = operands;   // full enabled set; calcOMF skips constraint terms
                 // Current design (now).
                 const compNow = evaluateOperands(ops, buildEvalContext(design, resolveMat));
-                setMfNow(calcMF(ops, compNow));
+                setOmfNow(calcOMF(ops, compNow));
                 // Post-insert design (after).
                 const inserted = selected.intra
                     ? insertNeedleIntra(design, selected.layerK, selected.frac, selected.materialId, dNew, requestedSide)
                     : insertNeedle(design, selected.pos, selected.materialId, dNew, requestedSide);
                 const compIns = evaluateOperands(ops, buildEvalContext(inserted, resolveMat));
-                setPredictedMF(calcMF(ops, compIns));
-            } catch (_) { setPredictedMF(null); setMfNow(null); }
+                setPredictedOMF(calcOMF(ops, compIns));
+            } catch (_) { setPredictedOMF(null); setOmfNow(null); }
         }, 30);
         return () => clearTimeout(id);
     }, [selected, dNew, scan, design, operands, requestedSide]);
@@ -584,7 +511,7 @@ export function NeedleManual({ c, theme, t }) {
         if (!refineAfter) {
             commitPatch(inserted);
             setStatusMsg(tn.inserted(matDisplayName(selected.materialId)));
-            setScan(null); setSelected(null); setPredictedMF(null);
+            setScan(null); setSelected(null); setPredictedOMF(null);
             return;
         }
 
@@ -596,7 +523,7 @@ export function NeedleManual({ c, theme, t }) {
             console.error('[NeedleManual] DLS init failed, committing un-refined:', err);
             commitPatch(inserted);
             setStatusMsg(tn.inserted(matDisplayName(selected.materialId)));
-            setScan(null); setSelected(null); setPredictedMF(null);
+            setScan(null); setSelected(null); setPredictedOMF(null);
             return;
         }
         setRefining(true);
@@ -617,32 +544,10 @@ export function NeedleManual({ c, theme, t }) {
             updateDesign({ frontLayers: finalD.frontLayers, backLayers: finalD.backLayers });
             setRefining(false);
             setStatusMsg(tn.insertedRefined(matDisplayName(selected.materialId), dls.mf.toFixed(6)));
-            setScan(null); setSelected(null); setPredictedMF(null);
+            setScan(null); setSelected(null); setPredictedOMF(null);
         };
         refineTimerRef.current = setTimeout(tick, 0);
     }, [selected, design, busy, dNew, refineAfter, requestedSide, operands, dMin, dlsIter, surfaceMode, checkpoint, updateDesign, tn]);
-
-    // ── Catalog toggle ──────────────────────────────────────────────────────────
-    const handleToggleCat = useCallback((catId) => {
-        setSelectedCats(prev => {
-            const next = new Set(prev);
-            if (next.has(catId)) next.delete(catId); else next.add(catId);
-            saveCatSelection(next);
-            return next;
-        });
-    }, []);
-
-    const handleSelectAllCats = useCallback(() => {
-        const next = new Set(getCatalogs().map(cat => cat.id));
-        saveCatSelection(next);
-        setSelectedCats(next);
-    }, []);
-
-    const handleClearCats = useCallback(() => {
-        const next = new Set();
-        saveCatSelection(next);
-        setSelectedCats(next);
-    }, []);
 
     // ── Render ────────────────────────────────────────────────────────────────
     if (!design) {
@@ -677,8 +582,8 @@ export function NeedleManual({ c, theme, t }) {
             h(EvalModeBadge, { design, c, t }),
             h('div', { style: { flex: 1 } }),
             statusMsg && h('span', {
-                style: statusMsg === tn.noOperands
-                    ? { ...WARN_BADGE_STYLE }
+                style: (statusMsg === tn.noOperands || scanBlocked)
+                    ? { ...WARN_BADGE_STYLE, whiteSpace: 'normal' }
                     : { fontSize: 11, color: busy ? (c.accent || '#ffa726') : c.textDim, fontStyle: 'italic' }
             }, statusMsg)
         ),
@@ -687,6 +592,7 @@ export function NeedleManual({ c, theme, t }) {
             h(LeftSidebar, {
                 catalogs, selectedCats, onToggleCat: handleToggleCat,
                 onSelectAllCats: handleSelectAllCats, onClearCats: handleClearCats,
+                excludedMats, onToggleMat: handleToggleMat,
                 deltaNm, dMin, nIntra, refineAfter, dlsIter,
                 onDeltaNm: setDeltaNm, onDMin: setDMin, onNIntra: setNIntra,
                 onRefineAfter: setRefineAfter, onDlsIter: setDlsIter,
@@ -721,7 +627,7 @@ export function NeedleManual({ c, theme, t }) {
                     }, tn.previewTitle),
                     h(PreviewPanel, {
                         selected, hostInfo: hostInfo || {}, dNew, dRange,
-                        predictedMF, mf0: mfNow,
+                        predictedOMF, omf0: omfNow,
                         onDNew: setDNew, onApply: handleApply, busy, c, t,
                     })
                 )

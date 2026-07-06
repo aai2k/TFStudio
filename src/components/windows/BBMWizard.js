@@ -37,6 +37,7 @@ import { getMaterial }            from '../../utils/materials/materialDatabase.j
 import { getCurrentLocale }       from '../../constants/locales.js';
 import { resolveEvalMode }        from '../../utils/physics/optimizer.js';
 import { EvalModeBadge }          from '../SurfaceModeBar.js';
+import { Checkbox }               from '../ui/Checkbox.js';
 import {
     simulateRun, sampleOURatePath, makeShiftedMaterial, mulberry32,
 }                                 from '../../utils/monitoring/monitoringSim.js';
@@ -226,7 +227,7 @@ function PageRates({ p, set, materialIds, c, B }) {
             h(NumField, { key: 'rms', label: B.rms, value: rate.rmsA, min: 0, max: 100, step: 0.05, c, width: 110, onChange: (v) => setRate('rmsA', v) }),
             h(NumField, { key: 'corr', label: B.corrTime, value: rate.corr, min: 0, max: 120, step: 0.5, c, width: 110, onChange: (v) => setRate('corr', v) }),
             h('label', { key: 'y0', style: { display: 'flex', alignItems: 'center', gap: 6, fontSize: 12, color: c.text, cursor: 'pointer', marginTop: 4 } },
-                h('input', { type: 'checkbox', checked: p.rateYAt0, onChange: (e) => set('rateYAt0', e.target.checked), style: { accentColor: c.accent } }),
+                h(Checkbox, { c, checked: p.rateYAt0, onChange: (e) => set('rateYAt0', e.target.checked) }),
                 B.yAxisAt0),
             h('button', { key: 'rnd', onClick: () => set('rateNonce', (p.rateNonce | 0) + 1),
                 style: { marginTop: 6, padding: '7px 10px', fontSize: 12, cursor: 'pointer', borderRadius: 4,
@@ -275,8 +276,8 @@ function PageDeviations({ p, set, materialIds, layers, c, B }) {
                         h('td', { style: { ...td, maxWidth: 180, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }, title: matName(l.material) }, cullName(matName(l.material), 22)),
                         h('td', { style: td }, (l.thickness || 0).toFixed(2)),
                         h('td', { style: { ...td, textAlign: 'center' } },
-                            h('input', { type: 'checkbox', checked: !!p.layers[i]?.exclude,
-                                onChange: (e) => setLayer(i, 'exclude', e.target.checked), style: { accentColor: c.accent, cursor: 'pointer' } })),
+                            h(Checkbox, { c, checked: !!p.layers[i]?.exclude,
+                                onChange: (e) => setLayer(i, 'exclude', e.target.checked) })),
                         h('td', { style: td }, cellNum({ value: p.layers[i]?.relThkErr ?? 0, step: 0.01, min: 0, max: 100,
                             c, width: 80, onChange: (v) => setLayer(i, 'relThkErr', v) })))))))),
         // shutter delay row

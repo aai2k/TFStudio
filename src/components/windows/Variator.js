@@ -26,6 +26,7 @@
 
 import { useDesign }            from '../../state/DesignContext.js';
 import { EvalModeBadge }        from '../SurfaceModeBar.js';
+import { Checkbox }             from '../ui/Checkbox.js';
 import { getMaterialById, resolveColor }      from '../../utils/materials/catalogManager.js';
 import { getMaterial }          from '../../utils/materials/materialDatabase.js';
 import {
@@ -667,10 +668,9 @@ export function Variator({ c, theme, t }) {
                 ),
                 h('label', { style: { display: 'flex', alignItems: 'center', gap: 4, fontSize: 11,
                                        color: c.text, cursor: 'pointer' } },
-                    h('input', {
-                        type: 'checkbox', checked: showBaseline,
+                    h(Checkbox, {
+                        c, checked: showBaseline,
                         onChange: (e) => setShowBaseline(e.target.checked),
-                        style: { cursor: 'pointer', accentColor: c.accent }
                     }),
                     v.showBaseline || 'Show baseline overlay'
                 )

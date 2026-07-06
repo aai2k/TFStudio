@@ -16,6 +16,7 @@ import { getMaterialById }          from '../../utils/materials/catalogManager.j
 import { getMaterial }              from '../../utils/materials/materialDatabase.js';
 import { DataTablePanel }           from '../ui/DataTablePanel.js';
 import { DebouncedInput }           from '../ui/DebouncedInput.js';
+import { Checkbox }                  from '../ui/Checkbox.js';
 
 const { createElement: h, useState, useEffect, useRef } = React;
 
@@ -351,8 +352,8 @@ export function GDGDDEvaluation({ c, theme, t }) {
 
             // Reference wavelength (φ-subtraction marker)
             h('label', { style: { ...labelStyle, display: 'flex', alignItems: 'center', gap: 4 } },
-                h('input', {
-                    type: 'checkbox', checked: showRef,
+                h(Checkbox, {
+                    c, checked: showRef,
                     onChange: e => setShowRef(e.target.checked)
                 }),
                 g.refLam

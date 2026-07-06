@@ -28,6 +28,7 @@ import {
     expandLayersWithInterlayers, enumerateInterfaces, totalInterlayerThickness,
 } from '../../utils/physics/inhomogeneity.js';
 import { DebouncedInput } from '../ui/DebouncedInput.js';
+import { Checkbox } from '../ui/Checkbox.js';
 
 const { createElement: h, useState, useEffect, useMemo, useRef, useCallback } = React;
 
@@ -410,8 +411,8 @@ export function Inhomogeneities({ c, theme, t }) {
             style: { borderBottom: `1px solid ${c.border}`, fontSize: 11 }
         },
             h('td', { style: { padding: '4px 6px', whiteSpace: 'nowrap', color: c.text } },
-                h('input', {
-                    type: 'checkbox',
+                h(Checkbox, {
+                    c,
                     checked: enabled,
                     onChange: (e) => {
                         if (e.target.checked) {
@@ -420,7 +421,7 @@ export function Inhomogeneities({ c, theme, t }) {
                             upsertInterlayer(side, iface.afterIndex, { enabled: false });
                         }
                     },
-                    style: { marginRight: 6, accentColor: c.accent, cursor: 'pointer' }
+                    style: { marginRight: 6 }
                 }),
                 iface.label,
             ),

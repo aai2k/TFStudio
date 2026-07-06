@@ -28,6 +28,7 @@ import { WorkerPool } from '../../utils/workers/workerPool.js';
 import { PLOT_SURFACE_WORKER_URL } from '../../workerUrls.js';
 import { getTmmWasmBytesForWorker } from '../../utils/workers/tmmWasm.js';
 import { collectDesignMaterialIds, buildPresampledTable } from '../../utils/physics/optimizer.js';
+import { Checkbox } from '../ui/Checkbox.js';
 
 function poolSize() {
     const hw = (typeof navigator !== 'undefined' && navigator.hardwareConcurrency) || 4;
@@ -236,11 +237,10 @@ function CurveRow({ curve, onUpdate, onDelete, c, t }) {
     },
         // Header row: visibility, label, color, delete
         h('div', { style: { display: 'flex', alignItems: 'center', gap: 6, marginBottom: 6 } },
-            h('input', {
-                type: 'checkbox', checked: curve.visible,
+            h(Checkbox, {
+                c, checked: curve.visible,
                 onChange: (e) => onUpdate({ visible: e.target.checked }),
                 title: pe.visible || 'Visible',
-                style: { cursor: 'pointer', accentColor: c.accent }
             }),
             h('input', {
                 type: 'color', value: curve.color,

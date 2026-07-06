@@ -16,6 +16,7 @@
 
 import { useDesign } from '../../state/DesignContext.js';
 import { LockIcon } from '../ui/LockIcon.js';
+import { Checkbox } from '../ui/Checkbox.js';
 import {
     getMaterialById, getNKById, addCatalog, getCatalogs,
 } from '../../utils/materials/catalogManager.js';
@@ -465,7 +466,7 @@ function MaterialsTab({ c, z, doc, selMats, setSelMats, importMaterials }) {
                     const hi = m.points.length ? m.points[m.points.length - 1][0] : 0;
                     const checked = selMats.has(m.name);
                     return h('tr', { key: i, onClick: () => toggle(m.name), style: { cursor: 'pointer', background: checked ? c.accent + '18' : 'transparent' } },
-                        h('td', { style: { ...td(c), textAlign: 'center' } }, h('input', { type: 'checkbox', checked, readOnly: true })),
+                        h('td', { style: { ...td(c), textAlign: 'center' } }, h(Checkbox, { c, checked, readOnly: true })),
                         h('td', { style: td(c) }, m.name),
                         h('td', { style: { ...td(c), textAlign: 'right', color: c.textDim } }, m.points.length),
                         h('td', { style: { ...td(c), color: c.textDim } }, m.points.length ? `${lo}–${hi}` : '—'),

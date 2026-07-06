@@ -18,7 +18,6 @@ import { OptimizeBadge, EvalModeBadge } from '../SurfaceModeBar.js';
 import { getMaterialById, getCatalogs } from '../../utils/materials/catalogManager.js';
 import { getMaterial } from '../../utils/materials/materialDatabase.js';
 import {
-    bestNeedlePerPosition,
     DLSOptimizer, scanNeedlesPFunction, findOptimalNeedleThickness,
     insertNeedle, insertNeedleIntra, cleanupLayers,
     requiredLambdas, collectDesignMaterialIds, buildPresampledTable,
@@ -34,6 +33,7 @@ import {
     sideKeyFor, activeSide, densifyForRun, chunkArray, poolSize,
     resolveMat, matDisplayName, matFriendlyName, matColor, MAT_COLORS, MaterialPoolPanel, SynthesisHistoryTable,
     useCatSelection, minOmfOf, WARN_BADGE_STYLE, buildARSeedCandidates,
+    computePareto, TopDesignsPanel as SharedTopDesignsPanel, PlotlyChart,
     getPoolMaterials as getPoolMaterialsShared,
 } from './synthesisHelpers.js';
 import { WorkerPool } from '../../utils/workers/workerPool.js';
@@ -47,6 +47,7 @@ import {
 } from '../../utils/synthesis/synthesisConfig.js';
 import { getTmmWasmBytesForWorker } from '../../utils/workers/tmmWasm.js';
 import { DebouncedInput } from '../ui/DebouncedInput.js';
+import { Checkbox } from '../ui/Checkbox.js';
 import { parseNumber } from '../../utils/misc/numberParsing.js';
 import { usePersistentNumber } from '../ui/usePersistentState.js';
 
@@ -68,90 +69,37 @@ if (typeof window !== 'undefined' && typeof window.addEventListener === 'functio
 // Needle keeps its original verbose pool diagnostics.
 const getPoolMaterials = (selectedCatalogIds, excluded) => getPoolMaterialsShared(selectedCatalogIds, { verbose: true, excluded });
 
-// Pareto front: designs not dominated in (layerCount, mf) — neither axis is worse
-function computePareto(gens) {
-    return gens.filter(a =>
-        !gens.some(b =>
-            b !== a &&
-            b.layerCount <= a.layerCount && b.mf <= a.mf &&
-            (b.layerCount < a.layerCount || b.mf < a.mf)
-        )
-    ).sort((a, b) => a.layerCount - b.layerCount);
-}
-
-// ── Needle scan bar chart ─────────────────────────────────────────────────────
-
-function NeedleScanPlot({ candidates, c, theme }) {
-    const divRef  = useRef(null);
-    const initRef = useRef(false);
-
-    const bestByPos = useMemo(() => bestNeedlePerPosition(candidates), [candidates]);
-
-    useEffect(() => {
-        if (!divRef.current || typeof Plotly === 'undefined') return;
+// ── MF trend chart ─────────────────────────────────────────────────────────────
+// Merit function across accepted generations, matching the Gradual Evolution and
+// Structural windows (log MF vs generation).
+function MFTrendChart({ generations, c, theme, emptyMsg }) {
+    const build = () => {
         const bg    = c.bg    || '#1e1e1e';
         const panel = c.panel || '#252526';
-        const grid  = c.border || '#3a3a3a';
+        const grid  = c.border|| '#3a3a3a';
         const txt   = c.text  || '#ccc';
-
-        const positions = bestByPos.map(x => x.pos);
-        const dMFs      = bestByPos.map(x => x.dMF);
-        const colors    = bestByPos.map(x => matColor(x.materialId));
-        const labels    = bestByPos.map(x => matDisplayName(x.materialId));
-
-        const traces = bestByPos.length === 0 ? [] : [
-            {
-                x: positions, y: dMFs,
-                type: 'bar',
-                marker: { color: colors, line: { width: 0 } },
-                text: labels,
-                hovertemplate: 'Pos %{x}<br>ΔMF: %{y:.6f}<br>%{text}<extra></extra>',
-            },
-            {
-                x: [0, Math.max(...positions, 1)], y: [0, 0],
-                type: 'scatter', mode: 'lines',
-                line: { color: '#888', dash: 'dot', width: 1 },
-                hoverinfo: 'skip', showlegend: false,
-            },
-        ];
-
+        const traces = [{
+            x: generations.map(g => g.genNum), y: generations.map(g => g.mf),
+            type: 'scatter', mode: 'lines+markers',
+            line: { color: '#42a5f5', width: 1.5 }, marker: { color: '#42a5f5', size: 5 },
+            name: 'MF',
+            hovertemplate: 'Gen %{x}<br>MF: %{y:.6f}<extra></extra>',
+        }];
         const layout = {
             margin: { l: 54, r: 8, t: 4, b: 30 },
             paper_bgcolor: panel, plot_bgcolor: bg,
             font: { color: txt, family: 'system-ui, sans-serif', size: 10 },
-            xaxis: {
-                title: { text: 'Insertion position', standoff: 4 },
-                gridcolor: grid, tickmode: 'linear', tick0: 0, dtick: 1
-            },
-            yaxis: { title: { text: 'ΔMF', standoff: 4 }, gridcolor: grid },
-            showlegend: false, bargap: 0.15,
+            xaxis: { title: { text: 'Generation', standoff: 4 }, gridcolor: grid },
+            yaxis: { title: { text: 'MF', standoff: 4 }, gridcolor: grid, type: 'log',
+                tickformat: '.0e', exponentformat: 'e', hoverformat: '.6f', dtick: 'D2' },
+            showlegend: false,
         };
-
-        if (!initRef.current) {
-            Plotly.newPlot(divRef.current, traces, layout, { responsive: true, displayModeBar: false });
-            initRef.current = true;
-        } else {
-            Plotly.react(divRef.current, traces, layout);
-        }
-    }, [candidates, theme]);
-
-    // Re-fit on PANEL resize. responsive:true only listens to window resizes, so a
-    // docking/panel height change left the chart at a stale, too-tall pixel size that
-    // overflowed the panel until a manual window resize. A ResizeObserver on the
-    // container resizes Plotly to its actual box on every change.
-    useEffect(() => {
-        const el = divRef.current;
-        if (!el || typeof ResizeObserver === 'undefined') return;
-        const ro = new ResizeObserver(() => {
-            if (divRef.current && typeof Plotly !== 'undefined') {
-                try { Plotly.Plots.resize(divRef.current); } catch (_) {}
-            }
-        });
-        ro.observe(el);
-        return () => ro.disconnect();
-    }, []);
-
-    return h('div', { ref: divRef, style: { width: '100%', height: '100%' } });
+        return { traces, layout };
+    };
+    return h(PlotlyChart, {
+        build, hasData: generations.length > 0, empty: emptyMsg,
+        deps: [generations, theme], c,
+    });
 }
 
 // ── Control bar ───────────────────────────────────────────────────────────────
@@ -314,16 +262,15 @@ function LeftSidebar({ catalogs, selectedCats, onToggleCat, onSelectAllCats, onC
                 cursor: running ? 'default' : 'pointer', fontSize: 11, color: c.text, userSelect: 'none',
             }
         },
-            h('input', {
-                type: 'checkbox', defaultChecked: getVal(), disabled: running,
+            h(Checkbox, {
+                c, defaultChecked: getVal(), disabled: running,
                 onChange: e => setVal(e.target.checked),
-                style: { cursor: running ? 'default' : 'pointer' }
             }),
             h('span', null, label));
 
     return h('div', {
         style: {
-            width: 190, flexShrink: 0, borderRight: `1px solid ${c.border}`,
+            width: 200, flexShrink: 0, borderRight: `1px solid ${c.border}`,
             display: 'flex', flexDirection: 'column', background: c.panel, overflow: 'hidden'
         }
     },
@@ -332,6 +279,7 @@ function LeftSidebar({ catalogs, selectedCats, onToggleCat, onSelectAllCats, onC
             catalogs, selectedCats, onToggleCat, onSelectAllCats, onClearCats,
             excludedMats, onToggleMat, running, c,
             labels: { materialPool: tn.materialPool, poolAll: tn.poolAll, poolClear: tn.poolClear },
+            warnLabel: t.pool.warn,
         }),
         // Settings — only the two everyday knobs stay visible; the rest +
         // technical dropdowns live under Advanced.
@@ -394,59 +342,11 @@ function GenerationsTable({ generations, bestMF, onRestore, showSide, c, t }) {
 }
 
 // ── Top designs (Pareto front) panel ─────────────────────────────────────────
-
 function TopDesignsPanel({ topDesigns, bestMF, onRestore, c, t }) {
-    const tn = t.needle;
-    if (!topDesigns.length) return null;
-
-    return h('div', {
-        style: {
-            borderTop: `1px solid ${c.border}`, background: c.panel,
-            flexShrink: 0, maxHeight: 140, display: 'flex', flexDirection: 'column',
-        }
-    },
-        h('div', {
-            style: {
-                padding: '3px 8px', fontSize: 10, fontWeight: 700,
-                color: c.textDim, textTransform: 'uppercase', letterSpacing: '0.05em',
-                borderBottom: `1px solid ${c.border}`, flexShrink: 0,
-            }
-        }, tn.topDesigns),
-        h('div', { style: { flex: 1, overflow: 'auto' } },
-            h('table', { style: { borderCollapse: 'collapse', width: '100%' } },
-                h('tbody', null,
-                    topDesigns.map(gen => {
-                        const isBest = Math.abs(gen.mf - bestMF) < 1e-12;
-                        return h('tr', { key: gen.id },
-                            h('td', { style: { padding: '2px 8px', fontSize: 11, color: c.textDim, width: 56 } },
-                                `Gen ${gen.genNum}`),
-                            h('td', { style: { padding: '2px 8px', fontSize: 11, color: c.text, width: 60 } },
-                                `${gen.layerCount} lyr`),
-                            h('td', { style: { padding: '2px 8px', fontSize: 11, fontWeight: isBest ? 700 : 400, color: isBest ? c.success : c.text } },
-                                gen.mf.toFixed(6)),
-                            gen.insertMat && h('td', {
-                                style: {
-                                    padding: '2px 8px', fontSize: 10, color: c.textDim,
-                                    maxWidth: 92, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
-                                },
-                                title: matFriendlyName(gen.insertMat),
-                            }, matFriendlyName(gen.insertMat)),
-                            h('td', { style: { padding: '2px 8px' } },
-                                h('button', {
-                                    onClick: () => onRestore(gen),
-                                    style: {
-                                        padding: '1px 7px', fontSize: 10, cursor: 'pointer',
-                                        background: c.panel, color: c.text,
-                                        border: `1px solid ${c.border}`, borderRadius: 2,
-                                    }
-                                }, tn.restore)
-                            )
-                        );
-                    })
-                )
-            )
-        )
-    );
+    return h(SharedTopDesignsPanel, {
+        topDesigns, bestMF, onRestore, c, genPrefix: 'Gen ',
+        labels: { topDesigns: t.needle.topDesigns, restore: t.needle.restore },
+    });
 }
 
 // ── Main NeedleVariation window ───────────────────────────────────────────────
@@ -488,7 +388,6 @@ export function NeedleVariation({ c, theme, t }) {
     const [generation,  setGeneration]  = useState(0);
     const [generations, setGenerations] = useState([]);
     const [topDesigns,  setTopDesigns]  = useState([]);
-    const [lastScan,    setLastScan]    = useState([]);
     const [mf,          setMf]          = useState(null);
     const [mfBest,      setMfBest]      = useState(null);
     const [omf,         setOmf]         = useState(null);   // optical merit (display only)
@@ -585,7 +484,6 @@ export function NeedleVariation({ c, theme, t }) {
             }
             setPhase('idle');
             setStatusMsg('');
-            setLastScan([]);
         }
 
         // Restore cached optimization state for the new design (or clear if none)
@@ -821,7 +719,6 @@ export function NeedleVariation({ c, theme, t }) {
                     deltaNm: deltaNmRef.current,
                     side,
                 });
-                setLastScan(candidates);
 
                 // First scan establishes the baseline best (current design).
                 if (best.front === null) {
@@ -1185,7 +1082,6 @@ export function NeedleVariation({ c, theme, t }) {
                     let candidates = [];
                     for (const r of scanRes) candidates = candidates.concat(r.candidates || []);
                     const mf0 = scanRes.length ? scanRes[0].mf0 : Infinity;
-                    setLastScan(candidates);
 
                     if (best.frontLayers === null && best.backLayers === null) {
                         best.mf = mf0;
@@ -1328,7 +1224,6 @@ export function NeedleVariation({ c, theme, t }) {
             lastBestRef.current    = null;
             setGenerations([]);
             setTopDesigns([]);
-            setLastScan([]);
             setMf(null);
             setMfBest(null);
             setOmf(null);
@@ -1440,9 +1335,9 @@ export function NeedleVariation({ c, theme, t }) {
                 running, c, t,
             }),
 
-            // Right content: needle plot + generations table
+            // Right content: MF trend + generations table
             h('div', { style: { flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden' } },
-                // Needle scan plot (upper 40%)
+                // MF trend (upper 40%)
                 h('div', {
                     style: {
                         flex: '0 0 40%', borderBottom: `1px solid ${c.border}`,
@@ -1455,17 +1350,9 @@ export function NeedleVariation({ c, theme, t }) {
                             color: c.textDim, textTransform: 'uppercase', letterSpacing: '0.05em',
                             borderBottom: `1px solid ${c.border}`, flexShrink: 0,
                         }
-                    }, tn.scanPlot),
-                    h('div', { style: { flex: 1, overflow: 'hidden' } },
-                        lastScan.length === 0
-                            ? h('div', {
-                                style: {
-                                    height: '100%', display: 'flex', alignItems: 'center',
-                                    justifyContent: 'center', color: c.textDim, fontSize: 12,
-                                    fontStyle: 'italic',
-                                }
-                              }, tn.noScanYet)
-                            : h(NeedleScanPlot, { candidates: lastScan, c, theme })
+                    }, tn.mfTrend),
+                    h('div', { style: { flex: 1, overflow: 'hidden', position: 'relative' } },
+                        h(MFTrendChart, { generations, c, theme, emptyMsg: tn.noTrendYet })
                     )
                 ),
 

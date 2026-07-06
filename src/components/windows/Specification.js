@@ -20,6 +20,7 @@ import { QUALIFIER_PRESETS, applyPreset } from '../../utils/synthesis/qualifierP
 import { OPERAND_POLS } from '../../utils/physics/optimizer.js';
 import { useTableShortcuts } from '../../hooks/useTableShortcuts.js';
 import { EvalModeBadge } from '../SurfaceModeBar.js';
+import { Checkbox } from '../ui/Checkbox.js';
 
 const { createElement: h, useState, useEffect, useMemo, useCallback, useRef } = React;
 
@@ -512,8 +513,8 @@ function QRow({ q, r, c, ts, updateQualifier, removeQualifier, isSelected, onSel
         // ── Row header: enabled toggle / kind / label / verdict ──────────────
         h('div', { style: { display: 'flex', alignItems: 'center', gap: 8 } },
             h('label', { style: { display: 'inline-flex', alignItems: 'center', gap: 4, fontSize: 11, color: c.textDim, cursor: 'pointer' } },
-                h('input', {
-                    type: 'checkbox', checked: q.enabled !== false,
+                h(Checkbox, {
+                    c, checked: q.enabled !== false,
                     onChange: e => onF('enabled', e.target.checked),
                 }),
                 ts.enabledLabel || 'on'
