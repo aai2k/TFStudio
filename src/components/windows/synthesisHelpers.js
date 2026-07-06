@@ -23,6 +23,7 @@ import {
 } from '../../utils/physics/optimizer.js';
 import { generateARSeeds } from '../../utils/synthesis/seedGenerator.js';
 import { getThreadCount } from '../../utils/synthesis/synthesisConfig.js';
+import { Checkbox } from '../ui/Checkbox.js';
 
 const { createElement: h } = React;   // React is a window global (never imported)
 
@@ -231,14 +232,17 @@ export function useCatSelection(storageKey) {
     const excludedMatsRef = useRef(excludedMats);
     useEffect(() => { excludedMatsRef.current = excludedMats; }, [excludedMats]);
 
-    const handleToggleCat = useCallback((catId) => {
-        setSelectedCats(prev => {
-            const next = new Set(prev);
-            if (next.has(catId)) next.delete(catId); else next.add(catId);
-            selectedCatsRef.current = next;
-            saveCatSelection(storageKey, next);
-            return next;
-        });
+    // Toggling a catalog is an "all or nothing" action for its materials, so it
+    // also clears that catalog's per-material exclusions (checked → every material
+    // in play; unchecked → clean slate).
+    const handleToggleCat = useCallback((catId, catMatIds = []) => {
+        const nextCats = new Set(selectedCatsRef.current);
+        if (nextCats.has(catId)) nextCats.delete(catId); else nextCats.add(catId);
+        const nextExcl = new Set(excludedMatsRef.current);
+        for (const id of catMatIds) nextExcl.delete(id);
+        selectedCatsRef.current = nextCats; excludedMatsRef.current = nextExcl;
+        saveCatSelection(storageKey, nextCats); saveCatSelection(exclKey, nextExcl);
+        setSelectedCats(nextCats); setExcludedMats(nextExcl);
     }, []);
     // All/Clear act on whole catalogs AND wipe per-material exclusions, so each
     // is an unambiguous reset ("All" really means every material is in play).
@@ -255,19 +259,57 @@ export function useCatSelection(storageKey) {
         excludedMatsRef.current = none; saveCatSelection(exclKey, none); setExcludedMats(none);
     }, []);
 
-    const handleToggleMat = useCallback((fullId) => {
-        setExcludedMats(prev => {
-            const next = new Set(prev);
-            if (next.has(fullId)) next.delete(fullId); else next.add(fullId);
-            excludedMatsRef.current = next;
-            saveCatSelection(exclKey, next);
-            return next;
-        });
+    // Toggle one material's membership. A material lives inside a catalog, but the
+    // user can pick individual materials from a catalog whose box is unchecked:
+    // turning one on selects the catalog and excludes every OTHER material, so only
+    // the chosen one is in play. Turning the last remaining material off collapses
+    // the catalog back to unchecked.
+    const handleToggleMat = useCallback((catId, fullId, catMatIds = []) => {
+        const nextCats = new Set(selectedCatsRef.current);
+        const nextExcl = new Set(excludedMatsRef.current);
+        if (!nextCats.has(catId)) {
+            nextCats.add(catId);
+            for (const id of catMatIds) { if (id === fullId) nextExcl.delete(id); else nextExcl.add(id); }
+        } else {
+            if (nextExcl.has(fullId)) nextExcl.delete(fullId); else nextExcl.add(fullId);
+            if (catMatIds.length && catMatIds.every(id => nextExcl.has(id))) {
+                for (const id of catMatIds) nextExcl.delete(id);
+                nextCats.delete(catId);
+            }
+        }
+        selectedCatsRef.current = nextCats; excludedMatsRef.current = nextExcl;
+        saveCatSelection(storageKey, nextCats); saveCatSelection(exclKey, nextExcl);
+        setSelectedCats(nextCats); setExcludedMats(nextExcl);
     }, []);
 
     return { selectedCats, setSelectedCats, selectedCatsRef,
              handleToggleCat, handleSelectAllCats, handleClearCats,
              excludedMats, excludedMatsRef, handleToggleMat };
+}
+
+// Above this many candidate materials the pool panel warns that scans may be slow.
+export const POOL_WARN_COUNT = 200;
+// Hard ceiling for single-threaded scans (Needle Manual): past this the profile
+// scan runs long enough on the UI thread to freeze/crash the renderer, so it is
+// refused rather than attempted.
+export const POOL_MAX_SYNC = 400;
+
+// Count of eligible candidate materials in the selected catalogs (Air/Vacuum and
+// user-excluded ids removed). Deliberately skips the getNK(n<1.05) filter that
+// getPoolMaterials applies — an upper-bound estimate is all the size guards need,
+// and it stays cheap enough to run on every selection change.
+export function countPoolMaterials(selectedCatalogIds, excluded = null) {
+    let n = 0;
+    for (const cat of getCatalogs()) {
+        if (!selectedCatalogIds.has(cat.id)) continue;
+        for (const key of Object.keys(cat.materials || {})) {
+            if (key === 'Air' || key === 'Vacuum') continue;
+            const fullId = cat.id === 'builtin' ? key : `${cat.id}:${key}`;
+            if (excluded && excluded.has(fullId)) continue;
+            n++;
+        }
+    }
+    return n;
 }
 
 // ── Candidate material pool from the selected catalogs ───────────────────────────
@@ -312,7 +354,7 @@ export function getPoolMaterials(selectedCatalogIds, { verbose = false, excluded
 // used ONLY by this block in both windows, so it moves in here.
 export function MaterialPoolPanel({ catalogs, selectedCats, onToggleCat,
                                     onSelectAllCats, onClearCats,
-                                    excludedMats, onToggleMat, running, c, labels }) {
+                                    excludedMats, onToggleMat, running, c, labels, warnLabel }) {
     const { useState } = React;
     const [expanded, setExpanded] = useState(() => new Set());
     const excluded   = excludedMats || new Set();
@@ -343,6 +385,11 @@ export function MaterialPoolPanel({ catalogs, selectedCats, onToggleCat,
             name: (m && m.name) || k,
         }));
 
+    const selectedCount = catalogs.reduce((sum, cat) =>
+        selectedCats.has(cat.id)
+            ? sum + matEntries(cat).reduce((n, m) => n + (excluded.has(m.fullId) ? 0 : 1), 0)
+            : sum, 0);
+
     return h('div', {
         style: {
             padding: '6px 8px', borderBottom: `1px solid ${c.border}`,
@@ -358,6 +405,9 @@ export function MaterialPoolPanel({ catalogs, selectedCats, onToggleCat,
                 miniBtn(labels.poolClear, () => !running && onClearCats && onClearCats()),
             )
         ),
+        (warnLabel && selectedCount > POOL_WARN_COUNT) && h('div', {
+            style: { ...WARN_BADGE_STYLE, display: 'block', whiteSpace: 'normal', marginBottom: 5, lineHeight: 1.3 },
+        }, warnLabel(selectedCount)),
         catalogs.map(cat => {
             const mats      = matEntries(cat);
             const total     = mats.length;
@@ -386,11 +436,9 @@ export function MaterialPoolPanel({ catalogs, selectedCats, onToggleCat,
                             cursor: running ? 'default' : 'pointer', fontSize: 12, userSelect: 'none',
                         }
                     },
-                        h('input', {
-                            type: 'checkbox', checked, disabled: running,
-                            ref: (el) => { if (el) el.indeterminate = indeterminate; },
-                            onChange: () => !running && onToggleCat(cat.id),
-                            style: { cursor: running ? 'default' : 'pointer', flexShrink: 0 }
+                        h(Checkbox, {
+                            c, checked, disabled: running, indeterminate,
+                            onChange: () => !running && onToggleCat(cat.id, mats.map(m => m.fullId)),
                         }),
                         h('span', {
                             style: { color: checked ? c.text : c.textDim, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' },
@@ -409,13 +457,12 @@ export function MaterialPoolPanel({ catalogs, selectedCats, onToggleCat,
                                 key: m.fullId,
                                 style: {
                                     display: 'flex', alignItems: 'center', gap: 6, padding: '1px 0', minWidth: 0,
-                                    cursor: (running || !checked) ? 'default' : 'pointer', fontSize: 11, userSelect: 'none',
+                                    cursor: running ? 'default' : 'pointer', fontSize: 11, userSelect: 'none',
                                 }
                             },
-                                h('input', {
-                                    type: 'checkbox', checked: matOn, disabled: running || !checked,
-                                    onChange: () => (!running && checked) && onToggleMat(m.fullId),
-                                    style: { cursor: (running || !checked) ? 'default' : 'pointer', flexShrink: 0 }
+                                h(Checkbox, {
+                                    c, checked: matOn, disabled: running,
+                                    onChange: () => !running && onToggleMat(cat.id, m.fullId, mats.map(x => x.fullId)),
                                 }),
                                 // Same color swatch the Material Editor shows for this material.
                                 h('span', { style: {
@@ -432,6 +479,139 @@ export function MaterialPoolPanel({ catalogs, selectedCats, onToggleCat,
                 )
             );
         })
+    );
+}
+
+// ── Pareto front over synthesis generations ─────────────────────────────────────
+// Designs not dominated in (layerCount, mf): a design survives unless another is no
+// worse on both axes and strictly better on at least one. Sorted by layer count.
+export function computePareto(gens) {
+    return gens.filter(a =>
+        !gens.some(b =>
+            b !== a &&
+            b.layerCount <= a.layerCount && b.mf <= a.mf &&
+            (b.layerCount < a.layerCount || b.mf < a.mf)
+        )
+    ).sort((a, b) => a.layerCount - b.layerCount);
+}
+
+// ── Shared Top-Designs (Pareto front) panel ─────────────────────────────────────
+// Lists the Pareto-optimal generations (best MF at each layer count). `genPrefix`
+// labels the generation number ("Gen N" for needle/GE, "#N" for structural). The
+// insert-material column renders per row only for generations that carry one.
+export function TopDesignsPanel({ topDesigns, bestMF, onRestore, c, labels, genPrefix = 'Gen ' }) {
+    if (!topDesigns.length) return null;
+    return h('div', { style: {
+        borderTop: `1px solid ${c.border}`, background: c.panel,
+        flexShrink: 0, maxHeight: 140, display: 'flex', flexDirection: 'column',
+    } },
+        h('div', { style: {
+            padding: '3px 8px', fontSize: 10, fontWeight: 700, color: c.textDim,
+            textTransform: 'uppercase', letterSpacing: '0.05em',
+            borderBottom: `1px solid ${c.border}`, flexShrink: 0,
+        } }, labels.topDesigns),
+        h('div', { style: { flex: 1, overflow: 'auto' } },
+            h('table', { style: { borderCollapse: 'collapse', width: '100%' } },
+                h('tbody', null,
+                    topDesigns.map(gen => {
+                        const isBest = Math.abs(gen.mf - bestMF) < 1e-12;
+                        return h('tr', { key: gen.id },
+                            h('td', { style: { padding: '2px 8px', fontSize: 11, color: c.textDim, width: 56 } },
+                                `${genPrefix}${gen.genNum}`),
+                            h('td', { style: { padding: '2px 8px', fontSize: 11, color: c.text, width: 60 } },
+                                `${gen.layerCount} lyr`),
+                            h('td', { style: { padding: '2px 8px', fontSize: 11, fontWeight: isBest ? 700 : 400, color: isBest ? c.success : c.text } },
+                                gen.mf.toFixed(6)),
+                            gen.insertMat && h('td', {
+                                style: {
+                                    padding: '2px 8px', fontSize: 10, color: c.textDim,
+                                    maxWidth: 92, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+                                },
+                                title: matFriendlyName(gen.insertMat),
+                            }, matFriendlyName(gen.insertMat)),
+                            h('td', { style: { padding: '2px 8px' } },
+                                h('button', {
+                                    onClick: () => onRestore(gen),
+                                    style: {
+                                        padding: '1px 7px', fontSize: 10, cursor: 'pointer',
+                                        background: c.panel, color: c.text,
+                                        border: `1px solid ${c.border}`, borderRadius: 2,
+                                    }
+                                }, labels.restore))
+                        );
+                    })
+                )
+            )
+        )
+    );
+}
+
+// ── Plotly chart lifecycle primitive ────────────────────────────────────────────
+// Owns the Plotly lifecycle for the synthesis trend charts: newPlot-then-react, a
+// ResizeObserver that re-fits the chart to its box on panel/docking resizes, and a
+// purge on unmount. Callers supply `build()` (returns { traces, layout }, invoked
+// inside the effect so it sees fresh closures) and a `deps` gate.
+//
+// The plot div stays mounted at all times and the "no data" message is an overlay,
+// rather than swapping the div out when data clears. Swapping it out orphaned the
+// initialized-flag, so the next run react()'d onto a div that was never newPlot'd
+// and rendered blank until the tab was toggled. When `hasData` goes false the graph
+// is purged and the flag reset so a fresh run always newPlot's cleanly.
+export function PlotlyChart({ build, hasData, empty, deps = [], config, c }) {
+    const { useRef, useEffect } = React;
+    const divRef  = useRef(null);
+    const initRef = useRef(false);
+    const cfg = config || { responsive: true, displayModeBar: false };
+
+    useEffect(() => {
+        if (!divRef.current || typeof Plotly === 'undefined') return;
+        if (!hasData) {
+            if (initRef.current) {
+                try { Plotly.purge(divRef.current); } catch (_) {}
+                initRef.current = false;
+            }
+            return;
+        }
+        const { traces, layout } = build();
+        if (!initRef.current) {
+            Plotly.newPlot(divRef.current, traces, layout, cfg);
+            initRef.current = true;
+        } else {
+            Plotly.react(divRef.current, traces, layout, cfg);
+        }
+    }, [hasData, ...deps]);   // eslint-disable-line react-hooks/exhaustive-deps
+
+    // Re-fit on PANEL resize (responsive:true only listens to WINDOW resizes).
+    useEffect(() => {
+        const el = divRef.current;
+        if (!el || typeof ResizeObserver === 'undefined') return;
+        const ro = new ResizeObserver(() => {
+            if (divRef.current && typeof Plotly !== 'undefined') {
+                try { Plotly.Plots.resize(divRef.current); } catch (_) {}
+            }
+        });
+        ro.observe(el);
+        return () => ro.disconnect();
+    }, []);
+
+    // Purge the graph on unmount so it doesn't leak per docking-tab switch.
+    useEffect(() => () => {
+        if (divRef.current && typeof Plotly !== 'undefined') {
+            try { Plotly.purge(divRef.current); } catch (_) {}
+        }
+        initRef.current = false;
+    }, []);
+
+    return h('div', { style: { position: 'relative', width: '100%', height: '100%' } },
+        h('div', { ref: divRef, style: { width: '100%', height: '100%' } }),
+        !hasData && empty && h('div', {
+            style: {
+                position: 'absolute', inset: 0, display: 'flex',
+                alignItems: 'center', justifyContent: 'center',
+                color: (c && c.textDim) || '#888', fontSize: 11, fontStyle: 'italic',
+                pointerEvents: 'none',
+            }
+        }, empty)
     );
 }
 

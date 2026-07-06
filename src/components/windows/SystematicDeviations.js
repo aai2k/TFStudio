@@ -22,6 +22,7 @@ import {
     deviatedDesignForSpec,
 } from '../../utils/physics/systematicDeviations.js';
 import { SpecVerdict } from '../SpecVerdict.js';
+import { Checkbox } from '../ui/Checkbox.js';
 import { DebouncedInput } from '../ui/DebouncedInput.js';
 
 const { createElement: h, useState, useMemo, useEffect, useRef, useCallback } = React;
@@ -710,10 +711,9 @@ export function SystematicDeviations({ c, theme, t }) {
             h(SegBtn, { active: sweepChannel === 'A', onClick: () => setSweepChannel('A'), label: 'A', c }),
         ),
         mode === 'single' && h('label', { style: { display: 'flex', alignItems: 'center', gap: 4, cursor: 'pointer', color: c.text, fontSize: 11 } },
-            h('input', {
-                type: 'checkbox', checked: showBaseline,
+            h(Checkbox, {
+                c, checked: showBaseline,
                 onChange: (e) => setShowBaseline(e.target.checked),
-                style: { cursor: 'pointer', accentColor: c.accent }
             }),
             sd.baseline || 'baseline'
         ),

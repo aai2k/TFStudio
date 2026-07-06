@@ -78,8 +78,13 @@ ok(getTmmWasmBytesForWorker() != null, 'bytes broadcast when re-enabled');
 
 if (fails === 0) {
     console.log('\nPASS — worker WASM init + main-thread gating behave correctly with the real kernel.');
-    process.exit(0);
 } else {
     console.error(`\n${fails} assertion(s) FAILED.`);
-    process.exit(1);
 }
+// Set the exit code and let the event loop drain instead of calling process.exit():
+// the WASM path leaves no open handles (WebAssembly.instantiate promises have
+// resolved; no timers/workers), and force-exiting here while the final line is
+// still in flight to the runner's piped stdout intermittently aborts Node during
+// libuv teardown on Windows — "Assertion failed: !(handle->flags & UV_HANDLE_CLOSING)"
+// (async.c) — yielding a spurious non-zero exit after the assertions have passed.
+process.exitCode = fails === 0 ? 0 : 1;

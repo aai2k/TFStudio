@@ -21,6 +21,7 @@ import { useDesign }            from '../../state/DesignContext.js';
 import { getMaterialById }      from '../../utils/materials/catalogManager.js';
 import { getMaterial }          from '../../utils/materials/materialDatabase.js';
 import { cleanupDesign, listThinLayers } from '../../utils/synthesis/designCleaner.js';
+import { Checkbox }            from '../ui/Checkbox.js';
 import {
     DLSOptimizer,
     evaluateOperands,
@@ -185,29 +186,26 @@ export function DesignCleaner({ c, theme, t }) {
                 h('span', { style: { color: c.textDim, marginLeft: 2 } }, 'nm')
             ),
             h('label', { style: checkboxLabel },
-                h('input', {
-                    type: 'checkbox', checked: mergeAdjacent,
+                h(Checkbox, {
+                    c, checked: mergeAdjacent,
                     onChange: e => setMergeAdjacent(e.target.checked),
-                    style: { cursor: 'pointer', accentColor: c.accent }
                 }),
                 dc.mergeAdjacent
             ),
             h('label', { style: checkboxLabel },
-                h('input', {
-                    type: 'checkbox', checked: cleanBack,
+                h(Checkbox, {
+                    c, checked: cleanBack,
                     onChange: e => setCleanBack(e.target.checked),
-                    style: { cursor: 'pointer', accentColor: c.accent }
                 }),
                 dc.cleanBack
             ),
             h('label', { style: checkboxLabel,
                 title: design.meritOperands?.length ? '' : dc.reoptimizeNoOperands,
             },
-                h('input', {
-                    type: 'checkbox', checked: reoptimize && design.meritOperands?.length > 0,
+                h(Checkbox, {
+                    c, checked: reoptimize && design.meritOperands?.length > 0,
                     disabled: !design.meritOperands?.length,
                     onChange: e => setReoptimize(e.target.checked),
-                    style: { cursor: 'pointer', accentColor: c.accent }
                 }),
                 dc.reoptimize
             ),

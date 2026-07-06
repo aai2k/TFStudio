@@ -27,6 +27,7 @@
  */
 
 import { mirrorLayers, resolveEvalMode, makeConeSpec, coneIsActive } from '../utils/physics/optimizer.js';
+import { Checkbox } from './ui/Checkbox.js';
 
 const { createElement: h } = React;
 
@@ -191,7 +192,7 @@ export function SurfaceModeControl({ design, updateDesign, c, t, onModeChange, s
             opacity: disabled ? 0.45 : 1,
         },
     },
-        h('input', { type: 'checkbox', checked, onChange, disabled, style: { cursor: disabled ? 'not-allowed' : 'pointer' } }),
+        h(Checkbox, { c, checked, onChange, disabled }),
         h('span', { style: { whiteSpace: 'nowrap' } }, text),
     );
 

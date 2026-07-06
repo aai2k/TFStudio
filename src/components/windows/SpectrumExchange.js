@@ -18,6 +18,7 @@ import {
 } from '../../utils/io/spectrumTable.js';
 import { computeDesignSpectrum, designSpectrumColumns } from '../../utils/io/designSpectrum.js';
 import { parseJcampDx, buildJcampDx } from '../../utils/io/jcampDx.js';
+import { Checkbox } from '../ui/Checkbox.js';
 
 const { createElement: h, useState, useMemo, useCallback } = React;
 
@@ -102,7 +103,7 @@ function Num({ value, onChange, min, max, step = 1, c, width = 70 }) {
 
 function Check({ checked, onChange, c, children }) {
     return h('label', { style: { display: 'inline-flex', alignItems: 'center', gap: 4, fontSize: 11.5, color: c.text, cursor: 'pointer' } },
-        h('input', { type: 'checkbox', checked, onChange: (e) => onChange(e.target.checked) }),
+        h(Checkbox, { c, checked, onChange: (e) => onChange(e.target.checked) }),
         children,
     );
 }

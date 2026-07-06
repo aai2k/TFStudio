@@ -30,6 +30,7 @@ import {
 import { getMaterial } from '../../utils/materials/materialDatabase.js';
 import { makeDefaultDesign } from '../../state/DesignContext.js';
 import { usePersistentBool, usePersistentNumber } from '../ui/usePersistentState.js';
+import { Checkbox } from '../ui/Checkbox.js';
 import { getThreadCount } from '../../utils/synthesis/synthesisConfig.js';
 
 const { createElement: h, useState, useMemo, useRef, useEffect, useCallback } = React;
@@ -322,12 +323,12 @@ export function OptimizerBenchmark({ c }) {
 
     const chk = (label, val, set, dis) => h('label', {
         style: { display: 'inline-flex', alignItems: 'center', gap: 5, marginRight: 14, fontSize: 12, color: dis ? c.textDim : c.text, cursor: dis ? 'default' : 'pointer', opacity: dis ? 0.6 : 1 },
-    }, h('input', { type: 'checkbox', checked: val, disabled: dis || STORE.running, onChange: (e) => set(e.target.checked) }), label);
+    }, h(Checkbox, { c, checked: val, disabled: dis || STORE.running, onChange: (e) => set(e.target.checked) }), label);
 
     const caseChk = (cc) => h('label', {
         key: cc.id, style: { display: 'inline-flex', alignItems: 'center', gap: 5, marginRight: 14, fontSize: 12, color: c.text, cursor: 'pointer' },
-    }, h('input', {
-        type: 'checkbox', checked: selCases.has(cc.id), disabled: STORE.running,
+    }, h(Checkbox, {
+        c, checked: selCases.has(cc.id), disabled: STORE.running,
         onChange: (e) => setSelCases((prev) => { const s = new Set(prev); e.target.checked ? s.add(cc.id) : s.delete(cc.id); return s; }),
     }), cc.name.split('  ')[0]);
 
@@ -465,7 +466,7 @@ export function OptimizerBenchmark({ c }) {
                 h('span', { style: { fontSize: 11, color: c.textDim, marginRight: 8 } }, 'Synthesis inner refiner (which method Needle/GE/Structural use):'),
                 SYNTH_ENGINES.map((e) => h('label', {
                     key: e, style: { display: 'inline-flex', alignItems: 'center', gap: 4, marginRight: 12, fontSize: 12, color: c.text, cursor: STORE.running ? 'default' : 'pointer' },
-                }, h('input', { type: 'checkbox', checked: engSel.has(e), disabled: STORE.running, onChange: () => toggleEng(e) }), ENG_LABEL[e]))),
+                }, h(Checkbox, { c, checked: engSel.has(e), disabled: STORE.running, onChange: () => toggleEng(e) }), ENG_LABEL[e]))),
             h('div', { style: { marginBottom: 6 } },
                 h('span', { style: { fontSize: 11, color: c.textDim, marginRight: 8 } }, 'Constraints (MNT min-thickness):'),
                 chk('none', noMNT, setNoMNT), chk('MNT ≥ 40 nm', useMNT40, setUseMNT40),

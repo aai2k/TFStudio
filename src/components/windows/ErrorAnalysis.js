@@ -20,6 +20,7 @@ import { getMaterialById }        from '../../utils/materials/catalogManager.js'
 import { getMaterial }            from '../../utils/materials/materialDatabase.js';
 import { runErrorAnalysisMC }     from '../../utils/physics/errorAnalysis.js';
 import { DebouncedInput }         from '../ui/DebouncedInput.js';
+import { Checkbox }               from '../ui/Checkbox.js';
 
 const { createElement: h, useState, useEffect, useMemo, useCallback, useRef } = React;
 
@@ -802,7 +803,7 @@ export function ErrorAnalysis({ c, theme, t }) {
                 style: { ...labelStyle, display: 'flex', alignItems: 'center', gap: 4, cursor: 'pointer' },
                 title: ea.envelopeTip || 'Overlay the realized min/max envelope (the extreme spectra across all trials). For Uniform/Truncated this is the true hard bound; for Gaussian it has no fixed limit and widens with the number of trials.',
             },
-                h('input', { type: 'checkbox', checked: showEnvelope, onChange: e => setShowEnvelope(e.target.checked), style: { cursor: 'pointer' } }),
+                h(Checkbox, { c, checked: showEnvelope, onChange: e => setShowEnvelope(e.target.checked) }),
                 h('span', null, ea.envelope || 'min/max')
             ),
             h('div', { style: { marginLeft: 'auto', display: 'flex', gap: 6, alignItems: 'center' } },
@@ -841,10 +842,7 @@ export function ErrorAnalysis({ c, theme, t }) {
                 style: { display: 'flex', alignItems: 'center', gap: 4, cursor: 'pointer', color: c.text, fontSize: 11 },
                 title: ea.perMaterialTip,
             },
-                h('input', {
-                    type: 'checkbox', checked: perMaterial, onChange: e => setPerMaterial(e.target.checked),
-                    style: { cursor: 'pointer', accentColor: c.accent }
-                }),
+                h(Checkbox, { c, checked: perMaterial, onChange: e => setPerMaterial(e.target.checked) }),
                 ea.perMaterial
             ),
             (() => {
@@ -860,10 +858,9 @@ export function ErrorAnalysis({ c, theme, t }) {
                     title: idxOn ? ea.keepOPTTip
                         : (ea.keepOPTDisabledTip || 'Only affects index-error trials. Set σ Re(n) or σ Im(n) first — with thickness errors alone, keeping n·d constant cancels the perturbation (nominal plot).'),
                 },
-                    h('input', {
-                        type: 'checkbox', checked: keepOPT && idxOn, disabled: !idxOn,
+                    h(Checkbox, {
+                        c, checked: keepOPT && idxOn, disabled: !idxOn,
                         onChange: e => setKeepOPT(e.target.checked),
-                        style: { cursor: idxOn ? 'pointer' : 'not-allowed', accentColor: c.accent }
                     }),
                     ea.keepOPT
                 );

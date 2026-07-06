@@ -11,6 +11,7 @@ import {
 } from '../../utils/physics/optimizer.js';
 import { MFTable } from './MFTableComponents.js';
 import { EvalModeBadge, OptimizeBadge } from '../SurfaceModeBar.js';
+import { Checkbox } from '../ui/Checkbox.js';
 
 const { createElement: h, useState, useEffect, useCallback, useMemo } = React;
 
@@ -280,10 +281,9 @@ function DMFWizard({ design, onGenerate, operandCount, c, t }) {
             // unit instead).
             h('div', { style: { display: 'inline-flex', alignItems: 'center', gap: 8, flexShrink: 0, flexWrap: 'nowrap' } },
                 h('label', { style: { display: 'inline-flex', alignItems: 'center', gap: 5, cursor: 'pointer', userSelect: 'none' } },
-                    h('input', {
-                        type: 'checkbox', checked: constraintsEnabled,
+                    h(Checkbox, {
+                        c, checked: constraintsEnabled,
                         onChange: e => setConstraintsEnabled(e.target.checked),
-                        style: { cursor: 'pointer' }
                     }),
                     h('span', { style: { fontSize: 11, color: c.text, whiteSpace: 'nowrap' } }, tw.constraintsLabel)
                 ),
@@ -298,10 +298,9 @@ function DMFWizard({ design, onGenerate, operandCount, c, t }) {
             // Total-thickness cap (TT operand, Σd ≤ max). Same nowrap-group rule.
             h('div', { style: { display: 'inline-flex', alignItems: 'center', gap: 8, flexShrink: 0, flexWrap: 'nowrap' } },
                 h('label', { style: { display: 'inline-flex', alignItems: 'center', gap: 5, cursor: 'pointer', userSelect: 'none' } },
-                    h('input', {
-                        type: 'checkbox', checked: totalEnabled,
+                    h(Checkbox, {
+                        c, checked: totalEnabled,
                         onChange: e => setTotalEnabled(e.target.checked),
-                        style: { cursor: 'pointer' }
                     }),
                     h('span', { style: { fontSize: 11, color: c.text, whiteSpace: 'nowrap' } }, tw.totalConstraintLabel)
                 ),

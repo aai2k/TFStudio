@@ -41,6 +41,7 @@ import {
     resolveMat, matDisplayName, matColor,
     MaterialPoolPanel, SynthesisHistoryTable, useCatSelection, minOmfOf, WARN_BADGE_STYLE,
     getPoolMaterials, buildARSeedCandidates,
+    computePareto, TopDesignsPanel as SharedTopDesignsPanel, PlotlyChart,
 } from './synthesisHelpers.js';
 import {
     makeRng, proposeMutation, metropolisAccept, temperatureAt,
@@ -50,6 +51,7 @@ import {
 import { getSynthesisInnerEngine, setSynthesisInnerEngine, getSynthesisSmartSeed, setSynthesisSmartSeed, getThreadCount, setThreadCount, threadSelectOptions } from '../../utils/synthesis/synthesisConfig.js';
 import { getTmmWasmBytesForWorker } from '../../utils/workers/tmmWasm.js';
 import { DebouncedInput } from '../ui/DebouncedInput.js';
+import { Checkbox } from '../ui/Checkbox.js';
 import { parseNumber } from '../../utils/misc/numberParsing.js';
 import { usePersistentNumber } from '../ui/usePersistentState.js';
 import { OPTIMIZER_WORKER_URL as WORKER_URL } from '../../workerUrls.js';
@@ -66,16 +68,6 @@ const setCached   = (id, s) => { if (id) _structCache[id] = s; };
 const clearCached = (id) => { if (id) delete _structCache[id]; };
 if (typeof window !== 'undefined' && typeof window.addEventListener === 'function') window.addEventListener('tfstudio:design-evict', (e) => clearCached(e.detail?.id));
 
-// Pareto front: designs not dominated in (layerCount, mf).
-function computePareto(gens) {
-    return gens.filter(a =>
-        !gens.some(b =>
-            b !== a &&
-            b.layerCount <= a.layerCount && b.mf <= a.mf &&
-            (b.layerCount < a.layerCount || b.mf < a.mf)
-        )
-    ).sort((a, b) => a.layerCount - b.layerCount);
-}
 
 // Mutation-kind toggle persistence (Set of enabled kinds).
 function loadKinds() {
@@ -138,9 +130,7 @@ function refineOnce(worker, job, onTick) {
 
 // ── MF trend plot (best + current vs accepted iteration) ────────────────────────
 function TrendPlot({ trend, c, theme, t }) {
-    const divRef = useRef(null), initRef = useRef(false);
-    useEffect(() => {
-        if (!divRef.current || typeof Plotly === 'undefined') return;
+    const build = () => {
         const bg = c.bg || '#1e1e1e', panel = c.panel || '#252526',
               grid = c.border || '#3a3a3a', txt = c.text || '#ccc';
         const iters = trend.map(p => p.iter);
@@ -152,16 +142,15 @@ function TrendPlot({ trend, c, theme, t }) {
               line: { color: '#ffa726', width: 1.8 }, name: t.structural.bestMF,
               hovertemplate: 'it %{x}<br>best %{y:.6f}<extra></extra>' },
         ];
-        // Y-axis: log MF. Guard the degenerate near-constant case — when best/cur
-        // barely move, a bare log axis micro-zooms to a hair-thin window and emits
-        // 7+ digit tick labels. Compact exponential ticks + a padded floor range
-        // keep it readable (and make "it's flat" obvious instead of noisy).
+        // Log MF axis. When best/cur barely move, a bare log axis micro-zooms to a
+        // hair-thin window with 7-digit tick labels; widen to a padded floor range so
+        // "it's flat" reads clearly instead of as noise.
         const ys = trend.flatMap(p => [p.cur, p.best]).filter(v => v > 0 && Number.isFinite(v));
         const yaxis = { title: { text: 'MF', standoff: 4 }, gridcolor: grid, type: 'log',
-            tickformat: '.0e', exponentformat: 'e', hoverformat: '.6f', dtick: 'D2' };  // D2 = 1·2·5 per decade (no minor-tick crowding)
+            tickformat: '.0e', exponentformat: 'e', hoverformat: '.6f', dtick: 'D2' };
         if (ys.length) {
             const lo = Math.min(...ys), hi = Math.max(...ys);
-            if (lo > 0 && hi / lo < 1.1) {                 // ~constant → widen to ±~3×
+            if (lo > 0 && hi / lo < 1.1) {
                 const cen = Math.log10((lo + hi) / 2);
                 yaxis.range = [cen - 0.5, cen + 0.5];
             }
@@ -174,25 +163,12 @@ function TrendPlot({ trend, c, theme, t }) {
             yaxis,
             showlegend: true, legend: { font: { size: 9 }, x: 1, xanchor: 'right', y: 1 },
         };
-        if (!initRef.current) { Plotly.newPlot(divRef.current, traces, layout, { responsive: true, displayModeBar: false }); initRef.current = true; }
-        else Plotly.react(divRef.current, traces, layout);
-    }, [trend, theme]);
-    // Re-fit on PANEL resize. responsive:true only listens to window resizes, so a
-    // docking/panel height change left the chart at a stale, too-tall pixel size that
-    // overflowed the panel (into the table below) until a manual window resize. A
-    // ResizeObserver on the container resizes Plotly to its actual box every change.
-    useEffect(() => {
-        const el = divRef.current;
-        if (!el || typeof ResizeObserver === 'undefined') return;
-        const ro = new ResizeObserver(() => {
-            if (divRef.current && typeof Plotly !== 'undefined') {
-                try { Plotly.Plots.resize(divRef.current); } catch (_) {}
-            }
-        });
-        ro.observe(el);
-        return () => ro.disconnect();
-    }, []);
-    return h('div', { ref: divRef, style: { width: '100%', height: '100%' } });
+        return { traces, layout };
+    };
+    return h(PlotlyChart, {
+        build, hasData: trend.length > 0, empty: t.structural.noTrendYet,
+        deps: [trend, theme], c,
+    });
 }
 
 // ── Control bar ─────────────────────────────────────────────────────────────────
@@ -288,10 +264,9 @@ function LeftSidebar({ catalogs, selectedCats, onToggleCat, onSelectAllCats, onC
                 cursor: running ? 'default' : 'pointer', fontSize: 11, color: c.text, userSelect: 'none',
             }
         },
-            h('input', {
-                type: 'checkbox', defaultChecked: getVal(), disabled: running,
+            h(Checkbox, {
+                c, defaultChecked: getVal(), disabled: running,
                 onChange: e => setVal(e.target.checked),
-                style: { cursor: running ? 'default' : 'pointer' }
             }),
             h('span', null, label));
     return h('div', { style: {
@@ -302,6 +277,7 @@ function LeftSidebar({ catalogs, selectedCats, onToggleCat, onSelectAllCats, onC
             catalogs, selectedCats, onToggleCat, onSelectAllCats, onClearCats,
             excludedMats, onToggleMat, running, c,
             labels: { materialPool: ts.materialPool, poolAll: ts.poolAll, poolClear: ts.poolClear },
+            warnLabel: t.pool.warn,
         }),
         h('div', { style: { padding: '6px 8px', flexShrink: 0, overflow: 'auto' } },
             h('div', { style: { fontSize: 10, fontWeight: 700, color: c.textDim, textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 6 } }, ts.settings),
@@ -323,10 +299,9 @@ function LeftSidebar({ catalogs, selectedCats, onToggleCat, onSelectAllCats, onC
                     userSelect: 'none', fontWeight: 600,
                 }
             },
-                h('input', {
-                    type: 'checkbox', checked: !!deepMode, disabled: running,
+                h(Checkbox, {
+                    c, checked: !!deepMode, disabled: running,
                     onChange: e => onDeepMode(e.target.checked ? 1 : 0),
-                    style: { cursor: running ? 'default' : 'pointer' }
                 }),
                 h('span', null, ts.deepMode)),
 
@@ -400,36 +375,10 @@ function HistoryTable({ generations, bestMF, onRestore, showSide, c, t }) {
 
 // ── Top designs (Pareto) panel ──────────────────────────────────────────────────
 function TopDesignsPanel({ topDesigns, bestMF, onRestore, c, t }) {
-    const ts = t.structural;
-    if (!topDesigns.length) return null;
-    return h('div', { style: {
-        borderTop: `1px solid ${c.border}`, background: c.panel, flexShrink: 0,
-        maxHeight: 140, display: 'flex', flexDirection: 'column',
-    } },
-        h('div', { style: {
-            padding: '3px 8px', fontSize: 10, fontWeight: 700, color: c.textDim,
-            textTransform: 'uppercase', letterSpacing: '0.05em', borderBottom: `1px solid ${c.border}`, flexShrink: 0,
-        } }, ts.topDesigns),
-        h('div', { style: { flex: 1, overflow: 'auto' } },
-            h('table', { style: { borderCollapse: 'collapse', width: '100%' } },
-                h('tbody', null,
-                    topDesigns.map(gen => {
-                        const isBest = Math.abs(gen.mf - bestMF) < 1e-12;
-                        return h('tr', { key: gen.id },
-                            h('td', { style: { padding: '2px 8px', fontSize: 11, color: c.textDim, width: 56 } }, `#${gen.genNum}`),
-                            h('td', { style: { padding: '2px 8px', fontSize: 11, color: c.text, width: 60 } }, `${gen.layerCount} lyr`),
-                            h('td', { style: { padding: '2px 8px', fontSize: 11, fontWeight: isBest ? 700 : 400, color: isBest ? c.success : c.text } }, gen.mf.toFixed(6)),
-                            h('td', { style: { padding: '2px 8px' } },
-                                h('button', { onClick: () => onRestore(gen), style: {
-                                    padding: '1px 7px', fontSize: 10, cursor: 'pointer', background: c.panel,
-                                    color: c.text, border: `1px solid ${c.border}`, borderRadius: 2,
-                                } }, ts.restore))
-                        );
-                    })
-                )
-            )
-        )
-    );
+    return h(SharedTopDesignsPanel, {
+        topDesigns, bestMF, onRestore, c, genPrefix: '#',
+        labels: { topDesigns: t.structural.topDesigns, restore: t.structural.restore },
+    });
 }
 
 // ── Main window ───────────────────────────────────────────────────────────────
@@ -1189,12 +1138,7 @@ export function StructuralOptimizer({ c, theme, t }) {
                         textTransform: 'uppercase', letterSpacing: '0.05em', borderBottom: `1px solid ${c.border}`, flexShrink: 0,
                     } }, ts.trendTitle),
                     h('div', { style: { flex: 1, overflow: 'hidden' } },
-                        trend.length === 0
-                            ? h('div', { style: {
-                                height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center',
-                                color: c.textDim, fontSize: 12, fontStyle: 'italic',
-                            } }, ts.noTrendYet)
-                            : h(TrendPlot, { trend, c, theme, t })
+                        h(TrendPlot, { trend, c, theme, t })
                     )
                 ),
                 h('div', { style: { flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden' } },

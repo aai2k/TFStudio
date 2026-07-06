@@ -9,6 +9,7 @@ import {
 } from '../../utils/physics/spectrumTargets.js';
 import { makeOperand, makeConeSpec, coneAverageResult } from '../../utils/physics/optimizer.js';
 import { EvalModeBadge, ConeBadge } from '../SurfaceModeBar.js';
+import { Checkbox } from '../ui/Checkbox.js';
 import { spectralAxisProps, SPECTRAL_UNITS, SPECTRAL_UNIT_IDS } from '../../utils/physics/spectralAxis.js';
 
 function resolveMaterial(id) {
@@ -39,6 +40,16 @@ const CURVES = [
     { key: 'Rs', label: 'R (s)',   color: '#ef9a9a', dash: 'dot',   group: 's'   },
     { key: 'Tp', label: 'T (p)',   color: '#1565c0', dash: 'dash',  group: 'p'   },
     { key: 'Rp', label: 'R (p)',   color: '#c62828', dash: 'dash',  group: 'p'   },
+];
+
+const CURVE_BY_KEY = Object.fromEntries(CURVES.map(cv => [cv.key, cv]));
+
+// Curve toggles grouped by quantity (T / R / A), each holding its avg/s/p
+// members. A carries no resolved s/p split, so only its average is offered.
+const CURVE_GROUPS = [
+    { q: 'T', members: [{ pol: 'avg', key: 'T' }, { pol: 's', key: 'Ts' }, { pol: 'p', key: 'Tp' }] },
+    { q: 'R', members: [{ pol: 'avg', key: 'R' }, { pol: 's', key: 'Rs' }, { pol: 'p', key: 'Rp' }] },
+    { q: 'A', members: [{ pol: 'avg', key: 'A' }] },
 ];
 
 // Accent colour for a drawn target, keyed by its R/T/A family.
@@ -382,22 +393,30 @@ function NumInput({ value, onChange, min, max, step = 1, c, width = 60 }) {
     });
 }
 
-function CurveToggle({ curveKey, label, color, active, onToggle, c }) {
-    return h('button', {
-        onClick: () => onToggle(curveKey),
-        style: {
-            display: 'flex', alignItems: 'center', gap: 4,
-            padding: '2px 7px', cursor: 'pointer', outline: 'none',
-            border: `1px solid ${active ? color : c.border}`,
-            borderRadius: 3, backgroundColor: active ? color + '22' : 'transparent',
-            color: active ? c.text : c.textDim,
-            fontSize: 11, fontFamily: 'system-ui, -apple-system, sans-serif',
-            fontWeight: active ? 600 : 400
-        }
-    },
-        h('div', { style: { width: 14, height: 2, backgroundColor: active ? color : c.textDim, borderRadius: 1 } }),
-        label
-    );
+// One quantity's toggle cluster: a bold T/R/A label followed by compact avg/s/p
+// buttons, each tinted with that specific curve's plot colour. Denser than the
+// old one-button-per-curve row and keeps every polarisation of a quantity
+// together. `polLabels` supplies the localized avg / s / p captions.
+function CurveGroup({ group, showCurves, onToggle, c, polLabels }) {
+    return h('div', { style: { display: 'inline-flex', alignItems: 'center', gap: 3, flexShrink: 0 } },
+        h('span', { style: { fontSize: 11, fontWeight: 700, color: c.textDim, marginRight: 1 } }, group.q),
+        group.members.map(m => {
+            const cv = CURVE_BY_KEY[m.key];
+            const active = !!showCurves[m.key];
+            return h('button', {
+                key: m.key,
+                onClick: () => onToggle(m.key),
+                title: cv.label,
+                style: {
+                    padding: '2px 6px', cursor: 'pointer', outline: 'none',
+                    border: `1px solid ${active ? cv.color : c.border}`,
+                    borderRadius: 3, backgroundColor: active ? cv.color + '22' : 'transparent',
+                    color: active ? c.text : c.textDim,
+                    fontSize: 11, fontWeight: active ? 600 : 400,
+                    fontFamily: 'system-ui, -apple-system, sans-serif',
+                },
+            }, polLabels[m.pol]);
+        }));
 }
 
 // ── AOI chip list ─────────────────────────────────────────────────────────────
@@ -883,10 +902,7 @@ export function OpticalEvaluation({ c, theme, t }) {
                         fontSize: 11, cursor: 'pointer', color: c.text
                     }
                 },
-                    h('input', {
-                        type: 'checkbox', checked: autoCalc, onChange: (e) => setAutoCalc(e.target.checked),
-                        style: { cursor: 'pointer', accentColor: c.accent }
-                    }),
+                    h(Checkbox, { c, checked: autoCalc, onChange: (e) => setAutoCalc(e.target.checked) }),
                     oe.autoLabel
                 ),
                 !autoCalc && h('button', {
@@ -911,28 +927,13 @@ export function OpticalEvaluation({ c, theme, t }) {
             }
         },
             h(FieldLabel, { c }, oe.curves),
-            CURVES.filter(cv => cv.group === 'avg').map(cv =>
-                h(CurveToggle, {
-                    key: cv.key, curveKey: cv.key, label: cv.label, color: cv.color,
-                    active: showCurves[cv.key], onToggle: toggleCurve, c
-                })
-            ),
-            h(Divider, { c }),
-            h(FieldLabel, { c }, oe.polS),
-            CURVES.filter(cv => cv.group === 's').map(cv =>
-                h(CurveToggle, {
-                    key: cv.key, curveKey: cv.key, label: cv.label, color: cv.color,
-                    active: showCurves[cv.key], onToggle: toggleCurve, c
-                })
-            ),
-            h(Divider, { c }),
-            h(FieldLabel, { c }, oe.polP),
-            CURVES.filter(cv => cv.group === 'p').map(cv =>
-                h(CurveToggle, {
-                    key: cv.key, curveKey: cv.key, label: cv.label, color: cv.color,
-                    active: showCurves[cv.key], onToggle: toggleCurve, c
-                })
-            ),
+            CURVE_GROUPS.map((g, i) => [
+                i > 0 ? h(Divider, { c, key: g.q + '-div' }) : null,
+                h(CurveGroup, {
+                    key: g.q, group: g, showCurves, onToggle: toggleCurve, c,
+                    polLabels: { avg: oe.polAvg, s: oe.polSShort, p: oe.polPShort },
+                }),
+            ]),
 
             // Y-axis scaling (%) — Auto-fit or explicit min/max. Kept in ONE
             // nowrap group so the label + its controls always wrap as a unit
@@ -943,10 +944,7 @@ export function OpticalEvaluation({ c, theme, t }) {
                 h('label', {
                     style: { display: 'flex', alignItems: 'center', gap: 4, fontSize: 11, cursor: 'pointer', color: c.text, whiteSpace: 'nowrap' }
                 },
-                    h('input', {
-                        type: 'checkbox', checked: yAuto, onChange: (e) => setYAuto(e.target.checked),
-                        style: { cursor: 'pointer', accentColor: c.accent }
-                    }),
+                    h(Checkbox, { c, checked: yAuto, onChange: (e) => setYAuto(e.target.checked) }),
                     oe.yAuto
                 ),
                 !yAuto && h(NumInput, {
@@ -1091,10 +1089,7 @@ export function OpticalEvaluation({ c, theme, t }) {
                     style: { display: 'flex', alignItems: 'center', gap: 4, fontSize: 11, cursor: 'pointer', color: c.text, whiteSpace: 'nowrap' },
                     title: oe.snapTip
                 },
-                    h('input', {
-                        type: 'checkbox', checked: snapOn, onChange: (e) => setSnapOn(e.target.checked),
-                        style: { cursor: 'pointer', accentColor: c.accent }
-                    }),
+                    h(Checkbox, { c, checked: snapOn, onChange: (e) => setSnapOn(e.target.checked) }),
                     oe.snap
                 ),
                 snapOn && h(NumInput, {

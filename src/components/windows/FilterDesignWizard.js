@@ -36,6 +36,7 @@ import {
     buildFilterDesignObject, presampleForSearch,
 } from '../../utils/filter/filterDesignBuild.js';
 import { MaterialPicker } from '../ui/MaterialPicker.js';
+import { Checkbox } from '../ui/Checkbox.js';
 import { getCurrentLocale } from '../../constants/locales.js';
 
 const { createElement: h, useState, useMemo, useEffect, useRef, useCallback } = React;
@@ -94,7 +95,7 @@ function IntField({ label, value, min, max, onChange, c, hint }) {
 function CheckField({ label, value, onChange, c, hint }) {
     return h('label', { style: { ...fieldLabel(c), cursor: 'pointer' } },
         h('div', { style: { display: 'flex', alignItems: 'center', gap: 8 } },
-            h('input', { type: 'checkbox', checked: !!value, onChange: (e) => onChange(e.target.checked) }),
+            h(Checkbox, { c, checked: !!value, onChange: (e) => onChange(e.target.checked) }),
             h('span', {}, label)),
         hint && h('span', { style: { fontSize: 10.5, color: c.textDim, opacity: 0.85 } }, hint));
 }

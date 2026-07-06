@@ -20,6 +20,7 @@ import { getLocale } from '../../constants/locales.js';
 import { gatherDesignData } from '../../utils/report/reportData.js';
 import { composeReport } from '../../utils/report/template.js';
 import { REPORT_SECTIONS } from '../../utils/report/sections.js';
+import { Checkbox } from '../ui/Checkbox.js';
 
 const { createElement: h, useState, useEffect, useMemo, useCallback, useRef } = React;
 
@@ -63,8 +64,7 @@ function AoiListField({ label, thetas, onChange, c, fallback = 0, width = 150 })
 }
 function Check({ checked, onChange, label, c }) {
   return h('label', { style: { display: 'flex', alignItems: 'center', gap: 7, fontSize: 13, color: c.text, cursor: 'pointer' } },
-    h('input', { type: 'checkbox', checked: !!checked, onChange: (e) => onChange(e.target.checked),
-      style: { accentColor: c.accent, cursor: 'pointer' } }), label);
+    h(Checkbox, { c, checked: !!checked, onChange: (e) => onChange(e.target.checked) }), label);
 }
 function btn(c, primary) {
   return { padding: '8px 18px', fontSize: 13, fontWeight: primary ? 600 : 400,
