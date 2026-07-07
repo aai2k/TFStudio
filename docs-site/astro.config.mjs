@@ -7,7 +7,7 @@ import starlight from '@astrojs/starlight';
 // + `trailingSlash: 'always'` keeps every URL portable between the Vercel
 // demo (Phase 10.3) and the offline app shell.
 export default defineConfig({
-  site: 'https://tfstudio.example',
+  site: 'https://docs.tfstudio.xyz',
   base: '/',
   trailingSlash: 'always',
   integrations: [
