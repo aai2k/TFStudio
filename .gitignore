@@ -55,3 +55,4 @@ src/wasm/tmm_kernel.wasm
 build/app/
 build/icons/
 build/seed/
+refractiveindex-db
