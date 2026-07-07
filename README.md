@@ -5,7 +5,7 @@
 **An open-source design, analysis, and optimization environment for optical thin-film coatings.**
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](./LICENSE)
-![Version](https://img.shields.io/badge/version-1.0.0-informational)
+![Version](https://img.shields.io/badge/version-1.1.0-informational)
 ![Platform](https://img.shields.io/badge/platform-Windows%20%7C%20Linux%20%7C%20macOS-lightgrey)
 [![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.21196150.svg)](https://doi.org/10.5281/zenodo.21196150)
 
