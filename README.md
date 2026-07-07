@@ -9,6 +9,7 @@
 ![Platform](https://img.shields.io/badge/platform-Windows%20%7C%20Linux%20%7C%20macOS-lightgrey)
 [![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.21196150.svg)](https://doi.org/10.5281/zenodo.21196150)
 
+**[Website](https://tfstudio.xyz)** · **[Live demo](https://tfstudio.xyz/demo/)** · **[Documentation](https://docs.tfstudio.xyz)** · **[Download](../../releases)**
 
 </div>
 <img width="1776" height="1064" alt="Screenshot_5" src="https://github.com/user-attachments/assets/66373db5-aa9b-4075-b166-095885d84e49" />
@@ -71,6 +72,8 @@ All computations use double precision. The TMM engine agrees with independent re
 ### Download (recommended)
 Grab the latest installer or portable build from the [**Releases**](../../releases) page.
 
+Want to try it first? Run the **[live web demo](https://tfstudio.xyz/demo/)** — example designs and live spectra, right in the browser, no install.
+
 ### Build from source
 Requires [Node.js](https://nodejs.org) 18+ and git.
 
@@ -100,7 +103,7 @@ npm run build         # package a distributable (electron-builder)
 
 One-click install can be tried via build-release.ps1 script.
 
-User documentation is built into the app (Help menu) and lives in [`docs-site/`](./docs-site).
+User documentation is hosted at **[docs.tfstudio.xyz](https://docs.tfstudio.xyz)**, is built into the app (Help menu), and its source lives in [`docs-site/`](./docs-site).
 
 ## Citing TFStudio
 
