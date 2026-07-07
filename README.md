@@ -72,29 +72,33 @@ All computations use double precision. The TMM engine agrees with independent re
 Grab the latest installer or portable build from the [**Releases**](../../releases) page.
 
 ### Build from source
-Requires [Node.js](https://nodejs.org) 18+.
+Requires [Node.js](https://nodejs.org) 18+ and git.
 
 ```bash
-# --recursive pulls the refractiveindex.info database submodule
-git clone --recursive https://github.com/aai2k/TFStudio.git
+git clone https://github.com/aai2k/TFStudio.git
 cd TFStudio
 npm install
-
-# (optional) rebuild the WebAssembly kernel — requires the Emscripten SDK:
+# (optional but highly recommended) rebuild the WebAssembly kernel — requires the Emscripten SDK:
 npm run build:wasm
 
 npm start          # launch the app
 ```
 
+`npm run build` checks out the refractiveindex.info database submodule and installs
+the docs-site dependencies automatically. The database is large; to pull it upfront
+instead of on first build, clone with `--recursive`.
+
 Other useful scripts:
 
 ```bash
-npm test           # run the test suite
-npm run docs:dev   # preview the documentation site
-npm run build      # package a distributable (electron-builder)
+npm test              # run the test suite
+npm run docs:install  # install docs-site deps (needed before docs:dev)
+npm run docs:dev      # preview the documentation site
+npm run build         # package a distributable (electron-builder)
 ```
 
-## Documentation
+
+One-click install can be tried via build-release.ps1 script.
 
 User documentation is built into the app (Help menu) and lives in [`docs-site/`](./docs-site).
 

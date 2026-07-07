@@ -22,18 +22,54 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import url from 'node:url';
+import { execSync } from 'node:child_process';
 
 const ROOT = path.resolve(path.dirname(url.fileURLToPath(import.meta.url)), '..');
 const MATERIALS = path.join(ROOT, 'materials');
 const SEED = path.join(ROOT, 'build', 'seed');
-// RefractiveIndex.info local clone. Prefers TFS_RII_SOURCE (set by
-// build-release.ps1 when refractiveindex-db/database is checked into the
-// repo), falling back to the old external CLAUDE.md location.
-const RII_SRC = process.env.TFS_RII_SOURCE
-    || path.resolve(ROOT, '..', '..', 'reference', 'refractiveindex-db', 'database');
+
+// RefractiveIndex.info local clone, resolved in priority order:
+//   1. TFS_RII_SOURCE            — explicit override (set by build-release.ps1)
+//   2. refractiveindex-db/database — in-repo git submodule (default)
+//   3. ../../reference/...       — legacy external CLAUDE.md location (last resort)
+//
+// The submodule is declared in .gitmodules. A plain `git clone` (without
+// --recursive) leaves refractiveindex-db/ empty, so ensureSubmodule() checks it
+// out on demand. If no source is reachable, genRii() is a no-op that keeps the
+// committed build/seed/, so `npm run build` still succeeds.
+const RII_SUBMODULE = path.join(ROOT, 'refractiveindex-db', 'database');
+const RII_LEGACY = path.resolve(ROOT, '..', '..', 'reference', 'refractiveindex-db', 'database');
 
 function mkdirp(p) { fs.mkdirSync(p, { recursive: true }); }
 function rmrf(p) { if (fs.existsSync(p)) fs.rmSync(p, { recursive: true, force: true }); }
+function dirHasFiles(p) {
+    try { return fs.statSync(p).isDirectory() && fs.readdirSync(p).length > 0; }
+    catch { return false; }
+}
+
+// Check out the refractiveindex-db submodule if it is registered but empty
+// (fresh clone without --recursive). No-op outside a git working copy — e.g. a
+// source tarball with no .git — where the committed seed is used instead.
+function ensureSubmodule() {
+    if (dirHasFiles(RII_SUBMODULE)) return;                       // already present
+    if (!fs.existsSync(path.join(ROOT, '.git'))) return;          // not a git checkout
+    if (!fs.existsSync(path.join(ROOT, '.gitmodules'))) return;   // nothing to init
+    try {
+        console.log('  refractiveindex-db submodule not checked out — running git submodule update --init …');
+        execSync('git submodule update --init --recursive refractiveindex-db', {
+            cwd: ROOT, stdio: 'inherit',
+        });
+    } catch {
+        console.log('  ! git submodule update failed (git installed? network reachable?) — keeping committed seed.');
+    }
+}
+
+function resolveRiiSrc() {
+    if (process.env.TFS_RII_SOURCE) return process.env.TFS_RII_SOURCE;
+    ensureSubmodule();
+    if (dirHasFiles(RII_SUBMODULE)) return RII_SUBMODULE;
+    return RII_LEGACY;
+}
 
 // ── 1. Schott AGF catalog (auto-scanned from agf/ at runtime) ────────────────────
 function genAgf() {
@@ -57,15 +93,15 @@ function copyTree(src, dst) {
     return n;
 }
 
-function genRii(buildDate) {
-    if (!fs.existsSync(RII_SRC)) {
-        console.log(`  ! RII source not found at ${RII_SRC} — offline RII mirror NOT bundled.`);
+function genRii(buildDate, riiSrc) {
+    if (!dirHasFiles(riiSrc)) {
+        console.log(`  ! RII source not found at ${riiSrc} — offline RII mirror NOT bundled (committed seed kept).`);
         return;
     }
     const outDir = path.join(SEED, 'rii-db');
     rmrf(outDir); mkdirp(outDir);
-    fs.copyFileSync(path.join(RII_SRC, 'catalog-nk.yml'), path.join(outDir, 'catalog-nk.yml'));
-    const count = copyTree(path.join(RII_SRC, 'data'), path.join(outDir, 'data'));
+    fs.copyFileSync(path.join(riiSrc, 'catalog-nk.yml'), path.join(outDir, 'catalog-nk.yml'));
+    const count = copyTree(path.join(riiSrc, 'data'), path.join(outDir, 'data'));
     const manifest = { lastUpdated: buildDate, materialCount: count, source: 'bundled' };
     fs.writeFileSync(path.join(outDir, 'manifest.json'), JSON.stringify(manifest, null, 2), 'utf-8');
     console.log(`  RII mirror: ${count} material files, dated ${buildDate}`);
@@ -79,5 +115,5 @@ const buildDate = process.argv[2] || process.env.SEED_DATE || new Date().toISOSt
 console.log('Generating material seed → build/seed/');
 mkdirp(SEED);
 genAgf();
-genRii(buildDate);
+genRii(buildDate, resolveRiiSrc());
 console.log('Done.');
