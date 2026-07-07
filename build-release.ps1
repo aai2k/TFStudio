@@ -1,75 +1,67 @@
 # =============================================================================
-# build-release.ps1 -- ONE-COMMAND TFStudio release build.
+# build-release.ps1 -- ONE-CLICK TFStudio release build.
 #
-#   npm run dist        # full build (WASM + materials + docs + installers)
-#   npm run dist:fast   # reuse the existing tmm_kernel.wasm artifact
+# Clone the repo and run this. It provisions EVERYTHING a fresh checkout needs,
+# then packages the installers. No elevation / admin rights required.
 #
-# Flags (pass after the script, e.g. via npm run dist -- -NoPause):
-#   -SkipWasm   reuse the existing tmm_kernel.wasm artifact
-#   -NoPause    do not wait for a keypress at the end (for CI / automation)
-#   -Win7       also build the Windows 7/8.1 legacy installers (Electron 22).
-#               Without this flag, an interactive run ASKS whether to build them;
-#               an unattended run (-NoPause) skips them unless -Win7 is given.
+#   npm run dist              # full build (provision + WASM + materials + docs + installers)
+#   npm run dist -- -SkipWasm # reuse the committed tmm_kernel.wasm, skip emsdk
+#
+# What it auto-provisions on a fresh clone (each step is a no-op if already done):
+#   - the refractiveindex.info database  (git submodule -> refractiveindex-db\database)
+#   - root npm dependencies              (npm install)
+#   - the docs-site dependencies         (npm --prefix docs-site install)
+#   - Emscripten SDK + the WASM kernel   (src\wasm\build.ps1 -InstallEmsdk)
+#
+# Flags (pass after the script, e.g. npm run dist -- -NoPause):
+#   -SkipWasm     reuse the committed tmm_kernel.wasm; skip emsdk + emcc entirely
+#   -NoPause      do not wait for a keypress at the end (CI / automation)
+#   -Win7         also build the Windows 7/8.1 legacy installers (Electron 22).
+#                 Without it, an interactive run ASKS; an unattended run
+#                 (-NoPause) skips them unless -Win7 is given.
+#   -CleanCache   wipe electron-builder's winCodeSign cache before building
+#                 (opt-in recovery only; NOT done by default -- see note below).
 #
 # Produces, in dist\ :
 #   TFStudio Setup <ver>.exe          NSIS installer (Win10/11, Electron 39)
 #   TFStudio-<ver>-Portable.exe       portable single-exe (for locked-down fab PCs)
 #   TFStudio-<ver>-Win7-Setup.exe     legacy installer (Win7 SP1/8/8.1, Electron 22)*
-#   TFStudio-<ver>-Win7-Portable.exe  legacy portable*                              *
+#   TFStudio-<ver>-Win7-Portable.exe  legacy portable*
 #     * only when -Win7 is passed or confirmed at the prompt
 #
-# What it bundles (handled by package.json `build` config + extraResources):
-#   - the offline material seed: Schott AGF, coating/substrate catalogs, and the
-#     RefractiveIndex.info offline mirror  (npm run seed -> build\seed\)
-#   - the offline help site                (npm run docs:build -> docs-site\dist\)
-#   - the WASM TMM kernel                  (this script -> src\wasm\tmm_kernel.wasm)
+# The app is intentionally UNSIGNED: no certificate is configured, and
+# CSC_IDENTITY_AUTO_DISCOVERY=false (set by npm run build) disables auto-signing.
+# electron-builder still downloads its winCodeSign package on Windows because
+# signtool ships inside it; that package is extracted ONCE into
+# %LOCALAPPDATA%\electron-builder\Cache and reused. This script no longer deletes
+# that cache, which is what previously forced a UAC/admin relaunch (the cached
+# darwin symlinks only need SeCreateSymbolicLinkPrivilege at extraction time).
 #
 # NOTE: keep this file ASCII-only. PowerShell 5.1 reads -File scripts as the
 # system codepage, so non-ASCII bytes (em dashes, etc.) break string parsing.
 # =============================================================================
 
-param([switch]$SkipWasm, [switch]$NoPause, [switch]$Win7)
+param(
+    [switch]$SkipWasm,
+    [switch]$NoPause,
+    [switch]$Win7,
+    [switch]$CleanCache
+)
 
 $ErrorActionPreference = 'Stop'
 $proj = $PSScriptRoot
 Set-Location $proj
 
 function Section($msg) { Write-Host "`n=== $msg ===" -ForegroundColor Cyan }
-
-# -----------------------------------------------------------------------------
-# electron-builder's winCodeSign package contains symlinked darwin .dylib files.
-# 7za.exe (the bundled 7-Zip binary) extracts them for any target platform,
-# including win32-only builds, and it does not use the newer unprivileged-
-# symlink flag that PowerShell's own New-Item respects under Developer Mode.
-# It always needs the raw SeCreateSymbolicLinkPrivilege, which only an
-# elevated (UAC) token carries. Testing symlink creation via PowerShell is NOT
-# a reliable proxy for this -- it can succeed under Developer Mode while
-# 7za.exe still fails. So gate on elevation directly: if not elevated,
-# relaunch under UAC before starting the build.
-# -----------------------------------------------------------------------------
-$isAdmin = ([Security.Principal.WindowsPrincipal] `
-            [Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole( `
-            [Security.Principal.WindowsBuiltInRole]::Administrator)
-
-if (-not $isAdmin) {
-    Write-Host "Relaunching elevated (required for electron-builder's winCodeSign extraction)..." -ForegroundColor Yellow
-    $passArgs = @()
-    if ($SkipWasm) { $passArgs += '-SkipWasm' }
-    if ($NoPause)  { $passArgs += '-NoPause' }
-    if ($Win7)     { $passArgs += '-Win7' }
-    $psArgs = @('-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', $MyInvocation.MyCommand.Path) + $passArgs
-    $proc = Start-Process -FilePath 'powershell.exe' -ArgumentList $psArgs -Verb RunAs -Wait -PassThru
-    exit $proc.ExitCode
-}
+function Have-Cmd([string]$name) { [bool](Get-Command $name -ErrorAction SilentlyContinue) }
 
 # -----------------------------------------------------------------------------
 # Decide UP FRONT whether to also build the Windows 7/8.1 legacy installers
-# (Electron 22), so the user can answer once and walk away rather than babysit
-# the multi-minute main build for a prompt at the end.
+# (Electron 22), so the user can answer once and walk away.
 #   -Win7     -> yes, no prompt
 #   -NoPause  -> unattended; skip unless -Win7 is also given
 #   neither   -> ask interactively (default No)
-# The actual legacy packaging happens later, at step 2b.
+# The actual legacy packaging happens later, at step 5.
 # -----------------------------------------------------------------------------
 $doWin7 = $false
 if ($Win7) {
@@ -86,10 +78,8 @@ if ($doWin7) {
 
 # -----------------------------------------------------------------------------
 # Run a long child command, streaming its output live AND printing a heartbeat
-# during silent stretches (the electron-builder NSIS / LZMA compression emits no
-# progress for minutes). The heartbeat reports elapsed time and the size of the
-# installer payload archive as it grows, so the build never *looks* hung.
-# Returns the child process exit code.
+# during silent stretches (electron-builder's NSIS / LZMA compression emits no
+# progress for minutes). Returns the child process exit code.
 # -----------------------------------------------------------------------------
 function Invoke-WithProgress {
     param(
@@ -172,17 +162,54 @@ function Invoke-WithProgress {
 
 $exitCode = 0
 try {
-    # --- 0. Dependency preflight ---------------------------------------------
-    # Ensure node_modules is present and complete up front: if it's missing, or a
-    # key build-only dep isn't there, run `npm install` once. (npm is a no-op when
-    # everything is current.)
-    Section "Checking build dependencies"
+    # --- 0. Preflight: required tools ----------------------------------------
+    Section "Preflight: required tools"
+    foreach ($t in @('node', 'npm')) {
+        if (-not (Have-Cmd $t)) {
+            throw "$t is not on PATH. Install Node.js 18+ from https://nodejs.org and re-run."
+        }
+    }
+    Write-Host ("node {0} / npm {1}" -f (& node -v), (& npm -v)) -ForegroundColor Green
+    $haveGit = Have-Cmd 'git'
+    if (-not $haveGit) {
+        Write-Warning "git not found on PATH. The RII submodule and emsdk auto-install cannot run; the committed seed and prebuilt WASM will be used instead."
+    }
+
+    # --- 1. RII database submodule -------------------------------------------
+    # Registered in .gitmodules at refractiveindex-db\database. A plain clone
+    # (without --recursive) leaves it empty, so check it out here. No-op outside
+    # a git working copy (e.g. a source tarball), where the committed seed is used.
+    Section "Provisioning: refractiveindex.info database (submodule)"
+    $riiRepoPath = Join-Path $proj 'refractiveindex-db\database'
+    $riiPresent = (Test-Path $riiRepoPath) -and `
+                  ((Get-ChildItem $riiRepoPath -ErrorAction SilentlyContinue | Measure-Object).Count -gt 0)
+    if ($riiPresent) {
+        Write-Host "RII database already checked out." -ForegroundColor Green
+    } elseif ($haveGit -and (Test-Path (Join-Path $proj '.git')) -and (Test-Path (Join-Path $proj '.gitmodules'))) {
+        Write-Host "Checking out refractiveindex-db submodule (large, one-time download)..." -ForegroundColor Yellow
+        & git submodule update --init --recursive
+        if ($LASTEXITCODE -ne 0) {
+            Write-Warning "git submodule update failed. RII mirror will fall back to the committed seed."
+        } else {
+            $riiPresent = Test-Path $riiRepoPath
+        }
+    } else {
+        Write-Warning "Cannot check out RII submodule (not a git working copy, or git missing). Using committed seed."
+    }
+    # Point the seed generator at the in-repo mirror when it is present.
+    if (Test-Path $riiRepoPath) {
+        $env:TFS_RII_SOURCE = $riiRepoPath
+        Write-Host "RII offline mirror: $riiRepoPath" -ForegroundColor Green
+    }
+
+    # --- 2. Root npm dependencies --------------------------------------------
+    Section "Provisioning: root npm dependencies"
     $needInstall = $false
     if (-not (Test-Path (Join-Path $proj 'node_modules'))) {
         Write-Host "node_modules missing -> installing." -ForegroundColor Yellow
         $needInstall = $true
     } else {
-        foreach ($dep in @('electron-builder', 'esbuild')) {
+        foreach ($dep in @('electron-builder', 'esbuild', 'cross-env')) {
             if (-not (Test-Path (Join-Path $proj "node_modules\$dep"))) {
                 Write-Host "Dependency '$dep' missing -> running npm install." -ForegroundColor Yellow
                 $needInstall = $true
@@ -193,69 +220,70 @@ try {
         & npm install
         if ($LASTEXITCODE -ne 0) { throw "npm install failed (exit $LASTEXITCODE)." }
     } else {
-        Write-Host "All build dependencies present." -ForegroundColor Green
+        Write-Host "Root dependencies present." -ForegroundColor Green
     }
 
-    $winCodeSignCache = Join-Path $env:LOCALAPPDATA 'electron-builder\Cache\winCodeSign'
-    if (Test-Path $winCodeSignCache) {
-        Remove-Item $winCodeSignCache -Recurse -Force -ErrorAction SilentlyContinue
-    }
-
-    # RII offline mirror: prefer the copy checked into the repo
-    # (refractiveindex-db\database) over the old external X:\reference path.
-    # tools/gen_material_seed.mjs must read TFS_RII_SOURCE if set and use it
-    # in place of its hardcoded path.
-    $riiRepoPath = Join-Path $proj 'refractiveindex-db\database'
-    if (Test-Path $riiRepoPath) {
-        $env:TFS_RII_SOURCE = $riiRepoPath
-        Write-Host "RII offline mirror: using repo copy at $riiRepoPath" -ForegroundColor Green
+    # --- 3. docs-site dependencies -------------------------------------------
+    # The docs site is a nested npm package (Astro); the root install does not
+    # touch it. Its build needs the local astro binary.
+    Section "Provisioning: docs-site dependencies"
+    if (Test-Path (Join-Path $proj 'docs-site\node_modules\astro')) {
+        Write-Host "docs-site dependencies present." -ForegroundColor Green
     } else {
-        Write-Warning "refractiveindex-db\database not found in repo -- RII mirror will be skipped unless gen_material_seed.mjs finds it elsewhere."
+        Write-Host "Installing docs-site dependencies (astro)..." -ForegroundColor Yellow
+        & npm --prefix docs-site install
+        if ($LASTEXITCODE -ne 0) { throw "docs-site npm install failed (exit $LASTEXITCODE)." }
     }
 
+    # --- 4. WASM TMM kernel (+ emsdk auto-install) ---------------------------
+    # src\wasm\build.ps1 discovers emcc; with -InstallEmsdk it git-clones and
+    # activates the Emscripten SDK into %USERPROFILE%\emsdk on first run. The
+    # committed tmm_kernel.wasm is the fallback if emcc/emsdk cannot be provided,
+    # so the packaging step below still succeeds either way.
     $wasmPath = Join-Path $proj 'src\wasm\tmm_kernel.wasm'
-
-    # --- 1. WASM TMM kernel --------------------------------------------------
     if ($SkipWasm) {
-        Section "WASM kernel - SKIPPED (using existing artifact)"
+        Section "WASM kernel - SKIPPED (using committed artifact)"
     } else {
-        Section "Building WASM TMM kernel"
-        # Run the dedicated build in a child process so its `exit` can't abort us.
-        & powershell -NoProfile -ExecutionPolicy Bypass -File (Join-Path $proj 'src\wasm\build.ps1')
-        $wasmExit = $LASTEXITCODE
-        if ($wasmExit -ne 0) {
+        Section "Building WASM TMM kernel (auto-installs emsdk if needed)"
+        $wasmScript = Join-Path $proj 'src\wasm\build.ps1'
+        $wasmArgs = @('-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', $wasmScript)
+        if ($haveGit) { $wasmArgs += '-InstallEmsdk' }  # allow the one-time toolchain clone
+        & powershell @wasmArgs
+        if ($LASTEXITCODE -ne 0) {
             if (Test-Path $wasmPath) {
-                Write-Warning "WASM build failed (emsdk missing?). Reusing existing tmm_kernel.wasm."
+                Write-Warning "WASM build failed (emsdk unavailable?). Reusing committed tmm_kernel.wasm."
             } else {
-                Write-Warning "WASM build failed and no prebuilt artifact exists."
-                Write-Warning "The app will still run, falling back to the (slower) pure-JS TMM."
+                Write-Warning "WASM build failed and no prebuilt artifact exists. The app still runs via the slower pure-JS TMM."
             }
         }
     }
-
     if (Test-Path $wasmPath) {
         Write-Host ("WASM kernel present: {0:N0} bytes" -f (Get-Item $wasmPath).Length) -ForegroundColor Green
     } else {
         Write-Warning "No WASM kernel will be bundled (JS-TMM fallback at runtime)."
     }
 
-    # --- 2. Materials seed + docs site + package (npm run build) --------------
-    # package.json `build` = npm run seed && npm run docs:build &&
-    #                        npm run build:renderer && electron-builder
-    # The electron-builder NSIS / LZMA stage is silent for minutes, so run the
-    # whole chain through the progress wrapper (heartbeat fills the silence).
+    # --- 5. Package: seed + docs + renderer + installers (npm run build) ------
+    # Optional cache wipe is OPT-IN only (-CleanCache). Wiping it forces a
+    # re-extraction of winCodeSign, whose darwin symlinks need elevation -- which
+    # is exactly what we are avoiding, so it stays off by default.
+    if ($CleanCache) {
+        $winCodeSignCache = Join-Path $env:LOCALAPPDATA 'electron-builder\Cache\winCodeSign'
+        if (Test-Path $winCodeSignCache) {
+            Write-Host "Clearing winCodeSign cache (-CleanCache)..." -ForegroundColor Yellow
+            Remove-Item $winCodeSignCache -Recurse -Force -ErrorAction SilentlyContinue
+        }
+    }
+
     Section "Seeding materials, building docs site, packaging installers"
     $dist = Join-Path $proj 'dist'
     $buildExit = Invoke-WithProgress -Command 'npm run build' -WatchDir $dist
     if ($buildExit -ne 0) { throw "npm run build failed (exit $buildExit)." }
 
-    # --- 2b. Windows 7 / 8.1 legacy installers (Electron 22) ------------------
-    # Electron 39 (the main build above) requires Windows 10+. For labs whose PCs
-    # still run Windows 7 (e.g. older lab PCs), produce a SEPARATE pair of
-    # installers packaged against Electron 22 -- the last line that runs on Win7
-    # SP1/8/8.1. Only the electron-builder step is rerun here: the seed, docs and
-    # renderer built in step 2 are reused as-is (no source differences).
-    # ($doWin7 was decided up front, before the main build.)
+    # --- 5b. Windows 7 / 8.1 legacy installers (Electron 22) -----------------
+    # Electron 39 (the main build) needs Windows 10+. Produce a SEPARATE pair of
+    # installers packaged against Electron 22 for older lab PCs. The seed, docs,
+    # and renderer from step 5 are reused as-is (no source differences).
     if ($doWin7) {
         Section "Building Windows 7 legacy installers (Electron 22)"
         Write-Host "  (first run downloads the Electron 22 binary - one time)" -ForegroundColor DarkGray
@@ -274,7 +302,7 @@ try {
         Section "Windows 7 legacy build - SKIPPED"
     }
 
-    # --- 3. Report -----------------------------------------------------------
+    # --- 6. Report -----------------------------------------------------------
     Section "Build complete - artifacts in dist\"
     if (Test-Path $dist) {
         Get-ChildItem $dist -Filter *.exe |
