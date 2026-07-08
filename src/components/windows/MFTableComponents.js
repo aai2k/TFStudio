@@ -61,29 +61,41 @@ const EDITABLE_KEYS = ['enabled', 'type', 'lambdaStart', 'lambdaEnd', 'aoi', 'po
 // Column-header labels adapt to the focused operand so the user always knows
 // what the active row's columns 4/5 actually mean. Returns { lambdaStart,
 // lambdaEnd } overrides for the header row; other columns keep their defaults.
+// Ordered predicate → label pair; first match wins (type categories are
+// mutually exclusive, so order only fixes the fallthrough).
+const _HEADER_LABELS = [
+    [op => isBlank(op.type),          { lambdaStart: 'Comment',  lambdaEnd: '—' }],
+    [op => isTotalThickness(op.type), { lambdaStart: 'Cmp',      lambdaEnd: '—' }],
+    [op => isConstraint(op.type),     { lambdaStart: 'Layer 1',  lambdaEnd: 'Layer 2 (range)' }],
+    [op => isIntegral(op.type),       { lambdaStart: 'Integral', lambdaEnd: '—' }],
+    [op => isArgwave(op.type),        { lambdaStart: 'λ Start',  lambdaEnd: 'λ End' }],
+    [op => isMathSingleRef(op.type),  { lambdaStart: 'Ref Op#',  lambdaEnd: '—' }],
+    [op => isMathPairRef(op.type),    { lambdaStart: 'Ref Op#1', lambdaEnd: 'Ref Op#2' }],
+    [op => isMinmax(op.type) || RANGE_AVG_TYPES.has(op.type) || RANGE_TARGET_TYPES.has(op.type),
+                                      { lambdaStart: 'λ Start',  lambdaEnd: 'λ End' }],
+];
 function dynamicHeaderLabels(op) {
     if (!op || isDmfs(op.type)) return { lambdaStart: 'λ / Layer', lambdaEnd: 'End *' };
-    if (isBlank(op.type))       return { lambdaStart: 'Comment',   lambdaEnd: '—' };
-    if (isTotalThickness(op.type)) return { lambdaStart: 'Cmp',    lambdaEnd: '—' };
-    if (isConstraint(op.type))  return { lambdaStart: 'Layer 1',   lambdaEnd: 'Layer 2 (range)' };
-    if (isIntegral(op.type))    return { lambdaStart: 'Integral',  lambdaEnd: '—' };
-    if (isArgwave(op.type))     return { lambdaStart: 'λ Start',   lambdaEnd: 'λ End' };
-    if (isMathSingleRef(op.type)) return { lambdaStart: 'Ref Op#', lambdaEnd: '—' };
-    if (isMathPairRef(op.type))   return { lambdaStart: 'Ref Op#1', lambdaEnd: 'Ref Op#2' };
-    if (isMinmax(op.type) || RANGE_AVG_TYPES.has(op.type) || RANGE_TARGET_TYPES.has(op.type))
-                                return { lambdaStart: 'λ Start',   lambdaEnd: 'λ End' };
-    return                             { lambdaStart: 'λ',         lambdaEnd: '—' };
+    const hit = _HEADER_LABELS.find(([test]) => test(op));
+    return hit ? hit[1] : { lambdaStart: 'λ', lambdaEnd: '—' };
 }
 
+// Which columns are editable for a given operand type. DMFS/BLNK expose only the
+// enabled checkbox (comments are edited via the row's text cell); the other
+// categories differ in whether they use λStart as a picker, expose AOI/pol, etc.
+const _EDITABLE_COLS = [
+    [op => isDmfs(op.type) || isBlank(op.type), ['enabled']],
+    [op => isTotalThickness(op.type), ['enabled', 'type', 'lambdaStart', 'target', 'weight']],
+    [op => isConstraint(op.type),     ['enabled', 'type', 'lambdaStart', 'lambdaEnd', 'target', 'weight']],
+    [op => isIntegral(op.type),       ['enabled', 'type', 'lambdaStart', 'aoi', 'pol', 'target', 'weight']],
+    [op => isArgwave(op.type),        ['enabled', 'type', 'lambdaStart', 'lambdaEnd', 'aoi', 'pol', 'target', 'weight']],
+    [op => isMathSingleRef(op.type),  ['enabled', 'type', 'lambdaStart', 'target', 'weight']],
+    [op => isMathPairRef(op.type),    ['enabled', 'type', 'lambdaStart', 'lambdaEnd', 'target', 'weight']],
+];
 function editableColsForRow(op) {
-    if (isDmfs(op.type))       return ['enabled'];
-    if (isBlank(op.type))      return ['enabled'];   // comment edited via the row's text cell
-    if (isTotalThickness(op.type)) return ['enabled', 'type', 'lambdaStart', 'target', 'weight']; // lambdaStart = cmp picker; nm target
-    if (isConstraint(op.type)) return ['enabled', 'type', 'lambdaStart', 'lambdaEnd', 'target', 'weight'];
-    if (isIntegral(op.type))   return ['enabled', 'type', 'lambdaStart', 'aoi', 'pol', 'target', 'weight']; // λStart = preset picker; λEnd is read-only
-    if (isArgwave(op.type))    return ['enabled', 'type', 'lambdaStart', 'lambdaEnd', 'aoi', 'pol', 'target', 'weight']; // λ band + λ-of-extremum target
-    if (isMathSingleRef(op.type)) return ['enabled', 'type', 'lambdaStart', 'target', 'weight']; // λStart cell holds the ref picker
-    if (isMathPairRef(op.type))   return ['enabled', 'type', 'lambdaStart', 'lambdaEnd', 'target', 'weight']; // λStart/λEnd hold ref1/ref2
+    const hit = _EDITABLE_COLS.find(([test]) => test(op));
+    if (hit) return hit[1];
+    // Optical/range/target/minmax: all keys, dropping λEnd unless it's a band type.
     return EDITABLE_KEYS.filter(k => k !== 'lambdaEnd' || RANGE_AVG_TYPES.has(op.type) || RANGE_TARGET_TYPES.has(op.type) || isMinmax(op.type));
 }
 
@@ -123,6 +135,13 @@ function typeOptionEls(t, c) {
 // math-with-non-optical-ref are raw (nm or dimensionless). These helpers derive
 // the per-row units, residual and display strings from that single distinction.
 
+// True for operand types that occupy a wavelength BAND (λStart→λEnd) rather than
+// a single λ: band averages, per-λ targets, worst-case, inequalities, argwave.
+function _isRangeType(type) {
+    if (RANGE_AVG_TYPES.has(type) || RANGE_TARGET_TYPES.has(type)) return true;
+    return isMinmax(type) || isInequality(type) || isArgwave(type);
+}
+
 function rowDisplayMeta(op, rawCur, mthPct) {
     const isCon = isConstraint(op.type);
     const isTT  = isTotalThickness(op.type); // value & target in nm
@@ -135,8 +154,7 @@ function rowDisplayMeta(op, rawCur, mthPct) {
     // Ramp `current` is the RMS deviation from the target line — the residual is
     // the value itself; other rows use current − target.
     const rawDelta = cur != null ? (isRampRow ? cur : cur - tgt) : null;
-    const isRange = RANGE_AVG_TYPES.has(op.type) || RANGE_TARGET_TYPES.has(op.type) || isMinmax(op.type) || isInequality(op.type) || isArgwave(op.type);
-    return { isCon, isTT, isArg, isMth, mthPct, useFraction, cur, tgt, rawDelta, isRampRow, isRange };
+    return { isCon, isTT, isArg, isMth, mthPct, useFraction, cur, tgt, rawDelta, isRampRow, isRange: _isRangeType(op.type) };
 }
 
 // One-sided satisfaction color: green on the satisfied side of target, red else.
@@ -579,6 +597,61 @@ function MFDataRow(props) {
         }));
 }
 
+// ── Table keyboard shortcuts ──────────────────────────────────────────────────
+// Normalize a keydown event to a stable action key. Ctrl+C/V match lowercase
+// only (Shift changes the produced character, so Ctrl+Shift+C is intentionally
+// inert); Ctrl+D duplicates regardless of case but not with Shift; F2 behaves
+// as Enter. Everything else passes through by its `key` name.
+function keyComboOf(e) {
+    const k = e.key;
+    if (e.ctrlKey && !e.shiftKey && (k === 'd' || k === 'D')) return 'Ctrl+d';
+    if (e.ctrlKey && k === 'c') return 'Ctrl+c';
+    if (e.ctrlKey && k === 'v') return 'Ctrl+v';
+    if (k === 'F2') return 'Enter';
+    return k;
+}
+
+// action-key → handler. `x` bundles the event, the resolved focused cell
+// (rowIdx/colKey), the operand list and the table's mutators/callbacks. Handlers
+// live at module scope so their branches don't roll into MFTable's complexity.
+const MFTABLE_KEY_ACTIONS = {
+    Delete: (x) => {
+        if (x.selIds.size > 0) { x.e.preventDefault(); x.onDelete([...x.selIds]); x.setSelIds(new Set()); x.setFocusCell(null); }
+    },
+    // Ins / Shift+Ins insert a near-duplicate row above/below the focused row
+    // (copying type/λ/AOI/pol so the user only retargets).
+    Insert: (x) => {
+        x.e.preventDefault();
+        if (x.onInsertAt) x.onInsertAt(x.e.shiftKey ? x.rowIdx + 1 : x.rowIdx, x.operands[x.rowIdx] || null);
+    },
+    // Ctrl+D duplicates the current selection (or the focused row) below.
+    'Ctrl+d': (x) => {
+        x.e.preventDefault();
+        if (!x.onDuplicate) return;
+        const ids = x.selIds.size > 0 ? [...x.selIds] : (x.operands[x.rowIdx] ? [x.operands[x.rowIdx].id] : []);
+        if (ids.length) x.onDuplicate(ids);
+    },
+    ArrowDown:  (x) => { x.e.preventDefault(); x.focusAt(Math.min(x.rowIdx + 1, x.operands.length - 1), x.colKey); },
+    ArrowUp:    (x) => { x.e.preventDefault(); x.focusAt(Math.max(x.rowIdx - 1, 0), x.colKey); },
+    ArrowRight: (x) => { x.e.preventDefault(); x.navigate(x.rowIdx, x.colKey, 'right'); },
+    ArrowLeft:  (x) => { x.e.preventDefault(); x.navigate(x.rowIdx, x.colKey, 'left'); },
+    Enter:      (x) => { x.e.preventDefault(); x.startEdit(x.rowIdx, x.colKey, null); },
+    Tab:        (x) => { x.e.preventDefault(); x.navigate(x.rowIdx, x.colKey, x.e.shiftKey ? 'left' : 'right'); },
+    'Ctrl+c':   (x) => { x.e.preventDefault(); copySelectedOperands(x.operands, x.selIds); },
+    'Ctrl+v':   (x) => { x.e.preventDefault(); pasteOperands(x.onAdd); },
+};
+
+// Pick the operand whose row drives the adaptive header labels: the focused
+// cell's row wins, then a single-row selection, else the first operand.
+function pickHeaderOp(operands, focusCell, primarySel) {
+    if (focusCell && operands[focusCell.rowIdx]) return operands[focusCell.rowIdx];
+    if (primarySel) {
+        const sel = operands.find(o => o.id === primarySel);
+        if (sel) return sel;
+    }
+    return operands[0] || null;
+}
+
 // ── Operand table with toolbar ────────────────────────────────────────────────
 
 export function MFTable(props) {
@@ -746,43 +819,19 @@ export function MFTable(props) {
 
     const onKeyDown = useCallback((e) => {
         if (editCell) return; // CellInput handles its own keys
+        if (!focusCell && selIds.size === 0) return;
 
-        const fc = focusCell;
-        if (!fc && selIds.size === 0) return;
-
-        const rowIdx = fc?.rowIdx ?? operands.findIndex(op => selIds.has(op.id));
+        const rowIdx = focusCell?.rowIdx ?? operands.findIndex(op => selIds.has(op.id));
         if (rowIdx < 0) return;
-        const colKey = fc?.colKey ?? 'type';
+        const colKey = focusCell?.colKey ?? 'type';
 
-        if (e.key === 'Delete') {
-            if (selIds.size > 0) { e.preventDefault(); onDelete([...selIds]); setSelIds(new Set()); setFocusCell(null); }
+        const action = MFTABLE_KEY_ACTIONS[keyComboOf(e)];
+        if (action) {
+            action({ e, rowIdx, colKey, operands, selIds, setSelIds, setFocusCell,
+                     onDelete, onInsertAt, onDuplicate, onAdd, focusAt, navigate, startEdit });
             return;
         }
-        // Ins / Shift+Ins insert a near-duplicate row above/below the focused row
-        // (copying type/λ/AOI/pol so the user only retargets); Ctrl+D duplicates
-        // the current selection below.
-        if (e.key === 'Insert') {
-            e.preventDefault();
-            if (!onInsertAt) return;
-            onInsertAt(e.shiftKey ? rowIdx + 1 : rowIdx, operands[rowIdx] || null);
-            return;
-        }
-        if (e.ctrlKey && !e.shiftKey && (e.key === 'd' || e.key === 'D')) {
-            e.preventDefault();
-            if (!onDuplicate) return;
-            const ids = selIds.size > 0 ? [...selIds] : (operands[rowIdx] ? [operands[rowIdx].id] : []);
-            if (ids.length) onDuplicate(ids);
-            return;
-        }
-        if (e.key === 'ArrowDown')  { e.preventDefault(); focusAt(Math.min(rowIdx + 1, operands.length - 1), colKey); return; }
-        if (e.key === 'ArrowUp')    { e.preventDefault(); focusAt(Math.max(rowIdx - 1, 0), colKey); return; }
-        if (e.key === 'ArrowRight') { e.preventDefault(); navigate(rowIdx, colKey, 'right'); return; }
-        if (e.key === 'ArrowLeft')  { e.preventDefault(); navigate(rowIdx, colKey, 'left'); return; }
-        if (e.key === 'Enter' || e.key === 'F2') { e.preventDefault(); startEdit(rowIdx, colKey, null); return; }
-        if (e.key === 'Tab') { e.preventDefault(); navigate(rowIdx, colKey, e.shiftKey ? 'left' : 'right'); return; }
-        if (e.ctrlKey && e.key === 'c') { e.preventDefault(); copySelectedOperands(operands, selIds); return; }
-        if (e.ctrlKey && e.key === 'v') { e.preventDefault(); pasteOperands(onAdd); return; }
-
+        // Any other printable character starts editing the focused cell with it.
         if (!e.ctrlKey && !e.altKey && !e.metaKey && e.key.length === 1) {
             startEdit(rowIdx, colKey, e.key);
         }
@@ -798,13 +847,7 @@ export function MFTable(props) {
     const primarySel = selIds.size === 1 ? [...selIds][0] : null;
     const hasSelection = selIds.size > 0;
 
-    // Pick the operand whose row drives the header labels: focused cell wins,
-    // then a single-selection, else the first operand.
-    const headerOp = (focusCell && operands[focusCell.rowIdx])
-        || (primarySel && operands.find(o => o.id === primarySel))
-        || operands[0]
-        || null;
-    const dyn = dynamicHeaderLabels(headerOp);
+    const dyn = dynamicHeaderLabels(pickHeaderOp(operands, focusCell, primarySel));
 
     const renderRow = (op, rowIdx) => {
         const rowSel = selIds.has(op.id);
