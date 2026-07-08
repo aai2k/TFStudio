@@ -225,19 +225,22 @@ function copySelectedOperands(operands, selIds) {
     navigator.clipboard?.writeText(tsv).catch(() => {});
 }
 
-// Paste TSV rows as new operands. Mirrors the copy scaling (fractional types ÷100,
-// nm/dimensionless stay raw). Math-ref links, integral source/detector, cmp and
-// ramp ends are not carried by this flat TSV — use Ctrl+D to clone those.
-function pasteOperands(onAdd) {
+// Paste TSV rows as new operands, inserted starting at `atIndex` (after the
+// focused/selected row) and in clipboard order. Mirrors the copy scaling
+// (fractional types ÷100, nm/dimensionless stay raw). Math-ref links, integral
+// source/detector, cmp and ramp ends are not carried by this flat TSV — use
+// Ctrl+D to clone those.
+function pasteOperands(onAdd, atIndex) {
     navigator.clipboard?.readText().then(text => {
-        text.trim().split(/\r?\n/).forEach(line => {
+        const items = [];
+        text.replace(/\s+$/, '').split(/\r?\n/).forEach(line => {
+            if (!line.trim()) return;
             const parts = line.split('\t');
-            if (parts.length < 1) return;
             const [type, lsStr, leStr, aoiStr, pol, tgtStr, wStr] = parts;
             const ls = parseFloat(lsStr), le = parseFloat(leStr);
             const aoi = parseFloat(aoiStr), tgt = parseFloat(tgtStr), w = parseFloat(wStr);
             const safeType = OPERAND_TYPES.includes(type) ? type : 'RAV';
-            onAdd({
+            items.push({
                 type:        safeType,
                 lambdaStart: isFinite(ls)  ? ls  : 400,
                 lambdaEnd:   isFinite(le)  ? le  : 700,
@@ -247,6 +250,7 @@ function pasteOperands(onAdd) {
                 weight:      isFinite(w)   ? w   : 1,
             });
         });
+        if (items.length) onAdd(items, atIndex);   // one batched insert (paste order preserved)
     }).catch(() => {});
 }
 
@@ -312,7 +316,7 @@ function CellSelect({ value, onChange, title, color, children }) {
 function DmfsRow({ op, rowIdx, rowSel, c, onEdit, selectRow }) {
     return h('tr', {
         onClick: e => selectRow(op.id, e.shiftKey, e.ctrlKey || e.metaKey),
-        style: { cursor: 'default', backgroundColor: rowSel ? c.accent + '28' : c.accent + '12' }
+        style: { cursor: 'default', backgroundColor: rowSel ? c.accent + '66' : c.accent + '12' }
     },
         h('td', { style: { width: COLS[0].w, padding: '0 4px', textAlign: 'center', color: c.textDim, userSelect: 'none', fontSize: 11 } }, rowIdx + 1),
         h('td', {
@@ -331,7 +335,7 @@ function DmfsRow({ op, rowIdx, rowSel, c, onEdit, selectRow }) {
 function BlnkRow({ op, rowIdx, rowSel, c, t, onEdit, selectRow }) {
     return h('tr', {
         onClick: e => selectRow(op.id, e.shiftKey, e.ctrlKey || e.metaKey),
-        style: { cursor: 'default', backgroundColor: rowSel ? c.accent + '28' : 'rgba(140,140,140,0.10)' }
+        style: { cursor: 'default', backgroundColor: rowSel ? c.accent + '66' : 'rgba(140,140,140,0.10)' }
     },
         h('td', { style: { width: COLS[0].w, padding: '0 4px', textAlign: 'center', color: c.textDim, userSelect: 'none', fontSize: 11 } }, rowIdx + 1),
         h('td', {
@@ -490,21 +494,21 @@ function _polCell(ctx, colKey, w) {
 }
 
 function _currentCell(ctx, colKey, w) {
-    const { meta, c, tdBase } = ctx;
-    return h('td', { key: colKey, style: { ...tdBase(colKey, w), textAlign: 'right', color: c.text } }, fmtCurrent(meta.cur, meta));
+    const { meta, c, tdBase, cellClick } = ctx;
+    return h('td', { key: colKey, onClick: e => cellClick(colKey, e), style: { ...tdBase(colKey, w), textAlign: 'right', color: c.text } }, fmtCurrent(meta.cur, meta));
 }
 
 function _deltaCell(ctx, colKey, w) {
-    const { meta, dColor, tdBase } = ctx;
-    return h('td', { key: colKey, style: { ...tdBase(colKey, w), textAlign: 'right', color: dColor, fontWeight: 500 } }, fmtDelta(meta.rawDelta, meta));
+    const { meta, dColor, tdBase, cellClick } = ctx;
+    return h('td', { key: colKey, onClick: e => cellClick(colKey, e), style: { ...tdBase(colKey, w), textAlign: 'right', color: dColor, fontWeight: 500 } }, fmtDelta(meta.rawDelta, meta));
 }
 
 function _numCell(ctx, colKey, w) {
-    const { op, rowIdx, c, tdBase, selectRow, rowStripe } = ctx;
+    const { rowIdx, c, tdBase, cellClick, rowStripe } = ctx;
     return h('td', {
         key: colKey,
-        onClick: e => selectRow(op.id, e.shiftKey, e.ctrlKey || e.metaKey),
-        style: { ...tdBase(colKey, w), textAlign: 'center', color: c.textDim, userSelect: 'none', boxShadow: rowStripe ? `inset 3px 0 0 0 ${rowStripe}` : 'none' }
+        onClick: e => cellClick(colKey, e),
+        style: { ...tdBase(colKey, w), textAlign: 'center', color: c.textDim, boxShadow: rowStripe ? `inset 3px 0 0 0 ${rowStripe}` : 'none' }
     }, rowIdx + 1);
 }
 
@@ -561,7 +565,7 @@ function rowRenderers(op, meta) {
 
 function MFDataRow(props) {
     const { op, rowIdx, rawCur, rowSel, focusCell, editCell, operands, integralPresets, isMathPct, c, t,
-            onEdit, selectRow, focusAt, startEdit, commitEdit, navigate, setEditCell } = props;
+            onEdit, selectRow, focusAt, startEdit, commitEdit, navigate, setEditCell, setFocusCell } = props;
     const meta = rowDisplayMeta(op, rawCur, isMath(op.type) && isMathPct(op));
     const dColor    = deltaColor(op, meta.rawDelta, meta, c);
     const rowBg     = typeRgba(op.type, 0.12) || 'transparent';
@@ -571,15 +575,28 @@ function MFDataRow(props) {
         const isFocused = focusCell?.rowIdx === rowIdx && focusCell?.colKey === colKey;
         return {
             width: w, padding: '0 4px',
-            backgroundColor: isFocused ? c.accent + '44' : rowSel ? c.accent + '28' : rowBg,
+            backgroundColor: isFocused ? c.accent + 'AA' : rowSel ? c.accent + '66' : rowBg,
             outline: isFocused ? `1px solid ${c.accent}` : 'none',
-            outlineOffset: -1, cursor: 'default',
+            outlineOffset: -1, cursor: 'default', userSelect: 'none',
             ...extra
         };
     };
+    // Clicking a cell: the # column acts as a row header — it selects the WHOLE
+    // row (modifier-aware), not a single cell. For every other column a modifier
+    // click extends (Shift) / toggles (Ctrl/Cmd) the selection, while a plain
+    // click focuses that cell and single-selects the row. All paths give the
+    // table keyboard focus so Delete/arrows work.
     const cellClick = (colKey, e) => {
-        if (colKey === 'num' || colKey === 'current' || colKey === 'delta') selectRow(op.id, e.shiftKey, e.ctrlKey || e.metaKey);
-        else focusAt(rowIdx, colKey);
+        if (colKey === 'num') {
+            e.preventDefault();
+            selectRow(op.id, e.shiftKey, e.ctrlKey || e.metaKey);
+            setFocusCell(null);   // whole-row selection, no single-cell outline
+        } else if (e.shiftKey || e.ctrlKey || e.metaKey) {
+            e.preventDefault();   // suppress the browser's shift-click text selection
+            selectRow(op.id, e.shiftKey, e.ctrlKey || e.metaKey);
+        } else {
+            focusAt(rowIdx, colKey);
+        }
     };
 
     const ctx = {
@@ -638,7 +655,7 @@ const MFTABLE_KEY_ACTIONS = {
     Enter:      (x) => { x.e.preventDefault(); x.startEdit(x.rowIdx, x.colKey, null); },
     Tab:        (x) => { x.e.preventDefault(); x.navigate(x.rowIdx, x.colKey, x.e.shiftKey ? 'left' : 'right'); },
     'Ctrl+c':   (x) => { x.e.preventDefault(); copySelectedOperands(x.operands, x.selIds); },
-    'Ctrl+v':   (x) => { x.e.preventDefault(); pasteOperands(x.onAdd); },
+    'Ctrl+v':   (x) => { x.e.preventDefault(); pasteOperands(x.onAdd, x.rowIdx + 1); },
 };
 
 // Pick the operand whose row drives the adaptive header labels: the focused
@@ -670,9 +687,15 @@ export function MFTable(props) {
 
     const tableRef = useRef(null);
 
-    // Sync external selectedId → internal selection (e.g. after Add)
+    // The last id WE reported via onSelect. The parent mirrors selectedId back to
+    // us, so without this guard every click echo would reset the selection to a
+    // single row (breaking Shift/Ctrl multi-select). We only re-sync when
+    // selectedId changes for an EXTERNAL reason (Add/Insert/Duplicate select a
+    // new row) — i.e. to an id we didn't just report ourselves.
+    const lastReported = useRef(selectedId);
     useEffect(() => {
-        if (selectedId == null) return;
+        if (selectedId == null || selectedId === lastReported.current) return;
+        lastReported.current = selectedId;
         setSelIds(new Set([selectedId]));
         setAnchor(selectedId);
     }, [selectedId]);
@@ -708,7 +731,9 @@ export function MFTable(props) {
             }
             return next;
         });
+        lastReported.current = id;   // mark as self-reported so the sync effect won't collapse the multi-select
         onSelect(id);
+        tableRef.current?.focus();   // keep keyboard focus on the table (Delete/arrows)
     }, [anchor, operands, onSelect]);
 
     // ── Cell focus & edit helpers ─────────────────────────────────────────────
@@ -719,6 +744,7 @@ export function MFTable(props) {
         setFocusCell({ rowIdx, colKey });
         setSelIds(new Set([op.id]));
         setAnchor(op.id);
+        lastReported.current = op.id;
         onSelect(op.id);
         tableRef.current?.focus();
     }, [operands, onSelect]);
@@ -847,6 +873,15 @@ export function MFTable(props) {
     const primarySel = selIds.size === 1 ? [...selIds][0] : null;
     const hasSelection = selIds.size > 0;
 
+    // Where "+ Add"/"+ Comment"/paste drop new rows: immediately after the last
+    // selected (or focused) row, else at the end of the table.
+    const insertIndexAfterSelection = () => {
+        let maxIdx = -1;
+        operands.forEach((op, i) => { if (selIds.has(op.id) && i > maxIdx) maxIdx = i; });
+        if (maxIdx < 0 && focusCell) maxIdx = focusCell.rowIdx;
+        return maxIdx < 0 ? operands.length : maxIdx + 1;
+    };
+
     const dyn = dynamicHeaderLabels(pickHeaderOp(operands, focusCell, primarySel));
 
     const renderRow = (op, rowIdx) => {
@@ -861,7 +896,7 @@ export function MFTable(props) {
             key: op.id, op, rowIdx,
             rawCur: computed?.[rowIdx] != null ? computed[rowIdx] : null,
             rowSel, focusCell, editCell, operands, integralPresets, isMathPct, c, t,
-            onEdit, selectRow, focusAt, startEdit, commitEdit, navigate, setEditCell,
+            onEdit, selectRow, focusAt, startEdit, commitEdit, navigate, setEditCell, setFocusCell,
         });
     };
 
@@ -895,18 +930,17 @@ export function MFTable(props) {
             )
         ),
         showToolbar && h('div', { style: { display: 'flex', alignItems: 'center', gap: 4, padding: '4px 6px', borderTop: `1px solid ${c.border}`, background: c.panel, flexShrink: 0 } },
-            h(TblBtn, { label: '+ Add',    onClick: () => onAdd(null), c }),
-            h(TblBtn, { label: '+ ' + (t?.meritFunctionEditor?.addComment || 'Comment'), onClick: () => onAdd({ type: 'BLNK', comment: '' }), c }),
+            h(TblBtn, { label: '+ Add',    onClick: () => onAdd(null, insertIndexAfterSelection()), c }),
             h(TblBtn, { label: '✕ Delete', onClick: () => onDelete([...selIds]), disabled: !hasSelection, c }),
             h(TblBtn, { label: '↑',        onClick: onMoveUp,   disabled: !primarySel, c }),
             h(TblBtn, { label: '↓',        onClick: onMoveDown, disabled: !primarySel, c }),
             onClear && h(TblBtn, {
-                label: '🗑 ' + (t?.meritFunctionEditor?.clearTable || 'Clear'),
+                label: t?.meritFunctionEditor?.clearTable || 'Clear',
                 onClick: () => onClear(), disabled: operands.length === 0, c,
                 title: t?.meritFunctionEditor?.clearTableTip || 'Remove all operands from the table',
             }),
             selIds.size > 1 && h('span', { style: { fontSize: 10, color: c.textDim, marginLeft: 4 } }, `${selIds.size} selected`),
-            h('span', { style: { fontSize: 10, color: c.textDim, marginLeft: 'auto' } }, 'Del=delete  Ctrl+C/V=copy/paste  Enter/Tab=navigate')
+            h('span', { style: { fontSize: 10, color: c.textDim, marginLeft: 'auto' } }, 'Click=select  Shift/Ctrl+Click=multi  Del=delete  Ctrl+C/V=copy/paste  Enter/Tab=edit/nav')
         )
     );
 }
