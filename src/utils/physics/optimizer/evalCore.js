@@ -99,36 +99,51 @@ export const ADAPTIVE_SAMPLING_DEFAULTS = {
     maxProbe:          12001,  // cap probe evals per operand (launch-time safety)
 };
 
+// Walk outward from index i in direction dir (±1), in sign-normalized space
+// s = sgn·value, until the curve exceeds the extremum level `si` (a separate
+// feature begins); return the lowest s reached — the local baseline that side.
+function _sideBaseline(v, i, dir, sgn, si) {
+    let base = si;
+    for (let j = i + dir; j >= 0 && j < v.length; j += dir) {
+        const s = sgn * v[j];
+        if (s > si) break;
+        base = Math.min(base, s);
+    }
+    return base;
+}
+
+// Contiguous span, in samples, around i where s = sgn·value stays ≥ `level`.
+function _halfWidthSamples(v, i, sgn, level) {
+    const n = v.length;
+    let l = i, r = i;
+    while (l > 0     && sgn * v[l] >= level) l--;
+    while (r < n - 1 && sgn * v[r] >= level) r++;
+    return r - l;
+}
+
 // Topographic half-prominence width (nm) of the local extremum at probe index i,
 // or null if its prominence is below `minProm`. Prominence = the smaller of the
 // left/right drops to the surrounding baseline (standard peak prominence), so a
 // spike riding on a high stopband plateau is still measured by its own height,
 // not the absolute level. Width = the contiguous span at half that prominence.
+// A minimum is handled by working in sign-normalized space (s = sgn·value) so it
+// reduces to the maximum case — no duplicated max/min branches.
 function _featureWidthAt(v, i, probeStep, minProm) {
-    const n = v.length;
     const vi = v[i];
-    const isMax = v[i] >= v[i - 1] && v[i] >= v[i + 1];
-    const isMin = v[i] <= v[i - 1] && v[i] <= v[i + 1];
+    const isMax = vi >= v[i - 1] && vi >= v[i + 1];
+    const isMin = vi <= v[i - 1] && vi <= v[i + 1];
     if (!isMax && !isMin) return null;
-    // Walk outward to the local baseline on each side (stop where the curve
-    // rises above / dips below the extremum again → a separate feature).
-    let leftBase = vi, rightBase = vi;
-    for (let l = i - 1; l >= 0; l--) {
-        if (isMax ? v[l] > vi : v[l] < vi) break;
-        leftBase = isMax ? Math.min(leftBase, v[l]) : Math.max(leftBase, v[l]);
-    }
-    for (let r = i + 1; r < n; r++) {
-        if (isMax ? v[r] > vi : v[r] < vi) break;
-        rightBase = isMax ? Math.min(rightBase, v[r]) : Math.max(rightBase, v[r]);
-    }
-    const prom = isMax ? vi - Math.max(leftBase, rightBase)
-                       : Math.min(leftBase, rightBase) - vi;
+
+    const sgn = isMax ? 1 : -1;             // s = sgn·value → extremum is a maximum
+    const si  = sgn * vi;
+    const leftBase  = _sideBaseline(v, i, -1, sgn, si);
+    const rightBase = _sideBaseline(v, i, +1, sgn, si);
+
+    const prom = si - Math.max(leftBase, rightBase);
     if (!(prom >= minProm)) return null;
-    const halfLevel = isMax ? vi - prom * 0.5 : vi + prom * 0.5;
-    let l = i, r = i;
-    while (l > 0     && (isMax ? v[l] >= halfLevel : v[l] <= halfLevel)) l--;
-    while (r < n - 1 && (isMax ? v[r] >= halfLevel : v[r] <= halfLevel)) r++;
-    return Math.max(probeStep, (r - l) * probeStep);
+
+    const span = _halfWidthSamples(v, i, sgn, si - prom * 0.5);
+    return Math.max(probeStep, span * probeStep);
 }
 
 // Probe ONE operand's band for the narrowest significant feature its current
@@ -319,6 +334,33 @@ function tmmBackOnly(lam, aoi, pol, char, ctx, thicknesses, mats) {
 //   T = T_f · P · T_b / (1 − R_f' · R_b · P²)
 //   R = R_f + T_f · T_f' · P² · R_b / (1 − R_f' · R_b · P²)
 // Substrate is treated as optically thick (incoherent intensity sum).
+// Per-polarization full-system R/T/A for one incidence: coherent front and back
+// coatings joined by an incoherent (intensity-summed) substrate bulk pass P.
+// `s` carries the precomputed geometry/indices from tmmFullSystem.
+function _fullSystemRTA(polCode, s) {
+    const { ctx, lam, aoi, aoiSub, cosTs, n0, ns, ne, fLayers, bLayers } = s;
+    // forward pass:   incident → front → substrate
+    const fwd = tmmC(ctx, 'fwd', lam, aoi,    polCode, n0, ns, fLayers);
+    // reverse pass:  substrate → front_reversed → incident   (R_f', T_f')
+    const rev = tmmC(ctx, 'rev', lam, aoiSub, polCode, ns, n0, [...fLayers].reverse());
+    // back coating from substrate side:  substrate → back → exit
+    const bck = tmmC(ctx, 'bck', lam, aoiSub, polCode, ns, ne, bLayers);
+
+    // Substrate bulk transmittance per pass: P = exp(−4π k d / (λ cosθ_sub))
+    const k_sub    = ns[1];
+    const d_sub_nm = (ctx.substrateThicknessMm || 1.0) * 1e6;
+    const P = (k_sub > 0 && cosTs > 0)
+        ? Math.exp(-4 * Math.PI * k_sub * d_sub_nm / (lam * cosTs))
+        : 1.0;
+    const P2 = P * P;
+
+    const denom = 1 - rev.R * bck.R * P2;
+    const T = denom > 0 ? (fwd.T * P * bck.T) / denom : 0;
+    const R = denom > 0 ? fwd.R + (fwd.T * rev.T * P2 * bck.R) / denom : 1;
+    const A = Math.max(0, 1 - R - T);
+    return { R, T, A };
+}
+
 export function tmmFullSystem(lam, aoi, pol, char, ctx, frontThicks, frontMats, backThicks, backMats) {
     const n0 = nkOf(ctx, ctx.n0mat, lam);
     const ns = nkOf(ctx, ctx.nsmat, lam);
@@ -333,42 +375,19 @@ export function tmmFullSystem(lam, aoi, pol, char, ctx, frontThicks, frontMats, 
     const cosTs  = Math.sqrt(1 - sinTs * sinTs);
     const aoiSub = Math.asin(sinTs) * 180 / Math.PI;
 
-    // Per-polarization full-system R/T/A
-    function combine(polCode) {
-        // forward pass:   incident → front → substrate
-        const fwd = tmmC(ctx, 'fwd', lam, aoi,    polCode, n0, ns, fLayers);
-        // reverse pass:  substrate → front_reversed → incident   (R_f', T_f')
-        const rev = tmmC(ctx, 'rev', lam, aoiSub, polCode, ns, n0, [...fLayers].reverse());
-        // back coating from substrate side:  substrate → back → exit
-        const bck = tmmC(ctx, 'bck', lam, aoiSub, polCode, ns, ne, bLayers);
-
-        // Substrate bulk transmittance per pass: P = exp(−4π k d / (λ cosθ_sub))
-        const k_sub    = ns[1];
-        const d_sub_nm = (ctx.substrateThicknessMm || 1.0) * 1e6;
-        const P = (k_sub > 0 && cosTs > 0)
-            ? Math.exp(-4 * Math.PI * k_sub * d_sub_nm / (lam * cosTs))
-            : 1.0;
-        const P2 = P * P;
-
-        const denom = 1 - rev.R * bck.R * P2;
-        const T = denom > 0 ? (fwd.T * P * bck.T) / denom : 0;
-        const R = denom > 0 ? fwd.R + (fwd.T * rev.T * P2 * bck.R) / denom : 1;
-        const A = Math.max(0, 1 - R - T);
-        return { R, T, A };
-    }
+    const s = { ctx, lam, aoi, aoiSub, cosTs, n0, ns, ne, fLayers, bLayers };
 
     if (pol === 'avg') {
-        const s = combine('s');
-        const p = combine('p');
-        if (char === 'T') return (s.T + p.T) * 0.5;
-        if (char === 'R') return (s.R + p.R) * 0.5;
-        return (s.A + p.A) * 0.5;
-    } else {
-        const r = combine(pol);
-        if (char === 'T') return r.T;
-        if (char === 'R') return r.R;
-        return r.A;
+        const rs = _fullSystemRTA('s', s);
+        const rp = _fullSystemRTA('p', s);
+        if (char === 'T') return (rs.T + rp.T) * 0.5;
+        if (char === 'R') return (rs.R + rp.R) * 0.5;
+        return (rs.A + rp.A) * 0.5;
     }
+    const r = _fullSystemRTA(pol, s);
+    if (char === 'T') return r.T;
+    if (char === 'R') return r.R;
+    return r.A;
 }
 
 // Does this (surfaceMode, mfEvalMode) pair score the merit function against the
@@ -556,159 +575,174 @@ function parabolicPeakLambda(lams, vals, i) {
     return { lam: lamP, val: valP };
 }
 
-export function evalOperand(op, ctx) {
-    if (isDmfs(op.type) || isBlank(op.type)) return null;   // inert / comment
-    // ── Total thickness (TT) ─────────────────────────────────────────────────
-    // Sum of all active layer thicknesses (nm). Uses the full optimization
-    // vector (front, or front+back in both_independent) so it tracks exactly the
-    // layers the optimizer can move — matching the constraint operands' domain.
-    if (isTotalThickness(op.type)) {
-        const all = ctx.fullThicks || ctx.frontThicks || [];
-        let sum = 0;
-        for (let i = 0; i < all.length; i++) sum += all[i] || 0;
-        return sum;
-    }
-    if (isConstraint(op.type)) {
-        // Constraint range refers to LAYER INDICES, 1-based. The evaluator clamps
-        // to the actual number of layers, so generators can emit lambdaEnd=9999
-        // to mean "every current and future layer".
-        // In both_independent mode, ctx.fullThicks spans front+back so constraints
-        // can act on either stack; in symmetric/front_only modes it equals frontThicks.
-        const all = ctx.fullThicks || ctx.frontThicks || [];
-        const lo = Math.max(0, Math.round(op.lambdaStart) - 1);
-        const hi = Math.min(all.length - 1, Math.round(op.lambdaEnd) - 1);
-        if (lo > hi) return 0;
-        if (op.type === 'MNT') {
-            let v = Infinity;
-            for (let i = lo; i <= hi; i++) v = Math.min(v, all[i] || 0);
-            return isFinite(v) ? v : 0;
-        } else {
-            let v = 0;
-            for (let i = lo; i <= hi; i++) v = Math.max(v, all[i] || 0);
-            return v;
-        }
-    }
+// Total thickness (TT): sum of all active layer thicknesses (nm). Uses the full
+// optimization vector (front, or front+back in both_independent) so it tracks
+// exactly the layers the optimizer can move — matching the constraints' domain.
+function _evalTotalThickness(op, ctx) {
+    const all = ctx.fullThicks || ctx.frontThicks || [];
+    let sum = 0;
+    for (let i = 0; i < all.length; i++) sum += all[i] || 0;
+    return sum;
+}
 
-    // ── Zemax-style math operands (OPGT/OPLT/OPVA/ABSO/ABGT/ABLT/DIFF/SUMM/PROD) ─
-    // Resolve `op.refId` / `op.refId1+refId2` to other rows in the MF table
-    // and compute a derived value.  Returns the underlying VALUE — one-sided
-    // residual logic happens in calcMF / _residuals / Jacobian below.
-    //
-    // Tools that just want to display the value (Specification window, MFE
-    // current-cell readout) call evalOperand directly.
-    if (isMath(op.type)) {
-        // Legacy shim: a saved file from an earlier build may have an
-        // OPGT/OPLT with op.baseType set and no refId — evaluate the virtual
-        // base operand directly (no recursion into ctx.operands).
-        if ((op.type === 'OPGT' || op.type === 'OPLT') && op.baseType && !op.refId) {
-            return evalOperand({ ...op, type: op.baseType }, ctx);
-        }
-        const resolve = makeRefResolver(ctx);
-        return computeMathValue(op, resolve);
+// MNT/MXT layer-thickness constraint: min (MNT) or max (MXT) thickness over a
+// 1-based layer-index range. The range clamps to the actual layer count, so
+// generators can emit lambdaEnd=9999 to mean "every current and future layer".
+// In both_independent mode ctx.fullThicks spans front+back so constraints can
+// reach either stack; otherwise it equals frontThicks.
+function _evalConstraint(op, ctx) {
+    const all = ctx.fullThicks || ctx.frontThicks || [];
+    const lo = Math.max(0, Math.round(op.lambdaStart) - 1);
+    const hi = Math.min(all.length - 1, Math.round(op.lambdaEnd) - 1);
+    if (lo > hi) return 0;
+    if (op.type === 'MNT') {
+        let v = Infinity;
+        for (let i = lo; i <= hi; i++) v = Math.min(v, all[i] || 0);
+        return isFinite(v) ? v : 0;
     }
+    let v = 0;
+    for (let i = lo; i <= hi; i++) v = Math.max(v, all[i] || 0);
+    return v;
+}
 
-    // ── Argmax/argmin-wavelength (MXW*/MNW*) ─────────────────────────────────
-    // Sample C(λ) over [λStart, λEnd] on a uniform grid, find the discrete
-    // extremum, refine with a 3-pt parabolic fit. Returns λ in nm.
-    if (isArgwave(op.type)) {
-        const char = argwaveOpticalChar(op.type);                     // 'T' | 'R' | 'A'
-        const pol  = argwavePolCode(op.type) ?? op.pol ?? 'avg';
-        const lams = operandSampleLambdas(op);
-        const n    = lams.length;
-        if (n === 0) return op.lambdaStart;
-        const vals = new Array(n);
-        for (let i = 0; i < n; i++) {
-            vals[i] = tmmProp(lams[i], op.aoi, pol, char, ctx, ctx.frontThicks, ctx.frontMats);
-        }
-        const minMode = isArgwaveMin(op.type);
-        let bestI = 0, bestV = vals[0];
-        for (let i = 1; i < n; i++) {
-            if (minMode ? vals[i] < bestV : vals[i] > bestV) { bestV = vals[i]; bestI = i; }
-        }
-        return parabolicPeakLambda(lams, vals, bestI).lam;
+// Zemax-style math operands (OPGT/OPLT/OPVA/ABSO/ABGT/ABLT/DIFF/SUMM/PROD):
+// resolve op.refId / op.refId1+refId2 to other MF rows and compute a derived
+// value. Returns the underlying VALUE — one-sided residual logic happens in
+// calcMF / _residuals / the Jacobian.
+function _evalMath(op, ctx) {
+    // Legacy shim: an older saved file may have an OPGT/OPLT with op.baseType and
+    // no refId — evaluate the virtual base operand directly (no recursion into
+    // ctx.operands).
+    if ((op.type === 'OPGT' || op.type === 'OPLT') && op.baseType && !op.refId) {
+        return evalOperand({ ...op, type: op.baseType }, ctx);
     }
+    return computeMathValue(op, makeRefResolver(ctx));
+}
 
+// Argmax/argmin-wavelength (MXW*/MNW*): sample C(λ) over [λStart,λEnd] on a
+// uniform grid, find the discrete extremum, refine with a 3-pt parabolic fit.
+// Returns λ in nm.
+function _evalArgwave(op, ctx) {
+    const char = argwaveOpticalChar(op.type);                     // 'T' | 'R' | 'A'
+    const pol  = argwavePolCode(op.type) ?? op.pol ?? 'avg';
+    const lams = operandSampleLambdas(op);
+    const n    = lams.length;
+    if (n === 0) return op.lambdaStart;
+    const vals = new Array(n);
+    for (let i = 0; i < n; i++) {
+        vals[i] = tmmProp(lams[i], op.aoi, pol, char, ctx, ctx.frontThicks, ctx.frontMats);
+    }
+    const minMode = isArgwaveMin(op.type);
+    let bestI = 0, bestV = vals[0];
+    for (let i = 1; i < n; i++) {
+        if (minMode ? vals[i] < bestV : vals[i] > bestV) { bestV = vals[i]; bestI = i; }
+    }
+    return parabolicPeakLambda(lams, vals, bestI).lam;
+}
+
+// Weighted-integral operand (TIW/RIW/AIW):
+//   C̄ = Σ w_i · C_i  /  Σ w_i      with w_i = S(λ_i) · D(λ_i)
+// S(λ) and D(λ) come from the operand's source/detector specs (or default to
+// E × flat = unity, i.e. an unweighted band average).
+function _evalIntegral(op, ctx) {
     const char = charOf(op.type);
     const pol  = polFromType(op.type) ?? op.pol;
-
-    // ── Weighted-integral operand (TIW/RIW/AIW) ──────────────────────────────
-    //   C̄ = Σ w_i · C_i  /  Σ w_i      with w_i = S(λ_i) · D(λ_i)
-    // S(λ) and D(λ) come from the operand's source/detector specs (or default
-    // to E × flat = unity, i.e. an unweighted band average).
-    if (isIntegral(op.type)) {
-        const lams = operandSampleLambdas(op);
-        const n    = lams.length;
-        const S = resolveSourceSpec(op.source   || { id: 'E' });
-        const D = resolveDetectorSpec(op.detector || { id: 'flat' });
-        let num = 0, den = 0;
-        for (let i = 0; i < n; i++) {
-            const lam = lams[i];
-            const w   = S.sampler(lam) * D.sampler(lam);
-            const v   = tmmProp(lam, op.aoi, pol, char, ctx, ctx.frontThicks, ctx.frontMats);
-            num += w * v;
-            den += w;
-        }
-        return den > 1e-30 ? num / den : 0;
+    const lams = operandSampleLambdas(op);
+    const n    = lams.length;
+    const S = resolveSourceSpec(op.source   || { id: 'E' });
+    const D = resolveDetectorSpec(op.detector || { id: 'flat' });
+    let num = 0, den = 0;
+    for (let i = 0; i < n; i++) {
+        const lam = lams[i];
+        const w   = S.sampler(lam) * D.sampler(lam);
+        const v   = tmmProp(lam, op.aoi, pol, char, ctx, ctx.frontThicks, ctx.frontMats);
+        num += w * v;
+        den += w;
     }
+    return den > 1e-30 ? num / den : 0;
+}
 
-    // ── Worst-case minmax operand (TMN/RMN/AMN/TMX/RMX/AMX) ──────────────────
-    // Returns the TRUE extremum of C(λ) over the band (the real, physical
-    // worst-case T/R/A — never > 100 %, never < 0 %). The earlier log-sum-exp
-    // "soft" surrogate was abandoned: its un-normalized form inflated a flat
-    // 99 % T to > 100 % ("TMX = 108.9 %"), and any smoothing biases the reported
-    // value away from the real extremum. We report the honest extremum here
-    // (so the MFE "Current" cell and the Specification window agree exactly) and
-    // give the optimizer a single-argmax SUBGRADIENT in _analyticJacobian — the
-    // same hard-extremum approach already used for the MNT/MXT layer-thickness
-    // constraints. Sampled on the dense argwave grid (≈1 nm) so a narrow peak /
-    // dip can't slip between samples.
-    if (isMinmax(op.type)) {
-        const lams    = operandSampleLambdas(op);
-        const n       = lams.length;
-        const minMode = isMinType(op.type);
-        let ext = minMode ? Infinity : -Infinity;
-        for (let i = 0; i < n; i++) {
-            const v = tmmProp(lams[i], op.aoi, pol, char, ctx, ctx.frontThicks, ctx.frontMats);
-            if (minMode) { if (v < ext) ext = v; }
-            else         { if (v > ext) ext = v; }
-        }
-        return Number.isFinite(ext) ? ext : 0;
+// Worst-case minmax operand (TMN/RMN/AMN/TMX/RMX/AMX): the TRUE extremum of C(λ)
+// over the band (the real physical worst-case T/R/A — never >100%, never <0%).
+// The earlier log-sum-exp "soft" surrogate was abandoned: its un-normalized form
+// inflated a flat 99% T to >100% ("TMX = 108.9%"), and any smoothing biases the
+// value away from the real extremum. We report the honest extremum here (so the
+// MFE "Current" cell and the Specification window agree exactly) and give the
+// optimizer a single-argmax SUBGRADIENT in _analyticJacobian — the same
+// hard-extremum approach used for MNT/MXT. Sampled on the dense argwave grid
+// (≈1 nm) so a narrow peak / dip can't slip between samples.
+function _evalMinmax(op, ctx) {
+    const char = charOf(op.type);
+    const pol  = polFromType(op.type) ?? op.pol;
+    const lams    = operandSampleLambdas(op);
+    const n       = lams.length;
+    const minMode = isMinType(op.type);
+    let ext = minMode ? Infinity : -Infinity;
+    for (let i = 0; i < n; i++) {
+        const v = tmmProp(lams[i], op.aoi, pol, char, ctx, ctx.frontThicks, ctx.frontMats);
+        if (minMode) { if (v < ext) ext = v; }
+        else         { if (v > ext) ext = v; }
     }
+    return Number.isFinite(ext) ? ext : 0;
+}
 
-    // ── Continuous per-λ target (TGT/RGT/AGT) ────────────────────────────────
-    // Return the RMS deviation of the spectrum from the (flat or linearly
-    // ramped) target line, sampled across the band. calcMF squares this
-    // directly (the per-sample residuals are already folded into the RMS).
-    if (isRangeTarget(op.type)) {
-        const lams = operandSampleLambdas(op);
-        const n    = lams.length;
-        const t0   = op.target;
-        const t1   = op.targetEnd != null ? op.targetEnd : op.target;
-        let sumSq = 0;
-        for (let i = 0; i < n; i++) {
-            const f   = i / (n - 1);
-            const ti  = t0 + (t1 - t0) * f;
-            const d   = tmmProp(lams[i], op.aoi, pol, char, ctx, ctx.frontThicks, ctx.frontMats) - ti;
-            sumSq += d * d;
-        }
-        return Math.sqrt(sumSq / n);
+// Continuous per-λ target (TGT/RGT/AGT): RMS deviation of the spectrum from the
+// (flat or linearly ramped) target line, sampled across the band. calcMF squares
+// this directly (the per-sample residuals are already folded into the RMS).
+function _evalRangeTarget(op, ctx) {
+    const char = charOf(op.type);
+    const pol  = polFromType(op.type) ?? op.pol;
+    const lams = operandSampleLambdas(op);
+    const n    = lams.length;
+    const t0   = op.target;
+    const t1   = op.targetEnd != null ? op.targetEnd : op.target;
+    let sumSq = 0;
+    for (let i = 0; i < n; i++) {
+        const f   = i / (n - 1);
+        const ti  = t0 + (t1 - t0) * f;
+        const d   = tmmProp(lams[i], op.aoi, pol, char, ctx, ctx.frontThicks, ctx.frontMats) - ti;
+        sumSq += d * d;
     }
+    return Math.sqrt(sumSq / n);
+}
 
-    if (isRangeAvg(op.type)) {
-        // TAV/RAV/AAV = pure band AVERAGE: one target = the mean over the band.
-        // λ grid comes from the centralized helper so the worker pre-sampler
-        // cannot diverge from what we actually evaluate here. The
-        // helper reproduces the original expressions exactly → bit-identical.
-        const lams = operandSampleLambdas(op);
-        const n    = lams.length;
-        let sum = 0;
-        for (let i = 0; i < n; i++) {
-            sum += tmmProp(lams[i], op.aoi, pol, char, ctx, ctx.frontThicks, ctx.frontMats);
-        }
-        return sum / n;
-    } else {
+// Band average (TAV/RAV/AAV = mean of C(λ) over the band) or, for a plain
+// single-wavelength operand, C at op.lambdaStart. The λ grid comes from the
+// centralized helper so the worker pre-sampler cannot diverge from what we
+// evaluate here → bit-identical.
+function _evalBandAvgOrSingle(op, ctx) {
+    const char = charOf(op.type);
+    const pol  = polFromType(op.type) ?? op.pol;
+    if (!isRangeAvg(op.type)) {
         return tmmProp(op.lambdaStart, op.aoi, pol, char, ctx, ctx.frontThicks, ctx.frontMats);
     }
+    const lams = operandSampleLambdas(op);
+    const n    = lams.length;
+    let sum = 0;
+    for (let i = 0; i < n; i++) {
+        sum += tmmProp(lams[i], op.aoi, pol, char, ctx, ctx.frontThicks, ctx.frontMats);
+    }
+    return sum / n;
+}
+
+// Ordered operand-kind → evaluator dispatch. Order matters (checked top-down);
+// the band-average / single-λ evaluator is the fall-through default.
+const _EVAL_DISPATCH = [
+    [isTotalThickness, _evalTotalThickness],
+    [isConstraint,     _evalConstraint],
+    [isMath,           _evalMath],
+    [isArgwave,        _evalArgwave],
+    [isIntegral,       _evalIntegral],
+    [isMinmax,         _evalMinmax],
+    [isRangeTarget,    _evalRangeTarget],
+];
+
+export function evalOperand(op, ctx) {
+    if (isDmfs(op.type) || isBlank(op.type)) return null;   // inert / comment
+    for (const [test, evalFn] of _EVAL_DISPATCH) {
+        if (test(op.type)) return evalFn(op, ctx);
+    }
+    return _evalBandAvgOrSingle(op, ctx);
 }
 
 // Build an evaluation context from a design. Used by callers that already have
@@ -836,6 +870,30 @@ export function operandResidualScale(op) {
     return isArgwave(op.type) ? ARGWAVE_RESIDUAL_SCALE_NM : 1;
 }
 
+// One-sided total-thickness residual: ≤/≥ give a penalty (0 when satisfied);
+// default (eq) is a two-sided equality residual (total − target, nm).
+function _ttResidual(op, val) {
+    if (op.cmp === 'le') return Math.max(0, val - op.target);
+    if (op.cmp === 'ge') return Math.max(0, op.target - val);
+    return val - op.target;
+}
+
+// Per-operand merit residual (before unit normalization). Constraints (MNT/MXT)
+// and worst-case min/max are one-sided penalties (0 when satisfied); math
+// operands defer to mathResidual (one- or two-sided by kind); ramp operands
+// already carry their RMS deviation; everything else is two-sided (value − target).
+function _operandResidual(op, val) {
+    if (isTotalThickness(op.type)) return _ttResidual(op, val);
+    if (isConstraint(op.type) || isMinmax(op.type)) {
+        // Satisfied on the ≥target side for MNT / min-type, ≤target side otherwise.
+        const lowerBound = op.type === 'MNT' || isMinType(op.type);
+        return lowerBound ? Math.max(0, op.target - val) : Math.max(0, val - op.target);
+    }
+    if (isMath(op.type)) return mathResidual(op, val);
+    if (isRamp(op)) return val;
+    return val - op.target;
+}
+
 // opts.skipConstraints — exclude MNT/MXT penalties. Used by the needle/GE
 // synthesis scans, whose virtual probe layers are intentionally sub-floor;
 // the thickness bound is enforced by dMin insertion + post-insert DLS refine
@@ -854,50 +912,12 @@ export function calcMF(operands, computed, opts = {}) {
         const op = operands[i];
         if (!op.enabled || computed[i] == null) continue;
         const w = op.weight;
-        let diff;
-        if (isTotalThickness(op.type)) {
-            // Thickness-domain target (nm). Excluded from the synthesis scan
-            // MF (like MNT/MXT) so it never distorts needle placement — TT is
-            // a thickness constraint, NOT an optical characteristic; active
-            // during DLS refinement only.
-            if (skipConstraints) continue;
-            // cmp 'le'/'ge' → one-sided constraint (total ≤ / ≥ target, nm);
-            // default (cmp absent or 'eq') → two-sided equality on total thickness.
-            if (op.cmp === 'le' || op.cmp === 'ge') {
-                diff = op.cmp === 'le'
-                    ? Math.max(0, computed[i] - op.target)
-                    : Math.max(0, op.target - computed[i]);
-            } else {
-                diff = computed[i] - op.target;
-            }
-        } else if (isConstraint(op.type)) {
-            if (skipConstraints) continue;
-            // MNT/MXT thickness bounds as a one-sided penalty (0 when satisfied).
-            // Penalty goes in the numerator only — never the denominator (below).
-            diff = op.type === 'MNT'
-                ? Math.max(0, op.target - computed[i])
-                : Math.max(0, computed[i] - op.target);
-        } else if (isMinmax(op.type)) {
-            // Worst-case spec violation, one-sided. An optical-performance spec
-            // (kept by calcOMF), so it normalizes the RMS like other optical ops.
-            diff = isMinType(op.type)
-                ? Math.max(0, op.target - computed[i])
-                : Math.max(0, computed[i] - op.target);
-        } else if (isMath(op.type)) {
-            // Zemax math operand — one-sided (OPGT/OPLT/ABGT/ABLT) is inert
-            // when satisfied; equality (OPVA/ABSO/DIFF/SUMM/PROD) is two-sided.
-            const r = mathResidual(op, computed[i]);
-            const kind = mathResidualKind(op.type);
-            // Math operands express optical relationships (kept by calcOMF), so
-            // they normalize the RMS; one-sided ones are 0 when satisfied.
-            diff = r;
-        } else if (isRamp(op)) {
-            // Ramp operands return the RMS deviation from the target line
-            // directly, so the residual is the computed value itself.
-            diff = computed[i];
-        } else {
-            diff = computed[i] - op.target;
-        }
+        // TT and MNT/MXT are manufacturability constraints — excluded from the
+        // synthesis-scan / OMF merit (skipConstraints) so they never distort
+        // needle placement; active during DLS refinement only. Their one-sided
+        // penalty enters the numerator but not the normalization denominator (below).
+        if (skipConstraints && (isTotalThickness(op.type) || isConstraint(op.type))) continue;
+        let diff = _operandResidual(op, computed[i]);
         // Normalize to dimensionless units (σ = 1 for optical → no change;
         // argwave nm residual ÷ σ_λ). See operandResidualScale above.
         const sc = operandResidualScale(op);
