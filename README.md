@@ -12,7 +12,7 @@
 **[Website](https://tfstudio.xyz)** · **[Live demo](https://tfstudio.xyz/demo/)** · **[Documentation](https://docs.tfstudio.xyz)** · **[Download](../../releases)**
 
 </div>
-<img width="1776" height="1064" alt="Screenshot_5" src="https://github.com/user-attachments/assets/66373db5-aa9b-4075-b166-095885d84e49" />
+<img width="1514" height="907" alt="Screenshot_400" src="https://github.com/user-attachments/assets/f7e2175a-a80d-47d4-b780-32e8020d4cc2" />
 
 
 ## What is TFStudio?
