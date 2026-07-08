@@ -669,14 +669,196 @@ function pickHeaderOp(operands, focusCell, primarySel) {
     return operands[0] || null;
 }
 
-// ── Operand table with toolbar ────────────────────────────────────────────────
+// ── Selection / edit state machine ────────────────────────────────────────────
+// The handlers below live at module scope and take a `ctx` bundle (the operand
+// list, state setters, refs and sibling callbacks) as their first argument, so
+// their branches and returns don't roll up into MFTable's complexity. The
+// useMFTableSelection hook wires them to React state with thin useCallbacks.
 
-export function MFTable(props) {
-    const {
-        operands, computed, selectedId, noOperandsMsg, onSelect, onEdit, onAdd, onInsertAt,
-        onDuplicate, onDelete, onClear, onMoveUp, onMoveDown, showToolbar = true, c, t,
-    } = props;
-    const integralPresets = useIntegralPresets();
+function doSelectRow(ctx, id, shift, ctrl) {
+    const { operands, anchor, onSelect, lastReported, tableRef, setSelIds, setAnchor } = ctx;
+    setSelIds(prev => {
+        let next;
+        if (shift && anchor) {
+            const ai = operands.findIndex(op => op.id === anchor);
+            const ci = operands.findIndex(op => op.id === id);
+            const lo = Math.min(ai, ci), hi = Math.max(ai, ci);
+            next = new Set(operands.slice(lo, hi + 1).map(op => op.id));
+            if (ctrl) prev.forEach(x => next.add(x));
+        } else if (ctrl) {
+            next = new Set(prev);
+            next.has(id) ? next.delete(id) : next.add(id);
+            setAnchor(id);
+        } else {
+            next = new Set([id]);
+            setAnchor(id);
+        }
+        return next;
+    });
+    lastReported.current = id;   // mark as self-reported so the sync effect won't collapse the multi-select
+    onSelect(id);
+    tableRef.current?.focus();   // keep keyboard focus on the table (Delete/arrows)
+}
+
+function doFocusAt(ctx, rowIdx, colKey) {
+    const { operands, onSelect, lastReported, tableRef, setFocusCell, setSelIds, setAnchor } = ctx;
+    const op = operands[rowIdx];
+    if (!op) return;
+    setFocusCell({ rowIdx, colKey });
+    setSelIds(new Set([op.id]));
+    setAnchor(op.id);
+    lastReported.current = op.id;
+    onSelect(op.id);
+    tableRef.current?.focus();
+}
+
+// The edit string for a `target` cell depends on the operand's unit family:
+// range-targets show "start→end" %, optical/percent-math show %, and constraints,
+// total thickness, argwave (λ in nm) and non-optical math are raw numbers.
+function _startEditTargetValue(op, isMathPct) {
+    if (isRangeTarget(op.type)) {
+        const end = op.targetEnd != null ? op.targetEnd : op.target;
+        return `${(op.target * 100).toFixed(1)}→${(end * 100).toFixed(1)}`;
+    }
+    if (isMath(op.type) && isMathPct(op)) return (op.target * 100).toFixed(2);
+    if (isConstraint(op.type) || isTotalThickness(op.type) || isArgwave(op.type) || isMath(op.type)) return String(op.target ?? 0);
+    return (op.target * 100).toFixed(2);
+}
+
+function doStartEdit(ctx, rowIdx, colKey, initChar) {
+    const { operands, onEdit, isMathPct, setFocusCell, setEditCell } = ctx;
+    const op = operands[rowIdx];
+    if (!op) return;
+    if (colKey === 'num' || colKey === 'current' || colKey === 'delta') return;
+    if (colKey === 'enabled') { onEdit(op.id, 'enabled', !op.enabled); return; }
+    // dropdowns are handled via inline select — just focus
+    if (colKey === 'type' || colKey === 'pol') { setFocusCell({ rowIdx, colKey }); return; }
+    const val = colKey === 'target' ? _startEditTargetValue(op, isMathPct) : String(op[colKey] ?? '');
+    setEditCell({ rowIdx, colKey, initValue: initChar != null ? initChar : val });
+}
+
+// Commit a `target` cell. Accepts "start→end" (or "start->end") to set a
+// per-wavelength ramp on range-target operands (TGT/RGT/AGT); everything else is
+// a single value. TAV/RAV are pure averages and take a single value only.
+function _commitTarget(op, draft, onEdit) {
+    const raw = (draft ?? '').toString().trim();
+    const arrow = raw.includes('→') ? '→' : raw.includes('->') ? '->' : null;
+    if (arrow !== null && RANGE_TARGET_TYPES.has(op.type)) {
+        const pivot = raw.indexOf(arrow);
+        const s = parseFloat(raw.slice(0, pivot));
+        const e = parseFloat(raw.slice(pivot + arrow.length));
+        if (!isNaN(s) && !isNaN(e)) {
+            // Leave rampPoints unset so the operand uses the density-based runtime
+            // default (operandSampleLambdas); preserve only an explicit override.
+            const patch = { target: s / 100, targetEnd: e / 100 };
+            if (Number.isFinite(op.rampPoints)) patch.rampPoints = op.rampPoints;
+            onEdit(op.id, '_patch', patch);
+        }
+    } else {
+        const n = parseFloat(raw);
+        if (!isNaN(n)) onEdit(op.id, 'target', n);
+    }
+}
+
+function doCommitEdit(ctx, rowIdx, colKey, draft) {
+    const { operands, onEdit, setEditCell } = ctx;
+    setEditCell(null);
+    const op = operands[rowIdx];
+    if (!op) return;
+    if (colKey === 'target') {
+        _commitTarget(op, draft, onEdit);
+    } else {
+        const n = parseFloat(draft);
+        if (!isNaN(n)) onEdit(op.id, colKey, n);
+    }
+}
+
+// Move focus to the adjacent editable cell after commit/tab/arrow, wrapping to
+// the neighbouring row at the ends of a row's editable-column list.
+function doNavigate(ctx, fromRowIdx, fromColKey, dir) {
+    const { operands, focusAt, setFocusCell } = ctx;
+    const op = operands[fromRowIdx];
+    if (!op) return;
+    const cols = editableColsForRow(op);
+    const ci = cols.indexOf(fromColKey);
+    if (dir === 'down' || dir === 'up') {
+        const newRow = fromRowIdx + (dir === 'down' ? 1 : -1);
+        if (newRow >= 0 && newRow < operands.length) focusAt(newRow, fromColKey);
+        return;
+    }
+    const delta = dir === 'right' ? 1 : -1;
+    const newCi = ci + delta;
+    if (newCi >= 0 && newCi < cols.length) {
+        setFocusCell({ rowIdx: fromRowIdx, colKey: cols[newCi] });
+    } else {
+        const newRow = fromRowIdx + delta;
+        if (newRow >= 0 && newRow < operands.length) {
+            const newCols = editableColsForRow(operands[newRow]);
+            const k = delta > 0 ? newCols[0] : newCols[newCols.length - 1];
+            focusAt(newRow, k);
+        }
+    }
+}
+
+function doKeyDown(ctx, e) {
+    const { editCell, focusCell, selIds, operands, startEdit } = ctx;
+    if (editCell) return; // CellInput handles its own keys
+    if (!focusCell && selIds.size === 0) return;
+    const rowIdx = focusCell?.rowIdx ?? operands.findIndex(op => selIds.has(op.id));
+    if (rowIdx < 0) return;
+    const colKey = focusCell?.colKey ?? 'type';
+    const action = MFTABLE_KEY_ACTIONS[keyComboOf(e)];
+    if (action) {
+        action({ e, rowIdx, colKey, operands, selIds,
+                 setSelIds: ctx.setSelIds, setFocusCell: ctx.setFocusCell,
+                 onDelete: ctx.onDelete, onInsertAt: ctx.onInsertAt, onDuplicate: ctx.onDuplicate,
+                 onAdd: ctx.onAdd, focusAt: ctx.focusAt, navigate: ctx.navigate, startEdit });
+        return;
+    }
+    // Any other printable character starts editing the focused cell with it.
+    if (!e.ctrlKey && !e.altKey && !e.metaKey && e.key.length === 1) {
+        startEdit(rowIdx, colKey, e.key);
+    }
+}
+
+// Index where the toolbar "Add"/paste drop new rows: immediately after the last
+// selected (or focused) row, else at the end of the table.
+function computeInsertIndex(operands, selIds, focusCell) {
+    let maxIdx = -1;
+    operands.forEach((op, i) => { if (selIds.has(op.id) && i > maxIdx) maxIdx = i; });
+    if (maxIdx < 0 && focusCell) maxIdx = focusCell.rowIdx;
+    return maxIdx < 0 ? operands.length : maxIdx + 1;
+}
+
+function _headerCell(col, dyn, thStyle) {
+    const lbl = col.key === 'lambdaStart' ? dyn.lambdaStart
+              : col.key === 'lambdaEnd'   ? dyn.lambdaEnd
+              : col.label;
+    return h('th', { key: col.key, style: { ...thStyle, width: col.w } }, lbl);
+}
+
+// Dispatch a row to its sentinel (DMFS/BLNK) or data renderer. `ctx` carries the
+// shared per-render data and callbacks so this stays module-scope.
+function renderOperandRow(ctx, op, rowIdx) {
+    const { computed, selIds, c, t, onEdit, selectRow } = ctx;
+    const rowSel = selIds.has(op.id);
+    if (isDmfs(op.type)) return h(DmfsRow, { key: op.id, op, rowIdx, rowSel, c, onEdit, selectRow });
+    if (isBlank(op.type)) return h(BlnkRow, { key: op.id, op, rowIdx, rowSel, c, t, onEdit, selectRow });
+    return h(MFDataRow, {
+        key: op.id, op, rowIdx,
+        rawCur: computed?.[rowIdx] != null ? computed[rowIdx] : null,
+        rowSel, focusCell: ctx.focusCell, editCell: ctx.editCell, operands: ctx.operands,
+        integralPresets: ctx.integralPresets, isMathPct: ctx.isMathPct, c, t,
+        onEdit, selectRow, focusAt: ctx.focusAt, startEdit: ctx.startEdit,
+        commitEdit: ctx.commitEdit, navigate: ctx.navigate, setEditCell: ctx.setEditCell, setFocusCell: ctx.setFocusCell,
+    });
+}
+
+// Holds the whole selection/focus/edit state machine so MFTable itself is just
+// its render. Returns the state and the memoized handlers.
+function useMFTableSelection(props) {
+    const { operands, selectedId, onSelect, onEdit, onDelete, onInsertAt, onDuplicate, onAdd } = props;
+
     // Multi-row selection
     const [selIds,    setSelIds]    = useState(() => selectedId ? new Set([selectedId]) : new Set());
     const [anchor,    setAnchor]    = useState(selectedId || null);
@@ -684,7 +866,6 @@ export function MFTable(props) {
     const [focusCell, setFocusCell] = useState(null);
     // Active inline edit: {rowIdx, colKey, initValue}
     const [editCell,  setEditCell]  = useState(null);
-
     const tableRef = useRef(null);
 
     // The last id WE reported via onSelect. The parent mirrors selectedId back to
@@ -700,168 +881,54 @@ export function MFTable(props) {
         setAnchor(selectedId);
     }, [selectedId]);
 
-    // Math operands inherit their reference's unit. We need an id→operand
-    // lookup to decide whether each row's `target` should display in percent
-    // (ref returns a fraction T/R/A) or raw (ref returns nm / dimensionless).
+    // Math operands inherit their reference's unit. We need an id→operand lookup
+    // to decide whether each row's `target` displays in percent (ref returns a
+    // fraction T/R/A) or raw (ref returns nm / dimensionless).
     const operandsById = useRef(new Map());
     operandsById.current = new Map(operands.map(op => [op.id, op]));
-    const isMathPct = useCallback(
-        (op) => mathTargetInPercent(op, operandsById.current),
-        [operands],
-    );
+    const isMathPct = useCallback((op) => mathTargetInPercent(op, operandsById.current), [operands]);
 
-    // ── Selection helpers ─────────────────────────────────────────────────────
+    const selectRow = useCallback((id, shift, ctrl) =>
+        doSelectRow({ operands, anchor, onSelect, lastReported, tableRef, setSelIds, setAnchor }, id, shift, ctrl),
+        [anchor, operands, onSelect]);
 
-    const selectRow = useCallback((id, shift, ctrl) => {
-        setSelIds(prev => {
-            let next;
-            if (shift && anchor) {
-                const ai = operands.findIndex(op => op.id === anchor);
-                const ci = operands.findIndex(op => op.id === id);
-                const lo = Math.min(ai, ci), hi = Math.max(ai, ci);
-                next = new Set(operands.slice(lo, hi + 1).map(op => op.id));
-                if (ctrl) prev.forEach(x => next.add(x));
-            } else if (ctrl) {
-                next = new Set(prev);
-                next.has(id) ? next.delete(id) : next.add(id);
-                setAnchor(id);
-            } else {
-                next = new Set([id]);
-                setAnchor(id);
-            }
-            return next;
-        });
-        lastReported.current = id;   // mark as self-reported so the sync effect won't collapse the multi-select
-        onSelect(id);
-        tableRef.current?.focus();   // keep keyboard focus on the table (Delete/arrows)
-    }, [anchor, operands, onSelect]);
+    const focusAt = useCallback((rowIdx, colKey) =>
+        doFocusAt({ operands, onSelect, lastReported, tableRef, setFocusCell, setSelIds, setAnchor }, rowIdx, colKey),
+        [operands, onSelect]);
 
-    // ── Cell focus & edit helpers ─────────────────────────────────────────────
+    const startEdit = useCallback((rowIdx, colKey, initChar) =>
+        doStartEdit({ operands, onEdit, isMathPct, setFocusCell, setEditCell }, rowIdx, colKey, initChar),
+        [operands, onEdit, isMathPct]);
 
-    const focusAt = useCallback((rowIdx, colKey) => {
-        const op = operands[rowIdx];
-        if (!op) return;
-        setFocusCell({ rowIdx, colKey });
-        setSelIds(new Set([op.id]));
-        setAnchor(op.id);
-        lastReported.current = op.id;
-        onSelect(op.id);
-        tableRef.current?.focus();
-    }, [operands, onSelect]);
+    const commitEdit = useCallback((rowIdx, colKey, draft) =>
+        doCommitEdit({ operands, onEdit, setEditCell }, rowIdx, colKey, draft),
+        [operands, onEdit]);
 
-    const startEdit = useCallback((rowIdx, colKey, initChar) => {
-        const op = operands[rowIdx];
-        if (!op) return;
-        if (colKey === 'num' || colKey === 'current' || colKey === 'delta') return;
-        if (colKey === 'enabled') { onEdit(op.id, 'enabled', !op.enabled); return; }
-        // dropdowns are handled via inline select — just focus
-        if (colKey === 'type' || colKey === 'pol') {
-            setFocusCell({ rowIdx, colKey });
-            return;
-        }
-        let val;
-        if (colKey === 'target') {
-            if (isRangeTarget(op.type)) {
-                // Range-target row: show "start→end" % so the user can edit both ends.
-                const end = op.targetEnd != null ? op.targetEnd : op.target;
-                val = `${(op.target * 100).toFixed(1)}→${(end * 100).toFixed(1)}`;
-            } else if (isMath(op.type) && isMathPct(op)) {
-                // Math operand whose reference returns a fraction T/R/A —
-                // display + edit target in percent to match the ref row.
-                val = (op.target * 100).toFixed(2);
-            } else if (isConstraint(op.type) || isTotalThickness(op.type) || isArgwave(op.type) || isMath(op.type)) {
-                // Constraints (nm), total thickness (nm), argwave (λ in nm), math
-                // with non-optical refs — all entered as raw numbers.
-                val = String(op.target ?? 0);
-            } else {
-                val = (op.target * 100).toFixed(2);
-            }
-        } else {
-            val = String(op[colKey] ?? '');
-        }
-        setEditCell({ rowIdx, colKey, initValue: initChar != null ? initChar : val });
-    }, [operands, onEdit, isMathPct]);
+    const navigate = useCallback((fromRowIdx, fromColKey, dir) =>
+        doNavigate({ operands, focusAt, setFocusCell }, fromRowIdx, fromColKey, dir),
+        [operands, focusAt]);
 
-    const commitEdit = useCallback((rowIdx, colKey, draft) => {
-        setEditCell(null);
-        const op = operands[rowIdx];
-        if (!op) return;
-        if (colKey === 'target') {
-            const raw = (draft ?? '').toString().trim();
-            // Accept "start→end" or "start->end" to set a per-wavelength ramp target on band-avg types.
-            const arrow = raw.includes('→') ? '→' : raw.includes('->') ? '->' : null;
-            // Only range-target operands (TGT/RGT/AGT) accept "start→end". TAV/RAV
-            // are pure averages — a single value only.
-            if (arrow !== null && RANGE_TARGET_TYPES.has(op.type)) {
-                const pivot = raw.indexOf(arrow);
-                const s = parseFloat(raw.slice(0, pivot));
-                const e = parseFloat(raw.slice(pivot + arrow.length));
-                if (!isNaN(s) && !isNaN(e)) {
-                    // Don't stamp rampPoints — leave it unset so the operand uses
-                    // the density-based runtime default (operandSampleLambdas).
-                    // Only preserve an explicit user override if one already exists.
-                    const patch = { target: s / 100, targetEnd: e / 100 };
-                    if (Number.isFinite(op.rampPoints)) patch.rampPoints = op.rampPoints;
-                    onEdit(op.id, '_patch', patch);
-                }
-            } else {
-                const n = parseFloat(raw);
-                if (!isNaN(n)) onEdit(op.id, 'target', n);
-            }
-        } else {
-            const n = parseFloat(draft);
-            if (!isNaN(n)) onEdit(op.id, colKey, n);
-        }
-    }, [operands, onEdit]);
+    const onKeyDown = useCallback((e) =>
+        doKeyDown({ editCell, focusCell, selIds, operands, setSelIds, setFocusCell,
+                    onDelete, onInsertAt, onDuplicate, onAdd, focusAt, navigate, startEdit }, e),
+        [editCell, focusCell, selIds, operands, onDelete, onAdd, onInsertAt, onDuplicate, startEdit, focusAt, navigate]);
 
-    // Navigate to adjacent cell after commit/tab/arrow
-    const navigate = useCallback((fromRowIdx, fromColKey, dir) => {
-        const op = operands[fromRowIdx];
-        if (!op) return;
-        const cols = editableColsForRow(op);
-        const ci = cols.indexOf(fromColKey);
+    return { selIds, focusCell, setFocusCell, editCell, setEditCell, tableRef,
+             isMathPct, selectRow, focusAt, startEdit, commitEdit, navigate, onKeyDown };
+}
 
-        if (dir === 'down' || dir === 'up') {
-            const newRow = fromRowIdx + (dir === 'down' ? 1 : -1);
-            if (newRow >= 0 && newRow < operands.length) focusAt(newRow, fromColKey);
-            return;
-        }
-        // left / right — wrap to adjacent row
-        const delta = dir === 'right' ? 1 : -1;
-        const newCi = ci + delta;
-        if (newCi >= 0 && newCi < cols.length) {
-            setFocusCell({ rowIdx: fromRowIdx, colKey: cols[newCi] });
-        } else {
-            const newRow = fromRowIdx + delta;
-            if (newRow >= 0 && newRow < operands.length) {
-                const newCols = editableColsForRow(operands[newRow]);
-                const k = delta > 0 ? newCols[0] : newCols[newCols.length - 1];
-                focusAt(newRow, k);
-            }
-        }
-    }, [operands, focusAt]);
+// ── Operand table with toolbar ────────────────────────────────────────────────
 
-    // ── Keyboard handler on the table container div ───────────────────────────
-
-    const onKeyDown = useCallback((e) => {
-        if (editCell) return; // CellInput handles its own keys
-        if (!focusCell && selIds.size === 0) return;
-
-        const rowIdx = focusCell?.rowIdx ?? operands.findIndex(op => selIds.has(op.id));
-        if (rowIdx < 0) return;
-        const colKey = focusCell?.colKey ?? 'type';
-
-        const action = MFTABLE_KEY_ACTIONS[keyComboOf(e)];
-        if (action) {
-            action({ e, rowIdx, colKey, operands, selIds, setSelIds, setFocusCell,
-                     onDelete, onInsertAt, onDuplicate, onAdd, focusAt, navigate, startEdit });
-            return;
-        }
-        // Any other printable character starts editing the focused cell with it.
-        if (!e.ctrlKey && !e.altKey && !e.metaKey && e.key.length === 1) {
-            startEdit(rowIdx, colKey, e.key);
-        }
-    }, [editCell, focusCell, selIds, operands, onDelete, onAdd, onInsertAt, onDuplicate, startEdit, focusAt, navigate]);
+export function MFTable(props) {
+    const {
+        operands, computed, selectedId, noOperandsMsg, onSelect, onEdit, onAdd, onInsertAt,
+        onDuplicate, onDelete, onClear, onMoveUp, onMoveDown, showToolbar = true, c, t,
+    } = props;
+    const integralPresets = useIntegralPresets();
+    const {
+        selIds, focusCell, setFocusCell, editCell, setEditCell, tableRef,
+        isMathPct, selectRow, focusAt, startEdit, commitEdit, navigate, onKeyDown,
+    } = useMFTableSelection({ operands, selectedId, onSelect, onEdit, onDelete, onInsertAt, onDuplicate, onAdd });
 
     const thStyle = {
         padding: '2px 4px', textAlign: 'left', fontSize: 10,
@@ -872,32 +939,11 @@ export function MFTable(props) {
 
     const primarySel = selIds.size === 1 ? [...selIds][0] : null;
     const hasSelection = selIds.size > 0;
-
-    // Where "+ Add"/"+ Comment"/paste drop new rows: immediately after the last
-    // selected (or focused) row, else at the end of the table.
-    const insertIndexAfterSelection = () => {
-        let maxIdx = -1;
-        operands.forEach((op, i) => { if (selIds.has(op.id) && i > maxIdx) maxIdx = i; });
-        if (maxIdx < 0 && focusCell) maxIdx = focusCell.rowIdx;
-        return maxIdx < 0 ? operands.length : maxIdx + 1;
-    };
-
     const dyn = dynamicHeaderLabels(pickHeaderOp(operands, focusCell, primarySel));
 
-    const renderRow = (op, rowIdx) => {
-        const rowSel = selIds.has(op.id);
-        if (isDmfs(op.type)) {
-            return h(DmfsRow, { key: op.id, op, rowIdx, rowSel, c, onEdit, selectRow });
-        }
-        if (isBlank(op.type)) {
-            return h(BlnkRow, { key: op.id, op, rowIdx, rowSel, c, t, onEdit, selectRow });
-        }
-        return h(MFDataRow, {
-            key: op.id, op, rowIdx,
-            rawCur: computed?.[rowIdx] != null ? computed[rowIdx] : null,
-            rowSel, focusCell, editCell, operands, integralPresets, isMathPct, c, t,
-            onEdit, selectRow, focusAt, startEdit, commitEdit, navigate, setEditCell, setFocusCell,
-        });
+    const rowCtx = {
+        computed, selIds, focusCell, editCell, operands, integralPresets, isMathPct, c, t,
+        onEdit, selectRow, focusAt, startEdit, commitEdit, navigate, setEditCell, setFocusCell,
     };
 
     return h('div', {
@@ -912,12 +958,7 @@ export function MFTable(props) {
             },
                 h('colgroup', null, COLS.map(col => h('col', { key: col.key, style: { width: col.w } }))),
                 h('thead', null,
-                    h('tr', null, COLS.map(col => {
-                        const lbl = col.key === 'lambdaStart' ? dyn.lambdaStart
-                                  : col.key === 'lambdaEnd'   ? dyn.lambdaEnd
-                                  : col.label;
-                        return h('th', { key: col.key, style: { ...thStyle, width: col.w } }, lbl);
-                    }))
+                    h('tr', null, COLS.map(col => _headerCell(col, dyn, thStyle)))
                 ),
                 h('tbody', null,
                     operands.length === 0
@@ -925,12 +966,12 @@ export function MFTable(props) {
                             colSpan: COLS.length,
                             style: { padding: 16, textAlign: 'center', color: c.textDim, fontSize: 12 }
                           }, noOperandsMsg || 'No operands.'))
-                        : operands.map(renderRow)
+                        : operands.map((op, i) => renderOperandRow(rowCtx, op, i))
                 )
             )
         ),
         showToolbar && h('div', { style: { display: 'flex', alignItems: 'center', gap: 4, padding: '4px 6px', borderTop: `1px solid ${c.border}`, background: c.panel, flexShrink: 0 } },
-            h(TblBtn, { label: 'Add',    onClick: () => onAdd(null, insertIndexAfterSelection()), c }),
+            h(TblBtn, { label: 'Add',    onClick: () => onAdd(null, computeInsertIndex(operands, selIds, focusCell)), c }),
             h(TblBtn, { label: 'Delete', onClick: () => onDelete([...selIds]), disabled: !hasSelection, c }),
             h(TblBtn, { label: '↑',        onClick: onMoveUp,   disabled: !primarySel, c }),
             h(TblBtn, { label: '↓',        onClick: onMoveDown, disabled: !primarySel, c }),
