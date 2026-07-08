@@ -63,6 +63,22 @@ function splitFields(line, delimiter) {
     return line.split(delimiter).map(f => f.trim());
 }
 
+// Reward many rows that split into >=2 numeric columns, plus a consistent
+// column count. A delimiter that never produces 2 numeric columns scores 0.
+function scoreDelimiter(lines, delimiterId, decimal) {
+    let good = 0, fieldCount = null, consistent = true;
+    for (const line of lines) {
+        if (!line.trim()) continue;
+        const fields = splitFields(line, delimiterId);
+        const nums = fields.filter(f => Number.isFinite(parseNumber(f, decimal)));
+        if (nums.length < 2) continue;
+        good++;
+        if (fieldCount == null) fieldCount = fields.length;
+        else if (fields.length !== fieldCount) consistent = false;
+    }
+    return good === 0 ? 0 : good + (consistent ? 0.5 : 0);
+}
+
 /**
  * Decide the column delimiter by scanning candidate data lines and picking the
  * delimiter that yields the most consistent (>=2)-numeric-column split.
@@ -70,20 +86,7 @@ function splitFields(line, delimiter) {
 export function sniffDelimiter(lines, decimal = '.') {
     let best = { id: ' ', score: -1 };
     for (const cand of DELIMITERS) {
-        let good = 0, fieldCount = null, consistent = true;
-        for (const line of lines) {
-            if (!line.trim()) continue;
-            const fields = splitFields(line, cand.id);
-            const nums = fields.filter(f => Number.isFinite(parseNumber(f, decimal)));
-            if (nums.length >= 2) {
-                good++;
-                if (fieldCount == null) fieldCount = fields.length;
-                else if (fields.length !== fieldCount) consistent = false;
-            }
-        }
-        // Reward many good rows + consistent column count. A delimiter that never
-        // produces 2 numeric columns scores 0.
-        const score = good === 0 ? 0 : good + (consistent ? 0.5 : 0);
+        const score = scoreDelimiter(lines, cand.id, decimal);
         if (score > best.score) best = { id: cand.id, score };
     }
     return best.id;
@@ -129,16 +132,21 @@ export function guessXUnitFromRange(xs) {
     return X_UNITS.NM;
 }
 
+// Ordered header→quantity rules: the word-based patterns take precedence over
+// the bare single-letter token fallback (e.g. a column named exactly "T").
+const QUANTITY_PATTERNS = [
+    { q: 'T', re: /transmit|trans\b|%\s*t\b|\btau\b|\bt\s*\[|\bt\(/ },
+    { q: 'R', re: /reflect|refl\b|%\s*r\b|\br\s*\[|\br\(/ },
+    { q: 'A', re: /absorb|absorpt|\babs\b|\ba\s*\[|\ba\(|optical\s*density|\bod\b/ },
+    { q: 'T', re: /(^|[\s,;])t([\s,;]|$)/ },
+    { q: 'R', re: /(^|[\s,;])r([\s,;]|$)/ },
+    { q: 'A', re: /(^|[\s,;])a([\s,;]|$)/ },
+];
+
 export function detectQuantity(headerText) {
     const s = (headerText || '').toLowerCase();
-    if (/transmit|trans\b|%\s*t\b|\btau\b|\bt\s*\[|\bt\(/.test(s)) return 'T';
-    if (/reflect|refl\b|%\s*r\b|\br\s*\[|\br\(/.test(s)) return 'R';
-    if (/absorb|absorpt|\babs\b|\ba\s*\[|\ba\(|optical\s*density|\bod\b/.test(s)) return 'A';
-    // Bare single-letter token fallback (e.g. a column named exactly "T").
-    if (/(^|[\s,;])t([\s,;]|$)/.test(s)) return 'T';
-    if (/(^|[\s,;])r([\s,;]|$)/.test(s)) return 'R';
-    if (/(^|[\s,;])a([\s,;]|$)/.test(s)) return 'A';
-    return null;
+    const hit = QUANTITY_PATTERNS.find(p => p.re.test(s));
+    return hit ? hit.q : null;
 }
 
 /** Header says percent (has a '%'), or values exceed the 0..1 fractional band. */
@@ -193,9 +201,61 @@ export function absorbanceToT(a) { return Math.pow(10, -a); }
  * candidate. X is returned in the SOURCE unit (not yet converted) so callers
  * can show/override the detected unit; makeMeasuredCurve does the nm conversion.
  */
+// Failure/empty result shape shared by every early exit of parseSpectrumTable.
+function emptyTable(error, extra = {}) {
+    return {
+        ok: false, error,
+        delimiter: ',', decimal: '.',
+        headerText: '', headerLines: [], nRows: 0,
+        xUnit: X_UNITS.UNKNOWN, x: [], columns: [],
+        ...extra,
+    };
+}
+
+// A line is "data" if its first two fields parse as numbers.
+function isSpectrumDataLine(line, delimiter, decimal) {
+    if (!line.trim()) return false;
+    const f = splitFields(line, delimiter);
+    return f.length >= 2 &&
+           Number.isFinite(parseNumber(f[0], decimal)) &&
+           Number.isFinite(parseNumber(f[1], decimal));
+}
+
+// Column count = the modal field count among data rows (robust to a stray
+// ragged row).
+function modalFieldCount(dataRows) {
+    const counts = {};
+    for (const r of dataRows) counts[r.length] = (counts[r.length] || 0) + 1;
+    return +Object.keys(counts).reduce((a, b) => counts[b] > counts[a] ? b : a);
+}
+
+// Column names come from the last header line only IF it splits into ~nCols
+// fields and is non-numeric (a real header row like "Wavelength (nm),%T").
+function detectColumnNames(headerLines, delimiter, decimal, nCols) {
+    if (!headerLines.length) return [];
+    const cand = splitFields(headerLines[headerLines.length - 1], delimiter);
+    const nonNumeric = cand.filter(f => !Number.isFinite(parseNumber(f, decimal))).length;
+    if (cand.length >= 2 && Math.abs(cand.length - nCols) <= 1 && nonNumeric >= 1) return cand;
+    return [];
+}
+
+function buildColumn(values, k, columnNames, headerText) {
+    const name = columnNames[k + 1] || `Column ${k + 2}`;
+    const hdr = `${headerText}\n${name}`;
+    const isAbsorbance = isAbsorbanceHeader(name) || (columnNames.length === 0 && isAbsorbanceHeader(headerText));
+    return {
+        index: k + 1,
+        name,
+        values,
+        quantity: detectQuantity(name) || detectQuantity(headerText),
+        isPercent: isAbsorbance ? false : detectIsPercent(hdr, values),
+        isAbsorbance,
+    };
+}
+
 export function parseSpectrumTable(text, opts = {}) {
     if (typeof text !== 'string' || text.trim() === '') {
-        return { ok: false, error: 'Empty file', delimiter: ',', decimal: '.', headerText: '', headerLines: [], nRows: 0, xUnit: X_UNITS.UNKNOWN, x: [], columns: [] };
+        return emptyTable('Empty file');
     }
 
     const rawLines = text.replace(/\r\n?/g, '\n').split('\n');
@@ -205,46 +265,23 @@ export function parseSpectrumTable(text, opts = {}) {
     const sample = rawLines.filter(l => l.trim()).slice(0, 200);
     const delimiter = opts.delimiter || sniffDelimiter(sample, decimal);
 
-    // A line is "data" if its first two fields parse as numbers.
-    const isDataLine = (line) => {
-        if (!line.trim()) return false;
-        const f = splitFields(line, delimiter);
-        return f.length >= 2 &&
-               Number.isFinite(parseNumber(f[0], decimal)) &&
-               Number.isFinite(parseNumber(f[1], decimal));
-    };
-
     // Leading non-data lines = header. Find first data line.
-    let firstData = rawLines.findIndex(isDataLine);
+    const firstData = rawLines.findIndex(l => isSpectrumDataLine(l, delimiter, decimal));
     if (firstData < 0) {
-        return { ok: false, error: 'No numeric data rows found', delimiter, decimal, headerText: '', headerLines: rawLines, nRows: 0, xUnit: X_UNITS.UNKNOWN, x: [], columns: [] };
+        return emptyTable('No numeric data rows found', { delimiter, decimal, headerLines: rawLines });
     }
     const headerLines = rawLines.slice(0, firstData).filter(l => l.trim() !== '');
 
     // Collect contiguous-ish data rows (skip the occasional blank/comment line
     // interspersed, but stop nothing — instruments sometimes append a stats
-    // footer of non-numeric lines, which simply won't match isDataLine).
+    // footer of non-numeric lines, which simply won't match isSpectrumDataLine).
     const dataRows = [];
     for (let i = firstData; i < rawLines.length; i++) {
-        if (isDataLine(rawLines[i])) dataRows.push(splitFields(rawLines[i], delimiter));
+        if (isSpectrumDataLine(rawLines[i], delimiter, decimal)) dataRows.push(splitFields(rawLines[i], delimiter));
     }
 
-    // Column count = the modal field count among data rows (robust to a stray
-    // ragged row).
-    const counts = {};
-    for (const r of dataRows) counts[r.length] = (counts[r.length] || 0) + 1;
-    const nCols = +Object.keys(counts).reduce((a, b) => counts[b] > counts[a] ? b : a);
-
-    // Column names: the last header line, IF it splits into ~nCols fields and is
-    // non-numeric (a real header row like "Wavelength (nm),%T").
-    let columnNames = [];
-    if (headerLines.length) {
-        const cand = splitFields(headerLines[headerLines.length - 1], delimiter);
-        const nonNumeric = cand.filter(f => !Number.isFinite(parseNumber(f, decimal))).length;
-        if (cand.length >= 2 && Math.abs(cand.length - nCols) <= 1 && nonNumeric >= 1) {
-            columnNames = cand;
-        }
-    }
+    const nCols = modalFieldCount(dataRows);
+    const columnNames = detectColumnNames(headerLines, delimiter, decimal, nCols);
     const headerText = headerLines.join('\n');
 
     // Build X (col 0) + Y columns (cols 1..nCols-1).
@@ -259,19 +296,7 @@ export function parseSpectrumTable(text, opts = {}) {
     let xUnit = detectXUnit(headerText + ' ' + (columnNames[0] || ''));
     if (xUnit === X_UNITS.UNKNOWN) xUnit = guessXUnitFromRange(x);
 
-    const columns = colValues.map((values, k) => {
-        const name = columnNames[k + 1] || `Column ${k + 2}`;
-        const hdr = `${headerText}\n${name}`;
-        const isAbsorbance = isAbsorbanceHeader(name) || (columnNames.length === 0 && isAbsorbanceHeader(headerText));
-        return {
-            index: k + 1,
-            name,
-            values,
-            quantity: detectQuantity(name) || detectQuantity(headerText),
-            isPercent: isAbsorbance ? false : detectIsPercent(hdr, values),
-            isAbsorbance,
-        };
-    });
+    const columns = colValues.map((values, k) => buildColumn(values, k, columnNames, headerText));
 
     return { ok: true, delimiter, decimal, headerText, headerLines, nRows: x.length, xUnit, x, columns };
 }
@@ -344,6 +369,42 @@ const Q_LABEL = { T: '%T', R: '%R', A: 'Absorbance' };
  * @param {object} [opts] opts.delimiter (default ','), opts.asPercent (default true)
  * @returns {string} CSV text with CRLF endings.
  */
+// Do all curves share one X grid (equal length + matching λ within 1e-9)?
+function curvesShareGrid(list) {
+    return list.every(cv =>
+        cv.x.length === list[0].x.length &&
+        cv.x.every((v, i) => Math.abs(v - list[0].x[i]) < 1e-9));
+}
+
+// Shared grid → single λ column followed by one value column per curve.
+function sharedGridLines(list, d, yHdr, yOut) {
+    const lines = [['Wavelength (nm)', ...list.map(cv => `${cv.name} ${yHdr(cv)}`)].join(d)];
+    for (let i = 0; i < list[0].x.length; i++) {
+        lines.push([
+            fmt(list[0].x[i]),
+            ...list.map(cv => fmt(yOut(cv, cv.y[i]))),
+        ].join(d));
+    }
+    return lines;
+}
+
+// Independent grids: a (λ, value) column pair per curve, padded to the longest.
+function independentGridLines(list, d, yHdr, yOut) {
+    const maxLen = Math.max(...list.map(cv => cv.x.length));
+    const header = [];
+    list.forEach(cv => header.push('Wavelength (nm)', `${cv.name} ${yHdr(cv)}`));
+    const lines = [header.join(d)];
+    for (let i = 0; i < maxLen; i++) {
+        const row = [];
+        list.forEach(cv => {
+            if (i < cv.x.length) row.push(fmt(cv.x[i]), fmt(yOut(cv, cv.y[i])));
+            else row.push('', '');
+        });
+        lines.push(row.join(d));
+    }
+    return lines;
+}
+
 export function curvesToCsv(curves, opts = {}) {
     const d = opts.delimiter || ',';
     const asPercent = opts.asPercent !== false;
@@ -353,35 +414,9 @@ export function curvesToCsv(curves, opts = {}) {
     const yOut = (cv, v) => (cv.quantity === 'A' ? v : (asPercent ? v * 100 : v));
     const yHdr = (cv) => cv.quantity === 'A' ? 'Absorbance' : (asPercent ? Q_LABEL[cv.quantity] : cv.quantity);
 
-    // Shared grid → single λ column.
-    const sameGrid = list.every(cv =>
-        cv.x.length === list[0].x.length &&
-        cv.x.every((v, i) => Math.abs(v - list[0].x[i]) < 1e-9));
-
-    const lines = [];
-    if (sameGrid) {
-        lines.push(['Wavelength (nm)', ...list.map(cv => `${cv.name} ${yHdr(cv)}`)].join(d));
-        for (let i = 0; i < list[0].x.length; i++) {
-            lines.push([
-                fmt(list[0].x[i]),
-                ...list.map(cv => fmt(yOut(cv, cv.y[i]))),
-            ].join(d));
-        }
-    } else {
-        // Independent grids: pad to the longest curve, two columns each.
-        const maxLen = Math.max(...list.map(cv => cv.x.length));
-        const header = [];
-        list.forEach(cv => header.push('Wavelength (nm)', `${cv.name} ${yHdr(cv)}`));
-        lines.push(header.join(d));
-        for (let i = 0; i < maxLen; i++) {
-            const row = [];
-            list.forEach(cv => {
-                if (i < cv.x.length) row.push(fmt(cv.x[i]), fmt(yOut(cv, cv.y[i])));
-                else row.push('', '');
-            });
-            lines.push(row.join(d));
-        }
-    }
+    const lines = curvesShareGrid(list)
+        ? sharedGridLines(list, d, yHdr, yOut)
+        : independentGridLines(list, d, yHdr, yOut);
     return lines.join('\r\n') + '\r\n';
 }
 

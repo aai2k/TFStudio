@@ -48,6 +48,42 @@ function dupLead(ch) {
 }
 const isDigit = (ch) => ch >= '0' && ch <= '9';
 
+// Consume a run of digits and decimal points starting at `start`.
+function readTrailingDigits(s, start) {
+    let j = start, str = '';
+    while (j < s.length && (isDigit(s[j]) || s[j] === '.')) { str += s[j]; j++; }
+    return { str, end: j };
+}
+
+// Read a PAC / AFFN number (optional sign, digits, optional E-exponent).
+function readAffnNumber(s, start) {
+    const n = s.length;
+    let j = start, str = '';
+    if (s[j] === '+' || s[j] === '-') { str += s[j]; j++; }
+    const t = readTrailingDigits(s, j); str += t.str; j = t.end;
+    if (j < n && (s[j] === 'E' || s[j] === 'e')) {
+        str += 'E'; j++;
+        if (j < n && (s[j] === '+' || s[j] === '-')) { str += s[j]; j++; }
+        const e = readTrailingDigits(s, j); str += e.str; j = e.end;
+    }
+    return { str, end: j };
+}
+
+// Decode one SQZ / DIF / DUP pseudo-digit token given its leading char and the
+// trailing digit run. Returns null when `ch` is not a pseudo-digit.
+function pseudoToken(ch, trailing) {
+    const sq = sqzLead(ch);
+    if (sq) return { type: 'abs', val: sq.sign * parseFloat(`${sq.d}${trailing}`) };
+    const df = difLead(ch);
+    if (df !== null) {
+        const mag = parseFloat(`${Math.abs(df)}${trailing}`);
+        return { type: 'dif', val: df < 0 ? -mag : mag };
+    }
+    const dp = dupLead(ch);
+    if (dp !== null) return { type: 'dup', val: parseInt(`${dp}${trailing}`, 10) };
+    return null;
+}
+
 /**
  * Tokenize one ASDF ordinate stream (the part of a line AFTER the abscissa).
  * Returns [{ type:'abs'|'dif'|'dup', val:number }, …].
@@ -56,56 +92,20 @@ function tokenizeAsdf(s) {
     const tokens = [];
     let i = 0;
     const n = s.length;
-    const readTrailingDigits = (start) => {
-        let j = start, str = '';
-        while (j < n && (isDigit(s[j]) || s[j] === '.')) { str += s[j]; j++; }
-        return { str, end: j };
-    };
     while (i < n) {
         const ch = s[i];
         if (ch === ' ' || ch === '\t' || ch === ',') { i++; continue; }
-
         // PAC / AFFN signed or bare number (absolute).
         if (ch === '+' || ch === '-' || isDigit(ch) || ch === '.') {
-            let j = i, str = '';
-            if (ch === '+' || ch === '-') { str += ch; j++; }
-            const t = readTrailingDigits(j);
-            str += t.str; j = t.end;
-            // optional exponent
-            if (j < n && (s[j] === 'E' || s[j] === 'e')) {
-                str += 'E'; j++;
-                if (j < n && (s[j] === '+' || s[j] === '-')) { str += s[j]; j++; }
-                const e = readTrailingDigits(j); str += e.str; j = e.end;
-            }
+            const { str, end } = readAffnNumber(s, i);
             tokens.push({ type: 'abs', val: parseFloat(str) });
-            i = j;
+            i = end;
             continue;
         }
-        // SQZ (absolute).
-        const sq = sqzLead(ch);
-        if (sq) {
-            const t = readTrailingDigits(i + 1);
-            tokens.push({ type: 'abs', val: sq.sign * parseFloat(`${sq.d}${t.str || ''}`) });
-            i = t.end;
-            continue;
-        }
-        // DIF (difference).
-        const df = difLead(ch);
-        if (df !== null) {
-            const t = readTrailingDigits(i + 1);
-            const mag = parseFloat(`${Math.abs(df)}${t.str || ''}`);
-            tokens.push({ type: 'dif', val: (df < 0 ? -mag : mag) });
-            i = t.end;
-            continue;
-        }
-        // DUP (duplicate count).
-        const dp = dupLead(ch);
-        if (dp !== null) {
-            const t = readTrailingDigits(i + 1);
-            tokens.push({ type: 'dup', val: parseInt(`${dp}${t.str || ''}`, 10) });
-            i = t.end;
-            continue;
-        }
+        // SQZ / DIF / DUP pseudo-digit.
+        const { str: trailing, end } = readTrailingDigits(s, i + 1);
+        const tok = pseudoToken(ch, trailing);
+        if (tok) { tokens.push(tok); i = end; continue; }
         i++; // skip unknown char
     }
     return tokens;
@@ -165,6 +165,54 @@ function unitsToQuantity(yunits) {
 
 // ── Parser ──────────────────────────────────────────────────────────────────────
 
+const num = (v, d) => { const f = parseFloat(v); return Number.isFinite(f) ? f : d; };
+
+/**
+ * Start-of-block reset for the x-grid descriptors. FIRSTX/LASTX/DELTAX/NPOINTS
+ * describe ONE spectrum and must not leak from a previous SIBLING block in a
+ * compound (LINK) file — otherwise block 2 silently inherits block 1's x-axis.
+ * Units and factors legitimately cascade from a parent per the LINK convention.
+ */
+function resetXGrid(ctx) {
+    ctx.firstx = undefined; ctx.lastx = undefined;
+    ctx.deltax = undefined; ctx.npoints = undefined;
+}
+
+// LDR handlers that update the running context. TITLE marks a new block.
+const CTX_SETTERS = {
+    TITLE:    (ctx, v) => { resetXGrid(ctx); ctx.title = v; },
+    DATATYPE: (ctx, v) => { ctx.dataType = v; },
+    XUNITS:   (ctx, v) => { ctx.xunits = v; },
+    YUNITS:   (ctx, v) => { ctx.yunits = v; },
+    XFACTOR:  (ctx, v) => { ctx.xfactor = num(v, 1); },
+    YFACTOR:  (ctx, v) => { ctx.yfactor = num(v, 1); },
+    FIRSTX:   (ctx, v) => { ctx.firstx = num(v, 0); },
+    LASTX:    (ctx, v) => { ctx.lastx = num(v, 0); },
+    DELTAX:   (ctx, v) => { ctx.deltax = num(v, undefined); },
+    NPOINTS:  (ctx, v) => { ctx.npoints = Math.round(num(v, 0)); },
+};
+
+/**
+ * Split JCAMP-DX text into LDRs: a record begins at "##label=" and its value
+ * spans until the next "##". Data records (XYDATA/XYPOINTS) keep their body
+ * lines separately.
+ */
+function parseRecords(rawLines) {
+    const records = [];
+    let cur = null;
+    for (const rawLine of rawLines) {
+        const line = stripComment(rawLine);
+        const m = /^\s*##\s*([^=]+?)\s*=(.*)$/.exec(line);
+        if (m) {
+            cur = { label: normLabel(m[1]), rawLabel: m[1].trim(), value: m[2].trim(), body: [] };
+            records.push(cur);
+        } else if (cur && line.trim() !== '') {
+            cur.body.push(line);
+        }
+    }
+    return records;
+}
+
 /**
  * Parse JCAMP-DX text into one or more spectra.
  * @returns {{ ok:boolean, error?:string, spectra: Array<{
@@ -178,56 +226,18 @@ export function parseJcampDx(text) {
         return { ok: false, error: 'Not a JCAMP-DX file', spectra: [] };
     }
     const rawLines = text.replace(/\r\n?/g, '\n').split('\n');
-
-    // Parse into LDRs: a record begins at "##label=" and its value spans until the
-    // next "##". Data records (XYDATA/XYPOINTS) keep their body lines separately.
-    const records = [];
-    let cur = null;
-    for (const rawLine of rawLines) {
-        const line = stripComment(rawLine);
-        const m = /^\s*##\s*([^=]+?)\s*=(.*)$/.exec(line);
-        if (m) {
-            cur = { label: normLabel(m[1]), rawLabel: m[1].trim(), value: m[2].trim(), body: [] };
-            records.push(cur);
-        } else if (cur) {
-            if (line.trim() !== '') cur.body.push(line);
-        }
-    }
+    const records = parseRecords(rawLines);
 
     const spectra = [];
     const ctx = {};   // running LDR context (child blocks inherit parent units/factors)
-    const num = (v, d) => { const f = parseFloat(v); return Number.isFinite(f) ? f : d; };
 
     for (const r of records) {
-        switch (r.label) {
-            case 'TITLE':
-                // New block boundary. The x-grid descriptors (FIRSTX/LASTX/
-                // DELTAX/NPOINTS) describe ONE spectrum and must not leak from a
-                // previous SIBLING block in a compound (LINK) file — otherwise
-                // block 2 silently inherits block 1's deltax/firstx and gets the
-                // wrong x-axis. Reset them here; units/factors legitimately
-                // cascade from a parent block per the JCAMP-DX LINK convention.
-                ctx.firstx = undefined; ctx.lastx = undefined;
-                ctx.deltax = undefined; ctx.npoints = undefined;
-                ctx.title = r.value;
-                break;
-            case 'DATATYPE':   ctx.dataType = r.value; break;
-            case 'XUNITS':     ctx.xunits = r.value; break;
-            case 'YUNITS':     ctx.yunits = r.value; break;
-            case 'XFACTOR':    ctx.xfactor = num(r.value, 1); break;
-            case 'YFACTOR':    ctx.yfactor = num(r.value, 1); break;
-            case 'FIRSTX':     ctx.firstx = num(r.value, 0); break;
-            case 'LASTX':      ctx.lastx = num(r.value, 0); break;
-            case 'DELTAX':     ctx.deltax = num(r.value, undefined); break;
-            case 'NPOINTS':    ctx.npoints = Math.round(num(r.value, 0)); break;
-            case 'XYDATA':
-                spectra.push(buildSpectrum(decodeXYDATA(r.body, ctx), ctx));
-                break;
-            case 'XYPOINTS':
-            case 'PEAKTABLE':
-                spectra.push(buildSpectrum(decodeXYPOINTS(r.body, ctx), ctx));
-                break;
-            default: break;
+        const setter = CTX_SETTERS[r.label];
+        if (setter) { setter(ctx, r.value); continue; }
+        if (r.label === 'XYDATA') {
+            spectra.push(buildSpectrum(decodeXYDATA(r.body, ctx), ctx));
+        } else if (r.label === 'XYPOINTS' || r.label === 'PEAKTABLE') {
+            spectra.push(buildSpectrum(decodeXYPOINTS(r.body, ctx), ctx));
         }
     }
 
@@ -236,52 +246,66 @@ export function parseJcampDx(text) {
     return { ok: true, spectra: valid };
 }
 
-function decodeXYDATA(body, ctx) {
-    const yfactor = ctx.yfactor ?? 1;
-    const firstx = ctx.firstx ?? 0;
-    // Decode all ordinates, honoring the DIF check-value duplicate at line starts.
+/**
+ * Decode all XYDATA ordinate lines into a flat Y array, honoring the DIF
+ * check-value duplicate at line starts. Each line's FIRST token is the abscissa
+ * (a plain AFFN number — SQZ/DIF ordinates carry no delimiter from it) and is
+ * dropped; the rest are ordinates.
+ */
+function decodeXydataOrdinates(body) {
     const state = { prevY: 0, lastDiff: null, lastWasDif: false };
     const allY = [];
     let prevLineEndedDif = false;
     let firstLine = true;
     for (const line of body) {
         if (line.trim() === '') continue;
-        // Tokenize the whole line; the FIRST token is the abscissa (a plain AFFN
-        // number — SQZ/DIF ordinates carry no delimiter from it), the rest are
-        // ordinates.
         const allTok = tokenizeAsdf(line.trim());
         if (!allTok.length) continue;
-        const ordTok = allTok.slice(1);   // drop abscissa check value
-        const { ys, endedDif } = decodeAsdfTokens(ordTok, state);
-        // DIF check value: if the previous line ended in DIF mode, this line's
-        // first decoded ordinate repeats the previous line's last value → drop it.
+        const { ys, endedDif } = decodeAsdfTokens(allTok.slice(1), state);
+        // If the previous line ended in DIF mode, this line's first decoded
+        // ordinate repeats the previous line's last value → drop it.
         if (!firstLine && prevLineEndedDif && ys.length) ys.shift();
-        for (const y of ys) allY.push(y * yfactor);
+        for (const y of ys) allY.push(y);
         prevLineEndedDif = endedDif;
         firstLine = false;
     }
-    // Abscissa from FIRSTX + i*DELTAX (authoritative; per-line X are only checks).
-    // Prefer an explicit ##DELTAX; else derive from FIRSTX/LASTX and the actual
-    // point count (NPOINTS may be absent or wrong).
+    return allY;
+}
+
+/**
+ * Abscissa step from FIRSTX + i*DELTAX (authoritative; per-line X are only
+ * checks). Prefer an explicit ##DELTAX; else derive from FIRSTX/LASTX and the
+ * actual point count (NPOINTS may be absent or wrong).
+ */
+function xydataStep(ctx, firstx, count) {
     let deltax = ctx.deltax;
     if (deltax == null) {
-        const npts = (ctx.npoints && ctx.npoints > 1) ? ctx.npoints : allY.length;
+        const npts = (ctx.npoints && ctx.npoints > 1) ? ctx.npoints : count;
         if (npts > 1 && ctx.lastx != null) deltax = (ctx.lastx - firstx) / (npts - 1);
     }
-    const step = (deltax != null) ? deltax : 1;
+    return deltax != null ? deltax : 1;
+}
+
+function decodeXYDATA(body, ctx) {
+    const yfactor = ctx.yfactor ?? 1;
+    const firstx = ctx.firstx ?? 0;
+    const allY = decodeXydataOrdinates(body).map(y => y * yfactor);
+    const step = xydataStep(ctx, firstx, allY.length);
     const x = [];
     for (let i = 0; i < allY.length; i++) x.push(firstx + i * step);
     return { x, y: allY };
 }
 
-function decodeXYPOINTS(body, ctx) {
-    const xfactor = ctx.xfactor ?? 1;
-    const yfactor = ctx.yfactor ?? 1;
+/**
+ * Extract all finite numbers from XYPOINTS/PEAKTABLE body lines, in order.
+ * Pairs are separated by ';' or whitespace; x,y within a pair by ',' or
+ * whitespace.
+ */
+function parseXyNumbers(body) {
     const nums = [];
     for (const line of body) {
         const tr = stripComment(line).trim();
         if (!tr) continue;
-        // pairs separated by ';' or whitespace; x,y separated by ',' or whitespace
         for (const tok of tr.split(/[;\s]+/)) {
             if (!tok) continue;
             for (const v of tok.split(',')) {
@@ -290,6 +314,13 @@ function decodeXYPOINTS(body, ctx) {
             }
         }
     }
+    return nums;
+}
+
+function decodeXYPOINTS(body, ctx) {
+    const xfactor = ctx.xfactor ?? 1;
+    const yfactor = ctx.yfactor ?? 1;
+    const nums = parseXyNumbers(body);
     const x = [], y = [];
     for (let i = 0; i + 1 < nums.length; i += 2) { x.push(nums[i] * xfactor); y.push(nums[i + 1] * yfactor); }
     return { x, y };
@@ -332,6 +363,30 @@ function isUniform(x) {
     return true;
 }
 
+// `(X++(Y..Y))` rows: leading abscissa then up to 6 ordinates per line.
+function xydataLines(x, y, n, deltax) {
+    const PER_LINE = 6;
+    const out = [];
+    for (let i = 0; i < n; i += PER_LINE) {
+        const row = [fmtNum(x[0] + i * deltax)];
+        for (let k = i; k < Math.min(i + PER_LINE, n); k++) row.push(fmtNum(y[k]));
+        out.push(row.join(' '));
+    }
+    return out;
+}
+
+// `(XY..XY)` rows: up to 4 explicit "x,y" pairs per line.
+function xypointsLines(x, y, n) {
+    const PER_LINE = 4;
+    const out = [];
+    for (let i = 0; i < n; i += PER_LINE) {
+        const row = [];
+        for (let k = i; k < Math.min(i + PER_LINE, n); k++) row.push(`${fmtNum(x[k])},${fmtNum(y[k])}`);
+        out.push(row.join(' '));
+    }
+    return out;
+}
+
 /**
  * Build ONE JCAMP-DX block (LDRs + data) for a spectrum, WITHOUT the final
  * `##END=` (so it can be embedded in a LINK).  AFFN encoding.
@@ -342,14 +397,15 @@ function buildBlock(s, { version = '4.24', dataType = 'UV/VIS SPECTRUM' } = {}) 
     const xUnitLabel = X_UNIT_LABEL[s.xUnit || X_UNITS.NM] || 'NANOMETERS';
     const yUnitLabel = Y_UNIT_LABEL[s.quantity] || (s.isAbsorbance ? 'ABSORBANCE' : 'ARBITRARY UNITS');
 
-    const lines = [];
-    lines.push(`##TITLE=${s.title || 'Spectrum'}`);
-    lines.push(`##JCAMP-DX=${version}`);
-    lines.push(`##DATA TYPE=${dataType}`);
-    lines.push(`##XUNITS=${xUnitLabel}`);
-    lines.push(`##YUNITS=${yUnitLabel}`);
-    lines.push(`##XFACTOR=1.0`);
-    lines.push(`##YFACTOR=1.0`);
+    const lines = [
+        `##TITLE=${s.title || 'Spectrum'}`,
+        `##JCAMP-DX=${version}`,
+        `##DATA TYPE=${dataType}`,
+        `##XUNITS=${xUnitLabel}`,
+        `##YUNITS=${yUnitLabel}`,
+        `##XFACTOR=1.0`,
+        `##YFACTOR=1.0`,
+    ];
     if (n) {
         lines.push(`##FIRSTX=${fmtNum(x[0])}`);
         lines.push(`##LASTX=${fmtNum(x[n - 1])}`);
@@ -361,21 +417,10 @@ function buildBlock(s, { version = '4.24', dataType = 'UV/VIS SPECTRUM' } = {}) 
         const deltax = n > 1 ? (x[n - 1] - x[0]) / (n - 1) : 1;
         lines.push(`##DELTAX=${fmtNum(deltax)}`);
         lines.push(`##XYDATA=(X++(Y..Y))`);
-        const PER_LINE = 6;
-        for (let i = 0; i < n; i += PER_LINE) {
-            const xi = x[0] + i * deltax;
-            const row = [fmtNum(xi)];
-            for (let k = i; k < Math.min(i + PER_LINE, n); k++) row.push(fmtNum(y[k]));
-            lines.push(row.join(' '));
-        }
+        lines.push(...xydataLines(x, y, n, deltax));
     } else if (n) {
         lines.push(`##XYPOINTS=(XY..XY)`);
-        const PER_LINE = 4;
-        for (let i = 0; i < n; i += PER_LINE) {
-            const row = [];
-            for (let k = i; k < Math.min(i + PER_LINE, n); k++) row.push(`${fmtNum(x[k])},${fmtNum(y[k])}`);
-            lines.push(row.join(' '));
-        }
+        lines.push(...xypointsLines(x, y, n));
     }
     return lines.join('\r\n');
 }
