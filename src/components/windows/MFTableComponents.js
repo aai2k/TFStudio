@@ -930,8 +930,8 @@ export function MFTable(props) {
             )
         ),
         showToolbar && h('div', { style: { display: 'flex', alignItems: 'center', gap: 4, padding: '4px 6px', borderTop: `1px solid ${c.border}`, background: c.panel, flexShrink: 0 } },
-            h(TblBtn, { label: '+ Add',    onClick: () => onAdd(null, insertIndexAfterSelection()), c }),
-            h(TblBtn, { label: '✕ Delete', onClick: () => onDelete([...selIds]), disabled: !hasSelection, c }),
+            h(TblBtn, { label: 'Add',    onClick: () => onAdd(null, insertIndexAfterSelection()), c }),
+            h(TblBtn, { label: 'Delete', onClick: () => onDelete([...selIds]), disabled: !hasSelection, c }),
             h(TblBtn, { label: '↑',        onClick: onMoveUp,   disabled: !primarySel, c }),
             h(TblBtn, { label: '↓',        onClick: onMoveDown, disabled: !primarySel, c }),
             onClear && h(TblBtn, {
