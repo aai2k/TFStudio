@@ -117,6 +117,121 @@ function typeOptionEls(t, c) {
     return opts;
 }
 
+// ── Row value/format helpers ──────────────────────────────────────────────────
+// Optical (and math-with-optical-ref) operands store target/current as
+// fractions shown in percent; constraints, total-thickness, argwave and
+// math-with-non-optical-ref are raw (nm or dimensionless). These helpers derive
+// the per-row units, residual and display strings from that single distinction.
+
+function rowDisplayMeta(op, rawCur, mthPct) {
+    const isCon = isConstraint(op.type);
+    const isTT  = isTotalThickness(op.type); // value & target in nm
+    const isArg = isArgwave(op.type);        // value & target in nm
+    const isMth = isMath(op.type);           // value & target in units inherited from ref
+    const useFraction = !isCon && !isTT && !isArg && (!isMth || mthPct);
+    const cur = rawCur != null ? (useFraction ? rawCur * 100 : rawCur) : null;
+    const isRampRow = isRangeTarget(op.type);   // current = RMS deviation
+    const tgt = useFraction ? op.target * 100 : op.target;
+    // Ramp `current` is the RMS deviation from the target line — the residual is
+    // the value itself; other rows use current − target.
+    const rawDelta = cur != null ? (isRampRow ? cur : cur - tgt) : null;
+    const isRange = RANGE_AVG_TYPES.has(op.type) || RANGE_TARGET_TYPES.has(op.type) || isMinmax(op.type) || isInequality(op.type) || isArgwave(op.type);
+    return { isCon, isTT, isArg, isMth, mthPct, useFraction, cur, tgt, rawDelta, isRampRow, isRange };
+}
+
+// One-sided satisfaction color: green on the satisfied side of target, red else.
+function _sideColor(rawDelta, satisfiedWhenNeg, c) {
+    const ok = satisfiedWhenNeg ? rawDelta <= 0 : rawDelta >= 0;
+    return ok ? c.success : c.error;
+}
+// Proximity color: c.success within `near`, amber within `mid`, red beyond.
+function _proxColor(rawDelta, near, mid, c) {
+    const a = Math.abs(rawDelta);
+    return a < near ? c.success : a < mid ? '#ffa726' : '#ef5350';
+}
+function _mathColor(op, rawDelta, c) {
+    const kind = mathResidualKind(op.type);
+    if (kind === 'one-sided-min') return _sideColor(rawDelta, false, c);
+    if (kind === 'one-sided-max') return _sideColor(rawDelta, true, c);
+    return _proxColor(rawDelta, 0.005, 0.02, c);
+}
+// Delta cell color: green when the operand is satisfied, amber/red by proximity.
+// One-sided ops (MNT/MXT, ≤/≥ total thickness, OPGT/OPLT/ABGT/ABLT) only care
+// which side of target they are on; equality ops color by absolute closeness.
+function deltaColor(op, rawDelta, meta, c) {
+    if (rawDelta == null) return c.textDim;
+    if (meta.isCon) return _sideColor(rawDelta, op.type !== 'MNT', c);   // MNT satisfied when ≥0
+    if (meta.isTT && (op.cmp === 'le' || op.cmp === 'ge')) return _sideColor(rawDelta, op.cmp === 'le', c);
+    if (meta.isMth) return _mathColor(op, rawDelta, c);
+    const [near, mid] = meta.isArg ? [1, 5] : [0.5, 2];
+    return _proxColor(rawDelta, near, mid, c);
+}
+
+function fmtCurrent(cur, meta) {
+    if (cur == null) return '—';
+    if (meta.isMth) return cur.toPrecision(4);
+    if (meta.isCon || meta.isTT || meta.isArg) return cur.toFixed(2) + ' nm';
+    return cur.toFixed(3) + ' %';
+}
+
+function fmtDelta(dVal, meta) {
+    if (dVal == null) return '—';
+    const sign = dVal >= 0 ? '+' : '';
+    if (meta.isMth) return sign + dVal.toPrecision(3);
+    if (meta.isCon || meta.isTT || meta.isArg) return sign + dVal.toFixed(2) + ' nm';
+    return sign + dVal.toFixed(3) + ' %';
+}
+
+function fmtTargetDisplay(op, meta) {
+    if (meta.isMth) {
+        return meta.mthPct ? (op.target * 100).toFixed(2) : (op.target?.toPrecision?.(4) ?? '0');
+    }
+    if (meta.isCon || meta.isTT || meta.isArg) return op.target.toFixed(2);
+    if (meta.isRampRow) {
+        const tEnd = op.targetEnd != null ? op.targetEnd : op.target;
+        return `${(op.target * 100).toFixed(1)}→${(tEnd * 100).toFixed(1)}`;
+    }
+    return (op.target * 100).toFixed(2);
+}
+
+// Copy the selected operands to the clipboard as TSV. Only T/R/A-valued targets
+// are stored as fractions and shown as %; nm-valued operands (TT, MNT/MXT,
+// argwave) and dimensionless math refs are raw, so scaling everything by 100
+// would corrupt those on paste.
+function copySelectedOperands(operands, selIds) {
+    const tsv = operands.filter(op => selIds.has(op.id)).map(op => {
+        const tgt = op.target ?? 0;
+        const tgtStr = (isFractionalUnit(op.type) ? tgt * 100 : tgt).toFixed(2);
+        return [op.type, op.lambdaStart, op.lambdaEnd, op.aoi, op.pol, tgtStr, op.weight].join('\t');
+    }).join('\n');
+    navigator.clipboard?.writeText(tsv).catch(() => {});
+}
+
+// Paste TSV rows as new operands. Mirrors the copy scaling (fractional types ÷100,
+// nm/dimensionless stay raw). Math-ref links, integral source/detector, cmp and
+// ramp ends are not carried by this flat TSV — use Ctrl+D to clone those.
+function pasteOperands(onAdd) {
+    navigator.clipboard?.readText().then(text => {
+        text.trim().split(/\r?\n/).forEach(line => {
+            const parts = line.split('\t');
+            if (parts.length < 1) return;
+            const [type, lsStr, leStr, aoiStr, pol, tgtStr, wStr] = parts;
+            const ls = parseFloat(lsStr), le = parseFloat(leStr);
+            const aoi = parseFloat(aoiStr), tgt = parseFloat(tgtStr), w = parseFloat(wStr);
+            const safeType = OPERAND_TYPES.includes(type) ? type : 'RAV';
+            onAdd({
+                type:        safeType,
+                lambdaStart: isFinite(ls)  ? ls  : 400,
+                lambdaEnd:   isFinite(le)  ? le  : 700,
+                aoi:         isFinite(aoi) ? aoi : 0,
+                pol:         OPERAND_POLS.includes(pol) ? pol : 'avg',
+                target:      isFinite(tgt) ? (isFractionalUnit(safeType) ? tgt / 100 : tgt) : 0,
+                weight:      isFinite(w)   ? w   : 1,
+            });
+        });
+    }).catch(() => {});
+}
+
 // ── Inline numeric/text input used when a cell is being edited ────────────────
 
 function CellInput({ initValue, onCommit, onCancel, onNavigate, c }) {
@@ -161,9 +276,316 @@ export function TblBtn({ label, onClick, disabled, c, accent, title }) {
     }, label);
 }
 
+// A native <select> styled to blend into a table cell. Shared by the type, pol,
+// total-thickness comparison, integral-preset and math-reference cells.
+function CellSelect({ value, onChange, title, color, children }) {
+    return h('select', {
+        value, onChange, title,
+        style: {
+            width: '100%', background: 'transparent', color, border: 'none',
+            fontSize: 11, padding: '1px 2px', fontFamily: 'inherit', outline: 'none', cursor: 'pointer'
+        }
+    }, children);
+}
+
+// ── Sentinel rows ─────────────────────────────────────────────────────────────
+
+// DMFS: the "default merit function" marker row — inert except for its checkbox.
+function DmfsRow({ op, rowIdx, rowSel, c, onEdit, selectRow }) {
+    return h('tr', {
+        onClick: e => selectRow(op.id, e.shiftKey, e.ctrlKey || e.metaKey),
+        style: { cursor: 'default', backgroundColor: rowSel ? c.accent + '28' : c.accent + '12' }
+    },
+        h('td', { style: { width: COLS[0].w, padding: '0 4px', textAlign: 'center', color: c.textDim, userSelect: 'none', fontSize: 11 } }, rowIdx + 1),
+        h('td', {
+            style: { width: COLS[1].w, padding: '0 4px', textAlign: 'center', cursor: 'pointer', color: op.enabled ? c.accent : c.textDim, userSelect: 'none', fontSize: 11 },
+            onClick: e => { e.stopPropagation(); onEdit(op.id, 'enabled', !op.enabled); }
+        }, op.enabled ? '✓' : '○'),
+        h('td', {
+            colSpan: COLS.length - 2,
+            style: { padding: '2px 8px', fontStyle: 'italic', color: c.accent, fontSize: 11, borderLeft: `2px solid ${c.accent}50` }
+        }, '▶ DMFS — ' + (op.comment || 'Default merit function'))
+    );
+}
+
+// BLNK: inert free-text annotation row; its type cell can still convert it into
+// any operand (and back).
+function BlnkRow({ op, rowIdx, rowSel, c, t, onEdit, selectRow }) {
+    return h('tr', {
+        onClick: e => selectRow(op.id, e.shiftKey, e.ctrlKey || e.metaKey),
+        style: { cursor: 'default', backgroundColor: rowSel ? c.accent + '28' : 'rgba(140,140,140,0.10)' }
+    },
+        h('td', { style: { width: COLS[0].w, padding: '0 4px', textAlign: 'center', color: c.textDim, userSelect: 'none', fontSize: 11 } }, rowIdx + 1),
+        h('td', {
+            style: { width: COLS[1].w, padding: '0 4px', textAlign: 'center', cursor: 'pointer', color: op.enabled ? c.accent : c.textDim, userSelect: 'none', fontSize: 11 },
+            onClick: e => { e.stopPropagation(); onEdit(op.id, 'enabled', !op.enabled); }
+        }, op.enabled ? '✓' : '○'),
+        h('td', { style: { width: COLS[2].w, padding: '0 2px' }, onClick: e => e.stopPropagation() },
+            h(CellSelect, {
+                value: op.type,
+                onChange: e => onEdit(op.id, 'type', e.target.value),
+                title: (t?.meritFunctionEditor?.operandTypes?.[op.type]?.label) || op.type,
+                color: c.textDim,
+            }, typeOptionEls(t, c))
+        ),
+        h('td', {
+            colSpan: COLS.length - 3,
+            style: { padding: '1px 6px', borderLeft: '2px solid rgba(140,140,140,0.4)' }
+        },
+            h('input', {
+                value: op.comment || '',
+                placeholder: '# comment…',
+                onChange: e => onEdit(op.id, 'comment', e.target.value),
+                onClick: e => e.stopPropagation(),
+                style: { width: '100%', background: 'transparent', color: c.textDim, border: 'none', fontSize: 11, fontStyle: 'italic', padding: '1px 2px', fontFamily: 'inherit', outline: 'none' }
+            })
+        )
+    );
+}
+
+// ── Data-row cells ────────────────────────────────────────────────────────────
+// Each cell renderer takes (ctx, colKey, w) and returns a <td>. `ctx` bundles the
+// row's operand, derived display meta, theme, callbacks and the tdBase/cellClick
+// closures, so the renderers stay module-scope (their complexity doesn't roll up
+// into the row component) and single-parameter.
+
+function _dashCell(ctx, colKey, w) {
+    return h('td', { key: colKey, style: { ...ctx.tdBase(colKey, w), color: ctx.c.textDim } }, '—');
+}
+
+function _enabledCell(ctx, colKey, w) {
+    const { op, rowIdx, c, tdBase, focusAt, onEdit } = ctx;
+    return h('td', {
+        key: colKey,
+        onClick: () => { focusAt(rowIdx, colKey); onEdit(op.id, 'enabled', !op.enabled); },
+        style: { ...tdBase(colKey, w), textAlign: 'center', cursor: 'pointer', color: op.enabled ? c.accent : c.textDim, userSelect: 'none' }
+    }, op.enabled ? '✓' : '○');
+}
+
+function _typeCell(ctx, colKey, w) {
+    const { op, c, t, tdBase, cellClick, onEdit } = ctx;
+    const odict = t?.meritFunctionEditor?.operandTypes || {};
+    return h('td', { key: colKey, onClick: e => cellClick(colKey, e), style: tdBase(colKey, w, { padding: '0 2px' }) },
+        h(CellSelect, {
+            value: op.type,
+            onChange: e => onEdit(op.id, 'type', e.target.value),
+            title: odict[op.type]?.label || op.type,
+            color: c.text,
+        }, typeOptionEls(t, c))
+    );
+}
+
+// Total-thickness comparison picker: ≤ (max total), ≥ (min total), or =
+// (equality target). Lives in the otherwise-unused λ cell so a TT row reads
+// e.g. "TT  ≤  2000 nm".
+function _ttCmpCell(ctx, colKey, w) {
+    const { op, c, tdBase, cellClick, onEdit } = ctx;
+    const cmp = op.cmp || 'eq';
+    return h('td', { key: colKey, onClick: e => cellClick(colKey, e), style: tdBase(colKey, w, { padding: '0 2px' }) },
+        h(CellSelect, {
+            value: cmp,
+            onChange: e => onEdit(op.id, 'cmp', e.target.value),
+            title: cmp === 'le' ? 'Total thickness ≤ target (max)'
+                 : cmp === 'ge' ? 'Total thickness ≥ target (min)'
+                 :                'Total thickness = target',
+            color: c.text,
+        },
+            h('option', { value: 'le', style: { background: c.panel } }, '≤'),
+            h('option', { value: 'ge', style: { background: c.panel } }, '≥'),
+            h('option', { value: 'eq', style: { background: c.panel } }, '='),
+        )
+    );
+}
+
+// Weighted-integral rows: λStart cell becomes a preset picker (the preset drives
+// type/source/detector/band atomically); λEnd is a read-only readout.
+function _integralStartCell(ctx, colKey, w) {
+    const { op, c, tdBase, cellClick, onEdit, integralPresets } = ctx;
+    const matchKey = (op.presetKey && integralPresets.some(p => p.key === op.presetKey)) ? op.presetKey : '';
+    return h('td', { key: colKey, onClick: e => cellClick(colKey, e), style: tdBase(colKey, w, { padding: '0 2px' }) },
+        h(CellSelect, {
+            value: matchKey,
+            onChange: e => {
+                const p = integralPresets.find(pp => pp.key === e.target.value);
+                if (!p) return;
+                const typeMap = { T: 'TIW', R: 'RIW', A: 'AIW' };
+                onEdit(op.id, '_patch', {
+                    type:        typeMap[p.char] || op.type,
+                    presetKey:   p.key,
+                    source:      { ...p.sourceSpec },
+                    detector:    { ...p.detectorSpec },
+                    lambdaStart: p.band[0],
+                    lambdaEnd:   p.band[1],
+                });
+            },
+            title: matchKey ? (integralPresets.find(p => p.key === matchKey)?.label || matchKey) : 'Pick a saved integral preset',
+            color: c.text,
+        },
+            !matchKey && h('option', { key: '_none', value: '', style: { background: c.panel, color: c.textDim } }, '(custom)'),
+            integralPresets.map(p => h('option', { key: p.key, value: p.key, title: p.label, style: { background: c.panel } }, p.label))
+        )
+    );
+}
+
+// Math operand reference picker. For OPGT/OPLT/OPVA/ABSO/ABGT/ABLT the λStart
+// cell holds the single ref; for DIFF/SUMM/PROD λStart=ref1, λEnd=ref2. Stale
+// refs (referenced operand deleted) render red.
+function _mathRefCell(ctx, colKey, w) {
+    const { op, c, tdBase, cellClick, onEdit, operands } = ctx;
+    const isSecondRef = colKey === 'lambdaEnd';
+    if (isSecondRef && !isMathPairRef(op.type)) return _dashCell(ctx, colKey, w);
+    const refKey = isMathPairRef(op.type) ? (isSecondRef ? 'refId2' : 'refId1') : 'refId';
+    const curRefId = op[refKey];
+    const refOpIdx = curRefId ? operands.findIndex(o => o.id === curRefId) : -1;
+    const stale    = curRefId && refOpIdx < 0;
+    return h('td', { key: colKey, onClick: e => cellClick(colKey, e),
+                     style: tdBase(colKey, w, { padding: '0 2px', color: stale ? '#ef5350' : c.text }) },
+        h(CellSelect, {
+            value: curRefId || '',
+            onChange: e => onEdit(op.id, '_patch', { [refKey]: e.target.value || null }),
+            title: stale ? 'Referenced operand was deleted'
+                        : (refOpIdx >= 0 ? `#${refOpIdx + 1} (${operands[refOpIdx].type})` : 'Pick an operand to reference'),
+            color: stale ? '#ef5350' : c.text,
+        },
+            h('option', { key: '_none', value: '', style: { background: c.panel, color: c.textDim } }, stale ? '(deleted)' : '(pick…)'),
+            operands.map((o2, idx) => {
+                if (o2.id === op.id) return null; // no self-reference
+                return h('option', { key: o2.id, value: o2.id, style: { background: c.panel } }, `#${idx + 1} ${o2.type}`);
+            }).filter(Boolean)
+        )
+    );
+}
+
+function _polCell(ctx, colKey, w) {
+    const { op, c, tdBase, cellClick, onEdit } = ctx;
+    const embedded = polFromType(op.type);
+    if (embedded) {
+        return h('td', { key: colKey, onClick: e => cellClick(colKey, e), style: tdBase(colKey, w, { color: c.textDim }) }, embedded);
+    }
+    return h('td', { key: colKey, onClick: e => cellClick(colKey, e), style: tdBase(colKey, w, { padding: '0 2px' }) },
+        h(CellSelect, {
+            value: op.pol,
+            onChange: e => onEdit(op.id, 'pol', e.target.value),
+            color: c.text,
+        }, OPERAND_POLS.map(p => h('option', { key: p, value: p, style: { background: c.panel } }, p)))
+    );
+}
+
+function _currentCell(ctx, colKey, w) {
+    const { meta, c, tdBase } = ctx;
+    return h('td', { key: colKey, style: { ...tdBase(colKey, w), textAlign: 'right', color: c.text } }, fmtCurrent(meta.cur, meta));
+}
+
+function _deltaCell(ctx, colKey, w) {
+    const { meta, dColor, tdBase } = ctx;
+    return h('td', { key: colKey, style: { ...tdBase(colKey, w), textAlign: 'right', color: dColor, fontWeight: 500 } }, fmtDelta(meta.rawDelta, meta));
+}
+
+function _numCell(ctx, colKey, w) {
+    const { op, rowIdx, c, tdBase, selectRow, rowStripe } = ctx;
+    return h('td', {
+        key: colKey,
+        onClick: e => selectRow(op.id, e.shiftKey, e.ctrlKey || e.metaKey),
+        style: { ...tdBase(colKey, w), textAlign: 'center', color: c.textDim, userSelect: 'none', boxShadow: rowStripe ? `inset 3px 0 0 0 ${rowStripe}` : 'none' }
+    }, rowIdx + 1);
+}
+
+function _editingCell(ctx, colKey, w) {
+    const { rowIdx, c, tdBase, editCell, commitEdit, navigate, setEditCell } = ctx;
+    return h('td', { key: colKey, style: tdBase(colKey, w, { padding: '0 2px' }) },
+        h(CellInput, {
+            initValue: editCell.initValue,
+            onCommit: draft => commitEdit(rowIdx, colKey, draft),
+            onCancel: () => setEditCell(null),
+            onNavigate: dir => navigate(rowIdx, colKey, dir),
+            c
+        })
+    );
+}
+
+function _textCell(ctx, colKey, w) {
+    const { op, meta, rowIdx, c, tdBase, cellClick, startEdit } = ctx;
+    let display = op[colKey];
+    if (colKey === 'target') {
+        display = fmtTargetDisplay(op, meta);
+    } else if (colKey === 'lambdaEnd') {
+        if (meta.isCon) display = String(Math.round(op.lambdaEnd));
+        else if (!meta.isRange) return _dashCell(ctx, colKey, w);
+    }
+    return h('td', {
+        key: colKey,
+        onClick:    e => cellClick(colKey, e),
+        onDoubleClick: () => startEdit(rowIdx, colKey, null),
+        style: { ...tdBase(colKey, w), color: c.text, overflow: 'hidden', textOverflow: 'ellipsis', cursor: 'text' }
+    }, display ?? '');
+}
+
+// Map each column to its renderer for this operand. Operand type is exclusive
+// (a row is at most one of constraint / total-thickness / integral / math), so
+// the override blocks never conflict. Columns not overridden keep the base
+// renderer (which itself em-dashes inapplicable cells).
+function rowRenderers(op, meta) {
+    const R = {
+        num: _numCell, enabled: _enabledCell, type: _typeCell,
+        lambdaStart: _textCell, lambdaEnd: _textCell,
+        aoi: _textCell, pol: _polCell,
+        target: _textCell, weight: _textCell,
+        current: _currentCell, delta: _deltaCell,
+    };
+    if (meta.isCon) { R.aoi = _dashCell; R.pol = _dashCell; }
+    if (meta.isTT)  { R.lambdaStart = _ttCmpCell; R.lambdaEnd = _dashCell; R.aoi = _dashCell; R.pol = _dashCell; }
+    if (isIntegral(op.type)) { R.lambdaStart = _integralStartCell; R.lambdaEnd = _dashCell; }
+    if (meta.isMth) { R.lambdaStart = _mathRefCell; R.lambdaEnd = _mathRefCell; R.aoi = _dashCell; R.pol = _dashCell; }
+    return R;
+}
+
+// ── Data row ──────────────────────────────────────────────────────────────────
+
+function MFDataRow(props) {
+    const { op, rowIdx, rawCur, rowSel, focusCell, editCell, operands, integralPresets, isMathPct, c, t,
+            onEdit, selectRow, focusAt, startEdit, commitEdit, navigate, setEditCell } = props;
+    const meta = rowDisplayMeta(op, rawCur, isMath(op.type) && isMathPct(op));
+    const dColor    = deltaColor(op, meta.rawDelta, meta, c);
+    const rowBg     = typeRgba(op.type, 0.12) || 'transparent';
+    const rowStripe = typeRgba(op.type, 0.75);
+
+    const tdBase = (colKey, w, extra) => {
+        const isFocused = focusCell?.rowIdx === rowIdx && focusCell?.colKey === colKey;
+        return {
+            width: w, padding: '0 4px',
+            backgroundColor: isFocused ? c.accent + '44' : rowSel ? c.accent + '28' : rowBg,
+            outline: isFocused ? `1px solid ${c.accent}` : 'none',
+            outlineOffset: -1, cursor: 'default',
+            ...extra
+        };
+    };
+    const cellClick = (colKey, e) => {
+        if (colKey === 'num' || colKey === 'current' || colKey === 'delta') selectRow(op.id, e.shiftKey, e.ctrlKey || e.metaKey);
+        else focusAt(rowIdx, colKey);
+    };
+
+    const ctx = {
+        op, rowIdx, meta, c, t, operands, integralPresets, dColor, rowStripe, editCell,
+        tdBase, cellClick, onEdit, focusAt, selectRow, startEdit, commitEdit, navigate, setEditCell,
+    };
+
+    const R = rowRenderers(op, meta);
+    return h('tr', { style: { opacity: op.enabled ? 1 : 0.45 } },
+        COLS.map(col => {
+            let render = R[col.key];
+            // Editing only replaces a cell that would otherwise render as free text.
+            if (render === _textCell && editCell?.rowIdx === rowIdx && editCell?.colKey === col.key) render = _editingCell;
+            return render(ctx, col.key, col.w);
+        }));
+}
+
 // ── Operand table with toolbar ────────────────────────────────────────────────
 
-export function MFTable({ operands, computed, selectedId, noOperandsMsg, onSelect, onEdit, onAdd, onInsertAt, onDuplicate, onDelete, onClear, onMoveUp, onMoveDown, showToolbar = true, c, t }) {
+export function MFTable(props) {
+    const {
+        operands, computed, selectedId, noOperandsMsg, onSelect, onEdit, onAdd, onInsertAt,
+        onDuplicate, onDelete, onClear, onMoveUp, onMoveDown, showToolbar = true, c, t,
+    } = props;
     const integralPresets = useIntegralPresets();
     // Multi-row selection
     const [selIds,    setSelIds]    = useState(() => selectedId ? new Set([selectedId]) : new Set());
@@ -336,16 +758,13 @@ export function MFTable({ operands, computed, selectedId, noOperandsMsg, onSelec
             if (selIds.size > 0) { e.preventDefault(); onDelete([...selIds]); setSelIds(new Set()); setFocusCell(null); }
             return;
         }
-        // ── Excel-like row shortcuts ──────────────────────────────────────
-        // Ins / Shift+Ins insert above/below the focused row, copying its
-        // type/λ/AOI/pol so the new row is a near-duplicate the user only
-        // has to retarget. Ctrl+D duplicates the current selection below.
+        // Ins / Shift+Ins insert a near-duplicate row above/below the focused row
+        // (copying type/λ/AOI/pol so the user only retargets); Ctrl+D duplicates
+        // the current selection below.
         if (e.key === 'Insert') {
             e.preventDefault();
             if (!onInsertAt) return;
-            const src = operands[rowIdx] || null;
-            const insertIdx = e.shiftKey ? rowIdx + 1 : rowIdx;
-            onInsertAt(insertIdx, src);
+            onInsertAt(e.shiftKey ? rowIdx + 1 : rowIdx, operands[rowIdx] || null);
             return;
         }
         if (e.ctrlKey && !e.shiftKey && (e.key === 'd' || e.key === 'D')) {
@@ -361,58 +780,13 @@ export function MFTable({ operands, computed, selectedId, noOperandsMsg, onSelec
         if (e.key === 'ArrowLeft')  { e.preventDefault(); navigate(rowIdx, colKey, 'left'); return; }
         if (e.key === 'Enter' || e.key === 'F2') { e.preventDefault(); startEdit(rowIdx, colKey, null); return; }
         if (e.key === 'Tab') { e.preventDefault(); navigate(rowIdx, colKey, e.shiftKey ? 'left' : 'right'); return; }
+        if (e.ctrlKey && e.key === 'c') { e.preventDefault(); copySelectedOperands(operands, selIds); return; }
+        if (e.ctrlKey && e.key === 'v') { e.preventDefault(); pasteOperands(onAdd); return; }
 
-        if (e.ctrlKey && e.key === 'c') {
-            e.preventDefault();
-            const rows = operands.filter(op => selIds.has(op.id));
-            // Only T/R/A-valued targets are stored as fractions and shown as %;
-            // nm-valued operands (TT, MNT/MXT, argwave) and dimensionless math
-            // refs are raw. Scaling everything by 100 corrupted those on paste.
-            const tsv = rows.map(op => {
-                const tgt = op.target ?? 0;
-                const tgtStr = (isFractionalUnit(op.type) ? tgt * 100 : tgt).toFixed(2);
-                return [op.type, op.lambdaStart, op.lambdaEnd, op.aoi, op.pol, tgtStr, op.weight].join('\t');
-            }).join('\n');
-            navigator.clipboard?.writeText(tsv).catch(() => {});
-            return;
-        }
-        if (e.ctrlKey && e.key === 'v') {
-            e.preventDefault();
-            navigator.clipboard?.readText().then(text => {
-                const lines = text.trim().split(/\r?\n/);
-                lines.forEach(line => {
-                    const parts = line.split('\t');
-                    if (parts.length < 1) return;
-                    const [type, lsStr, leStr, aoiStr, pol, tgtStr, wStr] = parts;
-                    const ls = parseFloat(lsStr); const le = parseFloat(leStr);
-                    const aoi = parseFloat(aoiStr); const tgt = parseFloat(tgtStr);
-                    const w = parseFloat(wStr);
-                    const safeType = OPERAND_TYPES.includes(type) ? type : 'RAV';
-                    // Mirror the copy scaling: fractional (%) types divide by
-                    // 100; nm / dimensionless types stay raw. (Note: math-ref
-                    // links, integral source/detector, cmp and ramp ends are not
-                    // carried by this flat TSV — use Ctrl+D to clone those.)
-                    onAdd({
-                        type:        safeType,
-                        lambdaStart: isFinite(ls)  ? ls  : 400,
-                        lambdaEnd:   isFinite(le)  ? le  : 700,
-                        aoi:         isFinite(aoi) ? aoi : 0,
-                        pol:         OPERAND_POLS.includes(pol) ? pol : 'avg',
-                        target:      isFinite(tgt) ? (isFractionalUnit(safeType) ? tgt / 100 : tgt) : 0,
-                        weight:      isFinite(w)   ? w   : 1,
-                    });
-                });
-            }).catch(() => {});
-            return;
-        }
-
-        // Start edit with typed char
         if (!e.ctrlKey && !e.altKey && !e.metaKey && e.key.length === 1) {
             startEdit(rowIdx, colKey, e.key);
         }
     }, [editCell, focusCell, selIds, operands, onDelete, onAdd, onInsertAt, onDuplicate, startEdit, focusAt, navigate]);
-
-    // ── Copy via context (also support Ctrl+C on container) ──────────────────
 
     const thStyle = {
         padding: '2px 4px', textAlign: 'left', fontSize: 10,
@@ -423,6 +797,30 @@ export function MFTable({ operands, computed, selectedId, noOperandsMsg, onSelec
 
     const primarySel = selIds.size === 1 ? [...selIds][0] : null;
     const hasSelection = selIds.size > 0;
+
+    // Pick the operand whose row drives the header labels: focused cell wins,
+    // then a single-selection, else the first operand.
+    const headerOp = (focusCell && operands[focusCell.rowIdx])
+        || (primarySel && operands.find(o => o.id === primarySel))
+        || operands[0]
+        || null;
+    const dyn = dynamicHeaderLabels(headerOp);
+
+    const renderRow = (op, rowIdx) => {
+        const rowSel = selIds.has(op.id);
+        if (isDmfs(op.type)) {
+            return h(DmfsRow, { key: op.id, op, rowIdx, rowSel, c, onEdit, selectRow });
+        }
+        if (isBlank(op.type)) {
+            return h(BlnkRow, { key: op.id, op, rowIdx, rowSel, c, t, onEdit, selectRow });
+        }
+        return h(MFDataRow, {
+            key: op.id, op, rowIdx,
+            rawCur: computed?.[rowIdx] != null ? computed[rowIdx] : null,
+            rowSel, focusCell, editCell, operands, integralPresets, isMathPct, c, t,
+            onEdit, selectRow, focusAt, startEdit, commitEdit, navigate, setEditCell,
+        });
+    };
 
     return h('div', {
         ref: tableRef,
@@ -435,390 +833,21 @@ export function MFTable({ operands, computed, selectedId, noOperandsMsg, onSelec
                 style: { borderCollapse: 'collapse', tableLayout: 'fixed', width: TABLE_W, fontSize: 11, fontFamily: 'system-ui, -apple-system, sans-serif' }
             },
                 h('colgroup', null, COLS.map(col => h('col', { key: col.key, style: { width: col.w } }))),
-                (() => {
-                    // Pick the operand whose row drives the header labels: focused
-                    // cell wins, then a single-selection, else the first operand.
-                    const headerOp = (focusCell && operands[focusCell.rowIdx])
-                        || (primarySel && operands.find(o => o.id === primarySel))
-                        || operands[0]
-                        || null;
-                    const dyn = dynamicHeaderLabels(headerOp);
-                    return h('thead', null,
-                        h('tr', null, COLS.map(col => {
-                            const lbl = col.key === 'lambdaStart' ? dyn.lambdaStart
-                                      : col.key === 'lambdaEnd'   ? dyn.lambdaEnd
-                                      : col.label;
-                            return h('th', { key: col.key, style: { ...thStyle, width: col.w } }, lbl);
-                        }))
-                    );
-                })(),
+                h('thead', null,
+                    h('tr', null, COLS.map(col => {
+                        const lbl = col.key === 'lambdaStart' ? dyn.lambdaStart
+                                  : col.key === 'lambdaEnd'   ? dyn.lambdaEnd
+                                  : col.label;
+                        return h('th', { key: col.key, style: { ...thStyle, width: col.w } }, lbl);
+                    }))
+                ),
                 h('tbody', null,
                     operands.length === 0
                         ? h('tr', null, h('td', {
                             colSpan: COLS.length,
                             style: { padding: 16, textAlign: 'center', color: c.textDim, fontSize: 12 }
                           }, noOperandsMsg || 'No operands.'))
-                        : operands.map((op, rowIdx) => {
-                            // ── DMFS sentinel row ──────────────────────────────
-                            if (isDmfs(op.type)) {
-                                const rowSel = selIds.has(op.id);
-                                return h('tr', {
-                                    key: op.id,
-                                    onClick: e => selectRow(op.id, e.shiftKey, e.ctrlKey || e.metaKey),
-                                    style: { cursor: 'default', backgroundColor: rowSel ? c.accent + '28' : c.accent + '12' }
-                                },
-                                    h('td', { style: { width: COLS[0].w, padding: '0 4px', textAlign: 'center', color: c.textDim, userSelect: 'none', fontSize: 11 } }, rowIdx + 1),
-                                    h('td', {
-                                        style: { width: COLS[1].w, padding: '0 4px', textAlign: 'center', cursor: 'pointer', color: op.enabled ? c.accent : c.textDim, userSelect: 'none', fontSize: 11 },
-                                        onClick: e => { e.stopPropagation(); onEdit(op.id, 'enabled', !op.enabled); }
-                                    }, op.enabled ? '✓' : '○'),
-                                    h('td', {
-                                        colSpan: COLS.length - 2,
-                                        style: { padding: '2px 8px', fontStyle: 'italic', color: c.accent, fontSize: 11, borderLeft: `2px solid ${c.accent}50` }
-                                    }, '▶ DMFS — ' + (op.comment || 'Default merit function'))
-                                );
-                            }
-
-                            // ── BLNK comment row (inert; free-text annotation) ──
-                            if (isBlank(op.type)) {
-                                const rowSel = selIds.has(op.id);
-                                return h('tr', {
-                                    key: op.id,
-                                    onClick: e => selectRow(op.id, e.shiftKey, e.ctrlKey || e.metaKey),
-                                    style: { cursor: 'default', backgroundColor: rowSel ? c.accent + '28' : 'rgba(140,140,140,0.10)' }
-                                },
-                                    h('td', { style: { width: COLS[0].w, padding: '0 4px', textAlign: 'center', color: c.textDim, userSelect: 'none', fontSize: 11 } }, rowIdx + 1),
-                                    h('td', {
-                                        style: { width: COLS[1].w, padding: '0 4px', textAlign: 'center', cursor: 'pointer', color: op.enabled ? c.accent : c.textDim, userSelect: 'none', fontSize: 11 },
-                                        onClick: e => { e.stopPropagation(); onEdit(op.id, 'enabled', !op.enabled); }
-                                    }, op.enabled ? '✓' : '○'),
-                                    // Type dropdown so a comment row can be converted into any operand (and back).
-                                    h('td', { style: { width: COLS[2].w, padding: '0 2px' }, onClick: e => e.stopPropagation() },
-                                        h('select', {
-                                            value: op.type,
-                                            onChange: e => onEdit(op.id, 'type', e.target.value),
-                                            title: (t?.meritFunctionEditor?.operandTypes?.[op.type]?.label) || op.type,
-                                            style: { width: '100%', background: 'transparent', color: c.textDim, border: 'none', fontSize: 11, padding: '1px 2px', fontFamily: 'inherit', outline: 'none', cursor: 'pointer' }
-                                        }, typeOptionEls(t, c))
-                                    ),
-                                    h('td', {
-                                        colSpan: COLS.length - 3,
-                                        style: { padding: '1px 6px', borderLeft: '2px solid rgba(140,140,140,0.4)' }
-                                    },
-                                        h('input', {
-                                            value: op.comment || '',
-                                            placeholder: '# comment…',
-                                            onChange: e => onEdit(op.id, 'comment', e.target.value),
-                                            onClick: e => e.stopPropagation(),
-                                            style: { width: '100%', background: 'transparent', color: c.textDim, border: 'none', fontSize: 11, fontStyle: 'italic', padding: '1px 2px', fontFamily: 'inherit', outline: 'none' }
-                                        })
-                                    )
-                                );
-                            }
-
-                            const isCon   = isConstraint(op.type);
-                            const isTT    = isTotalThickness(op.type); // value & target in nm
-                            const isArg   = isArgwave(op.type);   // value & target in nm
-                            const isMth   = isMath(op.type);      // value & target in units inherited from ref
-                            const mthPct  = isMth && isMathPct(op); // ref returns a fraction → display percent
-                            const rawCur  = computed?.[rowIdx] != null ? computed[rowIdx] : null;
-                            // Optical / math-with-optical-ref: cur/tgt in %; Constraint, TT,
-                            // argwave, math with non-optical ref: cur/tgt raw (nm or dimensionless).
-                            const useFraction = !isCon && !isTT && !isArg && (!isMth || mthPct);
-                            const cur     = rawCur != null ? (useFraction ? rawCur * 100 : rawCur) : null;
-                            const isRampRow = isRangeTarget(op.type);   // current = RMS deviation
-                            const tgt     = useFraction ? op.target * 100 : op.target;
-                            // Ramp `current` is the RMS deviation from the target
-                            // line — the residual is the value itself.
-                            const rawDelta = cur != null ? (isRampRow ? cur : cur - tgt) : null;
-                            // Color: for one-sided math ops (OPGT/OPLT/ABGT/ABLT) we only
-                            // care which side of target we're on; equality math ops use
-                            // proximity coloring.
-                            const mathKind = isMth ? mathResidualKind(op.type) : null;
-                            // For MXT constraints, satisfaction means cur <= tgt (delta <= 0 is good)
-                            const dColor  = rawDelta == null ? c.textDim
-                                          : isCon
-                                            ? (op.type === 'MNT'
-                                                ? (rawDelta >= 0 ? c.success : c.error)
-                                                : (rawDelta <= 0 ? c.success : c.error))
-                                          : (isTT && (op.cmp === 'le' || op.cmp === 'ge'))
-                                            // One-sided total-thickness constraint: green when satisfied.
-                                            ? (op.cmp === 'le'
-                                                ? (rawDelta <= 0 ? c.success : c.error)
-                                                : (rawDelta >= 0 ? c.success : c.error))
-                                          : isMth
-                                            ? (mathKind === 'one-sided-min'
-                                                ? (rawDelta >= 0 ? c.success : c.error)
-                                              : mathKind === 'one-sided-max'
-                                                ? (rawDelta <= 0 ? c.success : c.error)
-                                              : Math.abs(rawDelta) < 0.005 ? c.success
-                                              : Math.abs(rawDelta) < 0.02  ? '#ffa726'
-                                                                            : '#ef5350')
-                                          : isArg
-                                            ? (Math.abs(rawDelta) < 1   ? c.success
-                                              : Math.abs(rawDelta) < 5  ? '#ffa726'
-                                              : '#ef5350')
-                                          : Math.abs(rawDelta) < 0.5 ? c.success
-                                          : Math.abs(rawDelta) < 2   ? '#ffa726'
-                                          : '#ef5350';
-                            const isRange  = RANGE_AVG_TYPES.has(op.type) || RANGE_TARGET_TYPES.has(op.type) || isMinmax(op.type) || isInequality(op.type) || isArgwave(op.type);
-                            const rowSel   = selIds.has(op.id);
-                            const rowBg    = typeRgba(op.type, 0.12) || 'transparent';
-                            const rowStripe = typeRgba(op.type, 0.75);
-
-                            const tdBase = (colKey, w, extra) => {
-                                const isFocused = focusCell?.rowIdx === rowIdx && focusCell?.colKey === colKey;
-                                return {
-                                    width: w, padding: '0 4px',
-                                    backgroundColor: isFocused ? c.accent + '44' : rowSel ? c.accent + '28' : rowBg,
-                                    outline: isFocused ? `1px solid ${c.accent}` : 'none',
-                                    outlineOffset: -1, cursor: 'default',
-                                    ...extra
-                                };
-                            };
-
-                            const cellClick = (colKey, e) => {
-                                if (colKey === 'num' || colKey === 'current' || colKey === 'delta') {
-                                    selectRow(op.id, e.shiftKey, e.ctrlKey || e.metaKey);
-                                    return;
-                                }
-                                focusAt(rowIdx, colKey);
-                            };
-
-                            const cellDblClick = (colKey) => startEdit(rowIdx, colKey, null);
-
-                            const renderCell = (colKey, w) => {
-                                const editing = editCell?.rowIdx === rowIdx && editCell?.colKey === colKey;
-
-                                if (colKey === 'enabled') {
-                                    return h('td', {
-                                        key: colKey,
-                                        onClick: () => { focusAt(rowIdx, colKey); onEdit(op.id, 'enabled', !op.enabled); },
-                                        style: { ...tdBase(colKey, w), textAlign: 'center', cursor: 'pointer', color: op.enabled ? c.accent : c.textDim, userSelect: 'none' }
-                                    }, op.enabled ? '✓' : '○');
-                                }
-
-                                if (colKey === 'type') {
-                                    // Native <select> rendered exactly like the Pol cell — same
-                                    // transparent background, same minimal chrome. Option text is
-                                    // the short code only, so the closed cell is compact and the
-                                    // open dropdown lists codes in matching width. Full description
-                                    // is on each option's `title` (browser hover tooltip) and on
-                                    // the select itself (hover the selected code to read it).
-                                    // <optgroup> headers categorize the codes (Optical / Band avg /
-                                    // Weighted integral / Worst-case / Thickness).
-                                    const odict = t?.meritFunctionEditor?.operandTypes || {};
-                                    const opts = typeOptionEls(t, c);
-                                    return h('td', { key: colKey, onClick: e => cellClick(colKey, e), style: tdBase(colKey, w, { padding: '0 2px' }) },
-                                        h('select', {
-                                            value: op.type,
-                                            onChange: e => onEdit(op.id, 'type', e.target.value),
-                                            title: odict[op.type]?.label || op.type,
-                                            style: { width: '100%', background: 'transparent', color: c.text, border: 'none', fontSize: 11, padding: '1px 2px', fontFamily: 'inherit', outline: 'none', cursor: 'pointer' }
-                                        }, opts)
-                                    );
-                                }
-
-                                // Constraint rows: aoi and pol not applicable
-                                if (isCon && (colKey === 'aoi' || colKey === 'pol')) {
-                                    return h('td', { key: colKey, style: { ...tdBase(colKey, w), color: c.textDim } }, '—');
-                                }
-                                // Total-thickness rows: λEnd/aoi/pol not applicable (acts on all layers).
-                                if (isTT && (colKey === 'lambdaEnd' || colKey === 'aoi' || colKey === 'pol')) {
-                                    return h('td', { key: colKey, style: { ...tdBase(colKey, w), color: c.textDim } }, '—');
-                                }
-                                // Total-thickness comparison picker: ≤ (max total), ≥ (min total),
-                                // or = (equality target). Lives in the otherwise-unused λ cell so a
-                                // TT row reads e.g. "TT  ≤  2000 nm".
-                                if (isTT && colKey === 'lambdaStart') {
-                                    const cmp = op.cmp || 'eq';
-                                    return h('td', { key: colKey, onClick: e => cellClick(colKey, e), style: tdBase(colKey, w, { padding: '0 2px' }) },
-                                        h('select', {
-                                            value: cmp,
-                                            onChange: e => onEdit(op.id, 'cmp', e.target.value),
-                                            title: cmp === 'le' ? 'Total thickness ≤ target (max)'
-                                                 : cmp === 'ge' ? 'Total thickness ≥ target (min)'
-                                                 :                'Total thickness = target',
-                                            style: { width: '100%', background: 'transparent', color: c.text, border: 'none', fontSize: 11, padding: '1px 2px', fontFamily: 'inherit', outline: 'none', cursor: 'pointer' }
-                                        },
-                                            h('option', { value: 'le', style: { background: c.panel } }, '≤'),
-                                            h('option', { value: 'ge', style: { background: c.panel } }, '≥'),
-                                            h('option', { value: 'eq', style: { background: c.panel } }, '='),
-                                        )
-                                    );
-                                }
-
-                                // Weighted-integral rows: λStart cell becomes a preset picker
-                                // (the preset drives type/source/detector/band atomically), and
-                                // λEnd becomes a read-only band-end readout.
-                                if (isIntegral(op.type) && colKey === 'lambdaStart') {
-                                    const matchKey = (op.presetKey && integralPresets.some(p => p.key === op.presetKey))
-                                        ? op.presetKey : '';
-                                    return h('td', { key: colKey, onClick: e => cellClick(colKey, e), style: tdBase(colKey, w, { padding: '0 2px' }) },
-                                        h('select', {
-                                            value: matchKey,
-                                            onChange: e => {
-                                                const p = integralPresets.find(pp => pp.key === e.target.value);
-                                                if (!p) return;
-                                                const typeMap = { T: 'TIW', R: 'RIW', A: 'AIW' };
-                                                onEdit(op.id, '_patch', {
-                                                    type:        typeMap[p.char] || op.type,
-                                                    presetKey:   p.key,
-                                                    source:      { ...p.sourceSpec },
-                                                    detector:    { ...p.detectorSpec },
-                                                    lambdaStart: p.band[0],
-                                                    lambdaEnd:   p.band[1],
-                                                });
-                                            },
-                                            title: matchKey ? (integralPresets.find(p => p.key === matchKey)?.label || matchKey) : 'Pick a saved integral preset',
-                                            style: { width: '100%', background: 'transparent', color: c.text, border: 'none', fontSize: 11, padding: '1px 2px', fontFamily: 'inherit', outline: 'none', cursor: 'pointer' }
-                                        },
-                                            !matchKey && h('option', { key: '_none', value: '', style: { background: c.panel, color: c.textDim } }, '(custom)'),
-                                            integralPresets.map(p => h('option', {
-                                                key:   p.key,
-                                                value: p.key,
-                                                title: p.label,
-                                                style: { background: c.panel },
-                                            }, p.label))
-                                        )
-                                    );
-                                }
-                                if (isIntegral(op.type) && colKey === 'lambdaEnd') {
-                                    return h('td', { key: colKey, style: { ...tdBase(colKey, w), color: c.textDim } }, '—');
-                                }
-
-                                // ── Math operand reference picker(s) ─────────────────────────
-                                // For OPGT/OPLT/OPVA/ABSO/ABGT/ABLT: λStart cell holds the
-                                // SINGLE ref picker; λEnd is em-dash.
-                                // For DIFF/SUMM/PROD: λStart = refId1, λEnd = refId2.
-                                // The dropdown lists every OTHER operand by Op# (1-based row
-                                // number) + type so the user picks visually.  Stale refs (ref
-                                // operand deleted) render red.
-                                if (isMath(op.type) && (colKey === 'lambdaStart' || colKey === 'lambdaEnd')) {
-                                    const isSecondRef = colKey === 'lambdaEnd';
-                                    if (isSecondRef && !isMathPairRef(op.type)) {
-                                        return h('td', { key: colKey, style: { ...tdBase(colKey, w), color: c.textDim } }, '—');
-                                    }
-                                    const refKey = isMathPairRef(op.type)
-                                        ? (isSecondRef ? 'refId2' : 'refId1')
-                                        : 'refId';
-                                    const curRefId = op[refKey];
-                                    const refOpIdx = curRefId ? operands.findIndex(o => o.id === curRefId) : -1;
-                                    const stale    = curRefId && refOpIdx < 0;
-                                    return h('td', { key: colKey, onClick: e => cellClick(colKey, e),
-                                                     style: tdBase(colKey, w, { padding: '0 2px', color: stale ? '#ef5350' : c.text }) },
-                                        h('select', {
-                                            value: curRefId || '',
-                                            onChange: e => onEdit(op.id, '_patch', { [refKey]: e.target.value || null }),
-                                            title: stale ? 'Referenced operand was deleted'
-                                                        : (refOpIdx >= 0 ? `#${refOpIdx + 1} (${operands[refOpIdx].type})` : 'Pick an operand to reference'),
-                                            style: { width: '100%', background: 'transparent',
-                                                     color: stale ? '#ef5350' : c.text,
-                                                     border: 'none', fontSize: 11, padding: '1px 2px',
-                                                     fontFamily: 'inherit', outline: 'none', cursor: 'pointer' },
-                                        },
-                                            h('option', { key: '_none', value: '', style: { background: c.panel, color: c.textDim } },
-                                                stale ? '(deleted)' : '(pick…)'),
-                                            operands.map((o2, idx) => {
-                                                // Don't allow referencing self
-                                                if (o2.id === op.id) return null;
-                                                const tag = `#${idx + 1} ${o2.type}`;
-                                                return h('option', { key: o2.id, value: o2.id, style: { background: c.panel } }, tag);
-                                            }).filter(Boolean)
-                                        )
-                                    );
-                                }
-                                // Math operands hide AOI and Pol cells — they inherit from
-                                // the referenced operand.
-                                if (isMath(op.type) && (colKey === 'aoi' || colKey === 'pol')) {
-                                    return h('td', { key: colKey, style: { ...tdBase(colKey, w), color: c.textDim } }, '—');
-                                }
-
-                                if (colKey === 'pol') {
-                                    const embedded = polFromType(op.type);
-                                    if (embedded) {
-                                        return h('td', { key: colKey, onClick: e => cellClick(colKey, e), style: tdBase(colKey, w, { color: c.textDim }) }, embedded);
-                                    }
-                                    return h('td', { key: colKey, onClick: e => cellClick(colKey, e), style: tdBase(colKey, w, { padding: '0 2px' }) },
-                                        h('select', {
-                                            value: op.pol,
-                                            onChange: e => onEdit(op.id, 'pol', e.target.value),
-                                            style: { width: '100%', background: 'transparent', color: c.text, border: 'none', fontSize: 11, padding: '1px 2px', fontFamily: 'inherit', outline: 'none', cursor: 'pointer' }
-                                        }, OPERAND_POLS.map(p => h('option', { key: p, value: p, style: { background: c.panel } }, p)))
-                                    );
-                                }
-
-                                if (colKey === 'current') {
-                                    return h('td', { key: colKey, style: { ...tdBase(colKey, w), textAlign: 'right', color: c.text } },
-                                        cur != null
-                                            ? (isMth ? cur.toPrecision(4)
-                                              : (isCon || isTT || isArg) ? cur.toFixed(2) + ' nm'
-                                              : cur.toFixed(3) + ' %')
-                                            : '—');
-                                }
-                                if (colKey === 'delta') {
-                                    const dVal = rawDelta;
-                                    return h('td', { key: colKey, style: { ...tdBase(colKey, w), textAlign: 'right', color: dColor, fontWeight: 500 } },
-                                        dVal != null
-                                            ? (isMth
-                                                ? (dVal >= 0 ? '+' : '') + dVal.toPrecision(3)
-                                              : (isCon || isTT || isArg)
-                                                ? (dVal >= 0 ? '+' : '') + dVal.toFixed(2) + ' nm'
-                                                : (dVal >= 0 ? '+' : '') + dVal.toFixed(3) + ' %')
-                                            : '—');
-                                }
-                                if (colKey === 'num') {
-                                    return h('td', { key: colKey, onClick: e => selectRow(op.id, e.shiftKey, e.ctrlKey || e.metaKey), style: {
-                                        ...tdBase(colKey, w), textAlign: 'center', color: c.textDim, userSelect: 'none',
-                                        boxShadow: rowStripe ? `inset 3px 0 0 0 ${rowStripe}` : 'none'
-                                    } }, rowIdx + 1);
-                                }
-
-                                // Numeric editable cell
-                                if (editing) {
-                                    return h('td', { key: colKey, style: tdBase(colKey, w, { padding: '0 2px' }) },
-                                        h(CellInput, {
-                                            initValue: editCell.initValue,
-                                            onCommit: draft => commitEdit(rowIdx, colKey, draft),
-                                            onCancel: () => setEditCell(null),
-                                            onNavigate: dir => navigate(rowIdx, colKey, dir),
-                                            c
-                                        })
-                                    );
-                                }
-
-                                let display = op[colKey];
-                                if (colKey === 'target') {
-                                    const tEnd = op.targetEnd != null ? op.targetEnd : op.target;
-                                    display = isMth
-                                                ? (mthPct ? (op.target * 100).toFixed(2)
-                                                          : (op.target?.toPrecision?.(4) ?? '0'))
-                                            : (isCon || isTT || isArg) ? op.target.toFixed(2)
-                                            : isRampRow ? `${(op.target * 100).toFixed(1)}→${(tEnd * 100).toFixed(1)}`
-                                            : (op.target * 100).toFixed(2);
-                                }
-                                // lambdaEnd: show — for non-range optical; for constraints show end layer
-                                if (colKey === 'lambdaEnd') {
-                                    if (isCon) {
-                                        display = String(Math.round(op.lambdaEnd));
-                                    } else if (!isRange) {
-                                        return h('td', { key: colKey, style: { ...tdBase(colKey, w), color: c.textDim } }, '—');
-                                    }
-                                }
-
-                                return h('td', {
-                                    key: colKey,
-                                    onClick:    e => cellClick(colKey, e),
-                                    onDoubleClick: () => cellDblClick(colKey),
-                                    style: { ...tdBase(colKey, w), color: c.text, overflow: 'hidden', textOverflow: 'ellipsis', cursor: 'text' }
-                                }, display ?? '');
-                            };
-
-                            return h('tr', {
-                                key: op.id,
-                                style: { opacity: op.enabled ? 1 : 0.45 }
-                            }, COLS.map(col => renderCell(col.key, col.w)));
-                        })
+                        : operands.map(renderRow)
                 )
             )
         ),
