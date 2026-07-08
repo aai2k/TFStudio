@@ -479,10 +479,15 @@ export function MeritFunctionEditor({ c, t, setInputDialog }) {
     // "+ Add" / Ctrl+V paste. A bare add (data == null) creates an inert BLNK
     // placeholder — the user then picks the real operand type. This avoids a
     // freshly-added row silently contributing a meaningless RAV target to the MF.
-    const handleAdd = useCallback((data) => {
-        const op = makeOperand(data ?? { type: 'BLNK', comment: '' });
-        setOperands(prev => [op, ...prev]);
-        setSelectedId(op.id);
+    const handleAdd = useCallback((data, atIndex) => {
+        const list = Array.isArray(data) ? data : [data];
+        const ops = list.map(d => makeOperand(d ?? { type: 'BLNK', comment: '' }));
+        if (ops.length === 0) return;
+        setOperands(prev => {
+            const pos = atIndex == null ? prev.length : Math.max(0, Math.min(atIndex, prev.length));
+            return [...prev.slice(0, pos), ...ops, ...prev.slice(pos)];
+        });
+        setSelectedId(ops[ops.length - 1].id);
     }, [setOperands]);
 
     // Positional insert (used by Ins / Shift+Ins shortcuts). New rows are inert

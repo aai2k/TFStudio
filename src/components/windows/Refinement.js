@@ -1483,14 +1483,18 @@ export function Refinement({ c, theme, t }) {
         updateDesign({ meritOperands: newOps });
     }, [stopOpt, updateDesign]);
 
-    const handleAdd = useCallback((data) => {
+    const handleAdd = useCallback((data, atIndex) => {
         if (runningRef.current) stopOpt();
         optimizerRef.current = null;
         setCanReset(false);
         baselineRef.current = false;
-        const op = makeOperand(data ?? { type: 'RAV', lambdaStart: 400, lambdaEnd: 700, aoi: 0, pol: 'avg', target: 0, weight: 1 });
-        updateDesign({ meritOperands: [op, ...operandsRef.current] });
-        setSelectedId(op.id);
+        const list = Array.isArray(data) ? data : [data];
+        const ops = list.map(d => makeOperand(d ?? { type: 'RAV', lambdaStart: 400, lambdaEnd: 700, aoi: 0, pol: 'avg', target: 0, weight: 1 }));
+        if (ops.length === 0) return;
+        const prev = operandsRef.current;
+        const pos = atIndex == null ? prev.length : Math.max(0, Math.min(atIndex, prev.length));
+        updateDesign({ meritOperands: [...prev.slice(0, pos), ...ops, ...prev.slice(pos)] });
+        setSelectedId(ops[ops.length - 1].id);
     }, [stopOpt, updateDesign]);
 
     const handleInsertAt = useCallback((insertIdx, source) => {
