@@ -282,6 +282,10 @@ function tmmC(ctx, tag, lam, aoi, polCode, n0, ns, layers) {
     return v;
 }
 
+// Select the R/T/A component named by `char` ('T'|'R' → T/R, else A) from a
+// {T,R,A} result object.
+const _rtaChar = (r, char) => (char === 'T' ? r.T : char === 'R' ? r.R : r.A);
+
 // Front-coating-only TMM evaluation (no back stack, ignores substrate bulk and exit medium).
 // Used when ctx.surfaceMode === 'front_only'.
 function tmmFrontOnly(lam, aoi, pol, char, ctx, thicknesses, mats) {
@@ -292,15 +296,9 @@ function tmmFrontOnly(lam, aoi, pol, char, ctx, thicknesses, mats) {
     if (pol === 'avg') {
         const s = tmmC(ctx, 'f', lam, aoi, 's', n0, ns, layers);
         const p = tmmC(ctx, 'f', lam, aoi, 'p', n0, ns, layers);
-        if (char === 'T') return (s.T + p.T) * 0.5;
-        if (char === 'R') return (s.R + p.R) * 0.5;
-        return (s.A + p.A) * 0.5;
-    } else {
-        const r = tmmC(ctx, 'f', lam, aoi, pol, n0, ns, layers);
-        if (char === 'T') return r.T;
-        if (char === 'R') return r.R;
-        return r.A;
+        return (_rtaChar(s, char) + _rtaChar(p, char)) * 0.5;
     }
+    return _rtaChar(tmmC(ctx, 'f', lam, aoi, pol, n0, ns, layers), char);
 }
 
 // Back-coating-only TMM evaluation — symmetric to tmmFrontOnly. Single surface
@@ -318,22 +316,11 @@ function tmmBackOnly(lam, aoi, pol, char, ctx, thicknesses, mats) {
     if (pol === 'avg') {
         const s = tmmC(ctx, 'b', lam, aoi, 's', n0, ns, layers);
         const p = tmmC(ctx, 'b', lam, aoi, 'p', n0, ns, layers);
-        if (char === 'T') return (s.T + p.T) * 0.5;
-        if (char === 'R') return (s.R + p.R) * 0.5;
-        return (s.A + p.A) * 0.5;
-    } else {
-        const r = tmmC(ctx, 'b', lam, aoi, pol, n0, ns, layers);
-        if (char === 'T') return r.T;
-        if (char === 'R') return r.R;
-        return r.A;
+        return (_rtaChar(s, char) + _rtaChar(p, char)) * 0.5;
     }
+    return _rtaChar(tmmC(ctx, 'b', lam, aoi, pol, n0, ns, layers), char);
 }
 
-// Full-system R/T/A combining front coating + (incoherent) substrate bulk + back coating.
-// Reference: Macleod §2.6.4 "Substrate with thin films on both sides".
-//   T = T_f · P · T_b / (1 − R_f' · R_b · P²)
-//   R = R_f + T_f · T_f' · P² · R_b / (1 − R_f' · R_b · P²)
-// Substrate is treated as optically thick (incoherent intensity sum).
 // Per-polarization full-system R/T/A for one incidence: coherent front and back
 // coatings joined by an incoherent (intensity-summed) substrate bulk pass P.
 // `s` carries the precomputed geometry/indices from tmmFullSystem.
@@ -361,6 +348,11 @@ function _fullSystemRTA(polCode, s) {
     return { R, T, A };
 }
 
+// Full-system R/T/A combining front coating + (incoherent) substrate bulk + back coating.
+// Reference: Macleod §2.6.4 "Substrate with thin films on both sides".
+//   T = T_f · P · T_b / (1 − R_f' · R_b · P²)
+//   R = R_f + T_f · T_f' · P² · R_b / (1 − R_f' · R_b · P²)
+// Substrate is treated as optically thick (incoherent intensity sum).
 export function tmmFullSystem(lam, aoi, pol, char, ctx, frontThicks, frontMats, backThicks, backMats) {
     const n0 = nkOf(ctx, ctx.n0mat, lam);
     const ns = nkOf(ctx, ctx.nsmat, lam);
@@ -380,14 +372,9 @@ export function tmmFullSystem(lam, aoi, pol, char, ctx, frontThicks, frontMats, 
     if (pol === 'avg') {
         const rs = _fullSystemRTA('s', s);
         const rp = _fullSystemRTA('p', s);
-        if (char === 'T') return (rs.T + rp.T) * 0.5;
-        if (char === 'R') return (rs.R + rp.R) * 0.5;
-        return (rs.A + rp.A) * 0.5;
+        return (_rtaChar(rs, char) + _rtaChar(rp, char)) * 0.5;
     }
-    const r = _fullSystemRTA(pol, s);
-    if (char === 'T') return r.T;
-    if (char === 'R') return r.R;
-    return r.A;
+    return _rtaChar(_fullSystemRTA(pol, s), char);
 }
 
 // Does this (surfaceMode, mfEvalMode) pair score the merit function against the
