@@ -165,6 +165,128 @@ export function defaultMonoTable(design, resolveMat, opts = {}) {
  *   - mon:      { char, theta, polarization, scanIntervalSec, confirmScans }
  * Return shape is identical to simulateRun (+ cutStrategies).
  */
+// Signal crossed sAtTarget in the expected start→target direction this scan.
+function _crossedInDir(startDir, up, dn) {
+    if (startDir > 0) return up;
+    if (startDir < 0) return dn;
+    return up || dn;
+}
+
+// One turning-mode scan. Tracks the running extreme within a tight window around
+// the model's predicted extremum (hysteretic 3σ band) and cuts `confirmScans`
+// after it reverses. Mutates `st` = { runExtS, runExtD, runExtT, confirm };
+// `tc` = { extIsMax, trackD0, trackD1, armD, confirmScans, noiseFrac, bufFill }.
+// Returns { d, t } to cut at, or null.
+function _turningStep(sS, d_now, t, st, tc) {
+    const sigmaS = tc.noiseFrac * Math.abs(sS) / Math.sqrt(tc.bufFill);
+    const margin = Math.max(2e-4, 3 * sigmaS);
+    if (d_now >= tc.trackD0 && d_now <= tc.trackD1) {
+        if (tc.extIsMax ? (sS > st.runExtS + margin) : (sS < st.runExtS - margin)) {
+            st.runExtS = sS; st.runExtD = d_now; st.runExtT = t;
+        }
+    }
+    const past = d_now >= tc.armD && st.runExtD > 0 &&
+        (tc.extIsMax ? (st.runExtS - sS > margin) : (sS - st.runExtS > margin));
+    if (!past) { st.confirm = 0; return null; }
+    st.confirm++;
+    return st.confirm >= tc.confirmScans ? { d: st.runExtD, t: st.runExtT } : null;
+}
+
+// One level-mode scan. Cuts `confirmScans` after the smoothed signal crosses the
+// theoretical level sAtTarget in the expected direction. Mutates `st` =
+// { prevDiff, crossed, confirm }; `lc` = { sAtTarget, startDir, confirmScans }.
+// Returns { d, t } to cut at, or null.
+function _levelStep(sS, d_now, t, st, lc) {
+    const diff = sS - lc.sAtTarget;
+    if (st.prevDiff !== null && !st.crossed) {
+        const up = st.prevDiff < 0 && diff >= 0;
+        const dn = st.prevDiff > 0 && diff <= 0;
+        if (_crossedInDir(lc.startDir, up, dn)) st.crossed = true;
+    }
+    st.prevDiff = diff;
+    if (!st.crossed) return null;
+    st.confirm++;
+    return st.confirm >= lc.confirmScans ? { d: d_now, t } : null;
+}
+
+// Optical-feedback cut search for one layer (strategy 'turning' or 'level').
+// Simulates the monitor scan-by-scan: the model curve (nominal materials) sets
+// the target extremum/level, the truth curve (perturbed materials) plus noise +
+// drift is what the monitor "sees". Returns the realized cut { cut_d_actual,
+// cut_time } and the advanced wall-clock `t_global`. `p` bundles the per-layer
+// context so this stays a pure function of its inputs. Mirrors the classical
+// turning/level rules (Macleod §12.2); see simulateRunMono for the cfg meaning.
+function _scanCutMono(p) {
+    const { monLam, theta, pol, char, incMat, subMat, modelMats, modelThicksPrev,
+            i, d_target, truthMats, truthThicksPrev, r, dt, t_target, confirmScans,
+            noiseFrac, driftSlope, strat, order, rng } = p;
+    let { t_global, cut_d_actual, cut_time } = p;
+
+    const an = analyzeModelCurve(monLam, theta, pol, char, incMat, subMat,
+        modelMats.slice(0, i), modelThicksPrev, modelMats[i], d_target);
+    const maxScans = Math.max(2, Math.ceil((Math.max(t_target * 2, t_target + 10 / r)) / dt));
+    const truthMatsUpto = truthMats.slice(0, i + 1);
+
+    const SMOOTH_W = Math.max(3, confirmScans + 1);
+    const buf = new Array(SMOOTH_W).fill(NaN);
+    let bufFill = 0, bufHead = 0;
+    const smooth = (v) => {
+        buf[bufHead] = v; bufHead = (bufHead + 1) % SMOOTH_W;
+        if (bufFill < SMOOTH_W) bufFill++;
+        let s = 0, c = 0;
+        for (let b = 0; b < bufFill; b++) if (!Number.isNaN(buf[b])) { s += buf[b]; c++; }
+        return c > 0 ? s / c : v;
+    };
+
+    // Turning mode: the model predicts WHICH extremum (order) and roughly
+    // WHERE (extD); bound the running-extreme search TIGHTLY around it so
+    // post-peak noise (or a later feature) cannot creep the recorded
+    // extreme forward, and use a hysteretic 3σ band so noise on the flat
+    // turning-point top cannot latch it forward either.
+    // Choose the extremum the design intends to cut at: for order 1 the
+    // one NEAREST the design target (robust to a spurious early ripple);
+    // for higher orders the order-th in growth sequence. If the model
+    // curve has NO extremum in range (e.g. a monotonic layer signal),
+    // fall back to d_target with the slope-sign as the extremum type —
+    // the tight window then never reverses, so the layer safely
+    // dead-reckons instead of mis-cutting at ~0 nm.
+    let ext = null;
+    if (an.extrema.length) {
+        ext = order === 1
+            ? an.extrema.reduce((best, e) =>
+                Math.abs(e.d - d_target) < Math.abs(best.d - d_target) ? e : best, an.extrema[0])
+            : an.extrema[Math.min(order - 1, an.extrema.length - 1)];
+    }
+    const extD = ext ? ext.d : d_target;
+    const extIsMax = ext ? ext.isMax : (an.sAtTarget >= an.sStart);
+    // Turning tracking bounds around the predicted extremum + the level-mode
+    // crossing direction; the per-scan detectors own their mutable state.
+    const tState = { runExtS: extIsMax ? -Infinity : Infinity, runExtD: 0, runExtT: 0, confirm: 0 };
+    const tCfg = { extIsMax, trackD0: 0.8 * extD, trackD1: 1.15 * extD, armD: 0.9 * extD,
+                   confirmScans, noiseFrac, bufFill: SMOOTH_W };
+    const lState = { prevDiff: null, crossed: false, confirm: 0 };
+    const lCfg = { sAtTarget: an.sAtTarget, startDir: Math.sign(an.sAtTarget - an.sStart) || 1, confirmScans };
+
+    for (let k = 1; k <= maxScans; k++) {
+        const t = k * dt;
+        const d_now = r * t;
+        t_global += dt;
+
+        const sTrue = singleSignal(monLam, theta, pol, char, incMat, subMat,
+            truthMatsUpto, truthThicksPrev.concat([d_now]));
+        const eps = noiseFrac > 0 ? gauss(rng) * noiseFrac : 0;
+        const sMeas = sTrue * (1 + eps) + driftSlope * t_global;
+        const sS = smooth(sMeas);
+        if (bufFill < SMOOTH_W) continue;
+
+        const hit = strat === 'turning'
+            ? _turningStep(sS, d_now, t, tState, tCfg)
+            : _levelStep(sS, d_now, t, lState, lCfg);
+        if (hit) { cut_d_actual = hit.d; cut_time = hit.t; break; }
+    }
+    return { cut_d_actual, cut_time, t_global };
+}
+
 export function simulateRunMono(design, resolveMat, cfg) {
     const rng           = cfg.rng || Math.random;
     const rates         = cfg.rates || new Map();
@@ -283,98 +405,15 @@ export function simulateRunMono(design, resolveMat, cfg) {
             cut_time = cut_d_actual / r;
             t_global += t_target;
         } else if (d_target > 0) {
-            const an = analyzeModelCurve(monLam, theta, pol, char, incMat, subMat,
-                modelMats.slice(0, i), modelThicksPrev, modelMats[i], d_target);
-            const maxScans = Math.max(2, Math.ceil((Math.max(t_target * 2, t_target + 10 / r)) / dt));
-            const noiseFrac = randomPct / 100;
-
-            const SMOOTH_W = Math.max(3, confirmScans + 1);
-            const buf = new Array(SMOOTH_W).fill(NaN);
-            let bufFill = 0, bufHead = 0;
-            const smooth = (v) => {
-                buf[bufHead] = v; bufHead = (bufHead + 1) % SMOOTH_W;
-                if (bufFill < SMOOTH_W) bufFill++;
-                let s = 0, c = 0;
-                for (let b = 0; b < bufFill; b++) if (!Number.isNaN(buf[b])) { s += buf[b]; c++; }
-                return c > 0 ? s / c : v;
-            };
-
-            // Turning mode: the model predicts WHICH extremum (order) and roughly
-            // WHERE (extD); bound the running-extreme search TIGHTLY around it so
-            // post-peak noise (or a later feature) cannot creep the recorded
-            // extreme forward, and use a hysteretic 3σ band so noise on the flat
-            // turning-point top cannot latch it forward either.
-            // Choose the extremum the design intends to cut at: for order 1 the
-            // one NEAREST the design target (robust to a spurious early ripple);
-            // for higher orders the order-th in growth sequence. If the model
-            // curve has NO extremum in range (e.g. a monotonic layer signal),
-            // fall back to d_target with the slope-sign as the extremum type —
-            // the tight window then never reverses, so the layer safely
-            // dead-reckons instead of mis-cutting at ~0 nm.
-            let ext = null;
-            if (an.extrema.length) {
-                ext = order === 1
-                    ? an.extrema.reduce((best, e) =>
-                        Math.abs(e.d - d_target) < Math.abs(best.d - d_target) ? e : best, an.extrema[0])
-                    : an.extrema[Math.min(order - 1, an.extrema.length - 1)];
-            }
-            const extD = ext ? ext.d : d_target;
-            const extIsMax = ext ? ext.isMax : (an.sAtTarget >= an.sStart);
-            const trackD0 = 0.8 * extD;
-            const trackD1 = 1.15 * extD;
-            const armD    = 0.9 * extD;
-            let runExtS = extIsMax ? -Infinity : Infinity;
-            let runExtD = 0, runExtT = 0;
-
-            // Level mode: crossing of sAtTarget in the start→target direction.
-            const startDir = Math.sign(an.sAtTarget - an.sStart) || 1;
-            let prevDiff = null, crossed = false;
-
-            let confirm = 0;
-            let cut = false;
-
-            for (let k = 1; k <= maxScans && !cut; k++) {
-                const t = k * dt;
-                const d_now = r * t;
-                t_global += dt;
-
-                const sTrue = singleSignal(monLam, theta, pol, char, incMat, subMat,
-                    truthMats.slice(0, i + 1), truthThicksPrev.concat([d_now]));
-                const eps = noiseFrac > 0 ? gauss(rng) * noiseFrac : 0;
-                const sMeas = sTrue * (1 + eps) + driftSlope * t_global;
-                const sS = smooth(sMeas);
-                if (bufFill < SMOOTH_W) continue;
-
-                if (strat === 'turning') {
-                    const sigmaS = noiseFrac * Math.abs(sS) / Math.sqrt(bufFill);
-                    const margin = Math.max(2e-4, 3 * sigmaS);
-                    if (d_now >= trackD0 && d_now <= trackD1) {
-                        if (extIsMax ? (sS > runExtS + margin) : (sS < runExtS - margin)) {
-                            runExtS = sS; runExtD = d_now; runExtT = t;
-                        }
-                    }
-                    const past = d_now >= armD && runExtD > 0 &&
-                        (extIsMax ? (runExtS - sS > margin) : (sS - runExtS > margin));
-                    if (past) {
-                        confirm++;
-                        if (confirm >= confirmScans) { cut_d_actual = runExtD; cut_time = runExtT; cut = true; }
-                    } else confirm = 0;
-                } else { // 'level'
-                    const diff = sS - an.sAtTarget;
-                    if (prevDiff !== null && !crossed) {
-                        const up = prevDiff < 0 && diff >= 0;
-                        const dn = prevDiff > 0 && diff <= 0;
-                        if ((startDir > 0 && up) || (startDir < 0 && dn) || (startDir === 0 && (up || dn))) {
-                            crossed = true;
-                        }
-                    }
-                    prevDiff = diff;
-                    if (crossed) {
-                        confirm++;
-                        if (confirm >= confirmScans) { cut_d_actual = d_now; cut_time = t; cut = true; }
-                    }
-                }
-            }
+            const scan = _scanCutMono({
+                monLam, theta, pol, char, incMat, subMat, modelMats, modelThicksPrev,
+                i, d_target, truthMats, truthThicksPrev, r, dt, t_target, confirmScans,
+                noiseFrac: randomPct / 100, driftSlope, strat, order, rng,
+                t_global, cut_d_actual, cut_time,
+            });
+            cut_d_actual = scan.cut_d_actual;
+            cut_time     = scan.cut_time;
+            t_global     = scan.t_global;
         }
 
         if (shutterMeanS > 0 || shutterRmsS > 0) {

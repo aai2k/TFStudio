@@ -10,25 +10,6 @@
  * thickness at cut time, so monitoring imprecision propagates to the final
  * spectral performance.
  *
- * v1 scope:
- *   - Front-only coatings (back-coating monitoring deferred).
- *   - Single AOI, single polarization, T or R only.
- *   - Per-material random Δn, Δk (one draw per run; per-material or per-layer).
- *   - Per-material deposition-rate mean + RMS (white Gaussian — no temporal
- *     correlation in v1; the correlation-time feature is deferred).
- *   - Random multiplicative measurement noise on the spectrum.
- *   - Optional linear drift component on the spectrum.
- *   - Monte Carlo over N runs → Welford-accumulated as-built T/R/A corridor
- *     (mean ± kσ), per-layer thickness statistics, and yield (% of runs whose
- *     as-built merit function stays ≤ tolerance).
- *
- * Deferred:
- *   - Shutter delay (mean + RMS).
- *   - Drift/calibration drift (only random + simple linear drift in v1).
- *   - Rate temporal correlation (Markov / Ornstein-Uhlenbeck process).
- *   - Systematic inhomogeneity through layer depth.
- *   - AOI sweeps in the scan band.
- *   - Back-side coating monitoring.
  *
  * References:
  *   - A. V. Tikhonravov & M. K. Trubetskov, "Computational manufacturing as a

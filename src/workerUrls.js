@@ -30,6 +30,5 @@ export const MFEVAL_WORKER_URL    = u('./utils/workers/mfEvalWorker.js');
 export const SYNTHESIS_WORKER_URL = u('./utils/workers/synthesisWorker.js');
 export const BBM_WORKER_URL       = u('./utils/workers/bbmRunWorker.js');
 export const FILTER_WORKER_URL    = u('./utils/workers/filterDesignWorker.js');
-export const MC_WORKER_URL        = u('./utils/workers/mcWorker.js');
 export const PLOT_SURFACE_WORKER_URL = u('./utils/workers/plotSurfaceWorker.js');
 export const BENCHMARK_WORKER_URL = u('./utils/workers/benchmarkWorker.js');

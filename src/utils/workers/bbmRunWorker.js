@@ -9,8 +9,8 @@
  * `estimatedFront`, `materialsFront`). The wizard computes the page-5/6 spectra
  * itself from the real material objects it already holds.
  *
- * Cross-thread materials = Approach A pre-sampling (same pattern as mcWorker.js):
- * the main thread samples every referenced material's [n,k] on the monitor scan
+ * Cross-thread materials = Approach A pre-sampling: the main thread samples
+ * every referenced material's [n,k] on the monitor scan
  * λ grid and ships plain arrays; we rebuild a table-lookup `getNK`. `simulateRun`
  * only ever samples on that scan grid, so the worker math matches the main-thread
  * path for the same seed.

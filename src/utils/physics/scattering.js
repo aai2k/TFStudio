@@ -3,11 +3,10 @@
  * effective specular reflectance for a multilayer coating with random
  * rms surface roughness at each interface.
  *
- * v1 model: scalar uncorrelated roughness, Macleod Eq. 16.30 generalized to
+ * Model: scalar uncorrelated roughness, Macleod Eq. 16.30 generalized to
  * oblique incidence and to multiple interfaces via the standard "effective
  * roughness" sum (Bousquet & Elson 1981; Macleod 5th ed. §16 "Scattering",
- * Eq. 16.30 plus the supplementary discussion of uncorrelated roughness in
- * chunks 580–582):
+ * Eq. 16.30):
  *
  *     TIS(λ) = R(λ) · (4π · σ_eff · cosθ / λ)²
  *     σ_eff² = Σ σ_i²                                 (uncorrelated case)
@@ -19,16 +18,6 @@
  * *incident* light scattered (the more commonly-plotted quantity for
  * coating engineers comparing specular performance to scattering loss).
  *
- * v2 follow-ups (deferred):
- *   - Correlated roughness (substrate-replicated, σ_eff = N·σ_sub coherent
- *     sum; Macleod chunk 581 with the long+short-range exponential+Gaussian
- *     autocorrelation model G(τ) = δ_L²·exp(-|τ|/σ_L) + δ_S²·exp(-(τ/σ_S)²))
- *   - Per-interface field-weighted TIS (uses |E_i|² at each interface from
- *     `computeEFieldProfile` — sharper for HR stacks where the field is
- *     highly non-uniform)
- *   - Angle-resolved scattering ARS(θ) via Rayleigh-Rice 1st-order vector
- *     theory + a PSD model (ABg / K-correlation)
- */
 
 // ── Effective roughness ──────────────────────────────────────────────────────
 
