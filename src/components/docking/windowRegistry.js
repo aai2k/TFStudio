@@ -41,7 +41,6 @@ import { ErrorAnalysis } from '../windows/ErrorAnalysis.js';
 import { IntegralValues } from '../windows/IntegralValues.js';
 import { DesignCleaner } from '../windows/DesignCleaner.js';
 import { HistoryWindow } from '../windows/HistoryWindow.js';
-import { MBSSimulator } from '../windows/MBSSimulator.js';
 import { ProcessSimulator } from '../windows/ProcessSimulator.js';
 import { ZemaxCoatings } from '../windows/ZemaxCoatings.js';
 import { SpectrumExchange } from '../windows/SpectrumExchange.js';
@@ -88,7 +87,6 @@ export const WINDOW_REGISTRY = {
   'filter-design':   {                                                                                                                                                                    help: 'synthesis/wdm-wizard' },
 
   // ── Simulation ────────────────────────────────────────────────────────────────
-  'mono-simulator':  { component: MBSSimulator,      title: 'Mono Simulator',     label: 'Monochromatic Monitoring Simulator',                                  help: 'simulation/mono-simulator', theme: true },
 
   // ── Data Exchange ──────────────────────────────────────────────────────────────
   'process-sim':     { component: ProcessSimulator,  title: 'Process Exporter',   label: 'Process Exporter — scrub through deposition + export .res files', help: 'simulation/process-simulator', theme: true },

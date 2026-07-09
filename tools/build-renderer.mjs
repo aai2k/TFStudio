@@ -32,7 +32,7 @@ const outIcons = path.join(root, 'build', 'icons');
 
 const WORKERS = [
   'optimizerWorker.js', 'mfEvalWorker.js', 'synthesisWorker.js',
-  'bbmRunWorker.js', 'filterDesignWorker.js', 'mcWorker.js',
+  'bbmRunWorker.js', 'filterDesignWorker.js',
   'plotSurfaceWorker.js', 'benchmarkWorker.js',
 ];
 
