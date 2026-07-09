@@ -17,9 +17,8 @@
  */
 
 import { tmm, tmmNeedleScan, tmmThicknessJacobian } from '../thinFilmMath.js';
-import { resolveSourceSpec, resolveDetectorSpec } from '../spectralWeightings.js';
 import {
-    tmmJacEval, tmmHessEval, tmmNeedleScanEval, ADAPTIVE_SAMPLING_DEFAULTS, densifyOperandsForFeatures, collectDesignMaterialIds, tmmFullSystem,
+    tmmNeedleScanEval, ADAPTIVE_SAMPLING_DEFAULTS, densifyOperandsForFeatures, collectDesignMaterialIds, tmmFullSystem,
     isFullSystemEval, resolveEvalMode, tmmProp, MATH_REGISTRY, makeRefResolver, computeMathValue,
     mathResidual, mathResidualKind, evalOperand, buildEvalContext, evaluateOperands, ARGWAVE_RESIDUAL_SCALE_NM,
     operandResidualScale, calcMF, mfWeightDenominator,
@@ -33,115 +32,12 @@ import {
     polFromType, AVG_POINTS, AVG_STEP_NM, AVG_POINTS_MAX, bandSampleCount, ARGWAVE_DEFAULT_POINTS,
     PNORM_DEFAULT, makeOperand, isRamp, makeConstraintOperand, makeDefaultConstraints, makeDmfsOperand,
 } from './operandModel.js';
-import { isRangeAvg, charOf, operandSampleLambdas, requiredLambdas, buildPresampledTable } from './sampling.js';
+import { isRangeAvg, charOf, requiredLambdas, buildPresampledTable } from './sampling.js';
 import { makeConeSpec, coneIsActive } from './coneAngle.js';
 import { mirrorLayers, insertNeedle, cleanupLayers, bestNeedlePerPosition, insertNeedleIntra } from './layerOps.js';
 import { solveLeastSquaresQR, choleskySolve, steihaugCG, solveBoxQP, _vdot, _vnorm } from './linalg.js';
-
-// Per-point layer-thickness Jacobian at one (λ, polCode, aoi). Returns the
-// property values (R/T/A) and their per-layer thickness derivatives for the
-// active surface mode. `cfg` bundles the engine fields this needs so the routine
-// stays a pure function of its inputs:
-//   { mode, n0mat, nsmat, neMat, mats, thk, N, ctx, subThickMm }
-// where mode ∈ {'singleFront','singleBack','full'}.
-function computeLayerJacobian(lam, polCode, aoi, cfg) {
-    const { mode, n0mat, nsmat, neMat, mats, thk, N, ctx, subThickMm } = cfg;
-    if (mode === 'singleFront') {
-        const n0 = n0mat.getNK(lam);
-        const ns = nsmat.getNK(lam);
-        const layers = thk.map((d, i) => ({ n: mats[i].getNK(lam), d }));
-        const J = tmmJacEval(lam, aoi, polCode, n0, ns, layers);
-        return { kind: 'singleFront', R: J.R, T: J.T, A: J.A,
-                 dR: J.dRdd, dT: J.dTdd, dA: J.dAdd };
-    }
-    if (mode === 'singleBack') {
-        // backThicks are stored substrate→exit; for light incident from
-        // the exit medium the TMM sees them in exit→substrate order, so
-        // reverse for the call. Derivatives indexed in reversed-stack
-        // positions; map back to storage indices on the way out.
-        const n0 = neMat.getNK(lam);
-        const ns = nsmat.getNK(lam);
-        const layersRev = [];
-        for (let i = N - 1; i >= 0; i--) {
-            layersRev.push({ n: mats[i].getNK(lam), d: thk[i] });
-        }
-        const J = tmmJacEval(lam, aoi, polCode, n0, ns, layersRev);
-        const dR = new Array(N), dT = new Array(N), dA = new Array(N);
-        for (let i = 0; i < N; i++) {
-            const j = N - 1 - i;
-            dR[i] = J.dRdd[j]; dT[i] = J.dTdd[j]; dA[i] = J.dAdd[j];
-        }
-        return { kind: 'singleBack', R: J.R, T: J.T, A: J.A, dR, dT, dA };
-    }
-    // ── Full system (symmetric / both_independent) ─────────────────
-    // Compose three TMM Jacobians via Macleod §2.6.4:
-    //   T_sys = T_f · P · T_b / (1 − R_f' · R_b · P²)
-    //   R_sys = R_f + T_f · T_f' · P² · R_b / (1 − R_f' · R_b · P²)
-    // Then propagate per-layer ∂R/∂d, ∂T/∂d through the same chain
-    // rule used in scanNeedlesAnalytic (front insertions read fwd+rev,
-    // back insertions read bck).
-    const n0 = n0mat.getNK(lam);
-    const ns = nsmat.getNK(lam);
-    const ne = neMat.getNK(lam);
-
-    const sin0 = Math.sin(aoi * Math.PI / 180);
-    const sinSub = ns[0] > 0 ? Math.min(1, n0[0] * sin0 / ns[0]) : 0;
-    const cosSub = Math.sqrt(1 - sinSub * sinSub);
-    const aoiSub = Math.asin(sinSub) * 180 / Math.PI;
-
-    const frontMats   = ctx.frontMats;
-    const frontThicks = ctx.frontThicks;
-    const backMats    = ctx.backMats;
-    const backThicks  = ctx.backThicks;
-
-    const fLayers    = frontThicks.map((d, i) => ({ n: frontMats[i].getNK(lam), d }));
-    const fLayersRev = [...fLayers].reverse();
-    const bLayers    = backThicks.map((d, i)  => ({ n: backMats[i].getNK(lam),  d }));
-
-    const Jfwd = tmmJacEval(lam, aoi,    polCode, n0, ns, fLayers);
-    const Jrev = tmmJacEval(lam, aoiSub, polCode, ns, n0, fLayersRev);
-    const Jbck = tmmJacEval(lam, aoiSub, polCode, ns, ne, bLayers);
-
-    const k_sub    = ns[1];
-    const d_sub_nm = subThickMm * 1e6;
-    const P  = (k_sub > 0 && cosSub > 0)
-        ? Math.exp(-4 * Math.PI * k_sub * d_sub_nm / (lam * cosSub))
-        : 1.0;
-    const P2 = P * P;
-
-    const Rf  = Jfwd.R, Tf  = Jfwd.T;
-    const Rfp = Jrev.R, Tfp = Jrev.T;
-    const Rb  = Jbck.R, Tb  = Jbck.T;
-
-    const D     = 1 - Rfp * Rb * P2;
-    const invD2 = 1 / (D * D);
-    const R_sys = Rf + (Tf * Tfp * P2 * Rb) / D;
-    const T_sys = (Tf * P * Tb) / D;
-    const A_sys = Math.max(0, 1 - R_sys - T_sys);
-
-    const Nf = fLayers.length, Nb = bLayers.length;
-    const dR_front = new Array(Nf), dT_front = new Array(Nf), dA_front = new Array(Nf);
-    for (let i = 0; i < Nf; i++) {
-        const dRf  = Jfwd.dRdd[i],          dTf  = Jfwd.dTdd[i];
-        // Front layer i (storage air→sub) sits at reversed-pass index (Nf-1-i).
-        const dRfp = Jrev.dRdd[Nf - 1 - i], dTfp = Jrev.dTdd[Nf - 1 - i];
-        const dT   = (P * Tb) * invD2 * (D * dTf + Tf * P2 * Rb * dRfp);
-        const dR   = dRf + (P2 * Rb) * invD2 *
-                        (D * (dTf * Tfp + Tf * dTfp) + Tf * Tfp * P2 * Rb * dRfp);
-        dR_front[i] = dR; dT_front[i] = dT; dA_front[i] = -(dR + dT);
-    }
-    const dR_back = new Array(Nb), dT_back = new Array(Nb), dA_back = new Array(Nb);
-    for (let i = 0; i < Nb; i++) {
-        const dRb = Jbck.dRdd[i], dTb = Jbck.dTdd[i];
-        const dT  = (P * Tf) * invD2 * (D * dTb + Tb * P2 * Rfp * dRb);
-        const dR  = (Tf * Tfp * P2) * invD2 * dRb;
-        dR_back[i] = dR; dT_back[i] = dT; dA_back[i] = -(dR + dT);
-    }
-
-    return { kind: 'full', R: R_sys, T: T_sys, A: A_sys,
-             dR_front, dT_front, dA_front,
-             dR_back,  dT_back,  dA_back };
-}
+import { _surfaceLayout, makePointEvaluators, _jacRow } from './jacobianAssembly.js';
+import { _jtjUpper, _mirrorUpper, makeHessianSampler, _addS, _curvRangeTarget, _curvIntegral, _curvRangeAvg, _operandSupportsFullNewton } from './newtonAssembly.js';
 
 // ── DLS Optimizer (Levenberg-Marquardt) ───────────────────────────────────────
 //
@@ -373,20 +269,11 @@ export class LSQEngine {
         // which differences the cone-averaged _residuals and is consistent by
         // construction. (Cone-summing the analytic Jacobian is a future speedup.)
         if (coneIsActive(this.cone)) return null;
-        const surfaceMode = this.surfaceMode || 'front_only';
         // Variable layout (which free vars exist) is set by surfaceMode; whether
         // the MF is scored full-system is set by evalFullSystem. front_only/
         // back_only + 'total' reuse the validated full-system chain rule but with
         // free variables on one side only (the other side is fixed).
-        const evalFull      = !!this.evalFullSystem;
-        const isFull        = evalFull || surfaceMode === 'symmetric' || surfaceMode === 'both_independent';
-        const isSingleFront = !isFull && surfaceMode === 'front_only';
-        const isSingleBack  = !isFull && surfaceMode === 'back_only';
-        // How free variables map onto front/back per-layer derivatives.
-        const varSide = surfaceMode === 'both_independent' ? 'both'
-                      : surfaceMode === 'symmetric'        ? 'symmetric'
-                      : surfaceMode === 'back_only'        ? 'back'
-                      :                                      'front';
+        const { mode, varSide } = _surfaceLayout(this.surfaceMode || 'front_only', !!this.evalFullSystem);
 
         const ctx  = this._ctxFor(thk);
         const comp = compBase !== undefined ? compBase : evaluateOperands(this.operands, ctx);
@@ -394,243 +281,29 @@ export class LSQEngine {
         const N = thk.length;   // total free-variable count (= mats.length)
 
         // Cache one Jacobian package per (λ, polCode, aoi) — reused across
-        // all operands that sample the same point. For full-system we cache
+        // all operands that sample the same point. For full-system this caches
         // THREE sub-Jacobians (front-forward, front-reverse, back) plus the
-        // composed system R/T/A and per-side derivatives ∂R_sys/∂d_*,
-        // ∂T_sys/∂d_*, ∂A_sys/∂d_*; for single-surface modes we cache one.
-        const jacCache = new Map();
-        const subThickMm = this.substrateThicknessMm;
-
+        // composed system R/T/A and per-side derivatives; for single-surface
+        // modes it caches one. `sideMap` fixes how per-side derivatives map onto
+        // the free-variable vector (length N, same indexing as thk/freeIdx).
         const jacCfg = {
-            mode: isSingleFront ? 'singleFront' : isSingleBack ? 'singleBack' : 'full',
+            mode,
             n0mat: this.n0mat, nsmat: this.nsmat, neMat: this.neMat, mats: this.mats,
-            thk, N, ctx, subThickMm,
+            thk, N, ctx, subThickMm: this.substrateThicknessMm,
         };
-        const getJac = (lam, polCode, aoi) => {
-            const key = lam + '|' + polCode + '|' + aoi;
-            let v = jacCache.get(key);
-            if (v === undefined) { v = computeLayerJacobian(lam, polCode, aoi, jacCfg); jacCache.set(key, v); }
-            return v;
-        };
+        const sideMap = { N, varSide, nFront: this.nFront, nBack: this.nBack };
+        const { propDeriv, propVal } = makePointEvaluators(jacCfg, sideMap);
 
-        // Map per-side per-layer derivatives onto the free-variable vector
-        // (length N, same indexing as thk/freeIdx).
-        const nFront = this.nFront, nBack = this.nBack;
-        const accumulateInto = (out, J, char, weight) => {
-            if (J.kind === 'singleFront' || J.kind === 'singleBack') {
-                const d = char === 'T' ? J.dT : char === 'R' ? J.dR : J.dA;
-                for (let i = 0; i < N; i++) out[i] += weight * d[i];
-                return;
-            }
-            // full system — map per-side per-layer derivatives onto the free vec
-            const df = char === 'T' ? J.dT_front : char === 'R' ? J.dR_front : J.dA_front;
-            const db = char === 'T' ? J.dT_back  : char === 'R' ? J.dR_back  : J.dA_back;
-            if (varSide === 'symmetric') {
-                // thk[i] is the front variable; the auto-mirrored back layer
-                // (Nb-1-i) shares the same physical thickness, so its
-                // sensitivity adds to the same free variable. (Nf = Nb = N
-                // by construction in symmetric mode.)
-                for (let i = 0; i < N; i++) {
-                    out[i] += weight * (df[i] + db[N - 1 - i]);
-                }
-            } else if (varSide === 'both') {
-                // both_independent: free vector is [front..., back...]
-                for (let i = 0; i < nFront; i++) out[i]          += weight * df[i];
-                for (let i = 0; i < nBack;  i++) out[nFront + i] += weight * db[i];
-            } else if (varSide === 'back') {
-                // back_only + total: free vars = back layers only; the front
-                // (fixed) contributes to the system value but has no free var.
-                for (let i = 0; i < nBack; i++) out[i] += weight * db[i];
-            } else {
-                // front_only + total: free vars = front layers only; the back
-                // (fixed) contributes to the system value but has no free var.
-                for (let i = 0; i < nFront; i++) out[i] += weight * df[i];
-            }
-        };
-
-        // ∂(property)/∂d for every free variable at one λ, honoring pol='avg'
-        // (½(s+p)) — matches the polarization handling in tmm* eval paths.
-        const propDeriv = (lam, pol, char, aoi) => {
-            const out = new Array(N).fill(0);
-            if (pol === 'avg') {
-                accumulateInto(out, getJac(lam, 's', aoi), char, 0.5);
-                accumulateInto(out, getJac(lam, 'p', aoi), char, 0.5);
-            } else {
-                accumulateInto(out, getJac(lam, pol, aoi), char, 1.0);
-            }
-            return out;
-        };
-        const pickV = (Jc, char) => char === 'T' ? Jc.T : char === 'R' ? Jc.R : Jc.A;
-        const propVal = (lam, pol, char, aoi) => {
-            if (pol === 'avg')
-                return 0.5 * (pickV(getJac(lam, 's', aoi), char) + pickV(getJac(lam, 'p', aoi), char));
-            return pickV(getJac(lam, pol, aoi), char);
-        };
-
+        // Operand kinds whose analytic chain rule isn't worked out yet
+        // (argwave/math/total-thickness) decline the WHOLE analytic Jacobian so
+        // step() falls back to FD. Every remaining kind gets a row from _jacRow.
+        const jc = { comp, freeIdx, nFree, ctx, propDeriv, propVal };
         const J = [];
         for (let i = 0; i < this.operands.length; i++) {
             const op = this.operands[i];
             if (!op.enabled || comp[i] == null) continue;
-            const row = new Array(nFree).fill(0);
-            const sw  = Math.sqrt(op.weight);
-
-            if (isConstraint(op.type)) {
-                // Subgradient of sw·max(0, ±(target−comp)); comp = min (MNT)
-                // or max (MXT) over the 1-based layer-index range.
-                const all = ctx.fullThicks || ctx.frontThicks || [];
-                const lo = Math.max(0, Math.round(op.lambdaStart) - 1);
-                const hi = Math.min(all.length - 1, Math.round(op.lambdaEnd) - 1);
-                if (lo <= hi) {
-                    let argj = lo, best = all[lo] || 0;
-                    for (let jj = lo; jj <= hi; jj++) {
-                        const v = all[jj] || 0;
-                        if (op.type === 'MNT' ? v < best : v > best) { best = v; argj = jj; }
-                    }
-                    const violated = op.type === 'MNT'
-                        ? (op.target - comp[i] > 0)
-                        : (comp[i] - op.target > 0);
-                    if (violated) {
-                        const ci = freeIdx.indexOf(argj);
-                        if (ci >= 0) row[ci] = sw * (op.type === 'MNT' ? -1 : 1);
-                    }
-                }
-                J.push(row);
-                continue;
-            }
-
-            // ── Argwave (MXW*/MNW*) — defer to FD ────────────────────────────
-            // The envelope-theorem analytic gradient of an argmax is doable
-            // (∂λ*/∂d = −(∂²C/∂λ∂d)/(∂²C/∂λ²) at the peak), but it needs
-            // second derivatives and a peak-tracking strategy. Until that's
-            // built, FD fallback for the whole step keeps results correct.
-            if (isArgwave(op.type)) return null;
-
-            // ── Zemax math operands — analytic via ref Jacobian + chain rule ─
-            // For now the analytic Jacobian for math operands triggers FD
-            // fallback (returns null for the whole step).  Rationale:
-            //   • OPGT/OPLT/OPVA/ABSO/ABGT/ABLT have a single ref → chain
-            //     rule = ± (or sign(ref)) × J_ref.  Doable but needs the
-            //     referenced row's Jacobian to be computed inside this
-            //     function — adds complexity.
-            //   • DIFF/SUMM/PROD have two refs → ±J_ref1 ± J_ref2 (or product
-            //     rule for PROD).
-            //   • Legacy OPGT/OPLT with op.baseType (no refId) had a
-            //     specialized inline path that worked but had its own
-            //     limitations.
-            // For v1 of the ref-based architecture we accept FD-only and
-            // revisit analytic later; per-step cost is +O(2·nFree·m) which
-            // is fine for typical MF sizes.  This keeps the math-operand
-            // contract clean: any new math kind in MATH_REGISTRY automatically
-            // works in DLS without extra Jacobian wiring.
-            if (isMath(op.type)) return null;
-
-            // ── Total thickness (TT) — defer to FD ───────────────────────────
-            // ∂(Σd)/∂d_k = 1 for every free layer is trivial, but the free-var
-            // ↔ stack mapping differs per surface mode; FD fallback keeps it
-            // unambiguously correct (TT is cheap to difference).
-            if (isTotalThickness(op.type)) return null;
-
-            const char = charOf(op.type);
-            const pol  = polFromType(op.type) ?? op.pol;
-
-            // ── Continuous per-λ target (TGT/RGT/AGT) ────────────────────────
-            // residual = sw·comp, comp = √(mean dev²).
-            // ∂comp/∂d_k = (1/(comp·n))·Σ dev_s·∂val_s/∂d_k.
-            if (isRangeTarget(op.type)) {
-                const lams = operandSampleLambdas(op);
-                const n = lams.length;
-                const cval = comp[i];
-                if (cval > 1e-12) {
-                    const t0 = op.target;
-                    const t1 = op.targetEnd != null ? op.targetEnd : op.target;
-                    for (let s = 0; s < n; s++) {
-                        const f   = s / (n - 1);
-                        const ti  = t0 + (t1 - t0) * f;
-                        const dev = propVal(lams[s], pol, char, op.aoi) - ti;
-                        const d   = propDeriv(lams[s], pol, char, op.aoi);
-                        for (let ci = 0; ci < nFree; ci++) row[ci] += dev * d[freeIdx[ci]];
-                    }
-                    const scale = sw / (cval * n);
-                    for (let ci = 0; ci < nFree; ci++) row[ci] *= scale;
-                }
-                J.push(row);
-                continue;
-            }
-
-            // Weighted-integral: residual = sw·(C̄_w − target),
-            //   ∂C̄_w/∂d_j = Σ_i (w_i / Σ w_k) · ∂C_i/∂d_j   (linear, exact).
-            if (isIntegral(op.type)) {
-                const lams = operandSampleLambdas(op);
-                const n    = lams.length;
-                const S    = resolveSourceSpec(op.source   || { id: 'E' });
-                const D    = resolveDetectorSpec(op.detector || { id: 'flat' });
-                let den = 0;
-                const wts = new Array(n);
-                for (let s = 0; s < n; s++) {
-                    const w = S.sampler(lams[s]) * D.sampler(lams[s]);
-                    wts[s] = w; den += w;
-                }
-                if (den > 1e-30) {
-                    const invDen = 1 / den;
-                    for (let s = 0; s < n; s++) {
-                        const wi = wts[s] * invDen;
-                        if (!(wi > 0)) continue;
-                        const d = propDeriv(lams[s], pol, char, op.aoi);
-                        for (let ci = 0; ci < nFree; ci++) row[ci] += wi * d[freeIdx[ci]];
-                    }
-                    for (let ci = 0; ci < nFree; ci++) row[ci] *= sw;
-                }
-                J.push(row);
-                continue;
-            }
-
-            // Worst-case min/max: residual = sw·max(0, ±(target−comp)), where
-            // comp is the TRUE extremum of C(λ) over the band (see evalOperand).
-            // Inactive (subgradient 0) when satisfied. When active, the extremum
-            // is attained at one wavelength λ* (the argmin/argmax sample), so the
-            // subgradient is sw·(±1)·∂C(λ*)/∂d_j — the same single-extremum
-            // subgradient used for MNT/MXT. Must find λ* on the SAME grid
-            // evalOperand used, so comp and this gradient stay self-consistent
-            // (and the Jacobian matches a finite-difference of the residual).
-            if (isMinmax(op.type)) {
-                const isMin = isMinType(op.type);
-                const violated = isMin
-                    ? (op.target - comp[i] > 0)
-                    : (comp[i] - op.target > 0);
-                if (!violated) { J.push(row); continue; }
-
-                const lams = operandSampleLambdas(op);
-                const n    = lams.length;
-                let argS = 0, bestV = isMin ? Infinity : -Infinity;
-                for (let s = 0; s < n; s++) {
-                    const v = propVal(lams[s], pol, char, op.aoi);
-                    if (isMin ? v < bestV : v > bestV) { bestV = v; argS = s; }
-                }
-                // ∂residual/∂comp under the violated branch: +1 for max, −1 for min.
-                const dResSign = isMin ? -1 : +1;
-                const d = propDeriv(lams[argS], pol, char, op.aoi);
-                for (let ci = 0; ci < nFree; ci++) row[ci] = sw * dResSign * d[freeIdx[ci]];
-                J.push(row);
-                continue;
-            }
-
-            if (isRangeAvg(op.type)) {
-                // Band mean: residual = sw·(mean − target). (TAV/RAV/AAV are
-                // pure averages — no ramp; ramps live in TGT/RGT/AGT above.)
-                const lams = operandSampleLambdas(op);
-                const n = lams.length;
-                for (let s = 0; s < n; s++) {
-                    const d = propDeriv(lams[s], pol, char, op.aoi);
-                    for (let ci = 0; ci < nFree; ci++) row[ci] += d[freeIdx[ci]];
-                }
-                const scale = sw / n;
-                for (let ci = 0; ci < nFree; ci++) row[ci] *= scale;
-            } else {
-                // Single-λ: residual = sw·(val − target).
-                const d = propDeriv(op.lambdaStart, pol, char, op.aoi);
-                for (let ci = 0; ci < nFree; ci++) row[ci] = sw * d[freeIdx[ci]];
-            }
-            J.push(row);
+            if (isArgwave(op.type) || isMath(op.type) || isTotalThickness(op.type)) return null;
+            J.push(_jacRow(op, i, jc));
         }
         return J;
     }
@@ -672,18 +345,19 @@ export class LSQEngine {
         const m  = r0.length, nFree = freeIdx.length;
         let J = this._analyticJacobian(thk, freeIdx, compBase);
         if (!J || J.length !== m) J = this._fdJacobian(thk, freeIdx, m);
-        const H   = Array.from({ length: nFree }, () => new Array(nFree).fill(0));
-        const Jtr = new Array(nFree).fill(0);
-        for (let row = 0; row < m; row++) {
-            const Jr = J[row], rr = r0[row];
-            for (let a = 0; a < nFree; a++) {
-                Jtr[a] += Jr[a] * rr;
-                const Jra = Jr[a];
-                for (let b = a; b < nFree; b++) H[a][b] += Jra * Jr[b];
-            }
-        }
-        for (let a = 0; a < nFree; a++) for (let b = 0; b < a; b++) H[a][b] = H[b][a];
+        const { H, Jtr } = _jtjUpper(J, r0, nFree, m);
+        _mirrorUpper(H, nFree);
         return { H, Jtr };
+    }
+
+    // FULL Newton (JᵀJ + analytic curvature S) is assembled only when the MF is
+    // scored on a SINGLE surface (front_only, or back_only with mfEvalMode='side')
+    // and every operand supports the analytic curvature. Otherwise _newtonSystem
+    // falls back to the Gauss-Newton system.
+    _fullNewtonSupported(sm, isSingleBack) {
+        if (sm !== 'front_only' && !isSingleBack) return false;
+        if (this.evalFullSystem) return false;
+        return this.operands.every(_operandSupportsFullNewton);
     }
 
     _newtonSystem(thk, freeIdx) {
@@ -702,12 +376,7 @@ export class LSQEngine {
         // engines run natively in EVERY mode (no silent LM fallback).
         const sm = this.surfaceMode || 'front_only';
         const isSingleBack = sm === 'back_only';
-        const fullNewtonOK = (sm === 'front_only' || isSingleBack)
-            && !this.evalFullSystem
-            && this.operands.every(op => !op.enabled
-                || (!isMath(op.type) && !isArgwave(op.type) && !isTotalThickness(op.type)
-                    && operandResidualScale(op) === 1));
-        if (!fullNewtonOK) return this._gaussNewtonSystem(thk, freeIdx);
+        if (!this._fullNewtonSupported(sm, isSingleBack)) return this._gaussNewtonSystem(thk, freeIdx);
 
         // One base-point sweep shared by the Jacobian, the residuals AND the
         // comp-Hessian operand reduction below (M5 — was three evaluateOperands
@@ -720,175 +389,38 @@ export class LSQEngine {
         if (m !== J.length) return this._gaussNewtonSystem(thk, freeIdx);   // safety: row alignment
 
         // JᵀJ (upper triangle) and Jtr = Jᵀr.
-        const H   = Array.from({ length: nFree }, () => new Array(nFree).fill(0));
-        const Jtr = new Array(nFree).fill(0);
-        for (let row = 0; row < m; row++) {
-            const Jr = J[row], rr = r0[row];
-            for (let a = 0; a < nFree; a++) {
-                Jtr[a] += Jr[a] * rr;
-                const Jra = Jr[a];
-                for (let b = a; b < nFree; b++) H[a][b] += Jra * Jr[b];
-            }
-        }
+        const { H, Jtr } = _jtjUpper(J, r0, nFree, m);
 
         // Per-(λ,pol,char,aoi) analytic comp value/first/second derivatives over
-        // the FREE variables (honoring pol='avg'). Single-front: a direct read +
-        // subset of the full-stack analytic Hessian.
-        const hcache = new Map();
-        const N = thk.length;
-        // Remap a reversed-stack Hessian package back to storage-layer order.
-        // ∂²/∂dᵢ∂dⱼ is symmetric, so read via at() (handles upper-only storage).
-        const remapHessianRev = (Hr) => {
-            const at = (M, p, q) => (p <= q ? M[p][q] : M[q][p]);
-            const d1 = (arr) => { const o = new Array(N); for (let i = 0; i < N; i++) o[i] = arr[N - 1 - i]; return o; };
-            const d2 = (M) => {
-                const o = Array.from({ length: N }, () => new Array(N).fill(0));
-                for (let i = 0; i < N; i++) for (let j = 0; j < N; j++) o[i][j] = at(M, N - 1 - i, N - 1 - j);
-                return o;
-            };
-            return { T: Hr.T, R: Hr.R, A: Hr.A,
-                     dTdd: d1(Hr.dTdd), dRdd: d1(Hr.dRdd), dAdd: d1(Hr.dAdd),
-                     d2Tdd: d2(Hr.d2Tdd), d2Rdd: d2(Hr.d2Rdd), d2Add: d2(Hr.d2Add) };
-        };
-        const getH = (lam, polCode, aoi) => {
-            const key = lam + '|' + polCode + '|' + aoi;
-            let v = hcache.get(key);
-            if (v === undefined) {
-                const ns = this.nsmat.getNK(lam);
-                if (isSingleBack) {
-                    // Same single-surface Hessian as front_only, entered from the
-                    // exit medium with the stack reversed (storage is sub→exit);
-                    // remap derivative indices back to storage order. Mirrors the
-                    // _analyticJacobian isSingleBack branch exactly.
-                    const n0 = this.neMat.getNK(lam);
-                    const layersRev = [];
-                    for (let i = N - 1; i >= 0; i--) layersRev.push({ n: this.mats[i].getNK(lam), d: thk[i] });
-                    v = remapHessianRev(tmmHessEval(lam, aoi, polCode, n0, ns, layersRev));
-                } else {
-                    const n0 = this.n0mat.getNK(lam);
-                    const layers = thk.map((d, i) => ({ n: this.mats[i].getNK(lam), d }));
-                    v = tmmHessEval(lam, aoi, polCode, n0, ns, layers);
-                }
-                hcache.set(key, v);
-            }
-            return v;
-        };
-        const pV  = (Hk, ch) => ch === 'T' ? Hk.T : ch === 'R' ? Hk.R : Hk.A;
-        const p1  = (Hk, ch) => ch === 'T' ? Hk.dTdd : ch === 'R' ? Hk.dRdd : Hk.dAdd;
-        const p2  = (Hk, ch) => ch === 'T' ? Hk.d2Tdd : ch === 'R' ? Hk.d2Rdd : Hk.d2Add;
-        // returns { val, d1:[nFree], d2:[nFree][nFree] (upper) }
-        const sample = (lam, pol, ch, aoi) => {
-            const d1 = new Array(nFree).fill(0);
-            const d2 = Array.from({ length: nFree }, () => new Array(nFree).fill(0));
-            let val = 0;
-            const add = (w, polCode) => {
-                const Hk = getH(lam, polCode, aoi);
-                val += w * pV(Hk, ch);
-                const D1 = p1(Hk, ch), D2 = p2(Hk, ch);
-                for (let a = 0; a < nFree; a++) {
-                    d1[a] += w * D1[freeIdx[a]];
-                    const ra = D2[freeIdx[a]];
-                    for (let b = a; b < nFree; b++) d2[a][b] += w * ra[freeIdx[b]];
-                }
-            };
-            if (pol === 'avg') { add(0.5, 's'); add(0.5, 'p'); } else add(1.0, pol);
-            return { val, d1, d2 };
-        };
-        const addS = (coef, d2) => {            // H += coef · d2  (upper triangle)
-            if (!coef) return;
-            for (let a = 0; a < nFree; a++) for (let b = a; b < nFree; b++) H[a][b] += coef * d2[a][b];
-        };
+        // the FREE variables (honoring pol='avg'). Single-front is a direct read;
+        // single-back mirrors _analyticJacobian's reversed-stack handling.
+        const { sample } = makeHessianSampler({
+            n0mat: this.n0mat, nsmat: this.nsmat, neMat: this.neMat, mats: this.mats,
+            thk, N: thk.length, isSingleBack, freeIdx, nFree,
+        });
+        const addS = (coef, d2) => _addS(H, nFree, coef, d2);
 
         // Second-order curvature term S, iterating operands in the SAME order as
         // _analyticJacobian/_residuals so row index `rp` aligns with r0/J.
+        // Constraint/minmax contribute zero curvature (piecewise-linear).
+        const hc = { H, J, r0, nFree, sample, addS };
         let rp = 0;
         for (let i = 0; i < this.operands.length; i++) {
             const op = this.operands[i];
             if (!op.enabled || comp[i] == null) continue;
-            const rowR = r0[rp];                // residual value for this operand
-            const sw   = Math.sqrt(op.weight);
-            if (isConstraint(op.type) || isMinmax(op.type)) { rp++; continue; } // ∂²r = 0
-            const char = charOf(op.type);
-            const pol  = polFromType(op.type) ?? op.pol;
-
-            if (isRangeTarget(op.type)) {
-                // comp = √((1/n)Σ devₛ²); the JᵀJ-of-row already added sw²·∂cₐ∂c_b,
-                // and the full second-order term collapses (see derivation) to
-                //   H_contrib[a][b] = sw²·(1/n)Σₛ(gₛₐgₛ_b + devₛ·∂²valₛ) − sw²·∂cₐ∂c_b
-                // so we add S = that minus the row's JᵀJ (= −sw²∂cₐ∂c_b + sw²/n Σ g g
-                // + sw²/n Σ dev ∂²val). We add the whole curvature directly and undo
-                // the row's JᵀJ contribution.
-                const lams = operandSampleLambdas(op);
-                const n = lams.length;
-                const t0 = op.target;
-                const t1 = op.targetEnd != null ? op.targetEnd : op.target;
-                // accumulate Σ gₐg_b and Σ dev·∂²val over samples
-                const gg  = Array.from({ length: nFree }, () => new Array(nFree).fill(0));
-                const dv2 = Array.from({ length: nFree }, () => new Array(nFree).fill(0));
-                for (let s = 0; s < n; s++) {
-                    const fr  = n > 1 ? s / (n - 1) : 0;
-                    const ti  = t0 + (t1 - t0) * fr;
-                    const smp = sample(lams[s], pol, char, op.aoi);
-                    const dev = smp.val - ti;
-                    for (let a = 0; a < nFree; a++) {
-                        const ga = smp.d1[a];
-                        for (let b = a; b < nFree; b++) {
-                            gg[a][b]  += ga * smp.d1[b];
-                            dv2[a][b] += dev * smp.d2[a][b];
-                        }
-                    }
-                }
-                // H += sw²/n·(gg + dv2)  − (row JᵀJ already in H = sw²·∂c∂c)
-                const c2 = (sw * sw) / n;
-                for (let a = 0; a < nFree; a++) {
-                    for (let b = a; b < nFree; b++) {
-                        H[a][b] += c2 * (gg[a][b] + dv2[a][b]) - J[rp][a] * J[rp][b];
-                    }
-                }
-                rp++; continue;
+            if (isConstraint(op.type) || isMinmax(op.type)) { rp++; continue; }
+            if (isRangeTarget(op.type))   _curvRangeTarget(op, rp, hc);
+            else if (isIntegral(op.type)) _curvIntegral(op, rp, hc);
+            else if (isRangeAvg(op.type)) _curvRangeAvg(op, rp, hc);
+            else {  // single-λ optical: residual = sw·(val − target), ∂²r = sw·∂²comp.
+                const pol = polFromType(op.type) ?? op.pol;
+                const d2 = sample(op.lambdaStart, pol, charOf(op.type), op.aoi).d2;
+                addS(r0[rp] * Math.sqrt(op.weight), d2);
             }
-
-            if (isIntegral(op.type)) {
-                const lams = operandSampleLambdas(op);
-                const n = lams.length;
-                const S = resolveSourceSpec(op.source || { id: 'E' });
-                const D = resolveDetectorSpec(op.detector || { id: 'flat' });
-                let den = 0; const wts = new Array(n);
-                for (let s = 0; s < n; s++) { const w = S.sampler(lams[s]) * D.sampler(lams[s]); wts[s] = w; den += w; }
-                if (den > 1e-30) {
-                    const invDen = 1 / den;
-                    const d2acc = Array.from({ length: nFree }, () => new Array(nFree).fill(0));
-                    for (let s = 0; s < n; s++) {
-                        const wi = wts[s] * invDen;
-                        if (!(wi > 0)) continue;
-                        const smp = sample(lams[s], pol, char, op.aoi);
-                        for (let a = 0; a < nFree; a++) for (let b = a; b < nFree; b++) d2acc[a][b] += wi * smp.d2[a][b];
-                    }
-                    addS(rowR * sw, d2acc);     // ∂²r = sw·Σ wi·∂²comp ; S = r·∂²r
-                }
-                rp++; continue;
-            }
-
-            if (isRangeAvg(op.type)) {
-                const lams = operandSampleLambdas(op);
-                const n = lams.length;
-                const d2acc = Array.from({ length: nFree }, () => new Array(nFree).fill(0));
-                for (let s = 0; s < n; s++) {
-                    const smp = sample(lams[s], pol, char, op.aoi);
-                    for (let a = 0; a < nFree; a++) for (let b = a; b < nFree; b++) d2acc[a][b] += smp.d2[a][b];
-                }
-                addS((rowR * sw) / n, d2acc);   // ∂²r = sw/n·Σ ∂²comp
-                rp++; continue;
-            }
-
-            // Single-λ optical: residual = sw·(val − target), ∂²r = sw·∂²comp.
-            const smp = sample(op.lambdaStart, pol, char, op.aoi);
-            addS(rowR * sw, smp.d2);
             rp++;
         }
 
-        // Mirror to full symmetric matrix.
-        for (let a = 0; a < nFree; a++) for (let b = 0; b < a; b++) H[a][b] = H[b][a];
+        _mirrorUpper(H, nFree);
         return { H, Jtr };
     }
 

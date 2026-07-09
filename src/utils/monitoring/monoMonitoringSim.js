@@ -74,6 +74,11 @@ function makeShiftedMaterial(baseMat, dn, dk) {
 
 // ── Single-λ signal sampler ───────────────────────────────────────────────────
 
+// Signal selection from a TMM result: characteristic ('T'/'R', anything else →
+// 'A') combined with polarisation ('s'/'p', anything else → averaged, key '').
+const CHAR_KEY = { T: 'T', R: 'R' };
+const POL_SUFFIX = { s: 's', p: 'p' };
+
 function singleSignal(lam, theta, pol, char, incMat, subMat, mats, thicks) {
     const lNDs = [];
     for (let i = 0; i < mats.length; i++) {
@@ -82,9 +87,7 @@ function singleSignal(lam, theta, pol, char, incMat, subMat, mats, thicks) {
     const n0 = incMat.getNK(lam);
     const ns = subMat.getNK(lam);
     const res = tmmAvg(lam, theta, n0, ns, lNDs);
-    if (char === 'T') return pol === 's' ? res.Ts : pol === 'p' ? res.Tp : res.T;
-    if (char === 'R') return pol === 's' ? res.Rs : pol === 'p' ? res.Rp : res.R;
-    return pol === 's' ? res.As : pol === 'p' ? res.Ap : res.A;
+    return res[(CHAR_KEY[char] || 'A') + (POL_SUFFIX[pol] || '')];
 }
 
 function spectrumOnGrid(lambdas, theta, pol, char, incMat, subMat, mats, thicks) {
@@ -189,6 +192,75 @@ export function pickSensitiveLambda(design, resolveMat, layerIdx,
  * usable for level monitoring (the old code returned 0 here, which falsely
  * flagged perfectly-fine monotonic layers as unmonitorable).
  */
+/** True when ys[i] (= b, with neighbours a, cv) is a local max or min. */
+function _isLocalExtremum(a, b, cv) {
+    if (b > a && b > cv) return true;
+    if (b < a && b < cv) return true;
+    return false;
+}
+
+/**
+ * Swing and Entry-Variation of a signal-vs-thickness scan `ys`, evaluated at the
+ * cut sample `targetIdx`. Returns null for a degenerate (flat) scan.
+ *
+ * Swing: position of S(d_target) between the extrema bracketing the cut (or the
+ * scan endpoints where a side has none), clamped to [0, 1]. EV: change from the
+ * start of the layer to the first extremum (or end-to-end if none), normalised
+ * to the full signal range.
+ */
+function _bracketingExtrema(ys, targetIdx) {
+    let extLeftIdx = -1, extRightIdx = -1, firstExtIdx = -1;
+    for (let s = 1; s < ys.length - 1; s++) {
+        if (_isLocalExtremum(ys[s-1], ys[s], ys[s+1])) {
+            if (firstExtIdx < 0) firstExtIdx = s;
+            if (s <= targetIdx) extLeftIdx = s;
+            else if (extRightIdx < 0) { extRightIdx = s; }
+        }
+    }
+    return { extLeftIdx, extRightIdx, firstExtIdx };
+}
+
+function _swingAndEv(ys, targetIdx) {
+    const NP = ys.length;
+    const sEnd = ys[targetIdx];
+    let yMin = Infinity, yMax = -Infinity;
+    for (let s = 0; s < NP; s++) { if (ys[s] < yMin) yMin = ys[s]; if (ys[s] > yMax) yMax = ys[s]; }
+    const fullRange = yMax - yMin;
+    if (fullRange <= 1e-9) return null;
+
+    // Find all extrema in the scan; record those left/right of d_target.
+    const { extLeftIdx, extRightIdx, firstExtIdx } = _bracketingExtrema(ys, targetIdx);
+
+    // Bracketing endpoints for the swing calculation. If the cut is between
+    // two extrema, swing measures position between them. If only one side has
+    // an extremum, the other boundary is the scan endpoint. With no extrema
+    // (purely monotonic layer signal), swing is just position within the scan
+    // — typically ~0.5 for d_target = dHi/2, correctly indicating mid-slope.
+    const sLow  = extLeftIdx  >= 0 ? ys[extLeftIdx]  : ys[0];
+    const sHigh = extRightIdx >= 0 ? ys[extRightIdx] : ys[NP - 1];
+    const localRange = Math.abs(sHigh - sLow);
+    // Degenerate localRange (sLow ≈ sHigh): cut is essentially at an extremum.
+    const finalSwing = localRange > 1e-9
+        ? Math.min(1, Math.max(0, Math.abs(sEnd - sLow) / localRange))
+        : 0;
+    const ev = firstExtIdx >= 0
+        ? Math.abs(ys[0] - ys[firstExtIdx]) / fullRange
+        : Math.abs(sEnd - ys[0]) / fullRange;
+    return { ev, finalSwing };
+}
+
+/**
+ * Strategy-aware acceptance of a layer's monitorability:
+ *   - level: needs steep slope at cut → swing ∈ [0.2, 0.8]
+ *   - turning: needs the cut to coincide with an extremum → swing ≈ 0 or 1
+ *   - time: doesn't use signal, so trivially OK.
+ */
+function _acceptQuality(strategy, ev, finalSwing) {
+    if (strategy === 'turning') return ev >= 0.04 && (finalSwing <= 0.15 || finalSwing >= 0.85);
+    if (strategy === 'time') return true;
+    return ev >= 0.04 && finalSwing >= 0.2 && finalSwing <= 0.8;
+}
+
 export function monitorSignalQuality(design, resolveMat, layerIdx, lambda,
                                     theta, pol, char, strategy = 'level') {
     const front = design.frontLayers || [];
@@ -213,59 +285,10 @@ export function monitorSignalQuality(design, resolveMat, layerIdx, lambda,
     }
     const targetIdx = Math.max(1, Math.min(NP - 2,
         Math.round((d_target / dHi) * (NP - 1))));
-    const sEnd = ys[targetIdx];
-    let yMin = Infinity, yMax = -Infinity;
-    for (let s = 0; s < NP; s++) { if (ys[s] < yMin) yMin = ys[s]; if (ys[s] > yMax) yMax = ys[s]; }
-    const fullRange = yMax - yMin;
-    if (fullRange <= 1e-9) return { ev: 0, finalSwing: 0, ok: false, strategy };
-
-    // Find all extrema in the scan; record those left/right of d_target.
-    let extLeftIdx = -1, extRightIdx = -1, firstExtIdx = -1;
-    for (let s = 1; s < NP - 1; s++) {
-        const a = ys[s-1], b = ys[s], cv = ys[s+1];
-        if ((b > a && b > cv) || (b < a && b < cv)) {
-            if (firstExtIdx < 0) firstExtIdx = s;
-            if (s <= targetIdx) extLeftIdx = s;
-            else if (extRightIdx < 0) { extRightIdx = s; }
-        }
-    }
-
-    // Bracketing endpoints for the swing calculation. If the cut is between
-    // two extrema, swing measures position between them. If only one side has
-    // an extremum, the other boundary is the scan endpoint. With no extrema
-    // (purely monotonic layer signal), swing is just position within the scan
-    // — typically ~0.5 for d_target = dHi/2, correctly indicating mid-slope.
-    const sLow  = extLeftIdx  >= 0 ? ys[extLeftIdx]  : ys[0];
-    const sHigh = extRightIdx >= 0 ? ys[extRightIdx] : ys[NP - 1];
-    const localRange = Math.abs(sHigh - sLow);
-    let finalSwing;
-    if (localRange > 1e-9) {
-        finalSwing = Math.abs(sEnd - sLow) / localRange;
-        finalSwing = Math.min(1, Math.max(0, finalSwing));
-    } else {
-        // Degenerate (sLow ≈ sHigh): cut is essentially at an extremum.
-        finalSwing = 0;
-    }
-
-    // EV: change from start of layer to first extremum (or end-to-end if no
-    // extremum). Always normalized to the full signal range over the scan.
-    const ev = firstExtIdx >= 0
-        ? Math.abs(ys[0] - ys[firstExtIdx]) / fullRange
-        : Math.abs(sEnd - ys[0]) / fullRange;
-
-    // Strategy-aware acceptance:
-    //   - level: needs steep slope at cut → swing ∈ [0.2, 0.8]
-    //   - turning: needs the cut to coincide with an extremum → swing ≈ 0 or 1
-    //   - time: doesn't use signal, so trivially OK.
-    let ok;
-    if (strategy === 'turning') {
-        ok = ev >= 0.04 && (finalSwing <= 0.15 || finalSwing >= 0.85);
-    } else if (strategy === 'time') {
-        ok = true;
-    } else {
-        ok = ev >= 0.04 && finalSwing >= 0.2 && finalSwing <= 0.8;
-    }
-    return { ev, finalSwing, ok, strategy };
+    const q = _swingAndEv(ys, targetIdx);
+    if (!q) return { ev: 0, finalSwing: 0, ok: false, strategy };
+    return { ev: q.ev, finalSwing: q.finalSwing,
+        ok: _acceptQuality(strategy, q.ev, q.finalSwing), strategy };
 }
 
 /**
@@ -351,7 +374,7 @@ function computeExpected(layer, monCfg, monMat, monLambda, incMat, subMat,
     let firstExtIsMax = false;
     for (let i = 1; i < NP - 1; i++) {
         const a = ys[i - 1], b = ys[i], cv = ys[i + 1];
-        if ((b > a && b > cv) || (b < a && b < cv)) {
+        if (_isLocalExtremum(a, b, cv)) {
             firstExtIdx   = i;
             firstExtIsMax = (b > a && b > cv);
             break;
