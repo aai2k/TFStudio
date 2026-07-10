@@ -77,7 +77,7 @@ const timeoutMs = (parseInt(valOf('timeout', String(defaultTimeout)), 10) || def
 
 // ── Discover tests ───────────────────────────────────────────────────────────
 let files = readdirSync(TESTS_DIR)
-    .filter((f) => f.endsWith('.mjs') && f !== 'run-all.mjs')
+    .filter((f) => f.endsWith('.mjs') && f !== 'run-all.mjs' && !f.startsWith('_'))
     .sort();
 
 if (benchOnly)      files = files.filter((f) => BENCH.has(f));
@@ -85,7 +85,7 @@ else if (!runAll)   files = files.filter((f) => !BENCH.has(f));
 if (filter)         files = files.filter((f) => f.includes(filter));
 
 if (listOnly) {
-    const all = readdirSync(TESTS_DIR).filter((f) => f.endsWith('.mjs') && f !== 'run-all.mjs').sort();
+    const all = readdirSync(TESTS_DIR).filter((f) => f.endsWith('.mjs') && f !== 'run-all.mjs' && !f.startsWith('_')).sort();
     console.log(`\nSuite (${all.filter((f) => !BENCH.has(f)).length} fast tests):`);
     all.filter((f) => !BENCH.has(f)).forEach((f) => console.log('  • ' + f));
     console.log(`\nBench (${[...BENCH].length} long-running, excluded by default):`);

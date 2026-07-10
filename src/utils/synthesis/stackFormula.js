@@ -148,17 +148,9 @@ export function parseStackFormula(text) {
 
     let incident = null, exit = null, layerToks = tokens, refLambdaOverride = null;
     if (pipeIdx.length === 2) {
-        const leftToks  = tokens.slice(0, pipeIdx[0]);
-        layerToks       = tokens.slice(pipeIdx[0] + 1, pipeIdx[1]);
-        const rightToks = tokens.slice(pipeIdx[1] + 1);
-        const lside = parseSide(leftToks);
-        if (lside.error) return { ok: false, error: lside.error, errorPos: lside.errorPos };
-        const rside = parseSide(rightToks);
-        if (rside.error) return { ok: false, error: rside.error, errorPos: rside.errorPos };
-        incident = lside.sym ? { sym: lside.sym, pos: lside.pos } : null;
-        exit     = rside.sym ? { sym: rside.sym, pos: rside.pos } : null;
-        if (lside.refLambda != null) refLambdaOverride = lside.refLambda;
-        if (rside.refLambda != null) refLambdaOverride = rside.refLambda;
+        const sides = splitSides(tokens, pipeIdx);
+        if (sides.error) return { ok: false, error: sides.error, errorPos: sides.errorPos };
+        ({ incident, exit, layerToks, refLambdaOverride } = sides);
     }
 
     const ctx = { toks: layerToks, i: 0 };
@@ -172,6 +164,26 @@ export function parseStackFormula(text) {
         atoms,                       // [{coef, sym, pos}]
         incident, exit,
         hasSides: pipeIdx.length === 2,
+        refLambdaOverride,
+    };
+}
+
+// Split an "incident | layers | substrate" token stream into its three parts
+// and parse the two side materials. Called only when exactly two pipes exist.
+// Returns { incident, exit, layerToks, refLambdaOverride } or { error, errorPos }.
+function splitSides(tokens, pipeIdx) {
+    const layerToks = tokens.slice(pipeIdx[0] + 1, pipeIdx[1]);
+    const lside = parseSide(tokens.slice(0, pipeIdx[0]));
+    if (lside.error) return { error: lside.error, errorPos: lside.errorPos };
+    const rside = parseSide(tokens.slice(pipeIdx[1] + 1));
+    if (rside.error) return { error: rside.error, errorPos: rside.errorPos };
+    let refLambdaOverride = null;
+    if (lside.refLambda != null) refLambdaOverride = lside.refLambda;
+    if (rside.refLambda != null) refLambdaOverride = rside.refLambda;
+    return {
+        layerToks,
+        incident: lside.sym ? { sym: lside.sym, pos: lside.pos } : null,
+        exit:     rside.sym ? { sym: rside.sym, pos: rside.pos } : null,
         refLambdaOverride,
     };
 }
@@ -210,42 +222,44 @@ function parseLayers(ctx, out, topLevel) {
 
 function parseGroup(ctx, out) {
     const t = ctx.toks[ctx.i];
-    if (t.type === TOK.LP) {
-        ctx.i++; // consume '('
-        const start = out.length;
-        const inner = parseLayers(ctx, out, /*topLevel*/ false);
-        if (inner.error) return inner;
-        // ctx.i now points at the matching ')'
-        if (ctx.toks[ctx.i]?.type !== TOK.RP) return { error: 'Missing ")"', errorPos: t.pos };
-        ctx.i++; // consume ')'
-        if (ctx.toks[ctx.i]?.type !== TOK.CARET) return { error: 'Expected "^n" after group', errorPos: ctx.toks[ctx.i]?.pos ?? t.pos };
-        ctx.i++; // consume '^'
-        const nTok = ctx.toks[ctx.i];
-        if (!nTok || nTok.type !== TOK.NUM) return { error: 'Expected repeat count after "^"', errorPos: nTok?.pos ?? t.pos };
-        const n = nTok.value;
-        if (!(Number.isInteger(n) && n >= 1)) return { error: 'Repeat count must be a positive integer', errorPos: nTok.pos };
-        ctx.i++; // consume number
-        // Expand: duplicate the block produced between [start, out.length) (n−1) more times.
-        const block = out.slice(start);
-        let produced = block.length;
-        for (let r = 1; r < n; r++) {
-            for (const a of block) out.push({ ...a });
-            produced += block.length;
-        }
-        return { ok: true, produced };
-    }
+    return t.type === TOK.LP ? parseRepeatGroup(ctx, out, t) : parseAtom(ctx, out, t);
+}
 
-    // Atom: Number? Identifier
-    let coef = 1;
-    let pos = t.pos;
-    let idx = ctx.i;
+// '(' Layers ')' '^' Integer — parse a repeated group and expand it in place by
+// duplicating the block produced between [start, out.length) (n−1) more times.
+function parseRepeatGroup(ctx, out, t) {
+    ctx.i++; // consume '('
+    const start = out.length;
+    const inner = parseLayers(ctx, out, /*topLevel*/ false);
+    if (inner.error) return inner;
+    // ctx.i now points at the matching ')'
+    if (ctx.toks[ctx.i]?.type !== TOK.RP) return { error: 'Missing ")"', errorPos: t.pos };
+    ctx.i++; // consume ')'
+    if (ctx.toks[ctx.i]?.type !== TOK.CARET) return { error: 'Expected "^n" after group', errorPos: ctx.toks[ctx.i]?.pos ?? t.pos };
+    ctx.i++; // consume '^'
+    const nTok = ctx.toks[ctx.i];
+    if (!nTok || nTok.type !== TOK.NUM) return { error: 'Expected repeat count after "^"', errorPos: nTok?.pos ?? t.pos };
+    const n = nTok.value;
+    if (!(Number.isInteger(n) && n >= 1)) return { error: 'Repeat count must be a positive integer', errorPos: nTok.pos };
+    ctx.i++; // consume number
+    const block = out.slice(start);
+    let produced = block.length;
+    for (let r = 1; r < n; r++) {
+        for (const a of block) out.push({ ...a });
+        produced += block.length;
+    }
+    return { ok: true, produced };
+}
+
+// Atom := Number? Identifier — the coefficient (QWOT multiplier) binds to the
+// following material symbol; a bare symbol implies coefficient 1.
+function parseAtom(ctx, out, t) {
     if (t.type === TOK.NUM) {
-        coef = t.value;
-        idx++;
+        const idx = ctx.i + 1;
         const idTok = ctx.toks[idx];
         if (!idTok || idTok.type !== TOK.ID)
             return { error: 'Expected a material symbol after the coefficient', errorPos: idTok?.pos ?? t.pos };
-        out.push({ coef, sym: idTok.value, pos });
+        out.push({ coef: t.value, sym: idTok.value, pos: t.pos });
         ctx.i = idx + 1;
         return { ok: true, produced: 1 };
     }
@@ -330,6 +344,19 @@ function newLayerId(seed) { return `l-${seed}-${_seq++}`; }
  *     refLambda,
  *     unknownSymbols: [...] }
  */
+// Resolve the optional incident / substrate side materials of a parsed formula.
+// A null result means the side was omitted (or the substrate keyword 'Sub'),
+// i.e. keep the design's current medium.
+function resolveStackSides(parsed, symbolMap, resolvers) {
+    const sideMat = (sym) => resolvers.resolveMatId(sym) || symbolMap[sym] || null;
+    const incidentMaterial = parsed.incident ? sideMat(parsed.incident.sym) : null;
+    let substrateMaterial = null;
+    if (parsed.exit && !SUBSTRATE_KEEP_WORDS.has(parsed.exit.sym.toLowerCase())) {
+        substrateMaterial = sideMat(parsed.exit.sym);
+    }
+    return { incidentMaterial, substrateMaterial };
+}
+
 export function buildStackFromFormula(opts) {
     const {
         text,
@@ -380,20 +407,7 @@ export function buildStackFromFormula(opts) {
     // If the user wrote the formula starting at the substrate, reverse it.
     if (startFromSubstrate) layers.reverse();
 
-    // Sides
-    let incidentMaterial = null, substrateMaterial = null;
-    if (parsed.incident) {
-        incidentMaterial = resolvers.resolveMatId(parsed.incident.sym)
-            || (symbolMap[parsed.incident.sym] || null);
-    }
-    if (parsed.exit) {
-        if (SUBSTRATE_KEEP_WORDS.has(parsed.exit.sym.toLowerCase())) {
-            substrateMaterial = null;       // keep current
-        } else {
-            substrateMaterial = resolvers.resolveMatId(parsed.exit.sym)
-                || (symbolMap[parsed.exit.sym] || null);
-        }
-    }
+    const { incidentMaterial, substrateMaterial } = resolveStackSides(parsed, symbolMap, resolvers);
 
     return { ok: true, layers, incidentMaterial, substrateMaterial, refLambda, unknownSymbols: [] };
 }

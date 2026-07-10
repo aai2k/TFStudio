@@ -419,38 +419,54 @@ export function buildFilterTarget({
     const ps = passStep || Math.max(halfPass / 8, 0.02);
     const ss = stopStep || Math.max(skirt / 12, 0.03);
     const span = stopSpan || Math.max(halfStop * 3, halfStop + 5 * halfPass);
-    const lambda = [], target = [], weight = [];
-    const add = (x, tgt, w) => { lambda.push(x); target.push(tgt); weight.push(w); };
 
-    // passband (T=1)
-    for (let x = lambda0_nm - halfPass; x <= lambda0_nm + halfPass + 1e-9; x += ps) add(x, 1, 1);
+    const acc = { lambda: [], target: [], weight: [] };
+    addPassbandSamples(acc, lambda0_nm, halfPass, ps);
+    addStopbandSamples(acc, { lambda0_nm, halfStop, skirt, span, ss, edgeBoost });
+    bandBalanceWeights(acc.target, acc.weight);
+    return acc;
+}
 
-    // stopbands (T=0) from halfStop outward, with extra weight on the near-edge
-    // skirt zone [halfStop, halfStop+skirt] so the 0.1 % level pins to halfStop.
+/** Append passband samples (T=1, unit weight) across [λ₀−halfPass, λ₀+halfPass]. */
+function addPassbandSamples(acc, lambda0_nm, halfPass, ps) {
+    for (let x = lambda0_nm - halfPass; x <= lambda0_nm + halfPass + 1e-9; x += ps) {
+        acc.lambda.push(x); acc.target.push(1); acc.weight.push(1);
+    }
+}
+
+/**
+ * Append stopband samples (T=0) on both sides from halfStop outward. Samples in
+ * the near-edge skirt zone [halfStop, halfStop+skirt] carry `edgeBoost` extra
+ * weight so the 0.1 % level pins to ±halfStop instead of letting the skirt run wide.
+ */
+function addStopbandSamples(acc, { lambda0_nm, halfStop, skirt, span, ss, edgeBoost }) {
     const edgeHi = halfStop + skirt;
     for (let side = -1; side <= 1; side += 2) {
         for (let off = halfStop; off <= span + 1e-9; off += ss) {
             const w = (off <= edgeHi) ? edgeBoost : 1;
-            add(lambda0_nm + side * off, 0, w);
+            acc.lambda.push(lambda0_nm + side * off); acc.target.push(0); acc.weight.push(w);
         }
     }
+}
 
-    // ── Band-balance the weights ──────────────────────────────────────────────
-    // CRITICAL: the stopband has ~10× more samples than the passband (it spans a
-    // much wider λ range). With raw per-sample weights the merit function is
-    // dominated by the stopband, so a discrete optimizer can *lower* the MF by
-    // COLLAPSING the passband (a near-empty filter satisfies hundreds of stop
-    // samples while sacrificing only a few pass samples). Normalize so the
-    // passband and the stopband each carry equal TOTAL weight; the per-sample
-    // edgeBoost ratios inside the stopband are preserved. This makes a true
-    // flat-top the merit minimum and removes the "kill the passband" pathology.
+/**
+ * Band-balance the weights so the passband and stopband each carry equal TOTAL
+ * weight (per-sample edgeBoost ratios inside the stopband are preserved).
+ *
+ * The stopband has ~10× more samples than the passband (it spans a much wider λ
+ * range). With raw per-sample weights the merit function is dominated by the
+ * stopband, so a discrete optimizer can lower the MF by COLLAPSING the passband
+ * (a near-empty filter satisfies hundreds of stop samples while sacrificing only
+ * a few pass samples). Balancing makes a true flat-top the merit minimum and
+ * removes the "kill the passband" pathology.
+ */
+function bandBalanceWeights(target, weight) {
     let wp = 0, ws = 0;
     for (let i = 0; i < target.length; i++) (target[i] === 1 ? (wp += weight[i]) : (ws += weight[i]));
     for (let i = 0; i < weight.length; i++) {
         const denom = target[i] === 1 ? wp : ws;
         if (denom > 0) weight[i] /= denom;
     }
-    return { lambda, target, weight };
 }
 
 /**
