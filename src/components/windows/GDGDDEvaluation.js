@@ -27,10 +27,12 @@ function resolveMaterial(id) {
     return getMaterialById(id) || getMaterial(id) || getMaterial('Air');
 }
 
-// ñ = n − ik convention used by thinFilmMath.js → store as [n, −k]
+// thinFilmMath.js uses ñ = n + ik (k ≥ 0 absorbing); feed k with its native
+// positive sign so absorbing stacks conserve energy (a negated k would make the
+// TMM report gain). computeGroupDelaySpectrum handles the phase sign internally.
 function nkAt(mat, lambda_nm) {
     const [nr, nk] = mat.getNK(lambda_nm);
-    return [nr, -nk];
+    return [nr, nk];
 }
 
 // Quantity metadata: which array, axis label, hover unit, decimals.

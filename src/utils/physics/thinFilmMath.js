@@ -4,8 +4,14 @@
  * System model:
  *   incident medium (n0, θ0) → layer1 → layer2 → ... → layerN → substrate
  *
- * Sign convention: ñ = n + ik  (k > 0 for absorbing media)
- * Wave propagates as exp(i(ωt - kz)), decays for k > 0.
+ * Sign convention: ñ = n + ik (k ≥ 0 for absorbing media), with the
+ * time-harmonic factor exp(-iωt) — a wave exp(i(kz - ωt)) decays for k > 0.
+ * This is the complex conjugate of Macleod's convention (ñ = n - ik, exp(+iωt),
+ * +i on the transfer-matrix off-diagonals); this module carries -i on the
+ * off-diagonals throughout. R, T and A are identical under conjugation; the
+ * phase-sensitive outputs (ellipsometry Δ, group delay) negate the raw TMM
+ * phase to recover Macleod's physical sign — see computeEllipsometry and
+ * computeGroupDelaySpectrum.
  */
 
 // Optional WASM acceleration. The wrappers fall back to the
@@ -1123,27 +1129,23 @@ export function evaluateSpectrumTotal(params, incMaterial, subMaterial, exitMate
 //        "This is completely consistent with the definition used in
 //         ellipsometry."
 //
-// Two convention conversions are needed to match standard ellipsometers
-// (WVASE / Woollam, the "Nebraska" convention):
+// Inputs use this module's ñ = n + ik convention (k ≥ 0 absorbing), i.e. the
+// exp(−iωt) time convention — the same one standard ellipsometers (WVASE /
+// Woollam, the "Nebraska" convention) assume — so no time-convention
+// conjugation is needed here. One convention conversion remains:
 //
-//   1) p-admittance sign:  Macleod's η_p = ñ/cosθ gives
-//      r_p = (η_0p − η_p)/(η_0p + η_p), which differs from the Fresnel
-//      r_p by an overall sign. This contributes the documented ±180°
-//      offset in Eq. (16.2).
+//   p-admittance sign:  Macleod's η_p = ñ/cosθ gives
+//   r_p = (η_0p − η_p)/(η_0p + η_p), which differs from the Fresnel r_p by an
+//   overall sign — the documented ±180° offset in Macleod Eq. (16.2).
 //
-//   2) Time convention:  Macleod uses exp(+i(ωt − kz)) (see file header).
-//      Standard ellipsometry uses exp(−iωt), which complex-conjugates
-//      every amplitude and therefore NEGATES every phase. Without this
-//      flip, ψ is unchanged but Δ comes out mirrored about 180° — the
-//      curve goes the wrong way through the wrap.
+// So the displayed Δ is  Δ = (arg r_p − arg r_s) + 180°, wrapped to [0°, 360°).
+// Validation: a bare dielectric substrate gives Δ ≈ 180° below Brewster and
+// Δ ≈ 0° above it, with Ψ → 0 at Brewster; a bare metal reproduces the Woollam-
+// standard Δ (≈ 230.8° for Ag n=0.13, k=3.99 at 65°). Energy is conserved for
+// absorbing films because k enters with its physical + sign.
 //
-// So the displayed Δ is  Δ = −(arg r_p − arg r_s) + 180°, wrapped to
-// [0°, 360°). A bare dielectric substrate gives Δ ≈ 180° below Brewster
-// and Δ ≈ 0° above it (endpoints are invariant under the sign flip),
-// with Ψ → 0 at Brewster — and the slope dΔ/dλ has the correct sign.
-//
-// Inputs follow the rest of this module: ñ = n − ik (k ≥ 0 absorbing),
-// passed as [re, im] = [n, −k]; `layers` = [{ n:[re,im], d:nm }, …].
+// Inputs follow the rest of this module: ñ = n + ik (k ≥ 0 absorbing),
+// passed as [re, im] = [n, k]; `layers` = [{ n:[re,im], d:nm }, …].
 //
 // Returns Ψ in [0°, 90°] and Δ wrapped to [0°, 360°), plus the ellipsometer-
 // native quantities tan Ψ and cos Δ and the raw complex r_s, r_p.
@@ -1158,14 +1160,13 @@ export function computeEllipsometry(lambda_nm, theta_deg, n0, ns, layers) {
     const psiRad = Math.atan2(absP, absS);
     const psiDeg = psiRad * 180 / Math.PI;
 
-    // Δ = −(arg r_p − arg r_s) + 180°, wrapped into [0°, 360°).
-    // The minus sign converts Macleod's exp(+iωt) convention to the
-    // ellipsometer-standard exp(−iωt) convention (Nebraska); the +180°
-    // converts Macleod's p-admittance sign to the Fresnel sign. See the
-    // comment block above for the full derivation.
+    // Δ = (arg r_p − arg r_s) + 180°, wrapped into [0°, 360°). The +180°
+    // converts Macleod's p-admittance sign to the Fresnel sign; no time-
+    // convention conjugation is needed because the inputs are already in the
+    // exp(−iωt) convention. See the comment block above for the full derivation.
     const argP = Math.atan2(cimag(rp), creal(rp));
     const argS = Math.atan2(cimag(rs), creal(rs));
-    let deltaDeg = -(argP - argS) * 180 / Math.PI + 180;
+    let deltaDeg = (argP - argS) * 180 / Math.PI + 180;
     deltaDeg = ((deltaDeg % 360) + 360) % 360;
 
     return {
@@ -1191,12 +1192,12 @@ export function computeEllipsometry(lambda_nm, theta_deg, n0, ns, layers) {
 // resp. arg(t), and ω = 2πc/λ is the angular frequency.
 //
 // Sign/phase convention: this module uses the conjugate-Macleod convention
-// (ñ = n + ik, −i on off-diagonals of the transfer matrix), which is the
-// OPPOSITE sign from Macleod Eq. (11.17). The raw phase arg(r) from the TMM
-// therefore carries the wrong sign; callers such as computeEllipsometry already
-// compensate by negating the phase. computeGroupDelaySpectrum negates the raw
-// phase before computing derivatives so that GD/GDD/TOD carry the correct
-// physical sign  GD = −dφ/dω  consistent with Macleod's convention.
+// (ñ = n + ik, −i on off-diagonals of the transfer matrix), so the raw phase
+// arg(r) from the TMM runs opposite to Macleod Eq. (11.17).
+// computeGroupDelaySpectrum negates the unwrapped raw phase before computing
+// derivatives so that GD/GDD/TOD carry the correct physical sign GD = −dφ/dω.
+// Validated: a transparent spacer on a mirror gives a positive group delay
+// (≈ 2nL/c plus the mirror's own phase dispersion).
 
 export const C_NM_PER_FS = 299.792458;   // speed of light in vacuum, nm/fs
 
@@ -1257,9 +1258,8 @@ export function computeGroupDelaySpectrum(coeffAtLambda, lamStart_nm, lamEnd_nm,
         const z = coeffAtLambda(TWO_PI_C / w);
         phi[i] = Math.atan2(z[1], z[0]);
     }
-    // Conjugate-Macleod convention: negate the raw phase so that GD = −dφ/dω
-    // carries the correct physical sign.  computeEllipsometry performs the same
-    // negation via  deltaDeg = -(argP - argS) + 180.
+    // Conjugate-Macleod convention: negate the unwrapped raw phase so that
+    // GD = −dφ/dω carries the correct physical (positive-delay) sign.
     const phRaw = unwrapPhase(phi);
     const ph = phRaw.map(v => -v);
 

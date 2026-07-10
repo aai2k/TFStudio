@@ -107,7 +107,7 @@ User documentation is hosted at **[docs.tfstudio.xyz](https://docs.tfstudio.xyz)
 
 ## Citing TFStudio
 
-If TFStudio contributes to your work, please cite it. Citation metadata is in [`CITATION.cff`](./CITATION.cff); GitHub renders a "Cite this repository" button from it. A software paper is available https://doi.org/10.5281/zenodo.21196320
+If TFStudio contributes to your work, please cite it. Citation metadata is in [`CITATION.cff`](./CITATION.cff); GitHub renders a "Cite this repository" button from it. 
 
 ## Contributing
 

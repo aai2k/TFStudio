@@ -51,7 +51,8 @@ const NPTS = 60; // sample points per layer
 //     per-side convention).
 //       n0 = exitMedium, ns = substrate, layers = backLayers reversed
 //
-// In all cases the n=[nr, -nk] sign convention (ñ = n - ik) is preserved.
+// Indices are fed as ñ = n + ik (k ≥ 0 absorbing), matching thinFilmMath.js, so
+// the field decays through absorbing layers (a negated k would make it grow).
 function computeProfile(design, lambda_nm, theta_deg, pol, side = 'front') {
     if (!design) return null;
 
@@ -64,8 +65,8 @@ function computeProfile(design, lambda_nm, theta_deg, pol, side = 'front') {
 
     const n0raw = n0mat.getNK(lambda_nm);
     const nsraw = nsmat.getNK(lambda_nm);
-    const n0 = [n0raw[0], -n0raw[1]];  // convention: ñ = n - ik (absorbing, k>0)
-    const ns = [nsraw[0], -nsraw[1]];
+    const n0 = [n0raw[0], n0raw[1]];  // ñ = n + ik (absorbing, k ≥ 0)
+    const ns = [nsraw[0], nsraw[1]];
 
     // Back stack is stored substrate→exit; reverse so the exit (incident) medium
     // is first, matching the propagation order computeEFieldProfile expects.
@@ -76,7 +77,7 @@ function computeProfile(design, lambda_nm, theta_deg, pol, side = 'front') {
         .map(l => {
             const mat = resolveMaterial(l.material);
             const [nr, nk] = mat.getNK(lambda_nm);
-            return { n: [nr, -nk], d: l.thickness, materialId: l.material };
+            return { n: [nr, nk], d: l.thickness, materialId: l.material };
         });
 
     if (!validLayers.length) return null;
