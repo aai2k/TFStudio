@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Third-party cross-check of the OptiLayer "AR 1650 K8" design with Steven Byrnes'
+Third-party cross-check of the OptiLayer design with Steven Byrnes'
 `tmm` package — the SAME geometry OptiLayer reports: coated front surface on a
 thick (incoherent) K8 substrate with a BARE back surface. Uses tmm.inc_tmm so
 the substrate back-reflection is added incoherently, exactly like OptiLayer's Ta.
