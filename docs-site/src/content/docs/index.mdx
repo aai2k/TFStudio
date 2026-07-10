@@ -3,7 +3,7 @@ title: TFStudio
 description: Optical thin-film coating design — reference manual.
 template: splash
 hero:
-  tagline: Optical thin-film coating design — physically correct, numerically stable, production-ready.
+  tagline: Design, analyze and synthesize multilayer optical thin-film coatings.
   actions:
     - text: Design Editor
       link: /design/design-editor/
@@ -51,6 +51,8 @@ This site is the reference manual. Every tool window inside the app has a
 - **Wavelength** in nanometres (nm).
 - **Angle of incidence (AOI)** measured from the surface normal, degrees.
 - **Polarization** `s` (TE), `p` (TM), or `avg` = ½(R_s + R_p).
-- **Sign convention** of the complex refractive index: `ñ = n − ik`
-  (Macleod §2.2, the convention used in the TMM).
+- **Sign convention** of the complex refractive index: `ñ = n + ik`
+  (k ≥ 0 for absorbing media), with the time-harmonic factor exp(−iωt).
+  This is the complex conjugate of Macleod's `ñ = n − ik` / exp(+iωt) form
+  (§2.2); results are identical, phases carry the opposite sign.
 - **Layer 1** = layer touching the substrate (first deposited).
