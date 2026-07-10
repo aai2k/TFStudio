@@ -876,6 +876,31 @@ export function evaluateSpectrum(params, incidentMaterial, substrateMaterial, la
  * @param {number}   [nPtsPerLayer=60] sample points per layer (interior + boundaries)
  * @returns {{ z:number[], e2:number[], layerBounds:number[], nLayers:number }}
  */
+// Sample |E(z)|² (substrate-normalized, scaled by |t|²) across one layer's
+// thickness. `ehBack` = [E, H] at the layer's back interface; `zBase` is the
+// layer's front-boundary depth. `skipFront` drops the p=0 point that coincides
+// with the previous layer's back boundary. Returns { z, e2 } in increasing depth.
+function sampleLayerEField(layer, cosThJ, ehBack, zBase, lambda_nm, pol, t2, nPtsPerLayer, skipFront) {
+    const { n, d } = layer;
+    const pts = Math.max(2, nPtsPerLayer);
+    const z = [], e2 = [];
+    for (let p = 0; p <= pts; p++) {
+        if (p === 0 && skipFront) continue;
+        const zInK      = (p / pts) * d;
+        const remaining = d - zInK;
+        let E_z;
+        if (remaining < 1e-10) {
+            E_z = ehBack[0]; // at the back interface of the layer
+        } else {
+            const Mrem = layerMatrix(n, remaining, lambda_nm, cosThJ, pol);
+            E_z = cadd(cmul(Mrem[0][0], ehBack[0]), cmul(Mrem[0][1], ehBack[1]));
+        }
+        z.push(zBase + zInK);
+        e2.push(cabs2(E_z) * t2);
+    }
+    return { z, e2 };
+}
+
 export function computeEFieldProfile(lambda_nm, theta_deg, pol, n0, ns, layers, nPtsPerLayer = 60) {
     const sinTheta0  = [Math.sin(theta_deg * Math.PI / 180), 0];
     const cosTheta0c = csqrt(csub([1, 0], cmul(sinTheta0, sinTheta0)));
@@ -921,27 +946,10 @@ export function computeEFieldProfile(lambda_nm, theta_deg, pol, n0, ns, layers, 
     const e2Arr = [];
 
     for (let k = 0; k < N; k++) {
-        const { n, d } = valid[k];
-        const cosThJ = cosThJs[k];
-        const pts = Math.max(2, nPtsPerLayer);
-
-        for (let p = 0; p <= pts; p++) {
-            if (p === 0 && k > 0) continue; // skip duplicate at shared boundary
-
-            const zInK      = (p / pts) * d;
-            const remaining = d - zInK;
-
-            let E_z;
-            if (remaining < 1e-10) {
-                E_z = EH[k + 1][0]; // at the back interface of layer k
-            } else {
-                const Mrem = layerMatrix(n, remaining, lambda_nm, cosThJ, pol);
-                E_z = cadd(cmul(Mrem[0][0], EH[k + 1][0]), cmul(Mrem[0][1], EH[k + 1][1]));
-            }
-
-            zArr.push(bounds[k] + zInK);
-            e2Arr.push(cabs2(E_z) * t2);
-        }
+        // k>0 skips the p=0 sample that coincides with the previous layer's back boundary.
+        const s = sampleLayerEField(valid[k], cosThJs[k], EH[k + 1], bounds[k], lambda_nm, pol, t2, nPtsPerLayer, k > 0);
+        zArr.push(...s.z);
+        e2Arr.push(...s.e2);
     }
 
     // Empty stack: just one sample at z = 0

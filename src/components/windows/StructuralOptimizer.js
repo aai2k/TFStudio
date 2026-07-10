@@ -172,6 +172,27 @@ function TrendPlot({ trend, c, theme, t }) {
 }
 
 // ── Control bar ─────────────────────────────────────────────────────────────────
+// Inline metrics readout for the control bar (iteration, reheats, temperature,
+// acceptance rate, layer count, current + best merit). Returns the array of
+// children, spread into the readout <span> so the markup matches an inline list.
+function controlBarMetrics({ ts, c, running, deepMode, iter, maxIter, reheats, temp, accRate, layerCount, mf, mfBest }) {
+    const strong = (v) => h('b', { style: { color: c.text } }, v);
+    const showBest = mf != null && mfBest != null && mfBest < mf - 1e-9;
+    return [
+        `${ts.iterLabel} `, strong(deepMode ? `${iter} ∞` : `${iter}/${maxIter}`),
+        running && deepMode ? `  ${ts.reheatLabel} ` : '',
+        running && deepMode ? strong(reheats) : '',
+        running && temp != null ? `  ${ts.tempLabel} ` : '',
+        running && temp != null ? strong(temp.toFixed(4)) : '',
+        running && accRate != null ? `  ${ts.acceptLabel} ` : '',
+        running && accRate != null ? strong(`${(accRate * 100).toFixed(0)}%`) : '',
+        `  ${ts.layersLabel} `, strong(layerCount),
+        mf != null && `  ${ts.mfLabel} `, mf != null && strong(mf.toFixed(6)),
+        showBest && ` ${ts.bestLabel} `,
+        showBest && h('span', { style: { color: c.success } }, mfBest.toFixed(6)),
+    ];
+}
+
 function ControlBar({ running, iter, maxIter, deepMode, reheats, temp, layerCount, mf, mfBest, omf, omfBest, accRate, canReset,
                       onRun, onStop, onReset, onBest, statusMsg, design, t, c }) {
     const ts = t.structural;
@@ -199,19 +220,7 @@ function ControlBar({ running, iter, maxIter, deepMode, reheats, temp, layerCoun
             h(OptimizeBadge, { design, c, t }), h(EvalModeBadge, { design, c, t })),
         h('div', { style: { flex: 1 } }),
         h('span', { style: { fontSize: 11, color: c.textDim } },
-            `${ts.iterLabel} `, h('b', { style: { color: c.text } }, deepMode ? `${iter} ∞` : `${iter}/${maxIter}`),
-            running && deepMode ? `  ${ts.reheatLabel} ` : '',
-            running && deepMode ? h('b', { style: { color: c.text } }, reheats) : '',
-            running && temp != null ? `  ${ts.tempLabel} ` : '',
-            running && temp != null ? h('b', { style: { color: c.text } }, temp.toFixed(4)) : '',
-            running && accRate != null ? `  ${ts.acceptLabel} ` : '',
-            running && accRate != null ? h('b', { style: { color: c.text } }, `${(accRate * 100).toFixed(0)}%`) : '',
-            `  ${ts.layersLabel} `, h('b', { style: { color: c.text } }, layerCount),
-            mf != null && `  ${ts.mfLabel} `, mf != null && h('b', { style: { color: c.text } }, mf.toFixed(6)),
-            mf != null && mfBest != null && mfBest < mf - 1e-9 && ` ${ts.bestLabel} `,
-            mf != null && mfBest != null && mfBest < mf - 1e-9 &&
-                h('span', { style: { color: c.success } }, mfBest.toFixed(6)),
-        ),
+            ...controlBarMetrics({ ts, c, running, deepMode, iter, maxIter, reheats, temp, accRate, layerCount, mf, mfBest })),
         statusMsg && h('span', {
             style: statusMsg === ts.noOperands
                 ? { ...WARN_BADGE_STYLE, marginLeft: 10 }

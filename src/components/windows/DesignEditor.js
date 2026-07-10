@@ -479,6 +479,29 @@ function matDisplayName(id) {
     return i >= 0 ? id.slice(i + 1) : id;
 }
 
+// Per-cell style for the stack-diagram row. Role selects the fill (ambient =
+// transparent, substrate = tinted substrate colour, layer = material colour);
+// `i`/`count` round the outer end caps.
+function stackBlockStyle(b, i, count, subMat, c) {
+    return {
+        flex: b.role === 'substrate' ? 4 : 1,
+        minWidth: b.role === 'layer' ? 0 : 24,
+        maxWidth: b.role === 'layer' ? 20 : undefined,
+        display: 'flex', alignItems: 'center', justifyContent: 'center',
+        backgroundColor: b.role === 'ambient' ? 'transparent'
+            : b.role === 'substrate' ? addAlpha(subMat ? resolveColor(subMat) : c.border, 0.2)
+            : (b.mat ? resolveColor(b.mat) : c.border),
+        border: `1px solid ${c.border}`,
+        borderRadius: i === 0 ? '3px 0 0 3px' : i === count - 1 ? '0 3px 3px 0' : 0,
+        fontSize: 9, color: c.textDim, overflow: 'hidden', cursor: 'default',
+    };
+}
+// Truncated cell label — only ambient/substrate blocks show text.
+function stackBlockLabel(b) {
+    if (b.role === 'layer') return '';
+    return b.label.length > 6 ? b.label.slice(0, 5) + '…' : b.label;
+}
+
 const StackDiagram = React.memo(function StackDiagram({ design, c, t }) {
     const de = t.designEditor;
     const subMat = resolveMaterial(design.substrate.material);
@@ -505,22 +528,9 @@ const StackDiagram = React.memo(function StackDiagram({ design, c, t }) {
         h('div', { style: { display: 'flex', alignItems: 'stretch', gap: dense ? 0 : 1, height: 26, width: '100%', overflow: 'hidden' } },
             h('div', { style: { display: 'flex', alignItems: 'center', fontSize: 12, color: c.accent, marginRight: 4, flexShrink: 0 } }, '→'),
             blocks.map((b, i) =>
-                h('div', {
-                    key: i,
-                    title: b.fullId || b.label,
-                    style: {
-                        flex: b.role === 'substrate' ? 4 : b.role === 'ambient' ? 1 : 1,
-                        minWidth: b.role === 'layer' ? 0 : 24,
-                        maxWidth: b.role === 'layer' ? 20 : undefined,
-                        display: 'flex', alignItems: 'center', justifyContent: 'center',
-                        backgroundColor: b.role === 'ambient' ? 'transparent'
-                            : b.role === 'substrate' ? addAlpha(subMat ? resolveColor(subMat) : c.border, 0.2)
-                            : (b.mat ? resolveColor(b.mat) : c.border),
-                        border: `1px solid ${c.border}`,
-                        borderRadius: i === 0 ? '3px 0 0 3px' : i === blocks.length - 1 ? '0 3px 3px 0' : 0,
-                        fontSize: 9, color: c.textDim, overflow: 'hidden', cursor: 'default'
-                    }
-                }, b.role !== 'layer' ? (b.label.length > 6 ? b.label.slice(0, 5) + '…' : b.label) : '')
+                h('div', { key: i, title: b.fullId || b.label,
+                    style: stackBlockStyle(b, i, blocks.length, subMat, c) },
+                    stackBlockLabel(b))
             )
         ),
         h('div', { style: { fontSize: 10, color: c.textDim, display: 'flex', gap: 16, flexWrap: 'wrap' } },
