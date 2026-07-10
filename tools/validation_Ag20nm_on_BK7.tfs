@@ -1,0 +1,22 @@
+{
+  "tfs_version": "1.0",
+  "id": "design-validation-ag20-bk7",
+  "name": "VALIDATION Ag 20nm on BK7",
+  "incidentMedium": "Air",
+  "substrate": {
+    "material": "BK7",
+    "thickness": 1
+  },
+  "exitMedium": "Air",
+  "frontLayers": [
+    {
+      "id": "l-val-ag20-1",
+      "material": "Ag",
+      "thickness": 20,
+      "locked": false
+    }
+  ],
+  "backLayers": [],
+  "referenceWavelength": 550,
+  "notes": "k-sign / ellipsometry validation design. Semi-transparent 20 nm silver film. Ag n,k = Johnson & Christy, Phys. Rev. B 6, 4370 (1972); at 550 nm n=0.0596, k=3.5974. BK7 = Schott. REFERENCE (independent TMM, N=n+ik): Ellipsometry AOI=65 deg, 550 nm -> Psi=37.81 deg, Delta=241.07 deg (Woollam/Fujiwara). R/T/A at normal incidence, 550 nm -> R=0.6836, T=0.2918, A=0.0246 (R+T+A=1). The FIXED build must reproduce Delta=241.07 deg; the OLD (pre-fix) build gives Delta=117.97 deg and an E-field that GROWS inside the Ag instead of decaying. See tools/VALIDATION_README.md."
+}

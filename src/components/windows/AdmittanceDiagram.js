@@ -161,15 +161,19 @@ function buildOnePol(design, lambda_nm, theta_deg, pol, side = 'front') {
     const n0mat = resolveMaterial(side === 'back' ? design.exitMedium : design.incidentMedium);
     const nsmat = resolveMaterial(design.substrate?.material);
 
+    // Feed ñ = n + ik (k ≥ 0 absorbing), matching thinFilmMath.js, so absorbing
+    // layers give a decaying (energy-conserving) admittance locus. The resulting
+    // Y is the complex conjugate of Macleod's; Im(Y) is negated for display below
+    // (negateImY) so the plotted diagram keeps Macleod's textbook orientation.
     const [n0r, n0k] = n0mat.getNK(lambda_nm);
-    const n0 = [n0r, -n0k];
+    const n0 = [n0r, n0k];
     const [nsr, nsk] = nsmat.getNK(lambda_nm);
-    const ns = [nsr, -nsk];
+    const ns = [nsr, nsk];
 
     const allLayers = sideStackLayers(design, side).map(layer => {
         const mat = resolveMaterial(layer.material);
         const [nr, nk] = mat.getNK(lambda_nm);
-        return { n: [nr, -nk], d: layer.thickness, material: layer.material, id: layer.id };
+        return { n: [nr, nk], d: layer.thickness, material: layer.material, id: layer.id };
     });
 
     const result = tmmWithAdmittances(lambda_nm, theta_deg, pol, n0, ns, allLayers);
@@ -197,7 +201,14 @@ function buildOnePol(design, lambda_nm, theta_deg, pol, side = 'front') {
     const cosTheta0 = csqrt(csub([1, 0], cmul(sinTheta0c, sinTheta0c)));
     const eta0 = layerEta(n0, cosTheta0, pol);
 
-    return { pol, side, Y, N, arcs, eta0, etaS: Y[N] };
+    // Our engine's admittance is the complex conjugate of Macleod's (ñ = n + ik,
+    // −i off-diagonals). Negate Im(Y) for the whole diagram so the plotted locus
+    // matches Macleod's textbook orientation. This is a pure vertical mirror of
+    // the Y-plane: arc shapes and the endpoint reflectance are unchanged.
+    const flipY = (p) => [p[0], -p[1]];
+    const dArcs = arcs.map(a => ({ ...a, im: a.im.map(v => -v) }));
+    const dY = Y.map(flipY);
+    return { pol, side, Y: dY, N, arcs: dArcs, eta0: flipY(eta0), etaS: dY[N] };
 }
 
 // Does the chosen side have any layers to trace?

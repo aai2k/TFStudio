@@ -1,6 +1,28 @@
 // Number parsing utilities
 // Handles commas, dots, and scientific notation (both 'e' and 'E')
 
+// Normalize thousands/decimal separators to a JS-parseable form:
+//  - single comma, no dot   → comma is the decimal ("1,5" → "1.5")
+//  - many commas, no dot     → US thousands grouping, strip commas
+//  - many dots, no comma     → EU thousands grouping, strip dots
+//  - both present            → the separator appearing LAST is the decimal, the
+//                              other is grouping (handles US "1,000.5" and
+//                              EU "1.000,5" → 1000.5)
+// A string that matches none of these is returned unchanged.
+const _normalizeSeparators = (str) => {
+    const dotCount = (str.match(/\./g) || []).length;
+    const commaCount = (str.match(/,/g) || []).length;
+    if (commaCount === 1 && dotCount === 0) return str.replace(',', '.');
+    if (commaCount > 1 && dotCount === 0) return str.replace(/,/g, '');
+    if (dotCount > 1 && commaCount === 0) return str.replace(/\./g, '');
+    if (commaCount > 0 && dotCount > 0) {
+        return str.lastIndexOf(',') > str.lastIndexOf('.')
+            ? str.replace(/\./g, '').replace(/,/g, '.')   // EU: dot=thousands, comma=decimal
+            : str.replace(/,/g, '');                      // US: comma=thousands, dot=decimal
+    }
+    return str;
+};
+
 /**
  * Parse a number string that may contain:
  * - Comma or dot as decimal separator
@@ -37,41 +59,12 @@ export const parseNumber = (value) => {
     // If empty, return 0
     if (!str) return 0;
 
-    // Replace comma with dot (European decimal separator)
-    // But only if there's no dot present and only one comma
-    // This handles "1,5" → "1.5" but not "1,000.5" (which should stay as is)
-    const dotCount = (str.match(/\./g) || []).length;
-    const commaCount = (str.match(/,/g) || []).length;
+    str = _normalizeSeparators(str);
 
-    if (commaCount === 1 && dotCount === 0) {
-        // Single comma, no dots - treat comma as decimal separator ("1,5" → 1.5)
-        str = str.replace(',', '.');
-    } else if (commaCount > 1 && dotCount === 0) {
-        // Multiple commas, no dots - US thousands separators ("1,000,000")
-        str = str.replace(/,/g, '');
-    } else if (dotCount > 1 && commaCount === 0) {
-        // Multiple dots, no commas - EU thousands separators ("1.000.000").
-        // A real decimal has at most one dot, so these can only be grouping.
-        str = str.replace(/\./g, '');
-    } else if (commaCount > 0 && dotCount > 0) {
-        // Both present: the separator that appears LAST is the decimal one, the
-        // other is thousands grouping. Handles BOTH US "1,000.5" and EU
-        // "1.000,5" → 1000.5 (the latter was previously parsed 1000× too small).
-        if (str.lastIndexOf(',') > str.lastIndexOf('.')) {
-            str = str.replace(/\./g, '').replace(/,/g, '.');   // EU: dot=thousands, comma=decimal
-        } else {
-            str = str.replace(/,/g, '');                       // US: comma=thousands, dot=decimal
-        }
-    }
-
-    // Handle scientific notation with capital E (JavaScript parseFloat handles lowercase 'e')
-    // Convert 1.2E-3 to 1.2e-3
+    // Scientific notation: parseFloat only understands lowercase 'e' (1.2E-3 → 1.2e-3).
     str = str.replace(/E/g, 'e');
 
-    // Parse the number
     const num = parseFloat(str);
-
-    // Return 0 if invalid
     return isNaN(num) || !isFinite(num) ? 0 : num;
 };
 
