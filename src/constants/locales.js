@@ -1193,6 +1193,9 @@ const en = {
     aoiStep:     'AOI step (°)',
     totalThk:    'Total thickness',
     layersLabel: 'Layers',
+    deltaConv:    'Δ convention',
+    deltaWoollam: 'Woollam',
+    deltaAzzam:   'Azzam–Bashara',
   },
 
   gdgdd: {
@@ -3576,6 +3579,9 @@ const ru = {
     aoiStep:     'Угол шаг (°)',
     totalThk:    'Полная толщина',
     layersLabel: 'Слои',
+    deltaConv:    'Соглашение Δ',
+    deltaWoollam: 'Woollam',
+    deltaAzzam:   'Azzam–Bashara',
   },
 
   gdgdd: {
