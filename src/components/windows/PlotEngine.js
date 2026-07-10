@@ -118,61 +118,66 @@ function MultiCurveChart({ curves, results, c }) {
 
 // ── 3D surface chart ───────────────────────────────────────────────────────────
 
+// Build the Plotly {traces, layout} for the parameter-surface plot (2-D heatmap
+// or 3-D surface per spec.render). Pure — extracted so it can be unit-tested and
+// so the component body stays simple.
+function buildSurfaceFigure(result, spec, design, c) {
+    if (!result || !result.ok) return null;
+    const common = {
+        x: result.x, y: result.y, z: result.z,
+        colorscale: spec.colorscale || 'Viridis',
+        colorbar: { title: { text: result.zLabel, side: 'right', font: { color: c.text, size: 11 } },
+                    tickfont: { color: c.text, size: 9 },
+                    thickness: 14, len: 0.9, x: 1.0, xpad: 4 },
+    };
+    const trace = spec.render === 'heatmap'
+        ? { type: 'heatmap', ...common,
+            hovertemplate: `%{x}<br>%{y}<br>${result.zLabel}=%{z:.4g}<extra></extra>` }
+        : { type: 'surface', ...common, contours: { z: { show: false } },
+            hovertemplate: `%{x}<br>%{y}<br>${result.zLabel}=%{z:.4g}<extra></extra>` };
+
+    const xTitle = surfaceAxisLabel(spec.xVar, design);
+    const yTitle = surfaceAxisLabel(spec.yVar, design);
+    const axisFont = { color: c.text, size: 11 };
+    const tickFont = { color: c.text, size: 9 };
+
+    const layout = {
+        paper_bgcolor: c.panel || '#252526',
+        plot_bgcolor:  c.bg || '#1e1e1e',
+        margin: spec.render === 'heatmap' ? { l: 60, r: 16, t: 16, b: 50 } : { l: 0, r: 0, t: 0, b: 0 },
+        font: { color: c.text },
+    };
+    if (spec.render === 'heatmap') {
+        layout.xaxis = { title: { text: xTitle, font: axisFont }, color: c.text, tickfont: tickFont, gridcolor: c.border };
+        layout.yaxis = { title: { text: yTitle, font: axisFont }, color: c.text, tickfont: tickFont, gridcolor: c.border };
+    } else {
+        layout.scene = {
+            // 'cube' fills the plotting box regardless of the data ranges
+            // (thickness ~100 nm vs index ~1 vs MF ~0.3 differ by orders of
+            // magnitude — the default 'data' aspect squishes the surface into
+            // a sliver). domain spans the full width so it doesn't leave a gap.
+            aspectmode: 'cube',
+            domain: { x: [0, 1], y: [0, 1] },
+            xaxis: { title: { text: xTitle, font: axisFont }, color: c.text, tickfont: tickFont,
+                     backgroundcolor: c.bg, gridcolor: c.border, showbackground: true },
+            yaxis: { title: { text: yTitle, font: axisFont }, color: c.text, tickfont: tickFont,
+                     backgroundcolor: c.bg, gridcolor: c.border, showbackground: true },
+            zaxis: { title: { text: result.zLabel, font: axisFont }, color: c.text, tickfont: tickFont,
+                     backgroundcolor: c.bg, gridcolor: c.border, showbackground: true },
+            // Pulled back from Plotly's default so the cube isn't clipped/over-
+            // zoomed on first paint.
+            camera: { eye: { x: 1.9, y: -1.9, z: 1.35 } },
+        };
+    }
+    return { traces: [trace], layout };
+}
+
 function SurfaceChart({ result, spec, design, c, t }) {
     const divRef = useRef(null);
     const initRef = useRef(false);
     const pe = (t && t.plotEngine) || {};
 
-    const figure = useMemo(() => {
-        if (!result || !result.ok) return null;
-        const common = {
-            x: result.x, y: result.y, z: result.z,
-            colorscale: spec.colorscale || 'Viridis',
-            colorbar: { title: { text: result.zLabel, side: 'right', font: { color: c.text, size: 11 } },
-                        tickfont: { color: c.text, size: 9 },
-                        thickness: 14, len: 0.9, x: 1.0, xpad: 4 },
-        };
-        const trace = spec.render === 'heatmap'
-            ? { type: 'heatmap', ...common,
-                hovertemplate: `%{x}<br>%{y}<br>${result.zLabel}=%{z:.4g}<extra></extra>` }
-            : { type: 'surface', ...common, contours: { z: { show: false } },
-                hovertemplate: `%{x}<br>%{y}<br>${result.zLabel}=%{z:.4g}<extra></extra>` };
-
-        const xTitle = surfaceAxisLabel(spec.xVar, design);
-        const yTitle = surfaceAxisLabel(spec.yVar, design);
-        const axisFont = { color: c.text, size: 11 };
-        const tickFont = { color: c.text, size: 9 };
-
-        const layout = {
-            paper_bgcolor: c.panel || '#252526',
-            plot_bgcolor:  c.bg || '#1e1e1e',
-            margin: spec.render === 'heatmap' ? { l: 60, r: 16, t: 16, b: 50 } : { l: 0, r: 0, t: 0, b: 0 },
-            font: { color: c.text },
-        };
-        if (spec.render === 'heatmap') {
-            layout.xaxis = { title: { text: xTitle, font: axisFont }, color: c.text, tickfont: tickFont, gridcolor: c.border };
-            layout.yaxis = { title: { text: yTitle, font: axisFont }, color: c.text, tickfont: tickFont, gridcolor: c.border };
-        } else {
-            layout.scene = {
-                // 'cube' fills the plotting box regardless of the data ranges
-                // (thickness ~100 nm vs index ~1 vs MF ~0.3 differ by orders of
-                // magnitude — the default 'data' aspect squishes the surface into
-                // a sliver). domain spans the full width so it doesn't leave a gap.
-                aspectmode: 'cube',
-                domain: { x: [0, 1], y: [0, 1] },
-                xaxis: { title: { text: xTitle, font: axisFont }, color: c.text, tickfont: tickFont,
-                         backgroundcolor: c.bg, gridcolor: c.border, showbackground: true },
-                yaxis: { title: { text: yTitle, font: axisFont }, color: c.text, tickfont: tickFont,
-                         backgroundcolor: c.bg, gridcolor: c.border, showbackground: true },
-                zaxis: { title: { text: result.zLabel, font: axisFont }, color: c.text, tickfont: tickFont,
-                         backgroundcolor: c.bg, gridcolor: c.border, showbackground: true },
-                // Pulled back from Plotly's default so the cube isn't clipped/over-
-                // zoomed on first paint.
-                camera: { eye: { x: 1.9, y: -1.9, z: 1.35 } },
-            };
-        }
-        return { traces: [trace], layout };
-    }, [result, spec, design, c]);
+    const figure = useMemo(() => buildSurfaceFigure(result, spec, design, c), [result, spec, design, c]);
 
     useEffect(() => {
         if (!divRef.current || typeof Plotly === 'undefined') return;
