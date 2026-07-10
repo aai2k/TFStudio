@@ -88,24 +88,31 @@ export function RowField({ label, value, min, max, step, onChange, c, suffix, wi
 // Process-Simulator-style interactive timeline: play/pause, reset, speed,
 // scrubbable slider with a tick at every layer boundary, and a step/time
 // readout. `cumTimes` has length N+1 (cumTimes[0]=0). Pure-controlled.
-export function DepositionTimeline({ progress, totalTime, playing, onScrub, onPlayPause, onReset, speed, setSpeed, cumTimes, layerIdx, N, c, B }) {
-    const has = totalTime > 0;
-    const seg = (s, i, arr) => h('button', { key: s, onClick: () => setSpeed(s),
+// Speed-selector segment button ("1× 2× 5× …"); `i`/`arr` round the group ends.
+function timelineSpeedBtn(s, i, arr, speed, setSpeed, c) {
+    return h('button', { key: s, onClick: () => setSpeed(s),
         style: { padding: '3px 9px', fontSize: 11, cursor: 'pointer',
                  border: `1px solid ${speed === s ? c.accent : c.border}`,
                  marginLeft: i === 0 ? 0 : -1,
                  borderRadius: i === 0 ? '4px 0 0 4px' : i === arr.length - 1 ? '0 4px 4px 0' : 0,
                  background: speed === s ? c.accent + '33' : 'transparent',
                  color: speed === s ? c.accent : c.text, fontWeight: speed === s ? 600 : 400 } }, `${s}×`);
-    const btn = (onClick, txt, wide) => h('button', { onClick, disabled: !has,
+}
+// Play / reset control button; disabled (and dimmed) until a run exists.
+function timelineCtrlBtn(onClick, txt, wide, has, c) {
+    return h('button', { onClick, disabled: !has,
         style: { padding: '4px 12px', fontSize: 12, borderRadius: 4, border: `1px solid ${c.border}`,
                  background: c.bg, color: c.text, cursor: has ? 'pointer' : 'not-allowed', opacity: has ? 1 : 0.5,
                  fontWeight: 600, minWidth: wide ? 84 : undefined } }, txt);
+}
+
+export function DepositionTimeline({ progress, totalTime, playing, onScrub, onPlayPause, onReset, speed, setSpeed, cumTimes, layerIdx, N, c, B }) {
+    const has = totalTime > 0;
     return h('div', { style: { display: 'flex', flexDirection: 'column', gap: 4, padding: '8px 4px 0', flexShrink: 0 } },
         h('div', { style: { display: 'flex', alignItems: 'center', gap: 10 } },
-            btn(onPlayPause, playing ? B.pause : B.play, true),
-            btn(onReset, B.reset),
-            h('div', { style: { display: 'flex' } }, [1, 2, 5, 10, 50, 100].map(seg)),
+            timelineCtrlBtn(onPlayPause, playing ? B.pause : B.play, true, has, c),
+            timelineCtrlBtn(onReset, B.reset, false, has, c),
+            h('div', { style: { display: 'flex' } }, [1, 2, 5, 10, 50, 100].map((s, i, arr) => timelineSpeedBtn(s, i, arr, speed, setSpeed, c))),
             h('div', { style: { flex: 1 } }),
             h('div', { style: { fontSize: 11, color: c.text, fontVariantNumeric: 'tabular-nums' } }, B.layerOf(layerIdx || 0, N)),
             h('div', { style: { fontSize: 11, color: c.textDim, fontVariantNumeric: 'tabular-nums' } }, `${progress.toFixed(1)} / ${totalTime.toFixed(1)} s`)),
