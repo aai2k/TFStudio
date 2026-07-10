@@ -54,6 +54,15 @@ function sideMedia(design, side) {
         : { n0Id: design.incidentMedium, nsId: design.substrate?.material };
 }
 
+// Δ sign convention. computeEllipsometry returns the Woollam / Fujiwara
+// convention (ñ = n + ik, ρ = tanΨ·e^{iΔ}) — the one WVASE / CompleteEASE and
+// most modern ellipsometers report. Azzam–Bashara (ñ = n − ik) is its mirror,
+// Δ_AB = (360 − Δ) mod 360. Ψ is identical in both. Woollam is the default.
+function toDeltaConvention(deltaArr, conv) {
+    if (conv !== 'azzam') return deltaArr;
+    return deltaArr.map(v => (((360 - v) % 360) + 360) % 360);
+}
+
 // ── Sweep computation ─────────────────────────────────────────────────────────
 
 function computeSpectral(design, side, lamStart, lamEnd, lamStep, theta_deg) {
@@ -217,6 +226,7 @@ export function EllipsometryEvaluation({ c, theme, t }) {
     const [aoiStart, setAoiStart] = useState(45);
     const [aoiEnd,   setAoiEnd]   = useState(80);
     const [aoiStep,  setAoiStep]  = useState(0.5);
+    const [deltaConv, setDeltaConv] = useState('woollam'); // 'woollam' | 'azzam'
 
     const [data, setData] = useState(null);
 
@@ -241,20 +251,22 @@ export function EllipsometryEvaluation({ c, theme, t }) {
     useEffect(() => {
         if (!design) { setData(null); return; }
         try {
+            let raw;
             if (mode === 'spectral') {
                 const s = Math.max(1, Math.min(lamStep, Math.abs(lamEnd - lamStart) || 1));
-                setData(computeSpectral(design, side, Math.min(lamStart, lamEnd),
-                                        Math.max(lamStart, lamEnd), s, theta));
+                raw = computeSpectral(design, side, Math.min(lamStart, lamEnd),
+                                      Math.max(lamStart, lamEnd), s, theta);
             } else {
                 const s = Math.max(0.05, Math.min(aoiStep, Math.abs(aoiEnd - aoiStart) || 1));
-                setData(computeAngular(design, side, lambda, Math.min(aoiStart, aoiEnd),
-                                       Math.min(89.5, Math.max(aoiStart, aoiEnd)), s));
+                raw = computeAngular(design, side, lambda, Math.min(aoiStart, aoiEnd),
+                                     Math.min(89.5, Math.max(aoiStart, aoiEnd)), s);
             }
+            setData({ ...raw, delta: toDeltaConvention(raw.delta, deltaConv) });
         } catch (e) {
             console.error('Ellipsometry computation failed:', e);
             setData(null);
         }
-    }, [design, mode, side, lamStart, lamEnd, lamStep, theta, lambda, aoiStart, aoiEnd, aoiStep]);
+    }, [design, mode, side, lamStart, lamEnd, lamStep, theta, lambda, aoiStart, aoiEnd, aoiStep, deltaConv]);
 
     // ── Empty states ──────────────────────────────────────────────────────────
     const centerBox = (msg) => h('div', {
@@ -348,6 +360,16 @@ export function EllipsometryEvaluation({ c, theme, t }) {
                               style: tabBtn(side === 'front') }, el.modeFront || 'Front'),
                 h('button', { onClick: () => setSide('back'),
                               style: tabBtn(side === 'back') }, el.modeBack || 'Back')
+            ),
+
+            // Δ sign convention (Woollam default / Azzam–Bashara mirror). Affects
+            // the displayed Δ only; Ψ is convention-independent.
+            h('div', { style: { display: 'flex', alignItems: 'center', gap: 3 } },
+                h('span', { style: { ...labelStyle, marginRight: 3 } }, (el.deltaConv || 'Δ convention') + ':'),
+                h('button', { onClick: () => setDeltaConv('woollam'),
+                              style: tabBtn(deltaConv === 'woollam') }, el.deltaWoollam || 'Woollam'),
+                h('button', { onClick: () => setDeltaConv('azzam'),
+                              style: tabBtn(deltaConv === 'azzam') }, el.deltaAzzam || 'Azzam–Bashara')
             ),
 
             // Mode-specific inputs
