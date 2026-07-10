@@ -5,6 +5,21 @@ windows (Ellipsometry, Admittance, E-field, GD/GDD). Copy them into your
 projects folder, then open the same design in the **old release** and in the
 **fixed build** and compare.
 
+> **Automated engine benchmark.** For a headless, literature-anchored check of
+> the whole optical engine, run `node tests/correctness_benchmark.mjs` (also part
+> of `npm test`). It pins the engine to independent oracles — closed-form Fresnel
+> / Brewster / quarter-wave identities, an independent Rouard amplitude
+> recursion, a quarter-wave admittance recursion for high-reflector stacks,
+> published Sellmeier dispersion (Malitson / Schott / Dodge), energy conservation
+> and known metal reflectances / ellipsometric angles — across Fresnel (s/p,
+> oblique, Brewster), absorbing & dispersive media, multilayer stacks,
+> ellipsometry (Ψ, Δ — including an oblique/absorbing pseudo-dielectric
+> inversion that recovers n,k back from the computed Ψ,Δ), group delay/GDD,
+> incoherent substrates with bulk absorption, E-field profiles, optical
+> admittance, interface roughness/scatter (TIS, Macleod Eq. 16.30) and
+> graded-index / inhomogeneous layers. The `.tfs` designs below are the
+> interactive, in-app counterpart to that suite.
+
 ## Background
 
 The analysis windows previously fed the complex index as `ñ = n − ik` into a
