@@ -360,6 +360,20 @@ export function getNKById(id, lambda_nm) {
  * Search materials across all catalogs.
  * Returns array of { catalogId, catalogName, material } sorted by match quality.
  */
+// Score a single material against a lowercased query. Returns the sort score
+// (id-prefix 0 < name-substring 1 < id-substring 2 < no-query 3) or null when
+// the material is malformed or does not match. Falls back to the material key
+// for a missing id/name so a bad entry can't crash the picker.
+function scoreMaterialMatch(mat, matKey, q) {
+    if (!mat) return null;
+    const id   = (mat.id   || matKey || '').toLowerCase();
+    const name = (mat.name || matKey || '').toLowerCase();
+    const nameMatch = name.includes(q);
+    const idMatch = id.includes(q);
+    if (q && !nameMatch && !idMatch) return null;
+    return q ? (id.startsWith(q) ? 0 : nameMatch ? 1 : 2) : 3;
+}
+
 export function searchMaterials(query, catalogFilter) {
     ensureInit();
     const q = (query || '').toLowerCase().trim();
@@ -372,22 +386,9 @@ export function searchMaterials(query, catalogFilter) {
     for (const cat of cats) {
         if (!cat) continue;
         for (const [matKey, mat] of Object.entries(cat.materials)) {
-            if (!mat) continue;
-            // Defensive: a catalog material may omit name/id — fall back to the
-            // material key so a malformed entry can't crash the picker.
-            const id   = (mat.id   || matKey || '').toLowerCase();
-            const name = (mat.name || matKey || '').toLowerCase();
-            const nameMatch = name.includes(q);
-            const idMatch = id.includes(q);
-            if (!q || nameMatch || idMatch) {
-                results.push({
-                    catalogId: cat.id,
-                    catalogName: cat.name,
-                    material: mat,
-                    score: q
-                        ? (id.startsWith(q) ? 0 : nameMatch ? 1 : 2)
-                        : 3,
-                });
+            const score = scoreMaterialMatch(mat, matKey, q);
+            if (score !== null) {
+                results.push({ catalogId: cat.id, catalogName: cat.name, material: mat, score });
             }
         }
     }

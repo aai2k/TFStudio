@@ -224,71 +224,92 @@ function SpectrumPlot({ baseline, deviated, channel, showBaseline, c }) {
 
 // ── Sweep heatmap (SWEEP mode) ───────────────────────────────────────────────
 
+// Dark→light colorscale per channel (blue T / red R / green A), so the heatmap
+// hue matches the T/R/A colors used elsewhere in the app.
+const sweepColorscale = (ch) => ch === 'R'
+    ? [[0, '#1e1e1e'], [0.3, '#7a2222'], [0.6, '#d04545'], [1, '#fff5f5']]
+    : ch === 'A'
+    ? [[0, '#1e1e1e'], [0.3, '#2a5a2a'], [0.6, '#4caf50'], [1, '#e8f5e8']]
+    : [[0, '#1e1e1e'], [0.3, '#1a3a5a'], [0.6, '#4fc3f7'], [1, '#e8f4fc']];
+
+// 2-D arrays are fractions [0,1]; show in percent like the rest of the app.
+const sweep2DPercent = (z2d) => z2d.map(row => row.map(v => v * 100));
+
+// One heatmap trace per channel, stacked top-to-bottom on independent axes.
+// `colors` bundles the theme values ({ text, border }) so the signature stays small.
+function sweepHeatmapTraces(sweepData, chans, colors) {
+    const n = chans.length;
+    const Zof = (ch) => sweep2DPercent(ch === 'R' ? sweepData.R2D : ch === 'A' ? sweepData.A2D : sweepData.T2D);
+    return chans.map((ch, i) => {
+        const sfx = i === 0 ? '' : String(i + 1);
+        const top = 1 - i / n, bot = 1 - (i + 1) / n;   // top-to-bottom rows
+        return {
+            x: sweepData.lambda,
+            y: sweepData.paramValues,
+            z: Zof(ch),
+            type: 'heatmap',
+            colorscale: sweepColorscale(ch),
+            zmin: 0, zmax: 100,
+            xaxis: 'x' + sfx,
+            yaxis: 'y' + sfx,
+            colorbar: {
+                title: { text: `${ch} (%)`, font: { color: colors.text, size: 11 } },
+                tickfont: { color: colors.text, size: 9 },
+                outlinecolor: colors.border, bgcolor: 'rgba(0,0,0,0)',
+                len: n > 1 ? (1 / n) * 0.82 : 0.85, thickness: 12,
+                y: (top + bot) / 2, yanchor: 'middle',
+            },
+            hovertemplate: `λ=%{x:.1f} nm<br>param=%{y:.4g}<br>${ch}=%{z:.3f}%<extra></extra>`,
+        };
+    });
+}
+
+// Layout with one x/y axis pair per stacked channel row (independent grid when
+// showing all three). `colors` bundles theme values ({ text, border, panel, bg }).
+function sweepHeatmapLayout(sweepData, chans, colors) {
+    const n = chans.length;
+    const layout = {
+        paper_bgcolor: colors.panel || '#252526',
+        plot_bgcolor:  colors.bg    || '#1e1e1e',
+        margin: { l: 64, r: 16, t: 16, b: 44 },
+        grid: n > 1 ? { rows: n, columns: 1, pattern: 'independent', roworder: 'top to bottom' } : undefined,
+    };
+    chans.forEach((ch, i) => {
+        const sfx = i === 0 ? '' : String(i + 1);
+        layout['xaxis' + sfx] = {
+            title: i === n - 1 ? { text: 'λ (nm)', font: { color: colors.text, size: 12 } } : undefined,
+            color: colors.text, gridcolor: colors.border, zerolinecolor: colors.border,
+            tickfont: { color: colors.text, size: 10 },
+        };
+        layout['yaxis' + sfx] = {
+            title: { text: n > 1 ? ch : (sweepData.paramName || 'Parameter'), font: { color: colors.text, size: 12 } },
+            color: colors.text, gridcolor: colors.border, zerolinecolor: colors.border,
+            tickfont: { color: colors.text, size: 10 },
+        };
+    });
+    return layout;
+}
+
+// Full Plotly figure for the sweep heatmap. A heatmap shows one scalar, so
+// 'all' renders three stacked heatmaps (one row per channel); a single channel
+// is one full-height map.
+function buildSweepFigure(sweepData, channel, colors) {
+    if (!sweepData?.lambda?.length) return { data: [], layout: {} };
+    const chans = channel === 'all' ? ['T', 'R', 'A'] : [channel];
+    return {
+        data: sweepHeatmapTraces(sweepData, chans, colors),
+        layout: sweepHeatmapLayout(sweepData, chans, colors),
+    };
+}
+
 function SweepHeatmap({ sweepData, channel, c }) {
     const divRef = useRef(null);
     const initRef = useRef(false);
 
-    const { data, layout } = useMemo(() => {
-        if (!sweepData?.lambda?.length) return { data: [], layout: {} };
-        const colorscaleOf = (ch) => ch === 'R'
-            ? [[0, '#1e1e1e'], [0.3, '#7a2222'], [0.6, '#d04545'], [1, '#fff5f5']]
-            : ch === 'A'
-            ? [[0, '#1e1e1e'], [0.3, '#2a5a2a'], [0.6, '#4caf50'], [1, '#e8f5e8']]
-            : [[0, '#1e1e1e'], [0.3, '#1a3a5a'], [0.6, '#4fc3f7'], [1, '#e8f4fc']];
-        // 2-D arrays are fractions [0,1]; show in percent like the rest of the app.
-        const toPct = (z2d) => z2d.map(row => row.map(v => v * 100));
-        const Zof = (ch) => toPct(ch === 'R' ? sweepData.R2D : ch === 'A' ? sweepData.A2D : sweepData.T2D);
-
-        // A heatmap shows one scalar, so 'all' renders three stacked heatmaps
-        // (one row per channel), each with its own colorbar; single channel is
-        // one full-height map.
-        const chans = channel === 'all' ? ['T', 'R', 'A'] : [channel];
-        const n = chans.length;
-
-        const data = chans.map((ch, i) => {
-            const sfx = i === 0 ? '' : String(i + 1);
-            const top = 1 - i / n, bot = 1 - (i + 1) / n;   // top-to-bottom rows
-            return {
-                x: sweepData.lambda,
-                y: sweepData.paramValues,
-                z: Zof(ch),
-                type: 'heatmap',
-                colorscale: colorscaleOf(ch),
-                zmin: 0, zmax: 100,
-                xaxis: 'x' + sfx,
-                yaxis: 'y' + sfx,
-                colorbar: {
-                    title: { text: `${ch} (%)`, font: { color: c.text, size: 11 } },
-                    tickfont: { color: c.text, size: 9 },
-                    outlinecolor: c.border, bgcolor: 'rgba(0,0,0,0)',
-                    len: n > 1 ? (1 / n) * 0.82 : 0.85, thickness: 12,
-                    y: (top + bot) / 2, yanchor: 'middle',
-                },
-                hovertemplate: `λ=%{x:.1f} nm<br>param=%{y:.4g}<br>${ch}=%{z:.3f}%<extra></extra>`,
-            };
-        });
-
-        const layout = {
-            paper_bgcolor: c.panel || '#252526',
-            plot_bgcolor:  c.bg    || '#1e1e1e',
-            margin: { l: 64, r: 16, t: 16, b: 44 },
-            grid: n > 1 ? { rows: n, columns: 1, pattern: 'independent', roworder: 'top to bottom' } : undefined,
-        };
-        chans.forEach((ch, i) => {
-            const sfx = i === 0 ? '' : String(i + 1);
-            layout['xaxis' + sfx] = {
-                title: i === n - 1 ? { text: 'λ (nm)', font: { color: c.text, size: 12 } } : undefined,
-                color: c.text, gridcolor: c.border, zerolinecolor: c.border,
-                tickfont: { color: c.text, size: 10 },
-            };
-            layout['yaxis' + sfx] = {
-                title: { text: n > 1 ? ch : (sweepData.paramName || 'Parameter'), font: { color: c.text, size: 12 } },
-                color: c.text, gridcolor: c.border, zerolinecolor: c.border,
-                tickfont: { color: c.text, size: 10 },
-            };
-        });
-        return { data, layout };
-    }, [sweepData, channel, c]);
+    const { data, layout } = useMemo(
+        () => buildSweepFigure(sweepData, channel, { text: c.text, border: c.border, panel: c.panel, bg: c.bg }),
+        [sweepData, channel, c]
+    );
 
     useEffect(() => {
         if (!divRef.current || typeof Plotly === 'undefined') return;

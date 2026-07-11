@@ -21,6 +21,7 @@
 
 import { makeEngine } from '../optimizers/index.js';
 import { noteTmmWasmBytes, awaitTmmWasmReady } from './tmmWasm.js';
+import { makeResolveMat } from './resolveMat.js';
 
 const POST_MS = 80;     // progress-message rate limit (wall clock)
 
@@ -36,56 +37,6 @@ const now = (typeof performance !== 'undefined' && performance.now)
 // thread pre-sampled with, the floats match bit-for-bit and the lookup is
 // exact. A nearest-λ fallback exists only as defense-in-depth; if it ever
 // fires it means the centralized-λ guard was violated, so we report it.
-function makeResolveMat(materials) {
-    const cache = new Map();
-    let missReported = false;
-
-    function build(id) {
-        const entry = materials[id] || materials['Air'] || null;
-        const map = new Map();
-        let sortedL = null, sortedNK = null;
-        if (entry && entry.lambdas) {
-            const { lambdas, n, k } = entry;
-            for (let i = 0; i < lambdas.length; i++) {
-                map.set(lambdas[i], [n[i], k[i]]);
-            }
-            const idx = lambdas.map((_, i) => i).sort((a, b) => lambdas[a] - lambdas[b]);
-            sortedL  = idx.map(i => lambdas[i]);
-            sortedNK = idx.map(i => [n[i], k[i]]);
-        }
-        return {
-            _wkrMat: true,
-            getNK(lam) {
-                const v = map.get(lam);
-                if (v !== undefined) return v;
-                if (!sortedL || sortedL.length === 0) return [1, 0];
-                if (!missReported) {
-                    missReported = true;
-                    postMessage({
-                        type: 'warn',
-                        message: `optimizerWorker: λ ${lam} not pre-sampled for "${id}" `
-                               + `— nearest-λ fallback used (centralized-λ guard violated; results no longer bit-identical)`,
-                    });
-                }
-                let lo = 0, hi = sortedL.length - 1;
-                while (hi - lo > 1) {
-                    const mid = (lo + hi) >> 1;
-                    if (sortedL[mid] < lam) lo = mid; else hi = mid;
-                }
-                return (Math.abs(sortedL[lo] - lam) <= Math.abs(sortedL[hi] - lam))
-                    ? sortedNK[lo] : sortedNK[hi];
-            },
-        };
-    }
-
-    return function resolveMat(id) {
-        const key = (id == null || id === '') ? 'Air' : id;
-        let stub = cache.get(key);
-        if (!stub) { stub = build(key); cache.set(key, stub); }
-        return stub;
-    };
-}
-
 // opt.applyToDesign uses opt.thicknesses; capture the best-thickness layers
 // without leaving the optimizer mutated (synchronous — safe).
 function appliedAt(opt, thicks, design) {
@@ -159,7 +110,7 @@ onmessage = async (e) => {
     try {
         noteTmmWasmBytes(job.wasmBytes);
         await awaitTmmWasmReady();
-        const resolveMat = makeResolveMat(job.materials || {});
+        const resolveMat = makeResolveMat(job.materials || {}, 'optimizerWorker');
         runSingle(job, resolveMat);
     } catch (err) {
         postMessage({

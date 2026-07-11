@@ -20,49 +20,7 @@
 
 import { computeSurface } from '../physics/plotQuantities.js';
 import { noteTmmWasmBytes, awaitTmmWasmReady } from './tmmWasm.js';
-
-// Approach-A table-lookup material resolver (mirrors synthesisWorker.makeResolveMat).
-function makeResolveMat(materials) {
-    const cache = new Map();
-    let missReported = false;
-    function build(id) {
-        const entry = materials[id] || materials['Air'] || null;
-        const map = new Map();
-        let sortedL = null, sortedNK = null;
-        if (entry && entry.lambdas) {
-            const { lambdas, n, k } = entry;
-            for (let i = 0; i < lambdas.length; i++) map.set(lambdas[i], [n[i], k[i]]);
-            const idx = lambdas.map((_, i) => i).sort((a, b) => lambdas[a] - lambdas[b]);
-            sortedL  = idx.map(i => lambdas[i]);
-            sortedNK = idx.map(i => [n[i], k[i]]);
-        }
-        return {
-            _wkrMat: true,
-            getNK(lam) {
-                const v = map.get(lam);
-                if (v !== undefined) return v;
-                if (!sortedL || sortedL.length === 0) return [1, 0];
-                if (!missReported) {
-                    missReported = true;
-                    postMessage({ type: 'warn', message:
-                        `plotSurfaceWorker: λ ${lam} not pre-sampled for "${id}" — nearest-λ fallback` });
-                }
-                let lo = 0, hi = sortedL.length - 1;
-                while (hi - lo > 1) {
-                    const mid = (lo + hi) >> 1;
-                    if (sortedL[mid] < lam) lo = mid; else hi = mid;
-                }
-                return (Math.abs(sortedL[lo] - lam) <= Math.abs(sortedL[hi] - lam)) ? sortedNK[lo] : sortedNK[hi];
-            },
-        };
-    }
-    return function resolveMat(id) {
-        const key = (id == null || id === '') ? 'Air' : id;
-        let s = cache.get(key);
-        if (!s) { s = build(key); cache.set(key, s); }
-        return s;
-    };
-}
+import { makeResolveMat } from './resolveMat.js';
 
 const STATE = { spec: null, design: null, resolveMat: null };
 let wasmReady = Promise.resolve();
@@ -74,7 +32,7 @@ onmessage = async (e) => {
     if (msg.type === 'init') {
         STATE.spec = msg.spec;
         STATE.design = msg.design;
-        STATE.resolveMat = makeResolveMat(msg.materials || {});
+        STATE.resolveMat = makeResolveMat(msg.materials || {}, 'plotSurfaceWorker');
         if (msg.wasmBytes) { noteTmmWasmBytes(msg.wasmBytes); wasmReady = awaitTmmWasmReady().catch(() => {}); }
         return;
     }
