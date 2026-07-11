@@ -29,7 +29,6 @@
  */
 
 import { useDesign } from '../../../state/DesignContext.js';
-import { OptimizeBadge, EvalModeBadge } from '../../SurfaceModeBar.js';
 import { getCatalogs } from '../../../utils/materials/catalogManager.js';
 import {
     requiredLambdas, collectDesignMaterialIds, isConstraint, mirrorLayers,
@@ -38,25 +37,24 @@ import {
 } from '../../../utils/physics/optimizer.js';
 import {
     activeSide, sideKeyFor, densifyForRun,
-    resolveMat, matDisplayName, matColor,
-    MaterialPoolPanel, SynthesisHistoryTable, useCatSelection, minOmfOf, WARN_BADGE_STYLE,
-    getPoolMaterials, buildARSeedCandidates,
-    computePareto, TopDesignsPanel as SharedTopDesignsPanel, PlotlyChart,
+    resolveMat, useCatSelection, minOmfOf,
+    getPoolMaterials, buildARSeedCandidates, computePareto,
 } from './synthesisHelpers.js';
 import {
     makeRng, proposeMutation, metropolisAccept, temperatureAt,
     deepTemperature, stagnationAction, basinKick,
     tidyLayers, MUTATION_KINDS,
 } from '../../../utils/synthesis/structuralOptimizer.js';
-import { getSynthesisInnerEngine, setSynthesisInnerEngine, getSynthesisSmartSeed, setSynthesisSmartSeed, getThreadCount, setThreadCount, threadSelectOptions } from '../../../utils/synthesis/synthesisConfig.js';
+import { getSynthesisInnerEngine, getSynthesisSmartSeed, getThreadCount } from '../../../utils/synthesis/synthesisConfig.js';
 import { getTmmWasmBytesForWorker } from '../../../utils/workers/tmmWasm.js';
-import { DebouncedInput } from '../../ui/DebouncedInput.js';
-import { Checkbox } from '../../ui/Checkbox.js';
-import { parseNumber } from '../../../utils/misc/numberParsing.js';
 import { usePersistentNumber } from '../../ui/usePersistentState.js';
 import { OPTIMIZER_WORKER_URL as WORKER_URL } from '../../../workerUrls.js';
 
 const { createElement: h, useState, useEffect, useRef, useCallback } = React;
+
+// Shared synthesis shell + Structural's presentational panels.
+import { SynthesisShell } from './synthesisShell.js';
+import { TrendPlot, ControlBar, LeftSidebar, HistoryTable, TopDesignsPanel } from './structuralPanels.js';
 
 const STRUCT_CATS_KEY  = 'tfstudio_struct_selectedCats';
 const STRUCT_KINDS_KEY  = 'tfstudio_struct_kinds';
@@ -125,268 +123,6 @@ function refineOnce(worker, job, onTick) {
             reject(new Error((ev && ev.message) || 'worker onerror'));
         };
         worker.postMessage(job);
-    });
-}
-
-// ── MF trend plot (best + current vs accepted iteration) ────────────────────────
-function TrendPlot({ trend, c, theme, t }) {
-    const build = () => {
-        const bg = c.bg || '#1e1e1e', panel = c.panel || '#252526',
-              grid = c.border || '#3a3a3a', txt = c.text || '#ccc';
-        const iters = trend.map(p => p.iter);
-        const traces = [
-            { x: iters, y: trend.map(p => p.cur),  type: 'scatter', mode: 'lines',
-              line: { color: '#90a4ae', width: 1, dash: 'dot' }, name: t.structural.curMF,
-              hovertemplate: 'it %{x}<br>cur %{y:.6f}<extra></extra>' },
-            { x: iters, y: trend.map(p => p.best), type: 'scatter', mode: 'lines',
-              line: { color: '#ffa726', width: 1.8 }, name: t.structural.bestMF,
-              hovertemplate: 'it %{x}<br>best %{y:.6f}<extra></extra>' },
-        ];
-        // Log MF axis. When best/cur barely move, a bare log axis micro-zooms to a
-        // hair-thin window with 7-digit tick labels; widen to a padded floor range so
-        // "it's flat" reads clearly instead of as noise.
-        const ys = trend.flatMap(p => [p.cur, p.best]).filter(v => v > 0 && Number.isFinite(v));
-        const yaxis = { title: { text: 'MF', standoff: 4 }, gridcolor: grid, type: 'log',
-            tickformat: '.0e', exponentformat: 'e', hoverformat: '.6f', dtick: 'D2' };
-        if (ys.length) {
-            const lo = Math.min(...ys), hi = Math.max(...ys);
-            if (lo > 0 && hi / lo < 1.1) {
-                const cen = Math.log10((lo + hi) / 2);
-                yaxis.range = [cen - 0.5, cen + 0.5];
-            }
-        }
-        const layout = {
-            margin: { l: 58, r: 8, t: 6, b: 28 },
-            paper_bgcolor: panel, plot_bgcolor: bg,
-            font: { color: txt, family: 'system-ui, sans-serif', size: 10 },
-            xaxis: { title: { text: t.structural.iterAxis, standoff: 4 }, gridcolor: grid },
-            yaxis,
-            showlegend: true, legend: { font: { size: 9 }, x: 1, xanchor: 'right', y: 1 },
-        };
-        return { traces, layout };
-    };
-    return h(PlotlyChart, {
-        build, hasData: trend.length > 0, empty: t.structural.noTrendYet,
-        deps: [trend, theme], c,
-    });
-}
-
-// ── Control bar ─────────────────────────────────────────────────────────────────
-// Inline metrics readout for the control bar (iteration, reheats, temperature,
-// acceptance rate, layer count, current + best merit). Returns the array of
-// children, spread into the readout <span> so the markup matches an inline list.
-function controlBarMetrics({ ts, c, running, deepMode, iter, maxIter, reheats, temp, accRate, layerCount, mf, mfBest }) {
-    const strong = (v) => h('b', { style: { color: c.text } }, v);
-    const showBest = mf != null && mfBest != null && mfBest < mf - 1e-9;
-    return [
-        `${ts.iterLabel} `, strong(deepMode ? `${iter} ∞` : `${iter}/${maxIter}`),
-        running && deepMode ? `  ${ts.reheatLabel} ` : '',
-        running && deepMode ? strong(reheats) : '',
-        running && temp != null ? `  ${ts.tempLabel} ` : '',
-        running && temp != null ? strong(temp.toFixed(4)) : '',
-        running && accRate != null ? `  ${ts.acceptLabel} ` : '',
-        running && accRate != null ? strong(`${(accRate * 100).toFixed(0)}%`) : '',
-        `  ${ts.layersLabel} `, strong(layerCount),
-        mf != null && `  ${ts.mfLabel} `, mf != null && strong(mf.toFixed(6)),
-        showBest && ` ${ts.bestLabel} `,
-        showBest && h('span', { style: { color: c.success } }, mfBest.toFixed(6)),
-    ];
-}
-
-function ControlBar({ running, iter, maxIter, deepMode, reheats, temp, layerCount, mf, mfBest, omf, omfBest, accRate, canReset,
-                      onRun, onStop, onReset, onBest, statusMsg, design, t, c }) {
-    const ts = t.structural;
-    const btn = (label, color, onClick, disabled = false) =>
-        h('button', { onClick, disabled, style: {
-            padding: '3px 12px', fontSize: 12, border: 'none', borderRadius: 3,
-            background: disabled ? c.border : color, color: disabled ? c.textDim : '#fff',
-            cursor: disabled ? 'default' : 'pointer', fontWeight: 600, fontFamily: 'inherit',
-            opacity: disabled ? 0.5 : 1,
-        } }, label);
-    const smallBtn = (label, onClick, disabled = false) =>
-        h('button', { onClick, disabled, style: {
-            padding: '2px 8px', fontSize: 11, borderRadius: 3, background: 'transparent',
-            color: disabled ? c.textDim : c.text, border: `1px solid ${c.border}`,
-            cursor: disabled ? 'default' : 'pointer', fontFamily: 'inherit', opacity: disabled ? 0.5 : 1,
-        } }, label);
-    return h('div', { style: {
-        display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: 6,
-        padding: '5px 8px', borderBottom: `1px solid ${c.border}`, background: c.panel, flexShrink: 0,
-    } },
-        running ? btn(`■ ${ts.stop}`, c.error, onStop) : btn(`▶ ${ts.run}`, c.success, onRun),
-        btn(ts.reset, '#5c6bc0', onReset, !canReset),
-        btn(ts.best, '#0288d1', onBest, !canReset),
-        h('span', { style: { marginLeft: 6, display: 'inline-flex', alignItems: 'center', gap: 4 } },
-            h(OptimizeBadge, { design, c, t }), h(EvalModeBadge, { design, c, t })),
-        h('div', { style: { flex: 1 } }),
-        h('span', { style: { fontSize: 11, color: c.textDim } },
-            ...controlBarMetrics({ ts, c, running, deepMode, iter, maxIter, reheats, temp, accRate, layerCount, mf, mfBest })),
-        statusMsg && h('span', {
-            style: statusMsg === ts.noOperands
-                ? { ...WARN_BADGE_STYLE, marginLeft: 10 }
-                : { fontSize: 11, marginLeft: 10, color: running ? (c.accent || '#ffa726') : c.textDim, fontStyle: 'italic' }
-        }, statusMsg),
-    );
-}
-
-// ── Left sidebar: material pool + settings ──────────────────────────────────────
-function LeftSidebar({ catalogs, selectedCats, onToggleCat, onSelectAllCats, onClearCats,
-                       excludedMats, onToggleMat,
-                       maxIter, targetMF, T0, jitterPct, refineIter, dMin, addMaxNm, maxLayers,
-                       deepMode, onDeepMode, deepMaxMin, onDeepMaxMin,
-                       kinds, onToggleKind,
-                       onMaxIter, onTargetMF, onT0, onJitter, onRefineIter, onDMin, onAddMax, onMaxLayers,
-                       running, c, t }) {
-    const ts = t.structural;
-    const [advOpen, setAdvOpen] = useState(false);
-    const [engine, setEngine] = useState(getSynthesisInnerEngine('structural'));
-    const [threads, setThreads] = useState(getThreadCount());
-    const numRow = (label, value, onChange, title) =>
-        h('div', { title, style: { display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 3 } },
-            h('span', { style: { fontSize: 11, color: c.textDim } }, label),
-            h(DebouncedInput, {
-                value, disabled: running, onChange: (str) => onChange(parseNumber(str)),
-                style: {
-                    width: 58, padding: '1px 4px', fontSize: 11, textAlign: 'right',
-                    background: c.bg, color: c.text, border: `1px solid ${c.border}`, borderRadius: 2,
-                    opacity: running ? 0.5 : 1,
-                }
-            }));
-    const selRow = (label, value, onChange, options) =>
-        h('div', { style: { display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 3 } },
-            h('span', { style: { fontSize: 11, color: c.textDim } }, label),
-            h('select', {
-                value, disabled: running, onChange: (e) => onChange(e.target.value),
-                style: {
-                    width: 110, padding: '1px 4px', fontSize: 11,
-                    background: c.bg, color: c.text, border: `1px solid ${c.border}`, borderRadius: 2,
-                    opacity: running ? 0.5 : 1,
-                }
-            }, options.map(([val, lab]) => h('option', { key: val, value: val }, lab))));
-    // Uncontrolled checkbox row (defaultChecked) — reads persisted value on
-    // mount, writes on toggle; no re-render needed.
-    const chkRow = (label, getVal, setVal, title) =>
-        h('label', {
-            title,
-            style: {
-                display: 'flex', alignItems: 'center', gap: 6, marginBottom: 4,
-                cursor: running ? 'default' : 'pointer', fontSize: 11, color: c.text, userSelect: 'none',
-            }
-        },
-            h(Checkbox, {
-                c, defaultChecked: getVal(), disabled: running,
-                onChange: e => setVal(e.target.checked),
-            }),
-            h('span', null, label));
-    return h('div', { style: {
-        width: 200, flexShrink: 0, borderRight: `1px solid ${c.border}`,
-        display: 'flex', flexDirection: 'column', background: c.panel, overflow: 'hidden',
-    } },
-        h(MaterialPoolPanel, {
-            catalogs, selectedCats, onToggleCat, onSelectAllCats, onClearCats,
-            excludedMats, onToggleMat, running, c,
-            labels: { materialPool: ts.materialPool, poolAll: ts.poolAll, poolClear: ts.poolClear },
-            warnLabel: t.pool.warn,
-        }),
-        h('div', { style: { padding: '6px 8px', flexShrink: 0, overflow: 'auto' } },
-            h('div', { style: { fontSize: 10, fontWeight: 700, color: c.textDim, textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 6 } }, ts.settings),
-            numRow(ts.maxIter,  maxIter,  v => onMaxIter(Math.max(1, Math.round(v))), ts.maxIterHelp),
-            numRow(ts.targetMF, targetMF, v => onTargetMF(Math.max(0, v))),
-            numRow(ts.temp0,    T0,       v => onT0(Math.max(0, v)), ts.temp0Help),
-            // Min thickness is an everyday knob (mutation/prune floor + MNT coupling).
-            numRow(ts.dMin,     dMin,     v => onDMin(Math.max(0.1, v))),
-            // Smart starting design: refine canonical AR seeds on the worker pool
-            // at run start, begin from the best (incl. current design).
-            chkRow(ts.smartSeed, () => getSynthesisSmartSeed('structural'), (v) => setSynthesisSmartSeed(v, 'structural'), ts.smartSeedHelp),
-            // Deep mode: open-ended reheat/basin-hopping search. Controlled
-            // (drives the control-bar ∞ + reheat display), so not via the chkRow helper.
-            h('label', {
-                title: ts.deepModeHelp,
-                style: {
-                    display: 'flex', alignItems: 'center', gap: 6, marginBottom: 4,
-                    cursor: running ? 'default' : 'pointer', fontSize: 11, color: c.text,
-                    userSelect: 'none', fontWeight: 600,
-                }
-            },
-                h(Checkbox, {
-                    c, checked: !!deepMode, disabled: running,
-                    onChange: e => onDeepMode(e.target.checked ? 1 : 0),
-                }),
-                h('span', null, ts.deepMode)),
-
-            // Mutation-kind toggles
-            h('div', { style: { fontSize: 10, fontWeight: 700, color: c.textDim, textTransform: 'uppercase', letterSpacing: '0.05em', margin: '8px 0 4px' } }, ts.mutations),
-            h('div', { style: { display: 'flex', flexWrap: 'wrap', gap: 4 } },
-                MUTATION_KINDS.map(k => {
-                    const on = kinds.has(k);
-                    return h('button', {
-                        key: k, disabled: running, onClick: () => !running && onToggleKind(k),
-                        title: ts.kindHelp[k],
-                        style: {
-                            padding: '1px 7px', fontSize: 10, borderRadius: 3, fontFamily: 'inherit',
-                            border: `1px solid ${on ? (c.accent || '#ffa726') : c.border}`,
-                            background: on ? `${c.accent || '#ffa726'}22` : 'transparent',
-                            color: on ? c.text : c.textDim, cursor: running ? 'default' : 'pointer',
-                            opacity: running ? 0.5 : 1,
-                        }
-                    }, ts.kindLabel[k]);
-                })
-            ),
-
-            h('button', {
-                onClick: () => setAdvOpen(o => !o),
-                style: {
-                    marginTop: 8, width: '100%', textAlign: 'left', background: 'transparent',
-                    border: 'none', cursor: 'pointer', fontSize: 10, fontWeight: 700, color: c.textDim,
-                    textTransform: 'uppercase', letterSpacing: '0.05em', padding: 0,
-                }
-            }, `${advOpen ? '▾' : '▸'} ${ts.advanced}`),
-            advOpen && h('div', { style: { marginTop: 6 } },
-                selRow(t.settings.synthesisEngine, engine,
-                    (v) => { setSynthesisInnerEngine('structural', v); setEngine(v); },
-                    [['cg', t.settings.synthEngineCG], ['dls', t.settings.synthEngineDLS],
-                     ['newton', t.settings.synthEngineNewton], ['newton-cg', t.settings.synthEngineNewtonCG],
-                     ['sqp', t.settings.synthEngineSQP]]),
-                numRow(ts.jitterPct,  (jitterPct * 100), v => onJitter(Math.max(0, v) / 100), ts.jitterHelp),
-                numRow(ts.refineIter, refineIter, v => onRefineIter(Math.max(1, Math.round(v)))),
-                numRow(ts.addMaxNm,   addMaxNm,   v => onAddMax(Math.max(2, v)), ts.addMaxHelp),
-                numRow(ts.maxLayers,  maxLayers,  v => onMaxLayers(Math.max(1, Math.round(v)))),
-                selRow(t.settings.threads, String(threads),
-                    (v) => { const n = parseInt(v, 10); setThreadCount(n); setThreads(n); },
-                    threadSelectOptions(t)),
-                numRow(ts.deepMaxMin, deepMaxMin, v => onDeepMaxMin(Math.max(0, Math.round(v))), ts.deepMaxMinHelp),
-            )
-        )
-    );
-}
-
-// ── History table ───────────────────────────────────────────────────────────────
-const KIND_COLORS = { add: '#43a047', split: '#26a69a', remove: '#ef5350', merge: '#ab47bc', perturb: '#5c6bc0', seed: '#ffb300', baseline: '#78909c' };
-function HistoryTable({ generations, bestMF, onRestore, showSide, c, t }) {
-    const ts = t.structural;
-    return h(SynthesisHistoryTable, {
-        rows: generations, bestMF, onRestore, showSide, c,
-        labels: {
-            noGens: ts.noGens, genCol: ts.genCol, layersCol: ts.layersCol, mfCol: ts.mfCol, omfCol: ts.omfCol,
-            totCol: ts.totCol, timeCol: ts.timeCol, dMFCol: ts.dMFCol, matCol: ts.matCol, restore: ts.restore,
-        },
-        typeColumn: {
-            header: ts.opCol,
-            render: (row) => row.kind
-                ? h('span', { style: {
-                    padding: '1px 6px', borderRadius: 3, fontSize: 10, fontWeight: 600,
-                    background: `${KIND_COLORS[row.kind] || c.border}22`, color: KIND_COLORS[row.kind] || c.text,
-                } }, ts.kindLabel[row.kind] || row.kind)
-                : '—',
-        },
-    });
-}
-
-// ── Top designs (Pareto) panel ──────────────────────────────────────────────────
-function TopDesignsPanel({ topDesigns, bestMF, onRestore, c, t }) {
-    return h(SharedTopDesignsPanel, {
-        topDesigns, bestMF, onRestore, c, genPrefix: '#',
-        labels: { topDesigns: t.structural.topDesigns, restore: t.structural.restore },
     });
 }
 
@@ -1116,49 +852,26 @@ export function StructuralOptimizer({ c, theme, t }) {
     const bestMFVal = gensRef.current.length ? Math.min(...gensRef.current.map(g => g.mf)) : (mf ?? Infinity);
     const showSideCol = (design?.surfaceMode || 'front_only') === 'both_independent';
 
-    return h('div', { style: {
-        display: 'flex', flexDirection: 'column', height: '100%', background: c.bg, color: c.text,
-        fontFamily: 'system-ui, -apple-system, sans-serif', overflow: 'hidden',
-    } },
-        h(ControlBar, {
+    return h(SynthesisShell, {
+        c, trendLabel: ts.trendTitle, tableLabel: ts.generations,
+        controlBar: h(ControlBar, {
             running, iter, maxIter, deepMode: !!deepMode, reheats, temp, layerCount, mf, mfBest, omf, omfBest, accRate, canReset,
             onRun: runOpt, onStop: () => stopOpt(), onReset: resetOpt, onBest: bestOpt,
             statusMsg, design, t, c,
         }),
-        h('div', { style: { flex: 1, display: 'flex', overflow: 'hidden', minHeight: 0 } },
-            h(LeftSidebar, {
-                catalogs, selectedCats, onToggleCat: handleToggleCat,
-                onSelectAllCats: handleSelectAllCats, onClearCats: handleClearCats,
-                excludedMats, onToggleMat: handleToggleMat,
-                maxIter, targetMF, T0, jitterPct, refineIter, dMin, addMaxNm, maxLayers, kinds,
-                deepMode, onDeepMode: setDeepMode, deepMaxMin, onDeepMaxMin: setDeepMaxMin,
-                onToggleKind,
-                onMaxIter: setMaxIter, onTargetMF: setTargetMF, onT0: setT0, onJitter: setJitterPct,
-                onRefineIter: setRefineIter, onDMin: setDMin, onAddMax: setAddMax, onMaxLayers: setMaxLayers,
-                running, c, t,
-            }),
-            h('div', { style: { flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden' } },
-                h('div', { style: {
-                    flex: '0 0 40%', borderBottom: `1px solid ${c.border}`,
-                    display: 'flex', flexDirection: 'column', overflow: 'hidden',
-                } },
-                    h('div', { style: {
-                        padding: '3px 8px', fontSize: 10, fontWeight: 700, color: c.textDim,
-                        textTransform: 'uppercase', letterSpacing: '0.05em', borderBottom: `1px solid ${c.border}`, flexShrink: 0,
-                    } }, ts.trendTitle),
-                    h('div', { style: { flex: 1, overflow: 'hidden' } },
-                        h(TrendPlot, { trend, c, theme, t })
-                    )
-                ),
-                h('div', { style: { flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden' } },
-                    h('div', { style: {
-                        padding: '3px 8px', fontSize: 10, fontWeight: 700, color: c.textDim,
-                        textTransform: 'uppercase', letterSpacing: '0.05em', borderBottom: `1px solid ${c.border}`, flexShrink: 0,
-                    } }, ts.generations),
-                    h(HistoryTable, { generations, bestMF: bestMFVal, onRestore: handleRestore, showSide: showSideCol, c, t })
-                )
-            )
-        ),
-        h(TopDesignsPanel, { topDesigns, bestMF: bestMFVal, onRestore: handleRestore, c, t })
-    );
+        sidebar: h(LeftSidebar, {
+            catalogs, selectedCats, onToggleCat: handleToggleCat,
+            onSelectAllCats: handleSelectAllCats, onClearCats: handleClearCats,
+            excludedMats, onToggleMat: handleToggleMat,
+            maxIter, targetMF, T0, jitterPct, refineIter, dMin, addMaxNm, maxLayers, kinds,
+            deepMode, onDeepMode: setDeepMode, deepMaxMin, onDeepMaxMin: setDeepMaxMin,
+            onToggleKind,
+            onMaxIter: setMaxIter, onTargetMF: setTargetMF, onT0: setT0, onJitter: setJitterPct,
+            onRefineIter: setRefineIter, onDMin: setDMin, onAddMax: setAddMax, onMaxLayers: setMaxLayers,
+            running, c, t,
+        }),
+        trend: h(TrendPlot, { trend, c, theme, t }),
+        table: h(HistoryTable, { generations, bestMF: bestMFVal, onRestore: handleRestore, showSide: showSideCol, c, t }),
+        topDesigns: h(TopDesignsPanel, { topDesigns, bestMF: bestMFVal, onRestore: handleRestore, c, t }),
+    });
 }

@@ -14,7 +14,6 @@
  */
 
 import { useDesign } from '../../../state/DesignContext.js';
-import { OptimizeBadge, EvalModeBadge } from '../../SurfaceModeBar.js';
 import { getMaterialById, getCatalogs } from '../../../utils/materials/catalogManager.js';
 import { getMaterial } from '../../../utils/materials/materialDatabase.js';
 import {
@@ -31,30 +30,28 @@ import {
 // sites are unchanged.
 import {
     sideKeyFor, activeSide, densifyForRun, chunkArray, poolSize,
-    resolveMat, matDisplayName, matFriendlyName, matColor, MAT_COLORS, MaterialPoolPanel, SynthesisHistoryTable,
-    useCatSelection, minOmfOf, WARN_BADGE_STYLE, buildARSeedCandidates,
-    computePareto, TopDesignsPanel as SharedTopDesignsPanel, PlotlyChart,
-    getPoolMaterials as getPoolMaterialsShared,
+    resolveMat, useCatSelection, minOmfOf, buildARSeedCandidates,
+    computePareto, getPoolMaterials as getPoolMaterialsShared,
 } from './synthesisHelpers.js';
 import { WorkerPool } from '../../../utils/workers/workerPool.js';
 import { makeEngine } from '../../../utils/optimizers/index.js';
 import {
-    getSynthesisInnerEngine, setSynthesisInnerEngine,
-    getSynthesisCandMode, setSynthesisCandMode, getSynthesisMaxBatches,
-    getSynthesisSmartSeed, setSynthesisSmartSeed,
-    getThreadCount, setThreadCount, threadSelectOptions,
-    getNeedleSensMode, setNeedleSensMode, getNeedleSensFloor, cullMarginalNeedles,
+    getSynthesisInnerEngine, getSynthesisMaxBatches,
+    getSynthesisSmartSeed, getNeedleSensFloor, cullMarginalNeedles,
 } from '../../../utils/synthesis/synthesisConfig.js';
 import { getTmmWasmBytesForWorker } from '../../../utils/workers/tmmWasm.js';
-import { DebouncedInput } from '../../ui/DebouncedInput.js';
-import { Checkbox } from '../../ui/Checkbox.js';
-import { parseNumber } from '../../../utils/misc/numberParsing.js';
 import { usePersistentNumber } from '../../ui/usePersistentState.js';
 
 // Synthesis worker URL from the central registry (works unbundled + bundled).
 import { SYNTHESIS_WORKER_URL as SYNTH_WORKER_URL } from '../../../workerUrls.js';
 
 const { createElement: h, useState, useEffect, useRef, useCallback, useMemo } = React;
+
+// Presentational panels (control bar, sidebar, tables, MF-trend chart).
+import { SynthesisShell } from './synthesisShell.js';
+import {
+    MFTrendChart, ControlBar, LeftSidebar, GenerationsTable, TopDesignsPanel,
+} from './needlePanels.js';
 
 // ── Window-parameterized wrappers around the shared helpers ─────────────────────
 const NEEDLE_CATS_KEY = 'tfstudio_needle_selectedCats';
@@ -68,252 +65,6 @@ if (typeof window !== 'undefined' && typeof window.addEventListener === 'functio
 
 // Needle keeps its original verbose pool diagnostics.
 const getPoolMaterials = (selectedCatalogIds, excluded) => getPoolMaterialsShared(selectedCatalogIds, { verbose: true, excluded });
-
-// ── MF trend chart ─────────────────────────────────────────────────────────────
-// Merit function across accepted generations, matching the Gradual Evolution and
-// Structural windows (log MF vs generation).
-function MFTrendChart({ generations, c, theme, emptyMsg }) {
-    const build = () => {
-        const bg    = c.bg    || '#1e1e1e';
-        const panel = c.panel || '#252526';
-        const grid  = c.border|| '#3a3a3a';
-        const txt   = c.text  || '#ccc';
-        const traces = [{
-            x: generations.map(g => g.genNum), y: generations.map(g => g.mf),
-            type: 'scatter', mode: 'lines+markers',
-            line: { color: '#42a5f5', width: 1.5 }, marker: { color: '#42a5f5', size: 5 },
-            name: 'MF',
-            hovertemplate: 'Gen %{x}<br>MF: %{y:.6f}<extra></extra>',
-        }];
-        const layout = {
-            margin: { l: 54, r: 8, t: 4, b: 30 },
-            paper_bgcolor: panel, plot_bgcolor: bg,
-            font: { color: txt, family: 'system-ui, sans-serif', size: 10 },
-            xaxis: { title: { text: 'Generation', standoff: 4 }, gridcolor: grid },
-            yaxis: { title: { text: 'MF', standoff: 4 }, gridcolor: grid, type: 'log',
-                tickformat: '.0e', exponentformat: 'e', hoverformat: '.6f', dtick: 'D2' },
-            showlegend: false,
-        };
-        return { traces, layout };
-    };
-    return h(PlotlyChart, {
-        build, hasData: generations.length > 0, empty: emptyMsg,
-        deps: [generations, theme], c,
-    });
-}
-
-// ── Control bar ───────────────────────────────────────────────────────────────
-
-// Optimize + eval badges come from the shared SurfaceModeBar module so every
-// optimizer window shows the same indicator.
-
-function ControlBar({ running, phase, generation, layerCount, mf, mfBest, omf, omfBest, canReset, onRun, onStop, onReset, onResetSide, onBest, statusMsg, design, t, c }) {
-    const tn = t.needle;
-    const btn = (label, color, onClick, disabled = false) =>
-        h('button', {
-            onClick, disabled,
-            style: {
-                padding: '3px 12px', fontSize: 12, border: 'none', borderRadius: 3,
-                background: disabled ? c.border : color,
-                color: disabled ? c.textDim : '#fff',
-                cursor: disabled ? 'default' : 'pointer',
-                fontWeight: 600, fontFamily: 'inherit', opacity: disabled ? 0.5 : 1,
-            }
-        }, label);
-    const smallBtn = (label, onClick, disabled = false) =>
-        h('button', {
-            onClick, disabled,
-            style: {
-                padding: '2px 8px', fontSize: 11, borderRadius: 3,
-                background: 'transparent', color: disabled ? c.textDim : c.text,
-                border: `1px solid ${c.border}`,
-                cursor: disabled ? 'default' : 'pointer',
-                fontFamily: 'inherit', opacity: disabled ? 0.5 : 1,
-            }
-        }, label);
-
-    const isBothInd = (design?.surfaceMode || 'front_only') === 'both_independent';
-
-    return h('div', {
-        style: {
-            display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: 6,
-            padding: '5px 8px', borderBottom: `1px solid ${c.border}`,
-            background: c.panel, flexShrink: 0,
-        }
-    },
-        running
-            ? btn(`■ ${tn.stop}`,  '#ef5350', onStop)
-            : btn(`▶ ${tn.run}`,   c.success, onRun),
-        btn(tn.reset, '#5c6bc0', onReset, !canReset),
-        // Per-side resets in both_independent: restore one side from the saved
-        // snapshot and drop just that side's generations, keep the other side
-        // (and its timeline) untouched.
-        isBothInd && smallBtn('↺ Front', () => onResetSide && onResetSide('front'), !canReset),
-        isBothInd && smallBtn('↺ Back',  () => onResetSide && onResetSide('back'),  !canReset),
-        btn(tn.best,  '#0288d1', onBest,  !canReset),
-        // What's being optimized + what's evaluated (matches Refinement / GE).
-        h('span', { style: { marginLeft: 6, display: 'inline-flex', alignItems: 'center', gap: 4 } },
-            h(OptimizeBadge, { design, c, t }),
-            h(EvalModeBadge, { design, c, t }),
-        ),
-        h('div', { style: { flex: 1 } }),
-        h('span', { style: { fontSize: 11, color: c.textDim } },
-            `${tn.genLabel} `,
-            h('b', { style: { color: c.text } }, generation),
-            `  ${tn.layersLabel} `,
-            h('b', { style: { color: c.text } }, layerCount),
-            mf != null && `  ${tn.mfLabel} `,
-            mf != null && h('b', { style: { color: c.text } }, mf.toFixed(6)),
-            mf != null && mfBest != null && mfBest < mf - 1e-9 && ` ${tn.bestLabel} `,
-            mf != null && mfBest != null && mfBest < mf - 1e-9 &&
-                h('span', { style: { color: c.success } }, mfBest.toFixed(6)),
-        ),
-        statusMsg && h('span', {
-            style: statusMsg === tn.noOperands
-                ? { ...WARN_BADGE_STYLE, marginLeft: 10 }
-                : {
-                    fontSize: 11, marginLeft: 10,
-                    color: phase === 'idle' ? c.textDim : (c.accent || '#ffa726'),
-                    fontStyle: 'italic',
-                }
-        }, statusMsg)
-    );
-}
-
-// ── Material pool + settings left sidebar ─────────────────────────────────────
-
-function LeftSidebar({ catalogs, selectedCats, onToggleCat, onSelectAllCats, onClearCats,
-                       excludedMats, onToggleMat,
-                       maxLayers, deltaNm, dlsIter, dMin, targetMF,
-                       maxMNT, onMaxLayers, onDeltaNm, onDlsIter, onDMin, onTargetMF, running, c, t }) {
-    const tn = t.needle;
-    const [advOpen, setAdvOpen] = useState(false);
-
-    const numRow = (label, value, onChange, min) =>
-        h('div', { style: { display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 3 } },
-            h('span', { style: { fontSize: 11, color: c.textDim } }, label),
-            h(DebouncedInput, {
-                value, disabled: running,
-                // Commit on blur/Enter; free editing (incl. empty) meanwhile.
-                onChange: (str) => onChange(parseNumber(str)),
-                style: {
-                    width: 58, padding: '1px 4px', fontSize: 11, textAlign: 'right',
-                    background: c.bg, color: c.text,
-                    border: `1px solid ${c.border}`, borderRadius: 2,
-                    opacity: running ? 0.5 : 1,
-                }
-            })
-        );
-
-    const selRow = (label, getVal, setVal, options) =>
-        h('div', { style: { marginBottom: 6 } },
-            h('div', { style: { fontSize: 11, color: c.textDim, marginBottom: 2 } }, label),
-            h('select', {
-                defaultValue: getVal(), disabled: running,
-                onChange: e => setVal(e.target.value),
-                style: {
-                    width: '100%', padding: '2px 4px', fontSize: 11,
-                    background: c.bg, color: c.text,
-                    border: `1px solid ${c.border}`, borderRadius: 2, opacity: running ? 0.5 : 1,
-                }
-            }, options.map(([v, lbl]) => h('option', { key: v, value: v }, lbl)))
-        );
-
-    // Uncontrolled checkbox row (defaultChecked, like selRow's defaultValue).
-    const chkRow = (label, getVal, setVal, title) =>
-        h('label', {
-            title,
-            style: {
-                display: 'flex', alignItems: 'center', gap: 6, marginBottom: 4,
-                cursor: running ? 'default' : 'pointer', fontSize: 11, color: c.text, userSelect: 'none',
-            }
-        },
-            h(Checkbox, {
-                c, defaultChecked: getVal(), disabled: running,
-                onChange: e => setVal(e.target.checked),
-            }),
-            h('span', null, label));
-
-    return h('div', {
-        style: {
-            width: 200, flexShrink: 0, borderRight: `1px solid ${c.border}`,
-            display: 'flex', flexDirection: 'column', background: c.panel, overflow: 'hidden'
-        }
-    },
-        // Material pool (shared component)
-        h(MaterialPoolPanel, {
-            catalogs, selectedCats, onToggleCat, onSelectAllCats, onClearCats,
-            excludedMats, onToggleMat, running, c,
-            labels: { materialPool: tn.materialPool, poolAll: tn.poolAll, poolClear: tn.poolClear },
-            warnLabel: t.pool.warn,
-        }),
-        // Settings — only the two everyday knobs stay visible; the rest +
-        // technical dropdowns live under Advanced.
-        h('div', { style: { padding: '6px 8px', flexShrink: 0, overflow: 'auto' } },
-            h('div', {
-                style: { fontSize: 10, fontWeight: 700, color: c.textDim, textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 6 }
-            }, tn.settings),
-            numRow(tn.maxLayers, maxLayers, v => onMaxLayers(Math.max(1, Math.round(v))), 1),
-            numRow(tn.targetMF,  targetMF,  v => onTargetMF(Math.max(0, v)),               0),
-            // Min thickness is an everyday knob (needle/prune floor + MNT coupling).
-            numRow(tn.dMin,      dMin,      v => onDMin(Math.max(0.1, v)),     0.1),
-            (maxMNT > 0 && Math.abs(dMin - maxMNT) > 1e-6)
-                ? h('div', {
-                    style: { fontSize: 10, color: '#ffa726', marginTop: -1, marginBottom: 4, lineHeight: 1.3 }
-                  }, tn.mntHint(+maxMNT.toFixed(3)))
-                : null,
-            // Smart starting design: refine canonical AR seeds on the worker pool
-            // at run start, begin from the best (incl. current design).
-            chkRow(tn.smartSeed, () => getSynthesisSmartSeed('needle'), (v) => setSynthesisSmartSeed(v, 'needle'), tn.smartSeedHelp),
-
-            h('button', {
-                onClick: () => setAdvOpen(o => !o),
-                style: {
-                    marginTop: 8, width: '100%', textAlign: 'left',
-                    background: 'transparent', border: 'none', cursor: 'pointer',
-                    fontSize: 10, fontWeight: 700, color: c.textDim,
-                    textTransform: 'uppercase', letterSpacing: '0.05em', padding: 0,
-                }
-            }, `${advOpen ? '▾' : '▸'} ${tn.advanced}`),
-            advOpen && h('div', { style: { marginTop: 6 } },
-                numRow(tn.deltaNm,   deltaNm,   v => onDeltaNm(Math.max(0.05, v)), 0.05),
-                numRow(tn.dlsIter,   dlsIter,   v => onDlsIter(Math.max(1, Math.round(v))), 1),
-                selRow(t.settings.synthesisEngine, () => getSynthesisInnerEngine('needle'), (v) => setSynthesisInnerEngine('needle', v),
-                    [['cg', t.settings.synthEngineCG], ['dls', t.settings.synthEngineDLS],
-                     ['newton', t.settings.synthEngineNewton], ['newton-cg', t.settings.synthEngineNewtonCG],
-                     ['sqp', t.settings.synthEngineSQP]]),
-                selRow(t.settings.synthCandSearch, getSynthesisCandMode, setSynthesisCandMode,
-                    [['fast', t.settings.synthCandFast], ['balanced', t.settings.synthCandBalanced], ['thorough', t.settings.synthCandThorough]]),
-                selRow(t.settings.needleSens, getNeedleSensMode, setNeedleSensMode,
-                    [['off', t.settings.needleSensOff], ['light', t.settings.needleSensLight], ['medium', t.settings.needleSensMedium], ['aggressive', t.settings.needleSensAggressive]]),
-                selRow(t.settings.threads, () => String(getThreadCount()), (v) => setThreadCount(parseInt(v, 10)), threadSelectOptions(t)),
-                // (No seed-mode here — preserve-bulk is a GE-only lever.)
-            )
-        )
-    );
-}
-
-// ── Generations table ─────────────────────────────────────────────────────────
-
-function GenerationsTable({ generations, bestMF, onRestore, showSide, c, t }) {
-    const tn = t.needle;
-    return h(SynthesisHistoryTable, {
-        rows: generations, bestMF, onRestore, showSide, c,
-        labels: {
-            noGens: tn.noGens, genCol: tn.genCol, layersCol: tn.layersCol,
-            mfCol: tn.mfCol, omfCol: tn.omfCol, totCol: tn.totCol, timeCol: tn.timeCol,
-            dMFCol: tn.dMFCol, matCol: tn.matCol, restore: tn.restore,
-        },
-    });
-}
-
-// ── Top designs (Pareto front) panel ─────────────────────────────────────────
-function TopDesignsPanel({ topDesigns, bestMF, onRestore, c, t }) {
-    return h(SharedTopDesignsPanel, {
-        topDesigns, bestMF, onRestore, c, genPrefix: 'Gen ',
-        labels: { topDesigns: t.needle.topDesigns, restore: t.needle.restore },
-    });
-}
 
 // ── Main NeedleVariation window ───────────────────────────────────────────────
 
@@ -1274,73 +1025,30 @@ export function NeedleVariation({ c, theme, t }) {
     // reset is exposed in the ControlBar instead of a filter tab.
     const showSideCol = (design?.surfaceMode || 'front_only') === 'both_independent';
 
-    return h('div', {
-        style: {
-            display: 'flex', flexDirection: 'column', height: '100%',
-            background: c.bg, color: c.text,
-            fontFamily: 'system-ui, -apple-system, sans-serif', overflow: 'hidden',
-        }
-    },
-        h(ControlBar, {
-            running, phase, generation, layerCount, mf, mfBest, omf, omfBest, canReset,
+    return h(SynthesisShell, {
+        c, trendLabel: tn.mfTrend, tableLabel: tn.generations,
+        controlBar: h(ControlBar, {
+            running, phase, generation, layerCount, mf, mfBest, canReset,
             onRun: runOpt, onStop: () => stopOpt(''),
             onReset: () => resetOpt(),
             onResetSide: (sd) => resetOpt(sd),
             onBest: bestOpt,
             statusMsg, design, t, c,
         }),
-
-        h('div', { style: { flex: 1, display: 'flex', overflow: 'hidden', minHeight: 0 } },
-            h(LeftSidebar, {
-                catalogs, selectedCats, onToggleCat: handleToggleCat,
-                onSelectAllCats: handleSelectAllCats, onClearCats: handleClearCats,
-                excludedMats, onToggleMat: handleToggleMat,
-                maxLayers, deltaNm, dMin, dlsIter, targetMF, maxMNT,
-                onMaxLayers: setMaxLayers, onDeltaNm: setDeltaNm, onDMin: handleDMin, onDlsIter: setDlsIter,
-                onTargetMF: setTargetMF,
-                running, c, t,
-            }),
-
-            // Right content: MF trend + generations table
-            h('div', { style: { flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden' } },
-                // MF trend (upper 40%)
-                h('div', {
-                    style: {
-                        flex: '0 0 40%', borderBottom: `1px solid ${c.border}`,
-                        display: 'flex', flexDirection: 'column', overflow: 'hidden',
-                    }
-                },
-                    h('div', {
-                        style: {
-                            padding: '3px 8px', fontSize: 10, fontWeight: 700,
-                            color: c.textDim, textTransform: 'uppercase', letterSpacing: '0.05em',
-                            borderBottom: `1px solid ${c.border}`, flexShrink: 0,
-                        }
-                    }, tn.mfTrend),
-                    h('div', { style: { flex: 1, overflow: 'hidden', position: 'relative' } },
-                        h(MFTrendChart, { generations, c, theme, emptyMsg: tn.noTrendYet })
-                    )
-                ),
-
-                // Generations table (lower 60%)
-                h('div', {
-                    style: { flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden' }
-                },
-                    h('div', {
-                        style: {
-                            padding: '3px 8px', fontSize: 10, fontWeight: 700,
-                            color: c.textDim, textTransform: 'uppercase', letterSpacing: '0.05em',
-                            borderBottom: `1px solid ${c.border}`, flexShrink: 0,
-                        }
-                    }, tn.generations),
-                    h(GenerationsTable, {
-                        generations, bestMF: bestMFVal,
-                        onRestore: handleRestore, showSide: showSideCol, c, t
-                    })
-                )
-            )
-        ),
-
-        h(TopDesignsPanel, { topDesigns, bestMF: bestMFVal, onRestore: handleRestore, c, t })
-    );
+        sidebar: h(LeftSidebar, {
+            catalogs, selectedCats, onToggleCat: handleToggleCat,
+            onSelectAllCats: handleSelectAllCats, onClearCats: handleClearCats,
+            excludedMats, onToggleMat: handleToggleMat,
+            maxLayers, deltaNm, dMin, dlsIter, targetMF, maxMNT,
+            onMaxLayers: setMaxLayers, onDeltaNm: setDeltaNm, onDMin: handleDMin, onDlsIter: setDlsIter,
+            onTargetMF: setTargetMF,
+            running, c, t,
+        }),
+        trend: h(MFTrendChart, { generations, c, theme, emptyMsg: tn.noTrendYet }),
+        table: h(GenerationsTable, {
+            generations, bestMF: bestMFVal,
+            onRestore: handleRestore, showSide: showSideCol, c, t
+        }),
+        topDesigns: h(TopDesignsPanel, { topDesigns, bestMF: bestMFVal, onRestore: handleRestore, c, t }),
+    });
 }
