@@ -17,11 +17,7 @@ import { useDesign } from '../../../state/DesignContext.js';
 import { getMaterialById, getCatalogs } from '../../../utils/materials/catalogManager.js';
 import { getMaterial } from '../../../utils/materials/materialDatabase.js';
 import {
-    DLSOptimizer, scanNeedlesPFunction, findOptimalNeedleThickness,
-    insertNeedle, insertNeedleIntra, cleanupLayers,
-    requiredLambdas, collectDesignMaterialIds, buildPresampledTable,
-    resolveScanSide, isConstraint,
-    densifyOperandsForFeatures, ADAPTIVE_SAMPLING_DEFAULTS,
+    requiredLambdas, collectDesignMaterialIds, buildPresampledTable, isConstraint,
 } from '../../../utils/physics/optimizer.js';
 
 // Shared synthesis helpers (see synthesisHelpers.js).
@@ -34,7 +30,6 @@ import {
     computePareto, getPoolMaterials as getPoolMaterialsShared,
 } from './synthesisHelpers.js';
 import { WorkerPool } from '../../../utils/workers/workerPool.js';
-import { makeEngine } from '../../../utils/optimizers/index.js';
 import {
     getSynthesisInnerEngine, getSynthesisMaxBatches,
     getSynthesisSmartSeed, getNeedleSensFloor, cullMarginalNeedles,
@@ -49,6 +44,7 @@ const { createElement: h, useState, useEffect, useRef, useCallback, useMemo } = 
 
 // Presentational panels (control bar, sidebar, tables, MF-trend chart).
 import { SynthesisShell } from './synthesisShell.js';
+import { runNeedleMainThread } from './needleEngine.js';
 import {
     MFTrendChart, ControlBar, LeftSidebar, GenerationsTable, TopDesignsPanel,
 } from './needlePanels.js';
@@ -285,268 +281,20 @@ export function NeedleVariation({ c, theme, t }) {
     }, [getDesignRevision]);
 
     // Main-thread fallback (used only if the synthesis worker fails before any
-    // progress). Identical math; blocks the UI thread, so it is the fallback,
-    // not the default.
+    // progress). Identical math to the worker path; blocks the UI thread, so it
+    // is the fallback, not the default. The loop lives in needleEngine.js and
+    // reaches React state through this ctx bundle of refs + setters + helpers.
     const runOptMainThread = useCallback(() => {
-        if (runningRef.current) return;
-        reconcileBaseWithEdits();
-
-        const curDes  = baseDesignRef.current || designRef.current;
-        // Synthesis is unconstrained — match runOpt (worker-pool path).
-        const enabled = operandsRef.current.filter(op => op.enabled);
-        const operands = densifyForRun(enabled.filter(op => !isConstraint(op.type)), curDes);
-        if (!curDes || operands.length === 0) return;
-        const innerEngine = getSynthesisInnerEngine('needle');   // Needle default 'cg'
-        // Preserve-bulk is GE-only; Needle always full per-step refine.
-        const stepIterMax = () => dlsIterRef.current;
-
-        // Which layer array this run targets (forced by surfaceMode; for
-        // both_independent defaults to 'front'). insertNeedle handles symmetric
-        // mirroring automatically.
-        const side = activeSide(curDes);
-        const LK   = side === 'back' ? 'backLayers' : 'frontLayers';
-
-        // Snapshot on first run + one undo checkpoint for the whole synthesis
-        // run (per-iteration design writes below are transient previews).
-        if (!savedDesignRef.current) {
-            checkpointRef.current && checkpointRef.current();
-            savedDesignRef.current = { frontLayers: designRef.current.frontLayers, backLayers: designRef.current.backLayers };
-            baseDesignRef.current  = curDes;
-            setCanReset(true);
-        }
-
-        runningRef.current = true;
-        setPhase('scanning');
-
-        // ── Phase machine ───────────────────────────────────────────────────────
-        //  'scanning'  → needle scan → pick best → insert → create DLS → 'refining'
-        //  'refining'  → DLS.step() until converged → accept-or-revert → 'scanning'
-        //
-        // Keep-best / accept-or-revert (Sullivan & Dobrowolski 1996; Tikhonravov
-        // 1996): a needle is accepted only if it lowers the merit function after
-        // refinement, otherwise the design is reverted to the best so far and
-        // the run terminates (needle-optimal). Without an outer forced-TOT loop
-        // (that is GE's job), "no improvement" is the correct stop condition.
-        const best = { mf: Infinity, front: null };  // .front = active-side layers
-        const deepActive = d => JSON.parse(JSON.stringify(d[LK] || []));
-        const finalize = (msg) => {
-            if (best.front) {
-                baseDesignRef.current = { ...(baseDesignRef.current || {}), [LK]: JSON.parse(JSON.stringify(best.front)) };
-                updateDesignRef.current({ [LK]: JSON.parse(JSON.stringify(best.front)) }, { transient: true });
-                setMfBest(best.mf);
-                setLayerCount(best.front.length);
-            }
-            runningRef.current = false;
-            setPhase('idle');
-            setStatusMsg(msg);
-        };
-
-        // Candidate queue for the current scan (improving needles, best first).
-        // On a failed needle we try the next candidate; the design is declared
-        // needle-optimal only when the scan finds no improving needle OR every
-        // improving candidate fails after refinement.
-        let queue = [];
-        let qIdx  = 0;
-        let pool  = [];
-        const _prevElapsed = gensRef.current.length
-            ? (gensRef.current[gensRef.current.length - 1].tMs || 0) : 0;
-        const runT0 = performance.now() - _prevElapsed;
-
-        const revertToBest = () => {
-            baseDesignRef.current = { ...baseDesignRef.current, [LK]: JSON.parse(JSON.stringify(best.front)) };
-            // transient: this is a live synthesis preview, not a user commit —
-            // avoids an undo-history entry per rejected candidate AND keeps it
-            // from bumping the M12 user-edit revision mid-run.
-            updateDesignRef.current({ [LK]: JSON.parse(JSON.stringify(best.front)) }, { transient: true });
-        };
-
-        // Insert queue[idx] into the (reverted) best design at its optimal
-        // thickness (findOptimalNeedleThickness — golden-section MF minimum,
-        // Sullivan §3), then spin up DLS. → 'refining'.
-        const startCandidate = (idx) => {
-            revertToBest();
-            const cand = queue[idx];
-            cand._mat  = pool.find(p => p.id === cand.materialId)?.mat;
-
-            let dOpt = dMinRef.current;
-            try {
-                dOpt = findOptimalNeedleThickness({
-                    operands, design: baseDesignRef.current, resolveMat,
-                    candidate: cand, deltaNm: dMinRef.current, maxNm: 500, tol: 0.5, side,
-                });
-                if (!(dOpt >= dMinRef.current)) dOpt = dMinRef.current;
-            } catch (e) { dOpt = dMinRef.current; }
-
-            const posLabel = cand.intra
-                ? `layer${cand.layerK}_f${cand.frac.toFixed(2)}` : `gap${cand.pos}`;
-            console.log(`[Needle Insert #${idx + 1}/${queue.length}] ${cand.materialId} at ${posLabel} d=${dOpt.toFixed(1)}nm (ΔMF=${cand.dMF.toFixed(5)})`);
-
-            const newDesign = cand.intra
-                ? insertNeedleIntra(baseDesignRef.current, cand.layerK, cand.frac, cand.materialId, dOpt, side)
-                : insertNeedle(baseDesignRef.current, cand.pos, cand.materialId, dOpt, side);
-            baseDesignRef.current = newDesign;
-            updateDesignRef.current({ [LK]: newDesign[LK] }, { transient: true });
-
-            try {
-                dlsRef.current      = makeEngine(innerEngine, operands, newDesign, resolveMat, { dMin: dMinRef.current });
-                lastBestRef.current = cand;
-            } catch (err) {
-                console.error('[Needle] DLS init failed:', err);
-                dlsRef.current = null;
-                finalize('DLS init failed');
-                return;
-            }
-            setPhase('refining');
-            setStatusMsg('Refining…');
-            timerRef.current = setTimeout(tick, 0);
-        };
-
-        const tick = () => {
-            if (!runningRef.current) return;
-
-            const phase = dlsRef.current ? 'refining' : 'scanning';
-
-            if (phase === 'scanning') {
-                const layers     = baseDesignRef.current[LK] || [];
-                const layerCount = layers.length;
-
-                if (layerCount >= maxLayersRef.current) {
-                    console.log(`[Needle] Max layers reached (${layerCount}) — restoring best`);
-                    finalize('Max layers reached');
-                    return;
-                }
-
-                pool = getPoolMaterials(selectedCatsRef.current, excludedMatsRef.current);
-                if (!pool.length) {
-                    runningRef.current = false;
-                    setPhase('idle');
-                    setStatusMsg('No candidate materials');
-                    return;
-                }
-
-                console.log(`[Needle Scan] layers=${layerCount} pool=[${pool.map(p => p.name).join(', ')}]`);
-                setPhase('scanning');
-                setStatusMsg('Scanning needles…');
-
-                const { candidates, mf0 } = scanNeedlesPFunction({
-                    operands,
-                    design: baseDesignRef.current,
-                    resolveMat,
-                    candidateMats: pool,
-                    deltaNm: deltaNmRef.current,
-                    side,
-                });
-
-                // First scan establishes the baseline best (current design).
-                if (best.front === null) {
-                    best.mf    = mf0;
-                    best.front = deepActive(baseDesignRef.current);
-                    setMfBest(mf0);
-                }
-
-                // All improving needles, best (most negative ΔMF) first, then cull
-                // the marginal tail (H1 — needle sensitivity; no-op when 'off').
-                queue = cullMarginalNeedles(
-                    candidates.filter(c => c.dMF < 0).sort((a, b) => a.dMF - b.dMF),
-                    getNeedleSensFloor());
-                qIdx  = 0;
-
-                if (queue.length === 0) {
-                    console.log('[Needle Scan] No improving needle — needle-optimal, restoring best');
-                    finalize('Needle-optimal (no improving needle)');
-                    return;
-                }
-                startCandidate(0);
-
-            } else {
-                // 'refining' — DLS step
-                const dls = dlsRef.current;
-                if (!dls) { dlsRef.current = null; timerRef.current = setTimeout(tick, 0); return; }
-
-                dls.step();
-                setMf(dls.mf);
-                setOmf(dls.mfOpticalAt(dls.thicknesses));
-                setLayerCount(dls.thicknesses.length);
-
-                const converged = dls.isConverged() || dls.iter >= stepIterMax();
-                if (!converged) {
-                    timerRef.current = setTimeout(tick, 0);
-                    return;
-                }
-
-                // DLS done — prune thin layers (on the active side)
-                const preDesign    = dls.applyToDesign(baseDesignRef.current);
-                const prunedLayers = cleanupLayers(preDesign[LK] || [], dMinRef.current);
-                const prunedDesign = { ...preDesign, [LK]: prunedLayers };
-                const mfAfter      = dls.mf;
-                console.log(`[Needle DLS] ${dls.iter} iters, MF=${mfAfter.toFixed(6)} layers=${prunedLayers.length}`);
-
-                if (!(mfAfter < best.mf - 1e-9)) {
-                    // This needle didn't help → try the next-best candidate.
-                    dlsRef.current = null;
-                    qIdx += 1;
-                    if (qIdx < queue.length) {
-                        console.log(`[Needle] REJECT: MF=${mfAfter.toFixed(6)} ≥ best=${best.mf.toFixed(6)} → try next candidate (${qIdx + 1}/${queue.length})`);
-                        startCandidate(qIdx);
-                        return;
-                    }
-                    console.log(`[Needle] All ${queue.length} improving candidates failed → needle-optimal, restoring best`);
-                    finalize('Needle-optimal (all candidates exhausted)');
-                    return;
-                }
-
-                // Accept: new global best.
-                best.mf    = mfAfter;
-                best.front = JSON.parse(JSON.stringify(prunedLayers));
-                baseDesignRef.current = prunedDesign;
-                updateDesignRef.current({ [LK]: prunedLayers }, { transient: true });
-
-                // Record generation
-                genCountRef.current += 1;
-                const genNum     = genCountRef.current;
-                const prevBestMF = gensRef.current.length ? Math.min(...gensRef.current.map(g => g.mf)) : Infinity;
-                const dMF        = prevBestMF === Infinity ? null : mfAfter - prevBestMF;
-                const gen = {
-                    id:         Math.random().toString(36).slice(2),
-                    genNum,
-                    mf:         mfAfter,
-                    omf:        dls.mfOpticalAt(dls.thicknesses),
-                    dMF,
-                    layerCount: prunedLayers.length,
-                    tMs:        performance.now() - runT0,
-                    insertMat:  lastBestRef.current?.materialId ?? null,
-                    layers:     JSON.parse(JSON.stringify(prunedLayers)),
-                };
-                gensRef.current = [...gensRef.current, gen];
-                setGenerations(gensRef.current.slice());
-                setTopDesigns(computePareto(gensRef.current));
-                setGeneration(genNum);
-                setLayerCount(prunedLayers.length);
-                setMfBest(Math.min(...gensRef.current.map(g => g.mf)));
-                setOmf(gen.omf);
-                setOmfBest(minOmfOf(gensRef.current));
-
-                setCachedOptState(designRef.current?.id, {
-                    generations:  gensRef.current,
-                    savedDesign:  savedDesignRef.current,
-                    baseDesign:   baseDesignRef.current,
-                });
-
-                if (best.mf < targetMFRef.current) {
-                    console.log(`[Needle] Converged: MF=${best.mf.toFixed(6)} < target=${targetMFRef.current}`);
-                    finalize(`Converged MF=${best.mf.toFixed(6)}`); return;
-                }
-
-                // Next iteration: fresh scan on the improved design.
-                dlsRef.current = null;
-                setPhase('scanning');
-                setStatusMsg('');
-                timerRef.current = setTimeout(tick, 0);
-            }
-        };
-
-        timerRef.current = setTimeout(tick, 0);
-    }, []);
+        runNeedleMainThread({
+            runningRef, timerRef, dlsRef, baseDesignRef, savedDesignRef, designRef,
+            operandsRef, gensRef, genCountRef, lastBestRef,
+            maxLayersRef, deltaNmRef, dMinRef, dlsIterRef, targetMFRef,
+            selectedCatsRef, excludedMatsRef, updateDesignRef, checkpointRef,
+            setPhase, setStatusMsg, setMf, setMfBest, setOmf, setOmfBest,
+            setLayerCount, setCanReset, setGeneration, setGenerations, setTopDesigns,
+            reconcileBaseWithEdits, getPoolMaterials, setCachedOptState,
+        });
+    }, [reconcileBaseWithEdits]);
 
     // ── Worker-POOL run (default path) ─────────────────────────────────────────
     // Main thread orchestrates; a WorkerPool runs the heavy primitives:
