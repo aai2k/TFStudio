@@ -70,6 +70,48 @@ const OPTICAL_CURVES = [
   { key: 'A', color: '#2e7d32', label: 'A' },
 ];
 
+// Per-series dash pattern: solid for the first AOI, dashed for the rest.
+function seriesDash(si) {
+  return si === 0 ? null : (si === 1 ? '4 3' : '1 3');
+}
+
+// Chart series for the optical plot: one entry per enabled, present curve on
+// each spectrum series, with T/R/A percentages and an AOI-tagged label.
+function opticalChartSeries(sp, curves) {
+  const series = [];
+  sp.series.forEach((s, si) => {
+    const suffix = sp.series.length > 1 ? ` @${deg(s.theta)}°` : '';
+    OPTICAL_CURVES.filter(cv => curves.includes(cv.key)).forEach(cv => {
+      if (!s[cv.key]) return;
+      series.push({
+        x: sp.lambda, y: s[cv.key].map(v => v * 100),
+        color: cv.color, label: cv.label + suffix, dash: seriesDash(si),
+      });
+    });
+  });
+  return series;
+}
+
+// Sampled data table for the optical section (row count capped near 40).
+function opticalDataTable(sp, curves) {
+  const step = Math.max(1, Math.ceil(sp.lambda.length / 40)); // cap rows
+  const headers = ['λ (nm)'];
+  const cols = [];
+  sp.series.forEach((s) => {
+    const suffix = sp.series.length > 1 ? ` @${deg(s.theta)}°` : '';
+    OPTICAL_CURVES.filter(cv => curves.includes(cv.key)).forEach(cv => {
+      if (!s[cv.key]) return;
+      headers.push(cv.label + suffix);
+      cols.push(s[cv.key]);
+    });
+  });
+  const rows = [];
+  for (let i = 0; i < sp.lambda.length; i += step) {
+    rows.push([num(sp.lambda[i], 1), ...cols.map(arr => pct(arr[i], 3))]);
+  }
+  return table(headers, rows, { align: headers.map((_, i) => i === 0 ? '' : 'r') });
+}
+
 // ── Builders ─────────────────────────────────────────────────────────────────
 
 function buildDesignSummary({ data, opts, tr }) {
@@ -145,45 +187,15 @@ function buildOptical({ data, opts, tr }) {
   const L = tr || {};
   const o = opts || {};
   const curves = (o.curves && o.curves.length) ? o.curves : ['T', 'R'];
-  const series = [];
-  sp.series.forEach((s, si) => {
-    const suffix = sp.series.length > 1 ? ` @${deg(s.theta)}°` : '';
-    OPTICAL_CURVES.filter(cv => curves.includes(cv.key)).forEach(cv => {
-      if (!s[cv.key]) return;
-      series.push({
-        x: sp.lambda, y: s[cv.key].map(v => v * 100),
-        color: cv.color, label: cv.label + suffix,
-        dash: si === 0 ? null : (si === 1 ? '4 3' : '1 3'),
-      });
-    });
-  });
 
   const svg = lineChartSVG({
-    width: 720, height: 320, series,
+    width: 720, height: 320, series: opticalChartSeries(sp, curves),
     xLabel: tt(L, 'wavelengthNm', 'Wavelength (nm)'),
     yLabel: tt(L, 'percent', '(%)'),
     yMin: 0, yMax: 100,
   });
 
-  let dataTable = '';
-  if (o.includeTable) {
-    const step = Math.max(1, Math.ceil(sp.lambda.length / 40)); // cap rows
-    const headers = ['λ (nm)'];
-    const cols = [];
-    sp.series.forEach((s) => {
-      const suffix = sp.series.length > 1 ? ` @${deg(s.theta)}°` : '';
-      OPTICAL_CURVES.filter(cv => curves.includes(cv.key)).forEach(cv => {
-        if (!s[cv.key]) return;
-        headers.push(cv.label + suffix);
-        cols.push(s[cv.key]);
-      });
-    });
-    const rows = [];
-    for (let i = 0; i < sp.lambda.length; i += step) {
-      rows.push([num(sp.lambda[i], 1), ...cols.map(arr => pct(arr[i], 3))]);
-    }
-    dataTable = table(headers, rows, { align: headers.map((_, i) => i === 0 ? '' : 'r') });
-  }
+  const dataTable = o.includeTable ? opticalDataTable(sp, curves) : '';
 
   const cap = `<p class="tf-note">${escapeHtml(tt(L, 'aoi', 'AOI'))}: `
     + sp.series.map(s => `${deg(s.theta)}°`).join(', ')

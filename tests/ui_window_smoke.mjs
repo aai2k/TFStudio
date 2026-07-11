@@ -36,7 +36,7 @@ const REGISTRY = resolve(HERE, '../src/components/docking/windowRegistry.js');
 // ── Parse the registry's window imports: `import { Name } from '../windows/X.js'`
 function parseWindowImports() {
     const src = readFileSync(REGISTRY, 'utf8');
-    const re = /import\s*\{\s*([A-Za-z0-9_]+)\s*\}\s*from\s*'(\.\.\/windows\/[A-Za-z0-9_]+\.js)'/g;
+    const re = /import\s*\{\s*([A-Za-z0-9_]+)\s*\}\s*from\s*'(\.\.\/windows\/(?:[A-Za-z0-9_]+\/)*[A-Za-z0-9_]+\.js)'/g;
     const out = [];
     let m;
     while ((m = re.exec(src))) {

@@ -166,18 +166,26 @@ export function cloneInhomogeneity(inh) {
  * @param {object[]} interlayers  list of interlayer specs
  * @returns {{material:Object, thickness:number}[]}
  */
-export function expandLayersWithInterlayers(layers, mediumIn, mediumOut, interlayers) {
-    if (!Array.isArray(layers) || layers.length === 0) return layers || [];
-    if (!Array.isArray(interlayers) || interlayers.length === 0) return layers;
-
-    // Index by afterIndex for O(1) lookup. Later entries with the same index
-    // win — UI should not allow duplicates but we tolerate them.
+/**
+ * Index enabled, positive-thickness interlayer specs by afterIndex for O(1)
+ * lookup. Later entries with the same index win — the UI should not allow
+ * duplicates but we tolerate them.
+ */
+function indexInterlayersByAfter(interlayers) {
     const byIndex = new Map();
     for (const il of interlayers) {
         if (il.enabled === false) continue;
         if (!Number.isFinite(il.thickness) || il.thickness <= 0) continue;
         byIndex.set(il.afterIndex, il);
     }
+    return byIndex;
+}
+
+export function expandLayersWithInterlayers(layers, mediumIn, mediumOut, interlayers) {
+    if (!Array.isArray(layers) || layers.length === 0) return layers || [];
+    if (!Array.isArray(interlayers) || interlayers.length === 0) return layers;
+
+    const byIndex = indexInterlayersByAfter(interlayers);
     if (byIndex.size === 0) return layers;
 
     const out = [];
