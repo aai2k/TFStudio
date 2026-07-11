@@ -34,7 +34,7 @@ const REGISTRY = resolve(HERE, '../src/components/docking/windowRegistry.js');
 
 function parseWindowImports() {
     const src = readFileSync(REGISTRY, 'utf8');
-    const re = /import\s*\{\s*([A-Za-z0-9_]+)\s*\}\s*from\s*'(\.\.\/windows\/[A-Za-z0-9_]+\.js)'/g;
+    const re = /import\s*\{\s*([A-Za-z0-9_]+)\s*\}\s*from\s*'(\.\.\/windows\/(?:[A-Za-z0-9_]+\/)*[A-Za-z0-9_]+\.js)'/g;
     const out = [];
     let m;
     while ((m = re.exec(src))) out.push({ name: m[1], abs: resolve(dirname(REGISTRY), m[2]) });
@@ -45,9 +45,9 @@ function parseWindowImports() {
 // they aren't in the registry import scan — render them explicitly here. They
 // take { c, t, onClose }.
 const EXTRA_MODALS = [
-    { name: 'BBMWizard',          rel: '../windows/BBMWizard.js' },
-    { name: 'MonoWizard',         rel: '../windows/MonoWizard.js' },
-    { name: 'FilterDesignWizard', rel: '../windows/FilterDesignWizard.js' },
+    { name: 'BBMWizard',          rel: '../windows/simulation/BBMWizard.js' },
+    { name: 'MonoWizard',         rel: '../windows/simulation/MonoWizard.js' },
+    { name: 'FilterDesignWizard', rel: '../windows/optimization/FilterDesignWizard.js' },
 ];
 
 const noop = () => {};

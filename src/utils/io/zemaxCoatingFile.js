@@ -340,6 +340,22 @@ export function tfLayersToCoat(name, layers, opts) {
 
 // ── Serialisation ──────────────────────────────────────────────────────────────
 
+/**
+ * Produce a collision-free Zemax name for `orig` against the names already in
+ * `used`, appending _2, _3, … and truncating the 32-char base to make room for
+ * the suffix. The chosen name is added to `used`.
+ */
+function dedupeZemaxName(orig, used) {
+    const base = sanitizeZemaxName(orig);
+    let s = base, k = 2;
+    while (used.has(s)) {
+        const sfx = '_' + (k++);
+        s = (base.length + sfx.length > 32 ? base.slice(0, 32 - sfx.length) : base) + sfx;
+    }
+    used.add(s);
+    return s;
+}
+
 /** Format a number for the .dat file: trim, keep up to `sig` significant digits. */
 function fmt(x, sig = 8) {
     if (!Number.isFinite(x)) return '0';
@@ -377,13 +393,8 @@ export function generateZemaxCoating(doc) {
     const usedMat  = new Set();
     const uniqueMatName = (orig) => {
         if (matNames.has(orig)) return matNames.get(orig);
-        const base = sanitizeZemaxName(orig);
-        let s = base, k = 2;
-        while (usedMat.has(s)) {
-            const sfx = '_' + (k++);
-            s = (base.length + sfx.length > 32 ? base.slice(0, 32 - sfx.length) : base) + sfx;
-        }
-        usedMat.add(s); matNames.set(orig, s);
+        const s = dedupeZemaxName(orig, usedMat);
+        matNames.set(orig, s);
         return s;
     };
 
@@ -398,16 +409,7 @@ export function generateZemaxCoating(doc) {
 
     // Coatings (their names live in a separate namespace; dedupe those too).
     const usedCoat = new Set();
-    const uniqueCoatName = (orig) => {
-        const base = sanitizeZemaxName(orig);
-        let s = base, k = 2;
-        while (usedCoat.has(s)) {
-            const sfx = '_' + (k++);
-            s = (base.length + sfx.length > 32 ? base.slice(0, 32 - sfx.length) : base) + sfx;
-        }
-        usedCoat.add(s);
-        return s;
-    };
+    const uniqueCoatName = (orig) => dedupeZemaxName(orig, usedCoat);
     for (const c of (doc.coatings || [])) {
         lines.push(`COAT ${uniqueCoatName(c.name)}`);
         for (const L of (c.layers || []))

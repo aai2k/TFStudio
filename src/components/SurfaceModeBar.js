@@ -137,6 +137,36 @@ export function OptimizeBadge({ design, c, t, style }) {
  *                                         active-tab selection.
  * @param {object}   [props.style]
  */
+function surfaceOptionLabel(mb, k) {
+    return (mb.surface && mb.surface[k])
+        || { front_only: 'Front', back_only: 'Back', both: 'Both' }[k];
+}
+
+// Switching to Both keeps the existing symmetric flag if one was set, otherwise
+// defaults to independent.
+function handleSurfaceChange(v, { design, updateDesign, onModeChange, isSymmetric }) {
+    if (v === 'front') { applySurfaceMode(design, updateDesign, 'front_only'); onModeChange && onModeChange('front'); }
+    else if (v === 'back') { applySurfaceMode(design, updateDesign, 'back_only'); onModeChange && onModeChange('back'); }
+    else {
+        applySurfaceMode(design, updateDesign, isSymmetric ? 'symmetric' : 'both_independent');
+        onModeChange && onModeChange('front');
+    }
+}
+
+function ModeCheckbox({ c, checked, onChange, disabled, text, tip }) {
+    return h('label', {
+        title: tip,
+        style: {
+            display: 'inline-flex', alignItems: 'center', gap: 5,
+            cursor: disabled ? 'not-allowed' : 'pointer',
+            opacity: disabled ? 0.45 : 1,
+        },
+    },
+        h(Checkbox, { c, checked, onChange, disabled }),
+        h('span', { style: { whiteSpace: 'nowrap' } }, text),
+    );
+}
+
 export function SurfaceModeControl({ design, updateDesign, c, t, onModeChange, style }) {
     const mb = (t && t.modeBar) || {};
     const surfMode   = design?.surfaceMode || 'front_only';
@@ -161,40 +191,12 @@ export function SurfaceModeControl({ design, updateDesign, c, t, onModeChange, s
         flexShrink: 0, minWidth: 72,
     };
 
-    const surfOpt = (k) => (mb.surface && mb.surface[k])
-        || { front_only: 'Front', back_only: 'Back', both: 'Both' }[k];
-
-    const onSurface = (e) => {
-        const v = e.target.value;
-        if (v === 'front') { applySurfaceMode(design, updateDesign, 'front_only'); onModeChange && onModeChange('front'); }
-        else if (v === 'back') { applySurfaceMode(design, updateDesign, 'back_only'); onModeChange && onModeChange('back'); }
-        else {
-            // Switching to Both keeps the existing symmetric flag if one was set,
-            // otherwise defaults to independent.
-            applySurfaceMode(design, updateDesign, isSymmetric ? 'symmetric' : 'both_independent');
-            onModeChange && onModeChange('front');
-        }
-    };
-
-    const onSymmetric = (e) => {
-        applySurfaceMode(design, updateDesign, e.target.checked ? 'symmetric' : 'both_independent');
-    };
-
-    const onIgnore = (e) => {
-        updateDesign({ mfEvalMode: e.target.checked ? 'side' : 'total' });
-    };
-
-    const checkboxLabel = (checked, onChange, disabled, text, tip) => h('label', {
-        title: tip,
-        style: {
-            display: 'inline-flex', alignItems: 'center', gap: 5,
-            cursor: disabled ? 'not-allowed' : 'pointer',
-            opacity: disabled ? 0.45 : 1,
-        },
-    },
-        h(Checkbox, { c, checked, onChange, disabled }),
-        h('span', { style: { whiteSpace: 'nowrap' } }, text),
-    );
+    const surfOpt = (k) => surfaceOptionLabel(mb, k);
+    const onSurface   = (e) => handleSurfaceChange(e.target.value, { design, updateDesign, onModeChange, isSymmetric });
+    const onSymmetric = (e) => applySurfaceMode(design, updateDesign, e.target.checked ? 'symmetric' : 'both_independent');
+    const onIgnore    = (e) => updateDesign({ mfEvalMode: e.target.checked ? 'side' : 'total' });
+    const checkboxLabel = (checked, onChange, disabled, text, tip) =>
+        h(ModeCheckbox, { c, checked, onChange, disabled, text, tip });
 
     return h('div', { style: container },
         // Surface dropdown
