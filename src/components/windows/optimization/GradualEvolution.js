@@ -198,37 +198,6 @@ function ControlBar({ running, generation, layerCount, mf, mfBest, omf, omfBest,
     );
 }
 
-function _unused_SideTabs({ viewSide, onChange, gens, c }) {
-    const counts = {
-        all:   gens.length,
-        front: gens.filter(g => g.side === 'front').length,
-        back:  gens.filter(g => g.side === 'back').length,
-    };
-    const tab = (id, label) => {
-        const active = viewSide === id;
-        return h('button', {
-            onClick: () => onChange(id),
-            style: {
-                padding: '2px 10px', fontSize: 11,
-                border: 'none', borderBottom: `2px solid ${active ? (c.accent || '#ffa726') : 'transparent'}`,
-                background: 'transparent', color: active ? c.text : c.textDim,
-                cursor: 'pointer', fontFamily: 'inherit',
-                fontWeight: active ? 700 : 500,
-            }
-        }, `${label} · ${counts[id]}`);
-    };
-    return h('div', {
-        style: {
-            display: 'flex', gap: 4, padding: '0 8px',
-            borderBottom: `1px solid ${c.border}`, background: c.panel, flexShrink: 0,
-        }
-    },
-        tab('all',   'All'),
-        tab('front', 'Front'),
-        tab('back',  'Back'),
-    );
-}
-
 // ── Left sidebar ──────────────────────────────────────────────────────────────
 
 function LeftSidebar({ catalogs, selectedCats, onToggleCat, onSelectAllCats, onClearCats,

@@ -29,53 +29,11 @@ import {
 } from '../physics/optimizer.js';
 import { makeEngine } from '../optimizers/index.js';
 import { noteTmmWasmBytes, awaitTmmWasmReady } from './tmmWasm.js';
+import { makeResolveMat } from './resolveMat.js';
 
 const POST_MS = 80;
 const now = (typeof performance !== 'undefined' && performance.now)
     ? () => performance.now() : () => Date.now();
-
-function makeResolveMat(materials) {
-    const cache = new Map();
-    let missReported = false;
-    function build(id) {
-        const entry = materials[id] || materials['Air'] || null;
-        const map = new Map();
-        let sortedL = null, sortedNK = null;
-        if (entry && entry.lambdas) {
-            const { lambdas, n, k } = entry;
-            for (let i = 0; i < lambdas.length; i++) map.set(lambdas[i], [n[i], k[i]]);
-            const idx = lambdas.map((_, i) => i).sort((a, b) => lambdas[a] - lambdas[b]);
-            sortedL  = idx.map(i => lambdas[i]);
-            sortedNK = idx.map(i => [n[i], k[i]]);
-        }
-        return {
-            _wkrMat: true,
-            getNK(lam) {
-                const v = map.get(lam);
-                if (v !== undefined) return v;
-                if (!sortedL || sortedL.length === 0) return [1, 0];
-                if (!missReported) {
-                    missReported = true;
-                    postMessage({ type: 'warn', message:
-                        `synthesisWorker: λ ${lam} not pre-sampled for "${id}" — nearest-λ fallback` });
-                }
-                let lo = 0, hi = sortedL.length - 1;
-                while (hi - lo > 1) {
-                    const mid = (lo + hi) >> 1;
-                    if (sortedL[mid] < lam) lo = mid; else hi = mid;
-                }
-                return (Math.abs(sortedL[lo] - lam) <= Math.abs(sortedL[hi] - lam))
-                    ? sortedNK[lo] : sortedNK[hi];
-            },
-        };
-    }
-    return function resolveMat(id) {
-        const key = (id == null || id === '') ? 'Air' : id;
-        let s = cache.get(key);
-        if (!s) { s = build(key); cache.set(key, s); }
-        return s;
-    };
-}
 
 // Pick the layer array (front or back) that the synthesis is targeting.
 // Surface-mode forces apply: front_only/symmetric → 'front'; back_only → 'back'.
@@ -300,7 +258,7 @@ onmessage = async (e) => {
     if (job.type === 'wasmInit') { noteTmmWasmBytes(job.wasmBytes); return; }
     try {
         await awaitTmmWasmReady();
-        const resolveMat = makeResolveMat(job.materials || {});
+        const resolveMat = makeResolveMat(job.materials || {}, 'synthesisWorker');
         switch (job.type) {
             case 'scan':       handleScan(job, resolveMat);       break;
             case 'candidate':  handleCandidate(job, resolveMat);  break;

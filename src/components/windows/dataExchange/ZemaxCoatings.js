@@ -340,6 +340,87 @@ const COAT_TYPE_LABEL = (z, type) => ({
     table: z.typeTable, encrypted: z.typeEncrypted,
 }[type] || type);
 
+// Real refractive index of a parsed MATE material at refNm (linear interp on its
+// n-points; clamped at the range ends). Returns null if the material has no data.
+function mateRealIndexAt(mat, refNm) {
+    if (!mat || !mat.points.length) return null;
+    const pts = mat.points;
+    const lamUm = refNm / 1000;
+    if (lamUm <= pts[0][0]) return pts[0][1];
+    if (lamUm >= pts[pts.length - 1][0]) return pts[pts.length - 1][1];
+    let lo = 0, hi = pts.length - 1;
+    while (hi - lo > 1) { const mid = (lo + hi) >> 1; if (pts[mid][0] <= lamUm) lo = mid; else hi = mid; }
+    const f = (lamUm - pts[lo][0]) / (pts[hi][0] - pts[lo][0]);
+    return pts[lo][1] + f * (pts[hi][1] - pts[lo][1]);
+}
+
+// Physical thickness (nm) of a parsed COAT layer; relative thickness d=T·λ₀/n₀
+// resolves n₀ from the matching MATE material. NaN if n₀ is unavailable.
+function coatLayerThkNm(L, matsByName, refNm) {
+    if (L.isAbsolute) return L.thickness * 1000;
+    const n0 = mateRealIndexAt(matsByName[L.material.toUpperCase()], refNm);
+    return n0 > 0 ? (L.thickness * (refNm / 1000) / n0) * 1000 : NaN;
+}
+
+// A single row in the left-hand coating list. Non-layer records are shown locked.
+function coatingListRow(co, i, { c, z, selCoating, setSelCoating }) {
+    const importable = co.type === 'layers';
+    return h('tr', {
+        key: i,
+        onClick: importable ? () => setSelCoating(i) : undefined,
+        title: importable ? co.name : z.notImportable,
+        style: {
+            cursor: importable ? 'pointer' : 'default',
+            opacity: importable ? 1 : 0.5,
+            background: i === selCoating ? c.accent + '22' : 'transparent',
+        },
+    },
+        h('td', { style: { ...td(c), display: 'flex', alignItems: 'center', gap: 5 } },
+            importable ? null : h('span', { style: { display: 'inline-flex', color: c.textDim }, title: z.notImportable }, h(LockIcon, { locked: true, size: 11 })),
+            h('span', null, co.name || '—'),
+        ),
+        h('td', { style: { ...td(c), color: c.textDim } }, COAT_TYPE_LABEL(z, co.type)),
+        h('td', { style: { ...td(c), textAlign: 'right', color: c.textDim } }, importable ? co.layers.length : ''),
+    );
+}
+
+// A single row in the selected-coating layer table.
+function coatingLayerRow(L, i, { c, z, matsByName, refNm }) {
+    const thk = coatLayerThkNm(L, matsByName, refNm);
+    return h('tr', { key: i },
+        h('td', { style: { ...td(c), color: c.textDim } }, i + 1),
+        h('td', { style: td(c) }, L.material),
+        h('td', { style: { ...td(c), textAlign: 'right', fontVariantNumeric: 'tabular-nums' } },
+            Number.isFinite(thk) ? `${thk.toFixed(2)} nm` : '—'),
+        h('td', { style: { ...td(c), color: c.textDim } },
+            L.isAbsolute ? `${L.thickness} ${z.modeAbs}` : `${L.thickness} ${z.modeRel}`),
+    );
+}
+
+// Right-hand detail pane for the currently selected coating.
+function coatingDetail(sel, { c, z, matsByName, refNm, importCoating }) {
+    if (!sel) return h('div', { style: { color: c.textDim, fontSize: 12, padding: 12 } }, z.selectCoating);
+    if (sel.type !== 'layers') return h('div', { style: { color: c.textDim, fontSize: 12, padding: 12 } }, z.importNotStack);
+    return [
+        h('div', { key: 'h', style: { display: 'flex', alignItems: 'center', gap: 10 } },
+            h('div', { style: { fontWeight: 600, fontSize: 12 } }, sel.name),
+            h('div', { style: { flex: 1 } }),
+            h(Btn, { onClick: importCoating, c, primary: true }, z.importToFront),
+        ),
+        h('div', { key: 'lh', style: { fontSize: 10, color: c.textDim, textTransform: 'uppercase', letterSpacing: '0.4px' } }, z.layersHeader),
+        h('table', { key: 'lt', style: { width: '100%', borderCollapse: 'collapse' } },
+            h('thead', null, h('tr', null,
+                h('th', { style: { ...th(c), width: 30 } }, '#'),
+                h('th', { style: th(c) }, z.colMaterial),
+                h('th', { style: { ...th(c), textAlign: 'right' } }, z.colThickness),
+                h('th', { style: th(c) }, z.colMode),
+            )),
+            h('tbody', null, sel.layers.map((L, i) => coatingLayerRow(L, i, { c, z, matsByName, refNm }))),
+        ),
+        h('div', { key: 'note', style: { fontSize: 10.5, color: c.textDim, marginTop: 4 } }, z.importNotStack),
+    ];
+}
+
 function CoatingsTab({ c, z, doc, selCoating, setSelCoating, refNm, importCoating }) {
     if (!doc) return h('div', { style: { color: c.textDim, fontSize: 12, padding: 20, textAlign: 'center' } }, z.noFile);
     if (!doc.coatings.length) return h('div', { style: { color: c.textDim, fontSize: 12, padding: 20, textAlign: 'center' } }, z.noCoatings);
@@ -347,25 +428,6 @@ function CoatingsTab({ c, z, doc, selCoating, setSelCoating, refNm, importCoatin
     const sel = doc.coatings[selCoating];
     const matsByName = {};
     for (const mat of doc.materials) matsByName[mat.name.toUpperCase()] = mat;
-
-    // Preview physical thickness for the selected layer stack.
-    const realIndexOf = (zName) => {
-        const mat = matsByName[zName.toUpperCase()];
-        if (!mat || !mat.points.length) return null;
-        const pts = mat.points;
-        const lamUm = refNm / 1000;
-        if (lamUm <= pts[0][0]) return pts[0][1];
-        if (lamUm >= pts[pts.length - 1][0]) return pts[pts.length - 1][1];
-        let lo = 0, hi = pts.length - 1;
-        while (hi - lo > 1) { const mid = (lo + hi) >> 1; if (pts[mid][0] <= lamUm) lo = mid; else hi = mid; }
-        const f = (lamUm - pts[lo][0]) / (pts[hi][0] - pts[lo][0]);
-        return pts[lo][1] + f * (pts[hi][1] - pts[lo][1]);
-    };
-    const layerThkNm = (L) => {
-        if (L.isAbsolute) return L.thickness * 1000;
-        const n0 = realIndexOf(L.material);
-        return n0 > 0 ? (L.thickness * (refNm / 1000) / n0) * 1000 : NaN;
-    };
 
     return h('div', { style: { display: 'flex', gap: 12, height: '100%' } },
         // Left — coating list
@@ -376,59 +438,12 @@ function CoatingsTab({ c, z, doc, selCoating, setSelCoating, refNm, importCoatin
                     h('th', { style: th(c) }, z.colType),
                     h('th', { style: { ...th(c), textAlign: 'right' } }, z.colLayers),
                 )),
-                h('tbody', null, doc.coatings.map((co, i) => {
-                    const importable = co.type === 'layers';
-                    return h('tr', {
-                        key: i,
-                        onClick: importable ? () => setSelCoating(i) : undefined,
-                        title: importable ? co.name : z.notImportable,
-                        style: {
-                            cursor: importable ? 'pointer' : 'default',
-                            opacity: importable ? 1 : 0.5,
-                            background: i === selCoating ? c.accent + '22' : 'transparent',
-                        },
-                    },
-                        h('td', { style: { ...td(c), display: 'flex', alignItems: 'center', gap: 5 } },
-                            importable ? null : h('span', { style: { display: 'inline-flex', color: c.textDim }, title: z.notImportable }, h(LockIcon, { locked: true, size: 11 })),
-                            h('span', null, co.name || '—'),
-                        ),
-                        h('td', { style: { ...td(c), color: c.textDim } }, COAT_TYPE_LABEL(z, co.type)),
-                        h('td', { style: { ...td(c), textAlign: 'right', color: c.textDim } }, importable ? co.layers.length : ''),
-                    );
-                })),
+                h('tbody', null, doc.coatings.map((co, i) => coatingListRow(co, i, { c, z, selCoating, setSelCoating }))),
             ),
         ),
         // Right — selected coating detail
         h('div', { style: { flex: 1, overflow: 'auto', display: 'flex', flexDirection: 'column', gap: 8 } },
-            !sel ? h('div', { style: { color: c.textDim, fontSize: 12, padding: 12 } }, z.selectCoating)
-          : sel.type !== 'layers' ? h('div', { style: { color: c.textDim, fontSize: 12, padding: 12 } }, z.importNotStack)
-          : [
-                h('div', { key: 'h', style: { display: 'flex', alignItems: 'center', gap: 10 } },
-                    h('div', { style: { fontWeight: 600, fontSize: 12 } }, sel.name),
-                    h('div', { style: { flex: 1 } }),
-                    h(Btn, { onClick: importCoating, c, primary: true }, z.importToFront),
-                ),
-                h('div', { key: 'lh', style: { fontSize: 10, color: c.textDim, textTransform: 'uppercase', letterSpacing: '0.4px' } }, z.layersHeader),
-                h('table', { key: 'lt', style: { width: '100%', borderCollapse: 'collapse' } },
-                    h('thead', null, h('tr', null,
-                        h('th', { style: { ...th(c), width: 30 } }, '#'),
-                        h('th', { style: th(c) }, z.colMaterial),
-                        h('th', { style: { ...th(c), textAlign: 'right' } }, z.colThickness),
-                        h('th', { style: th(c) }, z.colMode),
-                    )),
-                    h('tbody', null, sel.layers.map((L, i) =>
-                        h('tr', { key: i },
-                            h('td', { style: { ...td(c), color: c.textDim } }, i + 1),
-                            h('td', { style: td(c) }, L.material),
-                            h('td', { style: { ...td(c), textAlign: 'right', fontVariantNumeric: 'tabular-nums' } },
-                                Number.isFinite(layerThkNm(L)) ? `${layerThkNm(L).toFixed(2)} nm` : '—'),
-                            h('td', { style: { ...td(c), color: c.textDim } },
-                                L.isAbsolute ? `${L.thickness} ${z.modeAbs}` : `${L.thickness} ${z.modeRel}`),
-                        ),
-                    )),
-                ),
-                h('div', { key: 'note', style: { fontSize: 10.5, color: c.textDim, marginTop: 4 } }, z.importNotStack),
-            ],
+            coatingDetail(sel, { c, z, matsByName, refNm, importCoating }),
         ),
     );
 }
