@@ -69,26 +69,6 @@ export const parseNumber = (value) => {
 };
 
 /**
- * Format a number for display in input fields
- * Preserves the user's input format (comma vs dot) when possible
- *
- * @param {number|string} value - The value to format
- * @returns {string} Formatted string
- */
-export const formatNumberForInput = (value) => {
-    if (typeof value === 'string') {
-        return value;
-    }
-
-    if (typeof value === 'number') {
-        if (!isFinite(value)) return '0';
-        return String(value);
-    }
-
-    return String(value);
-};
-
-/**
  * Validate if a string is a valid number input
  * Returns true if the input can be parsed as a valid number
  * Allows partial inputs during typing (e.g., "-", "1.", "1.2e-")

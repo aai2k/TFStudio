@@ -25,7 +25,7 @@ import { DesignEditor } from '../windows/design/DesignEditor.js';
 import { OpticalEvaluation } from '../windows/analysis/OpticalEvaluation.js';
 import { ColorEvaluation } from '../windows/analysis/ColorEvaluation.js';
 import { MaterialEditor } from '../windows/design/materialEditor/MaterialEditor.js';
-import { Refinement } from '../windows/optimization/Refinement.js';
+import { Refinement } from '../windows/optimization/refinement/Refinement.js';
 import { MeritFunctionEditor } from '../windows/optimization/MeritFunctionEditor.js';
 import { NeedleVariation } from '../windows/optimization/NeedleVariation.js';
 import { NeedleManual } from '../windows/optimization/NeedleManual.js';
