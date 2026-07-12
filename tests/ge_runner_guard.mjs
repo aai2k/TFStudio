@@ -1,6 +1,6 @@
 /**
  * Gradual-Evolution runner guard — before/after identity check for the GE run
- * engines in `components/windows/optimization/geRunners/`
+ * engines in `components/windows/optimization/gradualEvolution/runners/`
  * (runGeWorker + runGeMainThread).
  *
  * These engines are the RUN path (GE state machine + worker orchestration +
@@ -95,8 +95,8 @@ class MockWorker {
 globalThis.Worker = MockWorker;
 
 // Import engines + primitives AFTER the shim + mock Worker global are installed.
-const { runGeMainThread } = await import('../src/components/windows/optimization/geRunners/mainThread.js');
-const { runGeWorker }     = await import('../src/components/windows/optimization/geRunners/workerPool.js');
+const { runGeMainThread } = await import('../src/components/windows/optimization/gradualEvolution/runners/mainThread.js');
+const { runGeWorker }     = await import('../src/components/windows/optimization/gradualEvolution/runners/workerPool.js');
 const { makeOperand }     = await import('../src/utils/physics/optimizer.js');
 const { resolveMat }      = await import('../src/components/windows/optimization/synthesisHelpers.js');
 

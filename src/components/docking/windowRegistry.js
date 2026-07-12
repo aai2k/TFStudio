@@ -29,7 +29,7 @@ import { Refinement } from '../windows/optimization/refinement/Refinement.js';
 import { MeritFunctionEditor } from '../windows/optimization/MeritFunctionEditor.js';
 import { NeedleVariation } from '../windows/optimization/NeedleVariation.js';
 import { NeedleManual } from '../windows/optimization/NeedleManual.js';
-import { GradualEvolution } from '../windows/optimization/GradualEvolution.js';
+import { GradualEvolution } from '../windows/optimization/gradualEvolution/GradualEvolution.js';
 import { StructuralOptimizer } from '../windows/optimization/StructuralOptimizer.js';
 import { AdmittanceDiagram } from '../windows/analysis/AdmittanceDiagram.js';
 import { EFieldEvaluation } from '../windows/analysis/EFieldEvaluation.js';
