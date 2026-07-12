@@ -7,6 +7,7 @@ import { getMaterial } from '../../../../utils/materials/materialDatabase.js';
 import {
     requiredLambdas, collectDesignMaterialIds, mirrorLayers,
     densifyOperandsForFeatures, ADAPTIVE_SAMPLING_DEFAULTS,
+    buildEvalContext, evaluateOperands, calcMF, calcOMF,
 } from '../../../../utils/physics/optimizer.js';
 
 export function resolveMat(id) {
@@ -67,21 +68,40 @@ export function buildPayload(curDes) {
     };
 }
 
-// Perturb a payload's optimization-variable thicknesses (surface-mode aware),
-// for multi-start restarts. restart 0 = unperturbed.
-export function perturbPayload(payload, pct, restart) {
-    if (restart === 0) return payload;
-    const f = Math.max(0, pct) / 100;
+// Randomly perturb one layer array's unlocked thicknesses by ±(pct%), clamped
+// to the optimizer's absolute thickness bounds.
+function jitterLayers(arr, f) {
     const D_MIN = 1.0, D_MAX = 2000.0;
-    const jig = (arr) => (arr || []).map(l => {
+    return (arr || []).map(l => {
         if (l.locked) return { ...l };
         let tt = (l.thickness || 0) * (1 + f * (Math.random() * 2 - 1));
         if (tt < D_MIN) tt = D_MIN; if (tt > D_MAX) tt = D_MAX;
         return { ...l, thickness: tt };
     });
+}
+
+// Perturb a payload's optimization-variable thicknesses (surface-mode aware),
+// for multi-start restarts. restart 0 = unperturbed.
+export function perturbPayload(payload, pct, restart) {
+    if (restart === 0) return payload;
+    const f = Math.max(0, pct) / 100;
     const sm = payload.surfaceMode;
-    if (sm === 'both_independent') return { ...payload, frontLayers: jig(payload.frontLayers), backLayers: jig(payload.backLayers) };
-    if (sm === 'back_only')        return { ...payload, backLayers: jig(payload.backLayers) };
-    if (sm === 'symmetric')        { const fr = jig(payload.frontLayers); return { ...payload, frontLayers: fr, backLayers: mirrorLayers(fr) }; }
-    return { ...payload, frontLayers: jig(payload.frontLayers) };
+    if (sm === 'both_independent') return { ...payload, frontLayers: jitterLayers(payload.frontLayers, f), backLayers: jitterLayers(payload.backLayers, f) };
+    if (sm === 'back_only')        return { ...payload, backLayers: jitterLayers(payload.backLayers, f) };
+    if (sm === 'symmetric')        { const fr = jitterLayers(payload.frontLayers, f); return { ...payload, frontLayers: fr, backLayers: mirrorLayers(fr) }; }
+    return { ...payload, frontLayers: jitterLayers(payload.frontLayers, f) };
+}
+
+// Merit-table display evaluation (used only when NOT optimizing). Returns
+// { computed, mf, omf }, or null if evaluation throws (leaves prior display
+// untouched). Empty/absent design → cleared display.
+export function computeOperandDisplay(design, operands) {
+    if (!design || operands.length === 0) return { computed: [], mf: null, omf: null };
+    try {
+        const ctx  = buildEvalContext(design, resolveMat);
+        const comp = evaluateOperands(operands, ctx);
+        return { computed: comp, mf: calcMF(operands, comp), omf: calcOMF(operands, comp) };
+    } catch (_) {
+        return null;
+    }
 }
