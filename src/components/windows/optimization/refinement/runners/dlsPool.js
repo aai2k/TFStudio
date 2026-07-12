@@ -211,7 +211,10 @@ function spawnWorker(ctx, S) {
     let w;
     try { w = new Worker(WORKER_URL, { type: 'module' }); }
     catch (_) { return null; }
-    const wid = Math.random().toString(36).slice(2);
+    // Per-run sequential id, not Math.random: worker ids must not draw from the
+    // RNG, or the pool size (= core count) would shift the seeded perturbation
+    // stream and make multi-start results depend on the machine's thread budget.
+    const wid = 'w' + (++S.widSeq);
     S.prevIterByW.set(wid, 0);
     w.onmessage = (e) => handleMsg(ctx, S, w, wid, e);
     w.onerror = (e) => {
@@ -341,7 +344,7 @@ export function runDlsEvent(ctx) {
         nextJob: 0, completed: 0,
         globalBest: Infinity, globalBestOMF: null,
         finished: false, gotProgress: false, fellBack: false,
-        cumIter: 0, prevIterByW: new Map(),
+        cumIter: 0, prevIterByW: new Map(), widSeq: 0,
     };
 
     evalBaseline(ctx, S);

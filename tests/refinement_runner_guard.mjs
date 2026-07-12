@@ -85,6 +85,15 @@ class MockWorker {
 }
 globalThis.Worker = MockWorker;
 
+// Pin the detected core count. Pool sizes (dls multi-start) and the serial-vs-
+// parallel DE branch (runMethodsFlow: F.HW > 2) both key off
+// navigator.hardwareConcurrency, so without this the golden would only match on
+// a machine with the same core count. Pinned high enough to take the parallel-DE
+// path, exactly as this guard pins Math.random.
+Object.defineProperty(globalThis, 'navigator', {
+    value: { hardwareConcurrency: 8 }, configurable: true, writable: true,
+});
+
 // Import the runners AFTER installing the mock Worker global.
 const { runOptMainThread } = await import('../src/components/windows/optimization/refinement/runners/mainThread.js');
 const { runDlsEvent }      = await import('../src/components/windows/optimization/refinement/runners/dlsPool.js');
