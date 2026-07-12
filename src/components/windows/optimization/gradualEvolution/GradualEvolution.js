@@ -18,8 +18,8 @@
  *     existing layer sequence."
  */
 
-import { useDesign } from '../../../state/DesignContext.js';
-import { getCatalogs } from '../../../utils/materials/catalogManager.js';
+import { useDesign } from '../../../../state/DesignContext.js';
+import { getCatalogs } from '../../../../utils/materials/catalogManager.js';
 
 // Shared synthesis helpers (see synthesisHelpers.js). The two window-parameterized
 // ones (verbose pool / cat-selection key) get thin same-named wrappers below so
@@ -28,17 +28,17 @@ import {
     sideKeyFor, useCatSelection, minOmfOf,
     computePareto, TopDesignsPanel as SharedTopDesignsPanel,
     getPoolMaterials as getPoolMaterialsShared,
-} from './synthesisHelpers.js';
-import { usePersistentNumber } from '../../ui/usePersistentState.js';
+} from '../synthesisHelpers.js';
+import { usePersistentNumber } from '../../../ui/usePersistentState.js';
 
 const { createElement: h, useState, useEffect, useRef, useCallback, useMemo } = React;
 
 // Shared synthesis shell + GE's presentational panels.
-import { SynthesisShell } from './synthesisShell.js';
+import { SynthesisShell } from '../synthesisShell.js';
 import { MFTrendChart, ControlBar, LeftSidebar, CyclesTable } from './gePanels.js';
 
 // Run engine (worker-pool default; falls back to a main-thread engine) + run cache.
-import { runGeWorker } from './geRunners/workerPool.js';
+import { runGeWorker } from './runners/workerPool.js';
 import { getCached, clearCached } from './geCache.js';
 
 // ── Window-parameterized wrappers around the shared helpers ─────────────────────

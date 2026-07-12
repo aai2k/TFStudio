@@ -9,8 +9,8 @@
 
 import {
     SynthesisControlBar, SynthesisSidebarFrame, makeRowHelpers,
-} from './synthesisShell.js';
-import { SynthesisHistoryTable, PlotlyChart } from './synthesisHelpers.js';
+} from '../synthesisShell.js';
+import { SynthesisHistoryTable, PlotlyChart } from '../synthesisHelpers.js';
 import {
     getSynthesisInnerEngine, setSynthesisInnerEngine,
     getSynthesisCandMode, setSynthesisCandMode,
@@ -20,7 +20,7 @@ import {
     getSynthesisSmartSeed, setSynthesisSmartSeed,
     getThreadCount, setThreadCount, threadSelectOptions,
     getNeedleSensMode, setNeedleSensMode,
-} from '../../../utils/synthesis/synthesisConfig.js';
+} from '../../../../utils/synthesis/synthesisConfig.js';
 
 const { createElement: h } = React;
 
