@@ -65,8 +65,8 @@ const sideKey = (side) => side === 'back' ? 'backLayers' : 'frontLayers';
 // reference variant. Conservative defaults.
 const CONV_PATIENCE = 6;       // window (iterations) over which to measure progress
 const CONV_MIN_GAIN = 1e-4;    // min relative MF drop over the window to keep going
-function runDls(operands, design, resolveMat, dMin, maxIter, jobId, side, engine = 'dls') {
-    const dls = makeEngine(engine, operands, design, resolveMat, { dMin });
+function runDls(operands, design, resolveMat, dMin, maxIter, jobId, side, engine, post) {
+    const dls = makeEngine(engine || 'dls', operands, design, resolveMat, { dMin });
     const key = sideKey(side);
     let last = now();
     const mfHist = [dls.mf];
@@ -85,7 +85,7 @@ function runDls(operands, design, resolveMat, dMin, maxIter, jobId, side, engine
         if (t - last >= POST_MS) {
             last = t;
             const applied = dls.applyToDesign(design);
-            postMessage({ type: 'tick', jobId, mf: dls.mf, omf: dls.mfOpticalAt(dls.thicknesses), side,
+            post({ type: 'tick', jobId, mf: dls.mf, omf: dls.mfOpticalAt(dls.thicknesses), side,
                 layers: applied[key],
                 frontLayers: applied.frontLayers,     // both sides for both_independent live preview
                 backLayers:  applied.backLayers });
@@ -94,14 +94,14 @@ function runDls(operands, design, resolveMat, dMin, maxIter, jobId, side, engine
     return dls;
 }
 
-function handleScan(job, resolveMat) {
+function handleScan(job, resolveMat, post) {
     const side = effectiveSide(job.design, job.side);
     const candidateMats = job.poolSlice.map(p => ({ id: p.id, name: p.name, mat: resolveMat(p.id) }));
     const { candidates, mf0 } = scanNeedlesPFunction({
         operands: job.operands, design: job.design, resolveMat,
         candidateMats, deltaNm: job.deltaNm, side,
     });
-    postMessage({ type: 'result', kind: 'scan', candidates, mf0 });
+    post({ type: 'result', kind: 'scan', candidates, mf0 });
 }
 
 // Prune both sides after DLS so the orchestrator can apply the full design
@@ -115,7 +115,7 @@ function pruneBothSides(design, dMin) {
     };
 }
 
-function handleCandidate(job, resolveMat) {
+function handleCandidate(job, resolveMat, post) {
     const { operands, design, cand, dMin, dlsIter, pipeline, jobId, engine = 'dls' } = job;
     // For both_independent the candidate carries its own side (front or back)
     // — scans on each side were merged main-side. Forced-side modes
@@ -139,19 +139,19 @@ function handleCandidate(job, resolveMat) {
 
     if (pipeline === 'ge') {
         // DLS1 (full) → prune → DLS2 (half), accept-or-revert decided main-side.
-        const d1 = runDls(operands, inserted, resolveMat, dMin, dlsIter, jobId, side, engine);
+        const d1 = runDls(operands, inserted, resolveMat, dMin, dlsIter, jobId, side, engine, post);
         const postDls1 = d1.applyToDesign(inserted);
         const prePrune = (postDls1[key] || []).length;
         const prunedAct = cleanupLayers(postDls1[key] || [], dMin);
         if (prunedAct.length === 0) {
-            postMessage({ type: 'result', kind: 'candidate', candId: cand._cid,
+            post({ type: 'result', kind: 'candidate', candId: cand._cid,
                 allPruned: true, dOpt }); return;
         }
         const prunedDesign = pruneBothSides({ ...postDls1, [key]: prunedAct }, dMin);
         const maxIter2 = Math.max(1, Math.floor(dlsIter / 2));
-        const d2 = runDls(operands, prunedDesign, resolveMat, dMin, maxIter2, jobId, side, engine);
+        const d2 = runDls(operands, prunedDesign, resolveMat, dMin, maxIter2, jobId, side, engine, post);
         const finalDesign = pruneBothSides(d2.applyToDesign(prunedDesign), dMin);
-        postMessage({ type: 'result', kind: 'candidate', candId: cand._cid,
+        post({ type: 'result', kind: 'candidate', candId: cand._cid,
             mfNow: d2.mf, omf: d2.mfOpticalAt(d2.thicknesses), side,
             finalLayers: finalDesign[key],            // active side (back-compat)
             frontLayers: finalDesign.frontLayers,     // full design post-DLS+prune
@@ -162,10 +162,10 @@ function handleCandidate(job, resolveMat) {
     }
 
     // needle pipeline: refine(dlsIter) → prune
-    const dls = runDls(operands, inserted, resolveMat, dMin, dlsIter, jobId, side, engine);
+    const dls = runDls(operands, inserted, resolveMat, dMin, dlsIter, jobId, side, engine, post);
     const finalDesign  = pruneBothSides(dls.applyToDesign(inserted), dMin);
     const prunedLayers = finalDesign[key] || [];
-    postMessage({ type: 'result', kind: 'candidate', candId: cand._cid,
+    post({ type: 'result', kind: 'candidate', candId: cand._cid,
         mfAfter: dls.mf, omf: dls.mfOpticalAt(dls.thicknesses), side,
         prunedLayers,                                 // active side (back-compat)
         frontLayers: finalDesign.frontLayers,         // full design post-DLS+prune
@@ -173,20 +173,20 @@ function handleCandidate(job, resolveMat) {
         layerCount: prunedLayers.length, dOpt });
 }
 
-function handleSeedDls(job, resolveMat) {
+function handleSeedDls(job, resolveMat, post) {
     const { operands, design, dMin, dlsIter, jobId, engine = 'dls' } = job;
     const side = effectiveSide(design, job.side);
     const key  = sideKey(side);
-    const dls = runDls(operands, design, resolveMat, dMin, dlsIter, jobId, side, engine);
+    const dls = runDls(operands, design, resolveMat, dMin, dlsIter, jobId, side, engine, post);
     const applied = dls.applyToDesign(design);
-    postMessage({ type: 'result', kind: 'seedDls', side,
+    post({ type: 'result', kind: 'seedDls', side,
         layers: applied[key],
         frontLayers: applied.frontLayers,             // full design (DLS may move both sides)
         backLayers:  applied.backLayers,
         mf: dls.mf, omf: dls.mfOpticalAt(dls.thicknesses), iters: dls.iter });
 }
 
-function handleGeStep(job, resolveMat) {
+function handleGeStep(job, resolveMat, post) {
     const { operands, design, pool, dMin } = job;
     const side = effectiveSide(design, job.side);
     const key  = sideKey(side);
@@ -194,7 +194,7 @@ function handleGeStep(job, resolveMat) {
     const { candidates, mf0 } = scanGEInsertions({
         operands, design, resolveMat, candidateMats, thickNm: dMin, side,
     });
-    if (!candidates.length) { postMessage({ type: 'result', kind: 'geStep', empty: true }); return; }
+    if (!candidates.length) { post({ type: 'result', kind: 'geStep', empty: true }); return; }
     const bestGe = candidates.reduce((b, x) => (x.mfNew < b.mfNew ? x : b), candidates[0]);
     const inserted = insertNeedle(design, bestGe.pos, bestGe.materialId, dMin, side);
     // Merge adjacent same-material layers (cleanupLayers): inserting the forced
@@ -206,7 +206,7 @@ function handleGeStep(job, resolveMat) {
         frontLayers: cleanupLayers(inserted.frontLayers || [], dMin),
         backLayers:  cleanupLayers(inserted.backLayers  || [], dMin),
     };
-    postMessage({ type: 'result', kind: 'geStep', side,
+    post({ type: 'result', kind: 'geStep', side,
         layers: geDesign[key],
         frontLayers: geDesign.frontLayers,            // full design (symmetric mode also mirrors back)
         backLayers:  geDesign.backLayers,
@@ -219,7 +219,7 @@ function handleGeStep(job, resolveMat) {
 // layers introduced by needle/GE "must then be processed to remove them"). Tries
 // deleting each non-locked layer, re-refines, keeps it iff the merit does not
 // worsen beyond `tol`. Streams progress; returns the consolidated full design.
-function handleRemovePass(job, resolveMat) {
+function handleRemovePass(job, resolveMat, post) {
     const { operands, design, dMin, jobId, engine = 'dls' } = job;
     const tol      = Number.isFinite(job.tol)      ? job.tol      : 0.02;
     const minLayers= Number.isFinite(job.minLayers)? job.minLayers: 1;
@@ -229,7 +229,7 @@ function handleRemovePass(job, resolveMat) {
     let last = now();
 
     const refineFn = (d, mi) => {
-        const dls = runDls(operands, d, resolveMat, dMin, mi, jobId, side, engine);
+        const dls = runDls(operands, d, resolveMat, dMin, mi, jobId, side, engine, post);
         const applied = pruneBothSides(dls.applyToDesign(d), dMin);
         return { mf: dls.mf, omf: dls.mfOpticalAt(dls.thicknesses), design: applied };
     };
@@ -240,34 +240,47 @@ function handleRemovePass(job, resolveMat) {
             const t = now();
             if (t - last < POST_MS) return;
             last = t;
-            postMessage({ type: 'tick', jobId, mf: cur.mf, omf: cur.omf, side,
+            post({ type: 'tick', jobId, mf: cur.mf, omf: cur.omf, side,
                 layers: cur.design[key],
                 frontLayers: cur.design.frontLayers, backLayers: cur.design.backLayers });
         },
     });
-    postMessage({ type: 'result', kind: 'removePass', side,
+    post({ type: 'result', kind: 'removePass', side,
         mf: res.mf, omf: res.omf, removed: res.removed, baseMf: res.baseMf, baseLayers: res.baseLayers,
         layers: res.design[key],
         frontLayers: res.design.frontLayers, backLayers: res.design.backLayers,
         nLayers: (res.design[key] || []).length });
 }
 
-onmessage = async (e) => {
+// Route one RPC job to its handler, streaming ticks + the final result through
+// `post`. In the worker, `post` is the global postMessage; a main-thread fake
+// pool (tests) can call this directly with its own collector so the whole
+// synthesis orchestration runs deterministically in-process.
+export function dispatchSynthesisJob(job, resolveMat, post) {
+    switch (job.type) {
+        case 'scan':       handleScan(job, resolveMat, post);       break;
+        case 'candidate':  handleCandidate(job, resolveMat, post);  break;
+        case 'seedDls':    handleSeedDls(job, resolveMat, post);    break;
+        case 'geStep':     handleGeStep(job, resolveMat, post);     break;
+        case 'removePass': handleRemovePass(job, resolveMat, post); break;
+        default: post({ type: 'error', message: `unknown job ${job.type}` });
+    }
+}
+
+// Worker entry point. Assigned via globalThis so importing this module on the
+// main thread (e.g. a test's in-process fake pool) is a harmless property write
+// rather than a strict-mode assignment to an undeclared global; in a Worker
+// globalThis === self, so it registers the handler exactly as `onmessage =`.
+globalThis.onmessage = async (e) => {
     const job = e.data;
     if (!job || !job.type) return;
     if (job.type === 'wasmInit') { noteTmmWasmBytes(job.wasmBytes); return; }
+    const post = (m) => postMessage(m);
     try {
         await awaitTmmWasmReady();
         const resolveMat = makeResolveMat(job.materials || {}, 'synthesisWorker');
-        switch (job.type) {
-            case 'scan':       handleScan(job, resolveMat);       break;
-            case 'candidate':  handleCandidate(job, resolveMat);  break;
-            case 'seedDls':    handleSeedDls(job, resolveMat);    break;
-            case 'geStep':     handleGeStep(job, resolveMat);     break;
-            case 'removePass': handleRemovePass(job, resolveMat); break;
-            default: postMessage({ type: 'error', message: `unknown job ${job.type}` });
-        }
+        dispatchSynthesisJob(job, resolveMat, post);
     } catch (err) {
-        postMessage({ type: 'error', message: (err && err.stack) || String(err) });
+        post({ type: 'error', message: (err && err.stack) || String(err) });
     }
 };

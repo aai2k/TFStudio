@@ -14,37 +14,27 @@
  */
 
 import { useDesign } from '../../../state/DesignContext.js';
-import { getMaterialById, getCatalogs } from '../../../utils/materials/catalogManager.js';
-import { getMaterial } from '../../../utils/materials/materialDatabase.js';
-import {
-    requiredLambdas, collectDesignMaterialIds, buildPresampledTable, isConstraint,
-} from '../../../utils/physics/optimizer.js';
+import { getCatalogs } from '../../../utils/materials/catalogManager.js';
 
-// Shared synthesis helpers (see synthesisHelpers.js).
-// Byte-identical helpers imported directly; the two window-parameterized ones
-// (verbose pool / cat-selection key) get thin same-named wrappers below so call
-// sites are unchanged.
+// Shared synthesis helpers (see synthesisHelpers.js). The two window-
+// parameterized ones (verbose pool / cat-selection key) get thin same-named
+// wrappers below so call sites are unchanged.
 import {
-    sideKeyFor, activeSide, densifyForRun, chunkArray, poolSize,
-    resolveMat, useCatSelection, minOmfOf, buildARSeedCandidates,
+    sideKeyFor, useCatSelection, minOmfOf,
     computePareto, getPoolMaterials as getPoolMaterialsShared,
 } from './synthesisHelpers.js';
 import { WorkerPool } from '../../../utils/workers/workerPool.js';
-import {
-    getSynthesisInnerEngine, getSynthesisMaxBatches,
-    getSynthesisSmartSeed, getNeedleSensFloor, cullMarginalNeedles,
-} from '../../../utils/synthesis/synthesisConfig.js';
-import { getTmmWasmBytesForWorker } from '../../../utils/workers/tmmWasm.js';
 import { usePersistentNumber } from '../../ui/usePersistentState.js';
 
 // Synthesis worker URL from the central registry (works unbundled + bundled).
 import { SYNTHESIS_WORKER_URL as SYNTH_WORKER_URL } from '../../../workerUrls.js';
 
-const { createElement: h, useState, useEffect, useRef, useCallback, useMemo } = React;
+const { createElement: h, useState, useEffect, useRef, useCallback } = React;
 
-// Presentational panels (control bar, sidebar, tables, MF-trend chart).
+// Presentational panels (control bar, sidebar, tables, MF-trend chart) + the
+// optimization engine (worker-pool orchestration + main-thread fallback).
 import { SynthesisShell } from './synthesisShell.js';
-import { runNeedleMainThread } from './needleEngine.js';
+import { runNeedleWorkerPool } from './needleEngine.js';
 import {
     MFTrendChart, ControlBar, LeftSidebar, GenerationsTable, TopDesignsPanel,
 } from './needlePanels.js';
@@ -280,390 +270,29 @@ export function NeedleVariation({ c, theme, t }) {
         }
     }, [getDesignRevision]);
 
-    // Main-thread fallback (used only if the synthesis worker fails before any
-    // progress). Identical math to the worker path; blocks the UI thread, so it
-    // is the fallback, not the default. The loop lives in needleEngine.js and
-    // reaches React state through this ctx bundle of refs + setters + helpers.
-    const runOptMainThread = useCallback(() => {
-        runNeedleMainThread({
-            runningRef, timerRef, dlsRef, baseDesignRef, savedDesignRef, designRef,
-            operandsRef, gensRef, genCountRef, lastBestRef,
-            maxLayersRef, deltaNmRef, dMinRef, dlsIterRef, targetMFRef,
-            selectedCatsRef, excludedMatsRef, updateDesignRef, checkpointRef,
-            setPhase, setStatusMsg, setMf, setMfBest, setOmf, setOmfBest,
-            setLayerCount, setCanReset, setGeneration, setGenerations, setTopDesigns,
-            reconcileBaseWithEdits, getPoolMaterials, setCachedOptState,
-        });
-    }, [reconcileBaseWithEdits]);
+    // Build the ctx bundle the engine reaches React state through (refs +
+    // setters + a few window helpers). The same bundle drives both the default
+    // worker-pool path and the identical-math main-thread fallback.
+    const buildEngineCtx = useCallback(() => ({
+        runningRef, timerRef, workerRef, dlsRef, baseDesignRef, savedDesignRef, designRef,
+        operandsRef, gensRef, genCountRef, lastBestRef,
+        maxLayersRef, deltaNmRef, dMinRef, dlsIterRef, targetMFRef,
+        selectedCatsRef, excludedMatsRef, updateDesignRef, checkpointRef,
+        setPhase, setStatusMsg, setMf, setMfBest, setOmf, setOmfBest,
+        setLayerCount, setCanReset, setGeneration, setGenerations, setTopDesigns,
+        reconcileBaseWithEdits, getPoolMaterials, setCachedOptState, t, stopOpt,
+        // Pool factory: the component wires the real WorkerPool + worker URL; a
+        // test can inject an in-process fake pool (tests/needle_worker_pool.mjs).
+        makeWorkerPool: (K, initMessage) => new WorkerPool(SYNTH_WORKER_URL, K, initMessage),
+    }), [reconcileBaseWithEdits, stopOpt, t]);
 
-    // ── Worker-POOL run (default path) ─────────────────────────────────────────
-    // Main thread orchestrates; a WorkerPool runs the heavy primitives:
-    //  • SCAN is fanned across the pool by candidate-material slice — each
-    //    candidate's gradient is computed in the same op→λ→pol order as a
-    //    single scan, so that part stays bit-identical.
-    //  • CANDIDATE refinement runs a BATCH of the top improving candidates in
-    //    parallel and keeps the best post-refinement. Deliberate: keeps best of
-    //    top-K candidates (not first-improving in ΔMF order); NOT bit-identical,
-    //    but uses many threads.
+    // Default path: main thread orchestrates a WorkerPool of stateless synthesis
+    // primitives (scan / candidate). The full loop lives in needleEngine.js
+    // (runNeedleWorkerPool); on any pre-progress failure it falls back to the
+    // main-thread loop in the same module.
     const runOpt = useCallback(() => {
-        if (runningRef.current) return;
-        reconcileBaseWithEdits();   // M12: pick up manual edits made between runs
-
-        const curDes   = baseDesignRef.current || designRef.current;
-        // Standalone Needle is a SYNTHESIS step: it has no +TOT escape, so an
-        // active MNT/MXT penalty can wipe out every improving candidate and
-        // make the algorithm declare "needle-optimal" prematurely. Drop
-        // thickness constraints here; the user re-enables them for the
-        // post-synthesis Refinement / Cleaner loop (the canonical
-        // synthesis-then-manufacturability workflow).
-        const enabled = operandsRef.current.filter(op => op.enabled);
-        const operands = densifyForRun(enabled.filter(op => !isConstraint(op.type)), curDes);
-        const droppedConstraints = enabled.length - operands.length;
-        if (!curDes || operands.length === 0) { setStatusMsg(t.needle.noOperands); return; }
-        if (droppedConstraints > 0) {
-            console.log(`[Needle] Ignoring ${droppedConstraints} MNT/MXT operand${droppedConstraints > 1 ? 's' : ''} for synthesis (re-enable for Refinement after)`);
-        }
-
-        // Sides to scan per cycle. For both_independent we scan BOTH front and
-        // back and pick the global best needle (regardless of side) each
-        // generation. Mode-forced cases (front_only / symmetric / back_only)
-        // scan just one side.
-        const surfaceMode = curDes.surfaceMode || 'front_only';
-        const scanSides = surfaceMode === 'both_independent'
-            ? ['front', 'back']
-            : [activeSide(curDes)];
-
-        const pool = getPoolMaterials(selectedCatsRef.current, excludedMatsRef.current);
-        if (!pool.length) { setStatusMsg('No candidate materials'); return; }
-
-        if (!savedDesignRef.current) {
-            checkpointRef.current && checkpointRef.current();
-            savedDesignRef.current = { frontLayers: designRef.current.frontLayers, backLayers: designRef.current.backLayers };
-            baseDesignRef.current  = curDes;
-            setCanReset(true);
-        }
-
-        let materials;
-        try {
-            const lambdas = requiredLambdas(operands);
-            const pairs = collectDesignMaterialIds(curDes).map(id => ({ id, mat: resolveMat(id) }))
-                .concat(pool.map(p => ({ id: p.id, mat: p.mat })));
-            materials = buildPresampledTable(lambdas, pairs);
-        } catch (err) {
-            console.error('[Needle] Pre-sampling failed, main-thread fallback:', err);
-            runOptMainThread();
-            return;
-        }
-
-        const maxLayers = maxLayersRef.current, deltaNm = deltaNmRef.current,
-              dMin = dMinRef.current, dlsIter = dlsIterRef.current;
-        const innerEngine = getSynthesisInnerEngine('needle');   // Needle default 'cg'
-        const maxBatches = getSynthesisMaxBatches();      // cap candidate escalation
-        // Preserve-bulk is GE-ONLY. Needle scans first (no bare-seed
-        // refine to skip), so preserve-bulk would only add a gentle iter cap —
-        // and the GUI 2×2 showed that HURTS Needle (more iters = better here).
-        // Needle always uses the full per-step refine.
-        const stepIter = dlsIter;
-        const K = poolSize();
-
-        let workerPool;
-        const wasmBytes = getTmmWasmBytesForWorker();
-        try { workerPool = new WorkerPool(SYNTH_WORKER_URL, K, wasmBytes ? { type: 'wasmInit', wasmBytes } : null); }
-        catch (err) {
-            console.error('[Needle] WorkerPool construction failed, main-thread fallback:', err);
-            runOptMainThread();
-            return;
-        }
-        workerRef.current = workerPool;
-
-        const media = {
-            surfaceMode:    curDes.surfaceMode || 'front_only',
-            mfEvalMode:     curDes.mfEvalMode ?? 'side',
-            incidentMedium: curDes.incidentMedium ?? 'Air',
-            exitMedium:     curDes.exitMedium ?? 'Air',
-            substrate: {
-                material:  curDes.substrate?.material ?? 'BK7',
-                thickness: curDes.substrate?.thickness ?? 1.0,
-            },
-            // Cone-angle averaging: ship to the synthesis workers so
-            // the scan (FD fallback) + DLS refine are cone-averaged like the eval.
-            ...(curDes.cone ? { cone: curDes.cone } : {}),
-        };
-        const mkLayers = arr => (arr || []).map(l => ({
-            id: l.id, material: l.material, thickness: l.thickness || 0, locked: !!l.locked }));
-        // designSnap builds a full design from the CURRENT both-side state.
-        // For both_independent every cycle re-snaps both sides from `best`,
-        // so both stacks evolve through the run.
-        const designSnap = (front, back) => ({
-            ...media,
-            frontLayers: mkLayers(front),
-            backLayers:  mkLayers(back),
-        });
-        const deep = x => JSON.parse(JSON.stringify(x));
-        const poolLite = pool.map(p => ({ id: p.id, name: p.name }));
-        const poolSlices = chunkArray(poolLite, K);
-
-        runningRef.current = true;
-        setPhase('scanning');
-        setStatusMsg('');
-
-        let gotProgress = false;
-        let lastTick = 0;
-        const onTick = (_i, m) => {
-            if (m.type !== 'tick') return;
-            const t = Date.now();
-            if (t - lastTick < 90) return;
-            lastTick = t;
-            if (m.mf != null) setMf(m.mf);
-            if (m.omf != null) setOmf(m.omf);
-            // both_independent live preview: apply both sides from each tick.
-            // Other modes only have one side to apply.
-            const patch = {};
-            if (m.frontLayers) patch.frontLayers = m.frontLayers;
-            if (m.backLayers)  patch.backLayers  = m.backLayers;
-            if (Object.keys(patch).length) {
-                updateDesignRef.current(patch, { transient: true });
-                if (m.layers) setLayerCount(m.layers.length);
-            }
-        };
-
-        // best holds the full-design global best across both sides.
-        const best = { mf: Infinity, frontLayers: null, backLayers: null };
-        // M4: continue gen numbering and the ΔMF baseline across Stop→Run instead
-        // of resetting to 0/Infinity (which duplicated Gen numbers while history
-        // persisted). Seed from the continuous refs, like the main-thread path.
-        let genNum = genCountRef.current;
-        let prevBestMF = gensRef.current.length ? Math.min(...gensRef.current.map(g => g.mf)) : Infinity;
-        // Elapsed-time column: cumulative wallclock since the run started,
-        // continuous across stop/resume (offset by the last recorded gen's time).
-        const _prevElapsed = gensRef.current.length
-            ? (gensRef.current[gensRef.current.length - 1].tMs || 0) : 0;
-        const runT0 = performance.now() - _prevElapsed;
-
-        const finalize = (reason) => {
-            if (workerRef.current !== workerPool) return;
-            if (best.frontLayers || best.backLayers) {
-                const patch = {};
-                if (best.frontLayers) patch.frontLayers = best.frontLayers;
-                if (best.backLayers)  patch.backLayers  = best.backLayers;
-                updateDesignRef.current(patch, { transient: true });
-                baseDesignRef.current = { ...(baseDesignRef.current || designRef.current), ...patch };
-                setMfBest(best.mf);
-                // Display layer count of whichever side was most recently active;
-                // for both_independent show the total across both sides.
-                const totalLayers =
-                    (best.frontLayers ? best.frontLayers.length : 0) +
-                    (best.backLayers  ? best.backLayers.length  : 0);
-                setLayerCount(totalLayers);
-            }
-            setCachedOptState(designRef.current?.id, {
-                generations: gensRef.current,
-                savedDesign: savedDesignRef.current,
-                baseDesign:  baseDesignRef.current,
-            });
-            runningRef.current = false;
-            setPhase('idle');
-            setStatusMsg(reason || '');
-            setCanReset(true);
-            try { workerPool.terminate(); } catch (_) {}
-            if (workerRef.current === workerPool) workerRef.current = null;
-        };
-
-        const fallback = (why, err) => {
-            console.error(`[Needle] Pool ${why}, main-thread fallback:`, err);
-            try { workerPool.terminate(); } catch (_) {}
-            if (workerRef.current === workerPool) workerRef.current = null;
-            runningRef.current = false;
-            runOptMainThread();
-        };
-
-        const alive = () => runningRef.current && workerRef.current === workerPool;
-
-        (async () => {
-            try {
-                // Smart seed: when enabled, generate the canonical
-                // QW/HW antireflection starting designs from the pool PLUS the
-                // current design, refine them ALL IN PARALLEL on the worker pool
-                // (off the UI thread — never blocks, scales with the pool), and
-                // begin the needle scan from whichever scores best. The current
-                // design is included, so the seed can only match or improve the
-                // starting point. Seeds `best` so the loop's baseFront/baseBack
-                // pick it up; the scan then grows from there as usual.
-                if (getSynthesisSmartSeed('needle')) {
-                    const cands = buildARSeedCandidates({ design: curDes, pool, maxLayers });
-                    setPhase('refining'); setStatusMsg(tn.smartSeeding(cands.length));
-                    const seedJobs = cands.map(cd => ({
-                        type: 'seedDls', operands,
-                        design: designSnap(mkLayers(cd.frontLayers), mkLayers(cd.backLayers)),
-                        materials, dMin, dlsIter, jobId: 'seed', side: scanSides[0], engine: innerEngine,
-                    }));
-                    const seedResults = await workerPool.map(seedJobs, onTick);
-                    if (!alive()) return;
-                    let bi = -1;
-                    for (let i = 0; i < seedResults.length; i++) {
-                        const r = seedResults[i];
-                        if (r && (bi < 0 || r.mf < seedResults[bi].mf)) bi = i;
-                    }
-                    if (bi >= 0) {
-                        const r = seedResults[bi];
-                        best.mf = r.mf;
-                        best.frontLayers = deep(r.frontLayers || []);
-                        best.backLayers  = deep(r.backLayers  || []);
-                        updateDesignRef.current(
-                            { frontLayers: best.frontLayers, backLayers: best.backLayers }, { transient: true });
-                        setMf(r.mf); setMfBest(r.mf);
-                        setLayerCount((best.frontLayers.length || 0) + (best.backLayers.length || 0));
-                        console.log('[Needle] Smart seed:', cands.map((cd, i) =>
-                            `${cd.name}=${seedResults[i]?.mf?.toFixed?.(6) ?? '×'}`).join('  '),
-                            `→ best "${cands[bi].name}" ${r.mf.toFixed(6)}`);
-                    }
-                }
-                while (alive()) {
-                    // Current state per side, drawn from best (after the first
-                    // accepted needle) or the saved design (before that).
-                    const baseFront = best.frontLayers || mkLayers(curDes.frontLayers);
-                    const baseBack  = best.backLayers  || mkLayers(curDes.backLayers);
-
-                    // Max-layers stop: in both_independent each side caps
-                    // independently; if EITHER still has room we continue.
-                    const cap = (sd) =>
-                        (sd === 'front' ? baseFront.length : baseBack.length) >= maxLayers;
-                    const remainingSides = scanSides.filter(sd => !cap(sd));
-                    if (remainingSides.length === 0) { finalize('Max layers reached'); return; }
-
-                    // ── Parallel scan, fanned across sides × pool slices ─────
-                    setPhase('scanning'); setStatusMsg('Scanning needles…');
-                    const snap = designSnap(baseFront, baseBack);
-                    const scanJobs = [];
-                    for (const sd of remainingSides) {
-                        for (const slice of poolSlices) {
-                            scanJobs.push({ type: 'scan', operands, design: snap,
-                                materials, poolSlice: slice, deltaNm, side: sd });
-                        }
-                    }
-                    const scanRes = await workerPool.map(scanJobs);
-                    if (!alive()) return;
-                    gotProgress = true;
-                    let candidates = [];
-                    for (const r of scanRes) candidates = candidates.concat(r.candidates || []);
-                    const mf0 = scanRes.length ? scanRes[0].mf0 : Infinity;
-
-                    if (best.frontLayers === null && best.backLayers === null) {
-                        best.mf = mf0;
-                        best.frontLayers = deep(baseFront);
-                        best.backLayers  = deep(baseBack);
-                    }
-
-                    // Global best needle: most negative ΔMF wins regardless of side.
-                    // Then cull the marginal tail (H1 — sensitivity; no-op when 'off').
-                    const queue = cullMarginalNeedles(
-                        candidates.filter(c => c.dMF < 0).sort((a, b) =>
-                            (a.dMF - b.dMF) || ((a.pos ?? 0) - (b.pos ?? 0)) ||
-                            (a.materialId < b.materialId ? -1 : a.materialId > b.materialId ? 1 : 0)),
-                        getNeedleSensFloor());
-                    if (queue.length === 0) {
-                        console.log('[Needle] No improving needle — needle-optimal');
-                        finalize('Needle-optimal (no improving needle)'); return;
-                    }
-
-                    // ── Parallel candidate refinement, best-of-batch ─────────
-                    // Cap K-batches per step (OTF inserts the best few,
-                    // not the whole tail) — the long candidate tail was the stall cost.
-                    let accepted = false, _batchN = 0;
-                    for (let i = 0; i < queue.length && _batchN < maxBatches && alive(); i += K, _batchN++) {
-                        const batch = queue.slice(i, i + K);
-                        setPhase('refining');
-                        setStatusMsg(`Refining ${batch.length} candidate${batch.length > 1 ? 's' : ''} (parallel)…`);
-                        const bsnap = designSnap(deep(best.frontLayers), deep(best.backLayers));
-                        const results = await workerPool.map(batch.map((cand, bi) => ({
-                            type: 'candidate', pipeline: 'needle',
-                            operands, design: bsnap, materials,
-                            cand: { ...cand, _cid: bi },
-                            dMin, dlsIter: stepIter, jobId: `n${i}_${bi}`, engine: innerEngine,
-                            // The worker honors cand.side; job.side is the
-                            // fallback for legacy single-side mode.
-                            side: cand.side || scanSides[0],
-                        })), onTick);
-                        if (!alive()) return;
-
-                        let bIdx = -1, bMf = Infinity;
-                        for (let r = 0; r < results.length; r++) {
-                            const mfA = results[r].mfAfter;
-                            if (mfA != null && mfA < bMf) { bMf = mfA; bIdx = r; }
-                        }
-                        if (bIdx >= 0 && bMf < best.mf - 1e-9) {
-                            const res  = results[bIdx];
-                            const cand = batch[bIdx];
-                            const candSide = cand.side || scanSides[0];
-                            const candLK   = candSide === 'back' ? 'backLayers' : 'frontLayers';
-                            best.mf = bMf;
-                            // Worker returns the full post-DLS+prune design;
-                            // accept both sides as the new global best.
-                            best.frontLayers = deep(res.frontLayers || best.frontLayers);
-                            best.backLayers  = deep(res.backLayers  || best.backLayers);
-                            const patch = {
-                                frontLayers: best.frontLayers,
-                                backLayers:  best.backLayers,
-                            };
-                            updateDesignRef.current(patch, { transient: true });
-                            baseDesignRef.current = { ...(baseDesignRef.current || designRef.current), ...patch };
-
-                            genNum += 1;
-                            const dMF = prevBestMF === Infinity ? null : bMf - prevBestMF;
-                            prevBestMF = Math.min(prevBestMF, bMf);
-                            const activeLayers = best[candLK];
-                            const _sumD = arr => (arr || []).reduce((s, L) => s + (Number(L.thickness) || 0), 0);
-                            const gen = {
-                                id: Math.random().toString(36).slice(2),
-                                genNum, mf: bMf, omf: res.omf, dMF,
-                                side:       candSide,
-                                layerCount: activeLayers.length,
-                                tot:        _sumD(best.frontLayers) + _sumD(best.backLayers),
-                                tMs:        performance.now() - runT0,
-                                insertMat:  cand.materialId ?? null,
-                                layers:     deep(activeLayers),         // active-side snapshot
-                                frontSnap:  deep(best.frontLayers),     // full-design snapshot
-                                backSnap:   deep(best.backLayers),
-                            };
-                            gensRef.current     = [...gensRef.current, gen];
-                            genCountRef.current = genNum;
-                            setGenerations(gensRef.current.slice());
-                            setTopDesigns(computePareto(gensRef.current));
-                            setGeneration(genNum);
-                            setLayerCount(activeLayers.length);
-                            setMfBest(Math.min(...gensRef.current.map(g => g.mf)));
-                            setOmf(res.omf ?? null);
-                            setOmfBest(minOmfOf(gensRef.current));
-                            setCachedOptState(designRef.current?.id, {
-                                generations: gensRef.current,
-                                savedDesign: savedDesignRef.current,
-                                baseDesign:  baseDesignRef.current,
-                            });
-                            console.log(`[Needle] ACCEPT (best of ${batch.length}, side=${candSide}): MF=${bMf.toFixed(6)} layers=${activeLayers.length} mat=${cand.materialId}`);
-                            accepted = true;
-                            if (best.mf < targetMFRef.current) {
-                                console.log(`[Needle] Converged: MF=${best.mf.toFixed(6)} < target=${targetMFRef.current}`);
-                                finalize(`Converged MF=${best.mf.toFixed(6)}`); return;
-                            }
-                            break;
-                        }
-                        console.log(`[Needle] batch ${i}-${i + batch.length - 1}: none beat best=${best.mf.toFixed(6)} → next batch`);
-                    }
-                    if (!accepted) {
-                        console.log('[Needle] All improving candidates exhausted → needle-optimal');
-                        finalize('Needle-optimal (all candidates exhausted)'); return;
-                    }
-                }
-            } catch (err) {
-                // Expected: a Stop tears down the pool, which rejects the
-                // in-flight job with 'pool terminated' — a clean stop, not an
-                // error; stopOpt already ran, so bail silently.
-                if (!alive() || String(err && err.message) === 'pool terminated') return;
-                if (!gotProgress) fallback('errored before progress', err);
-                else { console.error('[Needle] Pool error:', err); stopOpt(String(err && err.message || err)); }
-            }
-        })();
-    }, [stopOpt, runOptMainThread]);
+        runNeedleWorkerPool(buildEngineCtx());
+    }, [buildEngineCtx]);
 
     // ── Reset ─────────────────────────────────────────────────────────────────
     // Default Reset wipes everything (full restore + clear history). The
