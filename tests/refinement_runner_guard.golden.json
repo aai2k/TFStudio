@@ -1,0 +1,267 @@
+{
+  "mainThread/single/front": {
+    "applied": {
+      "front": [
+        102.587843022,
+        182.416768658,
+        185.680534382
+      ],
+      "back": []
+    },
+    "mf": 0.05805321,
+    "mfBest": 0.05805321,
+    "mfInitial": 0.397252949,
+    "iter": 40,
+    "stopReason": null,
+    "history": []
+  },
+  "mainThread/single/back": {
+    "applied": {
+      "front": [],
+      "back": [
+        108.867576072,
+        95.976458559
+      ]
+    },
+    "mf": 0.019861363,
+    "mfBest": 0.019861363,
+    "mfInitial": 0.021128191,
+    "iter": 40,
+    "stopReason": null,
+    "history": []
+  },
+  "mainThread/multi/front": {
+    "applied": {
+      "front": [
+        102.050553161,
+        135.025592058,
+        100.866956902
+      ],
+      "back": []
+    },
+    "mf": 0.059705357,
+    "mfBest": 0.059705357,
+    "mfInitial": 0.397252949,
+    "iter": 160,
+    "stopReason": null,
+    "history": [
+      {
+        "label": "Run 1 (×4)",
+        "iter": 160,
+        "mf": 0.059705357,
+        "layerCount": 3,
+        "layerSide": "frontLayers"
+      }
+    ]
+  },
+  "mainThread/multi/both": {
+    "applied": {
+      "front": [
+        107.655163403,
+        789.425387357
+      ],
+      "back": [
+        109.245487034,
+        95.737991175
+      ]
+    },
+    "mf": 0.128839072,
+    "mfBest": 0.128839072,
+    "mfInitial": 0.196655402,
+    "iter": 120,
+    "stopReason": null,
+    "history": [
+      {
+        "label": "Run 1 (×3)",
+        "iter": 120,
+        "mf": 0.128839072,
+        "layerCount": 2,
+        "layerSide": "frontLayers"
+      }
+    ]
+  },
+  "dlsPool/single/front": {
+    "applied": {
+      "front": [
+        110,
+        91,
+        67
+      ],
+      "back": []
+    },
+    "mf": 0.05,
+    "mfBest": 0.05,
+    "mfInitial": 0.397252949,
+    "iter": 5,
+    "stopReason": null,
+    "history": []
+  },
+  "dlsPool/multi/front": {
+    "applied": {
+      "front": [
+        105.482277235,
+        90.780734666,
+        79.847370198
+      ],
+      "back": []
+    },
+    "mf": 0.01,
+    "mfBest": 0.01,
+    "mfInitial": 0.397252949,
+    "iter": 50,
+    "stopReason": null,
+    "history": [
+      {
+        "label": "Run 1 (×5)",
+        "iter": 50,
+        "mf": 0.01,
+        "layerCount": 3,
+        "layerSide": "frontLayers"
+      }
+    ]
+  },
+  "dlsPool/multi/back": {
+    "applied": {
+      "front": [],
+      "back": [
+        97.743895856,
+        92.371057612
+      ]
+    },
+    "mf": 0.01,
+    "mfBest": 0.01,
+    "mfInitial": 0.021128191,
+    "iter": 50,
+    "stopReason": null,
+    "history": [
+      {
+        "label": "Run 1 (×5)",
+        "iter": 50,
+        "mf": 0.01,
+        "layerCount": 2,
+        "layerSide": "backLayers"
+      }
+    ]
+  },
+  "methodsFlow/cg/front": {
+    "applied": {
+      "front": [
+        110,
+        91,
+        67
+      ],
+      "back": []
+    },
+    "mf": 0.05,
+    "mfBest": 0.05,
+    "mfInitial": 0.397252949,
+    "iter": 0,
+    "stopReason": "stalled",
+    "history": [
+      {
+        "label": "Conjugate Gradient",
+        "iter": 10,
+        "mf": 0.05,
+        "layerCount": 3,
+        "layerSide": "frontLayers"
+      }
+    ]
+  },
+  "methodsFlow/multi/front": {
+    "applied": {
+      "front": [
+        110,
+        91,
+        67
+      ],
+      "back": []
+    },
+    "mf": 0.05,
+    "mfBest": 0.05,
+    "mfInitial": 0.397252949,
+    "iter": 0,
+    "stopReason": "best: Conjugate Gradient",
+    "history": [
+      {
+        "label": "Conjugate Gradient",
+        "iter": 10,
+        "mf": 0.05,
+        "layerCount": 3,
+        "layerSide": "frontLayers"
+      },
+      {
+        "label": "Simulated Annealing",
+        "iter": 10,
+        "mf": 0.05,
+        "layerCount": 3,
+        "layerSide": "frontLayers"
+      },
+      {
+        "label": "DLS multi-start",
+        "iter": 10,
+        "mf": 0.05,
+        "layerCount": 3,
+        "layerSide": "frontLayers"
+      }
+    ]
+  },
+  "methodsFlow/cg/both": {
+    "applied": {
+      "front": [
+        100,
+        121
+      ],
+      "back": [
+        80,
+        96
+      ]
+    },
+    "mf": 0.05,
+    "mfBest": 0.05,
+    "mfInitial": 0.196655402,
+    "iter": 0,
+    "stopReason": "best: Conjugate Gradient",
+    "history": [
+      {
+        "label": "Conjugate Gradient",
+        "iter": 10,
+        "mf": 0.05,
+        "layerCount": 2,
+        "layerSide": "frontLayers"
+      },
+      {
+        "label": "Simulated Annealing",
+        "iter": 10,
+        "mf": 0.05,
+        "layerCount": 2,
+        "layerSide": "frontLayers"
+      }
+    ]
+  },
+  "methodsFlow/de/both": {
+    "applied": {
+      "front": [
+        99.942840988,
+        100.572108882
+      ],
+      "back": [
+        100.560527804,
+        100.392444229
+      ]
+    },
+    "mf": 7.99e-7,
+    "mfBest": 7.99e-7,
+    "mfInitial": 0.196655402,
+    "iter": 0,
+    "stopReason": "target",
+    "history": [
+      {
+        "label": "Differential Evolution",
+        "iter": 40,
+        "mf": 7.99e-7,
+        "layerCount": 2,
+        "layerSide": "frontLayers"
+      }
+    ]
+  }
+}

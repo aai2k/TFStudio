@@ -5,312 +5,285 @@
 //
 // Like every runner in this folder it is a plain function of an explicit `ctx`
 // bag assembled by the Refinement component (refs, state setters, cache helpers,
-// and the locale table `t`) rather than a closure over component scope.
+// and the locale table `t`) rather than a closure over component scope. The two
+// animation loops (multi-start and single-start) are module-scope steppers driven
+// off a run-state object so no giant nested closure builds up.
 
 import { DLSOptimizer, mirrorLayers } from '../../../../../utils/physics/optimizer.js';
 import { resolveMat, densifyForRun } from '../refinementUtils.js';
 
-export function runOptMainThread(ctx) {
-    const {
-        runningRef, designRef, operandsRef, maxIterRef, multiStartRef,
-        nRestartsRef, perturbPctRef, checkpointRef, updateDesignRef, optimizerRef, timerRef,
-        commitBaseline, bumpRunCount, addHistEntry, histRunCount, t,
-        setMfInitial, setOmfInitial, setRunning, setCanReset, setMfHistory,
-        setMfBest, setOmfBest, setRestartIdx, setIter, setMf, setOmf,
-    } = ctx;
+const D_MIN = 1.0, D_MAX = 2000.0;
+// Steps run per animation tick before touching React state / live preview. The
+// DLS step itself is cheap; the per-iteration cost is the panel re-render +
+// global-design update (which replots the whole spectrum). Batching amortizes
+// that ~UI_BATCH×. Pure UI throttle — the optimizer math is untouched.
+const UI_BATCH = 25;
 
-    if (runningRef.current) return;
+// Unlocked-layer perturbation for a multi-start restart (locked layers kept).
+function perturbLayers(layers, pct) {
+    return layers.map(l => {
+        if (l.locked) return { ...l };
+        const base = l.thickness || 0;
+        const factor = 1 + pct * (Math.random() * 2 - 1);
+        let tt = base * factor;
+        if (tt < D_MIN) tt = D_MIN;
+        if (tt > D_MAX) tt = D_MAX;
+        return { ...l, thickness: tt };
+    });
+}
 
-    const curDes = designRef.current;
-    const ops    = densifyForRun(operandsRef.current.filter(op => op.enabled), curDes);
-    if (!curDes || ops.length === 0) return;
+// Whether the surface mode exposes optimization variables for multi-start.
+function multiEligible(surfMode, hasFront, hasBack) {
+    if (surfMode === 'back_only') return hasBack;
+    if (surfMode === 'both_independent') return hasFront || hasBack;
+    return hasFront;
+}
 
-    const MAX_ITER = maxIterRef.current || 500;
-    // Steps run per animation tick before touching React state / live
-    // preview. The DLS step itself is cheap; the per-iteration cost is the
-    // panel re-render + global-design update (which replots the whole
-    // spectrum). Batching amortizes that ~UI_BATCH×. Pure UI throttle —
-    // the optimizer math is untouched.
-    const UI_BATCH = 25;
+// Map an optimization vector back to design.frontLayers / backLayers given the
+// surfaceMode and baselines (M.surfMode / M.baselineFront / M.baselineBack).
+function applyVecToDesign(M, d, vec) {
+    const { surfMode, baselineFront, baselineBack } = M;
+    if (surfMode === 'both_independent') {
+        const nFront = baselineFront.length;
+        const frontT = vec.slice(0, nFront);
+        const backT  = vec.slice(nFront);
+        return {
+            ...d,
+            frontLayers: baselineFront.map((l, i) => ({ ...l, thickness: frontT[i] ?? l.thickness })),
+            backLayers:  baselineBack .map((l, i) => ({ ...l, thickness: backT [i] ?? l.thickness })),
+        };
+    }
+    if (surfMode === 'symmetric') {
+        const front = baselineFront.map((l, i) => ({ ...l, thickness: vec[i] ?? l.thickness }));
+        return { ...d, frontLayers: front, backLayers: mirrorLayers(front) };
+    }
+    if (surfMode === 'back_only') {
+        return { ...d, backLayers: baselineBack.map((l, i) => ({ ...l, thickness: vec[i] ?? l.thickness })) };
+    }
+    return { ...d, frontLayers: baselineFront.map((l, i) => ({ ...l, thickness: vec[i] ?? l.thickness })) };
+}
 
-    // ── Multi-start path ──────────────────────────────────────────────────
-    // Which stack(s) get perturbed depends on surfaceMode:
-    //   front_only        → perturb frontLayers
-    //   back_only         → perturb backLayers
-    //   symmetric         → perturb frontLayers (back auto-syncs via DLS)
-    //   both_independent  → perturb both
-    const surfMode = curDes.surfaceMode || 'front_only';
-    const hasFront = (curDes.frontLayers || []).length > 0;
-    const hasBack  = (curDes.backLayers  || []).length > 0;
-    const msEligible = (surfMode === 'back_only')
-        ? hasBack
-        : (surfMode === 'both_independent' ? (hasFront || hasBack) : hasFront);
+// Perturbed design for the next restart, perturbing only the stack(s) the
+// surface mode marks as optimization variables.
+function perturbedDesignFor(M) {
+    const { surfMode, baselineFront, baselineBack, pct, curDes } = M;
+    if (surfMode === 'both_independent')
+        return { ...curDes, frontLayers: perturbLayers(baselineFront, pct), backLayers: perturbLayers(baselineBack, pct) };
+    if (surfMode === 'back_only')
+        return { ...curDes, frontLayers: baselineFront, backLayers: perturbLayers(baselineBack, pct) };
+    if (surfMode === 'symmetric') {
+        const front = perturbLayers(baselineFront, pct);
+        return { ...curDes, frontLayers: front, backLayers: mirrorLayers(front) };
+    }
+    return { ...curDes, frontLayers: perturbLayers(baselineFront, pct) };
+}
 
-    if (multiStartRef.current && msEligible) {
-        const N    = Math.max(1, Math.floor(nRestartsRef.current));
-        const pct  = Math.max(0, perturbPctRef.current) / 100;
-        const D_MIN = 1.0;
-        const D_MAX = 2000.0;
-
-        // One undo checkpoint for the whole run, then save the Reset
-        // baseline (cached so it survives a window switch).
-        checkpointRef.current && checkpointRef.current();
-        commitBaseline({ frontLayers: curDes.frontLayers, backLayers: curDes.backLayers });
-        const baselineFront = JSON.parse(JSON.stringify(curDes.frontLayers || []));
-        const baselineBack  = JSON.parse(JSON.stringify(curDes.backLayers  || []));
-
-        // Baseline MF (used as initial reference) + baseline optimization
-        // vector, so the unperturbed starting design seeds the global best
-        // (M7) and a perturbed restart is adopted only if it actually beats it.
-        let mfInit = null;
-        let baselineThicks = null, baselineOmf = null;
-        try {
-            const baseOpt = new DLSOptimizer(ops, curDes, resolveMat);
-            mfInit = baseOpt.mf;
-            baselineThicks = [...baseOpt.thicknesses];
-            baselineOmf = baseOpt.mfOpticalAt(baseOpt.thicknesses);
-            setMfInitial(mfInit);
-            setOmfInitial(baselineOmf);
-        } catch (err) {
-            console.error('[Multi-start] Initial eval failed:', err);
-            return;
-        }
-
-        bumpRunCount();
-        const runLabel = t.refinement.history.run(histRunCount.current);
-
-        runningRef.current = true;
-        setRunning(true);
-        setCanReset(true);
-        setMfHistory([]);
-        setMfBest(null);
-        setOmfBest(null);
-        setRestartIdx(0);
-
-        // M7: seed the global best with the UNPERTURBED starting design so a
-        // run can never apply a perturbed restart that is worse than where we
-        // started. (Every restart in this path perturbs the baseline; without
-        // this seed the least-bad perturbation would be applied even if all
-        // were worse than the original.)
-        let globalBestMF      = mfInit ?? Infinity;
-        let globalBestOMF     = baselineOmf;   // optical merit of the global-best design (display only)
-        let globalBestThicks  = baselineThicks; // optimization vector (front, back, or front+back depending on mode)
-        let restart           = 0;
-        let totalIter         = 0;
-
-        // Helper: perturb a layer array (skipping locked ones).
-        const perturbLayers = (layers) => layers.map(l => {
-            if (l.locked) return { ...l };
-            const base = l.thickness || 0;
-            const factor = 1 + pct * (Math.random() * 2 - 1);
-            let tt = base * factor;
-            if (tt < D_MIN) tt = D_MIN;
-            if (tt > D_MAX) tt = D_MAX;
-            return { ...l, thickness: tt };
+// ── Multi-start loop (module-scope stepper over run-state M) ───────────────────
+function msFinish(ctx, M) {
+    ctx.runningRef.current = false;
+    ctx.setRunning(false);
+    ctx.setRestartIdx(0);
+    if (M.globalBestThicks) {
+        const finalDesign = applyVecToDesign(M, M.curDes, M.globalBestThicks);
+        ctx.updateDesignRef.current({
+            frontLayers: finalDesign.frontLayers,
+            backLayers:  finalDesign.backLayers,
+        }, { transient: true });
+        const layerSide = M.surfMode === 'back_only' ? 'backLayers' : 'frontLayers';
+        // Synthetic optimizer-like ref so Best/Reset still work.
+        ctx.optimizerRef.current = {
+            iter: M.totalIter,
+            mf: M.globalBestMF, mfBest: M.globalBestMF,
+            thickBest: M.globalBestThicks, layerSide,
+            applyToDesign: (d) => applyVecToDesign(M, d, M.globalBestThicks),
+            restoreBest: () => {},
+        };
+        const histLayers = M.surfMode === 'back_only' ? finalDesign.backLayers : finalDesign.frontLayers;
+        ctx.addHistEntry({
+            id: Math.random().toString(36).slice(2),
+            label: M.runLabel + ` (×${M.N})`,
+            iter:  M.totalIter,
+            mf:    M.globalBestMF,
+            omf:   M.globalBestOMF,
+            layers: histLayers,
+            layerCount: histLayers.length,
+            layerSide,
         });
+    }
+    console.log(`[Multi-start] Done: ${M.N} restarts, best MF=${M.globalBestMF.toFixed(6)} (mode=${M.surfMode})`);
+}
 
-        // Helper: map an optimization vector back to design.frontLayers / backLayers
-        // given the surfaceMode and baselines.
-        const applyVecToDesign = (d, vec) => {
-            if (surfMode === 'both_independent') {
-                const nFront = baselineFront.length;
-                const frontT = vec.slice(0, nFront);
-                const backT  = vec.slice(nFront);
-                return {
-                    ...d,
-                    frontLayers: baselineFront.map((l, i) => ({ ...l, thickness: frontT[i] ?? l.thickness })),
-                    backLayers:  baselineBack .map((l, i) => ({ ...l, thickness: backT [i] ?? l.thickness })),
-                };
-            }
-            if (surfMode === 'symmetric') {
-                const front = baselineFront.map((l, i) => ({ ...l, thickness: vec[i] ?? l.thickness }));
-                return { ...d, frontLayers: front, backLayers: mirrorLayers(front) };
-            }
-            if (surfMode === 'back_only') {
-                return { ...d, backLayers: baselineBack.map((l, i) => ({ ...l, thickness: vec[i] ?? l.thickness })) };
-            }
-            // front_only
-            return { ...d, frontLayers: baselineFront.map((l, i) => ({ ...l, thickness: vec[i] ?? l.thickness })) };
-        };
+function msTickInner(ctx, M, opt) {
+    if (!ctx.runningRef.current) return;
+    let done = false;
+    for (let b = 0; b < UI_BATCH; b++) {
+        opt.step();
+        M.totalIter += 1;
+        if (opt.isConverged() || opt.iter >= M.maxIter) { done = true; break; }
+    }
+    ctx.setIter(M.totalIter);
+    ctx.setMf(opt.mf);
+    ctx.setOmf(opt.mfOpticalAt(opt.thicknesses));
+    ctx.setMfHistory(prev => [...prev, { iter: M.totalIter, mf: opt.mf }]);
 
-        const runOne = () => {
-            if (!runningRef.current) return;
-            if (restart >= N) {
-                // All restarts done — apply best and finish
-                runningRef.current = false;
-                setRunning(false);
-                setRestartIdx(0);
-                if (globalBestThicks) {
-                    const finalDesign = applyVecToDesign(curDes, globalBestThicks);
-                    updateDesignRef.current({
-                        frontLayers: finalDesign.frontLayers,
-                        backLayers:  finalDesign.backLayers,
-                    }, { transient: true });
-                    // Build a synthetic optimizer-like ref so Best/Reset still work
-                    optimizerRef.current = {
-                        iter: totalIter,
-                        mf: globalBestMF, mfBest: globalBestMF,
-                        thickBest: globalBestThicks,
-                        layerSide: surfMode === 'back_only' ? 'backLayers' : 'frontLayers',
-                        applyToDesign: (d) => applyVecToDesign(d, globalBestThicks),
-                        restoreBest: () => {},
-                    };
-                    // History entry captures whichever stack was the optimization vector
-                    const histLayers = surfMode === 'back_only' ? finalDesign.backLayers : finalDesign.frontLayers;
-                    const entry = {
-                        id: Math.random().toString(36).slice(2),
-                        label: runLabel + ` (×${N})`,
-                        iter:  totalIter,
-                        mf:    globalBestMF,
-                        omf:   globalBestOMF,
-                        layers: histLayers,
-                        layerCount: histLayers.length,
-                        layerSide: surfMode === 'back_only' ? 'backLayers' : 'frontLayers',
-                    };
-                    addHistEntry(entry);
-                }
-                console.log(`[Multi-start] Done: ${N} restarts, best MF=${globalBestMF.toFixed(6)} (mode=${surfMode})`);
-                return;
-            }
+    // Live preview — applyToDesign already honors surfaceMode.
+    const updated = opt.applyToDesign(ctx.designRef.current);
+    ctx.updateDesignRef.current({
+        frontLayers: updated.frontLayers,
+        backLayers:  updated.backLayers,
+    }, { transient: true });
 
-            restart += 1;
-            setRestartIdx(restart);
+    if (done) {
+        if (opt.mfBest < M.globalBestMF) {
+            M.globalBestMF     = opt.mfBest;
+            M.globalBestThicks = [...opt.thickBest];
+            M.globalBestOMF    = opt.mfOpticalAt(opt.thickBest);
+            ctx.setMfBest(M.globalBestMF);
+            ctx.setOmfBest(M.globalBestOMF);
+        }
+        console.log(`[Multi-start ${M.restart}/${M.N}] iter=${opt.iter} MF=${opt.mfBest.toFixed(6)} (global best=${M.globalBestMF.toFixed(6)})`);
+        ctx.timerRef.current = setTimeout(() => msRunOne(ctx, M), 0);
+        return;
+    }
+    ctx.timerRef.current = setTimeout(() => msTickInner(ctx, M, opt), 0);
+}
 
-            // Build a perturbed design for this restart, perturbing only the stack(s)
-            // that the surface mode marks as optimization variables.
-            let perturbedDesign;
-            if (surfMode === 'both_independent') {
-                perturbedDesign = { ...curDes,
-                    frontLayers: perturbLayers(baselineFront),
-                    backLayers:  perturbLayers(baselineBack) };
-            } else if (surfMode === 'back_only') {
-                perturbedDesign = { ...curDes,
-                    frontLayers: baselineFront,
-                    backLayers:  perturbLayers(baselineBack) };
-            } else if (surfMode === 'symmetric') {
-                const front = perturbLayers(baselineFront);
-                perturbedDesign = { ...curDes, frontLayers: front, backLayers: mirrorLayers(front) };
-            } else {
-                // front_only
-                perturbedDesign = { ...curDes, frontLayers: perturbLayers(baselineFront) };
-            }
+function msRunOne(ctx, M) {
+    if (!ctx.runningRef.current) return;
+    if (M.restart >= M.N) { msFinish(ctx, M); return; }
 
-            let opt;
-            try {
-                opt = new DLSOptimizer(ops, perturbedDesign, resolveMat);
-            } catch (err) {
-                console.error(`[Multi-start ${restart}/${N}] init failed:`, err);
-                timerRef.current = setTimeout(runOne, 0);
-                return;
-            }
-            optimizerRef.current = opt;
+    M.restart += 1;
+    ctx.setRestartIdx(M.restart);
 
-            const tickInner = () => {
-                if (!runningRef.current) return;
-                let done = false;
-                for (let b = 0; b < UI_BATCH; b++) {
-                    opt.step();
-                    totalIter += 1;
-                    if (opt.isConverged() || opt.iter >= MAX_ITER) { done = true; break; }
-                }
-                setIter(totalIter);
-                setMf(opt.mf);
-                setOmf(opt.mfOpticalAt(opt.thicknesses));
-                setMfHistory(prev => [...prev, { iter: totalIter, mf: opt.mf }]);
+    let opt;
+    try {
+        opt = new DLSOptimizer(M.ops, perturbedDesignFor(M), resolveMat);
+    } catch (err) {
+        console.error(`[Multi-start ${M.restart}/${M.N}] init failed:`, err);
+        ctx.timerRef.current = setTimeout(() => msRunOne(ctx, M), 0);
+        return;
+    }
+    ctx.optimizerRef.current = opt;
+    msTickInner(ctx, M, opt);
+}
 
-                // Live preview — apply both stacks since applyToDesign already
-                // honors surfaceMode (writes back, both, or just front).
-                const updated = opt.applyToDesign(designRef.current);
-                updateDesignRef.current({
-                    frontLayers: updated.frontLayers,
-                    backLayers:  updated.backLayers,
-                }, { transient: true });
+function startMultiStart(ctx, curDes, ops, maxIter, surfMode) {
+    const N   = Math.max(1, Math.floor(ctx.nRestartsRef.current));
+    const pct = Math.max(0, ctx.perturbPctRef.current) / 100;
 
-                if (done) {
-                    // Record this restart's best
-                    if (opt.mfBest < globalBestMF) {
-                        globalBestMF     = opt.mfBest;
-                        globalBestThicks = [...opt.thickBest];
-                        globalBestOMF    = opt.mfOpticalAt(opt.thickBest);
-                        setMfBest(globalBestMF);
-                        setOmfBest(globalBestOMF);
-                    }
-                    console.log(`[Multi-start ${restart}/${N}] iter=${opt.iter} MF=${opt.mfBest.toFixed(6)} (global best=${globalBestMF.toFixed(6)})`);
-                    timerRef.current = setTimeout(runOne, 0);
-                    return;
-                }
-                timerRef.current = setTimeout(tickInner, 0);
-            };
-            tickInner();
-        };
+    // One undo checkpoint for the whole run, then save the Reset baseline.
+    ctx.checkpointRef.current && ctx.checkpointRef.current();
+    ctx.commitBaseline({ frontLayers: curDes.frontLayers, backLayers: curDes.backLayers });
+    const baselineFront = JSON.parse(JSON.stringify(curDes.frontLayers || []));
+    const baselineBack  = JSON.parse(JSON.stringify(curDes.backLayers  || []));
 
-        runOne();
+    // Baseline MF + optimization vector: the unperturbed start seeds the global
+    // best (M7) so a perturbed restart is adopted only if it actually beats it.
+    let mfInit = null, baselineThicks = null, baselineOmf = null;
+    try {
+        const baseOpt = new DLSOptimizer(ops, curDes, resolveMat);
+        mfInit = baseOpt.mf;
+        baselineThicks = [...baseOpt.thicknesses];
+        baselineOmf = baseOpt.mfOpticalAt(baseOpt.thicknesses);
+        ctx.setMfInitial(mfInit);
+        ctx.setOmfInitial(baselineOmf);
+    } catch (err) {
+        console.error('[Multi-start] Initial eval failed:', err);
         return;
     }
 
-    // ── Single-start path (original behavior) ────────────────────────────
-    // Create optimizer if not already running a session
-    if (!optimizerRef.current) {
-        // One undo checkpoint for the whole run; baseline cached for Reset.
-        checkpointRef.current && checkpointRef.current();
-        commitBaseline({ frontLayers: curDes.frontLayers, backLayers: curDes.backLayers });
+    ctx.bumpRunCount();
+    ctx.runningRef.current = true;
+    ctx.setRunning(true);
+    ctx.setCanReset(true);
+    ctx.setMfHistory([]);
+    ctx.setMfBest(null);
+    ctx.setOmfBest(null);
+    ctx.setRestartIdx(0);
+
+    const M = {
+        curDes, ops, maxIter, N, pct, surfMode, baselineFront, baselineBack,
+        runLabel: ctx.t.refinement.history.run(ctx.histRunCount.current),
+        globalBestMF: mfInit ?? Infinity,
+        globalBestOMF: baselineOmf,
+        globalBestThicks: baselineThicks,
+        restart: 0, totalIter: 0,
+    };
+    msRunOne(ctx, M);
+}
+
+// ── Single-start loop ─────────────────────────────────────────────────────────
+function ssTick(ctx, maxIter) {
+    if (!ctx.runningRef.current) return;
+    const opt = ctx.optimizerRef.current;
+    if (!opt) return;
+
+    let done = false;
+    for (let b = 0; b < UI_BATCH; b++) {
+        opt.step();
+        if (opt.isConverged() || opt.iter >= maxIter) { done = true; break; }
+    }
+
+    ctx.setIter(opt.iter);
+    ctx.setMf(opt.mf);
+    ctx.setOmf(opt.mfOpticalAt(opt.thicknesses));
+    ctx.setOmfBest(opt.mfOpticalAt(opt.thickBest));
+    // opt.mfBest is monotone non-increasing; show it directly.
+    ctx.setMfBest(opt.mfBest);
+    ctx.setMfHistory(prev => [...prev, { iter: opt.iter, mf: opt.mf }]);
+
+    const updated = opt.applyToDesign(ctx.designRef.current);
+    ctx.updateDesignRef.current({
+        frontLayers: updated.frontLayers,
+        backLayers:  updated.backLayers,
+    }, { transient: true });
+
+    if (done) {
+        console.log(`[DLS] Converged: iter=${opt.iter} MF=${opt.mf.toFixed(6)} lamD=${opt.lamD.toExponential(2)}`);
+        ctx.runningRef.current = false;
+        ctx.setRunning(false);
+        return;
+    }
+    ctx.timerRef.current = setTimeout(() => ssTick(ctx, maxIter), 0);
+}
+
+function startSingleStart(ctx, curDes, ops, maxIter) {
+    // Create optimizer if not already running a session.
+    if (!ctx.optimizerRef.current) {
+        ctx.checkpointRef.current && ctx.checkpointRef.current();
+        ctx.commitBaseline({ frontLayers: curDes.frontLayers, backLayers: curDes.backLayers });
         try {
             const opt = new DLSOptimizer(ops, curDes, resolveMat);
-            optimizerRef.current = opt;
-            setMfInitial(opt.mf);
-            setMfBest(opt.mfBest);
-            setOmfInitial(opt.mfOpticalAt(opt.thicknesses));
-            setOmfBest(opt.mfOpticalAt(opt.thickBest));
-            bumpRunCount();
+            ctx.optimizerRef.current = opt;
+            ctx.setMfInitial(opt.mf);
+            ctx.setMfBest(opt.mfBest);
+            ctx.setOmfInitial(opt.mfOpticalAt(opt.thicknesses));
+            ctx.setOmfBest(opt.mfOpticalAt(opt.thickBest));
+            ctx.bumpRunCount();
         } catch (err) {
             console.error('[DLS] Failed to create optimizer:', err);
             return;
         }
     }
 
-    runningRef.current = true;
-    setRunning(true);
-    setCanReset(true);
+    ctx.runningRef.current = true;
+    ctx.setRunning(true);
+    ctx.setCanReset(true);
+    ctx.timerRef.current = setTimeout(() => ssTick(ctx, maxIter), 0);
+}
 
-    const tick = () => {
-        if (!runningRef.current) return;
-        const opt = optimizerRef.current;
-        if (!opt) return;
+export function runOptMainThread(ctx) {
+    const { runningRef, designRef, operandsRef, maxIterRef, multiStartRef } = ctx;
+    if (runningRef.current) return;
 
-        let done = false;
-        for (let b = 0; b < UI_BATCH; b++) {
-            opt.step();
-            if (opt.isConverged() || opt.iter >= MAX_ITER) { done = true; break; }
-        }
+    const curDes = designRef.current;
+    const ops    = densifyForRun(operandsRef.current.filter(op => op.enabled), curDes);
+    if (!curDes || ops.length === 0) return;
 
-        setIter(opt.iter);
-        setMf(opt.mf);
-        setOmf(opt.mfOpticalAt(opt.thicknesses));
-        setOmfBest(opt.mfOpticalAt(opt.thickBest));
-        // opt.mfBest is monotone non-increasing; show it directly. (The old
-        // guard compared optimizerRef.current.mfBest against itself — opt IS
-        // optimizerRef.current — so it was always false and Best never moved.)
-        setMfBest(opt.mfBest);
-        setMfHistory(prev => [...prev, { iter: opt.iter, mf: opt.mf }]);
+    const maxIter  = maxIterRef.current || 500;
+    const surfMode = curDes.surfaceMode || 'front_only';
+    const eligible = multiEligible(surfMode, (curDes.frontLayers || []).length > 0, (curDes.backLayers || []).length > 0);
 
-        // Apply current thicknesses for live preview. applyToDesign honors
-        // surfaceMode so back_only / symmetric / both_independent designs
-        // see the correct stack(s) update.
-        const updated = opt.applyToDesign(designRef.current);
-        updateDesignRef.current({
-            frontLayers: updated.frontLayers,
-            backLayers:  updated.backLayers,
-        }, { transient: true });
-
-        if (done) {
-            console.log(`[DLS] Converged: iter=${opt.iter} MF=${opt.mf.toFixed(6)} lamD=${opt.lamD.toExponential(2)}`);
-            runningRef.current = false;
-            setRunning(false);
-            return;
-        }
-
-        timerRef.current = setTimeout(tick, 0);
-    };
-
-    timerRef.current = setTimeout(tick, 0);
+    if (multiStartRef.current && eligible) startMultiStart(ctx, curDes, ops, maxIter, surfMode);
+    else startSingleStart(ctx, curDes, ops, maxIter);
 }

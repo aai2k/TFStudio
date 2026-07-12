@@ -19,80 +19,95 @@ import {
 import { countFreeVars, MAXITER_FOR, METHOD_LABELS } from '../refinementConfig.js';
 import { runOptMainThread } from './mainThread.js';
 
-// Single-engine worker run (dls/cg/sa/de-serial). preview=false suppresses
-// the live design write (used by multistart restarts, which would thrash it).
+// ── Single-engine worker run (dls/cg/sa/de-serial) ────────────────────────────
+// Message handler for one optimizerWorker; mutates st.best and settles the run
+// promise via opts.{cleanup,resolve}. preview=false suppresses the live design
+// write (used by multistart restarts, which would thrash it).
+function engineOnMessage(ctx, st, m, opts) {
+    if (!m) return;
+    if (m.type === 'warn' || m.type === 'init') return;
+    if (m.type === 'error') { opts.cleanup(); opts.resolve(st.best); return; }
+    if (m.type === 'progress' || m.type === 'done') {
+        const fL = m.bestFrontLayers || m.frontLayers, bL = m.bestBackLayers || m.backLayers;
+        st.best = { mf: (m.mfBest != null ? m.mfBest : m.mf), omf: (m.omfBest != null ? m.omfBest : m.omf), frontLayers: fL, backLayers: bL, iters: m.iter, reason: m.reason };
+        if (opts.onProg) opts.onProg(st.best.mf, st.best.iters, st.best.omf);
+        if (opts.preview && fL) ctx.updateDesignRef.current({ frontLayers: fL, backLayers: bL }, { transient: true });
+        if (m.type === 'done') { opts.cleanup(); opts.resolve(st.best); }
+    }
+    if (!opts.alive()) { opts.cleanup(); opts.resolve(st.best); }
+}
+
 function runEngineP(ctx, engine, ops, payload, materials, alive, onProg, preview, maxIterOverride) {
-    const { flowWorkersRef, updateDesignRef } = ctx;
     return new Promise((resolve) => {
         let w;
         try { w = new Worker(WORKER_URL, { type: 'module' }); }
         catch (_) { resolve(null); return; }
-        flowWorkersRef.current.add(w);
-        let best = null;
-        const cleanup = () => { try { w.terminate(); } catch (_) {} flowWorkersRef.current.delete(w); };
-        w.onmessage = (e) => {
-            const m = e.data; if (!m) return;
-            if (m.type === 'warn' || m.type === 'init') return;
-            if (m.type === 'error') { cleanup(); resolve(best); return; }
-            if (m.type === 'progress' || m.type === 'done') {
-                const fL = m.bestFrontLayers || m.frontLayers, bL = m.bestBackLayers || m.backLayers;
-                best = { mf: (m.mfBest != null ? m.mfBest : m.mf), omf: (m.omfBest != null ? m.omfBest : m.omf), frontLayers: fL, backLayers: bL, iters: m.iter, reason: m.reason };
-                if (onProg) onProg(best.mf, best.iters, best.omf);
-                if (preview && fL) updateDesignRef.current({ frontLayers: fL, backLayers: bL }, { transient: true });
-                if (m.type === 'done') { cleanup(); resolve(best); }
-            }
-            if (!alive()) { cleanup(); resolve(best); }
-        };
-        w.onerror = () => { cleanup(); resolve(best); };
+        ctx.flowWorkersRef.current.add(w);
+        const st = { best: null };
+        const cleanup = () => { try { w.terminate(); } catch (_) {} ctx.flowWorkersRef.current.delete(w); };
+        const opts = { onProg, preview, alive, cleanup, resolve };
+        w.onmessage = (e) => engineOnMessage(ctx, st, e.data, opts);
+        w.onerror = () => { cleanup(); resolve(st.best); };
         w.postMessage({ type: 'start', method: engine, operands: ops, design: payload, materials, opts: { maxIter: maxIterOverride || MAXITER_FOR[engine] || 500 }, wasmBytes: getTmmWasmBytesForWorker() });
     });
 }
 
-// Parallel Differential Evolution (worker POOL of stateless mfEvalWorkers).
+// ── Parallel Differential Evolution (worker POOL of stateless mfEvalWorkers) ───
+// Score all trial vectors across the pool, K per batch.
+async function deEvalBatch(pool, cfg, trials) {
+    const { ops, payload, materials, sid, K } = cfg;
+    const per = Math.max(1, Math.ceil(trials.length / K));
+    const jobs = [], starts = [];
+    for (let s = 0; s < trials.length; s += per) { starts.push(s); jobs.push({ type: 'evalBatch', sid, operands: ops, design: payload, materials, vectors: trials.slice(s, s + per) }); }
+    const results = await pool.map(jobs);
+    const mfs = new Array(trials.length);
+    results.forEach((r, ci) => { const st = starts[ci]; (r.mfs || []).forEach((v, k) => { mfs[st + k] = v; }); });
+    return mfs;
+}
+
+// Throttled live-preview push of the DE best-so-far.
+function dePostProgress(ctx, de, payload, onProg) {
+    de.restoreBest();
+    const upd = de.applyToDesign(payload);
+    ctx.updateDesignRef.current({ frontLayers: upd.frontLayers, backLayers: upd.backLayers }, { transient: true });
+    if (onProg) onProg(de.mfBest, de.iter, de.mfOpticalAt(de.thickBest));
+}
+
+// The DE generation loop: produce trials → score across the pool → ingest, with
+// a throttled live-preview push. cfg carries { ops, payload, materials, sid, K, deMax }.
+async function runDeLoop(ctx, de, pool, cfg, alive, onProg) {
+    let lastPost = 0;
+    while (alive() && !de.isConverged() && de.iter < cfg.deMax) {
+        const trials = de.produceTrials();
+        if (!trials) { de.iter++; break; }
+        const mfs = await deEvalBatch(pool, cfg, trials);
+        if (!alive()) break;
+        de.ingestTrials(trials, mfs);
+        const tnow = nowMs();
+        if (tnow - lastPost >= 100) { lastPost = tnow; dePostProgress(ctx, de, cfg.payload, onProg); }
+    }
+}
+
 async function runParallelDEP(ctx, ops, payload, materials, alive, onProg, maxIterOverride) {
-    const { dePoolRef, updateDesignRef } = ctx;
     const K  = getThreadCount();   // global Threads setting
     const deMax = maxIterOverride || MAXITER_FOR.de;
-    let pool;
+    const serialFallback = () => runEngineP(ctx, 'de', ops, payload, materials, alive, onProg, true, maxIterOverride);
     const wasmBytes = getTmmWasmBytesForWorker();
-    try { pool = new WorkerPool(MFEVAL_URL, K, wasmBytes ? { type: 'wasmInit', wasmBytes } : null); } catch (_) { return runEngineP(ctx, 'de', ops, payload, materials, alive, onProg, true, maxIterOverride); }
-    dePoolRef.current = pool;
+    let pool;
+    try { pool = new WorkerPool(MFEVAL_URL, K, wasmBytes ? { type: 'wasmInit', wasmBytes } : null); } catch (_) { return serialFallback(); }
+    ctx.dePoolRef.current = pool;
     let de;
     try { de = new DEOptimizer(ops, payload, resolveMat, { maxIter: deMax }); }
-    catch (_) { try { pool.terminate(); } catch (e) {} dePoolRef.current = null; return runEngineP(ctx, 'de', ops, payload, materials, alive, onProg, true, maxIterOverride); }
-    const sid = Math.random().toString(36).slice(2);
-    const MAX = deMax;
-    const evalAll = async (trials) => {
-        const per = Math.max(1, Math.ceil(trials.length / K));
-        const jobs = [], starts = [];
-        for (let s = 0; s < trials.length; s += per) { starts.push(s); jobs.push({ type: 'evalBatch', sid, operands: ops, design: payload, materials, vectors: trials.slice(s, s + per) }); }
-        const results = await pool.map(jobs);
-        const mfs = new Array(trials.length);
-        results.forEach((r, ci) => { const st = starts[ci]; (r.mfs || []).forEach((v, k) => { mfs[st + k] = v; }); });
-        return mfs;
-    };
-    let lastPost = 0;
-    try {
-        while (alive() && !de.isConverged() && de.iter < MAX) {
-            const trials = de.produceTrials();
-            if (!trials) { de.iter++; break; }
-            const mfs = await evalAll(trials);
-            if (!alive()) break;
-            de.ingestTrials(trials, mfs);
-            const t = nowMs();
-            if (t - lastPost >= 100) {
-                lastPost = t;
-                de.restoreBest();
-                const upd = de.applyToDesign(payload);
-                updateDesignRef.current({ frontLayers: upd.frontLayers, backLayers: upd.backLayers }, { transient: true });
-                if (onProg) onProg(de.mfBest, de.iter, de.mfOpticalAt(de.thickBest));
-            }
-        }
-    } catch (err) { console.error('[Refine] parallel DE error:', err); }
+    catch (_) { try { pool.terminate(); } catch (e) {} ctx.dePoolRef.current = null; return serialFallback(); }
+
+    const cfg = { ops, payload, materials, sid: Math.random().toString(36).slice(2), K, deMax };
+    try { await runDeLoop(ctx, de, pool, cfg, alive, onProg); }
+    catch (err) { console.error('[Refine] parallel DE error:', err); }
+
     de.restoreBest();
     const upd = de.applyToDesign(payload);
     const deOmf = de.mfOpticalAt(de.thickBest);
-    try { pool.terminate(); } catch (_) {} dePoolRef.current = null;
+    try { pool.terminate(); } catch (_) {} ctx.dePoolRef.current = null;
     return { mf: de.mfBest, omf: deOmf, frontLayers: upd.frontLayers, backLayers: upd.backLayers, iters: de.iter };
 }
 
@@ -100,7 +115,6 @@ async function runParallelDEP(ctx, ops, payload, materials, alive, onProg, maxIt
 // single-DLS runs in batches of K; keep the best. (Single-method 'dls-multi'
 // selection still uses the faster validated event pool, runDlsEvent.)
 async function runMultiP(ctx, ops, payload, materials, N, pct, alive, onProg) {
-    const { updateDesignRef } = ctx;
     const K  = getThreadCount();   // global Threads setting
     let best = null, done = 0;
     for (let s = 0; s < N && alive(); s += K) {
@@ -114,27 +128,79 @@ async function runMultiP(ctx, ops, payload, materials, N, pct, alive, onProg) {
             if (r && (!best || r.mf < best.mf)) {
                 best = { ...r };
                 if (onProg) onProg(best.mf, done, best.omf);
-                updateDesignRef.current({ frontLayers: best.frontLayers, backLayers: best.backLayers }, { transient: true });
+                ctx.updateDesignRef.current({ frontLayers: best.frontLayers, backLayers: best.backLayers }, { transient: true });
             }
         }
     }
     return best;
 }
 
-// Async orchestrator for cg / sa / de / all. Each method runs from the SAME
-// baseline; the global best across methods is kept and applied at the end.
-export async function runMethodsFlow(ctx, methods) {
-    const {
-        runningRef, designRef, operandsRef, baselineRef, checkpointRef, runIdRef,
-        maxIterRef, nRestartsRef, perturbPctRef, updateDesignRef, optimizerRef, lastBestRef,
-        commitBaseline, bumpRunCount, addHistEntry,
-        setMfInitial, setOmfInitial, setRunning, setCanReset, setMfHistory, setIter,
-        setStopReason, setRestartIdx, setMf, setMfBest, setOmf, setOmfBest,
-    } = ctx;
+// ── Async orchestrator for cg / sa / de / all ─────────────────────────────────
+// Pick + run the engine for method m (F bundles the shared run config).
+function runMethodOnce(ctx, m, F) {
+    const mi = F.singleMethod ? ctx.maxIterRef.current : undefined;
+    if (m === 'de' && F.HW > 2 && countFreeVars(F.curDes) >= 4)
+        return runParallelDEP(ctx, F.ops, F.payload, F.materials, F.alive, F.onProg, mi);
+    if (m === 'dls-multi')
+        return runMultiP(ctx, F.ops, F.payload, F.materials, ctx.nRestartsRef.current, ctx.perturbPctRef.current, F.alive, F.onProg);
+    return runEngineP(ctx, m, F.ops, F.payload, F.materials, F.alive, F.onProg, true, mi);
+}
 
-    if (runningRef.current) return;
-    const curDes = designRef.current;
-    const ops    = densifyForRun(operandsRef.current.filter(op => op.enabled), curDes);
+// Record one method's result: append a history row; track the global best.
+function recordMethodResult(ctx, F, m, res, best) {
+    const layers = (F.layerSide === 'backLayers' ? res.backLayers : res.frontLayers) || [];
+    ctx.addHistEntry({
+        id: Math.random().toString(36).slice(2),
+        label: METHOD_LABELS[m],
+        iter: res.iters || 0, mf: res.mf, omf: res.omf, layers, layerCount: layers.length,
+        layerSide: F.layerSide,
+    });
+    if (res.mf < best.cur.mf) {
+        best.cur = { mf: res.mf, omf: res.omf, frontLayers: res.frontLayers, backLayers: res.backLayers, method: m };
+        ctx.setOmfBest(best.cur.omf);
+    }
+}
+
+// Apply the global best; set a synthetic optimizerRef so Best/Reset work.
+function finalizeMethodsFlow(ctx, F, gb, methods) {
+    ctx.runningRef.current = false; ctx.setRunning(false); ctx.setRestartIdx(0);
+    ctx.updateDesignRef.current({ frontLayers: gb.frontLayers, backLayers: gb.backLayers }, { transient: true });
+    ctx.lastBestRef.current = { mfBest: gb.mf, omf: gb.omf, frontLayers: gb.frontLayers, backLayers: gb.backLayers };
+    ctx.optimizerRef.current = {
+        iter: 0, mf: gb.mf, mfBest: gb.mf, layerSide: F.layerSide,
+        applyToDesign: (d) => ({ ...d, frontLayers: gb.frontLayers, backLayers: gb.backLayers }),
+        restoreBest: () => {},
+    };
+    ctx.setMf(gb.mf); ctx.setMfBest(gb.mf); ctx.setOmf(gb.omf); ctx.setOmfBest(gb.omf);
+    ctx.setStopReason(gb.mf < 1e-6 ? 'target' : (gb.method && methods.length > 1 ? `best: ${METHOD_LABELS[gb.method]}` : 'stalled'));
+    if (methods.length > 1) console.log(`[Refine] Try-all done: best = ${gb.method} (MF=${gb.mf.toFixed(6)})`);
+}
+
+// Take the run checkpoint/baseline once, then evaluate the unperturbed start as
+// the seed for the global best. Returns { baseMF, baseOMF }.
+function seedBaseline(ctx, curDes, ops, payload) {
+    if (!ctx.baselineRef.current) {
+        ctx.checkpointRef.current && ctx.checkpointRef.current();
+        ctx.commitBaseline({ frontLayers: curDes.frontLayers, backLayers: curDes.backLayers });
+        ctx.baselineRef.current = true;
+    }
+    let baseMF = Infinity, baseOMF = null;
+    try {
+        const b = new DLSOptimizer(ops, payload, resolveMat);
+        baseMF = b.mf; baseOMF = b.mfOpticalAt(b.thicknesses);
+        ctx.setMfInitial(b.mf); ctx.setOmfInitial(baseOMF);
+    } catch (_) {}
+    return { baseMF, baseOMF };
+}
+
+// Each method runs from the SAME baseline; the global best across methods is
+// kept and applied at the end. INDEPENDENT (not a relay): a relay variant tended
+// to dip on the first improving method and then stall — the local methods can't
+// escape that basin and the globals have nothing left to improve.
+export async function runMethodsFlow(ctx, methods) {
+    if (ctx.runningRef.current) return;
+    const curDes = ctx.designRef.current;
+    const ops    = densifyForRun(ctx.operandsRef.current.filter(op => op.enabled), curDes);
     if (!curDes || ops.length === 0) return;
     let materials;
     try { materials = presampleMaterials(curDes, ops); }
@@ -143,77 +209,37 @@ export async function runMethodsFlow(ctx, methods) {
     const payload   = buildPayload(curDes);
     const layerSide = payload.surfaceMode === 'back_only' ? 'backLayers' : 'frontLayers';
 
-    if (!baselineRef.current) {
-        checkpointRef.current && checkpointRef.current();
-        commitBaseline({ frontLayers: curDes.frontLayers, backLayers: curDes.backLayers });
-        baselineRef.current = true;
-    }
-    let baseMF = Infinity, baseOMF = null;
-    try { const b = new DLSOptimizer(ops, payload, resolveMat); baseMF = b.mf; baseOMF = b.mfOpticalAt(b.thicknesses); setMfInitial(b.mf); setOmfInitial(baseOMF); } catch (_) {}
+    const { baseMF, baseOMF } = seedBaseline(ctx, curDes, ops, payload);
 
-    const myRun = ++runIdRef.current;
-    const alive = () => runningRef.current && runIdRef.current === myRun;
-    runningRef.current = true; setRunning(true); setCanReset(true);
-    setMfHistory([]); setIter(0); setStopReason(null); setRestartIdx(0);
-    setMf(baseMF); setMfBest(baseMF); setOmf(baseOMF); setOmfBest(baseOMF);
+    const myRun = ++ctx.runIdRef.current;
+    const alive = () => ctx.runningRef.current && ctx.runIdRef.current === myRun;
+    ctx.runningRef.current = true; ctx.setRunning(true); ctx.setCanReset(true);
+    ctx.setMfHistory([]); ctx.setIter(0); ctx.setStopReason(null); ctx.setRestartIdx(0);
+    ctx.setMf(baseMF); ctx.setMfBest(baseMF); ctx.setOmf(baseOMF); ctx.setOmfBest(baseOMF);
 
-    let globalBest = { mf: baseMF, omf: baseOMF, frontLayers: payload.frontLayers, backLayers: payload.backLayers, method: null };
-    const HW = (typeof navigator !== 'undefined' && navigator.hardwareConcurrency) || 4;
-
-    const onProg = (mfNow, _iters, omfNow) => {
-        const y = Math.min(globalBest.mf, mfNow);
-        setMf(mfNow); setMfBest(y);
-        if (omfNow != null) setOmf(omfNow);
-        setOmfBest(globalBest.omf);
-        setMfHistory(prev => [...prev, { iter: prev.length, mf: y }]);
+    const best = { cur: { mf: baseMF, omf: baseOMF, frontLayers: payload.frontLayers, backLayers: payload.backLayers, method: null } };
+    const F = {
+        ops, payload, materials, layerSide, curDes, alive,
+        singleMethod: methods.length === 1,
+        HW: (typeof navigator !== 'undefined' && navigator.hardwareConcurrency) || 4,
+        onProg: (mfNow, _iters, omfNow) => {
+            const y = Math.min(best.cur.mf, mfNow);
+            ctx.setMf(mfNow); ctx.setMfBest(y);
+            if (omfNow != null) ctx.setOmf(omfNow);
+            ctx.setOmfBest(best.cur.omf);
+            ctx.setMfHistory(prev => [...prev, { iter: prev.length, mf: y }]);
+        },
     };
 
     try {
-        // INDEPENDENT: every method runs from the SAME original baseline, so
-        // each gets a fair shot and "Try all" surfaces the genuinely best
-        // method (not just whichever ran first). A relay variant tended to
-        // dip on the first improving method and then stall — the local
-        // methods can't escape that basin and the globals have nothing left
-        // to improve. We keep the global best and apply it at the end.
         for (const m of methods) {
             if (!alive()) break;
-            bumpRunCount();
-            if (methods.length > 1) setRestartIdx(methods.indexOf(m) + 1);
-            let res;
-            // User's Max-iterations field applies to single-method runs; in
-            // Try-all ('all') each method keeps its own natural budget.
-            const mi = methods.length === 1 ? maxIterRef.current : undefined;
-            if (m === 'de' && HW > 2 && countFreeVars(curDes) >= 4)
-                res = await runParallelDEP(ctx, ops, payload, materials, alive, onProg, mi);
-            else if (m === 'dls-multi')
-                res = await runMultiP(ctx, ops, payload, materials, nRestartsRef.current, perturbPctRef.current, alive, onProg);
-            else
-                res = await runEngineP(ctx, m, ops, payload, materials, alive, onProg, true, mi);
-            if (!res) continue;
-            const layers = (layerSide === 'backLayers' ? res.backLayers : res.frontLayers) || [];
-            addHistEntry({
-                id: Math.random().toString(36).slice(2),
-                label: METHOD_LABELS[m],
-                iter: res.iters || 0, mf: res.mf, omf: res.omf, layers, layerCount: layers.length,
-                layerSide,
-            });
-            if (res.mf < globalBest.mf) {
-                globalBest = { mf: res.mf, omf: res.omf, frontLayers: res.frontLayers, backLayers: res.backLayers, method: m };
-                setOmfBest(globalBest.omf);
-            }
+            ctx.bumpRunCount();
+            if (methods.length > 1) ctx.setRestartIdx(methods.indexOf(m) + 1);
+            const res = await runMethodOnce(ctx, m, F);
+            if (res) recordMethodResult(ctx, F, m, res, best);
         }
     } catch (err) { console.error('[Refine] method flow error:', err); }
 
-    // Finalize: apply the global best; set a synthetic optimizerRef so Best/Reset work.
-    runningRef.current = false; setRunning(false); setRestartIdx(0);
-    updateDesignRef.current({ frontLayers: globalBest.frontLayers, backLayers: globalBest.backLayers }, { transient: true });
-    lastBestRef.current = { mfBest: globalBest.mf, omf: globalBest.omf, frontLayers: globalBest.frontLayers, backLayers: globalBest.backLayers };
-    optimizerRef.current = {
-        iter: 0, mf: globalBest.mf, mfBest: globalBest.mf, layerSide,
-        applyToDesign: (d) => ({ ...d, frontLayers: globalBest.frontLayers, backLayers: globalBest.backLayers }),
-        restoreBest: () => {},
-    };
-    setMf(globalBest.mf); setMfBest(globalBest.mf); setOmf(globalBest.omf); setOmfBest(globalBest.omf);
-    setStopReason(globalBest.mf < 1e-6 ? 'target' : (globalBest.method && methods.length > 1 ? `best: ${METHOD_LABELS[globalBest.method]}` : 'stalled'));
-    if (methods.length > 1) console.log(`[Refine] Try-all done: best = ${globalBest.method} (MF=${globalBest.mf.toFixed(6)})`);
+    finalizeMethodsFlow(ctx, F, best.cur, methods);
 }
