@@ -52,21 +52,26 @@ export class SQPOptimizer extends LSQEngine {
     // covering each layer. Constraint operands carry a 1-based layer-index range in
     // lambdaStart/lambdaEnd and the bound in target — the same convention the
     // analytic-Jacobian constraint subgradient uses.
+    // Tighten [lo,hi] for one MNT (min-thickness) / MXT (max-thickness) operand
+    // over the layer range it targets (1-based layer indices in [lambdaStart,
+    // lambdaEnd]).
+    _applyThicknessConstraint(op, freeIdx, lo, hi) {
+        const a0 = Math.round(op.lambdaStart), a1 = Math.round(op.lambdaEnd);
+        for (let a = 0; a < freeIdx.length; a++) {
+            const layer1 = freeIdx[a] + 1;            // 1-based layer index
+            if (layer1 < a0 || layer1 > a1) continue;
+            if (op.type === 'MNT') lo[a] = Math.max(lo[a], op.target);
+            else                   hi[a] = Math.min(hi[a], op.target);
+        }
+    }
+
     _thicknessBounds(freeIdx) {
         const nFree = freeIdx.length;
         const lo = new Array(nFree).fill(this.D_MIN);
         const hi = new Array(nFree).fill(this.D_MAX);
         for (const op of this.operands) {
-            if (!op.enabled) continue;
-            if (op.type !== 'MNT' && op.type !== 'MXT') continue;
-            const a0 = Math.round(op.lambdaStart), a1 = Math.round(op.lambdaEnd);
-            for (let a = 0; a < nFree; a++) {
-                const layer1 = freeIdx[a] + 1;            // 1-based layer index
-                if (layer1 >= a0 && layer1 <= a1) {
-                    if (op.type === 'MNT') lo[a] = Math.max(lo[a], op.target);
-                    else                   hi[a] = Math.min(hi[a], op.target);
-                }
-            }
+            if (op.enabled && (op.type === 'MNT' || op.type === 'MXT'))
+                this._applyThicknessConstraint(op, freeIdx, lo, hi);
         }
         for (let a = 0; a < nFree; a++) if (lo[a] > hi[a]) { const m = 0.5 * (lo[a] + hi[a]); lo[a] = hi[a] = m; }
         return { boxLo: lo, boxHi: hi };

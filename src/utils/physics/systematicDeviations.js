@@ -121,17 +121,14 @@ export function cloneDeviation(dev) {
  */
 export function isIdentityDeviation(dev) {
     if (!dev) return true;
-    if (Math.abs(dev.globalDeltaN || 0) > 1e-12) return false;
-    if (Math.abs(dev.globalDeltaK || 0) > 1e-12) return false;
-    if (Math.abs((dev.globalThicknessScale ?? 1) - 1) > 1e-12) return false;
-    if (Math.abs(dev.globalThicknessOffset || 0) > 1e-12) return false;
+    const nonZero  = (x) => Math.abs(x || 0) > 1e-12;         // additive term ≠ 0
+    const notUnity = (x) => Math.abs((x ?? 1) - 1) > 1e-12;   // scale factor ≠ 1
+    if (nonZero(dev.globalDeltaN) || nonZero(dev.globalDeltaK) ||
+        notUnity(dev.globalThicknessScale) || nonZero(dev.globalThicknessOffset)) return false;
     if (dev.perMaterial) {
         for (const k of Object.keys(dev.perMaterial)) {
             const v = dev.perMaterial[k] || {};
-            if (Math.abs(v.dn || 0) > 1e-12) return false;
-            if (Math.abs(v.dk || 0) > 1e-12) return false;
-            if (Math.abs((v.dScale ?? 1) - 1) > 1e-12) return false;
-            if (Math.abs(v.dOffset || 0) > 1e-12) return false;
+            if (nonZero(v.dn) || nonZero(v.dk) || notUnity(v.dScale) || nonZero(v.dOffset)) return false;
         }
     }
     return true;
