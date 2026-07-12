@@ -255,7 +255,8 @@ function PlotlyChart({
                 let idx = ev.shapes.length;   // default: last removed
                 for (let i = 0; i < ev.shapes.length; i++) {
                     const a = ev.shapes[i], b = old[i];
-                    if (!b || a.x0 !== b.x0 || a.x1 !== b.x1 || a.y0 !== b.y0 || a.y1 !== b.y1) { idx = i; break; }
+                    const shapeChanged = !b || a.x0 !== b.x0 || a.x1 !== b.x1 || a.y0 !== b.y0 || a.y1 !== b.y1;
+                    if (shapeChanged) { idx = i; break; }
                 }
                 if (st.meta && st.meta[idx]) goneId = st.meta[idx].opId;
             }
@@ -282,7 +283,8 @@ function PlotlyChart({
     // marker traces carry customdata = operand id (see buildTargetTraces).
     const handlePlotClick = useCallback((ev) => {
         const st = editRef.current;
-        if (!st.editMode || st.editTool !== 'delete' || !ev?.points?.length || !st.onDeleteTarget) return;
+        const canDelete = st.editMode && st.editTool === 'delete' && ev?.points?.length && st.onDeleteTarget;
+        if (!canDelete) return;
         const pt = ev.points.find(p => p?.customdata != null);
         if (pt && typeof pt.customdata === 'string') st.onDeleteTarget(pt.customdata);
     }, []);

@@ -49,8 +49,9 @@ export class TmmWasmInstance {
         // Optional (added later for SQP/Newton accel): a .wasm built before the
         // Hessian kernel existed simply lacks it → callers fall back to JS.
         this._tmm_hessian = ex.tmm_hessian || ex._tmm_hessian || null;
-        if (!this.malloc || !this.free || !this._tmm_one ||
-            !this._tmm_spectrum || !this._tmm_jacobian || !this._tmm_needle_scan) {
+        const missingExports = !this.malloc || !this.free || !this._tmm_one ||
+            !this._tmm_spectrum || !this._tmm_jacobian || !this._tmm_needle_scan;
+        if (missingExports) {
             throw new Error('tmmWasm: required exports missing from module');
         }
         this._scratchPtr = 0;   // persistent per-call scratch arena (lazy)

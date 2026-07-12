@@ -164,8 +164,9 @@ export function polFromType(type) {
     // Skip the 'S'/'P' suffix interpretation for compound type codes whose
     // last letter is incidental (MNT/MXT/TMN/TMX/RMN/RMX/AMN/AMX/TIW/RIW/AIW
     // /math operands) or for argwave types (handled separately via argwavePolCode).
-    if (isConstraint(type) || isDmfs(type) || isBlank(type) || isTotalThickness(type) ||
-        isIntegral(type) || isMinmax(type) || isMath(type)) return null;
+    const hasNoPol = isConstraint(type) || isDmfs(type) || isBlank(type) || isTotalThickness(type) ||
+        isIntegral(type) || isMinmax(type) || isMath(type);
+    if (hasNoPol) return null;
     if (isArgwave(type)) return argwavePolCode(type);
     if (type.endsWith('S')) return 's';
     if (type.endsWith('P')) return 'p';
