@@ -1,13 +1,11 @@
 import { useDesign } from '../../../../state/DesignContext.js';
 import {
-    makeOperand,
-    evaluateOperands, calcMF, calcOMF, isConstraint, isArgwave, isMath, mathTargetInPercent,
-    buildEvalContext,
-} from '../../../../utils/physics/optimizer.js';
+    editOperand, addOperands, insertOperandAt, duplicateOperands, deleteOperands, moveOperand,
+} from './operandEdits.js';
 import { MFTable } from '../MFTableComponents.js';
 import { loadMethod, saveMethod, MAXITER_FOR, ALL_ORDER } from './refinementConfig.js';
 import { _refineCache, _rc } from './refinementCache.js';
-import { resolveMat } from './refinementUtils.js';
+import { computeOperandDisplay } from './refinementUtils.js';
 import { ControlBar } from './ControlBar.js';
 import { HistoryPanel } from './HistoryPanel.js';
 import { MFTrendPlot } from './MFTrendPlot.js';
@@ -145,14 +143,9 @@ export function Refinement({ c, theme, t }) {
     // Evaluate operands for display (not during optimization)
     useEffect(() => {
         if (running) return;
-        if (!design || operands.length === 0) { setComputed([]); setMf(null); setOmf(null); return; }
-        try {
-            const ctx  = buildEvalContext(design, resolveMat);
-            const comp = evaluateOperands(operands, ctx);
-            setComputed(comp);
-            setMf(calcMF(operands, comp));
-            setOmf(calcOMF(operands, comp));
-        } catch (_) {}
+        const r = computeOperandDisplay(design, operands);
+        if (!r) return;
+        setComputed(r.computed); setMf(r.mf); setOmf(r.omf);
     }, [operands, design, running]);
 
     // ── Run / Stop ─────────────────────────────────────────────────────────────
@@ -300,120 +293,57 @@ export function Refinement({ c, theme, t }) {
     }, [running, runOpt, stopOpt]);
 
     // ── Operand edits (shared design.meritOperands) ────────────────────────────
-    const handleEdit = useCallback((id, key, value) => {
+    // Any operand edit ends the current run session: stop, drop the live
+    // optimizer, and clear the Reset baseline so the next Run re-checkpoints.
+    const haltAndInvalidate = useCallback(() => {
         if (runningRef.current) stopOpt();
         optimizerRef.current = null;
         setCanReset(false);
         baselineRef.current = false;
-        const newOps = operandsRef.current.map(op => {
-            if (op.id !== id) return op;
-            if (key === '_patch') {
-                // Bulk multi-field update (used by the *IW preset picker so all
-                // four fields land in one re-render).
-                return { ...op, ...value };
-            }
-            if (key === 'target') {
-                const n = typeof value === 'number' ? value : parseFloat(value);
-                // Constraint (nm), argwave (λ in nm) store raw. Math operands
-                // inherit their reference's unit — if the ref returns a
-                // fraction T/R/A the math row's target is also a fraction
-                // (entered as percent, stored as /100), otherwise raw.
-                const byId = new Map(operandsRef.current.map(o => [o.id, o]));
-                const mthPct = isMath(op.type) && mathTargetInPercent(op, byId);
-                const storeRaw = isConstraint(op.type) || isArgwave(op.type)
-                              || (isMath(op.type) && !mthPct);
-                return { ...op, target: storeRaw ? n : n / 100 };
-            }
-            return { ...op, [key]: value };
-        });
-        updateDesign({ meritOperands: newOps });
-    }, [stopOpt, updateDesign]);
+    }, [stopOpt]);
+
+    const handleEdit = useCallback((id, key, value) => {
+        haltAndInvalidate();
+        updateDesign({ meritOperands: editOperand(operandsRef.current, id, key, value) });
+    }, [haltAndInvalidate, updateDesign]);
 
     const handleAdd = useCallback((data, atIndex) => {
-        if (runningRef.current) stopOpt();
-        optimizerRef.current = null;
-        setCanReset(false);
-        baselineRef.current = false;
-        const list = Array.isArray(data) ? data : [data];
-        const ops = list.map(d => makeOperand(d ?? { type: 'RAV', lambdaStart: 400, lambdaEnd: 700, aoi: 0, pol: 'avg', target: 0, weight: 1 }));
-        if (ops.length === 0) return;
-        const prev = operandsRef.current;
-        const pos = atIndex == null ? prev.length : Math.max(0, Math.min(atIndex, prev.length));
-        updateDesign({ meritOperands: [...prev.slice(0, pos), ...ops, ...prev.slice(pos)] });
-        setSelectedId(ops[ops.length - 1].id);
-    }, [stopOpt, updateDesign]);
+        haltAndInvalidate();
+        const res = addOperands(operandsRef.current, data, atIndex);
+        if (!res) return;
+        updateDesign({ meritOperands: res.next });
+        setSelectedId(res.selectId);
+    }, [haltAndInvalidate, updateDesign]);
 
     const handleInsertAt = useCallback((insertIdx, source) => {
-        if (runningRef.current) stopOpt();
-        optimizerRef.current = null;
-        setCanReset(false);
-        baselineRef.current = false;
-        const seed = source
-            ? { type: source.type, lambdaStart: source.lambdaStart, lambdaEnd: source.lambdaEnd,
-                aoi: source.aoi, pol: source.pol, target: source.target, weight: source.weight,
-                targetEnd: source.targetEnd, rampPoints: source.rampPoints, comment: source.comment,
-                enabled: source.enabled !== false }
-            : { type: 'RAV', lambdaStart: 400, lambdaEnd: 700, aoi: 0, pol: 'avg', target: 0, weight: 1 };
-        const op = makeOperand(seed);
-        const prev = operandsRef.current;
-        const pos = Math.max(0, Math.min(insertIdx, prev.length));
-        updateDesign({ meritOperands: [...prev.slice(0, pos), op, ...prev.slice(pos)] });
-        setSelectedId(op.id);
-    }, [stopOpt, updateDesign]);
+        haltAndInvalidate();
+        const res = insertOperandAt(operandsRef.current, insertIdx, source);
+        updateDesign({ meritOperands: res.next });
+        setSelectedId(res.selectId);
+    }, [haltAndInvalidate, updateDesign]);
 
     const handleDuplicate = useCallback((ids) => {
-        if (runningRef.current) stopOpt();
-        optimizerRef.current = null;
-        setCanReset(false);
-        baselineRef.current = false;
-        const idSet = new Set(Array.isArray(ids) ? ids : [ids]);
-        if (idSet.size === 0) return;
-        const prev = operandsRef.current;
-        const out = [];
-        let lastNewId = null;
-        for (const op of prev) {
-            out.push(op);
-            if (idSet.has(op.id)) {
-                const clone = makeOperand({
-                    type: op.type, lambdaStart: op.lambdaStart, lambdaEnd: op.lambdaEnd,
-                    aoi: op.aoi, pol: op.pol, target: op.target, weight: op.weight,
-                    targetEnd: op.targetEnd, rampPoints: op.rampPoints, comment: op.comment,
-                    enabled: op.enabled !== false,
-                });
-                out.push(clone);
-                lastNewId = clone.id;
-            }
-        }
-        updateDesign({ meritOperands: out });
-        if (lastNewId) setSelectedId(lastNewId);
-    }, [stopOpt, updateDesign]);
+        haltAndInvalidate();
+        const res = duplicateOperands(operandsRef.current, ids);
+        if (!res) return;
+        updateDesign({ meritOperands: res.next });
+        if (res.selectId) setSelectedId(res.selectId);
+    }, [haltAndInvalidate, updateDesign]);
 
     const handleDelete = useCallback((ids) => {
-        if (runningRef.current) stopOpt();
-        optimizerRef.current = null;
-        setCanReset(false);
-        baselineRef.current = false;
-        const set = new Set(Array.isArray(ids) ? ids : [ids]);
-        updateDesign({ meritOperands: operandsRef.current.filter(op => !set.has(op.id)) });
+        haltAndInvalidate();
+        updateDesign({ meritOperands: deleteOperands(operandsRef.current, ids) });
         setSelectedId(null);
-    }, [stopOpt, updateDesign]);
+    }, [haltAndInvalidate, updateDesign]);
 
     const handleMoveUp = useCallback(() => {
-        if (!selectedId) return;
-        const prev = operandsRef.current;
-        const i = prev.findIndex(op => op.id === selectedId);
-        if (i <= 0) return;
-        const a = prev.slice(); [a[i - 1], a[i]] = [a[i], a[i - 1]];
-        updateDesign({ meritOperands: a });
+        const next = moveOperand(operandsRef.current, selectedId, -1);
+        if (next) updateDesign({ meritOperands: next });
     }, [selectedId, updateDesign]);
 
     const handleMoveDown = useCallback(() => {
-        if (!selectedId) return;
-        const prev = operandsRef.current;
-        const i = prev.findIndex(op => op.id === selectedId);
-        if (i < 0 || i >= prev.length - 1) return;
-        const a = prev.slice(); [a[i], a[i + 1]] = [a[i + 1], a[i]];
-        updateDesign({ meritOperands: a });
+        const next = moveOperand(operandsRef.current, selectedId, +1);
+        if (next) updateDesign({ meritOperands: next });
     }, [selectedId, updateDesign]);
 
     // ── Render ─────────────────────────────────────────────────────────────────
