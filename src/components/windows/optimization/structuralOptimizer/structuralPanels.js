@@ -1,26 +1,23 @@
 /**
  * Presentational panels for the Structural Optimizer window.
  *
- * Thin wrappers over the shared synthesis shell (synthesisShell.js): the control
- * bar and sidebar build Structural's own metrics/settings (mutation-kind
- * toggles, deep-mode, SA knobs) and delegate the common frame to the shell; the
- * trend plot and history table reuse the shared synthesis primitives. All state
- * arrives via props.
+ * The control bar and sidebar provide Structural Optimizer metrics and settings;
+ * the trend and history views use the common synthesis presentation primitives.
  */
 
 import {
     SynthesisControlBar, SynthesisSidebarFrame, makeRowHelpers,
-} from './synthesisShell.js';
+} from '../synthesisShell.js';
 import {
     SynthesisHistoryTable, TopDesignsPanel as SharedTopDesignsPanel, PlotlyChart,
-} from './synthesisHelpers.js';
-import { MUTATION_KINDS } from '../../../utils/synthesis/structuralOptimizer.js';
+} from '../synthesisHelpers.js';
+import { MUTATION_KINDS } from '../../../../utils/synthesis/structuralOptimizer.js';
 import {
     getSynthesisInnerEngine, setSynthesisInnerEngine,
     getSynthesisSmartSeed, setSynthesisSmartSeed,
     getThreadCount, setThreadCount, threadSelectOptions,
-} from '../../../utils/synthesis/synthesisConfig.js';
-import { Checkbox } from '../../ui/Checkbox.js';
+} from '../../../../utils/synthesis/synthesisConfig.js';
+import { Checkbox } from '../../../ui/Checkbox.js';
 
 const { createElement: h, useState } = React;
 

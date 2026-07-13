@@ -30,7 +30,7 @@ import { MeritFunctionEditor } from '../windows/optimization/MeritFunctionEditor
 import { NeedleVariation } from '../windows/optimization/NeedleVariation.js';
 import { NeedleManual } from '../windows/optimization/NeedleManual.js';
 import { GradualEvolution } from '../windows/optimization/gradualEvolution/GradualEvolution.js';
-import { StructuralOptimizer } from '../windows/optimization/StructuralOptimizer.js';
+import { StructuralOptimizer } from '../windows/optimization/structuralOptimizer/StructuralOptimizer.js';
 import { AdmittanceDiagram } from '../windows/analysis/AdmittanceDiagram.js';
 import { EFieldEvaluation } from '../windows/analysis/EFieldEvaluation.js';
 import { EllipsometryEvaluation } from '../windows/analysis/EllipsometryEvaluation.js';
