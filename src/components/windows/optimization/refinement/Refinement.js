@@ -2,7 +2,7 @@ import { useDesign } from '../../../../state/DesignContext.js';
 import {
     editOperand, addOperands, insertOperandAt, duplicateOperands, deleteOperands, moveOperand,
 } from './operandEdits.js';
-import { MFTable } from '../MFTableComponents.js';
+import { MFTable } from '../meritFunctionEditor/mfTable/MFTable.js';
 import { loadMethod, saveMethod, MAXITER_FOR, ALL_ORDER } from './refinementConfig.js';
 import { _refineCache, _rc } from './refinementCache.js';
 import { computeOperandDisplay } from './refinementUtils.js';
