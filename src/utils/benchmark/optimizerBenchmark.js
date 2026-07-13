@@ -279,6 +279,87 @@ function insertOptimal(design, cand, ops, dMin, resolveMat) {
         : insertNeedle(design, cand.pos, cand.materialId, dOpt, 'front');
 }
 
+function synthQueue(state) {
+    const { candidates } = scanNeedlesPFunction({
+        operands: state.ops, design: state.work.design, resolveMat: state.resolveMat,
+        candidateMats: state.pool, deltaNm: 0.5, side: 'front',
+    });
+    return cullMarginalNeedles(
+        candidates.filter((c) => c.dMF < 0).sort((a, b) => a.dMF - b.dMF),
+        state.cfg.needleSensFloor,
+    );
+}
+
+function acceptSynthCandidate(state, queue) {
+    for (const cand of queue) {
+        if (now() - state.t0 >= state.budgetMs) break;
+        const design = insertOptimal(state.work.design, cand, state.ops, state.dMin, state.resolveMat);
+        const result = refinePrune(
+            design, state.ops, state.dMin, state.resolveMat, state.innerIter, state.engine,
+        );
+        if (result.mf < state.work.mf - 1e-9) {
+            state.work = result;
+            updateSynthBest(state);
+            return true;
+        }
+    }
+    return false;
+}
+
+function updateSynthBest(state) {
+    if (state.work.mf >= state.best.mf - 1e-9) return;
+    state.best = { ...state.work };
+    state.geStagn = 0;
+    if (state.onTick) state.onTick({
+        phase: state.forced ? 'ge' : 'needle',
+        mf: state.best.mf,
+        layers: frontCount(state.best.design),
+        steps: state.steps,
+        elapsed: now() - state.t0,
+    });
+}
+
+function forceGeStep(state) {
+    const geScan = scanGEInsertions({
+        operands: state.ops, design: state.work.design, resolveMat: state.resolveMat,
+        candidateMats: state.pool, thickNm: state.dMin, side: 'front',
+    });
+    if (!geScan.candidates.length) return false;
+    const bestGe = geScan.candidates.reduce(
+        (best, candidate) => (candidate.mfNew < best.mfNew ? candidate : best),
+        geScan.candidates[0],
+    );
+    const inserted = insertNeedle(
+        state.work.design, bestGe.pos, bestGe.materialId, state.dMin, 'front',
+    );
+    state.work = {
+        design: { ...inserted, frontLayers: cleanupLayers(inserted.frontLayers || [], state.dMin) },
+        mf: bestGe.mfNew,
+    };
+    state.geStagn++;
+    return state.geStagn <= 6;
+}
+
+function makeSynthState(args) {
+    const { forced, start, ops, dMin, resolveMat, cfg, onTick } = args;
+    const pool = makePool(resolveMat);
+    const innerIter = cfg.innerIter ?? SYNTH_DEFAULTS.innerIter;
+    const engine = cfg.engine || 'dls';
+    const work = refinePrune(deep(start), ops, dMin, resolveMat, innerIter, engine);
+    return {
+        forced, ops, dMin, resolveMat, cfg, onTick, innerIter, engine,
+        pool,
+        budgetMs: cfg.budgetMs ?? SYNTH_DEFAULTS.budgetMs,
+        maxLayers: cfg.maxLayers ?? SYNTH_DEFAULTS.maxLayers,
+        maxSteps: cfg.maxSteps ?? SYNTH_DEFAULTS.maxSteps,
+        work,
+        best: { ...work },
+        t0: now(),
+        geStagn: 0,
+        steps: 0,
+    };
+}
+
 /**
  * Unified Needle / Gradual-Evolution driver.
  *   forced=false → standalone Needle (stop when no improving needle)
@@ -286,50 +367,23 @@ function insertOptimal(design, cand, ops, dMin, resolveMat) {
  * `onTick({phase, mf, layers, steps, elapsed})` is called as best improves.
  */
 export function runSynth(forced, start, ops, dMin, resolveMat, cfg = {}, onTick) {
-    const pool = makePool(resolveMat);
-    const budgetMs = cfg.budgetMs ?? SYNTH_DEFAULTS.budgetMs;
-    const maxLayers = cfg.maxLayers ?? SYNTH_DEFAULTS.maxLayers;
-    const maxSteps = cfg.maxSteps ?? SYNTH_DEFAULTS.maxSteps;
-    const innerIter = cfg.innerIter ?? SYNTH_DEFAULTS.innerIter;
-    const engine = cfg.engine || 'dls';
-
-    let work = refinePrune(deep(start), ops, dMin, resolveMat, innerIter, engine);
-    let best = { ...work };
-    const t0 = now();
-    let geStagn = 0, steps = 0;
-    for (; steps < maxSteps && now() - t0 < budgetMs; steps++) {
-        if (frontCount(work.design) >= maxLayers) break;
-        const { candidates } = scanNeedlesPFunction({ operands: ops, design: work.design, resolveMat, candidateMats: pool, deltaNm: 0.5, side: 'front' });
-        // H1 needle-sensitivity cull (cfg.needleSensFloor; 0/undefined = keep all).
-        const queue = cullMarginalNeedles(
-            candidates.filter((c) => c.dMF < 0).sort((a, b) => a.dMF - b.dMF),
-            cfg.needleSensFloor);
-        let accepted = false;
-        for (const cand of queue) {
-            if (now() - t0 >= budgetMs) break;
-            const r = refinePrune(insertOptimal(work.design, cand, ops, dMin, resolveMat), ops, dMin, resolveMat, innerIter, engine);
-            if (r.mf < work.mf - 1e-9) {
-                work = r; accepted = true;
-                if (work.mf < best.mf - 1e-9) {
-                    best = { ...work }; geStagn = 0;
-                    onTick && onTick({ phase: forced ? 'ge' : 'needle', mf: best.mf, layers: frontCount(best.design), steps, elapsed: now() - t0 });
-                }
-                break;
-            }
-        }
-        if (accepted) continue;
+    const state = makeSynthState({ forced, start, ops, dMin, resolveMat, cfg, onTick });
+    for (; state.steps < state.maxSteps && now() - state.t0 < state.budgetMs; state.steps++) {
+        if (frontCount(state.work.design) >= state.maxLayers) break;
+        if (acceptSynthCandidate(state, synthQueue(state))) continue;
         if (!forced) break;
-        const geScan = scanGEInsertions({ operands: ops, design: work.design, resolveMat, candidateMats: pool, thickNm: dMin, side: 'front' });
-        if (!geScan.candidates.length) break;
-        const bestGe = geScan.candidates.reduce((b, x) => (x.mfNew < b.mfNew ? x : b), geScan.candidates[0]);
-        const _ins = insertNeedle(work.design, bestGe.pos, bestGe.materialId, dMin, 'front');
-        // Merge adjacent same-material layers (optically identical → mfNew unchanged).
-        work = { design: { ..._ins, frontLayers: cleanupLayers(_ins.frontLayers || [], dMin) }, mf: bestGe.mfNew };
-        if (++geStagn > 6) break;
+        if (!forceGeStep(state)) break;
     }
-    // Optional merit-aware consolidation (matches GE finalize; opt-in via cfg).
-    if (cfg.consolidate) best = consolidate(best, ops, dMin, resolveMat, innerIter, engine, cfg.consolidateTol);
-    return { mf: best.mf, layers: frontCount(best.design), ms: now() - t0, steps, design: best.design };
+    if (cfg.consolidate) state.best = consolidate(
+        state.best, ops, dMin, resolveMat, state.innerIter, state.engine, cfg.consolidateTol,
+    );
+    return {
+        mf: state.best.mf,
+        layers: frontCount(state.best.design),
+        ms: now() - state.t0,
+        steps: state.steps,
+        design: state.best.design,
+    };
 }
 
 /**
@@ -352,96 +406,288 @@ export function runSeed(C, ops, dMin, resolveMat, cfg = {}) {
     return { mf: best.mf, layers: frontCount(best.refinedDesign), ms: now() - t0, design: best.refinedDesign };
 }
 
+function makeStructuralState(args) {
+    const { start, ops, dMin, resolveMat, cfg, onTick } = args;
+    const pool = (cfg.poolIds && cfg.poolIds.length)
+        ? cfg.poolIds.map((id) => ({ id, name: id, mat: resolveMat(id) }))
+        : makePool(resolveMat);
+    const innerIter = cfg.innerIter ?? SYNTH_DEFAULTS.innerIter;
+    const engine = cfg.engine || 'dls';
+    const structMaxIter = cfg.structMaxIter ?? SYNTH_DEFAULTS.structMaxIter;
+    const current = refinePrune(deep(start), ops, dMin, resolveMat, innerIter, engine);
+    return {
+        ops, dMin, resolveMat, cfg, onTick, pool, innerIter, engine, structMaxIter,
+        poolLite: pool.map((p) => ({ id: p.id, name: p.name })),
+        budgetMs: cfg.budgetMs ?? SYNTH_DEFAULTS.budgetMs,
+        maxLayers: cfg.maxLayers ?? SYNTH_DEFAULTS.maxLayers,
+        structK: cfg.structK ?? SYNTH_DEFAULTS.structK,
+        deepMode: !!cfg.deepMode,
+        rng: makeRng(cfg.seed ?? 777),
+        T0: 0.2,
+        Tend: 0.2 * 0.005,
+        current,
+        best: { ...current },
+        t0: now(),
+        noImprove: 0,
+        reheats: 0,
+        cycleStart: 1,
+        patience: Math.max(15, Math.round(structMaxIter / 3)),
+        coolPeriod: Math.max(40, structMaxIter),
+        itDone: 0,
+        stopReason: 'maxIter',
+    };
+}
+
+function structuralTemperature(state, it) {
+    return state.deepMode
+        ? deepTemperature(it - state.cycleStart, state.coolPeriod, state.T0, state.Tend)
+        : temperatureAt(it / state.structMaxIter, state.T0, state.Tend);
+}
+
+function structuralProposals(state, it) {
+    const currentLayers = state.current.design.frontLayers || [];
+    const atCap = currentLayers.filter((layer) => !layer.locked).length >= state.maxLayers;
+    const kinds = atCap ? ['remove', 'merge', 'perturb'] : MUTATION_KINDS;
+    const proposals = [];
+    if (!atCap) {
+        const { candidates } = scanNeedlesPFunction({
+            operands: state.ops, design: state.current.design, resolveMat: state.resolveMat,
+            candidateMats: state.pool, deltaNm: 0.5, side: 'front',
+        });
+        const candidate = candidates.filter((x) => x.dMF < 0).sort((a, b) => a.dMF - b.dMF)[0];
+        if (candidate) proposals.push({
+            layers: insertOptimal(
+                state.current.design, candidate, state.ops, state.dMin, state.resolveMat,
+            ).frontLayers,
+            mutation: { kind: 'add' },
+        });
+    }
+    for (let j = proposals.length; j < state.structK; j++) {
+        const proposal = proposeMutation(currentLayers, {
+            rng: state.rng, pool: state.poolLite, dMin: state.dMin, dMax: 2000,
+            addMaxNm: 120, jitterPct: 0.15, kinds,
+        });
+        if (proposal) proposals.push(proposal);
+    }
+    return { proposals, temperature: structuralTemperature(state, it) };
+}
+
+function evaluateStructuralProposals(state, proposals) {
+    let bestResult = null;
+    for (const proposal of proposals) {
+        if (now() - state.t0 >= state.budgetMs) break;
+        const result = refinePrune(
+            { ...state.current.design, frontLayers: proposal.layers },
+            state.ops, state.dMin, state.resolveMat, state.innerIter, state.engine,
+        );
+        if (!bestResult || result.mf < bestResult.mf) bestResult = result;
+    }
+    return bestResult;
+}
+
+function acceptStructuralResult(state, result, temperature, it) {
+    if (metropolisAccept(state.current.mf, result.mf, temperature, state.rng)) {
+        state.current = {
+            design: {
+                ...result.design,
+                frontLayers: tidyLayers(result.design.frontLayers || [], state.dMin),
+            },
+            mf: result.mf,
+        };
+    }
+    if (result.mf < state.best.mf - 1e-12) {
+        state.best = { ...result };
+        state.noImprove = 0;
+        if (state.onTick) state.onTick({
+            phase: 'structural', mf: state.best.mf, layers: frontCount(state.best.design),
+            steps: it, elapsed: now() - state.t0,
+        });
+    } else {
+        state.noImprove++;
+    }
+    if (state.current.mf > state.best.mf * 1.3) {
+        state.current = { design: deep(state.best.design), mf: state.best.mf };
+    }
+}
+
+function reheatStructuralState(state, it) {
+    state.reheats++;
+    const kicked = basinKick(deep(state.best.design.frontLayers || []), {
+        rng: state.rng, pool: state.poolLite, dMin: state.dMin, dMax: 2000,
+        addMaxNm: 120, jitterPct: 0.15, kinds: MUTATION_KINDS, maxKick: 3,
+    });
+    const result = refinePrune(
+        { ...state.best.design, frontLayers: kicked },
+        state.ops, state.dMin, state.resolveMat, state.innerIter, state.engine,
+    );
+    state.current = {
+        design: { ...result.design, frontLayers: tidyLayers(result.design.frontLayers || [], state.dMin) },
+        mf: result.mf,
+    };
+    if (result.mf < state.best.mf - 1e-12) {
+        state.best = { ...result };
+        if (state.onTick) state.onTick({
+            phase: 'reheat', mf: state.best.mf, layers: frontCount(state.best.design),
+            steps: it, elapsed: now() - state.t0,
+        });
+    }
+    state.cycleStart = it + 1;
+    state.noImprove = 0;
+}
+
+function structuralStagnationPhase(state, it) {
+    const action = stagnationAction({
+        deepMode: state.deepMode, noImprove: state.noImprove, patience: state.patience,
+    });
+    if (action === 'stop') state.stopReason = 'patience';
+    if (action === 'reheat') reheatStructuralState(state, it);
+    return action;
+}
+
 /** Structural optimizer driver — faithful to StructuralOptimizer.js.
  *  cfg.deepMode: drop the STRUCT_MAXIT cap + patience early-stop, and
  *  REHEAT + basin-kick on stagnation instead of stopping — runs until `budgetMs`.
  *  cfg.poolIds: override the candidate material pool (default POOL_IDS). */
 export function runStructural(start, ops, dMin, resolveMat, cfg = {}, onTick) {
-    const pool = (cfg.poolIds && cfg.poolIds.length)
-        ? cfg.poolIds.map((id) => ({ id, name: id, mat: resolveMat(id) }))
-        : makePool(resolveMat);
-    const poolLite = pool.map((p) => ({ id: p.id, name: p.name }));
-    const budgetMs = cfg.budgetMs ?? SYNTH_DEFAULTS.budgetMs;
-    const maxLayers = cfg.maxLayers ?? SYNTH_DEFAULTS.maxLayers;
-    const innerIter = cfg.innerIter ?? SYNTH_DEFAULTS.innerIter;
-    const STRUCT_K = cfg.structK ?? SYNTH_DEFAULTS.structK;
-    const STRUCT_MAXIT = cfg.structMaxIter ?? SYNTH_DEFAULTS.structMaxIter;
-    const engine = cfg.engine || 'dls';
-    const deepMode = !!cfg.deepMode;
-
-    const rng = makeRng(cfg.seed ?? 777);
-    const T0 = 0.2, Tend = T0 * 0.005;
-    let current = refinePrune(deep(start), ops, dMin, resolveMat, innerIter, engine);
-    let best = { ...current };
-    const t0 = now();
-    let noImprove = 0, reheats = 0, cycleStart = 1;
-    const patience = Math.max(15, Math.round(STRUCT_MAXIT / 3));
-    const coolPeriod = Math.max(40, STRUCT_MAXIT);
+    const state = makeStructuralState({ start, ops, dMin, resolveMat, cfg, onTick });
     const HARD_CAP = 2_000_000;
-    let itDone = 0, stopReason = 'maxIter';
-    for (let it = 1; (deepMode ? it <= HARD_CAP : it <= STRUCT_MAXIT) && now() - t0 < budgetMs; it++) {
-        itDone = it;
-        const T = deepMode
-            ? deepTemperature(it - cycleStart, coolPeriod, T0, Tend)
-            : temperatureAt(it / STRUCT_MAXIT, T0, Tend);
-        const curActive = current.design.frontLayers || [];
-        const atCap = curActive.filter((l) => !l.locked).length >= maxLayers;
-        const kinds = atCap ? ['remove', 'merge', 'perturb'] : MUTATION_KINDS;
-
-        const proposals = [];
-        if (!atCap) {
-            const { candidates } = scanNeedlesPFunction({ operands: ops, design: current.design, resolveMat, candidateMats: pool, deltaNm: 0.5, side: 'front' });
-            const c = candidates.filter((x) => x.dMF < 0).sort((a, b) => a.dMF - b.dMF)[0];
-            if (c) proposals.push({ layers: insertOptimal(current.design, c, ops, dMin, resolveMat).frontLayers, mutation: { kind: 'add' } });
-        }
-        for (let j = proposals.length; j < STRUCT_K; j++) {
-            const p = proposeMutation(curActive, { rng, pool: poolLite, dMin, dMax: 2000, addMaxNm: 120, jitterPct: 0.15, kinds });
-            if (p) proposals.push(p);
-        }
-        if (!proposals.length) { stopReason = 'noProposals'; break; }
-
-        let bestRes = null;
-        for (const p of proposals) {
-            if (now() - t0 >= budgetMs) break;
-            const r = refinePrune({ ...current.design, frontLayers: p.layers }, ops, dMin, resolveMat, innerIter, engine);
-            if (!bestRes || r.mf < bestRes.mf) bestRes = r;
-        }
-        if (!bestRes) { noImprove++; continue; }
-
-        if (metropolisAccept(current.mf, bestRes.mf, T, rng))
-            current = { design: { ...bestRes.design, frontLayers: tidyLayers(bestRes.design.frontLayers || [], dMin) }, mf: bestRes.mf };
-        if (bestRes.mf < best.mf - 1e-12) {
-            best = { ...bestRes }; noImprove = 0;
-            onTick && onTick({ phase: 'structural', mf: best.mf, layers: frontCount(best.design), steps: it, elapsed: now() - t0 });
-        } else noImprove++;
-        if (current.mf > best.mf * 1.3) current = { design: deep(best.design), mf: best.mf };
-
-        // Stagnation policy: single-shot STOPS, deep mode REHEATS.
-        const action = stagnationAction({ deepMode, noImprove, patience });
-        if (action === 'stop') { stopReason = 'patience'; break; }
-        if (action === 'reheat') {
-            reheats++;
-            const kicked = basinKick(deep(best.design.frontLayers || []), {
-                rng, pool: poolLite, dMin, dMax: 2000, addMaxNm: 120, jitterPct: 0.15,
-                kinds: MUTATION_KINDS, maxKick: 3,
-            });
-            const kr = refinePrune({ ...best.design, frontLayers: kicked }, ops, dMin, resolveMat, innerIter, engine);
-            current = { design: { ...kr.design, frontLayers: tidyLayers(kr.design.frontLayers || [], dMin) }, mf: kr.mf };
-            if (kr.mf < best.mf - 1e-12) {
-                best = { ...kr }; onTick && onTick({ phase: 'reheat', mf: best.mf, layers: frontCount(best.design), steps: it, elapsed: now() - t0 });
-            }
-            cycleStart = it + 1;
-            noImprove = 0;
-        }
+    for (let it = 1;
+        (state.deepMode ? it <= HARD_CAP : it <= state.structMaxIter) && now() - state.t0 < state.budgetMs;
+        it++) {
+        state.itDone = it;
+        const { proposals, temperature } = structuralProposals(state, it);
+        if (!proposals.length) { state.stopReason = 'noProposals'; break; }
+        const bestResult = evaluateStructuralProposals(state, proposals);
+        if (!bestResult) { state.noImprove++; continue; }
+        acceptStructuralResult(state, bestResult, temperature, it);
+        if (structuralStagnationPhase(state, it) === 'stop') break;
     }
-    if (now() - t0 >= budgetMs) stopReason = 'budget';
-    return { mf: best.mf, layers: frontCount(best.design), ms: now() - t0, design: best.design, reheats, iters: itDone, stopReason };
+    if (now() - state.t0 >= state.budgetMs) state.stopReason = 'budget';
+    return {
+        mf: state.best.mf,
+        layers: frontCount(state.best.design),
+        ms: now() - state.t0,
+        design: state.best.design,
+        reheats: state.reheats,
+        iters: state.itDone,
+        stopReason: state.stopReason,
+    };
 }
 
 // ── job model: one (case × optimizer × setting) cell ──────────────────────────────
 //
 //   { id, caseId, group, optimizer, setting, kind, method?, maxIter?, dMin?, cfg? }
 //   kind ∈ 'refine' | 'refine-global' | 'dls-multi' | 'needle' | 'ge' | 'structural'
+
+const mntSuffix = (mnt) => (mnt ? ` ·MNT${mnt}` : '');
+
+function appendJob(state, job) {
+    state.jobs.push({ id: `j${state.jobs.length}`, ...job });
+}
+
+function addLocalJobs(state, caseId, mnt) {
+    if (state.config.refineLocal === false) return;
+    if (state.converge) {
+        for (const method of LOCAL_METHODS) appendJob(state, {
+            caseId, group: 'Refinement (local)', optimizer: method,
+            setting: `→conv${mntSuffix(mnt)}`, kind: 'refine', method,
+            maxIter: REFINE_MAXITER[method], dMin: 10, mnt,
+        });
+    } else {
+        for (const method of LOCAL_METHODS) {
+            for (const maxIter of state.maxIters) appendJob(state, {
+                caseId, group: 'Refinement (local)', optimizer: method,
+                setting: `maxIter=${maxIter}${mntSuffix(mnt)}`, kind: 'refine', method,
+                maxIter, dMin: 10, mnt,
+            });
+        }
+    }
+}
+
+function addGlobalJobs(state, caseId, mnt) {
+    if (!state.config.refineGlobal) return;
+    for (const method of GLOBAL_METHODS) appendJob(state, {
+        caseId, group: 'Refinement (global)', optimizer: method,
+        setting: `→conv${mntSuffix(mnt)}`, kind: 'refine-global', method,
+        maxIter: GLOBAL_MAXITER[method], dMin: 10, mnt,
+    });
+    if (state.config.dlsMulti !== false) appendJob(state, {
+        caseId, group: 'Refinement (global)', optimizer: 'dls-multi',
+        setting: `6 starts${mntSuffix(mnt)}`, kind: 'dls-multi',
+        maxIter: GLOBAL_MAXITER['dls-multi'], dMin: 10, mnt,
+    });
+}
+
+function addSeedJob(state, caseId, mnt, engine, engineSuffix) {
+    if (!state.config.seed) return;
+    appendJob(state, {
+        caseId, group: 'Synthesis', optimizer: 'seed', engine,
+        setting: `seed${engineSuffix}${mntSuffix(mnt)}`, kind: 'seed',
+        dMin: state.dMins[0] ?? 1, mnt, cfg: { ...state.synthCfg, engine },
+    });
+}
+
+function addSynthesisToolJob(state, common, optimizer, kind) {
+    appendJob(state, {
+        caseId: common.caseId,
+        group: common.group,
+        optimizer,
+        engine: common.engine,
+        setting: common.setting,
+        kind,
+        dMin: common.dMin,
+        mnt: common.mnt,
+        cfg: common.cfg,
+    });
+}
+
+function addSynthesisVariant(state, variant) {
+    const { caseId, mnt, engine, engineSuffix, dMin, consolidateLayers } = variant;
+    const consolidationSuffix = consolidateLayers ? ' ·cons' : '';
+    const setting = `dMin=${dMin}${engineSuffix}${consolidationSuffix}${mntSuffix(mnt)}`;
+    const cfg = {
+        ...state.synthCfg, engine, consolidate: consolidateLayers, consolidateTol: 0.05,
+    };
+    const common = { caseId, group: 'Synthesis', engine, setting, dMin, mnt, cfg };
+    if (state.config.needle) addSynthesisToolJob(state, common, 'needle', 'needle');
+    if (state.config.ge) addSynthesisToolJob(state, common, 'ge', 'ge');
+    if (state.config.structural) addSynthesisToolJob(state, common, 'structural', 'structural');
+}
+
+function addSynthesisJobs(state, caseId, mnt) {
+    const consolidationSweep = state.config.consolidate ? [false, true] : [false];
+    for (const engine of state.synthEngines) {
+        const engineSuffix = state.synthEngines.length > 1 ? ` ·${engine}` : '';
+        addSeedJob(state, caseId, mnt, engine, engineSuffix);
+        for (const dMin of state.dMins) {
+            for (const consolidateLayers of consolidationSweep) {
+                addSynthesisVariant(state, {
+                    caseId, mnt, engine, engineSuffix, dMin, consolidateLayers,
+                });
+            }
+        }
+    }
+}
+
+function makeJobBuildState(config) {
+    return {
+        config,
+        caseIds: config.cases && config.cases.length
+            ? config.cases
+            : BENCH_CASES.map((benchCase) => benchCase.id),
+        maxIters: config.refineMaxIters || REFINE_MAXITERS,
+        dMins: config.dMins || DMIN_SWEEP,
+        mnts: config.mnts && config.mnts.length ? config.mnts : [null],
+        synthEngines: config.synthEngines && config.synthEngines.length
+            ? config.synthEngines
+            : ['dls'],
+        synthCfg: config.synthCfg || {},
+        converge: config.refineConverge != null
+            ? config.refineConverge
+            : !(config.refineMaxIters && config.refineMaxIters.length),
+        jobs: [],
+    };
+}
 
 /**
  * Expand a UI config into the full job list.
@@ -461,65 +707,16 @@ export function runStructural(start, ops, dMin, resolveMat, cfg = {}, onTick) {
  * }
  */
 export function buildJobs(config = {}) {
-    const caseIds = config.cases && config.cases.length ? config.cases : BENCH_CASES.map((c) => c.id);
-    const maxIters = config.refineMaxIters || REFINE_MAXITERS;
-    const dMins = config.dMins || DMIN_SWEEP;
-    const mnts = config.mnts && config.mnts.length ? config.mnts : [null];
-    const synthEngines = config.synthEngines && config.synthEngines.length ? config.synthEngines : ['dls'];
-    const synthCfg = config.synthCfg || {};
-    const jobs = [];
-    let n = 0;
-    const add = (j) => jobs.push({ id: `j${n++}`, ...j });
-    const sfx = (mnt) => (mnt ? ` ·MNT${mnt}` : '');
-
-    // Convergence mode (run each method to its natural per-method budget, exactly
-    // like the Refinement window) UNLESS an explicit maxIter sweep was requested.
-    const converge = config.refineConverge != null
-        ? config.refineConverge
-        : !(config.refineMaxIters && config.refineMaxIters.length);
-
-    for (const caseId of caseIds) {
-        const C = caseById(caseId);
-        if (!C) continue;
-        for (const mnt of mnts) {
-            if (config.refineLocal !== false) {
-                if (converge) {
-                    for (const m of LOCAL_METHODS)
-                        add({ caseId, group: 'Refinement (local)', optimizer: m, setting: `→conv${sfx(mnt)}`, kind: 'refine', method: m, maxIter: REFINE_MAXITER[m], dMin: 10, mnt });
-                } else {
-                    for (const m of LOCAL_METHODS)
-                        for (const mi of maxIters)
-                            add({ caseId, group: 'Refinement (local)', optimizer: m, setting: `maxIter=${mi}${sfx(mnt)}`, kind: 'refine', method: m, maxIter: mi, dMin: 10, mnt });
-                }
-            }
-            if (config.refineGlobal) {
-                for (const m of GLOBAL_METHODS)
-                    add({ caseId, group: 'Refinement (global)', optimizer: m, setting: `→conv${sfx(mnt)}`, kind: 'refine-global', method: m, maxIter: GLOBAL_MAXITER[m], dMin: 10, mnt });
-                if (config.dlsMulti !== false)
-                    add({ caseId, group: 'Refinement (global)', optimizer: 'dls-multi', setting: `6 starts${sfx(mnt)}`, kind: 'dls-multi', maxIter: GLOBAL_MAXITER['dls-multi'], dMin: 10, mnt });
-            }
-            // Synthesis × inner-engine sweep: which local refiner each tool should use.
-            // `consolidate` (opt-in) adds a parallel ·cons variant so the de-bloat
-            // effect is directly comparable in-table against the plain run.
-            const consSweep = config.consolidate ? [false, true] : [false];
-            for (const eng of synthEngines) {
-                const eSfx = synthEngines.length > 1 ? ` ·${eng}` : '';
-                // Smart-seed row: canonical QW/HW AR seed + refine (one per case/engine/mnt;
-                // independent of dMin). Shows the "good starting design" baseline.
-                if (config.seed) add({ caseId, group: 'Synthesis', optimizer: 'seed', engine: eng, setting: `seed${eSfx}${sfx(mnt)}`, kind: 'seed', dMin: dMins[0] ?? 1, mnt, cfg: { ...synthCfg, engine: eng } });
-                for (const dMin of dMins) {
-                    for (const cons of consSweep) {
-                        const cSfx = cons ? ' ·cons' : '';
-                        const sCfg = { ...synthCfg, engine: eng, consolidate: cons, consolidateTol: 0.05 };
-                        if (config.needle)     add({ caseId, group: 'Synthesis', optimizer: 'needle',     engine: eng, setting: `dMin=${dMin}${eSfx}${cSfx}${sfx(mnt)}`, kind: 'needle',     dMin, mnt, cfg: sCfg });
-                        if (config.ge)         add({ caseId, group: 'Synthesis', optimizer: 'ge',         engine: eng, setting: `dMin=${dMin}${eSfx}${cSfx}${sfx(mnt)}`, kind: 'ge',         dMin, mnt, cfg: sCfg });
-                        if (config.structural) add({ caseId, group: 'Synthesis', optimizer: 'structural', engine: eng, setting: `dMin=${dMin}${eSfx}${cSfx}${sfx(mnt)}`, kind: 'structural', dMin, mnt, cfg: sCfg });
-                    }
-                }
-            }
+    const state = makeJobBuildState(config);
+    for (const caseId of state.caseIds) {
+        if (!caseById(caseId)) continue;
+        for (const mnt of state.mnts) {
+            addLocalJobs(state, caseId, mnt);
+            addGlobalJobs(state, caseId, mnt);
+            addSynthesisJobs(state, caseId, mnt);
         }
     }
-    return jobs;
+    return state.jobs;
 }
 
 /**
@@ -565,10 +762,78 @@ export function operandsForJob(job) {
     return job && job.mnt ? [...C.ops, mntOperand(job.mnt)] : C.ops;
 }
 
+function runRefinementJob(state) {
+    return runRefine(
+        state.job.method, refineStart(state.C.refineN), state.optOps,
+        state.job.maxIter, state.job.dMin, state.resolveMat,
+    );
+}
+
+function runDlsMultiJob(state) {
+    return runDlsMulti(
+        refineStart(state.C.refineN), state.optOps, state.job.maxIter,
+        state.job.dMin, state.resolveMat, 6,
+    );
+}
+
+function runNeedleJob(state) {
+    return runSynth(
+        false, state.C.thick(), state.baseOps, state.job.dMin,
+        state.resolveMat, state.job.cfg, state.onTick,
+    );
+}
+
+function runGeJob(state) {
+    const dMin = state.job.mnt
+        ? Math.max(state.job.dMin, state.job.mnt)
+        : state.job.dMin;
+    return runSynth(
+        true, state.C.thin(), state.optOps, dMin,
+        state.resolveMat, state.job.cfg, state.onTick,
+    );
+}
+
+function runStructuralJob(state) {
+    return runStructural(
+        state.C.thin(), state.optOps, state.job.dMin,
+        state.resolveMat, state.job.cfg, state.onTick,
+    );
+}
+
+function runSeedJob(state) {
+    const dMin = state.job.mnt
+        ? Math.max(state.job.dMin, state.job.mnt)
+        : state.job.dMin;
+    return runSeed(state.C, state.optOps, dMin, state.resolveMat, state.job.cfg);
+}
+
+const JOB_RUNNERS = new Map([
+    ['refine', runRefinementJob],
+    ['refine-global', runRefinementJob],
+    ['dls-multi', runDlsMultiJob],
+    ['needle', runNeedleJob],
+    ['ge', runGeJob],
+    ['structural', runStructuralJob],
+    ['seed', runSeedJob],
+]);
+
+function reportJobResult(result, state) {
+    if (result.err) return result;
+    return {
+        mf: result.design ? mfOf(result.design, state.baseOps, state.resolveMat) : result.mf,
+        layers: result.layers != null ? result.layers : state.C.refineN,
+        ms: result.ms,
+        it: result.it,
+        mf0: result.mf0,
+        minThk: result.design ? minFrontThk(result.design) : null,
+        mnt: state.job.mnt || null,
+        design: result.design || null,
+    };
+}
+
 /** Run ONE job. `resolveMat` resolves material ids; `onTick` streams synth progress. */
 export function runJob(job, resolveMat, { onTick } = {}) {
     const C = caseById(job.caseId);
-    if (!C) return { err: `unknown case ${job.caseId}` };
     // Optimize WITH the MNT constraint (penalty in the DLS residual / SQP box)
     // when job.mnt is set; ALWAYS report the OPTICAL-only MF on the base operands
     // (comparable across constrained / unconstrained) plus minThk so you can see
@@ -582,31 +847,19 @@ export function runJob(job, resolveMat, { onTick } = {}) {
     // penalty, even though the needle SCAN sub-step is optical) and so do
     // Refinement and Structural. Hence Needle shows MNT violations; GE/Structural/
     // Refinement honor it.
-    const baseOps = C.ops;
-    const optOps = job.mnt ? [...baseOps, mntOperand(job.mnt)] : baseOps;
-    const report = (r) => r.err ? r : {
-        mf: r.design ? mfOf(r.design, baseOps, resolveMat) : r.mf,
-        layers: r.layers != null ? r.layers : C.refineN,
-        ms: r.ms, it: r.it, mf0: r.mf0,
-        minThk: r.design ? minFrontThk(r.design) : null,
-        mnt: job.mnt || null,
-        design: r.design || null,   // the resulting stack — for "load + inspect" in the UI
-    };
-    switch (job.kind) {
-        case 'refine':
-        case 'refine-global':
-            return report(runRefine(job.method, refineStart(C.refineN), optOps, job.maxIter, job.dMin, resolveMat));
-        case 'dls-multi':
-            return report(runDlsMulti(refineStart(C.refineN), optOps, job.maxIter, job.dMin, resolveMat, 6));
-        // Needle ignores MNT by design → refine on baseOps (constraints stripped).
-        case 'needle':     return report(runSynth(false, C.thick(), baseOps, job.dMin, resolveMat, job.cfg, onTick));
-        // GE keeps the constraint AND couples its insertion/cleanup floor to MNT
-        // (GradualEvolution.js initializes dMin from maxMNT) — that floor is what
-        // actually makes GE honor MNT, since its forced-TOT step inserts at dMin.
-        case 'ge':         return report(runSynth(true,  C.thin(),  optOps,  job.mnt ? Math.max(job.dMin, job.mnt) : job.dMin, resolveMat, job.cfg, onTick));
-        case 'structural': return report(runStructural(C.thin(), optOps, job.dMin, resolveMat, job.cfg, onTick));
-        // Smart seed honours MNT in its refine (like GE) → optOps, floor coupled to MNT.
-        case 'seed':       return report(runSeed(C, optOps, job.mnt ? Math.max(job.dMin, job.mnt) : job.dMin, resolveMat, job.cfg));
-        default:           return { err: `unknown kind ${job.kind}` };
+    let output;
+    if (!C) {
+        output = { err: `unknown case ${job.caseId}` };
+    } else {
+        const baseOps = C.ops;
+        const state = {
+            job, C, baseOps, resolveMat, onTick,
+            optOps: job.mnt ? [...baseOps, mntOperand(job.mnt)] : baseOps,
+        };
+        const runner = JOB_RUNNERS.get(job.kind);
+        output = runner
+            ? reportJobResult(runner(state), state)
+            : { err: `unknown kind ${job.kind}` };
     }
+    return output;
 }
