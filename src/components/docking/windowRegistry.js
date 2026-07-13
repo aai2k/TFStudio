@@ -22,8 +22,8 @@
  */
 
 import { DesignEditor } from '../windows/design/DesignEditor.js';
-import { OpticalEvaluation } from '../windows/analysis/OpticalEvaluation.js';
-import { ColorEvaluation } from '../windows/analysis/ColorEvaluation.js';
+import { OpticalEvaluation } from '../windows/analysis/opticalEvaluation/OpticalEvaluation.js';
+import { ColorEvaluation } from '../windows/analysis/colorEvaluation/ColorEvaluation.js';
 import { MaterialEditor } from '../windows/design/materialEditor/MaterialEditor.js';
 import { Refinement } from '../windows/optimization/refinement/Refinement.js';
 import { MeritFunctionEditor } from '../windows/optimization/meritFunctionEditor/MeritFunctionEditor.js';
@@ -31,24 +31,24 @@ import { NeedleVariation } from '../windows/optimization/NeedleVariation.js';
 import { NeedleManual } from '../windows/optimization/NeedleManual.js';
 import { GradualEvolution } from '../windows/optimization/gradualEvolution/GradualEvolution.js';
 import { StructuralOptimizer } from '../windows/optimization/structuralOptimizer/StructuralOptimizer.js';
-import { AdmittanceDiagram } from '../windows/analysis/AdmittanceDiagram.js';
-import { EFieldEvaluation } from '../windows/analysis/EFieldEvaluation.js';
-import { EllipsometryEvaluation } from '../windows/analysis/EllipsometryEvaluation.js';
-import { GDGDDEvaluation } from '../windows/analysis/GDGDDEvaluation.js';
-import { RefractiveIndexProfiler } from '../windows/analysis/RefractiveIndexProfiler.js';
-import { LayerSensitivity } from '../windows/analysis/LayerSensitivity.js';
-import { ErrorAnalysis } from '../windows/analysis/ErrorAnalysis.js';
-import { IntegralValues } from '../windows/analysis/IntegralValues.js';
+import { AdmittanceDiagram } from '../windows/analysis/admittanceDiagram/AdmittanceDiagram.js';
+import { EFieldEvaluation } from '../windows/analysis/eFieldEvaluation/EFieldEvaluation.js';
+import { EllipsometryEvaluation } from '../windows/analysis/ellipsometryEvaluation/EllipsometryEvaluation.js';
+import { GDGDDEvaluation } from '../windows/analysis/gdGddEvaluation/GDGDDEvaluation.js';
+import { RefractiveIndexProfiler } from '../windows/analysis/refractiveIndexProfiler/RefractiveIndexProfiler.js';
+import { LayerSensitivity } from '../windows/analysis/layerSensitivity/LayerSensitivity.js';
+import { ErrorAnalysis } from '../windows/analysis/errorAnalysis/ErrorAnalysis.js';
+import { IntegralValues } from '../windows/analysis/integralValues/IntegralValues.js';
 import { DesignCleaner } from '../windows/optimization/DesignCleaner.js';
 import { HistoryWindow } from '../windows/edit/HistoryWindow.js';
 import { ProcessSimulator } from '../windows/dataExchange/ProcessSimulator.js';
 import { ZemaxCoatings } from '../windows/dataExchange/ZemaxCoatings.js';
 import { SpectrumExchange } from '../windows/dataExchange/SpectrumExchange.js';
 import { Variator } from '../windows/optimization/Variator.js';
-import { SystematicDeviations } from '../windows/analysis/SystematicDeviations.js';
-import { Inhomogeneities } from '../windows/analysis/Inhomogeneities.js';
-import { RoughnessScattering } from '../windows/analysis/RoughnessScattering.js';
-import { PlotEngine } from '../windows/analysis/PlotEngine.js';
+import { SystematicDeviations } from '../windows/analysis/systematicDeviations/SystematicDeviations.js';
+import { Inhomogeneities } from '../windows/analysis/inhomogeneities/Inhomogeneities.js';
+import { RoughnessScattering } from '../windows/analysis/roughnessScattering/RoughnessScattering.js';
+import { PlotEngine } from '../windows/analysis/plotEngine/PlotEngine.js';
 import { Specification } from '../windows/design/Specification.js';
 import { OptimizerBenchmark } from '../windows/optimization/OptimizerBenchmark.js';
 

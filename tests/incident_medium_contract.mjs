@@ -33,17 +33,27 @@ const ok = (cond, msg) => { if (!cond) { console.error('FAIL:', msg); fails++; }
 // Matches incidentMedium.material, incidentMedium?.material, exitMedium.material,
 // exitMedium?.material (any whitespace).
 const ANTIPATTERN = /\b(incidentMedium|exitMedium)\s*\??\s*\.\s*material\b/;
-const files = readdirSync(WIN_DIR).filter((f) => f.endsWith('.js'));
+function listJsFiles(dir) {
+    const files = [];
+    for (const entry of readdirSync(dir, { withFileTypes: true })) {
+        const path = join(dir, entry.name);
+        if (entry.isDirectory()) files.push(...listJsFiles(path));
+        else if (entry.name.endsWith('.js')) files.push(path);
+    }
+    return files;
+}
+
+const files = listJsFiles(WIN_DIR);
 let scanned = 0;
-for (const f of files) {
-    const src = readFileSync(join(WIN_DIR, f), 'utf8');
+for (const file of files) {
+    const src = readFileSync(file, 'utf8');
     scanned++;
     src.split('\n').forEach((line, i) => {
         // A defensive `typeof ... === 'string' ? medium : medium?.material` is
         // CORRECT (it prefers the string) — only flag an UNGUARDED .material.
         const guarded = /===\s*['"]string['"]/.test(line);
         if (ANTIPATTERN.test(line) && !guarded) {
-            ok(false, `${f}:${i + 1} accesses .material on a medium string — incidentMedium/exitMedium are strings, use resolveMaterial(design.incidentMedium). Line: ${line.trim()}`);
+            ok(false, `${file}:${i + 1} accesses .material on a medium string — incidentMedium/exitMedium are strings, use resolveMaterial(design.incidentMedium). Line: ${line.trim()}`);
         }
     });
 }

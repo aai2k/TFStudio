@@ -1,6 +1,7 @@
 const { createElement: h, useState, useRef, useCallback, useEffect } = React;
 import { HelpButton } from '../ui/HelpButton.js';
 import { ICONS, iconColorForTool } from '../Toolbar.js';
+import { attachTabWheelScroll } from './tabWheel.js';
 
 // Mini tool icon for a docking tab. Scaled to 14px to sit beside
 // the tab title. In colorful mode it wears the tool's group hue; otherwise it
@@ -65,6 +66,15 @@ export function TabGroup({ node, c, dragActive, dragSrcGroupId, dragInsertRef, d
     return () => { if (ro) ro.disconnect(); };
   }, [node.tabs.length]);
 
+  // React delegates wheel events through a passive listener, which cannot cancel
+  // vertical page scrolling. A native non-passive listener keeps wheel input on
+  // an overflowing tab strip horizontal without emitting a browser warning.
+  useEffect(() => {
+    const bar = tabBarRef.current;
+    if (!bar) return;
+    return attachTabWheelScroll(bar);
+  }, []);
+
   // Keep the active tab visible: scroll it into view when the selection changes
   // (e.g. via the overflow dropdown, or when a far-off tab is activated).
   useEffect(() => {
@@ -87,13 +97,6 @@ export function TabGroup({ node, c, dragActive, dragSrcGroupId, dragInsertRef, d
       }
       return !open;
     });
-  }, []);
-
-  // Vertical wheel → horizontal scroll across the tab strip.
-  const handleWheel = useCallback((e) => {
-    const bar = tabBarRef.current;
-    if (!bar || bar.scrollWidth <= bar.clientWidth) return;
-    if (e.deltaY !== 0) { bar.scrollLeft += e.deltaY; e.preventDefault(); }
   }, []);
 
   const handleTabBarMouseMove = useCallback((e) => {
@@ -156,7 +159,6 @@ export function TabGroup({ node, c, dragActive, dragSrcGroupId, dragInsertRef, d
         ref: tabBarRef,
         onMouseMove:  handleTabBarMouseMove,
         onMouseLeave: handleTabBarMouseLeave,
-        onWheel:      handleWheel,
         // hide the horizontal scrollbar — scrolling is via wheel / active-tab
         // auto-scroll / the overflow dropdown, so a visible bar would just add clutter
         className: 'tabstrip-noscrollbar',
