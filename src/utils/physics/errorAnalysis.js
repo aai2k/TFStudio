@@ -80,20 +80,6 @@ function gauss2(rng) {
 }
 
 /**
- * Pull `n` Gaussian samples (σ = 1) into a fresh Float64Array. Vectorized via
- * Box–Muller pairs so the cost per sample is one log + one cos/sin.
- */
-function gaussArray(n, rng = Math.random) {
-    const out = new Float64Array(n);
-    for (let i = 0; i < n; i += 2) {
-        const [g1, g2] = gauss2(rng);
-        out[i] = g1;
-        if (i + 1 < n) out[i + 1] = g2;
-    }
-    return out;
-}
-
-/**
  * Draw one random parameter deviation according to the selected distribution.
  *
  * `level` is the per-layer error magnitude from the tolerance formula
@@ -142,6 +128,84 @@ function sampleDeviation(level, distribution, rng) {
 
 // ── Layer sensitivity ─────────────────────────────────────────────────────────
 
+function buildSensitivityVariables(surfaceMode, front, back) {
+    if (surfaceMode === 'both_independent') {
+        return [
+            ...front.map((layer, layerIndex) => ({ side: 'front', layerIndex, layer })),
+            ...back.map((layer, layerIndex) => ({ side: 'back', layerIndex, layer })),
+        ];
+    }
+    if (surfaceMode === 'back_only') {
+        return back.map((layer, layerIndex) => ({ side: 'back', layerIndex, layer }));
+    }
+    return front.map((layer, layerIndex) => ({ side: 'front', layerIndex, layer }));
+}
+
+function evaluateSensitivityThickness({ design, operands, resolveMat, surfaceMode,
+    side, layerIndex, thickness, mfOptions }) {
+    const ctx = buildEvalContext(design, resolveMat);
+    if (side === 'front') {
+        ctx.frontThicks = [...ctx.frontThicks];
+        ctx.frontThicks[layerIndex] = thickness;
+        if (surfaceMode === 'symmetric') ctx.backThicks = [...ctx.frontThicks].reverse();
+    } else {
+        ctx.backThicks = [...ctx.backThicks];
+        ctx.backThicks[layerIndex] = thickness;
+    }
+
+    if (surfaceMode === 'both_independent') {
+        ctx.fullThicks = [...ctx.frontThicks, ...ctx.backThicks];
+    } else if (surfaceMode === 'back_only') {
+        ctx.fullThicks = ctx.backThicks;
+    } else {
+        ctx.fullThicks = ctx.frontThicks;
+    }
+    const comp = evaluateOperands(operands, ctx);
+    return calcMF(operands, comp, mfOptions);
+}
+
+function makeSensitivityRow(variable, index, settings) {
+    const { side, layerIndex, layer } = variable;
+    const locked = !!layer.locked;
+    if (locked && !settings.includeLocked) return null;
+
+    const thickness = layer.thickness || 0;
+    const delta = settings.mode === 'absolute'
+        ? Math.max(1e-6, Math.abs(settings.absDeltaNm))
+        : Math.max(1e-6, thickness * settings.relPct / 100);
+    const plus = thickness + delta;
+    const minus = Math.max(0, thickness - delta);
+    const span = plus - minus;
+    const mfPlus = evaluateSensitivityThickness({
+        ...settings, side, layerIndex, thickness: plus,
+    });
+    const mfMinus = evaluateSensitivityThickness({
+        ...settings, side, layerIndex, thickness: minus,
+    });
+    const deltaMF = span > 0 ? (mfPlus - mfMinus) / span * (2 * delta) : 0;
+
+    return {
+        index,
+        side,
+        layerIndex,
+        materialId: layer.material,
+        thickness,
+        deltaNm: delta,
+        deltaMFAbs: Math.abs(deltaMF),
+        deltaMF,
+        sensitivity: 0,
+        locked,
+    };
+}
+
+function scaleSensitivityRows(rows) {
+    let maxAbs = 0;
+    for (const row of rows) if (row.deltaMFAbs > maxAbs) maxAbs = row.deltaMFAbs;
+    if (maxAbs > 0) {
+        for (const row of rows) row.sensitivity = 100 * row.deltaMFAbs / maxAbs;
+    }
+}
+
 /**
  * Per-layer merit-function sensitivity ranking.
  *
@@ -180,29 +244,10 @@ function sampleDeviation(level, distribution, rng) {
  * }}
  */
 export function computeLayerSensitivity(design, operands, resolveMat, opts = {}) {
-    const mode         = opts.mode ?? 'relative';
-    const absDeltaNm   = opts.absDeltaNm ?? 1.0;
-    const relPct       = opts.relPct ?? 1.0;
-    const includeLocked = !!opts.includeLocked;
-
     const surfaceMode = design?.surfaceMode || 'front_only';
     const front = design.frontLayers || [];
     const back  = surfaceMode === 'symmetric' ? [...front].reverse() : (design.backLayers || []);
-
-    // Build the same optimization-vector layout DLSOptimizer uses, so the index
-    // we report matches what the user sees in the Refinement variables panel.
-    let varDesc;
-    if (surfaceMode === 'both_independent') {
-        varDesc = [
-            ...front.map((l, i) => ({ side:'front', layerIndex:i, layer:l })),
-            ...back .map((l, i) => ({ side:'back',  layerIndex:i, layer:l })),
-        ];
-    } else if (surfaceMode === 'back_only') {
-        varDesc = back.map((l, i) => ({ side:'back', layerIndex:i, layer:l }));
-    } else {
-        // front_only and symmetric both expose the front stack as the variables
-        varDesc = front.map((l, i) => ({ side:'front', layerIndex:i, layer:l }));
-    }
+    const variables = buildSensitivityVariables(surfaceMode, front, back);
 
     // Error analysis ranks layers by *optical* sensitivity. MNT/MXT thickness
     // constraints (one-sided quadratic penalties used during DLS refinement)
@@ -216,83 +261,23 @@ export function computeLayerSensitivity(design, operands, resolveMat, opts = {})
     const ctx0 = buildEvalContext(design, resolveMat);
     const comp0 = evaluateOperands(operands, ctx0);
     const mf0   = calcMF(operands, comp0, MF_OPT);
-
-    // Helper: re-evaluate MF with a single thickness replaced
-    const evalAtThk = (sideTag, layerIdx, thkNm) => {
-        const ctx = buildEvalContext(design, resolveMat);
-        // Mutate only the specific layer
-        if (sideTag === 'front') {
-            ctx.frontThicks = [...ctx.frontThicks];
-            ctx.frontThicks[layerIdx] = thkNm;
-            if (surfaceMode === 'symmetric') {
-                // Sync mirrored back stack so the full system reflects the change
-                ctx.backThicks = [...ctx.frontThicks].reverse();
-            }
-        } else {
-            ctx.backThicks = [...ctx.backThicks];
-            ctx.backThicks[layerIdx] = thkNm;
-        }
-        // Keep `fullThicks` consistent (used by MNT/MXT constraints)
-        if (surfaceMode === 'both_independent') {
-            ctx.fullThicks = [...ctx.frontThicks, ...ctx.backThicks];
-        } else if (surfaceMode === 'back_only') {
-            ctx.fullThicks = ctx.backThicks;
-        } else {
-            ctx.fullThicks = ctx.frontThicks;
-        }
-        const comp = evaluateOperands(operands, ctx);
-        return calcMF(operands, comp, MF_OPT);
-    };
-
     const rows = [];
-    for (let i = 0; i < varDesc.length; i++) {
-        const { side, layerIndex, layer } = varDesc[i];
-        const locked = !!layer.locked;
-        if (locked && !includeLocked) continue;
-
-        const d = layer.thickness || 0;
-        // Δd is a *step magnitude* in the central difference — its sign is
-        // meaningless. Take |Δd| so a user-entered negative absolute Δd (e.g.
-        // −5 nm) still probes sensitivity instead of producing a negative span
-        // that collapses every dMF to 0 (the "negative Δd → all sensitivities
-        // zero" bug). Also guards against a 0 entry.
-        const dPert = mode === 'absolute'
-            ? Math.max(1e-6, Math.abs(absDeltaNm))
-            : Math.max(1e-6, d * relPct / 100);
-
-        // Central difference; clamp the down-step at zero (thickness can't go negative)
-        const dPlus  = d + dPert;
-        const dMinus = Math.max(0, d - dPert);
-        const span   = dPlus - dMinus;
-
-        const mfP = evalAtThk(side, layerIndex, dPlus);
-        const mfM = evalAtThk(side, layerIndex, dMinus);
-        const dMF = span > 0 ? (mfP - mfM) / span * (2 * dPert) : 0;
-        // The standard definition uses ΔMF_j = MF(d+Δd) − MF(d), but for a
-        // ranking the central-difference magnitude is just as good and far
-        // less biased near a minimum (the sign of the one-sided difference
-        // can flip there). We carry the central difference scaled to the
-        // (d−Δd, d+Δd) sample interval so the reported number is comparable
-        // to a forward difference at the same Δd.
-
-        rows.push({
-            index:       i,
-            side, layerIndex,
-            materialId:  layer.material,
-            thickness:   d,
-            deltaNm:     dPert,
-            deltaMFAbs:  Math.abs(dMF),
-            deltaMF:     dMF,
-            sensitivity: 0,           // filled in below
-            locked,
-        });
+    const settings = {
+        design,
+        operands,
+        resolveMat,
+        surfaceMode,
+        mfOptions: MF_OPT,
+        mode: opts.mode ?? 'relative',
+        absDeltaNm: opts.absDeltaNm ?? 1.0,
+        relPct: opts.relPct ?? 1.0,
+        includeLocked: !!opts.includeLocked,
+    };
+    for (let i = 0; i < variables.length; i++) {
+        const row = makeSensitivityRow(variables[i], i, settings);
+        if (row) rows.push(row);
     }
-
-    // Scale to max layer = 100 %
-    let maxAbs = 0;
-    for (const r of rows) if (r.deltaMFAbs > maxAbs) maxAbs = r.deltaMFAbs;
-    if (maxAbs > 0) for (const r of rows) r.sensitivity = 100 * r.deltaMFAbs / maxAbs;
-
+    scaleSensitivityRows(rows);
     return { rows, mf0, surfaceMode };
 }
 
@@ -309,8 +294,8 @@ export function computeLayerSensitivity(design, operands, resolveMat, opts = {})
  * proxies (n,k variations). When not supplied, the original material from
  * the layer's `material` id is used via `resolveMat`.
  */
-function evaluateChar(design, params, evalMode, resolveMat,
-                     frontLayers, backLayers, getMatForLayer) {
+function evaluateChar({ design, params, evalMode, resolveMat,
+    frontLayers, backLayers, getMatForLayer }) {
     const incId = typeof design.incidentMedium === 'string'
         ? design.incidentMedium : (design.incidentMedium?.material ?? 'Air');
     const exitId = typeof design.exitMedium === 'string'
@@ -370,6 +355,320 @@ function makeShiftedMaterial(baseMat, dn, dk) {
             const [n, k] = baseMat.getNK(lam);
             return [n + dn, k + dk];
         },
+    };
+}
+
+function makeMCConfig(design, params, resolveMat, opts) {
+    const evalMode = opts.evalMode ?? 'front';
+    const rmsReN = opts.rmsReN ?? 0;
+    const rmsImN = opts.rmsImN ?? 0;
+    return {
+        design,
+        params,
+        resolveMat,
+        char: opts.char ?? 'R',
+        evalMode,
+        nTrials: Math.max(1, Math.floor(opts.nTrials ?? 20)),
+        corridorSigma: opts.corridorSigma ?? 1.0,
+        rmsAbsNm: opts.rmsAbsNm ?? 0,
+        rmsRelPct: opts.rmsRelPct ?? 1,
+        rmsReN,
+        rmsImN,
+        distribution: opts.distribution ?? 'gaussian',
+        keepOpticalThickness: !!opts.keepOpticalThickness,
+        perMaterialErrors: !!opts.perMaterialErrors,
+        rng: opts.rng || Math.random,
+        onTrial: opts.onTrial || null,
+        evaluateSpec: !!opts.evaluateSpec,
+        qualifiers: opts.qualifiers || design.qualifiers || [],
+        recordTrials: !!opts.recordTrials,
+        shouldCancel: typeof opts.shouldCancel === 'function' ? opts.shouldCancel : null,
+        onYield: typeof opts.onYield === 'function' ? opts.onYield : null,
+        yieldEvery: Math.max(1, Math.floor(opts.yieldEvery ?? 8)),
+        front: design.frontLayers || [],
+        back: design.backLayers || [],
+        usesFront: evalMode === 'front' || evalMode === 'total',
+        usesBack: evalMode === 'back' || evalMode === 'total',
+        hasIndexErrors: !!(rmsReN || rmsImN),
+        lambdaReference: 0.5 * (params.lambdaStart + params.lambdaEnd),
+    };
+}
+
+function initializeMCState(config) {
+    const theoryRun = evaluateChar({
+        ...config,
+        frontLayers: config.front,
+        backLayers: config.back,
+        getMatForLayer: null,
+    });
+    const lambdas = theoryRun.lambda;
+    const nLambda = lambdas.length;
+    return {
+        lambdas,
+        theory: theoryRun[config.char],
+        nLambda,
+        mean: new Float64Array(nLambda),
+        m2: new Float64Array(nLambda),
+        min: new Float64Array(nLambda).fill(Infinity),
+        max: new Float64Array(nLambda).fill(-Infinity),
+        runningN: 0,
+        specPass: 0,
+        specEvaluated: 0,
+        qualifierFailures: config.qualifiers.map(() => 0),
+        trials: [],
+        // Material and deviation arrays share the original, unfiltered layer index.
+        frontMaterials: config.front.map((layer) => config.resolveMat(layer.material)),
+        backMaterials: config.back.map((layer) => config.resolveMat(layer.material)),
+    };
+}
+
+function drawThicknessDeviations(layers, config) {
+    const deviations = new Float64Array(layers.length);
+    for (let i = 0; i < layers.length; i++) {
+        if (layers[i].thickness <= 0) {
+            deviations[i] = 0;
+            continue;
+        }
+        const level = config.rmsAbsNm + (config.rmsRelPct / 100) * layers[i].thickness;
+        deviations[i] = sampleDeviation(level, config.distribution, config.rng);
+    }
+    return deviations;
+}
+
+function reuseMaterialDeviations(layers, idDraws) {
+    const dn = new Float64Array(layers.length);
+    const dk = new Float64Array(layers.length);
+    for (let i = 0; i < layers.length; i++) {
+        const deviation = idDraws.get(layers[i].material);
+        if (deviation) {
+            dn[i] = deviation.dn;
+            dk[i] = deviation.dk;
+        }
+    }
+    return [dn, dk];
+}
+
+function drawPerMaterialIndexDeviations(config) {
+    // Front-first insertion order is part of the seeded Monte Carlo sequence.
+    const needed = new Set();
+    for (const layer of config.front) if (layer.thickness > 0) needed.add(layer.material);
+    for (const layer of config.back) if (layer.thickness > 0) needed.add(layer.material);
+
+    const idDraws = new Map();
+    for (const id of needed) {
+        idDraws.set(id, {
+            dn: sampleDeviation(config.rmsReN, config.distribution, config.rng),
+            dk: sampleDeviation(config.rmsImN, config.distribution, config.rng),
+        });
+    }
+    const [dnF, dkF] = reuseMaterialDeviations(config.front, idDraws);
+    const [dnB, dkB] = reuseMaterialDeviations(config.back, idDraws);
+    return { dnF, dkF, dnB, dkB };
+}
+
+function drawLayerIndexDeviations(count, config) {
+    const dn = new Float64Array(count);
+    const dk = new Float64Array(count);
+    for (let i = 0; i < count; i++) {
+        // Keep dn/dk interleaved for each layer to preserve RNG draw order.
+        dn[i] = sampleDeviation(config.rmsReN, config.distribution, config.rng);
+        dk[i] = sampleDeviation(config.rmsImN, config.distribution, config.rng);
+    }
+    return [dn, dk];
+}
+
+function drawPerLayerIndexDeviations(config) {
+    const [dnF, dkF] = drawLayerIndexDeviations(config.front.length, config);
+    const [dnB, dkB] = drawLayerIndexDeviations(config.back.length, config);
+    return { dnF, dkF, dnB, dkB };
+}
+
+function linkOpticalThickness(layers, materials, dn, thicknessDeviations, lambdaReference) {
+    for (let i = 0; i < layers.length; i++) {
+        if (layers[i].thickness <= 0 || !materials[i]) continue;
+        const [nNom] = materials[i].getNK(lambdaReference);
+        const nNew = nNom + dn[i];
+        if (nNew > 1e-3) {
+            thicknessDeviations[i] = layers[i].thickness * (nNom / nNew - 1);
+        }
+    }
+}
+
+function maskUnusedSides(draws, config) {
+    if (!config.usesFront) {
+        draws.dThkF.fill(0);
+        draws.dnF.fill(0);
+        draws.dkF.fill(0);
+    }
+    if (!config.usesBack) {
+        draws.dThkB.fill(0);
+        draws.dnB.fill(0);
+        draws.dkB.fill(0);
+    }
+}
+
+function perturbLayers(layers, thicknessDeviations) {
+    return layers.map((layer, index) => ({
+        ...layer,
+        thickness: Math.max(0, layer.thickness + thicknessDeviations[index]),
+    }));
+}
+
+function makeTrialMaterialResolver(draws, state, config) {
+    if (!config.hasIndexErrors) return null;
+    return (side, index) => {
+        const baseMaterials = side === 'front' ? state.frontMaterials : state.backMaterials;
+        const dn = side === 'front' ? draws.dnF : draws.dnB;
+        const dk = side === 'front' ? draws.dkF : draws.dkB;
+        const base = baseMaterials[index];
+        if (!base) return base;
+        const indexK = dk[index];
+        const baseK = base.getNK(config.lambdaReference)[1];
+        // A shifted material cannot cross into negative absorption.
+        const clampedK = (baseK + indexK < 0) ? -baseK : indexK;
+        return makeShiftedMaterial(base, dn[index], clampedK);
+    };
+}
+
+function prepareMCTrial(config, state) {
+    // Draw front and back unconditionally; side masking occurs only after all draws.
+    const dThkF = drawThicknessDeviations(config.front, config);
+    const dThkB = drawThicknessDeviations(config.back, config);
+    const indexDraws = config.perMaterialErrors
+        ? drawPerMaterialIndexDeviations(config)
+        : drawPerLayerIndexDeviations(config);
+    const draws = { dThkF, dThkB, ...indexDraws };
+
+    if (config.keepOpticalThickness) {
+        linkOpticalThickness(config.front, state.frontMaterials, draws.dnF,
+            draws.dThkF, config.lambdaReference);
+        linkOpticalThickness(config.back, state.backMaterials, draws.dnB,
+            draws.dThkB, config.lambdaReference);
+    }
+    maskUnusedSides(draws, config);
+
+    const frontLayers = perturbLayers(config.front, draws.dThkF);
+    const backLayers = perturbLayers(config.back, draws.dThkB);
+    return {
+        ...draws,
+        frontLayers,
+        backLayers,
+        getMatForLayer: makeTrialMaterialResolver(draws, state, config),
+    };
+}
+
+function updateMCStatistics(state, values) {
+    state.runningN++;
+    for (let i = 0; i < state.nLambda; i++) {
+        const x = values[i];
+        const d1 = x - state.mean[i];
+        state.mean[i] += d1 / state.runningN;
+        const d2 = x - state.mean[i];
+        state.m2[i] += d1 * d2;
+        if (x < state.min[i]) state.min[i] = x;
+        if (x > state.max[i]) state.max[i] = x;
+    }
+}
+
+function accumulateSpecificationVerdict(state, results, verdict) {
+    if (verdict.total > 0) {
+        state.specEvaluated++;
+        if (verdict.allPass) state.specPass++;
+    }
+    results.forEach((result, index) => {
+        if (result && result.pass === false) state.qualifierFailures[index]++;
+    });
+}
+
+function formatTrialSpecification(qualifiers, results, verdict) {
+    return {
+        allPass: verdict.allPass,
+        passing: verdict.passing,
+        total: verdict.total,
+        results: results.map((result, index) => ({
+            label: qualifiers[index].label || qualifiers[index].kind || ('#' + (index + 1)),
+            pass: result ? result.pass : null,
+            value: result ? result.displayValue : null,
+        })),
+    };
+}
+
+function evaluateTrialSpecification(config, state, frontLayers, backLayers) {
+    let trialSpec = null;
+    if (config.evaluateSpec && config.qualifiers.length) {
+        const perturbedDesign = {
+            ...config.design,
+            frontLayers,
+            backLayers,
+        };
+        try {
+            const results = evaluateQualifiers(config.qualifiers, perturbedDesign, config.resolveMat);
+            const verdict = aggregateVerdict(results);
+            accumulateSpecificationVerdict(state, results, verdict);
+            trialSpec = formatTrialSpecification(config.qualifiers, results, verdict);
+        } catch (_) { /* skip this trial's spec check */ }
+    }
+    return trialSpec;
+}
+
+function recordMCTrial(config, state, trial, data, spec) {
+    if (!config.recordTrials) return;
+    state.trials.push({
+        i: trial + 1,
+        dThkF: config.usesFront ? Array.from(data.dThkF) : null,
+        dThkB: config.usesBack ? Array.from(data.dThkB) : null,
+        dnF: (config.hasIndexErrors && config.usesFront) ? Array.from(data.dnF) : null,
+        dkF: (config.hasIndexErrors && config.usesFront) ? Array.from(data.dkF) : null,
+        dnB: (config.hasIndexErrors && config.usesBack) ? Array.from(data.dnB) : null,
+        dkB: (config.hasIndexErrors && config.usesBack) ? Array.from(data.dkB) : null,
+        spec,
+    });
+}
+
+function makeMCSpecSummary(config, state) {
+    if (!(config.evaluateSpec && config.qualifiers.length)) return null;
+    return {
+        nTrials: state.runningN,
+        evaluated: state.specEvaluated,
+        passCount: state.specPass,
+        yield: state.specEvaluated > 0 ? state.specPass / state.specEvaluated : null,
+        perQualifier: config.qualifiers.map((qualifier, index) => ({
+            label: qualifier.label || qualifier.kind || ('#' + (index + 1)),
+            failRate: state.runningN > 0 ? state.qualifierFailures[index] / state.runningN : 0,
+        })),
+    };
+}
+
+function finalizeMCResult(config, state) {
+    const stdev = new Float64Array(state.nLambda);
+    for (let i = 0; i < state.nLambda; i++) {
+        stdev[i] = state.runningN > 0 ? Math.sqrt(state.m2[i] / state.runningN) : 0;
+    }
+
+    const lower = new Array(state.nLambda);
+    const upper = new Array(state.nLambda);
+    const envLower = new Array(state.nLambda);
+    const envUpper = new Array(state.nLambda);
+    for (let i = 0; i < state.nLambda; i++) {
+        lower[i] = Math.max(0, state.mean[i] - config.corridorSigma * stdev[i]);
+        upper[i] = Math.min(1, state.mean[i] + config.corridorSigma * stdev[i]);
+        envLower[i] = state.runningN > 0 ? Math.max(0, state.min[i]) : state.mean[i];
+        envUpper[i] = state.runningN > 0 ? Math.min(1, state.max[i]) : state.mean[i];
+    }
+
+    return {
+        lambda: state.lambdas,
+        theory: Array.from(state.theory),
+        mean: Array.from(state.mean),
+        stdev: Array.from(stdev),
+        lower,
+        upper,
+        envLower,
+        envUpper,
+        nTrials: state.runningN,
+        char: config.char,
+        spec: makeMCSpecSummary(config, state),
+        trials: config.recordTrials ? state.trials : null,
     };
 }
 
@@ -435,296 +734,30 @@ function makeShiftedMaterial(baseMat, dn, dk) {
  * }}
  */
 export async function runErrorAnalysisMC(design, params, resolveMat, opts = {}) {
-    const char           = opts.char ?? 'R';
-    const evalMode       = opts.evalMode ?? 'front';
-    const nTrials        = Math.max(1, Math.floor(opts.nTrials ?? 20));
-    const corridorSigma  = opts.corridorSigma ?? 1.0;
-    const rmsAbsNm       = opts.rmsAbsNm ?? 0;
-    const rmsRelPct      = opts.rmsRelPct ?? 1;
-    const rmsReN         = opts.rmsReN ?? 0;
-    const rmsImN         = opts.rmsImN ?? 0;
-    // Draw shape: 'gaussian' (σ/RMS, unbounded — default),
-    // 'uniform' (hard ±bound), or 'truncated' (bell clipped at ±bound = 3σ).
-    const distribution   = opts.distribution ?? 'gaussian';
-    const keepOPT        = !!opts.keepOpticalThickness;
-    const perMaterial    = !!opts.perMaterialErrors;
-    const rng            = opts.rng || Math.random;
-    const onTrial        = opts.onTrial || null;
-    // Optional: evaluate the design Specification (qualifiers) on each trial to
-    // report process yield. NOTE v1 — qualifiers are scored on the
-    // *thickness*-perturbed design (the dominant tolerancing case); per-layer
-    // Δn/Δk index perturbations are reflected in the spectral corridor but not
-    // in this qualifier check.
-    const evalSpec       = !!opts.evaluateSpec;
-    const qualifiers     = opts.qualifiers || design.qualifiers || [];
-    // Record per-trial detail (thickness/index deviations + spec verdict) so the
-    // UI can open an inspector of "what changed and did it pass" for each trial.
-    const recordTrials   = !!opts.recordTrials;
-    // M18: cooperative cancellation + yielding. The UI passes an async `onYield`
-    // (e.g. a setTimeout(0)) awaited every `yieldEvery` trials so the event loop
-    // can paint progress and process a Stop click, and `shouldCancel` to break
-    // early. Programmatic/test callers omit both → the loop runs straight through
-    // (the function is async but never actually awaits). A cancelled run still
-    // returns the stats accumulated so far (nTrials: runningN).
-    const shouldCancel   = typeof opts.shouldCancel === 'function' ? opts.shouldCancel : null;
-    const onYield        = typeof opts.onYield === 'function' ? opts.onYield : null;
-    const yieldEvery     = Math.max(1, Math.floor(opts.yieldEvery ?? 8));
+    const config = makeMCConfig(design, params, resolveMat, opts);
+    const state = initializeMCState(config);
 
-    const front = design.frontLayers || [];
-    const back  = design.backLayers  || [];
+    for (let trial = 0; trial < config.nTrials; trial++) {
+        const data = prepareMCTrial(config, state);
+        const run = evaluateChar({
+            ...config,
+            frontLayers: data.frontLayers,
+            backLayers: data.backLayers,
+            getMatForLayer: data.getMatForLayer,
+        });
+        updateMCStatistics(state, run[config.char]);
+        const trialSpec = evaluateTrialSpecification(
+            config, state, data.frontLayers, data.backLayers,
+        );
+        recordMCTrial(config, state, trial, data, trialSpec);
 
-    // Use the same λ grid as the spectrum evaluator (rounded) so theory and
-    // perturbed runs share identical x-coordinates.
-    const theoryRun = evaluateChar(design, params, evalMode, resolveMat, front, back, null);
-    const lambdas = theoryRun.lambda;
-    const theory  = theoryRun[char];           // arrays already on .R/.T/.A
-    const nLam = lambdas.length;
-
-    // Welford online mean & variance per wavelength
-    const mean  = new Float64Array(nLam);
-    const m2    = new Float64Array(nLam);
-    // Realized min/max envelope across trials — the TRUE bound for bounded
-    // distributions (uniform/truncated). For Gaussian it has no fixed limit and
-    // widens with nTrials (sample extremes), so the UI flags it accordingly.
-    const minV  = new Float64Array(nLam).fill(Infinity);
-    const maxV  = new Float64Array(nLam).fill(-Infinity);
-    let runningN = 0;
-
-    // Spec-yield accumulation (only when evalSpec && qualifiers present)
-    let specPass = 0, specEvaluated = 0;
-    const qFail = qualifiers.map(() => 0);
-
-    // Per-trial inspector records (when recordTrials)
-    const trials = [];
-    const hasIdxErr = !!(rmsReN || rmsImN);
-    // Only perturb the side(s) the chosen analysis evaluates: 'front' → front
-    // only, 'back' → back only, 'total' → both. A front analysis must not show
-    // (or apply) back-layer deviations that don't affect the front spectrum.
-    const usesFront = evalMode === 'front' || evalMode === 'total';
-    const usesBack  = evalMode === 'back'  || evalMode === 'total';
-
-    // Reference wavelength for "keep optical thickness" — use mid of the band
-    // since n,k at that wavelength is what's most representative; for any
-    // real coating the relative variation is nearly λ-independent anyway.
-    const lamRef = 0.5 * (params.lambdaStart + params.lambdaEnd);
-
-    // Materials we may need to perturb (per-layer xor per-material toggle).
-    // H10: keep these on the UNFILTERED layer index space — one entry per layer,
-    // INCLUDING zero-thickness layers — so matsFront[i] aligns with front[i],
-    // dThkF[i], dnF[i], dkF[i]. Filtering here (thickness>0) put materials on a
-    // different index than the per-layer draw arrays, so any 0 nm layer made
-    // every subsequent layer receive the previous layer's Δn/Δk/Δd draw.
-    const collectMats = (layers) => layers.map((l) => resolveMat(l.material));
-    const matsFront = collectMats(front);
-    const matsBack  = collectMats(back);
-
-    for (let trial = 0; trial < nTrials; trial++) {
-        // ── Draw thickness deviations ────────────────────────────────────────
-        const drawSide = (layers) => {
-            const ds = new Float64Array(layers.length);
-            for (let i = 0; i < layers.length; i++) {
-                if (layers[i].thickness <= 0) { ds[i] = 0; continue; }
-                // Per-layer error level; interpreted as σ or
-                // as a hard ±bound depending on `distribution`.
-                const level = rmsAbsNm + (rmsRelPct / 100) * layers[i].thickness;
-                ds[i] = sampleDeviation(level, distribution, rng);
-            }
-            return ds;
-        };
-        const dThkF = drawSide(front);
-        const dThkB = drawSide(back);
-
-        // ── Draw refractive index deviations ─────────────────────────────────
-        // Per-material mode: one draw shared across all layers of the same
-        // material id (front+back); per-layer mode: independent per layer.
-        let dnF, dkF, dnB, dkB;
-        if (perMaterial) {
-            // Build per-id draws once
-            const idDraws = new Map();
-            const need = new Set();
-            for (const l of front) if (l.thickness > 0) need.add(l.material);
-            for (const l of back ) if (l.thickness > 0) need.add(l.material);
-            for (const id of need) {
-                idDraws.set(id, {
-                    dn: sampleDeviation(rmsReN, distribution, rng),
-                    dk: sampleDeviation(rmsImN, distribution, rng),
-                });
-            }
-            const reuse = (layers) => {
-                const dn = new Float64Array(layers.length);
-                const dk = new Float64Array(layers.length);
-                for (let i = 0; i < layers.length; i++) {
-                    const d = idDraws.get(layers[i].material);
-                    if (d) { dn[i] = d.dn; dk[i] = d.dk; }
-                }
-                return [dn, dk];
-            };
-            [dnF, dkF] = reuse(front);
-            [dnB, dkB] = reuse(back);
-        } else {
-            const drawNK = (n) => {
-                const dn = new Float64Array(n);
-                const dk = new Float64Array(n);
-                for (let i = 0; i < n; i++) {
-                    dn[i] = sampleDeviation(rmsReN, distribution, rng);
-                    dk[i] = sampleDeviation(rmsImN, distribution, rng);
-                }
-                return [dn, dk];
-            };
-            [dnF, dkF] = drawNK(front.length);
-            [dnB, dkB] = drawNK(back.length);
+        if (config.onTrial) config.onTrial({ i: trial + 1, total: config.nTrials });
+        if (config.onYield && (trial + 1) % config.yieldEvery === 0) {
+            await config.onYield(trial + 1);
         }
-
-        // ── Optionally link thickness to n via constant optical thickness ────
-        if (keepOPT) {
-            const linkSide = (layers, mats, dn, dThk) => {
-                for (let i = 0; i < layers.length; i++) {
-                    if (layers[i].thickness <= 0 || !mats[i]) continue;
-                    const [nNom] = mats[i].getNK(lamRef);
-                    const nNew = nNom + dn[i];
-                    if (nNew > 1e-3) {
-                        // n·d = n_nom · d_nom  →  d_new = d_nom · n_nom / n_new
-                        // Δd = d_new − d_nom = d_nom · (n_nom / n_new − 1)
-                        dThk[i] = layers[i].thickness * (nNom / nNew - 1);
-                    }
-                }
-            };
-            linkSide(front, matsFront, dnF, dThkF);
-            linkSide(back,  matsBack,  dnB, dThkB);
-        }
-
-        // Restrict perturbation to the analyzed side(s) — zero the other side so
-        // it neither affects the spectrum nor appears in the trial record.
-        if (!usesFront) { dThkF.fill(0); if (dnF) dnF.fill(0); if (dkF) dkF.fill(0); }
-        if (!usesBack)  { dThkB.fill(0); if (dnB) dnB.fill(0); if (dkB) dkB.fill(0); }
-
-        // ── Build perturbed design view (layers + material proxies) ──────────
-        const pertFront = front.map((l, i) => ({
-            ...l, thickness: Math.max(0, l.thickness + dThkF[i])
-        }));
-        const pertBack = back.map((l, i) => ({
-            ...l, thickness: Math.max(0, l.thickness + dThkB[i])
-        }));
-
-        const getMatFor = (rmsReN || rmsImN)
-            ? (side, idx) => {
-                const baseMats = side === 'front' ? matsFront : matsBack;
-                const dnArr    = side === 'front' ? dnF : dnB;
-                const dkArr    = side === 'front' ? dkF : dkB;
-                const base = baseMats[idx];
-                if (!base) return base;
-                // k ≥ 0 enforcement: clamp negative draws to zero (a
-                // non-absorbing material can't become "negatively absorbing")
-                const dk = dkArr[idx];
-                const baseK = base.getNK(lamRef)[1];
-                const dkClamp = (baseK + dk < 0) ? -baseK : dk;
-                return makeShiftedMaterial(base, dnArr[idx], dkClamp);
-            }
-            : null;
-
-        // ── Evaluate this perturbed trial ────────────────────────────────────
-        const run = evaluateChar(design, params, evalMode, resolveMat,
-                                 pertFront, pertBack, getMatFor);
-        const yi = run[char];
-
-        // Welford update
-        runningN++;
-        for (let i = 0; i < nLam; i++) {
-            const x = yi[i];
-            const d1 = x - mean[i];
-            mean[i] += d1 / runningN;
-            const d2 = x - mean[i];
-            m2[i]   += d1 * d2;
-            if (x < minV[i]) minV[i] = x;
-            if (x > maxV[i]) maxV[i] = x;
-        }
-
-        // Spec yield: evaluate qualifiers on the thickness-perturbed design.
-        let trialSpec = null;
-        if (evalSpec && qualifiers.length) {
-            const pertDesign = { ...design, frontLayers: pertFront, backLayers: pertBack };
-            try {
-                const qres = evaluateQualifiers(qualifiers, pertDesign, resolveMat);
-                const v = aggregateVerdict(qres);
-                if (v.total > 0) { specEvaluated++; if (v.allPass) specPass++; }
-                qres.forEach((r, qi) => { if (r && r.pass === false) qFail[qi]++; });
-                trialSpec = {
-                    allPass: v.allPass, passing: v.passing, total: v.total,
-                    results: qres.map((r, qi) => ({
-                        label: qualifiers[qi].label || qualifiers[qi].kind || ('#' + (qi + 1)),
-                        pass: r ? r.pass : null,
-                        value: r ? r.displayValue : null,
-                    })),
-                };
-            } catch (_) { /* skip this trial's spec check */ }
-        }
-
-        // Per-trial inspector record (Δd per layer, optional Δn/Δk, spec verdict)
-        if (recordTrials) {
-            trials.push({
-                i: trial + 1,
-                dThkF: usesFront ? Array.from(dThkF) : null,
-                dThkB: usesBack  ? Array.from(dThkB) : null,
-                dnF: (hasIdxErr && usesFront) ? Array.from(dnF) : null,
-                dkF: (hasIdxErr && usesFront) ? Array.from(dkF) : null,
-                dnB: (hasIdxErr && usesBack)  ? Array.from(dnB) : null,
-                dkB: (hasIdxErr && usesBack)  ? Array.from(dkB) : null,
-                spec: trialSpec,
-            });
-        }
-
-        if (onTrial) onTrial({ i: trial + 1, total: nTrials });
-
-        // M18: yield to the event loop (paint progress / process Stop) and honour
-        // cancellation. Both are no-ops for programmatic callers.
-        if (onYield && (trial + 1) % yieldEvery === 0) await onYield(trial + 1);
-        if (shouldCancel && shouldCancel()) break;
+        if (config.shouldCancel && config.shouldCancel()) break;
     }
 
-    // Finalize stdev (sample, divide by N — empirical-σ for a Monte Carlo
-    // corridor)
-    const stdev = new Float64Array(nLam);
-    for (let i = 0; i < nLam; i++) {
-        stdev[i] = runningN > 0 ? Math.sqrt(m2[i] / runningN) : 0;
-    }
-
-    // Build corridor (clip to physical [0,1] since T, R, A are fractions)
-    const lower = new Array(nLam);
-    const upper = new Array(nLam);
-    // Realized min/max envelope (clip to [0,1]); falls back to the mean when no
-    // trials ran so the arrays are always plottable.
-    const envLower = new Array(nLam);
-    const envUpper = new Array(nLam);
-    for (let i = 0; i < nLam; i++) {
-        lower[i] = Math.max(0, mean[i] - corridorSigma * stdev[i]);
-        upper[i] = Math.min(1, mean[i] + corridorSigma * stdev[i]);
-        envLower[i] = runningN > 0 ? Math.max(0, minV[i]) : mean[i];
-        envUpper[i] = runningN > 0 ? Math.min(1, maxV[i]) : mean[i];
-    }
-
-    // Spec yield summary (null when not requested or no qualifiers)
-    const spec = (evalSpec && qualifiers.length) ? {
-        nTrials:   runningN,
-        evaluated: specEvaluated,
-        passCount: specPass,
-        yield:     specEvaluated > 0 ? specPass / specEvaluated : null,
-        perQualifier: qualifiers.map((q, i) => ({
-            label:    q.label || q.kind || ('#' + (i + 1)),
-            failRate: runningN > 0 ? qFail[i] / runningN : 0,
-        })),
-    } : null;
-
-    return {
-        lambda:  lambdas,
-        theory:  Array.from(theory),
-        mean:    Array.from(mean),
-        stdev:   Array.from(stdev),
-        lower, upper,
-        envLower, envUpper,
-        nTrials: runningN,
-        char,
-        spec,
-        trials: recordTrials ? trials : null,
-    };
+    return finalizeMCResult(config, state);
 }
 
