@@ -1,0 +1,413 @@
+{
+  "front-normal": {
+    "workers": {
+      "constructed": 1,
+      "terminated": 1,
+      "startJobs": 4,
+      "progress": 4,
+      "failedSeed": false
+    },
+    "generations": [
+      {
+        "genNum": 0,
+        "mf": 0.336629552,
+        "omf": 0.336629552,
+        "dMF": null,
+        "side": "front",
+        "kind": "baseline",
+        "layerCount": 2,
+        "tot": 200,
+        "insertMat": null,
+        "layers": [
+          {
+            "material": "TiO2",
+            "thickness": 90,
+            "locked": false
+          },
+          {
+            "material": "SiO2",
+            "thickness": 110,
+            "locked": false
+          }
+        ],
+        "frontSnap": [
+          {
+            "material": "TiO2",
+            "thickness": 90,
+            "locked": false
+          },
+          {
+            "material": "SiO2",
+            "thickness": 110,
+            "locked": false
+          }
+        ],
+        "backSnap": []
+      }
+    ],
+    "trend": [
+      {
+        "iter": 0,
+        "cur": 0.336629552,
+        "best": 0.336629552
+      },
+      {
+        "iter": 1,
+        "cur": 0.336629552,
+        "best": 0.336629552
+      },
+      {
+        "iter": 2,
+        "cur": 0.336629552,
+        "best": 0.336629552
+      },
+      {
+        "iter": 3,
+        "cur": 0.336629552,
+        "best": 0.336629552
+      }
+    ],
+    "design": {
+      "front": [
+        {
+          "material": "TiO2",
+          "thickness": 90,
+          "locked": false
+        },
+        {
+          "material": "SiO2",
+          "thickness": 110,
+          "locked": false
+        }
+      ],
+      "back": []
+    },
+    "final": {
+      "running": false,
+      "iter": 3,
+      "temp": null,
+      "accRate": 0,
+      "mf": 0.336629552,
+      "mfBest": 0.336629552,
+      "omf": 0.336629552,
+      "omfBest": 0.336629552,
+      "layerCount": 2,
+      "reheats": 0,
+      "canReset": true,
+      "status": "max-iterations",
+      "checkpoints": 1,
+      "cacheWrites": 2,
+      "appliedCount": 2,
+      "topCount": 1
+    }
+  },
+  "back-normal": {
+    "workers": {
+      "constructed": 1,
+      "terminated": 1,
+      "startJobs": 4,
+      "progress": 4,
+      "failedSeed": false
+    },
+    "generations": [
+      {
+        "genNum": 0,
+        "mf": 0.384299665,
+        "omf": 0.384299665,
+        "dMF": null,
+        "side": "back",
+        "kind": "baseline",
+        "layerCount": 2,
+        "tot": 200,
+        "insertMat": null,
+        "layers": [
+          {
+            "material": "SiO2",
+            "thickness": 105,
+            "locked": false
+          },
+          {
+            "material": "TiO2",
+            "thickness": 95,
+            "locked": false
+          }
+        ],
+        "frontSnap": [],
+        "backSnap": [
+          {
+            "material": "SiO2",
+            "thickness": 105,
+            "locked": false
+          },
+          {
+            "material": "TiO2",
+            "thickness": 95,
+            "locked": false
+          }
+        ]
+      },
+      {
+        "genNum": 1,
+        "mf": 0.30496499,
+        "omf": 0.30496499,
+        "dMF": -0.079334675,
+        "side": "back",
+        "kind": "perturb",
+        "layerCount": 2,
+        "tot": 192.826734707,
+        "insertMat": null,
+        "layers": [
+          {
+            "material": "SiO2",
+            "thickness": 105.641487709,
+            "locked": false
+          },
+          {
+            "material": "TiO2",
+            "thickness": 87.185246998,
+            "locked": false
+          }
+        ],
+        "frontSnap": [],
+        "backSnap": [
+          {
+            "material": "SiO2",
+            "thickness": 105.641487709,
+            "locked": false
+          },
+          {
+            "material": "TiO2",
+            "thickness": 87.185246998,
+            "locked": false
+          }
+        ]
+      }
+    ],
+    "trend": [
+      {
+        "iter": 0,
+        "cur": 0.384299665,
+        "best": 0.384299665
+      },
+      {
+        "iter": 1,
+        "cur": 0.384299665,
+        "best": 0.384299665
+      },
+      {
+        "iter": 2,
+        "cur": 0.384299665,
+        "best": 0.384299665
+      },
+      {
+        "iter": 3,
+        "cur": 0.30496499,
+        "best": 0.30496499
+      }
+    ],
+    "design": {
+      "front": [],
+      "back": [
+        {
+          "material": "SiO2",
+          "thickness": 105.641487709,
+          "locked": false
+        },
+        {
+          "material": "TiO2",
+          "thickness": 87.185246998,
+          "locked": false
+        }
+      ]
+    },
+    "final": {
+      "running": false,
+      "iter": 3,
+      "temp": null,
+      "accRate": 0.333333333,
+      "mf": 0.30496499,
+      "mfBest": 0.30496499,
+      "omf": 0.30496499,
+      "omfBest": 0.30496499,
+      "layerCount": 2,
+      "reheats": 0,
+      "canReset": true,
+      "status": "max-iterations",
+      "checkpoints": 1,
+      "cacheWrites": 3,
+      "appliedCount": 3,
+      "topCount": 1
+    }
+  },
+  "symmetric-smart-failure": {
+    "workers": {
+      "constructed": 1,
+      "terminated": 1,
+      "startJobs": 54,
+      "progress": 53,
+      "failedSeed": true
+    },
+    "generations": [
+      {
+        "genNum": 0,
+        "mf": 0.057084699,
+        "omf": 0.057084699,
+        "dMF": null,
+        "side": "front",
+        "kind": "seed",
+        "layerCount": 2,
+        "tot": 262.148927467,
+        "insertMat": null,
+        "layers": [
+          {
+            "material": "MgF2",
+            "thickness": 99.745687313,
+            "locked": false
+          },
+          {
+            "material": "Si",
+            "thickness": 31.32877642,
+            "locked": false
+          }
+        ],
+        "frontSnap": [
+          {
+            "material": "MgF2",
+            "thickness": 99.745687313,
+            "locked": false
+          },
+          {
+            "material": "Si",
+            "thickness": 31.32877642,
+            "locked": false
+          }
+        ],
+        "backSnap": [
+          {
+            "material": "Si",
+            "thickness": 31.32877642,
+            "locked": false
+          },
+          {
+            "material": "MgF2",
+            "thickness": 99.745687313,
+            "locked": false
+          }
+        ]
+      },
+      {
+        "genNum": 1,
+        "mf": 0.054772225,
+        "omf": 0.054772225,
+        "dMF": -0.002312474,
+        "side": "front",
+        "kind": "perturb",
+        "layerCount": 2,
+        "tot": 258.213456164,
+        "insertMat": null,
+        "layers": [
+          {
+            "material": "MgF2",
+            "thickness": 100.355074289,
+            "locked": false
+          },
+          {
+            "material": "Si",
+            "thickness": 28.751653793,
+            "locked": false
+          }
+        ],
+        "frontSnap": [
+          {
+            "material": "MgF2",
+            "thickness": 100.355074289,
+            "locked": false
+          },
+          {
+            "material": "Si",
+            "thickness": 28.751653793,
+            "locked": false
+          }
+        ],
+        "backSnap": [
+          {
+            "material": "Si",
+            "thickness": 28.751653793,
+            "locked": false
+          },
+          {
+            "material": "MgF2",
+            "thickness": 100.355074289,
+            "locked": false
+          }
+        ]
+      }
+    ],
+    "trend": [
+      {
+        "iter": 0,
+        "cur": 0.057084699,
+        "best": 0.057084699
+      },
+      {
+        "iter": 1,
+        "cur": 0.057084699,
+        "best": 0.057084699
+      },
+      {
+        "iter": 2,
+        "cur": 0.057084699,
+        "best": 0.057084699
+      },
+      {
+        "iter": 3,
+        "cur": 0.054772225,
+        "best": 0.054772225
+      }
+    ],
+    "design": {
+      "front": [
+        {
+          "material": "MgF2",
+          "thickness": 100.355074289,
+          "locked": false
+        },
+        {
+          "material": "Si",
+          "thickness": 28.751653793,
+          "locked": false
+        }
+      ],
+      "back": [
+        {
+          "material": "Si",
+          "thickness": 28.751653793,
+          "locked": false
+        },
+        {
+          "material": "MgF2",
+          "thickness": 100.355074289,
+          "locked": false
+        }
+      ]
+    },
+    "final": {
+      "running": false,
+      "iter": 3,
+      "temp": null,
+      "accRate": 0.333333333,
+      "mf": 0.054772225,
+      "mfBest": 0.054772225,
+      "omf": 0.054772225,
+      "omfBest": 0.054772225,
+      "layerCount": 2,
+      "reheats": 0,
+      "canReset": true,
+      "status": "max-iterations",
+      "checkpoints": 1,
+      "cacheWrites": 3,
+      "appliedCount": 3,
+      "topCount": 1
+    }
+  }
+}
