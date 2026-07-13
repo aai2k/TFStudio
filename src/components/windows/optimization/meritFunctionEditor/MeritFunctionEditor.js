@@ -1,5 +1,5 @@
 import { useDesign } from '../../../../state/DesignContext.js';
-import { MFTable } from '../MFTableComponents.js';
+import { MFTable } from './mfTable/MFTable.js';
 import { EvalModeBadge, OptimizeBadge } from '../../../SurfaceModeBar.js';
 import { DMFWizard } from './DMFWizard.js';
 import { PresetBar } from './PresetBar.js';
