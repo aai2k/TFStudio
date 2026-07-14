@@ -41,9 +41,9 @@ import { ErrorAnalysis } from '../windows/analysis/errorAnalysis/ErrorAnalysis.j
 import { IntegralValues } from '../windows/analysis/integralValues/IntegralValues.js';
 import { DesignCleaner } from '../windows/optimization/DesignCleaner.js';
 import { HistoryWindow } from '../windows/edit/HistoryWindow.js';
-import { ProcessSimulator } from '../windows/dataExchange/ProcessSimulator.js';
-import { ZemaxCoatings } from '../windows/dataExchange/ZemaxCoatings.js';
-import { SpectrumExchange } from '../windows/dataExchange/SpectrumExchange.js';
+import { ProcessSimulator } from '../windows/dataExchange/processSimulator/ProcessSimulator.js';
+import { ZemaxCoatings } from '../windows/dataExchange/zemaxCoatings/ZemaxCoatings.js';
+import { SpectrumExchange } from '../windows/dataExchange/spectrumExchange/SpectrumExchange.js';
 import { Variator } from '../windows/optimization/Variator.js';
 import { SystematicDeviations } from '../windows/analysis/systematicDeviations/SystematicDeviations.js';
 import { Inhomogeneities } from '../windows/analysis/inhomogeneities/Inhomogeneities.js';
