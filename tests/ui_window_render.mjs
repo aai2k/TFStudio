@@ -48,6 +48,10 @@ const EXTRA_MODALS = [
     { name: 'BBMWizard',          rel: '../windows/simulation/BBMWizard.js' },
     { name: 'MonoWizard',         rel: '../windows/simulation/MonoWizard.js' },
     { name: 'FilterDesignWizard', rel: '../windows/optimization/FilterDesignWizard.js' },
+    { name: 'StackFormulaDialog', rel: '../windows/design/stackFormula/StackFormulaDialog.js',
+      props: { folderName: 'Demo', hasActiveDesign: false, onCreateNew: () => {} } },
+    { name: 'ReportGenerator',    rel: '../windows/information/reportGenerator/ReportGenerator.js',
+      props: { designs: [], activeDesignId: null, folderName: 'Demo' } },
 ];
 
 const noop = () => {};
@@ -83,7 +87,7 @@ async function main() {
         await renderOne(w.name, w.abs, { c, t, theme: c, setInputDialog: noop, onClose: noop });
     }
     for (const w of EXTRA_MODALS) {
-        await renderOne(w.name, resolve(dirname(REGISTRY), w.rel), { c, t, onClose: noop });
+        await renderOne(w.name, resolve(dirname(REGISTRY), w.rel), { c, t, onClose: noop, ...(w.props || {}) });
     }
 
     if (HASH) { console.log(JSON.stringify(hashes)); process.exit(0); }
