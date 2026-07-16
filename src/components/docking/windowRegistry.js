@@ -21,7 +21,7 @@
  * { c, t }; `theme:true` adds `theme`; `dialog:true` adds `setInputDialog`.
  */
 
-import { DesignEditor } from '../windows/design/DesignEditor.js';
+import { DesignEditor } from '../windows/design/designEditor/DesignEditor.js';
 import { OpticalEvaluation } from '../windows/analysis/opticalEvaluation/OpticalEvaluation.js';
 import { ColorEvaluation } from '../windows/analysis/colorEvaluation/ColorEvaluation.js';
 import { MaterialEditor } from '../windows/design/materialEditor/MaterialEditor.js';
@@ -49,7 +49,7 @@ import { SystematicDeviations } from '../windows/analysis/systematicDeviations/S
 import { Inhomogeneities } from '../windows/analysis/inhomogeneities/Inhomogeneities.js';
 import { RoughnessScattering } from '../windows/analysis/roughnessScattering/RoughnessScattering.js';
 import { PlotEngine } from '../windows/analysis/plotEngine/PlotEngine.js';
-import { Specification } from '../windows/design/Specification.js';
+import { Specification } from '../windows/design/specification/Specification.js';
 import { OptimizerBenchmark } from '../windows/optimization/OptimizerBenchmark.js';
 
 export const WINDOW_REGISTRY = {
