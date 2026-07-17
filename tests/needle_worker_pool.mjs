@@ -1,5 +1,5 @@
 /**
- * Behavioral gate for the Needle worker-POOL engine (needleEngine.js →
+ * Behavioral gate for the Needle worker-POOL engine (needleVariation/runners/workerPool.js →
  * runNeedleWorkerPool).
  *
  * The default standalone-needle path orchestrates a WorkerPool of stateless
@@ -23,7 +23,7 @@ await initWasmForTest();
 
 const { caseById } = await import('../src/utils/benchmark/optimizerBenchmark.js');
 const { getMaterial } = await import('../src/utils/materials/materialDatabase.js');
-const { runNeedleWorkerPool } = await import('../src/components/windows/optimization/needleEngine.js');
+const { runNeedleWorkerPool } = await import('../src/components/windows/optimization/needleVariation/runners/workerPool.js');
 const { dispatchSynthesisJob } = await import('../src/utils/workers/synthesisWorker.js');
 const { makeResolveMat } = await import('../src/utils/workers/resolveMat.js');
 

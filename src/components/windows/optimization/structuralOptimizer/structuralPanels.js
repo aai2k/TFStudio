@@ -7,10 +7,10 @@
 
 import {
     SynthesisControlBar, SynthesisSidebarFrame, makeRowHelpers,
-} from '../synthesisShell.js';
+} from '../synthesisShared/synthesisShell.js';
 import {
     SynthesisHistoryTable, TopDesignsPanel as SharedTopDesignsPanel, PlotlyChart,
-} from '../synthesisHelpers.js';
+} from '../synthesisShared/synthesisHelpers.js';
 import { MUTATION_KINDS } from '../../../../utils/synthesis/structuralOptimizer.js';
 import {
     getSynthesisInnerEngine, setSynthesisInnerEngine,

@@ -27,8 +27,8 @@ import { ColorEvaluation } from '../windows/analysis/colorEvaluation/ColorEvalua
 import { MaterialEditor } from '../windows/design/materialEditor/MaterialEditor.js';
 import { Refinement } from '../windows/optimization/refinement/Refinement.js';
 import { MeritFunctionEditor } from '../windows/optimization/meritFunctionEditor/MeritFunctionEditor.js';
-import { NeedleVariation } from '../windows/optimization/NeedleVariation.js';
-import { NeedleManual } from '../windows/optimization/NeedleManual.js';
+import { NeedleVariation } from '../windows/optimization/needleVariation/NeedleVariation.js';
+import { NeedleManual } from '../windows/optimization/needleManual/NeedleManual.js';
 import { GradualEvolution } from '../windows/optimization/gradualEvolution/GradualEvolution.js';
 import { StructuralOptimizer } from '../windows/optimization/structuralOptimizer/StructuralOptimizer.js';
 import { AdmittanceDiagram } from '../windows/analysis/admittanceDiagram/AdmittanceDiagram.js';
@@ -39,18 +39,18 @@ import { RefractiveIndexProfiler } from '../windows/analysis/refractiveIndexProf
 import { LayerSensitivity } from '../windows/analysis/layerSensitivity/LayerSensitivity.js';
 import { ErrorAnalysis } from '../windows/analysis/errorAnalysis/ErrorAnalysis.js';
 import { IntegralValues } from '../windows/analysis/integralValues/IntegralValues.js';
-import { DesignCleaner } from '../windows/optimization/DesignCleaner.js';
+import { DesignCleaner } from '../windows/optimization/designCleaner/DesignCleaner.js';
 import { HistoryWindow } from '../windows/edit/HistoryWindow.js';
 import { ProcessSimulator } from '../windows/dataExchange/processSimulator/ProcessSimulator.js';
 import { ZemaxCoatings } from '../windows/dataExchange/zemaxCoatings/ZemaxCoatings.js';
 import { SpectrumExchange } from '../windows/dataExchange/spectrumExchange/SpectrumExchange.js';
-import { Variator } from '../windows/optimization/Variator.js';
+import { Variator } from '../windows/optimization/variator/Variator.js';
 import { SystematicDeviations } from '../windows/analysis/systematicDeviations/SystematicDeviations.js';
 import { Inhomogeneities } from '../windows/analysis/inhomogeneities/Inhomogeneities.js';
 import { RoughnessScattering } from '../windows/analysis/roughnessScattering/RoughnessScattering.js';
 import { PlotEngine } from '../windows/analysis/plotEngine/PlotEngine.js';
 import { Specification } from '../windows/design/specification/Specification.js';
-import { OptimizerBenchmark } from '../windows/optimization/OptimizerBenchmark.js';
+import { OptimizerBenchmark } from '../windows/optimization/optimizerBenchmark/OptimizerBenchmark.js';
 
 export const WINDOW_REGISTRY = {
   // ── Design ──────────────────────────────────────────────────────────────────

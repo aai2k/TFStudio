@@ -98,7 +98,7 @@ globalThis.Worker = MockWorker;
 const { runGeMainThread } = await import('../src/components/windows/optimization/gradualEvolution/runners/mainThread.js');
 const { runGeWorker }     = await import('../src/components/windows/optimization/gradualEvolution/runners/workerPool.js');
 const { makeOperand }     = await import('../src/utils/physics/optimizer.js');
-const { resolveMat }      = await import('../src/components/windows/optimization/synthesisHelpers.js');
+const { resolveMat }      = await import('../src/components/windows/optimization/synthesisShared/synthesisHelpers.js');
 
 const ref = v => ({ current: v });
 const sleep = ms => new Promise(r => setTimeout(r, ms));

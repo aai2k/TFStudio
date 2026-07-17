@@ -15,7 +15,7 @@ import { OPTIMIZER_WORKER_URL as WORKER_URL } from '../../../../../workerUrls.js
 import {
     activeSide, densifyForRun, resolveMat, minOmfOf,
     getPoolMaterials, buildARSeedCandidates, computePareto,
-} from '../../synthesisHelpers.js';
+} from '../../synthesisShared/synthesisHelpers.js';
 
 const REFINE_TIMEOUT_MS = 45000;
 const SCAN_DELTA = 0.5;

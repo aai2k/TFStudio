@@ -5,207 +5,21 @@
 // multi. cg/sa/de/all use runMethodsFlow instead.
 //
 // A plain function of the Refinement component's `ctx` bag (see mainThread.js).
-// The pool's message state machine is a set of module-scope handlers driven off
-// a single run-state object `S`, so no giant nested closure builds up.
+// Per-restart job construction lives in dlsPoolJobs.js and the worker message
+// handlers live in dlsPoolMessages.js, so pool setup/lifecycle here stays its
+// own concern.
 
-import { DLSOptimizer, mirrorLayers } from '../../../../../utils/physics/optimizer.js';
+import { DLSOptimizer } from '../../../../../utils/physics/optimizer.js';
 import { getThreadCount } from '../../../../../utils/synthesis/synthesisConfig.js';
-import { getTmmWasmBytesForWorker } from '../../../../../utils/workers/tmmWasm.js';
 import { OPTIMIZER_WORKER_URL as WORKER_URL } from '../../../../../workerUrls.js';
 import { resolveMat, densifyForRun, presampleMaterials } from '../refinementUtils.js';
 import { runOptMainThread } from './mainThread.js';
-
-const D_MIN = 1.0, D_MAX = 2000.0;
+import { designForRestart, makeJob } from './dlsPoolJobs.js';
+import { handleMsg, doFallback } from './dlsPoolMessages.js';
 
 const serializeLayers = (arr) => (arr || []).map(l => ({
     id: l.id, material: l.material, thickness: l.thickness || 0, locked: !!l.locked,
 }));
-
-function perturbLayers(layers, pct) {
-    return layers.map(l => {
-        if (l.locked) return { ...l };
-        const base = l.thickness || 0;
-        const f    = 1 + pct * (Math.random() * 2 - 1);
-        let tt = base * f;
-        if (tt < D_MIN) tt = D_MIN;
-        if (tt > D_MAX) tt = D_MAX;
-        return { ...l, thickness: tt };
-    });
-}
-
-// Design snapshot for restart r (1-based; r===0 → unperturbed).
-function designForRestart(S, r) {
-    const { media, baseFront, baseBack, surfMode, pct } = S;
-    if (r === 0) return { ...media, frontLayers: baseFront, backLayers: baseBack };
-    if (surfMode === 'both_independent')
-        return { ...media, frontLayers: perturbLayers(baseFront, pct), backLayers: perturbLayers(baseBack, pct) };
-    if (surfMode === 'back_only')
-        return { ...media, frontLayers: baseFront, backLayers: perturbLayers(baseBack, pct) };
-    if (surfMode === 'symmetric') {
-        const fr = perturbLayers(baseFront, pct);
-        return { ...media, frontLayers: fr, backLayers: mirrorLayers(fr) };
-    }
-    return { ...media, frontLayers: perturbLayers(baseFront, pct), backLayers: baseBack };
-}
-
-function makeJob(S, r) {
-    return {
-        type: 'start',
-        operands: S.ops,
-        design: designForRestart(S, r),
-        materials: S.materials,
-        opts: { maxIter: S.maxIter },
-        wasmBytes: getTmmWasmBytesForWorker(),   // null unless WASM enabled
-        restartIdx: S.isMulti ? r : undefined,
-        nRestarts:  S.isMulti ? S.N : undefined,
-    };
-}
-
-// Monotonic cumulative iteration counter across ALL workers/restarts. A pooled
-// worker's reported iter resets to 0 when it picks up the next restart, so we
-// accumulate per-worker DELTAS instead of summing last-reported iters (which was
-// non-monotonic and made the MF-trend plot zig-zag / collapse).
-function bumpCum(S, wid, it) {
-    const prev = S.prevIterByW.get(wid) ?? 0;
-    S.cumIter += (it >= prev) ? (it - prev) : it;   // it < prev ⇒ restart reset
-    S.prevIterByW.set(wid, it);
-    return S.cumIter;
-}
-
-// best = { front, back, iter, mf, omf }
-function setSyntheticBest(ctx, S, best) {
-    const { front, back, iter, mf, omf } = best;
-    ctx.lastBestRef.current = { mfBest: mf, omf: omf ?? null, frontLayers: front, backLayers: back };
-    ctx.optimizerRef.current = {
-        iter, mf, mfBest: mf, layerSide: S.layerSide,
-        applyToDesign: (d) => ({ ...d, frontLayers: front, backLayers: back }),
-        restoreBest: () => {},
-    };
-}
-
-function finalizeRun(ctx, S) {
-    if (S.finished) return;
-    S.finished = true;
-    ctx.runningRef.current = false;
-    ctx.setRunning(false);
-    ctx.setRestartIdx(0);
-    const lb = ctx.lastBestRef.current;
-    if (lb) {
-        ctx.updateDesignRef.current(
-            { frontLayers: lb.frontLayers, backLayers: lb.backLayers }, { transient: true });
-        if (S.isMulti) {
-            const layers = S.layerSide === 'backLayers' ? lb.backLayers : lb.frontLayers;
-            ctx.addHistEntry({
-                id: Math.random().toString(36).slice(2),
-                label: `${S.runLabel} (×${S.N})`,
-                iter:  S.cumIter,
-                omf:   lb.omf,
-                mf:    lb.mfBest,
-                layers,
-                layerCount: (layers || []).length,
-                layerSide: S.layerSide,
-            });
-            console.log(`[Multi-start pool] Done: ${S.N} restarts on ${S.K} workers, best MF=${lb.mfBest.toFixed(6)} (mode=${S.surfMode})`);
-        } else {
-            console.log(`[DLS] done: best MF=${lb.mfBest.toFixed(6)}`);
-        }
-    }
-    ctx.killWorker();
-}
-
-// Idempotent — only one fallback ever fires (M6 fix).
-function doFallback(ctx, S, why, err) {
-    if (S.fellBack) return;
-    S.fellBack = true;
-    console.error(`[DLS] Worker ${why}, using main-thread fallback:`, err);
-    ctx.killWorker();
-    ctx.runningRef.current = false;
-    runOptMainThread(ctx);
-}
-
-function onProgressMsg(ctx, S, m, wid) {
-    S.gotProgress = true;
-    const ci = bumpCum(S, wid, m.iter);
-    ctx.setIter(ci);
-    if (m.mfBest != null && m.mfBest < S.globalBest) {
-        S.globalBest = m.mfBest;
-        S.globalBestOMF = m.omfBest ?? S.globalBestOMF;
-        ctx.setMfBest(S.globalBest);
-        ctx.setOmfBest(S.globalBestOMF);
-        if (m.bestFrontLayers) {
-            setSyntheticBest(ctx, S, { front: m.bestFrontLayers, back: m.bestBackLayers, iter: ci, mf: S.globalBest, omf: S.globalBestOMF });
-            if (S.isMulti) ctx.updateDesignRef.current(
-                { frontLayers: m.bestFrontLayers, backLayers: m.bestBackLayers }, { transient: true });
-        }
-    }
-    if (!S.isMulti) {
-        // Single-start: live MF trajectory (per-progress) + live design.
-        ctx.setMf(m.mf);
-        if (m.omf != null) ctx.setOmf(m.omf);
-        ctx.setMfHistory(prev => [...prev, { iter: ci, mf: m.mf }]);
-        ctx.updateDesignRef.current(
-            { frontLayers: m.frontLayers, backLayers: m.backLayers }, { transient: true });
-    } else {
-        // Multi-start pool: a point on EVERY progress so the plot renders,
-        // plotting best-so-far vs. monotonic cumulative iterations (clean
-        // staircase across all restarts).
-        const y = (S.globalBest === Infinity) ? m.mf : S.globalBest;
-        ctx.setMf(y);
-        ctx.setOmf((S.globalBest === Infinity) ? (m.omf ?? null) : S.globalBestOMF);
-        ctx.setMfHistory(prev => [...prev, { iter: ci, mf: y }]);
-    }
-}
-
-function onDoneMsg(ctx, S, w, m, wid) {
-    S.gotProgress = true;
-    const ci = bumpCum(S, wid, m.iter);
-    const mfB = m.mfBest ?? m.mf;
-    const omfB = m.omfBest ?? m.omf;
-    if (mfB < S.globalBest) {
-        S.globalBest = mfB;
-        S.globalBestOMF = omfB ?? S.globalBestOMF;
-        ctx.setMfBest(S.globalBest);
-        ctx.setMf(S.globalBest);
-        ctx.setOmfBest(S.globalBestOMF);
-        ctx.setOmf(S.globalBestOMF);
-        setSyntheticBest(ctx, S, {
-            front: m.bestFrontLayers || m.frontLayers,
-            back:  m.bestBackLayers  || m.backLayers,
-            iter: ci, mf: S.globalBest, omf: S.globalBestOMF,
-        });
-    }
-    S.completed++;
-    if (S.isMulti) {
-        ctx.setIter(ci);
-        ctx.setMfHistory(prev => [...prev, {
-            iter: ci, mf: (S.globalBest === Infinity ? mfB : S.globalBest),
-        }]);
-        ctx.setRestartIdx(S.completed);
-    }
-    if (S.nextJob < S.nJobs) {
-        const r = S.nextJob++;
-        w.postMessage(makeJob(S, S.isMulti ? r + 1 : 0));
-    } else {
-        try { w.terminate(); } catch (_) {}
-        ctx.poolRef.current = ctx.poolRef.current.filter(x => x !== w);
-        if (S.completed >= S.nJobs) finalizeRun(ctx, S);
-    }
-}
-
-function onErrorMsg(ctx, S, m) {
-    if (!S.gotProgress) doFallback(ctx, S, 'errored before progress', m.message);
-    else { console.error('[DLS] Worker error:', m.message); ctx.stopOpt(); }
-}
-
-function handleMsg(ctx, S, w, wid, e) {
-    const m = e.data;
-    if (!m || (!ctx.runningRef.current && !S.finished)) return;   // empty / stale post-stop message
-    if (m.type === 'warn')  { console.warn(m.message); return; }
-    if (m.type === 'error') { onErrorMsg(ctx, S, m); return; }
-    // 'init' is a no-op (mfInitial is computed main-side).
-    if (m.type === 'progress') onProgressMsg(ctx, S, m, wid);
-    else if (m.type === 'done') onDoneMsg(ctx, S, w, m, wid);
-}
 
 function spawnWorker(ctx, S) {
     let w;
