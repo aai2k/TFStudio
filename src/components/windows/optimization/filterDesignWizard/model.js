@@ -1,6 +1,5 @@
 import { getMaterialById } from '../../../../utils/materials/catalogManager.js';
-import { getMaterial } from '../../../../utils/materials/materialDatabase.js';
-import { materialIndexFn, qwThickness, couplingOrder } from '../../../../utils/filter/filterDesign.js';
+import { materialIndexFn, couplingOrder } from '../../../../utils/filter/filterDesign.js';
 
 // Thelen coupling order δ (Eq. 10) from the chosen materials.
 export function couplingD(p) {
@@ -34,8 +33,6 @@ export const DEFAULTS = {
 };
 
 export function shapeFactor(p) { return p.passHalf_nm > 0 ? p.stopHalf_nm / p.passHalf_nm : 0; }
-
-export function resolveMat(id) { return getMaterialById(id) || getMaterial(id) || getMaterial('Air'); }
 
 // Runs fn(), falling back to `fallback` on any thrown error — used by preview
 // computations that must never crash the wizard on transient invalid input.
