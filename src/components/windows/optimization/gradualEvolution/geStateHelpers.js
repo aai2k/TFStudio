@@ -6,7 +6,7 @@
  */
 
 import { sideKeyFor, minOmfOf } from '../synthesisShared/synthesisHelpers.js';
-import { getCached, clearCached } from './geCache.js';
+import { getCached, setCached, clearCached } from './geCache.js';
 
 // Smart default: initialize "Min thickness" from the strictest enabled MNT
 // constraint so GE respects the same manufacturability floor the MNT penalty
