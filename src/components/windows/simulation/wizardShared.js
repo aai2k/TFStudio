@@ -89,7 +89,7 @@ export function RowField({ label, value, min, max, step, onChange, c, suffix, wi
 // scrubbable slider with a tick at every layer boundary, and a step/time
 // readout. `cumTimes` has length N+1 (cumTimes[0]=0). Pure-controlled.
 // Speed-selector segment button ("1× 2× 5× …"); `i`/`arr` round the group ends.
-function timelineSpeedBtn(s, i, arr, speed, setSpeed, c) {
+function timelineSpeedBtn({ s, i, arr, speed, setSpeed, c }) {
     return h('button', { key: s, onClick: () => setSpeed(s),
         style: { padding: '3px 9px', fontSize: 11, cursor: 'pointer',
                  border: `1px solid ${speed === s ? c.accent : c.border}`,
@@ -112,7 +112,7 @@ export function DepositionTimeline({ progress, totalTime, playing, onScrub, onPl
         h('div', { style: { display: 'flex', alignItems: 'center', gap: 10 } },
             timelineCtrlBtn(onPlayPause, playing ? B.pause : B.play, true, has, c),
             timelineCtrlBtn(onReset, B.reset, false, has, c),
-            h('div', { style: { display: 'flex' } }, [1, 2, 5, 10, 50, 100].map((s, i, arr) => timelineSpeedBtn(s, i, arr, speed, setSpeed, c))),
+            h('div', { style: { display: 'flex' } }, [1, 2, 5, 10, 50, 100].map((s, i, arr) => timelineSpeedBtn({ s, i, arr, speed, setSpeed, c }))),
             h('div', { style: { flex: 1 } }),
             h('div', { style: { fontSize: 11, color: c.text, fontVariantNumeric: 'tabular-nums' } }, B.layerOf(layerIdx || 0, N)),
             h('div', { style: { fontSize: 11, color: c.textDim, fontVariantNumeric: 'tabular-nums' } }, `${progress.toFixed(1)} / ${totalTime.toFixed(1)} s`)),
@@ -124,9 +124,11 @@ export function DepositionTimeline({ progress, totalTime, playing, onScrub, onPl
             has && h('div', { style: { position: 'relative', height: 12, marginTop: -2, fontSize: 9, color: c.textDim, userSelect: 'none' } },
                 cumTimes.map((tt, i) => {
                     const pct = totalTime > 0 ? (tt / totalTime) * 100 : 0;
+                    const tickEvery = Math.ceil(N / 16 || 1);
+                    const showLabel = i > 0 && i % tickEvery === 0;
                     return h('div', { key: i, style: { position: 'absolute', left: `${pct}%`, transform: 'translateX(-50%)', display: 'flex', flexDirection: 'column', alignItems: 'center', lineHeight: 1 } },
                         h('div', { style: { width: 1, height: 4, background: c.border } }),
-                        i > 0 && i % Math.ceil(N / 16 || 1) === 0 && h('span', null, i));
+                        showLabel && h('span', null, i));
                 }))));
 }
 

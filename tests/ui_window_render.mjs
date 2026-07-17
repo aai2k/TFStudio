@@ -45,8 +45,8 @@ function parseWindowImports() {
 // they aren't in the registry import scan — render them explicitly here. They
 // take { c, t, onClose }.
 const EXTRA_MODALS = [
-    { name: 'BBMWizard',          rel: '../windows/simulation/BBMWizard.js' },
-    { name: 'MonoWizard',         rel: '../windows/simulation/MonoWizard.js' },
+    { name: 'BBMWizard',          rel: '../windows/simulation/bbmWizard/BBMWizard.js' },
+    { name: 'MonoWizard',         rel: '../windows/simulation/monoWizard/MonoWizard.js' },
     { name: 'FilterDesignWizard', rel: '../windows/optimization/filterDesignWizard/FilterDesignWizard.js' },
     { name: 'StackFormulaDialog', rel: '../windows/design/stackFormula/StackFormulaDialog.js',
       props: { folderName: 'Demo', hasActiveDesign: false, onCreateNew: () => {} } },
