@@ -5,7 +5,7 @@
 // ControlBar component itself stays a flat assembly with no branching logic.
 
 import { OptimizeBadge, EvalModeBadge } from '../../../SurfaceModeBar.js';
-import { WARN_BADGE_STYLE } from '../synthesisHelpers.js';
+import { WARN_BADGE_STYLE } from '../synthesisShared/synthesisHelpers.js';
 import { REFINE_METHODS, METHOD_LABELS, METHOD_NOTES, ALL_ORDER } from './refinementConfig.js';
 
 const { createElement: h } = React;   // React is a window global

@@ -9,8 +9,8 @@
 
 import {
     SynthesisControlBar, SynthesisSidebarFrame, makeRowHelpers,
-} from '../synthesisShell.js';
-import { SynthesisHistoryTable, PlotlyChart } from '../synthesisHelpers.js';
+} from '../synthesisShared/synthesisShell.js';
+import { SynthesisHistoryTable, PlotlyChart } from '../synthesisShared/synthesisHelpers.js';
 import {
     getSynthesisInnerEngine, setSynthesisInnerEngine,
     getSynthesisCandMode, setSynthesisCandMode,
@@ -158,6 +158,37 @@ export function LeftSidebar({ catalogs, selectedCats, onToggleCat, onSelectAllCa
     });
 }
 
+// GE's extra Needle/GE "type" badge, rendered in the CyclesTable's type column.
+function badgeBg(cy, c) {
+    const isGE = cy.type === 'ge';
+    const isClean = cy.type === 'clean';
+    const isSeed = cy.type === 'seed' || cy.type === 'baseline';
+    return isSeed ? (cy.type === 'seed' ? '#ffb30044' : '#78909c44')
+        : isClean ? '#66bb6a44' : isGE ? '#ff704344' : `${c.accent || '#1e88e5'}33`;
+}
+function badgeColor(cy, c) {
+    const isGE = cy.type === 'ge';
+    const isClean = cy.type === 'clean';
+    const isSeed = cy.type === 'seed' || cy.type === 'baseline';
+    return isSeed ? (cy.type === 'seed' ? '#ffb300' : '#78909c')
+        : isClean ? '#66bb6a' : isGE ? '#ff7043' : (c.accent || '#42a5f5');
+}
+function badgeLabel(cy, tg) {
+    const isGE = cy.type === 'ge';
+    const isClean = cy.type === 'clean';
+    const isSeed = cy.type === 'seed' || cy.type === 'baseline';
+    return isSeed ? (cy.type === 'seed' ? tg.typeSeed : tg.typeBaseline)
+        : isClean ? tg.typeClean : isGE ? tg.typeGE : tg.typeNeedle;
+}
+function renderTypeBadge(cy, tg, c) {
+    return h('span', {
+        style: {
+            padding: '1px 5px', borderRadius: 3, fontSize: 10,
+            background: badgeBg(cy, c), color: badgeColor(cy, c), fontWeight: 600,
+        }
+    }, badgeLabel(cy, tg));
+}
+
 // ── Cycles table ──────────────────────────────────────────────────────────────
 export function CyclesTable({ cycles, bestMF, onRestore, showSide, c, t }) {
     const tg = t.gradualEvolution;
@@ -171,23 +202,7 @@ export function CyclesTable({ cycles, bestMF, onRestore, showSide, c, t }) {
         // GE's extra Needle/GE "type" badge column (inserted after Side).
         typeColumn: {
             header: tg.typeCol,
-            render: (cy) => {
-                const isGE = cy.type === 'ge';
-                const isClean = cy.type === 'clean';
-                const isSeed = cy.type === 'seed' || cy.type === 'baseline';
-                const bg = isSeed ? (cy.type === 'seed' ? '#ffb30044' : '#78909c44')
-                    : isClean ? '#66bb6a44' : isGE ? '#ff704344' : `${c.accent || '#1e88e5'}33`;
-                const col = isSeed ? (cy.type === 'seed' ? '#ffb300' : '#78909c')
-                    : isClean ? '#66bb6a' : isGE ? '#ff7043' : (c.accent || '#42a5f5');
-                const label = isSeed ? (cy.type === 'seed' ? tg.typeSeed : tg.typeBaseline)
-                    : isClean ? tg.typeClean : isGE ? tg.typeGE : tg.typeNeedle;
-                return h('span', {
-                    style: {
-                        padding: '1px 5px', borderRadius: 3, fontSize: 10,
-                        background: bg, color: col, fontWeight: 600,
-                    }
-                }, label);
-            },
+            render: (cy) => renderTypeBadge(cy, tg, c),
         },
     });
 }

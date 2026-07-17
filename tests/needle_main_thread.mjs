@@ -1,5 +1,5 @@
 /**
- * Behavioral gate for the Needle main-thread engine (needleEngine.js).
+ * Behavioral gate for the Needle main-thread engine (needleVariation/runners/mainThread.js).
  *
  * The standalone-needle main-thread loop drives the whole synthesis phase
  * machine (scan → insert → DLS refine → accept-or-revert → repeat) on the UI
@@ -21,7 +21,7 @@ await initWasmForTest();
 
 const { caseById } = await import('../src/utils/benchmark/optimizerBenchmark.js');
 const { getMaterial } = await import('../src/utils/materials/materialDatabase.js');
-const { runNeedleMainThread } = await import('../src/components/windows/optimization/needleEngine.js');
+const { runNeedleMainThread } = await import('../src/components/windows/optimization/needleVariation/runners/mainThread.js');
 
 let pass = 0, fail = 0;
 const ok = (name, cond) => { if (cond) pass++; else { fail++; console.error('FAIL:', name); } };

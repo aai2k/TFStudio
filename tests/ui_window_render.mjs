@@ -47,7 +47,7 @@ function parseWindowImports() {
 const EXTRA_MODALS = [
     { name: 'BBMWizard',          rel: '../windows/simulation/BBMWizard.js' },
     { name: 'MonoWizard',         rel: '../windows/simulation/MonoWizard.js' },
-    { name: 'FilterDesignWizard', rel: '../windows/optimization/FilterDesignWizard.js' },
+    { name: 'FilterDesignWizard', rel: '../windows/optimization/filterDesignWizard/FilterDesignWizard.js' },
     { name: 'StackFormulaDialog', rel: '../windows/design/stackFormula/StackFormulaDialog.js',
       props: { folderName: 'Demo', hasActiveDesign: false, onCreateNew: () => {} } },
     { name: 'ReportGenerator',    rel: '../windows/information/reportGenerator/ReportGenerator.js',

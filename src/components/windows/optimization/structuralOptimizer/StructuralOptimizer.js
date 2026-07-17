@@ -13,9 +13,9 @@ import { useDesign } from '../../../../state/DesignContext.js';
 import { getCatalogs } from '../../../../utils/materials/catalogManager.js';
 import {
     sideKeyFor, useCatSelection, minOmfOf, computePareto,
-} from '../synthesisHelpers.js';
+} from '../synthesisShared/synthesisHelpers.js';
 import { usePersistentNumber } from '../../../ui/usePersistentState.js';
-import { SynthesisShell } from '../synthesisShell.js';
+import { SynthesisShell } from '../synthesisShared/synthesisShell.js';
 import { TrendPlot, ControlBar, LeftSidebar, HistoryTable, TopDesignsPanel } from './structuralPanels.js';
 import { getCached, setCached, clearCached } from './structuralCache.js';
 import { STRUCT_CATS_KEY, loadKinds, saveKinds } from './structuralSettings.js';

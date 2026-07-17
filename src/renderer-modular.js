@@ -10,7 +10,7 @@ import { DockingLayout } from './components/docking/DockingLayout.js';
 import { SettingsModal } from './components/dialogs/SettingsModal.js';
 import { InputDialog } from './components/dialogs/InputDialog.js';
 import { AboutDialog } from './components/dialogs/AboutDialog.js';
-import { FilterDesignWizard } from './components/windows/optimization/FilterDesignWizard.js';
+import { FilterDesignWizard } from './components/windows/optimization/filterDesignWizard/FilterDesignWizard.js';
 import { BBMWizard } from './components/windows/simulation/BBMWizard.js';
 import { MonoWizard } from './components/windows/simulation/MonoWizard.js';
 import { StackFormulaDialog } from './components/windows/design/stackFormula/StackFormulaDialog.js';
