@@ -9,11 +9,11 @@
  * Sullivan & Dobrowolski Appl. Opt. 35 (1996).
  */
 
-import { tmm, tmmNeedleScan, tmmThicknessJacobian, tmmThicknessHessian } from '../thinFilmMath.js';
+import { tmm, tmmNeedleScan, tmmThicknessJacobian, tmmThicknessHessian, tmmWithAdmittances, computeEllipsometry, computeGroupDelaySpectrum, computeEFieldProfile } from '../thinFilmMath.js';
 import { resolveSourceSpec, resolveDetectorSpec } from '../spectralWeightings.js';
 import { tmmWasmActive, getTmmWasm } from '../../workers/tmmWasm.js';
 import {
-    OPTICAL_OPERAND_TYPES, RANGE_TARGET_OPERAND_TYPES, TOTAL_THICKNESS_OPERAND_TYPES, BLANK_OPERAND_TYPES, INTEGRAL_OPERAND_TYPES, MINMAX_OPERAND_TYPES, CONSTRAINT_OPERAND_TYPES, INEQUALITY_OPERAND_TYPES, MATH_OPERAND_TYPES, ARGWAVE_OPERAND_TYPES, OPERAND_TYPES, OPERAND_POLS, isConstraint, isDmfs, isBlank, isTotalThickness, isRangeTarget, isIntegral, isMinmax, isMinType, isInequality, isArgwave, isArgwaveMin, isMath, isMathSingleRef, isMathPairRef, isFractionalUnit, mathTargetInPercent, argwaveOpticalChar, argwavePolCode, polFromType, AVG_POINTS, AVG_STEP_NM, AVG_POINTS_MAX, bandSampleCount, ARGWAVE_DEFAULT_POINTS, PNORM_DEFAULT, makeOperand, isRamp, makeConstraintOperand, makeDefaultConstraints, makeDmfsOperand
+    OPTICAL_OPERAND_TYPES, RANGE_TARGET_OPERAND_TYPES, TOTAL_THICKNESS_OPERAND_TYPES, BLANK_OPERAND_TYPES, INTEGRAL_OPERAND_TYPES, MINMAX_OPERAND_TYPES, CONSTRAINT_OPERAND_TYPES, INEQUALITY_OPERAND_TYPES, MATH_OPERAND_TYPES, ARGWAVE_OPERAND_TYPES, OPERAND_TYPES, OPERAND_POLS, isConstraint, isDmfs, isBlank, isTotalThickness, isRangeTarget, isIntegral, isMinmax, isMinType, isInequality, isArgwave, isArgwaveMin, isMath, isMathSingleRef, isMathPairRef, isEllipsometry, isGroupDelay, isGroupDelayFlat, isEField, isPhase, isFractionalUnit, mathTargetInPercent, argwaveOpticalChar, argwavePolCode, polFromType, AVG_POINTS, AVG_STEP_NM, AVG_POINTS_MAX, bandSampleCount, ARGWAVE_DEFAULT_POINTS, PNORM_DEFAULT, makeOperand, isRamp, makeConstraintOperand, makeDefaultConstraints, makeDmfsOperand
 } from './operandModel.js';
 import { isRangeAvg, charOf, operandSampleLambdas, requiredLambdas, buildPresampledTable } from './sampling.js';
 import { mirrorLayers } from './layerOps.js';
@@ -712,8 +712,102 @@ function _evalBandAvgOrSingle(op, ctx) {
     return sum / n;
 }
 
+// ── Phase / field operand evaluators ──────────────────────────────────────────
+// These bypass tmmProp and call the validated thinFilmMath phase/field routines
+// directly on the FRONT stack (single-surface reflection / internal-field
+// quantities). Per-λ complex indices come from nkOf so dispersion is honoured;
+// results match the Ellipsometry / GD-GDD / E-field analysis windows (front side).
+
+// Build front-stack (n0, ns, layers) at one wavelength from the eval context.
+function _frontStackAt(ctx, lam) {
+    const n0 = nkOf(ctx, ctx.n0mat, lam);
+    const ns = nkOf(ctx, ctx.nsmat, lam);
+    const layers = ctx.frontMats.map((m, i) => ({ n: nkOf(ctx, m, lam), d: ctx.frontThicks[i] }));
+    return { n0, ns, layers };
+}
+
+// Ellipsometric Ψ/Δ (deg) or the ellipsometer-native tanΨ/cosΔ at op.lambdaStart.
+// Ψ, Δ use BOTH polarizations (ρ = r_p/r_s), so op.pol is not consulted.
+function _evalEllipsometry(op, ctx) {
+    const lam = op.lambdaStart;
+    const { n0, ns, layers } = _frontStackAt(ctx, lam);
+    const e = computeEllipsometry(lam, op.aoi, n0, ns, layers);
+    switch (op.type) {
+        case 'PSI':    return e.psi;
+        case 'DEL':    return e.delta;
+        case 'TANPSI': return e.tanPsi;
+        default:       return e.cosDelta;   // COSDEL
+    }
+}
+
+// Reflection GD (fs) / GDD (fs²) at λ via a uniform-in-ω central stencil.
+function _groupDelayPolValue(op, ctx, which, polCode) {
+    const lam = op.lambdaStart;
+    const coeffAt = (l) => {
+        const { n0, ns, layers } = _frontStackAt(ctx, l);
+        return tmmWithAdmittances(l, op.aoi, polCode, n0, ns, layers.filter(x => x.d > 0)).r;
+    };
+    // ±1 % window with a small dense grid; the central stencil lands the reported
+    // GD/GDD at λ. The nearest returned sample to λ is used.
+    const half = Math.max(2, lam * 0.01);
+    const spec = computeGroupDelaySpectrum(coeffAt, lam - half, lam + half, 11);
+    const arr  = which === 'GDD' ? spec.gdd : spec.gd;
+    let bestI = 0, bestD = Infinity;
+    for (let i = 0; i < spec.lambda.length; i++) {
+        const d = Math.abs(spec.lambda[i] - lam);
+        if (d < bestD) { bestD = d; bestI = i; }
+    }
+    return arr[bestI] ?? 0;
+}
+
+// Point GD/GDD at op.lambdaStart. pol='avg' averages the s and p group delays
+// (identical at normal incidence).
+function _evalGroupDelayPoint(op, ctx) {
+    const which = op.type === 'GDD' ? 'GDD' : 'GD';
+    if (op.pol === 'avg') {
+        return 0.5 * (_groupDelayPolValue(op, ctx, which, 's') + _groupDelayPolValue(op, ctx, which, 'p'));
+    }
+    return _groupDelayPolValue(op, ctx, which, op.pol === 'p' ? 'p' : 's');
+}
+
+// GD (GDFLAT) / GDD (GDDFLAT) flatness: RMS deviation from the flat target level
+// across [λStart, λEnd]. Residual = this RMS (see _operandResidual).
+function _evalGroupDelayFlat(op, ctx) {
+    const which   = op.type === 'GDDFLAT' ? 'GDD' : 'GD';
+    const polCode = op.pol === 'p' ? 'p' : 's';   // avg→s (≡ p at normal incidence)
+    const coeffAt = (l) => {
+        const { n0, ns, layers } = _frontStackAt(ctx, l);
+        return tmmWithAdmittances(l, op.aoi, polCode, n0, ns, layers.filter(x => x.d > 0)).r;
+    };
+    const lamLo = Math.min(op.lambdaStart, op.lambdaEnd);
+    const lamHi = Math.max(op.lambdaStart, op.lambdaEnd);
+    const n = Math.min(AVG_POINTS_MAX, Math.max(AVG_POINTS, Math.round((lamHi - lamLo) / AVG_STEP_NM) + 1));
+    const spec = computeGroupDelaySpectrum(coeffAt, lamLo, lamHi, n);
+    const arr  = which === 'GDD' ? spec.gdd : spec.gd;
+    const t = op.target;
+    let sumSq = 0;
+    for (let i = 0; i < arr.length; i++) { const d = arr[i] - t; sumSq += d * d; }
+    return arr.length ? Math.sqrt(sumSq / arr.length) : 0;
+}
+
+// Peak normalized |E|² anywhere in the front coating (worst-case field). pol:
+// op.pol; 'avg' → the larger of the s and p peaks (the damage-relevant one).
+function _evalEField(op, ctx) {
+    const lam = op.lambdaStart;
+    const { n0, ns, layers } = _frontStackAt(ctx, lam);
+    const peakFor = (polCode) => {
+        const prof = computeEFieldProfile(lam, op.aoi, polCode, n0, ns, layers);
+        let mx = 0;
+        for (let i = 0; i < prof.e2.length; i++) if (prof.e2[i] > mx) mx = prof.e2[i];
+        return mx;
+    };
+    if (op.pol === 'avg') return Math.max(peakFor('s'), peakFor('p'));
+    return peakFor(op.pol === 'p' ? 'p' : 's');
+}
+
 // Ordered operand-kind → evaluator dispatch. Order matters (checked top-down);
-// the band-average / single-λ evaluator is the fall-through default.
+// the band-average / single-λ evaluator is the fall-through default. GDFLAT/
+// GDDFLAT precede isGroupDelay because they also satisfy isGroupDelay.
 const _EVAL_DISPATCH = [
     [isTotalThickness, _evalTotalThickness],
     [isConstraint,     _evalConstraint],
@@ -722,6 +816,10 @@ const _EVAL_DISPATCH = [
     [isIntegral,       _evalIntegral],
     [isMinmax,         _evalMinmax],
     [isRangeTarget,    _evalRangeTarget],
+    [isEllipsometry,   _evalEllipsometry],
+    [isGroupDelayFlat, _evalGroupDelayFlat],
+    [isGroupDelay,     _evalGroupDelayPoint],
+    [isEField,         _evalEField],
 ];
 
 export function evalOperand(op, ctx) {
@@ -853,8 +951,21 @@ export function evaluateOperands(operands, ctxOrN0, nsmatLegacy, thicknessesLega
 // (or make operandResidualScale always return 1 to disable normalization
 // entirely). Nothing else depends on it.
 export const ARGWAVE_RESIDUAL_SCALE_NM = 500;
+// Per-type characteristic scale for the phase/field operands (mixed units — see
+// the block above). Chosen so a "typical acceptable miss" weighs like a ~1 %
+// optical miss when these are combined with T/R/A in one merit function; `weight`
+// then stays pure importance. Tunable — none of the math depends on the exact
+// numbers, and a phase-only merit (all one unit) is insensitive to them.
+//   Ψ (0–90°) → 90 ; Δ (0–360°) → 180 ; tanΨ/cosΔ/|E|² are O(1) → 1 ;
+//   GD → 50 fs ; GDD → 50 fs².
+const PHASE_RESIDUAL_SCALE = {
+    PSI: 90, DEL: 180, TANPSI: 1, COSDEL: 1,
+    GD: 50, GDFLAT: 50, GDD: 50, GDDFLAT: 50, EFMX: 1,
+};
 export function operandResidualScale(op) {
-    return isArgwave(op.type) ? ARGWAVE_RESIDUAL_SCALE_NM : 1;
+    if (isArgwave(op.type)) return ARGWAVE_RESIDUAL_SCALE_NM;
+    if (isPhase(op.type))   return PHASE_RESIDUAL_SCALE[op.type] ?? 1;
+    return 1;
 }
 
 // One-sided total-thickness residual: ≤/≥ give a penalty (0 when satisfied);
@@ -877,7 +988,8 @@ function _operandResidual(op, val) {
         return lowerBound ? Math.max(0, op.target - val) : Math.max(0, val - op.target);
     }
     if (isMath(op.type)) return mathResidual(op, val);
-    if (isRamp(op)) return val;
+    // Ramp (TGT/RGT/AGT) and GD/GDD flatness already carry their RMS deviation.
+    if (isRamp(op) || isGroupDelayFlat(op.type)) return val;
     return val - op.target;
 }
 

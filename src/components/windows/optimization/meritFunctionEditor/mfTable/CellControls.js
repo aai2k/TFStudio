@@ -1,33 +1,4 @@
-import { OPERAND_TYPES } from '../../../../../utils/physics/optimizer.js';
-
 const { createElement: h, useState, useEffect, useRef, useCallback } = React;
-const TYPE_GROUP_ORDER = ['optical', 'range', 'rangetarget', 'integral', 'worst', 'math', 'argwave', 'thick', 'misc'];
-
-export function typeOptionEls(t, c) {
-    const operandTypes = t?.meritFunctionEditor?.operandTypes || {};
-    const operandGroups = t?.meritFunctionEditor?.operandGroups || {};
-    const grouped = {};
-    for (const type of OPERAND_TYPES) {
-        const group = operandTypes[type]?.group || 'optical';
-        (grouped[group] = grouped[group] || []).push(type);
-    }
-    const options = [];
-    for (const group of TYPE_GROUP_ORDER) {
-        if (!grouped[group]) continue;
-        options.push(h('optgroup', { key: group, label: operandGroups[group] || group },
-            grouped[group].map(type => h('option', {
-                key: type, value: type, title: operandTypes[type]?.label || type,
-                style: { background: c.panel },
-            }, type)),
-        ));
-    }
-    for (const type of OPERAND_TYPES) {
-        const group = operandTypes[type]?.group || 'optical';
-        if (TYPE_GROUP_ORDER.includes(group)) continue;
-        options.push(h('option', { key: type, value: type, style: { background: c.panel } }, type));
-    }
-    return options;
-}
 
 export function CellInput({ initValue, onCommit, onCancel, onNavigate, c }) {
     const [draft, setDraft] = useState(initValue);

@@ -50,6 +50,9 @@ MF = √( Σ wᵢ · (residualᵢ / σᵢ)²  /  Σ wᵢ )
 | All fraction-unit (T/R/A, averages, integrals, worst-case, spectral-target RMS, math) | **1**      | unchanged — pure-optical MFs are identical to before |
 | Argwave (`MXW*` / `MNW*`, nm)       | **500 nm** | 5 nm wavelength miss ≈ 1 % optical miss  |
 | Thickness (`TT`, `MNT`, `MXT`, nm)  | **1** (raw nm) | kept "hard" — a violated manufacturing bound still dominates and is fixed first |
+| Ellipsometry `PSI` / `DEL` (deg)    | **90 / 180** | ~1° miss ≈ 1 % optical miss              |
+| Group delay `GD*` / `GDD*` (fs, fs²)| **50**     | a ~0.5 fs / fs² miss ≈ 1 % optical miss   |
+| `TANPSI`, `COSDEL`, `EFMX` (O(1))   | **1**      | already comparable to an optical fraction |
 
 A purely optical merit function is therefore numerically unchanged; only merit
 functions that **mix wavelength-valued and optical operands** rebalance.
@@ -194,6 +197,64 @@ The residual is in **nanometres**, so a 10 nm miss is a much larger residual
 than a 0.01 optical miss. When mixing argwave operands with optical operands in
 one merit function, tune weights so the units are commensurate.
 :::
+
+## Phase / field operands
+
+Quantities derived from the **complex amplitude coefficients** or the **internal
+electric field** of the front coating, rather than an intensity T/R/A. They
+carry physical units (degrees, femtoseconds, or normalized field), so they use
+the per-type σ scales above and drive the optimizer through the finite-difference
+Jacobian. These match the [Ellipsometry](/analysis/ellipsometry/),
+[GD & GDD](/analysis/gd-gdd/) and [E-field](/analysis/efield/) analysis windows
+on the front surface.
+
+### Ellipsometry
+
+Evaluated at one wavelength (`λ / Start`). Ψ and Δ come from the complex ratio
+ρ = r_p / r_s = tan Ψ · e^{iΔ}, so they use **both** polarizations — the *Pol*
+column does not apply.
+
+| Type     | Computes                     | Target unit | Output          |
+| -------- | ---------------------------- | ----------- | --------------- |
+| `PSI`    | Ellipsometric Ψ at λ         | deg         | Ψ ∈ [0°, 90°]   |
+| `DEL`    | Ellipsometric Δ at λ         | deg         | Δ ∈ [0°, 360°)  |
+| `TANPSI` | tan Ψ (ellipsometer-native)  | —           | ≥ 0             |
+| `COSDEL` | cos Δ (ellipsometer-native)  | —           | [−1, 1]         |
+
+Residual: `value − target` (two-sided). Use `PSI`/`DEL` to match a measured
+ellipsometric spectrum, or to force a specific reflection-phase relationship.
+
+### Group delay & dispersion
+
+Reflection group delay `GD = −dφ/dω` (fs) and its dispersion `GDD = −d²φ/dω²`
+(fs²), for chirped-mirror and ultrafast-coating design. Point operands report
+the value at `λ / Start`; the `*FLAT` operands report the **RMS deviation** of
+GD/GDD from a flat target level across `[λStart, λEnd]` (a "GDD = const" spec).
+The *Pol* column selects s or p (`avg` averages the two — identical at normal
+incidence).
+
+| Type      | Computes                              | Target unit | Output              |
+| --------- | ------------------------------------- | ----------- | ------------------- |
+| `GD`      | Group delay at λ                      | fs          | GD (fs)             |
+| `GDD`     | Group-delay dispersion at λ           | fs²         | GDD (fs²)           |
+| `GDFLAT`  | RMS deviation of GD from a flat level | fs          | RMS deviation (≥ 0) |
+| `GDDFLAT` | RMS deviation of GDD from a flat level| fs²         | RMS deviation (≥ 0) |
+
+Residual: point operands are two-sided (`value − target`); the `*FLAT` operands
+carry their RMS deviation directly (like a spectral target), so the optimizer
+drives it to zero. Group delay is computed on a grid uniform in angular
+frequency ω (Macleod Ch. 11).
+
+### Electric-field peak
+
+| Type   | Computes                                   | Target unit | Output |
+| ------ | ------------------------------------------ | ----------- | ------ |
+| `EFMX` | Peak normalized \|E\|² anywhere in coating | —           | ≥ 0    |
+
+Evaluated at `λ / Start`; the *Pol* column selects s or p (`avg` takes the
+larger of the two peaks — the damage-relevant one). Residual: `value − target`;
+with the default target 0 it monotonically **minimizes** the peak field, the
+usual laser-damage-threshold objective.
 
 ## Math operands (reference another row)
 

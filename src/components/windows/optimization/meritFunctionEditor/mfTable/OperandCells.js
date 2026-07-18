@@ -1,7 +1,8 @@
 import {
     OPERAND_POLS, isIntegral, isMathPairRef, polFromType,
 } from '../../../../../utils/physics/optimizer.js';
-import { CellInput, CellSelect, typeOptionEls } from './CellControls.js';
+import { CellInput, CellSelect } from './CellControls.js';
+import { OperandTypePicker } from './OperandTypePicker.js';
 import { fmtCurrent, fmtDelta, fmtTargetDisplay } from './operandViewModel.js';
 
 const { createElement: h } = React;
@@ -23,17 +24,15 @@ function enabledCell(ctx, colKey, width) {
 }
 
 function typeCell(ctx, colKey, width) {
-    const { op, c, t, tdBase, cellClick, onEdit } = ctx;
-    const operandTypes = t?.meritFunctionEditor?.operandTypes || {};
+    const { op, c, t, tdBase, onEdit } = ctx;
     return h('td', {
-        key: colKey, onClick: event => cellClick(colKey, event),
+        key: colKey,
         style: tdBase(colKey, width, { padding: '0 2px' }),
-    }, h(CellSelect, {
+    }, h(OperandTypePicker, {
         value: op.type,
-        onChange: event => onEdit(op.id, 'type', event.target.value),
-        title: operandTypes[op.type]?.label || op.type,
-        color: c.text,
-    }, typeOptionEls(t, c)));
+        onChange: newType => onEdit(op.id, 'type', newType),
+        c, t,
+    }));
 }
 
 function totalThicknessComparisonCell(ctx, colKey, width) {

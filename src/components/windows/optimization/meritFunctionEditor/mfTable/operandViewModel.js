@@ -1,8 +1,15 @@
 import {
     isArgwave, isBlank, isConstraint, isDmfs, isInequality, isIntegral,
     isMath, isMathPairRef, isMathSingleRef, isMinmax, isRangeTarget,
-    isTotalThickness, mathResidualKind,
+    isTotalThickness, isPhase, isGroupDelayFlat, isFractionalUnit, mathResidualKind,
 } from '../../../../../utils/physics/optimizer.js';
+
+// Display unit for a phase/field operand type (empty = dimensionless).
+const PHASE_UNITS = {
+    PSI: '°', DEL: '°', TANPSI: '', COSDEL: '',
+    GD: 'fs', GDFLAT: 'fs', GDD: 'fs²', GDDFLAT: 'fs²', EFMX: '',
+};
+function phaseUnit(type) { return PHASE_UNITS[type] || ''; }
 
 const TYPE_COLORS = {
     T: [80, 150, 255], TS: [80, 150, 255], TP: [80, 150, 255], TAV: [80, 150, 255],
@@ -17,6 +24,9 @@ const TYPE_COLORS = {
     SUMM: [140, 160, 200], PROD: [140, 160, 200],
     MXWT: [230, 190, 80], MXWR: [230, 190, 80], MXWA: [230, 190, 80],
     MNWT: [230, 190, 80], MNWR: [230, 190, 80], MNWA: [230, 190, 80],
+    PSI: [80, 200, 200], DEL: [80, 200, 200], TANPSI: [80, 200, 200], COSDEL: [80, 200, 200],
+    GD: [110, 180, 220], GDD: [110, 180, 220], GDFLAT: [110, 180, 220], GDDFLAT: [110, 180, 220],
+    EFMX: [220, 120, 180],
     MNT: [180, 100, 255], MXT: [180, 100, 255], BLNK: [140, 140, 140],
 };
 
@@ -45,6 +55,8 @@ const HEADER_LABELS = [
     [op => isConstraint(op.type), { lambdaStart: 'Layer 1', lambdaEnd: 'Layer 2 (range)' }],
     [op => isIntegral(op.type), { lambdaStart: 'Integral', lambdaEnd: '—' }],
     [op => isArgwave(op.type), { lambdaStart: 'λ Start', lambdaEnd: 'λ End' }],
+    [op => isGroupDelayFlat(op.type), { lambdaStart: 'λ Start', lambdaEnd: 'λ End' }],
+    [op => isPhase(op.type), { lambdaStart: 'λ', lambdaEnd: '—' }],
     [op => isMathSingleRef(op.type), { lambdaStart: 'Ref Op#', lambdaEnd: '—' }],
     [op => isMathPairRef(op.type), { lambdaStart: 'Ref Op#1', lambdaEnd: 'Ref Op#2' }],
     [op => isMinmax(op.type) || RANGE_AVG_TYPES.has(op.type) || RANGE_TARGET_TYPES.has(op.type),
@@ -57,6 +69,8 @@ const EDITABLE_COLS = [
     [op => isConstraint(op.type), ['enabled', 'type', 'lambdaStart', 'lambdaEnd', 'target', 'weight']],
     [op => isIntegral(op.type), ['enabled', 'type', 'lambdaStart', 'aoi', 'pol', 'target', 'weight']],
     [op => isArgwave(op.type), ['enabled', 'type', 'lambdaStart', 'lambdaEnd', 'aoi', 'pol', 'target', 'weight']],
+    [op => isGroupDelayFlat(op.type), ['enabled', 'type', 'lambdaStart', 'lambdaEnd', 'aoi', 'pol', 'target', 'weight']],
+    [op => isPhase(op.type), ['enabled', 'type', 'lambdaStart', 'aoi', 'pol', 'target', 'weight']],
     [op => isMathSingleRef(op.type), ['enabled', 'type', 'lambdaStart', 'target', 'weight']],
     [op => isMathPairRef(op.type), ['enabled', 'type', 'lambdaStart', 'lambdaEnd', 'target', 'weight']],
 ];
@@ -89,13 +103,19 @@ export function rowDisplayMeta(op, rawCur, mathPercent) {
     const isTT = isTotalThickness(op.type);
     const isArg = isArgwave(op.type);
     const isMth = isMath(op.type);
-    const useFraction = !isCon && !isTT && !isArg && (!isMth || mathPercent);
+    const isPhs = isPhase(op.type);
+    // Fraction-unit rows display value ×100 as a percent. Optical T/R/A carry a
+    // fractional unit; a math row inherits percent only when its refs are optical.
+    const useFraction = isFractionalUnit(op.type) || (isMth && mathPercent);
     const cur = rawCur != null ? (useFraction ? rawCur * 100 : rawCur) : null;
-    const isRampRow = isRangeTarget(op.type);
+    // GD/GDD flatness rows carry an RMS deviation as their value (like a ramp): the
+    // Δ column shows that RMS, not (current − target).
+    const isRampRow = isRangeTarget(op.type) || isGroupDelayFlat(op.type);
     const tgt = useFraction ? op.target * 100 : op.target;
     const rawDelta = cur != null ? (isRampRow ? cur : cur - tgt) : null;
     return {
-        isCon, isTT, isArg, isMth, mthPct: mathPercent, useFraction, cur, tgt,
+        isCon, isTT, isArg, isMth, isPhs, phaseUnit: isPhs ? phaseUnit(op.type) : '',
+        mthPct: mathPercent, useFraction, cur, tgt,
         rawDelta, isRampRow, isRange: isRangeType(op.type),
     };
 }
@@ -126,9 +146,12 @@ export function deltaColor(op, rawDelta, meta, c) {
     return proximityColor(rawDelta, near, mid, c);
 }
 
+function withUnit(text, unit) { return unit ? text + ' ' + unit : text; }
+
 export function fmtCurrent(cur, meta) {
     if (cur == null) return '—';
     if (meta.isMth) return cur.toPrecision(4);
+    if (meta.isPhs) return withUnit(cur.toFixed(3), meta.phaseUnit);
     if (meta.isCon || meta.isTT || meta.isArg) return cur.toFixed(2) + ' nm';
     return cur.toFixed(3) + ' %';
 }
@@ -137,12 +160,14 @@ export function fmtDelta(value, meta) {
     if (value == null) return '—';
     const sign = value >= 0 ? '+' : '';
     if (meta.isMth) return sign + value.toPrecision(3);
+    if (meta.isPhs) return withUnit(sign + value.toFixed(3), meta.phaseUnit);
     if (meta.isCon || meta.isTT || meta.isArg) return sign + value.toFixed(2) + ' nm';
     return sign + value.toFixed(3) + ' %';
 }
 
 export function fmtTargetDisplay(op, meta) {
     if (meta.isMth) return meta.mthPct ? (op.target * 100).toFixed(2) : (op.target?.toPrecision?.(4) ?? '0');
+    if (meta.isPhs) return withUnit(op.target.toFixed(2), meta.phaseUnit);
     if (meta.isCon || meta.isTT || meta.isArg) return op.target.toFixed(2);
     if (meta.isRampRow) {
         const end = op.targetEnd != null ? op.targetEnd : op.target;

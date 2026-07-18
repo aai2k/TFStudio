@@ -1,14 +1,13 @@
 import { EvalModeBadge, ConeBadge } from '../../../SurfaceModeBar.js';
 import { Checkbox } from '../../../ui/Checkbox.js';
-import { SPECTRAL_UNITS, SPECTRAL_UNIT_IDS } from '../../../../utils/physics/spectralAxis.js';
-import { FieldLabel, NumInput } from './controls.js';
+import { FieldLabel } from './controls.js';
 import { AoiChips } from './AoiChips.js';
 
 const { createElement: h } = React;
 
 export function EvaluationToolbar(props) {
     const {
-        design, c, t, oe, params, setParams, spectralUnit, setSpectralUnit,
+        design, c, t, oe, params,
         setThetas, autoCalc, setAutoCalc, compute, computing,
     } = props;
     const fieldBlock = {
@@ -26,35 +25,6 @@ export function EvaluationToolbar(props) {
     },
         h(EvalModeBadge, { design, c, t }),
         h(ConeBadge, { design, c, t }),
-        h('div', { style: fieldBlock },
-            h(FieldLabel, { c }, oe.wavelength),
-            h(NumInput, {
-                value: params.lambdaStart, min: 100, max: 20000, step: 10, c, width: 56,
-                onChange: value => setParams(current => ({ ...current, lambdaStart: value }))
-            }),
-            h('span', { style: { color: c.textDim, fontSize: 11 } }, '–'),
-            h(NumInput, {
-                value: params.lambdaEnd, min: 100, max: 20000, step: 10, c, width: 56,
-                onChange: value => setParams(current => ({ ...current, lambdaEnd: value }))
-            }),
-            h('span', { style: { width: 8 } }),
-            h(FieldLabel, { c }, oe.step),
-            h(NumInput, {
-                value: params.lambdaStep, min: 0.1, max: 100, step: 0.5, c, width: 50,
-                onChange: value => setParams(current => ({ ...current, lambdaStep: value }))
-            })
-        ),
-        h('div', { style: fieldBlock },
-            h(FieldLabel, { c }, oe.axisUnit),
-            h('select', {
-                value: spectralUnit,
-                onChange: event => setSpectralUnit(event.target.value),
-                style: {
-                    background: c.bg, color: c.text, border: `1px solid ${c.border}`,
-                    borderRadius: 3, fontSize: 11, padding: '2px 4px', cursor: 'pointer',
-                }
-            }, SPECTRAL_UNIT_IDS.map(id => h('option', { key: id, value: id }, SPECTRAL_UNITS[id].short)))
-        ),
         h('div', { style: fieldBlock },
             h(FieldLabel, { c }, oe.aoiDeg),
             h(AoiChips, { values: params.thetas, onChange: setThetas, c, oe })

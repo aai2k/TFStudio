@@ -1,5 +1,5 @@
 import { isBlank, isDmfs, isMath } from '../../../../../utils/physics/optimizer.js';
-import { CellSelect, typeOptionEls } from './CellControls.js';
+import { OperandTypePicker } from './OperandTypePicker.js';
 import { editingCell, rowRenderers, textCell } from './OperandCells.js';
 import { COLS, deltaColor, rowDisplayMeta, typeRgba } from './operandViewModel.js';
 
@@ -54,12 +54,11 @@ export function BlnkRow({ op, rowIdx, rowSel, c, t, onEdit, selectRow }) {
         h('td', {
             style: { width: COLS[2].w, padding: '0 2px' },
             onClick: event => event.stopPropagation(),
-        }, h(CellSelect, {
+        }, h(OperandTypePicker, {
             value: op.type,
-            onChange: event => onEdit(op.id, 'type', event.target.value),
-            title: t?.meritFunctionEditor?.operandTypes?.[op.type]?.label || op.type,
-            color: c.textDim,
-        }, typeOptionEls(t, c))),
+            onChange: newType => onEdit(op.id, 'type', newType),
+            c, t,
+        })),
         h('td', {
             colSpan: COLS.length - 3,
             style: { padding: '1px 6px', borderLeft: '2px solid rgba(140,140,140,0.4)' },
