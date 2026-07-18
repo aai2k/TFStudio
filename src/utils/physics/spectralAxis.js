@@ -90,7 +90,8 @@ function formatTick(value, decimals) {
 export function spectralAxisProps(unit, nmMin, nmMax, standoff = 8) {
     const u = SPECTRAL_UNITS[unit] || SPECTRAL_UNITS.nm;
     const title = { text: u.title, standoff };
-    const missingRange = unit === 'nm' || !isFinite(nmMin) || !isFinite(nmMax) || nmMin <= 0 || nmMax <= 0;
+    const rangeIsFinitePositive = isFinite(nmMin) && isFinite(nmMax) && nmMin > 0 && nmMax > 0;
+    const missingRange = unit === 'nm' || !rangeIsFinitePositive;
     if (missingRange) return { title };
     const a = u.fromNm(nmMin), b = u.fromNm(nmMax);
     const lo = Math.min(a, b), hi = Math.max(a, b);

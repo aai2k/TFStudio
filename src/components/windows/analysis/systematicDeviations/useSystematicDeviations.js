@@ -113,9 +113,9 @@ export function useSystematicDeviations() {
         setError(null);
         setTimeout(() => {
             try {
-                const result = runDeviationSweep(
-                    design, params, sweepBaseDeviation(sweep), sweep, evalMode, resolveMaterial
-                );
+                const result = runDeviationSweep({
+                    design, params, baseDev: sweepBaseDeviation(sweep), sweep, evalMode, resolveMat: resolveMaterial,
+                });
                 const unit = sweepParamKind(sweep.param) === 'offset' ? ` (${sweep.offsetUnit || 'nm'})` : '';
                 result.paramName = paramLabel(sweep.param) + unit;
                 setSweepResult(result);
