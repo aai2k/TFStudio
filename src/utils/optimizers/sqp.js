@@ -93,6 +93,34 @@ export class SQPOptimizer extends LSQEngine {
         if (changed) { this.thickBest = tb; this.mfBest = this.mfAt(tb); }
     }
 
+    // Project the current point into the feasible box (a starting design may
+    // violate user bounds; SQP enforces them from iteration 0). Re-evaluates mf
+    // if the projection moved the point.
+    _enterFeasibleBox(freeIdx, nFree, boxLo, boxHi) {
+        const thk = this.thicknesses;
+        let clamped = false;
+        const thkF = [...thk];
+        for (let a = 0; a < nFree; a++) {
+            const k = freeIdx[a];
+            const v = Math.min(boxHi[a], Math.max(boxLo[a], thk[k]));
+            if (v !== thk[k]) { thkF[k] = v; clamped = true; }
+        }
+        if (clamped) { this.thicknesses = thkF; this.mf = this.mfAt(thkF); }
+    }
+
+    // Solve the damped box-constrained QP, escalating the diagonal damping μ until
+    // the box-QP solver succeeds (or the retry budget is spent). Returns the step
+    // Δ (null on failure) and the μ actually used.
+    _solveDampedBoxQP({ H, Jtr, loD, hiD, mu }) {
+        let delta = null;
+        for (let tries = 0; tries < 12 && !delta; tries++) {
+            const A = H.map((rowv, a) => { const r = rowv.slice(); r[a] = r[a] + mu * Math.max(Math.abs(rowv[a]), 1e-12) + 1e-12; return r; });
+            delta = solveBoxQP(A, Jtr, loD, hiD);
+            if (!delta) mu *= 10;
+        }
+        return { delta, mu };
+    }
+
     // Bounded-SQP step: a Newton step with MNT/MXT as HARD box constraints instead
     // of soft penalties. Each iterate solves the box-constrained QP
     //   min ½ΔᵀHΔ + Jᵀr·Δ  s.t. lo ≤ d+Δ ≤ hi  (H = analytic merit Hessian, damped
@@ -106,16 +134,7 @@ export class SQPOptimizer extends LSQEngine {
         if (nFree === 0) return;
 
         const { boxLo, boxHi } = this._thicknessBounds(freeIdx);
-        // Project current point into the feasible box (a starting design may
-        // violate user bounds; SQP enforces them from iteration 0).
-        let clamped = false;
-        const thkF = [...thk];
-        for (let a = 0; a < nFree; a++) {
-            const k = freeIdx[a];
-            const v = Math.min(boxHi[a], Math.max(boxLo[a], thk[k]));
-            if (v !== thk[k]) { thkF[k] = v; clamped = true; }
-        }
-        if (clamped) { this.thicknesses = thkF; this.mf = this.mfAt(thkF); }
+        this._enterFeasibleBox(freeIdx, nFree, boxLo, boxHi);
         // Also project the stored best: a fallback lmStep from a previous
         // iteration may have left thickBest outside the box.
         this._projectBestToBox(freeIdx, boxLo, boxHi);
@@ -129,13 +148,7 @@ export class SQPOptimizer extends LSQEngine {
         const loD = new Array(nFree), hiD = new Array(nFree);
         for (let a = 0; a < nFree; a++) { loD[a] = boxLo[a] - thk2[freeIdx[a]]; hiD[a] = boxHi[a] - thk2[freeIdx[a]]; }
 
-        let mu = this.lamS ?? 1e-3;
-        let delta = null;
-        for (let tries = 0; tries < 12 && !delta; tries++) {
-            const A = H.map((rowv, a) => { const r = rowv.slice(); r[a] = r[a] + mu * Math.max(Math.abs(rowv[a]), 1e-12) + 1e-12; return r; });
-            delta = solveBoxQP(A, Jtr, loD, hiD);
-            if (!delta) mu *= 10;
-        }
+        const { delta, mu } = this._solveDampedBoxQP({ H, Jtr, loD, hiD, mu: this.lamS ?? 1e-3 });
         if (!delta) { this.lamS = Math.min(mu, 1e8); this.lmStep(); this._projectBestToBox(freeIdx, boxLo, boxHi); return; }
 
         const thkTry = [...thk2];

@@ -19,6 +19,8 @@
  */
 
 import { EngineBase } from './base.js';
+import { projectedLineSearch } from './cg/lineSearch.js';
+import { gradNorm2, conjugateStep } from './cg/direction.js';
 
 export class CGOptimizer extends EngineBase {
     constructor(operands, design, resolveMat, opts = {}) {
@@ -56,131 +58,71 @@ export class CGOptimizer extends EngineBase {
         this._done           = false;
     }
 
-    // Projected backtracking line search. Starts from the LARGEST useful step
-    // (the one that moves the largest free coordinate across the whole box) so
-    // the first probe is meaningful even when ‖∇MF‖ is tiny, then shrinks
-    // geometrically and returns the best strictly-improving probe. (A pure
-    // Armijo test is unreliable here because gᵀd can be vanishingly small near
-    // shallow minima; best-improving + box projection is the robust choice and
-    // CG's superlinear behavior still emerges from the conjugate directions.)
-    // Returns {thk, mf, alpha} or null if nothing improved.
-    _lineSearch(x, dir, mf0 /*, gDotDir */) {
-        let dmax = 0;
-        for (let i = 0; i < dir.length; i++) {
-            const ad = Math.abs(dir[i]);
-            if (ad > dmax) dmax = ad;
+    // Plateau reached (many tiny consecutive gains): emulate the user's manual
+    // relaunch — restore the best point and discard the conjugate state +
+    // collapsed warm-start step so the next step is a fresh full-box steepest-
+    // descent move that can escape the current basin. Converge only when a whole
+    // relaunch cycle yielded no meaningful gain, or the budget is spent.
+    // (persistent mode only). Returns true when the step is fully consumed (the
+    // engine has converged), false to continue the current step.
+    _maybeRelaunch() {
+        if (!(this._persistent && this._softStall >= this._softPatience)) return false;
+        const improved = (this._mfAtRelaunch - this.mfBest)
+                         > this._minRelGain * Math.max(this._mfAtRelaunch, 1e-30);
+        if (this._relaunchBudget > 0 && (this._mfAtRelaunch === Infinity || improved)) {
+            this.restoreBest();
+            this._g = null; this._dir = null; this._alpha = null;
+            this._softStall = 0; this._stall = 0;
+            this._mfAtRelaunch = this.mfBest;
+            this._relaunchBudget--;
+            return false;
         }
-        if (dmax === 0) return null;
+        this._done = true;
+        this.iter++;
+        return true;
+    }
 
-        // α0: move the largest coord by the full box span. Bias toward the
-        // previous accepted α (warm start) by starting a little above it but
-        // never exceeding the box-spanning step.
-        const aBox = (this.D_MAX - this.D_MIN) / dmax;
-        let a = aBox;
-        if (this._alpha && this._alpha * 4 < aBox) a = this._alpha * 4;
-
-        const shrink = 0.5;
-        const MAX_BT = 44;            // 0.5^44 ≈ 6e-14 of the box span
-        let best = null;
-        for (let bt = 0; bt < MAX_BT; bt++) {
-            const trial = this.clampVec(x.map((xi, i) => xi + a * dir[i]));
-            const mfT = this.mfAt(trial);
-            if (best === null || mfT < best.mf) best = { thk: trial, mf: mfT, alpha: a };
-            // Once we have improvement and the probe starts climbing again,
-            // we've bracketed the descent — stop.
-            else if (best.mf < mf0 && mfT > best.mf) break;
-            a *= shrink;
-        }
-        return (best && best.mf < mf0) ? best : null;
+    // Stationary point: steepest descent cannot move, so this IS the converged
+    // state. Signal convergence in both modes (persistent reads _done;
+    // non-persistent reads _stall) — the restored best design is unchanged, the
+    // wasted iterations are not.
+    _markStationary() {
+        this._done = true;
+        this._stall = Math.max(this._stall, 4);
+        this.iter++;
     }
 
     step() {
         if (this.freeIdx.length === 0) { this.iter++; return; }
 
-        // Plateau reached (many tiny consecutive gains): emulate the user's
-        // manual relaunch — restore the best point and discard the conjugate
-        // state + collapsed warm-start step so the next step is a fresh full-box
-        // steepest-descent move that can escape the current basin. Converge only
-        // when a whole relaunch cycle yielded no meaningful gain, or the budget
-        // is spent. (persistent mode only)
-        if (this._persistent && this._softStall >= this._softPatience) {
-            const improved = (this._mfAtRelaunch - this.mfBest)
-                             > this._minRelGain * Math.max(this._mfAtRelaunch, 1e-30);
-            if (this._relaunchBudget > 0 && (this._mfAtRelaunch === Infinity || improved)) {
-                this.restoreBest();
-                this._g = null; this._dir = null; this._alpha = null;
-                this._softStall = 0; this._stall = 0;
-                this._mfAtRelaunch = this.mfBest;
-                this._relaunchBudget--;
-            } else {
-                this._done = true;
-                this.iter++;
-                return;
-            }
-        }
+        if (this._maybeRelaunch()) return;
 
         const x  = this.thicknesses;
         const g  = this.gradMF(x);                  // ∇MF (0 on locked coords)
-        let gNorm2 = 0;
-        for (let i = 0; i < g.length; i++) gNorm2 += g[i] * g[i];
-        if (Math.sqrt(gNorm2) < this._gtol) {
-            // Stationary point: steepest descent cannot move, so this IS the
-            // converged state. M15: previously returned without touching
-            // _done/_stall, so isConverged() stayed false and the engine spun
-            // uselessly to maxIter. Signal convergence in both modes (persistent
-            // reads _done; non-persistent reads _stall) — the restored best
-            // design is unchanged, the wasted iterations are not.
-            this._done = true;
-            this._stall = Math.max(this._stall, 4);
-            this.iter++;
-            return;
-        }
+        const gNorm2 = gradNorm2(g);
+        if (Math.sqrt(gNorm2) < this._gtol) { this._markStationary(); return; }
 
-        // Polak–Ribière+ β with automatic restart.
-        let beta = 0;
-        if (this._g && this._dir && (this.iter % this._restartEvery) !== 0) {
-            let num = 0, den = 0;
-            for (let i = 0; i < g.length; i++) {
-                num += g[i] * (g[i] - this._g[i]);
-                den += this._g[i] * this._g[i];
-            }
-            beta = den > 0 ? Math.max(0, num / den) : 0;
-        }
-
-        const dir = new Array(g.length);
-        let gDotDir = 0;
-        for (let i = 0; i < g.length; i++) {
-            dir[i] = -g[i] + (beta && this._dir ? beta * this._dir[i] : 0);
-            gDotDir += g[i] * dir[i];
-        }
-        // Guard: if the conjugate direction is not a descent direction (can
-        // happen with PR+ after a poor line search), reset to steepest descent.
-        if (gDotDir >= 0) {
-            for (let i = 0; i < g.length; i++) dir[i] = -g[i];
-            gDotDir = -gNorm2;
-            beta = 0;
-        }
+        const { dir, gDotDir, beta } = conjugateStep({
+            g, prevG: this._g, prevDir: this._dir,
+            iter: this.iter, restartEvery: this._restartEvery, gNorm2,
+        });
 
         let searchDir = dir;
-        let ls = this._lineSearch(x, searchDir, this.mf, gDotDir);
+        let ls = projectedLineSearch(this, x, searchDir, this.mf);
 
         // AUTO-RESTART before declaring a stall. A failed line search is usually
         // NOT a true minimum but a TRAPPED search: either the conjugate direction
         // is poor, or the warm-start step `_alpha` has collapsed so every probe
         // is too small to register improvement (the line search only ever shrinks
-        // from its starting α, never expands). This is exactly the state a manual
-        // re-run escapes — it discards `_dir` and `_alpha` and starts fresh from
-        // the full box-spanning step. Do that automatically: retry once as pure
-        // steepest descent with α reset to the box span. Only if THIS also fails
-        // is the design genuinely at a numerical minimum. (Previously a single
-        // trapped step counted toward convergence, so CG quit ~5× too early and
-        // the user had to re-launch it by hand to keep making progress.)
+        // from its starting α, never expands). Retry once as pure steepest descent
+        // with α reset to the box span. Only if THIS also fails is the design
+        // genuinely at a numerical minimum.
         if (this._persistent && !ls && (beta !== 0 || this._alpha != null)) {
             const sd = new Array(g.length);
             for (let i = 0; i < g.length; i++) sd[i] = -g[i];
             const savedAlpha = this._alpha;
             this._alpha = null;                      // first probe spans the full box
-            const ls2 = this._lineSearch(x, sd, this.mf, -gNorm2);
+            const ls2 = projectedLineSearch(this, x, sd, this.mf);
             if (ls2) { ls = ls2; searchDir = sd; }
             else this._alpha = savedAlpha;
         }
