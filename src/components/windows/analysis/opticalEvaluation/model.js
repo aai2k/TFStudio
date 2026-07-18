@@ -11,8 +11,8 @@ export const CURVES = [
     { key: 'A',  label: 'A avg', color: '#66bb6a', dash: 'solid', group: 'avg' },
     { key: 'Ts', label: 'T (s)', color: '#64b5f6', dash: 'dot',   group: 's' },
     { key: 'Rs', label: 'R (s)', color: '#ef9a9a', dash: 'dot',   group: 's' },
-    { key: 'Tp', label: 'T (p)', color: '#1565c0', dash: 'dash',  group: 'p' },
-    { key: 'Rp', label: 'R (p)', color: '#c62828', dash: 'dash',  group: 'p' },
+    { key: 'Tp', label: 'T (p)', color: '#1565c0', dash: '5px,3px', group: 'p' },
+    { key: 'Rp', label: 'R (p)', color: '#c62828', dash: '5px,3px', group: 'p' },
 ];
 
 export const CURVE_BY_KEY = Object.fromEntries(CURVES.map(cv => [cv.key, cv]));

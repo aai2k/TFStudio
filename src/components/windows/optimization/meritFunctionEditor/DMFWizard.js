@@ -6,7 +6,7 @@ import { buildWizardBlock, wizardAppendRow, wizardGenerationRows } from './merit
 
 const { createElement: h, useState, useEffect, useCallback } = React;
 
-const FIELD_UNITS = { rPct: '%', rsPct: '%', rpPct: '%', tStart: '', tEnd: '', points: '' };
+const FIELD_UNITS = { rPct: '%', rsPct: '%', rpPct: '%', valuePct: '%', tStart: '', tEnd: '', points: '' };
 
 function fieldUnit(key) {
     return Object.prototype.hasOwnProperty.call(FIELD_UNITS, key) ? FIELD_UNITS[key] : 'nm';
@@ -120,19 +120,26 @@ export function DMFWizard({ design, onGenerate, operandCount, c, t }) {
         ),
 
         h('div', { style: { display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap', marginBottom: 5 } },
-            typeDef.fields.map(field =>
-                h('div', { key: field.key, style: grp },
+            typeDef.fields.map(field => {
+                const isSelect = field.kind === 'select';
+                return h('div', { key: field.key, style: grp },
                     h('span', { style: lbl }, (tw.fields[field.key] || field.key) + ':'),
-                    h('input', {
-                        type: 'number',
-                        value: params[field.key] ?? field.default,
-                        min: field.min, max: field.max, step: field.step ?? 1,
-                        onChange: e => updateParam(field.key, +e.target.value),
-                        style: { ...inp, width: 70 }
-                    }),
-                    fieldUnit(field.key) && h('span', { style: { ...lbl, color: c.textDim } }, fieldUnit(field.key))
-                )
-            )
+                    isSelect
+                        ? h('select', {
+                            value: params[field.key] ?? field.default,
+                            onChange: e => updateParam(field.key, e.target.value),
+                            style: { ...inp, width: 'auto', minWidth: 52 }
+                        }, field.options.map(o => h('option', { key: o.value, value: o.value }, o.label)))
+                        : h('input', {
+                            type: 'number',
+                            value: params[field.key] ?? field.default,
+                            min: field.min, max: field.max, step: field.step ?? 1,
+                            onChange: e => updateParam(field.key, +e.target.value),
+                            style: { ...inp, width: 70 }
+                        }),
+                    !isSelect && fieldUnit(field.key) && h('span', { style: { ...lbl, color: c.textDim } }, fieldUnit(field.key))
+                );
+            })
         ),
 
         h('div', {
@@ -163,8 +170,14 @@ export function DMFWizard({ design, onGenerate, operandCount, c, t }) {
                     h('option', { value: 'discrete' }, tw.targetDiscrete)
                 ),
                 ...targetStepControls
-            ),
+            )
+        ),
 
+        // Thickness constraints — grouped together, always directly under the
+        // AOI / Pol / target-mode controls row.
+        h('div', {
+            style: { display: 'flex', alignItems: 'center', gap: 16, flexWrap: 'wrap', paddingTop: 6 }
+        },
             h('div', { style: { display: 'inline-flex', alignItems: 'center', gap: 8, flexShrink: 0, flexWrap: 'nowrap' } },
                 h('label', { style: { display: 'inline-flex', alignItems: 'center', gap: 5, cursor: 'pointer', userSelect: 'none' } },
                     h(Checkbox, {
@@ -193,8 +206,13 @@ export function DMFWizard({ design, onGenerate, operandCount, c, t }) {
                     h('span', { style: lbl }, tw.maxTotalLabel + ':'),
                     h('input', { type: 'number', value: maxTotal, min: 1, step: 50, onChange: e => setMaxTotal(+e.target.value), style: { ...inp, width: 80 } })
                 )
-            ),
+            )
+        ),
 
+        // Start row + Generate.
+        h('div', {
+            style: { display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap', paddingTop: 6 }
+        },
             h('div', { style: { flex: 1 } }),
 
             h('div', { style: grp, title: tw.startRowTip },

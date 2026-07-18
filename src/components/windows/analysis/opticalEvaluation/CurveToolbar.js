@@ -1,6 +1,5 @@
-import { Checkbox } from '../../../ui/Checkbox.js';
 import { CURVE_GROUPS } from './model.js';
-import { FieldLabel, Divider, NumInput, CurveGroup } from './controls.js';
+import { FieldLabel, Divider, CurveGroup } from './controls.js';
 
 const { createElement: h } = React;
 
@@ -45,32 +44,10 @@ function ShowTargetsButton({ c, oe, editMode, showTargets, setShowTargets, hasTa
 }
 
 function TargetVisibilityControls(props) {
-    return h('div', { style: { marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 6 } },
+    return h('div', { style: { display: 'flex', alignItems: 'center', gap: 6 } },
         h(EditTargetsButton, props),
         h(Divider, { c: props.c }),
         h(ShowTargetsButton, props)
-    );
-}
-
-function YAxisControls(props) {
-    const { c, oe, yAuto, setYAuto, yMin, setYMin, yMax, setYMax } = props;
-    return h('div', { style: { display: 'inline-flex', alignItems: 'center', gap: 6, flexShrink: 0, flexWrap: 'nowrap' } },
-        h(FieldLabel, { c }, oe.yAxis),
-        h('label', {
-            style: { display: 'flex', alignItems: 'center', gap: 4, fontSize: 11, cursor: 'pointer', color: c.text, whiteSpace: 'nowrap' }
-        },
-            h(Checkbox, { c, checked: yAuto, onChange: event => setYAuto(event.target.checked) }),
-            oe.yAuto
-        ),
-        !yAuto && h(NumInput, {
-            value: yMin, min: -10, max: 200, step: 5, c, width: 48,
-            onChange: value => setYMin(Math.min(value, yMax - 1))
-        }),
-        !yAuto && h('span', { style: { color: c.textDim, fontSize: 11 } }, '–'),
-        !yAuto && h(NumInput, {
-            value: yMax, min: -10, max: 200, step: 5, c, width: 48,
-            onChange: value => setYMax(Math.max(value, yMin + 1))
-        })
     );
 }
 
@@ -92,8 +69,9 @@ export function CurveToolbar(props) {
                 polLabels: { avg: oe.polAvg, s: oe.polSShort, p: oe.polPShort },
             }),
         ]),
-        h(Divider, { c }),
-        h(YAxisControls, props),
+        // Line break: forces the Edit/Targets controls onto their own row,
+        // left-aligned directly beneath the curve toggles.
+        h('div', { style: { flexBasis: '100%', height: 0 } }),
         h(TargetVisibilityControls, props)
     );
 }

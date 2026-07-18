@@ -29,6 +29,7 @@ export const FILTER_CATEGORIES = [
     { id: 'BAND',     types: ['BANDPASS', 'NOTCH'] },
     { id: 'GRAD',     types: ['LINEAR_RAMP'] },
     { id: 'INTEGRAL', types: ['VIS_AR', 'SOLAR_BLOCK', 'SOLAR_PASS', 'WORST_T_MIN', 'WORST_R_MAX'] },
+    { id: 'CUSTOM',   types: ['CUSTOM_TARGET'] },
 ];
 
 // Operand type codes are polarization-AGNOSTIC now — polarization rides on
@@ -465,6 +466,54 @@ export const FILTER_TYPES = {
             for (const aoi of aoiArray(common)) {
                 ops.push(...spectralTargetOps({ channel: 'T', pol, lamStart: p.lamStart, lamEnd: p.lamEnd, t0,           t1,           mode, stepNm: step, aoi }));
                 ops.push(...spectralTargetOps({ channel: 'R', pol, lamStart: p.lamStart, lamEnd: p.lamEnd, t0: cl(1-t0), t1: cl(1-t1), mode, stepNm: step, aoi }));
+            }
+            return ops;
+        },
+    },
+
+    // ── Custom target ────────────────────────────────────────────────────────
+    // A single user-specified spectral target on one channel over a band:
+    //   • cmp '=' → equal to `valuePct` across [λStart, λEnd] (continuous
+    //     range-target, or discrete point operands when targetMode='discrete').
+    //   • cmp '≤' → worst-case max (TMX/RMX/AMX): every point in the band ≤ value.
+    //   • cmp '≥' → worst-case min (TMN/RMN/AMN): every point in the band ≥ value.
+    // Unlike the canned filter types this is intentionally NOT paired with a
+    // complementary channel — the user is specifying one exact target (e.g.
+    // "Tp = 80 % at 45° over 500–600 nm"). Channel/comparison ride on `params`
+    // (select fields); pol/AOI/targetMode come from the shared `common` block.
+    CUSTOM_TARGET: {
+        category: 'CUSTOM',
+        supportsTargetMode: true,
+        fields: [
+            { key: 'channel', kind: 'select', default: 'T',
+              options: [{ value: 'T', label: 'T' }, { value: 'R', label: 'R' }, { value: 'A', label: 'A' }] },
+            { key: 'cmp', kind: 'select', default: 'eq',
+              options: [{ value: 'eq', label: '=' }, { value: 'le', label: '≤' }, { value: 'ge', label: '≥' }] },
+            { key: 'valuePct', default: 80, min: 0, max: 100, step: 1 },
+            { key: 'lamStart', default: 400, min: 100, max: 3000 },
+            { key: 'lamEnd',   default: 700, min: 100, max: 3000 },
+        ],
+        generate: (p, common) => {
+            const channel = (p.channel === 'R' || p.channel === 'A') ? p.channel : 'T';
+            const pol     = common.pol || 'avg';
+            const mode    = common.targetMode || 'continuous';
+            const step    = common.stepNm || 1;
+            const val     = Math.max(0, Math.min(1, (p.valuePct ?? 0) / 100));
+            const ops     = [];
+            for (const aoi of aoiArray(common)) {
+                if (p.cmp === 'le' || p.cmp === 'ge') {
+                    // Worst-case ceiling (≤ → *MX) or floor (≥ → *MN) over the band.
+                    ops.push(makeOperand({
+                        type: channel + (p.cmp === 'le' ? 'MX' : 'MN'),
+                        lambdaStart: p.lamStart, lambdaEnd: p.lamEnd, aoi, pol,
+                        target: val, weight: 1.0,
+                    }));
+                } else {
+                    ops.push(...spectralTargetOps({
+                        channel, pol, lamStart: p.lamStart, lamEnd: p.lamEnd,
+                        t0: val, mode, stepNm: step, aoi,
+                    }));
+                }
             }
             return ops;
         },

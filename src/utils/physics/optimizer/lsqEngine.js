@@ -27,7 +27,7 @@ import {
     OPTICAL_OPERAND_TYPES, RANGE_TARGET_OPERAND_TYPES, TOTAL_THICKNESS_OPERAND_TYPES, BLANK_OPERAND_TYPES, INTEGRAL_OPERAND_TYPES, MINMAX_OPERAND_TYPES,
     CONSTRAINT_OPERAND_TYPES, INEQUALITY_OPERAND_TYPES, MATH_OPERAND_TYPES, ARGWAVE_OPERAND_TYPES, OPERAND_TYPES, OPERAND_POLS,
     isConstraint, isDmfs, isBlank, isTotalThickness, isRangeTarget, isIntegral,
-    isMinmax, isMinType, isInequality, isArgwave, isArgwaveMin, isMath,
+    isMinmax, isMinType, isInequality, isArgwave, isArgwaveMin, isMath, isPhase,
     isMathSingleRef, isMathPairRef, isFractionalUnit, mathTargetInPercent, argwaveOpticalChar, argwavePolCode,
     polFromType, AVG_POINTS, AVG_STEP_NM, AVG_POINTS_MAX, bandSampleCount, ARGWAVE_DEFAULT_POINTS,
     PNORM_DEFAULT, makeOperand, isRamp, makeConstraintOperand, makeDefaultConstraints, makeDmfsOperand,
@@ -295,14 +295,14 @@ export class LSQEngine {
         const { propDeriv, propVal } = makePointEvaluators(jacCfg, sideMap);
 
         // Operand kinds whose analytic chain rule isn't worked out yet
-        // (argwave/math/total-thickness) decline the WHOLE analytic Jacobian so
-        // step() falls back to FD. Every remaining kind gets a row from _jacRow.
+        // (argwave/math/total-thickness/phase) decline the WHOLE analytic Jacobian
+        // so step() falls back to FD. Every remaining kind gets a row from _jacRow.
         const jc = { comp, freeIdx, nFree, ctx, propDeriv, propVal };
         const J = [];
         for (let i = 0; i < this.operands.length; i++) {
             const op = this.operands[i];
             if (!op.enabled || comp[i] == null) continue;
-            if (isArgwave(op.type) || isMath(op.type) || isTotalThickness(op.type)) return null;
+            if (isArgwave(op.type) || isMath(op.type) || isTotalThickness(op.type) || isPhase(op.type)) return null;
             J.push(_jacRow(op, i, jc));
         }
         return J;

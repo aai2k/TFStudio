@@ -34,6 +34,7 @@ arguments, its output value and unit, and how it forms a residual — is on the
 | Spectral target      | `TGT` `RGT` `AGT`              | deviation from a flat/ramp line |
 | Weighted integral    | `TIW` `RIW` `AIW`              | source × detector weighted mean |
 | Worst-case           | `TMN` `RMN` `AMN` `TMX` `RMX` `AMX` | band extremum of T/R/A   |
+| Phase / field        | `PSI` `DEL` `TANPSI` `COSDEL` `GD` `GDD` `GDFLAT` `GDDFLAT` `EFMX` | ellipsometry, group delay, peak \|E\|² |
 | Argmax/min λ         | `MXWT` `MXWR` `MXWA` `MNWT` `MNWR` `MNWA` | wavelength of the extremum |
 | Math (reference rows)| `OPGT` `OPLT` `OPVA` `ABSO` `ABGT` `ABLT` `DIFF` `SUMM` `PROD` | derived from other rows |
 | Thickness            | `TT` `MNT` `MXT`               | total / per-layer thickness  |
@@ -47,11 +48,17 @@ win.
 
 **Filter-type wizard** — at the top, a set of coating categories (AR, HR,
 bandpass, notch, edge filters, ramps). Pick the goal and the wizard fills in
-sensible weights and operands you can then refine.
+sensible weights and operands you can then refine. The **Custom target**
+category generates a single user-specified target — pick a channel (T/R/A), a
+comparison (`=`, `≤`, `≥`), a value, and a wavelength range, at the chosen
+polarization and angle of incidence — as a continuous line, discrete points, or
+a worst-case bound.
 
-**Operand table** — one row per operand; edit any cell inline. The advanced
-columns set each operand's weight, angle of incidence, polarization and an
-optional surface-mode override.
+**Operand table** — one row per operand; edit any cell inline. The **Type**
+cell opens a searchable picker with the operands grouped by category (the same
+control as the Design Editor's material picker). The advanced columns set each
+operand's weight, angle of incidence, polarization and an optional surface-mode
+override.
 
 **Constraints** — set minimum and maximum layer-thickness bounds (`MNT`/`MXT`)
 per layer or per material. A bound can be written to cover layers that

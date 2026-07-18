@@ -40,6 +40,27 @@ export const INTEGRAL_OPERAND_TYPES   = ['TIW', 'RIW', 'AIW'];
 // `op.pNorm` (default 50) controls sharpness; higher = closer to the true
 // min/max but stiffer for DLS.
 export const MINMAX_OPERAND_TYPES     = ['TMN', 'RMN', 'AMN', 'TMX', 'RMX', 'AMX'];
+// ── Phase / field operands ────────────────────────────────────────────────────
+// Quantities derived from the complex amplitude coefficients or the internal
+// field — NOT fractions in [0,1]. They carry physical units, so they force the
+// finite-difference Jacobian (their analytic chain rule is not worked out) and
+// get a per-type residual scale (operandResidualScale) rather than σ=1.
+// Reference: Macleod, Thin-Film Optical Filters 5th ed., Ch.11 (ultrafast /
+// GD/GDD) and Ch.16 (ellipsometry Ψ, Δ).
+//   PSI/DEL     — ellipsometric Ψ, Δ (degrees), from ρ = r_p/r_s = tanΨ·e^{iΔ}.
+//   TANPSI/COSDEL — the ellipsometer-native pair tanΨ, cosΔ (dimensionless).
+//   GD/GDD      — reflection group delay (fs) / group-delay dispersion (fs²) at
+//                 a single wavelength (op.lambdaStart).
+//   GDFLAT/GDDFLAT — RMS deviation of GD/GDD from a flat target level across the
+//                 band [λStart, λEnd] (chirped-mirror "GDD = const" spec).
+//   EFMX        — peak normalized |E|² anywhere in the coating (laser-damage
+//                 field control); minimized toward the target.
+export const ELLIPSOMETRY_OPERAND_TYPES = ['PSI', 'DEL', 'TANPSI', 'COSDEL'];
+export const GROUPDELAY_OPERAND_TYPES   = ['GD', 'GDD', 'GDFLAT', 'GDDFLAT'];
+export const EFIELD_OPERAND_TYPES        = ['EFMX'];
+export const PHASE_OPERAND_TYPES = [
+    ...ELLIPSOMETRY_OPERAND_TYPES, ...GROUPDELAY_OPERAND_TYPES, ...EFIELD_OPERAND_TYPES,
+];
 export const CONSTRAINT_OPERAND_TYPES = ['MNT', 'MXT'];
 // ── Zemax-style math operands ────────────────────────────────────────────────
 // Reference: Zemax OpticStudio merit-function operand catalog (see
@@ -86,6 +107,7 @@ export const OPERAND_TYPES = [
     ...RANGE_TARGET_OPERAND_TYPES,
     ...INTEGRAL_OPERAND_TYPES,
     ...MINMAX_OPERAND_TYPES,
+    ...PHASE_OPERAND_TYPES,
     ...INEQUALITY_OPERAND_TYPES,
     ...MATH_OPERAND_TYPES,
     ...ARGWAVE_OPERAND_TYPES,
@@ -103,6 +125,13 @@ export function isRangeTarget(type) { return RANGE_TARGET_OPERAND_TYPES.indexOf(
 export function isIntegral(type)   { return type === 'TIW' || type === 'RIW' || type === 'AIW'; }
 export function isMinmax(type)     { return MINMAX_OPERAND_TYPES.indexOf(type) >= 0; }
 export function isMinType(type)    { return type === 'TMN' || type === 'RMN' || type === 'AMN'; }
+export function isEllipsometry(type) { return ELLIPSOMETRY_OPERAND_TYPES.indexOf(type) >= 0; }
+export function isGroupDelay(type)   { return GROUPDELAY_OPERAND_TYPES.indexOf(type) >= 0; }
+// GD/GDD flatness operands whose value is already an RMS deviation from the flat
+// target (residual = value, like a range-target ramp).
+export function isGroupDelayFlat(type) { return type === 'GDFLAT' || type === 'GDDFLAT'; }
+export function isEField(type)       { return type === 'EFMX'; }
+export function isPhase(type)        { return isEllipsometry(type) || isGroupDelay(type) || isEField(type); }
 export function isInequality(type) { return type === 'OPGT' || type === 'OPLT'; }
 export function isArgwave(type)    { return ARGWAVE_OPERAND_TYPES.indexOf(type) >= 0; }
 export function isArgwaveMin(type) { return type.startsWith('MNW'); }
@@ -130,7 +159,7 @@ export function isFractionalUnit(type) {
     if (!type) return false;
     if (isConstraint(type)) return false;   // MNT/MXT in nm
     if (isTotalThickness(type)) return false; // TT in nm
-    if (isArgwave(type))    return false;   // MXWT/MNWT in nm
+    if (isArgwave(type) || isPhase(type)) return false;   // MXWT/MNWT (nm), Ψ/Δ (deg), GD (fs), |E|²
     if (isMath(type))       return false;   // math = inherit (resolved separately)
     if (isDmfs(type))       return false;   // DMFS = placeholder
     if (isBlank(type))      return false;   // BLNK = comment placeholder
@@ -217,6 +246,22 @@ export const ARGWAVE_DEFAULT_POINTS = 301;
 
 export const PNORM_DEFAULT = 50;     // softmax sharpness for TMN/TMX-family
 
+// Per-type physical default target for phase/field operands (degrees, fs, fs²,
+// |E|²). EFMX/GD*/flat default to 0 so the residual monotonically minimizes the
+// quantity until the user sets a specific target.
+const PHASE_DEFAULT_TARGET = {
+    PSI: 45, DEL: 180, TANPSI: 1, COSDEL: 0,
+    GD: 0, GDD: 0, GDFLAT: 0, GDDFLAT: 0, EFMX: 0,
+};
+
+// Replace the RAV "+ Add" default (0.99, a fraction) with the phase operand's
+// physical default. Fractions are meaningless for degrees / fs / fs² / |E|².
+function seedPhaseTarget(base) {
+    if (!isPhase(base.type)) return;
+    if (Number.isFinite(base.target) && base.target !== 0.99) return;
+    base.target = PHASE_DEFAULT_TARGET[base.type] ?? 0;
+}
+
 export function makeOperand(overrides = {}) {
     const base = {
         id:          Math.random().toString(36).slice(2, 10),
@@ -264,6 +309,7 @@ export function makeOperand(overrides = {}) {
     if (isTotalThickness(base.type) && (!Number.isFinite(base.target) || base.target === 0.99)) {
         base.target = 1000;
     }
+    seedPhaseTarget(base);
     // Blank/comment operand: keep a comment field, no numeric meaning.
     if (isBlank(base.type) && base.comment == null) base.comment = '';
     // ── Implementation hyperparameters NOT stamped ───────────────────────────

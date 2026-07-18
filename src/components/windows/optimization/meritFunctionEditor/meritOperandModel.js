@@ -28,7 +28,13 @@ function formatPassStopFields(ctx) {
         : `pass ${p.passStart}–${p.passEnd} nm, stop ${p.stopStart}–${p.stopEnd} nm`;
 }
 
+function formatCustomTarget({ params: p }) {
+    const cmp = p.cmp === 'le' ? '≤' : p.cmp === 'ge' ? '≥' : '=';
+    return `${p.channel} ${cmp} ${p.valuePct}%, λ ${p.lamStart}–${p.lamEnd} nm`;
+}
+
 const FIELD_FORMATTERS = [
+    ['channel', formatCustomTarget],
     ['lamStart', formatRangeFields],
     ['lam0', ({ params: p }) => `λ₀=${p.lam0} nm`],
     ['lam3', ({ params: p }) => `λ=${p.lam1}/${p.lam2}/${p.lam3} nm`],
