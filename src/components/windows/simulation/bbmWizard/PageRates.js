@@ -13,7 +13,7 @@ const { createElement: h } = React;
 // Live OU rate path preview (re-seeded by the "Randomize" nonce).
 function samplePath(rate, rateNonce) {
     const rng = mulberry32((rateNonce | 0) + 1);
-    return sampleOURatePath(rate.meanA, rate.rmsA, rate.corr, 1, 500, rng);
+    return sampleOURatePath({ mean: rate.meanA, sigma: rate.rmsA, tau: rate.corr, dt: 1, n: 500, rng });
 }
 
 export function PageRates(props) {

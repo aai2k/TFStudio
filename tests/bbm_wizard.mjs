@@ -55,7 +55,7 @@ function test_ou_path() {
     const mean = 4, sigma = 0.4;
     // τ→0 white: lag-1 autocov ≈ 0; large τ: lag-1 autocov clearly > 0.
     const stats = (tau) => {
-        const { r } = sampleOURatePath(mean, sigma, tau, 0.5, 4000, makeRng(123));
+        const { r } = sampleOURatePath({ mean, sigma, tau, dt: 0.5, n: 4000, rng: makeRng(123) });
         const m = r.reduce((a, b) => a + b, 0) / r.length;
         let v = 0, c1 = 0;
         for (let i = 0; i < r.length; i++) v += (r[i] - m) ** 2;

@@ -32,7 +32,7 @@ export function PageMonoSystem({ p, set, layers, c, B, ctx, design }) {
     const autoAll = () => {
         const ref = design.referenceWavelength || 550;
         const arr = layers.map((l, i) => {
-            const lam = pickSensitiveLambda(design, resolveMat, i, ref * 0.7, ref * 1.3, p.aoi, p.pol, p.quantity);
+            const lam = pickSensitiveLambda({ design, resolveMat, layerIdx: i, lamA: ref * 0.7, lamB: ref * 1.3, theta: p.aoi, pol: p.pol, char: p.quantity });
             return { ...(p.monTable[i] || {}), lambda: lam };
         });
         set('monTable', arr); set('monNonce', (p.monNonce | 0) + 1);

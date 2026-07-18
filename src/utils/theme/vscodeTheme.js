@@ -12,31 +12,7 @@
  * pixel match to VS Code — but it faithfully carries a theme's character.
  */
 import { normalizePalette, parseHex } from '../../constants/colorPalettes.js';
-
-// ── Tolerant JSONC parse ────────────────────────────────────────────────────
-// VS Code theme files are JSON-with-comments and allow trailing commas. Strip
-// both while respecting string literals, then JSON.parse.
-const stripJsonc = (text) => {
-  let out = '';
-  let inStr = false, strCh = '', inLine = false, inBlock = false;
-  for (let i = 0; i < text.length; i++) {
-    const ch = text[i], next = text[i + 1];
-    if (inLine) { if (ch === '\n') { inLine = false; out += ch; } continue; }
-    if (inBlock) { if (ch === '*' && next === '/') { inBlock = false; i++; } continue; }
-    if (inStr) {
-      out += ch;
-      if (ch === '\\') { out += next; i++; continue; }
-      if (ch === strCh) inStr = false;
-      continue;
-    }
-    if (ch === '"' || ch === "'") { inStr = true; strCh = ch; out += ch; continue; }
-    if (ch === '/' && next === '/') { inLine = true; i++; continue; }
-    if (ch === '/' && next === '*') { inBlock = true; i++; continue; }
-    out += ch;
-  }
-  // Remove trailing commas: ,} and ,]
-  return out.replace(/,(\s*[}\]])/g, '$1');
-};
+import { stripJsonc } from './vscodeTheme/jsonc.js';
 
 // Normalise a VS Code colour value to a solid 6-digit hex (drop alpha). Returns
 // null for non-hex / transparent references so a fallback chain can continue.
