@@ -77,34 +77,42 @@ export const parseNumber = (value) => {
  * @returns {boolean} True if valid or partial valid input
  */
 export const isValidNumberInput = (value) => {
-    if (!value || typeof value !== 'string') return false;
+    let result;
 
-    const trimmed = value.trim();
-    if (!trimmed) return false;
+    if (!value || typeof value !== 'string') {
+        result = false;
+    } else {
+        const trimmed = value.trim();
 
-    // Allow partial inputs during typing
-    // These are valid intermediate states:
-    // "-" (typing negative number)
-    // "." or "," (typing decimal)
-    // "1." or "1," (decimal point entered)
-    // "1e" or "1E" (starting exponent)
-    // "1e-" or "1E-" (negative exponent started)
-    // "1.2e" or "1,2E" (exponent started)
+        // Allow partial inputs during typing
+        // These are valid intermediate states:
+        // "-" (typing negative number)
+        // "." or "," (typing decimal)
+        // "1." or "1," (decimal point entered)
+        // "1e" or "1E" (starting exponent)
+        // "1e-" or "1E-" (negative exponent started)
+        // "1.2e" or "1,2E" (exponent started)
+        const isSoleSignOrSeparator = trimmed === '-' || trimmed === '+' || trimmed === '.' || trimmed === ',';
+        const endsInSeparatorOrExponent = trimmed.endsWith('.') || trimmed.endsWith(',') || /[eE][-+]?$/.test(trimmed);
+        const isIntermediateState = isSoleSignOrSeparator || endsInSeparatorOrExponent;
 
-    // Check for obviously invalid characters
-    // Valid: digits, one decimal separator (. or ,), minus sign, e/E for exponent
-    const validChars = /^[-+]?[\d.,]*[eE]?[-+]?\d*$/;
-    if (!validChars.test(trimmed)) return false;
+        // Check for obviously invalid characters
+        // Valid: digits, one decimal separator (. or ,), minus sign, e/E for exponent
+        const validChars = /^[-+]?[\d.,]*[eE]?[-+]?\d*$/;
 
-    // Allow intermediate states
-    if (trimmed === '-' || trimmed === '+') return true;
-    if (trimmed === '.' || trimmed === ',') return true;
-    if (trimmed.endsWith('.') || trimmed.endsWith(',')) return true;
-    if (/[eE][-+]?$/.test(trimmed)) return true; // Ends with e, E, e-, E+, etc.
+        if (!trimmed) {
+            result = false;
+        } else if (!validChars.test(trimmed)) {
+            result = false;
+        } else if (isIntermediateState) {
+            result = true;
+        } else {
+            // Try to parse - if it results in a valid number, it's valid
+            result = isFinite(parseNumber(trimmed));
+        }
+    }
 
-    // Try to parse - if it results in a valid number, it's valid
-    const parsed = parseNumber(trimmed);
-    return isFinite(parsed);
+    return result;
 };
 
 /**

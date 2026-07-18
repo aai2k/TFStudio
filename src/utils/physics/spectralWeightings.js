@@ -103,6 +103,64 @@ export const BUILTIN_DETECTORS = [
 // ── Spec resolution ───────────────────────────────────────────────────────────
 
 /**
+ * Sort+wrap a user table into the common `{sampler, lamMin, lamMax, label,
+ * rawTable}` shape shared by custom sources and custom detectors. Returns
+ * null for an empty/missing table so the caller can apply its own fallback.
+ */
+function resolveCustomTable(spec, fallbackLabel) {
+    if (!spec.table?.length) return null;
+    const sorted = [...spec.table].sort((a, b) => a[0] - b[0]);
+    return {
+        sampler: tableSampler(sorted),
+        lamMin:  sorted[0][0],
+        lamMax:  sorted[sorted.length - 1][0],
+        label:   spec.label || fallbackLabel,
+        rawTable: sorted,
+    };
+}
+
+// Derive the integration range from the BUILTIN_SOURCES metadata (single
+// source of truth) instead of hardcoding. The old code clipped BOTH 'A' and
+// 'E' to 200–4000, but 'E' (equal energy) is declared 0–1e9 — so integrals
+// using source E were silently truncated beyond 4000 nm even though equal
+// energy applies at every λ.
+function resolveIlluminantSource(spec) {
+    const meta = BUILTIN_SOURCES.find(s => s.id === spec.id);
+    return {
+        sampler: (lam) => illuminantSPD(spec.id, lam),
+        lamMin: meta.lamMin, lamMax: meta.lamMax,
+        label:  meta.label,
+    };
+}
+
+function resolveSolarSource() {
+    return {
+        sampler: solarIrradianceAt,
+        lamMin: SOLAR_RANGE_NM[0], lamMax: SOLAR_RANGE_NM[1],
+        label:  'AM1.5G',
+    };
+}
+
+function resolveBlackbodySource(spec) {
+    const T = Number.isFinite(spec.T) ? spec.T : 5778;
+    return {
+        sampler: (lam) => planckSPD(lam, T),
+        lamMin: 0, lamMax: 1e9,
+        label:  `Blackbody ${Math.round(T)} K`,
+    };
+}
+
+const SOURCE_RESOLVERS = {
+    D65: resolveIlluminantSource,
+    D50: resolveIlluminantSource,
+    A: resolveIlluminantSource,
+    E: resolveIlluminantSource,
+    'AM1.5G': resolveSolarSource,
+    blackbody: resolveBlackbodySource,
+    custom: (spec) => resolveCustomTable(spec, 'Custom source'),
+};
+
+/**
  * A *spec* describes the user's choice on one slot. Shape:
  *   { id: 'D65' | 'D50' | 'A' | 'AM1.5G' | 'E' | 'blackbody' | 'custom',
  *     T?:     number,             // K, required for blackbody
@@ -112,52 +170,31 @@ export const BUILTIN_DETECTORS = [
  */
 export function resolveSourceSpec(spec) {
     if (!spec || !spec.id) return resolveSourceSpec({ id: 'E' });
-    switch (spec.id) {
-        case 'D65':
-        case 'D50':
-        case 'A':
-        case 'E': {
-            // Derive the integration range from the BUILTIN_SOURCES metadata
-            // (single source of truth) instead of hardcoding. The old code
-            // clipped BOTH 'A' and 'E' to 200–4000, but 'E' (equal energy) is
-            // declared 0–1e9 — so integrals using source E were silently
-            // truncated beyond 4000 nm even though equal energy applies at every λ.
-            const meta = BUILTIN_SOURCES.find(s => s.id === spec.id);
-            return {
-                sampler: (lam) => illuminantSPD(spec.id, lam),
-                lamMin: meta.lamMin, lamMax: meta.lamMax,
-                label:  meta.label,
-            };
-        }
-        case 'AM1.5G':
-            return {
-                sampler: solarIrradianceAt,
-                lamMin: SOLAR_RANGE_NM[0], lamMax: SOLAR_RANGE_NM[1],
-                label:  'AM1.5G',
-            };
-        case 'blackbody': {
-            const T = Number.isFinite(spec.T) ? spec.T : 5778;
-            return {
-                sampler: (lam) => planckSPD(lam, T),
-                lamMin: 0, lamMax: 1e9,
-                label:  `Blackbody ${Math.round(T)} K`,
-            };
-        }
-        case 'custom': {
-            if (!spec.table?.length) return resolveSourceSpec({ id: 'E' });
-            const sorted = [...spec.table].sort((a, b) => a[0] - b[0]);
-            return {
-                sampler: tableSampler(sorted),
-                lamMin:  sorted[0][0],
-                lamMax:  sorted[sorted.length - 1][0],
-                label:   spec.label || 'Custom source',
-                rawTable: sorted,
-            };
-        }
-        default:
-            return resolveSourceSpec({ id: 'E' });
-    }
+    const resolver = SOURCE_RESOLVERS[spec.id];
+    return (resolver && resolver(spec)) || resolveSourceSpec({ id: 'E' });
 }
+
+function resolvePhotopicDetector() {
+    return {
+        sampler: photopicV,
+        lamMin:  PHOTOPIC_RANGE_NM[0], lamMax: PHOTOPIC_RANGE_NM[1],
+        label:   'Photopic V(λ)',
+    };
+}
+
+function resolveFlatDetector() {
+    return {
+        sampler: () => 1,
+        lamMin:  0, lamMax: 1e9,
+        label:   'Flat (unity)',
+    };
+}
+
+const DETECTOR_RESOLVERS = {
+    photopic: resolvePhotopicDetector,
+    flat: resolveFlatDetector,
+    custom: (spec) => resolveCustomTable(spec, 'Custom detector'),
+};
 
 /**
  * Same shape as resolveSourceSpec but for the detector slot.
@@ -165,33 +202,8 @@ export function resolveSourceSpec(spec) {
  */
 export function resolveDetectorSpec(spec) {
     if (!spec || !spec.id) return resolveDetectorSpec({ id: 'flat' });
-    switch (spec.id) {
-        case 'photopic':
-            return {
-                sampler: photopicV,
-                lamMin:  PHOTOPIC_RANGE_NM[0], lamMax: PHOTOPIC_RANGE_NM[1],
-                label:   'Photopic V(λ)',
-            };
-        case 'flat':
-            return {
-                sampler: () => 1,
-                lamMin:  0, lamMax: 1e9,
-                label:   'Flat (unity)',
-            };
-        case 'custom': {
-            if (!spec.table?.length) return resolveDetectorSpec({ id: 'flat' });
-            const sorted = [...spec.table].sort((a, b) => a[0] - b[0]);
-            return {
-                sampler: tableSampler(sorted),
-                lamMin:  sorted[0][0],
-                lamMax:  sorted[sorted.length - 1][0],
-                label:   spec.label || 'Custom detector',
-                rawTable: sorted,
-            };
-        }
-        default:
-            return resolveDetectorSpec({ id: 'flat' });
-    }
+    const resolver = DETECTOR_RESOLVERS[spec.id];
+    return (resolver && resolver(spec)) || resolveDetectorSpec({ id: 'flat' });
 }
 
 // ── Composer ──────────────────────────────────────────────────────────────────

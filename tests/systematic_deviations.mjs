@@ -247,7 +247,7 @@ const PARAMS = { lambdaStart: 400, lambdaEnd: 800, lambdaStep: 25, theta: 0, pol
 // ── 6) Sweep shape + identity row reproduces baseline ──────────────────────
 {
     const sweep = { param: 'globalThicknessScale', from: 0.95, to: 1.05, steps: 11 };
-    const res = runDeviationSweep(DESIGN, PARAMS, emptyDeviation(), sweep, 'front', resolveMat);
+    const res = runDeviationSweep({ design: DESIGN, params: PARAMS, baseDev: emptyDeviation(), sweep, evalMode: 'front', resolveMat });
 
     ok(res.paramValues.length === 11, 'sweep: 11 parameter values');
     ok(Math.abs(res.paramValues[5] - 1.0) < 1e-12, 'sweep: middle step at exactly 1.0');
@@ -264,7 +264,7 @@ const PARAMS = { lambdaStart: 400, lambdaEnd: 800, lambdaStep: 25, theta: 0, pol
 // ── 7) Per-material sweep parameter encoding works end-to-end ──────────────
 {
     const sweep = { param: 'mat:TiO2:dScale', from: 0.95, to: 1.05, steps: 5 };
-    const res = runDeviationSweep(DESIGN, PARAMS, emptyDeviation(), sweep, 'front', resolveMat);
+    const res = runDeviationSweep({ design: DESIGN, params: PARAMS, baseDev: emptyDeviation(), sweep, evalMode: 'front', resolveMat });
     ok(res.paramValues.length === 5, 'mat-sweep: 5 values');
     ok(Math.abs(res.paramValues[2] - 1.0) < 1e-12, 'mat-sweep: midpoint at 1.0');
     // Middle row reproduces baseline because TiO2-dScale=1 with all global=identity = no-op.
