@@ -15,21 +15,37 @@
  * @param {Object} materials  id → { lambdas, n, k } pre-sampled table
  * @param {string} label      worker name, used in the fallback warning
  */
+// Index a pre-sampled table into an exact-hit map plus a λ-ascending parallel
+// pair (sortedL / sortedNK) used by the nearest-λ fallback.
+function indexTable(entry) {
+    const map = new Map();
+    if (!entry || !entry.lambdas) return { map, sortedL: null, sortedNK: null };
+    const { lambdas, n, k } = entry;
+    for (let i = 0; i < lambdas.length; i++) map.set(lambdas[i], [n[i], k[i]]);
+    const idx = lambdas.map((_, i) => i).sort((a, b) => lambdas[a] - lambdas[b]);
+    return {
+        map,
+        sortedL:  idx.map(i => lambdas[i]),
+        sortedNK: idx.map(i => [n[i], k[i]]),
+    };
+}
+
+// Nearest-λ [n,k] via binary search over the ascending sortedL grid.
+function nearestNK(sortedL, sortedNK, lam) {
+    let lo = 0, hi = sortedL.length - 1;
+    while (hi - lo > 1) {
+        const mid = (lo + hi) >> 1;
+        if (sortedL[mid] < lam) lo = mid; else hi = mid;
+    }
+    return (Math.abs(sortedL[lo] - lam) <= Math.abs(sortedL[hi] - lam)) ? sortedNK[lo] : sortedNK[hi];
+}
+
 export function makeResolveMat(materials, label = 'worker') {
     const cache = new Map();
     let missReported = false;
 
     function build(id) {
-        const entry = materials[id] || materials['Air'] || null;
-        const map = new Map();
-        let sortedL = null, sortedNK = null;
-        if (entry && entry.lambdas) {
-            const { lambdas, n, k } = entry;
-            for (let i = 0; i < lambdas.length; i++) map.set(lambdas[i], [n[i], k[i]]);
-            const idx = lambdas.map((_, i) => i).sort((a, b) => lambdas[a] - lambdas[b]);
-            sortedL  = idx.map(i => lambdas[i]);
-            sortedNK = idx.map(i => [n[i], k[i]]);
-        }
+        const { map, sortedL, sortedNK } = indexTable(materials[id] || materials['Air'] || null);
         return {
             _wkrMat: true,
             getNK(lam) {
@@ -41,12 +57,7 @@ export function makeResolveMat(materials, label = 'worker') {
                     postMessage({ type: 'warn', message:
                         `${label}: λ ${lam} not pre-sampled for "${id}" — nearest-λ fallback (not bit-identical)` });
                 }
-                let lo = 0, hi = sortedL.length - 1;
-                while (hi - lo > 1) {
-                    const mid = (lo + hi) >> 1;
-                    if (sortedL[mid] < lam) lo = mid; else hi = mid;
-                }
-                return (Math.abs(sortedL[lo] - lam) <= Math.abs(sortedL[hi] - lam)) ? sortedNK[lo] : sortedNK[hi];
+                return nearestNK(sortedL, sortedNK, lam);
             },
         };
     }
