@@ -16,11 +16,11 @@
   },
   "dependencies": {
     "@astrojs/starlight": "^0.41.3",
-    "astro": "^7.0.6",
-    "sharp": "^0.33.5",
+    "astro": "^7.1.1",
+    "sharp": "^0.35.3",
     "tfstudio": "file:.."
   },
   "devDependencies": {
-    "@anthropic-ai/sdk": "^0.40.0"
+    "@anthropic-ai/sdk": "^0.112.3"
   }
 }
