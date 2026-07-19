@@ -1,6 +1,6 @@
 <div align="center">
 
-# TFStudio
+<img width="914" height="250" alt="tfstudio banner" src="https://github.com/user-attachments/assets/5fa98d9d-628a-49c4-be4f-7dfc0e62ac3a" />
 
 **An open-source design, analysis, and optimization environment for optical thin-film coatings.**
 
@@ -13,7 +13,7 @@
 **[Website](https://tfstudio.xyz)** · **[Live demo](https://tfstudio.xyz/demo/)** · **[Documentation](https://docs.tfstudio.xyz)** · **[Download](../../releases)**
 
 </div>
-<img width="1514" height="907" alt="Screenshot_400" src="https://github.com/user-attachments/assets/f7e2175a-a80d-47d4-b780-32e8020d4cc2" />
+<img width="1609" height="996" alt="Screenshot_14" src="https://github.com/user-attachments/assets/94409f40-6700-4d6c-b777-37d326c50eef" />
 
 
 ## What is TFStudio?
