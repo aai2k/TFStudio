@@ -134,7 +134,7 @@ function runNeedle(seedDesign, operands, pool, { dMin, maxLayers, dlsIter, engin
           if (!(dOpt >= dMin)) dOpt = dMin;
         } catch (_) { dOpt = dMin; }
         const inserted = cand.intra
-          ? insertNeedleIntra(work, cand.layerK, cand.frac, cand.materialId, dOpt, 'front')
+          ? insertNeedleIntra(work, cand, dOpt, 'front')
           : insertNeedle(work, cand.pos, cand.materialId, dOpt, 'front');
         const d = refine(operands, inserted, dMin, dlsIter, engine);
         const post = d.applyToDesign(inserted);

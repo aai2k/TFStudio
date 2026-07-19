@@ -112,7 +112,7 @@ console.log('— predicted ΔMF —');
 const best = improving.slice().sort((a, b) => a.grad - b.grad)[0];
 ok(best.grad < 0, `best candidate grad < 0 (${best.grad.toExponential(3)})`);
 const insertedThin = best.intra
-    ? insertNeedleIntra(design, best.layerK, best.frac, best.materialId, dMin, 'front')
+    ? insertNeedleIntra(design, best, dMin, 'front')
     : insertNeedle(design, best.pos, best.materialId, dMin, 'front');
 const mfThin = mfOf(insertedThin, makeOps());
 ok(mfThin < scan.mf0, `thin needle lowers MF (${scan.mf0.toFixed(6)} → ${mfThin.toFixed(6)})`);
@@ -126,7 +126,7 @@ console.log('— insertion geometry —');
     const intraCand = scan.candidates.find(c => c.intra && c.layerK === 1);
     ok(!!intraCand, 'found an intra candidate in layer 1');
     const dN = 12;
-    const ins = insertNeedleIntra(design, 1, intraCand.frac, intraCand.materialId, dN, 'front');
+    const ins = insertNeedleIntra(design, intraCand, dN, 'front');
     ok(ins.frontLayers.length === design.frontLayers.length + 2, 'intra insert grows stack by 2 layers');
     const [p1, needle, p2] = [ins.frontLayers[1], ins.frontLayers[2], ins.frontLayers[3]];
     ok(needle.material === intraCand.materialId && near(needle.thickness, dN), 'needle layer has right material + thickness');

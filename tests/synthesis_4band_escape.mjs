@@ -59,7 +59,7 @@ function insertOptimal(design, cand) {
   cand._mat = resolveMat(cand.materialId);
   let dOpt = DMIN;
   try { dOpt = findOptimalNeedleThickness({ operands, design, resolveMat, candidate: cand, deltaNm: DMIN, maxNm: 500, tol: 0.5, side: 'front' }); if (!(dOpt >= DMIN)) dOpt = DMIN; } catch { dOpt = DMIN; }
-  return cand.intra ? insertNeedleIntra(design, cand.layerK, cand.frac, cand.materialId, dOpt, 'front')
+  return cand.intra ? insertNeedleIntra(design, cand, dOpt, 'front')
                     : insertNeedle(design, cand.pos, cand.materialId, dOpt, 'front');
 }
 function greedyGE({ maxLayers = 60, budgetS = 90, stagnStop = 6 }) {

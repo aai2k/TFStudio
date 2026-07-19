@@ -71,7 +71,12 @@ export function bestNeedlePerPosition(candidates) {
 
 // ── Intra-layer needle insertion ──────────────────────────────────────────────
 
-export function insertNeedleIntra(design, layerK, frac, materialId, deltaNm, side = 'front') {
+// `cand` locates the insertion: { layerK, frac, materialId } (the same candidate
+// object the scanners/GE runners produce). The host layer `layerK` is split at
+// `frac` and a `materialId` needle of thickness `deltaNm` is inserted between the
+// halves.
+export function insertNeedleIntra(design, cand, deltaNm, side = 'front') {
+    const { layerK, frac, materialId } = cand;
     const key    = side === 'back' ? 'backLayers' : 'frontLayers';
     const layers = design[key] || [];
     const host   = layers[layerK];

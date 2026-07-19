@@ -23,6 +23,59 @@ function isBandSampled(type) {
 }
 export function charOf(type) { return type[0]; }
 
+// Continuous per-λ target line (TGT/RGT/AGT). Density-based default
+// (~AVG_STEP_NM, same grid as band averages) so a steep ramp / structured
+// spectral target is sampled finely enough that the RMS deviation is accurate —
+// the old flat 21-point default was ~15 nm spacing on a 300 nm band and
+// under-resolved steep edges. `op.rampPoints` (if ≥2) still overrides for a
+// hand-tuned density.
+function _rangeTargetLambdas(op, range) {
+    const userN = Number.isFinite(op.rampPoints) && op.rampPoints >= 2
+        ? Math.round(op.rampPoints)
+        : null;
+    const n = userN ?? bandSampleCount(op);
+    const out = new Array(n);
+    for (let i = 0; i < n; i++) {
+        const f = i / (n - 1);
+        out[i] = op.lambdaStart + range * f;
+    }
+    return out;
+}
+
+// Range-sampled band operands (averages / integrals / minmax / argwave) on a
+// uniform N-point grid. Runtime defaults for sampling density: bandPoints is NOT
+// stamped on operands by makeOperand — it lives only at evaluation time, so a
+// default change here automatically upgrades every existing operand on disk (no
+// migration / "remake" needed).
+//   • Argwave (MXW*/MNW*) AND worst-case min/max (TMN/RMN/AMN/TMX/RMX/AMX):
+//     ARGWAVE_DEFAULT_POINTS (301 = 1 nm grid). Both report a band EXTREMUM, so
+//     coarse sampling can latch onto the wrong peak / miss a narrow dip —
+//     precision matters most here, and minmax now returns the TRUE extremum (not
+//     a smooth surrogate), so a dense grid is a pure accuracy win (the Jacobian
+//     only differentiates the single argmax sample, so cost stays ~O(nFree), not
+//     O(n·nFree)).
+//   • TAV/RAV/AAV + TIW/RIW/AIW: density-based (~AVG_STEP_NM) — fine for smooth
+//     averages and band integrals.
+// User can override via op.bandPoints for a single operand (e.g. to sample a
+// structured weighting more finely).
+function _bandLambdas(op, range) {
+    const userN = Number.isFinite(op.bandPoints) && op.bandPoints >= 2
+        ? Math.round(op.bandPoints)
+        : null;
+    // Extremum operators (argwave + minmax) get the dense fixed grid;
+    // band-average/integral operands use the ~AVG_STEP_NM density. User
+    // op.bandPoints wins for either.
+    const defaultN = (isArgwave(op.type) || isMinmax(op.type))
+        ? ARGWAVE_DEFAULT_POINTS
+        : bandSampleCount(op);
+    const n = userN ?? defaultN;
+    const out = new Array(n);
+    for (let i = 0; i < n; i++) {
+        out[i] = op.lambdaStart + (range * i) / (n - 1);
+    }
+    return out;
+}
+
 // ── Centralized operand → sample-wavelength derivation ────────────────────────
 //
 // SINGLE SOURCE OF TRUTH for "which λ does this operand evaluate at". Used by
@@ -49,53 +102,7 @@ export function operandSampleLambdas(op) {
     }
     if (isBandSampled(op.type)) {
         const range = op.lambdaEnd - op.lambdaStart;
-        if (isRangeTarget(op.type)) {  // continuous per-λ target line (TGT/RGT/AGT)
-            // Density-based default (~AVG_STEP_NM, same grid as band averages) so
-            // a steep ramp / structured spectral target is sampled finely enough
-            // that the RMS deviation is accurate — the old flat 21-point default
-            // was ~15 nm spacing on a 300 nm band and under-resolved steep edges.
-            // `op.rampPoints` (if ≥2) still overrides for a hand-tuned density.
-            const userN = Number.isFinite(op.rampPoints) && op.rampPoints >= 2
-                ? Math.round(op.rampPoints)
-                : null;
-            const n = userN ?? bandSampleCount(op);
-            const out = new Array(n);
-            for (let i = 0; i < n; i++) {
-                const f = i / (n - 1);
-                out[i] = op.lambdaStart + range * f;
-            }
-            return out;
-        }
-        // Runtime defaults for sampling density. bandPoints is NOT stamped on
-        // operands by makeOperand — it lives only at evaluation time, so a
-        // default change here automatically upgrades every existing operand
-        // on disk (no migration / "remake" needed).
-        //   • Argwave (MXW*/MNW*) AND worst-case min/max (TMN/RMN/AMN/TMX/RMX/
-        //     AMX): ARGWAVE_DEFAULT_POINTS (301 = 1 nm grid). Both report a band
-        //     EXTREMUM, so coarse sampling can latch onto the wrong peak / miss a
-        //     narrow dip — precision matters most here, and minmax now returns
-        //     the TRUE extremum (not a smooth surrogate), so a dense grid is a
-        //     pure accuracy win (the Jacobian only differentiates the single
-        //     argmax sample, so cost stays ~O(nFree), not O(n·nFree)).
-        //   • TAV/RAV/AAV + TIW/RIW/AIW: density-based (~AVG_STEP_NM) — fine for
-        //     smooth averages and band integrals.
-        // User can override via op.bandPoints for a single operand (e.g. to
-        // sample a structured weighting more finely).
-        const userN = Number.isFinite(op.bandPoints) && op.bandPoints >= 2
-            ? Math.round(op.bandPoints)
-            : null;
-        // Extremum operators (argwave + minmax) get the dense fixed grid;
-        // band-average/integral operands use the ~AVG_STEP_NM density. User
-        // op.bandPoints wins for either.
-        const defaultN = (isArgwave(op.type) || isMinmax(op.type))
-            ? ARGWAVE_DEFAULT_POINTS
-            : bandSampleCount(op);
-        const n = userN ?? defaultN;
-        const out = new Array(n);
-        for (let i = 0; i < n; i++) {
-            out[i] = op.lambdaStart + (range * i) / (n - 1);
-        }
-        return out;
+        return isRangeTarget(op.type) ? _rangeTargetLambdas(op, range) : _bandLambdas(op, range);
     }
     return [op.lambdaStart];
 }

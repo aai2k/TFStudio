@@ -36,7 +36,7 @@ export function mtStartCandidate(run, idx) {
     console.log(`[Needle Insert #${idx + 1}/${queue.length}] ${cand.materialId} at ${posLabel} d=${dOpt.toFixed(1)}nm (ΔMF=${cand.dMF.toFixed(5)})`);
 
     const newDesign = cand.intra
-        ? insertNeedleIntra(ctx.baseDesignRef.current, cand.layerK, cand.frac, cand.materialId, dOpt, side)
+        ? insertNeedleIntra(ctx.baseDesignRef.current, cand, dOpt, side)
         : insertNeedle(ctx.baseDesignRef.current, cand.pos, cand.materialId, dOpt, side);
     ctx.baseDesignRef.current = newDesign;
     ctx.updateDesignRef.current({ [LK]: newDesign[LK] }, { transient: true });

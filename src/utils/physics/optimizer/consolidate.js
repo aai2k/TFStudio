@@ -22,6 +22,31 @@ import { cleanupLayers } from './layerOps.js';
 const sideKey = (side) => (side === 'back' ? 'backLayers' : 'frontLayers');
 const deep = (x) => JSON.parse(JSON.stringify(x));
 
+// Indices of the non-locked (removable) layers.
+function _removableIndices(layers) {
+    const idxs = [];
+    for (let i = 0; i < layers.length; i++) if (!layers[i].locked) idxs.push(i);
+    return idxs;
+}
+
+// Trial-delete each removable layer (merging same-material neighbours via
+// cleanupLayers), RE-REFINE the remainder, and return the single deletion whose
+// re-refined merit is lowest — { mf, design, omf, i }, or null. `cfg` bundles
+// the per-round-invariant context { key, dMin, maxIter, refineFn, alive }.
+function _bestTrialDeletion(design, layers, idxs, cfg) {
+    const { key, dMin, maxIter, refineFn, alive } = cfg;
+    let best = null;
+    for (const i of idxs) {
+        if (alive && !alive()) break;
+        const trimmed = layers.filter((_, j) => j !== i);
+        const cleaned = cleanupLayers(trimmed, dMin);
+        const cand = { ...design, [key]: cleaned };
+        const r = refineFn(cand, maxIter);
+        if (!best || r.mf < best.mf) best = { mf: r.mf, design: r.design, omf: r.omf, i };
+    }
+    return best;
+}
+
 /**
  * Greedily remove redundant layers from one side of a design.
  *
@@ -71,35 +96,25 @@ export function removeRedundantLayers({
     let baseline = cur.mf;                 // acceptance bar tracks the best MF seen
     let removed = 0;
     const trail = [{ layers: baseLayers, mf: cur.mf, removedIdx: null }];
+    const trialCfg = { key, dMin, maxIter, refineFn, alive };
 
     while ((cur.design[key] || []).length > minLayers) {
         if (alive && !alive()) break;
         const layers = cur.design[key] || [];
-        const idxs = [];
-        for (let i = 0; i < layers.length; i++) if (!layers[i].locked) idxs.push(i);
+        const idxs = _removableIndices(layers);
         if (idxs.length === 0) break;
 
-        let best = null;                   // { mf, design, omf, i }
-        for (const i of idxs) {
-            if (alive && !alive()) break;
-            const trimmed = layers.filter((_, j) => j !== i);
-            const cleaned = cleanupLayers(trimmed, dMin);
-            const cand = { ...cur.design, [key]: cleaned };
-            const r = refineFn(cand, maxIter);
-            if (!best || r.mf < best.mf) best = { mf: r.mf, design: r.design, omf: r.omf, i };
-        }
+        const best = _bestTrialDeletion(cur.design, layers, idxs, trialCfg);
         if (!best) break;
 
         const threshold = baseline * (1 + tol);
-        if (best.mf <= threshold) {
-            cur = { mf: best.mf, design: best.design, omf: best.omf };
-            baseline = Math.min(baseline, best.mf);
-            removed++;
-            trail.push({ layers: (cur.design[key] || []).length, mf: cur.mf, removedIdx: best.i });
-            onProgress?.(cur);
-        } else {
-            break;                         // best possible removal still hurts → done
-        }
+        if (best.mf > threshold) break;    // best possible removal still hurts → done
+
+        cur = { mf: best.mf, design: best.design, omf: best.omf };
+        baseline = Math.min(baseline, best.mf);
+        removed++;
+        trail.push({ layers: (cur.design[key] || []).length, mf: cur.mf, removedIdx: best.i });
+        onProgress?.(cur);
     }
 
     return {
