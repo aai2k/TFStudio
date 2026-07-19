@@ -197,8 +197,9 @@ function adaptiveCountForOperand(op, ctx, cfg) {
     const desiredStep = Math.max(probeStep, minFeatureWidth / cfg.samplesPerFeature);
     const neededN     = Math.round(width / desiredStep) + 1;
     const count       = Math.min(cfg.maxPoints, Math.max(curN, neededN));
-    if (count <= curN) return null;
-    return { count, featureWidth: minFeatureWidth, capped: neededN > cfg.maxPoints };
+    return count > curN
+        ? { count, featureWidth: minFeatureWidth, capped: neededN > cfg.maxPoints }
+        : null;
 }
 
 // Densify the band-sampled operands whose bands hide a sub-grid feature, returning
@@ -208,29 +209,34 @@ function adaptiveCountForOperand(op, ctx, cfg) {
 // the byte-identical λ-grid contract is preserved. `notify(summary)` (optional)
 // receives a one-line report so callers can surface what was densified / capped
 // (no silent caps).
+// Densify one band-sampled operand if its band hides a sub-grid feature; returns
+// a shallow clone with a raised rampPoints/bandPoints override, or the operand
+// unchanged. Bumps `state.capped` when the needed count was clamped to maxPoints.
+function _densifyOne(op, ctx, cfg, state) {
+    if (!op || op.enabled === false) return op;
+    if (!(isRangeTarget(op.type) || isMinmax(op.type))) return op;
+    let res = null;
+    try { res = adaptiveCountForOperand(op, ctx, cfg); }
+    catch { res = null; }
+    if (!res) return op;
+    if (res.capped) state.capped++;
+    const field = isRangeTarget(op.type) ? 'rampPoints' : 'bandPoints';
+    return { ...op, [field]: res.count };
+}
+
 export function densifyOperandsForFeatures(operands, design, resolveMat, cfg = ADAPTIVE_SAMPLING_DEFAULTS, notify = null) {
     if (!cfg || cfg.enabled === false || !Array.isArray(operands) || operands.length === 0) return operands;
     let ctx;
     try { ctx = buildEvalContext(design, resolveMat); }
     catch { return operands; }   // can't probe → fail safe to the uniform default
 
-    let changed = false;
-    let capped  = 0;
-    const out = operands.map(op => {
-        if (!op || op.enabled === false) return op;
-        if (!(isRangeTarget(op.type) || isMinmax(op.type))) return op;
-        let res = null;
-        try { res = adaptiveCountForOperand(op, ctx, cfg); }
-        catch { res = null; }
-        if (!res) return op;
-        changed = true;
-        if (res.capped) capped++;
-        const field = isRangeTarget(op.type) ? 'rampPoints' : 'bandPoints';
-        return { ...op, [field]: res.count };
-    });
+    const state = { capped: 0 };
+    const out = operands.map(op => _densifyOne(op, ctx, cfg, state));
+    // A densified operand is a fresh object (≠ its input); unchanged ones keep identity.
+    const changed = out.some((o, i) => o !== operands[i]);
     if (changed && typeof notify === 'function') {
         const bumped = out.filter((o, i) => o !== operands[i]).length;
-        notify({ bumped, capped });
+        notify({ bumped, capped: state.capped });
     }
     return changed ? out : operands;
 }
@@ -978,9 +984,12 @@ function _ttResidual(op, val) {
 
 // Per-operand merit residual (before unit normalization). Constraints (MNT/MXT)
 // and worst-case min/max are one-sided penalties (0 when satisfied); math
-// operands defer to mathResidual (one- or two-sided by kind); ramp operands
-// already carry their RMS deviation; everything else is two-sided (value − target).
-function _operandResidual(op, val) {
+// operands defer to mathResidual (one- or two-sided by kind); ramp AND group-
+// delay-flatness operands already carry their RMS deviation (target baked in);
+// everything else is two-sided (value − target). SINGLE SOURCE OF TRUTH for the
+// residual — shared by calcMF (the reported/accepted merit) and the LSQ engine's
+// residual vector (the step direction), so the two can never disagree.
+export function _operandResidual(op, val) {
     if (isTotalThickness(op.type)) return _ttResidual(op, val);
     if (isConstraint(op.type) || isMinmax(op.type)) {
         // Satisfied on the ≥target side for MNT / min-type, ≤target side otherwise.
@@ -997,36 +1006,44 @@ function _operandResidual(op, val) {
 // synthesis scans, whose virtual probe layers are intentionally sub-floor;
 // the thickness bound is enforced by dMin insertion + post-insert DLS refine
 // (which keeps the penalty) + cleanupLayers pruning, not by the scan gradient.
-export function calcMF(operands, computed, opts = {}) {
-    const skipConstraints = !!opts.skipConstraints;
-    // Two weight accumulators: `sumWopt` (the optical/spec operands that define
-    // the merit's normalization) and `sumWcon` (manufacturability constraints —
-    // MNT/MXT layer bounds and the TT/TOT total-thickness budget). The RMS is
-    // normalized by the OPTICAL weight only; constraints add their one-sided
-    // penalty to the NUMERATOR but never enter the denominator. See the return
-    // block for the rationale (keeps MF == OMF when constraints are satisfied).
+// Normalized per-operand merit residual, or null to skip (a constraint dropped
+// by skipConstraints). TT and MNT/MXT are manufacturability constraints —
+// excluded from the synthesis-scan / OMF merit so they never distort needle
+// placement; active during DLS refinement only. Otherwise the raw residual is
+// normalized to dimensionless units (σ = 1 for optical → no change; argwave nm
+// residual ÷ σ_λ; see operandResidualScale). May return a non-finite value —
+// the caller guards it.
+function _meritDiff(op, computedI, skipConstraints) {
+    if (skipConstraints && (isTotalThickness(op.type) || isConstraint(op.type))) return null;
+    let diff = _operandResidual(op, computedI);
+    const sc = operandResidualScale(op);
+    if (sc !== 1) diff /= sc;
+    return diff;
+}
+
+// Accumulate the weighted squared residuals over all contributing operands.
+// Returns { sumWRes2, sumWopt, sumWcon, n, sawNonFinite }.
+//
+// Two weight accumulators: `sumWopt` (the optical/spec operands that define the
+// merit's normalization) and `sumWcon` (manufacturability constraints — MNT/MXT
+// layer bounds and the TT/TOT total-thickness budget). The RMS is normalized by
+// the OPTICAL weight only; constraints add their one-sided penalty to the
+// NUMERATOR but never enter the denominator (keeps MF == OMF when satisfied).
+function _accumMerit(operands, computed, skipConstraints) {
     let sumWRes2 = 0, sumWopt = 0, sumWcon = 0, n = 0;
     let sawNonFinite = false;   // a contributing operand evaluated to NaN/Inf
     for (let i = 0; i < operands.length; i++) {
         const op = operands[i];
         if (!op.enabled || computed[i] == null) continue;
-        const w = op.weight;
-        // TT and MNT/MXT are manufacturability constraints — excluded from the
-        // synthesis-scan / OMF merit (skipConstraints) so they never distort
-        // needle placement; active during DLS refinement only. Their one-sided
-        // penalty enters the numerator but not the normalization denominator (below).
-        if (skipConstraints && (isTotalThickness(op.type) || isConstraint(op.type))) continue;
-        let diff = _operandResidual(op, computed[i]);
-        // Normalize to dimensionless units (σ = 1 for optical → no change;
-        // argwave nm residual ÷ σ_λ). See operandResidualScale above.
-        const sc = operandResidualScale(op);
-        if (sc !== 1) diff /= sc;
+        const diff = _meritDiff(op, computed[i], skipConstraints);
+        if (diff === null) continue;   // constraint dropped by skipConstraints
         // Guard against a non-finite residual poisoning the entire MF. A NaN/Inf
         // from a single operand (e.g. a material at a dispersion pole, a missing
         // material, or a cyclic math operand) would otherwise propagate through
         // sumWRes2 → Math.sqrt(NaN) and make the whole merit function NaN,
         // silently breaking every optimizer. Skip the bad operand instead.
         if (!Number.isFinite(diff)) { sawNonFinite = true; continue; }
+        const w = op.weight;
         sumWRes2 += w * diff * diff;
         // Denominator policy. Manufacturability CONSTRAINTS (MNT/MXT layer bounds
         // and the TT/TOT total-thickness budget) add their one-sided penalty to
@@ -1048,6 +1065,12 @@ export function calcMF(operands, computed, opts = {}) {
         else sumWopt += w;
         n++;
     }
+    return { sumWRes2, sumWopt, sumWcon, n, sawNonFinite };
+}
+
+export function calcMF(operands, computed, opts = {}) {
+    const { sumWRes2, sumWopt, sumWcon, n, sawNonFinite } =
+        _accumMerit(operands, computed, !!opts.skipConstraints);
     // n === 0 means NO operand contributed. Two very different causes:
     //  (a) at least one operand evaluated to NaN/Inf and every operand was
     //      dropped — the H5 NaN-cascade: a genuinely degenerate design. Return

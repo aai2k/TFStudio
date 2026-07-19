@@ -20,17 +20,17 @@ import { tmm, tmmNeedleScan, tmmThicknessJacobian } from '../thinFilmMath.js';
 import {
     tmmNeedleScanEval, ADAPTIVE_SAMPLING_DEFAULTS, densifyOperandsForFeatures, collectDesignMaterialIds, tmmFullSystem,
     isFullSystemEval, resolveEvalMode, tmmProp, MATH_REGISTRY, makeRefResolver, computeMathValue,
-    mathResidual, mathResidualKind, evalOperand, buildEvalContext, evaluateOperands, ARGWAVE_RESIDUAL_SCALE_NM,
-    operandResidualScale, calcMF, mfWeightDenominator,
+    mathResidualKind, evalOperand, buildEvalContext, evaluateOperands, ARGWAVE_RESIDUAL_SCALE_NM,
+    operandResidualScale, calcMF, mfWeightDenominator, _operandResidual,
 } from './evalCore.js';
 import {
     OPTICAL_OPERAND_TYPES, RANGE_TARGET_OPERAND_TYPES, TOTAL_THICKNESS_OPERAND_TYPES, BLANK_OPERAND_TYPES, INTEGRAL_OPERAND_TYPES, MINMAX_OPERAND_TYPES,
     CONSTRAINT_OPERAND_TYPES, INEQUALITY_OPERAND_TYPES, MATH_OPERAND_TYPES, ARGWAVE_OPERAND_TYPES, OPERAND_TYPES, OPERAND_POLS,
     isConstraint, isDmfs, isBlank, isTotalThickness, isRangeTarget, isIntegral,
-    isMinmax, isMinType, isInequality, isArgwave, isArgwaveMin, isMath, isPhase,
+    isMinmax, isInequality, isArgwave, isArgwaveMin, isMath, isPhase,
     isMathSingleRef, isMathPairRef, isFractionalUnit, mathTargetInPercent, argwaveOpticalChar, argwavePolCode,
     polFromType, AVG_POINTS, AVG_STEP_NM, AVG_POINTS_MAX, bandSampleCount, ARGWAVE_DEFAULT_POINTS,
-    PNORM_DEFAULT, makeOperand, isRamp, makeConstraintOperand, makeDefaultConstraints, makeDmfsOperand,
+    PNORM_DEFAULT, makeOperand, makeConstraintOperand, makeDefaultConstraints, makeDmfsOperand,
 } from './operandModel.js';
 import { isRangeAvg, charOf, requiredLambdas, buildPresampledTable } from './sampling.js';
 import { makeConeSpec, coneIsActive } from './coneAngle.js';
@@ -186,41 +186,7 @@ export class LSQEngine {
         for (let i = 0; i < this.operands.length; i++) {
             const op = this.operands[i];
             if (!op.enabled || comp[i] == null) continue;
-            let res;
-            if (isConstraint(op.type)) {
-                // One-sided thickness-bound penalty. Always pushed (0 when
-                // satisfied) so the residual vector keeps a fixed length
-                // across perturbed evaluations — required for the Jacobian.
-                res = op.type === 'MNT'
-                    ? Math.max(0, op.target - comp[i])
-                    : Math.max(0, comp[i] - op.target);
-            } else if (isMinmax(op.type)) {
-                // Worst-case "T ≥ target" (min) or "R ≤ target" (max): only the
-                // violation contributes. comp[i] is the soft-min / soft-max.
-                res = isMinType(op.type)
-                    ? Math.max(0, op.target - comp[i])
-                    : Math.max(0, comp[i] - op.target);
-            } else if (isMath(op.type)) {
-                // Zemax-style math operand: residual semantics declared in
-                // MATH_RESIDUAL_KIND (one-sided for OPGT/OPLT/ABGT/ABLT,
-                // equality for OPVA/ABSO/DIFF/SUMM/PROD).
-                res = mathResidual(op, comp[i]);
-            } else if (isTotalThickness(op.type)) {
-                // Total-thickness target (nm). cmp 'le'/'ge' → one-sided
-                // constraint residual (0 when satisfied; always pushed so the
-                // residual vector keeps a fixed length for the Jacobian);
-                // default → two-sided equality.
-                res = op.cmp === 'le' ? Math.max(0, comp[i] - op.target)
-                    : op.cmp === 'ge' ? Math.max(0, op.target - comp[i])
-                    :                   comp[i] - op.target;
-            } else if (isRamp(op)) {
-                // Ramp: comp[i] is the RMS deviation from the target line already.
-                res = comp[i];
-            } else {
-                // Includes optical single-λ, range-avg, and weighted-integral
-                // (TIW/RIW/AIW) — all two-sided "hit the target" residuals.
-                res = comp[i] - op.target;
-            }
+            const res = _operandResidual(op, comp[i]);
             // Same per-type unit normalization as calcMF (σ = 1 for optical, so
             // pure-optical residuals are unchanged; argwave nm ÷ σ_λ). The FD
             // Jacobian differences this vector, so it inherits σ automatically;
