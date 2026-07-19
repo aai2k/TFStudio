@@ -32,6 +32,51 @@ function copyTreeSync(src, dst) {
   }
 }
 
+// Remove bundled-catalog files in `to` that share a seed catalog's id but not
+// its current filename — leftovers from a seed file being renamed upstream.
+// User-imported catalogs (ids not present in the current seed) are untouched.
+function pruneRenamedSeedCatalogs(from, to, seedFiles, target) {
+  const seedIds = new Set(seedFiles.map(f => readJsonSafe(path.join(from, f))?.id).filter(Boolean));
+  for (const f of fs.readdirSync(to)) {
+    if (!f.endsWith('.catalog.json')) continue;
+    const existingId = readJsonSafe(path.join(to, f))?.id;
+    if (existingId && seedIds.has(existingId) && !seedFiles.includes(f)) {
+      try { fs.unlinkSync(path.join(to, f)); log(`Removed stale seed catalog ${target}/${f}`); } catch (_) {}
+    }
+  }
+}
+
+// Copy each seed file into `to`. When `overwrite` is set (AGF on a version
+// bump), existing files are replaced; otherwise a file is copied only if
+// missing, so materials a user edited/imported into a bundled catalog survive.
+function copySeedFiles(from, to, seedFiles, target, overwrite) {
+  for (const f of seedFiles) {
+    const dst = path.join(to, f);
+    if (overwrite || !fs.existsSync(dst)) {
+      try { fs.copyFileSync(path.join(from, f), dst); log(`Seeded ${target}/${f}`); }
+      catch (err) { log(`Seed copy failed ${target}/${f}: ${err.message}`); }
+    }
+  }
+}
+
+// Copy one bundled catalog source ('agf' or 'library') into materialsDir.
+function seedCatalogSource(seedDir, materialsDir, sub, target, fresh) {
+  const from = path.join(seedDir, sub);
+  if (!fs.existsSync(from)) return;
+  const to = path.join(materialsDir, target);
+  fs.mkdirSync(to, { recursive: true });
+  const seedFiles = fs.readdirSync(from);
+  // On a version bump, remove any stale bundled-catalog files left from an
+  // earlier seed under a different filename (matched by catalog id), so a
+  // renamed catalog never appears twice. User-imported catalogs (other ids)
+  // are preserved.
+  if (fresh && target === 'library') pruneRenamedSeedCatalogs(from, to, seedFiles, target);
+  // AGF refreshes on a version bump; the bundled catalogs are copied only when
+  // missing so materials a user imported into a bundled catalog survive bumps.
+  const overwriteOnBump = target !== 'library';
+  copySeedFiles(from, to, seedFiles, target, fresh && overwriteOnBump);
+}
+
 /**
  * Populate Documents\TFStudio\Materials from the bundled seed on first run (or
  * after a SEED_VERSION bump). Copies the Schott AGF and the coating/substrate
@@ -51,35 +96,7 @@ function seedBundledMaterials(materialsDir, { isPackaged, srcDir }) {
 
   // AGF + bundled catalogs: copy each seed file if missing, or overwrite on bump.
   for (const [sub, target] of [['agf', 'agf'], ['library', 'library']]) {
-    const from = path.join(seedDir, sub);
-    if (!fs.existsSync(from)) continue;
-    const to = path.join(materialsDir, target);
-    fs.mkdirSync(to, { recursive: true });
-    const seedFiles = fs.readdirSync(from);
-    // On a version bump, remove any stale bundled-catalog files left from an
-    // earlier seed under a different filename (matched by catalog id), so a
-    // renamed catalog never appears twice. User-imported catalogs (other ids)
-    // are preserved.
-    if (fresh && target === 'library') {
-      const seedIds = new Set(seedFiles.map(f => readJsonSafe(path.join(from, f))?.id).filter(Boolean));
-      for (const f of fs.readdirSync(to)) {
-        if (!f.endsWith('.catalog.json')) continue;
-        const existingId = readJsonSafe(path.join(to, f))?.id;
-        if (existingId && seedIds.has(existingId) && !seedFiles.includes(f)) {
-          try { fs.unlinkSync(path.join(to, f)); log(`Removed stale seed catalog ${target}/${f}`); } catch (_) {}
-        }
-      }
-    }
-    // AGF refreshes on a version bump; the bundled catalogs are copied only when
-    // missing so materials a user imported into a bundled catalog survive bumps.
-    const overwriteOnBump = target !== 'library';
-    for (const f of seedFiles) {
-      const dst = path.join(to, f);
-      if ((fresh && overwriteOnBump) || !fs.existsSync(dst)) {
-        try { fs.copyFileSync(path.join(from, f), dst); log(`Seeded ${target}/${f}`); }
-        catch (err) { log(`Seed copy failed ${target}/${f}: ${err.message}`); }
-      }
-    }
+    seedCatalogSource(seedDir, materialsDir, sub, target, fresh);
   }
 
   try { fs.writeFileSync(marker, SEED_VERSION, 'utf-8'); } catch (_) {}

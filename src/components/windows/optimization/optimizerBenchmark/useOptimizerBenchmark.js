@@ -146,7 +146,7 @@ export function useOptimizerBenchmark() {
 
     // Load a benchmark cell's design (result or starting seed) as a TRANSIENT
     // preview — it becomes the active design + opens Optical Evaluation, but is
-    // NOT added to the project explorer and never written to disk (renderer-modular
+    // NOT added to the project explorer and never written to disk (renderer.js
     // handles 'tfstudio:load-design' with a single reused preview id).
     const loadDesign = useCallback((baseDesign, job, kindLabel) => {
         const design = buildPreviewDesign(baseDesign, job, kindLabel);

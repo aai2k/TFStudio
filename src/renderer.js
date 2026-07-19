@@ -107,6 +107,153 @@ function saveSession(designs, history) {
     } catch (_) {}
 }
 
+// ── Startup folder/design load helpers ──────────────────────────────────────────
+
+// Renderer-side guard against stale duplicate .tfs files sharing an id within a
+// folder; main.js cleans these on load, but never trust the input. The design
+// payload itself is dropped — the explorer tree only carries id/name/mtime/etc.
+function dedupeFolderItems(folder) {
+    const seen = new Set();
+    const items = [];
+    for (const it of (folder.items || [])) {
+        if (!it || !it.id || seen.has(it.id)) continue;
+        seen.add(it.id);
+        const { design: _d, ...rest } = it;
+        items.push(rest);
+    }
+    return { ...folder, items };
+}
+
+// Splits an IPC loadFolders() result into the design payloads (keyed by id,
+// used as the disk baseline) and the folder tree the explorer renders (which
+// never carries a design payload inline).
+function parseFoldersResult(result) {
+    const diskDesigns = {};
+    result.folders.forEach(f => {
+        (f.items || []).forEach(item => {
+            if (item.design) diskDesigns[item.id] = item.design;
+        });
+    });
+    return { diskDesigns, loadedFolders: result.folders.map(dedupeFolderItems) };
+}
+
+// Merges the last-explicit-save snapshot (`diskDesigns`) with any unsaved
+// working copies persisted in the session (`sessDesigns`). Session wins — it
+// carries the latest edits even across an unclean shutdown — but a design is
+// only marked dirty if it actually differs from its disk snapshot.
+function mergeSessionOverDisk(diskDesigns, sessDesigns) {
+    const initialDesigns = {};
+    const initialDirty   = {};
+
+    Object.entries(diskDesigns).forEach(([id, diskDesign]) => {
+        const sessionDesign = sessDesigns?.[id];
+        if (sessionDesign) {
+            initialDesigns[id] = sessionDesign;
+            if (!designsEqual(sessionDesign, diskDesign)) initialDirty[id] = true;
+        } else {
+            initialDesigns[id] = diskDesign;
+        }
+    });
+
+    // Session-only designs (e.g. created but the disk save failed) have no
+    // disk snapshot at all — keep them, flagged dirty.
+    if (sessDesigns) {
+        Object.entries(sessDesigns).forEach(([id, design]) => {
+            if (!initialDesigns[id]) {
+                initialDesigns[id] = design;
+                initialDirty[id]   = true;
+            }
+        });
+    }
+
+    return { initialDesigns, initialDirty };
+}
+
+// Restores per-design undo/redo stacks from the persisted session (best-
+// effort; malformed entries are skipped rather than failing the whole load).
+function restoreSessionHistory(sessionHistory) {
+    const restored = {};
+    for (const [id, h] of Object.entries(sessionHistory)) {
+        if (!h) continue;
+        restored[id] = {
+            past:   Array.isArray(h.past)   ? h.past   : [],
+            future: Array.isArray(h.future) ? h.future : [],
+        };
+    }
+    return restored;
+}
+
+// ── Catalog load helpers ─────────────────────────────────────────────────────
+
+// One-time migration: if no catalog files exist yet, promote any catalogs that
+// were previously stored in localStorage (pre-Documents storage) to disk files.
+async function migrateLegacyCatalogsFromLocalStorage(persistedCatalogs) {
+    const OLD_KEY = 'tf_catalogs';
+    try {
+        const raw = localStorage.getItem(OLD_KEY);
+        if (!raw) return;
+        const legacy = JSON.parse(raw);
+        for (const cat of Object.values(legacy)) {
+            if (cat.id && cat.id !== 'builtin' && window.electronAPI?.saveCatalog) {
+                await window.electronAPI.saveCatalog(cat);
+                persistedCatalogs[cat.id] = cat;
+            }
+        }
+        localStorage.removeItem(OLD_KEY);
+    } catch (_) { /* corrupt legacy data — ignore */ }
+}
+
+// Auto-scan Documents\TFStudio\Materials\agf\ for .agf files and register any
+// not already present in the persisted catalog set.
+async function scanAndRegisterAgfCatalogs(persistedCatalogs) {
+    if (!window.electronAPI?.scanAgfDir) return;
+    try {
+        const agfResult = await window.electronAPI.scanAgfDir();
+        if (!agfResult.success) return;
+        for (const { name, text } of agfResult.files) {
+            const catId = name.toLowerCase().replace(/[^a-z0-9]/g, '_');
+            if (!persistedCatalogs[catId]) {
+                addCatalog(parseAGF(text, catId));
+            }
+        }
+    } catch (_) {}
+}
+
+// ── Settings load helpers ────────────────────────────────────────────────────
+
+// Drops any imported theme whose name now collides with a shipped built-in
+// (e.g. Monokai/One Dark Pro/Quiet Light imported before they became
+// built-ins) — the built-in supersedes it.
+function pruneBuiltInThemeNames(customThemes) {
+    const cleaned = {};
+    for (const [name, pal] of Object.entries(customThemes)) {
+        if (!isBuiltInName(name)) cleaned[name] = pal;
+    }
+    return cleaned;
+}
+
+// Migrates the old 'Dark Gray (Default)' name (Light is now the default).
+function migrateThemeName(name) {
+    return name === 'Dark Gray (Default)' ? 'Dark Gray' : name;
+}
+
+// ── Design clone/import helpers ──────────────────────────────────────────────
+
+// Assigns fresh, collision-free layer ids under a new design id/timestamp
+// (`ts`) so a cloned or imported design can never share an id with its
+// source. `side` distinguishes front/back layers in the generated id.
+function rekeyLayers(layers, ts, side) {
+    return (layers || []).map((l, i) => ({ ...l, id: `l-${ts}-${side}${i}` }));
+}
+
+// Appends a numeric suffix (via `formatSuffix`) until the name no longer
+// collides with any of `existingLower` (a lowercase name set).
+function uniqueName(base, existingLower, formatSuffix) {
+    let name = base, k = 2;
+    while (existingLower.has(name.toLowerCase())) name = formatSuffix(base, k++);
+    return name;
+}
+
 // ── App ────────────────────────────────────────────────────────────────────────
 
 const App = () => {
@@ -523,31 +670,12 @@ const App = () => {
         if (window.electronAPI?.loadFolders) {
             const result = await window.electronAPI.loadFolders();
             if (result.success) {
-                result.folders.forEach(f => {
-                    (f.items || []).forEach(item => {
-                        if (item.design) diskDesigns[item.id] = item.design;
-                    });
-                });
-                loadedFolders = result.folders.map(f => {
-                    // Defensive: dedupe items by id within a folder (renderer-side
-                    // guard against stale duplicate .tfs files; main.js cleans these
-                    // on load, but never trust the input).
-                    const seen = new Set();
-                    const items = [];
-                    for (const it of (f.items || [])) {
-                        if (!it || !it.id || seen.has(it.id)) continue;
-                        seen.add(it.id);
-                        const { design: _d, ...rest } = it;
-                        items.push(rest);
-                    }
-                    return { ...f, items };
-                });
+                ({ diskDesigns, loadedFolders } = parseFoldersResult(result));
             }
         }
 
         if (loadedFolders.length === 0) {
-            const defaultFolder = { id: 'My Designs', name: 'My Designs', expanded: true, items: [] };
-            loadedFolders = [defaultFolder];
+            loadedFolders = [{ id: 'My Designs', name: 'My Designs', expanded: true, items: [] }];
             if (window.electronAPI?.createFolder) {
                 await window.electronAPI.createFolder('My Designs');
             }
@@ -562,44 +690,9 @@ const App = () => {
         // Merge session (unsaved working copies) over disk snapshots.
         // Session wins — it has the latest edits even if app was closed without
         // saving — and restores undo/redo history so it survives a restart.
-        const session        = loadSession();
-        const sessDesigns     = session?.designs || null;
-        const initialDesigns  = {};
-        const initialDirty    = {};
-
-        Object.entries(diskDesigns).forEach(([id, diskDesign]) => {
-            const sessionDesign = sessDesigns?.[id];
-            if (sessionDesign) {
-                initialDesigns[id] = sessionDesign;
-                // Genuine unsaved edit from a previous session → still dirty.
-                if (!designsEqual(sessionDesign, diskDesign)) initialDirty[id] = true;
-            } else {
-                initialDesigns[id] = diskDesign;
-            }
-        });
-
-        // Session-only designs (e.g., created but disk save failed — keep as dirty)
-        if (sessDesigns) {
-            Object.entries(sessDesigns).forEach(([id, design]) => {
-                if (!initialDesigns[id]) {
-                    initialDesigns[id] = design;
-                    initialDirty[id]   = true;
-                }
-            });
-        }
-
-        // Restore persisted undo/redo history (best-effort; ignore unknown ids).
-        if (session?.history) {
-            const restored = {};
-            for (const [id, h] of Object.entries(session.history)) {
-                if (!h) continue;
-                restored[id] = {
-                    past:   Array.isArray(h.past)   ? h.past   : [],
-                    future: Array.isArray(h.future) ? h.future : [],
-                };
-            }
-            historyRef.current = restored;
-        }
+        const session = loadSession();
+        const { initialDesigns, initialDirty } = mergeSessionOverDisk(diskDesigns, session?.designs || null);
+        if (session?.history) historyRef.current = restoreSessionHistory(session.history);
 
         setDesigns(initialDesigns);
         setDirtyDesigns(initialDirty);
@@ -608,8 +701,7 @@ const App = () => {
         // Startup: select a project FOLDER as the default target for new designs,
         // but do NOT auto-open any design. The workspace shows the empty-state
         // (🔬 "Create a project…") until the user creates or picks a design.
-        const firstFolder = loadedFolders[0];
-        setSelectedFolder(firstFolder || null);
+        setSelectedFolder(loadedFolders[0] || null);
 
         // Restore a previously saved docking layout if one exists; otherwise
         // leave the workspace empty (no preset) so the empty-state is shown.
@@ -630,39 +722,13 @@ const App = () => {
         // One-time migration: if no files found yet, promote any catalogs that were
         // previously stored in localStorage (pre-Documents storage) to disk files.
         if (Object.keys(persistedCatalogs).length === 0) {
-            const OLD_KEY = 'tf_catalogs';
-            try {
-                const raw = localStorage.getItem(OLD_KEY);
-                if (raw) {
-                    const legacy = JSON.parse(raw);
-                    for (const cat of Object.values(legacy)) {
-                        if (cat.id && cat.id !== 'builtin' && window.electronAPI?.saveCatalog) {
-                            await window.electronAPI.saveCatalog(cat);
-                            persistedCatalogs[cat.id] = cat;
-                        }
-                    }
-                    localStorage.removeItem(OLD_KEY);
-                }
-            } catch (_) { /* corrupt legacy data — ignore */ }
+            await migrateLegacyCatalogsFromLocalStorage(persistedCatalogs);
         }
 
         initCatalogs(persistedCatalogs);
 
         // Auto-scan Documents\TFStudio\Materials\agf\ for .agf files.
-        if (window.electronAPI?.scanAgfDir) {
-            try {
-                const agfResult = await window.electronAPI.scanAgfDir();
-                if (agfResult.success) {
-                    for (const { name, text } of agfResult.files) {
-                        const catId = name.toLowerCase().replace(/[^a-z0-9]/g, '_');
-                        if (!persistedCatalogs[catId]) {
-                            const catalog = parseAGF(text, catId);
-                            addCatalog(catalog);
-                        }
-                    }
-                }
-            } catch (_) {}
-        }
+        await scanAndRegisterAgfCatalogs(persistedCatalogs);
 
         // Notify any already-mounted catalog consumers to refresh.
         window.dispatchEvent(new CustomEvent('catalogs-loaded'));
@@ -675,23 +741,13 @@ const App = () => {
                 // Register imported themes BEFORE setTheme so a custom theme name
                 // resolves on the very first paint (no default-theme flash).
                 if (result.settings.customThemes && typeof result.settings.customThemes === 'object') {
-                    // Drop any import that now collides with a shipped built-in
-                    // (e.g. Monokai/One Dark Pro/Quiet Light imported before they
-                    // became built-ins) — the built-in supersedes it.
-                    const cleaned = {};
-                    for (const [name, pal] of Object.entries(result.settings.customThemes)) {
-                        if (!isBuiltInName(name)) cleaned[name] = pal;
-                    }
+                    const cleaned = pruneBuiltInThemeNames(result.settings.customThemes);
                     registerCustomThemes(cleaned);
                     setCustomThemes(cleaned);
                 }
                 // If the persisted theme was a now-pruned dupe, its built-in twin
                 // resolves by the same name — nothing else to do.
-                // Migrate the old 'Dark Gray (Default)' name (Light is now the default).
-                if (result.settings.theme) {
-                    const migrated = result.settings.theme === 'Dark Gray (Default)' ? 'Dark Gray' : result.settings.theme;
-                    setTheme(migrated);
-                }
+                if (result.settings.theme) setTheme(migrateThemeName(result.settings.theme));
                 if (result.settings.locale) setLocaleState(result.settings.locale);
                 if (result.settings.ribbonStyle) setRibbonStyle(result.settings.ribbonStyle);
                 setWasmTmmState(result.settings.wasmTmm !== false);   // default ON (opt-out)
@@ -824,15 +880,14 @@ const App = () => {
         const ts       = `${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
         const existing = new Set(foldersRef.current.flatMap(f => f.items.map(i => i.name.toLowerCase())));
         const base     = (res.design.name && String(res.design.name).trim()) || res.fileName || 'Imported design';
-        let name = base, k = 2;
-        while (existing.has(name.toLowerCase())) name = `${base} (${k++})`;
+        const name     = uniqueName(base, existing, (b, k) => `${b} (${k})`);
 
         const design = {
             ...res.design,
             id: `design-${ts}`,
             name,
-            frontLayers: (res.design.frontLayers || []).map((l, i) => ({ ...l, id: `l-${ts}-f${i}` })),
-            backLayers:  (res.design.backLayers  || []).map((l, i) => ({ ...l, id: `l-${ts}-b${i}` })),
+            frontLayers: rekeyLayers(res.design.frontLayers, ts, 'f'),
+            backLayers:  rekeyLayers(res.design.backLayers, ts, 'b'),
         };
         await addItemFromDesign(design, targetFolder);
         setToolRequests(prev => [...prev, { toolId: 'design-editor', ts: Date.now() }]);
@@ -847,10 +902,10 @@ const App = () => {
                      || selectedFolder || foldersRef.current[0];
         if (!folder) return;
 
-        const sa       = t.dialogs.saveAs;
-        const existing = new Set(foldersRef.current.flatMap(f => f.items.map(i => i.name.toLowerCase())));
-        let base = `${src.name} (copy)`, suggested = base, k = 2;
-        while (existing.has(suggested.toLowerCase())) suggested = `${base} ${k++}`;
+        const sa        = t.dialogs.saveAs;
+        const existing  = new Set(foldersRef.current.flatMap(f => f.items.map(i => i.name.toLowerCase())));
+        const base      = `${src.name} (copy)`;
+        const suggested = uniqueName(base, existing, (b, k) => `${b} ${k}`);
 
         setInputDialog({
             title: sa.title,
@@ -867,8 +922,8 @@ const App = () => {
                 const clone = {
                     ...JSON.parse(JSON.stringify(src)),
                     id: newId, name,
-                    frontLayers: (src.frontLayers || []).map((l, i) => ({ ...l, id: `l-${ts}-f${i}` })),
-                    backLayers:  (src.backLayers  || []).map((l, i) => ({ ...l, id: `l-${ts}-b${i}` })),
+                    frontLayers: rekeyLayers(src.frontLayers, ts, 'f'),
+                    backLayers:  rekeyLayers(src.backLayers, ts, 'b'),
                 };
                 const newItem = { id: newId, name, mtime: Date.now() };
                 setDesigns(d => ({ ...d, [newId]: clone }));
@@ -898,8 +953,8 @@ const App = () => {
             ...JSON.parse(JSON.stringify(src)),
             id: newId,
             name: newName,
-            frontLayers: (src.frontLayers || []).map((l, i) => ({ ...l, id: `l-${ts}-f${i}` })),
-            backLayers:  (src.backLayers  || []).map((l, i) => ({ ...l, id: `l-${ts}-b${i}` })),
+            frontLayers: rekeyLayers(src.frontLayers, ts, 'f'),
+            backLayers:  rekeyLayers(src.backLayers, ts, 'b'),
         };
         const newItem = { id: newId, name: newName, mtime: Date.now() };
         setDesigns(d => ({ ...d, [newId]: clone }));
@@ -1085,51 +1140,46 @@ const App = () => {
     // ── Menu & toolbar actions ────────────────────────────────────────────────
 
     const handleMenuAction = useCallback((action) => {
-        if (action === 'about')         { setShowAbout(true); return; }
-        if (action === 'welcome')       { setShowWelcome(true); return; }
-        if (action === 'tutorials')     { setShowTutorials(true); return; }
-        if (action === 'open-settings') { setShowSettings(true); return; }
-        if (action === 'new-design')    { addItem(); return; }
-        if (action === 'save')          { saveDesignToDisk(); return; }
-        if (action === 'export-report') { setShowReportGen(true); return; }
-        if (action === 'undo')          { undo(); return; }
-        if (action === 'redo')          { redo(); return; }
-        if (action === 'help-docs')     {
-            if (window.electronAPI && window.electronAPI.openHelp) {
-                window.electronAPI.openHelp({ anchor: 'index', locale });
-            }
-            return;
-        }
+        const actions = {
+            'about':         () => setShowAbout(true),
+            'welcome':       () => setShowWelcome(true),
+            'tutorials':     () => setShowTutorials(true),
+            'open-settings': () => setShowSettings(true),
+            'new-design':    () => addItem(),
+            'save':          () => saveDesignToDisk(),
+            'export-report': () => setShowReportGen(true),
+            'undo':          () => undo(),
+            'redo':          () => redo(),
+            'help-docs':     () => window.electronAPI?.openHelp?.({ anchor: 'index', locale }),
 
-        if (action === 'layout-filter-design') { setLayoutRequest({ type: 'preset', id: 'filter-design', ts: Date.now() }); return; }
-        if (action === 'layout-full-analysis') { setLayoutRequest({ type: 'preset', id: 'full-analysis', ts: Date.now() }); return; }
-        if (action === 'layout-synthesis')     { setLayoutRequest({ type: 'preset', id: 'synthesis',     ts: Date.now() }); return; }
-        if (action === 'layout-save')          { setLayoutRequest({ type: 'save',   ts: Date.now() }); return; }
-        if (action === 'layout-restore')       { setLayoutRequest({ type: 'restore', ts: Date.now() }); return; }
-
+            'layout-filter-design': () => setLayoutRequest({ type: 'preset', id: 'filter-design', ts: Date.now() }),
+            'layout-full-analysis': () => setLayoutRequest({ type: 'preset', id: 'full-analysis', ts: Date.now() }),
+            'layout-synthesis':     () => setLayoutRequest({ type: 'preset', id: 'synthesis',     ts: Date.now() }),
+            'layout-save':          () => setLayoutRequest({ type: 'save',   ts: Date.now() }),
+            'layout-restore':       () => setLayoutRequest({ type: 'restore', ts: Date.now() }),
+        };
+        if (actions[action]) { actions[action](); return; }
         if (action.startsWith('tool:')) {
             setToolRequests(prev => [...prev, { toolId: action.slice(5), ts: Date.now() }]);
         }
     }, [addItem, saveDesignToDisk, undo, redo, locale]);
 
     const handleToolAction = useCallback((toolId) => {
-        if (toolId === 'new-design')   { addItem(); return; }
-        if (toolId === 'save')         { saveDesignToDisk(); return; }
-        if (toolId === 'save-as')      { saveDesignAs(); return; }
-        if (toolId === 'open-project') { openDesignFromFile(); return; }
-        if (toolId === 'undo')         { undo(); return; }
-        if (toolId === 'redo')         { redo(); return; }
-        if (toolId === 'filter-design')   { setShowFilterDesign(true); return; }
-        if (toolId === 'bbm-simulator')   { setShowBBM(true); return; }
-        if (toolId === 'mono-simulator')  { setShowMono(true); return; }
-        if (toolId === 'stack-formula') { setShowStackFormula(true); return; }
-        if (toolId === 'report-gen')    { setShowReportGen(true); return; }
-        if (toolId === 'help-docs')    {
-            if (window.electronAPI && window.electronAPI.openHelp) {
-                window.electronAPI.openHelp({ anchor: 'index', locale });
-            }
-            return;
-        }
+        const actions = {
+            'new-design':     () => addItem(),
+            'save':           () => saveDesignToDisk(),
+            'save-as':        () => saveDesignAs(),
+            'open-project':   () => openDesignFromFile(),
+            'undo':           () => undo(),
+            'redo':           () => redo(),
+            'filter-design':  () => setShowFilterDesign(true),
+            'bbm-simulator':  () => setShowBBM(true),
+            'mono-simulator': () => setShowMono(true),
+            'stack-formula':  () => setShowStackFormula(true),
+            'report-gen':     () => setShowReportGen(true),
+            'help-docs':      () => window.electronAPI?.openHelp?.({ anchor: 'index', locale }),
+        };
+        if (actions[toolId]) { actions[toolId](); return; }
         setToolRequests(prev => [...prev, { toolId, ts: Date.now() }]);
     }, [addItem, saveDesignToDisk, saveDesignAs, openDesignFromFile, undo, redo, locale]);
 

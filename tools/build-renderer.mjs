@@ -9,7 +9,7 @@
 // (disabled in packaged builds, see main.js) can't read it live.
 //
 // Output layout (must match src/workerUrls.js expectations):
-//   build/app/renderer-modular.js      <- esbuild entry
+//   build/app/renderer.js      <- esbuild entry
 //   build/app/utils/workers/<worker>.js  <- esbuild worker entries (one per worker)
 //   build/app/styles.css               <- copied
 //   build/app/index.html               <- generated (rebased asset paths)
@@ -61,9 +61,9 @@ async function main() {
   clean(outIcons);
 
   // 1. Bundle: renderer entry + workers. Common ancestor is src/, so esbuild
-  //    emits renderer-modular.js at outdir root and utils/<worker>.js beneath it.
+  //    emits renderer.js at outdir root and utils/<worker>.js beneath it.
   const entryPoints = [
-    path.join(src, 'renderer-modular.js'),
+    path.join(src, 'renderer.js'),
     ...WORKERS.map((w) => path.join(src, 'utils', 'workers', w)),
   ];
   // Stamp the BUILD date (YYYY-MM-DD, local) into the bundle so the About dialog
@@ -134,7 +134,7 @@ async function main() {
     <script src="vendor/katex.min.js"></script>
 
     <!-- Bundled + minified renderer -->
-    <script type="module" src="renderer-modular.js"></script>
+    <script type="module" src="renderer.js"></script>
 </body>
 </html>
 `;
