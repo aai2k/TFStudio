@@ -129,7 +129,7 @@ function insertOptimal(design, cand) {
     if (!(dOpt >= DMIN)) dOpt = DMIN;
   } catch { dOpt = DMIN; }
   return cand.intra
-    ? insertNeedleIntra(design, cand.layerK, cand.frac, cand.materialId, dOpt, 'front')
+    ? insertNeedleIntra(design, cand, dOpt, 'front')
     : insertNeedle(design, cand.pos, cand.materialId, dOpt, 'front');
 }
 

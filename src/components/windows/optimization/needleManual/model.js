@@ -35,7 +35,7 @@ export function candidateDepth(cand, zb) {
 // geometry.
 export function insertForSelection(selected, design, dNew, side) {
     return selected.intra
-        ? insertNeedleIntra(design, selected.layerK, selected.frac, selected.materialId, dNew, side)
+        ? insertNeedleIntra(design, selected, dNew, side)
         : insertNeedle(design, selected.pos, selected.materialId, dNew, side);
 }
 

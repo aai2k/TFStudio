@@ -157,13 +157,16 @@ export function isMathPairRef(type) {
 // consistent with the TAV row it references).
 export function isFractionalUnit(type) {
     if (!type) return false;
-    if (isConstraint(type)) return false;   // MNT/MXT in nm
-    if (isTotalThickness(type)) return false; // TT in nm
-    if (isArgwave(type) || isPhase(type)) return false;   // MXWT/MNWT (nm), Ψ/Δ (deg), GD (fs), |E|²
-    if (isMath(type))       return false;   // math = inherit (resolved separately)
-    if (isDmfs(type))       return false;   // DMFS = placeholder
-    if (isBlank(type))      return false;   // BLNK = comment placeholder
-    return true;                            // T/R/A optical, TAV/RAV/AAV, TGT/RGT/AGT, TMN…
+    // False for the non-fractional (nm / deg / fs / placeholder / inherited)
+    // types; true for T/R/A optical, TAV/RAV/AAV, TGT/RGT/AGT, TMN…
+    return !(
+        isConstraint(type)                    // MNT/MXT in nm
+        || isTotalThickness(type)             // TT in nm
+        || isArgwave(type) || isPhase(type)   // MXWT/MNWT (nm), Ψ/Δ (deg), GD (fs), |E|²
+        || isMath(type)                       // math = inherit (resolved separately)
+        || isDmfs(type)                       // DMFS = placeholder
+        || isBlank(type)                      // BLNK = comment placeholder
+    );
 }
 // Does a math operand's target display in percent? True iff every one of
 // its referenced rows has a fractional value. operandsById is a Map

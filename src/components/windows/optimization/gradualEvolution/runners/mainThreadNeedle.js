@@ -33,7 +33,7 @@ function startNeedleCandidate(ctx, S, idx) {
     console.log(`[GE Insert #${idx + 1}/${S.queue.length}] NEEDLE ${cand.materialId} at ${posLabel} d=${dOpt.toFixed(1)}nm (ΔMF=${cand.dMF.toFixed(5)})`);
 
     const newDesign = cand.intra
-        ? insertNeedleIntra(design, cand.layerK, cand.frac, cand.materialId, dOpt, S.side)
+        ? insertNeedleIntra(design, cand, dOpt, S.side)
         : insertNeedle(design, cand.pos, cand.materialId, dOpt, S.side);
     ctx.baseDesignRef.current = newDesign;
     ctx.updateDesignRef.current({ [S.LK]: newDesign[S.LK] }, { transient: true });

@@ -134,7 +134,7 @@ function handleCandidate(job, resolveMat, post) {
     } catch (_) { dOpt = dMin; }
 
     const inserted = cand.intra
-        ? insertNeedleIntra(design, cand.layerK, cand.frac, cand.materialId, dOpt, side)
+        ? insertNeedleIntra(design, cand, dOpt, side)
         : insertNeedle(design,     cand.pos,   cand.materialId, dOpt, side);
 
     if (pipeline === 'ge') {

@@ -42,7 +42,7 @@ export function needleProposals(S, current, count) {
             thickness = S.cfg.dMin;
         }
         const nextDesign = candidate.intra
-            ? insertNeedleIntra(design, candidate.layerK, candidate.frac, candidate.materialId, thickness, S.side)
+            ? insertNeedleIntra(design, candidate, thickness, S.side)
             : insertNeedle(design, candidate.pos, candidate.materialId, thickness, S.side);
         proposals.push({
             layers: nextDesign[S.layerKey],

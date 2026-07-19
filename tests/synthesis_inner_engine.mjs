@@ -68,7 +68,7 @@ function insertOptimal(design, cand) {
   let dOpt = DMIN;
   try { dOpt = findOptimalNeedleThickness({ operands, design, resolveMat, candidate: cand, deltaNm: DMIN, maxNm: 500, tol: 0.5, side: 'front' }); if (!(dOpt >= DMIN)) dOpt = DMIN; } catch { dOpt = DMIN; }
   return cand.intra
-    ? insertNeedleIntra(design, cand.layerK, cand.frac, cand.materialId, dOpt, 'front')
+    ? insertNeedleIntra(design, cand, dOpt, 'front')
     : insertNeedle(design, cand.pos, cand.materialId, dOpt, 'front');
 }
 function ge(start, engine) {
