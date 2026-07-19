@@ -77,43 +77,53 @@ const DEFAULT_RESOLVERS = { resolveMatId: defaultResolveMatId, getN: defaultGetN
 
 const TOK = { PIPE: '|', LP: '(', RP: ')', CARET: '^', AT: '@', NUM: 'num', ID: 'id' };
 
+// Single-character punctuation tokens, mapped to their token type.
+const PUNCT = { '|': TOK.PIPE, '(': TOK.LP, ')': TOK.RP, '^': TOK.CARET, '@': TOK.AT };
+
+const isDigit = (ch) => ch >= '0' && ch <= '9';
+const isAlpha = (ch) => (ch >= 'A' && ch <= 'Z') || (ch >= 'a' && ch <= 'z');
+const isAlnum = (ch) => isAlpha(ch) || isDigit(ch);
+const isSpace = (ch) => ch === ' ' || ch === '\t' || ch === '\n' || ch === '\r';
+
+// Scan a number token starting at i (digits and dots). Returns { token, next }
+// or { error, errorPos }.
+function scanNumber(s, i) {
+    let j = i + 1;
+    while (j < s.length && (isDigit(s[j]) || s[j] === '.')) j++;
+    const raw = s.slice(i, j);
+    const val = parseFloat(raw);
+    // Reject malformed numbers. parseFloat("1.2.3") silently returns 1.2
+    // (dropping ".3"), so guard against more than one decimal point in the
+    // consumed run in addition to the non-finite check.
+    if (!isFinite(val) || (raw.match(/\./g) || []).length > 1) {
+        return { error: `Invalid number "${raw}"`, errorPos: i };
+    }
+    return { token: { type: TOK.NUM, value: val, raw, pos: i }, next: j };
+}
+
+// Scan an identifier token starting at i ([A-Za-z][A-Za-z0-9_]*).
+function scanIdent(s, i) {
+    let j = i + 1;
+    while (j < s.length && (isAlnum(s[j]) || s[j] === '_')) j++;
+    return { token: { type: TOK.ID, value: s.slice(i, j), pos: i }, next: j };
+}
+
 export function tokenizeStackFormula(text) {
     const tokens = [];
     const s = String(text ?? '');
     let i = 0;
-    const isDigit = (ch) => ch >= '0' && ch <= '9';
-    const isAlpha = (ch) => (ch >= 'A' && ch <= 'Z') || (ch >= 'a' && ch <= 'z');
-    const isAlnum = (ch) => isAlpha(ch) || isDigit(ch);
 
     while (i < s.length) {
         const ch = s[i];
-        if (ch === ' ' || ch === '\t' || ch === '\n' || ch === '\r') { i++; continue; }
-        if (ch === '|') { tokens.push({ type: TOK.PIPE, pos: i }); i++; continue; }
-        if (ch === '(') { tokens.push({ type: TOK.LP,  pos: i }); i++; continue; }
-        if (ch === ')') { tokens.push({ type: TOK.RP,  pos: i }); i++; continue; }
-        if (ch === '^') { tokens.push({ type: TOK.CARET, pos: i }); i++; continue; }
-        if (ch === '@') { tokens.push({ type: TOK.AT, pos: i }); i++; continue; }
-        if (isDigit(ch) || ch === '.') {
-            let j = i + 1;
-            while (j < s.length && (isDigit(s[j]) || s[j] === '.')) j++;
-            const raw = s.slice(i, j);
-            const val = parseFloat(raw);
-            // Reject malformed numbers. parseFloat("1.2.3") silently returns 1.2
-            // (dropping ".3"), so guard against more than one decimal point in
-            // the consumed run in addition to the non-finite check.
-            if (!isFinite(val) || (raw.match(/\./g) || []).length > 1) {
-                return { error: `Invalid number "${raw}"`, errorPos: i };
-            }
-            tokens.push({ type: TOK.NUM, value: val, raw, pos: i });
-            i = j; continue;
-        }
-        if (isAlpha(ch)) {
-            let j = i + 1;
-            while (j < s.length && (isAlnum(s[j]) || s[j] === '_')) j++;
-            tokens.push({ type: TOK.ID, value: s.slice(i, j), pos: i });
-            i = j; continue;
-        }
-        return { error: `Unexpected character "${ch}"`, errorPos: i };
+        if (isSpace(ch)) { i++; continue; }
+        if (PUNCT[ch]) { tokens.push({ type: PUNCT[ch], pos: i }); i++; continue; }
+        let scan = null;
+        if (isDigit(ch) || ch === '.') scan = scanNumber(s, i);
+        else if (isAlpha(ch)) scan = scanIdent(s, i);
+        else return { error: `Unexpected character "${ch}"`, errorPos: i };
+        if (scan.error) return { error: scan.error, errorPos: scan.errorPos };
+        tokens.push(scan.token);
+        i = scan.next;
     }
     return { tokens };
 }
@@ -132,26 +142,33 @@ export function tokenizeStackFormula(text) {
 // adjacency segmentation is deferred to `buildStackFromFormula` because it
 // needs the symbol map.
 
-export function parseStackFormula(text) {
+// Tokenize, reject an empty stream, and split off the optional
+// "incident | layers | substrate" side materials. Returns the layer token run
+// plus the resolved sides, or { error, errorPos }.
+function preflightFormula(text) {
     const tk = tokenizeStackFormula(text);
-    if (tk.error) return { ok: false, error: tk.error, errorPos: tk.errorPos };
+    if (tk.error) return { error: tk.error, errorPos: tk.errorPos };
     const tokens = tk.tokens;
-    if (tokens.length === 0) return { ok: false, error: 'Empty formula', errorPos: 0 };
+    if (tokens.length === 0) return { error: 'Empty formula', errorPos: 0 };
 
     // Split on top-level pipes (pipes never appear inside groups in this grammar).
     const pipeIdx = [];
     tokens.forEach((t, idx) => { if (t.type === TOK.PIPE) pipeIdx.push(idx); });
     if (pipeIdx.length !== 0 && pipeIdx.length !== 2) {
         const at = pipeIdx.length === 1 ? tokens[pipeIdx[0]].pos : tokens[0].pos;
-        return { ok: false, error: 'Use exactly two "|" separators (incident | layers | substrate) or none', errorPos: at };
+        return { error: 'Use exactly two "|" separators (incident | layers | substrate) or none', errorPos: at };
     }
 
-    let incident = null, exit = null, layerToks = tokens, refLambdaOverride = null;
-    if (pipeIdx.length === 2) {
-        const sides = splitSides(tokens, pipeIdx);
-        if (sides.error) return { ok: false, error: sides.error, errorPos: sides.errorPos };
-        ({ incident, exit, layerToks, refLambdaOverride } = sides);
-    }
+    const hasSides = pipeIdx.length === 2;
+    const sides = hasSides ? splitSides(tokens, pipeIdx) : {};
+    if (sides.error) return { error: sides.error, errorPos: sides.errorPos };
+    return { incident: null, exit: null, layerToks: tokens, refLambdaOverride: null, hasSides, ...sides };
+}
+
+export function parseStackFormula(text) {
+    const pre = preflightFormula(text);
+    if (pre.error) return { ok: false, error: pre.error, errorPos: pre.errorPos };
+    const { incident, exit, layerToks, refLambdaOverride, hasSides } = pre;
 
     const ctx = { toks: layerToks, i: 0 };
     const atoms = [];
@@ -163,7 +180,7 @@ export function parseStackFormula(text) {
         ok: true,
         atoms,                       // [{coef, sym, pos}]
         incident, exit,
-        hasSides: pipeIdx.length === 2,
+        hasSides,
         refLambdaOverride,
     };
 }
@@ -225,6 +242,19 @@ function parseGroup(ctx, out) {
     return t.type === TOK.LP ? parseRepeatGroup(ctx, out, t) : parseAtom(ctx, out, t);
 }
 
+// '^' Integer — consume the exponent suffix after a group's ')'. Returns { n }
+// (a positive integer repeat count) or { error, errorPos }.
+function parseRepeatCount(ctx, t) {
+    if (ctx.toks[ctx.i]?.type !== TOK.CARET) return { error: 'Expected "^n" after group', errorPos: ctx.toks[ctx.i]?.pos ?? t.pos };
+    ctx.i++; // consume '^'
+    const nTok = ctx.toks[ctx.i];
+    if (!nTok || nTok.type !== TOK.NUM) return { error: 'Expected repeat count after "^"', errorPos: nTok?.pos ?? t.pos };
+    const n = nTok.value;
+    if (!(Number.isInteger(n) && n >= 1)) return { error: 'Repeat count must be a positive integer', errorPos: nTok.pos };
+    ctx.i++; // consume number
+    return { n };
+}
+
 // '(' Layers ')' '^' Integer — parse a repeated group and expand it in place by
 // duplicating the block produced between [start, out.length) (n−1) more times.
 function parseRepeatGroup(ctx, out, t) {
@@ -235,13 +265,9 @@ function parseRepeatGroup(ctx, out, t) {
     // ctx.i now points at the matching ')'
     if (ctx.toks[ctx.i]?.type !== TOK.RP) return { error: 'Missing ")"', errorPos: t.pos };
     ctx.i++; // consume ')'
-    if (ctx.toks[ctx.i]?.type !== TOK.CARET) return { error: 'Expected "^n" after group', errorPos: ctx.toks[ctx.i]?.pos ?? t.pos };
-    ctx.i++; // consume '^'
-    const nTok = ctx.toks[ctx.i];
-    if (!nTok || nTok.type !== TOK.NUM) return { error: 'Expected repeat count after "^"', errorPos: nTok?.pos ?? t.pos };
-    const n = nTok.value;
-    if (!(Number.isInteger(n) && n >= 1)) return { error: 'Repeat count must be a positive integer', errorPos: nTok.pos };
-    ctx.i++; // consume number
+    const cnt = parseRepeatCount(ctx, t);
+    if (cnt.error) return cnt;
+    const n = cnt.n;
     const block = out.slice(start);
     let produced = block.length;
     for (let r = 1; r < n; r++) {
@@ -461,38 +487,47 @@ function fmtCoef(coef) {
     return s;
 }
 
+// How many times the block [i, i+p) repeats consecutively at position i.
+function countPeriodRepeats(tokenStrs, i, p, n) {
+    let count = 1;
+    for (let base = i + p; base + p <= n; base += p) {
+        let same = true;
+        for (let q = 0; q < p; q++) {
+            if (tokenStrs[i + q] !== tokenStrs[base + q]) { same = false; break; }
+        }
+        if (!same) break;
+        count++;
+    }
+    return count;
+}
+
+// Pick the period at position i whose repeat covers the most tokens (ties broken
+// toward the shorter period). Returns { period, count, coverage } or null.
+function bestPeriodAt(tokenStrs, i, n) {
+    let best = null;
+    const maxPeriod = Math.floor((n - i) / 2);
+    for (let p = 1; p <= maxPeriod; p++) {
+        const count = countPeriodRepeats(tokenStrs, i, p, n);
+        if (count < 2) continue;
+        const coverage = count * p;
+        if (!best || coverage > best.coverage || (coverage === best.coverage && p < best.period)) {
+            best = { period: p, count, coverage };
+        }
+    }
+    return best;
+}
+
 /**
  * Greedy adjacent-repeat compression of rendered layer tokens into (…)^n.
  * Single level; picks at each position the period that covers the most tokens.
  */
 function compressTokens(tokenStrs) {
     const out = [];
-    let i = 0;
     const n = tokenStrs.length;
+    let i = 0;
     while (i < n) {
-        let best = null; // { period, count, coverage }
-        const maxPeriod = Math.floor((n - i) / 2);
-        for (let p = 1; p <= maxPeriod; p++) {
-            // how many times does block [i, i+p) repeat consecutively?
-            let count = 1;
-            while (true) {
-                const base = i + count * p;
-                if (base + p > n) break;
-                let same = true;
-                for (let q = 0; q < p; q++) {
-                    if (tokenStrs[i + q] !== tokenStrs[base + q]) { same = false; break; }
-                }
-                if (!same) break;
-                count++;
-            }
-            if (count >= 2) {
-                const coverage = count * p;
-                if (!best || coverage > best.coverage || (coverage === best.coverage && p < best.period)) {
-                    best = { period: p, count, coverage };
-                }
-            }
-        }
-        if (best && best.count >= 2) {
+        const best = bestPeriodAt(tokenStrs, i, n);
+        if (best) {
             const block = tokenStrs.slice(i, i + best.period).join(' ');
             out.push(best.period > 1 ? `(${block})^${best.count}` : `${blockGroupSingle(tokenStrs[i])}^${best.count}`);
             i += best.coverage;
