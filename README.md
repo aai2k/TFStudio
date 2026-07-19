@@ -21,7 +21,7 @@
 TFStudio is a professional desktop application for designing and analyzing **optical thin-film coatings** — antireflection coatings, mirrors, beamsplitters, bandpass and edge filters, and more. It combines a rigorous, double-precision optical engine with modern refinement and synthesis algorithms and a full analysis suite, in a docked, multi-window interface.
 
 
-> ⚠️ **Status:** TFStudio is independently developed software. While the optical engine is validated against reference data (see [Scientific basis](#scientific-basis)), always verify critical designs against your own measurements before committing them to a production deposition run.
+> ⚠️ **Status:** TFStudio is independently developed software. Always verify critical designs against your own calculations and measurements before committing them to a production deposition run.
 
 
 ## Key features
