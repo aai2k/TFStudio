@@ -16,7 +16,7 @@
 //   • Help / external links open the public docs + site in a new tab.
 //
 // Loaded as a PLAIN script BEFORE the renderer module, so window.electronAPI exists
-// by the time renderer-modular.js boots.
+// by the time renderer.js boots.
 
 (function () {
   'use strict';
@@ -56,7 +56,7 @@
   }
 
   // ── Settings (in-memory only) ────────────────────────────────────────────────
-  // Match the regular build's defaults exactly (see renderer-modular.js useState):
+  // Match the regular build's defaults exactly (see renderer.js useState):
   // theme 'Light' (capital L is the palette key), ribbon 'minimalist', WASM on.
   let settings = { theme: 'Light', locale: 'en', wasmTmm: true, ribbonStyle: 'minimalist' };
   function loadSettings() { return Promise.resolve(ok({ settings: Object.assign({}, settings) })); }

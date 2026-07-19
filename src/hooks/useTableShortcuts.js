@@ -27,6 +27,37 @@ function isEditingInside(e) {
     return false;
 }
 
+function insertRowKey(e, { focusIdx, rows, onInsertAbove, onInsertBelow }) {
+    e.preventDefault();
+    const haveFocus = focusIdx != null && focusIdx >= 0;
+    const at = haveFocus ? focusIdx : (rows ? rows.length - 1 : -1);
+    if (e.shiftKey) {
+        onInsertBelow && onInsertBelow(at);
+    } else {
+        onInsertAbove && onInsertAbove(at);
+    }
+}
+
+function deleteRowKey(e, { focusIdx, rows, isLocked, onDelete, onBlockedDelete }) {
+    const haveFocus = focusIdx != null && focusIdx >= 0;
+    if (!haveFocus) return;
+    const row = rows ? rows[focusIdx] : null;
+    if (row && isLocked(row)) {
+        e.preventDefault();
+        onBlockedDelete && onBlockedDelete();
+        return;
+    }
+    e.preventDefault();
+    onDelete && onDelete(focusIdx);
+}
+
+function duplicateRowKey(e, { focusIdx, onDuplicate }) {
+    const haveFocus = focusIdx != null && focusIdx >= 0;
+    if (!haveFocus) return;
+    e.preventDefault();
+    onDuplicate && onDuplicate(focusIdx);
+}
+
 // opts:
 //   focusIdx        : number | null   (index into rows; -1/null = none)
 //   rows            : array           (used only for length / locked check)
@@ -51,41 +82,20 @@ export function useTableShortcuts(opts) {
     } = opts || {};
 
     const onKeyDown = useCallback((e) => {
-        if (!enabled) return;
-        if (isEditingInside(e)) return;
-        const haveFocus = focusIdx != null && focusIdx >= 0;
+        if (!enabled || isEditingInside(e)) return;
 
         if (e.key === 'Insert') {
-            e.preventDefault();
-            const at = haveFocus ? focusIdx : (rows ? rows.length - 1 : -1);
-            if (e.shiftKey) {
-                onInsertBelow && onInsertBelow(at);
-            } else {
-                onInsertAbove && onInsertAbove(at);
-            }
-            return;
+            return insertRowKey(e, { focusIdx, rows, onInsertAbove, onInsertBelow });
         }
 
         if (e.key === 'Delete') {
-            if (!haveFocus) return;
-            const row = rows ? rows[focusIdx] : null;
-            if (row && isLocked(row)) {
-                e.preventDefault();
-                onBlockedDelete && onBlockedDelete();
-                return;
-            }
-            e.preventDefault();
-            onDelete && onDelete(focusIdx);
-            return;
+            return deleteRowKey(e, { focusIdx, rows, isLocked, onDelete, onBlockedDelete });
         }
 
         // Ctrl+D — duplicate (note: in Chromium this is "Bookmark this page",
         // which is suppressed inside Electron BrowserWindows anyway).
         if ((e.ctrlKey || e.metaKey) && !e.shiftKey && (e.key === 'd' || e.key === 'D')) {
-            if (!haveFocus) return;
-            e.preventDefault();
-            onDuplicate && onDuplicate(focusIdx);
-            return;
+            return duplicateRowKey(e, { focusIdx, onDuplicate });
         }
     }, [enabled, focusIdx, rows, isLocked, onInsertAbove, onInsertBelow, onDelete, onDuplicate, onBlockedDelete]);
 

@@ -1,12 +1,12 @@
 // workerUrls.js — central registry of Web Worker URLs.
 //
-// Lives at the `src/` ROOT (same depth as renderer-modular.js) on purpose: every
+// Lives at the `src/` ROOT (same depth as renderer.js) on purpose: every
 // URL is resolved relative to THIS file via import.meta.url, so it works in both
 // runtime modes with no dev/prod branching:
 //   - dev (unbundled): this file is src/workerUrls.js, so './utils/x.js'
 //     resolves to src/utils/x.js.
 //   - packaged (esbuild bundle): this module is inlined into the renderer bundle
-//     at the output root (build/app/renderer-modular.js), so './utils/x.js'
+//     at the output root (build/app/renderer.js), so './utils/x.js'
 //     resolves to build/app/utils/x.js — exactly where esbuild emits the worker
 //     bundles.
 //

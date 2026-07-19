@@ -58,7 +58,7 @@ function main() {
   const iconsSrc = path.join(root, 'build', 'icons');
   if (fs.existsSync(iconsSrc)) {
     copyTree(iconsSrc, path.join(outDir, 'icons'));
-    const rendPath = path.join(outDir, 'renderer-modular.js');
+    const rendPath = path.join(outDir, 'renderer.js');
     let rend = fs.readFileSync(rendPath, 'utf8');
     rend = rend.split('../icons/').join('icons/');
     fs.writeFileSync(rendPath, rend, 'utf8');
@@ -112,7 +112,7 @@ function main() {
   // Blocking-in-order is deterministic and avoids that class of failure.)
   const htmlPath = path.join(outDir, 'index.html');
   let html = fs.readFileSync(htmlPath, 'utf8');
-  const marker = '<script type="module" src="renderer-modular.js"></script>';
+  const marker = '<script type="module" src="renderer.js"></script>';
   if (!html.includes(marker)) {
     console.error('[build-web-demo] could not find renderer <script> marker in index.html');
     process.exit(1);

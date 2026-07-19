@@ -41,7 +41,7 @@ function parseWindowImports() {
     return out;
 }
 
-// Modal wizards are opened from renderer-modular, not the docking registry, so
+// Modal wizards are opened from renderer.js, not the docking registry, so
 // they aren't in the registry import scan — render them explicitly here. They
 // take { c, t, onClose }.
 const EXTRA_MODALS = [
