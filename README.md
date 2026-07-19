@@ -1,6 +1,9 @@
 <div align="center">
 
-<img width="914" height="250" alt="tfstudio banner" src="https://github.com/user-attachments/assets/5fa98d9d-628a-49c4-be4f-7dfc0e62ac3a" />
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="https://github.com/user-attachments/assets/5fa98d9d-628a-49c4-be4f-7dfc0e62ac3a">
+  <img width="914" height="250" alt="tfstudio banner" src="https://github.com/user-attachments/assets/5fa98d9d-628a-49c4-be4f-7dfc0e62ac3a" />
+</picture>
 
 **An open-source design, analysis, and optimization environment for optical thin-film coatings.**
 
