@@ -64,6 +64,8 @@ TFStudio is a professional desktop application for designing and analyzing **opt
 **Manufacturing**
 - Deposition / monitoring simulation (broadband and monochromatic optical monitoring)
 - Process exporter and optical-coating data interchange (including Zemax OpticStudio coating export/import)
+  
+  <img width="358" height="80" alt="image" src="https://github.com/user-attachments/assets/f211e4a0-c2d4-488a-a288-cff06bcfa8c9" />
 
 **Platform**
 - Cross-platform desktop app (Electron + React, pure JavaScript)
