@@ -1,10 +1,8 @@
-import { evaluateSpectrum, evaluateSpectrumBack, evaluateSpectrumTotal } from '../utils/physics/thinFilmMath.js';
 import { getMaterialById } from '../utils/materials/catalogManager.js';
 import { getMaterial } from '../utils/materials/materialDatabase.js';
 import { useDesign } from '../state/DesignContext.js';
-import { AVG_POINTS } from '../utils/physics/optimizer.js';
+import { makeOperand, evaluateOperands, buildEvalContext } from '../utils/physics/optimizer.js';
 import { useIntegralPresets } from '../utils/physics/integralValues.js';
-import { resolveSourceSpec, resolveDetectorSpec } from '../utils/physics/spectralWeightings.js';
 
 const { createElement: h, useState, useEffect, Fragment } = React;
 
@@ -26,77 +24,56 @@ function saveMonitors(m) {
     try { localStorage.setItem(MONITORS_KEY, JSON.stringify(m)); } catch {}
 }
 
-function computeMonitor(m, design, evalMode) {
+// Monitor type → merit-function operand type code (qty ∈ T/R/A):
+//   point → single-λ T/R/A · avg → TAV/RAV/AAV · min → TMN/RMN/AMN ·
+//   max → TMX/RMX/AMX · integral → TIW/RIW/AIW.
+// The operand pipeline is the SINGLE SOURCE OF TRUTH for the λ grid each
+// characteristic is sampled on (operandSampleLambdas in optimizer.js), so
+// evaluating the monitor through it — exactly as the Specification window and
+// Merit Function Editor already do — makes the status-bar readout match the
+// corresponding operand value bit-identically. A hand-rolled grid here (the
+// former fixed AVG_POINTS sampling) drifted once the operands moved to
+// density-based sampling (up to 201 pts for averages, 301 for min/max).
+const MONITOR_OPERAND_TYPE = {
+    point:    (q) => q,
+    avg:      (q) => q + 'AV',
+    min:      (q) => q + 'MN',
+    max:      (q) => q + 'MX',
+    integral: (q) => q + 'IW',
+};
+
+function computeMonitor(m, design) {
     try {
-        const incMat  = resolveMaterial(design.incidentMedium);
-        const subMat  = resolveMaterial(design.substrate?.material);
-        const exitMat = resolveMaterial(design.exitMedium);
-        const subThick = design.substrate?.thickness ?? 1.0;
+        const makeType = MONITOR_OPERAND_TYPE[m.type];
+        if (!makeType) return null;
+        const single = m.type === 'point';
 
-        const mapLayers = (arr) => (arr || [])
-            .filter(l => l.thickness > 0)
-            .map(l => ({ material: resolveMaterial(l.material), thickness: l.thickness }));
-
-        const frontLayers = mapLayers(design.frontLayers);
-        const backLayers  = mapLayers(design.backLayers);
-
-        // Band-average + integral + min/max monitors sample at AVG_POINTS
-        // evenly-spaced wavelengths the T/R/A_AVG and TIW/RIW/AIW operands use
-        // (see operandSampleLambdas in optimizer.js), so the status-bar
-        // readout matches the corresponding MFE operand value bit-identically
-        // over the same band.
-        const params = m.type === 'point'
-            ? { lambdaStart: m.lambda, lambdaEnd: m.lambda, lambdaStep: 1, theta: 0 }
-            : { lambdaStart: m.lambdaStart, lambdaEnd: m.lambdaEnd,
-                lambdaStep: (m.lambdaEnd - m.lambdaStart) / (AVG_POINTS - 1), theta: 0 };
+        const op = makeOperand({
+            type:        makeType(m.qty),
+            lambdaStart: single ? m.lambda : m.lambdaStart,
+            lambdaEnd:   single ? m.lambda : m.lambdaEnd,
+            aoi:         0,
+            pol:         m.pol || 'avg',
+            target:      0,
+            weight:      1,
+            // Integral weighting travels on the operand (E × flat = unweighted
+            // band average when the monitor carries no preset).
+            ...(m.type === 'integral'
+                ? { source: m.source || { id: 'E' }, detector: m.detector || { id: 'flat' } }
+                : {}),
+        });
 
         // Integral monitors are full-system quantities by convention (Tvis
-        // through the whole filter only makes sense end-to-end), so they pin
-        // to evalMode='total' regardless of the global Optical Evaluation
-        // selector. The chip badges this so the user sees the override.
-        const effectiveMode = m.type === 'integral' ? 'total' : evalMode;
-
-        let result;
-        if (effectiveMode === 'back') {
-            result = evaluateSpectrumBack(params, exitMat, subMat, backLayers);
-        } else if (effectiveMode === 'total') {
-            result = evaluateSpectrumTotal(params, incMat, subMat, exitMat, frontLayers, backLayers, subThick);
-        } else {
-            result = evaluateSpectrum(params, incMat, subMat, frontLayers);
-        }
-
-        const KEY = {
-            T: { avg: 'T', s: 'Ts', p: 'Tp' },
-            R: { avg: 'R', s: 'Rs', p: 'Rp' },
-            A: { avg: 'A', s: 'As', p: 'Ap' }
-        };
-        const key = KEY[m.qty]?.[m.pol] ?? m.qty;
-        const arr = result[key];
-        if (!arr || arr.length === 0) return null;
-
-        // Weighted-integral monitor: C̄_w = Σ w_i·C_i / Σ w_i with
-        // w(λ) = Source(λ) · Detector(λ). Same formula as the TIW/RIW/AIW
-        // operands; spectrum (C_i) is the full-system spectrum (Macleod §2.6.4).
-        if (m.type === 'integral') {
-            const S = resolveSourceSpec(m.source     || { id: 'E'    });
-            const D = resolveDetectorSpec(m.detector || { id: 'flat' });
-            const lams = result.lambda;
-            let num = 0, den = 0;
-            for (let i = 0; i < lams.length; i++) {
-                const w = S.sampler(lams[i]) * D.sampler(lams[i]);
-                num += w * arr[i];
-                den += w;
-            }
-            return den > 1e-30 ? (num / den) * 100 : null;
-        }
-
-        if (m.type === 'min') return Math.min(...arr) * 100;
-        if (m.type === 'max') return Math.max(...arr) * 100;
-
-        const val = m.type === 'point'
-            ? arr[0]
-            : arr.reduce((a, b) => a + b, 0) / arr.length;
-        return val * 100;
+        // through the whole filter only makes sense end-to-end), so they pin to
+        // full-system evaluation regardless of the global Front/Back/Total
+        // selector. The chip badges this so the user sees the override. Every
+        // other monitor follows the design's resolved eval mode (== the
+        // `evalMode` chip), which buildEvalContext derives from the same
+        // surfaceMode/mfEvalMode fields.
+        const evalDesign = m.type === 'integral' ? { ...design, mfEvalMode: 'total' } : design;
+        const ctx = buildEvalContext(evalDesign, resolveMaterial);
+        const v = evaluateOperands([op], ctx)[0];
+        return (v == null || !Number.isFinite(v)) ? null : v * 100;
     } catch {
         return null;
     }
@@ -280,7 +257,7 @@ export function SpectralMonitor({ c }) {
 
     useEffect(() => {
         saveMonitors(monitors);
-        setValues(monitors.map(m => computeMonitor(m, design, evalMode)));
+        setValues(monitors.map(m => computeMonitor(m, design)));
     }, [design, monitors, evalMode]);
 
     const addMonitor = (m) => { setMonitors(prev => [...prev, m]); setAdding(false); };
