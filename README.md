@@ -133,4 +133,7 @@ By contributing you agree that your contributions are licensed under the project
 ## Acknowledgements
 
 - Material data derived from the [refractiveindex.info](https://refractiveindex.info) database (CC0, public domain).
+
+   <img width="1021" height="723" alt="image" src="https://github.com/user-attachments/assets/65db84a6-3d2c-4fb6-ae26-537bd496ad2e" />
+
 - Built with [Electron](https://www.electronjs.org/), [React](https://react.dev/), [Plotly.js](https://plotly.com/javascript/), and [KaTeX](https://katex.org/).
