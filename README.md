@@ -43,15 +43,24 @@ TFStudio is a professional desktop application for designing and analyzing **opt
 - Flexible merit function: spectral targets, ramps, band averages, worst-case operands, thickness constraints
 - Multi-threaded via a Web Worker pool; hot kernels accelerated with **WebAssembly (SIMD)**
 
+  <img width="594" height="78" alt="image" src="https://github.com/user-attachments/assets/baf43188-eb63-4a5e-aac4-2f899d1e11c7" />
+
 **Analysis windows**
 - Optical evaluation, admittance diagrams, electric-field profiles, group delay / GDD, ellipsometric parameters, color evaluation, refractive-index profile
+  
+  <img width="670" height="82" alt="image" src="https://github.com/user-attachments/assets/0fa124de-48d7-48d6-b50b-e668e01e927a" />
+  
 - Tolerance & manufacturing analysis: Monte-Carlo error analysis, layer sensitivity, inhomogeneity, roughness/scattering, systematic deviations
+  
+  <img width="218" height="204" alt="image" src="https://github.com/user-attachments/assets/e522a9d2-4823-4e32-a794-4bcc17576b88" />
 
 **Materials**
 - Built-in library generated from the [refractiveindex.info](https://refractiveindex.info) database (CC0)
 - Sellmeier / Cauchy / tabulated dispersion; complex index with explicit conventions
 - Import of external catalogs and an in-app refractiveindex.info browser
 
+   <img width="1021" height="723" alt="image" src="https://github.com/user-attachments/assets/65db84a6-3d2c-4fb6-ae26-537bd496ad2e" />
+   
 **Manufacturing**
 - Deposition / monitoring simulation (broadband and monochromatic optical monitoring)
 - Process exporter and optical-coating data interchange (including Zemax OpticStudio coating export/import)
@@ -133,7 +142,4 @@ By contributing you agree that your contributions are licensed under the project
 ## Acknowledgements
 
 - Material data derived from the [refractiveindex.info](https://refractiveindex.info) database (CC0, public domain).
-
-   <img width="1021" height="723" alt="image" src="https://github.com/user-attachments/assets/65db84a6-3d2c-4fb6-ae26-537bd496ad2e" />
-
 - Built with [Electron](https://www.electronjs.org/), [React](https://react.dev/), [Plotly.js](https://plotly.com/javascript/), and [KaTeX](https://katex.org/).
