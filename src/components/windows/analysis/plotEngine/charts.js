@@ -131,22 +131,46 @@ export function buildSurfaceFigure(result, spec, design, c) {
     return { traces: [trace], layout };
 }
 
-function useSurfaceFigure(divRef, initRef, figure) {
+function useSurfaceFigure(divRef, initRef, renderRef, figure) {
     useEffect(() => {
-        if (!divRef.current || typeof Plotly === 'undefined') return;
+        const gd = divRef.current;
+        if (!gd || typeof Plotly === 'undefined') return;
         if (!figure) {
             if (initRef.current) {
-                Plotly.purge(divRef.current);
+                Plotly.purge(gd);
                 initRef.current = false;
+                renderRef.current = null;
             }
             return;
         }
-        Plotly.react(divRef.current, figure.traces, figure.layout, { responsive: true, displayModeBar: true });
+        // A graph div cannot be morphed between a cartesian subplot (heatmap)
+        // and a WebGL one (3D surface): the container is built without the
+        // layer the other kind needs. Switching render mode therefore rebuilds
+        // the plot from scratch rather than reusing the existing figure.
+        const renderKind = figure.traces[0].type;
+        if (initRef.current && renderRef.current !== renderKind) {
+            Plotly.purge(gd);
+            initRef.current = false;
+        }
+        const config = { responsive: true, displayModeBar: true };
+        if (initRef.current) Plotly.react(gd, figure.traces, figure.layout, config);
+        else Plotly.newPlot(gd, figure.traces, figure.layout, config);
         initRef.current = true;
+        renderRef.current = renderKind;
         requestAnimationFrame(() => {
             if (divRef.current && initRef.current) Plotly.Plots.resize(divRef.current);
         });
     }, [figure]);
+
+    // Release the WebGL context and Plotly's internal state when the chart goes
+    // away. The element is captured here because React clears the ref before
+    // effect cleanup runs.
+    useEffect(() => {
+        const gd = divRef.current;
+        return () => {
+            if (gd && initRef.current && typeof Plotly !== 'undefined') Plotly.purge(gd);
+        };
+    }, []);
 }
 
 function surfacePrompt(message, c) {
@@ -170,16 +194,27 @@ function surfaceError(message, c) {
 export function SurfaceChart({ result, spec, design, c, t }) {
     const divRef = useRef(null);
     const initRef = useRef(false);
+    const renderRef = useRef(null);
     const pe = (t && t.plotEngine) || {};
     const figure = useMemo(() => buildSurfaceFigure(result, spec, design, c), [result, spec, design, c]);
-    useSurfaceFigure(divRef, initRef, figure);
+    useSurfaceFigure(divRef, initRef, renderRef, figure);
     usePlotResize(divRef, initRef);
 
+    let overlay = null;
     if (!result) {
-        return surfacePrompt(pe.surfacePrompt || 'Configure the axes and quantity, then press Compute.', c);
+        overlay = surfacePrompt(pe.surfacePrompt || 'Configure the axes and quantity, then press Compute.', c);
+    } else if (!result.ok) {
+        overlay = surfaceError(result.error || 'Cannot compute surface.', c);
     }
-    if (!result.ok) {
-        return surfaceError(result.error || 'Cannot compute surface.', c);
-    }
-    return h('div', { ref: divRef, style: { width: '100%', height: '100%', overflow: 'hidden' } });
+
+    // The graph div is always mounted, even while a prompt or an error is
+    // showing. Swapping it out would detach the ref and the resize observer
+    // that the plot is bound to, so the next computed surface would have
+    // nowhere to draw.
+    return h('div', { style: { width: '100%', height: '100%', position: 'relative', overflow: 'hidden' } },
+        h('div', {
+            ref: divRef,
+            style: { width: '100%', height: '100%', visibility: overlay ? 'hidden' : 'visible' },
+        }),
+        overlay && h('div', { style: { position: 'absolute', inset: 0 } }, overlay));
 }
