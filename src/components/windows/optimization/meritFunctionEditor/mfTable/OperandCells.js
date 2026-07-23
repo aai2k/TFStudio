@@ -7,6 +7,26 @@ import { fmtCurrent, fmtDelta, fmtTargetDisplay } from './operandViewModel.js';
 
 const { createElement: h } = React;
 
+// Source/detector id → short label, mirroring the Integrals window's
+// custom-preset naming (integralModel.makeCustomDefinition).
+const INTEGRAL_SOURCE_LABELS   = { custom: 'srcTbl' };
+const INTEGRAL_DETECTOR_LABELS = { custom: 'detTbl', photopic: 'V(λ)', flat: 'flat' };
+const INTEGRAL_CHAR = { RIW: 'R', AIW: 'A', TIW: 'T' };
+
+// Compact human description of an integral operand whose source/detector/band
+// match no saved preset, so a "(custom)" MF row still reveals its setup (e.g.
+// "T·D65·V(λ) · 380–780 nm") in the cell text and tooltip.
+function describeCustomIntegral(op) {
+    const src = op.source || {};
+    const det = op.detector || {};
+    const srcLabel = src.id === 'blackbody'
+        ? `BB${Math.round(src.T || 5778)}K`
+        : (INTEGRAL_SOURCE_LABELS[src.id] || src.id || 'E');
+    const detLabel = INTEGRAL_DETECTOR_LABELS[det.id] || det.id || 'flat';
+    const char = INTEGRAL_CHAR[op.type] || 'T';
+    return `${char}·${srcLabel}·${detLabel} · ${op.lambdaStart}–${op.lambdaEnd} nm`;
+}
+
 function dashCell(ctx, colKey, width) {
     return h('td', { key: colKey, style: { ...ctx.tdBase(colKey, width), color: ctx.c.textDim } }, '—');
 }
@@ -59,6 +79,7 @@ function totalThicknessComparisonCell(ctx, colKey, width) {
 function integralStartCell(ctx, colKey, width) {
     const { op, c, tdBase, cellClick, onEdit, integralPresets } = ctx;
     const matchKey = op.presetKey && integralPresets.some(preset => preset.key === op.presetKey) ? op.presetKey : '';
+    const customDesc = describeCustomIntegral(op);
     return h('td', {
         key: colKey, onClick: event => cellClick(colKey, event),
         style: tdBase(colKey, width, { padding: '0 2px' }),
@@ -79,12 +100,12 @@ function integralStartCell(ctx, colKey, width) {
         },
         title: matchKey
             ? (integralPresets.find(preset => preset.key === matchKey)?.label || matchKey)
-            : 'Pick a saved integral preset',
+            : `Custom integral (${customDesc}) — pick a saved preset to replace`,
         color: c.text,
     },
         !matchKey && h('option', {
             key: '_none', value: '', style: { background: c.panel, color: c.textDim },
-        }, '(custom)'),
+        }, customDesc),
         integralPresets.map(preset => h('option', {
             key: preset.key, value: preset.key, title: preset.label, style: { background: c.panel },
         }, preset.label)),
