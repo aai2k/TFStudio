@@ -61,6 +61,10 @@ function buildIntegralBaseOp(q, ch, pol, weight) {
         lambdaStart: q.lambdaStart, lambdaEnd: q.lambdaEnd,
         aoi: q.aoi, pol, weight, target: 0,
         source: { ...q.source }, detector: { ...q.detector },
+        // Carry the preset identity so the Merit Function Editor shows the
+        // integral by name (Tvis/Rsol/…) instead of an opaque "(custom)" row.
+        ...(q.presetKey   ? { presetKey:   q.presetKey   } : {}),
+        ...(q.presetLabel ? { presetLabel: q.presetLabel } : {}),
         ...(Number.isFinite(q.bandPoints) ? { bandPoints: q.bandPoints } : {}),
     });
 }

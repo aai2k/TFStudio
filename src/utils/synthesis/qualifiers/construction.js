@@ -33,7 +33,11 @@ export function makeQualifier(overrides = {}) {
         tol:         0.01,           // eq tolerance
         lo:          0.95,           // for cmp = between
         hi:          1.00,
-        // INTEGRAL specs
+        // INTEGRAL specs — source/detector/band are normally stamped from a
+        // named integral preset (presetKey); the raw fields below are the
+        // fallback for a qualifier that matches no saved preset.
+        presetKey:   '',
+        presetLabel: '',
         source:      { id: 'D65' },
         detector:    { id: 'photopic' },
         // bandPoints (sampling density for argmax / FWHM scans) is NOT stamped

@@ -10,6 +10,7 @@
  */
 
 import { useDesign } from '../../../../state/DesignContext.js';
+import { useIntegralPresets } from '../../../../utils/physics/integralValues.js';
 import { useSpecificationState } from './useSpecificationState.js';
 import { useDiskPresets } from './useDiskPresets.js';
 import { VerdictBar } from './VerdictBar.js';
@@ -23,6 +24,7 @@ export function Specification({ c, theme, t, setInputDialog }) {
     const ts = t.specification || {};
 
     const { design, updateDesign, checkpoint } = useDesign();
+    const integralPresets = useIntegralPresets();
     const {
         qualifiers, results, verdict, selectedId, containerRef, selectAndFocus,
         addQualifier, updateQualifier, removeQualifier,
@@ -60,7 +62,7 @@ export function Specification({ c, theme, t, setInputDialog }) {
             qualifiers.length === 0
                 ? h(EmptyState, { c, ts, addQualifier })
                 : h(QTable, { qualifiers, results, c, ts, updateQualifier, removeQualifier,
-                              selectedId, onSelect: selectAndFocus })
+                              integralPresets, selectedId, onSelect: selectAndFocus })
         )
     );
 }

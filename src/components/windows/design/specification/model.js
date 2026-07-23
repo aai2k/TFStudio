@@ -17,7 +17,7 @@ export const KIND_META = {
     R_AVG:            { channelFixed: 'R',                                               fmt: 'pct' },
     A_AVG:            { channelFixed: 'A',                                               fmt: 'pct' },
     MIN_MAX:          { channelPick: true, direction: true,                              fmt: 'pct' },
-    INTEGRAL:         { channelPick: true,  integral: true,                              fmt: 'pct' },
+    INTEGRAL:         {                      integral: true,                              fmt: 'pct' },
     CENTRAL_LAMBDA:   { channelPick: true, direction: true,                              fmt: 'nm' },
     FWHM:             { channelPick: true, direction: true, level: true,                 fmt: 'nm' },
     EDGE_LAMBDA:      { channelPick: true,                  level: true, edgeSide: true, fmt: 'nm' },

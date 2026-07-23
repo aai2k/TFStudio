@@ -52,7 +52,7 @@ function computeMonitor(m, design) {
             type:        makeType(m.qty),
             lambdaStart: single ? m.lambda : m.lambdaStart,
             lambdaEnd:   single ? m.lambda : m.lambdaEnd,
-            aoi:         0,
+            aoi:         m.aoi || 0,
             pol:         m.pol || 'avg',
             target:      0,
             weight:      1,
@@ -82,17 +82,19 @@ function computeMonitor(m, design) {
 function monitorLabel(m) {
     const polStr = m.pol === 'avg' ? '' : m.pol;
     const qty = m.qty + polStr;
-    if (m.type === 'point') return `${qty} @${m.lambda}nm`;
+    // AOI suffix only at oblique incidence (normal incidence stays uncluttered).
+    const aoiStr = m.aoi ? ` @${m.aoi}°` : '';
+    if (m.type === 'point') return `${qty} @${m.lambda}nm${aoiStr}`;
     if (m.type === 'integral') {
         // Preset name (Tvis, Rsol, custom_…) is the canonical identity; the
         // band is implicit in the preset. Pol suffix only when not 'avg'.
         const lbl = m.presetLabel || m.presetKey || `${qty}·w(λ)`;
-        return polStr ? `${lbl}${polStr}` : lbl;
+        return (polStr ? `${lbl}${polStr}` : lbl) + aoiStr;
     }
-    if (m.type === 'min') return `${qty}min ${m.lambdaStart}–${m.lambdaEnd}nm`;
-    if (m.type === 'max') return `${qty}max ${m.lambdaStart}–${m.lambdaEnd}nm`;
+    if (m.type === 'min') return `${qty}min ${m.lambdaStart}–${m.lambdaEnd}nm${aoiStr}`;
+    if (m.type === 'max') return `${qty}max ${m.lambdaStart}–${m.lambdaEnd}nm${aoiStr}`;
     // U+27E8/27E9 = ⟨ ⟩ mathematical angle brackets
-    return `⟨${qty}⟩ ${m.lambdaStart}–${m.lambdaEnd}nm`;
+    return `⟨${qty}⟩ ${m.lambdaStart}–${m.lambdaEnd}nm${aoiStr}`;
 }
 
 function genId() { return Math.random().toString(36).slice(2, 9); }
@@ -104,7 +106,7 @@ function AddForm({ c, onAdd, onCancel, initial, mode }) {
     // `mode` ∈ 'add' | 'edit' — controls the submit-button label and which
     // ID the resulting object carries (preserved when editing).
     const [form, setForm] = useState(() => initial || {
-        qty: 'R', type: 'avg', lambda: 550, lambdaStart: 400, lambdaEnd: 800, pol: 'avg'
+        qty: 'R', type: 'avg', lambda: 550, lambdaStart: 400, lambdaEnd: 800, aoi: 0, pol: 'avg'
     });
     const integralPresets = useIntegralPresets();
 
@@ -209,6 +211,11 @@ function AddForm({ c, onAdd, onCancel, initial, mode }) {
                 miniInput(form.lambdaEnd, v => setF({ lambdaEnd: v })),
                 h('span', { style: dim }, 'nm')
               ),
+        h('div', { style: { width: 1, height: 16, background: c.border } }),
+        // AOI — applies to every monitor type (oblique incidence).
+        h('span', { style: dim }, 'AOI:'),
+        miniInput(form.aoi ?? 0, v => setF({ aoi: v }), 40),
+        h('span', { style: dim }, '°'),
         h('div', { style: { width: 1, height: 16, background: c.border } }),
         // Pol
         h('span', { style: dim }, 'Pol:'),

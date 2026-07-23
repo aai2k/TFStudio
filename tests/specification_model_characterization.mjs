@@ -16,7 +16,8 @@ assert.deepEqual(KIND_META.T_AVG,            { channelFixed: 'T', fmt: 'pct' });
 assert.deepEqual(KIND_META.R_AVG,            { channelFixed: 'R', fmt: 'pct' });
 assert.deepEqual(KIND_META.A_AVG,            { channelFixed: 'A', fmt: 'pct' });
 assert.deepEqual(KIND_META.MIN_MAX,          { channelPick: true, direction: true, fmt: 'pct' });
-assert.deepEqual(KIND_META.INTEGRAL,         { channelPick: true, integral: true, fmt: 'pct' });
+// INTEGRAL takes no channelPick — the chosen integral preset fixes the T/R/A channel.
+assert.deepEqual(KIND_META.INTEGRAL,         { integral: true, fmt: 'pct' });
 assert.deepEqual(KIND_META.CENTRAL_LAMBDA,   { channelPick: true, direction: true, fmt: 'nm' });
 assert.deepEqual(KIND_META.FWHM,             { channelPick: true, direction: true, level: true, fmt: 'nm' });
 assert.deepEqual(KIND_META.EDGE_LAMBDA,      { channelPick: true, level: true, edgeSide: true, fmt: 'nm' });

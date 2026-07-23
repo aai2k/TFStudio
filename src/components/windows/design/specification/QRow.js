@@ -6,9 +6,10 @@ import { Field, numInp, numInpTarget, inpStyle, selStyle, btnStyle } from './fie
 
 const { createElement: h } = React;
 
-export function QRow({ q, r, c, ts, updateQualifier, removeQualifier, isSelected, onSelect }) {
+export function QRow({ q, r, c, ts, updateQualifier, removeQualifier, integralPresets, isSelected, onSelect }) {
     const meta = KIND_META[q.kind] || {};
-    const onF  = (k, v) => updateQualifier(q.id, { [k]: v });
+    const onF     = (k, v) => updateQualifier(q.id, { [k]: v });
+    const onPatch = (patch) => updateQualifier(q.id, patch);
 
     const passColor = r?.pass === true  ? c.success
                    : r?.pass === false ? c.error
@@ -44,7 +45,7 @@ export function QRow({ q, r, c, ts, updateQualifier, removeQualifier, isSelected
             renderDirection(meta, q, onF, c, ts),
             renderLevel(meta, q, onF, c, ts),
             renderEdgeSide(meta, q, onF, c, ts),
-            renderIntegral(meta, q, onF, c, ts),
+            meta.integral && renderIntegral(q, onPatch, c, ts, integralPresets),
             renderCmp(q, onF, c, ts),
             renderTargets(q, meta, onF, c, ts),
         ),
@@ -121,8 +122,11 @@ function renderChannelFixed(meta, c) {
     );
 }
 
-// λ — single, band, or hidden (geom-only kinds)
+// λ — single, band, or hidden (geom-only kinds). Integral kinds derive their
+// band from the chosen preset, so the editable band inputs are suppressed and
+// the band is shown read-only by renderIntegral instead.
 function renderWavelength(meta, q, onF, c) {
+    if (meta.integral) return null;
     return meta.single
         ? h(Field, { label: 'λ', c },
             numInp(q.lambda, v => onF('lambda', v), c))
@@ -185,25 +189,44 @@ function renderEdgeSide(meta, q, onF, c, ts) {
     );
 }
 
-// INTEGRAL — source & detector picker (simple v1: id-only strings)
-function renderIntegral(meta, q, onF, c, ts) {
-    return meta.integral && [
-        h(Field, { label: ts.source || 'source', c, key: 'src' },
+// INTEGRAL — pick a named integral preset (Tvis/Rsol/… + user presets) from
+// the Integrals window rather than raw source/detector ids. Picking a preset
+// stamps channel, source, detector and band atomically, so the generated MF
+// operand carries `presetKey` and stays named/inspectable in the Merit
+// Function Editor. A qualifier whose fields match no known preset shows
+// "(custom)" but still evaluates from its stored source/detector/band.
+function renderIntegral(q, onPatch, c, ts, integralPresets) {
+    const presets  = integralPresets || [];
+    const matchKey = q.presetKey && presets.some(p => p.key === q.presetKey) ? q.presetKey : '';
+    const applyPreset = (key) => {
+        const p = presets.find(pp => pp.key === key);
+        if (!p) return;
+        onPatch({
+            channel:     p.char,
+            presetKey:   p.key,
+            presetLabel: p.label,
+            source:      { ...p.sourceSpec },
+            detector:    { ...p.detectorSpec },
+            lambdaStart: p.band[0],
+            lambdaEnd:   p.band[1],
+        });
+    };
+    return [
+        h(Field, { label: ts.integralPreset || 'preset', c, key: 'preset' },
             h('select', {
-                value: q.source?.id || 'D65', onChange: e => onF('source', { id: e.target.value }),
-                style: { ...selStyle(c), width: 100 },
+                value: matchKey,
+                onChange: e => applyPreset(e.target.value),
+                title: matchKey
+                    ? (presets.find(p => p.key === matchKey)?.label || matchKey)
+                    : (ts.pickPreset || 'Pick a saved integral preset'),
+                style: { ...selStyle(c), width: 120 },
             },
-                ['D65','D50','A','AM1.5G','E','BB','user'].map(x =>
-                    h('option', { key: x, value: x, style: { background: c.panel } }, x))
+                !matchKey && h('option', { value: '', style: { background: c.panel, color: c.textDim } },
+                    ts.customPreset || '(custom)'),
+                presets.map(p => h('option', { key: p.key, value: p.key, title: p.label, style: { background: c.panel } }, p.label))
             )),
-        h(Field, { label: ts.detector || 'detector', c, key: 'det' },
-            h('select', {
-                value: q.detector?.id || 'photopic', onChange: e => onF('detector', { id: e.target.value }),
-                style: { ...selStyle(c), width: 100 },
-            },
-                ['photopic','flat','user'].map(x =>
-                    h('option', { key: x, value: x, style: { background: c.panel } }, x))
-            )),
+        h('div', { key: 'band', style: { fontSize: 10, color: c.textDim, fontVariantNumeric: 'tabular-nums' } },
+            `${q.lambdaStart}–${q.lambdaEnd} nm`),
     ];
 }
 
