@@ -23,6 +23,10 @@ export default defineConfig({
         { tag: 'link', attrs: { rel: 'icon', type: 'image/png', href: '/favicon.png', sizes: '512x512' } },
         { tag: 'link', attrs: { rel: 'apple-touch-icon', href: '/favicon.png' } },
       ],
+      // Header link back to the source repository.
+      social: {
+        github: 'https://github.com/aai2k/TFStudio',
+      },
       components: {
         // Custom title that prepends the in-app ribbon icon when the page
         // frontmatter sets `ribbonIcon: <toolId>` (see ribbon-icons.js).
@@ -101,6 +105,13 @@ export default defineConfig({
             { label: 'Zemax Coatings',    slug: 'data-exchange/zemax-coatings' },
             { label: 'Measured Spectra',  slug: 'data-exchange/measured-spectra' },
             { label: 'Process Exporter',  slug: 'simulation/process-simulator' },
+          ],
+        },
+        {
+          label: 'Project',
+          items: [
+            { label: 'TFStudio website', link: 'https://tfstudio.xyz/' },
+            { label: 'Download',         link: 'https://github.com/aai2k/TFStudio/releases/latest' },
           ],
         },
       ],
