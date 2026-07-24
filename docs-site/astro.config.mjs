@@ -24,9 +24,9 @@ export default defineConfig({
         { tag: 'link', attrs: { rel: 'apple-touch-icon', href: '/favicon.png' } },
       ],
       // Header link back to the source repository.
-      social: {
-        github: 'https://github.com/aai2k/TFStudio',
-      },
+      social: [
+        { icon: 'github', label: 'GitHub', href: 'https://github.com/aai2k/TFStudio' },
+      ],
       components: {
         // Custom title that prepends the in-app ribbon icon when the page
         // frontmatter sets `ribbonIcon: <toolId>` (see ribbon-icons.js).
