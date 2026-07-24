@@ -1,5 +1,3 @@
-// tools/build-web-demo.mjs — assemble the static, host-anywhere web DEMO bundle.
-//
 // Pipeline (wired into `npm run build:web`):
 //   1. `node tools/build-renderer.mjs` has already produced build/app/ (the
 //      browser-targeted esbuild bundle + vendored libs + index.html). This script
@@ -11,9 +9,7 @@
 //   5. Rewrite web/dist/index.html: inject the two demo scripts BEFORE the renderer
 //      module so window.DEMO_EXAMPLES + window.electronAPI exist at boot.
 //
-// Output: web/dist/ — a pure static site. Drop it on any static host
-// (planned: demo.tfstudio.xyz). No server code, no Node at runtime.
-
+// Output: web/dist/ — a pure static site. 
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
