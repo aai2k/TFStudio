@@ -31,10 +31,18 @@ coating shifts color with incidence.
 fields or the 1964 10° observer for larger fields.
 
 **Illuminant** — the light source the color is computed under: daylight (D65,
-D50), incandescent (A), equal-energy (E), and the fluorescent F-series.
+D50), incandescent (A), and equal-energy (E).
 
 **Step** — the wavelength sampling interval in nm for the color integral. A
 finer step improves accuracy on coatings with sharp spectral features.
+
+**Exposure** — the brightness of the color swatch only. By default the swatch is
+scaled against a perfect white reflector, so a very dim reflection — such as the
+residual color of a strong antireflection coating — renders almost black even
+when its hue is highly saturated. Raise the exposure (×10 up to ×1000) or choose
+**Fit hue** to rescale the swatch and reveal the hue at full brightness. The
+numeric readout does not change; only the swatch is re-exposed. This mirrors what
+the eye sees when the coating reflects a bright source instead of a dim scene.
 
 The evaluation surface (front, back, or total) is set in the
 [Design Editor](/design/design-editor/) and shown as a badge on the window.
@@ -46,6 +54,12 @@ colors), the Planckian white points, and a marker for your coating. A marker
 near the white point means a near-neutral, colorless coating; a marker pulled
 toward an edge of the locus means a strong, saturated tint. The swatch renders
 the same result as an approximate on-screen color.
+
+Because the swatch is referenced to a perfect white reflector, a dim reflection
+looks dark or black even when the chromaticity marker sits far out toward the
+locus: the color is genuinely there, but there is little reflected light to carry
+it. Use the **Exposure** setting to bring that hue up to a visible brightness
+without changing the reported values.
 
 The numeric panel reports the full set of standard descriptors: tristimulus
 X, Y, Z; xy and u′v′ chromaticity; CIE L\*a\*b\* and L\*u\*v\* with their
