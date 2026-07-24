@@ -24,8 +24,19 @@ function mul3(M, v) {
  * sRGB swatch for the sample, Bradford-adapted from the source illuminant
  * white to D65 so the patch shows the perceived colour under that source.
  * Returns 'rgb(r,g,b)' (clamped, gamut-projected by clipping).
+ *
+ * Exposure options let a very dim reflection reveal its hue on screen. By
+ * default the swatch is scaled relative to a perfect (100%) white reflector, so
+ * a near-zero luminance renders as black — faithful, but it hides the hue. A
+ * strong antireflection coating, for example, has a saturated but extremely dim
+ * reflected colour; against a bright source the eye still reads that hue, which
+ * a fixed-reference patch cannot show.
+ *   - `gain`: linear exposure multiplier applied to the sample only (the
+ *     reference white is unaffected), emulating a brighter reflected source.
+ *   - `fit`: normalise the sample's linear RGB to its peak channel, showing the
+ *     hue at full brightness independent of luminance. Overrides `gain`.
  */
-export function xyzToSRGB(XYZ, white) {
+export function xyzToSRGB(XYZ, white, { gain = 1, fit = false } = {}) {
   // Normalise so white maps to Y=1; adapt source-white → D65.
   const src = [XYZ.X / 100, XYZ.Y / 100, XYZ.Z / 100];
   const wS  = [white.X / 100, white.Y / 100, white.Z / 100];
@@ -35,6 +46,12 @@ export function xyzToSRGB(XYZ, white) {
   const adapted = mul3(M_BFD_INV,
     [lms[0]*lmsD[0]/lmsS[0], lms[1]*lmsD[1]/lmsS[1], lms[2]*lmsD[2]/lmsS[2]]);
   let rgb = mul3(M_XYZ_RGB, adapted);
+  if (fit) {
+    const peak = Math.max(rgb[0], rgb[1], rgb[2], 1e-12);
+    rgb = rgb.map(v => Math.max(0, v) / peak);
+  } else if (gain !== 1) {
+    rgb = rgb.map(v => v * gain);
+  }
   rgb = rgb.map(v => {
     v = Math.max(0, Math.min(1, v));
     v = v <= 0.0031308 ? 12.92 * v : 1.055 * Math.pow(v, 1 / 2.4) - 0.055;
