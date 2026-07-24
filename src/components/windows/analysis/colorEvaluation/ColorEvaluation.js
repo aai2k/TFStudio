@@ -15,7 +15,7 @@ import { evaluateSpectrum, evaluateSpectrumBack, evaluateSpectrumTotal }
 import { getMaterialById } from '../../../../utils/materials/catalogManager.js';
 import { getMaterial } from '../../../../utils/materials/materialDatabase.js';
 import {
-  colorReport, OBSERVERS, ILLUMINANTS
+  colorReport, xyzToSRGB, OBSERVERS, ILLUMINANTS
 } from '../../../../utils/physics/colorimetry.js';
 import { makeConeSpec, coneAverageResult } from '../../../../utils/physics/optimizer.js';
 import { EvalModeBadge, ConeBadge } from '../../../SurfaceModeBar.js';
@@ -173,6 +173,7 @@ export function ColorEvaluation({ c, theme, t }) {
   const [observer, setObserver]   = useState('2');
   const [illuminant, setIllum]    = useState('D65');
   const [step, setStep]           = useState(5);
+  const [exposure, setExposure]   = useState('1');
   const [error, setError]         = useState(null);
 
   useEffect(() => { setError(null); }, [evalMode]);
@@ -188,7 +189,16 @@ export function ColorEvaluation({ c, theme, t }) {
   ];
   const polOptions = [
     { id: 'avg', label: ce.polAvg }, { id: 's', label: 'S' }, { id: 'p', label: 'P' }];
+  const expOptions = [
+    { id: '1', label: ce.expAsIs }, { id: '10', label: '×10' },
+    { id: '50', label: '×50' }, { id: '200', label: '×200' },
+    { id: '1000', label: '×1000' }, { id: 'fit', label: ce.expFit }];
   const r = report;
+  // Exposure only rescales the on-screen swatch; the colorimetric report and
+  // its readout are unchanged. '1' reuses the report's reference-white swatch.
+  const sampleRgb = r && (exposure === '1' ? r.rgb
+    : xyzToSRGB(r.XYZ, r.white,
+        exposure === 'fit' ? { fit: true } : { gain: Number(exposure) }));
   const rows = colorReadoutRows(r, ce);
 
   return h('div', { style: { display: 'flex', flexDirection: 'column',
@@ -219,7 +229,10 @@ export function ColorEvaluation({ c, theme, t }) {
           options: ILLUMINANTS, c })),
       h(Field, { label: ce.step, c },
         h(Num, { value: step, min: 1, max: 20, step: 1, c, width: 42,
-          onChange: setStep }))),
+          onChange: setStep })),
+      h(Field, { label: ce.exposure, c },
+        h(Sel, { value: exposure, onChange: setExposure,
+          options: expOptions, c, width: 116 }))),
 
     // Body: diagram (left) + readout (right)
     h('div', { style: { flex: 1, minHeight: 0, display: 'flex' } },
@@ -241,9 +254,12 @@ export function ColorEvaluation({ c, theme, t }) {
         flexDirection: 'column', gap: 14 } },
         r && h('div', { style: { display: 'flex', gap: 16,
           justifyContent: 'center' } },
-          h(Swatch, { color: r.rgb,
+          h(Swatch, { color: sampleRgb,
             label: characteristic === 'T' ? ce.swatchT : ce.swatchR,
-            sub: `Y = ${f2(r.XYZ.Y, 2)}`, c }),
+            sub: exposure === '1'
+              ? `Y = ${f2(r.XYZ.Y, 2)}`
+              : `Y = ${f2(r.XYZ.Y, 2)} · ${exposure === 'fit' ? ce.expFit : '×' + exposure}`,
+            c }),
           h(Swatch, { color: `rgb(${Math.round(255)},${Math.round(255)},${Math.round(255)})`,
             label: ce.refWhite, sub: illuminant, c })),
         r && h('table', { style: { borderCollapse: 'collapse', width: '100%' } },
