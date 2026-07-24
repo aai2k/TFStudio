@@ -147,6 +147,29 @@ function main() {
   if (!/rel="icon"/.test(html)) {
     html = html.replace('</title>', '</title>\n    <link rel="icon" type="image/png" href="icons/tfstudio-purple2.png">');
   }
+
+  // SEO head: the desktop template ships a bare <title> with no description or
+  // canonical, but /demo/ is a public landing page (and a common inbound link
+  // target), so give it real metadata pointing at the canonical demo URL.
+  const demoTitle = 'TFStudio Web Demo — Free Thin-Film Coating Design in Your Browser';
+  html = html.replace(/<title>[^<]*<\/title>/,
+    `<title>${demoTitle}</title>\n`
+    + '    <meta name="description" content="Try TFStudio in your browser: free, open-source optical thin-film coating design software. Explore example designs, live reflectance and transmittance spectra — no install required.">\n'
+    + '    <link rel="canonical" href="https://tfstudio.xyz/demo/">\n'
+    + '    <meta property="og:type" content="website">\n'
+    + '    <meta property="og:site_name" content="TFStudio">\n'
+    + `    <meta property="og:title" content="${demoTitle}">\n`
+    + '    <meta property="og:description" content="Free, open-source optical coating design software running in your browser — example designs and live spectra, no install.">\n'
+    + '    <meta property="og:url" content="https://tfstudio.xyz/demo/">\n'
+    + '    <meta property="og:image" content="https://tfstudio.xyz/assets/shot-main-window.png">');
+
+  // Crawlable fallback links (the app itself renders no static anchors).
+  html = html.replace('<div id="root">',
+    '<noscript>\n'
+    + '        <p>TFStudio is free, open-source optical thin-film coating design software. This interactive demo requires JavaScript.</p>\n'
+    + '        <p><a href="https://tfstudio.xyz/">TFStudio home</a> · <a href="https://github.com/aai2k/TFStudio">Source code on GitHub</a> · <a href="https://docs.tfstudio.xyz/">Documentation</a></p>\n'
+    + '    </noscript>\n'
+    + '    <div id="root">');
   // The CSP must allow same-origin fetch of the .wasm and its instantiation.
   // The renderer template already grants 'unsafe-eval' (covers WebAssembly) and
   // default-src 'self' (covers same-origin fetch), so no CSP edit is needed.
