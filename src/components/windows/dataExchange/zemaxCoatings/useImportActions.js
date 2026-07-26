@@ -4,7 +4,7 @@ import { applyImportedLayers, registerMaterials } from './model.js';
 
 const { useCallback } = React;
 
-async function loadCoatingFile({ z, flash, setLoading, setStatus, setDoc, setFileName, setSelCoating, setSelMats }) {
+async function loadCoatingFile({ z, flash, setLoading, setStatus, setDoc, setFileName, setFilePath, setSelCoating, setSelMats }) {
     setLoading(true);
     setStatus(null);
     try {
@@ -22,6 +22,7 @@ async function loadCoatingFile({ z, flash, setLoading, setStatus, setDoc, setFil
         }
         setDoc(parsed);
         setFileName(result.fileName || 'COATING.DAT');
+        setFilePath(result.filePath || '');
         setSelCoating(parsed.coatings.findIndex((coating) => coating.type === 'layers'));
         setSelMats(new Set());
         flash('success', z.loadedFile(result.fileName || ''));
@@ -31,7 +32,7 @@ async function loadCoatingFile({ z, flash, setLoading, setStatus, setDoc, setFil
     setLoading(false);
 }
 
-function importSelectedCoating({ z, flash, doc, selCoating, fileName, refNm, checkpoint, updateDesign }) {
+function importSelectedCoating({ z, flash, doc, selCoating, fileName, filePath, refNm, checkpoint, updateDesign }) {
     const coating = doc?.coatings?.[selCoating];
     if (!coating || coating.type !== 'layers') {
         flash('error', z.importNotStack);
@@ -39,7 +40,7 @@ function importSelectedCoating({ z, flash, doc, selCoating, fileName, refNm, che
     }
 
     const neededNames = new Set(coating.layers.map((layer) => layer.material.toUpperCase()));
-    const { catName, nameMap } = registerMaterials(doc.materials, fileName, neededNames);
+    const { catName, nameMap } = registerMaterials(doc.materials, fileName, neededNames, filePath);
     const resolveId = (zemaxName) => nameMap[zemaxName.toUpperCase()] || (/^AIR$/i.test(zemaxName) ? 'Air' : null);
     const { layers, warnings } = coatToTfLayers(coating, {
         refWavelengthUm: refNm / 1000,
@@ -58,14 +59,14 @@ function importSelectedCoating({ z, flash, doc, selCoating, fileName, refNm, che
     flash('success', z.importedCoating(coating.name, layers.length) + (catName ? '' : '') + (warnings.length ? ` (${z.warningsN(warnings.length)})` : ''));
 }
 
-function importSelectedMaterials({ z, flash, doc, selMats, fileName }, all) {
+function importSelectedMaterials({ z, flash, doc, selMats, fileName, filePath }, all) {
     if (!doc?.materials?.length) return;
     const onlyNames = all ? null : selMats;
     if (!all && (!onlyNames || onlyNames.size === 0)) {
         flash('error', z.noSelection);
         return;
     }
-    const { catName, count } = registerMaterials(doc.materials, fileName, all ? null : onlyNames);
+    const { catName, count } = registerMaterials(doc.materials, fileName, all ? null : onlyNames, filePath);
     flash('success', z.importedMaterials(count, catName));
 }
 
@@ -74,11 +75,11 @@ export function useLoadAction(args) {
 }
 
 export function useCoatingImportAction(args) {
-    const { doc, selCoating, fileName, refNm, checkpoint, updateDesign, z } = args;
-    return useCallback(() => importSelectedCoating(args), [doc, selCoating, fileName, refNm, checkpoint, updateDesign, z]);
+    const { doc, selCoating, fileName, filePath, refNm, checkpoint, updateDesign, z } = args;
+    return useCallback(() => importSelectedCoating(args), [doc, selCoating, fileName, filePath, refNm, checkpoint, updateDesign, z]);
 }
 
 export function useMaterialImportAction(args) {
-    const { doc, selMats, fileName, z } = args;
-    return useCallback((all) => importSelectedMaterials(args, all), [doc, selMats, fileName, z]);
+    const { doc, selMats, fileName, filePath, z } = args;
+    return useCallback((all) => importSelectedMaterials(args, all), [doc, selMats, fileName, filePath, z]);
 }

@@ -24,6 +24,39 @@ assert.deepEqual(model.catalogIdFor('My coating.DAT'), {
     id: 'zemax_my_coating', name: 'Zemax My coating',
 });
 
+// Vendor libraries are all called COATING.DAT. Two of them must not land on one
+// catalog id, or importing the second wipes the first's materials.
+{
+    const registry = {
+        zemax_coating: { id: 'zemax_coating', sourceFile: 'C:\\vendorA\\COATING.DAT' },
+        zemax_coating_2: { id: 'zemax_coating_2', sourceFile: 'C:\\vendorB\\COATING.DAT' },
+        zemax_legacy: { id: 'zemax_legacy' },
+    };
+    const lookup = (id) => registry[id] || null;
+
+    assert.deepEqual(model.catalogIdFor('COATING.DAT', 'C:\\vendorA\\COATING.DAT', lookup),
+        { id: 'zemax_coating', name: 'Zemax COATING' },
+        're-importing the same file refreshes its own catalog');
+    assert.deepEqual(model.catalogIdFor('COATING.DAT', 'C:\\vendorB\\COATING.DAT', lookup),
+        { id: 'zemax_coating_2', name: 'Zemax COATING (2)' },
+        'the second vendor file keeps its own id');
+    assert.deepEqual(model.catalogIdFor('COATING.DAT', 'C:\\vendorC\\COATING.DAT', lookup),
+        { id: 'zemax_coating_3', name: 'Zemax COATING (3)' },
+        'a third file takes the next free id');
+    assert.deepEqual(model.catalogIdFor('legacy.dat', 'C:\\any\\legacy.dat', lookup),
+        { id: 'zemax_legacy_2', name: 'Zemax legacy (2)' },
+        'a catalog with no recorded origin is not taken over');
+    assert.deepEqual(model.catalogIdFor('fresh.dat', 'C:\\any\\fresh.dat', lookup),
+        { id: 'zemax_fresh', name: 'Zemax fresh' },
+        'an unused id is used as-is');
+}
+
+assert.equal(
+    model.buildMaterialRegistration([{ name: 'H', points: [[0.55, 2, 0]] }],
+        'origin.dat', null, 'C:\\lib\\origin.dat').cat.sourceFile,
+    'C:\\lib\\origin.dat',
+    'the catalog records the file it came from');
+
 const materials = [
     { name: 'A-B', points: [[0.6, 1.6, -0.02], [0.4, 1.4, 0]] },
     { name: 'A B', points: [[0.4, 2.0, -0.01]] },

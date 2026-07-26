@@ -1,14 +1,39 @@
-import { addCatalog } from '../../../../utils/materials/catalogManager.js';
+import { addCatalog, getCatalog } from '../../../../utils/materials/catalogManager.js';
 import { mateToTfMaterial, sanitizeZemaxName } from '../../../../utils/io/zemaxCoatingFile.js';
 
-export function catalogIdFor(fileName) {
+/**
+ * Catalog id and display name for an imported coating file.
+ *
+ * The id derives from the file's base name, but `COATING.DAT` is the standard
+ * name for these files, so vendor libraries routinely collide. An id already
+ * held by a catalog imported from a *different* file is therefore suffixed
+ * instead of taken over — re-importing the same path still refreshes its own
+ * catalog in place. A catalog with no recorded origin (imported before paths
+ * were tracked) counts as a different file: a spare catalog is recoverable,
+ * an overwritten one is not.
+ *
+ * @param {string} fileName  base name shown to the user, e.g. `COATING.DAT`
+ * @param {string} [filePath]  full path, used to recognise a re-import
+ */
+export function catalogIdFor(fileName, filePath, lookupCatalog = getCatalog) {
     const base = (fileName || 'coating').replace(/\.[^.]*$/, '');
-    return { id: 'zemax_' + sanitizeZemaxName(base).toLowerCase(), name: 'Zemax ' + base };
+    const baseId = 'zemax_' + sanitizeZemaxName(base).toLowerCase();
+
+    let id = baseId;
+    let suffix = 2;
+    for (;;) {
+        const existing = lookupCatalog(id);
+        if (!existing || (filePath && existing.sourceFile === filePath)) break;
+        id = `${baseId}_${suffix}`;
+        suffix++;
+    }
+    const name = id === baseId ? 'Zemax ' + base : `Zemax ${base} (${suffix - 1})`;
+    return { id, name };
 }
 
-export function buildMaterialRegistration(materials, fileName, onlyNames) {
-    const { id: catId, name: catName } = catalogIdFor(fileName);
-    const cat = { id: catId, name: catName, source: 'user', materials: {} };
+export function buildMaterialRegistration(materials, fileName, onlyNames, filePath) {
+    const { id: catId, name: catName } = catalogIdFor(fileName, filePath);
+    const cat = { id: catId, name: catName, source: 'user', sourceFile: filePath || null, materials: {} };
     const nameMap = {};
     const usedIds = {};
 
@@ -27,8 +52,8 @@ export function buildMaterialRegistration(materials, fileName, onlyNames) {
     return { cat, catId, catName, nameMap, count: Object.keys(cat.materials).length };
 }
 
-export function registerMaterials(materials, fileName, onlyNames) {
-    const registration = buildMaterialRegistration(materials, fileName, onlyNames);
+export function registerMaterials(materials, fileName, onlyNames, filePath) {
+    const registration = buildMaterialRegistration(materials, fileName, onlyNames, filePath);
     addCatalog(registration.cat);
     return registration;
 }

@@ -3,7 +3,7 @@ const { useCallback, useState } = React;
 // Docking unmounts inactive tool windows. This cache keeps the loaded document
 // and browsing selections alive until another file is loaded or the app exits.
 const SESSION = {
-    doc: null, fileName: '', tab: 'coatings', selCoating: -1,
+    doc: null, fileName: '', filePath: '', tab: 'coatings', selCoating: -1,
     selMats: new Set(), thMode: 'absolute', scope: 'used',
     coatName: 'TFSTUDIO_DESIGN', preview: '',
 };

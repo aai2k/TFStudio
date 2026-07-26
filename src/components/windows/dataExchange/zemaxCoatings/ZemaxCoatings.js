@@ -20,6 +20,7 @@ export function ZemaxCoatings({ c, t }) {
     const [tab, setTab] = useSession('tab');
     const [doc, setDoc] = useSession('doc');
     const [fileName, setFileName] = useSession('fileName');
+    const [filePath, setFilePath] = useSession('filePath');
     const [selCoating, setSelCoating] = useSession('selCoating');
     const [selMats, setSelMats] = useSession('selMats');
     const [thMode, setThMode] = useSession('thMode');
@@ -34,9 +35,9 @@ export function ZemaxCoatings({ c, t }) {
     const [gStep, setGStep] = usePersistentNumber('tfstudio-zemax-gStep', 25);
     const flash = (type, msg) => setStatus({ type, msg });
 
-    const shared = { z, flash, doc, fileName, selCoating, selMats, refNm };
+    const shared = { z, flash, doc, fileName, filePath, selCoating, selMats, refNm };
     const onLoad = useLoadAction({
-        ...shared, setLoading, setStatus, setDoc, setFileName, setSelCoating, setSelMats,
+        ...shared, setLoading, setStatus, setDoc, setFileName, setFilePath, setSelCoating, setSelMats,
     });
     const importCoating = useCoatingImportAction({
         ...shared, checkpoint, updateDesign,

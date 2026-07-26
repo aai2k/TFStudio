@@ -45,16 +45,43 @@ function formatTrialSpecification(qualifiers, results, verdict) {
     };
 }
 
-export function evaluateTrialSpecification(config, state, frontLayers, backLayers) {
+/**
+ * The trial's design and material resolver, as the qualifier evaluator needs
+ * them.
+ *
+ * Qualifiers resolve materials by layer id, but a trial perturbs n and k per
+ * *layer* — two layers of the same material get different draws. Each perturbed
+ * layer is therefore relabelled with a trial-local id that resolves to its own
+ * shifted material, so the specification is judged on the same spectrum the
+ * trial produced rather than on nominal indices.
+ */
+function trialDesignForSpec(config, frontLayers, backLayers, getMatForLayer) {
+    const design = { ...config.design, frontLayers, backLayers };
+    if (!getMatForLayer) return { design, resolveMat: config.resolveMat };
+
+    const shifted = new Map();
+    const relabel = (layers, side) => layers.map((layer, index) => {
+        const material = getMatForLayer(side, index);
+        if (!material) return layer;
+        const id = `__mcTrial:${side}:${index}`;
+        shifted.set(id, material);
+        return { ...layer, material: id };
+    });
+
+    design.frontLayers = relabel(frontLayers, 'front');
+    design.backLayers = relabel(backLayers, 'back');
+    return {
+        design,
+        resolveMat: (id) => shifted.get(id) || config.resolveMat(id),
+    };
+}
+
+export function evaluateTrialSpecification(config, state, frontLayers, backLayers, getMatForLayer) {
     let trialSpec = null;
     if (config.evaluateSpec && config.qualifiers.length) {
-        const perturbedDesign = {
-            ...config.design,
-            frontLayers,
-            backLayers,
-        };
+        const trial = trialDesignForSpec(config, frontLayers, backLayers, getMatForLayer);
         try {
-            const results = evaluateQualifiers(config.qualifiers, perturbedDesign, config.resolveMat);
+            const results = evaluateQualifiers(config.qualifiers, trial.design, trial.resolveMat);
             const verdict = aggregateVerdict(results);
             accumulateSpecificationVerdict(state, results, verdict);
             trialSpec = formatTrialSpecification(config.qualifiers, results, verdict);

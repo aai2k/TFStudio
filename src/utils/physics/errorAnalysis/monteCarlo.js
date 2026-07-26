@@ -86,7 +86,7 @@ export async function runErrorAnalysisMC(design, params, resolveMat, opts = {}) 
         });
         updateMCStatistics(state, run[config.char]);
         const trialSpec = evaluateTrialSpecification(
-            config, state, data.frontLayers, data.backLayers,
+            config, state, data.frontLayers, data.backLayers, data.getMatForLayer,
         );
         recordMCTrial(config, state, trial, data, trialSpec);
 

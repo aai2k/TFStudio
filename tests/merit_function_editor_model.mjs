@@ -1,9 +1,10 @@
 import assert from 'node:assert/strict';
 import {
     buildDmfsComment, buildWizardBlock, editOperand, replaceOperandTail,
-    addOperands, insertOperand, duplicateOperands, deleteOperands, moveOperand, reIdOperands,
+    addOperands, insertOperand, duplicateOperands, deleteOperands, moveOperand,
     wizardAppendRow, wizardGenerationRows,
 } from '../src/components/windows/optimization/meritFunctionEditor/meritOperandModel.js';
+import { reIdOperands } from '../src/components/windows/optimization/meritFunctionEditor/presetOperands.js';
 import { defaultFilterParams, makeOperand } from '../src/utils/physics/optimizer.js';
 
 let passed = 0;
@@ -191,6 +192,26 @@ test('preset re-ID removes old IDs and preserves operand data', () => {
         { id: 'fresh-1', type: 'RIW', custom: { x: 1 } },
         { id: 'fresh-2', type: 'TT', cmp: 'le' },
     ]);
+});
+
+test('preset re-ID rewrites references between the re-keyed rows', () => {
+    let n = 0;
+    const create = data => ({ id: `fresh-${++n}`, ...data });
+    const source = [
+        { id: 'base', type: 'TAV' },
+        { id: 'other', type: 'RAV' },
+        { id: 'derived', type: 'OPGT', refId: 'base' },
+        { id: 'pair', type: 'DIFF', refId1: 'base', refId2: 'other' },
+        { id: 'dangling', type: 'OPLT', refId: 'not-in-preset' },
+    ];
+    const fresh = reIdOperands(source, create);
+    const byOldPosition = Object.fromEntries(source.map((op, i) => [op.id, fresh[i].id]));
+
+    assert.equal(fresh[2].refId, byOldPosition.base, 'single reference follows the new id');
+    assert.equal(fresh[3].refId1, byOldPosition.base, 'first of a pair follows the new id');
+    assert.equal(fresh[3].refId2, byOldPosition.other, 'second of a pair follows the new id');
+    assert.equal(fresh[4].refId, 'not-in-preset', 'a reference outside the preset is left alone');
+    assert.ok(fresh.every(op => op.id !== 'base'), 'no operand keeps its old id');
 });
 
 console.log(`merit_function_editor_model: ${passed} passed`);

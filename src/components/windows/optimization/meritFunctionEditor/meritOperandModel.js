@@ -181,6 +181,3 @@ export function moveOperand(operands, selectedId, direction) {
     return moved;
 }
 
-export function reIdOperands(operands, createOperand = makeOperand) {
-    return operands.map(({ id, ...rest }) => createOperand(rest));
-}

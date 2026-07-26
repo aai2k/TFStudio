@@ -1,4 +1,4 @@
-import { reIdOperands } from './meritOperandModel.js';
+import { reIdOperands } from './presetOperands.js';
 
 const { useState, useEffect, useCallback } = React;
 

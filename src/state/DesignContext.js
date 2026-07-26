@@ -7,7 +7,7 @@
 
 const { createContext, useContext, useState, useCallback } = React;
 
-import { resolveEvalMode } from '../utils/physics/optimizer.js';
+import { resolveEvalMode, mirrorLayers } from '../utils/physics/optimizer.js';
 
 // ── Default design factory ─────────────────────────────────────────────────────
 
@@ -39,6 +39,27 @@ export function ensureLayerIds(layers) {
         return (l && l.id === id) ? l : { ...l, id };
     });
     return changed ? out : layers;
+}
+
+/**
+ * In symmetric mode the two coatings are one physical stack: the same coating on
+ * both substrate faces (Macleod §2.6.4), so the stored back layers must remain
+ * the mirror of the front. Optimizers derive that mirror on the fly, but save,
+ * report and export paths read the stored back stack — if it is left stale, two
+ * windows evaluate different designs.
+ *
+ * The mirror is recomputed whenever the layers or the mode change. Any back
+ * stack supplied by the caller is replaced: in this mode the back side is
+ * derived, not edited. `mirrorLayers` is deterministic (ids are the front ids
+ * under a `b-` prefix), so repeated writes produce identical content.
+ */
+function withSymmetricBack(previous, next) {
+    if (next.surfaceMode !== 'symmetric') return next;
+    const unchanged = previous.surfaceMode === 'symmetric'
+        && next.frontLayers === previous.frontLayers
+        && next.backLayers === previous.backLayers;
+    if (unchanged) return next;
+    return { ...next, backLayers: mirrorLayers(next.frontLayers || []) };
 }
 
 export function makeDefaultDesign(name = 'New Design', id = null) {
@@ -178,6 +199,7 @@ export function DesignProvider({ children, activeDesignId, designs, onDesignChan
                 const f = ensureLayerIds(next.frontLayers);
                 const b = ensureLayerIds(next.backLayers);
                 if (f !== next.frontLayers || b !== next.backLayers) next = { ...next, frontLayers: f, backLayers: b };
+                next = withSymmetricBack(current, next);
             }
             return { ...prev, [_activeId]: next };
         }, opts);
