@@ -6,6 +6,7 @@ import { TitleBar } from './components/TitleBar.js';
 import { MenuBar } from './components/MenuBar.js';
 import { Toolbar } from './components/Toolbar.js';
 import { ProjectExplorer } from './components/panels/ProjectExplorer.js';
+import { updateExplorerItemMtime } from './components/panels/projectExplorerModel.js';
 import { DockingLayout } from './components/docking/DockingLayout.js';
 import { SettingsModal } from './components/dialogs/SettingsModal.js';
 import { InputDialog } from './components/dialogs/InputDialog.js';
@@ -637,6 +638,7 @@ const App = () => {
                 // it later will clear the ● again via recomputeDirty().
                 diskDesignsRef.current[targetId] =
                     JSON.parse(JSON.stringify(targetDesign));
+                setFolders(current => updateExplorerItemMtime(current, targetId, Date.now()));
                 setDirtyDesigns(d => { const n = { ...d }; delete n[targetId]; return n; });
             });
         }
@@ -1264,7 +1266,6 @@ const App = () => {
                     addItem, duplicateItem, removeSelectedItems, removeItem, setInputDialog, addFolder,
                     renameFolder, renameItem, removeFolder,
                     dirtyDesigns,
-                    onSaveItem: (item) => saveDesignToDisk(item.id, designsRef.current[item.id]),
                     c, t,
                     onOpenDesign: (item) => {
                         setSelectedItem(item);

@@ -1,3 +1,5 @@
+import { filterExplorerFolders, sortExplorerItems } from './projectExplorerModel.js';
+
 const { createElement: h, useState, useRef, useEffect, useCallback, useMemo } = React;
 
 // ── Icons ─────────────────────────────────────────────────────────────────────
@@ -28,7 +30,7 @@ function FileIcon({ color }) {
 function IconBtn({ title, onClick, children, c }) {
   const [hov, setHov] = useState(false);
   return h('button', {
-    title, onClick,
+    title, 'aria-label': title, onClick,
     onMouseEnter: () => setHov(true),
     onMouseLeave: () => setHov(false),
     style: {
@@ -38,6 +40,37 @@ function IconBtn({ title, onClick, children, c }) {
       color: c.textDim, cursor: 'pointer', outline: 'none', flexShrink: 0
     }
   }, children);
+}
+
+function ExplorerSearch({ value, onChange, c, t }) {
+  return h('div', {
+    style: {
+      display: 'flex', alignItems: 'center', gap: 5,
+      margin: '6px 8px', padding: '0 6px', height: 26, flexShrink: 0,
+      backgroundColor: c.field, border: `1px solid ${c.border}`,
+      borderRadius: 4, color: c.textDim
+    }
+  },
+    h('svg', { width: 14, height: 14, viewBox: '0 0 16 16', fill: 'none', style: { flexShrink: 0 } },
+      h('circle', { cx: 7, cy: 7, r: 4, stroke: 'currentColor', strokeWidth: 1.3 }),
+      h('path', { d: 'M10 10l3 3', stroke: 'currentColor', strokeWidth: 1.3, strokeLinecap: 'round' })),
+    h('input', {
+      value,
+      type: 'search',
+      'aria-label': t.explorer.search,
+      placeholder: t.explorer.searchPlaceholder,
+      onChange: (event) => onChange(event.target.value),
+      onKeyDown: (event) => { if (event.key === 'Escape') onChange(''); },
+      style: {
+        flex: 1, minWidth: 0, border: 'none', outline: 'none', padding: 0,
+        backgroundColor: 'transparent', color: c.text, fontSize: 12,
+        fontFamily: 'system-ui, -apple-system, sans-serif'
+      }
+    }),
+    value && h(IconBtn, { title: t.explorer.clearSearch, c, onClick: () => onChange('') },
+      h('svg', { width: 12, height: 12, viewBox: '0 0 16 16', fill: 'none' },
+        h('path', { d: 'M4 4l8 8M12 4l-8 8', stroke: 'currentColor', strokeWidth: 1.4, strokeLinecap: 'round' })))
+  );
 }
 
 // ── Inline rename input ────────────────────────────────────────────────────────
@@ -188,12 +221,12 @@ function FolderRow({ folder, isSelected, isContextTarget, c, onToggle, onSelect,
     style: { position: 'relative' }
   },
     h('div', {
-      onClick: (e) => { onSelect(); onToggle(); },
+      onClick: () => { onSelect(); onToggle?.(); },
       onContextMenu,
       onKeyDown: (e) => {
         if (e.key === 'F2') { e.preventDefault(); onStartRename(); }
         if (e.key === 'Delete') { e.preventDefault(); onDelete(); }
-        if (e.key === ' ' || e.key === 'Enter') { e.preventDefault(); onToggle(); }
+        if (e.key === ' ' || e.key === 'Enter') { e.preventDefault(); onToggle?.(); }
       },
       tabIndex: 0,
       style: {
@@ -332,12 +365,13 @@ export function ProjectExplorer({
   addItem, duplicateItem, removeSelectedItems, removeItem, setInputDialog, addFolder,
   renameFolder, renameItem, removeFolder,
   dirtyDesigns,
-  onSaveItem,
   c, t,
   onOpenDesign
 }) {
   const [renamingKey, setRenamingKey] = useState(null); // 'folder-<id>' | 'item-<id>'
   const [sidebarWidth, setSidebarWidth] = useState(240);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [isCollapsed, setIsCollapsed] = useState(false);
   const [ctxMenu, setCtxMenu] = useState(null); // { x, y, items: [...] } | null
   // Right-click target: the row gets a focus border (VS Code style) WITHOUT
   // becoming the selected/open design. { type:'item'|'folder', id } | null.
@@ -355,18 +389,8 @@ export function ProjectExplorer({
     try { localStorage.setItem('tfstudio-explorer-sort', mode); } catch (_) {}
     setSortMenuOpen(false);
   }, []);
-  const sortItems = useCallback((items) => {
-    const arr = (items || []).slice();
-    const byName = (a, b) => (a.name || '').localeCompare(b.name || '', undefined, { numeric: true, sensitivity: 'base' });
-    const byDate = (a, b) => (a.mtime || 0) - (b.mtime || 0);
-    switch (sortMode) {
-      case 'name-desc': arr.sort((a, b) => byName(b, a)); break;
-      case 'date-new':  arr.sort((a, b) => byDate(b, a)); break;
-      case 'date-old':  arr.sort(byDate); break;
-      default:          arr.sort(byName); break;   // name-asc
-    }
-    return arr;
-  }, [sortMode]);
+  const sortItems = useCallback(
+    (items) => sortExplorerItems(items, sortMode), [sortMode]);
   const SORT_OPTIONS = [
     ['name-asc',  t.explorer.sortNameAsc],
     ['name-desc', t.explorer.sortNameDesc],
@@ -444,15 +468,19 @@ export function ProjectExplorer({
     });
   }, [removeSelectedItems, setInputDialog, t]);
 
+  const filteredFolders = useMemo(
+    () => filterExplorerFolders(folders, searchQuery), [folders, searchQuery]);
+  const isSearching = searchQuery.trim().length > 0;
+
   // Flat list of rows in the exact order the user sees them (folder order →
-  // expanded only → active sort). Shift-range selection slices THIS list.
+  // visible folders → active filter and sort). Shift-range selection slices THIS list.
   const visibleItems = useMemo(() => {
     const out = [];
-    (folders || []).forEach((folder) => {
-      if (folder.expanded) sortItems(folder.items).forEach((it) => out.push(it));
+    filteredFolders.forEach((folder) => {
+      if (isSearching || folder.expanded) sortItems(folder.items).forEach((it) => out.push(it));
     });
     return out;
-  }, [folders, sortItems]);
+  }, [filteredFolders, isSearching, sortItems]);
 
   // ── Context-menu builders ───────────────────────────────────────────────────
   const Icons = {
@@ -515,6 +543,21 @@ export function ProjectExplorer({
     addItem(folder);
   }, [addItem]);
 
+  if (isCollapsed) {
+    return h('div', {
+      'data-tour': 'explorer',
+      style: {
+        width: 30, minWidth: 30, display: 'flex', justifyContent: 'center',
+        backgroundColor: c.panel, borderRight: `1px solid ${c.border}`
+      }
+    },
+      h('div', { style: { paddingTop: 6 } },
+        h(IconBtn, { title: t.explorer.showPanel, c, onClick: () => setIsCollapsed(false) },
+          h('svg', { width: 16, height: 16, viewBox: '0 0 16 16', fill: 'none' },
+            h('path', { d: 'M3 2v12M6 4l4 4-4 4', stroke: 'currentColor', strokeWidth: 1.3, strokeLinecap: 'round', strokeLinejoin: 'round' }))))
+    );
+  }
+
   return h('div', {
     'data-tour': 'explorer',
     style: {
@@ -535,7 +578,8 @@ export function ProjectExplorer({
         style: {
           fontSize: 11, fontWeight: 700, letterSpacing: '0.08em',
           color: c.textDim, textTransform: 'uppercase',
-          fontFamily: 'system-ui, -apple-system, sans-serif'
+          fontFamily: 'system-ui, -apple-system, sans-serif',
+          flex: 1, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap'
         }
       }, t.explorer.title),
       h('div', { style: { display: 'flex', gap: 2, position: 'relative' } },
@@ -585,16 +629,21 @@ export function ProjectExplorer({
         h(IconBtn, { title: t.explorer.collapseAll, c, onClick: collapseAll },
           h('svg', { width: 16, height: 16, viewBox: '0 0 16 16', fill: 'none' },
             h('path', { d: 'M2 4h6M2 8h8M2 12h4', stroke: 'currentColor', strokeWidth: 1.2, strokeLinecap: 'round' }),
-            h('path', { d: 'M12 6l-3 3 3 3', stroke: 'currentColor', strokeWidth: 1.2, strokeLinecap: 'round', strokeLinejoin: 'round' })))
+            h('path', { d: 'M12 6l-3 3 3 3', stroke: 'currentColor', strokeWidth: 1.2, strokeLinecap: 'round', strokeLinejoin: 'round' }))),
+        h(IconBtn, { title: t.explorer.hidePanel, c, onClick: () => setIsCollapsed(true) },
+          h('svg', { width: 16, height: 16, viewBox: '0 0 16 16', fill: 'none' },
+            h('path', { d: 'M13 2v12M10 4L6 8l4 4', stroke: 'currentColor', strokeWidth: 1.3, strokeLinecap: 'round', strokeLinejoin: 'round' })))
       )
     ),
+
+    h(ExplorerSearch, { value: searchQuery, onChange: setSearchQuery, c, t }),
 
     // ── Tree ────────────────────────────────────────────────────────────────
     h('div', {
       onContextMenu: (e) => { e.preventDefault(); openEmptyMenu(e); },
       style: { flex: 1, overflowY: 'auto', overflowX: 'hidden', paddingTop: 4, paddingBottom: 8 }
     },
-      folders.map((folder) => {
+      filteredFolders.map((folder) => {
         const folderKey = `folder-${folder.id}`;
         const isSelectedFolder = selectedFolder?.id === folder.id;
 
@@ -604,7 +653,7 @@ export function ProjectExplorer({
             isSelected: isSelectedFolder,
             isContextTarget: contextTarget?.type === 'folder' && contextTarget.id === folder.id,
             c,
-            onToggle: () => toggleFolderExpanded(folder.id),
+            onToggle: isSearching ? undefined : () => toggleFolderExpanded(folder.id),
             onSelect: () => setSelectedFolder(folder),
             onAddItem: () => newDesignInFolder(folder),
             onDelete: () => deleteFolder(folder),
@@ -624,7 +673,7 @@ export function ProjectExplorer({
             tipDelete: t.explorer.deleteFolder,
           }),
 
-          folder.expanded && sortItems(folder.items).map((item) => {
+          (isSearching || folder.expanded) && sortItems(folder.items).map((item) => {
             const itemKey = `item-${item.id}`;
             const isSelected = !!(selectedItems || []).find(s => s.id === item.id);
             const isActive = selectedItem?.id === item.id;
@@ -673,8 +722,15 @@ export function ProjectExplorer({
         );
       }),
 
+      isSearching && filteredFolders.length === 0 && h('div', {
+        style: {
+          padding: '24px 16px', color: c.textDim, fontSize: 12,
+          textAlign: 'center', fontFamily: 'system-ui, -apple-system, sans-serif'
+        }
+      }, t.explorer.noSearchResults),
+
       // Empty state
-      folders.every(f => (f.items || []).length === 0) && folders.length <= 1 && h('div', {
+      !isSearching && folders.every(f => (f.items || []).length === 0) && folders.length <= 1 && h('div', {
         style: {
           padding: '24px 16px', color: c.textDim, fontSize: 12,
           textAlign: 'center', lineHeight: 1.6,
