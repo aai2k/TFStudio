@@ -1,5 +1,4 @@
 import { PlotlyChart } from './PlotlyChart.js';
-import { DataTable } from './DataTable.js';
 
 const { createElement: h } = React;
 
@@ -8,7 +7,7 @@ export function ChartPanel(props) {
         data, showCurves, design, showTargets, c, theme,
         editMode, editTool, editCurve, editPol, editKind, lamRange, yRange,
         spectralUnit, onCreateTarget, onEditTarget, onDeleteTarget,
-        error, showEmpty, oe, showTable,
+        error, showEmpty, oe,
     } = props;
     return h('div', { style: { flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column' } },
         h('div', { style: { flex: 1, minHeight: 0, position: 'relative' } },
@@ -34,7 +33,6 @@ export function ChartPanel(props) {
                     background: c.bg
                 }
             }, oe.noFrontLayers)
-        ),
-        showTable && data && h(DataTable, { data, showCurves, c })
+        )
     );
 }

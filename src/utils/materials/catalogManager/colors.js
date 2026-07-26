@@ -1,23 +1,14 @@
 import { makeGetNK } from './dispersion.js';
 
-export const GROUP_COLORS = {
-    'Ambient':      '#87CEEB',
-    'Substrate':    '#d6eaf8',
-    'Dielectric':   '#d5f5e3',
-    'Semiconductor':'#bdc3c7',
-    'Metal':        '#f1c40f',
-    'TCO':          '#a9cce3',
-    'Custom':       '#c39bd3',
-};
-
-export function catalogColor(catalogId) {
-    let hash = 0;
-    for (let i = 0; i < catalogId.length; i++) hash = (hash * 31 + catalogId.charCodeAt(i)) >>> 0;
-    const hue = ((hash >> 4) & 0xfff) % 360;
-    // Richer + a touch darker than the old (55%, 78%) pastel so the dot reads
-    // clearly on dark themes (very pale chips washed out against dark panels)
-    // while staying legible on light. Hue (the identity) is unchanged.
-    return `hsl(${hue}, 60%, 66%)`;
+/**
+ * Lightness (%) that makes a fully saturated hue carry the same visual weight
+ * as any other. HSL brightness is strongly hue-dependent — yellows near 60°
+ * read far lighter than blues near 240° at equal L — so without this a single
+ * flat lightness yields a ramp that looks washed out at one end and muddy at
+ * the other. Chosen to keep every dot legible on both light and dark themes.
+ */
+function lightnessForHue(hue) {
+    return 50 - 9 * Math.cos((hue - 55) * Math.PI / 180);
 }
 
 /**
@@ -29,11 +20,10 @@ export function ndColor(nd) {
     // Map nd 1.3..3.5 → hue 220..0 (blue→red)
     const t = Math.max(0, Math.min(1, (nd - 1.3) / (3.5 - 1.3)));
     const hue = Math.round(220 * (1 - t));
-    // Saturation rises with index; lightness lowered from 65%→58% and saturation
-    // floor raised (55→63) so low-index (blue) dots stop looking dull/pale on
-    // dark themes. Hue mapping (the n→colour identity) is unchanged.
-    const sat = 63 + Math.round(17 * t);
-    return `hsl(${hue}, ${sat}%, 58%)`;
+    // Saturation is high throughout and rises further with index, so the ramp
+    // reads as a set of strong, clearly separable colors rather than pastels.
+    const sat = 88 + Math.round(7 * t);
+    return `hsl(${hue}, ${sat}%, ${lightnessForHue(hue).toFixed(1)}%)`;
 }
 
 // Reference wavelength for deriving an automatic color when a material has no

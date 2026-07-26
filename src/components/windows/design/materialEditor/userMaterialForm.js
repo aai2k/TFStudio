@@ -261,23 +261,41 @@ function renderPreviewChart({ chartRef, me, c, sectionLabel }) {
     );
 }
 
-function renderFormFooter({ onSave, me, c }) {
-    return h('div', { style: { flexShrink: 0, padding: '8px 0', borderTop: `1px solid ${c.border}` } },
-        h('button', {
-            onClick: onSave,
-            style: {
-                width: '100%', padding: '5px 0', fontSize: 12,
-                backgroundColor: c.accent, color: '#fff', border: 'none',
-                borderRadius: 3, cursor: 'pointer',
-                fontFamily: 'system-ui, -apple-system, sans-serif'
-            }
-        }, me.saveMaterial)
+// Status on the left, actions on the right. Revert restores the draft to the
+// material as it was last loaded or saved, so it only applies while dirty.
+function renderFormFooter({ onSave, onRevert, dirty, me, c }) {
+    return h('div', {
+        style: {
+            flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+            gap: 8, padding: '8px 0', borderTop: `1px solid ${c.border}`
+        }
+    },
+        h('span', { style: { fontSize: 11, color: c.textDim } }, dirty ? me.unsavedChanges : ''),
+        h('div', { style: { display: 'flex', gap: 6, flexShrink: 0 } },
+            h('button', {
+                onClick: dirty ? onRevert : undefined,
+                disabled: !dirty,
+                style: smallBtn(c, {
+                    padding: '4px 12px', fontSize: 12,
+                    opacity: dirty ? 1 : 0.45, cursor: dirty ? 'pointer' : 'default'
+                })
+            }, me.revert),
+            h('button', {
+                onClick: onSave,
+                style: {
+                    padding: '4px 14px', fontSize: 12,
+                    backgroundColor: c.accent, color: '#fff', border: 'none',
+                    borderRadius: 3, cursor: 'pointer',
+                    fontFamily: 'system-ui, -apple-system, sans-serif'
+                }
+            }, me.saveMaterial)
+        )
     );
 }
 
 // ── Component ─────────────────────────────────────────────────────────────────
 
-export function UserMaterialForm({ draft, onChange, onSave, onDelete, onCopy, catalogs, c, t }) {
+export function UserMaterialForm({ draft, onChange, onSave, onRevert, onDelete, onCopy, dirty, catalogs, c, t }) {
     const me = t.materialEditor;
     const chartRef = useRef(null);
     const seqRef = useRef(draft._rowSeq || (draft.rows.length + draft.kRows.length + 100));
@@ -359,6 +377,6 @@ export function UserMaterialForm({ draft, onChange, onSave, onDelete, onCopy, ca
             draft.type === 'formula' && renderFormulaEditor(ctx),
             renderPreviewChart({ chartRef, me, c, sectionLabel })
         ),
-        renderFormFooter({ onSave, me, c })
+        renderFormFooter({ onSave, onRevert, dirty, me, c })
     );
 }

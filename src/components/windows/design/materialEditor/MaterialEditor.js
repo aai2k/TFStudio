@@ -10,9 +10,10 @@
  * State and actions live in useMaterialEditor.js; supporting pieces live in
  * sibling modules: the draft model and converters (materialDraft.js), the
  * read-only material view (materialEditorReadOnly.js), the left panel
- * (materialEditorLeftPanel.js), the destination-catalog modals
- * (materialEditorModals.js), the editable form (userMaterialForm.js), the
- * n/k grid (nkDataGrid.js), and shared presentational atoms (materialEditorUI.js).
+ * (materialEditorLeftPanel.js) and its catalog action menu (catalogMenu.js),
+ * the destination-catalog modals (materialEditorModals.js), the editable form
+ * (userMaterialForm.js), the n/k grid (nkDataGrid.js), and shared
+ * presentational atoms (materialEditorUI.js).
  */
 
 import { RIIBrowser } from './RIIBrowser.js';
@@ -40,10 +41,12 @@ export function MaterialEditor({ c, t, setInputDialog }) {
         editDraft
             ? h(UserMaterialForm, {
                 draft: editDraft,
-                onChange: s.setEditDraft,
+                onChange: s.updateDraft,
                 onSave: handleSaveMaterial,
+                onRevert: s.handleRevertMaterial,
                 onDelete: handleDeleteMaterial,
                 onCopy: handleCopyUserMaterial,
+                dirty: s.isDirty,
                 catalogs,
                 c,
                 t

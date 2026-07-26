@@ -54,6 +54,8 @@ const layout = buildChartLayout({
 });
 check(layout.hovermode === 'x unified' && layout.dragmode === 'zoom', 'read-only chart interaction remains unchanged');
 check(layout.yaxis.range.join(',') === '5,95' && layout.shapes.length === 0, 'fixed Y range and empty targets remain unchanged');
+check(layout.margin.t >= 38 && layout.showlegend === false,
+    'chart reserves a modebar strip above the data and uses the curve controls as its legend');
 const drawConfig = buildChartConfig(true, 'draw');
 check(drawConfig.edits.shapePosition === true && drawConfig.modeBarButtonsToAdd[0] === 'drawline', 'draw mode keeps shape editing enabled');
 

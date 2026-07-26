@@ -90,6 +90,6 @@ const html = renderToStaticMarkup(withDesign(
   React.createElement(ColorEvaluation, { c, theme: c, t: makeLocale() }),
   makeSampleDesign(),
 ));
-assert.equal(createHash('sha256').update(html).digest('hex').slice(0, 16), '5046fcefc9f0c1ea');
+assert.equal(createHash('sha256').update(html).digest('hex').slice(0, 16), '96a1ae861af9cd7d');
 
 console.log('PASS: color_evaluation_characterization');

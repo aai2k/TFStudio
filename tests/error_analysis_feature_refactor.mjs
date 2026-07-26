@@ -22,7 +22,7 @@ const [{ ErrorAnalysis }, { buildErrorFigure }, trialModel] = await Promise.all(
 const c = makeTheme();
 const t = makeLocale();
 const markup = renderToStaticMarkup(withDesign(React.createElement(ErrorAnalysis, { c, t, theme: c })));
-assert.equal(createHash('sha256').update(markup).digest('hex').slice(0, 16), 'faf05be445848a81');
+assert.equal(createHash('sha256').update(markup).digest('hex').slice(0, 16), '19b2f780edb5f38c');
 
 const result = {
     lambda: [500, 600],

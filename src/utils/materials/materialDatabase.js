@@ -92,7 +92,7 @@ const _materials = [
     {
         id: 'Air',
         name: 'Air',
-        color: '#87CEEB',
+        color: '#38bdf8',
         group: 'Ambient',
         description: 'Air / Vacuum (n=1.0)',
         getNK: () => [1.0, 0]
@@ -100,7 +100,7 @@ const _materials = [
     {
         id: 'SiO2',
         name: 'SiO2 (Fused Silica)',
-        color: '#aed6f1',
+        color: '#00a5c8',
         group: 'Dielectric',
         description: 'Fused silica — Malitson, J. Opt. Soc. Am. 55, 1205 (1965)',
         getNK: sellmeier([
@@ -112,7 +112,7 @@ const _materials = [
     {
         id: 'BK7',
         name: 'BK7 (Schott)',
-        color: '#d6eaf8',
+        color: '#0f6fd1',
         group: 'Substrate',
         description: 'Borosilicate glass N-BK7 — SCHOTT (Sellmeier n + internal-transmittance k)',
         // n: SCHOTT Sellmeier;  k: derived from SCHOTT N-BK7 internal
@@ -124,7 +124,7 @@ const _materials = [
     {
         id: 'MgF2',
         name: 'MgF2',
-        color: '#d5f5e3',
+        color: '#2c7be5',
         group: 'Dielectric',
         description: 'Magnesium fluoride — Dodge, Appl. Opt. 23, 1980 (1984)',
         getNK: sellmeier([
@@ -136,7 +136,7 @@ const _materials = [
     {
         id: 'Al2O3',
         name: 'Al2O3 (Sapphire)',
-        color: '#e8daef',
+        color: '#00968a',
         group: 'Dielectric',
         description: 'Aluminium oxide — Malitson & Dodge, J. Opt. Soc. Am. 62 (1972)',
         getNK: sellmeier([
@@ -148,7 +148,7 @@ const _materials = [
     {
         id: 'TiO2',
         name: 'TiO2 (anatase)',
-        color: '#f9e79f',
+        color: '#e8a600',
         group: 'Dielectric',
         description: 'TiO2 anatase thin film deposited by ALD at 300 °C — A. Jolivet, C. Labbé, C. Frilay, O. Debieu, P. Marie, B. Horcholle, F. Lemarié, X. Portier, C. Grygi',
         // refractiveindex.info/main/TiO2/nk/Jolivet-anatase.yml — 2026-05-15
@@ -176,7 +176,7 @@ const _materials = [
     {
         id: 'Ta2O5',
         name: 'Ta2O5',
-        color: '#f5cba7',
+        color: '#2fa84f',
         group: 'Dielectric',
         description: 'Amporphous thin film — T. J. Bright, J. I. Watjen, Z. M. Zhang, C. Muratore, A. A. Voevodin, D. I. Koukis, D. B. Tanner, D.',
         // refractiveindex.info/main/Ta2O5/nk/Bright-amorphous.yml — 2026-05-15
@@ -211,7 +211,7 @@ const _materials = [
     {
         id: 'Nb2O5',
         name: 'Nb2O5',
-        color: '#fadbd8',
+        color: '#7f9c00',
         group: 'Dielectric',
         description: '500-nm monolayer deposited on BK7 substrate using the magnetron sputtering technique. — F. Lemarchand, private communications (2013). Measurement method describ',
         // refractiveindex.info/main/Nb2O5/nk/Lemarchand.yml — 2026-05-15
@@ -259,7 +259,7 @@ const _materials = [
     {
         id: 'HfO2',
         name: 'HfO2',
-        color: '#e8f8f5',
+        color: '#12a150',
         group: 'Dielectric',
         description: 'Thin hafnia films of thicknesses from about 180 to 500 nm deposited on Si substrates using reactive magnetron sputtering. — T. J. Bright, J. I. Watjen, Z. M. Zh',
         // refractiveindex.info/main/HfO2/nk/Bright.yml — 2026-05-15
@@ -308,7 +308,7 @@ const _materials = [
     {
         id: 'ZnS',
         name: 'ZnS',
-        color: '#fef9e7',
+        color: '#b08a00',
         group: 'Dielectric',
         description: 'M. R. Querry. Optical constants of minerals and other materials from the millimeter to the ultraviol',
         // refractiveindex.info/main/ZnS/nk/Querry.yml — 2026-05-15
@@ -345,7 +345,7 @@ const _materials = [
     {
         id: 'ZnSe',
         name: 'ZnSe',
-        color: '#fdebd0',
+        color: '#f58231',
         group: 'Dielectric',
         description: 'M. R. Querry. Optical constants of minerals and other materials from the millimeter to the ultraviol',
         // refractiveindex.info/main/ZnSe/nk/Querry.yml — 2026-05-15
@@ -381,7 +381,7 @@ const _materials = [
     {
         id: 'Si',
         name: 'Si (Silicon)',
-        color: '#bdc3c7',
+        color: '#c0392b',
         group: 'Semiconductor',
         description: 'Amorphous silicon (α-Si or a-Si). 60-nm film. — 1) D. T. Pierce and W. E. Spicer. Electronic structure of amorphous Si from photoemission and optica',
         // refractiveindex.info/main/Si/nk/Pierce.yml — 2026-05-15
@@ -398,7 +398,7 @@ const _materials = [
     {
         id: 'Ge',
         name: 'Ge (Germanium)',
-        color: '#aab7b8',
+        color: '#8e1f1f',
         group: 'Semiconductor',
         description: '300 K — T. N. Nunley, N. S. Fernando, N. Samarasingha, J. M. Moya, C. M. Nelson, A. A. Medina, S. Zollner. O',
         // refractiveindex.info/main/Ge/nk/Nunley.yml — 2026-05-15
@@ -430,7 +430,7 @@ const _materials = [
     {
         id: 'Au',
         name: 'Au (Gold)',
-        color: '#f1c40f',
+        color: '#ffb300',
         group: 'Metal',
         description: 'Room temperature — P. B. Johnson and R. W. Christy. Optical constants of the noble metals. Phys. Rev. B 6, 4370-4379 (1',
         // refractiveindex.info/main/Au/nk/Johnson.yml — 2026-05-15
@@ -449,7 +449,7 @@ const _materials = [
     {
         id: 'Ag',
         name: 'Ag (Silver)',
-        color: '#d7dbdd',
+        color: '#8fa3b0',
         group: 'Metal',
         description: 'Room temperature — P. B. Johnson and R. W. Christy. Optical constants of the noble metals. Phys. Rev. B 6, 4370-4379 (1',
         // refractiveindex.info/main/Ag/nk/Johnson.yml — 2026-05-15
@@ -468,7 +468,7 @@ const _materials = [
     {
         id: 'Cr',
         name: 'Cr (Chromium)',
-        color: '#7f8c8d',
+        color: '#5c6b7a',
         group: 'Metal',
         description: 'Room temperature — P. B. Johnson and R. W. Christy. Optical constants of transition metals: Ti, V, Cr, Mn, Fe, Co, Ni, ',
         // refractiveindex.info/main/Cr/nk/Johnson.yml — 2026-05-15
@@ -485,7 +485,7 @@ const _materials = [
     {
         id: 'ITO',
         name: 'ITO',
-        color: '#a9cce3',
+        color: '#8e2fc0',
         group: 'TCO',
         description: '72 nm ITO film on BK7 glass substrate. Purchased from Delta Technology (CG-60IN-CUV), 15–25 ohms. ITO includes a separate roughness layer (see \with EMA")" — T.',
         // refractiveindex.info/other/mixed crystals/In2O3-SnO2/nk/Konig.yml — 2026-05-15
@@ -512,7 +512,7 @@ const _materials = [
     {
         id: 'Custom',
         name: 'Custom',
-        color: '#c39bd3',
+        color: '#d6289b',
         group: 'Custom',
         description: 'User-defined material',
         getNK: () => [1.5, 0]

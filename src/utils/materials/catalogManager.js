@@ -37,4 +37,4 @@ export {
     importMaterialsIntoCatalog,
     removeUserMaterial,
 } from './catalogManager/userCatalogs.js';
-export { catalogColor, ndColor, GROUP_COLORS, resolveColor, materialAutoColor } from './catalogManager/colors.js';
+export { ndColor, resolveColor, materialAutoColor } from './catalogManager/colors.js';

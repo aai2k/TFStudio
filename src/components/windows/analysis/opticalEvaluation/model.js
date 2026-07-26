@@ -101,7 +101,9 @@ export function buildChartLayout(opts) {
         spectralUnit, lamRange,
     } = opts;
     return {
-        margin: { l: 52, r: 16, t: 16, b: 44 },
+        // Plotly's modebar is absolutely positioned at the top-right. This top
+        // margin is its dedicated strip, keeping zoom/pan controls off the data.
+        margin: { l: 58, r: 18, t: 38, b: 46 },
         paper_bgcolor: paperColor,
         plot_bgcolor: bgColor,
         font: { color: textColor, family: 'system-ui, -apple-system, sans-serif', size: 11 },
@@ -112,7 +114,7 @@ export function buildChartLayout(opts) {
             tickfont: { size: 10 }
         },
         yaxis: {
-            title: { text: '(%)', standoff: 8 },
+            title: { text: 'T, R, A (%)', standoff: 8 },
             ...(yRange?.auto
                 ? { autorange: true }
                 : { range: [yRange?.min ?? 0, yRange?.max ?? 100] }),
@@ -120,10 +122,7 @@ export function buildChartLayout(opts) {
             zerolinecolor: gridColor,
             tickfont: { size: 10 }
         },
-        legend: {
-            bgcolor: paperColor + 'cc', bordercolor: gridColor, borderwidth: 1,
-            font: { size: 10 }, x: 1, xanchor: 'right', y: 1, yanchor: 'top'
-        },
+        showlegend: false,
         hovermode: editMode ? 'closest' : 'x unified',
         dragmode: (editMode && editTool === 'draw') ? 'drawline' : 'zoom',
         newshape: editMode

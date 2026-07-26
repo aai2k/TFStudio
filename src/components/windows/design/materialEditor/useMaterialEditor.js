@@ -11,13 +11,15 @@
 import { getCatalogs, getMaterialById, searchMaterials } from '../../../../utils/materials/catalogManager.js';
 import {
     importAgfCatalog, importOptiLayerFiles, commitOptiLayerImport,
-    removeCatalogWithConfirm, createCatalog, duplicateCatalogWithPrompt,
+    removeCatalogWithConfirm, createCatalogWithPrompt, renameCatalogWithPrompt,
+    duplicateCatalogWithPrompt,
 } from './materialEditorActions.js';
 import {
     newMaterial, selectMaterial, saveMaterial, deleteMaterialWithConfirm,
     copyUserMaterialDraft, copyToCatalog, openCopyPicker as openCopyPickerAction,
 } from './materialEditorMaterialActions.js';
 import { sampleReadOnlyChart } from './materialEditorReadOnly.js';
+import { draftFingerprint } from './materialDraft.js';
 
 const { useState, useEffect, useRef, useCallback } = React;
 
@@ -45,9 +47,9 @@ export function useMaterialEditor({ c, t, setInputDialog }) {
     const [importing,        setImporting]        = useState(false);
     const [showRii,          setShowRii]          = useState(false);
     const [notification,     setNotification]     = useState(null);
-    const [showNewCatalog,   setShowNewCatalog]   = useState(false);
-    const [newCatalogName,   setNewCatalogName]   = useState('');
-    const [editDraft,        setEditDraft]        = useState(null);
+    const [menuOpen,         setMenuOpen]         = useState(false);
+    const [editDraft,        updateDraft]         = useState(null);
+    const [pristineDraft,    setPristineDraft]    = useState(null);
     const [copyPickerFor,    setCopyPickerFor]    = useState(null);
     const [olImport,         setOlImport]         = useState(null);
 
@@ -59,6 +61,18 @@ export function useMaterialEditor({ c, t, setInputDialog }) {
         window.addEventListener('catalogs-loaded', loadCatalogs);
         return () => window.removeEventListener('catalogs-loaded', loadCatalogs);
     }, [loadCatalogs]);
+
+    // Installing a draft (select / new / copy / post-save refresh) also records
+    // it as the revert baseline. Edits from the form go through `updateDraft`,
+    // which leaves the baseline alone — the difference between the two is what
+    // "unsaved changes" means.
+    const setEditDraft = useCallback((draft) => {
+        updateDraft(draft);
+        setPristineDraft(draft);
+    }, []);
+
+    const isDirty = draftFingerprint(editDraft) !== draftFingerprint(pristineDraft);
+    const handleRevertMaterial = () => updateDraft(pristineDraft);
 
     const results = searchMaterials(query, catFilter === 'all' ? null : catFilter);
     const selectedMat = (!editDraft && selectedId) ? getMaterialById(selectedId) : null;
@@ -84,14 +98,14 @@ export function useMaterialEditor({ c, t, setInputDialog }) {
         catalogs, catFilter, setCatFilter,
         selectedId, setSelectedId, editDraft, setEditDraft,
         copyPickerFor, setCopyPickerFor, olImport, setOlImport,
-        newCatalogName, setNewCatalogName, setShowNewCatalog,
     };
 
     const handleImport = () => runImportGuarded(importAgfCatalog, ctx, importing, setImporting);
     const handleImportOptiLayer = () => runImportGuarded(importOptiLayerFiles, ctx, importing, setImporting);
     const doImportOptiLayer = (targetCatId) => commitOptiLayerImport(targetCatId, ctx);
     const handleRemoveCatalog = (catId) => removeCatalogWithConfirm(catId, ctx);
-    const handleCreateCatalog = () => createCatalog(ctx);
+    const handleCreateCatalog = () => createCatalogWithPrompt(ctx);
+    const handleRenameCatalog = (catId) => renameCatalogWithPrompt(catId, ctx);
     const handleDuplicateCatalog = (srcId) => duplicateCatalogWithPrompt(srcId, ctx);
 
     const handleNewMaterial = () => newMaterial(ctx);
@@ -120,10 +134,11 @@ export function useMaterialEditor({ c, t, setInputDialog }) {
     return {
         c, me, catalogs, catFilter, setCatFilter, query, setQuery,
         selectedId, importing, showRii, setShowRii, notification,
-        showNewCatalog, setShowNewCatalog, newCatalogName, setNewCatalogName,
-        editDraft, setEditDraft, results, selectedMat, currentCatalog, isUserCatalog,
+        menuOpen, setMenuOpen,
+        editDraft, setEditDraft, updateDraft, isDirty, handleRevertMaterial,
+        results, selectedMat, currentCatalog, isUserCatalog,
         handleImport, handleImportOptiLayer, doImportOptiLayer,
-        handleRemoveCatalog, handleCreateCatalog, handleDuplicateCatalog,
+        handleRemoveCatalog, handleCreateCatalog, handleRenameCatalog, handleDuplicateCatalog,
         handleNewMaterial, handleSelectMaterial, handleSaveMaterial, handleDeleteMaterial,
         handleCopyUserMaterial, openCopyPicker, doCopyToCatalog,
         copyPickerFor, setCopyPickerFor, olImport, setOlImport,

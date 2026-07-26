@@ -2,7 +2,7 @@ import { buildTableColumns } from './model.js';
 
 const { createElement: h } = React;
 
-export function DataTable({ data, showCurves, c }) {
+export function DataTable({ data, showCurves, c, oe }) {
     const columns = buildTableColumns(data, showCurves);
     const thBase = {
         padding: '3px 8px', fontWeight: 600, fontSize: 11,
@@ -16,15 +16,15 @@ export function DataTable({ data, showCurves, c }) {
     };
     return h('div', {
         style: {
-            height: 200, overflowY: 'auto', overflowX: 'auto',
-            borderTop: `1px solid ${c.border}`, backgroundColor: c.bg,
+            height: 185, overflowY: 'auto', overflowX: 'auto',
+            backgroundColor: c.bg,
             flexShrink: 0
         }
     },
         h('table', { style: { width: '100%', borderCollapse: 'collapse', tableLayout: 'auto' } },
             h('thead', null,
                 h('tr', null,
-                    h('th', { style: { ...thBase, textAlign: 'left', color: c.textDim } }, 'λ (nm)'),
+                    h('th', { style: { ...thBase, textAlign: 'left', color: c.textDim } }, oe.wavelength),
                     ...columns.map((column, index) =>
                         h('th', { key: index, style: { ...thBase, textAlign: 'right', color: column.cv.color } }, column.label)
                     )

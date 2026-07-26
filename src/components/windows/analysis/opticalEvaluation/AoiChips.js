@@ -44,8 +44,8 @@ function AoiChip({ value, onRemove, onEdit, canRemove, c, oe }) {
             },
             style: {
                 width: 46, height: 22,
-                border: `1px solid ${c.accent}`, borderRadius: 11,
-                backgroundColor: c.bg, color: c.text,
+                border: `1px solid ${c.accent}`, borderRadius: 4,
+                backgroundColor: c.panel, color: c.text,
                 fontSize: 11, fontFamily: 'system-ui, -apple-system, sans-serif',
                 padding: '0 6px', outline: 'none', textAlign: 'center'
             }
@@ -56,8 +56,8 @@ function AoiChip({ value, onRemove, onEdit, canRemove, c, oe }) {
         style: {
             display: 'inline-flex', alignItems: 'center', height: 22,
             padding: canRemove ? '0 2px 0 7px' : '0 7px',
-            border: `1px solid ${c.border}`, borderRadius: 11,
-            fontSize: 11, lineHeight: '20px', backgroundColor: c.bg,
+            border: 'none', borderRadius: 4,
+            fontSize: 11, lineHeight: '20px', backgroundColor: c.panel,
             fontVariantNumeric: 'tabular-nums', color: c.text, gap: 2,
             flexShrink: 0
         }
@@ -76,28 +76,50 @@ function AoiChip({ value, onRemove, onEdit, canRemove, c, oe }) {
 
 export function AoiChips({ values, onChange, c, oe }) {
     const [draft, setDraft] = useState('');
-    const addValue = () => addDraftAoi({ draft, values, onChange, setDraft });
-    return h('div', { style: { display: 'flex', alignItems: 'center', gap: 4, flexWrap: 'wrap' } },
+    const [adding, setAdding] = useState(false);
+    const addValue = () => {
+        addDraftAoi({ draft, values, onChange, setDraft });
+        setAdding(false);
+    };
+    const addTitle = oe.addAoiTooltip(AOI_MAX);
+    return h('div', {
+        style: {
+            minHeight: 28, display: 'inline-flex', alignItems: 'center', gap: 2,
+            padding: 2, border: `1px solid ${c.border}`, borderRadius: 7,
+            backgroundColor: c.field, flexWrap: 'wrap'
+        }
+    },
         values.map((value, index) => h(AoiChip, {
             key: `${value}-${index}`, value,
             onRemove: () => removeAoi({ index, values, onChange }),
             onEdit: raw => editAoi({ index, raw, values, onChange }),
             canRemove: values.length > 1, c, oe
         })),
-        values.length < AOI_MAX && h('input', {
+        values.length < AOI_MAX && adding && h('input', {
             type: 'number', value: draft,
-            placeholder: oe.addAoiPlaceholder, title: oe.addAoiTooltip(AOI_MAX),
+            autoFocus: true, title: addTitle, 'aria-label': addTitle,
             min: 0, max: 89, step: 1,
             onChange: event => setDraft(event.target.value),
             onBlur: addValue,
-            onKeyDown: event => { if (event.key === 'Enter') addValue(); },
+            onKeyDown: event => {
+                if (event.key === 'Enter') addValue();
+                if (event.key === 'Escape') { setDraft(''); setAdding(false); }
+            },
             style: {
-                width: 38, height: 22,
-                border: `1px dashed ${c.border}`, borderRadius: 11,
-                backgroundColor: 'transparent', color: c.text,
+                width: 46, height: 22,
+                border: `1px solid ${c.accent}`, borderRadius: 4,
+                backgroundColor: c.panel, color: c.text,
                 fontSize: 11, fontFamily: 'system-ui, -apple-system, sans-serif',
                 padding: '0 4px', outline: 'none', textAlign: 'center'
             }
-        })
+        }),
+        values.length < AOI_MAX && !adding && h('button', {
+            onClick: () => setAdding(true), title: addTitle, 'aria-label': addTitle,
+            style: {
+                width: 24, height: 22, display: 'flex', alignItems: 'center', justifyContent: 'center',
+                border: 'none', borderRadius: 4, backgroundColor: 'transparent',
+                color: c.textDim, cursor: 'pointer', outline: 'none', fontSize: 15, lineHeight: 1
+            }
+        }, '+')
     );
 }

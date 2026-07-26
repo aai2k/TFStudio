@@ -31,6 +31,14 @@ export const SPECTRAL_UNITS = {
 
 export const SPECTRAL_UNIT_IDS = ['nm', 'um', 'cm1', 'THz', 'eV'];
 
+const RANGE_CONTROL = {
+    nm:  { symbol: 'λ', decimals: 2, step: 10 },
+    um:  { symbol: 'λ', decimals: 4, step: 0.01 },
+    cm1: { symbol: 'ν̃', decimals: 0, step: 100 },
+    THz: { symbol: 'f', decimals: 2, step: 1 },
+    eV:  { symbol: 'E', decimals: 4, step: 0.01 },
+};
+
 /** nm → display-unit value. */
 export function fromNm(nm, unit) {
     const u = SPECTRAL_UNITS[unit] || SPECTRAL_UNITS.nm;
@@ -40,6 +48,26 @@ export function fromNm(nm, unit) {
 export function toNm(value, unit) {
     const u = SPECTRAL_UNITS[unit] || SPECTRAL_UNITS.nm;
     return u.toNm(value);
+}
+
+function roundedDisplayValue(value, decimals) {
+    return Number(value.toFixed(decimals));
+}
+
+/** Display metadata for editable range fields backed by wavelength values [nm]. */
+export function spectralRangeControl(unit, nmStart, nmEnd) {
+    const id = SPECTRAL_UNITS[unit] ? unit : 'nm';
+    const cfg = RANGE_CONTROL[id];
+    const boundaryA = fromNm(100, id);
+    const boundaryB = fromNm(20000, id);
+    return {
+        symbol: cfg.symbol,
+        start: roundedDisplayValue(fromNm(nmStart, id), cfg.decimals),
+        end: roundedDisplayValue(fromNm(nmEnd, id), cfg.decimals),
+        min: Math.min(boundaryA, boundaryB),
+        max: Math.max(boundaryA, boundaryB),
+        step: cfg.step,
+    };
 }
 
 // ── "Nice" tick generation ────────────────────────────────────────────────────

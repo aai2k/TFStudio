@@ -1,5 +1,9 @@
 /**
- * Material Editor — left panel (toolbar + catalog selector + search + material list).
+ * Material Editor — left panel (catalog selector + search + material list).
+ *
+ * Four stacked rows: the catalog selector with its "⋯" action menu, a search
+ * box, a result-count row carrying the "new material" action, and the material
+ * list. Every catalog-scoped action lives in the menu (see catalogMenu.js).
  *
  * Each render* function takes the editor's flat state object `s` (from
  * useMaterialEditor) and reads only the fields it needs.
@@ -7,141 +11,161 @@
 
 import { resolveColor } from '../../../../utils/materials/catalogManager.js';
 import { dotStyle, smallBtn } from './materialEditorUI.js';
+import { CatalogMenu } from './catalogMenu.js';
 
 const { createElement: h } = React;
 
-function renderCatalogToolbar(s) {
-    const { c, me, handleImport, importing, handleImportOptiLayer, setShowRii,
-            showNewCatalog, setShowNewCatalog, newCatalogName, setNewCatalogName, handleCreateCatalog } = s;
-    return h('div', { style: { padding: '6px 8px', borderBottom: `1px solid ${c.border}`, display: 'flex', flexDirection: 'column', gap: 3 } },
-        // Import row — file-based importers (AGF, OptiLayer)
-        h('div', { style: { display: 'flex', gap: 4 } },
-            h('button', {
-                onClick: handleImport, disabled: importing,
-                style: { ...smallBtn(c), flex: 1, padding: '4px 0', opacity: importing ? 0.5 : 1, cursor: importing ? 'default' : 'pointer' }
-            }, importing ? '…' : me.importAgf),
-            h('button', {
-                onClick: handleImportOptiLayer, disabled: importing,
-                style: { ...smallBtn(c), flex: 1, padding: '4px 0', opacity: importing ? 0.5 : 1, cursor: importing ? 'default' : 'pointer' }
-            }, importing ? '…' : me.importOptiLayer),
-        ),
-        // Browse online database
-        h('div', { style: { display: 'flex', gap: 4 } },
-            h('button', { onClick: () => setShowRii(true), style: { ...smallBtn(c), flex: 1, padding: '4px 0' } }, me.browseRii)
-        ),
-        // Catalog management row
-        h('div', { style: { display: 'flex', gap: 4 } },
-            h('button', {
-                onClick: () => { setShowNewCatalog(v => !v); setNewCatalogName(''); },
-                style: { ...smallBtn(c), flex: 1, padding: '4px 0',
-                    backgroundColor: showNewCatalog ? c.accent + '22' : c.panel,
-                    color: showNewCatalog ? c.accent : c.textDim,
-                    borderColor: showNewCatalog ? c.accent + '88' : c.border }
-            }, me.newCatalog)
-        ),
-        showNewCatalog && h('div', { style: { display: 'flex', gap: 4 } },
-            h('input', {
-                value: newCatalogName, onChange: e => setNewCatalogName(e.target.value),
-                placeholder: me.catalogNamePlaceholder,
-                onKeyDown: e => { if (e.key === 'Enter') handleCreateCatalog(); if (e.key === 'Escape') { setShowNewCatalog(false); setNewCatalogName(''); } },
-                autoFocus: true,
-                style: { flex: 1, height: 22, backgroundColor: c.bg, color: c.text, border: `1px solid ${c.border}`, borderRadius: 3, fontSize: 11, padding: '0 5px', outline: 'none', boxSizing: 'border-box' }
-            }),
-            h('button', { onClick: handleCreateCatalog, style: smallBtn(c, { backgroundColor: c.accent, color: '#fff', borderColor: c.accent }) }, me.create)
-        )
-    );
+const PANEL_WIDTH = 244;
+
+const fieldStyle = (c) => ({
+    height: 24, boxSizing: 'border-box',
+    backgroundColor: c.bg, color: c.text,
+    border: `1px solid ${c.border}`, borderRadius: 3,
+    fontSize: 12, padding: '0 6px', outline: 'none',
+    fontFamily: 'inherit',
+});
+
+// Menu entries. Catalog actions first, then the importers; each is disabled
+// when it cannot apply to the current selection rather than being hidden, so
+// the menu keeps a stable shape.
+function menuItems(s) {
+    const { me, currentCatalog, isUserCatalog, importing,
+            handleCreateCatalog, handleRenameCatalog, handleDuplicateCatalog, handleRemoveCatalog,
+            handleImport, handleImportOptiLayer, setShowRii } = s;
+    const canDelete = !!currentCatalog && currentCatalog.id !== 'builtin';
+    return [
+        { id: 'new',    glyph: '＋', label: me.newCatalog,       onClick: handleCreateCatalog },
+        { id: 'rename', glyph: '✎',  label: me.renameCatalog,    onClick: () => handleRenameCatalog(currentCatalog.id),
+          disabled: !isUserCatalog },
+        { id: 'dup',    glyph: '⎘',  label: me.duplicateCatalog, onClick: () => handleDuplicateCatalog(currentCatalog.id),
+          disabled: !currentCatalog },
+        { id: 'del',    glyph: '✕',  label: me.removeCatalog,    onClick: () => handleRemoveCatalog(currentCatalog.id),
+          disabled: !canDelete, danger: true },
+        { id: 'sep',    separator: true },
+        { id: 'agf',    glyph: '↓',  label: me.importAgf,        onClick: handleImport,           disabled: importing },
+        { id: 'ol',     glyph: '↓',  label: me.importOptiLayer,  onClick: handleImportOptiLayer,  disabled: importing },
+        { id: 'rii',    glyph: '↗',  label: me.browseRii,        onClick: () => setShowRii(true) },
+    ];
 }
 
-function renderCatalogSelector(s) {
+function renderCatalogRow(s) {
     const { c, me, catFilter, setCatFilter, setEditDraft, catalogs, currentCatalog,
-            isUserCatalog, handleNewMaterial, handleDuplicateCatalog, handleRemoveCatalog } = s;
-    return h('div', { style: { padding: '4px 8px 6px', borderBottom: `1px solid ${c.border}` } },
-        h('div', { style: { fontSize: 10, color: c.textDim, marginBottom: 3, textTransform: 'uppercase', letterSpacing: 1 } }, me.catalogsLabel || 'Catalogs'),
-        // Selector gets the full panel width so long catalog names are readable;
-        // `title` surfaces the complete name on hover for any extra-long case.
+            menuOpen, setMenuOpen } = s;
+    const total = catalogs.reduce((sum, cat) => sum + Object.keys(cat.materials || {}).length, 0);
+    return h('div', { style: { position: 'relative', display: 'flex', alignItems: 'center', gap: 6, padding: '8px 8px 4px' } },
+        h('span', { style: { fontSize: 11, color: c.textDim, flexShrink: 0 } }, me.catalogLabel),
         h('select', {
             value: catFilter,
             onChange: e => { setCatFilter(e.target.value); setEditDraft(null); },
             title: catFilter === 'all' ? me.allCatalogs : (currentCatalog?.name || ''),
-            style: { width: '100%', boxSizing: 'border-box', height: 24, backgroundColor: c.bg, color: c.text, border: `1px solid ${c.border}`, borderRadius: 3, fontSize: 12, padding: '0 4px', outline: 'none', cursor: 'pointer', fontFamily: 'inherit' }
+            style: { ...fieldStyle(c), flex: 1, minWidth: 0, cursor: 'pointer' }
         },
-            h('option', { value: 'all' },
-                `${me.allCatalogs} (${catalogs.reduce((sum, cat) => sum + Object.keys(cat.materials || {}).length, 0)})`),
-            catalogs.map(cat => {
-                const count = Object.keys(cat.materials || {}).length;
-                const badge = cat.source === 'user' ? ` ${me.userCatalogBadge}` : '';
-                return h('option', { key: cat.id, value: cat.id }, `${cat.name}${badge} (${count})`);
-            })
+            h('option', { value: 'all' }, `${me.allCatalogs} (${total})`),
+            catalogs.map(cat =>
+                h('option', { key: cat.id, value: cat.id },
+                    `${cat.name} (${Object.keys(cat.materials || {}).length})`))
         ),
-        // Action row: New material (user catalogs) + duplicate / remove.
-        (currentCatalog || isUserCatalog) && h('div', { style: { display: 'flex', gap: 4, marginTop: 5, alignItems: 'center' } },
-            isUserCatalog && h('button', {
-                onClick: handleNewMaterial,
-                style: { ...smallBtn(c), flex: 1, padding: '4px 0',
-                    backgroundColor: c.accent + '22', color: c.accent, borderColor: c.accent + '66' }
-            }, me.newMaterial),
-            !isUserCatalog && h('div', { style: { flex: 1 } }),  // spacer → right-align buttons
-            currentCatalog && h('button', {
-                onClick: () => handleDuplicateCatalog(currentCatalog.id),
-                title: me.duplicateCatalog,
-                style: smallBtn(c, { padding: '3px 8px', flexShrink: 0 })
-            }, '⎘'),
-            currentCatalog && currentCatalog.id !== 'builtin' && h('button', {
-                onClick: () => handleRemoveCatalog(currentCatalog.id),
-                title: me.removeCatalog,
-                style: smallBtn(c, { padding: '3px 8px', flexShrink: 0, color: '#ec7063', borderColor: '#ec7063' + '66' })
-            }, '×')
-        )
+        h('button', {
+            onClick: () => setMenuOpen(v => !v),
+            title: me.catalogMenuTip,
+            style: smallBtn(c, {
+                flexShrink: 0, padding: '2px 6px', lineHeight: '16px',
+                backgroundColor: menuOpen ? c.accent + '22' : c.panel,
+                color: menuOpen ? c.accent : c.text,
+                borderColor: menuOpen ? c.accent + '88' : c.border,
+            })
+        }, '⋯'),
+        menuOpen && h(CatalogMenu, { items: menuItems(s), onClose: () => setMenuOpen(false), c })
     );
 }
 
+function renderSearchRow(s) {
+    const { c, me, query, setQuery } = s;
+    return h('div', { style: { padding: '4px 8px' } },
+        h('input', {
+            value: query, onChange: e => setQuery(e.target.value),
+            placeholder: me.searchPlaceholder,
+            style: { ...fieldStyle(c), width: '100%' }
+        })
+    );
+}
+
+function renderCountRow(s) {
+    const { c, me, results, isUserCatalog, handleNewMaterial } = s;
+    return h('div', {
+        style: { display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                 gap: 6, padding: '4px 8px 6px', borderBottom: `1px solid ${c.border}` }
+    },
+        h('span', { style: { fontSize: 11, color: c.textDim } }, me.materialCount(results.length)),
+        isUserCatalog && h('button', {
+            onClick: handleNewMaterial,
+            title: me.newMaterial,
+            style: smallBtn(c, { backgroundColor: c.accent + '22', color: c.accent, borderColor: c.accent + '66' })
+        }, me.newMaterialShort)
+    );
+}
+
+// Second line of a list row: the material's own data range, plus — only while
+// browsing all catalogs — the catalog it lives in, since the selector no longer
+// names one in that mode.
+function materialSubtitle(material, catalogName, catFilter) {
+    const parts = [];
+    if (material.lambdaMin && material.lambdaMax) {
+        parts.push(`${Math.round(material.lambdaMin * 1000)}–${Math.round(material.lambdaMax * 1000)} nm`);
+    }
+    if (catFilter === 'all' && catalogName) parts.push(catalogName);
+    return parts.join(' · ');
+}
+
 function renderMaterialList(s) {
-    const { c, me, results, editDraft, selectedId, handleSelectMaterial } = s;
+    const { c, me, results, editDraft, selectedId, handleSelectMaterial, catFilter } = s;
     if (results.length === 0) {
         return h('div', { style: { padding: 12, color: c.textDim, fontSize: 12, textAlign: 'center' } }, me.noMaterials);
     }
-    return results.map(({ catalogId, material }) => {
+    return results.map(({ catalogId, catalogName, material }) => {
         const compId = `${catalogId}:${material.id}`;
         const isActive = editDraft
             ? (editDraft.catalogId === catalogId && (editDraft.id === material.id || editDraft.originalId === material.id))
             : selectedId === compId;
-        const mc = resolveColor(material);
+        const subtitle = materialSubtitle(material, catalogName, catFilter);
         return h('div', {
             key: compId,
             onClick: () => handleSelectMaterial(compId, catalogId, material),
             style: {
-                display: 'flex', alignItems: 'center', gap: 6,
-                padding: '3px 8px', cursor: 'pointer',
+                display: 'flex', alignItems: 'flex-start', gap: 7,
+                padding: '5px 8px', cursor: 'pointer',
                 backgroundColor: isActive ? c.accent + '33' : 'transparent',
                 borderLeft: `2px solid ${isActive ? c.accent : 'transparent'}`,
-                color: isActive ? c.accent : c.text, fontSize: 12
             }
         },
-            h('span', { style: dotStyle(mc) }),
-            h('span', { style: { overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' } }, material.name || material.id)
+            h('span', { style: { ...dotStyle(resolveColor(material)), marginTop: 3 } }),
+            h('div', { style: { minWidth: 0, display: 'flex', flexDirection: 'column', gap: 1 } },
+                h('span', {
+                    style: { fontSize: 12, color: isActive ? c.accent : c.text,
+                             overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }
+                }, material.name || material.id),
+                subtitle && h('span', {
+                    style: { fontSize: 10, color: c.textDim,
+                             overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }
+                }, subtitle)
+            )
         );
     });
 }
 
 export function renderLeftPanel(s) {
-    const { c, me, notification, query, setQuery } = s;
+    const { c, notification } = s;
     return h('div', {
-        style: { width: 220, flexShrink: 0, display: 'flex', flexDirection: 'column', borderRight: `1px solid ${c.border}`, backgroundColor: c.panel }
+        style: { width: PANEL_WIDTH, flexShrink: 0, display: 'flex', flexDirection: 'column',
+                 borderRight: `1px solid ${c.border}`, backgroundColor: c.panel }
     },
-        renderCatalogToolbar(s),
+        renderCatalogRow(s),
+        renderSearchRow(s),
+        renderCountRow(s),
         notification && h('div', {
-            style: { padding: '4px 8px', fontSize: 11, color: notification.type === 'ok' ? '#58d68d' : '#ec7063', borderBottom: `1px solid ${c.border}` }
+            style: { padding: '4px 8px', fontSize: 11, borderBottom: `1px solid ${c.border}`,
+                     color: notification.type === 'ok' ? '#2fa84f' : '#e6194b' }
         }, notification.msg),
-        renderCatalogSelector(s),
-        // Search
-        h('div', { style: { padding: '4px 8px', borderBottom: `1px solid ${c.border}` } },
-            h('input', {
-                value: query, onChange: e => setQuery(e.target.value),
-                placeholder: me.searchPlaceholder,
-                style: { width: '100%', height: 22, boxSizing: 'border-box', backgroundColor: c.bg, color: c.text, border: `1px solid ${c.border}`, borderRadius: 3, fontSize: 12, padding: '0 6px', outline: 'none' }
-            })
-        ),
-        // Material list
         h('div', { style: { flex: 1, overflowY: 'auto' } }, renderMaterialList(s))
     );
 }

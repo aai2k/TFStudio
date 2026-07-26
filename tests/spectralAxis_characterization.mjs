@@ -2,7 +2,9 @@
 // fromNm / toNm / spectralAxisProps so an internal refactor (complex-binary-
 // expression cleanup) cannot change behavior.
 // Run: node tests/spectralAxis_characterization.mjs
-import { fromNm, toNm, spectralAxisProps, SPECTRAL_UNIT_IDS } from '../src/utils/physics/spectralAxis.js';
+import {
+    fromNm, toNm, spectralAxisProps, spectralRangeControl, SPECTRAL_UNIT_IDS,
+} from '../src/utils/physics/spectralAxis.js';
 
 let pass = 0, fail = 0;
 const approx = (a, b, eps = 1e-6) => Math.abs(a - b) <= eps;
@@ -17,6 +19,21 @@ ok('toNm 0.5 um -> nm', approx(toNm(0.5, 'um'), 500));
 ok('fromNm 500 -> cm1', approx(fromNm(500, 'cm1'), 20000));
 ok('fromNm 500 -> THz', approx(fromNm(500, 'THz'), 599.584916));
 ok('fromNm 500 -> eV', approx(fromNm(500, 'eV'), 2.479683968));
+
+// ── editable range display preserves the wavelength-backed physical range ───
+{
+    const nm = spectralRangeControl('nm', 400, 800);
+    ok('range control nm values', nm.symbol === 'λ' && nm.start === 400 && nm.end === 800);
+
+    const ev = spectralRangeControl('eV', 400, 800);
+    ok('range control eV values', ev.symbol === 'E' && approx(ev.start, 3.0996, 1e-4) && approx(ev.end, 1.5498, 1e-4));
+    ok('range control reciprocal order', ev.start > ev.end);
+    ok('range control eV round-trip', approx(toNm(ev.start, 'eV'), 400, 0.01));
+
+    const thz = spectralRangeControl('THz', 400, 800);
+    ok('range control THz values', thz.symbol === 'f' && approx(thz.start, 749.48, 0.01) && approx(thz.end, 374.74, 0.01));
+    ok('range control unknown unit fallback', spectralRangeControl('bogus', 400, 800).start === 400);
+}
 
 // ── spectralAxisProps: nm unit returns title only (no tick override) ─────────
 {

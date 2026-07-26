@@ -69,9 +69,9 @@ export function applySurfaceMode(design, updateDesign, m) {
 // Shared pill style.
 function pill(color, cursor) {
     return {
-        padding: '1px 8px', fontSize: 10, fontWeight: 700, letterSpacing: '0.04em',
+        padding: '3px 9px', fontSize: 11, fontWeight: 700,
         background: `${color}33`, color, border: `1px solid ${color}66`,
-        borderRadius: 11, whiteSpace: 'nowrap', cursor: cursor || 'default',
+        borderRadius: 7, whiteSpace: 'nowrap', cursor: cursor || 'default',
     };
 }
 

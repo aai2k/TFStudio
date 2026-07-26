@@ -19,7 +19,7 @@ const t = makeLocale();
 const html = renderToStaticMarkup(withDesign(
     React.createElement(Inhomogeneities, { c, t, theme: c }),
 ));
-assert.equal(createHash('sha256').update(html).digest('hex').slice(0, 16), '0b819cb1e3130f67');
+assert.equal(createHash('sha256').update(html).digest('hex').slice(0, 16), '4263a5fb40701f97');
 
 const baseline = { lambda: [500], T: [0.4], R: [0.5], A: [0.1] };
 const perturbed = { lambda: [500], T: [0.3], R: [0.55], A: [0.15] };

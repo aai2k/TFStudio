@@ -8,7 +8,8 @@
  */
 
 import {
-    addCatalog, removeCatalog, createUserCatalog, duplicateCatalog, importMaterialsIntoCatalog,
+    addCatalog, removeCatalog, createUserCatalog, renameUserCatalog, duplicateCatalog,
+    importMaterialsIntoCatalog,
 } from '../../../../utils/materials/catalogManager.js';
 import { parseAGF } from '../../../../utils/materials/agfParser.js';
 import { buildOptiLayerCatalog } from '../../../../utils/materials/optilayerParser.js';
@@ -104,15 +105,53 @@ export function removeCatalogWithConfirm(catId, ctx) {
     }
 }
 
-export function createCatalog(ctx) {
-    const { newCatalogName, loadCatalogs, setCatFilter, setShowNewCatalog, setNewCatalogName } = ctx;
-    const name = newCatalogName.trim();
-    if (!name) return;
-    const cat = createUserCatalog(name);
-    loadCatalogs();
-    setCatFilter(cat.id);
-    setShowNewCatalog(false);
-    setNewCatalogName('');
+// Create an empty user catalog (prompts for the name) and switch to it.
+export function createCatalogWithPrompt(ctx) {
+    const { setInputDialog, me, loadCatalogs, setCatFilter, setEditDraft } = ctx;
+    const doCreate = (name) => {
+        const cat = createUserCatalog(name);
+        loadCatalogs();
+        setCatFilter(cat.id);
+        setEditDraft(null);
+    };
+    const defName = me.newCatalogDefault;
+    if (setInputDialog) {
+        setInputDialog({
+            title: me.newCatalogPrompt,
+            defaultValue: defName,
+            confirmLabel: me.newCatalog,
+            onConfirm: (val) => { doCreate((val || '').trim() || defName); setInputDialog(null); },
+            onCancel: () => setInputDialog(null),
+        });
+    } else {
+        doCreate(defName);
+    }
+}
+
+// Rename a user catalog (prompts for the new name). Only user catalogs can be
+// renamed — built-in and imported catalogs take their name from their source.
+export function renameCatalogWithPrompt(catId, ctx) {
+    const { catalogs, setInputDialog, me, loadCatalogs, notify } = ctx;
+    const cat = catalogs.find(cc => cc.id === catId);
+    if (!cat || cat.source !== 'user') return;
+    const doRename = (name) => {
+        renameUserCatalog(catId, name);
+        loadCatalogs();
+        notify('ok', me.renameSuccess(name));
+    };
+    if (setInputDialog) {
+        setInputDialog({
+            title: me.renameCatalogPrompt(cat.name),
+            defaultValue: cat.name,
+            confirmLabel: me.renameCatalog,
+            onConfirm: (val) => {
+                const name = (val || '').trim();
+                if (name && name !== cat.name) doRename(name);
+                setInputDialog(null);
+            },
+            onCancel: () => setInputDialog(null),
+        });
+    }
 }
 
 // Duplicate a whole catalog into a new user catalog (prompts for the new name).

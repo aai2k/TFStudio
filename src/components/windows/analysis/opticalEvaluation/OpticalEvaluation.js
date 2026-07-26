@@ -4,6 +4,7 @@ import { CurveToolbar } from './CurveToolbar.js';
 import { TargetToolbar } from './TargetToolbar.js';
 import { ChartPanel } from './ChartPanel.js';
 import { AxisPanel } from './AxisPanel.js';
+import { ResultsPanel } from './ResultsPanel.js';
 import { FooterPanel } from './FooterPanel.js';
 
 const { createElement: h } = React;
@@ -24,6 +25,7 @@ export function OpticalEvaluation({ c, theme, t }) {
         h(TargetToolbar, props),
         h(ChartPanel, props),
         h(AxisPanel, props),
+        h(ResultsPanel, props),
         h(FooterPanel, props)
     );
 }

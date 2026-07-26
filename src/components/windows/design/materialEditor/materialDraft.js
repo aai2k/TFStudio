@@ -16,15 +16,28 @@ export { buildNKFromDraft } from './nkSamplers.js';
 
 // ── Preset dot colors for user materials ──────────────────────────────────────
 
+// Saturated and widely spaced in hue so two materials never read as the same
+// dot. The first eight are the row offered in the editor.
 export const PRESET_COLORS = [
-    '#c39bd3','#85c1e9','#82e0aa','#f8c471','#f1948a',
-    '#aab7b8','#5dade2','#58d68d','#eb984e','#ec7063',
-    '#a569bd','#45b39d','#d4ac0d','#ba4a00','#148f77',
+    '#e6194b','#f58231','#e8a600','#2fa84f','#00968a',
+    '#00a5c8','#2c7be5','#8e2fc0','#d6289b','#a0522d',
+    '#7f9c00','#c0392b','#0f6fd1','#12a150','#5c6b7a',
 ];
 
 export function nextPresetColor(current) {
     const idx = PRESET_COLORS.indexOf(current);
     return PRESET_COLORS[(idx + 1) % PRESET_COLORS.length];
+}
+
+/**
+ * Stable fingerprint of a draft's user-visible content, used to tell an edited
+ * draft from the one that was loaded. Row identity keys and the key counter are
+ * excluded: they are React bookkeeping, not data the user typed.
+ */
+export function draftFingerprint(draft) {
+    if (!draft) return '';
+    return JSON.stringify(draft, (key, value) =>
+        (key === '_key' || key === '_rowSeq') ? undefined : value);
 }
 
 // ── Draft ↔ material converters ───────────────────────────────────────────────
