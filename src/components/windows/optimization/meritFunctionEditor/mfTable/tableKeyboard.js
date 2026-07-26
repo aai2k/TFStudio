@@ -1,5 +1,5 @@
 import {
-    OPERAND_POLS, OPERAND_TYPES, isFractionalUnit,
+    OPERAND_POLS, OPERAND_TYPES, isFractionalUnit, isValidMeritWeight,
 } from '../../../../../utils/physics/optimizer.js';
 
 export function serializeOperandsTsv(operands, selectedIds) {
@@ -28,7 +28,7 @@ export function parseOperandsTsv(text) {
             aoi: isFinite(aoi) ? aoi : 0,
             pol: OPERAND_POLS.includes(pol) ? pol : 'avg',
             target: isFinite(target) ? (isFractionalUnit(safeType) ? target / 100 : target) : 0,
-            weight: isFinite(weight) ? weight : 1,
+            weight: isValidMeritWeight(weight) ? weight : 1,
         });
     });
     return items;

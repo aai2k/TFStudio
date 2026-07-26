@@ -64,8 +64,23 @@ function useSurfaceCompute(state, design) {
     const [computing, setComputing] = useState(false);
     const [progress, setProgress] = useState(null);
     const poolRef = useRef(null);
+    const requestRef = useRef(0);
+    const inputRef = useRef(null);
+    if (inputRef.current?.surfaceSpec !== surfaceSpec || inputRef.current?.design !== design) {
+        inputRef.current = { surfaceSpec, design };
+    }
+
+    useEffect(() => {
+        requestRef.current += 1;
+        const pool = poolRef.current;
+        poolRef.current = null;
+        try { pool?.terminate(); } catch (_) {}
+        setComputing(false);
+        setProgress(null);
+    }, [surfaceSpec, design]);
 
     useEffect(() => () => {
+        requestRef.current += 1;
         try { poolRef.current?.terminate(); } catch (_) {}
         poolRef.current = null;
     }, []);
@@ -82,9 +97,12 @@ function useSurfaceCompute(state, design) {
         if (!design || computing) return;
         setComputing(true);
         setProgress(null);
+        const requestId = ++requestRef.current;
+        const requestInput = inputRef.current;
         runSurfaceSweep({
             surfaceSpec, design, poolRef, setProgress, setSurfaceResult,
             setComputing, computeMainThread,
+            isCurrent: () => requestRef.current === requestId && inputRef.current === requestInput,
         });
     }, [surfaceSpec, design, computing, computeMainThread]);
 

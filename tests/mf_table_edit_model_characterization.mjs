@@ -71,9 +71,13 @@ commitEdit(commitCtx, 0, 'weight', '3.5 kg');
 commitEdit(commitCtx, 1, 'target', '30->60');
 commitEdit(commitCtx, 9, 'target', '4');
 commitEdit(commitCtx, 0, 'aoi', 'bad');
+commitEdit(commitCtx, 0, 'weight', '-1');
+commitEdit(commitCtx, 0, 'weight', 'Infinity');
 assert.deepEqual(commitCalls, [
     ['state', null], ['edit', 'a', 'weight', 3.5],
     ['state', null], ['edit', 'r', '_patch', { target: 0.3, targetEnd: 0.6 }],
+    ['state', null],
+    ['state', null],
     ['state', null],
     ['state', null],
 ]);

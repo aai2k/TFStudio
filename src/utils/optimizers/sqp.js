@@ -170,6 +170,6 @@ export class SQPOptimizer extends LSQEngine {
     }
 
     isConverged() {
-        return this.mf < this.tol || this.lamS >= 1e8 || this.lamD >= 1e8;
+        return !this._hasFreeParameters() || this.mf < this.tol || this.lamS >= 1e8 || this.lamD >= 1e8;
     }
 }

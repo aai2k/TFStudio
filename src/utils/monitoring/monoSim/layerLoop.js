@@ -48,7 +48,7 @@ export function processMonoLayer(i, layer, ctx, mut) {
     if (plan.strat === 'time') {
         const relPct = timeCutRelPct(i, plan, ctx.relThkErrByLayer);
         ({ cut_d_actual, cut_time } = _timeCut(d_target, r, relPct, ctx.rng));
-        mut.t_global += t_target;
+        mut.t_global += cut_time;
     } else if (d_target > 0) {
         const scan = _scanCutMono({
             monLam: plan.monLam, theta: ctx.theta, pol: ctx.pol, char: ctx.char,
@@ -65,10 +65,12 @@ export function processMonoLayer(i, layer, ctx, mut) {
         mut.t_global = scan.t_global;
     }
 
+    const decisionTime = cut_time;
     if (ctx.shutterMeanS > 0 || ctx.shutterRmsS > 0) {
         ({ cut_d_actual, cut_time } = _applyShutter(cut_d_actual, cut_time, r,
             { meanS: ctx.shutterMeanS, rmsS: ctx.shutterRmsS }, ctx.rng));
     }
+    mut.t_global += cut_time - decisionTime;
 
     mut.acc.asBuilt[i] = Math.max(0, cut_d_actual);
     mut.acc.cutTimes[i] = cut_time;

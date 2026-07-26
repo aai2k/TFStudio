@@ -80,6 +80,6 @@ export class NewtonOptimizer extends LSQEngine {
     // Converge on the merit tolerance, on the Newton damping saturating, OR on
     // the LM damping saturating (the latter only when the step fell back to lmStep).
     isConverged() {
-        return this.mf < this.tol || this.lamN >= 1e8 || this.lamD >= 1e8;
+        return !this._hasFreeParameters() || this.mf < this.tol || this.lamN >= 1e8 || this.lamD >= 1e8;
     }
 }

@@ -41,9 +41,10 @@ export function computeExcludedCut(d_target, r, relPct, rng) {
  * shutter-jitter-style additive/relative σ on as-built thickness, and the
  * shutter-close delay (the shutter doesn't close instantly at the cut
  * decision, so a small extra r·delay is deposited). Returns the as-built
- * thickness; the cut time itself is unaffected by these (monitoring-BBM
+ * thickness and shutter delay; the cut time itself is unaffected (monitoring-BBM
  * convention — the monitor's cut_time is a scan-clock event, the shutter
- * delay only adds material after it).
+ * delay only adds material after it). The returned delay lets the caller
+ * advance the deposition and drift clocks through that physical latency.
  */
 export function applyExtraThicknessAndShutter({
     cut_d_actual, r, d_target, sigmaThkAbsNm, sigmaThkRelPct, shutterMeanS, shutterRmsS, rng,
@@ -54,11 +55,13 @@ export function applyExtraThicknessAndShutter({
         extra = sigma_d > 0 ? gauss(rng) * sigma_d : 0;
     }
 
-    let shutterExtra = 0;
+    let shutterDelay = 0;
     if (shutterMeanS > 0 || shutterRmsS > 0) {
-        const delay = Math.max(0, shutterMeanS + (shutterRmsS > 0 ? gauss(rng) * shutterRmsS : 0));
-        shutterExtra = r * delay;
+        shutterDelay = Math.max(0, shutterMeanS + (shutterRmsS > 0 ? gauss(rng) * shutterRmsS : 0));
     }
 
-    return Math.max(0, cut_d_actual + extra + shutterExtra);
+    return {
+        thickness: Math.max(0, cut_d_actual + extra + r * shutterDelay),
+        shutterDelay,
+    };
 }

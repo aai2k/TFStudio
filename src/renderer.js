@@ -28,6 +28,11 @@ import { initCatalogs, addCatalog } from './utils/materials/catalogManager.js';
 import { parseAGF } from './utils/materials/agfParser.js';
 import { initTmmWasmMainThread, tmmWasmActive } from './utils/workers/tmmWasm.js';
 import { designFileKey, uniqueDesignName } from './utils/io/designNaming.js';
+import {
+    designsEqual,
+    persistThenCommit,
+    updateDirtyDesigns,
+} from './utils/io/projectPersistence.js';
 
 const { createElement: h, useState, useEffect, useRef, useCallback } = React;
 
@@ -45,40 +50,6 @@ const MAX_HISTORY = 50;
 const WELCOME_SEEN_KEY = 'tfstudio-welcome-seen';
 // Completed tutorial keys — JSON array in localStorage.
 const TUTORIALS_DONE_KEY = 'tfstudio-tutorials-done';
-
-// ── Canonical design comparison ────────────────────────────────────────────────
-// The .tfs file on disk is written as `{ tfs_version, ...design }` (main.js),
-// and key order varies because the in-memory design is rebuilt through many
-// object spreads. A naive JSON.stringify compare therefore reports EVERY file
-// as dirty on startup even when nothing was edited. Compare canonically:
-// drop bookkeeping-only keys and sort object keys recursively so the result
-// depends solely on semantic content. A genuine unsaved edit still differs and
-// is still correctly flagged dirty.
-
-const META_KEYS = new Set(['tfs_version']);
-
-function canonicalize(value) {
-    if (Array.isArray(value)) return value.map(canonicalize);
-    if (value && typeof value === 'object') {
-        const out = {};
-        for (const k of Object.keys(value).sort()) {
-            if (META_KEYS.has(k)) continue;
-            out[k] = canonicalize(value[k]);
-        }
-        return out;
-    }
-    return value;
-}
-
-function designsEqual(a, b) {
-    if (a === b) return true;
-    if (!a || !b) return false;
-    try {
-        return JSON.stringify(canonicalize(a)) === JSON.stringify(canonicalize(b));
-    } catch (_) {
-        return false;
-    }
-}
 
 // ── Session persistence (v3: designs + per-design undo/redo history) ───────────
 // History is persisted so undo/redo survives an app restart, per the working-
@@ -246,6 +217,19 @@ function migrateThemeName(name) {
 // source. `side` distinguishes front/back layers in the generated id.
 function rekeyLayers(layers, ts, side) {
     return (layers || []).map((l, i) => ({ ...l, id: `l-${ts}-${side}${i}` }));
+}
+
+function useProjectPersistence(setMessageNotification, t) {
+    return useCallback(async (operation, commit, failureMessage) => {
+        const result = await persistThenCommit(operation, commit);
+        if (!result.success) {
+            setMessageNotification({
+                type: 'error',
+                message: failureMessage || t.dialogs.persistenceFailed,
+            });
+        }
+        return result.success;
+    }, [setMessageNotification, t]);
 }
 
 // ── App ────────────────────────────────────────────────────────────────────────
@@ -498,14 +482,10 @@ const App = () => {
     // Re-evaluated on every change so that undoing back to the saved state
     // correctly clears the ● indicator.
     const recomputeDirty = useCallback((id, design) => {
-        setDirtyDesigns(d => {
-            const isDirty = !designsEqual(design, diskDesignsRef.current[id]);
-            if (!!d[id] === isDirty) return d;
-            const n = { ...d };
-            if (isDirty) n[id] = true; else delete n[id];
-            return n;
-        });
+        setDirtyDesigns(d => updateDirtyDesigns(d, id, design, diskDesignsRef.current[id]));
     }, []);
+
+    const persistProjectChange = useProjectPersistence(setMessageNotification, t);
 
     // ── Explicit undo checkpoint ───────────────────────────────────────────────
     // Long-running tools (Refinement / Needle / Gradual Evolution) push ONE
@@ -627,22 +607,19 @@ const App = () => {
         if (!targetId || !targetDesign) return;
         const folder = foldersRef.current.find(f => f.items.some(i => i.id === targetId));
         if (folder && window.electronAPI?.saveDesign) {
-            window.electronAPI.saveDesign(folder.name, targetDesign).then((res) => {
-                // A refused save (name collides with another design's file) must
-                // leave the design marked dirty — nothing reached disk.
-                if (res && res.success === false) {
-                    setMessageNotification({ type: 'error', message: t.dialogs.saveAs.saveFailed });
-                    return;
-                }
-                // This snapshot becomes the new dirty baseline; undoing back to
-                // it later will clear the ● again via recomputeDirty().
-                diskDesignsRef.current[targetId] =
-                    JSON.parse(JSON.stringify(targetDesign));
-                setFolders(current => updateExplorerItemMtime(current, targetId, Date.now()));
-                setDirtyDesigns(d => { const n = { ...d }; delete n[targetId]; return n; });
-            });
+            const savedSnapshot = JSON.parse(JSON.stringify(targetDesign));
+            return persistProjectChange(
+                () => window.electronAPI.saveDesign(folder.name, savedSnapshot),
+                () => {
+                    diskDesignsRef.current[targetId] = savedSnapshot;
+                    setFolders(current => updateExplorerItemMtime(current, targetId, Date.now()));
+                    setDirtyDesigns(d => updateDirtyDesigns(
+                        d, targetId, designsRef.current[targetId], savedSnapshot));
+                },
+                t.dialogs.saveAs.saveFailed,
+            );
         }
-    }, [activeDesignId, t]);
+    }, [activeDesignId, persistProjectChange, t]);
 
     // ── Keyboard shortcuts ────────────────────────────────────────────────────
     useEffect(() => {
@@ -840,19 +817,23 @@ const App = () => {
         const design  = makeDefaultDesign(name);
         const newItem = { id: design.id, name: design.name, mtime: Date.now() };
 
-        setDesigns(d => ({ ...d, [design.id]: design }));
-        setFolders(prev => prev.map(f =>
-            f.id === targetFolder.id ? { ...f, items: [...f.items, newItem] } : f
-        ));
-        setSelectedFolder(targetFolder);
-        setSelectedItem(newItem);
-        setSelectedItems([newItem]);   // keep multi-select set in sync (single highlight)
-        setActiveDesignId(design.id);
-
-        if (window.electronAPI?.saveDesign) {
-            await window.electronAPI.saveDesign(targetFolder.name, design);
-        }
-    }, [selectedFolder, existingDesignNames]);
+        return persistProjectChange(
+            window.electronAPI?.saveDesign
+                ? () => window.electronAPI.saveDesign(targetFolder.name, design)
+                : null,
+            () => {
+                diskDesignsRef.current[design.id] = JSON.parse(JSON.stringify(design));
+                setDesigns(d => ({ ...d, [design.id]: design }));
+                setFolders(prev => prev.map(f =>
+                    f.id === targetFolder.id ? { ...f, items: [...f.items, newItem] } : f
+                ));
+                setSelectedFolder(targetFolder);
+                setSelectedItem(newItem);
+                setSelectedItems([newItem]);
+                setActiveDesignId(design.id);
+            },
+        );
+    }, [selectedFolder, existingDesignNames, persistProjectChange]);
 
     // Add a project-explorer item from a pre-built design (e.g. WDM wizard output).
     // Same persistence path as `addItem`; differs only in that the design is
@@ -864,19 +845,23 @@ const App = () => {
         const design = name === incoming.name ? incoming : { ...incoming, name };
         const newItem = { id: design.id, name: design.name, mtime: Date.now() };
 
-        setDesigns(d => ({ ...d, [design.id]: design }));
-        setFolders(prev => prev.map(f =>
-            f.id === targetFolder.id ? { ...f, items: [...f.items, newItem] } : f
-        ));
-        setSelectedFolder(targetFolder);
-        setSelectedItem(newItem);
-        setSelectedItems([newItem]);   // keep multi-select set in sync (single highlight)
-        setActiveDesignId(design.id);
-
-        if (window.electronAPI?.saveDesign) {
-            await window.electronAPI.saveDesign(targetFolder.name, design);
-        }
-    }, [selectedFolder, existingDesignNames]);
+        return persistProjectChange(
+            window.electronAPI?.saveDesign
+                ? () => window.electronAPI.saveDesign(targetFolder.name, design)
+                : null,
+            () => {
+                diskDesignsRef.current[design.id] = JSON.parse(JSON.stringify(design));
+                setDesigns(d => ({ ...d, [design.id]: design }));
+                setFolders(prev => prev.map(f =>
+                    f.id === targetFolder.id ? { ...f, items: [...f.items, newItem] } : f
+                ));
+                setSelectedFolder(targetFolder);
+                setSelectedItem(newItem);
+                setSelectedItems([newItem]);
+                setActiveDesignId(design.id);
+            },
+        );
+    }, [selectedFolder, existingDesignNames, persistProjectChange]);
 
     // ── Open: import an external .tfs file into the project tree and open it ──
     // The main process shows a native picker and returns the parsed design; we
@@ -901,8 +886,9 @@ const App = () => {
             frontLayers: rekeyLayers(res.design.frontLayers, ts, 'f'),
             backLayers:  rekeyLayers(res.design.backLayers, ts, 'b'),
         };
-        await addItemFromDesign(design, targetFolder);
-        setToolRequests(prev => [...prev, { toolId: 'design-editor', ts: Date.now() }]);
+        if (await addItemFromDesign(design, targetFolder)) {
+            setToolRequests(prev => [...prev, { toolId: 'design-editor', ts: Date.now() }]);
+        }
     }, [selectedFolder, addItemFromDesign, existingDesignNames]);
 
     // ── Save As: persist the active design under a new name as a separate file ──
@@ -938,22 +924,29 @@ const App = () => {
                     backLayers:  rekeyLayers(src.backLayers, ts, 'b'),
                 };
                 const newItem = { id: newId, name, mtime: Date.now() };
-                setDesigns(d => ({ ...d, [newId]: clone }));
-                setFolders(prev => prev.map(f =>
-                    f.id === folder.id ? { ...f, items: [...f.items, newItem] } : f));
-                setSelectedFolder(folder);
-                setSelectedItem(newItem);
-                setSelectedItems([newItem]);   // keep multi-select set in sync (single highlight)
-                setActiveDesignId(newId);
-                if (window.electronAPI?.saveDesign) {
-                    await window.electronAPI.saveDesign(folder.name, clone);
-                    diskDesignsRef.current[newId] = JSON.parse(JSON.stringify(clone));
+                const saved = await persistProjectChange(
+                    window.electronAPI?.saveDesign
+                        ? () => window.electronAPI.saveDesign(folder.name, clone)
+                        : null,
+                    () => {
+                        diskDesignsRef.current[newId] = JSON.parse(JSON.stringify(clone));
+                        setDesigns(d => ({ ...d, [newId]: clone }));
+                        setFolders(prev => prev.map(f =>
+                            f.id === folder.id ? { ...f, items: [...f.items, newItem] } : f));
+                        setSelectedFolder(folder);
+                        setSelectedItem(newItem);
+                        setSelectedItems([newItem]);
+                        setActiveDesignId(newId);
+                    },
+                    sa.saveFailed,
+                );
+                if (saved) {
+                    setInputDialog(null);
                 }
-                setInputDialog(null);
             },
             onCancel: () => setInputDialog(null),
         });
-    }, [activeDesignId, selectedFolder, t, existingDesignNames]);
+    }, [activeDesignId, selectedFolder, t, existingDesignNames, persistProjectChange]);
 
     const duplicateItem = useCallback(async (item, folder) => {
         const src = designsRef.current[item.id];
@@ -970,17 +963,22 @@ const App = () => {
             backLayers:  rekeyLayers(src.backLayers, ts, 'b'),
         };
         const newItem = { id: newId, name: newName, mtime: Date.now() };
-        setDesigns(d => ({ ...d, [newId]: clone }));
-        setFolders(prev => prev.map(f =>
-            f.id === folder.id ? { ...f, items: [...f.items, newItem] } : f
-        ));
-        setSelectedItem(newItem);
-        setSelectedItems([newItem]);   // keep multi-select set in sync (single highlight)
-        setActiveDesignId(newId);
-        if (window.electronAPI?.saveDesign) {
-            await window.electronAPI.saveDesign(folder.name, clone);
-        }
-    }, [existingDesignNames]);
+        return persistProjectChange(
+            window.electronAPI?.saveDesign
+                ? () => window.electronAPI.saveDesign(folder.name, clone)
+                : null,
+            () => {
+                diskDesignsRef.current[newId] = JSON.parse(JSON.stringify(clone));
+                setDesigns(d => ({ ...d, [newId]: clone }));
+                setFolders(prev => prev.map(f =>
+                    f.id === folder.id ? { ...f, items: [...f.items, newItem] } : f
+                ));
+                setSelectedItem(newItem);
+                setSelectedItems([newItem]);
+                setActiveDesignId(newId);
+            },
+        );
+    }, [existingDesignNames, persistProjectChange]);
 
     const removeSelectedItems = useCallback(async (explicitList) => {
         // `explicitList` lets the context menu delete a precise set without
@@ -989,29 +987,40 @@ const App = () => {
             ? explicitList
             : (selectedItems.length > 0 ? selectedItems : (selectedItem ? [selectedItem] : []));
         if (toRemove.length === 0) return;
-        // M10: resolve every item's folder+filename from foldersRef BEFORE mutating
-        // state. setFolders triggers the sync effect that empties foldersRef during
-        // the first `await deleteItem`, so a per-item lookup inside the loop misses
-        // items 2..n and leaves their .tfs files on disk (they resurrect on restart).
+        // Resolve every disk target before awaiting so concurrent selection or
+        // tree updates cannot retarget a later delete in the batch.
         const deletions = toRemove.map(item => {
             const folder = foldersRef.current.find(f => f.items.some(s => s.id === item.id));
-            return folder ? { folderName: folder.name, itemName: item.name } : null;
+            return folder ? { item, folderName: folder.name, itemName: item.name } : null;
         }).filter(Boolean);
-        setFolders(prev => prev.map(f => ({
-            ...f, items: f.items.filter(item => !toRemove.find(r => r.id === item.id))
-        })));
-        setSelectedItem(null);
-        setActiveDesignId(null);
-        setSelectedItems([]);
+
+        const removedIds = new Set();
         for (const d of deletions) {
-            if (window.electronAPI?.deleteItem) {
-                await window.electronAPI.deleteItem(d.folderName, d.itemName);
-            }
+            await persistProjectChange(
+                window.electronAPI?.deleteItem
+                    ? () => window.electronAPI.deleteItem(d.folderName, d.itemName)
+                    : null,
+                () => removedIds.add(d.item.id),
+            );
         }
-        for (const item of toRemove) {
+        if (removedIds.size === 0) return;
+
+        setFolders(prev => prev.map(f => ({
+            ...f, items: f.items.filter(item => !removedIds.has(item.id)),
+        })));
+        setSelectedItem(prev => (removedIds.has(prev?.id) ? null : prev));
+        setSelectedItems(prev => prev.filter(item => !removedIds.has(item.id)));
+        setActiveDesignId(prev => (removedIds.has(prev) ? null : prev));
+        setDirtyDesigns(prev => {
+            const next = { ...prev };
+            removedIds.forEach(id => delete next[id]);
+            return next;
+        });
+        removedIds.forEach(id => { delete diskDesignsRef.current[id]; });
+        for (const item of toRemove.filter(candidate => removedIds.has(candidate.id))) {
             window.dispatchEvent(new CustomEvent('tfstudio:design-evict', { detail: { id: item.id } }));
         }
-    }, [selectedItems, selectedItem]);
+    }, [selectedItems, selectedItem, persistProjectChange]);
 
     // Delete one SPECIFIC item by id — used by the explorer's per-row delete
     // button/key. Must NOT route through "select then removeSelectedItems":
@@ -1022,18 +1031,28 @@ const App = () => {
         if (!folder) return;
         const item = folder.items.find(i => i.id === itemId);
         if (!item) return;
-        setFolders(prev => prev.map(f => f.id === folderId
-            ? { ...f, items: f.items.filter(i => i.id !== itemId) }
-            : f));
-        // Clear selection / active design ONLY if they pointed at this item.
-        setSelectedItem(prev => (prev?.id === itemId ? null : prev));
-        setSelectedItems(prev => prev.filter(s => s.id !== itemId));
-        setActiveDesignId(prev => (prev === itemId ? null : prev));
-        if (window.electronAPI?.deleteItem) {
-            await window.electronAPI.deleteItem(folder.name, item.name);
-        }
-        window.dispatchEvent(new CustomEvent('tfstudio:design-evict', { detail: { id: itemId } }));
-    }, []);
+        return persistProjectChange(
+            window.electronAPI?.deleteItem
+                ? () => window.electronAPI.deleteItem(folder.name, item.name)
+                : null,
+            () => {
+                setFolders(prev => prev.map(f => f.id === folderId
+                    ? { ...f, items: f.items.filter(i => i.id !== itemId) }
+                    : f));
+                setSelectedItem(prev => (prev?.id === itemId ? null : prev));
+                setSelectedItems(prev => prev.filter(s => s.id !== itemId));
+                setActiveDesignId(prev => (prev === itemId ? null : prev));
+                setDirtyDesigns(prev => {
+                    const next = { ...prev };
+                    delete next[itemId];
+                    return next;
+                });
+                delete diskDesignsRef.current[itemId];
+                window.dispatchEvent(new CustomEvent(
+                    'tfstudio:design-evict', { detail: { id: itemId } }));
+            },
+        );
+    }, [persistProjectChange]);
 
     const addFolder = useCallback(async () => {
         setInputDialog({
@@ -1047,62 +1066,115 @@ const App = () => {
             },
             onConfirm: async (name) => {
                 if (name?.trim()) {
-                    const newFolder = { id: name.trim(), name: name.trim(), expanded: true, items: [] };
-                    setFolders(prev => [...prev, newFolder]);
-                    setSelectedFolder(newFolder);
-                    if (window.electronAPI?.createFolder) await window.electronAPI.createFolder(name.trim());
+                    const trimmedName = name.trim();
+                    const newFolder = {
+                        id: trimmedName, name: trimmedName, expanded: true, items: [],
+                    };
+                    const created = await persistProjectChange(
+                        window.electronAPI?.createFolder
+                            ? () => window.electronAPI.createFolder(trimmedName)
+                            : null,
+                        () => {
+                            setFolders(prev => [...prev, newFolder]);
+                            setSelectedFolder(newFolder);
+                        },
+                    );
+                    if (!created) return;
                 }
                 setInputDialog(null);
             },
             onCancel: () => setInputDialog(null)
         });
-    }, []);
+    }, [persistProjectChange]);
 
     const renameItem = useCallback(async (folderId, itemId, newName) => {
         const folder = foldersRef.current.find(f => f.id === folderId);
         if (!folder) return;
         const item = folder.items.find(i => i.id === itemId);
         if (!item) return;
+        const collides = folder.items.some(candidate =>
+            candidate.id !== itemId && designFileKey(candidate.name) === designFileKey(newName));
+        if (collides) {
+            setMessageNotification({ type: 'error', message: t.dialogs.saveAs.exists });
+            return false;
+        }
         const oldName = item.name;
         const updated = { ...item, name: newName };
-        setFolders(prev => prev.map(f => f.id === folderId
-            ? { ...f, items: f.items.map(i => i.id === itemId ? updated : i) }
-            : f));
-        if (selectedItem?.id === itemId) setSelectedItem(updated);
-        setDesigns(prev => {
-            if (!prev[itemId]) return prev;
-            return { ...prev, [itemId]: { ...prev[itemId], name: newName } };
-        });
-        if (window.electronAPI?.renameItem) {
-            await window.electronAPI.renameItem(folder.name, oldName, newName);
-        }
-        // Update disk baseline so dirty indicator doesn't spuriously fire after rename.
-        if (diskDesignsRef.current[itemId]) {
-            diskDesignsRef.current[itemId] = { ...diskDesignsRef.current[itemId], name: newName };
-        }
-    }, [selectedItem]);
+        return persistProjectChange(
+            window.electronAPI?.renameItem
+                ? () => window.electronAPI.renameItem(folder.name, oldName, newName)
+                : null,
+            () => {
+                setFolders(prev => prev.map(f => f.id === folderId
+                    ? { ...f, items: f.items.map(i => i.id === itemId ? updated : i) }
+                    : f));
+                setSelectedItem(prev => (prev?.id === itemId ? updated : prev));
+                setDesigns(prev => {
+                    if (!prev[itemId]) return prev;
+                    return { ...prev, [itemId]: { ...prev[itemId], name: newName } };
+                });
+                if (diskDesignsRef.current[itemId]) {
+                    diskDesignsRef.current[itemId] = {
+                        ...diskDesignsRef.current[itemId], name: newName,
+                    };
+                }
+            },
+        );
+    }, [persistProjectChange, t]);
 
     const renameFolder = useCallback(async (folderId, newName) => {
         const folder = foldersRef.current.find(f => f.id === folderId);
         if (!folder) return;
+        const collides = foldersRef.current.some(candidate =>
+            candidate.id !== folderId && candidate.name.toLowerCase() === newName.toLowerCase());
+        if (collides) {
+            setMessageNotification({ type: 'error', message: t.dialogs.folder.folderExists });
+            return false;
+        }
         const oldName = folder.name;
-        setFolders(prev => prev.map(f => f.id === folderId ? { ...f, id: newName, name: newName } : f));
-        if (selectedFolder?.id === folderId) setSelectedFolder(sf => sf ? { ...sf, id: newName, name: newName } : sf);
-        if (window.electronAPI?.renameFolder) await window.electronAPI.renameFolder(oldName, newName);
-    }, [selectedFolder]);
+        return persistProjectChange(
+            window.electronAPI?.renameFolder
+                ? () => window.electronAPI.renameFolder(oldName, newName)
+                : null,
+            () => {
+                setFolders(prev => prev.map(f =>
+                    f.id === folderId ? { ...f, id: newName, name: newName } : f));
+                setSelectedFolder(prev =>
+                    prev?.id === folderId ? { ...prev, id: newName, name: newName } : prev);
+            },
+        );
+    }, [persistProjectChange, t]);
 
     const removeFolder = useCallback(async (folderId) => {
         const folder = foldersRef.current.find(f => f.id === folderId);
         if (!folder) return;
-        setFolders(prev => prev.filter(f => f.id !== folderId));
-        if (selectedFolder?.id === folderId) {
-            const remaining = foldersRef.current.filter(f => f.id !== folderId);
-            setSelectedFolder(remaining[0] || null);
-            setSelectedItem(null);
-            setActiveDesignId(null);
-        }
-        if (window.electronAPI?.deleteFolder) await window.electronAPI.deleteFolder(folder.name);
-    }, [selectedFolder]);
+        const removedIds = new Set(folder.items.map(item => item.id));
+        return persistProjectChange(
+            window.electronAPI?.deleteFolder
+                ? () => window.electronAPI.deleteFolder(folder.name)
+                : null,
+            () => {
+                setFolders(prev => prev.filter(f => f.id !== folderId));
+                setSelectedFolder(prev => {
+                    if (prev?.id !== folderId) return prev;
+                    return foldersRef.current.find(f => f.id !== folderId) || null;
+                });
+                setSelectedItem(prev => (removedIds.has(prev?.id) ? null : prev));
+                setSelectedItems(prev => prev.filter(item => !removedIds.has(item.id)));
+                setActiveDesignId(prev => (removedIds.has(prev) ? null : prev));
+                setDirtyDesigns(prev => {
+                    const next = { ...prev };
+                    removedIds.forEach(id => delete next[id]);
+                    return next;
+                });
+                removedIds.forEach(id => {
+                    delete diskDesignsRef.current[id];
+                    window.dispatchEvent(new CustomEvent(
+                        'tfstudio:design-evict', { detail: { id } }));
+                });
+            },
+        );
+    }, [persistProjectChange]);
 
     const toggleFolderExpanded = useCallback((folderId) =>
         setFolders(prev => prev.map(f => f.id === folderId ? { ...f, expanded: !f.expanded } : f)),

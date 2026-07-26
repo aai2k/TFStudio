@@ -15,8 +15,7 @@ export function matLabel(mat) {
     return mat.name || mat.id || '?';
 }
 
-// Per-design baseline cache — survives docking-window unmount/remount so the
-// Revert reference is still meaningful after switching tabs.
+// Per-design baseline cache shared by the Variator's slider and spectrum helpers.
 const _variatorCache = {};   // { [designId]: { baseFront, baseBack, baseSubstrateMm } }
 if (typeof window !== 'undefined' && typeof window.addEventListener === 'function') window.addEventListener('tfstudio:design-evict', (e) => { if (e.detail?.id) delete _variatorCache[e.detail.id]; });
 
@@ -24,6 +23,12 @@ export function getVariatorCache(id) {
     if (!id) return null;
     if (!_variatorCache[id]) _variatorCache[id] = { baseFront: null, baseBack: null, baseSubstrateMm: null };
     return _variatorCache[id];
+}
+
+export function captureVariatorBaseline(cache, design) {
+    cache.baseFront = (design.frontLayers || []).map(l => ({ id: l.id, thickness: l.thickness }));
+    cache.baseBack = (design.backLayers || []).map(l => ({ id: l.id, thickness: l.thickness }));
+    cache.baseSubstrateMm = design.substrate?.thickness ?? 1.0;
 }
 
 export function buildBaseMaps(cache, design) {

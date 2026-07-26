@@ -175,6 +175,19 @@ console.log('— calcMF guards —');
        `OPGT-only MF = ${mf} (expected 0.02 — base TAV inert with weight=0)`);
 }
 
+console.log('— invalid merit weights —');
+{
+    const base = { enabled: true, type: 'R', target: 1 };
+    ok(calcMF([{ ...base, weight: -1 }], [0]) === Infinity,
+        'negative evaluator weight is rejected');
+    ok(calcMF([{ ...base, weight: Infinity }], [0]) === Infinity,
+        'non-finite evaluator weight is rejected');
+    ok(makeOperand({ ...base, weight: -1 }).weight === 1,
+        'operand factory replaces an invalid weight with the default');
+    ok(makeConstraintOperand({ weight: Infinity }).weight === 1,
+        'constraint factory replaces an invalid weight with the default');
+}
+
 if (fails) {
     console.error(`\n${fails} test(s) FAILED`);
     process.exit(1);

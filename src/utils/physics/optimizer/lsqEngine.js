@@ -583,8 +583,12 @@ export class LSQEngine {
         return g;
     }
 
+    _hasFreeParameters() {
+        return this.lockedMask.some(locked => !locked);
+    }
+
     isConverged() {
-        return this.mf < this.tol || this.lamD >= 1e8;
+        return !this._hasFreeParameters() || this.mf < this.tol || this.lamD >= 1e8;
     }
 
     restoreBest() {

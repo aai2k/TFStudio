@@ -1,5 +1,6 @@
 import {
     isArgwave, isConstraint, isMath, isRangeTarget, isTotalThickness,
+    isValidMeritWeight,
 } from '../../../../../utils/physics/optimizer.js';
 import { RANGE_TARGET_TYPES } from './operandViewModel.js';
 
@@ -65,5 +66,7 @@ export function commitEdit(ctx, rowIdx, colKey, draft) {
         return;
     }
     const value = parseFloat(draft);
-    if (!isNaN(value)) onEdit(op.id, colKey, value);
+    if (!isNaN(value) && (colKey !== 'weight' || isValidMeritWeight(value))) {
+        onEdit(op.id, colKey, value);
+    }
 }

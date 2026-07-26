@@ -183,6 +183,20 @@ test('delete and move respect selection and boundaries', () => {
     assert.deepEqual(moveOperand(base, 'b', 1).map(item => item.id), ['a', 'c', 'b']);
 });
 
+test('deleting a referenced row also removes transitive math dependents', () => {
+    const base = [
+        { id: 'source', type: 'R' },
+        { id: 'direct', type: 'OPGT', refId: 'source' },
+        { id: 'transitive', type: 'ABSO', refId: 'direct' },
+        { id: 'pair', type: 'DIFF', refId1: 'other', refId2: 'source' },
+        { id: 'other', type: 'T' },
+    ];
+    assert.deepEqual(deleteOperands(base, 'source'), {
+        operands: [{ id: 'other', type: 'T' }],
+        selectedId: null,
+    });
+});
+
 test('preset re-ID removes old IDs and preserves operand data', () => {
     let n = 0;
     const create = data => ({ id: `fresh-${++n}`, ...data });

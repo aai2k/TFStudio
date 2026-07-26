@@ -1,12 +1,12 @@
 import { useDesign } from '../../../../state/DesignContext.js';
 import {
-    getVariatorCache, buildBaseMaps, computeAnyVaried,
+    getVariatorCache, captureVariatorBaseline, buildBaseMaps, computeAnyVaried,
     collectUniqueMaterials, buildThicknessPatch, computeVariatorSpectrum,
 } from './model.js';
 
 const { useState, useEffect, useRef, useMemo, useCallback } = React;
 
-// Slider state — all relative to the baseline captured on first mount.
+// Slider state — all relative to the baseline captured for the current mount.
 // Layer thickness deltas are stored by layer ID so reordering does not
 // shift values around. Material n/k offsets are keyed by material id.
 // One-shot checkpoint guard fires the FIRST time any slider moves so a
@@ -51,21 +51,15 @@ function useSliderState(design, checkpoint) {
     };
 }
 
-// Captures the baseline thickness snapshot once per design id and pushes
+// Captures the baseline thickness snapshot for this mount and pushes
 // slider deltas back onto the design as transient thickness updates.
 function useThicknessSync({ design, updateDesign, dThkFront, dThkBack, dSubMm }) {
-    // Capture baseline thicknesses once per design id. We snapshot the
-    // *current* thicknesses the first time we see this design — that
-    // becomes the Revert reference for the rest of this Variator session
-    // (including across docking switches via the module-scoped cache).
+    // Fresh slider state starts at zero on every mount, so its baseline must
+    // match the design values that are current at that time.
     useEffect(() => {
         if (!design) return;
         const cache = getVariatorCache(design.id);
-        if (!cache.baseFront) {
-            cache.baseFront = (design.frontLayers || []).map(l => ({ id: l.id, thickness: l.thickness }));
-            cache.baseBack  = (design.backLayers  || []).map(l => ({ id: l.id, thickness: l.thickness }));
-            cache.baseSubstrateMm = design.substrate?.thickness ?? 1.0;
-        }
+        captureVariatorBaseline(cache, design);
     }, [design?.id]);
 
     // Apply slider state -> design (thicknesses only). Material n/k offsets

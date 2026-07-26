@@ -30,11 +30,11 @@ function createJobs(ny, size) {
     return jobs;
 }
 
-async function runJobs({ pool, poolRef, jobs, z, setProgress }) {
+async function runJobs({ pool, poolRef, jobs, z, setProgress, isCurrent }) {
     let done = 0;
-    setProgress({ done: 0, total: jobs.length });
+    if (isCurrent()) setProgress({ done: 0, total: jobs.length });
     await Promise.all(jobs.map(job => pool.run(job).then(res => {
-        if (poolRef.current !== pool) return;
+        if (!isCurrent() || poolRef.current !== pool) return;
         if (!res.ok) throw new Error(res.error || 'surface worker failed');
         for (let j = res.rowFrom; j < res.rowTo; j++) z[j] = res.rows[j - res.rowFrom];
         setProgress({ done: ++done, total: jobs.length });
@@ -44,7 +44,7 @@ async function runJobs({ pool, poolRef, jobs, z, setProgress }) {
 async function runWorkerSweep(options, meta) {
     const {
         surfaceSpec, design, poolRef, setProgress, setSurfaceResult,
-        setComputing, computeMainThread,
+        setComputing, computeMainThread, isCurrent,
     } = options;
     let pool = null;
     try {
@@ -53,28 +53,34 @@ async function runWorkerSweep(options, meta) {
         poolRef.current = pool;
         const jobs = createJobs(meta.y.length, created.size);
         const z = new Array(meta.y.length);
-        await runJobs({ pool, poolRef, jobs, z, setProgress });
-        if (poolRef.current === pool) {
+        await runJobs({ pool, poolRef, jobs, z, setProgress, isCurrent });
+        if (isCurrent() && poolRef.current === pool) {
             setSurfaceResult({ ok: true, x: meta.x, y: meta.y, z, zLabel: meta.zLabel, nPoints: meta.nPoints });
         }
     } catch (err) {
+        if (!isCurrent()) return;
         console.error('PlotEngine surface pool failed, main-thread fallback:', err);
         setSurfaceResult(computeMainThread());
     } finally {
         try { pool?.terminate(); } catch (_) {}
         if (poolRef.current === pool) poolRef.current = null;
-        setComputing(false);
-        setProgress(null);
+        if (isCurrent()) {
+            setComputing(false);
+            setProgress(null);
+        }
     }
 }
 
 export async function runSurfaceSweep(options) {
     const { surfaceSpec, design, setSurfaceResult, setComputing } = options;
+    const isCurrent = options.isCurrent || (() => true);
     const meta = computeSurface(surfaceSpec, design, resolveMaterial, { rowFrom: 0, rowTo: 0 });
     if (!meta.ok) {
-        setSurfaceResult(meta);
-        setComputing(false);
+        if (isCurrent()) {
+            setSurfaceResult(meta);
+            setComputing(false);
+        }
         return;
     }
-    await runWorkerSweep(options, meta);
+    await runWorkerSweep({ ...options, isCurrent }, meta);
 }

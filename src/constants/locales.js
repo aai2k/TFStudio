@@ -182,6 +182,7 @@ const en = {
     close: 'Close',
   },
   dialogs: {
+    persistenceFailed: 'The project change could not be saved. Please try again.',
     contextMenu: {
       rename: 'Rename',
       renameFolder: 'Rename Folder',
@@ -2621,6 +2622,7 @@ const ru = {
     close: 'Закрыть',
   },
   dialogs: {
+    persistenceFailed: 'Не удалось сохранить изменение проекта. Повторите попытку.',
     contextMenu: {
       rename: 'Переименовать',
       renameFolder: 'Переименовать папку',

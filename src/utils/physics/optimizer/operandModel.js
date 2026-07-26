@@ -249,6 +249,26 @@ export const ARGWAVE_DEFAULT_POINTS = 301;
 
 export const PNORM_DEFAULT = 50;     // softmax sharpness for TMN/TMX-family
 
+export function isValidMeritWeight(weight) {
+    return Number.isFinite(weight) && weight >= 0;
+}
+
+// A math row without all of its source rows has no defined value. Removing a
+// source therefore removes every directly or transitively dependent math row.
+export function removeOperandsAndDependents(operands, ids) {
+    const removedIds = new Set(Array.isArray(ids) ? ids : [ids]);
+    let previousSize;
+    do {
+        previousSize = removedIds.size;
+        for (const op of operands) {
+            if (!isMath(op.type) || removedIds.has(op.id)) continue;
+            const references = [op.refId, op.refId1, op.refId2];
+            if (references.some(id => removedIds.has(id))) removedIds.add(op.id);
+        }
+    } while (removedIds.size !== previousSize);
+    return operands.filter(op => !removedIds.has(op.id));
+}
+
 // Per-type physical default target for phase/field operands (degrees, fs, fs²,
 // |E|²). EFMX/GD*/flat default to 0 so the residual monotonically minimizes the
 // quantity until the user sets a specific target.
@@ -279,6 +299,7 @@ export function makeOperand(overrides = {}) {
         weight:      1.0,
         ...overrides
     };
+    if (!isValidMeritWeight(base.weight)) base.weight = 1;
     // ── Semantic defaults (persisted) ────────────────────────────────────────
     // Source/detector for integral operands: without these the weighting
     // would silently fall back to E × flat = unity, changing the operand's
@@ -332,7 +353,7 @@ export function isRamp(op) {
 }
 
 export function makeConstraintOperand(overrides = {}) {
-    return {
+    const operand = {
         id:          Math.random().toString(36).slice(2, 10),
         enabled:     true,
         type:        'MNT',
@@ -344,6 +365,8 @@ export function makeConstraintOperand(overrides = {}) {
         weight:      1.0,
         ...overrides
     };
+    if (!isValidMeritWeight(operand.weight)) operand.weight = 1;
+    return operand;
 }
 
 export function makeDefaultConstraints(type, layerStart, layerEnd, valueNm) {

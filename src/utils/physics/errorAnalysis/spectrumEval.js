@@ -80,7 +80,7 @@ export function makeShiftedMaterial(baseMat, dn, dk) {
         ...baseMat,
         getNK: (lam) => {
             const [n, k] = baseMat.getNK(lam);
-            return [n + dn, k + dk];
+            return [n + dn, Math.max(0, k + dk)];
         },
     };
 }

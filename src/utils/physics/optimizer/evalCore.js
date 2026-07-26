@@ -13,7 +13,7 @@ import { tmm, tmmNeedleScan, tmmThicknessJacobian, tmmThicknessHessian, tmmWithA
 import { resolveSourceSpec, resolveDetectorSpec } from '../spectralWeightings.js';
 import { tmmWasmActive, getTmmWasm } from '../../workers/tmmWasm.js';
 import {
-    OPTICAL_OPERAND_TYPES, RANGE_TARGET_OPERAND_TYPES, TOTAL_THICKNESS_OPERAND_TYPES, BLANK_OPERAND_TYPES, INTEGRAL_OPERAND_TYPES, MINMAX_OPERAND_TYPES, CONSTRAINT_OPERAND_TYPES, INEQUALITY_OPERAND_TYPES, MATH_OPERAND_TYPES, ARGWAVE_OPERAND_TYPES, OPERAND_TYPES, OPERAND_POLS, isConstraint, isDmfs, isBlank, isTotalThickness, isRangeTarget, isIntegral, isMinmax, isMinType, isInequality, isArgwave, isArgwaveMin, isMath, isMathSingleRef, isMathPairRef, isEllipsometry, isGroupDelay, isGroupDelayFlat, isEField, isPhase, isFractionalUnit, mathTargetInPercent, argwaveOpticalChar, argwavePolCode, polFromType, AVG_POINTS, AVG_STEP_NM, AVG_POINTS_MAX, bandSampleCount, ARGWAVE_DEFAULT_POINTS, PNORM_DEFAULT, makeOperand, isRamp, makeConstraintOperand, makeDefaultConstraints, makeDmfsOperand
+    OPTICAL_OPERAND_TYPES, RANGE_TARGET_OPERAND_TYPES, TOTAL_THICKNESS_OPERAND_TYPES, BLANK_OPERAND_TYPES, INTEGRAL_OPERAND_TYPES, MINMAX_OPERAND_TYPES, CONSTRAINT_OPERAND_TYPES, INEQUALITY_OPERAND_TYPES, MATH_OPERAND_TYPES, ARGWAVE_OPERAND_TYPES, OPERAND_TYPES, OPERAND_POLS, isConstraint, isDmfs, isBlank, isTotalThickness, isRangeTarget, isIntegral, isMinmax, isMinType, isInequality, isArgwave, isArgwaveMin, isMath, isMathSingleRef, isMathPairRef, isEllipsometry, isGroupDelay, isGroupDelayFlat, isEField, isPhase, isFractionalUnit, mathTargetInPercent, argwaveOpticalChar, argwavePolCode, polFromType, AVG_POINTS, AVG_STEP_NM, AVG_POINTS_MAX, bandSampleCount, ARGWAVE_DEFAULT_POINTS, PNORM_DEFAULT, makeOperand, isRamp, makeConstraintOperand, makeDefaultConstraints, makeDmfsOperand, isValidMeritWeight
 } from './operandModel.js';
 import { isRangeAvg, charOf, operandSampleLambdas, requiredLambdas, buildPresampledTable } from './sampling.js';
 import { mirrorLayers } from './layerOps.js';
@@ -536,9 +536,10 @@ export function computeMathValue(op, resolve) {
 }
 
 // Translate a math operand's computed value + target into the residual the
-// optimizer sees.  Returns 0 when the inequality is satisfied (inert).
+// optimizer sees. Returns 0 when an inequality is satisfied and NaN when its
+// referenced value is invalid, so the merit accumulator cannot count its weight.
 export function mathResidual(op, value) {
-    if (value == null || !Number.isFinite(value)) return 0;
+    if (value == null || !Number.isFinite(value)) return NaN;
     const kind = MATH_RESIDUAL_KIND[op.type] || 'equality';
     switch (kind) {
         case 'one-sided-min': return Math.max(0, op.target - value);
@@ -1068,9 +1069,21 @@ function _accumMerit(operands, computed, skipConstraints) {
     return { sumWRes2, sumWopt, sumWcon, n, sawNonFinite };
 }
 
+function hasInvalidContributingWeight(operands, computed, skipConstraints) {
+    for (let i = 0; i < operands.length; i++) {
+        const op = operands[i];
+        if (!op.enabled || computed[i] == null) continue;
+        if (skipConstraints && (isConstraint(op.type) || isTotalThickness(op.type))) continue;
+        if (!isValidMeritWeight(op.weight)) return true;
+    }
+    return false;
+}
+
 export function calcMF(operands, computed, opts = {}) {
+    const skipConstraints = !!opts.skipConstraints;
+    if (hasInvalidContributingWeight(operands, computed, skipConstraints)) return Infinity;
     const { sumWRes2, sumWopt, sumWcon, n, sawNonFinite } =
-        _accumMerit(operands, computed, !!opts.skipConstraints);
+        _accumMerit(operands, computed, skipConstraints);
     // n === 0 means NO operand contributed. Two very different causes:
     //  (a) at least one operand evaluated to NaN/Inf and every operand was
     //      dropped — the H5 NaN-cascade: a genuinely degenerate design. Return

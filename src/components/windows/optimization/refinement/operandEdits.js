@@ -4,7 +4,10 @@
 // handlers stay thin wrappers and their branching doesn't roll up into the
 // component's complexity.
 
-import { makeOperand, isConstraint, isArgwave, isMath, mathTargetInPercent } from '../../../../utils/physics/optimizer.js';
+import {
+    makeOperand, isConstraint, isArgwave, isMath, mathTargetInPercent,
+    removeOperandsAndDependents,
+} from '../../../../utils/physics/optimizer.js';
 
 const DEFAULT_OPERAND = { type: 'RAV', lambdaStart: 400, lambdaEnd: 700, aoi: 0, pol: 'avg', target: 0, weight: 1 };
 
@@ -74,8 +77,7 @@ export function duplicateOperands(ops, ids) {
 }
 
 export function deleteOperands(ops, ids) {
-    const set = new Set(Array.isArray(ids) ? ids : [ids]);
-    return ops.filter(op => !set.has(op.id));
+    return removeOperandsAndDependents(ops, ids);
 }
 
 // Move the selected operand by `dir` (-1 up, +1 down). Returns the reordered

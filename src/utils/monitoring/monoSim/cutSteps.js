@@ -27,7 +27,7 @@ export function _turningStep(sS, d_now, t, st, tc) {
         (tc.extIsMax ? (st.runExtS - sS > margin) : (sS - st.runExtS > margin));
     if (!past) { st.confirm = 0; return null; }
     st.confirm++;
-    return st.confirm >= tc.confirmScans ? { d: st.runExtD, t: st.runExtT } : null;
+    return st.confirm >= tc.confirmScans ? { d: d_now, t } : null;
 }
 
 // One level-mode scan. Cuts `confirmScans` after the smoothed signal crosses the

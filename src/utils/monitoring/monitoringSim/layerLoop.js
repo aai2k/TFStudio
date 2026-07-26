@@ -78,7 +78,7 @@ export function processLayer(i, layer, ctx, mut) {
 
     // Apply extra thickness deviation + shutter delay (independent of
     // monitoring); the cut time itself is unaffected.
-    const d_built = applyExtraThicknessAndShutter({
+    const { thickness: d_built, shutterDelay } = applyExtraThicknessAndShutter({
         cut_d_actual: cut.cut_d_actual, r, d_target,
         sigmaThkAbsNm: ctx.sigmaThkAbsNm, sigmaThkRelPct: ctx.sigmaThkRelPct,
         shutterMeanS: ctx.shutterMeanS, shutterRmsS: ctx.shutterRmsS, rng: ctx.rng,
@@ -90,7 +90,9 @@ export function processLayer(i, layer, ctx, mut) {
 
     // Advance the OU clock: record when this material was last deposited so
     // the next layer of the same material decorrelates over the elapsed time.
-    mut.tElapsed += cut.cut_time;
+    if (isExcluded) mut.t_global += cut.cut_time;
+    mut.t_global += shutterDelay;
+    mut.tElapsed += cut.cut_time + shutterDelay;
     mut.ouLastT.set(matId, mut.tElapsed);
 
     // Optional per-layer progress hook (used by the wizard's run worker to

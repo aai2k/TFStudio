@@ -106,6 +106,6 @@ export class NewtonCGOptimizer extends LSQEngine {
     // Converge on merit tolerance or when the trust-region step stalls (several
     // consecutive rejected/zero-gradient steps ⇒ at a local minimum).
     isConverged() {
-        return this.mf < this.tol || (this.tnStall || 0) >= 6;
+        return !this._hasFreeParameters() || this.mf < this.tol || (this.tnStall || 0) >= 6;
     }
 }

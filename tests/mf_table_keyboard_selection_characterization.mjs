@@ -22,6 +22,10 @@ assert.deepEqual(parseOperandsTsv('R\t450\t650\t30\tp\t75\t2\r\nTT\tbad\t\tbad\t
 assert.deepEqual(parseOperandsTsv('UNKNOWN\t\t\t\t\t50\t\n\n'), [{
     type: 'RAV', lambdaStart: 400, lambdaEnd: 700, aoi: 0, pol: 'avg', target: 0.5, weight: 1,
 }]);
+assert.deepEqual(parseOperandsTsv('R\t450\t650\t0\tavg\t50\t-2\nT\t450\t650\t0\tavg\t50\tInfinity'), [
+    { type: 'R', lambdaStart: 450, lambdaEnd: 650, aoi: 0, pol: 'avg', target: 0.5, weight: 1 },
+    { type: 'T', lambdaStart: 450, lambdaEnd: 650, aoi: 0, pol: 'avg', target: 0.5, weight: 1 },
+]);
 assert.deepEqual(parseOperandsTsv('   '), []);
 
 let written = null;

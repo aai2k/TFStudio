@@ -107,11 +107,7 @@ function makeTrialMaterialResolver(draws, state, config) {
         const dk = side === 'front' ? draws.dkF : draws.dkB;
         const base = baseMaterials[index];
         if (!base) return base;
-        const indexK = dk[index];
-        const baseK = base.getNK(config.lambdaReference)[1];
-        // A shifted material cannot cross into negative absorption.
-        const clampedK = (baseK + indexK < 0) ? -baseK : indexK;
-        return makeShiftedMaterial(base, dn[index], clampedK);
+        return makeShiftedMaterial(base, dn[index], dk[index]);
     };
 }
 

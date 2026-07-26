@@ -1,8 +1,8 @@
 /**
  * Smoke + sanity test for the new monochromatic engine (utils/monoSim.js).
  *
- *   1. zero-noise turning-point monitoring of a QWOT stack recovers the target
- *      thickness to high accuracy (the cut sits at the signal extremum);
+ *   1. zero-noise turning-point monitoring of a QWOT stack stays near the target
+ *      after the configured reversal-confirmation delay;
  *   2. arrays are well-formed and index-aligned to the design;
  *   3. measurement noise increases the as-built thickness spread.
  *
@@ -64,13 +64,11 @@ for (let i = 0; i < front.length; i++) {
     maxRelErr = Math.max(maxRelErr, rel);
 }
 console.log(`     zero-noise turning max |Δd|/d = ${(maxRelErr * 100).toFixed(3)} %`);
-// Turning-point monitoring is not bit-exact at QWOT on a real index-contrast
-// stack: the signal extremum sits a few % off the geometric quarter-wave, and
-// the discrete scan grid + smoothing window add a little more. A few-percent
-// residual at zero noise is the expected physics, not a mis-cut (the old naive
-// running-argmax gave ~100% here). What must hold: no gross mis-cut, and the
-// spread must grow with noise (checked below).
-ok(maxRelErr < 0.08, 'zero-noise turning recovers target thickness within 8%');
+// The signal extremum sits a few percent off the geometric quarter-wave. The
+// scan grid, smoothing window, and two-scan reversal confirmation add physical
+// deposition time before the shutter can close. The result must remain near the
+// target, and the spread must grow with noise (checked below).
+ok(maxRelErr < 0.12, 'zero-noise turning remains within 12% after confirmation');
 
 // ── 3. Noise widens the as-built spread (Monte-Carlo over seeds) ──────────────
 function spread(randomPct) {

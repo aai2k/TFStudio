@@ -2,6 +2,7 @@ import {
     FILTER_TYPES, generateFilterOperands,
     makeOperand, makeConstraintOperand, makeDmfsOperand,
     isConstraint, isTotalThickness, isArgwave, isMath, mathTargetInPercent,
+    removeOperandsAndDependents,
 } from '../../../../utils/physics/optimizer.js';
 
 function hasField(ctx, key) {
@@ -168,8 +169,7 @@ export function duplicateOperands(operands, ids, makeId = () => makeOperand().id
 }
 
 export function deleteOperands(operands, ids) {
-    const idSet = new Set(Array.isArray(ids) ? ids : [ids]);
-    return { operands: operands.filter(op => !idSet.has(op.id)), selectedId: null };
+    return { operands: removeOperandsAndDependents(operands, ids), selectedId: null };
 }
 
 export function moveOperand(operands, selectedId, direction) {

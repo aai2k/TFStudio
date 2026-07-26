@@ -10,8 +10,8 @@
  *   4. OPVA residual = ref − target (two-sided).
  *   5. ABSO returns |ref|; ABGT/ABLT one-sided on |ref|.
  *   6. DIFF/SUMM/PROD use op.refId1 and op.refId2.
- *   7. Math operands return NaN when refId points to a deleted/disabled row
- *      (no crash; calcMF treats NaN gracefully).
+ *   7. Math operands return NaN when refId points to a deleted/disabled row;
+ *      invalid rows cannot dilute the merit normalization.
  *   8. Cycle detection: a → b → a returns NaN, doesn't loop.
  *   9. operandSampleLambdas returns [] for math operands (refs carry λs).
  *  10. requiredLambdas picks up the referenced operand's λs naturally.
@@ -175,11 +175,15 @@ console.log('— stale refId returns NaN gracefully —');
     const comp = evaluateOperands([gt], ctx);
     ok(Number.isNaN(comp[0]),
         `stale ref → NaN (got ${comp[0]})`);
-    // calcMF treats NaN as inactive (the Math.max(0, NaN-anything) = NaN ≠ 0,
-    // but the loop guards on isFinite via mathResidual returning 0 for non-finite).
     const mf = calcMF([gt], comp);
-    ok(Number.isFinite(mf) && mf === 0,
-        `stale ref → MF=0 (no crash, got ${mf})`);
+    ok(mf === Infinity,
+        `stale ref alone → MF=Infinity (got ${mf})`);
+
+    const valid = makeOperand({ type: 'R', target: 1, weight: 1 });
+    const weightedBroken = { ...gt, weight: 100 };
+    const mixedMf = calcMF([valid, weightedBroken], [0, comp[0]]);
+    ok(near(mixedMf, 1, 1e-14),
+        `stale ref is excluded from normalization (got ${mixedMf})`);
 }
 
 // ── 8. Cycle detection ───────────────────────────────────────────────────────
