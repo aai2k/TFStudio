@@ -8,12 +8,13 @@ import {
 shimBrowserGlobals();
 await loadApp();
 
-const [directEntry, model, figure, persistence, saveActions] = await Promise.all([
+const [directEntry, model, figure, persistence, saveActions, wizardShell] = await Promise.all([
     import('../src/components/windows/dataExchange/processSimulator/ProcessSimulator.js'),
     import('../src/components/windows/dataExchange/processSimulator/model.js'),
     import('../src/components/windows/dataExchange/processSimulator/figure.js'),
     import('../src/components/windows/dataExchange/processSimulator/persistence.js'),
     import('../src/components/windows/dataExchange/processSimulator/useProcessSave.js'),
+    import('../src/components/windows/simulation/wizardKit/useWizardShell.js'),
 ]);
 const { ProcessSimulator } = directEntry;
 
@@ -47,6 +48,9 @@ assert.deepEqual(front.activeDep.map(layer => [layer.id, layer.materialId, layer
 assert.deepEqual(front.otherDep.map(layer => layer.id), ['back-builtin:MgF2']);
 assert.deepEqual(front.materials, ['builtin:SiO2', 'builtin:TiO2', 'builtin:MgF2']);
 assert.equal(front.substrateThk, 2);
+assert.equal(model.buildDepositionModel({
+    ...design, substrate: { material: 'builtin:BK7', thickness: 0 },
+}, 'front').substrateThk, 0, 'process model preserves zero substrate thickness');
 const back = model.buildDepositionModel(design, 'back');
 assert.deepEqual(back.activeDep.map(layer => layer.id), ['back-builtin:MgF2']);
 assert.deepEqual(back.otherDep.map(layer => layer.id), [
@@ -72,6 +76,16 @@ assert.deepEqual(model.deriveProgressState(5, [0, 2, 5], [2, 3], 2), {
 assert.deepEqual(model.deriveProgressState(0, [0], [], 0), {
     layerIdx: 0, frac: 0, completedSteps: 0,
 });
+
+let wizardContext;
+function WizardShellProbe() {
+    wizardContext = wizardShell.useWizardShell({
+        ...design, substrate: { material: 'builtin:BK7', thickness: 0 },
+    }).ctx;
+    return React.createElement('span');
+}
+renderToStaticMarkup(React.createElement(WizardShellProbe));
+assert.equal(wizardContext.subThk, 0, 'monitoring wizard preserves zero substrate thickness');
 
 const Air = { getNK: () => [1, 0] };
 const Sub = { getNK: () => [1.52, 0] };

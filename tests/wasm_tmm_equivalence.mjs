@@ -83,6 +83,17 @@ for (const layers of stacks) {
 }
 console.log(`tmm_one      max |Δ(R,T,A)| = ${maxOne.toExponential(3)}  (tol 1e-9)`);
 
+// Opaque imports must remain finite in the accelerated path as well as JS.
+{
+    const layers = Array.from({ length: 10 }, () => ({ n: [2, 1], d: 100000 }));
+    const js = tmm(500, 0, 's', air, glass, layers);
+    const w = wasm.tmmOne(500, 0, 0, air, glass, layers);
+    ok([w.R, w.T, w.A].every(Number.isFinite), 'opaque WASM multilayer R/T/A are finite');
+    for (const key of ['R', 'T', 'A']) {
+        ok(Math.abs(js[key] - w[key]) < 1e-12, `opaque WASM ${key} matches JS`);
+    }
+}
+
 // ── 2) tmm_spectrum vs looping JS tmmAvg() ──────────────────────────────────
 {
     const N = 9;

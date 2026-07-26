@@ -43,7 +43,7 @@ export function buildDepositionModel(design, activeSide) {
             incidentMat: resolveMaterial(design.incidentMedium),
             substrateMat: resolveMaterial(design.substrate?.material),
             exitMat: resolveMaterial(design.exitMedium),
-            substrateThk: design.substrate?.thickness || 1.0,
+            substrateThk: design.substrate?.thickness ?? 1.0,
         };
     }
     return model;

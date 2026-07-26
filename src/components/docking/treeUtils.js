@@ -72,6 +72,19 @@ export function setSizes(tree, nodeId, newSizes) {
   return walk(tree, n => n.id === nodeId && n.type === 'split' ? { ...n, sizes: newSizes } : n);
 }
 
+export function resizeAdjacentSizes(sizes, dividerIdx, deltaPct, minSize = 5) {
+  const next = [...sizes];
+  const pairTotal = sizes[dividerIdx] + sizes[dividerIdx + 1];
+  const effectiveMin = Math.min(minSize, pairTotal / 2);
+  const first = Math.max(
+    effectiveMin,
+    Math.min(pairTotal - effectiveMin, sizes[dividerIdx] + deltaPct),
+  );
+  next[dividerIdx] = first;
+  next[dividerIdx + 1] = pairTotal - first;
+  return next;
+}
+
 export function addTab(tree, groupId, tab) {
   return walk(tree, n => {
     if (n.id !== groupId || n.type !== 'tabs') return n;
@@ -98,14 +111,24 @@ export function removeTab(tree, tabId) {
   return [newTree, tab];
 }
 
-// Remove empty groups; collapse single-child splits; equalize remaining sizes.
+// Remove empty groups and collapse single-child splits. When siblings remain,
+// preserve their relative proportions and normalize them back to 100%.
 export function cleanup(tree) {
   if (!tree) return null;
   if (tree.type === 'tabs') return tree.tabs.length === 0 ? null : tree;
   if (tree.type !== 'split') return tree;
-  const children = tree.children.map(cleanup).filter(Boolean);
+  const cleaned = tree.children.map(cleanup);
+  const children = cleaned.filter(Boolean);
   if (children.length <= 1) return children[0] || null;
-  const sizes = children.map(() => 100 / children.length);
+  const keptSizes = cleaned.reduce((out, child, index) => {
+    if (child) out.push(Number(tree.sizes?.[index]));
+    return out;
+  }, []);
+  const total = keptSizes.reduce((sum, size) => sum + size, 0);
+  const validSizes = keptSizes.every(size => Number.isFinite(size) && size >= 0) && total > 0;
+  const sizes = validSizes
+    ? keptSizes.map(size => size * 100 / total)
+    : children.map(() => 100 / children.length);
   return { ...tree, children, sizes };
 }
 

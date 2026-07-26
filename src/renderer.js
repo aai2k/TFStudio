@@ -33,6 +33,7 @@ import {
     persistThenCommit,
     updateDirtyDesigns,
 } from './utils/io/projectPersistence.js';
+import { appendDistinctSnapshot } from './utils/history.js';
 
 const { createElement: h, useState, useEffect, useRef, useCallback } = React;
 
@@ -499,7 +500,7 @@ const App = () => {
         const hist = historyRef.current[tid];
         const cur  = designsRef.current[tid];
         if (!cur) return;
-        hist.past   = [...hist.past.slice(-(MAX_HISTORY - 1)), cur];
+        hist.past   = appendDistinctSnapshot(hist.past, cur, MAX_HISTORY);
         hist.future = [];
         bumpHistory();
         scheduleSessionSave();
@@ -518,7 +519,7 @@ const App = () => {
         setDesigns(d => {
             const prev = d[id];
             if (!transient && prev && prev !== newDesign) {
-                hist.past = [...hist.past.slice(-(MAX_HISTORY - 1)), prev];
+                hist.past = appendDistinctSnapshot(hist.past, prev, MAX_HISTORY);
                 hist.future = [];
             }
             return { ...d, [id]: newDesign };

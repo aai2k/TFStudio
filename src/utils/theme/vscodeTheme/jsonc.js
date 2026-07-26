@@ -36,6 +36,39 @@ function consumeChar(s, text, i, emit) {
   return outside(s, ch, next, i, emit);
 }
 
+function copyQuotedToken(text, start) {
+  const quote = text[start];
+  let token = quote;
+  for (let i = start + 1; i < text.length; i++) {
+    const ch = text[i];
+    token += ch;
+    if (ch === '\\' && i + 1 < text.length) token += text[++i];
+    else if (ch === quote) return { token, end: i };
+  }
+  return { token, end: text.length - 1 };
+}
+
+function commaPrecedesClosingToken(text, commaIndex) {
+  let next = commaIndex + 1;
+  while (next < text.length && /\s/.test(text[next])) next++;
+  return text[next] === '}' || text[next] === ']';
+}
+
+function stripTrailingCommas(text) {
+  let out = '';
+  for (let i = 0; i < text.length; i++) {
+    const ch = text[i];
+    if (ch === '"' || ch === "'") {
+      const quoted = copyQuotedToken(text, i);
+      out += quoted.token;
+      i = quoted.end;
+    } else if (ch !== ',' || !commaPrecedesClosingToken(text, i)) {
+      out += ch;
+    }
+  }
+  return out;
+}
+
 export function stripJsonc(text) {
   let out = '';
   const emit = (c) => { out += c; };
@@ -43,6 +76,5 @@ export function stripJsonc(text) {
   for (let i = 0; i < text.length; i++) {
     i = consumeChar(s, text, i, emit);
   }
-  // Remove trailing commas: ,} and ,]
-  return out.replace(/,(\s*[}\]])/g, '$1');
+  return stripTrailingCommas(out);
 }

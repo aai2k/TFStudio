@@ -146,6 +146,16 @@ ok('absorbance→T A=2', approx(absorbanceToT(2), 0.01));
     ok('csv round-trip T pct', approx(back.columns[0].values[0], 90));
 }
 
+// CSV export: user-controlled names are RFC-style escaped.
+{
+    const curve = makeMeasuredCurve({
+        name: 'A,B "quoted"\nline', x: [500], xUnit: X_UNITS.NM,
+        y: [0.5], quantity: 'T', isPercent: false,
+    });
+    const csv = curvesToCsv([curve]);
+    ok('csv name escaping', csv === 'Wavelength (nm),"A,B ""quoted""\nline %T"\r\n500,50\r\n');
+}
+
 // ── CSV export: independent grids (paired columns) ──────────────────────────────
 {
     const a = makeMeasuredCurve({ name: 'A', x: [400, 500, 600], xUnit: X_UNITS.NM, y: [0.9, 0.8, 0.7], quantity: 'T', isPercent: false });
@@ -162,6 +172,11 @@ ok('absorbance→T A=2', approx(absorbanceToT(2), 0.01));
     const lines = csv.trim().split('\r\n');
     ok('tableToCsv header', lines[0] === 'Wavelength (nm),T %,R %');
     ok('tableToCsv row', lines[1] === '400,90,8');
+}
+
+{
+    const csv = tableToCsv({ x: [500], columns: [{ name: 'A,B "quoted"', values: [50] }] });
+    ok('tableToCsv name escaping', csv === 'Wavelength (nm),"A,B ""quoted"""\r\n500,50\r\n');
 }
 
 // ── empty / garbage inputs ──────────────────────────────────────────────────────

@@ -65,6 +65,28 @@ const rates = new Map([['H', { mean: 1, sigma: 0 }]]);
 }
 
 {
+    const mut = makeMutableState();
+    processMonoLayer(0, { material: 'H', thickness: 0 }, {
+        rates,
+        monTable: [{ strategy: 'time', sigmaRelPct: 0 }],
+        refLam: 550,
+        excludeLayers: new Set(),
+        relThkErrByLayer: [0],
+        shutterMeanS: 2,
+        shutterRmsS: 0,
+        rng: () => 0.5,
+        N: 1,
+    }, mut);
+
+    assert.equal(mut.acc.realizedRates[0], 0);
+    assert.equal(mut.acc.asBuilt[0], 0);
+    assert.equal(mut.acc.cutTimes[0], 0);
+    assert.equal(mut.acc.estimated[0], 0);
+    assert.equal(mut.tElapsed, 0);
+    assert.equal(mut.t_global, 0);
+}
+
+{
     const state = {
         runExtS: -Infinity,
         runExtD: 0,

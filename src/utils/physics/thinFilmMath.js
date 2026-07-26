@@ -60,6 +60,29 @@ function matmul(A, B) {
     ];
 }
 
+const MATRIX_RESCALE_THRESHOLD = 1e100;
+
+// A common real scale factor cancels from reflectance (Macleod 5th ed.,
+// Eq. 2.123, p. 45). Callers retain it for transmittance (Eq. 2.125) while the
+// bounded characteristic-matrix product prevents opaque-stack overflow.
+function rescaleMatrix(M) {
+    let scale = 0;
+    for (const row of M) {
+        for (const [re, im] of row) {
+            scale = Math.max(scale, Math.abs(re), Math.abs(im));
+        }
+    }
+    if (scale <= MATRIX_RESCALE_THRESHOLD) return 0;
+    const inverse = 1 / scale;
+    for (const row of M) {
+        for (const value of row) {
+            value[0] *= inverse;
+            value[1] *= inverse;
+        }
+    }
+    return Math.log(scale);
+}
+
 // ── Snell's law ───────────────────────────────────────────────────────────────
 
 function snellCosTheta(n0, sinTheta0, nj) {
@@ -136,12 +159,14 @@ export function tmm(lambda_nm, theta_deg, pol, n0, ns, layers) {
 
     // Build total transfer matrix M = M1 × M2 × ... × MN
     let M = [[  [1, 0], [0, 0]  ], [  [0, 0], [1, 0]  ]]; // identity
+    let logScale = 0;
 
     for (const { n, d } of layers) {
         if (d <= 0) continue;
         const cosThetaJ = snellCosTheta(n0, sinTheta0, n);
         const Mj = layerMatrix(n, d, lambda_nm, cosThetaJ, pol);
         M = matmul(M, Mj);
+        logScale += rescaleMatrix(M);
     }
 
     // [B, C]^T = M × [1, eta_s]^T
@@ -158,7 +183,7 @@ export function tmm(lambda_nm, theta_deg, pol, n0, ns, layers) {
     const R = cabs2(r);
 
     // T = Re(etaS) / Re(eta0) * |t|²
-    const T = Math.max(0, creal(etaS) / creal(eta0) * cabs2(t));
+    const T = Math.max(0, creal(etaS) / creal(eta0) * cabs2(t) * Math.exp(-2 * logScale));
 
     const A = Math.max(0, 1 - R - T);
 
@@ -208,9 +233,12 @@ export function tmmWithAdmittances(lambda_nm, theta_deg, pol, n0, ns, layers) {
     //   B[pos] = Ms[pos] · B[pos+1]
     const I = [[[1,0],[0,0]], [[0,0],[1,0]]];
     const B = new Array(N + 1);
+    const logScales = new Array(N + 1);
     B[N] = I;
+    logScales[N] = 0;
     for (let k = N - 1; k >= 0; k--) {
         B[k] = matmul(Ms[k], B[k + 1]);
+        logScales[k] = logScales[k + 1] + rescaleMatrix(B[k]);
     }
 
     // Admittance at each interface
@@ -228,7 +256,8 @@ export function tmmWithAdmittances(lambda_nm, theta_deg, pol, n0, ns, layers) {
     const Cv  = cadd(M[1][0], cmul(M[1][1], etaS));
     const eta0B = cmul(eta0, Bv);
     const r   = cdiv(csub(eta0B, Cv), cadd(eta0B, Cv));
-    const t   = cdiv(cmul([2, 0], eta0), cadd(eta0B, Cv));
+    let t = cdiv(cmul([2, 0], eta0), cadd(eta0B, Cv));
+    if (logScales[0] !== 0) t = cmul(t, [Math.exp(-logScales[0]), 0]);
 
     return { r, t, eta0, etaS, Y, N };
 }
@@ -697,27 +726,29 @@ export function createMonitorTmmEvaluator(theta_deg, incMat, subMat, completedMa
             const cosThetaS = snellCosTheta(n0, sinTheta0, ns);
             const etaS = pol === 's' ? cmul(ns, cosThetaS) : cdiv(ns, cosThetaS);
             let M = I;
+            let logScale = 0;
             for (let k = 0; k < completedMats.length; k++) {
                 const d = completedThicks[k];
                 if (d <= 0) continue;
                 const n = completedMats[k].getNK(lam);
                 const cosThetaJ = snellCosTheta(n0, sinTheta0, n);
                 M = matmul(M, layerMatrix(n, d, lam, cosThetaJ, pol));
+                logScale += rescaleMatrix(M);
             }
-            per[pol] = { n0, eta0, etaS, M };
+            per[pol] = { n0, eta0, etaS, M, logScale };
         }
         cache[li] = per;
     }
 
     // [B,C]→r,t→R,T,A tail — byte-identical to tmm()'s final block.
-    function tail(M, eta0, etaS) {
+    function tail(M, eta0, etaS, logScale) {
         const B = cadd(M[0][0], cmul(M[0][1], etaS));
         const C = cadd(M[1][0], cmul(M[1][1], etaS));
         const eta0B = cmul(eta0, B);
         const r = cdiv(csub(eta0B, C), cadd(eta0B, C));
         const t = cdiv(cmul([2, 0], eta0), cadd(eta0B, C));
         const R = cabs2(r);
-        const T = Math.max(0, creal(etaS) / creal(eta0) * cabs2(t));
+        const T = Math.max(0, creal(etaS) / creal(eta0) * cabs2(t) * Math.exp(-2 * logScale));
         const A = Math.max(0, 1 - R - T);
         return { R, T, A };
     }
@@ -725,12 +756,14 @@ export function createMonitorTmmEvaluator(theta_deg, incMat, subMat, completedMa
     function evalPol(li, pol, topMat, dTop, lam) {
         const c = cache[li][pol];
         let M = c.M;
+        let logScale = c.logScale;
         if (dTop > 0) {
             const n = topMat.getNK(lam);
             const cosThetaJ = snellCosTheta(c.n0, sinTheta0, n);
             M = matmul(layerMatrix(n, dTop, lam, cosThetaJ, pol), M);
+            logScale += rescaleMatrix(M);
         }
-        return tail(M, c.eta0, c.etaS);
+        return tail(M, c.eta0, c.etaS, logScale);
     }
 
     return {
@@ -1257,6 +1290,9 @@ export function unwrapPhase(phi) {
 export function computeGroupDelaySpectrum(coeffAtLambda, lamStart_nm, lamEnd_nm, nPts) {
     const lamLo = Math.min(lamStart_nm, lamEnd_nm);
     const lamHi = Math.max(lamStart_nm, lamEnd_nm);
+    if (!(lamHi > lamLo)) {
+        throw new RangeError('Group-delay wavelength endpoints must be distinct.');
+    }
     const N = Math.max(5, Math.floor(nPts));
 
     // Uniform ω grid over the displayed range (ascending in ω).

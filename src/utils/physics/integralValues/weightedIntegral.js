@@ -1,5 +1,20 @@
 // ── Sampled-weighting helpers ────────────────────────────────────────────────
 
+function summarizeBandSamples(lambdas, fVals, lamMin, lamMax) {
+    let min = +Infinity, max = -Infinity, lamAtMin = NaN, lamAtMax = NaN;
+    let nSamples = 0;
+    for (let i = 0; i < lambdas.length; i++) {
+        const lam = lambdas[i];
+        if (lam < lamMin || lam > lamMax) continue;
+        const f = fVals[i];
+        if (f < min) { min = f; lamAtMin = lam; }
+        if (f > max) { max = f; lamAtMax = lam; }
+        nSamples++;
+    }
+    if (nSamples === 0) { min = NaN; max = NaN; }
+    return { min, max, lamAtMin, lamAtMax, nSamples };
+}
+
 /**
  * Trapezoidal integral ∫f(λ)·g(λ)·dλ over the shared λ grid.
  *
@@ -16,38 +31,31 @@
  */
 export function trapezoidalWeighted(lambdas, fVals, weightFn, lamMin, lamMax) {
     let num = 0, den = 0;
-    let min = +Infinity, max = -Infinity, lamAtMin = NaN, lamAtMax = NaN;
-    let nSamples = 0;
     if (!lambdas?.length || lambdas.length < 2) {
-        return { num, den, min: NaN, max: NaN, lamAtMin, lamAtMax, nSamples: 0 };
+        return { num, den, min: NaN, max: NaN, lamAtMin: NaN, lamAtMax: NaN, nSamples: 0 };
     }
 
-    let prevW   = null;
-    let prevFw  = null;
-    let prevLam = null;
-    for (let i = 0; i < lambdas.length; i++) {
+    for (let i = 1; i < lambdas.length; i++) {
         const lam = lambdas[i];
-        if (lam < lamMin || lam > lamMax) {
-            prevW = prevFw = prevLam = null;
-            continue;
-        }
-        const w  = weightFn(lam);
         const f  = fVals[i];
-        const Fw = f * w;
-        if (prevLam != null) {
-            const dlam = lam - prevLam;
-            num += 0.5 * (Fw + prevFw) * dlam;
-            den += 0.5 * (w  + prevW)  * dlam;
-        }
-        if (f < min) { min = f; lamAtMin = lam; }
-        if (f > max) { max = f; lamAtMax = lam; }
-        nSamples++;
-        prevW = w;
-        prevFw = Fw;
-        prevLam = lam;
+        const leftLam = lambdas[i - 1];
+        const rightLam = lam;
+        const clippedLeft = Math.max(leftLam, lamMin);
+        const clippedRight = Math.min(rightLam, lamMax);
+        if (clippedRight <= clippedLeft || rightLam <= leftLam) continue;
+
+        const intervalWidth = rightLam - leftLam;
+        const leftFraction = (clippedLeft - leftLam) / intervalWidth;
+        const rightFraction = (clippedRight - leftLam) / intervalWidth;
+        const leftF = fVals[i - 1] * (1 - leftFraction) + f * leftFraction;
+        const rightF = fVals[i - 1] * (1 - rightFraction) + f * rightFraction;
+        const leftW = weightFn(clippedLeft);
+        const rightW = weightFn(clippedRight);
+        const dlam = clippedRight - clippedLeft;
+        num += 0.5 * (leftF * leftW + rightF * rightW) * dlam;
+        den += 0.5 * (leftW + rightW) * dlam;
     }
-    if (nSamples === 0) { min = NaN; max = NaN; }
-    return { num, den, min, max, lamAtMin, lamAtMax, nSamples };
+    return { num, den, ...summarizeBandSamples(lambdas, fVals, lamMin, lamMax) };
 }
 
 // Linear interpolation on a sorted [λ, value] table; out-of-range = 0.

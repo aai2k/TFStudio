@@ -7,6 +7,7 @@
 
 import { _realizedRate, _timeCut, _applyShutter } from './layerDeposition.js';
 import { _scanCutMono } from './scanCutMono.js';
+import { recordZeroThicknessLayer } from '../zeroThicknessLayer.js';
 
 // Per-layer monitor row + resolved strategy. Excluded (time/quartz) layers
 // always use 'time'; otherwise the row's own strategy (default 'turning').
@@ -32,6 +33,12 @@ export function processMonoLayer(i, layer, ctx, mut) {
     const matId    = layer.material;
     const plan = resolveMonoLayerPlan(i, ctx);
     mut.acc.cutStrategies[i] = plan.strat;
+
+    // Disabled layers never enter the cut search or receive shutter latency.
+    if (d_target <= 0) {
+        recordZeroThicknessLayer(i, ctx, mut, plan.strat);
+        return;
+    }
 
     // Realized rate via OU correlated process (identical to simulateRun).
     const rateSpec = ctx.rates.get(matId) || { mean: 0.5, sigma: 0 };

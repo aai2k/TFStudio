@@ -1,3 +1,5 @@
+import { resizeAdjacentSizes } from './treeUtils.js';
+
 const { createElement: h, useRef, useCallback } = React;
 
 const DIVIDER_SIZE = 5; // px
@@ -21,16 +23,7 @@ export function SplitPane({ node, c, onSizesChange, children }) {
     const onMove = (e) => {
       const coord = isH ? e.clientX : e.clientY;
       const deltaPct = ((coord - startCoord) / totalPx) * 100;
-      const next = [...startSizes];
-      next[dividerIdx]     = Math.max(5, startSizes[dividerIdx]     + deltaPct);
-      next[dividerIdx + 1] = Math.max(5, startSizes[dividerIdx + 1] - deltaPct);
-      // Clamp so total stays at 100
-      const overflow = next[dividerIdx] + next[dividerIdx + 1] - (startSizes[dividerIdx] + startSizes[dividerIdx + 1]);
-      if (overflow !== 0) {
-        next[dividerIdx]     -= overflow / 2;
-        next[dividerIdx + 1] += overflow / 2;
-      }
-      onSizesChange(next);
+      onSizesChange(resizeAdjacentSizes(startSizes, dividerIdx, deltaPct));
     };
 
     const onUp = () => {

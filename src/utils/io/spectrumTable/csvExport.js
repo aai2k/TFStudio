@@ -3,6 +3,14 @@
 
 const Q_LABEL = { T: '%T', R: '%R', A: 'Absorbance' };
 
+function csvRow(fields, delimiter) {
+    return fields.map(value => {
+        const text = String(value ?? '');
+        if (!text.includes(delimiter) && !/["\r\n]/.test(text)) return text;
+        return `"${text.replace(/"/g, '""')}"`;
+    }).join(delimiter);
+}
+
 // Do all curves share one X grid (equal length + matching λ within 1e-9)?
 function curvesShareGrid(list) {
     return list.every(cv =>
@@ -12,12 +20,12 @@ function curvesShareGrid(list) {
 
 // Shared grid → single λ column followed by one value column per curve.
 function sharedGridLines(list, d, yHdr, yOut) {
-    const lines = [['Wavelength (nm)', ...list.map(cv => `${cv.name} ${yHdr(cv)}`)].join(d)];
+    const lines = [csvRow(['Wavelength (nm)', ...list.map(cv => `${cv.name} ${yHdr(cv)}`)], d)];
     for (let i = 0; i < list[0].x.length; i++) {
-        lines.push([
+        lines.push(csvRow([
             fmt(list[0].x[i]),
             ...list.map(cv => fmt(yOut(cv, cv.y[i]))),
-        ].join(d));
+        ], d));
     }
     return lines;
 }
@@ -27,14 +35,14 @@ function independentGridLines(list, d, yHdr, yOut) {
     const maxLen = Math.max(...list.map(cv => cv.x.length));
     const header = [];
     list.forEach(cv => header.push('Wavelength (nm)', `${cv.name} ${yHdr(cv)}`));
-    const lines = [header.join(d)];
+    const lines = [csvRow(header, d)];
     for (let i = 0; i < maxLen; i++) {
         const row = [];
         list.forEach(cv => {
             if (i < cv.x.length) row.push(fmt(cv.x[i]), fmt(yOut(cv, cv.y[i])));
             else row.push('', '');
         });
-        lines.push(row.join(d));
+        lines.push(csvRow(row, d));
     }
     return lines;
 }
@@ -78,9 +86,9 @@ function fmt(v) {
 export function tableToCsv({ x, columns, xLabel = 'Wavelength (nm)' }, opts = {}) {
     const d = opts.delimiter || ',';
     const cols = columns || [];
-    const lines = [[xLabel, ...cols.map(c => c.name)].join(d)];
+    const lines = [csvRow([xLabel, ...cols.map(c => c.name)], d)];
     for (let i = 0; i < x.length; i++) {
-        lines.push([fmt(x[i]), ...cols.map(c => fmt(c.values[i]))].join(d));
+        lines.push(csvRow([fmt(x[i]), ...cols.map(c => fmt(c.values[i]))], d));
     }
     return lines.join('\r\n') + '\r\n';
 }

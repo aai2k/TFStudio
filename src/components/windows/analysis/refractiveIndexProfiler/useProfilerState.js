@@ -1,4 +1,5 @@
 import { buildMatColorMap, computeProfileForSide, computeTotalRegions } from './profileModel.js';
+import { resolveAvailableSide } from '../availableSide.js';
 
 const { useEffect, useState } = React;
 
@@ -18,11 +19,13 @@ export function useProfilerState(design, rp) {
         }
     }, [design?.id]);
 
+    const hasFront = (design?.frontLayers?.length ?? 0) > 0;
+    const hasBack = (design?.backLayers?.length ?? 0) > 0;
+    const availableSide = resolveAvailableSide(side, hasFront, hasBack);
+
     useEffect(() => {
-        const hasFrontL = (design?.frontLayers?.length ?? 0) > 0;
-        const hasBackL = (design?.backLayers?.length ?? 0) > 0;
-        if (!hasFrontL && hasBackL) setSide('back');
-    }, [design?.id]);
+        if (availableSide !== side) setSide(availableSide);
+    }, [availableSide, side]);
 
     useEffect(() => {
         if (!design) { setProfile(null); setRegions([]); return; }

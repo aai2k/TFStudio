@@ -7,19 +7,7 @@
 
 import { drawRealizedRate, computeExcludedCut, applyExtraThicknessAndShutter } from './layerDeposition.js';
 import { runBroadbandLayerCut } from './broadbandCutSearch.js';
-
-// Deactivated / zero-thickness layer: deposit NOTHING. Without this guard the
-// cut search would run on a 0-target layer and the confirmScans fallback
-// (d_hat ≥ d_target=0 is immediately true) can deposit spurious material.
-function recordZeroThicknessLayer(i, ctx, mut) {
-    mut.acc.realizedRates[i] = 0;
-    mut.acc.asBuilt[i] = 0;
-    mut.acc.cutTimes[i] = 0;
-    if (mut.acc.estimated) mut.acc.estimated[i] = 0;
-    mut.truthThicks[i] = 0;
-    mut.modelThicks[i] = 0;
-    if (ctx.onLayer) ctx.onLayer(ctx.N - i, ctx.N);
-}
+import { recordZeroThicknessLayer } from '../zeroThicknessLayer.js';
 
 // Optical-feedback cut search bounds + call for one non-excluded layer.
 // `layer` bundles the per-layer scalars (index, target, realized rate, and
@@ -45,6 +33,7 @@ export function processLayer(i, layer, ctx, mut) {
     const d_target = Math.max(0, layer.thickness || 0);
     const matId    = layer.material;
 
+    // Disabled layers never enter the cut search or receive shutter latency.
     if (d_target <= 0) {
         recordZeroThicknessLayer(i, ctx, mut);
         return;

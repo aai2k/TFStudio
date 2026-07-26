@@ -31,6 +31,8 @@
 #include <stdlib.h>
 
 #define PI 3.14159265358979323846
+#define MAX_IM_DELTA 50.0
+#define MATRIX_RESCALE_THRESHOLD 1e100
 
 /* ── Complex number arithmetic (cx = {re, im}) ───────────────────────────────
  * Mirrors thinFilmMath.js cadd/csub/cmul/cdiv/cabs2/cconj/csqrt/ccos/csin. */
@@ -76,6 +78,22 @@ static inline mat2 matmul(mat2 A, mat2 B) {
     M.d = cadd(cmul(A.c, B.b), cmul(A.d, B.d));
     return M;
 }
+/* Common scaling cancels from reflectance (Macleod Eq. 2.123, p. 45);
+ * tmm_core retains the scale required by transmittance (Eq. 2.125). */
+static inline double rescaleMatrix(mat2 *M) {
+    double scale = 0.0;
+    scale = fmax(scale, fmax(fabs(M->a.re), fabs(M->a.im)));
+    scale = fmax(scale, fmax(fabs(M->b.re), fabs(M->b.im)));
+    scale = fmax(scale, fmax(fabs(M->c.re), fabs(M->c.im)));
+    scale = fmax(scale, fmax(fabs(M->d.re), fabs(M->d.im)));
+    if (scale <= MATRIX_RESCALE_THRESHOLD) return 0.0;
+    double inverse = 1.0 / scale;
+    M->a.re *= inverse; M->a.im *= inverse;
+    M->b.re *= inverse; M->b.im *= inverse;
+    M->c.re *= inverse; M->c.im *= inverse;
+    M->d.re *= inverse; M->d.im *= inverse;
+    return log(scale);
+}
 static inline vec2 cmatvec(mat2 M, vec2 v) {
     vec2 o;
     o.x = cadd(cmul(M.a, v.x), cmul(M.b, v.y));
@@ -95,6 +113,8 @@ static inline cx snellCosTheta(cx n0, cx sinTheta0, cx nj) {
 static inline mat2 layerMatrix(cx nj, double dj_nm, double lambda_nm, cx cosTheta_j, int pol) {
     double k0 = (2.0 * PI) / lambda_nm;
     cx delta = cmul(cmul(nj, cmk(k0 * dj_nm, 0.0)), cosTheta_j);
+    if (delta.im > MAX_IM_DELTA) delta.im = MAX_IM_DELTA;
+    else if (delta.im < -MAX_IM_DELTA) delta.im = -MAX_IM_DELTA;
     cx cosD = ccos_(delta);
     cx sinD = csin_(delta);
 
@@ -131,6 +151,7 @@ static void tmm_core(double lambda_nm, double theta_deg, int pol,
     mat2 M;
     M.a = cmk(1.0, 0.0); M.b = cmk(0.0, 0.0);
     M.c = cmk(0.0, 0.0); M.d = cmk(1.0, 0.0);
+    double logScale = 0.0;
 
     for (int i = 0; i < N; i++) {
         cx n = cmk(layers[3 * i + 0], layers[3 * i + 1]);
@@ -139,6 +160,7 @@ static void tmm_core(double lambda_nm, double theta_deg, int pol,
         cx cosThetaJ = snellCosTheta(n0, sinTheta0, n);
         mat2 Mj = layerMatrix(n, d, lambda_nm, cosThetaJ, pol);
         M = matmul(M, Mj);
+        logScale += rescaleMatrix(&M);
     }
 
     cx B = cadd(M.a, cmul(M.b, etaS));
@@ -148,7 +170,7 @@ static void tmm_core(double lambda_nm, double theta_deg, int pol,
     cx t = cdiv(cmul(cmk(2.0, 0.0), eta0), cadd(eta0B, C));
 
     double R = cabs2(r);
-    double T = etaS.re / eta0.re * cabs2(t);
+    double T = etaS.re / eta0.re * cabs2(t) * exp(-2.0 * logScale);
     if (T < 0.0) T = 0.0;
     double A = 1.0 - R - T;
     if (A < 0.0) A = 0.0;

@@ -43,7 +43,7 @@ export function useWizardShell(design) {
         incMat: resolveMat(medId(design.incidentMedium)),
         subMat: resolveMat(design.substrate?.material),
         exitMat: resolveMat(design.exitMedium),
-        subThk: design.substrate?.thickness || 1.0,
+        subThk: design.substrate?.thickness ?? 1.0,
         // Incident medium of the coating actually being deposited (the exit
         // medium in back mode) — drives the in-chamber MONITOR signal, which is
         // the active coating on a semi-infinite substrate (no back surface).

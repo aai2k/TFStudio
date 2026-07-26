@@ -43,7 +43,13 @@ function handleToggleDevtools(ctx) {
 }
 
 function handleOpenExternal(ctx, url) {
-  if (typeof url === 'string' && /^https?:\/\//.test(url)) ctx.shell.openExternal(url);
+  if (typeof url !== 'string') return;
+  try {
+    const protocol = new URL(url).protocol;
+    if (protocol === 'http:' || protocol === 'https:' || protocol === 'mailto:') {
+      ctx.shell.openExternal(url);
+    }
+  } catch (_) {}
 }
 
 // Open the bundled help site in the user's default browser via the local HTTP

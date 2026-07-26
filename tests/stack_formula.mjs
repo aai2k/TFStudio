@@ -160,6 +160,10 @@ console.log('— error handling —');
 
     const e6 = parseStackFormula('');
     ok(!e6.ok, 'empty formula rejected');
+
+    const e7 = buildStackFromFormula({ text: 'Typo | H | BadSub', symbolMap: SM, refLambda: LAM });
+    ok(!e7.ok && e7.unknownSymbols.join() === 'Typo,BadSub', 'unknown boundary symbols reported');
+    ok(e7.errorPos === 0, 'boundary error position points at Typo (pos 0), got ' + e7.errorPos);
 }
 
 // ── 11. collectUnknownSymbols / resolveAtom ──────────────────────────────────

@@ -374,13 +374,19 @@ function newLayerId(seed) { return `l-${seed}-${_seq++}`; }
 // A null result means the side was omitted (or the substrate keyword 'Sub'),
 // i.e. keep the design's current medium.
 function resolveStackSides(parsed, symbolMap, resolvers) {
-    const sideMat = (sym) => resolvers.resolveMatId(sym) || symbolMap[sym] || null;
-    const incidentMaterial = parsed.incident ? sideMat(parsed.incident.sym) : null;
+    const unknown = [];
+    const sideMat = (side) => {
+        if (!side) return null;
+        const matId = resolvers.resolveMatId(side.sym) || symbolMap[side.sym] || null;
+        if (!matId) unknown.push(side);
+        return matId;
+    };
+    const incidentMaterial = sideMat(parsed.incident);
     let substrateMaterial = null;
     if (parsed.exit && !SUBSTRATE_KEEP_WORDS.has(parsed.exit.sym.toLowerCase())) {
-        substrateMaterial = sideMat(parsed.exit.sym);
+        substrateMaterial = sideMat(parsed.exit);
     }
-    return { incidentMaterial, substrateMaterial };
+    return { incidentMaterial, substrateMaterial, unknown };
 }
 
 export function buildStackFromFormula(opts) {
@@ -399,14 +405,20 @@ export function buildStackFromFormula(opts) {
     const refLambda = parsed.refLambdaOverride != null ? parsed.refLambdaOverride : refLambdaIn;
     if (!(refLambda > 0)) return { ok: false, error: 'Reference wavelength must be > 0', errorPos: 0 };
 
-    // Resolve every atom; collect unknowns.
-    const unknownSymbols = collectUnknownSymbols(parsed.atoms, symbolMap, resolvers);
+    // Resolve layer and boundary symbols before constructing any layers.
+    const sides = resolveStackSides(parsed, symbolMap, resolvers);
+    const unresolved = sides.unknown.map(side => ({ sym: side.sym, pos: side.pos }));
+    for (const atom of parsed.atoms) {
+        const resolved = resolveAtom(atom, symbolMap, resolvers);
+        if (resolved.unknown) unresolved.push({ sym: resolved.unknown, pos: atom.pos });
+    }
+    unresolved.sort((a, b) => a.pos - b.pos);
+    const unknownSymbols = [...new Set(unresolved.map(item => item.sym))];
     if (unknownSymbols.length > 0) {
-        const bad = parsed.atoms.find(a => resolveAtom(a, symbolMap, resolvers).unknown);
         return {
             ok: false,
             error: `Unknown symbol${unknownSymbols.length > 1 ? 's' : ''}: ${unknownSymbols.join(', ')} — assign a material`,
-            errorPos: bad ? bad.pos : 0,
+            errorPos: unresolved[0]?.pos ?? 0,
             unknownSymbols,
         };
     }
@@ -433,7 +445,7 @@ export function buildStackFromFormula(opts) {
     // If the user wrote the formula starting at the substrate, reverse it.
     if (startFromSubstrate) layers.reverse();
 
-    const { incidentMaterial, substrateMaterial } = resolveStackSides(parsed, symbolMap, resolvers);
+    const { incidentMaterial, substrateMaterial } = sides;
 
     return { ok: true, layers, incidentMaterial, substrateMaterial, refLambda, unknownSymbols: [] };
 }

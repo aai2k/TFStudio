@@ -14,7 +14,7 @@
  * Run: node tests/tmm_analytic_limits.mjs
  */
 
-import { tmm } from '../src/utils/physics/thinFilmMath.js';
+import { createMonitorTmmEvaluator, tmm } from '../src/utils/physics/thinFilmMath.js';
 
 let fails = 0;
 const ok = (cond, msg) => { if (!cond) { console.error('FAIL:', msg); fails++; } };
@@ -90,6 +90,29 @@ for (const ang of [0, 40, 70]) {
     // converged value (front interface 1 | (1+5i)) — independently stable
     const rRef = tmm(532, 0, 's', [1, 0], [1.52, 0], [{ n: [1, 5], d: 50000 }]);
     near(rRef.R, 0.8620689655, 1e-6, 'thick absorber converged R value');
+}
+
+// ── 6) Opaque multilayers remain finite when their matrix product is huge ────
+{
+    const layers = Array.from({ length: 10 }, () => ({ n: [2, 1], d: 100000 }));
+    const r = tmm(500, 0, 's', [1, 0], [1.5, 0], layers);
+    ok([r.R, r.T, r.A].every(Number.isFinite), 'opaque multilayer R/T/A are finite');
+    near(r.R, 0.2, 1e-12, 'opaque multilayer reaches front-interface R');
+    near(r.T, 0, 1e-300, 'opaque multilayer T=0 within double precision');
+    near(r.A, 0.8, 1e-12, 'opaque multilayer A=0.8');
+
+    const absorber = { getNK: () => [2, 1] };
+    const monitor = createMonitorTmmEvaluator(
+        0, { getNK: () => [1, 0] }, { getNK: () => [1.5, 0] },
+        Array(10).fill(absorber), Array(10).fill(100000), [500],
+    );
+    const monitored = Object.fromEntries(
+        ['R', 'T', 'A'].map(channel => [channel, monitor.sample(channel, 's', absorber, 0)[0]]),
+    );
+    ok(Object.values(monitored).every(Number.isFinite), 'opaque monitor cache R/T/A are finite');
+    near(monitored.R, r.R, 1e-12, 'opaque monitor cache R matches full TMM');
+    near(monitored.T, r.T, 1e-300, 'opaque monitor cache T matches full TMM');
+    near(monitored.A, r.A, 1e-12, 'opaque monitor cache A matches full TMM');
 }
 
 if (fails === 0) { console.log('PASS — TMM analytic limits + thick-absorber stability.'); process.exit(0); }

@@ -77,6 +77,20 @@ console.log('— trapezoidal accuracy —');
        `∫₀¹ x²·dx / 1 = 1/3 ≈ ${(1/3).toFixed(6)} (got ${r.value.toFixed(6)})`);
 }
 
+// ── 2b. Off-grid band edges include interpolated partial intervals ───────────
+{
+    const spec = { lambda: [400, 500, 600], T: [0, 1, 0] };
+    const w = {
+        id: 'clipped', kind: 'flat', lamMin: 450, lamMax: 550,
+        sampler: () => 1, label: 'clipped', reference: 'unit',
+    };
+    const r = computeIntegralValue(spec, 'T', w);
+    ok(near(r.norm, 100), `off-grid clipped width = 100 nm (got ${r.norm})`);
+    ok(near(r.num, 75), `off-grid interpolated area = 75 nm (got ${r.num})`);
+    ok(near(r.value, 0.75), `off-grid weighted mean = 0.75 (got ${r.value})`);
+    ok(r.nSamples === 1, `one design-grid sample remains in band (got ${r.nSamples})`);
+}
+
 // ── 3. AM1.5G self-normalization & non-zero ──────────────────────────────────
 console.log('— solar spectrum —');
 {

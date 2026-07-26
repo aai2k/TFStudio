@@ -1,5 +1,6 @@
 import { buildDiagramData, buildMatColorMap, sideHasLayers, sideStackLayers } from './model.js';
 import { buildAdmittanceTableRows, buildMaterialNames } from './tableModel.js';
+import { resolveAvailableSide } from '../availableSide.js';
 
 const { useEffect, useMemo, useState } = React;
 
@@ -9,11 +10,13 @@ export function useAdmittanceDiagram(design) {
     const [pol, setPol] = useState('avg');
     const [side, setSide] = useState('front');
 
+    const hasFront = !!(design?.frontLayers?.length);
+    const hasBack = !!(design?.backLayers?.length);
+    const availableSide = resolveAvailableSide(side, hasFront, hasBack);
+
     useEffect(() => {
-        const hasFront = !!(design?.frontLayers?.length);
-        const hasBack = !!(design?.backLayers?.length);
-        if (side === 'front' && !hasFront && hasBack) setSide('back');
-    }, [design?.id]);
+        if (availableSide !== side) setSide(availableSide);
+    }, [availableSide, side]);
 
     const hasData = sideHasLayers(design, side);
 

@@ -287,8 +287,22 @@ function handleRenameFolder(ctx, oldName, newName) {
     const oldPath = safeFilePath(projectsDir, safeName(oldName));
     const newPath = safeFilePath(projectsDir, safeName(newName));
     if (!fs.existsSync(oldPath)) return { success: false, error: 'Folder does not exist' };
-    if (fs.existsSync(newPath)) return { success: false, error: 'Target folder name already exists' };
-    fs.renameSync(oldPath, newPath);
+    const isCaseOnlyRename = oldPath.toLowerCase() === newPath.toLowerCase() && oldPath !== newPath;
+    if (!isCaseOnlyRename && fs.existsSync(newPath)) {
+      return { success: false, error: 'Target folder name already exists' };
+    }
+    if (isCaseOnlyRename) {
+      const tmpPath = oldPath + '.tmp_rename_' + Date.now();
+      fs.renameSync(oldPath, tmpPath);
+      try {
+        fs.renameSync(tmpPath, newPath);
+      } catch (error) {
+        try { fs.renameSync(tmpPath, oldPath); } catch (_) {}
+        throw error;
+      }
+    } else {
+      fs.renameSync(oldPath, newPath);
+    }
     return { success: true };
   } catch (error) {
     return { success: false, error: error.message };

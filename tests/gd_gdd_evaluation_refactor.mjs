@@ -75,6 +75,12 @@ const cases = [
     },
 ];
 
+assert.throws(
+    () => computeGroupDelaySpectrum(() => [1, 0], 550, 550, 5),
+    /endpoints must be distinct/,
+    'equal wavelength endpoints are rejected before finite differences',
+);
+
 for (const options of cases) {
     const actual = computeGdGddSpectrum(design, options);
     const expected = legacySpectrum(design, options);
