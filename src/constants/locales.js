@@ -200,6 +200,7 @@ const en = {
       title: 'Save Design As',
       empty: 'Name cannot be empty',
       exists: 'A design with this name already exists',
+      saveFailed: 'The design could not be saved. Rename it and try again.',
     },
     about: {
       version: 'Version',
@@ -2619,6 +2620,7 @@ const ru = {
       title: 'Сохранить проект как',
       empty: 'Имя не может быть пустым',
       exists: 'Проект с таким именем уже существует',
+      saveFailed: 'Не удалось сохранить проект. Переименуйте его и повторите попытку.',
     },
     about: {
       version: 'Версия',

@@ -26,6 +26,7 @@ import { SpectralMonitor } from './components/SpectralMonitor.js';
 import { initCatalogs, addCatalog } from './utils/materials/catalogManager.js';
 import { parseAGF } from './utils/materials/agfParser.js';
 import { initTmmWasmMainThread, tmmWasmActive } from './utils/workers/tmmWasm.js';
+import { designFileKey, uniqueDesignName } from './utils/io/designNaming.js';
 
 const { createElement: h, useState, useEffect, useRef, useCallback } = React;
 
@@ -244,14 +245,6 @@ function migrateThemeName(name) {
 // source. `side` distinguishes front/back layers in the generated id.
 function rekeyLayers(layers, ts, side) {
     return (layers || []).map((l, i) => ({ ...l, id: `l-${ts}-${side}${i}` }));
-}
-
-// Appends a numeric suffix (via `formatSuffix`) until the name no longer
-// collides with any of `existingLower` (a lowercase name set).
-function uniqueName(base, existingLower, formatSuffix) {
-    let name = base, k = 2;
-    while (existingLower.has(name.toLowerCase())) name = formatSuffix(base, k++);
-    return name;
 }
 
 // ── App ────────────────────────────────────────────────────────────────────────
@@ -633,7 +626,13 @@ const App = () => {
         if (!targetId || !targetDesign) return;
         const folder = foldersRef.current.find(f => f.items.some(i => i.id === targetId));
         if (folder && window.electronAPI?.saveDesign) {
-            window.electronAPI.saveDesign(folder.name, targetDesign).then(() => {
+            window.electronAPI.saveDesign(folder.name, targetDesign).then((res) => {
+                // A refused save (name collides with another design's file) must
+                // leave the design marked dirty — nothing reached disk.
+                if (res && res.success === false) {
+                    setMessageNotification({ type: 'error', message: t.dialogs.saveAs.saveFailed });
+                    return;
+                }
                 // This snapshot becomes the new dirty baseline; undoing back to
                 // it later will clear the ● again via recomputeDirty().
                 diskDesignsRef.current[targetId] =
@@ -641,7 +640,7 @@ const App = () => {
                 setDirtyDesigns(d => { const n = { ...d }; delete n[targetId]; return n; });
             });
         }
-    }, [activeDesignId]);
+    }, [activeDesignId, t]);
 
     // ── Keyboard shortcuts ────────────────────────────────────────────────────
     useEffect(() => {
@@ -822,11 +821,21 @@ const App = () => {
 
     // ── Project explorer actions ──────────────────────────────────────────────
 
+    // Names of every design in the tree. New, imported and duplicated designs are
+    // made unique against this list: a name decides the .tfs filename, so a
+    // collision would overwrite the other design's file (see designNaming.js).
+    const existingDesignNames = useCallback(
+        () => foldersRef.current.flatMap(f => f.items.map(i => i.name)), []);
+
     const addItem = useCallback(async (overrideFolder) => {
         const targetFolder = overrideFolder || selectedFolder;
         if (!targetFolder) return;
+        // The running count is not unique on its own: deleting "Design 2" of
+        // three makes the next default "Design 3", which already exists. Keep
+        // counting up rather than falling back to a parenthesised suffix.
         const n       = foldersRef.current.flatMap(f => f.items).length + 1;
-        const design  = makeDefaultDesign(`Design ${n}`);
+        const name    = uniqueDesignName(`Design ${n}`, existingDesignNames(), (_, k) => `Design ${n + k - 1}`);
+        const design  = makeDefaultDesign(name);
         const newItem = { id: design.id, name: design.name, mtime: Date.now() };
 
         setDesigns(d => ({ ...d, [design.id]: design }));
@@ -841,14 +850,16 @@ const App = () => {
         if (window.electronAPI?.saveDesign) {
             await window.electronAPI.saveDesign(targetFolder.name, design);
         }
-    }, [selectedFolder]);
+    }, [selectedFolder, existingDesignNames]);
 
     // Add a project-explorer item from a pre-built design (e.g. WDM wizard output).
     // Same persistence path as `addItem`; differs only in that the design is
     // supplied ready-made instead of constructed from `makeDefaultDesign`.
-    const addItemFromDesign = useCallback(async (design, overrideFolder) => {
+    const addItemFromDesign = useCallback(async (incoming, overrideFolder) => {
         const targetFolder = overrideFolder || selectedFolder;
-        if (!targetFolder || !design) return;
+        if (!targetFolder || !incoming) return;
+        const name   = uniqueDesignName(incoming.name, existingDesignNames(), (b, k) => `${b} (${k})`);
+        const design = name === incoming.name ? incoming : { ...incoming, name };
         const newItem = { id: design.id, name: design.name, mtime: Date.now() };
 
         setDesigns(d => ({ ...d, [design.id]: design }));
@@ -863,7 +874,7 @@ const App = () => {
         if (window.electronAPI?.saveDesign) {
             await window.electronAPI.saveDesign(targetFolder.name, design);
         }
-    }, [selectedFolder]);
+    }, [selectedFolder, existingDesignNames]);
 
     // ── Open: import an external .tfs file into the project tree and open it ──
     // The main process shows a native picker and returns the parsed design; we
@@ -878,9 +889,8 @@ const App = () => {
         if (!targetFolder) return;
 
         const ts       = `${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
-        const existing = new Set(foldersRef.current.flatMap(f => f.items.map(i => i.name.toLowerCase())));
         const base     = (res.design.name && String(res.design.name).trim()) || res.fileName || 'Imported design';
-        const name     = uniqueName(base, existing, (b, k) => `${b} (${k})`);
+        const name     = uniqueDesignName(base, existingDesignNames(), (b, k) => `${b} (${k})`);
 
         const design = {
             ...res.design,
@@ -891,7 +901,7 @@ const App = () => {
         };
         await addItemFromDesign(design, targetFolder);
         setToolRequests(prev => [...prev, { toolId: 'design-editor', ts: Date.now() }]);
-    }, [selectedFolder, addItemFromDesign]);
+    }, [selectedFolder, addItemFromDesign, existingDesignNames]);
 
     // ── Save As: persist the active design under a new name as a separate file ──
     const saveDesignAs = useCallback(() => {
@@ -903,16 +913,16 @@ const App = () => {
         if (!folder) return;
 
         const sa        = t.dialogs.saveAs;
-        const existing  = new Set(foldersRef.current.flatMap(f => f.items.map(i => i.name.toLowerCase())));
+        const existing  = new Set(existingDesignNames().map(designFileKey));
         const base      = `${src.name} (copy)`;
-        const suggested = uniqueName(base, existing, (b, k) => `${b} ${k}`);
+        const suggested = uniqueDesignName(base, existingDesignNames(), (b, k) => `${b} ${k}`);
 
         setInputDialog({
             title: sa.title,
             defaultValue: suggested,
             validate: (nm) => {
                 if (!nm?.trim()) return sa.empty;
-                if (existing.has(nm.trim().toLowerCase())) return sa.exists;
+                if (existing.has(designFileKey(nm.trim()))) return sa.exists;
                 return '';
             },
             onConfirm: async (nm) => {
@@ -941,14 +951,15 @@ const App = () => {
             },
             onCancel: () => setInputDialog(null),
         });
-    }, [activeDesignId, selectedFolder, t]);
+    }, [activeDesignId, selectedFolder, t, existingDesignNames]);
 
     const duplicateItem = useCallback(async (item, folder) => {
         const src = designsRef.current[item.id];
         if (!src) return;
         const ts      = `${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
         const newId   = `design-${ts}`;
-        const newName = item.name + ' (copy)';
+        const newName = uniqueDesignName(
+            `${item.name} (copy)`, existingDesignNames(), (b, k) => `${b} ${k}`);
         const clone   = {
             ...JSON.parse(JSON.stringify(src)),
             id: newId,
@@ -967,7 +978,7 @@ const App = () => {
         if (window.electronAPI?.saveDesign) {
             await window.electronAPI.saveDesign(folder.name, clone);
         }
-    }, []);
+    }, [existingDesignNames]);
 
     const removeSelectedItems = useCallback(async (explicitList) => {
         // `explicitList` lets the context menu delete a precise set without

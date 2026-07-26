@@ -150,12 +150,24 @@ function handleLoadFolders(ctx) {
 // ── Save design as .tfs file ───────────────────────────────────────────────
 // The .tfs file is plain JSON readable with any text editor.
 function handleSaveDesign(ctx, folderName, design) {
-  const { fs, path, log, projectsDir, safeName, safeFilePath, writeFileAtomic } = ctx;
+  const { fs, path, log, projectsDir, safeName, safeFilePath, writeFileAtomic, readJsonSafe } = ctx;
   try {
     const folderPath = safeFilePath(projectsDir, safeName(folderName));
     if (!fs.existsSync(folderPath)) fs.mkdirSync(folderPath, { recursive: true });
     const fileName = safeName(design.name) + '.tfs';
     const filePath = safeFilePath(folderPath, fileName);
+
+    // Refuse to write over a file that holds a different design. Design names
+    // are kept unique in the renderer, so this only fires if two names still
+    // reach one filename — writing anyway would destroy the other design.
+    if (design.id && fs.existsSync(filePath)) {
+      const occupant = readJsonSafe(filePath);
+      if (occupant && occupant.id && occupant.id !== design.id) {
+        log(`save-design: refused to overwrite ${fileName} (holds id=${occupant.id}, saving id=${design.id})`);
+        return { success: false, error: `Another design is already saved as "${fileName}".` };
+      }
+    }
+
     const content = JSON.stringify({ tfs_version: '1.0', ...design }, null, 2);
     writeFileAtomic(filePath, content, 'utf-8');
 

@@ -312,6 +312,15 @@ const PARAMS = { lambdaStart: 400, lambdaEnd: 800, lambdaStep: 25, theta: 0, pol
     // Unknown field — should not crash, should leave perMaterial entry intact
     applyParamValue(dev, 'mat:SiO2:wat', 99);
     ok(dev.perMaterial.SiO2.dn === 0.02, 'applyParamValue: unknown field is ignored');
+
+    // Material ids are source-qualified and carry a colon of their own; the
+    // field is the LAST segment, not the third.
+    applyParamValue(dev, 'mat:builtin:SiO2:dn', 0.03);
+    ok(dev.perMaterial['builtin:SiO2']?.dn === 0.03, 'applyParamValue: qualified id keeps its source prefix');
+    applyParamValue(dev, 'mat:builtin:SiO2:dOffset', 2);
+    ok(dev.perMaterial['builtin:SiO2'].dOffset === 2 && dev.perMaterial['builtin:SiO2'].dn === 0.03,
+        'applyParamValue: qualified id accumulates fields in one entry');
+    ok(dev.perMaterial.builtin === undefined, 'applyParamValue: the source prefix is not treated as a material');
 }
 
 // ── 10) paramLabel produces something human-readable for every shape ──────
@@ -322,6 +331,7 @@ const PARAMS = { lambdaStart: 400, lambdaEnd: 800, lambdaStep: 25, theta: 0, pol
     ok(paramLabel('mat:TiO2:dn')          === 'TiO2 Δn',                  'paramLabel: mat:TiO2:dn');
     ok(paramLabel('mat:TiO2:dk')          === 'TiO2 Δk',                  'paramLabel: mat:TiO2:dk');
     ok(paramLabel('mat:TiO2:dScale')      === 'TiO2 d-scale',             'paramLabel: mat:TiO2:dScale');
+    ok(paramLabel('mat:builtin:TiO2:dn')  === 'builtin:TiO2 Δn',          'paramLabel: qualified id');
 }
 
 // ── 11) perturbLayers + perturbMedium do not mutate inputs ────────────────

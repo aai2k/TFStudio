@@ -10,6 +10,33 @@
  * unit (globalThicknessOffsetUnit / perMaterial[id].dOffsetUnit) — the sweep
  * varies the magnitude, the unit is fixed by the setup.
  */
+
+// The per-material fields a sweep can vary, with their display labels.
+const MATERIAL_FIELDS = { dn: 'Δn', dk: 'Δk', dScale: 'd-scale', dOffset: 'd-offset' };
+
+const GLOBAL_LABELS = {
+    globalDeltaN:          'Global Δn',
+    globalDeltaK:          'Global Δk',
+    globalThicknessScale:  'Global thickness scale',
+    globalThicknessOffset: 'Global thickness offset',
+};
+
+/**
+ * Split `mat:<materialId>:<field>` into its parts, or null if `param` is not a
+ * per-material parameter. Material ids are source-qualified and contain a colon
+ * of their own (`builtin:SiO2`), so the field is the last segment and the id is
+ * everything before it.
+ */
+export function parseMaterialParam(param) {
+    if (typeof param !== 'string' || !param.startsWith('mat:')) return null;
+    const rest = param.slice('mat:'.length);
+    const cut = rest.lastIndexOf(':');
+    if (cut <= 0) return null;
+    const field = rest.slice(cut + 1);
+    if (!Object.hasOwn(MATERIAL_FIELDS, field)) return null;
+    return { id: rest.slice(0, cut), field };
+}
+
 export function applyParamValue(dev, param, v) {
     if (param === 'globalDeltaN') {
         dev.globalDeltaN = v;
@@ -19,15 +46,13 @@ export function applyParamValue(dev, param, v) {
         dev.globalThicknessScale = v;
     } else if (param === 'globalThicknessOffset') {
         dev.globalThicknessOffset = v;
-    } else if (param && param.startsWith('mat:')) {
-        const parts = param.split(':');
-        if (parts.length === 3) {
-            const id = parts[1], field = parts[2];
+    } else {
+        const mat = parseMaterialParam(param);
+        if (mat) {
             dev.perMaterial = dev.perMaterial || {};
-            dev.perMaterial[id] = dev.perMaterial[id] || { dn: 0, dk: 0, dScale: 1, dOffset: 0, dOffsetUnit: 'nm' };
-            if (field === 'dn' || field === 'dk' || field === 'dScale' || field === 'dOffset') {
-                dev.perMaterial[id][field] = v;
-            }
+            dev.perMaterial[mat.id] = dev.perMaterial[mat.id]
+                || { dn: 0, dk: 0, dScale: 1, dOffset: 0, dOffsetUnit: 'nm' };
+            dev.perMaterial[mat.id][mat.field] = v;
         }
     }
     return dev;
@@ -37,22 +62,7 @@ export function applyParamValue(dev, param, v) {
  * Human label for a sweep parameter (for UI / hover text).
  */
 export function paramLabel(param) {
-    let result;
-    if (param === 'globalDeltaN') {
-        result = 'Global Δn';
-    } else if (param === 'globalDeltaK') {
-        result = 'Global Δk';
-    } else if (param === 'globalThicknessScale') {
-        result = 'Global thickness scale';
-    } else if (param === 'globalThicknessOffset') {
-        result = 'Global thickness offset';
-    } else if (param && param.startsWith('mat:')) {
-        const [, id, field] = param.split(':');
-        const f = field === 'dn' ? 'Δn' : field === 'dk' ? 'Δk'
-                : field === 'dOffset' ? 'd-offset' : 'd-scale';
-        result = `${id} ${f}`;
-    } else {
-        result = param || '';
-    }
-    return result;
+    if (GLOBAL_LABELS[param]) return GLOBAL_LABELS[param];
+    const mat = parseMaterialParam(param);
+    return mat ? `${mat.id} ${MATERIAL_FIELDS[mat.field]}` : (param || '');
 }
