@@ -23,7 +23,7 @@
  * Engine: utils/monoSim.js `simulateRunMono` (single-wavelength turning/level/
  * time cut), which mirrors monitoringSim.simulateRun's cfg + return shape, so
  * pages 1/2/4/5/6 are shared with BBM. Spectra go through
- * depositionSpectrum.frontStackSpectrum → thinFilmMath, the validated path.
+ * depositionSpectrum.systemSpectrum → thinFilmMath, the validated path.
  *
  * Reference: Macleod, Thin-Film Optical Filters 5th ed., Ch. 12;
  *            Tikhonravov & Trubetskov, Appl. Opt. 44, 6877 (2005).

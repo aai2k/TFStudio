@@ -24,8 +24,8 @@
  * The single-run experiment, OU correlated rates, shutter delay, per-material
  * deviations and exclude-layers all live in utils/monitoringSim.js
  * (`simulateRun`, `sampleOURatePath`, `makeShiftedMaterial`). Spectra go through
- * utils/depositionSpectrum.js (`frontStackSpectrum`) → thinFilmMath
- * `evaluateSpectrumTotal`, the same validated path the Process Simulator uses.
+ * utils/depositionSpectrum.js (`systemSpectrum`) → thinFilmMath
+ * `evaluateSpectrum*`, the same validated path the Process Simulator uses.
  *
  * Reference: Tikhonravov & Trubetskov, Appl. Opt. 44, 6877 (2005);
  *            Macleod, Thin-Film Optical Filters, 5th ed., Ch. 12.

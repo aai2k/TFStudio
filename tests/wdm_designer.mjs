@@ -8,7 +8,8 @@
  *   • Layer count formula:
  *       layers_per_cavity = 4·k + 1
  *       total layers      = N · (4·k + 1)  (+1 if includeAR)
- *   • First layer (against substrate) is H; last is L by default (or AR top = L)
+ *   • Storage order (index 0 = incident side): the AR layer, when requested,
+ *     is the outermost layer; the M_1 mirror ends the array against the substrate
  *   • Spacer is at the centre of each cavity, of the correct multiple
  *   • Centred TMM evaluation: T(λ₀) > T(λ₀ ± stopband_edge) for a well-formed
  *     prototype (sanity check — the passband actually exists)
@@ -76,7 +77,7 @@ console.log('— layer count formula —');
     });
     ok(sing.layers.length === 4 * 4 + 1, `single-cavity = 4k+1 (got ${sing.layers.length})`);
 
-    // includeAR adds exactly one L layer on top.
+    // includeAR adds exactly one L layer facing air, i.e. at storage index 0.
     const withAR = buildWDMStack({
         matH: 'builtin:Ta2O5', matL: 'builtin:SiO2',
         lambda0_nm: LAM0, cavities: 2, mirrorPairs: 4, spacerOrder: 1, spacerKind: 'L',
@@ -84,8 +85,18 @@ console.log('— layer count formula —');
     });
     ok(withAR.layers.length === wdmLayerCount(2, 4) + 1,
         `includeAR adds 1 layer (got ${withAR.layers.length})`);
-    ok(withAR.layers[withAR.layers.length - 1].material === 'builtin:SiO2',
-        `AR top layer is L material`);
+    ok(withAR.layers[0].material === 'builtin:SiO2',
+        `AR layer is L material at the incident side`);
+    // Orientation guard: with an H spacer the two ends differ, so a flipped
+    // stack is detectable (an L-spacer design is L at both ends and is not).
+    const arH = buildWDMStack({
+        matH: 'builtin:Ta2O5', matL: 'builtin:SiO2',
+        lambda0_nm: LAM0, cavities: 2, mirrorPairs: 4, spacerOrder: 1, spacerKind: 'H',
+        includeAR: true,
+    });
+    ok(arH.layers[0].material === 'builtin:SiO2'
+        && arH.layers[arH.layers.length - 1].material === 'builtin:Ta2O5',
+        `AR faces air and mirror M_1 faces the substrate (got ${arH.layers[0].material} … ${arH.layers[arH.layers.length - 1].material})`);
 }
 
 // ── 3. First / spacer / sequence positions ───────────────────────────────────
@@ -96,8 +107,9 @@ console.log('— material sequence —');
         lambda0_nm: LAM0, cavities: 1, mirrorPairs: 3, spacerOrder: 2, spacerKind: 'H',
     });
     // Layout: H L H L H L  H_spacer  L H L H L H   (4·k = 12 mirror layers + 1 spacer)
+    // — symmetric in material, so this holds at either end of the stored array.
     ok(stack.layers[0].material === 'builtin:Ta2O5',
-        `first layer is H against substrate (got ${stack.layers[0].material})`);
+        `outermost layer is H (got ${stack.layers[0].material})`);
     const spacerIdx = 2 * 3; // = 2k = 6 for k=3
     ok(stack.layers[spacerIdx].material === 'builtin:Ta2O5',
         `spacer at position 2k=${spacerIdx} is H material`);

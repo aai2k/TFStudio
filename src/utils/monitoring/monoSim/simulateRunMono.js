@@ -81,10 +81,12 @@ export function simulateRunMono(design, resolveMat, cfg) {
         cutStrategies: new Array(N),
         estimated:     layerCfg.recordTrajectory ? new Array(N) : null,
     };
+    // `truthThicks` / `modelThicks` are index-aligned to `front` (storage
+    // order, air→substrate); entries for not-yet-deposited layers stay 0.
     const mut = {
         acc,
-        truthThicksPrev: [],
-        modelThicksPrev: [],
+        truthThicks: new Array(N).fill(0),
+        modelThicks: new Array(N).fill(0),
         ouRate:  new Map(),
         ouLastT: new Map(),
         tElapsed: 0,
@@ -97,7 +99,10 @@ export function simulateRunMono(design, resolveMat, cfg) {
         N, onLayer: cfg.onLayer,
     };
 
-    for (let i = 0; i < N; i++) {
+    // Deposition order: substrate-adjacent layer first. `frontLayers` is
+    // stored air→substrate, so the run walks it backwards; all accumulators
+    // stay index-aligned to `front` (storage order).
+    for (let i = N - 1; i >= 0; i--) {
         processMonoLayer(i, front[i], ctx, mut);
     }
 

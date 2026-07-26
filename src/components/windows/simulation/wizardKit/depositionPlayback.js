@@ -10,16 +10,19 @@
  */
 
 import { resolveMat }                                       from '../wizardShared.js';
-import { systemSpectrum, splitActiveStacks, partialThicknesses } from '../../../../utils/monitoring/depositionSpectrum.js';
+import { systemSpectrum, splitActiveStacks, partialThicknesses, flipLayerIndex } from '../../../../utils/monitoring/depositionSpectrum.js';
 import { makeShiftedMaterial }                              from '../../../../utils/monitoring/monitoringSim.js';
 
 const { useState, useEffect, useMemo, useRef, useCallback } = React;
 
 // ── Playback helpers (pure) ─────────────────────────────────────────────────────
+// Cumulative deposition clock, indexed by DEPOSITION layer (1 = substrate-
+// adjacent, grown first). `run.cutTimes` is in storage order (air→substrate),
+// so it is consumed back-to-front to follow the chamber's actual sequence.
 function buildCumTimes(run) {
     if (!run) return [0];
     const out = [0];
-    for (const ct of run.cutTimes) out.push(out[out.length - 1] + ct);
+    for (let i = run.cutTimes.length - 1; i >= 0; i--) out.push(out[out.length - 1] + run.cutTimes[i]);
     return out;
 }
 
@@ -97,10 +100,11 @@ function perfSpec(activeStored, ctx, p, lamStep) {
 }
 
 // As-built thicknesses at the scrub position: complete layers below `layerIdx`,
-// the current layer at `frac`, later layers absent.
+// the current layer at `frac`, later layers absent. `asBuiltFront` is in storage
+// order while `layerIdx` counts deposition layers (see partialThicknesses).
 function asBuiltPartial(asBuiltFront, layerIdx, frac) {
     return asBuiltFront.map((d, i) => {
-        const dep = i + 1;
+        const dep = flipLayerIndex(asBuiltFront.length, i);
         if (dep < layerIdx) return d;
         if (dep === layerIdx) return d * frac;
         return 0;

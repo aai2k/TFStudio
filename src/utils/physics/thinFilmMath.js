@@ -653,22 +653,31 @@ export function tmmAvg(lambda_nm, theta_deg, n0, ns, layers) {
 // O(1) incremental control algorithm
 // (see Tikhonravov & Trubetskov, Appl. Opt. 44, 6877 (2005)).
 //
-// The result is BIT-IDENTICAL to looping tmmAvg() over the full stack, by matrix
+// The growing layer is the one facing the incident medium: in a chamber the
+// layer currently being deposited is always the outermost, and everything
+// already deposited lies beneath it, toward the substrate. Its characteristic
+// matrix therefore multiplies the completed product from the LEFT.
+//
+// The result equals looping tmmAvg() over the full stack, by matrix
 // associativity (Macleod 5th ed. §2.6, char. matrix of an assembly):
-//     M_full = (M_0·M_1···M_{i-1}) · M_top = M_base · M_top
+//     M_full = M_top · (M_0·M_1···M_{i-1}) = M_top · M_base
 // The base product and the growing-layer multiply use the exact same layerMatrix
-// / matmul calls and the [B,C]→r,t→R,T,A tail reproduces tmm() verbatim, so the
-// arithmetic agrees to the last ULP. Verified by tests/bbm_incremental_equivalence.mjs.
+// / matmul calls and the [B,C]→r,t→R,T,A tail reproduces tmm() verbatim. Because
+// the cached factor is the suffix product while a full-stack loop associates from
+// the incident side, the two group their multiplies differently and agree to a few
+// ULP rather than bit-exactly. Verified by tests/bbm_incremental_equivalence.mjs.
 //
 //   theta_deg       : angle of incidence (deg)
 //   incMat, subMat  : incident & substrate material objects (.getNK(λ) → [re,im])
-//   completedMats   : material objects of the already-deposited layers below
+//   completedMats   : material objects of the already-deposited layers beneath the
+//                     growing one, in storage order (nearest the growing layer first,
+//                     substrate-adjacent last)
 //   completedThicks : their thicknesses (nm), index-aligned to completedMats
 //   lambdas         : scan wavelength grid (nm)
 //
 // Returns { lambdas, sample(char, pol, topMat, dTop) } where sample() returns a
 // Float64Array of the chosen characteristic ('T'|'R'|'A', pol 's'|'p'|'avg') over
-// `lambdas`, identical to sampleChar(... [completed..., topMat], [completedThicks..., dTop]).
+// `lambdas`, identical to sampleChar(... [topMat, completed...], [dTop, completedThicks...]).
 export function createMonitorTmmEvaluator(theta_deg, incMat, subMat, completedMats, completedThicks, lambdas) {
     const sinTheta0 = [Math.sin(theta_deg * Math.PI / 180), 0];
     const NL = lambdas.length;
@@ -719,7 +728,7 @@ export function createMonitorTmmEvaluator(theta_deg, incMat, subMat, completedMa
         if (dTop > 0) {
             const n = topMat.getNK(lam);
             const cosThetaJ = snellCosTheta(c.n0, sinTheta0, n);
-            M = matmul(M, layerMatrix(n, dTop, lam, cosThetaJ, pol));
+            M = matmul(layerMatrix(n, dTop, lam, cosThetaJ, pol), M);
         }
         return tail(M, c.eta0, c.etaS);
     }

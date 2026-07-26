@@ -16,9 +16,9 @@ function recordZeroThicknessLayer(i, ctx, mut) {
     mut.acc.asBuilt[i] = 0;
     mut.acc.cutTimes[i] = 0;
     if (mut.acc.estimated) mut.acc.estimated[i] = 0;
-    mut.truthThicksPrev.push(0);
-    mut.modelThicksPrev.push(0);
-    if (ctx.onLayer) ctx.onLayer(i + 1, ctx.N);
+    mut.truthThicks[i] = 0;
+    mut.modelThicks[i] = 0;
+    if (ctx.onLayer) ctx.onLayer(ctx.N - i, ctx.N);
 }
 
 // Optical-feedback cut search bounds + call for one non-excluded layer.
@@ -29,7 +29,8 @@ function runLayerCutSearch({ i, d_target, r, t_target }, ctx, mut) {
     const scan = runBroadbandLayerCut({
         theta: ctx.theta, incMat: ctx.incMat, subMat: ctx.subMat,
         truthMats: ctx.truthMats, modelMats: ctx.modelMats, i,
-        truthThicksPrev: mut.truthThicksPrev, modelThicksPrev: mut.modelThicksPrev,
+        truthThicksBelow: mut.truthThicks.slice(i + 1),
+        modelThicksBelow: mut.modelThicks.slice(i + 1),
         lambdas: ctx.lambdas, char: ctx.char, pol: ctx.pol,
         r, dt: ctx.dt, d_target, t_target, dHiCap, confirmScans: ctx.confirmScans,
         randomPct: ctx.randomPct, driftSlope: ctx.driftSlope,
@@ -93,14 +94,15 @@ export function processLayer(i, layer, ctx, mut) {
     mut.ouLastT.set(matId, mut.tElapsed);
 
     // Optional per-layer progress hook (used by the wizard's run worker to
-    // drive a progress bar). MC path passes none.
-    if (ctx.onLayer) ctx.onLayer(i + 1, ctx.N);
+    // drive a progress bar); counts completed deposition steps, so storage
+    // index i maps to step N-i. MC path passes none.
+    if (ctx.onLayer) ctx.onLayer(ctx.N - i, ctx.N);
 
     // Update truth and model histories. The monitor's model history is the
     // monitor's BEST ESTIMATE of what it just deposited, which (in our
     // simplification) equals the as-built thickness. This is realistic for
     // BBM: the monitor's fit at cut time gives the estimated thickness,
     // and the monitor uses that estimate going forward.
-    mut.truthThicksPrev.push(d_built);
-    mut.modelThicksPrev.push(d_built);
+    mut.truthThicks[i] = d_built;
+    mut.modelThicks[i] = d_built;
 }

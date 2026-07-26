@@ -76,10 +76,12 @@ function buildOuterRightMirror({ matH, dH, matL, dL, k, isLSpacer }) {
  *   mirrorPairs         — k QW pairs in each (HL) sequence (integer, ≥1)
  *   spacerOrder         — m (integer, ≥1)  — half-waves in each spacer
  *   spacerKind          — 'H' or 'L'      — which material is the spacer
- *   includeAR           — bool: prepend a single QW L matching layer (cheap default)
+ *   includeAR           — bool: add a single QW L matching layer facing air
  *
  * Returns:
  *   { layers: [{id, material, thickness, locked}], H_QW, L_QW, totalNm }
+ * `layers` is in design storage order (index 0 touches the incident medium),
+ * ready to assign to `frontLayers`.
  */
 export function buildWDMStack(params) {
     const {
@@ -119,6 +121,11 @@ export function buildWDMStack(params) {
         // Crude but a useful seed; user can run Refinement / Needle afterwards.
         descriptors.push({ material: matL, thickness: dL });
     }
+
+    // `descriptors` is assembled substrate-side first (M_1 … M_{q+1}, optional AR
+    // last, facing air). Design storage runs the other way — `frontLayers[0]` is
+    // the layer touching the incident medium — so flip into storage order here.
+    descriptors.reverse();
 
     const seed = `${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
     const layers = descriptors.map((d, idx) => ({

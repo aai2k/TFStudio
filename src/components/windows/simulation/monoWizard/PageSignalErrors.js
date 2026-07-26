@@ -4,13 +4,15 @@
 
 import { RowField, Radio, Chart, LayerTabs, SplitPage } from '../wizardShared.js';
 import { monoSignalVsThickness } from './monoSignalModel.js';
+import { flipLayerIndex } from '../../../../utils/monitoring/depositionSpectrum.js';
 
 const { createElement: h, useMemo } = React;
 
 export function PageSignalErrors({ p, set, layers, c, B, ctx, design }) {
     const k = Math.min(Math.max(1, p.previewLayer || 1), layers.length);
     const common = { char: p.quantity, aoi: p.aoi, pol: p.pol };
-    const monRow = p.monTable[k - 1] || { lambda: design.referenceWavelength || 550, strategy: 'turning', order: 1 };
+    // `k` is a deposition layer; `monTable` is storage-indexed (see LayerTabs).
+    const monRow = p.monTable[flipLayerIndex(layers.length, k)] || { lambda: design.referenceWavelength || 550, strategy: 'turning', order: 1 };
     const preview = useMemo(() =>
         (layers.length && ctx) ? monoSignalVsThickness({ layers, k, monRow, common, ctx, noisePct: p.randomPct, nonce: p.sigNonce }) : null,
         // eslint-disable-next-line react-hooks/exhaustive-deps

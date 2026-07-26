@@ -11,12 +11,14 @@
  * "fast" control idea (createMonitorTmmEvaluator in thinFilmMath.js).
  *
  * This is supposed to be BIT-IDENTICAL to the old full-stack sampleChar, by
- * matrix associativity:  M_full = (M_0···M_{i-1}) · M_top = M_base · M_top.
+ * matrix associativity:  M_full = M_top · (M_0···M_{i-1}) = M_top · M_base.
+ * The growing layer leads the product because it faces the incident medium:
+ * already-deposited layers lie beneath it, toward the substrate.
  *
  * Test 1 — the incremental evaluator reproduces a faithful re-implementation of
- *          the old sampleChar (full-stack tmmAvg loop) to the last ULP, across
- *          materials (incl. absorbing), pols (s/p/avg), characteristics (T/R/A),
- *          AOIs, and a range of growing-layer thicknesses incl. 0.
+ *          the old sampleChar (full-stack tmmAvg loop) to within floating-point
+ *          association error, across materials (incl. absorbing), pols (s/p/avg),
+ *          characteristics (T/R/A), AOIs, and growing-layer thicknesses incl. 0.
  * Test 2 — simulateRun is deterministic at a fixed seed (regression guard that
  *          the wiring did not introduce any nondeterminism).
  */
@@ -73,7 +75,7 @@ function test_evaluator_bit_identical() {
                     for (const dTop of [0, 0.5, 17.25, 88.0, 250.0]) {
                         const got = ev.sample(char, pol, topMat, dTop);
                         const ref = refSample(lambdas, theta, pol, char, incMat, subMat,
-                            [...completedMats, topMat], [...completedThicks, dTop]);
+                            [topMat, ...completedMats], [dTop, ...completedThicks]);
                         for (let li = 0; li < lambdas.length; li++) {
                             const d = Math.abs(got[li] - ref[li]);
                             if (d > maxAbs) maxAbs = d;
@@ -84,7 +86,15 @@ function test_evaluator_bit_identical() {
             }
         }
     }
-    ok(maxAbs === 0, `incremental evaluator bit-identical to full-stack sampleChar over ${total} samples (max |Δ| = ${maxAbs})`);
+    // The cached factor is the SUFFIX product (the completed layers beneath the
+    // growing one) while the reference loop associates left-to-right from the
+    // incident side, so the two group the same complex multiplies differently.
+    // Matrix multiplication is exactly associative in ℝ but not in floating
+    // point, leaving a few ULP. Any real ordering/geometry error is ~1e-1 here,
+    // so this bound still fails loudly on one.
+    const ASSOC_TOL = 1e-12;
+    ok(maxAbs < ASSOC_TOL,
+        `incremental evaluator matches full-stack sampleChar to floating-point association over ${total} samples (max |Δ| = ${maxAbs.toExponential(2)}, tol ${ASSOC_TOL.toExponential(0)})`);
 }
 
 // Also exercise the empty-completed-stack case (first layer being deposited).

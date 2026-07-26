@@ -8,11 +8,13 @@
 
 import { resolveMat }     from '../wizardShared.js';
 import { mulberry32 }     from '../../../../utils/monitoring/monoSim.js';
-import { systemSpectrum } from '../../../../utils/monitoring/depositionSpectrum.js';
+import { systemSpectrum, flipLayerIndex } from '../../../../utils/monitoring/depositionSpectrum.js';
 
 export function monoSignalVsThickness({ layers, k, monRow, common, ctx, noisePct, nonce }) {
+    // `k` counts deposition layers (1 = substrate-adjacent, grown first) while
+    // `layers` is in storage order (air→substrate).
     const lam = monRow?.lambda || 550;
-    const dTarget = layers[k - 1]?.thickness || 0;
+    const dTarget = layers[flipLayerIndex(layers.length, k)]?.thickness || 0;
     const dHi = Math.max(2 * dTarget, dTarget + 50);
     const NP = 70;
     const baseThicks = layers.map(l => l.thickness || 0);
@@ -22,7 +24,7 @@ export function monoSignalVsThickness({ layers, k, monRow, common, ctx, noisePct
     for (let s = 0; s < NP; s++) {
         const d = (s / (NP - 1)) * dHi;
         const thicks = baseThicks.map((t, idx) => {
-            const dep = idx + 1;
+            const dep = flipLayerIndex(baseThicks.length, idx);
             if (dep < k) return t;
             if (dep === k) return d;
             return 0;

@@ -32,12 +32,12 @@ function resolveExtremumTarget(an, order, d_target) {
 
 // One scan's smoothed measured signal: truth curve + noise + drift, run
 // through the layer's moving-average smoother. `ctx` bundles the fixed
-// per-scan context: { monLam, truthMatsUpto, truthThicksPrev, sys, noiseFrac,
-// driftSlope, rng, smooth }. `smooth` returns { value, ready } — ready once
-// the moving-average window has filled.
+// per-scan context: { monLam, truthMatsFromGrowing, truthThicksBelow, sys,
+// noiseFrac, driftSlope, rng, smooth }. `smooth` returns { value, ready } —
+// ready once the moving-average window has filled.
 function measureMonoScan(d_now, t_global, ctx) {
-    const { monLam, truthMatsUpto, truthThicksPrev, sys, noiseFrac, driftSlope, rng, smooth } = ctx;
-    const sTrue = singleSignal(monLam, truthMatsUpto, truthThicksPrev.concat([d_now]), sys);
+    const { monLam, truthMatsFromGrowing, truthThicksBelow, sys, noiseFrac, driftSlope, rng, smooth } = ctx;
+    const sTrue = singleSignal(monLam, truthMatsFromGrowing, [d_now].concat(truthThicksBelow), sys);
     const eps = noiseFrac > 0 ? gauss(rng) * noiseFrac : 0;
     const sMeas = sTrue * (1 + eps) + driftSlope * t_global;
     return smooth(sMeas);
@@ -69,16 +69,19 @@ function runMonoScanLoop(ctx) {
 }
 
 export function _scanCutMono(p) {
-    const { monLam, theta, pol, char, incMat, subMat, modelMats, modelThicksPrev,
-            i, d_target, truthMats, truthThicksPrev, r, dt, t_target, confirmScans,
+    const { monLam, theta, pol, char, incMat, subMat, modelMats, modelThicksBelow,
+            i, d_target, truthMats, truthThicksBelow, r, dt, t_target, confirmScans,
             noiseFrac, driftSlope, strat, order, rng } = p;
     let { t_global, cut_d_actual, cut_time } = p;
 
     const sys = { theta, pol, char, incMat, subMat };
-    const model = { prevMats: modelMats.slice(0, i), thicksPrev: modelThicksPrev, curMat: modelMats[i] };
+    // Storage is air→substrate, so the layers already deposited beneath the
+    // growing layer `i` are the higher indices; the growing layer leads the
+    // stack because it faces the incident medium.
+    const model = { matsBelow: modelMats.slice(i + 1), thicksBelow: modelThicksBelow, curMat: modelMats[i] };
     const an = analyzeModelCurve(monLam, model, d_target, sys);
     const maxScans = Math.max(2, Math.ceil((Math.max(t_target * 2, t_target + 10 / r)) / dt));
-    const truthMatsUpto = truthMats.slice(0, i + 1);
+    const truthMatsFromGrowing = [truthMats[i]].concat(truthMats.slice(i + 1));
 
     const SMOOTH_W = Math.max(3, confirmScans + 1);
     const buf = new Array(SMOOTH_W).fill(NaN);
@@ -99,7 +102,7 @@ export function _scanCutMono(p) {
                    confirmScans, noiseFrac, bufFill: SMOOTH_W };
     const lState = { prevDiff: null, crossed: false, confirm: 0 };
     const lCfg = { sAtTarget: an.sAtTarget, startDir: Math.sign(an.sAtTarget - an.sStart) || 1, confirmScans };
-    const measureCtx = { monLam, truthMatsUpto, truthThicksPrev, sys, noiseFrac, driftSlope, rng, smooth };
+    const measureCtx = { monLam, truthMatsFromGrowing, truthThicksBelow, sys, noiseFrac, driftSlope, rng, smooth };
 
     const scan = runMonoScanLoop({ maxScans, dt, r, measureCtx, strat, tState, tCfg, lState, lCfg, t_global });
     t_global = scan.t_global;

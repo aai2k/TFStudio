@@ -142,8 +142,13 @@ export function Chart({ traces, xTitle, yTitle, c, yRange = null, extra = {}, mi
             paper_bgcolor: c.panel, plot_bgcolor: c.bg,
             font: { color: c.text, family: 'system-ui, -apple-system, sans-serif', size: 11 },
             margin: { l: 54, r: 14, t: 12, b: 42 },
-            xaxis: { title: { text: xTitle, standoff: 6 }, gridcolor: c.border, color: c.text, tickfont: { size: 10 } },
+            // Fixed-decimal hover readouts, matching the Optical Evaluation plot
+            // (nm to 0.1, percent to 0.001). Without these Plotly falls back to
+            // SI prefixes and a deep reflector's T reads as "1.2131231µ".
+            xaxis: { title: { text: xTitle, standoff: 6 }, gridcolor: c.border, color: c.text, tickfont: { size: 10 },
+                     hoverformat: '.1f' },
             yaxis: { title: { text: yTitle, standoff: 6 }, gridcolor: c.border, color: c.text, tickfont: { size: 10 },
+                     hoverformat: '.3f',
                      ...(yRange ? { range: yRange } : {}) },
             showlegend: false,
             hovermode: 'closest',

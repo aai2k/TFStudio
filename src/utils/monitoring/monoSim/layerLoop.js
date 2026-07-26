@@ -53,8 +53,8 @@ export function processMonoLayer(i, layer, ctx, mut) {
         const scan = _scanCutMono({
             monLam: plan.monLam, theta: ctx.theta, pol: ctx.pol, char: ctx.char,
             incMat: ctx.incMat, subMat: ctx.subMat, modelMats: ctx.modelMats,
-            modelThicksPrev: mut.modelThicksPrev,
-            i, d_target, truthMats: ctx.truthMats, truthThicksPrev: mut.truthThicksPrev,
+            modelThicksBelow: mut.modelThicks.slice(i + 1),
+            i, d_target, truthMats: ctx.truthMats, truthThicksBelow: mut.truthThicks.slice(i + 1),
             r, dt: ctx.dt, t_target, confirmScans: ctx.confirmScans,
             noiseFrac: ctx.randomPct / 100, driftSlope: ctx.driftSlope,
             strat: plan.strat, order: plan.order, rng: ctx.rng,
@@ -76,8 +76,9 @@ export function processMonoLayer(i, layer, ctx, mut) {
 
     mut.tElapsed += cut_time;
     mut.ouLastT.set(matId, mut.tElapsed);
-    if (ctx.onLayer) ctx.onLayer(i + 1, ctx.N);
+    // Progress counts completed deposition steps: storage index i → step N-i.
+    if (ctx.onLayer) ctx.onLayer(ctx.N - i, ctx.N);
 
-    mut.truthThicksPrev.push(mut.acc.asBuilt[i]);
-    mut.modelThicksPrev.push(mut.acc.asBuilt[i]);
+    mut.truthThicks[i] = mut.acc.asBuilt[i];
+    mut.modelThicks[i] = mut.acc.asBuilt[i];
 }

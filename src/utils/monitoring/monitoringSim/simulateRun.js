@@ -97,13 +97,15 @@ export function simulateRun(design, resolveMat, cfg) {
     // Mutable state threaded across layers: `t_global` is cumulative time
     // across ALL layers (for drift); the OU maps + `tElapsed` give the
     // realized per-layer rate temporal correlation across layers of the same
-    // material at the user's correlation time. `truthThicksPrev` /
-    // `modelThicksPrev` are the truth/model as-built history the monitor
-    // fits against (v1 assumes the monitor tracks its own as-built).
+    // material at the user's correlation time. `truthThicks` / `modelThicks`
+    // are the truth/model as-built history the monitor fits against (v1
+    // assumes the monitor tracks its own as-built), stored index-aligned to
+    // `front` so the layers beneath a growing layer are simply the higher
+    // indices; not-yet-deposited entries stay 0.
     const mut = {
         acc,
-        truthThicksPrev: [],
-        modelThicksPrev: [],
+        truthThicks: new Array(N).fill(0),
+        modelThicks: new Array(N).fill(0),
         ouRate:  new Map(),   // matId → last realized rate
         ouLastT: new Map(),   // matId → cumulative time at last deposition
         tElapsed: 0,          // cumulative deposition time at layer start
@@ -117,7 +119,10 @@ export function simulateRun(design, resolveMat, cfg) {
         N, onLayer: cfg.onLayer,
     };
 
-    for (let i = 0; i < N; i++) {
+    // Deposition order: the chamber grows the substrate-adjacent layer first.
+    // `frontLayers` is stored air→substrate, so the run walks it backwards.
+    // All accumulators stay index-aligned to `front` (storage order).
+    for (let i = N - 1; i >= 0; i--) {
         processLayer(i, front[i], ctx, mut);
     }
 

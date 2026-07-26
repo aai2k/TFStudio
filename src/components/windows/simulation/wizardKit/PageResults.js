@@ -7,10 +7,14 @@
  */
 
 import { matName, cullName, resolveMat, Radio, Chart, computeWizardResultSpectra } from '../wizardShared.js';
+import { flipLayerIndex } from '../../../../utils/monitoring/depositionSpectrum.js';
 
 const { createElement: h, useMemo } = React;
 
 // Per-layer theory vs as-built thickness + index rows for the tables/bars.
+// `layers` and the run arrays are in storage order (air→substrate); rows come
+// back in deposition order (layer 1 = substrate-adjacent, grown first) so the
+// tables and bars are numbered like the Design Editor and the layer tabs.
 function resultRows({ layers, run, ctx, p }) {
     const refLam = ctx.design.referenceWavelength || (p.lamMin + p.lamMax) / 2;
     return layers.map((l, i) => {
@@ -18,8 +22,8 @@ function resultRows({ layers, run, ctx, p }) {
         const abs = dep - theor, rel = theor > 0 ? abs / theor * 100 : 0;
         const n0 = resolveMat(l.material).getNK(refLam)[0];
         const dn = run.matDeltas[i]?.dn || 0, inh = run.matDeltas[i]?.inh || 0;
-        return { i, name: matName(l.material), theor, dep, abs, rel, nTheor: n0, nDep: n0 + dn, dn, inh };
-    });
+        return { i, num: flipLayerIndex(layers.length, i), name: matName(l.material), theor, dep, abs, rel, nTheor: n0, nDep: n0 + dn, dn, inh };
+    }).reverse();
 }
 
 function spectralBody({ spectra, p, c, B }) {
@@ -32,7 +36,7 @@ function spectralBody({ spectra, p, c, B }) {
 
 function errorBody({ rows, isRel, p, c, B }) {
     const y = rows.map(r => isRel ? r.rel : r.abs);
-    const tr = [{ type: 'bar', x: rows.map(r => r.i + 1), y, marker: { color: y.map(v => v >= 0 ? '#e5484d' : '#1f6feb') } }];
+    const tr = [{ type: 'bar', x: rows.map(r => r.num), y, marker: { color: y.map(v => v >= 0 ? '#e5484d' : '#1f6feb') } }];
     return h(Chart, { traces: tr, xTitle: B.layerWord, yTitle: isRel ? B.deltaPct : B.deltaNm, c });
 }
 
@@ -41,7 +45,7 @@ function thickTable({ rows, c, B, th, td, errColor }) {
         h('table', { style: { width: '100%', borderCollapse: 'collapse' } },
             h('thead', null, h('tr', null, [B.tblLayerNum, B.tblName, B.tblTheor, B.tblDep, B.tblRelErr, B.tblAbsErr].map((x, i) => h('th', { key: i, style: th }, x)))),
             h('tbody', null, rows.map(r => h('tr', { key: r.i },
-                h('td', { style: td }, r.i + 1),
+                h('td', { style: td }, r.num),
                 h('td', { style: { ...td, maxWidth: 180, overflow: 'hidden', textOverflow: 'ellipsis' }, title: r.name }, cullName(r.name, 22)),
                 h('td', { style: td }, r.theor.toFixed(4)),
                 h('td', { style: td }, r.dep.toFixed(4)),

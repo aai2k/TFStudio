@@ -42,7 +42,7 @@ function checkCutConfirm(d_hat, d_target, confirmScans, aboveCount) {
 export function runBroadbandLayerCut(p) {
     const {
         theta, incMat, subMat, truthMats, modelMats, i,
-        truthThicksPrev, modelThicksPrev, lambdas, char, pol,
+        truthThicksBelow, modelThicksBelow, lambdas, char, pol,
         r, dt, d_target, t_target, dHiCap, confirmScans,
         randomPct, driftSlope, fitStartFrac, fitMaxIter, rng,
     } = p;
@@ -64,8 +64,11 @@ export function runBroadbandLayerCut(p) {
     // per scan / per golden-section step — O(Nλ) per evaluation instead of
     // O(Nλ·i). Bit-identical to a per-scan full-stack sample (matrix
     // associativity).
-    const truthEval = createMonitorTmmEvaluator(theta, incMat, subMat, truthMats.slice(0, i), truthThicksPrev, lambdas);
-    const modelEval = createMonitorTmmEvaluator(theta, incMat, subMat, modelMats.slice(0, i), modelThicksPrev, lambdas);
+    //
+    // Deposition runs substrate-first, so the layers beneath the growing layer
+    // `i` are the higher storage indices i+1…N-1 (storage is air→substrate).
+    const truthEval = createMonitorTmmEvaluator(theta, incMat, subMat, truthMats.slice(i + 1), truthThicksBelow, lambdas);
+    const modelEval = createMonitorTmmEvaluator(theta, incMat, subMat, modelMats.slice(i + 1), modelThicksBelow, lambdas);
 
     const noiseStdFrac = randomPct / 100;
 

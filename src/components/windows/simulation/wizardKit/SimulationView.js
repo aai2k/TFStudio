@@ -9,11 +9,14 @@
  */
 
 import { Radio, Chart, LayerTabs, DepositionTimeline, SplitPage } from '../wizardShared.js';
+import { flipLayerIndex } from '../../../../utils/monitoring/depositionSpectrum.js';
 
 const { createElement: h } = React;
 
 export function SimulationView({ p, set, c, B, run, N, layerIdx, frac, traces, leftTop, playback }) {
-    const cur = layerIdx >= 1 ? layerIdx - 1 : 0;
+    // `layerIdx` counts deposition layers (1 = substrate-adjacent, grown first)
+    // while the run arrays are in storage order.
+    const cur = flipLayerIndex(N, layerIdx >= 1 ? layerIdx : 1);
     const tT = run ? (run.targetFront[cur] || 0) : 0;
     const tA = run ? (run.asBuiltFront[cur] || 0) * frac : 0;
     const tE = run ? (run.estimatedFront?.[cur] || 0) : 0;

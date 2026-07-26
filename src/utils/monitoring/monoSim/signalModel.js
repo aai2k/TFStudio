@@ -31,10 +31,12 @@ export function singleSignal(lam, mats, thicks, sys) {
  * signal on a fixed grid of candidate thicknesses [0, dHi] and returns the
  * theoretical level at d_target plus every local extremum found — used to
  * derive the turning-point / level-crossing cut targets. `model` bundles the
- * model-side stack: { prevMats, thicksPrev, curMat }.
+ * model-side stack: { matsBelow, thicksBelow, curMat }, where `matsBelow` are
+ * the already-deposited layers beneath the growing one (storage order). The
+ * growing layer leads the stack: it faces the incident medium.
  */
 export function analyzeModelCurve(monLam, model, dTarget, sys) {
-    const { prevMats, thicksPrev, curMat } = model;
+    const { matsBelow, thicksBelow, curMat } = model;
     const dHi = Math.max(2 * dTarget, dTarget + 50);
     const NP = 81;
     const ds = new Float64Array(NP);
@@ -42,7 +44,7 @@ export function analyzeModelCurve(monLam, model, dTarget, sys) {
     for (let s = 0; s < NP; s++) {
         const d = (s / (NP - 1)) * dHi;
         ds[s] = d;
-        ys[s] = singleSignal(monLam, prevMats.concat([curMat]), thicksPrev.concat([d]), sys);
+        ys[s] = singleSignal(monLam, [curMat].concat(matsBelow), [d].concat(thicksBelow), sys);
     }
     const targetIdx = Math.max(1, Math.min(NP - 2, Math.round((dTarget / dHi) * (NP - 1))));
     const extrema = [];

@@ -7,6 +7,7 @@
  */
 
 import { pickSensitiveLambda } from '../../../../utils/monitoring/monoSim.js';
+import { flipLayerIndex }      from '../../../../utils/monitoring/depositionSpectrum.js';
 import {
     resolveMat, matName, cullName, inputStyle, NumField, cellNum, LayerTabs, Chart,
 }                               from '../wizardShared.js';
@@ -17,7 +18,8 @@ const { createElement: h, useMemo } = React;
 export function PageMonoSystem({ p, set, layers, c, B, ctx, design }) {
     const k = Math.min(Math.max(1, p.previewLayer || 1), layers.length);
     const common = { char: p.quantity, aoi: p.aoi, pol: p.pol };
-    const monRow = p.monTable[k - 1] || { lambda: design.referenceWavelength || 550, strategy: 'turning', order: 1 };
+    // `k` is a deposition layer; `monTable` is storage-indexed (see LayerTabs).
+    const monRow = p.monTable[flipLayerIndex(layers.length, k)] || { lambda: design.referenceWavelength || 550, strategy: 'turning', order: 1 };
 
     const preview = useMemo(() =>
         (layers.length && ctx) ? monoSignalVsThickness({ layers, k, monRow, common, ctx, noisePct: 0, nonce: p.monNonce }) : null,
@@ -27,6 +29,10 @@ export function PageMonoSystem({ p, set, layers, c, B, ctx, design }) {
     const traces = preview ? [{ x: preview.d, y: preview.signal, type: 'scatter', mode: 'lines', line: { color: '#1f6feb', width: 1.6 } }] : [];
     const shapes = preview ? [{ type: 'line', x0: preview.dTarget, x1: preview.dTarget, yref: 'paper', y0: 0, y1: 1,
         line: { color: '#2da44e', width: 1.2, dash: 'dash' } }] : [];
+
+    // Storage-order rows paired with their deposition number, listed in the order
+    // the chamber grows them (substrate-adjacent first).
+    const depRows = layers.map((l, i) => ({ l, i, num: flipLayerIndex(layers.length, i) })).reverse();
 
     const setMon = (i, key, v) => { const arr = p.monTable.map(x => ({ ...x })); arr[i] = { ...arr[i], [key]: v }; set('monTable', arr); };
     const autoAll = () => {
@@ -65,12 +71,15 @@ export function PageMonoSystem({ p, set, layers, c, B, ctx, design }) {
             h('div', { style: { border: `1px solid ${c.border}`, borderRadius: 4, overflow: 'auto', flex: 1 } },
                 h('table', { style: { width: '100%', borderCollapse: 'collapse' } },
                     h('thead', null, h('tr', null, [B.colNum, B.colMaterial, B.colLambda, B.colStrategy, B.colOrder].map((x, i) => h('th', { key: i, style: th }, x)))),
-                    h('tbody', null, layers.map((l, i) => {
+                    // Listed in deposition order (layer 1 = substrate-adjacent,
+                    // grown first) to match the layer tabs and the Design Editor;
+                    // `monTable` itself stays storage-indexed.
+                    h('tbody', null, depRows.map(({ l, i, num }) => {
                         const m = p.monTable[i] || { lambda: design.referenceWavelength || 550, strategy: 'turning', order: 1 };
-                        const active = i === k - 1;
-                        return h('tr', { key: i, onClick: () => set('previewLayer', i + 1),
+                        const active = num === k;
+                        return h('tr', { key: i, onClick: () => set('previewLayer', num),
                             style: { cursor: 'pointer', background: active ? c.accent + '18' : 'transparent' } },
-                            h('td', { style: td }, i + 1),
+                            h('td', { style: td }, num),
                             h('td', { style: { ...td, maxWidth: 150, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }, title: matName(l.material) }, cullName(matName(l.material), 18)),
                             h('td', { style: td }, cellNum({ value: m.lambda ?? 550, step: 1, min: 100, max: 20000, c, width: 78, onChange: (v) => setMon(i, 'lambda', v) })),
                             h('td', { style: td },

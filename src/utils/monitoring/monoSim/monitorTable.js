@@ -17,9 +17,12 @@ export function pickSensitiveLambda({ design, resolveMat, layerIdx, lamA, lamB, 
     const subId = design.substrate?.material ?? 'BK7';
     const incMat = resolveMat(incId);
     const subMat = resolveMat(subId);
-    const mats = front.slice(0, layerIdx + 1).map(l => resolveMat(l.material));
-    const thicks = front.slice(0, layerIdx + 1).map(l => l.thickness || 0);
-    const d = thicks[layerIdx];
+    // At the moment layer `layerIdx` is monitored it is the outermost one, with
+    // the already-deposited layers beneath it — i.e. the higher storage indices
+    // (storage is air→substrate). Index 0 of this stack is the growing layer.
+    const mats = front.slice(layerIdx).map(l => resolveMat(l.material));
+    const thicks = front.slice(layerIdx).map(l => l.thickness || 0);
+    const d = thicks[0];
     const eps = Math.max(0.05, 0.005 * d);
     const NG = 60;
     const step = (lamB - lamA) / (NG - 1);
@@ -27,8 +30,8 @@ export function pickSensitiveLambda({ design, resolveMat, layerIdx, lamA, lamB, 
     let bestLam = lamA, bestSlope = -1;
     for (let g = 0; g < NG; g++) {
         const lam = lamA + g * step;
-        const tP = thicks.slice(); tP[layerIdx] = d + eps;
-        const tM = thicks.slice(); tM[layerIdx] = Math.max(0, d - eps);
+        const tP = thicks.slice(); tP[0] = d + eps;
+        const tM = thicks.slice(); tM[0] = Math.max(0, d - eps);
         const sP = singleSignal(lam, mats, tP, sys);
         const sM = singleSignal(lam, mats, tM, sys);
         const slope = Math.abs((sP - sM) / (2 * eps));
