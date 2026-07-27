@@ -10,6 +10,7 @@ import { getMaterialById } from '../../../../utils/materials/catalogManager.js';
 import { getMaterial } from '../../../../utils/materials/materialDatabase.js';
 import { tmmWithAdmittances } from '../../../../utils/physics/thinFilmMath.js';
 
+function cadd([ar, ai], [br, bi]) { return [ar + br, ai + bi]; }
 function csub([ar, ai], [br, bi]) { return [ar - br, ai - bi]; }
 function cmul([ar, ai], [br, bi]) { return [ar * br - ai * bi, ar * bi + ai * br]; }
 function cdiv([ar, ai], [br, bi]) {
@@ -70,9 +71,9 @@ export function buildMatColorMap(layers) {
     return map;
 }
 
-const ARC_FLAT = 0.0015;
-const ARC_SEED = 8;
-const ARC_MAXDEPTH = 9;
+const ARC_FLAT = 0.0033;
+const ARC_SEED = 24;
+const ARC_MAXDEPTH = 10;
 
 function segDeviation(P, A, B) {
     const bx = B[0] - A[0], by = B[1] - A[1];
@@ -81,32 +82,123 @@ function segDeviation(P, A, B) {
     return Math.abs(bx * (A[1] - P[1]) - (A[0] - P[0]) * by) / len;
 }
 
-function sampleArcAdaptive(Y_R, eta, delta) {
-    const Yat = (frac) => transferAdmittance(Y_R, eta, [delta[0] * frac, delta[1] * frac]);
+/**
+ * What the diagram draws.
+ *
+ * The admittance view plots Y directly, in Macleod's convention. The reflection
+ * view plots Gamma = (eta0 - Y) / (eta0 + Y), which carries the same information
+ * -- the two are related by a Moebius map -- but stays inside the unit circle
+ * however far the layer admittances run, and puts |Gamma|^2 = R as the radius.
+ *
+ * `pole` is where the view's map blows up, expressed in the layer's own Gamma
+ * plane; the sampler needs it to place points evenly along the drawn curve.
+ */
+const ADMITTANCE_VIEW = { point: (Y) => Y, pole: () => [1, 0] };
+const INFINITE_POLE = [Infinity, 0];
+
+export function reflectionCoefficient(Y, eta0) {
+    return cdiv(csub(eta0, Y), cadd(eta0, Y));
+}
+
+function reflectionView(eta0) {
+    return {
+        point: (Y) => reflectionCoefficient(Y, eta0),
+        pole: (eta) => {
+            const den = csub(eta0, eta);
+            // A layer matching the incident medium turns Gamma about the origin
+            // at a constant rate: the map has no finite pole and nothing to undo.
+            if (Math.hypot(den[0], den[1]) < 1e-12) return INFINITE_POLE;
+            return cdiv(cadd(eta0, eta), den);
+        },
+    };
+}
+
+/**
+ * Half-angle map applied on a branch-tracked interval, so a locus running past
+ * a half turn keeps a single-valued parameter instead of folding back.
+ */
+function branchMap(x, halfAngle) {
+    const u = x / 2;
+    const m = Math.round(u / Math.PI);
+    return 2 * (halfAngle(u - m * Math.PI) + m * Math.PI);
+}
+
+/**
+ * Reparametrization of a layer locus by its image angle.
+ *
+ * With rho = (Y_R - eta) / (Y_R + eta) and Gamma = rho e^(2i phi), the transfer
+ * relation is the Moebius map Y = eta (1 + Gamma) / (1 - Gamma). Where |rho|
+ * approaches 1, Gamma passes close to the pole at Gamma = 1 and the locus is
+ * traversed within an interval of width ~(1 - |rho|): steps uniform in phase
+ * step over it and the arc degenerates into a polygon. Writing Gamma as
+ * |rho| e^(i alpha) with alpha = 2 phi + arg(rho), even steps along the curve
+ * come from tan(alpha / 2) = k tan(psi / 2), k = (1 - |rho|)/(1 + |rho|).
+ *
+ * Centring alpha on arg(rho) matters: the crowded stretch sits at the start of a
+ * layer entered from a higher admittance and at the end of one entered from a
+ * lower admittance, and both occur in the same quarter-wave stack.
+ *
+ * The crowding is set by where the drawn plane's pole falls in the Gamma plane:
+ * Gamma = 1 for the admittance view, elsewhere for the reflection view. Dividing
+ * by that pole restores the Gamma = 1 case, so one parametrization serves both.
+ *
+ * Returns the psi interval spanning the layer and the phase fraction for a given
+ * psi. Admittances are still evaluated from that fraction, so the substitution
+ * redistributes sample positions without approximating any value.
+ */
+function arcPhaseMap(Y_R, eta, delta, pole) {
+    const theta = 2 * delta[0];
+    // No real phase thickness means no angular traverse to correct.
+    if (!(Math.abs(theta) > 1e-12)) return { psi0: 0, psi1: 1, fOf: (psi) => psi };
+
+    const rho = cdiv(csub(Y_R, eta), cadd(Y_R, eta));
+    const poleAbs = Math.hypot(pole[0], pole[1]);
+    const r = Math.min(Math.hypot(rho[0], rho[1]) / poleAbs, 1 - 1e-12);
+    const k = Math.max((1 - r) / (1 + r), 1e-300);
+    const alpha0 = Math.atan2(rho[1], rho[0]) - Math.atan2(pole[1], pole[0]);
+    const psiOf = (alpha) => branchMap(alpha, (u) => Math.atan(Math.tan(u) / k));
+    const psi0 = psiOf(alpha0);
+    const psi1 = psiOf(alpha0 + theta);
+
+    const fOf = (psi) => {
+        if (psi === psi0) return 0;
+        if (psi === psi1) return 1;
+        return (branchMap(psi, (u) => Math.atan(k * Math.tan(u))) - alpha0) / theta;
+    };
+    return { psi0, psi1, fOf };
+}
+
+export function sampleArcAdaptive(Y_R, eta, delta, view = ADMITTANCE_VIEW) {
+    const { psi0, psi1, fOf } = arcPhaseMap(Y_R, eta, delta, view.pole(eta));
+    const Yat = (psi) => {
+        const f = fOf(psi);
+        return view.point(transferAdmittance(Y_R, eta, [delta[0] * f, delta[1] * f]));
+    };
     const re = [], im = [];
     const push = (Y) => { re.push(Y[0]); im.push(Y[1]); };
 
-    function refine(f0, Y0, f1, Y1, depth) {
+    function refine(p0, Y0, p1, Y1, depth) {
         if (depth < ARC_MAXDEPTH) {
-            const fm = (f0 + f1) / 2;
-            const Ym = Yat(fm);
+            const pm = (p0 + p1) / 2;
+            const Ym = Yat(pm);
             const chord = Math.hypot(Y1[0] - Y0[0], Y1[1] - Y0[1]);
             const dev = segDeviation(Ym, Y0, Y1);
-            if (dev > ARC_FLAT * chord && dev > 1e-9) {
-                refine(f0, Y0, fm, Ym, depth + 1);
-                refine(fm, Ym, f1, Y1, depth + 1);
+            if (dev > ARC_FLAT * chord && dev > 1e-12) {
+                refine(p0, Y0, pm, Ym, depth + 1);
+                refine(pm, Ym, p1, Y1, depth + 1);
                 return;
             }
         }
         push(Y1);
     }
 
-    let prevF = 0, prevY = Yat(0);
+    let prevPsi = psi0, prevY = Yat(psi0);
     push(prevY);
     for (let s = 1; s <= ARC_SEED; s++) {
-        const f = s / ARC_SEED, Y = Yat(f);
-        refine(prevF, prevY, f, Y, 0);
-        prevF = f; prevY = Y;
+        const psi = s === ARC_SEED ? psi1 : psi0 + (psi1 - psi0) * s / ARC_SEED;
+        const Y = Yat(psi);
+        refine(prevPsi, prevY, psi, Y, 0);
+        prevPsi = psi; prevY = Y;
     }
     return { re, im };
 }
@@ -116,7 +208,8 @@ export function sideStackLayers(design, side) {
     return side === 'back' ? [...layers].reverse() : layers;
 }
 
-function buildOnePol(design, lambda_nm, theta_deg, pol, side = 'front') {
+function buildOnePol(design, conditions, pol) {
+    const { lambda_nm, theta_deg, side, view: viewKind } = conditions;
     const n0mat = resolveMaterial(side === 'back' ? design.exitMedium : design.incidentMedium);
     const nsmat = resolveMaterial(design.substrate?.material);
     const [n0r, n0k] = n0mat.getNK(lambda_nm);
@@ -134,6 +227,9 @@ function buildOnePol(design, lambda_nm, theta_deg, pol, side = 'front') {
     const sinTheta0 = Math.sin(theta_deg * Math.PI / 180);
     const sinTheta0c = [sinTheta0, 0];
     const valid = allLayers.filter(l => l.d > 0);
+    const cosTheta0 = csqrt(csub([1, 0], cmul(sinTheta0c, sinTheta0c)));
+    const eta0 = layerEta(n0, cosTheta0, pol);
+    const view = viewKind === 'reflection' ? reflectionView(eta0) : ADMITTANCE_VIEW;
     const arcs = [];
 
     for (let k = N - 1; k >= 0; k--) {
@@ -142,16 +238,21 @@ function buildOnePol(design, lambda_nm, theta_deg, pol, side = 'front') {
         const eta = layerEta(lyr.n, cosThJ, pol);
         const delta = layerDelta(lyr.n, lyr.d, lambda_nm, cosThJ);
         const Y_R = Y[k + 1];
-        const { re, im } = sampleArcAdaptive(Y_R, eta, delta);
+        const { re, im } = sampleArcAdaptive(Y_R, eta, delta, view);
         arcs.push({ k, layerNum: k + 1, material: lyr.material, re, im });
     }
 
-    const cosTheta0 = csqrt(csub([1, 0], cmul(sinTheta0c, sinTheta0c)));
-    const eta0 = layerEta(n0, cosTheta0, pol);
     const flipY = (p) => [p[0], -p[1]];
     const dArcs = arcs.map(a => ({ ...a, im: a.im.map(v => -v) }));
     const dY = Y.map(flipY);
-    return { pol, side, Y: dY, N, arcs: dArcs, eta0: flipY(eta0), etaS: dY[N] };
+    // Y, eta0 and etaS stay admittances for the readout and the table; marks are
+    // the same three points in whatever plane the chart is drawing.
+    const marks = {
+        Y0: flipY(view.point(Y[0])),
+        eta0: flipY(view.point(eta0)),
+        etaS: flipY(view.point(Y[N])),
+    };
+    return { pol, side, view: viewKind, Y: dY, N, arcs: dArcs, eta0: flipY(eta0), etaS: dY[N], marks };
 }
 
 export function sideHasLayers(design, side) {
@@ -160,8 +261,14 @@ export function sideHasLayers(design, side) {
         : !!(design?.frontLayers?.length);
 }
 
-export function buildDiagramData(design, lambda_nm, theta_deg, pol, side = 'front') {
+/**
+ * Loci for one set of evaluation conditions: `lambda_nm`, `theta_deg`, `pol`
+ * ('s', 'p' or 'avg' for both), `side` ('front' or 'back') and `view`
+ * ('admittance' or 'reflection').
+ */
+export function buildDiagramData(design, conditions) {
+    const { pol, side = 'front', view = 'admittance' } = conditions;
     if (!sideHasLayers(design, side)) return null;
     const pols = pol === 'avg' ? ['s', 'p'] : [pol];
-    return pols.map(p => buildOnePol(design, lambda_nm, theta_deg, p, side));
+    return pols.map(p => buildOnePol(design, { ...conditions, side, view }, p));
 }

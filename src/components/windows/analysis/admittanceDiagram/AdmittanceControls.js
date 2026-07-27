@@ -80,7 +80,7 @@ function AdmittanceReadout({ Y0, etaS, c, secHead }) {
 
 export function AdmittanceControls({
     c, side, setSide, frontLbl, backLbl, lambda, setLambda, theta, setTheta, pol, setPol,
-    validLayers, matColorMap, matName, Y0, etaS,
+    view, setView, validLayers, matColorMap, matName, Y0, etaS,
 }) {
     const sideStyle = {
         width: 176, minWidth: 140, flexShrink: 0,
@@ -112,6 +112,9 @@ export function AdmittanceControls({
             h(PolBtn, { label: 'avg', active: pol === 'avg', onClick: () => setPol('avg'), c }),
             h(PolBtn, { label: 's', active: pol === 's', onClick: () => setPol('s'), c }),
             h(PolBtn, { label: 'p', active: pol === 'p', onClick: () => setPol('p'), c }))),
+        row('Plane', h('div', { style: { display: 'flex', gap: 4 } },
+            h(PolBtn, { label: 'Y', active: view === 'admittance', onClick: () => setView('admittance'), c }),
+            h(PolBtn, { label: 'Γ', active: view === 'reflection', onClick: () => setView('reflection'), c }))),
         h('div', { style: { borderTop: `1px solid ${c.border}` } }),
         row('Layers', h(LayerLegend, { validLayers, matColorMap, matName, c })),
         h('div', { style: { borderTop: `1px solid ${c.border}` } }),

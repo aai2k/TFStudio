@@ -9,6 +9,7 @@ export function useAdmittanceDiagram(design) {
     const [theta, setTheta] = useState(0);
     const [pol, setPol] = useState('avg');
     const [side, setSide] = useState('front');
+    const [view, setView] = useState('admittance');
 
     const hasFront = !!(design?.frontLayers?.length);
     const hasBack = !!(design?.backLayers?.length);
@@ -35,23 +36,25 @@ export function useAdmittanceDiagram(design) {
     useEffect(() => {
         if (!hasData) { setSeries(null); setError(null); return; }
         try {
-            const nextSeries = buildDiagramData(design, lambda, theta, pol, side);
+            const nextSeries = buildDiagramData(design, {
+                lambda_nm: lambda, theta_deg: theta, pol, side, view,
+            });
             setSeries(nextSeries);
             setError(null);
         } catch (e) {
             setSeries(null);
             setError(e.message);
         }
-    }, [design, lambda, theta, pol, side]);
+    }, [design, lambda, theta, pol, side, view]);
 
     const validLayers = colorLayers.filter(l => l.thickness > 0);
     const matName = buildMaterialNames(validLayers);
     const Y0 = series?.[0]?.Y?.[0];
     const etaS = series?.[0]?.etaS;
-    const tableRows = useMemo(() => buildAdmittanceTableRows(series, matName), [series]);
+    const tableRows = useMemo(() => buildAdmittanceTableRows(series, matName, design), [series]);
 
     return {
-        lambda, setLambda, theta, setTheta, pol, setPol, side, setSide,
+        lambda, setLambda, theta, setTheta, pol, setPol, side, setSide, view, setView,
         hasData, series, error, validLayers, matColorMap, matName, Y0, etaS, tableRows,
     };
 }
