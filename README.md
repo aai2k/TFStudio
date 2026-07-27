@@ -16,7 +16,8 @@
 **[Website](https://tfstudio.xyz)** · **[Tutorials](https://tfstudio.xyz/blog)** · **[Live demo](https://tfstudio.xyz/demo/)** · **[Documentation](https://docs.tfstudio.xyz)** · **[Download](../../releases)**
 
 </div>
-<img width="1609" height="996" alt="Screenshot_14" src="https://github.com/user-attachments/assets/94409f40-6700-4d6c-b777-37d326c50eef" />
+<img width="1629" height="951" alt="Screenshot_28" src="https://github.com/user-attachments/assets/428314ae-56b6-4d82-9f3f-e214b21083bc" />
+
 
 
 ## What is TFStudio?
@@ -43,29 +44,20 @@ TFStudio is a professional desktop application for designing and analyzing **opt
 - Flexible merit function: spectral targets, ramps, band averages, worst-case operands, thickness constraints
 - Multi-threaded via a Web Worker pool; hot kernels accelerated with **WebAssembly (SIMD)**
 
-  <img width="594" height="78" alt="image" src="https://github.com/user-attachments/assets/baf43188-eb63-4a5e-aac4-2f899d1e11c7" />
-
 **Analysis windows**
 - Optical evaluation, admittance diagrams, electric-field profiles, group delay / GDD, ellipsometric parameters, color evaluation, refractive-index profile
-  
-  <img width="670" height="82" alt="image" src="https://github.com/user-attachments/assets/0fa124de-48d7-48d6-b50b-e668e01e927a" />
-  
 - Tolerance & manufacturing analysis: Monte-Carlo error analysis, layer sensitivity, inhomogeneity, roughness/scattering, systematic deviations
-  
-  <img width="218" height="204" alt="image" src="https://github.com/user-attachments/assets/e522a9d2-4823-4e32-a794-4bcc17576b88" />
 
 **Materials**
 - Built-in library generated from the [refractiveindex.info](https://refractiveindex.info) database (CC0)
 - Sellmeier / Cauchy / tabulated dispersion; complex index with explicit conventions
 - Import of external catalogs and an in-app refractiveindex.info browser
 
-   <img width="1021" height="723" alt="image" src="https://github.com/user-attachments/assets/65db84a6-3d2c-4fb6-ae26-537bd496ad2e" />
-   
+ <img width="1225" height="866" alt="image" src="https://github.com/user-attachments/assets/6fc88e64-7a06-44a3-95bd-352d4c4716ed" />
+
 **Manufacturing**
 - Deposition / monitoring simulation (broadband and monochromatic optical monitoring)
 - Process exporter and optical-coating data interchange (including Zemax OpticStudio coating export/import)
-  
-  <img width="358" height="80" alt="image" src="https://github.com/user-attachments/assets/f211e4a0-c2d4-488a-a288-cff06bcfa8c9" />
 
 **Platform**
 - Cross-platform desktop app (Electron + React, pure JavaScript)
