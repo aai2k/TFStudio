@@ -1,4 +1,5 @@
 import { useDesign } from '../../../../state/DesignContext.js';
+import { useUnresolvedMaterials } from '../../../../utils/materials/useUnresolvedMaterials.js';
 import { SurfaceModeControl } from '../../../SurfaceModeBar.js';
 import { ReplaceMaterialsDialog } from '../../../dialogs/ReplaceMaterialsDialog.js';
 import {
@@ -9,7 +10,7 @@ import {
 import { LayerList } from './LayerList.js';
 import { StackGeometryPanel } from './StackGeometryPanel.js';
 
-const { createElement: h, useState, useEffect } = React;
+const { createElement: h, useState, useEffect, useMemo } = React;
 
 // One side tab ("Front coating" / "Back coating"). Disabled + annotated with a
 // tooltip when the surface mode makes that side non-editable (mirrored in
@@ -43,7 +44,9 @@ function SideTabButton({ side, activeSide, disabledSide, disabledReason, design,
 // ── Design Editor ─────────────────────────────────────────────────────────────
 
 export function DesignEditor({ c, t }) {
-    const { design, updateDesign, addLayer, removeLayer, updateLayer, moveLayer, duplicateLayer } = useDesign();
+    const { design, updateDesign, addLayer, removeLayer, updateLayer, moveLayer,
+        duplicateLayer } = useDesign();
+    const missingMaterialIds = useUnresolvedMaterials(design);
     const [activeSide, setActiveSide] = useState('front');
 
     // Which side's tab is disabled for editing, and why:
@@ -70,6 +73,7 @@ export function DesignEditor({ c, t }) {
     const layers   = activeSide === 'front' ? (design.frontLayers || []) : (design.backLayers || []);
     const refLambda = design.referenceWavelength || 550;
     const [replaceOpen, setReplaceOpen] = useState(false);
+    const missingMaterialSet = useMemo(() => new Set(missingMaterialIds), [missingMaterialIds]);
 
     const insertLayerAt = (side, splicePos, source) => insertLayerAtAction(design, updateDesign, side, splicePos, source);
     const removeLayerAt = (side, splicePos) => removeLayerAtAction(design, updateDesign, side, splicePos);
@@ -126,7 +130,7 @@ export function DesignEditor({ c, t }) {
         // ── Layer list (for active side) ──────────────────────────────────────
         h('div', { style: { flex: 1, overflow: 'hidden', display: 'flex', flexDirection: 'column' } },
             h(LayerList, {
-                layers, side: activeSide, design, c,
+                layers, side: activeSide, design, missingMaterialIds: missingMaterialSet, c,
                 addLayer, removeLayer, updateLayer, moveLayer, duplicateLayer,
                 insertLayerAt, removeLayerAt, duplicateLayerAt,
                 invertActiveSide, setAllLocked, copyToOther,

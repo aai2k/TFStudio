@@ -35,9 +35,13 @@ const { useState, useEffect, useRef, useCallback } = React;
 
 const NEEDLE_CATS_KEY = 'tfstudio_needle_selectedCats';
 
-// Needle keeps its original verbose pool diagnostics.
-const getPoolMaterials = (selectedCatalogIds, excluded) =>
-    getPoolMaterialsShared(selectedCatalogIds, { verbose: true, excluded });
+// Needle keeps its original verbose pool diagnostics. The pool is bound to the
+// live design so the design's own materials are always on offer, including
+// embedded definitions that no local catalog can serve.
+const makeGetPoolMaterials = (designRef) => (selectedCatalogIds, excluded) =>
+    getPoolMaterialsShared(selectedCatalogIds, {
+        verbose: true, excluded, design: designRef.current,
+    });
 
 // bestMFVal reads gensRef (the live ref, not the `generations` state) so it
 // reflects the freshest accepted generation even mid-run; showSideCol tags
@@ -195,7 +199,8 @@ export function useNeedleVariation(t) {
         selectedCatsRef, excludedMatsRef, updateDesignRef, checkpointRef,
         setPhase, setStatusMsg, setMf, setMfBest, setOmf, setOmfBest,
         setLayerCount, setCanReset, setGeneration, setGenerations, setTopDesigns,
-        reconcileBaseWithEdits, getPoolMaterials, setCachedOptState, t, stopOpt,
+        reconcileBaseWithEdits, setCachedOptState, t, stopOpt,
+        getPoolMaterials: makeGetPoolMaterials(designRef),
         // Pool factory: the component wires the real WorkerPool + worker URL; a
         // test can inject an in-process fake pool (tests/needle_worker_pool.mjs).
         makeWorkerPool: (K, initMessage) => new WorkerPool(SYNTH_WORKER_URL, K, initMessage),

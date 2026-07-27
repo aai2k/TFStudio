@@ -33,6 +33,10 @@ export function ReportGenerator({ c, t, onClose, designs = {}, activeDesignId, f
   const R = t.report || {};
   const W = R.wizard || {};
   const g = useReportGenerator({ designs, activeDesignId, folderName, W });
+  const generateDisabled = [
+    g.status?.kind === 'busy', g.chosenDesigns.length === 0,
+    g.orderedSectionIds.length === 0, !!g.materialBlockMessage,
+  ].some(Boolean);
 
   useEffect(() => { const onKey = (e) => { if (e.key === 'Escape') onClose(); };
     document.addEventListener('keydown', onKey);
@@ -46,6 +50,12 @@ export function ReportGenerator({ c, t, onClose, designs = {}, activeDesignId, f
       h('div', { style: { display: 'flex', alignItems: 'center', justifyContent: 'space-between', paddingBottom: 10, borderBottom: `1px solid ${c.border}`, marginBottom: 12 } },
         h('div', { style: { fontSize: 13, color: c.textDim } }, `${R.windowTitle || 'Report Generator'} — ${g.step}/6 · ${titles[g.step - 1]}`),
         h('button', { onClick: onClose, style: { background: 'transparent', color: c.textDim, border: 'none', cursor: 'pointer', fontSize: 18 } }, '×')),
+      g.materialBlockMessage && h('div', {
+        role: 'alert',
+        style: { padding: '7px 10px', marginBottom: 10, borderRadius: 4,
+          border: `1px solid ${c.error}`, backgroundColor: c.error + '14',
+          color: c.error, fontSize: 12, lineHeight: 1.4 },
+      }, `⚠ ${g.materialBlockMessage}`),
       h('div', { style: { flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column', overflow: 'hidden' } }, h(Body, { g, c, R, W })),
       h('div', { style: { display: 'flex', alignItems: 'center', justifyContent: 'space-between', paddingTop: 12, borderTop: `1px solid ${c.border}`, marginTop: 12 } },
         h('div', { style: { display: 'flex', gap: 6 } }, [1, 2, 3, 4, 5, 6].map(s =>
@@ -54,7 +64,7 @@ export function ReportGenerator({ c, t, onClose, designs = {}, activeDesignId, f
           h('button', { onClick: () => g.setStep(s => Math.max(1, s - 1)), disabled: g.step === 1,
             style: { ...btn(c, false), opacity: g.step === 1 ? 0.4 : 1, cursor: g.step === 1 ? 'default' : 'pointer' } }, W.back || 'Back'),
           g.step < 6 && h('button', { onClick: () => g.setStep(s => Math.min(6, s + 1)), style: btn(c, true) }, W.next || 'Next'),
-          g.step === 6 && h('button', { onClick: g.generate, disabled: g.status?.kind === 'busy' || g.chosenDesigns.length === 0 || g.orderedSectionIds.length === 0,
-            style: { ...btn(c, true), opacity: (g.chosenDesigns.length === 0 || g.orderedSectionIds.length === 0) ? 0.5 : 1 } }, W.generate || 'Generate'),
+          g.step === 6 && h('button', { onClick: g.generate, disabled: generateDisabled,
+            style: { ...btn(c, true), opacity: generateDisabled ? 0.5 : 1 } }, W.generate || 'Generate'),
           h('button', { onClick: onClose, style: btn(c, false) }, W.cancel || 'Cancel')))));
 }

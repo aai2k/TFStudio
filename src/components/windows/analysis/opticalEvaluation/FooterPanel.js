@@ -9,10 +9,11 @@ function summaryForMode({ evalMode, oe, frontCount, backCount, frontNm, backNm, 
 }
 
 function mediaForMode(design, evalMode) {
-    const substrate = mediumName(design.substrate.material);
-    if (evalMode === 'front') return `${mediumName(design.incidentMedium)} → ${substrate}`;
-    if (evalMode === 'back') return `${mediumName(design.exitMedium)} → ${substrate}`;
-    return `${mediumName(design.incidentMedium)} → ${substrate} → ${mediumName(design.exitMedium)}`;
+    const name = (id) => mediumName(design, id);
+    const substrate = name(design.substrate.material);
+    if (evalMode === 'front') return `${name(design.incidentMedium)} → ${substrate}`;
+    if (evalMode === 'back') return `${name(design.exitMedium)} → ${substrate}`;
+    return `${name(design.incidentMedium)} → ${substrate} → ${name(design.exitMedium)}`;
 }
 
 function DesignSummary({ design, evalMode, oe, frontCount, backCount, frontNm, backNm, subThick, c }) {

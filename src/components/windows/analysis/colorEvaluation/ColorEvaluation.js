@@ -12,8 +12,7 @@
 import { useDesign } from '../../../../state/DesignContext.js';
 import { evaluateSpectrum, evaluateSpectrumBack, evaluateSpectrumTotal }
   from '../../../../utils/physics/thinFilmMath.js';
-import { getMaterialById } from '../../../../utils/materials/catalogManager.js';
-import { getMaterial } from '../../../../utils/materials/materialDatabase.js';
+import { designMaterialLookup } from '../../../../utils/materials/designMaterials.js';
 import {
   colorReport, xyzToSRGB, OBSERVERS, ILLUMINANTS
 } from '../../../../utils/physics/colorimetry.js';
@@ -23,13 +22,9 @@ import { ChromaticityChart } from './chartFigure.js';
 
 const { createElement: h, useState, useEffect, useMemo } = React;
 
-function resolveMaterial(id) {
-  if (!id) return getMaterial('Air');
-  return getMaterialById(id) || getMaterial(id) || getMaterial('Air');
-}
-
 // Build an interpolating R|T(λ) fraction-function from a TMM spectrum sweep.
 function responseFn(design, evalMode, characteristic, pol, theta) {
+  const resolveMaterial = designMaterialLookup(design);
   const incMat  = resolveMaterial(design.incidentMedium);
   const subMat  = resolveMaterial(design.substrate?.material);
   const exitMat = resolveMaterial(design.exitMedium);

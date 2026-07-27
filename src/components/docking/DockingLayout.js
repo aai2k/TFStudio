@@ -6,6 +6,12 @@ import {
 } from './treeUtils.js';
 import { SplitPane } from './SplitPane.js';
 import { TabGroup } from './TabGroup.js';
+import { useDesign } from '../../state/DesignContext.js';
+import { useUnresolvedMaterials } from '../../utils/materials/useUnresolvedMaterials.js';
+import { ReplaceMaterialsDialog } from '../dialogs/ReplaceMaterialsDialog.js';
+import {
+  MaterialCalculationBlocked, MissingMaterialsBanner,
+} from '../materials/MissingMaterialsNotice.js';
 import {
   WINDOW_REGISTRY, TOOL_CONFIGS, TOOL_LABELS, helpAnchorFor,
 } from './windowRegistry.js';
@@ -53,8 +59,14 @@ function zoneToAction(zone) {
 // `theme` also get `theme`; entries flagged `dialog` also get `setInputDialog`.
 // An id with no component (modal/wizard/stub) falls through to the placeholder.
 
-function ToolContent({ toolId, c, theme, t, setInputDialog }) {
+export function ToolContent({ toolId, c, theme, t, setInputDialog,
+  missingMaterialIds = [], onReplaceMaterials }) {
   const entry = WINDOW_REGISTRY[toolId];
+  if (entry?.requiresResolvedMaterials && missingMaterialIds.length > 0) {
+    return h(MaterialCalculationBlocked, {
+      ids: missingMaterialIds, c, t, onRepair: onReplaceMaterials,
+    });
+  }
   if (entry && entry.component) {
     const props = { c, t };
     if (entry.theme)  props.theme = theme;
@@ -127,9 +139,12 @@ export function loadSavedLayout() {
 // ── DockingLayout ─────────────────────────────────────────────────────────────
 
 export function DockingLayout({ c, theme, toolRequests, onWindowListChange, layoutRequest, t, setInputDialog, locale, ribbonStyle = 'colorful', onCreateProject }) {
+  const { design, updateDesign } = useDesign();
+  const missingMaterialIds = useUnresolvedMaterials(design);
   const [tree, setTree]               = useState(null);
   const [dragActive, setDragActive]   = useState(false);
   const [dragSrcGroupId, setDragSrcGroupId] = useState(null);
+  const [replaceMaterialsOpen, setReplaceMaterialsOpen] = useState(false);
 
   const dropTargetRef  = useRef(null);  // { groupId, zone }
   const dragDataRef    = useRef(null);  // { tabId, fromGroupId, tab }
@@ -352,14 +367,18 @@ export function DockingLayout({ c, theme, toolRequests, onWindowListChange, layo
         onTabClose:      handleTabClose,
         onTabDragStart:  handleTabDragStart,
         onGroupFocus:    handleGroupFocus,
-        renderContent:   (tab) => h(ToolContent, { toolId: tab.toolId, c, theme, t, setInputDialog }),
+        renderContent:   (tab) => h(ToolContent, {
+          toolId: tab.toolId, c, theme, t, setInputDialog, missingMaterialIds,
+          onReplaceMaterials: () => setReplaceMaterialsOpen(true),
+        }),
         helpAnchorFor,
         locale, t, ribbonStyle
       });
     }
 
     return null;
-  }, [c, dragActive, dragSrcGroupId, handleTabClick, handleTabClose, handleTabDragStart, handleGroupFocus, t, locale, ribbonStyle]);
+  }, [c, dragActive, dragSrcGroupId, handleTabClick, handleTabClose, handleTabDragStart,
+    handleGroupFocus, t, locale, ribbonStyle, missingMaterialIds]);
 
   // ── Render ─────────────────────────────────────────────────────────────────
 
@@ -371,9 +390,16 @@ export function DockingLayout({ c, theme, toolRequests, onWindowListChange, layo
       position: 'relative'
     }
   },
+    h(MissingMaterialsBanner, {
+      ids: missingMaterialIds, c, t,
+      onRepair: () => setReplaceMaterialsOpen(true),
+    }),
     !tree
       ? h(EmptyWorkspace, { c, t, onCreateProject })
-      : renderNode(tree)
+      : renderNode(tree),
+    replaceMaterialsOpen && h(ReplaceMaterialsDialog, {
+      design, updateDesign, c, t, onClose: () => setReplaceMaterialsOpen(false),
+    })
   );
 }
 

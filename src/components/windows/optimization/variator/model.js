@@ -1,13 +1,11 @@
-import { getMaterialById } from '../../../../utils/materials/catalogManager.js';
-import { getMaterial } from '../../../../utils/materials/materialDatabase.js';
+import { designMaterialLookup } from '../../../../utils/materials/designMaterials.js';
 import {
     evaluateSpectrum, evaluateSpectrumBack, evaluateSpectrumTotal,
 } from '../../../../utils/physics/thinFilmMath.js';
 import { wrapMaterial } from '../../../../utils/misc/variator.js';
 
-export function resolveMat(id) {
-    if (!id) return getMaterial('Air');
-    return getMaterialById(id) || getMaterial(id) || getMaterial('Air');
+export function resolveMat(design, id) {
+    return designMaterialLookup(design)(id);
 }
 
 export function matLabel(mat) {
@@ -50,12 +48,13 @@ export function computeAnyVaried(dThkFront, dThkBack, dSubMm, dN, dK) {
 // material actually used somewhere in the stack (front, back, incident,
 // substrate, exit).
 export function collectUniqueMaterials(design) {
+    const resolveMaterial = designMaterialLookup(design);
     const ids = new Set();
     const out = [];
     const collect = (id) => {
         if (!id || ids.has(id)) return;
         ids.add(id);
-        out.push({ id, mat: resolveMat(id) });
+        out.push({ id, mat: resolveMaterial(id) });
     };
     (design.frontLayers || []).forEach(l => collect(l.material));
     (design.backLayers  || []).forEach(l => collect(l.material));
@@ -101,12 +100,13 @@ export function buildThicknessPatch(design, cache, nextDF, nextDB, nextDSubMm) {
 //                 curve stays put regardless of which slider the user
 //                 touches (thickness AND n/k).
 export function computeVariatorSpectrum({ design, params, evalMode, dN, dK, cache }) {
+    const resolveMaterial = designMaterialLookup(design);
     const baseFrontById = new Map((cache.baseFront || []).map(l => [l.id, l.thickness]));
     const baseBackById  = new Map((cache.baseBack  || []).map(l => [l.id, l.thickness]));
     const baseSubMm     = cache.baseSubstrateMm ?? (design.substrate?.thickness ?? 1.0);
 
     const wrap = (id) => {
-        const base = resolveMat(id);
+        const base = resolveMaterial(id);
         return wrapMaterial(base, dN[id] || 0, dK[id] || 0);
     };
     const incMat  = wrap(design.incidentMedium);
@@ -122,16 +122,16 @@ export function computeVariatorSpectrum({ design, params, evalMode, dN, dK, cach
         .map(l => ({ material: wrap(l.material), thickness: l.thickness }));
 
     // Baseline arm — original snapshot thicknesses, raw materials.
-    const incMatB  = resolveMat(design.incidentMedium);
-    const subMatB  = resolveMat(design.substrate?.material);
-    const exitMatB = resolveMat(design.exitMedium);
+    const incMatB  = resolveMaterial(design.incidentMedium);
+    const subMatB  = resolveMaterial(design.substrate?.material);
+    const exitMatB = resolveMaterial(design.exitMedium);
     const frontB = (design.frontLayers || []).map(l => {
         const t0 = baseFrontById.has(l.id) ? baseFrontById.get(l.id) : l.thickness;
-        return { material: resolveMat(l.material), thickness: t0 };
+        return { material: resolveMaterial(l.material), thickness: t0 };
     }).filter(l => l.thickness > 0);
     const backB = (design.backLayers || []).map(l => {
         const t0 = baseBackById.has(l.id) ? baseBackById.get(l.id) : l.thickness;
-        return { material: resolveMat(l.material), thickness: t0 };
+        return { material: resolveMaterial(l.material), thickness: t0 };
     }).filter(l => l.thickness > 0);
     const subThickB = baseSubMm;
 

@@ -10,7 +10,8 @@
 // dispatch and the (simpler) single-start loop.
 
 import { DLSOptimizer } from '../../../../../utils/physics/optimizer.js';
-import { resolveMat, densifyForRun } from '../refinementUtils.js';
+import { designMaterialLookup } from '../../../../../utils/materials/designMaterials.js';
+import { densifyForRun } from '../refinementUtils.js';
 import { msRunOne } from './mainThreadMultiStart.js';
 
 // Steps run per animation tick before touching React state / live preview. The
@@ -40,7 +41,7 @@ function startMultiStart(ctx, curDes, ops, maxIter, surfMode) {
     // best (M7) so a perturbed restart is adopted only if it actually beats it.
     let mfInit = null, baselineThicks = null, baselineOmf = null;
     try {
-        const baseOpt = new DLSOptimizer(ops, curDes, resolveMat);
+        const baseOpt = new DLSOptimizer(ops, curDes, designMaterialLookup(curDes));
         mfInit = baseOpt.mf;
         baselineThicks = [...baseOpt.thicknesses];
         baselineOmf = baseOpt.mfOpticalAt(baseOpt.thicknesses);
@@ -112,7 +113,7 @@ function startSingleStart(ctx, curDes, ops, maxIter) {
         ctx.checkpointRef.current && ctx.checkpointRef.current();
         ctx.commitBaseline({ frontLayers: curDes.frontLayers, backLayers: curDes.backLayers });
         try {
-            const opt = new DLSOptimizer(ops, curDes, resolveMat);
+            const opt = new DLSOptimizer(ops, curDes, designMaterialLookup(curDes));
             ctx.optimizerRef.current = opt;
             ctx.setMfInitial(opt.mf);
             ctx.setMfBest(opt.mfBest);

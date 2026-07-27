@@ -1,4 +1,5 @@
-import { reflectionCoefficient, resolveMaterial } from './model.js';
+import { designMaterialLookup } from '../../../../utils/materials/designMaterials.js';
+import { reflectionCoefficient } from './model.js';
 
 // Catalog names carry their source and data range, which is far wider than the
 // column needs. Copy CSV still emits the full name.
@@ -18,7 +19,8 @@ export const tableColumns = [
     { key: 'gIm', label: 'Im(Γ)', fmt: v => v.toFixed(5) },
 ];
 
-export function buildMaterialNames(layers) {
+export function buildMaterialNames(design, layers) {
+    const resolveMaterial = designMaterialLookup(design);
     const matName = {};
     for (const l of layers) {
         if (l.material && !matName[l.material]) {
@@ -29,7 +31,7 @@ export function buildMaterialNames(layers) {
     return matName;
 }
 
-function mediumName(design, side) {
+function mediumName(resolveMaterial, design, side) {
     const id = side === 'back' ? design?.exitMedium : design?.incidentMedium;
     return resolveMaterial(id)?.name || '—';
 }
@@ -51,6 +53,7 @@ function boundaryRow(layer, material, Y, eta0) {
 export function buildAdmittanceTableRows(series, matName, design) {
     if (!series?.length) return [];
     const isMultiPol = series.length > 1;
+    const resolveMaterial = designMaterialLookup(design);
     const rows = [];
     for (const s of series) {
         const polLabel = isMultiPol ? ` (${s.pol})` : '';
@@ -60,7 +63,7 @@ export function buildAdmittanceTableRows(series, matName, design) {
             const material = matName[arc.material] || arc.material || '—';
             rows.push(boundaryRow(`L${arc.layerNum}${polLabel}`, material, s.Y[arc.layerNum - 1], s.eta0));
         }
-        rows.push(boundaryRow(`η₀${polLabel}`, mediumName(design, s.side), s.eta0, s.eta0));
+        rows.push(boundaryRow(`η₀${polLabel}`, mediumName(resolveMaterial, design, s.side), s.eta0, s.eta0));
     }
     return rows;
 }

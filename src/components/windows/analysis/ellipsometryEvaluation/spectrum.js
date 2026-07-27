@@ -1,15 +1,17 @@
 import { computeEllipsometry } from '../../../../utils/physics/thinFilmMath.js';
-import { nkAt, resolveMaterial, sideLayersAt, sideMedia, toDeltaConvention } from './model.js';
+import { designMaterialLookup } from '../../../../utils/materials/designMaterials.js';
+import { nkAt, sideLayersAt, sideMedia, toDeltaConvention } from './model.js';
 
 export function computeSpectral(design, options) {
     const { side, lambdaStart, lambdaEnd, lambdaStep, thetaDeg } = options;
     const { n0Id, nsId } = sideMedia(design, side);
+    const resolveMaterial = designMaterialLookup(design);
     const n0mat = resolveMaterial(n0Id);
     const nsmat = resolveMaterial(nsId);
     const x = [], psi = [], delta = [];
     for (let lam = lambdaStart; lam <= lambdaEnd + 1e-9; lam += lambdaStep) {
         const L = Math.round(lam * 1000) / 1000;
-        const layers = sideLayersAt(design, side, L);
+        const layers = sideLayersAt(resolveMaterial, design, side, L);
         const e = computeEllipsometry(L, thetaDeg, nkAt(n0mat, L), nkAt(nsmat, L), layers);
         x.push(L); psi.push(e.psi); delta.push(e.delta);
     }
@@ -19,11 +21,12 @@ export function computeSpectral(design, options) {
 export function computeAngular(design, options) {
     const { side, lambdaNm, angleStart, angleEnd, angleStep } = options;
     const { n0Id, nsId } = sideMedia(design, side);
+    const resolveMaterial = designMaterialLookup(design);
     const n0mat = resolveMaterial(n0Id);
     const nsmat = resolveMaterial(nsId);
     const n0 = nkAt(n0mat, lambdaNm);
     const ns = nkAt(nsmat, lambdaNm);
-    const layers = sideLayersAt(design, side, lambdaNm);
+    const layers = sideLayersAt(resolveMaterial, design, side, lambdaNm);
     const x = [], psi = [], delta = [];
     for (let a = angleStart; a <= angleEnd + 1e-9; a += angleStep) {
         const A = Math.round(a * 1000) / 1000;

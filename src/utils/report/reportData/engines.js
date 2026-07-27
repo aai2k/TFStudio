@@ -9,19 +9,17 @@ import {
   evaluateSpectrum, evaluateSpectrumBack, evaluateSpectrumTotal,
 } from '../../physics/thinFilmMath.js';
 import { resolveEvalMode } from '../../physics/optimizer.js';
-import { getMaterialById } from '../../materials/catalogManager.js';
-import { getMaterial } from '../../materials/materialDatabase.js';
+import { designMaterialLookup } from '../../materials/designMaterials.js';
 
 // ── Material resolution ─────────────────────────────────────────────────────
 // Mirrors the helper used by every analysis window so the report sees the same
 // n,k as the live tools.
-export function resolveMaterial(id) {
-  if (!id) return getMaterial('Air');
-  return getMaterialById(id) || getMaterial(id) || getMaterial('Air');
+export function resolveMaterial(design, id) {
+  return designMaterialLookup(design)(id);
 }
 
-export function materialName(id) {
-  return resolveMaterial(mediumId(id))?.name || mediumId(id) || '—';
+export function materialName(design, id) {
+  return resolveMaterial(design, mediumId(id))?.name || mediumId(id) || '—';
 }
 
 // A medium field may be a plain id string ('Air') or an object { material }.
@@ -32,15 +30,15 @@ export function mediumId(m) {
 
 // ── Geometry helpers (mode-aware) ───────────────────────────────────────────
 
-export function frontLayersWithMat(design) {
+export function frontLayersWithMat(design, resolve = designMaterialLookup(design)) {
   return (design.frontLayers || [])
     .filter(l => l.thickness > 0)
-    .map(l => ({ material: resolveMaterial(l.material), thickness: l.thickness }));
+    .map(l => ({ material: resolve(l.material), thickness: l.thickness }));
 }
-export function backLayersWithMat(design) {
+export function backLayersWithMat(design, resolve = designMaterialLookup(design)) {
   return (design.backLayers || [])
     .filter(l => l.thickness > 0)
-    .map(l => ({ material: resolveMaterial(l.material), thickness: l.thickness }));
+    .map(l => ({ material: resolve(l.material), thickness: l.thickness }));
 }
 
 /** Evaluation mode for a design: 'front' | 'back' | 'total'. */
@@ -59,13 +57,14 @@ export function buildSpectrum(design, opts = {}) {
   const thetas = (opts.thetas && opts.thetas.length) ? opts.thetas
                : (opts.aoi != null ? [opts.aoi] : [0]);
   const evalMode = designEvalMode(design);
+  const resolve = designMaterialLookup(design);
 
-  const incMat  = resolveMaterial(mediumId(design.incidentMedium));
-  const subMat  = resolveMaterial(design.substrate?.material);
-  const exitMat = resolveMaterial(mediumId(design.exitMedium));
+  const incMat  = resolve(mediumId(design.incidentMedium));
+  const subMat  = resolve(design.substrate?.material);
+  const exitMat = resolve(mediumId(design.exitMedium));
   const subThk  = design.substrate?.thickness ?? 1.0;
-  const front   = frontLayersWithMat(design);
-  const back    = backLayersWithMat(design);
+  const front   = frontLayersWithMat(design, resolve);
+  const back    = backLayersWithMat(design, resolve);
 
   const series = [];
   let lambda = null;
@@ -90,12 +89,13 @@ export function buildSpectrum(design, opts = {}) {
 // colorimetry (which samples on its own 5 nm CMF/SPD grid).
 export function buildResponseFn(design, characteristic = 'R', pol = 'avg', theta = 0) {
   const evalMode = designEvalMode(design);
-  const incMat  = resolveMaterial(mediumId(design.incidentMedium));
-  const subMat  = resolveMaterial(design.substrate?.material);
-  const exitMat = resolveMaterial(mediumId(design.exitMedium));
+  const resolve = designMaterialLookup(design);
+  const incMat  = resolve(mediumId(design.incidentMedium));
+  const subMat  = resolve(design.substrate?.material);
+  const exitMat = resolve(mediumId(design.exitMedium));
   const subThk  = design.substrate?.thickness ?? 1.0;
-  const front   = frontLayersWithMat(design);
-  const back    = backLayersWithMat(design);
+  const front   = frontLayersWithMat(design, resolve);
+  const back    = backLayersWithMat(design, resolve);
   const params  = { lambdaStart: 380, lambdaEnd: 780, lambdaStep: 1, theta, polarization: pol };
 
   let res;

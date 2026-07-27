@@ -10,6 +10,11 @@
 
 import { getCatalogs, getMaterialById, searchMaterials } from '../../../../utils/materials/catalogManager.js';
 import {
+    DESIGN_CATALOG_ID, buildDesignCatalog, searchDesignCatalog,
+    designSelectionTarget, designMaterialConflict,
+} from '../../../../utils/materials/designCatalog.js';
+import { useDesign } from '../../../../state/DesignContext.js';
+import {
     importAgfCatalog, importOptiLayerFiles, commitOptiLayerImport,
     removeCatalogWithConfirm, createCatalogWithPrompt, renameCatalogWithPrompt,
     duplicateCatalogWithPrompt,
@@ -21,7 +26,7 @@ import {
 import { sampleReadOnlyChart } from './materialEditorReadOnly.js';
 import { draftFingerprint } from './materialDraft.js';
 
-const { useState, useEffect, useRef, useCallback } = React;
+const { useState, useEffect, useRef, useCallback, useMemo } = React;
 
 // Shared guard for the two file-based importers: only one import runs at a
 // time, and `importing` always clears even if the importer throws.
@@ -54,6 +59,7 @@ export function useMaterialEditor({ c, t, setInputDialog }) {
     const [olImport,         setOlImport]         = useState(null);
 
     const me = t.materialEditor;
+    const { design } = useDesign();
 
     const loadCatalogs = useCallback(() => { setCatalogs(getCatalogs()); }, []);
     useEffect(() => {
@@ -74,10 +80,35 @@ export function useMaterialEditor({ c, t, setInputDialog }) {
     const isDirty = draftFingerprint(editDraft) !== draftFingerprint(pristineDraft);
     const handleRevertMaterial = () => updateDraft(pristineDraft);
 
-    const results = searchMaterials(query, catFilter === 'all' ? null : catFilter);
-    const selectedMat = (!editDraft && selectedId) ? getMaterialById(selectedId) : null;
+    // The design's embedded materials, browsable but not part of the registry.
+    // `catalogs` stays the registry list every catalog action works against;
+    // `browseCatalogs` is the merged list used only where materials are listed.
+    const designCatalog = useMemo(
+        () => buildDesignCatalog(design, me.designCatalog), [design, me.designCatalog]);
+    // Listed first: what the open design is made of is the most likely reason to
+    // be in this window.
+    const browseCatalogs = designCatalog ? [designCatalog, ...catalogs] : catalogs;
 
-    const currentCatalog = catFilter !== 'all' ? catalogs.find(cat => cat.id === catFilter) : null;
+    // Switching to a design with no embedded materials retires the catalog; a
+    // filter still pointing at it would leave the selector showing nothing.
+    useEffect(() => {
+        if (catFilter === DESIGN_CATALOG_ID && !designCatalog) setCatFilter('all');
+    }, [catFilter, designCatalog]);
+
+    const designResults = (catFilter === 'all' || catFilter === DESIGN_CATALOG_ID)
+        ? searchDesignCatalog(designCatalog, query) : [];
+    const results = [
+        ...designResults,
+        ...searchMaterials(query, catFilter === 'all' ? null : catFilter),
+    ];
+
+    const designTarget = designSelectionTarget(designCatalog, selectedId);
+    const selectedMat = (editDraft || !selectedId) ? null
+        : designTarget ? designCatalog.materials[designTarget]
+        : getMaterialById(selectedId);
+    const designConflict = designTarget ? designMaterialConflict(design, designTarget) : null;
+
+    const currentCatalog = catFilter !== 'all' ? browseCatalogs.find(cat => cat.id === catFilter) : null;
     const isUserCatalog = currentCatalog?.source === 'user';
 
     function notify(type, msg) {
@@ -137,6 +168,7 @@ export function useMaterialEditor({ c, t, setInputDialog }) {
         menuOpen, setMenuOpen,
         editDraft, setEditDraft, updateDraft, isDirty, handleRevertMaterial,
         results, selectedMat, currentCatalog, isUserCatalog,
+        browseCatalogs, designConflict,
         handleImport, handleImportOptiLayer, doImportOptiLayer,
         handleRemoveCatalog, handleCreateCatalog, handleRenameCatalog, handleDuplicateCatalog,
         handleNewMaterial, handleSelectMaterial, handleSaveMaterial, handleDeleteMaterial,

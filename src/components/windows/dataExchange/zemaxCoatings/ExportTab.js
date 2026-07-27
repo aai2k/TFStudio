@@ -40,9 +40,15 @@ function SampleGrid({ c, z, gStart, setGStart, gEnd, setGEnd, gStep, setGStep })
 export function ExportTab(props) {
     const {
         c, z, design, thMode, gStart, gEnd, gStep, scope, coatName,
-        preview, onGenerate, onSave, refNm,
+        preview, onGenerate, onSave, refNm, missingMaterialIds,
     } = props;
     const layerCount = (design.frontLayers || []).length;
+    if (missingMaterialIds.length > 0) {
+        return h('div', {
+            role: 'alert',
+            style: { color: c.error, fontSize: 11.5, lineHeight: 1.5 },
+        }, z.exportBlocked(missingMaterialIds.join(', ')));
+    }
     return h('div', { style: { display: 'flex', flexDirection: 'column', gap: 10, height: '100%' } },
         h('div', { style: { fontSize: 12, fontWeight: 600 } }, z.exportTitle),
         h('div', { style: { fontSize: 10.5, color: c.textDim } }, `${layerCount} front-coating layer${layerCount === 1 ? '' : 's'}`),

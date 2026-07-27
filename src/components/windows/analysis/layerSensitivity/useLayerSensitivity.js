@@ -1,6 +1,6 @@
 import { useDesign } from '../../../../state/DesignContext.js';
-import { getMaterialById, resolveColor } from '../../../../utils/materials/catalogManager.js';
-import { getMaterial } from '../../../../utils/materials/materialDatabase.js';
+import { resolveColor } from '../../../../utils/materials/catalogManager.js';
+import { designMaterialLookup } from '../../../../utils/materials/designMaterials.js';
 import { computeLayerSensitivity } from '../../../../utils/physics/errorAnalysis.js';
 import {
     buildSensitivityViewModel,
@@ -10,20 +10,13 @@ import {
 
 const { useMemo, useState } = React;
 
-export function resolveSensitivityMaterial(id) {
-    if (!id) return getMaterial('Air');
-    return getMaterialById(id) || getMaterial(id) || getMaterial('Air');
-}
-
 function buildMaterialColorMap(design) {
+    const resolveMaterial = designMaterialLookup(design);
     const map = {};
-    for (const layer of (design?.frontLayers || [])) {
-        const material = resolveSensitivityMaterial(layer.material);
-        if (layer.material && !map[layer.material]) map[layer.material] = resolveColor(material);
-    }
-    for (const layer of (design?.backLayers || [])) {
-        const material = resolveSensitivityMaterial(layer.material);
-        if (layer.material && !map[layer.material]) map[layer.material] = resolveColor(material);
+    for (const layer of [...(design?.frontLayers || []), ...(design?.backLayers || [])]) {
+        if (layer.material && !map[layer.material]) {
+            map[layer.material] = resolveColor(resolveMaterial(layer.material));
+        }
     }
     return map;
 }
@@ -39,11 +32,13 @@ export function useLayerSensitivity() {
     const operands = design?.meritOperands || [];
     const sensHasLayers = hasSensitivityLayers(design);
 
+    const resolveMat = useMemo(() => designMaterialLookup(design), [design]);
+
     const result = useMemo(() => {
         if (!sensHasLayers) return null;
         if (!operands.length) return { rows: [], mf0: 0, noOperands: true };
         try {
-            return computeLayerSensitivity(design, operands, resolveSensitivityMaterial, {
+            return computeLayerSensitivity(design, operands, resolveMat, {
                 mode,
                 relPct,
                 absDeltaNm,
@@ -52,7 +47,7 @@ export function useLayerSensitivity() {
         } catch (error) {
             return { error: error.message || String(error) };
         }
-    }, [design, operands, mode, relPct, absDeltaNm, includeLocked]);
+    }, [design, resolveMat, operands, mode, relPct, absDeltaNm, includeLocked]);
 
     const matColorMap = useMemo(() => buildMaterialColorMap(design), [design]);
     const specDesigns = useMemo(
@@ -66,6 +61,6 @@ export function useLayerSensitivity() {
         matColorMap, specDesigns, ...viewModel,
         mode, setMode, relPct, setRelPct, absDeltaNm, setAbsDeltaNm,
         includeLocked, setIncludeLocked, view, setView, scale, setScale,
-        resolveMat: resolveSensitivityMaterial,
+        resolveMat,
     };
 }

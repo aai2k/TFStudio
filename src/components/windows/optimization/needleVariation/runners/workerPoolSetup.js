@@ -8,7 +8,7 @@
 import {
     isConstraint, requiredLambdas, collectDesignMaterialIds, buildPresampledTable,
 } from '../../../../../utils/physics/optimizer.js';
-import { densifyForRun, activeSide, resolveMat } from '../../synthesisShared/synthesisHelpers.js';
+import { densifyForRun, activeSide, materialLookup } from '../../synthesisShared/synthesisHelpers.js';
 
 // Reconcile edits, drop synthesis-incompatible thickness constraints, resolve
 // the scan sides and candidate pool. Returns the run seed or null on a guard
@@ -43,6 +43,7 @@ export function wpPrepare(ctx) {
 // the table or null (caller falls back to the main-thread loop).
 export function wpPresample(curDes, operands, pool) {
     try {
+        const resolveMat = materialLookup(curDes);
         const lambdas = requiredLambdas(operands);
         const pairs = collectDesignMaterialIds(curDes).map(id => ({ id, mat: resolveMat(id) }))
             .concat(pool.map(p => ({ id: p.id, mat: p.mat })));

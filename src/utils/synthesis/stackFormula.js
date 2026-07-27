@@ -31,6 +31,7 @@
 
 import { getMaterialById, materialLabel, normalizeId } from '../materials/catalogManager.js';
 import { getMaterial } from '../materials/materialDatabase.js';
+import { designMaterialLookup } from '../materials/designMaterials.js';
 
 // ── Default symbol table ────────────────────────────────────────────────────
 //
@@ -62,11 +63,18 @@ function defaultResolveMatId(sym) {
 }
 
 function defaultGetN(matId, lambda0) {
-    const mat = getMaterialById(matId) || getMaterial(matId) || getMaterial('Air');
-    return mat && mat.getNK ? mat.getNK(lambda0)[0] : 1.0;
+    return designMaterialLookup(null)(matId).getNK(lambda0)[0];
 }
 
 const DEFAULT_RESOLVERS = { resolveMatId: defaultResolveMatId, getN: defaultGetN };
+
+export function stackFormulaResolvers(design) {
+    const resolveMaterial = designMaterialLookup(design);
+    return {
+        resolveMatId: defaultResolveMatId,
+        getN: (matId, lambda0) => resolveMaterial(matId).getNK(lambda0)[0],
+    };
+}
 
 // ── Tokenizer ───────────────────────────────────────────────────────────────
 //

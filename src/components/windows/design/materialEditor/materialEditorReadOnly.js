@@ -63,6 +63,26 @@ export function sampleReadOnlyChart(chartEl, selectedMat, c, me) {
     return sampleReadOnlyTable(curves.lambdas, selectedMat);
 }
 
+// Where a material selected from the design catalog stands relative to the
+// local catalogs. `differs` is highlighted: the spectrum came from the embedded
+// definition, so the local material of the same id is not the one that produced
+// it, and copying it out would give the user two materials under one name.
+function designOriginBlock(designConflict, me, c) {
+    if (!designConflict) return null;
+    const differs = designConflict === 'differs';
+    const text = differs ? me.designMaterialDiffers
+        : designConflict === 'same' ? me.designMaterialSame
+        : me.designMaterialAbsent;
+    return h('div', {
+        style: {
+            margin: '8px 12px 0', padding: '6px 8px', fontSize: 11, lineHeight: 1.45,
+            borderRadius: 4, backgroundColor: c.panel,
+            color: differs ? '#e6a23c' : c.textDim,
+            border: `1px solid ${differs ? '#e6a23c66' : c.border}`,
+        },
+    }, text);
+}
+
 function readOnlyPropsBlock(selectedMat, me, c) {
     return h('div', { style: { padding: '8px 12px', flexShrink: 0 } },
         h('div', { style: { display: 'grid', gridTemplateColumns: 'auto 1fr', gap: '2px 12px', fontSize: 12 } },
@@ -123,7 +143,7 @@ function readOnlyNkTable(title, rows, c) {
     );
 }
 
-export function renderReadOnlyMaterial({ selectedMat, sampledTable, chartRef, openCopyPicker, me, t, c }) {
+export function renderReadOnlyMaterial({ selectedMat, sampledTable, chartRef, openCopyPicker, designConflict, me, t, c }) {
     const hasStoredTab = selectedMat.formulaNum === -1 && selectedMat.tabData?.length > 0;
     return h('div', { style: { display: 'flex', flexDirection: 'column', height: '100%', overflow: 'hidden' } },
         // Header
@@ -140,6 +160,7 @@ export function renderReadOnlyMaterial({ selectedMat, sampledTable, chartRef, op
             )
         ),
         h('div', { style: { flex: 1, overflowY: 'auto', display: 'flex', flexDirection: 'column' } },
+            designOriginBlock(designConflict, me, c),
             readOnlyPropsBlock(selectedMat, me, c),
             readOnlyFormulaBlock(selectedMat, me, c),
             // Tabulated n,k data (for table-type materials, incl. OptiLayer nType 0)

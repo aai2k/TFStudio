@@ -24,7 +24,9 @@ import { buildSampleDesigns } from './utils/samples/sampleDesigns.js';
 import { buildTutorials } from './utils/samples/tutorials.js';
 import { DesignProvider, makeDefaultDesign } from './state/DesignContext.js';
 import { SpectralMonitor } from './components/SpectralMonitor.js';
+import { MaterialResolutionModalGuard } from './components/materials/MaterialResolutionModalGuard.js';
 import { initCatalogs, addCatalog } from './utils/materials/catalogManager.js';
+import { embedDesignMaterials } from './utils/materials/designMaterials.js';
 import { parseAGF } from './utils/materials/agfParser.js';
 import { initTmmWasmMainThread, tmmWasmActive } from './utils/workers/tmmWasm.js';
 import { designFileKey, uniqueDesignName } from './utils/io/designNaming.js';
@@ -218,6 +220,13 @@ function migrateThemeName(name) {
 // source. `side` distinguishes front/back layers in the generated id.
 function rekeyLayers(layers, ts, side) {
     return (layers || []).map((l, i) => ({ ...l, id: `l-${ts}-${side}${i}` }));
+}
+
+// Single write path for .tfs files. Material definitions are attached here, at
+// the boundary, because the catalogs they come from live in the renderer and the
+// main process cannot see them.
+function writeDesignFile(folderName, design) {
+    return window.electronAPI.saveDesign(folderName, embedDesignMaterials(design));
 }
 
 function useProjectPersistence(setMessageNotification, t) {
@@ -610,7 +619,7 @@ const App = () => {
         if (folder && window.electronAPI?.saveDesign) {
             const savedSnapshot = JSON.parse(JSON.stringify(targetDesign));
             return persistProjectChange(
-                () => window.electronAPI.saveDesign(folder.name, savedSnapshot),
+                () => writeDesignFile(folder.name, savedSnapshot),
                 () => {
                     diskDesignsRef.current[targetId] = savedSnapshot;
                     setFolders(current => updateExplorerItemMtime(current, targetId, Date.now()));
@@ -820,7 +829,7 @@ const App = () => {
 
         return persistProjectChange(
             window.electronAPI?.saveDesign
-                ? () => window.electronAPI.saveDesign(targetFolder.name, design)
+                ? () => writeDesignFile(targetFolder.name, design)
                 : null,
             () => {
                 diskDesignsRef.current[design.id] = JSON.parse(JSON.stringify(design));
@@ -848,7 +857,7 @@ const App = () => {
 
         return persistProjectChange(
             window.electronAPI?.saveDesign
-                ? () => window.electronAPI.saveDesign(targetFolder.name, design)
+                ? () => writeDesignFile(targetFolder.name, design)
                 : null,
             () => {
                 diskDesignsRef.current[design.id] = JSON.parse(JSON.stringify(design));
@@ -927,7 +936,7 @@ const App = () => {
                 const newItem = { id: newId, name, mtime: Date.now() };
                 const saved = await persistProjectChange(
                     window.electronAPI?.saveDesign
-                        ? () => window.electronAPI.saveDesign(folder.name, clone)
+                        ? () => writeDesignFile(folder.name, clone)
                         : null,
                     () => {
                         diskDesignsRef.current[newId] = JSON.parse(JSON.stringify(clone));
@@ -966,7 +975,7 @@ const App = () => {
         const newItem = { id: newId, name: newName, mtime: Date.now() };
         return persistProjectChange(
             window.electronAPI?.saveDesign
-                ? () => window.electronAPI.saveDesign(folder.name, clone)
+                ? () => writeDesignFile(folder.name, clone)
                 : null,
             () => {
                 diskDesignsRef.current[newId] = JSON.parse(JSON.stringify(clone));
@@ -1355,7 +1364,7 @@ const App = () => {
                     ribbonStyle
                 })
             ),
-            h(SpectralMonitor, { c }),
+            h(SpectralMonitor, { c, t }),
             showSettings && h(SettingsModal, {
                 theme, setTheme, locale, setLocale,
                 wasmTmm, setWasmTmm,
@@ -1372,21 +1381,25 @@ const App = () => {
                 onClose: () => setShowFilterDesign(false),
                 onGenerate: (design) => { addItemFromDesign(design); }
             }),
-            showBBM && h(BBMWizard, {
-                c, t,
-                onClose: () => setShowBBM(false),
-            }),
-            showMono && h(MonoWizard, {
-                c, t,
-                onClose: () => setShowMono(false),
-            }),
-            showStackFormula && h(StackFormulaDialog, {
+            showBBM && h(MaterialResolutionModalGuard, {
+                c, t, onClose: () => setShowBBM(false),
+            }, h(BBMWizard, {
+                c, t, onClose: () => setShowBBM(false),
+            })),
+            showMono && h(MaterialResolutionModalGuard, {
+                c, t, onClose: () => setShowMono(false),
+            }, h(MonoWizard, {
+                c, t, onClose: () => setShowMono(false),
+            })),
+            showStackFormula && h(MaterialResolutionModalGuard, {
+                c, t, onClose: () => setShowStackFormula(false),
+            }, h(StackFormulaDialog, {
                 c, t,
                 folderName: selectedFolder?.name,
                 hasActiveDesign: activeDesignId != null,
                 onClose: () => setShowStackFormula(false),
                 onCreateNew: (design) => { addItemFromDesign(design); }
-            }),
+            })),
             showReportGen && h(ReportGenerator, {
                 c, t,
                 designs, activeDesignId,

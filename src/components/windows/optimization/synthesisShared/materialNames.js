@@ -1,10 +1,7 @@
-import { getMaterial } from '../../../../utils/materials/materialDatabase.js';
 import { getMaterialById } from '../../../../utils/materials/catalogManager.js';
+import { designMaterialLookup } from '../../../../utils/materials/designMaterials.js';
 
-export function resolveMat(id) {
-    if (!id) return getMaterial('Air');
-    return getMaterialById(id) || getMaterial(id) || getMaterial('Air');
-}
+export const materialLookup = designMaterialLookup;
 
 export function matDisplayName(id) {
     if (!id) return '';

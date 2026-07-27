@@ -9,7 +9,7 @@
 //            Sullivan & Dobrowolski, Applied Optics 35(28), 5484 (1996).
 
 import { useDesign } from '../../../../state/DesignContext.js';
-import { getCatalogs } from '../../../../utils/materials/catalogManager.js';
+import { poolCatalogs } from '../synthesisShared/synthesisHelpers.js';
 import {
     findOptimalNeedleThickness, mirrorLayers,
     DLSOptimizer, resolveScanSide, isConstraint,
@@ -17,7 +17,7 @@ import {
 } from '../../../../utils/physics/optimizer.js';
 import {
     countPoolMaterials, POOL_MAX_SYNC,
-    useCatSelection, resolveMat, matDisplayName, getPoolMaterials,
+    useCatSelection, materialLookup, matDisplayName, getPoolMaterials,
 } from '../synthesisShared/synthesisHelpers.js';
 import {
     candidateDepth, insertForSelection, runNeedleScan, buildPlotData,
@@ -54,7 +54,7 @@ function useNeedleSettings() {
 
 // ── Scan → selection workflow (P-function profile, candidate pick, geometry) ────
 
-function scanAndSetResult({ ops, design, pool, deltaNm, nIntra, requestedSide, effSide, tn, setScan, setStatusMsg, setScanning }) {
+function scanAndSetResult({ ops, design, resolveMat, pool, deltaNm, nIntra, requestedSide, effSide, tn, setScan, setStatusMsg, setScanning }) {
     try {
         const { scan, statusMsg } = runNeedleScan({
             operands: ops, design, resolveMat, candidateMats: pool,
@@ -77,31 +77,33 @@ function scanAndSetResult({ ops, design, pool, deltaNm, nIntra, requestedSide, e
 function runComputeProfile(ctx) {
     const {
         design, operands, selectedCats, excludedMats, deltaNm, nIntra,
-        requestedSide, effSide, tn, t,
+        requestedSide, effSide, resolveMat, tn, t,
         setStatusMsg, setScanBlocked, setScanning, setSelected, setScan,
     } = ctx;
     if (!design) return;
     const ops = operands.filter(op => !isConstraint(op.type));   // synthesis = unconstrained
     if (ops.length === 0) { setStatusMsg(tn.noOperands); return; }
-    const poolCount = countPoolMaterials(selectedCats, excludedMats);
+    const poolCount = countPoolMaterials(selectedCats, excludedMats, design);
     if (poolCount > POOL_MAX_SYNC) {
         setScanBlocked(true);
         setStatusMsg(t.pool.tooMany(poolCount, POOL_MAX_SYNC));
         return;
     }
     setScanBlocked(false);
-    const pool = getPoolMaterials(selectedCats, { excluded: excludedMats });
+    const pool = getPoolMaterials(selectedCats, {
+        excluded: excludedMats, design, designName: t.pool.designCatalog,
+    });
     if (!pool.length) { setStatusMsg(tn.noMaterials); return; }
 
     setScanning(true); setStatusMsg(tn.scanning); setSelected(null);
     // Defer so the "Scanning…" status paints before the (synchronous) scan.
     setTimeout(() => scanAndSetResult({
-        ops, design, pool, deltaNm, nIntra, requestedSide, effSide, tn,
+        ops, design, resolveMat, pool, deltaNm, nIntra, requestedSide, effSide, tn,
         setScan, setStatusMsg, setScanning,
     }), 0);
 }
 
-function useNeedleWorkflow({ design, effSide, operands, selectedCats, excludedMats, deltaNm, nIntra, dMin, requestedSide, tn, t }) {
+function useNeedleWorkflow({ design, resolveMat, effSide, operands, selectedCats, excludedMats, deltaNm, nIntra, dMin, requestedSide, tn, t }) {
     const [scan,      setScan]      = useState(null);   // { candidates, mf0, side, zb, layers }
     const [scanning,  setScanning]  = useState(false);
     const [statusMsg, setStatusMsg] = useState('');
@@ -117,10 +119,10 @@ function useNeedleWorkflow({ design, effSide, operands, selectedCats, excludedMa
     const computeProfile = useCallback(() => {
         runComputeProfile({
             design, operands, selectedCats, excludedMats, deltaNm, nIntra,
-            requestedSide, effSide, tn, t,
+            requestedSide, effSide, resolveMat, tn, t,
             setStatusMsg, setScanBlocked, setScanning, setSelected, setScan,
         });
-    }, [design, operands, selectedCats, excludedMats, deltaNm, nIntra, requestedSide, effSide, tn, t]);
+    }, [design, resolveMat, operands, selectedCats, excludedMats, deltaNm, nIntra, requestedSide, effSide, tn, t]);
 
     const plotData = useMemo(() => buildPlotData(scan), [scan]);
 
@@ -132,7 +134,7 @@ function useNeedleWorkflow({ design, effSide, operands, selectedCats, excludedMa
         const z = candidateDepth(cand, zb);
         setSelected({ ...cand, z, grad: cand.grad });
         // Initial d_new = golden-section optimum, clamped to the slider range.
-        const pool = getPoolMaterials(selectedCats, { excluded: excludedMats });
+        const pool = getPoolMaterials(selectedCats, { excluded: excludedMats, design });
         const mat  = pool.find(p => p.id === cand.materialId)?.mat || resolveMat(cand.materialId);
         let d0 = dMin;
         try {
@@ -144,7 +146,7 @@ function useNeedleWorkflow({ design, effSide, operands, selectedCats, excludedMa
             if (!(d0 >= dMin)) d0 = dMin;
         } catch (_) { d0 = dMin; }
         setDNew(d0);
-    }, [scan, selectedCats, excludedMats, operands, design, dMin, requestedSide]);
+    }, [scan, selectedCats, excludedMats, operands, design, resolveMat, dMin, requestedSide]);
 
     // Clamp d_new into range when the selection / range changes.
     useEffect(() => {
@@ -163,7 +165,7 @@ function useNeedleWorkflow({ design, effSide, operands, selectedCats, excludedMa
 // and a thin needle always starts below MNT; showing the full MF here would
 // report a large, transient constraint penalty rather than the optical benefit.
 
-function usePredictedOMF({ selected, scan, design, operands, dNew, requestedSide }) {
+function usePredictedOMF({ selected, scan, design, resolveMat, operands, dNew, requestedSide }) {
     const [predictedOMF, setPredictedOMF] = useState(null);   // optical MF after insert
     const [omfNow,       setOmfNow]       = useState(null);   // optical MF of current design
 
@@ -183,7 +185,7 @@ function usePredictedOMF({ selected, scan, design, operands, dNew, requestedSide
             } catch (_) { setPredictedOMF(null); setOmfNow(null); }
         }, 30);
         return () => clearTimeout(id);
-    }, [selected, dNew, scan, design, operands, requestedSide]);
+    }, [selected, dNew, scan, design, resolveMat, operands, requestedSide]);
 
     return { predictedOMF, omfNow };
 }
@@ -218,7 +220,7 @@ function runDlsRefineTick(ctx) {
 
 function runHandleApply(ctx) {
     const {
-        selected, design, busy, dNew, refineAfter, requestedSide, operands, dMin, dlsIter,
+        selected, design, resolveMat, busy, dNew, refineAfter, requestedSide, operands, dMin, dlsIter,
         surfaceMode, checkpoint, updateDesign, tn,
         setRefining, setStatusMsg, setScan, setSelected, refineTimerRef,
     } = ctx;
@@ -253,7 +255,7 @@ function runHandleApply(ctx) {
 }
 
 function useNeedleApply({
-    scanning, selected, design, dNew, refineAfter, requestedSide, operands, dMin, dlsIter,
+    scanning, selected, design, resolveMat, dNew, refineAfter, requestedSide, operands, dMin, dlsIter,
     surfaceMode, checkpoint, updateDesign, tn, setStatusMsg, setScan, setSelected,
 }) {
     const [refining, setRefining] = useState(false);
@@ -273,11 +275,11 @@ function useNeedleApply({
 
     const handleApply = useCallback(() => {
         runHandleApply({
-            selected, design, busy, dNew, refineAfter, requestedSide, operands, dMin, dlsIter,
+            selected, design, resolveMat, busy, dNew, refineAfter, requestedSide, operands, dMin, dlsIter,
             surfaceMode, checkpoint, updateDesign, tn,
             setRefining, setStatusMsg, setScan, setSelected, refineTimerRef,
         });
-    }, [selected, design, busy, dNew, refineAfter, requestedSide, operands, dMin, dlsIter, surfaceMode, checkpoint, updateDesign, tn]);
+    }, [selected, design, resolveMat, busy, dNew, refineAfter, requestedSide, operands, dMin, dlsIter, surfaceMode, checkpoint, updateDesign, tn]);
 
     return { refining, busy, handleApply };
 }
@@ -288,6 +290,7 @@ export function useNeedleManual(t) {
     const { design, updateDesign, checkpoint } = useDesign();
     const tn = t.needleManual;
     const settings = useNeedleSettings();
+    const resolveMat = useMemo(() => materialLookup(design), [design]);
 
     const surfaceMode = design?.surfaceMode || 'front_only';
     const effSide = resolveScanSide(surfaceMode, settings.requestedSide);
@@ -295,19 +298,19 @@ export function useNeedleManual(t) {
     const operands = useMemo(() => (design?.meritOperands || []).filter(op => op.enabled), [design]);
 
     const workflow = useNeedleWorkflow({
-        design, effSide, operands, tn, t,
+        design, resolveMat, effSide, operands, tn, t,
         selectedCats: settings.selectedCats, excludedMats: settings.excludedMats,
         deltaNm: settings.deltaNm, nIntra: settings.nIntra, dMin: settings.dMin,
         requestedSide: settings.requestedSide,
     });
 
     const predicted = usePredictedOMF({
-        selected: workflow.selected, scan: workflow.scan, design, operands,
+        selected: workflow.selected, scan: workflow.scan, design, resolveMat, operands,
         dNew: workflow.dNew, requestedSide: settings.requestedSide,
     });
 
     const apply = useNeedleApply({
-        scanning: workflow.scanning, selected: workflow.selected, design,
+        scanning: workflow.scanning, selected: workflow.selected, design, resolveMat,
         dNew: workflow.dNew, refineAfter: settings.refineAfter, requestedSide: settings.requestedSide,
         operands, dMin: settings.dMin, dlsIter: settings.dlsIter, surfaceMode,
         checkpoint, updateDesign, tn,
@@ -316,7 +319,7 @@ export function useNeedleManual(t) {
 
     return {
         design, tn, surfaceMode, effSide, showSideRadio, operands,
-        catalogs: getCatalogs(),
+        catalogs: poolCatalogs(design, t.pool.designCatalog),
         ...settings,
         ...workflow,
         ...predicted,

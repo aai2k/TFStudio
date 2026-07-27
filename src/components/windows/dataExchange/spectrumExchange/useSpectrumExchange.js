@@ -1,4 +1,5 @@
 import { useDesign } from '../../../../state/DesignContext.js';
+import { useUnresolvedMaterials } from '../../../../utils/materials/useUnresolvedMaterials.js';
 import { X_UNITS } from '../../../../utils/io/spectrumTable.js';
 import { useDesignExport, useMeasuredExport } from './exportActions.js';
 import { useImportActions } from './importActions.js';
@@ -8,6 +9,7 @@ const { useState } = React;
 
 export function useSpectrumExchange(sx) {
     const { design, updateDesign, checkpoint, evalParams, evalMode } = useDesign();
+    const missingMaterialIds = useUnresolvedMaterials(design);
     const [tab, setTab] = useSession('tab');
     const [expSource, setExpSource] = useSession('expSource');
     const [expFormat, setExpFormat] = useSession('expFormat');
@@ -52,6 +54,6 @@ export function useSpectrumExchange(sx) {
         xUnit, setXUnit, quantity, yscale, setColOv, curves,
         ...importActions, onExport,
         dStart, setDStart, dEnd, setDEnd, dStep, setDStep, dAoi, setDAoi,
-        dQ, setDQ, dSP, setDSP, onExportDesign, evalMode,
+        dQ, setDQ, dSP, setDSP, onExportDesign, evalMode, missingMaterialIds,
     };
 }

@@ -18,6 +18,7 @@ const { computeAngular, computeEllipsometrySweep, computeSpectral } = await impo
 const { sideLayersAt, toDeltaConvention } = await import(
     '../src/components/windows/analysis/ellipsometryEvaluation/model.js'
 );
+const { designMaterialLookup } = await import('../src/utils/materials/designMaterials.js');
 const { buildEllipsometryTable } = await import(
     '../src/components/windows/analysis/ellipsometryEvaluation/EllipsometryResults.js'
 );
@@ -128,7 +129,9 @@ assert.deepEqual(
     { ...angular, delta: angular.delta.map(value => (((360 - value) % 360) + 360) % 360) },
     'angular wrapper normalization or Delta convention changed',
 );
-assert.deepEqual(sideLayersAt(design, 'back', 632.8).map(layer => layer.d), [43.75, 71.25]);
+assert.deepEqual(
+    sideLayersAt(designMaterialLookup(design), design, 'back', 632.8).map(layer => layer.d),
+    [43.75, 71.25]);
 assert.deepEqual(toDeltaConvention([0, 45.5, 360, -10], 'azzam'), [0, 314.5, 0, 10]);
 
 const table = buildEllipsometryTable('angular', angular);

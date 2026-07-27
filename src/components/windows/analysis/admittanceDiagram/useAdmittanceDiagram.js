@@ -48,7 +48,7 @@ export function useAdmittanceDiagram(design) {
     }, [design, lambda, theta, pol, side, view]);
 
     const validLayers = colorLayers.filter(l => l.thickness > 0);
-    const matName = buildMaterialNames(validLayers);
+    const matName = buildMaterialNames(design, validLayers);
     const Y0 = series?.[0]?.Y?.[0];
     const etaS = series?.[0]?.etaS;
     const tableRows = useMemo(() => buildAdmittanceTableRows(series, matName, design), [series]);

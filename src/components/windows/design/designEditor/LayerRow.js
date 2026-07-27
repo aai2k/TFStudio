@@ -18,24 +18,31 @@ const LAYER_ROW_H = 26;
 export const LayerRow = React.memo(function LayerRow({ layer, index, isSelected, onSelect, c,
     onMaterialChange, onThicknessChange, onLockToggle,
     onMoveUp, onMoveDown, onDuplicate, onRemove, canMoveUp, canMoveDown,
-    refLambda, t }) {
+    isMaterialMissing, refLambda, t }) {
 
     const de = t.designEditor;
+    const missingTitle = isMaterialMissing ? t.materialResolution.rowMissing(layer.material) : undefined;
 
     return h('div', {
         onClick: () => onSelect(layer.id),
+        title: missingTitle,
+        'data-material-missing': isMaterialMissing ? 'true' : undefined,
         style: {
             display: 'flex', alignItems: 'center', gap: 4,
             padding: '2px 4px',
             // Fixed height (border-box) so the virtualized list can compute row
             // positions exactly — see LAYER_ROW_H in LayerList.
             height: LAYER_ROW_H, boxSizing: 'border-box',
-            backgroundColor: isSelected ? c.accent + '22' : 'transparent',
+            backgroundColor: isMaterialMissing ? c.error + '18'
+                : (isSelected ? c.accent + '22' : 'transparent'),
             borderRadius: 3, cursor: 'pointer', userSelect: 'none',
-            borderLeft: `2px solid ${isSelected ? c.accent : 'transparent'}`
+            borderLeft: `2px solid ${isMaterialMissing ? c.error : (isSelected ? c.accent : 'transparent')}`
         }
     },
-        h('div', { style: { width: 24, textAlign: 'right', fontSize: 11, color: c.textDim, flexShrink: 0 } }, index + 1),
+        h('div', {
+            style: { width: 24, textAlign: 'right', fontSize: 11,
+                color: isMaterialMissing ? c.error : c.textDim, flexShrink: 0 },
+        }, isMaterialMissing ? `${index + 1} !` : index + 1),
         h('div', { style: { flex: 1, minWidth: 0, overflow: 'hidden' } },
             h(MaterialPicker, { value: layer.material, onChange: (mat) => onMaterialChange(layer.id, mat), c, t, compact: true })
         ),

@@ -3,11 +3,12 @@ import {
     buildEvalContext, evaluateOperands, calcMF, calcOMF,
 } from '../../../../../utils/physics/optimizer.js';
 import { tidyLayers } from '../../../../../utils/synthesis/structuralOptimizer.js';
-import { resolveMat } from '../../synthesisShared/synthesisHelpers.js';
+import { materialLookup } from '../../synthesisShared/synthesisHelpers.js';
 import { deep, mkLayers } from './runUtils.js';
 import { refineGuarded } from './workerLifecycle.js';
 
 export function presampleAll(design, operands, pool) {
+    const resolveMat = materialLookup(design);
     const lambdas = requiredLambdas(operands);
     const ids = new Set(collectDesignMaterialIds(design));
     for (const material of pool) ids.add(material.id);
@@ -40,6 +41,7 @@ export function designFor(S, activeLayers, otherLayers) {
 
 export function trueEval(S, frontLayers, backLayers, fallbackMf, fallbackOmf) {
     try {
+        const resolveMat = materialLookup(S.curDes);
         const design = { ...S.media, frontLayers: frontLayers || [], backLayers: backLayers || [] };
         const computed = evaluateOperands(S.fullOps, buildEvalContext(design, resolveMat));
         const mf = calcMF(S.fullOps, computed);

@@ -7,7 +7,7 @@
 
 import { mulberry32 } from '../../../../utils/monitoring/monitoringSim.js';
 import { systemSpectrum, partialThicknesses } from '../../../../utils/monitoring/depositionSpectrum.js';
-import { resolveMat, SplitPage, RowField, Radio, Chart, LayerTabs } from '../wizardShared.js';
+import { SplitPage, RowField, Radio, Chart, LayerTabs } from '../wizardShared.js';
 
 const { createElement: h, useMemo } = React;
 
@@ -21,7 +21,7 @@ export function PageSignalErrors({ p, set, layers, c, B, ctx }) {
         // Semi-infinite active coating — the in-chamber monitor signal (see Page 3).
         const clean = systemSpectrum({
             evalMode: 'front',
-            frontStored: layers.map((l, i) => ({ material: resolveMat(l.material), thickness: thk[i] })),
+            frontStored: layers.map((l, i) => ({ material: ctx.resolveMat(l.material), thickness: thk[i] })),
             quantity: p.quantity, aoi: p.aoi, polarization: p.pol,
             lambdaStart: p.lamMin, lambdaEnd: p.lamMax, lambdaStep: Math.max(0.5, (p.lamMax - p.lamMin) / 200),
             incidentMat: ctx.incidentMatActive, substrateMat: ctx.subMat,

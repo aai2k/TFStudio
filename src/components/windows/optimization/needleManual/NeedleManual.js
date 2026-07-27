@@ -15,7 +15,6 @@
  *      pass), recorded as a normal history entry.
  */
 
-import { getCatalogs } from '../../../../utils/materials/catalogManager.js';
 import { OptimizeBadge, EvalModeBadge } from '../../../SurfaceModeBar.js';
 import { WARN_BADGE_STYLE } from '../synthesisShared/synthesisHelpers.js';
 import { useNeedleManual } from './useNeedleManual.js';
@@ -33,7 +32,7 @@ export function NeedleManual({ c, theme, t }) {
         return h('div', { style: { padding: 24, color: c.textDim, fontSize: 13 } }, tn.noDesign);
     }
 
-    const catalogs = getCatalogs();
+    const catalogs = s.catalogs;
 
     return h('div', {
         style: {

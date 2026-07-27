@@ -1,5 +1,4 @@
-import { getMaterialById } from '../../../../utils/materials/catalogManager.js';
-import { getMaterial } from '../../../../utils/materials/materialDatabase.js';
+import { designMaterialLookup } from '../../../../utils/materials/designMaterials.js';
 import {
     evaluateSpectrum, evaluateSpectrumBack, evaluateSpectrumTotal,
 } from '../../../../utils/physics/thinFilmMath.js';
@@ -7,11 +6,6 @@ import { enumerateInterfaces } from '../../../../utils/physics/inhomogeneity.js'
 import {
     resolveSigmas, effectiveRoughness, tisSpectrum, applyScatteringLoss, countInterfaces,
 } from '../../../../utils/physics/scattering.js';
-
-function resolveMaterial(id) {
-    if (!id) return getMaterial('Air');
-    return getMaterialById(id) || getMaterial(id) || getMaterial('Air');
-}
 
 export function getRoughnessContext(design, evalMode) {
     const hasBack = (design?.backLayers?.length || 0) > 0;
@@ -27,6 +21,7 @@ export function getRoughnessContext(design, evalMode) {
 }
 
 export function buildInterfaceLabels(design) {
+    const resolveMaterial = designMaterialLookup(design);
     const front = design?.frontLayers
         ? enumerateInterfaces(
             design.frontLayers.map(layer => ({
@@ -51,6 +46,7 @@ export function buildInterfaceLabels(design) {
 export function calculateRoughness({ design, params, rough, evalMode, aoi, context }) {
     if (!design?.frontLayers) return { data: null, error: null };
     try {
+        const resolveMaterial = designMaterialLookup(design);
         const incMat = resolveMaterial(design.incidentMedium);
         const subMat = resolveMaterial(design.substrate?.material);
         const exitMat = resolveMaterial(design.exitMedium);

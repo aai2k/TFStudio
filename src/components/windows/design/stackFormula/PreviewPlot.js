@@ -33,12 +33,12 @@ function drawPreview(divEl, data, c, refLambda) {
     window.Plotly.react(divEl, traces, layout, { responsive: true, displayModeBar: false });
 }
 
-export function PreviewPlot({ compiled, incidentId, substrateId, refLambda, c, height = 220 }) {
+export function PreviewPlot({ resolveMaterial, compiled, incidentId, substrateId, refLambda, c, height = 220 }) {
     const divRef = useRef(null);
 
     const data = useMemo(
-        () => previewSpectrum(compiled, incidentId, substrateId, refLambda),
-        [compiled, incidentId, substrateId, refLambda]);
+        () => previewSpectrum(resolveMaterial, compiled, incidentId, substrateId, refLambda),
+        [resolveMaterial, compiled, incidentId, substrateId, refLambda]);
 
     useEffect(() => {
         if (!divRef.current || !window.Plotly) return;

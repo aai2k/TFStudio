@@ -1,17 +1,8 @@
 import { Checkbox } from '../../../ui/Checkbox.js';
 import { WARN_BADGE_STYLE, matColor } from './materialColors.js';
-import { POOL_WARN_COUNT } from './catalogPool.js';
+import { POOL_WARN_COUNT, poolMatEntries as matEntries } from './catalogPool.js';
 
 const { createElement: h } = React;   // React is a window global (never imported)
-
-// Materials of a catalog eligible to appear in the pool (Air/Vacuum hidden,
-// matching getPoolMaterials). `name` is the editable display label.
-const matEntries = (cat) => Object.entries(cat.materials || {})
-    .filter(([k]) => k !== 'Air' && k !== 'Vacuum')
-    .map(([k, m]) => ({
-        fullId: cat.id === 'builtin' ? k : `${cat.id}:${k}`,
-        name: (m && m.name) || k,
-    }));
 
 function MiniBtn({ label, onClick, running, c }) {
     return h('button', {

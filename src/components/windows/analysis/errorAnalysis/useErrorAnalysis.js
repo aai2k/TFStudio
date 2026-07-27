@@ -1,5 +1,4 @@
-import { getMaterialById } from '../../../../utils/materials/catalogManager.js';
-import { getMaterial } from '../../../../utils/materials/materialDatabase.js';
+import { designMaterialLookup } from '../../../../utils/materials/designMaterials.js';
 import { runErrorAnalysisMC } from '../../../../utils/physics/errorAnalysis.js';
 import { hasPerturbableLayers } from './trialModel.js';
 
@@ -21,11 +20,6 @@ function snapshot(design) {
     return (design && resultCache.get(design.id)) || defaults();
 }
 
-function resolveMat(id) {
-    if (!id) return getMaterial('Air');
-    return getMaterialById(id) || getMaterial(id) || getMaterial('Air');
-}
-
 async function executeRun(options) {
     const {
         design, params, evalMode, char, nTrials, rmsAbsNm, rmsRelPct,
@@ -43,7 +37,7 @@ async function executeRun(options) {
     await new Promise((resolve) => setTimeout(resolve, 0));
 
     try {
-        const result = await runErrorAnalysisMC(design, params, resolveMat, {
+        const result = await runErrorAnalysisMC(design, params, designMaterialLookup(design), {
             char,
             evalMode,
             nTrials,

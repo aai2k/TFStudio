@@ -3,16 +3,10 @@ import {
     evaluateSpectrumBack,
     evaluateSpectrumTotal,
 } from '../../../../utils/physics/thinFilmMath.js';
-import { getMaterialById } from '../../../../utils/materials/catalogManager.js';
-import { getMaterial } from '../../../../utils/materials/materialDatabase.js';
+import { designMaterialLookup } from '../../../../utils/materials/designMaterials.js';
 import { makeConeSpec, coneAverageResult } from '../../../../utils/physics/optimizer.js';
 
-function resolveMaterial(id) {
-    if (!id) return getMaterial('Air');
-    return getMaterialById(id) || getMaterial(id) || getMaterial('Air');
-}
-
-function resolvedLayers(layers) {
+function resolvedLayers(resolveMaterial, layers) {
     return (layers || [])
         .filter(layer => layer.thickness > 0)
         .map(layer => ({
@@ -22,12 +16,13 @@ function resolvedLayers(layers) {
 }
 
 export function computeSpectrumForMode(design, params, evalMode) {
+    const resolveMaterial = designMaterialLookup(design);
     const incident = resolveMaterial(design.incidentMedium);
     const substrate = resolveMaterial(design.substrate.material);
     const exit = resolveMaterial(design.exitMedium);
     const substrateThickness = design.substrate.thickness ?? 1.0;
-    const frontLayers = resolvedLayers(design.frontLayers);
-    const backLayers = resolvedLayers(design.backLayers);
+    const frontLayers = resolvedLayers(resolveMaterial, design.frontLayers);
+    const backLayers = resolvedLayers(resolveMaterial, design.backLayers);
 
     const computeAt = (theta) => {
         const sampleParams = { ...params, theta };

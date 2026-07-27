@@ -6,10 +6,12 @@
 import {
   computeRIProfile, computeEFieldProfile, computeEllipsometry,
 } from '../../physics/thinFilmMath.js';
-import { resolveMaterial, materialName, mediumId } from './engines.js';
+import { designMaterialLookup } from '../../materials/designMaterials.js';
+import { mediumId } from './engines.js';
 
 // ── Ellipsometry spectrum Ψ(λ), Δ(λ) per AOI ────────────────────────────────
 export function computeEllipsometrySpectrum(design, opts = {}) {
+  const resolveMaterial = designMaterialLookup(design);
   const { lambdaStart = 400, lambdaEnd = 800, lambdaStep = 5 } = opts;
   const thetas = (opts.thetas && opts.thetas.length) ? opts.thetas
                : (opts.aoi != null ? [opts.aoi] : [65]);
@@ -35,20 +37,23 @@ export function computeEllipsometrySpectrum(design, opts = {}) {
 
 // ── Refractive-index profile n(z) ───────────────────────────────────────────
 export function computeRiProfile(design, opts = {}) {
+  const resolveMaterial = designMaterialLookup(design);
   const lam = opts.lambda ?? design.referenceWavelength ?? 550;
   // getNK() returns a complex pair [re, im]; computeRIProfile wants { n, k }.
   const [n0n, n0k] = resolveMaterial(mediumId(design.incidentMedium)).getNK(lam);
   const [nsn, nsk] = resolveMaterial(design.substrate?.material).getNK(lam);
   const layers = (design.frontLayers || [])
     .filter(l => l.material && l.thickness > 0)
-    .map(l => { const [nr, nk] = resolveMaterial(l.material).getNK(lam);
-                return { n: nr, k: nk, d: l.thickness, name: materialName(l.material) }; });
+    .map(l => { const material = resolveMaterial(l.material);
+                const [nr, nk] = material.getNK(lam);
+                return { n: nr, k: nk, d: l.thickness, name: material.name || l.material }; });
   const prof = computeRIProfile({ n: n0n, k: n0k }, { n: nsn, k: nsk }, layers);
   return prof ? { lambda: lam, ...prof } : { lambda: lam, z: [], n: [], k: [], layerBounds: [] };
 }
 
 // ── Electric-field profile |E(z)|² ──────────────────────────────────────────
 export function computeEField(design, opts = {}) {
+  const resolveMaterial = designMaterialLookup(design);
   const lam = opts.lambda ?? design.referenceWavelength ?? 550;
   const theta = opts.theta ?? 0;
   const pol = opts.pol === 'p' ? 'p' : 's';

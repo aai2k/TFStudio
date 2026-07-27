@@ -2,18 +2,12 @@
 // No React, no component state — everything here is a plain function of its
 // arguments, so it is safe to import from both the UI and the runner modules.
 
-import { getMaterialById } from '../../../../utils/materials/catalogManager.js';
-import { getMaterial } from '../../../../utils/materials/materialDatabase.js';
+import { designMaterialLookup } from '../../../../utils/materials/designMaterials.js';
 import {
     requiredLambdas, collectDesignMaterialIds, mirrorLayers,
     densifyOperandsForFeatures, ADAPTIVE_SAMPLING_DEFAULTS,
     buildEvalContext, evaluateOperands, calcMF, calcOMF,
 } from '../../../../utils/physics/optimizer.js';
-
-export function resolveMat(id) {
-    if (!id) return getMaterial('Air');
-    return getMaterialById(id) || getMaterial(id) || getMaterial('Air');
-}
 
 export const nowMs = () => (typeof performance !== 'undefined' && performance.now) ? performance.now() : Date.now();
 
@@ -24,23 +18,24 @@ export const nowMs = () => (typeof performance !== 'undefined' && performance.no
 // densified operands feed BOTH presampleMaterials (requiredLambdas) and the
 // worker job, so the byte-identical λ-grid contract is preserved.
 export function densifyForRun(ops, design) {
-    return densifyOperandsForFeatures(ops, design, resolveMat, ADAPTIVE_SAMPLING_DEFAULTS, ({ bumped, capped }) =>
+    return densifyOperandsForFeatures(ops, design, designMaterialLookup(design), ADAPTIVE_SAMPLING_DEFAULTS, ({ bumped, capped }) =>
         console.log(`[Adaptive] densified ${bumped} operand(s) for narrow features`
             + (capped ? ` (${capped} capped at ${ADAPTIVE_SAMPLING_DEFAULTS.maxPoints} pts — feature finer than the cap can resolve)` : '')));
 }
 
 // Approach A pre-sampling: sample every material the design
-// references on the EXACT union of operand wavelengths. catalogManager /
-// resolveMat work here on the UI thread (they need window.electronAPI, absent
-// in the worker); the worker rebuilds a table-lookup getNK from these arrays
+// references on the EXACT union of operand wavelengths. Design-scoped material
+// lookup runs here on the UI thread (catalog access is absent in the worker);
+// the worker rebuilds a table-lookup getNK from these arrays
 // and the floats match bit-for-bit because both sides derive λ from the same
 // `operandSampleLambdas` helper.
 export function presampleMaterials(design, ops) {
+    const resolveMaterial = designMaterialLookup(design);
     const lambdas = requiredLambdas(ops);
     const ids     = collectDesignMaterialIds(design);
     const materials = {};
     for (const id of ids) {
-        const mat = resolveMat(id);
+        const mat = resolveMaterial(id);
         const n = new Array(lambdas.length);
         const k = new Array(lambdas.length);
         for (let i = 0; i < lambdas.length; i++) {
@@ -98,7 +93,7 @@ export function perturbPayload(payload, pct, restart) {
 export function computeOperandDisplay(design, operands) {
     if (!design || operands.length === 0) return { computed: [], mf: null, omf: null };
     try {
-        const ctx  = buildEvalContext(design, resolveMat);
+        const ctx  = buildEvalContext(design, designMaterialLookup(design));
         const comp = evaluateOperands(operands, ctx);
         return { computed: comp, mf: calcMF(operands, comp), omf: calcOMF(operands, comp) };
     } catch (_) {

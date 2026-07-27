@@ -8,7 +8,8 @@ import { WorkerPool } from '../../../../../utils/workers/workerPool.js';
 import { getThreadCount } from '../../../../../utils/synthesis/synthesisConfig.js';
 import { getTmmWasmBytesForWorker } from '../../../../../utils/workers/tmmWasm.js';
 import { MFEVAL_WORKER_URL as MFEVAL_URL } from '../../../../../workerUrls.js';
-import { resolveMat, nowMs, perturbPayload } from '../refinementUtils.js';
+import { designMaterialLookup } from '../../../../../utils/materials/designMaterials.js';
+import { nowMs, perturbPayload } from '../refinementUtils.js';
 import { MAXITER_FOR } from '../refinementConfig.js';
 import { runEngineP } from './engineRun.js';
 
@@ -59,7 +60,10 @@ export async function runParallelDEP(ctx, run) {
     try { pool = new WorkerPool(MFEVAL_URL, K, wasmBytes ? { type: 'wasmInit', wasmBytes } : null); } catch (_) { return serialFallback(); }
     ctx.dePoolRef.current = pool;
     let de;
-    try { de = new DEOptimizer(ops, payload, resolveMat, { maxIter: deMax }); }
+    try {
+        de = new DEOptimizer(
+            ops, payload, designMaterialLookup(ctx.designRef.current), { maxIter: deMax });
+    }
     catch (_) { try { pool.terminate(); } catch (e) {} ctx.dePoolRef.current = null; return serialFallback(); }
 
     const cfg = { ops, payload, materials, sid: Math.random().toString(36).slice(2), K, deMax, alive, onProg };

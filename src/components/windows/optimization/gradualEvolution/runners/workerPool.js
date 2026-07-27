@@ -25,7 +25,7 @@ import {
 import { getTmmWasmBytesForWorker } from '../../../../../utils/workers/tmmWasm.js';
 import { SYNTHESIS_WORKER_URL as SYNTH_WORKER_URL } from '../../../../../workerUrls.js';
 import {
-    activeSide, densifyForRun, chunkArray, poolSize, resolveMat,
+    activeSide, densifyForRun, chunkArray, poolSize, materialLookup,
 } from '../../synthesisShared/synthesisHelpers.js';
 import { runGeMainThread } from './mainThread.js';
 import { alive, fallback } from './workerPoolCore.js';
@@ -130,6 +130,7 @@ export function runGeWorker(ctx) {
 
     let materials;
     try {
+        const resolveMat = materialLookup(curDes);
         const lambdas = requiredLambdas(operands);
         const pairs = collectDesignMaterialIds(curDes).map(id => ({ id, mat: resolveMat(id) }))
             .concat(pool.map(p => ({ id: p.id, mat: p.mat })));

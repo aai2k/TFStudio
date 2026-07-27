@@ -6,8 +6,7 @@
  * Macleod's diagram orientation.
  */
 
-import { getMaterialById } from '../../../../utils/materials/catalogManager.js';
-import { getMaterial } from '../../../../utils/materials/materialDatabase.js';
+import { designMaterialLookup } from '../../../../utils/materials/designMaterials.js';
 import { tmmWithAdmittances } from '../../../../utils/physics/thinFilmMath.js';
 
 function cadd([ar, ai], [br, bi]) { return [ar + br, ai + bi]; }
@@ -46,11 +45,6 @@ function transferAdmittance(Y_R, eta, phi) {
     const num = csub(cmul(Y_R, cosP), cmul([0, 1], cmul(eta, sinP)));
     const den = csub(cmul(eta, cosP), cmul([0, 1], cmul(Y_R, sinP)));
     return cmul(eta, cdiv(num, den));
-}
-
-export function resolveMaterial(id) {
-    if (!id) return getMaterial('Air');
-    return getMaterialById(id) || getMaterial(id) || getMaterial('Air');
 }
 
 const MAT_PALETTE = [
@@ -210,6 +204,7 @@ export function sideStackLayers(design, side) {
 
 function buildOnePol(design, conditions, pol) {
     const { lambda_nm, theta_deg, side, view: viewKind } = conditions;
+    const resolveMaterial = designMaterialLookup(design);
     const n0mat = resolveMaterial(side === 'back' ? design.exitMedium : design.incidentMedium);
     const nsmat = resolveMaterial(design.substrate?.material);
     const [n0r, n0k] = n0mat.getNK(lambda_nm);

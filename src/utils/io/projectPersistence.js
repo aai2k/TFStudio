@@ -1,4 +1,6 @@
-const META_KEYS = new Set(['tfs_version']);
+// `materials` is the embedded material block, derived from the design's ids
+// when it is written rather than authored, so it never makes a design dirty.
+const META_KEYS = new Set(['tfs_version', 'materials']);
 
 // Disk snapshots include format metadata and may have a different property
 // order from the in-memory design. Dirty-state comparison uses canonical

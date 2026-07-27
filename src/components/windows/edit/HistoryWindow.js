@@ -11,35 +11,31 @@
  */
 
 import { useDesign }            from '../../../state/DesignContext.js';
-import { getMaterialById }      from '../../../utils/materials/catalogManager.js';
-import { getMaterial }          from '../../../utils/materials/materialDatabase.js';
+import {
+    designMaterialLookup, unresolvedMaterials,
+} from '../../../utils/materials/designMaterials.js';
 import {
     buildEvalContext, evaluateOperands, calcMF,
 } from '../../../utils/physics/optimizer.js';
 
 const { createElement: h, useMemo } = React;
 
-function resolveMat(id) {
-    if (!id) return getMaterial('Air');
-    return getMaterialById(id) || getMaterial(id) || getMaterial('Air');
-}
-
 // MF is pure for a given design snapshot; cache by object identity so
 // scrolling / re-render doesn't recompute the whole timeline.
 const _mfCache = new WeakMap();
 
 function mfFor(design) {
-    if (!design || typeof design !== 'object') return { mf: null };
+    if (!design || typeof design !== 'object') return { mf: null, materialMissing: false };
     if (_mfCache.has(design)) return _mfCache.get(design);
-    let out = { mf: null };
+    let out = { mf: null, materialMissing: unresolvedMaterials(design).length > 0 };
     try {
         const ops = (design.meritOperands || []).filter(op => op.enabled);
-        if (ops.length) {
-            const ctx  = buildEvalContext(design, resolveMat);
+        if (ops.length && !out.materialMissing) {
+            const ctx  = buildEvalContext(design, designMaterialLookup(design));
             const comp = evaluateOperands(ops, ctx);
-            out = { mf: calcMF(ops, comp) };
+            out = { mf: calcMF(ops, comp), materialMissing: false };
         }
-    } catch (_) { out = { mf: null }; }
+    } catch (_) { out = { mf: null, materialMissing: true }; }
     _mfCache.set(design, out);
     return out;
 }
@@ -50,18 +46,30 @@ function layerCountOf(design) {
     return f + b;
 }
 
+function historyRowLabel(row, isCurrent, isFuture, hw) {
+    if (isCurrent) return hw.current;
+    if (row.i === 0) return hw.oldest;
+    return isFuture ? hw.redoState : hw.undoState;
+}
+
+function meritCell(row, c, mr) {
+    return h('div', {
+        title: row.materialMissing ? mr.blockedBody : undefined,
+        style: {
+            padding: '0 8px',
+            textAlign: 'right',
+            fontVariantNumeric: 'tabular-nums',
+            color: row.materialMissing ? c.error : undefined,
+        },
+    }, row.mf == null ? '—' : row.mf.toFixed(6));
+}
+
 // One timeline row. `currentIndex` fixes which row is "present"; rows above it
 // are undo (past) states and rows below are redo (future) states.
-function historyRow(r, { c, hw, currentIndex, jumpToHistory }) {
+function historyRow(r, { c, hw, mr, currentIndex, jumpToHistory }) {
     const isCurrent = r.i === currentIndex;
     const isFuture  = r.i > currentIndex;
-    const label = isCurrent
-        ? hw.current
-        : r.i === 0
-            ? hw.oldest
-            : isFuture
-                ? hw.redoState
-                : hw.undoState;
+    const label = historyRowLabel(r, isCurrent, isFuture, hw);
     return h('div', {
         key: r.i,
         onClick: () => { if (!isCurrent) jumpToHistory(r.i); },
@@ -90,8 +98,7 @@ function historyRow(r, { c, hw, currentIndex, jumpToHistory }) {
         ),
         h('div', { style: { padding: '0 8px', textAlign: 'right', fontVariantNumeric: 'tabular-nums' } },
             String(r.layers)),
-        h('div', { style: { padding: '0 8px', textAlign: 'right', fontVariantNumeric: 'tabular-nums' } },
-            r.mf == null ? '—' : r.mf.toFixed(6))
+        meritCell(r, c, mr)
     );
 }
 
@@ -105,7 +112,8 @@ export function HistoryWindow({ c, theme, t }) {
     // Precompute display rows (memoised on the timeline contents).
     const rows = useMemo(() => entries.map((d, i) => {
         const m = mfFor(d);
-        return { i, layers: layerCountOf(d), mf: m.mf, ref: d };
+        return { i, layers: layerCountOf(d), mf: m.mf,
+            materialMissing: m.materialMissing, ref: d };
     }), [entries]);
 
     if (!design) {
@@ -175,7 +183,9 @@ export function HistoryWindow({ c, theme, t }) {
 
         // Rows
         h('div', { style: { flex: 1, minHeight: 0, overflowY: 'auto' } },
-            ordered.map(r => historyRow(r, { c, hw, currentIndex, jumpToHistory }))
+            ordered.map(r => historyRow(r, {
+                c, hw, mr: t.materialResolution, currentIndex, jumpToHistory,
+            }))
         )
     );
 }

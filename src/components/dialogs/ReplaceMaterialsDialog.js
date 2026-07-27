@@ -1,33 +1,51 @@
 /**
  * ReplaceMaterialsDialog — swap any material used in the design for another.
  *
- * Lists every distinct material referenced by the front + back layer stacks
- * (with how many layers use it) and offers a MaterialPicker — the same control
- * the layer rows use — to choose a replacement for each. Applying rewrites the
- * `material` field of every affected layer on both sides; thicknesses and layer
- * order are untouched, so a design stays physically identical except for the
- * substituted dispersion. Substrate/media are intentionally out of scope (this
- * is a coating-materials tool).
+ * Lists every distinct material referenced by the media, substrate and both
+ * layer stacks, with its usage count. Applying a replacement changes every
+ * matching reference; thicknesses and layer order are untouched.
  */
 
 import { getMaterialById, resolveColor, materialLabel } from '../../utils/materials/catalogManager.js';
+import { resolveDesignMaterial } from '../../utils/materials/designMaterials.js';
 import { MaterialPicker } from '../ui/MaterialPicker.js';
 
 const { createElement: h, useState, useMemo } = React;
 
-// Distinct layer materials across both stacks, with usage counts, in first-seen order.
-function collectMaterials(design) {
+/** Distinct material ids across the complete optical stack, in first-seen order. */
+export function collectMaterials(design) {
     const order = [];
     const counts = new Map();
+    const add = (id) => {
+        if (!id) return;
+        if (!counts.has(id)) { counts.set(id, 0); order.push(id); }
+        counts.set(id, counts.get(id) + 1);
+    };
+
+    add(design.incidentMedium);
+    add(design.substrate?.material);
+    add(design.exitMedium);
     for (const arr of [design.frontLayers || [], design.backLayers || []]) {
-        for (const l of arr) {
-            const id = l.material;
-            if (!id) continue;
-            if (!counts.has(id)) { counts.set(id, 0); order.push(id); }
-            counts.set(id, counts.get(id) + 1);
-        }
+        for (const layer of arr) add(layer.material);
     }
     return order.map(id => ({ id, count: counts.get(id) }));
+}
+
+/** Return a design with every reference in `replacements` changed atomically. */
+export function replaceMaterialReferences(design, replacements) {
+    const replace = (id) => replacements[id] || id;
+    const swapLayers = (layers) => (layers || []).map(layer => {
+        const material = replace(layer.material);
+        return material === layer.material ? layer : { ...layer, material };
+    });
+    return {
+        ...design,
+        incidentMedium: replace(design.incidentMedium),
+        substrate: { ...design.substrate, material: replace(design.substrate?.material) },
+        exitMedium: replace(design.exitMedium),
+        frontLayers: swapLayers(design.frontLayers),
+        backLayers: swapLayers(design.backLayers),
+    };
 }
 
 export function ReplaceMaterialsDialog({ design, updateDesign, c, t, onClose }) {
@@ -43,12 +61,7 @@ export function ReplaceMaterialsDialog({ design, updateDesign, c, t, onClose }) 
     const apply = () => {
         if (changed.length === 0) { onClose(); return; }
         const map = Object.fromEntries(changed.map(m => [m.id, repl[m.id]]));
-        const swap = (arr) => (arr || []).map(l =>
-            map[l.material] ? { ...l, material: map[l.material] } : l);
-        updateDesign({
-            frontLayers: swap(design.frontLayers),
-            backLayers:  swap(design.backLayers),
-        });
+        updateDesign(replaceMaterialReferences(design, map));
         onClose();
     };
 
@@ -70,11 +83,14 @@ export function ReplaceMaterialsDialog({ design, updateDesign, c, t, onClose }) 
     });
 
     const nameOf = (id) => {
-        const mat = getMaterialById(id);
+        const resolved = resolveDesignMaterial(design, id);
+        const mat = resolved.status === 'missing' ? null : resolved.material;
         return mat ? (mat.name || materialLabel(id)) : materialLabel(id);
     };
     const colorOf = (id) => {
-        const mat = getMaterialById(id);
+        const resolved = resolveDesignMaterial(design, id);
+        if (resolved.status === 'missing') return c.error;
+        const mat = getMaterialById(id) || resolved.material;
         return mat ? resolveColor(mat) : '#888';
     };
 

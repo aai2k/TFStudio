@@ -13,9 +13,12 @@
  * routing it through here would change that window's console output.
  */
 
-export { resolveMat, matDisplayName, matFriendlyName } from './materialNames.js';
+export { materialLookup, matDisplayName, matFriendlyName } from './materialNames.js';
 export { WARN_BADGE_STYLE, MAT_COLORS, matColor, matColorAlpha } from './materialColors.js';
-export { POOL_WARN_COUNT, POOL_MAX_SYNC, countPoolMaterials, getPoolMaterials } from './catalogPool.js';
+export {
+    POOL_WARN_COUNT, POOL_MAX_SYNC, countPoolMaterials, getPoolMaterials,
+    poolCatalogs, poolMatEntries,
+} from './catalogPool.js';
 export { loadSavedCatSelection, saveCatSelection, useCatSelection } from './catSelection.js';
 export {
     sideKeyFor, activeSide, densifyForRun, minOmfOf, chunkArray,

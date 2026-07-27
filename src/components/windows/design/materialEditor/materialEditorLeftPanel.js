@@ -10,6 +10,7 @@
  */
 
 import { resolveColor } from '../../../../utils/materials/catalogManager.js';
+import { DESIGN_CATALOG_ID } from '../../../../utils/materials/designCatalog.js';
 import { dotStyle, smallBtn } from './materialEditorUI.js';
 import { CatalogMenu } from './catalogMenu.js';
 
@@ -32,13 +33,17 @@ function menuItems(s) {
     const { me, currentCatalog, isUserCatalog, importing,
             handleCreateCatalog, handleRenameCatalog, handleDuplicateCatalog, handleRemoveCatalog,
             handleImport, handleImportOptiLayer, setShowRii } = s;
-    const canDelete = !!currentCatalog && currentCatalog.id !== 'builtin';
+    // The design catalog lives on the design, not in the registry: it can be
+    // browsed and its materials copied out, but not renamed, duplicated or
+    // deleted as a catalog.
+    const isDesignCatalog = currentCatalog?.id === DESIGN_CATALOG_ID;
+    const canDelete = !!currentCatalog && currentCatalog.id !== 'builtin' && !isDesignCatalog;
     return [
         { id: 'new',    glyph: '＋', label: me.newCatalog,       onClick: handleCreateCatalog },
         { id: 'rename', glyph: '✎',  label: me.renameCatalog,    onClick: () => handleRenameCatalog(currentCatalog.id),
           disabled: !isUserCatalog },
         { id: 'dup',    glyph: '⎘',  label: me.duplicateCatalog, onClick: () => handleDuplicateCatalog(currentCatalog.id),
-          disabled: !currentCatalog },
+          disabled: !currentCatalog || isDesignCatalog },
         { id: 'del',    glyph: '✕',  label: me.removeCatalog,    onClick: () => handleRemoveCatalog(currentCatalog.id),
           disabled: !canDelete, danger: true },
         { id: 'sep',    separator: true },
@@ -49,9 +54,9 @@ function menuItems(s) {
 }
 
 function renderCatalogRow(s) {
-    const { c, me, catFilter, setCatFilter, setEditDraft, catalogs, currentCatalog,
+    const { c, me, catFilter, setCatFilter, setEditDraft, browseCatalogs, currentCatalog,
             menuOpen, setMenuOpen } = s;
-    const total = catalogs.reduce((sum, cat) => sum + Object.keys(cat.materials || {}).length, 0);
+    const total = browseCatalogs.reduce((sum, cat) => sum + Object.keys(cat.materials || {}).length, 0);
     return h('div', { style: { position: 'relative', display: 'flex', alignItems: 'center', gap: 6, padding: '8px 8px 4px' } },
         h('span', { style: { fontSize: 11, color: c.textDim, flexShrink: 0 } }, me.catalogLabel),
         h('select', {
@@ -61,7 +66,7 @@ function renderCatalogRow(s) {
             style: { ...fieldStyle(c), flex: 1, minWidth: 0, cursor: 'pointer' }
         },
             h('option', { value: 'all' }, `${me.allCatalogs} (${total})`),
-            catalogs.map(cat =>
+            browseCatalogs.map(cat =>
                 h('option', { key: cat.id, value: cat.id },
                     `${cat.name} (${Object.keys(cat.materials || {}).length})`))
         ),
@@ -122,8 +127,10 @@ function renderMaterialList(s) {
     if (results.length === 0) {
         return h('div', { style: { padding: 12, color: c.textDim, fontSize: 12, textAlign: 'center' } }, me.noMaterials);
     }
-    return results.map(({ catalogId, catalogName, material }) => {
-        const compId = `${catalogId}:${material.id}`;
+    return results.map(({ catalogId, catalogName, material, selectionId }) => {
+        // Design-catalog entries carry their own key: they are addressed by the
+        // id the design references them under, not by the material's own id.
+        const compId = selectionId || `${catalogId}:${material.id}`;
         const isActive = editDraft
             ? (editDraft.catalogId === catalogId && (editDraft.id === material.id || editDraft.originalId === material.id))
             : selectedId === compId;

@@ -1,11 +1,3 @@
-import { getMaterialById } from '../../../../utils/materials/catalogManager.js';
-import { getMaterial } from '../../../../utils/materials/materialDatabase.js';
-
-export function resolveMat(id) {
-    if (!id) return getMaterial('Air');
-    return getMaterialById(id) || getMaterial(id) || getMaterial('Air');
-}
-
 // ── Kind metadata: which fields are relevant for each qualifier kind ─────────
 // Drives the row-editor — only show the fields that apply, hide the rest.
 

@@ -11,7 +11,7 @@ import { matName, cullName, cellNum, NumField } from '../wizardShared.js';
 
 const { createElement: h } = React;
 
-export function PageDeviations({ p, set, materialIds, layers, c, B }) {
+export function PageDeviations({ p, set, materialIds, layers, resolveMat, c, B }) {
     const th = { textAlign: 'left', padding: '5px 8px', borderBottom: `1px solid ${c.border}`, fontWeight: 600, color: c.textDim, fontSize: 11.5, whiteSpace: 'nowrap' };
     const td = { padding: '3px 8px', borderBottom: `1px solid ${c.border}55`, fontSize: 12, color: c.text };
 
@@ -30,7 +30,7 @@ export function PageDeviations({ p, set, materialIds, layers, c, B }) {
                         const dv = p.matDev[id] || {};
                         return h('tr', { key: id },
                             h('td', { style: td }, i + 1),
-                            h('td', { style: { ...td, maxWidth: 220, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }, title: matName(id) }, cullName(matName(id), 30)),
+                            h('td', { style: { ...td, maxWidth: 220, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }, title: matName(resolveMat, id) }, cullName(matName(resolveMat, id), 30)),
                             h('td', { style: td }, cellNum({ value: dv.reNSyst ?? 0, step: 0.001, min: -1, max: 1, c, width: 80, onChange: (v) => setDev(id, 'reNSyst', v) })),
                             h('td', { style: td }, cellNum({ value: dv.reNRand ?? 0, step: 0.001, min: 0, max: 1, c, width: 80, onChange: (v) => setDev(id, 'reNRand', v) })),
                             h('td', { style: td }, cellNum({ value: dv.systInh ?? 0, step: 0.01, min: -50, max: 50, c, width: 70, onChange: (v) => setDev(id, 'systInh', v) })));
@@ -45,7 +45,7 @@ export function PageDeviations({ p, set, materialIds, layers, c, B }) {
                         [B.colNum, B.colMaterial, B.colPhysThk, B.colExclude, B.colRelThkErr].map((x, i) => h('th', { key: i, style: th }, x)))),
                     h('tbody', null, layers.map((l, i) => h('tr', { key: i },
                         h('td', { style: td }, i + 1),
-                        h('td', { style: { ...td, maxWidth: 180, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }, title: matName(l.material) }, cullName(matName(l.material), 22)),
+                        h('td', { style: { ...td, maxWidth: 180, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }, title: matName(resolveMat, l.material) }, cullName(matName(resolveMat, l.material), 22)),
                         h('td', { style: td }, (l.thickness || 0).toFixed(2)),
                         h('td', { style: { ...td, textAlign: 'center' } },
                             h(Checkbox, { c, checked: !!p.layers[i]?.exclude,

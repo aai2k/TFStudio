@@ -1,11 +1,14 @@
+// Drop the getNK closure that getMaterialById attaches lazily, leaving the
+// plain dispersion record. Anything written to disk goes through here.
+export function stripGetNK(material) {
+    // eslint-disable-next-line no-unused-vars
+    const { getNK, ...rest } = material;
+    return rest;
+}
+
 function serializeCatalog(cat) {
-    // Strip non-serializable function references
     const mats = {};
-    for (const [id, m] of Object.entries(cat.materials)) {
-        // eslint-disable-next-line no-unused-vars
-        const { getNK, ...rest } = m;
-        mats[id] = rest;
-    }
+    for (const [id, m] of Object.entries(cat.materials)) mats[id] = stripGetNK(m);
     return { ...cat, materials: mats };
 }
 

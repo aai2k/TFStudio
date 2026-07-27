@@ -1,15 +1,11 @@
 import { computeEFieldProfile } from '../../../../utils/physics/thinFilmMath.js';
-import { getMaterialById, resolveColor } from '../../../../utils/materials/catalogManager.js';
-import { getMaterial } from '../../../../utils/materials/materialDatabase.js';
+import { resolveColor } from '../../../../utils/materials/catalogManager.js';
+import { designMaterialLookup } from '../../../../utils/materials/designMaterials.js';
 
 const NPTS = 60;
 
-function resolveMaterial(id) {
-    if (!id) return getMaterial('Air');
-    return getMaterialById(id) || getMaterial(id) || getMaterial('Air');
-}
-
-export function buildMatColorMap(layers) {
+export function buildMatColorMap(design, layers) {
+    const resolveMaterial = designMaterialLookup(design);
     const map = {};
     for (const l of layers) {
         const key = l.materialId || l.material;
@@ -21,7 +17,7 @@ export function buildMatColorMap(layers) {
     return map;
 }
 
-function sampleLayer(layer, lambda_nm) {
+function sampleLayer(resolveMaterial, layer, lambda_nm) {
     const mat = resolveMaterial(layer.material);
     const [nr, nk] = mat.getNK(lambda_nm);
     return { n: [nr, nk], d: layer.thickness, materialId: layer.material };
@@ -34,6 +30,7 @@ export function computeProfile(design, lambda_nm, theta_deg, pol, side = 'front'
     if (!srcLayers?.length) return null;
 
     const incidentId = side === 'back' ? design.exitMedium : design.incidentMedium;
+    const resolveMaterial = designMaterialLookup(design);
     const n0mat = resolveMaterial(incidentId);
     const nsmat = resolveMaterial(design.substrate?.material);
     const n0raw = n0mat.getNK(lambda_nm);
@@ -44,7 +41,7 @@ export function computeProfile(design, lambda_nm, theta_deg, pol, side = 'front'
     const ordered = side === 'back' ? [...srcLayers].reverse() : srcLayers;
     const validLayers = ordered
         .filter(l => l.material && l.thickness > 0)
-        .map(layer => sampleLayer(layer, lambda_nm));
+        .map(layer => sampleLayer(resolveMaterial, layer, lambda_nm));
     if (!validLayers.length) return null;
 
     const layerInput = validLayers.map(({ n, d }) => ({ n, d }));

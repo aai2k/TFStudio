@@ -37,7 +37,7 @@ import { ModalFrame } from '../wizardKit/ModalFrame.js';
 import { PageDeviations } from '../wizardKit/PageDeviations.js';
 import { PageResults } from '../wizardKit/PageResults.js';
 import { mulberry32 } from '../../../../utils/monitoring/monitoringSim.js';
-import { resolveMat, medId, PageHead } from '../wizardShared.js';
+import { medId, PageHead } from '../wizardShared.js';
 import { PageRates } from './PageRates.js';
 import { PageMonSystem } from './PageMonSystem.js';
 import { PageSignalErrors } from './PageSignalErrors.js';
@@ -98,7 +98,7 @@ function buildRunCfg({ p, materialIds, recordTrajectory }) {
 // Pre-samples every referenced material's [n,k] on the monitor scan λ grid so
 // the run can execute in a Web Worker (Approach A). simulateRun only samples
 // on this grid, so the worker result matches the main-thread path.
-function presampleMaterialsFor({ design, simDesign, materialIds, p }) {
+function presampleMaterialsFor({ design, simDesign, materialIds, resolveMat, p }) {
     const nP = Math.max(3, p.points | 0);
     const step = (p.lamMax - p.lamMin) / (nP - 1);
     const scanL = []; for (let i = 0; i < nP; i++) scanL.push(p.lamMin + i * step);
@@ -143,8 +143,9 @@ export function BBMWizard({ c, t, onClose }) {
     useEscapeToClose(onClose);
 
     const buildCfg = useCallback((recordTrajectory) => buildRunCfg({ p, materialIds, recordTrajectory }), [p, materialIds]);
-    const presampleMaterials = useCallback(() => presampleMaterialsFor({ design, simDesign, materialIds, p }),
-        [design, simDesign, materialIds, p.points, p.lamMin, p.lamMax]);
+    const presampleMaterials = useCallback(() => presampleMaterialsFor({
+        design, simDesign, materialIds, resolveMat: ctx.resolveMat, p,
+    }), [design, simDesign, materialIds, ctx, p.points, p.lamMin, p.lamMax]);
 
     if (!design) return h(ModalFrame, { c, B, step, setStep, onClose, design, t, helpAnchor: 'simulation/bbm-simulator',
         body: h('div', { style: { flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', color: c.textDim } }, B.noDesign) });
@@ -152,8 +153,8 @@ export function BBMWizard({ c, t, onClose }) {
         body: h('div', { style: { flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', color: c.textDim } }, B.noLayers) });
 
     const pages = {
-        1: () => h(PageRates,        { p, set, materialIds, c, B }),
-        2: () => h(PageDeviations,   { p, set, materialIds, layers, c, B }),
+        1: () => h(PageRates,        { p, set, materialIds, resolveMat: ctx.resolveMat, c, B }),
+        2: () => h(PageDeviations,   { p, set, materialIds, layers, resolveMat: ctx.resolveMat, c, B }),
         3: () => h(PageMonSystem,    { p, set, layers, c, B, ctx }),
         4: () => h(PageSignalErrors, { p, set, layers, c, B, ctx }),
         5: () => h(PageSimulation,   { p, set, layers, c, B, ctx, run, setRun, buildCfg, presampleMaterials }),

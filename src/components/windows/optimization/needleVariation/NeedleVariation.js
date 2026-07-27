@@ -7,7 +7,7 @@
  * State + orchestration live in useNeedleVariation.js; this shell just renders.
  */
 
-import { getCatalogs } from '../../../../utils/materials/catalogManager.js';
+import { poolCatalogs } from '../synthesisShared/synthesisHelpers.js';
 import { SynthesisShell } from '../synthesisShared/synthesisShell.js';
 import {
     MFTrendChart, ControlBar, LeftSidebar, GenerationsTable, TopDesignsPanel,
@@ -24,7 +24,7 @@ export function NeedleVariation({ c, theme, t }) {
         return h('div', { style: { padding: 24, color: c.textDim, fontSize: 13 } }, tn.noDesign);
     }
 
-    const catalogs = getCatalogs();
+    const catalogs = poolCatalogs(s.design, t.pool.designCatalog);
 
     return h(SynthesisShell, {
         c, trendLabel: tn.mfTrend, tableLabel: tn.generations,

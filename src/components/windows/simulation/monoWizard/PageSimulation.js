@@ -6,7 +6,6 @@
  * spectrum curves come from the shared wizardKit; only the run itself differs.
  */
 
-import { resolveMat }      from '../wizardShared.js';
 import { simulateRunMono, mulberry32 } from '../../../../utils/monitoring/monoSim.js';
 import { useDepositionPlayback, useDepositionCurves } from '../wizardKit/depositionPlayback.js';
 import { SimulationView }  from '../wizardKit/SimulationView.js';
@@ -30,7 +29,7 @@ export function PageSimulation({ p, set, layers, c, B, ctx, run, setRun, buildCf
         // main thread (no worker needed for one experiment).
         setTimeout(() => {
             try {
-                const res = simulateRunMono(ctx.simDesign, resolveMat, { ...cfg, rng: mulberry32(seed) });
+                const res = simulateRunMono(ctx.simDesign, ctx.resolveMat, { ...cfg, rng: mulberry32(seed) });
                 setRun(res); setProgress(0); setPlaying(true);
             } finally { setBusy(false); }
         }, 20);

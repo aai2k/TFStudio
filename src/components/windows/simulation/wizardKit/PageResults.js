@@ -6,7 +6,7 @@
  * the (disabled) Generate-Report / Load buttons used by the broadband wizard.
  */
 
-import { matName, cullName, resolveMat, Radio, Chart, computeWizardResultSpectra } from '../wizardShared.js';
+import { matName, cullName, Radio, Chart, computeWizardResultSpectra } from '../wizardShared.js';
 import { flipLayerIndex } from '../../../../utils/monitoring/depositionSpectrum.js';
 
 const { createElement: h, useMemo } = React;
@@ -20,9 +20,9 @@ function resultRows({ layers, run, ctx, p }) {
     return layers.map((l, i) => {
         const theor = run.targetFront[i] || 0, dep = run.asBuiltFront[i] || 0;
         const abs = dep - theor, rel = theor > 0 ? abs / theor * 100 : 0;
-        const n0 = resolveMat(l.material).getNK(refLam)[0];
+        const n0 = ctx.resolveMat(l.material).getNK(refLam)[0];
         const dn = run.matDeltas[i]?.dn || 0, inh = run.matDeltas[i]?.inh || 0;
-        return { i, num: flipLayerIndex(layers.length, i), name: matName(l.material), theor, dep, abs, rel, nTheor: n0, nDep: n0 + dn, dn, inh };
+        return { i, num: flipLayerIndex(layers.length, i), name: matName(ctx.resolveMat, l.material), theor, dep, abs, rel, nTheor: n0, nDep: n0 + dn, dn, inh };
     }).reverse();
 }
 

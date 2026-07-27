@@ -4,6 +4,7 @@
  */
 
 import { useDesign } from '../../../../state/DesignContext.js';
+import { useUnresolvedMaterials } from '../../../../utils/materials/useUnresolvedMaterials.js';
 import { usePersistentNumber } from '../../../ui/usePersistentState.js';
 import { useSession } from './sessionState.js';
 import {
@@ -17,6 +18,7 @@ const { createElement: h, useState } = React;
 export function ZemaxCoatings({ c, t }) {
     const z = t.zemaxCoatings;
     const { design, updateDesign, checkpoint } = useDesign();
+    const missingMaterialIds = useUnresolvedMaterials(design);
     const [tab, setTab] = useSession('tab');
     const [doc, setDoc] = useSession('doc');
     const [fileName, setFileName] = useSession('fileName');
@@ -55,6 +57,6 @@ export function ZemaxCoatings({ c, t }) {
         selMats, setSelMats, thMode, setThMode, scope, setScope, coatName,
         setCoatName, preview, loading, status, refNm, setRefNm, gStart,
         setGStart, gEnd, setGEnd, gStep, setGStep, onLoad, importCoating,
-        importMaterials, onGenerate, onSave,
+        importMaterials, onGenerate, onSave, missingMaterialIds,
     });
 }

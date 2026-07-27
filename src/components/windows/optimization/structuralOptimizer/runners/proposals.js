@@ -2,7 +2,7 @@ import {
     scanNeedlesPFunction, findOptimalNeedleThickness, insertNeedle, insertNeedleIntra,
 } from '../../../../../utils/physics/optimizer.js';
 import { proposeMutation, metropolisAccept } from '../../../../../utils/synthesis/structuralOptimizer.js';
-import { resolveMat } from '../../synthesisShared/synthesisHelpers.js';
+import { materialLookup } from '../../synthesisShared/synthesisHelpers.js';
 import { alive } from './runUtils.js';
 import { designFor, refineJob, onTick, normalizeResult } from './refine.js';
 import { refineGuarded } from './workerLifecycle.js';
@@ -16,6 +16,7 @@ export function needleProposals(S, current, count) {
         [S.layerKey]: current[S.layerKey],
         [S.otherKey]: current[S.otherKey],
     };
+    const resolveMat = materialLookup(S.curDes);
     let candidates;
     try {
         ({ candidates } = scanNeedlesPFunction({

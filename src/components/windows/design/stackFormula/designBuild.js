@@ -11,11 +11,13 @@ function reId(layers, pfx) { return layers.map((l, i) => ({ ...l, id: `${pfx}${i
 // layer first.
 export function buildNewDesignFromFormula({
     newName, refLambda, incidentMat, substrateMat, exitMat, effSide,
-    text, symbolMap, startFromSubstrate,
+    text, symbolMap, startFromSubstrate, resolvers, sourceMaterials,
 }) {
     const base = makeDefaultDesign(newName);
     const seed = base.id;
-    const rb = buildStackFromFormula({ text, symbolMap, refLambda, startFromSubstrate, idSeed: seed });
+    const rb = buildStackFromFormula({
+        text, symbolMap, refLambda, startFromSubstrate, idSeed: seed, resolvers,
+    });
     const f = rb.layers;
     const b = mirrorLayers(rb.layers, `b-${seed}-`);
     let frontLayers = [], backLayers = [], surfaceMode = 'front_only';
@@ -26,6 +28,7 @@ export function buildNewDesignFromFormula({
         ...base, name: newName, referenceWavelength: refLambda,
         incidentMedium: incidentMat, exitMedium: exitMat,
         substrate: { ...base.substrate, material: substrateMat },
+        ...(sourceMaterials ? { materials: sourceMaterials } : {}),
         surfaceMode, frontLayers, backLayers, stackFormula: text,
         notes: `Generated from stack formula (${effSide}):\n${text}\nλ₀ = ${refLambda} nm`,
     };

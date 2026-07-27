@@ -1,12 +1,8 @@
 import { evaluateSpectrumTotal } from '../../../../utils/physics/thinFilmMath.js';
-import { getMaterialById } from '../../../../utils/materials/catalogManager.js';
 import { getMaterial } from '../../../../utils/materials/materialDatabase.js';
+import { designMaterialLookup } from '../../../../utils/materials/designMaterials.js';
 
-export function resolveMaterial(id) {
-    return id ? getMaterialById(id) || getMaterial(id) || getMaterial('Air') : getMaterial('Air');
-}
-
-function resolveLayers(layers) {
+function resolveLayers(layers, resolveMaterial) {
     return layers.map((layer, index) => ({
         id: `${layer.id || index}-${layer.material}`,
         materialId: layer.material,
@@ -24,6 +20,7 @@ export function buildDepositionModel(design, activeSide) {
             exitMat: getMaterial('Air'), substrateThk: 1.0,
         };
     } else {
+        const resolveMaterial = designMaterialLookup(design);
         // Front layers are stored outermost-to-substrate; back layers are stored
         // substrate-to-exit. Deposition order is substrate-side first on both sides.
         const frontStored = (design.frontLayers || []).filter(layer => layer && layer.thickness > 0);
@@ -32,8 +29,8 @@ export function buildDepositionModel(design, activeSide) {
         const backDep = backStored.slice();
         const active = activeSide === 'front' ? frontDep : backDep;
         const other = activeSide === 'front' ? backDep : frontDep;
-        const activeDep = resolveLayers(active);
-        const otherDep = resolveLayers(other);
+        const activeDep = resolveLayers(active, resolveMaterial);
+        const otherDep = resolveLayers(other, resolveMaterial);
         const materialIds = new Set();
         for (const layer of [...activeDep, ...otherDep]) materialIds.add(layer.materialId);
         model = {

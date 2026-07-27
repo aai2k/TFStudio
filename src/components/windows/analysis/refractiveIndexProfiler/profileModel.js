@@ -1,13 +1,9 @@
 import { computeRIProfile } from '../../../../utils/physics/thinFilmMath.js';
-import { getMaterialById, resolveColor } from '../../../../utils/materials/catalogManager.js';
-import { getMaterial } from '../../../../utils/materials/materialDatabase.js';
+import { resolveColor } from '../../../../utils/materials/catalogManager.js';
+import { designMaterialLookup } from '../../../../utils/materials/designMaterials.js';
 
-function resolveMaterial(id) {
-    if (!id) return getMaterial('Air');
-    return getMaterialById(id) || getMaterial(id) || getMaterial('Air');
-}
-
-export function buildMatColorMap(layers) {
+export function buildMatColorMap(design, layers) {
+    const resolveMaterial = designMaterialLookup(design);
     const map = {};
     for (const l of layers) {
         const key = l.materialId;
@@ -27,6 +23,7 @@ export function computeProfileForSide(design, lambda_nm, side) {
     if (!rawLayers.length) return null;
 
     const n0Id = side === 'back' ? design.exitMedium : design.incidentMedium;
+    const resolveMaterial = designMaterialLookup(design);
     const n0mat = resolveMaterial(n0Id);
     const nsmat = resolveMaterial(design.substrate?.material);
     const [n0n, n0k] = n0mat.getNK(lambda_nm);
@@ -69,6 +66,7 @@ export function buildRegionProfile(layers) {
 }
 
 export function computeTotalRegions(design, lambda_nm, rp) {
+    const resolveMaterial = designMaterialLookup(design);
     const sampleLayers = (rawLayers) => (rawLayers || [])
         .filter(l => l.material && l.thickness > 0)
         .map(l => {

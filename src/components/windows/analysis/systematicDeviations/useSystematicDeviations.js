@@ -1,6 +1,5 @@
 import { useDesign } from '../../../../state/DesignContext.js';
-import { getMaterialById } from '../../../../utils/materials/catalogManager.js';
-import { getMaterial } from '../../../../utils/materials/materialDatabase.js';
+import { designMaterialLookup } from '../../../../utils/materials/designMaterials.js';
 import {
     cloneDeviation,
     computeDeviatedSpectrum,
@@ -15,14 +14,10 @@ import { sweepParamKind } from './model.js';
 
 const { useCallback, useEffect, useMemo, useState } = React;
 
-export function resolveMaterial(id) {
-    if (!id) return getMaterial('Air');
-    return getMaterialById(id) || getMaterial(id) || getMaterial('Air');
-}
-
 function computeSpectrum(design, params, deviation, evalMode) {
     if (!design?.frontLayers) return { s: null, error: null };
     try {
+        const resolveMaterial = designMaterialLookup(design);
         return { s: computeDeviatedSpectrum(design, params, deviation, evalMode, resolveMaterial), error: null };
     } catch (error) {
         return { s: null, error: error.message };
@@ -95,7 +90,7 @@ export function useSystematicDeviations() {
     }), [lambdaStart, lambdaEnd, lambdaStep, aoi, pol]);
     const uniqueMats = useMemo(() => enumerateUniqueMaterials(design), [design]);
     const specDev = useMemo(
-        () => deviatedDesignForSpec(design, dev, resolveMaterial),
+        () => deviatedDesignForSpec(design, dev, designMaterialLookup(design)),
         [design, dev]
     );
     const baselineM = useMemo(
@@ -114,7 +109,8 @@ export function useSystematicDeviations() {
         setTimeout(() => {
             try {
                 const result = runDeviationSweep({
-                    design, params, baseDev: sweepBaseDeviation(sweep), sweep, evalMode, resolveMat: resolveMaterial,
+                    design, params, baseDev: sweepBaseDeviation(sweep), sweep, evalMode,
+                    resolveMat: designMaterialLookup(design),
                 });
                 const unit = sweepParamKind(sweep.param) === 'offset' ? ` (${sweep.offsetUnit || 'nm'})` : '';
                 result.paramName = paramLabel(sweep.param) + unit;

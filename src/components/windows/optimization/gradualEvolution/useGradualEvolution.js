@@ -11,7 +11,7 @@
  * function rather than inline inside a React effect/callback.
  */
 
-import { getCatalogs } from '../../../../utils/materials/catalogManager.js';
+import { poolCatalogs } from '../synthesisShared/synthesisHelpers.js';
 
 // Shared synthesis helpers (see synthesisHelpers.js). The two window-parameterized
 // ones (verbose pool / cat-selection key) get thin same-named wrappers below so
@@ -30,8 +30,11 @@ const { useState, useEffect, useRef, useCallback } = React;
 
 // ── Window-parameterized wrappers around the shared helpers ─────────────────────
 const GE_CATS_KEY = 'tfstudio_ge_selectedCats';
-// GE keeps its original quiet pool (no verbose diagnostics).
-const getPoolMaterials = (selectedCatalogIds, excluded) => getPoolMaterialsShared(selectedCatalogIds, { excluded });
+// GE keeps its original quiet pool (no verbose diagnostics). The pool is bound to
+// the live design so the design's own materials are always on offer, including
+// embedded definitions that no local catalog can serve.
+const makeGetPoolMaterials = (designRef) => (selectedCatalogIds, excluded) =>
+    getPoolMaterialsShared(selectedCatalogIds, { excluded, design: designRef.current });
 
 // ── Settings sub-hook: persisted run parameters + material-pool selection ──────
 // Defaults mirror Python gradual_evolution.py: max_layers=16, tol=5e-4,
@@ -222,7 +225,8 @@ export function useGradualEvolution({ design, updateDesign, checkpoint, beginOpt
             setMf: run.setMf, setOmf: run.setOmf, setMfBest: run.setMfBest, setOmfBest: run.setOmfBest,
             setCycles: run.setCycles, setGeneration: run.setGeneration,
             setLayerCount: run.setLayerCount, setGeSteps: run.setGeSteps,
-            reconcileBaseWithEdits, stopOpt, getPoolMaterials, t,
+            reconcileBaseWithEdits, stopOpt, t,
+            getPoolMaterials: makeGetPoolMaterials(run.designRef),
         });
     }, [stopOpt, reconcileBaseWithEdits, t]);
 
@@ -268,7 +272,7 @@ export function useGradualEvolution({ design, updateDesign, checkpoint, beginOpt
         phase: run.phase, generation: run.generation, geSteps: run.geSteps,
         cycles: run.cycles, cyclesRef: run.cyclesRef, mf: run.mf, mfBest: run.mfBest,
         layerCount: run.layerCount, canReset: run.canReset, statusMsg: run.statusMsg,
-        catalogs: getCatalogs(),
+        catalogs: poolCatalogs(design, t.pool.designCatalog),
         selectedCats: settings.selectedCats, handleToggleCat: settings.handleToggleCat,
         handleSelectAllCats: settings.handleSelectAllCats, handleClearCats: settings.handleClearCats,
         excludedMats: settings.excludedMats, handleToggleMat: settings.handleToggleMat,

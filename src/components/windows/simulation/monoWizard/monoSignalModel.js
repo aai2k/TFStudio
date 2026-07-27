@@ -6,7 +6,6 @@
  * target thickness. Optional Gaussian random noise (% of signal) for page 4.
  */
 
-import { resolveMat }     from '../wizardShared.js';
 import { mulberry32 }     from '../../../../utils/monitoring/monoSim.js';
 import { systemSpectrum, flipLayerIndex } from '../../../../utils/monitoring/depositionSpectrum.js';
 
@@ -18,7 +17,7 @@ export function monoSignalVsThickness({ layers, k, monRow, common, ctx, noisePct
     const dHi = Math.max(2 * dTarget, dTarget + 50);
     const NP = 70;
     const baseThicks = layers.map(l => l.thickness || 0);
-    const frontDep = layers.map(l => ({ material: resolveMat(l.material) }));
+    const frontDep = layers.map(l => ({ material: ctx.resolveMat(l.material) }));
     const rng = noisePct > 0 ? mulberry32((nonce | 0) + 17) : null;
     const ds = new Array(NP), ys = new Array(NP);
     for (let s = 0; s < NP; s++) {

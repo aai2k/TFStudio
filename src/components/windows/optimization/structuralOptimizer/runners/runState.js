@@ -43,7 +43,9 @@ function checkPool(state) {
     const side = activeSide(curDes);
     const layerKey = side === 'back' ? 'backLayers' : 'frontLayers';
     const otherKey = layerKey === 'frontLayers' ? 'backLayers' : 'frontLayers';
-    const pool = getPoolMaterials(ctx.selectedCatsRef.current, { excluded: ctx.excludedMatsRef.current });
+    const pool = getPoolMaterials(ctx.selectedCatsRef.current, {
+        excluded: ctx.excludedMatsRef.current, design: curDes,
+    });
     const needsPool = cfg.kinds.has('add') || cfg.kinds.has('split');
     const hasNonPool = cfg.kinds.has('remove') || cfg.kinds.has('merge') || cfg.kinds.has('perturb');
     if (needsPool && !pool.length && !hasNonPool) {

@@ -10,13 +10,15 @@
  */
 
 import { resolveEvalMode }  from '../../../../utils/physics/optimizer.js';
-import { resolveMat, medId } from '../wizardShared.js';
+import { designMaterialLookup } from '../../../../utils/materials/designMaterials.js';
+import { medId } from '../wizardShared.js';
 
 const { useMemo } = React;
 
 export function useWizardShell(design) {
     const evalMode   = resolveEvalMode(design);
     const activeSide = (design?.surfaceMode === 'back_only') ? 'back' : 'front';
+    const resolveMat = useMemo(() => designMaterialLookup(design), [design]);
 
     // back_only deposits the BACK stack, simulated as a front coating grown from
     // the exit side: reversed storage order + the exit medium as the incident.
@@ -39,7 +41,7 @@ export function useWizardShell(design) {
     }, [layers]);
 
     const ctx = useMemo(() => design ? {
-        design, simDesign, evalMode, activeSide,
+        design, simDesign, evalMode, activeSide, resolveMat,
         incMat: resolveMat(medId(design.incidentMedium)),
         subMat: resolveMat(design.substrate?.material),
         exitMat: resolveMat(design.exitMedium),
@@ -52,7 +54,7 @@ export function useWizardShell(design) {
         // back: substrate→exit), resolved at nominal thickness.
         otherStored: (activeSide === 'back' ? (design.frontLayers || []) : (design.backLayers || []))
             .map(l => ({ material: resolveMat(l.material), thickness: l.thickness })),
-    } : null, [design, simDesign, evalMode, activeSide]);
+    } : null, [design, simDesign, evalMode, activeSide, resolveMat]);
 
     return { evalMode, activeSide, simDesign, layers, materialIds, ctx };
 }

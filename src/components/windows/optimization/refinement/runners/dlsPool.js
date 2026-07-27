@@ -12,7 +12,8 @@
 import { DLSOptimizer } from '../../../../../utils/physics/optimizer.js';
 import { getThreadCount } from '../../../../../utils/synthesis/synthesisConfig.js';
 import { OPTIMIZER_WORKER_URL as WORKER_URL } from '../../../../../workerUrls.js';
-import { resolveMat, densifyForRun, presampleMaterials } from '../refinementUtils.js';
+import { designMaterialLookup } from '../../../../../utils/materials/designMaterials.js';
+import { densifyForRun, presampleMaterials } from '../refinementUtils.js';
 import { runOptMainThread } from './mainThread.js';
 import { designForRestart, makeJob } from './dlsPoolJobs.js';
 import { handleMsg, doFallback } from './dlsPoolMessages.js';
@@ -92,7 +93,8 @@ function startPool(ctx, S) {
 // readouts, independent of which worker reports first.
 function evalBaseline(ctx, S) {
     try {
-        const baseOpt = new DLSOptimizer(S.ops, designForRestart(S, 0), resolveMat);
+        const baseOpt = new DLSOptimizer(
+            S.ops, designForRestart(S, 0), designMaterialLookup(ctx.designRef.current));
         ctx.setMfInitial(baseOpt.mf);
         ctx.setMfBest(S.isMulti ? null : baseOpt.mfBest);
         ctx.setMf(baseOpt.mf);

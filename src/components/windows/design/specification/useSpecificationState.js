@@ -3,7 +3,7 @@ import {
 } from '../../../../utils/synthesis/qualifiers.js';
 import { applyPreset } from '../../../../utils/synthesis/qualifierPresets.js';
 import { useTableShortcuts } from '../../../../hooks/useTableShortcuts.js';
-import { resolveMat } from './model.js';
+import { designMaterialLookup } from '../../../../utils/materials/designMaterials.js';
 
 const { useCallback, useMemo, useRef, useState } = React;
 
@@ -110,7 +110,7 @@ export function useSpecificationState({ design, updateDesign, checkpoint }) {
     // Live evaluation
     const results = useMemo(() => {
         if (!design) return [];
-        try { return evaluateQualifiers(qualifiers, design, resolveMat); }
+        try { return evaluateQualifiers(qualifiers, design, designMaterialLookup(design)); }
         catch { return qualifiers.map(() => ({ value: null, pass: null })); }
     }, [qualifiers, design]);
 

@@ -7,7 +7,12 @@ const { createElement: h, useState, useRef, useCallback, useMemo } = React;
 
 // ── Layer list panel (for one side) ──────────────────────────────────────────
 
-export function LayerList({ layers, side, design, c,
+function missingReferenceStyle(id, missingMaterialIds, c, t) {
+    if (!missingMaterialIds.has(id)) return { title: undefined, color: c.textDim };
+    return { title: t.materialResolution.rowMissing(id), color: c.error };
+}
+
+export function LayerList({ layers, side, design, missingMaterialIds, c,
     addLayer, removeLayer, updateLayer, moveLayer, duplicateLayer,
     insertLayerAt, removeLayerAt, duplicateLayerAt,
     invertActiveSide, setAllLocked, copyToOther, onOpenReplaceMaterials,
@@ -17,6 +22,10 @@ export function LayerList({ layers, side, design, c,
     const selectedIndex = layers.findIndex(l => l.id === selectedId);
     const de = t.designEditor;
     const containerRef = useRef(null);
+    const substrateWarning = missingReferenceStyle(
+        design.substrate.material, missingMaterialIds, c, t);
+    const boundaryMaterial = side === 'front' ? design.incidentMedium : design.exitMedium;
+    const boundaryWarning = missingReferenceStyle(boundaryMaterial, missingMaterialIds, c, t);
 
     // Front coating is displayed substrate-first (reversed) so layer 1 is the one
     // touching the substrate, matching the back coating convention.
@@ -71,9 +80,10 @@ export function LayerList({ layers, side, design, c,
             onRemove: onRemoveRow,
             canMoveUp: di > 0,
             canMoveDown: di < lastIdx,
+            isMaterialMissing: missingMaterialIds.has(layer.material),
             refLambda, t,
         }));
-    }, [layers, reversed, selectedId, refLambda, c, t,
+    }, [layers, reversed, selectedId, missingMaterialIds, refLambda, c, t,
         selectAndFocus, onMaterialChangeRow, onThicknessChangeRow, onLockToggleRow,
         onMoveUpRow, onMoveDownRow, onDuplicateRow, onRemoveRow]);
 
@@ -171,7 +181,12 @@ export function LayerList({ layers, side, design, c,
         ),
 
         // Substrate top label (both front reversed and back show substrate at top)
-        h('div', { style: { padding: '2px 4px', fontSize: 10, color: c.textDim, fontStyle: 'italic', flexShrink: 0 } },
+        h('div', {
+            title: substrateWarning.title,
+            style: { padding: '2px 4px', fontSize: 10,
+                color: substrateWarning.color,
+                fontStyle: 'italic', flexShrink: 0 },
+        },
             de.substrateTopLabel(design.substrate.material)
         ),
 
@@ -190,7 +205,12 @@ export function LayerList({ layers, side, design, c,
         ),
 
         // Incident / exit bottom label
-        h('div', { style: { padding: '2px 4px', fontSize: 10, color: c.textDim, fontStyle: 'italic', flexShrink: 0, borderTop: `1px solid ${c.border}` } },
+        h('div', {
+            title: boundaryWarning.title,
+            style: { padding: '2px 4px', fontSize: 10,
+                color: boundaryWarning.color,
+                fontStyle: 'italic', flexShrink: 0, borderTop: `1px solid ${c.border}` },
+        },
             side === 'front'
                 ? de.incidentBottomLabel(design.incidentMedium)
                 : de.exitLabel(design.exitMedium)

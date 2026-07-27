@@ -5,7 +5,7 @@
 // high-complexity file.
 
 import { DLSOptimizer, mirrorLayers } from '../../../../../utils/physics/optimizer.js';
-import { resolveMat } from '../refinementUtils.js';
+import { designMaterialLookup } from '../../../../../utils/materials/designMaterials.js';
 
 const D_MIN = 1.0, D_MAX = 2000.0;
 // Steps run per animation tick before touching React state / live preview. The
@@ -144,7 +144,7 @@ export function msRunOne(ctx, M) {
 
     let opt;
     try {
-        opt = new DLSOptimizer(M.ops, perturbedDesignFor(M), resolveMat);
+        opt = new DLSOptimizer(M.ops, perturbedDesignFor(M), designMaterialLookup(M.curDes));
     } catch (err) {
         console.error(`[Multi-start ${M.restart}/${M.N}] init failed:`, err);
         ctx.timerRef.current = setTimeout(() => msRunOne(ctx, M), 0);

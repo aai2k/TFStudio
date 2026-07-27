@@ -1,15 +1,9 @@
 import { useDesign } from '../../../../state/DesignContext.js';
-import { getMaterialById } from '../../../../utils/materials/catalogManager.js';
-import { getMaterial } from '../../../../utils/materials/materialDatabase.js';
+import { designMaterialLookup } from '../../../../utils/materials/designMaterials.js';
 import { listThinLayers } from '../../../../utils/synthesis/designCleaner.js';
 import { applyCleanup, computeCleanupPreview, computeMeritValue } from './model.js';
 
 const { useState, useMemo, useCallback } = React;
-
-export function resolveCleanerMaterial(id) {
-    if (!id) return getMaterial('Air');
-    return getMaterialById(id) || getMaterial(id) || getMaterial('Air');
-}
 
 export function useDesignCleaner(dc) {
     const { design, updateDesign, checkpoint } = useDesign();
@@ -22,6 +16,7 @@ export function useDesignCleaner(dc) {
 
     const [applying,  setApplying]  = useState(false);
     const [resultMsg, setResultMsg] = useState(null);
+    const resolveMaterial = useMemo(() => designMaterialLookup(design), [design]);
 
     const preview = useMemo(
         () => computeCleanupPreview(design, { dMin, mergeAdjacent, cleanBack }),
@@ -30,12 +25,12 @@ export function useDesignCleaner(dc) {
 
     // MF (before vs after) — uses live design operands if any
     const mfBefore = useMemo(
-        () => computeMeritValue(design, design?.meritOperands, resolveCleanerMaterial),
-        [design]
+        () => computeMeritValue(design, design?.meritOperands, resolveMaterial),
+        [design, resolveMaterial]
     );
     const mfAfter = useMemo(
-        () => computeMeritValue(preview?.design, design?.meritOperands, resolveCleanerMaterial),
-        [preview, design]
+        () => computeMeritValue(preview?.design, design?.meritOperands, resolveMaterial),
+        [preview, design, resolveMaterial]
     );
 
     const apply = useCallback(() => {
@@ -51,7 +46,7 @@ export function useDesignCleaner(dc) {
 
         try {
             const { nextDesign, msg } = applyCleanup(
-                preview, design, dc, { reoptimize, reoptIters, dMin }, resolveCleanerMaterial
+                preview, design, dc, { reoptimize, reoptIters, dMin }, resolveMaterial
             );
             updateDesign({
                 frontLayers: nextDesign.frontLayers,
@@ -62,7 +57,7 @@ export function useDesignCleaner(dc) {
             setResultMsg(`Error: ${e.message || e}`);
         }
         setApplying(false);
-    }, [preview, dc, design, updateDesign, checkpoint, reoptimize, reoptIters, dMin]);
+    }, [preview, dc, design, updateDesign, checkpoint, reoptimize, reoptIters, dMin, resolveMaterial]);
 
     const ops = preview?.ops || [];
     const removedOps = ops.filter(o => o.kind === 'remove');

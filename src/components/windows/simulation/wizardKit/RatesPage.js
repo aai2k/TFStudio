@@ -12,7 +12,7 @@ import { SplitPage, inputStyle, NumField, cullName, matName, Chart } from '../wi
 
 const { createElement: h, useEffect, useMemo } = React;
 
-export function RatesPage({ p, set, materialIds, c, B, samplePath }) {
+export function RatesPage({ p, set, materialIds, resolveMat, c, B, samplePath }) {
     const sel = p.selMat && materialIds.includes(p.selMat) ? p.selMat : materialIds[0];
     useEffect(() => { if (sel && sel !== p.selMat) set('selMat', sel); }, [sel]); // eslint-disable-line
     const rate = p.rates[sel] || { meanA: 4, rmsA: 0.4, corr: 3 };
@@ -28,9 +28,9 @@ export function RatesPage({ p, set, materialIds, c, B, samplePath }) {
         left: [
             h('label', { key: 'msl', style: { fontSize: 12, color: c.textDim, fontWeight: 600 } }, B.material),
             h('select', { key: 'ms', value: sel || '', onChange: (e) => set('selMat', e.target.value), style: inputStyle(c, '100%') },
-                materialIds.map(id => h('option', { key: id, value: id, title: matName(id) }, cullName(matName(id), 26)))),
+                materialIds.map(id => h('option', { key: id, value: id, title: matName(resolveMat, id) }, cullName(matName(resolveMat, id), 26)))),
             h('div', { key: 'grp', style: { fontSize: 12, fontWeight: 600, color: c.text, marginTop: 4 } },
-                cullName(matName(sel), 24)),
+                cullName(matName(resolveMat, sel), 24)),
             h(NumField, { key: 'mean', label: B.meanRate, value: rate.meanA, min: 0.01, max: 200, step: 0.1, c, width: 110, onChange: (v) => setRate('meanA', v) }),
             h(NumField, { key: 'rms', label: B.rms, value: rate.rmsA, min: 0, max: 100, step: 0.05, c, width: 110, onChange: (v) => setRate('rmsA', v) }),
             h(NumField, { key: 'corr', label: B.corrTime, value: rate.corr, min: 0, max: 120, step: 0.5, c, width: 110, onChange: (v) => setRate('corr', v) }),

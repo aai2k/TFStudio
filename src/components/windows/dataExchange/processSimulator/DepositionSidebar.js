@@ -1,5 +1,4 @@
 import { NumInput } from './controls.js';
-import { resolveMaterial } from './model.js';
 
 const { createElement: h } = React;
 
@@ -12,9 +11,8 @@ function cullName(name, max = 18) {
     return name.length > max ? name.slice(0, max - 1) + '…' : name;
 }
 
-function materialDisplay(id) {
-    const material = resolveMaterial(id);
-    return material?.name || id || '';
+function materialDisplay(layer) {
+    return layer?.matObj?.name || layer?.materialId || '';
 }
 
 function SectionTitle({ c, children }) {
@@ -45,8 +43,8 @@ function SequenceRows({ c, sp, deposition }) {
                 h('td', { style: { padding: '4px 4px' } }, number),
                 h('td', {
                     style: { padding: '4px 4px', maxWidth: 130, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' },
-                    title: materialDisplay(layer.materialId),
-                }, cullName(materialDisplay(layer.materialId))),
+                    title: materialDisplay(layer),
+                }, cullName(materialDisplay(layer))),
                 h('td', { style: { padding: '4px 4px', textAlign: 'right' } }, formatNumber(layer.thickness, 2)),
                 h('td', { style: { padding: '4px 4px', textAlign: 'right' } }, formatNumber(deposition.layerTimes[index], 1)),
             );
@@ -77,7 +75,7 @@ function SequenceTable({ c, sp, deposition }) {
     );
 }
 
-function RatesTable({ c, sp, setup, materials }) {
+function RatesTable({ c, sp, setup, layers, materials }) {
     let content = h('div', { style: { color: c.textDim, fontSize: 11 } }, '—');
     if (materials.length !== 0) {
         content = h('table', { style: { width: '100%', borderCollapse: 'collapse', fontSize: 11 } },
@@ -88,11 +86,14 @@ function RatesTable({ c, sp, setup, materials }) {
                 ),
             ),
             h('tbody', null,
-                materials.map(materialId => h('tr', { key: materialId },
+                materials.map(materialId => {
+                    const layer = layers.find(item => item.materialId === materialId);
+                    const display = materialDisplay(layer);
+                    return h('tr', { key: materialId },
                     h('td', {
                         style: { padding: '4px 4px', maxWidth: 150, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' },
-                        title: materialDisplay(materialId),
-                    }, cullName(materialDisplay(materialId))),
+                        title: display,
+                    }, cullName(display)),
                     h('td', { style: { padding: '4px 4px', textAlign: 'right' } },
                         h(NumInput, {
                             value: setup.rates[materialId] != null ? setup.rates[materialId] : 1.0,
@@ -101,7 +102,7 @@ function RatesTable({ c, sp, setup, materials }) {
                             c, width: 78,
                         }),
                     ),
-                )),
+                ); }),
             ),
         );
     }
@@ -125,7 +126,7 @@ export function DepositionSidebar({ c, sp, setup, deposition }) {
         h('div', { style: { padding: '8px 10px', borderTop: `1px solid ${c.border}` } },
             h(SectionTitle, { c }, sp.sectionRates),
             h('div', { style: { color: c.textDim, fontSize: 10, marginBottom: 6, lineHeight: 1.4 } }, sp.rateHint),
-            h(RatesTable, { c, sp, setup, materials: deposition.materials }),
+            h(RatesTable, { c, sp, setup, layers: deposition.activeDep, materials: deposition.materials }),
         ),
     );
 }

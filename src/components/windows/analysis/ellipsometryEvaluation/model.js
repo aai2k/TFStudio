@@ -1,11 +1,3 @@
-import { getMaterialById } from '../../../../utils/materials/catalogManager.js';
-import { getMaterial } from '../../../../utils/materials/materialDatabase.js';
-
-export function resolveMaterial(id) {
-    if (!id) return getMaterial('Air');
-    return getMaterialById(id) || getMaterial(id) || getMaterial('Air');
-}
-
 // thinFilmMath uses n + ik with nonnegative k for passive absorption.
 export function nkAt(material, lambdaNm) {
     const [nr, nk] = material.getNK(lambdaNm);
@@ -14,7 +6,7 @@ export function nkAt(material, lambdaNm) {
 
 // Back-side deposition order is reversed so both side lists are sampled from
 // the incident medium toward the substrate.
-export function sideLayersAt(design, side, lambdaNm) {
+export function sideLayersAt(resolveMaterial, design, side, lambdaNm) {
     const layers = side === 'back' ? (design.backLayers || []) : (design.frontLayers || []);
     const ordered = side === 'back' ? [...layers].reverse() : layers;
     return ordered

@@ -3,7 +3,7 @@ import { collectDesignMaterialIds, buildPresampledTable } from '../../../../util
 import { WorkerPool } from '../../../../utils/workers/workerPool.js';
 import { getTmmWasmBytesForWorker } from '../../../../utils/workers/tmmWasm.js';
 import { PLOT_SURFACE_WORKER_URL } from '../../../../workerUrls.js';
-import { resolveMaterial } from './materialContext.js';
+import { designMaterialLookup } from '../../../../utils/materials/designMaterials.js';
 
 function poolSize() {
     const hw = (typeof navigator !== 'undefined' && navigator.hardwareConcurrency) || 4;
@@ -12,6 +12,7 @@ function poolSize() {
 
 function createPool(surfaceSpec, design) {
     const lambdas = requiredSurfaceLambdas(surfaceSpec, design);
+    const resolveMaterial = designMaterialLookup(design);
     const pairs = collectDesignMaterialIds(design).map(id => ({ id, mat: resolveMaterial(id) }));
     const materials = buildPresampledTable(lambdas, pairs);
     const wasmBytes = getTmmWasmBytesForWorker();
@@ -74,7 +75,7 @@ async function runWorkerSweep(options, meta) {
 export async function runSurfaceSweep(options) {
     const { surfaceSpec, design, setSurfaceResult, setComputing } = options;
     const isCurrent = options.isCurrent || (() => true);
-    const meta = computeSurface(surfaceSpec, design, resolveMaterial, { rowFrom: 0, rowTo: 0 });
+    const meta = computeSurface(surfaceSpec, design, designMaterialLookup(design), { rowFrom: 0, rowTo: 0 });
     if (!meta.ok) {
         if (isCurrent()) {
             setSurfaceResult(meta);

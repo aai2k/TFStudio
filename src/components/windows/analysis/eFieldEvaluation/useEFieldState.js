@@ -30,7 +30,7 @@ export function useEFieldState(design) {
         if (!design) { setProfile(null); return; }
         const result = computeProfile(design, lambda, theta, pol, side);
         setProfile(result);
-        if (result?.validLayers) setMatColorMap(buildMatColorMap(result.validLayers));
+        if (result?.validLayers) setMatColorMap(buildMatColorMap(design, result.validLayers));
         else setMatColorMap({});
     }, [design, lambda, theta, pol, side]);
 

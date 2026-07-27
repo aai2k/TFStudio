@@ -4,7 +4,7 @@ import {
 } from '../../../../utils/physics/optimizer.js';
 import { generateARSeeds } from '../../../../utils/synthesis/seedGenerator.js';
 import { getThreadCount } from '../../../../utils/synthesis/synthesisConfig.js';
-import { resolveMat } from './materialNames.js';
+import { designMaterialLookup } from '../../../../utils/materials/designMaterials.js';
 
 // ── Surface-mode-aware active synthesis side ────────────────────────────────────
 // For both_independent the UI selector (when added) drives this; default 'front'.
@@ -19,7 +19,7 @@ export const activeSide = (d) => resolveScanSide(d?.surfaceMode || 'front_only',
 // operands feed BOTH requiredLambdas and the worker scan/refine jobs →
 // byte-identical λ-grid contract preserved.
 export function densifyForRun(ops, design) {
-    return densifyOperandsForFeatures(ops, design, resolveMat, ADAPTIVE_SAMPLING_DEFAULTS, ({ bumped, capped }) =>
+    return densifyOperandsForFeatures(ops, design, designMaterialLookup(design), ADAPTIVE_SAMPLING_DEFAULTS, ({ bumped, capped }) =>
         console.log(`[Adaptive] densified ${bumped} operand(s) for narrow features`
             + (capped ? ` (${capped} capped at ${ADAPTIVE_SAMPLING_DEFAULTS.maxPoints} pts)` : '')));
 }

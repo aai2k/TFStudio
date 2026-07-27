@@ -10,7 +10,6 @@ import { useDepositionPlayback, useDepositionCurves } from '../wizardKit/deposit
 import { SimulationView } from '../wizardKit/SimulationView.js';
 import { simulateRun, mulberry32 } from '../../../../utils/monitoring/monitoringSim.js';
 import { BBM_WORKER_URL as RUN_WORKER_URL } from '../../../../workerUrls.js';
-import { resolveMat } from '../wizardShared.js';
 
 const { createElement: h, useState, useEffect, useRef, useCallback } = React;
 
@@ -35,7 +34,7 @@ function runExperiment({ cfg, ctx, layers, presampleMaterials, seed, workerRef, 
     if (!worker) {
         setTimeout(() => {
             const c2 = { ...cfg, rng: mulberry32(seed) };
-            onDone(simulateRun(ctx.simDesign, resolveMat, c2));
+            onDone(simulateRun(ctx.simDesign, ctx.resolveMat, c2));
         }, 20);
         return;
     }

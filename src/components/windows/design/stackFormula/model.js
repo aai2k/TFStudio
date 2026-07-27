@@ -1,15 +1,8 @@
-import { getMaterial } from '../../../../utils/materials/materialDatabase.js';
-import { getMaterialById } from '../../../../utils/materials/catalogManager.js';
 import { evaluateSpectrum } from '../../../../utils/physics/thinFilmMath.js';
 import {
     formulaOf, autoSymbolMap, collectUnknownSymbols,
-    resolveAtom, DEFAULT_SYMBOL_MAP,
+    resolveAtom, DEFAULT_SYMBOL_MAP, stackFormulaResolvers,
 } from '../../../../utils/synthesis/stackFormula.js';
-
-export function resolveMat(id) {
-    if (!id) return getMaterial('Air');
-    return getMaterialById(id) || getMaterial(id) || getMaterial('Air');
-}
 
 // Which symbols in the parsed atoms need a symbol→material assignment row?
 // Direct catalog material names (SiO2, BK7, …) don't; H/L/M and any unknown
@@ -77,7 +70,7 @@ export function stackTotalThickness(compiled) {
 // Compute the initial formula text + symbol-assignment rows for the dialog.
 // For an existing front stack: auto-detect symbols (autoSymbolMap) and emit a
 // compact formula. For an empty design: H/L/M defaults + a sample formula.
-export function computeSeed(design) {
+export function computeSeed(design, resolvers = stackFormulaResolvers(design)) {
     const layers = design.frontLayers || [];
     const lam = design.referenceWavelength || 550;
     if (!layers.length) {
@@ -86,22 +79,22 @@ export function computeSeed(design) {
             rows: Object.entries(DEFAULT_SYMBOL_MAP).map(([sym, matId]) => ({ sym, matId, fixed: true })),
         };
     }
-    const { symbolMap, id2sym, ranked } = autoSymbolMap(layers, lam);
+    const { symbolMap, id2sym, ranked } = autoSymbolMap(layers, lam, resolvers);
     let text = '';
-    try { text = formulaOf({ layers, refLambda: lam, symbolMap }); } catch { text = ''; }
+    try { text = formulaOf({ layers, refLambda: lam, symbolMap, resolvers }); } catch { text = ''; }
     const rows = ranked.map(id => ({ sym: id2sym[id], matId: id, fixed: false }));
     return { text, rows };
 }
 
 // T/R spectrum for the preview plot, or { error } when the compiled stack /
 // media aren't resolvable. Pure of DOM/Plotly — PreviewPlot only draws it.
-export function previewSpectrum(compiled, incidentId, substrateId, refLambda) {
+export function previewSpectrum(resolveMaterial, compiled, incidentId, substrateId, refLambda) {
     if (!compiled.ok) return { error: compiled.error };
     try {
-        const incMat = resolveMat(incidentId);
-        const subMat = resolveMat(substrateId);
+        const incMat = resolveMaterial(incidentId);
+        const subMat = resolveMaterial(substrateId);
         const layersResolved = compiled.layers.map(l => ({
-            material: resolveMat(l.material), thickness: l.thickness,
+            material: resolveMaterial(l.material), thickness: l.thickness,
         }));
         const lo = Math.max(200, refLambda * 0.6);
         const hi = Math.min(2500, refLambda * 1.7);

@@ -1,16 +1,10 @@
 import { evaluateSpectrum, evaluateSpectrumBack, evaluateSpectrumTotal } from '../../../../utils/physics/thinFilmMath.js';
-import { getMaterialById } from '../../../../utils/materials/catalogManager.js';
-import { getMaterial } from '../../../../utils/materials/materialDatabase.js';
+import { designMaterialLookup } from '../../../../utils/materials/designMaterials.js';
 import { makeConeSpec, coneAverageResult } from '../../../../utils/physics/optimizer.js';
 
 const CONE_SPEC_KEYS = ['T', 'R', 'A', 'Ts', 'Rs', 'Tp', 'Rp', 'As', 'Ap'];
 
-function resolveMaterial(id) {
-    if (!id) return getMaterial('Air');
-    return getMaterialById(id) || getMaterial(id) || getMaterial('Air');
-}
-
-function resolveLayers(layers) {
+function resolveLayers(resolveMaterial, layers) {
     return (layers || [])
         .filter(layer => layer.thickness > 0)
         .map(layer => ({ material: resolveMaterial(layer.material), thickness: layer.thickness }));
@@ -27,14 +21,15 @@ function evaluateAtAngle(state, theta) {
 }
 
 function spectrumState(design, params, evalMode) {
+    const resolveMaterial = designMaterialLookup(design);
     return {
         design, params, evalMode,
         incMat: resolveMaterial(design.incidentMedium),
         subMat: resolveMaterial(design.substrate.material),
         exitMat: resolveMaterial(design.exitMedium),
         subThick: design.substrate.thickness ?? 1.0,
-        frontLayers: resolveLayers(design.frontLayers),
-        backLayers: resolveLayers(design.backLayers),
+        frontLayers: resolveLayers(resolveMaterial, design.frontLayers),
+        backLayers: resolveLayers(resolveMaterial, design.backLayers),
     };
 }
 
@@ -58,9 +53,9 @@ export function computeOpticalSpectrum(design, params, evalMode) {
     return { lambda: lambda || [], series };
 }
 
-export function mediumName(id) {
+export function mediumName(design, id) {
     if (!id) return '';
-    const material = getMaterialById(id);
+    const material = designMaterialLookup(design)(id);
     if (material && material.name) return material.name;
     const separator = id.indexOf(':');
     return separator >= 0 ? id.slice(separator + 1) : id;

@@ -1,17 +1,12 @@
-import { getMaterialById } from '../utils/materials/catalogManager.js';
-import { getMaterial } from '../utils/materials/materialDatabase.js';
 import { useDesign } from '../state/DesignContext.js';
+import { designMaterialLookup } from '../utils/materials/designMaterials.js';
+import { useUnresolvedMaterials } from '../utils/materials/useUnresolvedMaterials.js';
 import { makeOperand, evaluateOperands, buildEvalContext } from '../utils/physics/optimizer.js';
 import { useIntegralPresets } from '../utils/physics/integralValues.js';
 
 const { createElement: h, useState, useEffect, Fragment } = React;
 
 const MONITORS_KEY = 'tfstudio-monitors-v1';
-
-function resolveMaterial(id) {
-    if (!id) return getMaterial('Air');
-    return getMaterialById(id) || getMaterial(id) || getMaterial('Air');
-}
 
 function loadMonitors() {
     try {
@@ -42,7 +37,7 @@ const MONITOR_OPERAND_TYPE = {
     integral: (q) => q + 'IW',
 };
 
-function computeMonitor(m, design) {
+function computeMonitor(m, design, resolveMaterial) {
     try {
         const makeType = MONITOR_OPERAND_TYPE[m.type];
         if (!makeType) return null;
@@ -254,8 +249,9 @@ function AddForm({ c, onAdd, onCancel, initial, mode }) {
 
 // ── Main component ────────────────────────────────────────────────────────────
 
-export function SpectralMonitor({ c }) {
+export function SpectralMonitor({ c, t }) {
     const { design, evalMode } = useDesign();
+    const missingMaterialIds = useUnresolvedMaterials(design);
     const [monitors, setMonitors] = useState(loadMonitors);
     const [values, setValues]     = useState(() => loadMonitors().map(() => null));
     const [adding, setAdding]     = useState(false);
@@ -264,7 +260,12 @@ export function SpectralMonitor({ c }) {
 
     useEffect(() => {
         saveMonitors(monitors);
-        setValues(monitors.map(m => computeMonitor(m, design)));
+        if (missingMaterialIds.length > 0) {
+            setValues(monitors.map(() => null));
+            return;
+        }
+        const resolveMaterial = designMaterialLookup(design);
+        setValues(monitors.map(m => computeMonitor(m, design, resolveMaterial)));
     }, [design, monitors, evalMode]);
 
     const addMonitor = (m) => { setMonitors(prev => [...prev, m]); setAdding(false); };
@@ -333,6 +334,10 @@ export function SpectralMonitor({ c }) {
                 }
             }, evalMode === 'front' ? 'Front' : evalMode === 'back' ? 'Back' : 'Total'),
             h('div', { style: { width: 1, height: 14, background: c.border } }),
+            missingMaterialIds.length > 0 && h('span', {
+                title: missingMaterialIds.join(', '),
+                style: { color: c.error, fontSize: 11, fontWeight: 600 },
+            }, `⚠ ${t.materialResolution.monitorsBlocked}`),
             monitors.map((m, i) => {
                 const val = values[i];
                 const display = val == null ? '—' : val.toFixed(3) + '%';

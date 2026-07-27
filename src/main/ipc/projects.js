@@ -147,6 +147,20 @@ function handleLoadFolders(ctx) {
   }
 }
 
+// Format of the .tfs files this build writes.
+//   1.0 — material ids only; a design is readable only where its catalogs exist
+//   1.1 — adds the `materials` block defining the non-built-in materials used
+const TFS_VERSION = '1.1';
+
+// Stamp the current format version and serialize. A design loaded from disk
+// carries the version it was read with, so the stamp has to replace it rather
+// than sit behind it in the spread.
+function serializeDesign(design) {
+  // eslint-disable-next-line no-unused-vars
+  const { tfs_version, ...rest } = design;
+  return JSON.stringify({ tfs_version: TFS_VERSION, ...rest }, null, 2);
+}
+
 // ── Save design as .tfs file ───────────────────────────────────────────────
 // The .tfs file is plain JSON readable with any text editor.
 function handleSaveDesign(ctx, folderName, design) {
@@ -168,8 +182,7 @@ function handleSaveDesign(ctx, folderName, design) {
       }
     }
 
-    const content = JSON.stringify({ tfs_version: '1.0', ...design }, null, 2);
-    writeFileAtomic(filePath, content, 'utf-8');
+    writeFileAtomic(filePath, serializeDesign(design), 'utf-8');
 
     // Remove any stale .tfs files in the same folder carrying the same design.id
     // (e.g. left over after a local rename that bypassed rename-item).
@@ -252,6 +265,9 @@ function handleRenameItem(ctx, folderName, oldName, newName) {
     if (!isCaseOnlyRename && fs.existsSync(newPath)) {
       return { success: false, error: 'A file with that name already exists' };
     }
+    // A rename does not re-embed materials, so the file keeps the format
+    // version it already carries; the literal only covers files written before
+    // the key existed.
     const newJson = JSON.stringify({ tfs_version: '1.0', ...design }, null, 2);
     if (isCaseOnlyRename) {
       // On case-insensitive filesystems (NTFS/HFS+) a direct write to newPath

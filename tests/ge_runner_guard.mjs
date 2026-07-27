@@ -98,13 +98,14 @@ globalThis.Worker = MockWorker;
 const { runGeMainThread } = await import('../src/components/windows/optimization/gradualEvolution/runners/mainThread.js');
 const { runGeWorker }     = await import('../src/components/windows/optimization/gradualEvolution/runners/workerPool.js');
 const { makeOperand }     = await import('../src/utils/physics/optimizer.js');
-const { resolveMat }      = await import('../src/components/windows/optimization/synthesisShared/synthesisHelpers.js');
+const { materialLookup }  = await import('../src/components/windows/optimization/synthesisShared/synthesisHelpers.js');
 
 const ref = v => ({ current: v });
 const sleep = ms => new Promise(r => setTimeout(r, ms));
 
 // Build a fake GradualEvolution ctx + a snapshot recorder.
 function makeCtx(design, ops, settings) {
+    const resolveMaterial = materialLookup(design);
     const snap = { applied: null, mf: null, mfBest: null, omf: null, omfBest: null, layerCount: null, geSteps: null, status: null };
     const designRef = ref(JSON.parse(JSON.stringify(design)));
     const ctx = {
@@ -128,8 +129,8 @@ function makeCtx(design, ops, settings) {
         reconcileBaseWithEdits: () => {},
         stopOpt: (msg) => { ctx.runningRef.current = false; if (msg != null) snap.status = msg; },
         getPoolMaterials: () => [
-            { id: 'TiO2', name: 'TiO2', mat: resolveMat('TiO2') },
-            { id: 'SiO2', name: 'SiO2', mat: resolveMat('SiO2') },
+            { id: 'TiO2', name: 'TiO2', mat: resolveMaterial('TiO2') },
+            { id: 'SiO2', name: 'SiO2', mat: resolveMaterial('SiO2') },
         ],
         t: { gradualEvolution: { noOperands: 'no-ops', smartSeeding: (n) => `seeding ${n}` } },
     };

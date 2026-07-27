@@ -10,7 +10,7 @@
  */
 
 import { useDesign } from '../../../../state/DesignContext.js';
-import { getCatalogs } from '../../../../utils/materials/catalogManager.js';
+import { poolCatalogs } from '../synthesisShared/synthesisHelpers.js';
 import { SynthesisShell } from '../synthesisShared/synthesisShell.js';
 import { TrendPlot, ControlBar, LeftSidebar, HistoryTable, TopDesignsPanel } from './structuralPanels.js';
 import { useStructuralOptimizer } from './useStructuralOptimizer.js';
@@ -24,7 +24,7 @@ export function StructuralOptimizer({ c, theme, t }) {
 
     if (!design) return h('div', { style: { padding: 24, color: c.textDim, fontSize: 13 } }, ts.noDesign);
 
-    const catalogs = getCatalogs();
+    const catalogs = poolCatalogs(design, t.pool.designCatalog);
     const showSideCol = (design?.surfaceMode || 'front_only') === 'both_independent';
 
     return h(SynthesisShell, {

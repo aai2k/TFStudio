@@ -1,7 +1,7 @@
 import {
     makeDefaultSurfaceSpec, computeSurface, isLayerVar, defaultAxisRange,
 } from '../../../../utils/physics/plotQuantities.js';
-import { resolveMaterial } from './materialContext.js';
+import { designMaterialLookup } from '../../../../utils/materials/designMaterials.js';
 import { runSurfaceSweep } from './surfaceRunner.js';
 
 const { useState, useEffect, useRef, useCallback } = React;
@@ -87,7 +87,7 @@ function useSurfaceCompute(state, design) {
 
     const computeMainThread = useCallback(() => {
         try {
-            return computeSurface(surfaceSpec, design, resolveMaterial);
+            return computeSurface(surfaceSpec, design, designMaterialLookup(design));
         } catch (e) {
             return { ok: false, error: String(e && e.message || e), x: [], y: [], z: [] };
         }

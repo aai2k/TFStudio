@@ -6,7 +6,8 @@
 import { colorReport } from '../../physics/colorimetry.js';
 import { computeIntegralValueBatch, DEFAULT_INTEGRALS } from '../../physics/integralValues.js';
 import { evaluateQualifiers, aggregateVerdict } from '../../synthesis/qualifiers.js';
-import { resolveMaterial, materialName, buildSpectrum, buildResponseFn } from './engines.js';
+import { designMaterialLookup } from '../../materials/designMaterials.js';
+import { materialName, buildSpectrum, buildResponseFn } from './engines.js';
 
 // ── Color ───────────────────────────────────────────────────────────────────
 export function computeColor(design, opts = {}) {
@@ -34,7 +35,7 @@ export function computeIntegrals(design, opts = {}) {
 // ── Qualifiers verdict ──────────────────────────────────────────────────────
 export function computeQualifiers(design) {
   const quals = design.qualifiers || [];
-  const results = evaluateQualifiers(quals, design, resolveMaterial);
+  const results = evaluateQualifiers(quals, design, designMaterialLookup(design));
   const verdict = aggregateVerdict(results);
   return { qualifiers: quals, results, verdict };
 }
@@ -45,6 +46,7 @@ export function computeQualifiers(design) {
 //   QWOT = n·d / (λref/4)      (quarter-wave optical thickness, dimensionless)
 //   FWOT = n·d / λref          (full-wave optical thickness, dimensionless)
 export function designSummary(design) {
+  const resolveMaterial = designMaterialLookup(design);
   const front = design.frontLayers || [];
   const back  = design.backLayers  || [];
   const lamRef = design.referenceWavelength ?? 550;
@@ -57,7 +59,7 @@ export function designSummary(design) {
     try { const [nr] = resolveMaterial(l.material).getNK(lamRef); nRef = nr; } catch (_) {}
     const ot = isFinite(nRef) ? nRef * d : NaN;
     return {
-      index: i + 1, material: materialName(l.material),
+      index: i + 1, material: materialName(design, l.material),
       thickness: d, locked: !!l.locked,
       n: nRef, ot, qwot: isFinite(ot) ? ot / (lamRef / 4) : NaN,
       fwot: isFinite(ot) ? ot / lamRef : NaN,
@@ -75,10 +77,10 @@ export function designSummary(design) {
 
   return {
     name: design.name || '—',
-    incidentMedium: materialName(design.incidentMedium),
-    substrate: materialName(design.substrate?.material),
+    incidentMedium: materialName(design, design.incidentMedium),
+    substrate: materialName(design, design.substrate?.material),
     substrateThickness: design.substrate?.thickness ?? null,  // mm
-    exitMedium: materialName(design.exitMedium),
+    exitMedium: materialName(design, design.exitMedium),
     referenceWavelength: lamRef,
     surfaceMode: design.surfaceMode || 'front_only',
     front: front.map(layerRow),

@@ -9,7 +9,6 @@
  * the run engine (worker vs main thread) differs.
  */
 
-import { resolveMat }                                       from '../wizardShared.js';
 import { systemSpectrum, splitActiveStacks, partialThicknesses, flipLayerIndex } from '../../../../utils/monitoring/depositionSpectrum.js';
 import { makeShiftedMaterial }                              from '../../../../utils/monitoring/monitoringSim.js';
 
@@ -115,7 +114,7 @@ function buildTheoryCurves({ run, layers, layerIdx, baseThicks, ctx, p, lamStep 
     if (!run || layerIdx < 1) return null;
     const mk = (f) => {
         const thk = partialThicknesses(baseThicks, layerIdx, f);
-        return perfSpec(layers.map((l, i) => ({ material: resolveMat(l.material), thickness: thk[i] })), ctx, p, lamStep);
+        return perfSpec(layers.map((l, i) => ({ material: ctx.resolveMat(l.material), thickness: thk[i] })), ctx, p, lamStep);
     };
     return { end: mk(1), f80: mk(0.8), f90: mk(0.9) };
 }
@@ -124,7 +123,7 @@ function buildActualCurve({ run, layers, layerIdx, frac, ctx, p, lamStep }) {
     if (!run || layerIdx < 1) return null;
     const thk = asBuiltPartial(run.asBuiltFront, layerIdx, frac);
     return perfSpec(layers.map((l, i) => ({
-        material: makeShiftedMaterial(resolveMat(l.material), run.matDeltas[i]?.dn || 0, run.matDeltas[i]?.dk || 0),
+        material: makeShiftedMaterial(ctx.resolveMat(l.material), run.matDeltas[i]?.dn || 0, run.matDeltas[i]?.dk || 0),
         thickness: thk[i],
     })), ctx, p, lamStep);
 }

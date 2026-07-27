@@ -26,13 +26,7 @@
  */
 
 import { evaluateSpectrumTotal } from '../physics/thinFilmMath.js';
-import { getMaterialById } from '../materials/catalogManager.js';
-import { getMaterial } from '../materials/materialDatabase.js';
-
-function resolveMaterial(id) {
-    if (!id) return getMaterial('Air');
-    return getMaterialById(id) || getMaterial(id) || getMaterial('Air');
-}
+import { designMaterialLookup } from '../materials/designMaterials.js';
 
 // ── Formatting helpers ────────────────────────────────────────────────────────
 
@@ -292,6 +286,7 @@ export function buildAllProcessFiles(design, opts) {
         projectLabel = '',
     } = opts;
 
+    const resolveMaterial = designMaterialLookup(design);
     const controlLambda = design.referenceWavelength || 550;
     const incidentMat   = resolveMaterial(design.incidentMedium);
     const exitMat       = resolveMaterial(design.exitMedium);

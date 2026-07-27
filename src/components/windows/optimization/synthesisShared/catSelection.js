@@ -1,4 +1,10 @@
 import { getCatalogs } from '../../../../utils/materials/catalogManager.js';
+import { DESIGN_CATALOG_ID } from '../../../../utils/materials/designCatalog.js';
+
+// Every catalog the pool can offer. The design catalog is not in the registry,
+// so it is named explicitly; selecting an id with no catalog behind it
+// contributes nothing, which is what happens for a design that has none.
+const allCatalogIds = () => new Set([DESIGN_CATALOG_ID, ...getCatalogs().map(cat => cat.id)]);
 
 // ── Catalog-selection persistence (localStorage; key per window) ─────────────────
 export function loadSavedCatSelection(key) {
@@ -54,7 +60,7 @@ export function useCatSelection(storageKey) {
     const { useState, useRef, useEffect, useCallback } = React;
     const [selectedCats, setSelectedCats] = useState(() => {
         const saved  = loadSavedCatSelection(storageKey);
-        const allIds = new Set(getCatalogs().map(c => c.id));
+        const allIds = allCatalogIds();
         if (!saved) return allIds;
         const filtered = new Set([...allIds].filter(id => saved.has(id)));
         return filtered.size > 0 ? filtered : allIds;
@@ -86,7 +92,7 @@ export function useCatSelection(storageKey) {
     // All/Clear act on whole catalogs AND wipe per-material exclusions, so each
     // is an unambiguous reset ("All" really means every material is in play).
     const handleSelectAllCats = useCallback(() => {
-        commit(new Set(getCatalogs().map(cat => cat.id)), new Set());
+        commit(allCatalogIds(), new Set());
     }, [commit]);
     const handleClearCats = useCallback(() => {
         commit(new Set(), new Set());

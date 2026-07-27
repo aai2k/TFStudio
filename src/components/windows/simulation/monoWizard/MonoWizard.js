@@ -35,7 +35,7 @@ import { useWizardShell }    from '../wizardKit/useWizardShell.js';
 import { ModalFrame }        from '../wizardKit/ModalFrame.js';
 import { PageDeviations }    from '../wizardKit/PageDeviations.js';
 import { PageResults }       from '../wizardKit/PageResults.js';
-import { PageHead, resolveMat } from '../wizardShared.js';
+import { PageHead } from '../wizardShared.js';
 import { PageRates }         from './PageRates.js';
 import { PageMonoSystem }    from './PageMonoSystem.js';
 import { PageSignalErrors }  from './PageSignalErrors.js';
@@ -58,7 +58,7 @@ function makeInitialMonoState() {
 
 // Seed per-material rate/deviation state, per-layer exclude state and the
 // per-layer monitor table from the design once it's known.
-function seedWizardState(prev, { materialIds, layers, simDesign, ds, de }) {
+function seedWizardState(prev, { materialIds, layers, simDesign, resolveMat, ds, de }) {
     const rates = { ...prev.rates }, matDev = { ...prev.matDev };
     for (const id of materialIds) {
         if (!rates[id]) rates[id] = { meanA: 4, rmsA: 0.4, corr: 3 };
@@ -83,14 +83,14 @@ function seedWizardState(prev, { materialIds, layers, simDesign, ds, de }) {
     };
 }
 
-function useSeedMonoState({ setP, design, simDesign, layers, materialIds }) {
+function useSeedMonoState({ setP, design, simDesign, layers, materialIds, resolveMat }) {
     useEffect(() => {
         if (!design) return;
         // Initial display band from the design's spectrum range when available.
         const ds = Number.isFinite(design.spectrumLambdaStart) ? design.spectrumLambdaStart : null;
         const de = Number.isFinite(design.spectrumLambdaEnd) ? design.spectrumLambdaEnd : null;
-        setP(prev => seedWizardState(prev, { materialIds, layers, simDesign, ds, de }));
-    }, [materialIds, layers, design, simDesign]);
+        setP(prev => seedWizardState(prev, { materialIds, layers, simDesign, resolveMat, ds, de }));
+    }, [materialIds, layers, design, simDesign, resolveMat]);
 }
 
 function useCloseOnEscape(onClose) {
@@ -136,8 +136,8 @@ function emptyBody(c, message) {
 
 function buildWizardBody({ step, p, set, materialIds, layers, c, B, ctx, design, run, setRun, buildCfg }) {
     const pages = {
-        1: () => h(PageRates,        { p, set, materialIds, c, B }),
-        2: () => h(PageDeviations,   { p, set, materialIds, layers, c, B }),
+        1: () => h(PageRates,        { p, set, materialIds, resolveMat: ctx.resolveMat, c, B }),
+        2: () => h(PageDeviations,   { p, set, materialIds, layers, resolveMat: ctx.resolveMat, c, B }),
         3: () => h(PageMonoSystem,   { p, set, layers, c, B, ctx, design }),
         4: () => h(PageSignalErrors, { p, set, layers, c, B, ctx, design }),
         5: () => h(PageSimulation,   { p, set, layers, c, B, ctx, run, setRun, buildCfg }),
@@ -161,7 +161,7 @@ export function MonoWizard({ c, t, onClose }) {
     const [p, setP] = useState(makeInitialMonoState);
     const set = useCallback((key, val) => setP(prev => ({ ...prev, [key]: val })), []);
 
-    useSeedMonoState({ setP, design, simDesign, layers, materialIds });
+    useSeedMonoState({ setP, design, simDesign, layers, materialIds, resolveMat: ctx?.resolveMat });
     useCloseOnEscape(onClose);
 
     const buildCfg = useCallback(() => buildRunCfg(p, materialIds), [p, materialIds]);

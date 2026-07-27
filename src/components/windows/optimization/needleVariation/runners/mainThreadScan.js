@@ -8,7 +8,7 @@
 import {
     scanNeedlesPFunction, findOptimalNeedleThickness, insertNeedle, insertNeedleIntra,
 } from '../../../../../utils/physics/optimizer.js';
-import { resolveMat } from '../../synthesisShared/synthesisHelpers.js';
+import { materialLookup } from '../../synthesisShared/synthesisHelpers.js';
 import { makeEngine } from '../../../../../utils/optimizers/index.js';
 import { getNeedleSensFloor, cullMarginalNeedles } from '../../../../../utils/synthesis/synthesisConfig.js';
 import { deepCopy, mtRevertToBest, mtFinalize } from './mainThreadCore.js';
@@ -21,6 +21,7 @@ export function mtStartCandidate(run, idx) {
     mtRevertToBest(run);
     const cand = queue[idx];
     cand._mat = pool.find(p => p.id === cand.materialId)?.mat;
+    const resolveMat = materialLookup(ctx.baseDesignRef.current);
 
     let dOpt = ctx.dMinRef.current;
     try {
@@ -79,6 +80,7 @@ export function mtScanStep(run) {
     console.log(`[Needle Scan] layers=${layerCount} pool=[${run.pool.map(p => p.name).join(', ')}]`);
     ctx.setPhase('scanning');
     ctx.setStatusMsg('Scanning needles…');
+    const resolveMat = materialLookup(ctx.baseDesignRef.current);
 
     const { candidates, mf0 } = scanNeedlesPFunction({
         operands, design: ctx.baseDesignRef.current, resolveMat,

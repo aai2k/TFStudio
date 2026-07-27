@@ -15,7 +15,7 @@ export function Sidebar(props) {
         dSubMm, setSub,
         uniqueMats, dN, dK, setMatDN, setMatDK,
     } = props;
-    const subMat = resolveMat(design.substrate?.material);
+    const subMat = resolveMat(design, design.substrate?.material);
 
     return h('div', {
         style: {
@@ -61,7 +61,7 @@ export function Sidebar(props) {
             (design.frontLayers || []).length > 0 && h('div', null,
                 h(SectionHeader, { label: v.frontLayers || 'Front layers', count: design.frontLayers.length, c }),
                 h(LayerSliderList, {
-                    layers: design.frontLayers, side: 'front', c, v,
+                    design, layers: design.frontLayers, side: 'front', c, v,
                     baseById: baseFrontById, dThk: dThkFront, onChange: setLayerFront,
                 })
             ),
@@ -70,7 +70,7 @@ export function Sidebar(props) {
             (design.backLayers || []).length > 0 && h('div', null,
                 h(SectionHeader, { label: v.backLayers || 'Back layers', count: design.backLayers.length, c }),
                 h(LayerSliderList, {
-                    layers: design.backLayers, side: 'back', c, v,
+                    design, layers: design.backLayers, side: 'back', c, v,
                     baseById: baseBackById, dThk: dThkBack, onChange: setLayerBack,
                 })
             ),

@@ -23,7 +23,9 @@ export function MaterialPicker({ value, onChange, c, t, compact }) {
     const mp = t.materialPicker;
 
     const resolvedId = value || 'builtin:Air';
-    const mat = getMaterialById(resolvedId) || getMaterialById('builtin:Air');
+    // Keep an unknown current id visible. Showing Air here would make a broken
+    // design look repaired even though its stored material reference is intact.
+    const mat = getMaterialById(resolvedId);
     const dotColor = mat ? resolveColor(mat) : '#888';
     const label = mat ? (mat.name || materialLabel(resolvedId)) : materialLabel(resolvedId);
 

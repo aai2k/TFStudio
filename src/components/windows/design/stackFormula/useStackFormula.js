@@ -1,4 +1,7 @@
-import { parseStackFormula, buildStackFromFormula } from '../../../../utils/synthesis/stackFormula.js';
+import {
+    parseStackFormula, buildStackFromFormula, stackFormulaResolvers,
+} from '../../../../utils/synthesis/stackFormula.js';
+import { designMaterialLookup } from '../../../../utils/materials/designMaterials.js';
 import {
     computeSeed, buildSymbolMap, withRowMat, withRowSym, usedSymbolSet, missingSymbolRows,
     stackTotalThickness,
@@ -12,7 +15,8 @@ function applyNewDesign({ state, deps }) {
         newName: state.newName, refLambda: state.refLambda,
         incidentMat: state.incidentMat, substrateMat: state.substrateMat, exitMat: state.exitMat,
         effSide: state.effSide, text: state.text, symbolMap: state.symbolMap,
-        startFromSubstrate: state.startFromSubstrate,
+        startFromSubstrate: state.startFromSubstrate, resolvers: state.resolvers,
+        sourceMaterials: state.sourceMaterials,
     });
     deps.onCreateNew && deps.onCreateNew(designObj);
     deps.onClose();
@@ -32,11 +36,13 @@ function applyReplaceOrAppend({ mode, state, deps }) {
 
 export function useStackFormula({ design, updateDesign, checkpoint, onClose, onCreateNew, t }) {
     const sf = t.stackFormula;
+    const resolvers = useMemo(() => stackFormulaResolvers(design), [design]);
+    const resolveMaterial = useMemo(() => designMaterialLookup(design), [design]);
 
     // Seed once from the active design: auto-detect its materials → H/L/M symbols
     // and a compact formula (or H/L/M defaults + sample for an empty design).
     const seedRef = useRef(null);
-    if (!seedRef.current) seedRef.current = computeSeed(design);
+    if (!seedRef.current) seedRef.current = computeSeed(design, resolvers);
 
     // Symbol → material assignments as an ordered, editable list. The user can
     // reassign, rename, add, or remove; any unknown symbol used in the formula
@@ -75,8 +81,8 @@ export function useStackFormula({ design, updateDesign, checkpoint, onClose, onC
 
     const parsed = useMemo(() => parseStackFormula(text), [text]);
     const compiled = useMemo(
-        () => buildStackFromFormula({ text, symbolMap, refLambda, startFromSubstrate }),
-        [text, symbolMap, refLambda, startFromSubstrate]);
+        () => buildStackFromFormula({ text, symbolMap, refLambda, startFromSubstrate, resolvers }),
+        [text, symbolMap, refLambda, startFromSubstrate, resolvers]);
 
     // Symbols actually referenced in the formula (for "used but unassigned"
     // highlighting in the assignment list).
@@ -100,7 +106,8 @@ export function useStackFormula({ design, updateDesign, checkpoint, onClose, onC
         if (!compiled.ok) return;
         const state = {
             newName, refLambda, incidentMat, substrateMat, exitMat, effSide,
-            text, symbolMap, startFromSubstrate, isSym, compiled,
+            text, symbolMap, startFromSubstrate, isSym, compiled, resolvers,
+            sourceMaterials: design.materials,
         };
         const deps = { design, checkpoint, updateDesign, onClose, onCreateNew };
         if (mode === 'new') applyNewDesign({ state, deps });
@@ -116,7 +123,7 @@ export function useStackFormula({ design, updateDesign, checkpoint, onClose, onC
         refLambda, setRefLambda, startFromSubstrate, setStartFromSubstrate,
         incidentMat, setIncidentMat, substrateMat, setSubstrateMat, exitMat, setExitMat,
         isSym, applySide, setApplySide, effSide, showIncident, showExit,
-        newName, setNewName, text, setText, parsed, compiled,
+        newName, setNewName, text, setText, parsed, compiled, resolveMaterial,
         applyToDesign, totalNm,
     };
 }

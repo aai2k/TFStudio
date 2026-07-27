@@ -4,7 +4,7 @@
 // subsequent needle optimization). See mainThread.js.
 
 import { scanGEInsertions, insertNeedle, cleanupLayers } from '../../../../../utils/physics/optimizer.js';
-import { resolveMat } from '../../synthesisShared/synthesisHelpers.js';
+import { materialLookup } from '../../synthesisShared/synthesisHelpers.js';
 import { setBase, recordCycle, finalize, scheduleTick, deepActive } from './mainThreadCore.js';
 
 export function phaseGeStep(ctx, S) {
@@ -13,6 +13,7 @@ export function phaseGeStep(ctx, S) {
     // (Tikhonravov 2007 §2) — no identical-loop.
     setBase(ctx, S, S.work.front);
     const design = ctx.baseDesignRef.current;
+    const resolveMat = materialLookup(design);
     const layers = design[S.LK] || [];
 
     if (ctx.geStepsRef.current >= ctx.maxGeCyclesRef.current) {

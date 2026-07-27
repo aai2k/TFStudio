@@ -1,5 +1,4 @@
-import { getMaterialById } from '../../../../utils/materials/catalogManager.js';
-import { getMaterial } from '../../../../utils/materials/materialDatabase.js';
+import { designMaterialLookup } from '../../../../utils/materials/designMaterials.js';
 import {
     evaluateSpectrum, evaluateSpectrumBack, evaluateSpectrumTotal,
 } from '../../../../utils/physics/thinFilmMath.js';
@@ -7,12 +6,7 @@ import {
     enumerateInterfaces, expandLayersWithInterlayers,
 } from '../../../../utils/physics/inhomogeneity.js';
 
-export function resolveMaterial(id) {
-    if (!id) return getMaterial('Air');
-    return getMaterialById(id) || getMaterial(id) || getMaterial('Air');
-}
-
-function resolveLayers(layers) {
+function resolveLayers(resolveMaterial, layers) {
     return (layers || [])
         .filter(layer => layer.thickness > 0)
         .map(layer => ({ material: resolveMaterial(layer.material), thickness: layer.thickness }));
@@ -52,11 +46,12 @@ export function designInterfaces(design) {
 }
 
 export function buildExpandedStacks(design, inh) {
+    const resolveMaterial = designMaterialLookup(design);
     const incMat = resolveMaterial(design.incidentMedium);
     const subMat = resolveMaterial(design.substrate?.material);
     const exitMat = resolveMaterial(design.exitMedium);
-    const frontRaw = resolveLayers(design.frontLayers);
-    const backRaw = resolveLayers(design.backLayers);
+    const frontRaw = resolveLayers(resolveMaterial, design.frontLayers);
+    const backRaw = resolveLayers(resolveMaterial, design.backLayers);
     const frontExp = expandLayersWithInterlayers(frontRaw, incMat, subMat, inh.interlayers || []);
     const backExp = expandLayersWithInterlayers(backRaw, subMat, exitMat, inh.backInterlayers || []);
     return { incMat, subMat, exitMat, frontRaw, backRaw, frontExp, backExp };
@@ -91,6 +86,7 @@ export function buildSpecificationInputs(design, inh) {
         frontLayers: frontExp.map(layer => ({ material: layer.material, thickness: layer.thickness })),
         backLayers: backExp.map(layer => ({ material: layer.material, thickness: layer.thickness })),
     };
+    const resolveMaterial = designMaterialLookup(design);
     const resolve = material => (material && material.getNK) ? material : resolveMaterial(material);
     return { specDesign, resolve };
 }

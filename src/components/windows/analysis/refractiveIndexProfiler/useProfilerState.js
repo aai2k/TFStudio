@@ -34,12 +34,12 @@ export function useProfilerState(design, rp) {
             setRegions(regs);
             setProfile(null);
             const allLayers = regs.flatMap(r => r.validLayers || []);
-            setMatColorMap(allLayers.length ? buildMatColorMap(allLayers) : {});
+            setMatColorMap(allLayers.length ? buildMatColorMap(design, allLayers) : {});
         } else {
             const result = computeProfileForSide(design, lambda, side);
             setProfile(result);
             setRegions([]);
-            if (result?.validLayers) setMatColorMap(buildMatColorMap(result.validLayers));
+            if (result?.validLayers) setMatColorMap(buildMatColorMap(design, result.validLayers));
             else setMatColorMap({});
         }
     }, [design, lambda, side, rp]);

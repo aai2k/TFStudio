@@ -12,13 +12,7 @@
  */
 
 import { evaluateSpectrum, evaluateSpectrumBack, evaluateSpectrumTotal } from '../physics/thinFilmMath.js';
-import { getMaterialById } from '../materials/catalogManager.js';
-import { getMaterial } from '../materials/materialDatabase.js';
-
-function resolveMaterial(id) {
-    if (!id) return getMaterial('Air');
-    return getMaterialById(id) || getMaterial(id) || getMaterial('Air');
-}
+import { designMaterialLookup } from '../materials/designMaterials.js';
 
 function formatTheta(t) {
     return Number.isInteger(t) ? String(t) : t.toFixed(1);
@@ -31,6 +25,7 @@ function formatTheta(t) {
  * @param evalMode 'front' | 'back' | 'total'
  */
 export function computeDesignSpectrum(design, params, evalMode) {
+    const resolveMaterial = designMaterialLookup(design);
     const incMat = resolveMaterial(design.incidentMedium);
     const subMat = resolveMaterial(design.substrate?.material);
     const exitMat = resolveMaterial(design.exitMedium);

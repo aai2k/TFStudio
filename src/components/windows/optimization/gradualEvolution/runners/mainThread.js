@@ -13,7 +13,7 @@
 
 import { makeEngine } from '../../../../../utils/optimizers/index.js';
 import { getSynthesisInnerEngine, getSynthesisSeedMode } from '../../../../../utils/synthesis/synthesisConfig.js';
-import { activeSide, densifyForRun, resolveMat } from '../../synthesisShared/synthesisHelpers.js';
+import { activeSide, densifyForRun, materialLookup } from '../../synthesisShared/synthesisHelpers.js';
 import { scheduleTick } from './mainThreadCore.js';
 import { phaseSeedDls } from './mainThreadSeed.js';
 import { phaseNeedleScan, phaseDls1, phaseDls2 } from './mainThreadNeedle.js';
@@ -84,7 +84,9 @@ export function runGeMainThread(ctx) {
 
     // Initialize seed refiner on the starting design (CG/DLS per setting).
     try {
-        ctx.dlsRef.current = makeEngine(innerEngine, operands, ctx.baseDesignRef.current, resolveMat, { dMin: ctx.dMinRef.current });
+        ctx.dlsRef.current = makeEngine(
+            innerEngine, operands, ctx.baseDesignRef.current, materialLookup(curDes),
+            { dMin: ctx.dMinRef.current });
         ctx.setStatusMsg('Seed refinement…');
     } catch (err) {
         console.error('[GE] Seed DLS init failed:', err);

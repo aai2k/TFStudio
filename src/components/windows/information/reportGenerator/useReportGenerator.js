@@ -2,6 +2,7 @@ import {
   initialCover, initialPerSection, initialSections, resolveReportLocale,
   buildReportDocument, presetPayload, sectionTitleOf,
 } from './model.js';
+import { unresolvedMaterials } from '../../../../utils/materials/designMaterials.js';
 
 const { useCallback, useEffect, useMemo, useState } = React;
 
@@ -81,6 +82,21 @@ async function generateAction({ format, cover, chosenDesigns, buildHtml, W, setS
   catch (e) { setStatus({ kind: 'err', msg: e.message || String(e) }); }
 }
 
+function unavailableMaterialMessage(designs, W) {
+  const blocked = designs
+    .map(design => ({ name: design.name, ids: unresolvedMaterials(design) }))
+    .filter(item => item.ids.length > 0);
+  if (blocked.length === 0) return null;
+  const details = blocked.map(item => `${item.name}: ${item.ids.join(', ')}`).join('; ');
+  return W.materialsUnavailable(details);
+}
+
+function renderReport({ materialBlockMessage, chosenDesigns, orderedSectionIds,
+  perSection, lang, reportTr, cover }) {
+  if (materialBlockMessage) throw new Error(materialBlockMessage);
+  return buildReportDocument({ chosenDesigns, orderedSectionIds, perSection, lang, reportTr, cover });
+}
+
 export function useReportGenerator({ designs, activeDesignId, folderName, W }) {
   const designList = useMemo(() => Object.values(designs || {}), [designs]);
   const [step, setStep] = useState(1);
@@ -124,15 +140,17 @@ export function useReportGenerator({ designs, activeDesignId, folderName, W }) {
     }
     return designList.filter(d => selectedIds.has(d.id));
   }, [scope, designs, activeDesignId, designList, selectedIds]);
+  const materialBlockMessage = useMemo(
+    () => unavailableMaterialMessage(chosenDesigns, W), [chosenDesigns, W]);
 
   const reportTr = useMemo(() => resolveReportLocale(lang), [lang]);
 
   const orderedSectionIds = useMemo(() =>
     sections.filter(s => s.on).map(s => s.id), [sections]);
 
-  const buildHtml = useCallback(() =>
-    buildReportDocument({ chosenDesigns, orderedSectionIds, perSection, lang, reportTr, cover }),
-    [chosenDesigns, orderedSectionIds, perSection, lang, reportTr, cover]);
+  const buildHtml = useCallback(() => renderReport({
+    materialBlockMessage, chosenDesigns, orderedSectionIds, perSection, lang, reportTr, cover,
+  }), [chosenDesigns, orderedSectionIds, perSection, lang, reportTr, cover, materialBlockMessage]);
 
   // Live-refresh the preview when on the final step.
   useEffect(() => {
@@ -173,7 +191,7 @@ export function useReportGenerator({ designs, activeDesignId, folderName, W }) {
     lang, setLang, format, setFormat,
     presets, presetName, setPresetName, savePreset, loadPreset,
     previewHtml, status,
-    chosenDesigns, orderedSectionIds,
+    chosenDesigns, orderedSectionIds, materialBlockMessage,
     toggleSection, moveSection,
     generate,
     sectionTitleOf: boundSectionTitleOf,

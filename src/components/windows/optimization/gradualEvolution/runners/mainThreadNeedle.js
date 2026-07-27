@@ -8,13 +8,14 @@ import {
 } from '../../../../../utils/physics/optimizer.js';
 import { makeEngine } from '../../../../../utils/optimizers/index.js';
 import { getNeedleSensFloor, cullMarginalNeedles } from '../../../../../utils/synthesis/synthesisConfig.js';
-import { resolveMat } from '../../synthesisShared/synthesisHelpers.js';
+import { materialLookup } from '../../synthesisShared/synthesisHelpers.js';
 import { gentleIter, scheduleTick, deepActive, setBase, recordCycle, finalize } from './mainThreadCore.js';
 
 // Insert queue[idx] into `work` at its optimal thickness, spin up DLS1.
 function startNeedleCandidate(ctx, S, idx) {
     setBase(ctx, S, S.work.front);
     const design = ctx.baseDesignRef.current;
+    const resolveMat = materialLookup(design);
     const cand   = S.queue[idx];
     cand._mat    = S.pool.find(p => p.id === cand.materialId)?.mat;
     S.lastInsert.mat = cand.materialId;
@@ -55,6 +56,7 @@ function startNeedleCandidate(ctx, S, idx) {
 export function phaseNeedleScan(ctx, S) {
     setBase(ctx, S, S.work.front);                     // operate on current work
     const design = ctx.baseDesignRef.current;
+    const resolveMat = materialLookup(design);
     const layers = design[S.LK] || [];
 
     if (layers.length >= ctx.maxLayersRef.current) {
@@ -117,7 +119,9 @@ export function phaseDls1(ctx, S) {
     ctx.updateDesignRef.current({ [S.LK]: pruned }, { transient: true });
 
     try {
-        ctx.dlsRef.current = makeEngine(S.innerEngine, S.operands, prunedDesign, resolveMat, { dMin: ctx.dMinRef.current });
+        ctx.dlsRef.current = makeEngine(
+            S.innerEngine, S.operands, prunedDesign, materialLookup(prunedDesign),
+            { dMin: ctx.dMinRef.current });
         S.dlsIter2 = 0;
     } catch (err) {
         console.error('[GE] DLS2 init failed:', err);

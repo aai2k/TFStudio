@@ -8,17 +8,10 @@
  * Style mirrors FilterDesignWizard / ProcessSimulator.
  */
 
-import { getMaterialById } from '../../../utils/materials/catalogManager.js';
-import { getMaterial }     from '../../../utils/materials/materialDatabase.js';
 import { makeShiftedMaterial } from '../../../utils/monitoring/monitoringSim.js';
 import { systemSpectrum, splitActiveStacks } from '../../../utils/monitoring/depositionSpectrum.js';
 
 const { createElement: h, useRef, useEffect } = React;
-
-export function resolveMat(id) {
-    if (!id) return getMaterial('Air');
-    return getMaterialById(id) || getMaterial(id) || getMaterial('Air');
-}
 
 // Medium can be a bare id string or { material }.
 export function medId(m) { return typeof m === 'string' ? m : (m?.material ?? 'Air'); }
@@ -29,7 +22,7 @@ export function cullName(name, max = 22) {
     if (!name) return '';
     return name.length > max ? name.slice(0, max - 1) + '…' : name;
 }
-export function matName(id) { return resolveMat(id)?.name || id; }
+export function matName(resolveMaterial, id) { return resolveMaterial(id)?.name || id; }
 
 // ── Shared style atoms ─────────────────────────────────────────────────────────
 export function inputStyle(c, w) {
@@ -185,9 +178,9 @@ export function computeWizardResultSpectra({ run, ctx, layers, quantity, aoi, po
             incidentMat: ctx.incMat, substrateMat: ctx.subMat, exitMat: ctx.exitMat, substrateThk: ctx.subThk,
         });
     };
-    const theory = perf(layers.map((l, i) => ({ material: resolveMat(l.material), thickness: baseThicks[i] })));
+    const theory = perf(layers.map((l, i) => ({ material: ctx.resolveMat(l.material), thickness: baseThicks[i] })));
     const manuf  = perf(layers.map((l, i) => ({
-        material: makeShiftedMaterial(resolveMat(l.material), run.matDeltas[i]?.dn || 0, run.matDeltas[i]?.dk || 0),
+        material: makeShiftedMaterial(ctx.resolveMat(l.material), run.matDeltas[i]?.dn || 0, run.matDeltas[i]?.dk || 0),
         thickness: run.asBuiltFront[i],
     })));
     return { theory, manuf };

@@ -8,7 +8,8 @@
 // cancels an in-flight flow.
 
 import { DLSOptimizer } from '../../../../../utils/physics/optimizer.js';
-import { resolveMat, densifyForRun, presampleMaterials, buildPayload } from '../refinementUtils.js';
+import { designMaterialLookup } from '../../../../../utils/materials/designMaterials.js';
+import { densifyForRun, presampleMaterials, buildPayload } from '../refinementUtils.js';
 import { countFreeVars, METHOD_LABELS } from '../refinementConfig.js';
 import { runOptMainThread } from './mainThread.js';
 import { runEngineP } from './engineRun.js';
@@ -64,7 +65,7 @@ function seedBaseline(ctx, curDes, ops, payload) {
     }
     let baseMF = Infinity, baseOMF = null;
     try {
-        const b = new DLSOptimizer(ops, payload, resolveMat);
+        const b = new DLSOptimizer(ops, payload, designMaterialLookup(curDes));
         baseMF = b.mf; baseOMF = b.mfOpticalAt(b.thicknesses);
         ctx.setMfInitial(b.mf); ctx.setOmfInitial(baseOMF);
     } catch (_) {}

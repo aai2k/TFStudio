@@ -25,8 +25,14 @@ function ExportOptions({ controller, c, sx, section, rowFlex }) {
 function DesignExportPanel({ controller, c, sx, section, rowFlex }) {
     const {
         dStart, setDStart, dEnd, setDEnd, dStep, setDStep, dAoi, setDAoi,
-        dQ, setDQ, dSP, setDSP, onExportDesign, evalMode,
+        dQ, setDQ, dSP, setDSP, onExportDesign, evalMode, missingMaterialIds,
     } = controller;
+    if (missingMaterialIds.length > 0) {
+        return h('div', {
+            role: 'alert',
+            style: { ...section, color: c.error, fontSize: 11.5, lineHeight: 1.5 },
+        }, sx.designExportBlocked(missingMaterialIds.join(', ')));
+    }
     return h('div', { style: section },
         h('span', { style: { fontSize: 11, color: c.textDim } }, sx.exportDesignDesc),
         h('div', { style: rowFlex },

@@ -1,5 +1,4 @@
-import { getMaterialById } from '../../../../utils/materials/catalogManager.js';
-import { getMaterial } from '../../../../utils/materials/materialDatabase.js';
+import { designMaterialLookup } from '../../../../utils/materials/designMaterials.js';
 import {
     evaluateOperands, calcMF, calcOMF, buildEvalContext,
 } from '../../../../utils/physics/optimizer.js';
@@ -11,13 +10,8 @@ import {
 const { useState, useEffect, useCallback } = React;
 const EMPTY_OPERANDS = [];
 
-function resolveMat(id) {
-    if (!id) return getMaterial('Air');
-    return getMaterialById(id) || getMaterial(id) || getMaterial('Air');
-}
-
 function evaluateForDisplay(design, operands) {
-    const ctx = buildEvalContext(design, resolveMat);
+    const ctx = buildEvalContext(design, designMaterialLookup(design));
     const computed = evaluateOperands(operands, ctx);
     return { computed, mf: calcMF(operands, computed), omf: calcOMF(operands, computed) };
 }
