@@ -19,9 +19,18 @@ function relPrefix(filePath) {
   return '../'.repeat(depth);
 }
 
+// The 404 page is served by the host for any unmatched path, at any directory
+// depth, so its asset references must stay absolute — relative ones would
+// resolve against the missing URL and leave the page unstyled. It is not
+// reachable over file://, so keeping it absolute costs the offline build
+// nothing.
+const skipRebase = new Set([resolve(distDir, '404.html')]);
+
 let count = 0;
 
 function processHtml(filePath) {
+  if (skipRebase.has(filePath)) return;
+
   const original = readFileSync(filePath, 'utf-8');
   const pfx = relPrefix(filePath);
 

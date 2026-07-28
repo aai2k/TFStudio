@@ -1,0 +1,76 @@
+# TFStudio Documentation
+
+> Reference manual for TFStudio — free, open-source software (MIT licence) for the
+> design, optimization and analysis of multilayer optical thin-film coatings.
+> One page per window in the application.
+
+TFStudio computes spectral characteristics of thin-film stacks using the transfer-matrix
+method in double precision. It supports absorbing and dispersive materials, oblique
+incidence, s and p polarization, coherent and incoherent layers, substrate absorption,
+roughness models and effective-medium approximations.
+
+Conventions used throughout this manual: wavelengths in nanometres, angles of incidence
+in degrees measured from the surface normal, physical thicknesses in nanometres unless a
+page states optical thickness or quarter-wave units explicitly. Layers are listed in the
+Design Editor from the substrate outwards.
+
+## Getting Started
+
+- [Welcome](https://docs.tfstudio.xyz/): orientation, installation and the layout of the application.
+
+## Design
+
+- [Design Editor](https://docs.tfstudio.xyz/design/design-editor/): the layer table — adding, editing and reordering layers.
+- [Surface and Evaluation Modes](https://docs.tfstudio.xyz/design/evaluation-modes/): front, back and total evaluation, and what each includes.
+- [Stack Formula](https://docs.tfstudio.xyz/design/stack-formula/): building periodic stacks with symbolic notation such as (HL)^10 H.
+- [Material Editor](https://docs.tfstudio.xyz/design/material-editor/): refractive index data, dispersion formulas and catalogs.
+- [Specification](https://docs.tfstudio.xyz/design/specification/): wavelength range, angles, polarization and substrate settings.
+- [Merit Function Editor](https://docs.tfstudio.xyz/design/merit-function-editor/): defining optimization targets and their weights.
+- [Operand Reference](https://docs.tfstudio.xyz/design/operands/): every merit-function operand with its definition and normalization.
+- [Variator](https://docs.tfstudio.xyz/design/variator/): sweeping a parameter and observing the effect on the spectrum.
+- [History](https://docs.tfstudio.xyz/design/history/): design snapshots and reverting to an earlier state.
+
+## Analysis
+
+- [Optical Evaluation](https://docs.tfstudio.xyz/analysis/optical-evaluation/): transmittance, reflectance and absorptance spectra.
+- [Color Evaluation](https://docs.tfstudio.xyz/analysis/color-evaluation/): CIE color coordinates of a coating under a chosen illuminant.
+- [Admittance Diagram](https://docs.tfstudio.xyz/analysis/admittance/): graphical admittance locus for understanding stack behaviour.
+- [Electric Field](https://docs.tfstudio.xyz/analysis/efield/): field distribution through the stack, for damage-threshold work.
+- [Ellipsometry](https://docs.tfstudio.xyz/analysis/ellipsometry/): psi and delta for comparison with ellipsometric measurement.
+- [Group Delay and GDD](https://docs.tfstudio.xyz/analysis/gd-gdd/): dispersion characteristics for ultrafast coatings.
+- [Refractive Index Profile](https://docs.tfstudio.xyz/analysis/refractive-index-profile/): index as a function of depth through the coating.
+- [Layer Sensitivity](https://docs.tfstudio.xyz/analysis/layer-sensitivity/): how strongly each layer's thickness affects the merit function.
+- [Monte-Carlo](https://docs.tfstudio.xyz/analysis/error-analysis/): statistical yield prediction from random thickness and index errors.
+- [Integral Values](https://docs.tfstudio.xyz/analysis/integral-values/): weighted averages of spectral quantities over a band.
+- [Roughness and Scattering](https://docs.tfstudio.xyz/analysis/roughness-scattering/): scattering losses from interface roughness.
+- [Inhomogeneities](https://docs.tfstudio.xyz/analysis/inhomogeneities/): the effect of index gradients within a layer.
+- [Systematic Deviations](https://docs.tfstudio.xyz/analysis/systematic-deviations/): thickness scale and offset errors applied across the stack.
+- [Plot Engine](https://docs.tfstudio.xyz/analysis/plot-engine/): plot controls, axes and export common to the analysis windows.
+
+## Synthesis
+
+- [Optimization Methods](https://docs.tfstudio.xyz/synthesis/optimization-methods/): the available algorithms and when to use each.
+- [Refinement](https://docs.tfstudio.xyz/synthesis/refinement/): local optimization of layer thicknesses against the merit function.
+- [Needle Variation](https://docs.tfstudio.xyz/synthesis/needle/): inserting new layers at the optimal position to escape a local minimum.
+- [Gradual Evolution](https://docs.tfstudio.xyz/synthesis/gradual-evolution/): needle optimization under a forced total-thickness schedule.
+- [Structural Optimizer](https://docs.tfstudio.xyz/synthesis/structural-optimizer/): searching over stack structure by adding, removing, splitting and merging layers.
+- [Design Cleaner](https://docs.tfstudio.xyz/synthesis/design-cleaner/): removing redundant and vanishingly thin layers.
+- [Filter Design](https://docs.tfstudio.xyz/synthesis/wdm-wizard/): guided design of bandpass and edge filters.
+
+## Simulation
+
+- [BBM Simulator](https://docs.tfstudio.xyz/simulation/bbm-simulator/): broadband optical monitoring of a deposition run.
+- [Mono Simulator](https://docs.tfstudio.xyz/simulation/mono-simulator/): single-wavelength turning-point monitoring.
+
+## Data Exchange
+
+- [Report Generator](https://docs.tfstudio.xyz/data-exchange/report-generator/): assembling design documentation for export.
+- [Zemax Coatings](https://docs.tfstudio.xyz/data-exchange/zemax-coatings/): reading and writing Zemax COATING.DAT files.
+- [Measured Spectra](https://docs.tfstudio.xyz/data-exchange/measured-spectra/): importing spectrophotometer data for comparison against a design.
+- [Process Exporter](https://docs.tfstudio.xyz/simulation/process-simulator/): exporting a layer schedule for a deposition controller.
+
+## Project
+
+- [TFStudio website](https://tfstudio.xyz/): product overview, downloads and tutorials.
+- [Source code](https://github.com/aai2k/TFStudio): GitHub repository, MIT licence.
+- [Latest release](https://github.com/aai2k/TFStudio/releases/latest): Windows installer downloads.
