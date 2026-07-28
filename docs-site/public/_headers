@@ -1,0 +1,12 @@
+# Cloudflare Pages headers (https://developers.cloudflare.com/pages/configuration/headers/)
+
+# The *.pages.dev deployment URLs serve the same content as docs.tfstudio.xyz,
+# and per-branch previews (including Dependabot branches) serve work in progress.
+# Keep both out of search indexes so only the custom domain competes for ranking.
+# The two patterns cover the project URL (tfstudio-docs.pages.dev) and branch
+# previews (<branch>.tfstudio-docs.pages.dev).
+https://:project.pages.dev/*
+  X-Robots-Tag: noindex
+
+https://:branch.:project.pages.dev/*
+  X-Robots-Tag: noindex
