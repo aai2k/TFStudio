@@ -6,6 +6,7 @@
 
 import { DLSOptimizer, mirrorLayers } from '../../../../../utils/physics/optimizer.js';
 import { designMaterialLookup } from '../../../../../utils/materials/designMaterials.js';
+import { appendMfSample } from '../refinementUtils.js';
 
 const D_MIN = 1.0, D_MAX = 2000.0;
 // Steps run per animation tick before touching React state / live preview. The
@@ -95,6 +96,7 @@ function msFinish(ctx, M) {
             layers: histLayers,
             layerCount: histLayers.length,
             layerSide,
+            mfHistory: [...M.mfHistory],
         });
     }
     console.log(`[Multi-start] Done: ${M.N} restarts, best MF=${M.globalBestMF.toFixed(6)} (mode=${M.surfMode})`);
@@ -111,7 +113,8 @@ function msTickInner(ctx, M, opt) {
     ctx.setIter(M.totalIter);
     ctx.setMf(opt.mf);
     ctx.setOmf(opt.mfOpticalAt(opt.thicknesses));
-    ctx.setMfHistory(prev => [...prev, { iter: M.totalIter, mf: opt.mf }]);
+    M.mfHistory = appendMfSample(M.mfHistory, M.totalIter, opt.mf);
+    ctx.setMfHistory(M.mfHistory);
 
     // Live preview — applyToDesign already honors surfaceMode.
     const updated = opt.applyToDesign(ctx.designRef.current);

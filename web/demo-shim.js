@@ -99,7 +99,7 @@
   // Read-only no-ops report success so the UI flows complete; they persist nothing.
   const api = {
     // app / diagnostics
-    getAppVersion:   () => Promise.resolve('1.4.1-web-demo'),
+    getAppVersion:   () => Promise.resolve('1.4.2-web-demo'),
     getDevAllowed:   () => Promise.resolve(false), // hide dev-only menus
     diagLog:         (m) => { try { console.debug('[tfs]', m); } catch (_) {} },
     loadWasmKernel,

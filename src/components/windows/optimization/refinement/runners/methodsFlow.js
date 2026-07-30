@@ -9,7 +9,7 @@
 
 import { DLSOptimizer } from '../../../../../utils/physics/optimizer.js';
 import { designMaterialLookup } from '../../../../../utils/materials/designMaterials.js';
-import { densifyForRun, presampleMaterials, buildPayload } from '../refinementUtils.js';
+import { appendMfSample, densifyForRun, presampleMaterials, buildPayload } from '../refinementUtils.js';
 import { countFreeVars, METHOD_LABELS } from '../refinementConfig.js';
 import { runOptMainThread } from './mainThread.js';
 import { runEngineP } from './engineRun.js';
@@ -31,8 +31,9 @@ function recordMethodResult(ctx, F, m, res, best) {
     ctx.addHistEntry({
         id: Math.random().toString(36).slice(2),
         label: METHOD_LABELS[m],
-        iter: res.iters || 0, mf: res.mf, omf: res.omf, layers, layerCount: layers.length,
+        iter: F.completedMethodIters, mf: res.mf, omf: res.omf, layers, layerCount: layers.length,
         layerSide: F.layerSide,
+        mfHistory: [...F.methodHistory],
     });
     if (res.mf < best.cur.mf) {
         best.cur = { mf: res.mf, omf: res.omf, frontLayers: res.frontLayers, backLayers: res.backLayers, method: m };
@@ -46,10 +47,11 @@ function finalizeMethodsFlow(ctx, F, gb, methods) {
     ctx.updateDesignRef.current({ frontLayers: gb.frontLayers, backLayers: gb.backLayers }, { transient: true });
     ctx.lastBestRef.current = { mfBest: gb.mf, omf: gb.omf, frontLayers: gb.frontLayers, backLayers: gb.backLayers };
     ctx.optimizerRef.current = {
-        iter: 0, mf: gb.mf, mfBest: gb.mf, layerSide: F.layerSide,
+        iter: F.iterationOffset, mf: gb.mf, mfBest: gb.mf, layerSide: F.layerSide,
         applyToDesign: (d) => ({ ...d, frontLayers: gb.frontLayers, backLayers: gb.backLayers }),
         restoreBest: () => {},
     };
+    ctx.setIter(F.iterationOffset);
     ctx.setMf(gb.mf); ctx.setMfBest(gb.mf); ctx.setOmf(gb.omf); ctx.setOmfBest(gb.omf);
     ctx.setStopReason(gb.mf < 1e-6 ? 'target' : (gb.method && methods.length > 1 ? `best: ${METHOD_LABELS[gb.method]}` : 'stalled'));
     if (methods.length > 1) console.log(`[Refine] Try-all done: best = ${gb.method} (MF=${gb.mf.toFixed(6)})`);
@@ -70,6 +72,57 @@ function seedBaseline(ctx, curDes, ops, payload) {
         ctx.setMfInitial(b.mf); ctx.setOmfInitial(baseOMF);
     } catch (_) {}
     return { baseMF, baseOMF };
+}
+
+function updateFlowProgress(F, mfNow, iters, omfNow) {
+    const { ctx, best } = F;
+    const reportedIter = Number(iters);
+    const localIter = Number.isFinite(reportedIter) ? Math.max(0, reportedIter) : F.lastMethodIter;
+    F.lastMethodIter = Math.max(F.lastMethodIter, localIter);
+    F.methodHistory = appendMfSample(F.methodHistory, localIter, mfNow);
+    const y = Math.min(best.cur.mf, mfNow);
+    ctx.setMf(mfNow); ctx.setMfBest(y);
+    if (omfNow != null) ctx.setOmf(omfNow);
+    ctx.setOmfBest(best.cur.omf);
+    const totalIter = F.iterationOffset + localIter;
+    F.aggregateHistory = appendMfSample(F.aggregateHistory, totalIter, y);
+    ctx.setIter(totalIter);
+    ctx.setMfHistory(F.aggregateHistory);
+}
+
+function beginMethod(F, methodIndex) {
+    const { ctx, best, baseMF, methodCount } = F;
+    F.lastMethodIter = 0;
+    F.methodHistory = [{ iter: 0, mf: baseMF }];
+    F.aggregateHistory = appendMfSample(F.aggregateHistory, F.iterationOffset, best.cur.mf);
+    ctx.setMfHistory(F.aggregateHistory);
+    ctx.bumpRunCount();
+    if (methodCount > 1) ctx.setRestartIdx(methodIndex + 1);
+}
+
+function completeMethod(F, method, result) {
+    const { ctx, best } = F;
+    const reportedIter = Number(result?.iters);
+    const resultIters = Number.isFinite(reportedIter) ? Math.max(0, reportedIter) : 0;
+    F.completedMethodIters = Math.max(F.lastMethodIter, resultIters);
+    if (result) {
+        F.methodHistory = appendMfSample(F.methodHistory, F.completedMethodIters, result.mf);
+        recordMethodResult(ctx, F, method, result, best);
+    }
+    F.iterationOffset += F.completedMethodIters;
+    ctx.setIter(F.iterationOffset);
+}
+
+async function executeMethods(F, methods) {
+    try {
+        for (let i = 0; i < methods.length; i++) {
+            if (!F.alive()) break;
+            const method = methods[i];
+            beginMethod(F, i);
+            const result = await runMethodOnce(F.ctx, method, F);
+            completeMethod(F, method, result);
+        }
+    } catch (err) { console.error('[Refine] method flow error:', err); }
 }
 
 // Each method runs from the SAME baseline; the global best across methods is
@@ -93,32 +146,21 @@ export async function runMethodsFlow(ctx, methods) {
     const myRun = ++ctx.runIdRef.current;
     const alive = () => ctx.runningRef.current && ctx.runIdRef.current === myRun;
     ctx.runningRef.current = true; ctx.setRunning(true); ctx.setCanReset(true);
-    ctx.setMfHistory([]); ctx.setIter(0); ctx.setStopReason(null); ctx.setRestartIdx(0);
+    ctx.setMfHistory([{ iter: 0, mf: baseMF }]); ctx.setIter(0); ctx.setStopReason(null); ctx.setRestartIdx(0);
     ctx.setMf(baseMF); ctx.setMfBest(baseMF); ctx.setOmf(baseOMF); ctx.setOmfBest(baseOMF);
 
     const best = { cur: { mf: baseMF, omf: baseOMF, frontLayers: payload.frontLayers, backLayers: payload.backLayers, method: null } };
     const F = {
+        ctx, best, baseMF, methodCount: methods.length,
         ops, payload, materials, layerSide, curDes, alive,
         singleMethod: methods.length === 1,
         HW: (typeof navigator !== 'undefined' && navigator.hardwareConcurrency) || 4,
-        onProg: (mfNow, _iters, omfNow) => {
-            const y = Math.min(best.cur.mf, mfNow);
-            ctx.setMf(mfNow); ctx.setMfBest(y);
-            if (omfNow != null) ctx.setOmf(omfNow);
-            ctx.setOmfBest(best.cur.omf);
-            ctx.setMfHistory(prev => [...prev, { iter: prev.length, mf: y }]);
-        },
+        iterationOffset: 0, lastMethodIter: 0, completedMethodIters: 0,
+        methodHistory: [], aggregateHistory: [{ iter: 0, mf: baseMF }],
     };
+    F.onProg = (mfNow, iters, omfNow) => updateFlowProgress(F, mfNow, iters, omfNow);
 
-    try {
-        for (const m of methods) {
-            if (!alive()) break;
-            ctx.bumpRunCount();
-            if (methods.length > 1) ctx.setRestartIdx(methods.indexOf(m) + 1);
-            const res = await runMethodOnce(ctx, m, F);
-            if (res) recordMethodResult(ctx, F, m, res, best);
-        }
-    } catch (err) { console.error('[Refine] method flow error:', err); }
+    await executeMethods(F, methods);
 
     finalizeMethodsFlow(ctx, F, best.cur, methods);
 }

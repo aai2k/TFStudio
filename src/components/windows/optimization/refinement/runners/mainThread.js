@@ -11,7 +11,7 @@
 
 import { DLSOptimizer } from '../../../../../utils/physics/optimizer.js';
 import { designMaterialLookup } from '../../../../../utils/materials/designMaterials.js';
-import { densifyForRun } from '../refinementUtils.js';
+import { appendMfSample, densifyForRun } from '../refinementUtils.js';
 import { msRunOne } from './mainThreadMultiStart.js';
 
 // Steps run per animation tick before touching React state / live preview. The
@@ -56,7 +56,7 @@ function startMultiStart(ctx, curDes, ops, maxIter, surfMode) {
     ctx.runningRef.current = true;
     ctx.setRunning(true);
     ctx.setCanReset(true);
-    ctx.setMfHistory([]);
+    ctx.setMfHistory([{ iter: 0, mf: mfInit }]);
     ctx.setMfBest(null);
     ctx.setOmfBest(null);
     ctx.setRestartIdx(0);
@@ -67,7 +67,7 @@ function startMultiStart(ctx, curDes, ops, maxIter, surfMode) {
         globalBestMF: mfInit ?? Infinity,
         globalBestOMF: baselineOmf,
         globalBestThicks: baselineThicks,
-        restart: 0, totalIter: 0,
+        restart: 0, totalIter: 0, mfHistory: [{ iter: 0, mf: mfInit }],
     };
     msRunOne(ctx, M);
 }
@@ -90,7 +90,7 @@ function ssTick(ctx, maxIter) {
     ctx.setOmfBest(opt.mfOpticalAt(opt.thickBest));
     // opt.mfBest is monotone non-increasing; show it directly.
     ctx.setMfBest(opt.mfBest);
-    ctx.setMfHistory(prev => [...prev, { iter: opt.iter, mf: opt.mf }]);
+    ctx.setMfHistory(prev => appendMfSample(prev, opt.iter, opt.mf));
 
     const updated = opt.applyToDesign(ctx.designRef.current);
     ctx.updateDesignRef.current({
@@ -115,6 +115,7 @@ function startSingleStart(ctx, curDes, ops, maxIter) {
         try {
             const opt = new DLSOptimizer(ops, curDes, designMaterialLookup(curDes));
             ctx.optimizerRef.current = opt;
+            ctx.setMfHistory([{ iter: 0, mf: opt.mf }]);
             ctx.setMfInitial(opt.mf);
             ctx.setMfBest(opt.mfBest);
             ctx.setOmfInitial(opt.mfOpticalAt(opt.thicknesses));

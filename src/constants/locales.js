@@ -997,6 +997,7 @@ const en = {
     history: {
       title:     'Design History',
       empty:     'No history yet. Run the optimizer to record designs.',
+      plot:      'Plot',
       restore:   'Restore',
       initial:   'Initial',
       run:       n => `Run #${n}`,
@@ -3448,6 +3449,7 @@ const ru = {
     history: {
       title:   'История проекта',
       empty:   'История пуста. Запустите оптимизатор.',
+      plot:    'График',
       restore: 'Восст.',
       initial: 'Исходный',
       run:     n => `Прогон #${n}`,

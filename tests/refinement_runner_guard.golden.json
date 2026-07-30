@@ -92,9 +92,17 @@
     "mf": 0.05,
     "mfBest": 0.05,
     "mfInitial": 0.397252949,
-    "iter": 5,
+    "iter": 10,
     "stopReason": null,
-    "history": []
+    "history": [
+      {
+        "label": "Damped Least Squares",
+        "iter": 10,
+        "mf": 0.05,
+        "layerCount": 3,
+        "layerSide": "frontLayers"
+      }
+    ]
   },
   "dlsPool/multi/front": {
     "applied": {
@@ -155,7 +163,7 @@
     "mf": 0.05,
     "mfBest": 0.05,
     "mfInitial": 0.397252949,
-    "iter": 0,
+    "iter": 10,
     "stopReason": "stalled",
     "history": [
       {
@@ -179,7 +187,7 @@
     "mf": 0.05,
     "mfBest": 0.05,
     "mfInitial": 0.397252949,
-    "iter": 0,
+    "iter": 60,
     "stopReason": "best: Conjugate Gradient",
     "history": [
       {
@@ -198,7 +206,7 @@
       },
       {
         "label": "DLS multi-start",
-        "iter": 10,
+        "iter": 40,
         "mf": 0.05,
         "layerCount": 3,
         "layerSide": "frontLayers"
@@ -219,7 +227,7 @@
     "mf": 0.05,
     "mfBest": 0.05,
     "mfInitial": 0.196655402,
-    "iter": 0,
+    "iter": 20,
     "stopReason": "best: Conjugate Gradient",
     "history": [
       {
@@ -252,7 +260,7 @@
     "mf": 7.99e-7,
     "mfBest": 7.99e-7,
     "mfInitial": 0.196655402,
-    "iter": 0,
+    "iter": 40,
     "stopReason": "target",
     "history": [
       {

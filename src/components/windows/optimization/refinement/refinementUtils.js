@@ -11,6 +11,22 @@ import {
 
 export const nowMs = () => (typeof performance !== 'undefined' && performance.now) ? performance.now() : Date.now();
 
+// Add one optimizer sample to an MF trajectory. Progress and done messages can
+// report the same iteration; replace that last point instead of creating a
+// zero-width segment. Keeping this transform pure also lets runners retain the
+// exact same trajectory that is shown live for Design History.
+export function appendMfSample(history, iter, mf) {
+    const x = Number(iter), y = Number(mf);
+    if (!Number.isFinite(x) || !Number.isFinite(y)) return history;
+    const point = { iter: Math.max(0, x), mf: y };
+    const prev = history[history.length - 1];
+    if (prev?.iter === point.iter) {
+        if (prev.mf === point.mf) return history;
+        return [...history.slice(0, -1), point];
+    }
+    return [...history, point];
+}
+
 // Adaptive merit sampling: at run launch, densify the band-sampled
 // operands whose bands hide a sub-grid spectral feature so the merit isn't blind
 // to narrow resonances. Always on — it's a no-op on smooth designs (no feature →

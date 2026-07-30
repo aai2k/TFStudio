@@ -26,6 +26,7 @@
  *   Run the guard:                                          node tests/refinement_runner_guard.mjs
  */
 import { readFileSync, writeFileSync, existsSync } from 'node:fs';
+import assert from 'node:assert/strict';
 import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
 import { makeOperand } from '../src/utils/physics/optimizer.js';
@@ -104,7 +105,7 @@ const sleep = ms => new Promise(r => setTimeout(r, ms));
 
 // Build a fake Refinement ctx + a snapshot recorder.
 function makeCtx(design, ops, { multi = false, nRestarts = 1, perturbPct = 30, maxIter = 40 } = {}) {
-    const snap = { applied: null, mf: null, mfBest: null, mfInitial: null, iter: 0, stopReason: null, history: [] };
+    const snap = { applied: null, mf: null, mfBest: null, mfInitial: null, iter: 0, stopReason: null, history: [], mfHistory: [] };
     const ctx = {
         runningRef: ref(false), designRef: ref(design), operandsRef: ref(ops),
         maxIterRef: ref(maxIter), multiStartRef: ref(multi), nRestartsRef: ref(nRestarts),
@@ -114,7 +115,7 @@ function makeCtx(design, ops, { multi = false, nRestarts = 1, perturbPct = 30, m
         flowWorkersRef: ref(new Set()), runIdRef: ref(0), histRunCount: ref(0),
         commitBaseline: () => {},
         bumpRunCount: () => { ctx.histRunCount.current += 1; },
-        addHistEntry: (e) => { snap.history.push({ label: e.label, iter: e.iter, mf: e.mf, layerCount: e.layerCount, layerSide: e.layerSide ?? null }); },
+        addHistEntry: (e) => { snap.history.push({ label: e.label, iter: e.iter, mf: e.mf, layerCount: e.layerCount, layerSide: e.layerSide ?? null, mfHistory: e.mfHistory }); },
         killWorker: () => {
             for (const w of ctx.poolRef.current) { try { w.terminate && w.terminate(); } catch (_) {} }
             ctx.poolRef.current = [];
@@ -133,7 +134,8 @@ function makeCtx(design, ops, { multi = false, nRestarts = 1, perturbPct = 30, m
         }),
         setMf: v => snap.mf = v, setMfBest: v => snap.mfBest = v, setMfInitial: v => snap.mfInitial = v,
         setOmf: () => {}, setOmfBest: () => {}, setOmfInitial: () => {},
-        setIter: v => snap.iter = v, setMfHistory: () => {},
+        setIter: v => snap.iter = v,
+        setMfHistory: v => { snap.mfHistory = typeof v === 'function' ? v(snap.mfHistory) : v; },
         setRunning: () => {}, setCanReset: () => {}, setRestartIdx: () => {},
         setStopReason: v => snap.stopReason = v,
         t: { refinement: { history: { run: (n) => `Run ${n}` } } },
@@ -197,20 +199,22 @@ const OPS = () => [
 
 // ── Scenarios ─────────────────────────────────────────────────────────────────
 async function runScenario(name) {
+    let result;
     switch (name) {
-        case 'mainThread/single/front': { const { ctx, snap } = makeCtx(frontDesign(), OPS()); await withSeed(async () => { runOptMainThread(ctx); await waitIdle(ctx); }); return finalize(snap); }
-        case 'mainThread/single/back':  { const { ctx, snap } = makeCtx(backDesign(),  OPS()); await withSeed(async () => { runOptMainThread(ctx); await waitIdle(ctx); }); return finalize(snap); }
-        case 'mainThread/multi/front':  { const { ctx, snap } = makeCtx(frontDesign(), OPS(), { multi: true, nRestarts: 4 }); await withSeed(async () => { runOptMainThread(ctx); await waitIdle(ctx); }); return finalize(snap); }
-        case 'mainThread/multi/both':   { const { ctx, snap } = makeCtx(bothDesign(),  OPS(), { multi: true, nRestarts: 3 }); await withSeed(async () => { runOptMainThread(ctx); await waitIdle(ctx); }); return finalize(snap); }
-        case 'dlsPool/single/front':    { const { ctx, snap } = makeCtx(frontDesign(), OPS()); await withSeed(async () => { runDlsEvent(ctx); await waitIdle(ctx); }); return finalize(snap); }
-        case 'dlsPool/multi/front':     { const { ctx, snap } = makeCtx(frontDesign(), OPS(), { multi: true, nRestarts: 5 }); await withSeed(async () => { runDlsEvent(ctx); await waitIdle(ctx); }); return finalize(snap); }
-        case 'dlsPool/multi/back':      { const { ctx, snap } = makeCtx(backDesign(),  OPS(), { multi: true, nRestarts: 5 }); await withSeed(async () => { runDlsEvent(ctx); await waitIdle(ctx); }); return finalize(snap); }
-        case 'methodsFlow/cg/front':    { const { ctx, snap } = makeCtx(frontDesign(), OPS()); await withSeed(async () => { await runMethodsFlow(ctx, ['cg']); await waitIdle(ctx); }); return finalize(snap); }
-        case 'methodsFlow/multi/front': { const { ctx, snap } = makeCtx(frontDesign(), OPS(), { nRestarts: 4 }); await withSeed(async () => { await runMethodsFlow(ctx, ['cg', 'sa', 'dls-multi']); await waitIdle(ctx); }); return finalize(snap); }
-        case 'methodsFlow/cg/both':     { const { ctx, snap } = makeCtx(bothDesign(),  OPS()); await withSeed(async () => { await runMethodsFlow(ctx, ['cg', 'sa']); await waitIdle(ctx); }); return finalize(snap); }
-        case 'methodsFlow/de/both':     { const { ctx, snap } = makeCtx(bothDesign(),  OPS()); await withSeed(async () => { await runMethodsFlow(ctx, ['de']); await waitIdle(ctx); }); return finalize(snap); }
+        case 'mainThread/single/front': { const { ctx, snap } = makeCtx(frontDesign(), OPS()); await withSeed(async () => { runOptMainThread(ctx); await waitIdle(ctx); }); result = finalize(snap); break; }
+        case 'mainThread/single/back':  { const { ctx, snap } = makeCtx(backDesign(),  OPS()); await withSeed(async () => { runOptMainThread(ctx); await waitIdle(ctx); }); result = finalize(snap); break; }
+        case 'mainThread/multi/front':  { const { ctx, snap } = makeCtx(frontDesign(), OPS(), { multi: true, nRestarts: 4 }); await withSeed(async () => { runOptMainThread(ctx); await waitIdle(ctx); }); result = finalize(snap); break; }
+        case 'mainThread/multi/both':   { const { ctx, snap } = makeCtx(bothDesign(),  OPS(), { multi: true, nRestarts: 3 }); await withSeed(async () => { runOptMainThread(ctx); await waitIdle(ctx); }); result = finalize(snap); break; }
+        case 'dlsPool/single/front':    { const { ctx, snap } = makeCtx(frontDesign(), OPS()); await withSeed(async () => { runDlsEvent(ctx); await waitIdle(ctx); }); result = finalize(snap); break; }
+        case 'dlsPool/multi/front':     { const { ctx, snap } = makeCtx(frontDesign(), OPS(), { multi: true, nRestarts: 5 }); await withSeed(async () => { runDlsEvent(ctx); await waitIdle(ctx); }); result = finalize(snap); break; }
+        case 'dlsPool/multi/back':      { const { ctx, snap } = makeCtx(backDesign(),  OPS(), { multi: true, nRestarts: 5 }); await withSeed(async () => { runDlsEvent(ctx); await waitIdle(ctx); }); result = finalize(snap); break; }
+        case 'methodsFlow/cg/front':    { const { ctx, snap } = makeCtx(frontDesign(), OPS()); await withSeed(async () => { await runMethodsFlow(ctx, ['cg']); await waitIdle(ctx); }); result = finalize(snap); break; }
+        case 'methodsFlow/multi/front': { const { ctx, snap } = makeCtx(frontDesign(), OPS(), { nRestarts: 4 }); await withSeed(async () => { await runMethodsFlow(ctx, ['cg', 'sa', 'dls-multi']); await waitIdle(ctx); }); result = finalize(snap); break; }
+        case 'methodsFlow/cg/both':     { const { ctx, snap } = makeCtx(bothDesign(),  OPS()); await withSeed(async () => { await runMethodsFlow(ctx, ['cg', 'sa']); await waitIdle(ctx); }); result = finalize(snap); break; }
+        case 'methodsFlow/de/both':     { const { ctx, snap } = makeCtx(bothDesign(),  OPS()); await withSeed(async () => { await runMethodsFlow(ctx, ['de']); await waitIdle(ctx); }); result = finalize(snap); break; }
         default: throw new Error('unknown scenario ' + name);
     }
+    return result;
 }
 
 const SCENARIOS = [
@@ -218,6 +222,26 @@ const SCENARIOS = [
     'dlsPool/single/front', 'dlsPool/multi/front', 'dlsPool/multi/back',
     'methodsFlow/cg/front', 'methodsFlow/multi/front', 'methodsFlow/cg/both', 'methodsFlow/de/both',
 ];
+
+async function verifyIterationHistories() {
+    {
+        const { ctx, snap } = makeCtx(frontDesign(), OPS());
+        await withSeed(async () => { runDlsEvent(ctx); await waitIdle(ctx); });
+        assert.equal(snap.iter, 10, 'DLS displays the done message iteration');
+        assert.deepEqual(snap.mfHistory.map(p => p.iter), [5, 10], 'DLS retains its final plot sample');
+        assert.deepEqual(snap.history[0].mfHistory.map(p => p.iter), [5, 10], 'DLS stores its plot in Design History');
+    }
+    {
+        const { ctx, snap } = makeCtx(frontDesign(), OPS());
+        await withSeed(async () => { await runMethodsFlow(ctx, ['cg', 'sa']); await waitIdle(ctx); });
+        assert.equal(snap.iter, 20, 'Try All displays cumulative optimizer iterations');
+        assert.deepEqual(snap.mfHistory.map(p => p.iter), [0, 5, 10, 15, 20], 'Try All plots actual cumulative iterations');
+        assert.deepEqual(snap.history.map(e => e.mfHistory.map(p => p.iter)), [[0, 5, 10], [0, 5, 10]],
+            'Try All stores an independent plot for every method');
+    }
+}
+
+await verifyIterationHistories();
 
 const results = {};
 for (const name of SCENARIOS) results[name] = await runScenario(name);

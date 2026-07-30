@@ -340,6 +340,7 @@ export function useRefinement({ t }) {
     const [canReset,    setCanReset]    = useState(false);
     const [savedDesign, setSavedDesign] = useState(null);
     const [histEntries, setHistEntries] = useState([]);
+    const [selectedHistoryId, setSelectedHistoryId] = useState(null);
     const histRunCount  = useRef(0);
 
     // Method selector (persisted as a global app setting) + multi-start params.
@@ -385,6 +386,8 @@ export function useRefinement({ t }) {
     useEffect(() => { designRef.current       = design;        }, [design]);
     useEffect(() => { updateDesignRef.current = updateDesign;  }, [updateDesign]);
     useEffect(() => { checkpointRef.current   = checkpoint;    }, [checkpoint]);
+    useEffect(() => { setSelectedHistoryId(null); }, [design?.id]);
+    useEffect(() => { if (running) setSelectedHistoryId(null); }, [running]);
 
     // `env` bundles the refs and state setters the extracted step functions and
     // the runner `ctx` need. Rebuilt each render, but every property inside is
@@ -414,18 +417,31 @@ export function useRefinement({ t }) {
         env, running, buildCtx, savedDesign, updateDesign, stopOpt,
     });
 
+    const handleHistorySelect = useCallback((entry) => {
+        if (entry?.mfHistory?.length)
+            setSelectedHistoryId(current => current === entry.id ? null : entry.id);
+    }, []);
+    const handleHistoryRestore = useCallback((entry) => {
+        if (entry?.mfHistory?.length) setSelectedHistoryId(entry.id);
+        handleRestore(entry);
+    }, [handleRestore]);
+
     const {
         handleEdit, handleAdd, handleInsertAt, handleDuplicate, handleDelete, handleMoveUp, handleMoveDown,
     } = useOperandHandlers({ env, updateDesign, selectedId });
 
+    const selectedHistory = histEntries.find(entry => entry.id === selectedHistoryId);
+    const plotHistory = selectedHistory?.mfHistory?.length ? selectedHistory.mfHistory : mfHistory;
+
     return {
         design, operands, selectedId, setSelectedId, computed,
         running, iter, mf, mfBest, mfInitial, omf, omfBest, canReset,
-        method, nRestarts, perturbPct, restartIdx, maxIter, stopReason, mfHistory, histEntries,
+        method, nRestarts, perturbPct, restartIdx, maxIter, stopReason,
+        mfHistory, plotHistory, histEntries, selectedHistoryId,
         onRun: runOpt, onStop: stopOpt, onReset: resetOpt, onBest: bestOpt,
         onMethod: setMethod, onNRestarts: setNRestarts, onPerturbPct: setPerturbPct, onMaxIter: setMaxIter,
         onEdit: handleEdit, onAdd: handleAdd, onInsertAt: handleInsertAt, onDuplicate: handleDuplicate,
         onDelete: handleDelete, onMoveUp: handleMoveUp, onMoveDown: handleMoveDown,
-        onRestore: handleRestore,
+        onSelectHistory: handleHistorySelect, onRestore: handleHistoryRestore,
     };
 }

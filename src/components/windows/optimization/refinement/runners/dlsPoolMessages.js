@@ -6,6 +6,8 @@
 
 import { runOptMainThread } from './mainThread.js';
 import { makeJob } from './dlsPoolJobs.js';
+import { appendMfSample } from '../refinementUtils.js';
+import { finalizeDlsRun } from './dlsPoolFinalize.js';
 
 // Monotonic cumulative iteration counter across ALL workers/restarts. A pooled
 // worker's reported iter resets to 0 when it picks up the next restart, so we
@@ -29,34 +31,9 @@ function setSyntheticBest(ctx, S, best) {
     };
 }
 
-function finalizeRun(ctx, S) {
-    if (S.finished) return;
-    S.finished = true;
-    ctx.runningRef.current = false;
-    ctx.setRunning(false);
-    ctx.setRestartIdx(0);
-    const lb = ctx.lastBestRef.current;
-    if (lb) {
-        ctx.updateDesignRef.current(
-            { frontLayers: lb.frontLayers, backLayers: lb.backLayers }, { transient: true });
-        if (S.isMulti) {
-            const layers = S.layerSide === 'backLayers' ? lb.backLayers : lb.frontLayers;
-            ctx.addHistEntry({
-                id: Math.random().toString(36).slice(2),
-                label: `${S.runLabel} (×${S.N})`,
-                iter:  S.cumIter,
-                omf:   lb.omf,
-                mf:    lb.mfBest,
-                layers,
-                layerCount: (layers || []).length,
-                layerSide: S.layerSide,
-            });
-            console.log(`[Multi-start pool] Done: ${S.N} restarts on ${S.K} workers, best MF=${lb.mfBest.toFixed(6)} (mode=${S.surfMode})`);
-        } else {
-            console.log(`[DLS] done: best MF=${lb.mfBest.toFixed(6)}`);
-        }
-    }
-    ctx.killWorker();
+function addTrendPoint(ctx, S, iter, mf) {
+    S.mfHistory = appendMfSample(S.mfHistory, iter, mf);
+    ctx.setMfHistory(S.mfHistory);
 }
 
 // Idempotent — only one fallback ever fires (M6 fix).
@@ -88,7 +65,7 @@ function onProgressMsg(ctx, S, m, wid) {
         // Single-start: live MF trajectory (per-progress) + live design.
         ctx.setMf(m.mf);
         if (m.omf != null) ctx.setOmf(m.omf);
-        ctx.setMfHistory(prev => [...prev, { iter: ci, mf: m.mf }]);
+        addTrendPoint(ctx, S, ci, m.mf);
         ctx.updateDesignRef.current(
             { frontLayers: m.frontLayers, backLayers: m.backLayers }, { transient: true });
     } else {
@@ -98,7 +75,7 @@ function onProgressMsg(ctx, S, m, wid) {
         const y = (S.globalBest === Infinity) ? m.mf : S.globalBest;
         ctx.setMf(y);
         ctx.setOmf((S.globalBest === Infinity) ? (m.omf ?? null) : S.globalBestOMF);
-        ctx.setMfHistory(prev => [...prev, { iter: ci, mf: y }]);
+        addTrendPoint(ctx, S, ci, y);
     }
 }
 
@@ -121,12 +98,15 @@ function onDoneMsg(ctx, S, w, m, wid) {
         });
     }
     S.completed++;
+    ctx.setIter(ci);
     if (S.isMulti) {
-        ctx.setIter(ci);
-        ctx.setMfHistory(prev => [...prev, {
-            iter: ci, mf: (S.globalBest === Infinity ? mfB : S.globalBest),
-        }]);
+        addTrendPoint(ctx, S, ci, S.globalBest === Infinity ? mfB : S.globalBest);
         ctx.setRestartIdx(S.completed);
+    } else {
+        // A fast DLS run often finishes before the progress throttle emits
+        // anything after iteration 0. The done message carries both the real
+        // final iteration count and the sample needed to display its plot.
+        addTrendPoint(ctx, S, ci, m.mf);
     }
     if (S.nextJob < S.nJobs) {
         const r = S.nextJob++;
@@ -134,7 +114,7 @@ function onDoneMsg(ctx, S, w, m, wid) {
     } else {
         try { w.terminate(); } catch (_) {}
         ctx.poolRef.current = ctx.poolRef.current.filter(x => x !== w);
-        if (S.completed >= S.nJobs) finalizeRun(ctx, S);
+        if (S.completed >= S.nJobs) finalizeDlsRun(ctx, S);
     }
 }
 

@@ -160,7 +160,7 @@ export function runDlsEvent(ctx) {
         nextJob: 0, completed: 0,
         globalBest: Infinity, globalBestOMF: null,
         finished: false, gotProgress: false, fellBack: false,
-        cumIter: 0, prevIterByW: new Map(), widSeq: 0,
+        cumIter: 0, prevIterByW: new Map(), widSeq: 0, mfHistory: [],
     };
 
     evalBaseline(ctx, S);

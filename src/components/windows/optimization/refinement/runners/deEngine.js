@@ -73,6 +73,7 @@ export async function runParallelDEP(ctx, run) {
     de.restoreBest();
     const upd = de.applyToDesign(payload);
     const deOmf = de.mfOpticalAt(de.thickBest);
+    if (onProg) onProg(de.mfBest, de.iter, deOmf);
     try { pool.terminate(); } catch (_) {} ctx.dePoolRef.current = null;
     return { mf: de.mfBest, omf: deOmf, frontLayers: upd.frontLayers, backLayers: upd.backLayers, iters: de.iter };
 }
@@ -81,24 +82,36 @@ export async function runParallelDEP(ctx, run) {
 // single-DLS runs in batches of K; keep the best. (Single-method 'dls-multi'
 // selection still uses the faster validated event pool, runDlsEvent.) run:
 // { ops, payload, materials, N, pct, alive, onProg }.
-export async function runMultiP(ctx, run) {
-    const { ops, payload, materials, N, pct, alive, onProg } = run;
-    const K  = getThreadCount();   // global Threads setting
-    let best = null, done = 0;
-    for (let s = 0; s < N && alive(); s += K) {
-        const batch = [];
-        for (let i = 0; i < K && (s + i) < N; i++) {
-            batch.push(runEngineP(ctx, 'dls', { ops, payload: perturbPayload(payload, pct, s + i), materials, alive, onProg: null, preview: false }));
-        }
-        const results = await Promise.all(batch);
-        for (const r of results) {
-            done++;
-            if (r && (!best || r.mf < best.mf)) {
-                best = { ...r };
-                if (onProg) onProg(best.mf, done, best.omf);
-                ctx.updateDesignRef.current({ frontLayers: best.frontLayers, backLayers: best.backLayers }, { transient: true });
-            }
-        }
+function makeMultiBatch(ctx, run, start, count) {
+    const batch = [];
+    for (let i = 0; i < count && start + i < run.N; i++) {
+        batch.push(runEngineP(ctx, 'dls', {
+            ops: run.ops, payload: perturbPayload(run.payload, run.pct, start + i),
+            materials: run.materials, alive: run.alive, onProg: null, preview: false,
+        }));
     }
-    return best;
+    return batch;
+}
+
+function collectMultiResult(ctx, state, result, onProg) {
+    if (!result) return;
+    const n = Number(result.iters);
+    state.totalIters += Number.isFinite(n) ? Math.max(0, n) : 0;
+    if (!state.best || result.mf < state.best.mf) {
+        state.best = { ...result };
+        ctx.updateDesignRef.current({
+            frontLayers: state.best.frontLayers, backLayers: state.best.backLayers,
+        }, { transient: true });
+    }
+    if (onProg && state.best) onProg(state.best.mf, state.totalIters, state.best.omf);
+}
+
+export async function runMultiP(ctx, run) {
+    const K  = getThreadCount();   // global Threads setting
+    const state = { best: null, totalIters: 0 };
+    for (let start = 0; start < run.N && run.alive(); start += K) {
+        const results = await Promise.all(makeMultiBatch(ctx, run, start, K));
+        for (const result of results) collectMultiResult(ctx, state, result, run.onProg);
+    }
+    return state.best && { ...state.best, iters: state.totalIters };
 }

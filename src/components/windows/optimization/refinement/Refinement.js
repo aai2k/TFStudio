@@ -60,16 +60,19 @@ export function Refinement({ c, theme, t }) {
         ),
 
         // Compact MF trend plot strip — only shown when running or has history
-        r.mfHistory.length > 1 && h('div', {
+        r.plotHistory.length > 0 && h('div', {
             style: {
                 height: 118, flexShrink: 0,
                 borderTop: `1px solid ${c.border}`,
                 padding: '2px 4px', background: c.bg, overflow: 'hidden'
             }
         },
-            h(MFTrendPlot, { history: r.mfHistory, c, theme })
+            h(MFTrendPlot, { history: r.plotHistory, c, theme })
         ),
 
-        h(HistoryPanel, { entries: r.histEntries, onRestore: r.onRestore, c, t })
+        h(HistoryPanel, {
+            entries: r.histEntries, selectedId: r.selectedHistoryId,
+            onSelect: r.onSelectHistory, onRestore: r.onRestore, c, t,
+        })
     );
 }
