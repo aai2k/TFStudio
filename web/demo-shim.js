@@ -7,11 +7,14 @@
 // useful state: a few curated example designs, the built-in material library, the
 // WASM TMM kernel, and English/light defaults.
 //
-// SCOPE (read-only showcase, ephemeral session — by design):
-//   • Example designs load from DEMO_EXAMPLES (window global, set by demo-examples.js).
-//   • Settings live in memory only; nothing is persisted (reload = reset).
-//   • All save / delete / rename / import / export / file-picker calls are safe
-//     no-ops that report success (so the UI never throws), but write nothing.
+// SCOPE:
+//   • Designs, folders and settings persist in IndexedDB via demo-storage.js, so
+//     a reload restores the session. On first visit the DEMO_EXAMPLES designs are
+//     seeded into an "Examples" folder and are editable from then on.
+//   • Import reads a file the user chooses; export downloads a file. Both go
+//     through the browser, so no design ever leaves the machine.
+//   • Catalog import, the RefractiveIndex.info browser, PDF export and the
+//     process-simulator writer stay unavailable and report so honestly.
 //   • Licensing reports a 'licensed' demo state, so no trial/expired banner shows.
 //   • Help / external links open the public docs + site in a new tab.
 //
@@ -39,28 +42,132 @@
     }
   }
 
-  // ── Example designs → one read-only "Examples" folder ────────────────────────
-  function loadFolders() {
-    const examples = (typeof window !== 'undefined' && window.DEMO_EXAMPLES) || [];
-    const items = examples.map((d, i) => ({
-      id: d.id || `demo-${i}`,
-      name: d.name || `Example ${i + 1}`,
-      mtime: 0, // deterministic; Date.now() avoided so the demo is reproducible
-      design: d,
-    }));
-    return Promise.resolve(ok({
-      folders: [
-        { id: 'Examples', name: 'Examples', expanded: true, items },
-      ],
-    }));
+  const S = () => window.DemoStorage;
+
+  // ── Project explorer, backed by IndexedDB ───────────────────────────────────
+  const EXAMPLES_FOLDER = 'Examples';
+  const DEFAULT_FOLDER = 'My Designs';
+  // Bump when demo-examples.js gains designs that existing visitors should get.
+  // Seeding only ADDS missing designs, so a visitor's edits are never clobbered.
+  const SEED_VERSION = 1;
+
+  async function ensureSeeded() {
+    if (await S().getMeta('seedVersion') === SEED_VERSION) return;
+    const examples = window.DEMO_EXAMPLES || [];
+    const stored = await S().listDesigns();
+    const present = new Set(stored.filter((d) => d.folder === EXAMPLES_FOLDER).map((d) => d.name));
+    if (examples.length) {
+      await S().createFolder(EXAMPLES_FOLDER);
+      for (let i = 0; i < examples.length; i++) {
+        const name = examples[i].name || `Example ${i + 1}`;
+        if (present.has(name)) continue;
+        await S().putDesign(EXAMPLES_FOLDER, Object.assign({ id: `demo-${i}` }, examples[i], { name }));
+      }
+    }
+    const folders = await S().listFolders();
+    if (!folders.some((f) => f.name === DEFAULT_FOLDER)) await S().createFolder(DEFAULT_FOLDER);
+    await S().setMeta('seedVersion', SEED_VERSION);
   }
 
-  // ── Settings (in-memory only) ────────────────────────────────────────────────
-  // Match the regular build's defaults exactly (see renderer.js useState):
-  // theme 'Light' (capital L is the palette key), ribbon 'minimalist', WASM on.
-  let settings = { theme: 'Light', locale: 'en', wasmTmm: true, ribbonStyle: 'minimalist' };
-  function loadSettings() { return Promise.resolve(ok({ settings: Object.assign({}, settings) })); }
-  function saveSettings(next) { settings = Object.assign({}, settings, next || {}); return Promise.resolve(ok()); }
+  async function loadFolders() {
+    try {
+      await ensureSeeded();
+      const [folders, designs] = await Promise.all([S().listFolders(), S().listDesigns()]);
+      const byName = new Map();
+      const folderFor = (name, expanded) => {
+        if (!byName.has(name)) byName.set(name, { id: name, name, expanded: expanded !== false, items: [] });
+        return byName.get(name);
+      };
+      for (const f of folders) folderFor(f.name, f.expanded);
+      for (const d of designs) folderFor(d.folder).items.push({ id: d.design.id, name: d.name, design: d.design, mtime: d.mtime || 0 });
+
+      const out = Array.from(byName.values()).sort((a, b) => a.name.localeCompare(b.name));
+      for (const f of out) f.items.sort((a, b) => a.name.localeCompare(b.name));
+      if (out.length === 0) out.push({ id: DEFAULT_FOLDER, name: DEFAULT_FOLDER, expanded: true, items: [] });
+      return ok({ folders: out });
+    } catch (e) {
+      return fail(String((e && e.message) || e));
+    }
+  }
+
+  // Wrap a storage call that resolves to an error string, or null on success.
+  const guard = async (run) => {
+    try {
+      const err = await run();
+      return err ? fail(err) : ok();
+    } catch (e) {
+      return fail(String((e && e.message) || e));
+    }
+  };
+
+  const saveDesign = (folderName, design) => guard(() => S().putDesign(folderName, design));
+  const deleteItem = (folderName, itemName) => guard(() => S().deleteDesign(folderName, itemName));
+  const renameItem = (folderName, oldName, newName) => guard(() => S().renameDesign(folderName, oldName, newName));
+  const renameFolder = (oldName, newName) => guard(() => S().renameFolder(oldName, newName));
+  const deleteFolder = (folderName) => guard(() => S().deleteFolder(folderName));
+
+  const createFolder = (folderName) => guard(async () => {
+    const folders = await S().listFolders();
+    if (folders.some((f) => f.name === folderName)) return 'Folder already exists';
+    return S().createFolder(folderName).then(() => null);
+  });
+
+  // ── Settings ────────────────────────────────────────────────────────────────
+  // Defaults match the regular build exactly (see renderer.js useState): theme
+  // 'Light' (capital L is the palette key), ribbon 'minimalist', WASM on.
+  const DEFAULT_SETTINGS = { theme: 'Light', locale: 'en', wasmTmm: true, ribbonStyle: 'minimalist' };
+  async function loadSettings() {
+    try {
+      const stored = await S().getMeta('settings');
+      return ok({ settings: Object.assign({}, DEFAULT_SETTINGS, stored || {}) });
+    } catch (_) {
+      return ok({ settings: Object.assign({}, DEFAULT_SETTINGS) });
+    }
+  }
+  async function saveSettings(next) {
+    try {
+      const stored = await S().getMeta('settings');
+      await S().setMeta('settings', Object.assign({}, DEFAULT_SETTINGS, stored || {}, next || {}));
+      return ok();
+    } catch (e) {
+      return fail(String((e && e.message) || e));
+    }
+  }
+
+  // ── File import / export ────────────────────────────────────────────────────
+  // Import mirrors the desktop handlers: return the raw text and let the renderer
+  // parse it. Export downloads through the browser rather than a save dialog, so
+  // the file lands wherever downloads go and `filePath` is only the name.
+  async function pickText(accept) {
+    const res = await S().pickTextFile(accept);
+    if (res.canceled) return { success: false, canceled: true };
+    if (res.error) return fail(res.error);
+    return ok({ text: res.text, fileName: res.fileName });
+  }
+
+  function saveText(text, suggestedName, mime) {
+    if (typeof text !== 'string' || text.length === 0) return Promise.resolve(fail('Nothing to write'));
+    try {
+      S().downloadText(text, suggestedName, mime);
+      return Promise.resolve(ok({ filePath: suggestedName }));
+    } catch (e) {
+      return Promise.resolve(fail(String((e && e.message) || e)));
+    }
+  }
+
+  async function importTfs() {
+    const picked = await pickText('.tfs,application/json');
+    if (!picked.success) return picked;
+    try {
+      const design = JSON.parse(picked.text);
+      if (!design || typeof design !== 'object') return fail('File is not a valid TFStudio design.');
+      // Drop the on-disk version wrapper key; the renderer owns id/name.
+      delete design.tfs_version;
+      return ok({ design, fileName: picked.fileName.replace(/\.[^.]*$/, '') });
+    } catch (err) {
+      return fail(`Could not read design: ${err.message}`);
+    }
+  }
 
   // ── Catalogs / materials ─────────────────────────────────────────────────────
   // The 16 built-in materials are compiled into materialDatabase.js, so an empty
@@ -113,15 +220,15 @@
     toggleDevTools:      noop,
     openExternal,
 
-    // project explorer — read-only
+    // project explorer — persisted in IndexedDB
     loadFolders,
-    saveDesign:   () => Promise.resolve(ok()),
-    importTfs:    () => Promise.resolve({ success: false, canceled: true }),
-    deleteItem:   () => Promise.resolve(ok()),
-    renameItem:   () => Promise.resolve(ok()),
-    createFolder: () => Promise.resolve(ok()),
-    renameFolder: () => Promise.resolve(ok()),
-    deleteFolder: () => Promise.resolve(ok()),
+    saveDesign,
+    importTfs,
+    deleteItem,
+    renameItem,
+    createFolder,
+    renameFolder,
+    deleteFolder,
 
     // settings
     loadSettings,
@@ -144,13 +251,15 @@
     riiUpdate:     () => Promise.resolve(fail()),
     onRiiUpdateProgress: onNoop,
 
-    // process simulator / exporters — read-only
+    // file import / export — through the browser, never off the machine.
+    // The process simulator writes a directory of files, which a download cannot
+    // represent, so it stays unavailable.
     pickProcessSaveDir:   () => Promise.resolve({ success: false, canceled: true }),
-    saveProcessFiles:     () => Promise.resolve(fail()),
-    zemaxPickCoatingFile: () => Promise.resolve({ success: false, canceled: true }),
-    zemaxSaveCoatingFile: () => Promise.resolve(fail()),
-    spectrumPickFile:     () => Promise.resolve({ success: false, canceled: true }),
-    spectrumSaveFile:     () => Promise.resolve(fail()),
+    saveProcessFiles:     () => Promise.resolve(fail('directory export is unavailable in the web demo')),
+    zemaxPickCoatingFile: () => pickText('.dat,.DAT'),
+    zemaxSaveCoatingFile: (text, suggestedName) => saveText(text, suggestedName || 'COATING.DAT', 'text/plain;charset=utf-8'),
+    spectrumPickFile:     () => pickText('.csv,.txt,.asc,.prn,.dx,.jdx,.dat,.tsv'),
+    spectrumSaveFile:     (text, suggestedName) => saveText(text, suggestedName || 'spectrum.csv', 'text/csv;charset=utf-8'),
 
     // help
     openHelp,
@@ -168,9 +277,9 @@
     saveMFPreset:         () => Promise.resolve(ok()),
     deleteMFPreset:       () => Promise.resolve(ok()),
 
-    // report generator — read-only
-    saveReportHtml:     () => Promise.resolve(fail()),
-    exportReportPdf:    () => Promise.resolve(fail()),
+    // report generator — HTML downloads; PDF needs the Electron print pipeline
+    saveReportHtml:     (html, name) => saveText(html, name || 'report.html', 'text/html;charset=utf-8'),
+    exportReportPdf:    () => Promise.resolve(fail('PDF export is unavailable in the web demo - save HTML and print it')),
     listReportPresets:  () => Promise.resolve(ok({ names: [] })),
     loadReportPreset:   () => Promise.resolve(fail()),
     saveReportPreset:   () => Promise.resolve(ok()),
