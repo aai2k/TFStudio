@@ -19,7 +19,7 @@
  */
 import { runJob } from '../benchmark/optimizerBenchmark.js';
 import { getMaterial } from '../materials/materialDatabase.js';
-import { noteTmmWasmBytes, awaitTmmWasmReady, tmmWasmActive } from './tmmWasm.js';
+import { noteTmmWasmBytes, awaitTmmWasmReady, tmmWasmActive } from '../../tmmcore.js';
 
 const resolveMat = (id) => getMaterial(id);
 const POST_MS = 120;   // tick rate limit (wall clock)

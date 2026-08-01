@@ -11,7 +11,7 @@
 
 import { tmm, tmmNeedleScan, tmmThicknessJacobian, tmmThicknessHessian, tmmWithAdmittances, computeEllipsometry, computeGroupDelaySpectrum, computeEFieldProfile } from '../thinFilmMath.js';
 import { resolveSourceSpec, resolveDetectorSpec } from '../spectralWeightings.js';
-import { tmmWasmActive, getTmmWasm } from '../../workers/tmmWasm.js';
+import { tmmWasmActive, getTmmWasm } from '../../../tmmcore.js';
 import {
     OPTICAL_OPERAND_TYPES, RANGE_TARGET_OPERAND_TYPES, TOTAL_THICKNESS_OPERAND_TYPES, BLANK_OPERAND_TYPES, INTEGRAL_OPERAND_TYPES, MINMAX_OPERAND_TYPES, CONSTRAINT_OPERAND_TYPES, INEQUALITY_OPERAND_TYPES, MATH_OPERAND_TYPES, ARGWAVE_OPERAND_TYPES, OPERAND_TYPES, OPERAND_POLS, isConstraint, isDmfs, isBlank, isTotalThickness, isRangeTarget, isIntegral, isMinmax, isMinType, isInequality, isArgwave, isArgwaveMin, isMath, isMathSingleRef, isMathPairRef, isEllipsometry, isGroupDelay, isGroupDelayFlat, isEField, isPhase, isFractionalUnit, mathTargetInPercent, argwaveOpticalChar, argwavePolCode, polFromType, AVG_POINTS, AVG_STEP_NM, AVG_POINTS_MAX, bandSampleCount, ARGWAVE_DEFAULT_POINTS, PNORM_DEFAULT, makeOperand, isRamp, makeConstraintOperand, makeDefaultConstraints, makeDmfsOperand, isValidMeritWeight
 } from './operandModel.js';

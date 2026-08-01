@@ -6,10 +6,13 @@
  *   import { initWasmForTest } from './_wasmInit.mjs';
  *   await initWasmForTest();   // call BEFORE creating any DLSOptimizer/engine
  */
-import { readFileSync } from 'fs';
-import { instantiateTmmWasm, setTmmWasmEnabled, tmmWasmActive, getTmmWasm } from '../src/utils/workers/tmmWasm.js';
+import { readFileSync } from 'node:fs';
+import { createRequire } from 'node:module';
+import { instantiateTmmWasm, setTmmWasmEnabled, tmmWasmActive, getTmmWasm } from 'tmmcore';
 
-export async function initWasmForTest(wasmPath = 'src/wasm/tmm_kernel.wasm') {
+export const TMMCORE_WASM_PATH = createRequire(import.meta.url).resolve('tmmcore/tmm_kernel.wasm');
+
+export async function initWasmForTest(wasmPath = TMMCORE_WASM_PATH) {
   try {
     const bytes = readFileSync(wasmPath);
     await instantiateTmmWasm(bytes);

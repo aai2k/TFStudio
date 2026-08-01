@@ -3,7 +3,7 @@
 // neither has to import the other.
 
 import { mirrorLayers } from '../../../../../utils/physics/optimizer.js';
-import { getTmmWasmBytesForWorker } from '../../../../../utils/workers/tmmWasm.js';
+import { getTmmWasmBytesForWorker } from '../../../../../tmmcore.js';
 
 const D_MIN = 1.0, D_MAX = 2000.0;
 

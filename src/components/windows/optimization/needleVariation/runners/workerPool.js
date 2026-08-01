@@ -23,7 +23,7 @@ import { chunkArray, poolSize } from '../../synthesisShared/synthesisHelpers.js'
 import {
     getSynthesisInnerEngine, getSynthesisMaxBatches, getSynthesisSmartSeed,
 } from '../../../../../utils/synthesis/synthesisConfig.js';
-import { getTmmWasmBytesForWorker } from '../../../../../utils/workers/tmmWasm.js';
+import { getTmmWasmBytesForWorker } from '../../../../../tmmcore.js';
 
 import { runNeedleMainThread } from './mainThread.js';
 import { wpPrepare, wpPresample, wpDesignHelpers } from './workerPoolSetup.js';

@@ -1,8 +1,8 @@
 /**
  * WASM TMM kernel ⇆ JS equivalence test.
  *
- * Validates that src/wasm/tmm_kernel.c (built to tmm_kernel.wasm) reproduces the
- * authoritative JS TMM in thinFilmMath.js — tmm(), tmmAvg() (via the batched
+ * Validates that tmmcore's prebuilt WASM kernel reproduces its authoritative
+ * JS TMM through TFStudio's thinFilmMath facade — tmm(), tmmAvg() (via the batched
  * tmm_spectrum), and tmmThicknessJacobian() — across absorbing, dispersive,
  * oblique-incidence, s/p cases.
  *
@@ -13,25 +13,14 @@
  * yet comfortably above libm noise. The JS worker-vs-serial BIT-identical tests
  * are unaffected (WASM is a separate, feature-flagged path).
  *
- * Run after building the kernel:  npm run build:wasm   (or: node this file)
- * If tmm_kernel.wasm is absent, the test SKIPS cleanly (exit 0) with a notice.
+ * Run: node tests/wasm_tmm_equivalence.mjs
  */
 
-import { readFileSync, existsSync } from 'node:fs';
-import { fileURLToPath } from 'node:url';
-import { dirname, join } from 'node:path';
+import { readFileSync } from 'node:fs';
 
 import { tmm, tmmAvg, tmmThicknessJacobian, tmmNeedleScan } from '../src/utils/physics/thinFilmMath.js';
-import { instantiateTmmWasm } from '../src/utils/workers/tmmWasm.js';
-
-const __dirname = dirname(fileURLToPath(import.meta.url));
-const wasmPath = join(__dirname, '..', 'src', 'wasm', 'tmm_kernel.wasm');
-
-if (!existsSync(wasmPath)) {
-    console.log('SKIP wasm_tmm_equivalence: src/wasm/tmm_kernel.wasm not built.');
-    console.log('     Build it with `npm run build:wasm` (requires Emscripten).');
-    process.exit(0);
-}
+import { instantiateTmmWasm } from 'tmmcore';
+import { TMMCORE_WASM_PATH } from './_wasmInit.mjs';
 
 let fails = 0;
 let maxOne = 0, maxSpec = 0, maxJac = 0;
@@ -63,7 +52,7 @@ const pols = ['s', 'p'];
 
 function relabs(a, b) { return Math.abs(a - b); }
 
-const wasm = await instantiateTmmWasm(readFileSync(wasmPath));
+const wasm = await instantiateTmmWasm(readFileSync(TMMCORE_WASM_PATH));
 
 // ── 1) tmm_one vs JS tmm() ───────────────────────────────────────────────────
 for (const layers of stacks) {

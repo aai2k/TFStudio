@@ -1,6 +1,6 @@
 import { WorkerPool } from '../../../../utils/workers/workerPool.js';
 import { BENCHMARK_WORKER_URL } from '../../../../workerUrls.js';
-import { getTmmWasmBytesForWorker } from '../../../../utils/workers/tmmWasm.js';
+import { getTmmWasmBytesForWorker } from '../../../../tmmcore.js';
 import { buildJobs } from '../../../../utils/benchmark/optimizerBenchmark.js';
 import { getThreadCount } from '../../../../utils/synthesis/synthesisConfig.js';
 

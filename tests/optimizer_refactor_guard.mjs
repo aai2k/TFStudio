@@ -29,7 +29,8 @@ import { dirname, join } from 'node:path';
 import { makeOperand } from '../src/utils/physics/optimizer.js';
 import { makeEngine } from '../src/utils/optimizers/index.js';
 import { getMaterial } from '../src/utils/materials/materialDatabase.js';
-import { initTmmWasmMainThread, setTmmWasmEnabled, tmmWasmActive } from '../src/utils/workers/tmmWasm.js';
+import { initTmmWasmMainThread, setTmmWasmEnabled, tmmWasmActive } from 'tmmcore';
+import { TMMCORE_WASM_PATH } from './_wasmInit.mjs';
 
 const resolveMat = id => getMaterial(id);
 const deep = x => JSON.parse(JSON.stringify(x));
@@ -39,14 +40,13 @@ const UPDATE = process.argv.includes('--update');
 const NOWASM = process.argv.includes('--no-wasm');
 
 // WASM acceleration: route mfAt + the analytic Jacobian through the compiled TMM
-// kernel (the production path) when it is built. Falls back to pure JS if the
-// kernel is absent or --no-wasm is passed. The kernel mode is recorded in the
+// kernel (the production path). The --no-wasm flag keeps the pure-JS path
+// available for comparison. The kernel mode is recorded in the
 // golden so a comparison across modes is flagged rather than mistaken for a
 // refactor regression (WASM agrees with JS to ~1e-15/call, not bit-identically).
-const wasmPath = join(__dirname, '..', 'src', 'wasm', 'tmm_kernel.wasm');
 let wasmOn = false;
-if (!NOWASM && existsSync(wasmPath)) {
-    await initTmmWasmMainThread(readFileSync(wasmPath), true);
+if (!NOWASM) {
+    await initTmmWasmMainThread(readFileSync(TMMCORE_WASM_PATH), true);
     wasmOn = tmmWasmActive();
 } else {
     setTmmWasmEnabled(false);

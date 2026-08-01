@@ -1,14 +1,16 @@
 <div align="center">
 
 <picture>
-  <source media="(prefers-color-scheme: dark)" srcset="https://github.com/user-attachments/assets/fceecf00-b777-42d2-abd0-5e26bc473e04">
-  <img width="914" alt="tfstudio banner" src="https://github.com/user-attachments/assets/fceecf00-b777-42d2-abd0-5e26bc473e04" />
+  <source media="(prefers-color-scheme: dark)"
+          srcset="https://raw.githubusercontent.com/aai2k/TFStudio/main/assets/banner-on-dark.png">
+  <img width="640" alt="TFStudio"
+       src="https://raw.githubusercontent.com/aai2k/TFStudio/main/assets/banner-on-light.png" />
 </picture>
 
 **An open-source design, analysis, and optimization environment for optical thin-film coatings.**
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](./LICENSE)
-![Version](https://img.shields.io/badge/version-1.4.2-informational)
+![Version](https://img.shields.io/badge/version-1.4.3-informational)
 ![Platform](https://img.shields.io/badge/platform-Windows%20%7C%20Linux%20%7C%20macOS-lightgrey)
 [![Maintainability](https://qlty.sh/gh/aai2k/projects/TFStudio/maintainability.svg)](https://qlty.sh/gh/aai2k/projects/TFStudio)
 [![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.21196149.svg)](https://doi.org/10.5281/zenodo.21196149)
@@ -74,6 +76,8 @@ TFStudio implements established thin-film optics, citing primary sources:
 
 All computations use double precision. The TMM engine agrees with independent reference calculations to within single-digit parts-per-million for validated test cases.
 
+The transfer-matrix engine is published separately as **[tmmcore](https://github.com/aai2k/tmmcore)**, so its accuracy can be checked without installing TFStudio: two commands reproduce agreement with an independently written implementation to 8.6e-14. See its [validation page](https://aai2k.github.io/tmmcore/validation/).
+
 ## Installation
 
 ### Download (recommended)
@@ -88,11 +92,12 @@ Requires [Node.js](https://nodejs.org) 18+ and git.
 git clone https://github.com/aai2k/TFStudio.git
 cd TFStudio
 npm install
-# (optional but highly recommended) rebuild the WebAssembly kernel — requires the Emscripten SDK:
-npm run build:wasm
-
 npm start          # launch the app
 ```
+
+The WebAssembly transfer-matrix kernel arrives prebuilt with the `tmmcore`
+dependency, so no Emscripten toolchain is needed and source builds get the same
+performance as the released binaries.
 
 `npm run build` checks out the refractiveindex.info database submodule and installs
 the docs-site dependencies automatically. The database is large; to pull it upfront

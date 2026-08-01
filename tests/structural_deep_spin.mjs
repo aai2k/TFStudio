@@ -15,12 +15,11 @@
  *
  * Run: node tests/structural_deep_spin.mjs
  */
-import { readFileSync, existsSync } from 'node:fs';
-import { fileURLToPath } from 'node:url';
-import { dirname, join } from 'node:path';
+import { readFileSync } from 'node:fs';
 import { caseById, runStructural, opticalMF, minFrontThk } from '../src/utils/benchmark/optimizerBenchmark.js';
 import { getMaterial } from '../src/utils/materials/materialDatabase.js';
-import { initTmmWasmMainThread, tmmWasmActive } from '../src/utils/workers/tmmWasm.js';
+import { initTmmWasmMainThread, tmmWasmActive } from 'tmmcore';
+import { TMMCORE_WASM_PATH } from './_wasmInit.mjs';
 
 const resolveMat = (id) => getMaterial(id);
 
@@ -28,14 +27,8 @@ const resolveMat = (id) => getMaterial(id);
 // is fast enough that single-shot REACHES its maxIter cap in a blink, leaving the
 // budget for deep mode to keep going. Without it the serial driver is so slow that
 // the wall budget binds both modes and reheats never fire.
-const __dirname = dirname(fileURLToPath(import.meta.url));
-const wasmPath = join(__dirname, '..', 'src', 'wasm', 'tmm_kernel.wasm');
-if (existsSync(wasmPath)) {
-    await initTmmWasmMainThread(readFileSync(wasmPath), true);
-    console.log(`WASM TMM kernel: ${tmmWasmActive() ? 'ACTIVE' : 'inactive (init failed)'}`);
-} else {
-    console.log('WASM kernel not built (npm run build:wasm) — running on pure JS (slower).');
-}
+await initTmmWasmMainThread(readFileSync(TMMCORE_WASM_PATH), true);
+console.log(`WASM TMM kernel: ${tmmWasmActive() ? 'ACTIVE' : 'inactive (init failed)'}`);
 
 // Pools. Big = dielectric set spanning low→high index; drop any id the DB lacks.
 const SMALL = ['TiO2', 'SiO2'];

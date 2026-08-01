@@ -6,27 +6,19 @@
  * Then verifies DLSOptimizer.mfAt with WASM enabled matches the JS path, and
  * that the main-thread byte-gating (getTmmWasmBytesForWorker) tracks the flag.
  *
- * Requires src/wasm/tmm_kernel.wasm (npm run build:wasm); SKIPS cleanly if absent.
+ * Uses the prebuilt kernel shipped by tmmcore.
  * Run: node tests/wasm_worker_init.mjs
  */
 
-import { readFileSync, existsSync } from 'node:fs';
-import { fileURLToPath } from 'node:url';
-import { dirname, join } from 'node:path';
+import { readFileSync } from 'node:fs';
 
 import { DLSOptimizer, makeOperand } from '../src/utils/physics/optimizer.js';
 import { getMaterial } from '../src/utils/materials/materialDatabase.js';
 import {
     noteTmmWasmBytes, awaitTmmWasmReady, tmmWasmActive,
     getTmmWasmBytesForWorker, initTmmWasmMainThread,
-} from '../src/utils/workers/tmmWasm.js';
-
-const __dirname = dirname(fileURLToPath(import.meta.url));
-const wasmPath = join(__dirname, '..', 'src', 'wasm', 'tmm_kernel.wasm');
-if (!existsSync(wasmPath)) {
-    console.log('SKIP wasm_worker_init: src/wasm/tmm_kernel.wasm not built (npm run build:wasm).');
-    process.exit(0);
-}
+} from 'tmmcore';
+import { TMMCORE_WASM_PATH } from './_wasmInit.mjs';
 
 let fails = 0;
 const ok = (cond, msg) => { if (!cond) { console.error('FAIL:', msg); fails++; } };
@@ -54,7 +46,7 @@ const x = new DLSOptimizer(ops, des, resolveMat).thicknesses.slice();
 const mfJs = new DLSOptimizer(ops, des, resolveMat).mfAt(x);
 
 // ── B) Worker receives the wasmInit broadcast ────────────────────────────────
-noteTmmWasmBytes(readFileSync(wasmPath));      // what onmessage({type:'wasmInit'}) does
+noteTmmWasmBytes(readFileSync(TMMCORE_WASM_PATH)); // what onmessage({type:'wasmInit'}) does
 await awaitTmmWasmReady();                      // what the job handler awaits
 ok(tmmWasmActive(), 'worker enabled WASM after init');
 const mfW = new DLSOptimizer(ops, des, resolveMat).mfAt(x);
@@ -66,7 +58,7 @@ console.log(`worker-init: WASM active, mfAt Δ = ${d.toExponential(3)}`);
 // The main thread is the one that broadcasts bytes to workers; it sets the byte
 // store via initTmmWasmMainThread (the worker-side noteTmmWasmBytes deliberately
 // does not, since workers never re-broadcast). Seed it, then toggle.
-await initTmmWasmMainThread(readFileSync(wasmPath), true);
+await initTmmWasmMainThread(readFileSync(TMMCORE_WASM_PATH), true);
 ok(tmmWasmActive(), 'main-thread bootstrap active');
 ok(getTmmWasmBytesForWorker() != null, 'bytes available for worker broadcast when active');
 await initTmmWasmMainThread(null, false);       // toggle OFF

@@ -4,17 +4,15 @@
 # Clone the repo and run this. It provisions EVERYTHING a fresh checkout needs,
 # then packages the installers. No elevation / admin rights required.
 #
-#   npm run dist              # full build (provision + WASM + materials + docs + installers)
-#   npm run dist -- -SkipWasm # reuse the committed tmm_kernel.wasm, skip emsdk
+#   npm run dist              # full build (dependencies + materials + docs + installers)
 #
 # What it auto-provisions on a fresh clone (each step is a no-op if already done):
 #   - the refractiveindex.info database  (git submodule -> refractiveindex-db\database)
 #   - root npm dependencies              (npm install)
 #   - the docs-site dependencies         (npm --prefix docs-site install)
-#   - Emscripten SDK + the WASM kernel   (src\wasm\build.ps1 -InstallEmsdk)
+#   - tmmcore, including its prebuilt WASM kernel (root npm dependency)
 #
 # Flags (pass after the script, e.g. npm run dist -- -NoPause):
-#   -SkipWasm     reuse the committed tmm_kernel.wasm; skip emsdk + emcc entirely
 #   -NoPause      do not wait for a keypress at the end (CI / automation)
 #   -Win7         also build the Windows 7/8.1 legacy installers (Electron 22).
 #                 Without it, an interactive run ASKS; an unattended run
@@ -42,7 +40,6 @@
 # =============================================================================
 
 param(
-    [switch]$SkipWasm,
     [switch]$NoPause,
     [switch]$Win7,
     [switch]$CleanCache
@@ -209,7 +206,7 @@ try {
         Write-Host "node_modules missing -> installing." -ForegroundColor Yellow
         $needInstall = $true
     } else {
-        foreach ($dep in @('electron-builder', 'esbuild', 'cross-env')) {
+        foreach ($dep in @('electron-builder', 'esbuild', 'cross-env', 'tmmcore')) {
             if (-not (Test-Path (Join-Path $proj "node_modules\$dep"))) {
                 Write-Host "Dependency '$dep' missing -> running npm install." -ForegroundColor Yellow
                 $needInstall = $true
@@ -235,33 +232,13 @@ try {
         if ($LASTEXITCODE -ne 0) { throw "docs-site npm install failed (exit $LASTEXITCODE)." }
     }
 
-    # --- 4. WASM TMM kernel (+ emsdk auto-install) ---------------------------
-    # src\wasm\build.ps1 discovers emcc; with -InstallEmsdk it git-clones and
-    # activates the Emscripten SDK into %USERPROFILE%\emsdk on first run. The
-    # committed tmm_kernel.wasm is the fallback if emcc/emsdk cannot be provided,
-    # so the packaging step below still succeeds either way.
-    $wasmPath = Join-Path $proj 'src\wasm\tmm_kernel.wasm'
-    if ($SkipWasm) {
-        Section "WASM kernel - SKIPPED (using committed artifact)"
-    } else {
-        Section "Building WASM TMM kernel (auto-installs emsdk if needed)"
-        $wasmScript = Join-Path $proj 'src\wasm\build.ps1'
-        $wasmArgs = @('-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', $wasmScript)
-        if ($haveGit) { $wasmArgs += '-InstallEmsdk' }  # allow the one-time toolchain clone
-        & powershell @wasmArgs
-        if ($LASTEXITCODE -ne 0) {
-            if (Test-Path $wasmPath) {
-                Write-Warning "WASM build failed (emsdk unavailable?). Reusing committed tmm_kernel.wasm."
-            } else {
-                Write-Warning "WASM build failed and no prebuilt artifact exists. The app still runs via the slower pure-JS TMM."
-            }
-        }
+    # --- 4. Verify the tmmcore WASM artifact ---------------------------------
+    Section "Verifying tmmcore WASM kernel"
+    $wasmPath = (& node -p "require.resolve('tmmcore/tmm_kernel.wasm')").Trim()
+    if ($LASTEXITCODE -ne 0 -or -not (Test-Path -LiteralPath $wasmPath)) {
+        throw 'tmmcore/tmm_kernel.wasm could not be resolved after npm install.'
     }
-    if (Test-Path $wasmPath) {
-        Write-Host ("WASM kernel present: {0:N0} bytes" -f (Get-Item $wasmPath).Length) -ForegroundColor Green
-    } else {
-        Write-Warning "No WASM kernel will be bundled (JS-TMM fallback at runtime)."
-    }
+    Write-Host ("tmmcore WASM kernel present: {0:N0} bytes" -f (Get-Item -LiteralPath $wasmPath).Length) -ForegroundColor Green
 
     # --- 5. Package: seed + docs + renderer + installers (npm run build) ------
     # Optional cache wipe is OPT-IN only (-CleanCache). Wiping it forces a

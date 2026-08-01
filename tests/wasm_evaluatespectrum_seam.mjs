@@ -13,7 +13,7 @@
 
 import { evaluateSpectrum, evaluateSpectrumBack } from '../src/utils/physics/thinFilmMath.js';
 import { tmm } from '../src/utils/physics/thinFilmMath.js';
-import { TmmWasmInstance, __setTmmWasmInstanceForTest, setTmmWasmEnabled } from '../src/utils/workers/tmmWasm.js';
+import { TmmWasmInstance, __setTmmWasmInstanceForTest, setTmmWasmEnabled } from 'tmmcore';
 
 let fails = 0;
 const ok = (cond, msg) => { if (!cond) { console.error('FAIL:', msg); fails++; } };

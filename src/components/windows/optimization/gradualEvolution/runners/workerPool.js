@@ -22,7 +22,7 @@ import {
     getSynthesisInnerEngine, getSynthesisMaxBatches,
     getSynthesisSeedMode, PRESERVE_BULK_GENTLE_ITER,
 } from '../../../../../utils/synthesis/synthesisConfig.js';
-import { getTmmWasmBytesForWorker } from '../../../../../utils/workers/tmmWasm.js';
+import { getTmmWasmBytesForWorker } from '../../../../../tmmcore.js';
 import { SYNTHESIS_WORKER_URL as SYNTH_WORKER_URL } from '../../../../../workerUrls.js';
 import {
     activeSide, densifyForRun, chunkArray, poolSize, materialLookup,

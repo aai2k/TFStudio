@@ -70,7 +70,7 @@ async function main() {
   // shows when the build was made — not the runtime date. Read in AboutDialog via
   // `typeof __TFS_BUILD_DATE__` so the dev path (raw ES modules, no define) is safe.
   const buildDate = new Date().toLocaleDateString('en-CA');   // 'YYYY-MM-DD'
-  console.log(`[build-renderer] esbuild bundling 7 entry points … (build date ${buildDate})`);
+  console.log(`[build-renderer] esbuild bundling ${entryPoints.length} entry points … (build date ${buildDate})`);
   const result = await esbuild.build({
     entryPoints,
     outdir: outApp,

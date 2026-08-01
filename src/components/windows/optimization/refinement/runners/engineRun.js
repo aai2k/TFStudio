@@ -2,7 +2,7 @@
 // used by runMethodsFlow (see methodsFlow.js) and by the parallel/multi-start
 // engine wrappers in deEngine.js.
 
-import { getTmmWasmBytesForWorker } from '../../../../../utils/workers/tmmWasm.js';
+import { getTmmWasmBytesForWorker } from '../../../../../tmmcore.js';
 import { OPTIMIZER_WORKER_URL as WORKER_URL } from '../../../../../workerUrls.js';
 import { MAXITER_FOR } from '../refinementConfig.js';
 

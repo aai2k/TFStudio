@@ -32,14 +32,6 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      - name: Setup Emscripten (for the WASM TMM kernel)
-        uses: mymindstorm/setup-emsdk@v16
-        with:
-          version: latest
-
-      - name: Build WASM TMM kernel
-        run: npm run build:wasm
-
       - name: Build Electron app
         run: npm run build
         env:

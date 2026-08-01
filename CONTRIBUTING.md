@@ -56,13 +56,13 @@ Useful scripts:
 | `npm test` | Run the fast test suite (`tests/run-all.mjs`) |
 | `npm run test:all` | Full suite including slower benchmarks |
 | `npm run seed` | Regenerate the bundled material catalogs |
-| `npm run build:wasm` | Rebuild the WebAssembly TMM kernel (needs the [Emscripten SDK](https://emscripten.org)) |
 | `npm run docs:dev` | Preview the documentation site |
 | `npm run build` | Package a distributable (electron-builder) |
 
-You do **not** need Emscripten for normal development — a prebuilt WASM kernel is
-committed, and the engine has a pure-JS fallback. Only rebuild it if you change
-`src/wasm/`.
+The transfer-matrix kernel lives in a separate package,
+[tmmcore](https://github.com/aai2k/tmmcore), and its WebAssembly build arrives
+prebuilt through `npm install`. No Emscripten toolchain is needed here. Changes
+to the kernel itself belong in that repository.
 
 ### Project layout (orientation)
 

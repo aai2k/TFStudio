@@ -6,7 +6,7 @@
 import { DEOptimizer } from '../../../../../utils/optimizers/index.js';
 import { WorkerPool } from '../../../../../utils/workers/workerPool.js';
 import { getThreadCount } from '../../../../../utils/synthesis/synthesisConfig.js';
-import { getTmmWasmBytesForWorker } from '../../../../../utils/workers/tmmWasm.js';
+import { getTmmWasmBytesForWorker } from '../../../../../tmmcore.js';
 import { MFEVAL_WORKER_URL as MFEVAL_URL } from '../../../../../workerUrls.js';
 import { designMaterialLookup } from '../../../../../utils/materials/designMaterials.js';
 import { nowMs, perturbPayload } from '../refinementUtils.js';

@@ -20,7 +20,7 @@
  */
 
 import { makeEngine } from '../optimizers/index.js';
-import { noteTmmWasmBytes, awaitTmmWasmReady } from './tmmWasm.js';
+import { noteTmmWasmBytes, awaitTmmWasmReady } from '../../tmmcore.js';
 import { makeResolveMat } from './resolveMat.js';
 
 const POST_MS = 80;     // progress-message rate limit (wall clock)

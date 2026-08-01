@@ -7,20 +7,15 @@
  * kernel agrees with JS to ~1e-15 per call, so the LM step sequence stays
  * essentially identical; final MF must match to a tight tolerance.
  *
- * Requires src/wasm/tmm_kernel.wasm (npm run build:wasm); SKIPS if absent.
+ * Uses the prebuilt kernel shipped by tmmcore.
  * Run: node tests/wasm_dls_run.mjs
  */
 
-import { readFileSync, existsSync } from 'node:fs';
-import { fileURLToPath } from 'node:url';
-import { dirname, join } from 'node:path';
+import { readFileSync } from 'node:fs';
 import { DLSOptimizer, makeOperand } from '../src/utils/physics/optimizer.js';
 import { getMaterial } from '../src/utils/materials/materialDatabase.js';
-import { initTmmWasmMainThread, setTmmWasmEnabled, tmmWasmActive } from '../src/utils/workers/tmmWasm.js';
-
-const __dirname = dirname(fileURLToPath(import.meta.url));
-const wasmPath = join(__dirname, '..', 'src', 'wasm', 'tmm_kernel.wasm');
-if (!existsSync(wasmPath)) { console.log('SKIP wasm_dls_run: kernel not built.'); process.exit(0); }
+import { initTmmWasmMainThread, setTmmWasmEnabled, tmmWasmActive } from 'tmmcore';
+import { TMMCORE_WASM_PATH } from './_wasmInit.mjs';
 
 let fails = 0;
 const ok = (cond, msg) => { if (!cond) { console.error('FAIL:', msg); fails++; } };
@@ -57,7 +52,7 @@ ok(!tmmWasmActive(), 'flag off for JS run');
 const js = runDLS();
 
 // WASM
-await initTmmWasmMainThread(readFileSync(wasmPath), true);
+await initTmmWasmMainThread(readFileSync(TMMCORE_WASM_PATH), true);
 ok(tmmWasmActive(), 'flag on for WASM run');
 const w = runDLS();
 

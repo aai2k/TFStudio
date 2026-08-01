@@ -4,22 +4,17 @@
  * Establishes whether per-call tmm_one (scratch-arena loader) beats JS, and how
  * much the batched tmm_spectrum wins, on representative stacks. Informs whether a
  * batched-operand entry point is worth building. NOT a correctness test (that's
- * wasm_tmm_equivalence). SKIPS if the kernel isn't built.
+ * wasm_tmm_equivalence). Uses the prebuilt kernel shipped by tmmcore.
  *
  * Run: node tests/wasm_bench.mjs
  */
 
-import { readFileSync, existsSync } from 'node:fs';
-import { fileURLToPath } from 'node:url';
-import { dirname, join } from 'node:path';
+import { readFileSync } from 'node:fs';
 import { tmm, tmmAvg, tmmThicknessJacobian, tmmNeedleScan } from '../src/utils/physics/thinFilmMath.js';
-import { instantiateTmmWasm } from '../src/utils/workers/tmmWasm.js';
+import { instantiateTmmWasm } from 'tmmcore';
+import { TMMCORE_WASM_PATH } from './_wasmInit.mjs';
 
-const __dirname = dirname(fileURLToPath(import.meta.url));
-const wasmPath = join(__dirname, '..', 'src', 'wasm', 'tmm_kernel.wasm');
-if (!existsSync(wasmPath)) { console.log('SKIP wasm_bench: kernel not built.'); process.exit(0); }
-
-const wasm = await instantiateTmmWasm(readFileSync(wasmPath));
+const wasm = await instantiateTmmWasm(readFileSync(TMMCORE_WASM_PATH));
 const air = [1, 0], sub = [1.52, 0];
 const now = () => Number(process.hrtime.bigint()) / 1e6;
 

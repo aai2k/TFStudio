@@ -19,7 +19,7 @@
  */
 
 import { computeSurface } from '../physics/plotQuantities.js';
-import { noteTmmWasmBytes, awaitTmmWasmReady } from './tmmWasm.js';
+import { noteTmmWasmBytes, awaitTmmWasmReady } from '../../tmmcore.js';
 import { makeResolveMat } from './resolveMat.js';
 
 const STATE = { spec: null, design: null, resolveMat: null };

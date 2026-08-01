@@ -2,12 +2,12 @@ name: Tests
 
 # Lightweight regression gate. Runs ONLY the fast test suite (`npm test`).
 # It deliberately does NOT:
-#   - build the app (electron-builder) or the WASM kernel — that's the heavy
-#     `build.yml`, which stays manual-only.
+#   - build the app (electron-builder) — that's the heavy `build.yml`, which
+#     stays manual-only.
 #   - run the slow optimizer benchmarks / reporting tools — those live in the
 #     BENCH set in tests/run-all.mjs and only run via `npm run test:all`.
-# WASM-dependent tests self-SKIP when the kernel isn't built, so no Emscripten
-# is needed here.
+# The WASM kernel arrives prebuilt with the tmmcore dependency, so the
+# WASM-dependent tests run here rather than skipping.
 
 on:
   pull_request:

@@ -146,7 +146,7 @@ function setupIpcHandlers() {
   // paths + safe* helpers are consumed by the projects/catalogs/report/rii groups.
   const ctx = {
     app, shell, dialog, BrowserWindow, fs, path, log,
-    devToolsAllowed, isPackaged, srcDir: __dirname,
+    devToolsAllowed, isPackaged, resourcesDir: process.resourcesPath, srcDir: __dirname,
     getMainWindow: () => mainWindow,
     helpServer,
     safeName, safeFilePath, readJsonSafe, writeFileAtomic, readTextAuto,

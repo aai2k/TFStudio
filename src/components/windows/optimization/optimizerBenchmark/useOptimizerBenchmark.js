@@ -1,4 +1,4 @@
-import { getTmmWasmBytesForWorker } from '../../../../utils/workers/tmmWasm.js';
+import { getTmmWasmBytesForWorker } from '../../../../tmmcore.js';
 import { BENCH_CASES, SYNTH_ENGINES, buildJobs } from '../../../../utils/benchmark/optimizerBenchmark.js';
 import { usePersistentBool, usePersistentNumber } from '../../../ui/usePersistentState.js';
 import { STORE, startRun, stopRun, clearRun, poolSize } from './store.js';

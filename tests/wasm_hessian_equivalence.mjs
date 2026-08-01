@@ -1,35 +1,30 @@
 /**
  * WASM Hessian kernel ⇄ JS oracle equivalence.
  *
- * tmm_hessian (src/wasm/tmm_kernel.c) is a line-by-line port of
+ * tmm_hessian (owned by tmmcore) is a line-by-line port of
  * tmmThicknessHessian (thinFilmMath.js) — the analytic ∂²{R,T,A}/∂dᵢ∂dⱼ used by
  * the bounded-SQP / Newton inner refiner. This asserts the WASM kernel agrees
  * with the JS oracle to float64 round-off across non-absorbing AND absorbing
  * stacks, s/p polarization, and oblique incidence — base R/T/A, the first
  * derivatives, and the full N×N second-derivative matrices.
  *
- * Requires src/wasm/tmm_kernel.wasm (npm run build:wasm); SKIPS if absent.
+ * Uses the prebuilt kernel shipped by tmmcore.
  * Run: node tests/wasm_hessian_equivalence.mjs
  */
-import { readFileSync, existsSync } from 'node:fs';
-import { fileURLToPath } from 'node:url';
-import { dirname, join } from 'node:path';
+import { readFileSync } from 'node:fs';
 import { tmmThicknessHessian } from '../src/utils/physics/thinFilmMath.js';
 import { getMaterial } from '../src/utils/materials/materialDatabase.js';
-import { initTmmWasmMainThread, getTmmWasm, tmmWasmActive } from '../src/utils/workers/tmmWasm.js';
+import { initTmmWasmMainThread, getTmmWasm, tmmWasmActive } from 'tmmcore';
+import { TMMCORE_WASM_PATH } from './_wasmInit.mjs';
 
-const __dirname = dirname(fileURLToPath(import.meta.url));
-const wasmPath = join(__dirname, '..', 'src', 'wasm', 'tmm_kernel.wasm');
-if (!existsSync(wasmPath)) { console.log('SKIP wasm_hessian_equivalence: kernel not built.'); process.exit(0); }
-
-await initTmmWasmMainThread(readFileSync(wasmPath), true);
+await initTmmWasmMainThread(readFileSync(TMMCORE_WASM_PATH), true);
 let fails = 0;
 const ok = (cond, msg) => { if (!cond) { console.error('FAIL:', msg); fails++; } };
 
 const w = getTmmWasm();
 ok(tmmWasmActive(), 'WASM active');
 ok(w.hasHessian(), 'module carries tmm_hessian export');
-if (!w.hasHessian()) { console.error('\n✗ kernel lacks tmm_hessian — rebuild: npm run build:wasm'); process.exit(1); }
+if (!w.hasHessian()) { console.error('\n✗ tmmcore kernel lacks the tmm_hessian export'); process.exit(1); }
 
 const resolveMat = (id) => getMaterial(id);
 // Tolerance: relative with an absolute floor (derivatives span many magnitudes).

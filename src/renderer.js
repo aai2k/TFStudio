@@ -28,7 +28,7 @@ import { MaterialResolutionModalGuard } from './components/materials/MaterialRes
 import { initCatalogs, addCatalog } from './utils/materials/catalogManager.js';
 import { embedDesignMaterials } from './utils/materials/designMaterials.js';
 import { parseAGF } from './utils/materials/agfParser.js';
-import { initTmmWasmMainThread, tmmWasmActive } from './utils/workers/tmmWasm.js';
+import { initTmmWasmMainThread, tmmWasmActive } from './tmmcore.js';
 import { designFileKey, uniqueDesignName } from './utils/io/designNaming.js';
 import {
     designsEqual,

@@ -14,7 +14,7 @@
 import { DLSOptimizer, makeOperand } from '../src/utils/physics/optimizer.js';
 import { getMaterial } from '../src/utils/materials/materialDatabase.js';
 import { tmm, tmmThicknessJacobian } from '../src/utils/physics/thinFilmMath.js';
-import { TmmWasmInstance, __setTmmWasmInstanceForTest, setTmmWasmEnabled } from '../src/utils/workers/tmmWasm.js';
+import { TmmWasmInstance, __setTmmWasmInstanceForTest, setTmmWasmEnabled } from 'tmmcore';
 
 let fails = 0;
 const ok = (cond, msg) => { if (!cond) { console.error('FAIL:', msg); fails++; } };

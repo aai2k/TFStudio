@@ -22,7 +22,7 @@
  */
 
 import { DLSOptimizer } from '../physics/optimizer.js';
-import { noteTmmWasmBytes, awaitTmmWasmReady } from './tmmWasm.js';
+import { noteTmmWasmBytes, awaitTmmWasmReady } from '../../tmmcore.js';
 import { makeResolveMat } from './resolveMat.js';
 
 // Cache the evaluator across generations of the same DE run (same sid).

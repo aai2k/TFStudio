@@ -4,18 +4,18 @@
  * The loader packs JS data into WASM linear memory and unpacks the results. That
  * index/layout math is the half of the WASM feature that is NOT in C, so it can
  * and should be validated in-session. Here we back the EXACT C ABI
- * (src/wasm/tmm_kernel.c) with a JS mock that reads/writes the same memory
+ * (the tmmcore C ABI) with a JS mock that reads/writes the same memory
  * layout and delegates the actual physics to the authoritative JS TMM. If the
  * loader's pointer arithmetic is wrong, the wrappers return wrong numbers.
  *
  * This does NOT test the C kernel itself (that's tests/wasm_tmm_equivalence.mjs,
- * run after `npm run build:wasm`). It tests that tmmWasm.js talks to a kernel
- * that obeys the documented ABI correctly.
+ * which uses tmmcore's prebuilt kernel). It tests that the loader talks to a
+ * kernel that obeys the documented ABI correctly.
  *
  * Run: node tests/wasm_loader_marshalling.mjs
  */
 
-import { TmmWasmInstance } from '../src/utils/workers/tmmWasm.js';
+import { TmmWasmInstance } from 'tmmcore';
 import { tmm, tmmThicknessJacobian, tmmNeedleScan } from '../src/utils/physics/thinFilmMath.js';
 
 let fails = 0;

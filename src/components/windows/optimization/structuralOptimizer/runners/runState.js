@@ -3,7 +3,7 @@ import { makeRng, MUTATION_KINDS } from '../../../../../utils/synthesis/structur
 import {
     getSynthesisInnerEngine, getSynthesisSmartSeed, getThreadCount,
 } from '../../../../../utils/synthesis/synthesisConfig.js';
-import { getTmmWasmBytesForWorker } from '../../../../../utils/workers/tmmWasm.js';
+import { getTmmWasmBytesForWorker } from '../../../../../tmmcore.js';
 import { activeSide, densifyForRun, getPoolMaterials } from '../../synthesisShared/synthesisHelpers.js';
 import { presampleAll } from './refine.js';
 import { createWorkers } from './workerLifecycle.js';
