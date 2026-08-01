@@ -109,7 +109,12 @@ await initWasmForTest();
 
 // ── Needle IGNORES MNT by design → identical result with / without the constraint ─
 {
-    const cfg = { budgetMs: 1200, maxSteps: 25 };
+    // Comparing two runs only means anything when both do the same amount of
+    // work. budgetMs is wall-clock, so on a slow or loaded machine it stops the
+    // runs at different steps and the results diverge for reasons that have
+    // nothing to do with MNT. Bound the comparison by maxSteps and leave the
+    // budget high enough to act purely as a runaway guard.
+    const cfg = { budgetMs: 60000, maxSteps: 25 };
     const base = { caseId: 'bbar', kind: 'needle', dMin: 40, cfg };
     const rNo  = runJob({ ...base, id: 'n0', mnt: null }, resolveMat);
     const rMnt = runJob({ ...base, id: 'n1', mnt: 40 }, resolveMat);
