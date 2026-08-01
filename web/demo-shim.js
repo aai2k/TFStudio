@@ -100,7 +100,15 @@
     }
   };
 
-  const saveDesign = (folderName, design) => guard(() => S().putDesign(folderName, design));
+  const saveDesign = async (folderName, design) => {
+    const res = await guard(() => S().putDesign(folderName, design));
+    // The first save is when a visitor starts assuming their work is safe
+    // somewhere; demo-notice.js says where it actually is.
+    if (res.success) {
+      try { window.DemoNotice?.storageWarningOnce(S().persistent()); } catch (_) {}
+    }
+    return res;
+  };
   const deleteItem = (folderName, itemName) => guard(() => S().deleteDesign(folderName, itemName));
   const renameItem = (folderName, oldName, newName) => guard(() => S().renameDesign(folderName, oldName, newName));
   const renameFolder = (oldName, newName) => guard(() => S().renameFolder(oldName, newName));
