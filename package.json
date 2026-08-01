@@ -3,6 +3,7 @@
   "version": "1.4.3",
   "description": "TFStudio - Optical Thin Film Coating Design",
   "main": "src/main.js",
+  "desktopName": "tfstudio.desktop",
   "scripts": {
     "start": "electron .",
     "dev": "electron . --dev",
@@ -25,9 +26,11 @@
     "build:win": "npm run seed && npm run docs:build && npm run build:renderer && set CSC_IDENTITY_AUTO_DISCOVERY=false&& electron-builder",
     "build:portable": "npm run seed && npm run docs:build && npm run build:renderer && cross-env CSC_IDENTITY_AUTO_DISCOVERY=false electron-builder --win portable",
     "build:win7": "npm run seed && npm run docs:build && npm run build:renderer && cross-env CSC_IDENTITY_AUTO_DISCOVERY=false TFS_LEGACY=1 electron-builder --config build/electron-builder.win7.js",
+    "build:linux": "npm run seed && npm run docs:build && npm run build:renderer && cross-env CSC_IDENTITY_AUTO_DISCOVERY=false electron-builder --linux",
     "dist": "powershell -NoProfile -ExecutionPolicy Bypass -File build-release.ps1",
     "dist:win7": "powershell -NoProfile -ExecutionPolicy Bypass -File build-release.ps1 -Win7",
     "dist:win7-only": "powershell -NoProfile -ExecutionPolicy Bypass -File build-release-win7.ps1",
+    "dist:linux": "powershell -NoProfile -ExecutionPolicy Bypass -File build-release.ps1 -Linux",
     "locale-editor": "node tools/locale-editor/server.js"
   },
   "keywords": [
@@ -105,6 +108,27 @@
       "icon": "icons/tfstudio-purple2.ico",
       "requestedExecutionLevel": "asInvoker",
       "verifyUpdateCodeSignature": false
+    },
+    "linux": {
+      "target": [
+        {
+          "target": "AppImage",
+          "arch": [
+            "x64"
+          ]
+        },
+        {
+          "target": "tar.gz",
+          "arch": [
+            "x64"
+          ]
+        }
+      ],
+      "icon": "icons/tfstudio-purple2.png",
+      "category": "Science",
+      "synopsis": "Optical thin-film coating design and analysis",
+      "artifactName": "TFStudio-${version}-${arch}.${ext}",
+      "syncDesktopName": true
     },
     "extraResources": [
       {

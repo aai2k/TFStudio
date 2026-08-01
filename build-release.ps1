@@ -17,6 +17,8 @@
 #   -Win7         also build the Windows 7/8.1 legacy installers (Electron 22).
 #                 Without it, an interactive run ASKS; an unattended run
 #                 (-NoPause) skips them unless -Win7 is given.
+#   -Linux        also build the Linux artifacts, through WSL. Same prompt rules
+#                 as -Win7. Requires a WSL distribution with Node.js 18+.
 #   -CleanCache   wipe electron-builder's winCodeSign cache before building
 #                 (opt-in recovery only; NOT done by default -- see note below).
 #
@@ -25,7 +27,10 @@
 #   TFStudio-<ver>-Portable.exe       portable single-exe (for locked-down fab PCs)
 #   TFStudio-<ver>-Win7-Setup.exe     legacy installer (Win7 SP1/8/8.1, Electron 22)*
 #   TFStudio-<ver>-Win7-Portable.exe  legacy portable*
+#   TFStudio-<ver>-x86_64.AppImage    Linux single-file application**
+#   TFStudio-<ver>-x64.tar.gz         Linux archive, needs no FUSE**
 #     * only when -Win7 is passed or confirmed at the prompt
+#    ** only when -Linux is passed or confirmed at the prompt
 #
 # The app is intentionally UNSIGNED: no certificate is configured, and
 # CSC_IDENTITY_AUTO_DISCOVERY=false (set by npm run build) disables auto-signing.
@@ -42,6 +47,7 @@
 param(
     [switch]$NoPause,
     [switch]$Win7,
+    [switch]$Linux,
     [switch]$CleanCache
 )
 
@@ -71,6 +77,23 @@ if ($doWin7) {
     Write-Host 'Windows 7 legacy installers WILL be built after the main build.' -ForegroundColor Green
 } else {
     Write-Host 'Windows 7 legacy installers will be skipped.' -ForegroundColor DarkGray
+}
+
+# -----------------------------------------------------------------------------
+# Same decision, for the Linux artifacts. They are produced by WSL running
+# build-release-linux.sh; the actual packaging happens at step 5c.
+# -----------------------------------------------------------------------------
+$doLinux = $false
+if ($Linux) {
+    $doLinux = $true
+} elseif (-not $NoPause) {
+    $ans = Read-Host 'Also build the Linux version (AppImage + tar.gz, via WSL)? [y/N]'
+    if ($ans -match '^\s*(y|yes)\s*$') { $doLinux = $true }
+}
+if ($doLinux) {
+    Write-Host 'Linux artifacts WILL be built after the main build.' -ForegroundColor Green
+} else {
+    Write-Host 'Linux artifacts will be skipped.' -ForegroundColor DarkGray
 }
 
 # -----------------------------------------------------------------------------
@@ -170,6 +193,33 @@ try {
     $haveGit = Have-Cmd 'git'
     if (-not $haveGit) {
         Write-Warning "git not found on PATH. The RII submodule and emsdk auto-install cannot run; the committed seed and prebuilt WASM will be used instead."
+    }
+
+    # Check the WSL side NOW rather than after a ten-minute Windows build. A
+    # failure here disables the Linux step but lets the Windows build finish.
+    $linuxSkipReason = ''
+    if ($doLinux) {
+        if (-not (Have-Cmd 'wsl')) {
+            $linuxSkipReason = 'wsl.exe is not on PATH. Install WSL with: wsl --install -d Ubuntu'
+        } else {
+            & wsl.exe -e true | Out-Null
+            if ($LASTEXITCODE -ne 0) {
+                $linuxSkipReason = 'WSL has no installed distribution. Install one with: wsl --install -d Ubuntu'
+            } else {
+                # A Windows node on the PATH (WSL exposes it under /mnt) cannot
+                # build Linux binaries, so it must not satisfy this check.
+                & wsl.exe -e bash -lc 'command -v node | grep -qv ^/mnt/ && command -v rsync >/dev/null 2>&1' | Out-Null
+                if ($LASTEXITCODE -ne 0) {
+                    $linuxSkipReason = 'The WSL distribution is missing a Linux node and/or rsync. Install them with: wsl -e sudo apt-get update, then wsl -e sudo apt-get install -y nodejs npm rsync'
+                }
+            }
+        }
+        if ($linuxSkipReason) {
+            $doLinux = $false
+            Write-Warning "Linux build disabled: $linuxSkipReason"
+        } else {
+            Write-Host ("WSL ready: {0}" -f (& wsl.exe -e bash -lc 'node -v')) -ForegroundColor Green
+        }
     }
 
     # --- 1. RII database submodule -------------------------------------------
@@ -279,10 +329,29 @@ try {
         Section "Windows 7 legacy build - SKIPPED"
     }
 
+    # --- 5c. Linux artifacts (AppImage + tar.gz, via WSL) --------------------
+    # build-release-linux.sh stages the tree into the WSL filesystem, builds
+    # there, smoke-tests the unpacked app under Xvfb, and copies the artifacts
+    # back into dist\. See that script for why it does not build in place.
+    if ($doLinux) {
+        Section "Building Linux artifacts (WSL)"
+        Write-Host "  (first run installs Linux node_modules and downloads Electron - one time)" -ForegroundColor DarkGray
+        $drive   = $proj.Substring(0, 1).ToLower()
+        $tail    = $proj.Substring(2) -replace '\\', '/'
+        $wslProj = "/mnt/$drive$tail"
+        & wsl.exe -e bash -lc "cd '$wslProj' && bash ./build-release-linux.sh"
+        if ($LASTEXITCODE -ne 0) { throw "Linux build failed (exit $LASTEXITCODE)." }
+        Write-Host "Linux artifacts built." -ForegroundColor Green
+    } else {
+        Section "Linux build - SKIPPED"
+        if ($linuxSkipReason) { Write-Host "  $linuxSkipReason" -ForegroundColor Yellow }
+    }
+
     # --- 6. Report -----------------------------------------------------------
     Section "Build complete - artifacts in dist\"
     if (Test-Path $dist) {
-        Get-ChildItem $dist -Filter *.exe |
+        Get-ChildItem $dist -File |
+            Where-Object { $_.Extension -in @('.exe', '.AppImage') -or $_.Name -like '*.tar.gz' } |
             Sort-Object Length -Descending |
             Format-Table Name, @{N='Size (MB)'; E={ '{0:N1}' -f ($_.Length / 1MB) }} -AutoSize | Out-Host
     } else {

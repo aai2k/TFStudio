@@ -11,7 +11,7 @@
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](./LICENSE)
 ![Version](https://img.shields.io/badge/version-1.4.3-informational)
-![Platform](https://img.shields.io/badge/platform-Windows%20%7C%20Linux%20%7C%20macOS-lightgrey)
+![Platform](https://img.shields.io/badge/platform-Windows%20%7C%20Linux-lightgrey)
 [![Maintainability](https://qlty.sh/gh/aai2k/projects/TFStudio/maintainability.svg)](https://qlty.sh/gh/aai2k/projects/TFStudio)
 [![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.21196149.svg)](https://doi.org/10.5281/zenodo.21196149)
 
@@ -81,7 +81,18 @@ The transfer-matrix engine is published separately as **[tmmcore](https://github
 ## Installation
 
 ### Download (recommended)
-Grab the latest installer or portable build from the [**Releases**](../../releases) page.
+Grab the latest build for your platform from the [**Releases**](../../releases) page.
+
+**Windows** — `TFStudio Setup <ver>.exe` installs normally; `TFStudio-<ver>-Portable.exe` is a single executable that needs no installation, for locked-down deposition PCs. Separate Windows 7/8.1 builds are published alongside.
+
+**Linux** — `TFStudio-<ver>-x86_64.AppImage`, made executable and run:
+
+```bash
+chmod +x TFStudio-*-x86_64.AppImage
+./TFStudio-*-x86_64.AppImage
+```
+
+AppImages need FUSE 2, which Ubuntu 22.04 and later no longer install by default. Either add it (`sudo apt install libfuse2`), run the AppImage with `--appimage-extract-and-run`, or use the `TFStudio-<ver>-x64.tar.gz` archive, which unpacks and runs with no such dependency.
 
 Want to try it first? Run the **[live web demo](https://tfstudio.xyz/demo/)** — example designs and live spectra, right in the browser, no install.
 
@@ -112,8 +123,26 @@ npm run docs:dev      # preview the documentation site
 npm run build         # package a distributable (electron-builder)
 ```
 
+### Packaging releases
 
-One-click install can be tried via build-release.ps1 script.
+`build-release.ps1` provisions everything a fresh clone needs and packages the
+installers in one step. It asks which optional targets to include; pass the flags
+to answer up front.
+
+```powershell
+npm run dist                  # Windows 10/11 installer + portable
+npm run dist -- -Win7         # ...and the Windows 7/8.1 builds
+npm run dist -- -Linux        # ...and the Linux AppImage + tar.gz
+```
+
+The Linux artifacts are produced by `build-release-linux.sh`, which the release
+script drives through WSL; it also runs on any Linux host directly. It needs a
+distribution with Node.js 18+ and `rsync`, and builds in the Linux filesystem
+rather than in place, so a Windows checkout keeps its Windows `node_modules`.
+After packaging it launches the unpacked application under Xvfb as a smoke test,
+which is skipped with a message if Xvfb is not installed.
+
+macOS builds require a macOS host and are not currently published.
 
 User documentation is hosted at **[docs.tfstudio.xyz](https://docs.tfstudio.xyz)**, is built into the app (Help menu), and its source lives in [`docs-site/`](./docs-site).
 
