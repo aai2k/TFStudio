@@ -3,7 +3,7 @@
 <picture>
   <source media="(prefers-color-scheme: dark)"
           srcset="https://raw.githubusercontent.com/aai2k/TFStudio/main/assets/banner-on-dark.png">
-  <img width="640" alt="TFStudio"
+  <img width="320" alt="TFStudio"
        src="https://raw.githubusercontent.com/aai2k/TFStudio/main/assets/banner-on-light.png" />
 </picture>
 
