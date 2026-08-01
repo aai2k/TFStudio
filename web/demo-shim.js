@@ -155,6 +155,161 @@
     }
   }
 
+  // ── Presets ─────────────────────────────────────────────────────────────────
+  // Four families, one file per preset on the desktop. Their list/load shapes
+  // differ and the renderer reads them directly, so each is reproduced exactly
+  // rather than unified: integrals return the stored objects verbatim, the .tfsq
+  // and .tfsm stores return {name, description, file, count} summaries, and the
+  // report store returns {name, file}.
+  const stripExt = (value, ext) => {
+    const text = String(value || '');
+    return text.toLowerCase().endsWith(ext) ? text.slice(0, -ext.length) : text;
+  };
+
+  const listFail = (e) => ({ success: false, error: String((e && e.message) || e), presets: [] });
+
+  // Integral presets — keyed by preset.key, returned as stored.
+  async function loadIntegralPresets() {
+    try {
+      return ok({ presets: (await S().listPresets('integrals')).map((r) => r.preset) });
+    } catch (e) { return listFail(e); }
+  }
+  const saveIntegralPreset = (preset) => guard(async () => {
+    if (!preset || !preset.key) return 'preset.key required';
+    await S().putPreset('integrals', preset.key, preset);
+    return null;
+  });
+  const deleteIntegralPreset = (presetKey) => guard(() => S().deletePreset('integrals', presetKey).then(() => null));
+
+  // Qualifier (.tfsq) and merit-function (.tfsm) presets share a layout; only
+  // the array they carry differs, and saving normalises to the desktop's format.
+  function namedPresetStore(kind, itemsKey, ext) {
+    return {
+      list: async () => {
+        try {
+          const rows = await S().listPresets(kind);
+          return ok({
+            presets: rows.map((r) => ({
+              name: r.preset.name || r.name,
+              description: r.preset.description || '',
+              file: r.name + ext,
+              count: Array.isArray(r.preset[itemsKey]) ? r.preset[itemsKey].length : 0,
+            })),
+          });
+        } catch (e) { return listFail(e); }
+      },
+      load: async (value) => {
+        try {
+          const row = await S().getPreset(kind, stripExt(value, ext));
+          return row ? ok({ preset: row.preset }) : fail('not found');
+        } catch (e) { return fail(String((e && e.message) || e)); }
+      },
+      save: (preset) => guard(async () => {
+        if (!preset || !preset.name) return 'preset.name required';
+        if (!Array.isArray(preset[itemsKey])) return `preset.${itemsKey} required`;
+        await S().putPreset(kind, preset.name, {
+          ver: 1,
+          name: preset.name,
+          description: preset.description || '',
+          [itemsKey]: preset[itemsKey],
+        });
+        return null;
+      }),
+      remove: (value) => guard(() => S().deletePreset(kind, stripExt(value, ext)).then(() => null)),
+    };
+  }
+
+  const qualifierPresets = namedPresetStore('qualifiers', 'qualifiers', '.tfsq');
+  const mfPresets = namedPresetStore('meritFunctions', 'operands', '.tfsm');
+
+  // Report presets (.tfsr) are stored verbatim and listed by name alone.
+  async function listReportPresets() {
+    try {
+      const rows = await S().listPresets('report');
+      return ok({ presets: rows.map((r) => ({ name: r.preset.name || r.name, file: r.name + '.tfsr' })) });
+    } catch (e) { return listFail(e); }
+  }
+  async function loadReportPreset(name) {
+    try {
+      const row = await S().getPreset('report', stripExt(name, '.tfsr'));
+      return row ? ok({ preset: row.preset }) : fail('not found');
+    } catch (e) { return fail(String((e && e.message) || e)); }
+  }
+  const saveReportPreset = (preset) => guard(async () => {
+    if (!preset || !preset.name) return 'preset.name required';
+    await S().putPreset('report', preset.name, preset);
+    return null;
+  });
+  const deleteReportPreset = (name) => guard(() => S().deletePreset('report', stripExt(name, '.tfsr')).then(() => null));
+
+  // ── RefractiveIndex.info ────────────────────────────────────────────────────
+  // The desktop fetches and parses these in the main process because the
+  // renderer cannot make raw HTTPS requests. A browser can: raw.githubusercontent.com
+  // serves the database with `Access-Control-Allow-Origin: *`, so no proxy is
+  // needed — only a YAML parser, loaded on first use so it stays out of the boot
+  // path, and the connect-src the web build adds to the CSP.
+  //
+  // There is no bundled offline mirror, so riiGetStatus reports hasLocal:false
+  // and the window shows its online-only state. Fetched documents are still
+  // cached in IndexedDB under an `rii:` key, which is what riiReadLocal reads:
+  // the catalog alone is ~480 kB, so re-fetching it on every open would be slow
+  // and rude to GitHub.
+  let yamlLoader = null;
+  function loadYaml() {
+    if (window.jsyaml) return Promise.resolve(window.jsyaml);
+    if (yamlLoader) return yamlLoader;
+    yamlLoader = new Promise((resolve, reject) => {
+      const el = document.createElement('script');
+      el.src = 'vendor/js-yaml.min.js';
+      el.onload = () => (window.jsyaml ? resolve(window.jsyaml) : reject(new Error('js-yaml loaded but did not register')));
+      el.onerror = () => reject(new Error('could not load the YAML parser'));
+      document.head.appendChild(el);
+    });
+    return yamlLoader;
+  }
+
+  async function riiFetchYaml(url) {
+    try {
+      const yaml = await loadYaml();
+      const res = await fetch(url, { cache: 'force-cache' });
+      if (!res.ok) return fail(`HTTP ${res.status} fetching ${url}`);
+      const text = await res.text();
+      return ok({ data: yaml.load(text), text });
+    } catch (e) {
+      return fail(String((e && e.message) || e));
+    }
+  }
+
+  async function riiReadLocal(relPath) {
+    try {
+      const text = await S().getMeta(`rii:${relPath}`);
+      if (typeof text !== 'string' || text === '') return fail('not cached');
+      const yaml = await loadYaml();
+      const data = yaml.load(text);
+      // An empty or truncated entry parses to null/undefined. Reporting failure
+      // sends the caller to the network instead of handing it nothing.
+      if (!data) return fail('cached copy is unusable');
+      return ok({ data });
+    } catch (e) {
+      return fail(String((e && e.message) || e));
+    }
+  }
+
+  async function riiWriteLocal(relPath, text) {
+    try {
+      await S().setMeta(`rii:${relPath}`, text);
+      return ok();
+    } catch (e) {
+      return fail(String((e && e.message) || e));
+    }
+  }
+
+  // Shape matches the desktop handler; hasLocal drives the window's
+  // "offline database" indicator, and the demo genuinely has no mirror.
+  const riiGetStatus = () => Promise.resolve(ok({
+    hasLocal: false, lastUpdated: null, materialCount: 0, source: 'none',
+  }));
+
   async function importTfs() {
     const picked = await pickText('.tfs,application/json');
     if (!picked.success) return picked;
@@ -176,9 +331,17 @@
   // real material database). The full 16-material built-in catalog is still present
   // (compiled in), but these small pairs give synthesis a sane default pool — the
   // big built-in pool is unwieldy out of the box.
-  function loadCatalogs() {
-    const catalogs = (typeof window !== 'undefined' && window.DEMO_CATALOGS) || {};
-    return Promise.resolve(ok({ catalogs }));
+  // Curated pairs ship as a starting pool; catalogs the visitor creates or edits
+  // are stored and take precedence, so a design keeps resolving its materials
+  // after a reload.
+  async function loadCatalogs() {
+    const catalogs = Object.assign({}, (typeof window !== 'undefined' && window.DEMO_CATALOGS) || {});
+    try {
+      for (const cat of await S().listCatalogs()) {
+        if (cat && cat.id) catalogs[cat.id] = cat;
+      }
+    } catch (_) { /* fall back to the shipped pool */ }
+    return ok({ catalogs });
   }
   function scanAgfDir() { return Promise.resolve(ok({ files: [] })); }
 
@@ -238,17 +401,22 @@
     importCatalogAgf:       () => Promise.resolve({ success: false, canceled: true }),
     importCatalogOptiLayer: () => Promise.resolve({ success: false, canceled: true }),
     loadCatalogs,
-    saveCatalog:   () => Promise.resolve(ok()),
-    deleteCatalog: () => Promise.resolve(ok()),
+    saveCatalog:   (catalog) => guard(async () => {
+      if (!catalog || !catalog.id) return 'Catalog has no id';
+      await S().putCatalog(catalog);
+      return null;
+    }),
+    deleteCatalog: (catalogId) => guard(() => S().deleteCatalog(catalogId).then(() => null)),
     getCatalogsDir: () => Promise.resolve(ok({ dir: '' })),
     scanAgfDir,
 
-    // RefractiveIndex.info — disabled in demo (no fetch/proxy)
-    riiFetchYaml:  () => Promise.resolve(fail('RII browser disabled in web demo')),
-    riiReadLocal:  () => Promise.resolve(fail()),
-    riiWriteLocal: () => Promise.resolve(fail()),
-    riiGetStatus:  () => Promise.resolve(ok({ present: false })),
-    riiUpdate:     () => Promise.resolve(fail()),
+    // RefractiveIndex.info — fetched live, cached per document
+    riiFetchYaml,
+    riiReadLocal,
+    riiWriteLocal,
+    riiGetStatus,
+    riiUpdate: () => Promise.resolve(fail(
+      'The web demo has no offline mirror to update - materials are fetched from refractiveindex.info as you open them.')),
     onRiiUpdateProgress: onNoop,
 
     // file import / export — through the browser, never off the machine.
@@ -264,27 +432,29 @@
     // help
     openHelp,
 
-    // presets (integrals / qualifiers / merit / report) — empty + no-op
-    loadIntegralPresets:  () => Promise.resolve(ok({ presets: {} })),
-    saveIntegralPreset:   () => Promise.resolve(ok()),
-    deleteIntegralPreset: () => Promise.resolve(ok()),
-    listQualifierPresets: () => Promise.resolve(ok({ names: [] })),
-    loadQualifierPreset:  () => Promise.resolve(fail()),
-    saveQualifierPreset:  () => Promise.resolve(ok()),
-    deleteQualifierPreset:() => Promise.resolve(ok()),
-    listMFPresets:        () => Promise.resolve(ok({ names: [] })),
-    loadMFPreset:         () => Promise.resolve(fail()),
-    saveMFPreset:         () => Promise.resolve(ok()),
-    deleteMFPreset:       () => Promise.resolve(ok()),
+    // presets (integrals / qualifiers / merit / report) — persisted
+    loadIntegralPresets,
+    saveIntegralPreset,
+    deleteIntegralPreset,
+    listQualifierPresets:  qualifierPresets.list,
+    loadQualifierPreset:   qualifierPresets.load,
+    saveQualifierPreset:   qualifierPresets.save,
+    deleteQualifierPreset: qualifierPresets.remove,
+    listMFPresets:         mfPresets.list,
+    loadMFPreset:          mfPresets.load,
+    saveMFPreset:          mfPresets.save,
+    deleteMFPreset:        mfPresets.remove,
 
     // report generator — HTML downloads; PDF needs the Electron print pipeline
     saveReportHtml:     (html, name) => saveText(html, name || 'report.html', 'text/html;charset=utf-8'),
     exportReportPdf:    () => Promise.resolve(fail('PDF export is unavailable in the web demo - save HTML and print it')),
-    listReportPresets:  () => Promise.resolve(ok({ names: [] })),
-    loadReportPreset:   () => Promise.resolve(fail()),
-    saveReportPreset:   () => Promise.resolve(ok()),
-    deleteReportPreset: () => Promise.resolve(ok()),
-    loadReportLogo:     () => Promise.resolve(fail()),
+    listReportPresets,
+    loadReportPreset,
+    saveReportPreset,
+    deleteReportPreset,
+    // The desktop reads a logo from Documents\TFStudio\Branding; the browser has
+    // no such folder, so reports fall back to their unbranded cover page.
+    loadReportLogo:     () => Promise.resolve(fail('no branding folder in the web demo')),
 
     // licensing
     getLicenseState,

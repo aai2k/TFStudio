@@ -20,9 +20,13 @@
   'use strict';
 
   const DB_NAME = 'tfstudio-demo';
-  const DB_VERSION = 1;
+  // v2 added catalogs, v3 added presets. The upgrade only creates missing
+  // stores, so an existing visitor keeps their data across a bump.
+  const DB_VERSION = 3;
   const STORE_FOLDERS = 'folders';
   const STORE_DESIGNS = 'designs';
+  const STORE_CATALOGS = 'catalogs';
+  const STORE_PRESETS = 'presets';
   const STORE_META = 'meta';
 
   // Designs are keyed by folder + name. NUL cannot occur in either, so it is a
@@ -32,28 +36,60 @@
   // ── Backing store ──────────────────────────────────────────────────────────
   let dbPromise = null;
   let usingMemory = false;
-  const memory = { folders: new Map(), designs: new Map(), meta: new Map() };
+  const memory = {
+    folders: new Map(), designs: new Map(), catalogs: new Map(),
+    presets: new Map(), meta: new Map(),
+  };
+
+  // Opening must always settle. A second tab holding an older version blocks the
+  // upgrade, and an open request that never resolves would leave every storage
+  // call pending forever — the app then renders as though all saved work were
+  // gone. Any failure to open degrades to the in-memory store instead.
+  const OPEN_TIMEOUT_MS = 5000;
 
   function openDb() {
     if (dbPromise) return dbPromise;
     dbPromise = new Promise((resolve) => {
+      let settled = false;
+      let timer = null;
+      const settle = (db) => {
+        if (settled) return;
+        settled = true;
+        if (timer) clearTimeout(timer);
+        if (!db) usingMemory = true;
+        resolve(db);
+      };
+
       let req;
       try {
         req = indexedDB.open(DB_NAME, DB_VERSION);
       } catch (_) {
-        usingMemory = true;
-        resolve(null);
+        settle(null);
         return;
       }
+      timer = setTimeout(() => settle(null), OPEN_TIMEOUT_MS);
+
       req.onupgradeneeded = () => {
         const db = req.result;
         if (!db.objectStoreNames.contains(STORE_FOLDERS)) db.createObjectStore(STORE_FOLDERS, { keyPath: 'name' });
         if (!db.objectStoreNames.contains(STORE_DESIGNS)) db.createObjectStore(STORE_DESIGNS, { keyPath: 'key' });
+        if (!db.objectStoreNames.contains(STORE_CATALOGS)) db.createObjectStore(STORE_CATALOGS, { keyPath: 'id' });
+        if (!db.objectStoreNames.contains(STORE_PRESETS)) db.createObjectStore(STORE_PRESETS, { keyPath: 'key' });
         if (!db.objectStoreNames.contains(STORE_META)) db.createObjectStore(STORE_META, { keyPath: 'k' });
       };
-      req.onsuccess = () => resolve(req.result);
-      req.onerror = () => { usingMemory = true; resolve(null); };
-      req.onblocked = () => { usingMemory = true; resolve(null); };
+      req.onsuccess = () => {
+        const db = req.result;
+        // Release the database when another tab needs to upgrade it, so a stale
+        // tab cannot block a newer one indefinitely. Dropping the cached promise
+        // makes the next call reopen at the new version.
+        db.onversionchange = () => {
+          try { db.close(); } catch (_) {}
+          dbPromise = null;
+        };
+        settle(db);
+      };
+      req.onerror = () => settle(null);
+      req.onblocked = () => settle(null);
     });
     return dbPromise;
   }
@@ -61,12 +97,16 @@
   function memStore(storeName) {
     if (storeName === STORE_FOLDERS) return memory.folders;
     if (storeName === STORE_DESIGNS) return memory.designs;
+    if (storeName === STORE_CATALOGS) return memory.catalogs;
+    if (storeName === STORE_PRESETS) return memory.presets;
     return memory.meta;
   }
 
   function idKey(storeName, value) {
     if (storeName === STORE_FOLDERS) return value.name;
     if (storeName === STORE_DESIGNS) return value.key;
+    if (storeName === STORE_CATALOGS) return value.id;
+    if (storeName === STORE_PRESETS) return value.key;
     return value.k;
   }
 
@@ -177,6 +217,24 @@
     return null;
   }
 
+  // ── Catalogs ───────────────────────────────────────────────────────────────
+  // Stored whole, keyed by catalog.id, mirroring the desktop's one-file-per-
+  // catalog layout. Designs reference materials through these, so a catalog that
+  // failed to persist would leave a saved design unable to resolve its layers.
+  const listCatalogs = () => getAll(STORE_CATALOGS);
+  const putCatalog = (catalog) => put(STORE_CATALOGS, catalog);
+  const deleteCatalog = (catalogId) => del(STORE_CATALOGS, catalogId);
+
+  // ── Presets ────────────────────────────────────────────────────────────────
+  // Integral, qualifier, merit-function and report presets are one file per
+  // preset on the desktop, in four separate directories. `kind` stands in for
+  // the directory, so the families cannot collide on a shared name.
+  const presetKey = (kind, name) => `${kind}\u0000${name}`;
+  const listPresets = async (kind) => (await getAll(STORE_PRESETS)).filter((r) => r.kind === kind);
+  const getPreset = (kind, name) => get(STORE_PRESETS, presetKey(kind, name));
+  const putPreset = (kind, name, preset) => put(STORE_PRESETS, { key: presetKey(kind, name), kind, name, preset });
+  const deletePreset = (kind, name) => del(STORE_PRESETS, presetKey(kind, name));
+
   // ── Meta (settings, seed bookkeeping) ──────────────────────────────────────
   async function getMeta(k) {
     const row = await get(STORE_META, k);
@@ -260,6 +318,8 @@
     persistent: () => !usingMemory,
     listFolders, createFolder, deleteFolder, renameFolder,
     listDesigns, putDesign, deleteDesign, renameDesign,
+    listCatalogs, putCatalog, deleteCatalog,
+    listPresets, getPreset, putPreset, deletePreset,
     getMeta, setMeta,
     pickTextFile, downloadText,
   };
