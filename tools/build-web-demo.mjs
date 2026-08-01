@@ -168,6 +168,19 @@ function main() {
     + '        <p><a href="https://tfstudio.xyz/">TFStudio home</a> · <a href="https://github.com/aai2k/TFStudio">Source code on GitHub</a> · <a href="https://docs.tfstudio.xyz/">Documentation</a></p>\n'
     + '    </noscript>\n'
     + '    <div id="root">');
+  // Cache-busting. index.html revalidates quickly, but the assets it references
+  // keep their filenames across deploys, so a returning visitor can run NEW html
+  // against OLD scripts — a mix that behaves worse than either version alone.
+  // Stamping the build into each URL makes every deploy a distinct URL, which no
+  // cache can serve stale, independently of what TTL the CDN applies.
+  //
+  // vendor/ and the .wasm keep bare URLs on purpose: they are pinned immutable
+  // for a year (see the site's _headers) because they only change with a
+  // dependency bump, and re-downloading Plotly on every deploy is the cost this
+  // avoids.
+  const stamp = buildId.replace(/\D/g, '');
+  html = html.replace(/(src|href)="((?:demo-[\w-]+|renderer)\.js|styles\.css)"/g, `$1="$2?v=${stamp}"`);
+
   // The CSP must allow same-origin fetch of the .wasm and its instantiation.
   // The renderer template already grants 'unsafe-eval' (covers WebAssembly) and
   // default-src 'self' (covers same-origin fetch), so no CSP edit is needed.
