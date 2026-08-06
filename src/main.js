@@ -103,7 +103,21 @@ function createWindow() {
   // Packaged builds load the bundled + minified renderer (build/app/); dev loads raw src/.
   mainWindow.loadFile(appIndexFile());
 
-  mainWindow.once('ready-to-show', () => { mainWindow.show(); });
+  // The window is created hidden and revealed on 'ready-to-show' so users never see
+  // an unpainted white frame. That event only fires once the compositor presents a
+  // first frame, which is not guaranteed: under native Wayland with no working GPU
+  // (VMs, remote desktops, software rendering) it never fires, and the app then runs
+  // with no window at all — no crash, nothing in the log, just an invisible process.
+  // Back the event with a timer so a missing first frame can't hide the app forever.
+  let windowShown = false;
+  const revealWindow = () => {
+    if (windowShown || !mainWindow || mainWindow.isDestroyed()) return;
+    windowShown = true;
+    clearTimeout(revealFallback);
+    mainWindow.show();
+  };
+  const revealFallback = setTimeout(revealWindow, 5000);
+  mainWindow.once('ready-to-show', revealWindow);
 
   if (devToolsAllowed && (process.argv.includes('--dev') || process.argv.includes('--debug'))) {
     mainWindow.webContents.openDevTools();
