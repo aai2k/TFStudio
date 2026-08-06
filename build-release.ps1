@@ -190,6 +190,21 @@ try {
         }
     }
     Write-Host ("node {0} / npm {1}" -f (& node -v), (& npm -v)) -ForegroundColor Green
+
+    # electron-builder resolves `powershell.exe` from PATH alone (it spawns it
+    # directly, with no shell, to wrap package-manager calls). A PATH missing the
+    # Windows PowerShell directory -- which happens when another tool rewrites it,
+    # e.g. an emsdk activation -- fails packaging late with "spawn powershell.exe
+    # ENOENT", long after the seed and docs have been built. Restore it up front.
+    if (-not (Have-Cmd 'powershell')) {
+        $wpsDir = Join-Path $env:SystemRoot 'System32\WindowsPowerShell\v1.0'
+        if (-not (Test-Path -LiteralPath (Join-Path $wpsDir 'powershell.exe'))) {
+            throw "powershell.exe is not on PATH and is not in $wpsDir. electron-builder cannot package without it."
+        }
+        $env:PATH = "$env:PATH;$wpsDir"
+        Write-Host "Added $wpsDir to PATH (electron-builder needs powershell.exe)." -ForegroundColor Yellow
+    }
+
     $haveGit = Have-Cmd 'git'
     if (-not $haveGit) {
         Write-Warning "git not found on PATH. The RII submodule and emsdk auto-install cannot run; the committed seed and prebuilt WASM will be used instead."
