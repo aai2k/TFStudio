@@ -2,6 +2,7 @@
 // candidate material. Clicking a point picks a (z, material) candidate.
 
 import { matColor } from '../synthesisShared/synthesisHelpers.js';
+import { buildLayerLabels, buildZoneShapes } from './plotShapes.js';
 
 const { createElement: h, useEffect, useRef } = React;
 
@@ -17,7 +18,8 @@ export function PFunctionPlot({ traces, boundaries, bands, totalZ, selected, onP
         const bg    = c.bg     || '#1e1e1e';
         const panel = c.panel  || '#252526';
         const grid  = c.border || '#3a3a3a';
-        const txt   = c.text   || '#ccc';
+        const txt   = c.text    || '#ccc';
+        const dim   = c.textDim || '#888';
 
         // Material traces FIRST so curveNumber == trace index in `traces`.
         mapRef.current = traces.map(t => t.cands);
@@ -49,20 +51,15 @@ export function PFunctionPlot({ traces, boundaries, bands, totalZ, selected, onP
             });
         }
 
-        // Layer boundaries (vertical guides) + material bands (paper-y strip at bottom).
-        const shapes = [];
-        for (const zb of boundaries) {
-            shapes.push({
-                type: 'line', x0: zb, x1: zb, yref: 'paper', y0: 0, y1: 1,
-                line: { color: grid, width: 0.6, dash: 'dot' },
-            });
-        }
-        for (const b of bands) {
-            shapes.push({
-                type: 'rect', x0: b.z0, x1: b.z1, yref: 'paper', y0: 0, y1: 0.05,
-                fillcolor: b.color, opacity: 0.55, line: { width: 0 }, layer: 'below',
-            });
-        }
+        // Layer zones + boundary guides, with the layer hosting the selection
+        // emphasized so the insertion point can be tied to a layer at a glance.
+        const shapes = buildZoneShapes({
+            bands, boundaries, selected, gridColor: grid,
+            selectionColor: selected ? matColor(selected.materialId) : grid,
+        });
+        const annotations = buildLayerLabels({
+            bands, totalZ, selected, textColor: txt, dimColor: dim,
+        });
 
         const layout = {
             margin: { l: 56, r: 8, t: 6, b: 34 },
@@ -70,7 +67,7 @@ export function PFunctionPlot({ traces, boundaries, bands, totalZ, selected, onP
             font: { color: txt, family: 'system-ui, sans-serif', size: 10 },
             xaxis: { title: { text: 'Stack depth z (nm)', standoff: 4 }, gridcolor: grid, range: [0, totalZ || 1], zeroline: false },
             yaxis: { title: { text: '∂MF/∂d  (< 0 improves)', standoff: 4 }, gridcolor: grid, zeroline: false },
-            shapes,
+            shapes, annotations,
             showlegend: true,
             legend: { orientation: 'h', y: -0.18, font: { size: 9 } },
             hovermode: 'closest',

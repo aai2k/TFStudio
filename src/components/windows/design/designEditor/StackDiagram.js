@@ -1,4 +1,5 @@
 import { resolveColor } from '../../../../utils/materials/catalogManager.js';
+import { resolveEvalMode } from '../../../../utils/physics/optimizer.js';
 import { resolveMaterial } from './units.js';
 
 const { createElement: h } = React;
@@ -44,6 +45,18 @@ function stackBlockLabel(b) {
     return b.label.length > 6 ? b.label.slice(0, 5) + '…' : b.label;
 }
 
+// Which end of the drawn stack the light enters, taken from the same
+// resolveEvalMode() every analysis window reads. Blocks run incident medium →
+// front layers → substrate → back layers → exit medium, so only a back coating
+// evaluated on its own is entered from the right; a front coating and the full
+// system are both entered from the incident side on the left.
+function lightDirection(design, de) {
+    const mode = resolveEvalMode(design);
+    if (mode === 'back')  return { fromExit: true,  glyph: '←', title: de.lightFromExit };
+    if (mode === 'total') return { fromExit: false, glyph: '→', title: de.lightThroughStack };
+    return { fromExit: false, glyph: '→', title: de.lightFromIncident };
+}
+
 export const StackDiagram = React.memo(function StackDiagram({ design, c, t }) {
     const de = t.designEditor;
     const subMat = resolveMaterial(design.substrate.material);
@@ -66,14 +79,24 @@ export const StackDiagram = React.memo(function StackDiagram({ design, c, t }) {
     const totalFront = front.reduce((s, l) => s + (l.thickness || 0), 0);
     const totalBack  = back.reduce((s, l) => s + (l.thickness || 0), 0);
 
+    const light = lightDirection(design, de);
+    const arrow = h('div', {
+        title: light.title,
+        style: {
+            display: 'flex', alignItems: 'center', fontSize: 12, color: c.accent, flexShrink: 0,
+            marginRight: light.fromExit ? 0 : 4, marginLeft: light.fromExit ? 4 : 0,
+        },
+    }, light.glyph);
+
     return h('div', { style: { display: 'flex', flexDirection: 'column', gap: 3 } },
         h('div', { style: { display: 'flex', alignItems: 'stretch', gap: dense ? 0 : 1, height: 26, width: '100%', overflow: 'hidden' } },
-            h('div', { style: { display: 'flex', alignItems: 'center', fontSize: 12, color: c.accent, marginRight: 4, flexShrink: 0 } }, '→'),
+            !light.fromExit && arrow,
             blocks.map((b, i) =>
                 h('div', { key: i, title: b.fullId || b.label,
                     style: stackBlockStyle(b, i, blocks.length, subMat, c) },
                     stackBlockLabel(b))
-            )
+            ),
+            light.fromExit && arrow
         ),
         h('div', { style: { fontSize: 10, color: c.textDim, display: 'flex', gap: 16, flexWrap: 'wrap' } },
             h('span', null, de.frontSummary(front.length, totalFront.toFixed(1))),

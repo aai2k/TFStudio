@@ -82,7 +82,7 @@ export function buildPlotData(scan) {
     traces.sort((a, b) => (a.name < b.name ? -1 : 1));
 
     const bands = (scan.layers || []).map((l, k) => ({
-        z0: zb[k], z1: zb[k + 1], color: matColor(l.material),
+        z0: zb[k], z1: zb[k + 1], color: matColor(l.material), k, materialId: l.material,
     }));
     return { traces, boundaries: zb, bands, totalZ };
 }
