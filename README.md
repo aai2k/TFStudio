@@ -85,7 +85,16 @@ Grab the latest build for your platform from the [**Releases**](../../releases) 
 
 **Windows** — `TFStudio Setup <ver>.exe` installs normally; `TFStudio-<ver>-Portable.exe` is a single executable that needs no installation, for locked-down deposition PCs. Separate Windows 7/8.1 builds are published alongside.
 
-**Linux** — `TFStudio-<ver>-x86_64.AppImage`, made executable and run:
+**Linux** — on Debian and Ubuntu, `TFStudio-<ver>-amd64.deb` is the recommended package:
+
+```bash
+sudo apt install ./TFStudio-*-amd64.deb
+tfstudio
+```
+
+Installing as root is what lets the Chromium sandbox stay enabled — the `.deb` is the only Linux package that keeps it on, and it also adds TFStudio to the applications menu.
+
+`TFStudio-<ver>-x86_64.AppImage` is the portable alternative:
 
 ```bash
 chmod +x TFStudio-*-x86_64.AppImage
@@ -93,6 +102,16 @@ chmod +x TFStudio-*-x86_64.AppImage
 ```
 
 AppImages need FUSE 2, which Ubuntu 22.04 and later no longer install by default. Either add it (`sudo apt install libfuse2`), run the AppImage with `--appimage-extract-and-run`, or use the `TFStudio-<ver>-x64.tar.gz` archive, which unpacks and runs with no such dependency.
+
+From the `.tar.gz`, start the app through the bundled launcher rather than the binary:
+
+```bash
+tar xzf TFStudio-*-x64.tar.gz
+cd TFStudio-*-x64
+./tfstudio.sh
+```
+
+`tfstudio.sh` works around a Chromium requirement that an unpacked archive cannot satisfy: the sandbox helper has to be owned by root, which an archive extracted as a normal user never is. Running the `tfstudio` binary directly instead aborts on startup with `The SUID sandbox helper binary was found, but is not configured correctly`. The launcher disables the sandbox only when there is no working alternative, so installing the `.deb` remains the more secure option.
 
 Want to try it first? Run the **[live web demo](https://tfstudio.xyz/demo/)** — example designs and live spectra, right in the browser, no install.
 
@@ -132,7 +151,7 @@ to answer up front.
 ```powershell
 npm run dist                  # Windows 10/11 installer + portable
 npm run dist -- -Win7         # ...and the Windows 7/8.1 builds
-npm run dist -- -Linux        # ...and the Linux AppImage + tar.gz
+npm run dist -- -Linux        # ...and the Linux .deb + AppImage + tar.gz
 ```
 
 The Linux artifacts are produced by `build-release-linux.sh`, which the release
@@ -141,6 +160,10 @@ distribution with Node.js 18+ and `rsync`, and builds in the Linux filesystem
 rather than in place, so a Windows checkout keeps its Windows `node_modules`.
 After packaging it launches the unpacked application under Xvfb as a smoke test,
 which is skipped with a message if Xvfb is not installed.
+
+Note that the smoke test runs under Xvfb, so it exercises the X11 path only. A
+regression that appears solely under native Wayland — such as a window that is
+never presented — will pass it. Check a Wayland session by hand before releasing.
 
 macOS builds require a macOS host and are not currently published.
 

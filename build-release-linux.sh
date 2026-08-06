@@ -12,9 +12,15 @@
 #   ./build-release-linux.sh --no-verify  build only
 #
 # Produces, in dist/ :
+#   TFStudio-<ver>-amd64.deb        Debian/Ubuntu package; the recommended install.
+#                                   Installing as root is the only way chrome-sandbox
+#                                   gets its setuid bit (or an AppArmor profile), so
+#                                   this is the one target that keeps the Chromium
+#                                   sandbox enabled.
 #   TFStudio-<ver>-x86_64.AppImage  single-file portable application
 #   TFStudio-<ver>-x64.tar.gz       plain archive; needs no FUSE, so it works on
-#                                   distributions that no longer ship libfuse2
+#                                   distributions that no longer ship libfuse2.
+#                                   Launch it via tfstudio.sh, not the bare binary.
 #
 # Staging: when the source tree lives on a Windows drive (/mnt/...), the build
 # is copied into the Linux filesystem first and the artifacts are copied back at
@@ -26,9 +32,10 @@
 # Requirements: Node.js 18+ and npm. The smoke test additionally needs Xvfb and
 # the Electron runtime libraries; without them it is skipped, not failed:
 #
-#   sudo apt-get install -y xvfb libgtk-3-0 libnss3 libasound2t64
+#   sudo apt-get install -y xvfb libgtk-3-0t64 libnss3 libasound2t64
 #
-# (On Ubuntu 22.04 and older the last package is named libasound2.)
+# (On Ubuntu 22.04 and older these are named libgtk-3-0 and libasound2; the t64
+# suffix arrived with the 64-bit time_t transition in 24.04.)
 # =============================================================================
 set -euo pipefail
 
@@ -190,7 +197,7 @@ if [ "$VERIFY" -eq 1 ]; then
         echo "No executable found in dist/linux-unpacked; skipping." >&2
     elif ! have xvfb-run; then
         echo "Xvfb is not installed, so the smoke test was skipped. To enable it:"
-        echo "  sudo apt-get install -y xvfb libgtk-3-0 libnss3 libasound2t64"
+        echo "  sudo apt-get install -y xvfb libgtk-3-0t64 libnss3 libasound2t64"
     else
         LOG="$(mktemp)"
         set +e
@@ -218,11 +225,12 @@ if [ "$STAGE" != "$SRC" ]; then
     section "Copying artifacts back to $SRC/dist"
     mkdir -p "$SRC/dist"
     find "$STAGE/dist" -maxdepth 1 -type f \
-        \( -name '*.AppImage' -o -name '*.tar.gz' \) \
+        \( -name '*.AppImage' -o -name '*.tar.gz' -o -name '*.deb' \) \
         -exec cp -f {} "$SRC/dist/" \;
 fi
 
 section "Build complete - artifacts in dist/"
-find "$SRC/dist" -maxdepth 1 -type f \( -name '*.AppImage' -o -name '*.tar.gz' \) \
+find "$SRC/dist" -maxdepth 1 -type f \
+    \( -name '*.AppImage' -o -name '*.tar.gz' -o -name '*.deb' \) \
     -printf '%f\t%s\n' 2>/dev/null \
     | awk -F'\t' '{ printf "%-44s %8.1f MB\n", $1, $2/1048576 }'
