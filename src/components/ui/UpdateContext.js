@@ -11,10 +11,10 @@ const { createElement: h, createContext, useContext } = React;
 
 const UpdateContext = createContext(null);
 
-export const UpdateProvider = ({ enabled, skippedVersion, onSkipVersion, appVersion, c, t, children }) => {
+export const UpdateProvider = ({ enabled, ready, skippedVersion, onSkipVersion, appVersion, c, t, children }) => {
   const { isOptimizing } = useDesign();
   const update = useUpdateCheck({
-    enabled, skippedVersion, onSkipVersion, isOptimizing, appVersion,
+    enabled, ready, skippedVersion, onSkipVersion, isOptimizing, appVersion,
   });
 
   return h(UpdateContext.Provider, { value: update },

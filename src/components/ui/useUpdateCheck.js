@@ -85,7 +85,7 @@ function useAutoDismiss(card, dismiss) {
   }, [card]);   // eslint-disable-line react-hooks/exhaustive-deps
 }
 
-export function useUpdateCheck({ enabled, skippedVersion, onSkipVersion, isOptimizing, appVersion }) {
+export function useUpdateCheck({ enabled, ready, skippedVersion, onSkipVersion, isOptimizing, appVersion }) {
   const [decision, setDecision] = useState(null);
   const [checking, setChecking] = useState(false);
   const [card, showCard, hideCard] = useDeferredCard(isOptimizing);
@@ -106,15 +106,29 @@ export function useUpdateCheck({ enabled, skippedVersion, onSkipVersion, isOptim
     return next;
   }, [skippedVersion, appVersion]);
 
+  // Keep the delayed startup callback on current state without restarting it
+  // for unrelated renders (for example, an optimization beginning).
+  const runRef = useRef(run);
+  const showCardRef = useRef(showCard);
+  const enabledRef = useRef(enabled);
+  const appVersionRef = useRef(appVersion);
+  runRef.current = run;
+  showCardRef.current = showCard;
+  enabledRef.current = enabled;
+  appVersionRef.current = appVersion;
+
   useEffect(() => {
-    if (started.current || !enabled) return;
-    started.current = true;
+    if (started.current || !ready || !enabled) return;
     const timer = setTimeout(async () => {
-      const next = await run(false);
-      if (worthRaising(next, appVersion)) showCard(next);
+      if (started.current) return;
+      started.current = true;
+      const next = await runRef.current(false);
+      if (enabledRef.current && worthRaising(next, appVersionRef.current)) {
+        showCardRef.current(next);
+      }
     }, STARTUP_DELAY_MS);
     return () => clearTimeout(timer);
-  }, [enabled, run, showCard, appVersion]);
+  }, [enabled, ready]);
 
   useAutoDismiss(card, hideCard);
 

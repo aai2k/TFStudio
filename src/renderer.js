@@ -295,6 +295,7 @@ const App = () => {
     const [updateCheckEnabled, setUpdateCheckEnabled] = useState(true);
     const [skippedVersion, setSkippedVersion] = useState(null);
     const [appVersion, setAppVersion] = useState('');
+    const [settingsLoaded, setSettingsLoaded] = useState(false);
     const [inputDialog,    setInputDialog]    = useState(null);
     const [messageNotification, setMessageNotification] = useState(null);
     const [toolRequests,   setToolRequests]   = useState([]);
@@ -444,7 +445,9 @@ const App = () => {
         }
     };
 
-    useEffect(() => { saveSettingsToDisk(); }, [theme, locale, wasmTmm, ribbonStyle, customThemes, updateCheckEnabled, skippedVersion]);
+    useEffect(() => {
+        if (settingsLoaded) saveSettingsToDisk();
+    }, [settingsLoaded, theme, locale, wasmTmm, ribbonStyle, customThemes, updateCheckEnabled, skippedVersion]);
 
     // Mirror the active palette into CSS custom properties on :root so global
     // stylesheet rules (e.g. native <select>/<option> popups, which can't read
@@ -745,7 +748,8 @@ const App = () => {
     };
 
     const loadSettingsFromDisk = async () => {
-        if (window.electronAPI?.loadSettings) {
+        try {
+            if (!window.electronAPI?.loadSettings) return;
             const result = await window.electronAPI.loadSettings();
             if (result.success && result.settings) {
                 // Register imported themes BEFORE setTheme so a custom theme name
@@ -772,6 +776,10 @@ const App = () => {
                     setSkippedVersion(result.settings.skippedVersion);
                 }
             }
+        } catch (_) {
+            // Defaults remain usable; readiness must still release startup work.
+        } finally {
+            setSettingsLoaded(true);
         }
     };
 
@@ -1382,6 +1390,7 @@ const App = () => {
         h(UpdateProvider, {
             c, t,
             enabled: updateCheckEnabled,
+            ready: settingsLoaded && !!appVersion,
             skippedVersion,
             onSkipVersion: setSkippedVersion,
             appVersion,

@@ -5,8 +5,10 @@
  * reported as "up to date". Telling a user they are current when the request
  * was rate-limited or the tag was unparsable is worse than saying nothing.
  */
+import { readFileSync } from 'node:fs';
+
 const { parseVersion, compareVersions, normalizeTag, decideUpdateState,
-        shouldNotify, truncateNotes, FAILURE_REASONS } =
+        shouldNotify, truncateNotes, releaseHighlights, FAILURE_REASONS } =
   await import(new URL('../src/utils/updateCheck.js', import.meta.url));
 
 let passed = 0;
@@ -41,6 +43,25 @@ const sign = (n) => (n === null ? null : Math.sign(n));
   const parsed = parseVersion('1.5.0-rc.1');
   ok(Number.isFinite(parsed.major) && Number.isFinite(parsed.minor) && Number.isFinite(parsed.patch),
     'a prerelease tag yields no NaN parts');
+}
+
+// ── Startup lifecycle regression ────────────────────────────────────────────
+// The first render has neither saved settings nor appVersion. Those values
+// arriving used to clean up the timer after started.current was already set,
+// permanently suppressing the automatic card while manual checks still worked.
+{
+  const hook = readFileSync(new URL('../src/components/ui/useUpdateCheck.js', import.meta.url), 'utf8');
+  const renderer = readFileSync(new URL('../src/renderer.js', import.meta.url), 'utf8');
+  const timer = hook.indexOf('const timer = setTimeout(async () => {');
+  const markedStarted = hook.indexOf('started.current = true;', timer);
+  ok(hook.includes('if (started.current || !ready || !enabled) return;'),
+    'startup waits for settings and app version');
+  ok(timer >= 0 && markedStarted > timer,
+    'startup is marked started only after the surviving timer fires');
+  ok(renderer.includes('if (settingsLoaded) saveSettingsToDisk();'),
+    'default settings are not persisted before saved settings load');
+  ok(renderer.includes('ready: settingsLoaded && !!appVersion'),
+    'the update provider receives explicit startup readiness');
 }
 
 // ── Comparison ──────────────────────────────────────────────────────────────
@@ -173,6 +194,25 @@ const sign = (n) => (n === null ? null : Math.sign(n));
   ok(cut.length <= 321, 'long notes are truncated');
   ok(cut.endsWith('…'), 'truncation is marked with an ellipsis');
   ok(!cut.includes('  '), 'truncation does not leave a dangling space');
+}
+
+// ── Release-note preview ────────────────────────────────────────────────────
+{
+  const markdown = [
+    '# Changelog',
+    '## v1.5.0',
+    '### Added',
+    '- **Update notification.** Check on startup.',
+    '- Configurable `folders` for [project data](https://example.invalid).',
+    '- Linux package.',
+    '- A fourth item that should not be shown.',
+  ].join('\n');
+  const highlights = releaseHighlights(markdown);
+  ok(highlights.length === 3, 'the update card shows at most three highlights');
+  ok(highlights[0] === 'Update notification. Check on startup.', 'Markdown headings and emphasis are removed');
+  ok(highlights[1] === 'Configurable folders for project data.', 'links and code formatting become plain text');
+  ok(releaseHighlights('# Notes\nA short paragraph.')[0] === 'A short paragraph.',
+    'plain release notes still produce a preview');
 }
 
 console.log(`update_check: ${passed} passed`);

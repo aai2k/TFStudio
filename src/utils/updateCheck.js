@@ -157,3 +157,29 @@ export function truncateNotes(notes, limit = 320) {
   const lastBreak = cut.lastIndexOf(' ');
   return `${(lastBreak > limit * 0.6 ? cut.slice(0, lastBreak) : cut).trimEnd()}…`;
 }
+
+function plainMarkdownLine(line) {
+  return line
+    .replace(/^[-*+]\s+/, '')
+    .replace(/^\[[ xX]\]\s+/, '')
+    .replace(/!\[[^\]]*\]\([^)]*\)/g, '')
+    .replace(/\[([^\]]+)\]\([^)]*\)/g, '$1')
+    .replace(/<[^>]+>/g, '')
+    .replace(/[`*_~]/g, '')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+/** Extract compact, plain-text highlights from a Markdown release body. */
+export function releaseHighlights(notes, limit = 3) {
+  const lines = String(notes || '').split(/\r?\n/).map(line => line.trim());
+  let candidates = lines.filter(line => /^[-*+]\s+/.test(line));
+  if (candidates.length === 0) {
+    candidates = lines.filter(line => line && !/^#{1,6}\s/.test(line) && !/^[-*_]{3,}$/.test(line));
+  }
+  return candidates
+    .map(plainMarkdownLine)
+    .filter(Boolean)
+    .slice(0, Math.max(0, limit))
+    .map(line => truncateNotes(line, 150));
+}
