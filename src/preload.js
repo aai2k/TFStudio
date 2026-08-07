@@ -78,4 +78,6 @@ contextBridge.exposeInMainWorld('electronAPI', {
   revealUserPath:         (key) => ipcRenderer.invoke('paths:reveal', key),
   // Analysis-window display defaults (Settings → Analysis); read via loadSettings
   saveAnalysisSettings:   (block) => ipcRenderer.invoke('analysis:save-settings', block),
+  // Update check (notify only; downloading and installing stay manual)
+  checkForUpdates:        () => ipcRenderer.invoke('updates:check'),
 });

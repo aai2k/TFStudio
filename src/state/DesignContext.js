@@ -121,34 +121,25 @@ export function useDesign() {
  * Held here rather than in OpticalEvaluation so they survive closing and
  * switching the window — the provider stays mounted at App level.
  *
- * The configured default range (Settings → Analysis → All windows) arrives
- * after mount, because settings.json is read asynchronously. It is adopted
- * once, and only while the user has not set a range themselves this session,
- * so loading settings never yanks a range out from under them.
+ * The configured range (Settings → Analysis → All windows) is adopted whenever
+ * it changes: once when settings.json finishes loading after mount, and again
+ * each time the user edits it in Settings. Adjusting the range inside a window
+ * does not change the configured value, so it is never clobbered.
  */
 function useEvalParams() {
-    const [evalParams, setState] = useState({
+    const [evalParams, setEvalParams] = useState({
         lambdaStart: 400, lambdaEnd: 800, lambdaStep: 2,
         thetas: [0]
     });
-    const touched = useRef(false);
-    const seeded = useRef(false);
     const configured = useAnalysisDefaults('shared').numbers;
-
-    const setEvalParams = useCallback((next) => {
-        touched.current = true;
-        setState(next);
-    }, []);
+    const lastApplied = useRef(null);
 
     useEffect(() => {
-        if (seeded.current || touched.current) return;
-        seeded.current = true;
-        setState(current => ({
-            ...current,
-            lambdaStart: configured.lambdaStart,
-            lambdaEnd: configured.lambdaEnd,
-            lambdaStep: configured.lambdaStep,
-        }));
+        const { lambdaStart, lambdaEnd, lambdaStep } = configured;
+        const signature = `${lambdaStart}|${lambdaEnd}|${lambdaStep}`;
+        if (lastApplied.current === signature) return;
+        lastApplied.current = signature;
+        setEvalParams(current => ({ ...current, lambdaStart, lambdaEnd, lambdaStep }));
     }, [configured.lambdaStart, configured.lambdaEnd, configured.lambdaStep]);
 
     return [evalParams, setEvalParams];

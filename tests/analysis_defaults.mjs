@@ -14,7 +14,7 @@ const here = dirname(fileURLToPath(import.meta.url));
 const src = join(here, '..', 'src');
 
 // The modules are ESM using browser-side React; import them directly.
-const { ANALYSIS_DEFAULTS, ANALYSIS_WINDOW_IDS, SPECTRAL_UNITS } =
+const { ANALYSIS_DEFAULTS, ANALYSIS_WINDOW_IDS, SPECTRAL_UNIT_IDS: SPECTRAL_UNITS } =
   await import(new URL('../src/constants/analysisDefaults.js', import.meta.url));
 const {
   resolveAnalysisSettings, resolveAnalysisColors, setAnalysisOverride,
@@ -162,6 +162,41 @@ function ok(condition, message) {
     'the other windows keep the lighter blue for T');
 }
 
+// ── Spectral units reuse the engine's table, not a parallel list ────────────
+// The unit ids must be the ones spectralAxis.js defines ('cm1', not 'cm-1'),
+// or the Settings dropdown would offer a value the converter cannot resolve
+// and every conversion would silently fall back to nm.
+{
+  const { SPECTRAL_UNITS: ENGINE_UNITS, fromNm, toNm } =
+    await import(new URL('../src/utils/physics/spectralAxis.js', import.meta.url));
+
+  for (const id of SPECTRAL_UNITS) {
+    ok(ENGINE_UNITS[id] !== undefined, `spectral unit "${id}" is known to the engine`);
+  }
+  ok(SPECTRAL_UNITS.includes('cm1'), 'the wavenumber id is cm1');
+  ok(!SPECTRAL_UNITS.includes('cm-1'), 'the invalid cm-1 id is not offered');
+  ok(SPECTRAL_UNITS.includes('THz'), 'THz is offered');
+  ok(SPECTRAL_UNITS.length === Object.keys(ENGINE_UNITS).length,
+    'Settings offers exactly the units the engine supports');
+
+  // Round-tripping a stored nm value through any unit must come back to nm.
+  for (const id of SPECTRAL_UNITS) {
+    for (const nm of [400, 550, 800, 2500]) {
+      const back = toNm(fromNm(nm, id), id);
+      ok(Math.abs(back - nm) < 1e-6, `${nm} nm survives a round trip through ${id}`);
+    }
+  }
+
+  // cm1, THz and eV are reciprocal in λ, so the ends of a range swap. The
+  // Settings writer re-orders them; this pins the property it relies on.
+  for (const id of ['cm1', 'THz', 'eV']) {
+    ok(fromNm(400, id) > fromNm(800, id), `${id} runs opposite to wavelength`);
+  }
+  for (const id of ['nm', 'um']) {
+    ok(fromNm(400, id) < fromNm(800, id), `${id} runs with wavelength`);
+  }
+}
+
 // ── The shared seed still matches DesignContext ─────────────────────────────
 // If the hardcoded seed moves, the registry default has to move with it, or the
 // app would start at a different range than the one Settings reports.
@@ -174,7 +209,5 @@ function ok(condition, message) {
   ok(Number(seed[2]) === shared.lambdaEnd.def, 'registry lambdaEnd matches the DesignContext seed');
   ok(Number(seed[3]) === shared.lambdaStep.def, 'registry lambdaStep matches the DesignContext seed');
 }
-
-ok(SPECTRAL_UNITS.includes('nm'), 'nm is an offered spectral unit');
 
 console.log(`analysis_defaults: ${passed} passed`);

@@ -19,11 +19,14 @@
  * session-wide evaluation parameters (state/DesignContext.js), which every
  * analysis window reads.
  */
+import { SPECTRAL_UNIT_IDS } from '../utils/physics/spectralAxis.js';
 
-// Spectral units offered wherever a window exposes an x-axis unit choice.
-export const SPECTRAL_UNITS = ['nm', 'um', 'eV', 'cm-1'];
+export { SPECTRAL_UNIT_IDS };
 
 export const ANALYSIS_DEFAULTS = {
+  // The spectral range is stored in nanometres because the physics engine
+  // always works in vacuum wavelength; the unit below is a display choice only
+  // and the Settings fields convert through utils/physics/spectralAxis.js.
   shared: {
     numbers: {
       lambdaStart: { def: 400, min: 1,    max: 100000, step: 1 },
@@ -31,7 +34,7 @@ export const ANALYSIS_DEFAULTS = {
       lambdaStep:  { def: 2,   min: 0.01, max: 1000,   step: 0.1 },
     },
     enums: {
-      spectralUnit: { def: 'nm', options: SPECTRAL_UNITS },
+      spectralUnit: { def: 'nm', options: SPECTRAL_UNIT_IDS },
     },
   },
 

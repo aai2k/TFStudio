@@ -24,6 +24,7 @@ import { buildSampleDesigns } from './utils/samples/sampleDesigns.js';
 import { buildTutorials } from './utils/samples/tutorials.js';
 import { DesignProvider, makeDefaultDesign } from './state/DesignContext.js';
 import { AnalysisSettingsProvider } from './state/AnalysisSettingsContext.js';
+import { UpdateProvider } from './components/ui/UpdateContext.js';
 import { SpectralMonitor } from './components/SpectralMonitor.js';
 import { MaterialResolutionModalGuard } from './components/materials/MaterialResolutionModalGuard.js';
 import { initCatalogs, addCatalog } from './utils/materials/catalogManager.js';
@@ -288,6 +289,12 @@ const App = () => {
     // Analysis-window display overrides as stored in settings.json; resolved
     // against the factory registry by AnalysisSettingsProvider.
     const [analysisSettings, setAnalysisSettings] = useState(null);
+    // Update check. On by default (opt-out): the request is an unauthenticated
+    // GET to a public API that sends no identifiers and stores nothing, and the
+    // toggle exists for restricted networks.
+    const [updateCheckEnabled, setUpdateCheckEnabled] = useState(true);
+    const [skippedVersion, setSkippedVersion] = useState(null);
+    const [appVersion, setAppVersion] = useState('');
     const [inputDialog,    setInputDialog]    = useState(null);
     const [messageNotification, setMessageNotification] = useState(null);
     const [toolRequests,   setToolRequests]   = useState([]);
@@ -327,7 +334,8 @@ const App = () => {
     useEffect(() => { designsRef.current = designs;  }, [designs]);
 
     useEffect(() => { loadFoldersFromDisk(); loadSettingsFromDisk(); loadCatalogsFromDisk(); bootstrapWasm();
-        window.electronAPI?.getDevAllowed?.().then(v => setDevAllowed(v !== false)).catch(() => {}); }, []);
+        window.electronAPI?.getDevAllowed?.().then(v => setDevAllowed(v !== false)).catch(() => {});
+        window.electronAPI?.getAppVersion?.().then(v => setAppVersion(v || '')).catch(() => {}); }, []);
 
     // ── First-run welcome ───────────────────────────────────────
     // Show the welcome screen automatically the first time the app is opened.
@@ -436,7 +444,7 @@ const App = () => {
         }
     };
 
-    useEffect(() => { saveSettingsToDisk(); }, [theme, locale, wasmTmm, ribbonStyle, customThemes]);
+    useEffect(() => { saveSettingsToDisk(); }, [theme, locale, wasmTmm, ribbonStyle, customThemes, updateCheckEnabled, skippedVersion]);
 
     // Mirror the active palette into CSS custom properties on :root so global
     // stylesheet rules (e.g. native <select>/<option> popups, which can't read
@@ -749,13 +757,20 @@ const App = () => {
                 if (result.settings.analysis && typeof result.settings.analysis === 'object') {
                     setAnalysisSettings(result.settings.analysis);
                 }
+                setUpdateCheckEnabled(result.settings.updateCheckEnabled !== false);  // default ON (opt-out)
+                if (typeof result.settings.skippedVersion === 'string') {
+                    setSkippedVersion(result.settings.skippedVersion);
+                }
             }
         }
     };
 
     const saveSettingsToDisk = async () => {
         if (window.electronAPI?.saveSettings) {
-            await window.electronAPI.saveSettings({ theme, locale, wasmTmm, ribbonStyle, customThemes });
+            await window.electronAPI.saveSettings({
+                theme, locale, wasmTmm, ribbonStyle, customThemes,
+                updateCheckEnabled, skippedVersion,
+            });
         }
     };
 
@@ -1342,6 +1357,13 @@ const App = () => {
             historyView,
             onJumpToHistory:  jumpToHistory
         },
+        h(UpdateProvider, {
+            c, t,
+            enabled: updateCheckEnabled,
+            skippedVersion,
+            onSkipVersion: setSkippedVersion,
+            appVersion,
+        },
         h('div', {
             style: {
                 display: 'flex', flexDirection: 'column', height: '100vh',
@@ -1349,7 +1371,7 @@ const App = () => {
                 fontFamily: 'system-ui, -apple-system, sans-serif'
             }
         },
-            h(TitleBar,  { c, activeDesign, isDirty: isActiveDirty }),
+            h(TitleBar,  { c, t, activeDesign, isDirty: isActiveDirty }),
             h(MenuBar,   { c, onMenuAction: handleMenuAction, t, devAllowed }),
             h(Toolbar,   { c, t, onToolAction: handleToolAction, openWindows: openWindowIds, ribbonStyle }),
             h('div', { style: { display: 'flex', flex: 1, overflow: 'hidden' } },
@@ -1379,6 +1401,7 @@ const App = () => {
             showSettings && h(SettingsModal, {
                 theme, setTheme, locale, setLocale,
                 wasmTmm, setWasmTmm,
+                updateCheckEnabled, setUpdateCheckEnabled,
                 ribbonStyle, setRibbonStyle,
                 customThemes,
                 onImportTheme: importThemeFromVscode,
@@ -1456,6 +1479,7 @@ const App = () => {
                 type: messageNotification.type,
                 onClose: () => setMessageNotification(null)
             })
+        )
         )
         )
     );

@@ -57,6 +57,15 @@ export const AnalysisPane = ({ c, t }) => {
       ),
       h('span', { style: hintStyle(c) },
         windowId === 'shared' ? t.settings.analysis.sharedHint : t.settings.analysis.hint),
+      settings?.saveError && h('div', {
+        role: 'alert',
+        style: {
+          fontSize: '12px', color: c.error, border: `1px solid ${c.error}`,
+          borderRadius: '6px', padding: '8px', margin: '8px 0',
+        },
+      }, settings.saveError === 'unavailable'
+        ? t.settings.analysis.saveUnavailable
+        : t.settings.analysis.saveFailed(settings.saveError)),
       h(WindowFields, { windowId, resolved, onChange, c, t }),
       h('div', { style: { marginTop: '20px', paddingTop: '12px', borderTop: `1px solid ${c.border}` } },
         h('button', {

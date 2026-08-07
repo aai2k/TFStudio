@@ -18,46 +18,58 @@ const AnalysisSettingsContext = createContext(null);
 
 export const AnalysisSettingsProvider = ({ initial, children }) => {
   const [stored, setStored] = useState(initial || {});
+  const [saveError, setSaveError] = useState(null);
 
   // settings.json is read asynchronously after mount, so the stored block
   // arrives once, after the provider already exists. Adopt it when it does;
   // later edits come through setField and must not be overwritten by this.
   useEffect(() => { if (initial) setStored(initial); }, [initial]);
 
-  // Writes are fire-and-forget: the UI already reflects the new value, and a
-  // failed write is reported by the main process log rather than blocking the
-  // colour picker.
-  const persist = useCallback((next) => {
-    setStored(next);
-    window.electronAPI?.saveAnalysisSettings?.(next);
+  // A change the user can see on screen but that never reached disk is the
+  // worst outcome here, so a failed or unavailable write is surfaced rather
+  // than swallowed. A missing channel means the preload did not expose it,
+  // which happens when the app was reloaded without a full restart.
+  const persist = useCallback(async (next) => {
+    const save = window.electronAPI?.saveAnalysisSettings;
+    if (typeof save !== 'function') {
+      setSaveError('unavailable');
+      return;
+    }
+    try {
+      const result = await save(next);
+      setSaveError(result?.success === false ? (result.error || 'failed') : null);
+    } catch (err) {
+      setSaveError(err?.message || 'failed');
+    }
   }, []);
+
+  const apply = useCallback((transform) => {
+    setStored(current => {
+      const next = transform(current);
+      persist(next);
+      return next;
+    });
+  }, [persist]);
 
   const setField = useCallback((windowId, section, key, value) => {
-    setStored(current => {
-      const next = setAnalysisOverride(current, windowId, section, key, value);
-      window.electronAPI?.saveAnalysisSettings?.(next);
-      return next;
-    });
-  }, []);
+    apply(current => setAnalysisOverride(current, windowId, section, key, value));
+  }, [apply]);
 
   const resetWindow = useCallback((windowId) => {
-    setStored(current => {
-      const next = resetAnalysisWindow(current, windowId);
-      window.electronAPI?.saveAnalysisSettings?.(next);
-      return next;
-    });
-  }, []);
+    apply(current => resetAnalysisWindow(current, windowId));
+  }, [apply]);
 
-  const resetAll = useCallback(() => persist({}), [persist]);
+  const resetAll = useCallback(() => apply(() => ({})), [apply]);
 
   const value = useMemo(() => ({
     stored,
+    saveError,
     setField,
     resetWindow,
     resetAll,
     isOverridden: (windowId) => isAnalysisWindowOverridden(stored, windowId),
     hasAnyOverride: Object.keys(stored).length > 0,
-  }), [stored, setField, resetWindow, resetAll]);
+  }), [stored, saveError, setField, resetWindow, resetAll]);
 
   return h(AnalysisSettingsContext.Provider, { value }, children);
 };

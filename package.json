@@ -106,8 +106,7 @@
         }
       ],
       "icon": "icons/tfstudio-purple2.ico",
-      "requestedExecutionLevel": "asInvoker",
-      "verifyUpdateCodeSignature": false
+      "requestedExecutionLevel": "asInvoker"
     },
     "linux": {
       "target": [

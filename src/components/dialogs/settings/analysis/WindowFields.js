@@ -1,6 +1,7 @@
 // The field list for one analysis window, built from its registry entry.
 import { ANALYSIS_DEFAULTS } from '../../../../constants/analysisDefaults.js';
 import { ColorRow, NumberRow, EnumRow, BooleanRow } from './FieldRows.js';
+import { SpectralRangeRows } from './SpectralRangeRows.js';
 
 const { createElement: h } = React;
 
@@ -20,6 +21,14 @@ const groupTitleStyle = (c) => ({
 export const WindowFields = ({ windowId, resolved, onChange, c, t }) => {
   const registry = ANALYSIS_DEFAULTS[windowId];
   if (!registry) return null;
+
+  // The shared spectral range needs unit-aware fields rather than plain
+  // numbers, because its values are stored in nm but shown in the chosen unit.
+  if (windowId === 'shared') {
+    return h('div', null,
+      h('div', { style: groupTitleStyle(c) }, t.settings.analysis.ranges),
+      h(SpectralRangeRows, { resolved, onChange, c, t }));
+  }
 
   const colors = Object.keys(registry.colors || {});
   const numbers = Object.entries(registry.numbers || {});
