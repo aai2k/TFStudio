@@ -29,6 +29,21 @@ export function parseVersion(value) {
   };
 }
 
+// Semver §11: a numeric identifier compares numerically and ranks below an
+// alphanumeric one; otherwise ASCII order. BigInt keeps rc.10 above rc.9
+// however long the number grows.
+const NUMERIC_IDENTIFIER = /^\d+$/;
+
+function compareIdentifier(left, right) {
+  if (left === right) return 0;
+
+  const leftNumeric = NUMERIC_IDENTIFIER.test(left);
+  const rightNumeric = NUMERIC_IDENTIFIER.test(right);
+  if (leftNumeric !== rightNumeric) return leftNumeric ? -1 : 1;
+  if (leftNumeric) return BigInt(left) < BigInt(right) ? -1 : 1;
+  return left < right ? -1 : 1;
+}
+
 // A prerelease sorts *below* the release of the same numbers: 1.5.0-rc.1 is
 // older than 1.5.0. Comparing the numeric parts alone would call them equal,
 // so an rc user would never be offered the final build.
@@ -39,19 +54,10 @@ function comparePrerelease(a, b) {
 
   const left = a.split('.');
   const right = b.split('.');
-  const length = Math.min(left.length, right.length);
-  for (let index = 0; index < length; index++) {
-    const leftPart = left[index];
-    const rightPart = right[index];
-    if (leftPart === rightPart) continue;
-
-    const leftNumeric = /^\d+$/.test(leftPart);
-    const rightNumeric = /^\d+$/.test(rightPart);
-    if (leftNumeric && rightNumeric) {
-      return BigInt(leftPart) < BigInt(rightPart) ? -1 : 1;
-    }
-    if (leftNumeric !== rightNumeric) return leftNumeric ? -1 : 1;
-    return leftPart < rightPart ? -1 : 1;
+  const shared = Math.min(left.length, right.length);
+  for (let index = 0; index < shared; index++) {
+    const order = compareIdentifier(left[index], right[index]);
+    if (order !== 0) return order;
   }
 
   // When every shared identifier is equal, the shorter prerelease precedes
