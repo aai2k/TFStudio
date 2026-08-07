@@ -59,7 +59,7 @@ const existsSync = value => value === `${powerShellDir}\\powershell.exe`;
 
 {
   const releaseScript = readFileSync(path.join(process.cwd(), 'build-release.ps1'), 'utf8');
-  const linuxBranch = releaseScript.indexOf('if ($linuxOnly) {\n        Section "Preflight: Linux build under WSL"');
+  const linuxBranch = releaseScript.search(/if \(\$linuxOnly\) \{\r?\n\s+Section "Preflight: Linux build under WSL"/);
   const windowsPreflight = releaseScript.indexOf('# --- 0. Preflight: required tools');
   ok(releaseScript.includes('$linuxOnly = [bool]$Linux'), '-Linux is recognized as an exclusive build mode');
   ok(linuxBranch >= 0 && linuxBranch < windowsPreflight,
