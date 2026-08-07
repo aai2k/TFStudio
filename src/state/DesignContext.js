@@ -8,7 +8,7 @@
 const { createContext, useContext, useState, useCallback, useEffect, useRef } = React;
 
 import { resolveEvalMode, mirrorLayers } from '../utils/physics/optimizer.js';
-import { useAnalysisDefaults } from './AnalysisSettingsContext.js';
+import { useAnalysisDefaults, useAnalysisSettings } from './AnalysisSettingsContext.js';
 
 // ── Default design factory ─────────────────────────────────────────────────────
 
@@ -121,10 +121,10 @@ export function useDesign() {
  * Held here rather than in OpticalEvaluation so they survive closing and
  * switching the window — the provider stays mounted at App level.
  *
- * The configured range (Settings → Analysis → All windows) is adopted whenever
- * it changes: once when settings.json finishes loading after mount, and again
- * each time the user edits it in Settings. Adjusting the range inside a window
- * does not change the configured value, so it is never clobbered.
+ * The configured range (Settings → Analysis → All windows) is sampled once
+ * when settings.json finishes loading. Later Settings edits apply to the next
+ * app session, while range changes made in an open analysis window remain live
+ * for the current session.
  */
 function useEvalParams() {
     const [evalParams, setEvalParams] = useState({
@@ -132,15 +132,15 @@ function useEvalParams() {
         thetas: [0]
     });
     const configured = useAnalysisDefaults('shared').numbers;
-    const lastApplied = useRef(null);
+    const analysisSettings = useAnalysisSettings();
+    const applied = useRef(false);
 
     useEffect(() => {
+        if (!analysisSettings?.ready || applied.current) return;
         const { lambdaStart, lambdaEnd, lambdaStep } = configured;
-        const signature = `${lambdaStart}|${lambdaEnd}|${lambdaStep}`;
-        if (lastApplied.current === signature) return;
-        lastApplied.current = signature;
+        applied.current = true;
         setEvalParams(current => ({ ...current, lambdaStart, lambdaEnd, lambdaStep }));
-    }, [configured.lambdaStart, configured.lambdaEnd, configured.lambdaStep]);
+    }, [analysisSettings?.ready, configured.lambdaStart, configured.lambdaEnd, configured.lambdaStep]);
 
     return [evalParams, setEvalParams];
 }

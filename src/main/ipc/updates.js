@@ -77,6 +77,10 @@ function fetchLatestRelease() {
           finish({ ok: false, reason: 'bad-response' });
         }
       });
+      // A response can terminate after its headers arrive without ever
+      // emitting `end`. Settle explicitly so callers do not hang forever.
+      res.on('aborted', () => finish({ ok: false, reason: 'bad-response' }));
+      res.on('error', () => finish({ ok: false, reason: 'bad-response' }));
     });
 
     req.on('error', (err) => finish({ ok: false, reason: classifyError(err) }));
@@ -95,4 +99,4 @@ async function handleCheck(ctx) {
   }
 }
 
-module.exports = { register };
+module.exports = { register, fetchLatestRelease };

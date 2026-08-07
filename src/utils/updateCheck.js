@@ -9,7 +9,7 @@
 
 // Release tags in this repo are bare numbers ("1.4.3"). A leading "v" is
 // accepted anyway so the check keeps working if the tag style ever changes.
-const VERSION_RE = /^v?(\d+)(?:\.(\d+))?(?:\.(\d+))?(?:[-+](.+))?$/;
+const VERSION_RE = /^v?(\d+)(?:\.(\d+))?(?:\.(\d+))?(?:-([0-9A-Za-z-]+(?:\.[0-9A-Za-z-]+)*))?(?:\+[0-9A-Za-z-]+(?:\.[0-9A-Za-z-]+)*)?$/;
 
 /**
  * Parse a version string into comparable parts.
@@ -36,7 +36,27 @@ function comparePrerelease(a, b) {
   if (a === b) return 0;
   if (a === null) return 1;    // release beats prerelease
   if (b === null) return -1;
-  return a < b ? -1 : 1;       // lexicographic: rc.1 < rc.2
+
+  const left = a.split('.');
+  const right = b.split('.');
+  const length = Math.min(left.length, right.length);
+  for (let index = 0; index < length; index++) {
+    const leftPart = left[index];
+    const rightPart = right[index];
+    if (leftPart === rightPart) continue;
+
+    const leftNumeric = /^\d+$/.test(leftPart);
+    const rightNumeric = /^\d+$/.test(rightPart);
+    if (leftNumeric && rightNumeric) {
+      return BigInt(leftPart) < BigInt(rightPart) ? -1 : 1;
+    }
+    if (leftNumeric !== rightNumeric) return leftNumeric ? -1 : 1;
+    return leftPart < rightPart ? -1 : 1;
+  }
+
+  // When every shared identifier is equal, the shorter prerelease precedes
+  // the longer one (for example, alpha < alpha.1).
+  return left.length - right.length;
 }
 
 /**

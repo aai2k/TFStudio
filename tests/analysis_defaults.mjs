@@ -31,6 +31,10 @@ function ok(condition, message) {
 {
   ok(ANALYSIS_WINDOW_IDS.length === 15, 'registry covers 14 windows plus the shared entry');
   ok(ANALYSIS_WINDOW_IDS[0] === 'shared', 'shared leads the rail');
+  ok(Object.entries(ANALYSIS_DEFAULTS)
+    .filter(([id, entry]) => id !== 'shared' && Object.keys(entry.numbers || {}).length > 0)
+    .map(([id]) => id).join(',') === 'opticalEvaluation',
+  'only Optical Evaluation declares per-window numeric axis settings');
 
   const hexColor = /^#[0-9a-f]{6}$/;
   for (const [id, entry] of Object.entries(ANALYSIS_DEFAULTS)) {
@@ -271,6 +275,25 @@ function ok(condition, message) {
   ok(Number(seed[1]) === shared.lambdaStart.def, 'registry lambdaStart matches the DesignContext seed');
   ok(Number(seed[2]) === shared.lambdaEnd.def, 'registry lambdaEnd matches the DesignContext seed');
   ok(Number(seed[3]) === shared.lambdaStep.def, 'registry lambdaStep matches the DesignContext seed');
+}
+
+// Other windows intentionally expose colours only. Optical Evaluation is the
+// one analysis window whose own UI already supported Y range and spectral unit.
+{
+  const hook = readFileSync(join(src, 'components', 'windows', 'analysis',
+    'opticalEvaluation', 'useOpticalEvaluation.js'), 'utf8');
+  ok(hook.includes("useAnalysisDefaults('opticalEvaluation')"),
+    'Optical Evaluation reads its configured Y defaults');
+  ok(hook.includes("useAnalysisDefaults('shared')"),
+    'Optical Evaluation reads the configured spectral unit');
+  ok(hook.includes('analysisSettings?.ready'),
+    'a restored Optical Evaluation waits for persisted settings to load');
+  ok(hook.includes('displayDefaults.booleans.yAuto'),
+    'the configured auto-scale flag initializes Optical Evaluation');
+  ok(hook.includes('displayDefaults.numbers.yMin') && hook.includes('displayDefaults.numbers.yMax'),
+    'the configured Y bounds initialize Optical Evaluation');
+  ok(hook.includes('sharedDefaults.enums.spectralUnit'),
+    'the configured unit initializes Optical Evaluation');
 }
 
 console.log(`analysis_defaults: ${passed} passed`);

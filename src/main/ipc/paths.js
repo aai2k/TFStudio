@@ -36,7 +36,6 @@ async function handleChoose(ctx, key) {
   const { dialog, getMainWindow, userPaths } = ctx;
   const current = userPaths.get(key);
   const result = await dialog.showOpenDialog(getMainWindow(), {
-    title: 'Choose folder',
     defaultPath: current,
     properties: ['openDirectory', 'createDirectory'],
   });
@@ -46,22 +45,29 @@ async function handleChoose(ctx, key) {
   return handleSet(ctx, key, result.filePaths[0]);
 }
 
-// Applying a change re-runs directory creation and material seeding so the new
-// folder is populated before anything reads from it.
-function applyChange(ctx, outcome) {
+// Persist a path change as one transaction. The registry is necessarily
+// mutated before it can be serialized, but a failed settings write restores
+// the previous override set so the renderer never receives an error while IPC
+// handlers have silently switched to a different directory.
+function applyChange(ctx, mutate) {
+  const previous = ctx.userPaths.toSettings();
+  const outcome = mutate();
   if (!outcome.success) return outcome;
-  ctx.onUserPathsChanged?.();
   const saved = persist(ctx);
-  if (!saved.success) return saved;
+  if (!saved.success) {
+    ctx.userPaths.loadOverrides(previous);
+    return saved;
+  }
+  ctx.onUserPathsChanged?.();
   return { ...outcome, folders: ctx.userPaths.list() };
 }
 
 function handleSet(ctx, key, dir) {
-  return applyChange(ctx, ctx.userPaths.set(key, dir));
+  return applyChange(ctx, () => ctx.userPaths.set(key, dir));
 }
 
 function handleReset(ctx, key) {
-  return applyChange(ctx, ctx.userPaths.reset(key));
+  return applyChange(ctx, () => ctx.userPaths.reset(key));
 }
 
 async function handleReveal(ctx, key) {

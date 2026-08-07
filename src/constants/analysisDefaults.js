@@ -63,8 +63,9 @@ export const ANALYSIS_DEFAULTS = {
       Tp: '#1565c0', Rp: '#c62828',
     },
     numbers: {
-      yMin: { def: 0,   min: -1000, max: 10000, step: 1 },
-      yMax: { def: 100, min: -1000, max: 10000, step: 1 },
+      // Match the bounds enforced by Optical Evaluation's own axis controls.
+      yMin: { def: 0,   min: -10, max: 200, step: 5 },
+      yMax: { def: 100, min: -10, max: 200, step: 5 },
     },
     booleans: { yAuto: false },
   },

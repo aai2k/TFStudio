@@ -8,11 +8,13 @@
  */
 import { createRequire } from 'node:module';
 import path from 'node:path';
+import { readFileSync } from 'node:fs';
 
 const require = createRequire(import.meta.url);
 const { createUserPaths, FOLDER_KEYS } = require('../src/main/userPaths.js');
 const { safeFilePath } = require('../src/main/paths.js');
 const { writeMainOwnedKey, writeRendererSettings } = require('../src/main/settingsFile.js');
+const { register: registerPathIpc } = require('../src/main/ipc/paths.js');
 
 let passed = 0;
 function ok(condition, message) {
@@ -169,6 +171,69 @@ const make = (unwritable) => {
   try { safeFilePath(base, '..', 'escaped.tfs'); } catch (_) { threw = true; }
   ok(threw, 'safeFilePath rejects .. against a configured base');
   ok(safeFilePath(base, 'ok.tfs') === path.join(base, 'ok.tfs'), 'safeFilePath still resolves a legitimate child');
+}
+
+// IPC path changes are transactional. A failed settings write must not leave
+// live handlers pointing at a directory that will disappear after restart.
+{
+  const { paths } = make();
+  paths.loadOverrides({ projects: '/data/old' });
+  const handlers = {};
+  let stored = { theme: 'Dark', folders: { projects: '/data/old' } };
+  let failWrite = true;
+  let changes = 0;
+  let chooseOptions = null;
+  const ctx = {
+    userPaths: paths,
+    settingsPath: '/settings.json',
+    readJsonSafe: () => stored,
+    writeFileAtomic: (_file, contents) => {
+      if (failWrite) throw new Error('disk full');
+      stored = JSON.parse(contents);
+    },
+    log: () => {},
+    onUserPathsChanged: () => { changes++; },
+    getMainWindow: () => null,
+    dialog: {
+      showOpenDialog: async (_window, options) => {
+        chooseOptions = options;
+        return { canceled: true, filePaths: [] };
+      },
+    },
+    shell: { openPath: async () => '' },
+  };
+  registerPathIpc({ handle: (name, handler) => { handlers[name] = handler; } }, ctx);
+
+  const failed = await handlers['paths:set'](null, 'projects', '/data/new');
+  ok(failed.success === false && failed.error === 'disk full', 'a persistence failure is reported');
+  ok(paths.get('projects') === '/data/old', 'a failed write restores the previous live path');
+  ok(changes === 0, 'a failed write does not announce a path change');
+
+  failWrite = false;
+  const saved = await handlers['paths:set'](null, 'projects', '/data/new');
+  ok(saved.success === true, 'a path change succeeds once settings can be written');
+  ok(paths.get('projects') === '/data/new', 'a persisted path becomes the live path');
+  ok(stored.folders.projects === '/data/new', 'the new live path is persisted');
+  ok(changes === 1, 'a persisted path change is announced exactly once');
+
+  await handlers['paths:choose'](null, 'projects');
+  ok(chooseOptions.title === undefined, 'the folder picker uses the operating system localized title');
+}
+
+// The main-process registry is only half of a live switch: the renderer must
+// reload the project/material data it already has in memory.
+{
+  const renderer = readFileSync(path.join(process.cwd(), 'src', 'renderer.js'), 'utf8');
+  const pane = readFileSync(path.join(process.cwd(), 'src', 'components', 'dialogs',
+    'settings', 'FoldersPane.js'), 'utf8');
+  ok(renderer.includes('loadFoldersFromDisk({ restoreSession: false, restoreLayout: false })'),
+    'switching Projects reloads the new root without restoring the old session');
+  ok(renderer.includes("key === 'materials'") && renderer.includes('await loadCatalogsFromDisk()'),
+    'switching Materials reloads the in-memory catalogs');
+  ok(renderer.includes("key !== 'projects' || !Object.values(dirtyDesigns).some(Boolean)"),
+    'a Projects switch is refused while any design is unsaved');
+  ok(pane.includes('await onUserPathChanged?.(key)'),
+    'the Folders pane waits for the affected renderer data to refresh');
 }
 
 console.log(`user_paths: ${passed} passed`);

@@ -663,7 +663,7 @@ const App = () => {
 
     // ── Disk I/O ──────────────────────────────────────────────────────────────
 
-    const loadFoldersFromDisk = async () => {
+    const loadFoldersFromDisk = async ({ restoreSession = true, restoreLayout = true } = {}) => {
         let diskDesigns   = {};
         let loadedFolders = [];
 
@@ -690,13 +690,23 @@ const App = () => {
         // Merge session (unsaved working copies) over disk snapshots.
         // Session wins — it has the latest edits even if app was closed without
         // saving — and restores undo/redo history so it survives a restart.
-        const session = loadSession();
+        const session = restoreSession ? loadSession() : null;
         const { initialDesigns, initialDirty } = mergeSessionOverDisk(diskDesigns, session?.designs || null);
-        if (session?.history) historyRef.current = restoreSessionHistory(session.history);
+        historyRef.current = session?.history ? restoreSessionHistory(session.history) : {};
 
         setDesigns(initialDesigns);
         setDirtyDesigns(initialDirty);
         setFolders(loadedFolders);
+
+        if (!restoreSession) {
+            // A live Projects-root change is a workspace switch, not a startup
+            // restore. Keeping selections from the previous root would leave
+            // the explorer showing one directory while commands target another.
+            setActiveDesignId(null);
+            setSelectedItem(null);
+            setSelectedItems([]);
+            setLastClickedItem(null);
+        }
 
         // Startup: select a project FOLDER as the default target for new designs,
         // but do NOT auto-open any design. The workspace shows the empty-state
@@ -705,7 +715,7 @@ const App = () => {
 
         // Restore a previously saved docking layout if one exists; otherwise
         // leave the workspace empty (no preset) so the empty-state is shown.
-        const savedLayout = localStorage.getItem('tfstudio-saved-layout');
+        const savedLayout = restoreLayout ? localStorage.getItem('tfstudio-saved-layout') : null;
         if (savedLayout) {
             setLayoutRequest({ type: 'restore', ts: Date.now() });
         }
@@ -754,14 +764,26 @@ const App = () => {
                 // Analysis display defaults are owned by the main process and
                 // arrive with the rest of settings.json; the provider resolves
                 // them against the factory registry as windows mount.
-                if (result.settings.analysis && typeof result.settings.analysis === 'object') {
-                    setAnalysisSettings(result.settings.analysis);
-                }
+                setAnalysisSettings(result.settings.analysis && typeof result.settings.analysis === 'object'
+                    ? result.settings.analysis
+                    : {});
                 setUpdateCheckEnabled(result.settings.updateCheckEnabled !== false);  // default ON (opt-out)
                 if (typeof result.settings.skippedVersion === 'string') {
                     setSkippedVersion(result.settings.skippedVersion);
                 }
             }
+        }
+    };
+
+    // Main-process directory getters switch immediately after a successful
+    // Settings change. Refresh the corresponding renderer registry in the same
+    // interaction so its visible state and all following commands refer to the
+    // same root.
+    const handleUserPathChanged = async (key) => {
+        if (key === 'projects') {
+            await loadFoldersFromDisk({ restoreSession: false, restoreLayout: false });
+        } else if (key === 'materials') {
+            await loadCatalogsFromDisk();
         }
     };
 
@@ -1402,6 +1424,8 @@ const App = () => {
                 theme, setTheme, locale, setLocale,
                 wasmTmm, setWasmTmm,
                 updateCheckEnabled, setUpdateCheckEnabled,
+                onUserPathChanged: handleUserPathChanged,
+                canChangeUserPath: (key) => key !== 'projects' || !Object.values(dirtyDesigns).some(Boolean),
                 ribbonStyle, setRibbonStyle,
                 customThemes,
                 onImportTheme: importThemeFromVscode,

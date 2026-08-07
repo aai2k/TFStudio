@@ -26,6 +26,7 @@ const sign = (n) => (n === null ? null : Math.sign(n));
   ok(parseVersion('2').major === 2 && parseVersion('2').minor === 0, 'a bare major is 2.0.0');
   ok(parseVersion('1.5').minor === 5 && parseVersion('1.5').patch === 0, 'a two-part version is x.y.0');
   ok(parseVersion('1.5.0-rc.1').prerelease === 'rc.1', 'captures a prerelease suffix');
+  ok(parseVersion('1.5.0+build.7').prerelease === null, 'build metadata is not a prerelease');
 
   ok(parseVersion('') === null, 'empty string is not a version');
   ok(parseVersion(null) === null, 'null is not a version');
@@ -56,7 +57,17 @@ const sign = (n) => (n === null ? null : Math.sign(n));
   ok(sign(compareVersions('1.5.0-rc.1', '1.5.0')) === -1, 'rc is older than the release');
   ok(sign(compareVersions('1.5.0', '1.5.0-rc.1')) === 1, 'the release is newer than its rc');
   ok(sign(compareVersions('1.5.0-rc.1', '1.5.0-rc.2')) === -1, 'rc.1 precedes rc.2');
+  ok(sign(compareVersions('1.5.0-rc.2', '1.5.0-rc.10')) === -1,
+    'numeric prerelease identifiers compare numerically');
+  ok(sign(compareVersions('1.5.0-alpha.2', '1.5.0-alpha.10')) === -1,
+    'multi-part prereleases compare numeric identifiers numerically');
+  ok(sign(compareVersions('1.5.0-alpha.1', '1.5.0-alpha.beta')) === -1,
+    'numeric prerelease identifiers precede text identifiers');
+  ok(sign(compareVersions('1.5.0-alpha', '1.5.0-alpha.1')) === -1,
+    'a shorter matching prerelease precedes a longer one');
   ok(compareVersions('1.5.0-rc.1', '1.5.0-rc.1') === 0, 'identical prereleases compare equal');
+  ok(compareVersions('1.5.0+build.1', '1.5.0+build.2') === 0,
+    'build metadata does not affect precedence');
 
   ok(compareVersions('1.4.3', 'garbage') === null, 'an unparsable side yields null');
   ok(compareVersions(null, '1.4.3') === null, 'a missing side yields null');

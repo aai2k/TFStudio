@@ -151,4 +151,24 @@ const designWith = (materials) => ({
   ok(materialRangeNm(fallbackGlass) === null, 'and it cannot raise a warning');
 }
 
+// Formula documents often include sampled n/k arrays as a verification cache,
+// but TFStudio evaluates their analytic coefficients and does not retain those
+// samples as tabData. The explicit flag must therefore survive parsing.
+{
+  const { parseOptiLayerDoc } = await import(
+    new URL('../src/utils/materials/optilayerParser.js', import.meta.url));
+  const formula = parseOptiLayerDoc({
+    name: 'Opti formula', nType: 5, kType: 0,
+    wavelength: [400, 800], n: [1.5, 1.5], k: [0, 0],
+    nFormulaCoef: [1.5, 0, 0],
+  });
+  ok(formula.formulaNum === 102 && formula.tabData === undefined,
+    'the fixture follows the analytic OptiLayer path');
+  ok(formula.rangeDeclared === true,
+    'the sampled OptiLayer grid declares the analytic validity range');
+  const range = materialRangeNm(formula);
+  ok(range?.[0] === 400 && range?.[1] === 800,
+    'an analytic OptiLayer material exposes its declared range in nm');
+}
+
 console.log(`material_range: ${passed} passed`);

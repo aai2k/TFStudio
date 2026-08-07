@@ -18,12 +18,17 @@ const AnalysisSettingsContext = createContext(null);
 
 export const AnalysisSettingsProvider = ({ initial, children }) => {
   const [stored, setStored] = useState(initial || {});
+  const [ready, setReady] = useState(initial !== null && initial !== undefined);
   const [saveError, setSaveError] = useState(null);
 
   // settings.json is read asynchronously after mount, so the stored block
   // arrives once, after the provider already exists. Adopt it when it does;
   // later edits come through setField and must not be overwritten by this.
-  useEffect(() => { if (initial) setStored(initial); }, [initial]);
+  useEffect(() => {
+    if (initial === null || initial === undefined) return;
+    setStored(initial);
+    setReady(true);
+  }, [initial]);
 
   // A change the user can see on screen but that never reached disk is the
   // worst outcome here, so a failed or unavailable write is surfaced rather
@@ -63,13 +68,14 @@ export const AnalysisSettingsProvider = ({ initial, children }) => {
 
   const value = useMemo(() => ({
     stored,
+    ready,
     saveError,
     setField,
     resetWindow,
     resetAll,
     isOverridden: (windowId) => isAnalysisWindowOverridden(stored, windowId),
     hasAnyOverride: Object.keys(stored).length > 0,
-  }), [stored, saveError, setField, resetWindow, resetAll]);
+  }), [stored, ready, saveError, setField, resetWindow, resetAll]);
 
   return h(AnalysisSettingsContext.Provider, { value }, children);
 };

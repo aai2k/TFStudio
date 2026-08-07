@@ -207,7 +207,7 @@ try {
 
     $haveGit = Have-Cmd 'git'
     if (-not $haveGit) {
-        Write-Warning "git not found on PATH. The RII submodule and emsdk auto-install cannot run; the committed seed and prebuilt WASM will be used instead."
+        Write-Warning "git not found on PATH. The RII submodule cannot be checked out; the committed seed and prebuilt tmmcore WASM will be used instead."
     }
 
     # Check the WSL side NOW rather than after a ten-minute Windows build. A

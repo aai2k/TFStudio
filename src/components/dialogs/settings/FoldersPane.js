@@ -8,7 +8,7 @@ import { hintStyle } from './ui.js';
 
 const { createElement: h, useState, useEffect, useCallback } = React;
 
-export const FoldersPane = ({ c, t }) => {
+export const FoldersPane = ({ c, t, onUserPathChanged, canChangeUserPath }) => {
   const [folders, setFolders] = useState([]);
   const [error, setError] = useState(null);
 
@@ -20,24 +20,45 @@ export const FoldersPane = ({ c, t }) => {
   useEffect(() => { refresh(); }, [refresh]);
 
   // A cancelled folder picker is not an error; anything else is reported inline.
-  const apply = useCallback((result) => {
+  const apply = useCallback(async (key, result) => {
     if (!result || result.canceled) return;
     if (result.success) {
       setError(null);
       if (result.folders) setFolders(result.folders);
       else refresh();
+      try {
+        await onUserPathChanged?.(key);
+      } catch (err) {
+        setError(t.settings.folders.changeFailed(err?.message || ''));
+      }
     } else {
       setError(t.settings.folders.changeFailed(result.error || ''));
     }
-  }, [refresh, t]);
+  }, [refresh, t, onUserPathChanged]);
+
+  const allowChange = useCallback((key) => {
+    if (!canChangeUserPath || canChangeUserPath(key)) return true;
+    setError(t.explorer.unsavedChanges);
+    return false;
+  }, [canChangeUserPath, t]);
 
   const onBrowse = useCallback(async (key) => {
-    apply(await window.electronAPI?.chooseUserPath?.(key));
-  }, [apply]);
+    if (!allowChange(key)) return;
+    try {
+      await apply(key, await window.electronAPI?.chooseUserPath?.(key));
+    } catch (err) {
+      setError(t.settings.folders.changeFailed(err?.message || ''));
+    }
+  }, [allowChange, apply, t]);
 
   const onReset = useCallback(async (key) => {
-    apply(await window.electronAPI?.resetUserPath?.(key));
-  }, [apply]);
+    if (!allowChange(key)) return;
+    try {
+      await apply(key, await window.electronAPI?.resetUserPath?.(key));
+    } catch (err) {
+      setError(t.settings.folders.changeFailed(err?.message || ''));
+    }
+  }, [allowChange, apply, t]);
 
   const onOpen = useCallback(async (key) => {
     const result = await window.electronAPI?.revealUserPath?.(key);
