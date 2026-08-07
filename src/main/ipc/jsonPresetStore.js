@@ -33,20 +33,28 @@ function stripExtension(value, extension) {
     : text;
 }
 
+// Resolve the store's directory on every call. The user can repoint it from
+// Settings while the app runs, and a value captured when the handler was
+// registered would keep writing to the previous location.
+function storeDir(ctx, spec) {
+  return ctx[spec.directoryKey];
+}
+
 function presetPath(ctx, spec, fileOrName) {
   const base = stripExtension(fileOrName, spec.extension);
-  return ctx.path.join(spec.directory, ctx.safeName(base) + spec.extension);
+  return ctx.path.join(storeDir(ctx, spec), ctx.safeName(base) + spec.extension);
 }
 
 function listPresets(ctx, spec) {
   const { fs, path, log } = ctx;
+  const directory = storeDir(ctx, spec);
   try {
-    if (!fs.existsSync(spec.directory)) return { success: true, presets: [] };
+    if (!fs.existsSync(directory)) return { success: true, presets: [] };
     const presets = [];
-    for (const file of fs.readdirSync(spec.directory)) {
+    for (const file of fs.readdirSync(directory)) {
       if (!file.toLowerCase().endsWith(spec.extension)) continue;
       try {
-        const preset = JSON.parse(fs.readFileSync(path.join(spec.directory, file), 'utf-8'));
+        const preset = JSON.parse(fs.readFileSync(path.join(directory, file), 'utf-8'));
         if (preset && Array.isArray(preset[spec.itemsKey])) {
           presets.push({
             name: preset.name || stripExtension(file, spec.extension),
@@ -114,8 +122,7 @@ function deletePreset(ctx, spec, fileOrName) {
 }
 
 function registerJsonPresetStore(ipcMain, ctx, storeName) {
-  const baseSpec = STORE_SPECS[storeName];
-  const spec = { ...baseSpec, directory: ctx[baseSpec.directoryKey] };
+  const spec = STORE_SPECS[storeName];
   ipcMain.handle(spec.channels.list, async () => listPresets(ctx, spec));
   ipcMain.handle(spec.channels.load, async (event, value) => loadPreset(ctx, spec, value));
   ipcMain.handle(spec.channels.save, async (event, preset) => savePreset(ctx, spec, preset));

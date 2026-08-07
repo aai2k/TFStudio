@@ -15,6 +15,7 @@ const processFiles = require('./process');
 const rii = require('./rii');
 const zemax = require('./zemax');
 const spectrum = require('./spectrum');
+const paths = require('./paths');
 
 function registerAllIpc(ipcMain, ctx) {
   appWindow.register(ipcMain, ctx);
@@ -29,6 +30,7 @@ function registerAllIpc(ipcMain, ctx) {
   rii.register(ipcMain, ctx);
   zemax.register(ipcMain, ctx);
   spectrum.register(ipcMain, ctx);
+  paths.register(ipcMain, ctx);
 }
 
 module.exports = { registerAllIpc };

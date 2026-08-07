@@ -8,7 +8,7 @@ import { Toolbar } from './components/Toolbar.js';
 import { ProjectExplorer } from './components/panels/ProjectExplorer.js';
 import { updateExplorerItemMtime } from './components/panels/projectExplorerModel.js';
 import { DockingLayout } from './components/docking/DockingLayout.js';
-import { SettingsModal } from './components/dialogs/SettingsModal.js';
+import { SettingsModal } from './components/dialogs/settings/SettingsModal.js';
 import { InputDialog } from './components/dialogs/InputDialog.js';
 import { AboutDialog } from './components/dialogs/AboutDialog.js';
 import { FilterDesignWizard } from './components/windows/optimization/filterDesignWizard/FilterDesignWizard.js';
