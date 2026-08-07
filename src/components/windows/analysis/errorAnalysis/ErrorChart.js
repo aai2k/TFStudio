@@ -1,3 +1,6 @@
+import { ANALYSIS_DEFAULTS } from '../../../../constants/analysisDefaults.js';
+import { useAnalysisColors } from '../../../../state/AnalysisSettingsContext.js';
+
 const { createElement: h, useEffect, useMemo, useRef } = React;
 
 const toPercent = (values) => values.map((value) => value * 100);
@@ -71,13 +74,19 @@ function appendEnvelope(traces, { result, charColor, showEnvelope }) {
     });
 }
 
-export function buildErrorFigure({ result, char, c, corridorSigma = 1, showEnvelope = false }) {
+/**
+ * @param {object} [colors] configured curve colours; factory defaults when absent
+ */
+export function buildErrorFigure({
+    result, char, c, corridorSigma = 1, showEnvelope = false,
+    colors = ANALYSIS_DEFAULTS.errorAnalysis.colors,
+}) {
     if (!result) return { data: [], layout: {} };
     const bgColor = c.bg || '#1e1e1e';
     const paperColor = c.panel || '#252526';
     const gridColor = c.border || '#3a3a3a';
     const textColor = c.text || '#cccccc';
-    const charColor = char === 'T' ? '#4fc3f7' : char === 'R' ? '#ef5350' : '#66bb6a';
+    const charColor = colors[char] || colors.A;
     const data = baseTraces({ result, char, charColor, corridorSigma });
     appendEnvelope(data, { result, charColor, showEnvelope });
     const layout = {
@@ -109,8 +118,9 @@ export function buildErrorFigure({ result, char, c, corridorSigma = 1, showEnvel
 export function ErrorChart(props) {
     const divRef = useRef(null);
     const initRef = useRef(false);
-    const figure = useMemo(() => buildErrorFigure(props), [
-        props.result, props.char, props.c, props.corridorSigma, props.showEnvelope,
+    const colors = useAnalysisColors('errorAnalysis');
+    const figure = useMemo(() => buildErrorFigure({ ...props, colors }), [
+        props.result, props.char, props.c, props.corridorSigma, props.showEnvelope, colors,
     ]);
 
     useEffect(() => {

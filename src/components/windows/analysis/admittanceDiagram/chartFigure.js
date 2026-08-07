@@ -1,3 +1,7 @@
+import { ANALYSIS_DEFAULTS } from '../../../../constants/analysisDefaults.js';
+
+const FACTORY = ANALYSIS_DEFAULTS.admittanceDiagram.colors;
+
 // The reflection view is bounded by |Gamma| = 1 whatever the design does.
 const REFLECTION_RANGE = { xrange: [-1.06, 1.06], yrange: [-1.06, 1.06] };
 
@@ -89,7 +93,7 @@ function arcTraces(s, matColorMap, polLabel, textColor, sym) {
     return traces;
 }
 
-function markerTraces(s, polLabel, isMultiPol, textColor, sym) {
+function markerTraces(s, polLabel, isMultiPol, textColor, marks) {
     const Y0 = s.marks.Y0;
     return [
         {
@@ -97,10 +101,10 @@ function markerTraces(s, polLabel, isMultiPol, textColor, sym) {
             type: 'scatter', mode: 'markers+text',
             name: `η_s${polLabel}`,
             showlegend: false,
-            marker: { symbol: 'square', size: 10, color: '#ffca28', line: { color: textColor, width: 1 } },
+            marker: { symbol: 'square', size: 10, color: marks.start, line: { color: textColor, width: 1 } },
             text: [s.pol === 'p' && isMultiPol ? '' : 'η_s'],
             textposition: 'top center',
-            textfont: { color: '#ffca28', size: 11 },
+            textfont: { color: marks.start, size: 11 },
             hovertemplate: `Substrate η_s${polLabel}<br>Re: %{x:.5f}<br>Im: %{y:.5f}<extra></extra>`,
         },
         {
@@ -108,10 +112,10 @@ function markerTraces(s, polLabel, isMultiPol, textColor, sym) {
             type: 'scatter', mode: 'markers+text',
             name: `Y₀${polLabel}`,
             showlegend: false,
-            marker: { symbol: 'diamond', size: 10, color: '#66bb6a', line: { color: textColor, width: 1 } },
+            marker: { symbol: 'diamond', size: 10, color: marks.end, line: { color: textColor, width: 1 } },
             text: [s.pol === 'p' && isMultiPol ? '' : 'Y₀'],
             textposition: 'top right',
-            textfont: { color: '#66bb6a', size: 11 },
+            textfont: { color: marks.end, size: 11 },
             hovertemplate: `Final Y₀${polLabel}<br>Re: %{x:.5f}<br>Im: %{y:.5f}<extra></extra>`,
         },
         {
@@ -119,16 +123,20 @@ function markerTraces(s, polLabel, isMultiPol, textColor, sym) {
             type: 'scatter', mode: 'markers+text',
             name: `η₀${polLabel}`,
             showlegend: false,
-            marker: { symbol: 'cross', size: 12, color: '#ef5350', line: { color: '#ef5350', width: 2 } },
+            marker: { symbol: 'cross', size: 12, color: marks.target, line: { color: marks.target, width: 2 } },
             text: [s.pol === 'p' && isMultiPol ? '' : 'η₀'],
             textposition: 'bottom right',
-            textfont: { color: '#ef5350', size: 11 },
+            textfont: { color: marks.target, size: 11 },
             hovertemplate: `Incident medium η₀${polLabel}<br>Re: %{x:.5f}<br>Im: %{y:.5f}<extra></extra>`,
         },
     ];
 }
 
-export function admittanceTraces(series, matColorMap, colors) {
+/**
+ * @param {object} colors  theme colours for the plot chrome
+ * @param {object} [marks] configured start/end/target marker colours
+ */
+export function admittanceTraces(series, matColorMap, colors, marks = FACTORY) {
     if (!series?.length) return [];
     const isMultiPol = series.length > 1;
     const sym = isReflection(series) ? 'Γ' : 'Y';
@@ -136,7 +144,7 @@ export function admittanceTraces(series, matColorMap, colors) {
     for (const s of series) {
         const polLabel = isMultiPol ? ` (${s.pol})` : '';
         traces.push(...arcTraces(s, matColorMap, polLabel, colors.text, sym));
-        traces.push(...markerTraces(s, polLabel, isMultiPol, colors.text, sym));
+        traces.push(...markerTraces(s, polLabel, isMultiPol, colors.text, marks));
     }
     return traces;
 }

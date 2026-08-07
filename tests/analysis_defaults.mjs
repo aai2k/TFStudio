@@ -126,9 +126,10 @@ function ok(condition, message) {
 }
 
 // ── Characterization: factory colours equal the literals they replaced ──────
-// Read the figure modules as text and assert the colour still appears there.
-// Once a module imports from the registry its literal is gone, and the check
-// below is what proves the registry value carried the original through.
+// The registry value must be exactly what the window drew before the setting
+// existed, so moving a colour here is provably a no-op until the user changes
+// it. Two guards: the hex is still registered (below), and the figure module
+// no longer carries its own copy (further down).
 {
   const CURRENT_LITERALS = {
     opticalEvaluation:      ['#2196f3', '#ef5350', '#66bb6a', '#64b5f6', '#ef9a9a', '#1565c0', '#c62828'],
@@ -160,6 +161,68 @@ function ok(condition, message) {
     'Optical Evaluation keeps its own blue for T');
   ok(ANALYSIS_DEFAULTS.inhomogeneities.colors.T === '#4fc3f7',
     'the other windows keep the lighter blue for T');
+}
+
+// ── The wired figure modules hold no colour literals of their own ───────────
+// A literal left behind in a figure module is a colour the Settings pane
+// silently fails to control, which is worse than not offering the setting.
+// Read the modules as text; the registry import is what should remain.
+{
+  const WIRED = {
+    'windows/analysis/integralValues/overlayFigure.js':      ['#4fc3f7', '#ef5350', '#66bb6a', '#ffd54f'],
+    'windows/analysis/layerSensitivity/figure.js':           ['#4fc3f7'],
+    'windows/analysis/errorAnalysis/ErrorChart.js':          ['#4fc3f7', '#66bb6a'],
+    'windows/analysis/colorEvaluation/chartFigure.js':       ['#bbbbbb', '#ffffff'],
+    'windows/analysis/admittanceDiagram/chartFigure.js':     ['#ffca28', '#66bb6a', '#ef5350'],
+    'windows/analysis/admittanceDiagram/model.js':           ['#4fc3f7', '#ab47bc', '#8d6e63'],
+  };
+
+  for (const [relative, gone] of Object.entries(WIRED)) {
+    const text = readFileSync(join(src, 'components', relative), 'utf8').toLowerCase();
+    for (const colour of gone) {
+      ok(!text.includes(colour), `${relative} no longer hardcodes ${colour}`);
+    }
+    ok(text.includes('analysisdefaults.js') || text.includes('analysissettingscontext.js'),
+      `${relative} reads its colours from the registry`);
+  }
+}
+
+// ── The Plot Engine palette agrees with the curve factory's fallback ────────
+// makeDefaultCurve keeps its own palette so the physics utils stay usable
+// without the UI registry. The two must not drift: the fallback is what a
+// curve built outside the window gets.
+{
+  const { paletteColors } = await import(new URL('../src/constants/analysisDefaults.js', import.meta.url));
+  const registered = paletteColors(ANALYSIS_DEFAULTS.plotEngine.colors, 'series');
+  const text = readFileSync(join(src, 'utils', 'physics', 'plotQuantities', 'curves.js'), 'utf8');
+  const fallback = text
+    .slice(text.indexOf('const CURVE_COLORS'), text.indexOf('let _curveSeq'))
+    .match(/#[0-9a-f]{6}/gi) || [];
+
+  ok(registered.length === 10, 'the Plot Engine palette has ten slots');
+  ok(registered.every(Boolean), 'every Plot Engine palette slot is filled');
+  ok(fallback.length === registered.length,
+    'the curve factory fallback has as many colours as the registry palette');
+  ok(fallback.every((colour, i) => colour.toLowerCase() === registered[i].toLowerCase()),
+    'the curve factory fallback matches the registry palette in order');
+}
+
+// ── The Admittance material palette resolves in rotation order ──────────────
+{
+  const { paletteColors } = await import(new URL('../src/constants/analysisDefaults.js', import.meta.url));
+  const palette = paletteColors(ANALYSIS_DEFAULTS.admittanceDiagram.colors, 'mat');
+
+  ok(palette.length === 10, 'the Admittance material palette has ten slots');
+  ok(palette[0] === '#4fc3f7', 'the first material keeps the shipped blue');
+  ok(palette[9] === '#8d6e63', 'the tenth material keeps the shipped brown');
+
+  const overridden = resolveAnalysisColors('admittanceDiagram', {
+    admittanceDiagram: { colors: { mat1: '#123456' } },
+  });
+  ok(paletteColors(overridden, 'mat')[0] === '#123456',
+    'an overridden palette slot reaches the resolved palette');
+  ok(paletteColors(overridden, 'mat')[1] === '#ef5350',
+    'the untouched slots keep their factory colours');
 }
 
 // ── Spectral units reuse the engine's table, not a parallel list ────────────

@@ -1,3 +1,4 @@
+import { useAnalysisColors } from '../../../../state/AnalysisSettingsContext.js';
 import { buildSensitivityFigure } from './figure.js';
 
 const { createElement: h, useEffect, useMemo, useRef } = React;
@@ -5,9 +6,10 @@ const { createElement: h, useEffect, useMemo, useRef } = React;
 export function SensitivityBars(props) {
     const divRef = useRef(null);
     const initRef = useRef(false);
-    const figure = useMemo(() => buildSensitivityFigure(props), [
+    const colors = useAnalysisColors('layerSensitivity');
+    const figure = useMemo(() => buildSensitivityFigure({ ...props, colors }), [
         props.rows, props.matColorMap, props.scale, props.frontCount,
-        props.c.bg, props.c.panel, props.c.border, props.c.text,
+        props.c.bg, props.c.panel, props.c.border, props.c.text, colors,
     ]);
 
     useEffect(() => {

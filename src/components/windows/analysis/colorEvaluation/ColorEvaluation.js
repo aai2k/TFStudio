@@ -18,9 +18,14 @@ import {
 } from '../../../../utils/physics/colorimetry.js';
 import { makeConeSpec, coneAverageResult } from '../../../../utils/physics/optimizer.js';
 import { EvalModeBadge, ConeBadge } from '../../../SurfaceModeBar.js';
+import { MaterialRangeWarning } from '../../../materials/MaterialRangeNotice.js';
 import { ChromaticityChart } from './chartFigure.js';
 
 const { createElement: h, useState, useEffect, useMemo } = React;
+
+// The visible band the colour-matching functions are defined over. Fixed: it
+// is a property of the CIE observer, not a user setting.
+const COLOR_RANGE_NM = [380, 780];
 
 // Build an interpolating R|T(λ) fraction-function from a TMM spectrum sweep.
 function responseFn(design, evalMode, characteristic, pol, theta) {
@@ -29,7 +34,7 @@ function responseFn(design, evalMode, characteristic, pol, theta) {
   const subMat  = resolveMaterial(design.substrate?.material);
   const exitMat = resolveMaterial(design.exitMedium);
   const subThk  = design.substrate?.thickness ?? 1.0;
-  const params  = { lambdaStart: 380, lambdaEnd: 780, lambdaStep: 1,
+  const params  = { lambdaStart: COLOR_RANGE_NM[0], lambdaEnd: COLOR_RANGE_NM[1], lambdaStep: 1,
                      theta, polarization: pol };
 
   const front = (design.frontLayers || []).filter(l => l.thickness > 0)
@@ -228,6 +233,10 @@ export function ColorEvaluation({ c, theme, t }) {
       h(Field, { label: ce.exposure, c },
         h(Sel, { value: exposure, onChange: setExposure,
           options: expOptions, c, width: 116 }))),
+
+    h(MaterialRangeWarning, {
+      design, fromNm: COLOR_RANGE_NM[0], toNm: COLOR_RANGE_NM[1], c, t,
+    }),
 
     // Body: diagram (left) + readout (right)
     h('div', { style: { flex: 1, minHeight: 0, display: 'flex' } },

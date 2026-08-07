@@ -6,12 +6,15 @@ export function resolveDocMeta(d, opts) {
     const group = opts.group || (meta.rtti === 12 ? 'Substrate' : 'Imported');
     const comment = (d.comment ? String(d.comment).replace(/\s+/g, ' ').trim() : '');
 
-    // λ range (µm). Prefer the sampled grid; fall back to a broad visible–NIR span.
+    // λ range (µm). Prefer the sampled grid; fall back to a broad visible–NIR
+    // span. rangeDeclared marks which of the two happened, so a placeholder
+    // span is never mistaken for a stated validity range.
     const wl = Array.isArray(d.wavelength) ? d.wavelength : null;
+    const rangeDeclared = !!(wl && wl.length >= 1);
     let lambdaMin = 0.3, lambdaMax = 2.5;
-    if (wl && wl.length >= 1) {
+    if (rangeDeclared) {
         lambdaMin = Math.min(...wl) / 1000;
         lambdaMax = Math.max(...wl) / 1000;
     }
-    return { name, group, comment, lambdaMin, lambdaMax };
+    return { name, group, comment, lambdaMin, lambdaMax, rangeDeclared };
 }

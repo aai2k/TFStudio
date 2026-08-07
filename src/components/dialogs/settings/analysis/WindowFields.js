@@ -5,10 +5,21 @@ import { SpectralRangeRows } from './SpectralRangeRows.js';
 
 const { createElement: h } = React;
 
+// Numbered palette slots (`series3`, `mat7`) are labelled by position; every
+// other colour has a name in the locale table.
+const PALETTE_KEY = /^(?:series|mat)(\d+)$/;
+
+function paletteSlot(key) {
+  const match = PALETTE_KEY.exec(key);
+  return match ? Number(match[1]) : null;
+}
+
 // Field labels come from t.settings.analysis.fields when present; otherwise the
 // registry key is shown as-is. Curve keys (T, R, A, Ts, gd, psi…) are symbols
 // and deliberately untranslated.
 function fieldLabel(t, key) {
+  const slot = paletteSlot(key);
+  if (slot !== null) return t.settings.analysis.paletteSlot(slot);
   return t.settings.analysis.fields[key] || key;
 }
 
@@ -17,6 +28,23 @@ const groupTitleStyle = (c) => ({
   textTransform: 'uppercase', letterSpacing: '0.5px',
   marginTop: '14px', marginBottom: '2px',
 });
+
+const groupHintStyle = (c) => ({
+  fontSize: '11px', color: c.textDim, marginBottom: '6px', lineHeight: 1.4,
+});
+
+const ColorGroup = ({ title, hint, keys, resolved, onChange, c, t }) =>
+  keys.length === 0 ? null : h('div', null,
+    h('div', { style: groupTitleStyle(c) }, title),
+    hint && h('div', { style: groupHintStyle(c) }, hint),
+    keys.map(key => h(ColorRow, {
+      key,
+      c,
+      label: fieldLabel(t, key),
+      value: resolved.colors[key],
+      onChange: (value) => onChange('colors', key, value),
+    }))
+  );
 
 export const WindowFields = ({ windowId, resolved, onChange, c, t }) => {
   const registry = ANALYSIS_DEFAULTS[windowId];
@@ -30,22 +58,23 @@ export const WindowFields = ({ windowId, resolved, onChange, c, t }) => {
       h(SpectralRangeRows, { resolved, onChange, c, t }));
   }
 
-  const colors = Object.keys(registry.colors || {});
+  const colorKeys = Object.keys(registry.colors || {});
   const numbers = Object.entries(registry.numbers || {});
   const enums = Object.entries(registry.enums || {});
   const booleans = Object.keys(registry.booleans || {});
 
   return h('div', null,
-    colors.length > 0 && h('div', null,
-      h('div', { style: groupTitleStyle(c) }, t.settings.analysis.curveColors),
-      colors.map(key => h(ColorRow, {
-        key,
-        c,
-        label: fieldLabel(t, key),
-        value: resolved.colors[key],
-        onChange: (value) => onChange('colors', key, value),
-      }))
-    ),
+    h(ColorGroup, {
+      title: t.settings.analysis.curveColors,
+      keys: colorKeys.filter(key => paletteSlot(key) === null),
+      resolved, onChange, c, t,
+    }),
+    h(ColorGroup, {
+      title: t.settings.analysis.palette,
+      hint: t.settings.analysis.paletteHint,
+      keys: colorKeys.filter(key => paletteSlot(key) !== null),
+      resolved, onChange, c, t,
+    }),
     numbers.length > 0 && h('div', null,
       h('div', { style: groupTitleStyle(c) }, t.settings.analysis.ranges),
       numbers.map(([key, spec]) => h(NumberRow, {

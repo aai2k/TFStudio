@@ -23,6 +23,24 @@ import { SPECTRAL_UNIT_IDS } from '../utils/physics/spectralAxis.js';
 
 export { SPECTRAL_UNIT_IDS };
 
+/**
+ * Some windows colour by rotation rather than by named curve — Plot Engine
+ * hands each new curve the next colour, the Admittance Diagram does the same
+ * per distinct material in the stack. Those palettes are stored as numbered
+ * keys (`series1`…, `mat1`…) so Settings can render one swatch per slot, and
+ * read back as an ordered array through `paletteColors`.
+ */
+const PALETTE_SIZE = 10;
+
+function palette(prefix, hexes) {
+  return Object.fromEntries(hexes.map((hex, i) => [`${prefix}${i + 1}`, hex]));
+}
+
+/** Rotation-ordered colour array for a numbered palette. */
+export function paletteColors(colors, prefix, size = PALETTE_SIZE) {
+  return Array.from({ length: size }, (_, i) => colors[`${prefix}${i + 1}`]);
+}
+
 export const ANALYSIS_DEFAULTS = {
   // The spectral range is stored in nanometres because the physics engine
   // always works in vacuum wavelength; the unit below is a display choice only
@@ -52,15 +70,17 @@ export const ANALYSIS_DEFAULTS = {
   },
 
   plotEngine: {
-    // Rotating palette assigned to each new curve in turn.
-    colors: {
-      series1:  '#4fc3f7', series2:  '#ef5350', series3: '#66bb6a', series4: '#ffb74d', series5:  '#ba68c8',
-      series6:  '#81c784', series7:  '#ff8a65', series8: '#7986cb', series9: '#a1887f', series10: '#90a4ae',
-    },
+    // Handed to each new curve in turn.
+    colors: palette('series', [
+      '#4fc3f7', '#ef5350', '#66bb6a', '#ffb74d', '#ba68c8',
+      '#81c784', '#ff8a65', '#7986cb', '#a1887f', '#90a4ae',
+    ]),
   },
 
   colorEvaluation: {
-    colors: { locus: '#bbbbbb', whitePoint: '#ffffff' },
+    // Outlines of the two markers on the chromaticity diagram. The spectral
+    // locus itself is drawn in the theme's text colour and follows the theme.
+    colors: { whitePoint: '#bbbbbb', coating: '#ffffff' },
   },
 
   gdGddEvaluation: {
@@ -72,7 +92,16 @@ export const ANALYSIS_DEFAULTS = {
   },
 
   admittanceDiagram: {
-    colors: { start: '#ffca28', end: '#66bb6a', target: '#ef5350' },
+    colors: {
+      start: '#ffca28', end: '#66bb6a', target: '#ef5350',
+      // One colour per distinct material in the stack, in order of first
+      // appearance. Local to this window — the arcs are not tinted from the
+      // material definitions the way the E-field and profile plots are.
+      ...palette('mat', [
+        '#4fc3f7', '#ef5350', '#66bb6a', '#ffca28', '#ab47bc',
+        '#26c6da', '#ff7043', '#ec407a', '#78909c', '#8d6e63',
+      ]),
+    },
   },
 
   eFieldEvaluation: {
@@ -84,7 +113,11 @@ export const ANALYSIS_DEFAULTS = {
   },
 
   integralValues: {
-    colors: { T: '#4fc3f7', R: '#ef5350', A: '#66bb6a', limits: '#ffd54f' },
+    colors: {
+      T: '#4fc3f7', R: '#ef5350', A: '#66bb6a',
+      limits: '#ffd54f',
+      min: '#ef5350', max: '#66bb6a',
+    },
   },
 
   layerSensitivity: {

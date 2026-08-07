@@ -3,6 +3,7 @@
  */
 
 import { useDesign } from '../../../../state/DesignContext.js';
+import { MaterialRangeWarning } from '../../../materials/MaterialRangeNotice.js';
 import { DataTablePanel } from '../../../ui/DataTablePanel.js';
 import { ProfilerControls } from './ProfilerControls.js';
 import { RIChart } from './RIChart.js';
@@ -35,6 +36,7 @@ export function RefractiveIndexProfiler({ c, theme, t }) {
         },
     },
         h(ProfilerControls, { c, rp, state, summary: view }),
+        h(MaterialRangeWarning, { design, fromNm: state.lambda, toNm: state.lambda, c, t }),
         h('div', { style: { flex: 1, minHeight: 0, overflow: 'hidden' } },
             view.hasProfile
                 ? (view.isTotal

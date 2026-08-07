@@ -1,3 +1,5 @@
+import { paletteColors } from '../../../../constants/analysisDefaults.js';
+import { useAnalysisColors } from '../../../../state/AnalysisSettingsContext.js';
 import { makeDefaultCurve, computeCurve } from '../../../../utils/physics/plotQuantities.js';
 import { buildEvaluationContext } from './materialContext.js';
 
@@ -6,21 +8,21 @@ const { useState, useMemo, useEffect, useCallback } = React;
 // Per-design state survives docking switches, which unmount and remount the window.
 const plotCache = new Map();
 
-function defaultCurves(evalMode) {
-    return [makeDefaultCurve({ surfaceMode: evalMode || 'front' })];
+function defaultCurves(evalMode, palette) {
+    return [makeDefaultCurve({ surfaceMode: evalMode || 'front', palette })];
 }
 
-function cachedCurves(design, evalMode) {
+function cachedCurves(design, evalMode, palette) {
     const cached = design && plotCache.get(design.id);
-    return cached?.length ? cached.map(x => ({ ...x })) : defaultCurves(evalMode);
+    return cached?.length ? cached.map(x => ({ ...x })) : defaultCurves(evalMode, palette);
 }
 
-function useCachedCurves(design, evalMode) {
-    const [curves, setCurves] = useState(() => cachedCurves(design, evalMode));
+function useCachedCurves(design, evalMode, palette) {
+    const [curves, setCurves] = useState(() => cachedCurves(design, evalMode, palette));
 
     useEffect(() => {
         if (!design) return;
-        setCurves(cachedCurves(design, evalMode));
+        setCurves(cachedCurves(design, evalMode, palette));
     }, [design?.id]);
 
     useEffect(() => {
@@ -47,13 +49,15 @@ function computeCurveResults(curves, ctx) {
 }
 
 export function useCurvePlot(design, evalMode) {
-    const [curves, setCurves] = useCachedCurves(design, evalMode);
+    const configured = useAnalysisColors('plotEngine');
+    const palette = useMemo(() => paletteColors(configured, 'series'), [configured]);
+    const [curves, setCurves] = useCachedCurves(design, evalMode, palette);
     const ctx = useMemo(() => buildEvaluationContext(design), [design]);
     const results = useMemo(() => computeCurveResults(curves, ctx), [curves, ctx]);
 
     const addCurve = useCallback(() => {
-        setCurves(prev => [...prev, makeDefaultCurve({ surfaceMode: evalMode || 'front' })]);
-    }, [evalMode]);
+        setCurves(prev => [...prev, makeDefaultCurve({ surfaceMode: evalMode || 'front', palette })]);
+    }, [evalMode, palette]);
     const updateCurve = useCallback((id, patch) => {
         setCurves(prev => prev.map(cv => cv.id === id ? { ...cv, ...patch } : cv));
     }, []);

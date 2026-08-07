@@ -1,3 +1,5 @@
+import { paletteColors } from '../../../../constants/analysisDefaults.js';
+import { useAnalysisColors } from '../../../../state/AnalysisSettingsContext.js';
 import { buildDiagramData, buildMatColorMap, sideHasLayers, sideStackLayers } from './model.js';
 import { buildAdmittanceTableRows, buildMaterialNames } from './tableModel.js';
 import { resolveAvailableSide } from '../availableSide.js';
@@ -25,10 +27,12 @@ export function useAdmittanceDiagram(design) {
         if (design?.referenceWavelength) setLambda(design.referenceWavelength);
     }, [design?.id]);
 
+    const configured = useAnalysisColors('admittanceDiagram');
+    const palette = useMemo(() => paletteColors(configured, 'mat'), [configured]);
     const colorLayers = useMemo(() => sideStackLayers(design, side), [design, side]);
     const matColorMap = useMemo(
-        () => buildMatColorMap(colorLayers),
-        [colorLayers.map(l => l.material).join(',')],
+        () => buildMatColorMap(colorLayers, palette),
+        [colorLayers.map(l => l.material).join(','), palette],
     );
     const [series, setSeries] = useState(null);
     const [error, setError] = useState(null);

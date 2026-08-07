@@ -1,3 +1,4 @@
+import { MaterialRangeWarning } from '../../../materials/MaterialRangeNotice.js';
 import { useOpticalEvaluation } from './useOpticalEvaluation.js';
 import { EvaluationToolbar } from './EvaluationToolbar.js';
 import { CurveToolbar } from './CurveToolbar.js';
@@ -23,6 +24,12 @@ export function OpticalEvaluation({ c, theme, t }) {
         h(EvaluationToolbar, props),
         h(CurveToolbar, props),
         h(TargetToolbar, props),
+        h(MaterialRangeWarning, {
+            design: state.design,
+            fromNm: state.params.lambdaStart,
+            toNm: state.params.lambdaEnd,
+            c, t,
+        }),
         h(ChartPanel, props),
         h(AxisPanel, props),
         h(ResultsPanel, props),

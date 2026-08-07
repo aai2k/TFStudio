@@ -139,12 +139,19 @@ export function useUpdateCheck({ enabled, skippedVersion, onSkipVersion, isOptim
     window.electronAPI?.openExternal?.(decision?.url || RELEASES_URL);
   }, [decision]);
 
+  // Runs a check without raising a card, for callers that report the result in
+  // their own surface — Settings sits above the card's stacking context, so a
+  // card raised from there would be hidden behind the dialog.
+  const checkQuiet = useCallback(() => run(true), [run]);
+
   return {
     card,
+    decision,
     status: statusFor(decision, checking),
     latest: decision?.latest || null,
     dismiss: hideCard,
     checkNow,
+    checkQuiet,
     onBadgeClick,
     skip,
     openReleases,

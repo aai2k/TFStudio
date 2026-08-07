@@ -29,6 +29,7 @@ export function riiToMaterialEntry(mat, pageName, bookName) {
         coefficients: [],
         lambdaMin: lmin_um,
         lambdaMax: lmax_um,
+        rangeDeclared: true,    // the extent of the fetched samples, not a fallback
         kTable: [],
         nd: null, vd: null, density: null,
         comment: (mat.comments ? mat.comments + '\n' : '') + mat.references.slice(0, 200),

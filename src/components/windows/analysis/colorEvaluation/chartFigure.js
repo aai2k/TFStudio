@@ -1,3 +1,5 @@
+import { ANALYSIS_DEFAULTS } from '../../../../constants/analysisDefaults.js';
+import { useAnalysisColors } from '../../../../state/AnalysisSettingsContext.js';
 import { spectralLocusXy } from '../../../../utils/physics/colorimetry.js';
 
 const { createElement: h, useEffect, useMemo, useRef } = React;
@@ -13,7 +15,10 @@ export const CHROMATICITY_CONFIG = {
   }
 };
 
-export function chromaticityTraces(report, observer, c) {
+/**
+ * @param {object} [colors] configured marker colours; factory defaults when absent
+ */
+export function chromaticityTraces(report, observer, c, colors = ANALYSIS_DEFAULTS.colorEvaluation.colors) {
   const txt = c.text || '#cccccc';
   const loc = spectralLocusXy(observer);
   const lx = loc.map(p => p.x), ly = loc.map(p => p.y);
@@ -39,14 +44,14 @@ export function chromaticityTraces(report, observer, c) {
       x: [report.whiteXy.x], y: [report.whiteXy.y],
       type: 'scatter', mode: 'markers', name: 'White point',
       marker: { symbol: 'cross-thin', size: 11,
-                line: { color: '#bbbbbb', width: 2 } },
+                line: { color: colors.whitePoint, width: 2 } },
       hovertemplate: 'White x %{x:.4f}, y %{y:.4f}<extra></extra>'
     });
     t.push({
       x: [report.xy.x], y: [report.xy.y],
       type: 'scatter', mode: 'markers', name: 'Coating',
       marker: { symbol: 'circle', size: 13, color: report.rgb,
-                line: { color: '#ffffff', width: 1.5 } },
+                line: { color: colors.coating, width: 1.5 } },
       hovertemplate: 'Coating x %{x:.4f}, y %{y:.4f}<extra></extra>'
     });
   }
@@ -98,9 +103,10 @@ function useChromaticityPlot(divRef, traces, layout) {
 export function ChromaticityChart({ report, observer, c }) {
   const divRef = useRef(null);
   const txt = c.text || '#cccccc';
+  const colors = useAnalysisColors('colorEvaluation');
   const traces = useMemo(
-    () => chromaticityTraces(report, observer, c),
-    [report, observer, txt, c.textDim]
+    () => chromaticityTraces(report, observer, c, colors),
+    [report, observer, txt, c.textDim, colors]
   );
   const layout = useMemo(
     () => chromaticityLayout(c),

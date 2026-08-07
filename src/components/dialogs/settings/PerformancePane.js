@@ -1,6 +1,7 @@
-// Settings → Performance: WASM transfer-matrix kernel toggle.
+// Settings → Performance: WASM transfer-matrix kernel toggle and update checks.
 import { Checkbox } from '../../ui/Checkbox.js';
 import { Section } from './ui.js';
+import { UpdateCheckRow } from './UpdateCheckRow.js';
 
 const { createElement: h } = React;
 
@@ -22,18 +23,6 @@ export const PerformancePane = ({ wasmTmm, setWasmTmm, updateCheckEnabled, setUp
       )
     ),
     h(Section, { c, title: t.settings.updates },
-      h('label', { style: { display: 'flex', alignItems: 'flex-start', gap: '10px', cursor: 'pointer' } },
-        h(Checkbox, {
-          c,
-          checked: updateCheckEnabled !== false,
-          onChange: (e) => setUpdateCheckEnabled && setUpdateCheckEnabled(e.target.checked),
-          style: { marginTop: '2px' },
-        }),
-        h('span', { style: { fontSize: '13px', color: c.text } },
-          h('span', { style: { fontWeight: '600' } }, t.settings.updateCheck),
-          h('span', { style: { display: 'block', fontSize: '12px', color: c.textDim, marginTop: '2px' } },
-            t.settings.updateCheckHint)
-        )
-      )
+      h(UpdateCheckRow, { updateCheckEnabled, setUpdateCheckEnabled, c, t })
     )
   );

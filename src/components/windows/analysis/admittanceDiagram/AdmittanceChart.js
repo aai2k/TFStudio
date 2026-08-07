@@ -1,11 +1,12 @@
+import { useAnalysisColors } from '../../../../state/AnalysisSettingsContext.js';
 import { admittanceLayout, admittanceTraces } from './chartFigure.js';
 
 const { createElement: h, useEffect, useRef } = React;
 
-function usePlotInitialization({ divRef, initializedRef, series, matColorMap, colors, config }) {
+function usePlotInitialization({ divRef, initializedRef, series, matColorMap, colors, marks, config }) {
     useEffect(() => {
         if (!divRef.current || typeof Plotly === 'undefined') return;
-        Plotly.newPlot(divRef.current, admittanceTraces(series, matColorMap, colors), admittanceLayout(series, colors), config);
+        Plotly.newPlot(divRef.current, admittanceTraces(series, matColorMap, colors, marks), admittanceLayout(series, colors), config);
         initializedRef.current = true;
         const ro = new ResizeObserver(() => {
             if (divRef.current && initializedRef.current) Plotly.Plots.resize(divRef.current);
@@ -19,11 +20,11 @@ function usePlotInitialization({ divRef, initializedRef, series, matColorMap, co
     }, []); // eslint-disable-line react-hooks/exhaustive-deps
 }
 
-function usePlotData({ divRef, initializedRef, series, matColorMap, colors, config, c }) {
+function usePlotData({ divRef, initializedRef, series, matColorMap, colors, marks, config, c }) {
     useEffect(() => {
         if (!divRef.current || !initializedRef.current || typeof Plotly === 'undefined') return;
-        Plotly.react(divRef.current, admittanceTraces(series, matColorMap, colors), admittanceLayout(series, colors), config);
-    }, [series, matColorMap, c]); // eslint-disable-line react-hooks/exhaustive-deps
+        Plotly.react(divRef.current, admittanceTraces(series, matColorMap, colors, marks), admittanceLayout(series, colors), config);
+    }, [series, matColorMap, marks, c]); // eslint-disable-line react-hooks/exhaustive-deps
 }
 
 function usePlotTheme({ divRef, initializedRef, colors, c }) {
@@ -47,14 +48,15 @@ export function AdmittanceChart({ series, matColorMap, c, theme, t }) {
         border: c.border || '#3a3a3a',
         text: c.text || '#cccccc',
     };
+    const marks = useAnalysisColors('admittanceDiagram');
     const config = {
         displaylogo: false, responsive: true, displayModeBar: true,
         modeBarButtonsToRemove: ['select2d', 'lasso2d'],
         toImageButtonOptions: { format: 'png', filename: 'TFStudio_admittance', scale: 2 },
     };
 
-    usePlotInitialization({ divRef, initializedRef, series, matColorMap, colors, config });
-    usePlotData({ divRef, initializedRef, series, matColorMap, colors, config, c });
+    usePlotInitialization({ divRef, initializedRef, series, matColorMap, colors, marks, config });
+    usePlotData({ divRef, initializedRef, series, matColorMap, colors, marks, config, c });
     usePlotTheme({ divRef, initializedRef, colors, c });
 
     if (typeof Plotly === 'undefined') {
