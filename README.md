@@ -10,7 +10,7 @@
 **An open-source design, analysis, and optimization environment for optical thin-film coatings.**
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](./LICENSE)
-![Version](https://img.shields.io/badge/version-1.4.3-informational)
+![Version](https://img.shields.io/badge/version-1.5.0-informational)
 ![Platform](https://img.shields.io/badge/platform-Windows%20%7C%20Linux-lightgrey)
 [![Maintainability](https://qlty.sh/gh/aai2k/projects/TFStudio/maintainability.svg)](https://qlty.sh/gh/aai2k/projects/TFStudio)
 [![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.21196149.svg)](https://doi.org/10.5281/zenodo.21196149)
@@ -24,7 +24,7 @@
 
 ## What is TFStudio?
 
-TFStudio is a professional desktop application for designing and analyzing **optical thin-film coatings** — antireflection coatings, mirrors, beamsplitters, bandpass and edge filters, and more. It combines a rigorous, double-precision optical engine with modern refinement and synthesis algorithms and a full analysis suite, in a docked, multi-window interface.
+TFStudio is a professional desktop application for designing and analyzing **optical thin-film coatings**: antireflection coatings, mirrors, beamsplitters, bandpass and edge filters, and more. It combines a rigorous, double-precision optical engine with modern refinement and synthesis algorithms and a full analysis suite, in a docked, multi-window interface.
 
 
 > ⚠️ **Status:** TFStudio is independently developed software. Always verify critical designs against your own calculations and measurements before committing them to a production deposition run.
@@ -70,9 +70,9 @@ TFStudio is a professional desktop application for designing and analyzing **opt
 
 TFStudio implements established thin-film optics, citing primary sources:
 
-- **Transfer-matrix method** — H. A. Macleod, *Thin-Film Optical Filters*, 5th ed.
-- **Numerical needle synthesis** — Sullivan & Dobrowolski, *Appl. Opt.* **35**, 5484 (1996); Tikhonravov et al., *Appl. Opt.* **35**, 5493 (1996)
-- **Gradual evolution** — Tikhonravov et al. (2007)
+- **Transfer-matrix method:** H. A. Macleod, *Thin-Film Optical Filters*, 5th ed.
+- **Numerical needle synthesis:** Sullivan & Dobrowolski, *Appl. Opt.* **35**, 5484 (1996); Tikhonravov et al., *Appl. Opt.* **35**, 5493 (1996)
+- **Gradual evolution:** Tikhonravov et al. (2007)
 
 All computations use double precision. The TMM engine agrees with independent reference calculations to within single-digit parts-per-million for validated test cases.
 
@@ -83,16 +83,16 @@ The transfer-matrix engine is published separately as **[tmmcore](https://github
 ### Download (recommended)
 Grab the latest build for your platform from the [**Releases**](../../releases) page.
 
-**Windows** — `TFStudio Setup <ver>.exe` installs normally; `TFStudio-<ver>-Portable.exe` is a single executable that needs no installation, for locked-down deposition PCs. Separate Windows 7/8.1 builds are published alongside.
+**Windows:** `TFStudio Setup <ver>.exe` installs normally; `TFStudio-<ver>-Portable.exe` is a single executable that needs no installation, for locked-down deposition PCs. Separate Windows 7/8.1 builds are published alongside.
 
-**Linux** — on Debian and Ubuntu, `TFStudio-<ver>-amd64.deb` is the recommended package:
+**Linux:** On Debian and Ubuntu, `TFStudio-<ver>-amd64.deb` is the recommended package:
 
 ```bash
 sudo apt install ./TFStudio-*-amd64.deb
 tfstudio
 ```
 
-Installing as root is what lets the Chromium sandbox stay enabled — the `.deb` is the only Linux package that keeps it on, and it also adds TFStudio to the applications menu.
+Installing as root is what lets the Chromium sandbox stay enabled. The `.deb` is the only Linux package that keeps it on, and it also adds TFStudio to the applications menu.
 
 `TFStudio-<ver>-x86_64.AppImage` is the portable alternative:
 
@@ -113,7 +113,7 @@ cd TFStudio-*-x64
 
 `tfstudio.sh` works around a Chromium requirement that an unpacked archive cannot satisfy: the sandbox helper has to be owned by root, which an archive extracted as a normal user never is. Running the `tfstudio` binary directly instead aborts on startup with `The SUID sandbox helper binary was found, but is not configured correctly`. The launcher disables the sandbox only when there is no working alternative, so installing the `.deb` remains the more secure option.
 
-Want to try it first? Run the **[live web demo](https://tfstudio.xyz/demo/)** — example designs and live spectra, right in the browser, no install.
+Want to try it first? Run the **[live web demo](https://tfstudio.xyz/demo/)** for example designs and live spectra in the browser, with no installation required.
 
 ### Build from source
 Requires [Node.js](https://nodejs.org) 18+ and git.
@@ -151,19 +151,20 @@ to answer up front.
 ```powershell
 npm run dist                  # Windows 10/11 installer + portable
 npm run dist -- -Win7         # ...and the Windows 7/8.1 builds
-npm run dist -- -Linux        # ...and the Linux .deb + AppImage + tar.gz
+npm run dist -- -Linux        # Linux .deb + AppImage + tar.gz only
 ```
 
 The Linux artifacts are produced by `build-release-linux.sh`, which the release
 script drives through WSL; it also runs on any Linux host directly. It needs a
 distribution with Node.js 18+ and `rsync`, and builds in the Linux filesystem
 rather than in place, so a Windows checkout keeps its Windows `node_modules`.
-After packaging it launches the unpacked application under Xvfb as a smoke test,
-which is skipped with a message if Xvfb is not installed.
+The Windows-driven WSL build skips GUI verification. A direct Linux build launches
+the unpacked application under Xvfb as a smoke test, or skips it with a message if
+Xvfb is not installed.
 
 Note that the smoke test runs under Xvfb, so it exercises the X11 path only. A
-regression that appears solely under native Wayland — such as a window that is
-never presented — will pass it. Check a Wayland session by hand before releasing.
+regression that appears solely under native Wayland, such as a window that is
+never presented, will pass it. Check a Wayland session by hand before releasing.
 
 macOS builds require a macOS host and are not currently published.
 
@@ -188,7 +189,7 @@ By contributing you agree that your contributions are licensed under the project
 
 ## Author
 
-**Andrey Achapovsky** — [ORCID 0009-0005-1497-6279](https://orcid.org/0009-0005-1497-6279)
+**Andrey Achapovsky:** [ORCID 0009-0005-1497-6279](https://orcid.org/0009-0005-1497-6279)
 
 ## Acknowledgements
 

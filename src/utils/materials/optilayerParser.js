@@ -59,13 +59,13 @@ export function parseOptiLayerDoc(d, opts = {}) {
     const kArr = Array.isArray(d.k) ? d.k : null;
     const hasTable = !!(wl && wl.length > 1 && nArr && nArr.length === wl.length);
 
-    const { name, group, comment, lambdaMin, lambdaMax } = resolveDocMeta(d, opts);
+    const { name, group, comment, lambdaMin, lambdaMax, rangeDeclared } = resolveDocMeta(d, opts);
 
     let base = {
         id: sanitizeId(name),
         name,
         coefficients: [],
-        lambdaMin, lambdaMax,
+        lambdaMin, lambdaMax, rangeDeclared,
         kTable: [],
         tabData: undefined,
         nd: null, vd: null, density: null,

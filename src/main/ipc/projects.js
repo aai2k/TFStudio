@@ -4,6 +4,8 @@
 // settings.json in AppData).
 //
 // CommonJS, Electron-free (deps via ctx).
+const { writeRendererSettings } = require('../settingsFile');
+
 function register(ipcMain, ctx) {
   ipcMain.handle('load-settings', async () => handleLoadSettings(ctx));
   ipcMain.handle('save-settings', async (event, settings) => handleSaveSettings(ctx, settings));
@@ -32,9 +34,8 @@ function handleLoadSettings(ctx) {
 }
 
 function handleSaveSettings(ctx, settings) {
-  const { settingsPath, writeFileAtomic } = ctx;
   try {
-    writeFileAtomic(settingsPath, JSON.stringify(settings, null, 2), 'utf-8');
+    writeRendererSettings(ctx, settings);
     return { success: true };
   } catch (err) {
     return { success: false, error: err.message };

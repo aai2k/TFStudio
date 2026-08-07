@@ -3,7 +3,7 @@
  * same way catalogManager.makeGetNK does (evalN + kTable interp, or tabData),
  * asserting finite, physical n,k across each material's wavelength range.
  *
- * Run after `npm run seed`: node tests/optilayer_catalog_integration.mjs
+ * Run after `npm run seed`: node tests/library_catalog_integration.mjs
  */
 import fs from 'node:fs';
 import path from 'node:path';
@@ -11,10 +11,15 @@ import { fileURLToPath } from 'node:url';
 import { evalN } from '../src/utils/materials/dispersionFormulas.js';
 
 const SEED = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', 'build', 'seed', 'library');
+const REQUIRED_CATALOGS = [
+    'library_coatings.catalog.json',
+    'library_substrates.catalog.json',
+];
 
-if (!fs.existsSync(SEED)) {
-    console.log('SKIP: seed catalogs (build/seed/library/) not present.');
-    process.exit(0);
+for (const file of REQUIRED_CATALOGS) {
+    if (!fs.existsSync(path.join(SEED, file))) {
+        throw new Error(`Required bundled material catalog is missing: build/seed/library/${file}`);
+    }
 }
 
 function interpK(kTable, lum) {

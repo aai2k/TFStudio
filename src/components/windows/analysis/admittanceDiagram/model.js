@@ -6,6 +6,7 @@
  * Macleod's diagram orientation.
  */
 
+import { ANALYSIS_DEFAULTS, paletteColors } from '../../../../constants/analysisDefaults.js';
 import { designMaterialLookup } from '../../../../utils/materials/designMaterials.js';
 import { tmmWithAdmittances } from '../../../../utils/physics/thinFilmMath.js';
 
@@ -47,18 +48,21 @@ function transferAdmittance(Y_R, eta, phi) {
     return cmul(eta, cdiv(num, den));
 }
 
-const MAT_PALETTE = [
-    '#4fc3f7', '#ef5350', '#66bb6a', '#ffca28',
-    '#ab47bc', '#26c6da', '#ff7043', '#ec407a',
-    '#78909c', '#8d6e63',
-];
+const MAT_PALETTE = paletteColors(ANALYSIS_DEFAULTS.admittanceDiagram.colors, 'mat');
 
-export function buildMatColorMap(layers) {
+/**
+ * Assign a colour to each distinct material in the stack, in order of first
+ * appearance, cycling once the palette runs out.
+ *
+ * @param {object[]} layers
+ * @param {string[]} [palette] configured palette; factory defaults when absent
+ */
+export function buildMatColorMap(layers, palette = MAT_PALETTE) {
     const map = {};
     let idx = 0;
     for (const l of layers) {
         if (l.material && !map[l.material]) {
-            map[l.material] = MAT_PALETTE[idx % MAT_PALETTE.length];
+            map[l.material] = palette[idx % palette.length];
             idx++;
         }
     }

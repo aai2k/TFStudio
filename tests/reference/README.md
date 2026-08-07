@@ -1,4 +1,4 @@
-# Cross-tool validation — TFStudio vs independent third-party codes
+# Cross-tool validation: TFStudio vs independent third-party codes
 
 This folder validates the TFStudio optical engine against **numbers computed by a
 different code**, not against another copy of the same math. It complements
@@ -17,17 +17,17 @@ implementation of them*, digit for digit.
 ```bash
 # regenerate the reference (optional; needs: pip install tmm numpy)
 python tests/reference/gen_reference_tmm.py
-# run the comparison (no Python needed — uses the committed JSON)
+# run the comparison (no Python needed; uses the committed JSON)
 node tests/reference/cross_tool_validation.mjs
 ```
 
 ## The independent oracle
 
-**Steven Byrnes, `tmm`** — MIT-licensed, peer-reviewed (S. J. Byrnes,
+**Steven Byrnes, `tmm`:** MIT-licensed, peer-reviewed (S. J. Byrnes,
 *Multilayer optical calculations*, arXiv:1603.02720), a community-standard
 transfer-matrix package written by a different author in Python. It uses the
 **same complex-index convention as TFStudio** (ñ = n + ik, k > 0 for loss), so
-the inputs are byte-identical and only the *math* is under test — there is no
+the inputs are byte-identical and only the *math* is under test, so there is no
 material-data confound.
 
 ## Result

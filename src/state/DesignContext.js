@@ -5,9 +5,10 @@
  * All tool windows call useDesign() to read/write the currently active design.
  */
 
-const { createContext, useContext, useState, useCallback } = React;
+const { createContext, useContext, useState, useCallback, useEffect, useRef } = React;
 
 import { resolveEvalMode, mirrorLayers } from '../utils/physics/optimizer.js';
+import { useAnalysisDefaults, useAnalysisSettings } from './AnalysisSettingsContext.js';
 
 // ── Default design factory ─────────────────────────────────────────────────────
 
@@ -114,6 +115,36 @@ export function useDesign() {
 // When activeDesignId changes, the provider switches to that design (creating
 // a default one on first access).
 
+/**
+ * Optical-evaluation settings (λ range / step / AOI list) for the whole session.
+ *
+ * Held here rather than in OpticalEvaluation so they survive closing and
+ * switching the window — the provider stays mounted at App level.
+ *
+ * The configured range (Settings → Analysis → All windows) is sampled once
+ * when settings.json finishes loading. Later Settings edits apply to the next
+ * app session, while range changes made in an open analysis window remain live
+ * for the current session.
+ */
+function useEvalParams() {
+    const [evalParams, setEvalParams] = useState({
+        lambdaStart: 400, lambdaEnd: 800, lambdaStep: 2,
+        thetas: [0]
+    });
+    const configured = useAnalysisDefaults('shared').numbers;
+    const analysisSettings = useAnalysisSettings();
+    const applied = useRef(false);
+
+    useEffect(() => {
+        if (!analysisSettings?.ready || applied.current) return;
+        const { lambdaStart, lambdaEnd, lambdaStep } = configured;
+        applied.current = true;
+        setEvalParams(current => ({ ...current, lambdaStart, lambdaEnd, lambdaStep }));
+    }, [analysisSettings?.ready, configured.lambdaStart, configured.lambdaEnd, configured.lambdaStep]);
+
+    return [evalParams, setEvalParams];
+}
+
 export function DesignProvider({ children, activeDesignId, designs, onDesignChange, onCheckpoint, historyView, onJumpToHistory }) {
     // Local fallback: if parent doesn't pass controlled props, manage state internally.
     const [localDesigns, setLocalDesigns] = useState(() => {
@@ -125,13 +156,7 @@ export function DesignProvider({ children, activeDesignId, designs, onDesignChan
         return d.id;
     });
 
-    // Persistent optical-evaluation settings (λ range / step / AOI list).
-    // Lifted out of OpticalEvaluation so they survive closing/switching the
-    // window — the provider stays mounted at App level for the whole session.
-    const [evalParams, setEvalParams] = useState({
-        lambdaStart: 400, lambdaEnd: 800, lambdaStep: 2,
-        thetas: [0]
-    });
+    const [evalParams, setEvalParams] = useEvalParams();
 
     // Active-optimizer counter. Tool windows (Refinement / Needle / GE) call
     // beginOptimization() on Run and endOptimization() on stop/finalize/unmount.

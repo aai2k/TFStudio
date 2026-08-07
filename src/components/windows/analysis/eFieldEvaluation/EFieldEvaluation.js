@@ -5,6 +5,7 @@
  */
 
 import { useDesign } from '../../../../state/DesignContext.js';
+import { MaterialRangeWarning } from '../../../materials/MaterialRangeNotice.js';
 import { EFieldChart } from './EFieldChart.js';
 import { EFieldControls } from './EFieldControls.js';
 import { EFieldTable } from './EFieldTable.js';
@@ -31,6 +32,7 @@ export function EFieldEvaluation({ c, theme, t }) {
         overflow: 'hidden', backgroundColor: c.bg, color: c.text,
     } },
         h(EFieldControls, { c, ef, state, summary }),
+        h(MaterialRangeWarning, { design, fromNm: state.lambda, toNm: state.lambda, c, t }),
         h('div', { style: {
             flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column', overflow: 'hidden',
         } },

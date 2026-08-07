@@ -8,7 +8,7 @@ import { Toolbar } from './components/Toolbar.js';
 import { ProjectExplorer } from './components/panels/ProjectExplorer.js';
 import { updateExplorerItemMtime } from './components/panels/projectExplorerModel.js';
 import { DockingLayout } from './components/docking/DockingLayout.js';
-import { SettingsModal } from './components/dialogs/SettingsModal.js';
+import { SettingsModal } from './components/dialogs/settings/SettingsModal.js';
 import { InputDialog } from './components/dialogs/InputDialog.js';
 import { AboutDialog } from './components/dialogs/AboutDialog.js';
 import { FilterDesignWizard } from './components/windows/optimization/filterDesignWizard/FilterDesignWizard.js';
@@ -23,6 +23,8 @@ import { TutorialPlayer } from './components/TutorialPlayer.js';
 import { buildSampleDesigns } from './utils/samples/sampleDesigns.js';
 import { buildTutorials } from './utils/samples/tutorials.js';
 import { DesignProvider, makeDefaultDesign } from './state/DesignContext.js';
+import { AnalysisSettingsProvider } from './state/AnalysisSettingsContext.js';
+import { UpdateProvider } from './components/ui/UpdateContext.js';
 import { SpectralMonitor } from './components/SpectralMonitor.js';
 import { MaterialResolutionModalGuard } from './components/materials/MaterialResolutionModalGuard.js';
 import { initCatalogs, addCatalog } from './utils/materials/catalogManager.js';
@@ -284,6 +286,15 @@ const App = () => {
     // worker broadcasts) and persists via the settings effect below. If the
     // .wasm artifact is missing it silently falls back to JS regardless.
     const [wasmTmm,        setWasmTmmState]   = useState(true);
+    // Analysis-window display overrides as stored in settings.json; resolved
+    // against the factory registry by AnalysisSettingsProvider.
+    const [analysisSettings, setAnalysisSettings] = useState(null);
+    // Update check. On by default (opt-out): the request is an unauthenticated
+    // GET to a public API that sends no identifiers and stores nothing, and the
+    // toggle exists for restricted networks.
+    const [updateCheckEnabled, setUpdateCheckEnabled] = useState(true);
+    const [skippedVersion, setSkippedVersion] = useState(null);
+    const [appVersion, setAppVersion] = useState('');
     const [inputDialog,    setInputDialog]    = useState(null);
     const [messageNotification, setMessageNotification] = useState(null);
     const [toolRequests,   setToolRequests]   = useState([]);
@@ -323,7 +334,8 @@ const App = () => {
     useEffect(() => { designsRef.current = designs;  }, [designs]);
 
     useEffect(() => { loadFoldersFromDisk(); loadSettingsFromDisk(); loadCatalogsFromDisk(); bootstrapWasm();
-        window.electronAPI?.getDevAllowed?.().then(v => setDevAllowed(v !== false)).catch(() => {}); }, []);
+        window.electronAPI?.getDevAllowed?.().then(v => setDevAllowed(v !== false)).catch(() => {});
+        window.electronAPI?.getAppVersion?.().then(v => setAppVersion(v || '')).catch(() => {}); }, []);
 
     // ── First-run welcome ───────────────────────────────────────
     // Show the welcome screen automatically the first time the app is opened.
@@ -432,7 +444,7 @@ const App = () => {
         }
     };
 
-    useEffect(() => { saveSettingsToDisk(); }, [theme, locale, wasmTmm, ribbonStyle, customThemes]);
+    useEffect(() => { saveSettingsToDisk(); }, [theme, locale, wasmTmm, ribbonStyle, customThemes, updateCheckEnabled, skippedVersion]);
 
     // Mirror the active palette into CSS custom properties on :root so global
     // stylesheet rules (e.g. native <select>/<option> popups, which can't read
@@ -651,7 +663,7 @@ const App = () => {
 
     // ── Disk I/O ──────────────────────────────────────────────────────────────
 
-    const loadFoldersFromDisk = async () => {
+    const loadFoldersFromDisk = async ({ restoreSession = true, restoreLayout = true } = {}) => {
         let diskDesigns   = {};
         let loadedFolders = [];
 
@@ -678,13 +690,23 @@ const App = () => {
         // Merge session (unsaved working copies) over disk snapshots.
         // Session wins — it has the latest edits even if app was closed without
         // saving — and restores undo/redo history so it survives a restart.
-        const session = loadSession();
+        const session = restoreSession ? loadSession() : null;
         const { initialDesigns, initialDirty } = mergeSessionOverDisk(diskDesigns, session?.designs || null);
-        if (session?.history) historyRef.current = restoreSessionHistory(session.history);
+        historyRef.current = session?.history ? restoreSessionHistory(session.history) : {};
 
         setDesigns(initialDesigns);
         setDirtyDesigns(initialDirty);
         setFolders(loadedFolders);
+
+        if (!restoreSession) {
+            // A live Projects-root change is a workspace switch, not a startup
+            // restore. Keeping selections from the previous root would leave
+            // the explorer showing one directory while commands target another.
+            setActiveDesignId(null);
+            setSelectedItem(null);
+            setSelectedItems([]);
+            setLastClickedItem(null);
+        }
 
         // Startup: select a project FOLDER as the default target for new designs,
         // but do NOT auto-open any design. The workspace shows the empty-state
@@ -693,7 +715,7 @@ const App = () => {
 
         // Restore a previously saved docking layout if one exists; otherwise
         // leave the workspace empty (no preset) so the empty-state is shown.
-        const savedLayout = localStorage.getItem('tfstudio-saved-layout');
+        const savedLayout = restoreLayout ? localStorage.getItem('tfstudio-saved-layout') : null;
         if (savedLayout) {
             setLayoutRequest({ type: 'restore', ts: Date.now() });
         }
@@ -739,13 +761,38 @@ const App = () => {
                 if (result.settings.locale) setLocaleState(result.settings.locale);
                 if (result.settings.ribbonStyle) setRibbonStyle(result.settings.ribbonStyle);
                 setWasmTmmState(result.settings.wasmTmm !== false);   // default ON (opt-out)
+                // Analysis display defaults are owned by the main process and
+                // arrive with the rest of settings.json; the provider resolves
+                // them against the factory registry as windows mount.
+                setAnalysisSettings(result.settings.analysis && typeof result.settings.analysis === 'object'
+                    ? result.settings.analysis
+                    : {});
+                setUpdateCheckEnabled(result.settings.updateCheckEnabled !== false);  // default ON (opt-out)
+                if (typeof result.settings.skippedVersion === 'string') {
+                    setSkippedVersion(result.settings.skippedVersion);
+                }
             }
+        }
+    };
+
+    // Main-process directory getters switch immediately after a successful
+    // Settings change. Refresh the corresponding renderer registry in the same
+    // interaction so its visible state and all following commands refer to the
+    // same root.
+    const handleUserPathChanged = async (key) => {
+        if (key === 'projects') {
+            await loadFoldersFromDisk({ restoreSession: false, restoreLayout: false });
+        } else if (key === 'materials') {
+            await loadCatalogsFromDisk();
         }
     };
 
     const saveSettingsToDisk = async () => {
         if (window.electronAPI?.saveSettings) {
-            await window.electronAPI.saveSettings({ theme, locale, wasmTmm, ribbonStyle, customThemes });
+            await window.electronAPI.saveSettings({
+                theme, locale, wasmTmm, ribbonStyle, customThemes,
+                updateCheckEnabled, skippedVersion,
+            });
         }
     };
 
@@ -1323,13 +1370,21 @@ const App = () => {
 
     // ── Render ────────────────────────────────────────────────────────────────
 
-    return h(DesignProvider, {
+    return h(AnalysisSettingsProvider, { initial: analysisSettings },
+        h(DesignProvider, {
             activeDesignId,
             designs,
             onDesignChange:   handleDesignChange,
             onCheckpoint:     pushCheckpoint,
             historyView,
             onJumpToHistory:  jumpToHistory
+        },
+        h(UpdateProvider, {
+            c, t,
+            enabled: updateCheckEnabled,
+            skippedVersion,
+            onSkipVersion: setSkippedVersion,
+            appVersion,
         },
         h('div', {
             style: {
@@ -1338,7 +1393,7 @@ const App = () => {
                 fontFamily: 'system-ui, -apple-system, sans-serif'
             }
         },
-            h(TitleBar,  { c, activeDesign, isDirty: isActiveDirty }),
+            h(TitleBar,  { c, t, activeDesign, isDirty: isActiveDirty }),
             h(MenuBar,   { c, onMenuAction: handleMenuAction, t, devAllowed }),
             h(Toolbar,   { c, t, onToolAction: handleToolAction, openWindows: openWindowIds, ribbonStyle }),
             h('div', { style: { display: 'flex', flex: 1, overflow: 'hidden' } },
@@ -1368,6 +1423,9 @@ const App = () => {
             showSettings && h(SettingsModal, {
                 theme, setTheme, locale, setLocale,
                 wasmTmm, setWasmTmm,
+                updateCheckEnabled, setUpdateCheckEnabled,
+                onUserPathChanged: handleUserPathChanged,
+                canChangeUserPath: (key) => key !== 'projects' || !Object.values(dirtyDesigns).some(Boolean),
                 ribbonStyle, setRibbonStyle,
                 customThemes,
                 onImportTheme: importThemeFromVscode,
@@ -1445,6 +1503,8 @@ const App = () => {
                 type: messageNotification.type,
                 onClose: () => setMessageNotification(null)
             })
+        )
+        )
         )
     );
 };

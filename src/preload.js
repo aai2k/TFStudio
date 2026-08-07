@@ -70,4 +70,14 @@ contextBridge.exposeInMainWorld('electronAPI', {
   saveReportPreset:       (preset) => ipcRenderer.invoke('report:save-preset', preset),
   deleteReportPreset:     (name) => ipcRenderer.invoke('report:delete-preset', name),
   loadReportLogo:         () => ipcRenderer.invoke('report:load-logo'),
+  // Configurable user-data folders (Settings → Folders)
+  listUserPaths:          () => ipcRenderer.invoke('paths:list'),
+  chooseUserPath:         (key) => ipcRenderer.invoke('paths:choose', key),
+  setUserPath:            (key, dir) => ipcRenderer.invoke('paths:set', key, dir),
+  resetUserPath:          (key) => ipcRenderer.invoke('paths:reset', key),
+  revealUserPath:         (key) => ipcRenderer.invoke('paths:reveal', key),
+  // Analysis-window display defaults (Settings → Analysis); read via loadSettings
+  saveAnalysisSettings:   (block) => ipcRenderer.invoke('analysis:save-settings', block),
+  // Update check (notify only; downloading and installing stay manual)
+  checkForUpdates:        () => ipcRenderer.invoke('updates:check'),
 });

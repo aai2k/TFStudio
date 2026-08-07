@@ -3,7 +3,11 @@
  * Replaces the default OS title bar with minimize, maximize, and close buttons
  */
 
-export function TitleBar({ c, activeDesign, isDirty }) {
+import { UpdateBadge } from './ui/UpdateBadge.js';
+import { useUpdate } from './ui/UpdateContext.js';
+
+export function TitleBar({ c, activeDesign, isDirty, t }) {
+  const update = useUpdate();
   const [isMaximized, setIsMaximized] = React.useState(false);
 
   React.useEffect(() => {
@@ -42,10 +46,17 @@ export function TitleBar({ c, activeDesign, isDirty }) {
       userSelect: 'none'
     }
   },
-    // Left side - empty for now
+    // Left side - update indicator (draws nothing when there is nothing to report)
     React.createElement('div', {
-      style: { width: '48px' }
-    }),
+      style: { width: '48px', height: '100%', display: 'flex' }
+    },
+      t && update && React.createElement(UpdateBadge, {
+        c, t,
+        status: update.status,
+        latest: update.latest,
+        onClick: update.onBadgeClick,
+      })
+    ),
 
     // Center - Title
     React.createElement('div', {

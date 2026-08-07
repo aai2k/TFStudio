@@ -6,6 +6,7 @@ const { log, flushLog } = logger;
 const { safeName, safeFilePath, readJsonSafe, writeFileAtomic, readTextAuto } = require('./main/paths');
 const seed = require('./main/seed');
 const helpServer = require('./main/helpServer');
+const { createUserPaths } = require('./main/userPaths');
 const { registerAllIpc } = require('./main/ipc');
 
 const isPackaged = app.isPackaged;
@@ -57,6 +58,7 @@ app.setPath('userData', portableDataDir);
 flushLog();
 
 let mainWindow;
+let userPaths;
 
 // MP6: single-instance lock. Two instances would share the portable userData —
 // the same Chromium profile, settings.json (last-writer-wins), the log file, and
@@ -131,47 +133,10 @@ function createWindow() {
 }
 
 
-function setupIpcHandlers() {
-  const userDataPath = app.getPath('userData');
-
-  // User-facing data lives in Documents\TFStudio so it persists across app installs.
-  const userDocsDir  = path.join(app.getPath('documents'), 'TFStudio');
-  const projectsDir  = path.join(userDocsDir, 'Projects');
-  const materialsDir = path.join(userDocsDir, 'Materials');
-  const integralsDir = path.join(userDocsDir, 'IntegralPresets');
-  const qualifiersDir = path.join(userDocsDir, 'Qualifiers');
-  const meritFunctionsDir = path.join(userDocsDir, 'MeritFunctions');
-  const reportPresetsDir = path.join(userDocsDir, 'ReportPresets');
-  const brandingDir = path.join(userDocsDir, 'Branding');
-
-  // Machine-local settings stay in the portable AppData folder.
-  const settingsPath = path.join(userDataPath, 'settings.json');
-
-  for (const dir of [projectsDir, materialsDir, integralsDir, qualifiersDir, meritFunctionsDir, reportPresetsDir, brandingDir]) {
-    if (!fs.existsSync(dir)) {
-      try { fs.mkdirSync(dir, { recursive: true }); log(`Created directory: ${dir}`); }
-      catch (err) { log(`Failed to create ${dir}: ${err.message}`); }
-    }
-  }
-
-  // ── IPC: all domain handlers live in src/main/ipc/ ──────────────
-  // Shared services bag passed to every handler module via registerAllIpc.
-  // getMainWindow is a closure (the window ref is reassigned on create); the dir
-  // paths + safe* helpers are consumed by the projects/catalogs/report/rii groups.
-  const ctx = {
-    app, shell, dialog, BrowserWindow, fs, path, log,
-    devToolsAllowed, isPackaged, resourcesDir: process.resourcesPath, srcDir: __dirname,
-    getMainWindow: () => mainWindow,
-    helpServer,
-    safeName, safeFilePath, readJsonSafe, writeFileAtomic, readTextAuto,
-    userDataPath, userDocsDir, settingsPath,
-    projectsDir, materialsDir, integralsDir, qualifiersDir,
-    meritFunctionsDir, reportPresetsDir, brandingDir,
-  };
-  registerAllIpc(ipcMain, ctx);
-
-
-  // Ensure Materials subfolders exist for each catalog source.
+// Create the per-source subfolders inside the Materials directory and seed the
+// bundled catalogs into it. Driven by the current path registry rather than a
+// captured string, so it can be re-run against a newly configured folder.
+function prepareMaterialsDir(materialsDir) {
   for (const sub of ['agf', 'user', 'refractiveindex', 'library', 'optilayer']) {
     const subDir = path.join(materialsDir, sub);
     if (!fs.existsSync(subDir)) {
@@ -183,6 +148,42 @@ function setupIpcHandlers() {
   // First-run: copy bundled Schott AGF, coating/substrate catalogs and RII offline mirror.
   try { seed.seedBundledMaterials(materialsDir, { isPackaged, srcDir: __dirname }); }
   catch (err) { log(`seedBundledMaterials error: ${err.message}`); }
+}
+
+function setupIpcHandlers() {
+  const userDataPath = app.getPath('userData');
+
+  // Machine-local settings stay in the portable AppData folder.
+  const settingsPath = path.join(userDataPath, 'settings.json');
+
+  // User-facing data lives in Documents\TFStudio by default so it persists
+  // across app installs; each folder can be pointed elsewhere from Settings.
+  userPaths = createUserPaths({ documentsDir: app.getPath('documents'), fs, path, log });
+  userPaths.loadOverrides(readJsonSafe(settingsPath)?.folders);
+  userPaths.ensureAll();
+
+  // ── IPC: all domain handlers live in src/main/ipc/ ──────────────
+  // Shared services bag passed to every handler module via registerAllIpc.
+  // getMainWindow is a closure (the window ref is reassigned on create); the
+  // safe* helpers are consumed by the projects/catalogs/report/rii groups. The
+  // user-directory keys are live getters installed by defineCtxGetters, so a
+  // handler that reads ctx.<x>Dir per call follows a folder change immediately.
+  const ctx = userPaths.defineCtxGetters({
+    app, shell, dialog, BrowserWindow, fs, path, log,
+    devToolsAllowed, isPackaged, resourcesDir: process.resourcesPath, srcDir: __dirname,
+    getMainWindow: () => mainWindow,
+    helpServer,
+    safeName, safeFilePath, readJsonSafe, writeFileAtomic, readTextAuto,
+    userDataPath, settingsPath,
+    userPaths,
+    onUserPathsChanged: () => {
+      userPaths.ensureAll();
+      prepareMaterialsDir(userPaths.get('materials'));
+    },
+  });
+  registerAllIpc(ipcMain, ctx);
+
+  prepareMaterialsDir(userPaths.get('materials'));
 }
 
 app.whenReady().then(() => {

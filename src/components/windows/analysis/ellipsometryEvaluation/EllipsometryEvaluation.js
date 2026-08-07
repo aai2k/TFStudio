@@ -4,6 +4,7 @@
  */
 
 import { useDesign } from '../../../../state/DesignContext.js';
+import { MaterialRangeWarning } from '../../../materials/MaterialRangeNotice.js';
 import { EllipsometryControls } from './EllipsometryControls.js';
 import { CenteredMessage, EllipsometryResults } from './EllipsometryResults.js';
 import { sideSummary } from './model.js';
@@ -19,6 +20,10 @@ export function EllipsometryEvaluation({ c, theme, t }) {
     if (!design) return h(CenteredMessage, { c, message: text.noDesign });
 
     const summary = sideSummary(design, state.side);
+    // The angular sweep holds λ fixed, so it is checked at that one wavelength.
+    const [fromNm, toNm] = state.mode === 'spectral'
+        ? [state.lambdaStart, state.lambdaEnd]
+        : [state.lambdaNm, state.lambdaNm];
     return h('div', {
         style: {
             display: 'flex', flexDirection: 'column',
@@ -27,6 +32,7 @@ export function EllipsometryEvaluation({ c, theme, t }) {
         },
     },
         h(EllipsometryControls, { c, text, state, summary }),
+        h(MaterialRangeWarning, { design, fromNm, toNm, c, t }),
         h(EllipsometryResults, {
             c, t, text, mode: state.mode, data: state.data,
             validLayerCount: summary.validLayers.length,

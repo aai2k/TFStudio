@@ -1,4 +1,7 @@
-export function efieldTraces(profileData, pol) {
+import { ANALYSIS_DEFAULTS } from '../../../../constants/analysisDefaults.js';
+
+/** `curve` holds the configured colours; factory defaults when absent. */
+export function efieldTraces(profileData, pol, curve = ANALYSIS_DEFAULTS.eFieldEvaluation.colors) {
     if (!profileData) return [];
     const traces = [];
     const addCurve = (e2arr, z, label, color, dash) => {
@@ -10,13 +13,13 @@ export function efieldTraces(profileData, pol) {
         });
     };
     if (pol === 'avg' && profileData.avg) {
-        addCurve(profileData.avg.e2, profileData.avg.z, '|E|² (avg)', '#66bb6a');
-        addCurve(profileData.s.e2, profileData.s.z, '|E|² (s)', '#4fc3f7', 'dot');
-        addCurve(profileData.p.e2, profileData.p.z, '|E|² (p)', '#ef5350', 'dash');
+        addCurve(profileData.avg.e2, profileData.avg.z, '|E|² (avg)', curve.avg);
+        addCurve(profileData.s.e2, profileData.s.z, '|E|² (s)', curve.s, 'dot');
+        addCurve(profileData.p.e2, profileData.p.z, '|E|² (p)', curve.p, 'dash');
     } else if (pol === 's' && profileData.s) {
-        addCurve(profileData.s.e2, profileData.s.z, '|E|² (s)', '#4fc3f7');
+        addCurve(profileData.s.e2, profileData.s.z, '|E|² (s)', curve.s);
     } else if (pol === 'p' && profileData.p) {
-        addCurve(profileData.p.e2, profileData.p.z, '|E|² (p)', '#ef5350');
+        addCurve(profileData.p.e2, profileData.p.z, '|E|² (p)', curve.p);
     }
     return traces;
 }

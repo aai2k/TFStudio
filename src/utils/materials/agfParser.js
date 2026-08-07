@@ -49,8 +49,12 @@ function parseNM(tokens) {
         excludeSub: (parseInt(tokens[6], 10) || 0) === 1,
         status: parseInt(tokens[7], 10) || 0,  // 0=Standard,1=Preferred,2=Obsolete,3=Special,4=Melt
         coefficients: [],
+        // Placeholder span until an LD record states the real one. Kept so
+        // every reader of lambdaMin/lambdaMax has a value; rangeDeclared is
+        // what distinguishes it from a range the file actually declares.
         lambdaMin: 0.3,
         lambdaMax: 2.5,
+        rangeDeclared: false,
         kTable: [],
         density: null,
         comment: '',
@@ -75,8 +79,13 @@ const GLASS_HANDLERS = {
         while (cur.coefficients.length < 10) cur.coefficients.push(0);   // pad with zeros
     },
     LD(cur, tokens) {
-        cur.lambdaMin = parseFloat(tokens[1]) || 0.3;
-        cur.lambdaMax = parseFloat(tokens[2]) || 2.5;
+        const min = parseFloat(tokens[1]);
+        const max = parseFloat(tokens[2]);
+        cur.lambdaMin = min || 0.3;
+        cur.lambdaMax = max || 2.5;
+        // Only a well-formed LD record counts as a declaration; a malformed one
+        // leaves the placeholder span in place and must not raise warnings.
+        cur.rangeDeclared = Number.isFinite(min) && Number.isFinite(max) && max > min;
     },
 };
 

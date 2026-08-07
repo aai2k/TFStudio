@@ -1,4 +1,5 @@
 import { buildScatterLayout, buildScatterTraces } from './figure.js';
+import { useAnalysisColors } from '../../../../state/AnalysisSettingsContext.js';
 
 const { createElement: h, useEffect, useMemo, useRef } = React;
 
@@ -6,10 +7,11 @@ export function ScatterChart(props) {
     const { c, units } = props;
     const divRef = useRef(null);
     const initRef = useRef(false);
-    const traces = useMemo(() => buildScatterTraces(props), [
-        props.lambda, props.R, props.T, props.R_spec, props.T_spec, props.TIS_inc, units,
+    const curve = useAnalysisColors('roughnessScattering');
+    const traces = useMemo(() => buildScatterTraces({ ...props, colors: curve }), [
+        props.lambda, props.R, props.T, props.R_spec, props.T_spec, props.TIS_inc, units, curve,
     ]);
-    const layout = useMemo(() => buildScatterLayout(c, units), [c, units]);
+    const layout = useMemo(() => buildScatterLayout(c, units, curve), [c, units, curve]);
 
     useEffect(() => {
         if (!divRef.current || typeof Plotly === 'undefined') return;

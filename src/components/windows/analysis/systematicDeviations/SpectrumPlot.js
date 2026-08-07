@@ -1,13 +1,15 @@
 import { buildSpectrumLayout, buildSpectrumTraces } from './spectrumFigure.js';
+import { useAnalysisColors } from '../../../../state/AnalysisSettingsContext.js';
 
 const { createElement: h, useEffect, useMemo, useRef } = React;
 
 export function SpectrumPlot({ baseline, deviated, channel, showBaseline, c }) {
     const divRef = useRef(null);
     const initRef = useRef(false);
+    const curve = useAnalysisColors('systematicDeviations');
     const traces = useMemo(
-        () => buildSpectrumTraces(baseline, deviated, channel, showBaseline),
-        [baseline, deviated, channel, showBaseline]
+        () => buildSpectrumTraces(baseline, deviated, channel, showBaseline, curve),
+        [baseline, deviated, channel, showBaseline, curve]
     );
     const layout = useMemo(() => buildSpectrumLayout(c), [c]);
 

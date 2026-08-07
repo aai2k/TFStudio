@@ -1,10 +1,13 @@
-export function quantityMeta(quantity, text) {
+import { ANALYSIS_DEFAULTS } from '../../../../constants/analysisDefaults.js';
+
+/** `colors` are the configured curve colours; factory defaults when absent. */
+export function quantityMeta(quantity, text, colors = ANALYSIS_DEFAULTS.gdGddEvaluation.colors) {
     switch (quantity) {
-        case 'phase': return { key: 'phaseDeg', label: text.phaseAxis, unit: '°', dp: 2, color: '#ab47bc' };
-        case 'gd': return { key: 'gd', label: text.gdAxis, unit: 'fs', dp: 3, color: '#4fc3f7' };
-        case 'gdd': return { key: 'gdd', label: text.gddAxis, unit: 'fs²', dp: 3, color: '#ef5350' };
-        case 'tod': return { key: 'tod', label: text.todAxis, unit: 'fs³', dp: 3, color: '#66bb6a' };
-        default: return { key: 'gd', label: text.gdAxis, unit: 'fs', dp: 3, color: '#4fc3f7' };
+        case 'phase': return { key: 'phaseDeg', label: text.phaseAxis, unit: '°', dp: 2, color: colors.phase };
+        case 'gd': return { key: 'gd', label: text.gdAxis, unit: 'fs', dp: 3, color: colors.gd };
+        case 'gdd': return { key: 'gdd', label: text.gddAxis, unit: 'fs²', dp: 3, color: colors.gdd };
+        case 'tod': return { key: 'tod', label: text.todAxis, unit: 'fs³', dp: 3, color: colors.tod };
+        default: return { key: 'gd', label: text.gdAxis, unit: 'fs', dp: 3, color: colors.gd };
     }
 }
 
@@ -53,8 +56,8 @@ function buildTable(raw) {
     return { columns, rows };
 }
 
-export function buildGdGddView(raw, options, text) {
-    const meta = quantityMeta(options.quantity, text);
+export function buildGdGddView(raw, options, text, colors) {
+    const meta = quantityMeta(options.quantity, text, colors);
     const table = buildTable(raw);
     return {
         meta,

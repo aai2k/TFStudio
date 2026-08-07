@@ -15,7 +15,7 @@ function makeHarness() {
   const files = new Map();
   const logs = [];
   const handlers = new Map();
-  const directories = new Set(['/merit', '/qualifiers']);
+  const directories = new Set(['/merit', '/qualifiers', '/elsewhere']);
   const fs = {
     existsSync(file) { return directories.has(file) || files.has(file); },
     readdirSync(directory) {
@@ -38,10 +38,10 @@ function makeHarness() {
   const ipcMain = { handle(channel, handler) { handlers.set(channel, handler); } };
   meritPresets.register(ipcMain, ctx);
   qualifiers.register(ipcMain, ctx);
-  return { files, handlers, logs };
+  return { files, handlers, logs, ctx };
 }
 
-const { files, handlers, logs } = makeHarness();
+const { files, handlers, logs, ctx } = makeHarness();
 ok(handlers.size === 8, 'both preset domains register four handlers');
 
 const mfPreset = { name: 'BBAR VIS', description: 'Visible BBAR', operands: [{ type: 'R' }] };
@@ -69,5 +69,17 @@ ok((await handlers.get('qualifiers:save')(null, { name: 'Invalid' })).error === 
 
 ok((await handlers.get('qualifiers:delete')(null, 'Laser.tfsq')).success, 'qualifier preset deletes');
 ok(!files.has('/qualifiers/Laser.tfsq'), 'delete removes the preset file');
+
+// The directory is resolved per call, not captured when the handler was
+// registered, so repointing the folder from Settings takes effect immediately.
+// A captured path would keep writing to the old location and report success.
+ctx.meritFunctionsDir = '/elsewhere';
+ok((await handlers.get('mf:save')(null, { name: 'Moved', operands: [] })).success, 'merit preset saves after the folder changes');
+ok(files.has('/elsewhere/Moved.tfsm'), 'the preset lands in the new folder');
+ok(!files.has('/merit/Moved.tfsm'), 'nothing is written to the previous folder');
+const afterMove = await handlers.get('mf:list-presets')();
+ok(afterMove.presets.length === 1 && afterMove.presets[0].name === 'Moved', 'list reads the new folder');
+ok((await handlers.get('mf:load')(null, 'Moved')).success, 'load reads the new folder');
+ok((await handlers.get('mf:delete')(null, 'Moved')).success && !files.has('/elsewhere/Moved.tfsm'), 'delete acts on the new folder');
 
 console.log(`ipc_json_preset_store: ${passed} passed`);

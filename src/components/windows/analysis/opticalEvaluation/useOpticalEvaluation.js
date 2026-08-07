@@ -1,4 +1,5 @@
 import { useDesign } from '../../../../state/DesignContext.js';
+import { useAnalysisDefaults, useAnalysisSettings } from '../../../../state/AnalysisSettingsContext.js';
 import { computeOpticalSpectrum } from './spectrum.js';
 import { buildCSV, createTargetOperands, editTargetOperands, deleteTargetOperand } from './model.js';
 
@@ -97,16 +98,38 @@ function useTargetEditor({ design, updateDesign }) {
 }
 
 function useDisplayOptions(params, setParams) {
+    const displayDefaults = useAnalysisDefaults('opticalEvaluation');
+    const sharedDefaults = useAnalysisDefaults('shared');
+    const analysisSettings = useAnalysisSettings();
+    const defaultsReady = analysisSettings?.ready !== false;
+    const defaultsApplied = useRef(defaultsReady);
     const [showCurves, setShowCurves] = useState({
         T: true, R: true, A: false, Ts: false, Rs: false, Tp: false, Rp: false
     });
     const [autoCalc, setAutoCalc] = useState(true);
     const [showTable, setShowTable] = useState(false);
     const [showTargets, setShowTargets] = useState(true);
-    const [yAuto, setYAuto] = useState(false);
-    const [yMin, setYMin] = useState(0);
-    const [yMax, setYMax] = useState(100);
-    const [spectralUnit, setSpectralUnit] = useState('nm');
+    // Display defaults are sampled when the window mounts. Changes made in
+    // Settings therefore affect the next window opening without overwriting
+    // adjustments the user makes inside an already-open evaluation window.
+    const [yAuto, setYAuto] = useState(() => displayDefaults.booleans.yAuto);
+    const [yMin, setYMin] = useState(() => displayDefaults.numbers.yMin);
+    const [yMax, setYMax] = useState(() => displayDefaults.numbers.yMax);
+    const [spectralUnit, setSpectralUnit] = useState(() => sharedDefaults.enums.spectralUnit);
+
+    // A restored layout can mount this window while settings.json is still
+    // loading. In that case apply the persisted defaults once when they arrive;
+    // subsequent Settings edits must not overwrite this open window's controls.
+    useEffect(() => {
+        if (!defaultsReady || defaultsApplied.current) return;
+        defaultsApplied.current = true;
+        setYAuto(displayDefaults.booleans.yAuto);
+        setYMin(displayDefaults.numbers.yMin);
+        setYMax(displayDefaults.numbers.yMax);
+        setSpectralUnit(sharedDefaults.enums.spectralUnit);
+    }, [defaultsReady, displayDefaults.booleans.yAuto, displayDefaults.numbers.yMin,
+        displayDefaults.numbers.yMax, sharedDefaults.enums.spectralUnit]);
+
     const yRange = useMemo(() => ({ auto: yAuto, min: yMin, max: yMax }), [yAuto, yMin, yMax]);
     const lamRange = useMemo(
         () => ({ min: params.lambdaStart, max: params.lambdaEnd }),

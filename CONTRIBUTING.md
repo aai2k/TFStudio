@@ -1,7 +1,7 @@
 # Contributing to TFStudio
 
 Thank you for your interest in TFStudio! It is a scientific engineering tool for
-designing optical thin-film coatings, so contributions are welcome — but they are
+designing optical thin-film coatings, so contributions are welcome. They are
 held to a **physics-correctness bar** as much as a code-quality one. This guide
 explains how to get set up and what a mergeable contribution looks like.
 
@@ -12,14 +12,14 @@ project's [MIT license](./LICENSE).
 
 ## Ways to contribute
 
-- **Report a bug** — open an issue with steps to reproduce, the design/inputs
+- **Report a bug:** Open an issue with steps to reproduce, the design/inputs
   involved, what you expected, and what happened. For numerical issues, include
   the exact numbers and, if possible, a reference value (OptiLayer/TFCalc/Macleod).
-- **Suggest a feature** — open an issue describing the use case first, before
+- **Suggest a feature:** Open an issue describing the use case first, before
   writing code. For anything touching the optical engine or optimizer, cite the
   method you have in mind (paper + equation).
-- **Improve documentation** — the user docs live in [`docs-site/`](./docs-site).
-- **Fix a bug / implement a feature** — please claim or reference an issue so work
+- **Improve documentation:** The user docs live in [`docs-site/`](./docs-site).
+- **Fix a bug / implement a feature:** Please claim or reference an issue so work
   is not duplicated.
 
 > **Not currently open for outside contribution:** UI translations and the bundled
@@ -36,7 +36,7 @@ significant time.
 Requires [Node.js](https://nodejs.org) 18 or newer.
 
 ```bash
-# Clone WITH submodules — the refractiveindex.info database is a git submodule
+# Clone WITH submodules; the refractiveindex.info database is a git submodule
 git clone --recursive https://github.com/aai2k/TFStudio.git
 cd TFStudio
 
@@ -79,17 +79,17 @@ to the kernel itself belong in that repository.
 
 ### Tests
 
-TFStudio ships an extensive test suite — **~95 test files** in [`tests/`](./tests),
+TFStudio ships an extensive test suite with **151 test files** in [`tests/`](./tests),
 covering the optical engine, optimizer and synthesis, material models, file I/O, and
 UI logic, including numerical validations against reference values. Please lean on it:
 
-- Run `npm test` (fast suite) before opening a PR — it must be green.
+- Run `npm test` (fast suite) before opening a PR. It must be green.
 - `npm run test:all` adds the slower optimizer benchmarks; `npm run test:list` shows
   every test.
 - When you fix a bug, add a test that would have caught it. When you change anything
   numerical, add/adjust a test that pins the expected result to a reference value.
 - The existing tests are also the best documentation of how a subsystem is expected
-  to behave — read the nearest one before changing engine code.
+  to behave. Read the nearest one before changing engine code.
 
 ---
 
@@ -108,8 +108,8 @@ engine, optimizer, material models, or analysis must respect these rules:
   and the sign of the imaginary part of the complex index (k). Do not change an
   existing phase/sign convention without updating every dependent path.
 - **Validate against a reference.** New or changed numerical methods must be
-  compared against a trusted source — OptiLayer/TFCalc output, a published result,
-  or an independent analytic check — and the comparison reported in the PR.
+  compared against a trusted source, such as OptiLayer/TFCalc output, a published
+  result, or an independent analytic check. Report the comparison in the PR.
 - **Add a test.** Numerical changes need a test in `tests/` that pins the expected
   result (ideally to a reference value with a stated tolerance). `npm test` must
   pass before you open the PR.
@@ -125,7 +125,7 @@ be asked for one before review can continue.
 ## Code style
 
 - Match the style of the surrounding code (naming, structure, comment density).
-- The renderer is ES modules; the Electron main process is CommonJS — keep to the
+- The renderer is ES modules; the Electron main process is CommonJS. Keep to the
   convention of the file you are editing.
 - **Don't hardcode user-facing text.** UI strings go through the localization
   system (`t.*`, backed by `src/constants/locales.js`); add the English string
@@ -139,13 +139,13 @@ be asked for one before review can continue.
 
 1. Fork the repo and create a branch from `main`.
 2. Make your change, add/adjust tests, and run `npm test` (all green).
-3. Write a clear PR description: **what** changed, **why**, and — for numerical
-   changes — the **reference validation** (what you compared against and the
+3. Write a clear PR description: **what** changed, **why**, and, for numerical
+   changes, the **reference validation** (what you compared against and the
    agreement).
 4. Keep the PR reasonably small and self-contained.
 5. Be responsive to review feedback; correctness questions may take a round or two.
 
 ---
 
-Thanks again — careful, well-referenced contributions are what keep TFStudio
+Thanks again. Careful, well-referenced contributions are what keep TFStudio
 trustworthy for real coating design.

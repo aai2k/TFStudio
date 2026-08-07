@@ -147,7 +147,21 @@ case "$SRC" in
         ;;
 esac
 
+# Reuse downloaded dependencies, but never reuse packaging output. Leaving the
+# staged dist/ in place resurrects artifacts from older versions because the
+# copy-back step cannot distinguish them from this run's output.
+if [ "$STAGE" != "$SRC" ]; then
+    case "$STAGE" in
+        '' | / | "$HOME")
+            echo "Refusing to clean an unsafe Linux staging path: $STAGE" >&2
+            exit 1
+            ;;
+    esac
+    rm -rf -- "$STAGE/dist"
+fi
+
 cd "$STAGE"
+VERSION="$(node -p 'require("./package.json").version')"
 
 # --- 2. Dependencies ---------------------------------------------------------
 section "Provisioning: npm dependencies"
@@ -224,13 +238,24 @@ fi
 if [ "$STAGE" != "$SRC" ]; then
     section "Copying artifacts back to $SRC/dist"
     mkdir -p "$SRC/dist"
+
+    # dist/ is generated output. Remove stale Linux packages so a 1.5.0 build
+    # cannot appear to have produced an old 1.4.3 artifact.
+    find "$SRC/dist" -maxdepth 1 -type f \
+        \( -name 'TFStudio-*.AppImage' -o -name 'TFStudio-*.tar.gz' -o -name 'TFStudio-*.deb' \) \
+        -delete
+
     find "$STAGE/dist" -maxdepth 1 -type f \
-        \( -name '*.AppImage' -o -name '*.tar.gz' -o -name '*.deb' \) \
+        \( -name "TFStudio-${VERSION}-*.AppImage" \
+           -o -name "TFStudio-${VERSION}-*.tar.gz" \
+           -o -name "TFStudio-${VERSION}-*.deb" \) \
         -exec cp -f {} "$SRC/dist/" \;
 fi
 
 section "Build complete - artifacts in dist/"
 find "$SRC/dist" -maxdepth 1 -type f \
-    \( -name '*.AppImage' -o -name '*.tar.gz' -o -name '*.deb' \) \
+    \( -name "TFStudio-${VERSION}-*.AppImage" \
+       -o -name "TFStudio-${VERSION}-*.tar.gz" \
+       -o -name "TFStudio-${VERSION}-*.deb" \) \
     -printf '%f\t%s\n' 2>/dev/null \
     | awk -F'\t' '{ printf "%-44s %8.1f MB\n", $1, $2/1048576 }'

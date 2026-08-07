@@ -1,13 +1,15 @@
 import { buildOverlayLayout, buildOverlayTraces } from './figure.js';
+import { useAnalysisColors } from '../../../../state/AnalysisSettingsContext.js';
 
 const { createElement: h, useEffect, useMemo, useRef } = React;
 
 export function OverlayChart({ baseline, perturbed, channel, c }) {
     const divRef = useRef(null);
     const initRef = useRef(false);
+    const curve = useAnalysisColors('inhomogeneities');
     const traces = useMemo(
-        () => buildOverlayTraces(baseline, perturbed, channel),
-        [baseline, perturbed, channel],
+        () => buildOverlayTraces(baseline, perturbed, channel, curve),
+        [baseline, perturbed, channel, curve],
     );
     const layout = useMemo(() => buildOverlayLayout(c), [c]);
 

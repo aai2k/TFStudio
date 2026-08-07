@@ -1,4 +1,5 @@
-import { CURVE_BY_KEY } from './model.js';
+import { buildCurves } from './model.js';
+import { useAnalysisColors } from '../../../../state/AnalysisSettingsContext.js';
 
 const { createElement: h, useState, useEffect } = React;
 
@@ -36,7 +37,10 @@ export function NumInput({ value, onChange, min, max, step = 1, c, width = 60 })
 }
 
 export function CurveGroup({ group, showCurves, onToggle, c, polLabels }) {
-    const groupColor = CURVE_BY_KEY[group.members[0].key].color;
+    // Swatches follow the configured curve colours so the toolbar matches the plot.
+    const curveColors = useAnalysisColors('opticalEvaluation');
+    const byKey = Object.fromEntries(buildCurves(curveColors).map(cv => [cv.key, cv]));
+    const groupColor = byKey[group.members[0].key].color;
     const activeFill = groupColor + (c.light ? '20' : '38');
     return h('div', {
         style: {
@@ -48,7 +52,7 @@ export function CurveGroup({ group, showCurves, onToggle, c, polLabels }) {
         h('span', { style: { width: 8, height: 8, borderRadius: '50%', backgroundColor: groupColor, marginRight: 3 } }),
         h('span', { style: { fontSize: 12, fontWeight: 700, color: c.text, marginRight: 2 } }, group.q),
         group.members.map(member => {
-            const curve = CURVE_BY_KEY[member.key];
+            const curve = byKey[member.key];
             const active = !!showCurves[member.key];
             return h('button', {
                 key: member.key,

@@ -5,6 +5,7 @@
  */
 
 import { useDesign } from '../../../../state/DesignContext.js';
+import { MaterialRangeWarning } from '../../../materials/MaterialRangeNotice.js';
 import { EvaluationControls, CustomBuilder } from './Controls.js';
 import { ResultsTable } from './ResultsTable.js';
 import { ChartPanel, Placeholder, StatusBar } from './Panels.js';
@@ -46,6 +47,12 @@ export function IntegralValues(props) {
         },
     },
         h(EvaluationControls, { params: model.params, setParams: model.setParams, c, t }),
+        h(MaterialRangeWarning, {
+            design,
+            fromNm: model.params.lambdaStart,
+            toNm: model.params.lambdaEnd,
+            c, t,
+        }),
         h(CustomBuilder, {
             builder: model.builder,
             setBuilder: model.setBuilder,

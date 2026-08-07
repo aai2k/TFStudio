@@ -16,6 +16,7 @@ export function buildBuiltinCatalog() {
             coefficients: [],
             lambdaMin: r ? r[0] / 1000 : 0.2,
             lambdaMax: r ? r[1] / 1000 : 20.0,
+            rangeDeclared: !!r,
             kTable: [],
             nd: null,
             vd: null,

@@ -1,10 +1,12 @@
 import { efieldLayout, efieldTraces } from './chartModel.js';
+import { useAnalysisColors } from '../../../../state/AnalysisSettingsContext.js';
 
 const { createElement: h, useEffect, useRef } = React;
 
 export function EFieldChart({ profileData, pol, matColorMap, c }) {
     const divRef = useRef(null);
     const initRef = useRef(false);
+    const curve = useAnalysisColors('eFieldEvaluation');
     const colors = {
         bgColor: c.bg || '#1e1e1e',
         paperColor: c.panel || '#252526',
@@ -15,7 +17,7 @@ export function EFieldChart({ profileData, pol, matColorMap, c }) {
 
     useEffect(() => {
         if (!divRef.current) return;
-        const traces = efieldTraces(profileData, pol);
+        const traces = efieldTraces(profileData, pol, curve);
         const layout = efieldLayout(profileData, pol, matColorMap, colors);
         if (!initRef.current) {
             Plotly.newPlot(divRef.current, traces, layout, { responsive: true, displayModeBar: false });
@@ -23,7 +25,7 @@ export function EFieldChart({ profileData, pol, matColorMap, c }) {
         } else {
             Plotly.react(divRef.current, traces, layout);
         }
-    }, [profileData, pol, matColorMap, c]); // eslint-disable-line react-hooks/exhaustive-deps
+    }, [profileData, pol, matColorMap, c, curve]); // eslint-disable-line react-hooks/exhaustive-deps
 
     useEffect(() => {
         const el = divRef.current;

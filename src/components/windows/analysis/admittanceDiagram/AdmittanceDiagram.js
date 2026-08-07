@@ -1,4 +1,5 @@
 import { useDesign } from '../../../../state/DesignContext.js';
+import { MaterialRangeWarning } from '../../../materials/MaterialRangeNotice.js';
 import { DataTablePanel } from '../../../ui/DataTablePanel.js';
 import { AdmittanceChart } from './AdmittanceChart.js';
 import { AdmittanceControls } from './AdmittanceControls.js';
@@ -16,6 +17,7 @@ export function AdmittanceDiagram({ c, theme, t }) {
     return h('div', { style: { display: 'flex', height: '100%', overflow: 'hidden', backgroundColor: c.bg } },
         h(AdmittanceControls, { ...state, c, frontLbl, backLbl }),
         h('div', { style: { flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden' } },
+            h(MaterialRangeWarning, { design, fromNm: state.lambda, toNm: state.lambda, c, t }),
             h('div', { style: { flex: 1, position: 'relative', overflow: 'hidden', minHeight: 0 } },
                 state.error
                     ? h('div', {

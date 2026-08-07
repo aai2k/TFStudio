@@ -23,15 +23,19 @@ let _curveSeq = 1;
  * Build a default new curve, populating with sensible defaults and a unique
  * color from the rotating palette.
  *
- * @param {object} [defaults]  optional fields to merge in (e.g. surfaceMode
- *                             from the active design's evalMode)
+ * @param {object}   [defaults]          optional fields to merge in (e.g.
+ *                                       surfaceMode from the active design's
+ *                                       evalMode)
+ * @param {string[]} [defaults.palette]  colours to rotate through; consumed
+ *                                       here rather than merged into the curve
  */
 export function makeDefaultCurve(defaults = {}) {
+    const { palette = CURVE_COLORS, ...fields } = defaults;
     const idx = _curveSeq++;
-    const color = CURVE_COLORS[(idx - 1) % CURVE_COLORS.length];
+    const color = palette[(idx - 1) % palette.length];
     return {
         id: `curve_${idx}`,
-        label: `${defaults.yChannel || 'T'} curve ${idx}`,
+        label: `${fields.yChannel || 'T'} curve ${idx}`,
         xAxis: 'wavelength',
         yChannel: 'T',
         polarization: 'avg',
@@ -45,7 +49,7 @@ export function makeDefaultCurve(defaults = {}) {
         dash: 'solid',
         width: 2,
         visible: true,
-        ...defaults,
+        ...fields,
     };
 }
 

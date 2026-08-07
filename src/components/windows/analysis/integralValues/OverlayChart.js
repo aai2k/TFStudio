@@ -1,3 +1,4 @@
+import { useAnalysisColors } from '../../../../state/AnalysisSettingsContext.js';
 import { buildOverlayFigure } from './overlayFigure.js';
 
 const { createElement: h, useEffect, useRef } = React;
@@ -41,11 +42,12 @@ export function OverlayChart(props) {
     const divRef = useRef(null);
     const initialized = useRef(false);
     const colors = chartColors(c);
-    const figure = buildOverlayFigure(spectrum, char, weighting, minMaxMarks, colors);
+    const curve = useAnalysisColors('integralValues');
+    const figure = buildOverlayFigure({ spectrum, char, weighting, minMaxMarks, colors, curve });
 
     useEffect(() => {
         updateChart(divRef.current, initialized, figure);
-    }, [spectrum, char, weighting, minMaxMarks, c.bg, c.panel, c.border, c.text]); // eslint-disable-line react-hooks/exhaustive-deps
+    }, [spectrum, char, weighting, minMaxMarks, curve, c.bg, c.panel, c.border, c.text]); // eslint-disable-line react-hooks/exhaustive-deps
 
     useEffect(() => observeChart(divRef.current, initialized), []);
 

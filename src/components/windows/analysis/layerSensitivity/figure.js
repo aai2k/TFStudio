@@ -1,6 +1,13 @@
+import { ANALYSIS_DEFAULTS } from '../../../../constants/analysisDefaults.js';
 import { displayLayerLabel } from './viewModel.js';
 
-export function buildSensitivityFigure({ rows, matColorMap, scale, frontCount, c }) {
+/**
+ * @param {object} [colors] configured curve colours; factory defaults when absent
+ */
+export function buildSensitivityFigure({
+    rows, matColorMap, scale, frontCount, c,
+    colors = ANALYSIS_DEFAULTS.layerSensitivity.colors,
+}) {
     if (!rows?.length) return { data: [], layout: {} };
 
     const isAbs = scale === 'absolute';
@@ -13,7 +20,7 @@ export function buildSensitivityFigure({ rows, matColorMap, scale, frontCount, c
         y: rows.map(row => isAbs ? row.deltaMFAbs : row.sensitivity),
         type: 'bar',
         marker: {
-            color: rows.map(row => matColorMap[row.materialId] || '#4fc3f7'),
+            color: rows.map(row => matColorMap[row.materialId] || colors.fallback),
             line: { color: gridColor, width: 1 },
         },
         text: rows.map(row => isAbs

@@ -1,9 +1,16 @@
+import { useAnalysisColors } from '../../../../state/AnalysisSettingsContext.js';
+import { ANALYSIS_DEFAULTS } from '../../../../constants/analysisDefaults.js';
+
 const { createElement: h, useEffect, useRef } = React;
 
-const PSI_COLOR = '#4fc3f7';
-const DELTA_COLOR = '#ef5350';
-
-export function buildEllipsometryFigure(data, colors) {
+/**
+ * @param {object} data
+ * @param {object} colors  theme colours (background, paper, grid, text)
+ * @param {object} [curve] configured curve colours; factory defaults when absent
+ */
+export function buildEllipsometryFigure(data, colors, curve = ANALYSIS_DEFAULTS.ellipsometryEvaluation.colors) {
+    const PSI_COLOR = curve.psi;
+    const DELTA_COLOR = curve.delta;
     const traces = [
         {
             x: data.x, y: data.psi, type: 'scatter', mode: 'lines',
@@ -48,6 +55,7 @@ export function buildEllipsometryFigure(data, colors) {
 export function EllipsometryChart({ data, c }) {
     const divRef = useRef(null);
     const initRef = useRef(false);
+    const curve = useAnalysisColors('ellipsometryEvaluation');
     const colors = {
         background: c.bg || '#1e1e1e',
         paper: c.panel || '#252526',
@@ -57,14 +65,14 @@ export function EllipsometryChart({ data, c }) {
 
     useEffect(() => {
         if (!divRef.current || !data) return;
-        const { traces, layout } = buildEllipsometryFigure(data, colors);
+        const { traces, layout } = buildEllipsometryFigure(data, colors, curve);
         if (!initRef.current) {
             Plotly.newPlot(divRef.current, traces, layout, { responsive: true, displayModeBar: false });
             initRef.current = true;
         } else {
             Plotly.react(divRef.current, traces, layout);
         }
-    }, [data, colors.background, colors.paper, colors.grid, colors.text]);
+    }, [data, colors.background, colors.paper, colors.grid, colors.text, curve.psi, curve.delta]);
 
     useEffect(() => {
         const el = divRef.current;

@@ -1,6 +1,6 @@
 {
   "name": "tfstudio",
-  "version": "1.4.3",
+  "version": "1.5.0",
   "description": "TFStudio - Optical Thin Film Coating Design",
   "main": "src/main.js",
   "desktopName": "tfstudio.desktop",
@@ -22,11 +22,11 @@
     "seed": "node tools/gen_material_seed.mjs",
     "build:renderer": "node tools/build-renderer.mjs",
     "build:web": "node tools/build-renderer.mjs && node tools/gen-demo-catalogs.mjs && node tools/build-web-demo.mjs",
-    "build": "npm run seed && npm run docs:build && npm run build:renderer && cross-env CSC_IDENTITY_AUTO_DISCOVERY=false electron-builder",
-    "build:win": "npm run seed && npm run docs:build && npm run build:renderer && set CSC_IDENTITY_AUTO_DISCOVERY=false&& electron-builder",
-    "build:portable": "npm run seed && npm run docs:build && npm run build:renderer && cross-env CSC_IDENTITY_AUTO_DISCOVERY=false electron-builder --win portable",
-    "build:win7": "npm run seed && npm run docs:build && npm run build:renderer && cross-env CSC_IDENTITY_AUTO_DISCOVERY=false TFS_LEGACY=1 electron-builder --config build/electron-builder.win7.js",
-    "build:linux": "npm run seed && npm run docs:build && npm run build:renderer && cross-env CSC_IDENTITY_AUTO_DISCOVERY=false electron-builder --linux",
+    "build": "npm run seed && npm run docs:build && npm run build:renderer && node tools/run-electron-builder.mjs",
+    "build:win": "npm run seed && npm run docs:build && npm run build:renderer && node tools/run-electron-builder.mjs --win",
+    "build:portable": "npm run seed && npm run docs:build && npm run build:renderer && node tools/run-electron-builder.mjs --win portable",
+    "build:win7": "npm run seed && npm run docs:build && npm run build:renderer && cross-env TFS_LEGACY=1 node tools/run-electron-builder.mjs --config build/electron-builder.win7.js",
+    "build:linux": "npm run seed && npm run docs:build && npm run build:renderer && node tools/run-electron-builder.mjs --linux",
     "dist": "powershell -NoProfile -ExecutionPolicy Bypass -File build-release.ps1",
     "dist:win7": "powershell -NoProfile -ExecutionPolicy Bypass -File build-release.ps1 -Win7",
     "dist:win7-only": "powershell -NoProfile -ExecutionPolicy Bypass -File build-release-win7.ps1",
@@ -106,8 +106,7 @@
         }
       ],
       "icon": "icons/tfstudio-purple2.ico",
-      "requestedExecutionLevel": "asInvoker",
-      "verifyUpdateCodeSignature": false
+      "requestedExecutionLevel": "asInvoker"
     },
     "linux": {
       "target": [
