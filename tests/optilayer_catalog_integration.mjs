@@ -11,10 +11,15 @@ import { fileURLToPath } from 'node:url';
 import { evalN } from '../src/utils/materials/dispersionFormulas.js';
 
 const SEED = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', 'build', 'seed', 'library');
+const REQUIRED_CATALOGS = [
+    'library_coatings.catalog.json',
+    'library_substrates.catalog.json',
+];
 
-if (!fs.existsSync(SEED)) {
-    console.log('SKIP: seed catalogs (build/seed/library/) not present.');
-    process.exit(0);
+for (const file of REQUIRED_CATALOGS) {
+    if (!fs.existsSync(path.join(SEED, file))) {
+        throw new Error(`Required bundled material catalog is missing: build/seed/library/${file}`);
+    }
 }
 
 function interpK(kTable, lum) {
