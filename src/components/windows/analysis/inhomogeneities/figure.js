@@ -1,6 +1,10 @@
-const COLORS = { T: '#4fc3f7', R: '#ef5350', A: '#66bb6a' };
+import { ANALYSIS_DEFAULTS } from '../../../../constants/analysisDefaults.js';
 
-export function buildOverlayTraces(baseline, perturbed, channel) {
+/**
+ * @param {object} [colors] configured curve colours; factory defaults when absent
+ */
+export function buildOverlayTraces(baseline, perturbed, channel, colors = ANALYSIS_DEFAULTS.inhomogeneities.colors) {
+    const COLORS = colors;
     if (!perturbed) return [];
     const traces = [];
     const wantedKeys = channel === 'all' ? ['T', 'R', 'A'] : [channel];

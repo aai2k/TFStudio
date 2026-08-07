@@ -23,6 +23,7 @@ import { TutorialPlayer } from './components/TutorialPlayer.js';
 import { buildSampleDesigns } from './utils/samples/sampleDesigns.js';
 import { buildTutorials } from './utils/samples/tutorials.js';
 import { DesignProvider, makeDefaultDesign } from './state/DesignContext.js';
+import { AnalysisSettingsProvider } from './state/AnalysisSettingsContext.js';
 import { SpectralMonitor } from './components/SpectralMonitor.js';
 import { MaterialResolutionModalGuard } from './components/materials/MaterialResolutionModalGuard.js';
 import { initCatalogs, addCatalog } from './utils/materials/catalogManager.js';
@@ -284,6 +285,9 @@ const App = () => {
     // worker broadcasts) and persists via the settings effect below. If the
     // .wasm artifact is missing it silently falls back to JS regardless.
     const [wasmTmm,        setWasmTmmState]   = useState(true);
+    // Analysis-window display overrides as stored in settings.json; resolved
+    // against the factory registry by AnalysisSettingsProvider.
+    const [analysisSettings, setAnalysisSettings] = useState(null);
     const [inputDialog,    setInputDialog]    = useState(null);
     const [messageNotification, setMessageNotification] = useState(null);
     const [toolRequests,   setToolRequests]   = useState([]);
@@ -739,6 +743,12 @@ const App = () => {
                 if (result.settings.locale) setLocaleState(result.settings.locale);
                 if (result.settings.ribbonStyle) setRibbonStyle(result.settings.ribbonStyle);
                 setWasmTmmState(result.settings.wasmTmm !== false);   // default ON (opt-out)
+                // Analysis display defaults are owned by the main process and
+                // arrive with the rest of settings.json; the provider resolves
+                // them against the factory registry as windows mount.
+                if (result.settings.analysis && typeof result.settings.analysis === 'object') {
+                    setAnalysisSettings(result.settings.analysis);
+                }
             }
         }
     };
@@ -1323,7 +1333,8 @@ const App = () => {
 
     // ── Render ────────────────────────────────────────────────────────────────
 
-    return h(DesignProvider, {
+    return h(AnalysisSettingsProvider, { initial: analysisSettings },
+        h(DesignProvider, {
             activeDesignId,
             designs,
             onDesignChange:   handleDesignChange,
@@ -1445,6 +1456,7 @@ const App = () => {
                 type: messageNotification.type,
                 onClose: () => setMessageNotification(null)
             })
+        )
         )
     );
 };

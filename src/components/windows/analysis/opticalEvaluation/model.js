@@ -4,16 +4,25 @@ import {
 } from '../../../../utils/physics/spectrumTargets.js';
 import { makeOperand } from '../../../../utils/physics/optimizer.js';
 import { spectralAxisProps } from '../../../../utils/physics/spectralAxis.js';
+import { ANALYSIS_DEFAULTS } from '../../../../constants/analysisDefaults.js';
 
-export const CURVES = [
-    { key: 'T',  label: 'T avg', color: '#2196f3', dash: 'solid', group: 'avg' },
-    { key: 'R',  label: 'R avg', color: '#ef5350', dash: 'solid', group: 'avg' },
-    { key: 'A',  label: 'A avg', color: '#66bb6a', dash: 'solid', group: 'avg' },
-    { key: 'Ts', label: 'T (s)', color: '#64b5f6', dash: 'dot',   group: 's' },
-    { key: 'Rs', label: 'R (s)', color: '#ef9a9a', dash: 'dot',   group: 's' },
-    { key: 'Tp', label: 'T (p)', color: '#1565c0', dash: '5px,3px', group: 'p' },
-    { key: 'Rp', label: 'R (p)', color: '#c62828', dash: '5px,3px', group: 'p' },
+// Trace geometry is fixed; the colours come from the configurable registry.
+const CURVE_SHAPES = [
+    { key: 'T',  label: 'T avg', dash: 'solid', group: 'avg' },
+    { key: 'R',  label: 'R avg', dash: 'solid', group: 'avg' },
+    { key: 'A',  label: 'A avg', dash: 'solid', group: 'avg' },
+    { key: 'Ts', label: 'T (s)', dash: 'dot',   group: 's' },
+    { key: 'Rs', label: 'R (s)', dash: 'dot',   group: 's' },
+    { key: 'Tp', label: 'T (p)', dash: '5px,3px', group: 'p' },
+    { key: 'Rp', label: 'R (p)', dash: '5px,3px', group: 'p' },
 ];
+
+/** Curve descriptors tinted with `colors`; factory defaults when absent. */
+export function buildCurves(colors = ANALYSIS_DEFAULTS.opticalEvaluation.colors) {
+    return CURVE_SHAPES.map(shape => ({ ...shape, color: colors[shape.key] }));
+}
+
+export const CURVES = buildCurves();
 
 export const CURVE_BY_KEY = Object.fromEntries(CURVES.map(cv => [cv.key, cv]));
 
@@ -26,8 +35,8 @@ export const CURVE_GROUPS = [
 export const AOI_MAX = 6;
 const AOI_ALPHA = [1.0, 0.72, 0.56, 0.45, 0.36, 0.30];
 
-export function curveColorFor(curve) {
-    return curve === 'T' ? '#2196f3' : curve === 'A' ? '#66bb6a' : '#ef5350';
+export function curveColorFor(curve, colors = ANALYSIS_DEFAULTS.opticalEvaluation.colors) {
+    return curve === 'T' ? colors.T : curve === 'A' ? colors.A : colors.R;
 }
 
 export function formatTheta(theta) {
@@ -76,8 +85,8 @@ function curveTrace(data, series, seriesIndex, curve, seriesCount) {
     };
 }
 
-function buildCurveTraces(data, showCurves) {
-    const enabled = CURVES.filter(cv => showCurves[cv.key]);
+function buildCurveTraces(data, showCurves, curveColors) {
+    const enabled = buildCurves(curveColors).filter(cv => showCurves[cv.key]);
     const traces = [];
     data.series.forEach((series, seriesIndex) => {
         enabled.forEach(curve => {
@@ -87,11 +96,11 @@ function buildCurveTraces(data, showCurves) {
     return traces;
 }
 
-export function buildChartTraces({ data, showCurves, targets, targetsVisible, overlays }) {
+export function buildChartTraces({ data, showCurves, targets, targetsVisible, overlays, curveColors }) {
     const overlayTraces = buildMeasuredTraces(overlays);
     const targetTraces = targetsVisible ? buildTargetTraces(targets) : [];
     if (!data?.lambda || !data?.series?.length) return [...overlayTraces, ...targetTraces];
-    return [...buildCurveTraces(data, showCurves), ...overlayTraces, ...targetTraces];
+    return [...buildCurveTraces(data, showCurves, curveColors), ...overlayTraces, ...targetTraces];
 }
 
 export function buildChartLayout(opts) {
@@ -148,8 +157,8 @@ export function buildChartConfig(editMode, editTool) {
     };
 }
 
-export function buildTableColumns(data, showCurves) {
-    const enabled = CURVES.filter(cv => showCurves[cv.key]);
+export function buildTableColumns(data, showCurves, curveColors) {
+    const enabled = buildCurves(curveColors).filter(cv => showCurves[cv.key]);
     const multi = data.series.length > 1;
     const columns = [];
     data.series.forEach(series => {

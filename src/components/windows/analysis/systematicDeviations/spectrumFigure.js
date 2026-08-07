@@ -1,35 +1,39 @@
-const CHANNEL_COLORS = { T: '#4fc3f7', R: '#ef5350', A: '#66bb6a' };
+import { ANALYSIS_DEFAULTS } from '../../../../constants/analysisDefaults.js';
 
 const percent = (values) => values.map(value => value * 100);
 
-function baselineTrace(baseline, channel) {
+function baselineTrace(baseline, channel, channelColors) {
     return {
         x: baseline.lambda, y: percent(baseline[channel]),
         type: 'scatter', mode: 'lines',
         name: `${channel} baseline`,
-        line: { color: CHANNEL_COLORS[channel], dash: 'dot', width: 1.4 },
+        line: { color: channelColors[channel], dash: 'dot', width: 1.4 },
         hoverinfo: 'skip',
         opacity: 0.6,
     };
 }
 
-function deviatedTrace(deviated, channel) {
+function deviatedTrace(deviated, channel, channelColors) {
     return {
         x: deviated.lambda, y: percent(deviated[channel]),
         type: 'scatter', mode: 'lines',
         name: `${channel} deviated`,
-        line: { color: CHANNEL_COLORS[channel], width: 2 },
+        line: { color: channelColors[channel], width: 2 },
         hovertemplate: `λ=%{x:.1f} nm<br>${channel}=%{y:.3f}%<extra></extra>`,
     };
 }
 
-export function buildSpectrumTraces(baseline, deviated, channel, showBaseline) {
+/**
+ * @param {object} [channelColors] configured curve colours; factory when absent
+ */
+export function buildSpectrumTraces(baseline, deviated, channel, showBaseline,
+                                    channelColors = ANALYSIS_DEFAULTS.systematicDeviations.colors) {
     if (!deviated) return [];
     const traces = [];
     const channels = channel === 'all' ? ['T', 'R', 'A'] : [channel];
     for (const key of channels) {
-        if (showBaseline && baseline) traces.push(baselineTrace(baseline, key));
-        traces.push(deviatedTrace(deviated, key));
+        if (showBaseline && baseline) traces.push(baselineTrace(baseline, key, channelColors));
+        traces.push(deviatedTrace(deviated, key, channelColors));
     }
     return traces;
 }

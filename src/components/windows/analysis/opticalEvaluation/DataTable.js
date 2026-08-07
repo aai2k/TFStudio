@@ -1,9 +1,11 @@
 import { buildTableColumns } from './model.js';
+import { useAnalysisColors } from '../../../../state/AnalysisSettingsContext.js';
 
 const { createElement: h } = React;
 
 export function DataTable({ data, showCurves, c, oe }) {
-    const columns = buildTableColumns(data, showCurves);
+    const curveColors = useAnalysisColors('opticalEvaluation');
+    const columns = buildTableColumns(data, showCurves, curveColors);
     const thBase = {
         padding: '3px 8px', fontWeight: 600, fontSize: 11,
         borderBottom: `1px solid ${c.border}`,

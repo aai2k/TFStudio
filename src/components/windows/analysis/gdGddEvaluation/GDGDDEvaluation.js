@@ -8,6 +8,7 @@ import { GDControls } from './GDControls.js';
 import { GDResults, CenteredMessage } from './GDResults.js';
 import { buildGdGddView, buildLayerSummary } from './viewModel.js';
 import { useGDGDDState } from './useGDGDDState.js';
+import { useAnalysisColors } from '../../../../state/AnalysisSettingsContext.js';
 
 const { createElement: h } = React;
 
@@ -15,6 +16,7 @@ export function GDGDDEvaluation({ c, theme, t }) {
     const text = t.gdgdd;
     const { design } = useDesign();
     const state = useGDGDDState(design);
+    const curve = useAnalysisColors('gdGddEvaluation');
 
     if (!design) return h(CenteredMessage, { c, message: text.noDesign });
 
@@ -22,7 +24,7 @@ export function GDGDDEvaluation({ c, theme, t }) {
         quantity: state.quantity,
         referenceLambda: state.refLam,
         showReference: state.showRef,
-    }, text);
+    }, text, curve);
     const summary = buildLayerSummary(design, state.side);
 
     return h('div', {

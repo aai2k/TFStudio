@@ -8,7 +8,7 @@
 //
 // CommonJS, Electron-free (deps injected).
 
-const MAIN_OWNED_KEYS = ['folders'];
+const MAIN_OWNED_KEYS = ['folders', 'analysis'];
 
 // Carry main-process keys absent from an incoming renderer payload over from
 // what is already on disk.

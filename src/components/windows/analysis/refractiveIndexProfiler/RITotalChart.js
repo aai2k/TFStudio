@@ -1,3 +1,5 @@
+import { ANALYSIS_DEFAULTS } from '../../../../constants/analysisDefaults.js';
+import { useAnalysisColors } from '../../../../state/AnalysisSettingsContext.js';
 const { createElement: h, useEffect, useRef } = React;
 
 export function placeTotalRegions(regions) {
@@ -22,7 +24,7 @@ export function placeTotalRegions(regions) {
 
 const mapX = (r, v) => r.start + (v / r.span) * r.w;
 
-export function riTotalTraces(placed, quantity) {
+export function riTotalTraces(placed, quantity, curve = ANALYSIS_DEFAULTS.refractiveIndexProfiler.colors) {
     const showBoth = quantity === 'both';
     const traces = [];
     placed.forEach((r, idx) => {
@@ -34,7 +36,7 @@ export function riTotalTraces(placed, quantity) {
                 type: 'scatter', mode: 'lines',
                 name: 'n', legendgroup: 'n', showlegend: showBoth && showInLegend,
                 xaxis: 'x', yaxis: 'y',
-                line: { color: '#4fc3f7', width: 2, shape: 'hv' },
+                line: { color: curve.n, width: 2, shape: 'hv' },
                 hovertemplate: `n<br>${r.label}<br>z: %{customdata[0]:.3f} %{customdata[1]}<br>n: %{y:.4f}<extra></extra>`,
             });
         }
@@ -44,7 +46,7 @@ export function riTotalTraces(placed, quantity) {
                 type: 'scatter', mode: 'lines',
                 name: 'k', legendgroup: 'k', showlegend: showBoth && showInLegend,
                 xaxis: 'x', yaxis: showBoth ? 'y2' : 'y',
-                line: { color: '#ef5350', width: 2, shape: 'hv',
+                line: { color: curve.k, width: 2, shape: 'hv',
                         dash: showBoth ? 'dash' : 'solid' },
                 hovertemplate: `k<br>${r.label}<br>z: %{customdata[0]:.3f} %{customdata[1]}<br>k: %{y:.5f}<extra></extra>`,
             });
@@ -103,7 +105,7 @@ function buildAnnotations(placed, textColor) {
     }));
 }
 
-export function riTotalFigure(regions, quantity, matColorMap, colors) {
+export function riTotalFigure(regions, quantity, matColorMap, colors, curve = ANALYSIS_DEFAULTS.refractiveIndexProfiler.colors) {
     const { placed, totalW } = placeTotalRegions(regions);
     if (!placed.length) return { traces: [], layout: {} };
 
@@ -133,9 +135,9 @@ export function riTotalFigure(regions, quantity, matColorMap, colors) {
     };
     if (showBoth) {
         layout.yaxis2 = {
-            title: { text: 'k', font: { color: '#ef5350', size: 12 } },
-            color: '#ef5350', overlaying: 'y', side: 'right',
-            tickfont: { color: '#ef5350', size: 11 },
+            title: { text: 'k', font: { color: curve.k, size: 12 } },
+            color: curve.k, overlaying: 'y', side: 'right',
+            tickfont: { color: curve.k, size: 11 },
             showgrid: false, rangemode: 'tozero',
         };
     }
@@ -145,6 +147,7 @@ export function riTotalFigure(regions, quantity, matColorMap, colors) {
 export function RITotalChart({ regions, quantity, matColorMap, c }) {
     const divRef = useRef(null);
     const initRef = useRef(false);
+    const curve = useAnalysisColors('refractiveIndexProfiler');
     const colors = {
         bgColor: c.bg || '#1e1e1e',
         paperColor: c.panel || '#252526',
@@ -154,14 +157,14 @@ export function RITotalChart({ regions, quantity, matColorMap, c }) {
 
     useEffect(() => {
         if (!divRef.current) return;
-        const { traces, layout } = riTotalFigure(regions, quantity, matColorMap, colors);
+        const { traces, layout } = riTotalFigure(regions, quantity, matColorMap, colors, curve);
         if (!initRef.current) {
             Plotly.newPlot(divRef.current, traces, layout, { responsive: true, displayModeBar: false });
             initRef.current = true;
         } else {
             Plotly.react(divRef.current, traces, layout);
         }
-    }, [regions, quantity, matColorMap, c]); // eslint-disable-line react-hooks/exhaustive-deps
+    }, [regions, quantity, matColorMap, c, curve]); // eslint-disable-line react-hooks/exhaustive-deps
 
     useEffect(() => {
         const el = divRef.current;

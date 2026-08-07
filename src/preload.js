@@ -76,4 +76,6 @@ contextBridge.exposeInMainWorld('electronAPI', {
   setUserPath:            (key, dir) => ipcRenderer.invoke('paths:set', key, dir),
   resetUserPath:          (key) => ipcRenderer.invoke('paths:reset', key),
   revealUserPath:         (key) => ipcRenderer.invoke('paths:reveal', key),
+  // Analysis-window display defaults (Settings → Analysis); read via loadSettings
+  saveAnalysisSettings:   (block) => ipcRenderer.invoke('analysis:save-settings', block),
 });

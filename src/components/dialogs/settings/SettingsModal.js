@@ -7,6 +7,7 @@ import { AppearancePane } from './AppearancePane.js';
 import { LanguagePane } from './LanguagePane.js';
 import { PerformancePane } from './PerformancePane.js';
 import { FoldersPane } from './FoldersPane.js';
+import { AnalysisPane } from './analysis/AnalysisPane.js';
 
 const { createElement: h, useState } = React;
 
@@ -14,6 +15,7 @@ const CATEGORIES = [
   { id: 'appearance',  Pane: AppearancePane },
   { id: 'language',    Pane: LanguagePane },
   { id: 'performance', Pane: PerformancePane },
+  { id: 'analysis',    Pane: AnalysisPane },
   { id: 'folders',     Pane: FoldersPane },
 ];
 
@@ -40,13 +42,18 @@ export const SettingsModal = (props) => {
   },
     h('div', {
       style: {
+        // Fixed footprint: the dialog must not resize as the user moves between
+        // a short pane (Language) and a tall one (Folders). The pane scrolls
+        // inside instead. Height is capped against the viewport so the dialog
+        // still fits on a small screen.
         backgroundColor: c.panel, borderRadius: '8px', padding: '24px',
-        width: '760px', maxWidth: '92vw', maxHeight: '85vh',
+        width: '760px', maxWidth: '92vw',
+        height: '560px', maxHeight: '85vh',
         display: 'flex', flexDirection: 'column',
         boxShadow: '0 10px 40px rgba(0, 0, 0, 0.3)', border: `1px solid ${c.border}`,
       },
     },
-      h('h2', { style: { marginTop: 0, marginBottom: '20px', fontSize: '18px', fontWeight: 'bold', color: c.text } },
+      h('h2', { style: { marginTop: 0, marginBottom: '20px', fontSize: '18px', fontWeight: 'bold', color: c.text, flexShrink: 0 } },
         t.settings.title),
       h('div', { style: { display: 'flex', gap: '20px', flex: 1, minHeight: 0 } },
         h('nav', {
@@ -63,7 +70,7 @@ export const SettingsModal = (props) => {
         h('div', { style: { flex: 1, minWidth: 0, overflow: 'auto' } },
           h(active.Pane, props))
       ),
-      h('div', { style: { display: 'flex', justifyContent: 'flex-end', marginTop: '20px' } },
+      h('div', { style: { display: 'flex', justifyContent: 'flex-end', marginTop: '20px', flexShrink: 0 } },
         h('button', {
           onClick: onClose,
           style: {

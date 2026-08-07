@@ -1,5 +1,6 @@
 import { buildEditableTargetShapes } from '../../../../utils/physics/spectrumTargets.js';
 import { buildChartTraces, buildChartLayout, buildChartConfig } from './model.js';
+import { useAnalysisColors } from '../../../../state/AnalysisSettingsContext.js';
 
 const { createElement: h, useEffect, useCallback, useMemo, useRef } = React;
 
@@ -180,9 +181,10 @@ export function PlotlyChart(props) {
         [handlesActive, targets, lamRange]
     );
     const editRef = useLiveEditState(props, editable);
+    const curveColors = useAnalysisColors('opticalEvaluation');
     const buildTraces = useCallback(
-        () => buildChartTraces({ data, showCurves, targets, targetsVisible, overlays }),
-        [data, showCurves, targets, targetsVisible, overlays]
+        () => buildChartTraces({ data, showCurves, targets, targetsVisible, overlays, curveColors }),
+        [data, showCurves, targets, targetsVisible, overlays, curveColors]
     );
     const layout = useMemo(() => buildChartLayout({
         ...colors, targets, targetsVisible, editMode, editTool, editCurve,
