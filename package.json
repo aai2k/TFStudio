@@ -57,7 +57,7 @@
     "esbuild": "^0.28.1"
   },
   "dependencies": {
-    "js-yaml": "^4.3.0",
+    "js-yaml": "^5.2.3",
     "katex": "^0.17.0",
     "ml-levenberg-marquardt": "^5.0.1",
     "plotly.js-dist-min": "^3.7.0",
