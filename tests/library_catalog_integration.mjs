@@ -3,7 +3,7 @@
  * same way catalogManager.makeGetNK does (evalN + kTable interp, or tabData),
  * asserting finite, physical n,k across each material's wavelength range.
  *
- * Run after `npm run seed`: node tests/optilayer_catalog_integration.mjs
+ * Run after `npm run seed`: node tests/library_catalog_integration.mjs
  */
 import fs from 'node:fs';
 import path from 'node:path';
