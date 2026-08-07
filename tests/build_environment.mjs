@@ -57,4 +57,27 @@ const existsSync = value => value === `${powerShellDir}\\powershell.exe`;
   ok(!pkg.scripts.build.includes('emsdk'), 'the normal build has no emsdk dependency');
 }
 
+{
+  const releaseScript = readFileSync(path.join(process.cwd(), 'build-release.ps1'), 'utf8');
+  const linuxBranch = releaseScript.indexOf('if ($linuxOnly) {\n        Section "Preflight: Linux build under WSL"');
+  const windowsPreflight = releaseScript.indexOf('# --- 0. Preflight: required tools');
+  ok(releaseScript.includes('$linuxOnly = [bool]$Linux'), '-Linux is recognized as an exclusive build mode');
+  ok(linuxBranch >= 0 && linuxBranch < windowsPreflight,
+    '-Linux exits through WSL before Windows packaging starts');
+  ok(releaseScript.includes('bash ./build-release-linux.sh --no-verify'),
+    'the WSL build skips the non-representative GUI smoke test');
+}
+
+{
+  const linuxScript = readFileSync(path.join(process.cwd(), 'build-release-linux.sh'), 'utf8');
+  ok(linuxScript.includes('rm -rf -- "$STAGE/dist"'),
+    'the reusable WSL stage discards stale packaging output');
+  ok(linuxScript.includes('-name "TFStudio-${VERSION}-*.AppImage"'),
+    'only current-version AppImage artifacts are copied back');
+  ok(linuxScript.includes('-name "TFStudio-${VERSION}-*.tar.gz"'),
+    'only current-version tar archives are copied back');
+  ok(linuxScript.includes('-name "TFStudio-${VERSION}-*.deb"'),
+    'only current-version Debian packages are copied back');
+}
+
 console.log(`build_environment: ${passed} passed`);

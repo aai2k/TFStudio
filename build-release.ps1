@@ -17,8 +17,8 @@
 #   -Win7         also build the Windows 7/8.1 legacy installers (Electron 22).
 #                 Without it, an interactive run ASKS; an unattended run
 #                 (-NoPause) skips them unless -Win7 is given.
-#   -Linux        also build the Linux artifacts, through WSL. Same prompt rules
-#                 as -Win7. Requires a WSL distribution with Node.js 18+.
+#   -Linux        build ONLY the Linux artifacts through WSL. Windows and Win7
+#                 packaging are skipped. Requires WSL with Linux Node.js 18+.
 #   -CleanCache   wipe electron-builder's winCodeSign cache before building
 #                 (opt-in recovery only; NOT done by default -- see note below).
 #
@@ -58,6 +58,48 @@ Set-Location $proj
 function Section($msg) { Write-Host "`n=== $msg ===" -ForegroundColor Cyan }
 function Have-Cmd([string]$name) { [bool](Get-Command $name -ErrorAction SilentlyContinue) }
 
+function Get-WslBuildError {
+    if (-not (Have-Cmd 'wsl')) {
+        return 'wsl.exe is not on PATH. Install WSL with: wsl --install -d Ubuntu'
+    }
+    & wsl.exe -e true | Out-Null
+    if ($LASTEXITCODE -ne 0) {
+        return 'WSL has no installed distribution. Install one with: wsl --install -d Ubuntu'
+    }
+    # WSL can append Windows executables under /mnt to PATH. They cannot build
+    # Linux packages, so require native Linux Node.js plus rsync.
+    & wsl.exe -e bash -lc 'command -v node | grep -qv ^/mnt/ && command -v npm | grep -qv ^/mnt/ && command -v rsync >/dev/null 2>&1' | Out-Null
+    if ($LASTEXITCODE -ne 0) {
+        return 'The WSL distribution needs Linux node, npm and rsync. Install them with: wsl -e sudo apt-get update, then wsl -e sudo apt-get install -y nodejs npm rsync'
+    }
+    return ''
+}
+
+function Invoke-LinuxBuild {
+    $drive   = $proj.Substring(0, 1).ToLower()
+    $tail    = $proj.Substring(2) -replace '\\', '/'
+    $wslProj = "/mnt/$drive$tail"
+
+    # WSL is a build host, not the release-verification VM. The GUI smoke test
+    # cannot exercise native Wayland and used to hang the Windows-driven build;
+    # the Ubuntu VM checks remain a separate release gate.
+    & wsl.exe -e bash -lc "cd '$wslProj' && bash ./build-release-linux.sh --no-verify"
+    if ($LASTEXITCODE -ne 0) { throw "Linux build failed (exit $LASTEXITCODE)." }
+}
+
+function Show-LinuxArtifacts {
+    $dist = Join-Path $proj 'dist'
+    Section "Linux build complete - artifacts in dist\"
+    if (-not (Test-Path $dist)) {
+        Write-Warning "dist not found - packaging may have failed."
+        return
+    }
+    Get-ChildItem $dist -File |
+        Where-Object { $_.Extension -in @('.AppImage', '.deb') -or $_.Name -like '*.tar.gz' } |
+        Sort-Object Length -Descending |
+        Format-Table Name, @{N='Size (MB)'; E={ '{0:N1}' -f ($_.Length / 1MB) }} -AutoSize | Out-Host
+}
+
 # -----------------------------------------------------------------------------
 # Decide UP FRONT whether to also build the Windows 7/8.1 legacy installers
 # (Electron 22), so the user can answer once and walk away.
@@ -66,33 +108,36 @@ function Have-Cmd([string]$name) { [bool](Get-Command $name -ErrorAction Silentl
 #   neither   -> ask interactively (default No)
 # The actual legacy packaging happens later, at step 5.
 # -----------------------------------------------------------------------------
+$linuxOnly = [bool]$Linux
 $doWin7 = $false
-if ($Win7) {
-    $doWin7 = $true
-} elseif (-not $NoPause) {
-    $ans = Read-Host 'Also build the Windows 7 / 8.1 legacy version (Electron 22)? [y/N]'
-    if ($ans -match '^\s*(y|yes)\s*$') { $doWin7 = $true }
-}
-if ($doWin7) {
-    Write-Host 'Windows 7 legacy installers WILL be built after the main build.' -ForegroundColor Green
+if ($linuxOnly) {
+    Write-Host 'Linux-only build selected; all Windows packaging is skipped.' -ForegroundColor Green
 } else {
-    Write-Host 'Windows 7 legacy installers will be skipped.' -ForegroundColor DarkGray
+    if ($Win7) {
+        $doWin7 = $true
+    } elseif (-not $NoPause) {
+        $ans = Read-Host 'Also build the Windows 7 / 8.1 legacy version (Electron 22)? [y/N]'
+        if ($ans -match '^\s*(y|yes)\s*$') { $doWin7 = $true }
+    }
+    if ($doWin7) {
+        Write-Host 'Windows 7 legacy installers WILL be built after the main build.' -ForegroundColor Green
+    } else {
+        Write-Host 'Windows 7 legacy installers will be skipped.' -ForegroundColor DarkGray
+    }
 }
 
 # -----------------------------------------------------------------------------
 # Same decision, for the Linux artifacts. They are produced by WSL running
 # build-release-linux.sh; the actual packaging happens at step 5c.
 # -----------------------------------------------------------------------------
-$doLinux = $false
-if ($Linux) {
-    $doLinux = $true
-} elseif (-not $NoPause) {
+$doLinux = $linuxOnly
+if (-not $linuxOnly -and -not $NoPause) {
     $ans = Read-Host 'Also build the Linux version (AppImage + tar.gz, via WSL)? [y/N]'
     if ($ans -match '^\s*(y|yes)\s*$') { $doLinux = $true }
 }
-if ($doLinux) {
+if ($doLinux -and -not $linuxOnly) {
     Write-Host 'Linux artifacts WILL be built after the main build.' -ForegroundColor Green
-} else {
+} elseif (-not $linuxOnly) {
     Write-Host 'Linux artifacts will be skipped.' -ForegroundColor DarkGray
 }
 
@@ -182,6 +227,20 @@ function Invoke-WithProgress {
 
 $exitCode = 0
 try {
+    # -Linux is intentionally an early, exclusive branch. It must not require a
+    # Windows Node installation, ask about Win7, or package Windows first.
+    if ($linuxOnly) {
+        Section "Preflight: Linux build under WSL"
+        $linuxError = Get-WslBuildError
+        if ($linuxError) { throw $linuxError }
+        Write-Host ("WSL ready: {0}" -f (& wsl.exe -e bash -lc 'node -v')) -ForegroundColor Green
+
+        Section "Building Linux artifacts (WSL)"
+        Invoke-LinuxBuild
+        Show-LinuxArtifacts
+        return
+    }
+
     # --- 0. Preflight: required tools ----------------------------------------
     Section "Preflight: required tools"
     foreach ($t in @('node', 'npm')) {
@@ -210,25 +269,11 @@ try {
         Write-Warning "git not found on PATH. The RII submodule cannot be checked out; the committed seed and prebuilt tmmcore WASM will be used instead."
     }
 
-    # Check the WSL side NOW rather than after a ten-minute Windows build. A
-    # failure here disables the Linux step but lets the Windows build finish.
+    # Check the optional WSL side now rather than after a long Windows build. A
+    # failure disables only the optional Linux step.
     $linuxSkipReason = ''
     if ($doLinux) {
-        if (-not (Have-Cmd 'wsl')) {
-            $linuxSkipReason = 'wsl.exe is not on PATH. Install WSL with: wsl --install -d Ubuntu'
-        } else {
-            & wsl.exe -e true | Out-Null
-            if ($LASTEXITCODE -ne 0) {
-                $linuxSkipReason = 'WSL has no installed distribution. Install one with: wsl --install -d Ubuntu'
-            } else {
-                # A Windows node on the PATH (WSL exposes it under /mnt) cannot
-                # build Linux binaries, so it must not satisfy this check.
-                & wsl.exe -e bash -lc 'command -v node | grep -qv ^/mnt/ && command -v rsync >/dev/null 2>&1' | Out-Null
-                if ($LASTEXITCODE -ne 0) {
-                    $linuxSkipReason = 'The WSL distribution is missing a Linux node and/or rsync. Install them with: wsl -e sudo apt-get update, then wsl -e sudo apt-get install -y nodejs npm rsync'
-                }
-            }
-        }
+        $linuxSkipReason = Get-WslBuildError
         if ($linuxSkipReason) {
             $doLinux = $false
             Write-Warning "Linux build disabled: $linuxSkipReason"
@@ -351,11 +396,7 @@ try {
     if ($doLinux) {
         Section "Building Linux artifacts (WSL)"
         Write-Host "  (first run installs Linux node_modules and downloads Electron - one time)" -ForegroundColor DarkGray
-        $drive   = $proj.Substring(0, 1).ToLower()
-        $tail    = $proj.Substring(2) -replace '\\', '/'
-        $wslProj = "/mnt/$drive$tail"
-        & wsl.exe -e bash -lc "cd '$wslProj' && bash ./build-release-linux.sh"
-        if ($LASTEXITCODE -ne 0) { throw "Linux build failed (exit $LASTEXITCODE)." }
+        Invoke-LinuxBuild
         Write-Host "Linux artifacts built." -ForegroundColor Green
     } else {
         Section "Linux build - SKIPPED"
@@ -382,7 +423,7 @@ catch {
 finally {
     # Keep the console open so the result (or error) stays visible. Pass
     # -NoPause for unattended / CI runs.
-    if (-not $NoPause) {
+    if (-not $NoPause -and -not $linuxOnly) {
         Write-Host ''
         try { Read-Host 'Build finished - press Enter to close this window' | Out-Null } catch {}
     }
