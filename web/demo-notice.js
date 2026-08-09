@@ -97,7 +97,10 @@
           'Saved in this browser',
           'Your designs, catalogs and presets are kept in this browser only. '
           + 'They do not sync to other devices, and clearing site data removes them. '
-          + 'The desktop version stores them as files you own.',
+          + 'The desktop version stores them as files you own. '
+          + 'This demo counts anonymous usage events so we can tell whether anyone '
+          + 'is using it; your designs are never sent anywhere. The desktop version '
+          + 'sends nothing at all.',
           16000,
         );
       } else {

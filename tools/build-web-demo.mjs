@@ -88,7 +88,7 @@ function main() {
   // shim's getAppVersion(); stamp the live package.json version into it on copy
   // so the demo's About box never drifts from the desktop release.
   const appVersion = JSON.parse(fs.readFileSync(path.join(root, 'package.json'), 'utf8')).version;
-  const demoScripts = ['demo-boot.js', 'demo-examples.js', 'demo-catalogs.js', 'demo-storage.js', 'demo-notice.js', 'demo-shim.js'];
+  const demoScripts = ['demo-boot.js', 'demo-telemetry.js', 'demo-examples.js', 'demo-catalogs.js', 'demo-storage.js', 'demo-notice.js', 'demo-shim.js'];
   for (const f of demoScripts) {
     const src = path.join(webSrc, f);
     if (!fs.existsSync(src)) {
@@ -144,6 +144,7 @@ function main() {
   // Demo globals (blocking, tiny) + renderer module + heavy async libs after it.
   const inject =
     '    <!-- Web demo: example designs + curated catalogs + browser electronAPI shim -->\n'
+    + '    <script src="demo-telemetry.js"></script>\n'
     + '    <script src="demo-examples.js"></script>\n'
     + '    <script src="demo-catalogs.js"></script>\n'
     + '    <script src="demo-storage.js"></script>\n'
