@@ -20,7 +20,7 @@ app-debug.log
 .DS_Store
 Thumbs.db
 
-# Temp/junk files — Claude Code CLI can produce these during edits on Windows
+# Temp/junk files that CLI tooling can leave behind during edits on Windows
 *,+
 \(*
 

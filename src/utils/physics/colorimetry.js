@@ -2,7 +2,7 @@
  * Colorimetry — CIE color evaluation of a coating's spectral response.
  *
  * Physics / data provenance (every formula and table is from published
- * standards, none invented — see CLAUDE.md scientific-correctness rules):
+ * standards, none invented — see the project scientific-correctness rules):
  *
  *  - Tristimulus integral:  H. A. Macleod, *Thin-Film Optical Filters* 5th ed.,
  *    §12.2 "Color Definition", Eqs. (12.1)–(12.3):

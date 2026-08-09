@@ -3,8 +3,8 @@
  *
  * Hypothesis: TGT (range-target) operands disable the analytic P-function
  * (scanNeedlesAnalytic returns null on isRamp → scanNeedlesFD), so TGT synthesis
- * runs the SLOW finite-difference needle scan (~10–100× the analytic one per
- * CLAUDE.md). This times, on a ~40-layer stack:
+ * runs the SLOW finite-difference needle scan (~10–100× the analytic one).
+ * This times, on a ~40-layer stack:
  *   (a) needle scan with TGT operands  → FD path
  *   (b) needle scan with TAV operands  → analytic path (same bands)
  *   (c) one CG candidate refine

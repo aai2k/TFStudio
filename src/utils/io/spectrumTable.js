@@ -12,7 +12,7 @@
  * Everything in this file is pure (no DOM, no Node, no Electron) so it is unit-
  * testable directly and usable from a worker.
  *
- * Conventions (CLAUDE.md): X is resolved to NANOMETERS, Y is resolved to a
+ * Conventions: X is resolved to NANOMETERS, Y is resolved to a
  * fraction (0..1) internally; the source's original unit / percent-ness is
  * remembered on the curve for display + round-trip export.
  *

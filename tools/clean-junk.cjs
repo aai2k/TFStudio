@@ -2,9 +2,9 @@
 /**
  * clean-junk.cjs — remove shell-artifact "junk" files from the repo.
  *
- * Background: the ruflo/claude-flow hook chain (and some Bash tool commands on
- * Windows) occasionally mis-parse `>` / `=>` in command text or edit content as
- * shell redirections, spawning files named after code fragments — e.g. `{`,
+ * Background: some CLI tool chains and shells on Windows occasionally mis-parse
+ * `>` / `=>` in command text or edit content as shell redirections, spawning
+ * files named after code fragments — e.g. `{`,
  * `op.enabled)`, `h('option'`, `` `Run ``, `0`, `1`, `this._stallLimit`, or
  * garbled non-ASCII names. They clutter `git status` and must be hand-deleted
  * before committing. This tool removes them safely.

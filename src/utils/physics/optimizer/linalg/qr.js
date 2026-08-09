@@ -7,8 +7,8 @@
  * exactly the damped step  (JᵀJ + λ·S) Δ = −Jᵀr  — but solved WITHOUT ever
  * forming JᵀJ.  The working condition number is therefore κ(A) instead of
  * κ(A)² (Golub & Van Loan, *Matrix Computations*, §5.3; same reasoning as
- * OpenFilters `moremath/QR.py`, and the numerical-stability requirement in
- * CLAUDE.md / Macleod).  The damping block makes A full column rank for any
+ * OpenFilters `moremath/QR.py`, and the project numerical-stability
+ * requirement; cf. Macleod).  The damping block makes A full column rank for any
  * λ>0, so plain Householder QR is well-posed — no column pivoting needed.
  */
 

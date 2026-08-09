@@ -1,7 +1,7 @@
 /**
  * Validation of the merit-function Hessian + modified-Newton step.
  *
- * Two checks (CLAUDE.md: validate before trust):
+ * Two checks (validate before trust):
  *  (1) ASSEMBLED HESSIAN vs FINITE DIFFERENCE — the analytic H = JᵀJ + S from
  *      DLSOptimizer._newtonSystem must equal ½·(FD Hessian of SSR), where
  *      SSR = Σ residualₚ². Tested for TAV (range-avg), single-λ, and TGT

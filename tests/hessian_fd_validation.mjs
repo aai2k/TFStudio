@@ -1,7 +1,7 @@
 /**
  * FD validation of the analytic thickness-Hessian kernel.
  *
- * MANDATORY gate (CLAUDE.md): every numerical method is validated before trust.
+ * MANDATORY gate: every numerical method is validated before trust.
  * Here we check the EXACT analytic ∂²{R,T}/∂dᵢ∂dⱼ from tmmThicknessHessian
  * against a central finite difference of the EXACT analytic first derivative
  * (tmmThicknessJacobian) — i.e. d²R/∂dᵢ∂dⱼ ≈ [dRdd_j(d+h·eᵢ) − dRdd_j(d−h·eᵢ)]/2h.

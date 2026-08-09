@@ -94,7 +94,7 @@ function scaleSensitivityRows(rows) {
  * where Δd_j is either `absDeltaNm` or `relPct·d_j/100` depending on `mode`.
  * The "sensitivity %" is |ΔMF_j| scaled so that the max layer = 100.
  *
- * @param {object}  design       the design object (CLAUDE.md schema)
+ * @param {object}  design       the design object
  * @param {Array}   operands     `design.meritOperands` (or any operand list)
  * @param {Function} resolveMat  id → material object (with `.getNK(λ)`)
  * @param {object}  [opts]

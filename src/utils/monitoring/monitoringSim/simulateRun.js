@@ -13,7 +13,7 @@ import { processLayer } from './layerLoop.js';
 /**
  * Simulate one deposition run.
  *
- * @param {object} design        TFStudio design object (CLAUDE.md schema)
+ * @param {object} design        TFStudio design object
  * @param {Function} resolveMat  id → material object (with `.getNK(λ)`)
  * @param {object} cfg
  *   - rates:            Map<materialId, { mean: nm/s, sigma: nm/s }>

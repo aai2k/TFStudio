@@ -31,7 +31,7 @@ const SEED = path.join(ROOT, 'build', 'seed');
 // RefractiveIndex.info local clone, resolved in priority order:
 //   1. TFS_RII_SOURCE            — explicit override (set by build-release.ps1)
 //   2. refractiveindex-db/database — in-repo git submodule (default)
-//   3. ../../reference/...       — legacy external CLAUDE.md location (last resort)
+//   3. ../../reference/...       — legacy external location (last resort)
 //
 // The submodule is declared in .gitmodules. A plain `git clone` (without
 // --recursive) leaves refractiveindex-db/ empty, so ensureSubmodule() checks it
