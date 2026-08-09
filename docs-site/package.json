@@ -9,10 +9,7 @@
     "start": "astro dev",
     "build": "astro build && node rebase-dist.mjs",
     "preview": "astro preview",
-    "astro": "astro",
-    "translate": "node translate-docs.mjs",
-    "translate:dry": "node translate-docs.mjs --dry-run",
-    "translate:force": "node translate-docs.mjs --force"
+    "astro": "astro"
   },
   "dependencies": {
     "@astrojs/starlight": "^0.41.3",
