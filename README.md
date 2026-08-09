@@ -46,7 +46,7 @@ TFStudio is a desktop application for designing and analyzing **optical thin-fil
 - **Needle** optimization and **gradual evolution** synthesis (automatic layer insertion from scratch)
 - Structural optimization over the layer count itself
 - Flexible merit function: spectral targets, ramps, band averages, worst-case operands, thickness constraints
-- Multi-threaded via a Web Worker pool; hot kernels accelerated with **WebAssembly (SIMD)**
+- Multi-threaded via a Web Worker pool; hot kernels accelerated with **WebAssembly**
 
 **Analysis windows**
 - Optical evaluation, admittance diagrams, electric-field profiles, group delay / GDD, ellipsometric parameters, color evaluation, refractive-index profile
