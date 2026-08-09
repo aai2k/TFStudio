@@ -26,7 +26,7 @@
 
 ## What is TFStudio?
 
-TFStudio is a professional desktop application for designing and analyzing **optical thin-film coatings**: antireflection coatings, mirrors, beamsplitters, bandpass and edge filters, and more. It combines a rigorous, double-precision optical engine with modern refinement and synthesis algorithms and a full analysis suite, in a docked, multi-window interface.
+TFStudio is a desktop application for designing and analyzing **optical thin-film coatings**: antireflection coatings, mirrors, beamsplitters, bandpass and edge filters, and more. It provides a double-precision optical engine, refinement and synthesis algorithms, and an analysis suite, in a docked, multi-window interface.
 
 
 > ⚠️ **Status:** TFStudio is independently developed software. Always verify critical designs against your own calculations and measurements before committing them to a production deposition run.
@@ -70,15 +70,15 @@ TFStudio is a professional desktop application for designing and analyzing **opt
 
 ## Scientific basis
 
-TFStudio implements established thin-film optics, citing primary sources:
+Methods and their sources:
 
 - **Transfer-matrix method:** H. A. Macleod, *Thin-Film Optical Filters*, 5th ed.
 - **Numerical needle synthesis:** Sullivan & Dobrowolski, *Appl. Opt.* **35**, 5484 (1996); Tikhonravov et al., *Appl. Opt.* **35**, 5493 (1996)
 - **Gradual evolution:** Tikhonravov et al. (2007)
 
-All computations use double precision. The TMM engine agrees with independent reference calculations to within single-digit parts-per-million for validated test cases.
+All computations are double precision.
 
-The transfer-matrix engine is published separately as **[tmmcore](https://github.com/aai2k/tmmcore)**, so its accuracy can be checked without installing TFStudio: two commands reproduce agreement with an independently written implementation to 8.6e-14. See its [validation page](https://aai2k.github.io/tmmcore/validation/).
+The transfer-matrix engine is published separately as **[tmmcore](https://github.com/aai2k/tmmcore)**. Its [comparison page](https://aai2k.github.io/tmmcore/comparison/) measures it against `tmm` (Byrnes), `tmm_fast`, `tmmax` and `tmm_faster` on accuracy and speed, and states the method and its caveats. Reference outputs are committed, so `npm run compare` reproduces the accuracy table with Node alone and no Python.
 
 ## Installation
 

@@ -23,7 +23,7 @@
 
 ## TFStudio 是什么？
 
-TFStudio 是一款用于**光学薄膜**设计与分析的专业桌面软件，适用于增透膜、高反射膜、分光膜、带通滤光片、截止滤光片等各类膜系。它将严格的双精度光学计算引擎、现代化的优化与自动合成算法，以及完整的分析工具集，整合在一个可停靠的多窗口界面中。
+TFStudio 是一款用于**光学薄膜**设计与分析的桌面软件，适用于增透膜、高反射膜、分光膜、带通滤光片、截止滤光片等各类膜系。它提供双精度光学计算引擎、优化与自动合成算法，以及分析工具集，整合在一个可停靠的多窗口界面中。
 
 > ⚠️ **声明：** TFStudio 为独立开发的软件。在将设计结果投入实际镀膜生产之前，请务必用您自己的计算和实测数据加以验证。
 
@@ -62,15 +62,15 @@ TFStudio 是一款用于**光学薄膜**设计与分析的专业桌面软件，�
 
 ## 科学依据
 
-TFStudio 实现的是成熟的薄膜光学理论，并标注一手文献出处：
+各项方法及其文献出处：
 
 - **传输矩阵法：** H. A. Macleod, *Thin-Film Optical Filters*, 5th ed.
 - **数值针式合成：** Sullivan & Dobrowolski, *Appl. Opt.* **35**, 5484 (1996)；Tikhonravov et al., *Appl. Opt.* **35**, 5493 (1996)
 - **逐步演化法：** Tikhonravov et al. (2007)
 
-所有计算均采用双精度。在经过验证的测试算例中，TMM 引擎与独立参考计算的偏差在个位数 ppm 量级以内。
+所有计算均采用双精度。
 
-传输矩阵引擎已作为 **[tmmcore](https://github.com/aai2k/tmmcore)** 独立发布，无需安装 TFStudio 即可验证其精度：两条命令即可复现与另一独立实现之间 8.6e-14 的一致性。详见其[验证页面](https://aai2k.github.io/tmmcore/validation/)。
+传输矩阵引擎已作为 **[tmmcore](https://github.com/aai2k/tmmcore)** 独立发布。其[对比页面](https://aai2k.github.io/tmmcore/comparison/)给出了它与 `tmm`（Byrnes）、`tmm_fast`、`tmmax` 和 `tmm_faster` 在精度与速度上的实测对比，并说明了测试方法及其局限。参考输出已随仓库提交，因此仅需 Node 环境、无需 Python，执行 `npm run compare` 即可复现精度对比表。
 
 ## 安装
 
