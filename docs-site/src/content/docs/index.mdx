@@ -1,7 +1,6 @@
 ---
 title: TFStudio
-description: Optical thin-film coating design — reference manual.
-template: splash
+description: Optical thin-film coating design, the reference manual.
 hero:
   tagline: Design, analyze and synthesize multilayer optical thin-film coatings.
   actions:
@@ -12,9 +11,10 @@ hero:
     - text: Optical Evaluation
       link: /analysis/optical-evaluation/
       icon: right-arrow
+      variant: secondary
 ---
 
-import { Card, CardGrid } from '@astrojs/starlight/components';
+import { Card, CardGrid, LinkCard } from '@astrojs/starlight/components';
 
 ## What is TFStudio?
 
@@ -25,26 +25,95 @@ full synthesis stack (Damped Least Squares refinement, Sullivan & Dobrowolski
 numerical needle, Tikhonravov gradual evolution).
 
 This site is the reference manual. Every tool window inside the app has a
-`?` button that opens the matching page here.
+`?` button that opens the matching page here. The contents below follow the
+app's ribbon, so a tool sits in the same group here as it does on screen.
+
+## Contents
+
+<div class="tfs-index">
+
+### Design
 
 <CardGrid>
-  <Card title="Design" icon="pencil">
-    Build the layer stack, pick materials, set targets.
-    See **[Design Editor](/design/design-editor/)**.
-  </Card>
-  <Card title="Analyze" icon="magnifier">
-    Spectra, color, admittance, E-field, sensitivity, tolerancing.
-    Start with **[Optical Evaluation](/analysis/optical-evaluation/)**.
-  </Card>
-  <Card title="Synthesize" icon="rocket">
-    Refinement, Needle, Gradual Evolution, Structural.
-    See **[Optimization Methods](/synthesis/optimization-methods/)**.
-  </Card>
-  <Card title="Simulate" icon="setting">
-    Broadband / monochromatic monitoring, process deposition.
-    See **[BBM Simulator](/simulation/bbm-simulator/)**.
-  </Card>
+  <LinkCard title="Design Editor" href="/design/design-editor/" description="Build and edit the coating: layer stack, substrate, media, and the surface you are designing." />
+  <LinkCard title="Material Editor" href="/design/material-editor/" description="Browse, import and create optical materials: the n(λ), k(λ) data every coating layer uses." />
+  <LinkCard title="Specification" href="/design/specification/" description="State your design requirements as PASS/FAIL qualifiers, and turn them into a merit function." />
+  <LinkCard title="Stack Formula" href="/design/stack-formula/" description="Generate a whole layer stack from a compact symbolic formula like Air | (HL)^4 H | Glass." />
 </CardGrid>
+
+### Analysis
+
+<CardGrid>
+  <LinkCard title="Optical Evaluation" href="/analysis/optical-evaluation/" description="Spectral reflectance, transmittance and absorptance of the active design." />
+  <LinkCard title="Color Evaluation" href="/analysis/color-evaluation/" description="CIE chromaticity, Lab and color readouts that show what your coating looks like to the eye." />
+  <LinkCard title="Admittance Diagram" href="/analysis/admittance/" description="The optical admittance locus through the stack, and the design intuition it gives at a glance." />
+  <LinkCard title="Electric Field" href="/analysis/efield/" description="The |E(z)|² standing-wave profile through the stack." />
+  <LinkCard title="Ellipsometry" href="/analysis/ellipsometry/" description="Ψ and Δ, the amplitude-ratio and phase quantities an ellipsometer measures." />
+  <LinkCard title="GD / GDD" href="/analysis/gd-gdd/" description="Spectral phase and its derivatives, the diagnostics for chirped mirrors and ultrafast coatings." />
+  <LinkCard title="RI Profile" href="/analysis/refractive-index-profile/" description="n(z) and k(z), the index step profile of the stack at a chosen wavelength." />
+  <LinkCard title="Integral Values" href="/analysis/integral-values/" description="Weighted spectral averages such as Tvis, Tsol, TUV and TNIR." />
+  <LinkCard title="Plot Engine" href="/analysis/plot-engine/" description="Build custom multi-curve XY plots, or map a quantity over two swept variables." />
+</CardGrid>
+
+#### Tolerance
+
+<CardGrid>
+  <LinkCard title="Monte-Carlo" href="/analysis/error-analysis/" description="See how random manufacturing errors blur your spectrum and what yield to expect." />
+  <LinkCard title="Layer Sensitivity" href="/analysis/layer-sensitivity/" description="See which layers are the most critical to manufacture accurately." />
+  <LinkCard title="Inhomogeneities" href="/analysis/inhomogeneities/" description="Model graded transition layers and see how a non-step interface changes your spectrum." />
+  <LinkCard title="Systematic Deviations" href="/analysis/systematic-deviations/" description="Apply a correlated thickness or index shift across the whole stack and sweep its effect." />
+  <LinkCard title="Roughness / Scattering" href="/analysis/roughness-scattering/" description="Estimate scatter loss from interface roughness and the specular R and T that survive it." />
+</CardGrid>
+
+### Optimization
+
+<CardGrid>
+  <LinkCard title="Merit Function Editor" href="/design/merit-function-editor/" description="Targets, operands, weights and thickness constraints: what the optimizer drives toward." />
+  <LinkCard title="Operand Reference" href="/design/operands/" description="Every merit-function operand: what it computes, its arguments, and how it drives the optimizer." />
+  <LinkCard title="Refinement" href="/synthesis/refinement/" description="Adjust layer thicknesses to minimize the merit function, with a choice of optimization methods." />
+  <LinkCard title="Needle" href="/synthesis/needle/" description="Insert thin needle layers where they improve the merit function, then refine. Automatic and manual." />
+  <LinkCard title="Gradual Evolution" href="/synthesis/gradual-evolution/" description="Needle optimization wrapped in an outer loop that forces insertions to escape local minima." />
+  <LinkCard title="Structural Optimizer" href="/synthesis/structural-optimizer/" description="Restructure the stack by adding, removing, splitting, merging or perturbing layers, with a simulated-annealing accept." />
+  <LinkCard title="Variator" href="/design/variator/" description="Live sliders for what-if exploration: per-layer thickness, substrate, and per-material n/k." />
+  <LinkCard title="Design Cleaner" href="/synthesis/design-cleaner/" description="Merge adjacent same-material layers and remove very thin layers, then optionally re-refine." />
+  <LinkCard title="Filter Design" href="/synthesis/wdm-wizard/" description="Build a multi-cavity Fabry-Perot bandpass prototype (DWDM, LWDM or notch) in a few guided steps." />
+  <LinkCard title="Optimization Methods" href="/synthesis/optimization-methods/" description="Every refinement and synthesis algorithm: what each does and when to pick it." />
+</CardGrid>
+
+### Simulation
+
+<CardGrid>
+  <LinkCard title="BBM Simulator" href="/simulation/bbm-simulator/" description="Simulate making your coating under a broadband optical monitor and see the as-built spectrum." />
+  <LinkCard title="Mono Simulator" href="/simulation/mono-simulator/" description="Simulate a single-wavelength monitor, with turning-point, level or timed cut strategies per layer." />
+</CardGrid>
+
+### Data Exchange
+
+<CardGrid>
+  <LinkCard title="Measured Spectra" href="/data-exchange/measured-spectra/" description="Import measured R/T/A spectra as overlays, and export curves to CSV or JCAMP-DX." />
+  <LinkCard title="Zemax Coatings" href="/data-exchange/zemax-coatings/" description="Read and write Zemax OpticStudio COATING.DAT, including materials and coating stacks." />
+  <LinkCard title="Process Exporter" href="/simulation/process-simulator/" description="Play back your coating layer by layer and export per-step deposition data." />
+</CardGrid>
+
+### Information
+
+<CardGrid>
+  <LinkCard title="Report Generator" href="/data-exchange/report-generator/" description="Build a polished multi-section HTML or PDF report to hand a customer or file with a design." />
+</CardGrid>
+
+### Edit
+
+<CardGrid>
+  <LinkCard title="History" href="/design/history/" description="Browse and jump to any previous state of the active design." />
+</CardGrid>
+
+### Concepts
+
+<CardGrid>
+  <LinkCard title="Surface & Evaluation Modes" href="/design/evaluation-modes/" description="The two controls that decide which coating is optimized and what every window evaluates." />
+</CardGrid>
+
+</div>
 
 ## Conventions used throughout this manual
 

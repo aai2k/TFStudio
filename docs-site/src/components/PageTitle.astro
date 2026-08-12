@@ -7,7 +7,10 @@
 // Pages without `ribbonIcon` fall back to the plain title.
 import { ICONS } from './ribbon-icons.js';
 
-const data = Astro.props.entry?.data ?? {};
+// Route data lives on `Astro.locals.starlightRoute`; older Starlight releases
+// passed the same shape as component props.
+const route = Astro.locals.starlightRoute ?? Astro.props;
+const data = route?.entry?.data ?? {};
 const ribbonIcon = data.ribbonIcon;
 const iconSvg = ribbonIcon ? ICONS[ribbonIcon] : null;
 ---

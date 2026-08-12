@@ -1,6 +1,6 @@
 ---
 title: Color Evaluation
-description: CIE chromaticity, Lab and color readouts — what your coating looks like to the eye.
+description: CIE chromaticity, Lab and color readouts that show what your coating looks like to the eye.
 ribbonIcon: color-eval
 ---
 
@@ -8,7 +8,7 @@ Color Evaluation turns a coating's spectrum into a perceived color. It takes the
 reflectance or transmittance across the visible range, weights it by a standard
 observer and illuminant, and reports where the result sits on the CIE
 chromaticity diagram along with a color swatch and a full set of color-space
-values. Use it to predict the visible appearance of a coating — the tint of an
+values. Use it to predict the visible appearance of a coating: the tint of an
 antireflection film, the hue of a decorative mirror, or how a filter shifts
 color with viewing angle.
 
@@ -18,27 +18,27 @@ colorimetric integral, so the color matches the curves shown in
 
 ## Settings
 
-**Characteristic** — compute the color of reflected (R) or transmitted (T)
+**Characteristic**: compute the color of reflected (R) or transmitted (T)
 light.
 
-**Polarization** — average, s, or p. Average is the usual choice for unpolarized
+**Polarization**: average, s, or p. Average is the usual choice for unpolarized
 illumination.
 
-**AOI** — the viewing angle in degrees. Sweep this to see how an iridescent
+**AOI**: the viewing angle in degrees. Sweep this to see how an iridescent
 coating shifts color with incidence.
 
-**Observer** — the CIE color-matching functions: the 1931 2° observer for small
+**Observer**: the CIE color-matching functions: the 1931 2° observer for small
 fields or the 1964 10° observer for larger fields.
 
-**Illuminant** — the light source the color is computed under: daylight (D65,
+**Illuminant**: the light source the color is computed under: daylight (D65,
 D50), incandescent (A), and equal-energy (E).
 
-**Step** — the wavelength sampling interval in nm for the color integral. A
+**Step**: the wavelength sampling interval in nm for the color integral. A
 finer step improves accuracy on coatings with sharp spectral features.
 
-**Exposure** — the brightness of the color swatch only. By default the swatch is
-scaled against a perfect white reflector, so a very dim reflection — such as the
-residual color of a strong antireflection coating — renders almost black even
+**Exposure**: the brightness of the color swatch only. By default the swatch is
+scaled against a perfect white reflector, so a very dim reflection (such as the
+residual color of a strong antireflection coating) renders almost black even
 when its hue is highly saturated. Raise the exposure (×10 up to ×1000) or choose
 **Fit hue** to rescale the swatch and reveal the hue at full brightness. The
 numeric readout does not change; only the swatch is re-exposed. This mirrors what
@@ -70,6 +70,6 @@ the threshold of a just-noticeable difference.
 
 ## References
 
-- CIE 15:2004 — *Colorimetry*, 3rd ed.
-- Sharma, Wu, Dalal, *Color Res. Appl.* **30**, 21 (2005) — CIEDE2000.
+- CIE 15:2004, *Colorimetry*, 3rd ed.
+- Sharma, Wu, Dalal, *Color Res. Appl.* **30**, 21 (2005), CIEDE2000.
 - H. A. Macleod, *Thin-Film Optical Filters*, 5th ed., §12.2 (Eqs. 12.1–12.5).

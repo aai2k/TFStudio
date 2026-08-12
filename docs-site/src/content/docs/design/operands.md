@@ -1,6 +1,6 @@
 ---
 title: Operand Reference
-description: Every merit-function operand — what it computes, the arguments it takes, the value it outputs, and how it drives the optimizer.
+description: "Every merit-function operand: what it computes, the arguments it takes, the value it outputs, and how it drives the optimizer."
 ribbonIcon: merit-function
 ---
 
@@ -18,7 +18,7 @@ MF = √( Σ_i  wᵢ · residualᵢ²  /  Σ_i wᵢ )
 
 Note the weight `wᵢ` is applied **linearly** (not squared). In the
 least-squares solver each residual enters as `√wᵢ · residualᵢ`, whose square is
-`wᵢ · residualᵢ²` — consistent with the formula above.
+`wᵢ · residualᵢ²`: consistent with the formula above.
 
 The **residual** depends on the operand class:
 
@@ -47,9 +47,9 @@ MF = √( Σ wᵢ · (residualᵢ / σᵢ)²  /  Σ wᵢ )
 
 | Operand class                       | σ          | Effect                                   |
 | ----------------------------------- | ---------- | ---------------------------------------- |
-| All fraction-unit (T/R/A, averages, integrals, worst-case, spectral-target RMS, math) | **1**      | unchanged — pure-optical MFs are identical to before |
+| All fraction-unit (T/R/A, averages, integrals, worst-case, spectral-target RMS, math) | **1**      | unchanged, pure-optical MFs are identical to before |
 | Argwave (`MXW*` / `MNW*`, nm)       | **500 nm** | 5 nm wavelength miss ≈ 1 % optical miss  |
-| Thickness (`TT`, `MNT`, `MXT`, nm)  | **1** (raw nm) | kept "hard" — a violated manufacturing bound still dominates and is fixed first |
+| Thickness (`TT`, `MNT`, `MXT`, nm)  | **1** (raw nm) | kept "hard": a violated manufacturing bound still dominates and is fixed first |
 | Ellipsometry `PSI` / `DEL` (deg)    | **90 / 180** | ~1° miss ≈ 1 % optical miss              |
 | Group delay `GD*` / `GDD*` (fs, fs²)| **50**     | a ~0.5 fs / fs² miss ≈ 1 % optical miss   |
 | `TANPSI`, `COSDEL`, `EFMX` (O(1))   | **1**      | already comparable to an optical fraction |
@@ -65,9 +65,9 @@ operand type** (the column header updates to match the focused row):
 | Column        | Optical / band / integral / worst-case | Argwave (MXW*/MNW*) | Constraints (MNT/MXT) | Total thickness (TT) | Math (OPGT…PROD) |
 | ------------- | -------------------------------------- | ------------------- | --------------------- | -------------------- | ---------------- |
 | **λ / Start** | start wavelength (nm)                  | band start (nm)     | first layer index     | comparison (≤ ≥ =)   | referenced Op #  |
-| **End**       | end wavelength (nm), band types only   | band end (nm)       | last layer index      | —                    | second Op # (pair ops) |
-| **AOI (°)**   | angle of incidence                     | AOI                 | —                     | —                    | inherited from ref |
-| **Pol**       | `avg` / `s` / `p`                      | pol                 | —                     | —                    | inherited from ref |
+| **End**       | end wavelength (nm), band types only   | band end (nm)       | last layer index      | n/a                  | second Op # (pair ops) |
+| **AOI (°)**   | angle of incidence                     | AOI                 | n/a                   | n/a                  | inherited from ref |
+| **Pol**       | `avg` / `s` / `p`                      | pol                 | n/a                   | n/a                  | inherited from ref |
 | **Target**    | desired value (see units below)        | desired λ (nm)      | bound (nm)            | total (nm)           | desired value (ref units) |
 | **Weight**    | relative importance (linear)           | weight              | weight                | weight               | weight           |
 | **Current**   | live computed value                    | computed λ (nm)     | min/max layer (nm)    | Σ thickness (nm)     | computed value   |
@@ -87,7 +87,7 @@ index.
 
 ---
 
-## Optical — single wavelength
+## Optical: single wavelength
 
 Evaluated at exactly one wavelength (`λ / Start`).
 
@@ -99,10 +99,10 @@ Evaluated at exactly one wavelength (`λ / Start`).
 
 Residual: `value − target` (two-sided). Legacy files may contain the
 polarization-suffixed forms `TS/TP/RS/RP/AS/AP`; they still evaluate (the
-suffix sets the polarization) but are no longer offered in the dropdown — use
+suffix sets the polarization) but are no longer offered in the dropdown; use
 the *Pol* column instead.
 
-## Optical — band average (single target)
+## Optical: band average (single target)
 
 Sampled on a uniform grid across `[λStart, λEnd]` (~2 nm spacing, clamped to
 13…201 points), then **averaged to one number**.
@@ -113,11 +113,11 @@ Sampled on a uniform grid across `[λStart, λEnd]` (~2 nm spacing, clamped to
 | `RAV` | Mean R over the band        | %           | mean R ∈ [0,1] |
 | `AAV` | Mean A over the band        | %           | mean A ∈ [0,1] |
 
-Residual: `mean − target` (two-sided). **`TAV/RAV/AAV` are pure averages** —
+Residual: `mean − target` (two-sided). **`TAV/RAV/AAV` are pure averages**:
 one target = the average level over the whole band. For a per-wavelength target
 line use the spectral-target operands below.
 
-## Spectral target — flat or linear ramp
+## Spectral target: flat or linear ramp
 
 A per-wavelength **target line** across the band. `Target` holds two values
 entered as `start→end` (e.g. `50→50` for a flat 50 % line, `0→100` for a
@@ -159,7 +159,7 @@ operand (default D65 × photopic).
 ## Worst-case (band extremum)
 
 Returns the **true extremum** of the spectrum over the band, sampled on a dense
-~1 nm grid. The residual is one-sided — inert until the worst case violates the
+~1 nm grid. The residual is one-sided, inert until the worst case violates the
 spec.
 
 | Type  | Computes                    | Spec it enforces       | Residual                |
@@ -177,7 +177,7 @@ optimizer uses the single argmin/argmax wavelength as the subgradient.
 ## Argmax / argmin wavelength
 
 Sample C(λ) over the band, find the extremum, and refine it with a 3-point
-parabolic fit. **Output is the wavelength (nm)** at that extremum — not the
+parabolic fit. **Output is the wavelength (nm)** at that extremum, not the
 T/R/A value.
 
 | Type   | Computes                        | Target unit | Output  |
@@ -211,15 +211,15 @@ on the front surface.
 ### Ellipsometry
 
 Evaluated at one wavelength (`λ / Start`). Ψ and Δ come from the complex ratio
-ρ = r_p / r_s = tan Ψ · e^{iΔ}, so they use **both** polarizations — the *Pol*
+ρ = r_p / r_s = tan Ψ · e^{iΔ}, so they use **both** polarizations and the *Pol*
 column does not apply.
 
 | Type     | Computes                     | Target unit | Output          |
 | -------- | ---------------------------- | ----------- | --------------- |
 | `PSI`    | Ellipsometric Ψ at λ         | deg         | Ψ ∈ [0°, 90°]   |
 | `DEL`    | Ellipsometric Δ at λ         | deg         | Δ ∈ [0°, 360°)  |
-| `TANPSI` | tan Ψ (ellipsometer-native)  | —           | ≥ 0             |
-| `COSDEL` | cos Δ (ellipsometer-native)  | —           | [−1, 1]         |
+| `TANPSI` | tan Ψ (ellipsometer-native)  | none        | ≥ 0             |
+| `COSDEL` | cos Δ (ellipsometer-native)  | none        | [−1, 1]         |
 
 Residual: `value − target` (two-sided). Use `PSI`/`DEL` to match a measured
 ellipsometric spectrum, or to force a specific reflection-phase relationship.
@@ -230,7 +230,7 @@ Reflection group delay `GD = −dφ/dω` (fs) and its dispersion `GDD = −d²φ
 (fs²), for chirped-mirror and ultrafast-coating design. Point operands report
 the value at `λ / Start`; the `*FLAT` operands report the **RMS deviation** of
 GD/GDD from a flat target level across `[λStart, λEnd]` (a "GDD = const" spec).
-The *Pol* column selects s or p (`avg` averages the two — identical at normal
+The *Pol* column selects s or p (`avg` averages the two, which are identical at normal
 incidence).
 
 | Type      | Computes                              | Target unit | Output              |
@@ -249,10 +249,10 @@ frequency ω (Macleod Ch. 11).
 
 | Type   | Computes                                   | Target unit | Output |
 | ------ | ------------------------------------------ | ----------- | ------ |
-| `EFMX` | Peak normalized \|E\|² anywhere in coating | —           | ≥ 0    |
+| `EFMX` | Peak normalized \|E\|² anywhere in coating | none        | ≥ 0    |
 
 Evaluated at `λ / Start`; the *Pol* column selects s or p (`avg` takes the
-larger of the two peaks — the damage-relevant one). Residual: `value − target`;
+larger of the two peaks, the damage-relevant one). Residual: `value − target`;
 with the default target 0 it monotonically **minimizes** the peak field, the
 usual laser-damage-threshold objective.
 
@@ -282,7 +282,7 @@ pattern where a target row references a measurement row by its operand number.
 
 The Specification window's "Generate MF" emits, for each `≥`/`≤` spec, a
 zero-weight measurement row (`TAV`, `TMN`, …) plus an `OPGT`/`OPLT` row that
-references it — so the table reads "spec = 99 %, value = 99.5 %".
+references it, so the table reads "spec = 99 %, value = 99.5 %".
 
 ## Thickness operands
 
@@ -290,12 +290,12 @@ Act on **layer thicknesses**, not the spectrum.
 
 | Type  | λ / Start  | End        | Computes                        | Target unit | Residual                                    |
 | ----- | ---------- | ---------- | ------------------------------- | ----------- | ------------------------------------------- |
-| `TT`  | comparison | —          | Σ of all active layer thicknesses | nm        | `≤`/`≥` one-sided, or `=` two-sided         |
+| `TT`  | comparison | n/a        | Σ of all active layer thicknesses | nm        | `≤`/`≥` one-sided, or `=` two-sided         |
 | `MNT` | layer 1    | layer 2    | **min** thickness in layer range  | nm        | `max(0, target − minThk)` (≥ bound)         |
 | `MXT` | layer 1    | layer 2    | **max** thickness in layer range  | nm        | `max(0, maxThk − target)` (≤ bound)         |
 
 `MNT`/`MXT` layer ranges are **1-based layer indices**, clamped to the current
-stack — a generator can emit `End = 9999` to mean "every current and future
+stack, so a generator can emit `End = 9999` to mean "every current and future
 layer". During Needle / Gradual Evolution synthesis the thickness penalties are
 suppressed (the dMin floor + post-refine + Cleaner enforce bounds instead);
 they are active during Refinement.
@@ -304,7 +304,7 @@ they are active during Refinement.
 
 | Type   | Effect                                                              |
 | ------ | ------------------------------------------------------------------ |
-| `BLNK` | Inert annotation row carrying free text — contributes nothing.     |
+| `BLNK` | Inert annotation row carrying free text; contributes nothing.      |
 | `DMFS` | "Default merit function" sentinel marking a generated block start. |
 
 A freshly added row is a `BLNK` placeholder so it can't silently inject a stray

@@ -1,6 +1,6 @@
 ---
 title: Merit Function Editor
-description: Targets, operands, weights and thickness constraints — what the optimizer drives toward.
+description: "Targets, operands, weights and thickness constraints: what the optimizer drives toward."
 ribbonIcon: merit-function
 ---
 
@@ -18,13 +18,13 @@ The weight `w_i` enters linearly. The residual is `value − target` for an
 equality target, or a one-sided `max(0, …)` term for an inequality or
 constraint (so a satisfied constraint drops out of the sum entirely).
 Wavelength-valued residuals are rescaled to optical scale first so they don't
-dominate. A smaller MF is better; the optimizers — Refinement, Needle and
-Gradual Evolution — move layer thicknesses to reduce it.
+dominate. A smaller MF is better; the optimizers (Refinement, Needle and
+Gradual Evolution) move layer thicknesses to reduce it.
 
 ## Operand types
 
-The table below is a quick orientation. The full catalog — every type, its
-arguments, its output value and unit, and how it forms a residual — is on the
+The table below is a quick orientation. The full catalog (every type, its
+arguments, its output value and unit, and how it forms a residual) is on the
 [Operand Reference](/design/operands/) page.
 
 | Group                | Types                          | Output                       |
@@ -46,21 +46,21 @@ win.
 
 ## Settings
 
-**Filter-type wizard** — at the top, a set of coating categories (AR, HR,
+**Filter-type wizard**: at the top, a set of coating categories (AR, HR,
 bandpass, notch, edge filters, ramps). Pick the goal and the wizard fills in
 sensible weights and operands you can then refine. The **Custom target**
-category generates a single user-specified target — pick a channel (T/R/A), a
+category generates a single user-specified target. Pick a channel (T/R/A), a
 comparison (`=`, `≤`, `≥`), a value, and a wavelength range, at the chosen
-polarization and angle of incidence — as a continuous line, discrete points, or
+polarization and angle of incidence, as a continuous line, discrete points, or
 a worst-case bound.
 
-**Operand table** — one row per operand; edit any cell inline. The **Type**
+**Operand table**: one row per operand; edit any cell inline. The **Type**
 cell opens a searchable picker with the operands grouped by category (the same
 control as the Design Editor's material picker). The advanced columns set each
 operand's weight, angle of incidence, polarization and an optional surface-mode
 override.
 
-**Constraints** — set minimum and maximum layer-thickness bounds (`MNT`/`MXT`)
+**Constraints**: set minimum and maximum layer-thickness bounds (`MNT`/`MXT`)
 per layer or per material. A bound can be written to cover layers that
 synthesis will add later.
 
@@ -68,16 +68,16 @@ synthesis will add later.
 
 The header shows **two** numbers:
 
-- **MF** — the full merit function, including the manufacturing and thickness
+- **MF**: the full merit function, including the manufacturing and thickness
   constraints (`MNT`, `MXT`, `TT`).
-- **OMF** — the **optical merit function**: the same RMS but counting *only the
+- **OMF**: the **optical merit function**: the same RMS but counting *only the
   optical operands* (T/R/A targets, bands, and so on), with the thickness
   constraints dropped.
 
 They separate two questions the plain MF blurs together: *how good is the
 spectrum?* (OMF) versus *how good is the spectrum while honoring my thickness
 limits?* (MF). When MF is high but OMF is low, the optical performance is fine
-and it is a constraint — a too-thin or too-thick layer — costing you, not the
+and it is a constraint (a too-thin or too-thick layer) costing you, not the
 optics.
 
 ## How to read it
@@ -92,7 +92,7 @@ The operand list is saved with the design and is read by every optimizer:
 [Gradual Evolution](/synthesis/gradual-evolution/) and the
 [Structural Optimizer](/synthesis/structural-optimizer/). The synthesis tools
 optimize against the optical operands only while they build the stack, then the
-thickness constraints are enforced during Refinement — a good final sequence is
+thickness constraints are enforced during Refinement. A good final sequence is
 Refinement, then Cleaner, then Refinement again.
 
 ## References

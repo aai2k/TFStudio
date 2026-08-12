@@ -1,0 +1,131 @@
+/* TFStudio documentation theme.
+ *
+ * Starlight's stock palette tints every surface toward blue and fills buttons,
+ * links and the active sidebar row with a pale accent. The desktop app takes
+ * the opposite approach: surfaces stay neutral and chrome stays monochrome.
+ * The docs follow the same rule. The graphite ramp is neutral, type and
+ * buttons are white, and the brand violet appears only as a focus ring and a
+ * thin active-row marker.
+ */
+
+:root {
+  /* Brand violet, used sparingly. `accent-low` backs asides, so it is kept
+     near-neutral to avoid tinting large blocks. */
+  --sl-color-accent-low: #24252a;
+  --sl-color-accent: #7c5cff;
+  --sl-color-accent-high: #c9bcff;
+
+  /* Neutral graphite ramp, dark → light. The page sits near the app's
+     Charcoal theme, so long reading surfaces stay dark and raised elements
+     (nav, sidebar, cards) separate by lightening. */
+  --sl-color-white: #f6f7f8;
+  --sl-color-gray-1: #e4e5e7;
+  --sl-color-gray-2: #b6b9bd;
+  --sl-color-gray-3: #83878d;
+  --sl-color-gray-4: #4a4d51;
+  --sl-color-gray-5: #2c2e31;
+  --sl-color-gray-6: #1e1f21;
+  --sl-color-gray-7: #17181a;
+  --sl-color-black: #131415;
+}
+
+:root[data-theme='light'] {
+  --sl-color-accent-low: #e9eaee;
+  --sl-color-accent: #5b3fd9;
+  --sl-color-accent-high: #2b1a80;
+
+  --sl-color-white: #1f2329;
+  --sl-color-gray-1: #2b2f36;
+  --sl-color-gray-2: #4a4e55;
+  --sl-color-gray-3: #6b7280;
+  --sl-color-gray-4: #9aa0a6;
+  --sl-color-gray-5: #c9ccd0;
+  --sl-color-gray-6: #e6e7e9;
+  /* Page sits on the app's light `bg` and raised surfaces are white, rather
+     than the page itself being pure white. */
+  --sl-color-gray-7: #ffffff;
+  --sl-color-black: #f2f3f5;
+}
+
+/* Type and chrome read as plain white on dark (and plain near-black on light)
+   instead of tinted accent. `--sl-color-text-accent` drives links, the site
+   title and the active sidebar row, so overriding it here covers all three. */
+:root,
+:root[data-theme='light'] {
+  --sl-color-text-accent: var(--sl-color-white);
+  --sl-color-bg-sidebar: var(--sl-color-gray-7);
+}
+
+/* Links lose their color cue once they are white, so they carry a rule
+   instead: a muted underline that solidifies on hover. */
+.sl-markdown-content a:not(:where(.not-content *)) {
+  color: var(--sl-color-white);
+  text-decoration: underline;
+  text-decoration-color: var(--sl-color-gray-4);
+  text-underline-offset: 0.2em;
+}
+
+.sl-markdown-content a:not(:where(.not-content *)):hover {
+  text-decoration-color: currentColor;
+}
+
+/* Buttons: white fill for the primary action, outline for the secondary. */
+.sl-link-button.primary {
+  background: var(--sl-color-white);
+  color: var(--sl-color-black);
+  border-color: transparent;
+}
+
+.sl-link-button.primary:hover,
+.sl-link-button.primary:focus-visible {
+  background: var(--sl-color-gray-2);
+  color: var(--sl-color-black);
+}
+
+.sl-link-button.secondary {
+  background: transparent;
+  color: var(--sl-color-white);
+  border-color: var(--sl-color-gray-4);
+}
+
+.sl-link-button.secondary:hover,
+.sl-link-button.secondary:focus-visible {
+  border-color: var(--sl-color-white);
+  color: var(--sl-color-white);
+}
+
+/* Active sidebar row: a quiet raised surface with a violet marker, rather
+   than a filled pill. */
+.sidebar-content a[aria-current='page'],
+.sidebar-content a[aria-current='page']:hover,
+.sidebar-content a[aria-current='page']:focus {
+  background-color: var(--sl-color-gray-6);
+  color: var(--sl-color-white);
+  font-weight: 600;
+  box-shadow: inset 2px 0 0 var(--sl-color-accent);
+}
+
+/* Section headings in the sidebar carry the ribbon-group weight they have in
+   the app, so the tool groups scan as groups. */
+.sidebar-content > ul > li > details > summary,
+.sidebar-content > ul > li > span.large {
+  font-weight: 600;
+  letter-spacing: 0.01em;
+  color: var(--sl-color-white);
+}
+
+/* Landing-page index: tighten the card grid so all the groups stay scannable
+   without the page turning into an endless column of boxes. */
+.tfs-index .card {
+  padding: 0.9rem 1rem;
+}
+
+.tfs-index .card .title {
+  font-size: var(--sl-text-base);
+  line-height: 1.3;
+}
+
+.tfs-index .card .body {
+  font-size: var(--sl-text-sm);
+  color: var(--sl-color-gray-3);
+}

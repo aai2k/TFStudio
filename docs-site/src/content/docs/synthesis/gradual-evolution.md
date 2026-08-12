@@ -19,40 +19,40 @@ repeats for the number of cycles you set.
 
 ## Settings
 
-**Candidate materials** — the pool of materials Gradual Evolution may insert.
+**Candidate materials**: the pool of materials Gradual Evolution may insert.
 **All / Clear** select or empty the pool in one click.
 
-**Max layers** — an upper limit on how many layers the design may grow to.
+**Max layers**: an upper limit on how many layers the design may grow to.
 
-**Target MF** — stop once the merit function reaches this value (0 means run
+**Target MF**: stop once the merit function reaches this value (0 means run
 all cycles).
 
 The advanced section exposes the synthesis tuning:
 
-**Refine iterations** — how many refinement steps run after each forced
+**Refine iterations**: how many refinement steps run after each forced
 insertion.
 
-**dMin (nm)** — the insertion floor and prune threshold. Gradual Evolution can
+**dMin (nm)**: the insertion floor and prune threshold. Gradual Evolution can
 push below the minimum thickness limit during its forced step, which is part of
 how it escapes a tight minimum.
 
-**GE cycles** — the number of outer cycles (needle-opt plus a forced step);
+**GE cycles**: the number of outer cycles (needle-opt plus a forced step);
 typically 20–60.
 
-**Inner refiner** — which method refines the stack between steps. See
+**Inner refiner**: which method refines the stack between steps. See
 [Optimization Methods](/synthesis/optimization-methods/) for the choices.
 
-**Candidate search** — how thoroughly each step explores improving candidates
+**Candidate search**: how thoroughly each step explores improving candidates
 (fast, balanced, or thorough).
 
-**Seed mode** — whether to refine the starting stack first or preserve its bulk
+**Seed mode**: whether to refine the starting stack first or preserve its bulk
 before growing, which matters when you begin from a thick seed design.
 
 ## How to read it
 
 The **design series** is a sortable table of every accepted state, each with
 its merit function and layer count. The **Pareto chart** plots merit against
-layer count — look for the knee, where adding more layers stops buying much
+layer count. Look for the knee, where adding more layers stops buying much
 improvement, rather than chasing the absolute minimum merit. **Best** restores
 the all-time-best design, and you can **Restore** any earlier state from the
 series.

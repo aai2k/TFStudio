@@ -1,11 +1,11 @@
 ---
 title: Report Generator
-description: Build a polished multi-section HTML or PDF report — the deliverable you hand a customer or file with a design.
+description: Build a polished multi-section HTML or PDF report, the deliverable you hand a customer or file with a design.
 ribbonIcon: report-gen
 ---
 
 The **Report Generator** builds a production-quality document that gathers the
-analyses you choose — the kind of artifact a coating engineer hands to a
+analyses you choose, the kind of artifact a coating engineer hands to a
 customer or files in a design package. The output is a self-contained **HTML or
 PDF** file, available in **English or Russian**, and it reuses the same
 validated calculation engines as the analysis windows, so every number in the
@@ -16,29 +16,29 @@ Open it from the **Report** button in the Information ribbon group, or from
 
 ## Settings
 
-**Step 1 — Scope.** Report on the current design, or on several designs as a
+**Step 1: Scope.** Report on the current design, or on several designs as a
 **comparison** report. This step also holds the cover-page fields: title,
 customer, project, designer, date, and an optional logo.
 
-**Step 2 — Sections.** Tick the sections to include and reorder them with the
+**Step 2: Sections.** Tick the sections to include and reorder them with the
 ▲ / ▼ buttons. Available sections include the cover, design summary (layer
 table and totals), optical evaluation, color, refractive-index profile, |E|²
 field profile, ellipsometry (Ψ/Δ), integral values, the qualifiers verdict,
 merit operands, and free-text notes.
 
-**Step 3 — Options.** Per-section settings: wavelength and angle-of-incidence
+**Step 3: Options.** Per-section settings: wavelength and angle-of-incidence
 ranges, which curves (T / R / A) and data tables to include, the color
 illuminant, optional `n / OT / QWOT / FWOT` layer columns, and tabulated
 material n,k. Sections that need no options are skipped here.
 
-**Step 4 — Language.** Generate the report in English or Russian; this sets
+**Step 4: Language.** Generate the report in English or Russian; this sets
 all headings, axis labels, and table headers.
 
-**Step 5 — Output.** Choose a single self-contained **HTML** file or a
-print-quality **PDF**. This step also manages **presets** — save the current
+**Step 5: Output.** Choose a single self-contained **HTML** file or a
+print-quality **PDF**. This step also manages **presets**: save the current
 report configuration under a name and reload it later.
 
-**Step 6 — Preview & Generate.** A live preview of the finished report; press
+**Step 6: Preview & Generate.** A live preview of the finished report; press
 generate to export it.
 
 Plots are drawn as inline vector graphics, so the report looks identical in the
@@ -47,7 +47,7 @@ are stored in your `Documents\TFStudio` folder.
 
 ## How to read it
 
-The generated report is the deliverable, not an analysis tool — read it the way
+The generated report is the deliverable, not an analysis tool, so read it the way
 your customer will. Use the comparison scope when you want one document that
 puts several candidate designs side by side. Because the report pulls its
 numbers straight from the same engines as the

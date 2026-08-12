@@ -5,7 +5,7 @@ ribbonIcon: stack-formula
 ---
 
 **Stack Formula** generates a complete layer stack from a compact symbolic
-expression — the shorthand a coating engineer already thinks in. You type a
+expression, the shorthand a coating engineer already thinks in. You type a
 formula, watch the parsed stack and its spectrum preview update live, then apply
 it to the design.
 
@@ -33,21 +33,21 @@ written between the two bars.
 
 ## Settings
 
-**Reference wavelength** — the wavelength at which the quarter-wave
+**Reference wavelength**: the wavelength at which the quarter-wave
 coefficients are converted to physical thickness.
 
-**Symbol assignments** — a list mapping each symbol used in the formula to a
+**Symbol assignments**: a list mapping each symbol used in the formula to a
 material. `H`/`L`/`M` are pre-filled; any unknown symbol you type is surfaced
 automatically with a material picker, and you can add, rename or remove rows.
 
-**Incident / Substrate / Exit media** — the media that bound the coating. The
+**Incident / Substrate / Exit media**: the media that bound the coating. The
 front coating is bounded by the incident medium and the substrate; the back
 coating by the substrate and the exit medium.
 
-**Start from substrate** — reads the formula from the substrate outward instead
+**Start from substrate**: reads the formula from the substrate outward instead
 of from the incident medium inward.
 
-**Apply to side** — choose whether the formula populates the front coating, the
+**Apply to side**: choose whether the formula populates the front coating, the
 back coating, or both. (A symmetric design always writes the front and mirrors
 it to the back.)
 

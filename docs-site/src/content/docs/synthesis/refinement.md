@@ -5,7 +5,7 @@ ribbonIcon: refinement
 ---
 
 **Refinement** moves your layer thicknesses to minimize the merit function.
-It never adds or removes layers — only their thicknesses change. This is the
+It never adds or removes layers; only their thicknesses change. This is the
 everyday workhorse: fast, robust, and the natural finishing pass after any
 synthesis run or hand edit.
 
@@ -22,20 +22,20 @@ For a description of each method and guidance on when to choose it, see
 
 ## Settings
 
-**Method** — the optimizer to run: SQP, Damped Least Squares, Conjugate
+**Method**: the optimizer to run: SQP, Damped Least Squares, Conjugate
 Gradient, Newton, Newton-CG, DLS multi-start, Differential Evolution,
-Simulated Annealing, or **Try all — keep best**. Your choice is remembered
+Simulated Annealing, or **Try all, keep best**. Your choice is remembered
 across designs.
 
-**Max iter** — the most steps the optimizer may take. The run still stops
+**Max iter**: the most steps the optimizer may take. The run still stops
 early when it converges, so this is just a cap. It defaults to a sensible
 budget for the selected method.
 
-**Restarts (N)** — for DLS multi-start only: how many randomly perturbed
+**Restarts (N)**: for DLS multi-start only: how many randomly perturbed
 starts to run before keeping the best (typically 4–8, or more for a tough
 surface).
 
-**Perturbation** — for DLS multi-start only: how much to jitter each layer's
+**Perturbation**: for DLS multi-start only: how much to jitter each layer's
 thickness (as a percentage) at the start of every restart.
 
 The surface mode and merit-evaluation mode in effect are shown as badges on
@@ -45,7 +45,7 @@ the window.
 
 While the run is live you see the spectrum update and a running merit-function
 readout (current value, best so far, and the starting value). The **MF trend**
-chart plots the best merit found against iteration on a logarithmic axis — a
+chart plots the best merit found against iteration on a logarithmic axis. A
 steadily falling curve that flattens out means the method has settled into a
 minimum.
 

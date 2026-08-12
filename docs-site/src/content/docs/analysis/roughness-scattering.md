@@ -19,13 +19,13 @@ stacks.
 
 ## Settings
 
-**λ range / step** — the wavelength grid, in nanometres.
+**λ range / step**: the wavelength grid, in nanometres.
 
-**AOI / pol** — angle of incidence and polarization (s, p, or averaged).
+**AOI / pol**: angle of incidence and polarization (s, p, or averaged).
 
-**ppm / frac** — the units for the TIS axis: parts per million or fraction.
+**ppm / frac**: the units for the TIS axis: parts per million or fraction.
 
-**Roughness model** — choose **Uniform σ** to apply the same roughness to every
+**Roughness model**: choose **Uniform σ** to apply the same roughness to every
 interface, or **Per-interface** to set each one individually in the table. In
 uniform mode a single σ field and slider drive every interface; in per-interface
 mode each interface is listed (named by the two media it separates) with its own
@@ -41,7 +41,7 @@ shows the specular R and T after scatter loss as solid lines, with the ideal
 the roughness costs. The right axis shows TIS(λ) on its own ppm or fraction
 scale.
 
-Scatter loss rises sharply toward short wavelengths — TIS scales as 1/λ² — so a
+Scatter loss rises sharply toward short wavelengths (TIS scales as 1/λ²), so a
 roughness that is harmless in the infrared can be serious in the ultraviolet. The
 toolbar reports the effective roughness σ_eff and the number of interfaces
 contributing to it, and the sidebar summarizes TIS at the band edges.

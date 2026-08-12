@@ -6,7 +6,7 @@ ribbonIcon: history
 
 The **History** window lists every recorded state of the active design and lets
 you jump to any of them. It is the same per-design timeline that backs Ctrl+Z
-and Ctrl+Y, shown as a clickable list — a generalized undo/redo. Click any row
+and Ctrl+Y, shown as a clickable list, a generalized undo/redo. Click any row
 and the design returns to that exact state; the past and future are rebuilt
 around your choice so undo and redo keep working from there.
 
@@ -22,7 +22,7 @@ States are listed newest first, and the current state is highlighted.
 | **MF**     | Merit-function value at that snapshot.         |
 
 The Layers and MF columns let you spot where the design changed and how the
-merit moved — for example, the moment a synthesis run added layers and dropped
+merit moved: for example, the moment a synthesis run added layers and dropped
 the merit. A row with no operands defined shows a dash for MF.
 
 The timeline holds up to 50 states per design and is saved with the project, so

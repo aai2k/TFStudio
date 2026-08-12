@@ -4,9 +4,9 @@ description: Play back your coating layer by layer, watch the spectrum build up,
 ribbonIcon: process-sim
 ---
 
-The **Process Exporter** plays your coating back one layer at a time — the
+The **Process Exporter** plays your coating back one layer at a time (the
 spectrum after layer 1 is finished, after layer 2, and so on to the complete
-design — so you can see exactly what the in-chamber spectrophotometer will
+design), so you can see exactly what the in-chamber spectrophotometer will
 measure as the stack grows. It also exports per-step **`.res` deposition
 files** that deposition-monitoring software can load directly, one file per
 layer.
@@ -23,31 +23,31 @@ the spectrometer would really see.
 The top toolbar holds the setup; the left sidebar lists the deposition
 sequence and per-material rates.
 
-**Active side** — which coating is being deposited, front or back.
+**Active side**: which coating is being deposited, front or back.
 
-**Opposite-surface state** — whether the other surface is bare or already
+**Opposite-surface state**: whether the other surface is bare or already
 coated for the whole run.
 
-**Quantity** — measure reflectance, transmittance, or absorptance.
+**Quantity**: measure reflectance, transmittance, or absorptance.
 
-**Angle of incidence** and **polarization** — the standard analysis controls
+**Angle of incidence** and **polarization**: the standard analysis controls
 (s, p, or average).
 
-**Spectral range** — the wavelength start, end, and step for the interactive
+**Spectral range**: the wavelength start, end, and step for the interactive
 chart. A coarse step keeps scrubbing responsive.
 
-**Export step** — the wavelength step written into the `.res` files; set it to
+**Export step**: the wavelength step written into the `.res` files; set it to
 match your spectrophotometer's grid (for example 0.4375 nm).
 
-**Show step curves** — toggle the per-layer finished-spectrum overlays.
+**Show step curves**: toggle the per-layer finished-spectrum overlays.
 
-**Deposition rates** — an optional per-material rate (nm/s) in the sidebar.
+**Deposition rates**: an optional per-material rate (nm/s) in the sidebar.
 Rates only shape the time axis of the timeline; they do not change the
 spectrum. The sequence table shows each layer's thickness and time, with the
 current layer highlighted. Your setup choices and rates are remembered between
 sessions.
 
-**Save** — pick an output folder; one `.res` file is written per completed
+**Save**: pick an output folder; one `.res` file is written per completed
 deposition step (`01.res`, `02.res`, …). Each file carries a header and a
 per-layer table of physical and optical thickness; layers are numbered in
 deposition order, with layer 1 being the first deposited (the one touching the

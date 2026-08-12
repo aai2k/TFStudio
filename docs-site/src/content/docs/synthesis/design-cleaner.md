@@ -16,24 +16,24 @@ Locked layers are never merged or removed.
 
 ## Settings
 
-**Minimum thickness (nm)** — layers thinner than this are removed (typically
+**Minimum thickness (nm)**: layers thinner than this are removed (typically
 1–5 nm; raise it to your manufacturing minimum for a final pass).
 
-**Merge adjacent** — combine neighbouring layers of the same material into a
+**Merge adjacent**: combine neighbouring layers of the same material into a
 single layer.
 
-**Clean back** — apply the same cleanup to the back-surface stack.
+**Clean back**: apply the same cleanup to the back-surface stack.
 
-**Re-optimize after** — run a Refinement pass on the cleaned design to recover
+**Re-optimize after**: run a Refinement pass on the cleaned design to recover
 any merit lost to the structural change (on by default).
 
-**Refine iterations** — how many refinement steps the post-clean pass runs
+**Refine iterations**: how many refinement steps the post-clean pass runs
 (default 80).
 
 ## How to read it
 
-The **operations preview** lists exactly what will change before you commit —
-for example removing a thin layer or merging one layer into its neighbour —
+The **operations preview** lists exactly what will change before you commit
+(for example removing a thin layer or merging one layer into its neighbour),
 along with the merit function before and after. A separate **thin layers**
 panel shows which layers are currently below the threshold, as a diagnostic
 view. **Apply** performs the cleanup (and the optional refine) as a single

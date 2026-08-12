@@ -19,52 +19,52 @@ badge on the window.
 
 ## Settings
 
-**T / R / A** — the spectral characteristic to study.
+**T / R / A**: the spectral characteristic to study.
 
-**λ range / step** — the wavelength grid, in nanometres.
+**λ range / step**: the wavelength grid, in nanometres.
 
-**AOI / pol** — angle of incidence and polarization (s, p, or averaged).
+**AOI / pol**: angle of incidence and polarization (s, p, or averaged).
 
-**N trials** — how many randomly-perturbed designs to simulate. More trials give
+**N trials**: how many randomly-perturbed designs to simulate. More trials give
 a smoother corridor and a steadier yield estimate; the corridor noise shrinks
 roughly as 1/√N. Default is 200.
 
-**Distribution** — how each layer's error is drawn. This controls the *shape* of
+**Distribution**: how each layer's error is drawn. This controls the *shape* of
 the random draw, not its size:
 
-- **Gaussian** — the value you enter is one standard deviation σ. About 68 % of
+- **Gaussian**: the value you enter is one standard deviation σ. About 68 % of
   layers stay within ±σ and the rest exceed it; the tails are unbounded, so σ is
   not a hard maximum.
-- **Uniform** — the value you enter is a hard ± bound B. Errors are spread
+- **Uniform**: the value you enter is a hard ± bound B. Errors are spread
   evenly over [−B, +B], so none exceeds B, and the realized RMS works out to
   B/√3 ≈ 0.58·B.
-- **Truncated** — a Gaussian bell clipped so no error exceeds the entered bound
+- **Truncated**: a Gaussian bell clipped so no error exceeds the entered bound
   B (taken as 3σ). The realized RMS is about B/3.
 
 Choosing Uniform or Truncated relabels the error fields from σ to ± and turns on
 the min/max envelope automatically, since those distributions have a true hard
 bound worth seeing.
 
-**σ abs / σ rel** (nm / %) — the per-layer thickness error. The absolute part is
+**σ abs / σ rel** (nm / %): the per-layer thickness error. The absolute part is
 a fixed amount in nanometres; the relative part scales with each layer's own
 thickness. They add together.
 
-**σ Re(n) / σ Im(n)** — the per-layer error on the real part of the refractive
+**σ Re(n) / σ Im(n)**: the per-layer error on the real part of the refractive
 index (n) and on the extinction (k).
 
-**Per-material errors** — draw one shared error per material instead of an
+**Per-material errors**: draw one shared error per material instead of an
 independent error for every layer, modelling a material-chemistry drift rather
 than monitoring scatter.
 
-**Keep optical thickness** — links the thickness error to the index error so
+**Keep optical thickness**: links the thickness error to the index error so
 that n·d stays constant. Only meaningful when an index error is set; with
 thickness errors alone it would cancel the perturbation.
 
-**k σ corridor** — the width of the shaded band, in standard deviations. This is
+**k σ corridor**: the width of the shaded band, in standard deviations. This is
 display-only: changing k redraws the band instantly without re-running the
 trials and never affects the yield.
 
-**min/max envelope** — overlays the extreme spectra realized across all trials.
+**min/max envelope**: overlays the extreme spectra realized across all trials.
 For Uniform and Truncated this is the true hard bound; for Gaussian it has no
 fixed limit and widens as you add trials.
 
@@ -75,7 +75,7 @@ spectrum, the dotted line is the mean across all trials, and the shaded band is
 mean ± k·σ. A wide band means the design is sensitive to manufacturing error; a
 tight band means it is robust. Note that the mean can sit slightly off the
 theoretical curve where the spectrum is curved (for example, the mean reflectance
-of an antireflection minimum drifts upward) — that is real physics, not noise.
+of an antireflection minimum drifts upward). That is real physics, not noise.
 
 If the design carries a Specification, the status bar shows the **yield** (the
 fraction of trials that pass every requirement) and a red chip for any

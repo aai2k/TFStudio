@@ -1,6 +1,6 @@
 ---
 title: Refractive Index Profile
-description: n(z) and k(z) — the index step profile of the stack at a chosen wavelength.
+description: n(z) and k(z), the index step profile of the stack at a chosen wavelength.
 ribbonIcon: ri-profiler
 ---
 
@@ -16,16 +16,16 @@ laid out from the incident medium through the layers to the substrate.
 
 ## Settings
 
-**Wavelength** — the wavelength at which each material's index is sampled, in nm.
+**Wavelength**: the wavelength at which each material's index is sampled, in nm.
 It defaults to the design's reference wavelength. Because the materials are
 dispersive, changing it shifts the index values.
 
-**Quantity** — plot the refractive index `n`, the extinction coefficient `k`, or
+**Quantity**: plot the refractive index `n`, the extinction coefficient `k`, or
 both together on twin axes.
 
-**Side** — profile the **front** coating, the **back** coating, or the **total**
+**Side**: profile the **front** coating, the **back** coating, or the **total**
 structure. Front and back each lay their layers out from the incident medium
-through to the substrate. **Total** is a structural view of the whole part — the
+through to the substrate. **Total** is a structural view of the whole part: the
 front coating, the substrate and the back coating laid end to end in one
 continuous profile; because the substrate is far thicker than the coatings it is
 drawn as a compressed middle section, with a break on either side, so the coating
@@ -35,7 +35,7 @@ layers stay readable.
 
 The horizontal axis is physical depth in nanometres; colored bands and dotted
 lines mark the layer boundaries and materials. The height of each step is the
-index of that layer — tall contrast between neighbouring steps means a strong
+index of that layer, so tall contrast between neighbouring steps means a strong
 optical interface. A non-zero `k` step flags an absorbing layer.
 
 The readout reports the index range, the layer count, and both the physical and
@@ -45,4 +45,4 @@ layer carries the standing-wave peak.
 
 ## References
 
-- H. A. Macleod, *Thin-Film Optical Filters*, 5th ed., §2.2 — refractive index conventions.
+- H. A. Macleod, *Thin-Film Optical Filters*, 5th ed., §2.2 (refractive index conventions).

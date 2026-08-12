@@ -1,11 +1,11 @@
 ---
 title: Specification
-description: State your design requirements as PASS/FAIL qualifiers — and turn them into a merit function.
+description: State your design requirements as PASS/FAIL qualifiers, then turn them into a merit function.
 ribbonIcon: specification
 ---
 
 The **Specification** window holds your design's *requirements* as a list of
-PASS/FAIL **qualifiers** — "T ≥ 99 % averaged over 450–650 nm", "R ≤ 0.5 % at
+PASS/FAIL **qualifiers**: "T ≥ 99 % averaged over 450–650 nm", "R ≤ 0.5 % at
 550 nm", "no more than 30 layers", and so on. It is the human-readable contract
 the coating must meet, kept separate from the
 [Merit Function](/design/merit-function-editor/) the optimizer minimizes. Each
@@ -34,16 +34,16 @@ showing a per-row verdict and an overall PASS/FAIL badge at the top.
 
 Each row exposes only the fields that apply to its kind:
 
-**Kind** — one of the qualifier kinds above. **Channel** picks T, R or A
+**Kind**: one of the qualifier kinds above. **Channel** picks T, R or A
 (fixed for the at-a-wavelength and average kinds). **λ / band** is a single
 wavelength or a start/end range. **AOI** and **pol** set the angle of incidence
 and polarization for optical kinds.
 
-**Comparison and target** — the actual test. You can require `≥`, `≤`, an
+**Comparison and target**: the actual test. You can require `≥`, `≤`, an
 equality `= ± tol`, or a range `∈ [lo, hi]`, against the target value you enter
 (percentages for T/R/A; nanometres or a count for the geometric kinds).
 
-**Presets** — drop in a ready-made requirement set for a common coating type,
+**Presets**: drop in a ready-made requirement set for a common coating type,
 either replacing or appending to the current list. You can also save the
 current list as your own reusable preset and load it back later.
 
@@ -58,8 +58,8 @@ explaining the miss.
 For stopband suppression, prefer the **Min / Max** (worst-case) kinds: a band
 *average* can pass while a narrow resonance spikes through it. Once your
 requirements are in place, **Generate MF** writes them into the design as
-`OPGT`/`OPLT` merit operands — each spec becomes a measurement row plus a
-one-sided target referencing it — so [Refinement](/synthesis/refinement/) and
+`OPGT`/`OPLT` merit operands: each spec becomes a measurement row plus a
+one-sided target referencing it, so [Refinement](/synthesis/refinement/) and
 the synthesis tools optimize toward the specification directly and stay in sync
 with it. The specification is saved in the project file alongside the design.
 

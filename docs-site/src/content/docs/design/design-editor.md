@@ -1,14 +1,14 @@
 ---
 title: Design Editor
-description: Build and edit the coating — layer stack, substrate, media, and the surface you are designing.
+description: "Build and edit the coating: layer stack, substrate, media, and the surface you are designing."
 ribbonIcon: design-editor
 ---
 
 The **Design Editor** is the window where you build a coating. You add and
 order layers, choose each layer's material and thickness, set the substrate
 and the surrounding media, and pick which surface you are designing. Every
-other window — Optical Evaluation, Admittance, Refinement, the tolerance
-tools — reads from this same shared design, so anything you change here is
+other window (Optical Evaluation, Admittance, Refinement, the tolerance
+tools) reads from this same shared design, so anything you change here is
 reflected everywhere at once.
 
 A design carries two coatings: a **front** coating on the incident side and a
@@ -18,24 +18,24 @@ substrate is listed first, so the two coatings read consistently.
 
 ## Settings
 
-**Reference wavelength λ₀** — the wavelength that drives the QW and FW
+**Reference wavelength λ₀**: the wavelength that drives the QW and FW
 thickness columns. A typical value for visible coatings is 550 nm. When you
 change λ₀, layers keep their quarter-wave counts: a quarter-wave layer stays
 a quarter-wave, and only its physical thickness rescales.
 
-**Substrate** — the substrate material and its physical thickness in
+**Substrate**: the substrate material and its physical thickness in
 millimetres. When you evaluate the whole part (both sides), the substrate is
 treated as optically thick, so reflections inside it combine as intensities
 rather than amplitudes.
 
-**Incident / Exit media** — the media on either side of the part, usually air
+**Incident / Exit media**: the media on either side of the part, usually air
 on both. Pick any catalog material for immersed or cemented designs.
 
-**Surface** and **Ignore other side** — the controls that decide which
+**Surface** and **Ignore other side**: the controls that decide which
 coating the optimizer moves and what every window evaluates. See
 [Surface & Evaluation Modes](/design/evaluation-modes/) for the full behavior.
 
-**Average over illumination cone** — optional convergent- or divergent-beam
+**Average over illumination cone**: optional convergent- or divergent-beam
 averaging, off by default. When on, every reflectance, transmittance and
 absorptance result is averaged over a cone of incidence angles instead of a
 single collimated ray, and a live readout shows the numerical aperture,
@@ -44,14 +44,14 @@ intensity distribution across the cone (uniform, Lambertian, or a table you
 enter) and the number of angular sample points. Because the averaging happens
 in one place, every operand and every window that evaluates the design is
 cone-averaged automatically while it is on. With a cone active, s and p
-polarization are still computed but are formal — a cone is physically rigorous
+polarization are still computed but are formal: a cone is physically rigorous
 only for averaged polarization, since each ray has its own plane of incidence.
 
 ## The layer table
 
 Each row is one layer: its material, four thickness columns, a lock toggle,
 and buttons to move, duplicate or delete it. The four thickness columns show
-the **same** physical layer in different units, and all four are editable —
+the **same** physical layer in different units, and all four are editable:
 edit any one and the other three update from it. **Physical nm is the stored
 value.**
 
@@ -80,14 +80,14 @@ settings collapse into this panel so the layer list keeps its vertical space.
 ## How to read it
 
 The cross-section is the quickest sanity check that the stack you built is the
-stack you meant — the right number of layers in the right order, the substrate
+stack you meant: the right number of layers in the right order, the substrate
 in the middle, the media at the edges. The per-side totals tell you how much
 material the coating will take to deposit. The **Optimize** and **Eval**
 badges at the top show which side the optimizer is moving and which surface is
 being scored, so you always know what the numbers in the analysis windows
 refer to.
 
-Coating layers are coherent — the transfer-matrix method combines their
+Coating layers are coherent, so the transfer-matrix method combines their
 amplitudes. When you evaluate the whole part, the substrate is treated as
 incoherent: it is optically thick, so interference inside it averages out and
 the front, substrate and back contributions combine as intensities. In a

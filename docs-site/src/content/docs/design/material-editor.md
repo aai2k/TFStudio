@@ -1,6 +1,6 @@
 ---
 title: Material Editor
-description: Browse, import and create optical materials — the n(λ), k(λ) data every coating layer uses.
+description: "Browse, import and create optical materials: the n(λ), k(λ) data every coating layer uses."
 ribbonIcon: material-editor
 ---
 
@@ -25,29 +25,29 @@ chart); user and imported materials open in an editable form.
 
 ## Settings
 
-**Catalog selector** — choose a single catalog or **All**. The selector shows
+**Catalog selector**: choose a single catalog or **All**. The selector shows
 each catalog's material count, and beneath it sit the actions for managing the
 selected catalog.
 
-**Search** — filter the list by name (case-insensitive). The filter respects
+**Search**: filter the list by name (case-insensitive). The filter respects
 the catalog you have selected.
 
-**Import AGF** — load a Zemax `.agf` glass file as a new catalog. AGF files
+**Import AGF**: load a Zemax `.agf` glass file as a new catalog. AGF files
 store internal transmittance versus wavelength; TFStudio converts that to
 `k(λ)` automatically. AGF files you place in your TFStudio materials folder are
 also picked up automatically when the app starts.
 
-**Import .lm / .sub** — load optical material-library files. You choose which
+**Import .lm / .sub**: load optical material-library files. You choose which
 catalog the parsed materials are added to, or create a new one.
 
-**Browse RII** — open the refractiveindex.info browser to pick from the online
+**Browse RII**: open the refractiveindex.info browser to pick from the online
 database (an internet connection is needed the first time you fetch a
 material). The material is added to your chosen user catalog and then lives
 locally.
 
-**New Catalog** — create an empty user catalog to organize your own materials.
+**New Catalog**: create an empty user catalog to organize your own materials.
 
-**Duplicate** — copy the selected catalog (from any source) into a new,
+**Duplicate**: copy the selected catalog (from any source) into a new,
 editable user catalog. **Copy to catalog** copies a single material into a user
 catalog, which is the way to make an editable variant of a read-only material.
 
@@ -55,10 +55,10 @@ catalog, which is the way to make an editable variant of a read-only material.
 
 Open a user catalog and choose **New material**, then pick a data type:
 
-1. **Tabular** — paste or type a `λ, n, k` table. You can paste directly from a
+1. **Tabular**: paste or type a `λ, n, k` table. You can paste directly from a
    spreadsheet (Ctrl+V), and the grid supports keyboard navigation, sorting and
    per-cell editing.
-2. **Formula** — choose a dispersion formula (Sellmeier, Cauchy, Conrady,
+2. **Formula**: choose a dispersion formula (Sellmeier, Cauchy, Conrady,
    Schott, Herzberger and other standard forms), enter its coefficients, and
    optionally add a `λ, k` table for absorption. The formula is rendered in
    full so you can confirm the convention.
@@ -81,5 +81,5 @@ open the app.
 
 ## References
 
-- M. N. Polyanskiy, refractiveindex.info — public-domain dispersion data.
+- M. N. Polyanskiy, refractiveindex.info (public-domain dispersion data).
 - Beer–Lambert relation for extinction from internal transmittance: `k(λ) = −λ / (4π d) · ln τ_int(λ)`.

@@ -1,12 +1,12 @@
 ---
 title: Structural Optimizer
-description: Restructure the stack — add, remove, split, merge, or perturb layers — with a simulated-annealing accept.
+description: Restructure the stack by adding, removing, splitting, merging or perturbing layers, with a simulated-annealing accept.
 ribbonIcon: structural
 ---
 
 The **Structural Optimizer** searches over the *structure* of a design rather
-than just its thicknesses. Each step it randomly mutates the layer stack — by
-**adding, removing, splitting, merging,** or **perturbing** a layer —
+than just its thicknesses. Each step it randomly mutates the layer stack by
+**adding, removing, splitting, merging,** or **perturbing** a layer,
 re-refines the result, and decides whether to keep it using a
 simulated-annealing rule. Because it can change the number and arrangement of
 layers, it reaches designs that fixed-structure
@@ -16,7 +16,7 @@ tools cannot.
 
 Each generation it proposes several mutations of the current design, refines
 each one, and takes the best of the batch. A worse design may still be accepted
-with a probability set by a temperature that cools as the run progresses — this
+with a probability set by a temperature that cools as the run progresses, and this
 is what lets the search climb out of a local minimum. The live design always
 tracks the best result found, so stopping, resetting, or switching tabs always
 leaves you on the best design.
@@ -33,30 +33,30 @@ Locked layers are never touched, and thickness bounds are always respected.
 
 ## Settings
 
-**Candidate pool** — the materials the *add* and *split* operators may use
+**Candidate pool**: the materials the *add* and *split* operators may use
 (**All / Clear**).
 
-**Mutation kinds** — toggles for which operators the search is allowed to use.
+**Mutation kinds**: toggles for which operators the search is allowed to use.
 
-**Max iter** — the most generations to run.
+**Max iter**: the most generations to run.
 
-**Target MF** — stop once the merit function reaches this value.
+**Target MF**: stop once the merit function reaches this value.
 
-**T₀ (temperature)** — the starting annealing temperature. Higher values accept
+**T₀ (temperature)**: the starting annealing temperature. Higher values accept
 more uphill moves early on, which widens the search.
 
-**Jitter** — the thickness perturbation scale for the *perturb* operator.
+**Jitter**: the thickness perturbation scale for the *perturb* operator.
 
-**Refine iterations** — how many refinement steps are applied to each proposed
+**Refine iterations**: how many refinement steps are applied to each proposed
 design.
 
-**dMin** — the minimum thickness for layers that are added or split.
+**dMin**: the minimum thickness for layers that are added or split.
 
-**Max add / Max layers** — caps on how far the design may grow.
+**Max add / Max layers**: caps on how far the design may grow.
 
-**Parallel K** — how many proposals are refined together each generation.
+**Parallel K**: how many proposals are refined together each generation.
 
-**Inner refiner** — which method refines each proposal. See
+**Inner refiner**: which method refines each proposal. See
 [Optimization Methods](/synthesis/optimization-methods/) for the choices.
 
 Minimum and maximum thickness limits are relaxed during the search; re-enable

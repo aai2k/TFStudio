@@ -1,11 +1,11 @@
 ---
 title: Ellipsometry Evaluation
-description: Ψ and Δ — the amplitude-ratio and phase quantities an ellipsometer measures.
+description: Ψ and Δ, the amplitude-ratio and phase quantities an ellipsometer measures.
 ribbonIcon: ellipsometry
 ---
 
 The Ellipsometry window computes the ellipsometric angles Ψ and Δ for the active
-design — the amplitude-ratio and phase-shift quantities that an ellipsometer
+design, the amplitude-ratio and phase-shift quantities that an ellipsometer
 reports. Use it to **predict what your instrument should see** for a given
 coating, so you can compare a simulated curve against a measured one or plan a
 measurement.
@@ -22,22 +22,22 @@ fixed wavelength.
 
 ## Settings
 
-**Mode** — sweep over wavelength (spectral) or over angle of incidence
+**Mode**: sweep over wavelength (spectral) or over angle of incidence
 (angular).
 
-**Side** — evaluate the front coating or the back coating. Ellipsometry models a
+**Side**: evaluate the front coating or the back coating. Ellipsometry models a
 single coherent reflection off one face, so each side is treated independently.
 
-**Wavelength range and step** (spectral mode) — the span and sampling interval
+**Wavelength range and step** (spectral mode): the span and sampling interval
 of the sweep, in nm.
 
-**AOI** (spectral mode) — the fixed angle of incidence, in degrees. The default
+**AOI** (spectral mode): the fixed angle of incidence, in degrees. The default
 of 65° is a common ellipsometer angle near the Brewster region of typical
 substrates.
 
-**Wavelength** (angular mode) — the fixed wavelength for an angle sweep.
+**Wavelength** (angular mode): the fixed wavelength for an angle sweep.
 
-**AOI range and step** (angular mode) — the span and sampling interval of the
+**AOI range and step** (angular mode): the span and sampling interval of the
 angle sweep, in degrees.
 
 ## How to read it
