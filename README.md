@@ -16,7 +16,7 @@
 [![Maintainability](https://qlty.sh/gh/aai2k/projects/TFStudio/maintainability.svg)](https://qlty.sh/gh/aai2k/projects/TFStudio)
 [![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.21196149.svg)](https://doi.org/10.5281/zenodo.21196149)
 
-**[Website](https://tfstudio.xyz)** · **[Tutorials](https://tfstudio.xyz/blog)** · **[Live demo](https://tfstudio.xyz/demo/)** · **[Documentation](https://docs.tfstudio.xyz)** · **[Download](../../releases)**
+**[Website](https://tfstudio.xyz)** · **[Tutorials](https://tfstudio.xyz/blog)** · **[Live demo](https://tfstudio.xyz/demo/)** · **[Documentation](https://docs.tfstudio.xyz)** · **[Download](../../releases)** · **[Roadmap](./ROADMAP.md)**
 
 **English** · [简体中文](./README.zh-CN.md)
 
