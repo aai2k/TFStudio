@@ -11,6 +11,7 @@ import {
     createPchipInterpolator,
     createTabulatedNKSampler,
 } from '../../../../utils/materials/pchip.js';
+import { evaluateDispersionFit } from '../../../../utils/materials/dispersionFits.js';
 
 // PCHIP interpolator over a [λ, n, k] table (λ in nm). Clamps to the
 // endpoints outside the range. Returns null when there is no usable data.
@@ -48,7 +49,14 @@ function makeFormulaSampler(draft) {
 }
 
 export function buildNKFromDraft(draft) {
-    return draft.type === 'tabular'
+    const base = draft.type === 'tabular'
         ? makeTabularSampler(draft.rows)
         : makeFormulaSampler(draft);
+    if (!base || draft.type !== 'tabular' || !draft.dispersionFit?.active) return base;
+    return wavelengthNm => {
+        const [low, high] = draft.dispersionFit.rangeNm;
+        return wavelengthNm >= low && wavelengthNm <= high
+            ? evaluateDispersionFit(draft.dispersionFit, wavelengthNm)
+            : base(wavelengthNm);
+    };
 }

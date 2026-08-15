@@ -2,8 +2,12 @@ import assert from 'node:assert/strict';
 import {
     COLS, TABLE_W, deltaColor, dynamicHeaderLabels,
     editableColsForRow, fmtCurrent, fmtDelta, fmtTargetDisplay,
-    rowDisplayMeta, typeRgba,
+    isRangeType, rowDisplayMeta, typeRgba,
 } from '../src/components/windows/optimization/meritFunctionEditor/mfTable/operandViewModel.js';
+import {
+    OPERAND_TYPES, isBlank, isConstraint, isDmfs, isIntegral, isMath,
+    isTotalThickness,
+} from '../src/utils/physics/optimizer/operandModel.js';
 
 const op = (type, extra = {}) => ({ id: type, type, target: 0.5, ...extra });
 const theme = { success: 'success', error: 'error', textDim: 'dim' };
@@ -99,4 +103,57 @@ assert.equal(deltaColor(normal, null, percentMeta, theme), 'dim');
 
 assert.equal(typeRgba('T', 0.12), 'rgba(80,150,255,0.12)');
 assert.equal(typeRgba('unknown', 0.5), null);
+
+// The λ End column is driven by three independent functions: the header label,
+// the editable-column list, and isRangeType (which decides value vs dash in
+// textCell). They must agree for every operand, or a row shows a dash on a
+// column the keyboard will still walk into and edit.
+for (const type of OPERAND_TYPES) {
+    if (isBlank(type) || isDmfs(type) || isTotalThickness(type)
+        || isIntegral(type) || isMath(type) || isConstraint(type)) continue;
+    const row = op(type, { lambdaStart: 600, lambdaEnd: 900 });
+    const labelled = dynamicHeaderLabels(row).lambdaEnd !== '—';
+    assert.equal(editableColsForRow(row).includes('lambdaEnd'), labelled,
+        `${type}: λ End editability must match its header label`);
+    assert.equal(isRangeType(type), labelled,
+        `${type}: λ End cell must show a value exactly when the header names one`);
+}
+
+// A flatness operand's value is an RMS deviation, so it cannot be read against
+// the target level and falls to zero exactly as the row is met. Current shows
+// the achieved band level instead, and the RMS moves to Δ.
+const flatOp = op('GDDFLAT', { target: -40 });
+const flatMeta = rowDisplayMeta(flatOp, 28.636, false, -37.53);
+assert.equal(flatMeta.cur, -37.53, 'Current is the achieved band level');
+assert.equal(flatMeta.rawDelta, 28.636, 'Δ carries the RMS deviation');
+assert.equal(fmtCurrent(flatMeta.cur, flatMeta), '-37.530 fs²');
+assert.equal(fmtTargetDisplay(flatOp, flatMeta), '-40.00 fs²');
+
+// At the optimum the RMS is zero and the level equals the target, so the row
+// reads as satisfied rather than as a total miss.
+const metOp = op('GDDFLAT', { target: -40 });
+const metMeta = rowDisplayMeta(metOp, 0, false, -40);
+assert.equal(fmtCurrent(metMeta.cur, metMeta), '-40.000 fs²');
+assert.equal(metMeta.rawDelta, 0);
+
+// Without a band level (worker results, older callers) the row falls back to
+// the operand's own value rather than showing nothing.
+assert.equal(rowDisplayMeta(flatOp, 28.636, false).cur, 28.636);
+
+// Range-target ramps keep their existing display: they have no single level.
+const rampUnchanged = rowDisplayMeta(op('TGT', { target: 0.1, targetEnd: 0.9 }), 0.025, false);
+assert.equal(rampUnchanged.cur, 2.5);
+assert.equal(rampUnchanged.rawDelta, 2.5);
+
+// Flatness operands sample a band, so they carry a λ End; the pointwise phase
+// operands are single-wavelength and must not.
+for (const type of ['GDFLAT', 'GDTFLAT', 'GDDFLAT', 'GDDTFLAT', 'TODFLAT', 'TODTFLAT']) {
+    assert.equal(isRangeType(type), true, `${type} spans a wavelength band`);
+    assert.equal(dynamicHeaderLabels(op(type)).lambdaEnd, 'λ End');
+}
+for (const type of ['PR', 'PT', 'DPR', 'DPT', 'GD', 'GDT', 'GDD', 'GDDT', 'TOD', 'TODT']) {
+    assert.equal(isRangeType(type), false, `${type} is evaluated at one wavelength`);
+    assert.equal(dynamicHeaderLabels(op(type)).lambdaEnd, '—');
+}
+
 console.log('mf_table_view_model_characterization: passed');

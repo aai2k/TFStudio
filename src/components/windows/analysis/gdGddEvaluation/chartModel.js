@@ -1,11 +1,16 @@
+import { buildGdGddTargetOverlay } from './gdTargets.js';
+
 export function buildGDChartModel(options) {
-    const { data, meta, referenceLambda, showReference, colors } = options;
-    const traces = [{
-        x: data.lambda, y: data.y, type: 'scatter', mode: 'lines',
-        name: meta.label, line: { color: meta.color, width: 2 },
-        hovertemplate: `%{y:.${meta.dp}f} ${meta.unit}<br>%{x:.2f} nm<extra></extra>`,
-    }];
-    const shapes = [];
+    const { data, meta, referenceLambda, showReference, colors, targets = [] } = options;
+    const series = data.series || [{ name: meta.label, y: data.y, color: meta.color, width: 2 }];
+    const traces = series.map(item => ({
+        x: data.lambda, y: item.y, type: 'scatter', mode: 'lines',
+        name: item.name, line: { color: item.color, width: item.width || 2 },
+        hovertemplate: `%{y:.${meta.dp}f} ${meta.unit}<br>%{x:.2f} nm<extra>${series.length > 1 ? item.name : ''}</extra>`,
+    }));
+    const targetOverlay = buildGdGddTargetOverlay(targets, meta);
+    traces.push(...targetOverlay.traces);
+    const shapes = [...targetOverlay.shapes];
     if (showReference && referenceLambda >= Math.min(...data.lambda) &&
         referenceLambda <= Math.max(...data.lambda)) {
         shapes.push({
@@ -17,7 +22,8 @@ export function buildGDChartModel(options) {
         paper_bgcolor: colors.paper,
         plot_bgcolor: colors.background,
         margin: { l: 64, r: 16, t: 12, b: 46 },
-        showlegend: false,
+        showlegend: series.length > 1,
+        legend: { orientation: 'h', x: 0, y: 1.02, font: { color: colors.text, size: 10 } },
         shapes,
         xaxis: {
             title: { text: 'Wavelength (nm)', font: { color: colors.text, size: 12 } },

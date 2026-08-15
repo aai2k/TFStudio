@@ -77,6 +77,7 @@ export default defineConfig({
             { label: 'Electric Field',     slug: 'analysis/efield' },
             { label: 'Ellipsometry',       slug: 'analysis/ellipsometry' },
             { label: 'GD / GDD',           slug: 'analysis/gd-gdd' },
+            { label: 'Material Dispersion', slug: 'analysis/material-dispersion' },
             { label: 'RI Profile',         slug: 'analysis/refractive-index-profile' },
             { label: 'Integral Values',    slug: 'analysis/integral-values' },
             {

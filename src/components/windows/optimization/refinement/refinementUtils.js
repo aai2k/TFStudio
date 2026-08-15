@@ -7,6 +7,7 @@ import {
     requiredLambdas, collectDesignMaterialIds, mirrorLayers,
     densifyOperandsForFeatures, ADAPTIVE_SAMPLING_DEFAULTS,
     buildEvalContext, evaluateOperands, calcMF, calcOMF,
+    buildPresampledTable, isPhaseDispersion, operandEvaluationErrors,
 } from '../../../../utils/physics/optimizer.js';
 
 export const nowMs = () => (typeof performance !== 'undefined' && performance.now) ? performance.now() : Date.now();
@@ -49,18 +50,10 @@ export function presampleMaterials(design, ops) {
     const resolveMaterial = designMaterialLookup(design);
     const lambdas = requiredLambdas(ops);
     const ids     = collectDesignMaterialIds(design);
-    const materials = {};
-    for (const id of ids) {
-        const mat = resolveMaterial(id);
-        const n = new Array(lambdas.length);
-        const k = new Array(lambdas.length);
-        for (let i = 0; i < lambdas.length; i++) {
-            const nk = mat.getNK(lambdas[i]);
-            n[i] = nk[0]; k[i] = nk[1];
-        }
-        materials[id] = { lambdas, n, k };
-    }
-    return materials;
+    const pairs = ids.map(id => ({ id, mat: resolveMaterial(id) }));
+    return buildPresampledTable(lambdas, pairs, {
+        includeOmegaResponses: ops.some(op => op.enabled && isPhaseDispersion(op.type)),
+    });
 }
 
 // Serializable design payload for the worker engines (cg / sa / de / all path).
@@ -111,8 +104,20 @@ export function computeOperandDisplay(design, operands) {
     try {
         const ctx  = buildEvalContext(design, designMaterialLookup(design));
         const comp = evaluateOperands(operands, ctx);
-        return { computed: comp, mf: calcMF(operands, comp), omf: calcOMF(operands, comp) };
+        const errors = operandEvaluationErrors(comp);
+        const invalid = errors.some(Boolean);
+        return {
+            computed: comp, errors,
+            mf: invalid ? null : calcMF(operands, comp),
+            omf: invalid ? null : calcOMF(operands, comp),
+        };
     } catch (_) {
         return null;
     }
+}
+
+export function firstOperandErrorMessage(operands, errors) {
+    const index = (errors || []).findIndex(Boolean);
+    if (index < 0) return null;
+    return `Row ${index + 1} ${operands[index]?.type || ''}: ${errors[index]}`;
 }

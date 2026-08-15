@@ -9,7 +9,7 @@
  */
 import {
   resolveAnalysisSettings, setAnalysisOverride, resetAnalysisWindow,
-  isAnalysisWindowOverridden,
+  isAnalysisWindowOverridden, sanitizeAnalysisOverrides,
 } from '../utils/analysisSettings.js';
 
 const { createElement: h, createContext, useContext, useState, useCallback, useMemo, useEffect } = React;
@@ -17,7 +17,7 @@ const { createElement: h, createContext, useContext, useState, useCallback, useM
 const AnalysisSettingsContext = createContext(null);
 
 export const AnalysisSettingsProvider = ({ initial, children }) => {
-  const [stored, setStored] = useState(initial || {});
+  const [stored, setStored] = useState(() => sanitizeAnalysisOverrides(initial));
   const [ready, setReady] = useState(initial !== null && initial !== undefined);
   const [saveError, setSaveError] = useState(null);
 
@@ -26,7 +26,7 @@ export const AnalysisSettingsProvider = ({ initial, children }) => {
   // later edits come through setField and must not be overwritten by this.
   useEffect(() => {
     if (initial === null || initial === undefined) return;
-    setStored(initial);
+    setStored(sanitizeAnalysisOverrides(initial));
     setReady(true);
   }, [initial]);
 

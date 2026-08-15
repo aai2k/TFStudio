@@ -164,11 +164,18 @@ function polarizationCell(ctx, colKey, width) {
 }
 
 function currentCell(ctx, colKey, width) {
-    const { meta, c, tdBase, cellClick } = ctx;
+    const { meta, c, tdBase, cellClick, evaluationError, t } = ctx;
     return h('td', {
         key: colKey, onClick: event => cellClick(colKey, event),
-        style: { ...tdBase(colKey, width), textAlign: 'right', color: c.text },
-    }, fmtCurrent(meta.cur, meta));
+        title: evaluationError || undefined,
+        style: {
+            ...tdBase(colKey, width), textAlign: 'right',
+            color: evaluationError ? c.error : c.text,
+            fontWeight: evaluationError ? 600 : undefined,
+        },
+    }, evaluationError
+        ? (t?.meritFunctionEditor?.evaluationError || 'Error')
+        : fmtCurrent(meta.cur, meta));
 }
 
 function deltaCell(ctx, colKey, width) {

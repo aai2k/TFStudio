@@ -38,6 +38,7 @@ import { AdmittanceDiagram } from '../windows/analysis/admittanceDiagram/Admitta
 import { EFieldEvaluation } from '../windows/analysis/eFieldEvaluation/EFieldEvaluation.js';
 import { EllipsometryEvaluation } from '../windows/analysis/ellipsometryEvaluation/EllipsometryEvaluation.js';
 import { GDGDDEvaluation } from '../windows/analysis/gdGddEvaluation/GDGDDEvaluation.js';
+import { MaterialDispersionEvaluation } from '../windows/analysis/materialDispersion/MaterialDispersionEvaluation.js';
 import { RefractiveIndexProfiler } from '../windows/analysis/refractiveIndexProfiler/RefractiveIndexProfiler.js';
 import { LayerSensitivity } from '../windows/analysis/layerSensitivity/LayerSensitivity.js';
 import { ErrorAnalysis } from '../windows/analysis/errorAnalysis/ErrorAnalysis.js';
@@ -71,6 +72,7 @@ export const WINDOW_REGISTRY = {
   'efield':          { component: EFieldEvaluation,          title: 'Electric Field',              label: 'Electric Field — |E(z)|² vs depth',                               help: 'analysis/efield', theme: true, requiresResolvedMaterials: true },
   'ellipsometry':    { component: EllipsometryEvaluation,    title: 'Ellipsometry',                label: 'Ellipsometry — Ψ(λ) and Δ(λ)',                                    help: 'analysis/ellipsometry', theme: true, requiresResolvedMaterials: true },
   'gd-gdd':          { component: GDGDDEvaluation,           title: 'Group Delay / GDD',           label: 'Group Delay / GDD — dispersion',                                  help: 'analysis/gd-gdd', theme: true, requiresResolvedMaterials: true },
+  'material-dispersion': { component: MaterialDispersionEvaluation, title: 'Material Dispersion', label: 'Material Dispersion: bulk phase, GD, GDD, and TOD', help: 'analysis/material-dispersion', theme: true },
   'ri-profiler':     { component: RefractiveIndexProfiler,   title: 'RI Profiler',                 label: 'RI Profiler — n(z) and k(z)',                                     help: 'analysis/refractive-index-profile', theme: true, requiresResolvedMaterials: true },
   'sensitivity':     { component: LayerSensitivity,          title: 'Layer Sensitivity',           label: 'Layer Sensitivity — ∂MF/∂dᵢ',                                     help: 'analysis/layer-sensitivity', theme: true, requiresResolvedMaterials: true },
   'error-analysis':  { component: ErrorAnalysis,             title: 'Monte-Carlo',                 label: 'Monte-Carlo — manufacturing-error yield simulation',              help: 'analysis/error-analysis', theme: true, requiresResolvedMaterials: true },

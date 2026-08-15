@@ -10,8 +10,10 @@
 
 import {
     isDmfs, isBlank, isConstraint, isTotalThickness, isMath, isRangeTarget,
-    isIntegral, isArgwave, isMinmax, bandSampleCount, ARGWAVE_DEFAULT_POINTS,
+    isIntegral, isArgwave, isMinmax, isGroupDelayFlat,
+    bandSampleCount, ARGWAVE_DEFAULT_POINTS,
 } from './operandModel.js';
+import { materialOmegaResponse } from '../../materials/materialDispersion.js';
 
 export function isRangeAvg(type) { return type === 'TAV' || type === 'RAV' || type === 'AAV'; }
 // All range-sampled operands — uniform N-point grid over [λStart, λEnd].
@@ -19,7 +21,8 @@ export function isRangeAvg(type) { return type === 'TAV' || type === 'RAV' || ty
 // pre-sampler (Approach A) can pre-compute materials' n,k on a single union
 // grid. Inequality operands defer to their baseType (see operandSampleLambdas).
 function isBandSampled(type) {
-    return isRangeAvg(type) || isRangeTarget(type) || isIntegral(type) || isMinmax(type) || isArgwave(type);
+    return isRangeAvg(type) || isRangeTarget(type) || isIntegral(type)
+        || isMinmax(type) || isArgwave(type) || isGroupDelayFlat(type);
 }
 export function charOf(type) { return type[0]; }
 
@@ -122,17 +125,21 @@ export function requiredLambdas(operands) {
 // [n,k] on the exact λ grid. Shared by Refinement (DLS) and the synthesis
 // worker (needle/GE — must also pre-sample the candidate pool).
 // `pairs` = [{ id, mat }]; later duplicates of an id are ignored.
-export function buildPresampledTable(lambdas, pairs) {
+export function buildPresampledTable(lambdas, pairs, { includeOmegaResponses = true } = {}) {
     const materials = {};
     for (const { id, mat } of pairs) {
         if (id == null || materials[id] || !mat) continue;
         const n = new Array(lambdas.length);
         const k = new Array(lambdas.length);
+        const omegaResponses = includeOmegaResponses ? new Array(lambdas.length) : null;
         for (let i = 0; i < lambdas.length; i++) {
             const nk = mat.getNK(lambdas[i]);
             n[i] = nk[0]; k[i] = nk[1];
+            if (omegaResponses) omegaResponses[i] = materialOmegaResponse(mat, lambdas[i]);
         }
-        materials[id] = { lambdas, n, k };
+        materials[id] = omegaResponses
+            ? { lambdas, n, k, omegaResponses }
+            : { lambdas, n, k };
     }
     return materials;
 }

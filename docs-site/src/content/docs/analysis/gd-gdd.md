@@ -1,67 +1,94 @@
 ---
 title: Group Delay / GDD
-description: Spectral phase and its derivatives, the diagnostics for chirped mirrors and ultrafast coatings.
+description: Spectral phase and its derivatives for chirped mirrors and ultrafast coatings.
 ribbonIcon: gd-gdd
 ---
 
 The GD/GDD window computes the spectral phase of a coating and its derivatives
-with respect to frequency: the group delay (GD), group-delay dispersion (GDD),
-and third-order dispersion (TOD). These are the quantities you tune when
-**designing mirrors and coatings for ultrafast lasers**, where controlling how
-different frequencies are delayed is as important as controlling reflectance.
+with respect to angular frequency: group delay (GD), group-delay dispersion
+(GDD), and third-order dispersion (TOD). These quantities describe how a
+coating delays different parts of an optical pulse.
 
-The phase is taken from the complex reflection or transmission coefficient, and
-the derivatives follow as:
+The phase comes from the complex reflection or transmission coefficient:
 
 ```
 φ(ω) = arg(r)  or  arg(t)
-GD  = −dφ/dω     [fs]
-GDD = −d²φ/dω²   [fs²]
-TOD = −d³φ/dω³   [fs³]
+GD  = -dφ/dω       [fs]
+GDD = -d²φ/dω²     [fs²]
+TOD = -d³φ/dω³     [fs³]
 ```
 
 ## Settings
 
-**Quantity**: choose which curve to plot: phase φ, GD, GDD, or TOD.
+**Quantity**: phase φ, GD, GDD, or TOD.
 
-**Reflection / Transmission**: take the phase from the reflected (R) or
-transmitted (T) wave.
+**Reflection / Transmission**: take the phase from the reflected or transmitted
+complex amplitude.
 
-**Polarization**: s or p.
+**Polarization**: the average of s and p, s, or p. The average uses the same
+per-polarization arithmetic mean as the matching merit operand.
 
-**Side**: take the phase from the **front** coating or the **back** coating.
-Each coating is evaluated on its own, so a part with a chirped mirror on one
-face and a different coating on the other can be inspected one side at a time.
+**Side**: evaluate the **front** coating or the **back** coating. Transmission
+also offers **Total**, which adds front-coating transmission, one pass through
+the substrate, and back-coating transmission. The plot keeps all three
+components visible because substrate propagation can be thousands of times
+larger than the coating term. Reflection has no Total choice: reflection from
+the back surface is a later pulse, not a phase term of the front reflection.
 
-**Wavelength range and step**: the span and sampling interval of the plot, in
-nm. The transfer matrix is evaluated on that exact wavelength grid. The
-derivative weights use each sample's actual angular frequency, so GD, GDD and
-TOD remain derivatives with respect to ω. Check important features at more than
-one step and trust them only when their position and value converge. A smaller
-step reduces truncation error for a smooth material model, but it amplifies
-roundoff and cannot make a tabulated PCHIP material smoother than C1 at its
-tabulated wavelengths.
+**Wavelength range**: the span plotted and exported, in nm. TFStudio chooses the
+sampling automatically and adds local samples around pronounced reflection or
+transmission minima. There is no derivative or sampling step to tune.
 
-**AOI**: the angle of incidence in degrees.
+**AOI**: angle of incidence in degrees, measured in the incident medium.
 
-**Reference wavelength**: when shown, the phase curve is shifted so it reads
-zero at this wavelength. This is a constant offset and only affects the phase
-plot; GD, GDD and TOD are derivatives and are unchanged.
+**Reference wavelength**: shifts the displayed phase to zero at the selected
+wavelength. This constant offset does not change GD, GDD, or TOD.
+
+**Targets**: shows enabled GD, GDD, or TOD merit-function targets that match
+the selected reflection or transmission response, polarization, and AOI.
+Point operands appear as X markers. Flatness operands show their target level
+and wavelength band. Phase targets are not overlaid because the displayed
+phase may have an arbitrary reference offset. Current phase-dispersion merit
+operands evaluate the front coating normally and the back coating for a
+back-only design, so their overlays appear only on the side they score. Total
+transmission is an analysis view and has no phase-dispersion merit operands.
+
+## How the values are calculated
+
+GD, GDD, and TOD are evaluated point by point through third-order Taylor
+arithmetic in the characteristic matrix. The derivatives come from the complex
+logarithmic derivative of `r` or `t`; phase unwrapping is used only to draw the
+phase curve. TFStudio uses `n + ik` with an `exp(-iωt)` time factor, then applies
+the conjugate-Macleod convention once so a material transit time is positive.
+Increasing substrate thickness therefore increases Total transmission GD with
+the same sign as the Material Dispersion window.
+
+The footer always names the material representation used for the calculation.
+Formula materials are differentiated exactly. A tabulated material gives the
+exact derivative of its shape-preserving PCHIP curve. PCHIP is C1: GD is
+continuous, while higher derivatives can show finite steps at table knots and
+TOD is especially sensitive to how sparse data is represented. For coating
+reflection and transmission, both tabulated `n` and `k` contribute to this
+continuity limit. GDD and TOD plots leave gaps at their knot jumps and the
+footer identifies the table models involved. A saved smooth fit replaces the
+table only inside its stated validity range and is named in the footer.
+Wavelengths outside any material model range are left blank with a reason
+instead of treating a clamped endpoint as non-dispersive data.
 
 ## How to read it
 
 For a chirped mirror, GD should follow the target ramp across the band and GDD
-should hold the intended (usually negative) value to compensate pulse
-dispersion. A clean, smooth curve indicates a well-resolved phase; if GDD or TOD
-shows spikes, compare several steps before interpreting them. A resolved feature
-converges. Spikes that move or grow can instead come from a reflection or
-transmission zero, a material-table interpolation knot, or floating-point
-cancellation.
+should hold the intended value used for pulse compensation. A narrow positive
+or negative GD feature beside a reflection zero is expected phase behavior.
+Read it with the coefficient magnitude: little reflected energy occupies a
+deep reflectance minimum, although the same feature can matter when the coating
+is used in transmission.
 
-The data table lists the phase and its derivatives against wavelength for
+The data table lists phase and all three derivatives against wavelength for
 export.
 
 ## References
 
-- H. A. Macleod, *Thin-Film Optical Filters*, 5th ed., Ch. 11 (Eq. 11.17), ultrafast coatings.
-- S. Diddams & J.-C. Diels, *J. Opt. Soc. Am. B* **13**, 1120 (1996).
+- H. A. Macleod, *Thin-Film Optical Filters*, 5th ed., Ch. 11, Eq. 11.17.
+- J. Birge and F. X. Kärtner, "Efficient analytic computation of higher-order dispersion from optical interferometers," *Applied Optics* **45**, 1478-1483 (2006), [doi:10.1364/AO.45.001478](https://doi.org/10.1364/AO.45.001478).
+- S. Diddams and J.-C. Diels, *Journal of the Optical Society of America B* **13**, 1120 (1996).

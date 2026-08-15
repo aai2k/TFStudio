@@ -60,6 +60,9 @@ export function emptyDraft(catalogId) {
         formulaNum: 2,
         coeffs: Array(10).fill(''),
         kRows: [],
+        dispersionFit: null,
+        fitModel: 'cauchy',
+        fitTerms: 3,
         _rowSeq: 0,
     };
 }
@@ -129,6 +132,14 @@ export function materialToDraft(catalogId, mat) {
         formulaNum: (isTab || isBuiltin) ? 2 : (mat.formulaNum || 2),
         coeffs: (isTab || isBuiltin) ? Array(10).fill('') : padCoeffs(mat.coefficients || []),
         kRows,
+        dispersionFit: mat.dispersionFit ? structuredClone(mat.dispersionFit) : null,
+        fitModel: mat.dispersionFit?.complex?.kind
+            || mat.dispersionFit?.n?.kind
+            || 'cauchy',
+        fitTerms: mat.dispersionFit?.complex?.oscillators?.length
+            || mat.dispersionFit?.n?.terms
+            || mat.dispersionFit?.n?.coefficients?.length
+            || 3,
         _rowSeq: seq,
     };
 }
@@ -150,6 +161,7 @@ export function draftToMaterial(draft) {
             interp: TABULATED_INTERPOLATION,
             tabData, lambdaMin: lMin, lambdaMax: lMax,
             coefficients: [], kTable: [],
+            ...(draft.dispersionFit ? { dispersionFit: draft.dispersionFit } : {}),
             color: draft.color, group: 'User', comment: '',
             nd: null, vd: null, density: null,
             ...(draft.dataPath  ? { dataPath:  draft.dataPath  } : {}),

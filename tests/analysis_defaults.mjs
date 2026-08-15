@@ -18,7 +18,7 @@ const { ANALYSIS_DEFAULTS, ANALYSIS_WINDOW_IDS, SPECTRAL_UNIT_IDS: SPECTRAL_UNIT
   await import(new URL('../src/constants/analysisDefaults.js', import.meta.url));
 const {
   resolveAnalysisSettings, resolveAnalysisColors, setAnalysisOverride,
-  resetAnalysisWindow, isAnalysisWindowOverridden,
+  resetAnalysisWindow, isAnalysisWindowOverridden, sanitizeAnalysisOverrides,
 } = await import(new URL('../src/utils/analysisSettings.js', import.meta.url));
 
 let passed = 0;
@@ -27,9 +27,30 @@ function ok(condition, message) {
   passed++;
 }
 
+// Obsolete fields from an older registry are removed rather than appearing as
+// a modified window after an upgrade. GD/GDD used four quantity colours before
+// all quantities moved to the single curve colour.
+{
+  const stale = {
+    gdGddEvaluation: {
+      colors: { phase: '#111111', gd: '#222222', gdd: '#333333', tod: '#444444' },
+    },
+  };
+  ok(Object.keys(sanitizeAnalysisOverrides(stale)).length === 0,
+    'obsolete GD/GDD colour overrides are removed');
+  ok(!isAnalysisWindowOverridden(stale, 'gdGddEvaluation'),
+    'obsolete GD/GDD colours do not mark the window as modified');
+
+  const current = setAnalysisOverride(stale, 'materialDispersion', 'colors', 'curve', '#123456');
+  ok(current.gdGddEvaluation === undefined,
+    'writing a current setting does not preserve obsolete fields');
+  ok(current.materialDispersion.colors.curve === '#123456',
+    'the Material Dispersion curve colour can be stored');
+}
+
 // ── Registry shape ──────────────────────────────────────────────────────────
 {
-  ok(ANALYSIS_WINDOW_IDS.length === 15, 'registry covers 14 windows plus the shared entry');
+  ok(ANALYSIS_WINDOW_IDS.length === 16, 'registry covers 15 windows plus the shared entry');
   ok(ANALYSIS_WINDOW_IDS[0] === 'shared', 'shared leads the rail');
   ok(Object.entries(ANALYSIS_DEFAULTS)
     .filter(([id, entry]) => id !== 'shared' && Object.keys(entry.numbers || {}).length > 0)
@@ -119,13 +140,13 @@ function ok(condition, message) {
 
   let multi = setAnalysisOverride({}, 'opticalEvaluation', 'colors', 'T', '#111111');
   multi = setAnalysisOverride(multi, 'opticalEvaluation', 'numbers', 'yMax', 50);
-  multi = setAnalysisOverride(multi, 'gdGddEvaluation', 'colors', 'gd', '#222222');
+  multi = setAnalysisOverride(multi, 'gdGddEvaluation', 'colors', 'curve', '#222222');
   ok(multi.opticalEvaluation.colors.T === '#111111' && multi.opticalEvaluation.numbers.yMax === 50,
     'multiple sections coexist for one window');
 
   const afterReset = resetAnalysisWindow(multi, 'opticalEvaluation');
   ok(afterReset.opticalEvaluation === undefined, 'reset clears the window');
-  ok(afterReset.gdGddEvaluation.colors.gd === '#222222', 'reset leaves other windows alone');
+  ok(afterReset.gdGddEvaluation.colors.curve === '#222222', 'reset leaves other windows alone');
   ok(multi.opticalEvaluation.colors.T === '#111111', 'reset does not mutate the input');
 }
 
@@ -137,7 +158,8 @@ function ok(condition, message) {
 {
   const CURRENT_LITERALS = {
     opticalEvaluation:      ['#2196f3', '#ef5350', '#66bb6a', '#64b5f6', '#ef9a9a', '#1565c0', '#c62828'],
-    gdGddEvaluation:        ['#ab47bc', '#4fc3f7', '#ef5350', '#66bb6a'],
+    gdGddEvaluation:        ['#4fc3f7'],
+    materialDispersion:     ['#4fc3f7'],
     ellipsometryEvaluation: ['#4fc3f7', '#ef5350'],
     eFieldEvaluation:       ['#66bb6a', '#4fc3f7', '#ef5350'],
     inhomogeneities:        ['#4fc3f7', '#ef5350', '#66bb6a'],

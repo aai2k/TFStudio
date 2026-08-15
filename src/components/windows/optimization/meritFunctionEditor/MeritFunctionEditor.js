@@ -5,6 +5,7 @@ import { DMFWizard } from './DMFWizard.js';
 import { PresetBar } from './PresetBar.js';
 import { useMeritOperands } from './useMeritOperands.js';
 import { useMeritPresets } from './useMeritPresets.js';
+import { phaseOperandScopeNotice } from '../phaseOperandScope.js';
 
 const { createElement: h } = React;
 
@@ -36,6 +37,7 @@ export function MeritFunctionEditor({ c, t, setInputDialog }) {
         design, operands: merit.operands, setOperands: merit.setOperands,
         setSelectedId: merit.setSelectedId, checkpoint, setInputDialog, te, t,
     });
+    const scopeNotice = phaseOperandScopeNotice(design, merit.operands, te);
 
     if (!design) {
         return h('div', { style: { padding: 24, color: c.textDim, fontSize: 13 } }, te.noDesign);
@@ -55,7 +57,10 @@ export function MeritFunctionEditor({ c, t, setInputDialog }) {
         h(MeritSummary, { design, mf: merit.mf, omf: merit.omf, c, t, te }),
         h('div', { style: { flex: 1, overflow: 'hidden' } },
             h(MFTable, {
-                operands: merit.operands, computed: merit.computed, selectedId: merit.selectedId,
+                operands: merit.operands, computed: merit.computed,
+                evaluationErrors: merit.errors, bandLevels: merit.bandLevels,
+                selectedId: merit.selectedId,
+                notice: scopeNotice,
                 noOperandsMsg: te.noOperands,
                 onSelect: merit.setSelectedId,
                 onEdit: merit.handleEdit,

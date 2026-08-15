@@ -3,6 +3,8 @@ import { MFTable } from '../meritFunctionEditor/mfTable/MFTable.js';
 import { ControlBar } from './ControlBar.js';
 import { HistoryPanel } from './HistoryPanel.js';
 import { MFTrendPlot } from './MFTrendPlot.js';
+import { phaseOperandScopeNotice } from '../phaseOperandScope.js';
+import { operandBandLevels } from '../../../../utils/physics/optimizer.js';
 
 const { createElement: h } = React;
 
@@ -10,6 +12,7 @@ const { createElement: h } = React;
 
 export function Refinement({ c, theme, t }) {
     const r = useRefinement({ t });
+    const scopeNotice = phaseOperandScopeNotice(r.design, r.operands, t.meritFunctionEditor);
 
     if (!r.design) {
         return h('div', { style: { padding: 24, color: c.textDim, fontSize: 13 } },
@@ -44,7 +47,11 @@ export function Refinement({ c, theme, t }) {
             }
         },
             h(MFTable, {
-                operands: r.operands, computed: r.computed, selectedId: r.selectedId,
+                operands: r.operands, computed: r.computed,
+                evaluationErrors: r.evaluationErrors,
+                bandLevels: operandBandLevels(r.computed),
+                selectedId: r.selectedId,
+                notice: scopeNotice,
                 noOperandsMsg: t.refinement.noOperands,
                 onSelect: r.setSelectedId,
                 onEdit:   r.onEdit,

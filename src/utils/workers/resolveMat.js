@@ -20,13 +20,15 @@
 function indexTable(entry) {
     const map = new Map();
     if (!entry || !entry.lambdas) return { map, sortedL: null, sortedNK: null };
-    const { lambdas, n, k } = entry;
-    for (let i = 0; i < lambdas.length; i++) map.set(lambdas[i], [n[i], k[i]]);
+    const { lambdas, n, k, omegaResponses } = entry;
+    for (let i = 0; i < lambdas.length; i++) {
+        map.set(lambdas[i], { nk: [n[i], k[i]], omegaResponse: omegaResponses?.[i] || null });
+    }
     const idx = lambdas.map((_, i) => i).sort((a, b) => lambdas[a] - lambdas[b]);
     return {
         map,
         sortedL:  idx.map(i => lambdas[i]),
-        sortedNK: idx.map(i => [n[i], k[i]]),
+        sortedNK: idx.map(i => ({ nk: [n[i], k[i]], omegaResponse: omegaResponses?.[i] || null })),
     };
 }
 
@@ -43,6 +45,7 @@ function nearestNK(sortedL, sortedNK, lam) {
 export function makeResolveMat(materials, label = 'worker') {
     const cache = new Map();
     let missReported = false;
+    let omegaMissReported = false;
 
     function build(id) {
         const { map, sortedL, sortedNK } = indexTable(materials[id] || materials['Air'] || null);
@@ -50,14 +53,24 @@ export function makeResolveMat(materials, label = 'worker') {
             _wkrMat: true,
             getNK(lam) {
                 const v = map.get(lam);
-                if (v !== undefined) return v;
+                if (v !== undefined) return v.nk;
                 if (!sortedL || sortedL.length === 0) return [1, 0];
                 if (!missReported) {
                     missReported = true;
                     postMessage({ type: 'warn', message:
                         `${label}: λ ${lam} not pre-sampled for "${id}" — nearest-λ fallback (not bit-identical)` });
                 }
-                return nearestNK(sortedL, sortedNK, lam);
+                return nearestNK(sortedL, sortedNK, lam).nk;
+            },
+            getOmegaResponse(lam) {
+                const v = map.get(lam);
+                if (v !== undefined) return v.omegaResponse;
+                if (!omegaMissReported) {
+                    omegaMissReported = true;
+                    postMessage({ type: 'warn', message:
+                        `${label}: exact omega response unavailable at lambda ${lam} for "${id}"` });
+                }
+                return null;
             },
         };
     }

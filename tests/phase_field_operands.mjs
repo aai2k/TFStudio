@@ -7,7 +7,8 @@
  *
  * The operand evaluators must agree with the standalone thinFilmMath routines
  * that power the Ellipsometry / GD-GDD / E-field analysis windows (front side),
- * carry the right physical units, and force the finite-difference Jacobian.
+ * carry the right physical units, and retain the finite-difference fallback
+ * for ellipsometry and E-field terms that lack an analytic thickness row.
  */
 
 import {
@@ -15,11 +16,9 @@ import {
     isPhase, isEllipsometry, isGroupDelay, isGroupDelayFlat, isEField, isFractionalUnit,
     operandResidualScale, OPERAND_TYPES, DLSOptimizer,
 } from '../src/utils/physics/optimizer.js';
-import {
-    computeEllipsometry, computeGroupDelaySpectrum, computeEFieldProfile,
-    tmmWithAdmittances,
-} from '../src/utils/physics/thinFilmMath.js';
+import { computeEllipsometry, computeEFieldProfile } from '../src/utils/physics/thinFilmMath.js';
 import { getMaterial } from '../src/utils/materials/materialDatabase.js';
+import { evaluateDesignPhaseDispersion } from '../src/utils/physics/designPhaseDispersion.js';
 
 const resolveMat = id => getMaterial(id);
 let fails = 0;
@@ -49,14 +48,23 @@ function refStack(lam) {
 }
 
 // ── Registry / predicate sanity ───────────────────────────────────────────────
-for (const t of ['PSI', 'DEL', 'TANPSI', 'COSDEL', 'GD', 'GDD', 'GDFLAT', 'GDDFLAT', 'EFMX']) {
+const dispersionTypes = [
+    'PR', 'PT', 'DPR', 'DPT',
+    'GD', 'GDT', 'GDD', 'GDDT', 'TOD', 'TODT',
+    'GDFLAT', 'GDTFLAT', 'GDDFLAT', 'GDDTFLAT', 'TODFLAT', 'TODTFLAT',
+];
+for (const t of ['PSI', 'DEL', 'TANPSI', 'COSDEL', ...dispersionTypes, 'EFMX']) {
     ok(OPERAND_TYPES.includes(t), `${t} registered`);
     ok(isPhase(t), `isPhase(${t})`);
     ok(!isFractionalUnit(t), `${t} not a fractional unit`);
 }
 ok(['PSI', 'DEL', 'TANPSI', 'COSDEL'].every(isEllipsometry), 'isEllipsometry');
-ok(['GD', 'GDD', 'GDFLAT', 'GDDFLAT'].every(isGroupDelay), 'isGroupDelay');
-ok(isGroupDelayFlat('GDFLAT') && isGroupDelayFlat('GDDFLAT') && !isGroupDelayFlat('GD'), 'isGroupDelayFlat');
+ok(dispersionTypes.slice(4).every(isGroupDelay), 'isGroupDelay');
+ok(
+    ['GDFLAT', 'GDTFLAT', 'GDDFLAT', 'GDDTFLAT', 'TODFLAT', 'TODTFLAT']
+        .every(isGroupDelayFlat) && !isGroupDelayFlat('GD'),
+    'isGroupDelayFlat',
+);
 ok(isEField('EFMX'), 'isEField');
 
 // ── Residual scales are the documented per-type σ ─────────────────────────────
@@ -80,19 +88,27 @@ ok(operandResidualScale({ type: 'EFMX' }) === 1, 'σ(EFMX) = 1');
 // ── GD/GDD point operands agree with computeGroupDelaySpectrum ────────────────
 {
     const lam = 550, aoi = 0;
-    const coeffAt = (l) => {
-        const { n0, ns, layers } = refStack(l);
-        return tmmWithAdmittances(l, aoi, 's', n0, ns, layers.filter(x => x.d > 0)).r;
-    };
-    const half = Math.max(2, lam * 0.01);
-    const spec = computeGroupDelaySpectrum(coeffAt, lam - half, lam + half, 11);
-    let bi = 0, bd = Infinity;
-    for (let i = 0; i < spec.lambda.length; i++) { const d = Math.abs(spec.lambda[i] - lam); if (d < bd) { bd = d; bi = i; } }
+    const reflection = evaluateDesignPhaseDispersion(design, {
+        wavelengthNm: lam, side: 'front', target: 'R', polarization: 's', thetaDeg: aoi,
+    });
     const gdOp = evaluateOperands([makeOperand({ type: 'GD', lambdaStart: lam, aoi, pol: 's' })], ctx)[0];
-    ok(close(gdOp, spec.gd[bi], 1e-9), 'GD point matches nearest sample');
+    ok(gdOp === reflection.gdFs, 'GD point matches the shared analytic evaluator exactly');
     ok(Number.isFinite(gdOp), 'GD point is finite');
     const gddOp = evaluateOperands([makeOperand({ type: 'GDD', lambdaStart: lam, aoi, pol: 's' })], ctx)[0];
-    ok(close(gddOp, spec.gdd[bi], 1e-9), 'GDD point matches nearest sample');
+    ok(
+        close(gddOp, reflection.gddFs2, 1e-12),
+        `GDD point matches the shared analytic evaluator to roundoff (${gddOp} vs ${reflection.gddFs2})`,
+    );
+    const todOp = evaluateOperands([makeOperand({ type: 'TOD', lambdaStart: lam, aoi, pol: 's' })], ctx)[0];
+    ok(todOp === reflection.todFs3, 'TOD point matches the shared analytic evaluator exactly');
+
+    const transmission = evaluateDesignPhaseDispersion(design, {
+        wavelengthNm: lam, side: 'front', target: 'T', polarization: 's', thetaDeg: aoi,
+    });
+    for (const [type, key] of [['GDT', 'gdFs'], ['GDDT', 'gddFs2'], ['TODT', 'todFs3']]) {
+        const value = evaluateOperands([makeOperand({ type, lambdaStart: lam, aoi, pol: 's' })], ctx)[0];
+        ok(value === transmission[key], `${type} matches the shared analytic evaluator exactly`);
+    }
 }
 
 // ── GDFLAT is the RMS deviation from the flat target ──────────────────────────
@@ -128,7 +144,7 @@ ok(operandResidualScale({ type: 'EFMX' }) === 1, 'σ(EFMX) = 1');
     ok(Number.isFinite(mf) && mf >= 0, 'mixed phase-operand MF is finite');
 }
 
-// ── Optimizer drives a phase operand via the FD Jacobian fallback ─────────────
+// ── EFMX keeps the FD Jacobian fallback ───────────────────────────────────────
 {
     const ops = [
         makeOperand({ type: 'EFMX', lambdaStart: 550, aoi: 0, pol: 's', target: 0, weight: 1 }),
@@ -136,7 +152,7 @@ ok(operandResidualScale({ type: 'EFMX' }) === 1, 'σ(EFMX) = 1');
     const opt = new DLSOptimizer(ops, JSON.parse(JSON.stringify(design)), resolveMat);
     const thk = opt.thicknesses;
     const freeIdx = thk.map((_, i) => i).filter(i => !opt.lockedMask[i]);
-    ok(opt._analyticJacobian(thk, freeIdx) === null, 'phase operand declines the analytic Jacobian (FD fallback)');
+    ok(opt._analyticJacobian(thk, freeIdx) === null, 'EFMX declines the analytic Jacobian (FD fallback)');
     const mf0 = calcMF(ops, evaluateOperands(ops, opt._ctxFor(opt.thicknesses.slice())));
     for (let i = 0; i < 6; i++) opt.step();
     const mf1 = calcMF(ops, evaluateOperands(ops, opt._ctxFor(opt.thicknesses.slice())));

@@ -1,49 +1,202 @@
+import { unwrapPhase } from '../../../../utils/physics/thinFilmMath.js';
 import {
-    computeGroupDelaySpectrumAtWavelengthStep,
-    tmmWithAdmittances,
-} from '../../../../utils/physics/thinFilmMath.js';
-import { designMaterialLookup } from '../../../../utils/materials/designMaterials.js';
+    createDesignPhaseDispersionEvaluator,
+    evaluateTotalTransmissionDispersion,
+} from '../../../../utils/physics/designPhaseDispersion.js';
 
-export const DEFAULT_GD_GDD_WAVELENGTH_STEP_NM = 0.2;
+export const AUTOMATIC_GD_GDD_FINE_STEP_NM = 0.2;
+const AUTOMATIC_GRID_MAX_INTERVALS = 2000;
+const AUTOMATIC_REFINEMENT_WIDTH_NM = 0.01;
 
-function nkAt(material, lambdaNm) {
-    const [n, k] = material.getNK(lambdaNm);
-    return [n, k];
+function wavelengthGrid(start, end, step) {
+    const count = Math.floor((end - start) / step + 1e-12) + 1;
+    const wavelengths = Array.from({ length: count }, (_, index) => start + index * step);
+    if (end - wavelengths[wavelengths.length - 1] > 1e-9) wavelengths.push(end);
+    return wavelengths;
 }
 
-function sideLayersAt(resolveMaterial, design, side, lambdaNm) {
-    const layers = side === 'back' ? (design.backLayers || []) : (design.frontLayers || []);
-    const ordered = side === 'back' ? [...layers].reverse() : layers;
-    return ordered
-        .filter(layer => layer.material && layer.thickness > 0)
-        .map(layer => ({ n: nkAt(resolveMaterial(layer.material), lambdaNm), d: layer.thickness }));
+function automaticWavelengthGrid(start, end) {
+    const span = Math.abs(end - start);
+    const step = Math.max(AUTOMATIC_GD_GDD_FINE_STEP_NM, span / AUTOMATIC_GRID_MAX_INTERVALS);
+    return wavelengthGrid(start, end, step);
 }
 
-function sideMedia(design, side) {
-    return side === 'back'
-        ? { n0Id: design.exitMedium, nsId: design.substrate?.material }
-        : { n0Id: design.incidentMedium, nsId: design.substrate?.material };
+function adaptiveWavelengthGrid(baseWavelengths, evaluate) {
+    const wavelengths = new Set(baseWavelengths);
+    const maximumAdditional = Math.min(2048, baseWavelengths.length * 2);
+    let added = 0;
+
+    for (let level = 0; level < 12 && added < maximumAdditional; level++) {
+        const ordered = [...wavelengths].sort((left, right) => left - right);
+        const values = ordered.map(evaluate);
+        const candidates = new Set();
+        for (let index = 1; index < ordered.length - 1; index++) {
+            const left = values[index - 1];
+            const center = values[index];
+            const right = values[index + 1];
+            if (!left.valid || !center.valid || !right.valid) continue;
+            const localMinimum = center.magnitudeSquared <= left.magnitudeSquared
+                && center.magnitudeSquared <= right.magnitudeSquared;
+            const pronounced = center.magnitudeSquared < 0.05
+                || center.magnitudeSquared * 2 < Math.min(
+                    left.magnitudeSquared,
+                    right.magnitudeSquared,
+                );
+            if (!localMinimum || !pronounced) continue;
+            if (ordered[index] - ordered[index - 1] > AUTOMATIC_REFINEMENT_WIDTH_NM) {
+                candidates.add((ordered[index - 1] + ordered[index]) / 2);
+            }
+            if (ordered[index + 1] - ordered[index] > AUTOMATIC_REFINEMENT_WIDTH_NM) {
+                candidates.add((ordered[index] + ordered[index + 1]) / 2);
+            }
+        }
+        if (!candidates.size) break;
+        for (const wavelength of candidates) {
+            if (added >= maximumAdditional) break;
+            if (!wavelengths.has(wavelength)) {
+                wavelengths.add(wavelength);
+                added++;
+            }
+        }
+    }
+    return [...wavelengths].sort((left, right) => left - right);
+}
+
+function normalizeRadians(value) {
+    return ((value + Math.PI) % (2 * Math.PI) + 2 * Math.PI) % (2 * Math.PI) - Math.PI;
+}
+
+function averagePolarizations(sValue, pValue) {
+    if (!sValue.valid || !pValue.valid) {
+        return {
+            valid: false,
+            wavelengthNm: sValue.wavelengthNm,
+            reason: sValue.valid ? pValue.reason : sValue.reason,
+        };
+    }
+    const average = key => Number.isFinite(sValue[key]) && Number.isFinite(pValue[key])
+        ? (sValue[key] + pValue[key]) / 2
+        : NaN;
+    const result = {
+        wavelengthNm: sValue.wavelengthNm,
+        valid: true,
+        phaseRad: sValue.phaseRad + normalizeRadians(pValue.phaseRad - sValue.phaseRad) / 2,
+        gdFs: average('gdFs'),
+        gddFs2: average('gddFs2'),
+        todFs3: average('todFs3'),
+        magnitudeSquared: average('magnitudeSquared'),
+        models: [...new Set([...(sValue.models || []), ...(pValue.models || [])])],
+        phaseContinuousOrder: Math.min(
+            sValue.phaseContinuousOrder ?? 3,
+            pValue.phaseContinuousOrder ?? 3,
+        ),
+        knotSignature: `${sValue.knotSignature || '-'}|${pValue.knotSignature || '-'}`,
+        discontinuityModels: [...new Set([
+            ...(sValue.discontinuityModels || []),
+            ...(pValue.discontinuityModels || []),
+        ])],
+    };
+    if (sValue.components && pValue.components) {
+        result.components = Object.fromEntries(Object.keys(sValue.components).map(name => [
+            name,
+            averagePolarizations(sValue.components[name], pValue.components[name]),
+        ]));
+    }
+    return result;
 }
 
 export function computeGdGddSpectrum(design, options) {
-    const { side, lambdaStart, lambdaEnd, lambdaStep, thetaDeg, polarization, target } = options;
-    const { n0Id, nsId } = sideMedia(design, side);
-    const resolveMaterial = designMaterialLookup(design);
-    const incident = resolveMaterial(n0Id);
-    const substrate = resolveMaterial(nsId);
-    // The wavelength must be passed through unmodified. GD, GDD and TOD are the
-    // first three derivatives of phase, so their finite-difference weights scale
-    // with inverse powers of the local spacing. Quantizing the sample positions
-    // puts fixed wavelength jitter into the phase and prevents convergence.
-    const coefficientAt = (lambdaNm) => {
-        const layers = sideLayersAt(resolveMaterial, design, side, lambdaNm);
-        const result = tmmWithAdmittances(
-            lambdaNm, thetaDeg, polarization,
-            nkAt(incident, lambdaNm), nkAt(substrate, lambdaNm), layers,
-        );
-        return target === 'T' ? result.t : result.r;
+    const { side, lambdaStart, lambdaEnd, thetaDeg, polarization, target } = options;
+    const valueCache = new Map();
+    const pointEvaluators = side === 'total' && target === 'T'
+        ? null
+        : Object.fromEntries((polarization === 'avg' ? ['s', 'p'] : [polarization]).map(code => [
+            code,
+            createDesignPhaseDispersionEvaluator(design, {
+                side,
+                target,
+                polarization: code,
+                thetaDeg,
+            }),
+        ]));
+    const evaluate = (wavelengthNm) => {
+        if (!valueCache.has(wavelengthNm)) {
+            const evaluatePolarization = polarizationCode =>
+                side === 'total' && target === 'T'
+                    ? evaluateTotalTransmissionDispersion(design, {
+                        wavelengthNm, polarization: polarizationCode, thetaDeg,
+                    })
+                    : pointEvaluators[polarizationCode](wavelengthNm);
+            const value = polarization === 'avg'
+                ? averagePolarizations(evaluatePolarization('s'), evaluatePolarization('p'))
+                : evaluatePolarization(polarization);
+            valueCache.set(wavelengthNm, value);
+        }
+        return valueCache.get(wavelengthNm);
     };
-    return computeGroupDelaySpectrumAtWavelengthStep(
-        coefficientAt, lambdaStart, lambdaEnd, lambdaStep,
-    );
+    const baseWavelengths = automaticWavelengthGrid(lambdaStart, lambdaEnd);
+    const wavelengths = adaptiveWavelengthGrid(baseWavelengths, evaluate);
+    const values = wavelengths.map(evaluate);
+    const phaseRadians = side === 'total' && target === 'T'
+        ? totalPhase(values)
+        : unwrapFiniteRuns(values.map(value => value.valid ? value.phaseRad : NaN));
+    const phaseDeg = phaseRadians.map(value => value * 180 / Math.PI);
+    return {
+        lambda: wavelengths,
+        phaseDeg,
+        gd: values.map(value => value.valid ? value.gdFs : NaN),
+        gdd: values.map(value => value.valid ? value.gddFs2 : NaN),
+        tod: values.map(value => value.valid ? value.todFs3 : NaN),
+        magnitudeSquared: values.map(value => value.valid ? value.magnitudeSquared : NaN),
+        invalid: values
+            .filter(value => !value.valid)
+            .map(value => ({ wavelengthNm: value.wavelengthNm, reason: value.reason })),
+        models: values.find(value => value.models)?.models || [],
+        phaseContinuousOrder: Math.min(...values.map(value =>
+            value.phaseContinuousOrder ?? 3)),
+        knotSignatures: values.map(value => value.knotSignature || ''),
+        discontinuityModels: [...new Set(values.flatMap(value =>
+            value.discontinuityModels || []))],
+        method: 'analytic Taylor jets',
+        basePointCount: baseWavelengths.length,
+        adaptivePointCount: wavelengths.length - baseWavelengths.length,
+        components: side === 'total' && target === 'T' ? totalComponents(values) : null,
+    };
+}
+
+function totalPhase(values) {
+    const front = unwrapFiniteRuns(values.map(value => value.valid ? value.components.front.phaseRad : NaN));
+    const back = unwrapFiniteRuns(values.map(value => value.valid ? value.components.back.phaseRad : NaN));
+    return values.map((value, index) => value.valid
+        ? front[index] + value.components.substrate.phaseRad + back[index]
+        : NaN);
+}
+
+function totalComponents(values) {
+    const result = {};
+    for (const name of ['front', 'substrate', 'back']) {
+        const phase = name === 'substrate'
+            ? values.map(value => value.valid ? value.components[name].phaseRad : NaN)
+            : unwrapFiniteRuns(values.map(value => value.valid ? value.components[name].phaseRad : NaN));
+        result[name] = {
+            phaseDeg: phase.map(value => value * 180 / Math.PI),
+            gd: values.map(value => value.valid ? value.components[name].gdFs : NaN),
+            gdd: values.map(value => value.valid ? value.components[name].gddFs2 : NaN),
+            tod: values.map(value => value.valid ? value.components[name].todFs3 : NaN),
+        };
+    }
+    return result;
+}
+
+function unwrapFiniteRuns(phases) {
+    const result = phases.slice();
+    let start = 0;
+    while (start < result.length) {
+        while (start < result.length && !Number.isFinite(result[start])) start++;
+        let end = start;
+        while (end < result.length && Number.isFinite(result[end])) end++;
+        if (end > start) result.splice(start, end - start, ...unwrapPhase(result.slice(start, end)));
+        start = end + 1;
+    }
+    return result;
 }

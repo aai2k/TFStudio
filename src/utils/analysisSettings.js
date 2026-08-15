@@ -77,18 +77,47 @@ export function resolveAnalysisColors(windowId, stored) {
 }
 
 /**
+ * Keep only valid, non-default overrides declared by the current registry.
+ * This also migrates settings written by older releases when a curve or field
+ * is removed, so obsolete entries do not leave a false "modified" marker.
+ */
+export function sanitizeAnalysisOverrides(stored) {
+  const clean = {};
+  for (const [windowId, registry] of Object.entries(ANALYSIS_DEFAULTS)) {
+    if (!stored?.[windowId]) continue;
+    const resolved = resolveAnalysisSettings(windowId, stored);
+    const windowOverrides = {};
+
+    for (const section of ['colors', 'numbers', 'enums', 'booleans']) {
+      const declared = registry[section] || {};
+      const bucket = {};
+      for (const [key, spec] of Object.entries(declared)) {
+        const factory = section === 'numbers' || section === 'enums' ? spec.def : spec;
+        const value = resolved[section][key];
+        if (value !== factory) bucket[key] = value;
+      }
+      if (Object.keys(bucket).length > 0) windowOverrides[section] = bucket;
+    }
+
+    if (Object.keys(windowOverrides).length > 0) clean[windowId] = windowOverrides;
+  }
+  return clean;
+}
+
+/**
  * Store one field, dropping it from the override block when it matches the
  * factory default so an untouched setting leaves nothing behind and keeps
  * following the shipped value if that changes in a later release.
  */
 export function setAnalysisOverride(stored, windowId, section, key, value) {
   const registry = ANALYSIS_DEFAULTS[windowId];
-  if (!registry?.[section] || !(key in registry[section])) return stored || {};
+  const clean = sanitizeAnalysisOverrides(stored);
+  if (!registry?.[section] || !(key in registry[section])) return clean;
 
   const spec = registry[section][key];
   const factory = section === 'numbers' || section === 'enums' ? spec.def : spec;
 
-  const next = { ...(stored || {}) };
+  const next = { ...clean };
   const win = { ...(next[windowId] || {}) };
   const bucket = { ...(win[section] || {}) };
 
@@ -106,12 +135,12 @@ export function setAnalysisOverride(stored, windowId, section, key, value) {
 
 /** Drop every override for one window, restoring its factory defaults. */
 export function resetAnalysisWindow(stored, windowId) {
-  const next = { ...(stored || {}) };
+  const next = sanitizeAnalysisOverrides(stored);
   delete next[windowId];
   return next;
 }
 
 /** True when the window has at least one stored override. */
 export function isAnalysisWindowOverridden(stored, windowId) {
-  return Object.keys(stored?.[windowId] || {}).length > 0;
+  return Object.keys(sanitizeAnalysisOverrides(stored)[windowId] || {}).length > 0;
 }

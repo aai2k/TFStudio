@@ -25,6 +25,7 @@ export function GDResults({ c, t, text, state, view }) {
                 ? h(GDChart, {
                     data: view.plotData, meta: view.meta,
                     refLambda: state.refLam, showRef: state.showRef, c,
+                    targets: state.showTargets ? state.targets : [],
                 })
                 : h(CenteredMessage, { c, message: text.noLayers }),
         ),

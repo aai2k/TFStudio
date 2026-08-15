@@ -28,6 +28,9 @@ const numInputStyle = (c, running) => ({
 function stopReasonView(stopReason, tr) {
     if (!stopReason) return { label: null, good: false };
     if (stopReason.startsWith('best:')) return { label: stopReason, good: true };
+    if (stopReason.startsWith('invalidOperand:')) {
+        return { label: stopReason.slice('invalidOperand:'.length), good: false };
+    }
     const label = stopReason === 'noOperands' ? tr.noOperands
         : stopReason === 'target'  ? (tr.targetReached || 'target reached')
         : stopReason === 'maxiter' ? (tr.maxIterReached || 'max iter')
@@ -97,7 +100,7 @@ function runControls({ running, method, nRestarts, perturbPct, maxIter, onMethod
 function runReadout({ running, iter, mf, mfBest, mfInitial, restartIdx, method, nRestarts, stopReason, t, c }) {
     const tr = t.refinement;
     const reason = stopReasonView(stopReason, tr);
-    const reasonPillStyle = stopReason === 'noOperands'
+    const reasonPillStyle = stopReason === 'noOperands' || stopReason?.startsWith('invalidOperand:')
         ? { ...WARN_BADGE_STYLE, marginLeft: 8, cursor: 'help' }
         : { fontSize: 10, marginLeft: 8, padding: '1px 7px', borderRadius: 9, cursor: 'help',
             background: reason.good ? (c.success + '33') : '#8d6e6344', color: reason.good ? c.success : '#d7c4a8',

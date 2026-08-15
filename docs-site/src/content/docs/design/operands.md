@@ -52,6 +52,7 @@ MF = √( Σ wᵢ · (residualᵢ / σᵢ)²  /  Σ wᵢ )
 | Thickness (`TT`, `MNT`, `MXT`, nm)  | **1** (raw nm) | kept "hard": a violated manufacturing bound still dominates and is fixed first |
 | Ellipsometry `PSI` / `DEL` (deg)    | **90 / 180** | ~1° miss ≈ 1 % optical miss              |
 | Group delay `GD*` / `GDD*` (fs, fs²)| **50**     | a ~0.5 fs / fs² miss ≈ 1 % optical miss   |
+| Third-order dispersion `TOD*` (fs³) | **500**    | a ~5 fs³ miss ≈ 1 % optical miss          |
 | `TANPSI`, `COSDEL`, `EFMX` (O(1))   | **1**      | already comparable to an optical fraction |
 
 A purely optical merit function is therefore numerically unchanged; only merit
@@ -226,24 +227,38 @@ ellipsometric spectrum, or to force a specific reflection-phase relationship.
 
 ### Group delay & dispersion
 
-Reflection group delay `GD = −dφ/dω` (fs) and its dispersion `GDD = −d²φ/dω²`
-(fs²), for chirped-mirror and ultrafast-coating design. Point operands report
-the value at `λ / Start`; the `*FLAT` operands report the **RMS deviation** of
-GD/GDD from a flat target level across `[λStart, λEnd]` (a "GDD = const" spec).
-The *Pol* column selects s or p (`avg` averages the two, which are identical at normal
-incidence).
+Phase, group delay, GDD, and TOD come from the complex reflection or
+transmission amplitude at exactly the requested wavelength. `DPR` and `DPT`
+are the cyclic p-minus-s phase difference. The *Pol* column selects s or p;
+`avg` is their mean for non-differential operands.
 
-| Type      | Computes                              | Target unit | Output              |
-| --------- | ------------------------------------- | ----------- | ------------------- |
-| `GD`      | Group delay at λ                      | fs          | GD (fs)             |
-| `GDD`     | Group-delay dispersion at λ           | fs²         | GDD (fs²)           |
-| `GDFLAT`  | RMS deviation of GD from a flat level | fs          | RMS deviation (≥ 0) |
-| `GDDFLAT` | RMS deviation of GDD from a flat level| fs²         | RMS deviation (≥ 0) |
+| Type | Computes | Target unit | Output |
+| ---- | -------- | ----------- | ------ |
+| `PR`, `PT` | Reflection or transmission phase at λ | deg | phase (deg) |
+| `DPR`, `DPT` | p-minus-s differential phase at λ | deg | phase (deg) |
+| `GD`, `GDT` | Reflection or transmission group delay at λ | fs | GD (fs) |
+| `GDD`, `GDDT` | Reflection or transmission GDD at λ | fs² | GDD (fs²) |
+| `TOD`, `TODT` | Reflection or transmission TOD at λ | fs³ | TOD (fs³) |
+| `GDFLAT`, `GDTFLAT` | RMS deviation of GD from a flat level | fs | RMS deviation (≥ 0) |
+| `GDDFLAT`, `GDDTFLAT` | RMS deviation of GDD from a flat level | fs² | RMS deviation (≥ 0) |
+| `TODFLAT`, `TODTFLAT` | RMS deviation of TOD from a flat level | fs³ | RMS deviation (≥ 0) |
 
-Residual: point operands are two-sided (`value − target`); the `*FLAT` operands
-carry their RMS deviation directly (like a spectral target), so the optimizer
-drives it to zero. Group delay is computed on a grid uniform in angular
-frequency ω (Macleod Ch. 11).
+Point residuals are two-sided (`value - target`). Phase residuals wrap to the
+shortest difference in the range -180° to 180°. The `*FLAT` operands carry
+their RMS deviation directly, so the optimizer drives it to zero. Every point
+operand uses the same analytic evaluator as the GD / GDD window; there is no
+nearby sample or finite-difference wavelength grid. These operands score the
+front coating normally and the back coating when the design surface mode is
+back-only. Total-system phase-dispersion operands are not defined. In Total
+merit mode, ordinary R and T operands score the complete element while phase,
+GD, GDD, and TOD operands in the same table keep scoring that one coating. The
+Merit Function Editor and Refinement window show this scope beside the table.
+
+Analytic phase derivatives are evaluated only inside every participating
+material model's stated wavelength range. An operand outside that range shows
+**Error** in its Current cell; hover the row to see the material and reason.
+Other rows continue to display, but MF and OMF remain unavailable and
+Refinement will not start until every enabled target is valid.
 
 ### Electric-field peak
 

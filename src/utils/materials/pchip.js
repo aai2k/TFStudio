@@ -56,6 +56,12 @@ export function createPchipInterpolator(points) {
         const constant = () => ys[0];
         constant.interp = TABULATED_INTERPOLATION;
         constant.knots = xs;
+        constant.derivativesAt = x => ({
+            value: Number.isFinite(x) ? ys[0] : NaN,
+            derivatives: [0, 0, 0],
+            inRange: Number.isFinite(x) && x >= xs[0] && x <= xs[0],
+            segment: 0,
+        });
         return constant;
     }
 
@@ -98,11 +104,7 @@ export function createPchipInterpolator(points) {
         cubic[i] = (slopes[i] + slopes[i + 1] - 2 * delta) / (h * h);
     }
 
-    const interpolate = (x) => {
-        if (!Number.isFinite(x)) return NaN;
-        if (x <= xs[0]) return ys[0];
-        if (x >= xs[count - 1]) return ys[count - 1];
-
+    const segmentAt = (x) => {
         let lo = 0;
         let hi = count - 1;
         while (hi - lo > 1) {
@@ -110,11 +112,53 @@ export function createPchipInterpolator(points) {
             if (xs[mid] <= x) lo = mid;
             else hi = mid;
         }
+        return lo;
+    };
+
+    const interpolate = (x) => {
+        if (!Number.isFinite(x)) return NaN;
+        if (x <= xs[0]) return ys[0];
+        if (x >= xs[count - 1]) return ys[count - 1];
+
+        const lo = segmentAt(x);
         const dx = x - xs[lo];
         return ys[lo] + dx * (slopes[lo] + dx * (quadratic[lo] + dx * cubic[lo]));
     };
     interpolate.interp = TABULATED_INTERPOLATION;
     interpolate.knots = xs;
+    interpolate.derivativesAt = (x) => {
+        if (!Number.isFinite(x)) {
+            return { value: NaN, derivatives: [NaN, NaN, NaN], inRange: false, segment: -1 };
+        }
+        if (x < xs[0]) {
+            return { value: ys[0], derivatives: [0, 0, 0], inRange: false, segment: 0 };
+        }
+        if (x > xs[count - 1]) {
+            return {
+                value: ys[count - 1], derivatives: [0, 0, 0],
+                inRange: false, segment: count - 2,
+            };
+        }
+
+        // An interior knot belongs to the piece on its right. This makes the
+        // one-sided convention explicit for PCHIP's discontinuous second and
+        // third derivatives instead of letting floating-point jitter choose it.
+        const segment = x === xs[count - 1] ? count - 2 : segmentAt(x);
+        const dx = x - xs[segment];
+        const b = slopes[segment];
+        const c2 = quadratic[segment];
+        const c3 = cubic[segment];
+        return {
+            value: ys[segment] + dx * (b + dx * (c2 + dx * c3)),
+            derivatives: [
+                b + dx * (2 * c2 + 3 * dx * c3),
+                2 * c2 + 6 * dx * c3,
+                6 * c3,
+            ],
+            inRange: true,
+            segment,
+        };
+    };
     return interpolate;
 }
 
@@ -134,6 +178,8 @@ export function createTabulatedNKSampler(rows) {
     getNK.interp = TABULATED_INTERPOLATION;
     getNK.rangeNm = [nAt.knots[0], nAt.knots[nAt.knots.length - 1]];
     getNK.tabData = data;
+    getNK.nInterpolator = nAt;
+    getNK.kInterpolator = kAt;
     return getNK;
 }
 

@@ -85,7 +85,11 @@ export const ANALYSIS_DEFAULTS = {
   },
 
   gdGddEvaluation: {
-    colors: { phase: '#ab47bc', gd: '#4fc3f7', gdd: '#ef5350', tod: '#66bb6a' },
+    colors: { curve: '#4fc3f7' },
+  },
+
+  materialDispersion: {
+    colors: { curve: '#4fc3f7' },
   },
 
   ellipsometryEvaluation: {

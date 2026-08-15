@@ -85,6 +85,7 @@ export const ICONS = {
     'efield':         I([ P('M2 10q3-6 4-0t4 0t4 0t4 0',1.5), L(10,3,10,6), L(10,14,10,17) ]),
     'ellipsometry':   I([ P('M3 10q2-5 7 0t7 0'), P('M10 3v14',1.2), P('M3 10h14',1.2) ]),
     'gd-gdd':         I([ P('M2 14l3-4 3 2 3-5 3 3 2-4'), L(2,16,18,16) ]),
+    'material-dispersion': I([ P('M2 15l4-7 4 4 4-8 4 5'), L(2,17,18,17), Cf(14,4,1) ]),
     'ri-profiler':    I([ R(2,4,4,12), R(6,4,4,12), R(10,4,4,12), R(14,4,4,12) ]),
 
     // Sensitivity — layer stack with middle layer highlighted + bidirectional thickness arrows
@@ -295,7 +296,7 @@ const TOOL_GROUP = {
     'undo': 'edit', 'redo': 'edit', 'history': 'edit',
     'design-editor': 'design', 'material-editor': 'design', 'specification': 'design', 'stack-formula': 'design',
     'optical-eval': 'analysis', 'color-eval': 'analysis', 'admittance': 'analysis', 'efield': 'analysis',
-    'ellipsometry': 'analysis', 'gd-gdd': 'analysis', 'ri-profiler': 'analysis', 'integral-values': 'analysis',
+    'ellipsometry': 'analysis', 'gd-gdd': 'analysis', 'material-dispersion': 'analysis', 'ri-profiler': 'analysis', 'integral-values': 'analysis',
     'tolerance': 'analysis', 'plot-engine': 'analysis', 'error-analysis': 'analysis', 'sensitivity': 'analysis',
     'inhomogeneities': 'analysis', 'systematic-dev': 'analysis', 'roughness': 'analysis',
     'merit-function': 'optimization', 'refinement': 'optimization', 'needle-group': 'optimization', 'needle': 'optimization',
@@ -359,6 +360,7 @@ function makeGroups(t) {
                 { id: 'efield',          label: tb.buttons['efield'],          title: tb.tooltips['efield']          },
                 { id: 'ellipsometry',    label: tb.buttons['ellipsometry'],    title: tb.tooltips['ellipsometry']    },
                 { id: 'gd-gdd',          label: tb.buttons['gd-gdd'],          title: tb.tooltips['gd-gdd']          },
+                { id: 'material-dispersion', label: tb.buttons['material-dispersion'], title: tb.tooltips['material-dispersion'] },
                 { id: 'ri-profiler',     label: tb.buttons['ri-profiler'],     title: tb.tooltips['ri-profiler']     },
                 { id: 'integral-values', label: tb.buttons['integral-values'], title: tb.tooltips['integral-values'] },
                 {

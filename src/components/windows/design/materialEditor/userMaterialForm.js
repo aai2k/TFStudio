@@ -12,8 +12,13 @@ import { FORMULA_LATEX } from '../../../../utils/materials/dispersionFormulas.js
 import { NKDataGrid } from './nkDataGrid.js';
 import { buildNKFromDraft, PRESET_COLORS, nextPresetColor } from './materialDraft.js';
 import { KaTeXSpan, dotStyle, catTabStyle, smallBtn } from './materialEditorUI.js';
+import {
+    dispersionFitModelName,
+    evaluateDispersionFit,
+    fitTabulatedMaterial,
+} from '../../../../utils/materials/dispersionFits.js';
 
-const { createElement: h, useRef, useEffect } = React;
+const { createElement: h, useRef, useEffect, useState } = React;
 
 // ── Live preview chart ────────────────────────────────────────────────────────
 
@@ -51,6 +56,32 @@ function drawDraftChart(chartEl, draft, c, me) {
     };
     if (hasK) layout.yaxis2 = { color: '#e74c3c', overlaying: 'y', side: 'right', tickfont: { size: 9 } };
     window.Plotly.react(chartEl, traces, layout, { responsive: true, displayModeBar: false });
+}
+
+function drawFitResidualChart(chartEl, draft, c) {
+    const fit = draft.dispersionFit;
+    if (!fit) {
+        window.Plotly.purge(chartEl);
+        return;
+    }
+    const rows = draft.rows
+        .map(row => [Number(row.lam), Number(row.n), Number(row.k) || 0])
+        .filter(row => row.every(Number.isFinite)
+            && row[0] >= fit.rangeNm[0] && row[0] <= fit.rangeNm[1]);
+    const wavelength = rows.map(row => row[0]);
+    const nResidual = rows.map(row => evaluateDispersionFit(fit, row[0])[0] - row[1]);
+    const kResidual = rows.map(row => evaluateDispersionFit(fit, row[0])[1] - row[2]);
+    window.Plotly.react(chartEl, [
+        { x: wavelength, y: nResidual, name: 'Δn', type: 'scatter', mode: 'lines+markers', line: { color: '#5dade2', width: 1.5 }, marker: { size: 3 } },
+        { x: wavelength, y: kResidual, name: 'Δk', type: 'scatter', mode: 'lines+markers', line: { color: '#e74c3c', width: 1.2 }, marker: { size: 3 } },
+    ], {
+        paper_bgcolor: c.bg, plot_bgcolor: c.bg,
+        margin: { t: 6, b: 28, l: 52, r: 12 },
+        xaxis: { title: { text: 'Wavelength (nm)', font: { size: 10 } }, color: c.textDim, gridcolor: c.border, tickfont: { size: 9 } },
+        yaxis: { title: { text: 'Fit residual', font: { size: 10 } }, color: c.textDim, gridcolor: c.border, tickfont: { size: 9 }, zeroline: true },
+        legend: { orientation: 'h', font: { size: 9, color: c.text }, bgcolor: 'transparent' },
+        font: { family: 'system-ui, -apple-system, sans-serif' },
+    }, { responsive: true, displayModeBar: false });
 }
 
 // Automatic dot color — derived from the refractive index at 550 nm, previewing
@@ -197,6 +228,65 @@ function renderTabularEditor({ draft, editRow, delRow, addRow, pasteRows, sortRo
     );
 }
 
+function renderFitPanel({ draft, set, runFit, fitError, me, c, sectionLabel, inputStyle }) {
+    const fit = draft.dispersionFit;
+    const metalModel = draft.fitModel === 'drude' || draft.fitModel === 'drude-lorentz';
+    const showTerms = draft.fitModel !== 'drude';
+    const minimumTerms = draft.fitModel === 'sellmeier' || draft.fitModel === 'drude-lorentz'
+        ? 1
+        : 2;
+    const maximumTerms = draft.fitModel === 'drude-lorentz'
+        ? 5
+        : draft.fitModel === 'sellmeier' ? 3 : 6;
+    return h('div', null,
+        sectionLabel(me.dispersionFit || 'Smooth dispersion fit'),
+        h('div', {
+            style: {
+                padding: 8, border: `1px solid ${c.border}`, borderRadius: 4,
+                backgroundColor: c.panel, display: 'flex', flexDirection: 'column', gap: 7,
+            },
+        },
+            h('div', { style: { display: 'flex', alignItems: 'center', gap: 6 } },
+                h('select', {
+                    value: draft.fitModel || 'cauchy',
+                    onChange: event => set('fitModel', event.target.value),
+                    style: { ...inputStyle, padding: '3px 6px' },
+                },
+                    h('option', { value: 'cauchy' }, 'Cauchy'),
+                    h('option', { value: 'sellmeier' }, 'Sellmeier'),
+                    h('option', { value: 'drude' }, 'Drude'),
+                    h('option', { value: 'drude-lorentz' }, 'Drude-Lorentz'),
+                ),
+                showTerms && h('span', { style: { color: c.textDim, fontSize: 11 } },
+                    metalModel ? 'Oscillators' : 'Terms'),
+                showTerms && h('input', {
+                    type: 'number', min: minimumTerms,
+                    max: maximumTerms,
+                    value: draft.fitTerms || 3,
+                    onChange: event => set('fitTerms', Number(event.target.value)),
+                    style: { ...inputStyle, width: 46 },
+                }),
+                h('button', { type: 'button', onClick: runFit, style: smallBtn(c) },
+                    fit ? (me.refit || 'Refit') : (me.fit || 'Fit')),
+                fit && h('button', {
+                    type: 'button',
+                    onClick: () => set('dispersionFit', null),
+                    style: { ...smallBtn(c), color: '#ec7063' },
+                }, me.removeFit || 'Remove fit'),
+            ),
+            h('div', { style: { color: c.textDim, fontSize: 10, lineHeight: 1.4 } },
+                me.fitHint || 'The fit belongs to this material and uses the stated validity range. Residuals remain visible.'),
+            fit && h('div', { style: { fontSize: 11, color: c.text } },
+                dispersionFitModelName(fit).replace(/^Fit: /, ''),
+                h('br'),
+                `n residual: RMS ${fit.residuals.n.rms.toExponential(3)}, max ${fit.residuals.n.max.toExponential(3)}; `,
+                `k residual: RMS ${fit.residuals.k.rms.toExponential(3)}, max ${fit.residuals.k.max.toExponential(3)}`,
+            ),
+            fitError && h('div', { style: { color: '#ef5350', fontSize: 11 } }, fitError),
+        ),
+    );
+}
+
 function renderFormulaEditor(ctx) {
     const { draft, set, me, c, sectionLabel, formulaInfo, coeffCount, inputStyle, labelStyle,
             addKRow, delKRow, editKRow, pasteKRows } = ctx;
@@ -254,10 +344,12 @@ function renderFormulaEditor(ctx) {
     );
 }
 
-function renderPreviewChart({ chartRef, me, c, sectionLabel }) {
+function renderPreviewChart({ chartRef, residualChartRef, showResidual, me, c, sectionLabel }) {
     return h('div', { style: { flexShrink: 0, marginTop: 8, borderTop: `1px solid ${c.border}` } },
         sectionLabel(me.chartTitle),
-        h('div', { ref: chartRef, style: { height: 160 } })
+        h('div', { ref: chartRef, style: { height: 160 } }),
+        showResidual && sectionLabel('Fit residual'),
+        showResidual && h('div', { ref: residualChartRef, style: { height: 130 } }),
     );
 }
 
@@ -298,13 +390,16 @@ function renderFormFooter({ onSave, onRevert, dirty, me, c }) {
 export function UserMaterialForm({ draft, onChange, onSave, onRevert, onDelete, onCopy, dirty, catalogs, c, t }) {
     const me = t.materialEditor;
     const chartRef = useRef(null);
+    const residualChartRef = useRef(null);
     const seqRef = useRef(draft._rowSeq || (draft.rows.length + draft.kRows.length + 100));
     const nextKey = () => ++seqRef.current;
+    const [fitError, setFitError] = useState('');
 
     // Live n/k chart
     useEffect(() => {
         if (!chartRef.current || !window.Plotly) return;
         drawDraftChart(chartRef.current, draft, c, me);
+        if (residualChartRef.current) drawFitResidualChart(residualChartRef.current, draft, c);
     }, [draft, c]);
 
     // Field / draft update helpers
@@ -319,17 +414,33 @@ export function UserMaterialForm({ draft, onChange, onSave, onRevert, onDelete, 
     // Row helpers — tabular data
     const addRow = () => {
         const lastLam = draft.rows.length > 0 ? parseFloat(draft.rows[draft.rows.length - 1].lam) + 50 : 400;
-        onChange({ ...draft, rows: [...draft.rows, { _key: nextKey(), lam: String(isFinite(lastLam) ? lastLam : 400), n: '1.5', k: '0' }] });
+        onChange({ ...draft, dispersionFit: null, rows: [...draft.rows, { _key: nextKey(), lam: String(isFinite(lastLam) ? lastLam : 400), n: '1.5', k: '0' }] });
     };
-    const delRow = (key) => onChange({ ...draft, rows: draft.rows.filter(r => r._key !== key) });
-    const editRow = (key, field, value) => onChange({ ...draft, rows: draft.rows.map(r => r._key === key ? { ...r, [field]: value } : r) });
+    const delRow = (key) => onChange({ ...draft, dispersionFit: null, rows: draft.rows.filter(r => r._key !== key) });
+    const editRow = (key, field, value) => onChange({ ...draft, dispersionFit: null, rows: draft.rows.map(r => r._key === key ? { ...r, [field]: value } : r) });
     const sortRows = () => {
         const sorted = draft.rows.slice().sort((a, b) => (parseFloat(a.lam) || 0) - (parseFloat(b.lam) || 0));
-        onChange({ ...draft, rows: sorted });
+        onChange({ ...draft, dispersionFit: null, rows: sorted });
     };
     const pasteRows = (parsed) => {
         const newRows = parsed.map(p => ({ _key: nextKey(), lam: String(parseFloat(p.lam) || ''), n: String(parseFloat(p.n) || ''), k: String(parseFloat(p.k) || 0) })).filter(r => r.lam !== '' && r.n !== '');
-        if (newRows.length > 0) onChange({ ...draft, rows: [...draft.rows, ...newRows] });
+        if (newRows.length > 0) onChange({ ...draft, dispersionFit: null, rows: [...draft.rows, ...newRows] });
+    };
+    const runFit = () => {
+        try {
+            const rows = draft.rows
+                .map(row => [Number(row.lam), Number(row.n), Number(row.k) || 0])
+                .filter(row => row.every(Number.isFinite));
+            const dispersionFit = fitTabulatedMaterial(rows, {
+                nModel: draft.fitModel,
+                termCount: draft.fitTerms,
+                rangeNm: [Number(draft.lambdaMinNm), Number(draft.lambdaMaxNm)],
+            });
+            setFitError('');
+            onChange({ ...draft, dispersionFit });
+        } catch (error) {
+            setFitError(error.message || String(error));
+        }
     };
 
     // Row helpers — k table (formula mode)
@@ -365,6 +476,7 @@ export function UserMaterialForm({ draft, onChange, onSave, onRevert, onDelete, 
         draft, set, setId, me, c, inputStyle, labelStyle, sectionLabel,
         formulaInfo, coeffCount, colorIsAuto, autoColor,
         addRow, delRow, editRow, sortRows, pasteRows,
+        runFit, fitError,
         addKRow, delKRow, editKRow, pasteKRows,
     };
 
@@ -374,8 +486,12 @@ export function UserMaterialForm({ draft, onChange, onSave, onRevert, onDelete, 
             renderPropertiesGrid(ctx),
             !draft.isRii && renderTypeToggle(ctx),
             draft.type === 'tabular' && renderTabularEditor(ctx),
+            draft.type === 'tabular' && renderFitPanel(ctx),
             draft.type === 'formula' && renderFormulaEditor(ctx),
-            renderPreviewChart({ chartRef, me, c, sectionLabel })
+            renderPreviewChart({
+                chartRef, residualChartRef, showResidual: !!draft.dispersionFit,
+                me, c, sectionLabel,
+            })
         ),
         renderFormFooter({ onSave, onRevert, dirty, me, c })
     );

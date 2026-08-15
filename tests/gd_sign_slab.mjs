@@ -20,6 +20,10 @@
 
 import { tmmWithAdmittances, computeGroupDelaySpectrum, C_NM_PER_FS }
     from '../src/utils/physics/thinFilmMath.js';
+import { coefficientPhaseDispersion, tmmCoefficientJets }
+    from '../src/utils/physics/phaseDispersion.js';
+import { jetFromDerivatives, wavelengthOmegaJet }
+    from '../src/utils/physics/taylorJet.js';
 
 let fails = 0;
 const ok = (cond, msg) => { if (!cond) { console.error('FAIL:', msg); fails++; } else { console.log('  ✓', msg); } };
@@ -85,6 +89,26 @@ const near = (a, b, t, msg) => ok(Math.abs(a - b) <= t, `${msg} (got ${a}, want 
     ok(maxGdErr  < 1e-6, `dispersive-slab GD matches (d/c)(n+ωa) pointwise — Δmax=${maxGdErr.toExponential(2)} fs`);
     ok(maxGddErr < 1e-4, `dispersive-slab GDD matches (d/c)·2a=${(dc * 2 * a).toFixed(4)} fs² pointwise — Δmax=${maxGddErr.toExponential(2)}`);
     ok(res.gdd[100] > 0, 'dispersive-slab GDD is POSITIVE for dn/dω > 0 (normal dispersion sign)');
+}
+
+// 4. The analytic path pins a non-zero third derivative. For a matched slab
+// with n(omega) quadratic at omega0, TOD = (d/c) * 3 d2n/domega2.
+{
+    const wavelength = 1000;
+    const omega = 2 * Math.PI * C_NM_PER_FS / wavelength;
+    const n0 = 2.0, first = 0.05, second = 0.02, d = 2000;
+    const indexJet = jetFromDerivatives(n0, first, second, 0);
+    const coefficients = tmmCoefficientJets({
+        wavelengthJet: wavelengthOmegaJet(wavelength, omega),
+        thetaDeg: 0,
+        polarization: 's',
+        incidentIndexJet: indexJet,
+        substrateIndexJet: indexJet,
+        layers: [{ indexJet, thicknessNm: d }],
+    });
+    const result = coefficientPhaseDispersion(coefficients.transmission);
+    near(result.todFs3, (d / C_NM_PER_FS) * 3 * second, 1e-11,
+        'analytic matched-slab TOD = (d/c) * 3 d2n/domega2');
 }
 
 if (fails) { console.error(`\n${fails} test(s) FAILED`); process.exit(1); }

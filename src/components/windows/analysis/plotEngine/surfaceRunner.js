@@ -1,5 +1,7 @@
 import { computeSurface, requiredSurfaceLambdas } from '../../../../utils/physics/plotQuantities.js';
-import { collectDesignMaterialIds, buildPresampledTable } from '../../../../utils/physics/optimizer.js';
+import {
+    collectDesignMaterialIds, buildPresampledTable, isPhaseDispersion,
+} from '../../../../utils/physics/optimizer.js';
 import { WorkerPool } from '../../../../utils/workers/workerPool.js';
 import { getTmmWasmBytesForWorker } from '../../../../tmmcore.js';
 import { PLOT_SURFACE_WORKER_URL } from '../../../../workerUrls.js';
@@ -14,7 +16,10 @@ function createPool(surfaceSpec, design) {
     const lambdas = requiredSurfaceLambdas(surfaceSpec, design);
     const resolveMaterial = designMaterialLookup(design);
     const pairs = collectDesignMaterialIds(design).map(id => ({ id, mat: resolveMaterial(id) }));
-    const materials = buildPresampledTable(lambdas, pairs);
+    const meritOperands = surfaceSpec.z === 'MF' ? (design.meritOperands || []) : [];
+    const materials = buildPresampledTable(lambdas, pairs, {
+        includeOmegaResponses: meritOperands.some(op => op.enabled && isPhaseDispersion(op.type)),
+    });
     const wasmBytes = getTmmWasmBytesForWorker();
     const size = poolSize();
     const pool = new WorkerPool(PLOT_SURFACE_WORKER_URL, size,

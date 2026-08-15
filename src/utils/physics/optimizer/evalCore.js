@@ -9,11 +9,12 @@
  * Sullivan & Dobrowolski Appl. Opt. 35 (1996).
  */
 
-import { tmm, tmmNeedleScan, tmmThicknessJacobian, tmmThicknessHessian, tmmWithAdmittances, computeEllipsometry, computeGroupDelaySpectrum, computeEFieldProfile } from '../thinFilmMath.js';
+import { tmm, tmmNeedleScan, tmmThicknessJacobian, tmmThicknessHessian, computeEllipsometry, computeEFieldProfile } from '../thinFilmMath.js';
+import { evaluateStackPhaseDispersion } from '../designPhaseDispersion.js';
 import { resolveSourceSpec, resolveDetectorSpec } from '../spectralWeightings.js';
 import { tmmWasmActive, getTmmWasm } from '../../../tmmcore.js';
 import {
-    OPTICAL_OPERAND_TYPES, RANGE_TARGET_OPERAND_TYPES, TOTAL_THICKNESS_OPERAND_TYPES, BLANK_OPERAND_TYPES, INTEGRAL_OPERAND_TYPES, MINMAX_OPERAND_TYPES, CONSTRAINT_OPERAND_TYPES, INEQUALITY_OPERAND_TYPES, MATH_OPERAND_TYPES, ARGWAVE_OPERAND_TYPES, OPERAND_TYPES, OPERAND_POLS, isConstraint, isDmfs, isBlank, isTotalThickness, isRangeTarget, isIntegral, isMinmax, isMinType, isInequality, isArgwave, isArgwaveMin, isMath, isMathSingleRef, isMathPairRef, isEllipsometry, isGroupDelay, isGroupDelayFlat, isEField, isPhase, isFractionalUnit, mathTargetInPercent, argwaveOpticalChar, argwavePolCode, polFromType, AVG_POINTS, AVG_STEP_NM, AVG_POINTS_MAX, bandSampleCount, ARGWAVE_DEFAULT_POINTS, PNORM_DEFAULT, makeOperand, isRamp, makeConstraintOperand, makeDefaultConstraints, makeDmfsOperand, isValidMeritWeight
+    OPTICAL_OPERAND_TYPES, RANGE_TARGET_OPERAND_TYPES, TOTAL_THICKNESS_OPERAND_TYPES, BLANK_OPERAND_TYPES, INTEGRAL_OPERAND_TYPES, MINMAX_OPERAND_TYPES, CONSTRAINT_OPERAND_TYPES, INEQUALITY_OPERAND_TYPES, MATH_OPERAND_TYPES, ARGWAVE_OPERAND_TYPES, OPERAND_TYPES, OPERAND_POLS, isConstraint, isDmfs, isBlank, isTotalThickness, isRangeTarget, isIntegral, isMinmax, isMinType, isInequality, isArgwave, isArgwaveMin, isMath, isMathSingleRef, isMathPairRef, isEllipsometry, isPhaseShift, isGroupDelay, isGroupDelayFlat, isEField, isPhase, isFractionalUnit, mathTargetInPercent, argwaveOpticalChar, argwavePolCode, polFromType, bandSampleCount, ARGWAVE_DEFAULT_POINTS, PNORM_DEFAULT, makeOperand, isRamp, makeConstraintOperand, makeDefaultConstraints, makeDmfsOperand, isValidMeritWeight
 } from './operandModel.js';
 import { isRangeAvg, charOf, operandSampleLambdas, requiredLambdas, buildPresampledTable } from './sampling.js';
 import { mirrorLayers } from './layerOps.js';
@@ -512,10 +513,13 @@ export function makeRefResolver(ctx) {
         if (!ctx._refStack) ctx._refStack = new Set();
         if (ctx._refStack.has(refId)) return NaN;  // cycle
         ctx._refStack.add(refId);
-        const v = evalOperand(op, ctx);
-        ctx._refStack.delete(refId);
-        ctx._refCache.set(refId, v);
-        return v;
+        try {
+            const v = evalOperand(op, ctx);
+            ctx._refCache.set(refId, v);
+            return v;
+        } finally {
+            ctx._refStack.delete(refId);
+        }
     };
 }
 
@@ -747,54 +751,166 @@ function _evalEllipsometry(op, ctx) {
     }
 }
 
-// Reflection GD (fs) / GDD (fs²) at λ via a uniform-in-ω central stencil.
-function _groupDelayPolValue(op, ctx, which, polCode) {
-    const lam = op.lambdaStart;
-    const coeffAt = (l) => {
-        const { n0, ns, layers } = _frontStackAt(ctx, l);
-        return tmmWithAdmittances(l, op.aoi, polCode, n0, ns, layers.filter(x => x.d > 0)).r;
-    };
-    // ±1 % window with a small dense grid; the central stencil lands the reported
-    // GD/GDD at λ. The nearest returned sample to λ is used.
-    const half = Math.max(2, lam * 0.01);
-    const spec = computeGroupDelaySpectrum(coeffAt, lam - half, lam + half, 11);
-    const arr  = which === 'GDD' ? spec.gdd : spec.gd;
-    let bestI = 0, bestD = Infinity;
-    for (let i = 0; i < spec.lambda.length; i++) {
-        const d = Math.abs(spec.lambda[i] - lam);
-        if (d < bestD) { bestD = d; bestI = i; }
-    }
-    return arr[bestI] ?? 0;
+function _phaseTarget(type) {
+    return type === 'PT' || type === 'DPT' || type === 'GDT' || type === 'GDDT'
+        || type === 'TODT' || type === 'GDTFLAT' || type === 'GDDTFLAT'
+        || type === 'TODTFLAT' ? 'T' : 'R';
 }
 
-// Point GD/GDD at op.lambdaStart. pol='avg' averages the s and p group delays
-// (identical at normal incidence).
-function _evalGroupDelayPoint(op, ctx) {
-    const which = op.type === 'GDD' ? 'GDD' : 'GD';
+function _phaseQuantity(type) {
+    if (type === 'PR' || type === 'PT' || type === 'DPR' || type === 'DPT') return 'phaseDeg';
+    if (type.startsWith('TOD')) return 'todFs3';
+    if (type.startsWith('GDD')) return 'gddFs2';
+    return 'gdFs';
+}
+
+function _normalizeDegrees(value) {
+    return ((value + 180) % 360 + 360) % 360 - 180;
+}
+
+export class OperandEvaluationError extends RangeError {
+    constructor(message) {
+        super(message);
+        this.name = 'OperandEvaluationError';
+    }
+}
+
+function _phaseOperandSide(ctx) {
+    return (ctx.surfaceMode || 'front_only') === 'back_only' ? 'back' : 'front';
+}
+
+function _phaseDispersionPolResult(op, ctx, wavelengthNm, polCode, withThicknessJacobian = false) {
+    if (!ctx._phaseDispersionCache) ctx._phaseDispersionCache = new Map();
+    const side = _phaseOperandSide(ctx);
+    const key = `${wavelengthNm}|${op.aoi}|${polCode}|${_phaseTarget(op.type)}|${side}|${withThicknessJacobian}`;
+    let result = ctx._phaseDispersionCache.get(key);
+    if (result) return result;
+    const back = side === 'back';
+    const sourceMaterials = back ? ctx.backMats : ctx.frontMats;
+    const sourceThicknesses = back ? ctx.backThicks : ctx.frontThicks;
+    const layerIndices = sourceMaterials.map((_, index) => index);
+    if (back) layerIndices.reverse();
+    result = evaluateStackPhaseDispersion({
+        wavelengthNm,
+        target: _phaseTarget(op.type),
+        polarization: polCode,
+        thetaDeg: op.aoi,
+        incidentMaterial: back ? (ctx.neMat || ctx.n0mat) : ctx.n0mat,
+        substrateMaterial: ctx.nsmat,
+        layers: layerIndices.map(index => ({
+            material: sourceMaterials[index],
+            thicknessNm: sourceThicknesses[index],
+        })),
+        withThicknessJacobian,
+    });
+    if (!result.valid) throw new OperandEvaluationError(result.reason);
+    ctx._phaseDispersionCache.set(key, result);
+    return result;
+}
+
+function _phaseDispersionPolValue(op, ctx, wavelengthNm, polCode) {
+    return _phaseDispersionPolResult(op, ctx, wavelengthNm, polCode)[_phaseQuantity(op.type)];
+}
+
+function _phaseDispersionValue(op, ctx, wavelengthNm) {
+    const sValue = () => _phaseDispersionPolValue(op, ctx, wavelengthNm, 's');
+    const pValue = () => _phaseDispersionPolValue(op, ctx, wavelengthNm, 'p');
+    if (op.type === 'DPR' || op.type === 'DPT') {
+        return _normalizeDegrees(pValue() - sValue());
+    }
     if (op.pol === 'avg') {
-        return 0.5 * (_groupDelayPolValue(op, ctx, which, 's') + _groupDelayPolValue(op, ctx, which, 'p'));
+        const s = sValue();
+        const p = pValue();
+        return _phaseQuantity(op.type) === 'phaseDeg'
+            ? _normalizeDegrees(s + _normalizeDegrees(p - s) / 2)
+            : (s + p) / 2;
     }
-    return _groupDelayPolValue(op, ctx, which, op.pol === 'p' ? 'p' : 's');
+    return op.pol === 'p' ? pValue() : sValue();
 }
 
-// GD (GDFLAT) / GDD (GDDFLAT) flatness: RMS deviation from the flat target level
-// across [λStart, λEnd]. Residual = this RMS (see _operandResidual).
-function _evalGroupDelayFlat(op, ctx) {
-    const which   = op.type === 'GDDFLAT' ? 'GDD' : 'GD';
-    const polCode = op.pol === 'p' ? 'p' : 's';   // avg→s (≡ p at normal incidence)
-    const coeffAt = (l) => {
-        const { n0, ns, layers } = _frontStackAt(ctx, l);
-        return tmmWithAdmittances(l, op.aoi, polCode, n0, ns, layers.filter(x => x.d > 0)).r;
+function _phaseDerivativeVector(ctx, derivative) {
+    const side = _phaseOperandSide(ctx);
+    const sideThicknesses = side === 'back' ? ctx.backThicks : ctx.frontThicks;
+    const size = side === 'back'
+        ? sideThicknesses.length
+        : (ctx.fullThicks?.length ?? sideThicknesses.length);
+    const out = new Array(size).fill(0);
+    for (let index = 0; index < sideThicknesses.length; index++) {
+        const sourceIndex = side === 'back' ? sideThicknesses.length - 1 - index : index;
+        out[index] = derivative[sourceIndex] ?? 0;
+    }
+    return out;
+}
+
+function _combineThicknessValues(left, right, leftWeight, rightWeight) {
+    return left.map((value, index) => value * leftWeight + right[index] * rightWeight);
+}
+
+/** Value and exact active-coating thickness derivative for a phase operand point. */
+export function phaseDispersionThicknessPoint(op, ctx, wavelengthNm) {
+    const quantity = _phaseQuantity(op.type);
+    const forPolarization = (polCode) => {
+        const result = _phaseDispersionPolResult(op, ctx, wavelengthNm, polCode, true);
+        const thicknessJacobian = result.thicknessJacobian?.[quantity];
+        if (!thicknessJacobian) return null;
+        return {
+            value: result[quantity],
+            derivative: _phaseDerivativeVector(ctx, thicknessJacobian),
+        };
     };
-    const lamLo = Math.min(op.lambdaStart, op.lambdaEnd);
-    const lamHi = Math.max(op.lambdaStart, op.lambdaEnd);
-    const n = Math.min(AVG_POINTS_MAX, Math.max(AVG_POINTS, Math.round((lamHi - lamLo) / AVG_STEP_NM) + 1));
-    const spec = computeGroupDelaySpectrum(coeffAt, lamLo, lamHi, n);
-    const arr  = which === 'GDD' ? spec.gdd : spec.gd;
-    const t = op.target;
-    let sumSq = 0;
-    for (let i = 0; i < arr.length; i++) { const d = arr[i] - t; sumSq += d * d; }
-    return arr.length ? Math.sqrt(sumSq / arr.length) : 0;
+    const s = () => forPolarization('s');
+    const p = () => forPolarization('p');
+    if (op.type === 'DPR' || op.type === 'DPT') {
+        const sValue = s();
+        const pValue = p();
+        if (!sValue || !pValue) return null;
+        return {
+            value: _normalizeDegrees(pValue.value - sValue.value),
+            derivative: _combineThicknessValues(pValue.derivative, sValue.derivative, 1, -1),
+        };
+    }
+    if (op.pol === 'avg') {
+        const sValue = s();
+        const pValue = p();
+        if (!sValue || !pValue) return null;
+        return {
+            value: quantity === 'phaseDeg'
+                ? _normalizeDegrees(sValue.value + _normalizeDegrees(pValue.value - sValue.value) / 2)
+                : (sValue.value + pValue.value) / 2,
+            derivative: _combineThicknessValues(sValue.derivative, pValue.derivative, 0.5, 0.5),
+        };
+    }
+    return op.pol === 'p' ? p() : s();
+}
+
+function _evalPhaseDispersionPoint(op, ctx) {
+    return _phaseDispersionValue(op, ctx, op.lambdaStart);
+}
+
+function _evalGroupDelayFlat(op, ctx) {
+    const wavelengths = operandSampleLambdas(op);
+    let sumSquared = 0;
+    for (const wavelength of wavelengths) {
+        const difference = _phaseDispersionValue(op, ctx, wavelength) - op.target;
+        sumSquared += difference * difference;
+    }
+    return wavelengths.length ? Math.sqrt(sumSquared / wavelengths.length) : 0;
+}
+
+/**
+ * Mean GD / GDD / TOD a flatness operand actually achieves across its band, in
+ * the same unit as its target. The operand's own value is an RMS deviation, so
+ * it cannot be read against the target level; this is the number that can. Both
+ * come from the same per-wavelength evaluations, so this reuses the context's
+ * phase cache and costs nothing after the operand has been evaluated once.
+ */
+export function groupDelayFlatBandLevel(op, ctx) {
+    if (!isGroupDelayFlat(op.type)) return null;
+    const wavelengths = operandSampleLambdas(op);
+    if (!wavelengths.length) return null;
+    let sum = 0;
+    for (const wavelength of wavelengths) sum += _phaseDispersionValue(op, ctx, wavelength);
+    return sum / wavelengths.length;
 }
 
 // Peak normalized |E|² anywhere in the front coating (worst-case field). pol:
@@ -825,7 +941,8 @@ const _EVAL_DISPATCH = [
     [isRangeTarget,    _evalRangeTarget],
     [isEllipsometry,   _evalEllipsometry],
     [isGroupDelayFlat, _evalGroupDelayFlat],
-    [isGroupDelay,     _evalGroupDelayPoint],
+    [isPhaseShift,     _evalPhaseDispersionPoint],
+    [isGroupDelay,     _evalPhaseDispersionPoint],
     [isEField,         _evalEField],
 ];
 
@@ -875,11 +992,13 @@ export function buildEvalContext(design, resolveMat) {
         substrateThicknessMm: design.substrate?.thickness ?? 1.0,
         frontThicks, frontMats,
         backThicks,  backMats,
-        // fullThicks is what constraint operands act on. In both_independent
-        // mode it spans front+back so MNT/MXT constraints reach the back layers too.
+        // fullThicks is what constraint operands act on. It follows the active
+        // coating in single-side modes and spans both in both_independent mode.
         fullThicks:  surfaceMode === 'both_independent'
                         ? [...frontThicks, ...backThicks]
-                        : frontThicks,
+                        : surfaceMode === 'back_only'
+                            ? backThicks
+                            : frontThicks,
     };
 }
 
@@ -914,6 +1033,7 @@ export function evaluateOperands(operands, ctxOrN0, nsmatLegacy, thicknessesLega
     // overwritten so a reused ctx object can never serve a stale result.
     ctx._tmmCache = new Map();
     ctx._nkCache  = new Map();
+    ctx._phaseDispersionCache = new Map();
     // Index operands by id so math operands can resolve op.refId / refId1/2
     // in O(1) and so makeRefResolver above can do recursive eval with
     // memoization + cycle detection.
@@ -921,7 +1041,47 @@ export function evaluateOperands(operands, ctxOrN0, nsmatLegacy, thicknessesLega
     for (const op of operands) ctx._operandsById.set(op.id, op);
     ctx._refCache = new Map();
     ctx._refStack = new Set();
-    return operands.map(op => op.enabled ? evalOperand(op, ctx) : null);
+    const values = new Array(operands.length);
+    const errors = new Array(operands.length).fill(null);
+    for (let index = 0; index < operands.length; index++) {
+        const op = operands[index];
+        if (!op.enabled) {
+            values[index] = null;
+            continue;
+        }
+        try {
+            values[index] = evalOperand(op, ctx);
+        } catch (error) {
+            if (!(error instanceof OperandEvaluationError)) throw error;
+            values[index] = null;
+            errors[index] = error.message;
+        }
+    }
+    // Achieved band level for flatness rows, so the table can show a number
+    // comparable to the target instead of only the RMS deviation. Display-only:
+    // the merit function scores `values`.
+    const levels = new Array(operands.length).fill(null);
+    for (let index = 0; index < operands.length; index++) {
+        const op = operands[index];
+        if (!op.enabled || values[index] == null || !isGroupDelayFlat(op.type)) continue;
+        try {
+            levels[index] = groupDelayFlatBandLevel(op, ctx);
+        } catch (error) {
+            if (!(error instanceof OperandEvaluationError)) throw error;
+        }
+    }
+    Object.defineProperty(values, 'operandErrors', { value: errors });
+    Object.defineProperty(values, 'operandBandLevels', { value: levels });
+    return values;
+}
+
+export function operandEvaluationErrors(computed) {
+    return computed?.operandErrors || [];
+}
+
+/** Achieved band level per row, aligned with `computed`; null where not applicable. */
+export function operandBandLevels(computed) {
+    return computed?.operandBandLevels || [];
 }
 
 // ── Residual unit normalization (mixed-unit merit functions) ──────────────────
@@ -967,7 +1127,11 @@ export const ARGWAVE_RESIDUAL_SCALE_NM = 500;
 //   GD → 50 fs ; GDD → 50 fs².
 const PHASE_RESIDUAL_SCALE = {
     PSI: 90, DEL: 180, TANPSI: 1, COSDEL: 1,
-    GD: 50, GDFLAT: 50, GDD: 50, GDDFLAT: 50, EFMX: 1,
+    PR: 180, PT: 180, DPR: 180, DPT: 180,
+    GD: 50, GDT: 50, GDFLAT: 50, GDTFLAT: 50,
+    GDD: 50, GDDT: 50, GDDFLAT: 50, GDDTFLAT: 50,
+    TOD: 500, TODT: 500, TODFLAT: 500, TODTFLAT: 500,
+    EFMX: 1,
 };
 export function operandResidualScale(op) {
     if (isArgwave(op.type)) return ARGWAVE_RESIDUAL_SCALE_NM;
@@ -1000,6 +1164,7 @@ export function _operandResidual(op, val) {
     if (isMath(op.type)) return mathResidual(op, val);
     // Ramp (TGT/RGT/AGT) and GD/GDD flatness already carry their RMS deviation.
     if (isRamp(op) || isGroupDelayFlat(op.type)) return val;
+    if (isPhaseShift(op.type)) return _normalizeDegrees(val - op.target);
     return val - op.target;
 }
 
@@ -1080,6 +1245,7 @@ function hasInvalidContributingWeight(operands, computed, skipConstraints) {
 }
 
 export function calcMF(operands, computed, opts = {}) {
+    if (operandEvaluationErrors(computed).some(Boolean)) return Infinity;
     const skipConstraints = !!opts.skipConstraints;
     if (hasInvalidContributingWeight(operands, computed, skipConstraints)) return Infinity;
     const { sumWRes2, sumWopt, sumWcon, n, sawNonFinite } =

@@ -31,6 +31,10 @@ function sellmeier(coeffs, rangeNm) {
         }
         return [Math.sqrt(Math.max(n2, 1)), 0];
     };
+    fn.dispersionFormula = {
+        formulaNum: 101,
+        coefficients: [1, ...coeffs.flat()],
+    };
     return tagRange(fn, rangeNm);
 }
 
@@ -76,6 +80,9 @@ const _bk7GetNK = tagRange(
     [300, 2500]);
 _bk7GetNK.interp = TABULATED_INTERPOLATION;
 _bk7GetNK.kTable = BK7_K_TABLE;
+_bk7GetNK.kInterpolator = _bk7KAt;
+_bk7GetNK.kInterpolatorUnit = 'nm';
+_bk7GetNK.dispersionFormula = _bk7Sellmeier.dispersionFormula;
 
 const _materials = [
     {
@@ -84,7 +91,7 @@ const _materials = [
         color: '#38bdf8',
         group: 'Ambient',
         description: 'Air / Vacuum (n=1.0)',
-        getNK: () => [1.0, 0]
+        getNK: Object.assign(() => [1.0, 0], { constantNK: [1, 0] })
     },
     {
         id: 'SiO2',
@@ -504,7 +511,7 @@ const _materials = [
         color: '#d6289b',
         group: 'Custom',
         description: 'User-defined material',
-        getNK: () => [1.5, 0]
+        getNK: Object.assign(() => [1.5, 0], { constantNK: [1.5, 0] })
     }
 ];
 

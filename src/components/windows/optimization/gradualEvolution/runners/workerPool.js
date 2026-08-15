@@ -15,7 +15,7 @@
 // run-state object `S`, so no giant nested closure builds up.
 
 import {
-    requiredLambdas, collectDesignMaterialIds, buildPresampledTable,
+    requiredLambdas, collectDesignMaterialIds, buildPresampledTable, isPhaseDispersion,
 } from '../../../../../utils/physics/optimizer.js';
 import { WorkerPool } from '../../../../../utils/workers/workerPool.js';
 import {
@@ -134,7 +134,9 @@ export function runGeWorker(ctx) {
         const lambdas = requiredLambdas(operands);
         const pairs = collectDesignMaterialIds(curDes).map(id => ({ id, mat: resolveMat(id) }))
             .concat(pool.map(p => ({ id: p.id, mat: p.mat })));
-        materials = buildPresampledTable(lambdas, pairs);
+        materials = buildPresampledTable(lambdas, pairs, {
+            includeOmegaResponses: operands.some(op => op.enabled && isPhaseDispersion(op.type)),
+        });
     } catch (err) {
         console.error('[GE] Pre-sampling failed, main-thread fallback:', err);
         runGeMainThread(ctx);

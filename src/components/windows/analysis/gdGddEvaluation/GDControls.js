@@ -1,6 +1,7 @@
 import { Checkbox } from '../../../ui/Checkbox.js';
 import { designMaterialLookup } from '../../../../utils/materials/designMaterials.js';
 import { FieldLabel, NumInput } from '../opticalEvaluation/controls.js';
+import { gdGddTargetColor } from './gdTargets.js';
 
 const { createElement: h } = React;
 
@@ -16,7 +17,7 @@ function choiceButtonStyle(c, active, color) {
     };
 }
 
-function ChoiceGroup({ label, items, activeId, onSelect, c, ariaLabel }) {
+export function ChoiceGroup({ label, items, activeId, onSelect, c, ariaLabel }) {
     return h('div', {
         role: 'group', 'aria-label': ariaLabel || label,
         style: {
@@ -66,6 +67,9 @@ function SideAndAngleToolbar({ c, text, state }) {
             items: [
                 { id: 'front', label: text.front || 'Front', color: '#1e88e5' },
                 { id: 'back', label: text.back || 'Back', color: '#e53935' },
+                ...(state.target === 'T'
+                    ? [{ id: 'total', label: text.total || 'Total', color: '#ab47bc' }]
+                    : []),
             ],
         }),
         h('div', {
@@ -81,6 +85,8 @@ function SideAndAngleToolbar({ c, text, state }) {
 }
 
 function CurveToolbar({ c, text, state }) {
+    const hasTargets = state.targets.length > 0;
+    const targetColor = gdGddTargetColor(state.target);
     return h('div', {
         'data-gd-toolbar': 'curves',
         style: {
@@ -110,10 +116,40 @@ function CurveToolbar({ c, text, state }) {
         h(ChoiceGroup, {
             label: text.pol, activeId: state.pol, onSelect: state.setPol, c,
             items: [
+                { id: 'avg', label: text.avg || 'avg' },
                 { id: 's', label: 's' },
                 { id: 'p', label: 'p' },
             ],
         }),
+        h('button', {
+            type: 'button',
+            disabled: !hasTargets,
+            onClick: () => state.setShowTargets(current => !current),
+            title: hasTargets
+                ? (text.targetsTip || 'Show merit-function targets for this curve')
+                : (text.noTargetsTip || 'No matching merit-function targets'),
+            'aria-pressed': state.showTargets,
+            style: {
+                height: 28, padding: '0 9px', marginLeft: 'auto',
+                display: 'inline-flex', alignItems: 'center', gap: 4,
+                border: `1px solid ${c.border}`, borderRadius: 6,
+                backgroundColor: state.showTargets && hasTargets
+                    ? c.accent + (c.light ? '20' : '38')
+                    : 'transparent',
+                color: hasTargets ? c.text : c.textDim,
+                opacity: hasTargets ? 1 : 0.45,
+                cursor: hasTargets ? 'pointer' : 'default',
+                fontSize: 11, fontFamily: 'inherit', fontWeight: 500,
+            },
+        },
+            h('span', {
+                style: {
+                    width: 14, height: 0,
+                    borderTop: `2px dotted ${hasTargets ? targetColor : c.textDim}`,
+                },
+            }),
+            text.targets || 'Targets',
+        ),
     );
 }
 
@@ -148,11 +184,6 @@ export function GDAxisPanel({ c, text, state }) {
                 onChange: state.setLamEnd,
             }),
             h('span', { style: { color: c.textDim, fontSize: 11 } }, 'nm'),
-            h(FieldLabel, { c }, text.lamStep),
-            h(NumInput, {
-                value: state.lamStep, min: 0.05, max: 1000, step: 0.05, c, width: 52,
-                onChange: state.setLamStep,
-            }),
         ),
         h('div', {
             style: {
@@ -188,10 +219,20 @@ function mediumName(design, id) {
     return separator >= 0 ? id.slice(separator + 1) : id;
 }
 
-export function GDFooter({ c, text, design, side, summary }) {
-    const sideLabel = side === 'back' ? (text.back || 'Back') : (text.front || 'Front');
+export function GDFooter({ c, text, design, side, summary, raw, quantity }) {
+    const sideLabel = side === 'total'
+        ? (text.total || 'Total')
+        : side === 'back' ? (text.back || 'Back') : (text.front || 'Front');
     const incidentId = side === 'back' ? design.exitMedium : design.incidentMedium;
-    const media = `${mediumName(design, incidentId)} → ${mediumName(design, design.substrate?.material)}`;
+    const finalId = side === 'total' ? design.exitMedium : design.substrate?.material;
+    const media = `${mediumName(design, incidentId)} → ${mediumName(design, finalId)}`;
+    const models = raw?.models?.join('; ') || '';
+    const sampleSummary = raw
+        ? `${raw.method}${raw.adaptivePointCount ? `, +${raw.adaptivePointCount} adaptive points` : ''}`
+        : '';
+    const quantityOrder = { phase: 0, gd: 1, gdd: 2, tod: 3 }[quantity] ?? 1;
+    const piecewise = quantityOrder > (raw?.phaseContinuousOrder ?? 3)
+        && raw?.discontinuityModels?.length;
     return h('div', {
         'data-gd-panel': 'footer',
         style: {
@@ -215,5 +256,22 @@ export function GDFooter({ c, text, design, side, summary }) {
         ),
         h('span', null, '·'),
         h('span', { style: { whiteSpace: 'nowrap' } }, media),
+        sampleSummary && h('span', null, '·'),
+        sampleSummary && h('span', {
+            style: { whiteSpace: 'nowrap', color: c.accent },
+        }, sampleSummary),
+        piecewise && h('span', null, '·'),
+        piecewise && h('span', {
+            title: raw.discontinuityModels.join('; '),
+            style: { whiteSpace: 'nowrap', color: c.warning || '#f59e0b' },
+        }, text.tableKnotWarning || 'Piecewise table derivative; gaps mark data-knot jumps'),
+        models && h('span', null, '·'),
+        models && h('span', {
+            title: models,
+            style: {
+                minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis',
+                whiteSpace: 'nowrap', color: c.textDim,
+            },
+        }, `${text.models || 'Models'}: ${models}`),
     );
 }

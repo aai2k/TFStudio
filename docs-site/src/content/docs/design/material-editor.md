@@ -74,6 +74,23 @@ the nearest endpoint value is held constant. PCHIP defines the values between
 measurements; it does not add measured information that is absent from the
 table.
 
+### Smooth dispersion fit
+
+An editable tabular material can store an explicit smooth fit for calculations
+that need higher derivatives. Transparent materials can use Cauchy or a one-
+to three-term Sellmeier model for `n`; `k` uses a non-negative Urbach form when
+the table contains enough positive values, otherwise it remains zero. Metals
+can use a coupled Drude or Drude-Lorentz dielectric model, which fits `n` and
+`k` together. The fit uses the material's stated wavelength range, never the
+range of an analysis window.
+
+Choose **Fit** or **Refit** to calculate it. TFStudio shows RMS and maximum
+residuals for both `n` and `k`, plus a residual plot. Inspect those errors before
+using the model. The fit is not created silently. It is stored on the material,
+travels with an embedded user material, and is removed automatically when its
+source table changes. Built-in materials remain read-only; copy one to a user
+catalog before fitting a different representation.
+
 ## How to read it
 
 For a built-in or imported material, the n/k chart shows the real index `n`
@@ -91,4 +108,5 @@ open the app.
 
 - M. N. Polyanskiy, refractiveindex.info (public-domain dispersion data).
 - F. N. Fritsch and J. Butland, "A Method for Constructing Local Monotone Piecewise Cubic Interpolants," *SIAM Journal on Scientific and Statistical Computing* **5**, 300-304 (1984).
+- A. D. Rakić et al., "Optical properties of metallic films for vertical-cavity optoelectronic devices," *Applied Optics* **37**, 5271-5283 (1998), [doi:10.1364/AO.37.005271](https://doi.org/10.1364/AO.37.005271).
 - Beer–Lambert relation for extinction from internal transmittance: `k(λ) = −λ / (4π d) · ln τ_int(λ)`.

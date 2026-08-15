@@ -6,7 +6,8 @@
  */
 
 import {
-    isConstraint, requiredLambdas, collectDesignMaterialIds, buildPresampledTable,
+    isConstraint, isPhaseDispersion, requiredLambdas,
+    collectDesignMaterialIds, buildPresampledTable,
 } from '../../../../../utils/physics/optimizer.js';
 import { densifyForRun, activeSide, materialLookup } from '../../synthesisShared/synthesisHelpers.js';
 
@@ -47,7 +48,9 @@ export function wpPresample(curDes, operands, pool) {
         const lambdas = requiredLambdas(operands);
         const pairs = collectDesignMaterialIds(curDes).map(id => ({ id, mat: resolveMat(id) }))
             .concat(pool.map(p => ({ id: p.id, mat: p.mat })));
-        return buildPresampledTable(lambdas, pairs);
+        return buildPresampledTable(lambdas, pairs, {
+            includeOmegaResponses: operands.some(op => op.enabled && isPhaseDispersion(op.type)),
+        });
     } catch (err) {
         console.error('[Needle] Pre-sampling failed, main-thread fallback:', err);
         return null;

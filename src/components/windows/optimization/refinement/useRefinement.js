@@ -10,7 +10,7 @@ import {
 } from './operandEdits.js';
 import { loadMethod, saveMethod, MAXITER_FOR, ALL_ORDER } from './refinementConfig.js';
 import { _refineCache, _rc } from './refinementCache.js';
-import { computeOperandDisplay } from './refinementUtils.js';
+import { computeOperandDisplay, firstOperandErrorMessage } from './refinementUtils.js';
 import { runDlsEvent } from './runners/dlsPool.js';
 import { runMethodsFlow } from './runners/methodsFlow.js';
 
@@ -94,7 +94,8 @@ function hydrateFromCache(env, designId) {
 function evaluateDisplay(env, design, operands) {
     const r = computeOperandDisplay(design, operands);
     if (!r) return;
-    env.setters.setComputed(r.computed); env.setters.setMf(r.mf); env.setters.setOmf(r.omf);
+    env.setters.setComputed(r.computed); env.setters.setEvaluationErrors(r.errors || []);
+    env.setters.setMf(r.mf); env.setters.setOmf(r.omf);
 }
 
 // The `ctx` bag threaded into the optimizer-driver runners (runners/mainThread.js
@@ -127,8 +128,18 @@ function startRun(env, buildCtx) {
     const { refs } = env;
     if (refs.runningRef.current) return;
     const curDes = refs.designRef.current;
-    const enabled = (refs.operandsRef.current || []).filter(op => op.enabled);
+    const allOperands = refs.operandsRef.current || [];
+    const enabled = allOperands.filter(op => op.enabled);
     if (!curDes || enabled.length === 0) { env.setters.setStopReason('noOperands'); return; }
+    const preflight = computeOperandDisplay(curDes, allOperands);
+    const operandError = firstOperandErrorMessage(allOperands, preflight?.errors);
+    if (operandError) {
+        env.setters.setComputed(preflight.computed);
+        env.setters.setEvaluationErrors(preflight.errors);
+        env.setters.setMf(null); env.setters.setOmf(null);
+        env.setters.setStopReason(`invalidOperand:${operandError}`);
+        return;
+    }
     dispatchMethod(buildCtx(), env.methodRef.current);
 }
 
@@ -152,6 +163,7 @@ function performReset(env, savedDesign, updateDesign) {
     setters.setStopReason(null);
     setters.setCanReset(false);
     setters.setComputed([]);
+    setters.setEvaluationErrors([]);
     setters.setHistEntries([]);
     refs.histRunCount.current = 0;
     clearRefineCacheOf(env);
@@ -325,6 +337,7 @@ export function useRefinement({ t }) {
 
     const [selectedId,  setSelectedId]  = useState(null);
     const [computed,    setComputed]    = useState([]);
+    const [evaluationErrors, setEvaluationErrors] = useState([]);
     const [mf,          setMf]          = useState(null);
     const [mfBest,      setMfBest]      = useState(null);
     const [mfInitial,   setMfInitial]   = useState(null);
@@ -402,7 +415,7 @@ export function useRefinement({ t }) {
     const setters = {
         setMf, setMfBest, setMfInitial, setOmf, setOmfBest, setOmfInitial,
         setIter, setMfHistory, setRunning, setCanReset, setRestartIdx, setStopReason,
-        setSelectedId, setSavedDesign, setHistEntries, setComputed,
+        setSelectedId, setSavedDesign, setHistEntries, setComputed, setEvaluationErrors,
     };
     const env = { refs, setters, methodRef };
 
@@ -434,7 +447,7 @@ export function useRefinement({ t }) {
     const plotHistory = selectedHistory?.mfHistory?.length ? selectedHistory.mfHistory : mfHistory;
 
     return {
-        design, operands, selectedId, setSelectedId, computed,
+        design, operands, selectedId, setSelectedId, computed, evaluationErrors,
         running, iter, mf, mfBest, mfInitial, omf, omfBest, canReset,
         method, nRestarts, perturbPct, restartIdx, maxIter, stopReason,
         mfHistory, plotHistory, histEntries, selectedHistoryId,

@@ -39,6 +39,9 @@ export function GDGDDEvaluation({ c, theme, t }) {
         h(GDControls, { c, text, state }),
         h(MaterialRangeWarning, { design, fromNm: state.lamStart, toNm: state.lamEnd, c, t }),
         h(GDResults, { c, t, text, state, view }),
-        h(GDFooter, { c, text, design, side: state.side, summary }),
+        h(GDFooter, {
+            c, text, design, side: state.side, summary, raw: state.raw,
+            quantity: state.quantity,
+        }),
     );
 }

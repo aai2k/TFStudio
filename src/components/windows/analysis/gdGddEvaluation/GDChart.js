@@ -2,7 +2,7 @@ import { buildGDChartModel } from './chartModel.js';
 
 const { createElement: h, useEffect, useRef } = React;
 
-export function GDChart({ data, meta, refLambda, showRef, c }) {
+export function GDChart({ data, meta, refLambda, showRef, targets = [], c }) {
     const divRef = useRef(null);
     const initRef = useRef(false);
     const background = c.bg || '#1e1e1e';
@@ -14,6 +14,7 @@ export function GDChart({ data, meta, refLambda, showRef, c }) {
         if (!divRef.current || !data) return;
         const { traces, layout } = buildGDChartModel({
             data, meta, referenceLambda: refLambda, showReference: showRef,
+            targets,
             colors: { background, paper, grid, text },
         });
         if (!initRef.current) {
@@ -22,7 +23,7 @@ export function GDChart({ data, meta, refLambda, showRef, c }) {
         } else {
             Plotly.react(divRef.current, traces, layout);
         }
-    }, [data, meta, refLambda, showRef, background, paper, grid, text]);
+    }, [data, meta, refLambda, showRef, targets, background, paper, grid, text]);
 
     useEffect(() => {
         const element = divRef.current;

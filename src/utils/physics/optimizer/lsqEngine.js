@@ -20,14 +20,15 @@ import { tmm, tmmNeedleScan, tmmThicknessJacobian } from '../thinFilmMath.js';
 import {
     tmmNeedleScanEval, ADAPTIVE_SAMPLING_DEFAULTS, densifyOperandsForFeatures, collectDesignMaterialIds, tmmFullSystem,
     isFullSystemEval, resolveEvalMode, tmmProp, MATH_REGISTRY, makeRefResolver, computeMathValue,
-    mathResidualKind, evalOperand, buildEvalContext, evaluateOperands, ARGWAVE_RESIDUAL_SCALE_NM,
+    mathResidualKind, evalOperand, buildEvalContext, evaluateOperands, phaseDispersionThicknessPoint, ARGWAVE_RESIDUAL_SCALE_NM,
     operandResidualScale, calcMF, mfWeightDenominator, _operandResidual,
+    operandEvaluationErrors, OperandEvaluationError,
 } from './evalCore.js';
 import {
     OPTICAL_OPERAND_TYPES, RANGE_TARGET_OPERAND_TYPES, TOTAL_THICKNESS_OPERAND_TYPES, BLANK_OPERAND_TYPES, INTEGRAL_OPERAND_TYPES, MINMAX_OPERAND_TYPES,
     CONSTRAINT_OPERAND_TYPES, INEQUALITY_OPERAND_TYPES, MATH_OPERAND_TYPES, ARGWAVE_OPERAND_TYPES, OPERAND_TYPES, OPERAND_POLS,
     isConstraint, isDmfs, isBlank, isTotalThickness, isRangeTarget, isIntegral,
-    isMinmax, isInequality, isArgwave, isArgwaveMin, isMath, isPhase,
+    isMinmax, isInequality, isArgwave, isArgwaveMin, isMath, isEllipsometry, isEField,
     isMathSingleRef, isMathPairRef, isFractionalUnit, mathTargetInPercent, argwaveOpticalChar, argwavePolCode,
     polFromType, AVG_POINTS, AVG_STEP_NM, AVG_POINTS_MAX, bandSampleCount, ARGWAVE_DEFAULT_POINTS,
     PNORM_DEFAULT, makeOperand, makeConstraintOperand, makeDefaultConstraints, makeDmfsOperand,
@@ -114,10 +115,18 @@ export class LSQEngine {
         this.h      = opts.fdStep ?? 1.0;
 
         const comp0    = evaluateOperands(this.operands, this._ctxFor(this.thicknesses));
+        const errorIndex = operandEvaluationErrors(comp0).findIndex(Boolean);
+        if (errorIndex >= 0) {
+            const op = this.operands[errorIndex];
+            throw new OperandEvaluationError(
+                `Row ${errorIndex + 1} ${op.type}: ${operandEvaluationErrors(comp0)[errorIndex]}`,
+            );
+        }
         this.mf        = calcMF(this.operands, comp0);
         this.mfBest    = this.mf;
         this.thickBest = [...this.thicknesses];
         this.iter      = 0;
+        this._linearizationCache = null;
     }
 
     // Build the eval-context for a candidate thickness vector, splitting it
@@ -182,6 +191,13 @@ export class LSQEngine {
         const comp = compBase !== undefined
             ? compBase
             : evaluateOperands(this.operands, this._ctxFor(thicknesses));
+        const errorIndex = operandEvaluationErrors(comp).findIndex(Boolean);
+        if (errorIndex >= 0) {
+            const op = this.operands[errorIndex];
+            throw new OperandEvaluationError(
+                `Row ${errorIndex + 1} ${op.type}: ${operandEvaluationErrors(comp)[errorIndex]}`,
+            );
+        }
         const out = [];
         for (let i = 0; i < this.operands.length; i++) {
             const op = this.operands[i];
@@ -260,16 +276,27 @@ export class LSQEngine {
         const sideMap = { N, varSide, nFront: this.nFront, nBack: this.nBack };
         const { propDeriv, propVal } = makePointEvaluators(jacCfg, sideMap);
 
-        // Operand kinds whose analytic chain rule isn't worked out yet
-        // (argwave/math/total-thickness/phase) decline the WHOLE analytic Jacobian
-        // so step() falls back to FD. Every remaining kind gets a row from _jacRow.
-        const jc = { comp, freeIdx, nFree, ctx, propDeriv, propVal };
+        // Operand kinds whose analytic chain rule is not worked out yet decline
+        // the whole Jacobian so step() falls back to finite differences.
+        const jc = {
+            comp,
+            freeIdx,
+            nFree,
+            ctx,
+            propDeriv,
+            propVal,
+            phasePoint: (op, wavelength) => phaseDispersionThicknessPoint(op, ctx, wavelength),
+            residualScale: operandResidualScale,
+        };
         const J = [];
         for (let i = 0; i < this.operands.length; i++) {
             const op = this.operands[i];
             if (!op.enabled || comp[i] == null) continue;
-            if (isArgwave(op.type) || isMath(op.type) || isTotalThickness(op.type) || isPhase(op.type)) return null;
-            J.push(_jacRow(op, i, jc));
+            if (isArgwave(op.type) || isMath(op.type) || isTotalThickness(op.type)
+                || isEllipsometry(op.type) || isEField(op.type)) return null;
+            const row = _jacRow(op, i, jc);
+            if (!row) return null;
+            J.push(row);
         }
         return J;
     }
@@ -425,26 +452,39 @@ export class LSQEngine {
         return J;
     }
 
+    _linearizationAt(thk, freeIdx) {
+        const cached = this._linearizationCache;
+        const sameThicknesses = cached
+            && cached.thicknesses.length === thk.length
+            && cached.thicknesses.every((value, index) => value === thk[index]);
+        const sameFreeVariables = sameThicknesses
+            && cached.freeIdx.length === freeIdx.length
+            && cached.freeIdx.every((value, index) => value === freeIdx[index]);
+        if (sameFreeVariables) return cached;
+
+        const compBase = evaluateOperands(this.operands, this._ctxFor(thk));
+        const r0 = this._residuals(thk, compBase);
+        let J = this._analyticJacobian(thk, freeIdx, compBase);
+        if (!J) J = this._fdJacobian(thk, freeIdx, r0.length);
+        this._linearizationCache = {
+            thicknesses: [...thk],
+            freeIdx: [...freeIdx],
+            r0,
+            J,
+        };
+        return this._linearizationCache;
+    }
+
     step() {
         const thk     = this.thicknesses;
         const freeIdx = thk.map((_, i) => i).filter(i => !this.lockedMask[i]);
         const nFree   = freeIdx.length;
         if (nFree === 0) return;
 
-        // One base-point operand sweep, shared by the residuals and the analytic
-        // Jacobian below (M5 — was two independent evaluateOperands on the same
-        // thk). Pure/deterministic ⇒ bit-identical.
-        const compBase = evaluateOperands(this.operands, this._ctxFor(thk));
-        const r0 = this._residuals(thk, compBase);
+        // Rejected trials change damping without changing this linearization.
+        const { r0, J } = this._linearizationAt(thk, freeIdx);
         const m  = r0.length;
         if (m === 0) return;
-
-        // Jacobian J[m × nFree]: exact analytic for all surface modes
-        // (single-surface direct + full-system Macleod §2.6.4 chain rule);
-        // FD fallback (2·nFree extra TMM passes per step) kept for the rare
-        // cases _analyticJacobian declines (e.g. unsupported merit term).
-        let J = this._analyticJacobian(thk, freeIdx, compBase);
-        if (!J) J = this._fdJacobian(thk, freeIdx, m);
 
         // Marquardt scaling: damp each parameter by the curvature it sees,
         // sᵢ = (JᵀJ)_ii + ε.  Only the *diagonal* of JᵀJ is needed (the
@@ -486,6 +526,7 @@ export class LSQEngine {
 
         if (mfTry < this.mf) {
             this.thicknesses = thkTry;
+            this._linearizationCache = null;
             this.mf  = mfTry;
             this.lamD = Math.max(this.lamD * 0.5, 1e-8);
             if (mfTry < this.mfBest) {

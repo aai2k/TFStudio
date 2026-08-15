@@ -29,7 +29,7 @@
  */
 import {
     computeGdGddSpectrum,
-    DEFAULT_GD_GDD_WAVELENGTH_STEP_NM,
+    AUTOMATIC_GD_GDD_FINE_STEP_NM,
 } from '../src/components/windows/analysis/gdGddEvaluation/spectrum.js';
 import { tmmWithAdmittances, C_NM_PER_FS } from '../src/utils/physics/thinFilmMath.js';
 import { designMaterialLookup } from '../src/utils/materials/designMaterials.js';
@@ -131,7 +131,7 @@ for (const lam of [500, 550, 600]) {
 
 // ── 4. Step independence (regression guard) ──────────────────────────────────
 {
-    const vals = [0.5, DEFAULT_GD_GDD_WAVELENGTH_STEP_NM, 0.1, 0.05, 0.01, 0.005]
+    const vals = [0.5, AUTOMATIC_GD_GDD_FINE_STEP_NM, 0.1, 0.05, 0.01, 0.005]
         .map(step => windowAt(qwStack(8), 500, 620, step, 550));
     const spread = (key) => Math.max(...vals.map(v => v[key])) - Math.min(...vals.map(v => v[key]));
     ok(spread('gd') < 1e-3, `GD independent of step (spread ${spread('gd')})`);

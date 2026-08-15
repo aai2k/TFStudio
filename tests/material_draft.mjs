@@ -72,6 +72,15 @@ const tabMat = {
     id: 'MyTab', name: 'My Tabular', formulaNum: -1,
     tabData: [[400, 1.5, 0], [700, 1.45, 0.001]],
     lambdaMin: 0.4, lambdaMax: 0.7, coefficients: [], kTable: [], color: 'auto',
+    dispersionFit: {
+        active: true, rangeNm: [400, 700], source: 'tabulated n/k',
+        n: { kind: 'cauchy', coefficients: [1.4, .01] },
+        k: { kind: 'zero', coefficients: [] },
+        residuals: {
+            n: { rms: .001, max: .002, points: 2 },
+            k: { rms: 0, max: 0, points: 2 },
+        },
+    },
 };
 const tabD = materialToDraft('user_cat', tabMat);
 ok(tabD.type === 'tabular' && tabD.rows.length === 2, 'materialToDraft: tabular → 2 rows');
@@ -80,6 +89,31 @@ const tabBack = draftToMaterial(tabD);
 ok(tabBack.formulaNum === -1 && tabBack.tabData.length === 2, 'draftToMaterial: tabular roundtrip keeps rows');
 ok(close(tabBack.tabData[0][0], 400) && close(tabBack.tabData[1][1], 1.45), 'draftToMaterial: tabular values preserved');
 ok(tabBack.interp === 'pchip', 'draftToMaterial: tabular rule is stored');
+ok(
+    JSON.stringify(tabBack.dispersionFit) === JSON.stringify(tabMat.dispersionFit),
+    'tabular roundtrip preserves the material-owned dispersion fit',
+);
+
+const metalFit = {
+    active: true, rangeNm: [400, 800], source: 'tabulated n/k',
+    complex: {
+        kind: 'drude-lorentz', epsilonInfinity: 3, plasmaEnergyEv: 8.8,
+        drudeDampingEv: 0.1,
+        oscillators: [
+            { strengthEv2: 5, resonanceEv: 2.7, dampingEv: 0.6 },
+            { strengthEv2: 2, resonanceEv: 4.1, dampingEv: 0.9 },
+        ],
+    },
+    residuals: {
+        n: { rms: .01, max: .02, points: 20 },
+        k: { rms: .01, max: .02, points: 20 },
+    },
+};
+const metalDraft = materialToDraft('user_cat', { ...tabMat, dispersionFit: metalFit });
+ok(metalDraft.fitModel === 'drude-lorentz' && metalDraft.fitTerms === 2,
+    'materialToDraft restores the metal fit controls');
+ok(JSON.stringify(draftToMaterial(metalDraft).dispersionFit) === JSON.stringify(metalFit),
+    'Drude-Lorentz fit survives the material roundtrip');
 
 // ── 4. materialToDraft ↔ draftToMaterial roundtrip (formula) ──────────────────
 const formMat = {

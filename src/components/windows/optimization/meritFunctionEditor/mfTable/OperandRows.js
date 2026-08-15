@@ -78,11 +78,12 @@ export function BlnkRow({ op, rowIdx, rowSel, c, t, onEdit, selectRow }) {
 
 export function MFDataRow(props) {
     const {
-        op, rowIdx, rawCur, rowSel, focusCell, editCell, operands, integralPresets,
+        op, rowIdx, rawCur, bandLevel, evaluationError, rowSel, focusCell, editCell,
+        operands, integralPresets,
         isMathPct, c, t, onEdit, selectRow, focusAt, startEdit, commitEdit,
         navigate, setEditCell, setFocusCell,
     } = props;
-    const meta = rowDisplayMeta(op, rawCur, isMath(op.type) && isMathPct(op));
+    const meta = rowDisplayMeta(op, rawCur, isMath(op.type) && isMathPct(op), bandLevel);
     const dColor = deltaColor(op, meta.rawDelta, meta, c);
     const rowBg = typeRgba(op.type, 0.12) || 'transparent';
     const rowStripe = typeRgba(op.type, 0.75);
@@ -112,11 +113,16 @@ export function MFDataRow(props) {
     };
 
     const ctx = {
-        op, rowIdx, meta, c, t, operands, integralPresets, dColor, rowStripe, editCell,
+        op, rowIdx, meta, c, t, operands, integralPresets, dColor, rowStripe,
+        editCell, evaluationError,
         tdBase, cellClick, onEdit, focusAt, selectRow, startEdit, commitEdit, navigate, setEditCell,
     };
     const renderers = rowRenderers(op, meta);
-    return h('tr', { style: { opacity: op.enabled ? 1 : 0.45 } },
+    return h('tr', {
+        title: evaluationError || undefined,
+        'aria-invalid': evaluationError ? 'true' : undefined,
+        style: { opacity: op.enabled ? 1 : 0.45 },
+    },
         COLS.map(col => {
             let render = renderers[col.key];
             if (render === textCell && editCell?.rowIdx === rowIdx && editCell?.colKey === col.key) {
@@ -127,7 +133,7 @@ export function MFDataRow(props) {
 }
 
 export function renderOperandRow(ctx, op, rowIdx) {
-    const { computed, selIds, c, t, onEdit, selectRow } = ctx;
+    const { computed, evaluationErrors, bandLevels, selIds, c, t, onEdit, selectRow } = ctx;
     const rowSel = selIds.has(op.id);
     if (isDmfs(op.type)) return h(DmfsRow, { key: op.id, op, rowIdx, rowSel, c, onEdit, selectRow });
     if (isBlank(op.type)) return h(BlnkRow, { key: op.id, op, rowIdx, rowSel, c, t, onEdit, selectRow });
@@ -136,6 +142,8 @@ export function renderOperandRow(ctx, op, rowIdx) {
         op,
         rowIdx,
         rawCur: computed?.[rowIdx] != null ? computed[rowIdx] : null,
+        bandLevel: bandLevels?.[rowIdx] ?? null,
+        evaluationError: evaluationErrors?.[rowIdx] || null,
         rowSel,
         focusCell: ctx.focusCell,
         editCell: ctx.editCell,

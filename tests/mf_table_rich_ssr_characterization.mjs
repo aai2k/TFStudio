@@ -34,6 +34,8 @@ const operands = [
 const computed = [null, null, 0.12, 0.79, 0.03, 0.77, 1300, 24, 299, 545, 0.12, -0.67, 0, 0.04];
 const props = {
     operands, computed, selectedId: 'ramp', noOperandsMsg: 'No test operands',
+    evaluationErrors: [null, null, 'TiO2: wavelength is outside the material model range'],
+    notice: 'Total merit mode: phase operands score the front coating only.',
     onSelect: noop, onEdit: noop, onAdd: noop, onInsertAt: noop,
     onDuplicate: noop, onDelete: noop, onClear: noop,
     onMoveUp: noop, onMoveDown: noop, c, t,
@@ -62,6 +64,10 @@ assert.ok(html.includes('<button'));
 assert.ok(html.includes('>Add</button>'));
 assert.ok(html.includes('>Delete</button>'));
 assert.ok(html.includes('Ctrl+C/V=copy/paste'));
+assert.ok(html.includes('aria-invalid="true"'));
+assert.ok(html.includes('TiO2: wavelength is outside the material model range'));
+assert.ok(html.includes('>Error</td>'));
+assert.ok(html.includes('Total merit mode: phase operands score the front coating only.'));
 
 const withoutToolbar = renderToStaticMarkup(React.createElement(MFTable, { ...props, showToolbar: false }));
 assert.equal((withoutToolbar.match(/<tr/g) || []).length, operands.length + 1);

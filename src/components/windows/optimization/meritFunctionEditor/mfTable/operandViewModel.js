@@ -7,7 +7,11 @@ import {
 // Display unit for a phase/field operand type (empty = dimensionless).
 const PHASE_UNITS = {
     PSI: '°', DEL: '°', TANPSI: '', COSDEL: '',
-    GD: 'fs', GDFLAT: 'fs', GDD: 'fs²', GDDFLAT: 'fs²', EFMX: '',
+    PR: '°', PT: '°', DPR: '°', DPT: '°',
+    GD: 'fs', GDT: 'fs', GDFLAT: 'fs', GDTFLAT: 'fs',
+    GDD: 'fs²', GDDT: 'fs²', GDDFLAT: 'fs²', GDDTFLAT: 'fs²',
+    TOD: 'fs³', TODT: 'fs³', TODFLAT: 'fs³', TODTFLAT: 'fs³',
+    EFMX: '',
 };
 function phaseUnit(type) { return PHASE_UNITS[type] || ''; }
 
@@ -25,7 +29,11 @@ const TYPE_COLORS = {
     MXWT: [230, 190, 80], MXWR: [230, 190, 80], MXWA: [230, 190, 80],
     MNWT: [230, 190, 80], MNWR: [230, 190, 80], MNWA: [230, 190, 80],
     PSI: [80, 200, 200], DEL: [80, 200, 200], TANPSI: [80, 200, 200], COSDEL: [80, 200, 200],
-    GD: [110, 180, 220], GDD: [110, 180, 220], GDFLAT: [110, 180, 220], GDDFLAT: [110, 180, 220],
+    PR: [160, 140, 230], PT: [160, 140, 230], DPR: [160, 140, 230], DPT: [160, 140, 230],
+    GD: [110, 180, 220], GDT: [110, 180, 220], GDD: [110, 180, 220], GDDT: [110, 180, 220],
+    TOD: [110, 180, 220], TODT: [110, 180, 220], GDFLAT: [110, 180, 220],
+    GDTFLAT: [110, 180, 220], GDDFLAT: [110, 180, 220], GDDTFLAT: [110, 180, 220],
+    TODFLAT: [110, 180, 220], TODTFLAT: [110, 180, 220],
     EFMX: [220, 120, 180],
     MNT: [180, 100, 255], MXT: [180, 100, 255], BLNK: [140, 140, 140],
 };
@@ -93,26 +101,36 @@ export function editableColsForRow(op) {
         || RANGE_TARGET_TYPES.has(op.type) || isMinmax(op.type));
 }
 
+// Operands whose λ End column carries a wavelength, so the cell shows a value
+// instead of a dash. Must stay in step with editableColsForRow and
+// dynamicHeaderLabels: the flatness operands sample a band and own a λ End.
 export function isRangeType(type) {
     if (RANGE_AVG_TYPES.has(type) || RANGE_TARGET_TYPES.has(type)) return true;
-    return isMinmax(type) || isInequality(type) || isArgwave(type);
+    return isMinmax(type) || isInequality(type) || isArgwave(type)
+        || isGroupDelayFlat(type);
 }
 
-export function rowDisplayMeta(op, rawCur, mathPercent) {
+export function rowDisplayMeta(op, rawCur, mathPercent, bandLevel = null) {
     const isCon = isConstraint(op.type);
     const isTT = isTotalThickness(op.type);
     const isArg = isArgwave(op.type);
     const isMth = isMath(op.type);
     const isPhs = isPhase(op.type);
+    const isFlat = isGroupDelayFlat(op.type);
     // Fraction-unit rows display value ×100 as a percent. Optical T/R/A carry a
     // fractional unit; a math row inherits percent only when its refs are optical.
     const useFraction = isFractionalUnit(op.type) || (isMth && mathPercent);
-    const cur = rawCur != null ? (useFraction ? rawCur * 100 : rawCur) : null;
+    const value = rawCur != null ? (useFraction ? rawCur * 100 : rawCur) : null;
     // GD/GDD flatness rows carry an RMS deviation as their value (like a ramp): the
     // Δ column shows that RMS, not (current − target).
-    const isRampRow = isRangeTarget(op.type) || isGroupDelayFlat(op.type);
+    const isRampRow = isRangeTarget(op.type) || isFlat;
     const tgt = useFraction ? op.target * 100 : op.target;
-    const rawDelta = cur != null ? (isRampRow ? cur : cur - tgt) : null;
+    const rawDelta = value != null ? (isRampRow ? value : value - tgt) : null;
+    // A flatness operand's own value is an RMS deviation, which shares the
+    // target's unit but not its meaning and goes to zero as the row is met.
+    // Current shows the level the band actually reaches, so it can be read
+    // against Target directly; the RMS stays in Δ.
+    const cur = isFlat && bandLevel != null ? bandLevel : value;
     return {
         isCon, isTT, isArg, isMth, isPhs, phaseUnit: isPhs ? phaseUnit(op.type) : '',
         mthPct: mathPercent, useFraction, cur, tgt,

@@ -126,7 +126,9 @@ function headerCell(col, dynamicLabels, style) {
 
 export function MFTable(props) {
     const {
-        operands, computed, selectedId, noOperandsMsg, onSelect, onEdit, onAdd, onInsertAt,
+        operands, computed, evaluationErrors = [], bandLevels = [],
+        selectedId, noOperandsMsg, notice,
+        onSelect, onEdit, onAdd, onInsertAt,
         onDuplicate, onDelete, onClear, onMoveUp, onMoveDown, showToolbar = true, c, t,
     } = props;
     const integralPresets = useIntegralPresets();
@@ -149,7 +151,8 @@ export function MFTable(props) {
     const hasSelection = selIds.size > 0;
     const dynamicLabels = dynamicHeaderLabels(pickHeaderOp(operands, focusCell, primarySel));
     const rowContext = {
-        computed, selIds, focusCell, editCell, operands, integralPresets, isMathPct, c, t,
+        computed, evaluationErrors, bandLevels, selIds, focusCell, editCell,
+        operands, integralPresets, isMathPct, c, t,
         onEdit, selectRow: handleSelectRow, focusAt: handleFocusAt, startEdit: handleStartEdit,
         commitEdit: handleCommitEdit, navigate: handleNavigate, setEditCell, setFocusCell,
     };
@@ -163,6 +166,14 @@ export function MFTable(props) {
             overflow: 'hidden', outline: 'none',
         },
     },
+        notice && h('div', {
+            title: notice,
+            style: {
+                padding: '4px 8px', flexShrink: 0, fontSize: 10,
+                color: '#ffcc80', background: '#ff980012',
+                borderBottom: `1px solid ${c.border}`,
+            },
+        }, notice),
         h('div', { style: { flex: 1, overflow: 'auto', minHeight: 0 } },
             h('table', {
                 style: {

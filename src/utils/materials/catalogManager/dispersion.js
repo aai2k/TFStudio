@@ -4,6 +4,7 @@ import {
     createTabulatedNKSampler,
     TABULATED_INTERPOLATION,
 } from '../pchip.js';
+import { evaluateDispersionFit } from '../dispersionFits.js';
 
 const kInterpolatorCache = new WeakMap();
 
@@ -27,7 +28,16 @@ export function makeGetNK(mat) {
     if (mat.getNK) return mat.getNK;
     // formulaNum === -1 → user tabular: tabData = [[lam_nm, n, k], ...]
     if (mat.formulaNum === -1) {
-        return createTabulatedNKSampler(mat.tabData) || (() => [1.5, 0]);
+        const base = createTabulatedNKSampler(mat.tabData) || (() => [1.5, 0]);
+        if (!mat.dispersionFit?.active) return base;
+        const getNK = (lambdaNm) => {
+            const [low, high] = mat.dispersionFit.rangeNm;
+            return lambdaNm >= low && lambdaNm <= high
+                ? evaluateDispersionFit(mat.dispersionFit, lambdaNm)
+                : base(lambdaNm);
+        };
+        Object.assign(getNK, base, { dispersionFit: mat.dispersionFit });
+        return getNK;
     }
     const kAt = makeKInterpolator(mat.kTable);
     const getNK = (lambda_nm) => {
@@ -36,5 +46,13 @@ export function makeGetNK(mat) {
         return [n, kAt?.(lum) ?? 0];
     };
     if (kAt) getNK.interp = TABULATED_INTERPOLATION;
+    getNK.dispersionFormula = {
+        formulaNum: mat.formulaNum,
+        coefficients: mat.coefficients,
+    };
+    if (kAt) {
+        getNK.kInterpolator = kAt;
+        getNK.kInterpolatorUnit = 'um';
+    }
     return getNK;
 }

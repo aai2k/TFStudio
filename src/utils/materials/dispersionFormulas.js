@@ -276,6 +276,8 @@ export function evalN(formulaNum, coeffs, lambda_um) {
     return fn(coeffs, lambda_um);
 }
 
+export { evalNJet } from './dispersionFormulaJet.js';
+
 // ── LaTeX templates ───────────────────────────────────────────────────────────
 
 export const FORMULA_LATEX = {

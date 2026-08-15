@@ -42,9 +42,10 @@ export const INTEGRAL_OPERAND_TYPES   = ['TIW', 'RIW', 'AIW'];
 export const MINMAX_OPERAND_TYPES     = ['TMN', 'RMN', 'AMN', 'TMX', 'RMX', 'AMX'];
 // ── Phase / field operands ────────────────────────────────────────────────────
 // Quantities derived from the complex amplitude coefficients or the internal
-// field — NOT fractions in [0,1]. They carry physical units, so they force the
-// finite-difference Jacobian (their analytic chain rule is not worked out) and
-// get a per-type residual scale (operandResidualScale) rather than σ=1.
+// field values are not fractions in [0,1]. They get a per-type residual scale
+// (operandResidualScale) rather than σ=1. Phase, GD, GDD, and TOD have exact
+// thickness derivatives; ellipsometry and EFMX retain the finite-difference
+// fallback.
 // Reference: Macleod, Thin-Film Optical Filters 5th ed., Ch.11 (ultrafast /
 // GD/GDD) and Ch.16 (ellipsometry Ψ, Δ).
 //   PSI/DEL     — ellipsometric Ψ, Δ (degrees), from ρ = r_p/r_s = tanΨ·e^{iΔ}.
@@ -56,10 +57,15 @@ export const MINMAX_OPERAND_TYPES     = ['TMN', 'RMN', 'AMN', 'TMX', 'RMX', 'AMX
 //   EFMX        — peak normalized |E|² anywhere in the coating (laser-damage
 //                 field control); minimized toward the target.
 export const ELLIPSOMETRY_OPERAND_TYPES = ['PSI', 'DEL', 'TANPSI', 'COSDEL'];
-export const GROUPDELAY_OPERAND_TYPES   = ['GD', 'GDD', 'GDFLAT', 'GDDFLAT'];
+export const PHASE_SHIFT_OPERAND_TYPES = ['PR', 'PT', 'DPR', 'DPT'];
+export const GROUPDELAY_OPERAND_TYPES = [
+    'GD', 'GDT', 'GDD', 'GDDT', 'TOD', 'TODT',
+    'GDFLAT', 'GDTFLAT', 'GDDFLAT', 'GDDTFLAT', 'TODFLAT', 'TODTFLAT',
+];
 export const EFIELD_OPERAND_TYPES        = ['EFMX'];
 export const PHASE_OPERAND_TYPES = [
-    ...ELLIPSOMETRY_OPERAND_TYPES, ...GROUPDELAY_OPERAND_TYPES, ...EFIELD_OPERAND_TYPES,
+    ...ELLIPSOMETRY_OPERAND_TYPES, ...PHASE_SHIFT_OPERAND_TYPES,
+    ...GROUPDELAY_OPERAND_TYPES, ...EFIELD_OPERAND_TYPES,
 ];
 export const CONSTRAINT_OPERAND_TYPES = ['MNT', 'MXT'];
 // ── Zemax-style math operands ────────────────────────────────────────────────
@@ -126,12 +132,14 @@ export function isIntegral(type)   { return type === 'TIW' || type === 'RIW' || 
 export function isMinmax(type)     { return MINMAX_OPERAND_TYPES.indexOf(type) >= 0; }
 export function isMinType(type)    { return type === 'TMN' || type === 'RMN' || type === 'AMN'; }
 export function isEllipsometry(type) { return ELLIPSOMETRY_OPERAND_TYPES.indexOf(type) >= 0; }
+export function isPhaseShift(type) { return PHASE_SHIFT_OPERAND_TYPES.indexOf(type) >= 0; }
 export function isGroupDelay(type)   { return GROUPDELAY_OPERAND_TYPES.indexOf(type) >= 0; }
+export function isPhaseDispersion(type) { return isPhaseShift(type) || isGroupDelay(type); }
 // GD/GDD flatness operands whose value is already an RMS deviation from the flat
 // target (residual = value, like a range-target ramp).
-export function isGroupDelayFlat(type) { return type === 'GDFLAT' || type === 'GDDFLAT'; }
+export function isGroupDelayFlat(type) { return type.endsWith('FLAT') && isGroupDelay(type); }
 export function isEField(type)       { return type === 'EFMX'; }
-export function isPhase(type)        { return isEllipsometry(type) || isGroupDelay(type) || isEField(type); }
+export function isPhase(type)        { return isEllipsometry(type) || isPhaseShift(type) || isGroupDelay(type) || isEField(type); }
 export function isInequality(type) { return type === 'OPGT' || type === 'OPLT'; }
 export function isArgwave(type)    { return ARGWAVE_OPERAND_TYPES.indexOf(type) >= 0; }
 export function isArgwaveMin(type) { return type.startsWith('MNW'); }
@@ -274,7 +282,10 @@ export function removeOperandsAndDependents(operands, ids) {
 // quantity until the user sets a specific target.
 const PHASE_DEFAULT_TARGET = {
     PSI: 45, DEL: 180, TANPSI: 1, COSDEL: 0,
-    GD: 0, GDD: 0, GDFLAT: 0, GDDFLAT: 0, EFMX: 0,
+    PR: 0, PT: 0, DPR: 0, DPT: 0,
+    GD: 0, GDT: 0, GDD: 0, GDDT: 0, TOD: 0, TODT: 0,
+    GDFLAT: 0, GDTFLAT: 0, GDDFLAT: 0, GDDTFLAT: 0,
+    TODFLAT: 0, TODTFLAT: 0, EFMX: 0,
 };
 
 // Replace the RAV "+ Add" default (0.99, a fraction) with the phase operand's

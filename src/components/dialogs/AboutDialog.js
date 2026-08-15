@@ -167,6 +167,45 @@ export function AboutDialog({ c, t, onClose }) {
         }
       }, 'achapovskyai@gmail.com'),
 
+      // Divider
+      h('div', {
+        style: {
+          height: '1px',
+          backgroundColor: c.border,
+          margin: '0 0 16px 0'
+        }
+      }),
+
+      // Copyright and licence
+      h('div', {
+        style: {
+          color: c.textDim,
+          fontSize: '12px',
+          marginBottom: '4px'
+        }
+      }, t.dialogs.about.copyright),
+
+      h('div', {
+        style: {
+          color: c.textDim,
+          fontSize: '12px',
+          marginBottom: '12px'
+        }
+      }, t.dialogs.about.license),
+
+      // Third-party trademarks. Named here rather than in the windows that read
+      // these file formats: one notice is the convention, and per-window notices
+      // would repeat the same text in every import and export dialog.
+      h('div', {
+        style: {
+          color: c.textDim,
+          fontSize: '11px',
+          lineHeight: '1.5',
+          textAlign: 'left',
+          marginBottom: '24px'
+        }
+      }, t.dialogs.about.trademarks),
+
       // Close button
       h('button', {
         onClick: onClose,

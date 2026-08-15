@@ -1,6 +1,7 @@
 import { designMaterialLookup } from '../../../../utils/materials/designMaterials.js';
 import {
-    evaluateOperands, calcMF, calcOMF, buildEvalContext,
+    evaluateOperands, calcMF, calcOMF, buildEvalContext, operandEvaluationErrors,
+    operandBandLevels,
 } from '../../../../utils/physics/optimizer.js';
 import {
     editOperand, replaceOperandTail, addOperands, insertOperand,
@@ -13,7 +14,13 @@ const EMPTY_OPERANDS = [];
 function evaluateForDisplay(design, operands) {
     const ctx = buildEvalContext(design, designMaterialLookup(design));
     const computed = evaluateOperands(operands, ctx);
-    return { computed, mf: calcMF(operands, computed), omf: calcOMF(operands, computed) };
+    const errors = operandEvaluationErrors(computed);
+    const invalid = errors.some(Boolean);
+    return {
+        computed, errors, bandLevels: operandBandLevels(computed),
+        mf: invalid ? null : calcMF(operands, computed),
+        omf: invalid ? null : calcOMF(operands, computed),
+    };
 }
 
 function applyAdd(ctx, data, atIndex) {
@@ -53,6 +60,8 @@ function requestClear(ctx) {
 export function useMeritOperands({ design, updateDesign, checkpoint, setInputDialog, te }) {
     const [selectedId, setSelectedId] = useState(null);
     const [computed, setComputed] = useState([]);
+    const [errors, setErrors] = useState([]);
+    const [bandLevels, setBandLevels] = useState([]);
     const [mf, setMf] = useState(null);
     const [omf, setOmf] = useState(null);
     const operands = design?.meritOperands || EMPTY_OPERANDS;
@@ -64,14 +73,15 @@ export function useMeritOperands({ design, updateDesign, checkpoint, setInputDia
 
     useEffect(() => {
         if (!design || operands.length === 0) {
-            setComputed([]); setMf(null); setOmf(null);
+            setComputed([]); setErrors([]); setBandLevels([]); setMf(null); setOmf(null);
             return;
         }
         try {
             const result = evaluateForDisplay(design, operands);
-            setComputed(result.computed); setMf(result.mf); setOmf(result.omf);
+            setComputed(result.computed); setErrors(result.errors); setBandLevels(result.bandLevels);
+            setMf(result.mf); setOmf(result.omf);
         } catch (_) {
-            setComputed([]); setMf(null); setOmf(null);
+            setComputed([]); setErrors([]); setBandLevels([]); setMf(null); setOmf(null);
         }
     }, [operands, design]);
 
@@ -124,7 +134,7 @@ export function useMeritOperands({ design, updateDesign, checkpoint, setInputDia
     }, [operands.length, te, setInputDialog, doClear]);
 
     return {
-        operands, selectedId, setSelectedId, computed, mf, omf, setOperands,
+        operands, selectedId, setSelectedId, computed, errors, bandLevels, mf, omf, setOperands,
         handleEdit, handleGenerate, handleAdd, handleInsertAt, handleDuplicate,
         handleDelete, handleClear, handleMoveUp, handleMoveDown,
     };

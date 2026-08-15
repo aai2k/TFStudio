@@ -38,6 +38,7 @@ Design Editor from the substrate outwards.
 - [Electric Field](https://docs.tfstudio.xyz/analysis/efield/): field distribution through the stack, for damage-threshold work.
 - [Ellipsometry](https://docs.tfstudio.xyz/analysis/ellipsometry/): psi and delta for comparison with ellipsometric measurement.
 - [Group Delay and GDD](https://docs.tfstudio.xyz/analysis/gd-gdd/): dispersion characteristics for ultrafast coatings.
+- [Material Dispersion](https://docs.tfstudio.xyz/analysis/material-dispersion/): phase and dispersion from propagation through a bulk material.
 - [Refractive Index Profile](https://docs.tfstudio.xyz/analysis/refractive-index-profile/): index as a function of depth through the coating.
 - [Layer Sensitivity](https://docs.tfstudio.xyz/analysis/layer-sensitivity/): how strongly each layer's thickness affects the merit function.
 - [Monte-Carlo](https://docs.tfstudio.xyz/analysis/error-analysis/): statistical yield prediction from random thickness and index errors.
