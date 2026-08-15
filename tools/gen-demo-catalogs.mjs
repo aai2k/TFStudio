@@ -11,6 +11,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { getMaterial } from '../src/utils/materials/materialDatabase.js';
+import { TABULATED_INTERPOLATION } from '../src/utils/materials/pchip.js';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const out = path.join(here, '..', 'web', 'demo-catalogs.js');
@@ -41,6 +42,7 @@ function sampleMaterial(id) {
     id: m.id,
     name: m.name,
     formulaNum: -1,
+    interp: TABULATED_INTERPOLATION,
     coefficients: [],
     tabData,
     lambdaMin: lo / 1000,

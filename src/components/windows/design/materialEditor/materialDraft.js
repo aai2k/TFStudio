@@ -12,6 +12,8 @@
  *   formula   — one of the Zemax dispersion formulas + optional k table
  */
 
+import { TABULATED_INTERPOLATION } from '../../../../utils/materials/pchip.js';
+
 export { buildNKFromDraft } from './nkSamplers.js';
 
 // ── Preset dot colors for user materials ──────────────────────────────────────
@@ -53,6 +55,7 @@ export function emptyDraft(catalogId) {
         lambdaMinNm: '300',
         lambdaMaxNm: '2500',
         type: 'tabular',
+        interp: TABULATED_INTERPOLATION,
         rows: [],
         formulaNum: 2,
         coeffs: Array(10).fill(''),
@@ -120,6 +123,7 @@ export function materialToDraft(catalogId, mat) {
         lambdaMinNm: String(Math.round((mat.lambdaMin || 0.3) * 1000)),
         lambdaMaxNm: String(Math.round((mat.lambdaMax || 2.5) * 1000)),
         type: (isTab || isBuiltin) ? 'tabular' : 'formula',
+        interp: TABULATED_INTERPOLATION,
         isRii: !!mat.dataPath,   // true for refractiveindex.info imports — hides Zemax formula UI
         rows: tabRows,
         formulaNum: (isTab || isBuiltin) ? 2 : (mat.formulaNum || 2),
@@ -143,6 +147,7 @@ export function draftToMaterial(draft) {
         const lMax = tabData.length > 1 ? tabData[tabData.length - 1][0] / 1000 : lambdaMax;
         return {
             id, name: draft.name.trim() || id, formulaNum: -1,
+            interp: TABULATED_INTERPOLATION,
             tabData, lambdaMin: lMin, lambdaMax: lMax,
             coefficients: [], kTable: [],
             color: draft.color, group: 'User', comment: '',
@@ -159,6 +164,7 @@ export function draftToMaterial(draft) {
     return {
         id, name: draft.name.trim() || id, formulaNum: draft.formulaNum,
         coefficients, kTable, tabData: [],
+        ...(kTable.length ? { interp: TABULATED_INTERPOLATION } : {}),
         lambdaMin, lambdaMax,
         color: draft.color, group: 'User', comment: '',
         nd: null, vd: null, density: null,

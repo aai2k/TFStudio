@@ -799,6 +799,130 @@ export function computeGroupDelaySpectrum(coeffAtLambda, lamStart_nm, lamEnd_nm,
     return { lambda, phaseDeg, gd, gdd, tod };
 }
 
+// ── Group delay on an exact wavelength grid ───────────────────────────────────
+
+// Weights for derivatives 0..maxOrder at x=0 on arbitrary nodes x[].
+// Fornberg, Math. Comp. 51 (1988), Eqs. (3.8) and (3.9).
+function finiteDifferenceWeights(x, maxOrder) {
+    const count = x.length;
+    const weights = Array.from({ length: count }, () => new Array(maxOrder + 1).fill(0));
+    weights[0][0] = 1;
+    let c1 = 1;
+    let c4 = x[0];
+
+    for (let i = 1; i < count; i++) {
+        const order = Math.min(i, maxOrder);
+        let c2 = 1;
+        const c5 = c4;
+        c4 = x[i];
+
+        for (let j = 0; j < i; j++) {
+            const c3 = x[i] - x[j];
+            c2 *= c3;
+            if (j === i - 1) {
+                for (let k = order; k >= 1; k--) {
+                    weights[i][k] = c1 * (k * weights[i - 1][k - 1] - c5 * weights[i - 1][k]) / c2;
+                }
+                weights[i][0] = -c1 * c5 * weights[i - 1][0] / c2;
+            }
+            for (let k = order; k >= 1; k--) {
+                weights[j][k] = (c4 * weights[j][k] - k * weights[j][k - 1]) / c3;
+            }
+            weights[j][0] = c4 * weights[j][0] / c3;
+        }
+        c1 = c2;
+    }
+    return weights;
+}
+
+/**
+ * GD, GDD and TOD on a displayed grid with an exact wavelength step.
+ *
+ * The displayed samples are lambdaStart + i*lambdaStep, matching the
+ * start-plus-step rule used by the other analysis windows. Their angular
+ * frequencies are not equally spaced, so each derivative uses five-point
+ * finite-difference weights calculated from the actual omega coordinates. This
+ * differentiates directly in omega without resampling or interpolating the phase.
+ *
+ * Finite-difference weights: Fornberg, Math. Comp. 51 (1988), Eqs. (3.8), (3.9).
+ * Phase convention and reported units are the same as computeGroupDelaySpectrum.
+ *
+ * @param {(lambda_nm:number)=>[number,number]} coeffAtLambda complex r or t
+ * @param {number} lamStart_nm displayed range start (nm)
+ * @param {number} lamEnd_nm displayed range end (nm)
+ * @param {number} lambdaStep_nm displayed wavelength step (nm)
+ * @returns {{ lambda:number[], phaseDeg:number[], gd:number[],
+ *             gdd:number[], tod:number[] }} all ascending in wavelength
+ */
+export function computeGroupDelaySpectrumAtWavelengthStep(
+    coeffAtLambda, lamStart_nm, lamEnd_nm, lambdaStep_nm,
+) {
+    const lamLo = Math.min(lamStart_nm, lamEnd_nm);
+    const lamHi = Math.max(lamStart_nm, lamEnd_nm);
+    if (!(lamHi > lamLo)) {
+        throw new RangeError('Group-delay wavelength endpoints must be distinct.');
+    }
+    const step = Number(lambdaStep_nm);
+    if (!(step > 0) || !Number.isFinite(step)) {
+        throw new RangeError('Group-delay wavelength step must be positive.');
+    }
+
+    const span = lamHi - lamLo;
+    const targetCount = Math.floor(span / step + 1e-12) + 1;
+
+    // Two guards on each side normally give a centred five-point stencil. If a
+    // very coarse step would cross lambda=0, move those guards to the red side
+    // and let the arbitrary-grid formula use a one-sided stencil at the blue end.
+    let firstOffset = -2;
+    while (firstOffset < 0 && lamLo + firstOffset * step <= 0) firstOffset++;
+    const sampleCount = targetCount + 4;
+    const sampleLambda = new Array(sampleCount);
+    const omega = new Array(sampleCount);
+    const rawPhase = new Array(sampleCount);
+    const TWO_PI_C = 2 * Math.PI * C_NM_PER_FS;
+    for (let i = 0; i < sampleCount; i++) {
+        const lambdaNm = lamLo + (firstOffset + i) * step;
+        sampleLambda[i] = lambdaNm;
+        omega[i] = TWO_PI_C / lambdaNm;
+        const z = coeffAtLambda(lambdaNm);
+        rawPhase[i] = Math.atan2(z[1], z[0]);
+    }
+
+    // Conjugate-Macleod convention, as in computeGroupDelaySpectrum.
+    const phase = unwrapPhase(rawPhase).map(value => -value);
+    const lambda = new Array(targetCount);
+    const phaseDeg = new Array(targetCount);
+    const gd = new Array(targetCount);
+    const gdd = new Array(targetCount);
+    const tod = new Array(targetCount);
+
+    for (let i = 0; i < targetCount; i++) {
+        const center = i - firstOffset;
+        const first = Math.max(0, Math.min(center - 2, sampleCount - 5));
+        const relativeOmega = new Array(5);
+        for (let j = 0; j < 5; j++) relativeOmega[j] = omega[first + j] - omega[center];
+        const weights = finiteDifferenceWeights(relativeOmega, 3);
+
+        let d1 = 0, d2 = 0, d3 = 0;
+        for (let j = 0; j < 5; j++) {
+            // A constant phase has zero derivative. Subtracting it before the
+            // weighted sum avoids cancellation against weights of order h^-3.
+            const value = phase[first + j] - phase[center];
+            d1 += weights[j][1] * value;
+            d2 += weights[j][2] * value;
+            d3 += weights[j][3] * value;
+        }
+
+        lambda[i] = sampleLambda[center];
+        phaseDeg[i] = phase[center] * 180 / Math.PI;
+        gd[i] = -d1;
+        gdd[i] = -d2;
+        tod[i] = -d3;
+    }
+
+    return { lambda, phaseDeg, gd, gdd, tod };
+}
+
 // ── Refractive-index profile ──────────────────────────────────────────────────
 
 /**

@@ -1,4 +1,8 @@
 import { sanitizeZemaxName } from './names.js';
+import {
+    createPchipInterpolator,
+    TABULATED_INTERPOLATION,
+} from '../../materials/pchip.js';
 
 /**
  * Build a TFStudio tabular catalog material from a parsed MATE entry.
@@ -19,6 +23,7 @@ export function mateToTfMaterial(mate, opts = {}) {
         id: sanitizeZemaxName(name).toLowerCase() || 'material',
         name,
         formulaNum: -1,
+        interp: TABULATED_INTERPOLATION,
         coefficients: [],
         kTable: [],
         tabData,
@@ -32,16 +37,10 @@ export function mateToTfMaterial(mate, opts = {}) {
     };
 }
 
-/** Linear-interpolate n from a [[λ_nm,n,k],…] table (clamped at ends). */
+/** PCHIP-interpolate n from a [[λ_nm,n,k], ...] table (clamped at ends). */
 function nIndexFromTab(tab, lamNm) {
-    if (!tab || !tab.length) return null;
-    if (lamNm <= tab[0][0]) return tab[0][1];
-    const last = tab[tab.length - 1];
-    if (lamNm >= last[0]) return last[1];
-    let lo = 0, hi = tab.length - 1;
-    while (hi - lo > 1) { const m = (lo + hi) >> 1; if (tab[m][0] <= lamNm) lo = m; else hi = m; }
-    const f = (lamNm - tab[lo][0]) / (tab[hi][0] - tab[lo][0]);
-    return tab[lo][1] + f * (tab[hi][1] - tab[lo][1]);
+    const interpolate = createPchipInterpolator((tab || []).map(row => [row[0], row[1]]));
+    return interpolate ? interpolate(lamNm) : null;
 }
 
 /**

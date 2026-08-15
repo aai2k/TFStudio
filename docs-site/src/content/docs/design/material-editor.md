@@ -66,6 +66,14 @@ Open a user catalog and choose **New material**, then pick a data type:
 A live n/k chart updates as you edit, and the wavelength range you set bounds
 where the material is valid.
 
+TFStudio evaluates every tabulated `n` and `k` column with shape-preserving
+PCHIP interpolation. The curve passes through every supplied point and stays
+inside the values of each bracketing pair, so a non-negative `k` table cannot
+acquire optical gain from interpolation overshoot. Outside the tabulated range,
+the nearest endpoint value is held constant. PCHIP defines the values between
+measurements; it does not add measured information that is absent from the
+table.
+
 ## How to read it
 
 For a built-in or imported material, the n/k chart shows the real index `n`
@@ -82,4 +90,5 @@ open the app.
 ## References
 
 - M. N. Polyanskiy, refractiveindex.info (public-domain dispersion data).
+- F. N. Fritsch and J. Butland, "A Method for Constructing Local Monotone Piecewise Cubic Interpolants," *SIAM Journal on Scientific and Statistical Computing* **5**, 300-304 (1984).
 - Beer–Lambert relation for extinction from internal transmittance: `k(λ) = −λ / (4π d) · ln τ_int(λ)`.

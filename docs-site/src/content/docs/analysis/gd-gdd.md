@@ -34,8 +34,13 @@ Each coating is evaluated on its own, so a part with a chirped mirror on one
 face and a different coating on the other can be inspected one side at a time.
 
 **Wavelength range and step**: the span and sampling interval of the plot, in
-nm. Use a fine step (0.2 nm or smaller) before trusting GDD and TOD near sharp
-spectral features, because each higher derivative amplifies sampling noise.
+nm. The transfer matrix is evaluated on that exact wavelength grid. The
+derivative weights use each sample's actual angular frequency, so GD, GDD and
+TOD remain derivatives with respect to ω. Check important features at more than
+one step and trust them only when their position and value converge. A smaller
+step reduces truncation error for a smooth material model, but it amplifies
+roundoff and cannot make a tabulated PCHIP material smoother than C1 at its
+tabulated wavelengths.
 
 **AOI**: the angle of incidence in degrees.
 
@@ -48,8 +53,10 @@ plot; GD, GDD and TOD are derivatives and are unchanged.
 For a chirped mirror, GD should follow the target ramp across the band and GDD
 should hold the intended (usually negative) value to compensate pulse
 dispersion. A clean, smooth curve indicates a well-resolved phase; if GDD or TOD
-shows unphysical spikes near a sharp feature, the wavelength step is too coarse.
-Refine it until the spikes disappear.
+shows spikes, compare several steps before interpreting them. A resolved feature
+converges. Spikes that move or grow can instead come from a reflection or
+transmission zero, a material-table interpolation knot, or floating-point
+cancellation.
 
 The data table lists the phase and its derivatives against wavelength for
 export.

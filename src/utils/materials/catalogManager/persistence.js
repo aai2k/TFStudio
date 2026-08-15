@@ -1,5 +1,7 @@
 // Drop the getNK closure that getMaterialById attaches lazily, leaving the
 // plain dispersion record. Anything written to disk goes through here.
+import { hasTabulatedComponent, TABULATED_INTERPOLATION } from '../pchip.js';
+
 export function stripGetNK(material) {
     // eslint-disable-next-line no-unused-vars
     const { getNK, ...rest } = material;
@@ -32,7 +34,9 @@ export function deleteCatalogFile(catalogId, source) {
 export function normalizeCatalogMaterials(cat) {
     if (!cat || !cat.materials) return cat;
     for (const [key, m] of Object.entries(cat.materials)) {
-        if (m && (m.id == null || m.id === '')) m.id = key;
+        if (!m) continue;
+        if (m.id == null || m.id === '') m.id = key;
+        if (hasTabulatedComponent(m)) m.interp = TABULATED_INTERPOLATION;
     }
     return cat;
 }

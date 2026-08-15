@@ -66,7 +66,7 @@ const html = renderToStaticMarkup(withDesign(
     React.createElement(RoughnessScattering, { c, t: makeLocale(), theme: c })
 ));
 const hash = createHash('sha256').update(html).digest('hex').slice(0, 16);
-assert.equal(hash, '285060e02e339743');
+assert.equal(hash, '9498aa1b02e11264');
 
 const backOnlyDesign = makeSampleDesign();
 backOnlyDesign.frontLayers = [];

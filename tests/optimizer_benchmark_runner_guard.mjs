@@ -126,10 +126,10 @@ const expected = {
     explicitSweep: 'a3d955d4acb20e214ba36d5aa34a6d8a4f1eda9869e8c8fe4193ee93ad7e304a',
     emptyDefaults: '052521ec864608e9fb75ef94a65d424974c735450215e0f0980ae7e4061df392',
     emptySweep: '4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945',
-    needle: 'db8d2985787a16bc879e0291cf359fa749e365551bb0bf33752c304769f64ccb',
-    gradualEvolution: '4d8bd9d1da573c22c779c733c2bb57dee52df2c2b130064f8e6cc2cfbbbe13ab',
-    structural: '9bc42ee76ad684406be989cfa98c1b9388333f98bcca49467324faae532b799a',
-    structuralDeepBudget: '1bb46dc17b2b1c0682bab3fbc63ff272d16445fb40fce31d3aabe477ef210247',
+    needle: '679aa1b60001bb72e481b1f0a08ac0e1f5a74ffd0a03ab6de400fbe74074cc29',
+    gradualEvolution: '6f590e46e15258bfabbd6a7084d77c4afebd8e03f9ad7d9f4ce1f673f051ce27',
+    structural: '17cca1a1c93b082e388c1ce525aae20274a54eed033fea08e6f9d3cfe57fe8cf',
+    structuralDeepBudget: '05dd9d628870036c9ed78484d4fd0f6909bbaf88e1a912275ee883ef33670f08',
 };
 assert.deepEqual(actual, expected);
 

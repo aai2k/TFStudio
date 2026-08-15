@@ -101,14 +101,14 @@ assert.deepEqual(spectral, legacySpectral(design, spectralOptions), 'spectral ar
 assert.deepEqual(angular, legacyAngular(design, angularOptions), 'angular arithmetic or back-side order changed');
 assert.deepEqual(spectral, {
     x: [501.234, 503.934, 506.634, 509.334],
-    psi: [13.344173477883837, 13.341329258619776, 13.344850337817617, 13.35490891137798],
-    delta: [314.3174575001094, 308.9532020111385, 303.9508032291237, 299.2995360492589],
+    psi: [13.344157239812686, 13.341301740705479, 13.34483155249724, 13.354897066268977],
+    delta: [314.31044504438694, 308.9402312535299, 303.9407434435898, 299.29200724757584],
     xLabel: 'Wavelength (nm)',
 });
 assert.deepEqual(angular, {
     x: [51.125, 53.375, 55.625, 57.875],
-    psi: [27.63767916019888, 25.7841384444274, 23.805963475393273, 21.70699971907303],
-    delta: [166.0101224357038, 163.71837118713484, 160.93797934414465, 157.4876843942211],
+    psi: [27.637504136582656, 25.783948397469725, 23.805759299693044, 21.706783360379465],
+    delta: [166.0099624075965, 163.71817211903374, 160.93772789190882, 157.48736057433393],
     xLabel: 'Angle of incidence (°)',
 });
 const spectralSweepOptions = {
@@ -142,7 +142,7 @@ const c = makeTheme();
 const figure = buildEllipsometryFigure(angular, {
     background: c.bg, paper: c.panel, grid: c.border, text: c.text,
 });
-assert.equal(createHash('sha256').update(JSON.stringify(figure)).digest('hex').slice(0, 16), '8ea2070ebd37fa36');
+assert.equal(createHash('sha256').update(JSON.stringify(figure)).digest('hex').slice(0, 16), 'b438c5b538248f2c');
 const markup = renderToStaticMarkup(withDesign(
     React.createElement(EllipsometryEvaluation, { c, t: makeLocale(), theme: c }),
     makeSampleDesign(),

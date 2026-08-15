@@ -2,7 +2,7 @@
  * Unit — Material Editor draft model and converters (materialDraft.js).
  *
  * Pins the pure draft logic that backs the Material Editor's user-material form:
- *   - buildNKFromDraft: tabular interpolation (empty / single / multi-row, with
+ *   - buildNKFromDraft: PCHIP interpolation (empty / single / multi-row, with
  *     endpoint clamping) and formula-mode sampling via evalN + a k-table.
  *   - materialToDraft ↔ draftToMaterial roundtrip for both material types.
  *   - validateDraft rules (name / id / duplicate-id).
@@ -35,8 +35,13 @@ ok(typeof one === 'function', 'single-row draft → constant sampler function');
 const two = buildNKFromDraft(tabDraft([[400, 1.5, 0.00], [600, 1.7, 0.02]]));
 { const [n, k] = two(300); ok(n === 1.5 && k === 0.00, 'multi: clamp to first endpoint below range'); }
 { const [n, k] = two(700); ok(n === 1.7 && k === 0.02, 'multi: clamp to last endpoint above range'); }
-{ const [n, k] = two(500); ok(close(n, 1.6) && close(k, 0.01), 'multi: linear interpolation at midpoint'); }
-{ const [n, k] = two(450); ok(close(n, 1.55) && close(k, 0.005), 'multi: linear interpolation at quarter'); }
+{ const [n, k] = two(500); ok(close(n, 1.6) && close(k, 0.01), 'two points: straight-line interpolation at midpoint'); }
+{ const [n, k] = two(450); ok(close(n, 1.55) && close(k, 0.005), 'two points: straight-line interpolation at quarter'); }
+
+const shaped = buildNKFromDraft(tabDraft([
+    [1, 1, 0], [1.7, 2.4, 0.2], [2.9, 2.1, 0.1], [4, 4, 0.3], [6.5, 3.7, 0.2],
+]));
+{ const [n, k] = shaped(3.5); ok(close(n, 3.179188580015026, 2e-14), 'multi-row n uses shape-preserving PCHIP'); ok(k >= 0.1 && k <= 0.3, 'multi-row k remains inside its segment envelope'); }
 
 // Unsorted input must be sorted before interpolation.
 const unsorted = buildNKFromDraft(tabDraft([[600, 1.7, 0.02], [400, 1.5, 0.0]]));
@@ -74,6 +79,7 @@ ok(tabD.id === 'MyTab' && tabD.originalId === 'MyTab', 'materialToDraft: id + or
 const tabBack = draftToMaterial(tabD);
 ok(tabBack.formulaNum === -1 && tabBack.tabData.length === 2, 'draftToMaterial: tabular roundtrip keeps rows');
 ok(close(tabBack.tabData[0][0], 400) && close(tabBack.tabData[1][1], 1.45), 'draftToMaterial: tabular values preserved');
+ok(tabBack.interp === 'pchip', 'draftToMaterial: tabular rule is stored');
 
 // ── 4. materialToDraft ↔ draftToMaterial roundtrip (formula) ──────────────────
 const formMat = {
@@ -87,6 +93,7 @@ ok(formD.kRows.length === 2 && formD.kRows[0].lam === '400', 'materialToDraft: k
 const formBack = draftToMaterial(formD);
 ok(formBack.formulaNum === 2 && formBack.kTable.length === 2, 'draftToMaterial: formula roundtrip keeps kTable');
 ok(close(formBack.coefficients[0], 1.1) && close(formBack.kTable[1].k, 0.1), 'draftToMaterial: formula coeffs/k preserved');
+ok(formBack.interp === 'pchip', 'draftToMaterial: k-table rule is stored');
 
 // ── 5. validateDraft ──────────────────────────────────────────────────────────
 const me = {

@@ -1,5 +1,6 @@
 import { NTYPE_TO_FORMULA, D_LINE_NM } from './constants.js';
 import { buildKTable } from './kTable.js';
+import { TABULATED_INTERPOLATION } from '../pchip.js';
 
 // Pure tabulated material → TFStudio tabular form (formulaNum -1).
 function buildTabulatedEntry(base, { name, wl, nArr, kArr }) {
@@ -11,6 +12,7 @@ function buildTabulatedEntry(base, { name, wl, nArr, kArr }) {
         base.tabData = [[Math.round(D_LINE_NM), nArr[0], kArr ? (kArr[0] || 0) : 0]];
     }
     base.formulaNum = -1;
+    base.interp = TABULATED_INTERPOLATION;
     return base;
 }
 
@@ -20,6 +22,7 @@ export function tableFallback(base, wl, nArr, kArr) {
     base.coefficients = [];
     base.kTable = [];
     base.tabData = wl.map((w, i) => [w, nArr[i], kArr ? (kArr[i] || 0) : 0]);
+    base.interp = TABULATED_INTERPOLATION;
     return base;
 }
 
@@ -34,6 +37,7 @@ function buildFormulaEntry(base, formulaNum, { d, nType, name, wl, nArr, kArr, h
     base.formulaNum = formulaNum;
     base.coefficients = coef;
     base.kTable = buildKTable(wl, kArr);
+    if (base.kTable.length) base.interp = TABULATED_INTERPOLATION;
     return base;
 }
 

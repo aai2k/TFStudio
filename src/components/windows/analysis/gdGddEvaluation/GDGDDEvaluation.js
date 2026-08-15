@@ -5,7 +5,7 @@
 
 import { useDesign } from '../../../../state/DesignContext.js';
 import { MaterialRangeWarning } from '../../../materials/MaterialRangeNotice.js';
-import { GDControls } from './GDControls.js';
+import { GDControls, GDFooter } from './GDControls.js';
 import { GDResults, CenteredMessage } from './GDResults.js';
 import { buildGdGddView, buildLayerSummary } from './viewModel.js';
 import { useGDGDDState } from './useGDGDDState.js';
@@ -33,10 +33,12 @@ export function GDGDDEvaluation({ c, theme, t }) {
             display: 'flex', flexDirection: 'column',
             width: '100%', height: '100%', overflow: 'hidden',
             backgroundColor: c.bg, color: c.text,
+            fontFamily: 'system-ui, -apple-system, sans-serif', fontSize: 12,
         },
     },
-        h(GDControls, { c, text, state, summary }),
+        h(GDControls, { c, text, state }),
         h(MaterialRangeWarning, { design, fromNm: state.lamStart, toNm: state.lamEnd, c, t }),
         h(GDResults, { c, t, text, state, view }),
+        h(GDFooter, { c, text, design, side: state.side, summary }),
     );
 }

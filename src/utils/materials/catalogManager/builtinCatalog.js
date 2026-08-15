@@ -25,6 +25,7 @@ export function buildBuiltinCatalog() {
             color: m.color,
             group: m.group,
             getNK: m.getNK,         // direct function reference
+            ...(m.getNK?.interp ? { interp: m.getNK.interp } : {}),
         };
     }
     return {

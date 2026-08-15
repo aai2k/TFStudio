@@ -20,6 +20,8 @@
  * Unknown mnemonics are silently skipped.
  */
 
+import { TABULATED_INTERPOLATION } from './pchip.js';
+
 /**
  * Derive extinction coefficient k from internal transmittance data (Beer–Lambert law).
  * T = exp(−4π k d / λ)  → k = −ln(T) λ / (4π d)
@@ -108,6 +110,7 @@ function commitGlass(cur, itData, materials) {
     cur.kTable = itData
         .map(pt => ({ lam_um: pt.lam_um, k: kFromIT(pt.T, pt.lam_um, pt.thick_mm) }))
         .sort((a, b) => a.lam_um - b.lam_um);
+    if (cur.kTable.length) cur.interp = TABULATED_INTERPOLATION;
     if (materials[cur.id]) {
         console.warn(`AGF: duplicate glass name "${cur.id}" — later definition overwrites the earlier one.`);
     }

@@ -1384,6 +1384,10 @@ const en = {
   gdgdd: {
     noDesign:     'No design selected. Open or create a design first.',
     noLayers:     'No layers in design. Add layers to see GD / GDD.',
+    side:         'Side',
+    front:        'Front',
+    back:         'Back',
+    response:     'Response',
     quantity:     'Quantity',
     phase:        'Phase φ',
     reflection:   'Reflection',
@@ -3961,6 +3965,10 @@ const ru = {
   gdgdd: {
     noDesign:     'Не выбран проект. Откройте или создайте проект. ',
     noLayers:     'Нет слоёв. Добавьте слои для отображения ГЗ / ГГЗ.',
+    side:         'Сторона',
+    front:        'Передняя',
+    back:         'Задняя',
+    response:     'Отклик',
     quantity:     'Величина',
     phase:        'Фаза φ',
     reflection:   'Отражение',

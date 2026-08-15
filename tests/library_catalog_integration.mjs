@@ -8,7 +8,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { evalN } from '../src/utils/materials/dispersionFormulas.js';
+import { makeGetNK } from '../src/utils/materials/catalogManager/dispersion.js';
 
 const SEED = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', 'build', 'seed', 'library');
 const REQUIRED_CATALOGS = [
@@ -22,38 +22,22 @@ for (const file of REQUIRED_CATALOGS) {
     }
 }
 
-function interpK(kTable, lum) {
-    if (!kTable || kTable.length === 0) return 0;
-    if (lum <= kTable[0].lam_um) return kTable[0].k;
-    if (lum >= kTable[kTable.length - 1].lam_um) return kTable[kTable.length - 1].k;
-    let lo = 0, hi = kTable.length - 1;
-    while (hi - lo > 1) { const m = (lo + hi) >> 1; if (kTable[m].lam_um <= lum) lo = m; else hi = m; }
-    const t = (lum - kTable[lo].lam_um) / (kTable[hi].lam_um - kTable[lo].lam_um);
-    return kTable[lo].k + t * (kTable[hi].k - kTable[lo].k);
-}
-function interpTab(tab, lam) {
-    if (lam <= tab[0][0]) return [tab[0][1], tab[0][2] || 0];
-    const last = tab[tab.length - 1];
-    if (lam >= last[0]) return [last[1], last[2] || 0];
-    let lo = 0, hi = tab.length - 1;
-    while (hi - lo > 1) { const m = (lo + hi) >> 1; if (tab[m][0] <= lam) lo = m; else hi = m; }
-    const f = (lam - tab[lo][0]) / (tab[hi][0] - tab[lo][0]);
-    return [tab[lo][1] + f * (tab[hi][1] - tab[lo][1]), (tab[lo][2] || 0) + f * ((tab[hi][2] || 0) - (tab[lo][2] || 0))];
-}
-function getNK(mat, lam_nm) {
-    if (mat.formulaNum === -1) return interpTab(mat.tabData, lam_nm);
-    return [evalN(mat.formulaNum, mat.coefficients, lam_nm / 1000), interpK(mat.kTable, lam_nm / 1000)];
-}
-
 let total = 0, bad = 0;
 const problems = [];
 for (const file of fs.readdirSync(SEED).filter(f => f.endsWith('.catalog.json'))) {
     const cat = JSON.parse(fs.readFileSync(path.join(SEED, file), 'utf-8'));
     for (const mat of Object.values(cat.materials)) {
         total++;
+        const hasTable = mat.formulaNum === -1 || (Array.isArray(mat.kTable) && mat.kTable.length > 0);
+        if (hasTable && mat.interp !== 'pchip') {
+            bad++;
+            problems.push(`${cat.id}:${mat.id} is tabulated but does not store interp=pchip`);
+            continue;
+        }
+        const getNK = makeGetNK(mat);
         const lo = mat.lambdaMin * 1000, hi = mat.lambdaMax * 1000;
         for (const lam of [lo, (lo + hi) / 2, hi]) {
-            const [n, k] = getNK(mat, lam);
+            const [n, k] = getNK(lam);
             // Generous physical envelope: metals legitimately have n<1 in the
             // visible and large n,k in the far-IR. The test only flags non-finite
             // values or formula blow-ups (the symptom of a mis-decoded model).

@@ -52,13 +52,13 @@ const tr = { ...loc.report, kinds: (loc.specification && loc.specification.kinds
 
 const GOLDEN = {
   'design-summary':  ['23521dca087d4b61f7da9cb3ebd27719b3bf144a4779f13337472a404264e77b', 1668],
-  'optical-eval':     ['918965be46354f0b744612be9c087f19088d2828491a1890208f7b8e44d83111', 10171],
-  'color-eval':       ['86c6b143f998f95c04c7df60209821f58a21462af5e28bb366a1531064059a3c', 840],
+  'optical-eval':     ['bd5db8353037d8250fe1b863fbfde951c40d240266ad62c1b97751ec09463194', 10171],
+  'color-eval':       ['d0e9b4bc70c1990ec04512465229edbf93e86bfbad364a5866a95c7a16e4d74d', 840],
   'ri-profile':       ['e5a13bbc988f41f31a9e5ebc45e19cb28d58e7d0d1a37fbb319cbdf0f1984ce9', 2216],
-  'efield':           ['faf41ef08522365fe455d13adfef01bee46fbdae0f91dbbc44c7ece30ea4baaa', 3886],
-  'ellipsometry':     ['475d99169899177f3db3fdf3ba9f79b16ce484aa84a8f299a4f23e8786181dff', 6464],
-  'integral-values':  ['8eb6763a45b80fc1bbaed7a468848a32aae5bff98b8be366f19f812953ad0657', 730],
-  'qualifiers':       ['866bdef2363adbf95d5cb15944b29d423341ed7ea1812ead2f1b463fb0d39948', 433],
+  'efield':           ['24dbc39641b035ac5f8a38add185f8820fb11f6f44f1cc31cc304c7deaefb424', 3886],
+  'ellipsometry':     ['1ee91cac9bff166a74f01b9ea0db6a4581e52eea377d6132b037eb713cd7fb9b', 6464],
+  'integral-values':  ['8974e0b1ae97bd9a02375e7ad61876c6826a47802f555086eabb1cd002d20934', 730],
+  'qualifiers':       ['1d78e56e93ddfb94621c057fea5988dd792b819df0016278fdeb476c2f9ddb46', 433],
   'merit-function':   ['8dc24d2c77f720e09f40a0c44e805f634ad53e20e9c180568365da92e279a17e', 425],
   'notes':            ['65f45cef041b4dd9332ec6a10b8bc129e9306db406c9850ac621c055255a78f8', 151],
 };

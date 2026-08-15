@@ -2,7 +2,7 @@
  * Merit-aware layer-consolidation validation on the USER's real achromat case.
  *
  * Loads the actual project files + user_achromat catalog from Documents\TFStudio,
- * resolves the tabular (formulaNum −1) materials with the SAME linear-λ interp
+ * resolves the tabular (formulaNum −1) materials with the same PCHIP rule
  * the app uses (catalogManager.makeGetNK), and runs the production makeEngine
  * refiner. Three checks:
  *
@@ -27,6 +27,7 @@ import {
 } from '../src/utils/physics/optimizer.js';
 import { makeEngine } from '../src/utils/optimizers/index.js';
 import { getMaterial } from '../src/utils/materials/materialDatabase.js';
+import { makeGetNK } from '../src/utils/materials/catalogManager/dispersion.js';
 import { generateARSeeds, rankSeeds, classifyPoolByIndex } from '../src/utils/synthesis/seedGenerator.js';
 
 const PROJ = join(homedir(), 'Documents', 'TFStudio', 'Projects', 'synthesis improvement');
@@ -35,26 +36,10 @@ const deep = (x) => JSON.parse(JSON.stringify(x));
 const sumTot = (d) => (d.frontLayers || []).reduce((s, L) => s + (Number(L.thickness) || 0), 0);
 
 // ── material resolution: user catalog (tabular) + builtin (BK7/Air) ──────────
-// Mirrors catalogManager.makeGetNK for formulaNum === -1 (linear-λ, clamped).
-function makeTabularGetNK(tabData) {
-  const data = (tabData || []).slice().sort((a, b) => a[0] - b[0]);
-  if (data.length === 0) return () => [1.5, 0];
-  if (data.length === 1) return () => [data[0][1], data[0][2] || 0];
-  return (lam) => {
-    if (lam <= data[0][0]) return [data[0][1], data[0][2] || 0];
-    const last = data[data.length - 1];
-    if (lam >= last[0]) return [last[1], last[2] || 0];
-    let lo = 0, hi = data.length - 1;
-    while (hi - lo > 1) { const mid = (lo + hi) >> 1; if (data[mid][0] <= lam) lo = mid; else hi = mid; }
-    const frac = (lam - data[lo][0]) / (data[hi][0] - data[lo][0]);
-    return [data[lo][1] + frac * (data[hi][1] - data[lo][1]),
-            (data[lo][2] || 0) + frac * ((data[hi][2] || 0) - (data[lo][2] || 0))];
-  };
-}
 const catalog = JSON.parse(readFileSync(CAT, 'utf8'));
 const userMats = new Map();   // bareId → { id, name, getNK }
 for (const [id, m] of Object.entries(catalog.materials)) {
-  userMats.set(id, { id, name: m.name || id, getNK: makeTabularGetNK(m.tabData) });
+  userMats.set(id, { id, name: m.name || id, getNK: makeGetNK(m) });
 }
 function resolveMat(id) {
   if (id == null || id === '' || id === 'Air') return getMaterial('Air');

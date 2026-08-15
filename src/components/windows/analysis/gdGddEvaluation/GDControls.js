@@ -1,115 +1,219 @@
 import { Checkbox } from '../../../ui/Checkbox.js';
-import { DebouncedInput } from '../../../ui/DebouncedInput.js';
+import { designMaterialLookup } from '../../../../utils/materials/designMaterials.js';
+import { FieldLabel, NumInput } from '../opticalEvaluation/controls.js';
 
 const { createElement: h } = React;
 
-function tabButtonStyle(c, active) {
+function choiceButtonStyle(c, active, color) {
+    const activeColor = color || c.accent;
     return {
-        padding: '2px 10px',
-        background: active ? c.accent : (c.inputBg || c.hover),
-        color: active ? '#fff' : c.text,
-        border: `1px solid ${active ? c.accent : c.border}`,
-        borderRadius: 3, cursor: 'pointer', fontSize: 12,
+        height: 22, padding: '0 8px', display: 'inline-flex', alignItems: 'center', gap: 5,
+        border: 'none', borderRadius: 4, outline: 'none', cursor: 'pointer',
+        backgroundColor: active ? activeColor + (c.light ? '20' : '38') : 'transparent',
+        color: active ? c.text : c.textDim,
+        fontSize: 11, fontWeight: 500,
         fontFamily: 'system-ui, -apple-system, sans-serif',
     };
 }
 
-function NumericField({ field, labelStyle, inputStyle }) {
-    return h('label', { style: labelStyle }, field.label,
-        h(DebouncedInput, {
-            value: String(field.value),
-            onChange: value => {
-                const number = parseFloat(value);
-                if (!isNaN(number)) field.setValue(Math.max(field.min, Math.min(field.max, number)));
+function ChoiceGroup({ label, items, activeId, onSelect, c, ariaLabel }) {
+    return h('div', {
+        role: 'group', 'aria-label': ariaLabel || label,
+        style: {
+            height: 28, display: 'inline-flex', alignItems: 'center', gap: 2,
+            padding: label ? '0 3px 0 8px' : '0 3px',
+            border: `1px solid ${c.border}`, borderRadius: 7,
+            backgroundColor: c.bg, flexShrink: 0,
+        },
+    },
+        label && h('span', {
+            style: {
+                marginRight: 3, color: c.text, fontSize: 11,
+                fontWeight: 600, whiteSpace: 'nowrap',
             },
-            style: { ...inputStyle, width: field.width || 58, marginLeft: 6 },
+        }, label),
+        items.map(item => {
+            const active = item.id === activeId;
+            return h('button', {
+                key: item.id, type: 'button', title: item.title,
+                onClick: () => onSelect(item.id), 'aria-pressed': active,
+                style: choiceButtonStyle(c, active, item.color),
+            },
+                item.color && h('span', {
+                    style: {
+                        width: 7, height: 7, borderRadius: '50%',
+                        backgroundColor: item.color, flexShrink: 0,
+                    },
+                }),
+                item.label,
+            );
         }),
     );
 }
 
-function ButtonGroup({ items, c }) {
-    return items.map(item => h('button', {
-        key: item.value,
-        onClick: item.onClick,
-        style: tabButtonStyle(c, item.active),
-    }, item.label));
-}
-
-export function GDControls({ c, text, state, summary }) {
-    const labelStyle = {
-        color: c.textDim, fontSize: 11, fontFamily: 'system-ui, -apple-system, sans-serif',
-        whiteSpace: 'nowrap',
-    };
-    const inputStyle = {
-        background: c.inputBg || c.hover, color: c.text,
-        border: `1px solid ${c.border}`, borderRadius: 3,
-        padding: '1px 4px', fontSize: 12, width: 58,
-        fontFamily: 'system-ui, -apple-system, sans-serif',
-    };
-    const groups = {
-        side: [
-            { value: 'front', label: text.front || 'Front', active: state.side === 'front', onClick: () => state.setSide('front') },
-            { value: 'back', label: text.back || 'Back', active: state.side === 'back', onClick: () => state.setSide('back') },
-        ],
-        quantity: [
-            { value: 'phase', label: text.phase, active: state.quantity === 'phase', onClick: () => state.setQuantity('phase') },
-            { value: 'gd', label: 'GD', active: state.quantity === 'gd', onClick: () => state.setQuantity('gd') },
-            { value: 'gdd', label: 'GDD', active: state.quantity === 'gdd', onClick: () => state.setQuantity('gdd') },
-            { value: 'tod', label: 'TOD', active: state.quantity === 'tod', onClick: () => state.setQuantity('tod') },
-        ],
-        target: [
-            { value: 'R', label: text.reflection, active: state.target === 'R', onClick: () => state.setTarget('R') },
-            { value: 'T', label: text.transmission, active: state.target === 'T', onClick: () => state.setTarget('T') },
-        ],
-        polarization: [
-            { value: 's', label: 's', active: state.pol === 's', onClick: () => state.setPol('s') },
-            { value: 'p', label: 'p', active: state.pol === 'p', onClick: () => state.setPol('p') },
-        ],
-    };
-    const fields = [
-        { label: text.lamStart, value: state.lamStart, setValue: state.setLamStart, min: 100, max: 30000 },
-        { label: text.lamEnd, value: state.lamEnd, setValue: state.setLamEnd, min: 100, max: 30000 },
-        { label: text.lamStep, value: state.lamStep, setValue: state.setLamStep, min: 0.05, max: 1000, width: 50 },
-        { label: text.aoi, value: state.theta, setValue: state.setTheta, min: 0, max: 89, width: 46 },
-    ];
-
+function SideAndAngleToolbar({ c, text, state }) {
     return h('div', {
+        'data-gd-toolbar': 'primary',
         style: {
-            display: 'flex', alignItems: 'center', gap: 12, flexShrink: 0,
-            padding: '5px 8px', borderBottom: `1px solid ${c.border}`,
-            backgroundColor: c.panel, flexWrap: 'wrap',
+            display: 'flex', flexWrap: 'wrap', alignItems: 'center',
+            gap: 10, rowGap: 5, padding: '7px 14px 4px',
+            backgroundColor: c.panel,
         },
     },
-        h('div', { style: { display: 'flex', alignItems: 'center', gap: 3 } },
-            h('span', { style: { ...labelStyle, marginRight: 3 } }, (text.side || 'Side') + ':'),
-            h(ButtonGroup, { items: groups.side, c }),
-        ),
-        h('div', { style: { display: 'flex', alignItems: 'center', gap: 3 } },
-            h('span', { style: { ...labelStyle, marginRight: 3 } }, text.quantity + ':'),
-            h(ButtonGroup, { items: groups.quantity, c }),
-        ),
-        h('div', { style: { display: 'flex', alignItems: 'center', gap: 3 } },
-            h(ButtonGroup, { items: groups.target, c }),
-        ),
-        h('div', { style: { display: 'flex', alignItems: 'center', gap: 3 } },
-            h('span', { style: { ...labelStyle, marginRight: 3 } }, text.pol + ':'),
-            h(ButtonGroup, { items: groups.polarization, c }),
-        ),
-        fields.map((field, index) => h(NumericField, { key: index, field, labelStyle, inputStyle })),
-        h('label', { style: { ...labelStyle, display: 'flex', alignItems: 'center', gap: 4 } },
-            h(Checkbox, {
-                c, checked: state.showRef,
-                onChange: event => state.setShowRef(event.target.checked),
-            }),
-            text.refLam,
-        ),
-        h(NumericField, {
-            field: { label: '', value: state.refLam, setValue: state.setRefLam, min: 100, max: 30000, width: 56 },
-            labelStyle,
-            inputStyle,
+        h(ChoiceGroup, {
+            label: text.side || 'Side', ariaLabel: text.side || 'Side',
+            activeId: state.side, onSelect: state.setSide, c,
+            items: [
+                { id: 'front', label: text.front || 'Front', color: '#1e88e5' },
+                { id: 'back', label: text.back || 'Back', color: '#e53935' },
+            ],
         }),
-        h('span', { style: { ...labelStyle, marginLeft: 'auto', color: c.text } },
-            `${text.layersLabel}: ${summary.layerCount}  |  ${text.totalThk}: ${summary.totalThickness.toFixed(1)} nm`,
+        h('div', {
+            style: { display: 'flex', alignItems: 'center', gap: 7, flexShrink: 0 },
+        },
+            h(FieldLabel, { c }, text.aoi),
+            h(NumInput, {
+                value: state.theta, min: 0, max: 89, step: 1, c, width: 48,
+                onChange: state.setTheta,
+            }),
         ),
+    );
+}
+
+function CurveToolbar({ c, text, state }) {
+    return h('div', {
+        'data-gd-toolbar': 'curves',
+        style: {
+            display: 'flex', flexWrap: 'wrap', alignItems: 'center',
+            gap: 8, rowGap: 5, padding: '3px 14px 8px',
+            borderBottom: `1px solid ${c.border}`,
+            backgroundColor: c.panel,
+        },
+    },
+        h(ChoiceGroup, {
+            label: text.quantity, activeId: state.quantity, onSelect: state.setQuantity, c,
+            items: [
+                { id: 'phase', label: text.phase },
+                { id: 'gd', label: 'GD' },
+                { id: 'gdd', label: 'GDD' },
+                { id: 'tod', label: 'TOD' },
+            ],
+        }),
+        h(ChoiceGroup, {
+            activeId: state.target, onSelect: state.setTarget, c,
+            ariaLabel: text.response || 'Response',
+            items: [
+                { id: 'R', label: text.reflection, color: '#ef5350' },
+                { id: 'T', label: text.transmission, color: '#03a9f4' },
+            ],
+        }),
+        h(ChoiceGroup, {
+            label: text.pol, activeId: state.pol, onSelect: state.setPol, c,
+            items: [
+                { id: 's', label: 's' },
+                { id: 'p', label: 'p' },
+            ],
+        }),
+    );
+}
+
+export function GDControls({ c, text, state }) {
+    return h('div', { style: { flexShrink: 0, backgroundColor: c.panel } },
+        h(SideAndAngleToolbar, { c, text, state }),
+        h(CurveToolbar, { c, text, state }),
+    );
+}
+
+export function GDAxisPanel({ c, text, state }) {
+    return h('div', {
+        'data-gd-panel': 'axis',
+        style: {
+            display: 'flex', flexWrap: 'wrap', alignItems: 'center',
+            gap: 8, rowGap: 6, padding: '7px 12px',
+            borderTop: `1px solid ${c.border}`,
+            backgroundColor: c.panel, flexShrink: 0,
+        },
+    },
+        h('div', {
+            style: { display: 'flex', alignItems: 'center', gap: 7, flexShrink: 0 },
+        },
+            h(FieldLabel, { c }, 'λ'),
+            h(NumInput, {
+                value: state.lamStart, min: 100, max: 30000, step: 10, c, width: 62,
+                onChange: state.setLamStart,
+            }),
+            h('span', { style: { color: c.textDim, fontSize: 11 } }, '–'),
+            h(NumInput, {
+                value: state.lamEnd, min: 100, max: 30000, step: 10, c, width: 62,
+                onChange: state.setLamEnd,
+            }),
+            h('span', { style: { color: c.textDim, fontSize: 11 } }, 'nm'),
+            h(FieldLabel, { c }, text.lamStep),
+            h(NumInput, {
+                value: state.lamStep, min: 0.05, max: 1000, step: 0.05, c, width: 52,
+                onChange: state.setLamStep,
+            }),
+        ),
+        h('div', {
+            style: {
+                display: 'flex', alignItems: 'center', gap: 7,
+                marginLeft: 'auto', flexShrink: 0,
+            },
+        },
+            h('label', {
+                style: {
+                    display: 'flex', alignItems: 'center', gap: 5,
+                    color: c.text, fontSize: 11, cursor: 'pointer', whiteSpace: 'nowrap',
+                },
+            },
+                h(Checkbox, {
+                    c, checked: state.showRef,
+                    onChange: event => state.setShowRef(event.target.checked),
+                }),
+                text.refLam,
+            ),
+            h(NumInput, {
+                value: state.refLam, min: 100, max: 30000, step: 1, c, width: 58,
+                onChange: state.setRefLam,
+            }),
+        ),
+    );
+}
+
+function mediumName(design, id) {
+    if (!id) return '';
+    const material = designMaterialLookup(design)(id);
+    if (material?.name) return material.name;
+    const separator = id.indexOf(':');
+    return separator >= 0 ? id.slice(separator + 1) : id;
+}
+
+export function GDFooter({ c, text, design, side, summary }) {
+    const sideLabel = side === 'back' ? (text.back || 'Back') : (text.front || 'Front');
+    const incidentId = side === 'back' ? design.exitMedium : design.incidentMedium;
+    const media = `${mediumName(design, incidentId)} → ${mediumName(design, design.substrate?.material)}`;
+    return h('div', {
+        'data-gd-panel': 'footer',
+        style: {
+            minHeight: 38, padding: '4px 12px', borderTop: `1px solid ${c.border}`,
+            backgroundColor: c.panel, flexShrink: 0,
+            display: 'flex', alignItems: 'center', gap: 7,
+            overflow: 'hidden', fontSize: 11, color: c.textDim,
+        },
+    },
+        h('span', {
+            style: {
+                color: c.text, fontWeight: 600, overflow: 'hidden',
+                textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+            },
+        }, design.name),
+        h('span', null, '·'),
+        h('span', { style: { whiteSpace: 'nowrap' } }, sideLabel),
+        h('span', null, '·'),
+        h('span', { style: { whiteSpace: 'nowrap' } },
+            `${text.layersLabel}: ${summary.layerCount}, ${summary.totalThickness.toFixed(1)} nm`,
+        ),
+        h('span', null, '·'),
+        h('span', { style: { whiteSpace: 'nowrap' } }, media),
     );
 }

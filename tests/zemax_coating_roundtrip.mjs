@@ -54,6 +54,7 @@ ok('AG stores negative imag (Zemax sign)', ag && ag.points[1][2] === -3.3327);
 {
     const m = mateToTfMaterial(ag);
     ok('mate→tf formulaNum -1 (tabular)', m.formulaNum === -1);
+    ok('mate→tf stores PCHIP interpolation', m.interp === 'pchip');
     ok('mate→tf λ in nm', approx(m.tabData[1][0], 550)); // 0.55 µm → 550 nm
     ok('mate→tf k = −imag (>0)', approx(m.tabData[1][2], 3.3327)); // −(−3.3327)
     ok('mate→tf n preserved', approx(m.tabData[1][1], 0.124));

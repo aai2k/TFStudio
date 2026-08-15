@@ -15,6 +15,7 @@ import { makeOperand } from '../physics/optimizer.js';
 import { makeDefaultDesign } from '../../state/DesignContext.js';
 import { addCatalog, getCatalog, getMaterialById } from '../materials/catalogManager.js';
 import { setSynthesisInnerEngine } from '../synthesis/synthesisConfig.js';
+import { TABULATED_INTERPOLATION } from '../materials/pchip.js';
 
 // ── Dedicated "Multipassband (TiO2/SiO2)" material catalog ─────────────────────
 // The multipassband exercise uses its own two-material catalog (matching the
@@ -34,7 +35,14 @@ function sampleMaterial(srcId, name) {
             tabData.push([lam, +Number(n).toFixed(5), +Number(k || 0).toFixed(6)]);
         }
     }
-    return { id: name, name, formulaNum: -1, tabData, group: 'Dielectric' };
+    return {
+        id: name,
+        name,
+        formulaNum: -1,
+        interp: TABULATED_INTERPOLATION,
+        tabData,
+        group: 'Dielectric',
+    };
 }
 
 // Register the catalog if absent; returns the catalog id to qualify materials

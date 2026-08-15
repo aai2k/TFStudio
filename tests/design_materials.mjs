@@ -108,6 +108,10 @@ assert.deepEqual(Object.keys(embedded.materials).sort(),
     ['user_lab:SiO2fit', 'user_lab:SiO2lossy', 'user_lab:TiO2tab']);
 assert.ok(!('getNK' in embedded.materials['user_lab:SiO2fit']),
     'the lazily attached getNK closure must not reach the file');
+assert.equal(embedded.materials['user_lab:TiO2tab'].interp, 'pchip',
+    'embedded tabular materials record their interpolation rule');
+assert.equal(embedded.materials['user_lab:SiO2lossy'].interp, 'pchip',
+    'embedded formula materials record the rule for their k table');
 assert.deepEqual(
     JSON.parse(JSON.stringify(embedded)), embedded,
     'the embedded design must survive a JSON round-trip unchanged');

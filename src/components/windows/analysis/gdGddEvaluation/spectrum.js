@@ -1,8 +1,10 @@
 import {
-    computeGroupDelaySpectrum,
+    computeGroupDelaySpectrumAtWavelengthStep,
     tmmWithAdmittances,
 } from '../../../../utils/physics/thinFilmMath.js';
 import { designMaterialLookup } from '../../../../utils/materials/designMaterials.js';
+
+export const DEFAULT_GD_GDD_WAVELENGTH_STEP_NM = 0.2;
 
 function nkAt(material, lambdaNm) {
     const [n, k] = material.getNK(lambdaNm);
@@ -29,16 +31,19 @@ export function computeGdGddSpectrum(design, options) {
     const resolveMaterial = designMaterialLookup(design);
     const incident = resolveMaterial(n0Id);
     const substrate = resolveMaterial(nsId);
+    // The wavelength must be passed through unmodified. GD, GDD and TOD are the
+    // first three derivatives of phase, so their finite-difference weights scale
+    // with inverse powers of the local spacing. Quantizing the sample positions
+    // puts fixed wavelength jitter into the phase and prevents convergence.
     const coefficientAt = (lambdaNm) => {
-        const sampledLambda = Math.round(lambdaNm * 1000) / 1000;
-        const layers = sideLayersAt(resolveMaterial, design, side, sampledLambda);
+        const layers = sideLayersAt(resolveMaterial, design, side, lambdaNm);
         const result = tmmWithAdmittances(
-            sampledLambda, thetaDeg, polarization,
-            nkAt(incident, sampledLambda), nkAt(substrate, sampledLambda), layers,
+            lambdaNm, thetaDeg, polarization,
+            nkAt(incident, lambdaNm), nkAt(substrate, lambdaNm), layers,
         );
         return target === 'T' ? result.t : result.r;
     };
-    const span = Math.abs(lambdaEnd - lambdaStart);
-    const pointCount = Math.max(5, Math.round(span / Math.max(lambdaStep, 1e-6)) + 1);
-    return computeGroupDelaySpectrum(coefficientAt, lambdaStart, lambdaEnd, pointCount);
+    return computeGroupDelaySpectrumAtWavelengthStep(
+        coefficientAt, lambdaStart, lambdaEnd, lambdaStep,
+    );
 }

@@ -1,4 +1,5 @@
 import { DataTablePanel } from '../../../ui/DataTablePanel.js';
+import { GDAxisPanel } from './GDControls.js';
 import { GDChart } from './GDChart.js';
 
 const { createElement: h } = React;
@@ -19,7 +20,7 @@ export function GDResults({ c, t, text, state, view }) {
             overflow: 'hidden',
         },
     },
-        h('div', { style: { flex: 1, minHeight: 0, overflow: 'hidden' } },
+        h('div', { style: { flex: 1, minHeight: 0, overflow: 'hidden', display: 'flex' } },
             view.plotData && view.plotData.lambda.length
                 ? h(GDChart, {
                     data: view.plotData, meta: view.meta,
@@ -27,6 +28,7 @@ export function GDResults({ c, t, text, state, view }) {
                 })
                 : h(CenteredMessage, { c, message: text.noLayers }),
         ),
+        h(GDAxisPanel, { c, text, state }),
         h(DataTablePanel, { columns: view.tableColumns, rows: view.tableRows, c, t }),
     );
 }

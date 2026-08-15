@@ -1,4 +1,7 @@
-import { computeGdGddSpectrum } from './spectrum.js';
+import {
+    computeGdGddSpectrum,
+    DEFAULT_GD_GDD_WAVELENGTH_STEP_NM,
+} from './spectrum.js';
 
 const { useEffect, useState } = React;
 
@@ -9,7 +12,7 @@ export function useGDGDDState(design) {
     const [pol, setPol] = useState('s');
     const [lamStart, setLamStart] = useState(400);
     const [lamEnd, setLamEnd] = useState(800);
-    const [lamStep, setLamStep] = useState(1);
+    const [lamStep, setLamStep] = useState(DEFAULT_GD_GDD_WAVELENGTH_STEP_NM);
     const [theta, setTheta] = useState(0);
     const [refLam, setRefLam] = useState(() => design?.referenceWavelength || 550);
     const [showRef, setShowRef] = useState(true);

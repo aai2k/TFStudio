@@ -13,10 +13,15 @@ import {
 shimBrowserGlobals();
 await loadApp();
 
-const { computeGroupDelaySpectrum, tmmWithAdmittances } =
+const {
+    computeGroupDelaySpectrum,
+    computeGroupDelaySpectrumAtWavelengthStep,
+    tmmWithAdmittances,
+    C_NM_PER_FS,
+} =
     await import('../src/utils/physics/thinFilmMath.js');
 const { getMaterial } = await import('../src/utils/materials/materialDatabase.js');
-const { computeGdGddSpectrum } =
+const { computeGdGddSpectrum, DEFAULT_GD_GDD_WAVELENGTH_STEP_NM } =
     await import('../src/components/windows/analysis/gdGddEvaluation/spectrum.js');
 const { buildGdGddView } =
     await import('../src/components/windows/analysis/gdGddEvaluation/viewModel.js');
@@ -25,7 +30,7 @@ const { buildGDChartModel } =
 const { GDGDDEvaluation } =
     await import('../src/components/windows/analysis/gdGddEvaluation/GDGDDEvaluation.js');
 
-function legacySpectrum(design, options) {
+function directSpectrum(design, options) {
     const material = id => getMaterial(id) || getMaterial('Air');
     const nkAt = (mat, lambda) => mat.getNK(lambda);
     const sideLayersAt = (lambda) => {
@@ -38,17 +43,20 @@ function legacySpectrum(design, options) {
     const incidentId = options.side === 'back' ? design.exitMedium : design.incidentMedium;
     const incident = material(incidentId);
     const substrate = material(design.substrate?.material);
+    // The wavelength is passed through unrounded. Quantizing it puts fixed
+    // wavelength jitter into the phase samples and prevents the derivatives
+    // from converging as the requested step shrinks.
+    // See tests/gd_gdd_validation.mjs.
     const coefficientAt = (lambda) => {
-        const sampled = Math.round(lambda * 1000) / 1000;
         const result = tmmWithAdmittances(
-            sampled, options.thetaDeg, options.polarization,
-            nkAt(incident, sampled), nkAt(substrate, sampled), sideLayersAt(sampled),
+            lambda, options.thetaDeg, options.polarization,
+            nkAt(incident, lambda), nkAt(substrate, lambda), sideLayersAt(lambda),
         );
         return options.target === 'T' ? result.t : result.r;
     };
-    const span = Math.abs(options.lambdaEnd - options.lambdaStart);
-    const count = Math.max(5, Math.round(span / Math.max(options.lambdaStep, 1e-6)) + 1);
-    return computeGroupDelaySpectrum(coefficientAt, options.lambdaStart, options.lambdaEnd, count);
+    return computeGroupDelaySpectrumAtWavelengthStep(
+        coefficientAt, options.lambdaStart, options.lambdaEnd, options.lambdaStep,
+    );
 }
 
 const design = {
@@ -75,21 +83,55 @@ const cases = [
     },
 ];
 
+assert.equal(DEFAULT_GD_GDD_WAVELENGTH_STEP_NM, 0.2, 'default wavelength step resolves higher derivatives');
+
 assert.throws(
     () => computeGroupDelaySpectrum(() => [1, 0], 550, 550, 5),
     /endpoints must be distinct/,
     'equal wavelength endpoints are rejected before finite differences',
 );
 
+// A cubic phase in omega has exact first, second and third derivatives. This
+// checks the arbitrary-omega finite-difference weights and the physical sign on
+// the same uniform-wavelength grid used by the window.
+{
+    const twoPiC = 2 * Math.PI * C_NM_PER_FS;
+    const omega0 = twoPiC / 550;
+    const a1 = 1.25, a2 = -0.75, a3 = 2.5;
+    const coefficientAt = lambda => {
+        const x = twoPiC / lambda - omega0;
+        const physicalPhase = 0.3 + a1 * x + a2 * x * x / 2 + a3 * x * x * x / 6;
+        return [Math.cos(-physicalPhase), Math.sin(-physicalPhase)];
+    };
+    const exact = computeGroupDelaySpectrumAtWavelengthStep(coefficientAt, 500, 600, 2.7);
+    for (let i = 0; i < exact.lambda.length; i++) {
+        const x = twoPiC / exact.lambda[i] - omega0;
+        assert.ok(Math.abs(exact.gd[i] + a1 + a2 * x + a3 * x * x / 2) < 1e-11);
+        assert.ok(Math.abs(exact.gdd[i] + a2 + a3 * x) < 1e-9);
+        assert.ok(Math.abs(exact.tod[i] + a3) < 1e-7);
+    }
+}
+
 for (const options of cases) {
     const actual = computeGdGddSpectrum(design, options);
-    const expected = legacySpectrum(design, options);
+    const expected = directSpectrum(design, options);
     assert.deepEqual(actual, expected, `${options.side}/${options.target} spectrum and numerical order changed`);
+    assert.equal(
+        actual.lambda.length,
+        Math.floor(Math.abs(options.lambdaEnd - options.lambdaStart) / options.lambdaStep + 1e-12) + 1,
+        'wavelength step sets the displayed point count',
+    );
+    for (let i = 1; i < actual.lambda.length; i++) {
+        assert.ok(
+            Math.abs(actual.lambda[i] - actual.lambda[i - 1] - options.lambdaStep) < 1e-10,
+            `displayed wavelength interval is ${options.lambdaStep} nm`,
+        );
+    }
 }
 
 const c = makeTheme();
 const text = makeLocale().gdgdd;
-const raw = legacySpectrum(design, cases[0]);
+const raw = directSpectrum(design, cases[0]);
 const view = buildGdGddView(raw, {
     quantity: 'phase', referenceLambda: raw.lambda[2], showReference: true,
 }, text);
@@ -114,6 +156,11 @@ const markup = renderToStaticMarkup(withDesign(
     React.createElement(GDGDDEvaluation, { c, t: makeLocale(), theme: c }),
     makeSampleDesign(),
 ));
-assert.equal(createHash('sha256').update(markup).digest('hex').slice(0, 16), '9d21af55195952b5');
+assert.match(markup, /data-gd-toolbar="primary"/, 'side and AOI have a dedicated toolbar');
+assert.match(markup, /data-gd-toolbar="curves"/, 'quantity controls have a dedicated toolbar');
+assert.match(markup, /data-gd-panel="axis"/, 'wavelength controls sit in an axis panel');
+assert.match(markup, /data-gd-panel="footer"/, 'the selected coating summary sits in a footer');
+assert.match(markup, /aria-label="Side"/, 'front/back remains an explicit local calculation switch');
+assert.equal(createHash('sha256').update(markup).digest('hex').slice(0, 16), 'a77f7606a5c8f727');
 
 console.log('PASS: gd_gdd_evaluation_refactor');

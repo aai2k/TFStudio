@@ -4,6 +4,7 @@
 
 import { RII_RAW_BASE } from './fetch.js';
 import { sampleMaterial } from './sampling.js';
+import { TABULATED_INTERPOLATION } from '../pchip.js';
 
 /**
  * Convert a fetched RII material to a catalogManager-compatible entry.
@@ -26,6 +27,7 @@ export function riiToMaterialEntry(mat, pageName, bookName) {
         id,
         name: bookName + ' (' + pageName + ')',
         formulaNum: -1,       // tabulated in catalogManager convention
+        interp: TABULATED_INTERPOLATION,
         coefficients: [],
         lambdaMin: lmin_um,
         lambdaMax: lmax_um,

@@ -10,8 +10,8 @@
     "generations": [
       {
         "genNum": 0,
-        "mf": 0.336629552,
-        "omf": 0.336629552,
+        "mf": 0.336624638,
+        "omf": 0.336624638,
         "dMF": null,
         "side": "front",
         "kind": "baseline",
@@ -48,23 +48,23 @@
     "trend": [
       {
         "iter": 0,
-        "cur": 0.336629552,
-        "best": 0.336629552
+        "cur": 0.336624638,
+        "best": 0.336624638
       },
       {
         "iter": 1,
-        "cur": 0.336629552,
-        "best": 0.336629552
+        "cur": 0.336624638,
+        "best": 0.336624638
       },
       {
         "iter": 2,
-        "cur": 0.336629552,
-        "best": 0.336629552
+        "cur": 0.336624638,
+        "best": 0.336624638
       },
       {
         "iter": 3,
-        "cur": 0.336629552,
-        "best": 0.336629552
+        "cur": 0.336624638,
+        "best": 0.336624638
       }
     ],
     "design": {
@@ -87,10 +87,10 @@
       "iter": 3,
       "temp": null,
       "accRate": 0,
-      "mf": 0.336629552,
-      "mfBest": 0.336629552,
-      "omf": 0.336629552,
-      "omfBest": 0.336629552,
+      "mf": 0.336624638,
+      "mfBest": 0.336624638,
+      "omf": 0.336624638,
+      "omfBest": 0.336624638,
       "layerCount": 2,
       "reheats": 0,
       "canReset": true,
@@ -112,8 +112,8 @@
     "generations": [
       {
         "genNum": 0,
-        "mf": 0.384299665,
-        "omf": 0.384299665,
+        "mf": 0.384294937,
+        "omf": 0.384294937,
         "dMF": null,
         "side": "back",
         "kind": "baseline",
@@ -148,9 +148,9 @@
       },
       {
         "genNum": 1,
-        "mf": 0.30496499,
-        "omf": 0.30496499,
-        "dMF": -0.079334675,
+        "mf": 0.304960474,
+        "omf": 0.304960474,
+        "dMF": -0.079334462,
         "side": "back",
         "kind": "perturb",
         "layerCount": 2,
@@ -186,23 +186,23 @@
     "trend": [
       {
         "iter": 0,
-        "cur": 0.384299665,
-        "best": 0.384299665
+        "cur": 0.384294937,
+        "best": 0.384294937
       },
       {
         "iter": 1,
-        "cur": 0.384299665,
-        "best": 0.384299665
+        "cur": 0.384294937,
+        "best": 0.384294937
       },
       {
         "iter": 2,
-        "cur": 0.384299665,
-        "best": 0.384299665
+        "cur": 0.384294937,
+        "best": 0.384294937
       },
       {
         "iter": 3,
-        "cur": 0.30496499,
-        "best": 0.30496499
+        "cur": 0.304960474,
+        "best": 0.304960474
       }
     ],
     "design": {
@@ -225,10 +225,10 @@
       "iter": 3,
       "temp": null,
       "accRate": 0.333333333,
-      "mf": 0.30496499,
-      "mfBest": 0.30496499,
-      "omf": 0.30496499,
-      "omfBest": 0.30496499,
+      "mf": 0.304960474,
+      "mfBest": 0.304960474,
+      "omf": 0.304960474,
+      "omfBest": 0.304960474,
       "layerCount": 2,
       "reheats": 0,
       "canReset": true,
@@ -250,13 +250,13 @@
     "generations": [
       {
         "genNum": 0,
-        "mf": 0.057084699,
-        "omf": 0.057084699,
+        "mf": 0.05537462,
+        "omf": 0.05537462,
         "dMF": null,
         "side": "front",
         "kind": "seed",
         "layerCount": 2,
-        "tot": 262.148927467,
+        "tot": 262.099695367,
         "insertMat": null,
         "layers": [
           {
@@ -266,7 +266,7 @@
           },
           {
             "material": "Si",
-            "thickness": 31.32877642,
+            "thickness": 31.30416037,
             "locked": false
           }
         ],
@@ -278,14 +278,14 @@
           },
           {
             "material": "Si",
-            "thickness": 31.32877642,
+            "thickness": 31.30416037,
             "locked": false
           }
         ],
         "backSnap": [
           {
             "material": "Si",
-            "thickness": 31.32877642,
+            "thickness": 31.30416037,
             "locked": false
           },
           {
@@ -297,13 +297,13 @@
       },
       {
         "genNum": 1,
-        "mf": 0.054772225,
-        "omf": 0.054772225,
-        "dMF": -0.002312474,
+        "mf": 0.053113283,
+        "omf": 0.053113283,
+        "dMF": -0.002261336,
         "side": "front",
         "kind": "perturb",
         "layerCount": 2,
-        "tot": 258.213456164,
+        "tot": 258.168273924,
         "insertMat": null,
         "layers": [
           {
@@ -313,7 +313,7 @@
           },
           {
             "material": "Si",
-            "thickness": 28.751653793,
+            "thickness": 28.729062673,
             "locked": false
           }
         ],
@@ -325,14 +325,14 @@
           },
           {
             "material": "Si",
-            "thickness": 28.751653793,
+            "thickness": 28.729062673,
             "locked": false
           }
         ],
         "backSnap": [
           {
             "material": "Si",
-            "thickness": 28.751653793,
+            "thickness": 28.729062673,
             "locked": false
           },
           {
@@ -346,23 +346,23 @@
     "trend": [
       {
         "iter": 0,
-        "cur": 0.057084699,
-        "best": 0.057084699
+        "cur": 0.05537462,
+        "best": 0.05537462
       },
       {
         "iter": 1,
-        "cur": 0.057084699,
-        "best": 0.057084699
+        "cur": 0.05537462,
+        "best": 0.05537462
       },
       {
         "iter": 2,
-        "cur": 0.057084699,
-        "best": 0.057084699
+        "cur": 0.05537462,
+        "best": 0.05537462
       },
       {
         "iter": 3,
-        "cur": 0.054772225,
-        "best": 0.054772225
+        "cur": 0.053113283,
+        "best": 0.053113283
       }
     ],
     "design": {
@@ -374,14 +374,14 @@
         },
         {
           "material": "Si",
-          "thickness": 28.751653793,
+          "thickness": 28.729062673,
           "locked": false
         }
       ],
       "back": [
         {
           "material": "Si",
-          "thickness": 28.751653793,
+          "thickness": 28.729062673,
           "locked": false
         },
         {
@@ -396,10 +396,10 @@
       "iter": 3,
       "temp": null,
       "accRate": 0.333333333,
-      "mf": 0.054772225,
-      "mfBest": 0.054772225,
-      "omf": 0.054772225,
-      "omfBest": 0.054772225,
+      "mf": 0.053113283,
+      "mfBest": 0.053113283,
+      "omf": 0.053113283,
+      "omfBest": 0.053113283,
       "layerCount": 2,
       "reheats": 0,
       "canReset": true,

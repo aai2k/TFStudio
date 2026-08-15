@@ -169,6 +169,13 @@ const designWith = (materials) => ({
   const range = materialRangeNm(formula);
   ok(range?.[0] === 400 && range?.[1] === 800,
     'an analytic OptiLayer material exposes its declared range in nm');
+
+  const tabular = parseOptiLayerDoc({
+    name: 'Opti table', nType: 0, kType: 0,
+    wavelength: [400, 550, 800], n: [1.6, 1.5, 1.45], k: [0, 0, 0],
+  });
+  ok(tabular.formulaNum === -1 && tabular.interp === 'pchip',
+    'an OptiLayer table stores the PCHIP rule');
 }
 
 console.log(`material_range: ${passed} passed`);

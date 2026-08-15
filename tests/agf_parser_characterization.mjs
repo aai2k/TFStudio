@@ -51,6 +51,7 @@ eq(bk.vd, 64.17, 'N-BK7 vd');
 eq(bk.coefficients.length, 10, 'N-BK7 coefficients padded to 10');
 eq(bk.coefficients[0], 1.03961212, 'N-BK7 first Sellmeier coefficient');
 eq(bk.kTable.length, 25, 'N-BK7 k-table length');
+eq(bk.interp, 'pchip', 'N-BK7 k-table interpolation rule');
 eq(bk.density, 2.51, 'N-BK7 density');
 eq(bk.comment, 'step 0.5 available', 'N-BK7 GC comment');
 

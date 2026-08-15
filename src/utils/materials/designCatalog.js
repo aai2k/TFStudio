@@ -11,6 +11,7 @@
  */
 import { getMaterialById } from './catalogManager.js';
 import { designMaterialIds, resolveDesignMaterial } from './designMaterials.js';
+import { hasTabulatedComponent, TABULATED_INTERPOLATION } from './pchip.js';
 
 export const DESIGN_CATALOG_ID = 'design';
 const SELECTION_PREFIX = `${DESIGN_CATALOG_ID}:`;
@@ -79,6 +80,7 @@ function dispersionFingerprint(mat) {
         mat.coefficients ?? null,
         mat.tabData ?? null,
         mat.kTable ?? null,
+        hasTabulatedComponent(mat) ? TABULATED_INTERPOLATION : null,
     ]);
 }
 
