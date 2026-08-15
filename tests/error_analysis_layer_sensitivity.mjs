@@ -14,6 +14,10 @@
  *         skips the locked one.
  *       - The sensitivity ranking is invariant under absolute vs relative
  *         probe at small Δd (signed gradient stays the same direction).
+ *       - At a *refined* design the ranking follows the merit degradation a
+ *         thickness error actually causes. This is the case the window exists
+ *         for, and the one a first-derivative metric cannot see: ∂MF/∂d ≈ 0 at
+ *         a local minimum, so a central difference reports convergence noise.
  *
  *   • Error Analysis:
  *       - With σ = 0 everywhere, mean(λ) ≡ theory(λ) and stdev = 0.
@@ -24,6 +28,7 @@
 
 import { computeLayerSensitivity, runErrorAnalysisMC } from '../src/utils/physics/errorAnalysis.js';
 import { getMaterial } from '../src/utils/materials/materialDatabase.js';
+import { buildEvalContext, evaluateOperands, calcMF } from '../src/utils/physics/optimizer.js';
 
 let fails = 0;
 const ok   = (cond, msg) => { if (!cond) { console.error('FAIL:', msg); fails++; } };
@@ -143,6 +148,83 @@ for (let i = 0; i < r3pos.rows.length; i++) {
        `negative Δd: dMF[${i}] matches +Δd (|Δd| magnitude, got ${r3neg.rows[i].deltaMF} vs ${r3pos.rows[i].deltaMF})`);
     ok(near(r3neg.rows[i].deltaNm, 0.7, 1e-12),
        `negative Δd: reported Δd[${i}] is the magnitude 0.7 (got ${r3neg.rows[i].deltaNm})`);
+}
+
+// Refined design: the ranking must follow real merit degradation.
+//
+// Four-layer broadband AR, refined over 450–650 nm, from air:
+// MgF2 / HfO2 / SiO2 / HfO2 on BK7. Every free thickness sits at a local
+// minimum of the optical merit, so MF(d ± Δ) > MF₀ on both sides and the
+// central difference is convergence noise, an order of magnitude or more below
+// the actual degradation.
+const refinedAR = {
+    id: 'bbar4', name: 'BBAR-4',
+    referenceWavelength: 550,
+    substrate: { material: 'BK7', thickness: 1.0 },
+    incidentMedium: 'Air', exitMedium: 'Air',
+    frontLayers: [
+        { id: 'L1', material: 'MgF2', thickness: 105.985257, locked: false },
+        { id: 'L2', material: 'HfO2', thickness: 51.543840,  locked: false },
+        { id: 'L3', material: 'SiO2', thickness: 30.786233,  locked: false },
+        { id: 'L4', material: 'HfO2', thickness: 30.968653,  locked: false },
+    ],
+    backLayers: [],
+    surfaceMode: 'front_only',
+    meritOperands: [
+        { type:'RGT', lambdaStart:450, lambdaEnd:650, aoi:0, pol:'avg', target:0, targetEnd:0, weight:1, enabled:true },
+        { type:'TGT', lambdaStart:450, lambdaEnd:650, aoi:0, pol:'avg', target:1, targetEnd:1, weight:1, enabled:true },
+    ],
+};
+
+const PROBE = 1.0;
+const arOperands = refinedAR.meritOperands;
+const mfAt = (layerIndex, thickness) => {
+    const perturbed = {
+        ...refinedAR,
+        frontLayers: refinedAR.frontLayers.map(
+            (l, i) => i === layerIndex ? { ...l, thickness } : l),
+    };
+    const ctx = buildEvalContext(perturbed, resolveMat);
+    return calcMF(arOperands, evaluateOperands(arOperands, ctx), { skipConstraints: true });
+};
+
+const ctxAR = buildEvalContext(refinedAR, resolveMat);
+const mfAR0 = calcMF(arOperands, evaluateOperands(arOperands, ctxAR), { skipConstraints: true });
+
+const truth = refinedAR.frontLayers.map((layer, i) => {
+    const up = mfAt(i, layer.thickness + PROBE);
+    const dn = mfAt(i, layer.thickness - PROBE);
+    return {
+        layerIndex: i,
+        degradation: (Math.abs(up - mfAR0) + Math.abs(dn - mfAR0)) / 2,
+        central: Math.abs(up - dn),
+        bothSidesWorse: up > mfAR0 && dn > mfAR0,
+    };
+});
+
+ok(truth.every(t => t.bothSidesWorse),
+   `refined AR: design sits in a minimum (MF rises on both sides for every layer)`);
+
+const rAR = computeLayerSensitivity(refinedAR, arOperands, resolveMat,
+    { mode: 'absolute', absDeltaNm: PROBE });
+
+const byMetric = [...rAR.rows].sort((a, b) => b.deltaMFAbs - a.deltaMFAbs)
+    .map(r => r.layerIndex).join(',');
+const byTruth = [...truth].sort((a, b) => b.degradation - a.degradation)
+    .map(t => t.layerIndex).join(',');
+ok(byMetric === byTruth,
+   `refined AR: ranking follows real degradation (metric ${byMetric} vs truth ${byTruth})`);
+
+// The metric must report the size of the damage, not the residual gradient.
+// Before the fix these differed by 10× to 270×.
+for (const row of rAR.rows) {
+    const t = truth[row.layerIndex];
+    ok(near(row.deltaMFAbs, t.degradation, t.degradation * 1e-9),
+       `refined AR: layer ${row.layerIndex} reports the degradation ` +
+       `(got ${row.deltaMFAbs}, expected ${t.degradation})`);
+    ok(row.deltaMFAbs > 3 * t.central,
+       `refined AR: layer ${row.layerIndex} metric exceeds the central difference ` +
+       `(got ${row.deltaMFAbs} vs central ${t.central})`);
 }
 
 // ── Error analysis tests ──────────────────────────────────────────────────────

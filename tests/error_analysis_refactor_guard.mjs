@@ -162,11 +162,14 @@ const actual = {
     total: digest({ ...total, events }),
     sensitivity: digest(sensitivity),
 };
+// The sensitivity baseline pins the mean ±Δd merit-change metric described in
+// errorAnalysis/layerSensitivity.js. The Monte Carlo baselines are independent
+// of it and must not move when that metric is revised.
 const expected = {
     front: '3ea4c67a0669bec4cade60e2c11dca970a32f58ff865a4b7f7c975e9b27fd929',
     back: 'fb3ba080a11efaa9d993ee9434f1c1cf52c083570e5567dd8417a415691442fb',
     total: '727f70c1538da49f74fc59b3fd0e45fad9194a5be0664d24e4b96431c0116851',
-    sensitivity: '593cfae424e6cc720e8bdfd55aedbfb0389676ded3f492c1f8c2568d68a86b7b',
+    sensitivity: '57a0fdc103205c6bff767629d1fb6444295c8967416b574ba62e840c39f9dfa1',
 };
 
 if (Object.values(expected).some((value) => !value)) {

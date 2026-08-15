@@ -52,14 +52,28 @@ function makeSensitivityRow(variable, index, settings) {
         : Math.max(1e-6, thickness * settings.relPct / 100);
     const plus = thickness + delta;
     const minus = Math.max(0, thickness - delta);
-    const span = plus - minus;
     const mfPlus = evaluateSensitivityThickness({
         ...settings, side, layerIndex, thickness: plus,
     });
     const mfMinus = evaluateSensitivityThickness({
         ...settings, side, layerIndex, thickness: minus,
     });
-    const deltaMF = span > 0 ? (mfPlus - mfMinus) / span * (2 * delta) : 0;
+
+    // Mean magnitude of the merit change under a ±Δd thickness error.
+    //
+    // A central difference, (MF(d+Δ) − MF(d−Δ))/2Δ, cancels the quadratic term
+    // exactly and keeps only the gradient. A refined design sits at a local
+    // minimum, so ∂MF/∂d ≈ 0 for every free layer and that gradient is
+    // optimizer convergence noise. Ranking on it puts the layers in an order
+    // unrelated to how much a deposition error actually costs. Averaging the
+    // two one-sided magnitudes keeps the curvature term, which is the term that
+    // survives at the minimum, and still reduces to |∂MF/∂d|·Δd for a design
+    // that has not been refined.
+    const degradation = (Math.abs(mfPlus - settings.mf0) + Math.abs(mfMinus - settings.mf0)) / 2;
+
+    // Which direction of error costs more. This is a hint for the reader, not
+    // the ranking quantity, and near a minimum it carries little information.
+    const direction = Math.sign(mfPlus - mfMinus) || 1;
 
     return {
         index,
@@ -68,8 +82,8 @@ function makeSensitivityRow(variable, index, settings) {
         materialId: layer.material,
         thickness,
         deltaNm: delta,
-        deltaMFAbs: Math.abs(deltaMF),
-        deltaMF,
+        deltaMFAbs: degradation,
+        deltaMF: degradation * direction,
         sensitivity: 0,
         locked,
     };
@@ -89,10 +103,15 @@ function scaleSensitivityRows(rows) {
  * For each *unlocked* layer j (across front and, in symmetric / both_independent
  * / back_only modes, back too — whatever DLS sees as a free variable), compute
  *
- *     ΔMF_j = (MF(d_j + Δd) − MF(d_j − Δd)) / 2          [central difference]
+ *     ΔMF_j = ( |MF(d_j + Δd) − MF₀| + |MF(d_j − Δd) − MF₀| ) / 2
  *
- * where Δd_j is either `absDeltaNm` or `relPct·d_j/100` depending on `mode`.
- * The "sensitivity %" is |ΔMF_j| scaled so that the max layer = 100.
+ * where Δd_j is either `absDeltaNm` or `relPct·d_j/100` depending on `mode`,
+ * and MF₀ is the merit of the unperturbed design. This is the mean amount the
+ * merit function moves when layer j is off by ±Δd, so it stays meaningful at a
+ * refined design, where the first derivative of the merit is zero by
+ * construction and a central difference would report convergence noise.
+ *
+ * The "sensitivity %" is ΔMF_j scaled so that the max layer = 100.
  *
  * @param {object}  design       the design object
  * @param {Array}   operands     `design.meritOperands` (or any operand list)
@@ -111,8 +130,8 @@ function scaleSensitivityRows(rows) {
  *     materialId:   string,
  *     thickness:    number,   // nm
  *     deltaNm:      number,   // Δd actually used (nm)
- *     deltaMFAbs:   number,   // |ΔMF_j|  (absolute)
- *     deltaMF:      number,   //  ΔMF_j   (signed central difference)
+ *     deltaMFAbs:   number,   // ΔMF_j, mean merit change under ±Δd
+ *     deltaMF:      number,   // ΔMF_j signed by which direction costs more
  *     sensitivity:  number,   // 0..100   (% of max layer)
  *     locked:       boolean,
  *   }>,
@@ -145,6 +164,7 @@ export function computeLayerSensitivity(design, operands, resolveMat, opts = {})
         resolveMat,
         surfaceMode,
         mfOptions: MF_OPT,
+        mf0,
         mode: opts.mode ?? 'relative',
         absDeltaNm: opts.absDeltaNm ?? 1.0,
         relPct: opts.relPct ?? 1.0,
