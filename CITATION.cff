@@ -6,8 +6,8 @@ authors:
   - given-names: Andrey
     family-names: Achapovsky
     orcid: "https://orcid.org/0009-0005-1497-6279"
-version: 1.5.0
-date-released: "2026-08-07"
+version: 1.6.0
+date-released: "2026-08-16"
 license: MIT
 doi: "10.5281/zenodo.21196149"
 repository-code: "https://github.com/aai2k/TFStudio"
