@@ -1,7 +1,8 @@
 import {
     isArgwave, isBlank, isConstraint, isDmfs, isInequality, isIntegral,
     isMath, isMathPairRef, isMathSingleRef, isMinmax, isRangeTarget,
-    isTotalThickness, isPhase, isGroupDelayFlat, isFractionalUnit,
+    isTotalThickness, isPhase, isPhaseShift, isGroupDelayFlat, isFractionalUnit,
+    _operandResidual,
 } from '../../../../../utils/physics/optimizer.js';
 
 // Display unit for a phase/field operand type (empty = dimensionless).
@@ -142,7 +143,14 @@ export function rowDisplayMeta(op, rawCur, mathPercent, bandLevel = null) {
     // evaluated value, rather than a signed current-minus-target difference.
     const isRampRow = isRangeTarget(op.type) || isFlat;
     const tgt = useFraction ? op.target * 100 : op.target;
-    const rawResidual = value != null ? (isRampRow ? value : value - tgt) : null;
+    // A phase-shift residual wraps to the shortest signed difference in
+    // -180°..180°, so it is taken from the merit function's own residual rather
+    // than recomputed here: the tooltip and the contribution share sit in the
+    // same cell and must not disagree at a wrap boundary.
+    const rawResidual = value == null ? null
+        : isRampRow ? value
+        : isPhaseShift(op.type) ? _operandResidual(op, rawCur)
+        : value - tgt;
     // A flatness operand's own value is an RMS deviation, which shares the
     // target's unit but not its meaning and goes to zero as the row is met.
     // Current shows the level the band actually reaches, so it can be read

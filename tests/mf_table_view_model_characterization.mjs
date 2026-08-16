@@ -8,6 +8,7 @@ import {
     OPERAND_TYPES, isBlank, isConstraint, isDmfs, isIntegral, isMath,
     isTotalThickness,
 } from '../src/utils/physics/optimizer/operandModel.js';
+import { _operandResidual } from '../src/utils/physics/optimizer/evalCore.js';
 
 const op = (type, extra = {}) => ({ id: type, type, target: 0.5, ...extra });
 const theme = { success: 'success', error: 'error', textDim: 'dim' };
@@ -131,6 +132,20 @@ assert.equal(residualTooltip(
     rowDisplayMeta(op('GDDFLAT', { target: -40 }), 28.6, false, -37.5),
     { residualRms: 'СКО' }), 'СКО +28.600 fs²');
 assert.equal(residualTooltip(rowDisplayMeta(normal, null, false)), null);
+
+// A phase-shift residual wraps to the shortest signed difference in -180°..180°,
+// the same convention the merit function scores by. The tooltip and the
+// contribution share live in the same cell, so an unwrapped "current − target"
+// here would put -340° next to a percentage earned by +20°.
+const wrapMeta = rowDisplayMeta(op('PR', { target: 170 }), -170, false);
+assert.equal(wrapMeta.rawResidual, 20);
+assert.equal(wrapMeta.rawResidual, _operandResidual(op('PR', { target: 170 }), -170),
+    'the tooltip residual is the one the merit function scores');
+assert.equal(residualTooltip(wrapMeta), 'Current − target: +20.000 °');
+// Away from a wrap boundary the residual keeps its plain signed value.
+const phaseMeta = rowDisplayMeta(op('DPT', { target: 30 }), 12, false);
+assert.equal(phaseMeta.rawResidual, -18);
+assert.equal(phaseMeta.rawResidual, _operandResidual(op('DPT', { target: 30 }), 12));
 
 assert.equal(typeRgba('T', 0.12), 'rgba(80,150,255,0.12)');
 assert.equal(typeRgba('unknown', 0.5), null);
