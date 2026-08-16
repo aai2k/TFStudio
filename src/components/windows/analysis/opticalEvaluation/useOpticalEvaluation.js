@@ -1,65 +1,23 @@
 import { useDesign } from '../../../../state/DesignContext.js';
+import { useLiveDesign } from '../../../../state/useLiveDesign.js';
 import { useAnalysisDefaults, useAnalysisSettings } from '../../../../state/AnalysisSettingsContext.js';
 import { computeOpticalSpectrum } from './spectrum.js';
 import { buildCSV, createTargetOperands, editTargetOperands, deleteTargetOperand } from './model.js';
 
 const { useState, useEffect, useCallback, useMemo, useRef } = React;
 
-function deriveAutoSpectrum(autoCalc, isOptimizing, computeSpectrum) {
-    if (!autoCalc || isOptimizing) return null;
-    try {
-        return { data: computeSpectrum(), error: null };
-    } catch (error) {
-        console.error('TMM error:', error);
-        return { data: null, error: error.message || 'Computation error' };
-    }
-}
-
-function useOptimizationThrottle(autoCalc, isOptimizing, compute) {
-    const computeRef = useRef(compute);
-    useEffect(() => { computeRef.current = compute; }, [compute]);
-    useEffect(() => {
-        if (!autoCalc || !isOptimizing) return;
-        computeRef.current();
-        const interval = setInterval(() => computeRef.current(), 250);
-        return () => clearInterval(interval);
-    }, [autoCalc, isOptimizing]);
-}
-
-function useSpectrumEvaluation({ design, params, evalMode, autoCalc, isOptimizing }) {
-    const [manualData, setManualData] = useState(null);
-    const [computing, setComputing] = useState(false);
-    const [manualError, setManualError] = useState(null);
-    const computeSpectrum = useCallback(
-        () => computeOpticalSpectrum(design, params, evalMode),
-        [design, params, evalMode]
-    );
-    const auto = useMemo(
-        () => deriveAutoSpectrum(autoCalc, isOptimizing, computeSpectrum),
-        [autoCalc, isOptimizing, computeSpectrum]
-    );
-    const compute = useCallback(() => {
-        setComputing(true);
+// The spectrum is computed from the sampled design, so a run redraws this
+// window at the shared preview cadence rather than once per progress message.
+function useSpectrumEvaluation({ params, evalMode }) {
+    const { design } = useLiveDesign();
+    return useMemo(() => {
         try {
-            setManualData(computeSpectrum());
-            setManualError(null);
+            return { data: computeOpticalSpectrum(design, params, evalMode), error: null };
         } catch (error) {
             console.error('TMM error:', error);
-            setManualData(null);
-            setManualError(error.message || 'Computation error');
+            return { data: null, error: error.message || 'Computation error' };
         }
-        setComputing(false);
-    }, [computeSpectrum]);
-
-    useEffect(() => { setManualData(null); setManualError(null); }, [evalMode]);
-    useOptimizationThrottle(autoCalc, isOptimizing, compute);
-
-    return {
-        data: auto ? auto.data : manualData,
-        error: auto ? auto.error : manualError,
-        computing,
-        compute,
-    };
+    }, [design, params, evalMode]);
 }
 
 function useTargetEditor({ design, updateDesign }) {
@@ -106,7 +64,6 @@ function useDisplayOptions(params, setParams) {
     const [showCurves, setShowCurves] = useState({
         T: true, R: true, A: false, Ts: false, Rs: false, Tp: false, Rp: false
     });
-    const [autoCalc, setAutoCalc] = useState(true);
     const [showTable, setShowTable] = useState(false);
     const [showTargets, setShowTargets] = useState(true);
     // Display defaults are sampled when the window mounts. Changes made in
@@ -140,7 +97,7 @@ function useDisplayOptions(params, setParams) {
         setParams(current => ({ ...current, thetas: next }));
     }, []);
     return {
-        showCurves, autoCalc, setAutoCalc, showTable, setShowTable,
+        showCurves, showTable, setShowTable,
         showTargets, setShowTargets, yAuto, setYAuto, yMin, setYMin,
         yMax, setYMax, spectralUnit, setSpectralUnit, yRange, lamRange,
         toggleCurve, setThetas,
@@ -183,9 +140,9 @@ function designSummary(design, evalMode, data) {
 
 export function useOpticalEvaluation() {
     const context = useDesign();
-    const { design, updateDesign, evalMode, evalParams: params, setEvalParams: setParams, isOptimizing } = context;
+    const { design, updateDesign, evalMode, evalParams: params, setEvalParams: setParams } = context;
     const display = useDisplayOptions(params, setParams);
-    const spectrum = useSpectrumEvaluation({ design, params, evalMode, autoCalc: display.autoCalc, isOptimizing });
+    const spectrum = useSpectrumEvaluation({ params, evalMode });
     const targets = useTargetEditor({ design, updateDesign });
     const csv = useCsvActions({ data: spectrum.data, showCurves: display.showCurves, design });
     return {

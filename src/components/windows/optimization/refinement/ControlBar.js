@@ -6,6 +6,7 @@
 
 import { OptimizeBadge, EvalModeBadge } from '../../../SurfaceModeBar.js';
 import { WARN_BADGE_STYLE } from '../synthesisShared/synthesisHelpers.js';
+import { LiveUpdateSwitch } from '../../../ui/LiveUpdateSwitch.js';
 import { REFINE_METHODS, METHOD_LABELS, METHOD_NOTES, ALL_ORDER } from './refinementConfig.js';
 
 const { createElement: h } = React;   // React is a window global
@@ -132,7 +133,7 @@ function runReadout({ running, iter, mf, mfBest, mfInitial, restartIdx, method, 
 }
 
 export function ControlBar(props) {
-    const { c } = props;
+    const { c, t } = props;
     return h('div', {
         style: {
             display: 'flex', alignItems: 'center', gap: 6,
@@ -143,5 +144,7 @@ export function ControlBar(props) {
         ...runButtons(props),
         ...runControls(props),
         ...runReadout(props),
+        h('div', { style: { marginLeft: 'auto' } },
+            h(LiveUpdateSwitch, { c, label: t.liveUpdate.label, title: t.liveUpdate.hint })),
     );
 }

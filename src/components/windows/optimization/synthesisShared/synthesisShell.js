@@ -15,6 +15,7 @@ import { OptimizeBadge, EvalModeBadge } from '../../../SurfaceModeBar.js';
 import { MaterialPoolPanel, WARN_BADGE_STYLE } from './synthesisHelpers.js';
 import { DebouncedInput } from '../../../ui/DebouncedInput.js';
 import { Checkbox } from '../../../ui/Checkbox.js';
+import { LiveUpdateSwitch } from '../../../ui/LiveUpdateSwitch.js';
 import { parseNumber } from '../../../../utils/misc/numberParsing.js';
 
 const { createElement: h, useState } = React;
@@ -88,7 +89,9 @@ export function SynthesisControlBar({
             style: statusMsg === noOperandsLabel
                 ? { ...WARN_BADGE_STYLE, marginLeft: 10 }
                 : { fontSize: 11, marginLeft: 10, color: statusColor, fontStyle: 'italic' }
-        }, statusMsg)
+        }, statusMsg),
+        h('span', { style: { marginLeft: 10 } },
+            h(LiveUpdateSwitch, { c, label: t.liveUpdate.label, title: t.liveUpdate.hint })),
     );
 }
 

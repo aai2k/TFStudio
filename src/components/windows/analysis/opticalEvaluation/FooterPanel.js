@@ -31,7 +31,7 @@ function DesignSummary({ design, evalMode, oe, frontCount, backCount, frontNm, b
 
 export function FooterPanel(props) {
     const {
-        c, oe, design, evalMode, computing, data,
+        c, oe, design, evalMode, data,
         copied, copyCSV, saved, saveCSV,
         frontCount, backCount, frontNm, backNm, subThick,
     } = props;
@@ -44,7 +44,6 @@ export function FooterPanel(props) {
         }
     },
         h(DesignSummary, { design, evalMode, oe, frontCount, backCount, frontNm, backNm, subThick, c }),
-        computing && h('span', { style: { color: c.accent } }, oe.calculating),
         h('div', { style: { marginLeft: 'auto' } },
             h(ExportMenu, {
                 c, enabled: !!data, copied, copyCSV, saved, saveCSV,

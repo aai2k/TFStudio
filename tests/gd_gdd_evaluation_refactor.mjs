@@ -217,7 +217,11 @@ assert.match(markup, />Results</, 'the sampled numbers sit in a collapsible Resu
 assert.match(markup, />Export</, 'the footer exports the sampled numbers as CSV');
 assert.doesNotMatch(markup, />Piecewise table derivative/,
     'the long piecewise note never occupies the status bar');
-assert.equal(createHash('sha256').update(markup).digest('hex').slice(0, 16), '619d09d780f52528');
+// Auto-update is one setting shared by every window that follows a run, and
+// this is the window whose redraw cost made it worth having.
+assert.match(markup, /role="switch"[^>]*aria-checked="true"/,
+    'the toolbar offers the shared auto-update switch');
+assert.equal(createHash('sha256').update(markup).digest('hex').slice(0, 16), 'dd08cfba2b9db054');
 
 // Sentence-length status text is a tooltip on a short label. A status bar in a
 // docked window has no room for it, and clipping it would hide it entirely.

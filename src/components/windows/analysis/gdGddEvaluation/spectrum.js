@@ -6,6 +6,12 @@ import {
 
 export const AUTOMATIC_GD_GDD_FINE_STEP_NM = 0.2;
 const AUTOMATIC_GRID_MAX_INTERVALS = 2000;
+// Live preview grid, used while an optimizer run is driving the design. The
+// curve is being watched for its shape as it moves, not read for knot detail,
+// so a coarse grid with no local refinement keeps the redraw far below the
+// preview interval and leaves the interface responsive.
+const PREVIEW_GRID_MAX_INTERVALS = 300;
+const PREVIEW_FINE_STEP_NM = 1;
 const AUTOMATIC_REFINEMENT_WIDTH_NM = 0.01;
 
 function wavelengthGrid(start, end, step) {
@@ -15,9 +21,11 @@ function wavelengthGrid(start, end, step) {
     return wavelengths;
 }
 
-function automaticWavelengthGrid(start, end) {
+function automaticWavelengthGrid(start, end, preview) {
     const span = Math.abs(end - start);
-    const step = Math.max(AUTOMATIC_GD_GDD_FINE_STEP_NM, span / AUTOMATIC_GRID_MAX_INTERVALS);
+    const step = preview
+        ? Math.max(PREVIEW_FINE_STEP_NM, span / PREVIEW_GRID_MAX_INTERVALS)
+        : Math.max(AUTOMATIC_GD_GDD_FINE_STEP_NM, span / AUTOMATIC_GRID_MAX_INTERVALS);
     return wavelengthGrid(start, end, step);
 }
 
@@ -60,6 +68,13 @@ function adaptiveWavelengthGrid(baseWavelengths, evaluate) {
         }
     }
     return [...wavelengths].sort((left, right) => left - right);
+}
+
+// The wavelengths a spectrum is presented on: an automatic grid, refined
+// around narrow coefficient minima unless this is a live preview.
+function presentationGrid(lambdaStart, lambdaEnd, preview, evaluate) {
+    const base = automaticWavelengthGrid(lambdaStart, lambdaEnd, preview);
+    return { base, wavelengths: preview ? base : adaptiveWavelengthGrid(base, evaluate) };
 }
 
 function normalizeRadians(value) {
@@ -106,7 +121,7 @@ function averagePolarizations(sValue, pValue) {
 }
 
 export function computeGdGddSpectrum(design, options) {
-    const { side, lambdaStart, lambdaEnd, thetaDeg, polarization, target } = options;
+    const { side, lambdaStart, lambdaEnd, thetaDeg, polarization, target, preview } = options;
     const valueCache = new Map();
     const pointEvaluators = side === 'total' && target === 'T'
         ? null
@@ -134,8 +149,8 @@ export function computeGdGddSpectrum(design, options) {
         }
         return valueCache.get(wavelengthNm);
     };
-    const baseWavelengths = automaticWavelengthGrid(lambdaStart, lambdaEnd);
-    const wavelengths = adaptiveWavelengthGrid(baseWavelengths, evaluate);
+    const { base: baseWavelengths, wavelengths } =
+        presentationGrid(lambdaStart, lambdaEnd, preview, evaluate);
     const values = wavelengths.map(evaluate);
     const phaseRadians = side === 'total' && target === 'T'
         ? totalPhase(values)
@@ -158,6 +173,7 @@ export function computeGdGddSpectrum(design, options) {
         discontinuityModels: [...new Set(values.flatMap(value =>
             value.discontinuityModels || []))],
         method: 'analytic Taylor jets',
+        preview: !!preview,
         basePointCount: baseWavelengths.length,
         adaptivePointCount: wavelengths.length - baseWavelengths.length,
         components: side === 'total' && target === 'T' ? totalComponents(values) : null,

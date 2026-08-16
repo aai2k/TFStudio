@@ -142,6 +142,7 @@ export function makeDesignCtx(design = makeSampleDesign()) {
         evalMode: 'front',
         evalParams: { lambdaStart: 400, lambdaEnd: 800, lambdaStep: 2, thetas: [0] }, setEvalParams: noop,
         isOptimizing: false, beginOptimization: noop, endOptimization: noop,
+        liveUpdate: true, setLiveUpdate: noop,
         getDesignRevision: () => 0,
     };
 }

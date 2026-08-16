@@ -17,6 +17,7 @@
 
 import { OptimizeBadge, EvalModeBadge } from '../../../SurfaceModeBar.js';
 import { WARN_BADGE_STYLE } from '../synthesisShared/synthesisHelpers.js';
+import { LiveUpdateSwitch } from '../../../ui/LiveUpdateSwitch.js';
 import { useNeedleManual } from './useNeedleManual.js';
 import { PFunctionPlot } from './PFunctionPlot.js';
 import { LeftSidebar } from './LeftSidebar.js';
@@ -63,7 +64,9 @@ export function NeedleManual({ c, theme, t }) {
                 style: (s.statusMsg === tn.noOperands || s.scanBlocked)
                     ? { ...WARN_BADGE_STYLE, whiteSpace: 'normal' }
                     : { fontSize: 11, color: s.busy ? (c.accent || '#ffa726') : c.textDim, fontStyle: 'italic' }
-            }, s.statusMsg)
+            }, s.statusMsg),
+            h('span', { style: { marginLeft: 'auto' } },
+                h(LiveUpdateSwitch, { c, label: t.liveUpdate.label, title: t.liveUpdate.hint })),
         ),
 
         h('div', { style: { flex: 1, display: 'flex', overflow: 'hidden', minHeight: 0 } },

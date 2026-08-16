@@ -2,7 +2,10 @@ import { ResultsGrid, ResultsSection } from '../../../ui/ResultsSection.js';
 import { GDAxisPanel } from './GDControls.js';
 import { GDChart } from './GDChart.js';
 
-const { createElement: h } = React;
+const { createElement: h, useMemo } = React;
+
+// Stable identity for "no targets", so hiding them does not re-plot every frame.
+const EMPTY_TARGETS = [];
 
 function CenteredMessage({ c, message }) {
     return h('div', {
@@ -15,6 +18,14 @@ function CenteredMessage({ c, message }) {
 
 export function GDResults({ c, t, text, state, view }) {
     const dt = t.dataTable;
+    // A fresh bounds array on every render counts as a changed chart input and
+    // re-plots the trace, so it is held stable across renders that do not move
+    // the axis.
+    const yRange = useMemo(
+        () => state.yAuto ? view.autoRange?.range : [state.yMin, state.yMax],
+        [state.yAuto, state.yMin, state.yMax, view.autoRange],
+    );
+    const targets = state.showTargets ? state.targets : EMPTY_TARGETS;
     return h('div', {
         style: {
             flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column',
@@ -26,10 +37,7 @@ export function GDResults({ c, t, text, state, view }) {
                 ? h(GDChart, {
                     data: view.plotData, meta: view.meta,
                     refLambda: state.refLam, showRef: state.showRef, c,
-                    targets: state.showTargets ? state.targets : [],
-                    yRange: state.yAuto
-                        ? view.autoRange?.range
-                        : [state.yMin, state.yMax],
+                    targets, yRange,
                 })
                 : h(CenteredMessage, { c, message: text.noLayers }),
         ),

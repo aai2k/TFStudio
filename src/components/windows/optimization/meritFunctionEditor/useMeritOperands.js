@@ -7,6 +7,7 @@ import {
     editOperand, replaceOperandTail, addOperands, insertOperand,
     duplicateOperands, deleteOperands, moveOperand,
 } from './meritOperandModel.js';
+import { useLiveDesign } from '../../../../state/useLiveDesign.js';
 
 const { useState, useEffect, useCallback } = React;
 const EMPTY_OPERANDS = [];
@@ -71,19 +72,23 @@ export function useMeritOperands({ design, updateDesign, checkpoint, setInputDia
         updateDesign({ meritOperands: newOperands });
     }, [operands, updateDesign]);
 
+    // Evaluated from the sampled design so the table follows an optimizer run
+    // at the live-preview cadence rather than once per progress message.
+    const { design: liveDesign } = useLiveDesign();
+
     useEffect(() => {
-        if (!design || operands.length === 0) {
+        if (!liveDesign || operands.length === 0) {
             setComputed([]); setErrors([]); setBandLevels([]); setMf(null); setOmf(null);
             return;
         }
         try {
-            const result = evaluateForDisplay(design, operands);
+            const result = evaluateForDisplay(liveDesign, operands);
             setComputed(result.computed); setErrors(result.errors); setBandLevels(result.bandLevels);
             setMf(result.mf); setOmf(result.omf);
         } catch (_) {
             setComputed([]); setErrors([]); setBandLevels([]); setMf(null); setOmf(null);
         }
-    }, [operands, design]);
+    }, [operands, liveDesign]);
 
     const handleEdit = useCallback((id, key, value) => {
         setOperands(prev => editOperand(prev, id, key, value));

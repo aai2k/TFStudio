@@ -5,6 +5,7 @@
 // wiring — see operandEdits.js for the operand-array transforms it calls.
 
 import { useDesign } from '../../../../state/DesignContext.js';
+import { useLiveDesign } from '../../../../state/useLiveDesign.js';
 import {
     editOperand, addOperands, insertOperandAt, duplicateOperands, deleteOperands, moveOperand,
 } from './operandEdits.js';
@@ -261,13 +262,28 @@ function useDesignCacheSync({ design, env }) {
     }, [design?.id]); // eslint-disable-line react-hooks/exhaustive-deps
 }
 
-// Evaluate operands for the merit table display (skipped while optimizing —
-// the run loop drives mf/omf/computed itself).
+// Evaluate operands for the merit table display.
+//
+// Between runs the whole display is derived here. During a run the loop owns
+// MF and OMF (it reports the optimizer's own values), so only the per-operand
+// values are refreshed, from the sampled design at the live-preview cadence.
+// That evaluation is a fraction of a millisecond for a normal operand set, so
+// the table tracks the run without competing with it for the main thread.
 function useOperandDisplaySync({ design, operands, running, env }) {
+    const { design: liveDesign, preview } = useLiveDesign();
+
     useEffect(() => {
         if (running) return;
         evaluateDisplay(env, design, operands);
     }, [operands, design, running]); // eslint-disable-line react-hooks/exhaustive-deps
+
+    useEffect(() => {
+        if (!running || !preview) return;
+        const result = computeOperandDisplay(liveDesign, operands);
+        if (!result) return;
+        env.setters.setComputed(result.computed);
+        env.setters.setEvaluationErrors(result.errors || []);
+    }, [running, preview, liveDesign, operands]); // eslint-disable-line react-hooks/exhaustive-deps
 }
 
 function useWorkerLifecycle({ env, running, beginOptimization, endOptimization }) {

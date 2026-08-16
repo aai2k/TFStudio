@@ -1,5 +1,6 @@
 import { Checkbox } from '../../../ui/Checkbox.js';
 import { ExportMenu } from '../../../ui/ExportMenu.js';
+import { LiveUpdateSwitch } from '../../../ui/LiveUpdateSwitch.js';
 import { designMaterialLookup } from '../../../../utils/materials/designMaterials.js';
 import { FieldLabel, NumInput } from '../opticalEvaluation/controls.js';
 import { gdGddTargetColor } from './gdTargets.js';
@@ -53,7 +54,7 @@ export function ChoiceGroup({ label, items, activeId, onSelect, c, ariaLabel }) 
     );
 }
 
-function SideAndAngleToolbar({ c, text, state }) {
+function SideAndAngleToolbar({ c, t, text, state }) {
     return h('div', {
         'data-gd-toolbar': 'primary',
         style: {
@@ -82,6 +83,8 @@ function SideAndAngleToolbar({ c, text, state }) {
                 onChange: state.setTheta,
             }),
         ),
+        h('div', { style: { marginLeft: 'auto' } },
+            h(LiveUpdateSwitch, { c, label: t.liveUpdate.label, title: t.liveUpdate.hint })),
     );
 }
 
@@ -154,9 +157,9 @@ function CurveToolbar({ c, text, state }) {
     );
 }
 
-export function GDControls({ c, text, state }) {
+export function GDControls({ c, t, text, state }) {
     return h('div', { style: { flexShrink: 0, backgroundColor: c.panel } },
-        h(SideAndAngleToolbar, { c, text, state }),
+        h(SideAndAngleToolbar, { c, t, text, state }),
         h(CurveToolbar, { c, text, state }),
     );
 }

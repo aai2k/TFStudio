@@ -168,6 +168,12 @@ export function DesignProvider({ children, activeDesignId, designs, onDesignChan
     const endOptimization   = useCallback(() => setOptimizerActive(c => Math.max(0, c - 1)), []);
     const isOptimizing = optimizerActive > 0;
 
+    // Whether open windows follow a run as it proceeds (see useLiveDesign).
+    // Off, they hold the design as it was when the run started and update once
+    // when it stops; ordinary edits still redraw either way. One setting for
+    // every window, so the switch reads the same wherever it is shown.
+    const [liveUpdate, setLiveUpdate] = useState(true);
+
     const controlled = activeDesignId != null && designs != null && onDesignChange != null;
 
     const _designs       = controlled ? designs       : localDesigns;
@@ -318,6 +324,7 @@ export function DesignProvider({ children, activeDesignId, designs, onDesignChan
             evalMode,
             evalParams, setEvalParams,
             isOptimizing, beginOptimization, endOptimization,
+            liveUpdate, setLiveUpdate,
             getDesignRevision
         }
     }, children);

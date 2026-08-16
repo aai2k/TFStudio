@@ -1,10 +1,15 @@
 import { computeGdGddSpectrum } from './spectrum.js';
 import { selectGdGddTargets } from './gdTargets.js';
 import { readGDGDDSession, writeGDGDDSession } from './sessionState.js';
+import { useLiveDesign } from '../../../../state/useLiveDesign.js';
 
-const { useEffect, useState } = React;
+const { useEffect, useMemo, useState } = React;
 
 export function useGDGDDState(design) {
+    // Following the sampled design keeps a run from driving one full recompute
+    // per optimizer progress message; `preview` drops to the coarse grid for
+    // the duration, since the curve is being watched rather than read.
+    const { design: liveDesign, preview } = useLiveDesign();
     const [session, setSession] = useState(() => readGDGDDSession(design));
     const [raw, setRaw] = useState(null);
     const {
@@ -21,29 +26,34 @@ export function useGDGDDState(design) {
     }, [design?.id]);
 
     useEffect(() => {
-        const layers = side === 'back' ? design?.backLayers : design?.frontLayers;
+        const layers = side === 'back' ? liveDesign?.backLayers : liveDesign?.frontLayers;
         const layerCount = (layers || []).filter(layer => layer.material && layer.thickness > 0).length;
         if (side !== 'total' && !layerCount) {
             setRaw(null);
             return;
         }
         try {
-            setRaw(computeGdGddSpectrum(design, {
-                side, target, polarization: pol, thetaDeg: theta,
+            setRaw(computeGdGddSpectrum(liveDesign, {
+                side, target, polarization: pol, thetaDeg: theta, preview,
                 lambdaStart: Math.min(lamStart, lamEnd), lambdaEnd: Math.max(lamStart, lamEnd),
             }));
         } catch (error) {
             console.error('GD/GDD computation failed:', error);
             setRaw(null);
         }
-    }, [design, side, target, pol, lamStart, lamEnd, theta]);
+    }, [liveDesign, preview, side, target, pol, lamStart, lamEnd, theta]);
 
-    const targets = selectGdGddTargets(design?.meritOperands, {
+    // Rebuilt only when the operands or the curve selection change: this array
+    // is a chart input, and a fresh one on every render re-plots the whole
+    // trace set.
+    const targets = useMemo(() => selectGdGddTargets(liveDesign?.meritOperands, {
         side, target, quantity, polarization: pol, thetaDeg: theta,
-        surfaceMode: design?.surfaceMode,
-    });
+        surfaceMode: liveDesign?.surfaceMode,
+    }), [liveDesign?.meritOperands, liveDesign?.surfaceMode,
+        side, target, quantity, pol, theta]);
 
     return {
+        liveDesign,
         side, setSide: value => setField('side', value), target,
         setTarget: value => {
             setSession(current => writeGDGDDSession({

@@ -713,7 +713,7 @@ const App = () => {
 
         // Startup: select a project FOLDER as the default target for new designs,
         // but do NOT auto-open any design. The workspace shows the empty-state
-        // (🔬 "Create a project…") until the user creates or picks a design.
+        // ("Create a project…") until the user creates or picks a design.
         setSelectedFolder(loadedFolders[0] || null);
 
         // Restore a previously saved docking layout if one exists; otherwise

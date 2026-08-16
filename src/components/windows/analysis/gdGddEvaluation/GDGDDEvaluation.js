@@ -13,7 +13,7 @@ import { buildGdGddView, buildLayerSummary } from './viewModel.js';
 import { useGDGDDState } from './useGDGDDState.js';
 import { useAnalysisColors } from '../../../../state/AnalysisSettingsContext.js';
 
-const { createElement: h } = React;
+const { createElement: h, useMemo } = React;
 
 export function GDGDDEvaluation({ c, theme, t }) {
     const text = t.gdgdd;
@@ -21,11 +21,14 @@ export function GDGDDEvaluation({ c, theme, t }) {
     const state = useGDGDDState(design);
     const curve = useAnalysisColors('gdGddEvaluation');
 
-    const view = buildGdGddView(state.raw, {
+    // The view holds the chart's traces and axis range. Rebuilding it on every
+    // render hands Plotly new objects each time and forces a full re-plot of a
+    // multi-thousand-point trace, so it is tied to the values it is built from.
+    const view = useMemo(() => buildGdGddView(state.raw, {
         quantity: state.quantity,
         referenceLambda: state.refLam,
         showReference: state.showRef,
-    }, text, curve);
+    }, text, curve), [state.raw, state.quantity, state.refLam, state.showRef, text, curve]);
     const csv = useCsvExport(
         () => csvFromRows(view.tableColumns, view.tableRows),
         () => `${(design?.name || 'design').replace(/[^\w.-]+/g, '_')}_dispersion.csv`,
@@ -33,7 +36,9 @@ export function GDGDDEvaluation({ c, theme, t }) {
 
     if (!design) return h(CenteredMessage, { c, message: text.noDesign });
 
-    const summary = buildLayerSummary(design, state.side);
+    // Built from the same sampled design as the curve, so the caption and the
+    // plot describe one state instead of disagreeing during a run.
+    const summary = buildLayerSummary(state.liveDesign, state.side);
 
     return h('div', {
         style: {
@@ -43,7 +48,7 @@ export function GDGDDEvaluation({ c, theme, t }) {
             fontFamily: 'system-ui, -apple-system, sans-serif', fontSize: 12,
         },
     },
-        h(GDControls, { c, text, state }),
+        h(GDControls, { c, t, text, state }),
         h(MaterialRangeWarning, { design, fromNm: state.lamStart, toNm: state.lamEnd, c, t }),
         h(GDResults, { c, t, text, state, view }),
         h(GDFooter, {

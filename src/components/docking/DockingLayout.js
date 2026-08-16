@@ -421,7 +421,6 @@ function EmptyWorkspace({ c, t, onCreateProject }) {
       fontFamily: 'system-ui, -apple-system, sans-serif', padding: 24, textAlign: 'center'
     }
   },
-    h('div', { style: { fontSize: 52, opacity: 0.2 } }, '🔬'),
     h('div', { style: { fontSize: 16, fontWeight: 600, color: c.text, opacity: 0.6 } }, 'TFStudio'),
     h('div', { style: { fontSize: 12.5, opacity: 0.5, maxWidth: 360, lineHeight: 1.5 } },
       e.hint || 'Create a project to begin, or pick an existing design from the Explorer on the left.'),
