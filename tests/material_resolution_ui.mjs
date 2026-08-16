@@ -75,6 +75,11 @@ const missingPicker = renderToStaticMarkup(React.createElement(MaterialPicker, {
 }));
 assert.match(missingPicker, />Ta2O5<\/span>/,
     'a missing current value is presented by its own id rather than as Air');
+const missingPickerInDesign = renderToStaticMarkup(withDesign(
+    React.createElement(MaterialPicker, { value: missingId, onChange: () => {}, c, t }),
+    broken));
+assert.match(missingPickerInDesign, />Ta2O5<\/span>/,
+    'design-scoped resolution does not turn a missing reference into Air in the trigger');
 
 const monitor = renderToStaticMarkup(withDesign(
     React.createElement(SpectralMonitor, { c, t }), broken));

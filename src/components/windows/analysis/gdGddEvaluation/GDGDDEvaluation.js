@@ -5,6 +5,8 @@
 
 import { useDesign } from '../../../../state/DesignContext.js';
 import { MaterialRangeWarning } from '../../../materials/MaterialRangeNotice.js';
+import { csvFromRows } from '../../../ui/ResultsSection.js';
+import { useCsvExport } from '../../../ui/ExportMenu.js';
 import { GDControls, GDFooter } from './GDControls.js';
 import { GDResults, CenteredMessage } from './GDResults.js';
 import { buildGdGddView, buildLayerSummary } from './viewModel.js';
@@ -19,13 +21,18 @@ export function GDGDDEvaluation({ c, theme, t }) {
     const state = useGDGDDState(design);
     const curve = useAnalysisColors('gdGddEvaluation');
 
-    if (!design) return h(CenteredMessage, { c, message: text.noDesign });
-
     const view = buildGdGddView(state.raw, {
         quantity: state.quantity,
         referenceLambda: state.refLam,
         showReference: state.showRef,
     }, text, curve);
+    const csv = useCsvExport(
+        () => csvFromRows(view.tableColumns, view.tableRows),
+        () => `${(design?.name || 'design').replace(/[^\w.-]+/g, '_')}_dispersion.csv`,
+    );
+
+    if (!design) return h(CenteredMessage, { c, message: text.noDesign });
+
     const summary = buildLayerSummary(design, state.side);
 
     return h('div', {
@@ -40,8 +47,9 @@ export function GDGDDEvaluation({ c, theme, t }) {
         h(MaterialRangeWarning, { design, fromNm: state.lamStart, toNm: state.lamEnd, c, t }),
         h(GDResults, { c, t, text, state, view }),
         h(GDFooter, {
-            c, text, design, side: state.side, summary, raw: state.raw,
-            quantity: state.quantity,
+            c, text, dataTable: t.dataTable, design, side: state.side, summary,
+            raw: state.raw, quantity: state.quantity,
+            csv: { ...csv, enabled: view.tableRows.length > 0 },
         }),
     );
 }

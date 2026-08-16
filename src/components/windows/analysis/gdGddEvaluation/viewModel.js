@@ -100,12 +100,69 @@ function buildTable(raw) {
     return { columns, rows };
 }
 
+// The automatic range keeps at least 96% of the samples in view: it is taken
+// from the 2nd to the 98th percentile. A single cut cannot be tighter and stay
+// honest, because the excursions at reflection minima are not a handful of
+// isolated points but a continuous heavy tail, one per minimum.
+//
+// It only narrows when the extremes actually dominate: if the full extent is
+// less than OUTLIER_RATIO times that central span, the curve is drawn whole and
+// nothing is excluded.
+const TAIL_FRACTION = 0.02;
+const OUTLIER_RATIO = 4;
+const RANGE_PADDING = 0.06;
+
+/**
+ * A vertical range that shows the curve rather than one spike.
+ *
+ * GD, GDD and TOD are logarithmic derivatives of the reflection coefficient, so
+ * wherever the coefficient passes near a zero they grow by orders of magnitude
+ * over a fraction of a nanometre. Those excursions are correct, but they are a
+ * Taylor expansion evaluated far outside its useful range, at a wavelength where
+ * almost nothing reflects. Scaling the axis to them flattens the rest of the
+ * plot into a straight line.
+ *
+ * `outside` reports how many samples fall beyond the returned range, so the
+ * window can say so rather than quietly cropping.
+ */
+export function autoYRange(plotData) {
+    const series = plotData?.series || (plotData?.y ? [{ y: plotData.y }] : []);
+    const values = [];
+    for (const item of series) {
+        for (const value of item.y) if (Number.isFinite(value)) values.push(value);
+    }
+    if (!values.length) return null;
+    const sorted = [...values].sort((a, b) => a - b);
+    const low = sorted[0];
+    const high = sorted[sorted.length - 1];
+    const fullSpan = high - low;
+    if (!(fullSpan > 0)) return { range: [low - 1, high + 1], outside: 0 };
+
+    const quantile = (fraction) => sorted[Math.round(fraction * (sorted.length - 1))];
+    const innerLow = quantile(TAIL_FRACTION);
+    const innerHigh = quantile(1 - TAIL_FRACTION);
+    const innerSpan = innerHigh - innerLow;
+
+    if (!(innerSpan > 0) || fullSpan < OUTLIER_RATIO * innerSpan) {
+        const pad = fullSpan * RANGE_PADDING;
+        return { range: [low - pad, high + pad], outside: 0 };
+    }
+    const pad = innerSpan * RANGE_PADDING;
+    const range = [innerLow - pad, innerHigh + pad];
+    let outside = 0;
+    for (const value of values) if (value < range[0] || value > range[1]) outside++;
+    return { range, outside };
+}
+
 export function buildGdGddView(raw, options, text, colors) {
     const meta = quantityMeta(options.quantity, text, colors);
     const table = buildTable(raw);
+    const plotData = buildPlotData(
+        raw, meta, options.quantity, options.referenceLambda, options.showReference);
     return {
         meta,
-        plotData: buildPlotData(raw, meta, options.quantity, options.referenceLambda, options.showReference),
+        plotData,
+        autoRange: autoYRange(plotData),
         tableColumns: table.columns,
         tableRows: table.rows,
     };

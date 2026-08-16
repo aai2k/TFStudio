@@ -3,7 +3,9 @@
  * ../wdmDesigner.js for the full geometry model and references.
  */
 
-import { makeOperand, makeConstraintOperand, makeDmfsOperand } from '../../physics/optimizer.js';
+import {
+    DEFAULT_CONSTRAINT_LAST_LAYER, makeOperand, makeConstraintOperand, makeDmfsOperand,
+} from '../../physics/optimizer.js';
 
 /**
  * Generate a sensible default merit-function operand set for a bandpass:
@@ -71,14 +73,16 @@ export function buildWDMOperands(params) {
         type: RAV, lambdaStart: highStopStart, lambdaEnd: highStopEnd,
         aoi, pol, target: 1.0, weight: 1.0,
     }));
-    // MNT / MXT thickness constraints across the full stack (lambdaEnd=9999
-    // sentinel so they cover layers later added by GE/Needle, matching the
-    // FILTER_TYPES wizard convention).
+    // MNT / MXT thickness constraints across the full stack, over a layer range
+    // that also covers the layers GE and Needle add later, matching the
+    // FILTER_TYPES wizard convention.
     ops.push(makeConstraintOperand({
-        type: 'MNT', lambdaStart: 1, lambdaEnd: 9999, target: minThicknessNm,
+        type: 'MNT', lambdaStart: 1, lambdaEnd: DEFAULT_CONSTRAINT_LAST_LAYER,
+        target: minThicknessNm,
     }));
     ops.push(makeConstraintOperand({
-        type: 'MXT', lambdaStart: 1, lambdaEnd: 9999, target: maxThicknessNm,
+        type: 'MXT', lambdaStart: 1, lambdaEnd: DEFAULT_CONSTRAINT_LAST_LAYER,
+        target: maxThicknessNm,
     }));
 
     return ops;

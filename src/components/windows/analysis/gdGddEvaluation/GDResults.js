@@ -1,4 +1,4 @@
-import { DataTablePanel } from '../../../ui/DataTablePanel.js';
+import { ResultsGrid, ResultsSection } from '../../../ui/ResultsSection.js';
 import { GDAxisPanel } from './GDControls.js';
 import { GDChart } from './GDChart.js';
 
@@ -14,6 +14,7 @@ function CenteredMessage({ c, message }) {
 }
 
 export function GDResults({ c, t, text, state, view }) {
+    const dt = t.dataTable;
     return h('div', {
         style: {
             flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column',
@@ -26,11 +27,17 @@ export function GDResults({ c, t, text, state, view }) {
                     data: view.plotData, meta: view.meta,
                     refLambda: state.refLam, showRef: state.showRef, c,
                     targets: state.showTargets ? state.targets : [],
+                    yRange: state.yAuto
+                        ? view.autoRange?.range
+                        : [state.yMin, state.yMax],
                 })
                 : h(CenteredMessage, { c, message: text.noLayers }),
         ),
-        h(GDAxisPanel, { c, text, state }),
-        h(DataTablePanel, { columns: view.tableColumns, rows: view.tableRows, c, t }),
+        h(GDAxisPanel, { c, text, state, autoRange: view.autoRange }),
+        h(ResultsSection, {
+            c, label: dt.results, count: view.tableRows.length, countLabel: dt.rowCount,
+            open: state.showTable, setOpen: state.setShowTable,
+        }, h(ResultsGrid, { columns: view.tableColumns, rows: view.tableRows, c })),
     );
 }
 

@@ -5,8 +5,8 @@
  * This file re-exports their full surface so every existing
  * importer (components, workers, tests) is unchanged. Dependency order (a strict
  * acyclic DAG, no module imports this barrel):
- *   operandModel → filterCatalog · sampling · layerOps · linalg(internal)
- *   → evalCore → lsqEngine · scanners
+ *   operandModel → operandDomains · filterCatalog · sampling · layerOps ·
+ *   linalg(internal) → evalCore → lsqEngine · scanners
  *
  * `lsqEngine.js` is the shared analytic least-squares engine (LSQEngine) + the
  * plain DLS/LM refiner (DLSOptimizer); the Newton / Newton-CG / SQP step
@@ -16,6 +16,7 @@
  */
 
 export * from './optimizer/operandModel.js';
+export * from './optimizer/operandDomains.js';
 export * from './optimizer/filterCatalog.js';
 export * from './optimizer/coneAngle.js';
 export * from './optimizer/sampling.js';

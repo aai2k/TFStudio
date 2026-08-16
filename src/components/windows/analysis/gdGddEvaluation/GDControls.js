@@ -1,4 +1,5 @@
 import { Checkbox } from '../../../ui/Checkbox.js';
+import { ExportMenu } from '../../../ui/ExportMenu.js';
 import { designMaterialLookup } from '../../../../utils/materials/designMaterials.js';
 import { FieldLabel, NumInput } from '../opticalEvaluation/controls.js';
 import { gdGddTargetColor } from './gdTargets.js';
@@ -160,7 +161,7 @@ export function GDControls({ c, text, state }) {
     );
 }
 
-export function GDAxisPanel({ c, text, state }) {
+export function GDAxisPanel({ c, text, state, autoRange }) {
     return h('div', {
         'data-gd-panel': 'axis',
         style: {
@@ -185,10 +186,10 @@ export function GDAxisPanel({ c, text, state }) {
             }),
             h('span', { style: { color: c.textDim, fontSize: 11 } }, 'nm'),
         ),
+        h(YAxisControls, { c, text, state, autoRange }),
         h('div', {
             style: {
-                display: 'flex', alignItems: 'center', gap: 7,
-                marginLeft: 'auto', flexShrink: 0,
+                display: 'flex', alignItems: 'center', gap: 7, flexShrink: 0,
             },
         },
             h('label', {
@@ -211,6 +212,60 @@ export function GDAxisPanel({ c, text, state }) {
     );
 }
 
+/**
+ * Vertical range, mirroring Optical Evaluation. Auto is the robust range from
+ * autoYRange, which excludes the divergence spikes at reflection minima; when it
+ * does, the count of excluded samples is shown rather than left implicit.
+ */
+function YAxisControls({ c, text, state, autoRange }) {
+    const effective = autoRange?.range || [0, 1];
+    const shown = value => Number.isFinite(value) ? value : null;
+    const low = shown(state.yMin) ?? effective[0];
+    const high = shown(state.yMax) ?? effective[1];
+    const step = Math.max(1e-6, Math.abs(high - low) / 20);
+    return h('div', {
+        style: {
+            display: 'flex', alignItems: 'center', gap: 7,
+            marginLeft: 'auto', flexShrink: 0,
+        },
+    },
+        h(FieldLabel, { c }, 'Y'),
+        !state.yAuto && h(NumInput, {
+            value: Number(low.toPrecision(6)), step, c, width: 64,
+            onChange: value => state.setYMin(value),
+        }),
+        !state.yAuto && h('span', { style: { color: c.textDim, fontSize: 11 } }, '–'),
+        !state.yAuto && h(NumInput, {
+            value: Number(high.toPrecision(6)), step, c, width: 64,
+            onChange: value => state.setYMax(value),
+        }),
+        state.yAuto && autoRange?.outside > 0 && h('span', {
+            title: text.offScaleHint,
+            style: { color: c.warning || '#f59e0b', fontSize: 11, whiteSpace: 'nowrap' },
+        }, text.offScale(autoRange.outside)),
+        h('label', {
+            style: {
+                display: 'flex', alignItems: 'center', gap: 4,
+                color: c.text, fontSize: 11, cursor: 'pointer', whiteSpace: 'nowrap',
+            },
+        },
+            h(Checkbox, {
+                c, checked: state.yAuto,
+                onChange: (event) => {
+                    // Leaving Auto seeds the fields from what is on screen, so
+                    // the range does not jump when the checkbox is cleared.
+                    if (!event.target.checked) {
+                        state.setYMin(Number(effective[0].toPrecision(6)));
+                        state.setYMax(Number(effective[1].toPrecision(6)));
+                    }
+                    state.setYAuto(event.target.checked);
+                },
+            }),
+            text.yAuto,
+        ),
+    );
+}
+
 function mediumName(design, id) {
     if (!id) return '';
     const material = designMaterialLookup(design)(id);
@@ -219,59 +274,98 @@ function mediumName(design, id) {
     return separator >= 0 ? id.slice(separator + 1) : id;
 }
 
-export function GDFooter({ c, text, design, side, summary, raw, quantity }) {
+/**
+ * A short label carrying its full explanation in the tooltip. The dispersion
+ * model list and the piecewise-derivative note run to a sentence or more, which
+ * a status bar cannot hold at any realistic window width; the label says the
+ * condition exists and hovering gives the detail.
+ */
+export function FooterHint({ c, label, detail, color }) {
+    return h('span', {
+        title: detail,
+        style: {
+            whiteSpace: 'nowrap', flexShrink: 0, cursor: 'help',
+            color: color || c.textDim,
+            textDecoration: 'underline dotted', textUnderlineOffset: 2,
+        },
+    }, label);
+}
+
+export function GDFooter({ c, text, dataTable, design, side, summary, raw, quantity, csv }) {
     const sideLabel = side === 'total'
         ? (text.total || 'Total')
         : side === 'back' ? (text.back || 'Back') : (text.front || 'Front');
     const incidentId = side === 'back' ? design.exitMedium : design.incidentMedium;
     const finalId = side === 'total' ? design.exitMedium : design.substrate?.material;
     const media = `${mediumName(design, incidentId)} → ${mediumName(design, finalId)}`;
-    const models = raw?.models?.join('; ') || '';
+    const models = raw?.models || [];
     const sampleSummary = raw
         ? `${raw.method}${raw.adaptivePointCount ? `, +${raw.adaptivePointCount} adaptive points` : ''}`
         : '';
     const quantityOrder = { phase: 0, gd: 1, gdd: 2, tod: 3 }[quantity] ?? 1;
     const piecewise = quantityOrder > (raw?.phaseContinuousOrder ?? 3)
         && raw?.discontinuityModels?.length;
+    // Narrowing the window clips the descriptive text, which is the part the
+    // window title and the toolbars already say. The warnings and the export
+    // control do not shrink, so they are still there in a docked window.
     return h('div', {
         'data-gd-panel': 'footer',
         style: {
             minHeight: 38, padding: '4px 12px', borderTop: `1px solid ${c.border}`,
             backgroundColor: c.panel, flexShrink: 0,
             display: 'flex', alignItems: 'center', gap: 7,
-            overflow: 'hidden', fontSize: 11, color: c.textDim,
+            fontSize: 11, color: c.textDim,
         },
     },
-        h('span', {
+        h('div', {
             style: {
-                color: c.text, fontWeight: 600, overflow: 'hidden',
-                textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+                display: 'flex', alignItems: 'center', gap: 7,
+                minWidth: 0, overflow: 'hidden',
             },
-        }, design.name),
-        h('span', null, '·'),
-        h('span', { style: { whiteSpace: 'nowrap' } }, sideLabel),
-        h('span', null, '·'),
-        h('span', { style: { whiteSpace: 'nowrap' } },
-            `${text.layersLabel}: ${summary.layerCount}, ${summary.totalThickness.toFixed(1)} nm`,
+        },
+            h('span', {
+                title: design.name,
+                style: {
+                    color: c.text, fontWeight: 600, overflow: 'hidden',
+                    textOverflow: 'ellipsis', whiteSpace: 'nowrap', minWidth: 0,
+                },
+            }, design.name),
+            h('span', null, '·'),
+            h('span', { style: { whiteSpace: 'nowrap' } }, sideLabel),
+            h('span', null, '·'),
+            h('span', { style: { whiteSpace: 'nowrap' } },
+                `${text.layersLabel}: ${summary.layerCount}, ${summary.totalThickness.toFixed(1)} nm`,
+            ),
+            h('span', null, '·'),
+            h('span', {
+                title: media,
+                style: {
+                    minWidth: 0, overflow: 'hidden',
+                    textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+                },
+            }, media),
+            sampleSummary && h('span', null, '·'),
+            sampleSummary && h('span', {
+                style: { whiteSpace: 'nowrap', color: c.accent },
+            }, sampleSummary),
         ),
-        h('span', null, '·'),
-        h('span', { style: { whiteSpace: 'nowrap' } }, media),
-        sampleSummary && h('span', null, '·'),
-        sampleSummary && h('span', {
-            style: { whiteSpace: 'nowrap', color: c.accent },
-        }, sampleSummary),
-        piecewise && h('span', null, '·'),
-        piecewise && h('span', {
-            title: raw.discontinuityModels.join('; '),
-            style: { whiteSpace: 'nowrap', color: c.warning || '#f59e0b' },
-        }, text.tableKnotWarning || 'Piecewise table derivative; gaps mark data-knot jumps'),
-        models && h('span', null, '·'),
-        models && h('span', {
-            title: models,
-            style: {
-                minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis',
-                whiteSpace: 'nowrap', color: c.textDim,
+        piecewise && h(FooterHint, {
+            c, color: c.warning || '#f59e0b',
+            label: text.piecewiseShort,
+            detail: `${text.tableKnotWarning} (${raw.discontinuityModels.join('; ')})`,
+        }),
+        models.length > 0 && h(FooterHint, {
+            c, label: text.models, detail: models.join('; '),
+        }),
+        h('div', { style: { marginLeft: 'auto' } }, h(ExportMenu, {
+            c, enabled: csv.enabled,
+            copied: csv.copied, copyCSV: csv.copyCSV,
+            saved: csv.saved, saveCSV: csv.saveCSV,
+            labels: {
+                export: dataTable.export, copyCsv: dataTable.copyCsv,
+                saveCsv: dataTable.saveCsv, copied: dataTable.csvCopied,
+                saved: dataTable.csvSaved,
             },
-        }, `${text.models || 'Models'}: ${models}`),
+        })),
     );
 }

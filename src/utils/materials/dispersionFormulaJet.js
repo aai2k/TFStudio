@@ -10,7 +10,7 @@ import {
     jetScale,
     jetSqrt,
     jetSubtract,
-} from '../physics/taylorJet.js';
+} from '../../tmmcore.js';
 
 const coefficient = (coefficients, index) => coefficients?.[index] ?? 0;
 const constant = value => jetConstant(value);

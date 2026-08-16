@@ -25,6 +25,8 @@ const { selectGdGddTargets } =
     await import('../src/components/windows/analysis/gdGddEvaluation/gdTargets.js');
 const { GDGDDEvaluation } =
     await import('../src/components/windows/analysis/gdGddEvaluation/GDGDDEvaluation.js');
+const { FooterHint } =
+    await import('../src/components/windows/analysis/gdGddEvaluation/GDControls.js');
 
 const design = {
     incidentMedium: 'Air',
@@ -123,7 +125,13 @@ const chart = buildGDChartModel({
     colors: { background: c.bg, paper: c.panel, grid: c.border, text: c.text },
 });
 assert.equal(chart.traces[0].hovertemplate, '%{y:.2f} °<br>%{x:.2f} nm<extra></extra>');
-assert.deepEqual(chart.layout.margin, { l: 64, r: 16, t: 12, b: 46 });
+// Matches Optical Evaluation; the 38 px top strip is the modebar's.
+assert.deepEqual(chart.layout.margin, { l: 58, r: 18, t: 38, b: 46 });
+// Axis furniture is the text colour, not the curve colour.
+assert.equal(chart.layout.font.color, c.text);
+assert.equal(chart.layout.yaxis.color, undefined);
+// No explicit range given, so Plotly autoranges.
+assert.equal(chart.layout.yaxis.autorange, true);
 assert.equal(chart.layout.shapes[0].x0, raw.lambda[2]);
 assert.equal(chart.layout.yaxis.title.text, text.phaseAxis);
 
@@ -197,7 +205,27 @@ assert.match(markup, /data-gd-panel="axis"/, 'wavelength controls sit in an axis
 assert.match(markup, /data-gd-panel="footer"/, 'the selected coating summary sits in a footer');
 assert.match(markup, /aria-label="Side"/, 'front/back remains an explicit local calculation switch');
 assert.doesNotMatch(markup, /λ step/, 'the live analysis has no numerical sampling control');
+// A vertical range control, as Optical Evaluation has. Auto is on by default,
+// so the min/max fields are not rendered until it is cleared.
+assert.match(markup, />Auto</, 'the axis panel offers an automatic vertical range');
+assert.match(markup, /flex-wrap:wrap/,
+    'the control toolbars wrap instead of clipping in a narrow window');
 assert.match(markup, />Targets</, 'matching merit-function targets have a visibility control');
-assert.equal(createHash('sha256').update(markup).digest('hex').slice(0, 16), '84bdaaa00eb3aa4d');
+// The bottom of the window matches Optical Evaluation: a collapsible Results
+// section over the sampled numbers, and a CSV export menu in the footer.
+assert.match(markup, />Results</, 'the sampled numbers sit in a collapsible Results section');
+assert.match(markup, />Export</, 'the footer exports the sampled numbers as CSV');
+assert.doesNotMatch(markup, />Piecewise table derivative/,
+    'the long piecewise note never occupies the status bar');
+assert.equal(createHash('sha256').update(markup).digest('hex').slice(0, 16), '619d09d780f52528');
+
+// Sentence-length status text is a tooltip on a short label. A status bar in a
+// docked window has no room for it, and clipping it would hide it entirely.
+const hint = renderToStaticMarkup(React.createElement(FooterHint, {
+    c, label: 'Piecewise', detail: 'Piecewise table derivative; gaps mark data-knot jumps',
+}));
+assert.match(hint, /title="Piecewise table derivative; gaps mark data-knot jumps"/);
+assert.match(hint, />Piecewise</);
+assert.match(hint, /cursor:help/);
 
 console.log('PASS: gd_gdd_evaluation_refactor');

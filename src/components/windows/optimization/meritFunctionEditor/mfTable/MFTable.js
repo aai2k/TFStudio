@@ -1,15 +1,17 @@
-import { mathTargetInPercent } from '../../../../../utils/physics/optimizer.js';
+import {
+    mathTargetInPercent, operandContributions,
+} from '../../../../../utils/physics/optimizer.js';
 import { useIntegralPresets } from '../../../../../utils/physics/integralValues.js';
 import { TblBtn } from './CellControls.js';
 import { commitEdit, startEdit } from './editModel.js';
 import { renderOperandRow } from './OperandRows.js';
 import {
-    COLS, TABLE_W, dynamicHeaderLabels,
+    COLS, TABLE_W, columnPercent, dynamicHeaderLabels,
 } from './operandViewModel.js';
 import { navigationTarget, selectionAfterRowClick } from './selectionModel.js';
 import { doKeyDown } from './tableKeyboard.js';
 
-const { createElement: h, useState, useEffect, useRef, useCallback } = React;
+const { createElement: h, useState, useEffect, useMemo, useRef, useCallback } = React;
 
 function pickHeaderOp(operands, focusCell, primarySelection) {
     if (focusCell && operands[focusCell.rowIdx]) return operands[focusCell.rowIdx];
@@ -117,11 +119,17 @@ function useMFTableSelection(props) {
     };
 }
 
+// The λ Start / λ End headers change with the selected row's operand type, so
+// they carry a title and clip: a label wider than its column would otherwise
+// overflow into the next one. Widths come from the colgroup, not from here.
 function headerCell(col, dynamicLabels, style) {
     const label = col.key === 'lambdaStart' ? dynamicLabels.lambdaStart
         : col.key === 'lambdaEnd' ? dynamicLabels.lambdaEnd
         : col.label;
-    return h('th', { key: col.key, style: { ...style, width: col.w } }, label);
+    return h('th', {
+        key: col.key, title: label,
+        style: { ...style, overflow: 'hidden', textOverflow: 'ellipsis' },
+    }, label);
 }
 
 export function MFTable(props) {
@@ -150,8 +158,20 @@ export function MFTable(props) {
     const primarySel = selIds.size === 1 ? [...selIds][0] : null;
     const hasSelection = selIds.size > 0;
     const dynamicLabels = dynamicHeaderLabels(pickHeaderOp(operands, focusCell, primarySel));
+    // Derived here rather than passed in: every caller already hands over the
+    // operands and their computed values, which is all a share of the merit
+    // needs, and deriving it keeps the column from disagreeing with the table.
+    const contributions = useMemo(
+        () => operandContributions(operands, computed),
+        [operands, computed],
+    );
+    const largestContribution = useMemo(
+        () => contributions.reduce((largest, value) => Math.max(largest, value || 0), 0),
+        [contributions],
+    );
     const rowContext = {
-        computed, evaluationErrors, bandLevels, selIds, focusCell, editCell,
+        computed, evaluationErrors, bandLevels, contributions, largestContribution,
+        selIds, focusCell, editCell,
         operands, integralPresets, isMathPct, c, t,
         onEdit, selectRow: handleSelectRow, focusAt: handleFocusAt, startEdit: handleStartEdit,
         commitEdit: handleCommitEdit, navigate: handleNavigate, setEditCell, setFocusCell,
@@ -175,13 +195,20 @@ export function MFTable(props) {
             },
         }, notice),
         h('div', { style: { flex: 1, overflow: 'auto', minHeight: 0 } },
+            // The table spans its container so the rows reach the right edge of
+            // the window, and the columns keep their relative widths at any
+            // size. Below TABLE_W it stops shrinking and scrolls instead, so a
+            // narrow dock cannot squeeze a column down to nothing.
             h('table', {
                 style: {
-                    borderCollapse: 'collapse', tableLayout: 'fixed', width: TABLE_W,
+                    borderCollapse: 'collapse', tableLayout: 'fixed',
+                    width: '100%', minWidth: TABLE_W,
                     fontSize: 11, fontFamily: 'system-ui, -apple-system, sans-serif',
                 },
             },
-                h('colgroup', null, COLS.map(col => h('col', { key: col.key, style: { width: col.w } }))),
+                h('colgroup', null, COLS.map(col => h('col', {
+                    key: col.key, style: { width: columnPercent(col) },
+                }))),
                 h('thead', null,
                     h('tr', null, COLS.map(col => headerCell(col, dynamicLabels, thStyle))),
                 ),

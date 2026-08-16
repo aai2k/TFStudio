@@ -17,6 +17,7 @@
  * (ms), and layer count (fewer better for synthesis; fixed for refinement).
  */
 import {
+    DEFAULT_CONSTRAINT_LAST_LAYER,
     makeOperand, makeConstraintOperand, calcMF, scanNeedlesPFunction, findOptimalNeedleThickness,
     insertNeedle, insertNeedleIntra, cleanupLayers, scanGEInsertions,
     buildEvalContext, evaluateOperands, removeRedundantLayers,
@@ -222,7 +223,9 @@ function consolidate(best, ops, dMin, resolveMat, innerIter, engine, tol) {
     return r ? { design: r.design, mf: r.mf } : best;
 }
 /** An MNT (minimum-thickness) constraint over every layer: one-sided penalty d ≥ nm. */
-export const mntOperand = (nm) => makeConstraintOperand({ type: 'MNT', lambdaStart: 1, lambdaEnd: 9999, target: nm, weight: 1 });
+export const mntOperand = (nm) => makeConstraintOperand({
+    type: 'MNT', lambdaStart: 1, lambdaEnd: DEFAULT_CONSTRAINT_LAST_LAYER, target: nm, weight: 1,
+});
 
 // ── refinement (fixed-N) ──────────────────────────────────────────────────────────
 export function runRefine(method, design, ops, maxIter, dMin, resolveMat, dMax = 600) {

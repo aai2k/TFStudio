@@ -26,7 +26,7 @@ import {
     jetFromDerivatives,
     jetScale,
     wavelengthOmegaJet,
-} from '../src/utils/physics/taylorJet.js';
+} from '../src/tmmcore.js';
 import {
     C_NM_PER_FS,
     computeGroupDelaySpectrumAtWavelengthStep,
@@ -187,11 +187,13 @@ function sevenPointDerivatives(values, step) {
         substrateIndexJet: indexJet,
         layers: [{ indexJet, thicknessNm }],
     });
+    // tmmcore's own key names: it takes the angular frequency that fixes the
+    // unit, so it does not presume fs. Everything above stackEvaluator.js does.
     const result = coefficientPhaseDispersion(coefficients.transmission);
     const scale = thicknessNm / C_NM_PER_FS;
-    close(result.gdFs, scale * (n + omega * first), 1e-11, 'matched slab GD');
-    close(result.gddFs2, scale * (2 * first + omega * second), 1e-11, 'matched slab GDD');
-    close(result.todFs3, scale * (3 * second + omega * third), 1e-10, 'matched slab TOD');
+    close(result.gd, scale * (n + omega * first), 1e-11, 'matched slab GD');
+    close(result.gdd, scale * (2 * first + omega * second), 1e-11, 'matched slab GDD');
+    close(result.tod, scale * (3 * second + omega * third), 1e-10, 'matched slab TOD');
 }
 
 const quarterWaveDesign = (() => {

@@ -5,7 +5,10 @@ import {
     wizardAppendRow, wizardGenerationRows,
 } from '../src/components/windows/optimization/meritFunctionEditor/meritOperandModel.js';
 import { reIdOperands } from '../src/components/windows/optimization/meritFunctionEditor/presetOperands.js';
-import { defaultFilterParams, makeOperand } from '../src/utils/physics/optimizer.js';
+import {
+    DEFAULT_CONSTRAINT_LAST_LAYER, defaultFilterParams, makeOperand,
+    rowRangeDomain, targetDomain,
+} from '../src/utils/physics/optimizer.js';
 
 let passed = 0;
 function test(name, fn) {
@@ -81,9 +84,9 @@ test('wizard builds DMFS, optical operands, all-layer constraints, and TT cap', 
         totalEnabled: true, maxTotal: 0,
     });
     assert.deepEqual(block.map(op => op.type), ['DMFS', 'R', 'T', 'MNT', 'MXT', 'TT']);
-    assert.deepEqual(block.slice(3, 5).map(op => [op.lambdaStart, op.lambdaEnd, op.target]), [
-        [1, 9999, 0.01], [1, 9999, 0.01],
-    ]);
+    const allLayers = [1, DEFAULT_CONSTRAINT_LAST_LAYER, 0.01];
+    assert.deepEqual(block.slice(3, 5).map(op => [op.lambdaStart, op.lambdaEnd, op.target]),
+        [allLayers, allLayers]);
     assert.equal(block[5].cmp, 'le');
     assert.equal(block[5].target, 1);
     assert.equal(block[1].aoi, 15);
@@ -121,6 +124,7 @@ test('edits preserve patch behavior and target units', () => {
         op('math-raw', 'OPGT', { refId: 'con' }),
         op('pair-opt', 'DIFF', { refId1: 'opt', refId2: 'opt' }),
         op('pair-mixed', 'DIFF', { refId1: 'opt', refId2: 'con' }),
+        op('phase', 'GDDFLAT', { target: -40 }),
     ];
     const target = (id, value = '75') => editOperand(operands, id, 'target', value).find(item => item.id === id).target;
     assert.equal(target('opt'), 0.75);
@@ -131,9 +135,88 @@ test('edits preserve patch behavior and target units', () => {
     assert.equal(target('math-raw'), 75);
     assert.equal(target('pair-opt'), 0.75);
     assert.equal(target('pair-mixed'), 75);
+    assert.equal(target('phase', '-30'), -30);
     const patched = editOperand(operands, 'opt', '_patch', { target: 0.2, custom: { keep: true } });
     assert.deepEqual(patched[0].custom, { keep: true });
     assert.equal(patched[0].target, 0.2);
+});
+
+test('a type change reseeds the fields whose meaning changed with it', () => {
+    // λ Start, λ End and the target are numbers whose unit comes from the type.
+    // Carried across a type change they are wrong rather than merely unhelpful.
+    const fresh = makeOperand({ id: 'fresh' });
+    const changed = editOperand([fresh], fresh.id, 'type', 'GDD')[0];
+    assert.equal(changed.type, 'GDD');
+    assert.equal(changed.target, 0, 'a fraction is not a number of fs²');
+
+    const userTarget = makeOperand({ id: 'custom', target: 0.25 });
+    assert.equal(editOperand([userTarget], userTarget.id, 'type', 'GDD')[0].target, 0,
+        'an explicit fraction is still a fraction, so it is reseeded too');
+
+    const gdd = makeOperand({ id: 'gdd', type: 'GDDFLAT', target: -40 });
+    const flat = editOperand([gdd], gdd.id, 'type', 'GDDTFLAT')[0];
+    assert.equal(flat.target, -40, 'a target keeps its value when the unit does not change');
+    assert.equal(flat.lambdaStart, gdd.lambdaStart);
+    assert.equal(flat.lambdaEnd, gdd.lambdaEnd);
+
+    assert.equal(makeOperand({ type: 'GDD' }).target, 0, 'an omitted phase target gets its default');
+    assert.equal(makeOperand({ type: 'GDD', target: 0.99 }).target, 0.99,
+        'an explicit target equal to the optical default remains explicit');
+});
+
+test('a row retyped to a thickness constraint gets layer defaults, not wavelengths', () => {
+    // The λ Start / λ End columns become Layer 1 / Layer 2 for MNT and MXT.
+    // Inheriting a 400-700 nm band would constrain layers 400 to 700, which do
+    // not exist, and inheriting 0.99 would ask for a 0.99 nm minimum thickness.
+    const spectral = makeOperand({ id: 'rav', type: 'RAV', lambdaStart: 600, lambdaEnd: 900 });
+    const mnt = editOperand([spectral], spectral.id, 'type', 'MNT')[0];
+    assert.equal(mnt.type, 'MNT');
+    assert.equal(mnt.lambdaStart, 1);
+    assert.equal(mnt.lambdaEnd, DEFAULT_CONSTRAINT_LAST_LAYER,
+        'the range covers layers synthesis has not added yet');
+    assert.equal(mnt.target, 10, 'the target is a thickness in nm');
+
+    // Editing the layer range and then swapping MNT for MXT keeps it: both read
+    // the columns the same way.
+    const narrowed = editOperand([mnt], mnt.id, 'lambdaEnd', 12);
+    const mxt = editOperand(narrowed, mnt.id, 'type', 'MXT')[0];
+    assert.equal(mxt.lambdaStart, 1);
+    assert.equal(mxt.lambdaEnd, 12);
+
+    // Going back the other way, a layer number is not a wavelength.
+    const back = editOperand([mxt], mxt.id, 'type', 'RAV')[0];
+    assert.equal(back.lambdaStart, 400);
+    assert.equal(back.lambdaEnd, 700);
+    assert.equal(back.target, 0.99);
+});
+
+test('adding a constraint row directly gets the same layer defaults', () => {
+    const added = addOperands([], { type: 'MXT' }, 0).operands[0];
+    assert.equal(added.type, 'MXT');
+    assert.equal(added.lambdaStart, 1);
+    assert.equal(added.lambdaEnd, DEFAULT_CONSTRAINT_LAST_LAYER);
+    const spectral = addOperands([], { type: 'RAV' }, 0).operands[0];
+    assert.equal(spectral.lambdaStart, 400);
+    assert.equal(spectral.lambdaEnd, 700);
+});
+
+test('rowRangeDomain and targetDomain separate the incompatible column meanings', () => {
+    assert.equal(rowRangeDomain('RAV'), 'wavelength');
+    assert.equal(rowRangeDomain('MNT'), 'layer');
+    assert.equal(rowRangeDomain('MXT'), 'layer');
+    assert.equal(rowRangeDomain('TIW'), 'preset');
+    assert.equal(rowRangeDomain('TT'), 'comparison');
+    assert.equal(rowRangeDomain('DIFF'), 'operandRef');
+    assert.equal(rowRangeDomain('BLNK'), 'comment');
+    assert.equal(rowRangeDomain('GDDFLAT'), 'wavelength');
+
+    assert.equal(targetDomain('RAV'), 'fraction');
+    assert.equal(targetDomain('TIW'), 'fraction');
+    assert.equal(targetDomain('MNT'), 'nm');
+    assert.equal(targetDomain('TT'), 'nm');
+    assert.equal(targetDomain('MXWT'), 'wavelength');
+    assert.equal(targetDomain('GDD'), 'phase');
+    assert.equal(targetDomain('DIFF'), 'raw');
 });
 
 test('tail replacement uses clamped one-based start rows', () => {

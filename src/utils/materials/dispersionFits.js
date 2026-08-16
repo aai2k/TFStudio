@@ -20,7 +20,7 @@ import {
     jetScale,
     jetSqrt,
     jetSubtract,
-} from '../physics/taylorJet.js';
+} from '../../tmmcore.js';
 
 const HC_EV_UM = 1.239841984;
 

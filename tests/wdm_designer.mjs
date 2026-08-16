@@ -15,7 +15,7 @@
  *     prototype (sanity check — the passband actually exists)
  *   • estimateFWHM_nm scales 1/m with spacer order m (Macleod Eq. 7.27)
  *   • Merit operands include exactly one TAV passband, one or two RAV
- *     stopbands, and MNT/MXT constraints with the 9999 sentinel
+ *     stopbands, and MNT/MXT constraints covering past the current layer count
  */
 
 import {
@@ -26,6 +26,7 @@ import {
     multicavityFwhmFactor, wdmLayerCount,
 } from '../src/utils/filter/wdmDesigner.js';
 import { getMaterialById } from '../src/utils/materials/catalogManager.js';
+import { DEFAULT_CONSTRAINT_LAST_LAYER } from '../src/utils/physics/optimizer.js';
 import { evaluateSpectrum } from '../src/utils/physics/thinFilmMath.js';
 
 let fails = 0;
@@ -211,8 +212,9 @@ console.log('— merit operands —');
     ok(tav.length === 1,  `1 TAV passband (got ${tav.length})`);
     ok(rav.length === 2,  `2 RAV stopbands (got ${rav.length})`);
     ok(mnt.length === 1 && mxt.length === 1, `MNT+MXT constraints present`);
-    ok(mnt[0].lambdaEnd === 9999 && mxt[0].lambdaEnd === 9999,
-       `MNT/MXT use 9999 sentinel so they cover layers added by GE/Needle later`);
+    ok(mnt[0].lambdaEnd === DEFAULT_CONSTRAINT_LAST_LAYER
+        && mxt[0].lambdaEnd === DEFAULT_CONSTRAINT_LAST_LAYER,
+       `MNT/MXT cover past the current layer count, for layers GE/Needle add later`);
 
     const pass = tav[0];
     ok(near(pass.lambdaStart, LAM0 - 10) && near(pass.lambdaEnd, LAM0 + 10),

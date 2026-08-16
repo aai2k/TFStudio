@@ -1,6 +1,5 @@
 import {
-    isArgwave, isConstraint, isMath, isRangeTarget, isTotalThickness,
-    isValidMeritWeight,
+    isFractionalUnit, isMath, isRangeTarget, isValidMeritWeight,
 } from '../../../../../utils/physics/optimizer.js';
 import { RANGE_TARGET_TYPES } from './operandViewModel.js';
 
@@ -10,7 +9,7 @@ export function targetInitialValue(op, mathPercent) {
         return `${(op.target * 100).toFixed(1)}→${(end * 100).toFixed(1)}`;
     }
     if (isMath(op.type) && mathPercent) return (op.target * 100).toFixed(2);
-    if (isConstraint(op.type) || isTotalThickness(op.type) || isArgwave(op.type) || isMath(op.type)) {
+    if (!isFractionalUnit(op.type) || isMath(op.type)) {
         return String(op.target ?? 0);
     }
     return (op.target * 100).toFixed(2);
@@ -43,7 +42,7 @@ export function commitTarget(op, draft, onEdit) {
 export function startEdit(ctx, rowIdx, colKey, initChar) {
     const { operands, onEdit, isMathPct, setFocusCell, setEditCell } = ctx;
     const op = operands[rowIdx];
-    if (!op || colKey === 'num' || colKey === 'current' || colKey === 'delta') return;
+    if (!op || colKey === 'num' || colKey === 'current' || colKey === 'contribution') return;
     if (colKey === 'enabled') {
         onEdit(op.id, 'enabled', !op.enabled);
         return;

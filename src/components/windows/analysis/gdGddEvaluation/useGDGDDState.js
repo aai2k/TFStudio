@@ -1,34 +1,23 @@
 import { computeGdGddSpectrum } from './spectrum.js';
 import { selectGdGddTargets } from './gdTargets.js';
+import { readGDGDDSession, writeGDGDDSession } from './sessionState.js';
 
 const { useEffect, useState } = React;
 
 export function useGDGDDState(design) {
-    const [side, setSide] = useState('front');
-    const [target, setTarget] = useState('R');
-    const [quantity, setQuantity] = useState('gd');
-    const [pol, setPol] = useState('avg');
-    const [lamStart, setLamStart] = useState(400);
-    const [lamEnd, setLamEnd] = useState(800);
-    const [theta, setTheta] = useState(0);
-    const [refLam, setRefLam] = useState(() => design?.referenceWavelength || 550);
-    const [showRef, setShowRef] = useState(true);
-    const [showTargets, setShowTargets] = useState(true);
+    const [session, setSession] = useState(() => readGDGDDSession(design));
     const [raw, setRaw] = useState(null);
+    const {
+        side, target, quantity, pol, lamStart, lamEnd, theta, refLam, showRef, showTargets,
+        showTable, yAuto, yMin, yMax,
+    } = session;
+
+    const setField = (key, value) => setSession(current => writeGDGDDSession({
+        [key]: typeof value === 'function' ? value(current[key]) : value,
+    }));
 
     useEffect(() => {
-        if (design?.referenceWavelength) setRefLam(design.referenceWavelength);
-    }, [design?.id]);
-
-    useEffect(() => {
-        if (target === 'R' && side === 'total') setSide('front');
-    }, [target, side]);
-
-    useEffect(() => {
-        const frontCount = (design?.frontLayers || []).filter(layer => layer.material && layer.thickness > 0).length;
-        const backCount = (design?.backLayers || []).filter(layer => layer.material && layer.thickness > 0).length;
-        if (frontCount === 0 && backCount > 0) setSide('back');
-        else setSide('front');
+        setSession(readGDGDDSession(design));
     }, [design?.id]);
 
     useEffect(() => {
@@ -55,14 +44,29 @@ export function useGDGDDState(design) {
     });
 
     return {
-        side, setSide, target,
+        side, setSide: value => setField('side', value), target,
         setTarget: value => {
-            setTarget(value);
-            if (value === 'R' && side === 'total') setSide('front');
+            setSession(current => writeGDGDDSession({
+                target: value,
+                side: value === 'R' && current.side === 'total' ? 'front' : current.side,
+            }));
         },
-        quantity, setQuantity, pol, setPol,
-        lamStart, setLamStart, lamEnd, setLamEnd,
-        theta, setTheta, refLam, setRefLam, showRef, setShowRef,
-        targets, showTargets, setShowTargets, raw,
+        quantity,
+        // Changing quantity changes the unit, so any manual bounds are dropped
+        // rather than carried from fs into fs^3.
+        setQuantity: value => setSession(() => writeGDGDDSession({
+            quantity: value, yMin: null, yMax: null,
+        })),
+        pol, setPol: value => setField('pol', value),
+        lamStart, setLamStart: value => setField('lamStart', value),
+        lamEnd, setLamEnd: value => setField('lamEnd', value),
+        theta, setTheta: value => setField('theta', value),
+        refLam, setRefLam: value => setField('refLam', value),
+        showRef, setShowRef: value => setField('showRef', value),
+        targets, showTargets, setShowTargets: value => setField('showTargets', value), raw,
+        showTable, setShowTable: value => setField('showTable', value),
+        yAuto, setYAuto: value => setField('yAuto', value),
+        yMin, setYMin: value => setField('yMin', value),
+        yMax, setYMax: value => setField('yMax', value),
     };
 }

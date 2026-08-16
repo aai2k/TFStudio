@@ -16,7 +16,9 @@
  */
 
 import { getMaterialById } from '../materials/catalogManager.js';
-import { makeOperand, makeDmfsOperand, makeConstraintOperand } from '../physics/optimizer.js';
+import {
+    DEFAULT_CONSTRAINT_LAST_LAYER, makeOperand, makeDmfsOperand, makeConstraintOperand,
+} from '../physics/optimizer.js';
 import {
     materialIndexFn, buildPrototypeLayers, adjustToIncidentMedium,
     buildFilterTarget,
@@ -57,7 +59,8 @@ function materialForLayer(L, matH, matL) {
  *   - DMFS comment header
  *   - TGT  target 1.0 over the passband  [λ₀ ± halfPass]
  *   - TGT  target 0.0 over each stopband [halfStop … halfStop+stopSpan]
- *   - MNT / MXT thickness constraints (9999 sentinel → cover later-added layers)
+ *   - MNT / MXT thickness constraints, over a layer range that also covers the
+ *     layers synthesis adds later
  */
 export function buildFilterOperands({
     lambda0_nm, halfPass, halfStop, aoi = 0, pol = 'avg',
@@ -86,9 +89,10 @@ export function buildFilterOperands({
         lambdaStart: lambda0_nm + halfStop, lambdaEnd: lambda0_nm + halfStop + span,
         aoi, pol, weight: 1.0,
     }));
-    // Thickness constraints (one-sided quadratic penalties; sentinel covers all layers)
-    ops.push(makeConstraintOperand({ type: 'MNT', lambdaStart: 1, lambdaEnd: 9999, target: minThicknessNm }));
-    ops.push(makeConstraintOperand({ type: 'MXT', lambdaStart: 1, lambdaEnd: 9999, target: maxThicknessNm }));
+    // Thickness constraints: one-sided quadratic penalties over every layer.
+    const lastLayer = DEFAULT_CONSTRAINT_LAST_LAYER;
+    ops.push(makeConstraintOperand({ type: 'MNT', lambdaStart: 1, lambdaEnd: lastLayer, target: minThicknessNm }));
+    ops.push(makeConstraintOperand({ type: 'MXT', lambdaStart: 1, lambdaEnd: lastLayer, target: maxThicknessNm }));
     return ops;
 }
 

@@ -23,7 +23,7 @@ import { tmmWithAdmittances, computeGroupDelaySpectrum, C_NM_PER_FS }
 import { coefficientPhaseDispersion, tmmCoefficientJets }
     from '../src/utils/physics/phaseDispersion.js';
 import { jetFromDerivatives, wavelengthOmegaJet }
-    from '../src/utils/physics/taylorJet.js';
+    from '../src/tmmcore.js';
 
 let fails = 0;
 const ok = (cond, msg) => { if (!cond) { console.error('FAIL:', msg); fails++; } else { console.log('  ✓', msg); } };
@@ -107,7 +107,7 @@ const near = (a, b, t, msg) => ok(Math.abs(a - b) <= t, `${msg} (got ${a}, want 
         layers: [{ indexJet, thicknessNm: d }],
     });
     const result = coefficientPhaseDispersion(coefficients.transmission);
-    near(result.todFs3, (d / C_NM_PER_FS) * 3 * second, 1e-11,
+    near(result.tod, (d / C_NM_PER_FS) * 3 * second, 1e-11,
         'analytic matched-slab TOD = (d/c) * 3 d2n/domega2');
 }
 

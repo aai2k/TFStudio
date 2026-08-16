@@ -640,6 +640,12 @@ const en = {
     rows: 'rows',
     copyCsv: 'Copy CSV',
     copied: 'Copied',
+    results: 'Results',
+    rowCount: (count) => `${count} rows`,
+    export: 'Export',
+    saveCsv: 'Save CSV',
+    csvCopied: '✓ Copied',
+    csvSaved: '✓ Saved',
   },
   designEditor: {
     frontCoating: 'Front coating',
@@ -921,6 +927,7 @@ const en = {
   materialPicker: {
     searchPlaceholder: 'Search…',
     allCatalogs: 'All',
+    designCatalog: 'This design',
   },
   meritFunctionEditor: {
     title:         'Merit Function Editor',
@@ -930,6 +937,9 @@ const en = {
     noDesign:      'No design selected. Open or create a design first.',
     noOperands:    'No operands. Use the wizard above, or "+ Add" below.',
     evaluationError: 'Error',
+    residualSlack: 'Slack',
+    residualRms: 'RMS deviation',
+    residualDifference: 'Current − target',
     totalPhaseScope: (side) => `Total merit mode: R/T operands score the whole element. Phase, GD, GDD, and TOD operands score the ${side} coating only.`,
     addComment:    'Comment',
     addOperand:    '+ Add',
@@ -1441,6 +1451,15 @@ const en = {
     targetsTip:   'Show merit-function targets for this curve',
     noTargetsTip: 'No matching merit-function targets',
     tableKnotWarning: 'Piecewise table derivative; gaps mark data-knot jumps',
+    piecewiseShort: 'Piecewise',
+    maskedShort: count => `${count} masked`,
+    yAuto: 'Auto',
+    offScale: count => `${count} off scale`,
+    offScaleHint: 'Samples outside the automatic range. They sit at reflection minima, where the dispersion orders grow without describing any real pulse. Clear Auto to set the range yourself.',
+    modelLabel: 'Model',
+    modelUnavailable: 'Unavailable',
+    piecewiseWarning: (quantity, model) =>
+        `${quantity} is piecewise for ${model}; gaps mark data-knot jumps`,
   },
 
   riProfile: {
@@ -3270,6 +3289,12 @@ const ru = {
     rows: 'строк',
     copyCsv: 'Копировать CSV',
     copied: 'Скопировано',
+    results: 'Результаты',
+    rowCount: (count) => `строк: ${count}`,
+    export: 'Экспорт',
+    saveCsv: 'Сохранить CSV',
+    csvCopied: '✓ Скоп.',
+    csvSaved: '✓ Сохр.',
   },
   designEditor: {
     frontCoating: 'Передняя',
@@ -3551,6 +3576,7 @@ const ru = {
   materialPicker: {
     searchPlaceholder: 'Поиск…',
     allCatalogs: 'Все',
+    designCatalog: 'Текущее покрытие',
   },
   meritFunctionEditor: {
     title:         'Редактор функции качества',
@@ -3559,6 +3585,9 @@ const ru = {
     omfTip:        'Оптическая MF — без ограничений по толщине (MNT/MXT/TT)',
     noDesign:      'Нет выбранного проекта.',
     noOperands:    'Нет операндов. Используйте мастер выше или "+ Добавить".',
+    residualSlack: 'Отклонение',
+    residualRms: 'СКО',
+    residualDifference: 'Текущее − цель',
     addComment:    'Коммент.',
     addOperand:    '+ Добавить',
     deleteOperand: '✕ Удалить',
@@ -4057,6 +4086,15 @@ const ru = {
     targetsTip:   'Показать цели мерит-функции для этой кривой',
     noTargetsTip: 'Нет подходящих целей мерит-функции',
     tableKnotWarning: 'Кусочная производная таблицы; разрывы отмечают узлы данных',
+    piecewiseShort: 'Кусочная',
+    maskedShort: count => `скрыто: ${count}`,
+    yAuto: 'Авто',
+    offScale: count => `${count} вне шкалы`,
+    offScaleHint: 'Отсчёты вне автоматического диапазона. Они находятся в минимумах отражения, где порядки дисперсии растут, но не описывают реальный импульс. Снимите «Авто», чтобы задать диапазон вручную.',
+    modelLabel: 'Модель',
+    modelUnavailable: 'Недоступна',
+    piecewiseWarning: (quantity, model) =>
+        `${quantity} кусочная для ${model}; разрывы отмечают узлы данных`,
   },
 
   riProfile: {

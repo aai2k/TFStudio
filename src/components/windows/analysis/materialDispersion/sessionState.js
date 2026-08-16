@@ -7,6 +7,7 @@ const DEFAULT_STATE = Object.freeze({
     quantity: 'gdd',
     start: 400,
     end: 1100,
+    showTable: false,
 });
 
 let sessionState = { ...DEFAULT_STATE };

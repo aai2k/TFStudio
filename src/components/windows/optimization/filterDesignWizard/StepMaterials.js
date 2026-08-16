@@ -20,14 +20,17 @@ export function StepMaterials({ p, set, c, t }) {
             h('span', {}, `${T.step1.incident}: ${p.incidentMedium.split(':').pop()}`)),
         h('p', { style: { margin: 0, fontSize: 12, color: c.textDim } }, T.step1.intro),
         h('div', { style: { display: 'grid', gridTemplateColumns: '160px 1fr', gap: 10, alignItems: 'center', maxWidth: 480 } },
+            // The wizard designs a new stack and resolves its materials against
+            // the catalogs, so a definition embedded in the open design is not
+            // offered here: it would not resolve in the design this produces.
             h('label', { style: { fontSize: 12, color: c.textDim } }, `${T.step1.matH} (H)`),
-            h(MaterialPicker, { value: p.matH, onChange: (v) => set('matH', v), c, t }),
+            h(MaterialPicker, { value: p.matH, onChange: (v) => set('matH', v), c, t, catalogsOnly: true }),
             h('label', { style: { fontSize: 12, color: c.textDim } }, `${T.step1.matL} (L)`),
-            h(MaterialPicker, { value: p.matL, onChange: (v) => set('matL', v), c, t }),
+            h(MaterialPicker, { value: p.matL, onChange: (v) => set('matL', v), c, t, catalogsOnly: true }),
             h('label', { style: { fontSize: 12, color: c.textDim } }, T.step1.substrate),
-            h(MaterialPicker, { value: p.substrateMaterial, onChange: (v) => set('substrateMaterial', v), c, t }),
+            h(MaterialPicker, { value: p.substrateMaterial, onChange: (v) => set('substrateMaterial', v), c, t, catalogsOnly: true }),
             h('label', { style: { fontSize: 12, color: c.textDim } }, T.step1.incident),
-            h(MaterialPicker, { value: p.incidentMedium, onChange: (v) => set('incidentMedium', v), c, t })),
+            h(MaterialPicker, { value: p.incidentMedium, onChange: (v) => set('incidentMedium', v), c, t, catalogsOnly: true })),
         h('div', { style: { display: 'flex', gap: 16, alignItems: 'flex-end', marginTop: 4 } },
             h(CheckField, { label: T.step1.oblique, value: p.oblique, c, onChange: (v) => set('oblique', v) }),
             p.oblique && h(NumField, { label: T.step1.angle, value: p.aoi, min: 0, max: 89, step: 0.5, suffix: '°', c, width: 80, onChange: (v) => set('aoi', v) }),

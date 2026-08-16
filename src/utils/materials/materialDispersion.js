@@ -12,7 +12,7 @@ import {
     jetScale,
     jetWithImaginaryPart,
     wavelengthOmegaJet,
-} from '../physics/taylorJet.js';
+} from '../../tmmcore.js';
 
 export const C_NM_PER_FS = 299.792458;
 // Matches the characteristic-matrix opacity limit. At this field optical

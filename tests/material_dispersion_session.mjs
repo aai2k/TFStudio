@@ -12,6 +12,7 @@ assert.deepEqual(initial, {
     quantity: 'gdd',
     start: 400,
     end: 1100,
+    showTable: false,
 });
 
 writeMaterialDispersionSession({
@@ -30,6 +31,7 @@ assert.deepEqual(readMaterialDispersionSession(), {
     quantity: 'tod',
     start: 450,
     end: 900,
+    showTable: false,
 });
 
 const snapshot = readMaterialDispersionSession();

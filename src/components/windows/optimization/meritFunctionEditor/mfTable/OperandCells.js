@@ -3,7 +3,9 @@ import {
 } from '../../../../../utils/physics/optimizer.js';
 import { CellInput, CellSelect } from './CellControls.js';
 import { OperandTypePicker } from './OperandTypePicker.js';
-import { fmtCurrent, fmtDelta, fmtTargetDisplay } from './operandViewModel.js';
+import {
+    contributionBarWidth, fmtContribution, fmtCurrent, fmtTargetDisplay, residualTooltip,
+} from './operandViewModel.js';
 
 const { createElement: h } = React;
 
@@ -169,7 +171,7 @@ function currentCell(ctx, colKey, width) {
         key: colKey, onClick: event => cellClick(colKey, event),
         title: evaluationError || undefined,
         style: {
-            ...tdBase(colKey, width), textAlign: 'right',
+            ...tdBase(colKey, width), overflow: 'hidden', textOverflow: 'ellipsis',
             color: evaluationError ? c.error : c.text,
             fontWeight: evaluationError ? 600 : undefined,
         },
@@ -178,12 +180,33 @@ function currentCell(ctx, colKey, width) {
         : fmtCurrent(meta.cur, meta));
 }
 
-function deltaCell(ctx, colKey, width) {
-    const { meta, dColor, tdBase, cellClick } = ctx;
+// Share of the merit function. One question on every row, so unlike the Δ it
+// replaced it needs no per-type units and no per-type colour thresholds. The bar
+// behind the number is the same share, scaled to the largest in the table, so
+// the rows holding the merit up are visible without reading any digits.
+function contributionCell(ctx, colKey, width) {
+    const { meta, contribution, largestContribution, c, t, tdBase, cellClick } = ctx;
+    const bar = contributionBarWidth(contribution, largestContribution);
     return h('td', {
-        key: colKey, onClick: event => cellClick(colKey, event),
-        style: { ...tdBase(colKey, width), textAlign: 'right', color: dColor, fontWeight: 500 },
-    }, fmtDelta(meta.rawDelta, meta));
+        key: colKey,
+        onClick: event => cellClick(colKey, event),
+        title: residualTooltip(meta, t?.meritFunctionEditor) || undefined,
+        style: {
+            ...tdBase(colKey, width), position: 'relative',
+            color: contribution ? c.text : c.textDim,
+            fontWeight: contribution ? 500 : undefined,
+        },
+    },
+        bar > 0 ? h('div', {
+            'aria-hidden': 'true',
+            style: {
+                position: 'absolute', left: 0, top: 2, bottom: 2,
+                width: `${bar * 100}%`,
+                background: c.accent + '33', pointerEvents: 'none',
+            },
+        }) : null,
+        h('span', { style: { position: 'relative' } }, fmtContribution(contribution)),
+    );
 }
 
 function numberCell(ctx, colKey, width) {
@@ -243,7 +266,7 @@ export function rowRenderers(op, meta) {
         target: textCell,
         weight: textCell,
         current: currentCell,
-        delta: deltaCell,
+        contribution: contributionCell,
     };
     if (meta.isCon) { renderers.aoi = dashCell; renderers.pol = dashCell; }
     if (meta.isTT) {

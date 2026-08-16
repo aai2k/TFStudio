@@ -1,13 +1,16 @@
 /** Bulk-material phase, GD, GDD, and TOD for a user-selected path length. */
 
 import { MaterialPicker } from '../../../ui/MaterialPicker.js';
-import { DataTablePanel } from '../../../ui/DataTablePanel.js';
+import { ExportMenu, useCsvExport } from '../../../ui/ExportMenu.js';
+import { csvFromRows, ResultsGrid, ResultsSection } from '../../../ui/ResultsSection.js';
 import { FieldLabel, NumInput } from '../opticalEvaluation/controls.js';
 import { GDChart } from '../gdGddEvaluation/GDChart.js';
-import { ChoiceGroup } from '../gdGddEvaluation/GDControls.js';
+import { ChoiceGroup, FooterHint } from '../gdGddEvaluation/GDControls.js';
 import { getMaterialById } from '../../../../utils/materials/catalogManager.js';
 import { materialPropagationDispersion } from '../../../../utils/materials/materialDispersion.js';
+import { resolveDesignMaterial } from '../../../../utils/materials/designMaterials.js';
 import { useAnalysisColors } from '../../../../state/AnalysisSettingsContext.js';
+import { useDesign } from '../../../../state/DesignContext.js';
 import {
     readMaterialDispersionSession,
     writeMaterialDispersionSession,
@@ -181,16 +184,24 @@ function tableModel(spectrum) {
 }
 
 export function MaterialDispersionEvaluation({ c, t }) {
+    const footerText = t.gdgdd || {};
     const [session, setSession] = useState(readMaterialDispersionSession);
     const setField = (key, value) => setSession(current =>
         writeMaterialDispersionSession({
             [key]: typeof value === 'function' ? value(current[key]) : value,
         }));
     const {
-        materialId, thicknessMm, thicknessUnit, quantity, start, end,
+        materialId, thicknessMm, thicknessUnit, quantity, start, end, showTable,
     } = session;
     const curve = useAnalysisColors('materialDispersion');
-    const material = getMaterialById(materialId);
+    // The picker offers the open design's own materials, including definitions
+    // that travelled inside a .tfs and exist in no local catalog, so the id is
+    // resolved against the design before the registry.
+    const { design } = useDesign();
+    const resolved = resolveDesignMaterial(design, materialId);
+    const material = resolved.status === 'missing'
+        ? getMaterialById(materialId)
+        : resolved.material;
     const spectrum = useMemo(
         () => buildSpectrum(material, start, end, thicknessMm),
         [material, start, end, thicknessMm],
@@ -198,6 +209,10 @@ export function MaterialDispersionEvaluation({ c, t }) {
     const quantityMeta = QUANTITIES[quantity];
     const plotData = plotModel(spectrum, quantity, quantityMeta);
     const table = tableModel(spectrum);
+    const csv = useCsvExport(
+        () => csvFromRows(table.columns, table.rows),
+        () => `${(material?.name || materialId).replace(/[^\w.-]+/g, '_')}_dispersion.csv`,
+    );
     const discontinuous = quantityMeta.order > spectrum?.phaseContinuousOrder;
     const masked = invalidSummary(spectrum, thicknessUnit);
     const state = {
@@ -228,22 +243,60 @@ export function MaterialDispersionEvaluation({ c, t }) {
             },
             showRef: false, c,
         })),
-        h(DataTablePanel, { columns: table.columns, rows: table.rows, c, t }),
+        h(ResultsSection, {
+            c, label: t.dataTable.results, count: table.rows.length,
+            countLabel: t.dataTable.rowCount,
+            open: showTable, setOpen: value => setField('showTable', value),
+        }, h(ResultsGrid, { columns: table.columns, rows: table.rows, c })),
         h('div', {
             style: {
-                minHeight: 34, padding: '4px 12px', borderTop: `1px solid ${c.border}`,
-                backgroundColor: c.panel, display: 'flex', alignItems: 'center', gap: 8,
-                color: c.textDim, overflow: 'hidden', whiteSpace: 'nowrap',
+                minHeight: 38, padding: '4px 12px', borderTop: `1px solid ${c.border}`,
+                backgroundColor: c.panel, display: 'flex', alignItems: 'center',
+                gap: 8, flexShrink: 0, fontSize: 11, color: c.textDim,
             },
         },
-            h('span', { style: { color: c.text, fontWeight: 600 } }, material?.name || materialId),
-            h('span', null, '·'),
-            h('span', null, formatThickness(thicknessMm, thicknessUnit)),
-            h('span', null, '·'),
-            h('span', { style: { color: c.accent } }, `Model: ${spectrum?.model || 'Unavailable'}`),
-            discontinuous && h('span', { style: { color: c.warning || '#f59e0b' } },
-                `${quantity.toUpperCase()} is piecewise for ${spectrum.phaseModel}; gaps mark data-knot jumps`),
-            masked && h('span', { style: { color: c.warning || '#f59e0b' } }, masked),
+            h('div', {
+                style: {
+                    display: 'flex', alignItems: 'center', gap: 8,
+                    minWidth: 0, overflow: 'hidden',
+                },
+            },
+                h('span', {
+                    title: material?.name || materialId,
+                    style: {
+                        color: c.text, fontWeight: 600, minWidth: 0,
+                        overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+                    },
+                }, material?.name || materialId),
+                h('span', null, '·'),
+                h('span', { style: { whiteSpace: 'nowrap' } },
+                    formatThickness(thicknessMm, thicknessUnit)),
+                h('span', null, '·'),
+                h('span', {
+                    style: {
+                        color: c.accent, whiteSpace: 'nowrap',
+                        minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis',
+                    },
+                }, `${footerText.modelLabel}: ${spectrum?.model || footerText.modelUnavailable}`),
+            ),
+            discontinuous && h(FooterHint, {
+                c, color: c.warning || '#f59e0b',
+                label: footerText.piecewiseShort,
+                detail: footerText.piecewiseWarning(quantity.toUpperCase(), spectrum.phaseModel),
+            }),
+            masked && h(FooterHint, {
+                c, color: c.warning || '#f59e0b',
+                label: footerText.maskedShort(spectrum.invalid.length),
+                detail: masked,
+            }),
+            h('div', { style: { marginLeft: 'auto' } }, h(ExportMenu, {
+                c, enabled: table.rows.length > 0, ...csv,
+                labels: {
+                    export: t.dataTable.export, copyCsv: t.dataTable.copyCsv,
+                    saveCsv: t.dataTable.saveCsv, copied: t.dataTable.csvCopied,
+                    saved: t.dataTable.csvSaved,
+                },
+            })),
         ),
     );
 }

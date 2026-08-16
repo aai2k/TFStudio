@@ -60,11 +60,12 @@ function dropPositionFrom(rect, minDropWidth) {
     };
 }
 
-// One selectable row.
-function itemRow(item, { c, activeOf, select }) {
+// One selectable row. The active row takes the ref the overlay scrolls to.
+function itemRow(item, { c, activeOf, select, activeRef }) {
     const active = activeOf(item);
     return h('div', {
         key: item.id,
+        ref: active ? activeRef : undefined,
         onClick: () => select(item.id),
         title: item.title,
         style: {
@@ -147,11 +148,15 @@ function tabsEl(s) {
 // Open-state positioned overlay: search box, filter tabs, result list.
 function overlayEl(s) {
     const { dropRef, dropPos, c, searchRef, query, setQuery, searchPlaceholder,
-            search, catFilter, sections, emptyText, activeOf, select, groups } = s;
+            search, catFilter, sections, emptyText, activeOf, select, groups,
+            listRef, activeRef } = s;
     const results = search(query, catFilter === 'all' ? null : catFilter);
     const listBody = results.length === 0
         ? h('div', { style: { padding: '12px 8px', color: c.textDim, fontSize: 12, textAlign: 'center' } }, emptyText)
-        : renderRows(results, { c, groups, sections, showHeaders: sections && catFilter === 'all', activeOf, select });
+        : renderRows(results, {
+            c, groups, sections, showHeaders: sections && catFilter === 'all',
+            activeOf, select, activeRef,
+        });
     return h('div', {
         ref: dropRef,
         style: {
@@ -178,8 +183,22 @@ function overlayEl(s) {
             })
         ),
         tabsEl(s),
-        h('div', { style: { flex: 1, overflowY: 'auto' } }, listBody)
+        h('div', { ref: listRef, style: { flex: 1, overflowY: 'auto' } }, listBody)
     );
+}
+
+/**
+ * Bring the current selection into view when the list opens, so a picker with
+ * dozens of entries opens on the one already chosen instead of at the top. The
+ * row is centred where the list is long enough; the sticky section header would
+ * otherwise cover a row scrolled to exactly its own offset.
+ */
+export function scrollToActive(listRef, activeRef) {
+    const list = listRef.current;
+    const row = activeRef.current;
+    if (!list || !row) return;
+    const centred = row.offsetTop - (list.clientHeight - row.offsetHeight) / 2;
+    list.scrollTop = Math.max(0, Math.min(centred, list.scrollHeight - list.clientHeight));
 }
 
 // Close the overlay on outside-click or Escape while it is open.
@@ -214,6 +233,8 @@ export function PickerDropdown(props) {
     const triggerRef = useRef(null);
     const dropRef    = useRef(null);
     const searchRef  = useRef(null);
+    const listRef    = useRef(null);
+    const activeRef  = useRef(null);
 
     // Focus the search box on open; clear the query on close.
     useEffect(() => {
@@ -221,17 +242,25 @@ export function PickerDropdown(props) {
         else setQuery('');
     }, [open]);
 
+    useEffect(() => {
+        if (open) scrollToActive(listRef, activeRef);
+    }, [open]);
+
     useDismiss(open, setOpen, dropRef, triggerRef);
 
     const onOpen = () => {
         if (triggerRef.current) setDropPos(dropPositionFrom(triggerRef.current.getBoundingClientRect(), minDropWidth));
+        // Opening always starts from the full list. A tab left over from an
+        // earlier visit can exclude the current selection entirely, which is the
+        // one entry the list has to show.
+        setCatFilter('all');
         setOpen(true);
     };
     const select = (id) => { onChange(id); setOpen(false); };
     const activeOf = isActive || (item => item.id === value);
 
     const shared = {
-        triggerRef, dropRef, searchRef, onOpen, open, compact, c,
+        triggerRef, dropRef, searchRef, listRef, activeRef, onOpen, open, compact, c,
         triggerColor, triggerLabel, groups, catFilter, setCatFilter, allLabel,
         dropPos, query, setQuery, searchPlaceholder, search, sections, emptyText,
         activeOf, select,

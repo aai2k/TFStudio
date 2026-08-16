@@ -13,6 +13,8 @@ assert.equal(targetInitialValue(op('TT', { target: 1200 }), false), '1200');
 assert.equal(targetInitialValue(op('MXWT', { target: 550 }), false), '550');
 assert.equal(targetInitialValue(op('OPGT', { target: 0.99 }), true), '99.00');
 assert.equal(targetInitialValue(op('OPGT', { target: 550 }), false), '550');
+assert.equal(targetInitialValue(op('GDDFLAT', { target: -40 }), false), '-40');
+assert.equal(targetInitialValue(op('GDD', { target: -30.5 }), false), '-30.5');
 
 assert.deepEqual(parseRampTarget(op('RGT'), '20→80'), { target: 0.2, targetEnd: 0.8 });
 assert.deepEqual(parseRampTarget(op('AGT', { rampPoints: 0 }), ' 12.5 -> 87.5 '), {
@@ -52,6 +54,7 @@ const startCtx = {
 startEdit(startCtx, 0, 'enabled', null);
 startEdit(startCtx, 0, 'type', null);
 startEdit(startCtx, 0, 'current', null);
+startEdit(startCtx, 0, 'contribution', null);
 startEdit(startCtx, 0, 'lambdaStart', null);
 startEdit(startCtx, 1, 'target', '7');
 assert.deepEqual(startCalls, [

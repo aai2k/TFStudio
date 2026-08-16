@@ -1,7 +1,7 @@
 import {
     isArgwave, isBlank, isConstraint, isDmfs, isInequality, isIntegral,
     isMath, isMathPairRef, isMathSingleRef, isMinmax, isRangeTarget,
-    isTotalThickness, isPhase, isGroupDelayFlat, isFractionalUnit, mathResidualKind,
+    isTotalThickness, isPhase, isGroupDelayFlat, isFractionalUnit,
 } from '../../../../../utils/physics/optimizer.js';
 
 // Display unit for a phase/field operand type (empty = dimensionless).
@@ -38,21 +38,38 @@ const TYPE_COLORS = {
     MNT: [180, 100, 255], MXT: [180, 100, 255], BLNK: [140, 140, 140],
 };
 
+// Column widths are proportions, not pixels: the table fills whatever width it
+// is given and shares it out in these ratios, down to a floor of TABLE_W where
+// it starts to scroll instead. The numbers below are that floor in pixels, sized
+// so the whole table still fits a half-width window at 125% display scaling with
+// room for a vertical scrollbar.
+//
+// Type is the widest of the fixed-vocabulary columns because the longest operand
+// names (GDDTFLAT, TODTFLAT) must read in full inside the picker, which spends
+// about 25 px of the column on its padding and caret. The wavelength, layer,
+// angle and weight columns hold at most a four-digit number.
 export const COLS = [
-    { key: 'num', w: 32, label: '#' },
-    { key: 'enabled', w: 28, label: '✓' },
-    { key: 'type', w: 72, label: 'Type' },
-    { key: 'lambdaStart', w: 96, label: 'λ / Layer' },
-    { key: 'lambdaEnd', w: 84, label: 'End *' },
-    { key: 'aoi', w: 58, label: 'AOI (°)' },
-    { key: 'pol', w: 56, label: 'Pol' },
-    { key: 'target', w: 80, label: 'Target' },
-    { key: 'weight', w: 62, label: 'Weight' },
-    { key: 'current', w: 84, label: 'Current' },
-    { key: 'delta', w: 72, label: 'Δ' },
+    { key: 'num', w: 24, label: '#' },
+    { key: 'enabled', w: 20, label: '✓' },
+    { key: 'type', w: 82, label: 'Type' },
+    { key: 'lambdaStart', w: 54, label: 'λ / Layer' },
+    { key: 'lambdaEnd', w: 50, label: 'End *' },
+    { key: 'aoi', w: 44, label: 'AOI (°)' },
+    { key: 'pol', w: 42, label: 'Pol' },
+    { key: 'target', w: 64, label: 'Target' },
+    { key: 'weight', w: 44, label: 'Weight' },
+    { key: 'current', w: 70, label: 'Current' },
+    { key: 'contribution', w: 50, label: '% of MF²' },
 ];
 
-export const TABLE_W = COLS.reduce((sum, col) => sum + col.w, 0) + 4;
+const COLS_W = COLS.reduce((sum, col) => sum + col.w, 0);
+
+export const TABLE_W = COLS_W + 4;
+
+/** A column's share of the table, so the rows span the window at any width. */
+export function columnPercent(col) {
+    return `${(col.w / COLS_W) * 100}%`;
+}
 export const RANGE_AVG_TYPES = new Set(['TAV', 'RAV', 'AAV']);
 export const RANGE_TARGET_TYPES = new Set(['TGT', 'RGT', 'AGT']);
 const EDITABLE_KEYS = ['enabled', 'type', 'lambdaStart', 'lambdaEnd', 'aoi', 'pol', 'target', 'weight'];
@@ -60,7 +77,7 @@ const EDITABLE_KEYS = ['enabled', 'type', 'lambdaStart', 'lambdaEnd', 'aoi', 'po
 const HEADER_LABELS = [
     [op => isBlank(op.type), { lambdaStart: 'Comment', lambdaEnd: '—' }],
     [op => isTotalThickness(op.type), { lambdaStart: 'Cmp', lambdaEnd: '—' }],
-    [op => isConstraint(op.type), { lambdaStart: 'Layer 1', lambdaEnd: 'Layer 2 (range)' }],
+    [op => isConstraint(op.type), { lambdaStart: 'Layer 1', lambdaEnd: 'Layer 2' }],
     [op => isIntegral(op.type), { lambdaStart: 'Integral', lambdaEnd: '—' }],
     [op => isArgwave(op.type), { lambdaStart: 'λ Start', lambdaEnd: 'λ End' }],
     [op => isGroupDelayFlat(op.type), { lambdaStart: 'λ Start', lambdaEnd: 'λ End' }],
@@ -121,50 +138,53 @@ export function rowDisplayMeta(op, rawCur, mathPercent, bandLevel = null) {
     // fractional unit; a math row inherits percent only when its refs are optical.
     const useFraction = isFractionalUnit(op.type) || (isMth && mathPercent);
     const value = rawCur != null ? (useFraction ? rawCur * 100 : rawCur) : null;
-    // GD/GDD flatness rows carry an RMS deviation as their value (like a ramp): the
-    // Δ column shows that RMS, not (current − target).
+    // Spectral-target and phase-flatness rows carry an RMS deviation as their
+    // evaluated value, rather than a signed current-minus-target difference.
     const isRampRow = isRangeTarget(op.type) || isFlat;
     const tgt = useFraction ? op.target * 100 : op.target;
-    const rawDelta = value != null ? (isRampRow ? value : value - tgt) : null;
+    const rawResidual = value != null ? (isRampRow ? value : value - tgt) : null;
     // A flatness operand's own value is an RMS deviation, which shares the
     // target's unit but not its meaning and goes to zero as the row is met.
     // Current shows the level the band actually reaches, so it can be read
-    // against Target directly; the RMS stays in Δ.
+    // against Target directly; the RMS remains available in the tooltip.
     const cur = isFlat && bandLevel != null ? bandLevel : value;
     return {
         isCon, isTT, isArg, isMth, isPhs, phaseUnit: isPhs ? phaseUnit(op.type) : '',
         mthPct: mathPercent, useFraction, cur, tgt,
-        rawDelta, isRampRow, isRange: isRangeType(op.type),
+        rawResidual, isRampRow, isRange: isRangeType(op.type),
     };
 }
 
-function sideColor(rawDelta, satisfiedWhenNeg, c) {
-    const ok = satisfiedWhenNeg ? rawDelta <= 0 : rawDelta >= 0;
-    return ok ? c.success : c.error;
-}
-
-function proximityColor(rawDelta, near, mid, c) {
-    const magnitude = Math.abs(rawDelta);
-    return magnitude < near ? c.success : magnitude < mid ? '#ffa726' : '#ef5350';
-}
-
-function mathColor(op, rawDelta, c) {
-    const kind = mathResidualKind(op.type);
-    if (kind === 'one-sided-min') return sideColor(rawDelta, false, c);
-    if (kind === 'one-sided-max') return sideColor(rawDelta, true, c);
-    return proximityColor(rawDelta, 0.005, 0.02, c);
-}
-
-export function deltaColor(op, rawDelta, meta, c) {
-    if (rawDelta == null) return c.textDim;
-    if (meta.isCon) return sideColor(rawDelta, op.type !== 'MNT', c);
-    if (meta.isTT && (op.cmp === 'le' || op.cmp === 'ge')) return sideColor(rawDelta, op.cmp === 'le', c);
-    if (meta.isMth) return mathColor(op, rawDelta, c);
-    const [near, mid] = meta.isArg ? [1, 5] : [0.5, 2];
-    return proximityColor(rawDelta, near, mid, c);
-}
-
 function withUnit(text, unit) { return unit ? text + ' ' + unit : text; }
+
+// A row's share of the weighted sum of squares the merit function is the root
+// of. It is a share of MF², not of MF, because the terms are additive there and
+// the square root is not linear; the header says so. Shares sum to 100% when MF
+// is nonzero, so the column needs no per-type units or colour thresholds.
+export function fmtContribution(fraction) {
+    if (fraction == null) return '—';
+    if (fraction === 0) return '0';
+    if (fraction < 0.001) return '<0.1%';
+    return (fraction * 100).toFixed(1) + '%';
+}
+
+// The bar is drawn behind the number inside the cell it already occupies, so it
+// costs no width. Scaled to the largest share in the table rather than to 100%,
+// so the ranking stays readable when every row holds only a few percent.
+export function contributionBarWidth(fraction, largest) {
+    if (!fraction || !(largest > 0)) return 0;
+    return Math.max(0.02, fraction / largest);
+}
+
+// What the row is missing by, in its own units, for the contribution tooltip.
+// The labels spell out the different residual meanings.
+export function residualTooltip(meta, text = {}) {
+    if (meta.rawResidual == null) return null;
+    const shown = fmtResidual(meta.rawResidual, meta);
+    if (meta.isCon) return `${text.residualSlack || 'Slack'} ${shown}`;
+    if (meta.isRampRow) return `${text.residualRms || 'RMS deviation'} ${shown}`;
+    return `${text.residualDifference || 'Current − target'}: ${shown}`;
+}
 
 export function fmtCurrent(cur, meta) {
     if (cur == null) return '—';
@@ -174,7 +194,7 @@ export function fmtCurrent(cur, meta) {
     return cur.toFixed(3) + ' %';
 }
 
-export function fmtDelta(value, meta) {
+export function fmtResidual(value, meta) {
     if (value == null) return '—';
     const sign = value >= 0 ? '+' : '';
     if (meta.isMth) return sign + value.toPrecision(3);

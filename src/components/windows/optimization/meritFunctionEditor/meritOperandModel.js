@@ -1,8 +1,8 @@
 import {
-    FILTER_TYPES, generateFilterOperands,
+    DEFAULT_CONSTRAINT_LAST_LAYER, FILTER_TYPES, generateFilterOperands,
     makeOperand, makeConstraintOperand, makeDmfsOperand,
-    isConstraint, isTotalThickness, isArgwave, isMath, mathTargetInPercent,
-    removeOperandsAndDependents,
+    isConstraint, isFractionalUnit, isMath, mathTargetInPercent,
+    removeOperandsAndDependents, rowRangeDomain, targetDomain,
 } from '../../../../utils/physics/optimizer.js';
 
 function hasField(ctx, key) {
@@ -93,8 +93,14 @@ export function buildWizardBlock(options) {
     const block = [makeDmfsOperand(comment), ...generateFilterOperands(typeId, params, common)];
     if (constraintsEnabled) {
         block.push(
-            makeConstraintOperand({ type: 'MNT', lambdaStart: 1, lambdaEnd: 9999, target: Math.max(0.01, minThick) }),
-            makeConstraintOperand({ type: 'MXT', lambdaStart: 1, lambdaEnd: 9999, target: Math.max(0.01, maxThick) }),
+            makeConstraintOperand({
+                type: 'MNT', lambdaStart: 1, lambdaEnd: DEFAULT_CONSTRAINT_LAST_LAYER,
+                target: Math.max(0.01, minThick),
+            }),
+            makeConstraintOperand({
+                type: 'MXT', lambdaStart: 1, lambdaEnd: DEFAULT_CONSTRAINT_LAST_LAYER,
+                target: Math.max(0.01, maxThick),
+            }),
         );
     }
     if (totalEnabled) {
@@ -112,18 +118,54 @@ export function wizardGenerationRows(startRow, blockLength) {
     return { startRow: normalized, nextStartRow: normalized + blockLength };
 }
 
+/**
+ * Build a table row of any operand type.
+ *
+ * A thickness constraint reads λ Start and λ End as a layer range, so it needs
+ * different defaults from a spectral operand and cannot come out of makeOperand.
+ * Its range covers layers the design does not have yet, because synthesis adds
+ * them and a constraint written for today's layer count would silently stop
+ * covering the stack it grows.
+ */
+export function makeRowOperand(spec) {
+    const item = spec ?? { type: 'BLNK', comment: '' };
+    if (!isConstraint(item.type)) return makeOperand(item);
+    return makeConstraintOperand({
+        lambdaStart: 1, lambdaEnd: DEFAULT_CONSTRAINT_LAST_LAYER, ...item,
+    });
+}
+
+/**
+ * Change a row's operand type, keeping the fields that still mean the same thing
+ * and reseeding the ones that do not.
+ *
+ * λ Start, λ End and the target are numbers whose meaning comes from the type.
+ * Carried across a type change they are not merely unhelpful but wrong: a row
+ * retyped from RAV to MNT would constrain layers 400 to 700 to be at least 0.99
+ * nm thick, none of which the user asked for and all of which looks deliberate.
+ */
+export function retypeOperand(op, type) {
+    const next = { ...op, id: op.id, type };
+    if (rowRangeDomain(type) !== rowRangeDomain(op.type)) {
+        delete next.lambdaStart;
+        delete next.lambdaEnd;
+    }
+    if (targetDomain(type) !== targetDomain(op.type)) delete next.target;
+    return makeRowOperand(next);
+}
+
 export function editOperand(operands, id, key, value) {
     return operands.map(op => {
         if (op.id !== id) return op;
         if (key === '_patch') return { ...op, ...value };
+        if (key === 'type') return retypeOperand(op, value);
         if (key !== 'target') return { ...op, [key]: value };
 
         const target = typeof value === 'number' ? value : parseFloat(value);
         const operandsById = new Map(operands.map(item => [item.id, item]));
         const mathPercent = isMath(op.type) && mathTargetInPercent(op, operandsById);
-        const rawTarget = isConstraint(op.type) || isTotalThickness(op.type) || isArgwave(op.type)
-            || (isMath(op.type) && !mathPercent);
-        return { ...op, target: rawTarget ? target : target / 100 };
+        const percentTarget = isFractionalUnit(op.type) || (isMath(op.type) && mathPercent);
+        return { ...op, target: percentTarget ? target / 100 : target };
     });
 }
 
@@ -132,7 +174,7 @@ export function replaceOperandTail(operands, block, startRow) {
     return { operands: [...operands.slice(0, pos), ...block], selectedId: null };
 }
 
-export function addOperands(operands, data, atIndex, createOperand = makeOperand) {
+export function addOperands(operands, data, atIndex, createOperand = makeRowOperand) {
     const list = Array.isArray(data) ? data : [data];
     const added = list.map(item => createOperand(item ?? { type: 'BLNK', comment: '' }));
     if (added.length === 0) return null;
@@ -143,7 +185,7 @@ export function addOperands(operands, data, atIndex, createOperand = makeOperand
     };
 }
 
-export function insertOperand(operands, insertIndex, createOperand = makeOperand) {
+export function insertOperand(operands, insertIndex, createOperand = makeRowOperand) {
     const op = createOperand({ type: 'BLNK', comment: '' });
     const pos = Math.max(0, Math.min(insertIndex, operands.length));
     return {

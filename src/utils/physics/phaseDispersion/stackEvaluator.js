@@ -14,6 +14,8 @@
 
 import { materialOmegaResponse, C_NM_PER_FS } from '../../materials/materialDispersion.js';
 import {
+    coefficientPhaseDispersion,
+    coefficientPhaseThicknessDerivatives,
     jetConstant,
     jetDerivatives,
     jetDivide,
@@ -21,13 +23,72 @@ import {
     jetScale,
     jetSqrt,
     jetSubtract,
+    getTmmWasm,
+    tmmCoefficientJets,
+    tmmCoefficientThicknessJets,
+    tmmWasmActive,
     wavelengthOmegaJet,
-} from '../taylorJet.js';
-import {
-    coefficientPhaseDispersion,
-    coefficientPhaseThicknessDerivatives,
-} from './phaseDerivatives.js';
-import { tmmCoefficientJets, tmmCoefficientThicknessJets } from './coefficientJets.js';
+} from '../../../tmmcore.js';
+
+// tmmcore reports each order in the reciprocal of whatever angular-frequency
+// unit it was given, and names them accordingly. Every caller here works in
+// rad/fs, so the names carry the unit from this point outward. Applies to the
+// values and to their thickness derivatives alike, which share the key names.
+function inFemtoseconds(quantities) {
+    if (!quantities) return null;
+    const { gd, gdd, tod, ...rest } = quantities;
+    return { ...rest, gdFs: gd, gddFs2: gdd, todFs3: tod };
+}
+
+/**
+ * One phase evaluation of a prepared stack, through the WebAssembly kernel when
+ * one is instantiated in this thread and the JavaScript otherwise.
+ *
+ * This is the only place either backend is called, so the two cannot drift apart
+ * in how they are used; that they agree numerically is held by tmmcore's own
+ * equivalence suite. Returns null where the coefficient is exactly zero and the
+ * phase is undefined.
+ */
+function phaseQuantities(options, target, withThicknessJacobian) {
+    const wasm = tmmWasmActive() ? getTmmWasm() : null;
+    if (wasm && wasm.hasPhase()) {
+        const result = wasm[withThicknessJacobian ? 'tmmPhaseJacobian' : 'tmmPhaseOne'](
+            options.wavelengthNm,
+            options.thetaDeg,
+            options.polarization === 'p' ? 1 : 0,
+            options.incidentIndexJet,
+            options.substrateIndexJet,
+            options.layers.map(layer => ({ nJet: layer.indexJet, d: layer.thicknessNm })),
+            { omega: options.omega, sinTheta0Jet: options.incidentSineJet },
+        );
+        const side = target === 'T' ? result.t : result.r;
+        if (!side) return null;
+        const { dPhaseDeg, dGd, dGdd, dTod, ...dispersion } = side;
+        return {
+            dispersion: inFemtoseconds(dispersion),
+            thicknessJacobian: withThicknessJacobian
+                ? inFemtoseconds(
+                    dGd && { phaseDeg: dPhaseDeg, gd: dGd, gdd: dGdd, tod: dTod })
+                : undefined,
+        };
+    }
+    const coefficients = withThicknessJacobian
+        ? tmmCoefficientThicknessJets(options)
+        : tmmCoefficientJets(options);
+    const coefficientJet = target === 'T' ? coefficients.transmission : coefficients.reflection;
+    const dispersion = inFemtoseconds(coefficientPhaseDispersion(coefficientJet));
+    if (!dispersion) return null;
+    const thicknessJets = target === 'T'
+        ? coefficients.transmissionThickness
+        : coefficients.reflectionThickness;
+    return {
+        dispersion,
+        thicknessJacobian: withThicknessJacobian
+            ? inFemtoseconds(
+                coefficientPhaseThicknessDerivatives(coefficientJet, thicknessJets))
+            : undefined,
+    };
+}
 
 export function continuityMetadata(materials) {
     const tabulated = materials.filter(item => item.response.continuousOrder < 3);
@@ -104,7 +165,9 @@ export function evaluateStackPhaseDispersion(options) {
             incident.response.jet,
         )
         : null;
-    const coefficientOptions = {
+    const quantities = phaseQuantities({
+        wavelengthNm,
+        omega,
         wavelengthJet,
         thetaDeg,
         polarization,
@@ -112,16 +175,8 @@ export function evaluateStackPhaseDispersion(options) {
         substrateIndexJet: substrate.response.jet,
         incidentSineJet,
         layers: layerResponses,
-    };
-    const coefficients = withThicknessJacobian
-        ? tmmCoefficientThicknessJets(coefficientOptions)
-        : tmmCoefficientJets(coefficientOptions);
-    const coefficientJet = target === 'T' ? coefficients.transmission : coefficients.reflection;
-    const thicknessJets = target === 'T'
-        ? coefficients.transmissionThickness
-        : coefficients.reflectionThickness;
-    const dispersion = coefficientPhaseDispersion(coefficientJet);
-    if (!dispersion) {
+    }, target, withThicknessJacobian);
+    if (!quantities) {
         return {
             wavelengthNm,
             valid: false,
@@ -133,11 +188,8 @@ export function evaluateStackPhaseDispersion(options) {
     return {
         wavelengthNm,
         valid: true,
-        ...dispersion,
-        coefficient: coefficientJet[0],
-        thicknessJacobian: withThicknessJacobian
-            ? coefficientPhaseThicknessDerivatives(coefficientJet, thicknessJets)
-            : undefined,
+        ...quantities.dispersion,
+        thicknessJacobian: quantities.thicknessJacobian,
         models: [...new Set(used.map(item => `${item.name}: ${item.response.model}`))],
         ...continuity,
     };

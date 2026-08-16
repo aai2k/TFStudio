@@ -72,12 +72,14 @@ operand type** (the column header updates to match the focused row):
 | **Target**    | desired value (see units below)        | desired λ (nm)      | bound (nm)            | total (nm)           | desired value (ref units) |
 | **Weight**    | relative importance (linear)           | weight              | weight                | weight               | weight           |
 | **Current**   | live computed value                    | computed λ (nm)     | min/max layer (nm)    | Σ thickness (nm)     | computed value   |
-| **Δ**         | current − target                       | Δλ (nm)             | violation (nm)        | Δ (nm)               | residual         |
+| **% of MF²**  | row's share of the weighted squared residual | same | same | same | same |
 
 **Units:** T/R/A-valued operands store the target as a fraction in `[0,1]` and
 display it as a percentage. Wavelength, layer-index, and thickness operands use
 raw numbers (nm or count). Math operands inherit the unit of the row they
 reference.
+
+The final column uses the same definition for every row. If the merit function is nonzero, its percentages sum to 100%. If every row is exactly met, every contribution is zero. Disabled and unevaluable rows show a dash. Hover the cell to see the row's residual in its own unit, labelled as a difference, constraint slack, or RMS deviation as appropriate.
 
 **Polarization** (`avg`/`s`/`p`) is chosen by the *Pol* column, not baked into
 the type code. `avg` is the unweighted mean of s and p, `(Cs + Cp) / 2`.
@@ -243,16 +245,7 @@ are the cyclic p-minus-s phase difference. The *Pol* column selects s or p;
 | `GDDFLAT`, `GDDTFLAT` | RMS deviation of GDD from a flat level | fs² | RMS deviation (≥ 0) |
 | `TODFLAT`, `TODTFLAT` | RMS deviation of TOD from a flat level | fs³ | RMS deviation (≥ 0) |
 
-Point residuals are two-sided (`value - target`). Phase residuals wrap to the
-shortest difference in the range -180° to 180°. The `*FLAT` operands carry
-their RMS deviation directly, so the optimizer drives it to zero. Every point
-operand uses the same analytic evaluator as the GD / GDD window; there is no
-nearby sample or finite-difference wavelength grid. These operands score the
-front coating normally and the back coating when the design surface mode is
-back-only. Total-system phase-dispersion operands are not defined. In Total
-merit mode, ordinary R and T operands score the complete element while phase,
-GD, GDD, and TOD operands in the same table keep scoring that one coating. The
-Merit Function Editor and Refinement window show this scope beside the table.
+Point residuals are two-sided (`value - target`). Phase residuals wrap to the shortest difference in the range -180° to 180°. The `*FLAT` operands carry their RMS deviation directly, so the optimizer drives it to zero. In the merit table, **Current** for a flatness row is the arithmetic mean GD, GDD, or TOD across the band, which can be read directly against the target level. The RMS deviation used by the merit function remains in the contribution-cell tooltip. Every point operand uses the same analytic evaluator as the GD / GDD window; there is no nearby sample or finite-difference wavelength grid. These operands score the front coating normally and the back coating when the design surface mode is back-only. Total-system phase-dispersion operands are not defined. In Total merit mode, ordinary R and T operands score the complete element while phase, GD, GDD, and TOD operands in the same table keep scoring that one coating. The Merit Function Editor and Refinement window show this scope beside the table.
 
 Analytic phase derivatives are evaluated only inside every participating
 material model's stated wavelength range. An operand outside that range shows
@@ -310,8 +303,9 @@ Act on **layer thicknesses**, not the spectrum.
 | `MXT` | layer 1    | layer 2    | **max** thickness in layer range  | nm        | `max(0, maxThk − target)` (≤ bound)         |
 
 `MNT`/`MXT` layer ranges are **1-based layer indices**, clamped to the current
-stack, so a generator can emit `End = 9999` to mean "every current and future
-layer". During Needle / Gradual Evolution synthesis the thickness penalties are
+stack. A new constraint therefore covers layers 1 to 1000 by default: the end is
+deliberately past any stack you start from, so the constraint keeps covering the
+layers synthesis adds. During Needle / Gradual Evolution synthesis the thickness penalties are
 suppressed (the dMin floor + post-refine + Cleaner enforce bounds instead);
 they are active during Refinement.
 

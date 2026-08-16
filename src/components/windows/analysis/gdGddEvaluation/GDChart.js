@@ -2,7 +2,19 @@ import { buildGDChartModel } from './chartModel.js';
 
 const { createElement: h, useEffect, useRef } = React;
 
-export function GDChart({ data, meta, refLambda, showRef, targets = [], c }) {
+// Matches Optical Evaluation's modebar, minus the box/lasso selection tools that
+// have nothing to select here. Plotly's own autoscale is deliberately kept: the
+// panel's Auto range is a robust one that can clip a divergence spike, and this
+// is how a user reaches the full extent of the data when they want it.
+const CHART_CONFIG = {
+    displaylogo: false,
+    responsive: true,
+    displayModeBar: true,
+    modeBarButtonsToRemove: ['select2d', 'lasso2d'],
+    toImageButtonOptions: { format: 'png', filename: 'TFStudio_dispersion', scale: 2 },
+};
+
+export function GDChart({ data, meta, refLambda, showRef, targets = [], yRange, c }) {
     const divRef = useRef(null);
     const initRef = useRef(false);
     const background = c.bg || '#1e1e1e';
@@ -14,16 +26,16 @@ export function GDChart({ data, meta, refLambda, showRef, targets = [], c }) {
         if (!divRef.current || !data) return;
         const { traces, layout } = buildGDChartModel({
             data, meta, referenceLambda: refLambda, showReference: showRef,
-            targets,
+            targets, yRange,
             colors: { background, paper, grid, text },
         });
         if (!initRef.current) {
-            Plotly.newPlot(divRef.current, traces, layout, { responsive: true, displayModeBar: false });
+            Plotly.newPlot(divRef.current, traces, layout, CHART_CONFIG);
             initRef.current = true;
         } else {
-            Plotly.react(divRef.current, traces, layout);
+            Plotly.react(divRef.current, traces, layout, CHART_CONFIG);
         }
-    }, [data, meta, refLambda, showRef, targets, background, paper, grid, text]);
+    }, [data, meta, refLambda, showRef, targets, yRange, background, paper, grid, text]);
 
     useEffect(() => {
         const element = divRef.current;

@@ -290,9 +290,10 @@ const PHASE_DEFAULT_TARGET = {
 
 // Replace the RAV "+ Add" default (0.99, a fraction) with the phase operand's
 // physical default. Fractions are meaningless for degrees / fs / fs² / |E|².
-function seedPhaseTarget(base) {
+function seedPhaseTarget(base, overrides) {
     if (!isPhase(base.type)) return;
-    if (Number.isFinite(base.target) && base.target !== 0.99) return;
+    const explicitTarget = Object.prototype.hasOwnProperty.call(overrides, 'target');
+    if (explicitTarget && Number.isFinite(overrides.target)) return;
     base.target = PHASE_DEFAULT_TARGET[base.type] ?? 0;
 }
 
@@ -344,7 +345,7 @@ export function makeOperand(overrides = {}) {
     if (isTotalThickness(base.type) && (!Number.isFinite(base.target) || base.target === 0.99)) {
         base.target = 1000;
     }
-    seedPhaseTarget(base);
+    seedPhaseTarget(base, overrides);
     // Blank/comment operand: keep a comment field, no numeric meaning.
     if (isBlank(base.type) && base.comment == null) base.comment = '';
     // ── Implementation hyperparameters NOT stamped ───────────────────────────
@@ -362,6 +363,12 @@ export function makeOperand(overrides = {}) {
 export function isRamp(op) {
     return op != null && isRangeTarget(op.type);
 }
+
+// Last layer a new thickness constraint covers. Layers are numbered from 1, and
+// the end is deliberately far above any stack a user starts from, because
+// synthesis adds layers and a constraint written for today's layer count would
+// silently stop covering the ones it grows.
+export const DEFAULT_CONSTRAINT_LAST_LAYER = 1000;
 
 export function makeConstraintOperand(overrides = {}) {
     const operand = {
