@@ -52,9 +52,9 @@
   "devDependencies": {
     "cross-env": "^10.1.0",
     "decimal.js": "^10.6.0",
-    "electron": "^43.3.0",
+    "electron": "^43.4.0",
     "electron-builder": "^26.15.3",
-    "esbuild": "^0.28.1"
+    "esbuild": "^0.28.2"
   },
   "dependencies": {
     "js-yaml": "^4.3.0",
