@@ -1,13 +1,18 @@
-/** Design-level point evaluator shared by analysis windows and optimizer operands. */
+/**
+ * Point evaluators for callers that have already resolved material objects.
+ *
+ * A stack is evaluated at one wavelength and returns phase, GD, GDD, and TOD
+ * together with the material models that produced them. When a material cannot
+ * supply third-order frequency derivatives, or the wavelength falls outside its
+ * model range, the point is returned invalid with the offending material named
+ * rather than silently approximated.
+ *
+ * Reported continuity metadata lets callers break a drawn curve where it is
+ * genuinely discontinuous: PCHIP interpolation of tabulated n and k is only C1,
+ * so GDD and TOD jump at table knots.
+ */
 
-import { designMaterialLookup } from '../materials/designMaterials.js';
-import { materialOmegaResponse, C_NM_PER_FS } from '../materials/materialDispersion.js';
-import {
-    coefficientPhaseDispersion,
-    coefficientPhaseThicknessDerivatives,
-    tmmCoefficientJets,
-    tmmCoefficientThicknessJets,
-} from './phaseDispersion.js';
+import { materialOmegaResponse, C_NM_PER_FS } from '../../materials/materialDispersion.js';
 import {
     jetConstant,
     jetDerivatives,
@@ -17,24 +22,14 @@ import {
     jetSqrt,
     jetSubtract,
     wavelengthOmegaJet,
-} from './taylorJet.js';
+} from '../taylorJet.js';
+import {
+    coefficientPhaseDispersion,
+    coefficientPhaseThicknessDerivatives,
+} from './phaseDerivatives.js';
+import { tmmCoefficientJets, tmmCoefficientThicknessJets } from './coefficientJets.js';
 
-function sideDefinition(design, side) {
-    if (side === 'back') {
-        return {
-            layers: [...(design.backLayers || [])].reverse(),
-            incidentId: design.exitMedium,
-            substrateId: design.substrate?.material,
-        };
-    }
-    return {
-        layers: design.frontLayers || [],
-        incidentId: design.incidentMedium,
-        substrateId: design.substrate?.material,
-    };
-}
-
-function continuityMetadata(materials) {
+export function continuityMetadata(materials) {
     const tabulated = materials.filter(item => item.response.continuousOrder < 3);
     return {
         phaseContinuousOrder: materials.length
@@ -196,133 +191,4 @@ export function evaluateSubstratePropagation(options) {
         model: substrate.model,
         ...continuity,
     };
-}
-
-/** Incoherent front coating + substrate transit + back coating transmission. */
-export function evaluateTotalTransmissionDispersion(design, options) {
-    const { wavelengthNm, polarization = 's', thetaDeg = 0 } = options;
-    const resolveMaterial = designMaterialLookup(design);
-    const incidentMaterial = resolveMaterial(design.incidentMedium);
-    const substrateMaterial = resolveMaterial(design.substrate?.material);
-    const exitMaterial = resolveMaterial(design.exitMedium);
-    const front = evaluateStackPhaseDispersion({
-        wavelengthNm,
-        target: 'T',
-        polarization,
-        thetaDeg,
-        incidentMaterial,
-        substrateMaterial,
-        layers: (design.frontLayers || []).map(layer => ({
-            material: resolveMaterial(layer.material), thicknessNm: layer.thickness,
-        })),
-    });
-    const substrate = evaluateSubstratePropagation({
-        wavelengthNm,
-        thicknessMm: design.substrate?.thickness ?? 1,
-        thetaDeg,
-        incidentMaterial,
-        substrateMaterial,
-    });
-    const back = evaluateStackPhaseDispersion({
-        wavelengthNm,
-        target: 'T',
-        polarization,
-        thetaDeg,
-        incidentMaterial: substrateMaterial,
-        substrateMaterial: exitMaterial,
-        referenceIncidentMaterial: incidentMaterial,
-        layers: (design.backLayers || []).map(layer => ({
-            material: resolveMaterial(layer.material), thicknessNm: layer.thickness,
-        })),
-    });
-    const components = { front, substrate, back };
-    const invalid = Object.values(components).find(component => !component.valid);
-    if (invalid) return { wavelengthNm, valid: false, reason: invalid.reason, components };
-    const add = key => front[key] + substrate[key] + back[key];
-    const componentList = Object.values(components);
-    return {
-        wavelengthNm,
-        valid: true,
-        phaseRad: add('phaseRad'),
-        phaseDeg: add('phaseRad') * 180 / Math.PI,
-        gdFs: add('gdFs'),
-        gddFs2: add('gddFs2'),
-        todFs3: add('todFs3'),
-        magnitudeSquared: front.magnitudeSquared * back.magnitudeSquared,
-        components,
-        models: [...new Set([
-            ...(front.models || []),
-            `${substrateMaterial.name || 'Substrate'}: ${substrate.model}`,
-            ...(back.models || []),
-        ])],
-        phaseContinuousOrder: Math.min(...componentList.map(component =>
-            component.phaseContinuousOrder ?? 3)),
-        knotSignature: componentList.map(component => component.knotSignature || '-').join('||'),
-        discontinuityModels: [...new Set(componentList.flatMap(component =>
-            component.discontinuityModels || []))],
-    };
-}
-
-/**
- * Evaluate phase, GD, GDD, and TOD at one wavelength. Values at this wavelength
- * are independent of all neighbouring presentation samples.
- */
-export function evaluateDesignPhaseDispersion(design, options) {
-    const {
-        wavelengthNm,
-        side = 'front',
-        target = 'R',
-        polarization = 's',
-        thetaDeg = 0,
-    } = options;
-    const resolveMaterial = designMaterialLookup(design);
-    const definition = sideDefinition(design, side);
-    const layers = definition.layers
-        .filter(layer => layer.material && layer.thickness > 0)
-        .map(layer => ({
-            material: resolveMaterial(layer.material),
-            thicknessNm: layer.thickness,
-        }));
-    return evaluateStackPhaseDispersion({
-        wavelengthNm,
-        thetaDeg,
-        polarization,
-        target,
-        incidentMaterial: resolveMaterial(definition.incidentId),
-        substrateMaterial: resolveMaterial(definition.substrateId),
-        layers,
-    });
-}
-
-/**
- * Prepare a design stack once for repeated wavelength evaluation. This keeps
- * the pointwise mathematics identical while avoiding material and layer
- * resolution work at every plotted wavelength.
- */
-export function createDesignPhaseDispersionEvaluator(design, options = {}) {
-    const {
-        side = 'front',
-        target = 'R',
-        polarization = 's',
-        thetaDeg = 0,
-    } = options;
-    const resolveMaterial = designMaterialLookup(design);
-    const definition = sideDefinition(design, side);
-    const incidentMaterial = resolveMaterial(definition.incidentId);
-    const substrateMaterial = resolveMaterial(definition.substrateId);
-    const layers = definition.layers
-        .filter(layer => layer.material && layer.thickness > 0)
-        .map(layer => ({
-            material: resolveMaterial(layer.material),
-            thicknessNm: layer.thickness,
-        }));
-    return wavelengthNm => evaluateStackPhaseDispersion({
-        wavelengthNm,
-        thetaDeg,
-        polarization,
-        target,
-        incidentMaterial,
-        substrateMaterial,
-        layers,
-    });
 }

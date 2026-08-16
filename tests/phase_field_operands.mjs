@@ -18,7 +18,7 @@ import {
 } from '../src/utils/physics/optimizer.js';
 import { computeEllipsometry, computeEFieldProfile } from '../src/utils/physics/thinFilmMath.js';
 import { getMaterial } from '../src/utils/materials/materialDatabase.js';
-import { evaluateDesignPhaseDispersion } from '../src/utils/physics/designPhaseDispersion.js';
+import { evaluateDesignPhaseDispersion } from '../src/utils/physics/phaseDispersion.js';
 
 const resolveMat = id => getMaterial(id);
 let fails = 0;

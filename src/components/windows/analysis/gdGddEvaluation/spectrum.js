@@ -2,7 +2,7 @@ import { unwrapPhase } from '../../../../utils/physics/thinFilmMath.js';
 import {
     createDesignPhaseDispersionEvaluator,
     evaluateTotalTransmissionDispersion,
-} from '../../../../utils/physics/designPhaseDispersion.js';
+} from '../../../../utils/physics/phaseDispersion.js';
 
 export const AUTOMATIC_GD_GDD_FINE_STEP_NM = 0.2;
 const AUTOMATIC_GRID_MAX_INTERVALS = 2000;

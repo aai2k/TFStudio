@@ -17,6 +17,8 @@ import {
 } from '../src/utils/materials/pchip.js';
 import {
     coefficientPhaseDispersion,
+    evaluateDesignPhaseDispersion,
+    evaluateTotalTransmissionDispersion,
     tmmCoefficientJets,
 } from '../src/utils/physics/phaseDispersion.js';
 import {
@@ -25,10 +27,6 @@ import {
     jetScale,
     wavelengthOmegaJet,
 } from '../src/utils/physics/taylorJet.js';
-import {
-    evaluateDesignPhaseDispersion,
-    evaluateTotalTransmissionDispersion,
-} from '../src/utils/physics/designPhaseDispersion.js';
 import {
     C_NM_PER_FS,
     computeGroupDelaySpectrumAtWavelengthStep,

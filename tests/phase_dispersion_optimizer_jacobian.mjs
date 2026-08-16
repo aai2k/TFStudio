@@ -5,7 +5,7 @@ import { designMaterialLookup } from '../src/utils/materials/designMaterials.js'
 import {
     evaluateDesignPhaseDispersion,
     evaluateStackPhaseDispersion,
-} from '../src/utils/physics/designPhaseDispersion.js';
+} from '../src/utils/physics/phaseDispersion.js';
 import { evaluateOperands } from '../src/utils/physics/optimizer/evalCore.js';
 import { LSQEngine } from '../src/utils/physics/optimizer/lsqEngine.js';
 

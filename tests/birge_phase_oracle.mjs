@@ -9,7 +9,7 @@
 
 import assert from 'node:assert/strict';
 
-import { evaluateStackPhaseDispersion } from '../src/utils/physics/designPhaseDispersion.js';
+import { evaluateStackPhaseDispersion } from '../src/utils/physics/phaseDispersion.js';
 import { C_NM_PER_FS } from '../src/utils/materials/materialDispersion.js';
 
 const ORDER = 3;

@@ -16,7 +16,7 @@ await loadApp();
 const { computeGdGddSpectrum, AUTOMATIC_GD_GDD_FINE_STEP_NM } =
     await import('../src/components/windows/analysis/gdGddEvaluation/spectrum.js');
 const { evaluateDesignPhaseDispersion } =
-    await import('../src/utils/physics/designPhaseDispersion.js');
+    await import('../src/utils/physics/phaseDispersion.js');
 const { buildGdGddView } =
     await import('../src/components/windows/analysis/gdGddEvaluation/viewModel.js');
 const { buildGDChartModel } =

@@ -10,7 +10,7 @@
  */
 
 import { tmm, tmmNeedleScan, tmmThicknessJacobian, tmmThicknessHessian, computeEllipsometry, computeEFieldProfile } from '../thinFilmMath.js';
-import { evaluateStackPhaseDispersion } from '../designPhaseDispersion.js';
+import { evaluateStackPhaseDispersion } from '../phaseDispersion.js';
 import { resolveSourceSpec, resolveDetectorSpec } from '../spectralWeightings.js';
 import { tmmWasmActive, getTmmWasm } from '../../../tmmcore.js';
 import {
