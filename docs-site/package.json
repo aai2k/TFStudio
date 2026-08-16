@@ -16,5 +16,8 @@
     "astro": "^7.2.0",
     "sharp": "^0.35.3",
     "tfstudio": "file:.."
+  },
+  "overrides": {
+    "js-yaml": "4.3.1"
   }
 }
