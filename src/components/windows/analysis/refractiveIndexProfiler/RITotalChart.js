@@ -1,4 +1,5 @@
 import { ANALYSIS_DEFAULTS } from '../../../../constants/analysisDefaults.js';
+import { drawPlot, usePlotTeardown } from '../../../ui/plotSurface.js';
 import { useAnalysisColors } from '../../../../state/AnalysisSettingsContext.js';
 const { createElement: h, useEffect, useRef } = React;
 
@@ -155,24 +156,14 @@ export function RITotalChart({ regions, quantity, matColorMap, c }) {
         textColor: c.text || '#cccccc',
     };
 
+    // No dependency list: see plotSurface.js for why every render redraws.
     useEffect(() => {
-        if (!divRef.current) return;
         const { traces, layout } = riTotalFigure(regions, quantity, matColorMap, colors, curve);
-        if (!initRef.current) {
-            Plotly.newPlot(divRef.current, traces, layout, { responsive: true, displayModeBar: false });
-            initRef.current = true;
-        } else {
-            Plotly.react(divRef.current, traces, layout);
-        }
-    }, [regions, quantity, matColorMap, c, curve]); // eslint-disable-line react-hooks/exhaustive-deps
+        drawPlot(divRef.current, initRef, traces, layout,
+            { responsive: true, displayModeBar: false });
+    });
 
-    useEffect(() => {
-        const el = divRef.current;
-        if (!el) return;
-        const ro = new ResizeObserver(() => { if (initRef.current) Plotly.Plots.resize(el); });
-        ro.observe(el);
-        return () => { ro.disconnect(); if (el) Plotly.purge(el); };
-    }, []);
+    usePlotTeardown(divRef, initRef);
 
     return h('div', { ref: divRef, style: { width: '100%', height: '100%' } });
 }

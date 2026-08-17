@@ -1,3 +1,4 @@
+import { drawPlot, usePlotTeardown } from '../../../ui/plotSurface.js';
 import { useAnalysisColors } from '../../../../state/AnalysisSettingsContext.js';
 import { ANALYSIS_DEFAULTS } from '../../../../constants/analysisDefaults.js';
 
@@ -63,24 +64,15 @@ export function EllipsometryChart({ data, c }) {
         text: c.text || '#cccccc',
     };
 
+    // No dependency list: see plotSurface.js for why every render redraws.
     useEffect(() => {
-        if (!divRef.current || !data) return;
+        if (!data) return;
         const { traces, layout } = buildEllipsometryFigure(data, colors, curve);
-        if (!initRef.current) {
-            Plotly.newPlot(divRef.current, traces, layout, { responsive: true, displayModeBar: false });
-            initRef.current = true;
-        } else {
-            Plotly.react(divRef.current, traces, layout);
-        }
-    }, [data, colors.background, colors.paper, colors.grid, colors.text, curve.psi, curve.delta]);
+        drawPlot(divRef.current, initRef, traces, layout,
+            { responsive: true, displayModeBar: false });
+    });
 
-    useEffect(() => {
-        const el = divRef.current;
-        if (!el) return;
-        const ro = new ResizeObserver(() => { if (initRef.current) Plotly.Plots.resize(el); });
-        ro.observe(el);
-        return () => { ro.disconnect(); if (el) Plotly.purge(el); };
-    }, []);
+    usePlotTeardown(divRef, initRef);
 
     return h('div', { ref: divRef, style: { width: '100%', height: '100%' } });
 }

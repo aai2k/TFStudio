@@ -1,6 +1,8 @@
 // Compact merit-function trend plot shown under the operand table while a
 // refinement run is in progress (and after it, from history).
 
+import { drawPlot } from '../../../ui/plotSurface.js';
+
 const { createElement: h, useRef, useEffect } = React;   // React is a window global
 
 export function MFTrendPlot({ history, c, theme }) {
@@ -37,15 +39,11 @@ export function MFTrendPlot({ history, c, theme }) {
         showlegend: false,
     };
 
+    // No dependency list: see plotSurface.js for why every render redraws.
     useEffect(() => {
-        if (!divRef.current || typeof Plotly === 'undefined') return;
-        if (!initRef.current) {
-            Plotly.newPlot(divRef.current, traces, layout, { responsive: true, displayModeBar: false });
-            initRef.current = true;
-        } else {
-            Plotly.react(divRef.current, traces, layout);
-        }
-    }, [history, theme]);
+        drawPlot(divRef.current, initRef, traces, layout,
+            { responsive: true, displayModeBar: false });
+    });
 
     // Plotly's responsive option listens to browser-window resizes, but the
     // Refinement panel can also change size when docking dividers move without

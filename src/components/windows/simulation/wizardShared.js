@@ -8,6 +8,7 @@
  * Style mirrors FilterDesignWizard / ProcessSimulator.
  */
 
+import { drawPlot, usePlotTeardown } from '../../ui/plotSurface.js';
 import { makeShiftedMaterial } from '../../../utils/monitoring/monitoringSim.js';
 import { systemSpectrum, splitActiveStacks } from '../../../utils/monitoring/depositionSpectrum.js';
 
@@ -147,17 +148,10 @@ export function Chart({ traces, xTitle, yTitle, c, yRange = null, extra = {}, mi
             hovermode: 'closest',
             ...extra,
         };
-        const cfg = { responsive: true, displaylogo: false, displayModeBar: false };
-        if (!initRef.current) { Plotly.newPlot(ref.current, traces, layout, cfg); initRef.current = true; }
-        else { Plotly.react(ref.current, traces, layout, cfg); }
-    }, [traces, xTitle, yTitle, c, yRange, extra]);
-    useEffect(() => {
-        const el = ref.current;
-        if (!el) return;
-        const ro = new ResizeObserver(() => { if (initRef.current) Plotly.Plots.resize(el); });
-        ro.observe(el);
-        return () => { ro.disconnect(); if (el && initRef.current) { try { Plotly.purge(el); } catch (_) {} initRef.current = false; } };
-    }, []);
+        drawPlot(ref.current, initRef, traces, layout,
+            { responsive: true, displaylogo: false, displayModeBar: false });
+    });
+    usePlotTeardown(ref, initRef);
     return h('div', { ref, style: { width: '100%', height: '100%', minHeight } });
 }
 

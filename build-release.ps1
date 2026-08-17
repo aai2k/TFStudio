@@ -310,17 +310,21 @@ try {
     }
 
     # --- 2. Root npm dependencies --------------------------------------------
+    # A dependency directory being present is not the same as it holding the
+    # version package.json asks for, and a bumped dependency leaves an older copy
+    # behind that a presence check accepts and the bundler then fails on. npm ls
+    # compares the installed tree against the manifest and exits non-zero when
+    # anything is missing, out of range or stray.
     Section "Provisioning: root npm dependencies"
     $needInstall = $false
     if (-not (Test-Path (Join-Path $proj 'node_modules'))) {
         Write-Host "node_modules missing -> installing." -ForegroundColor Yellow
         $needInstall = $true
     } else {
-        foreach ($dep in @('electron-builder', 'esbuild', 'cross-env', 'tmmcore')) {
-            if (-not (Test-Path (Join-Path $proj "node_modules\$dep"))) {
-                Write-Host "Dependency '$dep' missing -> running npm install." -ForegroundColor Yellow
-                $needInstall = $true
-            }
+        & npm ls --depth=0 2>&1 | Out-Null
+        if ($LASTEXITCODE -ne 0) {
+            Write-Host "Installed dependencies do not match package.json -> running npm install." -ForegroundColor Yellow
+            $needInstall = $true
         }
     }
     if ($needInstall) {
@@ -334,7 +338,8 @@ try {
     # The docs site is a nested npm package (Astro); the root install does not
     # touch it. Its build needs the local astro binary.
     Section "Provisioning: docs-site dependencies"
-    if (Test-Path (Join-Path $proj 'docs-site\node_modules\astro')) {
+    & npm --prefix docs-site ls --depth=0 2>&1 | Out-Null
+    if ($LASTEXITCODE -eq 0) {
         Write-Host "docs-site dependencies present." -ForegroundColor Green
     } else {
         Write-Host "Installing docs-site dependencies (astro)..." -ForegroundColor Yellow

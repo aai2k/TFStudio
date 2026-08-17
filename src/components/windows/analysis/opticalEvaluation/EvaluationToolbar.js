@@ -1,7 +1,6 @@
 import { EvalModeBadge, ConeBadge } from '../../../SurfaceModeBar.js';
 import { FieldLabel } from './controls.js';
 import { AoiChips } from './AoiChips.js';
-import { LiveUpdateSwitch } from '../../../ui/LiveUpdateSwitch.js';
 
 const { createElement: h } = React;
 
@@ -20,9 +19,6 @@ export function EvaluationToolbar(props) {
         h('div', { style: { display: 'flex', alignItems: 'center', gap: 7, flexShrink: 0 } },
             h(FieldLabel, { c }, oe.aoi),
             h(AoiChips, { values: params.thetas, onChange: setThetas, c, oe })
-        ),
-        h('div', { style: { display: 'flex', gap: 8, alignItems: 'center', marginLeft: 'auto', flexShrink: 0 } },
-            h(LiveUpdateSwitch, { c, label: t.liveUpdate.label, title: t.liveUpdate.hint })
         )
     );
 }

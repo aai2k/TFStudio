@@ -1,5 +1,6 @@
 import { getMaterialById } from '../../../../utils/materials/catalogManager.js';
 import { materialIndexFn, embeddedT, spectrumT } from '../../../../utils/filter/filterDesign.js';
+import { drawPlot, usePlotTeardown } from '../../../ui/plotSurface.js';
 
 const { createElement: h, useMemo, useEffect, useRef } = React;
 
@@ -31,9 +32,11 @@ function computeSpectrumData({ layersFn, analyticT, p, mode, windowNm }) {
 // levelLines: [{y,color,x0,x1}]
 export function SpectrumPlot({ layersFn, analyticT = null, p, mode = 'embedded', c, height = 280, levelLines = [], windowNm = null }) {
     const divRef = useRef(null);
+    const initRef = useRef(false);
     const data = useMemo(() => computeSpectrumData({ layersFn, analyticT, p, mode, windowNm }),
         [layersFn, analyticT, p.lambda0_nm, p.passHalf_nm, p.stopHalf_nm, p.substrateMaterial, p.incidentMedium, mode, windowNm]);
 
+    // No dependency list: see plotSurface.js for why every render redraws.
     useEffect(() => {
         if (!divRef.current || !window.Plotly || data.error || data.empty) return;
         const traces = [{ x: data.xs, y: data.T, type: 'scatter', mode: 'lines', name: 'T', line: { color: '#4fc3f7', width: 1.7 } }];
@@ -47,13 +50,11 @@ export function SpectrumPlot({ layersFn, analyticT = null, p, mode = 'embedded',
             yaxis: { title: { text: 'T (%)', font: { size: 11, color: c.textDim } }, color: c.text, gridcolor: c.border, tickfont: { size: 10 }, range: [-2, 105] },
             paper_bgcolor: c.panel, plot_bgcolor: c.bg, font: { color: c.text, size: 11 }, shapes, showlegend: false,
         };
-        window.Plotly.react(divRef.current, traces, layout, { responsive: true, displayModeBar: false });
-    }, [data, c, levelLines]);
+        drawPlot(divRef.current, initRef, traces, layout,
+            { responsive: true, displayModeBar: false });
+    });
 
-    // Purge the Plotly graph on unmount (leak per docking tab switch).
-    useEffect(() => () => {
-        if (divRef.current && window.Plotly) window.Plotly.purge(divRef.current);
-    }, []);
+    usePlotTeardown(divRef, initRef);
 
     if (data.error) return h('div', { style: { color: c.warning || '#ef5350', fontSize: 12, padding: 10 } }, data.error);
     return h('div', { ref: divRef, style: { width: '100%', height } });

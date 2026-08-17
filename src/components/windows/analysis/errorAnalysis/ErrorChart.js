@@ -1,7 +1,8 @@
 import { ANALYSIS_DEFAULTS } from '../../../../constants/analysisDefaults.js';
+import { drawPlot, usePlotTeardown } from '../../../ui/plotSurface.js';
 import { useAnalysisColors } from '../../../../state/AnalysisSettingsContext.js';
 
-const { createElement: h, useEffect, useMemo, useRef } = React;
+const { createElement: h, useEffect, useRef } = React;
 
 const toPercent = (values) => values.map((value) => value * 100);
 
@@ -119,28 +120,15 @@ export function ErrorChart(props) {
     const divRef = useRef(null);
     const initRef = useRef(false);
     const colors = useAnalysisColors('errorAnalysis');
-    const figure = useMemo(() => buildErrorFigure({ ...props, colors }), [
-        props.result, props.char, props.c, props.corridorSigma, props.showEnvelope, colors,
-    ]);
-
+    // No dependency list, and the figure is rebuilt rather than memoized: see
+    // plotSurface.js for why both matter.
     useEffect(() => {
-        if (!divRef.current || typeof Plotly === 'undefined') return;
-        const config = { responsive: true, displaylogo: false, displayModeBar: true };
-        if (!initRef.current) {
-            Plotly.newPlot(divRef.current, figure.data, figure.layout, config);
-            initRef.current = true;
-        } else {
-            Plotly.react(divRef.current, figure.data, figure.layout, config);
-        }
-    }, [figure]);
+        const figure = buildErrorFigure({ ...props, colors });
+        drawPlot(divRef.current, initRef, figure.data, figure.layout,
+            { responsive: true, displaylogo: false, displayModeBar: true });
+    });
 
-    useEffect(() => {
-        const el = divRef.current;
-        if (!el) return;
-        const ro = new ResizeObserver(() => { if (initRef.current) Plotly.Plots.resize(el); });
-        ro.observe(el);
-        return () => { ro.disconnect(); if (el) Plotly.purge(el); };
-    }, []);
+    usePlotTeardown(divRef, initRef);
 
     return h('div', { ref: divRef, style: { width: '100%', height: '100%', minHeight: 200 } });
 }

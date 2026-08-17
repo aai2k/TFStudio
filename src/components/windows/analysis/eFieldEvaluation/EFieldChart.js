@@ -1,4 +1,5 @@
 import { efieldLayout, efieldTraces } from './chartModel.js';
+import { drawPlot, usePlotTeardown } from '../../../ui/plotSurface.js';
 import { useAnalysisColors } from '../../../../state/AnalysisSettingsContext.js';
 
 const { createElement: h, useEffect, useRef } = React;
@@ -15,25 +16,15 @@ export function EFieldChart({ profileData, pol, matColorMap, c }) {
         accentColor: c.accent || '#007acc',
     };
 
+    // No dependency list: see plotSurface.js for why every render redraws.
     useEffect(() => {
-        if (!divRef.current) return;
-        const traces = efieldTraces(profileData, pol, curve);
-        const layout = efieldLayout(profileData, pol, matColorMap, colors);
-        if (!initRef.current) {
-            Plotly.newPlot(divRef.current, traces, layout, { responsive: true, displayModeBar: false });
-            initRef.current = true;
-        } else {
-            Plotly.react(divRef.current, traces, layout);
-        }
-    }, [profileData, pol, matColorMap, c, curve]); // eslint-disable-line react-hooks/exhaustive-deps
+        drawPlot(divRef.current, initRef,
+            efieldTraces(profileData, pol, curve),
+            efieldLayout(profileData, pol, matColorMap, colors),
+            { responsive: true, displayModeBar: false });
+    });
 
-    useEffect(() => {
-        const el = divRef.current;
-        if (!el) return;
-        const ro = new ResizeObserver(() => { if (initRef.current) Plotly.Plots.resize(el); });
-        ro.observe(el);
-        return () => { ro.disconnect(); if (el) Plotly.purge(el); };
-    }, []);
+    usePlotTeardown(divRef, initRef);
 
     return h('div', { ref: divRef, style: { width: '100%', height: '100%' } });
 }

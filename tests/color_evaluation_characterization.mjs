@@ -62,6 +62,9 @@ assert.deepEqual(traces[3], {
 
 assert.deepEqual(chromaticityLayout(c), {
   margin: { l: 48, r: 12, t: 12, b: 42 },
+  // The plot takes its size from its element, so it tracks a window being
+  // resized instead of keeping the size measured at the first draw.
+  autosize: true,
   paper_bgcolor: c.panel,
   plot_bgcolor: c.bg,
   font: { color: c.text, family: 'system-ui, -apple-system, sans-serif', size: 11 },

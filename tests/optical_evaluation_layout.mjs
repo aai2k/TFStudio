@@ -30,13 +30,14 @@ function check(condition, message) {
     }
 }
 
-const toolbarIndex = markup.indexOf('Auto-update');
+const toolbarIndex = markup.indexOf(oe.aoi);
 const resultsIndex = markup.indexOf('Results');
 const exportIndex = markup.indexOf('Export');
 
-check(toolbarIndex >= 0, 'evaluation toolbar renders the auto-update control');
-check(markup.includes('role="switch"') && markup.includes('aria-checked="true"'),
-    'auto-update uses a clear switch control');
+check(toolbarIndex >= 0, 'evaluation toolbar renders the angle-of-incidence control');
+// Auto-update is set from the windows that start runs. This one obeys the
+// setting without offering it, so the toolbar stays about what is plotted.
+check(!markup.includes('role="switch"'), 'no auto-update switch in the analysis toolbar');
 check(markup.includes('aria-pressed="true"'), 'curve groups expose their active state');
 check(!markup.includes('#ffd54f'), 'target controls use theme colors instead of low-contrast yellow');
 check(resultsIndex > toolbarIndex, 'results section follows the plot controls');

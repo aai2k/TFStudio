@@ -52,7 +52,7 @@ export function MFTrendChart({ generations, c, theme, emptyMsg }) {
     };
     return h(PlotlyChart, {
         build, hasData: generations.length > 0, empty: emptyMsg,
-        deps: [generations, theme], c,
+        c,
     });
 }
 

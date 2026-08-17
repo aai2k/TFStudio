@@ -1,4 +1,5 @@
 import { buildGDChartModel } from './chartModel.js';
+import { drawPlot, usePlotTeardown } from '../../../ui/plotSurface.js';
 
 const { createElement: h, useEffect, useRef } = React;
 
@@ -22,33 +23,18 @@ export function GDChart({ data, meta, refLambda, showRef, targets = [], yRange, 
     const grid = c.border || '#3a3a3a';
     const text = c.text || '#cccccc';
 
+    // No dependency list: see plotSurface.js for why every render redraws.
     useEffect(() => {
-        if (!divRef.current || !data) return;
+        if (!data) return;
         const { traces, layout } = buildGDChartModel({
             data, meta, referenceLambda: refLambda, showReference: showRef,
             targets, yRange,
             colors: { background, paper, grid, text },
         });
-        if (!initRef.current) {
-            Plotly.newPlot(divRef.current, traces, layout, CHART_CONFIG);
-            initRef.current = true;
-        } else {
-            Plotly.react(divRef.current, traces, layout, CHART_CONFIG);
-        }
-    }, [data, meta, refLambda, showRef, targets, yRange, background, paper, grid, text]);
+        drawPlot(divRef.current, initRef, traces, layout, CHART_CONFIG);
+    });
 
-    useEffect(() => {
-        const element = divRef.current;
-        if (!element) return;
-        const observer = new ResizeObserver(() => {
-            if (initRef.current) Plotly.Plots.resize(element);
-        });
-        observer.observe(element);
-        return () => {
-            observer.disconnect();
-            if (element) Plotly.purge(element);
-        };
-    }, []);
+    usePlotTeardown(divRef, initRef);
 
     return h('div', { ref: divRef, style: { width: '100%', height: '100%' } });
 }

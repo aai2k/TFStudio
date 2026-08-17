@@ -1,4 +1,5 @@
 import { buildTargetTraces, buildTargetShapes } from '../../../../utils/physics/spectrumTargets.js';
+import { drawPlot, usePlotTeardown } from '../../../ui/plotSurface.js';
 
 const { createElement: h, useEffect, useRef, useMemo } = React;
 
@@ -54,28 +55,11 @@ function buildLayout(colors, targets, showTargets) {
     };
 }
 
-function usePlotlyMount(divRef, initRef, traces, layout, config) {
-    useEffect(() => {
-        if (!divRef.current || typeof Plotly === 'undefined') return;
-        Plotly.newPlot(divRef.current, traces, layout, config);
-        initRef.current = true;
-        const ro = new ResizeObserver(() => {
-            if (divRef.current && initRef.current) Plotly.Plots.resize(divRef.current);
-        });
-        ro.observe(divRef.current);
-        return () => {
-            ro.disconnect();
-            if (divRef.current) Plotly.purge(divRef.current);
-            initRef.current = false;
-        };
-    }, []);
-}
-
+// No dependency list: see plotSurface.js for why every render redraws.
 function usePlotlyUpdate(divRef, initRef, traces, layout, config) {
     useEffect(() => {
-        if (!divRef.current || !initRef.current) return;
-        Plotly.react(divRef.current, traces, layout, config);
-    }, [traces, layout]);
+        drawPlot(divRef.current, initRef, traces, layout, config);
+    });
 }
 
 export function SpectrumPlot({ data, c, theme, targets, showTargets }) {
@@ -90,13 +74,13 @@ export function SpectrumPlot({ data, c, theme, targets, showTargets }) {
     };
 
     const traces = useMemo(() => buildTraces(data, targets, showTargets), [data, targets, showTargets]);
-    const layout = useMemo(() => buildLayout(colors, targets, showTargets),
-        [colors.paperColor, colors.bgColor, colors.gridColor, colors.textColor, targets, showTargets]);
+    // The layout is rebuilt rather than memoized: see plotSurface.js.
+    const layout = buildLayout(colors, targets, showTargets);
     const config = { displaylogo: false, responsive: true, displayModeBar: true,
                      modeBarButtonsToRemove: ['select2d', 'lasso2d', 'autoScale2d'] };
 
-    usePlotlyMount(divRef, initRef, traces, layout, config);
     usePlotlyUpdate(divRef, initRef, traces, layout, config);
+    usePlotTeardown(divRef, initRef);
 
     if (typeof Plotly === 'undefined') {
         return h('div', { style: { display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%', color: c.textDim } },

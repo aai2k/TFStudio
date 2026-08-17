@@ -153,14 +153,21 @@ assert.deepEqual(signature.split(',').map(name => name.trim()).filter(Boolean),
     ['c', 'label', 'title']);
 
 for (const [path, label] of [
-    ['../src/components/windows/analysis/opticalEvaluation/EvaluationToolbar.js', 'Optical Evaluation'],
-    ['../src/components/windows/analysis/gdGddEvaluation/GDControls.js', 'Group Delay'],
     ['../src/components/windows/optimization/refinement/ControlBar.js', 'Refinement'],
     // One bar serves Needle Variation, Gradual Evolution and Structural.
     ['../src/components/windows/optimization/synthesisShared/synthesisShell.js', 'the synthesis windows'],
     ['../src/components/windows/optimization/needleManual/NeedleManual.js', 'Needle (manual)'],
 ]) {
     assert.ok(source(path).includes('LiveUpdateSwitch'), `${label} shows the switch`);
+}
+
+// The setting belongs to the windows that start runs. An analysis window obeys
+// it but does not offer it, so its toolbar stays about what is being plotted.
+for (const [path, label] of [
+    ['../src/components/windows/analysis/opticalEvaluation/EvaluationToolbar.js', 'Optical Evaluation'],
+    ['../src/components/windows/analysis/gdGddEvaluation/GDControls.js', 'Group Delay'],
+]) {
+    assert.ok(!source(path).includes('LiveUpdateSwitch'), `${label} does not carry the switch`);
 }
 
 // Every window that can start a run offers the switch, so none is left as the

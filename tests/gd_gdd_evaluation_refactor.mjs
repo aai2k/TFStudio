@@ -130,6 +130,10 @@ assert.deepEqual(chart.layout.margin, { l: 58, r: 18, t: 38, b: 46 });
 // Axis furniture is the text colour, not the curve colour.
 assert.equal(chart.layout.font.color, c.text);
 assert.equal(chart.layout.yaxis.color, undefined);
+// The plot must not carry a fixed size: it takes it from the element it is
+// drawn in, and a pinned width or height would survive every container change.
+assert.equal(chart.layout.width, undefined, 'no width is pinned into the layout');
+assert.equal(chart.layout.height, undefined, 'no height is pinned into the layout');
 // No explicit range given, so Plotly autoranges.
 assert.equal(chart.layout.yaxis.autorange, true);
 assert.equal(chart.layout.shapes[0].x0, raw.lambda[2]);
@@ -217,11 +221,11 @@ assert.match(markup, />Results</, 'the sampled numbers sit in a collapsible Resu
 assert.match(markup, />Export</, 'the footer exports the sampled numbers as CSV');
 assert.doesNotMatch(markup, />Piecewise table derivative/,
     'the long piecewise note never occupies the status bar');
-// Auto-update is one setting shared by every window that follows a run, and
-// this is the window whose redraw cost made it worth having.
-assert.match(markup, /role="switch"[^>]*aria-checked="true"/,
-    'the toolbar offers the shared auto-update switch');
-assert.equal(createHash('sha256').update(markup).digest('hex').slice(0, 16), 'dd08cfba2b9db054');
+// Auto-update follows one global setting, but it is set from the windows that
+// start runs. This window obeys it without carrying the control.
+assert.doesNotMatch(markup, /role="switch"/,
+    'the analysis toolbar does not carry the auto-update switch');
+assert.equal(createHash('sha256').update(markup).digest('hex').slice(0, 16), '619d09d780f52528');
 
 // Sentence-length status text is a tooltip on a short label. A status bar in a
 // docked window has no room for it, and clipping it would hide it entirely.

@@ -7,6 +7,7 @@
  */
 
 import { resolveColor } from '../../../../utils/materials/catalogManager.js';
+import { reactPlot } from '../../../ui/plotSurface.js';
 import { FORMULA_LATEX } from '../../../../utils/materials/dispersionFormulas.js';
 import { KaTeXSpan, dotStyle, statusBadge, propRow, formatCoeff, smallBtn } from './materialEditorUI.js';
 
@@ -41,7 +42,7 @@ function drawReadOnlyFigure(chartEl, { lambdas, ns, ks, hasK }, c, me) {
         font: { family: 'system-ui, -apple-system, sans-serif' },
     };
     if (hasK) layout.yaxis2 = { title: { text: me.chartK, font: { size: 11 } }, color: '#e74c3c', overlaying: 'y', side: 'right', tickfont: { size: 10 } };
-    window.Plotly.react(chartEl, traces, layout, { responsive: true, displayModeBar: false });
+    reactPlot(chartEl, traces, layout, { responsive: true, displayModeBar: false });
 }
 
 // Compact [λ, n, k] table (≤80 evenly-spaced rows) from getNK, so materials with

@@ -1,4 +1,5 @@
 import { previewSpectrum } from './model.js';
+import { reactPlot } from '../../../ui/plotSurface.js';
 
 const { createElement: h, useMemo, useEffect, useRef } = React;
 
@@ -30,7 +31,7 @@ function drawPreview(divEl, data, c, refLambda) {
         shapes: [{ type: 'line', xref: 'x', yref: 'paper', x0: refLambda, x1: refLambda,
                    y0: 0, y1: 1, line: { color: c.textDim, width: 1, dash: 'dot' } }],
     };
-    window.Plotly.react(divEl, traces, layout, { responsive: true, displayModeBar: false });
+    reactPlot(divEl, traces, layout, { responsive: true, displayModeBar: false });
 }
 
 export function PreviewPlot({ resolveMaterial, compiled, incidentId, substrateId, refLambda, c, height = 220 }) {
@@ -40,10 +41,11 @@ export function PreviewPlot({ resolveMaterial, compiled, incidentId, substrateId
         () => previewSpectrum(resolveMaterial, compiled, incidentId, substrateId, refLambda),
         [resolveMaterial, compiled, incidentId, substrateId, refLambda]);
 
+    // No dependency list: see plotSurface.js for why every render redraws.
     useEffect(() => {
         if (!divRef.current || !window.Plotly) return;
         drawPreview(divRef.current, data, c, refLambda);
-    }, [data, c, refLambda]);
+    });
 
     // Purge Plotly on unmount so the detached node is cleaned up.
     useEffect(() => () => {

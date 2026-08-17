@@ -1,4 +1,5 @@
 import { buildOverlayLayout, buildOverlayTraces } from './figure.js';
+import { drawPlot, usePlotTeardown } from '../../../ui/plotSurface.js';
 import { useAnalysisColors } from '../../../../state/AnalysisSettingsContext.js';
 
 const { createElement: h, useEffect, useMemo, useRef } = React;
@@ -11,25 +12,14 @@ export function OverlayChart({ baseline, perturbed, channel, c }) {
         () => buildOverlayTraces(baseline, perturbed, channel, curve),
         [baseline, perturbed, channel, curve],
     );
-    const layout = useMemo(() => buildOverlayLayout(c), [c]);
-
+    // No dependency list, and the layout is rebuilt rather than memoized: see
+    // plotSurface.js for why both matter.
     useEffect(() => {
-        if (!divRef.current || typeof Plotly === 'undefined') return;
-        if (!initRef.current) {
-            Plotly.newPlot(divRef.current, traces, layout, { responsive: true, displayModeBar: false });
-            initRef.current = true;
-        } else {
-            Plotly.react(divRef.current, traces, layout);
-        }
-    }, [traces, layout]);
+        drawPlot(divRef.current, initRef, traces, buildOverlayLayout(c),
+            { responsive: true, displayModeBar: false });
+    });
 
-    useEffect(() => {
-        const el = divRef.current;
-        if (!el) return;
-        const ro = new ResizeObserver(() => { if (initRef.current) Plotly.Plots.resize(el); });
-        ro.observe(el);
-        return () => { ro.disconnect(); if (el) Plotly.purge(el); };
-    }, []);
+    usePlotTeardown(divRef, initRef);
 
     return h('div', { ref: divRef, style: { width: '100%', height: '100%' } });
 }

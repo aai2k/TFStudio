@@ -1,4 +1,5 @@
 import { xAxisLabel, surfaceAxisLabel } from '../../../../utils/physics/plotQuantities.js';
+import { drawPlot, usePlotTeardown } from '../../../ui/plotSurface.js';
 
 const { createElement: h, useMemo, useEffect, useRef } = React;
 
@@ -42,36 +43,20 @@ function buildCurveLayout(c, xAxisType) {
     };
 }
 
-function useCurveFigure(divRef, initRef, traces, layout) {
-    useEffect(() => {
-        if (!divRef.current || typeof Plotly === 'undefined') return;
-        if (!initRef.current) {
-            Plotly.newPlot(divRef.current, traces, layout, { responsive: true, displayModeBar: false });
-            initRef.current = true;
-        } else {
-            Plotly.react(divRef.current, traces, layout);
-        }
-    }, [traces, layout]);
-}
-
-function usePlotResize(divRef, initRef) {
-    useEffect(() => {
-        const el = divRef.current;
-        if (!el) return;
-        const ro = new ResizeObserver(() => { if (initRef.current) Plotly.Plots.resize(el); });
-        ro.observe(el);
-        return () => ro.disconnect();
-    }, []);
-}
-
 export function MultiCurveChart({ curves, results, c }) {
     const divRef = useRef(null);
     const initRef = useRef(false);
     const traces = useMemo(() => buildCurveTraces(curves, results), [curves, results]);
     const xAxisType = useMemo(() => dominantXAxis(curves), [curves]);
-    const layout = useMemo(() => buildCurveLayout(c, xAxisType), [c, xAxisType]);
-    useCurveFigure(divRef, initRef, traces, layout);
-    usePlotResize(divRef, initRef);
+
+    // No dependency list, and the layout is rebuilt rather than memoized: see
+    // plotSurface.js for why both matter.
+    useEffect(() => {
+        drawPlot(divRef.current, initRef, traces, buildCurveLayout(c, xAxisType),
+            { responsive: true, displayModeBar: false });
+    });
+
+    usePlotTeardown(divRef, initRef);
     return h('div', { ref: divRef, style: { width: '100%', height: '100%' } });
 }
 

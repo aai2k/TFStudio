@@ -1,3 +1,4 @@
+import { drawPlot, usePlotTeardown } from '../../../ui/plotSurface.js';
 import { useAnalysisColors } from '../../../../state/AnalysisSettingsContext.js';
 import { buildOverlayFigure } from './overlayFigure.js';
 
@@ -12,44 +13,21 @@ function chartColors(c) {
     };
 }
 
-function updateChart(element, initialized, figure) {
-    if (!element || typeof Plotly === 'undefined') return;
-    const config = { responsive: true, displaylogo: false, displayModeBar: false };
-    if (!initialized.current) {
-        Plotly.newPlot(element, figure.data, figure.layout, config);
-        initialized.current = true;
-    } else {
-        Plotly.react(element, figure.data, figure.layout, config);
-    }
-}
-
-function observeChart(element, initialized) {
-    if (!element) return undefined;
-    const observer = new ResizeObserver(() => {
-        if (!initialized.current) return;
-        if (!element.isConnected || element.offsetParent === null) return;
-        try { Plotly.Plots.resize(element); } catch (_) {}
-    });
-    observer.observe(element);
-    return () => {
-        observer.disconnect();
-        if (element) Plotly.purge(element);
-    };
-}
-
 export function OverlayChart(props) {
     const { spectrum, char, weighting, c, minMaxMarks } = props;
     const divRef = useRef(null);
     const initialized = useRef(false);
     const colors = chartColors(c);
     const curve = useAnalysisColors('integralValues');
-    const figure = buildOverlayFigure({ spectrum, char, weighting, minMaxMarks, colors, curve });
 
+    // No dependency list: see plotSurface.js for why every render redraws.
     useEffect(() => {
-        updateChart(divRef.current, initialized, figure);
-    }, [spectrum, char, weighting, minMaxMarks, curve, c.bg, c.panel, c.border, c.text]); // eslint-disable-line react-hooks/exhaustive-deps
+        const figure = buildOverlayFigure({ spectrum, char, weighting, minMaxMarks, colors, curve });
+        drawPlot(divRef.current, initialized, figure.data, figure.layout,
+            { responsive: true, displaylogo: false, displayModeBar: false });
+    });
 
-    useEffect(() => observeChart(divRef.current, initialized), []);
+    usePlotTeardown(divRef, initialized);
 
     return h('div', { ref: divRef, style: { width: '100%', height: '100%', minHeight: 200 } });
 }

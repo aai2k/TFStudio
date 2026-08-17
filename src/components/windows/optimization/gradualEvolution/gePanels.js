@@ -68,7 +68,7 @@ export function MFTrendChart({ cycles, c, theme, emptyMsg }) {
     };
     return h(PlotlyChart, {
         build, hasData: cycles.length > 0, empty: emptyMsg,
-        deps: [cycles, theme], c,
+        c,
     });
 }
 

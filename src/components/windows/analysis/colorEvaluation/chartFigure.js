@@ -1,4 +1,5 @@
 import { ANALYSIS_DEFAULTS } from '../../../../constants/analysisDefaults.js';
+import { drawPlot, usePlotTeardown } from '../../../ui/plotSurface.js';
 import { useAnalysisColors } from '../../../../state/AnalysisSettingsContext.js';
 import { spectralLocusXy } from '../../../../utils/physics/colorimetry.js';
 
@@ -65,6 +66,8 @@ export function chromaticityLayout(c) {
   const txt = c.text || '#cccccc';
   return {
     margin: { l: 48, r: 12, t: 12, b: 42 },
+    // The plot takes its size from the element it is drawn in.
+    autosize: true,
     paper_bgcolor: paper, plot_bgcolor: bg,
     font: { color: txt, family: 'system-ui, -apple-system, sans-serif', size: 11 },
     xaxis: { title: { text: 'x', standoff: 6 }, range: [-0.05, 0.8],
@@ -81,23 +84,11 @@ export function chromaticityLayout(c) {
 
 function useChromaticityPlot(divRef, traces, layout) {
   const initRef = useRef(false);
-
+  // No dependency list: see plotSurface.js for why every render redraws.
   useEffect(() => {
-    if (!divRef.current || typeof Plotly === 'undefined') return;
-    Plotly.newPlot(divRef.current, traces, layout, CHROMATICITY_CONFIG);
-    initRef.current = true;
-    const ro = new ResizeObserver(() => {
-      if (divRef.current && initRef.current) Plotly.Plots.resize(divRef.current);
-    });
-    ro.observe(divRef.current);
-    return () => { ro.disconnect();
-      if (divRef.current) Plotly.purge(divRef.current); initRef.current = false; };
-  }, []);
-
-  useEffect(() => {
-    if (!divRef.current || !initRef.current || typeof Plotly === 'undefined') return;
-    Plotly.react(divRef.current, traces, layout, CHROMATICITY_CONFIG);
-  }, [traces, layout]);
+    drawPlot(divRef.current, initRef, traces, layout, CHROMATICITY_CONFIG);
+  });
+  usePlotTeardown(divRef, initRef);
 }
 
 export function ChromaticityChart({ report, observer, c }) {
@@ -108,10 +99,13 @@ export function ChromaticityChart({ report, observer, c }) {
     () => chromaticityTraces(report, observer, c, colors),
     [report, observer, txt, c.textDim, colors]
   );
-  const layout = useMemo(
-    () => chromaticityLayout(c),
-    [c.bg, c.panel, c.border, txt]
-  );
+  // Deliberately rebuilt every render rather than memoized. Plotly writes the
+  // ranges and domains it computes back into the layout object it is handed, so
+  // a shared object accumulates them: one draw at a size where the aspect-ratio
+  // constraint collapses the x domain pins that collapse permanently, and the
+  // plot stays a thin sliver however the window is dragged afterwards. A fresh
+  // object each draw means the declared ranges always win.
+  const layout = chromaticityLayout(c);
   useChromaticityPlot(divRef, traces, layout);
 
   if (typeof Plotly === 'undefined')

@@ -9,8 +9,8 @@ export function ChartPanel(props) {
         spectralUnit, onCreateTarget, onEditTarget, onDeleteTarget,
         error, showEmpty, oe,
     } = props;
-    return h('div', { style: { flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column' } },
-        h('div', { style: { flex: 1, minHeight: 0, position: 'relative' } },
+    return h('div', { style: { flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column', overflow: 'hidden' } },
+        h('div', { style: { flex: 1, minHeight: 0, position: 'relative', overflow: 'hidden' } },
             h(PlotlyChart, {
                 data, showCurves, targets: design.meritOperands, showTargets, c, theme,
                 editMode, editTool, editCurve, editPol, editKind, lamRange, yRange,

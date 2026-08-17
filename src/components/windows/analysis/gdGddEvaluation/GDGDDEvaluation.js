@@ -48,7 +48,7 @@ export function GDGDDEvaluation({ c, theme, t }) {
             fontFamily: 'system-ui, -apple-system, sans-serif', fontSize: 12,
         },
     },
-        h(GDControls, { c, t, text, state }),
+        h(GDControls, { c, text, state }),
         h(MaterialRangeWarning, { design, fromNm: state.lamStart, toNm: state.lamEnd, c, t }),
         h(GDResults, { c, t, text, state, view }),
         h(GDFooter, {

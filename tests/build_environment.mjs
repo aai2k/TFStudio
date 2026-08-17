@@ -66,6 +66,15 @@ const existsSync = value => value === `${powerShellDir}\\powershell.exe`;
     '-Linux exits through WSL before Windows packaging starts');
   ok(releaseScript.includes('bash ./build-release-linux.sh --no-verify'),
     'the WSL build skips the non-representative GUI smoke test');
+  // A dependency directory can exist while holding a version older than
+  // package.json asks for, which a presence test accepts and the bundler then
+  // fails on. Only npm ls compares the installed tree against the manifest.
+  ok(/npm ls --depth=0/.test(releaseScript),
+    'root dependencies are checked by version, not by directory presence');
+  ok(/npm --prefix docs-site ls --depth=0/.test(releaseScript),
+    'docs-site dependencies are checked by version, not by directory presence');
+  ok(!/Test-Path \(Join-Path \$proj "node_modules\\\\\$dep"\)/.test(releaseScript),
+    'the per-directory dependency probe is gone');
 }
 
 {
@@ -78,6 +87,13 @@ const existsSync = value => value === `${powerShellDir}\\powershell.exe`;
     'only current-version tar archives are copied back');
   ok(linuxScript.includes('-name "TFStudio-${VERSION}-*.deb"'),
     'only current-version Debian packages are copied back');
+  // The stage outlives a release, so its node_modules is exactly where a bumped
+  // dependency goes stale: the old directory is still there and still passes a
+  // presence test, and the failure surfaces much later as a bundler error.
+  ok(/npm ls --depth=0 >\/dev\/null 2>&1/.test(linuxScript),
+    'the reusable WSL stage checks dependencies by version, not by directory presence');
+  ok(!/\[ -d node_modules\/tmmcore \]/.test(linuxScript),
+    'the per-directory dependency probe is gone');
 }
 
 console.log(`build_environment: ${passed} passed`);

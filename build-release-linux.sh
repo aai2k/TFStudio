@@ -165,15 +165,19 @@ VERSION="$(node -p 'require("./package.json").version')"
 
 # --- 2. Dependencies ---------------------------------------------------------
 section "Provisioning: npm dependencies"
-if [ -d node_modules/electron-builder ] && [ -d node_modules/esbuild ] \
-   && [ -d node_modules/tmmcore ] && [ -d node_modules/cross-env ]; then
+# A dependency directory being present is not the same as it holding the version
+# package.json asks for. The staging directory outlives a release, so a bumped
+# dependency leaves an older copy sitting here that a presence check accepts and
+# the bundler then fails on. `npm ls` compares the installed tree against the
+# manifest and exits non-zero when anything is missing, out of range or stray.
+if npm ls --depth=0 >/dev/null 2>&1; then
     echo "Root dependencies present."
 else
     npm install
 fi
 
 section "Provisioning: docs-site dependencies"
-if [ -d docs-site/node_modules/astro ]; then
+if npm --prefix docs-site ls --depth=0 >/dev/null 2>&1; then
     echo "docs-site dependencies present."
 else
     npm --prefix docs-site install

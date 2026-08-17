@@ -60,7 +60,7 @@ export function TrendPlot({ trend, c, theme, t }) {
     };
     return h(PlotlyChart, {
         build, hasData: trend.length > 0, empty: t.structural.noTrendYet,
-        deps: [trend, theme], c,
+        c,
     });
 }
 

@@ -1,32 +1,22 @@
 import { buildSweepFigure } from './sweepFigure.js';
+import { drawPlot, usePlotTeardown } from '../../../ui/plotSurface.js';
 
-const { createElement: h, useEffect, useMemo, useRef } = React;
+const { createElement: h, useEffect, useRef } = React;
 
 export function SweepHeatmap({ sweepData, channel, c }) {
     const divRef = useRef(null);
     const initRef = useRef(false);
-    const { data, layout } = useMemo(
-        () => buildSweepFigure(sweepData, channel, { text: c.text, border: c.border, panel: c.panel, bg: c.bg }),
-        [sweepData, channel, c]
-    );
 
+    // No dependency list, and the figure is rebuilt rather than memoized: see
+    // plotSurface.js for why both matter.
     useEffect(() => {
-        if (!divRef.current || typeof Plotly === 'undefined') return;
-        if (!initRef.current) {
-            Plotly.newPlot(divRef.current, data, layout, { responsive: true, displayModeBar: false });
-            initRef.current = true;
-        } else {
-            Plotly.react(divRef.current, data, layout);
-        }
-    }, [data, layout]);
+        const { data, layout } = buildSweepFigure(sweepData, channel,
+            { text: c.text, border: c.border, panel: c.panel, bg: c.bg });
+        drawPlot(divRef.current, initRef, data, layout,
+            { responsive: true, displayModeBar: false });
+    });
 
-    useEffect(() => {
-        const el = divRef.current;
-        if (!el) return;
-        const ro = new ResizeObserver(() => { if (initRef.current) Plotly.Plots.resize(el); });
-        ro.observe(el);
-        return () => { ro.disconnect(); if (el) Plotly.purge(el); };
-    }, []);
+    usePlotTeardown(divRef, initRef);
 
     return h('div', { ref: divRef, style: { width: '100%', height: '100%' } });
 }

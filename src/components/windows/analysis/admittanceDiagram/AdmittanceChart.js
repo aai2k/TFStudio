@@ -1,30 +1,16 @@
+import { drawPlot, usePlotTeardown } from '../../../ui/plotSurface.js';
 import { useAnalysisColors } from '../../../../state/AnalysisSettingsContext.js';
 import { admittanceLayout, admittanceTraces } from './chartFigure.js';
 
 const { createElement: h, useEffect, useRef } = React;
 
-function usePlotInitialization({ divRef, initializedRef, series, matColorMap, colors, marks, config }) {
+// No dependency list: see plotSurface.js for why every render redraws.
+function usePlotData({ divRef, initializedRef, series, matColorMap, colors, marks, config }) {
     useEffect(() => {
-        if (!divRef.current || typeof Plotly === 'undefined') return;
-        Plotly.newPlot(divRef.current, admittanceTraces(series, matColorMap, colors, marks), admittanceLayout(series, colors), config);
-        initializedRef.current = true;
-        const ro = new ResizeObserver(() => {
-            if (divRef.current && initializedRef.current) Plotly.Plots.resize(divRef.current);
-        });
-        ro.observe(divRef.current);
-        return () => {
-            ro.disconnect();
-            if (divRef.current) { Plotly.purge(divRef.current); }
-            initializedRef.current = false;
-        };
-    }, []); // eslint-disable-line react-hooks/exhaustive-deps
-}
-
-function usePlotData({ divRef, initializedRef, series, matColorMap, colors, marks, config, c }) {
-    useEffect(() => {
-        if (!divRef.current || !initializedRef.current || typeof Plotly === 'undefined') return;
-        Plotly.react(divRef.current, admittanceTraces(series, matColorMap, colors, marks), admittanceLayout(series, colors), config);
-    }, [series, matColorMap, marks, c]); // eslint-disable-line react-hooks/exhaustive-deps
+        drawPlot(divRef.current, initializedRef,
+            admittanceTraces(series, matColorMap, colors, marks),
+            admittanceLayout(series, colors), config);
+    });
 }
 
 function usePlotTheme({ divRef, initializedRef, colors, c }) {
@@ -55,8 +41,8 @@ export function AdmittanceChart({ series, matColorMap, c, theme, t }) {
         toImageButtonOptions: { format: 'png', filename: 'TFStudio_admittance', scale: 2 },
     };
 
-    usePlotInitialization({ divRef, initializedRef, series, matColorMap, colors, marks, config });
-    usePlotData({ divRef, initializedRef, series, matColorMap, colors, marks, config, c });
+    usePlotData({ divRef, initializedRef, series, matColorMap, colors, marks, config });
+    usePlotTeardown(divRef, initializedRef);
     usePlotTheme({ divRef, initializedRef, colors, c });
 
     if (typeof Plotly === 'undefined') {

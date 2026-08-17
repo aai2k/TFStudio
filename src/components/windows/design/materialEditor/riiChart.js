@@ -4,6 +4,7 @@
  */
 
 import { sampleMaterial } from '../../../../utils/materials/riiDatabase.js';
+import { reactPlot } from '../../../ui/plotSurface.js';
 
 export function drawRiiChart(chartEl, mat, c) {
     if (!chartEl || !window.Plotly) return;
@@ -34,5 +35,5 @@ export function drawRiiChart(chartEl, mat, c) {
         font: { family: 'system-ui, -apple-system, sans-serif' },
     };
     if (hasK) layout.yaxis2 = { color: '#e74c3c', overlaying: 'y', side: 'right', tickfont: { size: 9 } };
-    window.Plotly.react(chartEl, traces, layout, { responsive: true, displayModeBar: false });
+    reactPlot(chartEl, traces, layout, { responsive: true, displayModeBar: false });
 }

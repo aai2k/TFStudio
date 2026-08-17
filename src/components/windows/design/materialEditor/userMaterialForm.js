@@ -8,6 +8,7 @@
  */
 
 import { ndColor } from '../../../../utils/materials/catalogManager.js';
+import { reactPlot } from '../../../ui/plotSurface.js';
 import { FORMULA_LATEX } from '../../../../utils/materials/dispersionFormulas.js';
 import { NKDataGrid } from './nkDataGrid.js';
 import { buildNKFromDraft, PRESET_COLORS, nextPresetColor } from './materialDraft.js';
@@ -55,7 +56,7 @@ function drawDraftChart(chartEl, draft, c, me) {
         font: { family: 'system-ui, -apple-system, sans-serif' },
     };
     if (hasK) layout.yaxis2 = { color: '#e74c3c', overlaying: 'y', side: 'right', tickfont: { size: 9 } };
-    window.Plotly.react(chartEl, traces, layout, { responsive: true, displayModeBar: false });
+    reactPlot(chartEl, traces, layout, { responsive: true, displayModeBar: false });
 }
 
 function drawFitResidualChart(chartEl, draft, c) {
@@ -71,7 +72,7 @@ function drawFitResidualChart(chartEl, draft, c) {
     const wavelength = rows.map(row => row[0]);
     const nResidual = rows.map(row => evaluateDispersionFit(fit, row[0])[0] - row[1]);
     const kResidual = rows.map(row => evaluateDispersionFit(fit, row[0])[1] - row[2]);
-    window.Plotly.react(chartEl, [
+    reactPlot(chartEl, [
         { x: wavelength, y: nResidual, name: 'Δn', type: 'scatter', mode: 'lines+markers', line: { color: '#5dade2', width: 1.5 }, marker: { size: 3 } },
         { x: wavelength, y: kResidual, name: 'Δk', type: 'scatter', mode: 'lines+markers', line: { color: '#e74c3c', width: 1.2 }, marker: { size: 3 } },
     ], {
@@ -395,12 +396,13 @@ export function UserMaterialForm({ draft, onChange, onSave, onRevert, onDelete, 
     const nextKey = () => ++seqRef.current;
     const [fitError, setFitError] = useState('');
 
-    // Live n/k chart
+    // Live n/k chart. No dependency list: see plotSurface.js for why every
+    // render redraws.
     useEffect(() => {
         if (!chartRef.current || !window.Plotly) return;
         drawDraftChart(chartRef.current, draft, c, me);
         if (residualChartRef.current) drawFitResidualChart(residualChartRef.current, draft, c);
-    }, [draft, c]);
+    });
 
     // Field / draft update helpers
     const set = (field, value) => onChange({ ...draft, [field]: value });

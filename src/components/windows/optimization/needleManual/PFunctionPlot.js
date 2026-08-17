@@ -2,6 +2,7 @@
 // candidate material. Clicking a point picks a (z, material) candidate.
 
 import { matColor } from '../synthesisShared/synthesisHelpers.js';
+import { hasRoomToDraw } from '../../../ui/plotSurface.js';
 import { buildLayerLabels, buildZoneShapes } from './plotShapes.js';
 
 const { createElement: h, useEffect, useRef } = React;
@@ -75,6 +76,8 @@ export function PFunctionPlot({ traces, boundaries, bands, totalZ, selected, onP
 
         const data = [...matTraces, zeroTrace, ...selTraces];
 
+        layout.autosize = true;
+        if (!hasRoomToDraw(divRef.current, layout)) return;
         if (!initRef.current) {
             Plotly.newPlot(divRef.current, data, layout, { responsive: true, displayModeBar: false })
                 .then((gd) => {
@@ -93,7 +96,7 @@ export function PFunctionPlot({ traces, boundaries, bands, totalZ, selected, onP
         } else {
             Plotly.react(divRef.current, data, layout);
         }
-    }, [traces, boundaries, bands, totalZ, selected, theme]);
+    });
 
     return h('div', { ref: divRef, style: { width: '100%', height: '100%' } });
 }

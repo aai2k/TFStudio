@@ -1,3 +1,5 @@
+import { drawPlot, usePlotTeardown } from '../../../ui/plotSurface.js';
+
 const { createElement: h } = React;   // React is a window global (never imported)
 
 // ── Plotly chart lifecycle primitive ────────────────────────────────────────────
@@ -21,44 +23,21 @@ function drawPlotlyChart(div, hasData, build, cfg, initRef) {
         return;
     }
     const { traces, layout } = build();
-    if (!initRef.current) {
-        Plotly.newPlot(div, traces, layout, cfg);
-        initRef.current = true;
-    } else {
-        Plotly.react(div, traces, layout, cfg);
-    }
+    drawPlot(div, initRef, traces, layout, cfg);
 }
 
-export function PlotlyChart({ build, hasData, empty, deps = [], config, c }) {
+export function PlotlyChart({ build, hasData, empty, config, c }) {
     const { useRef, useEffect } = React;
     const divRef  = useRef(null);
     const initRef = useRef(false);
     const cfg = config || { responsive: true, displayModeBar: false };
 
+    // No dependency list: see plotSurface.js for why every render redraws.
     useEffect(() => {
         drawPlotlyChart(divRef.current, hasData, build, cfg, initRef);
-    }, [hasData, ...deps]);   // eslint-disable-line react-hooks/exhaustive-deps
+    });
 
-    // Re-fit on PANEL resize (responsive:true only listens to WINDOW resizes).
-    useEffect(() => {
-        const el = divRef.current;
-        if (!el || typeof ResizeObserver === 'undefined') return;
-        const ro = new ResizeObserver(() => {
-            if (divRef.current && typeof Plotly !== 'undefined') {
-                try { Plotly.Plots.resize(divRef.current); } catch (_) {}
-            }
-        });
-        ro.observe(el);
-        return () => ro.disconnect();
-    }, []);
-
-    // Purge the graph on unmount so it doesn't leak per docking-tab switch.
-    useEffect(() => () => {
-        if (divRef.current && typeof Plotly !== 'undefined') {
-            try { Plotly.purge(divRef.current); } catch (_) {}
-        }
-        initRef.current = false;
-    }, []);
+    usePlotTeardown(divRef, initRef);
 
     return h('div', { style: { position: 'relative', width: '100%', height: '100%' } },
         h('div', { ref: divRef, style: { width: '100%', height: '100%' } }),
