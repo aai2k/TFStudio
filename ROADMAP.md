@@ -11,7 +11,7 @@ If something here matters to your work, or something you need is missing, open a
 - **Design Editor tools.** Replacing a material while preserving optical thickness rather than physical thickness, rounding or quantizing thicknesses to a deposition resolution, applying a manual perturbation to the stack, and copying the layer table to the clipboard.
 - **Merit-aware design cleanup.** Design Cleaner currently decides what to remove from layer thickness, which is a weak proxy for optical importance. Ranking candidates by the merit cost of removing and re-optimizing targets the layers that genuinely contribute least.
 - **Draging windows out of the main window.** A docked window should be able to leave the docking layout entirely and become its own top-level window, dragged anywhere on the desktop, including onto a second monitor. Dragging it back should redock it.
-- 
+
 ## After that
 
 - **New window with a layer thicknesses diagram.** 
