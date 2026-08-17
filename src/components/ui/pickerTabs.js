@@ -13,9 +13,12 @@ const { createElement: h, useState, useRef, useEffect, useCallback } = React;
 
 import { attachTabWheelScroll } from '../docking/tabWheel.js';
 
-// Fraction of the visible width one arrow click moves, leaving a tab or so of
-// overlap so nothing is stepped over between one click and the next.
+// Fraction of the visible width one arrow click aims to move, leaving a tab or so
+// of overlap so nothing is stepped over between one click and the next.
 const PAGE = 0.8;
+
+// Width of the soft edge where the row continues past the boundary.
+const FADE = 14;
 
 function tabStyle(active, c) {
     return {
@@ -40,23 +43,53 @@ export function stripEdges(strip) {
 }
 
 /**
- * Bring a tab fully into view, moving no further than it takes. The picker opens
- * filtered to the group holding the current value, and that group's tab can sit
- * past the right edge, leaving a filtered list with nothing on screen saying what
+ * Bring a tab into view, aligned to the left edge. The picker opens filtered to
+ * the group holding the current value, and that group's tab can sit past the
+ * right edge, leaving a filtered list with nothing on screen saying what
  * filtered it.
  */
 export function scrollTabIntoView(strip, tab) {
     if (!strip || !tab) return;
-    const right = tab.offsetLeft + tab.offsetWidth;
-    if (tab.offsetLeft < strip.scrollLeft) strip.scrollLeft = tab.offsetLeft;
-    else if (right > strip.scrollLeft + strip.clientWidth) strip.scrollLeft = right - strip.clientWidth;
+    const visible = tab.offsetLeft >= strip.scrollLeft
+        && tab.offsetLeft + tab.offsetWidth <= strip.scrollLeft + strip.clientWidth;
+    if (!visible) strip.scrollLeft = tab.offsetLeft;
+}
+
+/**
+ * Where an arrow click leaves the row: about a screenful along, rounded to a tab
+ * boundary. The row rests only on boundaries, because a name sliced down the
+ * middle by the edge of the strip reads as a truncated catalog name rather than
+ * as a row that continues.
+ *
+ * @param {number[]} starts    left edge of every tab
+ * @param {number}   from      current scroll offset
+ * @param {number}   viewport  visible width of the row
+ * @param {number}   direction -1 back, +1 forward
+ */
+export function pagedOffset(starts, from, viewport, direction) {
+    const target = from + direction * viewport * PAGE;
+    const ahead = starts.filter(start => (direction > 0 ? start > from + 1 : start < from - 1));
+    if (ahead.length === 0) return from;
+    return ahead.reduce((best, start) => Math.abs(start - target) < Math.abs(best - target) ? start : best);
+}
+
+// Soft edge wherever the row continues, so the tab the boundary cuts reads as
+// more to come. No fade at an end there is nothing beyond.
+export function fadeMask({ overflowing, atStart, atEnd }) {
+    if (!overflowing) return undefined;
+    const stops = [
+        atStart ? 'black 0' : `transparent 0, black ${FADE}px`,
+        atEnd ? 'black 100%' : `black calc(100% - ${FADE}px), transparent 100%`,
+    ];
+    return `linear-gradient(to right, ${stops.join(', ')})`;
 }
 
 function arrowEl(glyph, disabled, onClick, c) {
     return h('button', {
         onClick: disabled ? undefined : onClick,
         style: {
-            flexShrink: 0, padding: '1px 3px', fontSize: 11, lineHeight: '14px',
+            flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center',
+            width: 14, height: 17, padding: 0, fontSize: 10, lineHeight: 1,
             border: 'none', background: 'transparent',
             color: c.textDim, opacity: disabled ? 0.3 : 1,
             cursor: disabled ? 'default' : 'pointer', outline: 'none',
@@ -94,7 +127,8 @@ export function PickerTabs({ groups, catFilter, setCatFilter, allLabel, c }) {
     const page = (direction) => {
         const strip = stripRef.current;
         if (!strip) return;
-        strip.scrollLeft += direction * strip.clientWidth * PAGE;
+        const starts = [...strip.children].map(tab => tab.offsetLeft);
+        strip.scrollLeft = pagedOffset(starts, strip.scrollLeft, strip.clientWidth, direction);
         measure();
     };
 
@@ -111,21 +145,25 @@ export function PickerTabs({ groups, catFilter, setCatFilter, allLabel, c }) {
             onClick: () => setCatFilter('all'),
             style: tabStyle(catFilter === 'all', c)
         }, allLabel),
-        edges.overflowing && arrowEl('‹', edges.atStart, () => page(-1), c),
+        edges.overflowing && arrowEl('◂', edges.atStart, () => page(-1), c),
         h('div', {
             ref: stripRef, className: 'tabstrip-noscrollbar', onScroll: measure,
             style: {
                 display: 'flex', gap: 2, flex: 1, minWidth: 0,
-                overflowX: 'auto', overflowY: 'hidden', position: 'relative'
+                overflowX: 'auto', overflowY: 'hidden', position: 'relative',
+                // Wheel scrolling lands wherever it lands; snapping keeps it on
+                // the same boundaries the arrows use.
+                scrollSnapType: 'x mandatory',
+                maskImage: fadeMask(edges), WebkitMaskImage: fadeMask(edges),
             }
         },
             groups.map(g => h('button', {
                 key: g.id,
                 ref: g.id === catFilter ? activeTabRef : undefined,
                 onClick: () => setCatFilter(g.id),
-                style: tabStyle(catFilter === g.id, c)
+                style: { ...tabStyle(catFilter === g.id, c), scrollSnapAlign: 'start' }
             }, g.label))
         ),
-        edges.overflowing && arrowEl('›', edges.atEnd, () => page(1), c)
+        edges.overflowing && arrowEl('▸', edges.atEnd, () => page(1), c)
     );
 }

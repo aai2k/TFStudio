@@ -13,7 +13,7 @@ await loadApp();
 
 const [
     { scrollToActive, overlayEl },
-    { PickerTabs, scrollTabIntoView, stripEdges },
+    { PickerTabs, scrollTabIntoView, stripEdges, pagedOffset, fadeMask },
     { designEntries, rowIsCurrent, currentGroupOf },
     { initCatalogs },
 ] = await Promise.all([
@@ -64,12 +64,12 @@ const tab = (offsetLeft, offsetWidth = 60) => ({ offsetLeft, offsetWidth });
 
 const offRight = strip(0);
 scrollTabIntoView(offRight, tab(600));
-assert.equal(offRight.scrollLeft, 360,
-    'the tab the list opened filtered to is brought in from the right edge');
+assert.equal(offRight.scrollLeft, 600,
+    'the tab the list opened filtered to is brought to the left edge, whole');
 
 const offLeft = strip(400);
 scrollTabIntoView(offLeft, tab(100));
-assert.equal(offLeft.scrollLeft, 100, 'and from the left edge');
+assert.equal(offLeft.scrollLeft, 100, 'the same from the other side');
 
 const alreadyVisible = strip(100);
 scrollTabIntoView(alreadyVisible, tab(150));
@@ -78,6 +78,26 @@ assert.equal(alreadyVisible.scrollLeft, 100,
 
 assert.doesNotThrow(() => scrollTabIntoView(null, tab(10)));
 assert.doesNotThrow(() => scrollTabIntoView(strip(0), null));
+
+// ── The row rests only on tab boundaries ──────────────────────────────────────
+
+// Tabs 80 wide, so a 300-wide row shows just under four of them.
+const starts = [0, 80, 160, 240, 320, 400, 480, 560];
+
+assert.equal(pagedOffset(starts, 0, 300, 1), 240,
+    'a forward page lands on the boundary nearest a screenful along, never mid-name');
+assert.equal(pagedOffset(starts, 240, 300, -1), 0, 'and back the same way');
+assert.equal(pagedOffset(starts, 560, 300, 1), 560,
+    'at the last tab there is nowhere further to go');
+assert.equal(pagedOffset(starts, 0, 300, -1), 0, 'and none before the first');
+assert.equal(pagedOffset(starts, 30, 300, 1), 240,
+    'a row left off a boundary by a wheel is put back on one');
+
+assert.equal(fadeMask({ overflowing: false, atStart: true, atEnd: true }), undefined,
+    'a row that fits is not faded at all');
+assert.match(fadeMask({ overflowing: true, atStart: true, atEnd: false }),
+    /^linear-gradient\(to right, black 0, black calc\(100% - \d+px\), transparent 100%\)$/,
+    'at the start only the far edge is soft: there is nothing off the near one');
 
 // Which arrows are offered. Without them the strip can only be scrolled by
 // wheel, which a trackpad-less user has no way to guess at.
