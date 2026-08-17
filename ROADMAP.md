@@ -9,11 +9,11 @@ If something here matters to your work, or something you need is missing, open a
 ## Next
 
 - **Design Editor tools.** Replacing a material while preserving optical thickness rather than physical thickness, rounding or quantizing thicknesses to a deposition resolution, applying a manual perturbation to the stack, and copying the layer table to the clipboard.
-- **Readable stack diagram for large designs.** Coatings with many layers currently draw every layer, which turns the cross-section into unreadable hairlines. Long stacks will show the outer layers and collapse the middle into a labelled block.
 - **Merit-aware design cleanup.** Design Cleaner currently decides what to remove from layer thickness, which is a weak proxy for optical importance. Ranking candidates by the merit cost of removing and re-optimizing targets the layers that genuinely contribute least.
 
 ## After that
 
+- **New window with a layer thicknesses diagram.** 
 - **Fitting a design to a measured spectrum.** Measured spectra can already be imported and plotted. The next step is generating merit function targets from an imported curve, so layer thicknesses can be fitted to what was actually deposited.
 - **Report layout.** Denser layer tables and better defaults in generated reports.
 - **Equivalent layers.** Converting a layer group to an equivalent single index layer and back.
@@ -27,6 +27,8 @@ If something here matters to your work, or something you need is missing, open a
 ## Under consideration
 
 Real candidates, not yet scheduled, listed so you can say if one of them matters to you:
+
+Migration from plotly to Apache ECharts,
 
 crystal (QCM) deposition monitoring, rugate and graded-index synthesis, laser damage threshold estimation, optimizing across multiple environments at once, pulse propagation for ultrafast coatings, coating stress as an optimization target, glazing U and g values, and CODE V sequence export.
 
