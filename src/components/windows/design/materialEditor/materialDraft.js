@@ -136,10 +136,6 @@ export function materialToDraft(catalogId, mat) {
         fitModel: mat.dispersionFit?.complex?.kind
             || mat.dispersionFit?.n?.kind
             || 'cauchy',
-        fitTerms: mat.dispersionFit?.complex?.oscillators?.length
-            || mat.dispersionFit?.n?.terms
-            || mat.dispersionFit?.n?.coefficients?.length
-            || 3,
         _rowSeq: seq,
     };
 }

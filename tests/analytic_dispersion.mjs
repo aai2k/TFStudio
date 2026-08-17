@@ -311,7 +311,7 @@ const quarterWaveDesign = (() => {
         rows.push([wavelength, n, k]);
     }
     const fit = fitTabulatedMaterial(rows, {
-        nModel: 'sellmeier', termCount: 1, rangeNm: [400, 900],
+        nModel: 'sellmeier', rangeNm: [400, 900],
     });
     fit.n.coefficients.forEach((value, index) => close(value, sellmeier[index], 1e-9, `Sellmeier coefficient ${index}`));
     let independentSum = 0;
@@ -380,7 +380,7 @@ const quarterWaveDesign = (() => {
         rows.push([wavelength, ...evaluateComplexDispersionModel(sourceModel, wavelength)]);
     }
     const fit = fitTabulatedMaterial(rows, {
-        nModel: 'drude-lorentz', termCount: 1, rangeNm: [400, 900],
+        nModel: 'drude-lorentz', rangeNm: [400, 900],
     });
     assert.ok(fit.residuals.n.rms < 1e-10, 'Drude-Lorentz recovers synthetic n');
     assert.ok(fit.residuals.k.rms < 1e-10, 'Drude-Lorentz recovers synthetic k');

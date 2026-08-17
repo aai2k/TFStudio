@@ -24,6 +24,15 @@ import {
 
 const HC_EV_UM = 1.239841984;
 
+// A term is kept only when it cuts the RMS residual by at least this much. Past
+// that the extra freedom follows the rounding in the table rather than the
+// material's dispersion, and the fit is chosen for the user rather than by them.
+const TERM_GAIN = 0.1;
+
+// Most oscillators any metal fit is built from. Rakic's models of the coinage
+// metals use five over the visible and near infrared.
+const MAX_OSCILLATORS = 5;
+
 function divideComplex(numerator, denominator) {
     const divisor = denominator[0] ** 2 + denominator[1] ** 2;
     return [
@@ -141,6 +150,48 @@ function residualSummary(rows, evaluator, valueIndex) {
         max: maximum,
         points: rows.length,
     };
+}
+
+/**
+ * Whether a model stays inside the values the table itself covers, sampled far
+ * more finely than the table is.
+ *
+ * A residual taken at the tabulated points alone cannot see a resonance between
+ * two of them: the fit is free to put a pole where nothing measures it, which is
+ * how a transparent material came out with n above 12 halfway between two
+ * samples. The width allowed outside the table's own range is the largest step
+ * the table takes between neighbouring points, so curvature the data itself
+ * shows is accepted while a pole is not.
+ */
+function staysWithinData(evaluate, rows, rangeNm, valueIndex) {
+    const values = [...rows].sort((left, right) => left[0] - right[0]).map(row => row[valueIndex]);
+    const step = Math.max(0, ...values.slice(1).map((value, index) => Math.abs(value - values[index])));
+    const low = Math.min(...values) - step;
+    const high = Math.max(...values) + step;
+    const start = Math.min(...rangeNm);
+    const end = Math.max(...rangeNm);
+    const samples = Math.max(200, rows.length * 20);
+    for (let index = 0; index <= samples; index++) {
+        const value = evaluate(start + ((end - start) * index) / samples);
+        if (!Number.isFinite(value) || value < low || value > high) return false;
+    }
+    return true;
+}
+
+/**
+ * Narrowest oscillator the table can support, as an energy width.
+ *
+ * A resonance narrower than the spacing between neighbouring samples was
+ * measured by nothing: it fits the points on either side of it while doing as it
+ * likes in between. Damping is held at or above the median spacing, which is
+ * small for a densely sampled metal and large for a dozen hand-entered rows.
+ */
+function minimumDampingEv(rows) {
+    const energies = rows.map(row => HC_EV_UM / (row[0] / 1000)).sort((left, right) => left - right);
+    const gaps = energies.slice(1).map((energy, index) => energy - energies[index]);
+    if (gaps.length === 0) return 0;
+    const sorted = gaps.sort((left, right) => left - right);
+    return sorted[Math.floor(sorted.length / 2)];
 }
 
 function validRows(rows, rangeNm) {
@@ -355,7 +406,7 @@ function positiveParameter(value, maximum) {
     return Math.min(maximum, Math.exp(Math.max(-18, Math.min(18, value))));
 }
 
-function decodeMetalParameters(parameters, kind, oscillatorCount) {
+function decodeMetalParameters(parameters, kind, oscillatorCount, minDampingEv = 0) {
     const model = {
         kind,
         epsilonInfinity: positiveParameter(parameters[0], 100),
@@ -368,14 +419,14 @@ function decodeMetalParameters(parameters, kind, oscillatorCount) {
         model.oscillators.push({
             strengthEv2: positiveParameter(parameters[offset], 3000),
             resonanceEv: positiveParameter(parameters[offset + 1], 100),
-            dampingEv: positiveParameter(parameters[offset + 2], 50),
+            dampingEv: Math.max(minDampingEv, positiveParameter(parameters[offset + 2], 50)),
         });
     }
     return model;
 }
 
-function metalResiduals(parameters, rows, kind, oscillatorCount) {
-    const model = decodeMetalParameters(parameters, kind, oscillatorCount);
+function metalResiduals(parameters, rows, kind, oscillatorCount, minDampingEv) {
+    const model = decodeMetalParameters(parameters, kind, oscillatorCount, minDampingEv);
     return rows.flatMap(row => {
         const predicted = evaluateComplexDispersionModel(model, row[0]);
         return predicted.every(Number.isFinite)
@@ -396,49 +447,70 @@ function initialDrudeParameters(rows) {
     return [Math.log(epsilonInfinity), Math.log(plasma), Math.log(damping)];
 }
 
-function fitMetal(rows, kind, oscillatorCount) {
-    const drudeInitial = initialDrudeParameters(rows);
-    const drudeParameters = levenbergMarquardt(
-        drudeInitial,
-        parameters => metalResiduals(parameters, rows, 'drude', 0),
+/**
+ * Fit the Drude term, then add Lorentz oscillators one at a time for as long as
+ * each earns its place: it has to cut the residual by TERM_GAIN and leave a model
+ * that still behaves between the tabulated points. The count is not asked for,
+ * because the number of oscillators a table supports is a property of the table.
+ */
+function fitMetal(rows, kind, rangeNm) {
+    const minDamping = minimumDampingEv(rows);
+    const fitAt = (start, count, iterations) => levenbergMarquardt(
+        start,
+        values => metalResiduals(values, rows, kind, count, minDamping),
+        iterations,
+    );
+    const costOf = (values, count) => sumSquares(metalResiduals(values, rows, kind, count, minDamping));
+
+    let parameters = levenbergMarquardt(
+        initialDrudeParameters(rows),
+        values => metalResiduals(values, rows, 'drude', 0, minDamping),
         160,
     );
-    if (oscillatorCount === 0) return decodeMetalParameters(drudeParameters, kind, 0);
+    if (kind === 'drude') return decodeMetalParameters(parameters, kind, 0, minDamping);
+
+    let accepted = decodeMetalParameters(parameters, kind, 0, minDamping);
+    let acceptedCost = costOf(parameters, 0);
 
     const energies = rows.map(row => HC_EV_UM / (row[0] / 1000));
     const lowEnergy = Math.min(...energies);
     const highEnergy = Math.max(...energies);
     const energySpan = highEnergy - lowEnergy;
     const peakEpsilonImaginary = Math.max(...rows.map(row => 2 * row[1] * row[2]), 0.1);
-    let parameters = drudeParameters;
-    for (let count = 1; count <= oscillatorCount; count++) {
-        const damping = Math.max(0.03, energySpan / (2 * count + 2));
-        const resonances = Array.from({ length: 5 }, (_, index) =>
-            lowEnergy + ((index + 1) / 6) * energySpan);
+
+    for (let count = 1; count <= MAX_OSCILLATORS; count++) {
+        const damping = Math.max(minDamping, energySpan / (2 * count + 2));
         let best = [
             ...parameters,
             Math.log(1e-8), Math.log((lowEnergy + highEnergy) / 2), Math.log(damping),
         ];
-        let bestCost = sumSquares(metalResiduals(best, rows, kind, count));
-        for (const resonance of resonances) {
+        let bestCost = costOf(best, count);
+        for (let index = 1; index <= 5; index++) {
+            const resonance = lowEnergy + (index / 6) * energySpan;
             const strength = Math.max(
                 1e-3,
                 peakEpsilonImaginary * damping * resonance / (4 * count),
             );
-            const candidate = levenbergMarquardt(
+            const candidate = fitAt(
                 [...parameters, Math.log(strength), Math.log(resonance), Math.log(damping)],
-                values => metalResiduals(values, rows, kind, count),
+                count,
                 180,
             );
-            const candidateCost = sumSquares(metalResiduals(candidate, rows, kind, count));
+            const candidateCost = costOf(candidate, count);
             if (candidateCost < bestCost) {
                 best = candidate;
                 bestCost = candidateCost;
             }
         }
+        // Cost is a sum of squares, so a TERM_GAIN cut in RMS is its square here.
+        if (bestCost > acceptedCost * (1 - TERM_GAIN) ** 2) break;
+        const model = decodeMetalParameters(best, kind, count, minDamping);
+        if (!staysWithinData(nm => evaluateComplexDispersionModel(model, nm)[0], rows, rangeNm, 1)) break;
         parameters = best;
+        accepted = model;
+        acceptedCost = bestCost;
     }
-    return decodeMetalParameters(parameters, kind, oscillatorCount);
+    return accepted;
 }
 
 export function evaluateFitComponent(component, wavelengthNm) {
@@ -512,6 +584,34 @@ export function evaluateDispersionFitJets(fit, wavelengthMicrometersJet) {
     };
 }
 
+/**
+ * The transparent-model fit with the terms the data supports: keep adding terms
+ * while each cuts the residual by TERM_GAIN and leaves a curve that behaves
+ * between the tabulated points. The first candidate is always returned, so a
+ * table that suits no model still produces a fit with visible residuals rather
+ * than an error.
+ */
+function fitIndexModel(rows, model, rangeNm) {
+    const first = model === 'sellmeier' ? 1 : 2;
+    const last = model === 'sellmeier' ? 3 : 6;
+    const parametersFor = terms => (model === 'sellmeier' ? 1 + 2 * terms : terms);
+    let accepted = null;
+    let acceptedRms = Infinity;
+    for (let terms = first; terms <= last; terms++) {
+        if (accepted && parametersFor(terms) >= rows.length) break;
+        const candidate = model === 'sellmeier'
+            ? fitSellmeier(rows, terms, rangeNm)
+            : fitCauchy(rows, terms);
+        const evaluate = wavelength => evaluateFitComponent(candidate, wavelength);
+        const { rms } = residualSummary(rows, evaluate, 1);
+        if (accepted && (!(rms < acceptedRms * (1 - TERM_GAIN))
+            || !staysWithinData(evaluate, rows, rangeNm, 1))) break;
+        accepted = candidate;
+        acceptedRms = rms;
+    }
+    return accepted;
+}
+
 export function fitTabulatedMaterial(rows, options = {}) {
     const wavelengths = rows.map(row => row[0]).filter(Number.isFinite);
     if (wavelengths.length < 4) throw new Error('At least four tabulated rows are required for a fit.');
@@ -519,12 +619,8 @@ export function fitTabulatedMaterial(rows, options = {}) {
     const selected = validRows(rows, rangeNm);
     if (selected.length < 4) throw new Error('The selected fit range contains fewer than four rows.');
     const model = options.nModel || 'cauchy';
-    const requestedTerms = Math.round(options.termCount || 3);
     if (model === 'drude' || model === 'drude-lorentz') {
-        const oscillatorCount = model === 'drude-lorentz'
-            ? Math.max(1, Math.min(5, requestedTerms))
-            : 0;
-        const complex = fitMetal(selected, model, oscillatorCount);
+        const complex = fitMetal(selected, model, rangeNm);
         const fit = {
             active: true,
             rangeNm: [Math.min(...rangeNm), Math.max(...rangeNm)],
@@ -544,12 +640,7 @@ export function fitTabulatedMaterial(rows, options = {}) {
         );
         return fit;
     }
-    const termCount = model === 'sellmeier'
-        ? Math.max(1, Math.min(3, requestedTerms))
-        : Math.max(2, Math.min(6, requestedTerms));
-    const n = model === 'sellmeier'
-        ? fitSellmeier(selected, Math.min(3, termCount), rangeNm)
-        : fitCauchy(selected, termCount);
+    const n = fitIndexModel(selected, model, rangeNm);
     const k = fitUrbach(selected);
     const fit = {
         active: true,

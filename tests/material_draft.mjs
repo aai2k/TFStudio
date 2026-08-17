@@ -110,8 +110,8 @@ const metalFit = {
     },
 };
 const metalDraft = materialToDraft('user_cat', { ...tabMat, dispersionFit: metalFit });
-ok(metalDraft.fitModel === 'drude-lorentz' && metalDraft.fitTerms === 2,
-    'materialToDraft restores the metal fit controls');
+ok(metalDraft.fitModel === 'drude-lorentz',
+    'materialToDraft restores the model a stored fit was made with');
 ok(JSON.stringify(draftToMaterial(metalDraft).dispersionFit) === JSON.stringify(metalFit),
     'Drude-Lorentz fit survives the material roundtrip');
 

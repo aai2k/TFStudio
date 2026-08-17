@@ -231,14 +231,6 @@ function renderTabularEditor({ draft, editRow, delRow, addRow, pasteRows, sortRo
 
 function renderFitPanel({ draft, set, runFit, fitError, me, c, sectionLabel, inputStyle }) {
     const fit = draft.dispersionFit;
-    const metalModel = draft.fitModel === 'drude' || draft.fitModel === 'drude-lorentz';
-    const showTerms = draft.fitModel !== 'drude';
-    const minimumTerms = draft.fitModel === 'sellmeier' || draft.fitModel === 'drude-lorentz'
-        ? 1
-        : 2;
-    const maximumTerms = draft.fitModel === 'drude-lorentz'
-        ? 5
-        : draft.fitModel === 'sellmeier' ? 3 : 6;
     return h('div', null,
         sectionLabel(me.dispersionFit || 'Smooth dispersion fit'),
         h('div', {
@@ -258,15 +250,6 @@ function renderFitPanel({ draft, set, runFit, fitError, me, c, sectionLabel, inp
                     h('option', { value: 'drude' }, 'Drude'),
                     h('option', { value: 'drude-lorentz' }, 'Drude-Lorentz'),
                 ),
-                showTerms && h('span', { style: { color: c.textDim, fontSize: 11 } },
-                    metalModel ? 'Oscillators' : 'Terms'),
-                showTerms && h('input', {
-                    type: 'number', min: minimumTerms,
-                    max: maximumTerms,
-                    value: draft.fitTerms || 3,
-                    onChange: event => set('fitTerms', Number(event.target.value)),
-                    style: { ...inputStyle, width: 46 },
-                }),
                 h('button', { type: 'button', onClick: runFit, style: smallBtn(c) },
                     fit ? (me.refit || 'Refit') : (me.fit || 'Fit')),
                 fit && h('button', {
@@ -435,7 +418,6 @@ export function UserMaterialForm({ draft, onChange, onSave, onRevert, onDelete, 
                 .filter(row => row.every(Number.isFinite));
             const dispersionFit = fitTabulatedMaterial(rows, {
                 nModel: draft.fitModel,
-                termCount: draft.fitTerms,
                 rangeNm: [Number(draft.lambdaMinNm), Number(draft.lambdaMaxNm)],
             });
             setFitError('');
