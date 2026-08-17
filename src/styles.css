@@ -233,9 +233,9 @@ button:active {
     border-radius: 3px;
 }
 
-/* Docking tab strip — scroll horizontally without a visible scrollbar
-   (overflow is reached via wheel, active-tab auto-scroll, and the "all tabs"
-   dropdown, so a 7px bar inside the 30px strip would only steal vertical room) */
+/* Tab strips (docking tabs, picker filter tabs) — scroll horizontally without a
+   visible scrollbar. Overflow is reached via wheel and active-tab auto-scroll,
+   so a 7px bar inside a 30px strip would only steal vertical room. */
 .tabstrip-noscrollbar::-webkit-scrollbar {
     width: 0;
     height: 0;

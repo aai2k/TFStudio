@@ -14,6 +14,8 @@
  * @param {string}   triggerLabel   text shown in the closed trigger
  * @param {string}   [triggerColor] dot colour in the trigger (omit for no dot)
  * @param {Array}    [groups]    [{ id, label }] filter tabs; tabs shown when >1
+ * @param {string}   [openGroup] group tab selected when the list opens; the full
+ *                   list when omitted or when it names no group
  * @param {function} search      (query, groupId|null) => [{ id, label, color?, badge?, title?, group? }]
  * @param {function} [isActive]  (item) => bool; defaults to item.id === value
  * @param {boolean}  [sections]  when the "all" tab is active, render group headers
@@ -24,23 +26,13 @@
 
 const { createElement: h, useState, useEffect, useRef } = React;
 
+import { PickerTabs } from './pickerTabs.js';
+
 function dotStyle(color) {
     return {
         width: 9, height: 9, borderRadius: '50%',
         backgroundColor: color || '#888', flexShrink: 0,
         display: 'inline-block', marginRight: 4
-    };
-}
-
-function tabStyle(active, c) {
-    return {
-        padding: '1px 7px', fontSize: 11,
-        border: `1px solid ${active ? c.accent : c.border}`,
-        borderRadius: 3,
-        backgroundColor: active ? c.accent + '33' : 'transparent',
-        color: active ? c.accent : c.textDim,
-        cursor: 'pointer', outline: 'none',
-        fontFamily: 'system-ui, -apple-system, sans-serif'
     };
 }
 
@@ -96,8 +88,9 @@ function renderRows(results, opts) {
             style: {
                 padding: '3px 8px', fontSize: 10, fontWeight: 700,
                 textTransform: 'uppercase', letterSpacing: '0.04em',
-                color: c.textDim, backgroundColor: c.panel + '88',
-                position: 'sticky', top: 0
+                color: c.textDim, backgroundColor: c.panel,
+                borderBottom: `1px solid ${c.border}`,
+                position: 'sticky', top: 0, zIndex: 1
             }
         }, g.label));
         for (const item of inGroup) rows.push(itemRow(item, opts));
@@ -129,27 +122,11 @@ function triggerEl(s) {
     );
 }
 
-// Filter tabs strip (rendered only when there is more than one group).
-function tabsEl(s) {
-    const { groups, catFilter, setCatFilter, allLabel, c } = s;
-    if (groups.length <= 1) return null;
-    return h('div', {
-        style: {
-            display: 'flex', gap: 2, padding: '3px 6px',
-            borderBottom: `1px solid ${c.border}`, flexWrap: 'wrap'
-        }
-    },
-        h('button', { onClick: () => setCatFilter('all'), style: tabStyle(catFilter === 'all', c) }, allLabel),
-        groups.map(g =>
-            h('button', { key: g.id, onClick: () => setCatFilter(g.id), style: tabStyle(catFilter === g.id, c) }, g.label))
-    );
-}
-
 // Open-state positioned overlay: search box, filter tabs, result list.
-function overlayEl(s) {
+export function overlayEl(s) {
     const { dropRef, dropPos, c, searchRef, query, setQuery, searchPlaceholder,
-            search, catFilter, sections, emptyText, activeOf, select, groups,
-            listRef, activeRef } = s;
+            search, catFilter, setCatFilter, allLabel, sections, emptyText,
+            activeOf, select, groups, listRef, activeRef } = s;
     const results = search(query, catFilter === 'all' ? null : catFilter);
     const listBody = results.length === 0
         ? h('div', { style: { padding: '12px 8px', color: c.textDim, fontSize: 12, textAlign: 'center' } }, emptyText)
@@ -182,8 +159,13 @@ function overlayEl(s) {
                 }
             })
         ),
-        tabsEl(s),
-        h('div', { ref: listRef, style: { flex: 1, overflowY: 'auto' } }, listBody)
+        h(PickerTabs, { groups, catFilter, setCatFilter, allLabel, c }),
+        // The list is positioned so that it, and not the fixed overlay, is the
+        // offset parent of its rows: scrollToActive reads row.offsetTop, which is
+        // measured from the nearest positioned ancestor. Measured from the
+        // overlay instead, every row reads high by the height of the search box
+        // and the tab strip, and the list scrolls past the selection by that much.
+        h('div', { ref: listRef, style: { flex: 1, overflowY: 'auto', position: 'relative' } }, listBody)
     );
 }
 
@@ -221,7 +203,7 @@ function useDismiss(open, setOpen, dropRef, triggerRef) {
 export function PickerDropdown(props) {
     const {
         value, onChange, c, compact, triggerLabel, triggerColor,
-        groups = [], search, isActive, sections = false,
+        groups = [], openGroup, search, isActive, sections = false,
         searchPlaceholder, allLabel, emptyText, minDropWidth = 240,
     } = props;
 
@@ -250,10 +232,11 @@ export function PickerDropdown(props) {
 
     const onOpen = () => {
         if (triggerRef.current) setDropPos(dropPositionFrom(triggerRef.current.getBoundingClientRect(), minDropWidth));
-        // Opening always starts from the full list. A tab left over from an
-        // earlier visit can exclude the current selection entirely, which is the
-        // one entry the list has to show.
-        setCatFilter('all');
+        // Open on the group the current value belongs to, so the list says where
+        // the selection comes from. Anything else falls back to the full list: a
+        // tab left over from an earlier visit can exclude the current selection
+        // entirely, which is the one entry the list has to show.
+        setCatFilter(groups.some(g => g.id === openGroup) ? openGroup : 'all');
         setOpen(true);
     };
     const select = (id) => { onChange(id); setOpen(false); };

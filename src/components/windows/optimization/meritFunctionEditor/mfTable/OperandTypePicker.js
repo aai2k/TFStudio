@@ -48,10 +48,16 @@ export function OperandTypePicker({ value, onChange, c, t }) {
         return rows;
     };
 
+    // The list opens on the category holding the current operand, the way the
+    // material picker opens on the catalog its material comes from. An operand
+    // that belongs to no category leaves the full list showing.
+    const currentCategory = categories.find(cat => cat.types.includes(value));
+
     return h(PickerDropdown, {
         value, onChange, c, compact: true,
         triggerLabel: value, triggerColor: null,
         groups, search, sections: true, minDropWidth: 380,
+        openGroup: currentCategory ? currentCategory.group : 'all',
         searchPlaceholder: mp.searchPlaceholder || 'Search…',
         allLabel: mp.allCatalogs || 'All',
         emptyText: 'No operands found',

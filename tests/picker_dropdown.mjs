@@ -6,13 +6,19 @@
  * makes the user search for a value the picker already knows.
  */
 import assert from 'node:assert/strict';
-import { shimBrowserGlobals, loadApp } from './_uiShim.mjs';
+import { shimBrowserGlobals, loadApp, makeTheme } from './_uiShim.mjs';
 
 shimBrowserGlobals();
 await loadApp();
 
-const [{ scrollToActive }, { designEntries }, { initCatalogs }] = await Promise.all([
+const [
+    { scrollToActive, overlayEl },
+    { PickerTabs, scrollTabIntoView, stripEdges },
+    { designEntries, rowIsCurrent, currentGroupOf },
+    { initCatalogs },
+] = await Promise.all([
     import('../src/components/ui/PickerDropdown.js'),
+    import('../src/components/ui/pickerTabs.js'),
     import('../src/components/ui/MaterialPicker.js'),
     import('../src/utils/materials/catalogManager.js'),
 ]);
@@ -50,6 +56,43 @@ assert.equal(shortList.ref.current.scrollTop, 0,
 // including one where nothing is selected.
 assert.doesNotThrow(() => scrollToActive({ current: null }, row(10)));
 assert.doesNotThrow(() => scrollToActive(list(2000, 300).ref, { current: null }));
+
+// ── The tab strip scrolls sideways ────────────────────────────────────────────
+
+const strip = (scrollLeft) => ({ scrollWidth: 900, clientWidth: 300, scrollLeft });
+const tab = (offsetLeft, offsetWidth = 60) => ({ offsetLeft, offsetWidth });
+
+const offRight = strip(0);
+scrollTabIntoView(offRight, tab(600));
+assert.equal(offRight.scrollLeft, 360,
+    'the tab the list opened filtered to is brought in from the right edge');
+
+const offLeft = strip(400);
+scrollTabIntoView(offLeft, tab(100));
+assert.equal(offLeft.scrollLeft, 100, 'and from the left edge');
+
+const alreadyVisible = strip(100);
+scrollTabIntoView(alreadyVisible, tab(150));
+assert.equal(alreadyVisible.scrollLeft, 100,
+    'a tab already on screen does not move the strip under the pointer');
+
+assert.doesNotThrow(() => scrollTabIntoView(null, tab(10)));
+assert.doesNotThrow(() => scrollTabIntoView(strip(0), null));
+
+// Which arrows are offered. Without them the strip can only be scrolled by
+// wheel, which a trackpad-less user has no way to guess at.
+assert.deepEqual(stripEdges({ scrollWidth: 300, clientWidth: 300, scrollLeft: 0 }),
+    { overflowing: false, atStart: true, atEnd: true },
+    'a strip that fits shows no arrows');
+assert.deepEqual(stripEdges(strip(0)),
+    { overflowing: true, atStart: true, atEnd: false },
+    'at the start only the forward arrow does anything');
+assert.deepEqual(stripEdges(strip(600)),
+    { overflowing: true, atStart: false, atEnd: true },
+    'and at the end only the back one');
+assert.deepEqual(stripEdges(strip(300)),
+    { overflowing: true, atStart: false, atEnd: false },
+    'in between, both');
 
 // ── The active design's own materials are pickable ────────────────────────────
 
@@ -89,5 +132,54 @@ assert.deepEqual(designEntries(design, 'ta2o5').map(entry => entry.id), ['lab:Ta
     'the search box filters the design group by id and name');
 assert.deepEqual(designEntries(null, '').map(entry => entry.id), [],
     'a picker mounted outside a design provider offers the catalogs only');
+
+// ── The picker opens on the catalog the material comes from ───────────────────
+
+assert.equal(currentGroupOf(design, 'builtin:BK7'), 'builtin',
+    'a catalog material opens on its own catalog, not on the design group that repeats it');
+assert.equal(currentGroupOf(design, 'BK7'), 'builtin',
+    'a legacy bare id resolves to the built-in library');
+assert.equal(currentGroupOf(design, 'lab:Ta2O5_run7'), 'design',
+    'a definition that travelled inside the file has no catalog here, so the design group is where it is');
+assert.equal(currentGroupOf(design, 'gone:Nb2O5'), 'all',
+    'an id that resolves nowhere has no row in any group, so the full list is what opens');
+
+const designRow  = { id: 'builtin:BK7', matId: 'BK7', catalogId: 'builtin', group: 'design' };
+const catalogRow = { id: 'builtin:BK7', matId: 'BK7', catalogId: 'builtin', group: 'builtin' };
+const args = { value: 'builtin:BK7', resolvedId: 'builtin:BK7', inCatalog: true };
+assert.ok(rowIsCurrent(catalogRow, args), 'the catalog row carries the selection');
+assert.ok(!rowIsCurrent(designRow, args),
+    'the design group does not also claim it, so the list marks one row');
+
+const embeddedRow = { id: 'lab:Ta2O5_run7', matId: 'Ta2O5_run7', catalogId: 'lab', group: 'design' };
+assert.ok(rowIsCurrent(embeddedRow, { value: 'lab:Ta2O5_run7', resolvedId: 'lab:Ta2O5_run7', inCatalog: false }),
+    'a material no catalog holds is marked in the design group');
+
+// ── The overlay's own layout ──────────────────────────────────────────────────
+
+const c = makeTheme();
+const overlay = overlayEl({
+    dropRef: { current: null }, listRef: { current: null }, activeRef: { current: null },
+    searchRef: { current: null }, dropPos: { top: 0, left: 0, width: 300, maxH: 320 },
+    c, query: '', setQuery: () => {}, searchPlaceholder: 'Search',
+    groups: [{ id: 'g1', label: 'One' }, { id: 'g2', label: 'Two' }],
+    catFilter: 'all', allLabel: 'All', setCatFilter: () => {},
+    sections: true, emptyText: 'nothing',
+    activeOf: item => item.id === 'b', select: () => {},
+    search: () => [{ id: 'a', label: 'A', group: 'g1' }, { id: 'b', label: 'B', group: 'g1' }],
+});
+
+const listEl = overlay.props.children[2];
+assert.equal(listEl.props.style.position, 'relative',
+    'the list is the offset parent of its rows: scrollToActive reads row.offsetTop, '
+    + 'which measured from the fixed overlay instead is high by the search box and tab strip');
+
+const header = listEl.props.children.find(el => el.key === 'hdr-g1');
+assert.equal(header.props.style.backgroundColor, c.panel,
+    'the section header is opaque, so rows scrolling under it do not show through');
+
+const tabs = overlay.props.children[1];
+assert.equal(tabs.type, PickerTabs, 'the filter tabs sit between the search box and the list');
+assert.equal(tabs.props.catFilter, 'all');
 
 console.log('PASS: picker_dropdown');

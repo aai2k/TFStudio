@@ -77,15 +77,29 @@ function catalogRows(query, groupId) {
 /**
  * Whether a row carries the current value.
  *
- * A material the design already uses is marked in the design group only, so the
- * list highlights one row rather than the same material twice.
+ * A material the design already uses is listed twice, in the design group and in
+ * the catalog it came from. The catalog row takes the mark, so the picker opens
+ * on where the material actually comes from; the design group keeps it only for a
+ * definition that travelled inside the file and has no catalog on this machine.
  */
-function rowIsCurrent(item, { value, resolvedId, designIds }) {
+export function rowIsCurrent(item, { value, resolvedId, inCatalog }) {
     const matches = resolvedId === item.id
         || (resolvedId === `builtin:${item.matId}` && item.catalogId === 'builtin')
         || (value === item.matId && item.catalogId === 'builtin');
     if (!matches) return false;
-    return item.group === DESIGN_CATALOG_ID || !designIds.has(resolvedId);
+    return item.group !== DESIGN_CATALOG_ID || !inCatalog;
+}
+
+/**
+ * The catalog tab the picker opens on: the one holding the current material, or
+ * the design group when only the design carries its definition. `all` when the id
+ * resolves nowhere, which leaves the list showing everything there is to pick.
+ */
+export function currentGroupOf(design, resolvedId) {
+    if (getMaterialById(resolvedId)) {
+        return resolvedId.includes(':') ? resolvedId.slice(0, resolvedId.indexOf(':')) : 'builtin';
+    }
+    return resolveDesignMaterial(design, resolvedId).status === 'embedded' ? DESIGN_CATALOG_ID : 'all';
 }
 
 /**
@@ -107,6 +121,7 @@ export function MaterialPicker({ value, onChange, c, t, compact, catalogsOnly })
 
     const resolvedId = value || 'builtin:Air';
     const { dotColor, label } = triggerAppearance(design, resolvedId);
+    const inCatalog = getMaterialById(resolvedId) != null;
     const designIds = new Set(designMaterialIds(design));
     // Catalog filter tabs, resolved fresh so newly-scanned catalogs appear.
     const groups = [
@@ -124,7 +139,8 @@ export function MaterialPicker({ value, onChange, c, t, compact, catalogsOnly })
         value: resolvedId, onChange, c, compact,
         triggerLabel: label, triggerColor: dotColor,
         groups, search, sections: true,
-        isActive: item => rowIsCurrent(item, { value, resolvedId, designIds }),
+        openGroup: currentGroupOf(design, resolvedId),
+        isActive: item => rowIsCurrent(item, { value, resolvedId, inCatalog }),
         searchPlaceholder: mp.searchPlaceholder,
         allLabel: mp.allCatalogs,
         emptyText: 'No materials found',
