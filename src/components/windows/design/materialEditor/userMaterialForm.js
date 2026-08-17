@@ -11,15 +11,34 @@ import { ndColor } from '../../../../utils/materials/catalogManager.js';
 import { reactPlot } from '../../../ui/plotSurface.js';
 import { FORMULA_LATEX } from '../../../../utils/materials/dispersionFormulas.js';
 import { NKDataGrid } from './nkDataGrid.js';
-import { buildNKFromDraft, PRESET_COLORS, nextPresetColor } from './materialDraft.js';
+import {
+    buildNKFromDraft, PRESET_COLORS, nextPresetColor,
+    fitModelsForRows, effectiveFitModel,
+} from './materialDraft.js';
+import { parseNumber, parseNumberStrict } from '../../../../utils/misc/numberParsing.js';
 import { KaTeXSpan, dotStyle, catTabStyle, smallBtn } from './materialEditorUI.js';
 import {
     dispersionFitModelName,
+    dispersionFitParameters,
     evaluateDispersionFit,
     fitTabulatedMaterial,
 } from '../../../../utils/materials/dispersionFits.js';
 
 const { createElement: h, useRef, useEffect, useState } = React;
+
+// A pasted cell as the grid stores it: the number it holds, with a comma decimal
+// separator resolved, or the fallback when the cell is not a number at all.
+function numberText(value, fallback = '') {
+    const parsed = parseNumberStrict(value);
+    return Number.isFinite(parsed) ? String(parsed) : fallback;
+}
+
+const FIT_MODEL_LABELS = {
+    cauchy: 'Cauchy',
+    sellmeier: 'Sellmeier',
+    drude: 'Drude',
+    'drude-lorentz': 'Drude-Lorentz',
+};
 
 // ── Live preview chart ────────────────────────────────────────────────────────
 
@@ -30,8 +49,8 @@ function drawDraftChart(chartEl, draft, c, me) {
     const getNK = buildNKFromDraft(draft);
     if (!getNK) { window.Plotly.purge(chartEl); return; }
 
-    const lMin = Math.max(1, parseFloat(draft.lambdaMinNm) || 300);
-    const lMax = Math.max(lMin + 1, parseFloat(draft.lambdaMaxNm) || 2500);
+    const lMin = Math.max(1, parseNumber(draft.lambdaMinNm) || 300);
+    const lMax = Math.max(lMin + 1, parseNumber(draft.lambdaMaxNm) || 2500);
     const step = Math.max(1e-3, (lMax - lMin) / 250);
     const lams = [], ns = [], ks = [];
     for (let l = lMin; l <= lMax; l += step) {
@@ -66,7 +85,7 @@ function drawFitResidualChart(chartEl, draft, c) {
         return;
     }
     const rows = draft.rows
-        .map(row => [Number(row.lam), Number(row.n), Number(row.k) || 0])
+        .map(row => [parseNumberStrict(row.lam), parseNumberStrict(row.n), parseNumber(row.k)])
         .filter(row => row.every(Number.isFinite)
             && row[0] >= fit.rangeNm[0] && row[0] <= fit.rangeNm[1]);
     const wavelength = rows.map(row => row[0]);
@@ -229,8 +248,32 @@ function renderTabularEditor({ draft, editRow, delRow, addRow, pasteRows, sortRo
     );
 }
 
+// The coefficients the material is computed from, with the formula they sit in.
+function renderFitCoefficients(fit, c) {
+    const { formula, parameters } = dispersionFitParameters(fit);
+    if (parameters.length === 0) return null;
+    return h('div', { style: { display: 'flex', flexDirection: 'column', gap: 4 } },
+        h('div', { style: { color: c.textDim, fontSize: 10 } }, formula),
+        h('div', {
+            style: {
+                display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(150px, 1fr))',
+                gap: '2px 12px', fontSize: 11, fontFamily: 'ui-monospace, Consolas, monospace',
+            },
+        },
+            parameters.map(parameter => h('div', {
+                key: parameter.label,
+                style: { display: 'flex', justifyContent: 'space-between', gap: 6 },
+            },
+                h('span', { style: { color: c.textDim } }, parameter.label),
+                h('span', { style: { color: c.text } }, parameter.value.toPrecision(7)),
+            )),
+        ),
+    );
+}
+
 function renderFitPanel({ draft, set, runFit, fitError, me, c, sectionLabel, inputStyle }) {
     const fit = draft.dispersionFit;
+    const models = fitModelsForRows(draft.rows);
     return h('div', null,
         sectionLabel(me.dispersionFit || 'Smooth dispersion fit'),
         h('div', {
@@ -241,14 +284,11 @@ function renderFitPanel({ draft, set, runFit, fitError, me, c, sectionLabel, inp
         },
             h('div', { style: { display: 'flex', alignItems: 'center', gap: 6 } },
                 h('select', {
-                    value: draft.fitModel || 'cauchy',
+                    value: effectiveFitModel(draft),
                     onChange: event => set('fitModel', event.target.value),
                     style: { ...inputStyle, padding: '3px 6px' },
                 },
-                    h('option', { value: 'cauchy' }, 'Cauchy'),
-                    h('option', { value: 'sellmeier' }, 'Sellmeier'),
-                    h('option', { value: 'drude' }, 'Drude'),
-                    h('option', { value: 'drude-lorentz' }, 'Drude-Lorentz'),
+                    models.map(id => h('option', { key: id, value: id }, FIT_MODEL_LABELS[id])),
                 ),
                 h('button', { type: 'button', onClick: runFit, style: smallBtn(c) },
                     fit ? (me.refit || 'Refit') : (me.fit || 'Fit')),
@@ -263,9 +303,12 @@ function renderFitPanel({ draft, set, runFit, fitError, me, c, sectionLabel, inp
             fit && h('div', { style: { fontSize: 11, color: c.text } },
                 dispersionFitModelName(fit).replace(/^Fit: /, ''),
                 h('br'),
-                `n residual: RMS ${fit.residuals.n.rms.toExponential(3)}, max ${fit.residuals.n.max.toExponential(3)}; `,
-                `k residual: RMS ${fit.residuals.k.rms.toExponential(3)}, max ${fit.residuals.k.max.toExponential(3)}`,
+                `n residual: RMS ${fit.residuals.n.rms.toExponential(3)}, max ${fit.residuals.n.max.toExponential(3)}`,
+                // A table with no absorption in it has no k residual to report.
+                fit.k?.kind !== 'zero'
+                    && `; k residual: RMS ${fit.residuals.k.rms.toExponential(3)}, max ${fit.residuals.k.max.toExponential(3)}`,
             ),
+            fit && renderFitCoefficients(fit, c),
             fitError && h('div', { style: { color: '#ef5350', fontSize: 11 } }, fitError),
         ),
     );
@@ -398,27 +441,27 @@ export function UserMaterialForm({ draft, onChange, onSave, onRevert, onDelete, 
 
     // Row helpers — tabular data
     const addRow = () => {
-        const lastLam = draft.rows.length > 0 ? parseFloat(draft.rows[draft.rows.length - 1].lam) + 50 : 400;
+        const lastLam = draft.rows.length > 0 ? parseNumberStrict(draft.rows[draft.rows.length - 1].lam) + 50 : 400;
         onChange({ ...draft, dispersionFit: null, rows: [...draft.rows, { _key: nextKey(), lam: String(isFinite(lastLam) ? lastLam : 400), n: '1.5', k: '0' }] });
     };
     const delRow = (key) => onChange({ ...draft, dispersionFit: null, rows: draft.rows.filter(r => r._key !== key) });
     const editRow = (key, field, value) => onChange({ ...draft, dispersionFit: null, rows: draft.rows.map(r => r._key === key ? { ...r, [field]: value } : r) });
     const sortRows = () => {
-        const sorted = draft.rows.slice().sort((a, b) => (parseFloat(a.lam) || 0) - (parseFloat(b.lam) || 0));
+        const sorted = draft.rows.slice().sort((a, b) => parseNumber(a.lam) - parseNumber(b.lam));
         onChange({ ...draft, dispersionFit: null, rows: sorted });
     };
     const pasteRows = (parsed) => {
-        const newRows = parsed.map(p => ({ _key: nextKey(), lam: String(parseFloat(p.lam) || ''), n: String(parseFloat(p.n) || ''), k: String(parseFloat(p.k) || 0) })).filter(r => r.lam !== '' && r.n !== '');
+        const newRows = parsed.map(p => ({ _key: nextKey(), lam: numberText(p.lam), n: numberText(p.n), k: numberText(p.k, '0') })).filter(r => r.lam !== '' && r.n !== '');
         if (newRows.length > 0) onChange({ ...draft, dispersionFit: null, rows: [...draft.rows, ...newRows] });
     };
     const runFit = () => {
         try {
             const rows = draft.rows
-                .map(row => [Number(row.lam), Number(row.n), Number(row.k) || 0])
+                .map(row => [parseNumberStrict(row.lam), parseNumberStrict(row.n), parseNumber(row.k)])
                 .filter(row => row.every(Number.isFinite));
             const dispersionFit = fitTabulatedMaterial(rows, {
-                nModel: draft.fitModel,
-                rangeNm: [Number(draft.lambdaMinNm), Number(draft.lambdaMaxNm)],
+                nModel: effectiveFitModel(draft),
+                rangeNm: [parseNumber(draft.lambdaMinNm), parseNumber(draft.lambdaMaxNm)],
             });
             setFitError('');
             onChange({ ...draft, dispersionFit });
@@ -429,13 +472,13 @@ export function UserMaterialForm({ draft, onChange, onSave, onRevert, onDelete, 
 
     // Row helpers — k table (formula mode)
     const addKRow = () => {
-        const lastLam = draft.kRows.length > 0 ? parseFloat(draft.kRows[draft.kRows.length - 1].lam) + 100 : 400;
+        const lastLam = draft.kRows.length > 0 ? parseNumberStrict(draft.kRows[draft.kRows.length - 1].lam) + 100 : 400;
         onChange({ ...draft, kRows: [...draft.kRows, { _key: nextKey(), lam: String(isFinite(lastLam) ? lastLam : 400), k: '0' }] });
     };
     const delKRow = (key) => onChange({ ...draft, kRows: draft.kRows.filter(r => r._key !== key) });
     const editKRow = (key, field, value) => onChange({ ...draft, kRows: draft.kRows.map(r => r._key === key ? { ...r, [field]: value } : r) });
     const pasteKRows = (parsed) => {
-        const newRows = parsed.map(p => ({ _key: nextKey(), lam: String(parseFloat(p.lam) || ''), k: String(parseFloat(p.k) || 0) })).filter(r => r.lam !== '');
+        const newRows = parsed.map(p => ({ _key: nextKey(), lam: numberText(p.lam), k: numberText(p.k, '0') })).filter(r => r.lam !== '');
         if (newRows.length > 0) onChange({ ...draft, kRows: [...draft.kRows, ...newRows] });
     };
 

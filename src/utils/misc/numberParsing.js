@@ -69,6 +69,24 @@ export const parseNumber = (value) => {
 };
 
 /**
+ * The same separators as parseNumber, but a value that is not a number reads as
+ * NaN instead of 0.
+ *
+ * Use this wherever an empty or half-typed cell has to be skipped rather than
+ * taken as a real zero: a blank n in a data grid is a row still being entered,
+ * not a material with an index of nothing.
+ *
+ * @param {string|number} value
+ * @returns {number} the value, or NaN
+ */
+export const parseNumberStrict = (value) => {
+    if (typeof value === 'number') return value;
+    if (typeof value !== 'string') return Number(value);
+    const text = _normalizeSeparators(value.trim()).replace(/E/g, 'e');
+    return /^[-+]?(\d+\.?\d*|\.\d+)(e[-+]?\d+)?$/.test(text) ? Number(text) : NaN;
+};
+
+/**
  * Validate if a string is a valid number input
  * Returns true if the input can be parsed as a valid number
  * Allows partial inputs during typing (e.g., "-", "1.", "1.2e-")

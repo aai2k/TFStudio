@@ -13,8 +13,29 @@
  */
 
 import { TABULATED_INTERPOLATION } from '../../../../utils/materials/pchip.js';
+import { parseNumber, parseNumberStrict } from '../../../../utils/misc/numberParsing.js';
 
 export { buildNKFromDraft } from './nkSamplers.js';
+
+/**
+ * Fit models worth offering for a table.
+ *
+ * The metal models describe free carriers and interband absorption. A table with
+ * no absorption in it gives them nothing to fit, and a Lorentz oscillator asked
+ * to explain k = 0 only finds a resonance between two samples.
+ */
+export function fitModelsForRows(rows) {
+    const absorbing = (rows || []).some(row => parseNumberStrict(row.k) > 0);
+    return absorbing
+        ? ['cauchy', 'sellmeier', 'drude', 'drude-lorentz']
+        : ['cauchy', 'sellmeier'];
+}
+
+/** The chosen fit model, or the first one still on offer for this table. */
+export function effectiveFitModel(draft) {
+    const models = fitModelsForRows(draft.rows);
+    return models.includes(draft.fitModel) ? draft.fitModel : models[0];
+}
 
 // ── Preset dot colors for user materials ──────────────────────────────────────
 
@@ -142,12 +163,12 @@ export function materialToDraft(catalogId, mat) {
 
 export function draftToMaterial(draft) {
     const id = draft.id.trim() || 'material';
-    const lambdaMin = Math.max(0.1, (parseFloat(draft.lambdaMinNm) || 300) / 1000);
-    const lambdaMax = Math.max(lambdaMin + 0.1, (parseFloat(draft.lambdaMaxNm) || 2500) / 1000);
+    const lambdaMin = Math.max(0.1, (parseNumber(draft.lambdaMinNm) || 300) / 1000);
+    const lambdaMax = Math.max(lambdaMin + 0.1, (parseNumber(draft.lambdaMaxNm) || 2500) / 1000);
 
     if (draft.type === 'tabular') {
         const tabData = draft.rows
-            .map(r => [parseFloat(r.lam), parseFloat(r.n), parseFloat(r.k) || 0])
+            .map(r => [parseNumberStrict(r.lam), parseNumberStrict(r.n), parseNumber(r.k)])
             .filter(r => isFinite(r[0]) && isFinite(r[1]) && r[0] > 0)
             .sort((a, b) => a[0] - b[0]);
         const lMin = tabData.length > 0 ? tabData[0][0] / 1000 : lambdaMin;
@@ -164,9 +185,9 @@ export function draftToMaterial(draft) {
             ...(draft.sourceUrl ? { sourceUrl: draft.sourceUrl } : {}),
         };
     }
-    const coefficients = draft.coeffs.map(v => parseFloat(v) || 0);
+    const coefficients = draft.coeffs.map(parseNumber);
     const kTable = draft.kRows
-        .map(r => ({ lam_um: (parseFloat(r.lam) || 0) / 1000, k: parseFloat(r.k) || 0 }))
+        .map(r => ({ lam_um: parseNumber(r.lam) / 1000, k: parseNumber(r.k) }))
         .filter(r => r.lam_um > 0)
         .sort((a, b) => a.lam_um - b.lam_um);
     return {

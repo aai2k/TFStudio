@@ -655,6 +655,65 @@ export function fitTabulatedMaterial(rows, options = {}) {
     return fit;
 }
 
+/**
+ * The fitted parameters, labelled, with the formula they belong to.
+ *
+ * A fit is stored as coefficients, so those coefficients are what the material
+ * is computed from and what a user has to be able to read. Wavelength is in
+ * micrometres throughout; the metal model is written in electronvolts.
+ *
+ * @returns {{ formula: string, parameters: Array<{ label: string, value: number }> }}
+ */
+export function dispersionFitParameters(fit) {
+    if (!fit) return { formula: '', parameters: [] };
+    if (fit.complex) {
+        const model = fit.complex;
+        const parameters = [
+            { label: 'ε∞', value: model.epsilonInfinity },
+            { label: 'ωp (eV)', value: model.plasmaEnergyEv },
+            { label: 'γD (eV)', value: model.drudeDampingEv },
+        ];
+        model.oscillators.forEach((oscillator, index) => {
+            parameters.push(
+                { label: `f${index + 1} (eV²)`, value: oscillator.strengthEv2 },
+                { label: `ω${index + 1} (eV)`, value: oscillator.resonanceEv },
+                { label: `γ${index + 1} (eV)`, value: oscillator.dampingEv },
+            );
+        });
+        return {
+            formula: 'ε(E) = ε∞ − ωp² / (E² + iγD E) + Σ fj / (ωj² − E² − iγj E),  n + ik = √ε',
+            parameters,
+        };
+    }
+    const parameters = [];
+    if (fit.n.kind === 'cauchy') {
+        fit.n.coefficients.forEach((value, order) => {
+            parameters.push({ label: order === 0 ? 'A0' : `A${order} (µm^${2 * order})`, value });
+        });
+    } else if (fit.n.kind === 'sellmeier') {
+        parameters.push({ label: 'A', value: fit.n.coefficients[0] });
+        for (let term = 0; term < fit.n.terms; term++) {
+            parameters.push(
+                { label: `B${term + 1}`, value: fit.n.coefficients[1 + 2 * term] },
+                { label: `C${term + 1} (µm²)`, value: fit.n.coefficients[2 + 2 * term] },
+            );
+        }
+    }
+    if (fit.k.kind === 'urbach') {
+        const [amplitude, inverseTerm, linearTerm] = fit.k.coefficients;
+        parameters.push(
+            { label: 'k0', value: amplitude },
+            { label: 'kb (µm)', value: inverseTerm },
+            { label: 'kc (1/µm)', value: linearTerm },
+        );
+    }
+    const nFormula = fit.n.kind === 'cauchy'
+        ? 'n(λ) = A0 + A1/λ² + A2/λ⁴ + …'
+        : 'n²(λ) = A + Σ Bj λ² / (λ² − Cj)';
+    const kFormula = fit.k.kind === 'urbach' ? ',  k(λ) = k0 exp(kb/λ + kc λ)' : ',  k = 0';
+    return { formula: `${nFormula}${kFormula},  λ in µm`, parameters };
+}
+
 export function dispersionFitModelName(fit) {
     if (!fit) return 'Unavailable';
     if (fit.complex) {

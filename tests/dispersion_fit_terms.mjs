@@ -13,6 +13,7 @@ import {
     fitTabulatedMaterial,
     evaluateDispersionFit,
     evaluateComplexDispersionModel,
+    dispersionFitParameters,
 } from '../src/utils/materials/dispersionFits.js';
 
 const oxide = [
@@ -85,5 +86,23 @@ assert.ok(metalFit.residuals.n.rms < 1e-6, 'a genuine Drude-Lorentz material is 
 assert.ok(metalFit.residuals.k.rms < 1e-6, 'in k as well as n');
 assert.ok(metalFit.complex.oscillators.length >= 1,
     'and the oscillators the data supports are kept');
+
+// ── The coefficients are readable, since they are what gets computed ──────────
+
+const shown = dispersionFitParameters(cauchy);
+assert.equal(shown.parameters.length, cauchy.n.coefficients.length,
+    'every Cauchy coefficient is listed');
+assert.equal(shown.parameters[0].label, 'A0');
+assert.match(shown.parameters[1].label, /µm/, 'and carries the units it is in');
+assert.match(shown.formula, /λ in µm/, 'with the formula the coefficients sit in');
+
+const sellmeierShown = dispersionFitParameters(sellmeier);
+assert.equal(sellmeierShown.parameters.length, 1 + 2 * sellmeier.n.terms,
+    'a Sellmeier fit lists its strength and pole per term');
+
+const metalShown = dispersionFitParameters(metalFit);
+assert.equal(metalShown.parameters.length, 3 + 3 * metalFit.complex.oscillators.length,
+    'a metal fit lists the Drude term and three numbers per oscillator');
+assert.ok(metalShown.parameters.every(parameter => Number.isFinite(parameter.value)));
 
 console.log('PASS: dispersion_fit_terms');

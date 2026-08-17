@@ -12,12 +12,13 @@ import {
     createTabulatedNKSampler,
 } from '../../../../utils/materials/pchip.js';
 import { evaluateDispersionFit } from '../../../../utils/materials/dispersionFits.js';
+import { parseNumber, parseNumberStrict } from '../../../../utils/misc/numberParsing.js';
 
 // PCHIP interpolator over a [λ, n, k] table (λ in nm). Clamps to the
 // endpoints outside the range. Returns null when there is no usable data.
 function makeTabularSampler(rows) {
     const data = rows
-        .map(r => [parseFloat(r.lam), parseFloat(r.n), parseFloat(r.k) || 0])
+        .map(r => [parseNumberStrict(r.lam), parseNumberStrict(r.n), parseNumber(r.k)])
         .filter(r => isFinite(r[0]) && isFinite(r[1]) && r[0] > 0)
         .sort((a, b) => a[0] - b[0]);
     return createTabulatedNKSampler(data);
@@ -31,9 +32,9 @@ function makeKInterpolator(kTable) {
 // Formula-mode sampler: dispersion formula for n + optional λ/k table for k.
 // Returns null when the formula does not evaluate to a usable index at 0.55 µm.
 function makeFormulaSampler(draft) {
-    const coefficients = draft.coeffs.map(v => parseFloat(v) || 0);
+    const coefficients = draft.coeffs.map(parseNumber);
     const kTable = draft.kRows
-        .map(r => ({ lam_um: (parseFloat(r.lam) || 0) / 1000, k: parseFloat(r.k) || 0 }))
+        .map(r => ({ lam_um: parseNumber(r.lam) / 1000, k: parseNumber(r.k) }))
         .filter(r => r.lam_um > 0)
         .sort((a, b) => a.lam_um - b.lam_um);
     const interpK = makeKInterpolator(kTable);
