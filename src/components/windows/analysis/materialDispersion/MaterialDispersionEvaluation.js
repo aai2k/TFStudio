@@ -11,12 +11,10 @@ import { materialPropagationDispersion } from '../../../../utils/materials/mater
 import { resolveDesignMaterial } from '../../../../utils/materials/designMaterials.js';
 import { useAnalysisColors } from '../../../../state/AnalysisSettingsContext.js';
 import { useDesign } from '../../../../state/DesignContext.js';
-import {
-    readMaterialDispersionSession,
-    writeMaterialDispersionSession,
-} from './sessionState.js';
+import { materialDispersionSession } from './sessionState.js';
+import { useWindowSession } from '../../windowSession.js';
 
-const { createElement: h, useMemo, useState } = React;
+const { createElement: h, useMemo } = React;
 
 const QUANTITIES = {
     phase: { key: 'phaseDeg', label: 'Phase (deg)', unit: '°', digits: 2, order: 0 },
@@ -185,19 +183,15 @@ function tableModel(spectrum) {
 
 export function MaterialDispersionEvaluation({ c, t }) {
     const footerText = t.gdgdd || {};
-    const [session, setSession] = useState(readMaterialDispersionSession);
-    const setField = (key, value) => setSession(current =>
-        writeMaterialDispersionSession({
-            [key]: typeof value === 'function' ? value(current[key]) : value,
-        }));
-    const {
-        materialId, thicknessMm, thicknessUnit, quantity, start, end, showTable,
-    } = session;
-    const curve = useAnalysisColors('materialDispersion');
     // The picker offers the open design's own materials, including definitions
     // that travelled inside a .tfs and exist in no local catalog, so the id is
     // resolved against the design before the registry.
     const { design } = useDesign();
+    const [session, setField] = useWindowSession(materialDispersionSession, design);
+    const {
+        materialId, thicknessMm, thicknessUnit, quantity, start, end, showTable,
+    } = session;
+    const curve = useAnalysisColors('materialDispersion');
     const resolved = resolveDesignMaterial(design, materialId);
     const material = resolved.status === 'missing'
         ? getMaterialById(materialId)

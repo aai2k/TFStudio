@@ -5,7 +5,7 @@
 
 import { PRESERVE_BULK_GENTLE_ITER } from '../../../../../utils/synthesis/synthesisConfig.js';
 import { minOmfOf } from '../../synthesisShared/synthesisHelpers.js';
-import { setCached } from '../geCache.js';
+import { setCached } from '../sessionState.js';
 
 // Per-step inner-refine cap when seed mode = 'preserve-bulk' (see synthesisConfig).
 export const gentleIter = (ctx) => Math.min(ctx.dlsIterRef.current, PRESERVE_BULK_GENTLE_ITER);

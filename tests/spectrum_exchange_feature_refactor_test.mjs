@@ -15,7 +15,7 @@ await loadApp();
 const [{ SpectrumExchange }, model, session, actionHooks] = await Promise.all([
     import('../src/components/windows/dataExchange/spectrumExchange/SpectrumExchange.js'),
     import('../src/components/windows/dataExchange/spectrumExchange/model.js'),
-    import('../src/components/windows/dataExchange/spectrumExchange/session.js'),
+    import('../src/components/windows/windowSession.js'),
     import('../src/components/windows/dataExchange/spectrumExchange/importActions.js'),
 ]);
 
@@ -28,10 +28,15 @@ assert.equal(
     '8380b0a9905f8f94bf815995ce433d3a6e542b8736f8dc80f40caeaf0cf8aaf4',
 );
 
+// The window is unmounted whenever its tab is not the active one, so the tab
+// selection has to come back from the store rather than from React state.
+const { spectrumExchangeSession } = await import(
+    '../src/components/windows/dataExchange/spectrumExchange/sessionState.js');
+
 function SessionProbe({ nextValue }) {
-    const [value, setValue] = session.useSession('tab');
-    if (nextValue && value !== nextValue) setValue(nextValue);
-    return React.createElement('span', null, value);
+    const [state, setField] = session.useWindowSession(spectrumExchangeSession, null);
+    if (nextValue && state.tab !== nextValue) setField('tab', nextValue);
+    return React.createElement('span', null, state.tab);
 }
 
 assert.equal(renderToStaticMarkup(React.createElement(SessionProbe, { nextValue: 'export' })), '<span>export</span>');

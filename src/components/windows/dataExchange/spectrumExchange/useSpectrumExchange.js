@@ -1,26 +1,28 @@
 import { useDesign } from '../../../../state/DesignContext.js';
 import { useUnresolvedMaterials } from '../../../../utils/materials/useUnresolvedMaterials.js';
-import { X_UNITS } from '../../../../utils/io/spectrumTable.js';
 import { useDesignExport, useMeasuredExport } from './exportActions.js';
 import { useImportActions } from './importActions.js';
-import { useSession } from './session.js';
+import { spectrumExchangeSession } from './sessionState.js';
+import { useWindowSession } from '../../windowSession.js';
 
 const { useState } = React;
 
 export function useSpectrumExchange(sx) {
     const { design, updateDesign, checkpoint, evalParams, evalMode } = useDesign();
     const missingMaterialIds = useUnresolvedMaterials(design);
-    const [tab, setTab] = useSession('tab');
-    const [expSource, setExpSource] = useSession('expSource');
-    const [expFormat, setExpFormat] = useSession('expFormat');
-    const [parsed, setParsed] = useSession('parsed');
-    const [fileName, setFileName] = useSession('fileName');
-    const [colIdx, setColIdx] = useSession('colIdx');
-    const [name, setName] = useSession('name');
+    const [session, setField] = useWindowSession(spectrumExchangeSession, design);
+    const { tab, expSource, expFormat, parsed, fileName, colIdx, name, xUnit, ov } = session;
+    const setTab = value => setField('tab', value);
+    const setExpSource = value => setField('expSource', value);
+    const setExpFormat = value => setField('expFormat', value);
+    const setParsed = value => setField('parsed', value);
+    const setFileName = value => setField('fileName', value);
+    const setColIdx = value => setField('colIdx', value);
+    const setName = value => setField('name', value);
+    const setXUnit = value => setField('xUnit', value);
+    const setOv = value => setField('ov', value);
     const [loading, setLoading] = useState(false);
     const [status, setStatus] = useState(null);
-    const [xUnit, setXUnit] = useState(X_UNITS.NM);
-    const [ov, setOv] = useState({});
     const flash = (type, msg) => setStatus({ type, msg });
     const curves = design.measuredCurves || [];
     const col = parsed?.columns?.[colIdx] || null;

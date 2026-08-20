@@ -3,8 +3,10 @@ import { useLiveDesign } from '../../../../state/useLiveDesign.js';
 import { useAnalysisDefaults, useAnalysisSettings } from '../../../../state/AnalysisSettingsContext.js';
 import { computeOpticalSpectrum } from './spectrum.js';
 import { buildCSV, createTargetOperands, editTargetOperands, deleteTargetOperand } from './model.js';
+import { opticalEvaluationSession, opticalTargetSession } from './sessionState.js';
+import { useWindowSession } from '../../windowSession.js';
 
-const { useState, useEffect, useCallback, useMemo, useRef } = React;
+const { useState, useEffect, useCallback, useMemo } = React;
 
 // The spectrum is computed from the sampled design, so a run redraws this
 // window at the shared preview cadence rather than once per progress message.
@@ -21,14 +23,8 @@ function useSpectrumEvaluation({ params, evalMode }) {
 }
 
 function useTargetEditor({ design, updateDesign }) {
-    const [editMode, setEditMode] = useState(false);
-    const [editTool, setEditTool] = useState('draw');
-    const [editCurve, setEditCurve] = useState('R');
-    const [editPol, setEditPol] = useState('avg');
-    const [editKind, setEditKind] = useState('average');
-    const [snapOn, setSnapOn] = useState(true);
-    const [snapNm, setSnapNm] = useState(10);
-    const [snapPct, setSnapPct] = useState(5);
+    const [session, setField] = useWindowSession(opticalTargetSession, design);
+    const { editMode, editTool, editCurve, editPol, editKind, snapOn, snapNm, snapPct } = session;
     const onCreateTarget = useCallback(line => {
         updateDesign({
             meritOperands: createTargetOperands({
@@ -48,43 +44,47 @@ function useTargetEditor({ design, updateDesign }) {
         updateDesign({ meritOperands: deleteTargetOperand(design.meritOperands || [], opId) });
     }, [design, updateDesign]);
     return {
-        editMode, setEditMode, editTool, setEditTool,
-        editCurve, setEditCurve, editPol, setEditPol, editKind, setEditKind,
-        snapOn, setSnapOn, snapNm, setSnapNm, snapPct, setSnapPct,
+        editMode, setEditMode: value => setField('editMode', value),
+        editTool, setEditTool: value => setField('editTool', value),
+        editCurve, setEditCurve: value => setField('editCurve', value),
+        editPol, setEditPol: value => setField('editPol', value),
+        editKind, setEditKind: value => setField('editKind', value),
+        snapOn, setSnapOn: value => setField('snapOn', value),
+        snapNm, setSnapNm: value => setField('snapNm', value),
+        snapPct, setSnapPct: value => setField('snapPct', value),
         onCreateTarget, onEditTarget, onDeleteTarget,
     };
 }
 
-function useDisplayOptions(params, setParams) {
+function useDisplayOptions(params, setParams, design) {
     const displayDefaults = useAnalysisDefaults('opticalEvaluation');
     const sharedDefaults = useAnalysisDefaults('shared');
     const analysisSettings = useAnalysisSettings();
     const defaultsReady = analysisSettings?.ready !== false;
-    const defaultsApplied = useRef(defaultsReady);
-    const [showCurves, setShowCurves] = useState({
-        T: true, R: true, A: false, Ts: false, Rs: false, Tp: false, Rp: false
-    });
-    const [showTable, setShowTable] = useState(false);
-    const [showTargets, setShowTargets] = useState(true);
-    // Display defaults are sampled when the window mounts. Changes made in
-    // Settings therefore affect the next window opening without overwriting
-    // adjustments the user makes inside an already-open evaluation window.
-    const [yAuto, setYAuto] = useState(() => displayDefaults.booleans.yAuto);
-    const [yMin, setYMin] = useState(() => displayDefaults.numbers.yMin);
-    const [yMax, setYMax] = useState(() => displayDefaults.numbers.yMax);
-    const [spectralUnit, setSpectralUnit] = useState(() => sharedDefaults.enums.spectralUnit);
+    const [session, setField, patch] = useWindowSession(opticalEvaluationSession, design);
+    const { showCurves, showTable, showTargets, defaultsApplied } = session;
+    // Until the configured defaults have been read in, show them rather than the
+    // store's placeholders, so the first render already matches Settings.
+    const yAuto = defaultsApplied ? session.yAuto : displayDefaults.booleans.yAuto;
+    const yMin = defaultsApplied ? session.yMin : displayDefaults.numbers.yMin;
+    const yMax = defaultsApplied ? session.yMax : displayDefaults.numbers.yMax;
+    const spectralUnit = defaultsApplied ? session.spectralUnit : sharedDefaults.enums.spectralUnit;
 
     // A restored layout can mount this window while settings.json is still
-    // loading. In that case apply the persisted defaults once when they arrive;
-    // subsequent Settings edits must not overwrite this open window's controls.
+    // loading, so the persisted defaults are applied once when they arrive. After
+    // that the values belong to the session: a later Settings edit applies to the
+    // next app run rather than overwriting controls set here.
     useEffect(() => {
-        if (!defaultsReady || defaultsApplied.current) return;
-        defaultsApplied.current = true;
-        setYAuto(displayDefaults.booleans.yAuto);
-        setYMin(displayDefaults.numbers.yMin);
-        setYMax(displayDefaults.numbers.yMax);
-        setSpectralUnit(sharedDefaults.enums.spectralUnit);
-    }, [defaultsReady, displayDefaults.booleans.yAuto, displayDefaults.numbers.yMin,
+        if (!defaultsReady || defaultsApplied) return;
+        patch({
+            defaultsApplied: true,
+            yAuto: displayDefaults.booleans.yAuto,
+            yMin: displayDefaults.numbers.yMin,
+            yMax: displayDefaults.numbers.yMax,
+            spectralUnit: sharedDefaults.enums.spectralUnit,
+        });
+    }, [defaultsReady, defaultsApplied, patch,
+        displayDefaults.booleans.yAuto, displayDefaults.numbers.yMin,
         displayDefaults.numbers.yMax, sharedDefaults.enums.spectralUnit]);
 
     const yRange = useMemo(() => ({ auto: yAuto, min: yMin, max: yMax }), [yAuto, yMin, yMax]);
@@ -92,15 +92,18 @@ function useDisplayOptions(params, setParams) {
         () => ({ min: params.lambdaStart, max: params.lambdaEnd }),
         [params.lambdaStart, params.lambdaEnd]
     );
-    const toggleCurve = key => setShowCurves(current => ({ ...current, [key]: !current[key] }));
+    const toggleCurve = key => setField('showCurves', current => ({ ...current, [key]: !current[key] }));
     const setThetas = useCallback(next => {
         setParams(current => ({ ...current, thetas: next }));
     }, []);
     return {
-        showCurves, showTable, setShowTable,
-        showTargets, setShowTargets, yAuto, setYAuto, yMin, setYMin,
-        yMax, setYMax, spectralUnit, setSpectralUnit, yRange, lamRange,
-        toggleCurve, setThetas,
+        showCurves, showTable, setShowTable: value => setField('showTable', value),
+        showTargets, setShowTargets: value => setField('showTargets', value),
+        yAuto, setYAuto: value => setField('yAuto', value),
+        yMin, setYMin: value => setField('yMin', value),
+        yMax, setYMax: value => setField('yMax', value),
+        spectralUnit, setSpectralUnit: value => setField('spectralUnit', value),
+        yRange, lamRange, toggleCurve, setThetas,
     };
 }
 
@@ -141,7 +144,7 @@ function designSummary(design, evalMode, data) {
 export function useOpticalEvaluation() {
     const context = useDesign();
     const { design, updateDesign, evalMode, evalParams: params, setEvalParams: setParams } = context;
-    const display = useDisplayOptions(params, setParams);
+    const display = useDisplayOptions(params, setParams, design);
     const spectrum = useSpectrumEvaluation({ params, evalMode });
     const targets = useTargetEditor({ design, updateDesign });
     const csv = useCsvActions({ data: spectrum.data, showCurves: display.showCurves, design });

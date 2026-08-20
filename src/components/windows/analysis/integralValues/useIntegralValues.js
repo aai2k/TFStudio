@@ -1,12 +1,12 @@
 import { computeIntegralValueBatch } from '../../../../utils/physics/integralValues.js';
 import {
-    INITIAL_BUILDER,
-    INITIAL_PARAMS,
     buildIntegralDefinitions,
     highestCustomCounter,
     makeCustomDefinition,
 } from './integralModel.js';
 import { computeSpectrumForMode } from './spectrum.js';
+import { integralValuesSession } from './sessionState.js';
+import { useWindowSession } from '../../windowSession.js';
 
 const { useState, useMemo, useEffect, useRef } = React;
 
@@ -81,12 +81,14 @@ function computeSpectrum(design, params, evalMode) {
 }
 
 export function useIntegralValues(design, evalMode) {
-    const [params, setParams] = useState(INITIAL_PARAMS);
+    const [session, setField] = useWindowSession(integralValuesSession, design);
+    const { params, builder, selKey } = session;
+    const setParams = value => setField('params', value);
+    const setBuilder = value => setField('builder', value);
+    const setSelKey = value => setField('selKey', value);
     const [customDefs, setCustomDefs] = useState([]);
     const [, setPresetsLoaded] = useState(false);
-    const [builder, setBuilder] = useState(INITIAL_BUILDER);
     const [editor, setEditor] = useState({ open: false, target: null });
-    const [selKey, setSelKey] = useState('Tvis');
     const customCounterRef = useRef(0);
 
     useEffect(

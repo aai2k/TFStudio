@@ -8,6 +8,8 @@ import {
     duplicateOperands, deleteOperands, moveOperand,
 } from './meritOperandModel.js';
 import { useLiveDesign } from '../../../../state/useLiveDesign.js';
+import { meritOperandSession } from './sessionState.js';
+import { useWindowSession } from '../../windowSession.js';
 
 const { useState, useEffect, useCallback } = React;
 const EMPTY_OPERANDS = [];
@@ -59,7 +61,9 @@ function requestClear(ctx) {
 }
 
 export function useMeritOperands({ design, updateDesign, checkpoint, setInputDialog, te }) {
-    const [selectedId, setSelectedId] = useState(null);
+    const [session, setSessionField] = useWindowSession(meritOperandSession, design);
+    const selectedId = session.selectedId;
+    const setSelectedId = value => setSessionField('selectedId', value);
     const [computed, setComputed] = useState([]);
     const [errors, setErrors] = useState([]);
     const [bandLevels, setBandLevels] = useState([]);

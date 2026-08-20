@@ -2,34 +2,31 @@ import { paletteColors } from '../../../../constants/analysisDefaults.js';
 import { useAnalysisColors } from '../../../../state/AnalysisSettingsContext.js';
 import { makeDefaultCurve, computeCurve } from '../../../../utils/physics/plotQuantities.js';
 import { buildEvaluationContext } from './materialContext.js';
+import { plotEngineSession } from './sessionState.js';
+import { useWindowSession } from '../../windowSession.js';
 
-const { useState, useMemo, useEffect, useCallback } = React;
-
-// Per-design state survives docking switches, which unmount and remount the window.
-const plotCache = new Map();
+const { useMemo, useCallback } = React;
 
 function defaultCurves(evalMode, palette) {
     return [makeDefaultCurve({ surfaceMode: evalMode || 'front', palette })];
 }
 
-function cachedCurves(design, evalMode, palette) {
-    const cached = design && plotCache.get(design.id);
-    return cached?.length ? cached.map(x => ({ ...x })) : defaultCurves(evalMode, palette);
-}
-
-function useCachedCurves(design, evalMode, palette) {
-    const [curves, setCurves] = useState(() => cachedCurves(design, evalMode, palette));
-
-    useEffect(() => {
-        if (!design) return;
-        setCurves(cachedCurves(design, evalMode, palette));
-    }, [design?.id]);
-
-    useEffect(() => {
-        if (!design) return;
-        plotCache.set(design.id, curves.map(x => ({ ...x })));
-    }, [curves, design?.id]);
-
+// Reads the curve list from the session store, standing in a default curve while
+// the design has no list of its own yet.
+function useStoredCurves(design, evalMode, palette) {
+    const [session, setField] = useWindowSession(plotEngineSession, design);
+    // Memoised so the substituted default is one stable array rather than a new
+    // one per render, which would recompute every curve on every render.
+    const curves = useMemo(
+        () => (session.curves.length ? session.curves : defaultCurves(evalMode, palette)),
+        [session.curves, evalMode, palette],
+    );
+    const setCurves = useCallback(next => {
+        setField('curves', current => {
+            const base = current.length ? current : defaultCurves(evalMode, palette);
+            return typeof next === 'function' ? next(base) : next;
+        });
+    }, [setField, evalMode, palette]);
     return [curves, setCurves];
 }
 
@@ -51,7 +48,7 @@ function computeCurveResults(curves, ctx) {
 export function useCurvePlot(design, evalMode) {
     const configured = useAnalysisColors('plotEngine');
     const palette = useMemo(() => paletteColors(configured, 'series'), [configured]);
-    const [curves, setCurves] = useCachedCurves(design, evalMode, palette);
+    const [curves, setCurves] = useStoredCurves(design, evalMode, palette);
     const ctx = useMemo(() => buildEvaluationContext(design), [design]);
     const results = useMemo(() => computeCurveResults(curves, ctx), [curves, ctx]);
 

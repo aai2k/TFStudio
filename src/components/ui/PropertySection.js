@@ -1,4 +1,4 @@
-const { createElement: h } = React;
+
 
 const PropertySection = ({ title, children, c }) => (
     React.createElement('div', { style: { marginBottom: '14px' } },

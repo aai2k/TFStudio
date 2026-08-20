@@ -4,8 +4,10 @@ import {
 import { applyPreset } from '../../../../utils/synthesis/qualifierPresets.js';
 import { useTableShortcuts } from '../../../../hooks/useTableShortcuts.js';
 import { designMaterialLookup } from '../../../../utils/materials/designMaterials.js';
+import { specificationSession } from './sessionState.js';
+import { useWindowSession } from '../../windowSession.js';
 
-const { useCallback, useMemo, useRef, useState } = React;
+const { useCallback, useMemo, useRef } = React;
 
 function addQualifierTo(qualifiers, writeQualifiers, setSelectedId, kind) {
     const q = makeQualifier({ kind: kind || 'T_AVG' });
@@ -122,7 +124,9 @@ export function useSpecificationState({ design, updateDesign, checkpoint }) {
     }, [updateDesign]);
 
     // ── Selection (used by Ins/Del/Ctrl+D keyboard shortcuts) ────────────────
-    const [selectedId, setSelectedId] = useState(null);
+    const [session, setSessionField] = useWindowSession(specificationSession, design);
+    const selectedId = session.selectedId;
+    const setSelectedId = value => setSessionField('selectedId', value);
     const containerRef = useRef(null);
     const selectAndFocus = useCallback((id) => {
         setSelectedId(id);

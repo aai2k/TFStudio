@@ -6,7 +6,8 @@
 import { useDesign } from '../../../../state/DesignContext.js';
 import { useUnresolvedMaterials } from '../../../../utils/materials/useUnresolvedMaterials.js';
 import { usePersistentNumber } from '../../../ui/usePersistentState.js';
-import { useSession } from './sessionState.js';
+import { zemaxCoatingsSession } from './sessionState.js';
+import { useWindowSession } from '../../windowSession.js';
 import {
     useCoatingImportAction, useLoadAction, useMaterialImportAction,
 } from './useImportActions.js';
@@ -19,16 +20,18 @@ export function ZemaxCoatings({ c, t }) {
     const z = t.zemaxCoatings;
     const { design, updateDesign, checkpoint } = useDesign();
     const missingMaterialIds = useUnresolvedMaterials(design);
-    const [tab, setTab] = useSession('tab');
-    const [doc, setDoc] = useSession('doc');
-    const [fileName, setFileName] = useSession('fileName');
-    const [filePath, setFilePath] = useSession('filePath');
-    const [selCoating, setSelCoating] = useSession('selCoating');
-    const [selMats, setSelMats] = useSession('selMats');
-    const [thMode, setThMode] = useSession('thMode');
-    const [scope, setScope] = useSession('scope');
-    const [coatName, setCoatName] = useSession('coatName');
-    const [preview, setPreview] = useSession('preview');
+    const [session, setField] = useWindowSession(zemaxCoatingsSession, design);
+    const { tab, doc, fileName, filePath, selCoating, selMats, thMode, scope, coatName, preview } = session;
+    const setTab = value => setField('tab', value);
+    const setDoc = value => setField('doc', value);
+    const setFileName = value => setField('fileName', value);
+    const setFilePath = value => setField('filePath', value);
+    const setSelCoating = value => setField('selCoating', value);
+    const setSelMats = value => setField('selMats', value);
+    const setThMode = value => setField('thMode', value);
+    const setScope = value => setField('scope', value);
+    const setCoatName = value => setField('coatName', value);
+    const setPreview = value => setField('preview', value);
     const [loading, setLoading] = useState(false);
     const [status, setStatus] = useState(null);
     const [refNm, setRefNm] = usePersistentNumber('tfstudio-zemax-refNm', 550);

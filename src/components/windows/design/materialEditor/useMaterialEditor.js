@@ -25,6 +25,8 @@ import {
 } from './materialEditorMaterialActions.js';
 import { sampleReadOnlyChart } from './materialEditorReadOnly.js';
 import { draftFingerprint } from './materialDraft.js';
+import { materialEditorSession } from './sessionState.js';
+import { useWindowSession } from '../../windowSession.js';
 
 const { useState, useEffect, useRef, useCallback, useMemo } = React;
 
@@ -46,15 +48,17 @@ function updateReadOnlySampledTable({ editDraft, chartRef, selectedMat, c, me, s
 
 export function useMaterialEditor({ c, t, setInputDialog }) {
     const [catalogs,         setCatalogs]        = useState([]);
-    const [catFilter,        setCatFilter]        = useState('all');
-    const [query,            setQuery]            = useState('');
-    const [selectedId,       setSelectedId]       = useState(null);
+    const [session, setField] = useWindowSession(materialEditorSession, null);
+    const { catFilter, query, selectedId, editDraft, pristineDraft } = session;
+    const setCatFilter     = value => setField('catFilter', value);
+    const setQuery         = value => setField('query', value);
+    const setSelectedId    = value => setField('selectedId', value);
+    const updateDraft      = value => setField('editDraft', value);
+    const setPristineDraft = value => setField('pristineDraft', value);
     const [importing,        setImporting]        = useState(false);
     const [showRii,          setShowRii]          = useState(false);
     const [notification,     setNotification]     = useState(null);
     const [menuOpen,         setMenuOpen]         = useState(false);
-    const [editDraft,        updateDraft]         = useState(null);
-    const [pristineDraft,    setPristineDraft]    = useState(null);
     const [copyPickerFor,    setCopyPickerFor]    = useState(null);
     const [olImport,         setOlImport]         = useState(null);
 

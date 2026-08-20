@@ -5,7 +5,7 @@
  */
 
 import { sideKeyFor, minOmfOf, computePareto } from '../synthesisShared/synthesisHelpers.js';
-import { getCachedOptState } from './needleCache.js';
+import { getCachedOptState } from './sessionState.js';
 
 // Stop the run loop, clear its timer, and terminate any live worker pool.
 export function teardownRun({ runningRef, timerRef, workerRef }) {

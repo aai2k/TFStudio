@@ -1,6 +1,8 @@
-/** Control state kept for the lifetime of the app session. */
+import { createWindowSession } from '../../windowSession.js';
 
-const DEFAULT_STATE = Object.freeze({
+// Controls here describe a material rather than the coating, so one slot serves
+// every design and nothing is reseeded when the selection changes.
+export const materialDispersionSession = createWindowSession({
     materialId: 'builtin:SiO2',
     thicknessMm: 1,
     thicknessUnit: 'mm',
@@ -9,14 +11,3 @@ const DEFAULT_STATE = Object.freeze({
     end: 1100,
     showTable: false,
 });
-
-let sessionState = { ...DEFAULT_STATE };
-
-export function readMaterialDispersionSession() {
-    return { ...sessionState };
-}
-
-export function writeMaterialDispersionSession(next) {
-    sessionState = { ...sessionState, ...next };
-    return readMaterialDispersionSession();
-}

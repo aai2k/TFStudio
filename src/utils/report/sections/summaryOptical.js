@@ -7,7 +7,7 @@
 
 import { lineChartSVG, escapeHtml } from '../svgChart.js';
 import {
-  pct, num, deg, cull, tt, sectionTitle, errNote, wrap, table,
+  num, deg, cull, tt, sectionTitle, errNote, wrap, table,
   opticalChartSeries, opticalDataTable,
 } from './format.js';
 

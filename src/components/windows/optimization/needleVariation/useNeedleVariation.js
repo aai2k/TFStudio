@@ -26,7 +26,7 @@ import { usePersistentNumber } from '../../../ui/usePersistentState.js';
 import { SYNTHESIS_WORKER_URL as SYNTH_WORKER_URL } from '../../../../workerUrls.js';
 
 import { runNeedleWorkerPool } from './runners/workerPool.js';
-import { setCachedOptState } from './needleCache.js';
+import { setCachedOptState } from './sessionState.js';
 import { teardownRun, syncOnDesignSwitch } from './needleLifecycle.js';
 import { performReset, findBestGeneration, jumpToGeneration } from './needleActions.js';
 import { deriveDMinDefault } from './needleSettings.js';

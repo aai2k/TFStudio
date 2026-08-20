@@ -1,5 +1,5 @@
 import { getMaterial } from '../../../../utils/materials/materialDatabase.js';
-import { getMaterialById, normalizeId } from '../../../../utils/materials/catalogManager.js';
+import { getMaterialById } from '../../../../utils/materials/catalogManager.js';
 
 // Resolve a material by legacy or compound ID, returning a material object with getNK.
 export function resolveMaterial(id) {

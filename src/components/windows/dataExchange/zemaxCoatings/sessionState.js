@@ -1,20 +1,17 @@
-const { useCallback, useState } = React;
+import { createWindowSession } from '../../windowSession.js';
 
-// Docking unmounts inactive tool windows. This cache keeps the loaded document
-// and browsing selections alive until another file is loaded or the app exits.
-const SESSION = {
-    doc: null, fileName: '', filePath: '', tab: 'coatings', selCoating: -1,
-    selMats: new Set(), thMode: 'absolute', scope: 'used',
-    coatName: 'TFSTUDIO_DESIGN', preview: '',
-};
-
-export function useSession(key) {
-    const [value, setValue] = useState(SESSION[key]);
-    const set = useCallback((nextValue) => {
-        SESSION[key] = typeof nextValue === 'function'
-            ? nextValue(SESSION[key])
-            : nextValue;
-        setValue(SESSION[key]);
-    }, [key]);
-    return [value, set];
-}
+// The loaded COATING.DAT document and the browsing selections belong to the file
+// rather than to any design, so one slot serves every design and the document
+// stays loaded until another file replaces it.
+export const zemaxCoatingsSession = createWindowSession({
+    doc: null,
+    fileName: '',
+    filePath: '',
+    tab: 'coatings',
+    selCoating: -1,
+    selMats: new Set(),
+    thMode: 'absolute',
+    scope: 'used',
+    coatName: 'TFSTUDIO_DESIGN',
+    preview: '',
+});

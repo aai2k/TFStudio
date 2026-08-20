@@ -3,6 +3,8 @@ import {
     getVariatorCache, captureVariatorBaseline, buildBaseMaps, computeAnyVaried,
     collectUniqueMaterials, buildThicknessPatch, computeVariatorSpectrum,
 } from './model.js';
+import { variatorViewSession } from './sessionState.js';
+import { useWindowSession } from '../../windowSession.js';
 
 const { useState, useEffect, useRef, useMemo, useCallback } = React;
 
@@ -106,11 +108,11 @@ export function useVariator() {
     const { design, updateDesign, checkpoint, evalMode } = useDesign();
 
     // View params
-    const [params, setParams] = useState({
-        lambdaStart: 400, lambdaEnd: 800, lambdaStep: 2, theta: 0, polarization: 'avg'
-    });
-    const [showBaseline, setShowBaseline] = useState(true);
-    const [showTargets,  setShowTargets]  = useState(true);
+    const [view, setViewField] = useWindowSession(variatorViewSession, design);
+    const { params, showBaseline, showTargets } = view;
+    const setParams      = value => setViewField('params', value);
+    const setShowBaseline = value => setViewField('showBaseline', value);
+    const setShowTargets  = value => setViewField('showTargets', value);
 
     const slider = useSliderState(design, checkpoint);
     useThicknessSync({

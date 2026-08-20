@@ -1,6 +1,7 @@
 import { computeGdGddSpectrum } from './spectrum.js';
 import { selectGdGddTargets } from './gdTargets.js';
-import { readGDGDDSession, writeGDGDDSession } from './sessionState.js';
+import { gdGddSession } from './sessionState.js';
+import { useWindowSession } from '../../windowSession.js';
 import { useLiveDesign } from '../../../../state/useLiveDesign.js';
 
 const { useEffect, useMemo, useState } = React;
@@ -10,20 +11,12 @@ export function useGDGDDState(design) {
     // per optimizer progress message; `preview` drops to the coarse grid for
     // the duration, since the curve is being watched rather than read.
     const { design: liveDesign, preview } = useLiveDesign();
-    const [session, setSession] = useState(() => readGDGDDSession(design));
+    const [session, setField, patch] = useWindowSession(gdGddSession, design);
     const [raw, setRaw] = useState(null);
     const {
         side, target, quantity, pol, lamStart, lamEnd, theta, refLam, showRef, showTargets,
         showTable, yAuto, yMin, yMax,
     } = session;
-
-    const setField = (key, value) => setSession(current => writeGDGDDSession({
-        [key]: typeof value === 'function' ? value(current[key]) : value,
-    }));
-
-    useEffect(() => {
-        setSession(readGDGDDSession(design));
-    }, [design?.id]);
 
     useEffect(() => {
         const layers = side === 'back' ? liveDesign?.backLayers : liveDesign?.frontLayers;
@@ -55,18 +48,14 @@ export function useGDGDDState(design) {
     return {
         liveDesign,
         side, setSide: value => setField('side', value), target,
-        setTarget: value => {
-            setSession(current => writeGDGDDSession({
-                target: value,
-                side: value === 'R' && current.side === 'total' ? 'front' : current.side,
-            }));
-        },
+        setTarget: value => patch(current => ({
+            target: value,
+            side: value === 'R' && current.side === 'total' ? 'front' : current.side,
+        })),
         quantity,
         // Changing quantity changes the unit, so any manual bounds are dropped
         // rather than carried from fs into fs^3.
-        setQuantity: value => setSession(() => writeGDGDDSession({
-            quantity: value, yMin: null, yMax: null,
-        })),
+        setQuantity: value => patch({ quantity: value, yMin: null, yMax: null }),
         pol, setPol: value => setField('pol', value),
         lamStart, setLamStart: value => setField('lamStart', value),
         lamEnd, setLamEnd: value => setField('lamEnd', value),

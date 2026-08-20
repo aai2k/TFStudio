@@ -7,8 +7,10 @@ import {
     buildSpecDesigns,
     hasSensitivityLayers,
 } from './viewModel.js';
+import { layerSensitivitySession } from './sessionState.js';
+import { useWindowSession } from '../../windowSession.js';
 
-const { useMemo, useState } = React;
+const { useMemo } = React;
 
 function buildMaterialColorMap(design) {
     const resolveMaterial = designMaterialLookup(design);
@@ -23,12 +25,14 @@ function buildMaterialColorMap(design) {
 
 export function useLayerSensitivity() {
     const { design } = useDesign();
-    const [mode, setMode] = useState('relative');
-    const [relPct, setRelPct] = useState(1.0);
-    const [absDeltaNm, setAbsDeltaNm] = useState(1.0);
-    const [includeLocked, setIncludeLocked] = useState(false);
-    const [view, setView] = useState('chart');
-    const [scale, setScale] = useState('normalized');
+    const [session, setField] = useWindowSession(layerSensitivitySession, design);
+    const { mode, relPct, absDeltaNm, includeLocked, view, scale } = session;
+    const setMode = value => setField('mode', value);
+    const setRelPct = value => setField('relPct', value);
+    const setAbsDeltaNm = value => setField('absDeltaNm', value);
+    const setIncludeLocked = value => setField('includeLocked', value);
+    const setView = value => setField('view', value);
+    const setScale = value => setField('scale', value);
     const operands = design?.meritOperands || [];
     const sensHasLayers = hasSensitivityLayers(design);
 

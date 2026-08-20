@@ -1,8 +1,8 @@
 import {
-  makeGroup, makeSplit, cleanup,
+  makeGroup, cleanup,
   addTab, removeTab, setSizes, setActiveTab,
   findNode, findFirstGroup, groupForTab,
-  moveToGroup, moveToSplit, reorderTab, uid, newTabId, rekeyTree
+  moveToGroup, moveToSplit, reorderTab, newTabId, rekeyTree,
 } from './treeUtils.js';
 import { SplitPane } from './SplitPane.js';
 import { TabGroup } from './TabGroup.js';

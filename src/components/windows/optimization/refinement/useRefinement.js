@@ -1,5 +1,5 @@
 // Hook powering the Refinement window: run/stop/reset lifecycle, per-method
-// worker dispatch, the per-design Reset/history cache (refinementCache.js), and
+// worker dispatch, the per-design Reset/history state (sessionState.js), and
 // merit-operand table edits. Branching logic lives in the standalone functions
 // below so the hook itself stays a thin composition of useState/useRef/useEffect
 // wiring — see operandEdits.js for the operand-array transforms it calls.
@@ -10,7 +10,7 @@ import {
     editOperand, addOperands, insertOperandAt, duplicateOperands, deleteOperands, moveOperand,
 } from './operandEdits.js';
 import { loadMethod, saveMethod, MAXITER_FOR, ALL_ORDER } from './refinementConfig.js';
-import { _refineCache, _rc } from './refinementCache.js';
+import { clearRefinement, readRefinement, writeRefinement } from './sessionState.js';
 import { computeOperandDisplay, firstOperandErrorMessage } from './refinementUtils.js';
 import { runDlsEvent } from './runners/dlsPool.js';
 import { runMethodsFlow } from './runners/methodsFlow.js';
@@ -42,18 +42,16 @@ function stopRun(env) {
     killAllWorkers(env);
 }
 
-// ── Per-design Reset/history cache (refinementCache.js) ─────────────────────
+// ── Per-design Reset/history state (sessionState.js) ────────────────────────
 function commitBaselineTo(env, sd) {
     env.setters.setSavedDesign(sd);
-    const rc = _rc(env.refs.designRef.current?.id);
-    if (rc) rc.savedDesign = sd;
+    writeRefinement(env.refs.designRef.current?.id, { savedDesign: sd });
 }
 
 function addHistEntryTo(env, entry) {
     env.setters.setHistEntries(prev => {
         const next = [...prev, entry];
-        const rc = _rc(env.refs.designRef.current?.id);
-        if (rc) rc.histEntries = next;
+        writeRefinement(env.refs.designRef.current?.id, { histEntries: next });
         return next;
     });
 }
@@ -61,27 +59,24 @@ function addHistEntryTo(env, entry) {
 function bumpRunCountOf(env) {
     const { histRunCount, designRef } = env.refs;
     histRunCount.current += 1;
-    const rc = _rc(designRef.current?.id);
-    if (rc) rc.histRunCount = histRunCount.current;
+    writeRefinement(designRef.current?.id, { histRunCount: histRunCount.current });
 }
 
 function clearRefineCacheOf(env) {
-    const id = env.refs.designRef.current?.id;
-    if (id && _refineCache[id]) {
-        _refineCache[id] = { savedDesign: null, histEntries: [], histRunCount: 0 };
-    }
+    clearRefinement(env.refs.designRef.current?.id);
 }
 
-// Rehydrate Reset/Best/history from the module cache for the current design id.
+// Rehydrate Reset/Best/history for the current design id after a remount or a
+// design change.
 function hydrateFromCache(env, designId) {
     const { refs, setters } = env;
-    const rc = _rc(designId);
-    if (rc) {
-        setters.setSavedDesign(rc.savedDesign);
-        setters.setHistEntries(rc.histEntries);
-        refs.histRunCount.current = rc.histRunCount;
-        setters.setCanReset(!!rc.savedDesign && !refs.runningRef.current);
-        refs.baselineRef.current = !!rc.savedDesign;
+    const stored = readRefinement(designId);
+    if (stored) {
+        setters.setSavedDesign(stored.savedDesign);
+        setters.setHistEntries(stored.histEntries);
+        refs.histRunCount.current = stored.histRunCount;
+        setters.setCanReset(!!stored.savedDesign && !refs.runningRef.current);
+        refs.baselineRef.current = !!stored.savedDesign;
     } else {
         setters.setSavedDesign(null);
         setters.setHistEntries([]);
@@ -295,7 +290,7 @@ function useWorkerLifecycle({ env, running, beginOptimization, endOptimization }
     // against the unmounted closure — runningRef.current is still true there —
     // so it zombie-steps the optimizer and pushes transient design changes in
     // the background while the remounted instance shows a stale "Run" button.
-    // The live optimizer can't be resumed (see _refineCache note above), so the
+    // The live optimizer can't be resumed (see sessionState.js), so the
     // correct behavior is a clean stop; the design keeps the last applied
     // thicknesses and Reset/history persist via the cache.
     useEffect(() => () => {

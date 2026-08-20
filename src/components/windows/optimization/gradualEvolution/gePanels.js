@@ -146,6 +146,7 @@ export function LeftSidebar({ catalogs, selectedCats, onToggleCat, onSelectAllCa
     ];
 
     return h(SynthesisSidebarFrame, {
+        sessionKey: 'gradual-evolution',
         c,
         poolProps: {
             catalogs, selectedCats, onToggleCat, onSelectAllCats, onClearCats,

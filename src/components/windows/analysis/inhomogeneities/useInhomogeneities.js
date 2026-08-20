@@ -5,23 +5,11 @@ import {
 import {
     activeDesignSides, buildSpecificationInputs, computeInhomogeneitySpectra, designInterfaces,
 } from './model.js';
+import { inhomogeneityDesignSession, inhomogeneityViewSession } from './sessionState.js';
+import { useWindowSession } from '../../windowSession.js';
 
-const { useCallback, useEffect, useMemo, useState } = React;
-const inhomogeneityCache = new Map();
+const { useCallback, useMemo, useState } = React;
 const keyFor = side => (side === 'back' ? 'backInterlayers' : 'interlayers');
-
-function cachedInhomogeneity(design) {
-    const cached = design && inhomogeneityCache.get(design.id);
-    return cached ? cloneInhomogeneity(cached) : emptyInhomogeneity();
-}
-
-function restoreCachedInhomogeneity(design, setInh) {
-    if (design) setInh(cachedInhomogeneity(design));
-}
-
-function cacheInhomogeneity(design, inh) {
-    if (design) inhomogeneityCache.set(design.id, cloneInhomogeneity(inh));
-}
 
 function computeSpectraState(design, params, inh, evalMode, setError) {
     if (!design?.frontLayers) return { baseline: null, perturbed: null };
@@ -65,20 +53,19 @@ function removeInhomogeneity(previous, side, afterIndex) {
 
 export function useInhomogeneities() {
     const { design, evalMode } = useDesign();
-    const [inh, setInh] = useState(() => cachedInhomogeneity(design));
-    useEffect(() => {
-        restoreCachedInhomogeneity(design, setInh);
-    }, [design?.id]);
-    useEffect(() => {
-        cacheInhomogeneity(design, inh);
-    }, [inh, design?.id]);
+    const [designSession, setDesignField] = useWindowSession(inhomogeneityDesignSession, design);
+    // Memoised so the fallback is one stable object: a fresh one per render
+    // would invalidate every memo below it on every render.
+    const inh = useMemo(() => designSession.inh || emptyInhomogeneity(), [designSession.inh]);
+    const setInh = useCallback(next => {
+        setDesignField('inh', current => {
+            const base = current || emptyInhomogeneity();
+            return cloneInhomogeneity(typeof next === 'function' ? next(base) : next);
+        });
+    }, [setDesignField]);
 
-    const [channel, setChannel] = useState('all');
-    const [lambdaStart, setLambdaStart] = useState(400);
-    const [lambdaEnd, setLambdaEnd] = useState(800);
-    const [lambdaStep, setLambdaStep] = useState(5);
-    const [aoi, setAoi] = useState(0);
-    const [pol, setPol] = useState('avg');
+    const [view, setViewField] = useWindowSession(inhomogeneityViewSession, design);
+    const { channel, lambdaStart, lambdaEnd, lambdaStep, aoi, pol } = view;
     const [error, setError] = useState(null);
     const activeSides = activeDesignSides(design, evalMode);
     const hasBack = (design?.backLayers?.length || 0) > 0;
@@ -104,9 +91,13 @@ export function useInhomogeneities() {
     const clearAll = useCallback(() => setInh(emptyInhomogeneity()), []);
 
     return {
-        design, evalMode, inh, channel, setChannel,
-        lambdaStart, setLambdaStart, lambdaEnd, setLambdaEnd,
-        lambdaStep, setLambdaStep, aoi, setAoi, pol, setPol,
+        design, evalMode, inh,
+        channel, setChannel: value => setViewField('channel', value),
+        lambdaStart, setLambdaStart: value => setViewField('lambdaStart', value),
+        lambdaEnd, setLambdaEnd: value => setViewField('lambdaEnd', value),
+        lambdaStep, setLambdaStep: value => setViewField('lambdaStep', value),
+        aoi, setAoi: value => setViewField('aoi', value),
+        pol, setPol: value => setViewField('pol', value),
         error, activeSides, hasBack, interfaces, baseline, perturbed, specInputs,
         findInterlayer, upsertInterlayer, removeInterlayer, clearAll,
     };

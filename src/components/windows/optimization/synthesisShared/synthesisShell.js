@@ -13,12 +13,14 @@
 
 import { OptimizeBadge, EvalModeBadge } from '../../../SurfaceModeBar.js';
 import { MaterialPoolPanel, WARN_BADGE_STYLE } from './synthesisHelpers.js';
+import { synthesisSidebarSession } from './sessionState.js';
+import { useWindowSession } from '../../windowSession.js';
 import { DebouncedInput } from '../../../ui/DebouncedInput.js';
 import { Checkbox } from '../../../ui/Checkbox.js';
 import { LiveUpdateSwitch } from '../../../ui/LiveUpdateSwitch.js';
 import { parseNumber } from '../../../../utils/misc/numberParsing.js';
 
-const { createElement: h, useState } = React;
+const { createElement: h } = React;
 
 // Section header above the trend chart and the history table.
 const sectionHeaderStyle = (c) => ({
@@ -98,15 +100,20 @@ export function SynthesisControlBar({
 // ── Sidebar frame ───────────────────────────────────────────────────────────
 // Material-pool panel + a settings block with a collapsible Advanced section.
 // `everyday` and `advanced` are arrays of already-built setting rows.
-export function SynthesisSidebarFrame({ poolProps, settingsLabel, advancedLabel, everyday, advanced, c }) {
-    const [advOpen, setAdvOpen] = useState(false);
+export function SynthesisSidebarFrame({ sessionKey, poolProps, settingsLabel, advancedLabel, everyday, advanced, c }) {
+    const [session, setField] = useWindowSession(synthesisSidebarSession, null);
+    const advOpen = !!session.advOpen[sessionKey];
+    const setAdvOpen = value => setField('advOpen', current => ({
+        ...current,
+        [sessionKey]: typeof value === 'function' ? value(!!current[sessionKey]) : value,
+    }));
     return h('div', {
         style: {
             width: 200, flexShrink: 0, borderRight: `1px solid ${c.border}`,
             display: 'flex', flexDirection: 'column', background: c.panel, overflow: 'hidden'
         }
     },
-        h(MaterialPoolPanel, poolProps),
+        h(MaterialPoolPanel, { sessionKey, ...poolProps }),
         h('div', { style: { padding: '6px 8px', flexShrink: 0, overflow: 'auto' } },
             h('div', {
                 style: { fontSize: 10, fontWeight: 700, color: c.textDim, textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 6 }

@@ -1,24 +1,10 @@
 import { designMaterialLookup } from '../../../../utils/materials/designMaterials.js';
 import { runErrorAnalysisMC } from '../../../../utils/physics/errorAnalysis.js';
 import { hasPerturbableLayers } from './trialModel.js';
+import { errorAnalysisSession } from './sessionState.js';
+import { useWindowSession } from '../../windowSession.js';
 
-const { useCallback, useEffect, useMemo, useRef, useState } = React;
-
-const resultCache = new Map();
-
-function defaults() {
-    return {
-        params: { lambdaStart: 400, lambdaEnd: 800, lambdaStep: 5, theta: 0, polarization: 'avg' },
-        char: 'R', nTrials: 200, corridorSigma: 1.0,
-        rmsAbsNm: 0, rmsRelPct: 1, rmsReN: 0, rmsImN: 0,
-        distribution: 'gaussian',
-        perMaterial: false, keepOPT: false, result: null,
-    };
-}
-
-function snapshot(design) {
-    return (design && resultCache.get(design.id)) || defaults();
-}
+const { useCallback, useEffect, useRef, useState } = React;
 
 async function executeRun(options) {
     const {
@@ -63,50 +49,33 @@ async function executeRun(options) {
     setRunning(false);
 }
 
-function restoreSnapshot(snap, setters) {
-    setters.setParams(snap.params);
-    setters.setChar(snap.char);
-    setters.setNTrials(snap.nTrials);
-    setters.setCorridorSigma(snap.corridorSigma);
-    setters.setRmsAbsNm(snap.rmsAbsNm);
-    setters.setRmsRelPct(snap.rmsRelPct);
-    setters.setRmsReN(snap.rmsReN);
-    setters.setRmsImN(snap.rmsImN);
-    setters.setDistribution(snap.distribution || 'gaussian');
-    setters.setPerMaterial(snap.perMaterial);
-    setters.setKeepOPT(snap.keepOPT);
-    setters.setResult(snap.result);
-}
-
 export function useErrorAnalysis({ design, evalMode }) {
-    const initial = useMemo(() => snapshot(design), []); // eslint-disable-line react-hooks/exhaustive-deps
-    const [params, setParams] = useState(initial.params);
-    const [char, setChar] = useState(initial.char);
-    const [nTrials, setNTrials] = useState(initial.nTrials);
-    const [corridorSigma, setCorridorSigma] = useState(initial.corridorSigma);
-    const [rmsAbsNm, setRmsAbsNm] = useState(initial.rmsAbsNm);
-    const [rmsRelPct, setRmsRelPct] = useState(initial.rmsRelPct);
-    const [rmsReN, setRmsReN] = useState(initial.rmsReN);
-    const [rmsImN, setRmsImN] = useState(initial.rmsImN);
-    const [distribution, setDistribution] = useState(initial.distribution || 'gaussian');
-    const [perMaterial, setPerMaterial] = useState(initial.perMaterial);
-    const [keepOPT, setKeepOPT] = useState(initial.keepOPT);
-    const [result, setResult] = useState(initial.result);
+    const [session, setField] = useWindowSession(errorAnalysisSession, design);
+    const {
+        params, char, nTrials, corridorSigma, rmsAbsNm, rmsRelPct, rmsReN, rmsImN,
+        distribution, perMaterial, keepOPT, showEnvelope, result,
+    } = session;
+    const setParams = value => setField('params', value);
+    const setChar = value => setField('char', value);
+    const setNTrials = value => setField('nTrials', value);
+    const setCorridorSigma = value => setField('corridorSigma', value);
+    const setRmsAbsNm = value => setField('rmsAbsNm', value);
+    const setRmsRelPct = value => setField('rmsRelPct', value);
+    const setRmsReN = value => setField('rmsReN', value);
+    const setRmsImN = value => setField('rmsImN', value);
+    const setDistribution = value => setField('distribution', value);
+    const setPerMaterial = value => setField('perMaterial', value);
+    const setKeepOPT = value => setField('keepOPT', value);
+    const setShowEnvelope = value => setField('showEnvelope', value);
+    const setResult = value => setField('result', value);
+
+    // Run status is deliberately not stored: a window that reopens mid-run shows
+    // no result rather than a progress bar for a run it is no longer driving.
     const [running, setRunning] = useState(false);
     const [progress, setProgress] = useState({ i: 0, total: 0 });
     const [error, setError] = useState(null);
     const [showTrials, setShowTrials] = useState(false);
-    const [showEnvelope, setShowEnvelope] = useState(false);
     const cancelledRef = useRef(false);
-
-    const setters = {
-        setParams, setChar, setNTrials, setCorridorSigma, setRmsAbsNm, setRmsRelPct,
-        setRmsReN, setRmsImN, setDistribution, setPerMaterial, setKeepOPT, setResult,
-    };
-    useEffect(() => {
-        if (!design) return;
-        restoreSnapshot(snapshot(design), setters);
-    }, [design?.id]); // eslint-disable-line react-hooks/exhaustive-deps
 
     const run = useCallback(() => executeRun({
         design, params, evalMode, char, nTrials, rmsAbsNm, rmsRelPct,
@@ -120,7 +89,7 @@ export function useErrorAnalysis({ design, evalMode }) {
         setRunning(false);
     }, []);
 
-    const hasRunRef = useRef(!!initial.result);
+    const hasRunRef = useRef(!!result);
     const didMountRef = useRef(false);
     useEffect(() => {
         if (!didMountRef.current) {
@@ -129,16 +98,6 @@ export function useErrorAnalysis({ design, evalMode }) {
         }
         if (hasRunRef.current && !running) run();
     }, [design?.id, char, params.theta, params.polarization, evalMode]); // eslint-disable-line react-hooks/exhaustive-deps
-
-    useEffect(() => {
-        if (!design) return;
-        resultCache.set(design.id, {
-            params, char, nTrials, corridorSigma,
-            rmsAbsNm, rmsRelPct, rmsReN, rmsImN, distribution,
-            perMaterial, keepOPT, result,
-        });
-    }, [design?.id, params, char, nTrials, corridorSigma,
-        rmsAbsNm, rmsRelPct, rmsReN, rmsImN, distribution, perMaterial, keepOPT, result]);
 
     const handleRun = useCallback(async () => {
         hasRunRef.current = true;

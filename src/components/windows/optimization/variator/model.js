@@ -3,6 +3,7 @@ import {
     evaluateSpectrum, evaluateSpectrumBack, evaluateSpectrumTotal,
 } from '../../../../utils/physics/thinFilmMath.js';
 import { wrapMaterial } from '../../../../utils/misc/variator.js';
+import { createWindowSession } from '../../windowSession.js';
 
 export function resolveMat(design, id) {
     return designMaterialLookup(design)(id);
@@ -13,14 +14,18 @@ export function matLabel(mat) {
     return mat.name || mat.id || '?';
 }
 
-// Per-design baseline cache shared by the Variator's slider and spectrum helpers.
-const _variatorCache = {};   // { [designId]: { baseFront, baseBack, baseSubstrateMm } }
-if (typeof window !== 'undefined' && typeof window.addEventListener === 'function') window.addEventListener('tfstudio:design-evict', (e) => { if (e.detail?.id) delete _variatorCache[e.detail.id]; });
+// Per-design baseline shared by the Variator's slider and spectrum helpers.
+// Callers mutate the object they get back, so this hands out the stored object
+// itself rather than a copy.
+const variatorSession = createWindowSession({ baseline: null }, { scope: 'design' });
 
 export function getVariatorCache(id) {
     if (!id) return null;
-    if (!_variatorCache[id]) _variatorCache[id] = { baseFront: null, baseBack: null, baseSubstrateMm: null };
-    return _variatorCache[id];
+    const stored = variatorSession.read({ id }).baseline;
+    if (stored) return stored;
+    const baseline = { baseFront: null, baseBack: null, baseSubstrateMm: null };
+    variatorSession.write({ id }, { baseline });
+    return baseline;
 }
 
 export function captureVariatorBaseline(cache, design) {

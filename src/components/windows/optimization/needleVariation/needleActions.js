@@ -4,7 +4,7 @@
  */
 
 import { sideKeyFor, minOmfOf, computePareto } from '../synthesisShared/synthesisHelpers.js';
-import { clearCachedOptState, setCachedOptState } from './needleCache.js';
+import { clearCachedOptState, setCachedOptState } from './sessionState.js';
 
 function restoreSavedSnapshot(ctx, updateDesign, side) {
     if (!ctx.savedDesignRef.current) return;

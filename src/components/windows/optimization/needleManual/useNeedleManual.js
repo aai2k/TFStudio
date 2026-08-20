@@ -10,6 +10,8 @@
 
 import { useDesign } from '../../../../state/DesignContext.js';
 import { poolCatalogs } from '../synthesisShared/synthesisHelpers.js';
+import { needleManualSession } from './sessionState.js';
+import { useWindowSession } from '../../windowSession.js';
 import {
     findOptimalNeedleThickness, mirrorLayers,
     DLSOptimizer, resolveScanSide, isConstraint,
@@ -30,19 +32,18 @@ const NEEDLE_MANUAL_CATS_KEY = 'tfstudio_needleManual_selectedCats';
 
 // ── Settings (deltaNm, dMin, profile resolution, refine, material pool) ─────────
 
-function useNeedleSettings() {
-    const [deltaNm,     setDeltaNm]     = useState(0.5);
-    const [dMin,        setDMin]        = useState(1.0);
-    const [nIntra,      setNIntra]      = useState(16);
-    const [refineAfter, setRefineAfter] = useState(true);
-    const [dlsIter,     setDlsIter]     = useState(80);
-    const [requestedSide, setRequestedSide] = useState('front');
+function useNeedleSettings(design) {
+    const [session, setField] = useWindowSession(needleManualSession, design);
+    const { deltaNm, dMin, nIntra, refineAfter, dlsIter, requestedSide } = session;
     const catSelection = useCatSelection(NEEDLE_MANUAL_CATS_KEY);
 
     return {
-        deltaNm, setDeltaNm, dMin, setDMin, nIntra, setNIntra,
-        refineAfter, setRefineAfter, dlsIter, setDlsIter,
-        requestedSide, setRequestedSide,
+        deltaNm, setDeltaNm: value => setField('deltaNm', value),
+        dMin, setDMin: value => setField('dMin', value),
+        nIntra, setNIntra: value => setField('nIntra', value),
+        refineAfter, setRefineAfter: value => setField('refineAfter', value),
+        dlsIter, setDlsIter: value => setField('dlsIter', value),
+        requestedSide, setRequestedSide: value => setField('requestedSide', value),
         selectedCats: catSelection.selectedCats,
         excludedMats: catSelection.excludedMats,
         handleToggleCat: catSelection.handleToggleCat,
@@ -289,7 +290,7 @@ function useNeedleApply({
 export function useNeedleManual(t) {
     const { design, updateDesign, checkpoint } = useDesign();
     const tn = t.needleManual;
-    const settings = useNeedleSettings();
+    const settings = useNeedleSettings(design);
     const resolveMat = useMemo(() => materialLookup(design), [design]);
 
     const surfaceMode = design?.surfaceMode || 'front_only';

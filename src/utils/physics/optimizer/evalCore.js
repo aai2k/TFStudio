@@ -13,11 +13,9 @@ import { tmm, tmmNeedleScan, tmmThicknessJacobian, tmmThicknessHessian, computeE
 import { evaluateStackPhaseDispersion } from '../phaseDispersion.js';
 import { resolveSourceSpec, resolveDetectorSpec } from '../spectralWeightings.js';
 import { tmmWasmActive, getTmmWasm } from '../../../tmmcore.js';
-import {
-    OPTICAL_OPERAND_TYPES, RANGE_TARGET_OPERAND_TYPES, TOTAL_THICKNESS_OPERAND_TYPES, BLANK_OPERAND_TYPES, INTEGRAL_OPERAND_TYPES, MINMAX_OPERAND_TYPES, CONSTRAINT_OPERAND_TYPES, INEQUALITY_OPERAND_TYPES, MATH_OPERAND_TYPES, ARGWAVE_OPERAND_TYPES, OPERAND_TYPES, OPERAND_POLS, isConstraint, isDmfs, isBlank, isTotalThickness, isRangeTarget, isIntegral, isMinmax, isMinType, isInequality, isArgwave, isArgwaveMin, isMath, isMathSingleRef, isMathPairRef, isEllipsometry, isPhaseShift, isGroupDelay, isGroupDelayFlat, isEField, isPhase, isFractionalUnit, mathTargetInPercent, argwaveOpticalChar, argwavePolCode, polFromType, bandSampleCount, ARGWAVE_DEFAULT_POINTS, PNORM_DEFAULT, makeOperand, isRamp, makeConstraintOperand, makeDefaultConstraints, makeDmfsOperand, isValidMeritWeight
-} from './operandModel.js';
-import { isRangeAvg, charOf, operandSampleLambdas, requiredLambdas, buildPresampledTable } from './sampling.js';
-import { mirrorLayers } from './layerOps.js';
+import { isConstraint, isDmfs, isBlank, isTotalThickness, isRangeTarget, isIntegral, isMinmax, isMinType, isArgwave, isArgwaveMin, isMath, isEllipsometry, isPhaseShift, isGroupDelay, isGroupDelayFlat, isEField, isPhase, argwaveOpticalChar, argwavePolCode, polFromType, isRamp, isValidMeritWeight } from './operandModel.js';
+import { isRangeAvg, charOf, operandSampleLambdas } from './sampling.js';
+
 import { makeConeSpec, coneIsActive, coneNodes } from './coneAngle.js';
 
 // Single (λ,θ,pol) R/T/A — WASM kernel when the feature flag is on AND a module

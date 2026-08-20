@@ -4,7 +4,7 @@
 // trigger. See workerPool.js for the engine overview.
 
 import { minOmfOf } from '../../synthesisShared/synthesisHelpers.js';
-import { setCached } from '../geCache.js';
+import { setCached } from '../sessionState.js';
 import { runGeMainThread } from './mainThread.js';
 
 export const deep = x => JSON.parse(JSON.stringify(x));

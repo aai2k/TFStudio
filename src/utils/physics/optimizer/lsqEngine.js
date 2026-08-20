@@ -16,27 +16,22 @@
  * References: Sullivan & Dobrowolski Appl. Opt. 35 (1996); Nocedal & Wright 2e.
  */
 
-import { tmm, tmmNeedleScan, tmmThicknessJacobian } from '../thinFilmMath.js';
+
 import {
-    tmmNeedleScanEval, ADAPTIVE_SAMPLING_DEFAULTS, densifyOperandsForFeatures, collectDesignMaterialIds, tmmFullSystem,
-    isFullSystemEval, resolveEvalMode, tmmProp, MATH_REGISTRY, makeRefResolver, computeMathValue,
-    mathResidualKind, evalOperand, buildEvalContext, evaluateOperands, phaseDispersionThicknessPoint, ARGWAVE_RESIDUAL_SCALE_NM,
+    isFullSystemEval,
+    evaluateOperands, phaseDispersionThicknessPoint,
     operandResidualScale, calcMF, mfWeightDenominator, _operandResidual,
     operandEvaluationErrors, OperandEvaluationError,
 } from './evalCore.js';
 import {
-    OPTICAL_OPERAND_TYPES, RANGE_TARGET_OPERAND_TYPES, TOTAL_THICKNESS_OPERAND_TYPES, BLANK_OPERAND_TYPES, INTEGRAL_OPERAND_TYPES, MINMAX_OPERAND_TYPES,
-    CONSTRAINT_OPERAND_TYPES, INEQUALITY_OPERAND_TYPES, MATH_OPERAND_TYPES, ARGWAVE_OPERAND_TYPES, OPERAND_TYPES, OPERAND_POLS,
-    isConstraint, isDmfs, isBlank, isTotalThickness, isRangeTarget, isIntegral,
-    isMinmax, isInequality, isArgwave, isArgwaveMin, isMath, isEllipsometry, isEField,
-    isMathSingleRef, isMathPairRef, isFractionalUnit, mathTargetInPercent, argwaveOpticalChar, argwavePolCode,
-    polFromType, AVG_POINTS, AVG_STEP_NM, AVG_POINTS_MAX, bandSampleCount, ARGWAVE_DEFAULT_POINTS,
-    PNORM_DEFAULT, makeOperand, makeConstraintOperand, makeDefaultConstraints, makeDmfsOperand,
+    isConstraint, isTotalThickness, isRangeTarget, isIntegral,
+    isMinmax, isArgwave, isMath, isEllipsometry, isEField,
+    polFromType,
 } from './operandModel.js';
-import { isRangeAvg, charOf, requiredLambdas, buildPresampledTable } from './sampling.js';
+import { isRangeAvg, charOf } from './sampling.js';
 import { makeConeSpec, coneIsActive } from './coneAngle.js';
-import { mirrorLayers, insertNeedle, cleanupLayers, bestNeedlePerPosition, insertNeedleIntra } from './layerOps.js';
-import { solveLeastSquaresQR, choleskySolve, steihaugCG, solveBoxQP, _vdot, _vnorm } from './linalg.js';
+import { mirrorLayers } from './layerOps.js';
+import { solveLeastSquaresQR } from './linalg.js';
 import { _surfaceLayout, makePointEvaluators, _jacRow } from './jacobianAssembly.js';
 import { _jtjUpper, _mirrorUpper, makeHessianSampler, _addS, _curvRangeTarget, _curvIntegral, _curvRangeAvg, _operandSupportsFullNewton } from './newtonAssembly.js';
 

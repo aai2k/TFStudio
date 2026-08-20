@@ -1,33 +1,26 @@
 import { useDesign } from '../../../../state/DesignContext.js';
 import { emptyRoughness, cloneRoughness } from '../../../../utils/physics/scattering.js';
 import { buildInterfaceLabels, calculateRoughness, getRoughnessContext } from './model.js';
+import { roughnessDesignSession, roughnessViewSession } from './sessionState.js';
+import { useWindowSession } from '../../windowSession.js';
 
-const { useState, useEffect, useMemo, useCallback } = React;
-const scatterCache = new Map();
+const { useMemo, useCallback } = React;
 
 export function useRoughnessScattering() {
     const { design, evalMode } = useDesign();
-    const [rough, setRough] = useState(() => {
-        const cached = design && scatterCache.get(design.id);
-        return cached ? cloneRoughness(cached) : emptyRoughness();
-    });
+    const [designSession, setDesignField] = useWindowSession(roughnessDesignSession, design);
+    // Memoised so the fallback is one stable object: a fresh one per render would
+    // invalidate every memo below it on every render.
+    const rough = useMemo(() => designSession.rough || emptyRoughness(), [designSession.rough]);
+    const setRough = useCallback(next => {
+        setDesignField('rough', current => {
+            const base = current || emptyRoughness();
+            return cloneRoughness(typeof next === 'function' ? next(base) : next);
+        });
+    }, [setDesignField]);
 
-    useEffect(() => {
-        if (!design) return;
-        const cached = scatterCache.get(design.id);
-        setRough(cached ? cloneRoughness(cached) : emptyRoughness());
-    }, [design?.id]);
-    useEffect(() => {
-        if (!design) return;
-        scatterCache.set(design.id, cloneRoughness(rough));
-    }, [rough, design?.id]);
-
-    const [lambdaStart, setLambdaStart] = useState(400);
-    const [lambdaEnd, setLambdaEnd] = useState(800);
-    const [lambdaStep, setLambdaStep] = useState(5);
-    const [aoi, setAoi] = useState(0);
-    const [pol, setPol] = useState('avg');
-    const [units, setUnits] = useState('ppm');
+    const [view, setViewField] = useWindowSession(roughnessViewSession, design);
+    const { lambdaStart, lambdaEnd, lambdaStep, aoi, pol, units } = view;
     const params = useMemo(() => ({
         lambdaStart, lambdaEnd, lambdaStep, theta: aoi, polarization: pol,
     }), [lambdaStart, lambdaEnd, lambdaStep, aoi, pol]);
@@ -56,8 +49,12 @@ export function useRoughnessScattering() {
     return {
         design, evalMode, rough, labels, ...context,
         calc: result.data, error: result.error,
-        lambdaStart, setLambdaStart, lambdaEnd, setLambdaEnd,
-        lambdaStep, setLambdaStep, aoi, setAoi, pol, setPol, units, setUnits,
+        lambdaStart, setLambdaStart: value => setViewField('lambdaStart', value),
+        lambdaEnd, setLambdaEnd: value => setViewField('lambdaEnd', value),
+        lambdaStep, setLambdaStep: value => setViewField('lambdaStep', value),
+        aoi, setAoi: value => setViewField('aoi', value),
+        pol, setPol: value => setViewField('pol', value),
+        units, setUnits: value => setViewField('units', value),
         setMode, setUniformSigma, setInterfaceSigma, clearAll,
     };
 }

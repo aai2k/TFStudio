@@ -18,6 +18,8 @@ import {
 } from '../../../../utils/physics/colorimetry.js';
 import { makeConeSpec, coneAverageResult } from '../../../../utils/physics/optimizer.js';
 import { EvalModeBadge, ConeBadge } from '../../../SurfaceModeBar.js';
+import { colorEvaluationSession } from './sessionState.js';
+import { useWindowSession } from '../../windowSession.js';
 import { MaterialRangeWarning } from '../../../materials/MaterialRangeNotice.js';
 import { ChromaticityChart } from './chartFigure.js';
 
@@ -167,14 +169,16 @@ export function ColorEvaluation({ c, theme, t }) {
   const { design, evalMode } = useDesign();
   const ce = t.colorEval;
 
-  const [characteristic, setCharacteristic] = useState('R'); // 'R' | 'T'
-  const [pol, setPol]             = useState('avg');
-  const [theta, setTheta]         = useState(0);
-  const [observer, setObserver]   = useState('2');
-  const [illuminant, setIllum]    = useState('D65');
-  const [step, setStep]           = useState(5);
-  const [exposure, setExposure]   = useState('1');
-  const [error, setError]         = useState(null);
+  const [session, setField] = useWindowSession(colorEvaluationSession, design);
+  const { characteristic, pol, theta, observer, illuminant, step, exposure } = session;
+  const setCharacteristic = value => setField('characteristic', value);
+  const setPol            = value => setField('pol', value);
+  const setTheta          = value => setField('theta', value);
+  const setObserver       = value => setField('observer', value);
+  const setIllum          = value => setField('illuminant', value);
+  const setStep           = value => setField('step', value);
+  const setExposure       = value => setField('exposure', value);
+  const [error, setError] = useState(null);
 
   useEffect(() => { setError(null); }, [evalMode]);
 

@@ -1,5 +1,7 @@
 import { getTmmWasmBytesForWorker } from '../../../../tmmcore.js';
 import { BENCH_CASES, SYNTH_ENGINES, buildJobs } from '../../../../utils/benchmark/optimizerBenchmark.js';
+import { optimizerBenchmarkSession } from './sessionState.js';
+import { useWindowSession } from '../../windowSession.js';
 import { usePersistentBool, usePersistentNumber } from '../../../ui/usePersistentState.js';
 import { STORE, startRun, stopRun, clearRun, poolSize } from './store.js';
 import { buildPreviewDesign } from './model.js';
@@ -108,11 +110,10 @@ export function useOptimizerBenchmark() {
     const toggleEng = (e) => setEngSel((prev) => toggleEngineSet(prev, e));
 
     const allCaseIds = BENCH_CASES.map((cc) => cc.id);
-    const [selCases, setSelCases] = useState(() => new Set(allCaseIds));
-
-    // Sort within each benchmark's table (by MF / layers / time). 'none' = job order.
-    const [sort, setSort] = useState({ key: 'none', dir: 1 });
-    const toggleSort = (key) => setSort((s) => (s.key === key ? { key, dir: -s.dir } : { key, dir: 1 }));
+    const [session, setField] = useWindowSession(optimizerBenchmarkSession, null);
+    const { selCases, sort } = session;
+    const setSelCases = (value) => setField('selCases', value);
+    const toggleSort = (key) => setField('sort', (s) => (s.key === key ? { key, dir: -s.dir } : { key, dir: 1 }));
 
     useStoreSubscription();
     useElapsedTicker();

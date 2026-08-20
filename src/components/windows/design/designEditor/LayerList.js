@@ -2,8 +2,10 @@ import { LockIcon } from '../../../ui/LockIcon.js';
 import { Btn } from './ui.js';
 import { LayerRow } from './LayerRow.js';
 import { useLayerKeyboard } from './useLayerKeyboard.js';
+import { designEditorSession } from './sessionState.js';
+import { useWindowSession } from '../../windowSession.js';
 
-const { createElement: h, useState, useRef, useCallback, useMemo } = React;
+const { createElement: h, useRef, useCallback, useMemo } = React;
 
 // ── Layer list panel (for one side) ──────────────────────────────────────────
 
@@ -18,7 +20,9 @@ export function LayerList({ layers, side, design, missingMaterialIds, c,
     invertActiveSide, setAllLocked, copyToOther, onOpenReplaceMaterials,
     refLambda, t }) {
 
-    const [selectedId, setSelectedId] = useState(null);
+    const [session, setSessionField] = useWindowSession(designEditorSession, design);
+    const selectedId = session.selectedLayerId;
+    const setSelectedId = value => setSessionField('selectedLayerId', value);
     const selectedIndex = layers.findIndex(l => l.id === selectedId);
     const de = t.designEditor;
     const containerRef = useRef(null);

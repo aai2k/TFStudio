@@ -187,6 +187,7 @@ export function LeftSidebar({ catalogs, selectedCats, onToggleCat, onSelectAllCa
     ];
 
     return h(SynthesisSidebarFrame, {
+        sessionKey: 'structural-optimizer',
         c,
         poolProps: {
             catalogs, selectedCats, onToggleCat, onSelectAllCats, onClearCats,

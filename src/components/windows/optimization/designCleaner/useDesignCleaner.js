@@ -2,17 +2,21 @@ import { useDesign } from '../../../../state/DesignContext.js';
 import { designMaterialLookup } from '../../../../utils/materials/designMaterials.js';
 import { listThinLayers } from '../../../../utils/synthesis/designCleaner.js';
 import { applyCleanup, computeCleanupPreview, computeMeritValue } from './model.js';
+import { designCleanerSession } from './sessionState.js';
+import { useWindowSession } from '../../windowSession.js';
 
 const { useState, useMemo, useCallback } = React;
 
 export function useDesignCleaner(dc) {
     const { design, updateDesign, checkpoint } = useDesign();
 
-    const [dMin,           setDMin]           = useState(5.0);
-    const [mergeAdjacent,  setMergeAdjacent]  = useState(true);
-    const [cleanBack,      setCleanBack]      = useState(true);
-    const [reoptimize,     setReoptimize]     = useState(true);
-    const [reoptIters,     setReoptIters]     = useState(80);
+    const [session, setField] = useWindowSession(designCleanerSession, design);
+    const { dMin, mergeAdjacent, cleanBack, reoptimize, reoptIters } = session;
+    const setDMin          = value => setField('dMin', value);
+    const setMergeAdjacent = value => setField('mergeAdjacent', value);
+    const setCleanBack     = value => setField('cleanBack', value);
+    const setReoptimize    = value => setField('reoptimize', value);
+    const setReoptIters    = value => setField('reoptIters', value);
 
     const [applying,  setApplying]  = useState(false);
     const [resultMsg, setResultMsg] = useState(null);

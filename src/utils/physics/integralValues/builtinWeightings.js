@@ -1,6 +1,6 @@
 // ── Built-in weighting catalog ────────────────────────────────────────────────
 
-import { AM1_5G_5NM, solarIrradianceAt, SOLAR_RANGE_NM } from '../solarSpectrum.js';
+import { solarIrradianceAt, SOLAR_RANGE_NM } from '../solarSpectrum.js';
 import { makeTableLookup } from './weightedIntegral.js';
 
 export const BUILTIN_WEIGHTINGS = {

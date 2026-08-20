@@ -3,7 +3,7 @@
 // the pool. See workerPool.js.
 
 import { getSynthesisConsolidate, getSynthesisConsolidateTol } from '../../../../../utils/synthesis/synthesisConfig.js';
-import { setCached } from '../geCache.js';
+import { setCached } from '../sessionState.js';
 import { alive, onTick, designSnap, deep, recordCycle, applyDesignPatch } from './workerPoolCore.js';
 
 // Merit-aware consolidation on the BEST design before committing (Macleod,

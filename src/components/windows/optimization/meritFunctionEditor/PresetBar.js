@@ -1,8 +1,13 @@
-const { createElement: h, useState } = React;
+import { meritPresetSession } from './sessionState.js';
+import { useWindowSession } from '../../windowSession.js';
+
+const { createElement: h } = React;
 
 export function PresetBar({ c, te, diskPresets, diskBusy, diskMsg, onSavePreset, onLoadDiskPreset, onDeleteDiskPreset }) {
-    const [diskSel, setDiskSel] = useState('');
-    const [applyMode, setApplyMode] = useState('replace');
+    const [session, setField] = useWindowSession(meritPresetSession, null);
+    const { diskSel, applyMode } = session;
+    const setDiskSel = value => setField('diskSel', value);
+    const setApplyMode = value => setField('applyMode', value);
 
     const sel = {
         background: c.bg, color: c.text, border: `1px solid ${c.border}`,

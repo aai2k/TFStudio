@@ -1,5 +1,5 @@
-import { SpecVerdict } from '../../../SpecVerdict.js';
 import { paramLabel } from '../../../../utils/physics/systematicDeviations.js';
+import { SpecVerdict } from '../../../SpecVerdict.js';
 import { SpectrumPlot } from './SpectrumPlot.js';
 import { SweepHeatmap } from './SweepHeatmap.js';
 

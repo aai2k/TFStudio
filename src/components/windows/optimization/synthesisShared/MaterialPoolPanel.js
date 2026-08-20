@@ -1,6 +1,10 @@
 import { Checkbox } from '../../../ui/Checkbox.js';
 import { WARN_BADGE_STYLE, matColor } from './materialColors.js';
 import { POOL_WARN_COUNT, poolMatEntries as matEntries } from './catalogPool.js';
+import { synthesisSidebarSession } from './sessionState.js';
+import { useWindowSession } from '../../windowSession.js';
+
+const EMPTY_EXPANDED = new Set();
 
 const { createElement: h } = React;   // React is a window global (never imported)
 
@@ -95,18 +99,18 @@ function CatalogRow({ cat, selectedCats, excluded, isOpen, canPickMat, running, 
 // Catalog-checkbox list + All/Clear header, shared by the synthesis windows.
 // The three header labels come from the caller via `labels` so each window can
 // use its own locale namespace.
-export function MaterialPoolPanel({ catalogs, selectedCats, onToggleCat,
+export function MaterialPoolPanel({ sessionKey, catalogs, selectedCats, onToggleCat,
                                     onSelectAllCats, onClearCats,
                                     excludedMats, onToggleMat, running, c, labels, warnLabel }) {
-    const { useState } = React;
-    const [expanded, setExpanded] = useState(() => new Set());
+    const [session, setField] = useWindowSession(synthesisSidebarSession, null);
+    const expanded = session.poolExpanded[sessionKey] || EMPTY_EXPANDED;
     const excluded   = excludedMats || new Set();
     const canPickMat = typeof onToggleMat === 'function';   // gracefully no-op if a window hasn't wired it
 
-    const toggleExpand = (id) => setExpanded(prev => {
-        const next = new Set(prev);
+    const toggleExpand = (id) => setField('poolExpanded', current => {
+        const next = new Set(current[sessionKey] || EMPTY_EXPANDED);
         if (next.has(id)) next.delete(id); else next.add(id);
-        return next;
+        return { ...current, [sessionKey]: next };
     });
 
     const selectedCount = catalogs.reduce((sum, cat) =>

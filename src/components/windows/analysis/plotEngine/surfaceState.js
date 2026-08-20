@@ -3,41 +3,35 @@ import {
 } from '../../../../utils/physics/plotQuantities.js';
 import { designMaterialLookup } from '../../../../utils/materials/designMaterials.js';
 import { runSurfaceSweep } from './surfaceRunner.js';
+import { plotEngineSession } from './sessionState.js';
+import { useWindowSession } from '../../windowSession.js';
 
-const { useState, useEffect, useRef, useCallback } = React;
+const { useState, useEffect, useMemo, useRef, useCallback } = React;
 
-// Per-design state survives docking switches, which unmount and remount the window.
-const surfaceCache = new Map();
-const resultCache = new Map();
-const modeCache = new Map();
-
-function initialSurfaceSpec(design, evalMode) {
-    const cached = design && surfaceCache.get(design.id);
-    return cached ? { ...cached } : makeDefaultSurfaceSpec(design, { surfaceMode: evalMode || 'front' });
-}
-
-function useCachedSurfaceState(design, evalMode) {
-    const [plotMode, setPlotMode] = useState(() => (design && modeCache.get(design.id)) || '2d');
-    const [surfaceSpec, setSurfaceSpec] = useState(() => initialSurfaceSpec(design, evalMode));
-    const [surfaceResult, setSurfaceResult] = useState(() => (design && resultCache.get(design.id)) || null);
-
-    useEffect(() => {
-        if (!design) return;
-        const cached = surfaceCache.get(design.id);
-        setSurfaceSpec(cached ? { ...cached } : makeDefaultSurfaceSpec(design, { surfaceMode: evalMode || 'front' }));
-        setPlotMode(modeCache.get(design.id) || '2d');
-        setSurfaceResult(resultCache.get(design.id) || null);
-    }, [design?.id]); // eslint-disable-line react-hooks/exhaustive-deps
-
-    useEffect(() => { if (design) surfaceCache.set(design.id, { ...surfaceSpec }); }, [surfaceSpec, design?.id]);
-    useEffect(() => { if (design) modeCache.set(design.id, plotMode); }, [plotMode, design?.id]);
-    useEffect(() => {
-        if (!design) return;
-        if (surfaceResult) resultCache.set(design.id, surfaceResult);
-        else resultCache.delete(design.id);
-    }, [surfaceResult, design?.id]);
-
-    return { plotMode, setPlotMode, surfaceSpec, setSurfaceSpec, surfaceResult, setSurfaceResult };
+// Reads the surface state from the session store, building a default
+// specification while the design has none of its own yet.
+function useStoredSurfaceState(design, evalMode) {
+    const [session, setField] = useWindowSession(plotEngineSession, design);
+    // Memoised so the substituted default is one stable object rather than a new
+    // one per render, which would re-run the sweep effects on every render.
+    const surfaceSpec = useMemo(
+        () => session.surfaceSpec || makeDefaultSurfaceSpec(design, { surfaceMode: evalMode || 'front' }),
+        [session.surfaceSpec, design, evalMode],
+    );
+    const setSurfaceSpec = useCallback(next => {
+        setField('surfaceSpec', current => {
+            const base = current || makeDefaultSurfaceSpec(design, { surfaceMode: evalMode || 'front' });
+            return typeof next === 'function' ? next(base) : next;
+        });
+    }, [setField, design, evalMode]);
+    return {
+        plotMode: session.plotMode,
+        setPlotMode: value => setField('plotMode', value),
+        surfaceSpec,
+        setSurfaceSpec,
+        surfaceResult: session.surfaceResult,
+        setSurfaceResult: value => setField('surfaceResult', value),
+    };
 }
 
 function patchSurfaceSpec(previous, patch, design) {
@@ -110,7 +104,7 @@ function useSurfaceCompute(state, design) {
 }
 
 export function useSurfacePlot(design, evalMode) {
-    const state = useCachedSurfaceState(design, evalMode);
+    const state = useStoredSurfaceState(design, evalMode);
     const updateSurface = useCallback((patch) => {
         state.setSurfaceSpec(previous => patchSurfaceSpec(previous, patch, design));
         state.setSurfaceResult(null);

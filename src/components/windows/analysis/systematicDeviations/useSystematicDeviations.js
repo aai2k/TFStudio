@@ -9,10 +9,11 @@ import {
     paramLabel,
     runDeviationSweep,
 } from '../../../../utils/physics/systematicDeviations.js';
-import { cacheDesignState, designSnapshot } from './designCache.js';
+import { systematicDeviationsSession } from './sessionState.js';
+import { useWindowSession } from '../../windowSession.js';
 import { sweepParamKind } from './model.js';
 
-const { useCallback, useEffect, useMemo, useState } = React;
+const { useCallback, useMemo, useState } = React;
 
 function computeSpectrum(design, params, deviation, evalMode) {
     if (!design?.frontLayers) return { s: null, error: null };
@@ -41,49 +42,35 @@ export function sweepBaseDeviation(sweep) {
     return base;
 }
 
-function restoreSnapshot(snapshot, setters) {
-    setters.setDev(cloneDeviation(snapshot.dev));
-    setters.setMode(snapshot.mode);
-    setters.setChannel(snapshot.channel);
-    setters.setShowBaseline(snapshot.showBaseline);
-    setters.setLambdaStart(snapshot.lambdaStart);
-    setters.setLambdaEnd(snapshot.lambdaEnd);
-    setters.setLambdaStep(snapshot.lambdaStep);
-    setters.setAoi(snapshot.aoi);
-    setters.setPol(snapshot.pol);
-    setters.setSweep(snapshot.sweep);
-    setters.setSweepChannel(snapshot.sweepChannel);
-    setters.setSweepResult(snapshot.sweepResult);
-}
-
 export function useSystematicDeviations() {
     const { design, evalMode } = useDesign();
-    const initial = useMemo(() => designSnapshot(design), []); // eslint-disable-line react-hooks/exhaustive-deps
-    const [dev, setDev] = useState(() => cloneDeviation(initial.dev));
-    const [mode, setMode] = useState(initial.mode);
-    const [channel, setChannel] = useState(initial.channel);
-    const [showBaseline, setShowBaseline] = useState(initial.showBaseline);
-    const [lambdaStart, setLambdaStart] = useState(initial.lambdaStart);
-    const [lambdaEnd, setLambdaEnd] = useState(initial.lambdaEnd);
-    const [lambdaStep, setLambdaStep] = useState(initial.lambdaStep);
-    const [aoi, setAoi] = useState(initial.aoi);
-    const [pol, setPol] = useState(initial.pol);
-    const [sweep, setSweep] = useState(initial.sweep);
-    const [sweepChannel, setSweepChannel] = useState(initial.sweepChannel);
-    const [sweepResult, setSweepResult] = useState(initial.sweepResult);
+    const [session, setField] = useWindowSession(systematicDeviationsSession, design);
+    const {
+        mode, channel, showBaseline, lambdaStart, lambdaEnd, lambdaStep,
+        aoi, pol, sweep, sweepChannel, sweepResult,
+    } = session;
+    // Memoised so the fallback is one stable object: a fresh one per render would
+    // invalidate every memo below it on every render.
+    const dev = useMemo(() => session.dev || emptyDeviation(), [session.dev]);
+    const setDev = useCallback(next => {
+        setField('dev', current => {
+            const base = current || emptyDeviation();
+            return cloneDeviation(typeof next === 'function' ? next(base) : next);
+        });
+    }, [setField]);
+    const setMode = value => setField('mode', value);
+    const setChannel = value => setField('channel', value);
+    const setShowBaseline = value => setField('showBaseline', value);
+    const setLambdaStart = value => setField('lambdaStart', value);
+    const setLambdaEnd = value => setField('lambdaEnd', value);
+    const setLambdaStep = value => setField('lambdaStep', value);
+    const setAoi = value => setField('aoi', value);
+    const setPol = value => setField('pol', value);
+    const setSweep = value => setField('sweep', value);
+    const setSweepChannel = value => setField('sweepChannel', value);
+    const setSweepResult = value => setField('sweepResult', value);
     const [sweepRunning, setSweepRunning] = useState(false);
     const [error, setError] = useState(null);
-
-    const setters = {
-        setDev, setMode, setChannel, setShowBaseline,
-        setLambdaStart, setLambdaEnd, setLambdaStep, setAoi, setPol,
-        setSweep, setSweepChannel, setSweepResult,
-    };
-
-    useEffect(() => {
-        if (!design) return;
-        restoreSnapshot(designSnapshot(design), setters);
-    }, [design?.id]); // eslint-disable-line react-hooks/exhaustive-deps
 
     const params = useMemo(() => ({
         lambdaStart, lambdaEnd, lambdaStep, theta: aoi, polarization: pol,
@@ -141,16 +128,6 @@ export function useSystematicDeviations() {
             return next;
         });
     }, []);
-
-    useEffect(() => {
-        cacheDesignState(design, {
-            dev, mode, channel, showBaseline,
-            lambdaStart, lambdaEnd, lambdaStep, aoi, pol,
-            sweep, sweepChannel, sweepResult,
-        });
-    }, [design?.id, dev, mode, channel, showBaseline,
-        lambdaStart, lambdaEnd, lambdaStep, aoi, pol,
-        sweep, sweepChannel, sweepResult]);
 
     return {
         design, dev, mode, channel, showBaseline,

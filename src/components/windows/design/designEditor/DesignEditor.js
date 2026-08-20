@@ -9,6 +9,8 @@ import {
 } from './layerActions.js';
 import { LayerList } from './LayerList.js';
 import { StackGeometryPanel } from './StackGeometryPanel.js';
+import { designEditorSession } from './sessionState.js';
+import { useWindowSession } from '../../windowSession.js';
 
 const { createElement: h, useState, useEffect, useMemo } = React;
 
@@ -47,7 +49,9 @@ export function DesignEditor({ c, t }) {
     const { design, updateDesign, addLayer, removeLayer, updateLayer, moveLayer,
         duplicateLayer } = useDesign();
     const missingMaterialIds = useUnresolvedMaterials(design);
-    const [activeSide, setActiveSide] = useState('front');
+    const [session, setSessionField] = useWindowSession(designEditorSession, design);
+    const activeSide = session.activeSide;
+    const setActiveSide = value => setSessionField('activeSide', value);
 
     // Which side's tab is disabled for editing, and why:
     //   • symmetric    → back is mirrored from front (edit front)

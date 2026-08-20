@@ -36,6 +36,7 @@ export function LeftSidebar({
         }
     },
         h(MaterialPoolPanel, {
+            sessionKey: 'needle-manual',
             catalogs, selectedCats, onToggleCat, onSelectAllCats, onClearCats,
             excludedMats, onToggleMat, running: busy, c,
             labels: { materialPool: tn.materialPool, poolAll: tn.poolAll, poolClear: tn.poolClear },

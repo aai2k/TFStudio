@@ -2,7 +2,7 @@ import {
     sideKeyFor, useCatSelection, minOmfOf, computePareto,
 } from '../synthesisShared/synthesisHelpers.js';
 import { usePersistentNumber } from '../../../ui/usePersistentState.js';
-import { getCached, setCached, clearCached } from './structuralCache.js';
+import { getCached, setCached, clearCached } from './sessionState.js';
 import { STRUCT_CATS_KEY, loadKinds, saveKinds } from './structuralSettings.js';
 import { runStructuralWorker } from './runners/workerPool.js';
 

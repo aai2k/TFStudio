@@ -1,6 +1,6 @@
+import { totalInterlayerThickness } from '../../../../utils/physics/inhomogeneity.js';
 import { EvalModeBadge } from '../../../SurfaceModeBar.js';
 import { SpecVerdict } from '../../../SpecVerdict.js';
-import { totalInterlayerThickness } from '../../../../utils/physics/inhomogeneity.js';
 import { controlStyles, numField } from './ui.js';
 
 const { createElement: h } = React;

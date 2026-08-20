@@ -1,4 +1,4 @@
-const { createElement: h } = React;
+
 
 const PropertyRow = ({ label, value, editable, c }) => (
     React.createElement('div', {

@@ -1,28 +1,24 @@
 import { buildMatColorMap, computeProfileForSide, computeTotalRegions } from './profileModel.js';
 import { resolveAvailableSide } from '../availableSide.js';
+import { profilerSession } from './sessionState.js';
+import { useWindowSession } from '../../windowSession.js';
 
 const { useEffect, useState } = React;
 
 export function useProfilerState(design, rp) {
-    const [lambda, setLambda] = useState(() => design?.referenceWavelength || 550);
-    const [lambdaStr, setLambdaStr] = useState(() => String(design?.referenceWavelength || 550));
-    const [quantity, setQuantity] = useState('n');
-    const [side, setSide] = useState('front');
+    const [session, setField] = useWindowSession(profilerSession, design);
+    const { lambda, lambdaStr, quantity, side } = session;
     const [profile, setProfile] = useState(null);
     const [regions, setRegions] = useState([]);
     const [matColorMap, setMatColorMap] = useState({});
-
-    useEffect(() => {
-        if (design?.referenceWavelength) {
-            setLambda(design.referenceWavelength);
-            setLambdaStr(String(design.referenceWavelength));
-        }
-    }, [design?.id]);
+    const setSide = value => setField('side', value);
 
     const hasFront = (design?.frontLayers?.length ?? 0) > 0;
     const hasBack = (design?.backLayers?.length ?? 0) > 0;
     const availableSide = resolveAvailableSide(side, hasFront, hasBack);
 
+    // Follows edits to the design, not just a change of design: emptying a side
+    // while it is showing has to move the view to one that still has layers.
     useEffect(() => {
         if (availableSide !== side) setSide(availableSide);
     }, [availableSide, side]);
@@ -46,6 +42,9 @@ export function useProfilerState(design, rp) {
 
     return {
         lambda, lambdaStr, quantity, side, profile, regions, matColorMap,
-        setLambda, setLambdaStr, setQuantity, setSide,
+        setLambda: value => setField('lambda', value),
+        setLambdaStr: value => setField('lambdaStr', value),
+        setQuantity: value => setField('quantity', value),
+        setSide,
     };
 }
