@@ -6,6 +6,7 @@
  * makes the user search for a value the picker already knows.
  */
 import assert from 'node:assert/strict';
+import { readFile } from 'node:fs/promises';
 import { shimBrowserGlobals, loadApp, makeTheme } from './_uiShim.mjs';
 
 shimBrowserGlobals();
@@ -201,5 +202,20 @@ assert.equal(header.props.style.backgroundColor, c.panel,
 const tabs = overlay.props.children[1];
 assert.equal(tabs.type, PickerTabs, 'the filter tabs sit between the search box and the list');
 assert.equal(tabs.props.catFilter, 'all');
+
+// ── The trigger closes the picker it opened ───────────────────────────────────
+//
+// Outside-click dismissal deliberately excludes the trigger, so a click on an
+// open picker reaches the trigger's own handler and nothing else. Unless that
+// handler closes, the picker can only be left by picking a value, by Escape, or
+// by clicking somewhere else entirely. Read from the source because the suite
+// renders without a DOM and cannot dispatch the click.
+const pickerSource = await readFile(
+    new URL('../src/components/ui/PickerDropdown.js', import.meta.url), 'utf8');
+
+assert.match(pickerSource, /const onTrigger = \(\) => \{\s*if \(open\) \{ setOpen\(false\); return; \}/,
+    'a click on an open picker closes it instead of re-opening it');
+assert.match(pickerSource, /!triggerRef\.current\?\.contains\(e\.target\)\) setOpen\(false\)/,
+    'and dismissal still ignores the trigger, so the two do not fight over the same click');
 
 console.log('PASS: picker_dropdown');

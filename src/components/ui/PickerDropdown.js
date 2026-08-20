@@ -100,10 +100,10 @@ function renderRows(results, opts) {
 
 // Closed-state trigger button.
 function triggerEl(s) {
-    const { triggerRef, onOpen, compact, c, open, triggerColor, triggerLabel } = s;
+    const { triggerRef, onTrigger, compact, c, open, triggerColor, triggerLabel } = s;
     return h('div', {
         ref: triggerRef,
-        onClick: onOpen,
+        onClick: onTrigger,
         style: {
             display: 'flex', alignItems: 'center', boxSizing: 'border-box',
             flex: compact ? undefined : 1,
@@ -230,7 +230,12 @@ export function PickerDropdown(props) {
 
     useDismiss(open, setOpen, dropRef, triggerRef);
 
-    const onOpen = () => {
+    // The trigger toggles. Outside-click dismissal ignores the trigger, so
+    // without this a click on an open picker would be swallowed by the exclusion
+    // and then re-open, leaving the only ways out a pick, Escape, or a click
+    // somewhere else entirely.
+    const onTrigger = () => {
+        if (open) { setOpen(false); return; }
         if (triggerRef.current) setDropPos(dropPositionFrom(triggerRef.current.getBoundingClientRect(), minDropWidth));
         // Open on the group the current value belongs to, so the list says where
         // the selection comes from. Anything else falls back to the full list: a
@@ -243,7 +248,7 @@ export function PickerDropdown(props) {
     const activeOf = isActive || (item => item.id === value);
 
     const shared = {
-        triggerRef, dropRef, searchRef, listRef, activeRef, onOpen, open, compact, c,
+        triggerRef, dropRef, searchRef, listRef, activeRef, onTrigger, open, compact, c,
         triggerColor, triggerLabel, groups, catFilter, setCatFilter, allLabel,
         dropPos, query, setQuery, searchPlaceholder, search, sections, emptyText,
         activeOf, select,
