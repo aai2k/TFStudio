@@ -3,9 +3,10 @@
 import { MaterialPicker } from '../../../ui/MaterialPicker.js';
 import { ExportMenu, useCsvExport } from '../../../ui/ExportMenu.js';
 import { csvFromRows, ResultsGrid, ResultsSection } from '../../../ui/ResultsSection.js';
-import { FieldLabel, NumInput } from '../opticalEvaluation/controls.js';
+import { ChoiceGroup, NumInput, RangeField } from '../chrome/controls.js';
+import { AnalysisWindow, ControlRow, PlotArea } from '../chrome/layout.js';
+import { NoticeBadge, SettingRow, SettingsMenu } from '../chrome/popover.js';
 import { GDChart } from '../gdGddEvaluation/GDChart.js';
-import { ChoiceGroup, FooterHint } from '../gdGddEvaluation/GDControls.js';
 import { getMaterialById } from '../../../../utils/materials/catalogManager.js';
 import { materialPropagationDispersion } from '../../../../utils/materials/materialDispersion.js';
 import { resolveDesignMaterial } from '../../../../utils/materials/designMaterials.js';
@@ -115,30 +116,18 @@ function invalidSummary(spectrum, thicknessUnit) {
         : `${spectrum.invalid.length} samples masked for ${reasons.length} reasons`) + limit;
 }
 
-function Controls({ state, c, t }) {
+function Controls({ state, c, t, notices }) {
     const text = t.gdgdd || {};
-    return h('div', {
-        style: {
-            display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 10,
-            padding: '7px 12px', borderBottom: `1px solid ${c.border}`, backgroundColor: c.panel,
-        },
+    return h(ControlRow, {
+        c,
+        trailing: [
+            h(NoticeBadge, { key: 'notices', c, notices, label: t.analysisChrome.notices }),
+            h(Setup, { key: 'setup', state, c, t }),
+        ],
     },
-        h('div', { style: { width: 220 } }, h(MaterialPicker, {
+        h('div', { style: { width: 200 } }, h(MaterialPicker, {
             value: state.materialId, onChange: state.setMaterialId, c, t,
         })),
-        h(FieldLabel, { c }, 'Thickness'),
-        h(NumInput, {
-            value: state.thicknessValue,
-            onChange: value => state.setThicknessMm(thicknessToMm(value, state.thicknessUnit)),
-            min: thicknessFromMm(1e-9, state.thicknessUnit),
-            max: thicknessFromMm(100000, state.thicknessUnit),
-            step: thicknessStep(state.thicknessValue), width: 76, c,
-        }),
-        h(ChoiceGroup, {
-            activeId: state.thicknessUnit, onSelect: state.setThicknessUnit, c,
-            ariaLabel: 'Thickness unit',
-            items: Object.entries(THICKNESS_UNITS).map(([id, unit]) => ({ id, label: unit.label })),
-        }),
         h(ChoiceGroup, {
             label: text.quantity || 'Quantity',
             activeId: state.quantity,
@@ -151,11 +140,32 @@ function Controls({ state, c, t }) {
                 { id: 'tod', label: 'TOD' },
             ],
         }),
-        h('div', { style: { display: 'flex', alignItems: 'center', gap: 6, marginLeft: 'auto' } },
-            h(FieldLabel, { c }, 'λ'),
-            h(NumInput, { value: state.start, onChange: state.setStart, min: 100, max: 30000, step: 10, width: 62, c }),
-            h('span', { style: { color: c.textDim } }, '–'),
-            h(NumInput, { value: state.end, onChange: state.setEnd, min: 100, max: 30000, step: 10, width: 62, c }),
+    );
+}
+
+/** The slab the dispersion is computed for, and the range it is plotted over. */
+function Setup({ state, c, t }) {
+    return h(SettingsMenu, { c, label: t.analysisChrome.settings, width: 300 },
+        h(SettingRow, { c, label: 'Thickness' },
+            h(NumInput, {
+                value: state.thicknessValue,
+                onChange: value => state.setThicknessMm(thicknessToMm(value, state.thicknessUnit)),
+                min: thicknessFromMm(1e-9, state.thicknessUnit),
+                max: thicknessFromMm(100000, state.thicknessUnit),
+                step: thicknessStep(state.thicknessValue), width: 84, c,
+            }),
+            h(ChoiceGroup, {
+                activeId: state.thicknessUnit, onSelect: state.setThicknessUnit, c,
+                ariaLabel: 'Thickness unit',
+                items: Object.entries(THICKNESS_UNITS).map(([id, unit]) => ({ id, label: unit.label })),
+            }),
+        ),
+        h(SettingRow, { c, label: 'λ' },
+            h(RangeField, {
+                c, unit: 'nm',
+                from: { value: state.start, onChange: state.setStart, min: 100, max: 30000, step: 10 },
+                to: { value: state.end, onChange: state.setEnd, min: 100, max: 30000, step: 10 },
+            }),
         ),
     );
 }
@@ -219,15 +229,20 @@ export function MaterialDispersionEvaluation({ c, t }) {
         end, setEnd: value => setField('end', value),
     };
 
-    return h('div', {
-        style: {
-            width: '100%', height: '100%', display: 'flex', flexDirection: 'column',
-            overflow: 'hidden', backgroundColor: c.bg, color: c.text,
-            fontFamily: 'system-ui, -apple-system, sans-serif', fontSize: 12,
-        },
-    },
-        h(Controls, { state, c, t }),
-        h('div', { style: { flex: 1, minHeight: 0 } }, plotData && h(GDChart, {
+    const notices = [];
+    if (discontinuous) {
+        notices.push({
+            label: footerText.piecewiseShort,
+            detail: footerText.piecewiseWarning(quantity.toUpperCase(), spectrum.phaseModel),
+        });
+    }
+    if (masked) {
+        notices.push({ label: footerText.maskedShort(spectrum.invalid.length), detail: masked });
+    }
+
+    return h(AnalysisWindow, { c },
+        h(Controls, { state, c, t, notices }),
+        h(PlotArea, null, plotData && h(GDChart, {
             data: plotData,
             meta: {
                 label: quantityMeta.label,
@@ -241,56 +256,14 @@ export function MaterialDispersionEvaluation({ c, t }) {
             c, label: t.dataTable.results, count: table.rows.length,
             countLabel: t.dataTable.rowCount,
             open: showTable, setOpen: value => setField('showTable', value),
-        }, h(ResultsGrid, { columns: table.columns, rows: table.rows, c })),
-        h('div', {
-            style: {
-                minHeight: 38, padding: '4px 12px', borderTop: `1px solid ${c.border}`,
-                backgroundColor: c.panel, display: 'flex', alignItems: 'center',
-                gap: 8, flexShrink: 0, fontSize: 11, color: c.textDim,
-            },
-        },
-            h('div', {
-                style: {
-                    display: 'flex', alignItems: 'center', gap: 8,
-                    minWidth: 0, overflow: 'hidden',
-                },
-            },
-                h('span', {
-                    title: material?.name || materialId,
-                    style: {
-                        color: c.text, fontWeight: 600, minWidth: 0,
-                        overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
-                    },
-                }, material?.name || materialId),
-                h('span', null, '·'),
-                h('span', { style: { whiteSpace: 'nowrap' } },
-                    formatThickness(thicknessMm, thicknessUnit)),
-                h('span', null, '·'),
-                h('span', {
-                    style: {
-                        color: c.accent, whiteSpace: 'nowrap',
-                        minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis',
-                    },
-                }, `${footerText.modelLabel}: ${spectrum?.model || footerText.modelUnavailable}`),
-            ),
-            discontinuous && h(FooterHint, {
-                c, color: c.warning || '#f59e0b',
-                label: footerText.piecewiseShort,
-                detail: footerText.piecewiseWarning(quantity.toUpperCase(), spectrum.phaseModel),
-            }),
-            masked && h(FooterHint, {
-                c, color: c.warning || '#f59e0b',
-                label: footerText.maskedShort(spectrum.invalid.length),
-                detail: masked,
-            }),
-            h('div', { style: { marginLeft: 'auto' } }, h(ExportMenu, {
+            actions: h(ExportMenu, {
                 c, enabled: table.rows.length > 0, ...csv,
                 labels: {
                     export: t.dataTable.export, copyCsv: t.dataTable.copyCsv,
                     saveCsv: t.dataTable.saveCsv, copied: t.dataTable.csvCopied,
                     saved: t.dataTable.csvSaved,
                 },
-            })),
-        ),
+            }),
+        }, h(ResultsGrid, { columns: table.columns, rows: table.rows, c })),
     );
 }

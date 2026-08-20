@@ -164,7 +164,7 @@ for (const [path, label] of [
 // The setting belongs to the windows that start runs. An analysis window obeys
 // it but does not offer it, so its toolbar stays about what is being plotted.
 for (const [path, label] of [
-    ['../src/components/windows/analysis/opticalEvaluation/EvaluationToolbar.js', 'Optical Evaluation'],
+    ['../src/components/windows/analysis/opticalEvaluation/ControlBar.js', 'Optical Evaluation'],
     ['../src/components/windows/analysis/gdGddEvaluation/GDControls.js', 'Group Delay'],
 ]) {
     assert.ok(!source(path).includes('LiveUpdateSwitch'), `${label} does not carry the switch`);

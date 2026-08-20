@@ -10,17 +10,15 @@ function preferredSide(design, current) {
 
 export const eFieldSession = createWindowSession({
     lambda: 550,
-    // Text buffer behind the wavelength box, kept beside the number so the box
-    // still shows what was typed after a remount.
-    lambdaStr: '550',
     theta: 0,
     pol: 'avg',
     side: 'front',
+    showTable: false,
 }, {
     onDesignChange: (design, current) => {
         const lambda = design?.referenceWavelength;
         return {
-            ...(lambda ? { lambda, lambdaStr: String(lambda) } : null),
+            ...(lambda ? { lambda } : null),
             side: preferredSide(design, current.side),
         };
     },

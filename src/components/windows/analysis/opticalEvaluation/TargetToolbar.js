@@ -1,6 +1,8 @@
 import { Checkbox } from '../../../ui/Checkbox.js';
 import { curveColorFor } from './model.js';
-import { FieldLabel, NumInput, SegmentedButton } from './controls.js';
+import { FieldLabel, NumInput } from '../chrome/controls.js';
+import { SegmentedButton } from './controls.js';
+import { ModeRow } from '../chrome/layout.js';
 
 const { createElement: h } = React;
 
@@ -64,13 +66,7 @@ export function TargetToolbar(props) {
         { id: 'continuous', label: oe.editKindCont },
     ];
     const drawing = editTool === 'draw';
-    return h('div', {
-        style: {
-            display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 8, rowGap: 7,
-            padding: '8px 12px', borderBottom: `1px solid ${c.border}`,
-            backgroundColor: c.bg, flexShrink: 0
-        }
-    },
+    return h(ModeRow, { c },
         h(ControlGroup, { c }, tools.map(item => h(SegmentedButton, {
             key: item.id, item, activeId: editTool, onSelect: setEditTool, c
         }))),

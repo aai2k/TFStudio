@@ -67,7 +67,6 @@ const backCoated = {
     const first = eFieldSession.read(coated);
     assert.equal(first.side, 'front', 'a front-coated design opens on the front');
     assert.equal(first.lambda, 625, 'the design reference wavelength is adopted');
-    assert.equal(first.lambdaStr, '625', 'the wavelength box shows it too');
 
     eFieldSession.write(coated, { theta: 45, pol: 'p' });
 

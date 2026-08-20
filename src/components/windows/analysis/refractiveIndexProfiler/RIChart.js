@@ -1,7 +1,10 @@
 import { ANALYSIS_DEFAULTS } from '../../../../constants/analysisDefaults.js';
 import { drawPlot, usePlotTeardown } from '../../../ui/plotSurface.js';
+import { axisTitle, chartConfig, plotMargin, TICK_FONT } from '../chrome/plot.js';
 import { useAnalysisColors } from '../../../../state/AnalysisSettingsContext.js';
 const { createElement: h, useEffect, useRef } = React;
+
+const CHART_CONFIG = chartConfig('index_profile');
 
 export function riChartTraces(profile, quantity, curve = ANALYSIS_DEFAULTS.refractiveIndexProfiler.colors) {
     if (!profile) return [];
@@ -59,29 +62,29 @@ export function riChartLayout(profile, quantity, matColorMap, colors, curve = AN
     const layout = {
         paper_bgcolor: paperColor,
         plot_bgcolor: bgColor,
-        margin: { l: 56, r: quantity === 'both' ? 56 : 16, t: 10, b: 45 },
+        margin: plotMargin({ rightAxis: quantity === 'both' }),
         showlegend: quantity === 'both',
         legend: { x: 1, xanchor: 'right', y: 1,
                   font: { size: 11, color: textColor }, bgcolor: 'transparent' },
         xaxis: {
             range: [z0, zEnd],
-            title: { text: 'Depth (nm)', font: { color: textColor, size: 12 } },
+            title: axisTitle('Depth (nm)', { color: textColor }),
             color: textColor, gridcolor: gridColor, zerolinecolor: gridColor,
-            tickfont: { color: textColor, size: 11 },
+            tickfont: { color: textColor, ...TICK_FONT },
         },
         yaxis: {
-            title: { text: showN ? 'n' : 'k', font: { color: textColor, size: 12 } },
+            title: axisTitle(showN ? 'n' : 'k', { color: textColor }),
             color: textColor, gridcolor: gridColor, zerolinecolor: gridColor,
-            tickfont: { color: textColor, size: 11 },
+            tickfont: { color: textColor, ...TICK_FONT },
             rangemode: 'tozero',
         },
         shapes,
     };
     if (quantity === 'both') {
         layout.yaxis2 = {
-            title: { text: 'k', font: { color: curve.k, size: 12 } },
+            title: axisTitle('k', { color: curve.k }),
             color: curve.k, overlaying: 'y', side: 'right',
-            tickfont: { color: curve.k, size: 11 },
+            tickfont: { color: curve.k, ...TICK_FONT },
             showgrid: false, rangemode: 'tozero',
         };
     }
@@ -104,7 +107,7 @@ export function RIChart({ profile, quantity, matColorMap, c }) {
         drawPlot(divRef.current, initRef,
             riChartTraces(profile, quantity, curve),
             riChartLayout(profile, quantity, matColorMap, colors, curve),
-            { responsive: true, displayModeBar: false });
+            CHART_CONFIG);
     });
 
     usePlotTeardown(divRef, initRef);

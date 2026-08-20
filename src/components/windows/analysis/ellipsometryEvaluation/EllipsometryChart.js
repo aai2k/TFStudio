@@ -1,59 +1,73 @@
 import { drawPlot, usePlotTeardown } from '../../../ui/plotSurface.js';
+import { axisTitle, chartConfig, plotMargin, TICK_FONT } from '../chrome/plot.js';
 import { useAnalysisColors } from '../../../../state/AnalysisSettingsContext.js';
 import { ANALYSIS_DEFAULTS } from '../../../../constants/analysisDefaults.js';
 
 const { createElement: h, useEffect, useRef } = React;
 
+const CHART_CONFIG = chartConfig('ellipsometry');
+
 /**
+ * Ψ and Δ are read against their own vertical axis, so hiding one curve hides
+ * its axis with it rather than leaving an unused scale on that edge.
+ *
  * @param {object} data
  * @param {object} colors  theme colours (background, paper, grid, text)
  * @param {object} [curve] configured curve colours; factory defaults when absent
+ * @param {object} [show]  which curves are plotted, { psi, delta }
  */
-export function buildEllipsometryFigure(data, colors, curve = ANALYSIS_DEFAULTS.ellipsometryEvaluation.colors) {
+export function buildEllipsometryFigure(
+    data, colors,
+    curve = ANALYSIS_DEFAULTS.ellipsometryEvaluation.colors,
+    show = { psi: true, delta: true },
+) {
     const PSI_COLOR = curve.psi;
     const DELTA_COLOR = curve.delta;
     const traces = [
-        {
+        show.psi && {
             x: data.x, y: data.psi, type: 'scatter', mode: 'lines',
             name: 'Ψ', yaxis: 'y',
             line: { color: PSI_COLOR, width: 2 },
             hovertemplate: 'Ψ: %{y:.3f}°<br>%{x:.3f}<extra></extra>',
         },
-        {
+        show.delta && {
             x: data.x, y: data.delta, type: 'scatter', mode: 'lines',
             name: 'Δ', yaxis: 'y2',
             line: { color: DELTA_COLOR, width: 2 },
             hovertemplate: 'Δ: %{y:.3f}°<br>%{x:.3f}<extra></extra>',
         },
-    ];
+    ].filter(Boolean);
     const layout = {
         paper_bgcolor: colors.paper,
         plot_bgcolor: colors.background,
-        margin: { l: 56, r: 56, t: 12, b: 46 },
+        margin: plotMargin({ rightAxis: !!show.delta }),
         showlegend: true,
-        legend: { x: 0.5, xanchor: 'center', y: 1.0, orientation: 'h',
-                  font: { size: 11, color: colors.text }, bgcolor: 'transparent' },
+        // Left-anchored above the plot, as in GD/GDD: the modebar occupies the
+        // right-hand end of that strip.
+        legend: { x: 0, y: 1.02, orientation: 'h',
+                  font: { size: 10, color: colors.text }, bgcolor: 'transparent' },
         xaxis: {
-            title: { text: data.xLabel, font: { color: colors.text, size: 12 } },
+            title: axisTitle(data.xLabel, { color: colors.text }),
             color: colors.text, gridcolor: colors.grid, zerolinecolor: colors.grid,
-            tickfont: { color: colors.text, size: 11 },
+            tickfont: { color: colors.text, ...TICK_FONT },
         },
         yaxis: {
-            title: { text: 'Ψ (°)', font: { color: PSI_COLOR, size: 12 } },
+            title: axisTitle('Ψ (°)', { color: PSI_COLOR }),
             range: [0, 90], color: PSI_COLOR, gridcolor: colors.grid,
-            zerolinecolor: colors.grid, tickfont: { color: PSI_COLOR, size: 11 },
+            zerolinecolor: colors.grid, tickfont: { color: PSI_COLOR, ...TICK_FONT },
+            visible: !!show.psi,
         },
         yaxis2: {
-            title: { text: 'Δ (°)', font: { color: DELTA_COLOR, size: 12 } },
+            title: axisTitle('Δ (°)', { color: DELTA_COLOR }),
             range: [0, 360], dtick: 60, overlaying: 'y', side: 'right',
-            color: DELTA_COLOR, tickfont: { color: DELTA_COLOR, size: 11 },
-            showgrid: false,
+            color: DELTA_COLOR, tickfont: { color: DELTA_COLOR, ...TICK_FONT },
+            showgrid: false, visible: !!show.delta,
         },
     };
     return { traces, layout };
 }
 
-export function EllipsometryChart({ data, c }) {
+export function EllipsometryChart({ data, c, show = { psi: true, delta: true } }) {
     const divRef = useRef(null);
     const initRef = useRef(false);
     const curve = useAnalysisColors('ellipsometryEvaluation');
@@ -67,9 +81,9 @@ export function EllipsometryChart({ data, c }) {
     // No dependency list: see plotSurface.js for why every render redraws.
     useEffect(() => {
         if (!data) return;
-        const { traces, layout } = buildEllipsometryFigure(data, colors, curve);
+        const { traces, layout } = buildEllipsometryFigure(data, colors, curve, show);
         drawPlot(divRef.current, initRef, traces, layout,
-            { responsive: true, displayModeBar: false });
+            CHART_CONFIG);
     });
 
     usePlotTeardown(divRef, initRef);

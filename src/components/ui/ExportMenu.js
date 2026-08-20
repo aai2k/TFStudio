@@ -23,14 +23,14 @@ export function ExportMenu({ c, labels, enabled, copied, copyCSV, saved, saveCSV
             onClick: () => enabled && setOpen(current => !current), disabled: !enabled,
             'aria-expanded': open,
             style: {
-                height: 27, display: 'flex', alignItems: 'center', gap: 6,
-                padding: '0 10px', fontSize: 11, cursor: enabled ? 'pointer' : 'default',
+                height: 22, display: 'flex', alignItems: 'center', gap: 5,
+                padding: '0 8px', fontSize: 11, cursor: enabled ? 'pointer' : 'default',
                 border: `1px solid ${c.border}`, borderRadius: 6,
                 backgroundColor: 'transparent', color: (copied || saved) ? c.accent : c.text,
                 outline: 'none', fontFamily: 'system-ui', opacity: enabled ? 1 : 0.5,
             },
         },
-            h('svg', { width: 14, height: 14, viewBox: '0 0 16 16', fill: 'none' },
+            h('svg', { width: 13, height: 13, viewBox: '0 0 16 16', fill: 'none' },
                 h('path', {
                     d: 'M8 2v8M5 7l3 3 3-3M3 11v2h10v-2', stroke: 'currentColor',
                     strokeWidth: 1.3, strokeLinecap: 'round', strokeLinejoin: 'round',
@@ -48,7 +48,7 @@ export function ExportMenu({ c, labels, enabled, copied, copyCSV, saved, saveCSV
         }),
         open && h('div', {
             style: {
-                position: 'absolute', right: 0, bottom: 31, zIndex: 50, minWidth: 130,
+                position: 'absolute', right: 0, bottom: 27, zIndex: 50, minWidth: 130,
                 padding: '4px 0', backgroundColor: c.panel, border: `1px solid ${c.border}`,
                 borderRadius: 5, boxShadow: '0 4px 16px rgba(0,0,0,0.35)',
             },

@@ -5,33 +5,48 @@ const { createElement: h } = React;
  * exposes its numbers through the same header. The caller owns the open state
  * and supplies the body, which is mounted only while the section is open.
  *
+ * It is also the window's one strip of chrome below the plot, so the export
+ * control rides in its header rather than costing a band of its own.
+ *
  *   label       section name, already localized
  *   count       number of rows behind the plot
  *   countLabel  count => string
+ *   actions     controls shown at the right-hand end of the header; they sit
+ *               beside the toggle rather than inside it, since a button cannot
+ *               be nested in a button
  */
-export function ResultsSection({ label, count, countLabel, open, setOpen, c, children }) {
+export function ResultsSection({ label, count, countLabel, open, setOpen, c, actions, children }) {
     return h('section', {
         style: { flexShrink: 0, borderTop: `1px solid ${c.border}`, backgroundColor: c.bg },
     },
-        h('button', {
-            onClick: () => setOpen(current => !current),
-            'aria-expanded': open,
+        h('div', {
             style: {
-                width: '100%', height: 30, display: 'flex', alignItems: 'center', gap: 6,
-                padding: '0 12px', border: 'none', backgroundColor: c.field,
-                color: c.text, cursor: 'pointer', outline: 'none', textAlign: 'left',
-                fontFamily: 'system-ui, -apple-system, sans-serif', fontSize: 11,
+                display: 'flex', alignItems: 'center', backgroundColor: c.field,
+                paddingRight: actions ? 8 : 0,
             },
         },
-            h('svg', { width: 10, height: 10, viewBox: '0 0 10 10', fill: 'none' },
-                h('path', {
-                    d: open ? 'M2 3.5l3 3 3-3' : 'M3.5 2l3 3-3 3',
-                    stroke: 'currentColor', strokeWidth: 1.3,
-                    strokeLinecap: 'round', strokeLinejoin: 'round',
-                })),
-            h('span', { style: { fontWeight: 400 } }, label),
-            h('span', { style: { color: c.textDim } }, '·'),
-            h('span', { style: { color: c.textDim } }, countLabel(count)),
+            h('button', {
+                onClick: () => setOpen(current => !current),
+                'aria-expanded': open,
+                style: {
+                    flex: 1, minWidth: 0, height: 30,
+                    display: 'flex', alignItems: 'center', gap: 6,
+                    padding: '0 12px', border: 'none', backgroundColor: 'transparent',
+                    color: c.text, cursor: 'pointer', outline: 'none', textAlign: 'left',
+                    fontFamily: 'system-ui, -apple-system, sans-serif', fontSize: 11,
+                },
+            },
+                h('svg', { width: 10, height: 10, viewBox: '0 0 10 10', fill: 'none' },
+                    h('path', {
+                        d: open ? 'M2 3.5l3 3 3-3' : 'M3.5 2l3 3-3 3',
+                        stroke: 'currentColor', strokeWidth: 1.3,
+                        strokeLinecap: 'round', strokeLinejoin: 'round',
+                    })),
+                h('span', { style: { fontWeight: 400 } }, label),
+                h('span', { style: { color: c.textDim } }, '·'),
+                h('span', { style: { color: c.textDim } }, countLabel(count)),
+            ),
+            actions,
         ),
         open && children,
     );

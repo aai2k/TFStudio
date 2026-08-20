@@ -5,6 +5,7 @@ import {
 import { makeOperand } from '../../../../utils/physics/optimizer.js';
 import { spectralAxisProps } from '../../../../utils/physics/spectralAxis.js';
 import { ANALYSIS_DEFAULTS } from '../../../../constants/analysisDefaults.js';
+import { plotMargin } from '../chrome/plot.js';
 
 // Trace geometry is fixed; the colours come from the configurable registry.
 const CURVE_SHAPES = [
@@ -110,9 +111,7 @@ export function buildChartLayout(opts) {
         spectralUnit, lamRange,
     } = opts;
     return {
-        // Plotly's modebar is absolutely positioned at the top-right. This top
-        // margin is its dedicated strip, keeping zoom/pan controls off the data.
-        margin: { l: 58, r: 18, t: 38, b: 46 },
+        margin: plotMargin(),
         paper_bgcolor: paperColor,
         plot_bgcolor: bgColor,
         font: { color: textColor, family: 'system-ui, -apple-system, sans-serif', size: 11 },

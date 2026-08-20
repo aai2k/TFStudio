@@ -1,129 +1,139 @@
-const { createElement: h, useEffect, useRef, useState } = React;
+import { ChoiceGroup, NumInput, RangeField, ToggleButton } from '../chrome/controls.js';
+import { ControlRow } from '../chrome/layout.js';
+import { NoticeBadge, SettingDivider, SettingRow, SettingsMenu } from '../chrome/popover.js';
 
-function tabButtonStyle(c, active) {
-    return {
-        padding: '2px 10px',
-        background: active ? c.accent : (c.inputBg || c.hover),
-        color: active ? '#fff' : c.text,
-        border: `1px solid ${active ? c.accent : c.border}`,
-        borderRadius: 3, cursor: 'pointer', fontSize: 12,
-        fontFamily: 'system-ui, -apple-system, sans-serif',
-    };
-}
+const { createElement: h } = React;
 
-function NumInput({ field, c }) {
-    const [raw, setRaw] = useState(String(field.value));
-    const editingRef = useRef(false);
-    useEffect(() => {
-        if (!editingRef.current) setRaw(String(field.value));
-    }, [field.value]);
-    const commit = () => {
-        editingRef.current = false;
-        const value = parseFloat(raw);
-        if (isFinite(value)) {
-            const clamped = Math.max(field.min, Math.min(field.max, value));
-            field.setValue(clamped);
-            setRaw(String(clamped));
-        } else {
-            setRaw(String(field.value));
-        }
-    };
-    return h('input', {
-        type: 'text', inputMode: 'decimal', value: raw,
-        onFocus: () => { editingRef.current = true; },
-        onChange: event => setRaw(event.target.value),
-        onBlur: commit,
-        onKeyDown: event => {
-            if (event.key === 'Enter') { event.target.blur(); }
-            else if (event.key === 'Escape') { setRaw(String(field.value)); editingRef.current = false; event.target.blur(); }
-        },
-        style: {
-            background: c.inputBg || c.hover, color: c.text,
-            border: `1px solid ${c.border}`, borderRadius: 3,
-            padding: '1px 4px', fontSize: 12, width: field.width || 58,
-            marginLeft: 6,
-            fontFamily: 'system-ui, -apple-system, sans-serif',
-            outline: 'none', textAlign: 'right',
-            fontVariantNumeric: 'tabular-nums',
-        },
-    });
-}
+const SIDE_COLORS = { front: '#1e88e5', back: '#e53935' };
 
-function NumericField({ field, labelStyle, c }) {
-    return h('label', { style: labelStyle }, field.label,
-        h(NumInput, { field, c }),
-    );
-}
-
-function ButtonGroup({ items, c }) {
-    return items.map(item => h('button', {
-        key: item.value,
-        onClick: item.onClick,
-        style: tabButtonStyle(c, item.active),
-    }, item.label));
-}
-
-function labeledButtons(label, items, labelStyle, c) {
-    return h('div', { style: { display: 'flex', alignItems: 'center', gap: 3 } },
-        h('span', { style: { ...labelStyle, marginRight: 3 } }, label + ':'),
-        h(ButtonGroup, { items, c }),
-    );
-}
-
-function controlGroups(state, text) {
-    return {
-        mode: [
-            { value: 'spectral', label: text.spectral, active: state.mode === 'spectral', onClick: () => state.setMode('spectral') },
-            { value: 'angular', label: text.angular, active: state.mode === 'angular', onClick: () => state.setMode('angular') },
+/** Which of Ψ and Δ are plotted; the sweep that produces them is a setting. */
+export function EllipsometryControls({ c, t, text, state, curveColors, notices }) {
+    return h(ControlRow, {
+        c,
+        trailing: [
+            h(NoticeBadge, { key: 'notices', c, notices, label: t.analysisChrome.notices }),
+            h(EllipsometrySetup, { key: 'setup', c, t, text, state }),
         ],
-        side: [
-            { value: 'front', label: text.modeFront || 'Front', active: state.side === 'front', onClick: () => state.setSide('front') },
-            { value: 'back', label: text.modeBack || 'Back', active: state.side === 'back', onClick: () => state.setSide('back') },
-        ],
-        delta: [
-            { value: 'woollam', label: text.deltaWoollam || 'Woollam', active: state.deltaConvention === 'woollam', onClick: () => state.setDeltaConvention('woollam') },
-            { value: 'azzam', label: text.deltaAzzam || 'Azzam–Bashara', active: state.deltaConvention === 'azzam', onClick: () => state.setDeltaConvention('azzam') },
-        ],
-    };
-}
-
-function numericFields(state, text) {
-    if (state.mode === 'spectral') {
-        return [
-            { key: 'lamStart', label: text.lamStart, value: state.lambdaStart, setValue: state.setLambdaStart, min: 100, max: 30000, step: 10 },
-            { key: 'lamEnd', label: text.lamEnd, value: state.lambdaEnd, setValue: state.setLambdaEnd, min: 100, max: 30000, step: 10 },
-            { key: 'lamStep', label: text.lamStep, value: state.lambdaStep, setValue: state.setLambdaStep, min: 0.1, max: 1000, step: 1, width: 46 },
-            { key: 'aoi', label: text.aoi, value: state.thetaDeg, setValue: state.setThetaDeg, min: 0, max: 89, step: 1, width: 46 },
-        ];
-    }
-    return [
-        { key: 'wavelength', label: text.wavelength, value: state.lambdaNm, setValue: state.setLambdaNm, min: 100, max: 30000, step: 10 },
-        { key: 'aoiStart', label: text.aoiStart, value: state.angleStart, setValue: state.setAngleStart, min: 0, max: 89.5, step: 1, width: 46 },
-        { key: 'aoiEnd', label: text.aoiEnd, value: state.angleEnd, setValue: state.setAngleEnd, min: 0, max: 89.5, step: 1, width: 46 },
-        { key: 'aoiStep', label: text.aoiStep, value: state.angleStep, setValue: state.setAngleStep, min: 0.05, max: 45, step: 0.5, width: 46 },
-    ];
-}
-
-export function EllipsometryControls({ c, text, state, summary }) {
-    const labelStyle = {
-        color: c.textDim, fontSize: 11, fontFamily: 'system-ui, -apple-system, sans-serif',
-        whiteSpace: 'nowrap',
-    };
-    const groups = controlGroups(state, text);
-
-    return h('div', {
-        style: {
-            display: 'flex', alignItems: 'center', gap: 12, flexShrink: 0,
-            padding: '5px 8px', borderBottom: `1px solid ${c.border}`,
-            backgroundColor: c.panel, flexWrap: 'wrap',
-        },
     },
-        labeledButtons(text.mode, groups.mode, labelStyle, c),
-        labeledButtons(text.side || 'Side', groups.side, labelStyle, c),
-        labeledButtons(text.deltaConv || 'Δ convention', groups.delta, labelStyle, c),
-        numericFields(state, text).map(field => h(NumericField, { key: field.key, field, labelStyle, c })),
-        h('span', { style: { ...labelStyle, marginLeft: 'auto', color: c.text } },
-            `${text.layersLabel}: ${summary.validLayers.length}  |  ${text.totalThk}: ${summary.totalThickness.toFixed(1)} nm`,
+        h(CurveSwitch, {
+            c, label: 'Ψ', color: curveColors.psi, on: state.showPsi,
+            // The last curve standing cannot be switched off: an empty plot is
+            // never what was meant, and there is no other way back to a curve.
+            last: !state.showDelta,
+            onToggle: () => state.setShowPsi(current => !current),
+        }),
+        h(CurveSwitch, {
+            c, label: 'Δ', color: curveColors.delta, on: state.showDelta,
+            last: !state.showPsi,
+            onToggle: () => state.setShowDelta(current => !current),
+        }),
+    );
+}
+
+function CurveSwitch({ c, label, color, on, last, onToggle }) {
+    return h(ToggleButton, {
+        c, label, color, active: on, disabled: on && last, onClick: onToggle,
+    },
+        h('span', {
+            style: {
+                width: 14, height: 0, flexShrink: 0,
+                borderTop: `2px solid ${on ? color : c.textDim}`,
+            },
+        }),
+    );
+}
+
+/**
+ * The sweep: what is varied and over what range, and the conditions held fixed
+ * while it runs.
+ */
+function EllipsometrySetup({ c, t, text, state }) {
+    const spectral = state.mode === 'spectral';
+    return h(SettingsMenu, { c, label: t.analysisChrome.settings, width: 320 },
+        h(SettingRow, { c, label: text.mode },
+            h(ChoiceGroup, {
+                ariaLabel: text.mode, activeId: state.mode, onSelect: state.setMode, c,
+                items: [
+                    { id: 'spectral', label: text.spectral },
+                    { id: 'angular', label: text.angular },
+                ],
+            }),
+        ),
+        h(SettingRow, { c, label: text.side },
+            h(ChoiceGroup, {
+                ariaLabel: text.side, activeId: state.side, onSelect: state.setSide, c,
+                items: [
+                    { id: 'front', label: text.modeFront, color: SIDE_COLORS.front },
+                    { id: 'back', label: text.modeBack, color: SIDE_COLORS.back },
+                ],
+            }),
+        ),
+        h(SettingDivider, { c }),
+        spectral
+            ? h(React.Fragment, null,
+                h(SettingRow, { c, label: 'λ' },
+                    h(RangeField, {
+                        c, unit: 'nm',
+                        from: {
+                            value: state.lambdaStart, min: 100, max: 30000, step: 10,
+                            onChange: state.setLambdaStart,
+                        },
+                        to: {
+                            value: state.lambdaEnd, min: 100, max: 30000, step: 10,
+                            onChange: state.setLambdaEnd,
+                        },
+                    }),
+                ),
+                h(SettingRow, { c, label: text.lamStep },
+                    h(NumInput, {
+                        value: state.lambdaStep, min: 0.1, max: 1000, step: 1, c, width: 60,
+                        onChange: state.setLambdaStep,
+                    }),
+                ),
+                h(SettingRow, { c, label: text.aoi },
+                    h(NumInput, {
+                        value: state.thetaDeg, min: 0, max: 89, step: 1, c, width: 60,
+                        onChange: state.setThetaDeg,
+                    }),
+                ),
+            )
+            : h(React.Fragment, null,
+                h(SettingRow, { c, label: text.aoi },
+                    h(RangeField, {
+                        c, unit: '°', width: 56,
+                        from: {
+                            value: state.angleStart, min: 0, max: 89.5, step: 1,
+                            onChange: state.setAngleStart,
+                        },
+                        to: {
+                            value: state.angleEnd, min: 0, max: 89.5, step: 1,
+                            onChange: state.setAngleEnd,
+                        },
+                    }),
+                ),
+                h(SettingRow, { c, label: text.aoiStep },
+                    h(NumInput, {
+                        value: state.angleStep, min: 0.05, max: 45, step: 0.5, c, width: 60,
+                        onChange: state.setAngleStep,
+                    }),
+                ),
+                h(SettingRow, { c, label: text.wavelength },
+                    h(NumInput, {
+                        value: state.lambdaNm, min: 100, max: 30000, step: 10, c, width: 72,
+                        onChange: state.setLambdaNm,
+                    }),
+                ),
+            ),
+        h(SettingDivider, { c }),
+        h(SettingRow, { c, label: text.deltaConv },
+            h(ChoiceGroup, {
+                ariaLabel: text.deltaConv,
+                activeId: state.deltaConvention, onSelect: state.setDeltaConvention, c,
+                items: [
+                    { id: 'azzam', label: text.deltaAzzam },
+                    { id: 'woollam', label: text.deltaWoollam },
+                ],
+            }),
         ),
     );
 }

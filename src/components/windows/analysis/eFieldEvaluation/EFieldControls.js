@@ -1,64 +1,54 @@
+import { ChoiceGroup, NumInput } from '../chrome/controls.js';
+import { ControlRow } from '../chrome/layout.js';
+import { NoticeBadge, SettingRow, SettingsMenu } from '../chrome/popover.js';
+
 const { createElement: h } = React;
 
-export function EFieldControls({ c, ef, state, summary }) {
-    const { lambda, lambdaStr, theta, pol, side } = state;
-    const labelStyle = {
-        color: c.textDim, fontSize: 11, fontFamily: 'system-ui, -apple-system, sans-serif',
-        whiteSpace: 'nowrap',
-    };
-    const inputStyle = {
-        background: c.inputBg || c.hover, color: c.text,
-        border: `1px solid ${c.border}`, borderRadius: 3,
-        padding: '1px 4px', fontSize: 12, width: 64,
-        fontFamily: 'system-ui, -apple-system, sans-serif',
-    };
-    const polBtnStyle = (active) => ({
-        padding: '2px 10px', background: active ? c.accent : (c.inputBg || c.hover),
-        color: active ? '#fff' : c.text,
-        border: `1px solid ${active ? c.accent : c.border}`,
-        borderRadius: 3, cursor: 'pointer', fontSize: 12,
-        fontFamily: 'system-ui, -apple-system, sans-serif',
-    });
-    const commitLambda = e => {
-        const v = parseFloat(e.target.value);
-        const clamped = isNaN(v) ? lambda : Math.max(100, Math.min(10000, v));
-        state.setLambda(clamped);
-        state.setLambdaStr(String(clamped));
-    };
+// Front and back carry the same colours here as everywhere else a side is
+// chosen, so the two windows can be read side by side.
+const SIDE_COLORS = { front: '#1e88e5', back: '#e53935' };
 
-    return h('div', { style: {
-        display: 'flex', alignItems: 'center', gap: 12, flexShrink: 0,
-        padding: '5px 8px', borderBottom: `1px solid ${c.border}`,
-        backgroundColor: c.panel, flexWrap: 'wrap',
-    } },
-        h('label', { style: labelStyle }, ef.wavelength,
-            h('input', {
-                type: 'number', min: 100, max: 10000, step: 10, value: lambdaStr,
-                onChange: e => state.setLambdaStr(e.target.value), onBlur: commitLambda,
-                onKeyDown: e => { if (e.key === 'Enter') e.target.blur(); },
-                style: { ...inputStyle, marginLeft: 6 },
-            })
+/** Which field is plotted; the wavelength and angle it is computed at are settings. */
+export function EFieldControls({ c, t, ef, state, notices }) {
+    return h(ControlRow, {
+        c,
+        trailing: [
+            h(NoticeBadge, { key: 'notices', c, notices, label: t.analysisChrome.notices }),
+            h(EFieldSetup, { key: 'setup', c, t, ef, state }),
+        ],
+    },
+        h(ChoiceGroup, {
+            label: ef.polarization, activeId: state.pol, onSelect: state.setPol, c,
+            items: [
+                { id: 'avg', label: ef.polAvg },
+                { id: 's', label: ef.polS },
+                { id: 'p', label: ef.polP },
+            ],
+        }),
+        h(ChoiceGroup, {
+            label: ef.side, ariaLabel: ef.side,
+            activeId: state.side, onSelect: state.setSide, c,
+            items: [
+                { id: 'front', label: ef.front, color: SIDE_COLORS.front },
+                { id: 'back', label: ef.back, color: SIDE_COLORS.back },
+            ],
+        }),
+    );
+}
+
+function EFieldSetup({ c, t, ef, state }) {
+    return h(SettingsMenu, { c, label: t.analysisChrome.settings },
+        h(SettingRow, { c, label: ef.wavelength },
+            h(NumInput, {
+                value: state.lambda, min: 100, max: 10000, step: 10, c, width: 72,
+                onChange: state.setLambda,
+            }),
         ),
-        h('label', { style: labelStyle }, ef.aoi,
-            h('input', {
-                type: 'number', min: 0, max: 89, step: 1, value: theta,
-                onChange: e => state.setTheta(Math.max(0, Math.min(89, parseFloat(e.target.value) || 0))),
-                style: { ...inputStyle, width: 48, marginLeft: 6 },
-            })
+        h(SettingRow, { c, label: ef.aoi },
+            h(NumInput, {
+                value: state.theta, min: 0, max: 89, step: 1, c, width: 60,
+                onChange: state.setTheta,
+            }),
         ),
-        h('div', { style: { display: 'flex', alignItems: 'center', gap: 3 } },
-            h('span', { style: { ...labelStyle, marginRight: 3 } }, ef.polarization + ':'),
-            ['s', 'p', 'avg'].map(p => h('button', {
-                key: p, onClick: () => state.setPol(p), style: polBtnStyle(pol === p),
-            }, p === 's' ? ef.polS : p === 'p' ? ef.polP : ef.polAvg))
-        ),
-        h('div', { style: { display: 'flex', alignItems: 'center', gap: 3 } },
-            h('span', { style: { ...labelStyle, marginRight: 3 } }, (ef.side || 'Side') + ':'),
-            [['front', ef.front || 'Front'], ['back', ef.back || 'Back']].map(([s, lbl]) =>
-                h('button', { key: s, onClick: () => state.setSide(s), style: polBtnStyle(side === s) }, lbl))
-        ),
-        h('span', { style: { ...labelStyle, marginLeft: 'auto', color: c.text } },
-            `${ef.maxLabel}: ${summary.maxE2pct}%  |  ${ef.layersLabel}: ${summary.layerCount}  |  ` +
-            `${ef.totalThk}: ${summary.totalThkNm} nm`)
     );
 }

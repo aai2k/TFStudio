@@ -28,6 +28,12 @@ const { buildEllipsometryFigure } = await import(
 const { EllipsometryEvaluation } = await import(
     '../src/components/windows/analysis/ellipsometryEvaluation/EllipsometryEvaluation.js'
 );
+const { ellipsometrySession } = await import(
+    '../src/components/windows/analysis/ellipsometryEvaluation/sessionState.js'
+);
+const { plotMargin } = await import(
+    '../src/components/windows/analysis/chrome/plot.js'
+);
 
 function legacyMaterial(id) {
     if (!id) return getMaterial('Air');
@@ -142,12 +148,43 @@ const c = makeTheme();
 const figure = buildEllipsometryFigure(angular, {
     background: c.bg, paper: c.panel, grid: c.border, text: c.text,
 });
-assert.equal(createHash('sha256').update(JSON.stringify(figure)).digest('hex').slice(0, 16), 'b438c5b538248f2c');
+assert.equal(createHash('sha256').update(JSON.stringify(figure)).digest('hex').slice(0, 16), '82b28e1e29efdcf6');
+
+// Ψ and Δ are switched independently, and the curve that is off takes its
+// vertical axis with it rather than leaving an unused scale on that edge.
+const psiOnly = buildEllipsometryFigure(
+    angular, { background: c.bg, paper: c.panel, grid: c.border, text: c.text },
+    undefined, { psi: true, delta: false });
+assert.deepEqual(psiOnly.traces.map(trace => trace.name), ['Ψ']);
+assert.equal(psiOnly.layout.yaxis.visible, true);
+assert.equal(psiOnly.layout.yaxis2.visible, false);
+const deltaOnly = buildEllipsometryFigure(
+    angular, { background: c.bg, paper: c.panel, grid: c.border, text: c.text },
+    undefined, { psi: false, delta: true });
+assert.deepEqual(deltaOnly.traces.map(trace => trace.name), ['Δ']);
+assert.equal(deltaOnly.layout.yaxis.visible, false);
+// Δ reads against the right-hand axis, so its margin is the one that stays wide.
+assert.equal(deltaOnly.layout.margin.r, 58);
+assert.equal(psiOnly.layout.margin.r, 18);
+
+// The axis titles are set the way Optical Evaluation sets them. Without the
+// standoff, or at a larger size, the horizontal title drops to the bottom edge
+// and lands on the band under the plot.
+for (const axis of ['xaxis', 'yaxis', 'yaxis2']) {
+    assert.equal(figure.layout[axis].title.standoff, 8, `${axis} title has no standoff`);
+    assert.equal(figure.layout[axis].title.font.size, 11, `${axis} title is oversized`);
+}
+assert.deepEqual(figure.layout.margin, plotMargin({ rightAxis: true }),
+    'the dispersion plot no longer uses the shared margin');
+
+// Azzam-Bashara is the convention the window opens in.
+assert.equal(ellipsometrySession.read(makeSampleDesign()).deltaConvention, 'azzam');
+ellipsometrySession.reset();
 const markup = renderToStaticMarkup(withDesign(
     React.createElement(EllipsometryEvaluation, { c, t: makeLocale(), theme: c }),
     makeSampleDesign(),
 ));
-assert.equal(createHash('sha256').update(markup).digest('hex').slice(0, 16), '803c640071973f0c');
+assert.equal(createHash('sha256').update(markup).digest('hex').slice(0, 16), '58f7f3385501c08b');
 assert.equal(existsSync('src/components/windows/analysis/EllipsometryEvaluation.js'), false);
 
 console.log('PASS: ellipsometry_evaluation_refactor');

@@ -1,7 +1,10 @@
 import { ANALYSIS_DEFAULTS } from '../../../../constants/analysisDefaults.js';
 import { drawPlot, usePlotTeardown } from '../../../ui/plotSurface.js';
+import { axisTitle, chartConfig, plotMargin, TICK_FONT } from '../chrome/plot.js';
 import { useAnalysisColors } from '../../../../state/AnalysisSettingsContext.js';
 const { createElement: h, useEffect, useRef } = React;
+
+const CHART_CONFIG = chartConfig('index_profile_total');
 
 export function placeTotalRegions(regions) {
     const coatW = (regions || [])
@@ -116,7 +119,7 @@ export function riTotalFigure(regions, quantity, matColorMap, colors, curve = AN
     const layout = {
         paper_bgcolor: paperColor,
         plot_bgcolor: bgColor,
-        margin: { l: 56, r: showBoth ? 56 : 16, t: 24, b: 30 },
+        margin: plotMargin({ rightAxis: showBoth }),
         showlegend: showBoth,
         legend: { x: 1, xanchor: 'right', y: 1.08, orientation: 'h',
                   font: { size: 11, color: textColor }, bgcolor: 'transparent' },
@@ -126,9 +129,9 @@ export function riTotalFigure(regions, quantity, matColorMap, colors, curve = AN
             color: textColor,
         },
         yaxis: {
-            title: { text: showN ? 'n' : 'k', font: { color: textColor, size: 12 } },
+            title: axisTitle(showN ? 'n' : 'k', { color: textColor }),
             color: textColor, gridcolor: gridColor, zerolinecolor: gridColor,
-            tickfont: { color: textColor, size: 11 },
+            tickfont: { color: textColor, ...TICK_FONT },
             rangemode: 'tozero',
         },
         shapes: buildShapes(placed, matColorMap, colors),
@@ -136,9 +139,9 @@ export function riTotalFigure(regions, quantity, matColorMap, colors, curve = AN
     };
     if (showBoth) {
         layout.yaxis2 = {
-            title: { text: 'k', font: { color: curve.k, size: 12 } },
+            title: axisTitle('k', { color: curve.k }),
             color: curve.k, overlaying: 'y', side: 'right',
-            tickfont: { color: curve.k, size: 11 },
+            tickfont: { color: curve.k, ...TICK_FONT },
             showgrid: false, rangemode: 'tozero',
         };
     }
@@ -160,7 +163,7 @@ export function RITotalChart({ regions, quantity, matColorMap, c }) {
     useEffect(() => {
         const { traces, layout } = riTotalFigure(regions, quantity, matColorMap, colors, curve);
         drawPlot(divRef.current, initRef, traces, layout,
-            { responsive: true, displayModeBar: false });
+            CHART_CONFIG);
     });
 
     usePlotTeardown(divRef, initRef);

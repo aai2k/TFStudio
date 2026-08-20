@@ -1,47 +1,15 @@
 import { buildCurves } from './model.js';
+import { activeFill } from '../chrome/controls.js';
 import { useAnalysisColors } from '../../../../state/AnalysisSettingsContext.js';
 
-const { createElement: h, useState, useEffect } = React;
-
-export function FieldLabel({ children, c }) {
-    return h('span', {
-        style: { fontSize: 11, color: c.textDim, fontWeight: 500, whiteSpace: 'nowrap', flexShrink: 0 }
-    }, children);
-}
-
-export function Divider({ c }) {
-    return h('div', { style: { width: 1, height: 22, background: c.border, flexShrink: 0 } });
-}
-
-export function NumInput({ value, onChange, min, max, step = 1, c, width = 60 }) {
-    const [raw, setRaw] = useState(String(value));
-    useEffect(() => { setRaw(String(value)); }, [value]);
-    const commit = () => {
-        if (raw === String(value)) return;
-        const parsed = parseFloat(raw);
-        if (!isNaN(parsed)) onChange(Math.min(Math.max(parsed, min ?? -Infinity), max ?? Infinity));
-        else setRaw(String(value));
-    };
-    return h('input', {
-        type: 'number', value: raw, min, max, step,
-        onChange: event => setRaw(event.target.value),
-        onBlur: commit,
-        onKeyDown: event => { if (event.key === 'Enter') commit(); },
-        style: {
-            width, height: 24, backgroundColor: c.field, color: c.text,
-            border: `1px solid ${c.border}`, borderRadius: 3,
-            fontSize: 12, fontFamily: 'system-ui, -apple-system, sans-serif',
-            padding: '0 4px', outline: 'none', textAlign: 'right'
-        }
-    });
-}
+const { createElement: h } = React;
 
 export function CurveGroup({ group, showCurves, onToggle, c, polLabels }) {
     // Swatches follow the configured curve colours so the toolbar matches the plot.
     const curveColors = useAnalysisColors('opticalEvaluation');
     const byKey = Object.fromEntries(buildCurves(curveColors).map(cv => [cv.key, cv]));
     const groupColor = byKey[group.members[0].key].color;
-    const activeFill = groupColor + (c.light ? '20' : '38');
+    const fill = activeFill(c, groupColor);
     return h('div', {
         style: {
             display: 'inline-flex', alignItems: 'center', gap: 2, flexShrink: 0,
@@ -62,7 +30,7 @@ export function CurveGroup({ group, showCurves, onToggle, c, polLabels }) {
                 style: {
                     height: 22, padding: '0 7px', display: 'flex', alignItems: 'center', justifyContent: 'center',
                     cursor: 'pointer', outline: 'none', border: 'none', lineHeight: 1,
-                    borderRadius: 4, backgroundColor: active ? activeFill : 'transparent',
+                    borderRadius: 4, backgroundColor: active ? fill : 'transparent',
                     color: active ? c.text : c.textDim,
                     fontSize: 11, fontWeight: 500,
                     fontFamily: 'system-ui, -apple-system, sans-serif',
@@ -73,7 +41,6 @@ export function CurveGroup({ group, showCurves, onToggle, c, polLabels }) {
 
 export function SegmentedButton({ item, activeId, onSelect, c, title }) {
     const active = activeId === item.id;
-    const activeFill = c.accent + (c.light ? '20' : '38');
     return h('button', {
         onClick: () => onSelect(item.id),
         title: item.tip || title,
@@ -81,7 +48,7 @@ export function SegmentedButton({ item, activeId, onSelect, c, title }) {
         style: {
             height: 24, padding: '0 8px', cursor: 'pointer', outline: 'none', border: 'none',
             borderRadius: 4,
-            backgroundColor: active ? activeFill : 'transparent',
+            backgroundColor: active ? activeFill(c) : 'transparent',
             color: active ? c.text : c.textDim,
             fontSize: 11, fontFamily: 'system-ui, -apple-system, sans-serif',
             fontWeight: 500,

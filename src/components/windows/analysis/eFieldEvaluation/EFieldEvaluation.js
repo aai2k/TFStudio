@@ -5,50 +5,53 @@
  */
 
 import { useDesign } from '../../../../state/DesignContext.js';
-import { MaterialRangeWarning } from '../../../materials/MaterialRangeNotice.js';
+import { useMaterialRangeNotice } from '../../../materials/MaterialRangeNotice.js';
+import { ExportMenu, useCsvExport } from '../../../ui/ExportMenu.js';
+import { csvFromRows, ResultsGrid, ResultsSection } from '../../../ui/ResultsSection.js';
+import { AnalysisWindow, CenteredMessage, PlotArea } from '../chrome/layout.js';
 import { EFieldChart } from './EFieldChart.js';
 import { EFieldControls } from './EFieldControls.js';
-import { EFieldTable } from './EFieldTable.js';
-import { buildProfileViewModel } from './profileViewModel.js';
+import { buildProfileTable } from './profileViewModel.js';
 import { useEFieldState } from './useEFieldState.js';
 
 const { createElement: h } = React;
 
+const EMPTY_TABLE = { columns: [], rows: [] };
+
 export function EFieldEvaluation({ c, theme, t }) {
     const ef = t.eField;
+    const dt = t.dataTable;
     const { design } = useDesign();
     const state = useEFieldState(design);
-    const summary = buildProfileViewModel(state.profile, state.pol);
+    const table = buildProfileTable(state.profile, state.pol) || EMPTY_TABLE;
+    const rangeNotice = useMaterialRangeNotice(design, state.lambda, state.lambda, t);
+    const csv = useCsvExport(
+        () => csvFromRows(table.columns, table.rows),
+        () => `${(design?.name || 'design').replace(/[^\w.-]+/g, '_')}_efield.csv`,
+    );
 
-    if (!design) {
-        return h('div', { style: {
-            flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center',
-            color: c.textDim, fontSize: 13, fontFamily: 'system-ui, -apple-system, sans-serif',
-        } }, ef.noDesign);
-    }
+    if (!design) return h(CenteredMessage, { c, message: ef.noDesign });
 
-    return h('div', { style: {
-        display: 'flex', flexDirection: 'column', width: '100%', height: '100%',
-        overflow: 'hidden', backgroundColor: c.bg, color: c.text,
-    } },
-        h(EFieldControls, { c, ef, state, summary }),
-        h(MaterialRangeWarning, { design, fromNm: state.lambda, toNm: state.lambda, c, t }),
-        h('div', { style: {
-            flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column', overflow: 'hidden',
-        } },
-            h('div', { style: { flex: 1, minHeight: 0, overflow: 'hidden' } },
-                state.profile
-                    ? h(EFieldChart, {
-                        profileData: state.profile, pol: state.pol,
-                        matColorMap: state.matColorMap, c,
-                    })
-                    : h('div', { style: {
-                        width: '100%', height: '100%', display: 'flex', alignItems: 'center',
-                        justifyContent: 'center', color: c.textDim, fontSize: 13,
-                        fontFamily: 'system-ui, -apple-system, sans-serif',
-                    } }, ef.noLayers)
-            ),
-            state.profile && h(EFieldTable, { profile: state.profile, pol: state.pol, c, t })
-        )
+    return h(AnalysisWindow, { c },
+        h(EFieldControls, { c, t, ef, state, notices: [rangeNotice].filter(Boolean) }),
+        h(PlotArea, null,
+            state.profile
+                ? h(EFieldChart, {
+                    profileData: state.profile, pol: state.pol,
+                    matColorMap: state.matColorMap, c,
+                })
+                : h(CenteredMessage, { c, message: ef.noLayers }),
+        ),
+        h(ResultsSection, {
+            c, label: dt.results, count: table.rows.length, countLabel: dt.rowCount,
+            open: state.showTable, setOpen: state.setShowTable,
+            actions: h(ExportMenu, {
+                c, enabled: table.rows.length > 0, ...csv,
+                labels: {
+                    export: dt.export, copyCsv: dt.copyCsv, saveCsv: dt.saveCsv,
+                    copied: dt.csvCopied, saved: dt.csvSaved,
+                },
+            }),
+        }, h(ResultsGrid, { columns: table.columns, rows: table.rows, c })),
     );
 }

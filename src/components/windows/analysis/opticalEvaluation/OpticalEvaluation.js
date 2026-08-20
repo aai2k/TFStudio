@@ -1,38 +1,37 @@
-import { MaterialRangeWarning } from '../../../materials/MaterialRangeNotice.js';
+import { useMaterialRangeNotice } from '../../../materials/MaterialRangeNotice.js';
+import { ExportMenu } from '../../../ui/ExportMenu.js';
 import { useOpticalEvaluation } from './useOpticalEvaluation.js';
-import { EvaluationToolbar } from './EvaluationToolbar.js';
-import { CurveToolbar } from './CurveToolbar.js';
+import { ControlBar } from './ControlBar.js';
 import { TargetToolbar } from './TargetToolbar.js';
 import { ChartPanel } from './ChartPanel.js';
-import { AxisPanel } from './AxisPanel.js';
 import { ResultsPanel } from './ResultsPanel.js';
-import { FooterPanel } from './FooterPanel.js';
+import { AnalysisWindow } from '../chrome/layout.js';
 
 const { createElement: h } = React;
 
 export function OpticalEvaluation({ c, theme, t }) {
     const state = useOpticalEvaluation();
-    const props = { ...state, c, theme, t, oe: t.opticalEval };
-    return h('div', {
-        style: {
-            display: 'flex', flexDirection: 'column', height: '100%',
-            backgroundColor: c.bg, color: c.text,
-            fontFamily: 'system-ui, -apple-system, sans-serif', fontSize: 12,
-            overflow: 'hidden'
-        }
-    },
-        h(EvaluationToolbar, props),
-        h(CurveToolbar, props),
+    const rangeNotice = useMaterialRangeNotice(
+        state.design, state.params.lambdaStart, state.params.lambdaEnd, t);
+    const oe = t.opticalEval;
+    const exportMenu = h(ExportMenu, {
+        c, enabled: !!state.data,
+        copied: state.copied, copyCSV: state.copyCSV,
+        saved: state.saved, saveCSV: state.saveCSV,
+        labels: {
+            export: oe.export, copyCsv: oe.copyCsv, saveCsv: oe.saveCsv,
+            copied: oe.csvCopied, saved: oe.csvSaved,
+        },
+    });
+    const props = {
+        ...state, c, theme, t, oe,
+        notices: [rangeNotice].filter(Boolean),
+        exportMenu,
+    };
+    return h(AnalysisWindow, { c },
+        h(ControlBar, props),
         h(TargetToolbar, props),
-        h(MaterialRangeWarning, {
-            design: state.design,
-            fromNm: state.params.lambdaStart,
-            toNm: state.params.lambdaEnd,
-            c, t,
-        }),
         h(ChartPanel, props),
-        h(AxisPanel, props),
         h(ResultsPanel, props),
-        h(FooterPanel, props)
     );
 }

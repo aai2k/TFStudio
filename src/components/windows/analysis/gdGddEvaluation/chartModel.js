@@ -1,4 +1,5 @@
 import { buildGdGddTargetOverlay } from './gdTargets.js';
+import { plotMargin } from '../chrome/plot.js';
 
 export function buildGDChartModel(options) {
     const { data, meta, referenceLambda, showReference, colors, targets = [], yRange } = options;
@@ -21,9 +22,7 @@ export function buildGDChartModel(options) {
     const layout = {
         paper_bgcolor: colors.paper,
         plot_bgcolor: colors.background,
-        // Matches Optical Evaluation. The 38 px top margin is the modebar's
-        // dedicated strip, keeping the zoom and pan controls off the data.
-        margin: { l: 58, r: 18, t: 38, b: 46 },
+        margin: plotMargin(),
         font: { color: colors.text, family: 'system-ui, -apple-system, sans-serif', size: 11 },
         showlegend: series.length > 1,
         legend: { orientation: 'h', x: 0, y: 1.02, font: { color: colors.text, size: 10 } },

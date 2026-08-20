@@ -24,6 +24,8 @@ const { efieldLayout, efieldTraces } =
     await import('../src/components/windows/analysis/eFieldEvaluation/chartModel.js');
 const { EFieldEvaluation } =
     await import('../src/components/windows/analysis/eFieldEvaluation/EFieldEvaluation.js');
+const { plotMargin } =
+    await import('../src/components/windows/analysis/chrome/plot.js');
 
 function legacyMaterial(id) {
     if (!id) return getMaterial('Air');
@@ -98,6 +100,11 @@ const layout = efieldLayout(front, 'avg', {}, {
     bgColor: '#1', paperColor: '#2', gridColor: '#3', textColor: '#4', accentColor: '#5',
 });
 assert.deepEqual(layout.xaxis.range, [0, 190]);
+// Shared margin and axis-title treatment. The Results strip sits directly under
+// this plot, so a title without the standoff ends up against it.
+assert.deepEqual(layout.margin, plotMargin());
+assert.equal(layout.xaxis.title.standoff, 8);
+assert.equal(layout.xaxis.title.font.size, 11);
 assert.equal(layout.shapes.filter(shape => shape.type === 'rect').length, 2);
 assert.equal(layout.shapes.find(shape => shape.y0 === 100).line.color, '#588');
 
@@ -106,6 +113,6 @@ const html = renderToStaticMarkup(withDesign(
     React.createElement(EFieldEvaluation, { c, t: makeLocale(), theme: c }),
 ));
 const hash = createHash('sha256').update(html).digest('hex').slice(0, 16);
-assert.equal(hash, 'a4a77debbab6ebe9');
+assert.equal(hash, 'db29a36a90b74a39');
 
 console.log('PASS: e_field_evaluation_characterization');

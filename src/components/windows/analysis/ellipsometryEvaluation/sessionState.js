@@ -20,7 +20,10 @@ export const ellipsometrySession = createWindowSession({
     angleStart: 45,
     angleEnd: 80,
     angleStep: 0.5,
-    deltaConvention: 'woollam',
+    deltaConvention: 'azzam',
+    showPsi: true,
+    showDelta: true,
+    showTable: false,
 }, {
     onDesignChange: (design, current) => ({
         ...(design?.referenceWavelength ? { lambdaNm: design.referenceWavelength } : null),

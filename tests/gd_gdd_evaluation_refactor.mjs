@@ -25,8 +25,10 @@ const { selectGdGddTargets } =
     await import('../src/components/windows/analysis/gdGddEvaluation/gdTargets.js');
 const { GDGDDEvaluation } =
     await import('../src/components/windows/analysis/gdGddEvaluation/GDGDDEvaluation.js');
-const { FooterHint } =
-    await import('../src/components/windows/analysis/gdGddEvaluation/GDControls.js');
+const { NoticeBadge } =
+    await import('../src/components/windows/analysis/chrome/popover.js');
+const { plotMargin } =
+    await import('../src/components/windows/analysis/chrome/plot.js');
 
 const design = {
     incidentMedium: 'Air',
@@ -125,8 +127,9 @@ const chart = buildGDChartModel({
     colors: { background: c.bg, paper: c.panel, grid: c.border, text: c.text },
 });
 assert.equal(chart.traces[0].hovertemplate, '%{y:.2f} °<br>%{x:.2f} nm<extra></extra>');
-// Matches Optical Evaluation; the 38 px top strip is the modebar's.
-assert.deepEqual(chart.layout.margin, { l: 58, r: 18, t: 38, b: 46 });
+// The one shared margin: the 38 px top strip is the modebar's, and the bottom
+// holds the axis title clear of whatever band the window puts under the plot.
+assert.deepEqual(chart.layout.margin, plotMargin());
 // Axis furniture is the text colour, not the curve colour.
 assert.equal(chart.layout.font.color, c.text);
 assert.equal(chart.layout.yaxis.color, undefined);
@@ -203,37 +206,41 @@ const markup = renderToStaticMarkup(withDesign(
     React.createElement(GDGDDEvaluation, { c, t: makeLocale(), theme: c }),
     makeSampleDesign(),
 ));
-assert.match(markup, /data-gd-toolbar="primary"/, 'side and AOI have a dedicated toolbar');
-assert.match(markup, /data-gd-toolbar="curves"/, 'quantity controls have a dedicated toolbar');
-assert.match(markup, /data-gd-panel="axis"/, 'wavelength controls sit in an axis panel');
-assert.match(markup, /data-gd-panel="footer"/, 'the selected coating summary sits in a footer');
-assert.match(markup, /aria-label="Side"/, 'front/back remains an explicit local calculation switch');
+// The window is one control row, the plot, and the Results strip. Anything
+// that is not a curve switch is behind Settings, and nothing but the plot grows
+// when the window does.
+assert.match(markup, /data-gd-toolbar="curves"/, 'the curve switches have a control row');
+assert.doesNotMatch(markup, /data-gd-toolbar="primary"/, 'the second toolbar row is gone');
+assert.doesNotMatch(markup, /data-gd-panel="axis"/, 'the axis panel is gone');
+assert.doesNotMatch(markup, /data-gd-panel="footer"/, 'the status footer is gone');
+assert.match(markup, />Settings</, 'ranges and geometry are behind a Settings panel');
+// Closed until asked for: a setting is not in the markup until the panel opens.
+assert.doesNotMatch(markup, /aria-label="Side"/, 'the side switch sits inside the panel');
+assert.doesNotMatch(markup, />Auto</, 'the vertical range sits inside the panel');
 assert.doesNotMatch(markup, /λ step/, 'the live analysis has no numerical sampling control');
-// A vertical range control, as Optical Evaluation has. Auto is on by default,
-// so the min/max fields are not rendered until it is cleared.
-assert.match(markup, />Auto</, 'the axis panel offers an automatic vertical range');
 assert.match(markup, /flex-wrap:wrap/,
-    'the control toolbars wrap instead of clipping in a narrow window');
+    'the control row wraps instead of clipping in a narrow window');
 assert.match(markup, />Targets</, 'matching merit-function targets have a visibility control');
-// The bottom of the window matches Optical Evaluation: a collapsible Results
-// section over the sampled numbers, and a CSV export menu in the footer.
 assert.match(markup, />Results</, 'the sampled numbers sit in a collapsible Results section');
-assert.match(markup, />Export</, 'the footer exports the sampled numbers as CSV');
+assert.match(markup, />Export</, 'the Results strip exports the sampled numbers as CSV');
 assert.doesNotMatch(markup, />Piecewise table derivative/,
-    'the long piecewise note never occupies the status bar');
+    'the long piecewise note never occupies a band of its own');
 // Auto-update follows one global setting, but it is set from the windows that
 // start runs. This window obeys it without carrying the control.
 assert.doesNotMatch(markup, /role="switch"/,
     'the analysis toolbar does not carry the auto-update switch');
-assert.equal(createHash('sha256').update(markup).digest('hex').slice(0, 16), '619d09d780f52528');
+assert.equal(createHash('sha256').update(markup).digest('hex').slice(0, 16), '327f7e03b70891fe');
 
-// Sentence-length status text is a tooltip on a short label. A status bar in a
-// docked window has no room for it, and clipping it would hide it entirely.
-const hint = renderToStaticMarkup(React.createElement(FooterHint, {
-    c, label: 'Piecewise', detail: 'Piecewise table derivative; gaps mark data-knot jumps',
+// Conditions on the result are a badge that costs no height when there are
+// none, and carries the sentence-length explanation inside it when there are.
+assert.equal(renderToStaticMarkup(React.createElement(NoticeBadge, {
+    c, notices: [], label: 'Notices',
+})), '', 'a clean result shows no badge at all');
+const badge = renderToStaticMarkup(React.createElement(NoticeBadge, {
+    c, label: 'Notices',
+    notices: [{ label: 'Piecewise', detail: 'Gaps mark data-knot jumps' }],
 }));
-assert.match(hint, /title="Piecewise table derivative; gaps mark data-knot jumps"/);
-assert.match(hint, />Piecewise</);
-assert.match(hint, /cursor:help/);
+assert.match(badge, />1</, 'the badge counts the conditions');
+assert.match(badge, /title="Notices"/);
 
 console.log('PASS: gd_gdd_evaluation_refactor');

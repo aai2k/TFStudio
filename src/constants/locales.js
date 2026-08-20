@@ -639,6 +639,14 @@ const en = {
     label: 'Auto-update',
     hint: 'Follow the design while the optimizer runs. Off, open windows hold the design as it was when the run started and update once it stops. Edits always show immediately.',
   },
+  // Shared frame of the analysis windows: the control row, its Setup panel and
+  // its notice badge.
+  analysisChrome: {
+    settings: 'Settings',
+    settingsTip: 'Ranges, geometry and axis settings for this plot',
+    notices: 'Conditions attached to this result',
+  },
+
   dataTable: {
     data: 'Data',
     rows: 'rows',
@@ -1390,6 +1398,9 @@ const en = {
     polS:          's',
     polP:          'p',
     polAvg:        'avg',
+    side:          'Side',
+    front:         'Front',
+    back:          'Back',
     labelS:        '|E|² (s-pol)',
     labelP:        '|E|² (p-pol)',
     labelAvg:      '|E|² (avg)',
@@ -1473,6 +1484,10 @@ const en = {
     qN:          'n',
     qK:          'k',
     qBoth:       'n & k',
+    side:        'Side',
+    front:       'Front',
+    back:        'Back',
+    total:       'Total',
     nRange:      'n range',
     totalThk:    'Total thickness',
     optThk:      'Optical thickness',
@@ -3291,6 +3306,12 @@ const ru = {
     label: 'Автообновление',
     hint: 'Следить за покрытием во время оптимизации. Если выключено, открытые окна сохраняют покрытие таким, каким оно было в начале расчёта, и обновляются один раз после его остановки. Правки отображаются сразу в любом случае.',
   },
+  analysisChrome: {
+    settings: 'Настройки',
+    settingsTip: 'Диапазоны, геометрия и оси этого графика',
+    notices: 'Замечания к результату',
+  },
+
   dataTable: {
     data: 'Данные',
     rows: 'строк',
@@ -4030,6 +4051,9 @@ const ru = {
     polS:          's',
     polP:          'p',
     polAvg:        'ср',
+    side:          'Сторона',
+    front:         'Передняя',
+    back:          'Задняя',
     labelS:        '|E|² (s-пол)',
     labelP:        '|E|² (p-пол)',
     labelAvg:      '|E|² (ср)',
@@ -4113,6 +4137,10 @@ const ru = {
     qN:          'n',
     qK:          'k',
     qBoth:       'n и k',
+    side:        'Сторона',
+    front:       'Передняя',
+    back:        'Задняя',
+    total:       'Всего',
     nRange:      'Диапазон n',
     totalThk:    'Полная толщина',
     optThk:      'Оптическая толщина',

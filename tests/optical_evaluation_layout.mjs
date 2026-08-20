@@ -30,19 +30,26 @@ function check(condition, message) {
     }
 }
 
-const toolbarIndex = markup.indexOf(oe.aoi);
+const settingsIndex = markup.indexOf('Settings');
 const resultsIndex = markup.indexOf('Results');
 const exportIndex = markup.indexOf('Export');
 
-check(toolbarIndex >= 0, 'evaluation toolbar renders the angle-of-incidence control');
+// The window is one control row, the plot and the Results strip. The angles and
+// the ranges are behind Settings, so they are not in the markup until it opens.
+check(settingsIndex >= 0, 'the control row offers a Settings panel');
+check(!markup.includes(oe.aoi), 'the angle control sits inside the Settings panel');
+check(!markup.includes('Total thickness'), 'no status footer repeating the design summary');
 // Auto-update is set from the windows that start runs. This one obeys the
-// setting without offering it, so the toolbar stays about what is plotted.
+// setting without offering it, so the row stays about what is plotted.
 check(!markup.includes('role="switch"'), 'no auto-update switch in the analysis toolbar');
 check(markup.includes('aria-pressed="true"'), 'curve groups expose their active state');
 check(!markup.includes('#ffd54f'), 'target controls use theme colors instead of low-contrast yellow');
-check(resultsIndex > toolbarIndex, 'results section follows the plot controls');
+check(resultsIndex > settingsIndex, 'results section follows the plot controls');
 check(markup.includes('aria-expanded="false"'), 'results table is collapsed by default');
-check(exportIndex > resultsIndex, 'consolidated export control renders in the footer');
+check(exportIndex > resultsIndex, 'the export control renders in the Results strip');
+// Which surface the spectrum describes has to stay readable without opening a
+// panel, so the badges ride in the strip that is always on screen.
+check(markup.includes('FRONT'), 'the evaluation-mode badge stays visible');
 check(editorMarkup.includes(oe.editToolDraw) && editorMarkup.includes(oe.snap),
     'expanded target editor renders the redesigned grouped controls');
 

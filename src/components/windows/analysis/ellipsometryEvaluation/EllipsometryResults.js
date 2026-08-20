@@ -1,16 +1,8 @@
-import { DataTablePanel } from '../../../ui/DataTablePanel.js';
+import { ResultsGrid, ResultsSection } from '../../../ui/ResultsSection.js';
+import { CenteredMessage, PlotArea } from '../chrome/layout.js';
 import { EllipsometryChart } from './EllipsometryChart.js';
 
 const { createElement: h } = React;
-
-export function CenteredMessage({ c, message }) {
-    return h('div', {
-        style: {
-            flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center',
-            color: c.textDim, fontSize: 13, fontFamily: 'system-ui, -apple-system, sans-serif',
-        },
-    }, message);
-}
 
 export function buildEllipsometryTable(mode, data) {
     const xColumn = mode === 'spectral'
@@ -27,19 +19,22 @@ export function buildEllipsometryTable(mode, data) {
     return { columns, rows };
 }
 
-export function EllipsometryResults({ c, t, text, mode, data, validLayerCount }) {
-    const table = buildEllipsometryTable(mode, data);
-    const hasData = validLayerCount && data && data.x.length;
-    return h('div', {
-        style: { flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column', overflow: 'hidden' },
-    },
-        h('div', { style: { flex: 1, minHeight: 0, overflow: 'hidden' } },
+export function EllipsometryResults({ c, t, text, state, table, hasData, exportMenu }) {
+    const dt = t.dataTable;
+    return h(PlotArea, null,
+        h('div', { style: { flex: 1, minHeight: 0, overflow: 'hidden', display: 'flex' } },
             hasData
-                ? h(EllipsometryChart, { data, c })
+                ? h(EllipsometryChart, {
+                    data: state.data, c,
+                    show: { psi: state.showPsi, delta: state.showDelta },
+                })
                 : h(CenteredMessage, { c, message: text.noLayers }),
         ),
-        hasData
-            ? h(DataTablePanel, { columns: table.columns, rows: table.rows, c, t })
-            : null,
+        h(ResultsSection, {
+            c, label: dt.results, count: table.rows.length, countLabel: dt.rowCount,
+            open: state.showTable, setOpen: state.setShowTable, actions: exportMenu,
+        }, h(ResultsGrid, { columns: table.columns, rows: table.rows, c })),
     );
 }
+
+export { CenteredMessage };

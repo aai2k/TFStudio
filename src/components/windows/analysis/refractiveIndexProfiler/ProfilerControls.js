@@ -1,67 +1,47 @@
+import { ChoiceGroup, NumInput } from '../chrome/controls.js';
+import { ControlRow } from '../chrome/layout.js';
+import { NoticeBadge, SettingRow, SettingsMenu } from '../chrome/popover.js';
+
 const { createElement: h } = React;
 
-export function ProfilerControls({ c, rp, state, summary }) {
-    const { lambda, lambdaStr, quantity, side, setLambda, setLambdaStr, setQuantity, setSide } = state;
-    const labelStyle = {
-        color: c.textDim, fontSize: 11, fontFamily: 'system-ui, -apple-system, sans-serif',
-        whiteSpace: 'nowrap',
-    };
-    const inputStyle = {
-        background: c.inputBg || c.hover, color: c.text,
-        border: `1px solid ${c.border}`, borderRadius: 3,
-        padding: '1px 4px', fontSize: 12, width: 64,
-        fontFamily: 'system-ui, -apple-system, sans-serif',
-    };
-    const segBtnStyle = (active) => ({
-        padding: '2px 10px',
-        background: active ? c.accent : (c.inputBg || c.hover),
-        color: active ? '#fff' : c.text,
-        border: `1px solid ${active ? c.accent : c.border}`,
-        borderRadius: 3, cursor: 'pointer', fontSize: 12,
-        fontFamily: 'system-ui, -apple-system, sans-serif',
-    });
+const SIDE_COLORS = { front: '#1e88e5', back: '#e53935', total: '#ab47bc' };
 
-    return h('div', {
-        style: {
-            display: 'flex', alignItems: 'center', gap: 12, flexShrink: 0,
-            padding: '5px 8px', borderBottom: `1px solid ${c.border}`,
-            backgroundColor: c.panel, flexWrap: 'wrap',
-        },
+/** Which profile is plotted; the wavelength it is sampled at is a setting. */
+export function ProfilerControls({ c, t, rp, state, notices }) {
+    return h(ControlRow, {
+        c,
+        trailing: [
+            h(NoticeBadge, { key: 'notices', c, notices, label: t.analysisChrome.notices }),
+            h(ProfilerSetup, { key: 'setup', c, t, rp, state }),
+        ],
     },
-        h('label', { style: labelStyle }, rp.wavelength,
-            h('input', {
-                type: 'number', min: 100, max: 10000, step: 10,
-                value: lambdaStr,
-                onChange: e => setLambdaStr(e.target.value),
-                onBlur: e => {
-                    const v = parseFloat(e.target.value);
-                    const clamped = isNaN(v) ? lambda : Math.max(100, Math.min(10000, v));
-                    setLambda(clamped);
-                    setLambdaStr(String(clamped));
-                },
-                onKeyDown: e => { if (e.key === 'Enter') e.target.blur(); },
-                style: { ...inputStyle, marginLeft: 6 },
-            })
+        h(ChoiceGroup, {
+            label: rp.quantity, activeId: state.quantity, onSelect: state.setQuantity, c,
+            items: [
+                { id: 'n', label: rp.qN },
+                { id: 'k', label: rp.qK },
+                { id: 'both', label: rp.qBoth },
+            ],
+        }),
+        h(ChoiceGroup, {
+            label: rp.side, ariaLabel: rp.side,
+            activeId: state.side, onSelect: state.setSide, c,
+            items: [
+                { id: 'front', label: rp.front, color: SIDE_COLORS.front },
+                { id: 'back', label: rp.back, color: SIDE_COLORS.back },
+                { id: 'total', label: rp.total, color: SIDE_COLORS.total },
+            ],
+        }),
+    );
+}
+
+function ProfilerSetup({ c, t, rp, state }) {
+    return h(SettingsMenu, { c, label: t.analysisChrome.settings },
+        h(SettingRow, { c, label: rp.wavelength },
+            h(NumInput, {
+                value: state.lambda, min: 100, max: 10000, step: 10, c, width: 72,
+                onChange: state.setLambda,
+            }),
         ),
-        h('div', { style: { display: 'flex', alignItems: 'center', gap: 3 } },
-            h('span', { style: { ...labelStyle, marginRight: 3 } }, rp.quantity + ':'),
-            ['n', 'k', 'both'].map(q =>
-                h('button', { key: q, onClick: () => setQuantity(q), style: segBtnStyle(quantity === q) },
-                    q === 'n' ? rp.qN : q === 'k' ? rp.qK : rp.qBoth
-                )
-            )
-        ),
-        h('div', { style: { display: 'flex', alignItems: 'center', gap: 3 } },
-            h('button', { onClick: () => setSide('front'), style: segBtnStyle(side === 'front') },
-                rp.front || 'Front'),
-            h('button', { onClick: () => setSide('back'), style: segBtnStyle(side === 'back') },
-                rp.back || 'Back'),
-            h('button', { onClick: () => setSide('total'), style: segBtnStyle(side === 'total') },
-                rp.total || 'Total')
-        ),
-        h('span', { style: { ...labelStyle, marginLeft: 'auto', color: c.text } },
-            `${rp.nRange}: ${summary.nRangeStr}  |  ${rp.layersLabel}: ${summary.layerCount}  |  ` +
-            `${rp.totalThk}: ${summary.totalThkStr} nm  |  ${rp.optThk}: ${summary.optThkStr} nm`
-        )
     );
 }

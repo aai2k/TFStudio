@@ -4,38 +4,52 @@
  */
 
 import { useDesign } from '../../../../state/DesignContext.js';
-import { MaterialRangeWarning } from '../../../materials/MaterialRangeNotice.js';
+import { useMaterialRangeNotice } from '../../../materials/MaterialRangeNotice.js';
+import { ExportMenu, useCsvExport } from '../../../ui/ExportMenu.js';
+import { csvFromRows } from '../../../ui/ResultsSection.js';
+import { AnalysisWindow, CenteredMessage } from '../chrome/layout.js';
 import { EllipsometryControls } from './EllipsometryControls.js';
-import { CenteredMessage, EllipsometryResults } from './EllipsometryResults.js';
+import { buildEllipsometryTable, EllipsometryResults } from './EllipsometryResults.js';
 import { sideSummary } from './model.js';
 import { useEllipsometryEvaluation } from './useEllipsometryEvaluation.js';
+import { useAnalysisColors } from '../../../../state/AnalysisSettingsContext.js';
 
 const { createElement: h } = React;
 
 export function EllipsometryEvaluation({ c, theme, t }) {
     const text = t.ellipsometry;
+    const dt = t.dataTable;
     const { design } = useDesign();
     const state = useEllipsometryEvaluation(design);
-
-    if (!design) return h(CenteredMessage, { c, message: text.noDesign });
-
-    const summary = sideSummary(design, state.side);
+    const curveColors = useAnalysisColors('ellipsometryEvaluation');
+    const table = buildEllipsometryTable(state.mode, state.data);
     // The angular sweep holds λ fixed, so it is checked at that one wavelength.
     const [fromNm, toNm] = state.mode === 'spectral'
         ? [state.lambdaStart, state.lambdaEnd]
         : [state.lambdaNm, state.lambdaNm];
-    return h('div', {
-        style: {
-            display: 'flex', flexDirection: 'column',
-            width: '100%', height: '100%', overflow: 'hidden',
-            backgroundColor: c.bg, color: c.text,
-        },
-    },
-        h(EllipsometryControls, { c, text, state, summary }),
-        h(MaterialRangeWarning, { design, fromNm, toNm, c, t }),
+    const rangeNotice = useMaterialRangeNotice(design, fromNm, toNm, t);
+    const csv = useCsvExport(
+        () => csvFromRows(table.columns, table.rows),
+        () => `${(design?.name || 'design').replace(/[^\w.-]+/g, '_')}_ellipsometry.csv`,
+    );
+
+    if (!design) return h(CenteredMessage, { c, message: text.noDesign });
+
+    const summary = sideSummary(design, state.side);
+    const hasData = !!(summary.validLayers.length && state.data && state.data.x.length);
+    return h(AnalysisWindow, { c },
+        h(EllipsometryControls, {
+            c, t, text, state, curveColors, notices: [rangeNotice].filter(Boolean),
+        }),
         h(EllipsometryResults, {
-            c, t, text, mode: state.mode, data: state.data,
-            validLayerCount: summary.validLayers.length,
+            c, t, text, state, table, hasData,
+            exportMenu: h(ExportMenu, {
+                c, enabled: table.rows.length > 0, ...csv,
+                labels: {
+                    export: dt.export, copyCsv: dt.copyCsv, saveCsv: dt.saveCsv,
+                    copied: dt.csvCopied, saved: dt.csvSaved,
+                },
+            }),
         }),
     );
 }

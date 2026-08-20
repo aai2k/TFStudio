@@ -8,7 +8,7 @@ export function useEllipsometryEvaluation(design) {
     const [session, setField] = useWindowSession(ellipsometrySession, design);
     const {
         mode, side, lambdaStart, lambdaEnd, lambdaStep, thetaDeg,
-        lambdaNm, angleStart, angleEnd, angleStep, deltaConvention,
+        lambdaNm, angleStart, angleEnd, angleStep, deltaConvention, showPsi, showDelta, showTable,
     } = session;
     const [data, setData] = useState(null);
 
@@ -37,6 +37,9 @@ export function useEllipsometryEvaluation(design) {
         angleEnd, setAngleEnd: value => setField('angleEnd', value),
         angleStep, setAngleStep: value => setField('angleStep', value),
         deltaConvention, setDeltaConvention: value => setField('deltaConvention', value),
+        showPsi, setShowPsi: value => setField('showPsi', value),
+        showDelta, setShowDelta: value => setField('showDelta', value),
+        showTable, setShowTable: value => setField('showTable', value),
         data,
     };
 }

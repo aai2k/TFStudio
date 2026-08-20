@@ -7,7 +7,7 @@ const { useEffect, useState } = React;
 
 export function useProfilerState(design, rp) {
     const [session, setField] = useWindowSession(profilerSession, design);
-    const { lambda, lambdaStr, quantity, side } = session;
+    const { lambda, quantity, side, showTable } = session;
     const [profile, setProfile] = useState(null);
     const [regions, setRegions] = useState([]);
     const [matColorMap, setMatColorMap] = useState({});
@@ -41,10 +41,10 @@ export function useProfilerState(design, rp) {
     }, [design, lambda, side, rp]);
 
     return {
-        lambda, lambdaStr, quantity, side, profile, regions, matColorMap,
+        lambda, quantity, side, showTable, profile, regions, matColorMap,
         setLambda: value => setField('lambda', value),
-        setLambdaStr: value => setField('lambdaStr', value),
         setQuantity: value => setField('quantity', value),
+        setShowTable: value => setField('showTable', value),
         setSide,
     };
 }

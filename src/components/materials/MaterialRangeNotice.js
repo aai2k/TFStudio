@@ -62,3 +62,27 @@ export function MaterialRangeWarning({ design, fromNm, toNm, c, t }) {
     );
     return h(MaterialRangeBanner, { offenders, evaluated: [fromNm, toNm], c, t });
 }
+
+/**
+ * The same warning as one entry for an analysis window's notice badge, for
+ * windows that give their height to the plot and carry no banner. Null when
+ * every material covers the evaluated range.
+ *
+ * @returns {{ label: string, detail: string } | null}
+ */
+export function useMaterialRangeNotice(design, fromNm, toNm, t) {
+    const { offenders } = useMemo(
+        () => designRangeCoverage(design, [fromNm, toNm]),
+        [design, fromNm, toNm],
+    );
+    return useMemo(() => {
+        if (!offenders.length) return null;
+        return {
+            label: t.materialRange.banner(offenders.length, format(fromNm), format(toNm)),
+            detail: offenders
+                .map(({ id, name, rangeNm }) =>
+                    t.materialRange.materialLine(name || id, format(rangeNm[0]), format(rangeNm[1])))
+                .join('\n'),
+        };
+    }, [offenders, fromNm, toNm, t]);
+}

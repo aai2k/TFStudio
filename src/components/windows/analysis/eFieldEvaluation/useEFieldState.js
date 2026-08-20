@@ -6,7 +6,7 @@ const { useEffect, useState } = React;
 
 export function useEFieldState(design) {
     const [session, setField] = useWindowSession(eFieldSession, design);
-    const { lambda, lambdaStr, theta, pol, side } = session;
+    const { lambda, theta, pol, side, showTable } = session;
     const [profile, setProfile] = useState(null);
     const [matColorMap, setMatColorMap] = useState({});
 
@@ -19,11 +19,11 @@ export function useEFieldState(design) {
     }, [design, lambda, theta, pol, side]);
 
     return {
-        lambda, lambdaStr, theta, pol, side, profile, matColorMap,
+        lambda, theta, pol, side, showTable, profile, matColorMap,
         setLambda: value => setField('lambda', value),
-        setLambdaStr: value => setField('lambdaStr', value),
         setTheta: value => setField('theta', value),
         setPol: value => setField('pol', value),
         setSide: value => setField('side', value),
+        setShowTable: value => setField('showTable', value),
     };
 }

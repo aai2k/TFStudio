@@ -69,6 +69,6 @@ const html = renderToStaticMarkup(withDesign(
     React.createElement(RefractiveIndexProfiler, { c, t: makeLocale(), theme: c }),
 ));
 const hash = createHash('sha256').update(html).digest('hex').slice(0, 16);
-assert.equal(hash, 'eb14d92fa3df09f6');
+assert.equal(hash, '111a11912b3c61e1');
 
 console.log('PASS: ri_profiler_model_characterization');

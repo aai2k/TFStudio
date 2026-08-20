@@ -1,8 +1,11 @@
 import { efieldLayout, efieldTraces } from './chartModel.js';
 import { drawPlot, usePlotTeardown } from '../../../ui/plotSurface.js';
+import { chartConfig } from '../chrome/plot.js';
 import { useAnalysisColors } from '../../../../state/AnalysisSettingsContext.js';
 
 const { createElement: h, useEffect, useRef } = React;
+
+const CHART_CONFIG = chartConfig('efield');
 
 export function EFieldChart({ profileData, pol, matColorMap, c }) {
     const divRef = useRef(null);
@@ -21,7 +24,7 @@ export function EFieldChart({ profileData, pol, matColorMap, c }) {
         drawPlot(divRef.current, initRef,
             efieldTraces(profileData, pol, curve),
             efieldLayout(profileData, pol, matColorMap, colors),
-            { responsive: true, displayModeBar: false });
+            CHART_CONFIG);
     });
 
     usePlotTeardown(divRef, initRef);

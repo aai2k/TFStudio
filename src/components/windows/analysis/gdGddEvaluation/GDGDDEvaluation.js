@@ -4,22 +4,47 @@
  */
 
 import { useDesign } from '../../../../state/DesignContext.js';
-import { MaterialRangeWarning } from '../../../materials/MaterialRangeNotice.js';
+import { useMaterialRangeNotice } from '../../../materials/MaterialRangeNotice.js';
 import { csvFromRows } from '../../../ui/ResultsSection.js';
-import { useCsvExport } from '../../../ui/ExportMenu.js';
-import { GDControls, GDFooter } from './GDControls.js';
-import { GDResults, CenteredMessage } from './GDResults.js';
-import { buildGdGddView, buildLayerSummary } from './viewModel.js';
+import { ExportMenu, useCsvExport } from '../../../ui/ExportMenu.js';
+import { AnalysisWindow, CenteredMessage } from '../chrome/layout.js';
+import { GDControls } from './GDControls.js';
+import { GDResults } from './GDResults.js';
+import { buildGdGddView } from './viewModel.js';
 import { useGDGDDState } from './useGDGDDState.js';
 import { useAnalysisColors } from '../../../../state/AnalysisSettingsContext.js';
 
 const { createElement: h, useMemo } = React;
 
+const QUANTITY_ORDER = { phase: 0, gd: 1, gdd: 2, tod: 3 };
+
+/**
+ * What the curve needs qualifying with: an optical constant taken from outside
+ * a material's data range, a derivative taken across a knot in tabulated data,
+ * samples the automatic vertical range left off the plot.
+ */
+function buildNotices({ raw, quantity, autoRange, rangeNotice, text }) {
+    const notices = [rangeNotice];
+    const order = QUANTITY_ORDER[quantity] ?? 1;
+    if (order > (raw?.phaseContinuousOrder ?? 3) && raw?.discontinuityModels?.length) {
+        notices.push({
+            label: text.piecewiseShort,
+            detail: `${text.tableKnotWarning} (${raw.discontinuityModels.join('; ')})`,
+        });
+    }
+    if (autoRange?.outside > 0) {
+        notices.push({ label: text.offScale(autoRange.outside), detail: text.offScaleHint });
+    }
+    return notices.filter(Boolean);
+}
+
 export function GDGDDEvaluation({ c, theme, t }) {
     const text = t.gdgdd;
+    const dt = t.dataTable;
     const { design } = useDesign();
     const state = useGDGDDState(design);
     const curve = useAnalysisColors('gdGddEvaluation');
+    const rangeNotice = useMaterialRangeNotice(design, state.lamStart, state.lamEnd, t);
 
     // The view holds the chart's traces and axis range. Rebuilding it on every
     // render hands Plotly new objects each time and forces a full re-plot of a
@@ -36,25 +61,24 @@ export function GDGDDEvaluation({ c, theme, t }) {
 
     if (!design) return h(CenteredMessage, { c, message: text.noDesign });
 
-    // Built from the same sampled design as the curve, so the caption and the
-    // plot describe one state instead of disagreeing during a run.
-    const summary = buildLayerSummary(state.liveDesign, state.side);
-
-    return h('div', {
-        style: {
-            display: 'flex', flexDirection: 'column',
-            width: '100%', height: '100%', overflow: 'hidden',
-            backgroundColor: c.bg, color: c.text,
-            fontFamily: 'system-ui, -apple-system, sans-serif', fontSize: 12,
+    const notices = buildNotices({
+        raw: state.raw, quantity: state.quantity,
+        autoRange: state.yAuto ? view.autoRange : null,
+        rangeNotice, text,
+    });
+    const exportMenu = h(ExportMenu, {
+        c, enabled: view.tableRows.length > 0, ...csv,
+        labels: {
+            export: dt.export, copyCsv: dt.copyCsv, saveCsv: dt.saveCsv,
+            copied: dt.csvCopied, saved: dt.csvSaved,
         },
-    },
-        h(GDControls, { c, text, state }),
-        h(MaterialRangeWarning, { design, fromNm: state.lamStart, toNm: state.lamEnd, c, t }),
-        h(GDResults, { c, t, text, state, view }),
-        h(GDFooter, {
-            c, text, dataTable: t.dataTable, design, side: state.side, summary,
-            raw: state.raw, quantity: state.quantity,
-            csv: { ...csv, enabled: view.tableRows.length > 0 },
+    });
+
+    return h(AnalysisWindow, { c },
+        h(GDControls, {
+            c, t, text, state, raw: state.raw,
+            autoRange: view.autoRange, notices,
         }),
+        h(GDResults, { c, t, text, state, view, exportMenu }),
     );
 }

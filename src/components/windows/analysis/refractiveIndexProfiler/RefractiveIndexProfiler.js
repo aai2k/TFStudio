@@ -3,8 +3,10 @@
  */
 
 import { useDesign } from '../../../../state/DesignContext.js';
-import { MaterialRangeWarning } from '../../../materials/MaterialRangeNotice.js';
-import { DataTablePanel } from '../../../ui/DataTablePanel.js';
+import { useMaterialRangeNotice } from '../../../materials/MaterialRangeNotice.js';
+import { ExportMenu, useCsvExport } from '../../../ui/ExportMenu.js';
+import { csvFromRows, ResultsGrid, ResultsSection } from '../../../ui/ResultsSection.js';
+import { AnalysisWindow, CenteredMessage, PlotArea } from '../chrome/layout.js';
 import { ProfilerControls } from './ProfilerControls.js';
 import { RIChart } from './RIChart.js';
 import { RITotalChart } from './RITotalChart.js';
@@ -15,42 +17,43 @@ const { createElement: h } = React;
 
 export function RefractiveIndexProfiler({ c, theme, t }) {
     const rp = t.riProfile;
+    const dt = t.dataTable;
     const { design } = useDesign();
     const state = useProfilerState(design, rp);
     const view = buildProfileViewModel(state.side, state.profile, state.regions);
+    const rangeNotice = useMaterialRangeNotice(design, state.lambda, state.lambda, t);
+    const csv = useCsvExport(
+        () => csvFromRows(view.tableColumns, view.tableRows),
+        () => `${(design?.name || 'design').replace(/[^\w.-]+/g, '_')}_index_profile.csv`,
+    );
 
-    if (!design) {
-        return h('div', {
-            style: {
-                flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center',
-                color: c.textDim, fontSize: 13, fontFamily: 'system-ui, -apple-system, sans-serif',
-            },
-        }, rp.noDesign);
-    }
+    if (!design) return h(CenteredMessage, { c, message: rp.noDesign });
 
-    return h('div', {
-        style: {
-            display: 'flex', flexDirection: 'column',
-            width: '100%', height: '100%', overflow: 'hidden',
-            backgroundColor: c.bg, color: c.text,
-        },
-    },
-        h(ProfilerControls, { c, rp, state, summary: view }),
-        h(MaterialRangeWarning, { design, fromNm: state.lambda, toNm: state.lambda, c, t }),
-        h('div', { style: { flex: 1, minHeight: 0, overflow: 'hidden' } },
+    return h(AnalysisWindow, { c },
+        h(ProfilerControls, { c, t, rp, state, notices: [rangeNotice].filter(Boolean) }),
+        h(PlotArea, null,
             view.hasProfile
                 ? (view.isTotal
-                    ? h(RITotalChart, { regions: state.regions, quantity: state.quantity, matColorMap: state.matColorMap, c })
-                    : h(RIChart, { profile: state.profile, quantity: state.quantity, matColorMap: state.matColorMap, c }))
-                : h('div', {
-                    style: {
-                        width: '100%', height: '100%',
-                        display: 'flex', alignItems: 'center', justifyContent: 'center',
-                        color: c.textDim, fontSize: 13,
-                        fontFamily: 'system-ui, -apple-system, sans-serif',
-                    },
-                }, rp.noLayers)
+                    ? h(RITotalChart, {
+                        regions: state.regions, quantity: state.quantity,
+                        matColorMap: state.matColorMap, c,
+                    })
+                    : h(RIChart, {
+                        profile: state.profile, quantity: state.quantity,
+                        matColorMap: state.matColorMap, c,
+                    }))
+                : h(CenteredMessage, { c, message: rp.noLayers }),
         ),
-        view.hasProfile && h(DataTablePanel, { columns: view.tableColumns, rows: view.tableRows, c, t }),
+        h(ResultsSection, {
+            c, label: dt.results, count: view.tableRows.length, countLabel: dt.rowCount,
+            open: state.showTable, setOpen: state.setShowTable,
+            actions: h(ExportMenu, {
+                c, enabled: view.tableRows.length > 0, ...csv,
+                labels: {
+                    export: dt.export, copyCsv: dt.copyCsv, saveCsv: dt.saveCsv,
+                    copied: dt.csvCopied, saved: dt.csvSaved,
+                },
+            }),
+        }, h(ResultsGrid, { columns: view.tableColumns, rows: view.tableRows, c })),
     );
 }

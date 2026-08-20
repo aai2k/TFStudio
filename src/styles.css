@@ -252,3 +252,18 @@ button:active {
         transform: translateY(0);
     }
 }
+
+/* Number fields in the analysis windows. The native spinner only appears on
+   hover, and when it does it overlaps the value and shifts the digits; these
+   fields are typed into or scrubbed with the keyboard, so the arrows are hidden
+   and the whole width stays available to the number. */
+.tfs-number::-webkit-inner-spin-button,
+.tfs-number::-webkit-outer-spin-button {
+    -webkit-appearance: none;
+    margin: 0;
+}
+
+.tfs-number {
+    -moz-appearance: textfield;
+    appearance: textfield;
+}
