@@ -10,7 +10,7 @@ const { createContext, useContext, useState, useCallback, useEffect, useRef } = 
 import { resolveEvalMode, mirrorLayers } from '../utils/physics/optimizer.js';
 import { useAnalysisDefaults, useAnalysisSettings } from './AnalysisSettingsContext.js';
 import { useWindowSession } from '../components/windows/windowSession.js';
-import { sharedEvalSession } from './sharedEvalSession.js';
+import { evalParamsSession } from './evalParamsSession.js';
 
 // ── Default design factory ─────────────────────────────────────────────────────
 
@@ -118,33 +118,16 @@ export function useDesign() {
 // a default one on first access).
 
 /**
- * Optical-evaluation settings (λ range / step / AOI list / display unit) for the
- * whole session, from the store in state/sharedEvalSession.js.
+ * Optical Evaluation's evaluation grid (λ range / step / AOI list / display
+ * unit), from the store in state/evalParamsSession.js.
  *
- * Held there rather than in OpticalEvaluation so they survive closing and
- * switching the window — and so the window's Save button can write them as the
- * values the next session starts from.
- *
- * The configured range (Settings → Analysis → All windows) is sampled once when
- * the preferences file finishes loading. Later Settings edits apply to the next
- * app session, while range changes made in an open analysis window remain live
- * for the current session.
+ * Held at App level so it survives closing and switching that window, and so
+ * the Spectrum Exchange window can seed its export grid from it. The store is
+ * pointed at the configured values by AnalysisSettingsProvider, so there is
+ * nothing to seed here.
  */
 function useEvalParams() {
-    const [evalParams, , patch] = useWindowSession(sharedEvalSession, null);
-    const configured = useAnalysisDefaults('shared');
-    const analysisSettings = useAnalysisSettings();
-    const applied = useRef(false);
-
-    const { lambdaStart, lambdaEnd, lambdaStep } = configured.numbers;
-    const spectralUnit = configured.enums.spectralUnit;
-
-    useEffect(() => {
-        if (!analysisSettings?.ready || applied.current) return;
-        applied.current = true;
-        patch({ lambdaStart, lambdaEnd, lambdaStep, spectralUnit });
-    }, [analysisSettings?.ready, patch, lambdaStart, lambdaEnd, lambdaStep, spectralUnit]);
-
+    const [evalParams, , patch] = useWindowSession(evalParamsSession, null);
     return [evalParams, patch];
 }
 

@@ -24,7 +24,6 @@ import { buildSampleDesigns } from './utils/samples/sampleDesigns.js';
 import { buildTutorials } from './utils/samples/tutorials.js';
 import { DesignProvider, makeDefaultDesign } from './state/DesignContext.js';
 import { AnalysisSettingsProvider } from './state/AnalysisSettingsContext.js';
-import { initSavedWindowDefaults } from './utils/windowDefaults.js';
 import { UpdateProvider } from './components/ui/UpdateContext.js';
 import { SpectralMonitor } from './components/SpectralMonitor.js';
 import { MaterialResolutionModalGuard } from './components/materials/MaterialResolutionModalGuard.js';
@@ -787,7 +786,6 @@ const App = () => {
         let prefs = null;
         try { prefs = (await window.electronAPI?.loadPreferences?.())?.prefs || null; }
         catch (_) { /* shipped defaults */ }
-        initSavedWindowDefaults(prefs?.windows);
         setAnalysisSettings(prefs?.analysis && typeof prefs.analysis === 'object'
             ? prefs.analysis
             : {});

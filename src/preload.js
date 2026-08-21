@@ -76,11 +76,10 @@ contextBridge.exposeInMainWorld('electronAPI', {
   setUserPath:            (key, dir) => ipcRenderer.invoke('paths:set', key, dir),
   resetUserPath:          (key) => ipcRenderer.invoke('paths:reset', key),
   revealUserPath:         (key) => ipcRenderer.invoke('paths:reveal', key),
-  // Portable preferences: analysis-window display defaults (Settings → Analysis)
-  // and the control values saved from a window's own settings panel.
+  // Portable preferences: everything an analysis window opens with, edited in
+  // Settings → Analysis or saved from the window's own settings panel.
   loadPreferences:        () => ipcRenderer.invoke('prefs:load'),
   saveAnalysisSettings:   (block) => ipcRenderer.invoke('prefs:save-analysis', block),
-  saveWindowDefaults:     (block) => ipcRenderer.invoke('prefs:save-windows', block),
   // Update check (notify only; downloading and installing stay manual)
   checkForUpdates:        () => ipcRenderer.invoke('updates:check'),
 });

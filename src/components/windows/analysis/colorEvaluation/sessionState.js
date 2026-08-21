@@ -1,18 +1,9 @@
+import { registryKeys, sessionDefaults } from '../../../../constants/analysisDefaults.js';
 import { createWindowSession } from '../../windowSession.js';
 
-export const colorEvaluationSession = createWindowSession({
-    characteristic: 'R',
-    pol: 'avg',
-    theta: 0,
-    observer: '2',
-    illuminant: 'D65',
-    step: 5,
-    exposure: '1',
-    showTable: false,
-}, {
+// Observer, illuminant, geometry and exposure come from the analysis registry,
+// so Settings edits the same values the window opens with.
+export const colorEvaluationSession = createWindowSession(sessionDefaults('colorEvaluation'), {
     id: 'colorEvaluation',
-    savable: [
-        'characteristic', 'pol', 'theta', 'observer', 'illuminant',
-        'step', 'exposure', 'showTable',
-    ],
+    savable: registryKeys('colorEvaluation'),
 });

@@ -1,3 +1,4 @@
+import { registryKeys, sessionDefaults } from '../../../../constants/analysisDefaults.js';
 import { createWindowSession } from '../../windowSession.js';
 
 /** Side to show when a design is selected: whichever side carries the coating. */
@@ -9,16 +10,14 @@ function preferredSide(design, current) {
 }
 
 export const eFieldSession = createWindowSession({
+    ...sessionDefaults('eFieldEvaluation'),
     lambda: 550,
-    theta: 0,
-    pol: 'avg',
     side: 'front',
-    showTable: false,
 }, {
     id: 'eFieldEvaluation',
     // The wavelength and the side follow the selected design, so they are not
-    // saved as defaults.
-    savable: ['theta', 'pol', 'showTable'],
+    // declared in the registry and not saved as defaults.
+    savable: registryKeys('eFieldEvaluation'),
     onDesignChange: (design, current) => {
         const lambda = design?.referenceWavelength;
         return {

@@ -1,3 +1,4 @@
+import { registryKeys, sessionDefaults } from '../../../../constants/analysisDefaults.js';
 import { createWindowSession } from '../../windowSession.js';
 
 // Interlayers describe one coating, so they are kept per design. The value starts
@@ -8,22 +9,16 @@ export const inhomogeneityDesignSession = createWindowSession({
 }, { scope: 'design' });
 
 // How the result is plotted is a display preference and carries across designs.
-//
-// The step matches the shared spectral default: grading an interface moves band
-// edges by a few nanometres, and a 5 nm grid drew the difference as a staircase.
+// The range, step and angle come from the analysis registry, so Settings edits
+// the same values the window opens with.
 export const inhomogeneityViewSession = createWindowSession({
+    ...sessionDefaults('inhomogeneities'),
+    // A curve map is not a scalar, so the registry cannot hold it; the plot
+    // colours for each of these curves are declared there instead.
     showCurves: { T: true, R: true, A: true, Ts: false, Rs: false, Tp: false, Rp: false },
-    lambdaStart: 400,
-    lambdaEnd: 800,
-    lambdaStep: 2,
-    aoi: 0,
-    // The interface editor is what this window is for, so its strip starts open.
-    showEditor: true,
-    showTable: false,
 }, {
     id: 'inhomogeneities',
-    savable: [
-        'showCurves', 'lambdaStart', 'lambdaEnd', 'lambdaStep', 'aoi',
-        'showEditor', 'showTable',
-    ],
+    // Which curves are drawn is what you are looking at, not what the window
+    // should open with, so it is not a configured default.
+    savable: registryKeys('inhomogeneities'),
 });

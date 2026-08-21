@@ -1,26 +1,26 @@
+import {
+    EVAL_PARAM_KEYS, pickDefaults, registryKeys,
+} from '../../../../constants/analysisDefaults.js';
 import { createWindowSession } from '../../windowSession.js';
 
-// The spectral range, step, angle list and display unit are not here: they are
-// shared with the other evaluation windows and live in state/sharedEvalSession.js.
-// Optical Evaluation's Save covers them too — see ALSO_EDITS in
-// utils/windowDefaults.js.
+// The spectral range, step, angle list and display unit are this window's too,
+// but they live in state/evalParamsSession.js because Spectrum Exchange seeds
+// its export grid from them. Both stores register under this window's id, so
+// Save and Restore cover the two together.
 //
-// `defaultsApplied` records that the configured display defaults have been read
-// into this session. Until they have, a window mounting before the preferences
-// file has finished loading takes them as they arrive. Afterwards the values
-// belong to the session, so a later edit in Settings applies to the next app run
-// rather than overwriting controls the user has set here.
+// Everything here comes from the analysis registry, so Settings edits the same
+// values the window opens with.
 export const opticalEvaluationSession = createWindowSession({
+    ...pickDefaults('opticalEvaluation', EVAL_PARAM_KEYS, { invert: true }),
+    // A curve map is not a scalar, so the registry cannot hold it; the plot
+    // colours for each of these curves are declared there instead.
     showCurves: { T: true, R: true, A: false, Ts: false, Rs: false, Tp: false, Rp: false },
-    showTable: false,
-    showTargets: true,
-    yAuto: true,
-    yMin: null,
-    yMax: null,
-    defaultsApplied: false,
 }, {
     id: 'opticalEvaluation',
-    savable: ['showCurves', 'showTable', 'showTargets', 'yAuto', 'yMin', 'yMax'],
+    // Which curves are drawn is what you are looking at, not what the window
+    // should open with, so it is not a configured default.
+    savable: registryKeys('opticalEvaluation')
+        .filter(key => !EVAL_PARAM_KEYS.includes(key)),
 });
 
 // Target drawing: which curve a drawn target lands on and how it snaps. These

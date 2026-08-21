@@ -78,9 +78,6 @@ function GDSetup({ c, t, text, state, raw, autoRange }) {
                 items: [
                     { id: 'front', label: text.front || 'Front', color: '#1e88e5' },
                     { id: 'back', label: text.back || 'Back', color: '#e53935' },
-                    ...(state.target === 'T'
-                        ? [{ id: 'total', label: text.total || 'Total', color: '#ab47bc' }]
-                        : []),
                 ],
             }),
         ),

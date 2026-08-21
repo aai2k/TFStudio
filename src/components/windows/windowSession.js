@@ -88,6 +88,23 @@ export function applySavedWindowDefaults(block) {
 }
 
 /**
+ * Put one window's stores back to `values`, overriding what the user has set in
+ * the window itself.
+ *
+ * `applySavedWindowDefaults` deliberately leaves a store the user has already
+ * used alone: a value configured in Settings is what the window opens with at
+ * the next launch, not something that reaches back into a window in use.
+ * Restore is the exception, because it is pressed inside the window it applies
+ * to and has to be visible there.
+ */
+export function resetWindowSessions(windowId, values) {
+    for (const store of windowSessionStores(windowId)) {
+        store.rebase(values || {}, { force: true });
+    }
+    for (const fn of listeners) fn();
+}
+
+/**
  * Create a session store for one window.
  *
  * @param {object} defaults           Initial values. Every key the window keeps

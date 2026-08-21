@@ -47,7 +47,7 @@ const read = disk => JSON.parse(disk.get(PREFS_FILE));
 {
   const { ctx, disk } = makeCtx();
   const prefs = preferencesFile.load(ctx);
-  assert.deepEqual(prefs, { version: 1, analysis: {}, windows: {} });
+  assert.deepEqual(prefs, { version: 1, analysis: {} });
   assert.equal(disk.has(PREFS_FILE), false,
     'nothing is written until there is something to save');
 }
@@ -81,50 +81,51 @@ const read = disk => JSON.parse(disk.get(PREFS_FILE));
 
 // ── A file that cannot be parsed starts the app on the shipped values ───────
 {
-  const { ctx, disk, logs } = makeCtx({ [PREFS_FILE]: '{ "windows": ' });
+  const { ctx, disk, logs } = makeCtx({ [PREFS_FILE]: '{ "analysis": ' });
   const prefs = preferencesFile.load(ctx);
-  assert.deepEqual(prefs, { version: 1, analysis: {}, windows: {} },
+  assert.deepEqual(prefs, { version: 1, analysis: {} },
     'a hand-edited file with a typo in it must not stop the app from starting');
   assert.equal(logs.some(line => line.includes('could not be parsed')), true,
     'and the reason is reported');
-  assert.equal(disk.get(PREFS_FILE), '{ "windows": ',
+  assert.equal(disk.get(PREFS_FILE), '{ "analysis": ',
     'the unreadable file is left alone rather than overwritten unasked');
 }
 
-// ── Blocks that are the wrong shape are dropped, not passed through ─────────
+// ── A block that is the wrong shape is dropped, not passed through ──────────
 {
   const { ctx } = makeCtx({
-    [PREFS_FILE]: JSON.stringify({ version: 1, analysis: 'nonsense', windows: [1, 2] }),
+    [PREFS_FILE]: JSON.stringify({ version: 1, analysis: 'nonsense' }),
   });
-  const prefs = preferencesFile.load(ctx);
-  assert.deepEqual(prefs.analysis, {});
-  assert.deepEqual(prefs.windows, {}, 'an array is not a windowId → values map');
+  assert.deepEqual(preferencesFile.load(ctx).analysis, {},
+    'a string is not a windowId → values map');
 }
 
-// ── Saving one block leaves the other as it is on disk ──────────────────────
+// ── A save replaces the block and keeps the version ─────────────────────────
 {
   const { ctx, disk } = makeCtx();
-  preferencesFile.saveBlock(ctx, 'analysis', { colorEvaluation: { colors: { coating: '#ffffff' } } });
-  preferencesFile.saveBlock(ctx, 'windows', { layerSensitivity: { mode: 'absolute' } });
+  preferencesFile.saveBlock(ctx, 'analysis', {
+    colorEvaluation: { colors: { coating: '#ffffff' } },
+    layerSensitivity: { enums: { mode: 'absolute' } },
+  });
 
   const stored = read(disk);
-  assert.deepEqual(stored.analysis, { colorEvaluation: { colors: { coating: '#ffffff' } } },
-    'a window saving its settings does not overwrite a colour changed a moment earlier');
-  assert.deepEqual(stored.windows, { layerSensitivity: { mode: 'absolute' } });
+  assert.deepEqual(stored.analysis.layerSensitivity, { enums: { mode: 'absolute' } });
   assert.equal(stored.version, preferencesFile.PREFERENCES_VERSION,
     'the file carries a version so a later release can migrate it');
 
-  // Replacing a block replaces it whole: a window removed from the block is gone.
-  preferencesFile.saveBlock(ctx, 'windows', {});
-  assert.deepEqual(read(disk).windows, {});
-  assert.deepEqual(read(disk).analysis, stored.analysis);
+  // Replacing the block replaces it whole: a window removed from it is gone.
+  preferencesFile.saveBlock(ctx, 'analysis', {});
+  assert.deepEqual(read(disk).analysis, {});
+  assert.equal(read(disk).version, preferencesFile.PREFERENCES_VERSION);
 }
 
 // ── The file is readable by a person ────────────────────────────────────────
 {
   const { ctx, disk } = makeCtx();
-  preferencesFile.saveBlock(ctx, 'windows', { layerSensitivity: { mode: 'absolute' } });
-  assert.match(disk.get(PREFS_FILE), /\n {2}"windows": \{/,
+  preferencesFile.saveBlock(ctx, 'analysis', {
+    layerSensitivity: { enums: { mode: 'absolute' } },
+  });
+  assert.match(disk.get(PREFS_FILE), /\n {2}"analysis": \{/,
     'indented, so the user can open it in an editor and see what is in it');
 }
 

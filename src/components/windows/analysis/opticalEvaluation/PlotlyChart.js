@@ -1,4 +1,5 @@
 import { buildEditableTargetShapes } from '../../../../utils/physics/spectrumTargets.js';
+import { isDisplayed } from '../../../ui/plotSurface.js';
 import { buildChartTraces, buildChartLayout, buildChartConfig } from './model.js';
 import { useAnalysisColors } from '../../../../state/AnalysisSettingsContext.js';
 
@@ -79,7 +80,7 @@ function observeChartParent(divRef, initializedRef) {
         lastH = height;
         if (rafId) cancelAnimationFrame(rafId);
         rafId = requestAnimationFrame(() => {
-            if (divRef.current && initializedRef.current) Plotly.Plots.resize(divRef.current);
+            if (initializedRef.current && isDisplayed(divRef.current)) Plotly.Plots.resize(divRef.current);
         });
     });
     if (parent) observer.observe(parent);

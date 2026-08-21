@@ -3,12 +3,11 @@ import { plotMargin } from '../chrome/plot.js';
 
 export function buildGDChartModel(options) {
     const { data, meta, referenceLambda, showReference, colors, targets = [], yRange } = options;
-    const series = data.series || [{ name: meta.label, y: data.y, color: meta.color, width: 2 }];
-    const traces = series.map(item => ({
-        x: data.lambda, y: item.y, type: 'scatter', mode: 'lines',
-        name: item.name, line: { color: item.color, width: item.width || 2 },
-        hovertemplate: `%{y:.${meta.dp}f} ${meta.unit}<br>%{x:.2f} nm<extra>${series.length > 1 ? item.name : ''}</extra>`,
-    }));
+    const traces = [{
+        x: data.lambda, y: data.y, type: 'scatter', mode: 'lines',
+        name: meta.label, line: { color: meta.color, width: 2 },
+        hovertemplate: `%{y:.${meta.dp}f} ${meta.unit}<br>%{x:.2f} nm<extra></extra>`,
+    }];
     const targetOverlay = buildGdGddTargetOverlay(targets, meta);
     traces.push(...targetOverlay.traces);
     const shapes = [...targetOverlay.shapes];
@@ -24,8 +23,7 @@ export function buildGDChartModel(options) {
         plot_bgcolor: colors.background,
         margin: plotMargin(),
         font: { color: colors.text, family: 'system-ui, -apple-system, sans-serif', size: 11 },
-        showlegend: series.length > 1,
-        legend: { orientation: 'h', x: 0, y: 1.02, font: { color: colors.text, size: 10 } },
+        showlegend: false,
         shapes,
         xaxis: {
             title: { text: 'Wavelength (nm)', standoff: 8 },

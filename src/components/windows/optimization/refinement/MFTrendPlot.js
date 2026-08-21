@@ -1,7 +1,7 @@
 // Compact merit-function trend plot shown under the operand table while a
 // refinement run is in progress (and after it, from history).
 
-import { drawPlot } from '../../../ui/plotSurface.js';
+import { drawPlot, isDisplayed } from '../../../ui/plotSurface.js';
 
 const { createElement: h, useRef, useEffect } = React;   // React is a window global
 
@@ -55,7 +55,7 @@ export function MFTrendPlot({ history, c, theme }) {
             if (resizeFrameRef.current != null) cancelAnimationFrame(resizeFrameRef.current);
             resizeFrameRef.current = requestAnimationFrame(() => {
                 resizeFrameRef.current = null;
-                if (plot.isConnected !== false) Plotly.Plots.resize(plot);
+                if (plot.isConnected !== false && isDisplayed(plot)) Plotly.Plots.resize(plot);
             });
         };
         const observer = typeof ResizeObserver !== 'undefined' ? new ResizeObserver(resize) : null;

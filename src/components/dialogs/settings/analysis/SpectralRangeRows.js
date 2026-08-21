@@ -1,11 +1,10 @@
-// The shared spectral range, shown in whichever spectral unit is selected.
+// A spectral range shown in whichever spectral unit is selected.
 //
 // Values are stored in nanometres because the physics engine always works in
 // vacuum wavelength; only the display converts. cm⁻¹, THz and eV are reciprocal
 // in λ, so converting a range in those units reverses its ends — the writes
 // below re-order the pair so the stored nm range always runs low to high.
 import { SPECTRAL_UNITS, fromNm, toNm } from '../../../../utils/physics/spectralAxis.js';
-import { ANALYSIS_DEFAULTS } from '../../../../constants/analysisDefaults.js';
 import { EnumRow } from './FieldRows.js';
 import { selectStyle } from '../ui.js';
 
@@ -20,26 +19,44 @@ function displayValue(nm, unit) {
     return Number(fromNm(nm, unit).toFixed(decimals));
 }
 
+// Commits on blur or Enter. Committing per keystroke is worse here than
+// anywhere else: the two ends are written as a pair and clamped to the window's
+// bounds, so a half-typed 9 on its way to 900 would be taken as 9, clamped, and
+// swapped with the other end before the next digit arrived.
 function ValueRow({ c, label, value, step, onCommit }) {
+    const { useState, useEffect } = React;
+    const [raw, setRaw] = useState(String(value));
+    useEffect(() => { setRaw(String(value)); }, [value]);
+
+    const commit = () => {
+        const parsed = parseFloat(raw);
+        // The prop is recomputed from what the commit stored, so reverting to it
+        // here shows the accepted value whether or not the entry was clamped.
+        setRaw(String(value));
+        if (Number.isFinite(parsed) && parsed > 0) onCommit(parsed);
+    };
+
     return h('div', { style: rowStyle },
         h('span', { style: { flex: 1, fontSize: '13px', color: c.text } }, label),
         h('input', {
             type: 'number',
-            value,
+            className: 'tfs-number',
+            value: raw,
             step,
-            onChange: (e) => {
-                const parsed = parseFloat(e.target.value);
-                if (Number.isFinite(parsed) && parsed > 0) onCommit(parsed);
-            },
-            style: { ...selectStyle(c), width: '120px', padding: '6px 8px' },
+            onChange: (e) => setRaw(e.target.value),
+            onBlur: commit,
+            onKeyDown: (e) => { if (e.key === 'Enter') commit(); },
+            style: { ...selectStyle(c), width: '120px', padding: '6px 8px', textAlign: 'right' },
         }));
 }
 
-export const SpectralRangeRows = ({ resolved, onChange, c, t }) => {
+// `registry` is the owning window's entry, so the bounds are the ones that
+// window declares rather than a set shared by every window.
+export const SpectralRangeRows = ({ registry, resolved, onChange, c, t }) => {
     const unit = resolved.enums.spectralUnit;
     const meta = SPECTRAL_UNITS[unit] || SPECTRAL_UNITS.nm;
     const { lambdaStart, lambdaEnd, lambdaStep } = resolved.numbers;
-    const spec = ANALYSIS_DEFAULTS.shared.numbers;
+    const spec = registry.numbers;
 
     // Write both ends together so a reciprocal unit cannot leave start > end.
     const commitEdge = (edge) => (entered) => {
@@ -67,7 +84,7 @@ export const SpectralRangeRows = ({ resolved, onChange, c, t }) => {
             c,
             label: t.settings.analysis.fields.spectralUnit,
             value: unit,
-            spec: ANALYSIS_DEFAULTS.shared.enums.spectralUnit,
+            spec: registry.enums.spectralUnit,
             onChange: (value) => onChange('enums', 'spectralUnit', value),
         }),
         h(ValueRow, {

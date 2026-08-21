@@ -28,12 +28,7 @@ complex amplitude.
 **Polarization**: the average of s and p, s, or p. The average uses the same
 per-polarization arithmetic mean as the matching merit operand.
 
-**Side**: evaluate the **front** coating or the **back** coating. Transmission
-also offers **Total**, which adds front-coating transmission, one pass through
-the substrate, and back-coating transmission. The plot keeps all three
-components visible because substrate propagation can be thousands of times
-larger than the coating term. Reflection has no Total choice: reflection from
-the back surface is a later pulse, not a phase term of the front reflection.
+**Side**: evaluate the **front** coating or the **back** coating.
 
 **Wavelength range**: the span plotted and exported, in nm. TFStudio chooses the
 sampling automatically and adds local samples around pronounced reflection or
@@ -50,8 +45,7 @@ Point operands appear as X markers. Flatness operands show their target level
 and wavelength band. Phase targets are not overlaid because the displayed
 phase may have an arbitrary reference offset. Current phase-dispersion merit
 operands evaluate the front coating normally and the back coating for a
-back-only design, so their overlays appear only on the side they score. Total
-transmission is an analysis view and has no phase-dispersion merit operands.
+back-only design, so their overlays appear only on the side they score.
 
 ## How the values are calculated
 
@@ -59,9 +53,8 @@ GD, GDD, and TOD are evaluated point by point through third-order Taylor
 arithmetic in the characteristic matrix. The derivatives come from the complex
 logarithmic derivative of `r` or `t`; phase unwrapping is used only to draw the
 phase curve. TFStudio uses `n + ik` with an `exp(-iωt)` time factor, then applies
-the conjugate-Macleod convention once so a material transit time is positive.
-Increasing substrate thickness therefore increases Total transmission GD with
-the same sign as the Material Dispersion window.
+the conjugate-Macleod convention once so a material transit time is positive,
+with the same sign as the Material Dispersion window.
 
 Formula materials are differentiated exactly. A tabulated material gives the
 exact derivative of its shape-preserving PCHIP curve. PCHIP is C1: GD is

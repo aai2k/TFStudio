@@ -14,8 +14,10 @@ const here = dirname(fileURLToPath(import.meta.url));
 const src = join(here, '..', 'src');
 
 // The modules are ESM using browser-side React; import them directly.
-const { ANALYSIS_DEFAULTS, ANALYSIS_WINDOW_IDS, SPECTRAL_UNIT_IDS: SPECTRAL_UNITS } =
-  await import(new URL('../src/constants/analysisDefaults.js', import.meta.url));
+const {
+  ANALYSIS_DEFAULTS, ANALYSIS_WINDOW_IDS, SPECTRAL_UNIT_IDS: SPECTRAL_UNITS,
+  registryKeys, sessionDefaults,
+} = await import(new URL('../src/constants/analysisDefaults.js', import.meta.url));
 const {
   resolveAnalysisSettings, resolveAnalysisColors, setAnalysisOverride,
   resetAnalysisWindow, isAnalysisWindowOverridden, sanitizeAnalysisOverrides,
@@ -50,12 +52,20 @@ function ok(condition, message) {
 
 // ── Registry shape ──────────────────────────────────────────────────────────
 {
-  ok(ANALYSIS_WINDOW_IDS.length === 16, 'registry covers 15 windows plus the shared entry');
-  ok(ANALYSIS_WINDOW_IDS[0] === 'shared', 'shared leads the rail');
-  ok(Object.entries(ANALYSIS_DEFAULTS)
-    .filter(([id, entry]) => id !== 'shared' && Object.keys(entry.numbers || {}).length > 0)
-    .map(([id]) => id).join(',') === 'opticalEvaluation',
-  'only Optical Evaluation declares per-window numeric axis settings');
+  ok(ANALYSIS_WINDOW_IDS.length === 15, 'registry covers the fifteen analysis windows');
+  ok(ANALYSIS_WINDOW_IDS[0] === 'opticalEvaluation', 'Optical Evaluation leads the rail');
+  ok(!ANALYSIS_WINDOW_IDS.includes('shared'),
+    'there is no catch-all entry: every setting belongs to the window that shows it');
+
+  // Every window whose settings panel has controls declares them here, because
+  // this is what Settings → Analysis renders itself from. A window that keeps a
+  // setting to itself is a setting the main Settings menu cannot reach.
+  const withoutControls = Object.entries(ANALYSIS_DEFAULTS)
+    .filter(([, entry]) => ['numbers', 'enums', 'booleans', 'lists']
+      .every(section => Object.keys(entry[section] || {}).length === 0))
+    .map(([id]) => id);
+  ok(withoutControls.join(',') === 'plotEngine',
+    `only the Plot Engine has no configurable controls (got: ${withoutControls.join(',')})`);
 
   const hexColor = /^#[0-9a-f]{6}$/;
   for (const [id, entry] of Object.entries(ANALYSIS_DEFAULTS)) {
@@ -69,6 +79,12 @@ function ok(condition, message) {
     for (const [key, spec] of Object.entries(entry.enums || {})) {
       ok(spec.options.includes(spec.def), `${id}.${key} default is one of its options`);
     }
+    for (const [key, spec] of Object.entries(entry.lists || {})) {
+      ok(Array.isArray(spec.def) && spec.def.length > 0, `${id}.${key} ships a non-empty list`);
+      ok(spec.def.every(entry_ => entry_ >= spec.min && entry_ <= spec.max),
+        `${id}.${key} default lies inside its own bounds`);
+      ok(spec.def.length <= spec.maxLength, `${id}.${key} default is within its own length limit`);
+    }
   }
 }
 
@@ -79,10 +95,11 @@ function ok(condition, message) {
   ok(resolved.numbers.yMax === 100, 'unstored number resolves to the factory value');
   ok(resolved.booleans.yAuto === false, 'unstored boolean resolves to the factory value');
 
-  const shared = resolveAnalysisSettings('shared', {});
-  ok(shared.numbers.lambdaStart === 400 && shared.numbers.lambdaEnd === 800 && shared.numbers.lambdaStep === 2,
-    'the shared spectral range matches the hardcoded DesignContext seed');
-  ok(shared.enums.spectralUnit === 'nm', 'the shared spectral unit defaults to nm');
+  ok(resolved.numbers.lambdaStart === 400 && resolved.numbers.lambdaEnd === 800
+    && resolved.numbers.lambdaStep === 2, 'the spectral range resolves to its factory values');
+  ok(resolved.enums.spectralUnit === 'nm', 'the spectral unit defaults to nm');
+  ok(resolved.lists.thetas.length === 1 && resolved.lists.thetas[0] === 0,
+    'and the angle list to a single normal-incidence entry');
 }
 
 // ── Resolution: a stored override wins ──────────────────────────────────────
@@ -114,8 +131,18 @@ function ok(condition, message) {
   ok(resolved.booleans.yAuto === false, 'a non-boolean is rejected');
 
   // Out of range falls back rather than clamping: a 0 nm step would hang a sweep.
-  const badStep = resolveAnalysisSettings('shared', { shared: { numbers: { lambdaStep: 0 } } });
+  const badStep = resolveAnalysisSettings('opticalEvaluation',
+    { opticalEvaluation: { numbers: { lambdaStep: 0 } } });
   ok(badStep.numbers.lambdaStep === 2, 'an out-of-range step falls back to the default, not the minimum');
+
+  // A list is all-or-nothing: one unusable angle and the shipped list is kept.
+  const badAngles = resolveAnalysisSettings('opticalEvaluation',
+    { opticalEvaluation: { lists: { thetas: [0, 45, 900] } } });
+  ok(badAngles.lists.thetas.length === 1 && badAngles.lists.thetas[0] === 0,
+    'an angle outside the bounds rejects the whole list rather than half-applying it');
+  const goodAngles = resolveAnalysisSettings('opticalEvaluation',
+    { opticalEvaluation: { lists: { thetas: [0, 45] } } });
+  ok(goodAngles.lists.thetas.length === 2, 'a usable list is kept');
 
   const unknownWindow = resolveAnalysisSettings('notAWindow', {});
   ok(Object.keys(unknownWindow.colors).length === 0, 'an unknown window resolves to empty sections');
@@ -286,40 +313,63 @@ function ok(condition, message) {
   }
 }
 
-// ── The shared seed still matches the session store ─────────────────────────
-// If the hardcoded seed moves, the registry default has to move with it, or the
-// app would start at a different range than the one Settings reports — and
-// Restore in a window would put back a different range again.
+// ── A session store starts from the registry, not from its own copy ─────────
+// There is no second set of shipped values to drift: a store spreads
+// sessionDefaults(), so what the window opens with and what Settings shows are
+// the same declaration read twice.
 {
-  const store = readFileSync(join(src, 'state', 'sharedEvalSession.js'), 'utf-8');
-  const seed = store.match(/lambdaStart:\s*(\d+),\s*lambdaEnd:\s*(\d+),\s*lambdaStep:\s*([\d.]+)/);
-  ok(seed, 'the shared evaluation seed is still recognizable');
-  const shared = ANALYSIS_DEFAULTS.shared.numbers;
-  ok(Number(seed[1]) === shared.lambdaStart.def, 'registry lambdaStart matches the shared seed');
-  ok(Number(seed[2]) === shared.lambdaEnd.def, 'registry lambdaEnd matches the shared seed');
-  ok(Number(seed[3]) === shared.lambdaStep.def, 'registry lambdaStep matches the shared seed');
-  ok(store.includes(`spectralUnit: '${ANALYSIS_DEFAULTS.shared.enums.spectralUnit.def}'`),
-    'and so does the spectral unit');
+  const oe = sessionDefaults('opticalEvaluation');
+  ok(oe.lambdaStart === 400 && oe.lambdaEnd === 800 && oe.lambdaStep === 2,
+    'the spectral range comes out of the registry');
+  ok(oe.spectralUnit === 'nm', 'and so does the unit it is entered in');
+  ok(Array.isArray(oe.thetas) && oe.thetas.length === 1 && oe.thetas[0] === 0,
+    'and the angle list');
+  oe.thetas.push(45);
+  ok(sessionDefaults('opticalEvaluation').thetas.length === 1,
+    'each call returns its own list, so a store cannot mutate the registry');
+
+  ok(registryKeys('errorAnalysis').includes('lambdaStart'),
+    'the Monte-Carlo evaluation grid is declared field by field, not as one opaque object');
+  ok(registryKeys('plotEngine').length === 0, 'a window with no configurable controls declares none');
+
+  for (const id of ANALYSIS_WINDOW_IDS) {
+    const keys = registryKeys(id);
+    const values = sessionDefaults(id);
+    ok(keys.length === Object.keys(values).length, `${id}: every declared key has a shipped value`);
+  }
 }
 
-// Other windows intentionally expose colours only. Optical Evaluation is the
-// one analysis window whose own UI already supported Y range and spectral unit.
+// ── One path from the stored block to the windows ───────────────────────────
+//
+// Every window is pointed at the configured values by the provider. A window
+// that seeded itself would be a second path, and the two would disagree the
+// moment one of them was changed.
 {
-  const hook = readFileSync(join(src, 'components', 'windows', 'analysis',
-    'opticalEvaluation', 'useOpticalEvaluation.js'), 'utf8');
-  ok(hook.includes("useAnalysisDefaults('opticalEvaluation')"),
-    'Optical Evaluation reads its configured Y defaults');
-  const context = readFileSync(join(src, 'state', 'DesignContext.js'), 'utf8');
-  ok(context.includes("useAnalysisDefaults('shared')"),
-    'the shared spectral range and unit are seeded once, for every window that follows them');
-  ok(hook.includes('analysisSettings?.ready'),
-    'a restored Optical Evaluation waits for persisted settings to load');
-  ok(hook.includes('displayDefaults.booleans.yAuto'),
-    'the configured auto-scale flag initializes Optical Evaluation');
-  ok(hook.includes('displayDefaults.numbers.yMin') && hook.includes('displayDefaults.numbers.yMax'),
-    'the configured Y bounds initialize Optical Evaluation');
-  ok(context.includes('configured.enums.spectralUnit'),
-    'the configured unit initializes the shared range it belongs to');
+  const provider = readFileSync(join(src, 'state', 'AnalysisSettingsContext.js'), 'utf8');
+  ok(provider.includes('applyAnalysisDefaults(stored)'),
+    'the provider pushes the stored block into the session stores');
+
+  const stateDir = join(src, 'components', 'windows', 'analysis');
+  const windows = [
+    'opticalEvaluation', 'gdGddEvaluation', 'materialDispersion', 'eFieldEvaluation',
+    'refractiveIndexProfiler', 'ellipsometryEvaluation', 'admittanceDiagram',
+    'layerSensitivity', 'roughnessScattering', 'inhomogeneities',
+    'systematicDeviations', 'integralValues', 'colorEvaluation', 'errorAnalysis',
+  ];
+  for (const id of windows) {
+    const source = readFileSync(join(stateDir, id, 'sessionState.js'), 'utf8');
+    // Optical Evaluation splits its settings across two stores, so it narrows
+    // the registry rather than taking all of it.
+    ok(source.includes(`sessionDefaults('${id}')`) || source.includes(`pickDefaults('${id}'`),
+      `${id} takes its shipped values from the registry rather than repeating them`);
+    ok(source.includes(`registryKeys('${id}')`),
+      `${id} saves exactly what the registry declares`);
+  }
+
+  const evalParams = readFileSync(join(src, 'state', 'evalParamsSession.js'), 'utf8');
+  ok(evalParams.includes("pickDefaults('opticalEvaluation', EVAL_PARAM_KEYS)")
+    && evalParams.includes("id: 'opticalEvaluation'"),
+  'and so does the evaluation grid, under the window that owns it');
 }
 
 console.log(`analysis_defaults: ${passed} passed`);

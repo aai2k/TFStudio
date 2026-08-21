@@ -21,7 +21,7 @@ export function useGDGDDState(design) {
     useEffect(() => {
         const layers = side === 'back' ? liveDesign?.backLayers : liveDesign?.frontLayers;
         const layerCount = (layers || []).filter(layer => layer.material && layer.thickness > 0).length;
-        if (side !== 'total' && !layerCount) {
+        if (!layerCount) {
             setRaw(null);
             return;
         }
@@ -47,11 +47,8 @@ export function useGDGDDState(design) {
 
     return {
         liveDesign,
-        side, setSide: value => setField('side', value), target,
-        setTarget: value => patch(current => ({
-            target: value,
-            side: value === 'R' && current.side === 'total' ? 'front' : current.side,
-        })),
+        side, setSide: value => setField('side', value),
+        target, setTarget: value => setField('target', value),
         quantity,
         // Changing quantity changes the unit, so any manual bounds are dropped
         // rather than carried from fs into fs^3.

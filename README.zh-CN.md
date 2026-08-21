@@ -10,7 +10,7 @@
 **开源的光学薄膜设计、分析与优化环境**
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](./LICENSE)
-![Version](https://img.shields.io/badge/version-1.6.0-informational)
+![Version](https://img.shields.io/badge/version-1.6.1-informational)
 [![Downloads](https://img.shields.io/github/downloads/aai2k/TFStudio/total?label=downloads&color=informational)](../../releases)
 ![Platform](https://img.shields.io/badge/platform-Windows%20%7C%20Linux-2ea44f)
 [![Maintainability](https://qlty.sh/gh/aai2k/projects/TFStudio/maintainability.svg)](https://qlty.sh/gh/aai2k/projects/TFStudio)

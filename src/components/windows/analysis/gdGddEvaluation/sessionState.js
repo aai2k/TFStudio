@@ -1,3 +1,4 @@
+import { registryKeys, sessionDefaults } from '../../../../constants/analysisDefaults.js';
 import { createWindowSession } from '../../windowSession.js';
 
 /** Side to show when a design is selected: whichever side carries the coating. */
@@ -10,38 +11,21 @@ function preferredSide(design) {
 }
 
 export const gdGddSession = createWindowSession({
+    ...sessionDefaults('gdGddEvaluation'),
     side: 'front',
-    target: 'R',
-    quantity: 'gd',
-    pol: 'avg',
-    lamStart: 400,
-    lamEnd: 800,
-    theta: 0,
     refLam: 550,
-    showRef: true,
-    showTargets: true,
-    showTable: false,
-    // Vertical range. Auto uses the robust range from viewModel.autoYRange;
-    // the manual bounds are cleared whenever the quantity changes, because a
-    // range in fs means nothing once the curve is in fs^3.
-    yAuto: true,
+    // Manual vertical bounds. Auto uses the robust range from
+    // viewModel.autoYRange; these are cleared whenever the quantity changes,
+    // because a range in fs means nothing once the curve is in fs^3.
     yMin: null,
     yMax: null,
 }, {
     id: 'gdGddEvaluation',
     // The side and the reference wavelength describe the design and are reseeded
     // when one is selected, so saving them as defaults would have no effect.
-    savable: [
-        'target', 'quantity', 'pol', 'lamStart', 'lamEnd', 'theta',
-        'showRef', 'showTargets', 'showTable', 'yAuto', 'yMin', 'yMax',
-    ],
+    savable: registryKeys('gdGddEvaluation'),
     onDesignChange: design => ({
         side: preferredSide(design),
         refLam: design?.referenceWavelength || 550,
     }),
-    // Reflection has no total-surface case, so a patch that selects R while
-    // 'total' is showing falls back to the front surface.
-    normalize: state => (state.target === 'R' && state.side === 'total'
-        ? { ...state, side: 'front' }
-        : state),
 });

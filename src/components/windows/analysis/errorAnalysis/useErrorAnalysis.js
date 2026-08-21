@@ -4,7 +4,7 @@ import { hasPerturbableLayers } from './trialModel.js';
 import { errorAnalysisSession } from './sessionState.js';
 import { useWindowSession } from '../../windowSession.js';
 
-const { useCallback, useEffect, useRef, useState } = React;
+const { useCallback, useEffect, useMemo, useRef, useState } = React;
 
 async function executeRun(options) {
     const {
@@ -50,12 +50,20 @@ async function executeRun(options) {
 }
 
 export function useErrorAnalysis({ design, evalMode }) {
-    const [session, setField] = useWindowSession(errorAnalysisSession, design);
+    const [session, setField, patchSession] = useWindowSession(errorAnalysisSession, design);
     const {
-        params, char, nTrials, corridorSigma, rmsAbsNm, rmsRelPct, rmsReN, rmsImN,
+        char, nTrials, corridorSigma, rmsAbsNm, rmsRelPct, rmsReN, rmsImN,
         distribution, perMaterial, keepOPT, showEnvelope, result,
     } = session;
-    const setParams = value => setField('params', value);
+    // The evaluation grid is held as flat keys so Settings can edit each of them,
+    // and gathered back into the shape the spectrum functions take.
+    const { lambdaStart, lambdaEnd, lambdaStep, theta, polarization } = session;
+    const params = useMemo(
+        () => ({ lambdaStart, lambdaEnd, lambdaStep, theta, polarization }),
+        [lambdaStart, lambdaEnd, lambdaStep, theta, polarization],
+    );
+    const setParams = value => patchSession(current => (
+        typeof value === 'function' ? value(current) : value));
     const setChar = value => setField('char', value);
     const setNTrials = value => setField('nTrials', value);
     const setCorridorSigma = value => setField('corridorSigma', value);

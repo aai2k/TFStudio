@@ -1,3 +1,4 @@
+import { registryKeys, sessionDefaults } from '../../../../constants/analysisDefaults.js';
 import { createWindowSession } from '../../windowSession.js';
 import { sideHasLayers } from './model.js';
 
@@ -10,28 +11,13 @@ function preferredSide(design, current) {
 }
 
 export const ellipsometrySession = createWindowSession({
-    mode: 'spectral',
+    ...sessionDefaults('ellipsometryEvaluation'),
     side: 'front',
-    lambdaStart: 400,
-    lambdaEnd: 800,
-    lambdaStep: 2,
-    thetaDeg: 65,
     lambdaNm: 550,
-    angleStart: 45,
-    angleEnd: 80,
-    angleStep: 0.5,
-    deltaConvention: 'azzam',
-    showPsi: true,
-    showDelta: true,
-    showTable: false,
 }, {
     id: 'ellipsometryEvaluation',
     // The single wavelength and the side follow the selected design.
-    savable: [
-        'mode', 'lambdaStart', 'lambdaEnd', 'lambdaStep', 'thetaDeg',
-        'angleStart', 'angleEnd', 'angleStep', 'deltaConvention',
-        'showPsi', 'showDelta', 'showTable',
-    ],
+    savable: registryKeys('ellipsometryEvaluation'),
     onDesignChange: (design, current) => ({
         ...(design?.referenceWavelength ? { lambdaNm: design.referenceWavelength } : null),
         side: preferredSide(design, current.side),

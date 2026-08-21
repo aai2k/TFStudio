@@ -1,6 +1,6 @@
 // The field list for one analysis window, built from its registry entry.
 import { ANALYSIS_DEFAULTS } from '../../../../constants/analysisDefaults.js';
-import { ColorRow, NumberRow, EnumRow, BooleanRow } from './FieldRows.js';
+import { ColorRow, NumberRow, EnumRow, BooleanRow, ListRow } from './FieldRows.js';
 import { SpectralRangeRows } from './SpectralRangeRows.js';
 
 const { createElement: h } = React;
@@ -14,13 +14,13 @@ function paletteSlot(key) {
   return match ? Number(match[1]) : null;
 }
 
-// Field labels come from t.settings.analysis.fields when present; otherwise the
-// registry key is shown as-is. Curve keys (T, R, A, Ts, gd, psi…) are symbols
-// and deliberately untranslated.
+// Field labels come from the locale: `savedFields` names the window controls,
+// `fields` the colours and the spectral rows. Curve keys (T, R, A, Ts, gd, psi…)
+// are symbols and deliberately untranslated, so they fall through as-is.
 function fieldLabel(t, key) {
   const slot = paletteSlot(key);
   if (slot !== null) return t.settings.analysis.paletteSlot(slot);
-  return t.settings.analysis.fields[key] || key;
+  return t.settings.analysis.savedFields[key] || t.settings.analysis.fields[key] || key;
 }
 
 const groupTitleStyle = (c) => ({
@@ -50,18 +50,20 @@ export const WindowFields = ({ windowId, resolved, onChange, c, t }) => {
   const registry = ANALYSIS_DEFAULTS[windowId];
   if (!registry) return null;
 
-  // The shared spectral range needs unit-aware fields rather than plain
-  // numbers, because its values are stored in nm but shown in the chosen unit.
-  if (windowId === 'shared') {
-    return h('div', null,
-      h('div', { style: groupTitleStyle(c) }, t.settings.analysis.ranges),
-      h(SpectralRangeRows, { resolved, onChange, c, t }));
-  }
+  // A window that lets the range be entered in another unit needs unit-aware
+  // fields rather than plain numbers, because the values are stored in nm but
+  // shown in the chosen unit. Those three are then left out of the plain rows.
+  const unitAware = !!registry.enums?.spectralUnit;
+  const SPECTRAL = ['lambdaStart', 'lambdaEnd', 'lambdaStep', 'spectralUnit'];
+  const plain = ([key]) => !unitAware || !SPECTRAL.includes(key);
 
   const colorKeys = Object.keys(registry.colors || {});
-  const numbers = Object.entries(registry.numbers || {});
-  const enums = Object.entries(registry.enums || {});
+  const numbers = Object.entries(registry.numbers || {}).filter(plain);
+  const enums = Object.entries(registry.enums || {}).filter(plain);
+  const lists = Object.entries(registry.lists || {});
   const booleans = Object.keys(registry.booleans || {});
+  const hasControls =
+    unitAware || numbers.length + enums.length + lists.length + booleans.length > 0;
 
   return h('div', null,
     h(ColorGroup, {
@@ -75,8 +77,10 @@ export const WindowFields = ({ windowId, resolved, onChange, c, t }) => {
       keys: colorKeys.filter(key => paletteSlot(key) !== null),
       resolved, onChange, c, t,
     }),
-    numbers.length > 0 && h('div', null,
-      h('div', { style: groupTitleStyle(c) }, t.settings.analysis.ranges),
+    hasControls && h('div', null,
+      h('div', { style: groupTitleStyle(c) }, t.settings.analysis.windowControls),
+      h('div', { style: groupHintStyle(c) }, t.settings.analysis.windowControlsHint),
+      unitAware && h(SpectralRangeRows, { registry, resolved, onChange, c, t }),
       numbers.map(([key, spec]) => h(NumberRow, {
         key,
         c,
@@ -92,6 +96,14 @@ export const WindowFields = ({ windowId, resolved, onChange, c, t }) => {
         value: resolved.enums[key],
         spec,
         onChange: (value) => onChange('enums', key, value),
+      })),
+      lists.map(([key, spec]) => h(ListRow, {
+        key,
+        c,
+        label: fieldLabel(t, key),
+        value: resolved.lists[key],
+        spec,
+        onChange: (value) => onChange('lists', key, value),
       })),
       booleans.map(key => h(BooleanRow, {
         key,

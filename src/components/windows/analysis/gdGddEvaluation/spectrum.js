@@ -1,8 +1,5 @@
 import { unwrapPhase } from '../../../../utils/physics/thinFilmMath.js';
-import {
-    createDesignPhaseDispersionEvaluator,
-    evaluateTotalTransmissionDispersion,
-} from '../../../../utils/physics/phaseDispersion.js';
+import { createDesignPhaseDispersionEvaluator } from '../../../../utils/physics/phaseDispersion.js';
 
 export const AUTOMATIC_GD_GDD_FINE_STEP_NM = 0.2;
 const AUTOMATIC_GRID_MAX_INTERVALS = 2000;
@@ -111,21 +108,14 @@ function averagePolarizations(sValue, pValue) {
             ...(pValue.discontinuityModels || []),
         ])],
     };
-    if (sValue.components && pValue.components) {
-        result.components = Object.fromEntries(Object.keys(sValue.components).map(name => [
-            name,
-            averagePolarizations(sValue.components[name], pValue.components[name]),
-        ]));
-    }
     return result;
 }
 
 export function computeGdGddSpectrum(design, options) {
     const { side, lambdaStart, lambdaEnd, thetaDeg, polarization, target, preview } = options;
     const valueCache = new Map();
-    const pointEvaluators = side === 'total' && target === 'T'
-        ? null
-        : Object.fromEntries((polarization === 'avg' ? ['s', 'p'] : [polarization]).map(code => [
+    const pointEvaluators = Object.fromEntries(
+        (polarization === 'avg' ? ['s', 'p'] : [polarization]).map(code => [
             code,
             createDesignPhaseDispersionEvaluator(design, {
                 side,
@@ -137,11 +127,7 @@ export function computeGdGddSpectrum(design, options) {
     const evaluate = (wavelengthNm) => {
         if (!valueCache.has(wavelengthNm)) {
             const evaluatePolarization = polarizationCode =>
-                side === 'total' && target === 'T'
-                    ? evaluateTotalTransmissionDispersion(design, {
-                        wavelengthNm, polarization: polarizationCode, thetaDeg,
-                    })
-                    : pointEvaluators[polarizationCode](wavelengthNm);
+                pointEvaluators[polarizationCode](wavelengthNm);
             const value = polarization === 'avg'
                 ? averagePolarizations(evaluatePolarization('s'), evaluatePolarization('p'))
                 : evaluatePolarization(polarization);
@@ -152,9 +138,8 @@ export function computeGdGddSpectrum(design, options) {
     const { base: baseWavelengths, wavelengths } =
         presentationGrid(lambdaStart, lambdaEnd, preview, evaluate);
     const values = wavelengths.map(evaluate);
-    const phaseRadians = side === 'total' && target === 'T'
-        ? totalPhase(values)
-        : unwrapFiniteRuns(values.map(value => value.valid ? value.phaseRad : NaN));
+    const phaseRadians = unwrapFiniteRuns(
+        values.map(value => value.valid ? value.phaseRad : NaN));
     const phaseDeg = phaseRadians.map(value => value * 180 / Math.PI);
     return {
         lambda: wavelengths,
@@ -176,32 +161,7 @@ export function computeGdGddSpectrum(design, options) {
         preview: !!preview,
         basePointCount: baseWavelengths.length,
         adaptivePointCount: wavelengths.length - baseWavelengths.length,
-        components: side === 'total' && target === 'T' ? totalComponents(values) : null,
     };
-}
-
-function totalPhase(values) {
-    const front = unwrapFiniteRuns(values.map(value => value.valid ? value.components.front.phaseRad : NaN));
-    const back = unwrapFiniteRuns(values.map(value => value.valid ? value.components.back.phaseRad : NaN));
-    return values.map((value, index) => value.valid
-        ? front[index] + value.components.substrate.phaseRad + back[index]
-        : NaN);
-}
-
-function totalComponents(values) {
-    const result = {};
-    for (const name of ['front', 'substrate', 'back']) {
-        const phase = name === 'substrate'
-            ? values.map(value => value.valid ? value.components[name].phaseRad : NaN)
-            : unwrapFiniteRuns(values.map(value => value.valid ? value.components[name].phaseRad : NaN));
-        result[name] = {
-            phaseDeg: phase.map(value => value * 180 / Math.PI),
-            gd: values.map(value => value.valid ? value.components[name].gdFs : NaN),
-            gdd: values.map(value => value.valid ? value.components[name].gddFs2 : NaN),
-            tod: values.map(value => value.valid ? value.components[name].todFs3 : NaN),
-        };
-    }
-    return result;
 }
 
 function unwrapFiniteRuns(phases) {

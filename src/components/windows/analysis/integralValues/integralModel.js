@@ -1,14 +1,6 @@
 import { DEFAULT_INTEGRALS } from '../../../../utils/physics/integralValues.js';
 import { composeWeighting } from '../../../../utils/physics/spectralWeightings.js';
 
-export const INITIAL_PARAMS = {
-    lambdaStart: 300,
-    lambdaEnd: 2500,
-    lambdaStep: 5,
-    theta: 0,
-    polarization: 'avg',
-};
-
 export const INITIAL_BUILDER = {
     char: 'T',
     source: { id: 'D65', T: 5778, table: null },

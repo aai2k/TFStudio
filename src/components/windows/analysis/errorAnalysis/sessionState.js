@@ -1,33 +1,17 @@
+import { registryKeys, sessionDefaults } from '../../../../constants/analysisDefaults.js';
 import { createWindowSession } from '../../windowSession.js';
 
 // A run takes seconds to minutes, so the result is kept beside the settings that
 // produced it and survives a dock or a tab switch. Slots are per design: coming
 // back to a design shows the run it already had rather than an empty window.
+//
+// Everything a run is set up with comes from the analysis registry, so Settings
+// edits the same values the window opens with.
 export const errorAnalysisSession = createWindowSession({
-    params: { lambdaStart: 400, lambdaEnd: 800, lambdaStep: 5, theta: 0, polarization: 'avg' },
-    char: 'R',
-    nTrials: 200,
-    corridorSigma: 1.0,
-    rmsAbsNm: 0,
-    rmsRelPct: 1,
-    rmsReN: 0,
-    rmsImN: 0,
-    distribution: 'gaussian',
-    perMaterial: false,
-    keepOPT: false,
-    showEnvelope: false,
+    ...sessionDefaults('errorAnalysis'),
     result: null,
-    // The error magnitudes are what a run is set up with, so their strip starts
-    // open: a trial count means nothing without the σ values it was drawn with.
-    showEditor: true,
-    showTable: false,
 }, {
     scope: 'design',
     id: 'errorAnalysis',
-    savable: [
-        'params', 'char', 'nTrials', 'corridorSigma',
-        'rmsAbsNm', 'rmsRelPct', 'rmsReN', 'rmsImN',
-        'distribution', 'perMaterial', 'keepOPT', 'showEnvelope',
-        'showEditor', 'showTable',
-    ],
+    savable: registryKeys('errorAnalysis'),
 });

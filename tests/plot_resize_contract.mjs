@@ -31,7 +31,7 @@ globalThis.Plotly = {
 };
 globalThis.React = { useEffect: () => {} };
 
-const { drawPlot, reactPlot, hasRoomToDraw } =
+const { drawPlot, reactPlot, hasRoomToDraw, isDisplayed } =
     await import('../src/components/ui/plotSurface.js');
 
 const roomy = { clientWidth: 800, clientHeight: 600 };
@@ -82,6 +82,43 @@ assert.equal(hasRoomToDraw({ clientWidth: 800, clientHeight: 50 }, margins), fal
 assert.equal(hasRoomToDraw({ clientWidth: 0, clientHeight: 0 }, margins), false);
 // A host that reports no size at all is not the same as a collapsed box.
 assert.equal(hasRoomToDraw({}, margins), true, 'an unmeasurable host still draws');
+
+// ── A plot that is not on screen is never resized ────────────────────────────
+
+// Only the active tab of a dock group is displayed; the rest are display:none,
+// which collapses their boxes and fires their ResizeObserver. Plotly throws
+// "Resize must be passed a displayed plot div element" rather than ignoring it,
+// so every resize call has to check first.
+assert.equal(isDisplayed({ offsetWidth: 800, offsetHeight: 600 }), true);
+assert.equal(isDisplayed({ offsetWidth: 0, offsetHeight: 0 }), false,
+    'a hidden tab reports no box');
+assert.equal(isDisplayed({ offsetWidth: 800, offsetHeight: 0 }), true,
+    'one dimension is enough to be on screen');
+assert.equal(isDisplayed(null), false, 'a ref emptied by an unmount');
+assert.equal(isDisplayed({}), true, 'an unmeasurable host is not the same as a hidden one');
+
+{
+    const source = readFileSync(new URL('../src/components/ui/plotSurface.js', import.meta.url), 'utf8');
+    assert.match(source, /isDisplayed\(element\)\) Plotly\.Plots\.resize/,
+        'the shared ResizeObserver checks before resizing');
+}
+
+// Every other resize in the app has to make the same check.
+{
+    const guarded = [
+        'src/components/windows/analysis/plotEngine/charts.js',
+        'src/components/windows/analysis/opticalEvaluation/PlotlyChart.js',
+        'src/components/windows/optimization/refinement/MFTrendPlot.js',
+    ];
+    for (const file of guarded) {
+        const source = readFileSync(new URL(`../${file}`, import.meta.url), 'utf8');
+        for (const line of source.split('\n')) {
+            if (!line.includes('Plotly.Plots.resize')) continue;
+            assert.match(line, /isDisplayed\(/,
+                `${file}: a resize that does not check whether the plot is on screen`);
+        }
+    }
+}
 
 {
     calls.length = 0;

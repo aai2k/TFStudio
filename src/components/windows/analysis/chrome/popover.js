@@ -17,7 +17,7 @@ import { DesignContext } from '../../../../state/DesignContext.js';
 import { useAnalysisSettings } from '../../../../state/AnalysisSettingsContext.js';
 import {
     canSaveWindowDefaults, hasSavedWindowDefaults,
-    restoreWindowDefaults, saveWindowDefaults, useSavedWindowDefaults,
+    restoreWindowDefaults, saveWindowDefaults,
 } from '../../../../utils/windowDefaults.js';
 
 const { createElement: h, useContext, useState } = React;
@@ -103,12 +103,9 @@ function footerButtonStyle(c, enabled) {
 function DefaultsFooter({ c, t, windowId }) {
     const designCtx = useContext(DesignContext);
     const analysisSettings = useAnalysisSettings();
-    const saved = useSavedWindowDefaults();
-    const [error, setError] = useState(null);
     const text = t.analysisChrome;
-
-    const stored = hasSavedWindowDefaults(windowId, analysisSettings, saved);
-    const run = promise => promise.then(result => setError(result || null));
+    const stored = hasSavedWindowDefaults(windowId, analysisSettings);
+    const error = analysisSettings?.saveError;
 
     return h('div', {
         style: {
@@ -119,15 +116,17 @@ function DefaultsFooter({ c, t, windowId }) {
         h('div', { style: { display: 'flex', gap: 6 } },
             h('button', {
                 type: 'button', title: text.saveDefaultsTip,
-                onClick: () => run(saveWindowDefaults(windowId, designCtx?.design, analysisSettings)),
+                onClick: () => saveWindowDefaults(windowId, designCtx?.design, analysisSettings),
                 style: footerButtonStyle(c, true),
             }, text.saveDefaults),
             h('button', {
                 type: 'button', title: text.restoreDefaultsTip, disabled: !stored,
-                onClick: () => run(restoreWindowDefaults(windowId, analysisSettings)),
+                onClick: () => restoreWindowDefaults(windowId, analysisSettings),
                 style: footerButtonStyle(c, stored),
             }, text.restoreDefaults),
         ),
+        // These are the same values Settings → Analysis edits, so the same
+        // message is shown here when the write fails.
         error && h('div', { role: 'alert', style: { color: c.error, lineHeight: 1.4 } },
             error === 'unavailable' ? text.defaultsUnavailable : text.defaultsFailed(error)),
     );

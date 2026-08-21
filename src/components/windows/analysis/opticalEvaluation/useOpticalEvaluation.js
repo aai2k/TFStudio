@@ -64,35 +64,14 @@ function useTargetEditor({ design, updateDesign }) {
 }
 
 function useDisplayOptions(params, setParams, design) {
-    const displayDefaults = useAnalysisDefaults('opticalEvaluation');
-    const analysisSettings = useAnalysisSettings();
-    const defaultsReady = analysisSettings?.ready !== false;
-    const [session, setField, patch] = useWindowSession(opticalEvaluationSession, design);
-    const { showCurves, showTable, showTargets, defaultsApplied } = session;
-    // Until the configured defaults have been read in, show them rather than the
-    // store's placeholders, so the first render already matches Settings.
-    const yAuto = defaultsApplied ? session.yAuto : displayDefaults.booleans.yAuto;
-    const yMin = defaultsApplied ? session.yMin : displayDefaults.numbers.yMin;
-    const yMax = defaultsApplied ? session.yMax : displayDefaults.numbers.yMax;
+    const [session, setField] = useWindowSession(opticalEvaluationSession, design);
+    // The Y axis and the curve switches are configured defaults: the session
+    // store starts from the analysis registry and adopts the saved values when
+    // the preferences file arrives, so there is nothing to substitute here.
+    const { showCurves, showTable, showTargets, yAuto, yMin, yMax } = session;
     // The unit the spectral range is entered and labelled in belongs with the
     // range itself, which is shared with the other evaluation windows.
     const spectralUnit = params.spectralUnit || 'nm';
-
-    // A restored layout can mount this window while the preferences file is
-    // still loading, so the persisted defaults are applied once when they
-    // arrive. After that the values belong to the session: a later Settings edit
-    // applies to the next app run rather than overwriting controls set here.
-    useEffect(() => {
-        if (!defaultsReady || defaultsApplied) return;
-        patch({
-            defaultsApplied: true,
-            yAuto: displayDefaults.booleans.yAuto,
-            yMin: displayDefaults.numbers.yMin,
-            yMax: displayDefaults.numbers.yMax,
-        });
-    }, [defaultsReady, defaultsApplied, patch,
-        displayDefaults.booleans.yAuto, displayDefaults.numbers.yMin,
-        displayDefaults.numbers.yMax]);
 
     const yRange = useMemo(() => ({ auto: yAuto, min: yMin, max: yMax }), [yAuto, yMin, yMax]);
     const lamRange = useMemo(

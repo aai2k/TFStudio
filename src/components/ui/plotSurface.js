@@ -38,6 +38,23 @@ export function hasRoomToDraw(element, layout) {
     return width > 10 && height > 10;
 }
 
+/**
+ * Whether the element is on screen at all.
+ *
+ * Only the active tab of a dock group is displayed; the others are
+ * `display: none`, which collapses their boxes and fires their ResizeObserver.
+ * Plotly refuses to resize a plot it cannot measure, so a resize aimed at a
+ * hidden plot has to be dropped rather than attempted. The tab redraws at its
+ * real size when it is selected again.
+ */
+export function isDisplayed(element) {
+    if (!element) return false;
+    // As in hasRoomToDraw: a host that does not report element sizes cannot be
+    // judged, so it is taken at its word rather than treated as hidden.
+    if (!Number.isFinite(element.offsetWidth) && !Number.isFinite(element.offsetHeight)) return true;
+    return !!(element.offsetWidth || element.offsetHeight);
+}
+
 // The layout actually handed to Plotly: autosizing on, and no explicit size,
 // since either one pinned into the layout overrides the element's own size.
 // Copied rather than edited in place, so a caller that keeps its layout object
@@ -90,7 +107,7 @@ export function usePlotTeardown(divRef, initRef) {
         const element = divRef.current;
         if (!element) return undefined;
         const observer = new ResizeObserver(() => {
-            if (initRef.current) Plotly.Plots.resize(element);
+            if (initRef.current && isDisplayed(element)) Plotly.Plots.resize(element);
         });
         observer.observe(element);
         return () => {

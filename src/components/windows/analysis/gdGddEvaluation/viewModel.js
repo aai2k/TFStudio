@@ -31,7 +31,6 @@ function segmentCurve(raw, values, derivativeOrder) {
 function buildPlotData(raw, meta, quantity, referenceLambda, showReference) {
     if (!raw || !raw.lambda.length) return null;
     let y = raw[meta.key];
-    let referenceIndex = null;
     if (quantity === 'phase' && showReference) {
         let closestIndex = 0;
         let closestDistance = Infinity;
@@ -43,35 +42,11 @@ function buildPlotData(raw, meta, quantity, referenceLambda, showReference) {
             }
         }
         const offset = y[closestIndex];
-        referenceIndex = closestIndex;
         if (Number.isFinite(offset)) {
             y = y.map(value => Number.isFinite(value) ? value - offset : value);
         }
     }
-    const total = segmentCurve(raw, y, meta.order);
-    if (!raw.components) return total;
-    const componentColors = { front: '#1e88e5', substrate: '#ffb300', back: '#e53935' };
-    return {
-        lambda: total.lambda,
-        y: total.y,
-        series: [
-            { name: 'Total', y: total.y, color: meta.color, width: 2.5 },
-            ...Object.entries(raw.components).map(([name, values]) => {
-                const componentValues = referenceIndex == null
-                    || !Number.isFinite(values[meta.key][referenceIndex])
-                    ? values[meta.key]
-                    : values[meta.key].map(value => Number.isFinite(value)
-                        ? value - values[meta.key][referenceIndex]
-                        : value);
-                return {
-                    name: name[0].toUpperCase() + name.slice(1),
-                    y: segmentCurve(raw, componentValues, meta.order).y,
-                    color: componentColors[name],
-                    width: 1.5,
-                };
-            }),
-        ],
-    };
+    return segmentCurve(raw, y, meta.order);
 }
 
 function buildTable(raw) {
@@ -126,11 +101,8 @@ const RANGE_PADDING = 0.06;
  * window can say so rather than quietly cropping.
  */
 export function autoYRange(plotData) {
-    const series = plotData?.series || (plotData?.y ? [{ y: plotData.y }] : []);
     const values = [];
-    for (const item of series) {
-        for (const value of item.y) if (Number.isFinite(value)) values.push(value);
-    }
+    for (const value of plotData?.y || []) if (Number.isFinite(value)) values.push(value);
     if (!values.length) return null;
     const sorted = [...values].sort((a, b) => a - b);
     const low = sorted[0];
@@ -169,9 +141,7 @@ export function buildGdGddView(raw, options, text, colors) {
 }
 
 export function buildLayerSummary(design, side) {
-    const layers = side === 'total'
-        ? [...(design.frontLayers || []), ...(design.backLayers || [])]
-        : (side === 'back' ? design.backLayers : design.frontLayers) || [];
+    const layers = (side === 'back' ? design.backLayers : design.frontLayers) || [];
     const visibleLayers = layers.filter(layer => layer.material && layer.thickness > 0);
     return {
         layerCount: visibleLayers.length,

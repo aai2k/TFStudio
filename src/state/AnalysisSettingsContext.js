@@ -11,6 +11,7 @@ import {
   resolveAnalysisSettings, setAnalysisOverride, resetAnalysisWindow,
   isAnalysisWindowOverridden, sanitizeAnalysisOverrides,
 } from '../utils/analysisSettings.js';
+import { applyAnalysisDefaults } from '../utils/windowDefaults.js';
 
 const { createElement: h, createContext, useContext, useState, useCallback, useMemo, useEffect } = React;
 
@@ -47,6 +48,11 @@ export const AnalysisSettingsProvider = ({ initial, children }) => {
       setSaveError(err?.message || 'failed');
     }
   }, []);
+
+  // The window session stores read their starting values from the same block,
+  // so they are pointed at it whenever it changes: once when the preferences
+  // file arrives, and again after every edit here.
+  useEffect(() => { applyAnalysisDefaults(stored); }, [stored]);
 
   const apply = useCallback((transform) => {
     setStored(current => {

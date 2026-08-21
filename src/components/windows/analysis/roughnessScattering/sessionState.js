@@ -1,3 +1,4 @@
+import { registryKeys, sessionDefaults } from '../../../../constants/analysisDefaults.js';
 import { createWindowSession } from '../../windowSession.js';
 
 // Interface roughness describes one coating, so it is kept per design. The value
@@ -8,23 +9,16 @@ export const roughnessDesignSession = createWindowSession({
 }, { scope: 'design' });
 
 // How the result is plotted is a display preference and carries across designs.
-//
-// The step matches the shared spectral default: scatter loss follows R(λ), so a
-// 5 nm grid drew a coated stack's structure as a staircase.
+// The range, step, angle and scale come from the analysis registry, so Settings
+// edits the same values the window opens with.
 export const roughnessViewSession = createWindowSession({
+    ...sessionDefaults('roughnessScattering'),
+    // A curve map is not a scalar, so the registry cannot hold it; the plot
+    // colours for each of these curves are declared there instead.
     showCurves: { T: true, R: true, Ts: false, Rs: false, Tp: false, Rp: false },
-    lambdaStart: 400,
-    lambdaEnd: 800,
-    lambdaStep: 2,
-    aoi: 0,
-    units: 'ppm',
-    // The roughness editor is what this window is for, so its strip starts open.
-    showEditor: true,
-    showTable: false,
 }, {
     id: 'roughnessScattering',
-    savable: [
-        'showCurves', 'lambdaStart', 'lambdaEnd', 'lambdaStep', 'aoi', 'units',
-        'showEditor', 'showTable',
-    ],
+    // Which curves are drawn is what you are looking at, not what the window
+    // should open with, so it is not a configured default.
+    savable: registryKeys('roughnessScattering'),
 });

@@ -81,9 +81,17 @@ function computeSpectrum(design, params, evalMode) {
 }
 
 export function useIntegralValues(design, evalMode) {
-    const [session, setField] = useWindowSession(integralValuesSession, design);
-    const { params, builder, selKey, showTable } = session;
-    const setParams = value => setField('params', value);
+    const [session, setField, patchSession] = useWindowSession(integralValuesSession, design);
+    const { builder, selKey, showTable } = session;
+    // The evaluation grid is held as flat keys so Settings can edit each of them,
+    // and gathered back into the shape the spectrum functions take.
+    const { lambdaStart, lambdaEnd, lambdaStep, theta, polarization } = session;
+    const params = useMemo(
+        () => ({ lambdaStart, lambdaEnd, lambdaStep, theta, polarization }),
+        [lambdaStart, lambdaEnd, lambdaStep, theta, polarization],
+    );
+    const setParams = value => patchSession(current => (
+        typeof value === 'function' ? value(current) : value));
     const setBuilder = value => setField('builder', value);
     const setSelKey = value => setField('selKey', value);
     const setShowTable = value => setField('showTable', value);

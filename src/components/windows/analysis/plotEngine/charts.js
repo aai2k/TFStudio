@@ -1,5 +1,5 @@
 import { xAxisLabel, surfaceAxisLabel } from '../../../../utils/physics/plotQuantities.js';
-import { drawPlot, usePlotTeardown } from '../../../ui/plotSurface.js';
+import { drawPlot, isDisplayed, usePlotTeardown } from '../../../ui/plotSurface.js';
 import { axisTitle, chartConfig, plotMargin, TICK_FONT } from '../chrome/plot.js';
 
 const { createElement: h, useMemo, useEffect, useRef } = React;
@@ -146,7 +146,9 @@ function useSurfaceFigure(divRef, initRef, renderRef, figure) {
         initRef.current = true;
         renderRef.current = renderKind;
         requestAnimationFrame(() => {
-            if (divRef.current && initRef.current) Plotly.Plots.resize(divRef.current);
+            // The tab can be switched away between the draw and the frame, and a
+            // hidden plot cannot be measured, let alone resized.
+            if (initRef.current && isDisplayed(divRef.current)) Plotly.Plots.resize(divRef.current);
         });
     }, [figure]);
 }

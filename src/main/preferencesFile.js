@@ -5,16 +5,11 @@
 // therefore lives here instead, under the configurable Preferences folder in
 // Documents, where it survives a reinstall and can be copied to another machine.
 //
-// The file holds two blocks:
-//
-//   analysis  the display defaults Settings → Analysis edits (curve colours,
-//             ranges), keyed by window id.
-//   windows   the control values saved from an analysis window's own settings
-//             panel, keyed by window id.
-//
-// The two are disjoint by construction: a key the analysis registry declares is
-// written to `analysis` wherever it is saved from, so the pane and the window
-// can never show different values for the same setting.
+// The file holds one block, `analysis`: every configured value an analysis
+// window starts from, keyed by window id and grouped by kind (colours, numbers,
+// enums, booleans, lists). Settings → Analysis edits it field by field and a
+// window's Save button writes what the window is set to into the same block, so
+// the two screens cannot show different values for one setting.
 //
 // CommonJS, Electron-free (deps injected) so the logic is testable.
 
@@ -25,7 +20,7 @@ const FILE_NAME = 'window-defaults.json';
 // not destroy settings the older release cannot represent.
 const PREFERENCES_VERSION = 1;
 
-const EMPTY = { version: PREFERENCES_VERSION, analysis: {}, windows: {} };
+const EMPTY = { version: PREFERENCES_VERSION, analysis: {} };
 
 function preferencesPath(ctx) {
   return ctx.path.join(ctx.userPaths.get('preferences'), FILE_NAME);
@@ -35,15 +30,14 @@ function plainObject(value) {
   return value && typeof value === 'object' && !Array.isArray(value) ? value : {};
 }
 
-// Anything unrecognised is dropped rather than passed through: the renderer
-// validates the analysis block against its registry, but the window block is
-// applied to session defaults as-is and must at least be the right shape.
+// Anything unrecognised is dropped rather than passed through. The renderer
+// validates each field against its registry entry on top of this, so a
+// hand-edited value of the wrong kind never reaches a plot.
 function normalize(raw) {
   if (!raw || typeof raw !== 'object') return { ...EMPTY };
   return {
     version: Number.isInteger(raw.version) ? raw.version : PREFERENCES_VERSION,
     analysis: plainObject(raw.analysis),
-    windows: plainObject(raw.windows),
   };
 }
 

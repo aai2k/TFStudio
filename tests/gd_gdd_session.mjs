@@ -73,8 +73,4 @@ assert.equal(changedDesign.refLam, 780, 'a new design adopts its reference wavel
 assert.equal(changedDesign.quantity, 'tod', 'display controls survive a design change');
 assert.equal(changedDesign.lamStart, 610);
 
-gdGddSession.write(backDesign, { side: 'total', target: 'R' });
-assert.equal(gdGddSession.read(backDesign).side, 'front',
-    'reflection cannot restore the transmission-only total side');
-
 console.log('gd_gdd_session: passed');

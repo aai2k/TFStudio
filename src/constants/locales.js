@@ -195,8 +195,7 @@ const en = {
       folders: 'Folders',
     },
     analysis: {
-      hint: 'Applied when the window is next opened. Windows already open keep their current appearance.',
-      sharedHint: 'The wavelength range every analysis window starts from. Applied at startup; changing it does not disturb a range you have set during this session.',
+      hint: 'Used the next time TFStudio starts. A window you have already changed something in this session keeps what you set there.',
       curveColors: 'Curve colors',
       palette: 'Palette',
       paletteHint: 'Handed out in this order, one colour per curve or material, cycling once the list runs out.',
@@ -211,7 +210,6 @@ const en = {
       saveUnavailable: 'Settings cannot be saved right now. Restart TFStudio and try again.',
       saveFailed: (reason) => `Could not save the setting: ${reason}`,
       windows: {
-        shared: 'All windows',
         opticalEvaluation: 'Optical Evaluation',
         plotEngine: 'Plot Engine',
         colorEvaluation: 'Color',
@@ -259,8 +257,8 @@ const en = {
         limits: 'Limits',
         fallback: 'Default bar color',
       },
-      savedFromWindow: 'Saved from the window',
-      savedFromWindowHint: 'Controls saved with "Save as default" in this window\'s own settings panel. Change them there. "Reset this window" above clears them along with the fields above.',
+      windowControls: 'Window controls',
+      windowControlsHint: 'What this window opens with the next time TFStudio starts. The same values can be set in the window itself and written here with "Save as default" in its settings panel; "Restore defaults" there puts the window back to the shipped values straight away.',
       // Labels for the window controls listed under "Saved from the window".
       // A key not named here falls back to `fields`, then to the key itself.
       savedFields: {
@@ -281,6 +279,7 @@ const en = {
         sweepChannel:    'Swept channel',
         quantity:        'Quantity',
         pol:             'Polarization',
+        polarization:    'Polarization',
         theta:           'Angle of incidence (°)',
         thetaDeg:        'Angle of incidence (°)',
         aoi:             'Angle of incidence (°)',
@@ -1532,7 +1531,6 @@ const en = {
     side:         'Side',
     front:        'Front',
     back:         'Back',
-    total:        'Total',
     response:     'Response',
     quantity:     'Quantity',
     phase:        'Phase φ',
@@ -2995,8 +2993,7 @@ const ru = {
       folders: 'Папки',
     },
     analysis: {
-      hint: 'Применяется при следующем открытии окна. Уже открытые окна сохраняют текущий вид.',
-      sharedHint: 'Диапазон длин волн, с которого начинают все окна анализа. Применяется при запуске; изменение не затрагивает диапазон, заданный в текущем сеансе.',
+      hint: 'Применяется при следующем запуске TFStudio. Окно, в котором вы уже что-то меняли за этот сеанс, сохраняет заданные в нём значения.',
       curveColors: 'Цвета кривых',
       palette: 'Палитра',
       paletteHint: 'Назначаются в этом порядке, по одному цвету на кривую или материал, затем список повторяется.',
@@ -3011,7 +3008,6 @@ const ru = {
       saveUnavailable: 'Сейчас настройки сохранить нельзя. Перезапустите TFStudio и повторите.',
       saveFailed: (reason) => `Не удалось сохранить настройку: ${reason}`,
       windows: {
-        shared: 'Все окна',
         opticalEvaluation: 'Оптические характеристики',
         plotEngine: 'Построитель графиков',
         colorEvaluation: 'Цвет',
@@ -3059,8 +3055,8 @@ const ru = {
         limits: 'Границы',
         fallback: 'Цвет столбца по умолчанию',
       },
-      savedFromWindow: 'Сохранено из окна',
-      savedFromWindowHint: 'Элементы управления, сохранённые кнопкой «Сохранить по умолчанию» в панели настроек самого окна. Изменяются там же. Кнопка «Сбросить это окно» выше очищает их вместе с полями выше.',
+      windowControls: 'Элементы управления окна',
+      windowControlsHint: 'С какими значениями окно открывается при следующем запуске TFStudio. Те же значения можно задать в самом окне и записать сюда кнопкой «Сохранить по умолчанию» в его панели настроек; кнопка «Восстановить по умолчанию» там сразу возвращает окно к исходным значениям.',
       savedFields: {
         showCurves:      'Показанные кривые',
         showTable:       'Таблица результатов открыта',
@@ -3079,6 +3075,7 @@ const ru = {
         sweepChannel:    'Сканируемый канал',
         quantity:        'Величина',
         pol:             'Поляризация',
+        polarization:    'Поляризация',
         theta:           'Угол падения (°)',
         thetaDeg:        'Угол падения (°)',
         aoi:             'Угол падения (°)',
@@ -4316,7 +4313,6 @@ const ru = {
     side:         'Сторона',
     front:        'Передняя',
     back:         'Задняя',
-    total:        'Всего',
     response:     'Отклик',
     quantity:     'Величина',
     phase:        'Фаза φ',
