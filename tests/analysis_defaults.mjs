@@ -286,17 +286,20 @@ function ok(condition, message) {
   }
 }
 
-// ── The shared seed still matches DesignContext ─────────────────────────────
+// ── The shared seed still matches the session store ─────────────────────────
 // If the hardcoded seed moves, the registry default has to move with it, or the
-// app would start at a different range than the one Settings reports.
+// app would start at a different range than the one Settings reports — and
+// Restore in a window would put back a different range again.
 {
-  const context = readFileSync(join(src, 'state', 'DesignContext.js'), 'utf-8');
-  const seed = context.match(/lambdaStart:\s*(\d+),\s*lambdaEnd:\s*(\d+),\s*lambdaStep:\s*([\d.]+)/);
-  ok(seed, 'the DesignContext evaluation seed is still recognizable');
+  const store = readFileSync(join(src, 'state', 'sharedEvalSession.js'), 'utf-8');
+  const seed = store.match(/lambdaStart:\s*(\d+),\s*lambdaEnd:\s*(\d+),\s*lambdaStep:\s*([\d.]+)/);
+  ok(seed, 'the shared evaluation seed is still recognizable');
   const shared = ANALYSIS_DEFAULTS.shared.numbers;
-  ok(Number(seed[1]) === shared.lambdaStart.def, 'registry lambdaStart matches the DesignContext seed');
-  ok(Number(seed[2]) === shared.lambdaEnd.def, 'registry lambdaEnd matches the DesignContext seed');
-  ok(Number(seed[3]) === shared.lambdaStep.def, 'registry lambdaStep matches the DesignContext seed');
+  ok(Number(seed[1]) === shared.lambdaStart.def, 'registry lambdaStart matches the shared seed');
+  ok(Number(seed[2]) === shared.lambdaEnd.def, 'registry lambdaEnd matches the shared seed');
+  ok(Number(seed[3]) === shared.lambdaStep.def, 'registry lambdaStep matches the shared seed');
+  ok(store.includes(`spectralUnit: '${ANALYSIS_DEFAULTS.shared.enums.spectralUnit.def}'`),
+    'and so does the spectral unit');
 }
 
 // Other windows intentionally expose colours only. Optical Evaluation is the
@@ -306,16 +309,17 @@ function ok(condition, message) {
     'opticalEvaluation', 'useOpticalEvaluation.js'), 'utf8');
   ok(hook.includes("useAnalysisDefaults('opticalEvaluation')"),
     'Optical Evaluation reads its configured Y defaults');
-  ok(hook.includes("useAnalysisDefaults('shared')"),
-    'Optical Evaluation reads the configured spectral unit');
+  const context = readFileSync(join(src, 'state', 'DesignContext.js'), 'utf8');
+  ok(context.includes("useAnalysisDefaults('shared')"),
+    'the shared spectral range and unit are seeded once, for every window that follows them');
   ok(hook.includes('analysisSettings?.ready'),
     'a restored Optical Evaluation waits for persisted settings to load');
   ok(hook.includes('displayDefaults.booleans.yAuto'),
     'the configured auto-scale flag initializes Optical Evaluation');
   ok(hook.includes('displayDefaults.numbers.yMin') && hook.includes('displayDefaults.numbers.yMax'),
     'the configured Y bounds initialize Optical Evaluation');
-  ok(hook.includes('sharedDefaults.enums.spectralUnit'),
-    'the configured unit initializes Optical Evaluation');
+  ok(context.includes('configured.enums.spectralUnit'),
+    'the configured unit initializes the shared range it belongs to');
 }
 
 console.log(`analysis_defaults: ${passed} passed`);

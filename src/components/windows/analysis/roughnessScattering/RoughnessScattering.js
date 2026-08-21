@@ -10,7 +10,7 @@ import { useMaterialRangeNotice } from '../../../materials/MaterialRangeNotice.j
 import { ExportMenu, useCsvExport } from '../../../ui/ExportMenu.js';
 import { csvFromRows, ResultsGrid, ResultsSection } from '../../../ui/ResultsSection.js';
 import { AnalysisWindow, CenteredMessage, PlotArea } from '../chrome/layout.js';
-import { RoughnessControls } from './RoughnessControls.js';
+import { RoughnessControls, RoughnessEditor, RoughnessEditorActions } from './RoughnessControls.js';
 import { ScatterChart } from './ScatterChart.js';
 import { scatterColumns, scatterRows } from './tableModel.js';
 import { useRoughnessScattering } from './useRoughnessScattering.js';
@@ -56,6 +56,11 @@ export function RoughnessScattering({ c, theme, t }) {
                 })
                 : h(CenteredMessage, { c, message: rs.computing }),
         ),
+        h(ResultsSection, {
+            c, label: rs.editorTitle, summary: `${state.nIfaces} ${rs.interfaces}`,
+            open: state.showEditor, setOpen: state.setShowEditor,
+            actions: h(RoughnessEditorActions, { c, rs, state }),
+        }, h(RoughnessEditor, { c, rs, state })),
         h(ResultsSection, {
             c, label: dt.results, count: rows.length, countLabel: dt.rowCount,
             open: state.showTable, setOpen: state.setShowTable,

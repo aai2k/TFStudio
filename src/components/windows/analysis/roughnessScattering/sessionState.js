@@ -15,8 +15,13 @@ export const roughnessViewSession = createWindowSession({
     aoi: 0,
     pol: 'avg',
     units: 'ppm',
+    // The roughness editor is what this window is for, so its strip starts open.
+    showEditor: true,
     showTable: false,
 }, {
     id: 'roughnessScattering',
-    savable: ['lambdaStart', 'lambdaEnd', 'lambdaStep', 'aoi', 'pol', 'units', 'showTable'],
+    savable: [
+        'lambdaStart', 'lambdaEnd', 'lambdaStep', 'aoi', 'pol', 'units',
+        'showEditor', 'showTable',
+    ],
 });

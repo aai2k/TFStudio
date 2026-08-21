@@ -10,7 +10,9 @@ import { SpecVerdict } from '../../../SpecVerdict.js';
 import { ExportMenu, useCsvExport } from '../../../ui/ExportMenu.js';
 import { csvFromRows, ResultsGrid, ResultsSection } from '../../../ui/ResultsSection.js';
 import { AnalysisWindow, CenteredMessage, PlotArea } from '../chrome/layout.js';
-import { InhomogeneityControls } from './InhomogeneityControls.js';
+import {
+    InhomogeneityControls, InhomogeneityEditor, InhomogeneityEditorActions,
+} from './InhomogeneityControls.js';
 import { OverlayChart } from './OverlayChart.js';
 import { hasLayersForMode } from './model.js';
 import { overlayColumns, overlayRows } from './tableModel.js';
@@ -58,11 +60,15 @@ export function Inhomogeneities({ c, theme, t }) {
             }),
         ),
         h(ResultsSection, {
+            c, label: ih.editorTitle,
+            summary: `${activeInterlayerCount(inh)} ${ih.activeInterlayers} · Σ ${totalInterlayerThickness(inh).toFixed(2)} nm`,
+            open: state.showEditor, setOpen: state.setShowEditor,
+            actions: h(InhomogeneityEditorActions, { c, ih, state }),
+        }, h(InhomogeneityEditor, { c, ih, state })),
+        h(ResultsSection, {
             c, label: dt.results, count: rows.length, countLabel: dt.rowCount,
             open: state.showTable, setOpen: state.setShowTable,
             actions: h('div', { style: { display: 'flex', alignItems: 'center', gap: 8 } },
-                h('span', { style: { color: c.textDim, fontSize: 11, whiteSpace: 'nowrap' } },
-                    `${activeInterlayerCount(inh)} ${ih.activeInterlayers} · Σ ${totalInterlayerThickness(inh).toFixed(2)} nm`),
                 h(EvalModeBadge, { design, c, t }),
                 (design?.qualifiers?.length > 0 && state.specInputs) && h(SpecVerdict, {
                     design: state.specInputs.specDesign, resolveMat: state.specInputs.resolve, c, t,

@@ -15,8 +15,13 @@ export const inhomogeneityViewSession = createWindowSession({
     lambdaStep: 5,
     aoi: 0,
     pol: 'avg',
+    // The interface editor is what this window is for, so its strip starts open.
+    showEditor: true,
     showTable: false,
 }, {
     id: 'inhomogeneities',
-    savable: ['channel', 'lambdaStart', 'lambdaEnd', 'lambdaStep', 'aoi', 'pol', 'showTable'],
+    savable: [
+        'channel', 'lambdaStart', 'lambdaEnd', 'lambdaStep', 'aoi', 'pol',
+        'showEditor', 'showTable',
+    ],
 });

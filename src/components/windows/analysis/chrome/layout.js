@@ -13,6 +13,10 @@
  *                Setup button at the right-hand end.
  *   Setup panel  everything else: ranges, steps, angle of incidence, side,
  *                reference wavelength. See `chrome/popover.js`.
+ *   editor strip the per-interface and per-material tables the tolerance
+ *                windows are built around. A popover cannot hold a hundred
+ *                rows, so these get a strip of their own above the results,
+ *                the full width of the window. See `EditorBody` below.
  *   Results      the numbers behind the plot, collapsed by default, with the
  *                export control on its right.
  *
@@ -101,6 +105,50 @@ export function CenteredMessage({ c, message }) {
             padding: 16, textAlign: 'center',
         },
     }, message);
+}
+
+/**
+ * Body of an editor strip: the per-interface and per-material tables the
+ * tolerance windows are built around.
+ *
+ * These are data entry, not settings, and there is one row per interface — a
+ * hundred-layer stack means a hundred rows. They get the window's full width
+ * and grow to `maxHeight` before scrolling, so a two-interface design costs
+ * almost nothing and a hundred-interface one still leaves the plot on screen.
+ */
+export function EditorBody({ c, maxHeight = 240, children }) {
+    return h('div', {
+        style: {
+            maxHeight, overflowY: 'auto', overflowX: 'hidden',
+            padding: '4px 12px 10px', backgroundColor: c.bg, flexShrink: 0,
+            fontFamily: FONT, fontSize: 12,
+        },
+    }, children);
+}
+
+/**
+ * Scalar fields laid across the width available rather than down one column.
+ * A strip is as wide as the window, so four fields fit on one line where a
+ * popover would have stacked them four deep.
+ */
+export function FieldGrid({ minWidth = 250, children }) {
+    return h('div', {
+        style: {
+            display: 'grid', columnGap: 18,
+            gridTemplateColumns: `repeat(auto-fill, minmax(${minWidth}px, 1fr))`,
+        },
+    }, children);
+}
+
+/** Heading over a group inside an editor strip. */
+export function EditorGroupTitle({ c, children }) {
+    return h('div', {
+        style: {
+            fontSize: 10, fontWeight: 700, color: c.textDim,
+            textTransform: 'uppercase', letterSpacing: '0.06em',
+            userSelect: 'none', padding: '8px 0 2px',
+        },
+    }, children);
 }
 
 /** Persistent column of settings beside the plot. */

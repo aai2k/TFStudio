@@ -12,7 +12,7 @@ import { csvFromRows, ResultsGrid, ResultsSection } from '../../../ui/ResultsSec
 import { ActionButton } from '../chrome/controls.js';
 import { AnalysisWindow, CenteredMessage, PlotArea } from '../chrome/layout.js';
 import { ErrorChart } from './ErrorChart.js';
-import { ErrorControls } from './ErrorControls.js';
+import { ErrorControls, ErrorEditor, errorEditorSummary } from './ErrorControls.js';
 import { statisticsColumns, statisticsRows } from './resultTable.js';
 import { TrialsModal } from './TrialsModal.js';
 import { hasPerturbableLayers } from './trialModel.js';
@@ -105,6 +105,10 @@ export function ErrorAnalysis({ c, t }) {
                         : ea.clickRun,
                 }),
         ),
+        h(ResultsSection, {
+            c, label: ea.editorTitle, summary: errorEditorSummary(state, ea),
+            open: state.showEditor, setOpen: state.setShowEditor,
+        }, h(ErrorEditor, { c, ea, state })),
         h(ResultsSection, {
             c, label: dt.results, count: rows.length, countLabel: dt.rowCount,
             open: state.showTable, setOpen: state.setShowTable,

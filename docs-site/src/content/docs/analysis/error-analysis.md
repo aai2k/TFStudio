@@ -25,6 +25,11 @@ badge on the window.
 
 **AOI / pol**: angle of incidence and polarization (s, p, or averaged).
 
+## Errors
+
+What a trial is drawn from lives in the **Errors** strip below the plot, beside
+the trial count it was drawn with.
+
 **N trials**: how many randomly-perturbed designs to simulate. More trials give
 a smoother corridor and a steadier yield estimate; the corridor noise shrinks
 roughly as 1/√N. Default is 200.

@@ -17,6 +17,9 @@ export const errorAnalysisSession = createWindowSession({
     keepOPT: false,
     showEnvelope: false,
     result: null,
+    // The error magnitudes are what a run is set up with, so their strip starts
+    // open: a trial count means nothing without the σ values it was drawn with.
+    showEditor: true,
     showTable: false,
 }, {
     scope: 'design',
@@ -24,6 +27,7 @@ export const errorAnalysisSession = createWindowSession({
     savable: [
         'params', 'char', 'nTrials', 'corridorSigma',
         'rmsAbsNm', 'rmsRelPct', 'rmsReN', 'rmsImN',
-        'distribution', 'perMaterial', 'keepOPT', 'showEnvelope', 'showTable',
+        'distribution', 'perMaterial', 'keepOPT', 'showEnvelope',
+        'showEditor', 'showTable',
     ],
 });

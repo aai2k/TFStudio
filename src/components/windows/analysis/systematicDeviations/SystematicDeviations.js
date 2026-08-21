@@ -10,7 +10,9 @@ import { csvFromRows, ResultsGrid, ResultsSection } from '../../../ui/ResultsSec
 import { AnalysisWindow, CenteredMessage, PlotArea } from '../chrome/layout.js';
 import { SpectrumPlot } from './SpectrumPlot.js';
 import { SweepHeatmap } from './SweepHeatmap.js';
-import { SystematicControls } from './SystematicControls.js';
+import {
+    SystematicControls, SystematicEditor, SystematicEditorActions, systematicEditorHeader,
+} from './SystematicControls.js';
 import {
     deviationColumns, deviationRows, sweepColumns, sweepRows,
 } from './tableModel.js';
@@ -71,6 +73,11 @@ export function SystematicDeviations({ c, theme, t }) {
             notices: error ? [{ label: error, tone: 'error' }] : [],
         }),
         h(PlotArea, null, plotBody({ state, sd, c })),
+        h(ResultsSection, {
+            c, ...systematicEditorHeader(state, sd),
+            open: state.showEditor, setOpen: state.setShowEditor,
+            actions: h(SystematicEditorActions, { c, sd, state }),
+        }, h(SystematicEditor, { c, sd, state })),
         h(ResultsSection, {
             c, label: dt.results, count: rows.length, countLabel: dt.rowCount,
             open: state.showTable, setOpen: state.setShowTable,

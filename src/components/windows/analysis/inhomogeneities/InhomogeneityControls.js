@@ -3,12 +3,20 @@ import { Checkbox } from '../../../ui/Checkbox.js';
 import {
     ActionButton, ChoiceGroup, NumInput, RangeField, SelectField,
 } from '../chrome/controls.js';
-import { ControlRow } from '../chrome/layout.js';
-import { NoticeBadge, SettingDivider, SettingRow, SettingsMenu } from '../chrome/popover.js';
+import { ControlRow, EditorBody, EditorGroupTitle } from '../chrome/layout.js';
+import { NoticeBadge, SettingRow, SettingsMenu } from '../chrome/popover.js';
 
 const { createElement: h } = React;
 
-/** Which spectrum is overlaid; the interlayers themselves are settings. */
+// One column set for the header and every row, so they stay aligned as the
+// window is resized. The interface name takes whatever width is left over.
+const COLUMNS = 'minmax(120px, 1fr) 70px 110px 60px 20px';
+
+/**
+ * Which spectrum is overlaid. The interlayers themselves are edited in the
+ * strip below the plot: there is one row per interface, and a hundred-layer
+ * stack has a hundred of them.
+ */
 export function InhomogeneityControls({ c, t, ih, state, notices }) {
     return h(ControlRow, {
         c,
@@ -40,9 +48,8 @@ export function InhomogeneityControls({ c, t, ih, state, notices }) {
 }
 
 function InhomogeneitySetup({ c, t, ih, state }) {
-    const hasInterlayers = !!(state.inh.interlayers?.length || state.inh.backInterlayers?.length);
     return h(SettingsMenu, {
-        c, t, windowId: 'inhomogeneities', label: t.analysisChrome.settings, width: 400,
+        c, t, windowId: 'inhomogeneities', label: t.analysisChrome.settings, width: 300,
     },
         h(SettingRow, { c, label: 'λ' },
             h(RangeField, {
@@ -69,20 +76,26 @@ function InhomogeneitySetup({ c, t, ih, state }) {
                 onChange: state.setAoi,
             }),
         ),
-        h(SettingDivider, { c }),
+    );
+}
+
+/** Clear, in the editor strip's header. */
+export function InhomogeneityEditorActions({ c, ih, state }) {
+    const hasInterlayers = !!(state.inh.interlayers?.length || state.inh.backInterlayers?.length);
+    return h(ActionButton, {
+        c, label: ih.clearAll, disabled: !hasInterlayers, onClick: state.clearAll,
+    });
+}
+
+export function InhomogeneityEditor({ c, ih, state }) {
+    return h(EditorBody, { c },
         state.activeSides
             .filter(side => side === 'front' || state.hasBack)
             .map(side => h(InterfaceList, {
                 key: side, side, c, ih, state, ifaces: state.interfaces[side],
             })),
-        h('div', { style: { color: c.textDim, fontSize: 10, lineHeight: 1.5, padding: '6px 0 2px' } },
+        h('div', { style: { color: c.textDim, fontSize: 10, lineHeight: 1.5, padding: '8px 0 0' } },
             ih.helpText),
-        h(SettingDivider, { c }),
-        h(SettingRow, { c, label: '' },
-            h(ActionButton, {
-                c, label: ih.clearAll, disabled: !hasInterlayers, onClick: state.clearAll,
-            }),
-        ),
     );
 }
 
@@ -98,13 +111,19 @@ function InterfaceList({ side, ifaces, c, ih, state }) {
         textTransform: 'uppercase', letterSpacing: '0.04em',
     };
     return h('div', null,
-        h('div', { style: { ...head, padding: '6px 0 4px' } }, listTitle(side, ih, sideCount)),
-        h('div', { style: { display: 'flex', gap: 6, padding: '0 0 3px' } },
-            h('span', { style: { ...head, flex: 1, minWidth: 0 } }, ih.interface),
-            h('span', { style: { ...head, width: 56 } }, ih.thickness),
-            h('span', { style: { ...head, width: 92 } }, ih.profile),
-            h('span', { style: { ...head, width: 44 } }, ih.slices),
-            h('span', { style: { width: 16 } }),
+        h(EditorGroupTitle, { c }, listTitle(side, ih, sideCount)),
+        h('div', {
+            style: {
+                display: 'grid', gridTemplateColumns: COLUMNS, gap: 8,
+                padding: '0 0 3px', position: 'sticky', top: 0,
+                backgroundColor: c.bg, zIndex: 1,
+            },
+        },
+            h('span', { style: head }, ih.interface),
+            h('span', { style: head }, ih.thickness),
+            h('span', { style: head }, ih.profile),
+            h('span', { style: head }, ih.slices),
+            h('span', null),
         ),
         ifaces.map(iface => h(InterfaceRow, {
             key: `${side}:${iface.afterIndex}`, side, iface, c, ih, state,
@@ -124,14 +143,14 @@ function InterfaceRow({ side, iface, c, ih, state }) {
     const set = patch => state.upsertInterlayer(side, iface.afterIndex, patch);
     return h('div', {
         style: {
-            display: 'flex', alignItems: 'center', gap: 6,
-            padding: '2px 0', minHeight: 26,
+            display: 'grid', gridTemplateColumns: COLUMNS, gap: 8,
+            alignItems: 'center', padding: '1px 0', minHeight: 26,
         },
     },
         h('label', {
             title: iface.label,
             style: {
-                flex: 1, minWidth: 0, display: 'flex', alignItems: 'center', gap: 5,
+                minWidth: 0, display: 'flex', alignItems: 'center', gap: 5,
                 color: c.text, fontSize: 11, cursor: 'pointer',
             },
         },
@@ -144,16 +163,16 @@ function InterfaceRow({ side, iface, c, ih, state }) {
             }, iface.label),
         ),
         h(NumInput, {
-            value: interlayer?.thickness ?? 5, min: 0, max: 1000, step: 1, c, width: 56,
+            value: interlayer?.thickness ?? 5, min: 0, max: 1000, step: 1, c, width: 66,
             onChange: value => set({ thickness: Math.max(0, value), enabled: true }),
         }),
         h(SelectField, {
-            value: interlayer?.profile ?? 'linear', c, width: 92,
+            value: interlayer?.profile ?? 'linear', c, width: 106,
             options: PROFILE_IDS.map(profile => ({ id: profile, label: profile })),
             onChange: profile => set({ profile, enabled: true }),
         }),
         h(NumInput, {
-            value: interlayer?.slices ?? 10, min: 2, max: 500, step: 1, c, width: 44,
+            value: interlayer?.slices ?? 10, min: 2, max: 500, step: 1, c, width: 56,
             onChange: value => set({ slices: Math.max(2, Math.floor(value)), enabled: true }),
         }),
         h('button', {
@@ -161,7 +180,7 @@ function InterfaceRow({ side, iface, c, ih, state }) {
             disabled: !interlayer,
             onClick: () => state.removeInterlayer(side, iface.afterIndex),
             style: {
-                width: 16, border: 'none', background: 'transparent',
+                width: 20, border: 'none', background: 'transparent',
                 color: c.textDim, fontSize: 14, lineHeight: 1,
                 cursor: interlayer ? 'pointer' : 'default',
                 opacity: interlayer ? 1 : 0,

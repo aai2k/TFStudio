@@ -47,7 +47,7 @@ export function useSystematicDeviations() {
     const [session, setField] = useWindowSession(systematicDeviationsSession, design);
     const {
         mode, channel, showBaseline, lambdaStart, lambdaEnd, lambdaStep,
-        aoi, pol, sweep, sweepChannel, sweepResult, showTable,
+        aoi, pol, sweep, sweepChannel, sweepResult, showEditor, showTable,
     } = session;
     // Memoised so the fallback is one stable object: a fresh one per render would
     // invalidate every memo below it on every render.
@@ -139,6 +139,7 @@ export function useSystematicDeviations() {
         setMode, setChannel, setShowBaseline,
         setLambdaStart, setLambdaEnd, setLambdaStep, setAoi, setPol,
         setSweep, setSweepChannel,
+        showEditor, setShowEditor: value => setField('showEditor', value),
         showTable, setShowTable: value => setField('showTable', value),
         runSweep, resetDeviation, updateGlobal, updateMat,
     };

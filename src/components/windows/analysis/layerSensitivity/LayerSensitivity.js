@@ -32,34 +32,45 @@ export function LayerSensitivity({ c, theme, t }) {
     if (!sensHasLayers) return h(CenteredMessage, { c, message: ls.noLayers });
     if (!operands.length) return h(CenteredMessage, { c, message: ls.noOperands });
 
+    // The ranking is what the window is for, so the table gets the height and
+    // the badges and export ride on the control row rather than on a strip
+    // header. The bar chart shows the shape of the same numbers and opens below.
     return h(AnalysisWindow, { c },
-        h(SensitivityControls, { c, t, state }),
-        h(PlotArea, null,
-            error
-                ? h(CenteredMessage, { c, message: error })
-                : h(SensitivityBars, {
-                    rows: orderedRows, matColorMap: state.matColorMap,
-                    scale: state.scale, frontCount: state.frontCount, c,
-                    xTitle: ls.axisLayer, yTitle: ls.axisSensitivity,
-                }),
-        ),
-        h(ResultsSection, {
-            c, label: dt.results, count: rows.length, countLabel: dt.rowCount,
-            open: state.showTable, setOpen: state.setShowTable,
-            actions: h('div', { style: { display: 'flex', alignItems: 'center', gap: 8 } },
-                h(EvalModeBadge, { design, c, t }),
+        h(SensitivityControls, {
+            c, t, state,
+            trailing: [
+                h(EvalModeBadge, { key: 'mode', design, c, t }),
                 design?.qualifiers?.length > 0 && h(SpecVerdict, {
+                    key: 'spec',
                     designs: state.specDesigns, resolveMat: state.resolveMat, c, t,
                     label: ls.specLabel,
                 }),
                 h(ExportMenu, {
+                    key: 'export',
                     c, enabled: rows.length > 0, ...csv,
                     labels: {
                         export: dt.export, copyCsv: dt.copyCsv, saveCsv: dt.saveCsv,
                         copied: dt.csvCopied, saved: dt.csvSaved,
                     },
                 }),
-            ),
-        }, h(ResultsGrid, { columns, rows, c })),
+            ],
+        }),
+        h(PlotArea, null,
+            error
+                ? h(CenteredMessage, { c, message: error })
+                : h(ResultsGrid, { columns, rows, c, fill: true }),
+        ),
+        h(ResultsSection, {
+            c, label: ls.chartTitle, summary: `${rows.length} ${ls.layers}`,
+            open: state.showChart, setOpen: state.setShowChart,
+        }, h('div', { style: { height: 220, backgroundColor: c.bg } },
+            error
+                ? null
+                : h(SensitivityBars, {
+                    rows: orderedRows, matColorMap: state.matColorMap,
+                    scale: state.scale, frontCount: state.frontCount, c,
+                    xTitle: ls.axisLayer, yTitle: ls.axisSensitivity,
+                }),
+        )),
     );
 }

@@ -54,6 +54,22 @@ export function initSavedWindowDefaults(block) {
     notify();
 }
 
+/**
+ * Windows whose settings panel also edits settings that belong to another id.
+ *
+ * Optical Evaluation's panel carries the spectral range, step, angle list and
+ * display unit, which every evaluation window follows and which Settings →
+ * Analysis → All windows edits. They are saved under `shared` so both screens
+ * keep reading the same values; saving them under the window would give the same
+ * setting two homes.
+ */
+const ALSO_EDITS = { opticalEvaluation: ['shared'] };
+
+/** The ids a window's Save and Restore cover, its own first. */
+function idsFor(windowId) {
+    return [windowId, ...(ALSO_EDITS[windowId] || [])];
+}
+
 /** Which registry section declares `key` for this window, if any. */
 function registrySection(windowId, key) {
     const registry = ANALYSIS_DEFAULTS[windowId];
@@ -71,10 +87,10 @@ export function savableKeysFor(windowId) {
 
 /** True when the window has at least one store that can save its settings. */
 export function canSaveWindowDefaults(windowId) {
-    return savableKeysFor(windowId).length > 0;
+    return idsFor(windowId).some(id => savableKeysFor(id).length > 0);
 }
 
-/** The window's savable settings as they are set right now. */
+/** The savable settings held under one id, as they are set right now. */
 export function currentWindowValues(windowId, design) {
     return windowSessionStores(windowId).reduce(
         (values, store) => ({ ...values, ...store.savableValues(design) }), {});
@@ -129,13 +145,17 @@ function commit(block) {
  * @returns {Promise<string|null>}   an error message, or null on success
  */
 export function saveWindowDefaults(windowId, design, analysisSettings) {
-    const { fields, session } = splitWindowValues(windowId, currentWindowValues(windowId, design));
-    for (const [section, key, value] of fields) {
-        analysisSettings?.setField(windowId, section, key, value);
-    }
     const block = { ...saved };
-    if (Object.keys(session).length > 0) block[windowId] = session;
-    else delete block[windowId];
+    for (const id of idsFor(windowId)) {
+        const values = currentWindowValues(id, design);
+        if (Object.keys(values).length === 0) continue;
+        const { fields, session } = splitWindowValues(id, values);
+        for (const [section, key, value] of fields) {
+            analysisSettings?.setField(id, section, key, value);
+        }
+        if (Object.keys(session).length > 0) block[id] = session;
+        else delete block[id];
+    }
     return commit(block);
 }
 
@@ -183,10 +203,16 @@ export function clearAllSavedWindowDefaults() {
  * changed in Settings is left alone: it is not one of the window's controls.
  */
 export function restoreWindowDefaults(windowId, analysisSettings) {
-    for (const [key, value] of Object.entries(factoryValuesFor(windowId))) {
-        analysisSettings?.setField(windowId, registrySection(windowId, key), key, value);
+    const block = { ...saved };
+    for (const id of idsFor(windowId)) {
+        const factory = factoryValuesFor(id);
+        for (const [key, value] of Object.entries(factory)) {
+            analysisSettings?.setField(id, registrySection(id, key), key, value);
+        }
+        for (const store of windowSessionStores(id)) store.rebase(factory, { force: true });
+        delete block[id];
     }
-    return clearSavedWindowDefaults(windowId);
+    return commit(block);
 }
 
 /**
@@ -195,12 +221,14 @@ export function restoreWindowDefaults(windowId, analysisSettings) {
  * changes; it defaults to the current one for callers outside React.
  */
 export function hasSavedWindowDefaults(windowId, analysisSettings, block = saved) {
-    if (Object.keys(block?.[windowId] || {}).length > 0) return true;
-    const stored = analysisSettings?.stored?.[windowId];
-    if (!stored) return false;
-    return savableKeysFor(windowId).some(key => {
-        const section = registrySection(windowId, key);
-        return !!section && !!stored[section] && key in stored[section];
+    return idsFor(windowId).some(id => {
+        if (Object.keys(block?.[id] || {}).length > 0) return true;
+        const stored = analysisSettings?.stored?.[id];
+        if (!stored) return false;
+        return savableKeysFor(id).some(key => {
+            const section = registrySection(id, key);
+            return !!section && !!stored[section] && key in stored[section];
+        });
     });
 }
 

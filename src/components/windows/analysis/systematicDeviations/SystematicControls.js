@@ -2,8 +2,8 @@ import { isIdentityDeviation } from '../../../../utils/physics/systematicDeviati
 import {
     ActionButton, CheckField, ChoiceGroup, NumInput, RangeField, SelectField,
 } from '../chrome/controls.js';
-import { ControlRow } from '../chrome/layout.js';
-import { NoticeBadge, SettingDivider, SettingRow, SettingsMenu } from '../chrome/popover.js';
+import { ControlRow, EditorBody, EditorGroupTitle, FieldGrid } from '../chrome/layout.js';
+import { NoticeBadge, SettingRow, SettingsMenu } from '../chrome/popover.js';
 import { defaultSweepRange, sweepOptions, sweepParamKind } from './model.js';
 
 const { createElement: h } = React;
@@ -24,7 +24,9 @@ const OFFSET_UNITS = [
 
 /**
  * What is on screen: one deviated spectrum against the design, or a heat map of
- * one parameter swept across a range. The deviations themselves are settings.
+ * one parameter swept across a range. The deviations themselves are edited in
+ * the strip below the plot, where the per-material blocks have the window's
+ * width to spread across.
  */
 export function SystematicControls({ c, t, sd, state, notices }) {
     const single = state.mode === 'single';
@@ -63,7 +65,7 @@ export function SystematicControls({ c, t, sd, state, notices }) {
 
 function SystematicSetup({ c, t, sd, state }) {
     return h(SettingsMenu, {
-        c, t, windowId: 'systematicDeviations', label: t.analysisChrome.settings, width: 360,
+        c, t, windowId: 'systematicDeviations', label: t.analysisChrome.settings, width: 300,
     },
         h(SettingRow, { c, label: 'λ' },
             h(RangeField, {
@@ -100,7 +102,44 @@ function SystematicSetup({ c, t, sd, state }) {
                 ],
             }),
         ),
-        h(SettingDivider, { c }),
+    );
+}
+
+/** The editor strip's title and one-line summary, which follow the mode. */
+export function systematicEditorHeader(state, sd) {
+    if (state.mode !== 'single') {
+        return { label: sd.sweepSection, summary: sweepSummary(state.sweep, sd) };
+    }
+    const touched = state.uniqueMats.filter(({ id }) => !isIdentityMaterial(state.dev, id)).length;
+    return {
+        label: sd.editorTitle,
+        summary: isIdentityDeviation(state.dev)
+            ? sd.noDeviation
+            : `${touched} / ${state.uniqueMats.length} ${sd.materials}`,
+    };
+}
+
+function isIdentityMaterial(dev, id) {
+    const entry = dev.perMaterial?.[id];
+    if (!entry) return true;
+    return (entry.dScale ?? 1) === 1 && !entry.dOffset && !entry.dn && !entry.dk;
+}
+
+function sweepSummary(sweep, sd) {
+    return `${sweep.from} – ${sweep.to} · ${sweep.steps} ${sd.steps}`;
+}
+
+/** Reset, in the editor strip's header. Sweep mode has nothing to reset. */
+export function SystematicEditorActions({ c, sd, state }) {
+    if (state.mode !== 'single') return null;
+    return h(ActionButton, {
+        c, label: sd.reset, disabled: isIdentityDeviation(state.dev),
+        onClick: state.resetDeviation,
+    });
+}
+
+export function SystematicEditor({ c, sd, state }) {
+    return h(EditorBody, { c },
         state.mode === 'single'
             ? h(DeviationSettings, { c, sd, state })
             : h(SweepSettings, { c, sd, state }),
@@ -108,7 +147,7 @@ function SystematicSetup({ c, t, sd, state }) {
 }
 
 function DeviationFields({ c, sd, values, onField }) {
-    return h(React.Fragment, null,
+    return h(FieldGrid, { minWidth: 230 },
         h(SettingRow, { c, label: sd.thkScale },
             h(NumInput, {
                 value: values.scale, min: 0.5, max: 2, step: 0.005, c, width: 72,
@@ -155,19 +194,10 @@ const MATERIAL_FIELD = {
     scale: 'dScale', offset: 'dOffset', offsetUnit: 'dOffsetUnit', dn: 'dn', dk: 'dk',
 };
 
-function sectionHead(c, text) {
-    return h('div', {
-        style: {
-            fontSize: 10, fontWeight: 700, color: c.textDim,
-            textTransform: 'uppercase', letterSpacing: '0.06em', padding: '6px 0 2px',
-        },
-    }, text);
-}
-
 function DeviationSettings({ c, sd, state }) {
     const { dev } = state;
     return h(React.Fragment, null,
-        sectionHead(c, sd.globalSection),
+        h(EditorGroupTitle, { c }, sd.globalSection),
         h(DeviationFields, {
             c, sd,
             values: {
@@ -179,7 +209,7 @@ function DeviationSettings({ c, sd, state }) {
             },
             onField: (field, value) => state.updateGlobal(GLOBAL_FIELD[field], value),
         }),
-        sectionHead(c, sd.perMaterialSection),
+        h(EditorGroupTitle, { c }, sd.perMaterialSection),
         state.uniqueMats.length === 0
             ? h('div', { style: { color: c.textDim, fontSize: 11 } }, sd.noMaterials)
             : state.uniqueMats.map(({ id, source }) => h('div', { key: id },
@@ -198,13 +228,6 @@ function DeviationSettings({ c, sd, state }) {
                     onField: (field, value) => state.updateMat(id, MATERIAL_FIELD[field], value),
                 }),
             )),
-        h(SettingDivider, { c }),
-        h(SettingRow, { c, label: '' },
-            h(ActionButton, {
-                c, label: sd.reset, disabled: isIdentityDeviation(dev),
-                onClick: state.resetDeviation,
-            }),
-        ),
     );
 }
 
@@ -216,46 +239,47 @@ function SweepSettings({ c, sd, state }) {
     const { sweep, setSweep } = state;
     const isOffset = sweepParamKind(sweep.param) === 'offset';
     return h(React.Fragment, null,
-        sectionHead(c, sd.sweepSection),
-        h(SettingRow, { c, label: sd.parameter },
-            h(SelectField, {
-                value: sweep.param, c, width: 200,
-                options: sweepOptions(state.uniqueMats, sd)
-                    .map(option => ({ id: option.value, label: option.label })),
-                onChange: param => setSweep(current => ({
-                    ...current, param, ...defaultSweepRange(param, current.offsetUnit),
-                })),
-            }),
-        ),
-        h(SettingRow, { c, label: sd.sweepUnit },
-            h(SelectField, {
-                value: sweep.offsetUnit || 'nm', options: OFFSET_UNITS, c, width: 62,
-                disabled: !isOffset, title: sd.sweepUnitTip,
-                onChange: unit => setSweep(current => ({
-                    ...current, offsetUnit: unit, ...defaultSweepRange(current.param, unit),
-                })),
-            }),
-        ),
-        h(SettingRow, { c, label: `${sd.from} – ${sd.to}` },
-            h(RangeField, {
-                c, width: 72,
-                from: {
-                    value: sweep.from, step: 0.01,
-                    onChange: value => setSweep(current => ({ ...current, from: value })),
-                },
-                to: {
-                    value: sweep.to, step: 0.01,
-                    onChange: value => setSweep(current => ({ ...current, to: value })),
-                },
-            }),
-        ),
-        h(SettingRow, { c, label: sd.steps },
-            h(NumInput, {
-                value: sweep.steps, min: 2, max: 200, step: 1, c, width: 72,
-                onChange: value => setSweep(current => ({
-                    ...current, steps: Math.max(2, Math.floor(value)),
-                })),
-            }),
+        h(FieldGrid, { minWidth: 260 },
+            h(SettingRow, { c, label: sd.parameter },
+                h(SelectField, {
+                    value: sweep.param, c, width: 200,
+                    options: sweepOptions(state.uniqueMats, sd)
+                        .map(option => ({ id: option.value, label: option.label })),
+                    onChange: param => setSweep(current => ({
+                        ...current, param, ...defaultSweepRange(param, current.offsetUnit),
+                    })),
+                }),
+            ),
+            h(SettingRow, { c, label: sd.sweepUnit },
+                h(SelectField, {
+                    value: sweep.offsetUnit || 'nm', options: OFFSET_UNITS, c, width: 62,
+                    disabled: !isOffset, title: sd.sweepUnitTip,
+                    onChange: unit => setSweep(current => ({
+                        ...current, offsetUnit: unit, ...defaultSweepRange(current.param, unit),
+                    })),
+                }),
+            ),
+            h(SettingRow, { c, label: `${sd.from} – ${sd.to}` },
+                h(RangeField, {
+                    c, width: 72,
+                    from: {
+                        value: sweep.from, step: 0.01,
+                        onChange: value => setSweep(current => ({ ...current, from: value })),
+                    },
+                    to: {
+                        value: sweep.to, step: 0.01,
+                        onChange: value => setSweep(current => ({ ...current, to: value })),
+                    },
+                }),
+            ),
+            h(SettingRow, { c, label: sd.steps },
+                h(NumInput, {
+                    value: sweep.steps, min: 2, max: 200, step: 1, c, width: 72,
+                    onChange: value => setSweep(current => ({
+                        ...current, steps: Math.max(2, Math.floor(value)),
+                    })),
+                }),
+            ),
         ),
         h('div', { style: { color: c.textDim, fontSize: 10, lineHeight: 1.5, padding: '6px 0 2px' } },
             sd.sweepNote),

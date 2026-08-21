@@ -17,21 +17,12 @@ import { shimBrowserGlobals } from './_uiShim.mjs';
 
 shimBrowserGlobals();
 
-const { ANALYSIS_DEFAULTS } = await import('../src/constants/analysisDefaults.js');
 const { windowSessionStores } = await import('../src/components/windows/windowSession.js');
 const {
     canSaveWindowDefaults, clearSavedWindowDefaults, currentWindowValues,
-    hasSavedWindowDefaults, initSavedWindowDefaults, savableKeysFor,
-    savedDefaultsFor, saveWindowDefaults, splitWindowValues,
+    hasSavedWindowDefaults, initSavedWindowDefaults, restoreWindowDefaults,
+    savableKeysFor, savedDefaultsFor, saveWindowDefaults, splitWindowValues,
 } = await import('../src/utils/windowDefaults.js');
-
-// Importing a window's session module is what registers its store.
-await Promise.all([
-    'opticalEvaluation', 'gdGddEvaluation', 'materialDispersion', 'eFieldEvaluation',
-    'refractiveIndexProfiler', 'ellipsometryEvaluation', 'admittanceDiagram',
-    'layerSensitivity', 'roughnessScattering', 'inhomogeneities',
-    'systematicDeviations', 'integralValues', 'colorEvaluation', 'errorAnalysis',
-].map(id => import(`../src/components/windows/analysis/${id}/sessionState.js`)));
 
 // Every window with a settings panel, in the order the ribbon lists them.
 const WINDOWS = [
@@ -40,6 +31,15 @@ const WINDOWS = [
     'layerSensitivity', 'roughnessScattering', 'inhomogeneities',
     'systematicDeviations', 'integralValues', 'colorEvaluation', 'errorAnalysis',
 ];
+
+// Importing a session module is what registers its store. `shared` holds the
+// spectral range, step, angle list and unit that every evaluation window follows.
+await Promise.all(WINDOWS.map(
+    id => import(`../src/components/windows/analysis/${id}/sessionState.js`)));
+const { sharedEvalSession } = await import('../src/state/sharedEvalSession.js');
+
+// Ids that carry savable settings, including the one that is not a window.
+const IDS = [...WINDOWS, 'shared'];
 
 // Keys that must never be saved: a computed result, a per-design payload, or a
 // half-filled form. Saving one would carry another design's work into a window.
@@ -55,7 +55,7 @@ const DESIGN_DERIVED = ['refLam', 'lambda', 'lambdaNm'];
 const design = { id: 'test-design', referenceWavelength: 550, frontLayers: [], backLayers: [] };
 
 // ── Every declared savable key is a real key of its store ────────────────────
-for (const windowId of WINDOWS) {
+for (const windowId of IDS) {
     const stores = windowSessionStores(windowId);
     assert.ok(stores.length > 0, `${windowId} registers at least one session store`);
 
@@ -79,7 +79,7 @@ for (const windowId of WINDOWS) {
     const en = getLocale('en');
     const ru = getLocale('ru');
 
-    for (const windowId of WINDOWS) {
+    for (const windowId of IDS) {
         for (const key of savableKeysFor(windowId)) {
             for (const [name, locale] of [['en', en], ['ru', ru]]) {
                 const analysis = locale.settings.analysis;
@@ -113,16 +113,59 @@ for (const windowId of WINDOWS) {
     assert.deepEqual(split.session, { showTable: true },
         'only the keys the registry does not declare go to the window block');
 
-    // No other window declares a savable key twice, which is what makes the
-    // rest of the split trivially correct.
-    for (const windowId of WINDOWS) {
-        if (windowId === 'opticalEvaluation') continue;
-        const registry = ANALYSIS_DEFAULTS[windowId] || {};
-        const declared = ['numbers', 'enums', 'booleans']
-            .flatMap(section => Object.keys(registry[section] || {}));
-        const clash = savableKeysFor(windowId).filter(key => declared.includes(key));
-        assert.deepEqual(clash, [], `${windowId} has no key in both stores`);
-    }
+    // The shared spectral range works the same way: saving it from Optical
+    // Evaluation's panel has to reach the block Settings → All windows reads.
+    const sharedSplit = splitWindowValues('shared', {
+        lambdaStart: 8000, lambdaEnd: 12000, lambdaStep: 25,
+        spectralUnit: 'um', thetas: [0, 45],
+    });
+    assert.deepEqual(sharedSplit.fields.sort(), [
+        ['enums', 'spectralUnit', 'um'],
+        ['numbers', 'lambdaEnd', 12000],
+        ['numbers', 'lambdaStart', 8000],
+        ['numbers', 'lambdaStep', 25],
+    ].sort());
+    assert.deepEqual(sharedSplit.session, { thetas: [0, 45] },
+        'the angle list has no registry entry, so it is saved as it is');
+}
+
+// ── Optical Evaluation saves what its panel shows, not just its own store ────
+{
+    const written = [];
+    const fields = [];
+    global.window.electronAPI = {
+        saveWindowDefaults: async block => { written.push(block); return { success: true }; },
+    };
+    const analysisSettings = {
+        stored: {},
+        setField: (id, section, key, value) => fields.push([id, section, key, value]),
+    };
+
+    initSavedWindowDefaults({});
+    sharedEvalSession.write(null, {
+        lambdaStart: 8000, lambdaEnd: 12000, lambdaStep: 25, thetas: [0, 30], spectralUnit: 'um',
+    });
+
+    await saveWindowDefaults('opticalEvaluation', design, analysisSettings);
+
+    // The λ range and unit belong to `shared`, so they are written there and
+    // Settings → Analysis → All windows shows what the window was set to.
+    assert.deepEqual(fields.filter(([, , key]) => key === 'lambdaStart'),
+        [['shared', 'numbers', 'lambdaStart', 8000]]);
+    assert.deepEqual(fields.filter(([, , key]) => key === 'spectralUnit'),
+        [['shared', 'enums', 'spectralUnit', 'um']]);
+    assert.deepEqual(written.at(-1).shared, { thetas: [0, 30] },
+        'the angle list is the only shared setting the registry cannot hold');
+    assert.equal('lambdaStart' in (written.at(-1).opticalEvaluation || {}), false,
+        'and none of it is duplicated under the window');
+    assert.equal(written.at(-1).opticalEvaluation.showTargets, true,
+        'the window still saves its own controls');
+
+    await restoreWindowDefaults('opticalEvaluation', analysisSettings);
+    assert.deepEqual(sharedEvalSession.read(null), {
+        lambdaStart: 400, lambdaEnd: 800, lambdaStep: 2, thetas: [0], spectralUnit: 'nm',
+    }, 'Restore in the window puts the shared range back too, because the panel shows it');
+    assert.equal('shared' in written.at(-1), false);
 }
 
 // ── Saving writes the settings and nothing else ──────────────────────────────
@@ -141,7 +184,7 @@ for (const windowId of WINDOWS) {
     assert.equal(error, null, 'a successful write reports no error');
     assert.deepEqual(written.at(-1).layerSensitivity, {
         mode: 'absolute', relPct: 1, absDeltaNm: 2.5,
-        includeLocked: false, scale: 'normalized', showTable: false,
+        includeLocked: false, scale: 'normalized', showChart: false,
     });
     assert.deepEqual(savedDefaultsFor('layerSensitivity'), written.at(-1).layerSensitivity);
     assert.equal(hasSavedWindowDefaults('layerSensitivity', analysisSettings), true);

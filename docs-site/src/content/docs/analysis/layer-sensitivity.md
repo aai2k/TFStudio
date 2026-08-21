@@ -29,11 +29,15 @@ shown as a badge on the window.
 
 ## How to read it
 
-Each bar is one layer. A tall bar means a small thickness error there
-produces a large change in performance: a critical layer that needs a
-tight tolerance. A short bar means the layer is forgiving. A design whose
-bars are all about the same height is robust, with no single layer that can
-ruin it.
+The window is the ranked table: one row per layer, most critical first, with
+its material and the change in merit its perturbation produced. Read from the
+top down, and the layers that need the tightest monitoring are the first few
+rows. **Export** writes the ranking to CSV.
+
+Open **Chart** below the table for the same numbers as bars. A tall bar means a
+small thickness error there produces a large change in performance. A short bar
+means the layer is forgiving. A design whose bars are all about the same height
+is robust, with no single layer that can ruin it.
 
 Layers are numbered as in the Design Editor (layer 1 touches the
 substrate), and locked layers are excluded. Sensitivity is measured against

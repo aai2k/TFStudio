@@ -12,14 +12,21 @@ const { useState, useEffect, useCallback, useMemo } = React;
 // window at the shared preview cadence rather than once per progress message.
 function useSpectrumEvaluation({ params, evalMode }) {
     const { design } = useLiveDesign();
+    // Narrowed to what the spectrum is actually computed from. The display unit
+    // travels with the range but only changes axis labels, so recomputing every
+    // wavelength for it would be work for nothing.
+    const { lambdaStart, lambdaEnd, lambdaStep, thetas } = params;
+    const spectrumParams = useMemo(
+        () => ({ lambdaStart, lambdaEnd, lambdaStep, thetas }),
+        [lambdaStart, lambdaEnd, lambdaStep, thetas]);
     return useMemo(() => {
         try {
-            return { data: computeOpticalSpectrum(design, params, evalMode), error: null };
+            return { data: computeOpticalSpectrum(design, spectrumParams, evalMode), error: null };
         } catch (error) {
             console.error('TMM error:', error);
             return { data: null, error: error.message || 'Computation error' };
         }
-    }, [design, params, evalMode]);
+    }, [design, spectrumParams, evalMode]);
 }
 
 function useTargetEditor({ design, updateDesign }) {
@@ -58,7 +65,6 @@ function useTargetEditor({ design, updateDesign }) {
 
 function useDisplayOptions(params, setParams, design) {
     const displayDefaults = useAnalysisDefaults('opticalEvaluation');
-    const sharedDefaults = useAnalysisDefaults('shared');
     const analysisSettings = useAnalysisSettings();
     const defaultsReady = analysisSettings?.ready !== false;
     const [session, setField, patch] = useWindowSession(opticalEvaluationSession, design);
@@ -68,12 +74,14 @@ function useDisplayOptions(params, setParams, design) {
     const yAuto = defaultsApplied ? session.yAuto : displayDefaults.booleans.yAuto;
     const yMin = defaultsApplied ? session.yMin : displayDefaults.numbers.yMin;
     const yMax = defaultsApplied ? session.yMax : displayDefaults.numbers.yMax;
-    const spectralUnit = defaultsApplied ? session.spectralUnit : sharedDefaults.enums.spectralUnit;
+    // The unit the spectral range is entered and labelled in belongs with the
+    // range itself, which is shared with the other evaluation windows.
+    const spectralUnit = params.spectralUnit || 'nm';
 
-    // A restored layout can mount this window while settings.json is still
-    // loading, so the persisted defaults are applied once when they arrive. After
-    // that the values belong to the session: a later Settings edit applies to the
-    // next app run rather than overwriting controls set here.
+    // A restored layout can mount this window while the preferences file is
+    // still loading, so the persisted defaults are applied once when they
+    // arrive. After that the values belong to the session: a later Settings edit
+    // applies to the next app run rather than overwriting controls set here.
     useEffect(() => {
         if (!defaultsReady || defaultsApplied) return;
         patch({
@@ -81,11 +89,10 @@ function useDisplayOptions(params, setParams, design) {
             yAuto: displayDefaults.booleans.yAuto,
             yMin: displayDefaults.numbers.yMin,
             yMax: displayDefaults.numbers.yMax,
-            spectralUnit: sharedDefaults.enums.spectralUnit,
         });
     }, [defaultsReady, defaultsApplied, patch,
         displayDefaults.booleans.yAuto, displayDefaults.numbers.yMin,
-        displayDefaults.numbers.yMax, sharedDefaults.enums.spectralUnit]);
+        displayDefaults.numbers.yMax]);
 
     const yRange = useMemo(() => ({ auto: yAuto, min: yMin, max: yMax }), [yAuto, yMin, yMax]);
     const lamRange = useMemo(
@@ -102,7 +109,7 @@ function useDisplayOptions(params, setParams, design) {
         yAuto, setYAuto: value => setField('yAuto', value),
         yMin, setYMin: value => setField('yMin', value),
         yMax, setYMax: value => setField('yMax', value),
-        spectralUnit, setSpectralUnit: value => setField('spectralUnit', value),
+        spectralUnit, setSpectralUnit: value => setParams({ spectralUnit: value }),
         yRange, lamRange, toggleCurve, setThetas,
     };
 }

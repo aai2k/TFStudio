@@ -4,12 +4,12 @@ import { SettingDivider, SettingRow, SettingsMenu } from '../chrome/popover.js';
 
 const { createElement: h } = React;
 
-/** Which scale the bars are drawn on; the perturbation they measure is a setting. */
-export function SensitivityControls({ c, t, state }) {
+/** Which scale the ranking is read on; the perturbation it measures is a setting. */
+export function SensitivityControls({ c, t, state, trailing = [] }) {
     const ls = t.layerSensitivity;
     return h(ControlRow, {
         c,
-        trailing: h(SensitivitySetup, { c, t, state }),
+        trailing: [...trailing, h(SensitivitySetup, { key: 'setup', c, t, state })],
     },
         h(ChoiceGroup, {
             ariaLabel: ls.scaleNormalized,

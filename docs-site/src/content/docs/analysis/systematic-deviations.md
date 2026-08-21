@@ -33,6 +33,14 @@ converted to physical nanometres per layer at the design reference wavelength λ
 
 **AOI / pol**: angle of incidence and polarization (s, p, or averaged).
 
+**T+R+A / T / R / A**: which channel(s) to plot.
+
+**baseline**: overlay the unperturbed spectrum behind the deviated one.
+
+## Deviations
+
+The strip below the plot holds the deviations themselves, and follows the mode.
+
 In **Single** mode you build one fixed deviation and overlay it on the baseline:
 
 **d × scale**: the thickness multiplier.
@@ -50,10 +58,6 @@ every place that material appears, including the incident and exit media; a
 material in more than one role is shown once with all of them (for example,
 `Air (incident, exit)`), and editing it governs that material everywhere.
 
-**T+R+A / T / R / A**: which channel(s) to plot.
-
-**baseline**: overlay the unperturbed spectrum behind the deviated one.
-
 **Reset deviations**: return every control to its no-op value.
 
 In **Sweep** mode you vary one parameter across a range and map the result:
@@ -66,8 +70,8 @@ Offset parameters carry their own nm / OT / QW / FW unit selector.
 
 **Run sweep** computes the map. The sweep is self-contained: it varies only the
 chosen parameter, starting from the unperturbed design, so the Global and
-Per-material panels are hidden in this mode. To combine a fixed deviation with a
-sweep, set the fixed part up in Single mode first.
+Per-material fields are not shown in this mode. To combine a fixed deviation with
+a sweep, set the fixed part up in Single mode first.
 
 ## How to read it
 

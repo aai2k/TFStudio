@@ -1,12 +1,13 @@
 import { ActionButton, ChoiceGroup, FieldLabel, NumInput, RangeField } from '../chrome/controls.js';
-import { ControlRow } from '../chrome/layout.js';
-import { NoticeBadge, SettingDivider, SettingRow, SettingsMenu } from '../chrome/popover.js';
+import { ControlRow, EditorBody, EditorGroupTitle, FieldGrid } from '../chrome/layout.js';
+import { NoticeBadge, SettingRow, SettingsMenu } from '../chrome/popover.js';
 
 const { createElement: h } = React;
 
 /**
- * Which scale the scattered fraction is read on; the sweep, the geometry and the
- * roughness itself are settings.
+ * Which scale the scattered fraction is read on. The spectral range and the
+ * geometry are settings; the roughness itself is edited in the strip below the
+ * plot, because there is one value per interface.
  */
 export function RoughnessControls({ c, t, rs, state, notices }) {
     return h(ControlRow, {
@@ -38,7 +39,7 @@ export function RoughnessControls({ c, t, rs, state, notices }) {
 
 function RoughnessSetup({ c, t, rs, state }) {
     return h(SettingsMenu, {
-        c, t, windowId: 'roughnessScattering', label: t.analysisChrome.settings, width: 340,
+        c, t, windowId: 'roughnessScattering', label: t.analysisChrome.settings, width: 300,
     },
         h(SettingRow, { c, label: 'λ' },
             h(RangeField, {
@@ -65,8 +66,20 @@ function RoughnessSetup({ c, t, rs, state }) {
                 onChange: state.setAoi,
             }),
         ),
-        h(SettingDivider, { c }),
-        h(RoughnessModel, { c, rs, state }),
+    );
+}
+
+/** Mode switch and Clear, in the editor strip's header. */
+export function RoughnessEditorActions({ c, rs, state }) {
+    return h('div', { style: { display: 'flex', alignItems: 'center', gap: 8 } },
+        h(ChoiceGroup, {
+            ariaLabel: rs.modeSection, activeId: state.rough.mode, onSelect: state.setMode, c,
+            items: [
+                { id: 'uniform', label: rs.uniform },
+                { id: 'perInterface', label: rs.perInterface },
+            ],
+        }),
+        h(ActionButton, { c, label: rs.clear, onClick: state.clearAll }),
     );
 }
 
@@ -75,36 +88,24 @@ function RoughnessSetup({ c, t, rs, state }) {
  * interface. Which interfaces are listed follows the design's evaluation mode,
  * since only the sides being evaluated contribute to sigma_eff.
  */
-function RoughnessModel({ c, rs, state }) {
+export function RoughnessEditor({ c, rs, state }) {
     const { rough } = state;
-    const uniform = rough.mode === 'uniform';
-    return h(React.Fragment, null,
-        h(SettingRow, { c, label: rs.modeSection },
-            h(ChoiceGroup, {
-                ariaLabel: rs.modeSection, activeId: rough.mode, onSelect: state.setMode, c,
-                items: [
-                    { id: 'uniform', label: rs.uniform },
-                    { id: 'perInterface', label: rs.perInterface },
-                ],
-            }),
-        ),
-        uniform
-            ? h(React.Fragment, null,
-                h(SettingRow, { c, label: 'σ' },
-                    h(NumInput, {
-                        value: rough.sigma, min: 0, max: 100, step: 0.1, c, width: 68,
-                        onChange: state.setUniformSigma,
-                    }),
-                    h(FieldLabel, { c }, 'nm'),
+    return h(EditorBody, { c },
+        rough.mode === 'uniform'
+            ? h('div', null,
+                h(FieldGrid, null,
+                    h(SettingRow, { c, label: 'σ' },
+                        h(NumInput, {
+                            value: rough.sigma, min: 0, max: 100, step: 0.1, c, width: 68,
+                            onChange: state.setUniformSigma,
+                        }),
+                        h(FieldLabel, { c }, 'nm'),
+                    ),
                 ),
-                h('div', { style: { color: c.textDim, fontSize: 10, lineHeight: 1.5, padding: '2px 0 4px' } },
+                h('div', { style: { color: c.textDim, fontSize: 10, lineHeight: 1.5, padding: '2px 0' } },
                     rs.uniformHelp),
             )
             : h(InterfaceSigmas, { c, rs, state }),
-        h(SettingDivider, { c }),
-        h(SettingRow, { c, label: '' },
-            h(ActionButton, { c, label: rs.clear, onClick: state.clearAll }),
-        ),
     );
 }
 
@@ -117,17 +118,14 @@ function InterfaceSigmas({ c, rs, state }) {
             ? rs.backInterfaces
             : (sides.length > 1 ? rs.frontInterfaces : null);
         return h('div', { key: side },
-            heading && h('div', {
-                style: {
-                    fontSize: 10, fontWeight: 700, color: c.textDim,
-                    textTransform: 'uppercase', letterSpacing: '0.06em', padding: '6px 0 2px',
-                },
-            }, heading),
-            sideLabels.map((label, index) => h(SigmaRow, {
-                key: index, c, label: label.label,
-                value: state.rough[key]?.[index] ?? state.rough.sigma ?? 0,
-                onChange: value => state.setInterfaceSigma(side, index, value),
-            })),
+            heading && h(EditorGroupTitle, { c }, heading),
+            h(FieldGrid, { minWidth: 260 },
+                sideLabels.map((label, index) => h(SigmaRow, {
+                    key: index, c, label: label.label,
+                    value: state.rough[key]?.[index] ?? state.rough.sigma ?? 0,
+                    onChange: value => state.setInterfaceSigma(side, index, value),
+                })),
+            ),
         );
     });
 }

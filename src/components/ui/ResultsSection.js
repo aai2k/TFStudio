@@ -1,21 +1,24 @@
 const { createElement: h } = React;
 
 /**
- * Collapsible results strip for the analysis windows, so every plot window
- * exposes its numbers through the same header. The caller owns the open state
- * and supplies the body, which is mounted only while the section is open.
+ * Collapsible strip below the plot, so every analysis window opens its numbers
+ * and its editors through the same header. The caller owns the open state and
+ * supplies the body, which is mounted only while the section is open.
  *
- * It is also the window's one strip of chrome below the plot, so the export
- * control rides in its header rather than costing a band of its own.
+ * A window can stack more than one: the tolerance windows put their per-layer
+ * editor in a strip of its own above the results, because a table with one row
+ * per interface needs the window's full width and cannot live in a popover.
  *
  *   label       section name, already localized
  *   count       number of rows behind the plot
  *   countLabel  count => string
+ *   summary     text after the label, instead of count / countLabel
  *   actions     controls shown at the right-hand end of the header; they sit
  *               beside the toggle rather than inside it, since a button cannot
  *               be nested in a button
  */
-export function ResultsSection({ label, count, countLabel, open, setOpen, c, actions, children }) {
+export function ResultsSection({ label, count, countLabel, summary, open, setOpen, c, actions, children }) {
+    const detail = summary != null ? summary : (countLabel ? countLabel(count) : null);
     return h('section', {
         style: { flexShrink: 0, borderTop: `1px solid ${c.border}`, backgroundColor: c.bg },
     },
@@ -43,8 +46,8 @@ export function ResultsSection({ label, count, countLabel, open, setOpen, c, act
                         strokeLinecap: 'round', strokeLinejoin: 'round',
                     })),
                 h('span', { style: { fontWeight: 400 } }, label),
-                h('span', { style: { color: c.textDim } }, '·'),
-                h('span', { style: { color: c.textDim } }, countLabel(count)),
+                detail != null && h('span', { style: { color: c.textDim } }, '·'),
+                detail != null && h('span', { style: { color: c.textDim } }, detail),
             ),
             actions,
         ),
@@ -59,7 +62,7 @@ export function ResultsSection({ label, count, countLabel, open, setOpen, c, act
  *            only; `csvFromRows` always writes the raw value
  *   rows     plain objects keyed by column.key
  */
-export function ResultsGrid({ columns, rows, c, height = 185 }) {
+export function ResultsGrid({ columns, rows, c, height = 185, fill = false }) {
     const cols = (columns || []).map((col, index) => ({
         align: index === 0 ? 'left' : 'right',
         ...col,
@@ -80,11 +83,12 @@ export function ResultsGrid({ columns, rows, c, height = 185 }) {
         if (col.fmt) return col.fmt(value, row);
         return value == null ? '' : String(value);
     };
+    // `fill` is for a window whose table is the point rather than a footnote to
+    // a plot: it takes the space left over instead of a fixed strip.
     return h('div', {
-        style: {
-            height, overflowY: 'auto', overflowX: 'auto',
-            backgroundColor: c.bg, flexShrink: 0,
-        },
+        style: fill
+            ? { flex: 1, minHeight: 0, overflowY: 'auto', overflowX: 'auto', backgroundColor: c.bg }
+            : { height, overflowY: 'auto', overflowX: 'auto', backgroundColor: c.bg, flexShrink: 0 },
     },
         h('table', { style: { width: '100%', borderCollapse: 'collapse', tableLayout: 'auto' } },
             h('thead', null,

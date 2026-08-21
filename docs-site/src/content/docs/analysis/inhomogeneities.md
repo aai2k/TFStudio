@@ -25,8 +25,10 @@ both for total.
 
 **T+R+A / T / R / A**: which channel(s) to plot.
 
-Each interface in the stack is listed by the two media it joins. Tick an
-interface to add a graded interlayer there, then set:
+## Interfaces
+
+The **Interfaces** strip below the plot lists every interface in the stack by
+the two media it joins. Tick one to add a graded interlayer there, then set:
 
 **Thickness**: the depth of the transition region, in nanometres. The
 interlayer is added at the interface; the host layers keep their own thicknesses.
@@ -45,9 +47,9 @@ The chart is in **percent**. Each channel is drawn twice: the original
 step-interface design as a faint dotted line, and the graded version as a solid
 line on top. Comparing the two shows what the real, non-abrupt interfaces cost
 you: typically softened stopband edges and shifted passband ripple. If your
-design has a Specification, a live verdict in the toolbar tells you whether the
-graded design still passes. The toolbar also reports how many interlayers are
-active and their combined thickness.
+design has a Specification, a live verdict in the Results strip tells you whether
+the graded design still passes. The Interfaces strip header reports how many
+interlayers are active and their combined thickness.
 
 ## References
 

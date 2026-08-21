@@ -74,11 +74,36 @@ assert.equal(absolute.layout.yaxis.type, 'log');
 assert.equal(absolute.layout.yaxis.title.text, '|ΔOMF|');
 assert.deepEqual(buildSensitivityFigure({ rows: [], c }).layout, {});
 
+// Without merit operands there is nothing to rank, so this render is the
+// "define targets first" message.
 const html = renderToStaticMarkup(withDesign(
     React.createElement(LayerSensitivity, { c, theme: c, t: makeLocale() }),
     makeSampleDesign(),
 ));
 const hash = createHash('sha256').update(html).digest('hex').slice(0, 16);
 assert.equal(hash, 'c8f66fa3e5613c66');
+
+// With operands the window shows its ranking. The table is the window and the
+// bar chart is a strip below it: the ranking is the answer, and a design with a
+// hundred layers turns the chart into a picket fence while the table still
+// reads top to bottom.
+const ranked = makeSampleDesign();
+ranked.meritOperands = [{
+    type: 'RAV', lambdaStart: 450, lambdaEnd: 650,
+    aoi: 0, pol: 'avg', target: 0, weight: 1, enabled: true,
+}];
+const rankedHtml = renderToStaticMarkup(withDesign(
+    React.createElement(LayerSensitivity, { c, theme: c, t: makeLocale() }),
+    ranked,
+));
+assert.match(rankedHtml, /<th[^>]*>Rank<\/th>/,
+    'the ranked table is rendered directly, not behind a collapsed strip');
+assert.match(rankedHtml, /Chart<\/span>/, 'and the bar chart is a strip below it');
+assert.equal(rankedHtml.indexOf('Rank') < rankedHtml.indexOf('Chart<'), true,
+    'the table comes first');
+assert.equal(
+    createHash('sha256').update(rankedHtml).digest('hex').slice(0, 16),
+    '79ec36856863252d',
+);
 
 console.log('PASS: layer_sensitivity_refactor_characterization');

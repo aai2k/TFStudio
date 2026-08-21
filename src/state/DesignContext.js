@@ -9,6 +9,8 @@ const { createContext, useContext, useState, useCallback, useEffect, useRef } = 
 
 import { resolveEvalMode, mirrorLayers } from '../utils/physics/optimizer.js';
 import { useAnalysisDefaults, useAnalysisSettings } from './AnalysisSettingsContext.js';
+import { useWindowSession } from '../components/windows/windowSession.js';
+import { sharedEvalSession } from './sharedEvalSession.js';
 
 // ── Default design factory ─────────────────────────────────────────────────────
 
@@ -116,33 +118,34 @@ export function useDesign() {
 // a default one on first access).
 
 /**
- * Optical-evaluation settings (λ range / step / AOI list) for the whole session.
+ * Optical-evaluation settings (λ range / step / AOI list / display unit) for the
+ * whole session, from the store in state/sharedEvalSession.js.
  *
- * Held here rather than in OpticalEvaluation so they survive closing and
- * switching the window — the provider stays mounted at App level.
+ * Held there rather than in OpticalEvaluation so they survive closing and
+ * switching the window — and so the window's Save button can write them as the
+ * values the next session starts from.
  *
- * The configured range (Settings → Analysis → All windows) is sampled once
- * when settings.json finishes loading. Later Settings edits apply to the next
+ * The configured range (Settings → Analysis → All windows) is sampled once when
+ * the preferences file finishes loading. Later Settings edits apply to the next
  * app session, while range changes made in an open analysis window remain live
  * for the current session.
  */
 function useEvalParams() {
-    const [evalParams, setEvalParams] = useState({
-        lambdaStart: 400, lambdaEnd: 800, lambdaStep: 2,
-        thetas: [0]
-    });
-    const configured = useAnalysisDefaults('shared').numbers;
+    const [evalParams, , patch] = useWindowSession(sharedEvalSession, null);
+    const configured = useAnalysisDefaults('shared');
     const analysisSettings = useAnalysisSettings();
     const applied = useRef(false);
 
+    const { lambdaStart, lambdaEnd, lambdaStep } = configured.numbers;
+    const spectralUnit = configured.enums.spectralUnit;
+
     useEffect(() => {
         if (!analysisSettings?.ready || applied.current) return;
-        const { lambdaStart, lambdaEnd, lambdaStep } = configured;
         applied.current = true;
-        setEvalParams(current => ({ ...current, lambdaStart, lambdaEnd, lambdaStep }));
-    }, [analysisSettings?.ready, configured.lambdaStart, configured.lambdaEnd, configured.lambdaStep]);
+        patch({ lambdaStart, lambdaEnd, lambdaStep, spectralUnit });
+    }, [analysisSettings?.ready, patch, lambdaStart, lambdaEnd, lambdaStep, spectralUnit]);
 
-    return [evalParams, setEvalParams];
+    return [evalParams, patch];
 }
 
 export function DesignProvider({ children, activeDesignId, designs, onDesignChange, onCheckpoint, historyView, onJumpToHistory }) {

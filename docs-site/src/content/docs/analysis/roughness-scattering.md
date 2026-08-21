@@ -25,11 +25,13 @@ stacks.
 
 **ppm / frac**: the units for the TIS axis: parts per million or fraction.
 
-**Roughness model**: choose **Uniform σ** to apply the same roughness to every
-interface, or **Per-interface** to set each one individually in the table. In
-uniform mode a single σ field and slider drive every interface; in per-interface
-mode each interface is listed (named by the two media it separates) with its own
-σ.
+## Roughness
+
+The **Roughness** strip below the plot is where the σ values are set. Choose
+**Uniform σ** to apply the same roughness to every interface, or
+**Per-interface** to set each one individually. In uniform mode a single σ field
+drives every interface; in per-interface mode each interface is listed, named by
+the two media it separates, with its own σ.
 
 **Reset** clears all roughness back to zero.
 

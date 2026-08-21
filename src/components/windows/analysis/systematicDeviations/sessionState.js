@@ -16,6 +16,8 @@ export const systematicDeviationsSession = createWindowSession({
     sweep: { param: 'globalThicknessScale', from: 0.95, to: 1.05, steps: 21, offsetUnit: 'nm' },
     sweepChannel: 'T',
     sweepResult: null,
+    // The deviation editor is what this window is for, so its strip starts open.
+    showEditor: true,
     showTable: false,
 }, {
     scope: 'design',
@@ -24,6 +26,6 @@ export const systematicDeviationsSession = createWindowSession({
     // a computation, so neither is saved as a default.
     savable: [
         'mode', 'channel', 'showBaseline', 'lambdaStart', 'lambdaEnd', 'lambdaStep',
-        'aoi', 'pol', 'sweep', 'sweepChannel', 'showTable',
+        'aoi', 'pol', 'sweep', 'sweepChannel', 'showEditor', 'showTable',
     ],
 });
