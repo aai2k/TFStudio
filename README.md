@@ -21,7 +21,7 @@
 **English** · [简体中文](./README.zh-CN.md)
 
 </div>
-<img width="1629" height="951" alt="Screenshot_28" src="https://github.com/user-attachments/assets/428314ae-56b6-4d82-9f3f-e214b21083bc" />
+<img width="1919" height="1141" alt="Screenshot_83" src="https://github.com/user-attachments/assets/bcd4f5cc-e2d4-4382-a07d-8aed9346cd48" />
 
 
 
