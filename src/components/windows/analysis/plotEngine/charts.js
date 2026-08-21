@@ -149,16 +149,6 @@ function useSurfaceFigure(divRef, initRef, renderRef, figure) {
             if (divRef.current && initRef.current) Plotly.Plots.resize(divRef.current);
         });
     }, [figure]);
-
-    // Release the WebGL context and Plotly's internal state when the chart goes
-    // away. The element is captured here because React clears the ref before
-    // effect cleanup runs.
-    useEffect(() => {
-        const gd = divRef.current;
-        return () => {
-            if (gd && initRef.current && typeof Plotly !== 'undefined') Plotly.purge(gd);
-        };
-    }, []);
 }
 
 function surfacePrompt(message, c) {
@@ -186,7 +176,9 @@ export function SurfaceChart({ result, spec, design, c, t }) {
     const pe = (t && t.plotEngine) || {};
     const figure = useMemo(() => buildSurfaceFigure(result, spec, design, c), [result, spec, design, c]);
     useSurfaceFigure(divRef, initRef, renderRef, figure);
-    usePlotResize(divRef, initRef);
+    // Covers size changes that arrive without a render, and releases the WebGL
+    // context a 3D surface holds when the window is closed.
+    usePlotTeardown(divRef, initRef);
 
     let overlay = null;
     if (!result) {
