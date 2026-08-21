@@ -112,5 +112,6 @@ export function useErrorAnalysis({ design, evalMode }) {
         distribution, setDistribution, perMaterial, setPerMaterial, keepOPT, setKeepOPT,
         result, running, progress, error, showTrials, setShowTrials,
         showEnvelope, setShowEnvelope, stop, handleRun,
+        showTable: session.showTable, setShowTable: value => setField('showTable', value),
     };
 }

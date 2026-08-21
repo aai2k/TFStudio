@@ -10,4 +10,11 @@ export const integralValuesSession = createWindowSession({
     // rather than cleared by a dock or a tab switch.
     builder: INITIAL_BUILDER,
     selKey: 'Tvis',
+    // The list of integrals is what this window is for, not a footnote to the
+    // plot, so it starts open.
+    showTable: true,
+}, {
+    id: 'integralValues',
+    // The builder is a half-filled form, not a setting.
+    savable: ['params', 'selKey', 'showTable'],
 });

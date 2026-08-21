@@ -1,9 +1,14 @@
 import { ANALYSIS_DEFAULTS } from '../../../../constants/analysisDefaults.js';
+import { axisTitle, plotMargin, TICK_FONT } from '../chrome/plot.js';
+
+const DEFAULT_NAMES = { homogeneous: 'homogeneous', graded: 'with interlayers' };
 
 /**
+ * @param {object} [names]  localized legend suffixes
  * @param {object} [colors] configured curve colours; factory defaults when absent
  */
-export function buildOverlayTraces(baseline, perturbed, channel, colors = ANALYSIS_DEFAULTS.inhomogeneities.colors) {
+export function buildOverlayTraces(baseline, perturbed, channel, colors = ANALYSIS_DEFAULTS.inhomogeneities.colors,
+                                   names = DEFAULT_NAMES) {
     const COLORS = colors;
     if (!perturbed) return [];
     const traces = [];
@@ -14,7 +19,7 @@ export function buildOverlayTraces(baseline, perturbed, channel, colors = ANALYS
             traces.push({
                 x: baseline.lambda, y: pct(baseline[key]),
                 type: 'scatter', mode: 'lines',
-                name: `${key} homogeneous`,
+                name: `${key} ${names.homogeneous}`,
                 line: { color: COLORS[key], dash: 'dot', width: 1.4 },
                 hoverinfo: 'skip',
                 opacity: 0.55,
@@ -23,7 +28,7 @@ export function buildOverlayTraces(baseline, perturbed, channel, colors = ANALYS
         traces.push({
             x: perturbed.lambda, y: pct(perturbed[key]),
             type: 'scatter', mode: 'lines',
-            name: `${key} with interlayers`,
+            name: `${key} ${names.graded}`,
             line: { color: COLORS[key], width: 2 },
             hovertemplate: `λ=%{x:.1f} nm<br>${key}=%{y:.3f}%<extra></extra>`,
         });
@@ -35,16 +40,16 @@ export function buildOverlayLayout(c) {
     return {
         paper_bgcolor: c.panel || '#252526',
         plot_bgcolor: c.bg || '#1e1e1e',
-        margin: { l: 56, r: 16, t: 16, b: 44 },
+        margin: plotMargin(),
         xaxis: {
-            title: { text: 'λ (nm)', font: { color: c.text, size: 12 } },
+            title: axisTitle('λ (nm)', { color: c.text }),
             color: c.text, gridcolor: c.border, zerolinecolor: c.border,
-            tickfont: { color: c.text, size: 10 },
+            tickfont: { color: c.text, ...TICK_FONT },
         },
         yaxis: {
-            title: { text: 'T / R / A (%)', font: { color: c.text, size: 12 } },
+            title: axisTitle('T / R / A (%)', { color: c.text }),
             color: c.text, gridcolor: c.border, zerolinecolor: c.border,
-            tickfont: { color: c.text, size: 10 },
+            tickfont: { color: c.text, ...TICK_FONT },
             range: [0, 102],
         },
         legend: {

@@ -24,8 +24,9 @@ TOD = (d/c) [3 d²n/dω² + ω d³n/dω³]
 catalogs.
 
 **Thickness**: single-pass propagation distance. Select nm, µm, or mm to use
-film and substrate dimensions directly. For an opaque path, the footer reports
-the maximum thickness that keeps the full selected range evaluable.
+film and substrate dimensions directly. For an opaque path, the warning badge on
+the control row reports the maximum thickness that keeps the full selected range
+evaluable.
 
 **Quantity**: phase, GD, GDD, or TOD.
 
@@ -34,7 +35,6 @@ sampling automatically because each wavelength is evaluated pointwise.
 
 ## Material models
 
-The footer names the formula, PCHIP table, or saved fit used for each value.
 Formula derivatives are exact for the stored coefficients. PCHIP derivatives
 are exact for the cubic piece drawn through the supplied table, but higher
 orders still describe that interpolation choice. PCHIP is continuous through

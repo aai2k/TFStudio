@@ -19,7 +19,7 @@ const t = makeLocale();
 const html = renderToStaticMarkup(withDesign(
     React.createElement(Inhomogeneities, { c, t, theme: c }),
 ));
-assert.equal(createHash('sha256').update(html).digest('hex').slice(0, 16), '4263a5fb40701f97');
+assert.equal(createHash('sha256').update(html).digest('hex').slice(0, 16), 'abb8db83f0e9ba4e');
 
 const baseline = { lambda: [500], T: [0.4], R: [0.5], A: [0.1] };
 const perturbed = { lambda: [500], T: [0.3], R: [0.55], A: [0.15] };
@@ -38,6 +38,12 @@ assert.deepEqual(traces.map(trace => trace.line), [
     { color: '#66bb6a', width: 2 },
 ]);
 assert.deepEqual(traces.map(trace => trace.y), [[40], [30], [50], [55.00000000000001], [10], [15]]);
+
+// The legend is localized: the window passes the locale's wording through.
+assert.deepEqual(
+    figure.buildOverlayTraces(baseline, perturbed, 'T', undefined,
+        { homogeneous: 'однородн.', graded: 'с переходными' }).map(trace => trace.name),
+    ['T однородн.', 'T с переходными']);
 
 const design = makeSampleDesign();
 design.backLayers = [{ id: 'b1', material: 'builtin:SiO2', thickness: 80 }];

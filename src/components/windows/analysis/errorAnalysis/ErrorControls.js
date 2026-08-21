@@ -1,0 +1,165 @@
+import { CheckField, ChoiceGroup, FieldLabel, NumInput, RangeField, SelectField } from '../chrome/controls.js';
+import { ControlRow } from '../chrome/layout.js';
+import { NoticeBadge, SettingDivider, SettingRow, SettingsMenu } from '../chrome/popover.js';
+
+const { createElement: h } = React;
+
+/**
+ * Which characteristic the trials are drawn for and whether the realized
+ * extremes are shown. Everything the Monte-Carlo is run with is a setting.
+ */
+export function ErrorControls({ c, t, ea, state, notices, trailing }) {
+    return h(ControlRow, {
+        c,
+        trailing: [
+            ...trailing,
+            h(NoticeBadge, { key: 'notices', c, notices, label: t.analysisChrome.notices }),
+            h(ErrorSetup, { key: 'setup', c, t, ea, state }),
+        ],
+    },
+        h(ChoiceGroup, {
+            ariaLabel: 'T/R/A', activeId: state.char, onSelect: state.setChar, c,
+            items: [
+                { id: 'T', label: 'T' },
+                { id: 'R', label: 'R' },
+                { id: 'A', label: 'A' },
+            ],
+        }),
+        h(CheckField, {
+            c, label: ea.envelope, checked: state.showEnvelope, title: ea.envelopeTip,
+            onChange: event => state.setShowEnvelope(event.target.checked),
+        }),
+    );
+}
+
+const DISTRIBUTION_NOTE = {
+    uniform: 'sigmaNoteUniform',
+    truncated: 'sigmaNoteTruncated',
+    gaussian: 'sigmaNoteGaussian',
+};
+
+function ErrorSetup({ c, t, ea, state }) {
+    const { params, setParams } = state;
+    const patch = next => setParams(previous => ({ ...previous, ...next }));
+    // Uniform and truncated draws have a hard bound, so the entered figure is a
+    // ± limit rather than a standard deviation and the labels say so.
+    const magnitudeLabel = text => (state.distribution === 'gaussian'
+        ? text
+        : String(text || '').replace('σ', '±'));
+    const indexErrors = state.rmsReN > 0 || state.rmsImN > 0;
+    return h(SettingsMenu, {
+        c, t, windowId: 'errorAnalysis', label: t.analysisChrome.settings, width: 340,
+    },
+        h(SettingRow, { c, label: ea.lambdaRange },
+            h(RangeField, {
+                c, unit: 'nm', width: 60,
+                from: {
+                    value: params.lambdaStart, min: 100, max: 30000, step: 10,
+                    onChange: value => patch({ lambdaStart: value }),
+                },
+                to: {
+                    value: params.lambdaEnd, min: 100, max: 30000, step: 10,
+                    onChange: value => patch({ lambdaEnd: value }),
+                },
+            }),
+        ),
+        h(SettingRow, { c, label: ea.step },
+            h(NumInput, {
+                value: params.lambdaStep, min: 0.5, max: 50, step: 1, c, width: 60,
+                onChange: value => patch({ lambdaStep: value > 0 ? value : 5 }),
+            }),
+        ),
+        h(SettingRow, { c, label: ea.aoi },
+            h(NumInput, {
+                value: params.theta, min: 0, max: 89, step: 1, c, width: 60,
+                onChange: value => patch({ theta: value }),
+            }),
+        ),
+        h(SettingRow, { c, label: ea.pol },
+            h(ChoiceGroup, {
+                ariaLabel: ea.pol, activeId: params.polarization, c,
+                onSelect: value => patch({ polarization: value }),
+                items: [
+                    { id: 'avg', label: 'avg' },
+                    { id: 's', label: 's' },
+                    { id: 'p', label: 'p' },
+                ],
+            }),
+        ),
+        h(SettingDivider, { c }),
+        h(SettingRow, { c, label: ea.nTrials },
+            h(NumInput, {
+                value: state.nTrials, min: 1, max: 100000, step: 50, c, width: 72,
+                onChange: value => state.setNTrials(Math.max(1, Math.floor(value))),
+            }),
+        ),
+        h(SettingRow, { c, label: ea.corridor },
+            h(NumInput, {
+                value: state.corridorSigma, min: 0.1, max: 10, step: 0.5, c, width: 60,
+                title: ea.corridorTip,
+                onChange: value => state.setCorridorSigma(value > 0 ? value : 1),
+            }),
+            h(FieldLabel, { c }, 'σ'),
+        ),
+        h(SettingRow, { c, label: ea.distribution },
+            h(SelectField, {
+                value: state.distribution, c, width: 150, title: ea.distributionTip,
+                options: [
+                    { id: 'gaussian', label: ea.distGaussian },
+                    { id: 'uniform', label: ea.distUniform },
+                    { id: 'truncated', label: ea.distTruncated },
+                ],
+                onChange: value => {
+                    state.setDistribution(value);
+                    // A bounded draw has a meaningful hard envelope, so show it.
+                    if (value === 'uniform' || value === 'truncated') state.setShowEnvelope(true);
+                },
+            }),
+        ),
+        h('div', { style: { color: c.textDim, fontSize: 10, lineHeight: 1.45, padding: '4px 0' } },
+            ea[DISTRIBUTION_NOTE[state.distribution] || DISTRIBUTION_NOTE.gaussian]),
+        h(SettingDivider, { c }),
+        h(SettingRow, { c, label: magnitudeLabel(ea.rmsAbs) },
+            h(NumInput, {
+                value: state.rmsAbsNm, min: 0, max: 1000, step: 0.1, c, width: 72,
+                title: ea.rmsAbsTip, onChange: state.setRmsAbsNm,
+            }),
+            h(FieldLabel, { c }, 'nm'),
+        ),
+        h(SettingRow, { c, label: magnitudeLabel(ea.rmsRel) },
+            h(NumInput, {
+                value: state.rmsRelPct, min: 0, max: 100, step: 0.1, c, width: 72,
+                title: ea.rmsRelTip, onChange: state.setRmsRelPct,
+            }),
+            h(FieldLabel, { c }, '%'),
+        ),
+        h(SettingRow, { c, label: magnitudeLabel(ea.rmsReN) },
+            h(NumInput, {
+                value: state.rmsReN, min: 0, max: 2, step: 0.001, c, width: 72,
+                title: ea.rmsReNTip, onChange: state.setRmsReN,
+            }),
+        ),
+        h(SettingRow, { c, label: magnitudeLabel(ea.rmsImN) },
+            h(NumInput, {
+                value: state.rmsImN, min: 0, max: 2, step: 0.001, c, width: 72,
+                title: ea.rmsImNTip, onChange: state.setRmsImN,
+            }),
+        ),
+        h(SettingRow, { c, label: '' },
+            h(CheckField, {
+                c, label: ea.perMaterial, checked: state.perMaterial, title: ea.perMaterialTip,
+                onChange: event => state.setPerMaterial(event.target.checked),
+            }),
+        ),
+        h(SettingRow, { c, label: '' },
+            h(CheckField, {
+                c, label: ea.keepOPT,
+                // Keeping n·d fixed only means anything when the index is being
+                // perturbed; with thickness errors alone it cancels the trial.
+                checked: state.keepOPT && indexErrors, disabled: !indexErrors,
+                title: indexErrors ? ea.keepOPTTip : ea.keepOPTDisabledTip,
+                onChange: event => state.setKeepOPT(event.target.checked),
+            }),
+        ),
+    );
+}

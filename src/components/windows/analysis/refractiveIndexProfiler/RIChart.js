@@ -1,6 +1,6 @@
 import { ANALYSIS_DEFAULTS } from '../../../../constants/analysisDefaults.js';
 import { drawPlot, usePlotTeardown } from '../../../ui/plotSurface.js';
-import { axisTitle, chartConfig, plotMargin, TICK_FONT } from '../chrome/plot.js';
+import { axisTitle, chartConfig, legendAbove, plotMargin, TICK_FONT } from '../chrome/plot.js';
 import { useAnalysisColors } from '../../../../state/AnalysisSettingsContext.js';
 const { createElement: h, useEffect, useRef } = React;
 
@@ -64,8 +64,7 @@ export function riChartLayout(profile, quantity, matColorMap, colors, curve = AN
         plot_bgcolor: bgColor,
         margin: plotMargin({ rightAxis: quantity === 'both' }),
         showlegend: quantity === 'both',
-        legend: { x: 1, xanchor: 'right', y: 1,
-                  font: { size: 11, color: textColor }, bgcolor: 'transparent' },
+        legend: legendAbove({ color: textColor }),
         xaxis: {
             range: [z0, zEnd],
             title: axisTitle('Depth (nm)', { color: textColor }),

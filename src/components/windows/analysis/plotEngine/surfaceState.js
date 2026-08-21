@@ -31,6 +31,8 @@ function useStoredSurfaceState(design, evalMode) {
         setSurfaceSpec,
         surfaceResult: session.surfaceResult,
         setSurfaceResult: value => setField('surfaceResult', value),
+        showTable: session.showTable,
+        setShowTable: value => setField('showTable', value),
     };
 }
 

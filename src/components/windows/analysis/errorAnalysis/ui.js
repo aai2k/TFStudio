@@ -1,15 +1,5 @@
 const { createElement: h } = React;
 
-export function placeholder(c, msg) {
-    return h('div', {
-        style: {
-            flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center',
-            color: c.textDim, fontSize: 13, fontStyle: 'italic',
-            fontFamily: 'system-ui, -apple-system, sans-serif', padding: 16, textAlign: 'center',
-        }
-    }, msg);
-}
-
 export function chip(txt, color, tip, key) {
     return h('span', {
         key, title: tip,

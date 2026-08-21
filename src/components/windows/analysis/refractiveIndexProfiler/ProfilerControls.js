@@ -36,7 +36,9 @@ export function ProfilerControls({ c, t, rp, state, notices }) {
 }
 
 function ProfilerSetup({ c, t, rp, state }) {
-    return h(SettingsMenu, { c, label: t.analysisChrome.settings },
+    return h(SettingsMenu, {
+        c, t, windowId: 'refractiveIndexProfiler', label: t.analysisChrome.settings,
+    },
         h(SettingRow, { c, label: rp.wavelength },
             h(NumInput, {
                 value: state.lambda, min: 100, max: 10000, step: 10, c, width: 72,

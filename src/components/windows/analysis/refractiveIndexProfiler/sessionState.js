@@ -6,6 +6,9 @@ export const profilerSession = createWindowSession({
     side: 'front',
     showTable: false,
 }, {
+    id: 'refractiveIndexProfiler',
+    // The wavelength is reseeded from the design's reference wavelength.
+    savable: ['quantity', 'side', 'showTable'],
     onDesignChange: design => {
         const lambda = design?.referenceWavelength;
         return lambda ? { lambda } : null;

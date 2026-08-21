@@ -5,12 +5,17 @@
  */
 
 import { useDesign } from '../../../../state/DesignContext.js';
-import { MaterialRangeWarning } from '../../../materials/MaterialRangeNotice.js';
-import { EvaluationControls, CustomBuilder } from './Controls.js';
+import { useMaterialRangeNotice } from '../../../materials/MaterialRangeNotice.js';
+import { ConeBadge, EvalModeBadge } from '../../../SurfaceModeBar.js';
+import { ExportMenu, useCsvExport } from '../../../ui/ExportMenu.js';
+import { csvFromRows, ResultsSection } from '../../../ui/ResultsSection.js';
+import { AnalysisWindow, CenteredMessage, PlotArea } from '../chrome/layout.js';
+import { IntegralControls } from './Controls.js';
+import { OverlayChart } from './OverlayChart.js';
 import { ResultsTable } from './ResultsTable.js';
-import { ChartPanel, Placeholder, StatusBar } from './Panels.js';
 import { SpectrumTableEditor } from './SpectrumTableEditor.js';
 import { hasLayersForMode } from './integralModel.js';
+import { exportColumns, exportRows } from './exportModel.js';
 import { useIntegralValues } from './useIntegralValues.js';
 
 const { createElement: h } = React;
@@ -28,75 +33,69 @@ function editorLabel(model, iv) {
     return '';
 }
 
-export function IntegralValues(props) {
-    const { c, theme, t } = props;
+// The weighting a value comes from is the caption the plot needs, and the title
+// sits in margin the chart already reserves rather than costing another band.
+function chartTitle(selected) {
+    if (!selected) return '';
+    return `${selected.label}: ${selected.char}(λ) × ${selected.weighting.label} — ${selected.weighting.reference}`;
+}
+
+export function IntegralValues({ c, theme, t }) {
     const iv = t.integralValues;
+    const dt = t.dataTable;
     const { design, evalMode } = useDesign();
     const model = useIntegralValues(design, evalMode);
+    const columns = exportColumns(t);
+    const rows = exportRows(model.integrals, model.results);
+    const rangeNotice = useMaterialRangeNotice(
+        design, model.params.lambdaStart, model.params.lambdaEnd, t);
+    const csv = useCsvExport(
+        () => csvFromRows(columns, rows),
+        () => `${(design?.name || 'design').replace(/[^\w.-]+/g, '_')}_integrals.csv`,
+    );
 
-    if (!design) return h(Placeholder, { message: iv.noDesign, c });
+    if (!design) return h(CenteredMessage, { c, message: iv.noDesign });
     if (!hasLayersForMode(design, evalMode)) {
-        return h(Placeholder, { message: iv.noLayers, c });
+        return h(CenteredMessage, { c, message: iv.noLayers });
     }
 
-    return h('div', {
-        style: {
-            display: 'flex', flexDirection: 'column', height: '100%',
-            background: c.bg, color: c.text, overflow: 'hidden',
-            fontFamily: 'system-ui, -apple-system, sans-serif', fontSize: 12,
-        },
-    },
-        h(EvaluationControls, { params: model.params, setParams: model.setParams, c, t }),
-        h(MaterialRangeWarning, {
-            design,
-            fromNm: model.params.lambdaStart,
-            toNm: model.params.lambdaEnd,
-            c, t,
-        }),
-        h(CustomBuilder, {
-            builder: model.builder,
-            setBuilder: model.setBuilder,
-            onAdd: model.onAddCustom,
-            openEditor: model.openEditor,
-            c,
-            t,
-        }),
-        h('div', { style: { flex: 1, minHeight: 0, display: 'flex', flexDirection: 'row' } },
-            h(ResultsTable, {
-                integrals: model.integrals,
-                results: model.results,
-                selectedKey: model.selKey,
-                setSelectedKey: model.setSelKey,
-                onPatch: model.onPatchCustom,
-                onRemove: model.onRemoveCustom,
-                c,
-                t,
-            }),
-            h(ChartPanel, {
-                spectrum: model.spectrum,
-                selected: model.selected,
-                selectedResult: model.selectedResult,
-                c,
-                theme,
-                t,
-            }),
+    return h(AnalysisWindow, { c },
+        h(IntegralControls, { c, t, model, notices: [rangeNotice].filter(Boolean) }),
+        h(PlotArea, null,
+            model.spectrum && model.selected
+                ? h(OverlayChart, {
+                    spectrum: model.spectrum, char: model.selected.char,
+                    weighting: model.selected.weighting, title: chartTitle(model.selected),
+                    minMaxMarks: model.selectedResult, c, theme,
+                })
+                : h(CenteredMessage, { c, message: iv.computing }),
         ),
-        h(StatusBar, {
-            design,
-            spectrum: model.spectrum,
-            params: model.params,
-            customCount: model.customDefs.length,
-            c,
-            t,
-        }),
+        h(ResultsSection, {
+            c, label: dt.results, count: rows.length, countLabel: dt.rowCount,
+            open: model.showTable, setOpen: model.setShowTable,
+            actions: h('div', { style: { display: 'flex', alignItems: 'center', gap: 8 } },
+                h(EvalModeBadge, { design, c, t }),
+                h(ConeBadge, { design, c, t }),
+                h(ExportMenu, {
+                    c, enabled: rows.length > 0, ...csv,
+                    labels: {
+                        export: dt.export, copyCsv: dt.copyCsv, saveCsv: dt.saveCsv,
+                        copied: dt.csvCopied, saved: dt.csvSaved,
+                    },
+                }),
+            ),
+        }, h(ResultsTable, {
+            integrals: model.integrals, results: model.results,
+            selectedKey: model.selKey, setSelectedKey: model.setSelKey,
+            onPatch: model.onPatchCustom, onRemove: model.onRemoveCustom, c, t,
+        })),
         h(SpectrumTableEditor, {
             open: model.editor.open,
             initialTable: editorTable(model),
             label: editorLabel(model, iv),
             onApply: model.applyTable,
             onCancel: () => model.setEditor({ open: false, target: null }),
-            c,
-            t,
+            c, t,
         }),
     );
 }

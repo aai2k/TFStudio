@@ -144,10 +144,7 @@ export function ResultsTable(props) {
     const iv = t.integralValues;
     const styles = tableStyles(c);
     return h('div', {
-        style: {
-            flex: '0 0 660px', minHeight: 0, overflow: 'auto',
-            background: c.bg, borderRight: `1px solid ${c.border}`,
-        },
+        style: { height: 200, overflow: 'auto', background: c.bg, flexShrink: 0 },
     },
         h('table', { style: { width: '100%', borderCollapse: 'collapse' } },
             h('thead', null,

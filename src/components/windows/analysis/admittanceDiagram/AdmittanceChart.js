@@ -1,14 +1,15 @@
 import { drawPlot, usePlotTeardown } from '../../../ui/plotSurface.js';
 import { useAnalysisColors } from '../../../../state/AnalysisSettingsContext.js';
+import { chartConfig } from '../chrome/plot.js';
 import { admittanceLayout, admittanceTraces } from './chartFigure.js';
 
 const { createElement: h, useEffect, useRef } = React;
 
 // No dependency list: see plotSurface.js for why every render redraws.
-function usePlotData({ divRef, initializedRef, series, matColorMap, colors, marks, config }) {
+function usePlotData({ divRef, initializedRef, series, matColorMap, matName, colors, marks, config }) {
     useEffect(() => {
         drawPlot(divRef.current, initializedRef,
-            admittanceTraces(series, matColorMap, colors, marks),
+            admittanceTraces(series, matColorMap, matName, colors, marks),
             admittanceLayout(series, colors), config);
     });
 }
@@ -25,7 +26,7 @@ function usePlotTheme({ divRef, initializedRef, colors, c }) {
     }, [c]); // eslint-disable-line react-hooks/exhaustive-deps
 }
 
-export function AdmittanceChart({ series, matColorMap, c, theme, t }) {
+export function AdmittanceChart({ series, matColorMap, matName, c, theme, t }) {
     const divRef = useRef(null);
     const initializedRef = useRef(false);
     const colors = {
@@ -35,13 +36,9 @@ export function AdmittanceChart({ series, matColorMap, c, theme, t }) {
         text: c.text || '#cccccc',
     };
     const marks = useAnalysisColors('admittanceDiagram');
-    const config = {
-        displaylogo: false, responsive: true, displayModeBar: true,
-        modeBarButtonsToRemove: ['select2d', 'lasso2d'],
-        toImageButtonOptions: { format: 'png', filename: 'TFStudio_admittance', scale: 2 },
-    };
+    const config = chartConfig('admittance');
 
-    usePlotData({ divRef, initializedRef, series, matColorMap, colors, marks, config });
+    usePlotData({ divRef, initializedRef, series, matColorMap, matName, colors, marks, config });
     usePlotTeardown(divRef, initializedRef);
     usePlotTheme({ divRef, initializedRef, colors, c });
 

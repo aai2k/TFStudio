@@ -24,6 +24,7 @@ import { buildSampleDesigns } from './utils/samples/sampleDesigns.js';
 import { buildTutorials } from './utils/samples/tutorials.js';
 import { DesignProvider, makeDefaultDesign } from './state/DesignContext.js';
 import { AnalysisSettingsProvider } from './state/AnalysisSettingsContext.js';
+import { initSavedWindowDefaults } from './utils/windowDefaults.js';
 import { UpdateProvider } from './components/ui/UpdateContext.js';
 import { SpectralMonitor } from './components/SpectralMonitor.js';
 import { MaterialResolutionModalGuard } from './components/materials/MaterialResolutionModalGuard.js';
@@ -286,8 +287,8 @@ const App = () => {
     // worker broadcasts) and persists via the settings effect below. If the
     // .wasm artifact is missing it silently falls back to JS regardless.
     const [wasmTmm,        setWasmTmmState]   = useState(true);
-    // Analysis-window display overrides as stored in settings.json; resolved
-    // against the factory registry by AnalysisSettingsProvider.
+    // Analysis-window display overrides as stored in the preferences file;
+    // resolved against the factory registry by AnalysisSettingsProvider.
     const [analysisSettings, setAnalysisSettings] = useState(null);
     // Update check. On by default (opt-out): the request is an unauthenticated
     // GET to a public API that sends no identifiers and stores nothing, and the
@@ -334,7 +335,8 @@ const App = () => {
     useEffect(() => { foldersRef.current = folders; }, [folders]);
     useEffect(() => { designsRef.current = designs;  }, [designs]);
 
-    useEffect(() => { loadFoldersFromDisk(); loadSettingsFromDisk(); loadCatalogsFromDisk(); bootstrapWasm();
+    useEffect(() => { loadFoldersFromDisk(); loadSettingsFromDisk(); loadPreferencesFromDisk();
+        loadCatalogsFromDisk(); bootstrapWasm();
         window.electronAPI?.getDevAllowed?.().then(v => setDevAllowed(v !== false)).catch(() => {});
         window.electronAPI?.getAppVersion?.().then(v => setAppVersion(v || '')).catch(() => {}); }, []);
 
@@ -765,12 +767,6 @@ const App = () => {
                 if (result.settings.locale) setLocaleState(result.settings.locale);
                 if (result.settings.ribbonStyle) setRibbonStyle(result.settings.ribbonStyle);
                 setWasmTmmState(result.settings.wasmTmm !== false);   // default ON (opt-out)
-                // Analysis display defaults are owned by the main process and
-                // arrive with the rest of settings.json; the provider resolves
-                // them against the factory registry as windows mount.
-                setAnalysisSettings(result.settings.analysis && typeof result.settings.analysis === 'object'
-                    ? result.settings.analysis
-                    : {});
                 setUpdateCheckEnabled(result.settings.updateCheckEnabled !== false);  // default ON (opt-out)
                 if (typeof result.settings.skippedVersion === 'string') {
                     setSkippedVersion(result.settings.skippedVersion);
@@ -781,6 +777,20 @@ const App = () => {
         } finally {
             setSettingsLoaded(true);
         }
+    };
+
+    // The analysis-window defaults live in the preferences file rather than in
+    // settings.json, so they are in Documents and survive a reinstall. A missing
+    // or unreadable file leaves every window on the values the release ships
+    // with; the provider must still be told, or it waits for a block forever.
+    const loadPreferencesFromDisk = async () => {
+        let prefs = null;
+        try { prefs = (await window.electronAPI?.loadPreferences?.())?.prefs || null; }
+        catch (_) { /* shipped defaults */ }
+        initSavedWindowDefaults(prefs?.windows);
+        setAnalysisSettings(prefs?.analysis && typeof prefs.analysis === 'object'
+            ? prefs.analysis
+            : {});
     };
 
     // Main-process directory getters switch immediately after a successful

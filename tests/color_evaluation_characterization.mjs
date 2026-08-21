@@ -76,9 +76,11 @@ assert.deepEqual(chromaticityLayout(c), {
     title: { text: 'y', standoff: 6 }, range: [-0.05, 0.9],
     gridcolor: c.border, zerolinecolor: c.border, tickfont: { size: 10 }, scaleanchor: 'x', scaleratio: 1,
   },
+  // Above the plot and to the left: the modebar owns the top-right corner and
+  // would cover a legend anchored there whenever the pointer is on the chart.
   legend: {
-    bgcolor: c.panel + 'cc', bordercolor: c.border, borderwidth: 1,
-    font: { size: 10 }, x: 1, xanchor: 'right', y: 1, yanchor: 'top',
+    orientation: 'h', x: 0, xanchor: 'left', y: 1.02, yanchor: 'bottom',
+    font: { size: 10, color: c.text }, bgcolor: 'rgba(0,0,0,0)',
   },
   showlegend: true,
 });
@@ -93,6 +95,6 @@ const html = renderToStaticMarkup(withDesign(
   React.createElement(ColorEvaluation, { c, theme: c, t: makeLocale() }),
   makeSampleDesign(),
 ));
-assert.equal(createHash('sha256').update(html).digest('hex').slice(0, 16), 'd7989ebce6c0c352');
+assert.equal(createHash('sha256').update(html).digest('hex').slice(0, 16), '44540aff082b5730');
 
 console.log('PASS: color_evaluation_characterization');

@@ -1,56 +1,65 @@
+/**
+ * Layer sensitivity: how far the merit function moves when each layer alone is
+ * perturbed, ranked so the layers the deposition has to hold tightest are the
+ * ones at the top.
+ */
+
+import { EvalModeBadge } from '../../../SurfaceModeBar.js';
+import { SpecVerdict } from '../../../SpecVerdict.js';
+import { ExportMenu, useCsvExport } from '../../../ui/ExportMenu.js';
+import { csvFromRows, ResultsGrid, ResultsSection } from '../../../ui/ResultsSection.js';
+import { AnalysisWindow, CenteredMessage, PlotArea } from '../chrome/layout.js';
 import { SensitivityBars } from './SensitivityBars.js';
 import { SensitivityControls } from './SensitivityControls.js';
-import { SensitivityPlaceholder, SensitivitySummary } from './SensitivityStatus.js';
-import { SensitivityTable } from './SensitivityTable.js';
+import { sensitivityColumns, sensitivityRows } from './tableModel.js';
 import { useLayerSensitivity } from './useLayerSensitivity.js';
 
 const { createElement: h } = React;
 
 export function LayerSensitivity({ c, theme, t }) {
     const state = useLayerSensitivity();
-    const { design, operands, sensHasLayers, result, error, rows, orderedRows } = state;
+    const { design, operands, sensHasLayers, error, orderedRows } = state;
     const ls = t.layerSensitivity;
-    const placeholder = message => h(SensitivityPlaceholder, { message, c });
+    const dt = t.dataTable;
+    const columns = sensitivityColumns({ t, c, matColorMap: state.matColorMap });
+    const rows = sensitivityRows(orderedRows, state.frontCount);
+    const csv = useCsvExport(
+        () => csvFromRows(columns, rows),
+        () => `${(design?.name || 'design').replace(/[^\w.-]+/g, '_')}_sensitivity.csv`,
+    );
 
-    if (!design) return placeholder(ls.noDesign);
-    if (!sensHasLayers) return placeholder(ls.noLayers);
-    if (!operands.length) return placeholder(ls.noOperands);
+    if (!design) return h(CenteredMessage, { c, message: ls.noDesign });
+    if (!sensHasLayers) return h(CenteredMessage, { c, message: ls.noLayers });
+    if (!operands.length) return h(CenteredMessage, { c, message: ls.noOperands });
 
-    const status = h(SensitivitySummary, {
-        result, peakRank1: state.peakRank1, frontCount: state.frontCount,
-        rowCount: rows.length, ls, c,
-    });
-    return h('div', {
-        style: {
-            display: 'flex', flexDirection: 'column', height: '100%',
-            background: c.bg, color: c.text, overflow: 'hidden',
-            fontFamily: 'system-ui, -apple-system, sans-serif', fontSize: 12,
-        }
-    },
-        h(SensitivityControls, { ...state, c, theme, t, status }),
-        error
-            ? placeholder(`Error: ${error}`)
-            : h('div', {
-                style: {
-                    flex: 1, minHeight: 0, display: 'flex',
-                    flexDirection: state.view === 'both' ? 'row' : 'column',
-                }
-            },
-                (state.view === 'table' || state.view === 'both') && h('div', {
-                    style: {
-                        flex: state.view === 'both' ? '0 0 380px' : 1,
-                        minHeight: 0, overflow: 'hidden',
-                    }
-                }, h(SensitivityTable, {
-                    rows: orderedRows, matColorMap: state.matColorMap,
-                    frontCount: state.frontCount, c,
-                })),
-                (state.view === 'chart' || state.view === 'both') && h('div', {
-                    style: { flex: 1, minHeight: 0, overflow: 'hidden', background: c.bg }
-                }, h(SensitivityBars, {
+    return h(AnalysisWindow, { c },
+        h(SensitivityControls, { c, t, state }),
+        h(PlotArea, null,
+            error
+                ? h(CenteredMessage, { c, message: error })
+                : h(SensitivityBars, {
                     rows: orderedRows, matColorMap: state.matColorMap,
                     scale: state.scale, frontCount: state.frontCount, c,
-                })),
-            )
+                    xTitle: ls.axisLayer, yTitle: ls.axisSensitivity,
+                }),
+        ),
+        h(ResultsSection, {
+            c, label: dt.results, count: rows.length, countLabel: dt.rowCount,
+            open: state.showTable, setOpen: state.setShowTable,
+            actions: h('div', { style: { display: 'flex', alignItems: 'center', gap: 8 } },
+                h(EvalModeBadge, { design, c, t }),
+                design?.qualifiers?.length > 0 && h(SpecVerdict, {
+                    designs: state.specDesigns, resolveMat: state.resolveMat, c, t,
+                    label: ls.specLabel,
+                }),
+                h(ExportMenu, {
+                    c, enabled: rows.length > 0, ...csv,
+                    labels: {
+                        export: dt.export, copyCsv: dt.copyCsv, saveCsv: dt.saveCsv,
+                        copied: dt.csvCopied, saved: dt.csvSaved,
+                    },
+                }),
+            ),
+        }, h(ResultsGrid, { columns, rows, c })),
     );
 }

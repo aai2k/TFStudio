@@ -10,4 +10,10 @@ export const materialDispersionSession = createWindowSession({
     start: 400,
     end: 1100,
     showTable: false,
+}, {
+    id: 'materialDispersion',
+    savable: [
+        'materialId', 'thicknessMm', 'thicknessUnit', 'quantity',
+        'start', 'end', 'showTable',
+    ],
 });

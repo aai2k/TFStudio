@@ -43,8 +43,8 @@ scale.
 
 Scatter loss rises sharply toward short wavelengths (TIS scales as 1/λ²), so a
 roughness that is harmless in the infrared can be serious in the ultraviolet. The
-toolbar reports the effective roughness σ_eff and the number of interfaces
-contributing to it, and the sidebar summarizes TIS at the band edges.
+Results strip reports the effective roughness σ_eff and the number of interfaces
+contributing to it, and opens the spectrum wavelength by wavelength.
 
 ## References
 

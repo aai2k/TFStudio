@@ -1,22 +1,27 @@
 import { buildOverlayLayout, buildOverlayTraces } from './figure.js';
 import { drawPlot, usePlotTeardown } from '../../../ui/plotSurface.js';
 import { useAnalysisColors } from '../../../../state/AnalysisSettingsContext.js';
+import { chartConfig } from '../chrome/plot.js';
 
 const { createElement: h, useEffect, useMemo, useRef } = React;
 
-export function OverlayChart({ baseline, perturbed, channel, c }) {
+export function OverlayChart({ baseline, perturbed, channel, c, t }) {
     const divRef = useRef(null);
     const initRef = useRef(false);
     const curve = useAnalysisColors('inhomogeneities');
+    const names = {
+        homogeneous: t.inhomogeneities.traceHomogeneous,
+        graded: t.inhomogeneities.traceWithInterlayers,
+    };
     const traces = useMemo(
-        () => buildOverlayTraces(baseline, perturbed, channel, curve),
-        [baseline, perturbed, channel, curve],
+        () => buildOverlayTraces(baseline, perturbed, channel, curve, names),
+        [baseline, perturbed, channel, curve, t],
     );
+    const config = chartConfig('interlayers');
     // No dependency list, and the layout is rebuilt rather than memoized: see
     // plotSurface.js for why both matter.
     useEffect(() => {
-        drawPlot(divRef.current, initRef, traces, buildOverlayLayout(c),
-            { responsive: true, displayModeBar: false });
+        drawPlot(divRef.current, initRef, traces, buildOverlayLayout(c), config);
     });
 
     usePlotTeardown(divRef, initRef);

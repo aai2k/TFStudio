@@ -49,7 +49,9 @@ function CurveSwitch({ c, label, color, on, last, onToggle }) {
  */
 function EllipsometrySetup({ c, t, text, state }) {
     const spectral = state.mode === 'spectral';
-    return h(SettingsMenu, { c, label: t.analysisChrome.settings, width: 320 },
+    return h(SettingsMenu, {
+        c, t, windowId: 'ellipsometryEvaluation', label: t.analysisChrome.settings, width: 320,
+    },
         h(SettingRow, { c, label: text.mode },
             h(ChoiceGroup, {
                 ariaLabel: text.mode, activeId: state.mode, onSelect: state.setMode, c,

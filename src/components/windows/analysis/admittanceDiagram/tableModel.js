@@ -10,14 +10,16 @@ function shortMaterial(name) {
     return text.length > MAX_MATERIAL_CHARS ? `${text.slice(0, MAX_MATERIAL_CHARS - 1)}…` : text;
 }
 
-export const tableColumns = [
-    { key: 'layer', label: 'Layer', align: 'left' },
-    { key: 'material', label: 'Material', align: 'left', fmt: shortMaterial },
-    { key: 're', label: 'Re(Y)', fmt: v => v.toFixed(5) },
-    { key: 'im', label: 'Im(Y)', fmt: v => v.toFixed(5) },
-    { key: 'gRe', label: 'Re(Γ)', fmt: v => v.toFixed(5) },
-    { key: 'gIm', label: 'Im(Γ)', fmt: v => v.toFixed(5) },
-];
+export function tableColumns(t) {
+    return [
+        { key: 'layer', label: t.admittance.colLayer, align: 'left' },
+        { key: 'material', label: t.admittance.colMaterial, align: 'left', fmt: shortMaterial },
+        { key: 're', label: 'Re(Y)', fmt: v => v.toFixed(5) },
+        { key: 'im', label: 'Im(Y)', fmt: v => v.toFixed(5) },
+        { key: 'gRe', label: 'Re(Γ)', fmt: v => v.toFixed(5) },
+        { key: 'gIm', label: 'Im(Γ)', fmt: v => v.toFixed(5) },
+    ];
+}
 
 export function buildMaterialNames(design, layers) {
     const resolveMaterial = designMaterialLookup(design);

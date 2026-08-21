@@ -1,5 +1,5 @@
 import { ANALYSIS_DEFAULTS } from '../../../../constants/analysisDefaults.js';
-import { axisTitle, plotMargin, TICK_FONT } from '../chrome/plot.js';
+import { axisTitle, legendAbove, plotMargin, TICK_FONT } from '../chrome/plot.js';
 
 /** `curve` holds the configured colours; factory defaults when absent. */
 export function efieldTraces(profileData, pol, curve = ANALYSIS_DEFAULTS.eFieldEvaluation.colors) {
@@ -50,7 +50,7 @@ export function efieldLayout(profileData, pol, matColorMap, colors) {
     return {
         paper_bgcolor: paperColor, plot_bgcolor: bgColor,
         margin: plotMargin(), showlegend: true,
-        legend: { x: 1, xanchor: 'right', y: 1, font: { size: 11, color: textColor }, bgcolor: 'transparent' },
+        legend: legendAbove({ color: textColor }),
         xaxis: {
             range: totalZ > 0 ? [0, totalZ] : undefined, autorange: totalZ <= 0,
             title: axisTitle('Depth (nm)', { color: textColor }),

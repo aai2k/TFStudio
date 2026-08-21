@@ -1,6 +1,7 @@
 import { ANALYSIS_DEFAULTS } from '../../../../constants/analysisDefaults.js';
 import { drawPlot, usePlotTeardown } from '../../../ui/plotSurface.js';
 import { useAnalysisColors } from '../../../../state/AnalysisSettingsContext.js';
+import { axisTitle, chartConfig, legendAbove, plotMargin, TICK_FONT } from '../chrome/plot.js';
 
 const { createElement: h, useEffect, useRef } = React;
 
@@ -93,24 +94,20 @@ export function buildErrorFigure({
     const layout = {
         paper_bgcolor: paperColor,
         plot_bgcolor: bgColor,
-        margin: { l: 52, r: 16, t: 16, b: 44 },
+        margin: plotMargin(),
         font: { color: textColor, family: 'system-ui, -apple-system, sans-serif', size: 11 },
         xaxis: {
-            title: { text: 'Wavelength (nm)', standoff: 8 },
+            title: axisTitle('λ (nm)'),
             gridcolor: gridColor, zerolinecolor: gridColor,
-            tickfont: { size: 10 }, color: textColor,
+            tickfont: TICK_FONT, color: textColor,
         },
         yaxis: {
-            title: { text: `${char} (%)`, standoff: 8 },
+            title: axisTitle(`${char} (%)`),
             gridcolor: gridColor, zerolinecolor: gridColor,
-            tickfont: { size: 10 }, color: textColor,
+            tickfont: TICK_FONT, color: textColor,
             rangemode: 'tozero',
         },
-        legend: {
-            x: 1, xanchor: 'right', y: 1, yanchor: 'top',
-            bgcolor: paperColor + 'cc', bordercolor: gridColor, borderwidth: 1,
-            font: { size: 10 },
-        },
+        legend: legendAbove({ color: textColor }),
         hovermode: 'x unified',
     };
     return { data, layout };
@@ -124,8 +121,7 @@ export function ErrorChart(props) {
     // plotSurface.js for why both matter.
     useEffect(() => {
         const figure = buildErrorFigure({ ...props, colors });
-        drawPlot(divRef.current, initRef, figure.data, figure.layout,
-            { responsive: true, displaylogo: false, displayModeBar: true });
+        drawPlot(divRef.current, initRef, figure.data, figure.layout, chartConfig('montecarlo'));
     });
 
     usePlotTeardown(divRef, initRef);

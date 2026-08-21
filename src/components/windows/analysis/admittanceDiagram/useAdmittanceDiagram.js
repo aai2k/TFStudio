@@ -50,14 +50,13 @@ export function useAdmittanceDiagram(design) {
 
     const validLayers = colorLayers.filter(l => l.thickness > 0);
     const matName = buildMaterialNames(design, validLayers);
-    const Y0 = series?.[0]?.Y?.[0];
-    const etaS = series?.[0]?.etaS;
     const tableRows = useMemo(() => buildAdmittanceTableRows(series, matName, design), [series]);
 
     return {
         lambda, setLambda, theta, setTheta: value => setField('theta', value),
         pol, setPol: value => setField('pol', value), side, setSide,
         view, setView: value => setField('view', value),
-        hasData, series, error, validLayers, matColorMap, matName, Y0, etaS, tableRows,
+        showTable: session.showTable, setShowTable: value => setField('showTable', value),
+        hasData, series, error, matColorMap, matName, tableRows,
     };
 }

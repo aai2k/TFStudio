@@ -65,7 +65,7 @@ export function useInhomogeneities() {
     }, [setDesignField]);
 
     const [view, setViewField] = useWindowSession(inhomogeneityViewSession, design);
-    const { channel, lambdaStart, lambdaEnd, lambdaStep, aoi, pol } = view;
+    const { channel, lambdaStart, lambdaEnd, lambdaStep, aoi, pol, showTable } = view;
     const [error, setError] = useState(null);
     const activeSides = activeDesignSides(design, evalMode);
     const hasBack = (design?.backLayers?.length || 0) > 0;
@@ -98,6 +98,7 @@ export function useInhomogeneities() {
         lambdaStep, setLambdaStep: value => setViewField('lambdaStep', value),
         aoi, setAoi: value => setViewField('aoi', value),
         pol, setPol: value => setViewField('pol', value),
+        showTable, setShowTable: value => setViewField('showTable', value),
         error, activeSides, hasBack, interfaces, baseline, perturbed, specInputs,
         findInterlayer, upsertInterlayer, removeInterlayer, clearAll,
     };

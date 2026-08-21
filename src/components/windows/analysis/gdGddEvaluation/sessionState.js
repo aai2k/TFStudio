@@ -28,6 +28,13 @@ export const gdGddSession = createWindowSession({
     yMin: null,
     yMax: null,
 }, {
+    id: 'gdGddEvaluation',
+    // The side and the reference wavelength describe the design and are reseeded
+    // when one is selected, so saving them as defaults would have no effect.
+    savable: [
+        'target', 'quantity', 'pol', 'lamStart', 'lamEnd', 'theta',
+        'showRef', 'showTargets', 'showTable', 'yAuto', 'yMin', 'yMax',
+    ],
     onDesignChange: design => ({
         side: preferredSide(design),
         refLam: design?.referenceWavelength || 550,

@@ -10,7 +10,9 @@
  */
 
 import assert from 'node:assert/strict';
-import { createWindowSession } from '../src/components/windows/windowSession.js';
+import {
+    applySavedWindowDefaults, createWindowSession, windowSessionStores,
+} from '../src/components/windows/windowSession.js';
 
 const designA = { id: 'design-a', referenceWavelength: 625 };
 const designB = { id: 'design-b', referenceWavelength: 780 };
@@ -158,6 +160,87 @@ const designB = { id: 'design-b', referenceWavelength: 780 };
     assert.equal(store.read(null).start, 400, 'a null design falls back to the defaults');
     store.write(null, { start: 500 });
     assert.equal(store.read(null).start, 500, 'a null design still keeps its controls');
+}
+
+// ── Saved defaults replace the shipped ones ──────────────────────────────────
+{
+    const store = createWindowSession({ lamStart: 400, lamEnd: 800, result: null }, {
+        id: 'test-saved',
+        savable: ['lamStart', 'lamEnd'],
+    });
+
+    assert.deepEqual(windowSessionStores('test-saved'), [store],
+        'a store with an id can be found by the window that owns it');
+
+    applySavedWindowDefaults({ 'test-saved': { lamStart: 8000, lamEnd: 12000 } });
+    assert.deepEqual(store.read(designA), { lamStart: 8000, lamEnd: 12000, result: null },
+        'a window opens on the saved range rather than the shipped one');
+
+    assert.deepEqual(store.savableValues(designA), { lamStart: 8000, lamEnd: 12000 },
+        'savableValues reports the settings and not the result');
+
+    store.rebase({}, { force: true });
+    assert.deepEqual(store.read(designA), { lamStart: 400, lamEnd: 800, result: null },
+        'Restore puts the shipped values back');
+}
+
+// ── A late file read does not pull controls out from under the user ──────────
+{
+    const store = createWindowSession({ lamStart: 400, result: null }, {
+        id: 'test-late',
+        savable: ['lamStart'],
+    });
+
+    // A restored layout can mount the window before the preferences file lands.
+    store.write(designA, { lamStart: 633, result: 'measured' });
+    applySavedWindowDefaults({ 'test-late': { lamStart: 8000 } });
+
+    assert.equal(store.read(designA).lamStart, 633,
+        'what the user typed wins over the file that arrived after they typed it');
+    assert.equal(store.reset().lamStart, 8000,
+        'but the saved value is what a fresh slot starts from');
+}
+
+// ── Restore keeps a result that took minutes to compute ──────────────────────
+{
+    const store = createWindowSession({ nTrials: 200, result: null }, {
+        id: 'test-result', scope: 'design', savable: ['nTrials'],
+    });
+
+    store.write(designA, { nTrials: 500, result: { yield: 0.9 } });
+    store.rebase({}, { force: true });
+
+    const after = store.read(designA);
+    assert.equal(after.nTrials, 200, 'the setting goes back to the shipped value');
+    assert.deepEqual(after.result, { yield: 0.9 },
+        'the run itself is not a setting, so Restore leaves it alone');
+}
+
+// ── An object saved by an older release keeps fields added since ─────────────
+{
+    const store = createWindowSession({
+        sweep: { param: 'globalThicknessScale', from: 0.95, to: 1.05, offsetUnit: 'nm' },
+    }, { id: 'test-object', savable: ['sweep'] });
+
+    applySavedWindowDefaults({ 'test-object': { sweep: { param: 'globalDeltaN', from: -0.02 } } });
+
+    assert.deepEqual(store.read(designA).sweep,
+        { param: 'globalDeltaN', from: -0.02, to: 1.05, offsetUnit: 'nm' },
+        'a saved object is merged over the shipped one, so a new field is not left undefined');
+}
+
+// ── A key left out of `savable` is never written or restored ─────────────────
+{
+    const store = createWindowSession({ mode: 'relative', side: 'front' }, {
+        id: 'test-partial', savable: ['mode'],
+    });
+
+    store.write(designA, { side: 'back' });
+    applySavedWindowDefaults({ 'test-partial': { mode: 'absolute', side: 'total' } });
+
+    assert.equal(store.read(designA).side, 'back',
+        'a key the window does not save cannot be set from the file either');
+    assert.deepEqual(store.savableValues(designA), { mode: 'relative' });
 }
 
 console.log('window_session: passed');

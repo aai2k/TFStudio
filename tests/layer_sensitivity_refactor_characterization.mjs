@@ -56,14 +56,18 @@ const c = makeTheme();
 const normalized = buildSensitivityFigure({
     rows: ordered, matColorMap: { H: '#111', L: '#222' },
     scale: 'normalized', frontCount: 2, c,
+    xTitle: 'Layer', yTitle: 'Sensitivity (%)',
 });
 assert.deepEqual(normalized.data[0].x, ['F1', 'F2', 'B1', 'B2']);
 assert.deepEqual(normalized.data[0].y, [25, 100, 75, 50]);
 assert.deepEqual(normalized.data[0].marker.color, ['#222', '#111', '#111', '#222']);
 assert.equal(normalized.layout.yaxis.type, 'linear');
 assert.equal(normalized.layout.yaxis.title.text, 'Sensitivity (%)');
+assert.equal(normalized.layout.xaxis.title.text, 'Layer',
+    'the axis titles come from the locale, not from the figure builder');
 const absolute = buildSensitivityFigure({
     rows: ordered, matColorMap: {}, scale: 'absolute', frontCount: 2, c,
+    xTitle: 'Layer', yTitle: 'Sensitivity (%)',
 });
 assert.deepEqual(absolute.data[0].y, [0.5, 2, 3, 1]);
 assert.equal(absolute.layout.yaxis.type, 'log');
@@ -75,6 +79,6 @@ const html = renderToStaticMarkup(withDesign(
     makeSampleDesign(),
 ));
 const hash = createHash('sha256').update(html).digest('hex').slice(0, 16);
-assert.equal(hash, '1e7947de56d9aaf7');
+assert.equal(hash, 'c8f66fa3e5613c66');
 
 console.log('PASS: layer_sensitivity_refactor_characterization');

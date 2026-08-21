@@ -48,12 +48,17 @@ assert.equal(result.data.R.length, result.data.lambda.length);
 assert.equal(result.data.T.length, result.data.lambda.length);
 assert.equal(result.data.TIS_inc.length, result.data.lambda.length);
 
+const names = {
+    rIdeal: 'R (ideal)', tIdeal: 'T (ideal)',
+    rSpec: 'R specular', tSpec: 'T specular',
+};
 const traces = buildScatterTraces({
     lambda: [500, 600], R: [0.1, 0.2], T: [0.8, 0.7],
-    R_spec: [0.09, 0.18], T_spec: [0.72, 0.63], TIS_inc: [1e-6, 2e-6], units: 'ppm',
+    R_spec: [0.09, 0.18], T_spec: [0.72, 0.63], TIS_inc: [1e-6, 2e-6], units: 'ppm', names,
 });
+// The legend is localized, so the names come in rather than being baked in here.
 assert.deepEqual(traces.map(trace => trace.name), [
-    'R (ideal)', 'T (ideal)', 'R spec', 'T spec', 'TIS (ppm)',
+    'R (ideal)', 'T (ideal)', 'R specular', 'T specular', 'TIS (ppm)',
 ]);
 assert.deepEqual(traces[0].y, [10, 20]);
 assert.deepEqual(traces[4].y, [1, 2]);
@@ -66,7 +71,7 @@ const html = renderToStaticMarkup(withDesign(
     React.createElement(RoughnessScattering, { c, t: makeLocale(), theme: c })
 ));
 const hash = createHash('sha256').update(html).digest('hex').slice(0, 16);
-assert.equal(hash, '9498aa1b02e11264');
+assert.equal(hash, 'fad7d971642e389e');
 
 const backOnlyDesign = makeSampleDesign();
 backOnlyDesign.frontLayers = [];

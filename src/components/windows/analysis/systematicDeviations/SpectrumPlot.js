@@ -1,6 +1,7 @@
 import { buildSpectrumLayout, buildSpectrumTraces } from './spectrumFigure.js';
 import { drawPlot, usePlotTeardown } from '../../../ui/plotSurface.js';
 import { useAnalysisColors } from '../../../../state/AnalysisSettingsContext.js';
+import { chartConfig } from '../chrome/plot.js';
 
 const { createElement: h, useEffect, useMemo, useRef } = React;
 
@@ -16,7 +17,7 @@ export function SpectrumPlot({ baseline, deviated, channel, showBaseline, c }) {
     // plotSurface.js for why both matter.
     useEffect(() => {
         drawPlot(divRef.current, initRef, traces, buildSpectrumLayout(c),
-            { responsive: true, displayModeBar: false });
+            chartConfig('deviations'));
     });
 
     usePlotTeardown(divRef, initRef);

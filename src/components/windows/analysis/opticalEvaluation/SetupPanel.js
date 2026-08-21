@@ -65,7 +65,9 @@ function VerticalRange({ c, oe, yAuto, setYAuto, yMin, setYMin, yMax, setYMax })
  */
 export function SetupPanel(props) {
     const { c, t, oe, params, setThetas } = props;
-    return h(SettingsMenu, { c, label: t.analysisChrome.settings, width: 340 },
+    return h(SettingsMenu, {
+        c, t, windowId: 'opticalEvaluation', label: t.analysisChrome.settings, width: 340,
+    },
         h(SettingRow, { c, label: oe.aoi, wrap: true },
             h(AoiChips, { values: params.thetas, onChange: setThetas, c, oe }),
         ),

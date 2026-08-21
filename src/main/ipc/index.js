@@ -16,7 +16,7 @@ const rii = require('./rii');
 const zemax = require('./zemax');
 const spectrum = require('./spectrum');
 const paths = require('./paths');
-const analysisSettings = require('./analysisSettings');
+const preferences = require('./preferences');
 const updates = require('./updates');
 
 function registerAllIpc(ipcMain, ctx) {
@@ -33,7 +33,7 @@ function registerAllIpc(ipcMain, ctx) {
   zemax.register(ipcMain, ctx);
   spectrum.register(ipcMain, ctx);
   paths.register(ipcMain, ctx);
-  analysisSettings.register(ipcMain, ctx);
+  preferences.register(ipcMain, ctx);
   updates.register(ipcMain, ctx);
 }
 

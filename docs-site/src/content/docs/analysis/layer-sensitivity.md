@@ -18,8 +18,6 @@ the usual choice since real errors scale with thickness) or **Absolute**
 (a fixed amount in nanometres). The sign does not matter; the tool always
 tests the same amount above and below nominal.
 
-**Display**: show the result as a chart, a table, or both.
-
 **Scale**: **Normalized** sets the most sensitive layer to 100 % and
 scales the rest against it (the easiest way to compare layers), or
 **Absolute** shows the raw change in merit on a logarithmic axis (use this

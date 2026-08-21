@@ -13,7 +13,14 @@
  * size when a checkbox is ticked moves everything under the pointer.
  */
 
-const { createElement: h, useState } = React;
+import { DesignContext } from '../../../../state/DesignContext.js';
+import { useAnalysisSettings } from '../../../../state/AnalysisSettingsContext.js';
+import {
+    canSaveWindowDefaults, hasSavedWindowDefaults,
+    restoreWindowDefaults, saveWindowDefaults, useSavedWindowDefaults,
+} from '../../../../utils/windowDefaults.js';
+
+const { createElement: h, useContext, useState } = React;
 
 const FONT = 'system-ui, -apple-system, sans-serif';
 
@@ -78,9 +85,61 @@ const GEAR = h('svg', { width: 13, height: 13, viewBox: '0 0 16 16', fill: 'none
     }),
     h('circle', { cx: 8, cy: 8, r: 2.1, stroke: 'currentColor', strokeWidth: 1.2 }));
 
+function footerButtonStyle(c, enabled) {
+    return {
+        flex: 1, height: 26, padding: '0 8px',
+        border: `1px solid ${c.border}`, borderRadius: 5,
+        backgroundColor: 'transparent', color: enabled ? c.text : c.textDim,
+        cursor: enabled ? 'pointer' : 'default', opacity: enabled ? 1 : 0.5,
+        fontSize: 11, fontWeight: 500, fontFamily: FONT, whiteSpace: 'nowrap',
+    };
+}
+
+/**
+ * Save the panel above as the values this window opens with, or go back to the
+ * shipped ones. The values are written to the preferences file, which lives in
+ * Documents rather than in the app's data folder, so they survive a reinstall.
+ */
+function DefaultsFooter({ c, t, windowId }) {
+    const designCtx = useContext(DesignContext);
+    const analysisSettings = useAnalysisSettings();
+    const saved = useSavedWindowDefaults();
+    const [error, setError] = useState(null);
+    const text = t.analysisChrome;
+
+    const stored = hasSavedWindowDefaults(windowId, analysisSettings, saved);
+    const run = promise => promise.then(result => setError(result || null));
+
+    return h('div', {
+        style: {
+            marginTop: 8, paddingTop: 8, borderTop: `1px solid ${c.border}`,
+            display: 'flex', flexDirection: 'column', gap: 6,
+        },
+    },
+        h('div', { style: { display: 'flex', gap: 6 } },
+            h('button', {
+                type: 'button', title: text.saveDefaultsTip,
+                onClick: () => run(saveWindowDefaults(windowId, designCtx?.design, analysisSettings)),
+                style: footerButtonStyle(c, true),
+            }, text.saveDefaults),
+            h('button', {
+                type: 'button', title: text.restoreDefaultsTip, disabled: !stored,
+                onClick: () => run(restoreWindowDefaults(windowId, analysisSettings)),
+                style: footerButtonStyle(c, stored),
+            }, text.restoreDefaults),
+        ),
+        error && h('div', { role: 'alert', style: { color: c.error, lineHeight: 1.4 } },
+            error === 'unavailable' ? text.defaultsUnavailable : text.defaultsFailed(error)),
+    );
+}
+
 /** The window's settings, everything that is not a curve switch. */
-export function SettingsMenu({ c, label, title, width, children }) {
-    return h(PopoverButton, { c, label, title: title || label, width, icon: GEAR }, children);
+export function SettingsMenu({ c, t, windowId, label, title, width, children }) {
+    const defaults = windowId && t && canSaveWindowDefaults(windowId)
+        ? h(DefaultsFooter, { c, t, windowId })
+        : null;
+    return h(PopoverButton, { c, label, title: title || label, width, icon: GEAR },
+        children, defaults);
 }
 
 /**

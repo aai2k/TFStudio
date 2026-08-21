@@ -26,13 +26,13 @@ function buildMaterialColorMap(design) {
 export function useLayerSensitivity() {
     const { design } = useDesign();
     const [session, setField] = useWindowSession(layerSensitivitySession, design);
-    const { mode, relPct, absDeltaNm, includeLocked, view, scale } = session;
+    const { mode, relPct, absDeltaNm, includeLocked, scale, showTable } = session;
     const setMode = value => setField('mode', value);
     const setRelPct = value => setField('relPct', value);
     const setAbsDeltaNm = value => setField('absDeltaNm', value);
     const setIncludeLocked = value => setField('includeLocked', value);
-    const setView = value => setField('view', value);
     const setScale = value => setField('scale', value);
+    const setShowTable = value => setField('showTable', value);
     const operands = design?.meritOperands || [];
     const sensHasLayers = hasSensitivityLayers(design);
 
@@ -64,7 +64,7 @@ export function useLayerSensitivity() {
         design, operands, sensHasLayers, result, error: result?.error || null,
         matColorMap, specDesigns, ...viewModel,
         mode, setMode, relPct, setRelPct, absDeltaNm, setAbsDeltaNm,
-        includeLocked, setIncludeLocked, view, setView, scale, setScale,
-        resolveMat,
+        includeLocked, setIncludeLocked, scale, setScale,
+        showTable, setShowTable, resolveMat,
     };
 }

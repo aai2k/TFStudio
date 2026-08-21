@@ -4,59 +4,78 @@
  * 5th ed., "Inhomogeneous Layers" describes the homogeneous-sublayer model.
  */
 
-import { OverlayChart } from './OverlayChart.js';
+import { totalInterlayerThickness } from '../../../../utils/physics/inhomogeneity.js';
+import { EvalModeBadge } from '../../../SurfaceModeBar.js';
+import { SpecVerdict } from '../../../SpecVerdict.js';
+import { ExportMenu, useCsvExport } from '../../../ui/ExportMenu.js';
+import { csvFromRows, ResultsGrid, ResultsSection } from '../../../ui/ResultsSection.js';
+import { AnalysisWindow, CenteredMessage, PlotArea } from '../chrome/layout.js';
 import { InhomogeneityControls } from './InhomogeneityControls.js';
-import { InterfaceTable } from './InterfaceTable.js';
-import { BackLayerStatus, ErrorStatus, HelpStatus } from './InhomogeneityStatus.js';
+import { OverlayChart } from './OverlayChart.js';
 import { hasLayersForMode } from './model.js';
+import { overlayColumns, overlayRows } from './tableModel.js';
 import { useInhomogeneities } from './useInhomogeneities.js';
-import { placeholder } from './ui.js';
 
 const { createElement: h } = React;
 
+function activeInterlayerCount(inh) {
+    return [...(inh.interlayers || []), ...(inh.backInterlayers || [])]
+        .filter(interlayer => interlayer.enabled !== false).length;
+}
+
+function buildNotices({ state, ih }) {
+    const notices = [];
+    if (state.error) notices.push({ label: state.error, tone: 'error' });
+    if (state.activeSides.includes('back') && !state.hasBack) {
+        notices.push({ label: ih.noBackLayers });
+    }
+    return notices;
+}
+
 export function Inhomogeneities({ c, theme, t }) {
     const state = useInhomogeneities();
-    const { design, evalMode, activeSides, hasBack, interfaces, error } = state;
-    const ih = (t && t.inhomogeneities) || {};
+    const { design, evalMode, inh } = state;
+    const ih = t.inhomogeneities;
+    const dt = t.dataTable;
+    const columns = overlayColumns(t, state.channel);
+    const rows = overlayRows(state.baseline, state.perturbed, state.channel);
+    const csv = useCsvExport(
+        () => csvFromRows(columns, rows),
+        () => `${(design?.name || 'design').replace(/[^\w.-]+/g, '_')}_interlayers.csv`,
+    );
 
-    if (!design) return placeholder(c, ih.noDesign || 'No design selected.');
+    if (!design) return h(CenteredMessage, { c, message: ih.noDesign });
     if (!hasLayersForMode(design, evalMode)) {
-        return placeholder(c, ih.noLayers || 'No layers in design.');
+        return h(CenteredMessage, { c, message: ih.noLayers });
     }
 
-    const sharedProps = { ...state, c, theme, t, ih };
-    return h('div', {
-        style: {
-            display: 'flex', flexDirection: 'column', height: '100%',
-            background: c.bg, color: c.text, overflow: 'hidden',
-            fontFamily: 'system-ui, -apple-system, sans-serif', fontSize: 12,
-        }
-    },
-        h(InhomogeneityControls, sharedProps),
-        h(BackLayerStatus, { show: activeSides.includes('back') && !hasBack, c, ih }),
-        h('div', {
-            style: { flex: 1, minHeight: 0, display: 'flex', flexDirection: 'row' }
-        },
-            h('div', {
-                style: {
-                    width: 380, flexShrink: 0, borderRight: `1px solid ${c.border}`,
-                    background: c.panel, overflowY: 'auto',
-                }
-            },
-                ...activeSides
-                    .filter(side => side === 'front' || hasBack)
-                    .map(side => h(InterfaceTable, {
-                        ...sharedProps, key: side, side, ifaces: interfaces[side],
-                    })),
-                h(HelpStatus, { c, ih }),
-            ),
-            h('div', { style: { flex: 1, minHeight: 0, position: 'relative' } },
-                h(ErrorStatus, { error }),
-                h(OverlayChart, {
-                    baseline: state.baseline, perturbed: state.perturbed,
-                    channel: state.channel, c,
+    return h(AnalysisWindow, { c },
+        h(InhomogeneityControls, { c, t, ih, state, notices: buildNotices({ state, ih }) }),
+        h(PlotArea, null,
+            h(OverlayChart, {
+                baseline: state.baseline, perturbed: state.perturbed,
+                channel: state.channel, c, t,
+            }),
+        ),
+        h(ResultsSection, {
+            c, label: dt.results, count: rows.length, countLabel: dt.rowCount,
+            open: state.showTable, setOpen: state.setShowTable,
+            actions: h('div', { style: { display: 'flex', alignItems: 'center', gap: 8 } },
+                h('span', { style: { color: c.textDim, fontSize: 11, whiteSpace: 'nowrap' } },
+                    `${activeInterlayerCount(inh)} ${ih.activeInterlayers} · Σ ${totalInterlayerThickness(inh).toFixed(2)} nm`),
+                h(EvalModeBadge, { design, c, t }),
+                (design?.qualifiers?.length > 0 && state.specInputs) && h(SpecVerdict, {
+                    design: state.specInputs.specDesign, resolveMat: state.specInputs.resolve, c, t,
+                    label: t.specification.specLabel,
+                }),
+                h(ExportMenu, {
+                    c, enabled: rows.length > 0, ...csv,
+                    labels: {
+                        export: dt.export, copyCsv: dt.copyCsv, saveCsv: dt.saveCsv,
+                        copied: dt.csvCopied, saved: dt.csvSaved,
+                    },
                 }),
             ),
-        ),
+        }, h(ResultsGrid, { columns, rows, c })),
     );
 }

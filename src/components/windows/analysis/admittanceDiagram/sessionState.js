@@ -6,7 +6,11 @@ export const admittanceSession = createWindowSession({
     pol: 'avg',
     side: 'front',
     view: 'admittance',
+    showTable: false,
 }, {
+    id: 'admittanceDiagram',
+    // The wavelength is reseeded from the design's reference wavelength.
+    savable: ['theta', 'pol', 'side', 'view', 'showTable'],
     onDesignChange: design => (design?.referenceWavelength
         ? { lambda: design.referenceWavelength }
         : null),

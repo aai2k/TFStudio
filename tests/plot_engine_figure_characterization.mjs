@@ -62,7 +62,9 @@ assert.deepEqual(heatmap.traces[0], {
 });
 assert.equal(heatmap.layout.xaxis.title.text, 'Wavelength (nm)');
 assert.equal(heatmap.layout.yaxis.title.text, 'AOI (°)');
-assert.deepEqual(heatmap.layout.margin, { l: 60, r: 16, t: 16, b: 50 });
+// A heat map is a normal 2D plot, so it takes the analysis windows' shared
+// margins; the 3D surface draws its axes inside the scene and takes none.
+assert.deepEqual(heatmap.layout.margin, { l: 58, r: 18, t: 38, b: 52 });
 
 const surface = buildSurfaceFigure(result, { ...baseSpec, render: 'surface' }, design, c);
 assert.equal(surface.traces[0].type, 'surface');

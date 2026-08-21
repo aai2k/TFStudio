@@ -82,10 +82,11 @@ function computeSpectrum(design, params, evalMode) {
 
 export function useIntegralValues(design, evalMode) {
     const [session, setField] = useWindowSession(integralValuesSession, design);
-    const { params, builder, selKey } = session;
+    const { params, builder, selKey, showTable } = session;
     const setParams = value => setField('params', value);
     const setBuilder = value => setField('builder', value);
     const setSelKey = value => setField('selKey', value);
+    const setShowTable = value => setField('showTable', value);
     const [customDefs, setCustomDefs] = useState([]);
     const [, setPresetsLoaded] = useState(false);
     const [editor, setEditor] = useState({ open: false, target: null });
@@ -129,6 +130,8 @@ export function useIntegralValues(design, evalMode) {
         setEditor,
         selKey,
         setSelKey,
+        showTable,
+        setShowTable,
         spectrum,
         integrals,
         results,

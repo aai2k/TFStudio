@@ -20,7 +20,7 @@ export function useRoughnessScattering() {
     }, [setDesignField]);
 
     const [view, setViewField] = useWindowSession(roughnessViewSession, design);
-    const { lambdaStart, lambdaEnd, lambdaStep, aoi, pol, units } = view;
+    const { lambdaStart, lambdaEnd, lambdaStep, aoi, pol, units, showTable } = view;
     const params = useMemo(() => ({
         lambdaStart, lambdaEnd, lambdaStep, theta: aoi, polarization: pol,
     }), [lambdaStart, lambdaEnd, lambdaStep, aoi, pol]);
@@ -55,6 +55,7 @@ export function useRoughnessScattering() {
         aoi, setAoi: value => setViewField('aoi', value),
         pol, setPol: value => setViewField('pol', value),
         units, setUnits: value => setViewField('units', value),
+        showTable, setShowTable: value => setViewField('showTable', value),
         setMode, setUniformSigma, setInterfaceSigma, clearAll,
     };
 }

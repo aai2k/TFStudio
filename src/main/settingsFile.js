@@ -8,6 +8,10 @@
 //
 // CommonJS, Electron-free (deps injected).
 
+// `analysis` is no longer written here: the display defaults live in the
+// preferences file (src/main/preferencesFile.js). It stays on the list so a
+// renderer save that happens before the one-time migration has run does not
+// drop the block the migration is about to move.
 const MAIN_OWNED_KEYS = ['folders', 'analysis'];
 
 // Carry main-process keys absent from an incoming renderer payload over from

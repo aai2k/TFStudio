@@ -25,6 +25,13 @@ export const ellipsometrySession = createWindowSession({
     showDelta: true,
     showTable: false,
 }, {
+    id: 'ellipsometryEvaluation',
+    // The single wavelength and the side follow the selected design.
+    savable: [
+        'mode', 'lambdaStart', 'lambdaEnd', 'lambdaStep', 'thetaDeg',
+        'angleStart', 'angleEnd', 'angleStep', 'deltaConvention',
+        'showPsi', 'showDelta', 'showTable',
+    ],
     onDesignChange: (design, current) => ({
         ...(design?.referenceWavelength ? { lambdaNm: design.referenceWavelength } : null),
         side: preferredSide(design, current.side),

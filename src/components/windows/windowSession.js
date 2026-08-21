@@ -8,10 +8,17 @@
  * ranges, modes and toggles the user selected.
  *
  * A store created here lives at module scope, so it outlives any number of
- * remounts and is shared by every mount of that window. It lasts for the app
- * session only: nothing is written to disk, and a restart starts from the
- * defaults. Settings that must survive a restart use `usePersistentState`
- * instead.
+ * remounts and is shared by every mount of that window.
+ *
+ * Saved defaults
+ * --------------
+ * A store that declares an `id` and a `savable` key list can start from values
+ * the user saved rather than from the shipped ones. The saved values are read
+ * from the preferences file at startup and handed to `applySavedWindowDefaults`;
+ * `savable` is what the window's Save button writes back, so results,
+ * work-in-progress and anything `onDesignChange` reseeds are left out of it.
+ * Everything else in a store is session-only and a restart starts it from the
+ * shipped value.
  *
  * Two kinds of state belong in a store: the user's control values, and results
  * that came from an explicit run and would otherwise have to be recomputed by
@@ -47,6 +54,38 @@
 
 const identity = state => state;
 const noPatch = () => null;
+const isPlainObject = value =>
+    !!value && typeof value === 'object' && !Array.isArray(value);
+
+// Stores that declared an id, so the saved defaults for a window can be applied
+// to it and its current values collected when the user saves. A window may
+// register more than one store, which is why the value is a list.
+const registered = new Map();
+const listeners = new Set();
+
+/** Run `fn` whenever the saved defaults are applied, so open windows re-read. */
+export function onSavedWindowDefaults(fn) {
+    listeners.add(fn);
+    return () => listeners.delete(fn);
+}
+
+/** Stores registered under one window id. */
+export function windowSessionStores(windowId) {
+    return registered.get(windowId) || [];
+}
+
+/**
+ * Adopt the saved defaults for every registered window.
+ *
+ * @param {object} block  windowId → { key: value }, as held in the preferences
+ *                        file. A window missing from it goes back to shipped.
+ */
+export function applySavedWindowDefaults(block) {
+    for (const [windowId, stores] of registered) {
+        for (const store of stores) store.rebase(block?.[windowId] || {});
+    }
+    for (const fn of listeners) fn();
+}
 
 /**
  * Create a session store for one window.
@@ -62,11 +101,25 @@ const noPatch = () => null;
  *        current values.
  * @param {(state: object) => object} [options.normalize]
  *        Invariant applied on every read and write.
+ * @param {string} [options.id]
+ *        Window id this store belongs to. Required for saved defaults.
+ * @param {string[]} [options.savable]
+ *        Keys the window's Save button writes to the preferences file.
  * @returns {{read: Function, write: Function, reset: Function}}
  */
 export function createWindowSession(defaults, options = {}) {
-    const { scope = 'shared', onDesignChange = noPatch, normalize = identity } = options;
-    const base = Object.freeze({ ...defaults });
+    const {
+        scope = 'shared', onDesignChange = noPatch, normalize = identity,
+        id = null, savable = [],
+    } = options;
+    // What the release ships with, kept apart from `base` so Restore has
+    // something to go back to after saved defaults have been adopted.
+    const shipped = Object.freeze({ ...defaults });
+    let base = shipped;
+    // A store the user has already changed keeps what they set: the preferences
+    // file is read a moment after startup, and a window opened from a restored
+    // layout must not have its controls pulled out from under it.
+    let touched = false;
     const slots = new Map();
     // A design-scoped store keys its slots by design id; a shared store keeps
     // everything in one slot, so the key is constant.
@@ -100,8 +153,49 @@ export function createWindowSession(defaults, options = {}) {
     /** Merge `patch` into the slot for `design` and return the new values. */
     function write(design, patch) {
         const key = slotFor(design);
+        touched = true;
         slots.set(key, normalize({ ...slots.get(key), ...patch }));
         return { ...slots.get(key) };
+    }
+
+    function pickSavable(state) {
+        const out = {};
+        for (const key of savable) {
+            if (Object.prototype.hasOwnProperty.call(state, key)) out[key] = state[key];
+        }
+        return out;
+    }
+
+    // A saved value that is a plain object is merged over the shipped one rather
+    // than replacing it, so a file written before a release added a field to that
+    // object does not leave the field undefined.
+    function adoptSavable(values) {
+        const out = pickSavable(values);
+        for (const [key, value] of Object.entries(out)) {
+            if (isPlainObject(value) && isPlainObject(shipped[key])) {
+                out[key] = { ...shipped[key], ...value };
+            }
+        }
+        return out;
+    }
+
+    /** The values a Save would write: this store's savable keys, as shown now. */
+    function savableValues(design) {
+        return pickSavable(read(design));
+    }
+
+    /**
+     * Start from `values` instead of the shipped defaults.
+     *
+     * Existing slots are patched rather than cleared, so a result already on
+     * screen and the keys `onDesignChange` seeded from the design survive.
+     * `force` is for Restore, which has to reach a store the user has changed.
+     */
+    function rebase(values, { force = false } = {}) {
+        base = Object.freeze(normalize({ ...shipped, ...adoptSavable(values || {}) }));
+        if (!force && touched) return;
+        const patch = pickSavable(base);
+        for (const [key, state] of slots) slots.set(key, normalize({ ...state, ...patch }));
     }
 
     // Closing a design drops its slot, so a design-scoped store does not hold a
@@ -127,7 +221,9 @@ export function createWindowSession(defaults, options = {}) {
         return { ...slots.get(slotFor(design)) };
     }
 
-    return { read, write, reset };
+    const store = { read, write, reset, id, savableKeys: savable, savableValues, rebase };
+    if (id) registered.set(id, [...windowSessionStores(id), store]);
+    return store;
 }
 
 /**
@@ -159,6 +255,13 @@ export function useWindowSession(store, design) {
     useEffect(() => {
         setState(store.read(design));
     }, [store, design?.id]); // eslint-disable-line react-hooks/exhaustive-deps
+
+    // Saving or restoring the window's defaults rebases the store underneath an
+    // open window, and the preferences file arrives shortly after startup.
+    useEffect(
+        () => onSavedWindowDefaults(() => setState(store.read(design))),
+        [store, design?.id], // eslint-disable-line react-hooks/exhaustive-deps
+    );
 
     return [state, setField, patch];
 }

@@ -21,9 +21,9 @@ export const AnalysisSettingsProvider = ({ initial, children }) => {
   const [ready, setReady] = useState(initial !== null && initial !== undefined);
   const [saveError, setSaveError] = useState(null);
 
-  // settings.json is read asynchronously after mount, so the stored block
-  // arrives once, after the provider already exists. Adopt it when it does;
-  // later edits come through setField and must not be overwritten by this.
+  // The preferences file is read asynchronously after mount, so the stored
+  // block arrives once, after the provider already exists. Adopt it when it
+  // does; later edits come through setField and must not be overwritten by this.
   useEffect(() => {
     if (initial === null || initial === undefined) return;
     setStored(sanitizeAnalysisOverrides(initial));

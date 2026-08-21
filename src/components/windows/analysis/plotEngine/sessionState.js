@@ -11,4 +11,5 @@ export const plotEngineSession = createWindowSession({
     plotMode: '2d',
     surfaceSpec: null,
     surfaceResult: null,
+    showTable: false,
 }, { scope: 'design' });

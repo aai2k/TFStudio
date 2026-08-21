@@ -15,4 +15,8 @@ export const roughnessViewSession = createWindowSession({
     aoi: 0,
     pol: 'avg',
     units: 'ppm',
+    showTable: false,
+}, {
+    id: 'roughnessScattering',
+    savable: ['lambdaStart', 'lambdaEnd', 'lambdaStep', 'aoi', 'pol', 'units', 'showTable'],
 });

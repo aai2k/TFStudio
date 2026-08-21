@@ -1,100 +1,67 @@
-import { EvalModeBadge } from '../../../SurfaceModeBar.js';
-import { SpecVerdict } from '../../../SpecVerdict.js';
-import { Checkbox } from '../../../ui/Checkbox.js';
-import { DebouncedInput } from '../../../ui/DebouncedInput.js';
+import { CheckField, ChoiceGroup, FieldLabel, NumInput } from '../chrome/controls.js';
+import { ControlRow } from '../chrome/layout.js';
+import { SettingDivider, SettingRow, SettingsMenu } from '../chrome/popover.js';
 
 const { createElement: h } = React;
 
-function numberField(value, onNumber, style, fallback = 0) {
-    return h(DebouncedInput, {
-        value: String(value),
-        onChange: valueText => {
-            const text = String(valueText).trim();
-            const number = text === '' ? fallback : parseFloat(valueText);
-            onNumber(Number.isFinite(number) ? number : fallback);
-        },
-        style,
-    });
+/** Which scale the bars are drawn on; the perturbation they measure is a setting. */
+export function SensitivityControls({ c, t, state }) {
+    const ls = t.layerSensitivity;
+    return h(ControlRow, {
+        c,
+        trailing: h(SensitivitySetup, { c, t, state }),
+    },
+        h(ChoiceGroup, {
+            ariaLabel: ls.scaleNormalized,
+            activeId: state.scale, onSelect: state.setScale, c,
+            items: [
+                { id: 'normalized', label: ls.scaleNormalized, title: ls.scaleNormalizedTip },
+                { id: 'absolute', label: ls.scaleAbsolute, title: ls.scaleAbsoluteTip },
+            ],
+        }),
+    );
 }
 
-export function SensitivityControls(props) {
-    const {
-        c, t, design, mode, setMode, relPct, setRelPct, absDeltaNm, setAbsDeltaNm,
-        includeLocked, setIncludeLocked, view, setView, scale, setScale,
-        specDesigns, resolveMat, status,
-    } = props;
+/**
+ * The perturbation applied to every layer: either a fraction of its own
+ * thickness or a fixed thickness. Both fields stay on the panel with the unused
+ * one disabled, so switching between them does not resize it.
+ */
+function SensitivitySetup({ c, t, state }) {
     const ls = t.layerSensitivity;
-    const labelStyle = {
-        color: c.textDim, fontSize: 11, fontFamily: 'system-ui, -apple-system, sans-serif',
-        whiteSpace: 'nowrap',
-    };
-    const inputStyle = {
-        background: c.inputBg || c.hover, color: c.text,
-        border: `1px solid ${c.border}`, borderRadius: 3,
-        padding: '1px 4px', fontSize: 12, width: 64,
-        fontFamily: 'system-ui, -apple-system, sans-serif',
-    };
-    const segmentStyle = active => ({
-        padding: '2px 10px',
-        background: active ? c.accent : (c.inputBg || c.hover),
-        color: active ? '#fff' : c.text,
-        border: `1px solid ${active ? c.accent : c.border}`,
-        borderRadius: 3, cursor: 'pointer', fontSize: 12,
-        fontFamily: 'system-ui, -apple-system, sans-serif',
-    });
-
-    return h('div', {
-        style: {
-            display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap',
-            padding: '5px 10px', borderBottom: `1px solid ${c.border}`,
-            background: c.panel, flexShrink: 0,
-        }
+    const relative = state.mode === 'relative';
+    return h(SettingsMenu, {
+        c, t, windowId: 'layerSensitivity', label: t.analysisChrome.settings, width: 260,
     },
-        h('div', { style: { display: 'flex', gap: 2 } },
-            h('button', { onClick: () => setMode('relative'), style: segmentStyle(mode === 'relative') }, ls.modeRelative),
-            h('button', { onClick: () => setMode('absolute'), style: segmentStyle(mode === 'absolute') }, ls.modeAbsolute),
-        ),
-        mode === 'relative' && h('label', { style: labelStyle }, ls.relLabel,
-            numberField(relPct, setRelPct, { ...inputStyle, marginLeft: 6 }),
-            h('span', { style: { marginLeft: 2 } }, '%')
-        ),
-        mode === 'absolute' && h('label', { style: labelStyle }, ls.absLabel,
-            numberField(absDeltaNm, setAbsDeltaNm, { ...inputStyle, marginLeft: 6 }),
-            h('span', { style: { marginLeft: 2 } }, 'nm')
-        ),
-        h('label', {
-            style: {
-                display: 'flex', alignItems: 'center', gap: 4,
-                cursor: 'pointer', color: c.text, fontSize: 11,
-            }
-        },
-            h(Checkbox, {
-                c, checked: includeLocked, onChange: event => setIncludeLocked(event.target.checked),
+        h(SettingRow, { c, label: ls.absLabel },
+            h(ChoiceGroup, {
+                ariaLabel: ls.absLabel, activeId: state.mode, onSelect: state.setMode, c,
+                items: [
+                    { id: 'relative', label: ls.modeRelative },
+                    { id: 'absolute', label: ls.modeAbsolute },
+                ],
             }),
-            ls.includeLocked
         ),
-        h('div', { style: { width: 1, height: 20, background: c.border } }),
-        h('div', { style: { display: 'flex', gap: 2 } },
-            h('button', { onClick: () => setView('chart'), style: segmentStyle(view === 'chart') }, ls.viewChart),
-            h('button', { onClick: () => setView('table'), style: segmentStyle(view === 'table') }, ls.viewTable),
-            h('button', { onClick: () => setView('both'), style: segmentStyle(view === 'both') }, ls.viewBoth),
+        h(SettingRow, { c, label: ls.relLabel },
+            h(NumInput, {
+                value: state.relPct, min: 0.01, max: 100, step: 0.1, c, width: 68,
+                disabled: !relative, onChange: state.setRelPct,
+            }),
+            h(FieldLabel, { c }, '%'),
         ),
-        (view === 'chart' || view === 'both') && h('div', { style: { display: 'flex', gap: 2 } },
-            h('button', {
-                onClick: () => setScale('normalized'),
-                style: segmentStyle(scale === 'normalized'),
-                title: ls.scaleNormalizedTip,
-            }, ls.scaleNormalized),
-            h('button', {
-                onClick: () => setScale('absolute'),
-                style: segmentStyle(scale === 'absolute'),
-                title: ls.scaleAbsoluteTip,
-            }, ls.scaleAbsolute),
+        h(SettingRow, { c, label: ls.absLabel },
+            h(NumInput, {
+                value: state.absDeltaNm, min: 0.001, max: 1000, step: 0.1, c, width: 68,
+                disabled: relative, onChange: state.setAbsDeltaNm,
+            }),
+            h(FieldLabel, { c }, 'nm'),
         ),
-        design && h(EvalModeBadge, { design, c, t }),
-        design?.qualifiers?.length > 0 && h(SpecVerdict, {
-            designs: specDesigns, resolveMat, c, t, label: 'Spec @ ±Δd:',
-        }),
-        status
+        h(SettingDivider, { c }),
+        h(SettingRow, { c, label: '' },
+            h(CheckField, {
+                c, label: ls.includeLocked, checked: state.includeLocked,
+                onChange: event => state.setIncludeLocked(event.target.checked),
+            }),
+        ),
     );
 }

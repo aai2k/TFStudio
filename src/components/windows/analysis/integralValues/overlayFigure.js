@@ -1,4 +1,5 @@
 import { ANALYSIS_DEFAULTS } from '../../../../constants/analysisDefaults.js';
+import { axisTitle, legendInsideLeft, plotMargin, TICK_FONT } from '../chrome/plot.js';
 
 const FACTORY = ANALYSIS_DEFAULTS.integralValues.colors;
 
@@ -66,28 +67,31 @@ function overlayTraces(spectrum, char, weighting, marks, curve) {
     return traces;
 }
 
-function overlayLayout(char, colors) {
+function overlayLayout(char, colors, title) {
     return {
         paper_bgcolor: colors.panel,
         plot_bgcolor: colors.bg,
-        margin: { l: 52, r: 16, t: 16, b: 44 },
+        margin: plotMargin(),
         font: { color: colors.text, family: 'system-ui, -apple-system, sans-serif', size: 11 },
+        // The integral, its channel and the weighting behind it read as the
+        // plot's caption, and the title sits in margin the chart already keeps.
+        title: title
+            ? { text: title, font: { size: 11, color: colors.text }, x: 0, xanchor: 'left', y: 0.98 }
+            : undefined,
         xaxis: {
-            title: { text: 'Wavelength (nm)', standoff: 8 },
+            title: axisTitle('λ (nm)'),
             color: colors.text, gridcolor: colors.grid, zerolinecolor: colors.grid,
-            tickfont: { size: 10 },
+            tickfont: TICK_FONT,
         },
         yaxis: {
-            title: { text: `${char} (%)  /  w(λ) (% max)`, standoff: 8 },
+            title: axisTitle(`${char} (%)  /  w(λ) (% max)`),
             color: colors.text, gridcolor: colors.grid, zerolinecolor: colors.grid,
-            tickfont: { size: 10 },
+            tickfont: TICK_FONT,
             rangemode: 'tozero',
         },
-        legend: {
-            x: 1, xanchor: 'right', y: 1, yanchor: 'top',
-            bgcolor: colors.panel + 'cc', bordercolor: colors.grid, borderwidth: 1,
-            font: { size: 10 },
-        },
+        // Inside rather than above: the caption naming the integral already has
+        // the strip above the plot.
+        legend: legendInsideLeft({ panel: colors.panel, border: colors.grid }),
         hovermode: 'x unified',
     };
 }
@@ -97,10 +101,11 @@ function overlayLayout(char, colors) {
  * @param {object} options.colors  theme colours for the plot chrome
  * @param {object} [options.curve] configured curve colours; factory when absent
  */
-export function buildOverlayFigure({ spectrum, char, weighting, minMaxMarks, colors, curve = FACTORY }) {
+export function buildOverlayFigure({ spectrum, char, weighting, minMaxMarks, colors, title,
+                                    curve = FACTORY }) {
     if (!spectrum?.lambda) return { data: [], layout: {} };
     return {
         data: overlayTraces(spectrum, char, weighting, minMaxMarks, curve),
-        layout: overlayLayout(char, colors),
+        layout: overlayLayout(char, colors, title),
     };
 }

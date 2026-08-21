@@ -145,7 +145,9 @@ function Controls({ state, c, t, notices }) {
 
 /** The slab the dispersion is computed for, and the range it is plotted over. */
 function Setup({ state, c, t }) {
-    return h(SettingsMenu, { c, label: t.analysisChrome.settings, width: 300 },
+    return h(SettingsMenu, {
+        c, t, windowId: 'materialDispersion', label: t.analysisChrome.settings, width: 300,
+    },
         h(SettingRow, { c, label: 'Thickness' },
             h(NumInput, {
                 value: state.thicknessValue,

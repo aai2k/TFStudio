@@ -8,6 +8,8 @@ import { createWindowSession } from '../../windowSession.js';
 // finished loading takes them as they arrive. Afterwards the values belong to the
 // session, so a later edit in Settings applies to the next app run rather than
 // overwriting controls the user has set here.
+// The spectral unit is not savable here: it belongs to the shared spectral
+// range in Settings → Analysis, which every evaluation window follows.
 export const opticalEvaluationSession = createWindowSession({
     showCurves: { T: true, R: true, A: false, Ts: false, Rs: false, Tp: false, Rp: false },
     showTable: false,
@@ -17,6 +19,9 @@ export const opticalEvaluationSession = createWindowSession({
     yMax: null,
     spectralUnit: null,
     defaultsApplied: false,
+}, {
+    id: 'opticalEvaluation',
+    savable: ['showCurves', 'showTable', 'showTargets', 'yAuto', 'yMin', 'yMax'],
 });
 
 // Target drawing: which curve a drawn target lands on and how it snaps. These

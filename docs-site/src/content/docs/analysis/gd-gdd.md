@@ -63,15 +63,15 @@ the conjugate-Macleod convention once so a material transit time is positive.
 Increasing substrate thickness therefore increases Total transmission GD with
 the same sign as the Material Dispersion window.
 
-The footer always names the material representation used for the calculation.
 Formula materials are differentiated exactly. A tabulated material gives the
 exact derivative of its shape-preserving PCHIP curve. PCHIP is C1: GD is
 continuous, while higher derivatives can show finite steps at table knots and
 TOD is especially sensitive to how sparse data is represented. For coating
 reflection and transmission, both tabulated `n` and `k` contribute to this
-continuity limit. GDD and TOD plots leave gaps at their knot jumps and the
-footer identifies the table models involved. A saved smooth fit replaces the
-table only inside its stated validity range and is named in the footer.
+continuity limit. GDD and TOD plots leave gaps at their knot jumps, and the
+warning badge on the control row names the table models involved. A saved
+smooth fit replaces the table only inside its stated validity range and is
+named there too.
 Wavelengths outside any material model range are left blank with a reason
 instead of treating a clamped endpoint as non-dispersive data.
 

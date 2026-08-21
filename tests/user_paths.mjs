@@ -62,7 +62,8 @@ const make = (unwritable) => {
   ok(paths.get('integrals') === `${DOCS}/TFStudio/IntegralPresets`, 'integral presets default is unchanged');
   ok(paths.get('reportPresets') === `${DOCS}/TFStudio/ReportPresets`, 'report presets default is unchanged');
   ok(paths.get('branding') === `${DOCS}/TFStudio/Branding`, 'branding default is unchanged');
-  ok(FOLDER_KEYS.length === 7, 'seven configurable folders');
+  ok(paths.get('preferences') === `${DOCS}/TFStudio/Preferences`, 'preferences default is under Documents so it survives a reinstall');
+  ok(FOLDER_KEYS.length === 8, 'eight configurable folders');
   ok(paths.list().every(entry => !entry.overridden), 'nothing is overridden on a fresh install');
   ok(Object.keys(paths.toSettings()).length === 0, 'an untouched install persists no folders block');
 }

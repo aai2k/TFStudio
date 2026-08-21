@@ -16,4 +16,14 @@ export const systematicDeviationsSession = createWindowSession({
     sweep: { param: 'globalThicknessScale', from: 0.95, to: 1.05, steps: 21, offsetUnit: 'nm' },
     sweepChannel: 'T',
     sweepResult: null,
-}, { scope: 'design' });
+    showTable: false,
+}, {
+    scope: 'design',
+    id: 'systematicDeviations',
+    // The deviations themselves belong to the coating, and the swept result is
+    // a computation, so neither is saved as a default.
+    savable: [
+        'mode', 'channel', 'showBaseline', 'lambdaStart', 'lambdaEnd', 'lambdaStep',
+        'aoi', 'pol', 'sweep', 'sweepChannel', 'showTable',
+    ],
+});

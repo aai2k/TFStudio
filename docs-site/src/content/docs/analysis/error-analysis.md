@@ -77,7 +77,7 @@ tight band means it is robust. Note that the mean can sit slightly off the
 theoretical curve where the spectrum is curved (for example, the mean reflectance
 of an antireflection minimum drifts upward). That is real physics, not noise.
 
-If the design carries a Specification, the status bar shows the **yield** (the
+If the design carries a Specification, the Results strip shows the **yield** (the
 fraction of trials that pass every requirement) and a red chip for any
 requirement that fails, with its fail rate. Open **View trials…** for a deeper
 look: a statistics tab ranks the worst requirements by fail rate and the worst

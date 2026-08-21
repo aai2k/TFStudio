@@ -15,6 +15,10 @@ export const eFieldSession = createWindowSession({
     side: 'front',
     showTable: false,
 }, {
+    id: 'eFieldEvaluation',
+    // The wavelength and the side follow the selected design, so they are not
+    // saved as defaults.
+    savable: ['theta', 'pol', 'showTable'],
     onDesignChange: (design, current) => {
         const lambda = design?.referenceWavelength;
         return {

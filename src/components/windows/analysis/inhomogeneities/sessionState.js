@@ -15,4 +15,8 @@ export const inhomogeneityViewSession = createWindowSession({
     lambdaStep: 5,
     aoi: 0,
     pol: 'avg',
+    showTable: false,
+}, {
+    id: 'inhomogeneities',
+    savable: ['channel', 'lambdaStart', 'lambdaEnd', 'lambdaStep', 'aoi', 'pol', 'showTable'],
 });

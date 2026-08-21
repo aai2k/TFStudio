@@ -68,7 +68,9 @@ export function GDControls({ c, t, text, state, raw, autoRange, notices }) {
 }
 
 function GDSetup({ c, t, text, state, raw, autoRange }) {
-    return h(SettingsMenu, { c, label: t.analysisChrome.settings, width: 300 },
+    return h(SettingsMenu, {
+        c, t, windowId: 'gdGddEvaluation', label: t.analysisChrome.settings, width: 300,
+    },
         h(SettingRow, { c, label: text.side || 'Side' },
             h(ChoiceGroup, {
                 ariaLabel: text.side || 'Side',

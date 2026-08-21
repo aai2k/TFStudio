@@ -1,11 +1,12 @@
 import { ANALYSIS_DEFAULTS } from '../../../../constants/analysisDefaults.js';
+import { axisTitle, plotMargin, TICK_FONT } from '../chrome/plot.js';
 import { displayLayerLabel } from './viewModel.js';
 
 /**
  * @param {object} [colors] configured curve colours; factory defaults when absent
  */
 export function buildSensitivityFigure({
-    rows, matColorMap, scale, frontCount, c,
+    rows, matColorMap, scale, frontCount, c, xTitle, yTitle,
     colors = ANALYSIS_DEFAULTS.layerSensitivity.colors,
 }) {
     if (!rows?.length) return { data: [], layout: {} };
@@ -34,17 +35,17 @@ export function buildSensitivityFigure({
     const layout = {
         paper_bgcolor: paperColor,
         plot_bgcolor: bgColor,
-        margin: { l: 60, r: 16, t: 16, b: 36 },
+        margin: plotMargin(),
         xaxis: {
-            title: { text: 'Layer', font: { color: textColor, size: 12 } },
+            title: axisTitle(xTitle, { color: textColor }),
             color: textColor, gridcolor: gridColor, zerolinecolor: gridColor,
-            tickfont: { color: textColor, size: 10 },
+            tickfont: { color: textColor, ...TICK_FONT },
             automargin: true,
         },
         yaxis: {
-            title: { text: isAbs ? '|ΔOMF|' : 'Sensitivity (%)', font: { color: textColor, size: 12 } },
+            title: axisTitle(isAbs ? '|ΔOMF|' : yTitle, { color: textColor }),
             color: textColor, gridcolor: gridColor, zerolinecolor: gridColor,
-            tickfont: { color: textColor, size: 10 },
+            tickfont: { color: textColor, ...TICK_FONT },
             rangemode: 'tozero',
             type: isAbs ? 'log' : 'linear',
         },

@@ -37,7 +37,9 @@ export function EFieldControls({ c, t, ef, state, notices }) {
 }
 
 function EFieldSetup({ c, t, ef, state }) {
-    return h(SettingsMenu, { c, label: t.analysisChrome.settings },
+    return h(SettingsMenu, {
+        c, t, windowId: 'eFieldEvaluation', label: t.analysisChrome.settings,
+    },
         h(SettingRow, { c, label: ef.wavelength },
             h(NumInput, {
                 value: state.lambda, min: 100, max: 10000, step: 10, c, width: 72,

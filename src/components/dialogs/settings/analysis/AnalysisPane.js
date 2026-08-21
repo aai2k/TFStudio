@@ -5,7 +5,11 @@
 // range, which seeds the session-wide evaluation parameters at startup.
 import { ANALYSIS_WINDOW_IDS } from '../../../../constants/analysisDefaults.js';
 import { resolveAnalysisSettings } from '../../../../utils/analysisSettings.js';
+import {
+  clearAllSavedWindowDefaults, clearSavedWindowDefaults, useSavedWindowDefaults,
+} from '../../../../utils/windowDefaults.js';
 import { useAnalysisSettings } from '../../../../state/AnalysisSettingsContext.js';
+import { SavedFromWindow } from './SavedFromWindow.js';
 import { WindowFields } from './WindowFields.js';
 import { buttonStyle, hintStyle } from '../ui.js';
 
@@ -24,11 +28,26 @@ const itemStyle = (c, active) => ({
 export const AnalysisPane = ({ c, t }) => {
   const [windowId, setWindowId] = useState(ANALYSIS_WINDOW_IDS[0]);
   const settings = useAnalysisSettings();
+  const savedByWindow = useSavedWindowDefaults();
   const stored = settings?.stored;
   const resolved = resolveAnalysisSettings(windowId, stored);
-  const overridden = !!settings?.isOverridden(windowId);
+  const saved = savedByWindow[windowId] || {};
+  const overridden = !!settings?.isOverridden(windowId) || Object.keys(saved).length > 0;
+  const anySaved = settings?.hasAnyOverride || Object.keys(savedByWindow).length > 0;
 
   const onChange = (section, key, value) => settings?.setField(windowId, section, key, value);
+
+  // One reset per window: the display fields above and the controls saved from
+  // the window itself are two halves of the same "what this window opens with".
+  const resetWindow = () => {
+    settings?.resetWindow(windowId);
+    clearSavedWindowDefaults(windowId);
+  };
+
+  const resetAll = () => {
+    settings?.resetAll();
+    clearAllSavedWindowDefaults();
+  };
 
   return h('div', { style: { display: 'flex', gap: '16px', height: '100%' } },
     h('div', { style: { width: '190px', flexShrink: 0, overflow: 'auto' } },
@@ -38,7 +57,7 @@ export const AnalysisPane = ({ c, t }) => {
         style: itemStyle(c, id === windowId),
       },
         t.settings.analysis.windows[id],
-        settings?.isOverridden(id) && h('span', {
+        (settings?.isOverridden(id) || Object.keys(savedByWindow[id] || {}).length > 0) && h('span', {
           title: t.settings.analysis.modified,
           style: { color: c.accent, marginLeft: '4px' },
         }, '•')
@@ -50,7 +69,7 @@ export const AnalysisPane = ({ c, t }) => {
           t.settings.analysis.windows[windowId]),
         h('div', { style: { flex: 1 } }),
         h('button', {
-          onClick: () => settings?.resetWindow(windowId),
+          onClick: resetWindow,
           disabled: !overridden,
           style: { ...buttonStyle(c), opacity: overridden ? 1 : 0.45, cursor: overridden ? 'pointer' : 'default' },
         }, t.settings.analysis.resetWindow)
@@ -67,14 +86,15 @@ export const AnalysisPane = ({ c, t }) => {
         ? t.settings.analysis.saveUnavailable
         : t.settings.analysis.saveFailed(settings.saveError)),
       h(WindowFields, { windowId, resolved, onChange, c, t }),
+      h(SavedFromWindow, { values: saved, c, t }),
       h('div', { style: { marginTop: '20px', paddingTop: '12px', borderTop: `1px solid ${c.border}` } },
         h('button', {
-          onClick: () => settings?.resetAll(),
-          disabled: !settings?.hasAnyOverride,
+          onClick: resetAll,
+          disabled: !anySaved,
           style: {
             ...buttonStyle(c),
-            opacity: settings?.hasAnyOverride ? 1 : 0.45,
-            cursor: settings?.hasAnyOverride ? 'pointer' : 'default',
+            opacity: anySaved ? 1 : 0.45,
+            cursor: anySaved ? 'pointer' : 'default',
           },
         }, t.settings.analysis.resetAll)
       )

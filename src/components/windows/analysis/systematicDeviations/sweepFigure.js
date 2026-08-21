@@ -1,3 +1,5 @@
+import { axisTitle, plotMargin, TICK_FONT } from '../chrome/plot.js';
+
 const COLOR_SCALES = {
     R: [[0, '#1e1e1e'], [0.3, '#7a2222'], [0.6, '#d04545'], [1, '#fff5f5']],
     A: [[0, '#1e1e1e'], [0.3, '#2a5a2a'], [0.6, '#4caf50'], [1, '#e8f5e8']],
@@ -39,7 +41,7 @@ export function sweepHeatmapLayout(sweepData, channels, colors) {
     const layout = {
         paper_bgcolor: colors.panel || '#252526',
         plot_bgcolor: colors.bg || '#1e1e1e',
-        margin: { l: 64, r: 16, t: 16, b: 44 },
+        margin: plotMargin(),
         grid: count > 1 ? { rows: count, columns: 1, pattern: 'independent', roworder: 'top to bottom' } : undefined,
     };
     channels.forEach((channel, index) => {
@@ -52,14 +54,15 @@ function addAxes(layout, sweepData, channel, axis) {
     const { index, count, colors } = axis;
     const suffix = index === 0 ? '' : String(index + 1);
     layout['xaxis' + suffix] = {
-        title: index === count - 1 ? { text: 'λ (nm)', font: { color: colors.text, size: 12 } } : undefined,
+        title: index === count - 1 ? axisTitle('λ (nm)', { color: colors.text }) : undefined,
         color: colors.text, gridcolor: colors.border, zerolinecolor: colors.border,
-        tickfont: { color: colors.text, size: 10 },
+        tickfont: { color: colors.text, ...TICK_FONT },
     };
     layout['yaxis' + suffix] = {
-        title: { text: count > 1 ? channel : (sweepData.paramName || 'Parameter'), font: { color: colors.text, size: 12 } },
+        title: axisTitle(count > 1 ? channel : (sweepData.paramName || 'Parameter'),
+            { color: colors.text }),
         color: colors.text, gridcolor: colors.border, zerolinecolor: colors.border,
-        tickfont: { color: colors.text, size: 10 },
+        tickfont: { color: colors.text, ...TICK_FONT },
     };
 }
 

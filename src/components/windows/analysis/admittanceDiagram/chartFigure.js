@@ -1,6 +1,20 @@
 import { ANALYSIS_DEFAULTS } from '../../../../constants/analysisDefaults.js';
+import { axisTitle, legendInsideLeft, plotMargin, TICK_FONT } from '../chrome/plot.js';
 
 const FACTORY = ANALYSIS_DEFAULTS.admittanceDiagram.colors;
+
+// Legends sit inside the plot, so a full catalog name would cover the loci it
+// is there to identify.
+const MAX_LEGEND_CHARS = 16;
+
+function legendName(layerNum, material, matName, polLabel) {
+    const name = matName?.[material];
+    if (!name) return `L${layerNum}${polLabel}`;
+    const short = name.length > MAX_LEGEND_CHARS
+        ? `${name.slice(0, MAX_LEGEND_CHARS - 1)}…`
+        : name;
+    return `L${layerNum} ${short}${polLabel}`;
+}
 
 // The reflection view is bounded by |Gamma| = 1 whatever the design does.
 const REFLECTION_RANGE = { xrange: [-1.06, 1.06], yrange: [-1.06, 1.06] };
@@ -65,7 +79,7 @@ function computeDisplayRange(series) {
     return { xrange: [cx - half, cx + half], yrange: [cy - half, cy + half] };
 }
 
-function arcTraces(s, matColorMap, polLabel, textColor, sym) {
+function arcTraces(s, matColorMap, matName, polLabel, textColor, sym) {
     const dash = s.pol === 'p' ? 'dash' : 'solid';
     const traces = [];
     for (const arc of s.arcs) {
@@ -73,7 +87,7 @@ function arcTraces(s, matColorMap, polLabel, textColor, sym) {
         traces.push({
             x: arc.re, y: arc.im,
             type: 'scatter', mode: 'lines',
-            name: `L${arc.layerNum}${polLabel}`,
+            name: legendName(arc.layerNum, arc.material, matName, polLabel),
             legendgroup: `L${arc.layerNum}`,
             showlegend: true,
             line: { color, width: 2, dash },
@@ -136,14 +150,14 @@ function markerTraces(s, polLabel, isMultiPol, textColor, marks) {
  * @param {object} colors  theme colours for the plot chrome
  * @param {object} [marks] configured start/end/target marker colours
  */
-export function admittanceTraces(series, matColorMap, colors, marks = FACTORY) {
+export function admittanceTraces(series, matColorMap, matName, colors, marks = FACTORY) {
     if (!series?.length) return [];
     const isMultiPol = series.length > 1;
     const sym = isReflection(series) ? 'Γ' : 'Y';
     const traces = [];
     for (const s of series) {
         const polLabel = isMultiPol ? ` (${s.pol})` : '';
-        traces.push(...arcTraces(s, matColorMap, polLabel, colors.text, sym));
+        traces.push(...arcTraces(s, matColorMap, matName, polLabel, colors.text, sym));
         traces.push(...markerTraces(s, polLabel, isMultiPol, colors.text, marks));
     }
     return traces;
@@ -165,30 +179,28 @@ export function admittanceLayout(series, colors) {
     const sym = reflection ? 'Γ' : 'Y';
     return {
         shapes: reflection ? [unitCircleShape(colors.border)] : [],
-        margin: { l: 56, r: 16, t: 24, b: 48 },
+        margin: plotMargin(),
         paper_bgcolor: colors.panel,
         plot_bgcolor: colors.bg,
         font: { color: colors.text, family: 'system-ui, -apple-system, sans-serif', size: 11 },
         xaxis: {
-            title: { text: `Re(${sym})`, standoff: 8 },
+            title: axisTitle(`Re(${sym})`),
             gridcolor: colors.border, gridwidth: 1,
             zerolinecolor: colors.border, zeroline: true,
-            tickfont: { size: 10 },
+            tickfont: TICK_FONT,
             scaleanchor: 'y', scaleratio: 1,
             ...(rr ? { range: rr.xrange, autorange: false } : {}),
         },
         yaxis: {
-            title: { text: `Im(${sym})`, standoff: 8 },
+            title: axisTitle(`Im(${sym})`),
             gridcolor: colors.border, gridwidth: 1,
             zerolinecolor: colors.border, zeroline: true,
-            tickfont: { size: 10 },
+            tickfont: TICK_FONT,
             ...(rr ? { range: rr.yrange, autorange: false } : {}),
         },
-        legend: {
-            bgcolor: colors.panel + 'cc', bordercolor: colors.border, borderwidth: 1,
-            font: { size: 10 }, x: 1, xanchor: 'right', y: 1, yanchor: 'top',
-            tracegroupgap: 2,
-        },
+        // One entry per layer, so it is stacked inside the plot rather than run
+        // along the top, where a long stack would wrap over the diagram.
+        legend: legendInsideLeft(colors),
         hovermode: 'closest',
         autosize: true,
     };

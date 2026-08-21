@@ -37,6 +37,45 @@ export function plotMargin({ rightAxis = false } = {}) {
 }
 
 /**
+ * Legend above the plot, aligned left.
+ *
+ * The modebar occupies the top-right of the graph, so a legend anchored in that
+ * corner — inside the plot or in the margin above it — is covered by the zoom
+ * and pan buttons exactly while the pointer is on the chart and the legend is
+ * being read. Left of the modebar there is nothing to collide with.
+ *
+ * For a legend whose length follows the design, such as one entry per layer, use
+ * `legendInsideLeft` instead: laid out horizontally it would wrap across the
+ * plot.
+ *
+ * @param {object} [font] colour and any size override
+ */
+export function legendAbove(font) {
+    return {
+        orientation: 'h',
+        x: 0, xanchor: 'left', y: 1.02, yanchor: 'bottom',
+        font: { size: 10, ...font },
+        bgcolor: 'rgba(0,0,0,0)',
+    };
+}
+
+/**
+ * Legend stacked inside the plot's top-left corner, clear of the modebar, for a
+ * list too long to run along the top.
+ *
+ * @param {object} colors `panel` and `border` for the backing plate
+ * @param {object} [font] colour and any size override
+ */
+export function legendInsideLeft(colors, font) {
+    return {
+        x: 0.01, xanchor: 'left', y: 1, yanchor: 'top',
+        font: { size: 10, ...font },
+        bgcolor: colors.panel + 'cc', bordercolor: colors.border, borderwidth: 1,
+        tracegroupgap: 2,
+    };
+}
+
+/**
  * Modebar shown on every analysis plot. The box and lasso selection tools are
  * dropped: nothing in these windows acts on a selection.
  *

@@ -1,5 +1,6 @@
 import { xAxisLabel, surfaceAxisLabel } from '../../../../utils/physics/plotQuantities.js';
 import { drawPlot, usePlotTeardown } from '../../../ui/plotSurface.js';
+import { axisTitle, chartConfig, plotMargin, TICK_FONT } from '../chrome/plot.js';
 
 const { createElement: h, useMemo, useEffect, useRef } = React;
 
@@ -26,16 +27,16 @@ function buildCurveLayout(c, xAxisType) {
     return {
         paper_bgcolor: c.panel || '#252526',
         plot_bgcolor: c.bg || '#1e1e1e',
-        margin: { l: 56, r: 16, t: 16, b: 44 },
+        margin: plotMargin(),
         xaxis: {
-            title: { text: xAxisLabel(xAxisType), font: { color: c.text, size: 12 } },
+            title: axisTitle(xAxisLabel(xAxisType), { color: c.text }),
             color: c.text, gridcolor: c.border, zerolinecolor: c.border,
-            tickfont: { color: c.text, size: 10 },
+            tickfont: { color: c.text, ...TICK_FONT },
         },
         yaxis: {
-            title: { text: 'T / R / A', font: { color: c.text, size: 12 } },
+            title: axisTitle('T / R / A', { color: c.text }),
             color: c.text, gridcolor: c.border, zerolinecolor: c.border,
-            tickfont: { color: c.text, size: 10 },
+            tickfont: { color: c.text, ...TICK_FONT },
             range: [0, 1.02],
         },
         legend: { orientation: 'h', x: 0, y: 1.08, font: { color: c.text, size: 10 }, bgcolor: 'rgba(0,0,0,0)' },
@@ -53,7 +54,7 @@ export function MultiCurveChart({ curves, results, c }) {
     // plotSurface.js for why both matter.
     useEffect(() => {
         drawPlot(divRef.current, initRef, traces, buildCurveLayout(c, xAxisType),
-            { responsive: true, displayModeBar: false });
+            chartConfig('curves'));
     });
 
     usePlotTeardown(divRef, initRef);
@@ -87,7 +88,9 @@ export function buildSurfaceFigure(result, spec, design, c) {
     const layout = {
         paper_bgcolor: c.panel || '#252526',
         plot_bgcolor: c.bg || '#1e1e1e',
-        margin: spec.render === 'heatmap' ? { l: 60, r: 16, t: 16, b: 50 } : { l: 0, r: 0, t: 0, b: 0 },
+        // A 3D surface draws its own axes inside the scene, so it takes the whole
+        // element; a heat map is a normal 2D plot and keeps the shared margins.
+        margin: spec.render === 'heatmap' ? plotMargin() : { l: 0, r: 0, t: 0, b: 0 },
         font: { color: c.text },
     };
     if (spec.render === 'heatmap') {
@@ -137,7 +140,7 @@ function useSurfaceFigure(divRef, initRef, renderRef, figure) {
             Plotly.purge(gd);
             initRef.current = false;
         }
-        const config = { responsive: true, displayModeBar: true };
+        const config = chartConfig('surface');
         if (initRef.current) Plotly.react(gd, figure.traces, figure.layout, config);
         else Plotly.newPlot(gd, figure.traces, figure.layout, config);
         initRef.current = true;

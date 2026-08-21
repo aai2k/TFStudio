@@ -1,5 +1,6 @@
 import { buildSweepFigure } from './sweepFigure.js';
 import { drawPlot, usePlotTeardown } from '../../../ui/plotSurface.js';
+import { chartConfig } from '../chrome/plot.js';
 
 const { createElement: h, useEffect, useRef } = React;
 
@@ -12,8 +13,7 @@ export function SweepHeatmap({ sweepData, channel, c }) {
     useEffect(() => {
         const { data, layout } = buildSweepFigure(sweepData, channel,
             { text: c.text, border: c.border, panel: c.panel, bg: c.bg });
-        drawPlot(divRef.current, initRef, data, layout,
-            { responsive: true, displayModeBar: false });
+        drawPlot(divRef.current, initRef, data, layout, chartConfig('deviation_sweep'));
     });
 
     usePlotTeardown(divRef, initRef);

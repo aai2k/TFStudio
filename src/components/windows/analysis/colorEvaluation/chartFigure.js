@@ -2,6 +2,7 @@ import { ANALYSIS_DEFAULTS } from '../../../../constants/analysisDefaults.js';
 import { drawPlot, usePlotTeardown } from '../../../ui/plotSurface.js';
 import { useAnalysisColors } from '../../../../state/AnalysisSettingsContext.js';
 import { spectralLocusXy } from '../../../../utils/physics/colorimetry.js';
+import { legendAbove } from '../chrome/plot.js';
 
 const { createElement: h, useEffect, useMemo, useRef } = React;
 
@@ -76,8 +77,7 @@ export function chromaticityLayout(c) {
     yaxis: { title: { text: 'y', standoff: 6 }, range: [-0.05, 0.9],
              gridcolor: grid, zerolinecolor: grid, tickfont: { size: 10 },
              scaleanchor: 'x', scaleratio: 1 },
-    legend: { bgcolor: paper + 'cc', bordercolor: grid, borderwidth: 1,
-              font: { size: 10 }, x: 1, xanchor: 'right', y: 1, yanchor: 'top' },
+    legend: legendAbove({ color: txt }),
     showlegend: true
   };
 }

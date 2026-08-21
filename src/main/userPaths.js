@@ -1,4 +1,5 @@
-// Registry of the user-data directories (designs, materials, presets, branding).
+// Registry of the user-data directories (designs, materials, presets, branding,
+// preferences).
 //
 // Each folder has a default under the OS Documents folder and an optional
 // user-chosen override persisted in settings.json. Consumers must read a
@@ -19,6 +20,7 @@ const FOLDER_SPECS = [
   { key: 'integrals',      ctxKey: 'integralsDir',      subdir: 'IntegralPresets' },
   { key: 'reportPresets',  ctxKey: 'reportPresetsDir',  subdir: 'ReportPresets' },
   { key: 'branding',       ctxKey: 'brandingDir',       subdir: 'Branding' },
+  { key: 'preferences',    ctxKey: 'preferencesDir',    subdir: 'Preferences' },
 ];
 
 const FOLDER_KEYS = FOLDER_SPECS.map(spec => spec.key);

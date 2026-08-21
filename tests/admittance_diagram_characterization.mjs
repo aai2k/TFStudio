@@ -157,12 +157,19 @@ assert.deepEqual(matColorMap, {
     'builtin:Au': '#ef5350',
     'builtin:SiO2': '#66bb6a',
 });
-const traces = admittanceTraces(front, matColorMap, { text: '#eee' });
+// The legend carries the material each arc belongs to: it is the only thing
+// that says which locus is which, and the window no longer has a colour key
+// beside the plot.
+const traces = admittanceTraces(front, matColorMap, matNames, { text: '#eee' });
 assert.equal(traces.length, 18);
 assert.deepEqual(traces.map(trace => trace.name ?? null), [
-    'L3 (s)', null, 'L2 (s)', null, 'L1 (s)', null, 'η_s (s)', 'Y₀ (s)', 'η₀ (s)',
-    'L3 (p)', null, 'L2 (p)', null, 'L1 (p)', null, 'η_s (p)', 'Y₀ (p)', 'η₀ (p)',
+    'L3 Silica (s)', null, 'L2 Gold (s)', null, 'L1 Titania (s)', null,
+    'η_s (s)', 'Y₀ (s)', 'η₀ (s)',
+    'L3 Silica (p)', null, 'L2 Gold (p)', null, 'L1 Titania (p)', null,
+    'η_s (p)', 'Y₀ (p)', 'η₀ (p)',
 ]);
+assert.deepEqual(admittanceTraces(front, matColorMap, {}, { text: '#eee' })[0].name, 'L3 (s)',
+    'a material with no resolvable name still labels its layer');
 const layout = admittanceLayout(front, { panel: '#222', bg: '#111', text: '#eee', border: '#333' });
 assert.deepEqual([layout.xaxis.range, layout.yaxis.range], [
     [0.5130008271945941, 5.844848240444959],
@@ -174,6 +181,6 @@ const html = renderToStaticMarkup(withDesign(
     React.createElement(AdmittanceDiagram, { c, theme: c, t: makeLocale() }),
     makeSampleDesign(),
 ));
-assert.equal(createHash('sha256').update(html).digest('hex').slice(0, 16), '643e1d94bd36b357');
+assert.equal(createHash('sha256').update(html).digest('hex').slice(0, 16), 'b700dfbf7713537b');
 
 console.log('PASS: admittance_diagram_characterization');

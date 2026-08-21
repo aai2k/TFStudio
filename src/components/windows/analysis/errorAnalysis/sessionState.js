@@ -17,4 +17,13 @@ export const errorAnalysisSession = createWindowSession({
     keepOPT: false,
     showEnvelope: false,
     result: null,
-}, { scope: 'design' });
+    showTable: false,
+}, {
+    scope: 'design',
+    id: 'errorAnalysis',
+    savable: [
+        'params', 'char', 'nTrials', 'corridorSigma',
+        'rmsAbsNm', 'rmsRelPct', 'rmsReN', 'rmsImN',
+        'distribution', 'perMaterial', 'keepOPT', 'showEnvelope', 'showTable',
+    ],
+});

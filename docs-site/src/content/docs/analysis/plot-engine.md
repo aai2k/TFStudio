@@ -8,9 +8,9 @@ The Plot Engine is a flexible plotting workbench. In **2D** mode you overlay as
 many curves as you like on one chart, each with its own settings: for example T
 at 0° s-pol beside T at 45° p-pol beside R for the total system. In **3D**
 mode you map a single quantity over two swept variables as a rotatable surface or
-a heatmap, including the merit-function landscape your design sits in. The sidebar
-toggle switches modes, and each design's plots are remembered as you move between
-windows.
+a heatmap, including the merit-function landscape your design sits in. The 2D / 3D
+switch on the control row changes modes, and each design's plots are remembered as
+you move between windows.
 
 ## Settings
 
