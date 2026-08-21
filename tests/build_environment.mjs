@@ -75,6 +75,16 @@ const existsSync = value => value === `${powerShellDir}\\powershell.exe`;
     'docs-site dependencies are checked by version, not by directory presence');
   ok(!/Test-Path \(Join-Path \$proj "node_modules\\\\\$dep"\)/.test(releaseScript),
     'the per-directory dependency probe is gone');
+  // Windows PowerShell turns a native command's stderr into error records, and
+  // the script runs with $ErrorActionPreference = 'Stop'. Piping npm's stderr
+  // therefore aborted the build on a stale tree rather than installing it: the
+  // check killed the run in the one case it exists to catch.
+  ok(!/npm[^\r\n]*ls --depth=0 2>&1/.test(releaseScript),
+    'the dependency checks do not pipe npm stderr into the terminating-error stream');
+  for (const check of ['npm ls --depth=0', 'npm --prefix docs-site ls --depth=0']) {
+    ok(new RegExp(`Test-ExitZero \\{ ${check.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')} \\}`).test(releaseScript),
+      `"${check}" is judged by its exit code alone, so a stale tree is installed rather than fatal`);
+  }
 }
 
 {

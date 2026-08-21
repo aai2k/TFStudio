@@ -58,6 +58,21 @@ Set-Location $proj
 function Section($msg) { Write-Host "`n=== $msg ===" -ForegroundColor Cyan }
 function Have-Cmd([string]$name) { [bool](Get-Command $name -ErrorAction SilentlyContinue) }
 
+# Run a check and report only whether it exited zero.
+#
+# npm reports dependency problems on stderr, and Windows PowerShell turns a
+# native command's stderr into error records. Under $ErrorActionPreference =
+# 'Stop' those abort the script before its exit code can be read, so a check
+# would kill the build in exactly the case it exists to detect instead of
+# reaching its own repair step. Errors are non-terminating here and every
+# stream is discarded, leaving the exit code as the only signal.
+function Test-ExitZero([scriptblock]$Check) {
+    $previous = $ErrorActionPreference
+    $ErrorActionPreference = 'Continue'
+    try { & $Check *>$null } finally { $ErrorActionPreference = $previous }
+    return $LASTEXITCODE -eq 0
+}
+
 function Get-WslBuildError {
     if (-not (Have-Cmd 'wsl')) {
         return 'wsl.exe is not on PATH. Install WSL with: wsl --install -d Ubuntu'
@@ -320,12 +335,9 @@ try {
     if (-not (Test-Path (Join-Path $proj 'node_modules'))) {
         Write-Host "node_modules missing -> installing." -ForegroundColor Yellow
         $needInstall = $true
-    } else {
-        & npm ls --depth=0 2>&1 | Out-Null
-        if ($LASTEXITCODE -ne 0) {
-            Write-Host "Installed dependencies do not match package.json -> running npm install." -ForegroundColor Yellow
-            $needInstall = $true
-        }
+    } elseif (-not (Test-ExitZero { npm ls --depth=0 })) {
+        Write-Host "Installed dependencies do not match package.json -> running npm install." -ForegroundColor Yellow
+        $needInstall = $true
     }
     if ($needInstall) {
         & npm install
@@ -338,8 +350,7 @@ try {
     # The docs site is a nested npm package (Astro); the root install does not
     # touch it. Its build needs the local astro binary.
     Section "Provisioning: docs-site dependencies"
-    & npm --prefix docs-site ls --depth=0 2>&1 | Out-Null
-    if ($LASTEXITCODE -eq 0) {
+    if (Test-ExitZero { npm --prefix docs-site ls --depth=0 }) {
         Write-Host "docs-site dependencies present." -ForegroundColor Green
     } else {
         Write-Host "Installing docs-site dependencies (astro)..." -ForegroundColor Yellow
