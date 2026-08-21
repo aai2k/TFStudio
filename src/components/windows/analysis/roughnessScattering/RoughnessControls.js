@@ -1,15 +1,27 @@
-import { ActionButton, ChoiceGroup, FieldLabel, NumInput, RangeField } from '../chrome/controls.js';
+import {
+    ActionButton, ChoiceGroup, CurveToggleGroup, FieldLabel, NumInput, RangeField,
+} from '../chrome/controls.js';
 import { ControlRow, EditorBody, EditorGroupTitle, FieldGrid } from '../chrome/layout.js';
 import { NoticeBadge, SettingRow, SettingsMenu } from '../chrome/popover.js';
+import { useAnalysisColors } from '../../../../state/AnalysisSettingsContext.js';
 
 const { createElement: h } = React;
 
+// Same shape as Optical Evaluation's. There is no A group: absorption is not
+// what scattering removes, and the window's second axis is TIS.
+const CURVE_GROUPS = [
+    { q: 'T', members: [{ pol: 'avg', key: 'T' }, { pol: 's', key: 'Ts' }, { pol: 'p', key: 'Tp' }] },
+    { q: 'R', members: [{ pol: 'avg', key: 'R' }, { pol: 's', key: 'Rs' }, { pol: 'p', key: 'Rp' }] },
+];
+
 /**
- * Which scale the scattered fraction is read on. The spectral range and the
- * geometry are settings; the roughness itself is edited in the strip below the
- * plot, because there is one value per interface.
+ * Which curves are drawn and which scale the scattered fraction is read on. The
+ * spectral range and the geometry are settings; the roughness itself is edited
+ * in the strip below the plot, because there is one value per interface.
  */
 export function RoughnessControls({ c, t, rs, state, notices }) {
+    const colors = useAnalysisColors('roughnessScattering');
+    const labels = { avg: rs.polAvg, s: 's', p: 'p' };
     return h(ControlRow, {
         c,
         trailing: [
@@ -17,21 +29,21 @@ export function RoughnessControls({ c, t, rs, state, notices }) {
             h(RoughnessSetup, { key: 'setup', c, t, rs, state }),
         ],
     },
+        CURVE_GROUPS.map(group => h(CurveToggleGroup, {
+            key: group.q, c,
+            quantity: group.q,
+            color: colors[group.members[0].key],
+            members: group.members,
+            active: state.showCurves,
+            onToggle: state.toggleCurve,
+            labels,
+        })),
         h(ChoiceGroup, {
             label: rs.scale, ariaLabel: rs.scale,
             activeId: state.units, onSelect: state.setUnits, c,
             items: [
                 { id: 'ppm', label: 'ppm' },
                 { id: 'frac', label: 'frac' },
-            ],
-        }),
-        h(ChoiceGroup, {
-            label: rs.polarization, ariaLabel: rs.polarization,
-            activeId: state.pol, onSelect: state.setPol, c,
-            items: [
-                { id: 'avg', label: 'avg' },
-                { id: 's', label: 's' },
-                { id: 'p', label: 'p' },
             ],
         }),
     );

@@ -8,20 +8,22 @@ export const inhomogeneityDesignSession = createWindowSession({
 }, { scope: 'design' });
 
 // How the result is plotted is a display preference and carries across designs.
+//
+// The step matches the shared spectral default: grading an interface moves band
+// edges by a few nanometres, and a 5 nm grid drew the difference as a staircase.
 export const inhomogeneityViewSession = createWindowSession({
-    channel: 'all',
+    showCurves: { T: true, R: true, A: true, Ts: false, Rs: false, Tp: false, Rp: false },
     lambdaStart: 400,
     lambdaEnd: 800,
-    lambdaStep: 5,
+    lambdaStep: 2,
     aoi: 0,
-    pol: 'avg',
     // The interface editor is what this window is for, so its strip starts open.
     showEditor: true,
     showTable: false,
 }, {
     id: 'inhomogeneities',
     savable: [
-        'channel', 'lambdaStart', 'lambdaEnd', 'lambdaStep', 'aoi', 'pol',
+        'showCurves', 'lambdaStart', 'lambdaEnd', 'lambdaStep', 'aoi',
         'showEditor', 'showTable',
     ],
 });

@@ -82,11 +82,23 @@ export function calculateRoughness({ design, params, rough, evalMode, aoi, conte
         const sigmaEff = effectiveRoughness(sigmaList);
         const TIS_per_R = tisSpectrum(spec.lambda, sigmaEff, aoi, null);
         const TIS_inc = tisSpectrum(spec.lambda, sigmaEff, aoi, spec.R);
-        const { R_spec, T_spec } = applyScatteringLoss(spec.lambda, spec.R, spec.T, sigmaEff, aoi);
+
+        // The spectrum carries every polarization, so the scattered fraction is
+        // removed from each of them and the curve switches cost no extra TMM.
+        const ideal = {};
+        const specular = {};
+        for (const [rKey, tKey] of [['R', 'T'], ['Rs', 'Ts'], ['Rp', 'Tp']]) {
+            if (!spec[rKey] || !spec[tKey]) continue;
+            const loss = applyScatteringLoss(spec.lambda, spec[rKey], spec[tKey], sigmaEff, aoi);
+            ideal[rKey] = spec[rKey];
+            ideal[tKey] = spec[tKey];
+            specular[rKey] = loss.R_spec;
+            specular[tKey] = loss.T_spec;
+        }
+
         return { data: {
             lambda: spec.lambda,
-            R: spec.R, T: spec.T,
-            R_spec, T_spec,
+            ideal, specular,
             TIS_per_R, TIS_inc,
             sigmaEff,
             sigmas: sigmaList,

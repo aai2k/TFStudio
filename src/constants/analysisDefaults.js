@@ -136,7 +136,11 @@ export const ANALYSIS_DEFAULTS = {
   },
 
   inhomogeneities: {
-    colors: { T: '#4fc3f7', R: '#ef5350', A: '#66bb6a' },
+    colors: {
+      T: '#4fc3f7', R: '#ef5350', A: '#66bb6a',
+      Ts: '#81d4fa', Rs: '#ef9a9a',
+      Tp: '#0288d1', Rp: '#c62828',
+    },
   },
 
   systematicDeviations: {
@@ -144,7 +148,11 @@ export const ANALYSIS_DEFAULTS = {
   },
 
   roughnessScattering: {
-    colors: { R: '#ef5350', T: '#4fc3f7', tis: '#ffb74d' },
+    colors: {
+      R: '#ef5350', T: '#4fc3f7', tis: '#ffb74d',
+      Ts: '#81d4fa', Rs: '#ef9a9a',
+      Tp: '#0288d1', Rp: '#c62828',
+    },
   },
 };
 

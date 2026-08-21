@@ -44,26 +44,47 @@ const result = calculateRoughness({
 assert.equal(result.error, null);
 assert.deepEqual(result.data.sigmas, [1, 2, 3, 4, 5]);
 assert.equal(result.data.lambda.length, 3);
-assert.equal(result.data.R.length, result.data.lambda.length);
-assert.equal(result.data.T.length, result.data.lambda.length);
 assert.equal(result.data.TIS_inc.length, result.data.lambda.length);
 
-const names = {
-    rIdeal: 'R (ideal)', tIdeal: 'T (ideal)',
-    rSpec: 'R specular', tSpec: 'T specular',
+// The scattered fraction is removed from every polarization, so the curve
+// switches pick one without running the TMM again.
+assert.deepEqual(Object.keys(result.data.ideal).sort(), ['R', 'Rp', 'Rs', 'T', 'Tp', 'Ts']);
+assert.deepEqual(Object.keys(result.data.specular).sort(), ['R', 'Rp', 'Rs', 'T', 'Tp', 'Ts']);
+for (const key of ['R', 'T', 'Rs', 'Ts', 'Rp', 'Tp']) {
+    assert.equal(result.data.specular[key].length, result.data.lambda.length);
+    assert.equal(result.data.specular[key][0] <= result.data.ideal[key][0], true,
+        `${key}: scattering can only take light out of the specular beam`);
+}
+
+const names = { ideal: 'ideal', specular: 'specular' };
+const calc = {
+    lambda: [500, 600],
+    ideal: { R: [0.1, 0.2], T: [0.8, 0.7], Rs: [0.11, 0.21], Ts: [0.79, 0.69] },
+    specular: { R: [0.09, 0.18], T: [0.72, 0.63], Rs: [0.1, 0.19], Ts: [0.71, 0.62] },
+    TIS_inc: [1e-6, 2e-6],
 };
 const traces = buildScatterTraces({
-    lambda: [500, 600], R: [0.1, 0.2], T: [0.8, 0.7],
-    R_spec: [0.09, 0.18], T_spec: [0.72, 0.63], TIS_inc: [1e-6, 2e-6], units: 'ppm', names,
+    calc, showCurves: { T: true, R: true }, units: 'ppm', names,
 });
 // The legend is localized, so the names come in rather than being baked in here.
 assert.deepEqual(traces.map(trace => trace.name), [
-    'R (ideal)', 'T (ideal)', 'R specular', 'T specular', 'TIS (ppm)',
+    'T ideal', 'T specular', 'R ideal', 'R specular', 'TIS (ppm)',
 ]);
-assert.deepEqual(traces[0].y, [10, 20]);
-assert.deepEqual(traces[4].y, [1, 2]);
-assert.equal(traces[4].yaxis, 'y2');
-assert.deepEqual(buildScatterTraces({ lambda: [] }), []);
+assert.deepEqual(traces[2].y, [10, 20]);
+assert.deepEqual(traces.at(-1).y, [1, 2]);
+assert.equal(traces.at(-1).yaxis, 'y2');
+
+// A polarization draws its own pair; TIS is always there because it is the
+// quantity the window exists to show.
+assert.deepEqual(
+    buildScatterTraces({ calc, showCurves: { Rs: true }, units: 'ppm', names })
+        .map(trace => trace.name),
+    ['Rs ideal', 'Rs specular', 'TIS (ppm)']);
+assert.deepEqual(
+    buildScatterTraces({ calc, showCurves: { Tp: true }, units: 'ppm', names })
+        .map(trace => trace.name),
+    ['TIS (ppm)'], 'a curve the result does not carry is skipped rather than drawn empty');
+assert.deepEqual(buildScatterTraces({ calc: { lambda: [] } }), []);
 assert.equal(buildScatterLayout(makeTheme(), 'frac').yaxis2.title.text, 'TIS (fraction)');
 
 const c = makeTheme();
@@ -71,7 +92,7 @@ const html = renderToStaticMarkup(withDesign(
     React.createElement(RoughnessScattering, { c, t: makeLocale(), theme: c })
 ));
 const hash = createHash('sha256').update(html).digest('hex').slice(0, 16);
-assert.equal(hash, '5f1abfa6a935cf49');
+assert.equal(hash, '2cc91f12c4a32f1a');
 
 const backOnlyDesign = makeSampleDesign();
 backOnlyDesign.frontLayers = [];

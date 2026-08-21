@@ -39,8 +39,8 @@ export function Inhomogeneities({ c, theme, t }) {
     const { design, evalMode, inh } = state;
     const ih = t.inhomogeneities;
     const dt = t.dataTable;
-    const columns = overlayColumns(t, state.channel);
-    const rows = overlayRows(state.baseline, state.perturbed, state.channel);
+    const columns = overlayColumns(t, state.showCurves);
+    const rows = overlayRows(state.baseline, state.perturbed, state.showCurves);
     const csv = useCsvExport(
         () => csvFromRows(columns, rows),
         () => `${(design?.name || 'design').replace(/[^\w.-]+/g, '_')}_interlayers.csv`,
@@ -56,7 +56,7 @@ export function Inhomogeneities({ c, theme, t }) {
         h(PlotArea, null,
             h(OverlayChart, {
                 baseline: state.baseline, perturbed: state.perturbed,
-                channel: state.channel, c, t,
+                showCurves: state.showCurves, c, t,
             }),
         ),
         h(ResultsSection, {

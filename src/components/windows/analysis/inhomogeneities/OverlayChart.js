@@ -5,7 +5,7 @@ import { chartConfig } from '../chrome/plot.js';
 
 const { createElement: h, useEffect, useMemo, useRef } = React;
 
-export function OverlayChart({ baseline, perturbed, channel, c, t }) {
+export function OverlayChart({ baseline, perturbed, showCurves, c, t }) {
     const divRef = useRef(null);
     const initRef = useRef(false);
     const curve = useAnalysisColors('inhomogeneities');
@@ -14,8 +14,8 @@ export function OverlayChart({ baseline, perturbed, channel, c, t }) {
         graded: t.inhomogeneities.traceWithInterlayers,
     };
     const traces = useMemo(
-        () => buildOverlayTraces(baseline, perturbed, channel, curve, names),
-        [baseline, perturbed, channel, curve, t],
+        () => buildOverlayTraces(baseline, perturbed, showCurves, curve, names),
+        [baseline, perturbed, showCurves, curve, t],
     );
     const config = chartConfig('interlayers');
     // No dependency list, and the layout is rebuilt rather than memoized: see

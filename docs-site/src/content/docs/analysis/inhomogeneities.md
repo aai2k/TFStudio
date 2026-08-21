@@ -21,9 +21,11 @@ both for total.
 
 **λ range / step**: the wavelength grid, in nanometres.
 
-**AOI / pol**: angle of incidence and polarization (s, p, or averaged).
+**AOI**: angle of incidence.
 
-**T+R+A / T / R / A**: which channel(s) to plot.
+**T / R / A**: which curves to draw, with **avg**, **s** and **p** inside each.
+Every polarization is computed together, so switching one on adds a curve rather
+than replacing the averaged one, and costs nothing.
 
 ## Interfaces
 

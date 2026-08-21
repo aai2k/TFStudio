@@ -5,19 +5,16 @@ import { chartConfig } from '../chrome/plot.js';
 
 const { createElement: h, useEffect, useMemo, useRef } = React;
 
-export function ScatterChart(props) {
-    const { c, t, units } = props;
+export function ScatterChart({ calc, showCurves, units, c, t }) {
     const rs = t.roughnessScattering;
     const divRef = useRef(null);
     const initRef = useRef(false);
     const curve = useAnalysisColors('roughnessScattering');
-    const names = {
-        rIdeal: rs.traceRIdeal, tIdeal: rs.traceTIdeal,
-        rSpec: rs.traceRSpec, tSpec: rs.traceTSpec,
-    };
-    const traces = useMemo(() => buildScatterTraces({ ...props, names, colors: curve }), [
-        props.lambda, props.R, props.T, props.R_spec, props.T_spec, props.TIS_inc, units, curve, t,
-    ]);
+    const names = { ideal: rs.traceIdeal, specular: rs.traceSpecular };
+    const traces = useMemo(
+        () => buildScatterTraces({ calc, showCurves, units, names, colors: curve }),
+        [calc, showCurves, units, curve, t],
+    );
     const config = chartConfig('scattering');
     // No dependency list, and the layout is rebuilt rather than memoized: see
     // plotSurface.js for why both matter.

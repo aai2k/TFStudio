@@ -65,14 +65,16 @@ export function useInhomogeneities() {
     }, [setDesignField]);
 
     const [view, setViewField] = useWindowSession(inhomogeneityViewSession, design);
-    const { channel, lambdaStart, lambdaEnd, lambdaStep, aoi, pol, showEditor, showTable } = view;
+    const { showCurves, lambdaStart, lambdaEnd, lambdaStep, aoi, showEditor, showTable } = view;
     const [error, setError] = useState(null);
     const activeSides = activeDesignSides(design, evalMode);
     const hasBack = (design?.backLayers?.length || 0) > 0;
     const interfaces = useMemo(() => designInterfaces(design), [design]);
+    // Always averaged: the spectrum carries Ts/Tp and Rs/Rp alongside, so the
+    // curve switches pick a polarization without recomputing anything.
     const params = useMemo(() => ({
-        lambdaStart, lambdaEnd, lambdaStep, theta: aoi, polarization: pol,
-    }), [lambdaStart, lambdaEnd, lambdaStep, aoi, pol]);
+        lambdaStart, lambdaEnd, lambdaStep, theta: aoi, polarization: 'avg',
+    }), [lambdaStart, lambdaEnd, lambdaStep, aoi]);
 
     const { baseline, perturbed } = useMemo(
         () => computeSpectraState(design, params, inh, evalMode, setError),
@@ -92,12 +94,13 @@ export function useInhomogeneities() {
 
     return {
         design, evalMode, inh,
-        channel, setChannel: value => setViewField('channel', value),
+        showCurves,
+        toggleCurve: key => setViewField('showCurves',
+            current => ({ ...current, [key]: !current[key] })),
         lambdaStart, setLambdaStart: value => setViewField('lambdaStart', value),
         lambdaEnd, setLambdaEnd: value => setViewField('lambdaEnd', value),
         lambdaStep, setLambdaStep: value => setViewField('lambdaStep', value),
         aoi, setAoi: value => setViewField('aoi', value),
-        pol, setPol: value => setViewField('pol', value),
         showEditor, setShowEditor: value => setViewField('showEditor', value),
         showTable, setShowTable: value => setViewField('showTable', value),
         error, activeSides, hasBack, interfaces, baseline, perturbed, specInputs,

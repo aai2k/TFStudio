@@ -1,8 +1,9 @@
 import { PROFILE_IDS } from '../../../../utils/physics/inhomogeneity.js';
 import { Checkbox } from '../../../ui/Checkbox.js';
 import {
-    ActionButton, ChoiceGroup, NumInput, RangeField, SelectField,
+    ActionButton, CurveToggleGroup, NumInput, RangeField, SelectField,
 } from '../chrome/controls.js';
+import { useAnalysisColors } from '../../../../state/AnalysisSettingsContext.js';
 import { ControlRow, EditorBody, EditorGroupTitle } from '../chrome/layout.js';
 import { NoticeBadge, SettingRow, SettingsMenu } from '../chrome/popover.js';
 
@@ -12,12 +13,23 @@ const { createElement: h } = React;
 // window is resized. The interface name takes whatever width is left over.
 const COLUMNS = 'minmax(120px, 1fr) 70px 110px 60px 20px';
 
+// Same shape as Optical Evaluation's: one pill per quantity, one button per
+// polarization inside it. Every polarization is already in the computed
+// spectrum, so switching one on costs nothing.
+const CURVE_GROUPS = [
+    { q: 'T', members: [{ pol: 'avg', key: 'T' }, { pol: 's', key: 'Ts' }, { pol: 'p', key: 'Tp' }] },
+    { q: 'R', members: [{ pol: 'avg', key: 'R' }, { pol: 's', key: 'Rs' }, { pol: 'p', key: 'Rp' }] },
+    { q: 'A', members: [{ pol: 'avg', key: 'A' }] },
+];
+
 /**
- * Which spectrum is overlaid. The interlayers themselves are edited in the
- * strip below the plot: there is one row per interface, and a hundred-layer
- * stack has a hundred of them.
+ * Which curves are overlaid. The interlayers themselves are edited in the strip
+ * below the plot: there is one row per interface, and a hundred-layer stack has
+ * a hundred of them.
  */
 export function InhomogeneityControls({ c, t, ih, state, notices }) {
+    const colors = useAnalysisColors('inhomogeneities');
+    const labels = { avg: ih.polAvg, s: 's', p: 'p' };
     return h(ControlRow, {
         c,
         trailing: [
@@ -25,25 +37,15 @@ export function InhomogeneityControls({ c, t, ih, state, notices }) {
             h(InhomogeneitySetup, { key: 'setup', c, t, ih, state }),
         ],
     },
-        h(ChoiceGroup, {
-            label: ih.channel, ariaLabel: ih.channel,
-            activeId: state.channel, onSelect: state.setChannel, c,
-            items: [
-                { id: 'all', label: 'T+R+A' },
-                { id: 'T', label: 'T' },
-                { id: 'R', label: 'R' },
-                { id: 'A', label: 'A' },
-            ],
-        }),
-        h(ChoiceGroup, {
-            label: ih.polarization, ariaLabel: ih.polarization,
-            activeId: state.pol, onSelect: state.setPol, c,
-            items: [
-                { id: 'avg', label: 'avg' },
-                { id: 's', label: 's' },
-                { id: 'p', label: 'p' },
-            ],
-        }),
+        CURVE_GROUPS.map(group => h(CurveToggleGroup, {
+            key: group.q, c,
+            quantity: group.q,
+            color: colors[group.members[0].key],
+            members: group.members,
+            active: state.showCurves,
+            onToggle: state.toggleCurve,
+            labels,
+        })),
     );
 }
 

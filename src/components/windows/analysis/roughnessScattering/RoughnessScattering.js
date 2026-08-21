@@ -32,8 +32,8 @@ export function RoughnessScattering({ c, theme, t }) {
     const { design, calc, units } = state;
     const rs = t.roughnessScattering;
     const dt = t.dataTable;
-    const columns = scatterColumns(t, units);
-    const rows = scatterRows(calc);
+    const columns = scatterColumns(t, units, state.showCurves, calc);
+    const rows = scatterRows(calc, state.showCurves);
     const rangeNotice = useMaterialRangeNotice(design, state.lambdaStart, state.lambdaEnd, t);
     const csv = useCsvExport(
         () => csvFromRows(columns, rows),
@@ -49,11 +49,7 @@ export function RoughnessScattering({ c, theme, t }) {
         }),
         h(PlotArea, null,
             calc
-                ? h(ScatterChart, {
-                    lambda: calc.lambda, R: calc.R, T: calc.T,
-                    R_spec: calc.R_spec, T_spec: calc.T_spec,
-                    TIS_inc: calc.TIS_inc, units, c, t,
-                })
+                ? h(ScatterChart, { calc, showCurves: state.showCurves, units, c, t })
                 : h(CenteredMessage, { c, message: rs.computing }),
         ),
         h(ResultsSection, {

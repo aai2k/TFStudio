@@ -19,11 +19,18 @@ const t = makeLocale();
 const html = renderToStaticMarkup(withDesign(
     React.createElement(Inhomogeneities, { c, t, theme: c }),
 ));
-assert.equal(createHash('sha256').update(html).digest('hex').slice(0, 16), '6c001ac2bd5d4697');
+assert.equal(createHash('sha256').update(html).digest('hex').slice(0, 16), '95be4f034e5ee3ad');
 
-const baseline = { lambda: [500], T: [0.4], R: [0.5], A: [0.1] };
-const perturbed = { lambda: [500], T: [0.3], R: [0.55], A: [0.15] };
-const traces = figure.buildOverlayTraces(baseline, perturbed, 'all');
+const baseline = {
+    lambda: [500], T: [0.4], R: [0.5], A: [0.1],
+    Ts: [0.42], Rs: [0.48], Tp: [0.38], Rp: [0.52],
+};
+const perturbed = {
+    lambda: [500], T: [0.3], R: [0.55], A: [0.15],
+    Ts: [0.32], Rs: [0.53], Tp: [0.28], Rp: [0.57],
+};
+const allOn = { T: true, R: true, A: true };
+const traces = figure.buildOverlayTraces(baseline, perturbed, allOn);
 assert.deepEqual(traces.map(trace => trace.name), [
     'T homogeneous', 'T with interlayers',
     'R homogeneous', 'R with interlayers',
@@ -39,9 +46,24 @@ assert.deepEqual(traces.map(trace => trace.line), [
 ]);
 assert.deepEqual(traces.map(trace => trace.y), [[40], [30], [50], [55.00000000000001], [10], [15]]);
 
+// A polarization is picked from the spectrum that was already computed, so it
+// draws a curve of its own rather than replacing T and R.
+assert.deepEqual(
+    figure.buildOverlayTraces(baseline, perturbed, { T: true, Ts: true, Tp: true })
+        .map(trace => trace.name),
+    [
+        'T homogeneous', 'T with interlayers',
+        'Ts homogeneous', 'Ts with interlayers',
+        'Tp homogeneous', 'Tp with interlayers',
+    ]);
+assert.deepEqual(figure.enabledOverlayCurves({ A: true, R: true, Ts: true }), ['Ts', 'R', 'A'],
+    'the drawing order follows the control row, not the order the keys were set');
+assert.deepEqual(figure.buildOverlayTraces(baseline, perturbed, {}), [],
+    'switching every curve off leaves an empty plot rather than falling back to all of them');
+
 // The legend is localized: the window passes the locale's wording through.
 assert.deepEqual(
-    figure.buildOverlayTraces(baseline, perturbed, 'T', undefined,
+    figure.buildOverlayTraces(baseline, perturbed, { T: true }, undefined,
         { homogeneous: 'однородн.', graded: 'с переходными' }).map(trace => trace.name),
     ['T однородн.', 'T с переходными']);
 

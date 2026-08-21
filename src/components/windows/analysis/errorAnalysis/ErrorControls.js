@@ -1,6 +1,9 @@
-import { CheckField, ChoiceGroup, FieldLabel, NumInput, RangeField, SelectField } from '../chrome/controls.js';
+import {
+    CheckField, ChoiceGroup, FieldLabel, NumInput, RangeField, SelectField, ToggleButton,
+} from '../chrome/controls.js';
 import { ControlRow, EditorBody, FieldGrid } from '../chrome/layout.js';
 import { NoticeBadge, SettingDivider, SettingRow, SettingsMenu } from '../chrome/popover.js';
+import { useAnalysisColors } from '../../../../state/AnalysisSettingsContext.js';
 
 const { createElement: h } = React;
 
@@ -11,6 +14,7 @@ const { createElement: h } = React;
  * count that was drawn with them.
  */
 export function ErrorControls({ c, t, ea, state, notices, trailing }) {
+    const colors = useAnalysisColors('errorAnalysis');
     return h(ControlRow, {
         c,
         trailing: [
@@ -27,9 +31,12 @@ export function ErrorControls({ c, t, ea, state, notices, trailing }) {
                 { id: 'A', label: 'A' },
             ],
         }),
-        h(CheckField, {
-            c, label: ea.envelope, checked: state.showEnvelope, title: ea.envelopeTip,
-            onChange: event => state.setShowEnvelope(event.target.checked),
+        // A layer of the plot rather than a choice, so it reads as a pressed
+        // button beside the T/R/A switches instead of a bare tick box.
+        h(ToggleButton, {
+            c, label: ea.envelope, active: state.showEnvelope, title: ea.envelopeTip,
+            color: colors[state.char],
+            onClick: () => state.setShowEnvelope(!state.showEnvelope),
         }),
     );
 }

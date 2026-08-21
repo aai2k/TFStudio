@@ -21,7 +21,11 @@ stacks.
 
 **λ range / step**: the wavelength grid, in nanometres.
 
-**AOI / pol**: angle of incidence and polarization (s, p, or averaged).
+**AOI**: angle of incidence.
+
+**T / R**: which curves to draw, with **avg**, **s** and **p** inside each. Each
+one is drawn twice, ideal and specular. Every polarization is computed together,
+so switching one on adds a pair rather than replacing the averaged one.
 
 **ppm / frac**: the units for the TIS axis: parts per million or fraction.
 

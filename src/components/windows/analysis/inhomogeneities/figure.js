@@ -3,19 +3,30 @@ import { axisTitle, plotMargin, TICK_FONT } from '../chrome/plot.js';
 
 const DEFAULT_NAMES = { homogeneous: 'homogeneous', graded: 'with interlayers' };
 
+// Drawing order, so the plot legend follows the switches on the control row.
+export const OVERLAY_CURVES = ['T', 'Ts', 'Tp', 'R', 'Rs', 'Rp', 'A'];
+
+/** Keys switched on, in a fixed order. */
+export function enabledOverlayCurves(showCurves) {
+    return OVERLAY_CURVES.filter(key => showCurves?.[key]);
+}
+
 /**
+ * @param {object} showCurves which of T/R/A and their s and p variants to draw
  * @param {object} [names]  localized legend suffixes
  * @param {object} [colors] configured curve colours; factory defaults when absent
  */
-export function buildOverlayTraces(baseline, perturbed, channel, colors = ANALYSIS_DEFAULTS.inhomogeneities.colors,
+export function buildOverlayTraces(baseline, perturbed, showCurves,
+                                   colors = ANALYSIS_DEFAULTS.inhomogeneities.colors,
                                    names = DEFAULT_NAMES) {
     const COLORS = colors;
     if (!perturbed) return [];
     const traces = [];
-    const wantedKeys = channel === 'all' ? ['T', 'R', 'A'] : [channel];
+    const wantedKeys = enabledOverlayCurves(showCurves);
     const pct = values => values.map(value => value * 100);
     for (const key of wantedKeys) {
-        if (baseline) {
+        if (!perturbed[key]) continue;
+        if (baseline?.[key]) {
             traces.push({
                 x: baseline.lambda, y: pct(baseline[key]),
                 type: 'scatter', mode: 'lines',

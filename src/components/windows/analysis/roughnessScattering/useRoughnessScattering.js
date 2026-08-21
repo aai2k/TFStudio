@@ -20,10 +20,12 @@ export function useRoughnessScattering() {
     }, [setDesignField]);
 
     const [view, setViewField] = useWindowSession(roughnessViewSession, design);
-    const { lambdaStart, lambdaEnd, lambdaStep, aoi, pol, units, showEditor, showTable } = view;
+    const { showCurves, lambdaStart, lambdaEnd, lambdaStep, aoi, units, showEditor, showTable } = view;
+    // Always averaged: the spectrum carries Ts/Tp and Rs/Rp alongside, so the
+    // curve switches pick a polarization without recomputing anything.
     const params = useMemo(() => ({
-        lambdaStart, lambdaEnd, lambdaStep, theta: aoi, polarization: pol,
-    }), [lambdaStart, lambdaEnd, lambdaStep, aoi, pol]);
+        lambdaStart, lambdaEnd, lambdaStep, theta: aoi, polarization: 'avg',
+    }), [lambdaStart, lambdaEnd, lambdaStep, aoi]);
     const context = getRoughnessContext(design, evalMode);
     const labels = useMemo(() => buildInterfaceLabels(design), [design]);
     const result = useMemo(
@@ -53,7 +55,9 @@ export function useRoughnessScattering() {
         lambdaEnd, setLambdaEnd: value => setViewField('lambdaEnd', value),
         lambdaStep, setLambdaStep: value => setViewField('lambdaStep', value),
         aoi, setAoi: value => setViewField('aoi', value),
-        pol, setPol: value => setViewField('pol', value),
+        showCurves,
+        toggleCurve: key => setViewField('showCurves',
+            current => ({ ...current, [key]: !current[key] })),
         units, setUnits: value => setViewField('units', value),
         showEditor, setShowEditor: value => setViewField('showEditor', value),
         showTable, setShowTable: value => setViewField('showTable', value),

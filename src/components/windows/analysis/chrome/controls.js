@@ -138,6 +138,58 @@ export function ChoiceGroup({ label, items, activeId, onSelect, c, ariaLabel }) 
     );
 }
 
+/**
+ * One quantity and the polarizations it can be drawn in: a colour dot, the
+ * quantity's letter, then a button per polarization. The dot carries the
+ * curve's own colour, so the row doubles as the plot's key.
+ *
+ * Prefer this to a channel dropdown wherever a window draws T, R and A: it
+ * shows what is on the plot without opening anything, and lets two of them be
+ * compared at once.
+ *
+ *   quantity  letter in the pill, e.g. 'T'
+ *   color     the quantity's curve colour
+ *   members   [{ pol, key }] - `key` indexes `active`
+ *   active    { key: boolean }
+ *   labels    polarization names, keyed by `pol`
+ */
+export function CurveToggleGroup({ c, quantity, color, members, active, onToggle, labels }) {
+    const fill = activeFill(c, color);
+    return h('div', {
+        role: 'group', 'aria-label': quantity,
+        style: {
+            display: 'inline-flex', alignItems: 'center', gap: 2, flexShrink: 0,
+            height: 28, padding: '0 3px 0 8px', border: `1px solid ${c.border}`,
+            borderRadius: 7, backgroundColor: c.bg,
+        },
+    },
+        h('span', {
+            style: {
+                width: 8, height: 8, borderRadius: '50%',
+                backgroundColor: color, marginRight: 3,
+            },
+        }),
+        h('span', {
+            style: { fontSize: 12, fontWeight: 700, color: c.text, marginRight: 2 },
+        }, quantity),
+        members.map(member => {
+            const on = !!active[member.key];
+            return h('button', {
+                key: member.key, type: 'button', title: member.title,
+                onClick: () => onToggle(member.key), 'aria-pressed': on,
+                style: {
+                    height: 22, padding: '0 7px',
+                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    cursor: 'pointer', outline: 'none', border: 'none', lineHeight: 1,
+                    borderRadius: 4, backgroundColor: on ? fill : 'transparent',
+                    color: on ? c.text : c.textDim,
+                    fontSize: 11, fontWeight: 500, fontFamily: FONT,
+                },
+            }, labels[member.pol]);
+        }),
+    );
+}
+
 function rowButtonStyle(c, { active, disabled, color }) {
     return {
         height: 28, padding: '0 9px', display: 'inline-flex', alignItems: 'center', gap: 4,

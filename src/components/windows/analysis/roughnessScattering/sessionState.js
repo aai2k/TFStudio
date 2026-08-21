@@ -8,12 +8,15 @@ export const roughnessDesignSession = createWindowSession({
 }, { scope: 'design' });
 
 // How the result is plotted is a display preference and carries across designs.
+//
+// The step matches the shared spectral default: scatter loss follows R(λ), so a
+// 5 nm grid drew a coated stack's structure as a staircase.
 export const roughnessViewSession = createWindowSession({
+    showCurves: { T: true, R: true, Ts: false, Rs: false, Tp: false, Rp: false },
     lambdaStart: 400,
     lambdaEnd: 800,
-    lambdaStep: 5,
+    lambdaStep: 2,
     aoi: 0,
-    pol: 'avg',
     units: 'ppm',
     // The roughness editor is what this window is for, so its strip starts open.
     showEditor: true,
@@ -21,7 +24,7 @@ export const roughnessViewSession = createWindowSession({
 }, {
     id: 'roughnessScattering',
     savable: [
-        'lambdaStart', 'lambdaEnd', 'lambdaStep', 'aoi', 'pol', 'units',
+        'showCurves', 'lambdaStart', 'lambdaEnd', 'lambdaStep', 'aoi', 'units',
         'showEditor', 'showTable',
     ],
 });
