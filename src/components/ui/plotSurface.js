@@ -126,8 +126,13 @@ export function drawChart(element, chartRef, option, initOptions) {
 
     let chart = chartRef.current;
     if (!chart || chart.isDisposed?.()) {
+        // Dirty-rect painting must stay off. Resizing reallocates the canvas,
+        // which clears it, but the existing elements are not re-marked dirty,
+        // so nothing is repainted until the next real update. Dragging a
+        // docking splitter then leaves the plot blank for frame after frame.
+        // Without it, resize() repaints synchronously and the drag is clean.
         chart = api.getInstanceByDom(element) || api.init(element, null, {
-            renderer: 'canvas', useDirtyRect: true, ...initOptions,
+            renderer: 'canvas', ...initOptions,
         });
         chartRef.current = chart;
     }

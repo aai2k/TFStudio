@@ -236,7 +236,7 @@ export function SurfaceChart({ result, spec, design, c, t }) {
     const labels = t?.plotEngine || {};
     const option = useMemo(() => buildSurfaceOption(result, spec, design, c), [result, spec, design, c]);
     useEffect(() => {
-        if (option) drawChart(divRef.current, chartRef, option, { useDirtyRect: false });
+        if (option) drawChart(divRef.current, chartRef, option);
         else disposeChart(divRef.current, chartRef);
     }, [option]);
     useChartTeardown(divRef, chartRef);

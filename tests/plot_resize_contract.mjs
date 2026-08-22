@@ -39,6 +39,11 @@ const option = { grid: { left: 48, right: 12, top: 12, bottom: 42 }, series: [] 
     const chart = drawChart(roomy, chartRef, option);
     assert.equal(calls[0][0], 'init', 'the first draw creates one native chart instance');
     assert.equal(calls[0][1].renderer, 'canvas');
+    // Dirty-rect painting leaves the canvas blank after a resize: reallocating
+    // it clears the pixels, and the elements are not re-marked dirty, so
+    // nothing repaints until the next real update. Dragging a docking splitter
+    // then flickers between the plot and an empty box.
+    assert.ok(!calls[0][1].useDirtyRect, 'dirty-rect painting stays off, or resizing blanks the plot');
     assert.equal(calls[1][0], 'setOption');
     assert.deepEqual(calls[1][2], { notMerge: true, lazyUpdate: false });
     assert.equal(chartRef.current, chart);
