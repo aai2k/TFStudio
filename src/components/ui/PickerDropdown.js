@@ -37,7 +37,13 @@ function dotStyle(color) {
 }
 
 // Overlay position from the trigger rect; flips upward near the viewport bottom.
-function dropPositionFrom(rect, minDropWidth) {
+//
+// Opening downward the overlay hangs from its top edge, so `top` places it. A
+// flipped one has to hang from its *bottom* edge instead, pinned to the top of
+// the trigger. Deriving a `top` from maxH would assume the list fills all the
+// room available, and a shorter one (a filter tab with three entries, say) would
+// then be pushed that much too high and float away from the row it belongs to.
+export function dropPositionFrom(rect, minDropWidth) {
     const dropWidth = Math.max(rect.width, minDropWidth);
     const spaceBelow = window.innerHeight - rect.bottom - 4;
     const spaceAbove = rect.top - 4;
@@ -46,7 +52,8 @@ function dropPositionFrom(rect, minDropWidth) {
         ? Math.min(320, Math.max(120, spaceAbove))
         : Math.min(320, Math.max(120, spaceBelow));
     return {
-        top: flipUp ? rect.top - 2 - maxH : rect.bottom + 2,
+        top: flipUp ? null : rect.bottom + 2,
+        bottom: flipUp ? Math.max(4, window.innerHeight - rect.top + 2) : null,
         left: Math.min(rect.left, window.innerWidth - dropWidth - 4),
         width: dropWidth, maxH,
     };
@@ -138,7 +145,8 @@ export function overlayEl(s) {
         ref: dropRef,
         style: {
             position: 'fixed', zIndex: 9999,
-            top: dropPos.top, left: dropPos.left, width: dropPos.width,
+            ...(dropPos.top != null ? { top: dropPos.top } : { bottom: dropPos.bottom }),
+            left: dropPos.left, width: dropPos.width,
             maxHeight: dropPos.maxH, display: 'flex', flexDirection: 'column',
             backgroundColor: c.bg, border: `1px solid ${c.accent}`,
             borderRadius: 4, boxShadow: '0 4px 16px rgba(0,0,0,0.4)',

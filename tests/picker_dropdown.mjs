@@ -13,7 +13,7 @@ shimBrowserGlobals();
 await loadApp();
 
 const [
-    { scrollToActive, overlayEl },
+    { scrollToActive, overlayEl, dropPositionFrom },
     { PickerTabs, scrollTabIntoView, stripEdges, pagedOffset, fadeMask },
     { designEntries, rowIsCurrent, currentGroupOf },
     { initCatalogs },
@@ -175,6 +175,46 @@ assert.ok(!rowIsCurrent(designRow, args),
 const embeddedRow = { id: 'lab:Ta2O5_run7', matId: 'Ta2O5_run7', catalogId: 'lab', group: 'design' };
 assert.ok(rowIsCurrent(embeddedRow, { value: 'lab:Ta2O5_run7', resolvedId: 'lab:Ta2O5_run7', inCatalog: false }),
     'a material no catalog holds is marked in the design group');
+
+// ── A picker opened low in the window sits against its trigger ───────────────
+//
+// There is no room below a row near the bottom, so the overlay flips above it.
+// It must hang from its bottom edge. Positioning it by a top derived from the
+// maximum height assumes the list fills all the space available, so a filter
+// tab showing three entries would be pushed the full 320 px up and float near
+// the top of the window, detached from the row it belongs to.
+{
+    const viewportHeight = 950;
+    global.window.innerHeight = viewportHeight;
+    global.window.innerWidth = 1400;
+
+    const trigger = { top: 800, bottom: 823, left: 80, width: 120 };
+    const low = dropPositionFrom(trigger, 260);
+    assert.equal(low.top, null, 'a picker with no room below is not placed by its top edge');
+    assert.equal(low.bottom, viewportHeight - trigger.top + 2,
+        'the flipped overlay is pinned to the top of its trigger, whatever its height');
+    assert.ok(low.maxH <= trigger.top - 4, 'it may not be taller than the room above the trigger');
+
+    // The anchor must not move when the list gets shorter or taller, which is
+    // exactly what a maxH-derived top would do.
+    const narrower = dropPositionFrom(trigger, 900);
+    assert.equal(narrower.bottom, low.bottom, 'the anchor does not depend on the overlay size');
+
+    const high = dropPositionFrom({ top: 120, bottom: 143, left: 80, width: 120 }, 260);
+    assert.equal(high.bottom, null, 'a picker with room below is not placed by its bottom edge');
+    assert.equal(high.top, 145, 'it hangs just under its trigger');
+
+    // The overlay applies whichever edge the position names.
+    const flipped = overlayEl({
+        dropRef: { current: null }, listRef: { current: null }, activeRef: { current: null },
+        searchRef: { current: null }, dropPos: low, c: makeTheme(), query: '', setQuery: () => {},
+        searchPlaceholder: 'Search', groups: [], catFilter: 'all', allLabel: 'All',
+        setCatFilter: () => {}, sections: false, emptyText: 'nothing',
+        activeOf: () => false, select: () => {}, search: () => [{ id: 'a', label: 'A' }],
+    });
+    assert.equal(flipped.props.style.bottom, low.bottom, 'the flipped overlay is styled bottom-up');
+    assert.equal(flipped.props.style.top, undefined, 'and carries no top that would fight it');
+}
 
 // ── The overlay's own layout ──────────────────────────────────────────────────
 
