@@ -212,7 +212,7 @@ export function DockingLayout({ c, theme, toolRequests, onWindowListChange, layo
   // "auto-arrange the default preset only when nothing is open" guard is always
   // satisfied → EVERY design switch re-applies the filter-design preset, which
   // rebuilds the tree with fresh node ids and REMOUNTS every window. That remount
-  // is the OE-plot flicker (Plotly.newPlot clears then redraws; the Design Editor
+  // is the OE-plot flicker (the chart clears then redraws; the Design Editor
   // has no canvas so it looks fine). Reporting the real list keeps the layout
   // stable across switches.
   useEffect(() => {

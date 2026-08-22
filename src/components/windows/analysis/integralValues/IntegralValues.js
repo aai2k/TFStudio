@@ -37,7 +37,7 @@ function editorLabel(model, iv) {
 // sits in margin the chart already reserves rather than costing another band.
 function chartTitle(selected) {
     if (!selected) return '';
-    return `${selected.label}: ${selected.char}(λ) × ${selected.weighting.label} — ${selected.weighting.reference}`;
+    return `${selected.label}: ${selected.char}(λ) × ${selected.weighting.label}`;
 }
 
 export function IntegralValues({ c, theme, t }) {

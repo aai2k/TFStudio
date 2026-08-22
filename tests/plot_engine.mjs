@@ -179,7 +179,7 @@ const ctx = {
 // ── 10) Safety cap on huge ranges ──────────────────────────────────────────
 {
     const xs = xSamples({ rangeFrom: 0, rangeTo: 1e8, rangeStep: 1 });
-    ok(xs.length <= 50001, `safety cap: ≤ 50001 points (got ${xs.length})`);
+    ok(xs.length === 250000, `ECharts safety cap: 250000 points (got ${xs.length})`);
 }
 
 // ── Summary ────────────────────────────────────────────────────────────────

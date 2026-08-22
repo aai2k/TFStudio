@@ -95,7 +95,7 @@ export function NeedleManual({ c, theme, t }) {
                                 style: { height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', color: c.textDim, fontSize: 12, fontStyle: 'italic', textAlign: 'center', padding: 20 }
                               }, tn.noProfile)
                             : h(PFunctionPlot, {
-                                traces: s.plotData.traces, boundaries: s.plotData.boundaries,
+                                materials: s.plotData.materials, boundaries: s.plotData.boundaries,
                                 bands: s.plotData.bands, totalZ: s.plotData.totalZ,
                                 selected: s.selected, onPick: s.handlePick, c, theme,
                             })

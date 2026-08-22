@@ -47,13 +47,29 @@
   // ── Project explorer, backed by IndexedDB ───────────────────────────────────
   const EXAMPLES_FOLDER = 'Examples';
   const DEFAULT_FOLDER = 'My Designs';
-  // Bump when demo-examples.js gains designs that existing visitors should get.
-  // Seeding only ADDS missing designs, so a visitor's edits are never clobbered.
-  const SEED_VERSION = 1;
+  // Bump when demo-examples.js gains designs or needs a one-time migration.
+  // Seeding only ADDS missing designs; migrations name exact obsolete examples.
+  const SEED_VERSION = 3;
+  const EXAMPLE_NAME_MIGRATIONS = new Map([
+    ['Single-layer AR (MgF2)', 'Single-layer AR (MgF₂)'],
+    ['Broadband AR — 4 layer (Ta₂O₅/SiO₂/MgF₂)', 'Broadband AR (4-layer Ta₂O₅/SiO₂/MgF₂)'],
+    ['High reflector — QW stack (TiO₂/SiO₂)', 'High reflector QW stack (TiO₂/SiO₂)'],
+    ['Edge filter — QW stack', 'Edge filter QW stack'],
+  ]);
 
   async function ensureSeeded() {
-    if (await S().getMeta('seedVersion') === SEED_VERSION) return;
+    if ((await S().getMeta('seedVersion') || 0) >= SEED_VERSION) return;
     const examples = window.DEMO_EXAMPLES || [];
+    // Canonicalize exact obsolete example titles without discarding an edited
+    // example: rename it when possible, or remove only the duplicate old name.
+    const beforeMigration = await S().listDesigns();
+    const exampleNames = new Set(beforeMigration
+      .filter((entry) => entry.folder === EXAMPLES_FOLDER).map((entry) => entry.name));
+    for (const [oldName, newName] of EXAMPLE_NAME_MIGRATIONS) {
+      if (!exampleNames.has(oldName)) continue;
+      if (exampleNames.has(newName)) await S().deleteDesign(EXAMPLES_FOLDER, oldName);
+      else await S().renameDesign(EXAMPLES_FOLDER, oldName, newName);
+    }
     const stored = await S().listDesigns();
     const present = new Set(stored.filter((d) => d.folder === EXAMPLES_FOLDER).map((d) => d.name));
     if (examples.length) {

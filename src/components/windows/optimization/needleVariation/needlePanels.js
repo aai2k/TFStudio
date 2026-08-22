@@ -11,8 +11,9 @@ import {
     SynthesisControlBar, SynthesisSidebarFrame, makeRowHelpers,
 } from '../synthesisShared/synthesisShell.js';
 import {
-    SynthesisHistoryTable, TopDesignsPanel as SharedTopDesignsPanel, PlotlyChart,
+    SynthesisHistoryTable, TopDesignsPanel as SharedTopDesignsPanel, ChartSurface,
 } from '../synthesisShared/synthesisHelpers.js';
+import { cartesianOption, lineSeries, valueAxis } from '../../../ui/chartOptions.js';
 import {
     getSynthesisInnerEngine, setSynthesisInnerEngine,
     getSynthesisCandMode, setSynthesisCandMode,
@@ -27,31 +28,19 @@ const { createElement: h } = React;
 // Merit function across accepted generations, matching the Gradual Evolution and
 // Structural windows (log MF vs generation).
 export function MFTrendChart({ generations, c, theme, emptyMsg }) {
-    const build = () => {
-        const bg    = c.bg    || '#1e1e1e';
-        const panel = c.panel || '#252526';
-        const grid  = c.border|| '#3a3a3a';
-        const txt   = c.text  || '#ccc';
-        const traces = [{
-            x: generations.map(g => g.genNum), y: generations.map(g => g.mf),
-            type: 'scatter', mode: 'lines+markers',
-            line: { color: '#42a5f5', width: 1.5 }, marker: { color: '#42a5f5', size: 5 },
-            name: 'MF',
-            hovertemplate: 'Gen %{x}<br>MF: %{y:.6f}<extra></extra>',
-        }];
-        const layout = {
-            margin: { l: 54, r: 8, t: 4, b: 30 },
-            paper_bgcolor: panel, plot_bgcolor: bg,
-            font: { color: txt, family: 'system-ui, sans-serif', size: 10 },
-            xaxis: { title: { text: 'Generation', standoff: 4 }, gridcolor: grid },
-            yaxis: { title: { text: 'MF', standoff: 4 }, gridcolor: grid, type: 'log',
-                tickformat: '.0e', exponentformat: 'e', hoverformat: '.6f', dtick: 'D2' },
-            showlegend: false,
-        };
-        return { traces, layout };
-    };
-    return h(PlotlyChart, {
-        build, hasData: generations.length > 0, empty: emptyMsg,
+    const buildOption = () => cartesianOption({
+        colors: c,
+        grid: { left: 54, right: 8, top: 4, bottom: 30 },
+        xAxis: valueAxis({ name: 'Generation', color: c.text, gridColor: c.border, nameGap: 24 }),
+        yAxis: { ...valueAxis({ name: 'MF', color: c.text, gridColor: c.border, nameGap: 34 }), type: 'log' },
+        series: [lineSeries({
+            x: generations.map(generation => generation.genNum),
+            y: generations.map(generation => generation.mf),
+            name: 'MF', color: '#42a5f5', width: 1.5, symbol: 'circle', symbolSize: 5,
+        })],
+    });
+    return h(ChartSurface, {
+        buildOption, hasData: generations.length > 0, empty: emptyMsg,
         c,
     });
 }

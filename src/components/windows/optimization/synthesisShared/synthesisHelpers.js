@@ -26,5 +26,5 @@ export {
 } from './synthesisMath.js';
 export { MaterialPoolPanel } from './MaterialPoolPanel.js';
 export { TopDesignsPanel } from './TopDesignsPanel.js';
-export { PlotlyChart } from './PlotlyChart.js';
+export { ChartSurface } from './ChartSurface.js';
 export { SynthesisHistoryTable } from './SynthesisHistoryTable.js';

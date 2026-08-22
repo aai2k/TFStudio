@@ -1,6 +1,6 @@
 {
   "name": "tfstudio",
-  "version": "1.6.1",
+  "version": "1.6.2",
   "description": "TFStudio - Optical Thin Film Coating Design",
   "main": "src/main.js",
   "desktopName": "tfstudio.desktop",
@@ -57,9 +57,10 @@
     "esbuild": "^0.28.2"
   },
   "dependencies": {
+    "echarts": "^6.1.0",
+    "echarts-gl": "^2.1.0",
     "js-yaml": "^4.3.1",
     "katex": "^0.18.4",
-    "plotly.js-dist-min": "^3.7.0",
     "react": "^18.2.0",
     "react-dom": "^18.2.0",
     "tmmcore": "^0.2.0"

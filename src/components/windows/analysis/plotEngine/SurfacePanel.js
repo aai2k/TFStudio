@@ -1,5 +1,5 @@
 import {
-    POLARIZATIONS, SURFACE_MODES, Z_QUANTITIES, SURFACE_RENDERS, COLORSCALES,
+    POLARIZATIONS, SURFACE_MODES, Z_QUANTITIES, SURFACE_RENDERS, COLORSCALES, MAX_AXIS_STEPS,
     buildAxisTargetOptions, parseAxisVar,
 } from '../../../../utils/physics/plotQuantities.js';
 import { SurfaceAxisGroup } from './SurfaceAxisGroup.js';
@@ -102,8 +102,8 @@ function computeLabel(computing, progress, pe) {
 }
 
 function gridLabel(spec, pe) {
-    const nx = Math.max(2, Math.min(400, Math.round(spec.xSteps || 2)));
-    const ny = Math.max(2, Math.min(400, Math.round(spec.ySteps || 2)));
+    const nx = Math.max(2, Math.min(MAX_AXIS_STEPS, Math.round(spec.xSteps || 2)));
+    const ny = Math.max(2, Math.min(MAX_AXIS_STEPS, Math.round(spec.ySteps || 2)));
     return (pe.gridSize || 'Grid') + `: ${nx} × ${ny} = ${nx * ny} ${pe.points || 'points'}`;
 }
 

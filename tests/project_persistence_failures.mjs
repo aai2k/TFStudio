@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import {
   designsEqual,
+  mergeSessionOverDisk,
   persistThenCommit,
   updateDirtyDesigns,
 } from '../src/utils/io/projectPersistence.js';
@@ -85,5 +86,14 @@ const cleanAfterSave = updateDirtyDesigns(
 ok(!cleanAfterSave[savedSnapshot.id], 'an unchanged successful save clears dirty state');
 ok(designsEqual({ tfs_version: '1.0', ...savedSnapshot }, savedSnapshot),
   'disk metadata does not make an unchanged design dirty');
+
+const renamedDisk = { id: 'demo-1', name: 'Canonical title', frontLayers: [{ d: 100 }] };
+const staleSession = { id: 'demo-1', name: 'Old — title', frontLayers: [{ d: 125 }] };
+const merged = mergeSessionOverDisk({ 'demo-1': renamedDisk }, { 'demo-1': staleSession });
+ok(merged.initialDesigns['demo-1'].name === 'Canonical title',
+  'a disk migration stays authoritative over a stale session title');
+ok(merged.initialDesigns['demo-1'].frontLayers[0].d === 125,
+  'the same merge preserves unsaved session edits');
+ok(merged.initialDirty['demo-1'], 'preserved unsaved edits remain dirty');
 
 console.log(`project_persistence_failures: ${passed} passed`);

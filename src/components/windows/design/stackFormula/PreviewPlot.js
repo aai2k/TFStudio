@@ -1,65 +1,53 @@
 import { previewSpectrum } from './model.js';
-import { reactPlot } from '../../../ui/plotSurface.js';
+import { disposeChart, drawChart, useChartTeardown } from '../../../ui/plotSurface.js';
+import { axisTooltip, cartesianOption, horizontalLegend, lineSeries, valueAxis } from '../../../ui/chartOptions.js';
 
 const { createElement: h, useMemo, useEffect, useRef } = React;
 
-function drawPreview(divEl, data, c, refLambda) {
-    // Invalid formula → purge any prior spectrum and bail (the overlay below
-    // shows "no preview"). We must NOT unmount the plot div on error: Plotly
-    // owns DOM inside it that React doesn't track, so swapping the div for a
-    // text node makes React's reconciler throw on removeChild and the
-    // preview never recovers ("disappears forever"). Keeping the div mounted
-    // and only purging avoids that.
-    if (data.error) {
-        try { window.Plotly.purge(divEl); } catch { /* not yet plotted */ }
-        return;
-    }
-    const traces = [
-        { x: data.lambda, y: data.T.map(v => v * 100), type: 'scatter', mode: 'lines',
-          name: 'T', line: { color: '#4fc3f7', width: 1.6 } },
-        { x: data.lambda, y: data.R.map(v => v * 100), type: 'scatter', mode: 'lines',
-          name: 'R', line: { color: '#ef5350', width: 1.6 } },
+export function buildPreviewOption(data, c, referenceWavelength) {
+    const series = [
+        lineSeries({ x: data.lambda, y: data.T.map(value => value * 100), name: 'T', color: '#4fc3f7', width: 1.6 }),
+        lineSeries({ x: data.lambda, y: data.R.map(value => value * 100), name: 'R', color: '#ef5350', width: 1.6 }),
     ];
-    const layout = {
-        margin: { l: 44, r: 12, t: 6, b: 32 },
-        xaxis: { title: { text: 'λ (nm)', font: { size: 10, color: c.textDim } },
-                 color: c.text, gridcolor: c.border, tickfont: { size: 9 } },
-        yaxis: { title: { text: 'T, R (%)', font: { size: 10, color: c.textDim } },
-                 color: c.text, gridcolor: c.border, tickfont: { size: 9 }, range: [0, 105] },
-        paper_bgcolor: c.panel, plot_bgcolor: c.bg, font: { color: c.text, size: 10 },
-        showlegend: true, legend: { x: 0.02, y: 0.98, bgcolor: 'rgba(0,0,0,0)' },
-        shapes: [{ type: 'line', xref: 'x', yref: 'paper', x0: refLambda, x1: refLambda,
-                   y0: 0, y1: 1, line: { color: c.textDim, width: 1, dash: 'dot' } }],
+    series[0].markLine = {
+        silent: true, symbol: 'none', label: { show: false },
+        lineStyle: { color: c.textDim, width: 1, type: 'dotted' },
+        data: [{ xAxis: referenceWavelength }],
     };
-    reactPlot(divEl, traces, layout, { responsive: true, displayModeBar: false });
+    return cartesianOption({
+        colors: c,
+        grid: { left: 44, right: 12, top: 28, bottom: 32 },
+        legend: horizontalLegend({ color: c.text, top: 0 }),
+        tooltip: axisTooltip({ colors: c, valueSuffix: '%' }),
+        xAxis: valueAxis({
+            name: 'λ (nm)', color: c.text, gridColor: c.border, nameGap: 24,
+            min: data.lambda[0], max: data.lambda.at(-1), interval: data.xInterval,
+            axisLabel: { hideOverlap: true },
+        }),
+        yAxis: valueAxis({ name: '%', color: c.text, gridColor: c.border, min: 0, max: 100, interval: 10, nameGap: 30 }),
+        series,
+    });
 }
 
 export function PreviewPlot({ resolveMaterial, compiled, incidentId, substrateId, refLambda, c, height = 220 }) {
     const divRef = useRef(null);
-
+    const chartRef = useRef(null);
     const data = useMemo(
         () => previewSpectrum(resolveMaterial, compiled, incidentId, substrateId, refLambda),
         [resolveMaterial, compiled, incidentId, substrateId, refLambda]);
-
-    // No dependency list: see plotSurface.js for why every render redraws.
     useEffect(() => {
-        if (!divRef.current || !window.Plotly) return;
-        drawPreview(divRef.current, data, c, refLambda);
+        if (data.error) disposeChart(divRef.current, chartRef);
+        else drawChart(divRef.current, chartRef, buildPreviewOption(data, c, refLambda));
     });
-
-    // Purge Plotly on unmount so the detached node is cleaned up.
-    useEffect(() => () => {
-        if (divRef.current && window.Plotly) { try { window.Plotly.purge(divRef.current); } catch { /* noop */ } }
-    }, []);
-
-    // The Plotly div is ALWAYS mounted (so React never tears out Plotly's DOM);
-    // the "no preview" message is an overlay sibling shown only on error.
+    useChartTeardown(divRef, chartRef);
     return h('div', { style: { position: 'relative', width: '100%', height } },
         h('div', { ref: divRef, style: { width: '100%', height } }),
         data.error && h('div', {
-            style: { position: 'absolute', inset: 0, display: 'flex', alignItems: 'center',
-                     justifyContent: 'center', color: c.textDim, fontSize: 12, fontStyle: 'italic',
-                     background: c.panel, pointerEvents: 'none' } },
-            '— no preview —'),
+            style: {
+                position: 'absolute', inset: 0, display: 'flex', alignItems: 'center',
+                justifyContent: 'center', color: c.textDim, fontSize: 12, fontStyle: 'italic',
+                background: c.panel, pointerEvents: 'none',
+            },
+        }, '— no preview —'),
     );
 }

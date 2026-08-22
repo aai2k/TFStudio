@@ -8,7 +8,7 @@
  */
 
 import { ndColor } from '../../../../utils/materials/catalogManager.js';
-import { reactPlot } from '../../../ui/plotSurface.js';
+import { clearMaterialChart, drawIndexChart, drawResidualChart } from './materialChart.js';
 import { FORMULA_LATEX } from '../../../../utils/materials/dispersionFormulas.js';
 import { NKDataGrid } from './nkDataGrid.js';
 import {
@@ -47,7 +47,7 @@ const FIT_MODEL_LABELS = {
 // and far-IR (>10 µm) materials plot correctly. Order is guaranteed.
 function drawDraftChart(chartEl, draft, c, me) {
     const getNK = buildNKFromDraft(draft);
-    if (!getNK) { window.Plotly.purge(chartEl); return; }
+    if (!getNK) { clearMaterialChart(chartEl); return; }
 
     const lMin = Math.max(1, parseNumber(draft.lambdaMinNm) || 300);
     const lMax = Math.max(lMin + 1, parseNumber(draft.lambdaMaxNm) || 2500);
@@ -62,26 +62,22 @@ function drawDraftChart(chartEl, draft, c, me) {
         } catch (_) { lams.push(l); ns.push(null); ks.push(null); }
     }
 
-    const hasK = ks.some(k => k != null && k > 0);
-    const traces = [{ x: lams, y: ns, name: me.chartN, type: 'scatter', mode: 'lines', line: { color: '#5dade2', width: 2 }, yaxis: 'y' }];
-    if (hasK) traces.push({ x: lams, y: ks, name: me.chartK, type: 'scatter', mode: 'lines', line: { color: '#e74c3c', width: 1.5, dash: 'dash' }, yaxis: 'y2' });
-
-    const layout = {
-        paper_bgcolor: c.bg, plot_bgcolor: c.bg,
-        margin: { t: 6, b: 32, l: 48, r: hasK ? 48 : 12 },
-        xaxis: { title: { text: me.wavelengthNm, font: { size: 10 } }, color: c.textDim, gridcolor: c.border, tickfont: { size: 9 } },
-        yaxis: { color: '#5dade2', gridcolor: c.border, tickfont: { size: 9 } },
-        legend: { font: { size: 10, color: c.text }, bgcolor: 'transparent', x: 0.01, y: 0.99 },
-        font: { family: 'system-ui, -apple-system, sans-serif' },
-    };
-    if (hasK) layout.yaxis2 = { color: '#e74c3c', overlaying: 'y', side: 'right', tickfont: { size: 9 } };
-    reactPlot(chartEl, traces, layout, { responsive: true, displayModeBar: false });
+    drawIndexChart(chartEl, {
+        wavelengths: lams,
+        n: ns,
+        k: ks,
+        hasK: ks.some(value => value != null && value > 0),
+        c,
+        xLabel: me.wavelengthNm,
+        nLabel: me.chartN,
+        kLabel: me.chartK,
+    });
 }
 
 function drawFitResidualChart(chartEl, draft, c) {
     const fit = draft.dispersionFit;
     if (!fit) {
-        window.Plotly.purge(chartEl);
+        clearMaterialChart(chartEl);
         return;
     }
     const rows = draft.rows
@@ -91,17 +87,7 @@ function drawFitResidualChart(chartEl, draft, c) {
     const wavelength = rows.map(row => row[0]);
     const nResidual = rows.map(row => evaluateDispersionFit(fit, row[0])[0] - row[1]);
     const kResidual = rows.map(row => evaluateDispersionFit(fit, row[0])[1] - row[2]);
-    reactPlot(chartEl, [
-        { x: wavelength, y: nResidual, name: 'Δn', type: 'scatter', mode: 'lines+markers', line: { color: '#5dade2', width: 1.5 }, marker: { size: 3 } },
-        { x: wavelength, y: kResidual, name: 'Δk', type: 'scatter', mode: 'lines+markers', line: { color: '#e74c3c', width: 1.2 }, marker: { size: 3 } },
-    ], {
-        paper_bgcolor: c.bg, plot_bgcolor: c.bg,
-        margin: { t: 6, b: 28, l: 52, r: 12 },
-        xaxis: { title: { text: 'Wavelength (nm)', font: { size: 10 } }, color: c.textDim, gridcolor: c.border, tickfont: { size: 9 } },
-        yaxis: { title: { text: 'Fit residual', font: { size: 10 } }, color: c.textDim, gridcolor: c.border, tickfont: { size: 9 }, zeroline: true },
-        legend: { orientation: 'h', font: { size: 9, color: c.text }, bgcolor: 'transparent' },
-        font: { family: 'system-ui, -apple-system, sans-serif' },
-    }, { responsive: true, displayModeBar: false });
+    drawResidualChart(chartEl, { wavelength, nResidual, kResidual, c });
 }
 
 // Automatic dot color — derived from the refractive index at 550 nm, previewing
@@ -425,7 +411,7 @@ export function UserMaterialForm({ draft, onChange, onSave, onRevert, onDelete, 
     // Live n/k chart. No dependency list: see plotSurface.js for why every
     // render redraws.
     useEffect(() => {
-        if (!chartRef.current || !window.Plotly) return;
+        if (!chartRef.current) return;
         drawDraftChart(chartRef.current, draft, c, me);
         if (residualChartRef.current) drawFitResidualChart(residualChartRef.current, draft, c);
     });

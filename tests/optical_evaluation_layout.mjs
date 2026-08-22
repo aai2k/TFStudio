@@ -10,6 +10,8 @@ const { OpticalEvaluation } = await import(
     '../src/components/windows/analysis/opticalEvaluation/OpticalEvaluation.js');
 const { TargetToolbar } = await import(
     '../src/components/windows/analysis/opticalEvaluation/TargetToolbar.js');
+const { hasPointerTravelled, targetGeometryChanged } = await import(
+    '../src/components/ui/TargetEditorOverlay.js');
 const markup = renderToStaticMarkup(withDesign(
     React.createElement(OpticalEvaluation, { c: makeTheme(), theme: makeTheme(), t: makeLocale() })));
 const c = makeTheme();
@@ -52,6 +54,14 @@ check(exportIndex > resultsIndex, 'the export control renders in the Results str
 check(markup.includes('FRONT'), 'the evaluation-mode badge stays visible');
 check(editorMarkup.includes(oe.editToolDraw) && editorMarkup.includes(oe.snap),
     'expanded target editor renders the redesigned grouped controls');
+check(!hasPointerTravelled([10, 10], [10, 10]),
+    'a bare target click is not treated as an edit drag');
+check(hasPointerTravelled([10, 10], [14, 10]),
+    'a deliberate target drag crosses the edit threshold');
+check(!targetGeometryChanged(
+    { x0: 403, y0: 10, x1: 698, y1: 10 },
+    { x0: 403, y0: 10, x1: 698, y1: 10 },
+), 'unchanged target geometry does not trigger snapping');
 
 if (failures) {
     console.error(`optical_evaluation_layout: ${failures} failure(s)`);

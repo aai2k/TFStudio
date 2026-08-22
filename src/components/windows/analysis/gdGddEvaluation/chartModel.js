@@ -1,45 +1,42 @@
-import { buildGdGddTargetOverlay } from './gdTargets.js';
+import { buildGdGddTargetGeometry } from './gdTargets.js';
+import {
+    axisTooltip, cartesianOption, lineSeries, niceAxisBounds, valueAxis,
+} from '../../../ui/chartOptions.js';
+import { targetSeries } from '../../../ui/targetSeries.js';
 import { plotMargin } from '../chrome/plot.js';
 
-export function buildGDChartModel(options) {
-    const { data, meta, referenceLambda, showReference, colors, targets = [], yRange } = options;
-    const traces = [{
-        x: data.lambda, y: data.y, type: 'scatter', mode: 'lines',
-        name: meta.label, line: { color: meta.color, width: 2 },
-        hovertemplate: `%{y:.${meta.dp}f} ${meta.unit}<br>%{x:.2f} nm<extra></extra>`,
-    }];
-    const targetOverlay = buildGdGddTargetOverlay(targets, meta);
-    traces.push(...targetOverlay.traces);
-    const shapes = [...targetOverlay.shapes];
-    if (showReference && referenceLambda >= Math.min(...data.lambda) &&
-        referenceLambda <= Math.max(...data.lambda)) {
-        shapes.push({
-            type: 'line', x0: referenceLambda, x1: referenceLambda, yref: 'paper',
-            y0: 0, y1: 1, line: { color: colors.text, width: 1, dash: 'dot' },
-        });
-    }
-    const layout = {
-        paper_bgcolor: colors.paper,
-        plot_bgcolor: colors.background,
-        margin: plotMargin(),
-        font: { color: colors.text, family: 'system-ui, -apple-system, sans-serif', size: 11 },
-        showlegend: false,
-        shapes,
-        xaxis: {
-            title: { text: 'Wavelength (nm)', standoff: 8 },
-            gridcolor: colors.grid, gridwidth: 1, zerolinecolor: colors.grid,
-            tickfont: { size: 10 },
-        },
-        // Axis furniture stays in the text colour, as it is in Optical
-        // Evaluation; the curve carries the quantity's colour on its own.
-        yaxis: {
-            title: { text: meta.label, standoff: 8 },
-            ...(Array.isArray(yRange) && yRange.every(Number.isFinite) && yRange[0] < yRange[1]
-                ? { range: [yRange[0], yRange[1]] }
-                : { autorange: true }),
-            gridcolor: colors.grid, gridwidth: 1, zerolinecolor: colors.grid,
-            tickfont: { size: 10 },
-        },
+export function buildGDChartOption(options) {
+    const {
+        data, meta, referenceLambda, showReference, colors, targets = [], yRange, yInterval,
+    } = options;
+    const main = lineSeries({ x: data.lambda, y: data.y, name: meta.label, color: meta.color, width: 2 });
+    const targetGeometry = buildGdGddTargetGeometry(targets);
+    const reference = showReference && referenceLambda >= Math.min(...data.lambda)
+        && referenceLambda <= Math.max(...data.lambda);
+    main.markLine = {
+        silent: true, symbol: 'none', label: { show: false },
+        lineStyle: { color: colors.text, width: 1, type: 'dotted' },
+        data: reference ? [{ xAxis: referenceLambda }] : [],
     };
-    return { traces, layout };
+    const fixedRange = Array.isArray(yRange) && yRange.every(Number.isFinite) && yRange[0] < yRange[1];
+    const finiteValues = data.y.filter(Number.isFinite);
+    const automatic = !fixedRange && finiteValues.length
+        ? niceAxisBounds(Math.min(...finiteValues), Math.max(...finiteValues), { targetTicks: 10 })
+        : null;
+    return cartesianOption({
+        colors,
+        grid: plotMargin(),
+        fileName: 'dispersion',
+        legend: { show: false },
+        tooltip: axisTooltip({ colors, valueSuffix: meta.unit ? ` ${meta.unit}` : '' }),
+        xAxis: valueAxis({ name: 'Wavelength (nm)', color: colors.text, gridColor: colors.grid }),
+        yAxis: valueAxis({
+            name: meta.label, color: colors.text, gridColor: colors.grid,
+            min: fixedRange ? yRange[0] : automatic?.min,
+            max: fixedRange ? yRange[1] : automatic?.max,
+            interval: yInterval ?? automatic?.interval,
+            scale: !fixedRange,
+        }),
+        series: [main, ...targetSeries(targetGeometry)],
+    });
 }

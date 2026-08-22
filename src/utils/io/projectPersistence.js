@@ -36,6 +36,37 @@ export function updateDirtyDesigns(dirtyDesigns, id, currentDesign, savedDesign)
   return next;
 }
 
+/**
+ * Restore unsaved working copies over disk snapshots while keeping the disk
+ * filename authoritative. A migration can rename a saved design; an older
+ * session must preserve its edits without resurrecting the obsolete title.
+ */
+export function mergeSessionOverDisk(diskDesigns, sessionDesigns) {
+  const designs = {};
+  const dirty = {};
+
+  Object.entries(diskDesigns).forEach(([id, diskDesign]) => {
+    const sessionDesign = sessionDesigns?.[id];
+    if (!sessionDesign) {
+      designs[id] = diskDesign;
+      return;
+    }
+    const workingDesign = sessionDesign.name === diskDesign.name
+      ? sessionDesign
+      : { ...sessionDesign, name: diskDesign.name };
+    designs[id] = workingDesign;
+    if (!designsEqual(workingDesign, diskDesign)) dirty[id] = true;
+  });
+
+  Object.entries(sessionDesigns || {}).forEach(([id, design]) => {
+    if (!designs[id]) {
+      designs[id] = design;
+      dirty[id] = true;
+    }
+  });
+  return { initialDesigns: designs, initialDirty: dirty };
+}
+
 export async function persistThenCommit(operation, commit) {
   try {
     const response = operation ? await operation() : { success: true };

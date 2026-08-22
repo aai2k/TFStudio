@@ -1,61 +1,61 @@
 import { getMaterialById } from '../../../../utils/materials/catalogManager.js';
 import { materialIndexFn, embeddedT, spectrumT } from '../../../../utils/filter/filterDesign.js';
-import { drawPlot, usePlotTeardown } from '../../../ui/plotSurface.js';
+import { drawChart, useChartTeardown } from '../../../ui/plotSurface.js';
+import { axisTooltip, cartesianOption, lineSeries, valueAxis } from '../../../ui/chartOptions.js';
 
 const { createElement: h, useMemo, useEffect, useRef } = React;
 
-// layers: engine layers; mode 'embedded'|'air'. analyticT: optional λ→T fraction
-// (bypasses TMM — used for the step-2 ideal-target schematic).
 function computeSpectrumData({ layersFn, analyticT, p, mode, windowNm }) {
     try {
-        // focus on the passband + skirts (not the whole QW-mirror HR zone)
-        const win = windowNm || Math.max(p.stopHalf_nm * 1.5, p.passHalf_nm * 2.5, 5);
-        const lo = p.lambda0_nm - win, hi = p.lambda0_nm + win;
-        const lams = new Set();
-        const coarse = Math.max((hi - lo) / 500, 0.02);
-        for (let l = lo; l <= hi; l += coarse) lams.add(Math.round(l * 1e4) / 1e4);
-        const fineW = Math.max(p.passHalf_nm * 4, 1), fs = Math.max(fineW / 300, 0.003);
-        for (let l = p.lambda0_nm - fineW; l <= p.lambda0_nm + fineW; l += fs) lams.add(Math.round(l * 1e4) / 1e4);
-        const xs = [...lams].sort((a, b) => a - b);
-        if (analyticT) {
-            return { xs, T: xs.map(x => analyticT(x) * 100) };
-        }
+        const width = windowNm || Math.max(p.stopHalf_nm * 1.5, p.passHalf_nm * 2.5, 5);
+        const low = p.lambda0_nm - width, high = p.lambda0_nm + width;
+        const wavelengths = new Set();
+        const coarse = Math.max((high - low) / 500, 0.02);
+        for (let value = low; value <= high; value += coarse) wavelengths.add(Math.round(value * 1e4) / 1e4);
+        const fineWidth = Math.max(p.passHalf_nm * 4, 1);
+        const fineStep = Math.max(fineWidth / 300, 0.003);
+        for (let value = p.lambda0_nm - fineWidth; value <= p.lambda0_nm + fineWidth; value += fineStep) wavelengths.add(Math.round(value * 1e4) / 1e4);
+        const x = [...wavelengths].sort((a, b) => a - b);
+        if (analyticT) return { x, transmittance: x.map(value => analyticT(value) * 100) };
         const layers = layersFn();
-        if (!layers || !layers.length) return { empty: true };
-        const nSub = materialIndexFn(p.substrateMaterial, getMaterialById);
-        const nInc = mode === 'embedded' ? nSub : materialIndexFn(p.incidentMedium, getMaterialById);
-        const T = xs.map(x => (mode === 'embedded' ? embeddedT(layers, x, nSub) : spectrumT(layers, x, nInc, nSub)) * 100);
-        return { xs, T };
-    } catch (err) { return { error: err.message }; }
+        if (!layers?.length) return { empty: true };
+        const substrateIndex = materialIndexFn(p.substrateMaterial, getMaterialById);
+        const incidentIndex = mode === 'embedded' ? substrateIndex : materialIndexFn(p.incidentMedium, getMaterialById);
+        const transmittance = x.map(value => (mode === 'embedded'
+            ? embeddedT(layers, value, substrateIndex)
+            : spectrumT(layers, value, incidentIndex, substrateIndex)) * 100);
+        return { x, transmittance };
+    } catch (error) { return { error: error.message }; }
 }
 
-// levelLines: [{y,color,x0,x1}]
 export function SpectrumPlot({ layersFn, analyticT = null, p, mode = 'embedded', c, height = 280, levelLines = [], windowNm = null }) {
     const divRef = useRef(null);
-    const initRef = useRef(false);
+    const chartRef = useRef(null);
     const data = useMemo(() => computeSpectrumData({ layersFn, analyticT, p, mode, windowNm }),
         [layersFn, analyticT, p.lambda0_nm, p.passHalf_nm, p.stopHalf_nm, p.substrateMaterial, p.incidentMedium, mode, windowNm]);
-
-    // No dependency list: see plotSurface.js for why every render redraws.
     useEffect(() => {
-        if (!divRef.current || !window.Plotly || data.error || data.empty) return;
-        const traces = [{ x: data.xs, y: data.T, type: 'scatter', mode: 'lines', name: 'T', line: { color: '#4fc3f7', width: 1.7 } }];
-        const shapes = [
-            { type: 'line', xref: 'x', yref: 'paper', x0: p.lambda0_nm, x1: p.lambda0_nm, y0: 0, y1: 1, line: { color: c.textDim, width: 1, dash: 'dot' } },
-            ...levelLines.map(L => ({ type: 'line', xref: 'x', yref: 'y', x0: L.x0, x1: L.x1, y0: L.y, y1: L.y, line: { color: L.color, width: 2 } })),
-        ];
-        const layout = {
-            margin: { l: 46, r: 12, t: 8, b: 36 },
-            xaxis: { title: { text: 'λ (nm)', font: { size: 11, color: c.textDim } }, color: c.text, gridcolor: c.border, tickfont: { size: 10 } },
-            yaxis: { title: { text: 'T (%)', font: { size: 11, color: c.textDim } }, color: c.text, gridcolor: c.border, tickfont: { size: 10 }, range: [-2, 105] },
-            paper_bgcolor: c.panel, plot_bgcolor: c.bg, font: { color: c.text, size: 11 }, shapes, showlegend: false,
+        if (data.error || data.empty) return;
+        const series = lineSeries({ x: data.x, y: data.transmittance, name: 'T', color: '#4fc3f7', width: 1.7 });
+        series.markLine = {
+            silent: true, symbol: 'none', label: { show: false },
+            data: [
+                { xAxis: p.lambda0_nm, lineStyle: { color: c.textDim, width: 1, type: 'dotted' } },
+                ...levelLines.map(line => [
+                    { coord: [line.x0, line.y], lineStyle: { color: line.color, width: 2 } },
+                    { coord: [line.x1, line.y] },
+                ]),
+            ],
         };
-        drawPlot(divRef.current, initRef, traces, layout,
-            { responsive: true, displayModeBar: false });
+        drawChart(divRef.current, chartRef, cartesianOption({
+            colors: c,
+            grid: { left: 46, right: 12, top: 8, bottom: 36 },
+            tooltip: axisTooltip({ colors: c, valueSuffix: '%' }),
+            xAxis: valueAxis({ name: 'λ (nm)', color: c.text, gridColor: c.border, nameGap: 26 }),
+            yAxis: valueAxis({ name: '%', color: c.text, gridColor: c.border, min: 0, max: 100, interval: 10, nameGap: 30 }),
+            series: [series],
+        }));
     });
-
-    usePlotTeardown(divRef, initRef);
-
+    useChartTeardown(divRef, chartRef);
     if (data.error) return h('div', { style: { color: c.warning || '#ef5350', fontSize: 12, padding: 10 } }, data.error);
     return h('div', { ref: divRef, style: { width: '100%', height } });
 }

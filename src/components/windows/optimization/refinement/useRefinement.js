@@ -302,7 +302,7 @@ function useWorkerLifecycle({ env, running, beginOptimization, endOptimization }
 
     // While the DLS is running, flip the global isOptimizing flag so live-
     // preview consumers (OpticalEvaluation autoCalc) throttle their main-thread
-    // TMM + Plotly redraw. Effect-cleanup also fires on unmount, so a tab
+    // TMM + chart redraw. Effect-cleanup also fires on unmount, so a tab
     // switch mid-run won't leave the counter stuck.
     useEffect(() => {
         if (!running) return;

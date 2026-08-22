@@ -21,7 +21,7 @@ const {
     buildMatColorMap,
     sideStackLayers,
 } = await import('../src/components/windows/analysis/admittanceDiagram/model.js');
-const { admittanceLayout, admittanceTraces } = await import(
+const { buildAdmittanceOption } = await import(
     '../src/components/windows/analysis/admittanceDiagram/chartFigure.js'
 );
 const { buildAdmittanceTableRows } = await import(
@@ -29,6 +29,14 @@ const { buildAdmittanceTableRows } = await import(
 );
 const { AdmittanceDiagram } = await import(
     '../src/components/windows/analysis/admittanceDiagram/AdmittanceDiagram.js'
+);
+
+assert.deepEqual(
+    buildAdmittanceOption(null, {}, {}, {
+        paper: '#222', background: '#111', text: '#eee', border: '#333',
+    }).series,
+    [],
+    'the chart tolerates the initial render before admittance data is available',
 );
 
 const design = {
@@ -122,10 +130,15 @@ for (const [i, s] of reflection.entries()) {
         }
     }
 }
-const reflectionLayout = admittanceLayout(reflection, { panel: '#222', bg: '#111', text: '#eee', border: '#333' });
-assert.deepEqual([reflectionLayout.xaxis.range, reflectionLayout.yaxis.range], [[-1.06, 1.06], [-1.06, 1.06]]);
-assert.equal(reflectionLayout.shapes.length, 1);
-assert.equal(reflectionLayout.xaxis.title.text, 'Re(Γ)');
+const reflectionOption = buildAdmittanceOption(
+    reflection, {}, {}, { paper: '#222', background: '#111', text: '#eee', border: '#333' });
+assert.deepEqual(
+    [[reflectionOption.xAxis.min, reflectionOption.xAxis.max], [reflectionOption.yAxis.min, reflectionOption.yAxis.max]],
+    [[-1.2, 1.2], [-1.2, 1.2]],
+);
+assert.equal(reflectionOption.xAxis.interval, 0.4);
+assert.equal(reflectionOption.series[0].type, 'line', 'the reflection view includes a native unit-circle series');
+assert.equal(reflectionOption.xAxis.name, 'Re(Γ)');
 
 const matNames = {
     'builtin:TiO2': 'Titania',
@@ -157,24 +170,27 @@ assert.deepEqual(matColorMap, {
     'builtin:Au': '#ef5350',
     'builtin:SiO2': '#66bb6a',
 });
-// The legend carries the material each arc belongs to: it is the only thing
-// that says which locus is which, and the window no longer has a colour key
-// beside the plot.
-const traces = admittanceTraces(front, matColorMap, matNames, { text: '#eee' });
-assert.equal(traces.length, 18);
-assert.deepEqual(traces.map(trace => trace.name ?? null), [
+// Arc names stay available to the tooltip, while the plot deliberately omits a
+// layer-by-layer legend that would become unusable for large coatings.
+const option = buildAdmittanceOption(
+    front, matColorMap, matNames, { paper: '#222', background: '#111', text: '#eee', border: '#333' });
+assert.equal(option.series.length, 18);
+assert.deepEqual(option.series.map(series => series.name || null), [
     'L3 Silica (s)', null, 'L2 Gold (s)', null, 'L1 Titania (s)', null,
-    'η_s (s)', 'Y₀ (s)', 'η₀ (s)',
+    null, null, null,
     'L3 Silica (p)', null, 'L2 Gold (p)', null, 'L1 Titania (p)', null,
-    'η_s (p)', 'Y₀ (p)', 'η₀ (p)',
+    null, null, null,
 ]);
-assert.deepEqual(admittanceTraces(front, matColorMap, {}, { text: '#eee' })[0].name, 'L3 (s)',
+assert.deepEqual(buildAdmittanceOption(
+    front, matColorMap, {}, { paper: '#222', background: '#111', text: '#eee', border: '#333' },
+).series[0].name, 'L3 (s)',
     'a material with no resolvable name still labels its layer');
-const layout = admittanceLayout(front, { panel: '#222', bg: '#111', text: '#eee', border: '#333' });
-assert.deepEqual([layout.xaxis.range, layout.yaxis.range], [
-    [0.5130008271945941, 5.844848240444959],
-    [-2.665901506151208, 2.6659459070991565],
+assert.equal(option.legend.show, false);
+assert.deepEqual([[option.xAxis.min, option.xAxis.max], [option.yAxis.min, option.yAxis.max]], [
+    [0, 6],
+    [-3, 3],
 ]);
+assert.equal(option.xAxis.interval, 1);
 
 const c = makeTheme();
 const html = renderToStaticMarkup(withDesign(

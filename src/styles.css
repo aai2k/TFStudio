@@ -267,3 +267,8 @@ button:active {
     -moz-appearance: textfield;
     appearance: textfield;
 }
+html.tf-layer-dragging,
+html.tf-layer-dragging * {
+  cursor: grabbing !important;
+  user-select: none !important;
+}

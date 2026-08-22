@@ -11,6 +11,7 @@ export const Y_CHANNELS = ['T', 'R', 'A'];
 export const POLARIZATIONS = ['avg', 's', 'p'];
 export const SURFACE_MODES = ['front', 'back', 'total'];
 export const DASHES = ['solid', 'dot', 'dash', 'dashdot'];
+export const MAX_CURVE_POINTS = 250000;
 
 const CURVE_COLORS = [
     '#4fc3f7', '#ef5350', '#66bb6a', '#ffb74d', '#ba68c8',
@@ -64,7 +65,7 @@ export function xSamples(curve) {
     const out = [];
     for (let v = a; v <= b + 1e-9; v += s) {
         out.push(Math.round(v * 1000) / 1000);
-        if (out.length > 50000) break;  // safety cap
+        if (out.length >= MAX_CURVE_POINTS) break;
     }
     return out;
 }

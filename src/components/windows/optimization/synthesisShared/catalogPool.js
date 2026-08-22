@@ -75,7 +75,7 @@ function isFilmMaterial(mat, fullId, verbose) {
         const nk = mat.getNK(550);
         const n  = Array.isArray(nk) ? nk[0] : (nk?.n ?? 1);
         if (typeof n === 'number' && n < 1.05) {
-            if (verbose) console.warn(`[NeedlePool] Skipping ${fullId}: n=${n} < 1.05 at 550 nm`);
+            if (verbose) console.debug(`[NeedlePool] Skipping ${fullId}: n=${n} < 1.05 at 550 nm`);
             return false;
         }
     } catch (err) {

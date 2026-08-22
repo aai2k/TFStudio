@@ -79,7 +79,7 @@ export function useNeedleVariation(t) {
 
     // While Needle/scan/refine is active, flip the global isOptimizing flag so
     // live-preview consumers (OpticalEvaluation autoCalc) throttle their main-
-    // thread TMM + Plotly redraw. Effect-cleanup also fires on unmount.
+    // thread TMM + chart redraw. Effect-cleanup also fires on unmount.
     useEffect(() => {
         if (phase === 'idle') return;
         beginOptimization();

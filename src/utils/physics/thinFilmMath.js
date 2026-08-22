@@ -940,7 +940,7 @@ export function computeGroupDelaySpectrumAtWavelengthStep(
  * material-coloured bands the UI draws behind the curve are an
  * alternative "bar diagram" representation.
  *
- * The arrays are ready for a Plotly trace with `line.shape:'hv'` (left-hand
+ * The arrays are ready for a left-hand horizontal-vertical step line
  * step): y[i] is held constant from x[i] to x[i+1].
  *
  * @param {{n:number,k:number}} n0    incident medium (n,k ≥ 0)

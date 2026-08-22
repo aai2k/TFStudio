@@ -46,7 +46,7 @@ export function computeProfileForSide(design, lambda_nm, side) {
     return computeRIProfile({ n: n0n, k: n0k }, { n: nsn, k: nsk }, layers);
 }
 
-// Region coordinates are local and use left-hand Plotly "hv" step nodes.
+// Region coordinates are local and use left-hand horizontal-vertical step nodes.
 export function buildRegionProfile(layers) {
     if (!layers?.length) return null;
     const z = [0];

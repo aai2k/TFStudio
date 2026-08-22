@@ -60,7 +60,7 @@ export function PageSimulation({ p, set, layers, c, B, ctx, run, setRun, buildCf
 
     const playback = useDepositionPlayback(run, N, p.timeMult);
     const { layerIdx, frac, setProgress, setPlaying } = playback;
-    const { traces } = useDepositionCurves({ run, layers, layerIdx, frac, ctx, p });
+    const { series } = useDepositionCurves({ run, layers, layerIdx, frac, ctx, p });
 
     // Tear down any in-flight run worker on unmount.
     useEffect(() => () => { if (workerRef.current) { workerRef.current.terminate(); workerRef.current = null; } }, []);
@@ -81,5 +81,5 @@ export function PageSimulation({ p, set, layers, c, B, ctx, run, setRun, buildCf
                 h('div', { style: { height: '100%', width: `${Math.max(3, compProg * 100)}%`, background: c.accent, transition: 'width 80ms linear' } })))
         : h('button', { key: 'start', onClick: start, style: { padding: '7px', fontSize: 13, fontWeight: 600, cursor: 'pointer', borderRadius: 4, border: `1px solid ${c.accent}`, background: c.accent + '22', color: c.accent } }, run ? B.restart : B.start);
 
-    return h(SimulationView, { p, set, c, B, run, N, layerIdx, frac, traces, leftTop, playback });
+    return h(SimulationView, { p, set, c, B, run, N, layerIdx, frac, series, leftTop, playback });
 }

@@ -57,10 +57,10 @@ export function runNeedleScan({ operands, design, resolveMat, candidateMats, del
     };
 }
 
-// Build P-function plot traces (one per candidate material), layer boundaries
+// Build renderer-neutral P-function material curves, layer boundaries
 // and material bands from a completed scan result.
 export function buildPlotData(scan) {
-    if (!scan) return { traces: [], boundaries: [], bands: [], totalZ: 1 };
+    if (!scan) return { materials: [], boundaries: [], bands: [], totalZ: 1 };
     const zb = scan.zb;
     const totalZ = zb[zb.length - 1] || 1;
 
@@ -71,20 +71,20 @@ export function buildPlotData(scan) {
         entry.push({ ...cand, z });
         byMat.set(cand.materialId, entry);
     }
-    const traces = [];
+    const materials = [];
     for (const [matId, cands] of byMat) {
         cands.sort((a, b) => a.z - b.z);
-        traces.push({
+        materials.push({
             materialId: matId, name: matDisplayName(matId), color: matColor(matId),
             xs: cands.map(cc => cc.z), ys: cands.map(cc => cc.grad), cands,
         });
     }
-    traces.sort((a, b) => (a.name < b.name ? -1 : 1));
+    materials.sort((a, b) => (a.name < b.name ? -1 : 1));
 
     const bands = (scan.layers || []).map((l, k) => ({
         z0: zb[k], z1: zb[k + 1], color: matColor(l.material), k, materialId: l.material,
     }));
-    return { traces, boundaries: zb, bands, totalZ };
+    return { materials, boundaries: zb, bands, totalZ };
 }
 
 // Selection → host geometry (intra-layer split or gap neighbours) + initial

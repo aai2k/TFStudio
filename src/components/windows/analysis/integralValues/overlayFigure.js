@@ -1,111 +1,70 @@
 import { ANALYSIS_DEFAULTS } from '../../../../constants/analysisDefaults.js';
-import { axisTitle, legendInsideLeft, plotMargin, TICK_FONT } from '../chrome/plot.js';
+import {
+    axisTooltip, cartesianOption, formatChartNumber, lineSeries, niceTickInterval,
+    scatterSeries, valueAxis,
+} from '../../../ui/chartOptions.js';
+import { legendInsideLeft, plotMargin } from '../chrome/plot.js';
 
 const FACTORY = ANALYSIS_DEFAULTS.integralValues.colors;
-
-function overlayCharColor(char, curve) {
-    return curve[char] || curve.A;
-}
+const overlayCharColor = (char, curve) => curve[char] || curve.A;
 
 function overlayWeightValues(lambda, weighting) {
     const sampler = weighting && weighting.kind !== 'photopic' ? weighting.sampler : null;
     if (!sampler) return null;
-    const raw = lambda.map(value =>
-        (value >= weighting.lamMin && value <= weighting.lamMax) ? sampler(value) : 0);
+    const raw = lambda.map(value => value >= weighting.lamMin && value <= weighting.lamMax ? sampler(value) : 0);
     const maximum = Math.max(...raw, 1e-30);
     return raw.map(value => 100 * value / maximum);
 }
 
-function spectrumTrace(spectrum, char, curve) {
-    return {
-        x: spectrum.lambda,
-        y: (spectrum[char] || []).map(value => value * 100),
-        type: 'scatter', mode: 'lines',
-        name: `${char}(λ)`,
-        line: { color: overlayCharColor(char, curve), width: 2 },
-        hovertemplate: `%{x:.1f} nm<br>${char}: %{y:.3f}%<extra></extra>`,
+export function buildOverlayOption({ spectrum, char, weighting, minMaxMarks, colors, title, curve = FACTORY }) {
+    if (!spectrum?.lambda) return { series: [] };
+    const lambdaLow = spectrum.lambda[0];
+    const lambdaHigh = spectrum.lambda.at(-1);
+    const labelStep = niceTickInterval(lambdaHigh - lambdaLow, { targetTicks: 10, min: 50 });
+    const wavelengthLabel = value => {
+        const multiple = (Number(value) - lambdaLow) / labelStep;
+        const endpoint = Math.abs(Number(value) - lambdaHigh) < 1e-7;
+        return endpoint || Math.abs(multiple - Math.round(multiple)) < 1e-7
+            ? formatChartNumber(value) : '';
     };
-}
-
-function weightingTrace(lambda, weighting, values, curve) {
-    return {
-        x: lambda, y: values,
-        type: 'scatter', mode: 'lines',
-        name: `${weighting?.label || ''} (norm.)`,
-        line: { color: curve.limits, width: 1, dash: 'dot' },
-        yaxis: 'y',
-        hovertemplate: `%{x:.1f} nm<br>w(λ): %{y:.1f}%<extra></extra>`,
-    };
-}
-
-function minimumTrace(char, marks, curve) {
-    return {
-        x: [marks.lamAtMin], y: [marks.min * 100],
-        type: 'scatter', mode: 'markers',
-        name: `min ${(marks.min * 100).toFixed(2)}% @ ${marks.lamAtMin.toFixed(0)} nm`,
-        marker: { color: curve.min, size: 9, symbol: 'triangle-down', line: { color: '#fff', width: 1 } },
-        hovertemplate: `min<br>%{x:.1f} nm<br>${char}: %{y:.3f}%<extra></extra>`,
-    };
-}
-
-function maximumTrace(char, marks, curve) {
-    return {
-        x: [marks.lamAtMax], y: [marks.max * 100],
-        type: 'scatter', mode: 'markers',
-        name: `max ${(marks.max * 100).toFixed(2)}% @ ${marks.lamAtMax.toFixed(0)} nm`,
-        marker: { color: curve.max, size: 9, symbol: 'triangle-up', line: { color: '#fff', width: 1 } },
-        hovertemplate: `max<br>%{x:.1f} nm<br>${char}: %{y:.3f}%<extra></extra>`,
-    };
-}
-
-function overlayTraces(spectrum, char, weighting, marks, curve) {
-    const traces = [spectrumTrace(spectrum, char, curve)];
+    const series = [lineSeries({
+        x: spectrum.lambda, y: (spectrum[char] || []).map(value => value * 100),
+        name: `${char}(λ)`, color: overlayCharColor(char, curve), width: 2,
+    })];
     const weightValues = overlayWeightValues(spectrum.lambda, weighting);
-    if (weightValues) traces.push(weightingTrace(spectrum.lambda, weighting, weightValues, curve));
-    if (marks && Number.isFinite(marks.lamAtMin)) traces.push(minimumTrace(char, marks, curve));
-    if (marks && Number.isFinite(marks.lamAtMax)) traces.push(maximumTrace(char, marks, curve));
-    return traces;
-}
-
-function overlayLayout(char, colors, title) {
-    return {
-        paper_bgcolor: colors.panel,
-        plot_bgcolor: colors.bg,
-        margin: plotMargin(),
-        font: { color: colors.text, family: 'system-ui, -apple-system, sans-serif', size: 11 },
-        // The integral, its channel and the weighting behind it read as the
-        // plot's caption, and the title sits in margin the chart already keeps.
-        title: title
-            ? { text: title, font: { size: 11, color: colors.text }, x: 0, xanchor: 'left', y: 0.98 }
-            : undefined,
-        xaxis: {
-            title: axisTitle('λ (nm)'),
-            color: colors.text, gridcolor: colors.grid, zerolinecolor: colors.grid,
-            tickfont: TICK_FONT,
-        },
-        yaxis: {
-            title: axisTitle(`${char} (%)  /  w(λ) (% max)`),
-            color: colors.text, gridcolor: colors.grid, zerolinecolor: colors.grid,
-            tickfont: TICK_FONT,
-            rangemode: 'tozero',
-        },
-        // Inside rather than above: the caption naming the integral already has
-        // the strip above the plot.
-        legend: legendInsideLeft({ panel: colors.panel, border: colors.grid }),
-        hovermode: 'x unified',
-    };
-}
-
-/**
- * @param {object} options
- * @param {object} options.colors  theme colours for the plot chrome
- * @param {object} [options.curve] configured curve colours; factory when absent
- */
-export function buildOverlayFigure({ spectrum, char, weighting, minMaxMarks, colors, title,
-                                    curve = FACTORY }) {
-    if (!spectrum?.lambda) return { data: [], layout: {} };
-    return {
-        data: overlayTraces(spectrum, char, weighting, minMaxMarks, curve),
-        layout: overlayLayout(char, colors, title),
-    };
+    if (weightValues) series.push(lineSeries({
+        x: spectrum.lambda, y: weightValues, name: `${weighting?.label || ''} (norm.)`,
+        color: curve.limits, width: 1, dash: 'dot',
+    }));
+    if (minMaxMarks && Number.isFinite(minMaxMarks.lamAtMin)) {
+        const marker = scatterSeries({
+            data: [[minMaxMarks.lamAtMin, minMaxMarks.min * 100]],
+            name: `min ${(minMaxMarks.min * 100).toFixed(2)}% @ ${minMaxMarks.lamAtMin.toFixed(0)} nm`,
+            color: curve.min, symbol: 'triangle', symbolSize: 10,
+        });
+        marker.symbolRotate = 180;
+        series.push(marker);
+    }
+    if (minMaxMarks && Number.isFinite(minMaxMarks.lamAtMax)) series.push(scatterSeries({
+        data: [[minMaxMarks.lamAtMax, minMaxMarks.max * 100]],
+        name: `max ${(minMaxMarks.max * 100).toFixed(2)}% @ ${minMaxMarks.lamAtMax.toFixed(0)} nm`,
+        color: curve.max, symbol: 'triangle', symbolSize: 10,
+    }));
+    return cartesianOption({
+        colors,
+        grid: plotMargin(),
+        title: title ? { text: title, left: 0, top: 2, textStyle: { color: colors.text, fontSize: 11, fontWeight: 'normal' } } : undefined,
+        fileName: 'integral',
+        tooltip: axisTooltip({ colors, valueSuffix: '%' }),
+        legend: legendInsideLeft({ panel: colors.panel, border: colors.grid }, { color: colors.text }),
+        xAxis: valueAxis({
+            name: 'λ (nm)', color: colors.text, gridColor: colors.grid,
+            min: lambdaLow, max: lambdaHigh, interval: 50, formatter: wavelengthLabel,
+        }),
+        yAxis: valueAxis({
+            name: '%', color: colors.text, gridColor: colors.grid,
+            min: 0, max: 100, interval: 10,
+        }),
+        series,
+    });
 }

@@ -7,7 +7,7 @@ export const BUILTIN_WEIGHTINGS = {
     photopic: {
         id:        'photopic',
         label:     'Photopic (V(λ) × D65)',
-        reference: 'CIE 1924 V(λ) × CIE D65 — Macleod §12.2',
+        reference: 'CIE 1924 V(λ) × CIE D65',
         lamMin:    380,
         lamMax:    780,
         kind:      'photopic',          // special: routes through tristimulus()

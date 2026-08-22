@@ -1,6 +1,7 @@
 import { nmToUnit, unitToNm } from './units.js';
+import { LAYER_TABLE } from './layerTableLayout.js';
 
-const { createElement: h, useState, useRef } = React;
+const { createElement: h, useEffect, useState, useRef } = React;
 
 // ── Thickness cell ────────────────────────────────────────────────────────────
 // Edits one of {nm, OT, QWOT, FWOT}. value_nm is the source of truth; the cell
@@ -31,21 +32,29 @@ function thicknessCellTitle(unit) {
 
 // Editing state of a thickness cell: a centered text input. Enter commits,
 // Escape cancels (via the injected commit/cancel callbacks), and blur commits.
-function thicknessCellInput({ inputRef, raw, setRaw, commit, cancel, c }) {
+function thicknessCellInput({ inputRef, raw, setRaw, commitAndNavigate, cancel, onActivate, c }) {
     return h('input', {
         ref: inputRef, value: raw,
+        onFocus: onActivate,
         onChange: (e) => setRaw(e.target.value),
-        onBlur: commit,
+        onBlur: () => commitAndNavigate(null),
         onKeyDown: (e) => {
-            if (e.key === 'Enter') { e.preventDefault(); commit(); }
-            if (e.key === 'Escape') cancel();
+            if (e.key === 'Enter') {
+                e.preventDefault();
+                commitAndNavigate(e.shiftKey ? 'up' : 'down');
+            }
+            if (e.key === 'Tab') {
+                e.preventDefault();
+                commitAndNavigate(e.shiftKey ? 'left' : 'right');
+            }
+            if (e.key === 'Escape') { e.preventDefault(); cancel(); }
         },
         style: {
-            width: '100%', height: 22,
+            width: '100%', height: 22, boxSizing: 'border-box',
             backgroundColor: c.bg, color: c.text,
             border: `1px solid ${c.accent}`, borderRadius: 3,
             fontSize: 12, fontFamily: 'system-ui, -apple-system, sans-serif',
-            padding: '0 4px', outline: 'none', textAlign: 'center'
+            padding: `0 ${LAYER_TABLE.numericTextInset}px`, outline: 'none', textAlign: 'right'
         }
     });
 }
@@ -54,22 +63,25 @@ function thicknessCellInput({ inputRef, raw, setRaw, commit, cancel, c }) {
 // color (not textDim) so OT/QW/FW don't look disabled. The primary nm column is
 // heavier and slightly larger to mark it as the canonical representation. A
 // hover background signals "you can click here" for all four units.
-function thicknessCellDisplay({ text, titleText, locked, primary, hover, startEdit, setHover, c }) {
+function thicknessCellDisplay({ text, titleText, locked, primary, active, hover,
+    startEdit, setHover, onActivate, c }) {
     return h('div', {
+        onClick: event => onActivate?.(event),
         onDoubleClick: startEdit,
         onMouseEnter: () => setHover(true),
         onMouseLeave: () => setHover(false),
         title: `${text} — ${titleText}${locked ? ' (locked)' : ' — double-click to edit'}`,
         style: {
-            width: '100%', height: 22, lineHeight: '22px',
+            width: '100%', height: 22, lineHeight: '20px', boxSizing: 'border-box',
             color: locked ? c.textDim : c.text,
             fontSize: primary ? 12 : 11,
             fontWeight: primary ? 600 : 400,
-            textAlign: 'center',
+            textAlign: 'right', padding: `0 ${LAYER_TABLE.numericTextInset}px`,
             cursor: locked ? 'default' : 'text',
             borderRadius: 3,
-            border: `1px solid ${hover && !locked ? c.border : 'transparent'}`,
-            backgroundColor: hover && !locked ? (c.hover || c.panel) : 'transparent',
+            border: `1px solid ${active ? c.accent : (hover && !locked ? c.border : 'transparent')}`,
+            backgroundColor: active ? c.accent + '12'
+                : (hover && !locked ? (c.hover || c.panel) : 'transparent'),
             userSelect: 'none', fontVariantNumeric: 'tabular-nums',
             transition: 'background-color 80ms, border-color 80ms',
             // Never let a long value spill into neighbouring columns — clip to
@@ -79,39 +91,69 @@ function thicknessCellDisplay({ text, titleText, locked, primary, hover, startEd
     }, text);
 }
 
-export function ThicknessCell({ value_nm, onChange, locked, c, materialId, refLambda, unit, primary }) {
+export function ThicknessCell({ value_nm, onChange, locked, c, materialId, refLambda,
+    unit, primary, active = false, editRequest = 0, onActivate, onNavigate, onExit }) {
     const [editing, setEditing] = useState(false);
     const [hover, setHover]     = useState(false);
     const [raw, setRaw]         = useState('');
     const inputRef = useRef(null);
+    const finishRef = useRef(false);
+    const lastEditRequestRef = useRef(0);
 
     const displayed = nmToUnit(value_nm, materialId, refLambda, unit);
     const decimals  = (unit === 'QWOT' || unit === 'FWOT') ? 4 : 2;
 
     const startEdit = () => {
         if (locked) return;
+        onActivate?.();
+        finishRef.current = false;
+        setHover(false);
         setRaw(displayed.toFixed(decimals));
         setEditing(true);
         setTimeout(() => inputRef.current?.select(), 0);
     };
 
     const commit = () => {
+        if (finishRef.current) return false;
+        finishRef.current = true;
         const parsed = parseFloat(raw);
+        let valid = false;
         if (!isNaN(parsed) && parsed >= 0) {
             const nm = unitToNm(parsed, materialId, refLambda, unit);
-            if (nm >= 0) onChange(Math.min(nm, MAX_THICKNESS_NM));
+            if (Number.isFinite(nm) && nm >= 0) {
+                onChange(Math.min(nm, MAX_THICKNESS_NM));
+                valid = true;
+            }
         }
+        setHover(false);
         setEditing(false);
+        return valid;
     };
-    const cancel = () => setEditing(false);
+    const cancel = () => {
+        finishRef.current = true;
+        setHover(false);
+        setEditing(false);
+        requestAnimationFrame(() => onExit?.());
+    };
+    const commitAndNavigate = direction => {
+        if (commit() && direction) onNavigate?.(direction);
+    };
+
+    useEffect(() => {
+        if (!editRequest || editRequest === lastEditRequestRef.current) return;
+        lastEditRequestRef.current = editRequest;
+        startEdit();
+    }, [editRequest]);
 
     if (editing) {
-        return thicknessCellInput({ inputRef, raw, setRaw, commit, cancel, c });
+        return thicknessCellInput({
+            inputRef, raw, setRaw, commitAndNavigate, cancel, onActivate, c,
+        });
     }
 
     return thicknessCellDisplay({
         text: displayed.toFixed(decimals),
         titleText: thicknessCellTitle(unit),
-        locked, primary, hover, startEdit, setHover, c,
+        locked, primary, active, hover, startEdit, setHover, onActivate, c,
     });
 }

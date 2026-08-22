@@ -1,4 +1,5 @@
 import { evaluateSpectrum } from '../../../../utils/physics/thinFilmMath.js';
+import { niceTickInterval } from '../../../ui/chartOptions.js';
 import {
     formulaOf, autoSymbolMap, collectUnknownSymbols,
     resolveAtom, DEFAULT_SYMBOL_MAP, stackFormulaResolvers,
@@ -67,6 +68,24 @@ export function stackTotalThickness(compiled) {
     return compiled.ok ? compiled.layers.reduce((s, l) => s + l.thickness, 0) : 0;
 }
 
+function nicePreviewInterval(span) {
+    if (span <= 1000) return 50;
+    return niceTickInterval(span, { targetTicks: 10 });
+}
+
+/** A readable preview domain centred around the formula's design wavelength. */
+export function previewWavelengthRange(refLambda) {
+    const reference = Number.isFinite(Number(refLambda)) && Number(refLambda) > 0
+        ? Number(refLambda)
+        : 550;
+    const desiredLo = Math.max(1, reference * 0.5);
+    const desiredHi = reference * 1.75;
+    const interval = nicePreviewInterval(desiredHi - desiredLo);
+    const lambdaStart = Math.max(1, Math.floor(desiredLo / interval) * interval);
+    const lambdaEnd = Math.ceil(desiredHi / interval) * interval;
+    return { lambdaStart, lambdaEnd, interval };
+}
+
 // Compute the initial formula text + symbol-assignment rows for the dialog.
 // For an existing front stack: auto-detect symbols (autoSymbolMap) and emit a
 // compact formula. For an empty design: H/L/M defaults + a sample formula.
@@ -87,7 +106,7 @@ export function computeSeed(design, resolvers = stackFormulaResolvers(design)) {
 }
 
 // T/R spectrum for the preview plot, or { error } when the compiled stack /
-// media aren't resolvable. Pure of DOM/Plotly — PreviewPlot only draws it.
+// media aren't resolvable. Pure of DOM/chart code — PreviewPlot only draws it.
 export function previewSpectrum(resolveMaterial, compiled, incidentId, substrateId, refLambda) {
     if (!compiled.ok) return { error: compiled.error };
     try {
@@ -96,12 +115,11 @@ export function previewSpectrum(resolveMaterial, compiled, incidentId, substrate
         const layersResolved = compiled.layers.map(l => ({
             material: resolveMaterial(l.material), thickness: l.thickness,
         }));
-        const lo = Math.max(200, refLambda * 0.6);
-        const hi = Math.min(2500, refLambda * 1.7);
+        const { lambdaStart, lambdaEnd, interval } = previewWavelengthRange(refLambda);
         const spec = evaluateSpectrum(
-            { lambdaStart: lo, lambdaEnd: hi, lambdaStep: Math.max(1, (hi - lo) / 300),
+            { lambdaStart, lambdaEnd, lambdaStep: Math.max(1, (lambdaEnd - lambdaStart) / 300),
               theta: 0, polarization: 'avg' },
             incMat, subMat, layersResolved);
-        return { lambda: spec.lambda, T: spec.T, R: spec.R };
+        return { lambda: spec.lambda, T: spec.T, R: spec.R, xInterval: interval };
     } catch (err) { return { error: err.message }; }
 }

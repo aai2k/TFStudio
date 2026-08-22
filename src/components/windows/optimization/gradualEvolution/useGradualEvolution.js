@@ -91,7 +91,7 @@ function useGeRunState({ design, beginOptimization, endOptimization, getDesignRe
 
     // While GE is active, flip the global isOptimizing flag so live-preview
     // consumers (OpticalEvaluation autoCalc) throttle their main-thread TMM +
-    // Plotly redraw. Effect-cleanup also fires on unmount.
+    // chart redraw. Effect-cleanup also fires on unmount.
     useEffect(() => {
         if (phase === 'idle') return;
         beginOptimization();

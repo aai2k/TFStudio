@@ -1,4 +1,4 @@
-import { PlotlyChart } from './PlotlyChart.js';
+import { SpectrumChart } from './SpectrumChart.js';
 
 const { createElement: h } = React;
 
@@ -11,7 +11,7 @@ export function ChartPanel(props) {
     } = props;
     return h('div', { style: { flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column', overflow: 'hidden' } },
         h('div', { style: { flex: 1, minHeight: 0, position: 'relative', overflow: 'hidden' } },
-            h(PlotlyChart, {
+            h(SpectrumChart, {
                 data, showCurves, targets: design.meritOperands, showTargets, c, theme,
                 editMode, editTool, editCurve, editPol, editKind, lamRange, yRange,
                 spectralUnit, overlays: design.measuredCurves,

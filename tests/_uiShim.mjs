@@ -4,7 +4,7 @@
  * The tool windows (src/components/windows/*) reference GLOBAL `React`/`ReactDOM`
  * (loaded as UMD vendor globals in the real app, not imported per file) and a
  * handful of browser globals (window, document, localStorage, ResizeObserver,
- * Plotly, the Electron preload bridge, …). This module installs a minimal shim
+ * ECharts, the Electron preload bridge, …). This module installs a minimal shim
  * for all of that so Node can import and render the modules directly.
  *
  * Import this module for its side effects BEFORE importing any component:
@@ -24,6 +24,31 @@ globalThis.React = React;
 globalThis.ReactDOM = ReactDOM;
 
 function noop() {}
+
+function makeEChartsShim() {
+    const instances = new WeakMap();
+    return {
+        init(element) {
+            let option = {};
+            let disposed = false;
+            const listeners = new Map();
+            const chart = {
+                setOption(next) { option = next; },
+                getOption() { return option; },
+                resize: noop,
+                dispose() { disposed = true; instances.delete(element); },
+                isDisposed() { return disposed; },
+                on(event, handler) { listeners.set(event, handler); },
+                off(event) { listeners.delete(event); },
+                convertToPixel(_finder, value) { return value; },
+                convertFromPixel(_finder, value) { return value; },
+            };
+            instances.set(element, chart);
+            return chart;
+        },
+        getInstanceByDom(element) { return instances.get(element) || null; },
+    };
+}
 
 let _app = null;
 // Dynamically import the app modules the builders need. Call after
@@ -85,7 +110,7 @@ export function shimBrowserGlobals() {
     def('MutationObserver', class { observe() {} disconnect() {} takeRecords() { return []; } });
     def('HTMLElement', class {});
     def('Worker', class { constructor() {} postMessage() {} terminate() {} addEventListener() {} removeEventListener() {} });
-    def('Plotly', { newPlot: noop, react: noop, purge: noop, relayout: noop, restyle: noop, downloadImage: () => Promise.resolve() });
+    def('echarts', makeEChartsShim());
     def('getComputedStyle', () => ({ getPropertyValue: () => '' }));
     const apiProxy = new Proxy({}, { get: () => (() => Promise.resolve(null)) });
     const win = g.window;

@@ -9,7 +9,7 @@ import {
 shimBrowserGlobals();
 await loadApp();
 
-const { buildScatterLayout, buildScatterTraces } = await import(
+const { buildScatterOption, buildScatterSeries } = await import(
     '../src/components/windows/analysis/roughnessScattering/figure.js'
 );
 const { calculateRoughness, getRoughnessContext } = await import(
@@ -63,29 +63,34 @@ const calc = {
     specular: { R: [0.09, 0.18], T: [0.72, 0.63], Rs: [0.1, 0.19], Ts: [0.71, 0.62] },
     TIS_inc: [1e-6, 2e-6],
 };
-const traces = buildScatterTraces({
+const series = buildScatterSeries({
     calc, showCurves: { T: true, R: true }, units: 'ppm', names,
 });
 // The legend is localized, so the names come in rather than being baked in here.
-assert.deepEqual(traces.map(trace => trace.name), [
+assert.deepEqual(series.map(item => item.name), [
     'T ideal', 'T specular', 'R ideal', 'R specular', 'TIS (ppm)',
 ]);
-assert.deepEqual(traces[2].y, [10, 20]);
-assert.deepEqual(traces.at(-1).y, [1, 2]);
-assert.equal(traces.at(-1).yaxis, 'y2');
+assert.deepEqual(series[2].data.map(point => point[1]), [10, 20]);
+assert.deepEqual(series.at(-1).data.map(point => point[1]), [1, 2]);
+assert.equal(series.at(-1).yAxisIndex, 1);
 
 // A polarization draws its own pair; TIS is always there because it is the
 // quantity the window exists to show.
 assert.deepEqual(
-    buildScatterTraces({ calc, showCurves: { Rs: true }, units: 'ppm', names })
-        .map(trace => trace.name),
+    buildScatterSeries({ calc, showCurves: { Rs: true }, units: 'ppm', names })
+        .map(item => item.name),
     ['Rs ideal', 'Rs specular', 'TIS (ppm)']);
 assert.deepEqual(
-    buildScatterTraces({ calc, showCurves: { Tp: true }, units: 'ppm', names })
-        .map(trace => trace.name),
+    buildScatterSeries({ calc, showCurves: { Tp: true }, units: 'ppm', names })
+        .map(item => item.name),
     ['TIS (ppm)'], 'a curve the result does not carry is skipped rather than drawn empty');
-assert.deepEqual(buildScatterTraces({ calc: { lambda: [] } }), []);
-assert.equal(buildScatterLayout(makeTheme(), 'frac').yaxis2.title.text, 'TIS (fraction)');
+assert.deepEqual(buildScatterSeries({ calc: { lambda: [] } }), []);
+const scatterOption = buildScatterOption({
+    calc, showCurves: {}, units: 'frac', names, c: makeTheme(),
+});
+assert.equal(scatterOption.yAxis[1].name, 'TIS (fraction)');
+assert.equal(scatterOption.legend.show, false,
+    'toolbar curve toggles replace the duplicate in-chart legend');
 
 const c = makeTheme();
 const html = renderToStaticMarkup(withDesign(

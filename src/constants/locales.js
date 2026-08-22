@@ -675,6 +675,21 @@ const en = {
     show: 'Show',
     hide: 'Hide',
     remove: 'Remove',
+    dragLayer: 'Drag to reorder layers',
+    layerContextMenu: {
+      label: 'Layer actions',
+      insert: 'Insert layer',
+      insertAbove: 'Insert above',
+      insertBelow: 'Insert below',
+      copy: 'Copy',
+      paste: 'Paste',
+      pasteAbove: (count) => `Paste ${count} layer${count === 1 ? '' : 's'} above`,
+      pasteBelow: (count) => `Paste ${count} layer${count === 1 ? '' : 's'} below`,
+      pasteCount: (count) => `Paste ${count} layer${count === 1 ? '' : 's'}`,
+      delete: 'Delete',
+      copySelected: (count) => `Copy ${count} layers`,
+      deleteSelected: (count) => `Delete ${count} layers`,
+    },
     added: (name) => `Added "${name}" — see Optical Evaluation`,
     nothingToExport: 'No measured curves to export.',
     exported: (path) => `Saved ${path}`,
@@ -1696,7 +1711,7 @@ const en = {
     perInterface:   'Per-interface',
     uniformHelp:    'Applied identically to all interfaces. Typical substrate ≈ 0.5–2 nm; PVD layers add ~0.3–0.8 nm each.',
     outputSection:  'Output',
-    helpText:       'Uncorrelated roughness model: TIS = R · (4πσ_eff cosθ/λ)² (Macleod Eq. 16.30). σ_eff² = Σσ_i² across all interfaces.',
+    helpText:       'Uncorrelated roughness model: TIS = R · (4πσ_eff cosθ/λ)². σ_eff² = Σσ_i² across all interfaces.',
     aoi:            'AOI (°)',
     polarization:   'Polarization',
     polAvg:         'avg',
@@ -1723,13 +1738,13 @@ const en = {
     profile:            'Profile',
     slices:             'Slices',
     removeRow:          'Remove',
-    helpText:           'Each interlayer is sliced into N sub-layers with linearly-mixed n,k (Macleod-Marseille, §"Inhomogeneous Layers"). Thickness ADDS at the interface — host layers are not shortened.',
+    helpText:           'Each interlayer is sliced into N sub-layers with linearly mixed n,k. Thickness ADDS at the interface — host layers are not shortened.',
     aoi:                'AOI (°)',
     polarization:       'Polarization',
     polAvg:             'avg',
     channel:            'Channel',
-    traceHomogeneous:   'homogeneous',
-    traceWithInterlayers: 'with interlayers',
+    traceHomogeneous:   'base',
+    traceWithInterlayers: 'graded',
     colHomogeneous:     'homogeneous (%)',
     colGraded:          'graded (%)',
   },
@@ -1779,7 +1794,7 @@ const en = {
   errorAnalysis: {
     noDesign:      'No design selected.',
     noLayers:      'No layers in design.',
-    colNominal:    'nominal (%)',
+    colNominalSpectrum: 'nominal (%)',
     colMean:       'mean (%)',
     colMin:        'min (%)',
     colMax:        'max (%)',
@@ -1837,7 +1852,7 @@ const en = {
     worstLayersRmsTip:'Layers with the largest RMS thickness deviation across all trials.',
     colLayer:         'Layer',
     colMaterial:      'Material',
-    colNominal:       'd₀ (nm)',
+    colNominalThickness: 'd₀ (nm)',
     colNew:           'd (nm)',
     colReq:           'Requirement',
     colFailRate:      'Fail rate',
@@ -2293,8 +2308,8 @@ const en = {
       colEstFWHM:      'Est. FWHM',
       estVsTarget:    (est, tgt, pct) =>
         `Selected prototype: estimated FWHM ≈ ${est} nm (target ${tgt} nm, ` +
-        `${pct > 0 ? '+' : ''}${pct}%). The estimate is single-cavity Macleod ` +
-        `Eq. 7.27 × multi-cavity narrowing factor.`,
+        `${pct > 0 ? '+' : ''}${pct}%). The estimate uses a single-cavity ` +
+        `bandwidth approximation × the multi-cavity narrowing factor.`,
     },
     step4: {
       title: 'Preview',
@@ -2302,7 +2317,7 @@ const en = {
              'the requested passband; the dotted vertical is λ₀.',
       refineNote: 'The N-cavity symmetric prototype has N sub-peaks across ' +
                   'the passband — this is the textbook Chebyshev ripple ' +
-                  '(Macleod §8.2), not a bug. Run Refinement / Needle after ' +
+                  'of this prototype, not a bug. Run Refinement / Needle after ' +
                   'generation to merge them into a flat-top passband.',
     },
     step5: {
@@ -2418,7 +2433,7 @@ const en = {
     dominant:      'Dominant λ',
     compl:         'Compl.',
     purity:        'purity',
-    refNote:       'CIE 15:2004 standard data; Macleod §12.2 Eqs. 12.1–12.5. ' +
+    refNote:       'CIE 15:2004 standard data. ' +
                    'Y = luminance factor (%). Swatch is Bradford-adapted to a ' +
                    'D65 display.',
   },
@@ -3471,6 +3486,21 @@ const ru = {
     show: 'Показать',
     hide: 'Скрыть',
     remove: 'Удалить',
+    dragLayer: 'Перетащить для изменения порядка слоёв',
+    layerContextMenu: {
+      label: 'Действия со слоями',
+      insert: 'Вставить слой',
+      insertAbove: 'Вставить выше',
+      insertBelow: 'Вставить ниже',
+      copy: 'Копировать',
+      paste: 'Вставить',
+      pasteAbove: (count) => `Вставить слои выше: ${count}`,
+      pasteBelow: (count) => `Вставить слои ниже: ${count}`,
+      pasteCount: (count) => `Вставить слои: ${count}`,
+      delete: 'Удалить',
+      copySelected: (count) => `Копировать слои: ${count}`,
+      deleteSelected: (count) => `Удалить слои: ${count}`,
+    },
     added: (name) => `Добавлено «${name}» — см. график T/R/A`,
     nothingToExport: 'Нет измеренных кривых для экспорта.',
     exported: (path) => `Сохранено ${path}`,
@@ -4476,7 +4506,7 @@ const ru = {
     perInterface:   'По интерфейсам',
     uniformHelp:    'Применяется одинаково ко всем интерфейсам. Типичная подложка ≈ 0.5–2 нм; PVD-слои добавляют ~0.3–0.8 нм каждый.',
     outputSection:  'Результат',
-    helpText:       'Некоррелированная модель: TIS = R · (4πσ_eff cosθ/λ)² (Маклеод ур. 16.30). σ_eff² = Σσ_i² по всем границам.',
+    helpText:       'Некоррелированная модель: TIS = R · (4πσ_eff cosθ/λ)². σ_eff² = Σσ_i² по всем границам.',
     noBackLayers:   'Расчёт включает заднее покрытие, но в проекте нет задних слоёв. Добавьте заднее покрытие в редакторе покрытия, чтобы учесть его шероховатость.',
     frontInterfaces:'Границы переднего покрытия',
     backInterfaces: 'Границы заднего покрытия',
@@ -4503,7 +4533,7 @@ const ru = {
     profile:            'Профиль',
     slices:             'Слоёв',
     removeRow:          'Удалить',
-    helpText:           'Каждый переходный слой делится на N подслоёв с линейно смешанными n,k (Маклеод-Марсель, §«Неоднородные слои»). Толщина ДОБАВЛЯЕТСЯ к интерфейсу — основные слои не сокращаются.',
+    helpText:           'Каждый переходный слой делится на N подслоёв с линейно смешанными n,k. Толщина ДОБАВЛЯЕТСЯ к интерфейсу — основные слои не сокращаются.',
     backInterfacesTitle: 'Слои заднего покрытия',
     frontInterfacesTitle: 'Слои переднего покрытия',
     noBackLayers: 'Расчёт включает заднее покрытие, но в проекте нет задних слоёв. Добавьте заднее покрытие в редакторе покрытия, чтобы задать градиент его границ.',
@@ -4511,8 +4541,8 @@ const ru = {
     polarization:       'Поляризация',
     polAvg:             'ср',
     channel:            'Канал',
-    traceHomogeneous:   'однородн.',
-    traceWithInterlayers: 'с переходными',
+    traceHomogeneous:   'база',
+    traceWithInterlayers: 'переходы',
     colHomogeneous:     'однородн. (%)',
     colGraded:          'с градиентом (%)',
   },
@@ -4562,7 +4592,7 @@ const ru = {
   errorAnalysis: {
     noDesign:      'Проект не выбран.',
     noLayers:      'Нет слоёв в проекте.',
-    colNominal:    'номинал (%)',
+    colNominalSpectrum: 'номинал (%)',
     colMean:       'среднее (%)',
     colMin:        'мин (%)',
     colMax:        'макс (%)',
@@ -4618,7 +4648,7 @@ const ru = {
     worstLayersTip:   'Слои, толщина которых отклоняется сильнее в проваленных испытаниях, чем в пройденных — вероятные виновники.',
     colLayer:         'Слой',
     colMaterial:      'Материал',
-    colNominal:       'd₀ (нм)',
+    colNominalThickness: 'd₀ (нм)',
     colNew:           'd (нм)',
     specAllPassShort: 'Спец. ПРОЙДЕНА',
     running:       'Идёт расчёт…',
@@ -5049,7 +5079,7 @@ const ru = {
       colEstFWHM:      'Оценка FWHM',
       estVsTarget:    (est, tgt, pct) =>
         `Выбранный прототип: оценка FWHM ≈ ${est} нм (цель ${tgt} нм, ` +
-        `${pct > 0 ? '+' : ''}${pct}%). Macleod Eq. 7.27 × множитель N.`,
+        `${pct > 0 ? '+' : ''}${pct}%). Используется однорезонаторная оценка полосы × множитель N.`,
     },
     step4: {
       title: 'Предпросмотр',
@@ -5057,7 +5087,7 @@ const ru = {
              'полоса пропускания; пунктир — λ₀.',
       refineNote: 'Симметричный прототип с N резонаторами имеет N суб-пиков ' +
                   'в полосе пропускания — это классическая чебышевская ' +
-                  'пульсация (Macleod §8.2), а не ошибка. Запустите ' +
+                  'пульсация этого прототипа, а не ошибка. Запустите ' +
                   'Refinement / Needle, чтобы слить их в плоскую вершину.',
     },
     step5: {
@@ -5174,7 +5204,7 @@ const ru = {
     dominant:      'Доминир. λ',
     compl:         'Дополн.',
     purity:        'чистота',
-    refNote:       'Стандартные данные CIE 15:2004; Маклеод §12.2, ур. 12.1–12.5. ' +
+    refNote:       'Стандартные данные CIE 15:2004. ' +
                    'Y — коэффициент яркости (%). Образец адаптирован по Брэдфорду ' +
                    'к дисплею D65.',
   },

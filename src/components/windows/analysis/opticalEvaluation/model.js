@@ -1,32 +1,31 @@
 import {
-    buildTargetTraces, buildTargetShapes,
-    operandOverridesFromDrawnLine, applyHandleEdit, snapDrawnLine,
+    buildTargetGeometry, operandOverridesFromDrawnLine, applyHandleEdit, snapDrawnLine,
 } from '../../../../utils/physics/spectrumTargets.js';
 import { makeOperand } from '../../../../utils/physics/optimizer.js';
-import { spectralAxisProps } from '../../../../utils/physics/spectralAxis.js';
+import { spectralAxisOption } from '../../../../utils/physics/spectralAxis.js';
 import { ANALYSIS_DEFAULTS } from '../../../../constants/analysisDefaults.js';
+import {
+    axisTooltip, cartesianOption, chartToolbox, formatPercentReadout, lineSeries, valueAxis,
+} from '../../../ui/chartOptions.js';
+import { targetSeries } from '../../../ui/targetSeries.js';
 import { plotMargin } from '../chrome/plot.js';
 
-// Trace geometry is fixed; the colours come from the configurable registry.
 const CURVE_SHAPES = [
-    { key: 'T',  label: 'T avg', dash: 'solid', group: 'avg' },
-    { key: 'R',  label: 'R avg', dash: 'solid', group: 'avg' },
-    { key: 'A',  label: 'A avg', dash: 'solid', group: 'avg' },
-    { key: 'Ts', label: 'T (s)', dash: 'dot',   group: 's' },
-    { key: 'Rs', label: 'R (s)', dash: 'dot',   group: 's' },
-    { key: 'Tp', label: 'T (p)', dash: '5px,3px', group: 'p' },
-    { key: 'Rp', label: 'R (p)', dash: '5px,3px', group: 'p' },
+    { key: 'T',  label: 'T avg', dash: 'solid',  group: 'avg' },
+    { key: 'R',  label: 'R avg', dash: 'solid',  group: 'avg' },
+    { key: 'A',  label: 'A avg', dash: 'solid',  group: 'avg' },
+    { key: 'Ts', label: 'T (s)', dash: 'dotted', group: 's' },
+    { key: 'Rs', label: 'R (s)', dash: 'dotted', group: 's' },
+    { key: 'Tp', label: 'T (p)', dash: 'dashed', group: 'p' },
+    { key: 'Rp', label: 'R (p)', dash: 'dashed', group: 'p' },
 ];
 
-/** Curve descriptors tinted with `colors`; factory defaults when absent. */
 export function buildCurves(colors = ANALYSIS_DEFAULTS.opticalEvaluation.colors) {
     return CURVE_SHAPES.map(shape => ({ ...shape, color: colors[shape.key] }));
 }
 
 export const CURVES = buildCurves();
-
-export const CURVE_BY_KEY = Object.fromEntries(CURVES.map(cv => [cv.key, cv]));
-
+export const CURVE_BY_KEY = Object.fromEntries(CURVES.map(curve => [curve.key, curve]));
 export const CURVE_GROUPS = [
     { q: 'T', members: [{ pol: 'avg', key: 'T' }, { pol: 's', key: 'Ts' }, { pol: 'p', key: 'Tp' }] },
     { q: 'R', members: [{ pol: 'avg', key: 'R' }, { pol: 's', key: 'Rs' }, { pol: 'p', key: 'Rp' }] },
@@ -34,173 +33,144 @@ export const CURVE_GROUPS = [
 ];
 
 export const AOI_MAX = 6;
-const AOI_ALPHA = [1.0, 0.72, 0.56, 0.45, 0.36, 0.30];
+const AOI_ALPHA = [1, 0.72, 0.56, 0.45, 0.36, 0.30];
 
 export function curveColorFor(curve, colors = ANALYSIS_DEFAULTS.opticalEvaluation.colors) {
     return curve === 'T' ? colors.T : curve === 'A' ? colors.A : colors.R;
 }
 
-export function formatTheta(theta) {
-    return Number.isInteger(theta) ? String(theta) : theta.toFixed(1);
-}
-
-function aoiAlpha(index, count) {
-    return count <= 1 ? 1.0 : (AOI_ALPHA[index] ?? 0.30);
-}
+export function formatTheta(theta) { return Number.isInteger(theta) ? String(theta) : theta.toFixed(1); }
+const aoiAlpha = (index, count) => count <= 1 ? 1 : (AOI_ALPHA[index] ?? 0.3);
 
 function hexToRgba(hex, alpha) {
-    const r = parseInt(hex.slice(1, 3), 16);
-    const g = parseInt(hex.slice(3, 5), 16);
-    const b = parseInt(hex.slice(5, 7), 16);
-    return `rgba(${r},${g},${b},${alpha})`;
+    const red = parseInt(hex.slice(1, 3), 16);
+    const green = parseInt(hex.slice(3, 5), 16);
+    const blue = parseInt(hex.slice(5, 7), 16);
+    return `rgba(${red},${green},${blue},${alpha})`;
 }
 
-export function buildMeasuredTraces(overlays) {
-    const out = [];
-    (overlays || []).forEach(cv => {
-        if (!cv || cv.visible === false || !cv.x?.length) return;
-        out.push({
-            x: cv.x,
-            y: cv.y.map(v => v * 100),
-            name: `${cv.name} (${cv.quantity} meas)`,
-            type: 'scatter',
-            mode: 'lines+markers',
-            line: { color: cv.color, width: 1.4, dash: 'dot' },
-            marker: { color: cv.color, size: 4, symbol: 'circle-open' },
-            hovertemplate: `%{x:.1f} nm<br>${cv.name}: %{y:.3f}%<extra></extra>`,
+export function buildMeasuredSeries(overlays) {
+    return (overlays || []).filter(curve => curve && curve.visible !== false && curve.x?.length).map(curve => {
+        const series = lineSeries({
+            x: curve.x, y: curve.y.map(value => value * 100),
+            name: `${curve.name} (${curve.quantity} meas)`, color: curve.color,
+            width: 1.4, dash: 'dotted', symbol: 'circle', symbolSize: 4,
         });
+        series.itemStyle.color = 'transparent';
+        series.itemStyle.borderColor = curve.color;
+        return series;
     });
-    return out;
 }
 
-function curveTrace(data, series, seriesIndex, curve, seriesCount) {
-    const suffix = seriesCount > 1 ? ` @ ${formatTheta(series.theta)}°` : '';
-    return {
-        x: data.lambda,
-        y: series[curve.key].map(v => v * 100),
-        name: curve.label + suffix,
-        type: 'scatter',
-        mode: 'lines',
-        line: { color: hexToRgba(curve.color, aoiAlpha(seriesIndex, seriesCount)), width: 1.5, dash: curve.dash },
-        hovertemplate: `%{x:.1f} nm<br>${curve.label}${suffix}: %{y:.3f}%<extra></extra>`
-    };
-}
-
-function buildCurveTraces(data, showCurves, curveColors) {
-    const enabled = buildCurves(curveColors).filter(cv => showCurves[cv.key]);
-    const traces = [];
-    data.series.forEach((series, seriesIndex) => {
-        enabled.forEach(curve => {
-            if (series[curve.key]) traces.push(curveTrace(data, series, seriesIndex, curve, data.series.length));
-        });
+function computedSeries(data, showCurves, curveColors) {
+    const enabled = buildCurves(curveColors).filter(curve => showCurves[curve.key]);
+    const output = [];
+    data.series.forEach((result, resultIndex) => {
+        for (const curve of enabled) {
+            if (!result[curve.key]) continue;
+            const suffix = data.series.length > 1 ? ` @ ${formatTheta(result.theta)}°` : '';
+            output.push(lineSeries({
+                x: data.lambda,
+                y: result[curve.key].map(value => value * 100),
+                name: curve.label + suffix,
+                color: hexToRgba(curve.color, aoiAlpha(resultIndex, data.series.length)),
+                width: 1.5,
+                dash: curve.dash,
+                sampling: data.lambda.length > 2000 ? 'lttb' : undefined,
+            }));
+        }
     });
-    return traces;
+    return output;
 }
 
-export function buildChartTraces({ data, showCurves, targets, targetsVisible, overlays, curveColors }) {
-    const overlayTraces = buildMeasuredTraces(overlays);
-    const targetTraces = targetsVisible ? buildTargetTraces(targets) : [];
-    if (!data?.lambda || !data?.series?.length) return [...overlayTraces, ...targetTraces];
-    return [...buildCurveTraces(data, showCurves, curveColors), ...overlayTraces, ...targetTraces];
+export function buildChartSeries({ data, showCurves, targets, targetsVisible, overlays, curveColors }) {
+    const output = data?.lambda && data?.series?.length ? computedSeries(data, showCurves, curveColors) : [];
+    output.push(...buildMeasuredSeries(overlays));
+    if (targetsVisible) output.push(...targetSeries(buildTargetGeometry(targets)));
+    return output;
 }
 
-export function buildChartLayout(opts) {
+export function buildChartOption(options) {
     const {
-        paperColor, bgColor, gridColor, textColor, targets, targetsVisible,
-        editMode, editTool, editCurve, editable, handlesActive, yRange,
-        spectralUnit, lamRange,
-    } = opts;
-    return {
-        margin: plotMargin(),
-        paper_bgcolor: paperColor,
-        plot_bgcolor: bgColor,
-        font: { color: textColor, family: 'system-ui, -apple-system, sans-serif', size: 11 },
-        xaxis: {
-            ...spectralAxisProps(spectralUnit, lamRange?.min, lamRange?.max),
-            gridcolor: gridColor, gridwidth: 1,
-            zerolinecolor: gridColor,
-            tickfont: { size: 10 }
-        },
-        yaxis: {
-            title: { text: 'T, R, A (%)', standoff: 8 },
-            ...(yRange?.auto
-                ? { autorange: true }
-                : { range: [yRange?.min ?? 0, yRange?.max ?? 100] }),
-            gridcolor: gridColor, gridwidth: 1,
-            zerolinecolor: gridColor,
-            tickfont: { size: 10 }
-        },
-        showlegend: false,
-        hovermode: editMode ? 'closest' : 'x unified',
-        dragmode: (editMode && editTool === 'draw') ? 'drawline' : 'zoom',
-        newshape: editMode
-            ? { line: { color: curveColorFor(editCurve), width: 3 }, opacity: 0.9, drawdirection: 'diagonal' }
-            : undefined,
-        autosize: true,
-        shapes: handlesActive
-            ? editable.shapes
-            : ((targetsVisible || editMode) ? buildTargetShapes(targets) : [])
-    };
-}
-
-export function buildChartConfig(editMode, editTool) {
-    return {
-        displaylogo: false,
-        responsive: true,
-        displayModeBar: true,
-        editable: false,
-        edits: { shapePosition: editMode && editTool === 'draw' },
-        modeBarButtonsToRemove: ['select2d', 'lasso2d', 'autoScale2d'],
-        modeBarButtonsToAdd: (editMode && editTool === 'draw') ? ['drawline'] : [],
-        toImageButtonOptions: { format: 'png', filename: 'TFStudio_spectrum', scale: 2 }
-    };
+        data, showCurves, targets, targetsVisible, overlays, curveColors,
+        paperColor, bgColor, gridColor, textColor,
+        editMode, editTool, yRange, spectralUnit, lamRange,
+    } = options;
+    const drawing = editMode && editTool === 'draw';
+    const spectral = spectralAxisOption(spectralUnit, lamRange?.min, lamRange?.max);
+    const xAxis = valueAxis({
+        name: spectral.name, color: textColor, gridColor,
+        min: spectral.min, max: spectral.max,
+        interval: spectralUnit === 'nm' ? 50 : undefined,
+    });
+    xAxis.axisLabel = { ...xAxis.axisLabel, ...spectral.axisLabel };
+    return cartesianOption({
+        colors: { background: bgColor, paper: paperColor, grid: gridColor, text: textColor },
+        grid: plotMargin(),
+        tooltip: drawing ? { show: false } : axisTooltip({
+            valueSuffix: '%', formatValue: formatPercentReadout,
+        }),
+        toolbox: chartToolbox('spectrum', { dataZoom: !drawing, restore: true }),
+        xAxis,
+        yAxis: valueAxis({
+            name: '%', color: textColor, gridColor,
+            min: yRange?.auto ? undefined : (yRange?.min ?? 0),
+            max: yRange?.auto ? undefined : (yRange?.max ?? 100),
+            scale: !!yRange?.auto,
+            interval: yRange?.auto ? undefined : 10,
+        }),
+        dataZoom: drawing ? undefined : [{
+            type: 'inside', xAxisIndex: 0, filterMode: 'none',
+            zoomOnMouseWheel: true, moveOnMouseMove: false, moveOnMouseWheel: false,
+        }],
+        series: buildChartSeries({ data, showCurves, targets, targetsVisible, overlays, curveColors }),
+    });
 }
 
 export function buildTableColumns(data, showCurves, curveColors) {
-    const enabled = buildCurves(curveColors).filter(cv => showCurves[cv.key]);
-    const multi = data.series.length > 1;
+    const enabled = buildCurves(curveColors).filter(curve => showCurves[curve.key]);
+    const multiple = data.series.length > 1;
     const columns = [];
-    data.series.forEach(series => {
-        enabled.forEach(curve => {
-            if (series[curve.key]) columns.push({
-                cv: curve,
-                theta: series.theta,
-                ys: series[curve.key],
-                label: curve.label + (multi ? ` @ ${formatTheta(series.theta)}°` : '')
-            });
+    data.series.forEach(series => enabled.forEach(curve => {
+        if (series[curve.key]) columns.push({
+            cv: curve,
+            theta: series.theta,
+            ys: series[curve.key],
+            label: curve.label + (multiple ? ` @ ${formatTheta(series.theta)}°` : ''),
         });
-    });
+    }));
     return columns;
 }
 
 export function buildCSV(data, showCurves) {
     if (!data?.lambda || !data?.series?.length) return '';
-    const multi = data.series.length > 1;
-    const cols = buildTableColumns(data, showCurves).map(col => ({
-        name: col.cv.key + (multi ? `_${formatTheta(col.theta)}deg` : ''),
-        ys: col.ys,
+    const multiple = data.series.length > 1;
+    const columns = buildTableColumns(data, showCurves).map(column => ({
+        name: column.cv.key + (multiple ? `_${formatTheta(column.theta)}deg` : ''),
+        values: column.ys,
     }));
-    const header = ['lambda_nm', ...cols.map(col => col.name)].join(',');
-    const rows = data.lambda.map((lambda, index) =>
-        [lambda.toFixed(2), ...cols.map(col => (col.ys[index] * 100).toFixed(6))].join(',')
-    );
+    const header = ['lambda_nm', ...columns.map(column => column.name)].join(',');
+    const rows = data.lambda.map((wavelength, index) => [
+        wavelength.toFixed(2),
+        ...columns.map(column => (column.values[index] * 100).toFixed(6)),
+    ].join(','));
     return [header, ...rows].join('\n');
 }
 
-export function createTargetOperands(opts) {
-    const { operands, line, editCurve, editPol, editKind, snapOn, snapNm, snapPct } = opts;
+export function createTargetOperands(options) {
+    const { operands, line, editCurve, editPol, editKind, snapOn, snapNm, snapPct } = options;
     const drawn = snapOn ? snapDrawnLine(line, { operands, snapNm, snapPct }) : line;
     return [...operands, makeOperand(operandOverridesFromDrawnLine(drawn, editCurve, editPol, editKind))];
 }
 
-export function editTargetOperands(opts) {
-    const { operands, meta, coords, snapOn, snapNm, snapPct } = opts;
-    const edited = snapOn
-        ? snapDrawnLine(coords, { operands, snapNm, snapPct, excludeId: meta.opId })
-        : coords;
-    return operands.map(op => op.id === meta.opId ? { ...op, ...applyHandleEdit(meta, op, edited) } : op);
+export function editTargetOperands(options) {
+    const { operands, meta, coords, snapOn, snapNm, snapPct } = options;
+    const edited = snapOn ? snapDrawnLine(coords, { operands, snapNm, snapPct, excludeId: meta.opId }) : coords;
+    return operands.map(operand => operand.id === meta.opId
+        ? { ...operand, ...applyHandleEdit(meta, operand, edited) }
+        : operand);
 }
 
 export function deleteTargetOperand(operands, opId) {
-    return operands.filter(op => op.id !== opId);
+    return operands.filter(operand => operand.id !== opId);
 }

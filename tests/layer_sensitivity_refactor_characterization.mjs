@@ -9,7 +9,7 @@ import {
 shimBrowserGlobals();
 await loadApp();
 
-const { buildSensitivityFigure } = await import(
+const { buildSensitivityOption } = await import(
     '../src/components/windows/analysis/layerSensitivity/figure.js'
 );
 const {
@@ -53,26 +53,26 @@ assert.deepEqual(
 );
 
 const c = makeTheme();
-const normalized = buildSensitivityFigure({
+const normalized = buildSensitivityOption({
     rows: ordered, matColorMap: { H: '#111', L: '#222' },
     scale: 'normalized', frontCount: 2, c,
     xTitle: 'Layer', yTitle: 'Sensitivity (%)',
 });
-assert.deepEqual(normalized.data[0].x, ['F1', 'F2', 'B1', 'B2']);
-assert.deepEqual(normalized.data[0].y, [25, 100, 75, 50]);
-assert.deepEqual(normalized.data[0].marker.color, ['#222', '#111', '#111', '#222']);
-assert.equal(normalized.layout.yaxis.type, 'linear');
-assert.equal(normalized.layout.yaxis.title.text, 'Sensitivity (%)');
-assert.equal(normalized.layout.xaxis.title.text, 'Layer',
+assert.deepEqual(normalized.xAxis.data, ['F1', 'F2', 'B1', 'B2']);
+assert.deepEqual(normalized.series[0].data.map(item => item.value), [25, 100, 75, 50]);
+assert.deepEqual(normalized.series[0].data.map(item => item.itemStyle.color), ['#222', '#111', '#111', '#222']);
+assert.equal(normalized.yAxis.type, 'value');
+assert.equal(normalized.yAxis.name, 'Sensitivity (%)');
+assert.equal(normalized.xAxis.name, 'Layer',
     'the axis titles come from the locale, not from the figure builder');
-const absolute = buildSensitivityFigure({
+const absolute = buildSensitivityOption({
     rows: ordered, matColorMap: {}, scale: 'absolute', frontCount: 2, c,
     xTitle: 'Layer', yTitle: 'Sensitivity (%)',
 });
-assert.deepEqual(absolute.data[0].y, [0.5, 2, 3, 1]);
-assert.equal(absolute.layout.yaxis.type, 'log');
-assert.equal(absolute.layout.yaxis.title.text, '|ΔOMF|');
-assert.deepEqual(buildSensitivityFigure({ rows: [], c }).layout, {});
+assert.deepEqual(absolute.series[0].data.map(item => item.value), [0.5, 2, 3, 1]);
+assert.equal(absolute.yAxis.type, 'log');
+assert.equal(absolute.yAxis.name, '|ΔOMF|');
+assert.deepEqual(buildSensitivityOption({ rows: [], c }), { series: [] });
 
 // Without merit operands there is nothing to rank, so this render is the
 // "define targets first" message.

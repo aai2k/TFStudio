@@ -7,6 +7,7 @@
 
 import { systemSpectrum, partialThicknesses } from '../../../../utils/monitoring/depositionSpectrum.js';
 import { inputStyle, RowField, LayerTabs, Chart, SplitPage } from '../wizardShared.js';
+import { lineSeries } from '../../../ui/chartOptions.js';
 
 const { createElement: h, useMemo } = React;
 
@@ -29,7 +30,7 @@ export function PageMonSystem({ p, set, layers, c, B, ctx }) {
         });
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [layers, k, p.quantity, p.aoi, p.pol, p.lamMin, p.lamMax, nonce, ctx]);
-    const traces = preview ? [{ x: preview.lambda, y: preview.values.map(v => v * 100), type: 'scatter', mode: 'lines', line: { color: '#1f6feb', width: 1.6 } }] : [];
+    const series = preview ? [lineSeries({ x: preview.lambda, y: preview.values.map(v => v * 100), color: '#1f6feb', width: 1.6 })] : [];
 
     return h(SplitPage, { c, leftWidth: 210,
         left: [
@@ -46,7 +47,7 @@ export function PageMonSystem({ p, set, layers, c, B, ctx }) {
         ],
         right: h('div', { style: { flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column' } },
             h('div', { style: { flex: 1, minHeight: 0 } },
-                h(Chart, { traces, xTitle: B.wavelengthAxis, yTitle: `${p.quantity}${p.pol === 'avg' ? '' : p.pol}, %`, c })),
+                h(Chart, { series, xTitle: B.wavelengthAxis, yTitle: `${p.quantity}${p.pol === 'avg' ? '' : p.pol}, %`, c })),
             h(LayerTabs, { n: layers.length, current: k, onSelect: (kk) => set('previewLayer', kk), c, label: B.layerWord })),
     });
 }

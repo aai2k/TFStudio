@@ -7,7 +7,7 @@ import {
 shimBrowserGlobals();
 await loadApp();
 
-const { buildCurveTraces, buildSurfaceFigure } = await import(
+const { buildCurveSeries, buildSurfaceOption } = await import(
     '../src/components/windows/analysis/plotEngine/charts.js'
 );
 
@@ -23,61 +23,52 @@ const results = {
     second: { x: [0, 45], y: [0.3, 0.4] },
 };
 
-assert.deepEqual(buildCurveTraces(curves, results), [
-    {
-        x: results.first.x,
-        y: results.first.y,
-        type: 'scatter',
-        mode: 'lines',
-        name: 'First',
-        line: { color: '#123456', dash: 'dash', width: 3 },
-        hovertemplate: 'First<br>λ=%{x:.1f} nm<br>T=%{y:.4f}<extra></extra>',
-    },
-    {
-        x: results.second.x,
-        y: results.second.y,
-        type: 'scatter',
-        mode: 'lines',
-        name: 'second',
-        line: { color: '#abcdef', dash: 'dot', width: 2 },
-        hovertemplate: '<br>AOI=%{x:.1f}°<br>A=%{y:.4f}<extra></extra>',
-    },
+const curveSeries = buildCurveSeries(curves, results);
+assert.deepEqual(curveSeries.map(series => series.name), ['First', 'second']);
+assert.deepEqual(curveSeries.map(series => series.data), [
+    [[400, 10], [500, 20]],
+    [[0, 30], [45, 40]],
+]);
+assert.deepEqual(curveSeries.map(series => series.lineStyle), [
+    { color: '#123456', width: 3, type: 'dashed' },
+    { color: '#abcdef', width: 2, type: 'dotted' },
 ]);
 
 const c = { panel: '#panel', bg: '#bg', text: '#text', border: '#border' };
 const result = { ok: true, x: [1, 2], y: [3, 4], z: [[5, 6], [7, 8]], zLabel: 'Reflectance' };
 const design = { frontLayers: [], backLayers: [] };
-const baseSpec = { xVar: 'wavelength', yVar: 'aoi', colorscale: 'Cividis' };
-const heatmap = buildSurfaceFigure(result, { ...baseSpec, render: 'heatmap' }, design, c);
+const baseSpec = { xVar: 'wavelength', yVar: 'aoi', z: 'R', colorscale: 'Cividis' };
+const heatmap = buildSurfaceOption(result, { ...baseSpec, render: 'heatmap' }, design, c);
 
-assert.equal(heatmap.traces.length, 1);
-assert.deepEqual(heatmap.traces[0], {
-    type: 'heatmap',
-    x: result.x,
-    y: result.y,
-    z: result.z,
-    colorscale: 'Cividis',
-    colorbar: {
-        title: { text: 'Reflectance', side: 'right', font: { color: '#text', size: 11 } },
-        tickfont: { color: '#text', size: 9 },
-        thickness: 14, len: 0.9, x: 1, xpad: 4,
-    },
-    hovertemplate: '%{x}<br>%{y}<br>Reflectance=%{z:.4g}<extra></extra>',
-});
-assert.equal(heatmap.layout.xaxis.title.text, 'Wavelength (nm)');
-assert.equal(heatmap.layout.yaxis.title.text, 'AOI (°)');
+assert.equal(heatmap.series.length, 1);
+assert.equal(heatmap.series[0].type, 'heatmap');
+assert.deepEqual(heatmap.series[0].data, [[0, 0, 500], [1, 0, 600], [0, 1, 700], [1, 1, 800]]);
+assert.deepEqual(heatmap.visualMap.inRange.color, ['#00204c', '#424086', '#7c7b78', '#bcae5c', '#ffea46']);
+assert.equal(heatmap.xAxis.name, 'Wavelength (nm)');
+assert.equal(heatmap.yAxis.name, 'AOI (°)');
+assert.deepEqual(heatmap.xAxis.data, [1, 2]);
+assert.deepEqual(heatmap.yAxis.data, [3, 4]);
 // A heat map is a normal 2D plot, so it takes the analysis windows' shared
 // margins; the 3D surface draws its axes inside the scene and takes none.
-assert.deepEqual(heatmap.layout.margin, { l: 58, r: 18, t: 38, b: 52 });
+assert.deepEqual(
+    [heatmap.grid.left, heatmap.grid.right, heatmap.grid.top, heatmap.grid.bottom],
+    [58, 72, 38, 52],
+);
 
-const surface = buildSurfaceFigure(result, { ...baseSpec, render: 'surface' }, design, c);
-assert.equal(surface.traces[0].type, 'surface');
-assert.deepEqual(surface.traces[0].contours, { z: { show: false } });
-assert.equal(surface.layout.scene.aspectmode, 'cube');
-assert.deepEqual(surface.layout.scene.camera, { eye: { x: 1.9, y: -1.9, z: 1.35 } });
-assert.deepEqual(surface.layout.margin, { l: 0, r: 0, t: 0, b: 0 });
-assert.equal(buildSurfaceFigure(null, baseSpec, design, c), null);
-assert.equal(buildSurfaceFigure({ ok: false }, baseSpec, design, c), null);
+const surface = buildSurfaceOption(result, { ...baseSpec, render: 'surface' }, design, c);
+assert.equal(surface.series[0].type, 'surface');
+assert.deepEqual(surface.series[0].data, [[1, 3, 500], [2, 3, 600], [1, 4, 700], [2, 4, 800]]);
+assert.equal(surface.series[0].wireframe.show, false);
+assert.equal(surface.grid3D.viewControl.projection, 'perspective');
+assert.equal(surface.grid3D.viewControl.rotateSensitivity, 2.5);
+assert.equal(surface.grid3D.viewControl.zoomSensitivity, 2);
+assert.equal(surface.grid3D.viewControl.panSensitivity, 1.5);
+assert.equal(surface.grid3D.boxWidth, surface.grid3D.boxDepth);
+assert.equal(surface.xAxis3D.name, 'Wavelength (nm)');
+assert.equal(surface.zAxis3D.name, '%');
+assert.equal(surface.visualMap.text[0], 'Reflectance (%)');
+assert.equal(buildSurfaceOption(null, baseSpec, design, c), null);
+assert.equal(buildSurfaceOption({ ok: false }, baseSpec, design, c), null);
 
 // ── Both modes of the window itself ─────────────────────────────────────────
 //

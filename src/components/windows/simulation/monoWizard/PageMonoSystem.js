@@ -12,6 +12,7 @@ import {
     matName, cullName, inputStyle, NumField, cellNum, LayerTabs, Chart,
 }                               from '../wizardShared.js';
 import { monoSignalVsThickness } from './monoSignalModel.js';
+import { lineSeries }             from '../../../ui/chartOptions.js';
 
 const { createElement: h, useMemo } = React;
 
@@ -27,9 +28,8 @@ export function PageMonoSystem({ p, set, layers, c, B, ctx, design }) {
         // eslint-disable-next-line react-hooks/exhaustive-deps
         [layers, k, monRow.lambda, p.quantity, p.aoi, p.pol, p.monNonce, ctx]);
 
-    const traces = preview ? [{ x: preview.d, y: preview.signal, type: 'scatter', mode: 'lines', line: { color: '#1f6feb', width: 1.6 } }] : [];
-    const shapes = preview ? [{ type: 'line', x0: preview.dTarget, x1: preview.dTarget, yref: 'paper', y0: 0, y1: 1,
-        line: { color: '#2da44e', width: 1.2, dash: 'dash' } }] : [];
+    const series = preview ? [lineSeries({ x: preview.d, y: preview.signal, color: '#1f6feb', width: 1.6 })] : [];
+    const referenceLines = preview ? [{ x: preview.dTarget, color: '#2da44e', width: 1.2, dash: 'dashed' }] : [];
 
     // Storage-order rows paired with their deposition number, listed in the order
     // the chamber grows them (substrate-adjacent first).
@@ -64,7 +64,7 @@ export function PageMonoSystem({ p, set, layers, c, B, ctx, design }) {
         // Preview chart
         h('div', { style: { height: 200, flexShrink: 0, display: 'flex', flexDirection: 'column' } },
             h('div', { style: { flex: 1, minHeight: 0 } },
-                h(Chart, { traces, xTitle: B.thicknessAxis, yTitle: `${p.quantity}${p.pol === 'avg' ? '' : p.pol}, %`, c, extra: { shapes }, minHeight: 0 })),
+                h(Chart, { series, xTitle: B.thicknessAxis, yTitle: `${p.quantity}${p.pol === 'avg' ? '' : p.pol}, %`, c, referenceLines, minHeight: 0 })),
             h(LayerTabs, { n: layers.length, current: k, onSelect: (kk) => set('previewLayer', kk), c, label: B.layerWord })),
         // Per-layer monitor table
         h('div', { style: { flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column' } },

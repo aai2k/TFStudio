@@ -48,7 +48,7 @@
     }),
     Object.assign({}, base, {
       id: 'demo-bbar-4',
-      name: 'Broadband AR — 4 layer (Ta₂O₅/SiO₂/MgF₂)',
+      name: 'Broadband AR (4-layer Ta₂O₅/SiO₂/MgF₂)',
       notes: 'A four-layer antireflection coating on BK7 (MgF₂ outer / Ta₂O₅ / SiO₂ / '
            + 'Ta₂O₅). Evaluate over 400–800 nm: reflectance drops below ~1% across the '
            + '500–700 nm core band. Layers are stored air-side first.',
@@ -62,7 +62,7 @@
     }),
     Object.assign({}, base, {
       id: 'demo-hr-qw',
-      name: 'High reflector — QW stack (TiO₂/SiO₂)',
+      name: 'High reflector QW stack (TiO₂/SiO₂)',
       notes: 'A 15-layer quarter-wave high-reflector centred at 550 nm: (TiO₂ HL)⁷ + TiO₂. '
            + 'Evaluate to see the high-reflectance stopband around the design wavelength.',
       frontLayers: qwHR,
@@ -79,7 +79,7 @@
     }),
     Object.assign({}, base, {
       id: 'demo-edge',
-      name: 'Edge filter — QW stack',
+      name: 'Edge filter QW stack',
       notes: 'A longer quarter-wave dielectric stack forms a reflective edge/stopband. '
            + 'Compare the band edges as you change the reference wavelength.',
       frontLayers: (function () {

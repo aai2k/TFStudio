@@ -61,7 +61,7 @@ function TrialLayerTable({ rows, hasIndexErrors, c, ea }) {
             h('thead', null, h('tr', null,
                 h('th', { style: { ...th, textAlign: 'left' } }, ea.colLayer || 'Layer'),
                 h('th', { style: { ...th, textAlign: 'left' } }, ea.colMaterial || 'Material'),
-                h('th', { style: th }, ea.colNominal || 'd₀ (nm)'),
+                h('th', { style: th }, ea.colNominalThickness || 'd₀ (nm)'),
                 h('th', { style: th }, 'Δd (nm)'),
                 h('th', { style: th }, ea.colNew || 'd (nm)'),
                 hasIndexErrors && h('th', { style: th }, 'Δn'),

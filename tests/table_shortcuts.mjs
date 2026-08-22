@@ -28,10 +28,18 @@ const { useTableShortcuts } = await import('../src/hooks/useTableShortcuts.js');
 let fails = 0;
 const ok = (cond, msg) => { if (!cond) { console.error('FAIL:', msg); fails++; } };
 
+// Real KeyboardEvents always carry `code`, the physical key position, which is
+// what the Ctrl chords match on. Derive it from the key unless a case sets it
+// explicitly to model a keyboard layout where the two disagree.
+function codeFor(key) {
+    return /^[a-zA-Z]$/.test(key || '') ? `Key${key.toUpperCase()}` : key;
+}
+
 function makeEvent(opts) {
     let prevented = false;
     return {
         key: opts.key,
+        code: opts.code ?? codeFor(opts.key),
         shiftKey: !!opts.shift,
         ctrlKey:  !!opts.ctrl,
         metaKey:  !!opts.meta,
@@ -54,8 +62,44 @@ function makeHost(opts = {}) {
         onDelete:      (i) => calls.push(['delete', i]),
         onDuplicate:   (i) => calls.push(['dup', i]),
         onBlockedDelete: () => calls.push(['blocked']),
+        onMoveFocus: opts.navigation
+            ? (delta, options) => calls.push(['row', delta, !!options?.extend]) : undefined,
+        onMoveColumn: opts.navigation ? delta => calls.push(['column', delta]) : undefined,
+        onActivate: opts.navigation ? index => calls.push(['activate', index]) : undefined,
+        onCopy: opts.navigation ? () => calls.push(['copy']) : undefined,
+        onPaste: opts.navigation ? () => calls.push(['paste']) : undefined,
     });
     return { onKeyDown, calls, rows };
+}
+
+// ── 13. Optional spreadsheet navigation and clipboard routing ──────────────
+console.log('— Optional spreadsheet navigation —');
+{
+    const host = makeHost({ focusIdx: 1, navigation: true });
+    const cases = [
+        [{ key: 'ArrowUp' }, ['row', -1, false]],
+        [{ key: 'ArrowDown', shift: true }, ['row', 1, true]],
+        [{ key: 'ArrowRight' }, ['column', 1]],
+        [{ key: 'Enter' }, ['activate', 1]],
+        [{ key: 'F2' }, ['activate', 1]],
+        [{ key: 'c', ctrl: true }, ['copy']],
+        [{ key: 'v', ctrl: true }, ['paste']],
+        // A Cyrillic layout reports the character, not the Latin letter; the
+        // chord still has to reach copy and paste.
+        [{ key: 'с', code: 'KeyC', ctrl: true }, ['copy']],
+        [{ key: 'м', code: 'KeyV', ctrl: true }, ['paste']],
+    ];
+    cases.forEach(([eventOptions, expected]) => {
+        const event = makeEvent(eventOptions);
+        host.onKeyDown(event);
+        ok(event.prevented, `${eventOptions.key} is handled when navigation is enabled`);
+        ok(JSON.stringify(host.calls.pop()) === JSON.stringify(expected),
+            `${eventOptions.key} routes to ${expected[0]}`);
+    });
+
+    const inputArrow = makeEvent({ key: 'ArrowDown', target: { tagName: 'INPUT' } });
+    host.onKeyDown(inputArrow);
+    ok(!inputArrow.prevented, 'arrow keys inside a thickness input remain native');
 }
 
 // ── 1. Insert (above) routes to onInsertAbove with focusIdx ────────────────
@@ -130,6 +174,20 @@ console.log('— Ctrl+Shift+D is ignored —');
     const e = makeEvent({ key: 'D', ctrl: true, shift: true });
     host.onKeyDown(e);
     ok(host.calls.length === 0, 'Ctrl+Shift+D does not duplicate');
+}
+
+// ── 7b. AltGr chords are typing, not shortcuts ────────────────────────────
+// Windows reports AltGr as Ctrl+Alt, so a layout that puts a character on
+// AltGr+C must not have that keystroke swallowed as copy.
+console.log('— AltGr is not a Ctrl chord —');
+{
+    const host = makeHost({ focusIdx: 0, navigation: true });
+    for (const key of ['c', 'v', 'd']) {
+        const e = makeEvent({ key, ctrl: true, alt: true });
+        host.onKeyDown(e);
+        ok(!e.prevented, `AltGr+${key} is left to the text input`);
+    }
+    ok(host.calls.length === 0, 'AltGr chords fire no row action');
 }
 
 // ── 8. Events from INPUT/TEXTAREA/SELECT are ignored ───────────────────────

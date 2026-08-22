@@ -12,7 +12,7 @@
 
 import './_uiShim.mjs';
 import {
-    computeSeed, buildSymbolMap, withRowMat, withRowSym,
+    computeSeed, buildSymbolMap, previewWavelengthRange, withRowMat, withRowSym,
 } from '../src/components/windows/design/stackFormula/model.js';
 import {
     buildNewDesignFromFormula, buildReplaceAppendPatch,
@@ -24,6 +24,14 @@ let fails = 0;
 const ok = (cond, msg) => { if (!cond) { console.error('FAIL:', msg); fails++; } };
 
 const LAM = 550;
+
+// Preview ranges follow the design wavelength and keep a readable grid.
+ok(JSON.stringify(previewWavelengthRange(550)) === JSON.stringify({
+    lambdaStart: 250, lambdaEnd: 1000, interval: 50,
+}), 'visible-spectrum preview keeps the shared 50 nm grid');
+ok(JSON.stringify(previewWavelengthRange(2000)) === JSON.stringify({
+    lambdaStart: 1000, lambdaEnd: 3500, interval: 250,
+}), 'IR preview expands around a 2000 nm reference instead of stopping at 1000 nm');
 
 // ── computeSeed ──────────────────────────────────────────────────────────────
 console.log('— computeSeed —');

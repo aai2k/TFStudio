@@ -8,6 +8,7 @@
  */
 
 import { Checkbox }                                              from '../../../ui/Checkbox.js';
+import { lineSeries }                                            from '../../../ui/chartOptions.js';
 import { SplitPage, inputStyle, NumField, cullName, matName, Chart } from '../wizardShared.js';
 
 const { createElement: h, useEffect, useMemo } = React;
@@ -21,7 +22,7 @@ export function RatesPage({ p, set, materialIds, resolveMat, c, B, samplePath })
     const path = useMemo(() => samplePath(rate, p.rateNonce),
         // eslint-disable-next-line react-hooks/exhaustive-deps
         [rate.meanA, rate.rmsA, rate.corr, p.rateNonce]);
-    const traces = [{ x: path.t, y: path.r, type: 'scatter', mode: 'lines', line: { color: '#1f6feb', width: 1.3 } }];
+    const series = [lineSeries({ x: path.t, y: path.r, color: '#1f6feb', width: 1.3 })];
     const yRange = p.rateYAt0 ? [0, Math.max(rate.meanA + 4 * Math.max(rate.rmsA, 0.1), rate.meanA * 1.4)] : null;
 
     return h(SplitPage, { c, leftWidth: 200,
@@ -42,6 +43,6 @@ export function RatesPage({ p, set, materialIds, resolveMat, c, B, samplePath })
                          border: `1px solid ${c.border}`, background: c.bg, color: c.text } }, B.randomize),
         ],
         right: h('div', { style: { flex: 1, minHeight: 0 } },
-            h(Chart, { traces, xTitle: B.timeAxis, yTitle: B.rateAxis, c, yRange })),
+            h(Chart, { series, xTitle: B.timeAxis, yTitle: B.rateAxis, c, yRange })),
     });
 }

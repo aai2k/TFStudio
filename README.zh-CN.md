@@ -10,7 +10,7 @@
 **开源的光学薄膜设计、分析与优化环境**
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](./LICENSE)
-![Version](https://img.shields.io/badge/version-1.6.1-informational)
+![Version](https://img.shields.io/badge/version-1.6.2-informational)
 [![Downloads](https://img.shields.io/github/downloads/aai2k/TFStudio/total?label=downloads&color=informational)](../../releases)
 ![Platform](https://img.shields.io/badge/platform-Windows%20%7C%20Linux-2ea44f)
 [![Maintainability](https://qlty.sh/gh/aai2k/projects/TFStudio/maintainability.svg)](https://qlty.sh/gh/aai2k/projects/TFStudio)
@@ -158,4 +158,4 @@ npm run build         # 打包可分发版本（electron-builder）
 ## 致谢
 
 - 材料数据来源于 [refractiveindex.info](https://refractiveindex.info) 数据库（CC0，公有领域）。
-- 基于 [Electron](https://www.electronjs.org/)、[React](https://react.dev/)、[Plotly.js](https://plotly.com/javascript/) 与 [KaTeX](https://katex.org/) 构建。
+- 基于 [Electron](https://www.electronjs.org/)、[React](https://react.dev/)、[Apache ECharts](https://echarts.apache.org/zh/index.html) 与 [KaTeX](https://katex.org/) 构建。

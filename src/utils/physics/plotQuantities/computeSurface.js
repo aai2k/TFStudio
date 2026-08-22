@@ -14,7 +14,7 @@ import { linspace, MAX_GRID_POINTS } from './surfaceSpec.js';
  *          pool by Y-row chunk. Defaults to the full grid.
  * @returns {{ ok:boolean, error?:string, x:number[], y:number[], z:number[][],
  *             zLabel:string, nPoints:number }}
- *          z[j][i] = Z at (x[i], y[j]) — Plotly surface/heatmap row-major order.
+ *          z[j][i] = Z at (x[i], y[j]) in row-major order.
  */
 export function computeSurface(spec, design, resolveMat, opts = {}) {
     if (!spec || !design) return { ok: false, error: 'no spec/design', x: [], y: [], z: [] };

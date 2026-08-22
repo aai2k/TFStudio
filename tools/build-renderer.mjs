@@ -13,7 +13,7 @@
 //   build/app/utils/workers/<worker>.js  <- esbuild worker entries (one per worker)
 //   build/app/styles.css               <- copied
 //   build/app/index.html               <- generated (rebased asset paths)
-//   build/app/vendor/                  <- React(prod)/ReactDOM(prod)/Plotly/KaTeX
+//   build/app/vendor/                  <- React(prod)/ReactDOM(prod)/ECharts/KaTeX
 //   build/icons/                       <- copied; renderer uses ../icons/ from the doc
 //
 // NOTE: sourcemap is intentionally OFF — a shipped .map would undo the obfuscation.
@@ -84,7 +84,7 @@ async function main() {
     legalComments: 'none',
     logLevel: 'info',
     define: { __TFS_BUILD_DATE__: JSON.stringify(buildDate) },
-    // React/ReactDOM/Plotly/KaTeX are window.* globals (script tags), never imported
+    // React/ReactDOM/ECharts/KaTeX are window.* globals (script tags), never imported
     // in src/, so there is nothing to externalize here.
   });
   if (result.errors && result.errors.length) {
@@ -103,7 +103,8 @@ async function main() {
   const nm = path.join(root, 'node_modules');
   copyFile(path.join(nm, 'react', 'umd', 'react.production.min.js'), path.join(outVendor, 'react.production.min.js'));
   copyFile(path.join(nm, 'react-dom', 'umd', 'react-dom.production.min.js'), path.join(outVendor, 'react-dom.production.min.js'));
-  copyFile(path.join(nm, 'plotly.js-dist-min', 'plotly.min.js'), path.join(outVendor, 'plotly.min.js'));
+  copyFile(path.join(nm, 'echarts', 'dist', 'echarts.min.js'), path.join(outVendor, 'echarts.min.js'));
+  copyFile(path.join(nm, 'echarts-gl', 'dist', 'echarts-gl.min.js'), path.join(outVendor, 'echarts-gl.min.js'));
   copyFile(path.join(nm, 'katex', 'dist', 'katex.min.js'), path.join(outVendor, 'katex.min.js'));
   copyFile(path.join(nm, 'katex', 'dist', 'katex.min.css'), path.join(outVendor, 'katex.min.css'));
   // katex.min.css references url(fonts/KaTeX_*.woff2) relative to itself.
@@ -130,7 +131,8 @@ async function main() {
     <!-- Vendored UMD globals (production builds) -->
     <script src="vendor/react.production.min.js"></script>
     <script src="vendor/react-dom.production.min.js"></script>
-    <script src="vendor/plotly.min.js"></script>
+    <script src="vendor/echarts.min.js"></script>
+    <script src="vendor/echarts-gl.min.js"></script>
     <script src="vendor/katex.min.js"></script>
 
     <!-- Bundled + minified renderer -->

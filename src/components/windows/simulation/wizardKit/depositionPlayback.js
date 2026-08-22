@@ -11,6 +11,7 @@
 
 import { systemSpectrum, splitActiveStacks, partialThicknesses, flipLayerIndex } from '../../../../utils/monitoring/depositionSpectrum.js';
 import { makeShiftedMaterial }                              from '../../../../utils/monitoring/monitoringSim.js';
+import { lineSeries }                                       from '../../../ui/chartOptions.js';
 
 const { useState, useEffect, useMemo, useRef, useCallback } = React;
 
@@ -128,19 +129,19 @@ function buildActualCurve({ run, layers, layerIdx, frac, ctx, p, lamStep }) {
     })), ctx, p, lamStep);
 }
 
-function pct100Trace(spec, color, width) {
-    return { x: spec.lambda, y: spec.values.map(v => v * 100), type: 'scatter', mode: 'lines', line: { color, width } };
+function percentSeries(spec, color, width) {
+    return lineSeries({ x: spec.lambda, y: spec.values.map(v => v * 100), color, width });
 }
 
-function buildCurveTraces(theoryCurves, actualCurve) {
-    const traces = [];
+function buildCurveSeries(theoryCurves, actualCurve) {
+    const series = [];
     if (theoryCurves) {
-        traces.push(pct100Trace(theoryCurves.f80, '#d9a400', 1));
-        traces.push(pct100Trace(theoryCurves.f90, '#1f6feb', 1));
-        traces.push(pct100Trace(theoryCurves.end, '#2da44e', 2));
+        series.push(percentSeries(theoryCurves.f80, '#d9a400', 1));
+        series.push(percentSeries(theoryCurves.f90, '#1f6feb', 1));
+        series.push(percentSeries(theoryCurves.end, '#2da44e', 2));
     }
-    if (actualCurve) traces.push(pct100Trace(actualCurve, '#e5484d', 2));
-    return traces;
+    if (actualCurve) series.push(percentSeries(actualCurve, '#e5484d', 2));
+    return series;
 }
 
 export function useDepositionCurves({ run, layers, layerIdx, frac, ctx, p }) {
@@ -156,5 +157,5 @@ export function useDepositionCurves({ run, layers, layerIdx, frac, ctx, p }) {
         // eslint-disable-next-line react-hooks/exhaustive-deps
         [run, layerIdx, frac, p.quantity, p.aoi, p.pol, p.lamMin, p.lamMax]);
 
-    return { traces: buildCurveTraces(theoryCurves, actualCurve) };
+    return { series: buildCurveSeries(theoryCurves, actualCurve) };
 }

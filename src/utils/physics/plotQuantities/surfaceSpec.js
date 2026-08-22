@@ -10,8 +10,11 @@ export const Z_QUANTITIES = ['T', 'R', 'A', 'MF'];
 export const SURFACE_RENDERS = ['surface', 'heatmap'];
 export const COLORSCALES = ['Viridis', 'Cividis', 'Jet', 'Hot', 'Portland', 'Electric', 'Greys'];
 
-export const MAX_AXIS_STEPS = 400;     // per-axis sample cap
-export const MAX_GRID_POINTS = 90000;  // total (nx·ny) cap — guards pathological grids
+// ECharts/echarts-gl can render materially denser sweeps than the retired
+// Keep one shared UI/compute limit so the displayed grid size can
+// never promise a surface that the worker later rejects.
+export const MAX_AXIS_STEPS = 700;
+export const MAX_GRID_POINTS = MAX_AXIS_STEPS * MAX_AXIS_STEPS;
 
 /** Linearly spaced sample array (inclusive), clamped to [2, MAX_AXIS_STEPS]. */
 export function linspace(from, to, steps) {
@@ -32,6 +35,7 @@ export function makeDefaultSurfaceSpec(design, defaults = {}) {
     const hasL0 = front.length >= 1;
     const hasL1 = front.length >= 2;
     const d1 = front[1]?.thickness ?? 100;
+    const compact = value => Math.round(value * 1000) / 1000;
     return {
         z: 'T',
         polarization: 'avg',
@@ -39,12 +43,12 @@ export function makeDefaultSurfaceSpec(design, defaults = {}) {
         fixedLambda_nm: 550,
         fixedAOI_deg: 0,
         xVar: hasL0 ? 'thk:0' : 'wavelength',
-        xFrom: hasL0 ? Math.max(1, d0 * 0.5) : 400,
-        xTo:   hasL0 ? d0 * 1.5 : 800,
+        xFrom: hasL0 ? compact(Math.max(1, d0 * 0.5)) : 400,
+        xTo:   hasL0 ? compact(d0 * 1.5) : 800,
         xSteps: 40,
         yVar: hasL1 ? 'thk:1' : 'aoi',
-        yFrom: hasL1 ? Math.max(1, d1 * 0.5) : 0,
-        yTo:   hasL1 ? d1 * 1.5 : 60,
+        yFrom: hasL1 ? compact(Math.max(1, d1 * 0.5)) : 0,
+        yTo:   hasL1 ? compact(d1 * 1.5) : 60,
         ySteps: 40,
         render: 'surface',
         colorscale: 'Viridis',

@@ -7,7 +7,7 @@
  */
 
 import { resolveColor } from '../../../../utils/materials/catalogManager.js';
-import { reactPlot } from '../../../ui/plotSurface.js';
+import { drawIndexChart } from './materialChart.js';
 import { FORMULA_LATEX } from '../../../../utils/materials/dispersionFormulas.js';
 import { KaTeXSpan, dotStyle, statusBadge, propRow, formatCoeff, smallBtn } from './materialEditorUI.js';
 
@@ -31,18 +31,10 @@ function computeReadOnlyCurves(selectedMat) {
 }
 
 function drawReadOnlyFigure(chartEl, { lambdas, ns, ks, hasK }, c, me) {
-    const traces = [{ x: lambdas, y: ns, name: me.chartN, type: 'scatter', mode: 'lines', line: { color: '#5dade2', width: 2 }, yaxis: 'y' }];
-    if (hasK) traces.push({ x: lambdas, y: ks, name: me.chartK, type: 'scatter', mode: 'lines', line: { color: '#e74c3c', width: 1.5, dash: 'dash' }, yaxis: 'y2' });
-    const layout = {
-        paper_bgcolor: c.bg, plot_bgcolor: c.bg,
-        margin: { t: 10, b: 36, l: 50, r: hasK ? 50 : 16 },
-        xaxis: { title: { text: me.wavelengthNm, font: { size: 11 } }, color: c.textDim, gridcolor: c.border, tickfont: { size: 10 } },
-        yaxis: { title: { text: me.chartN, font: { size: 11 } }, color: '#5dade2', gridcolor: c.border, tickfont: { size: 10 } },
-        legend: { font: { size: 11, color: c.text }, bgcolor: 'transparent', x: 0.01, y: 0.99 },
-        font: { family: 'system-ui, -apple-system, sans-serif' },
-    };
-    if (hasK) layout.yaxis2 = { title: { text: me.chartK, font: { size: 11 } }, color: '#e74c3c', overlaying: 'y', side: 'right', tickfont: { size: 10 } };
-    reactPlot(chartEl, traces, layout, { responsive: true, displayModeBar: false });
+    drawIndexChart(chartEl, {
+        wavelengths: lambdas, n: ns, k: ks, hasK, c,
+        xLabel: me.wavelengthNm, nLabel: me.chartN, kLabel: me.chartK,
+    });
 }
 
 // Compact [λ, n, k] table (≤80 evenly-spaced rows) from getNK, so materials with

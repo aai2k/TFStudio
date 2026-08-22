@@ -2,7 +2,7 @@
 // src/utils/spectrumTargets.js. Run: node tests/spectrum_targets_edit.mjs
 import {
     operandOverridesFromDrawnLine, applyHandleEdit,
-    buildEditableTargetShapes, snapDrawnLine, buildTargetTraces,
+    buildEditableTargetGeometry, snapDrawnLine, buildTargetGeometry,
 } from '../src/utils/physics/spectrumTargets.js';
 
 let pass = 0, fail = 0;
@@ -85,15 +85,14 @@ function ok(name, cond) { if (cond) { pass++; } else { fail++; console.error('FA
         { id: 'c', enabled: true, type: 'R',   lambdaStart: 550, target: 0.5 },
         { id: 'd', enabled: false, type: 'RAV', lambdaStart: 400, lambdaEnd: 700, target: 0.01 },
     ];
-    const { shapes, meta } = buildEditableTargetShapes(ops, { min: 400, max: 700 });
-    ok('handles skip disabled', shapes.length === 3 && meta.length === 3);
-    ok('handle/meta aligned', meta[0].opId === 'a' && meta[1].opId === 'b' && meta[2].opId === 'c');
-    ok('RAV handle flat', shapes[0].y0 === 1 && shapes[0].y1 === 1);
-    ok('TGT handle ramp', approx(shapes[1].y0, 90) && approx(shapes[1].y1, 10));
-    ok('point handle has width', shapes[2].x0 < 550 && shapes[2].x1 > 550);
-    ok('all handles editable', shapes.every(s => s.editable === true && s.type === 'line'));
-    ok('handles tagged with opId name', shapes[0].name === 'a' && shapes[1].name === 'b' && shapes[2].name === 'c');
-    ok('handles family-coloured', shapes[0].line.color === '#ef5350' && shapes[1].line.color === '#4fc3f7');
+    const geometry = buildEditableTargetGeometry(ops, { min: 400, max: 700 });
+    ok('handles skip disabled', geometry.length === 3);
+    ok('geometry carries operand ids', geometry.map(item => item.opId).join(',') === 'a,b,c');
+    ok('RAV handle flat', geometry[0].y0 === 1 && geometry[0].y1 === 1);
+    ok('TGT handle ramp', approx(geometry[1].y0, 90) && approx(geometry[1].y1, 10));
+    ok('point handle has fixed data width', geometry[2].x0 < 550 && geometry[2].x1 > 550);
+    ok('geometry identifies edit kind', geometry.map(item => item.kind).join(',') === 'band,band,point');
+    ok('handles family-coloured', geometry[0].color === '#ef5350' && geometry[1].color === '#4fc3f7');
 }
 
 // ── snapDrawnLine ─────────────────────────────────────────────────────────────
@@ -131,19 +130,18 @@ function ok(name, cond) { if (cond) { pass++; } else { fail++; console.error('FA
     ok('exclude self → grid snap not self-snap', s.x0 === 400 && s.x1 === 700);
 }
 
-// ── buildTargetTraces: line is densely sampled + click-taggable ──────────────
+// ── Visible target geometry is densely sampled + click-taggable ─────────────
 {
     const ops = [{ id: 'b1', enabled: true, type: 'RGT', lambdaStart: 400, lambdaEnd: 700, target: 0.5, targetEnd: 0.5 }];
-    const tr = buildTargetTraces(ops);
-    const line = tr.find(t => t.mode === 'lines');
-    ok('band has a line trace', !!line);
-    ok('line densely sampled', line.x.length >= 10);
-    ok('line spans the band', line.x[0] === 400 && line.x[line.x.length - 1] === 700);
-    ok('every line point tagged with opId', line.customdata.every(id => id === 'b1'));
-    // Point operand → marker carries customdata for click-to-delete.
-    const pt = buildTargetTraces([{ id: 'p1', enabled: true, type: 'R', lambdaStart: 550, target: 0.5 }]);
-    const m = pt.find(t => t.mode === 'markers');
-    ok('point marker tagged with opId', m && m.customdata[0] === 'p1');
+    const visible = buildTargetGeometry(ops);
+    const line = visible.lines[0];
+    ok('band fill stays subtle', visible.bands[0]?.opacity === 0.06);
+    ok('band has a visible line', !!line);
+    ok('line densely sampled', line.points.length >= 10);
+    ok('line spans the band', line.points[0][0] === 400 && line.points.at(-1)[0] === 700);
+    ok('line tagged with opId', line.opId === 'b1');
+    const point = buildTargetGeometry([{ id: 'p1', enabled: true, type: 'R', lambdaStart: 550, target: 0.5 }]);
+    ok('point marker tagged with opId', point.markers[0]?.opId === 'p1');
 }
 
 console.log(`\n${pass} passed, ${fail} failed`);

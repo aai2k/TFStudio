@@ -8,6 +8,7 @@
 import { mulberry32 } from '../../../../utils/monitoring/monitoringSim.js';
 import { systemSpectrum, partialThicknesses } from '../../../../utils/monitoring/depositionSpectrum.js';
 import { SplitPage, RowField, Radio, Chart, LayerTabs } from '../wizardShared.js';
+import { lineSeries } from '../../../ui/chartOptions.js';
 
 const { createElement: h, useMemo } = React;
 
@@ -38,7 +39,7 @@ export function PageSignalErrors({ p, set, layers, c, B, ctx }) {
         return { lambda: clean.lambda, values: noisy };
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [layers, k, p.quantity, p.aoi, p.pol, p.lamMin, p.lamMax, p.randomPct, nonce, ctx]);
-    const traces = preview ? [{ x: preview.lambda, y: preview.values.map(v => v * 100), type: 'scatter', mode: 'lines', line: { color: '#e5484d', width: 1.3 } }] : [];
+    const series = preview ? [lineSeries({ x: preview.lambda, y: preview.values.map(v => v * 100), color: '#e5484d', width: 1.3 })] : [];
 
     return h(SplitPage, { c, leftWidth: 210,
         left: [
@@ -55,7 +56,7 @@ export function PageSignalErrors({ p, set, layers, c, B, ctx }) {
         ],
         right: h('div', { style: { flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column' } },
             h('div', { style: { flex: 1, minHeight: 0 } },
-                h(Chart, { traces, xTitle: B.wavelengthAxis, yTitle: `${p.quantity}${p.pol === 'avg' ? '' : p.pol}, %`, c, yRange: p.yFixed ? [0, 100] : null })),
+                h(Chart, { series, xTitle: B.wavelengthAxis, yTitle: `${p.quantity}${p.pol === 'avg' ? '' : p.pol}, %`, c, yRange: p.yFixed ? [0, 100] : null })),
             h(LayerTabs, { n: layers.length, current: k, onSelect: (kk) => set('previewLayer', kk), c, label: B.layerWord })),
     });
 }

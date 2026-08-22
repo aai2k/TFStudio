@@ -1,4 +1,5 @@
 import { useTableShortcuts } from '../../../../hooks/useTableShortcuts.js';
+import { shiftedThicknessUnit } from './layerTableLayout.js';
 
 // Display-index insert/delete/duplicate for one side's layer list, wired to
 // Insert / Shift+Insert / Delete / Ctrl+D (see useTableShortcuts). All indices
@@ -58,7 +59,8 @@ const isLayerLocked = (row) => !!(row && row.locked);
 
 export function useLayerKeyboard({ layers, side, reversed, displayedLayers,
     selectedId, setSelectedId, containerRef,
-    insertLayerAt, removeLayerAt, duplicateLayerAt }) {
+    insertLayerAt, removeLayerAt, duplicateLayerAt,
+    activeUnit, setActiveUnit, focusDisplayIndex, requestCellEdit, onCopy, onPaste }) {
 
     const selectedDisplayIdx = selectedId
         ? displayedLayers.findIndex(l => l.id === selectedId) : -1;
@@ -71,5 +73,22 @@ export function useLayerKeyboard({ layers, side, reversed, displayedLayers,
         onInsertBelow: (i) => insertAtDisplayPos({ di: i, below: true,  layers, side, reversed, setSelectedId, containerRef, insertLayerAt }),
         onDelete:      (i) => deleteAtDisplayPos({ di: i, layers, side, reversed, displayedLayers, setSelectedId, removeLayerAt }),
         onDuplicate:   (i) => duplicateAtDisplayPos({ di: i, layers, side, reversed, setSelectedId, containerRef, duplicateLayerAt }),
+        onMoveFocus: (delta, options) => {
+            if (!displayedLayers.length) return;
+            const start = selectedDisplayIdx >= 0
+                ? selectedDisplayIdx
+                : (delta > 0 ? -1 : displayedLayers.length);
+            focusDisplayIndex(
+                Math.max(0, Math.min(displayedLayers.length - 1, start + delta)),
+                options,
+            );
+        },
+        onMoveColumn: delta => setActiveUnit(shiftedThicknessUnit(activeUnit, delta)),
+        onActivate: index => {
+            const row = displayedLayers[index >= 0 ? index : 0];
+            if (row) requestCellEdit(row.id, activeUnit);
+        },
+        onCopy,
+        onPaste,
     });
 }

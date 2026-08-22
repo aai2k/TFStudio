@@ -1,171 +1,126 @@
 import { ANALYSIS_DEFAULTS } from '../../../../constants/analysisDefaults.js';
-import { drawPlot, usePlotTeardown } from '../../../ui/plotSurface.js';
-import { axisTitle, chartConfig, legendAbove, plotMargin, TICK_FONT } from '../chrome/plot.js';
+import { drawChart, useChartTeardown } from '../../../ui/plotSurface.js';
+import { cartesianOption, lineSeries, valueAxis } from '../../../ui/chartOptions.js';
+import { legendAbove, plotMargin } from '../chrome/plot.js';
 import { useAnalysisColors } from '../../../../state/AnalysisSettingsContext.js';
+
 const { createElement: h, useEffect, useRef } = React;
 
-const CHART_CONFIG = chartConfig('index_profile_total');
-
 export function placeTotalRegions(regions) {
-    const coatW = (regions || [])
-        .filter(r => r.key !== 'substrate')
-        .map(r => r.totalThk || 1);
-    const avgCoat = coatW.length ? coatW.reduce((a, b) => a + b, 0) / coatW.length : 200;
-    const subPlotW = Math.max(80, avgCoat * 0.5);
-    const GAP = Math.max(20, avgCoat * 0.08);
+    const coatingWidths = (regions || []).filter(region => region.key !== 'substrate').map(region => region.totalThk || 1);
+    const averageCoating = coatingWidths.length ? coatingWidths.reduce((a, b) => a + b, 0) / coatingWidths.length : 200;
+    const substrateWidth = Math.max(80, averageCoating * 0.5);
+    const gap = Math.max(20, averageCoating * 0.08);
     let cursor = 0;
-    const placed = (regions || []).map(r => {
-        const span = r.totalThk || 1;
-        const w = r.key === 'substrate' ? subPlotW : span;
+    const placed = (regions || []).map(region => {
+        const span = region.totalThk || 1;
+        const width = region.key === 'substrate' ? substrateWidth : span;
         const start = cursor;
-        const plotX = (r.z || []).map(v => start + (v / span) * w);
-        cursor = start + w + GAP;
-        return { ...r, start, end: start + w, w, span, plotX };
+        const plotX = (region.z || []).map(value => start + (value / span) * width);
+        cursor = start + width + gap;
+        return { ...region, start, end: start + width, width, span, plotX };
     });
-    const totalW = placed.length ? placed[placed.length - 1].end : 1;
-    return { placed, totalW };
+    return { placed, totalWidth: placed.length ? placed.at(-1).end : 1 };
 }
 
-const mapX = (r, v) => r.start + (v / r.span) * r.w;
+const mapX = (region, value) => region.start + (value / region.span) * region.width;
 
-export function riTotalTraces(placed, quantity, curve = ANALYSIS_DEFAULTS.refractiveIndexProfiler.colors) {
-    const showBoth = quantity === 'both';
-    const traces = [];
-    placed.forEach((r, idx) => {
-        const cd = (r.z || []).map(v => [v, r.unit]);
-        const showInLegend = idx === 0;
-        if (quantity === 'n' || showBoth) {
-            traces.push({
-                x: r.plotX, y: r.n, customdata: cd,
-                type: 'scatter', mode: 'lines',
-                name: 'n', legendgroup: 'n', showlegend: showBoth && showInLegend,
-                xaxis: 'x', yaxis: 'y',
-                line: { color: curve.n, width: 2, shape: 'hv' },
-                hovertemplate: `n<br>${r.label}<br>z: %{customdata[0]:.3f} %{customdata[1]}<br>n: %{y:.4f}<extra></extra>`,
-            });
-        }
-        if (quantity === 'k' || showBoth) {
-            traces.push({
-                x: r.plotX, y: r.k, customdata: cd,
-                type: 'scatter', mode: 'lines',
-                name: 'k', legendgroup: 'k', showlegend: showBoth && showInLegend,
-                xaxis: 'x', yaxis: showBoth ? 'y2' : 'y',
-                line: { color: curve.k, width: 2, shape: 'hv',
-                        dash: showBoth ? 'dash' : 'solid' },
-                hovertemplate: `k<br>${r.label}<br>z: %{customdata[0]:.3f} %{customdata[1]}<br>k: %{y:.5f}<extra></extra>`,
-            });
-        }
+export function buildRITotalSeries(placed, quantity, curve = ANALYSIS_DEFAULTS.refractiveIndexProfiler.colors) {
+    const both = quantity === 'both';
+    const series = [];
+    placed.forEach(region => {
+        const dataFor = values => region.plotX.map((x, index) => ({
+            value: [x, values[index]], depth: region.z[index], unit: region.unit, region: region.label,
+        }));
+        if (quantity === 'n' || both) series.push(lineSeries({
+            data: dataFor(region.n), name: 'n', color: curve.n, width: 2, step: 'end',
+        }));
+        if (quantity === 'k' || both) series.push(lineSeries({
+            data: dataFor(region.k), name: 'k', color: curve.k, width: 2,
+            dash: both ? 'dash' : 'solid', yAxisIndex: both ? 1 : 0, step: 'end',
+        }));
     });
-    return traces;
+    return series;
 }
 
-function buildShapes(placed, matColorMap, colors) {
-    const { gridColor, textColor } = colors;
-    const shapes = [];
-    placed.forEach(r => {
-        if (r.key === 'substrate') {
-            shapes.push({
-                type: 'rect', x0: r.start, x1: r.end, xref: 'x',
-                y0: 0, y1: 1, yref: 'paper',
-                fillcolor: gridColor, opacity: 0.10, layer: 'below', line: { width: 0 },
-            });
-        }
-        const bounds = r.layerBounds || [];
-        const validLayers = r.validLayers || [];
-        for (let k = 0; k < validLayers.length && k + 1 < bounds.length; k++) {
-            const color = matColorMap[validLayers[k]?.materialId] || '#555555';
-            shapes.push({
-                type: 'rect',
-                x0: mapX(r, bounds[k]), x1: mapX(r, bounds[k + 1]), xref: 'x',
-                y0: 0, y1: 1, yref: 'paper',
-                fillcolor: color, opacity: 0.14, layer: 'below', line: { width: 0 },
-            });
-        }
-        for (const b of bounds.slice(1, -1)) {
-            shapes.push({
-                type: 'line', x0: mapX(r, b), x1: mapX(r, b), xref: 'x',
-                y0: 0, y1: 1, yref: 'paper',
-                line: { color: gridColor, width: 1, dash: 'dot' },
-            });
-        }
+function regionDecorations(placed, matColorMap, colors) {
+    const areas = [];
+    const lines = [];
+    placed.forEach(region => {
+        if (region.key === 'substrate') areas.push([
+            { xAxis: region.start, itemStyle: { color: colors.gridColor, opacity: 0.1 } },
+            { xAxis: region.end },
+        ]);
+        const bounds = region.layerBounds || [];
+        const layers = region.validLayers || [];
+        for (let index = 0; index < layers.length && index + 1 < bounds.length; index++) areas.push([
+            { xAxis: mapX(region, bounds[index]), itemStyle: { color: matColorMap[layers[index]?.materialId] || '#555555', opacity: 0.14 } },
+            { xAxis: mapX(region, bounds[index + 1]) },
+        ]);
+        lines.push(...bounds.slice(1, -1).map(value => ({
+            xAxis: mapX(region, value), lineStyle: { color: colors.gridColor, type: 'dotted' },
+        })));
     });
-    for (let i = 0; i < placed.length - 1; i++) {
-        const gx = (placed[i].end + placed[i + 1].start) / 2;
-        shapes.push({
-            type: 'line', x0: gx, x1: gx, xref: 'x', y0: 0, y1: 1, yref: 'paper',
-            line: { color: textColor, width: 1, dash: 'dashdot' },
-        });
-    }
-    return shapes;
+    for (let index = 0; index < placed.length - 1; index++) lines.push({
+        xAxis: (placed[index].end + placed[index + 1].start) / 2,
+        lineStyle: { color: colors.textColor, type: 'dashed' },
+    });
+    return { areas, lines };
 }
 
-function buildAnnotations(placed, textColor) {
-    return placed.map(r => ({
-        x: (r.start + r.end) / 2, xref: 'x', y: 1.02, yref: 'paper', yanchor: 'bottom',
-        text: r.key === 'substrate'
-            ? `${r.label} · ${(r.totalThk).toFixed(2)} mm`
-            : `${r.label} · ${Math.round(r.totalThk)} nm`,
-        showarrow: false, font: { color: textColor, size: 11 },
-    }));
-}
-
-export function riTotalFigure(regions, quantity, matColorMap, colors, curve = ANALYSIS_DEFAULTS.refractiveIndexProfiler.colors) {
-    const { placed, totalW } = placeTotalRegions(regions);
-    if (!placed.length) return { traces: [], layout: {} };
-
-    const { bgColor, paperColor, gridColor, textColor } = colors;
-    const showBoth = quantity === 'both';
-    const showN = quantity === 'n' || showBoth;
-    const layout = {
-        paper_bgcolor: paperColor,
-        plot_bgcolor: bgColor,
-        margin: plotMargin({ rightAxis: showBoth }),
-        showlegend: showBoth,
-        legend: legendAbove({ color: textColor }),
-        xaxis: {
-            range: [0, totalW],
-            showticklabels: false, showgrid: false, zeroline: false,
-            color: textColor,
-        },
-        yaxis: {
-            title: axisTitle(showN ? 'n' : 'k', { color: textColor }),
-            color: textColor, gridcolor: gridColor, zerolinecolor: gridColor,
-            tickfont: { color: textColor, ...TICK_FONT },
-            rangemode: 'tozero',
-        },
-        shapes: buildShapes(placed, matColorMap, colors),
-        annotations: buildAnnotations(placed, textColor),
-    };
-    if (showBoth) {
-        layout.yaxis2 = {
-            title: axisTitle('k', { color: curve.k }),
-            color: curve.k, overlaying: 'y', side: 'right',
-            tickfont: { color: curve.k, ...TICK_FONT },
-            showgrid: false, rangemode: 'tozero',
+export function buildRITotalOption(regions, quantity, matColorMap, colors,
+                                   curve = ANALYSIS_DEFAULTS.refractiveIndexProfiler.colors) {
+    const { placed, totalWidth } = placeTotalRegions(regions);
+    if (!placed.length) return { series: [] };
+    const both = quantity === 'both';
+    const showN = quantity === 'n' || both;
+    const series = buildRITotalSeries(placed, quantity, curve);
+    const decorations = regionDecorations(placed, matColorMap, colors);
+    const visibleValues = placed.flatMap(region => showN ? region.n : region.k).filter(Number.isFinite);
+    const labelY = Math.max(...visibleValues, 1);
+    if (series.length) {
+        series[0].markArea = { silent: true, data: decorations.areas };
+        series[0].markLine = { silent: true, symbol: 'none', label: { show: false }, data: decorations.lines };
+        series[0].markPoint = {
+            silent: true, symbolSize: 1,
+            data: placed.map(region => ({
+                coord: [(region.start + region.end) / 2, labelY],
+                label: {
+                    show: true, position: 'top', color: colors.textColor, fontSize: 11,
+                    formatter: region.key === 'substrate'
+                        ? `${region.label} · ${region.totalThk.toFixed(2)} mm`
+                        : `${region.label} · ${Math.round(region.totalThk)} nm`,
+                },
+            })),
         };
     }
-    return { traces: riTotalTraces(placed, quantity), layout };
+    return cartesianOption({
+        colors: { background: colors.bgColor, paper: colors.paperColor, grid: colors.gridColor, text: colors.textColor },
+        grid: plotMargin({ rightAxis: both }),
+        fileName: 'index_profile_total',
+        legend: both ? legendAbove({ color: colors.textColor }) : { show: false },
+        xAxis: {
+            ...valueAxis({ color: colors.textColor, gridColor: colors.gridColor, min: 0, max: totalWidth, splitLine: false }),
+            axisLabel: { show: false }, axisTick: { show: false },
+        },
+        yAxis: [
+            valueAxis({ name: showN ? 'n' : 'k', color: colors.textColor, gridColor: colors.gridColor, min: 0, position: 'left' }),
+            ...(both ? [valueAxis({ name: 'k', color: curve.k, gridColor: colors.gridColor, min: 0, position: 'right', splitLine: false })] : []),
+        ],
+        series,
+    });
 }
 
 export function RITotalChart({ regions, quantity, matColorMap, c }) {
     const divRef = useRef(null);
-    const initRef = useRef(false);
+    const chartRef = useRef(null);
     const curve = useAnalysisColors('refractiveIndexProfiler');
     const colors = {
-        bgColor: c.bg || '#1e1e1e',
-        paperColor: c.panel || '#252526',
-        gridColor: c.border || '#3a3a3a',
-        textColor: c.text || '#cccccc',
+        bgColor: c.bg || '#1e1e1e', paperColor: c.panel || '#252526',
+        gridColor: c.border || '#3a3a3a', textColor: c.text || '#cccccc',
     };
-
-    // No dependency list: see plotSurface.js for why every render redraws.
-    useEffect(() => {
-        const { traces, layout } = riTotalFigure(regions, quantity, matColorMap, colors, curve);
-        drawPlot(divRef.current, initRef, traces, layout,
-            CHART_CONFIG);
-    });
-
-    usePlotTeardown(divRef, initRef);
-
+    useEffect(() => { drawChart(divRef.current, chartRef,
+        buildRITotalOption(regions, quantity, matColorMap, colors, curve)); });
+    useChartTeardown(divRef, chartRef);
     return h('div', { ref: divRef, style: { width: '100%', height: '100%' } });
 }

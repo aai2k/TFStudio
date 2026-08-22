@@ -1,117 +1,87 @@
 import { ANALYSIS_DEFAULTS } from '../../../../constants/analysisDefaults.js';
-import { drawPlot, usePlotTeardown } from '../../../ui/plotSurface.js';
+import { drawChart, useChartTeardown } from '../../../ui/plotSurface.js';
+import {
+  THIN_X_SYMBOL, cartesianOption, itemTooltip, lineSeries, scatterSeries,
+  squareGrid, valueAxis,
+} from '../../../ui/chartOptions.js';
 import { useAnalysisColors } from '../../../../state/AnalysisSettingsContext.js';
 import { spectralLocusXy } from '../../../../utils/physics/colorimetry.js';
 import { legendAbove } from '../chrome/plot.js';
 
-const { createElement: h, useEffect, useMemo, useRef } = React;
+const { createElement: h, useEffect, useRef } = React;
+// Leave just enough room for the legend and toolbox; the swatches use the
+// naturally empty upper-right part of the chromaticity grid.
+const MARGIN = { left: 48, right: 12, top: 64, bottom: 42 };
 
-export const CHROMATICITY_CONFIG = {
-  displaylogo: false,
-  responsive: true,
-  modeBarButtonsToRemove: ['select2d', 'lasso2d'],
-  toImageButtonOptions: {
-    format: 'png',
-    filename: 'TFStudio_chromaticity',
-    scale: 2
-  }
-};
-
-/**
- * @param {object} [colors] configured marker colours; factory defaults when absent
- */
-export function chromaticityTraces(report, observer, c, colors = ANALYSIS_DEFAULTS.colorEvaluation.colors) {
-  const txt = c.text || '#cccccc';
-  const loc = spectralLocusXy(observer);
-  const lx = loc.map(p => p.x), ly = loc.map(p => p.y);
-  // Closing the locus connects its endpoints with the line of purples.
-  const locusTrace = {
-    x: [...lx, lx[0]], y: [...ly, ly[0]],
-    type: 'scatter', mode: 'lines', name: 'Spectrum locus',
-    line: { color: txt, width: 1.3 },
-    hovertemplate: 'x %{x:.4f}<br>y %{y:.4f}<extra>locus</extra>'
-  };
-  const labelEvery = loc.filter(p => p.lam % 20 === 0 && p.lam >= 460 && p.lam <= 620);
-  const tickTrace = {
-    x: labelEvery.map(p => p.x), y: labelEvery.map(p => p.y),
-    type: 'scatter', mode: 'markers+text',
-    text: labelEvery.map(p => `${p.lam}`), textposition: 'top center',
-    textfont: { size: 9, color: c.textDim },
-    marker: { size: 3, color: c.textDim }, showlegend: false,
-    hoverinfo: 'skip'
-  };
-  const t = [locusTrace, tickTrace];
-  if (report) {
-    t.push({
-      x: [report.whiteXy.x], y: [report.whiteXy.y],
-      type: 'scatter', mode: 'markers', name: 'White point',
-      marker: { symbol: 'cross-thin', size: 11,
-                line: { color: colors.whitePoint, width: 2 } },
-      hovertemplate: 'White x %{x:.4f}, y %{y:.4f}<extra></extra>'
-    });
-    t.push({
-      x: [report.xy.x], y: [report.xy.y],
-      type: 'scatter', mode: 'markers', name: 'Coating',
-      marker: { symbol: 'circle', size: 13, color: report.rgb,
-                line: { color: colors.coating, width: 1.5 } },
-      hovertemplate: 'Coating x %{x:.4f}, y %{y:.4f}<extra></extra>'
-    });
-  }
-  return t;
-}
-
-export function chromaticityLayout(c) {
-  const bg = c.bg || '#1e1e1e';
-  const paper = c.panel || '#252526';
-  const grid = c.border || '#3a3a3a';
-  const txt = c.text || '#cccccc';
-  return {
-    margin: { l: 48, r: 12, t: 12, b: 42 },
-    // The plot takes its size from the element it is drawn in.
-    autosize: true,
-    paper_bgcolor: paper, plot_bgcolor: bg,
-    font: { color: txt, family: 'system-ui, -apple-system, sans-serif', size: 11 },
-    xaxis: { title: { text: 'x', standoff: 6 }, range: [-0.05, 0.8],
-             gridcolor: grid, zerolinecolor: grid, tickfont: { size: 10 },
-             constrain: 'domain' },
-    yaxis: { title: { text: 'y', standoff: 6 }, range: [-0.05, 0.9],
-             gridcolor: grid, zerolinecolor: grid, tickfont: { size: 10 },
-             scaleanchor: 'x', scaleratio: 1 },
-    legend: legendAbove({ color: txt }),
-    showlegend: true
-  };
-}
-
-function useChromaticityPlot(divRef, traces, layout) {
-  const initRef = useRef(false);
-  // No dependency list: see plotSurface.js for why every render redraws.
-  useEffect(() => {
-    drawPlot(divRef.current, initRef, traces, layout, CHROMATICITY_CONFIG);
+export function buildChromaticitySeries(report, observer, c,
+                                        colors = ANALYSIS_DEFAULTS.colorEvaluation.colors) {
+  const text = c.text || '#cccccc';
+  const locus = spectralLocusXy(observer);
+  const closed = [...locus.map(point => [point.x, point.y]), [locus[0].x, locus[0].y]];
+  const labels = locus.filter(point => point.lam % 20 === 0 && point.lam >= 460 && point.lam <= 620);
+  const ticks = scatterSeries({
+    name: '', color: c.textDim, symbolSize: 3, silent: true,
+    data: labels.map(point => ({ value: [point.x, point.y], wavelength: point.lam })),
   });
-  usePlotTeardown(divRef, initRef);
+  ticks.label = {
+    show: true, position: 'top', color: c.textDim, fontSize: 9,
+    formatter: params => String(params.data.wavelength),
+  };
+  const series = [
+    lineSeries({ data: closed, name: 'Spectrum locus', color: text, width: 1.3, showSymbol: false }),
+    ticks,
+  ];
+  if (report) {
+    const white = scatterSeries({
+      data: [[report.whiteXy.x, report.whiteXy.y]], name: 'White point',
+      color: colors.whitePoint, symbol: THIN_X_SYMBOL, symbolSize: 11,
+    });
+    white.itemStyle.color = 'transparent';
+    white.itemStyle.borderColor = colors.whitePoint;
+    white.itemStyle.borderWidth = 2;
+    series.push(white);
+    const coating = scatterSeries({
+      data: [[report.xy.x, report.xy.y]], name: 'Coating', color: report.rgb,
+      symbol: 'circle', symbolSize: 13,
+    });
+    coating.itemStyle.borderColor = colors.coating;
+    coating.itemStyle.borderWidth = 1.5;
+    series.push(coating);
+  }
+  return series;
+}
+
+export function buildChromaticityOption(report, observer, c, colors, grid) {
+  const text = c.text || '#cccccc';
+  const gridColor = c.border || '#3a3a3a';
+  return cartesianOption({
+    colors: c,
+    grid: grid || MARGIN,
+    fileName: 'chromaticity',
+    tooltip: itemTooltip(),
+    legend: legendAbove({ color: text }),
+    xAxis: valueAxis({
+      name: 'x', color: text, gridColor, min: 0, max: 0.8, interval: 0.1, nameGap: 24,
+    }),
+    yAxis: valueAxis({
+      name: 'y', color: text, gridColor, min: 0, max: 0.9, interval: 0.1, nameGap: 28,
+    }),
+    series: buildChromaticitySeries(report, observer, c, colors),
+  });
 }
 
 export function ChromaticityChart({ report, observer, c }) {
   const divRef = useRef(null);
-  const txt = c.text || '#cccccc';
+  const chartRef = useRef(null);
   const colors = useAnalysisColors('colorEvaluation');
-  const traces = useMemo(
-    () => chromaticityTraces(report, observer, c, colors),
-    [report, observer, txt, c.textDim, colors]
-  );
-  // Deliberately rebuilt every render rather than memoized. Plotly writes the
-  // ranges and domains it computes back into the layout object it is handed, so
-  // a shared object accumulates them: one draw at a size where the aspect-ratio
-  // constraint collapses the x domain pins that collapse permanently, and the
-  // plot stays a thin sliver however the window is dragged afterwards. A fresh
-  // object each draw means the declared ranges always win.
-  const layout = chromaticityLayout(c);
-  useChromaticityPlot(divRef, traces, layout);
-
-  if (typeof Plotly === 'undefined')
-    return h('div', { style: { display: 'flex', alignItems: 'center',
-      justifyContent: 'center', height: '100%', color: c.textDim } },
-      'Plotly not loaded');
-  return h('div', { ref: divRef,
-    style: { width: '100%', height: '100%', minHeight: 220 } });
+  const redraw = () => {
+    drawChart(divRef.current, chartRef,
+      buildChromaticityOption(report, observer, c, colors, squareGrid(divRef.current, MARGIN)));
+  };
+  useEffect(redraw);
+  useChartTeardown(divRef, chartRef, redraw);
+  if (typeof echarts === 'undefined') return h('div', {
+    style: { display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%', color: c.textDim },
+  }, 'ECharts not loaded');
+  return h('div', { ref: divRef, style: { width: '100%', height: '100%', minHeight: 220 } });
 }

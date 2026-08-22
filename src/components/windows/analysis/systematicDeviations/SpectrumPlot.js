@@ -1,26 +1,15 @@
-import { buildSpectrumLayout, buildSpectrumTraces } from './spectrumFigure.js';
-import { drawPlot, usePlotTeardown } from '../../../ui/plotSurface.js';
+import { buildSpectrumOption } from './spectrumFigure.js';
+import { drawChart, useChartTeardown } from '../../../ui/plotSurface.js';
 import { useAnalysisColors } from '../../../../state/AnalysisSettingsContext.js';
-import { chartConfig } from '../chrome/plot.js';
 
-const { createElement: h, useEffect, useMemo, useRef } = React;
+const { createElement: h, useEffect, useRef } = React;
 
 export function SpectrumPlot({ baseline, deviated, channel, showBaseline, c }) {
     const divRef = useRef(null);
-    const initRef = useRef(false);
-    const curve = useAnalysisColors('systematicDeviations');
-    const traces = useMemo(
-        () => buildSpectrumTraces(baseline, deviated, channel, showBaseline, curve),
-        [baseline, deviated, channel, showBaseline, curve]
-    );
-    // No dependency list, and the layout is rebuilt rather than memoized: see
-    // plotSurface.js for why both matter.
-    useEffect(() => {
-        drawPlot(divRef.current, initRef, traces, buildSpectrumLayout(c),
-            chartConfig('deviations'));
-    });
-
-    usePlotTeardown(divRef, initRef);
-
+    const chartRef = useRef(null);
+    const colors = useAnalysisColors('systematicDeviations');
+    useEffect(() => { drawChart(divRef.current, chartRef,
+        buildSpectrumOption(baseline, deviated, channel, showBaseline, colors, c)); });
+    useChartTeardown(divRef, chartRef);
     return h('div', { ref: divRef, style: { width: '100%', height: '100%' } });
 }

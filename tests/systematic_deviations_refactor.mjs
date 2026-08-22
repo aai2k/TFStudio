@@ -12,10 +12,11 @@ import {
 shimBrowserGlobals();
 await loadApp();
 
-const [{ SystematicDeviations }, model, runner] = await Promise.all([
+const [{ SystematicDeviations }, model, runner, sweepFigure] = await Promise.all([
     import('../src/components/windows/analysis/systematicDeviations/SystematicDeviations.js'),
     import('../src/components/windows/analysis/systematicDeviations/model.js'),
     import('../src/components/windows/analysis/systematicDeviations/useSystematicDeviations.js'),
+    import('../src/components/windows/analysis/systematicDeviations/sweepFigure.js'),
 ]);
 
 assert.deepEqual(model.defaultSweepRange('globalThicknessScale'), { from: 0.95, to: 1.05 });
@@ -31,6 +32,19 @@ const materialBase = runner.sweepBaseDeviation({
 assert.deepEqual(materialBase.perMaterial.SiO2, {
     dn: 0, dk: 0, dScale: 1, dOffset: 0, dOffsetUnit: 'qw',
 });
+
+const sweepOption = sweepFigure.buildSweepOption({
+    lambda: [400, 450],
+    paramValues: [0.95, 1, 1.05],
+    paramName: 'Global thickness scale',
+    T2D: [[0.8, 0.9], [0.85, 0.95], [0.9, 1]],
+    R2D: [[0.2, 0.1], [0.15, 0.05], [0.1, 0]],
+    A2D: [[0, 0], [0, 0], [0, 0]],
+}, 'T', makeTheme());
+assert.equal(sweepOption.xAxis[0].type, 'category');
+assert.equal(sweepOption.yAxis[0].type, 'category');
+assert.deepEqual(sweepOption.series[0].data[4], [0, 2, 90]);
+assert.equal(sweepOption.tooltip.transitionDuration, 0);
 
 const c = makeTheme();
 const html = renderToStaticMarkup(withDesign(

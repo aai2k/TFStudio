@@ -8,6 +8,7 @@
 
 import { matName, cullName, Radio, Chart, computeWizardResultSpectra } from '../wizardShared.js';
 import { flipLayerIndex } from '../../../../utils/monitoring/depositionSpectrum.js';
+import { lineSeries } from '../../../ui/chartOptions.js';
 
 const { createElement: h, useMemo } = React;
 
@@ -27,17 +28,24 @@ function resultRows({ layers, run, ctx, p }) {
 }
 
 function spectralBody({ spectra, p, c, B }) {
-    const tr = spectra ? [
-        { x: spectra.theory.lambda, y: spectra.theory.values.map(v => v * 100), type: 'scatter', mode: 'lines', line: { color: c.text === '#cccccc' ? '#dddddd' : '#222', width: 2 }, name: 'theory' },
-        { x: spectra.manuf.lambda, y: spectra.manuf.values.map(v => v * 100), type: 'scatter', mode: 'lines', line: { color: '#e5484d', width: 1.6 }, name: 'manufactured' },
+    const series = spectra ? [
+        lineSeries({ x: spectra.theory.lambda, y: spectra.theory.values.map(v => v * 100), color: c.text === '#cccccc' ? '#dddddd' : '#222', width: 2, name: 'theory' }),
+        lineSeries({ x: spectra.manuf.lambda, y: spectra.manuf.values.map(v => v * 100), color: '#e5484d', width: 1.6, name: 'manufactured' }),
     ] : [];
-    return h(Chart, { traces: tr, xTitle: B.wavelengthAxis, yTitle: `${p.quantity}${p.pol === 'avg' ? '' : p.pol}, %`, c, yRange: p.yFixed ? [0, 100] : null });
+    return h(Chart, { series, xTitle: B.wavelengthAxis, yTitle: `${p.quantity}${p.pol === 'avg' ? '' : p.pol}, %`, c, yRange: p.yFixed ? [0, 100] : null });
 }
 
 function errorBody({ rows, isRel, p, c, B }) {
     const y = rows.map(r => isRel ? r.rel : r.abs);
-    const tr = [{ type: 'bar', x: rows.map(r => r.num), y, marker: { color: y.map(v => v >= 0 ? '#e5484d' : '#1f6feb') } }];
-    return h(Chart, { traces: tr, xTitle: B.layerWord, yTitle: isRel ? B.deltaPct : B.deltaNm, c });
+    const series = [{
+        type: 'bar',
+        data: y.map(value => ({ value, itemStyle: { color: value >= 0 ? '#e5484d' : '#1f6feb' } })),
+        animation: false,
+    }];
+    return h(Chart, {
+        series, xCategories: rows.map(row => String(row.num)),
+        xTitle: B.layerWord, yTitle: isRel ? B.deltaPct : B.deltaNm, c,
+    });
 }
 
 function thickTable({ rows, c, B, th, td, errColor }) {

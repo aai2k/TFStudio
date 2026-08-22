@@ -29,8 +29,6 @@ If something here matters to your work, or something you need is missing, open a
 
 Real candidates, not yet scheduled, listed so you can say if one of them matters to you:
 
-Migration from plotly to Apache ECharts,
-
 crystal (QCM) deposition monitoring, rugate and graded-index synthesis, laser damage threshold estimation, optimizing across multiple environments at once, pulse propagation for ultrafast coatings, coating stress as an optimization target, glazing U and g values, and CODE V sequence export.
 
 ## Not planned

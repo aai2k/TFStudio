@@ -33,7 +33,7 @@ import { parseAGF } from './utils/materials/agfParser.js';
 import { initTmmWasmMainThread, tmmWasmActive } from './tmmcore.js';
 import { designFileKey, uniqueDesignName } from './utils/io/designNaming.js';
 import {
-    designsEqual,
+    mergeSessionOverDisk,
     persistThenCommit,
     updateDirtyDesigns,
 } from './utils/io/projectPersistence.js';
@@ -119,34 +119,6 @@ function parseFoldersResult(result) {
 // working copies persisted in the session (`sessDesigns`). Session wins — it
 // carries the latest edits even across an unclean shutdown — but a design is
 // only marked dirty if it actually differs from its disk snapshot.
-function mergeSessionOverDisk(diskDesigns, sessDesigns) {
-    const initialDesigns = {};
-    const initialDirty   = {};
-
-    Object.entries(diskDesigns).forEach(([id, diskDesign]) => {
-        const sessionDesign = sessDesigns?.[id];
-        if (sessionDesign) {
-            initialDesigns[id] = sessionDesign;
-            if (!designsEqual(sessionDesign, diskDesign)) initialDirty[id] = true;
-        } else {
-            initialDesigns[id] = diskDesign;
-        }
-    });
-
-    // Session-only designs (e.g. created but the disk save failed) have no
-    // disk snapshot at all — keep them, flagged dirty.
-    if (sessDesigns) {
-        Object.entries(sessDesigns).forEach(([id, design]) => {
-            if (!initialDesigns[id]) {
-                initialDesigns[id] = design;
-                initialDirty[id]   = true;
-            }
-        });
-    }
-
-    return { initialDesigns, initialDirty };
-}
-
 // Restores per-design undo/redo stacks from the persisted session (best-
 // effort; malformed entries are skipped rather than failing the whole load).
 function restoreSessionHistory(sessionHistory) {

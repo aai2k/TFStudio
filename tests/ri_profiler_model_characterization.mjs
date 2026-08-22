@@ -47,12 +47,12 @@ assert.deepEqual(regions[2].validLayers.map(layer => layer.materialId), ['builti
 assert.deepEqual(regions[1].z, [0, 1]);
 assert.equal(regions[1].validLayers[0].d, 1e6);
 
-const { placed, totalW } = placeTotalRegions(regions);
-assert.equal(placed[0].w, 190);
-assert.equal(placed[1].w, 80);
-assert.equal(placed[2].w, 100);
+const { placed, totalWidth } = placeTotalRegions(regions);
+assert.equal(placed[0].width, 190);
+assert.equal(placed[1].width, 80);
+assert.equal(placed[2].width, 100);
 assert.deepEqual(placed[1].plotX, [210, 290]);
-assert.equal(totalW, 410);
+assert.equal(totalWidth, 410);
 
 const view = buildProfileViewModel('total', null, regions);
 assert.equal(view.layerCount, 4);

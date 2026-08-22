@@ -65,7 +65,7 @@ function operandPol(op) {
 export function targetColor(op) { return FAMILY_COLOR[operandFamily(op.type)] || '#aaaaaa'; }
 export function targetDash(op) {
     const p = operandPol(op);
-    return p === 's' ? 'dot' : p === 'p' ? 'dash' : 'solid';
+    return p === 's' ? 'dotted' : p === 'p' ? 'dashed' : 'solid';
 }
 
 // Above this many single-λ ("point") target markers, the per-marker hover
@@ -74,13 +74,6 @@ export function targetDash(op) {
 // Past the threshold we MERGE all same-color point markers into one trace and
 // turn OFF hover on them, so the spectrum's own hover stays readable.
 export const POINT_TARGET_HOVER_LIMIT = 30;
-
-// Thin X-marker style shared by point + band target markers. Targets are
-// marked with X's, using the slim 'x-thin' symbol so
-// they don't read as heavy blobs over the R/T/A curves.
-export function xMarker(color, size = 8) {
-    return { symbol: 'x-thin', size, color, line: { color, width: 1.3 } };
-}
 
 // Clamp a target value (fraction). R/T/A are physical 0..1.
 export function clampFrac(v) { return Math.min(1, Math.max(0, v)); }

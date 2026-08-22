@@ -1,171 +1,157 @@
-/**
- * The drawing rules every Plotly chart follows, and why each one exists.
- *
- * A plot tracks a window being resized only when TWO things are true together,
- * which is what made this hard to find: each one alone looks like it does
- * nothing.
- *
- *   - the chart redraws on every render, because dragging a window edge updates
- *     the docking layout on every mouse move
- *   - the layout says `autosize`, because without it Plotly reuses the size it
- *     measured at the first draw
- *
- * With only the first, every frame redraws at the stale size. With only the
- * second, nothing redraws during a drag at all, because the data has not
- * changed. Optical Evaluation had both by accident and was the one window that
- * felt right; Admittance had only the second, and recovered from a collapsed
- * window while still lagging.
- */
+/** Shared Apache ECharts lifecycle, resize, and collapsed-window contract. */
 
 import assert from 'node:assert/strict';
 import { readFileSync, readdirSync } from 'node:fs';
-import { join, relative } from 'node:path';
+import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const calls = [];
-globalThis.Plotly = {
-    newPlot: (...args) => calls.push(['newPlot', ...args]),
-    react: (...args) => calls.push(['react', ...args]),
-    Plots: { resize: () => calls.push(['resize']) },
-    purge: () => calls.push(['purge']),
+const instances = new WeakMap();
+globalThis.echarts = {
+    getInstanceByDom: element => instances.get(element) || null,
+    init(element, _theme, options) {
+        const chart = {
+            disposed: false,
+            isDisposed() { return this.disposed; },
+            setOption(option, settings) { calls.push(['setOption', option, settings]); },
+            resize() { calls.push(['resize']); },
+            dispose() { this.disposed = true; instances.delete(element); calls.push(['dispose']); },
+        };
+        instances.set(element, chart);
+        calls.push(['init', options]);
+        return chart;
+    },
 };
-globalThis.React = { useEffect: () => {} };
+globalThis.React = { useEffect: () => {}, useRef: value => ({ current: value }) };
 
-const { drawPlot, reactPlot, hasRoomToDraw, isDisplayed } =
-    await import('../src/components/ui/plotSurface.js');
+const {
+    disposeChart, drawChart, hasRoomToDraw, isDisplayed, resizeChart, setChartOption,
+} = await import('../src/components/ui/plotSurface.js');
+const {
+    LINE_LEGEND_ICON, axisTooltip, cartesianOption, lineSeries, scatterSeries,
+} = await import('../src/components/ui/chartOptions.js');
 
-const roomy = { clientWidth: 800, clientHeight: 600 };
-const margins = { margin: { l: 48, r: 12, t: 12, b: 42 } };
+const roomy = { clientWidth: 800, clientHeight: 600, offsetWidth: 800, offsetHeight: 600 };
+const option = { grid: { left: 48, right: 12, top: 12, bottom: 42 }, series: [] };
 
-// ── The size must come from the element ──────────────────────────────────────
+{
+    const chartRef = { current: null };
+    const chart = drawChart(roomy, chartRef, option);
+    assert.equal(calls[0][0], 'init', 'the first draw creates one native chart instance');
+    assert.equal(calls[0][1].renderer, 'canvas');
+    assert.equal(calls[1][0], 'setOption');
+    assert.deepEqual(calls[1][2], { notMerge: true, lazyUpdate: false });
+    assert.equal(chartRef.current, chart);
+
+    drawChart(roomy, chartRef, { ...option, series: [{ type: 'line' }] });
+    assert.equal(calls.filter(call => call[0] === 'init').length, 1, 'updates reuse the chart instance');
+    assert.equal(calls.filter(call => call[0] === 'setOption').length, 2);
+
+    // A docking splitter drag re-renders every frame with a freshly built but
+    // identical option. Reapplying it rebuilds the chart model and flickers, so
+    // an unchanged option must not reach setOption at all.
+    drawChart(roomy, chartRef, { ...option, series: [{ type: 'line' }] });
+    drawChart(roomy, chartRef, { grid: { left: 48, right: 12, top: 12, bottom: 42 }, series: [{ type: 'line' }] });
+    assert.equal(calls.filter(call => call[0] === 'setOption').length, 2,
+        'an equal option is not reapplied, however freshly it was built');
+
+    // Formatters are new closures on every render; they must not by themselves
+    // count as a change, or nothing would ever be skipped.
+    drawChart(roomy, chartRef, {
+        ...option, series: [{ type: 'line' }], tooltip: { formatter: value => `${value}` },
+    });
+    drawChart(roomy, chartRef, {
+        ...option, series: [{ type: 'line' }], tooltip: { formatter: value => `${value}` },
+    });
+    assert.equal(calls.filter(call => call[0] === 'setOption').length, 3,
+        'adding a tooltip draws once, and the rebuilt closure does not redraw again');
+
+    // Real changes still get through.
+    drawChart(roomy, chartRef, { ...option, series: [{ type: 'line', data: [[1, 2]] }] });
+    assert.equal(calls.filter(call => call[0] === 'setOption').length, 4, 'changed data redraws');
+    drawChart(roomy, chartRef, { ...option, series: [{ type: 'line', data: [[1, 3]] }] });
+    assert.equal(calls.filter(call => call[0] === 'setOption').length, 5, 'a changed value redraws');
+    drawChart(roomy, chartRef, { ...option, series: [] });
+    assert.equal(calls.filter(call => call[0] === 'setOption').length, 6, 'a removed series redraws');
+    drawChart(roomy, chartRef, { ...option, series: [], grid: { left: 60, right: 12, top: 12, bottom: 42 } });
+    assert.equal(calls.filter(call => call[0] === 'setOption').length, 7,
+        'a grid resized by squareGrid redraws');
+
+    // Beyond the comparison budget the check gives up and redraws, which is the
+    // behaviour these charts had anyway. It must never decide such an option is
+    // unchanged, or a huge plot would freeze on stale data.
+    const huge = () => ({
+        ...option,
+        series: [{ type: 'surface', data: Array.from({ length: 60000 }, (_, i) => [i, i, i]) }],
+    });
+    drawChart(roomy, chartRef, huge());
+    const afterFirstHuge = calls.filter(call => call[0] === 'setOption').length;
+    drawChart(roomy, chartRef, huge());
+    assert.equal(calls.filter(call => call[0] === 'setOption').length, afterFirstHuge + 1,
+        'an option too large to compare redraws rather than being assumed equal');
+    assert.deepEqual(option, { grid: { left: 48, right: 12, top: 12, bottom: 42 }, series: [] },
+        'drawing does not mutate caller-owned options');
+
+    resizeChart(roomy, chartRef);
+    assert.equal(calls.at(-1)[0], 'resize');
+    const beforeHidden = calls.length;
+    resizeChart({ offsetWidth: 0, offsetHeight: 0 }, chartRef);
+    assert.equal(calls.length, beforeHidden, 'hidden dock tabs are not resized');
+
+    disposeChart(roomy, chartRef);
+    assert.equal(calls.at(-1)[0], 'dispose');
+    assert.equal(chartRef.current, null);
+}
+
+assert.equal(hasRoomToDraw(roomy, option), true);
+assert.equal(hasRoomToDraw({ clientWidth: 55, clientHeight: 600 }, option), false);
+assert.equal(hasRoomToDraw({ clientWidth: 800, clientHeight: 50 }, option), false);
+assert.equal(hasRoomToDraw({ clientWidth: 0, clientHeight: 0 }, option), false);
+assert.equal(hasRoomToDraw({}, option), true, 'an unmeasurable host is not treated as collapsed');
+assert.equal(isDisplayed({ offsetWidth: 800, offsetHeight: 0 }), true);
+assert.equal(isDisplayed({ offsetWidth: 0, offsetHeight: 0 }), false);
+assert.equal(isDisplayed({}), true);
+
+const percentTooltip = axisTooltip({ valueSuffix: '%' });
+assert.equal(percentTooltip.axisPointer.label.formatter({ value: 63.88, axisDimension: 'y' }), '63.88%');
+assert.equal(percentTooltip.axisPointer.label.formatter({ value: 592, axisDimension: 'x' }), '592');
+
+const legendOption = cartesianOption({
+    legend: { show: true },
+    series: [
+        lineSeries({ data: [[0, 0]], name: 'curve' }),
+        scatterSeries({ data: [[0, 0]], name: 'point', symbol: 'triangle' }),
+    ],
+});
+assert.equal(legendOption.legend.data[0].icon, LINE_LEGEND_ICON,
+    'line legends use a stroke without a marker that the curve does not draw');
+assert.equal(legendOption.legend.data[1], 'point',
+    'genuine point series keep their native legend marker');
 
 {
     calls.length = 0;
-    const initRef = { current: false };
-    drawPlot(roomy, initRef, [], { ...margins }, {});
-    assert.equal(calls[0][0], 'newPlot', 'the first draw creates the plot');
-    assert.equal(initRef.current, true);
-    assert.equal(calls[0][3].autosize, true, 'the layout takes its size from the element');
-
-    drawPlot(roomy, initRef, [], { ...margins }, {});
-    assert.equal(calls[1][0], 'react', 'later draws update the existing plot');
-    assert.equal(calls[1][3].autosize, true);
+    const collapsed = { clientWidth: 20, clientHeight: 600 };
+    assert.equal(drawChart(collapsed, { current: null }, option), null);
+    assert.equal(calls.length, 0, 'a collapsed chart is skipped cleanly');
+    assert.ok(setChartOption(roomy, option), 'imperative charts use the same lifecycle');
 }
 
-{
-    // A caller that hands over a layout it also keeps must get it back
-    // unchanged, or the helper would be doing the very thing it prevents.
-    const own = { ...margins };
-    drawPlot(roomy, { current: true }, [], own, {});
-    assert.equal(own.autosize, undefined, 'the caller layout is not written to');
+const sourceRoot = fileURLToPath(new URL('../src/', import.meta.url));
+function walk(directory) {
+    return readdirSync(directory, { withFileTypes: true }).flatMap(entry => {
+        const full = join(directory, entry.name);
+        return entry.isDirectory() ? walk(full) : entry.name.endsWith('.js') ? [full] : [];
+    });
 }
-
-{
-    // A pinned size defeats autosizing, so it must not survive into the draw.
-    calls.length = 0;
-    drawPlot(roomy, { current: true }, [], { ...margins, autosize: true }, {});
-    assert.equal(calls[0][3].width, undefined, 'no width is pinned');
-    assert.equal(calls[0][3].height, undefined, 'no height is pinned');
-}
-
-// ── A box with no room in it is never drawn into ─────────────────────────────
-
-// Below its own margins the plot area is zero or negative. Plotly divides by
-// that length to place the axis titles, every position becomes Infinity, and the
-// draw aborts partway through, leaving a layout later draws cannot repair: the
-// plot stays a sliver even after the window is dragged back open.
-assert.equal(hasRoomToDraw({ clientWidth: 800, clientHeight: 600 }, margins), true);
-assert.equal(hasRoomToDraw({ clientWidth: 55, clientHeight: 600 }, margins), false,
-    'narrower than its own horizontal margins');
-assert.equal(hasRoomToDraw({ clientWidth: 800, clientHeight: 50 }, margins), false,
-    'shorter than its own vertical margins');
-assert.equal(hasRoomToDraw({ clientWidth: 0, clientHeight: 0 }, margins), false);
-// A host that reports no size at all is not the same as a collapsed box.
-assert.equal(hasRoomToDraw({}, margins), true, 'an unmeasurable host still draws');
-
-// ── A plot that is not on screen is never resized ────────────────────────────
-
-// Only the active tab of a dock group is displayed; the rest are display:none,
-// which collapses their boxes and fires their ResizeObserver. Plotly throws
-// "Resize must be passed a displayed plot div element" rather than ignoring it,
-// so every resize call has to check first.
-assert.equal(isDisplayed({ offsetWidth: 800, offsetHeight: 600 }), true);
-assert.equal(isDisplayed({ offsetWidth: 0, offsetHeight: 0 }), false,
-    'a hidden tab reports no box');
-assert.equal(isDisplayed({ offsetWidth: 800, offsetHeight: 0 }), true,
-    'one dimension is enough to be on screen');
-assert.equal(isDisplayed(null), false, 'a ref emptied by an unmount');
-assert.equal(isDisplayed({}), true, 'an unmeasurable host is not the same as a hidden one');
-
-{
-    const source = readFileSync(new URL('../src/components/ui/plotSurface.js', import.meta.url), 'utf8');
-    assert.match(source, /isDisplayed\(element\)\) Plotly\.Plots\.resize/,
-        'the shared ResizeObserver checks before resizing');
-}
-
-// Every other resize in the app has to make the same check.
-{
-    const guarded = [
-        'src/components/windows/analysis/plotEngine/charts.js',
-        'src/components/windows/analysis/opticalEvaluation/PlotlyChart.js',
-        'src/components/windows/optimization/refinement/MFTrendPlot.js',
-    ];
-    for (const file of guarded) {
-        const source = readFileSync(new URL(`../${file}`, import.meta.url), 'utf8');
-        for (const line of source.split('\n')) {
-            if (!line.includes('Plotly.Plots.resize')) continue;
-            assert.match(line, /isDisplayed\(/,
-                `${file}: a resize that does not check whether the plot is on screen`);
-        }
-    }
-}
-
-{
-    calls.length = 0;
-    const initRef = { current: true };
-    drawPlot({ clientWidth: 20, clientHeight: 600 }, initRef, [], { ...margins }, {});
-    assert.equal(calls.length, 0, 'a collapsed box is skipped rather than drawn into');
-}
-
-{
-    calls.length = 0;
-    reactPlot({ clientWidth: 20, clientHeight: 600 }, [], { ...margins }, {});
-    assert.equal(calls.length, 0, 'reactPlot guards the same way');
-    reactPlot(roomy, [], { ...margins }, {});
-    assert.equal(calls[0][0], 'react');
-    assert.equal(calls[0][3].autosize, true);
-}
-
-// ── Every chart goes through the helper ──────────────────────────────────────
-
-// Optical Evaluation predates it and carries its own equivalent handling: its
-// layout declares autosize in model.js, and its trace builder is rebuilt on
-// every render, so it already redraws per render. It is the window the rules
-// were derived from.
-const ALLOWED_WITHOUT_HELPER = new Set([
-    'analysis/opticalEvaluation/PlotlyChart.js',
-]);
-
-const root = fileURLToPath(new URL('../src/components/windows/', import.meta.url));
-function walk(dir) {
-    const out = [];
-    for (const entry of readdirSync(dir, { withFileTypes: true })) {
-        const full = join(dir, entry.name);
-        if (entry.isDirectory()) out.push(...walk(full));
-        else if (entry.name.endsWith('.js')) out.push(full);
-    }
-    return out;
-}
-
-const offenders = [];
-for (const file of walk(root)) {
+for (const file of walk(sourceRoot)) {
     const source = readFileSync(file, 'utf8');
-    if (!/Plotly\.(newPlot|react)\s*\(/.test(source)) continue;
-    const id = relative(root, file).replace(/\\/g, '/');
-    if (ALLOWED_WITHOUT_HELPER.has(id)) continue;
-    if (!source.includes('plotSurface.js')) offenders.push(id);
+    if (file.endsWith(join('components', 'ui', 'plotSurface.js'))) continue;
+    assert.doesNotMatch(source, /echarts\.(?:init|getInstanceByDom)\s*\(/,
+        `${file}: chart instance lifecycle bypasses the shared surface`);
+    assert.doesNotMatch(source, /useEffect\(\(\)\s*=>\s*(?:drawChart|setChartOption)\s*\(/,
+        `${file}: a React effect must not return an ECharts instance as its cleanup`);
+    assert.doesNotMatch(source, /=>\s*(?:drawChart|setChartOption)\s*\(/,
+        `${file}: concise callbacks must not leak an ECharts instance as a return value`);
 }
-assert.deepEqual(offenders, [],
-    'every chart draws through plotSurface, so none can miss autosize or the guard');
 
-console.log('PASS plot_resize_contract');
+console.log('PASS: ECharts resize contract');

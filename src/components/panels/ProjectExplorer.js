@@ -1,4 +1,5 @@
 import { filterExplorerFolders, sortExplorerItems } from './projectExplorerModel.js';
+import { ContextMenu } from '../ui/ContextMenu.js';
 
 const { createElement: h, useState, useRef, useEffect, useCallback, useMemo } = React;
 
@@ -109,77 +110,6 @@ function RenameInput({ initialValue, onCommit, onCancel, c }) {
       outline: 'none'
     }
   });
-}
-
-// ── Right-click context menu ─────────────────────────────────────────────────
-// Rendered at the cursor and clamped to the viewport. A transparent full-screen
-// overlay closes it on any outside click / right-click / scroll. `items` is an
-// array of { label, icon?, danger?, disabled?, separator?, onClick }.
-
-function ContextMenu({ x, y, items, c, onClose }) {
-  const ref = useRef(null);
-  const [pos, setPos] = useState({ left: x, top: y });
-
-  // After mount, measure and nudge back on-screen so the menu never spills off
-  // the bottom/right edge.
-  useEffect(() => {
-    const el = ref.current;
-    if (!el) return;
-    const r = el.getBoundingClientRect();
-    let left = x, top = y;
-    if (left + r.width > window.innerWidth)  left = Math.max(4, window.innerWidth  - r.width  - 4);
-    if (top + r.height > window.innerHeight) top  = Math.max(4, window.innerHeight - r.height - 4);
-    setPos({ left, top });
-  }, [x, y]);
-
-  useEffect(() => {
-    const onKey = (e) => { if (e.key === 'Escape') onClose(); };
-    window.addEventListener('keydown', onKey);
-    return () => window.removeEventListener('keydown', onKey);
-  }, [onClose]);
-
-  return h('div', {
-    // Overlay: catches outside interaction. contextmenu is prevented so a
-    // right-click outside just closes (doesn't open the OS menu).
-    onClick: onClose,
-    onContextMenu: (e) => { e.preventDefault(); onClose(); },
-    onWheel: onClose,
-    style: { position: 'fixed', inset: 0, zIndex: 1000 }
-  },
-    h('div', {
-      ref,
-      onClick: (e) => e.stopPropagation(),
-      onContextMenu: (e) => { e.preventDefault(); e.stopPropagation(); },
-      style: {
-        position: 'fixed', left: pos.left, top: pos.top,
-        minWidth: 180, background: c.panel, border: `1px solid ${c.border}`,
-        borderRadius: 6, boxShadow: '0 6px 24px rgba(0,0,0,0.4)',
-        padding: '4px 0', zIndex: 1001,
-        fontFamily: 'system-ui, -apple-system, sans-serif'
-      }
-    },
-      items.map((it, i) =>
-        it.separator
-          ? h('div', { key: `sep-${i}`, style: { height: 1, background: c.border, margin: '4px 0' } })
-          : h('div', {
-              key: i,
-              onClick: it.disabled ? undefined : (e) => { e.stopPropagation(); onClose(); it.onClick && it.onClick(); },
-              style: {
-                display: 'flex', alignItems: 'center', gap: 8,
-                padding: '6px 12px', fontSize: 13,
-                whiteSpace: 'nowrap',
-                cursor: it.disabled ? 'default' : 'pointer',
-                opacity: it.disabled ? 0.4 : 1,
-                color: it.danger ? c.error : c.text
-              },
-              onMouseEnter: (e) => { if (!it.disabled) e.currentTarget.style.background = it.danger ? (c.error + '22') : c.hover; },
-              onMouseLeave: (e) => { e.currentTarget.style.background = 'transparent'; }
-            },
-              h('span', { style: { width: 16, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, color: it.danger ? c.error : c.textDim } }, it.icon || null),
-              h('span', null, it.label))
-      )
-    )
-  );
 }
 
 // ── Row ────────────────────────────────────────────────────────────────────────

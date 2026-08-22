@@ -1,14 +1,13 @@
 // Characterization test for spectralAxis.js — locks current output of
-// fromNm / toNm / spectralAxisProps so an internal refactor (complex-binary-
+// fromNm / toNm / spectralAxisOption so an internal refactor (complex-binary-
 // expression cleanup) cannot change behavior.
 // Run: node tests/spectralAxis_characterization.mjs
 import {
-    fromNm, toNm, spectralAxisProps, spectralRangeControl, SPECTRAL_UNIT_IDS,
+    fromNm, toNm, spectralAxisOption, spectralRangeControl, SPECTRAL_UNIT_IDS,
 } from '../src/utils/physics/spectralAxis.js';
 
 let pass = 0, fail = 0;
 const approx = (a, b, eps = 1e-6) => Math.abs(a - b) <= eps;
-const arrApprox = (a, b, eps = 1e-6) => a.length === b.length && a.every((v, i) => Math.abs(v - b[i]) <= eps);
 function ok(name, cond) { if (cond) { pass++; } else { fail++; console.error('FAIL:', name); } }
 
 ok('SPECTRAL_UNIT_IDS order', JSON.stringify(SPECTRAL_UNIT_IDS) === JSON.stringify(['nm', 'um', 'cm1', 'THz', 'eV']));
@@ -35,52 +34,46 @@ ok('fromNm 500 -> eV', approx(fromNm(500, 'eV'), 2.479683968));
     ok('range control unknown unit fallback', spectralRangeControl('bogus', 400, 800).start === 400);
 }
 
-// ── spectralAxisProps: nm unit returns title only (no tick override) ─────────
+// ── Native axis options keep nanometres as data coordinates ──────────────────
 {
-    const p = spectralAxisProps('nm', 400, 700);
-    ok('props nm: title only', p.title.text === 'Wavelength (nm)' && p.tickmode === undefined);
+    const p = spectralAxisOption('nm', 400, 700);
+    ok('option nm: title', p.name === 'Wavelength (nm)');
+    ok('option nm: physical range', p.min === 400 && p.max === 700);
+    ok('option nm: 500 is not truncated to 5', p.axisLabel.formatter(500) === '500');
 }
 
-// ── spectralAxisProps: um — nice ticks at 0.05 µm step over [0.4, 0.7] ───────
+// ── Display formatters convert each native wavelength tick ───────────────────
 {
-    const p = spectralAxisProps('um', 400, 700);
-    ok('props um: title', p.title.text === 'Wavelength (µm)');
-    ok('props um: tickmode array', p.tickmode === 'array');
-    ok('props um: tickvals (nm)', arrApprox(p.tickvals, [400, 450, 500, 550, 600, 650, 700], 1e-6));
-    ok('props um: ticktext', JSON.stringify(p.ticktext) === JSON.stringify(['0.4', '0.45', '0.5', '0.55', '0.6', '0.65', '0.7']));
+    const p = spectralAxisOption('um', 400, 700);
+    ok('option um: title', p.name === 'Wavelength (µm)');
+    ok('option um: labels', [400, 450, 500, 700].map(p.axisLabel.formatter).join(',') === '0.4,0.45,0.5,0.7');
 }
 
-// ── spectralAxisProps: cm1 — reciprocal axis runs opposite to λ ──────────────
 {
-    const p = spectralAxisProps('cm1', 400, 700);
-    ok('props cm1: title', p.title.text === 'Wavenumber (cm⁻¹)');
-    ok('props cm1: tickvals (nm)', arrApprox(p.tickvals, [625, 555.5555555555555, 500, 454.54545454545456, 416.6666666666667], 1e-6));
-    ok('props cm1: ticktext', JSON.stringify(p.ticktext) === JSON.stringify(['16000', '18000', '20000', '22000', '24000']));
+    const p = spectralAxisOption('cm1', 400, 700);
+    ok('option cm1: title', p.name === 'Wavenumber (cm⁻¹)');
+    ok('option cm1: reciprocal labels', p.axisLabel.formatter(500) === '20000');
 }
 
-// ── spectralAxisProps: THz ────────────────────────────────────────────────────
 {
-    const p = spectralAxisProps('THz', 400, 2500);
-    ok('props THz: title', p.title.text === 'Frequency (THz)');
-    ok('props THz: ticktext', JSON.stringify(p.ticktext) === JSON.stringify(['200', '300', '400', '500', '600', '700']));
+    const p = spectralAxisOption('THz', 400, 2500);
+    ok('option THz: title', p.name === 'Frequency (THz)');
+    ok('option THz: compact label', p.axisLabel.formatter(500) === '599.6');
 }
 
-// ── spectralAxisProps: eV ──────────────────────────────────────────────────────
 {
-    const p = spectralAxisProps('eV', 300, 1000);
-    ok('props eV: title', p.title.text === 'Photon energy (eV)');
-    ok('props eV: ticktext', JSON.stringify(p.ticktext) === JSON.stringify(['1.5', '2', '2.5', '3', '3.5', '4']));
+    const p = spectralAxisOption('eV', 300, 1000);
+    ok('option eV: title', p.name === 'Photon energy (eV)');
+    ok('option eV: compact label', p.axisLabel.formatter(500) === '2.48');
 }
 
-// ── spectralAxisProps: missing/invalid range falls back to title-only ───────
-ok('props um: NaN nmMin -> title only', spectralAxisProps('um', NaN, 700).tickmode === undefined);
-ok('props um: nmMin=0 -> title only', spectralAxisProps('um', 0, 700).tickmode === undefined);
+ok('option um: NaN range stays automatic', spectralAxisOption('um', NaN, 700).min === undefined);
 
-// ── spectralAxisProps: unknown unit id falls back to nm ──────────────────────
+// ── Unknown unit id falls back to nm ─────────────────────────────────────────
 {
-    const p = spectralAxisProps('bogus', 400, 700);
-    ok('props unknown unit: title falls back to nm', p.title.text === 'Wavelength (nm)');
-    ok('props unknown unit: ticktext in nm', JSON.stringify(p.ticktext) === JSON.stringify(['400', '450', '500', '550', '600', '650', '700']));
+    const p = spectralAxisOption('bogus', 400, 700);
+    ok('option unknown unit: title falls back to nm', p.name === 'Wavelength (nm)');
+    ok('option unknown unit: labels stay nm', p.axisLabel.formatter(650) === '650');
 }
 
 if (fail === 0) console.log(`PASS: spectralAxis_characterization (${pass} checks)`);

@@ -42,7 +42,7 @@ async function runImportGuarded(fn, ctx, importing, setImporting) {
 // material is being edited (UserMaterialForm owns its own preview chart).
 function updateReadOnlySampledTable({ editDraft, chartRef, selectedMat, c, me, setSampledTable }) {
     if (editDraft) return;
-    if (!chartRef.current || !window.Plotly || !selectedMat?.getNK) { setSampledTable([]); return; }
+    if (!chartRef.current || !selectedMat?.getNK) { setSampledTable([]); return; }
     setSampledTable(sampleReadOnlyChart(chartRef.current, selectedMat, c, me));
 }
 

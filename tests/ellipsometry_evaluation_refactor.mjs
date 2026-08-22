@@ -22,7 +22,7 @@ const { designMaterialLookup } = await import('../src/utils/materials/designMate
 const { buildEllipsometryTable } = await import(
     '../src/components/windows/analysis/ellipsometryEvaluation/EllipsometryResults.js'
 );
-const { buildEllipsometryFigure } = await import(
+const { buildEllipsometryOption } = await import(
     '../src/components/windows/analysis/ellipsometryEvaluation/EllipsometryChart.js'
 );
 const { EllipsometryEvaluation } = await import(
@@ -145,36 +145,48 @@ assert.deepEqual(table.columns.map(column => column.label), ['AOI (°)', 'Ψ (°
 assert.deepEqual(table.rows[2], { x: angular.x[2], psi: angular.psi[2], delta: angular.delta[2] });
 
 const c = makeTheme();
-const figure = buildEllipsometryFigure(angular, {
+const option = buildEllipsometryOption(angular, {
     background: c.bg, paper: c.panel, grid: c.border, text: c.text,
 });
-assert.equal(createHash('sha256').update(JSON.stringify(figure)).digest('hex').slice(0, 16), '82b28e1e29efdcf6');
+assert.deepEqual(option.series.map(series => series.name), ['Ψ', 'Δ']);
+assert.equal(option.legend.show, false, 'toolbar curve toggles replace the duplicate in-chart legend');
+assert.equal(option.xAxis.scale, true, 'the configured X domain is not expanded toward zero');
+assert.deepEqual(option.yAxis.map(axis => axis.name), ['°', '°'],
+    'the legend identifies Ψ and Δ while the axes show only their unit');
+assert.deepEqual(option.yAxis.map(axis => axis.interval), [10, 60],
+    'Ψ uses a 10-degree grid while the 360-degree phase axis stays uncluttered');
+assert.equal(buildEllipsometryOption(spectral, {
+    background: c.bg, paper: c.panel, grid: c.border, text: c.text,
+}).xAxis.interval, 50, 'spectral Ellipsometry uses the shared 50 nm grid');
+assert.deepEqual(option.series[0].data[2], [angular.x[2], angular.psi[2]]);
 
 // Ψ and Δ are switched independently, and the curve that is off takes its
 // vertical axis with it rather than leaving an unused scale on that edge.
-const psiOnly = buildEllipsometryFigure(
+const psiOnly = buildEllipsometryOption(
     angular, { background: c.bg, paper: c.panel, grid: c.border, text: c.text },
     undefined, { psi: true, delta: false });
-assert.deepEqual(psiOnly.traces.map(trace => trace.name), ['Ψ']);
-assert.equal(psiOnly.layout.yaxis.visible, true);
-assert.equal(psiOnly.layout.yaxis2.visible, false);
-const deltaOnly = buildEllipsometryFigure(
+assert.deepEqual(psiOnly.series.map(series => series.name), ['Ψ']);
+assert.equal(psiOnly.yAxis[0].show, true);
+assert.equal(psiOnly.yAxis[1].show, false);
+const deltaOnly = buildEllipsometryOption(
     angular, { background: c.bg, paper: c.panel, grid: c.border, text: c.text },
     undefined, { psi: false, delta: true });
-assert.deepEqual(deltaOnly.traces.map(trace => trace.name), ['Δ']);
-assert.equal(deltaOnly.layout.yaxis.visible, false);
+assert.deepEqual(deltaOnly.series.map(series => series.name), ['Δ']);
+assert.equal(deltaOnly.yAxis[0].show, false);
 // Δ reads against the right-hand axis, so its margin is the one that stays wide.
-assert.equal(deltaOnly.layout.margin.r, 58);
-assert.equal(psiOnly.layout.margin.r, 18);
+assert.equal(deltaOnly.grid.right, 58);
+assert.equal(psiOnly.grid.right, 18);
 
 // The axis titles are set the way Optical Evaluation sets them. Without the
 // standoff, or at a larger size, the horizontal title drops to the bottom edge
 // and lands on the band under the plot.
-for (const axis of ['xaxis', 'yaxis', 'yaxis2']) {
-    assert.equal(figure.layout[axis].title.standoff, 8, `${axis} title has no standoff`);
-    assert.equal(figure.layout[axis].title.font.size, 11, `${axis} title is oversized`);
+for (const [name, axis] of [['xAxis', option.xAxis], ['yAxis[0]', option.yAxis[0]], ['yAxis[1]', option.yAxis[1]]]) {
+    assert.equal(axis.nameGap, 30, `${name} title has no gap`);
+    assert.equal(axis.nameTextStyle.fontSize, 11, `${name} title is oversized`);
 }
-assert.deepEqual(figure.layout.margin, plotMargin({ rightAxis: true }),
+assert.deepEqual(
+    [option.grid.left, option.grid.right, option.grid.top, option.grid.bottom],
+    Object.values(plotMargin({ rightAxis: true })),
     'the dispersion plot no longer uses the shared margin');
 
 // Azzam-Bashara is the convention the window opens in.

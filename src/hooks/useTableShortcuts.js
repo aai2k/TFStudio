@@ -8,6 +8,10 @@
 //   Delete        — delete the focused row(s); no-op if all selected rows
 //                   are locked, with optional onBlockedDelete() flash
 //   Ctrl+D        — duplicate the focused row(s) BELOW
+//   Arrow keys    — optional host-provided row/column navigation
+//   Shift+Arrow   — same, extending the selection instead of replacing it
+//   Enter / F2    — optional host-provided cell activation
+//   Ctrl+C / V    — optional host-provided copy and paste
 //
 // The host owns rows + focus + selection state; this hook only routes
 // keys to the host-provided callbacks. To enable, attach the returned
@@ -25,6 +29,21 @@ function isEditingInside(e) {
     if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') return true;
     if (tgt.isContentEditable) return true;
     return false;
+}
+
+/**
+ * Whether `e` is the Ctrl (or Cmd) chord for a physical key position.
+ *
+ * Matching is on `e.code` rather than `e.key`, because `e.key` carries the
+ * character the active keyboard layout produces: under a Cyrillic layout the C
+ * key reports 'с' and the V key 'м', which would put copy and paste out of
+ * reach entirely. The chord is the key position, the same one on every layout.
+ *
+ * Alt is excluded because Windows reports AltGr as Ctrl+Alt, so a chord with
+ * Alt held is someone typing a third-level character, not invoking a shortcut.
+ */
+function isCtrlChord(e, code) {
+    return (e.ctrlKey || e.metaKey) && !e.shiftKey && !e.altKey && e.code === code;
 }
 
 function insertRowKey(e, { focusIdx, rows, onInsertAbove, onInsertBelow }) {
@@ -78,11 +97,43 @@ export function useTableShortcuts(opts) {
         onDelete,
         onDuplicate,
         onBlockedDelete,
+        onMoveFocus,
+        onMoveColumn,
+        onActivate,
+        onCopy,
+        onPaste,
         enabled = true,
     } = opts || {};
 
     const onKeyDown = useCallback((e) => {
         if (!enabled || isEditingInside(e)) return;
+
+        if ((e.key === 'ArrowUp' || e.key === 'ArrowDown') && onMoveFocus) {
+            e.preventDefault();
+            // Shift extends from the anchor rather than moving a single
+            // selection, matching what Shift-click already does.
+            return onMoveFocus(e.key === 'ArrowUp' ? -1 : 1, { extend: e.shiftKey });
+        }
+
+        if ((e.key === 'ArrowLeft' || e.key === 'ArrowRight') && onMoveColumn) {
+            e.preventDefault();
+            return onMoveColumn(e.key === 'ArrowLeft' ? -1 : 1);
+        }
+
+        if ((e.key === 'Enter' || e.key === 'F2') && onActivate) {
+            e.preventDefault();
+            return onActivate(focusIdx);
+        }
+
+        if (isCtrlChord(e, 'KeyC') && onCopy) {
+            e.preventDefault();
+            return onCopy();
+        }
+
+        if (isCtrlChord(e, 'KeyV') && onPaste) {
+            e.preventDefault();
+            return onPaste();
+        }
 
         if (e.key === 'Insert') {
             return insertRowKey(e, { focusIdx, rows, onInsertAbove, onInsertBelow });
@@ -94,10 +145,11 @@ export function useTableShortcuts(opts) {
 
         // Ctrl+D — duplicate (note: in Chromium this is "Bookmark this page",
         // which is suppressed inside Electron BrowserWindows anyway).
-        if ((e.ctrlKey || e.metaKey) && !e.shiftKey && (e.key === 'd' || e.key === 'D')) {
+        if (isCtrlChord(e, 'KeyD')) {
             return duplicateRowKey(e, { focusIdx, onDuplicate });
         }
-    }, [enabled, focusIdx, rows, isLocked, onInsertAbove, onInsertBelow, onDelete, onDuplicate, onBlockedDelete]);
+    }, [enabled, focusIdx, rows, isLocked, onInsertAbove, onInsertBelow, onDelete,
+        onDuplicate, onBlockedDelete, onMoveFocus, onMoveColumn, onActivate, onCopy, onPaste]);
 
     return { onKeyDown };
 }

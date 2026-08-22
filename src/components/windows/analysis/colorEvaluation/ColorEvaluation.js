@@ -29,28 +29,25 @@ function Swatch({ color, label, sub, c }) {
     },
         h('div', {
             style: {
-                width: 56, height: 56, borderRadius: 6, background: color,
+                width: 44, height: 44, borderRadius: 5, background: color,
                 border: `1px solid ${c.border}`,
                 boxShadow: 'inset 0 0 0 1px rgba(255,255,255,0.06)',
             },
         }),
-        h('div', { style: { fontSize: 10, color: c.text, fontWeight: 600 } }, label),
-        sub && h('div', { style: { fontSize: 9, color: c.textDim } }, sub),
+        h('div', { style: { fontSize: 9, color: c.text, fontWeight: 600 } }, label),
+        sub && h('div', { style: { fontSize: 8, color: c.textDim } }, sub),
     );
 }
 
-/**
- * The colour itself, over the diagram's lower-left corner, which the spectrum
- * locus never reaches. A colour window has to show the colour, and this costs
- * the plot no height.
- */
+/** The colour readout sits in the diagram's naturally empty upper-right region. */
 function Swatches({ report, sampleRgb, state, ce, c }) {
     const exposureNote = state.exposure === 'fit' ? ce.expFit : `×${state.exposure}`;
     return h('div', {
         style: {
-            position: 'absolute', left: 58, bottom: 58, zIndex: 2,
-            display: 'flex', gap: 12, padding: 8,
-            background: c.panel + 'dd', border: `1px solid ${c.border}`, borderRadius: 6,
+            position: 'absolute', right: 12, top: 72, zIndex: 2,
+            display: 'flex', gap: 8, padding: 6,
+            background: c.panel + 'dd', border: `1px solid ${c.border}`, borderRadius: 5,
+            pointerEvents: 'none',
         },
     },
         h(Swatch, {

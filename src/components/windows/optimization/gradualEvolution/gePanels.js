@@ -10,7 +10,8 @@
 import {
     SynthesisControlBar, SynthesisSidebarFrame, makeRowHelpers,
 } from '../synthesisShared/synthesisShell.js';
-import { SynthesisHistoryTable, PlotlyChart } from '../synthesisShared/synthesisHelpers.js';
+import { SynthesisHistoryTable, ChartSurface } from '../synthesisShared/synthesisHelpers.js';
+import { cartesianOption, horizontalLegend, lineSeries, scatterSeries, valueAxis } from '../../../ui/chartOptions.js';
 import {
     getSynthesisInnerEngine, setSynthesisInnerEngine,
     getSynthesisCandMode, setSynthesisCandMode,
@@ -27,47 +28,30 @@ const { createElement: h } = React;
 // ── MF trend chart ────────────────────────────────────────────────────────────
 // Log MF vs generation, with GE-step insertions marked as triangles.
 export function MFTrendChart({ cycles, c, theme, emptyMsg }) {
-    const build = () => {
-        const bg    = c.bg    || '#1e1e1e';
-        const panel = c.panel || '#252526';
-        const grid  = c.border|| '#3a3a3a';
-        const txt   = c.text  || '#ccc';
-
+    const buildOption = () => {
         const geCycles = cycles.filter(cy => cy.type === 'ge');
-        const traces = [
-            {
-                x: cycles.map(cy => cy.genNum), y: cycles.map(cy => cy.mf),
-                type: 'scatter', mode: 'lines',
-                line: { color: '#42a5f5', width: 1.5 },
-                name: 'MF',
-                hovertemplate: 'Gen %{x}<br>MF: %{y:.6f}<extra></extra>',
-            },
-        ];
+        const series = [lineSeries({
+            x: cycles.map(cycle => cycle.genNum), y: cycles.map(cycle => cycle.mf),
+            name: 'MF', color: '#42a5f5', width: 1.5,
+            symbol: 'circle', symbolSize: 5,
+        })];
         if (geCycles.length) {
-            traces.push({
-                x: geCycles.map(cy => cy.genNum),
-                y: geCycles.map(cy => cy.mf),
-                type: 'scatter', mode: 'markers',
-                marker: { color: '#ff7043', size: 8, symbol: 'triangle-up' },
-                name: 'GE step',
-                hovertemplate: 'GE step %{customdata}<br>MF: %{y:.6f}<extra></extra>',
-                customdata: geCycles.map(cy => cy.geStep),
-            });
+            series.push(scatterSeries({
+                data: geCycles.map(cycle => ({ value: [cycle.genNum, cycle.mf], geStep: cycle.geStep })),
+                name: 'GE step', color: '#ff7043', symbol: 'triangle', symbolSize: 8,
+            }));
         }
-        const layout = {
-            margin: { l: 54, r: 8, t: 4, b: 30 },
-            paper_bgcolor: panel, plot_bgcolor: bg,
-            font: { color: txt, family: 'system-ui, sans-serif', size: 10 },
-            xaxis: { title: { text: 'Generation', standoff: 4 }, gridcolor: grid },
-            yaxis: { title: { text: 'MF', standoff: 4 }, gridcolor: grid, type: 'log',
-                tickformat: '.0e', exponentformat: 'e', hoverformat: '.6f', dtick: 'D2' },
-            showlegend: true,
-            legend: { font: { size: 10 }, bgcolor: 'transparent', x: 1, xanchor: 'right', y: 1 },
-        };
-        return { traces, layout };
+        return cartesianOption({
+            colors: c,
+            grid: { left: 54, right: 8, top: 24, bottom: 30 },
+            legend: horizontalLegend({ color: c.text, top: 0 }),
+            xAxis: valueAxis({ name: 'Generation', color: c.text, gridColor: c.border, nameGap: 24 }),
+            yAxis: { ...valueAxis({ name: 'MF', color: c.text, gridColor: c.border, nameGap: 34 }), type: 'log' },
+            series,
+        });
     };
-    return h(PlotlyChart, {
-        build, hasData: cycles.length > 0, empty: emptyMsg,
+    return h(ChartSurface, {
+        buildOption, hasData: cycles.length > 0, empty: emptyMsg,
         c,
     });
 }

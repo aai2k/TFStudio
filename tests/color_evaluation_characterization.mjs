@@ -17,9 +17,8 @@ const { initCatalogs } = await import('../src/utils/materials/catalogManager.js'
 initCatalogs({});
 
 const {
-  CHROMATICITY_CONFIG,
-  chromaticityLayout,
-  chromaticityTraces,
+  buildChromaticityOption,
+  buildChromaticitySeries,
 } = await import('../src/components/windows/analysis/colorEvaluation/chartFigure.js');
 const { ColorEvaluation } = await import(
   '../src/components/windows/analysis/colorEvaluation/ColorEvaluation.js'
@@ -31,70 +30,40 @@ const report = {
   xy: { x: 0.2, y: 0.3 },
   rgb: 'rgb(12,34,56)',
 };
-const traces = chromaticityTraces(report, '2', c);
+const series = buildChromaticitySeries(report, '2', c);
 
-assert.equal(traces.length, 4);
-assert.equal(
-  createHash('sha256').update(JSON.stringify(traces)).digest('hex').slice(0, 16),
-  '6dd185cceb0ddb19',
-);
-assert.deepEqual(traces.map(trace => [trace.name ?? null, trace.mode]), [
-  ['Spectrum locus', 'lines'],
-  [null, 'markers+text'],
-  ['White point', 'markers'],
-  ['Coating', 'markers'],
+assert.equal(series.length, 4);
+assert.deepEqual(series.map(item => [item.name || null, item.type]), [
+  ['Spectrum locus', 'line'],
+  [null, 'scatter'],
+  ['White point', 'scatter'],
+  ['Coating', 'scatter'],
 ]);
-assert.deepEqual(traces[0].x.at(-1), traces[0].x[0]);
-assert.deepEqual(traces[0].y.at(-1), traces[0].y[0]);
-assert.deepEqual(traces[1].text, ['460', '480', '500', '520', '540', '560', '580', '600', '620']);
-assert.deepEqual(traces[2], {
-  x: [0.3127], y: [0.329],
-  type: 'scatter', mode: 'markers', name: 'White point',
-  marker: { symbol: 'cross-thin', size: 11, line: { color: '#bbbbbb', width: 2 } },
-  hovertemplate: 'White x %{x:.4f}, y %{y:.4f}<extra></extra>',
-});
-assert.deepEqual(traces[3], {
-  x: [0.2], y: [0.3],
-  type: 'scatter', mode: 'markers', name: 'Coating',
-  marker: { symbol: 'circle', size: 13, color: 'rgb(12,34,56)', line: { color: '#ffffff', width: 1.5 } },
-  hovertemplate: 'Coating x %{x:.4f}, y %{y:.4f}<extra></extra>',
-});
+assert.deepEqual(series[0].data.at(-1), series[0].data[0]);
+assert.deepEqual(series[1].data.map(item => item.wavelength), [460, 480, 500, 520, 540, 560, 580, 600, 620]);
+assert.deepEqual(series[2].data, [[0.3127, 0.329]]);
+assert.equal(series[2].itemStyle.borderColor, '#bbbbbb');
+assert.equal(series[2].symbolSize, 11);
+assert.deepEqual(series[3].data, [[0.2, 0.3]]);
+assert.equal(series[3].itemStyle.color, 'rgb(12,34,56)');
+assert.equal(series[3].itemStyle.borderColor, '#ffffff');
 
-assert.deepEqual(chromaticityLayout(c), {
-  margin: { l: 48, r: 12, t: 12, b: 42 },
-  // The plot takes its size from its element, so it tracks a window being
-  // resized instead of keeping the size measured at the first draw.
-  autosize: true,
-  paper_bgcolor: c.panel,
-  plot_bgcolor: c.bg,
-  font: { color: c.text, family: 'system-ui, -apple-system, sans-serif', size: 11 },
-  xaxis: {
-    title: { text: 'x', standoff: 6 }, range: [-0.05, 0.8],
-    gridcolor: c.border, zerolinecolor: c.border, tickfont: { size: 10 }, constrain: 'domain',
-  },
-  yaxis: {
-    title: { text: 'y', standoff: 6 }, range: [-0.05, 0.9],
-    gridcolor: c.border, zerolinecolor: c.border, tickfont: { size: 10 }, scaleanchor: 'x', scaleratio: 1,
-  },
-  // Above the plot and to the left: the modebar owns the top-right corner and
-  // would cover a legend anchored there whenever the pointer is on the chart.
-  legend: {
-    orientation: 'h', x: 0, xanchor: 'left', y: 1.02, yanchor: 'bottom',
-    font: { size: 10, color: c.text }, bgcolor: 'rgba(0,0,0,0)',
-  },
-  showlegend: true,
-});
-assert.deepEqual(CHROMATICITY_CONFIG, {
-  displaylogo: false,
-  responsive: true,
-  modeBarButtonsToRemove: ['select2d', 'lasso2d'],
-  toImageButtonOptions: { format: 'png', filename: 'TFStudio_chromaticity', scale: 2 },
-});
+const option = buildChromaticityOption(report, '2', c);
+assert.deepEqual([option.xAxis.min, option.xAxis.max], [0, 0.8]);
+assert.deepEqual([option.yAxis.min, option.yAxis.max], [0, 0.9]);
+assert.equal(option.xAxis.interval, 0.1);
+assert.equal(option.yAxis.interval, 0.1);
+assert.equal(option.grid.left, 48);
+assert.equal(option.grid.top, 64);
+assert.equal(option.legend.orient, 'horizontal');
+assert.ok(option.toolbox.feature.saveAsImage, 'native image export stays available');
 
 const html = renderToStaticMarkup(withDesign(
   React.createElement(ColorEvaluation, { c, theme: c, t: makeLocale() }),
   makeSampleDesign(),
 ));
-assert.equal(createHash('sha256').update(html).digest('hex').slice(0, 16), '44540aff082b5730');
+assert(html.includes('position:absolute;right:12px;top:72px'),
+  'color swatches stay in the naturally empty upper-right data region');
+assert.equal(createHash('sha256').update(html).digest('hex').slice(0, 16), '9eb03411d1088c23');
 
 console.log('PASS: color_evaluation_characterization');

@@ -19,9 +19,9 @@ const { evaluateDesignPhaseDispersion } =
     await import('../src/utils/physics/phaseDispersion.js');
 const { buildGdGddView } =
     await import('../src/components/windows/analysis/gdGddEvaluation/viewModel.js');
-const { buildGDChartModel } =
+const { buildGDChartOption } =
     await import('../src/components/windows/analysis/gdGddEvaluation/chartModel.js');
-const { selectGdGddTargets } =
+const { buildEditableGdGddTargetGeometry, buildGdGddTargetGeometry, selectGdGddTargets } =
     await import('../src/components/windows/analysis/gdGddEvaluation/gdTargets.js');
 const { GDGDDEvaluation } =
     await import('../src/components/windows/analysis/gdGddEvaluation/GDGDDEvaluation.js');
@@ -121,26 +121,31 @@ assert.ok(gddView.plotData.lambda.length > raw.lambda.length
     && gddView.plotData.y.some(Number.isNaN),
     'coating GDD leaves visible gaps at participating n/k table knots');
 
-const chart = buildGDChartModel({
+const chart = buildGDChartOption({
     data: view.plotData, meta: view.meta,
     referenceLambda: raw.lambda[2], showReference: true,
     colors: { background: c.bg, paper: c.panel, grid: c.border, text: c.text },
 });
-assert.equal(chart.traces[0].hovertemplate, '%{y:.2f} °<br>%{x:.2f} nm<extra></extra>');
+assert.deepEqual(chart.series[0].data[2], [view.plotData.lambda[2], view.plotData.y[2]]);
 // The one shared margin: the 38 px top strip is the modebar's, and the bottom
 // holds the axis title clear of whatever band the window puts under the plot.
-assert.deepEqual(chart.layout.margin, plotMargin());
+assert.deepEqual(
+    [chart.grid.left, chart.grid.right, chart.grid.top, chart.grid.bottom],
+    Object.values(plotMargin()),
+);
 // Axis furniture is the text colour, not the curve colour.
-assert.equal(chart.layout.font.color, c.text);
-assert.equal(chart.layout.yaxis.color, undefined);
+assert.equal(chart.textStyle.color, c.text);
+assert.equal(chart.yAxis.axisLabel.color, c.text);
+assert.equal(chart.yAxis.axisLabel.formatter(28.3000497755335), '28.3');
+assert.equal(chart.yAxis.axisLabel.formatter(-190.292167396039), '-190.3',
+    'auto-range endpoints never expose floating-point tails');
 // The plot must not carry a fixed size: it takes it from the element it is
 // drawn in, and a pinned width or height would survive every container change.
-assert.equal(chart.layout.width, undefined, 'no width is pinned into the layout');
-assert.equal(chart.layout.height, undefined, 'no height is pinned into the layout');
-// No explicit range given, so Plotly autoranges.
-assert.equal(chart.layout.yaxis.autorange, true);
-assert.equal(chart.layout.shapes[0].x0, raw.lambda[2]);
-assert.equal(chart.layout.yaxis.title.text, text.phaseAxis);
+assert.equal(chart.width, undefined, 'no width is pinned into the option');
+assert.equal(chart.height, undefined, 'no height is pinned into the option');
+assert.equal(chart.yAxis.scale, true, 'no explicit range uses native value-axis scaling');
+assert.equal(chart.series[0].markLine.data[0].xAxis, raw.lambda[2]);
+assert.equal(chart.yAxis.name, text.phaseAxis);
 
 const operands = [
     {
@@ -192,15 +197,26 @@ assert.deepEqual(selectGdGddTargets(operands, {
     surfaceMode: 'back_only', side: 'front', target: 'R', quantity: 'gdd',
     polarization: 'p', thetaDeg: 17.5,
 }), [], 'back-only merit targets are not shown on a front-side calculation');
-const targetChart = buildGDChartModel({
+const targetChart = buildGDChartOption({
     data: gddView.plotData, meta: gddView.meta,
     referenceLambda: 550, showReference: false, targets,
     colors: { background: c.bg, paper: c.panel, grid: c.border, text: c.text },
 });
-assert.equal(targetChart.traces.length, 4,
-    'point and flat GDD targets add marker and line overlays');
-assert.equal(targetChart.layout.shapes.length, 1,
+assert.equal(targetChart.series.length, 5,
+    'point and flat GDD targets add grouped marker, line, and band overlays');
+assert.equal(targetChart.series.find(series => series.markArea).markArea.data.length, 1,
     'a flat target highlights its wavelength band');
+const targetGeometry = buildGdGddTargetGeometry(targets);
+assert.deepEqual(
+    [targetGeometry.lines.length, targetGeometry.markers.length, targetGeometry.bands.length],
+    [1, 4, 1],
+    'GD/GDD target geometry remains independent of the chart renderer',
+);
+assert.deepEqual(
+    buildEditableGdGddTargetGeometry(targets, { min: 500, max: 520 }).map(item => item.kind),
+    ['point', 'band'],
+    'the shared target editor can consume GD/GDD point and range targets later',
+);
 
 const markup = renderToStaticMarkup(withDesign(
     React.createElement(GDGDDEvaluation, { c, t: makeLocale(), theme: c }),

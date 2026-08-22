@@ -1,4 +1,5 @@
 import { ANALYSIS_DEFAULTS } from '../../../../constants/analysisDefaults.js';
+import { niceAxisBounds } from '../../../ui/chartOptions.js';
 
 /** `colors` are the configured curve colours; factory defaults when absent. */
 export function quantityMeta(quantity, text, colors = ANALYSIS_DEFAULTS.gdGddEvaluation.colors) {
@@ -108,7 +109,10 @@ export function autoYRange(plotData) {
     const low = sorted[0];
     const high = sorted[sorted.length - 1];
     const fullSpan = high - low;
-    if (!(fullSpan > 0)) return { range: [low - 1, high + 1], outside: 0 };
+    if (!(fullSpan > 0)) {
+        const bounds = niceAxisBounds(low, high, { targetTicks: 10 });
+        return { range: [bounds.min, bounds.max], interval: bounds.interval, outside: 0 };
+    }
 
     const quantile = (fraction) => sorted[Math.round(fraction * (sorted.length - 1))];
     const innerLow = quantile(TAIL_FRACTION);
@@ -117,13 +121,15 @@ export function autoYRange(plotData) {
 
     if (!(innerSpan > 0) || fullSpan < OUTLIER_RATIO * innerSpan) {
         const pad = fullSpan * RANGE_PADDING;
-        return { range: [low - pad, high + pad], outside: 0 };
+        const bounds = niceAxisBounds(low - pad, high + pad, { targetTicks: 10 });
+        return { range: [bounds.min, bounds.max], interval: bounds.interval, outside: 0 };
     }
     const pad = innerSpan * RANGE_PADDING;
-    const range = [innerLow - pad, innerHigh + pad];
+    const bounds = niceAxisBounds(innerLow - pad, innerHigh + pad, { targetTicks: 10 });
+    const range = [bounds.min, bounds.max];
     let outside = 0;
     for (const value of values) if (value < range[0] || value > range[1]) outside++;
-    return { range, outside };
+    return { range, interval: bounds.interval, outside };
 }
 
 export function buildGdGddView(raw, options, text, colors) {

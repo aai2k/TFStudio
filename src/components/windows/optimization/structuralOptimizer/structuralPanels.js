@@ -9,8 +9,9 @@ import {
     SynthesisControlBar, SynthesisSidebarFrame, makeRowHelpers,
 } from '../synthesisShared/synthesisShell.js';
 import {
-    SynthesisHistoryTable, TopDesignsPanel as SharedTopDesignsPanel, PlotlyChart,
+    SynthesisHistoryTable, TopDesignsPanel as SharedTopDesignsPanel, ChartSurface,
 } from '../synthesisShared/synthesisHelpers.js';
+import { cartesianOption, horizontalLegend, lineSeries, valueAxis } from '../../../ui/chartOptions.js';
 import { MUTATION_KINDS } from '../../../../utils/synthesis/structuralOptimizer.js';
 import {
     getSynthesisInnerEngine, setSynthesisInnerEngine,
@@ -23,43 +24,36 @@ const { createElement: h, useState } = React;
 
 // ── MF trend plot (best + current vs accepted iteration) ────────────────────────
 export function TrendPlot({ trend, c, theme, t }) {
-    const build = () => {
-        const bg = c.bg || '#1e1e1e', panel = c.panel || '#252526',
-              grid = c.border || '#3a3a3a', txt = c.text || '#ccc';
+    const buildOption = () => {
         const iters = trend.map(p => p.iter);
-        const traces = [
-            { x: iters, y: trend.map(p => p.cur),  type: 'scatter', mode: 'lines',
-              line: { color: '#90a4ae', width: 1, dash: 'dot' }, name: t.structural.curMF,
-              hovertemplate: 'it %{x}<br>cur %{y:.6f}<extra></extra>' },
-            { x: iters, y: trend.map(p => p.best), type: 'scatter', mode: 'lines',
-              line: { color: '#ffa726', width: 1.8 }, name: t.structural.bestMF,
-              hovertemplate: 'it %{x}<br>best %{y:.6f}<extra></extra>' },
+        const series = [
+            lineSeries({ x: iters, y: trend.map(p => p.cur), name: t.structural.curMF, color: '#90a4ae', width: 1, dash: 'dot' }),
+            lineSeries({ x: iters, y: trend.map(p => p.best), name: t.structural.bestMF, color: '#ffa726', width: 1.8 }),
         ];
         // Log MF axis. When best/cur barely move, a bare log axis micro-zooms to a
         // hair-thin window with 7-digit tick labels; widen to a padded floor range so
         // "it's flat" reads clearly instead of as noise.
         const ys = trend.flatMap(p => [p.cur, p.best]).filter(v => v > 0 && Number.isFinite(v));
-        const yaxis = { title: { text: 'MF', standoff: 4 }, gridcolor: grid, type: 'log',
-            tickformat: '.0e', exponentformat: 'e', hoverformat: '.6f', dtick: 'D2' };
+        const yAxis = { ...valueAxis({ name: 'MF', color: c.text, gridColor: c.border, nameGap: 34 }), type: 'log' };
         if (ys.length) {
             const lo = Math.min(...ys), hi = Math.max(...ys);
             if (lo > 0 && hi / lo < 1.1) {
                 const cen = Math.log10((lo + hi) / 2);
-                yaxis.range = [cen - 0.5, cen + 0.5];
+                yAxis.min = 10 ** (cen - 0.5);
+                yAxis.max = 10 ** (cen + 0.5);
             }
         }
-        const layout = {
-            margin: { l: 58, r: 8, t: 6, b: 28 },
-            paper_bgcolor: panel, plot_bgcolor: bg,
-            font: { color: txt, family: 'system-ui, sans-serif', size: 10 },
-            xaxis: { title: { text: t.structural.iterAxis, standoff: 4 }, gridcolor: grid },
-            yaxis,
-            showlegend: true, legend: { font: { size: 9 }, x: 1, xanchor: 'right', y: 1 },
-        };
-        return { traces, layout };
+        return cartesianOption({
+            colors: c,
+            grid: { left: 58, right: 8, top: 24, bottom: 28 },
+            legend: horizontalLegend({ color: c.text, top: 0 }),
+            xAxis: valueAxis({ name: t.structural.iterAxis, color: c.text, gridColor: c.border, nameGap: 24 }),
+            yAxis,
+            series,
+        });
     };
-    return h(PlotlyChart, {
-        build, hasData: trend.length > 0, empty: t.structural.noTrendYet,
+    return h(ChartSurface, {
+        buildOption, hasData: trend.length > 0, empty: t.structural.noTrendYet,
         c,
     });
 }

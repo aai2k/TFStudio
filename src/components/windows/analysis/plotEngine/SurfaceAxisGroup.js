@@ -1,5 +1,5 @@
 import {
-    AXIS_PROPS, axisTarget, axisProp, composeAxisVar, defaultAxisRange,
+    AXIS_PROPS, MAX_AXIS_STEPS, axisTarget, axisProp, composeAxisVar, defaultAxisRange,
 } from '../../../../utils/physics/plotQuantities.js';
 
 const { createElement: h } = React;
@@ -35,6 +35,10 @@ function propertyLabel(option, pe) {
     return pe.propK || option.label;
 }
 
+function compactInputNumber(value) {
+    return Number.isFinite(value) ? Number(value.toFixed(4)) : value;
+}
+
 export function SurfaceAxisGroup({ which, spec, design, onUpdate, targetOptions, styles, c, pe }) {
     const values = axisValues(spec, which);
     const target = axisTarget(values.variable);
@@ -60,17 +64,17 @@ export function SurfaceAxisGroup({ which, spec, design, onUpdate, targetOptions,
         }, AXIS_PROPS.map(option => h('option', { key: option.value, value: option.value }, propertyLabel(option, pe)))),
         h('div', { style: { display: 'flex', gap: 4, alignItems: 'center', marginTop: 4 } },
             h('input', {
-                type: 'number', value: values.from, style: styles.numStyle,
+                type: 'number', value: compactInputNumber(values.from), style: styles.numStyle,
                 onChange: (e) => setRange({ from: parseFloat(e.target.value) || 0 }),
             }),
             h('span', { style: { color: c.textDim } }, '–'),
             h('input', {
-                type: 'number', value: values.to, style: styles.numStyle,
+                type: 'number', value: compactInputNumber(values.to), style: styles.numStyle,
                 onChange: (e) => setRange({ to: parseFloat(e.target.value) || 0 }),
             }),
             h('span', { style: { color: c.textDim, fontSize: 10, marginLeft: 4 } }, pe.steps || 'steps'),
             h('input', {
-                type: 'number', value: values.steps, min: 2, max: 400,
+                type: 'number', value: values.steps, min: 2, max: MAX_AXIS_STEPS,
                 style: { ...styles.numStyle, width: 46 },
                 onChange: (e) => setRange({ steps: parseInt(e.target.value, 10) || 2 }),
             }),

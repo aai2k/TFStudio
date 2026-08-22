@@ -13,7 +13,7 @@ import {
 shimBrowserGlobals();
 await loadApp();
 
-const [{ ErrorAnalysis }, { buildErrorFigure }, trialModel] = await Promise.all([
+const [{ ErrorAnalysis }, { buildErrorOption }, trialModel] = await Promise.all([
     import('../src/components/windows/analysis/errorAnalysis/ErrorAnalysis.js'),
     import('../src/components/windows/analysis/errorAnalysis/ErrorChart.js'),
     import('../src/components/windows/analysis/errorAnalysis/trialModel.js'),
@@ -34,12 +34,14 @@ const result = {
     envLower: [0.2, 0.3],
     envUpper: [0.6, 1],
 };
-const figure = buildErrorFigure({ result, char: 'R', c, corridorSigma: 2, showEnvelope: true });
-assert.deepEqual(figure.data.map((trace) => trace.name || null), [
-    null, 'Corridor (±2σ)', 'Exp (mean)', 'R theoretical', null, 'Min/max envelope',
+const option = buildErrorOption({ result, char: 'R', c, corridorSigma: 2, showEnvelope: true });
+assert.deepEqual(option.series.map((series) => series.name || null), [
+    '__corridor_base__', 'Corridor (±2σ)', 'Exp (mean)', 'R theoretical', 'Envelope min', 'Min/max envelope',
 ]);
-assert.deepEqual(figure.data[0].y, [20, 20.000000000000007]);
-assert.deepEqual(figure.data[1].y, [60.00000000000001, 100]);
+assert.deepEqual(option.series[0].data.map(point => point[1]), [20, 20.000000000000007]);
+assert.deepEqual(option.series[1].data.map(point => point[1]), [40.00000000000001, 80]);
+assert.equal(option.series[0].stack, 'corridor');
+assert.equal(option.series[1].stack, 'corridor');
 
 const design = makeSampleDesign();
 const trials = [

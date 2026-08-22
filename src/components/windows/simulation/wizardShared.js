@@ -3,16 +3,41 @@
  * MonoWizard). These are the visual atoms and small helpers the broadband and
  * monochromatic wizards have in common — style helpers, compact numeric fields,
  * the layer-tab strip, the interactive deposition timeline, and the generic
- * Plotly chart — kept in one place so both wizards stay visually identical.
+ * chart surface — kept in one place so both wizards stay visually identical.
  *
  * Style mirrors FilterDesignWizard / ProcessSimulator.
  */
 
-import { drawPlot, usePlotTeardown } from '../../ui/plotSurface.js';
+import { axisTooltip, cartesianOption, valueAxis } from '../../ui/chartOptions.js';
+import { drawChart, useChartTeardown } from '../../ui/plotSurface.js';
 import { makeShiftedMaterial } from '../../../utils/monitoring/monitoringSim.js';
 import { systemSpectrum, splitActiveStacks } from '../../../utils/monitoring/depositionSpectrum.js';
 
 const { createElement: h, useRef, useEffect } = React;
+
+function seriesYExtent(series) {
+    let min = Infinity;
+    let max = -Infinity;
+    for (const item of series) {
+        for (const point of item?.data || []) {
+            const raw = Array.isArray(point) ? point.at(-1) : (point?.value ?? point);
+            const value = Number(raw);
+            if (!Number.isFinite(value)) continue;
+            min = Math.min(min, value);
+            max = Math.max(max, value);
+        }
+    }
+    return Number.isFinite(min) ? [min, max] : null;
+}
+
+function percentChartRange(series, explicitRange) {
+    if (explicitRange) return explicitRange;
+    const extent = seriesYExtent(series);
+    if (!extent || (extent[1] - extent[0] < 10 && extent[1] < 20)) return null;
+    const min = Math.floor(extent[0] / 10) * 10;
+    const max = Math.ceil(extent[1] / 10) * 10;
+    return [min, max > min ? max : min + 10];
+}
 
 // Medium can be a bare id string or { material }.
 export function medId(m) { return typeof m === 'string' ? m : (m?.material ?? 'Air'); }
@@ -126,32 +151,57 @@ export function DepositionTimeline({ progress, totalTime, playing, onScrub, onPl
                 }))));
 }
 
-// ── Generic Plotly line/bar chart ──────────────────────────────────────────────
-export function Chart({ traces, xTitle, yTitle, c, yRange = null, extra = {}, minHeight = 200 }) {
+// ── Generic ECharts line/bar chart ─────────────────────────────────────────────
+export function Chart({
+    series = [], xTitle, yTitle, c, yRange = null, minHeight = 200,
+    grid, xCategories = null, referenceLines = [], legend = { show: false },
+}) {
     const ref = useRef(null);
-    const initRef = useRef(false);
+    const chartRef = useRef(null);
+    const percentAxis = /%/.test(yTitle || '');
+    const effectiveYRange = percentAxis ? percentChartRange(series, yRange) : yRange;
+    const ySpan = effectiveYRange ? effectiveYRange[1] - effectiveYRange[0] : null;
     useEffect(() => {
-        if (!ref.current || typeof Plotly === 'undefined') return;
-        const layout = {
-            paper_bgcolor: c.panel, plot_bgcolor: c.bg,
-            font: { color: c.text, family: 'system-ui, -apple-system, sans-serif', size: 11 },
-            margin: { l: 54, r: 14, t: 12, b: 42 },
-            // Fixed-decimal hover readouts, matching the Optical Evaluation plot
-            // (nm to 0.1, percent to 0.001). Without these Plotly falls back to
-            // SI prefixes and a deep reflector's T reads as "1.2131231µ".
-            xaxis: { title: { text: xTitle, standoff: 6 }, gridcolor: c.border, color: c.text, tickfont: { size: 10 },
-                     hoverformat: '.1f' },
-            yaxis: { title: { text: yTitle, standoff: 6 }, gridcolor: c.border, color: c.text, tickfont: { size: 10 },
-                     hoverformat: '.3f',
-                     ...(yRange ? { range: yRange } : {}) },
-            showlegend: false,
-            hovermode: 'closest',
-            ...extra,
-        };
-        drawPlot(ref.current, initRef, traces, layout,
-            { responsive: true, displaylogo: false, displayModeBar: false });
+        if (!ref.current) return;
+        const plottedSeries = series.map((item, index) => index !== 0 || !referenceLines.length ? item : {
+            ...item,
+            markLine: {
+                silent: true,
+                symbol: 'none',
+                label: { show: false },
+                data: referenceLines.map(line => ({
+                    xAxis: line.x,
+                    lineStyle: {
+                        color: line.color || c.accent,
+                        width: line.width || 1,
+                        type: line.dash || 'dashed',
+                    },
+                })),
+            },
+        });
+        drawChart(ref.current, chartRef, cartesianOption({
+            colors: c,
+            grid: grid || { left: 54, right: 14, top: 12, bottom: 42 },
+            xAxis: xCategories
+                ? {
+                    type: 'category', data: xCategories, name: xTitle,
+                    nameLocation: 'middle', nameGap: 25,
+                    axisLine: { lineStyle: { color: c.text } },
+                    axisLabel: { color: c.text, fontSize: 10 },
+                    splitLine: { show: false },
+                }
+                : valueAxis({ name: xTitle, color: c.text, gridColor: c.border, nameGap: 26 }),
+            yAxis: valueAxis({
+                name: yTitle, color: c.text, gridColor: c.border, nameGap: 38,
+                min: effectiveYRange?.[0], max: effectiveYRange?.[1], scale: !effectiveYRange,
+                interval: percentAxis && (ySpan == null || ySpan >= 20) ? 10 : undefined,
+            }),
+            series: plottedSeries,
+            legend,
+            tooltip: axisTooltip({ colors: c, valueSuffix: percentAxis ? '%' : '' }),
+        }));
     });
-    usePlotTeardown(ref, initRef);
+    useChartTeardown(ref, chartRef);
     return h('div', { ref, style: { width: '100%', height: '100%', minHeight } });
 }
 

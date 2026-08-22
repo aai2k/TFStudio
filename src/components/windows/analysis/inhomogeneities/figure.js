@@ -1,72 +1,46 @@
 import { ANALYSIS_DEFAULTS } from '../../../../constants/analysisDefaults.js';
-import { axisTitle, plotMargin, TICK_FONT } from '../chrome/plot.js';
+import { axisTooltip, cartesianOption, lineSeries, valueAxis } from '../../../ui/chartOptions.js';
+import { legendAbove, plotMargin } from '../chrome/plot.js';
 
-const DEFAULT_NAMES = { homogeneous: 'homogeneous', graded: 'with interlayers' };
-
-// Drawing order, so the plot legend follows the switches on the control row.
+const DEFAULT_NAMES = { homogeneous: 'base', graded: 'graded' };
 export const OVERLAY_CURVES = ['T', 'Ts', 'Tp', 'R', 'Rs', 'Rp', 'A'];
+export function enabledOverlayCurves(showCurves) { return OVERLAY_CURVES.filter(key => showCurves?.[key]); }
 
-/** Keys switched on, in a fixed order. */
-export function enabledOverlayCurves(showCurves) {
-    return OVERLAY_CURVES.filter(key => showCurves?.[key]);
-}
-
-/**
- * @param {object} showCurves which of T/R/A and their s and p variants to draw
- * @param {object} [names]  localized legend suffixes
- * @param {object} [colors] configured curve colours; factory defaults when absent
- */
-export function buildOverlayTraces(baseline, perturbed, showCurves,
+export function buildOverlaySeries(baseline, perturbed, showCurves,
                                    colors = ANALYSIS_DEFAULTS.inhomogeneities.colors,
                                    names = DEFAULT_NAMES) {
-    const COLORS = colors;
     if (!perturbed) return [];
-    const traces = [];
-    const wantedKeys = enabledOverlayCurves(showCurves);
+    const series = [];
     const pct = values => values.map(value => value * 100);
-    for (const key of wantedKeys) {
+    for (const key of enabledOverlayCurves(showCurves)) {
         if (!perturbed[key]) continue;
         if (baseline?.[key]) {
-            traces.push({
-                x: baseline.lambda, y: pct(baseline[key]),
-                type: 'scatter', mode: 'lines',
-                name: `${key} ${names.homogeneous}`,
-                line: { color: COLORS[key], dash: 'dot', width: 1.4 },
-                hoverinfo: 'skip',
-                opacity: 0.55,
+            const reference = lineSeries({
+                x: baseline.lambda, y: pct(baseline[key]), name: `${key} ${names.homogeneous}`,
+                color: colors[key], dash: 'dot', width: 1.4, silent: true,
             });
+            reference.lineStyle.opacity = 0.55;
+            series.push(reference);
         }
-        traces.push({
-            x: perturbed.lambda, y: pct(perturbed[key]),
-            type: 'scatter', mode: 'lines',
-            name: `${key} ${names.graded}`,
-            line: { color: COLORS[key], width: 2 },
-            hovertemplate: `λ=%{x:.1f} nm<br>${key}=%{y:.3f}%<extra></extra>`,
-        });
+        series.push(lineSeries({
+            x: perturbed.lambda, y: pct(perturbed[key]), name: `${key} ${names.graded}`,
+            color: colors[key], width: 2,
+        }));
     }
-    return traces;
+    return series;
 }
 
-export function buildOverlayLayout(c) {
-    return {
-        paper_bgcolor: c.panel || '#252526',
-        plot_bgcolor: c.bg || '#1e1e1e',
-        margin: plotMargin(),
-        xaxis: {
-            title: axisTitle('λ (nm)', { color: c.text }),
-            color: c.text, gridcolor: c.border, zerolinecolor: c.border,
-            tickfont: { color: c.text, ...TICK_FONT },
-        },
-        yaxis: {
-            title: axisTitle('T / R / A (%)', { color: c.text }),
-            color: c.text, gridcolor: c.border, zerolinecolor: c.border,
-            tickfont: { color: c.text, ...TICK_FONT },
-            range: [0, 102],
-        },
-        legend: {
-            orientation: 'h', x: 0, y: 1.08,
-            font: { color: c.text, size: 10 }, bgcolor: 'rgba(0,0,0,0)',
-        },
-        hovermode: 'x unified',
-    };
+export function buildOverlayOption(baseline, perturbed, showCurves, colors, names, c) {
+    const text = c.text || '#cccccc';
+    const gridColor = c.border || '#3a3a3a';
+    return cartesianOption({
+        colors: c,
+        grid: plotMargin(),
+        fileName: 'interlayers',
+        legend: legendAbove({ color: text }),
+        tooltip: axisTooltip({ colors: c, valueSuffix: '%' }),
+        xAxis: valueAxis({ name: 'λ (nm)', color: text, gridColor }),
+        yAxis: valueAxis({ name: '%', color: text, gridColor, min: 0, max: 100, interval: 10 }),
+        series: buildOverlaySeries(baseline, perturbed, showCurves, colors, names),
+    });
 }

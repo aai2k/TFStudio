@@ -10,7 +10,7 @@
 **An open-source design, analysis, and optimization environment for optical thin-film coatings.**
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](./LICENSE)
-![Version](https://img.shields.io/badge/version-1.6.1-informational)
+![Version](https://img.shields.io/badge/version-1.6.2-informational)
 [![Downloads](https://img.shields.io/github/downloads/aai2k/TFStudio/total?label=downloads&color=informational)](../../releases)
 ![Platform](https://img.shields.io/badge/platform-Windows%20%7C%20Linux-2ea44f)
 [![Maintainability](https://qlty.sh/gh/aai2k/projects/TFStudio/maintainability.svg)](https://qlty.sh/gh/aai2k/projects/TFStudio)
@@ -197,4 +197,4 @@ By contributing you agree that your contributions are licensed under the project
 ## Acknowledgements
 
 - Material data derived from the [refractiveindex.info](https://refractiveindex.info) database (CC0, public domain).
-- Built with [Electron](https://www.electronjs.org/), [React](https://react.dev/), [Plotly.js](https://plotly.com/javascript/), and [KaTeX](https://katex.org/).
+- Built with [Electron](https://www.electronjs.org/), [React](https://react.dev/), [Apache ECharts](https://echarts.apache.org/), and [KaTeX](https://katex.org/).

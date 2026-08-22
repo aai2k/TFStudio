@@ -20,7 +20,7 @@ const { getMaterialById } = await import('../src/utils/materials/catalogManager.
 const { getMaterial } = await import('../src/utils/materials/materialDatabase.js');
 const { buildProfileTable, buildProfileViewModel } =
     await import('../src/components/windows/analysis/eFieldEvaluation/profileViewModel.js');
-const { efieldLayout, efieldTraces } =
+const { efieldOption, efieldSeries } =
     await import('../src/components/windows/analysis/eFieldEvaluation/chartModel.js');
 const { EFieldEvaluation } =
     await import('../src/components/windows/analysis/eFieldEvaluation/EFieldEvaluation.js');
@@ -93,20 +93,23 @@ assert.deepEqual(table.columns.map(column => column.label), [
 assert.equal(table.rows.length, front.avg.z.length);
 assert.equal(table.rows[7].c0, front.avg.e2[7] * 100);
 
-const traces = efieldTraces(front, 'avg');
-assert.deepEqual(traces.map(trace => trace.name), ['|E|² (avg)', '|E|² (s)', '|E|² (p)']);
-assert.deepEqual(traces[0].y, front.avg.e2.map(value => value * 100));
-const layout = efieldLayout(front, 'avg', {}, {
+const series = efieldSeries(front, 'avg');
+assert.deepEqual(series.map(item => item.name), ['|E|² (avg)', '|E|² (s)', '|E|² (p)']);
+assert.deepEqual(series[0].data.map(point => point[1]), front.avg.e2.map(value => value * 100));
+const option = efieldOption(front, 'avg', {}, {
     bgColor: '#1', paperColor: '#2', gridColor: '#3', textColor: '#4', accentColor: '#5',
 });
-assert.deepEqual(layout.xaxis.range, [0, 190]);
+assert.deepEqual([option.xAxis.min, option.xAxis.max], [0, 190]);
 // Shared margin and axis-title treatment. The Results strip sits directly under
 // this plot, so a title without the standoff ends up against it.
-assert.deepEqual(layout.margin, plotMargin());
-assert.equal(layout.xaxis.title.standoff, 8);
-assert.equal(layout.xaxis.title.font.size, 11);
-assert.equal(layout.shapes.filter(shape => shape.type === 'rect').length, 2);
-assert.equal(layout.shapes.find(shape => shape.y0 === 100).line.color, '#588');
+assert.deepEqual(
+    [option.grid.left, option.grid.right, option.grid.top, option.grid.bottom],
+    Object.values(plotMargin()),
+);
+assert.equal(option.xAxis.nameGap, 30);
+assert.equal(option.xAxis.nameTextStyle.fontSize, 11);
+assert.equal(option.series[0].markArea.data.length, 2);
+assert.equal(option.series[0].markLine.data.find(mark => mark.yAxis === 100).lineStyle.color, '#588');
 
 const c = makeTheme();
 const html = renderToStaticMarkup(withDesign(

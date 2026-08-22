@@ -5,6 +5,7 @@
 import { RowField, Radio, Chart, LayerTabs, SplitPage } from '../wizardShared.js';
 import { monoSignalVsThickness } from './monoSignalModel.js';
 import { flipLayerIndex } from '../../../../utils/monitoring/depositionSpectrum.js';
+import { lineSeries } from '../../../ui/chartOptions.js';
 
 const { createElement: h, useMemo } = React;
 
@@ -17,9 +18,8 @@ export function PageSignalErrors({ p, set, layers, c, B, ctx, design }) {
         (layers.length && ctx) ? monoSignalVsThickness({ layers, k, monRow, common, ctx, noisePct: p.randomPct, nonce: p.sigNonce }) : null,
         // eslint-disable-next-line react-hooks/exhaustive-deps
         [layers, k, monRow.lambda, p.quantity, p.aoi, p.pol, p.randomPct, p.sigNonce, ctx]);
-    const traces = preview ? [{ x: preview.d, y: preview.signal, type: 'scatter', mode: 'lines', line: { color: '#e5484d', width: 1.3 } }] : [];
-    const shapes = preview ? [{ type: 'line', x0: preview.dTarget, x1: preview.dTarget, yref: 'paper', y0: 0, y1: 1,
-        line: { color: '#2da44e', width: 1.2, dash: 'dash' } }] : [];
+    const series = preview ? [lineSeries({ x: preview.d, y: preview.signal, color: '#e5484d', width: 1.3 })] : [];
+    const referenceLines = preview ? [{ x: preview.dTarget, color: '#2da44e', width: 1.2, dash: 'dashed' }] : [];
 
     return h(SplitPage, { c, leftWidth: 210,
         left: [
@@ -36,7 +36,7 @@ export function PageSignalErrors({ p, set, layers, c, B, ctx, design }) {
         ],
         right: h('div', { style: { flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column' } },
             h('div', { style: { flex: 1, minHeight: 0 } },
-                h(Chart, { traces, xTitle: B.thicknessAxis, yTitle: `${p.quantity}${p.pol === 'avg' ? '' : p.pol}, %`, c, yRange: p.yFixed ? [0, 100] : null, extra: { shapes } })),
+                h(Chart, { series, xTitle: B.thicknessAxis, yTitle: `${p.quantity}${p.pol === 'avg' ? '' : p.pol}, %`, c, yRange: p.yFixed ? [0, 100] : null, referenceLines })),
             h(LayerTabs, { n: layers.length, current: k, onSelect: (kk) => set('previewLayer', kk), c, label: B.layerWord })),
     });
 }

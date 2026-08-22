@@ -1,5 +1,5 @@
 import {
-    buildChartTraces, buildChartLayout, buildChartConfig, buildCSV,
+    buildChartSeries, buildChartOption, buildCSV,
     createTargetOperands, editTargetOperands, deleteTargetOperand,
 } from '../src/components/windows/analysis/opticalEvaluation/model.js';
 import { computeOpticalSpectrum } from '../src/components/windows/analysis/opticalEvaluation/spectrum.js';
@@ -29,15 +29,15 @@ const overlays = [{
 }];
 const targets = [{ id: 'target-1', enabled: true, type: 'R', lambdaStart: 550, target: 0.25 }];
 
-const traces = buildChartTraces({ data, showCurves, targets, targetsVisible: true, overlays });
+const series = buildChartSeries({ data, showCurves, targets, targetsVisible: true, overlays });
 check(
-    traces.slice(0, 5).map(trace => trace.name).join('|') ===
+    series.slice(0, 5).map(item => item.name).join('|') ===
         'T avg @ 0°|R avg @ 0°|T avg @ 45°|R avg @ 45°|Measured (R meas)',
     'computed series remain AOI-major, curve-major, followed by measured overlays'
 );
-check(traces[0].y.join(',') === '10,20', 'computed fractions convert to plot percentages');
-check(traces[4].y.join(',') === '50,40', 'measured fractions convert to plot percentages');
-check(traces[5].customdata[0] === 'target-1', 'target traces remain last and retain operand ids');
+check(series[0].data.map(point => point[1]).join(',') === '10,20', 'computed fractions convert to plot percentages');
+check(series[4].data.map(point => point[1]).join(',') === '50,40', 'measured fractions convert to plot percentages');
+check(series[5].data[0].operandId === 'target-1', 'target series remain last and retain operand ids');
 
 const expectedCsv = [
     'lambda_nm,T_0deg,R_0deg,T_45deg,R_45deg',
@@ -46,18 +46,28 @@ const expectedCsv = [
 ].join('\n');
 check(buildCSV(data, showCurves) === expectedCsv, 'CSV column order and numeric formatting remain stable');
 
-const layout = buildChartLayout({
+const option = buildChartOption({
     paperColor: '#222222', bgColor: '#111111', gridColor: '#333333', textColor: '#eeeeee',
-    targets: [], targetsVisible: false, editMode: false, editTool: 'draw', editCurve: 'R',
-    editable: { shapes: [], meta: [] }, handlesActive: false,
+    data, showCurves, overlays: [], targets: [], targetsVisible: false,
+    editMode: false, editTool: 'draw', editCurve: 'R',
     yRange: { auto: false, min: 5, max: 95 }, spectralUnit: 'nm', lamRange: { min: 500, max: 600 },
 });
-check(layout.hovermode === 'x unified' && layout.dragmode === 'zoom', 'read-only chart interaction remains unchanged');
-check(layout.yaxis.range.join(',') === '5,95' && layout.shapes.length === 0, 'fixed Y range and empty targets remain unchanged');
-check(layout.margin.t >= 38 && layout.showlegend === false,
-    'chart reserves a modebar strip above the data and uses the curve controls as its legend');
-const drawConfig = buildChartConfig(true, 'draw');
-check(drawConfig.edits.shapePosition === true && drawConfig.modeBarButtonsToAdd[0] === 'drawline', 'draw mode keeps shape editing enabled');
+check(option.tooltip.trigger === 'axis' && option.dataZoom[0].type === 'inside', 'read-only chart interaction remains unchanged');
+check(option.yAxis.min === 5 && option.yAxis.max === 95, 'fixed Y range remains unchanged');
+check(option.xAxis.interval === 50 && option.yAxis.interval === 10,
+    'OE uses the requested 50 nm and 10 percent grid spacing');
+check(option.yAxis.name === '%' && option.tooltip.valueFormatter(98.725) === '98.725%',
+    'OE shows the unit once and includes it in hover values');
+check(option.grid.top >= 38 && option.legend.show === false,
+    'chart reserves a toolbox strip above the data and uses the curve controls as its legend');
+const drawOption = buildChartOption({
+    paperColor: '#222222', bgColor: '#111111', gridColor: '#333333', textColor: '#eeeeee',
+    data, showCurves, overlays: [], targets: [], targetsVisible: false,
+    editMode: true, editTool: 'draw', yRange: { auto: true }, spectralUnit: 'nm',
+    lamRange: { min: 500, max: 600 },
+});
+check(drawOption.tooltip.show === false && !drawOption.toolbox.feature.dataZoom,
+    'draw mode reserves pointer input for the renderer-neutral target editor');
 
 const existingTarget = { id: 'existing', enabled: true, type: 'RAV', lambdaStart: 400, lambdaEnd: 700, target: 0.1 };
 const createdTargets = createTargetOperands({

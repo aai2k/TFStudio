@@ -46,8 +46,8 @@ export function GDGDDEvaluation({ c, theme, t }) {
     const curve = useAnalysisColors('gdGddEvaluation');
     const rangeNotice = useMaterialRangeNotice(design, state.lamStart, state.lamEnd, t);
 
-    // The view holds the chart's traces and axis range. Rebuilding it on every
-    // render hands Plotly new objects each time and forces a full re-plot of a
+    // The view holds the chart series and axis range. Rebuilding it on every
+    // render hands the chart new objects each time and forces a full re-plot of a
     // multi-thousand-point trace, so it is tied to the values it is built from.
     const view = useMemo(() => buildGdGddView(state.raw, {
         quantity: state.quantity,

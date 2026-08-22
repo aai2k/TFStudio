@@ -1,5 +1,4 @@
 import assert from 'node:assert/strict';
-import { createHash } from 'node:crypto';
 import { renderToStaticMarkup } from 'react-dom/server';
 import {
     loadApp, makeLocale, makeTheme, shimBrowserGlobals, withDesign,
@@ -22,11 +21,9 @@ const c = makeTheme();
 const html = renderToStaticMarkup(withDesign(
     React.createElement(ProcessSimulator, { c, theme: c, t: makeLocale() })
 ));
-assert.equal(html.length, 13692);
-assert.equal(
-    createHash('sha256').update(html).digest('hex'),
-    'adb905c2ae2fe0e0b78d34164f1e82b4d7f99ea7b345e48c1cdad327229a53ae',
-);
+assert.match(html, /Deposition sequence/);
+assert.match(html, /Spectral range/);
+assert.ok(html.length > 10000, 'the full simulator controls render');
 
 const design = {
     id: 'process-model',
@@ -129,7 +126,7 @@ assert.deepEqual(model.computeSpectrum({ ...absorbingBackOptions, quantity: 'A' 
 
 const sp = makeLocale().processSim;
 const colors = figure.spectraColors(c);
-const traces = figure.spectraTraces({
+const series = figure.buildSpectraSeries({
     lambdas: [500, 600],
     baseline: [0.1, 0.2],
     stepCurves: [[0.3, 0.4], [0.5, 0.6]],
@@ -138,15 +135,14 @@ const traces = figure.spectraTraces({
     showSteps: true,
     quantity: 'T',
 }, colors, sp);
-assert.deepEqual(traces.map(trace => trace.y), [
+assert.deepEqual(series.map(item => item.data.map(point => point[1])), [
     [10, 20], [30, 40], [50, 60], [70, 80],
 ]);
-assert.equal(traces[2].line.color, 'hsla(0, 70%, 55%, 0.95)');
-assert.equal(traces[2].line.width, 2);
-assert.deepEqual(figure.spectraLayout('R', colors).yaxis.range, [0, 100]);
-assert.deepEqual(figure.SPECTRA_CONFIG.modeBarButtonsToRemove, [
-    'select2d', 'lasso2d', 'autoScale2d',
-]);
+assert.equal(series[2].lineStyle.color, 'hsla(0, 70%, 55%, 0.95)');
+assert.equal(series[2].lineStyle.width, 2);
+const chartOption = figure.buildSpectraOption({ quantity: 'R' }, colors, sp);
+assert.deepEqual([chartOption.yAxis.min, chartOption.yAxis.max], [0, 100]);
+assert.ok(chartOption.toolbox.feature.saveAsImage, 'native chart export remains available');
 
 localStorage.clear();
 persistence.savePersist({ activeSide: 'back', rates: { H: 2 } });

@@ -49,7 +49,7 @@
       show();
     } else if (e && e.target && e.target.tagName) {
       // Resource load failure — BUFFER only. With deferred vendor scripts a failed
-      // Plotly/katex no longer blocks the app, so this must not paint over a
+      // chart/math vendor no longer blocks the app, so this must not paint over a
       // working UI; if it actually broke boot, the watchdog will surface it.
       var tag = e.target.tagName.toUpperCase();
       log('resource', tag + ' failed to load: ' + (e.target.src || e.target.href || ''));
@@ -83,7 +83,7 @@
     var root = document.getElementById('root');
     return 'env: React=' + t(window.React) + ' ReactDOM=' + t(window.ReactDOM) +
       ' createRoot=' + t(window.ReactDOM && window.ReactDOM.createRoot) +
-      ' Plotly=' + t(window.Plotly) + ' katex=' + t(window.katex) +
+      ' echarts=' + t(window.echarts) + ' katex=' + t(window.katex) +
       ' WebAssembly=' + t(window.WebAssembly) +
       ' root=' + (root ? 'present(' + root.childNodes.length + ' kids)' : 'MISSING') +
       ' electronAPI=' + t(window.electronAPI) + ' DEMO_EXAMPLES=' + t(window.DEMO_EXAMPLES);

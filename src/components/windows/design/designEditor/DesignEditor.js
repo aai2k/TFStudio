@@ -6,6 +6,8 @@ import {
     insertLayerAt as insertLayerAtAction, removeLayerAt as removeLayerAtAction,
     duplicateLayerAt as duplicateLayerAtAction, setAllLocked as setAllLockedAction,
     copyToOther as copyToOtherAction, invertActiveSide as invertActiveSideAction,
+    pasteLayersAtDisplayIndex as pasteLayersAtDisplayIndexAction,
+    removeLayers as removeLayersAction, reorderLayers as reorderLayersAction,
 } from './layerActions.js';
 import { LayerList } from './LayerList.js';
 import { StackGeometryPanel } from './StackGeometryPanel.js';
@@ -46,8 +48,7 @@ function SideTabButton({ side, activeSide, disabledSide, disabledReason, design,
 // ── Design Editor ─────────────────────────────────────────────────────────────
 
 export function DesignEditor({ c, t }) {
-    const { design, updateDesign, addLayer, removeLayer, updateLayer, moveLayer,
-        duplicateLayer } = useDesign();
+    const { design, updateDesign, addLayer, removeLayer, updateLayer } = useDesign();
     const missingMaterialIds = useUnresolvedMaterials(design);
     const [session, setSessionField] = useWindowSession(designEditorSession, design);
     const activeSide = session.activeSide;
@@ -85,6 +86,11 @@ export function DesignEditor({ c, t }) {
     const setAllLocked = (side, locked) => setAllLockedAction(design, updateDesign, side, locked);
     const copyToOther = () => copyToOtherAction(design, updateDesign, activeSide);
     const invertActiveSide = () => invertActiveSideAction(design, updateDesign, activeSide);
+    const pasteLayersAtDisplayIndex = (side, displayIndex, sources, reversed) =>
+        pasteLayersAtDisplayIndexAction(design, updateDesign, side, displayIndex, sources, reversed);
+    const removeLayers = (side, ids) => removeLayersAction(design, updateDesign, side, ids);
+    const reorderLayers = (side, ids, targetId, position, reversed) =>
+        reorderLayersAction(design, updateDesign, side, ids, targetId, position, reversed);
 
     return h('div', {
         style: {
@@ -135,8 +141,9 @@ export function DesignEditor({ c, t }) {
         h('div', { style: { flex: 1, overflow: 'hidden', display: 'flex', flexDirection: 'column' } },
             h(LayerList, {
                 layers, side: activeSide, design, missingMaterialIds: missingMaterialSet, c,
-                addLayer, removeLayer, updateLayer, moveLayer, duplicateLayer,
+                addLayer, removeLayer, updateLayer,
                 insertLayerAt, removeLayerAt, duplicateLayerAt,
+                pasteLayersAtDisplayIndex, removeLayers, reorderLayers,
                 invertActiveSide, setAllLocked, copyToOther,
                 onOpenReplaceMaterials: () => setReplaceOpen(true),
                 refLambda, t

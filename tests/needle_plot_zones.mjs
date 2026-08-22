@@ -6,9 +6,8 @@
  *
  *   1. buildPlotData emits one band per layer, tiling [0, totalZ] with no gap or
  *      overlap, each carrying its layer index and material id.
- *   2. buildZoneShapes emits a full-height rect per band, a boundary guide per
- *      interface (and none on the outer edges, which coincide with the axis),
- *      and emphasizes the layer hosting an intra-layer selection.
+ *   2. Neutral zone bands and boundary guides preserve the layer geometry and
+ *      emphasize the layer hosting an intra-layer selection.
  *   3. A gap selection sits on a boundary rather than inside a layer, so it is
  *      marked with a line at that depth and leaves every zone unemphasized.
  *   4. Layer labels are dropped for zones too narrow to hold one, so a stack of
@@ -22,7 +21,7 @@ shimBrowserGlobals();
 
 const { buildPlotData } =
     await import('../src/components/windows/optimization/needleManual/model.js');
-const { buildLayerLabels, buildZoneShapes, hostLayerIndex } =
+const { buildBoundaryGuides, buildLayerLabels, buildZoneBands, hostLayerIndex } =
     await import('../src/components/windows/optimization/needleManual/plotShapes.js');
 
 const COLORS = { gridColor: '#3a3a3a', selectionColor: '#ff0000', textColor: '#cccccc', dimColor: '#888888' };
@@ -63,25 +62,22 @@ function makeScan(thicknesses) {
 
     assert.equal(hostLayerIndex(selected), 2);
 
-    const shapes = buildZoneShapes({ bands, boundaries, selected, ...COLORS });
-    const rects = shapes.filter(s => s.type === 'rect');
-    const lines = shapes.filter(s => s.type === 'line');
+    const zones = buildZoneBands(bands, selected);
+    const guides = buildBoundaryGuides(boundaries, selected, COLORS.gridColor, COLORS.selectionColor);
 
-    assert.equal(rects.length, bands.length, 'one zone rect per layer');
-    for (const rect of rects) {
-        assert.equal(rect.yref, 'paper');
-        assert.equal(rect.y0, 0);
-        assert.equal(rect.y1, 1, 'zones span the full plot height');
-        assert.equal(rect.layer, 'below', 'zones sit under the curves');
+    assert.equal(zones.length, bands.length, 'one zone per layer');
+    for (let index = 0; index < zones.length; index++) {
+        assert.equal(zones[index].x0, bands[index].z0);
+        assert.equal(zones[index].x1, bands[index].z1);
     }
 
-    const host = rects[2];
-    assert.ok(host.opacity > rects[0].opacity, 'the host layer is emphasized');
-    assert.ok(host.line.width > 0, 'the host layer is outlined');
-    assert.equal(rects[0].line.width, 0, 'other layers have no outline');
+    const host = zones[2];
+    assert.ok(host.opacity > zones[0].opacity, 'the host layer is emphasized');
+    assert.equal(host.selected, true, 'the host layer is selected');
+    assert.equal(zones[0].selected, false, 'other layers are not selected');
 
-    assert.equal(lines.length, boundaries.length - 2, 'a guide per interface, none on the outer edges');
-    for (const line of lines) assert.equal(line.line.dash, 'dot');
+    assert.equal(guides.length, boundaries.length - 2, 'a guide per interface, none on the outer edges');
+    for (const guide of guides) assert.equal(guide.dash, 'dotted');
 }
 
 // ── 3. A gap selection marks a boundary, not a zone ──────────────────────────
@@ -91,15 +87,15 @@ function makeScan(thicknesses) {
 
     assert.equal(hostLayerIndex(selected), -1, 'a gap has no host layer');
 
-    const shapes = buildZoneShapes({ bands, boundaries, selected, ...COLORS });
-    const rects = shapes.filter(s => s.type === 'rect');
-    const opacities = new Set(rects.map(r => r.opacity));
+    const zones = buildZoneBands(bands, selected);
+    const opacities = new Set(zones.map(zone => zone.opacity));
     assert.equal(opacities.size, 1, 'no zone is emphasized for a gap insertion');
 
-    const marker = shapes.filter(s => s.type === 'line' && s.line.color === COLORS.selectionColor);
+    const marker = buildBoundaryGuides(boundaries, selected, COLORS.gridColor, COLORS.selectionColor)
+        .filter(guide => guide.color === COLORS.selectionColor);
     assert.equal(marker.length, 1, 'the gap is marked once');
-    assert.equal(marker[0].x0, boundaries[2], 'the marker sits on the selected boundary');
-    assert.equal(marker[0].x0, 160);
+    assert.equal(marker[0].x, boundaries[2], 'the marker sits on the selected boundary');
+    assert.equal(marker[0].x, 160);
 }
 
 // A gap at the outer edges still gets its marker, even though those boundaries
@@ -107,12 +103,12 @@ function makeScan(thicknesses) {
 {
     const { bands, boundaries } = buildPlotData(makeScan([100, 60]));
     for (const pos of [0, 2]) {
-        const shapes = buildZoneShapes({
-            bands, boundaries, selected: { intra: false, pos, materialId: 'builtin:SiO2' }, ...COLORS,
-        });
-        const marker = shapes.filter(s => s.type === 'line' && s.line.color === COLORS.selectionColor);
+        const marker = buildBoundaryGuides(
+            boundaries, { intra: false, pos, materialId: 'builtin:SiO2' },
+            COLORS.gridColor, COLORS.selectionColor,
+        ).filter(guide => guide.color === COLORS.selectionColor);
         assert.equal(marker.length, 1, `gap at position ${pos} is marked`);
-        assert.equal(marker[0].x0, boundaries[pos]);
+        assert.equal(marker[0].x, boundaries[pos]);
     }
 }
 
@@ -125,8 +121,7 @@ function makeScan(thicknesses) {
     assert.deepEqual(labels.map(l => l.text), ['1', '2', '3', '4'], 'labels are 1-based layer numbers');
     assert.equal(labels[0].x, 50, 'a label is centred on its zone');
     for (const label of labels) {
-        assert.equal(label.showarrow, false);
-        assert.equal(label.yref, 'paper');
+        assert.equal(label.color, COLORS.dimColor);
     }
 }
 
@@ -152,15 +147,16 @@ function makeScan(thicknesses) {
     const labels = buildLayerLabels({
         bands, totalZ, selected: { intra: true, layerK: 1 }, ...COLORS,
     });
-    assert.equal(labels[1].font.color, COLORS.textColor, 'the host layer label is emphasized');
-    assert.equal(labels[0].font.color, COLORS.dimColor, 'other labels stay dim');
+    assert.equal(labels[1].color, COLORS.textColor, 'the host layer label is emphasized');
+    assert.equal(labels[0].color, COLORS.dimColor, 'other labels stay dim');
 }
 
 // An empty scan degrades to an empty plot rather than throwing.
 {
     const empty = buildPlotData(null);
     assert.deepEqual(empty.bands, []);
-    assert.deepEqual(buildZoneShapes({ bands: [], boundaries: [0], selected: null, ...COLORS }), []);
+    assert.deepEqual(buildZoneBands([], null), []);
+    assert.deepEqual(buildBoundaryGuides([0], null, COLORS.gridColor, COLORS.selectionColor), []);
     assert.deepEqual(buildLayerLabels({ bands: [], totalZ: 1, selected: null, ...COLORS }), []);
 }
 

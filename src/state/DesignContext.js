@@ -147,7 +147,7 @@ export function DesignProvider({ children, activeDesignId, designs, onDesignChan
     // Active-optimizer counter. Tool windows (Refinement / Needle / GE) call
     // beginOptimization() on Run and endOptimization() on stop/finalize/unmount.
     // Live-preview consumers (OpticalEvaluation) throttle their main-thread
-    // TMM + Plotly redraw while isOptimizing is true so worker progress
+    // TMM + chart redraw while isOptimizing is true so worker progress
     // messages don't saturate the UI thread.
     const [optimizerActive, setOptimizerActive] = useState(0);
     const beginOptimization = useCallback(() => setOptimizerActive(c => c + 1), []);

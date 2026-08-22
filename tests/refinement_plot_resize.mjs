@@ -7,14 +7,6 @@ globalThis.React = {
     useEffect: effect => effects.push(effect),
 };
 
-const listeners = new Map();
-globalThis.window = {
-    addEventListener: (name, fn) => listeners.set(name, fn),
-    removeEventListener: (name, fn) => {
-        if (listeners.get(name) === fn) listeners.delete(name);
-    },
-};
-
 let nextFrame = 1;
 const frames = new Map();
 globalThis.requestAnimationFrame = callback => {
@@ -36,42 +28,48 @@ globalThis.ResizeObserver = class {
     disconnect() { this.disconnected = true; }
 };
 
-const calls = { newPlot: [], react: [], resize: [], purge: [] };
-globalThis.Plotly = {
-    newPlot: (...args) => calls.newPlot.push(args),
-    react: (...args) => calls.react.push(args),
-    Plots: { resize: plot => calls.resize.push(plot) },
-    purge: plot => calls.purge.push(plot),
+const calls = { init: [], options: [], resize: 0, dispose: 0 };
+const instances = new WeakMap();
+globalThis.echarts = {
+    getInstanceByDom: element => instances.get(element) || null,
+    init(element, _theme, options) {
+        const chart = {
+            setOption: option => calls.options.push(option),
+            resize: () => { calls.resize++; },
+            dispose: () => { calls.dispose++; instances.delete(element); },
+            isDisposed: () => false,
+        };
+        instances.set(element, chart);
+        calls.init.push(options);
+        return chart;
+    },
 };
 
 const { MFTrendPlot } = await import('../src/components/windows/optimization/refinement/MFTrendPlot.js');
 const tree = MFTrendPlot({
     history: [{ iter: 0, mf: 1e-2 }, { iter: 13, mf: 1e-6 }],
     c: { bg: '#111', panel: '#222', border: '#333', text: '#eee' },
-    theme: 'dark',
 });
-const plot = { isConnected: true };
-tree.props.ref.current = plot;
+const host = { clientWidth: 800, clientHeight: 260, offsetWidth: 800, offsetHeight: 260 };
+tree.props.ref.current = host;
 
 effects[0]();
 const cleanup = effects[1]();
-flushFrames();
 
-assert.equal(calls.newPlot.length, 1, 'creates the Plotly chart');
-const layout = calls.newPlot[0][2];
-assert.equal(layout.autosize, true, 'uses Plotly autosizing');
-assert.equal(layout.yaxis.automargin, true, 'reserves room for y-axis labels');
-assert.equal(layout.yaxis.tickformat, '.0e', 'uses compact scientific MF ticks');
-assert.equal(observer.target, plot, 'observes docked-panel size changes');
-assert.deepEqual(calls.resize, [plot], 'sizes the plot after mounting');
+assert.equal(calls.init.length, 1, 'creates one native chart');
+const option = calls.options[0];
+assert.equal(option.yAxis.type, 'log');
+assert.equal(option.yAxis.name, 'MF');
+assert.deepEqual(option.series[0].data, [[0, 1e-2], [13, 1e-6]]);
+assert.equal(option.tooltip.transitionDuration, 0, 'tooltip does not glide behind the pointer');
+assert.equal(observer.target, host, 'observes docked-panel size changes');
 
 observer.callback();
 flushFrames();
-assert.deepEqual(calls.resize, [plot, plot], 'resizes after the element changes size');
+assert.equal(calls.resize, 1, 'resizes after the element changes size');
 
 cleanup();
 assert.equal(observer.disconnected, true, 'disconnects the resize observer');
-assert.equal(listeners.has('resize'), false, 'removes the window resize fallback');
-assert.deepEqual(calls.purge, [plot], 'purges Plotly state on unmount');
+assert.equal(calls.dispose, 1, 'disposes native chart state on unmount');
 
-console.log('Refinement MF plot resize + axis layout tests passed.');
+console.log('Refinement MF chart resize + axis tests passed.');

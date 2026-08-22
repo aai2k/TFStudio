@@ -110,11 +110,10 @@ function main() {
   //   1. The SMALL critical scripts (demo-boot, React, ReactDOM, the demo globals)
   //      load BLOCKING and in dependency order — total ~200 kB, fast everywhere,
   //      and guaranteed to have executed before the renderer module runs.
-  //   2. The renderer module mounts the UI using React alone.
-  //   3. The HEAVY libs (Plotly ~3.5 MB, katex) load `async` AFTER the module, so
-  //      they never block or gate the mount. Charts guard on `typeof Plotly`, and
-  //      the demo opens with no chart visible, so Plotly is ready by the time one
-  //      is opened. A slow/failed Plotly can no longer blank the page.
+  //   2. ECharts core and its 3D extension load in dependency order before the
+  //      renderer. Chart components can therefore initialize on their first
+  //      render instead of waiting for an unrelated React state change.
+  //   3. The renderer module mounts only after every required global exists.
   // (Earlier `defer` on React stalled boot: deferred scripts run only AFTER the
   // parser finishes, so any parser hiccup left React undefined → nothing mounted.
   // Blocking-in-order is deterministic and avoids that class of failure.)
@@ -126,8 +125,9 @@ function main() {
     process.exit(1);
   }
 
-  // Pull Plotly + katex out of their original (blocking, pre-renderer) position.
-  html = html.replace('    <script src="vendor/plotly.min.js"></script>\n', '');
+  // Pull ECharts + katex out of their original (blocking, pre-renderer) position.
+  html = html.replace('    <script src="vendor/echarts.min.js"></script>\n', '');
+  html = html.replace('    <script src="vendor/echarts-gl.min.js"></script>\n', '');
   html = html.replace('    <script src="vendor/katex.min.js"></script>\n', '');
 
   // Build stamp (shown by the splash) + boot diagnostics, before everything.
@@ -141,7 +141,7 @@ function main() {
     `<script>window.__TFS_BUILD__=${JSON.stringify(buildId)}</script>\n    `
     + '<script src="demo-boot.js"></script>\n    ' + reactMarker);
 
-  // Demo globals (blocking, tiny) + renderer module + heavy async libs after it.
+  // Demo globals + required vendors + renderer module, all deterministic.
   const inject =
     '    <!-- Web demo: example designs + curated catalogs + browser electronAPI shim -->\n'
     + '    <script src="demo-telemetry.js"></script>\n'
@@ -150,10 +150,10 @@ function main() {
     + '    <script src="demo-storage.js"></script>\n'
     + '    <script src="demo-notice.js"></script>\n'
     + '    <script src="demo-shim.js"></script>\n'
-    + '    ' + marker + '\n'
-    + '    <!-- Heavy libs: load async AFTER the renderer so they never block the mount -->\n'
-    + '    <script async src="vendor/plotly.min.js"></script>\n'
-    + '    <script async src="vendor/katex.min.js"></script>';
+    + '    <script src="vendor/echarts.min.js"></script>\n'
+    + '    <script src="vendor/echarts-gl.min.js"></script>\n'
+    + '    <script src="vendor/katex.min.js"></script>\n'
+    + '    ' + marker;
   html = html.replace(marker, inject);
 
   // Rebase any '../icons/' in the HTML and add a favicon (the desktop index.html
@@ -193,7 +193,7 @@ function main() {
   //
   // vendor/ and the .wasm keep bare URLs on purpose: they are pinned immutable
   // for a year (see the site's _headers) because they only change with a
-  // dependency bump, and re-downloading Plotly on every deploy is the cost this
+  // dependency bump, and re-downloading ECharts on every deploy is the cost this
   // avoids.
   const stamp = buildId.replace(/\D/g, '');
   html = html.replace(/(src|href)="((?:demo-[\w-]+|renderer)\.js|styles\.css)"/g, `$1="$2?v=${stamp}"`);

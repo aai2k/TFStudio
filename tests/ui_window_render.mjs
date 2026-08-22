@@ -8,7 +8,7 @@
  * drops a prop, mis-names a variable, or breaks a sub-component render is caught
  * automatically instead of only by clicking through the app.
  *
- * `useEffect` does not run under server render, so effect-only paths (Plotly
+ * `useEffect` does not run under server render, so effect-only chart
  * init, worker wiring, network) are intentionally out of scope — those stay with
  * manual QA. What this locks down is that each window RENDERS without throwing
  * under a realistic theme + locale + active-design context.
