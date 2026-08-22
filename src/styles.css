@@ -272,3 +272,19 @@ html.tf-layer-dragging * {
   cursor: grabbing !important;
   user-select: none !important;
 }
+
+/* While a docking divider is being dragged the pointer spends most of its time
+   over plots, tables and toolbars that set a cursor of their own. Without the
+   override the cursor flickers between the resize arrows and whatever it is
+   passing over. */
+html.tf-split-resizing-h,
+html.tf-split-resizing-h * {
+  cursor: col-resize !important;
+  user-select: none !important;
+}
+
+html.tf-split-resizing-v,
+html.tf-split-resizing-v * {
+  cursor: row-resize !important;
+  user-select: none !important;
+}
