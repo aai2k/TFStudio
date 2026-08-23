@@ -89,11 +89,13 @@ export async function wpThinStartRescue(run) {
 
     run.preRescueBest = {
         mf: best.mf,
+        omf: best.omf ?? null,
         frontLayers: run.deep(front),
         backLayers:  run.deep(back),
     };
     const { result, factor } = picked;
     best.mf = result.mf;
+    best.omf = result.omf ?? null;
     best.frontLayers = run.deep(result.frontLayers || []);
     best.backLayers  = run.deep(result.backLayers  || []);
     // The accept rule compares against `best`, so the ΔMF baseline has to follow

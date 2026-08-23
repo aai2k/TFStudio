@@ -117,7 +117,7 @@ export function runNeedleWorkerPool(ctx) {
         // the GUI 2×2 showed more iters help Needle), so stepIter == dlsIter.
         stepIter: ctx.dlsIterRef.current,
         innerEngine, maxBatches: getSynthesisMaxBatches(), K,
-        best: { mf: Infinity, frontLayers: null, backLayers: null },
+        best: { mf: Infinity, omf: null, frontLayers: null, backLayers: null },
         // Thin-start rescue: fires at most once, and keeps the design it was
         // called on so the run can never end worse than it stalled.
         rescued: false, preRescueBest: null,

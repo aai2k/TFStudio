@@ -71,9 +71,7 @@ export function mtScanStep(run) {
 
     run.pool = ctx.getPoolMaterials(ctx.selectedCatsRef.current, ctx.excludedMatsRef.current);
     if (!run.pool.length) {
-        ctx.runningRef.current = false;
-        ctx.setPhase('idle');
-        ctx.setStatusMsg('No candidate materials');
+        mtFinalize(run, 'No candidate materials');
         return;
     }
 

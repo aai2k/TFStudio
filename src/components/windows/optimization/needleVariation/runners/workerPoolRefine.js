@@ -70,6 +70,7 @@ export function wpAcceptCandidate(run, batch, results, pick) {
     const candSide = cand.side || run.scanSides[0];
     const candLK   = candSide === 'back' ? 'backLayers' : 'frontLayers';
     best.mf = pick.mf;
+    best.omf = res.omf ?? null;
     // Worker returns the full post-DLS+prune design; accept both sides.
     best.frontLayers = run.deep(res.frontLayers || best.frontLayers);
     best.backLayers  = run.deep(res.backLayers  || best.backLayers);

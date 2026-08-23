@@ -24,6 +24,7 @@
 
 import { cleanupLayers, isConstraint } from '../../../../../utils/physics/optimizer.js';
 import { densifyForRun, activeSide, computePareto, minOmfOf } from '../../synthesisShared/synthesisHelpers.js';
+import { activeBaseline, activeRunNum, openRunBlock } from '../../synthesisShared/runBlocks.js';
 import { getSynthesisInnerEngine } from '../../../../../utils/synthesis/synthesisConfig.js';
 import { deepCopy, mtFinalize } from './mainThreadCore.js';
 import { mtStartCandidate, mtScanStep } from './mainThreadScan.js';
@@ -42,10 +43,14 @@ function mtRecordGeneration(run, dls, prunedLayers, mfAfter) {
         mf:         mfAfter,
         omf:        dls.mfOpticalAt(dls.thicknesses),
         dMF,
+        runNum:     activeRunNum(ctx.runsRef.current),
+        side:       run.side,
         layerCount: prunedLayers.length,
         tMs:        performance.now() - run.runT0,
         insertMat:  ctx.lastBestRef.current?.materialId ?? null,
         layers:     deepCopy(prunedLayers),
+        frontSnap:  deepCopy(ctx.baseDesignRef.current?.frontLayers || []),
+        backSnap:   deepCopy(ctx.baseDesignRef.current?.backLayers || []),
     };
     ctx.gensRef.current = [...ctx.gensRef.current, gen];
     ctx.setGenerations(ctx.gensRef.current.slice());
@@ -57,6 +62,7 @@ function mtRecordGeneration(run, dls, prunedLayers, mfAfter) {
     ctx.setOmfBest(minOmfOf(ctx.gensRef.current));
     ctx.setCachedOptState(ctx.designRef.current?.id, {
         generations: ctx.gensRef.current,
+        runs:        ctx.runsRef.current,
         savedDesign: ctx.savedDesignRef.current,
         baseDesign:  ctx.baseDesignRef.current,
     });
@@ -101,6 +107,7 @@ function mtRefineStep(run) {
 
     // Accept: new global best.
     best.mf    = mfAfter;
+    best.omf   = dls.mfOpticalAt(dls.thicknesses);
     best.front = deepCopy(prunedLayers);
     ctx.baseDesignRef.current = prunedDesign;
     ctx.updateDesignRef.current({ [LK]: prunedLayers }, { transient: true });
@@ -146,12 +153,17 @@ export function runNeedleMainThread(ctx) {
     const side = activeSide(curDes);
     const LK   = side === 'back' ? 'backLayers' : 'frontLayers';
 
-    // Snapshot on first run + one undo checkpoint for the whole synthesis run
-    // (per-iteration design writes are transient previews).
-    if (!ctx.savedDesignRef.current) {
+    // Open a run block unless this is the main-thread continuation of a pool
+    // fallback (or a Stop -> Run resume), in which case the block is already
+    // open. This keeps fallback history/reset behavior identical to the worker
+    // path instead of silently reverting to the old one-baseline protocol.
+    if (!ctx.runOpenRef.current) {
         ctx.checkpointRef.current && ctx.checkpointRef.current();
-        ctx.savedDesignRef.current = { frontLayers: ctx.designRef.current.frontLayers, backLayers: ctx.designRef.current.backLayers };
+        ctx.runsRef.current = openRunBlock(ctx.runsRef.current, ctx.designRef.current);
+        ctx.savedDesignRef.current = activeBaseline(ctx.runsRef.current);
         ctx.baseDesignRef.current  = curDes;
+        ctx.genCountRef.current = 0;
+        ctx.runOpenRef.current = true;
         ctx.setCanReset(true);
     }
 
@@ -163,7 +175,7 @@ export function runNeedleMainThread(ctx) {
         ? (ctx.gensRef.current[ctx.gensRef.current.length - 1].tMs || 0) : 0;
     const run = {
         ctx, operands, innerEngine, side, LK,
-        best: { mf: Infinity, front: null },
+        best: { mf: Infinity, omf: null, front: null },
         queue: [], qIdx: 0, pool: [],
         runT0: performance.now() - prevElapsed,
         tick: null,

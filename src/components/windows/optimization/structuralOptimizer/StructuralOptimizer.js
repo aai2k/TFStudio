@@ -18,9 +18,13 @@ import { useStructuralOptimizer } from './useStructuralOptimizer.js';
 const { createElement: h } = React;
 
 export function StructuralOptimizer({ c, theme, t }) {
-    const { design, updateDesign, checkpoint, beginOptimization, endOptimization } = useDesign();
+    const {
+        design, updateDesign, checkpoint, beginOptimization, endOptimization, getDesignRevision,
+    } = useDesign();
     const ts = t.structural;
-    const s = useStructuralOptimizer({ design, updateDesign, checkpoint, beginOptimization, endOptimization, t });
+    const s = useStructuralOptimizer({
+        design, updateDesign, checkpoint, beginOptimization, endOptimization, getDesignRevision, t,
+    });
 
     if (!design) return h('div', { style: { padding: 24, color: c.textDim, fontSize: 13 } }, ts.noDesign);
 

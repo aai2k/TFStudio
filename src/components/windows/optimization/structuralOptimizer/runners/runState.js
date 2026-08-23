@@ -133,6 +133,7 @@ function finalizeRunState(state) {
 const RUN_STATE_STEPS = [checkCurDes, checkOperands, checkPool, checkMaterials, checkWorkers];
 
 export function createRunState(ctx) {
+    ctx.reconcileBaseWithEdits();
     const state = { ctx, cfg: { ...ctx.cfgRef.current } };
     for (const step of RUN_STATE_STEPS) {
         if (!step(state)) return null;

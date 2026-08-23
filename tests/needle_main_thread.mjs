@@ -52,6 +52,7 @@ function makeRun() {
     const ctx = {
         runningRef: ref(false), timerRef: ref(null), dlsRef: ref(null),
         baseDesignRef: ref(null), savedDesignRef: ref(null), designRef: ref(design),
+        runsRef: ref([]), runOpenRef: ref(false),
         operandsRef: ref(ops.map(o => ({ ...o, enabled: true }))),
         gensRef: ref([]), genCountRef: ref(0), lastBestRef: ref(null),
         maxLayersRef: ref(6), deltaNmRef: ref(0.5), dMinRef: ref(1.0),
@@ -64,7 +65,7 @@ function makeRun() {
         setGenerations: noop, setTopDesigns: noop,
         reconcileBaseWithEdits: noop,
         getPoolMaterials: () => POOL,
-        setCachedOptState: noop,
+        setCachedOptState: (_id, state) => { ctx.cached = state; },
         _started: false,
     };
     return { ctx, done };
@@ -77,11 +78,20 @@ async function runOnce() {
     if (ctx.runningRef.current) {
         await Promise.race([done, new Promise((_, rej) => setTimeout(() => rej(new Error('timeout')), 30000))]);
     }
-    return ctx.gensRef.current.map(g => ({ genNum: g.genNum, layerCount: g.layerCount, mf: g.mf }));
+    return {
+        gens: ctx.gensRef.current.map(g => ({
+            genNum: g.genNum, layerCount: g.layerCount, mf: g.mf, runNum: g.runNum,
+        })),
+        runs: ctx.runsRef.current,
+        runOpen: ctx.runOpenRef.current,
+        cached: ctx.cached,
+    };
 }
 
-const gensA = await runOnce();
-const gensB = await runOnce();
+const A = await runOnce();
+const B = await runOnce();
+const gensA = A.gens;
+const gensB = B.gens;
 console.log = _log;
 
 console.log(`=== Needle main-thread engine · WASM ${tmmWasmActive() ? 'ON' : 'off'} ===`);
@@ -96,6 +106,10 @@ let mono = true;
 for (let i = 1; i < gensA.length; i++) if (!(gensA[i].mf < gensA[i - 1].mf - 1e-9)) mono = false;
 ok('merit improves monotonically across accepted generations', mono);
 ok('reached a usable BBAR (final MF < 0.05)', gensA.length && gensA[gensA.length - 1].mf < 0.05);
+ok('fallback generations are assigned to Run 1', gensA.length && gensA.every(g => g.runNum === 1));
+ok('fallback opens exactly one run block', A.runs.length === 1);
+ok('natural fallback completion closes the run block', A.runOpen === false);
+ok('fallback cache includes the run blocks', A.cached?.runs?.length === 1);
 
 // Determinism: the main-thread loop has no RNG affecting the math, so two runs
 // from the same seed must produce an identical generation sequence.

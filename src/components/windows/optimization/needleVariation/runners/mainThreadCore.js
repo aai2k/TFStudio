@@ -21,10 +21,19 @@ export function mtFinalize(run, msg) {
     if (best.front) {
         ctx.baseDesignRef.current = { ...(ctx.baseDesignRef.current || {}), [LK]: deepCopy(best.front) };
         ctx.updateDesignRef.current({ [LK]: deepCopy(best.front) }, { transient: true });
+        ctx.setMf(best.mf);
         ctx.setMfBest(best.mf);
+        if (best.omf != null) ctx.setOmf(best.omf);
         ctx.setLayerCount(best.front.length);
     }
+    ctx.setCachedOptState?.(ctx.designRef.current?.id, {
+        generations: ctx.gensRef.current,
+        runs:        ctx.runsRef.current,
+        savedDesign: ctx.savedDesignRef.current,
+        baseDesign:  ctx.baseDesignRef.current,
+    });
     ctx.runningRef.current = false;
+    ctx.runOpenRef.current = false;
     ctx.setPhase('idle');
     ctx.setStatusMsg(msg);
 }

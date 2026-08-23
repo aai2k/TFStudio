@@ -65,7 +65,7 @@ export function ControlBar({ running, generation, layerCount, mf, mfBest, geStep
                              canReset, onRun, onStop, onReset, onResetSide, onBest,
                              onClearHistory, hasHistory, statusMsg, design, t, c }) {
     const tg = t.gradualEvolution;
-    const showBest = mf != null && mfBest != null && mfBest < mf - 1e-9;
+    const showBest = mfBest != null;
     const metrics = [
         `${tg.genLabel} `,
         h('b', { style: { color: c.text } }, generation),
@@ -75,8 +75,14 @@ export function ControlBar({ running, generation, layerCount, mf, mfBest, geStep
         h('b', { style: { color: '#ff7043' } }, geSteps),
         mf != null && `  ${tg.mfLabel} `,
         mf != null && h('b', { style: { color: c.text } }, mf.toFixed(6)),
-        showBest && ` ${tg.bestLabel} `,
-        showBest && h('span', { style: { color: c.success } }, mfBest.toFixed(6)),
+        h('span', {
+            'data-synthesis-best': true,
+            style: {
+                display: 'inline-block', width: 94, whiteSpace: 'nowrap',
+                visibility: showBest ? 'visible' : 'hidden',
+            },
+        }, showBest ? ` ${tg.bestLabel} ` : '\u00a0',
+        showBest && h('span', { style: { color: c.success } }, mfBest.toFixed(6))),
     ];
     return h(SynthesisControlBar, {
         running, canReset, onRun, onStop, onReset, onBest, onResetSide,

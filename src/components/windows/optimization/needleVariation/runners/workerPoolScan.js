@@ -31,6 +31,7 @@ export async function wpSmartSeed(run) {
     if (bi >= 0) {
         const r = seedResults[bi];
         best.mf = r.mf;
+        best.omf = r.omf ?? null;
         best.frontLayers = run.deep(r.frontLayers || []);
         best.backLayers  = run.deep(r.backLayers  || []);
         ctx.updateDesignRef.current(

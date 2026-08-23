@@ -24,6 +24,7 @@ await initWasmForTest();
 const { caseById } = await import('../src/utils/benchmark/optimizerBenchmark.js');
 const { getMaterial } = await import('../src/utils/materials/materialDatabase.js');
 const { runNeedleWorkerPool } = await import('../src/components/windows/optimization/needleVariation/runners/workerPool.js');
+const { wpFinalize } = await import('../src/components/windows/optimization/needleVariation/runners/workerPoolLifecycle.js');
 const { dispatchSynthesisJob } = await import('../src/utils/workers/synthesisWorker.js');
 const { makeResolveMat } = await import('../src/utils/workers/resolveMat.js');
 
@@ -153,6 +154,48 @@ ok('reached a usable BBAR (final MF < 0.05)', A.gens.length && A.gens[A.gens.len
 const same = A.gens.length === B.gens.length &&
     A.gens.every((g, i) => g.layerCount === B.gens[i].layerCount && Math.abs(g.mf - B.gens[i].mf) < 1e-12);
 ok('deterministic run-to-run (identical generation sequence)', same);
+
+// A rescue may continue from a thicker but temporarily worse stack. If it never
+// beats the pre-rescue stack, finalization must make that preserved winner a
+// real history/Top-Designs snapshot; otherwise the Best button finds the worse
+// post-rescue generation even though the readout advertises the lower MF.
+{
+    const ref = current => ({ current });
+    const preFront = [{ id: 'pre', material: 'SiO2', thickness: 100 }];
+    const worseFront = [{ id: 'post', material: 'TiO2', thickness: 220 }];
+    const pool = { terminate() {} };
+    const applied = [];
+    let top = [];
+    let shownMf = null;
+    const ctx = {
+        workerRef: ref(pool), runningRef: ref(true), runOpenRef: ref(true),
+        designRef: ref({ id: 'rescue-final', frontLayers: worseFront, backLayers: [], surfaceMode: 'front_only' }),
+        baseDesignRef: ref(null), savedDesignRef: ref({ frontLayers: [], backLayers: [] }),
+        runsRef: ref([{ runNum: 1, baseline: { frontLayers: [], backLayers: [] } }]),
+        gensRef: ref([{
+            id: 'worse', runNum: 1, genNum: 1, mf: 0.02, omf: 0.02,
+            frontSnap: worseFront, backSnap: [], layers: worseFront, side: 'front', layerCount: 1,
+        }]),
+        genCountRef: ref(1),
+        updateDesignRef: ref(patch => applied.push(patch)),
+        setMf: value => { shownMf = value; }, setOmf: () => {}, setMfBest: () => {}, setOmfBest: () => {},
+        setLayerCount: () => {}, setGenerations: () => {}, setTopDesigns: value => { top = value; },
+        setGeneration: () => {}, setCachedOptState: () => {}, setPhase: () => {},
+        setStatusMsg: () => {}, setCanReset: () => {},
+    };
+    const run = {
+        ctx, workerPool: pool, curDes: ctx.designRef.current, scanSides: ['front'],
+        deep: value => JSON.parse(JSON.stringify(value)), genNum: 1, prevBestMF: 0.02,
+        runT0: performance.now(),
+        best: { mf: 0.02, omf: 0.02, frontLayers: worseFront, backLayers: [] },
+        preRescueBest: { mf: 0.01, omf: 0.01, frontLayers: preFront, backLayers: [] },
+    };
+    wpFinalize(run, 'done');
+    const finalRow = ctx.gensRef.current.at(-1);
+    ok('pre-rescue winner is appended as the final generation', finalRow.mf === 0.01 && finalRow.final === true);
+    ok('pre-rescue winner is the restorable Top Design', top[0]?.mf === 0.01 && top[0]?.frontSnap?.[0]?.thickness === 100);
+    ok('final readout and editor use the same pre-rescue winner', shownMf === 0.01 && applied.at(-1)?.frontLayers?.[0]?.thickness === 100);
+}
 
 console.log(`\n${pass} passed, ${fail} failed`);
 process.exit(fail ? 1 : 0);

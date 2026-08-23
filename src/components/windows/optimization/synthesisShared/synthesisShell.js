@@ -90,15 +90,44 @@ export function SynthesisControlBar({
             h(OptimizeBadge, { design, c, t }),
             h(EvalModeBadge, { design, c, t }),
         ),
-        h('div', { style: { flex: 1 } }),
-        h('span', { style: { fontSize: 11, color: c.textDim } }, ...metrics),
-        statusMsg && h('span', {
-            style: statusMsg === noOperandsLabel
-                ? { ...WARN_BADGE_STYLE, marginLeft: 10 }
-                : { fontSize: 11, marginLeft: 10, color: statusColor, fontStyle: 'italic' }
-        }, statusMsg),
-        h('span', { style: { marginLeft: 10 } },
-            h(LiveUpdateSwitch, { c, label: t.liveUpdate.label, title: t.liveUpdate.hint })),
+        // Treat the changing readout, phase message and Live update switch as
+        // one wrapping unit. If the dock is narrow the whole unit moves to the
+        // next toolbar line; its children never wrap independently, so phase
+        // transitions cannot move the switch between columns.
+        h('div', {
+            'data-synthesis-readout': true,
+            style: {
+                marginLeft: 'auto', display: 'flex', alignItems: 'center', flexWrap: 'nowrap',
+                flex: '0 1 720px', width: 720, maxWidth: '100%', minWidth: 0,
+            },
+        },
+            h('span', {
+                style: {
+                    flex: '1 1 0', minWidth: 0, fontSize: 11, color: c.textDim,
+                    whiteSpace: 'nowrap', overflow: 'hidden', textAlign: 'right',
+                },
+            }, ...metrics),
+            // The phase message used to be conditionally mounted at its natural
+            // width. Keep a fixed slot (also while empty) within the readout.
+            h('span', {
+                'data-synthesis-status': true,
+                title: statusMsg || undefined,
+                style: statusMsg === noOperandsLabel
+                    ? {
+                        ...WARN_BADGE_STYLE, marginLeft: 10, width: 220, flex: '0 0 220px',
+                        boxSizing: 'border-box', whiteSpace: 'nowrap', overflow: 'hidden',
+                        textOverflow: 'ellipsis', visibility: statusMsg ? 'visible' : 'hidden',
+                    }
+                    : {
+                        fontSize: 11, marginLeft: 10, width: 220, flex: '0 0 220px',
+                        boxSizing: 'border-box', color: statusColor, fontStyle: 'italic',
+                        whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
+                        visibility: statusMsg ? 'visible' : 'hidden',
+                    }
+            }, statusMsg || '\u00a0'),
+            h('span', { 'data-synthesis-live-update': true, style: { marginLeft: 10, flexShrink: 0 } },
+                h(LiveUpdateSwitch, { c, label: t.liveUpdate.label, title: t.liveUpdate.hint })),
+        ),
     );
 }
 

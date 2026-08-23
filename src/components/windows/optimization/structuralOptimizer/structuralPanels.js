@@ -63,7 +63,7 @@ export function TrendPlot({ trend, c, theme, t }) {
 // count, current + best merit) spread into the shared control bar's readout span.
 function controlBarMetrics({ ts, c, running, deepMode, iter, maxIter, reheats, temp, accRate, layerCount, mf, mfBest }) {
     const strong = (v) => h('b', { style: { color: c.text } }, v);
-    const showBest = mf != null && mfBest != null && mfBest < mf - 1e-9;
+    const showBest = mfBest != null;
     return [
         `${ts.iterLabel} `, strong(deepMode ? `${iter} ∞` : `${iter}/${maxIter}`),
         running && deepMode ? `  ${ts.reheatLabel} ` : '',
@@ -74,8 +74,14 @@ function controlBarMetrics({ ts, c, running, deepMode, iter, maxIter, reheats, t
         running && accRate != null ? strong(`${(accRate * 100).toFixed(0)}%`) : '',
         `  ${ts.layersLabel} `, strong(layerCount),
         mf != null && `  ${ts.mfLabel} `, mf != null && strong(mf.toFixed(6)),
-        showBest && ` ${ts.bestLabel} `,
-        showBest && h('span', { style: { color: c.success } }, mfBest.toFixed(6)),
+        h('span', {
+            'data-synthesis-best': true,
+            style: {
+                display: 'inline-block', width: 94, whiteSpace: 'nowrap',
+                visibility: showBest ? 'visible' : 'hidden',
+            },
+        }, showBest ? ` ${ts.bestLabel} ` : '\u00a0',
+        showBest && h('span', { style: { color: c.success } }, mfBest.toFixed(6))),
     ];
 }
 

@@ -84,6 +84,8 @@ localStorage.setItem('tfstudio-worker-threads', '1');
 
 const { runStructuralWorker } = await import(
     '../src/components/windows/optimization/structuralOptimizer/runners/workerPool.js');
+const { reconcileStructuralBaseWithEdits } = await import(
+    '../src/components/windows/optimization/structuralOptimizer/useStructuralOptimizer.js');
 
 const ref = current => ({ current });
 const round = value => value == null ? value : Number(value.toFixed(9));
@@ -122,6 +124,7 @@ function makeCtx(surfaceMode, options) {
         mf: null, mfBest: null, omf: null, omfBest: null,
         layerCount: null, generations: [], trend: [], topCount: 0,
         reheats: 0, running: false, canReset: false, checkpoints: 0, cacheWrites: 0,
+        reconciles: 0,
     };
     const workersRef = ref([]);
     const runningRef = ref(false);
@@ -145,6 +148,7 @@ function makeCtx(surfaceMode, options) {
         }),
         checkpointRef: ref(() => { snapshots.checkpoints += 1; }),
         selectedCatsRef: ref(new Set(['builtin'])), excludedMatsRef: ref(new Set()),
+        reconcileBaseWithEdits: () => { snapshots.reconciles += 1; },
         killWorkers: () => {
             for (const worker of workersRef.current) worker.terminate();
             workersRef.current = [];
@@ -241,6 +245,7 @@ async function runScenario(name, surfaceMode, options) {
     await runStructuralWorker(ctx);
     if (ctx.runningRef.current) throw new Error(`${name} did not finalize`);
     if (activeScript.startJobs === 0) throw new Error(`${name} did not run a worker`);
+    if (snapshots.reconciles !== 1) throw new Error(`${name} did not reconcile manual edits before selecting its base`);
     return resultOf(ctx, snapshots);
 }
 
@@ -264,6 +269,25 @@ for (const [name, [surfaceMode, options]] of Object.entries(scenarios)) {
     results[name] = await runScenario(name, surfaceMode, options);
 }
 Date.now = realDateNow;
+
+// Manual editor writes bump the design revision. Structural must discard its
+// stale cached optimizer base and close a Stop-resumable block before the next
+// Run, matching Needle and GE instead of overwriting the edited stack.
+{
+    let revision = 4;
+    const refs = {
+        designRef: ref({ id: 'edited' }), baseDesignRef: ref({ stale: true }),
+        baseRevRef: ref(4), runOpenRef: ref(true),
+    };
+    if (reconcileStructuralBaseWithEdits(refs, () => revision) !== false || !refs.baseDesignRef.current) {
+        throw new Error('Structural discarded an unchanged Stop-resume base');
+    }
+    revision = 5;
+    if (reconcileStructuralBaseWithEdits(refs, () => revision) !== true ||
+        refs.baseDesignRef.current !== null || refs.runOpenRef.current !== false || refs.baseRevRef.current !== 5) {
+        throw new Error('Structural did not discard the stale base after a manual edit');
+    }
+}
 
 if (UPDATE || !existsSync(GOLDEN)) {
     writeFileSync(GOLDEN, JSON.stringify(results, null, 2) + '\n');

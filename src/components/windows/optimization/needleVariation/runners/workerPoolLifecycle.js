@@ -6,6 +6,56 @@
  */
 
 import { runNeedleMainThread } from './mainThread.js';
+import { computePareto, minOmfOf } from '../../synthesisShared/synthesisHelpers.js';
+import { activeRunNum } from '../../synthesisShared/runBlocks.js';
+
+const sameLayers = (a, b) => JSON.stringify(a || []) === JSON.stringify(b || []);
+const totalOf = layers => (layers || []).reduce(
+    (sum, layer) => sum + (Number(layer.thickness) || 0), 0);
+
+// Smart seeds and the pre-rescue design are valid final winners even when no
+// accepted needle generation represents them. Publish such a winner as the
+// closing row of this run so History, Top Designs and Best all point at the
+// same snapshot the editor receives.
+function ensureFinalWinnerRecorded(run, best, rescuedReturn) {
+    const { ctx } = run;
+    const runNum = activeRunNum(ctx.runsRef.current);
+    const frontSnap = run.deep(best.frontLayers || []);
+    const backSnap = run.deep(best.backLayers || []);
+    const represented = ctx.gensRef.current.some(g =>
+        g.runNum === runNum && Math.abs(g.mf - best.mf) < 1e-12 &&
+        sameLayers(g.frontSnap, frontSnap) && sameLayers(g.backSnap, backSnap));
+    if (represented) return;
+
+    run.genNum += 1;
+    const side = run.scanSides?.[0] || 'front';
+    const activeLayers = side === 'back' ? backSnap : frontSnap;
+    const dMF = run.prevBestMF === Infinity ? null : best.mf - run.prevBestMF;
+    run.prevBestMF = Math.min(run.prevBestMF, best.mf);
+    const gen = {
+        id: Math.random().toString(36).slice(2),
+        genNum: run.genNum,
+        runNum,
+        mf: best.mf,
+        omf: best.omf ?? null,
+        dMF,
+        rescued: rescuedReturn || undefined,
+        final: true,
+        side,
+        layerCount: activeLayers.length,
+        tot: totalOf(frontSnap) + totalOf(backSnap),
+        tMs: performance.now() - run.runT0,
+        insertMat: null,
+        layers: run.deep(activeLayers),
+        frontSnap,
+        backSnap,
+    };
+    ctx.gensRef.current = [...ctx.gensRef.current, gen];
+    ctx.genCountRef.current = run.genNum;
+    ctx.setGenerations(ctx.gensRef.current.slice());
+    ctx.setTopDesigns(computePareto(ctx.gensRef.current));
+    ctx.setGeneration(run.genNum);
+}
 
 // Live-preview throttle: apply the worker's in-flight design tick (~≤90 ms).
 export function wpOnTick(run, _i, m) {
@@ -39,18 +89,26 @@ export function wpFinalize(run, reason) {
     // starts out worse (workerPoolRescue.js), so the run publishes whichever of
     // the two ended lower.
     const pre = run.preRescueBest;
-    const best = (pre && pre.mf < run.best.mf) ? pre : run.best;
+    const rescuedReturn = !!(pre && pre.mf < run.best.mf);
+    const best = rescuedReturn ? pre : run.best;
     if (best.frontLayers || best.backLayers) {
+        ensureFinalWinnerRecorded(run, best, rescuedReturn);
         const patch = {};
         if (best.frontLayers) patch.frontLayers = best.frontLayers;
         if (best.backLayers)  patch.backLayers  = best.backLayers;
         ctx.updateDesignRef.current(patch, { transient: true });
         ctx.baseDesignRef.current = { ...(ctx.baseDesignRef.current || ctx.designRef.current), ...patch };
-        ctx.setMfBest(best.mf);
+        ctx.setMf(best.mf);
+        ctx.setOmf(best.omf ?? null);
+        ctx.setMfBest(Math.min(...ctx.gensRef.current.map(g => g.mf)));
+        ctx.setOmfBest(minOmfOf(ctx.gensRef.current));
         // Display layer count of whichever side was most recently active; for
         // both_independent show the total across both sides.
-        ctx.setLayerCount((best.frontLayers ? best.frontLayers.length : 0) +
-                          (best.backLayers  ? best.backLayers.length  : 0));
+        const bothIndependent = (run.curDes?.surfaceMode || 'front_only') === 'both_independent';
+        const activeSide = run.scanSides?.[0] || 'front';
+        ctx.setLayerCount(bothIndependent
+            ? (best.frontLayers?.length || 0) + (best.backLayers?.length || 0)
+            : (activeSide === 'back' ? best.backLayers?.length : best.frontLayers?.length) || 0);
     }
     ctx.setCachedOptState(ctx.designRef.current?.id, {
         generations: ctx.gensRef.current,

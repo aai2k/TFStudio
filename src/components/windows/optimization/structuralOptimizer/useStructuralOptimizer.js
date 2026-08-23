@@ -90,7 +90,7 @@ function applyFreshRun(ctx) {
 }
 
 function loadDesignSwitch(ctx) {
-    const { design, lastDesignId, stopOpt } = ctx;
+    const { design, lastDesignId, stopOpt, baseRevRef, getDesignRevision } = ctx;
     const prevId = lastDesignId.current;
     const newId = design?.id ?? null;
     lastDesignId.current = newId;
@@ -98,10 +98,25 @@ function loadDesignSwitch(ctx) {
     const cached = getCached(newId);
     if (cached) applyCachedRun(ctx, cached);
     else applyFreshRun(ctx);
+    baseRevRef.current = getDesignRevision?.(newId) ?? 0;
     ctx.setStatusMsg('');
 }
 
-export function useStructuralOptimizer({ design, updateDesign, checkpoint, beginOptimization, endOptimization, t }) {
+// Drop a cached optimizer base after a real editor write. Optimizer previews are
+// transient and do not bump the design revision, so Stop -> Run still resumes
+// the open block when the user has not edited the stack.
+export function reconcileStructuralBaseWithEdits(refs, getDesignRevision) {
+    const rev = getDesignRevision?.(refs.designRef.current?.id) ?? 0;
+    if (rev === refs.baseRevRef.current) return false;
+    refs.baseDesignRef.current = null;
+    refs.runOpenRef.current = false;
+    refs.baseRevRef.current = rev;
+    return true;
+}
+
+export function useStructuralOptimizer({
+    design, updateDesign, checkpoint, beginOptimization, endOptimization, getDesignRevision, t,
+}) {
     const ts = t.structural;
 
     const [maxIter,    setMaxIter]    = usePersistentNumber('tfstudio_struct_maxIter', 80);
@@ -143,6 +158,7 @@ export function useStructuralOptimizer({ design, updateDesign, checkpoint, begin
     const operandsRef  = useRef([]);
     const savedDesignRef = useRef(null);
     const baseDesignRef  = useRef(null);
+    const baseRevRef     = useRef(0);
     const gensRef      = useRef([]);
     const runsRef      = useRef([]);     // run blocks — see synthesisShared/runBlocks.js
     const runOpenRef   = useRef(false);  // a block is open (Stop→Run continues it)
@@ -181,7 +197,8 @@ export function useStructuralOptimizer({ design, updateDesign, checkpoint, begin
     useEffect(() => {
         loadDesignSwitch({
             design, lastDesignId, stopOpt,
-            gensRef, genCountRef, savedDesignRef, baseDesignRef, trendRef, runsRef, runOpenRef,
+            gensRef, genCountRef, savedDesignRef, baseDesignRef, baseRevRef, trendRef, runsRef, runOpenRef,
+            getDesignRevision,
             setGenerations, setTopDesigns, setTrend, setMfBest, setMf, setOmf, setOmfBest,
             setLayerCount, setCanReset, setIter, setStatusMsg,
         });
@@ -211,17 +228,21 @@ export function useStructuralOptimizer({ design, updateDesign, checkpoint, begin
         setStatusMsg(message != null ? message : (wasRunning ? ts.statusStopped : ''));
     }, [ts]);
 
+    const reconcileBaseWithEdits = useCallback(() => {
+        reconcileStructuralBaseWithEdits({ designRef, baseDesignRef, baseRevRef, runOpenRef }, getDesignRevision);
+    }, [getDesignRevision]);
+
     const runOpt = useCallback(() => {
         runStructuralWorker({
             cfgRef, runningRef, workersRef, runIdRef, designRef, operandsRef,
             savedDesignRef, baseDesignRef, gensRef, genCountRef, trendRef, runsRef, runOpenRef,
             updateDesignRef, checkpointRef, selectedCatsRef, excludedMatsRef,
-            killWorkers, saveCache, stopOpt, ts,
+            killWorkers, saveCache, stopOpt, reconcileBaseWithEdits, ts,
             setRunning, setIter, setTemp, setAccRate, setMf, setMfBest,
             setOmf, setOmfBest, setLayerCount, setGenerations, setTopDesigns,
             setTrend, setCanReset, setStatusMsg, setReheats,
         });
-    }, [stopOpt, t]);
+    }, [stopOpt, reconcileBaseWithEdits, t]);
 
     // Push the display state that follows from the current generation list.
     function syncFromGens() {
