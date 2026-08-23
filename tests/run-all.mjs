@@ -58,6 +58,8 @@ const BENCH = new Set([
     'optimizer_grand_benchmark.mjs',  // grand cross-optimizer benchmark (reporting tool, minutes)
     'synthesis_single_seed_bbar.mjs', // single-layer-seed → BBAR GE/Structural (time-budgeted)
     'consolidate_achromat.mjs',       // achromat seed/consolidate diagnostic (reads user Documents)
+    'cone_angle_perf.mjs',            // cone-node cache before/after timing report
+    'cone_angle_offload_perf.mjs',    // worker responsiveness under a heavy cone display job
 ]);
 
 // ── Arg parsing ──────────────────────────────────────────────────────────────
@@ -140,6 +142,9 @@ async function main() {
             : r.status === 'TIMEOUT' ? `${C.red}TIMEOUT${C.reset}`
             : `${C.red}FAIL${C.reset}`;
         console.log(`  ${tag} ${C.gray}${r.ms.toFixed(0).padStart(6)}ms${C.reset}  ${r.file}`);
+        if (benchOnly && r.out.trim()) {
+            console.log(r.out.trim().split('\n').map(line => `      ${line}`).join('\n'));
+        }
     };
 
     async function worker() {

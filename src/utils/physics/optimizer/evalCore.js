@@ -424,7 +424,18 @@ export function resolveEvalMode(design) {
 export function tmmProp(lam, aoi, pol, char, ctx, thicknesses, mats) {
     const cone = ctx.cone;
     if (cone && coneIsActive(cone)) {
-        const nodes = coneNodes(cone, aoi);
+        // A band operand calls this once per wavelength, but the angular
+        // quadrature depends only on the cone spec and axis AOI. Rebuilding the
+        // same 1-D/2-D grid for every λ made merely enabling a cone appear to
+        // freeze the UI. Cache it on the evaluation context and reuse it across
+        // every operand/wavelength in this design evaluation.
+        if (!ctx._coneNodeCache) ctx._coneNodeCache = new Map();
+        const axis = Number(aoi) || 0;
+        let nodes = ctx._coneNodeCache.get(axis);
+        if (!nodes) {
+            nodes = coneNodes(cone, axis);
+            ctx._coneNodeCache.set(axis, nodes);
+        }
         if (nodes.length > 1) {
             let acc = 0;
             for (let i = 0; i < nodes.length; i++) {
@@ -985,6 +996,7 @@ export function buildEvalContext(design, resolveMat) {
         mfEvalMode,
         evalFullSystem,
         cone,
+        _coneNodeCache:       new Map(),
         n0mat:                resolveMat(inc),
         nsmat:                resolveMat(design.substrate?.material ?? 'BK7'),
         neMat:                resolveMat(exit),

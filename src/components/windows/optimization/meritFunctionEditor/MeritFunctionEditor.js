@@ -9,7 +9,7 @@ import { phaseOperandScopeNotice } from '../phaseOperandScope.js';
 
 const { createElement: h } = React;
 
-function MeritSummary({ design, mf, omf, c, t, te }) {
+function MeritSummary({ design, mf, omf, busy, c, t, te }) {
     return h('div', {
         style: {
             padding: '3px 10px', background: c.panel, borderBottom: `1px solid ${c.border}`,
@@ -19,6 +19,7 @@ function MeritSummary({ design, mf, omf, c, t, te }) {
     },
         h(OptimizeBadge, { design, c, t }),
         h(EvalModeBadge, { design, c, t }),
+        busy && h('span', { style: { marginLeft: 'auto', fontStyle: 'italic' } }, te.evaluating),
         mf != null && h('span', { style: { marginLeft: 'auto', display: 'inline-flex', gap: 12 } },
             h('span', null, (te.mfLabel || 'MF:') + ' ',
                 h('span', { style: { color: c.text, fontWeight: 600 } }, mf.toFixed(6))),
@@ -54,7 +55,9 @@ export function MeritFunctionEditor({ c, t, setInputDialog }) {
             design, onGenerate: merit.handleGenerate, operandCount: merit.operands.length, c, t,
         }),
         h(PresetBar, { c, te, ...presets }),
-        h(MeritSummary, { design, mf: merit.mf, omf: merit.omf, c, t, te }),
+        h(MeritSummary, {
+            design, mf: merit.mf, omf: merit.omf, busy: merit.evaluationBusy, c, t, te,
+        }),
         h('div', { style: { flex: 1, overflow: 'hidden' } },
             h(MFTable, {
                 operands: merit.operands, computed: merit.computed,

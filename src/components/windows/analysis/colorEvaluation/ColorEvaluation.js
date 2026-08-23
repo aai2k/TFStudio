@@ -8,6 +8,7 @@
 
 import { useDesign } from '../../../../state/DesignContext.js';
 import { xyzToSRGB } from '../../../../utils/physics/colorimetry.js';
+import { makeConeSpec, coneIsActive } from '../../../../utils/physics/optimizer.js';
 import { useMaterialRangeNotice } from '../../../materials/MaterialRangeNotice.js';
 import { ConeBadge, EvalModeBadge } from '../../../SurfaceModeBar.js';
 import { ExportMenu, useCsvExport } from '../../../ui/ExportMenu.js';
@@ -20,6 +21,7 @@ import {
 } from './colorModel.js';
 import { colorEvaluationSession } from './sessionState.js';
 import { useWindowSession } from '../../windowSession.js';
+import { useAnalysisEvaluation } from '../useAnalysisEvaluation.js';
 
 const { createElement: h, useState, useEffect, useMemo } = React;
 
@@ -85,14 +87,27 @@ export function ColorEvaluation({ c, theme, t }) {
 
     useEffect(() => { setError(null); }, [evalMode]);
 
-    const report = useMemo(
-        () => computeColorReport({
+    const coneActive = coneIsActive(makeConeSpec(design?.cone || {}));
+    const workerOptions = useMemo(() => ({
+        evalMode,
+        characteristic: state.characteristic, pol: state.pol, theta: state.theta,
+        observer: state.observer, illuminant: state.illuminant, step: state.step,
+    }), [evalMode, state.characteristic, state.pol, state.theta,
+        state.observer, state.illuminant, state.step]);
+    const workerPayload = useMemo(
+        () => ({ design, options: workerOptions }),
+        [design, workerOptions],
+    );
+    const workerResult = useAnalysisEvaluation(coneActive, 'colorReport', workerPayload);
+    const directReport = useMemo(
+        () => coneActive ? null : computeColorReport({
             design, evalMode, setError,
             characteristic: state.characteristic, pol: state.pol, theta: state.theta,
             observer: state.observer, illuminant: state.illuminant, step: state.step,
         }),
-        [design, evalMode, state.characteristic, state.pol, state.theta,
+        [coneActive, design, evalMode, state.characteristic, state.pol, state.theta,
          state.observer, state.illuminant, state.step]);
+    const report = coneActive ? workerResult.data : directReport;
 
     const columns = readoutColumns(ce);
     const rows = readoutTableRows(report, ce);
@@ -110,14 +125,19 @@ export function ColorEvaluation({ c, theme, t }) {
             state.exposure === 'fit' ? { fit: true } : { gain: Number(state.exposure) }));
 
     const notices = [
-        error && { label: error, tone: 'error' },
+        (coneActive ? workerResult.error : error) && {
+            label: coneActive ? t.analysisEvaluation.failed : error,
+            tone: 'error',
+        },
         rangeNotice,
     ].filter(Boolean);
 
     return h(AnalysisWindow, { c },
         h(ColorControls, { c, t, ce, state, notices }),
         h(PlotArea, { relative: true },
-            report
+            coneActive && workerResult.busy
+                ? h(CenteredMessage, { c, message: t.analysisEvaluation.computing })
+                : report
                 ? h(React.Fragment, null,
                     h(ChromaticityChart, { report, observer: state.observer, c, theme }),
                     h(Swatches, { report, sampleRgb, state, ce, c }))

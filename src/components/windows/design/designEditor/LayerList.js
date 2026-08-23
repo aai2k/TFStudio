@@ -9,8 +9,15 @@ import {
     fixedLayerTrack, LAYER_TABLE, LAYER_TABLE_MIN_WIDTH, LAYER_THICKNESS_COLUMNS,
     materialLayerTrack, nextThicknessCell,
 } from './layerTableLayout.js';
-import { readLayerClipboard, writeLayerClipboard } from './layerClipboard.js';
+import {
+    readLayerClipboard, writeLayerClipboard, writeStackTableClipboard,
+} from './layerClipboard.js';
 import { useLayerDrag } from './useLayerDrag.js';
+import { resolveDesignMaterial } from '../../../../utils/materials/designMaterials.js';
+import { expandHerpinLayer, isHerpinLayer } from './layerTools.js';
+import {
+    HerpinDialog, PerturbDialog, QuantizeDialog, localizedHerpinError,
+} from './LayerToolDialogs.js';
 
 const { createElement: h, useRef, useCallback, useEffect, useMemo, useState } = React;
 
@@ -28,7 +35,7 @@ function scrollLayerIntoView(container, id) {
     row?.scrollIntoView({ block: 'nearest' });
 }
 
-export function LayerList({ layers, side, design, missingMaterialIds, c,
+export function LayerList({ layers, side, design, updateDesign, missingMaterialIds, c,
     addLayer, removeLayer, updateLayer,
     insertLayerAt, removeLayerAt, duplicateLayerAt,
     pasteLayersAtDisplayIndex, removeLayers, reorderLayers,
@@ -40,6 +47,7 @@ export function LayerList({ layers, side, design, missingMaterialIds, c,
     const setSelectedId = value => setSessionField('selectedLayerId', value);
     const selectedIndex = layers.findIndex(l => l.id === selectedId);
     const de = t.designEditor;
+    const layerToolText = de.layerTools;
     const containerRef = useRef(null);
     // The scrolling viewport inside the container, which drag auto-scroll moves.
     const scrollRef = useRef(null);
@@ -48,6 +56,8 @@ export function LayerList({ layers, side, design, missingMaterialIds, c,
     const [activeUnit, setActiveUnit] = useState(LAYER_THICKNESS_COLUMNS[0].unit);
     const [editRequest, setEditRequest] = useState({ rowId: null, unit: null, token: 0 });
     const [contextMenu, setContextMenu] = useState(null);
+    const [toolDialog, setToolDialog] = useState(null);
+    const [toolNotice, setToolNotice] = useState('');
     const substrateWarning = missingReferenceStyle(
         design.substrate.material, missingMaterialIds, c, t);
     const boundaryMaterial = side === 'front' ? design.incidentMedium : design.exitMedium;
@@ -57,6 +67,13 @@ export function LayerList({ layers, side, design, missingMaterialIds, c,
     // touching the substrate, matching the back coating convention.
     const reversed = side === 'front';
     const displayedLayers = reversed ? [...layers].reverse() : layers;
+    const selectedIdArray = useMemo(() => [...selectedIds], [selectedIds]);
+
+    useEffect(() => {
+        if (!toolNotice) return undefined;
+        const timeoutId = setTimeout(() => setToolNotice(''), 4000);
+        return () => clearTimeout(timeoutId);
+    }, [toolNotice]);
 
     useEffect(() => {
         const validIds = new Set(layers.map(layer => layer.id));
@@ -130,6 +147,40 @@ export function LayerList({ layers, side, design, missingMaterialIds, c,
         const copied = selectedLayers();
         if (copied.length) clipboardRef.current = writeLayerClipboard(copied);
     }, [selectedLayers]);
+
+    const materialName = useCallback(id => {
+        const resolved = resolveDesignMaterial(design, id);
+        return resolved.status === 'missing' ? id : (resolved.material.name || id);
+    }, [design]);
+
+    const copyStackAsTable = useCallback(async () => {
+        const copied = await writeStackTableClipboard(displayedLayers, materialName, {
+            material: layerToolText.tableMaterial,
+            thickness: layerToolText.tableThickness,
+        });
+        setToolNotice(copied
+            ? layerToolText.copiedTable(displayedLayers.length)
+            : layerToolText.clipboardBlocked);
+    }, [displayedLayers, layerToolText, materialName]);
+
+    const applyToolDesign = useCallback(nextDesign => {
+        updateDesign(nextDesign);
+        setToolDialog(null);
+        setToolNotice(layerToolText.appliedUndo);
+    }, [layerToolText, updateDesign]);
+
+    const expandSelectedHerpin = useCallback(() => {
+        const selected = displayedLayers.filter(layer => selectedIds.has(layer.id));
+        if (selected.length !== 1 || !isHerpinLayer(selected[0])) {
+            setToolNotice(layerToolText.selectHerpin);
+            return;
+        }
+        try {
+            applyToolDesign(expandHerpinLayer(design, side, selected[0].id));
+        } catch (error) {
+            setToolNotice(localizedHerpinError(error, layerToolText));
+        }
+    }, [applyToolDesign, design, displayedLayers, layerToolText, selectedIds, side]);
 
     const pasteAt = useCallback((displayIndex, sources) => {
         if (!sources?.length) return;
@@ -377,7 +428,19 @@ export function LayerList({ layers, side, design, missingMaterialIds, c,
                 value: '',
                 title: de.tools.tip,
                 onChange: (e) => {
-                    if (e.target.value === 'replaceMaterial') onOpenReplaceMaterials && onOpenReplaceMaterials();
+                    const action = e.target.value;
+                    if (action === 'replaceMaterial') onOpenReplaceMaterials && onOpenReplaceMaterials();
+                    else if (action === 'quantize') setToolDialog('quantize');
+                    else if (action === 'perturb') setToolDialog('perturb');
+                    else if (action === 'copyTable') copyStackAsTable();
+                    else if (action === 'herpinCollapse') {
+                        if (selectedIds.size < 2) {
+                            setToolNotice(layerToolText.errors.HERPIN_MIN_SELECTION);
+                        } else {
+                            setToolDialog('herpin');
+                        }
+                    }
+                    else if (action === 'herpinExpand') expandSelectedHerpin();
                     e.target.value = '';
                 },
                 style: {
@@ -386,9 +449,28 @@ export function LayerList({ layers, side, design, missingMaterialIds, c,
                     border: `1px solid ${c.border}`, borderRadius: 4, outline: 'none',
                 },
             },
-                h('option', { value: '', disabled: true }, de.tools.label),
-                h('option', { value: 'replaceMaterial' }, de.tools.replaceMaterial))
+                // Keep the placeholder selectable so the native menu highlights
+                // "Tools" rather than its first enabled command when opened.
+                h('option', { value: '' }, de.tools.label),
+                h('option', { value: 'replaceMaterial' }, de.tools.replaceMaterial),
+                h('option', { value: 'quantize' }, de.tools.quantize),
+                h('option', { value: 'perturb' }, de.tools.perturb),
+                h('option', { value: 'copyTable' }, de.tools.copyTable),
+                h('option', { value: 'herpinCollapse' }, de.tools.herpinCollapse),
+                // Leave Expand enabled: its handler explains what must be
+                // selected instead of making an invalid selection a silent no-op.
+                h('option', { value: 'herpinExpand' }, de.tools.herpinExpand))
         ),
+
+        toolNotice && h('div', {
+            role: 'status', 'aria-live': 'polite', title: toolNotice,
+            style: {
+                flexShrink: 0, padding: '6px 10px',
+                color: c.text, backgroundColor: c.accent + '24',
+                borderBottom: `1px solid ${c.accent}88`,
+                fontSize: 12, fontWeight: 600, lineHeight: 1.35,
+            },
+        }, toolNotice),
 
         // Header, boundary label and rows deliberately live in one scrolling
         // viewport. That gives every flex track the exact same available width,
@@ -462,6 +544,16 @@ export function LayerList({ layers, side, design, missingMaterialIds, c,
         contextMenu && h(ContextMenu, {
             x: contextMenu.x, y: contextMenu.y, items: menuItems,
             c, onClose: closeContextMenu, ariaLabel: menuText.label,
+        }),
+        toolDialog === 'quantize' && h(QuantizeDialog, {
+            design, side, c, t, onApply: applyToolDesign, onClose: () => setToolDialog(null),
+        }),
+        toolDialog === 'perturb' && h(PerturbDialog, {
+            design, side, c, t, onApply: applyToolDesign, onClose: () => setToolDialog(null),
+        }),
+        toolDialog === 'herpin' && h(HerpinDialog, {
+            design, side, selectedIds: selectedIdArray, c, t,
+            onApply: applyToolDesign, onClose: () => setToolDialog(null),
         })
     );
 }

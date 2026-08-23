@@ -10,7 +10,7 @@ export function CleanerPlaceholder({ message, c }) {
     }, message);
 }
 
-export function CleanerSummary({ c, dc, preview, ops, removedOps, mergedOps, mfBefore, mfAfter, resultMsg }) {
+export function CleanerSummary({ c, dc, preview, ops, removedOps, mergedOps, mfBefore, mfAfter, mfBusy, computingLabel, resultMsg }) {
     return h('div', {
         style: {
             display: 'flex', gap: 18, flexWrap: 'wrap',
@@ -37,6 +37,7 @@ export function CleanerSummary({ c, dc, preview, ops, removedOps, mergedOps, mfB
             h('span', { style: { color: c.textDim, marginRight: 4 } }, dc.toMerge + ':'),
             h('span', { style: { color: mergedOps.length ? '#ffd54f' : c.text } }, mergedOps.length)
         ),
+        mfBusy && h('div', { style: { color: c.textDim } }, computingLabel),
         mfBefore != null && h('div', null,
             h('span', { style: { color: c.textDim, marginRight: 4 } }, dc.mfBefore + ':'),
             h('span', null, mfBefore.toFixed(6))

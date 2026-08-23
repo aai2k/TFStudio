@@ -2,6 +2,8 @@ import { useDesign } from '../../../../state/DesignContext.js';
 import { useLiveDesign } from '../../../../state/useLiveDesign.js';
 import { useAnalysisDefaults, useAnalysisSettings } from '../../../../state/AnalysisSettingsContext.js';
 import { computeOpticalSpectrum } from './spectrum.js';
+import { makeConeSpec, coneIsActive } from '../../../../utils/physics/optimizer.js';
+import { useAnalysisEvaluation } from '../useAnalysisEvaluation.js';
 import { buildCSV, createTargetOperands, editTargetOperands, deleteTargetOperand } from './model.js';
 import { opticalEvaluationSession, opticalTargetSession } from './sessionState.js';
 import { useWindowSession } from '../../windowSession.js';
@@ -19,14 +21,24 @@ function useSpectrumEvaluation({ params, evalMode }) {
     const spectrumParams = useMemo(
         () => ({ lambdaStart, lambdaEnd, lambdaStep, thetas }),
         [lambdaStart, lambdaEnd, lambdaStep, thetas]);
-    return useMemo(() => {
+    const coneActive = coneIsActive(makeConeSpec(design?.cone || {}));
+    const payload = useMemo(
+        () => ({ design, params: spectrumParams, evalMode }),
+        [design, spectrumParams, evalMode],
+    );
+    const workerResult = useAnalysisEvaluation(coneActive, 'opticalSpectrum', payload);
+    const directResult = useMemo(() => {
+        if (coneActive) return { data: null, error: null };
         try {
             return { data: computeOpticalSpectrum(design, spectrumParams, evalMode), error: null };
         } catch (error) {
             console.error('TMM error:', error);
-            return { data: null, error: error.message || 'Computation error' };
+            return { data: null, error: 'ANALYSIS_EVALUATION_FAILED' };
         }
-    }, [design, spectrumParams, evalMode]);
+    }, [coneActive, design, spectrumParams, evalMode]);
+    return coneActive
+        ? { data: workerResult.data, error: workerResult.error, busy: workerResult.busy }
+        : directResult;
 }
 
 function useTargetEditor({ design, updateDesign }) {

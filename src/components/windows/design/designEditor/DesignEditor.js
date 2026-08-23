@@ -140,7 +140,7 @@ export function DesignEditor({ c, t }) {
         // ── Layer list (for active side) ──────────────────────────────────────
         h('div', { style: { flex: 1, overflow: 'hidden', display: 'flex', flexDirection: 'column' } },
             h(LayerList, {
-                layers, side: activeSide, design, missingMaterialIds: missingMaterialSet, c,
+                layers, side: activeSide, design, updateDesign, missingMaterialIds: missingMaterialSet, c,
                 addLayer, removeLayer, updateLayer,
                 insertLayerAt, removeLayerAt, duplicateLayerAt,
                 pasteLayersAtDisplayIndex, removeLayers, reorderLayers,

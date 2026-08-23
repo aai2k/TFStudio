@@ -28,6 +28,7 @@ const ENTRIES = [
     'src/utils/workers/filterDesignWorker.js',
     'src/utils/workers/plotSurfaceWorker.js',
     'src/utils/workers/benchmarkWorker.js',
+    'src/utils/workers/analysisEvaluationWorker.js',
 ];
 
 const STATIC = /(?:^|\n)\s*(?:import|export)\s+(?:[\s\S]*?\s+from\s+)?['"]([^'"]+)['"]/g;

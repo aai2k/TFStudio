@@ -39,3 +39,23 @@ export function writeLayerClipboard(layers) {
     try { navigator.clipboard?.writeText?.(text)?.catch?.(() => {}); } catch (_) {}
     return (layers || []).map(({ material, thickness, locked }) => ({ material, thickness, locked }));
 }
+
+/** Spreadsheet-oriented export: deliberately not accepted by parseLayers(). */
+export function serializeStackTable(layers, materialName = id => id, columns) {
+    const rows = (layers || []).map(layer => [
+        String(materialName(layer.material) || layer.material || '').replace(/[\t\r\n]/g, ' '),
+        Number(layer.thickness),
+    ].join('\t'));
+    return [`${columns.material}\t${columns.thickness}`, ...rows].join('\n');
+}
+
+export async function writeStackTableClipboard(layers, materialName, columns) {
+    const text = serializeStackTable(layers, materialName, columns);
+    try {
+        if (typeof navigator.clipboard?.writeText !== 'function') return false;
+        await navigator.clipboard.writeText(text);
+        return true;
+    } catch {
+        return false;
+    }
+}

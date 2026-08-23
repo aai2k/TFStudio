@@ -1,12 +1,27 @@
 import { useDesign } from '../state/DesignContext.js';
 import { designMaterialLookup } from '../utils/materials/designMaterials.js';
 import { useUnresolvedMaterials } from '../utils/materials/useUnresolvedMaterials.js';
-import { makeOperand, evaluateOperands, buildEvalContext } from '../utils/physics/optimizer.js';
+import { makeConeSpec, coneIsActive } from '../utils/physics/optimizer.js';
+import {
+    DIRECT_MONITOR_META, FACT_MONITOR_META, DERIVED_MONITOR_META,
+    scopedFactLayers, computeMonitor,
+} from '../utils/physics/statusMonitorEvaluation.js';
 import { useIntegralPresets } from '../utils/physics/integralValues.js';
+import { DebouncedInput } from './ui/DebouncedInput.js';
+import { useAnalysisEvaluation } from './windows/analysis/useAnalysisEvaluation.js';
 
-const { createElement: h, useState, useEffect, Fragment } = React;
+const { createElement: h, useState, useEffect, useMemo, Fragment } = React;
 
 const MONITORS_KEY = 'tfstudio-monitors-v1';
+
+const MONITOR_TYPE_GROUPS = [
+    ['spectral', ['point', 'avg', 'min', 'max', 'integral', 'fwhm', 'edgeLeft', 'edgeRight']],
+    ['phase', ['PR', 'PT', 'GD', 'GDT', 'GDD', 'GDDT', 'TOD', 'TODT',
+        'GDFLAT', 'GDTFLAT', 'GDDFLAT', 'GDDTFLAT', 'TODFLAT', 'TODTFLAT']],
+    ['field', ['EFMX', 'PSI', 'DEL']],
+    ['featureWavelength', ['MXWT', 'MXWR', 'MXWA', 'MNWT', 'MNWR', 'MNWA']],
+    ['designFacts', ['TT', 'MNT', 'MXT', ...Object.keys(FACT_MONITOR_META).map(key => `fact:${key}`)]],
+];
 
 function loadMonitors() {
     try {
@@ -19,84 +34,73 @@ function saveMonitors(m) {
     try { localStorage.setItem(MONITORS_KEY, JSON.stringify(m)); } catch {}
 }
 
-// Monitor type → merit-function operand type code (qty ∈ T/R/A):
-//   point → single-λ T/R/A · avg → TAV/RAV/AAV · min → TMN/RMN/AMN ·
-//   max → TMX/RMX/AMX · integral → TIW/RIW/AIW.
-// The operand pipeline is the SINGLE SOURCE OF TRUTH for the λ grid each
-// characteristic is sampled on (operandSampleLambdas in optimizer.js), so
-// evaluating the monitor through it — exactly as the Specification window and
-// Merit Function Editor already do — makes the status-bar readout match the
-// corresponding operand value bit-identically. A hand-rolled grid here (the
-// former fixed AVG_POINTS sampling) drifted once the operands moved to
-// density-based sampling (up to 201 pts for averages, 301 for min/max).
-const MONITOR_OPERAND_TYPE = {
-    point:    (q) => q,
-    avg:      (q) => q + 'AV',
-    min:      (q) => q + 'MN',
-    max:      (q) => q + 'MX',
-    integral: (q) => q + 'IW',
-};
-
-function computeMonitor(m, design, resolveMaterial) {
-    try {
-        const makeType = MONITOR_OPERAND_TYPE[m.type];
-        if (!makeType) return null;
-        const single = m.type === 'point';
-
-        const op = makeOperand({
-            type:        makeType(m.qty),
-            lambdaStart: single ? m.lambda : m.lambdaStart,
-            lambdaEnd:   single ? m.lambda : m.lambdaEnd,
-            aoi:         m.aoi || 0,
-            pol:         m.pol || 'avg',
-            target:      0,
-            weight:      1,
-            // Integral weighting travels on the operand (E × flat = unweighted
-            // band average when the monitor carries no preset).
-            ...(m.type === 'integral'
-                ? { source: m.source || { id: 'E' }, detector: m.detector || { id: 'flat' } }
-                : {}),
-        });
-
-        // Integral monitors are full-system quantities by convention (Tvis
-        // through the whole filter only makes sense end-to-end), so they pin to
-        // full-system evaluation regardless of the global Front/Back/Total
-        // selector. The chip badges this so the user sees the override. Every
-        // other monitor follows the design's resolved eval mode (== the
-        // `evalMode` chip), which buildEvalContext derives from the same
-        // surfaceMode/mfEvalMode fields.
-        const evalDesign = m.type === 'integral' ? { ...design, mfEvalMode: 'total' } : design;
-        const ctx = buildEvalContext(evalDesign, resolveMaterial);
-        const v = evaluateOperands([op], ctx)[0];
-        return (v == null || !Number.isFinite(v)) ? null : v * 100;
-    } catch {
-        return null;
-    }
+function monitorMeta(m) {
+    if (m.type === 'fact') return FACT_MONITOR_META[m.fact] || { unit: 'none', decimals: 3 };
+    return DIRECT_MONITOR_META[m.type] || DERIVED_MONITOR_META[m.type]
+        || { unit: 'percent', decimals: 3 };
 }
 
-function monitorLabel(m) {
+function unitSuffix(unitCode, strings) {
+    const unit = strings.units[unitCode];
+    if (!unit) return '';
+    return `${unitCode === 'percent' || unitCode === 'deg' ? '' : ' '}${unit}`;
+}
+
+function formatMonitorValue(m, value, strings) {
+    if (value == null) return '–';
+    const meta = monitorMeta(m);
+    return `${value.toFixed(meta.decimals)}${unitSuffix(meta.unit, strings)}`;
+}
+
+function monitorScopeBadge(m, design) {
+    if (m.type === 'integral') return 'total';
+    const meta = DIRECT_MONITOR_META[m.type];
+    if (meta?.frontOnly) return 'front';
+    if (meta?.phase) return design.surfaceMode === 'back_only' ? 'back' : 'front';
+    return null;
+}
+
+function monitorLabel(m, strings = {}) {
+    const localized = key => strings.types?.[key];
+    if (m.type === 'fact') return localized(`fact:${m.fact}`);
+    const direct = DIRECT_MONITOR_META[m.type];
+    if (direct) {
+        const baseLabel = localized(m.type);
+        if (direct.mode === 'fact') return baseLabel;
+        if (direct.mode === 'layers') return `${baseLabel} L${m.layerStart ?? 1}–${m.layerEnd ?? strings.rangeEnd}`;
+        const polStr = direct.noPol || m.pol === 'avg' ? '' : ` ${m.pol}`;
+        const aoiStr = m.aoi ? ` @${m.aoi}${strings.units.deg}` : '';
+        if (direct.mode === 'point') return `${baseLabel}${polStr} @${m.lambda} ${strings.units.nm}${aoiStr}`;
+        const target = direct.level ? ` ${strings.about} ${m.target ?? 0}${unitSuffix(direct.unit, strings)}` : '';
+        return `${baseLabel}${polStr}${target} ${m.lambdaStart}–${m.lambdaEnd} ${strings.units.nm}${aoiStr}`;
+    }
+    if (DERIVED_MONITOR_META[m.type]) {
+        const qty = `${m.qty || 'T'}${m.pol === 'avg' ? '' : m.pol}`;
+        const level = Math.round((m.level ?? 0.5) * 100);
+        return `${localized(m.type)} ${qty} @${level}${strings.units.percent} ${m.lambdaStart}–${m.lambdaEnd} ${strings.units.nm}`;
+    }
     const polStr = m.pol === 'avg' ? '' : m.pol;
     const qty = m.qty + polStr;
     // AOI suffix only at oblique incidence (normal incidence stays uncluttered).
-    const aoiStr = m.aoi ? ` @${m.aoi}°` : '';
-    if (m.type === 'point') return `${qty} @${m.lambda}nm${aoiStr}`;
+    const aoiStr = m.aoi ? ` @${m.aoi}${strings.units.deg}` : '';
+    if (m.type === 'point') return `${qty} @${m.lambda} ${strings.units.nm}${aoiStr}`;
     if (m.type === 'integral') {
         // Preset name (Tvis, Rsol, custom_…) is the canonical identity; the
         // band is implicit in the preset. Pol suffix only when not 'avg'.
         const lbl = m.presetLabel || m.presetKey || `${qty}·w(λ)`;
         return (polStr ? `${lbl}${polStr}` : lbl) + aoiStr;
     }
-    if (m.type === 'min') return `${qty}min ${m.lambdaStart}–${m.lambdaEnd}nm${aoiStr}`;
-    if (m.type === 'max') return `${qty}max ${m.lambdaStart}–${m.lambdaEnd}nm${aoiStr}`;
+    if (m.type === 'min') return `${qty}${strings.minSuffix} ${m.lambdaStart}–${m.lambdaEnd} ${strings.units.nm}${aoiStr}`;
+    if (m.type === 'max') return `${qty}${strings.maxSuffix} ${m.lambdaStart}–${m.lambdaEnd} ${strings.units.nm}${aoiStr}`;
     // U+27E8/27E9 = ⟨ ⟩ mathematical angle brackets
-    return `⟨${qty}⟩ ${m.lambdaStart}–${m.lambdaEnd}nm${aoiStr}`;
+    return `⟨${qty}⟩ ${m.lambdaStart}–${m.lambdaEnd} ${strings.units.nm}${aoiStr}`;
 }
 
 function genId() { return Math.random().toString(36).slice(2, 9); }
 
 // ── Add / Edit monitor form ──────────────────────────────────────────────────
 
-function AddForm({ c, onAdd, onCancel, initial, mode }) {
+function AddForm({ c, t, layerCount, onAdd, onCancel, initial, mode }) {
     // `initial` (optional) seeds the form when editing an existing monitor.
     // `mode` ∈ 'add' | 'edit' — controls the submit-button label and which
     // ID the resulting object carries (preserved when editing).
@@ -104,8 +108,26 @@ function AddForm({ c, onAdd, onCancel, initial, mode }) {
         qty: 'R', type: 'avg', lambda: 550, lambdaStart: 400, lambdaEnd: 800, aoi: 0, pol: 'avg'
     });
     const integralPresets = useIntegralPresets();
+    const directMeta = DIRECT_MONITOR_META[form.type];
+    const isFact = form.type === 'fact';
+    const isDerived = !!DERIVED_MONITOR_META[form.type];
+    const isLayerRange = directMeta?.mode === 'layers';
+    const usesQuantity = ['point', 'avg', 'min', 'max', 'integral'].includes(form.type) || isDerived;
+    const pointWavelength = form.type === 'point' || directMeta?.mode === 'point';
+    const bandWavelength = ['avg', 'min', 'max'].includes(form.type) || isDerived || directMeta?.mode === 'band';
+    const usesGeometry = !isFact && !directMeta?.noGeometry;
+    const selectedType = isFact ? `fact:${form.fact || 'layerCount'}` : form.type;
+    const monitorStrings = t?.statusMonitors || {};
 
     const setF = (patch) => setForm(prev => ({ ...prev, ...patch }));
+    const chooseType = value => {
+        if (value.startsWith('fact:')) setF({ type: 'fact', fact: value.slice(5) });
+        else if (value === 'MNT' || value === 'MXT') setF({
+            type: value, layerStart: form.layerStart ?? 1,
+            layerEnd: form.layerEnd ?? Math.max(1, layerCount),
+        });
+        else setF({ type: value });
+    };
 
     // Picking an integral preset atomically fixes qty (= preset.char), band,
     // source/detector — same patch shape the MFE *IW picker writes.
@@ -131,9 +153,9 @@ function AddForm({ c, onAdd, onCancel, initial, mode }) {
         fontFamily: 'system-ui, -apple-system, sans-serif'
     });
 
-    const miniInput = (val, onChange, width = 52) => h('input', {
-        type: 'number', value: val,
-        onChange: e => { const v = parseFloat(e.target.value); if (!isNaN(v)) onChange(v); },
+    const miniInput = (val, onChange, width = 52) => h(DebouncedInput, {
+        value: val, inputMode: 'decimal',
+        onChange: raw => { const value = Number.parseFloat(raw); if (Number.isFinite(value)) onChange(value); },
         style: {
             width, height: 20, backgroundColor: c.panel, color: c.text,
             border: `1px solid ${c.border}`, borderRadius: 3, fontSize: 11,
@@ -151,42 +173,47 @@ function AddForm({ c, onAdd, onCancel, initial, mode }) {
             backgroundColor: c.panel
         }
     },
-        // Qty — driven by the preset's char when type='integral'; user-picked otherwise.
-        h('span', { style: dim }, 'Qty:'),
-        h('div', { style: { display: 'flex', gap: 2 } },
-            ['T', 'R', 'A'].map(q => h('button', {
-                key:      q,
-                onClick:  () => form.type === 'integral' ? null : setF({ qty: q }),
-                disabled: form.type === 'integral',
-                title:    form.type === 'integral' ? 'Integral preset determines T/R/A' : null,
-                style:    { ...btnStyle(form.qty === q), opacity: form.type === 'integral' ? 0.55 : 1 }
-            }, q))
-        ),
-        h('div', { style: { width: 1, height: 16, background: c.border } }),
         // Type
-        h('span', { style: dim }, 'Type:'),
-        h('div', { style: { display: 'flex', gap: 2 } },
-            h('button', { onClick: () => setF({ type: 'point' }),    style: btnStyle(form.type === 'point') },    '@λ'),
-            h('button', { onClick: () => setF({ type: 'avg'   }),    style: btnStyle(form.type === 'avg')   },    'avg'),
-            h('button', { onClick: () => setF({ type: 'min'   }),    style: btnStyle(form.type === 'min')   },    'min'),
-            h('button', { onClick: () => setF({ type: 'max'   }),    style: btnStyle(form.type === 'max')   },    'max'),
-            h('button', { onClick: () => setF({ type: 'integral' }), style: btnStyle(form.type === 'integral') }, '∫ integral')
+        h('span', { style: dim }, monitorStrings.type),
+        h('select', {
+            value: selectedType, onChange: event => chooseType(event.target.value),
+            style: {
+                height: 22, maxWidth: 205, backgroundColor: c.panel, color: c.text,
+                border: `1px solid ${c.border}`, borderRadius: 3, fontSize: 11,
+                padding: '0 4px', outline: 'none',
+            },
+        }, MONITOR_TYPE_GROUPS.map(([group, options]) => h('optgroup', {
+            key: group, label: monitorStrings.groups[group],
+        }, options.map(value => h('option', { key: value, value },
+            monitorStrings.types[value]))))),
+        usesQuantity && h(Fragment, null,
+            h('div', { style: { width: 1, height: 16, background: c.border } }),
+            h('span', { style: dim }, monitorStrings.quantity),
+            h('div', { style: { display: 'flex', gap: 2 } },
+                ['T', 'R', 'A'].map(q => h('button', {
+                    key: q,
+                    onClick: () => form.type === 'integral' ? null : setF({ qty: q }),
+                    disabled: form.type === 'integral',
+                    title: form.type === 'integral' ? monitorStrings.integralQuantityTip : null,
+                    style: { ...btnStyle(form.qty === q), opacity: form.type === 'integral' ? 0.55 : 1 },
+                }, q))
+            )
         ),
-        h('div', { style: { width: 1, height: 16, background: c.border } }),
+        !isFact && h('div', { style: { width: 1, height: 16, background: c.border } }),
         // Wavelength inputs / integral preset picker
-        form.type === 'point'
+        pointWavelength
             ? h(Fragment, null,
                 h('span', { style: dim }, 'λ:'),
                 miniInput(form.lambda, v => setF({ lambda: v })),
-                h('span', { style: dim }, 'nm')
+                h('span', { style: dim }, monitorStrings.units.nm)
               )
             : form.type === 'integral'
             ? h(Fragment, null,
-                h('span', { style: dim }, 'Preset:'),
+                h('span', { style: dim }, monitorStrings.preset),
                 h('select', {
                     value: (form.presetKey && integralPresets.some(p => p.key === form.presetKey)) ? form.presetKey : '',
                     onChange: e => applyPreset(e.target.value),
-                    title: form.presetLabel || 'Pick a saved integral preset',
+                    title: form.presetLabel || monitorStrings.pickPresetTip,
                     style: {
                         height: 20, backgroundColor: c.panel, color: c.text,
                         border: `1px solid ${c.border}`, borderRadius: 3, fontSize: 11,
@@ -194,28 +221,51 @@ function AddForm({ c, onAdd, onCancel, initial, mode }) {
                         fontFamily: 'system-ui, -apple-system, sans-serif'
                     }
                 },
-                    !form.presetKey && h('option', { key: '_none', value: '', style: { color: c.textDim } }, '(pick…)'),
+                    !form.presetKey && h('option', { key: '_none', value: '', style: { color: c.textDim } }, monitorStrings.pickPreset),
                     integralPresets.map(p => h('option', { key: p.key, value: p.key, title: p.label }, p.label))
                 ),
                 form.presetKey && h('span', { style: { ...dim, fontVariantNumeric: 'tabular-nums' } },
-                    `${form.lambdaStart}–${form.lambdaEnd} nm`)
+                    `${form.lambdaStart}–${form.lambdaEnd} ${monitorStrings.units.nm}`)
               )
-            : h(Fragment, null,
+            : bandWavelength ? h(Fragment, null,
                 miniInput(form.lambdaStart, v => setF({ lambdaStart: v })),
                 h('span', { style: dim }, '–'),
                 miniInput(form.lambdaEnd, v => setF({ lambdaEnd: v })),
-                h('span', { style: dim }, 'nm')
-              ),
-        h('div', { style: { width: 1, height: 16, background: c.border } }),
+                h('span', { style: dim }, monitorStrings.units.nm)
+              ) : isLayerRange ? h(Fragment, null,
+                h('span', { style: dim }, monitorStrings.layerRange),
+                miniInput(form.layerStart ?? 1, v => setF({ layerStart: Math.max(1, Math.round(v)) }), 42),
+                h('span', { style: dim }, '–'),
+                miniInput(form.layerEnd ?? Math.max(1, layerCount), v => setF({ layerEnd: Math.max(1, Math.round(v)) }), 58)
+              ) : null,
+        directMeta?.level && h(Fragment, null,
+            h('span', { style: dim }, monitorStrings.level),
+            miniInput(form.target ?? 0, v => setF({ target: v }), 60),
+            h('span', { style: dim }, monitorStrings.units[directMeta.unit]),
+        ),
+        isDerived && h(Fragment, null,
+            h('span', { style: dim }, monitorStrings.crossing),
+            miniInput((form.level ?? 0.5) * 100, v => setF({ level: Math.max(0.1, Math.min(99.9, v)) / 100 }), 45),
+            h('span', { style: dim }, monitorStrings.units.percent),
+            h('select', {
+                value: form.direction || 'max', onChange: event => setF({ direction: event.target.value }),
+                style: { height: 20, background: c.panel, color: c.text, border: `1px solid ${c.border}`, borderRadius: 3 },
+            }, h('option', { value: 'max' }, monitorStrings.peak), h('option', { value: 'min' }, monitorStrings.notch)),
+        ),
+        usesGeometry && h('div', { style: { width: 1, height: 16, background: c.border } }),
         // AOI — applies to every monitor type (oblique incidence).
-        h('span', { style: dim }, 'AOI:'),
-        miniInput(form.aoi ?? 0, v => setF({ aoi: v }), 40),
-        h('span', { style: dim }, '°'),
-        h('div', { style: { width: 1, height: 16, background: c.border } }),
+        usesGeometry && h(Fragment, null,
+            h('span', { style: dim }, monitorStrings.angle),
+            miniInput(form.aoi ?? 0, v => setF({ aoi: v }), 40),
+            h('span', { style: dim }, monitorStrings.units.deg),
+            !directMeta?.noPol && h('div', { style: { width: 1, height: 16, background: c.border } }),
+        ),
         // Pol
-        h('span', { style: dim }, 'Pol:'),
-        h('div', { style: { display: 'flex', gap: 2 } },
-            ['avg', 's', 'p'].map(p => h('button', { key: p, onClick: () => setF({ pol: p }), style: btnStyle(form.pol === p) }, p))
+        usesGeometry && !directMeta?.noPol && h(Fragment, null,
+            h('span', { style: dim }, monitorStrings.polarization),
+            h('div', { style: { display: 'flex', gap: 2 } },
+                ['avg', 's', 'p'].map(p => h('button', { key: p, onClick: () => setF({ pol: p }), style: btnStyle(form.pol === p) }, p))
+            ),
         ),
         // Confirm / cancel
         h('button', {
@@ -224,7 +274,7 @@ function AddForm({ c, onAdd, onCancel, initial, mode }) {
                 ...form,
             }),
             disabled: form.type === 'integral' && !form.presetKey,
-            title: (form.type === 'integral' && !form.presetKey) ? 'Pick an integral preset first' : null,
+            title: (form.type === 'integral' && !form.presetKey) ? monitorStrings.needPreset : null,
             style: {
                 padding: '2px 10px', fontSize: 11,
                 cursor: (form.type === 'integral' && !form.presetKey) ? 'default' : 'pointer',
@@ -234,7 +284,7 @@ function AddForm({ c, onAdd, onCancel, initial, mode }) {
                 opacity: (form.type === 'integral' && !form.presetKey) ? 0.45 : 1,
                 fontFamily: 'system-ui, -apple-system, sans-serif', marginLeft: 4
             }
-        }, mode === 'edit' ? '✓ Save' : '✓ Add'),
+        }, mode === 'edit' ? monitorStrings.save : monitorStrings.add),
         h('button', {
             onClick: onCancel,
             style: {
@@ -243,7 +293,7 @@ function AddForm({ c, onAdd, onCancel, initial, mode }) {
                 backgroundColor: 'transparent', color: c.textDim,
                 fontFamily: 'system-ui, -apple-system, sans-serif'
             }
-        }, 'Cancel')
+        }, monitorStrings.cancel)
     );
 }
 
@@ -251,12 +301,18 @@ function AddForm({ c, onAdd, onCancel, initial, mode }) {
 
 export function SpectralMonitor({ c, t }) {
     const { design, evalMode } = useDesign();
+    const monitorStrings = t.statusMonitors;
     const missingMaterialIds = useUnresolvedMaterials(design);
+    const missingMaterialKey = missingMaterialIds.join('\u0000');
     const [monitors, setMonitors] = useState(loadMonitors);
     const [values, setValues]     = useState(() => loadMonitors().map(() => null));
     const [adding, setAdding]     = useState(false);
     const [editingId, setEditingId] = useState(null);  // id of monitor being edited, or null
     const [dragOverId, setDragOverId] = useState(null); // id under the pointer during drag (for drop-zone highlight)
+    const coneActive = missingMaterialIds.length === 0
+        && coneIsActive(makeConeSpec(design?.cone || {}));
+    const monitorPayload = useMemo(() => ({ design, monitors }), [design, monitors]);
+    const coneEvaluation = useAnalysisEvaluation(coneActive, 'statusMonitors', monitorPayload);
 
     useEffect(() => {
         saveMonitors(monitors);
@@ -264,11 +320,24 @@ export function SpectralMonitor({ c, t }) {
             setValues(monitors.map(() => null));
             return;
         }
+        if (coneActive) {
+            setValues(monitors.map(() => null));
+            return;
+        }
         const resolveMaterial = designMaterialLookup(design);
         setValues(monitors.map(m => computeMonitor(m, design, resolveMaterial)));
-    }, [design, monitors, evalMode]);
+    }, [design, monitors, evalMode, missingMaterialKey, coneActive]);
 
-    const addMonitor = (m) => { setMonitors(prev => [...prev, m]); setAdding(false); };
+    useEffect(() => {
+        if (!coneActive) return;
+        if (Array.isArray(coneEvaluation.data)) setValues(coneEvaluation.data);
+        else if (coneEvaluation.error) setValues(monitors.map(() => null));
+    }, [coneActive, coneEvaluation.data, coneEvaluation.error, monitors]);
+
+    const addMonitor = (m) => {
+        setMonitors(prev => [...prev, m]);
+        setAdding(false);
+    };
     const removeMonitor = (id) => setMonitors(prev => prev.filter(m => m.id !== id));
     const updateMonitor = (m) => {
         setMonitors(prev => prev.map(x => x.id === m.id ? m : x));
@@ -321,26 +390,34 @@ export function SpectralMonitor({ c, t }) {
         // Chips row
         h('div', {
             style: {
-                display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: 6,
-                padding: '3px 8px', minHeight: 26
+                display: 'flex', alignItems: 'center', flexWrap: 'nowrap', gap: 6,
+                padding: '3px 8px', minHeight: 26, overflowX: 'auto',
             }
         },
-            h('span', { style: { fontSize: 10, color: c.textDim, flexShrink: 0, letterSpacing: '0.03em' } }, 'MONITORS'),
+            h('span', { style: { fontSize: 10, color: c.textDim, flexShrink: 0, letterSpacing: '0.03em' } }, monitorStrings.title),
             h('span', {
                 style: {
                     fontSize: 10, color: c.accent, flexShrink: 0,
                     padding: '0 5px', border: `1px solid ${c.accent}33`,
                     borderRadius: 3, backgroundColor: c.accent + '11'
                 }
-            }, evalMode === 'front' ? 'Front' : evalMode === 'back' ? 'Back' : 'Total'),
+            }, evalMode === 'front' ? monitorStrings.evalFront
+                : evalMode === 'back' ? monitorStrings.evalBack : monitorStrings.evalTotal),
             h('div', { style: { width: 1, height: 14, background: c.border } }),
             missingMaterialIds.length > 0 && h('span', {
                 title: missingMaterialIds.join(', '),
                 style: { color: c.error, fontSize: 11, fontWeight: 600 },
             }, `⚠ ${t.materialResolution.monitorsBlocked}`),
+            coneActive && coneEvaluation.busy && h('span', {
+                style: { color: c.textDim, fontSize: 10, fontStyle: 'italic', flexShrink: 0 },
+            }, t.analysisEvaluation.computing),
+            coneActive && coneEvaluation.error && h('span', {
+                style: { color: c.error, fontSize: 10, flexShrink: 0 },
+            }, t.analysisEvaluation.failed),
             monitors.map((m, i) => {
                 const val = values[i];
-                const display = val == null ? '—' : val.toFixed(3) + '%';
+                const display = formatMonitorValue(m, val, monitorStrings);
+                const scopeBadge = monitorScopeBadge(m, design);
                 const isDropTarget = dragOverId === m.id;
                 return h('span', {
                     key: m.id,
@@ -360,7 +437,7 @@ export function SpectralMonitor({ c, t }) {
                         setAdding(false);
                         setEditingId(prev => prev === m.id ? null : m.id);
                     },
-                    title: 'Drag to reorder · Click to edit',
+                    title: monitorStrings.editTip,
                     style: {
                         ...chipStyle,
                         cursor: 'grab',
@@ -371,11 +448,11 @@ export function SpectralMonitor({ c, t }) {
                         borderColor:     editingId === m.id ? c.accent : c.border,
                     }
                 },
-                    // Integral monitors override the global Front/Back/Total
-                    // selector and always compute on the full system — badge
-                    // the chip so the user sees the override at a glance.
-                    m.type === 'integral' && h('span', {
-                        title: 'Integral always computed on full system (front + substrate + back)',
+                    scopeBadge && h('span', {
+                        title: scopeBadge === 'total'
+                            ? monitorStrings.scopeTotalTip
+                            : monitorStrings.scopeSideTip(scopeBadge === 'front'
+                                ? monitorStrings.evalFront : monitorStrings.evalBack),
                         style: {
                             fontSize: 9, fontWeight: 700, letterSpacing: '0.04em',
                             padding: '0 4px', marginRight: 2,
@@ -384,8 +461,9 @@ export function SpectralMonitor({ c, t }) {
                             backgroundColor: '#7e57c222',
                             borderRadius: 2,
                         }
-                    }, 'TOTAL'),
-                    h('span', { style: { fontSize: 11, color: c.textDim } }, monitorLabel(m) + ' = '),
+                    }, scopeBadge === 'total' ? monitorStrings.scopeTotal
+                        : scopeBadge === 'front' ? monitorStrings.scopeFront : monitorStrings.scopeBack),
+                    h('span', { style: { fontSize: 11, color: c.textDim } }, monitorLabel(m, monitorStrings) + ' = '),
                     h('span', { style: { fontSize: 11, color: c.text, fontWeight: 600 } }, display),
                     h('button', {
                         onClick: (e) => {
@@ -393,7 +471,7 @@ export function SpectralMonitor({ c, t }) {
                             removeMonitor(m.id);
                             if (editingId === m.id) setEditingId(null);
                         },
-                        title: 'Remove',
+                        title: monitorStrings.remove,
                         style: {
                             marginLeft: 3, background: 'none', border: 'none',
                             cursor: 'pointer', color: c.textDim, fontSize: 11,
@@ -402,19 +480,26 @@ export function SpectralMonitor({ c, t }) {
                     }, '\xd7')
                 );
             }),
-            monitors.length === 0 && !adding && h('span', { style: { fontSize: 11, color: c.textDim, fontStyle: 'italic' } }, 'no monitors — click + to add'),
+            monitors.length === 0 && !adding && h('span', { style: { fontSize: 11, color: c.textDim, fontStyle: 'italic' } }, monitorStrings.empty),
             h('button', {
-                onClick: () => { setEditingId(null); setAdding(p => !p); },
-                title: adding ? 'Cancel' : 'Add monitor', style: addBtn
+                onClick: () => {
+                    setEditingId(null); setAdding(p => !p);
+                },
+                title: adding ? monitorStrings.cancel : monitorStrings.addMonitor,
+                style: addBtn,
             }, adding ? '\xd7' : '+')
         ),
 
         // Inline form — Add OR Edit (mutually exclusive)
-        adding && h(AddForm, { c, mode: 'add', onAdd: addMonitor, onCancel: () => setAdding(false) }),
+        adding && h(AddForm, {
+            c, t, layerCount: scopedFactLayers(design).length,
+            mode: 'add', onAdd: addMonitor, onCancel: () => setAdding(false),
+        }),
         editingId && (() => {
             const m = monitors.find(x => x.id === editingId);
             return m ? h(AddForm, {
-                c, mode: 'edit', initial: m,
+                c, t, layerCount: scopedFactLayers(design).length,
+                mode: 'edit', initial: m,
                 onAdd: updateMonitor,
                 onCancel: () => setEditingId(null),
             }) : null;

@@ -5,7 +5,7 @@ import { matDisplayName, matColor } from '../synthesisShared/synthesisHelpers.js
 
 const { createElement: h } = React;
 
-export function PreviewPanel({ selected, hostInfo, dNew, dRange, predictedOMF, omf0, onDNew, onApply, busy, c, t }) {
+export function PreviewPanel({ selected, hostInfo, dNew, dRange, predictedOMF, omf0, evaluationBusy, onDNew, onApply, busy, c, t }) {
     const tn = t.needleManual;
     if (!selected) {
         return h('div', { style: { padding: '12px 12px', color: c.textDim, fontSize: 12, fontStyle: 'italic' } }, tn.clickHint);
@@ -47,11 +47,13 @@ export function PreviewPanel({ selected, hostInfo, dNew, dRange, predictedOMF, o
         // the preview reports OMF (constraint-free) — the full MF's transient
         // penalty would swamp the optical gain the insertion actually delivers.
         // Constraints are re-imposed by the DLS refine after Apply.
-        h('div', { style: { display: 'flex', gap: 16, fontSize: 11, color: c.textDim } },
-            h('span', null, tn.omf0, ' ', h('b', { style: { color: c.text } }, omf0 == null ? '—' : omf0.toFixed(6))),
-            h('span', null, tn.omfPred, ' ', h('b', { style: { color: c.text } }, predictedOMF == null ? '—' : predictedOMF.toFixed(6))),
-            h('span', null, tn.dMF, ' ', h('b', { style: { color: dMFColor } }, dMF == null ? '—' : (dMF < 0 ? '' : '+') + dMF.toFixed(6))),
-        ),
+        evaluationBusy
+            ? h('div', { style: { fontSize: 11, color: c.textDim } }, t.analysisEvaluation.computing)
+            : h('div', { style: { display: 'flex', gap: 16, fontSize: 11, color: c.textDim } },
+                h('span', null, tn.omf0, ' ', h('b', { style: { color: c.text } }, omf0 == null ? '—' : omf0.toFixed(6))),
+                h('span', null, tn.omfPred, ' ', h('b', { style: { color: c.text } }, predictedOMF == null ? '—' : predictedOMF.toFixed(6))),
+                h('span', null, tn.dMF, ' ', h('b', { style: { color: dMFColor } }, dMF == null ? '—' : (dMF < 0 ? '' : '+') + dMF.toFixed(6))),
+            ),
         h('div', null,
             h('button', {
                 onClick: onApply, disabled: busy,

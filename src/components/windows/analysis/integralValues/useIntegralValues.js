@@ -5,6 +5,8 @@ import {
     makeCustomDefinition,
 } from './integralModel.js';
 import { computeSpectrumForMode } from './spectrum.js';
+import { makeConeSpec, coneIsActive } from '../../../../utils/physics/optimizer.js';
+import { useAnalysisEvaluation } from '../useAnalysisEvaluation.js';
 import { integralValuesSession } from './sessionState.js';
 import { useWindowSession } from '../../windowSession.js';
 
@@ -105,10 +107,17 @@ export function useIntegralValues(design, evalMode) {
         [],
     );
 
-    const spectrum = useMemo(
-        () => computeSpectrum(design, params, evalMode),
+    const coneActive = coneIsActive(makeConeSpec(design?.cone || {}));
+    const workerPayload = useMemo(
+        () => ({ design, params, evalMode }),
         [design, params, evalMode],
     );
+    const workerResult = useAnalysisEvaluation(coneActive, 'integralSpectrum', workerPayload);
+    const directSpectrum = useMemo(
+        () => coneActive ? null : computeSpectrum(design, params, evalMode),
+        [coneActive, design, params, evalMode],
+    );
+    const spectrum = coneActive ? workerResult.data : directSpectrum;
     const integrals = useMemo(
         () => buildIntegralDefinitions(customDefs),
         [customDefs],
@@ -141,6 +150,7 @@ export function useIntegralValues(design, evalMode) {
         showTable,
         setShowTable,
         spectrum,
+        evaluationError: coneActive ? workerResult.error : null,
         integrals,
         results,
         selected,

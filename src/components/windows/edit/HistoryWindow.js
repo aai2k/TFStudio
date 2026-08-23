@@ -15,8 +15,9 @@ import {
     designMaterialLookup, unresolvedMaterials,
 } from '../../../utils/materials/designMaterials.js';
 import {
-    buildEvalContext, evaluateOperands, calcMF,
+    buildEvalContext, evaluateOperands, calcMF, makeConeSpec, coneIsActive,
 } from '../../../utils/physics/optimizer.js';
+import { useAnalysisEvaluation } from '../analysis/useAnalysisEvaluation.js';
 
 const { createElement: h, useMemo } = React;
 
@@ -52,7 +53,7 @@ function historyRowLabel(row, isCurrent, isFuture, hw) {
     return isFuture ? hw.redoState : hw.undoState;
 }
 
-function meritCell(row, c, mr) {
+function meritCell(row, c, mr, computingLabel) {
     return h('div', {
         title: row.materialMissing ? mr.blockedBody : undefined,
         style: {
@@ -61,12 +62,12 @@ function meritCell(row, c, mr) {
             fontVariantNumeric: 'tabular-nums',
             color: row.materialMissing ? c.error : undefined,
         },
-    }, row.mf == null ? '—' : row.mf.toFixed(6));
+    }, row.meritBusy ? computingLabel : row.mf == null ? '—' : row.mf.toFixed(6));
 }
 
 // One timeline row. `currentIndex` fixes which row is "present"; rows above it
 // are undo (past) states and rows below are redo (future) states.
-function historyRow(r, { c, hw, mr, currentIndex, jumpToHistory }) {
+function historyRow(r, { c, hw, mr, computingLabel, currentIndex, jumpToHistory }) {
     const isCurrent = r.i === currentIndex;
     const isFuture  = r.i > currentIndex;
     const label = historyRowLabel(r, isCurrent, isFuture, hw);
@@ -98,7 +99,7 @@ function historyRow(r, { c, hw, mr, currentIndex, jumpToHistory }) {
         ),
         h('div', { style: { padding: '0 8px', textAlign: 'right', fontVariantNumeric: 'tabular-nums' } },
             String(r.layers)),
-        meritCell(r, c, mr)
+        meritCell(r, c, mr, computingLabel)
     );
 }
 
@@ -109,12 +110,29 @@ export function HistoryWindow({ c, theme, t }) {
     const entries     = history?.entries || [];
     const currentIndex = history?.currentIndex ?? -1;
 
-    // Precompute display rows (memoised on the timeline contents).
+    const coneActive = useMemo(() => entries.some(d =>
+        (d?.meritOperands || []).some(op => op.enabled)
+        && coneIsActive(makeConeSpec(d?.cone || {}))), [entries]);
+    const meritPayload = useMemo(
+        () => ({ design, designs: entries }),
+        [design, entries],
+    );
+    const workerResult = useAnalysisEvaluation(coneActive, 'meritTimeline', meritPayload);
+
+    // Precompute display rows (memoised on the timeline contents). Cone-heavy
+    // timelines show their cheap structural fields immediately and fill MF in
+    // when the worker responds.
     const rows = useMemo(() => entries.map((d, i) => {
+        if (coneActive) {
+            const m = workerResult.data?.[i];
+            return { i, layers: layerCountOf(d), mf: m?.mf ?? null,
+                materialMissing: m?.materialMissing ?? false,
+                meritBusy: workerResult.busy, ref: d };
+        }
         const m = mfFor(d);
         return { i, layers: layerCountOf(d), mf: m.mf,
             materialMissing: m.materialMissing, ref: d };
-    }), [entries]);
+    }), [entries, coneActive, workerResult.data]);
 
     if (!design) {
         return h('div', {
@@ -184,7 +202,9 @@ export function HistoryWindow({ c, theme, t }) {
         // Rows
         h('div', { style: { flex: 1, minHeight: 0, overflowY: 'auto' } },
             ordered.map(r => historyRow(r, {
-                c, hw, mr: t.materialResolution, currentIndex, jumpToHistory,
+                c, hw, mr: t.materialResolution,
+                computingLabel: t.analysisEvaluation.computing,
+                currentIndex, jumpToHistory,
             }))
         )
     );

@@ -16,6 +16,7 @@ import {
     findOptimalNeedleThickness, mirrorLayers,
     DLSOptimizer, resolveScanSide, isConstraint,
     buildEvalContext, evaluateOperands, calcOMF,
+    makeConeSpec, coneIsActive,
 } from '../../../../utils/physics/optimizer.js';
 import {
     countPoolMaterials, POOL_MAX_SYNC,
@@ -25,6 +26,7 @@ import {
     candidateDepth, insertForSelection, runNeedleScan, buildPlotData,
     resolveHostInfo, resolveDRange,
 } from './model.js';
+import { useAnalysisEvaluation } from '../../analysis/useAnalysisEvaluation.js';
 
 const { useState, useEffect, useRef, useCallback, useMemo } = React;
 
@@ -169,10 +171,30 @@ function useNeedleWorkflow({ design, resolveMat, effSide, operands, selectedCats
 function usePredictedOMF({ selected, scan, design, resolveMat, operands, dNew, requestedSide }) {
     const [predictedOMF, setPredictedOMF] = useState(null);   // optical MF after insert
     const [omfNow,       setOmfNow]       = useState(null);   // optical MF of current design
+    const inserted = useMemo(
+        () => selected && design ? insertForSelection(selected, design, dNew, requestedSide) : null,
+        [selected, design, dNew, requestedSide],
+    );
+    const coneActive = !!inserted && operands.length > 0
+        && coneIsActive(makeConeSpec(design?.cone || {}));
+    const meritPayload = useMemo(
+        () => ({ design, candidateDesign: inserted, operands }),
+        [design, inserted, operands],
+    );
+    const workerResult = useAnalysisEvaluation(coneActive, 'meritPair', meritPayload);
 
     useEffect(() => {
-        if (!selected || !scan || !design) {
+        if (!selected || !scan || !design || !inserted) {
             setPredictedOMF(null); setOmfNow(null);
+            return;
+        }
+        if (coneActive) {
+            if (workerResult.data) {
+                setOmfNow(workerResult.data.before?.omf ?? null);
+                setPredictedOMF(workerResult.data.after?.omf ?? null);
+            } else if (workerResult.error) {
+                setPredictedOMF(null); setOmfNow(null);
+            }
             return;
         }
         const id = setTimeout(() => {
@@ -180,15 +202,15 @@ function usePredictedOMF({ selected, scan, design, resolveMat, operands, dNew, r
                 const ops = operands;   // full enabled set; calcOMF skips constraint terms
                 const compNow = evaluateOperands(ops, buildEvalContext(design, resolveMat));
                 setOmfNow(calcOMF(ops, compNow));
-                const inserted = insertForSelection(selected, design, dNew, requestedSide);
                 const compIns = evaluateOperands(ops, buildEvalContext(inserted, resolveMat));
                 setPredictedOMF(calcOMF(ops, compIns));
             } catch (_) { setPredictedOMF(null); setOmfNow(null); }
         }, 30);
         return () => clearTimeout(id);
-    }, [selected, dNew, scan, design, resolveMat, operands, requestedSide]);
+    }, [selected, scan, design, inserted, resolveMat, operands, coneActive,
+        workerResult.data, workerResult.error]);
 
-    return { predictedOMF, omfNow };
+    return { predictedOMF, omfNow, predictedOMFBusy: coneActive && workerResult.busy };
 }
 
 // ── Apply: single insertion, optionally followed by one DLS refinement pass ─────

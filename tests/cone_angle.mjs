@@ -112,8 +112,10 @@ const baseDesign = (cone) => ({
 
     // Enable a wide cone, reconstruct manually from per-node single-angle evals.
     const coneCfg = { enabled: true, halfAngleDeg: 25, distribution: 'uniform', gridPoints: 12 };
-    const valCone = evaluateOperands([op], buildEvalContext(baseDesign(coneCfg), resolveMat))[0];
+    const coneCtx = buildEvalContext(baseDesign(coneCfg), resolveMat);
+    const valCone = evaluateOperands([op], coneCtx)[0];
     ok(Math.abs(valCone - valNoCone) > 1e-4, 'cone changes an angle-sensitive operand value');
+    ok(coneCtx._coneNodeCache?.size === 1, 'cone quadrature is cached once per axis AOI across wavelength samples');
 
     const nodes = coneNodes(makeConeSpec(coneCfg), 0);
     let manual = 0;

@@ -21,6 +21,7 @@ import { CleanerControls } from './CleanerControls.js';
 import { CleanerOpsTable } from './CleanerOpsTable.js';
 import { CleanerPlaceholder, CleanerSummary } from './CleanerStatus.js';
 import { CleanerThinList } from './CleanerThinList.js';
+import { MeritEliminationTable } from './MeritEliminationTable.js';
 import { useDesignCleaner } from './useDesignCleaner.js';
 
 const { createElement: h } = React;
@@ -43,10 +44,18 @@ export function DesignCleaner({ c, theme, t }) {
         }
     },
         h(CleanerControls, { ...state, c, dc }),
-        h(CleanerSummary, { ...state, c, dc }),
-        h('div', { style: { flex: 1, minHeight: 0, display: 'flex', flexDirection: 'row' } },
-            h(CleanerOpsTable, { c, dc, ops, dMin }),
-            h(CleanerThinList, { c, dc, thinList }),
-        )
+        state.mode === 'merit'
+            ? h(MeritEliminationTable, {
+                c, dc, analysis: state.meritAnalysis, busy: state.meritBusy,
+                progress: state.meritProgress,
+                resultMsg: state.resultMsg, applyCandidate: state.applyMeritCandidate,
+            })
+            : h(React.Fragment, null,
+                h(CleanerSummary, { ...state, c, dc, computingLabel: t.analysisEvaluation.computing }),
+                h('div', { style: { flex: 1, minHeight: 0, display: 'flex', flexDirection: 'row' } },
+                    h(CleanerOpsTable, { c, dc, ops, dMin }),
+                    h(CleanerThinList, { c, dc, thinList }),
+                )
+            )
     );
 }

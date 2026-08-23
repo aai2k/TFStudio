@@ -2,6 +2,7 @@ import { designMaterialLookup } from '../../../../utils/materials/designMaterial
 import {
     evaluateOperands, calcMF, calcOMF, buildEvalContext, operandEvaluationErrors,
     operandBandLevels,
+    makeConeSpec, coneIsActive,
 } from '../../../../utils/physics/optimizer.js';
 import {
     editOperand, replaceOperandTail, addOperands, insertOperand,
@@ -10,8 +11,9 @@ import {
 import { useLiveDesign } from '../../../../state/useLiveDesign.js';
 import { meritOperandSession } from './sessionState.js';
 import { useWindowSession } from '../../windowSession.js';
+import { useAnalysisEvaluation } from '../../analysis/useAnalysisEvaluation.js';
 
-const { useState, useEffect, useCallback } = React;
+const { useState, useEffect, useCallback, useMemo } = React;
 const EMPTY_OPERANDS = [];
 
 function evaluateForDisplay(design, operands) {
@@ -79,10 +81,27 @@ export function useMeritOperands({ design, updateDesign, checkpoint, setInputDia
     // Evaluated from the sampled design so the table follows an optimizer run
     // at the live-preview cadence rather than once per progress message.
     const { design: liveDesign } = useLiveDesign();
+    const coneActive = operands.length > 0
+        && coneIsActive(makeConeSpec(liveDesign?.cone || {}));
+    const workerPayload = useMemo(
+        () => ({ design: liveDesign, operands }),
+        [liveDesign, operands],
+    );
+    const workerResult = useAnalysisEvaluation(coneActive, 'meritDisplay', workerPayload);
 
     useEffect(() => {
         if (!liveDesign || operands.length === 0) {
             setComputed([]); setErrors([]); setBandLevels([]); setMf(null); setOmf(null);
+            return;
+        }
+        if (coneActive) {
+            const result = workerResult.data;
+            if (result) {
+                setComputed(result.computed); setErrors(result.errors); setBandLevels(result.bandLevels);
+                setMf(result.mf); setOmf(result.omf);
+            } else if (workerResult.error) {
+                setComputed([]); setErrors([te.evaluationFailed]); setBandLevels([]); setMf(null); setOmf(null);
+            }
             return;
         }
         try {
@@ -92,7 +111,7 @@ export function useMeritOperands({ design, updateDesign, checkpoint, setInputDia
         } catch (_) {
             setComputed([]); setErrors([]); setBandLevels([]); setMf(null); setOmf(null);
         }
-    }, [operands, liveDesign]);
+    }, [operands, liveDesign, coneActive, workerResult.data, workerResult.error]);
 
     const handleEdit = useCallback((id, key, value) => {
         setOperands(prev => editOperand(prev, id, key, value));
@@ -143,7 +162,8 @@ export function useMeritOperands({ design, updateDesign, checkpoint, setInputDia
     }, [operands.length, te, setInputDialog, doClear]);
 
     return {
-        operands, selectedId, setSelectedId, computed, errors, bandLevels, mf, omf, setOperands,
+        operands, selectedId, setSelectedId, computed, errors, bandLevels, mf, omf,
+        evaluationBusy: coneActive && workerResult.busy, setOperands,
         handleEdit, handleGenerate, handleAdd, handleInsertAt, handleDuplicate,
         handleDelete, handleClear, handleMoveUp, handleMoveDown,
     };

@@ -17,7 +17,7 @@
  * without this module importing the engine layer (keeps the physics DAG acyclic).
  */
 
-import { cleanupLayers } from './layerOps.js';
+import { cleanupLayers, mirrorLayers } from './layerOps.js';
 
 const sideKey = (side) => (side === 'back' ? 'backLayers' : 'frontLayers');
 const deep = (x) => JSON.parse(JSON.stringify(x));
@@ -29,22 +29,141 @@ function _removableIndices(layers) {
     return idxs;
 }
 
+function _deleteLayer(design, side, index, dMin) {
+    const key = sideKey(side);
+    const layers = design[key] || [];
+    const cleaned = cleanupLayers(layers.filter((_, i) => i !== index), dMin);
+    const next = { ...design, [key]: cleaned };
+    if (design.surfaceMode === 'symmetric' && side === 'front') {
+        next.backLayers = mirrorLayers(cleaned);
+    }
+    return next;
+}
+
+function _finiteResult(result) {
+    return result && Number.isFinite(result.mf) && result.design;
+}
+
 // Trial-delete each removable layer (merging same-material neighbours via
 // cleanupLayers), RE-REFINE the remainder, and return the single deletion whose
 // re-refined merit is lowest — { mf, design, omf, i }, or null. `cfg` bundles
 // the per-round-invariant context { key, dMin, maxIter, refineFn, alive }.
 function _bestTrialDeletion(design, layers, idxs, cfg) {
-    const { key, dMin, maxIter, refineFn, alive } = cfg;
+    const { side, dMin, maxIter, refineFn, alive } = cfg;
     let best = null;
     for (const i of idxs) {
         if (alive && !alive()) break;
-        const trimmed = layers.filter((_, j) => j !== i);
-        const cleaned = cleanupLayers(trimmed, dMin);
-        const cand = { ...design, [key]: cleaned };
-        const r = refineFn(cand, maxIter);
-        if (!best || r.mf < best.mf) best = { mf: r.mf, design: r.design, omf: r.omf, i };
+        const r = refineFn(_deleteLayer(design, side, i, dMin), maxIter);
+        if (_finiteResult(r) && (!best || r.mf < best.mf)) {
+            best = { mf: r.mf, design: r.design, omf: r.omf, i };
+        }
     }
     return best;
+}
+
+/**
+ * Rank every unlocked single-layer deletion by its re-refined merit cost.
+ * Candidate designs are retained so a UI can apply the exact geometry it
+ * scored. Adjacent equal-material layers are merged by cleanupLayers, and a
+ * symmetric back stack is regenerated whenever its front stack changes.
+ */
+export function rankLayerDeletions({
+    design,
+    sides = ['front'],
+    dMin = 1e-3,
+    maxIter = 40,
+    refineFn,
+    baselineResult = null,
+    onProgress,
+    alive,
+}) {
+    if (typeof refineFn !== 'function') throw new Error('rankLayerDeletions: refineFn required');
+    const baseline = baselineResult || refineFn(deep(design), maxIter);
+    if (!_finiteResult(baseline)) throw new Error('rankLayerDeletions: baseline refinement failed');
+
+    const normalizedSides = [...new Set(sides)].filter(side => side === 'front' || side === 'back');
+    const work = [];
+    for (const side of normalizedSides) {
+        const key = sideKey(side);
+        const layers = baseline.design[key] || [];
+        for (const index of _removableIndices(layers)) work.push({ side, key, index, layer: layers[index] });
+    }
+
+    const candidates = [];
+    let done = 0;
+    for (const item of work) {
+        if (alive && !alive()) break;
+        try {
+            const result = refineFn(_deleteLayer(baseline.design, item.side, item.index, dMin), maxIter);
+            if (_finiteResult(result)) {
+                candidates.push({
+                    side: item.side,
+                    layerIndex: item.index,
+                    layerId: item.layer.id,
+                    materialId: item.layer.material,
+                    thickness: item.layer.thickness,
+                    mfBefore: baseline.mf,
+                    mfAfter: result.mf,
+                    deltaMF: result.mf - baseline.mf,
+                    design: result.design,
+                });
+            }
+        } catch {
+            // Singular candidates are omitted without aborting the remaining
+            // ranking; the caller still receives accurate progress.
+        }
+        done++;
+        onProgress?.({ phase: 'candidate', done, total: work.length, candidates: candidates.length });
+    }
+    candidates.sort((a, b) => a.deltaMF - b.deltaMF
+        || a.side.localeCompare(b.side) || a.layerIndex - b.layerIndex);
+    return { mfBefore: baseline.mf, baselineDesign: baseline.design, candidates };
+}
+
+/**
+ * Greedily remove the cheapest layer while the cumulative absolute increase
+ * from the once-refined baseline stays within `budget`.
+ */
+export function eliminateWithinMeritBudget({
+    design,
+    sides = ['front'],
+    dMin = 1e-3,
+    budget = 0,
+    maxRemovals = 1000,
+    maxIter = 40,
+    refineFn,
+    onProgress,
+    alive,
+}) {
+    if (typeof refineFn !== 'function') throw new Error('eliminateWithinMeritBudget: refineFn required');
+    let current = refineFn(deep(design), maxIter);
+    if (!_finiteResult(current)) throw new Error('eliminateWithinMeritBudget: baseline refinement failed');
+    const baseline = current.mf;
+    const removed = [];
+    const limit = Math.max(0, Math.min(1000, Math.floor(Number(maxRemovals) || 0)));
+    const allowance = Math.max(0, Number(budget) || 0);
+
+    for (let round = 0; round < limit; round++) {
+        if (alive && !alive()) break;
+        const analysis = rankLayerDeletions({
+            design: current.design, sides, dMin, maxIter, refineFn,
+            baselineResult: current, alive,
+            onProgress: progress => onProgress?.({ ...progress, phase: 'ranking', round, removed: removed.length }),
+        });
+        const best = analysis.candidates[0];
+        if (!best || best.mfAfter - baseline > allowance + 1e-12) break;
+        removed.push({
+            side: best.side,
+            layerIndex: best.layerIndex,
+            layerId: best.layerId,
+            materialId: best.materialId,
+            thickness: best.thickness,
+            deltaMF: best.mfAfter - current.mf,
+        });
+        current = { mf: best.mfAfter, design: best.design };
+        onProgress?.({ phase: 'accepted', round, removed: removed.length, mf: current.mf });
+    }
+    return { design: current.design, baseline, mfAfter: current.mf, removed };
 }
 
 /**
@@ -96,7 +215,7 @@ export function removeRedundantLayers({
     let baseline = cur.mf;                 // acceptance bar tracks the best MF seen
     let removed = 0;
     const trail = [{ layers: baseLayers, mf: cur.mf, removedIdx: null }];
-    const trialCfg = { key, dMin, maxIter, refineFn, alive };
+    const trialCfg = { side, dMin, maxIter, refineFn, alive };
 
     while ((cur.design[key] || []).length > minLayers) {
         if (alive && !alive()) break;

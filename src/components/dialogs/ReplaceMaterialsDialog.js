@@ -3,12 +3,14 @@
  *
  * Lists every distinct material referenced by the media, substrate and both
  * layer stacks, with its usage count. Applying a replacement changes every
- * matching reference; thicknesses and layer order are untouched.
+ * matching reference. Optionally preserves each changed layer's n·d optical
+ * thickness at the design reference wavelength.
  */
 
 import { getMaterialById, resolveColor, materialLabel } from '../../utils/materials/catalogManager.js';
 import { resolveDesignMaterial } from '../../utils/materials/designMaterials.js';
 import { MaterialPicker } from '../ui/MaterialPicker.js';
+import { Checkbox } from '../ui/Checkbox.js';
 
 const { createElement: h, useState, useMemo } = React;
 
@@ -32,11 +34,28 @@ export function collectMaterials(design) {
 }
 
 /** Return a design with every reference in `replacements` changed atomically. */
-export function replaceMaterialReferences(design, replacements) {
+export function replaceMaterialReferences(design, replacements, options = {}) {
     const replace = (id) => replacements[id] || id;
+    const keepOpticalThickness = !!options.keepOpticalThickness;
+    const lambda = Number(options.referenceWavelength || design.referenceWavelength || 550);
     const swapLayers = (layers) => (layers || []).map(layer => {
         const material = replace(layer.material);
-        return material === layer.material ? layer : { ...layer, material };
+        if (material === layer.material) return layer;
+        let thickness = layer.thickness;
+        if (keepOpticalThickness && lambda > 0) {
+            try {
+                const oldResolved = resolveDesignMaterial(design, layer.material);
+                const newResolved = resolveDesignMaterial(design, material);
+                if (oldResolved.status !== 'missing' && newResolved.status !== 'missing') {
+                    const oldN = oldResolved.material.getNK(lambda)?.[0];
+                    const newN = newResolved.material.getNK(lambda)?.[0];
+                    if (Number.isFinite(oldN) && Number.isFinite(newN) && oldN > 0 && newN > 0) {
+                        thickness = layer.thickness * oldN / newN;
+                    }
+                }
+            } catch { /* Preserve physical thickness if either material cannot be sampled. */ }
+        }
+        return { ...layer, material, thickness };
     });
     return {
         ...design,
@@ -55,13 +74,17 @@ export function ReplaceMaterialsDialog({ design, updateDesign, c, t, onClose }) 
 
     // Replacement map: original id → chosen id. Absent / equal ⇒ unchanged.
     const [repl, setRepl] = useState({});
+    const [keepOpticalThickness, setKeepOpticalThickness] = useState(false);
 
     const changed = used.filter(m => repl[m.id] && repl[m.id] !== m.id);
 
     const apply = () => {
         if (changed.length === 0) { onClose(); return; }
         const map = Object.fromEntries(changed.map(m => [m.id, repl[m.id]]));
-        updateDesign(replaceMaterialReferences(design, map));
+        updateDesign(replaceMaterialReferences(design, map, {
+            keepOpticalThickness,
+            referenceWavelength: design.referenceWavelength || 550,
+        }));
         onClose();
     };
 
@@ -131,6 +154,22 @@ export function ReplaceMaterialsDialog({ design, updateDesign, c, t, onClose }) 
                                 onChange: (newId) => setRepl(prev => ({ ...prev, [m.id]: newId })),
                             })))),
                 ),
+
+            h('label', {
+                title: rm.keepOpticalThicknessTip,
+                style: {
+                    display: 'flex', alignItems: 'center', gap: 7, marginTop: 14,
+                    color: c.text, cursor: 'pointer', fontSize: 12,
+                },
+            },
+                h(Checkbox, {
+                    c, checked: keepOpticalThickness,
+                    onChange: event => setKeepOpticalThickness(event.target.checked),
+                }),
+                rm.keepOpticalThickness,
+                h('span', { style: { color: c.textDim } },
+                    rm.atReference(design.referenceWavelength || 550)),
+            ),
 
             h('div', { style: { display: 'flex', justifyContent: 'flex-end', gap: 8, marginTop: 20 } },
                 h('button', { onClick: onClose, style: btn(false) }, rm.cancel),
