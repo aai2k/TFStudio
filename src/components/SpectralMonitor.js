@@ -181,6 +181,7 @@ function AddForm({ c, t, layerCount, onAdd, onCancel, initial, mode }) {
                 height: 22, maxWidth: 205, backgroundColor: c.panel, color: c.text,
                 border: `1px solid ${c.border}`, borderRadius: 3, fontSize: 11,
                 padding: '0 4px', outline: 'none',
+                fontFamily: 'system-ui, -apple-system, sans-serif',
             },
         }, MONITOR_TYPE_GROUPS.map(([group, options]) => h('optgroup', {
             key: group, label: monitorStrings.groups[group],
@@ -249,7 +250,12 @@ function AddForm({ c, t, layerCount, onAdd, onCancel, initial, mode }) {
             h('span', { style: dim }, monitorStrings.units.percent),
             h('select', {
                 value: form.direction || 'max', onChange: event => setF({ direction: event.target.value }),
-                style: { height: 20, background: c.panel, color: c.text, border: `1px solid ${c.border}`, borderRadius: 3 },
+                style: {
+                    height: 20, padding: '0 4px', outline: 'none',
+                    backgroundColor: c.panel, color: c.text,
+                    border: `1px solid ${c.border}`, borderRadius: 3,
+                    fontSize: 11, fontFamily: 'system-ui, -apple-system, sans-serif',
+                },
             }, h('option', { value: 'max' }, monitorStrings.peak), h('option', { value: 'min' }, monitorStrings.notch)),
         ),
         usesGeometry && h('div', { style: { width: 1, height: 16, background: c.border } }),

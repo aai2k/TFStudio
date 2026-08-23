@@ -25,7 +25,7 @@
 import {
     scanNeedlesPFunction, scanGEInsertions,
     findOptimalNeedleThickness, insertNeedle, insertNeedleIntra, cleanupLayers,
-    removeRedundantLayers, rankLayerDeletions, eliminateWithinMeritBudget,
+    removeRedundantLayers,
 } from '../physics/optimizer.js';
 import { makeEngine } from '../optimizers/index.js';
 import { noteTmmWasmBytes, awaitTmmWasmReady } from '../../tmmcore.js';
@@ -252,56 +252,6 @@ function handleRemovePass(job, resolveMat, post) {
         nLayers: (res.design[key] || []).length });
 }
 
-function meritRemovalSides(design, cleanBack) {
-    const mode = design?.surfaceMode || 'front_only';
-    if (mode === 'back_only') return ['back'];
-    if (mode === 'both_independent' && cleanBack) return ['front', 'back'];
-    return ['front'];
-}
-
-function makeRemovalRefiner(job, resolveMat, post, tickSide) {
-    const { operands, dMin, jobId, engine = 'dls' } = job;
-    return (candidate, maxIter) => {
-        const dls = runDls(operands, candidate, resolveMat, dMin, maxIter, jobId, tickSide, engine, post);
-        const applied = pruneBothSides(dls.applyToDesign(candidate), dMin);
-        return { mf: dls.mf, omf: dls.mfOpticalAt(dls.thicknesses), design: applied };
-    };
-}
-
-// Design Cleaner jobs use the same consolidation core as synthesis, but expose
-// an absolute cumulative ΔMF budget and retain the fully refined candidate
-// designs needed by the manual ranking table. The expensive DLS loops stay in
-// this worker; terminating its one-worker pool is the cancellation mechanism.
-function handleRankRemoval(job, resolveMat, post) {
-    const sides = meritRemovalSides(job.design, job.cleanBack);
-    const tickSide = sides[0];
-    const result = rankLayerDeletions({
-        design: job.design,
-        sides,
-        dMin: job.dMin,
-        maxIter: job.maxIter,
-        refineFn: makeRemovalRefiner(job, resolveMat, post, tickSide),
-        onProgress: progress => post({ type: 'tick', jobId: job.jobId, ...progress }),
-    });
-    post({ type: 'result', kind: 'rankRemoval', ...result });
-}
-
-function handleBudgetRemoval(job, resolveMat, post) {
-    const sides = meritRemovalSides(job.design, job.cleanBack);
-    const tickSide = sides[0];
-    const result = eliminateWithinMeritBudget({
-        design: job.design,
-        sides,
-        dMin: job.dMin,
-        budget: job.budget,
-        maxRemovals: job.maxRemovals,
-        maxIter: job.maxIter,
-        refineFn: makeRemovalRefiner(job, resolveMat, post, tickSide),
-        onProgress: progress => post({ type: 'tick', jobId: job.jobId, ...progress }),
-    });
-    post({ type: 'result', kind: 'budgetRemoval', ...result });
-}
-
 // Route one RPC job to its handler, streaming ticks + the final result through
 // `post`. In the worker, `post` is the global postMessage; a main-thread fake
 // pool (tests) can call this directly with its own collector so the whole
@@ -313,8 +263,6 @@ export function dispatchSynthesisJob(job, resolveMat, post) {
         case 'seedDls':    handleSeedDls(job, resolveMat, post);    break;
         case 'geStep':     handleGeStep(job, resolveMat, post);     break;
         case 'removePass': handleRemovePass(job, resolveMat, post); break;
-        case 'rankRemoval':handleRankRemoval(job, resolveMat, post);break;
-        case 'budgetRemoval': handleBudgetRemoval(job, resolveMat, post); break;
         default: post({ type: 'error', message: `unknown job ${job.type}` });
     }
 }
