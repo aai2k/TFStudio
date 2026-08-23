@@ -24,15 +24,24 @@ function engineOnMessage(ctx, st, m, opts) {
 }
 
 // run: { ops, payload, materials, alive, onProg, preview, maxIterOverride }
+//
+// The live worker is registered as a { worker, settle } handle rather than a bare
+// Worker. A terminated worker posts nothing, so a Stop that only called
+// terminate() would leave this promise pending forever: the awaiting method flow
+// would never resume, never record its best, and would hold its operand set and
+// pre-sampled material tables for the rest of the session. `settle` resolves with
+// the best seen so far, which is what the flow needs to finish unwinding.
 export function runEngineP(ctx, engine, run) {
     const { ops, payload, materials, alive, onProg, preview, maxIterOverride } = run;
     return new Promise((resolve) => {
         let w;
         try { w = new Worker(WORKER_URL, { type: 'module' }); }
         catch (_) { resolve(null); return; }
-        ctx.flowWorkersRef.current.add(w);
         const st = { best: null };
-        const cleanup = () => { try { w.terminate(); } catch (_) {} ctx.flowWorkersRef.current.delete(w); };
+        let handle;
+        const cleanup = () => { try { w.terminate(); } catch (_) {} ctx.flowWorkersRef.current.delete(handle); };
+        handle = { worker: w, settle: () => { cleanup(); resolve(st.best); } };
+        ctx.flowWorkersRef.current.add(handle);
         const opts = { onProg, preview, alive, cleanup, resolve };
         w.onmessage = (e) => engineOnMessage(ctx, st, e.data, opts);
         w.onerror = () => { cleanup(); resolve(st.best); };

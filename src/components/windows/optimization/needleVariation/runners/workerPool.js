@@ -20,6 +20,7 @@
  */
 
 import { chunkArray, poolSize } from '../../synthesisShared/synthesisHelpers.js';
+import { activeBaseline, openRunBlock } from '../../synthesisShared/runBlocks.js';
 import {
     getSynthesisInnerEngine, getSynthesisMaxBatches, getSynthesisSmartSeed,
 } from '../../../../../utils/synthesis/synthesisConfig.js';
@@ -30,6 +31,7 @@ import { wpPrepare, wpPresample, wpDesignHelpers } from './workerPoolSetup.js';
 import { wpSmartSeed, wpScanCycle } from './workerPoolScan.js';
 import { wpRefineBatches } from './workerPoolRefine.js';
 import { wpAlive, wpFinalize, wpHandleLoopError } from './workerPoolLifecycle.js';
+import { isStallReason, wpThinStartRescue } from './workerPoolRescue.js';
 
 // One scan+refine cycle. Returns 'abort' (a Stop tore the run down, already
 // unwound), a finalize reason string (stop the loop), or null (keep cycling).
@@ -45,14 +47,20 @@ async function wpRunCycle(run) {
 }
 
 // Async driver: optional smart-seed, then scan → refine cycles until a stop
-// condition (max layers / needle-optimal / converged / exhausted).
+// condition (max layers / needle-optimal / converged / exhausted). The first
+// needle-optimal stop gets one thicker start before it is taken at face value
+// (workerPoolRescue.js).
 async function wpRun(run) {
     try {
         if (getSynthesisSmartSeed('needle') && !(await wpSmartSeed(run))) return;
         while (wpAlive(run)) {
             const reason = await wpRunCycle(run);
             if (reason === 'abort') return;
-            if (reason !== null) { wpFinalize(run, reason); return; }
+            if (reason === null) continue;
+            if (isStallReason(reason) && await wpThinStartRescue(run)) continue;
+            if (!wpAlive(run)) return;
+            wpFinalize(run, reason);
+            return;
         }
     } catch (err) {
         wpHandleLoopError(run, err);
@@ -65,11 +73,18 @@ export function runNeedleWorkerPool(ctx) {
     if (!prep) return;
     const { curDes, operands, scanSides, pool } = prep;
 
-    // Snapshot on first run + one undo checkpoint for the whole synthesis run.
-    if (!ctx.savedDesignRef.current) {
+    // Open a run block for this press, unless one is still open from a Stop —
+    // pausing to look at something and carrying on stays one run. The block
+    // records the design the press started from, which is what Reset restores,
+    // and takes one undo checkpoint for the whole synthesis run.
+    if (!ctx.runOpenRef.current) {
         ctx.checkpointRef.current && ctx.checkpointRef.current();
-        ctx.savedDesignRef.current = { frontLayers: ctx.designRef.current.frontLayers, backLayers: ctx.designRef.current.backLayers };
+        ctx.runsRef.current = openRunBlock(ctx.runsRef.current, ctx.designRef.current);
+        ctx.savedDesignRef.current = activeBaseline(ctx.runsRef.current);
         ctx.baseDesignRef.current  = curDes;
+        // Generations are numbered within their run, so a new block starts at 1.
+        ctx.genCountRef.current = 0;
+        ctx.runOpenRef.current     = true;
         ctx.setCanReset(true);
     }
 
@@ -103,6 +118,9 @@ export function runNeedleWorkerPool(ctx) {
         stepIter: ctx.dlsIterRef.current,
         innerEngine, maxBatches: getSynthesisMaxBatches(), K,
         best: { mf: Infinity, frontLayers: null, backLayers: null },
+        // Thin-start rescue: fires at most once, and keeps the design it was
+        // called on so the run can never end worse than it stalled.
+        rescued: false, preRescueBest: null,
         genNum: ctx.genCountRef.current,
         prevBestMF: ctx.gensRef.current.length ? Math.min(...ctx.gensRef.current.map(g => g.mf)) : Infinity,
         runT0: performance.now() - prevElapsed,

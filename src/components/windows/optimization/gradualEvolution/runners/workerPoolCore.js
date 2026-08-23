@@ -4,6 +4,7 @@
 // trigger. See workerPool.js for the engine overview.
 
 import { minOmfOf } from '../../synthesisShared/synthesisHelpers.js';
+import { activeRunNum } from '../../synthesisShared/runBlocks.js';
 import { setCached } from '../sessionState.js';
 import { runGeMainThread } from './mainThread.js';
 
@@ -58,6 +59,7 @@ export function recordCycle(ctx, S, { type, mf, layerCount, insertMat, side, act
     const cy = {
         id: Math.random().toString(36).slice(2),
         genNum: S.genNum, type, mf, omf, dMF, layerCount, insertMat, side, tot,
+        runNum: activeRunNum(ctx.runsRef.current),
         tMs: performance.now() - S.runT0,
         layers:    deep(activeLayers),                 // active-side snapshot
         frontSnap: fSnap,
@@ -73,6 +75,7 @@ export function recordCycle(ctx, S, { type, mf, layerCount, insertMat, side, act
     ctx.setOmfBest(minOmfOf(ctx.cyclesRef.current));
     setCached(ctx.designRef.current?.id, {
         cycles: ctx.cyclesRef.current, geSteps: S.geSteps,
+        runs: ctx.runsRef.current,
         savedDesign: ctx.savedDesignRef.current, baseDesign: ctx.baseDesignRef.current,
     });
 }

@@ -33,9 +33,11 @@ const sectionHeaderStyle = (c) => ({
 // Run/Stop/Reset/Best buttons + optimize/eval badges + a metrics readout + an
 // optional status message. `metrics` is an array of readout children built by
 // the window; `onResetSide` (when provided, in both_independent mode) adds the
-// per-side ↺ Front / ↺ Back buttons.
+// per-side ↺ Front / ↺ Back buttons; `onClearHistory` (with `hasHistory`) adds
+// the Clear history button.
 export function SynthesisControlBar({
     running, canReset, onRun, onStop, onReset, onBest, onResetSide,
+    onClearHistory, hasHistory,
     design, labels, stopColor = '#ef5350', metrics, statusMsg, statusColor,
     noOperandsLabel, c, t,
 }) {
@@ -80,6 +82,9 @@ export function SynthesisControlBar({
         onResetSide && isBothInd && smallBtn('↺ Front', () => onResetSide('front'), !canReset),
         onResetSide && isBothInd && smallBtn('↺ Back',  () => onResetSide('back'),  !canReset),
         btn(labels.best, '#0288d1', onBest, !canReset),
+        // Keep the design the run produced and start a clean history. Reset
+        // undoes one run; this forgets all of them and touches nothing.
+        onClearHistory && smallBtn(labels.clearHistory, onClearHistory, !hasHistory),
         // What's being optimized + what's evaluated (matches Refinement).
         h('span', { style: { marginLeft: 6, display: 'inline-flex', alignItems: 'center', gap: 4 } },
             h(OptimizeBadge, { design, c, t }),

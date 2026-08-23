@@ -2,6 +2,7 @@ import {
     deepTemperature, temperatureAt, stagnationAction, basinKick,
 } from '../../../../../utils/synthesis/structuralOptimizer.js';
 import { computePareto, minOmfOf } from '../../synthesisShared/synthesisHelpers.js';
+import { activeRunNum } from '../../synthesisShared/runBlocks.js';
 import { alive, deep, sumD } from './runUtils.js';
 import { refineScore } from './refine.js';
 import { generateProposals, refineProposals, acceptProposal } from './proposals.js';
@@ -31,6 +32,9 @@ function finalize(ctx, S, reason) {
     if (ctx.runIdRef.current !== S.runId) return;
     commitBest(ctx, S);
     ctx.runningRef.current = false;
+    // The engine stopped on its own, so this run block is finished and the next
+    // Run press opens a new one; a user Stop leaves it open (runBlocks.js).
+    ctx.runOpenRef.current = false;
     ctx.killWorkers();
     ctx.setRunning(false);
     ctx.setTemp(null);
@@ -56,6 +60,7 @@ function recordBest(ctx, S, candidate, mutation) {
     const generation = {
         id: Math.random().toString(36).slice(2),
         genNum: ctx.genCountRef.current,
+        runNum: activeRunNum(ctx.runsRef.current),
         mf: candidate.mf, omf: candidate.omf, dMF, side: S.side,
         kind: mutation.kind,
         layerCount: (S.best[S.layerKey] || []).length,
@@ -83,7 +88,7 @@ function updateIterationState(ctx, S, iteration) {
     }
     ctx.trendRef.current = [
         ...ctx.trendRef.current,
-        { iter: ++S.trendX, cur: S.current.mf, best: S.best.mf },
+        { iter: ++S.trendX, cur: S.current.mf, best: S.best.mf, runNum: activeRunNum(ctx.runsRef.current) },
     ];
     if (iteration % 2 === 0 || S.noImprove === 0) ctx.setTrend(ctx.trendRef.current.slice());
     ctx.setAccRate(S.attempts ? S.accepts / S.attempts : null);

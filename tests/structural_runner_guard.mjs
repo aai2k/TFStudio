@@ -134,6 +134,7 @@ function makeCtx(surfaceMode, options) {
         }),
         runningRef, workersRef, runIdRef: ref(0), designRef,
         operandsRef: ref(copy(OPERANDS)), savedDesignRef: ref(null), baseDesignRef: ref(null),
+        runsRef: ref([]), runOpenRef: ref(false),
         gensRef: ref([]), genCountRef: ref(0), trendRef: ref([]),
         updateDesignRef: ref((patch) => {
             designRef.current = { ...designRef.current, ...copy(patch) };

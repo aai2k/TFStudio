@@ -11,6 +11,7 @@ import {
     SynthesisControlBar, SynthesisSidebarFrame, makeRowHelpers,
 } from '../synthesisShared/synthesisShell.js';
 import { SynthesisHistoryTable, ChartSurface } from '../synthesisShared/synthesisHelpers.js';
+import { groupRowsByRun, RUN_COLORS } from '../synthesisShared/runBlocks.js';
 import { cartesianOption, horizontalLegend, lineSeries, scatterSeries, valueAxis } from '../../../ui/chartOptions.js';
 import {
     getSynthesisInnerEngine, setSynthesisInnerEngine,
@@ -27,14 +28,17 @@ const { createElement: h } = React;
 
 // ── MF trend chart ────────────────────────────────────────────────────────────
 // Log MF vs generation, with GE-step insertions marked as triangles.
-export function MFTrendChart({ cycles, c, theme, emptyMsg }) {
+export function MFTrendChart({ cycles, c, theme, emptyMsg, t }) {
     const buildOption = () => {
         const geCycles = cycles.filter(cy => cy.type === 'ge');
-        const series = [lineSeries({
-            x: cycles.map(cycle => cycle.genNum), y: cycles.map(cycle => cycle.mf),
-            name: 'MF', color: '#42a5f5', width: 1.5,
+        // One line per Run press: cycles are numbered within their run, so a
+        // single line would fold the runs on top of each other.
+        const series = groupRowsByRun(cycles).map((group, i) => lineSeries({
+            x: group.rows.map(row => row.genNum), y: group.rows.map(row => row.mf),
+            name: group.runNum == null ? 'MF' : t.gradualEvolution.runSeparator(group.runNum),
+            color: RUN_COLORS[i % RUN_COLORS.length], width: 1.5,
             symbol: 'circle', symbolSize: 5,
-        })];
+        }));
         if (geCycles.length) {
             series.push(scatterSeries({
                 data: geCycles.map(cycle => ({ value: [cycle.genNum, cycle.mf], geStep: cycle.geStep })),
@@ -58,7 +62,8 @@ export function MFTrendChart({ cycles, c, theme, emptyMsg }) {
 
 // ── Control bar ───────────────────────────────────────────────────────────────
 export function ControlBar({ running, generation, layerCount, mf, mfBest, geSteps,
-                             canReset, onRun, onStop, onReset, onResetSide, onBest, statusMsg, design, t, c }) {
+                             canReset, onRun, onStop, onReset, onResetSide, onBest,
+                             onClearHistory, hasHistory, statusMsg, design, t, c }) {
     const tg = t.gradualEvolution;
     const showBest = mf != null && mfBest != null && mfBest < mf - 1e-9;
     const metrics = [
@@ -75,8 +80,9 @@ export function ControlBar({ running, generation, layerCount, mf, mfBest, geStep
     ];
     return h(SynthesisControlBar, {
         running, canReset, onRun, onStop, onReset, onBest, onResetSide,
+        onClearHistory, hasHistory,
         design, c, t,
-        labels: { run: tg.run, stop: tg.stop, reset: tg.reset, best: tg.best },
+        labels: { run: tg.run, stop: tg.stop, reset: tg.reset, best: tg.best, clearHistory: tg.clearHistory },
         metrics, statusMsg, noOperandsLabel: tg.noOperands,
         statusColor: c.accent || '#ffa726',
     });
@@ -183,6 +189,7 @@ export function CyclesTable({ cycles, bestMF, onRestore, showSide, c, t }) {
             noGens: tg.noGens, genCol: tg.genCol, layersCol: tg.layersCol,
             mfCol: tg.mfCol, omfCol: tg.omfCol, totCol: tg.totCol, timeCol: tg.timeCol,
             dMFCol: tg.dMFCol, matCol: tg.matCol, restore: tg.restore,
+            runSeparator: tg.runSeparator,
         },
         // GE's extra Needle/GE "type" badge column (inserted after Side).
         typeColumn: {

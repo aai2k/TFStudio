@@ -14,6 +14,7 @@
 import { makeEngine } from '../../../../../utils/optimizers/index.js';
 import { getSynthesisInnerEngine, getSynthesisSeedMode } from '../../../../../utils/synthesis/synthesisConfig.js';
 import { activeSide, densifyForRun, materialLookup } from '../../synthesisShared/synthesisHelpers.js';
+import { activeBaseline, openRunBlock } from '../../synthesisShared/runBlocks.js';
 import { scheduleTick } from './mainThreadCore.js';
 import { phaseSeedDls } from './mainThreadSeed.js';
 import { phaseNeedleScan, phaseDls1, phaseDls2 } from './mainThreadNeedle.js';
@@ -43,12 +44,19 @@ export function runGeMainThread(ctx) {
     const side = activeSide(curDes);
     const LK   = side === 'back' ? 'backLayers' : 'frontLayers';
 
-    if (!ctx.savedDesignRef.current) {
-        // One undo checkpoint for the whole GE run; the per-step design writes
-        // below are transient previews (no per-iteration history).
+    // Open a run block for this press unless one is still open from a Stop. The
+    // block records the design the press started from, which is what Reset
+    // restores (synthesisShared/runBlocks.js), and takes one undo checkpoint for
+    // the whole GE run; the per-step design writes below are transient previews
+    // (no per-iteration history).
+    if (!ctx.runOpenRef.current) {
         ctx.checkpointRef.current && ctx.checkpointRef.current();
-        ctx.savedDesignRef.current = { frontLayers: ctx.designRef.current.frontLayers, backLayers: ctx.designRef.current.backLayers };
+        ctx.runsRef.current = openRunBlock(ctx.runsRef.current, ctx.designRef.current);
+        ctx.savedDesignRef.current = activeBaseline(ctx.runsRef.current);
         ctx.baseDesignRef.current  = curDes;
+        // Generations are numbered within their run, so a new block starts at 1.
+        ctx.genCountRef.current = 0;
+        ctx.runOpenRef.current     = true;
         ctx.setCanReset(true);
     }
 

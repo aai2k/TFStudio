@@ -5,6 +5,7 @@
 
 import { PRESERVE_BULK_GENTLE_ITER } from '../../../../../utils/synthesis/synthesisConfig.js';
 import { minOmfOf } from '../../synthesisShared/synthesisHelpers.js';
+import { activeRunNum } from '../../synthesisShared/runBlocks.js';
 import { setCached } from '../sessionState.js';
 
 // Per-step inner-refine cap when seed mode = 'preserve-bulk' (see synthesisConfig).
@@ -25,6 +26,7 @@ export function recordCycle(ctx, S, { type, mf, layerCount, insertMat, omf }) {
     ctx.cyclesRef.current = [...ctx.cyclesRef.current, {
         id: Math.random().toString(36).slice(2),
         genNum, type, mf, omf,
+        runNum: activeRunNum(ctx.runsRef.current),
         dMF: prevBest === Infinity ? null : mf - prevBest,
         layerCount, insertMat,
         tMs: performance.now() - S.runT0,
@@ -38,6 +40,7 @@ export function recordCycle(ctx, S, { type, mf, layerCount, insertMat, omf }) {
     ctx.setOmfBest(minOmfOf(ctx.cyclesRef.current));
     setCached(ctx.designRef.current?.id, {
         cycles: ctx.cyclesRef.current, geSteps: ctx.geStepsRef.current,
+        runs: ctx.runsRef.current,
         savedDesign: ctx.savedDesignRef.current, baseDesign: ctx.baseDesignRef.current,
     });
 }
@@ -51,6 +54,9 @@ export function finalize(ctx, S, msg) {
         ctx.setLayerCount(S.best.front.length);
     }
     ctx.runningRef.current = false;
+    // The engine stopped on its own, so this run block is finished and the next
+    // Run press opens a new one; a user Stop leaves it open (runBlocks.js).
+    ctx.runOpenRef.current = false;
     ctx.setPhase('idle');
     ctx.setStatusMsg(msg);
 }

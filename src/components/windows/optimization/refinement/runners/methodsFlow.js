@@ -25,8 +25,23 @@ function runMethodOnce(ctx, m, F) {
     return runEngineP(ctx, m, { ops: F.ops, payload: F.payload, materials: F.materials, alive: F.alive, onProg: F.onProg, preview: true, maxIterOverride: mi });
 }
 
-// Record one method's result: append a history row; track the global best.
-function recordMethodResult(ctx, F, m, res, best) {
+// Track the global best across methods. Arms Best as soon as one method beats
+// the start rather than at the end of the flow, so a Stop part-way through Try
+// all can still hand back the best design found so far.
+function trackGlobalBest(ctx, m, res, best) {
+    if (!(res.mf < best.cur.mf)) return;
+    best.cur = { mf: res.mf, omf: res.omf, frontLayers: res.frontLayers, backLayers: res.backLayers, method: m };
+    ctx.setOmfBest(best.cur.omf);
+    ctx.lastBestRef.current = {
+        mfBest: best.cur.mf, omf: best.cur.omf,
+        frontLayers: best.cur.frontLayers, backLayers: best.cur.backLayers,
+    };
+}
+
+// Append one Design History row. Only a method that ran to its own stopping
+// point gets one: the strip is a record of completed runs, and a row cut short
+// by Stop would read as a result the method actually reached.
+function recordMethodResult(ctx, F, m, res) {
     const layers = (F.layerSide === 'backLayers' ? res.backLayers : res.frontLayers) || [];
     ctx.addHistEntry({
         id: Math.random().toString(36).slice(2),
@@ -35,15 +50,16 @@ function recordMethodResult(ctx, F, m, res, best) {
         layerSide: F.layerSide,
         mfHistory: [...F.methodHistory],
     });
-    if (res.mf < best.cur.mf) {
-        best.cur = { mf: res.mf, omf: res.omf, frontLayers: res.frontLayers, backLayers: res.backLayers, method: m };
-        ctx.setOmfBest(best.cur.omf);
-    }
 }
 
-// Apply the global best; set a synthetic optimizerRef so Best/Reset work.
+// Apply the global best; set a synthetic optimizerRef so Best/Reset work. A run
+// cut short by Stop keeps the design and the readout where the user stopped it —
+// Best is the action that moves the design, not Stop — so only a run that got to
+// the end of its method list publishes here.
 function finalizeMethodsFlow(ctx, F, gb, methods) {
+    const completed = F.alive();   // read before clearing the flag alive() tests
     ctx.runningRef.current = false; ctx.setRunning(false); ctx.setRestartIdx(0);
+    if (!completed) return;
     ctx.updateDesignRef.current({ frontLayers: gb.frontLayers, backLayers: gb.backLayers }, { transient: true });
     ctx.lastBestRef.current = { mfBest: gb.mf, omf: gb.omf, frontLayers: gb.frontLayers, backLayers: gb.backLayers };
     ctx.optimizerRef.current = {
@@ -107,7 +123,10 @@ function completeMethod(F, method, result) {
     F.completedMethodIters = Math.max(F.lastMethodIter, resultIters);
     if (result) {
         F.methodHistory = appendMfSample(F.methodHistory, F.completedMethodIters, result.mf);
-        recordMethodResult(ctx, F, method, result, best);
+        trackGlobalBest(ctx, method, result, best);
+        // A method interrupted by Stop still contributes whatever it found to the
+        // global best, but leaves no history row (see recordMethodResult).
+        if (F.alive()) recordMethodResult(ctx, F, method, result);
     }
     F.iterationOffset += F.completedMethodIters;
     ctx.setIter(F.iterationOffset);
@@ -146,6 +165,10 @@ export async function runMethodsFlow(ctx, methods) {
     const myRun = ++ctx.runIdRef.current;
     const alive = () => ctx.runningRef.current && ctx.runIdRef.current === myRun;
     ctx.runningRef.current = true; ctx.setRunning(true); ctx.setCanReset(true);
+    // Drop the previous run's result so Best cannot hand back a design from a run
+    // this one has already replaced (matches runDlsEvent).
+    ctx.lastBestRef.current = null;
+    ctx.optimizerRef.current = null;
     ctx.setMfHistory([{ iter: 0, mf: baseMF }]); ctx.setIter(0); ctx.setStopReason(null); ctx.setRestartIdx(0);
     ctx.setMf(baseMF); ctx.setMfBest(baseMF); ctx.setOmf(baseOMF); ctx.setOmfBest(baseOMF);
 

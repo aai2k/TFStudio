@@ -13,7 +13,8 @@ import {
 import {
     SynthesisHistoryTable, TopDesignsPanel as SharedTopDesignsPanel, ChartSurface,
 } from '../synthesisShared/synthesisHelpers.js';
-import { cartesianOption, lineSeries, valueAxis } from '../../../ui/chartOptions.js';
+import { cartesianOption, horizontalLegend, lineSeries, valueAxis } from '../../../ui/chartOptions.js';
+import { groupRowsByRun, RUN_COLORS } from '../synthesisShared/runBlocks.js';
 import {
     getSynthesisInnerEngine, setSynthesisInnerEngine,
     getSynthesisCandMode, setSynthesisCandMode,
@@ -26,19 +27,26 @@ const { createElement: h } = React;
 
 // ── MF trend chart ─────────────────────────────────────────────────────────────
 // Merit function across accepted generations, matching the Gradual Evolution and
-// Structural windows (log MF vs generation).
-export function MFTrendChart({ generations, c, theme, emptyMsg }) {
-    const buildOption = () => cartesianOption({
-        colors: c,
-        grid: { left: 54, right: 8, top: 4, bottom: 30 },
-        xAxis: valueAxis({ name: 'Generation', color: c.text, gridColor: c.border, nameGap: 24 }),
-        yAxis: { ...valueAxis({ name: 'MF', color: c.text, gridColor: c.border, nameGap: 34 }), type: 'log' },
-        series: [lineSeries({
-            x: generations.map(generation => generation.genNum),
-            y: generations.map(generation => generation.mf),
-            name: 'MF', color: '#42a5f5', width: 1.5, symbol: 'circle', symbolSize: 5,
-        })],
-    });
+// Structural windows (log MF vs generation). One line per Run press, since
+// generations are numbered within their run (synthesisShared/runBlocks.js).
+export function MFTrendChart({ generations, c, theme, emptyMsg, t }) {
+    const buildOption = () => {
+        const groups = groupRowsByRun(generations);
+        return cartesianOption({
+            colors: c,
+            grid: { left: 54, right: 8, top: groups.length > 1 ? 24 : 4, bottom: 30 },
+            ...(groups.length > 1 ? { legend: horizontalLegend({ color: c.text, top: 0 }) } : {}),
+            xAxis: valueAxis({ name: 'Generation', color: c.text, gridColor: c.border, nameGap: 24 }),
+            yAxis: { ...valueAxis({ name: 'MF', color: c.text, gridColor: c.border, nameGap: 34 }), type: 'log' },
+            series: groups.map((group, i) => lineSeries({
+                x: group.rows.map(row => row.genNum),
+                y: group.rows.map(row => row.mf),
+                name: group.runNum == null ? 'MF' : t.needle.runSeparator(group.runNum),
+                color: RUN_COLORS[i % RUN_COLORS.length],
+                width: 1.5, symbol: 'circle', symbolSize: 5,
+            })),
+        });
+    };
     return h(ChartSurface, {
         buildOption, hasData: generations.length > 0, empty: emptyMsg,
         c,
@@ -47,7 +55,8 @@ export function MFTrendChart({ generations, c, theme, emptyMsg }) {
 
 // ── Control bar ───────────────────────────────────────────────────────────────
 export function ControlBar({ running, phase, generation, layerCount, mf, mfBest, canReset,
-                             onRun, onStop, onReset, onResetSide, onBest, statusMsg, design, t, c }) {
+                             onRun, onStop, onReset, onResetSide, onBest,
+                             onClearHistory, hasHistory, statusMsg, design, t, c }) {
     const tn = t.needle;
     const showBest = mf != null && mfBest != null && mfBest < mf - 1e-9;
     const metrics = [
@@ -62,8 +71,9 @@ export function ControlBar({ running, phase, generation, layerCount, mf, mfBest,
     ];
     return h(SynthesisControlBar, {
         running, canReset, onRun, onStop, onReset, onBest, onResetSide,
+        onClearHistory, hasHistory,
         design, c, t,
-        labels: { run: tn.run, stop: tn.stop, reset: tn.reset, best: tn.best },
+        labels: { run: tn.run, stop: tn.stop, reset: tn.reset, best: tn.best, clearHistory: tn.clearHistory },
         metrics, statusMsg, noOperandsLabel: tn.noOperands,
         statusColor: phase === 'idle' ? c.textDim : (c.accent || '#ffa726'),
     });
@@ -130,6 +140,7 @@ export function GenerationsTable({ generations, bestMF, onRestore, showSide, c, 
             noGens: tn.noGens, genCol: tn.genCol, layersCol: tn.layersCol,
             mfCol: tn.mfCol, omfCol: tn.omfCol, totCol: tn.totCol, timeCol: tn.timeCol,
             dMFCol: tn.dMFCol, matCol: tn.matCol, restore: tn.restore,
+            runSeparator: tn.runSeparator, rescueRow: tn.rescueRow,
         },
     });
 }
@@ -138,6 +149,6 @@ export function GenerationsTable({ generations, bestMF, onRestore, showSide, c, 
 export function TopDesignsPanel({ topDesigns, bestMF, onRestore, c, t }) {
     return h(SharedTopDesignsPanel, {
         topDesigns, bestMF, onRestore, c, genPrefix: 'Gen ',
-        labels: { topDesigns: t.needle.topDesigns, restore: t.needle.restore },
+        labels: { topDesigns: t.needle.topDesigns, restore: t.needle.restore, runSeparator: t.needle.runSeparator },
     });
 }

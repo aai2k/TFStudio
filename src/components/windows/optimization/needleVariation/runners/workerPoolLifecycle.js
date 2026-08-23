@@ -33,8 +33,13 @@ export const wpAlive = (run) => run.ctx.runningRef.current && run.ctx.workerRef.
 // Restore the best design, publish it, cache for tab-switch survival, and stop
 // the run with a status message. No-op if the run no longer owns the pool.
 export function wpFinalize(run, reason) {
-    const { ctx, best } = run;
+    const { ctx } = run;
     if (ctx.workerRef.current !== run.workerPool) return;
+    // A thin-start rescue continues from a thicker design even when that design
+    // starts out worse (workerPoolRescue.js), so the run publishes whichever of
+    // the two ended lower.
+    const pre = run.preRescueBest;
+    const best = (pre && pre.mf < run.best.mf) ? pre : run.best;
     if (best.frontLayers || best.backLayers) {
         const patch = {};
         if (best.frontLayers) patch.frontLayers = best.frontLayers;
@@ -49,10 +54,15 @@ export function wpFinalize(run, reason) {
     }
     ctx.setCachedOptState(ctx.designRef.current?.id, {
         generations: ctx.gensRef.current,
+        runs:        ctx.runsRef.current,
         savedDesign: ctx.savedDesignRef.current,
         baseDesign:  ctx.baseDesignRef.current,
     });
     ctx.runningRef.current = false;
+    // The engine stopped on its own, so this run block is finished: the next Run
+    // press opens a new one. A user Stop leaves it open, so Run carries on in the
+    // same block (synthesisShared/runBlocks.js).
+    ctx.runOpenRef.current = false;
     ctx.setPhase('idle');
     ctx.setStatusMsg(reason || '');
     ctx.setCanReset(true);

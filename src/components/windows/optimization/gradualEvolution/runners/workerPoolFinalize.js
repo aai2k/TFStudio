@@ -53,9 +53,13 @@ export async function finalize(ctx, S, reason) {
     }
     setCached(ctx.designRef.current?.id, {
         cycles: ctx.cyclesRef.current, geSteps: S.geSteps,
+        runs: ctx.runsRef.current,
         savedDesign: ctx.savedDesignRef.current, baseDesign: ctx.baseDesignRef.current,
     });
     ctx.runningRef.current = false;
+    // The engine stopped on its own, so this run block is finished and the next
+    // Run press opens a new one; a user Stop leaves it open (runBlocks.js).
+    ctx.runOpenRef.current = false;
     ctx.setPhase('idle');
     ctx.setStatusMsg(reason || '');
     ctx.setCanReset(true);

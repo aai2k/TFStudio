@@ -6,6 +6,7 @@
  */
 
 import { computePareto, minOmfOf } from '../../synthesisShared/synthesisHelpers.js';
+import { activeRunNum } from '../../synthesisShared/runBlocks.js';
 import { wpOnTick, wpAlive } from './workerPoolLifecycle.js';
 
 // Index of the lowest post-refine MF in a candidate batch (−1 if none valid).
@@ -30,6 +31,8 @@ export function wpRecordGeneration(run, res, cand, candSide, candLK) {
     const gen = {
         id: Math.random().toString(36).slice(2),
         genNum: run.genNum, mf: best.mf, omf: res.omf, dMF,
+        runNum: activeRunNum(ctx.runsRef.current),
+        rescued:    run.markRescue || undefined,
         side:       candSide,
         layerCount: activeLayers.length,
         tot:        sumD(best.frontLayers) + sumD(best.backLayers),
@@ -39,6 +42,7 @@ export function wpRecordGeneration(run, res, cand, candSide, candLK) {
         frontSnap:  run.deep(best.frontLayers),     // full-design snapshot
         backSnap:   run.deep(best.backLayers),
     };
+    run.markRescue = false;
     ctx.gensRef.current     = [...ctx.gensRef.current, gen];
     ctx.genCountRef.current = run.genNum;
     ctx.setGenerations(ctx.gensRef.current.slice());
@@ -50,6 +54,7 @@ export function wpRecordGeneration(run, res, cand, candSide, candLK) {
     ctx.setOmfBest(minOmfOf(ctx.gensRef.current));
     ctx.setCachedOptState(ctx.designRef.current?.id, {
         generations: ctx.gensRef.current,
+        runs:        ctx.runsRef.current,
         savedDesign: ctx.savedDesignRef.current,
         baseDesign:  ctx.baseDesignRef.current,
     });

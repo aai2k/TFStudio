@@ -1,5 +1,6 @@
 import { matFriendlyName } from './materialNames.js';
 import { matColorAlpha } from './materialColors.js';
+import { runSeparatorIds } from './runBlocks.js';
 
 const { createElement: h } = React;   // React is a window global (never imported)
 
@@ -11,6 +12,13 @@ const { createElement: h } = React;   // React is a window global (never importe
 // side column). Rows are reversed for display (newest first), matching both
 // windows. `labels` carries the per-window locale strings.
 export function SynthesisHistoryTable({ rows, bestMF, onRestore, showSide, c, labels, typeColumn = null }) {
+    // Rows read newest first, and each Run press gets a separator above its
+    // newest row, so rows from an earlier run are not read as part of the one on
+    // screen (runBlocks.js).
+    const display = [...rows].reverse();
+    const separatorIds = runSeparatorIds(display);
+    const colCount = 8 + (showSide ? 1 : 0) + (typeColumn ? 1 : 0);
+
     const th = (label, w) => h('th', {
         style: {
             padding: '2px 5px', fontSize: 10, fontWeight: 700, color: c.textDim,
@@ -63,9 +71,23 @@ export function SynthesisHistoryTable({ rows, bestMF, onRestore, showSide, c, la
                 )
             ),
             h('tbody', null,
-                [...rows].reverse().map(row => {
+                display.flatMap(row => {
                     const isBest = Math.abs(row.mf - bestMF) < 1e-12;
-                    return h('tr', {
+                    const marks = [
+                        separatorIds.has(row.id) && labels.runSeparator(row.runNum),
+                        row.rescued && labels.rescueRow,
+                    ].filter(Boolean);
+                    const separator = marks.length ? [h('tr', { key: `${row.id}-run` },
+                        h('td', {
+                            colSpan: colCount,
+                            style: {
+                                padding: '3px 5px', fontSize: 10, fontWeight: 700,
+                                color: c.textDim, textTransform: 'uppercase',
+                                letterSpacing: '0.04em', whiteSpace: 'nowrap',
+                                borderTop: `1px solid ${c.border}`, background: c.panel,
+                            }
+                        }, marks.join(' · ')))] : [];
+                    return [...separator, h('tr', {
                         key: row.id,
                         style: { background: isBest ? `${c.accent || '#ffa726'}1a` : 'transparent' }
                     },
@@ -106,7 +128,7 @@ export function SynthesisHistoryTable({ rows, bestMF, onRestore, showSide, c, la
                                 }
                             }, labels.restore)
                         )
-                    );
+                    )];
                 })
             )
         )

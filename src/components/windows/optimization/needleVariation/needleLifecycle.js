@@ -34,10 +34,14 @@ function applyCachedState(ctx, cached) {
     const bestMF   = gens.length ? Math.min(...gens.map(g => g.mf)) : null;
     const bestOMFv = minOmfOf(gens);
     ctx.gensRef.current        = gens;
+    ctx.runsRef.current        = cached.runs || [];
     ctx.genCountRef.current    = lastGen?.genNum ?? 0;
     ctx.lastBestRef.current    = null;
     ctx.savedDesignRef.current = cached.savedDesign;
     ctx.baseDesignRef.current  = cached.baseDesign;
+    // A remount is not a Stop: the run that filled this cache is over, so its
+    // block is closed and the next Run press opens a new one.
+    ctx.runOpenRef.current     = false;
     ctx.setGenerations(gens.slice());
     ctx.setTopDesigns(computePareto(gens));
     ctx.setMf(lastGen?.mf ?? null);
@@ -52,6 +56,8 @@ function applyCachedState(ctx, cached) {
 // Clear all optimization display/refs state for a design with no cached run.
 function clearOptState(ctx, design) {
     ctx.gensRef.current        = [];
+    ctx.runsRef.current        = [];
+    ctx.runOpenRef.current     = false;
     ctx.genCountRef.current    = 0;
     ctx.lastBestRef.current    = null;
     ctx.savedDesignRef.current = null;

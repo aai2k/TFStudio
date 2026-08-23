@@ -34,6 +34,7 @@ export function NeedleVariation({ c, theme, t }) {
             onRun: s.runOpt, onStop: () => s.stopOpt(''),
             onReset: () => s.resetOpt(),
             onResetSide: (sd) => s.resetOpt(sd),
+            onClearHistory: s.clearHistoryOpt, hasHistory: s.hasHistory,
             onBest: s.bestOpt,
             statusMsg: s.statusMsg, design: s.design, t, c,
         }),
@@ -47,7 +48,7 @@ export function NeedleVariation({ c, theme, t }) {
             onTargetMF: s.setTargetMF,
             running: s.running, c, t,
         }),
-        trend: h(MFTrendChart, { generations: s.generations, c, theme, emptyMsg: tn.noTrendYet }),
+        trend: h(MFTrendChart, { generations: s.generations, c, theme, emptyMsg: tn.noTrendYet, t }),
         table: h(GenerationsTable, {
             generations: s.generations, bestMF: s.bestMFVal,
             onRestore: s.handleRestore, showSide: s.showSideCol, c, t,

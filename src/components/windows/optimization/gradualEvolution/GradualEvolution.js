@@ -44,6 +44,7 @@ export function GradualEvolution({ c, theme, t }) {
         maxLayers, maxGeCycles, targetMF, dlsIter, dMin, maxMNT,
         setMaxLayers, setMaxGeCycles, setTargetMF, setDlsIter, handleDMin,
         runOpt, stopOpt, resetOpt, bestOpt, handleRestore,
+        clearHistoryOpt, hasHistory,
     } = useGradualEvolution({ design, updateDesign, checkpoint, beginOptimization, endOptimization, getDesignRevision, t });
 
     // ── Render ────────────────────────────────────────────────────────────────
@@ -69,6 +70,7 @@ export function GradualEvolution({ c, theme, t }) {
             onRun: runOpt, onStop: () => stopOpt(''),
             onReset: () => resetOpt(),
             onResetSide: (sd) => resetOpt(sd),
+            onClearHistory: clearHistoryOpt, hasHistory,
             onBest: bestOpt,
             statusMsg, design, t, c,
         }),
@@ -83,7 +85,7 @@ export function GradualEvolution({ c, theme, t }) {
             onDlsIter: setDlsIter, onDMin: handleDMin,
             running, c, t,
         }),
-        trend: h(MFTrendChart, { cycles, c, theme, emptyMsg: tg.noTrendYet }),
+        trend: h(MFTrendChart, { cycles, c, theme, emptyMsg: tg.noTrendYet, t }),
         table: h(CyclesTable, {
             cycles: renderableCycles,
             bestMF: bestMFVal, onRestore: handleRestore,
@@ -91,7 +93,7 @@ export function GradualEvolution({ c, theme, t }) {
         }),
         topDesigns: h(SharedTopDesignsPanel, {
             topDesigns, bestMF: bestMFVal, onRestore: handleRestore, c, genPrefix: 'Gen ',
-            labels: { topDesigns: tg.topDesigns, restore: tg.restore },
+            labels: { topDesigns: tg.topDesigns, restore: tg.restore, runSeparator: tg.runSeparator },
         }),
     });
 }

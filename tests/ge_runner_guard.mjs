@@ -112,6 +112,7 @@ function makeCtx(design, ops, settings) {
         runningRef: ref(false), timerRef: ref(null), workerRef: ref(null), dlsRef: ref(null),
         baseDesignRef: ref(null), savedDesignRef: ref(null), designRef,
         operandsRef: ref(ops), cyclesRef: ref([]), genCountRef: ref(0), geStepsRef: ref(0),
+        runsRef: ref([]), runOpenRef: ref(false),
         updateDesignRef: ref((patch) => {
             designRef.current = { ...designRef.current, ...patch };
             snap.applied = {

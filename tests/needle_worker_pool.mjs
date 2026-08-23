@@ -45,7 +45,12 @@ const seedDesign = () => ({
     backLayers: [], surfaceMode: 'front_only', mfEvalMode: 'side',
 });
 
-const tStub = { needle: { noOperands: 'no operands', smartSeeding: (n) => `smart-seeding ${n}` } };
+const tStub = { needle: {
+    noOperands: 'no operands',
+    smartSeeding:  (n) => `smart-seeding ${n}`,
+    rescueTrying:  (n) => `rescue: ${n} thicker starts`,
+    rescueApplied: (f, tot) => `rescue x${f} (${tot} nm)`,
+} };
 
 // In-process fake pool: exactly mirrors the Web Worker's onmessage — per job it
 // rebuilds resolveMat from job.materials and runs dispatchSynthesisJob, routing
@@ -82,6 +87,7 @@ function makeRun(counter) {
         baseDesignRef: ref(null), savedDesignRef: ref(null), designRef: ref(design),
         operandsRef: ref(ops.map(o => ({ ...o, enabled: true }))),
         gensRef: ref([]), genCountRef: ref(0), lastBestRef: ref(null),
+        runsRef: ref([]), runOpenRef: ref(false),
         maxLayersRef: ref(6), deltaNmRef: ref(0.5), dMinRef: ref(1.0),
         dlsIterRef: ref(30), targetMFRef: ref(1e-4),
         selectedCatsRef: ref([]), excludedMatsRef: ref(new Set()),
@@ -109,7 +115,7 @@ async function runOnce() {
         await Promise.race([done, new Promise((_, rej) => setTimeout(() => rej(new Error('timeout')), 30000))]);
     }
     return {
-        gens: ctx.gensRef.current.map(g => ({ genNum: g.genNum, layerCount: g.layerCount, mf: g.mf })),
+        gens: ctx.gensRef.current.map(g => ({ genNum: g.genNum, layerCount: g.layerCount, mf: g.mf, runNum: g.runNum, rescued: !!g.rescued })),
         jobsRun: counter.n,
     };
 }
@@ -127,10 +133,18 @@ ok('worker path actually ran (dispatched pool jobs, no fallback)', A.jobsRun > 0
 ok('grew the stack (≥1 accepted generation)', A.gens.length >= 1);
 ok('every generation has ≥2 layers (grew past the seed)', A.gens.every(g => g.layerCount >= 2));
 ok('merit finite', A.gens.every(g => Number.isFinite(g.mf)));
-// Accept rule guarantees each recorded generation strictly improves the best.
+// The accept rule guarantees each recorded generation strictly improves on the
+// one before it, EXCEPT across a thin-start rescue: that restarts the loop from
+// a thicker design chosen for the room it has to grow, not for the merit it
+// starts at, so the first generation after it is allowed to read worse. The
+// rescue tags that generation, and wpFinalize still publishes the better of the
+// two designs, so a rescue can never make the run's answer worse.
 let mono = true;
-for (let i = 1; i < A.gens.length; i++) if (!(A.gens[i].mf < A.gens[i - 1].mf - 1e-9)) mono = false;
-ok('merit improves monotonically across accepted generations', mono);
+for (let i = 1; i < A.gens.length; i++) {
+    if (A.gens[i].rescued) continue;
+    if (!(A.gens[i].mf < A.gens[i - 1].mf - 1e-9)) mono = false;
+}
+ok('merit improves monotonically within each phase of a run', mono);
 ok('reached a usable BBAR (final MF < 0.05)', A.gens.length && A.gens[A.gens.length - 1].mf < 0.05);
 
 // Determinism: the fake pool runs jobs in-order synchronously and the math has

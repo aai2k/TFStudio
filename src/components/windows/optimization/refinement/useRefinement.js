@@ -28,7 +28,9 @@ function killAllWorkers(env) {
     }
     poolRef.current = [];
     if (dePoolRef.current) { try { dePoolRef.current.terminate(); } catch (_) {} dePoolRef.current = null; }
-    for (const w of flowWorkersRef.current) { try { w.terminate(); } catch (_) {} }
+    // Settle before terminating: the method flow awaits a promise that only a
+    // worker message resolves, and a terminated worker sends none (engineRun.js).
+    for (const h of flowWorkersRef.current) { try { h.settle(); } catch (_) {} }
     flowWorkersRef.current.clear();
 }
 
@@ -166,13 +168,23 @@ function performReset(env, savedDesign, updateDesign) {
     refs.baselineRef.current = false;
 }
 
+// Apply the best design the current run has produced. `optimizerRef` carries it
+// once a run finishes; while a run is still in flight, or after a Stop cut one
+// short, `lastBestRef` is the record that is kept up to date, so Best works from
+// the moment the first improvement lands rather than only after the last method.
 function applyBest(env, updateDesign) {
     const opt = env.refs.optimizerRef.current;
-    if (!opt) return;
+    if (opt) {
+        stopRun(env);
+        opt.restoreBest();
+        const updatedDesign = opt.applyToDesign(env.refs.designRef.current);
+        updateDesign({ [opt.layerSide]: updatedDesign[opt.layerSide] });
+        return;
+    }
+    const best = env.refs.lastBestRef.current;
+    if (!best || !best.frontLayers) return;
     stopRun(env);
-    opt.restoreBest();
-    const updatedDesign = opt.applyToDesign(env.refs.designRef.current);
-    updateDesign({ [opt.layerSide]: updatedDesign[opt.layerSide] });
+    updateDesign({ frontLayers: best.frontLayers, backLayers: best.backLayers });
 }
 
 function restoreHistoryEntry(env, entry, updateDesign) {

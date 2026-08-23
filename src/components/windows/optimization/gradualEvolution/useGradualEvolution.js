@@ -24,7 +24,7 @@ import { usePersistentNumber } from '../../../ui/usePersistentState.js';
 
 // Run engine (worker-pool default; falls back to a main-thread engine).
 import { runGeWorker } from './runners/workerPool.js';
-import { deriveDMinDefault, restoreOrClearForDesign, performReset, applyCycleSnapshot } from './geStateHelpers.js';
+import { deriveDMinDefault, restoreOrClearForDesign, performReset, clearRunHistory, applyCycleSnapshot } from './geStateHelpers.js';
 
 const { useState, useEffect, useRef, useCallback } = React;
 
@@ -118,6 +118,8 @@ function useGeRunState({ design, beginOptimization, endOptimization, getDesignRe
     const operandsRef      = useRef([]);
     const designRef        = useRef(design);
     const cyclesRef        = useRef([]);
+    const runsRef          = useRef([]);     // run blocks — see synthesisShared/runBlocks.js
+    const runOpenRef       = useRef(false);  // a block is open (Stop→Run continues it)
     const genCountRef      = useRef(0);
     const geStepsRef       = useRef(0);
 
@@ -138,7 +140,7 @@ function useGeRunState({ design, beginOptimization, endOptimization, getDesignRe
         restoreOrClearForDesign(design, {
             lastDesignId, runningRef, timerRef, workerRef,
             cyclesRef, genCountRef, geStepsRef, savedDesignRef, baseDesignRef, baseRevRef,
-            getDesignRevision,
+            runsRef, runOpenRef, getDesignRevision,
             setPhase, setStatusMsg, setCycles, setMf, setMfBest, setOmf, setOmfBest,
             setGeneration, setGeSteps, setLayerCount, setCanReset,
         });
@@ -161,7 +163,7 @@ function useGeRunState({ design, beginOptimization, endOptimization, getDesignRe
         omf, setOmf, omfBest, setOmfBest, layerCount, setLayerCount,
         canReset, setCanReset, statusMsg, setStatusMsg,
         runningRef, timerRef, workerRef, dlsRef, baseDesignRef, savedDesignRef, baseRevRef,
-        operandsRef, designRef, genCountRef, geStepsRef,
+        operandsRef, designRef, genCountRef, geStepsRef, runsRef, runOpenRef,
     };
 }
 
@@ -202,7 +204,7 @@ export function useGradualEvolution({ design, updateDesign, checkpoint, beginOpt
         const rev = getDesignRevision?.(run.designRef.current?.id) ?? 0;
         if (rev !== run.baseRevRef.current) {
             run.baseDesignRef.current  = null;
-            run.savedDesignRef.current = null;
+            run.runOpenRef.current     = false;
             run.baseRevRef.current     = rev;
         }
     }, [getDesignRevision]);
@@ -217,6 +219,7 @@ export function useGradualEvolution({ design, updateDesign, checkpoint, beginOpt
             dlsRef: run.dlsRef, baseDesignRef: run.baseDesignRef, savedDesignRef: run.savedDesignRef,
             designRef: run.designRef, operandsRef: run.operandsRef, cyclesRef: run.cyclesRef,
             genCountRef: run.genCountRef, geStepsRef: run.geStepsRef,
+            runsRef: run.runsRef, runOpenRef: run.runOpenRef,
             updateDesignRef, checkpointRef,
             maxLayersRef: settings.maxLayersRef, maxGeCyclesRef: settings.maxGeCyclesRef,
             targetMFRef: settings.targetMFRef, dlsIterRef: settings.dlsIterRef, dMinRef: settings.dMinRef,
@@ -230,19 +233,29 @@ export function useGradualEvolution({ design, updateDesign, checkpoint, beginOpt
         });
     }, [stopOpt, reconcileBaseWithEdits, t]);
 
-    // ── Reset ─────────────────────────────────────────────────────────────────
+    // ── Reset / Clear history ────────────────────────────────────────────────
+    // Reset undoes ONE Run press; Clear history forgets every run and leaves the
+    // design where it is (synthesisShared/runBlocks.js).
+    const stateCtx = () => ({
+        dlsRef: run.dlsRef, savedDesignRef: run.savedDesignRef, baseDesignRef: run.baseDesignRef,
+        updateDesign, designRef: run.designRef, cyclesRef: run.cyclesRef,
+        genCountRef: run.genCountRef, geStepsRef: run.geStepsRef,
+        runsRef: run.runsRef, runOpenRef: run.runOpenRef,
+        setCycles: run.setCycles, setMf: run.setMf, setMfBest: run.setMfBest,
+        setOmf: run.setOmf, setOmfBest: run.setOmfBest, setGeneration: run.setGeneration,
+        setGeSteps: run.setGeSteps, setLayerCount: run.setLayerCount,
+        setCanReset: run.setCanReset, setStatusMsg: run.setStatusMsg, t,
+    });
+
     const resetOpt = useCallback((side) => {
         stopOpt('');
-        performReset(side, {
-            dlsRef: run.dlsRef, savedDesignRef: run.savedDesignRef, baseDesignRef: run.baseDesignRef,
-            updateDesign, designRef: run.designRef, cyclesRef: run.cyclesRef,
-            genCountRef: run.genCountRef, geStepsRef: run.geStepsRef,
-            setCycles: run.setCycles, setMf: run.setMf, setMfBest: run.setMfBest,
-            setOmf: run.setOmf, setOmfBest: run.setOmfBest, setGeneration: run.setGeneration,
-            setGeSteps: run.setGeSteps, setLayerCount: run.setLayerCount,
-            setCanReset: run.setCanReset, setStatusMsg: run.setStatusMsg,
-        });
-    }, [stopOpt, updateDesign]);
+        performReset(side, stateCtx());
+    }, [stopOpt, updateDesign, t]);
+
+    const clearHistoryOpt = useCallback(() => {
+        stopOpt('');
+        clearRunHistory(stateCtx());
+    }, [stopOpt, updateDesign, t]);
 
     // ── Jump to best ──────────────────────────────────────────────────────────
     const bestOpt = useCallback(() => {
@@ -281,5 +294,6 @@ export function useGradualEvolution({ design, updateDesign, checkpoint, beginOpt
         setMaxLayers: settings.setMaxLayers, setMaxGeCycles: settings.setMaxGeCycles,
         setTargetMF: settings.setTargetMF, setDlsIter: settings.setDlsIter, handleDMin: settings.handleDMin,
         runOpt, stopOpt, resetOpt, bestOpt, handleRestore,
+        clearHistoryOpt, hasHistory: run.cycles.length > 0,
     };
 }

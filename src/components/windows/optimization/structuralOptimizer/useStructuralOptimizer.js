@@ -2,6 +2,7 @@ import {
     sideKeyFor, useCatSelection, minOmfOf, computePareto,
 } from '../synthesisShared/synthesisHelpers.js';
 import { usePersistentNumber } from '../../../ui/usePersistentState.js';
+import { activeBaseline, undoRunBlock } from '../synthesisShared/runBlocks.js';
 import { getCached, setCached, clearCached } from './sessionState.js';
 import { STRUCT_CATS_KEY, loadKinds, saveKinds } from './structuralSettings.js';
 import { runStructuralWorker } from './runners/workerPool.js';
@@ -18,6 +19,7 @@ function terminateWorkers(workersRef) {
 function persistCache(refs) {
     setCached(refs.designRef.current?.id, {
         generations: refs.gensRef.current,
+        runs: refs.runsRef.current,
         savedDesign: refs.savedDesignRef.current,
         baseDesign: refs.baseDesignRef.current,
         trend: refs.trendRef.current,
@@ -38,8 +40,12 @@ function applySnapshotToDesign(generation, refs, updateDesign) {
 }
 
 function applyCachedRun(ctx, cached) {
-    const { gensRef, genCountRef, savedDesignRef, baseDesignRef, trendRef, design } = ctx;
+    const { gensRef, genCountRef, savedDesignRef, baseDesignRef, trendRef, runsRef, runOpenRef, design } = ctx;
     gensRef.current = cached.generations;
+    runsRef.current = cached.runs || [];
+    // A remount is not a Stop: the run that filled this cache is over, so its
+    // block is closed and the next Run press opens a new one.
+    runOpenRef.current = false;
     genCountRef.current = cached.generations.length
         ? cached.generations[cached.generations.length - 1].genNum
         : 0;
@@ -63,8 +69,10 @@ function applyCachedRun(ctx, cached) {
 }
 
 function applyFreshRun(ctx) {
-    const { gensRef, genCountRef, savedDesignRef, baseDesignRef, trendRef, design } = ctx;
+    const { gensRef, genCountRef, savedDesignRef, baseDesignRef, trendRef, runsRef, runOpenRef, design } = ctx;
     gensRef.current = [];
+    runsRef.current = [];
+    runOpenRef.current = false;
     genCountRef.current = 0;
     trendRef.current = [];
     savedDesignRef.current = null;
@@ -136,6 +144,8 @@ export function useStructuralOptimizer({ design, updateDesign, checkpoint, begin
     const savedDesignRef = useRef(null);
     const baseDesignRef  = useRef(null);
     const gensRef      = useRef([]);
+    const runsRef      = useRef([]);     // run blocks — see synthesisShared/runBlocks.js
+    const runOpenRef   = useRef(false);  // a block is open (Stop→Run continues it)
     const genCountRef  = useRef(0);
     const trendRef     = useRef([]);
     const updateDesignRef = useRef(updateDesign);
@@ -171,7 +181,7 @@ export function useStructuralOptimizer({ design, updateDesign, checkpoint, begin
     useEffect(() => {
         loadDesignSwitch({
             design, lastDesignId, stopOpt,
-            gensRef, genCountRef, savedDesignRef, baseDesignRef, trendRef,
+            gensRef, genCountRef, savedDesignRef, baseDesignRef, trendRef, runsRef, runOpenRef,
             setGenerations, setTopDesigns, setTrend, setMfBest, setMf, setOmf, setOmfBest,
             setLayerCount, setCanReset, setIter, setStatusMsg,
         });
@@ -188,7 +198,7 @@ export function useStructuralOptimizer({ design, updateDesign, checkpoint, begin
     }
 
     function saveCache() {
-        persistCache({ designRef, gensRef, savedDesignRef, baseDesignRef, trendRef });
+        persistCache({ designRef, gensRef, savedDesignRef, baseDesignRef, trendRef, runsRef });
     }
 
     const stopOpt = useCallback((message) => {
@@ -204,7 +214,7 @@ export function useStructuralOptimizer({ design, updateDesign, checkpoint, begin
     const runOpt = useCallback(() => {
         runStructuralWorker({
             cfgRef, runningRef, workersRef, runIdRef, designRef, operandsRef,
-            savedDesignRef, baseDesignRef, gensRef, genCountRef, trendRef,
+            savedDesignRef, baseDesignRef, gensRef, genCountRef, trendRef, runsRef, runOpenRef,
             updateDesignRef, checkpointRef, selectedCatsRef, excludedMatsRef,
             killWorkers, saveCache, stopOpt, ts,
             setRunning, setIter, setTemp, setAccRate, setMf, setMfBest,
@@ -213,34 +223,73 @@ export function useStructuralOptimizer({ design, updateDesign, checkpoint, begin
         });
     }, [stopOpt, t]);
 
+    // Push the display state that follows from the current generation list.
+    function syncFromGens() {
+        const gens = gensRef.current;
+        setGenerations(gens.slice());
+        setTopDesigns(computePareto(gens));
+        setMfBest(gens.length ? Math.min(...gens.map(g => g.mf)) : null);
+        setOmfBest(minOmfOf(gens));
+        setTrend(trendRef.current.slice());
+    }
+
+    // Reset undoes ONE Run press: it restores the design that press started from
+    // and drops its rows, leaving earlier runs alone, so pressing it again steps
+    // back another run (synthesisShared/runBlocks.js).
     const resetOpt = useCallback(() => {
         stopOpt('');
-        if (savedDesignRef.current) {
-            updateDesign({
-                frontLayers: savedDesignRef.current.frontLayers,
-                backLayers: savedDesignRef.current.backLayers,
-            });
-        }
+        const undone = undoRunBlock(runsRef.current, gensRef.current);
+        if (!undone) return;
+        runsRef.current = undone.runs;
+        gensRef.current = undone.gens;
+        updateDesign({
+            frontLayers: undone.baseline.frontLayers,
+            backLayers: undone.baseline.backLayers,
+        });
+        const prev = activeBaseline(runsRef.current);
+        savedDesignRef.current = prev;
+        baseDesignRef.current = null;
+        runOpenRef.current = false;
+        const last = gensRef.current[gensRef.current.length - 1] || null;
+        genCountRef.current = last?.genNum ?? 0;
+        // The trend is one curve over the whole session, so an undone run takes
+        // its samples with it.
+        trendRef.current = trendRef.current.filter(point => point.runNum !== undone.runNum);
+        syncFromGens();
+        setMf(last?.mf ?? null);
+        setOmf(last?.omf ?? null);
+        setIter(0);
+        setTemp(null);
+        setAccRate(null);
+        setLayerCount(last?.layerCount
+            ?? (undone.baseline.frontLayers.length + undone.baseline.backLayers.length));
+        setCanReset(!!prev);
+        setStatusMsg(ts.runSeparator(undone.runNum) + ' ✕');
+        if (runsRef.current.length) saveCache(); else clearCached(designRef.current?.id);
+    }, [stopOpt, updateDesign, ts]);
+
+    // Clear history: forget every run block and every row, and leave the design
+    // exactly where it is.
+    const clearHistoryOpt = useCallback(() => {
+        stopOpt('');
         clearCached(designRef.current?.id);
+        runsRef.current = [];
+        runOpenRef.current = false;
         savedDesignRef.current = null;
         baseDesignRef.current = null;
         gensRef.current = [];
         genCountRef.current = 0;
         trendRef.current = [];
-        setGenerations([]);
-        setTopDesigns([]);
-        setTrend([]);
+        syncFromGens();
         setMf(null);
-        setMfBest(null);
         setOmf(null);
-        setOmfBest(null);
         setIter(0);
         setTemp(null);
         setAccRate(null);
         setLayerCount((designRef.current?.[sideKeyFor(designRef.current)] || []).length);
         setCanReset(false);
         setStatusMsg('');
-    }, [stopOpt, updateDesign]);
+    }, [stopOpt]);
 
     const handleRestore = useCallback((generation) => {
         stopOpt('');
@@ -279,5 +328,6 @@ export function useStructuralOptimizer({ design, updateDesign, checkpoint, begin
         running, iter, temp, accRate, mf, mfBest, omf, omfBest, layerCount,
         generations, topDesigns, trend, canReset, statusMsg, bestMFVal,
         runOpt, stopOpt, resetOpt, handleRestore, bestOpt,
+        clearHistoryOpt, hasHistory: generations.length > 0,
     };
 }

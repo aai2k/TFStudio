@@ -5,6 +5,7 @@ import {
 } from '../../../../../utils/synthesis/synthesisConfig.js';
 import { getTmmWasmBytesForWorker } from '../../../../../tmmcore.js';
 import { activeSide, densifyForRun, getPoolMaterials } from '../../synthesisShared/synthesisHelpers.js';
+import { activeBaseline, openRunBlock } from '../../synthesisShared/runBlocks.js';
 import { presampleAll } from './refine.js';
 import { createWorkers } from './workerLifecycle.js';
 
@@ -73,13 +74,17 @@ function checkMaterials(state) {
 
 function checkWorkers(state) {
     const { ctx, curDes } = state;
-    if (!ctx.savedDesignRef.current) {
+    // Open a run block for this press unless one is still open from a Stop. The
+    // block records the design the press started from, which is what Reset
+    // restores (synthesisShared/runBlocks.js).
+    if (!ctx.runOpenRef.current) {
         if (ctx.checkpointRef.current) ctx.checkpointRef.current();
-        ctx.savedDesignRef.current = {
-            frontLayers: ctx.designRef.current.frontLayers,
-            backLayers: ctx.designRef.current.backLayers,
-        };
+        ctx.runsRef.current = openRunBlock(ctx.runsRef.current, ctx.designRef.current);
+        ctx.savedDesignRef.current = activeBaseline(ctx.runsRef.current);
         ctx.baseDesignRef.current = curDes;
+        // Generations are numbered within their run, so a new block starts at 1.
+        ctx.genCountRef.current = 0;
+        ctx.runOpenRef.current = true;
         ctx.setCanReset(true);
     }
     state.workerCount = getThreadCount();

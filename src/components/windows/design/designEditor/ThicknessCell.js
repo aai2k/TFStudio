@@ -37,6 +37,11 @@ function thicknessCellInput({ inputRef, raw, setRaw, commitAndNavigate, cancel, 
         ref: inputRef, value: raw,
         onFocus: onActivate,
         onChange: (e) => setRaw(e.target.value),
+        // The layer row selects itself on click and puts focus back on the list
+        // for keyboard navigation. While this cell is being edited the input owns
+        // the focus, so a click meant to place the caret must not reach the row —
+        // it would blur the input and commit the value mid-edit.
+        onClick: (e) => e.stopPropagation(),
         onBlur: () => commitAndNavigate(null),
         onKeyDown: (e) => {
             if (e.key === 'Enter') {

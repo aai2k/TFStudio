@@ -6,6 +6,7 @@
  */
 
 import { sideKeyFor, minOmfOf } from '../synthesisShared/synthesisHelpers.js';
+import { activeBaseline, undoRunBlock } from '../synthesisShared/runBlocks.js';
 import { getCached, setCached, clearCached } from './sessionState.js';
 
 // Smart default: initialize "Min thickness" from the strictest enabled MNT
@@ -32,7 +33,7 @@ export function restoreOrClearForDesign(design, ctx) {
     const {
         lastDesignId, runningRef, timerRef, workerRef,
         cyclesRef, genCountRef, geStepsRef, savedDesignRef, baseDesignRef, baseRevRef,
-        getDesignRevision,
+        runsRef, runOpenRef, getDesignRevision,
         setPhase, setStatusMsg, setCycles, setMf, setMfBest, setOmf, setOmfBest,
         setGeneration, setGeSteps, setLayerCount, setCanReset,
     } = ctx;
@@ -57,6 +58,10 @@ export function restoreOrClearForDesign(design, ctx) {
         const bestMF  = cy.length ? Math.min(...cy.map(c => c.mf)) : null;
         const lastCy  = cy[cy.length - 1];
         cyclesRef.current     = cy;
+        runsRef.current       = cached.runs || [];
+        // A remount is not a Stop: the run that filled this cache is over, so
+        // its block is closed and the next Run press opens a new one.
+        runOpenRef.current    = false;
         genCountRef.current   = lastCy?.genNum ?? 0;
         geStepsRef.current    = cached.geSteps ?? 0;
         savedDesignRef.current = cached.savedDesign;
@@ -72,6 +77,8 @@ export function restoreOrClearForDesign(design, ctx) {
         setCanReset(!!cached.savedDesign);
     } else {
         cyclesRef.current     = [];
+        runsRef.current       = [];
+        runOpenRef.current    = false;
         genCountRef.current   = 0;
         geStepsRef.current    = 0;
         savedDesignRef.current = null;
@@ -91,53 +98,103 @@ export function restoreOrClearForDesign(design, ctx) {
     baseRevRef.current = getDesignRevision?.(newId) ?? 0;
 }
 
-// Default Reset wipes everything; performReset(side, ctx) does a per-side
-// reset (restore one side from the saved snapshot, drop that side's cycles,
-// leave the other side and its timeline alone).
-export function performReset(side, ctx) {
+// Push the current cycles + run blocks into the per-design cache.
+function cacheRun(ctx) {
+    setCached(ctx.designRef.current?.id, {
+        cycles: ctx.cyclesRef.current, geSteps: ctx.geStepsRef.current,
+        runs: ctx.runsRef.current,
+        savedDesign: ctx.savedDesignRef.current, baseDesign: ctx.baseDesignRef.current,
+    });
+}
+
+// Push the display state that follows from the current cycle list.
+function syncFromCycles(ctx) {
+    const survivors = ctx.cyclesRef.current;
+    ctx.setCycles(survivors.slice());
+    ctx.setMfBest(survivors.length ? Math.min(...survivors.map(cy => cy.mf)) : null);
+    ctx.setOmfBest(minOmfOf(survivors));
+}
+
+// Undo the newest Run press: restore the design it started from and drop its
+// cycles, leaving earlier runs and their rows alone.
+function undoCurrentRun(ctx, undone) {
     const {
-        dlsRef, savedDesignRef, baseDesignRef, updateDesign, designRef,
-        cyclesRef, genCountRef, geStepsRef,
-        setCycles, setMf, setMfBest, setOmf, setOmfBest, setGeneration, setGeSteps,
-        setLayerCount, setCanReset, setStatusMsg,
+        savedDesignRef, baseDesignRef, updateDesign, designRef,
+        cyclesRef, genCountRef, runsRef, runOpenRef,
+        setMf, setOmf, setGeneration, setLayerCount, setCanReset, setStatusMsg,
+    } = ctx;
+    runsRef.current   = undone.runs;
+    cyclesRef.current = undone.gens;
+    updateDesign({
+        frontLayers: undone.baseline.frontLayers,
+        backLayers:  undone.baseline.backLayers,
+    });
+    const prev = activeBaseline(runsRef.current);
+    savedDesignRef.current = prev;
+    baseDesignRef.current  = null;
+    runOpenRef.current     = false;
+    const last = cyclesRef.current[cyclesRef.current.length - 1] || null;
+    genCountRef.current = last?.genNum ?? 0;
+    syncFromCycles(ctx);
+    setMf(last?.mf ?? null);
+    setOmf(last?.omf ?? null);
+    setGeneration(last?.genNum ?? 0);
+    setLayerCount(last?.layerCount
+        ?? (undone.baseline.frontLayers.length + undone.baseline.backLayers.length));
+    setCanReset(!!prev);
+    setStatusMsg(ctx.t.gradualEvolution.runSeparator(undone.runNum) + ' ✕');
+    if (runsRef.current.length) cacheRun(ctx); else clearCached(designRef.current?.id);
+}
+
+// Clear history: forget every run block and every row, and leave the design
+// exactly where it is.
+export function clearRunHistory(ctx) {
+    const {
+        dlsRef, savedDesignRef, baseDesignRef, designRef,
+        cyclesRef, genCountRef, geStepsRef, runsRef, runOpenRef,
+        setMf, setOmf, setGeneration, setGeSteps, setLayerCount, setCanReset, setStatusMsg,
     } = ctx;
     dlsRef.current = null;
-    if (savedDesignRef.current) {
-        const patch = {};
-        if (!side || side === 'front') patch.frontLayers = savedDesignRef.current.frontLayers;
-        if (!side || side === 'back')  patch.backLayers  = savedDesignRef.current.backLayers;
-        updateDesign(patch);
-    }
-    if (!side) {
-        clearCached(designRef.current?.id);
-        savedDesignRef.current = null;
-        baseDesignRef.current  = null;
-        cyclesRef.current      = [];
-        genCountRef.current    = 0;
-        geStepsRef.current     = 0;
-        setCycles([]);
-        setMf(null);
-        setMfBest(null);
-        setOmf(null);
-        setOmfBest(null);
-        setGeneration(0);
-        setGeSteps(0);
-        setLayerCount((designRef.current?.[sideKeyFor(designRef.current)] || []).length);
-        setCanReset(false);
-        setStatusMsg('');
-    } else {
-        // Per-side reset: keep the other side's timeline; drop this side's.
+    clearCached(designRef.current?.id);
+    cyclesRef.current      = [];
+    runsRef.current        = [];
+    runOpenRef.current     = false;
+    savedDesignRef.current = null;
+    baseDesignRef.current  = null;
+    genCountRef.current    = 0;
+    geStepsRef.current     = 0;
+    syncFromCycles(ctx);
+    setMf(null);
+    setOmf(null);
+    setGeneration(0);
+    setGeSteps(0);
+    setLayerCount((designRef.current?.[sideKeyFor(designRef.current)] || []).length);
+    setCanReset(false);
+    setStatusMsg('');
+}
+
+// Reset undoes ONE Run press: it restores the design that press started from and
+// drops its cycles, leaving every earlier run intact, so pressing it again steps
+// back another run. A `side` restores only that side of the current run's
+// baseline and drops that side's cycles (both_independent).
+export function performReset(side, ctx) {
+    const { dlsRef, updateDesign, cyclesRef, runsRef, setStatusMsg } = ctx;
+    dlsRef.current = null;
+    if (side) {
+        const baseline = activeBaseline(runsRef.current);
+        if (baseline) {
+            updateDesign(side === 'front'
+                ? { frontLayers: baseline.frontLayers }
+                : { backLayers:  baseline.backLayers });
+        }
         cyclesRef.current = cyclesRef.current.filter(cy => cy.side !== side);
-        setCycles(cyclesRef.current.slice());
-        const survivors = cyclesRef.current.filter(cy => cy.layers);
-        setMfBest(survivors.length ? Math.min(...survivors.map(cy => cy.mf)) : null);
-        setOmfBest(minOmfOf(survivors));
+        syncFromCycles(ctx);
         setStatusMsg(`${side === 'front' ? 'Front' : 'Back'} side reset`);
-        setCached(designRef.current?.id, {
-            cycles: cyclesRef.current, geSteps: geStepsRef.current,
-            savedDesign: savedDesignRef.current, baseDesign: baseDesignRef.current,
-        });
+        cacheRun(ctx);
+        return;
     }
+    const undone = undoRunBlock(runsRef.current, cyclesRef.current);
+    if (undone) undoCurrentRun(ctx, undone);
 }
 
 // Apply a cycle's snapshot. New cycles carry the full both-side snapshot

@@ -34,6 +34,7 @@ export function StructuralOptimizer({ c, theme, t }) {
             temp: s.temp, layerCount: s.layerCount, mf: s.mf, mfBest: s.mfBest, omf: s.omf, omfBest: s.omfBest,
             accRate: s.accRate, canReset: s.canReset,
             onRun: s.runOpt, onStop: () => s.stopOpt(), onReset: s.resetOpt, onBest: s.bestOpt,
+            onClearHistory: s.clearHistoryOpt, hasHistory: s.hasHistory,
             statusMsg: s.statusMsg, design, t, c,
         }),
         sidebar: h(LeftSidebar, {

@@ -1,4 +1,5 @@
 import { buildARSeedCandidates, computePareto } from '../../synthesisShared/synthesisHelpers.js';
+import { activeRunNum } from '../../synthesisShared/runBlocks.js';
 import { alive, deep, sumD } from './runUtils.js';
 import { designFor, refineJob, onTick, trueEval } from './refine.js';
 import { refineGuarded } from './workerLifecycle.js';
@@ -49,6 +50,7 @@ export function recordBaseline(ctx, S, score) {
     const generation = {
         id: Math.random().toString(36).slice(2),
         genNum: 0, mf: score.mf, omf: score.omf, dMF: null, side: S.side,
+        runNum: activeRunNum(ctx.runsRef.current),
         kind: (S.smartSeed && S.pool.length) ? 'seed' : 'baseline',
         layerCount: (S.current[S.layerKey] || []).length,
         tot: sumD(S.current.frontLayers) + sumD(S.current.backLayers),
@@ -101,7 +103,7 @@ export async function establishBaseline(ctx, S, finalize) {
         : 0;
     ctx.trendRef.current = [
         ...ctx.trendRef.current,
-        { iter: S.trendX, cur: S.current.mf, best: S.best.mf },
+        { iter: S.trendX, cur: S.current.mf, best: S.best.mf, runNum: activeRunNum(ctx.runsRef.current) },
     ];
     ctx.setTrend(ctx.trendRef.current.slice());
     recordBaseline(ctx, S, score);

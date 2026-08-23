@@ -13,7 +13,13 @@ export const LAYER_TABLE = Object.freeze({
     materialMinWidth: 92,
     materialTextInset: 22, // picker padding + color swatch + spacing
     numericTextInset: 4,
-    thicknessWidth: 52,
+    // Sized from the primary d (nm) column, which renders at 12 px semibold while
+    // OT/QW/FW render at 11 px regular: eight characters need 50 px of text there,
+    // plus the inset either side and the cell border. That shows any thickness up
+    // to 99999.99 nm, and any QW/FW value up to 1000.0255, in full. Above that the
+    // cell falls back to its ellipsis and tooltip rather than widening the table
+    // for values the 1 mm entry guard exists to prevent.
+    thicknessWidth: 60,
     lockWidth: 22,
     actionsWidth: 24,
 });

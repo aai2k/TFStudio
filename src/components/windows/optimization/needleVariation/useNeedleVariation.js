@@ -28,7 +28,7 @@ import { SYNTHESIS_WORKER_URL as SYNTH_WORKER_URL } from '../../../../workerUrls
 import { runNeedleWorkerPool } from './runners/workerPool.js';
 import { setCachedOptState } from './sessionState.js';
 import { teardownRun, syncOnDesignSwitch } from './needleLifecycle.js';
-import { performReset, findBestGeneration, jumpToGeneration } from './needleActions.js';
+import { performReset, clearRunHistory, findBestGeneration, jumpToGeneration } from './needleActions.js';
 import { deriveDMinDefault } from './needleSettings.js';
 
 const { useState, useEffect, useRef, useCallback } = React;
@@ -102,7 +102,9 @@ export function useNeedleVariation(t) {
     const workerRef       = useRef(null);    // synthesis Web Worker
     const dlsRef          = useRef(null);
     const baseDesignRef   = useRef(null);    // design being worked on (updated each cycle)
-    const savedDesignRef  = useRef(null);    // snapshot at Run start (for Reset)
+    const savedDesignRef  = useRef(null);    // baseline of the open run block (for Reset)
+    const runsRef         = useRef([]);      // run blocks — see synthesisShared/runBlocks.js
+    const runOpenRef      = useRef(false);   // a block is open (Stop→Run continues it)
     const baseRevRef      = useRef(0);       // design revision when baseDesignRef was cached (M12)
     const operandsRef     = useRef([]);
     const designRef       = useRef(design);
@@ -157,6 +159,7 @@ export function useNeedleVariation(t) {
         syncOnDesignSwitch({
             lastDesignId, runningRef, timerRef, workerRef, setPhase, setStatusMsg,
             gensRef, genCountRef, lastBestRef, savedDesignRef, baseDesignRef,
+            runsRef, runOpenRef,
             setGenerations, setTopDesigns, setMf, setMfBest, setOmf, setOmfBest,
             setGeneration, setLayerCount, setCanReset, baseRevRef,
         }, design, getDesignRevision);
@@ -175,16 +178,18 @@ export function useNeedleVariation(t) {
     }, []);
 
     // M12: if the user manually edited the design (a non-transient write bumps
-    // the revision) since baseDesignRef was cached, drop the stale base + saved
-    // snapshot so the next Run restarts from the CURRENT design instead of
-    // optimizing (and then overwriting) the cached pre-edit stack. Synthesis's
+    // the revision) since baseDesignRef was cached, drop the stale base so the
+    // next Run restarts from the CURRENT design instead of optimizing (and then
+    // overwriting) the cached pre-edit stack, and close the open run block so
+    // that Run opens a new one against what is on screen now. Earlier blocks and
+    // their rows survive, so Reset can still step back through them. Synthesis's
     // own transient previews do NOT bump the revision, so a Stop→Run with no
-    // edits still continues from where it left off.
+    // edits still continues from where it left off, in the same block.
     const reconcileBaseWithEdits = useCallback(() => {
         const rev = getDesignRevision?.(designRef.current?.id) ?? 0;
         if (rev !== baseRevRef.current) {
             baseDesignRef.current  = null;
-            savedDesignRef.current = null;
+            runOpenRef.current     = false;
             baseRevRef.current     = rev;
         }
     }, [getDesignRevision]);
@@ -194,6 +199,7 @@ export function useNeedleVariation(t) {
     // worker-pool path and the identical-math main-thread fallback.
     const buildEngineCtx = useCallback(() => ({
         runningRef, timerRef, workerRef, dlsRef, baseDesignRef, savedDesignRef, designRef,
+        runsRef, runOpenRef,
         operandsRef, gensRef, genCountRef, lastBestRef,
         maxLayersRef, deltaNmRef, dMinRef, dlsIterRef, targetMFRef,
         selectedCatsRef, excludedMatsRef, updateDesignRef, checkpointRef,
@@ -214,19 +220,27 @@ export function useNeedleVariation(t) {
         runNeedleWorkerPool(buildEngineCtx());
     }, [buildEngineCtx]);
 
-    // ── Reset ─────────────────────────────────────────────────────────────────
-    // Default Reset wipes everything (full restore + clear history). The
-    // ControlBar exposes Front / Back side resets in both_independent mode,
-    // which call resetOpt(side) to restore only that side and drop that side's
-    // generations from history.
+    // ── Reset / Clear history ────────────────────────────────────────────────
+    // Reset undoes ONE Run press: it restores the design that press started from
+    // and drops its rows, leaving earlier runs alone, so pressing it again steps
+    // back another run. Clear history forgets every run and leaves the design
+    // where it is, which is how a synthesis result is kept and the timeline
+    // started over. The ControlBar also exposes Front / Back side resets in
+    // both_independent mode, which restore one side of the current run only.
+    const actionCtx = () => ({
+        stopOpt, dlsRef, savedDesignRef, baseDesignRef, designRef,
+        gensRef, genCountRef, lastBestRef, runsRef, runOpenRef,
+        setGenerations, setTopDesigns, setMf, setMfBest, setOmf, setOmfBest,
+        setGeneration, setLayerCount, setCanReset, setStatusMsg, t,
+    });
+
     const resetOpt = useCallback((side) => {
-        performReset({
-            stopOpt, dlsRef, savedDesignRef, baseDesignRef, designRef,
-            gensRef, genCountRef, lastBestRef,
-            setGenerations, setTopDesigns, setMf, setMfBest, setOmf, setOmfBest,
-            setGeneration, setLayerCount, setCanReset, setStatusMsg,
-        }, updateDesign, side);
-    }, [stopOpt, updateDesign]);
+        performReset(actionCtx(), updateDesign, side);
+    }, [stopOpt, updateDesign, t]);
+
+    const clearHistoryOpt = useCallback(() => {
+        clearRunHistory(actionCtx());
+    }, [stopOpt, t]);
 
     // ── Jump to best seen generation / restore a specific one ────────────────
     const bestOpt = useCallback(() => {
@@ -255,5 +269,6 @@ export function useNeedleVariation(t) {
         selectedCats, handleToggleCat, handleSelectAllCats, handleClearCats,
         excludedMats, handleToggleMat,
         runOpt, stopOpt, resetOpt, bestOpt, handleRestore,
+        clearHistoryOpt, hasHistory: generations.length > 0,
     };
 }

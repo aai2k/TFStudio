@@ -80,12 +80,13 @@ function controlBarMetrics({ ts, c, running, deepMode, iter, maxIter, reheats, t
 }
 
 export function ControlBar({ running, iter, maxIter, deepMode, reheats, temp, layerCount, mf, mfBest, accRate, canReset,
-                             onRun, onStop, onReset, onBest, statusMsg, design, t, c }) {
+                             onRun, onStop, onReset, onBest,
+                             onClearHistory, hasHistory, statusMsg, design, t, c }) {
     const ts = t.structural;
     return h(SynthesisControlBar, {
-        running, canReset, onRun, onStop, onReset, onBest,
+        running, canReset, onRun, onStop, onReset, onBest, onClearHistory, hasHistory,
         design, c, t,
-        labels: { run: ts.run, stop: ts.stop, reset: ts.reset, best: ts.best },
+        labels: { run: ts.run, stop: ts.stop, reset: ts.reset, best: ts.best, clearHistory: ts.clearHistory },
         stopColor: c.error,
         metrics: controlBarMetrics({ ts, c, running, deepMode, iter, maxIter, reheats, temp, accRate, layerCount, mf, mfBest }),
         statusMsg, noOperandsLabel: ts.noOperands,
@@ -203,6 +204,7 @@ export function HistoryTable({ generations, bestMF, onRestore, showSide, c, t })
         labels: {
             noGens: ts.noGens, genCol: ts.genCol, layersCol: ts.layersCol, mfCol: ts.mfCol, omfCol: ts.omfCol,
             totCol: ts.totCol, timeCol: ts.timeCol, dMFCol: ts.dMFCol, matCol: ts.matCol, restore: ts.restore,
+            runSeparator: ts.runSeparator,
         },
         typeColumn: {
             header: ts.opCol,
@@ -220,6 +222,6 @@ export function HistoryTable({ generations, bestMF, onRestore, showSide, c, t })
 export function TopDesignsPanel({ topDesigns, bestMF, onRestore, c, t }) {
     return h(SharedTopDesignsPanel, {
         topDesigns, bestMF, onRestore, c, genPrefix: '#',
-        labels: { topDesigns: t.structural.topDesigns, restore: t.structural.restore },
+        labels: { topDesigns: t.structural.topDesigns, restore: t.structural.restore, runSeparator: t.structural.runSeparator },
     });
 }

@@ -8,6 +8,13 @@ const { createElement: h } = React;   // React is a window global (never importe
 // insert-material column renders per row only for generations that carry one.
 export function TopDesignsPanel({ topDesigns, bestMF, onRestore, c, labels, genPrefix = 'Gen ' }) {
     if (!topDesigns.length) return null;
+    // Generations are numbered within their run, so the number alone stops being
+    // unique once a second run has produced Pareto entries. Qualify it with the
+    // run only when the list actually spans more than one.
+    const runs = new Set(topDesigns.map(gen => gen.runNum).filter(n => n != null));
+    const genLabel = (gen) => (runs.size > 1 && gen.runNum != null && labels.runSeparator)
+        ? `${labels.runSeparator(gen.runNum)} · ${genPrefix}${gen.genNum}`
+        : `${genPrefix}${gen.genNum}`;
     return h('div', { style: {
         borderTop: `1px solid ${c.border}`, background: c.panel,
         flexShrink: 0, maxHeight: 140, display: 'flex', flexDirection: 'column',
@@ -24,7 +31,7 @@ export function TopDesignsPanel({ topDesigns, bestMF, onRestore, c, labels, genP
                         const isBest = Math.abs(gen.mf - bestMF) < 1e-12;
                         return h('tr', { key: gen.id },
                             h('td', { style: { padding: '2px 8px', fontSize: 11, color: c.textDim, width: 56 } },
-                                `${genPrefix}${gen.genNum}`),
+                                genLabel(gen)),
                             h('td', { style: { padding: '2px 8px', fontSize: 11, color: c.text, width: 60 } },
                                 `${gen.layerCount} lyr`),
                             h('td', { style: { padding: '2px 8px', fontSize: 11, fontWeight: isBest ? 700 : 400, color: isBest ? c.success : c.text } },

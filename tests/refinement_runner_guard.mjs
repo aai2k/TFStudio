@@ -79,11 +79,21 @@ class MockWorker {
         const back  = (job.design.backLayers  || []).map((l, i) => ({ ...l, thickness: (l.thickness || 0) + r + i }));
         this._post({ type: 'progress', iter: 5, mf: mf * 1.1, mfBest: mf * 1.1, omf: mf * 1.1, omfBest: mf * 1.1,
             frontLayers: front, backLayers: back, bestFrontLayers: front, bestBackLayers: back });
+        // Stands in for a method still working when the user presses Stop: it
+        // reports progress and then goes quiet, so the flow is genuinely waiting
+        // on a worker message that will never arrive.
+        if (job.method && job.method === MockWorker.hangOn) {
+            const notify = MockWorker.onHang; MockWorker.onHang = null;
+            notify && notify();
+            return;
+        }
         this._post({ type: 'done', iter: 10, mf, mfBest: mf, omf: mf, omfBest: mf,
             frontLayers: front, backLayers: back, bestFrontLayers: front, bestBackLayers: back, reason: 'stalled' });
     }
     _post(data) { if (!this.terminated && this.onmessage) this.onmessage({ data }); }
 }
+MockWorker.hangOn = null;    // method name to stall after its progress message
+MockWorker.onHang = null;    // called once when that method stalls
 globalThis.Worker = MockWorker;
 
 // Pin the detected core count. Pool sizes (dls multi-start) and the serial-vs-
@@ -119,7 +129,10 @@ function makeCtx(design, ops, { multi = false, nRestarts = 1, perturbPct = 30, m
         killWorker: () => {
             for (const w of ctx.poolRef.current) { try { w.terminate && w.terminate(); } catch (_) {} }
             ctx.poolRef.current = [];
-            for (const w of ctx.flowWorkersRef.current) { try { w.terminate && w.terminate(); } catch (_) {} }
+            // Mirrors killAllWorkers in useRefinement.js: settle the pending
+            // engine promise before terminating, since a terminated worker
+            // never posts the message the flow is awaiting.
+            for (const h of ctx.flowWorkersRef.current) { try { h.settle(); } catch (_) {} }
             ctx.flowWorkersRef.current.clear();
             if (ctx.dePoolRef.current) { try { ctx.dePoolRef.current.terminate(); } catch (_) {} ctx.dePoolRef.current = null; }
         },
@@ -241,7 +254,39 @@ async function verifyIterationHistories() {
     }
 }
 
+// Stop part-way through a multi-method run. The flow must unwind instead of
+// waiting forever on a terminated worker, Best must be armed with what the
+// finished methods produced, and the design must stay where the user stopped it.
+async function verifyStopDuringRun() {
+    const { ctx, snap } = makeCtx(frontDesign(), OPS());
+    MockWorker.hangOn = 'sa';
+    const stalled = new Promise(resolve => { MockWorker.onHang = resolve; });
+    const flow = withSeed(() => runMethodsFlow(ctx, ['cg', 'sa']));
+    await stalled;
+
+    const mfBestAtStop = snap.mfBest;
+    const appliedAtStop = snap.applied;
+    ctx.stopOpt();
+    await Promise.race([
+        flow,
+        sleep(4000).then(() => { throw new Error('the method flow never settled after Stop'); }),
+    ]);
+    MockWorker.hangOn = null;
+
+    assert.equal(ctx.runningRef.current, false, 'Stop ends the run');
+    assert.equal(ctx.flowWorkersRef.current.size, 0, 'Stop leaves no pending engine promise');
+    assert.ok(ctx.lastBestRef.current, 'Best is armed from the methods that did finish');
+    assert.equal(rnd(ctx.lastBestRef.current.mfBest), rnd(mfBestAtStop),
+        'Best holds the merit the readout was showing when Stop was pressed');
+    assert.ok(Array.isArray(ctx.lastBestRef.current.frontLayers) && ctx.lastBestRef.current.frontLayers.length,
+        'Best carries a design, not just a merit value');
+    assert.equal(snap.history.length, 1, 'only the method that finished is recorded');
+    assert.deepEqual(snap.applied, appliedAtStop,
+        'a stopped run does not rewrite the design on the way out');
+}
+
 await verifyIterationHistories();
+await verifyStopDuringRun();
 
 const results = {};
 for (const name of SCENARIOS) results[name] = await runScenario(name);
