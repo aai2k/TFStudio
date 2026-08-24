@@ -1,10 +1,10 @@
+import APP_ICON from '../constants/icon.js';
 const { createElement: h, useState, useEffect } = React;
 
 export function MenuBar({ c, onMenuAction, t, devAllowed = true }) {
   const [openMenu, setOpenMenu] = useState(null);
   const [menuPos,  setMenuPos]  = useState({ x: 0, y: 0 });
 
-  // ── Menu structure (built from locale) ─────────────────────────────────────
   const menus = [
     {
       label: t.menu.file,
@@ -35,7 +35,6 @@ export function MenuBar({ c, onMenuAction, t, devAllowed = true }) {
         { label: t.menu.saveLayout,         action: 'layout-save'          },
         { label: t.menu.restoreLayout,      action: 'layout-restore'       },
         { type: 'sep' },
-        // Reload + DevTools + Optimizer Benchmark are dev-only: hidden in packaged builds (unless --debug).
         ...(devAllowed ? [
           { label: t.menu.reload,           action: 'reload',              shortcut: 'Ctrl+R' },
           { label: t.menu.toggleDevTools,   action: 'toggle-devtools',     shortcut: 'Ctrl+Shift+I' },
@@ -85,8 +84,6 @@ export function MenuBar({ c, onMenuAction, t, devAllowed = true }) {
     return () => document.removeEventListener('mousedown', handler);
   }, [openMenu]);
 
-  // ── Render helpers ──────────────────────────────────────────────────────────
-
   const renderDropdown = (items) =>
     h('div', {
       className: 'tf-dropdown',
@@ -126,7 +123,6 @@ export function MenuBar({ c, onMenuAction, t, devAllowed = true }) {
       WebkitAppRegion: 'drag'
     }
   },
-    // Logo + name
     h('div', {
       style: {
         display: 'flex', alignItems: 'center', gap: 7, marginRight: 10,
@@ -134,7 +130,7 @@ export function MenuBar({ c, onMenuAction, t, devAllowed = true }) {
       }
     },
       h('img', {
-        src: '../icons/tfstudio-purple2.png', alt: '',
+        src: APP_ICON, alt: '',
         style: { width: 22, height: 22, objectFit: 'contain' }
       }),
       h('span', {
@@ -142,8 +138,6 @@ export function MenuBar({ c, onMenuAction, t, devAllowed = true }) {
                  fontFamily: 'system-ui, -apple-system, sans-serif' }
       }, 'TFStudio')
     ),
-
-    // Menu buttons
     menus.map(menu =>
       h('div', { key: menu.label, style: { position: 'relative', WebkitAppRegion: 'no-drag' } },
         h('button', {
