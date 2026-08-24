@@ -50,7 +50,6 @@ p { margin: 4px 0; }
 .tf-swatch { width: 72px; height: 72px; border-radius: 6px; border: 1px solid #bbb; }
 .tf-swatch-wrap { flex: 0 0 auto; text-align: center; }
 .tf-notes { white-space: pre-wrap; font-size: 11px; }
-/* Compact masthead at the top of page 1 (no dedicated cover page). */
 .tf-masthead { display: flex; align-items: center; gap: 16px;
   border-bottom: 2px solid #1565c0; padding-bottom: 8px; margin-bottom: 8px; }
 .tf-masthead .logo { max-height: 56px; max-width: 150px; flex: 0 0 auto; }
@@ -74,7 +73,6 @@ p { margin: 4px 0; }
 
 function tt(tr, key, fb) { return (tr && tr[key] != null) ? tr[key] : fb; }
 
-// Compact masthead band at the top of page 1 (replaces the old full title page).
 function buildCover({ cover = {}, meta = {}, tr }) {
   const L = tr || {};
   const logo = cover.logoDataUrl
@@ -99,7 +97,7 @@ function buildCover({ cover = {}, meta = {}, tr }) {
  * Compose the full report document.
  *
  * @param {object} args
- *   lang        'en' | 'ru'  (sets <html lang>)
+ *   lang        'en' | 'ru' | 'zh'  (sets <html lang>)
  *   tr          t.report locale object
  *   cover       { title, subtitle, customer, project, designer, date, logoDataUrl }
  *   sections    ordered section ids (may include 'cover' and 'notes')
@@ -148,7 +146,6 @@ ${footer}
 </html>`;
 }
 
-// Ordered default section list (ids), respecting REPORT_SECTIONS defaultOn.
 export function defaultSectionSelection() {
   return REPORT_SECTIONS.filter(s => s.defaultOn).map(s => s.id);
 }
