@@ -19,12 +19,15 @@ project's [MIT license](./LICENSE).
   writing code. For anything touching the optical engine or optimizer, cite the
   method you have in mind (paper + equation).
 - **Improve documentation:** The user docs live in [`docs-site/`](./docs-site).
+- **Improve a translation:** UI translation fixes and new locales are welcome.
+  For a new locale, open an issue first to coordinate terminology, review, and
+  ongoing maintenance. The Russian locale is maintained by the author.
 - **Fix a bug / implement a feature:** Please claim or reference an issue so work
   is not duplicated.
 
-> **Not currently open for outside contribution:** UI translations and the bundled
-> material library are maintained by the author. Please don't open PRs for these;
-> if you spot a translation error or a material-data problem, file an issue instead.
+> **Not currently open for outside contribution:** The bundled material library
+> is maintained by the author. If you spot a material-data problem, file an issue
+> instead of opening a PR.
 
 If you plan a large change, please open an issue to discuss it before investing
 significant time.
