@@ -4,9 +4,7 @@
 // Dev (`npm start`) loads raw ES modules from src/ unchanged. This script is ONLY
 // run for packaged builds (wired into `npm run build` before electron-builder). It
 // esbuild-bundles + minifies the renderer entry and the web workers (see WORKERS) into
-// build/app/, vendors the UMD libraries, and emits a production index.html — so the
-// shipped app.asar contains a mangled blob instead of authored source, and DevTools
-// (disabled in packaged builds, see main.js) can't read it live.
+// build/app/, vendors the UMD libraries, and emits a production index.html.
 //
 // Output layout (must match src/workerUrls.js expectations):
 //   build/app/renderer.js      <- esbuild entry
@@ -14,7 +12,7 @@
 //   build/app/styles.css               <- copied
 //   build/app/index.html               <- generated (rebased asset paths)
 //   build/app/vendor/                  <- React(prod)/ReactDOM(prod)/ECharts/KaTeX
-//   build/icons/                       <- copied; renderer uses ../icons/ from the doc
+//   build/app/icons/                   <- copied; renderer uses ./icons/ from the doc
 //
 // NOTE: sourcemap is intentionally OFF — a shipped .map would undo the obfuscation.
 
@@ -60,46 +58,25 @@ async function main() {
   clean(outApp);
   clean(outIcons);
 
-  // 1. Bundle: renderer entry + workers. Common ancestor is src/, so esbuild
-  //    emits renderer.js at outdir root and utils/<worker>.js beneath it.
   const entryPoints = [
     path.join(src, 'renderer.js'),
     ...WORKERS.map((w) => path.join(src, 'utils', 'workers', w)),
   ];
-  // Stamp the BUILD date (YYYY-MM-DD, local) into the bundle so the About dialog
-  // shows when the build was made — not the runtime date. Read in AboutDialog via
-  // `typeof __TFS_BUILD_DATE__` so the dev path (raw ES modules, no define) is safe.
-  const buildDate = new Date().toLocaleDateString('en-CA');   // 'YYYY-MM-DD'
+  const buildDate = new Date().toLocaleDateString('en-CA');
   console.log(`[build-renderer] esbuild bundling ${entryPoints.length} entry points … (build date ${buildDate})`);
   const result = await esbuild.build({
-    entryPoints,
-    outdir: outApp,
-    outbase: src,
-    bundle: true,
-    format: 'esm',
-    platform: 'browser',
-    target: 'es2022',
-    minify: true,
-    sourcemap: false,        // CRITICAL: never ship a sourcemap (would deobfuscate)
-    legalComments: 'none',
-    logLevel: 'info',
+    entryPoints, outdir: outApp, outbase: src, bundle: true, format: 'esm',
+    platform: 'browser', target: 'es2022', minify: true,
+    sourcemap: false, legalComments: 'none', logLevel: 'info',
     define: { __TFS_BUILD_DATE__: JSON.stringify(buildDate) },
-    // React/ReactDOM/ECharts/KaTeX are window.* globals (script tags), never imported
-    // in src/, so there is nothing to externalize here.
   });
-  if (result.errors && result.errors.length) {
-    console.error('[build-renderer] esbuild errors:', result.errors);
-    process.exit(1);
-  }
+  if (result.errors && result.errors.length) { console.error('[build-renderer] esbuild errors:', result.errors); process.exit(1); }
 
-  // Assert no stray .map slipped out.
   const strayMaps = fs.readdirSync(outApp).filter((f) => f.endsWith('.map'));
   if (strayMaps.length) { console.error('[build-renderer] sourcemaps emitted:', strayMaps); process.exit(1); }
 
-  // 2. Static assets.
   console.log('[build-renderer] copying styles + vendor libs + icons …');
   copyFile(path.join(src, 'styles.css'), path.join(outApp, 'styles.css'));
-
   const nm = path.join(root, 'node_modules');
   copyFile(path.join(nm, 'react', 'umd', 'react.production.min.js'), path.join(outVendor, 'react.production.min.js'));
   copyFile(path.join(nm, 'react-dom', 'umd', 'react-dom.production.min.js'), path.join(outVendor, 'react-dom.production.min.js'));
@@ -107,41 +84,32 @@ async function main() {
   copyFile(path.join(nm, 'echarts-gl', 'dist', 'echarts-gl.min.js'), path.join(outVendor, 'echarts-gl.min.js'));
   copyFile(path.join(nm, 'katex', 'dist', 'katex.min.js'), path.join(outVendor, 'katex.min.js'));
   copyFile(path.join(nm, 'katex', 'dist', 'katex.min.css'), path.join(outVendor, 'katex.min.css'));
-  // katex.min.css references url(fonts/KaTeX_*.woff2) relative to itself.
   copyTree(path.join(nm, 'katex', 'dist', 'fonts'), path.join(outVendor, 'fonts'));
 
-  // Icons: renderer uses '../icons/…png' resolved against the document
-  // (build/app/index.html) → build/icons/. Mirror the repo icons folder there.
   copyTree(path.join(root, 'icons'), outIcons);
+  copyTree(path.join(root, 'icons'), path.join(outApp, 'icons'));
 
-  // 3. Production index.html (rebased to bundled/vendored assets).
   const html = `<!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta http-equiv="Content-Security-Policy" content="default-src 'self' 'unsafe-inline' 'unsafe-eval'; img-src 'self' data: blob:">
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self' 'unsafe-inline' 'unsafe-eval'; img-src 'self' data: blob: file:">
     <title>TFStudio</title>
     <link rel="stylesheet" href="styles.css">
     <link rel="stylesheet" href="vendor/katex.min.css">
 </head>
 <body>
     <div id="root"></div>
-
-    <!-- Vendored UMD globals (production builds) -->
     <script src="vendor/react.production.min.js"></script>
     <script src="vendor/react-dom.production.min.js"></script>
     <script src="vendor/echarts.min.js"></script>
     <script src="vendor/echarts-gl.min.js"></script>
     <script src="vendor/katex.min.js"></script>
-
-    <!-- Bundled + minified renderer -->
     <script type="module" src="renderer.js"></script>
 </body>
-</html>
-`;
+</html>`;
   fs.writeFileSync(path.join(outApp, 'index.html'), html, 'utf8');
-
   console.log('[build-renderer] done → build/app/');
 }
 
