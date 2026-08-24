@@ -1,3 +1,6 @@
+# Store LF in the repository regardless of the platform.
+* text=auto
+
 # Shell scripts must keep LF endings: WSL and Linux hosts fail to run a script
 # checked out with CRLF ("bad interpreter: /usr/bin/env bash^M").
 *.sh text eol=lf
