@@ -8,28 +8,33 @@ If something here matters to your work, or something you need is missing, open a
 
 ## Next
 
-- **Design Editor tools.** Replacing a material while preserving optical thickness rather than physical thickness, rounding or quantizing thicknesses to a deposition resolution, applying a manual perturbation to the stack, and copying the layer table to the clipboard.
-- **Merit-aware design cleanup.** Design Cleaner currently decides what to remove from layer thickness, which is a weak proxy for optical importance. Ranking candidates by the merit cost of removing and re-optimizing targets the layers that genuinely contribute least.
+- **A tabbed ribbon.** Replace the single overflowing strip and duplicate menu bar with task-oriented tabs while preserving shortcuts, layouts, tours and development-only commands.
 - **Draging windows out of the main window.** A docked window should be able to leave the docking layout entirely and become its own top-level window, dragged anywhere on the desktop, including onto a second monitor. Dragging it back should redock it.
+- **Fit a design to a measured curve.** Turn an imported spectrum into merit targets so known layer thicknesses can be fitted to an actual deposition.
+- **Determine n and k from measurements.** Fit refractive index, extinction andthickness from measured R/T data with regularized material models.
+- **Optical monitoring worksheet and plot.** User-requested spreadsheet-style per-layer table. Monitor wavelength, stop signal, turning points, signal swing, cutoff ratio and witness-chip assignment - together with a full-run monitoring plot whose layer cuts are marked and numbered.
 
 ## After that
 
+- **Coating Library.** Saving and reusing user-made coating stacks. A curated set of starting designs with real materials will be shipped too. 
 - **New window with a layer thicknesses diagram.** 
 - **Fitting a design to a measured spectrum.** Measured spectra can already be imported and plotted. The next step is generating merit function targets from an imported curve, so layer thicknesses can be fitted to what was actually deposited.
 - **Report layout.** Denser layer tables and better defaults in generated reports.
-- **Equivalent layers.** Converting a layer group to an equivalent single index layer and back.
-
+- **Visual GD/GDD target editing.** Draw, move and remove dispersion targets directly on the GD/GDD plot instead of switching to the merit table.
+- **Pulse Analysis.** Propagate Gaussian, sech-squared or measured pulses through a coating and show temporal broadening, spectral phase and residual chirp.
+  
 ## Later
 
-- **Designing for manufacturability.** Refinement that penalizes sensitivity directly, so the optimizer prefers designs that survive deposition error instead of only reporting afterwards that a design is fragile.
-- **Determining n, k from measurement.** Deriving a film's refractive index, extinction and thickness from measured spectra, so materials can be characterized as deposited rather than taken from published data.
-- **Interface-resolved roughness.** The current scattering model treats roughness as a single lumped loss, which is adequate in the visible range and less so at short wavelengths.
+- **Merit-aware design cleanup.** Design Cleaner currently decides what to remove from layer thickness, which is a weak proxy for optical importance. Ranking candidates by the merit cost of removing and re-optimizing targets the layers that genuinely contribute least.
+- **Sensitivity-directed refinement.** Penalize the thickness-sensitivity predicted by the optimizer Jacobian so designs move toward robust minima.
+- **Interface-resolved roughness.** Replace the current lumped scattering loss with an interface-by-interface Névot–Croce treatment.
+- **Robust refinement.** Optimize against a sampled cloud of manufacturing perturbations when the cheaper sensitivity penalty is not enough.
 
 ## Under consideration
 
 Real candidates, not yet scheduled, listed so you can say if one of them matters to you:
 
-crystal (QCM) deposition monitoring, rugate and graded-index synthesis, laser damage threshold estimation, optimizing across multiple environments at once, pulse propagation for ultrafast coatings, coating stress as an optimization target, glazing U and g values, and CODE V sequence export.
+crystal (QCM) deposition monitoring, rugate and graded-index synthesis, laser damage threshold estimation, optimizing across multiple environments at once, coating stress as an optimization target, glazing U and g values, and CODE V sequence export.
 
 ## Not planned
 
