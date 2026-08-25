@@ -38,6 +38,9 @@ globalThis.echarts = {
             resize: () => { calls.resize++; },
             dispose: () => { calls.dispose++; instances.delete(element); },
             isDisposed: () => false,
+            getZr: () => ({ on: () => {} }),
+            containPixel: () => false,
+            dispatchAction: () => {},
         };
         instances.set(element, chart);
         calls.init.push(options);

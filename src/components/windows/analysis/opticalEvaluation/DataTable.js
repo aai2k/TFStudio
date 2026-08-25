@@ -1,9 +1,10 @@
 import { buildTableColumns } from './model.js';
+import { formatYCell } from './yScale.js';
 import { useAnalysisColors } from '../../../../state/AnalysisSettingsContext.js';
 
 const { createElement: h } = React;
 
-export function DataTable({ data, showCurves, c, oe }) {
+export function DataTable({ data, showCurves, yScale, c, oe }) {
     const curveColors = useAnalysisColors('opticalEvaluation');
     const columns = buildTableColumns(data, showCurves, curveColors);
     const thBase = {
@@ -41,7 +42,7 @@ export function DataTable({ data, showCurves, c, oe }) {
                         h('td', { style: { ...tdBase, textAlign: 'left', color: c.textDim } }, lambda.toFixed(1)),
                         ...columns.map((column, columnIndex) =>
                             h('td', { key: columnIndex, style: { ...tdBase, textAlign: 'right', color: c.text } },
-                                (column.ys[index] * 100).toFixed(4)
+                                formatYCell(yScale, column.ys[index])
                             )
                         )
                     )

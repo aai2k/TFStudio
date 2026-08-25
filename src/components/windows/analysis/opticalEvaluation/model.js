@@ -5,10 +5,11 @@ import { makeOperand } from '../../../../utils/physics/optimizer.js';
 import { spectralAxisOption } from '../../../../utils/physics/spectralAxis.js';
 import { ANALYSIS_DEFAULTS } from '../../../../constants/analysisDefaults.js';
 import {
-    axisTooltip, cartesianOption, chartToolbox, formatPercentReadout, lineSeries, valueAxis,
+    axisTooltip, cartesianOption, chartToolbox, lineSeries, valueAxis,
 } from '../../../ui/chartOptions.js';
 import { targetSeries } from '../../../ui/targetSeries.js';
 import { plotMargin } from '../chrome/plot.js';
+import { yScaleAxisOption, yScaleOf, yScaleTooltip } from './yScale.js';
 
 const CURVE_SHAPES = [
     { key: 'T',  label: 'T avg', dash: 'solid',  group: 'avg' },
@@ -94,30 +95,33 @@ export function buildChartOption(options) {
     const {
         data, showCurves, targets, targetsVisible, overlays, curveColors,
         paperColor, bgColor, gridColor, textColor,
-        editMode, editTool, yRange, spectralUnit, lamRange,
+        editMode, editTool, yRange, yScale, spectralUnit, lamRange,
     } = options;
     const drawing = editMode && editTool === 'draw';
     const spectral = spectralAxisOption(spectralUnit, lamRange?.min, lamRange?.max);
+    const vertical = yScaleAxisOption(yScale);
     const xAxis = valueAxis({
         name: spectral.name, color: textColor, gridColor,
         min: spectral.min, max: spectral.max,
-        interval: spectralUnit === 'nm' ? 50 : undefined,
+        // A count lets ECharts choose round ticks from the visible span. At the
+        // default 400-800 nm range this is still 50 nm; after a box zoom it
+        // becomes a suitable 5/10/20 nm interval instead of anchoring labels to
+        // the exact pixel where the drag began.
+        splitNumber: spectralUnit === 'nm' ? 8 : undefined,
     });
     xAxis.axisLabel = { ...xAxis.axisLabel, ...spectral.axisLabel };
     return cartesianOption({
         colors: { background: bgColor, paper: paperColor, grid: gridColor, text: textColor },
         grid: plotMargin(),
-        tooltip: drawing ? { show: false } : axisTooltip({
-            valueSuffix: '%', formatValue: formatPercentReadout,
-        }),
+        tooltip: drawing ? { show: false } : axisTooltip(yScaleTooltip(yScale)),
         toolbox: chartToolbox('spectrum', { dataZoom: !drawing, restore: true }),
         xAxis,
         yAxis: valueAxis({
-            name: '%', color: textColor, gridColor,
+            name: vertical.name, formatter: vertical.formatter, color: textColor, gridColor,
             min: yRange?.auto ? undefined : (yRange?.min ?? 0),
             max: yRange?.auto ? undefined : (yRange?.max ?? 100),
             scale: !!yRange?.auto,
-            interval: yRange?.auto ? undefined : 10,
+            splitNumber: 10,
         }),
         dataZoom: drawing ? undefined : [{
             type: 'inside', xAxisIndex: 0, filterMode: 'none',
@@ -142,8 +146,9 @@ export function buildTableColumns(data, showCurves, curveColors) {
     return columns;
 }
 
-export function buildCSV(data, showCurves) {
+export function buildCSV(data, showCurves, yScale) {
     if (!data?.lambda || !data?.series?.length) return '';
+    const scale = yScaleOf(yScale);
     const multiple = data.series.length > 1;
     const columns = buildTableColumns(data, showCurves).map(column => ({
         name: column.cv.key + (multiple ? `_${formatTheta(column.theta)}deg` : ''),
@@ -152,7 +157,7 @@ export function buildCSV(data, showCurves) {
     const header = ['lambda_nm', ...columns.map(column => column.name)].join(',');
     const rows = data.lambda.map((wavelength, index) => [
         wavelength.toFixed(2),
-        ...columns.map(column => (column.values[index] * 100).toFixed(6)),
+        ...columns.map(column => scale.fromFraction(column.values[index]).toFixed(scale.csvDecimals)),
     ].join(','));
     return [header, ...rows].join('\n');
 }

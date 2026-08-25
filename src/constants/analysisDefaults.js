@@ -128,6 +128,10 @@ export const ANALYSIS_DEFAULTS = {
     },
     enums: {
       spectralUnit: { def: 'nm', options: SPECTRAL_UNIT_IDS },
+      // Whether T, R and A are shown as percentages or as fractions of the
+      // incident flux. The bounds above are always percentages; the window
+      // converts them for display, as it does the spectral range.
+      yScale: { def: 'percent', options: ['percent', 'fraction'] },
     },
     // This window draws one set of curves per angle. Entered as a list because
     // it is a list: a single number would lose the comparison it is for.

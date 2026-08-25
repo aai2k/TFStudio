@@ -10,7 +10,7 @@ const { createElement: h } = React;
  * on the control row because they report a Design Editor setting rather than
  * offering one, and this strip is the only chrome that is always on screen.
  */
-export function ResultsPanel({ data, showCurves, showTable, setShowTable, c, t, oe, design, exportMenu }) {
+export function ResultsPanel({ data, showCurves, yScale, showTable, setShowTable, c, t, oe, design, exportMenu }) {
     return h(ResultsSection, {
         c, label: oe.results, count: data?.lambda?.length || 0, countLabel: oe.rowCount,
         open: showTable, setOpen: setShowTable,
@@ -19,5 +19,5 @@ export function ResultsPanel({ data, showCurves, showTable, setShowTable, c, t, 
             h(ConeBadge, { design, c, t }),
             exportMenu,
         ),
-    }, data && h(DataTable, { data, showCurves, c, oe }));
+    }, data && h(DataTable, { data, showCurves, yScale, c, oe }));
 }

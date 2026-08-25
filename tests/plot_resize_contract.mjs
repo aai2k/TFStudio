@@ -10,12 +10,18 @@ const instances = new WeakMap();
 globalThis.echarts = {
     getInstanceByDom: element => instances.get(element) || null,
     init(element, _theme, options) {
+        const handlers = {};
         const chart = {
             disposed: false,
+            handlers,
             isDisposed() { return this.disposed; },
             setOption(option, settings) { calls.push(['setOption', option, settings]); },
             resize() { calls.push(['resize']); },
             dispose() { this.disposed = true; instances.delete(element); calls.push(['dispose']); },
+            getZr: () => ({ on(name, handler) { handlers[name] = handler; } }),
+            // The grid of the fake chart is the square from (100, 100) to (200, 200).
+            containPixel: (_finder, [x, y]) => x >= 100 && x <= 200 && y >= 100 && y <= 200,
+            dispatchAction(action) { calls.push(['dispatchAction', action]); },
         };
         instances.set(element, chart);
         calls.push(['init', options]);
@@ -28,7 +34,7 @@ const {
     disposeChart, drawChart, hasRoomToDraw, isDisplayed, resizeChart, setChartOption,
 } = await import('../src/components/ui/plotSurface.js');
 const {
-    LINE_LEGEND_ICON, axisTooltip, cartesianOption, lineSeries, scatterSeries,
+    LINE_LEGEND_ICON, axisTooltip, cartesianOption, chartToolbox, lineSeries, scatterSeries,
 } = await import('../src/components/ui/chartOptions.js');
 
 const roomy = { clientWidth: 800, clientHeight: 600, offsetWidth: 800, offsetHeight: 600 };
@@ -97,6 +103,17 @@ const option = { grid: { left: 48, right: 12, top: 12, bottom: 42 }, series: [] 
     assert.deepEqual(option, { grid: { left: 48, right: 12, top: 12, bottom: 42 }, series: [] },
         'drawing does not mutate caller-owned options');
 
+    // Double-clicking the plot is the quick way back to the full range. The
+    // toolbox icon ECharts names "Zoom Reset" only steps back through its own
+    // rectangle-zoom history, so it does nothing after a wheel zoom.
+    const beforeDouble = calls.length;
+    chart.handlers.dblclick({ offsetX: 150, offsetY: 150 });
+    assert.deepEqual(calls.at(-1), ['dispatchAction', { type: 'dataZoom', start: 0, end: 100 }],
+        'a double-click inside the plot returns every axis to its full range');
+    chart.handlers.dblclick({ offsetX: 10, offsetY: 10 });
+    assert.equal(calls.length, beforeDouble + 1,
+        'a double-click on the chrome around the plot is left alone');
+
     resizeChart(roomy, chartRef);
     assert.equal(calls.at(-1)[0], 'resize');
     const beforeHidden = calls.length;
@@ -116,6 +133,20 @@ assert.equal(hasRoomToDraw({}, option), true, 'an unmeasurable host is not treat
 assert.equal(isDisplayed({ offsetWidth: 800, offsetHeight: 0 }), true);
 assert.equal(isDisplayed({ offsetWidth: 0, offsetHeight: 0 }), false);
 assert.equal(isDisplayed({}), true);
+
+const zoomToolbox = chartToolbox('zoom_contract');
+assert.equal(zoomToolbox.feature.restore, undefined,
+    'the ECharts 6.1 restore feature is not used because it leaks active zoom controllers');
+assert.deepEqual(Object.keys(zoomToolbox.feature.dataZoom.icon), ['zoom', 'back'],
+    'the zero-width back icon follows zoom and cannot leave a blank slot before it');
+const resetActions = [];
+zoomToolbox.feature.myZoomRestore.onclick(null, {
+    dispatchAction: action => resetActions.push(action),
+});
+assert.deepEqual(resetActions, [
+    { type: 'takeGlobalCursor', key: 'dataZoomSelect', dataZoomSelectActive: false },
+    { type: 'dataZoom', start: 0, end: 100 },
+], 'the replacement reset exits rectangle mode and resets every linked zoom model directly');
 
 const percentTooltip = axisTooltip({ valueSuffix: '%' });
 assert.equal(percentTooltip.axisPointer.label.formatter({ value: 63.88, axisDimension: 'y' }), '63.88%');

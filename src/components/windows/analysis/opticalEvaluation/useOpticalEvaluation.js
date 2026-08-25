@@ -80,7 +80,7 @@ function useDisplayOptions(params, setParams, design) {
     // The Y axis and the curve switches are configured defaults: the session
     // store starts from the analysis registry and adopts the saved values when
     // the preferences file arrives, so there is nothing to substitute here.
-    const { showCurves, showTable, showTargets, yAuto, yMin, yMax } = session;
+    const { showCurves, showTable, showTargets, yAuto, yMin, yMax, yScale } = session;
     // The unit the spectral range is entered and labelled in belongs with the
     // range itself, which is shared with the other evaluation windows.
     const spectralUnit = params.spectralUnit || 'nm';
@@ -100,22 +100,23 @@ function useDisplayOptions(params, setParams, design) {
         yAuto, setYAuto: value => setField('yAuto', value),
         yMin, setYMin: value => setField('yMin', value),
         yMax, setYMax: value => setField('yMax', value),
+        yScale, setYScale: value => setField('yScale', value),
         spectralUnit, setSpectralUnit: value => setParams({ spectralUnit: value }),
         yRange, lamRange, toggleCurve, setThetas,
     };
 }
 
-function useCsvActions({ data, showCurves, design }) {
+function useCsvActions({ data, showCurves, yScale, design }) {
     const [copied, setCopied] = useState(false);
     const [saved, setSaved] = useState(false);
     const copyCSV = () => {
-        const csv = buildCSV(data, showCurves);
+        const csv = buildCSV(data, showCurves, yScale);
         if (navigator.clipboard) navigator.clipboard.writeText(csv);
         setCopied(true);
         setTimeout(() => setCopied(false), 1500);
     };
     const saveCSV = async () => {
-        const csv = buildCSV(data, showCurves);
+        const csv = buildCSV(data, showCurves, yScale);
         if (!csv || !window.electronAPI?.spectrumSaveFile) return;
         const base = (design.name || 'spectrum').replace(/[^\w.-]+/g, '_');
         const result = await window.electronAPI.spectrumSaveFile(csv, `${base}_spectrum.csv`);
@@ -145,7 +146,9 @@ export function useOpticalEvaluation() {
     const display = useDisplayOptions(params, setParams, design);
     const spectrum = useSpectrumEvaluation({ params, evalMode });
     const targets = useTargetEditor({ design, updateDesign });
-    const csv = useCsvActions({ data: spectrum.data, showCurves: display.showCurves, design });
+    const csv = useCsvActions({
+        data: spectrum.data, showCurves: display.showCurves, yScale: display.yScale, design,
+    });
     return {
         design, evalMode, params, setParams,
         ...display, ...spectrum, ...targets, ...csv,

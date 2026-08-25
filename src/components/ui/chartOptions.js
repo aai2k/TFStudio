@@ -2,6 +2,7 @@
 
 export const THIN_X_SYMBOL = 'path://M-5,-4L-4,-5L0,-1L4,-5L5,-4L1,0L5,4L4,5L0,1L-4,5L-5,4L-1,0Z';
 export const LINE_LEGEND_ICON = 'path://M0,4L24,4L24,6L0,6Z';
+const RECTANGLE_ZOOM_ICON = 'path://M0,13.5h26.9 M13.5,26.9V0 M32.1,13.5H58V58H13.5 V32.1';
 
 export function dashType(dash) {
     if (!dash || dash === 'solid') return 'solid';
@@ -76,7 +77,7 @@ export function scatterSeries({
 export function valueAxis({
     name, color = '#cccccc', gridColor = '#3a3a3a', min, max,
     position = 'bottom', inverse = false, axisLabel, nameGap = 30,
-    splitLine = true, scale = false, formatter, interval,
+    splitLine = true, scale = false, formatter, interval, splitNumber,
 } = {}) {
     return {
         type: 'value',
@@ -89,6 +90,7 @@ export function valueAxis({
         min,
         max,
         interval,
+        splitNumber,
         scale,
         axisLine: { show: true, lineStyle: { color } },
         axisTick: { show: true },
@@ -109,8 +111,49 @@ export function chartToolbox(fileName, { dataZoom = true, restore = true, colors
     const feature = {
         saveAsImage: { name: `TFStudio_${fileName}`, pixelRatio: 2, backgroundColor: palette.paper },
     };
-    if (restore) feature.restore = {};
-    if (dataZoom) feature.dataZoom = { yAxisIndex: 'none' };
+    // ECharts 6.1's native `restore` action recreates the toolbox model but
+    // leaves the previous dataZoom brush controller active. The next rectangle
+    // is then handled twice: once against the full axes and immediately again
+    // against the first result. Every later restore accumulates another stale
+    // controller and collapses the range farther.
+    //
+    // Reset the zoom models directly instead. This leaves the toolbox instance
+    // intact, explicitly exits rectangle mode, and reaches every linked X/Y
+    // dataZoom because the action intentionally has no component query.
+    if (restore) feature.myZoomRestore = {
+        show: true,
+        title: 'Reset zoom',
+        icon: 'path://M3.8,33.4 M47,18.9h9.8V8.7 M56.3,20.1 C52.1,9,40.5,0.6,26.8,2.1C12.6,3.7,1.6,16.2,2.1,30.6 M13,41.1H3.1v10.2 M3.7,39.9c4.2,11.1,15.8,19.5,29.5,18 c14.2-1.6,25.2-14.1,24.7-28.5',
+        onclick: (_model, api) => {
+            api.dispatchAction({
+                type: 'takeGlobalCursor',
+                key: 'dataZoomSelect',
+                dataZoomSelectActive: false,
+            });
+            api.dispatchAction({ type: 'dataZoom', start: 0, end: 100 });
+        },
+    };
+    // The rectangle tool covers both axes, so dragging a box zooms to that box.
+    //
+    // `filterMode: 'none'` is what makes that safe. ECharts' default for this
+    // tool is 'filter', which drops every point outside the window: on a Y axis
+    // that discards the whole curve the moment the box does not span it, and
+    // the plot comes back empty. With 'none' the data is left alone and the
+    // grid clips it, which is also how the wheel zoom behaves.
+    //
+    // ECharts pairs the tool with a second icon that steps back through its own
+    // zoom history. That history is written only by the rectangle tool, so after
+    // a wheel zoom the icon has nothing to undo and does nothing at all. It is
+    // drawn as an empty path to keep it off the strip, leaving Reset zoom and a
+    // double-click inside the plot as the ways back to the full range.
+    if (dataZoom) feature.dataZoom = {
+        filterMode: 'none',
+        // Declare zoom before the empty back path. ECharts merges defaults into
+        // this object without changing existing key order; declaring only back
+        // put the zero-width icon first and left a visible blank slot before
+        // zoom. The unavoidable zero-width entry now sits after the last icon.
+        icon: { zoom: RECTANGLE_ZOOM_ICON, back: 'path://' },
+    };
     return {
         show: true,
         right: 8,
@@ -361,13 +404,14 @@ function dataBoundXAxis(axis) {
     return {
         ...axis,
         scale: true,
-        ...(axis.interval == null && isNanometreWavelength ? { interval: 50 } : {}),
+        ...(axis.interval == null && axis.splitNumber == null && isNanometreWavelength ? { interval: 50 } : {}),
     };
 }
 
 function standardYAxis(axis) {
     if (Array.isArray(axis)) return axis.map(standardYAxis);
-    return axis?.type === 'value' && axis.interval == null && axis.min === 0 && axis.max === 100
+    return axis?.type === 'value' && axis.interval == null && axis.splitNumber == null
+        && axis.min === 0 && axis.max === 100
         ? { ...axis, interval: 10 }
         : axis;
 }

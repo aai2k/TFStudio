@@ -5,15 +5,15 @@ const { createElement: h } = React;
 export function ChartPanel(props) {
     const {
         data, showCurves, design, showTargets, c, theme,
-        editMode, editTool, editCurve, editPol, editKind, lamRange, yRange,
+        editMode, editTool, editCurve, editPol, editKind, lamRange, yRange, yScale,
         spectralUnit, onCreateTarget, onEditTarget, onDeleteTarget,
         error, busy, showEmpty, oe, t,
     } = props;
     return h('div', { style: { flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column', overflow: 'hidden' } },
         h('div', { style: { flex: 1, minHeight: 0, position: 'relative', overflow: 'hidden' } },
             h(SpectrumChart, {
-                data, showCurves, targets: design.meritOperands, showTargets, c, theme,
-                editMode, editTool, editCurve, editPol, editKind, lamRange, yRange,
+                data, designId: design.id, showCurves, targets: design.meritOperands, showTargets, c, theme,
+                editMode, editTool, editCurve, editPol, editKind, lamRange, yRange, yScale,
                 spectralUnit, overlays: design.measuredCurves,
                 onCreateTarget, onEditTarget, onDeleteTarget,
             }),

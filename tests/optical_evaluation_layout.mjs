@@ -10,7 +10,7 @@ const { OpticalEvaluation } = await import(
     '../src/components/windows/analysis/opticalEvaluation/OpticalEvaluation.js');
 const { TargetToolbar } = await import(
     '../src/components/windows/analysis/opticalEvaluation/TargetToolbar.js');
-const { hasPointerTravelled, targetGeometryChanged } = await import(
+const { TargetEditorOverlay, dataPoint, hasPointerTravelled, targetGeometryChanged } = await import(
     '../src/components/ui/TargetEditorOverlay.js');
 const markup = renderToStaticMarkup(withDesign(
     React.createElement(OpticalEvaluation, { c: makeTheme(), theme: makeTheme(), t: makeLocale() })));
@@ -62,6 +62,27 @@ check(!targetGeometryChanged(
     { x0: 403, y0: 10, x1: 698, y1: 10 },
     { x0: 403, y0: 10, x1: 698, y1: 10 },
 ), 'unchanged target geometry does not trigger snapping');
+
+const finderCalls = [];
+const converted = dataPoint({
+    containPixel: (finder, pixel) => {
+        finderCalls.push(['contain', finder, pixel]);
+        return finder.gridIndex === 0;
+    },
+    convertFromPixel: (finder, pixel) => {
+        finderCalls.push(['convert', finder, pixel]);
+        return finder.xAxisIndex === 0 && finder.yAxisIndex === 0 ? [534.87, 61] : null;
+    },
+}, [300, 200]);
+check(converted?.[0] === 534.87 && finderCalls[0][1].gridIndex === 0
+    && finderCalls[1][1].xAxisIndex === 0,
+    'the target editor checks grid containment and uses the axes for conversion');
+check(renderToStaticMarkup(React.createElement(TargetEditorOverlay, {
+    chartRef: { current: null }, enabled: false,
+})) === '', 'a disabled target editor mounts no overlay or chart listeners');
+check(renderToStaticMarkup(React.createElement(TargetEditorOverlay, {
+    chartRef: { current: null }, enabled: true,
+})).startsWith('<svg'), 'an enabled target editor mounts its interactive overlay');
 
 if (failures) {
     console.error(`optical_evaluation_layout: ${failures} failure(s)`);

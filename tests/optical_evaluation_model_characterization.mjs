@@ -2,6 +2,7 @@ import {
     buildChartSeries, buildChartOption, buildCSV,
     createTargetOperands, editTargetOperands, deleteTargetOperand,
 } from '../src/components/windows/analysis/opticalEvaluation/model.js';
+import { formatYCell } from '../src/components/windows/analysis/opticalEvaluation/yScale.js';
 import { computeOpticalSpectrum } from '../src/components/windows/analysis/opticalEvaluation/spectrum.js';
 import { evaluateSpectrum, evaluateSpectrumBack, evaluateSpectrumTotal } from '../src/utils/physics/thinFilmMath.js';
 import { getMaterial } from '../src/utils/materials/materialDatabase.js';
@@ -54,12 +55,48 @@ const option = buildChartOption({
 });
 check(option.tooltip.trigger === 'axis' && option.dataZoom[0].type === 'inside', 'read-only chart interaction remains unchanged');
 check(option.yAxis.min === 5 && option.yAxis.max === 95, 'fixed Y range remains unchanged');
-check(option.xAxis.interval === 50 && option.yAxis.interval === 10,
-    'OE uses the requested 50 nm and 10 percent grid spacing');
+check(option.xAxis.interval === undefined && option.yAxis.interval === undefined
+    && option.xAxis.splitNumber === 8 && option.yAxis.splitNumber === 10,
+    'OE asks for the same full-range density while allowing round zoomed ticks');
 check(option.yAxis.name === '%' && option.tooltip.valueFormatter(98.725) === '98.725%',
     'OE shows the unit once and includes it in hover values');
 check(option.grid.top >= 38 && option.legend.show === false,
     'chart reserves a toolbox strip above the data and uses the curve controls as its legend');
+
+// Dragging a box zooms to that box, so the rectangle tool must reach the Y axis
+// too. Its companion icon undoes a rectangle zoom and nothing else, which after
+// a wheel zoom means nothing at all, so it is drawn empty and left off the strip.
+const zoomFeature = option.toolbox.feature.dataZoom;
+check(zoomFeature.yAxisIndex === undefined, 'the rectangle zoom covers both axes');
+check(zoomFeature.icon.back === 'path://', 'the history-only zoom icon is not drawn');
+// ECharts defaults this tool to 'filter', which discards the points outside the
+// window. On the Y axis that is every point of a curve the box does not span,
+// so the zoom lands on an empty plot. The grid clips instead.
+check(zoomFeature.filterMode === 'none' && option.dataZoom[0].filterMode === 'none',
+    'zooming changes the view and never the data');
+
+// Choosing 0-1 relabels the axis and rescales what is read off it. The plotted
+// coordinates stay percentages, which is what the merit targets and the target
+// editor work in, so a switch of units cannot move a target off its curve.
+const fractionOption = buildChartOption({
+    paperColor: '#222222', bgColor: '#111111', gridColor: '#333333', textColor: '#eeeeee',
+    data, showCurves, overlays: [], targets: [], targetsVisible: false,
+    editMode: false, editTool: 'draw', editCurve: 'R', yScale: 'fraction',
+    yRange: { auto: false, min: 5, max: 95 }, spectralUnit: 'nm', lamRange: { min: 500, max: 600 },
+});
+check(fractionOption.yAxis.name === '0-1' && fractionOption.yAxis.axisLabel.formatter(95) === '0.95',
+    'the 0-1 axis is labelled in fractions');
+check(fractionOption.yAxis.min === 5 && fractionOption.yAxis.max === 95,
+    'the vertical range stays in percent, so the unit switch does not move the view');
+check(fractionOption.series[0].data.map(point => point[1]).join(',') === '10,20',
+    'plotted values stay on the percentage scale the target overlay uses');
+check(fractionOption.tooltip.valueFormatter(98.725) === '0.98725',
+    'hover values follow the chosen unit and keep the same digits');
+check(formatYCell('percent', 0.987254321) === '98.7254'
+    && formatYCell('fraction', 0.987254321) === '0.987254',
+    'the results table follows the chosen unit at matching precision');
+check(buildCSV(data, showCurves, 'fraction').split('\n')[1] === '500.00,0.10000000,0.90000000,0.30000000,0.70000000',
+    'the exported CSV follows the table');
 const drawOption = buildChartOption({
     paperColor: '#222222', bgColor: '#111111', gridColor: '#333333', textColor: '#eeeeee',
     data, showCurves, overlays: [], targets: [], targetsVisible: false,

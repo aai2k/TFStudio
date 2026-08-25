@@ -9,6 +9,7 @@
 
 const { createElement: h, useCallback, useEffect, useRef, useState } = React;
 const AXES = { xAxisIndex: 0, yAxisIndex: 0 };
+const PLOT = { gridIndex: 0 };
 
 function finitePoint(point) {
     return Array.isArray(point) && point.length >= 2 && point.every(Number.isFinite);
@@ -19,8 +20,12 @@ function eventPixel(event, svg) {
     return [event.clientX - rect.left, event.clientY - rect.top];
 }
 
-function dataPoint(chart, pixel) {
-    if (chart?.containPixel && !chart.containPixel(AXES, pixel)) return null;
+export function dataPoint(chart, pixel) {
+    // Axis models convert coordinates, but in ECharts 6 they do not own a
+    // coordinate system and therefore can never contain a pixel. The grid owns
+    // the Cartesian coordinate system, so containment and conversion need
+    // different finders.
+    if (chart?.containPixel && !chart.containPixel(PLOT, pixel)) return null;
     const point = chart?.convertFromPixel(AXES, pixel);
     return finitePoint(point) ? point : null;
 }
@@ -45,7 +50,7 @@ export function targetGeometryChanged(source, result) {
     return ['x0', 'y0', 'x1', 'y1'].some(key => Number(source?.[key]) !== Number(result?.[key]));
 }
 
-export function TargetEditorOverlay({
+function ActiveTargetEditorOverlay({
     chartRef, geometry = [], enabled = false, tool = 'draw', drawColor = '#ef5350',
     handleFill = '#1e1e1e', onCreate, onEdit, onDelete,
 }) {
@@ -230,4 +235,18 @@ export function TargetEditorOverlay({
             stroke: previewPixels.color, strokeWidth: 3, strokeDasharray: '6 4', pointerEvents: 'none',
         }),
     );
+}
+
+/**
+ * Keep the editor completely out of the chart while editing is off.
+ *
+ * Besides avoiding a transparent SVG over a read-only plot, this is important
+ * for large spectra: the active editor listens for `datazoom` so its handles
+ * follow the axes. A disabled editor used to listen too, update React state on
+ * the first brush event, and make the large-data chart rebuild in the middle of
+ * the brush. ECharts then interpreted the remainder against the new range and
+ * applied a second, much smaller zoom.
+ */
+export function TargetEditorOverlay(props) {
+    return props.enabled ? h(ActiveTargetEditorOverlay, props) : null;
 }

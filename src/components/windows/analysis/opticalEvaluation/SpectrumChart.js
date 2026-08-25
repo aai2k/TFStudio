@@ -8,12 +8,13 @@ const { createElement: h, useEffect, useMemo, useRef } = React;
 
 export function SpectrumChart(props) {
     const {
-        data, showCurves, targets, showTargets, c,
-        editMode = false, editTool = 'draw', editCurve = 'R', lamRange, yRange,
+        data, designId, showCurves, targets, showTargets, c,
+        editMode = false, editTool = 'draw', editCurve = 'R', lamRange, yRange, yScale,
         spectralUnit = 'nm', overlays = [],
     } = props;
     const divRef = useRef(null);
     const chartRef = useRef(null);
+    const designIdRef = useRef(designId);
     const curveColors = useAnalysisColors('opticalEvaluation');
     const colors = {
         bgColor: c.bg || '#1e1e1e', paperColor: c.panel || '#252526',
@@ -24,9 +25,17 @@ export function SpectrumChart(props) {
         [editMode, targets, lamRange],
     );
     useEffect(() => {
+        const chart = chartRef.current;
+        if (chart && designIdRef.current !== designId) {
+            chart.dispatchAction({
+                type: 'takeGlobalCursor', key: 'dataZoomSelect', dataZoomSelectActive: false,
+            });
+            chart.dispatchAction({ type: 'dataZoom', start: 0, end: 100 });
+        }
+        designIdRef.current = designId;
         drawChart(divRef.current, chartRef, buildChartOption({
             data, showCurves, targets, targetsVisible: showTargets || editMode,
-            overlays, curveColors, ...colors, editMode, editTool, yRange,
+            overlays, curveColors, ...colors, editMode, editTool, yRange, yScale,
             spectralUnit, lamRange,
         }));
     });

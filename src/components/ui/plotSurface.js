@@ -114,6 +114,20 @@ export function chartForElement(element) {
 }
 
 /**
+ * Double-clicking inside the plot area returns every axis to its full range.
+ *
+ * Charts without a zoom ignore it: `containPixel` is false where there is no
+ * grid, and the action reaches no models where none exist. Bound once, when the
+ * instance is created, so it lives exactly as long as the chart does.
+ */
+function bindZoomReset(chart) {
+    chart.getZr().on('dblclick', event => {
+        if (!chart.containPixel('grid', [event.offsetX, event.offsetY])) return;
+        chart.dispatchAction({ type: 'dataZoom', start: 0, end: 100 });
+    });
+}
+
+/**
  * Create or update a chart using a native ECharts option.
  *
  * `chartRef.current` stores the ECharts instance itself, which gives interactive
@@ -135,6 +149,7 @@ export function drawChart(element, chartRef, option, initOptions) {
             renderer: 'canvas', ...initOptions,
         });
         chartRef.current = chart;
+        bindZoomReset(chart);
     }
     if (appliedOptions.has(chart) && worthComparing(option)
         && sameOption(appliedOptions.get(chart), option)) return chart;
