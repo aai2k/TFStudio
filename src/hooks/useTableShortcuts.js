@@ -11,6 +11,7 @@
 //   Arrow keys    — optional host-provided row/column navigation
 //   Shift+Arrow   — same, extending the selection instead of replacing it
 //   Enter / F2    — optional host-provided cell activation
+//   0-9 . , -     — the same activation, seeded with the typed character
 //   Ctrl+C / V    — optional host-provided copy and paste
 //
 // The host owns rows + focus + selection state; this hook only routes
@@ -44,6 +45,22 @@ function isEditingInside(e) {
  */
 function isCtrlChord(e, code) {
     return (e.ctrlKey || e.metaKey) && !e.shiftKey && !e.altKey && e.code === code;
+}
+
+/**
+ * Whether `e` is a bare character that should open the focused cell's editor
+ * on that character, the way typing into a spreadsheet cell does.
+ *
+ * Restricted to what a number can start with: digits, a minus sign, and either
+ * decimal separator — the numpad decimal key sends a comma under a Russian or
+ * German layout, and the cells parse both. A letter is left alone rather than
+ * opening an editor that would reject the very character it was opened with.
+ * Modifiers are excluded because a chord is a shortcut, not typing.
+ */
+function isCellEntryChar(e) {
+    if (e.ctrlKey || e.metaKey || e.altKey) return false;
+    if (e.key.length !== 1) return false;
+    return (e.key >= '0' && e.key <= '9') || e.key === '.' || e.key === ',' || e.key === '-';
 }
 
 function insertRowKey(e, { focusIdx, rows, onInsertAbove, onInsertBelow }) {
@@ -123,6 +140,14 @@ export function useTableShortcuts(opts) {
         if ((e.key === 'Enter' || e.key === 'F2') && onActivate) {
             e.preventDefault();
             return onActivate(focusIdx);
+        }
+
+        // Typing a digit starts the edit and becomes the cell's new content;
+        // Enter and F2 open the editor on the existing value instead, so
+        // replacing a number and correcting one digit stay separate gestures.
+        if (onActivate && isCellEntryChar(e)) {
+            e.preventDefault();
+            return onActivate(focusIdx, e.key);
         }
 
         if (isCtrlChord(e, 'KeyC') && onCopy) {

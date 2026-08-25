@@ -21,7 +21,7 @@ const LAYER_ROW_H = 26;
 // entirely — and scrolling, which changes no props, never re-renders any row.
 export const LayerRow = React.memo(function LayerRow({ layer, index, isSelected, onSelect, c,
     onMaterialChange, onThicknessChange, onLockToggle, onRemove,
-    isMaterialMissing, activeUnit, editRequestToken, editRequestUnit,
+    isMaterialMissing, activeUnit, editRequestToken, editRequestUnit, editRequestSeed,
     onActivateCell, onNavigateCell, onFinishEditing, onContextMenu,
     onPointerDownDrag, dropPosition,
     refLambda, t }) {
@@ -83,6 +83,7 @@ export const LayerRow = React.memo(function LayerRow({ layer, index, isSelected,
                 unit: column.unit, primary: column.primary,
                 active: activeUnit === column.unit,
                 editRequest: editRequestUnit === column.unit ? editRequestToken : 0,
+                editSeed: editRequestUnit === column.unit ? editRequestSeed : null,
                 onActivate: event => {
                     if (!event?.ctrlKey && !event?.metaKey && !event?.shiftKey) {
                         onActivateCell(layer.id, column.unit);

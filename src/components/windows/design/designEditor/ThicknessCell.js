@@ -1,22 +1,16 @@
-import { nmToUnit, unitToNm } from './units.js';
+import { nmToUnit, thicknessEntryToNm } from './units.js';
 import { LAYER_TABLE } from './layerTableLayout.js';
 
 const { createElement: h, useEffect, useState, useRef } = React;
 
 // ── Thickness cell ────────────────────────────────────────────────────────────
 // Edits one of {nm, OT, QWOT, FWOT}. value_nm is the source of truth; the cell
-// converts in/out via nmToUnit/unitToNm so all four cells in a row stay in
-// sync. Editing the QW cell, for example, recomputes the nm value (and every
-// other cell rerenders from the new value_nm next paint).
+// converts in/out via nmToUnit/thicknessEntryToNm so all four cells in a row
+// stay in sync. Editing the QW cell, for example, recomputes the nm value (and
+// every other cell rerenders from the new value_nm next paint).
 //
 // `primary` = true → emphasized styling for the editable "main" representation;
 // the others render slightly dimmed but are equally editable.
-
-// Upper clamp on a single layer's physical thickness. 1 mm (1e6 nm) is far
-// beyond any real thin-film layer (thick spacers top out at tens of microns) —
-// it exists purely to stop a stray entry like 9999999999 nm from corrupting the
-// merit/TMM and blowing out the table layout. Not a physics bound; a UI guard.
-const MAX_THICKNESS_NM = 1e6;
 
 // Tooltip text for each thickness unit. Any unit other than nm/OT/QWOT (i.e.
 // FWOT and any unknown) falls through to the full-wave description.
@@ -72,7 +66,7 @@ function thicknessCellDisplay({ text, titleText, locked, primary, active, hover,
     startEdit, setHover, onActivate, c }) {
     return h('div', {
         onClick: event => onActivate?.(event),
-        onDoubleClick: startEdit,
+        onDoubleClick: () => startEdit(),
         onMouseEnter: () => setHover(true),
         onMouseLeave: () => setHover(false),
         title: `${text} — ${titleText}${locked ? ' (locked)' : ' — double-click to edit'}`,
@@ -97,7 +91,8 @@ function thicknessCellDisplay({ text, titleText, locked, primary, active, hover,
 }
 
 export function ThicknessCell({ value_nm, onChange, locked, c, materialId, refLambda,
-    unit, primary, active = false, editRequest = 0, onActivate, onNavigate, onExit }) {
+    unit, primary, active = false, editRequest = 0, editSeed = null,
+    onActivate, onNavigate, onExit }) {
     const [editing, setEditing] = useState(false);
     const [hover, setHover]     = useState(false);
     const [raw, setRaw]         = useState('');
@@ -108,28 +103,34 @@ export function ThicknessCell({ value_nm, onChange, locked, c, materialId, refLa
     const displayed = nmToUnit(value_nm, materialId, refLambda, unit);
     const decimals  = (unit === 'QWOT' || unit === 'FWOT') ? 4 : 2;
 
-    const startEdit = () => {
+    // `seed` is the character the user typed to start the edit. The cell then
+    // opens holding just that character, caret behind it, rather than the
+    // current value selected for replacement.
+    const startEdit = (seed = null) => {
         if (locked) return;
         onActivate?.();
         finishRef.current = false;
         setHover(false);
-        setRaw(displayed.toFixed(decimals));
+        setRaw(seed != null ? seed : displayed.toFixed(decimals));
         setEditing(true);
-        setTimeout(() => inputRef.current?.select(), 0);
+        setTimeout(() => {
+            const input = inputRef.current;
+            if (!input) return;
+            if (seed != null) {
+                input.focus();
+                input.setSelectionRange(input.value.length, input.value.length);
+            } else {
+                input.select();
+            }
+        }, 0);
     };
 
     const commit = () => {
         if (finishRef.current) return false;
         finishRef.current = true;
-        const parsed = parseFloat(raw);
-        let valid = false;
-        if (!isNaN(parsed) && parsed >= 0) {
-            const nm = unitToNm(parsed, materialId, refLambda, unit);
-            if (Number.isFinite(nm) && nm >= 0) {
-                onChange(Math.min(nm, MAX_THICKNESS_NM));
-                valid = true;
-            }
-        }
+        const nm = thicknessEntryToNm(raw, materialId, refLambda, unit);
+        const valid = nm != null;
+        if (valid) onChange(nm);
         setHover(false);
         setEditing(false);
         return valid;
@@ -147,7 +148,7 @@ export function ThicknessCell({ value_nm, onChange, locked, c, materialId, refLa
     useEffect(() => {
         if (!editRequest || editRequest === lastEditRequestRef.current) return;
         lastEditRequestRef.current = editRequest;
-        startEdit();
+        startEdit(editSeed);
     }, [editRequest]);
 
     if (editing) {

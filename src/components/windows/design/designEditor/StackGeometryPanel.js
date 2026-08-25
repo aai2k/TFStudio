@@ -1,4 +1,5 @@
 import { DebouncedInput } from '../../../ui/DebouncedInput.js';
+import { parseNumberStrict } from '../../../../utils/misc/numberParsing.js';
 import { usePersistentBool } from '../../../ui/usePersistentState.js';
 import { materialHasNoK, rescaleLayersPreserveQWOT } from './units.js';
 import { Sep, MediaCol } from './ui.js';
@@ -47,7 +48,7 @@ function StackSettingsFields({ design, updateDesign, refLambda, c, t }) {
             fldLabel(de.substrateThick, 'Substrate physical thickness'),
             h(DebouncedInput, {
                 value: design.substrate.thickness ?? 1.0,
-                onChange: (s) => { const v = parseFloat(s); if (!isNaN(v) && v >= 0) updateDesign({ substrate: { ...design.substrate, thickness: v } }); },
+                onChange: (s) => { const v = parseNumberStrict(s); if (!isNaN(v) && v >= 0) updateDesign({ substrate: { ...design.substrate, thickness: v } }); },
                 style: numStyle,
             }),
             unit('mm'),
@@ -57,7 +58,7 @@ function StackSettingsFields({ design, updateDesign, refLambda, c, t }) {
                 value: refLambda,
                 title: 'Reference wavelength λ₀ used for QWOT / FWOT thickness display',
                 onChange: (s) => {
-                    const v = parseFloat(s);
+                    const v = parseNumberStrict(s);
                     if (isNaN(v) || v <= 0) return;
                     // Preserve QWOT: a design specified in quarter-waves must keep
                     // its QW counts when λ₀ moves — rescale every layer's physical

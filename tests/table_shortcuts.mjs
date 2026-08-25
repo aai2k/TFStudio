@@ -13,6 +13,8 @@
  *     and contentEditable, so typing inside a row cell never triggers
  *     a row-level Insert/Delete.
  *   • Verify locked-row delete is blocked and routes through onBlockedDelete.
+ *   • Verify a typed digit activates the focused cell and carries the character
+ *     through to it, while letters and chords are left alone.
  *   • Verify the "no focus" path: Insert without a focused row inserts at
  *     the end of the list; Delete with no focus is a no-op.
  */
@@ -65,7 +67,10 @@ function makeHost(opts = {}) {
         onMoveFocus: opts.navigation
             ? (delta, options) => calls.push(['row', delta, !!options?.extend]) : undefined,
         onMoveColumn: opts.navigation ? delta => calls.push(['column', delta]) : undefined,
-        onActivate: opts.navigation ? index => calls.push(['activate', index]) : undefined,
+        onActivate: opts.navigation
+            ? (index, typed) => calls.push(
+                typed === undefined ? ['activate', index] : ['activate', index, typed])
+            : undefined,
         onCopy: opts.navigation ? () => calls.push(['copy']) : undefined,
         onPaste: opts.navigation ? () => calls.push(['paste']) : undefined,
     });
@@ -250,6 +255,72 @@ console.log('— Unrelated keys —');
         ok(!e.prevented, `key "${k}" not intercepted`);
     }
     ok(host.calls.length === 0, 'No row callbacks for unrelated keys');
+}
+
+// ── 14. Typing a number starts the edit, the way a spreadsheet does ────────
+console.log('— Type-to-edit —');
+{
+    const host = makeHost({ focusIdx: 1, navigation: true });
+    for (const key of ['0', '7', '.', ',', '-']) {
+        const e = makeEvent({ key });
+        host.onKeyDown(e);
+        ok(e.prevented, `"${key}" starts an edit instead of being dropped`);
+        ok(JSON.stringify(host.calls.pop()) === JSON.stringify(['activate', 1, key]),
+           `"${key}" activates the focused cell carrying the character`);
+    }
+
+    // A letter cannot start a number, so it keeps doing nothing rather than
+    // opening an editor that would refuse it.
+    for (const key of ['a', 'Z', ' ']) {
+        const e = makeEvent({ key });
+        host.onKeyDown(e);
+        ok(!e.prevented, `"${key}" does not open the editor`);
+    }
+
+    // Chords stay shortcuts.
+    for (const eventOptions of [{ key: '2', ctrl: true }, { key: '2', alt: true }, { key: '2', meta: true }]) {
+        const e = makeEvent(eventOptions);
+        host.onKeyDown(e);
+        ok(!e.prevented, 'a modifier chord on a digit is not type-to-edit');
+    }
+
+    const insideInput = makeEvent({ key: '5', target: { tagName: 'INPUT' } });
+    host.onKeyDown(insideInput);
+    ok(!insideInput.prevented, 'digits typed into an open cell editor stay native');
+
+    ok(host.calls.length === 0, 'no stray activations');
+
+    // Tables that offer no cell editing are unaffected.
+    const plain = makeHost({ focusIdx: 1 });
+    const e = makeEvent({ key: '3' });
+    plain.onKeyDown(e);
+    ok(!e.prevented && plain.calls.length === 0, 'a table without onActivate ignores digits');
+}
+
+// ── 15. The Design Editor layer table seeds the active thickness cell ──────
+console.log('— Type-to-edit in the layer table —');
+{
+    const { useLayerKeyboard } = await import(
+        '../src/components/windows/design/designEditor/useLayerKeyboard.js');
+    const displayedLayers = [{ id: 'L1' }, { id: 'L2' }];
+    const edits = [];
+    const { onKeyDown } = useLayerKeyboard({
+        layers: displayedLayers, side: 'back', reversed: false, displayedLayers,
+        selectedId: 'L2', setSelectedId: () => {}, containerRef: { current: null },
+        activeUnit: 'QWOT', setActiveUnit: () => {},
+        focusDisplayIndex: () => {},
+        requestCellEdit: (rowId, unit, seed) => edits.push([rowId, unit, seed ?? null]),
+    });
+
+    const typed = makeEvent({ key: '4' });
+    onKeyDown(typed);
+    ok(typed.prevented, 'a digit on the selected layer is handled');
+    ok(JSON.stringify(edits.pop()) === JSON.stringify(['L2', 'QWOT', '4']),
+       'the digit opens the active thickness cell holding that character');
+
+    onKeyDown(makeEvent({ key: 'Enter' }));
+    ok(JSON.stringify(edits.pop()) === JSON.stringify(['L2', 'QWOT', null]),
+       'Enter opens the same cell on its existing value');
 }
 
 if (fails) {

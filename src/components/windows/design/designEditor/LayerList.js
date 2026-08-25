@@ -54,7 +54,7 @@ export function LayerList({ layers, side, design, updateDesign, missingMaterialI
     const clipboardRef = useRef([]);
     const [selectedIds, setSelectedIds] = useState(() => new Set(selectedId ? [selectedId] : []));
     const [activeUnit, setActiveUnit] = useState(LAYER_THICKNESS_COLUMNS[0].unit);
-    const [editRequest, setEditRequest] = useState({ rowId: null, unit: null, token: 0 });
+    const [editRequest, setEditRequest] = useState({ rowId: null, unit: null, seed: null, token: 0 });
     const [contextMenu, setContextMenu] = useState(null);
     const [toolDialog, setToolDialog] = useState(null);
     const [toolNotice, setToolNotice] = useState('');
@@ -116,8 +116,10 @@ export function LayerList({ layers, side, design, updateDesign, missingMaterialI
         requestAnimationFrame(() => scrollLayerIntoView(containerRef.current, row.id));
     }, [displayedLayers, extendSelectionTo, selectOnly]);
 
-    const requestCellEdit = useCallback((rowId, unit) => {
-        setEditRequest(current => ({ rowId, unit, token: current.token + 1 }));
+    // `seed`, when given, is the character that started the edit; the cell opens
+    // holding it instead of the current value.
+    const requestCellEdit = useCallback((rowId, unit, seed = null) => {
+        setEditRequest(current => ({ rowId, unit, seed, token: current.token + 1 }));
     }, []);
 
     const activateCell = useCallback((rowId, unit) => {
@@ -325,6 +327,7 @@ export function LayerList({ layers, side, design, updateDesign, missingMaterialI
             activeUnit: layer.id === selectedId ? activeUnit : null,
             editRequestToken: editRequest.rowId === layer.id ? editRequest.token : 0,
             editRequestUnit: editRequest.rowId === layer.id ? editRequest.unit : null,
+            editRequestSeed: editRequest.rowId === layer.id ? editRequest.seed : null,
             onActivateCell: activateCell,
             onNavigateCell: navigateCell,
             onFinishEditing: finishCellEditing,

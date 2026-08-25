@@ -1,5 +1,6 @@
 import { DebouncedInput } from '../../../ui/DebouncedInput.js';
 import { Checkbox } from '../../../ui/Checkbox.js';
+import { parseNumberStrict } from '../../../../utils/misc/numberParsing.js';
 
 const { createElement: h } = React;
 
@@ -26,7 +27,7 @@ function ConeHalfAngleRow({ cone, cc, dim, inStyle, patch }) {
         h('div', { style: { ...dim, width: 110, flexShrink: 0 }, title: cc.halfAngleTip }, cc.halfAngle || 'Half-angle Θ'),
         h(DebouncedInput, {
             value: cone.halfAngleDeg, title: cc.halfAngleTip,
-            onChange: (s) => { const v = parseFloat(s); if (!isNaN(v) && v >= 0 && v < 90) patch({ halfAngleDeg: v }); },
+            onChange: (s) => { const v = parseNumberStrict(s); if (!isNaN(v) && v >= 0 && v < 90) patch({ halfAngleDeg: v }); },
             style: inStyle,
         }),
         h('span', dim, '°'),
@@ -85,9 +86,9 @@ function ConeUserTable({ cone, cc, dim, inStyle, patch, Th, c }) {
         ),
         table.map((r, i) => h('div', { key: r._id ?? i, style: { display: 'flex', gap: 8, alignItems: 'center', marginBottom: 2 } },
             h(DebouncedInput, { value: r.theta,
-                onChange: (s) => setRow(i, 'theta', parseFloat(s) || 0), style: cellStyle }),
+                onChange: (s) => setRow(i, 'theta', parseNumberStrict(s) || 0), style: cellStyle }),
             h(DebouncedInput, { value: r.intensity,
-                onChange: (s) => setRow(i, 'intensity', parseFloat(s) || 0), style: cellStyle }),
+                onChange: (s) => setRow(i, 'intensity', parseNumberStrict(s) || 0), style: cellStyle }),
             h('button', {
                 onClick: () => delRow(i),
                 style: { width: 22, height: 22, cursor: 'pointer', background: 'transparent', color: c.textDim, border: `1px solid ${c.border}`, borderRadius: 3 },

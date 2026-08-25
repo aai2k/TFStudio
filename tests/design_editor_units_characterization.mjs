@@ -4,7 +4,8 @@ import { shimBrowserGlobals, loadApp } from './_uiShim.mjs';
 shimBrowserGlobals();
 await loadApp();
 
-const { nmToUnit, unitToNm, rescaleLayersPreserveQWOT, resolveMaterial } = await import(
+const { nmToUnit, unitToNm, rescaleLayersPreserveQWOT, resolveMaterial,
+    thicknessEntryToNm, MAX_THICKNESS_NM } = await import(
     '../src/components/windows/design/designEditor/units.js'
 );
 
@@ -45,5 +46,27 @@ qwotBefore.forEach((q, i) => {
 rescaled.forEach((l, i) => {
     assert.notEqual(l.thickness, layers[i].thickness, `layer ${i} thickness unchanged`);
 });
+
+// ── What the thickness cell makes of what is typed into it ───────────────────
+// A comma is the decimal key on a Russian or German keyboard. Read with
+// parseFloat it stopped at the comma, so 94,2 committed as 94 nm with nothing
+// saying the rest had been dropped.
+const entry = (raw, unit = 'nm') => thicknessEntryToNm(raw, materialId, refLambda, unit);
+
+assert.equal(entry('94,2'), 94.2, 'a comma decimal is the decimal, not a terminator');
+assert.equal(entry('94.2'), 94.2, 'a dot decimal still reads the same');
+assert.equal(entry('1.000,5'), 1000.5, 'EU thousands grouping resolves');
+assert.equal(entry('1.2e3'), 1200, 'scientific notation is accepted');
+
+// Half-numbers and junk are rejected outright rather than silently truncated.
+for (const bad of ['94abc', 'abc', '', '   ', '-5', '.', ',']) {
+    assert.equal(entry(bad), null, `"${bad}" is not a usable thickness`);
+}
+
+// Optical-thickness units go through the same parse before conversion.
+const qwEntry = entry('1,0', 'QWOT');
+assert.ok(Math.abs(qwEntry - quarterWaveNm) < 1e-9, 'a comma in the QW cell converts to nm');
+
+assert.equal(entry('9999999999'), MAX_THICKNESS_NM, 'a stray entry clamps to the 1 mm guard');
 
 console.log('PASS: design_editor_units_characterization');

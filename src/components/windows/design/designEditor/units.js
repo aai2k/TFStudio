@@ -1,5 +1,6 @@
 import { getMaterial } from '../../../../utils/materials/materialDatabase.js';
 import { getMaterialById } from '../../../../utils/materials/catalogManager.js';
+import { parseNumberStrict } from '../../../../utils/misc/numberParsing.js';
 
 // Resolve a material by legacy or compound ID, returning a material object with getNK.
 export function resolveMaterial(id) {
@@ -55,6 +56,29 @@ export function unitToNm(value, materialId, refLambda, unit) {
     const mat = resolveMaterial(materialId);
     const n = mat ? mat.getNK(refLambda)[0] : 1.0;
     return n > 0 ? conv(value, n, refLambda) : value;
+}
+
+// Upper clamp on a single layer's physical thickness. 1 mm (1e6 nm) is far
+// beyond any real thin-film layer (thick spacers top out at tens of microns) —
+// it exists purely to stop a stray entry like 9999999999 nm from corrupting the
+// merit/TMM and blowing out the table layout. Not a physics bound; a UI guard.
+export const MAX_THICKNESS_NM = 1e6;
+
+/**
+ * Physical thickness (nm) for what was typed into a thickness cell, or null if
+ * the text is not a usable thickness.
+ *
+ * `raw` is text in `unit`; the result is always physical nm, clamped to
+ * MAX_THICKNESS_NM. It is read with parseNumberStrict, so `94,2` is 94.2 on a
+ * keyboard whose decimal key is a comma, and a half-number such as `94abc` is
+ * rejected rather than quietly committing the 94.
+ */
+export function thicknessEntryToNm(raw, materialId, refLambda, unit) {
+    const value = parseNumberStrict(raw);
+    if (isNaN(value) || value < 0) return null;
+    const nm = unitToNm(value, materialId, refLambda, unit);
+    if (!Number.isFinite(nm) || nm < 0) return null;
+    return Math.min(nm, MAX_THICKNESS_NM);
 }
 
 // Rescale every layer's physical thickness so its QWOT (4·n·d/λ₀) is

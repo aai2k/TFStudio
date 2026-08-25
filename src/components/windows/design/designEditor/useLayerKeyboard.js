@@ -84,9 +84,9 @@ export function useLayerKeyboard({ layers, side, reversed, displayedLayers,
             );
         },
         onMoveColumn: delta => setActiveUnit(shiftedThicknessUnit(activeUnit, delta)),
-        onActivate: index => {
+        onActivate: (index, typedChar) => {
             const row = displayedLayers[index >= 0 ? index : 0];
-            if (row) requestCellEdit(row.id, activeUnit);
+            if (row) requestCellEdit(row.id, activeUnit, typedChar);
         },
         onCopy,
         onPaste,
