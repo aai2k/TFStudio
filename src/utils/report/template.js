@@ -99,7 +99,7 @@ function buildCover({ cover = {}, meta = {}, tr }) {
  * Compose the full report document.
  *
  * @param {object} args
- *   lang        'en' | 'ru'  (sets <html lang>)
+ *   lang        'en' | 'ru' | 'zh'  (sets <html lang>)
  *   tr          t.report locale object
  *   cover       { title, subtitle, customer, project, designer, date, logoDataUrl }
  *   sections    ordered section ids (may include 'cover' and 'notes')
