@@ -1,3 +1,6 @@
+const BUILD_DATE = (typeof __TFS_BUILD_DATE__ !== 'undefined') ? __TFS_BUILD_DATE__ : null;
+import APP_ICON from '../../constants/icon.js';
+
 /**
  * About dialog component
  * Displays application information, version, and author details
@@ -50,7 +53,7 @@ export function AboutDialog({ c, t, onClose }) {
     },
       // App icon
       h('img', {
-        src: '../icons/tfstudio-purple2.png',
+        src: APP_ICON,
         alt: 'TFStudio',
         style: {
           width: '144px',
