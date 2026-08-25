@@ -1,4 +1,3 @@
-const BUILD_DATE = (typeof __TFS_BUILD_DATE__ !== 'undefined') ? __TFS_BUILD_DATE__ : null;
 import APP_ICON from '../../constants/icon.js';
 
 /**
