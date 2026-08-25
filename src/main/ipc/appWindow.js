@@ -11,17 +11,13 @@ function register(ipcMain, ctx) {
   ipcMain.on('open-external', (event, url) => handleOpenExternal(ctx, url));
   ipcMain.handle('help:open', async (event, opts) => handleHelpOpen(ctx, opts));
   ipcMain.handle('get-app-version', () => ctx.app.getVersion());
-  // Whether DevTools / reload are permitted (dev, or packaged + --debug). The
-  // renderer uses this to hide the dev-only View menu items in shipped builds.
   ipcMain.handle('app:dev-allowed', () => ctx.devToolsAllowed);
-  // Renderer → app-debug.log bridge, so we can diagnose a packaged build (where
-  // DevTools is off) by reading the log next to the exe.
   ipcMain.on('diag:log', (event, msg) => { try { ctx.log(`[renderer] ${msg}`); } catch (_) {} });
 }
 
 function handleWindowControl(ctx, action) {
   const mainWindow = ctx.getMainWindow();
-  if (!mainWindow || mainWindow.isDestroyed()) return;   // window may be gone
+  if (!mainWindow || mainWindow.isDestroyed()) return;
   switch (action) {
     case 'minimize': mainWindow.minimize(); break;
     case 'maximize':
@@ -32,7 +28,7 @@ function handleWindowControl(ctx, action) {
 }
 
 function handleToggleDevtools(ctx) {
-  if (!ctx.devToolsAllowed) return;   // DevTools disabled in packaged builds (unless --debug)
+  if (!ctx.devToolsAllowed) return;
   const mainWindow = ctx.getMainWindow();
   if (!mainWindow || mainWindow.isDestroyed() || !mainWindow.webContents) return;
   if (mainWindow.webContents.isDevToolsOpened()) {
@@ -55,7 +51,10 @@ function handleOpenExternal(ctx, url) {
 // Open the bundled help site in the user's default browser via the local HTTP
 // server (see src/main/helpServer.js). The anchor is a Starlight route slug
 // (e.g. 'design/design-editor'); 'index'/falsy targets the landing page. The
-// locale (en|ru) maps to Starlight's root vs. /ru/ output paths.
+// locale (en|ru|zh) maps to Starlight's per-language output subtree.
+// DOC_LOCALES: locales that have their own subtree in the Starlight build
+// (root = en). zh has no translated pages yet, so it falls through to English.
+const DOC_LOCALES = ['ru', 'zh'];
 async function handleHelpOpen(ctx, opts) {
   const { fs, path, log, helpServer, shell } = ctx;
   try {
@@ -71,19 +70,16 @@ async function handleHelpOpen(ctx, opts) {
       return { success: false, error: 'help-server-not-ready' };
     }
 
-    // Build the on-disk path to verify the page exists, then translate to an
-    // HTTP URL. Fall back to landing if the anchor is missing so the user
-    // never lands on a dead link.
     const segs = [];
-    if (locale === 'ru') segs.push('ru');
+    if (DOC_LOCALES.includes(locale)) segs.push(locale);
     if (anchor && anchor !== 'index') segs.push(...anchor.split('/').filter(Boolean));
 
     let diskCandidate = path.join(helpServerRoot, ...segs, 'index.html');
     let urlSegs = segs.slice();
     if (!fs.existsSync(diskCandidate)) {
       log(`Help page missing: ${diskCandidate} — falling back`);
-      if (locale === 'ru' && fs.existsSync(path.join(helpServerRoot, 'ru', 'index.html'))) {
-        urlSegs = ['ru'];
+      if (DOC_LOCALES.includes(locale) && fs.existsSync(path.join(helpServerRoot, locale, 'index.html'))) {
+        urlSegs = [locale];
       } else {
         urlSegs = [];
       }
