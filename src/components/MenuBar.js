@@ -1,3 +1,4 @@
+import APP_ICON from '../constants/icon.js';
 const { createElement: h, useState, useEffect } = React;
 
 export function MenuBar({ c, onMenuAction, t, devAllowed = true }) {
@@ -134,7 +135,7 @@ export function MenuBar({ c, onMenuAction, t, devAllowed = true }) {
       }
     },
       h('img', {
-        src: '../icons/tfstudio-purple2.png', alt: '',
+        src: APP_ICON, alt: '',
         style: { width: 22, height: 22, objectFit: 'contain' }
       }),
       h('span', {

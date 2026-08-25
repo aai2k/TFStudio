@@ -10,6 +10,7 @@
 
 import { getPaletteNames } from '../../constants/colorPalettes.js';
 import { availableLocales } from '../../constants/locales.js';
+import APP_ICON from '../../constants/icon.js';
 
 const { createElement: h, useState, useEffect } = React;
 
@@ -132,7 +133,7 @@ export function WelcomeScreen({ c, t, samples = [], theme, setTheme, locale, set
             h('div', { style: { display: 'flex', alignItems: 'center', gap: 16, marginBottom: 6, justifyContent: 'space-between' } },
                 h('div', { style: { display: 'flex', alignItems: 'center', gap: 16, minWidth: 0 } },
                     h('img', {
-                        src: '../icons/tfstudio-purple2.png', alt: '',
+                        src: APP_ICON, alt: '',
                         style: { width: 64, height: 64, objectFit: 'contain', flexShrink: 0 },
                     }),
                     h('div', null,
