@@ -113,17 +113,49 @@ export function chartForElement(element) {
     return element && runtime()?.getInstanceByDom(element) || null;
 }
 
+/** Charts whose toolbox rectangle-zoom tool is currently armed. */
+const rectangleZoomArmed = new WeakSet();
+
 /**
- * Double-clicking inside the plot area returns every axis to its full range.
+ * Double-clicking inside the plot area returns every axis to its full range,
+ * and the rectangle-zoom tool reports whether it is armed.
  *
- * Charts without a zoom ignore it: `containPixel` is false where there is no
- * grid, and the action reaches no models where none exist. Bound once, when the
- * instance is created, so it lives exactly as long as the chart does.
+ * Charts without a zoom ignore the double-click: `containPixel` is false where
+ * there is no grid, and the action reaches no models where none exist. Both are
+ * bound once, when the instance is created, so they live exactly as long as the
+ * chart does and survive the option replacements below.
  */
-function bindZoomReset(chart) {
+function bindZoomHandlers(chart) {
     chart.getZr().on('dblclick', event => {
         if (!chart.containPixel('grid', [event.offsetX, event.offsetY])) return;
         chart.dispatchAction({ type: 'dataZoom', start: 0, end: 100 });
+    });
+    chart.on('globalcursortaken', params => {
+        if (params?.key !== 'dataZoomSelect') return;
+        if (params.dataZoomSelectActive) rectangleZoomArmed.add(chart);
+        else rectangleZoomArmed.delete(chart);
+    });
+}
+
+/**
+ * Disarm the rectangle-zoom tool before an option replaces the one in place.
+ *
+ * Replacing an option rebuilds the toolbox, and ECharts 6.1 leaves the previous
+ * rectangle tool's brush controller mounted on the canvas when it does. An
+ * armed controller outlives the model it was built for: it goes on handling
+ * drags, converting the pixels through the axes as they stood when it was
+ * abandoned and applying the result to the axes that replaced them. A box
+ * dragged on a plot that was already zoomed then zooms far past the box, and
+ * nothing but disposing the chart clears it, so the plot stays wrong until its
+ * window is reopened.
+ *
+ * Disarming first leaves nothing behind to fire. The tool comes back unarmed,
+ * which is what the icon on the rebuilt toolbox shows in any case.
+ */
+function disarmRectangleZoom(chart) {
+    if (!rectangleZoomArmed.has(chart)) return;
+    chart.dispatchAction({
+        type: 'takeGlobalCursor', key: 'dataZoomSelect', dataZoomSelectActive: false,
     });
 }
 
@@ -149,10 +181,11 @@ export function drawChart(element, chartRef, option, initOptions) {
             renderer: 'canvas', ...initOptions,
         });
         chartRef.current = chart;
-        bindZoomReset(chart);
+        bindZoomHandlers(chart);
     }
     if (appliedOptions.has(chart) && worthComparing(option)
         && sameOption(appliedOptions.get(chart), option)) return chart;
+    disarmRectangleZoom(chart);
     chart.setOption(option, { notMerge: true, lazyUpdate: false });
     appliedOptions.set(chart, option);
     return chart;

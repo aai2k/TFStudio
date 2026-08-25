@@ -39,6 +39,7 @@ globalThis.echarts = {
             dispose: () => { calls.dispose++; instances.delete(element); },
             isDisposed: () => false,
             getZr: () => ({ on: () => {} }),
+            on: () => {},
             containPixel: () => false,
             dispatchAction: () => {},
         };

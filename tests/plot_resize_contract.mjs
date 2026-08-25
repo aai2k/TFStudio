@@ -11,17 +11,25 @@ globalThis.echarts = {
     getInstanceByDom: element => instances.get(element) || null,
     init(element, _theme, options) {
         const handlers = {};
+        const events = {};
         const chart = {
             disposed: false,
             handlers,
+            events,
             isDisposed() { return this.disposed; },
             setOption(option, settings) { calls.push(['setOption', option, settings]); },
             resize() { calls.push(['resize']); },
             dispose() { this.disposed = true; instances.delete(element); calls.push(['dispose']); },
             getZr: () => ({ on(name, handler) { handlers[name] = handler; } }),
+            on(name, handler) { events[name] = handler; },
             // The grid of the fake chart is the square from (100, 100) to (200, 200).
             containPixel: (_finder, [x, y]) => x >= 100 && x <= 200 && y >= 100 && y <= 200,
-            dispatchAction(action) { calls.push(['dispatchAction', action]); },
+            dispatchAction(action) {
+                calls.push(['dispatchAction', action]);
+                // Taking the global cursor emits its public event, which is how
+                // the surface hears that the rectangle tool changed state.
+                if (action.type === 'takeGlobalCursor') events.globalcursortaken?.(action);
+            },
         };
         instances.set(element, chart);
         calls.push(['init', options]);
@@ -113,6 +121,21 @@ const option = { grid: { left: 48, right: 12, top: 12, bottom: 42 }, series: [] 
     chart.handlers.dblclick({ offsetX: 10, offsetY: 10 });
     assert.equal(calls.length, beforeDouble + 1,
         'a double-click on the chrome around the plot is left alone');
+
+    // Replacing an option rebuilds the toolbox, and ECharts 6.1 leaves the
+    // previous rectangle tool's brush controller mounted. Armed, it keeps
+    // handling drags against the axes it was abandoned with, so a later box
+    // zooms far past itself for as long as the chart lives.
+    chart.events.globalcursortaken({ key: 'dataZoomSelect', dataZoomSelectActive: true });
+    drawChart(roomy, chartRef, { ...option, series: [{ type: 'line', data: [[2, 2]] }] });
+    assert.deepEqual(calls.at(-2), ['dispatchAction', {
+        type: 'takeGlobalCursor', key: 'dataZoomSelect', dataZoomSelectActive: false,
+    }], 'an armed rectangle zoom is disarmed before the option that rebuilds the toolbox');
+    assert.equal(calls.at(-1)[0], 'setOption', 'and disarmed before it, not after');
+
+    const beforeUnarmed = calls.length;
+    drawChart(roomy, chartRef, { ...option, series: [{ type: 'line', data: [[3, 3]] }] });
+    assert.equal(calls.length, beforeUnarmed + 1, 'a tool that is not armed needs no disarming');
 
     resizeChart(roomy, chartRef);
     assert.equal(calls.at(-1)[0], 'resize');
