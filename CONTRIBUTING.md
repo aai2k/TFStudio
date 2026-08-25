@@ -21,7 +21,8 @@ project's [MIT license](./LICENSE).
 - **Improve documentation:** The user docs live in [`docs-site/`](./docs-site).
 - **Improve a translation:** UI translation fixes and new locales are welcome.
   For a new locale, open an issue first to coordinate terminology, review, and
-  ongoing maintenance. The Russian locale is maintained by the author.
+  ongoing maintenance. The Russian locale is maintained by the author; the
+  Chinese locale was contributed by the community.
 - **Fix a bug / implement a feature:** Please claim or reference an issue so work
   is not duplicated.
 
@@ -75,7 +76,7 @@ to the kernel itself belong in that repository.
 | `src/utils/materials/` | Dispersion models, material database, catalog management |
 | `src/utils/workers/` | Web Worker pool for refinement, needle, gradual evolution |
 | `src/components/` | React UI (windows, panels, dialogs) |
-| `src/constants/locales.js` | All user-facing strings (English + Russian) |
+| `src/constants/locales.js` | All user-facing strings (English, Russian, Chinese) |
 | `src/main/` | Electron main process |
 | `tests/` | Node-based test suite and numerical validations |
 | `docs-site/` | User documentation (Astro Starlight) |
@@ -132,7 +133,7 @@ be asked for one before review can continue.
   convention of the file you are editing.
 - **Don't hardcode user-facing text.** UI strings go through the localization
   system (`t.*`, backed by `src/constants/locales.js`); add the English string
-  there and leave the Russian translation to the maintainer.
+  there and leave the other locales to be filled in separately.
 - Keep changes focused. Unrelated refactors in the same PR make review harder.
 - Do not commit build output, logs, `node_modules`, or personal editor/config files.
 
