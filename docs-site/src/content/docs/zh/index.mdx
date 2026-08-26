@@ -1,0 +1,118 @@
+---
+title: TFStudio
+description: 光学薄膜镀膜设计参考手册。
+hero:
+  tagline: 设计、分析和合成多层光学薄膜镀膜。
+  actions:
+    - text: 设计编辑器
+      link: /zh/design/design-editor/
+      icon: right-arrow
+      variant: primary
+    - text: 光学评价
+      link: /zh/analysis/optical-evaluation/
+      icon: right-arrow
+      variant: secondary
+---
+
+import { Card, CardGrid, LinkCard } from '@astrojs/starlight/components';
+
+## 什么是 TFStudio？
+
+TFStudio 是一款用于设计、分析和合成多层光学薄膜镀膜的桌面应用程序。它实现了传输矩阵法（TMM），遵循 Macleod 的 *Thin-Film Optical Filters*（第5版），并提供完整的合成工具栈（阻尼最小二乘精炼、Sullivan & Dobrowolski 数值针式优化、Tikhonravov 渐进演化）。
+
+本手册是参考手册。应用中的每个工具窗口都有一个 `?` 按钮，点击可打开对应的帮助页面。下方内容按照应用的功能区排列，工具在此手册中的分组与屏幕上的分组一致。
+
+## 目录
+
+<div class="tfs-index">
+
+### 设计
+
+<CardGrid>
+  <LinkCard title="设计编辑器" href="/zh/design/design-editor/" description="构建和编辑镀膜：膜层堆栈、基底、介质和您正在设计的表面。" />
+  <LinkCard title="材料编辑器" href="/zh/design/material-editor/" description="浏览、导入和创建光学材料：每个镀膜层使用的 n(λ)、k(λ) 数据。" />
+  <LinkCard title="技术规格" href="/zh/design/specification/" description="将设计要求定义为 PASS/FAIL 限定符，并将其转换为评价函数。" />
+  <LinkCard title="膜系公式" href="/zh/design/stack-formula/" description="从紧凑的符号公式（如 Air | (HL)^4 H | Glass）生成完整的膜层堆栈。" />
+</CardGrid>
+
+### 分析
+
+<CardGrid>
+  <LinkCard title="光学评价" href="/zh/analysis/optical-evaluation/" description="当前设计的光谱反射率、透射率和吸收率。" />
+  <LinkCard title="颜色评价" href="/zh/analysis/color-evaluation/" description="CIE 色度、Lab 和颜色读数，显示您的镀膜在人眼中的外观。" />
+  <LinkCard title="导纳图" href="/zh/analysis/admittance/" description="堆栈中的光学导纳轨迹，以及它提供的直观设计洞察。" />
+  <LinkCard title="电场" href="/zh/analysis/efield/" description="堆栈中的 |E(z)|² 驻波分布。" />
+  <LinkCard title="椭偏仪" href="/zh/analysis/ellipsometry/" description="Ψ 和 Δ，椭偏仪测量的振幅比和相位量。" />
+  <LinkCard title="GD / GDD" href="/zh/analysis/gd-gdd/" description="光谱相位及其导数，用于啁啾镜和超快镀膜的诊断。" />
+  <LinkCard title="折射率分布" href="/zh/analysis/refractive-index-profile/" description="n(z) 和 k(z)，在选定波长下堆栈的折射率阶跃分布。" />
+  <LinkCard title="积分值" href="/zh/analysis/integral-values/" description="加权光谱平均值，如 Tvis、Tsol、TUV 和 TNIR。" />
+  <LinkCard title="绘图引擎" href="/zh/analysis/plot-engine/" description="构建自定义多曲线 XY 图，或在两个扫描变量上映射物理量。" />
+</CardGrid>
+
+#### 公差分析
+
+<CardGrid>
+  <LinkCard title="蒙特卡洛" href="/zh/analysis/error-analysis/" description="查看随机制造误差如何模糊您的光谱，以及预期的成品率。" />
+  <LinkCard title="层灵敏度" href="/zh/analysis/layer-sensitivity/" description="查看哪些层对制造精度最关键。" />
+  <LinkCard title="非均匀性" href="/zh/analysis/inhomogeneities/" description="建模渐变过渡层，查看非阶跃界面如何改变光谱。" />
+  <LinkCard title="系统偏差" href="/zh/analysis/systematic-deviations/" description="在整个堆栈上施加相关的厚度或折射率偏移，并扫描其影响。" />
+  <LinkCard title="粗糙度 / 散射" href="/zh/analysis/roughness-scattering/" description="估算界面粗糙度引起的散射损耗，以及透射的镜面 R 和 T。" />
+</CardGrid>
+
+### 优化
+
+<CardGrid>
+  <LinkCard title="评价函数编辑器" href="/zh/design/merit-function-editor/" description="目标、操作数、权重和厚度约束：优化器追求的方向。" />
+  <LinkCard title="操作数参考" href="/zh/design/operands/" description="每个评价函数操作数：计算内容、参数及其驱动优化器的方式。" />
+  <LinkCard title="精炼" href="/zh/synthesis/refinement/" description="调整层厚度以最小化评价函数，提供多种优化方法选择。" />
+  <LinkCard title="针式优化" href="/zh/synthesis/needle/" description="在改善评价函数的位置插入薄针式层，然后精炼。支持自动和手动模式。" />
+  <LinkCard title="渐进演化" href="/zh/synthesis/gradual-evolution/" description="将针式优化包装在外层循环中，强制插入操作逃离局部极小值。" />
+  <LinkCard title="结构优化器" href="/zh/synthesis/structural-optimizer/" description="通过添加、删除、分裂、合并或扰动层来重构堆栈，使用模拟退火接受准则。" />
+  <LinkCard title="变化器" href="/zh/design/variator/" description="用于假设分析的实时滑块：逐层厚度、基底和每种材料的 n/k。" />
+  <LinkCard title="设计清理器" href="/zh/synthesis/design-cleaner/" description="合并相邻的同种材料层并删除极薄层，然后可选择重新精炼。" />
+  <LinkCard title="滤光片设计" href="/zh/synthesis/wdm-wizard/" description="通过几个引导步骤构建多腔 Fabry-Perot 带通原型（DWDM、LWDM 或陷波）。" />
+  <LinkCard title="优化方法" href="/zh/synthesis/optimization-methods/" description="每种精炼和合成算法：功能及选择时机。" />
+</CardGrid>
+
+### 仿真
+
+<CardGrid>
+  <LinkCard title="BBM 仿真器" href="/zh/simulation/bbm-simulator/" description="模拟在宽带光学监控下制造镀膜的过程，查看实际制造的光谱。" />
+  <LinkCard title="单色仿真器" href="/zh/simulation/mono-simulator/" description="模拟单波长监控，支持逐层的转折点、电平或定时切割策略。" />
+</CardGrid>
+
+### 数据交换
+
+<CardGrid>
+  <LinkCard title="实测光谱" href="/zh/data-exchange/measured-spectra/" description="导入实测的 R/T/A 光谱作为叠加层，并将曲线导出为 CSV 或 JCAMP-DX。" />
+  <LinkCard title="Zemax 膜层" href="/zh/data-exchange/zemax-coatings/" description="读写 Zemax OpticStudio COATING.DAT，包括材料和膜层堆栈。" />
+  <LinkCard title="工艺导出" href="/zh/simulation/process-simulator/" description="逐层回放镀膜过程，并导出每步的沉积数据。" />
+</CardGrid>
+
+### 信息
+
+<CardGrid>
+  <LinkCard title="报告生成器" href="/zh/data-exchange/report-generator/" description="构建精美的多章节 HTML 或 PDF 报告，用于交付客户或归档设计。" />
+</CardGrid>
+
+### 编辑
+
+<CardGrid>
+  <LinkCard title="历史记录" href="/zh/design/history/" description="浏览并跳转到当前设计的任何先前状态。" />
+</CardGrid>
+
+### 概念
+
+<CardGrid>
+  <LinkCard title="表面与评价模式" href="/zh/design/evaluation-modes/" description="决定优化哪个镀膜以及每个窗口评价内容的两个控件。" />
+</CardGrid>
+
+</div>
+
+## 本手册中的约定
+
+- **波长**单位为纳米（nm）。
+- **入射角（AOI）**从表面法线测量，单位为度。
+- **偏振** `s`（TE）、`p`（TM）或 `avg` = ½(R_s + R_p)。
+- **复折射率符号约定**：`ñ = n + ik`（吸收介质中 k ≥ 0），时间谐波因子为 exp(−iωt)。这是 Macleod 的 `ñ = n − ik` / exp(+iωt) 形式（§2.2）的复共轭；结果相同，相位符号相反。
+- **第1层** = 与基底接触的层（最先沉积的层）。
