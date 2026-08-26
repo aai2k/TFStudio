@@ -50,6 +50,6 @@ const c = makeTheme();
 const html = renderToStaticMarkup(withDesign(
     React.createElement(SystematicDeviations, { c, t: makeLocale(), theme: c }),
 ));
-assert.equal(createHash('sha256').update(html).digest('hex').slice(0, 16), 'b13a0d4866242011');
+assert.equal(createHash('sha256').update(html).digest('hex').slice(0, 16), 'fb31232705496c84');
 
 console.log('PASS: systematic_deviations_refactor');

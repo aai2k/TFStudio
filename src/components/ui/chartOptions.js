@@ -231,11 +231,41 @@ function themedToolbox(toolbox, colors) {
     };
 }
 
+/**
+ * Reproduce the native axis-tooltip layout for a chosen subset of the series.
+ *
+ * A chart that draws a large family of context curves, one per layer of a
+ * stack, would otherwise list every one of them: sixty rows that run off the
+ * window and name curves nobody can pick out of the plot anyway.
+ */
+function axisRows(params, include, formatValue, valueSuffix) {
+    const rows = (Array.isArray(params) ? params : [params]).filter(include);
+    if (!rows.length) return '';
+    return [
+        `<div style="margin-bottom:3px">${formatChartReadout(rows[0].axisValue)}</div>`,
+        ...rows.map(row => [
+            '<div style="display:flex;gap:14px;align-items:baseline">',
+            `<span style="flex:1">${row.marker}${row.seriesName}</span>`,
+            `<span style="font-weight:600">${formatValue(
+                Array.isArray(row.value) ? row.value[1] : row.value)}${valueSuffix}</span>`,
+            '</div>',
+        ].join('')),
+    ].join('');
+}
+
+/**
+ * Tooltip that reads every series at the wavelength under the pointer.
+ *
+ *   include  optional predicate over the tooltip's own params; only the series
+ *            it accepts are listed. Use it where the plot carries more curves
+ *            than a tooltip can show.
+ */
 export function axisTooltip({
-    cross = true, colors, valueSuffix = '', formatValue = formatChartReadout,
+    cross = true, colors, valueSuffix = '', formatValue = formatChartReadout, include,
 } = {}) {
     return themedTooltip({
         trigger: 'axis',
+        ...(include ? { formatter: params => axisRows(params, include, formatValue, valueSuffix) } : {}),
         appendToBody: true,
         confine: true,
         transitionDuration: 0,

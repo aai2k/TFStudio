@@ -61,6 +61,18 @@ export function buildCumulativeTimes(layerTimes) {
     return cumulative;
 }
 
+/**
+ * Timeline position that puts a chosen layer under the readouts.
+ *
+ * A boundary belongs to the layer after it, so stopping exactly at the end of
+ * layer k reports layer k+1 at zero thickness. Stopping a hair short leaves the
+ * layer that was asked for as the current one, with its full thickness down.
+ */
+export function stepSeekTime(cumulativeTimes, layerTimes, step) {
+    const index = step - 1;
+    return cumulativeTimes[index] + layerTimes[index] * (1 - 1e-9);
+}
+
 export function deriveProgressState(progress, cumulativeTimes, layerTimes, layerCount) {
     let state = { layerIdx: layerCount, frac: 1, completedSteps: layerCount };
     if (layerCount === 0) {

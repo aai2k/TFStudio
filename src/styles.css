@@ -267,6 +267,69 @@ button:active {
     -moz-appearance: textfield;
     appearance: textfield;
 }
+
+/* A list walked with the arrow keys.
+
+   No focus ring: the row the keys act on is always marked inside the list, by
+   the accent bar and fill on the current row, so a border around the whole list
+   indicates nothing the reader cannot already see and draws a hard rectangle
+   across the panel while they are navigating. */
+.tfs-keylist {
+    outline: none;
+}
+
+/* Scrub bar with tick marks under it.
+
+   A native range thumb does not travel the full width of the track: it is inset
+   by half its own width at each end. Ticks placed at a plain percentage of the
+   track therefore drift away from the thumb, by up to half a thumb, and the
+   error is most obvious on a narrow window where the track is short. The thumb
+   size is pinned here as --tfs-thumb so the ticks can be offset by the same
+   amount. Track and thumb take the element's `color`, so the caller sets the
+   theme accent once on the input. */
+.tfs-scrub {
+    -webkit-appearance: none;
+    appearance: none;
+    height: 16px;
+    background: transparent;
+    cursor: pointer;
+}
+
+.tfs-scrub:disabled {
+    opacity: 0.4;
+    cursor: default;
+}
+
+.tfs-scrub::-webkit-slider-runnable-track {
+    height: 4px;
+    border-radius: 2px;
+    background: currentColor;
+    opacity: 0.35;
+}
+
+.tfs-scrub::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    width: var(--tfs-thumb, 12px);
+    height: var(--tfs-thumb, 12px);
+    margin-top: calc((4px - var(--tfs-thumb, 12px)) / 2);
+    border-radius: 50%;
+    background: currentColor;
+}
+
+.tfs-scrub::-moz-range-track {
+    height: 4px;
+    border-radius: 2px;
+    background: currentColor;
+    opacity: 0.35;
+}
+
+.tfs-scrub::-moz-range-thumb {
+    width: var(--tfs-thumb, 12px);
+    height: var(--tfs-thumb, 12px);
+    border: none;
+    border-radius: 50%;
+    background: currentColor;
+}
 html.tf-layer-dragging,
 html.tf-layer-dragging * {
   cursor: grabbing !important;

@@ -109,6 +109,30 @@ function worthComparing(option) {
     return true;
 }
 
+// A chart driven by a running job rebuilds the same option every tick with new
+// numbers in it. Replacing that option with `notMerge` discards the whole chart
+// model, and the tooltip and axis pointer are part of what goes with it, so a
+// stationary crosshair loses its readout on every progress tick. Where the new
+// option differs from the applied one only in series data, the model can stay
+// alive and take the new numbers by merge instead, which is what ECharts
+// documents for streaming updates. It also keeps a wheel zoom across the tick.
+//
+// Anything structural still replaces the option: a series added or removed, a
+// renamed curve, an axis, a legend, a toolbox. Merging can only ever overwrite,
+// never delete, so restricting it to an unchanged shape keeps the guarantee
+// that a removed series never lingers.
+function optionShape(option) {
+    const series = option?.series;
+    if (!Array.isArray(series)) return option;
+    return { ...option, series: series.map(item => ({ ...item, data: null })) };
+}
+
+function mergeableUpdate(previous, option) {
+    if (!previous || !Array.isArray(previous.series) || !Array.isArray(option.series)) return false;
+    if (previous.series.length !== option.series.length) return false;
+    return sameOption(optionShape(previous), optionShape(option));
+}
+
 export function chartForElement(element) {
     return element && runtime()?.getInstanceByDom(element) || null;
 }
@@ -183,10 +207,12 @@ export function drawChart(element, chartRef, option, initOptions) {
         chartRef.current = chart;
         bindZoomHandlers(chart);
     }
-    if (appliedOptions.has(chart) && worthComparing(option)
-        && sameOption(appliedOptions.get(chart), option)) return chart;
-    disarmRectangleZoom(chart);
-    chart.setOption(option, { notMerge: true, lazyUpdate: false });
+    const previous = appliedOptions.get(chart);
+    if (previous !== undefined && worthComparing(option)
+        && sameOption(previous, option)) return chart;
+    const merge = mergeableUpdate(previous, option);
+    if (!merge) disarmRectangleZoom(chart);
+    chart.setOption(option, { notMerge: !merge, lazyUpdate: false });
     appliedOptions.set(chart, option);
     return chart;
 }
