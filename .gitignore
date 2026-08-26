@@ -63,3 +63,6 @@ build/seed/agf/*
 !build/seed/agf/schott2025.AGF
 !build/seed/library/
 
+
+# OpenCode local tooling (node_modules, config)
+.opencode/
