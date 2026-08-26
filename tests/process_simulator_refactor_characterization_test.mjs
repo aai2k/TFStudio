@@ -42,6 +42,9 @@ assert.match(html, /inputMode="decimal"/);
 // An auto-sized table redraws every column as the material names change, so the
 // numbers move under the pointer while a run plays.
 assert.match(html, /table-layout:fixed/, 'the sequence table holds its columns');
+assert.match(html,
+    /<colgroup><col style="width:26px"\/><col\/><col style="width:86px"\/><col style="width:54px"\/><\/colgroup>/,
+    'the thickness heading has enough room to show its complete unit');
 
 // The bar down the left of a row marks the layer the timeline is on, so a run
 // moving through the stack is as easy to follow as a layer picked by hand.

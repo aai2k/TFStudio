@@ -62,8 +62,14 @@ const html = renderToStaticMarkup(withDesign(
   React.createElement(ColorEvaluation, { c, theme: c, t: makeLocale() }),
   makeSampleDesign(),
 ));
+const settingsIndex = html.indexOf('Settings');
+for (const label of ['Pol', 'AOI (°)', 'Exposure']) {
+  const index = html.indexOf(label);
+  assert.ok(index >= 0 && index < settingsIndex,
+    `${label} stays visible on the control row instead of inside Settings`);
+}
 assert(html.includes('position:absolute;right:12px;top:72px'),
   'color swatches stay in the naturally empty upper-right data region');
-assert.equal(createHash('sha256').update(html).digest('hex').slice(0, 16), '9eb03411d1088c23');
+assert.equal(createHash('sha256').update(html).digest('hex').slice(0, 16), 'b1d5a48f89c5c61c');
 
 console.log('PASS: color_evaluation_characterization');

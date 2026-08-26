@@ -9,6 +9,23 @@ const FACTORY = ANALYSIS_DEFAULTS.admittanceDiagram.colors;
 const MAX_LEGEND_CHARS = 16;
 const REFLECTION_RANGE = { x: [-1.2, 1.2], y: [-1.2, 1.2], interval: 0.4 };
 const FRAME_SPAN = 4;
+const ZOOM_OUT_FACTOR = 4;
+
+function navigationDomain(range) {
+    if (!range) return { range: null, start: 0, end: 100 };
+    const centerX = (range.x[0] + range.x[1]) / 2;
+    const centerY = (range.y[0] + range.y[1]) / 2;
+    const half = (range.x[1] - range.x[0]) * ZOOM_OUT_FACTOR / 2;
+    const initialSpan = 100 / ZOOM_OUT_FACTOR;
+    return {
+        range: {
+            x: [centerX - half, centerX + half],
+            y: [centerY - half, centerY + half],
+        },
+        start: (100 - initialSpan) / 2,
+        end: (100 + initialSpan) / 2,
+    };
+}
 
 function niceSquareRange(x, y) {
     const span = Math.max(x[1] - x[0], y[1] - y[0]);
@@ -124,6 +141,7 @@ function admittanceSeries(source, matColorMap, matName, colors, marks) {
 
 export function buildAdmittanceOption(source, matColorMap, matName, colors, marks = FACTORY, grid) {
     const range = computeAdmittanceRange(source);
+    const navigation = navigationDomain(range);
     const symbol = isReflection(source) ? 'Γ' : 'Y';
     const series = admittanceSeries(source, matColorMap, matName, colors, marks);
     return cartesianOption({
@@ -133,14 +151,22 @@ export function buildAdmittanceOption(source, matColorMap, matName, colors, mark
         tooltip: itemTooltip(),
         xAxis: valueAxis({
             name: `Re(${symbol})`, color: colors.text, gridColor: colors.border,
-            min: range?.x[0], max: range?.x[1], interval: range?.interval,
+            min: navigation.range?.x[0], max: navigation.range?.x[1], splitNumber: 6,
             scale: !range, formatter: formatChartNumber,
         }),
         yAxis: valueAxis({
             name: `Im(${symbol})`, color: colors.text, gridColor: colors.border,
-            min: range?.y[0], max: range?.y[1], interval: range?.interval,
+            min: navigation.range?.y[0], max: navigation.range?.y[1], splitNumber: 6,
             scale: !range, formatter: formatChartNumber,
         }),
+        // One inside zoom owns both axes, so the mouse wheel zooms out as well
+        // as in while preserving the square admittance plane. It also gives the
+        // shared Reset zoom action a concrete model to restore.
+        dataZoom: [{
+            type: 'inside', xAxisIndex: 0, yAxisIndex: 0, filterMode: 'none',
+            zoomOnMouseWheel: true, moveOnMouseMove: false, moveOnMouseWheel: false,
+            start: navigation.start, end: navigation.end,
+        }],
         series,
     });
 }

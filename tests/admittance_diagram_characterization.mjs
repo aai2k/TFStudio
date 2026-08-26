@@ -30,6 +30,9 @@ const { buildAdmittanceTableRows } = await import(
 const { AdmittanceDiagram } = await import(
     '../src/components/windows/analysis/admittanceDiagram/AdmittanceDiagram.js'
 );
+const { expandAdmittanceNavigation } = await import(
+    '../src/components/windows/analysis/admittanceDiagram/AdmittanceChart.js'
+);
 
 assert.deepEqual(
     buildAdmittanceOption(null, {}, {}, {
@@ -134,9 +137,10 @@ const reflectionOption = buildAdmittanceOption(
     reflection, {}, {}, { paper: '#222', background: '#111', text: '#eee', border: '#333' });
 assert.deepEqual(
     [[reflectionOption.xAxis.min, reflectionOption.xAxis.max], [reflectionOption.yAxis.min, reflectionOption.yAxis.max]],
-    [[-1.2, 1.2], [-1.2, 1.2]],
+    [[-4.8, 4.8], [-4.8, 4.8]],
 );
-assert.equal(reflectionOption.xAxis.interval, 0.4);
+assert.deepEqual([reflectionOption.dataZoom[0].start, reflectionOption.dataZoom[0].end],
+    [37.5, 62.5], 'the opening view occupies only part of a wider navigation domain');
 assert.equal(reflectionOption.series[0].type, 'line', 'the reflection view includes a native unit-circle series');
 assert.equal(reflectionOption.xAxis.name, 'Re(Γ)');
 
@@ -187,10 +191,29 @@ assert.deepEqual(buildAdmittanceOption(
     'a material with no resolvable name still labels its layer');
 assert.equal(option.legend.show, false);
 assert.deepEqual([[option.xAxis.min, option.xAxis.max], [option.yAxis.min, option.yAxis.max]], [
-    [0, 6],
-    [-3, 3],
+    [-9, 15],
+    [-12, 12],
 ]);
-assert.equal(option.xAxis.interval, 1);
+assert.deepEqual(option.dataZoom, [{
+    type: 'inside', xAxisIndex: 0, yAxisIndex: 0, filterMode: 'none',
+    zoomOnMouseWheel: true, moveOnMouseMove: false, moveOnMouseWheel: false,
+    start: 37.5, end: 62.5,
+}], 'the wheel zooms both axes together, including back out to the full plane');
+assert.ok(option.toolbox.feature.myZoomRestore,
+    'the admittance plot exposes an explicit full-range reset');
+const expanded = expandAdmittanceNavigation(option);
+assert.deepEqual(expanded, {
+    xAxis: [{ min: -21, max: 27 }],
+    yAxis: [{ min: -24, max: 24 }],
+    dataZoom: [{ start: 22.5, end: 77.5 }],
+}, 'an outward gesture at the boundary doubles the Re(Y)/Im(Y) domain');
+let repeated = option;
+for (let index = 0; index < 20; index++) {
+    const next = expandAdmittanceNavigation(repeated);
+    repeated = { ...repeated, ...next };
+}
+assert.ok(repeated.xAxis[0].max - repeated.xAxis[0].min > 20_000_000,
+    'progressive expansion has no practical fixed limit for large arcs');
 
 const c = makeTheme();
 const html = renderToStaticMarkup(withDesign(
