@@ -66,3 +66,8 @@ build/seed/agf/*
 
 # OpenCode local tooling (node_modules, config)
 .opencode/
+
+# Git metadata / GitHub workflows / OpenCode local tooling
+.git/
+.github/
+.opencode/
