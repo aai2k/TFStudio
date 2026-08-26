@@ -24,6 +24,7 @@ import { resolveScanSide } from './sides.js';
 import { _buildDescriptors, _buildCandidates } from './descriptors.js';
 import { _makeScanAt } from './needleScanPasses.js';
 import { _accumRangeTarget, _accumBandAvg } from './gradientAccum.js';
+import { buildEnvironmentSpecs } from '../multiEnv.js';
 
 // Applicable to plain optical operands (R/T/A, any pol) — single-λ, band-average
 // (TAV/RAV/AAV) AND continuous per-λ targets (TGT/RGT/AGT). Weighted-integral,
@@ -115,21 +116,73 @@ function _prepareScan(args, surfaceMode, side) {
 }
 
 // Returns the same { candidates, mf0 } contract, or null if not applicable.
+// Multi-environment support: when design.meritEnvironments is non-empty,
+// accumulates gradients across all environments with weights.
 export function scanNeedlesAnalytic(args) {
     const { design, candidateMats, deltaNm = 0.5 } = args;
     const surfaceMode = design?.surfaceMode || 'front_only';
     const side = resolveScanSide(surfaceMode, args.side ?? 'front');
     if (_analyticDeclines(surfaceMode, design)) return null;
 
-    const prep = _prepareScan(args, surfaceMode, side);
-    if (!prep) return null;
-    const { optOps, descs, cfg, mf0, sumW } = prep;
+    const environments = design.meritEnvironments;
+    const isMultiEnv = environments && environments.length > 0;
 
-    const scanAt = _makeScanAt(cfg);
-    for (const op of optOps) {
-        if (isRangeTarget(op.type)) _accumRangeTarget(cfg, op, descs, scanAt);
-        else _accumBandAvg(cfg, op, descs, scanAt);
+    if (!isMultiEnv) {
+        // Single-environment path (original logic)
+        const prep = _prepareScan(args, surfaceMode, side);
+        if (!prep) return null;
+        const { optOps, descs, cfg, mf0, sumW } = prep;
+
+        const scanAt = _makeScanAt(cfg);
+        for (const op of optOps) {
+            if (isRangeTarget(op.type)) _accumRangeTarget(cfg, op, descs, scanAt);
+            else _accumBandAvg(cfg, op, descs, scanAt);
+        }
+
+        return { candidates: _buildCandidates(descs, candidateMats, { mf0, sumW, deltaNm, side }), mf0 };
     }
 
-    return { candidates: _buildCandidates(descs, candidateMats, { mf0, sumW, deltaNm, side }), mf0 };
+    // Multi-environment path: accumulate weighted gradients across all environments
+    const envSpecs = buildEnvironmentSpecs(design, args.resolveMat);
+    let totalMf0 = 0;
+    let totalSumW = 0;
+    const envResults = [];
+
+    for (const spec of envSpecs) {
+        // Create a design clone with this environment's media
+        const envDesign = {
+            ...design,
+            incidentMedium: spec.ctx.n0mat?.name || design.incidentMedium,
+            exitMedium: spec.ctx.neMat?.name || design.exitMedium,
+        };
+        const prep = _prepareScan({ ...args, design: envDesign }, surfaceMode, side);
+        if (!prep) continue;
+        const { optOps, descs, cfg, mf0, sumW } = prep;
+
+        const scanAt = _makeScanAt(cfg);
+        for (const op of optOps) {
+            if (isRangeTarget(op.type)) _accumRangeTarget(cfg, op, descs, scanAt);
+            else _accumBandAvg(cfg, op, descs, scanAt);
+        }
+
+        totalMf0 += spec.weight * mf0;
+        totalSumW += spec.weight * sumW;
+        envResults.push({ descs, mf0, sumW, weight: spec.weight });
+    }
+
+    if (envResults.length === 0) return null;
+
+    // Merge descriptors: weighted sum of gradient numerators
+    const mergedDescs = envResults[0].descs.map((d, i) => {
+        let mergedNum = 0;
+        for (const env of envResults) {
+            mergedNum += env.weight * env.descs[i].num;
+        }
+        return { ...d, num: mergedNum };
+    });
+
+    return {
+        candidates: _buildCandidates(mergedDescs, candidateMats, { mf0: totalMf0, sumW: totalSumW, deltaNm, side }),
+        mf0: totalMf0
+    };
 }

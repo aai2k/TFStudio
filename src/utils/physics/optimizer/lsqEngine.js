@@ -22,7 +22,9 @@ import {
     evaluateOperands, phaseDispersionThicknessPoint,
     operandResidualScale, calcMF, mfWeightDenominator, _operandResidual,
     operandEvaluationErrors, OperandEvaluationError,
+    getMeritAccumulation, buildEvalContext,
 } from './evalCore.js';
+import { buildEnvironmentSpecs, calcMFMultiEnv } from './multiEnv.js';
 import {
     isConstraint, isTotalThickness, isRangeTarget, isIntegral,
     isMinmax, isArgwave, isMath, isEllipsometry, isEField,
@@ -109,6 +111,23 @@ export class LSQEngine {
         this.tol    = opts.tol    ?? 1e-7;
         this.h      = opts.fdStep ?? 1.0;
 
+        // Multi-environment support
+        this.environments = opts.environments || design.meritEnvironments || [];
+        this._multiEnvMode = this.environments.length > 0;
+        if (this._multiEnvMode) {
+            // Pre-build static environment contexts (media fixed, thickness varies)
+            this._envCtxs = this.environments.map(env => {
+                const clonedDesign = {
+                    ...design,
+                    incidentMedium: env.incidentMedium ?? design.incidentMedium,
+                    exitMedium: env.exitMedium ?? design.exitMedium,
+                    substrate: env.substrate ? { ...design.substrate, ...env.substrate } : design.substrate
+                };
+                return buildEvalContext(clonedDesign, resolveMat);
+            });
+            this._envWeights = this.environments.map(e => e.weight ?? 1.0);
+        }
+
         const comp0    = evaluateOperands(this.operands, this._ctxFor(this.thicknesses));
         const errorIndex = operandEvaluationErrors(comp0).findIndex(Boolean);
         if (errorIndex >= 0) {
@@ -172,6 +191,33 @@ export class LSQEngine {
             frontThicks, frontMats,
             backThicks,  backMats,
             fullThicks:           thk,    // constraints act on the full optimization vector
+        };
+    }
+
+    // Environment-aware context builder for multi-environment mode.
+    // Takes a static baseCtx (with environment-specific media) and applies
+    // the current thickness vector thk to it.
+    _envCtxFor(thk, baseCtx) {
+        let frontThicks, backThicks;
+        if (this.surfaceMode === 'both_independent') {
+            frontThicks = thk.slice(0, this.nFront);
+            backThicks  = thk.slice(this.nFront);
+        } else if (this.surfaceMode === 'symmetric') {
+            frontThicks = thk;
+            backThicks  = [...thk].reverse();
+        } else if (this.surfaceMode === 'back_only') {
+            frontThicks = baseCtx.frontThicks;
+            backThicks  = thk;
+        } else {
+            // front_only
+            frontThicks = thk;
+            backThicks  = this.evalFullSystem ? baseCtx.backThicks : [];
+        }
+        return {
+            ...baseCtx,
+            frontThicks,
+            backThicks,
+            fullThicks: thk,
         };
     }
 
@@ -543,7 +589,16 @@ export class LSQEngine {
 
     // Merit function at an arbitrary thickness vector (identical math to the
     // value DLS / DE / SA minimize — straight calcMF on _ctxFor(thk)).
+    // In multi-environment mode, returns weighted RMS across all environments.
     mfAt(thk) {
+        if (this._multiEnvMode) {
+            const specs = this._envCtxs.map((ctx, i) => ({
+                ctx: this._envCtxFor(thk, ctx),
+                weight: this._envWeights[i],
+                index: i
+            }));
+            return calcMFMultiEnv(specs, this.operands, { getMeritAccumulation }).mf;
+        }
         return calcMF(this.operands, evaluateOperands(this.operands, this._ctxFor(thk)));
     }
 
@@ -562,12 +617,51 @@ export class LSQEngine {
     // when the analytic Jacobian declines a merit term (ramp/argwave/TT/total
     // single-side) — same fallback policy as step(). Both branches return the
     // TRUE ∇MF, so CG sees a consistent gradient regardless of branch.
+    //
+    // In multi-environment mode, gradient is weighted sum across environments:
+    //   ∇MF_total = Σ_e W_e · ∇MF_e / (2 · MF_total · denom_total)
     gradMF(thk, freeIdxIn) {
         const free  = freeIdxIn || thk.map((_, i) => i).filter(i => !this.lockedMask[i]);
         const nFree = free.length;
         const g     = new Array(thk.length).fill(0);
         if (nFree === 0) return g;
 
+        // Multi-environment mode: weighted gradient across all environments
+        if (this._multiEnvMode) {
+            const mfTotal = this.mfAt(thk);
+            if (mfTotal === 0 || !isFinite(mfTotal)) return g;
+
+            // Accumulate weighted gradients from each environment
+            let totalSumWopt = 0;
+            let totalSumWcon = 0;
+            for (let e = 0; e < this._envCtxs.length; e++) {
+                const envCtx = this._envCtxFor(thk, this._envCtxs[e]);
+                const envComp = evaluateOperands(this.operands, envCtx);
+                const { sumWopt, sumWcon } = getMeritAccumulation(this.operands, envComp, false);
+                totalSumWopt += this._envWeights[e] * sumWopt;
+                totalSumWcon += this._envWeights[e] * sumWcon;
+
+                // Get gradient for this environment using FD fallback
+                // (analytic Jacobian for arbitrary ctx is complex; use FD for now)
+                const envGrad = this._gradMFForCtx(thk, envCtx, free);
+                const W = this._envWeights[e];
+                for (let ci = 0; ci < nFree; ci++) {
+                    g[free[ci]] += W * envGrad[free[ci]];
+                }
+            }
+
+            // Normalize: grad = grad / (2 * MF * denom)
+            const denom = totalSumWopt > 0 ? totalSumWopt : totalSumWcon;
+            if (denom > 0) {
+                const scale = 1.0 / (2.0 * mfTotal * denom);
+                for (let ci = 0; ci < nFree; ci++) {
+                    g[free[ci]] *= scale;
+                }
+            }
+            return g;
+        }
+
+        // Single-environment mode: original logic
         // Shared base-point sweep for residuals + Jacobian (M5). gradMF is the hot
         // path for CG (default synthesis refiner) and Newton-CG, so this halves
         // its per-call TMM cost. Pure ⇒ bit-identical.
@@ -600,6 +694,33 @@ export class LSQEngine {
 
         // FD fallback — central differences on the true MF.
         return this._gradMFFallbackFD(thk, free, g);
+    }
+
+    // Gradient for a specific environment context (used by multi-env mode).
+    // Uses finite differences on the environment-specific MF.
+    _gradMFForCtx(thk, envCtx, free) {
+        const g = new Array(thk.length).fill(0);
+        const mf0 = calcMF(this.operands, evaluateOperands(this.operands, envCtx));
+        if (mf0 === 0 || !isFinite(mf0)) return g;
+
+        for (let ci = 0; ci < free.length; ci++) {
+            const k = free[ci];
+            const hk = Math.max(this.h, Math.abs(thk[k]) * 1e-4);
+            const thkP = thk.slice();
+            thkP[k] = Math.min(thk[k] + hk, this.D_MAX);
+            const thkM = thk.slice();
+            thkM[k] = Math.max(thk[k] - hk, this.D_MIN);
+            const dh = thkP[k] - thkM[k];
+            if (dh <= 0) { g[k] = 0; continue; }
+
+            // Evaluate MF at perturbed thickness for this environment
+            const envCtxP = this._envCtxFor(thkP, envCtx);
+            const envCtxM = this._envCtxFor(thkM, envCtx);
+            const mfP = calcMF(this.operands, evaluateOperands(this.operands, envCtxP));
+            const mfM = calcMF(this.operands, evaluateOperands(this.operands, envCtxM));
+            g[k] = (mfP - mfM) / dh;
+        }
+        return g;
     }
 
     // Central-difference ∇MF, used when the analytic Jacobian declines a merit

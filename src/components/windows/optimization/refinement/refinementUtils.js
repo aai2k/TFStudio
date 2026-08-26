@@ -69,6 +69,8 @@ export function buildPayload(curDes) {
         backLayers:  mk(curDes.backLayers),
         // Cone-angle averaging for the cg/sa/de worker engines.
         ...(curDes.cone ? { cone: curDes.cone } : {}),
+        // Multi-environment optimization: pass environments array to workers
+        ...(curDes.meritEnvironments?.length ? { meritEnvironments: curDes.meritEnvironments } : {}),
     };
 }
 

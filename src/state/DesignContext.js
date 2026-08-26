@@ -93,7 +93,11 @@ export function makeDefaultDesign(name = 'New Design', id = null) {
         frontLayers: [],
         backLayers: [],
         referenceWavelength: 550,
-        notes: ''
+        notes: '',
+        // Multi-environment optimization: array of EnvironmentSpec objects.
+        // Empty array = single-environment mode (backward compatible).
+        // Each EnvironmentSpec: { incidentMedium, exitMedium, substrate, weight }
+        meritEnvironments: []
     };
 }
 

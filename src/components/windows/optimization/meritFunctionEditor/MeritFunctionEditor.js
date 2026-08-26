@@ -6,6 +6,7 @@ import { PresetBar } from './PresetBar.js';
 import { useMeritOperands } from './useMeritOperands.js';
 import { useMeritPresets } from './useMeritPresets.js';
 import { phaseOperandScopeNotice } from '../phaseOperandScope.js';
+import { EnvironmentEditor, MultiEnvToggle } from './EnvironmentEditor.js';
 
 const { createElement: h } = React;
 
@@ -55,6 +56,7 @@ export function MeritFunctionEditor({ c, t, setInputDialog }) {
             design, onGenerate: merit.handleGenerate, operandCount: merit.operands.length, c, t,
         }),
         h(PresetBar, { c, te, ...presets }),
+        h(MultiEnvToggle, { design, updateDesign, t, c }),
         h(MeritSummary, {
             design, mf: merit.mf, omf: merit.omf, busy: merit.evaluationBusy, c, t, te,
         }),
@@ -76,6 +78,9 @@ export function MeritFunctionEditor({ c, t, setInputDialog }) {
                 onMoveDown: merit.handleMoveDown,
                 c, t
             })
-        )
+        ),
+        (design.meritEnvironments || []).length > 0 && h(EnvironmentEditor, {
+            design, updateDesign, t, c
+        })
     );
 }

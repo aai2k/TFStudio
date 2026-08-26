@@ -44,6 +44,7 @@ TFStudio is a desktop application for designing and analyzing **optical thin-fil
 **Optimization & synthesis**
 - **Damped least-squares / Levenberg-Marquardt** refinement with an **analytic Jacobian**
 - Additional refiners: Newton, Newton-CG, SQP, conjugate-gradient, differential evolution, simulated annealing
+- **Multi-environment joint optimization:** optimize the same coating across different incident/emergent media with weighted merit function
 - **Needle** optimization and **gradual evolution** synthesis (automatic layer insertion from scratch)
 - Structural optimization over the layer count itself
 - Flexible merit function: spectral targets, ramps, band averages, worst-case operands, thickness constraints

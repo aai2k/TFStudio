@@ -1292,6 +1292,19 @@ export function calcOMF(operands, computed) {
     return calcMF(operands, computed, { skipConstraints: true });
 }
 
+/**
+ * Public merit accumulation interface for multi-environment evaluation.
+ * Returns { sumWRes2, sumWopt, sumWcon }.
+ *
+ * Structure consistency note: `evaluateOperands(operands, ctx)` returns an object
+ * with `operandErrors` property, which matches `_accumMerit`'s expected
+ * `computed.operandErrors` structure, so it can be passed directly.
+ */
+export function getMeritAccumulation(operands, computed, skipConstraints = false) {
+    const result = _accumMerit(operands, computed, skipConstraints);
+    return { sumWRes2: result.sumWRes2, sumWopt: result.sumWopt, sumWcon: result.sumWcon };
+}
+
 // The weighted-RMS NORMALIZATION denominator used by calcMF — the optical weight
 // sum (everything except MNT/MXT/TT manufacturability constraints), with a
 // constraints-only fallback. Exported so the analytic-gradient path (gradMF in
