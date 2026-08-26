@@ -141,11 +141,16 @@ export function chartToolbox(fileName, {
                     chart.setOption(resetView, { notMerge: false, lazyUpdate: false });
                     return;
                 }
-                const zoom = Array.isArray(resetView.dataZoom)
-                    ? resetView.dataZoom[0] : resetView.dataZoom;
-                api.dispatchAction({
-                    type: 'dataZoom', start: zoom?.start ?? 0, end: zoom?.end ?? 100,
-                });
+                const zooms = (Array.isArray(resetView.dataZoom)
+                    ? resetView.dataZoom : [resetView.dataZoom]).filter(Boolean);
+                const batch = zooms.map(zoom => ({
+                    ...(zoom.id != null ? { dataZoomId: zoom.id } : {}),
+                    start: zoom.start ?? 0,
+                    end: zoom.end ?? 100,
+                }));
+                api.dispatchAction(batch.length > 1
+                    ? { type: 'dataZoom', batch }
+                    : { type: 'dataZoom', ...(batch[0] || { start: 0, end: 100 }) });
                 return;
             }
             api.dispatchAction({ type: 'dataZoom', start: 0, end: 100 });

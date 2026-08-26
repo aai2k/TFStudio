@@ -10,6 +10,10 @@ const MAX_LEGEND_CHARS = 16;
 const REFLECTION_RANGE = { x: [-1.2, 1.2], y: [-1.2, 1.2], interval: 0.4 };
 const FRAME_SPAN = 4;
 const ZOOM_OUT_FACTOR = 4;
+export const ADMITTANCE_ZOOM_IDS = Object.freeze({
+    x: 'admittance-x-zoom',
+    y: 'admittance-y-zoom',
+});
 
 function navigationDomain(range) {
     if (!range) return { range: null, start: 0, end: 100 };
@@ -31,7 +35,10 @@ function resetViewPatch(navigation) {
     return {
         xAxis: [{ min: navigation.range?.x[0], max: navigation.range?.x[1] }],
         yAxis: [{ min: navigation.range?.y[0], max: navigation.range?.y[1] }],
-        dataZoom: [{ start: navigation.start, end: navigation.end }],
+        dataZoom: [
+            { id: ADMITTANCE_ZOOM_IDS.x, start: navigation.start, end: navigation.end },
+            { id: ADMITTANCE_ZOOM_IDS.y, start: navigation.start, end: navigation.end },
+        ],
     };
 }
 
@@ -170,14 +177,26 @@ export function buildAdmittanceOption(source, matColorMap, matName, colors, mark
             min: navigation.range?.y[0], max: navigation.range?.y[1], splitNumber: 6,
             scale: !range, formatter: formatChartNumber,
         }),
-        // One inside zoom owns both axes, so the mouse wheel zooms out as well
-        // as in while preserving the square admittance plane. It also gives the
-        // shared Reset zoom action a concrete model to restore.
-        dataZoom: [{
-            type: 'inside', xAxisIndex: 0, yAxisIndex: 0, filterMode: 'none',
-            zoomOnMouseWheel: true, moveOnMouseMove: false, moveOnMouseWheel: false,
-            start: navigation.start, end: navigation.end,
-        }],
+        // X and Y need independent percentage windows. A single dataZoom model
+        // linked to both axes makes ECharts reuse one brush percentage for the
+        // two dimensions, so a non-square rectangle gives Re(Y) the Im(Y)
+        // scale. AdmittanceChart owns wheel/pan input so it can dispatch both
+        // axis ranges in one animation-free frame and lock their spans. Native
+        // inside-zoom panning adds a 100 ms transition to every drag update.
+        dataZoom: [
+            {
+                id: ADMITTANCE_ZOOM_IDS.x,
+                type: 'inside', xAxisIndex: 0, filterMode: 'none',
+                zoomOnMouseWheel: false, moveOnMouseMove: false, moveOnMouseWheel: false,
+                start: navigation.start, end: navigation.end,
+            },
+            {
+                id: ADMITTANCE_ZOOM_IDS.y,
+                type: 'inside', yAxisIndex: 0, filterMode: 'none',
+                zoomOnMouseWheel: false, moveOnMouseMove: false, moveOnMouseWheel: false,
+                start: navigation.start, end: navigation.end,
+            },
+        ],
         series,
     });
 }

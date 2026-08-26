@@ -211,7 +211,10 @@ assert.deepEqual(resetActions, [
 
 const customResetView = {
     xAxis: [{ min: -12, max: 12 }], yAxis: [{ min: -12, max: 12 }],
-    dataZoom: [{ start: 37.5, end: 62.5 }],
+    dataZoom: [
+        { id: 'custom-x-zoom', start: 30, end: 70 },
+        { id: 'custom-y-zoom', start: 20, end: 80 },
+    ],
 };
 const customResetToolbox = chartToolbox('custom_zoom_contract', { resetView: customResetView });
 const customResetElement = {};
@@ -230,6 +233,19 @@ assert.deepEqual(customResetActions, [{
 assert.deepEqual(customResetCalls, [[
     customResetView, { notMerge: false, lazyUpdate: false },
 ]], 'the shared reset restores custom raw axes and viewport atomically');
+
+const fallbackResetActions = [];
+customResetToolbox.feature.myZoomRestore.onclick(null, {
+    getDom: () => ({}),
+    dispatchAction: action => fallbackResetActions.push(action),
+});
+assert.deepEqual(fallbackResetActions.at(-1), {
+    type: 'dataZoom',
+    batch: [
+        { dataZoomId: 'custom-x-zoom', start: 30, end: 70 },
+        { dataZoomId: 'custom-y-zoom', start: 20, end: 80 },
+    ],
+}, 'the reset fallback preserves independent X and Y viewports');
 
 const percentTooltip = axisTooltip({ valueSuffix: '%' });
 assert.equal(percentTooltip.axisPointer.label.formatter({ value: 63.88, axisDimension: 'y' }), '63.88%');

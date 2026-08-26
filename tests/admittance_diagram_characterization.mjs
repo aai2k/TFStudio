@@ -30,7 +30,9 @@ const { buildAdmittanceTableRows } = await import(
 const { AdmittanceDiagram } = await import(
     '../src/components/windows/analysis/admittanceDiagram/AdmittanceDiagram.js'
 );
-const { expandAdmittanceNavigation } = await import(
+const {
+    expandAdmittanceNavigation, lockAdmittanceZoom, panAdmittanceZoom, zoomAdmittanceAt,
+} = await import(
     '../src/components/windows/analysis/admittanceDiagram/AdmittanceChart.js'
 );
 
@@ -194,11 +196,24 @@ assert.deepEqual([[option.xAxis.min, option.xAxis.max], [option.yAxis.min, optio
     [-9, 15],
     [-12, 12],
 ]);
-assert.deepEqual(option.dataZoom, [{
-    type: 'inside', xAxisIndex: 0, yAxisIndex: 0, filterMode: 'none',
-    zoomOnMouseWheel: true, moveOnMouseMove: false, moveOnMouseWheel: false,
-    start: 37.5, end: 62.5,
-}], 'the wheel zooms both axes together, including back out to the full plane');
+assert.deepEqual(option.dataZoom, [
+    {
+        id: 'admittance-x-zoom',
+        type: 'inside', xAxisIndex: 0, filterMode: 'none',
+        zoomOnMouseWheel: false, moveOnMouseMove: false, moveOnMouseWheel: false,
+        start: 37.5, end: 62.5,
+    },
+    {
+        id: 'admittance-y-zoom',
+        type: 'inside', yAxisIndex: 0, filterMode: 'none',
+        zoomOnMouseWheel: false, moveOnMouseMove: false, moveOnMouseWheel: false,
+        start: 37.5, end: 62.5,
+    },
+], 'wheel gestures cover both axes but rectangle X/Y percentages remain independent');
+assert.ok(option.dataZoom.every(zoom => zoom.moveOnMouseMove === false),
+    'native animated panning stays disabled in favor of the animation-free chart handler');
+assert.ok(option.dataZoom.every(zoom => !(zoom.xAxisIndex != null && zoom.yAxisIndex != null)),
+    'no zoom model may couple a rectangle\'s Re(Y) and Im(Y) scales');
 assert.ok(option.toolbox.feature.myZoomRestore,
     'the admittance plot exposes an explicit full-range reset');
 {
@@ -217,7 +232,10 @@ assert.ok(option.toolbox.feature.myZoomRestore,
     assert.deepEqual(setCalls, [[{
         xAxis: [{ min: -9, max: 15 }],
         yAxis: [{ min: -12, max: 12 }],
-        dataZoom: [{ start: 37.5, end: 62.5 }],
+        dataZoom: [
+            { id: 'admittance-x-zoom', start: 37.5, end: 62.5 },
+            { id: 'admittance-y-zoom', start: 37.5, end: 62.5 },
+        ],
     }, { notMerge: false, lazyUpdate: false }]],
     'reset restores the exact axes and viewport used when the window opened');
 }
@@ -225,7 +243,10 @@ const expanded = expandAdmittanceNavigation(option);
 assert.deepEqual(expanded, {
     xAxis: [{ min: -21, max: 27 }],
     yAxis: [{ min: -24, max: 24 }],
-    dataZoom: [{ start: 22.5, end: 77.5 }],
+    dataZoom: [
+        { id: 'admittance-x-zoom', start: 22.5, end: 77.5 },
+        { id: 'admittance-y-zoom', start: 22.5, end: 77.5 },
+    ],
 }, 'an outward gesture at the boundary doubles the Re(Y)/Im(Y) domain');
 let repeated = option;
 for (let index = 0; index < 20; index++) {
@@ -234,6 +255,21 @@ for (let index = 0; index < 20; index++) {
 }
 assert.ok(repeated.xAxis[0].max - repeated.xAxis[0].min > 20_000_000,
     'progressive expansion has no practical fixed limit for large arcs');
+
+const asymmetricBox = [
+    { id: 'admittance-x-zoom', start: 10, end: 80 },
+    { id: 'admittance-y-zoom', start: 45, end: 60 },
+];
+assert.deepEqual(lockAdmittanceZoom(asymmetricBox), [
+    { dataZoomId: 'admittance-x-zoom', start: 10, end: 80 },
+    { dataZoomId: 'admittance-y-zoom', start: 17.5, end: 87.5 },
+], 'a non-square rectangle keeps its wider span and expands the other axis to preserve 1:1 scale');
+const panned = panAdmittanceZoom(option.dataZoom, 0.1, -0.2);
+assert.equal(panned[0].end - panned[0].start, panned[1].end - panned[1].start,
+    'panning preserves the admittance aspect ratio');
+const wheeled = zoomAdmittanceAt(option.dataZoom, 0.25, 0.75, 1.18);
+assert.equal(wheeled[0].end - wheeled[0].start, wheeled[1].end - wheeled[1].start,
+    'wheel zoom preserves the admittance aspect ratio');
 
 const c = makeTheme();
 const html = renderToStaticMarkup(withDesign(
