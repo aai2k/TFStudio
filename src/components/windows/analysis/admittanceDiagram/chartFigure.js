@@ -1,6 +1,6 @@
 import { ANALYSIS_DEFAULTS } from '../../../../constants/analysisDefaults.js';
 import {
-    cartesianOption, formatChartNumber, itemTooltip, lineSeries, niceTickInterval,
+    cartesianOption, chartToolbox, formatChartNumber, itemTooltip, lineSeries, niceTickInterval,
     scatterSeries, valueAxis,
 } from '../../../ui/chartOptions.js';
 import { plotMargin } from '../chrome/plot.js';
@@ -25,6 +25,38 @@ function navigationDomain(range) {
         start: (100 - initialSpan) / 2,
         end: (100 + initialSpan) / 2,
     };
+}
+
+function resetViewPatch(navigation) {
+    return {
+        xAxis: [{ min: navigation.range?.x[0], max: navigation.range?.x[1] }],
+        yAxis: [{ min: navigation.range?.y[0], max: navigation.range?.y[1] }],
+        dataZoom: [{ start: navigation.start, end: navigation.end }],
+    };
+}
+
+function admittanceToolbox(colors, navigation) {
+    const toolbox = chartToolbox('admittance', { colors });
+    toolbox.feature.myZoomRestore.onclick = (_model, api) => {
+        // ECharts 6.1 must leave rectangle mode before any zoom reset. Otherwise
+        // its old brush controller survives the reset and the next rectangle is
+        // applied twice—the same failure the Optical Evaluation reset avoids.
+        api.dispatchAction({
+            type: 'takeGlobalCursor', key: 'dataZoomSelect', dataZoomSelectActive: false,
+        });
+        const chart = globalThis.echarts?.getInstanceByDom?.(api.getDom?.());
+        if (chart) {
+            // Progressive zoom-out grows the raw axes as well as changing the
+            // dataZoom window, so reset both parts atomically to the exact view
+            // computed when this option was built.
+            chart.setOption(resetViewPatch(navigation), { notMerge: false, lazyUpdate: false });
+        } else {
+            api.dispatchAction({
+                type: 'dataZoom', start: navigation.start, end: navigation.end,
+            });
+        }
+    };
+    return toolbox;
 }
 
 function niceSquareRange(x, y) {
@@ -148,6 +180,7 @@ export function buildAdmittanceOption(source, matColorMap, matName, colors, mark
         colors,
         grid: grid || plotMargin(),
         fileName: 'admittance',
+        toolbox: admittanceToolbox(colors, navigation),
         tooltip: itemTooltip(),
         xAxis: valueAxis({
             name: `Re(${symbol})`, color: colors.text, gridColor: colors.border,

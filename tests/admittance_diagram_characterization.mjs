@@ -201,6 +201,26 @@ assert.deepEqual(option.dataZoom, [{
 }], 'the wheel zooms both axes together, including back out to the full plane');
 assert.ok(option.toolbox.feature.myZoomRestore,
     'the admittance plot exposes an explicit full-range reset');
+{
+    const originalGetInstance = globalThis.echarts.getInstanceByDom;
+    const actions = [], setCalls = [];
+    globalThis.echarts.getInstanceByDom = () => ({
+        setOption: (...args) => setCalls.push(args),
+    });
+    option.toolbox.feature.myZoomRestore.onclick(null, {
+        getDom: () => ({}), dispatchAction: action => actions.push(action),
+    });
+    globalThis.echarts.getInstanceByDom = originalGetInstance;
+    assert.deepEqual(actions, [{
+        type: 'takeGlobalCursor', key: 'dataZoomSelect', dataZoomSelectActive: false,
+    }], 'reset disarms rectangle zoom before changing the view');
+    assert.deepEqual(setCalls, [[{
+        xAxis: [{ min: -9, max: 15 }],
+        yAxis: [{ min: -12, max: 12 }],
+        dataZoom: [{ start: 37.5, end: 62.5 }],
+    }, { notMerge: false, lazyUpdate: false }]],
+    'reset restores the exact axes and viewport used when the window opened');
+}
 const expanded = expandAdmittanceNavigation(option);
 assert.deepEqual(expanded, {
     xAxis: [{ min: -21, max: 27 }],
