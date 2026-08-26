@@ -90,10 +90,25 @@ const option = { grid: { left: 48, right: 12, top: 12, bottom: 42 }, series: [] 
     assert.equal(calls.filter(call => call[0] === 'setOption').length, 4, 'changed data redraws');
     drawChart(roomy, chartRef, { ...option, series: [{ type: 'line', data: [[1, 3]] }] });
     assert.equal(calls.filter(call => call[0] === 'setOption').length, 5, 'a changed value redraws');
+
+    // A chart fed by a running job rebuilds the same shape every tick. Replacing
+    // the option would take the tooltip and axis pointer with it, so a crosshair
+    // held still over a live curve loses its readout on every tick. New numbers
+    // in an unchanged shape merge into the model that is already there.
+    assert.deepEqual(calls.at(-1)[2], { notMerge: false, lazyUpdate: false },
+        'new data in an unchanged option shape merges instead of replacing the model');
+
+    // Structure is what decides, not the data: merging can overwrite but never
+    // delete, so a series that goes away still replaces the whole option.
+    drawChart(roomy, chartRef, { ...option, series: [{ type: 'line', data: [[1, 3]], name: 'renamed' }] });
+    assert.deepEqual(calls.at(-1)[2], { notMerge: true, lazyUpdate: false },
+        'a renamed series replaces the option');
     drawChart(roomy, chartRef, { ...option, series: [] });
-    assert.equal(calls.filter(call => call[0] === 'setOption').length, 6, 'a removed series redraws');
+    assert.equal(calls.filter(call => call[0] === 'setOption').length, 7, 'a removed series redraws');
+    assert.deepEqual(calls.at(-1)[2], { notMerge: true, lazyUpdate: false },
+        'a removed series replaces the option so nothing lingers');
     drawChart(roomy, chartRef, { ...option, series: [], grid: { left: 60, right: 12, top: 12, bottom: 42 } });
-    assert.equal(calls.filter(call => call[0] === 'setOption').length, 7,
+    assert.equal(calls.filter(call => call[0] === 'setOption').length, 8,
         'a grid resized by squareGrid redraws');
 
     // Beyond the comparison budget the check gives up and redraws, which is the

@@ -12,6 +12,7 @@
  */
 
 import { Checkbox } from '../../../ui/Checkbox.js';
+import { parseNumberStrict } from '../../../../utils/misc/numberParsing.js';
 
 const { createElement: h, useState, useEffect } = React;
 
@@ -38,24 +39,43 @@ export function Divider({ c }) {
  * Number field that commits on blur or Enter, so a partially typed value never
  * reaches the calculation. Out-of-range entries are clamped rather than
  * rejected; unparseable ones revert.
+ *
+ * A text field rather than `type="number"`. A native number field displays and
+ * accepts the decimal separator of the browser's locale, so on a machine set to
+ * Russian a step of 0.4375 reads back as `0,4375` and a typed dot is refused.
+ * TFStudio writes a dot everywhere and takes either separator on the way in.
+ * Arrow keys still step by `step`, which is the part of the native control
+ * worth keeping.
  */
 export function NumInput({ value, onChange, min, max, step = 1, c, width = 60, title, disabled }) {
     const [raw, setRaw] = useState(String(value));
     useEffect(() => { setRaw(String(value)); }, [value]);
+    const clamp = number => Math.min(Math.max(number, min ?? -Infinity), max ?? Infinity);
     const commit = () => {
         if (raw === String(value)) return;
-        const parsed = parseFloat(raw);
-        if (!isNaN(parsed)) onChange(Math.min(Math.max(parsed, min ?? -Infinity), max ?? Infinity));
+        const parsed = parseNumberStrict(raw);
+        if (Number.isFinite(parsed)) onChange(clamp(parsed));
         else setRaw(String(value));
     };
+    const nudge = (direction) => {
+        const parsed = parseNumberStrict(raw);
+        const from = Number.isFinite(parsed) ? parsed : value;
+        // Stepping in binary leaves 0.30000000000000004 in the field.
+        const next = clamp(Number((from + direction * step).toPrecision(12)));
+        setRaw(String(next));
+        onChange(next);
+    };
     return h('input', {
-        type: 'number', value: raw, min, max, step, title, disabled,
-        // Hides the native spinner, which otherwise appears on hover and pushes
-        // the digits sideways. See `.tfs-number` in styles.css.
+        type: 'text', inputMode: 'decimal', value: raw, title, disabled,
+        // See `.tfs-number` in styles.css.
         className: 'tfs-number',
         onChange: event => setRaw(event.target.value),
         onBlur: commit,
-        onKeyDown: event => { if (event.key === 'Enter') commit(); },
+        onKeyDown: (event) => {
+            if (event.key === 'Enter') commit();
+            else if (event.key === 'ArrowUp') { event.preventDefault(); nudge(1); }
+            else if (event.key === 'ArrowDown') { event.preventDefault(); nudge(-1); }
+        },
         style: {
             width, height: 24, backgroundColor: c.field, color: c.text,
             border: `1px solid ${c.border}`, borderRadius: 3,

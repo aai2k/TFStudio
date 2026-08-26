@@ -47,15 +47,18 @@ export function AnalysisWindow({ c, row = false, children }) {
  *
  * Put the curve switches in `children`; pass the notice badge and Setup button
  * as `trailing`, which is pushed to the right-hand end.
+ *
+ * `footer` puts the same row under the plot instead of over it, for a window
+ * whose controls drive a position in the plot rather than what it draws.
  */
-export function ControlRow({ c, children, trailing, ...rest }) {
+export function ControlRow({ c, children, trailing, footer = false, ...rest }) {
     return h('div', {
         ...rest,
         style: {
             display: 'flex', flexWrap: 'wrap', alignItems: 'center',
             gap: 8, rowGap: 5, padding: '5px 10px',
             backgroundColor: c.panel, flexShrink: 0,
-            borderBottom: `1px solid ${c.border}`,
+            [footer ? 'borderTop' : 'borderBottom']: `1px solid ${c.border}`,
         },
     },
         children,
