@@ -22,6 +22,8 @@
 
 **软件界面现已支持简体中文。**
 
+![主界面截图](assets/screenshot-cn-main.png)
+
 </div>
 
 ## TFStudio 是什么？
@@ -54,6 +56,8 @@ TFStudio 是一款用于**光学薄膜**设计与分析的桌面软件，适用�
 - 内置材料库，由 [refractiveindex.info](https://refractiveindex.info) 数据库生成（CC0 公有领域）
 - 支持 Sellmeier、Cauchy 及表格型色散模型；复折射率约定明确
 - 支持导入外部材料库，并内置 refractiveindex.info 在线浏览器
+
+![材料浏览器](assets/screenshot-cn-material.png)
 
 **镀膜工艺**
 - 镀膜与监控过程仿真（宽带光学监控与单色光监控）
