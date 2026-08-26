@@ -12,19 +12,19 @@ export function useSetupState() {
     const [lambdaStart, setLambdaStart] = useState(persisted.lambdaStart || 400);
     const [lambdaEnd, setLambdaEnd] = useState(persisted.lambdaEnd || 1100);
     const [lambdaStep, setLambdaStep] = useState(persisted.lambdaStep || 2);
-    const [exportStep, setExportStep] = useState(persisted.exportStep || 0.4375);
-    const [showSteps, setShowSteps] = useState(persisted.showSteps !== false);
+    const [exportStep, setExportStep] = useState(persisted.exportStep || 0.5);
+    const [showAll, setShowAll] = useState(persisted.showAll === true);
     const [rates, setRates] = useState(persisted.rates || {});
     const [playSpeed, setPlaySpeed] = useState(persisted.playSpeed || 1);
 
     useEffect(() => {
         savePersist({
             activeSide, secondSurface, quantity, aoi, polarization,
-            lambdaStart, lambdaEnd, lambdaStep, exportStep, showSteps,
+            lambdaStart, lambdaEnd, lambdaStep, exportStep, showAll,
             rates, playSpeed,
         });
     }, [activeSide, secondSurface, quantity, aoi, polarization, lambdaStart,
-        lambdaEnd, lambdaStep, exportStep, showSteps, rates, playSpeed]);
+        lambdaEnd, lambdaStep, exportStep, showAll, rates, playSpeed]);
 
     return {
         activeSide, setActiveSide,
@@ -36,7 +36,7 @@ export function useSetupState() {
         lambdaEnd, setLambdaEnd,
         lambdaStep, setLambdaStep,
         exportStep, setExportStep,
-        showSteps, setShowSteps,
+        showAll, setShowAll,
         rates, setRates,
         playSpeed, setPlaySpeed,
     };

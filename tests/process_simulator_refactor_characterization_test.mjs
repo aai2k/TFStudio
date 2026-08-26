@@ -7,12 +7,13 @@ import {
 shimBrowserGlobals();
 await loadApp();
 
-const [directEntry, model, figure, persistence, saveActions, wizardShell] = await Promise.all([
+const [directEntry, model, figure, persistence, saveActions, timeline, wizardShell] = await Promise.all([
     import('../src/components/windows/dataExchange/processSimulator/ProcessSimulator.js'),
     import('../src/components/windows/dataExchange/processSimulator/model.js'),
     import('../src/components/windows/dataExchange/processSimulator/figure.js'),
     import('../src/components/windows/dataExchange/processSimulator/persistence.js'),
     import('../src/components/windows/dataExchange/processSimulator/useProcessSave.js'),
+    import('../src/components/windows/dataExchange/processSimulator/Timeline.js'),
     import('../src/components/windows/simulation/wizardKit/useWizardShell.js'),
 ]);
 const { ProcessSimulator } = directEntry;
@@ -22,8 +23,38 @@ const html = renderToStaticMarkup(withDesign(
     React.createElement(ProcessSimulator, { c, theme: c, t: makeLocale() })
 ));
 assert.match(html, /Deposition sequence/);
-assert.match(html, /Spectral range/);
 assert.ok(html.length > 10000, 'the full simulator controls render');
+
+// Every setting is on the control row. This window is driven while a run is
+// being set up, and a setting behind a panel is a setting nobody checks.
+for (const label of ['Active side', 'Opposite side', 'Quantity', 'Polarization',
+    'Export step (nm)', 'Show all layers']) {
+    assert.ok(html.includes(label), `${label} is on the control row`);
+}
+assert.doesNotMatch(html, /aria-expanded/, 'no settings popover holds any of it');
+
+// A number field is a text field, not type="number": a native number input
+// renders and accepts the decimal separator of the browser locale, so a step of
+// 0.4375 reads back as 0,4375 on a machine set to Russian.
+assert.doesNotMatch(html, /type="number"/, 'numbers are typed into text fields');
+assert.match(html, /inputMode="decimal"/);
+
+// An auto-sized table redraws every column as the material names change, so the
+// numbers move under the pointer while a run plays.
+assert.match(html, /table-layout:fixed/, 'the sequence table holds its columns');
+
+// The bar down the left of a row marks the layer the timeline is on, so a run
+// moving through the stack is as easy to follow as a layer picked by hand.
+assert.match(html, /box-shadow:inset 2px 0 0 /, 'the current layer carries the marker');
+assert.match(html, /tabindex="0"/, 'the sequence takes focus so the arrow keys reach it');
+
+// A native range thumb is inset by half its own width at each end, so ticks
+// placed at a plain percentage drift away from it, worst on a narrow window
+// where the same pixel error is a larger share of a short track.
+assert.equal(timeline.thumbCentre(0), 'calc(0% + 6px)');
+assert.equal(timeline.thumbCentre(1), 'calc(100% - 6px)');
+assert.equal(timeline.thumbCentre(0.5), 'calc(50% + 0px)', 'the midpoint needs no correction');
+assert.match(html, /--tfs-thumb:12px/, 'the CSS thumb size comes from the constant the ticks use');
 
 const design = {
     id: 'process-model',
@@ -73,6 +104,20 @@ assert.deepEqual(model.deriveProgressState(5, [0, 2, 5], [2, 3], 2), {
 assert.deepEqual(model.deriveProgressState(0, [0], [], 0), {
     layerIdx: 0, frac: 0, completedSteps: 0,
 });
+
+// Clicking a layer moves the timeline to it. A boundary belongs to the layer
+// after it, so the seek has to stop short of the end or the readouts name the
+// wrong layer: every step must come back as itself, fully deposited.
+{
+    const times = [2, 3, 5];
+    const cumulative = model.buildCumulativeTimes(times);
+    for (const step of [1, 2, 3]) {
+        const state = model.deriveProgressState(
+            model.stepSeekTime(cumulative, times, step), cumulative, times, 3);
+        assert.equal(state.layerIdx, step, `seeking to layer ${step} lands on layer ${step}`);
+        assert.ok(state.frac > 0.999, `layer ${step} is deposited where the seek lands`);
+    }
+}
 
 let wizardContext;
 function WizardShellProbe() {
@@ -128,21 +173,103 @@ const sp = makeLocale().processSim;
 const colors = figure.spectraColors(c);
 const series = figure.buildSpectraSeries({
     lambdas: [500, 600],
-    baseline: [0.1, 0.2],
-    stepCurves: [[0.3, 0.4], [0.5, 0.6]],
+    baselinePoints: figure.buildStepPoints([500, 600], [[0.1, 0.2]])[0],
+    stepPoints: figure.buildStepPoints([500, 600], [[0.3, 0.4], [0.5, 0.6]]),
     liveCurve: [0.7, 0.8],
-    currentStep: 2,
-    showSteps: true,
+    focusStep: 2,
+    showAll: true,
     quantity: 'T',
 }, colors, sp);
 assert.deepEqual(series.map(item => item.data.map(point => point[1])), [
     [10, 20], [30, 40], [50, 60], [70, 80],
 ]);
 assert.equal(series[2].lineStyle.color, 'hsla(0, 70%, 55%, 0.95)');
-assert.equal(series[2].lineStyle.width, 2);
+assert.equal(series[2].lineStyle.width, 2.4);
 const chartOption = figure.buildSpectraOption({ quantity: 'R' }, colors, sp);
 assert.deepEqual([chartOption.yAxis.min, chartOption.yAxis.max], [0, 100]);
 assert.ok(chartOption.toolbox.feature.saveAsImage, 'native chart export remains available');
+
+// Focusing a layer greys the other step curves rather than hiding them: a
+// monitoring turning point is read against the curves that came before it.
+{
+    const lambdas = [500, 600];
+    const focusData = {
+        lambdas,
+        baselinePoints: figure.buildStepPoints(lambdas, [[0.1, 0.2]])[0],
+        stepPoints: figure.buildStepPoints(lambdas, [[0.3, 0.4], [0.5, 0.6], [0.7, 0.8]]),
+        liveCurve: [0.9, 1.0],
+        focusStep: 2,
+        showAll: true,
+        quantity: 'T',
+    };
+    assert.equal(figure.focusedStep(focusData), 2);
+    assert.equal(figure.focusedStep({ ...focusData, focusStep: 7 }), null,
+        'a layer the design no longer has is not focused');
+    assert.equal(figure.focusedStep({ ...focusData, focusStep: null }), null);
+
+    const focused = figure.buildSpectraSeries(focusData, colors, sp);
+    const steps = focused.slice(1, 4);
+    assert.deepEqual(steps.map(item => item.z), [1, 3, 1],
+        'the focused curve is drawn over the others');
+    assert.equal(steps[1].lineStyle.color, 'hsla(110, 70%, 55%, 0.95)',
+        'the focused curve keeps its own colour at full strength');
+    assert.deepEqual([steps[0].lineStyle.color, steps[2].lineStyle.color],
+        ['rgba(224,224,224,0.16)', 'rgba(224,224,224,0.16)'],
+        'every other step curve greys out');
+    assert.ok(steps[1].lineStyle.width > steps[2].lineStyle.width);
+
+    // Sixty curves over one plot is a grey haze with the answer somewhere
+    // inside it, so only the layer the timeline is on is drawn by default.
+    const oneLayer = figure.buildSpectraSeries({ ...focusData, showAll: false }, colors, sp);
+    assert.deepEqual(oneLayer.map(item => item.name),
+        [sp.legendBaseline, sp.legendStep(2), sp.legendLive],
+        'the baseline, the layer in focus and the live curve, and nothing else');
+
+    // The points are shared with the caller, which builds them once per design.
+    // Rebuilding twenty thousand of them on every progress tick is what made a
+    // long run stutter.
+    assert.equal(oneLayer[1].data, focusData.stepPoints[1],
+        'a step curve reuses the points it was given');
+
+    assert.deepEqual(figure.buildSpectraOption(focusData, colors, sp).legend.data
+        .map(item => (typeof item === 'string' ? item : item.name)),
+        [sp.legendBaseline, sp.legendStep(2), sp.legendLive],
+        'the legend names the layer the chart is following');
+    assert.deepEqual(figure.buildSpectraOption({ ...focusData, focusStep: null }, colors, sp)
+        .legend.data.map(item => (typeof item === 'string' ? item : item.name)),
+        [sp.legendBaseline, sp.legendLive], 'and stays bounded otherwise');
+
+    // The readout is bounded to the same three curves. A stack of sixty would
+    // otherwise put sixty rows in the tooltip and run it off the window.
+    {
+        const { formatter } = figure.buildSpectraOption(focusData, colors, sp).tooltip;
+        const row = (seriesName, value) => ({
+            seriesName, axisValue: 732, value: [732, value], marker: '<i></i>',
+        });
+        const shown = formatter([
+            row(sp.legendBaseline, 91.999),
+            row(sp.legendStep(1), 71.944),
+            row(sp.legendStep(2), 64.43),
+            row(sp.legendStep(3), 79.34),
+            row(sp.legendLive, 73.2),
+        ]);
+        for (const name of [sp.legendBaseline, sp.legendStep(2), sp.legendLive]) {
+            assert.ok(shown.includes(name), `${name} is in the readout`);
+        }
+        for (const name of [sp.legendStep(1), sp.legendStep(3)]) {
+            assert.ok(!shown.includes(name), `${name} is context, not a readout row`);
+        }
+        assert.ok(shown.includes('732'), 'the wavelength heads the readout');
+        assert.ok(shown.includes('64.43%'), 'values keep their unit');
+    }
+
+    // The ruler runs out of room for one number per layer long before the ticks
+    // themselves collide, so labels thin out onto round layer numbers.
+    assert.equal(timeline.labelStride(8), 1);
+    assert.equal(timeline.labelStride(24), 2);
+    assert.equal(timeline.labelStride(60), 5, '60 layers label every fifth');
+    assert.equal(timeline.labelStride(300), 20);
+}
 
 localStorage.clear();
 persistence.savePersist({ activeSide: 'back', rates: { H: 2 } });

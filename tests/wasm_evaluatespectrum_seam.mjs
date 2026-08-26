@@ -11,7 +11,9 @@
  * Run: node tests/wasm_evaluatespectrum_seam.mjs
  */
 
-import { evaluateSpectrum, evaluateSpectrumBack } from '../src/utils/physics/thinFilmMath.js';
+import {
+    evaluateSpectrum, evaluateSpectrumBack, evaluateSpectrumTotal,
+} from '../src/utils/physics/thinFilmMath.js';
 import { tmm } from '../src/utils/physics/thinFilmMath.js';
 import { TmmWasmInstance, __setTmmWasmInstanceForTest, setTmmWasmEnabled } from 'tmmcore';
 
@@ -19,6 +21,7 @@ let fails = 0;
 const ok = (cond, msg) => { if (!cond) { console.error('FAIL:', msg); fails++; } };
 
 // JS-backed mock obeying the C ABI (same as wasm_loader_marshalling.mjs).
+let kernelCalls = 0;
 function makeMockInstance() {
     const memory = new WebAssembly.Memory({ initial: 64 });
     let bump = 16;
@@ -29,6 +32,7 @@ function makeMockInstance() {
     const tmm_jacobian = () => {};
     const tmm_spectrum = (lamPtr, nLam, n0Ptr, nsPtr, mPtr, thPtr, N, theta,
                           rsPtr, tsPtr, asPtr, rpPtr, tpPtr, apPtr) => {
+        kernelCalls++;
         const lam = f64(lamPtr, nLam), n0a = f64(n0Ptr, 2 * nLam), nsa = f64(nsPtr, 2 * nLam);
         const mv = f64(mPtr, Math.max(1, 2 * N * nLam)), thv = f64(thPtr, Math.max(1, N));
         const Rs = f64(rsPtr, nLam), Ts = f64(tsPtr, nLam), As = f64(asPtr, nLam);
@@ -77,6 +81,13 @@ const jsFront = evaluateSpectrum(params, air, bk7, frontLayers);
 const jsBack = evaluateSpectrumBack(params, air, bk7, backLayers);
 const jsFrontS = evaluateSpectrum({ ...params, polarization: 's' }, air, bk7, frontLayers);
 const jsFrontP = evaluateSpectrum({ ...params, polarization: 'p' }, air, bk7, frontLayers);
+// The total-system path is batched at normal incidence only, so it gets its own
+// parameters; `params` stays oblique to hold the gate below honest.
+const normal = { ...params, theta: 0 };
+const jsTotal = evaluateSpectrumTotal(normal, air, bk7, air, frontLayers, backLayers, 1.1);
+const jsTotalP = evaluateSpectrumTotal({ ...normal, polarization: 'p' },
+    air, bk7, air, frontLayers, backLayers, 1.1);
+const jsTotalOblique = evaluateSpectrumTotal(params, air, bk7, air, frontLayers, backLayers, 1.1);
 
 // WASM path (flag on, mock injected).
 __setTmmWasmInstanceForTest(new TmmWasmInstance(makeMockInstance()));
@@ -85,18 +96,32 @@ const wFront = evaluateSpectrum(params, air, bk7, frontLayers);
 const wBack = evaluateSpectrumBack(params, air, bk7, backLayers);
 const wFrontS = evaluateSpectrum({ ...params, polarization: 's' }, air, bk7, frontLayers);
 const wFrontP = evaluateSpectrum({ ...params, polarization: 'p' }, air, bk7, frontLayers);
+kernelCalls = 0;
+const wTotal = evaluateSpectrumTotal(normal, air, bk7, air, frontLayers, backLayers, 1.1);
+ok(kernelCalls === 3, `total takes one kernel call per pass (got ${kernelCalls})`);
+const wTotalP = evaluateSpectrumTotal({ ...normal, polarization: 'p' },
+    air, bk7, air, frontLayers, backLayers, 1.1);
+// Away from normal the ray inside the substrate refracts by an angle that
+// follows the substrate's dispersion, so each wavelength needs its own angle
+// and the batched kernel, which takes one for the whole grid, cannot serve it.
+kernelCalls = 0;
+const wTotalOblique = evaluateSpectrumTotal(params, air, bk7, air, frontLayers, backLayers, 1.1);
+ok(kernelCalls === 0, `oblique incidence stays on the per-wavelength loop (got ${kernelCalls})`);
 
 compareAll('front avg', jsFront, wFront);
 compareAll('back avg', jsBack, wBack);
 compareAll('front s', jsFrontS, wFrontS);
 compareAll('front p', jsFrontP, wFrontP);
+compareAll('total avg', jsTotal, wTotal);
+compareAll('total p', jsTotalP, wTotalP);
+compareAll('total oblique', jsTotalOblique, wTotalOblique);
 
 // Cleanup global state so other tests in the same process are unaffected.
 setTmmWasmEnabled(false);
 __setTmmWasmInstanceForTest(null);
 
 if (fails === 0) {
-    console.log('PASS — evaluateSpectrum WASM seam matches the JS loop (front + back + s/p).');
+    console.log('PASS: evaluateSpectrum WASM seam matches the JS loop (front + back + total + s/p).');
     process.exit(0);
 } else {
     console.error(`${fails} assertion(s) FAILED.`);

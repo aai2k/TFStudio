@@ -19,7 +19,7 @@ const t = makeLocale();
 const html = renderToStaticMarkup(withDesign(
     React.createElement(Inhomogeneities, { c, t, theme: c }),
 ));
-assert.equal(createHash('sha256').update(html).digest('hex').slice(0, 16), 'ee3ebf6108241d28');
+assert.equal(createHash('sha256').update(html).digest('hex').slice(0, 16), '5b9498808fcd3ac8');
 
 const baseline = {
     lambda: [500], T: [0.4], R: [0.5], A: [0.1],

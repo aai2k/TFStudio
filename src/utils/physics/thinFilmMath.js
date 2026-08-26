@@ -287,6 +287,72 @@ function fillSpectrumWasm(result, lambdas, incMat, subMat, validLayers, theta, p
     return true;
 }
 
+// Substrate bulk transmittance for one pass: P = exp(-4π k d / (λ cosθ)),
+// with the substrate thickness given in mm and λ in nm.
+function substratePass(k_sub, subThickness_mm, lam, cosThetaSub) {
+    return (k_sub > 0 && cosThetaSub > 0)
+        ? Math.exp(-4 * Math.PI * k_sub * subThickness_mm * 1e6 / (lam * cosThetaSub))
+        : 1.0;
+}
+
+// Add one λ-sample of a front + incoherent substrate + back system to the
+// result, from the three coherent passes and the substrate's single-pass
+// transmittance. Shared by the JS loop and the WASM batched path so both
+// assemble results byte-for-byte the same way.
+function pushTotalSample(result, fwd, rev, back, P, polarization) {
+    const P2 = P * P;
+    const combine = (Rf, Tf, Rf_r, Tf_r, Rb, Tb) => {
+        const denom = 1 - Rf_r * Rb * P2;
+        if (denom <= 1e-15) return { R: 1, T: 0, A: 0 };
+        const T = Math.max(0, Tf * P * Tb / denom);
+        const R = Math.max(0, Rf + Tf * Tf_r * P2 * Rb / denom);
+        return { R, T, A: Math.max(0, 1 - R - T) };
+    };
+    const s = combine(fwd.Rs, fwd.Ts, rev.Rs, rev.Ts, back.Rs, back.Ts);
+    const p = combine(fwd.Rp, fwd.Tp, rev.Rp, rev.Tp, back.Rp, back.Tp);
+    pushSpectrumSample(result, s.R, s.T, s.A, p.R, p.T, p.A, polarization);
+}
+
+function emptySpectrum(lambdas) {
+    return { lambda: lambdas, R: [], T: [], A: [], Rs: [], Ts: [], As: [], Rp: [], Tp: [], Ap: [] };
+}
+
+/**
+ * WASM batched fill for a front + incoherent substrate + back system.
+ *
+ * Each of the three coherent passes is a single-surface spectrum, which is what
+ * the batched kernel computes, so the whole grid takes three kernel calls
+ * instead of three transfer-matrix products per wavelength. On a sixty-layer
+ * stack over a 350-point grid that is the difference between eighty
+ * milliseconds and a couple, which is what a scrubbed deposition needs.
+ *
+ * Normal incidence only. Away from it the ray inside the substrate refracts by
+ * an angle that follows the substrate's own dispersion, so the reverse and back
+ * passes need a different angle at every wavelength, and the kernel takes one
+ * angle for the whole grid. Oblique incidence keeps the per-wavelength loop.
+ */
+function fillTotalSpectrumWasm(result, lambdas, materials, validFront, validBack,
+                               subThickness_mm, polarization) {
+    if (!tmmWasmActive()) return false;
+    const { incident, substrate, exit } = materials;
+    const fwd = emptySpectrum(lambdas);
+    const rev = emptySpectrum(lambdas);
+    const back = emptySpectrum(lambdas);
+    const reversedFront = [...validFront].reverse();
+    if (!fillSpectrumWasm(fwd, lambdas, incident, substrate, validFront, 0, 'avg')) return false;
+    fillSpectrumWasm(rev, lambdas, substrate, incident, reversedFront, 0, 'avg');
+    fillSpectrumWasm(back, lambdas, substrate, exit, validBack, 0, 'avg');
+    const at = (pass, index) => ({
+        Rs: pass.Rs[index], Ts: pass.Ts[index], Rp: pass.Rp[index], Tp: pass.Tp[index],
+    });
+    for (let index = 0; index < lambdas.length; index++) {
+        const lam = lambdas[index];
+        const P = substratePass(substrate.getNK(lam)[1], subThickness_mm, lam, 1);
+        pushTotalSample(result, at(fwd, index), at(rev, index), at(back, index), P, polarization);
+    }
+    return true;
+}
+
 /**
  * Build the ascending wavelength sampling grid for a spectrum evaluation.
  *
@@ -552,7 +618,18 @@ export function evaluateSpectrumTotal(params, incMaterial, subMaterial, exitMate
 
     const lambdas = buildLambdaGrid(lambdaStart, lambdaEnd, lambdaStep);
 
-    const result = { lambda: lambdas, R: [], T: [], A: [], Rs: [], Ts: [], As: [], Rp: [], Tp: [], Ap: [] };
+    const result = emptySpectrum(lambdas);
+
+    // Batched WASM fast path, normal incidence only.
+    const validFront = frontLayers.filter(l => l.material && l.thickness > 0);
+    const validBack = backLayers.filter(l => l.material && l.thickness > 0);
+    if (theta === 0 && fillTotalSpectrumWasm(
+        result, lambdas,
+        { incident: incMaterial, substrate: subMaterial, exit: exitMaterial },
+        validFront, validBack, subThickness_mm, polarization,
+    )) {
+        return result;
+    }
 
     const sinTheta0 = Math.sin(theta * Math.PI / 180);
 
@@ -561,12 +638,8 @@ export function evaluateSpectrumTotal(params, incMaterial, subMaterial, exitMate
         const ns = subMaterial.getNK(lam);
         const ne = exitMaterial.getNK(lam);
 
-        const frontNDs = frontLayers
-            .filter(l => l.material && l.thickness > 0)
-            .map(l => ({ n: l.material.getNK(lam), d: l.thickness }));
-        const backNDs = backLayers
-            .filter(l => l.material && l.thickness > 0)
-            .map(l => ({ n: l.material.getNK(lam), d: l.thickness }));
+        const frontNDs = validFront.map(l => ({ n: l.material.getNK(lam), d: l.thickness }));
+        const backNDs = validBack.map(l => ({ n: l.material.getNK(lam), d: l.thickness }));
 
         // Angle in substrate via real-part Snell's law (standard thin-film approximation)
         const n0r = n0[0], nsr = ns[0];
@@ -591,39 +664,8 @@ export function evaluateSpectrumTotal(params, incMaterial, subMaterial, exitMate
         // Back coating from substrate side: substrate → backLayers → exitMedium
         const back = tmmAvg(lam, thetaSub_deg, ns, ne, backNDs);
 
-        // Substrate bulk transmittance per pass: P = exp(−4π k d / (λ cosθ))
-        // d in mm → nm: d_nm = d_mm × 1e6
-        const k_sub = ns[1];
-        const d_sub_nm = subThickness_mm * 1e6;
-        const P = (k_sub > 0 && cosThetaSub > 0)
-            ? Math.exp(-4 * Math.PI * k_sub * d_sub_nm / (lam * cosThetaSub))
-            : 1.0;
-        const P2 = P * P;
-
-        const combine = (Rf, Tf, Rf_r, Tf_r, Rb, Tb) => {
-            const denom = 1 - Rf_r * Rb * P2;
-            if (denom <= 1e-15) return { R: 1, T: 0, A: 0 };
-            const T = Math.max(0, Tf * P * Tb / denom);
-            const R = Math.max(0, Rf + Tf * Tf_r * P2 * Rb / denom);
-            return { R, T, A: Math.max(0, 1 - R - T) };
-        };
-
-        const s = combine(fwd.Rs, fwd.Ts, rev.Rs, rev.Ts, back.Rs, back.Ts);
-        const p = combine(fwd.Rp, fwd.Tp, rev.Rp, rev.Tp, back.Rp, back.Tp);
-        const avg = {
-            R: (s.R + p.R) / 2, T: (s.T + p.T) / 2, A: (s.A + p.A) / 2,
-            Rs: s.R, Ts: s.T, As: s.A, Rp: p.R, Tp: p.T, Ap: p.A
-        };
-
-        if (polarization === 's') {
-            result.R.push(avg.Rs); result.T.push(avg.Ts); result.A.push(avg.As);
-        } else if (polarization === 'p') {
-            result.R.push(avg.Rp); result.T.push(avg.Tp); result.A.push(avg.Ap);
-        } else {
-            result.R.push(avg.R); result.T.push(avg.T); result.A.push(avg.A);
-        }
-        result.Rs.push(avg.Rs); result.Ts.push(avg.Ts); result.As.push(avg.As);
-        result.Rp.push(avg.Rp); result.Tp.push(avg.Tp); result.Ap.push(avg.Ap);
+        pushTotalSample(result, fwd, rev, back,
+            substratePass(ns[1], subThickness_mm, lam, cosThetaSub), polarization);
     }
 
     return result;

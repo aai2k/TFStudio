@@ -12,11 +12,12 @@ files** that deposition-monitoring software can load directly, one file per
 layer.
 
 A timeline at the bottom scrubs through the deposition. The chart shows the
-bare-substrate baseline (dotted), one finished-spectrum curve per layer (graded
-from blue for the first layer to red for the last), and the live curve at the
-current scrub position (bold). The spectrum is computed with the full system
-(front, substrate, and back, with an incoherent substrate), so it matches what
-the spectrometer would really see.
+bare-substrate baseline (dotted), the finished spectrum of the layer the
+timeline is on, and the live curve at the current scrub position (bold). Show
+all layers adds a finished curve for every layer, graded from blue for the first
+to red for the last. The spectrum is computed with the full system (front,
+substrate, and back, with an incoherent substrate), so it matches what the
+spectrometer would really see.
 
 ## Settings
 
@@ -36,16 +37,28 @@ coated for the whole run.
 **Spectral range**: the wavelength start, end, and step for the interactive
 chart. A coarse step keeps scrubbing responsive.
 
-**Export step**: the wavelength step written into the `.res` files; set it to
-match your spectrophotometer's grid (for example 0.4375 nm).
+**Export step**: the wavelength step written into the `.res` files. It does not
+affect the chart. The default is 0.5 nm; set it to match your
+spectrophotometer's grid, which for a fixed-array instrument is often an odd
+number such as 0.4375 nm. Type the decimal with either a dot or a comma.
 
-**Show step curves**: toggle the per-layer finished-spectrum overlays.
+**Show all layers**: draw the finished curve for every layer. With it off, which
+is the default, the chart draws the baseline, the layer the timeline is on, and
+the live curve, and nothing else. Sixty finished curves over one plot is a grey
+haze with the answer somewhere inside it. Turn it on to compare the whole run at
+once; the layer the timeline is on stays at full strength and the rest go grey,
+because a turning point only means something against the curves before it. The
+hover readout stays on those same three curves whatever is drawn, so select a
+layer when you want to read a value off it.
 
 **Deposition rates**: an optional per-material rate (nm/s) in the sidebar.
 Rates only shape the time axis of the timeline; they do not change the
 spectrum. The sequence table shows each layer's thickness and time, with the
-current layer highlighted. Your setup choices and rates are remembered between
-sessions.
+current layer marked by a bar down its left edge. Click a layer to move the
+timeline to it, with that layer fully deposited; the up and down arrow keys then
+walk the stack from there. Click a held layer again to release it, and pressing
+Play or moving the timeline releases it too. Your setup choices and rates are
+remembered between sessions.
 
 **Save**: pick an output folder; one `.res` file is written per completed
 deposition step (`01.res`, `02.res`, …). Each file carries a header and a
