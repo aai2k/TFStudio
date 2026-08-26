@@ -133,6 +133,30 @@ function mergeableUpdate(previous, option) {
     return sameOption(optionShape(previous), optionShape(option));
 }
 
+// Components a redraw may replace outright while the rest of the chart model
+// stays alive.
+//
+// A chart fed by a running job also changes which curves it draws and what they
+// are called, not just their numbers: the process simulator follows the layer
+// being deposited, so every layer boundary renames a curve and swaps one for
+// another. Replacing the whole option to do that takes the tooltip and axis
+// pointer with it, and a crosshair held still loses its readout each time a
+// layer completes. Naming the components that changed keeps the rest of the
+// model, and `replaceMerge` still drops series that are no longer in the
+// option, which is the guarantee `notMerge` was there to provide.
+const REPLACEABLE = ['series', 'legend'];
+
+function withoutKeys(option, keys) {
+    const rest = { ...option };
+    for (const key of keys) delete rest[key];
+    return rest;
+}
+
+function replaceableUpdate(previous, option) {
+    if (!previous) return false;
+    return sameOption(withoutKeys(previous, REPLACEABLE), withoutKeys(option, REPLACEABLE));
+}
+
 export function chartForElement(element) {
     return element && runtime()?.getInstanceByDom(element) || null;
 }
@@ -210,9 +234,16 @@ export function drawChart(element, chartRef, option, initOptions) {
     const previous = appliedOptions.get(chart);
     if (previous !== undefined && worthComparing(option)
         && sameOption(previous, option)) return chart;
-    const merge = mergeableUpdate(previous, option);
-    if (!merge) disarmRectangleZoom(chart);
-    chart.setOption(option, { notMerge: !merge, lazyUpdate: false });
+    let settings = { notMerge: true, lazyUpdate: false };
+    if (mergeableUpdate(previous, option)) {
+        settings = { notMerge: false, lazyUpdate: false };
+    } else if (replaceableUpdate(previous, option)) {
+        settings = { notMerge: false, replaceMerge: REPLACEABLE, lazyUpdate: false };
+    }
+    // Only a full replacement rebuilds the toolbox, so only it can strand the
+    // rectangle tool's brush controller.
+    if (settings.notMerge) disarmRectangleZoom(chart);
+    chart.setOption(option, settings);
     appliedOptions.set(chart, option);
     return chart;
 }

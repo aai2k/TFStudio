@@ -98,18 +98,25 @@ const option = { grid: { left: 48, right: 12, top: 12, bottom: 42 }, series: [] 
     assert.deepEqual(calls.at(-1)[2], { notMerge: false, lazyUpdate: false },
         'new data in an unchanged option shape merges instead of replacing the model');
 
-    // Structure is what decides, not the data: merging can overwrite but never
-    // delete, so a series that goes away still replaces the whole option.
+    // A job that changes which curves it draws, and what they are called, still
+    // must not take the tooltip and axis pointer down with them. Naming the
+    // components that changed replaces those and keeps the rest of the model;
+    // replaceMerge drops a series that is no longer in the option, which is the
+    // guarantee notMerge was there to provide.
     drawChart(roomy, chartRef, { ...option, series: [{ type: 'line', data: [[1, 3]], name: 'renamed' }] });
-    assert.deepEqual(calls.at(-1)[2], { notMerge: true, lazyUpdate: false },
-        'a renamed series replaces the option');
+    assert.deepEqual(calls.at(-1)[2],
+        { notMerge: false, replaceMerge: ['series', 'legend'], lazyUpdate: false },
+        'a renamed series replaces the series, not the chart');
     drawChart(roomy, chartRef, { ...option, series: [] });
     assert.equal(calls.filter(call => call[0] === 'setOption').length, 7, 'a removed series redraws');
-    assert.deepEqual(calls.at(-1)[2], { notMerge: true, lazyUpdate: false },
-        'a removed series replaces the option so nothing lingers');
+    assert.deepEqual(calls.at(-1)[2],
+        { notMerge: false, replaceMerge: ['series', 'legend'], lazyUpdate: false },
+        'a removed series is dropped by replaceMerge, so nothing lingers');
     drawChart(roomy, chartRef, { ...option, series: [], grid: { left: 60, right: 12, top: 12, bottom: 42 } });
     assert.equal(calls.filter(call => call[0] === 'setOption').length, 8,
         'a grid resized by squareGrid redraws');
+    assert.deepEqual(calls.at(-1)[2], { notMerge: true, lazyUpdate: false },
+        'a change outside the series and legend still replaces the whole option');
 
     // Beyond the comparison budget the check gives up and redraws, which is the
     // behaviour these charts had anyway. It must never decide such an option is
@@ -141,15 +148,31 @@ const option = { grid: { left: 48, right: 12, top: 12, bottom: 42 }, series: [] 
     // previous rectangle tool's brush controller mounted. Armed, it keeps
     // handling drags against the axes it was abandoned with, so a later box
     // zooms far past itself for as long as the chart lives.
+    const armedGrid = { left: 70, right: 12, top: 12, bottom: 42 };
     chart.events.globalcursortaken({ key: 'dataZoomSelect', dataZoomSelectActive: true });
-    drawChart(roomy, chartRef, { ...option, series: [{ type: 'line', data: [[2, 2]] }] });
+    drawChart(roomy, chartRef, {
+        ...option, grid: armedGrid, series: [{ type: 'line', data: [[2, 2]] }],
+    });
     assert.deepEqual(calls.at(-2), ['dispatchAction', {
         type: 'takeGlobalCursor', key: 'dataZoomSelect', dataZoomSelectActive: false,
     }], 'an armed rectangle zoom is disarmed before the option that rebuilds the toolbox');
     assert.equal(calls.at(-1)[0], 'setOption', 'and disarmed before it, not after');
 
+    // Only a full replacement rebuilds the toolbox. An update that replaces the
+    // series leaves it standing, so there is no stranded controller to disarm.
+    chart.events.globalcursortaken({ key: 'dataZoomSelect', dataZoomSelectActive: true });
+    const beforeSeriesOnly = calls.length;
+    drawChart(roomy, chartRef, {
+        ...option, grid: armedGrid, series: [{ type: 'line', data: [[3, 3]] }],
+    });
+    assert.equal(calls.length, beforeSeriesOnly + 1,
+        'a series-only update keeps the toolbox and leaves the rectangle tool alone');
+
+    chart.events.globalcursortaken({ key: 'dataZoomSelect', dataZoomSelectActive: false });
     const beforeUnarmed = calls.length;
-    drawChart(roomy, chartRef, { ...option, series: [{ type: 'line', data: [[3, 3]] }] });
+    drawChart(roomy, chartRef, {
+        ...option, grid: { ...armedGrid, left: 72 }, series: [{ type: 'line', data: [[4, 4]] }],
+    });
     assert.equal(calls.length, beforeUnarmed + 1, 'a tool that is not armed needs no disarming');
 
     resizeChart(roomy, chartRef);

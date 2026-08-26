@@ -218,6 +218,12 @@ assert.ok(chartOption.toolbox.feature.saveAsImage, 'native chart export remains 
         'every other step curve greys out');
     assert.ok(steps[1].lineStyle.width > steps[2].lineStyle.width);
 
+    // Context curves take no part in hovering. The readout does not report them
+    // and they are not meant to light up, so every mouse move would otherwise
+    // restyle and redraw sixty polylines to show a highlight nobody reads.
+    assert.deepEqual(steps.map(item => item.silent), [true, false, true]);
+    assert.deepEqual(steps.map(item => item.emphasis?.disabled), [true, undefined, true]);
+
     // Sixty curves over one plot is a grey haze with the answer somewhere
     // inside it, so only the layer the timeline is on is drawn by default.
     const oneLayer = figure.buildSpectraSeries({ ...focusData, showAll: false }, colors, sp);
