@@ -14,7 +14,7 @@ export default defineConfig({
     starlight({
       title: 'TFStudio Docs',
       description: 'Optical thin-film coating design — reference manual',
-      // Branding — the TFStudio app icon (icons/tfstudio-purple2.*), copied
+      // Branding: the TFStudio app icon (icons/tfstudio.*), copied
       // into public/ as favicon.{ico,png}. `favicon` sets the primary .ico;
       // the head links add the high-res PNG + Apple touch icon. Served
       // identically by the offline help server (it serves docs-site/dist).

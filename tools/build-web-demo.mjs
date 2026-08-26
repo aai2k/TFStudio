@@ -160,7 +160,7 @@ function main() {
   // has no <link rel=icon>; a browser tab wants one).
   html = html.split('../icons/').join('icons/');
   if (!/rel="icon"/.test(html)) {
-    html = html.replace('</title>', '</title>\n    <link rel="icon" type="image/png" href="icons/tfstudio-purple2.png">');
+    html = html.replace('</title>', '</title>\n    <link rel="icon" type="image/png" href="icons/tfstudio.png">');
   }
 
   // SEO head: the desktop template ships a bare <title> with no description or

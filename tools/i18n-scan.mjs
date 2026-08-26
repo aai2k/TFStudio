@@ -12,6 +12,8 @@
  *   • EMPTY placeholders — string leaves that are '' (e.g. a freshly generated
  *     zh template). Reported for visibility, but NOT counted as a structural
  *     gap, so a scaffolded template does not fail the scan.
+ *   • ESCAPED LINE BREAKS: a locale uses a literal `\\n` where English uses
+ *     a real line break, which would render the two characters on screen.
  *
  * Leaf = string or function. Functions are compared by presence + arity.
  *
@@ -42,8 +44,12 @@ function walk(a, b, path, stats) {
         else if (ta === 'fn') {
             if (a[k].length !== b[k].length)
                 stats.mismatch.push(`${p}  (fn arity en:${a[k].length} ${stats.lang}:${b[k].length})`);
-        } else if (b[k] === '') {
-            stats.empty.push(p);
+        } else {
+            if (b[k] === '') stats.empty.push(p);
+            if (typeof a[k] === 'string' && typeof b[k] === 'string' &&
+                a[k].includes('\n') && b[k].includes('\\n')) {
+                stats.escapedLineBreak.push(p);
+            }
         }
     }
     for (const k of Object.keys(b)) {
@@ -81,7 +87,7 @@ const section = (title, arr) => {
 
 let total = 0;
 for (const code of langs) {
-    const stats = { lang: code, missing: [], extra: [], mismatch: [], empty: [] };
+    const stats = { lang: code, missing: [], extra: [], mismatch: [], empty: [], escapedLineBreak: [] };
     walk(en, getLocale(code), '', stats);
 
     console.log(`── ${code} ──`);
@@ -89,12 +95,14 @@ for (const code of langs) {
     section(`EXTRA in ${code.toUpperCase()} (not in EN)`, stats.extra);
     section('TYPE MISMATCH (function/string/object differs)', stats.mismatch);
     section(`EMPTY placeholders ('') in ${code.toUpperCase()}`, stats.empty);
+    section(`ESCAPED LINE BREAKS in ${code.toUpperCase()}`, stats.escapedLineBreak);
 
-    const sum = stats.missing.length + stats.extra.length + stats.mismatch.length;
+    const sum = stats.missing.length + stats.extra.length + stats.mismatch.length + stats.escapedLineBreak.length;
     const coverage = (((enLeaves - stats.missing.length) / enLeaves) * 100).toFixed(1);
     console.log(`${code} coverage: ${coverage}%  ` +
         `(${stats.missing.length} missing, ${stats.extra.length} extra, ` +
-        `${stats.mismatch.length} type-mismatch, ${stats.empty.length} empty)\n`);
+        `${stats.mismatch.length} type-mismatch, ${stats.empty.length} empty, ` +
+        `${stats.escapedLineBreak.length} escaped-line-break)\n`);
     total += sum;
 }
 
