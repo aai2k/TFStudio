@@ -106,7 +106,9 @@ export function valueAxis({
     };
 }
 
-export function chartToolbox(fileName, { dataZoom = true, restore = true, colors } = {}) {
+export function chartToolbox(fileName, {
+    dataZoom = true, restore = true, colors, resetView,
+} = {}) {
     const palette = chartColors(colors);
     const feature = {
         saveAsImage: { name: `TFStudio_${fileName}`, pixelRatio: 2, backgroundColor: palette.paper },
@@ -118,8 +120,11 @@ export function chartToolbox(fileName, { dataZoom = true, restore = true, colors
     // controller and collapses the range farther.
     //
     // Reset the zoom models directly instead. This leaves the toolbox instance
-    // intact, explicitly exits rectangle mode, and reaches every linked X/Y
-    // dataZoom because the action intentionally has no component query.
+    // intact and explicitly exits rectangle mode. Most plots use the full
+    // 0–100 dataZoom range. A plot whose opening view is a viewport inside a
+    // larger raw domain can supply `resetView`; the same shared action then
+    // restores its axes and viewport together rather than inventing a private
+    // reset path.
     if (restore) feature.myZoomRestore = {
         show: true,
         title: 'Reset zoom',
@@ -130,6 +135,19 @@ export function chartToolbox(fileName, { dataZoom = true, restore = true, colors
                 key: 'dataZoomSelect',
                 dataZoomSelectActive: false,
             });
+            if (resetView) {
+                const chart = globalThis.echarts?.getInstanceByDom?.(api.getDom?.());
+                if (chart) {
+                    chart.setOption(resetView, { notMerge: false, lazyUpdate: false });
+                    return;
+                }
+                const zoom = Array.isArray(resetView.dataZoom)
+                    ? resetView.dataZoom[0] : resetView.dataZoom;
+                api.dispatchAction({
+                    type: 'dataZoom', start: zoom?.start ?? 0, end: zoom?.end ?? 100,
+                });
+                return;
+            }
             api.dispatchAction({ type: 'dataZoom', start: 0, end: 100 });
         },
     };

@@ -35,30 +35,6 @@ function resetViewPatch(navigation) {
     };
 }
 
-function admittanceToolbox(colors, navigation) {
-    const toolbox = chartToolbox('admittance', { colors });
-    toolbox.feature.myZoomRestore.onclick = (_model, api) => {
-        // ECharts 6.1 must leave rectangle mode before any zoom reset. Otherwise
-        // its old brush controller survives the reset and the next rectangle is
-        // applied twice—the same failure the Optical Evaluation reset avoids.
-        api.dispatchAction({
-            type: 'takeGlobalCursor', key: 'dataZoomSelect', dataZoomSelectActive: false,
-        });
-        const chart = globalThis.echarts?.getInstanceByDom?.(api.getDom?.());
-        if (chart) {
-            // Progressive zoom-out grows the raw axes as well as changing the
-            // dataZoom window, so reset both parts atomically to the exact view
-            // computed when this option was built.
-            chart.setOption(resetViewPatch(navigation), { notMerge: false, lazyUpdate: false });
-        } else {
-            api.dispatchAction({
-                type: 'dataZoom', start: navigation.start, end: navigation.end,
-            });
-        }
-    };
-    return toolbox;
-}
-
 function niceSquareRange(x, y) {
     const span = Math.max(x[1] - x[0], y[1] - y[0]);
     const interval = niceTickInterval(span, { targetTicks: 6 });
@@ -180,7 +156,9 @@ export function buildAdmittanceOption(source, matColorMap, matName, colors, mark
         colors,
         grid: grid || plotMargin(),
         fileName: 'admittance',
-        toolbox: admittanceToolbox(colors, navigation),
+        toolbox: chartToolbox('admittance', {
+            colors, resetView: resetViewPatch(navigation),
+        }),
         tooltip: itemTooltip(),
         xAxis: valueAxis({
             name: `Re(${symbol})`, color: colors.text, gridColor: colors.border,

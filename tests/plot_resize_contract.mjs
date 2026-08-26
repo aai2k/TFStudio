@@ -209,6 +209,28 @@ assert.deepEqual(resetActions, [
     { type: 'dataZoom', start: 0, end: 100 },
 ], 'the replacement reset exits rectangle mode and resets every linked zoom model directly');
 
+const customResetView = {
+    xAxis: [{ min: -12, max: 12 }], yAxis: [{ min: -12, max: 12 }],
+    dataZoom: [{ start: 37.5, end: 62.5 }],
+};
+const customResetToolbox = chartToolbox('custom_zoom_contract', { resetView: customResetView });
+const customResetElement = {};
+const customResetCalls = [];
+instances.set(customResetElement, {
+    setOption: (...args) => customResetCalls.push(args),
+});
+const customResetActions = [];
+customResetToolbox.feature.myZoomRestore.onclick(null, {
+    getDom: () => customResetElement,
+    dispatchAction: action => customResetActions.push(action),
+});
+assert.deepEqual(customResetActions, [{
+    type: 'takeGlobalCursor', key: 'dataZoomSelect', dataZoomSelectActive: false,
+}], 'a custom opening view still uses the shared rectangle-disarm path');
+assert.deepEqual(customResetCalls, [[
+    customResetView, { notMerge: false, lazyUpdate: false },
+]], 'the shared reset restores custom raw axes and viewport atomically');
+
 const percentTooltip = axisTooltip({ valueSuffix: '%' });
 assert.equal(percentTooltip.axisPointer.label.formatter({ value: 63.88, axisDimension: 'y' }), '63.88%');
 assert.equal(percentTooltip.axisPointer.label.formatter({ value: 592, axisDimension: 'x' }), '592');
