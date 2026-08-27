@@ -4,14 +4,20 @@ export function nkAt(material, lambdaNm) {
     return [nr, nk];
 }
 
-// Back-side deposition order is reversed so both side lists are sampled from
-// the incident medium toward the substrate.
-export function sideLayersAt(resolveMaterial, design, side, lambdaNm) {
+// Back-side deposition order is reversed so both side lists run from the
+// incident medium toward the substrate.
+export function sideStack(resolveMaterial, design, side) {
     const layers = side === 'back' ? (design.backLayers || []) : (design.frontLayers || []);
     const ordered = side === 'back' ? [...layers].reverse() : layers;
     return ordered
         .filter(layer => layer.material && layer.thickness > 0)
-        .map(layer => ({ n: nkAt(resolveMaterial(layer.material), lambdaNm), d: layer.thickness }));
+        .map(layer => ({ material: resolveMaterial(layer.material), thickness: layer.thickness }));
+}
+
+// The same stack sampled at one wavelength, as the point evaluators take it.
+export function sideLayersAt(resolveMaterial, design, side, lambdaNm) {
+    return sideStack(resolveMaterial, design, side)
+        .map(layer => ({ n: nkAt(layer.material, lambdaNm), d: layer.thickness }));
 }
 
 export function sideMedia(design, side) {

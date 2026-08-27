@@ -5,12 +5,12 @@
  *   incident medium (n0, θ0) → layer1 → layer2 → ... → layerN → substrate
  *
  * Sign convention: ñ = n + ik (k ≥ 0 for absorbing media), with the
- * time-harmonic factor exp(-iωt) — a wave exp(i(kz - ωt)) decays for k > 0.
+ * time-harmonic factor exp(-iωt), so a wave exp(i(kz - ωt)) decays for k > 0.
  * This is the complex conjugate of Macleod's convention (ñ = n - ik, exp(+iωt),
  * +i on the transfer-matrix off-diagonals); this module carries -i on the
  * off-diagonals throughout. R, T and A are identical under conjugation; the
  * phase-sensitive outputs (ellipsometry Δ, group delay) negate the raw TMM
- * phase to recover Macleod's physical sign — see computeEllipsometry and
+ * phase to recover Macleod's physical sign. See computeEllipsometry and
  * computeGroupDelaySpectrum.
  */
 
@@ -69,7 +69,7 @@ export { tmm, tmmNeedleScan, tmmThicknessHessian, tmmThicknessJacobian };
  * @param {[re,im]}  ns
  * @param {{ n:[re,im], d:number }[]} layers
  * @returns {{ r, t, eta0, etaS, Y: [re,im][], N: number }}
- *   Y[0..N] — admittances at each insertion interface (N+1 values)
+ *   Y[0..N]: admittances at each insertion interface (N+1 values)
  */
 export function tmmWithAdmittances(lambda_nm, theta_deg, pol, n0, ns, layers) {
     const sinTheta0 = [Math.sin(theta_deg * Math.PI / 180), 0];
@@ -135,13 +135,13 @@ export function tmmAvg(lambda_nm, theta_deg, n0, ns, layers) {
     };
 }
 
-// ── Incremental monitoring evaluator — "fast" BBM algorithm ───────────────────
+// ── Incremental monitoring evaluator, the "fast" BBM algorithm ────────────────
 //
 // During the deposition of ONE layer the completed layers below it never change,
 // so their characteristic-matrix product M_base (per wavelength, per polarization)
 // is constant and only needs building ONCE when the layer starts. Each subsequent
-// monitoring scan / thickness-fit evaluation then costs O(Nλ) — one extra 2×2
-// complex multiply by the growing top layer — instead of the O(Nλ · Nlayers)
+// monitoring scan / thickness-fit evaluation then costs O(Nλ), one extra 2×2
+// complex multiply by the growing top layer, instead of the O(Nλ · Nlayers)
 // full-stack recompute that tmm()/tmmAvg() perform every call. This is the
 // O(1) incremental control algorithm
 // (see Tikhonravov & Trubetskov, Appl. Opt. 44, 6877 (2005)).
@@ -204,7 +204,7 @@ export function createMonitorTmmEvaluator(theta_deg, incMat, subMat, completedMa
         cache[li] = per;
     }
 
-    // [B,C]→r,t→R,T,A tail — byte-identical to tmm()'s final block.
+    // [B,C]→r,t→R,T,A tail, byte-identical to tmm()'s final block.
     function tail(M, eta0, etaS, logScale) {
         const B = cadd(M[0][0], cmul(M[0][1], etaS));
         const C = cadd(M[1][0], cmul(M[1][1], etaS));
@@ -241,7 +241,7 @@ export function createMonitorTmmEvaluator(theta_deg, incMat, subMat, completedMa
                     const res = evalPol(li, pol, topMat, dTop, lam);
                     v = char === 'R' ? res.R : char === 'A' ? res.A : res.T;
                 } else {
-                    // 'avg' — same (s+p)/2 as tmmAvg()
+                    // 'avg': same (s+p)/2 as tmmAvg()
                     const s = evalPol(li, 's', topMat, dTop, lam);
                     const p = evalPol(li, 'p', topMat, dTop, lam);
                     if (char === 'R')      v = (s.R + p.R) / 2;
@@ -318,37 +318,66 @@ function emptySpectrum(lambdas) {
 }
 
 /**
- * WASM batched fill for a front + incoherent substrate + back system.
+ * Geometry of the ray inside the substrate, by real-part Snell's law.
  *
- * Each of the three coherent passes is a single-surface spectrum, which is what
- * the batched kernel computes, so the whole grid takes three kernel calls
- * instead of three transfer-matrix products per wavelength. On a sixty-layer
- * stack over a 350-point grid that is the difference between eighty
- * milliseconds and a couple, which is what a scrubbed deposition needs.
+ * M1: at or beyond the critical angle (n0·sinθ₀ ≥ ns, possible in immersed or
+ * cemented configurations where the incident medium is denser than the
+ * substrate) the real-angle model would set sinθ_sub = 1 → θ_sub = 90°, and the
+ * substrate-side passes then form cdiv(n,[0,0]) for p-polarization → R/T/A =
+ * NaN. Cap the ray JUST below grazing so the result stays defined: the passes
+ * saturate at approximately total reflection, the physical TIR limit, instead
+ * of emitting NaN.
+ */
+const SIN_SUB_MAX = 0.999999;   // ≈ sin(89.92°); keeps cosθ_sub > 0
+function substrateRay(n0, ns, sinTheta0) {
+    const sinThetaSub = ns[0] > 0 ? Math.min(SIN_SUB_MAX, n0[0] * sinTheta0 / ns[0]) : 0;
+    return {
+        cosThetaSub: Math.sqrt(1 - sinThetaSub * sinThetaSub),
+        thetaSub_deg: Math.asin(sinThetaSub) * 180 / Math.PI,
+    };
+}
+
+/** One coherent pass through the kernel, both polarizations. */
+function wasmPass(wasm, lam, theta_deg, n0, ns, layerNDs) {
+    const s = wasm.tmmOne(lam, theta_deg, 0, n0, ns, layerNDs);
+    const p = wasm.tmmOne(lam, theta_deg, 1, n0, ns, layerNDs);
+    return { Rs: s.R, Ts: s.T, Rp: p.R, Tp: p.T };
+}
+
+/**
+ * Kernel fill for a front + incoherent substrate + back system.
  *
- * Normal incidence only. Away from it the ray inside the substrate refracts by
- * an angle that follows the substrate's own dispersion, so the reverse and back
- * passes need a different angle at every wavelength, and the kernel takes one
- * angle for the whole grid. Oblique incidence keeps the per-wavelength loop.
+ * The forward pass runs at the angle of incidence, the same at every
+ * wavelength, so the whole grid goes through the batched kernel in one call.
+ * The two substrate-side passes start inside the substrate at the refracted
+ * angle, which follows the substrate's own dispersion and so differs at every
+ * wavelength; the batched kernel takes one angle for the grid, so those go
+ * through the single-point kernel instead. That costs about as much as a
+ * batched call at this size and works at any angle of incidence, which is why
+ * there is one path here rather than a fast one and a slow one.
  */
 function fillTotalSpectrumWasm(result, lambdas, materials, validFront, validBack,
-                               subThickness_mm, polarization) {
+                               subThickness_mm, theta, polarization) {
     if (!tmmWasmActive()) return false;
+    const wasm = getTmmWasm();
     const { incident, substrate, exit } = materials;
     const fwd = emptySpectrum(lambdas);
-    const rev = emptySpectrum(lambdas);
-    const back = emptySpectrum(lambdas);
+    if (!fillSpectrumWasm(fwd, lambdas, incident, substrate, validFront, theta, 'avg')) return false;
     const reversedFront = [...validFront].reverse();
-    if (!fillSpectrumWasm(fwd, lambdas, incident, substrate, validFront, 0, 'avg')) return false;
-    fillSpectrumWasm(rev, lambdas, substrate, incident, reversedFront, 0, 'avg');
-    fillSpectrumWasm(back, lambdas, substrate, exit, validBack, 0, 'avg');
-    const at = (pass, index) => ({
-        Rs: pass.Rs[index], Ts: pass.Ts[index], Rp: pass.Rp[index], Tp: pass.Tp[index],
-    });
+    const sinTheta0 = Math.sin(theta * Math.PI / 180);
     for (let index = 0; index < lambdas.length; index++) {
         const lam = lambdas[index];
-        const P = substratePass(substrate.getNK(lam)[1], subThickness_mm, lam, 1);
-        pushTotalSample(result, at(fwd, index), at(rev, index), at(back, index), P, polarization);
+        const n0 = incident.getNK(lam);
+        const ns = substrate.getNK(lam);
+        const { cosThetaSub, thetaSub_deg } = substrateRay(n0, ns, sinTheta0);
+        const rev = wasmPass(wasm, lam, thetaSub_deg, ns, n0,
+            reversedFront.map(l => ({ n: l.material.getNK(lam), d: l.thickness })));
+        const back = wasmPass(wasm, lam, thetaSub_deg, ns, exit.getNK(lam),
+            validBack.map(l => ({ n: l.material.getNK(lam), d: l.thickness })));
+        pushTotalSample(result, {
+            Rs: fwd.Rs[index], Ts: fwd.Ts[index], Rp: fwd.Rp[index], Tp: fwd.Tp[index],
+        }, rev, back,
+            substratePass(ns[1], subThickness_mm, lam, cosThetaSub), polarization);
     }
     return true;
 }
@@ -357,7 +386,7 @@ function fillTotalSpectrumWasm(result, lambdas, materials, validFront, validBack
  * Build the ascending wavelength sampling grid for a spectrum evaluation.
  *
  * H8 guard: a non-positive or non-finite `lambdaStep` (e.g. a UI field parsed
- * as `-1`, `0`, or NaN) would make `for (l += step)` never terminate — an OOM
+ * as `-1`, `0`, or NaN) would make `for (l += step)` never terminate, an OOM
  * hang that freezes the renderer. Fall back to a 5 nm grid in that case. The UI
  * inputs are also clamped at the source; this is the last line of defence for
  * every caller (errorAnalysis / systematicDeviations / plotQuantities included).
@@ -373,7 +402,7 @@ export function buildLambdaGrid(lambdaStart, lambdaEnd, lambdaStep) {
 }
 
 /**
- * Run TMM across a wavelength range — front coating (incidentMedium → frontLayers → substrate).
+ * Run TMM across a wavelength range for the front coating (incidentMedium → frontLayers → substrate).
  *
  * @param {{ lambdaStart, lambdaEnd, lambdaStep, theta, polarization }} params
  * @param {Object} incidentMaterial  material object with getNK(lambda)
@@ -425,7 +454,7 @@ export function evaluateSpectrum(params, incidentMaterial, substrateMaterial, la
  *
  * Algorithm: right-partial field vectors (Macleod §3, Eq. 3.6 and surrounding text).
  *
- * Precompute EH[k] = (M_{k+1} · ... · M_N) · [1, η_s] — field at the END of layer k
+ * Precompute EH[k] = (M_{k+1} · ... · M_N) · [1, η_s], the field at the END of layer k
  * (i.e., at the interface just after layer k, with substrate exit normalised E=1).
  *   EH[N] = [1, η_s]
  *   EH[k] = M_{k+1} · EH[k+1]
@@ -534,7 +563,7 @@ export function computeEFieldProfile(lambda_nm, theta_deg, pol, n0, ns, layers, 
 }
 
 /**
- * Back coating spectrum — evaluates the back coating as seen from the exit-medium side.
+ * Back coating spectrum: the back coating as seen from the exit-medium side.
  *
  * Stack (light direction): exitMedium → backLayers[N-1] → … → backLayers[0] → substrate
  * backLayers are stored in substrate→exit order, so they are reversed here.
@@ -554,7 +583,7 @@ export function evaluateSpectrumBack(params, exitMaterial, substrateMaterial, la
     const result = { lambda: lambdas, R: [], T: [], A: [], Rs: [], Ts: [], As: [], Rp: [], Tp: [], Ap: [] };
 
     // Batched WASM fast path. Light travels exit→substrate, so the valid layers
-    // (stored substrate→exit) are reversed — matching the JS loop below.
+    // (stored substrate→exit) are reversed, matching the JS loop below.
     const validBack = layers.filter(l => l.material && l.thickness > 0).slice().reverse();
     if (fillSpectrumWasm(result, lambdas, exitMaterial, substrateMaterial, validBack, theta, polarization)) {
         return result;
@@ -620,13 +649,12 @@ export function evaluateSpectrumTotal(params, incMaterial, subMaterial, exitMate
 
     const result = emptySpectrum(lambdas);
 
-    // Batched WASM fast path, normal incidence only.
     const validFront = frontLayers.filter(l => l.material && l.thickness > 0);
     const validBack = backLayers.filter(l => l.material && l.thickness > 0);
-    if (theta === 0 && fillTotalSpectrumWasm(
+    if (fillTotalSpectrumWasm(
         result, lambdas,
         { incident: incMaterial, substrate: subMaterial, exit: exitMaterial },
-        validFront, validBack, subThickness_mm, polarization,
+        validFront, validBack, subThickness_mm, theta, polarization,
     )) {
         return result;
     }
@@ -641,19 +669,7 @@ export function evaluateSpectrumTotal(params, incMaterial, subMaterial, exitMate
         const frontNDs = validFront.map(l => ({ n: l.material.getNK(lam), d: l.thickness }));
         const backNDs = validBack.map(l => ({ n: l.material.getNK(lam), d: l.thickness }));
 
-        // Angle in substrate via real-part Snell's law (standard thin-film approximation)
-        const n0r = n0[0], nsr = ns[0];
-        // M1: at/beyond the critical angle (n0·sinθ₀ ≥ ns, possible in immersed /
-        // cemented configs where the incident medium is denser than the
-        // substrate) the real-angle model would set sinθ_sub = 1 → θ_sub = 90°,
-        // and the reverse/back tmmAvg passes then form cdiv(n,[0,0]) for p-pol →
-        // R/T/A = NaN. Cap the substrate ray JUST below grazing so the result is
-        // defined: the passes saturate at ≈ total reflection, the physical TIR
-        // limit, instead of emitting NaN.
-        const SIN_SUB_MAX = 0.999999;   // ≈ sin(89.92°); keeps cosθ_sub > 0
-        const sinThetaSub = (nsr > 0) ? Math.min(SIN_SUB_MAX, n0r * sinTheta0 / nsr) : 0;
-        const cosThetaSub = Math.sqrt(1 - sinThetaSub * sinThetaSub);
-        const thetaSub_deg = Math.asin(sinThetaSub) * 180 / Math.PI;
+        const { cosThetaSub, thetaSub_deg } = substrateRay(n0, ns, sinTheta0);
 
         // Forward pass: incidentMedium → frontLayers → substrate
         const fwd = tmmAvg(lam, theta, n0, ns, frontNDs);
@@ -686,13 +702,13 @@ export function evaluateSpectrumTotal(params, incMaterial, subMaterial, exitMate
 //         ellipsometry."
 //
 // Inputs use this module's ñ = n + ik convention (k ≥ 0 absorbing), i.e. the
-// exp(−iωt) time convention — the same one standard ellipsometers (WVASE /
-// Woollam, the "Nebraska" convention) assume — so no time-convention
+// exp(−iωt) time convention, the same one standard ellipsometers (WVASE /
+// Woollam, the "Nebraska" convention) assume, so no time-convention
 // conjugation is needed here. One convention conversion remains:
 //
 //   p-admittance sign:  Macleod's η_p = ñ/cosθ gives
 //   r_p = (η_0p − η_p)/(η_0p + η_p), which differs from the Fresnel r_p by an
-//   overall sign — the documented ±180° offset in Macleod Eq. (16.2).
+//   overall sign, the documented ±180° offset in Macleod Eq. (16.2).
 //
 // So the displayed Δ is  Δ = (arg r_p − arg r_s) + 180°, wrapped to [0°, 360°).
 // Validation: a bare dielectric substrate gives Δ ≈ 180° below Brewster and
@@ -705,33 +721,144 @@ export function evaluateSpectrumTotal(params, incMaterial, subMaterial, exitMate
 //
 // Returns Ψ in [0°, 90°] and Δ wrapped to [0°, 360°), plus the ellipsometer-
 // native quantities tan Ψ and cos Δ and the raw complex r_s, r_p.
-export function computeEllipsometry(lambda_nm, theta_deg, n0, ns, layers) {
-    const rs = tmmWithAdmittances(lambda_nm, theta_deg, 's', n0, ns, layers).r;
-    const rp = tmmWithAdmittances(lambda_nm, theta_deg, 'p', n0, ns, layers).r;
-
-    const absS = Math.sqrt(cabs2(rs));
-    const absP = Math.sqrt(cabs2(rp));
-
+// Ψ and Δ from one pair of reflection amplitudes, each given as |r| and arg r.
+// Shared by the point evaluator and the sweeps below so the two conventions
+// documented above cannot come apart between them.
+function ellipsometricAngles(absS, argS, absP, argP) {
     // tan Ψ = |r_p| / |r_s|   ⇒   Ψ ∈ [0°, 90°]
     const psiRad = Math.atan2(absP, absS);
-    const psiDeg = psiRad * 180 / Math.PI;
 
     // Δ = (arg r_p − arg r_s) + 180°, wrapped into [0°, 360°). The +180°
     // converts Macleod's p-admittance sign to the Fresnel sign; no time-
     // convention conjugation is needed because the inputs are already in the
     // exp(−iωt) convention. See the comment block above for the full derivation.
-    const argP = Math.atan2(cimag(rp), creal(rp));
-    const argS = Math.atan2(cimag(rs), creal(rs));
     let deltaDeg = (argP - argS) * 180 / Math.PI + 180;
     deltaDeg = ((deltaDeg % 360) + 360) % 360;
 
     return {
-        psi:      psiDeg,
+        psi:      psiRad * 180 / Math.PI,
         delta:    deltaDeg,
         tanPsi:   Math.tan(psiRad),
         cosDelta: Math.cos(deltaDeg * Math.PI / 180),
+    };
+}
+
+export function computeEllipsometry(lambda_nm, theta_deg, n0, ns, layers) {
+    const rs = tmmWithAdmittances(lambda_nm, theta_deg, 's', n0, ns, layers).r;
+    const rp = tmmWithAdmittances(lambda_nm, theta_deg, 'p', n0, ns, layers).r;
+    return {
+        ...ellipsometricAngles(
+            Math.sqrt(cabs2(rs)), Math.atan2(cimag(rs), creal(rs)),
+            Math.sqrt(cabs2(rp)), Math.atan2(cimag(rp), creal(rp)),
+        ),
         rs, rp,
     };
+}
+
+// ── Ellipsometry across a sweep ──────────────────────────────────────────────
+//
+// Ψ and Δ need the complex reflection amplitudes, and of the kernels only the
+// phase kernel reports them: tmmSpectrum returns intensities alone. That kernel
+// carries refractive indices as Taylor jets in ω because group delay needs the
+// derivatives. Ellipsometry does not, and jet arithmetic leaves the value at
+// order 0 a function of the order-0 terms only, so a jet whose derivative terms
+// are zero gives exact Ψ and Δ and asks nothing of a material beyond n and k.
+//
+// The kernel reports φ = −arg(r), Macleod's physical sign (see the group-delay
+// note below), so the argument is negated on the way back in. Where a reflection
+// amplitude is exactly zero the kernel leaves NaN behind and that one sample
+// falls back to the point evaluator above.
+
+const ZERO_JET_TERM = [0, 0];
+function constantJet(nk) { return [nk, ZERO_JET_TERM, ZERO_JET_TERM, ZERO_JET_TERM]; }
+
+/** The loaded kernel, when one is instantiated in this thread and carries phase. */
+function phaseKernel() {
+    if (!tmmWasmActive()) return null;
+    const wasm = getTmmWasm();
+    return wasm && wasm.hasPhase() ? wasm : null;
+}
+
+function anglesFromPhase(sMagnitudeSquared, sPhaseRad, pMagnitudeSquared, pPhaseRad) {
+    if (!Number.isFinite(sMagnitudeSquared) || !Number.isFinite(pMagnitudeSquared)) return null;
+    return ellipsometricAngles(
+        Math.sqrt(sMagnitudeSquared), -sPhaseRad,
+        Math.sqrt(pMagnitudeSquared), -pPhaseRad,
+    );
+}
+
+function collectSweep(count, sampleAt) {
+    const psi = [], delta = [];
+    for (let index = 0; index < count; index++) {
+        const point = sampleAt(index);
+        psi.push(point.psi);
+        delta.push(point.delta);
+    }
+    return { psi, delta };
+}
+
+/**
+ * Ψ(λ) and Δ(λ) across a wavelength grid at one angle of incidence.
+ *
+ * Arguments follow the batched kernel: refractive indices are sampled per
+ * wavelength by the caller, and layers run from the incident medium toward the
+ * substrate.
+ *
+ * @param {number[]} lambdas
+ * @param {number} theta_deg
+ * @param {[re,im][]} n0List     incident ñ per λ
+ * @param {[re,im][]} nsList     substrate ñ per λ
+ * @param {[re,im][][]} layerNK  [layer][λ] = ñ
+ * @param {number[]} thick       layer thicknesses in nm
+ * @returns {{ psi:number[], delta:number[] }}
+ */
+export function evaluateEllipsometrySpectrum(lambdas, theta_deg, n0List, nsList, layerNK, thick) {
+    const reference = (index) => computeEllipsometry(
+        lambdas[index], theta_deg, n0List[index], nsList[index],
+        layerNK.map((row, k) => ({ n: row[index], d: thick[k] })));
+
+    const wasm = phaseKernel();
+    if (!wasm) return collectSweep(lambdas.length, reference);
+
+    const n0Jets = n0List.map(constantJet);
+    const nsJets = nsList.map(constantJet);
+    const layerJets = layerNK.map(row => row.map(constantJet));
+    const s = wasm.tmmPhaseSpectrum(lambdas, n0Jets, nsJets, layerJets, thick, theta_deg, 0).r;
+    const p = wasm.tmmPhaseSpectrum(lambdas, n0Jets, nsJets, layerJets, thick, theta_deg, 1).r;
+    return collectSweep(lambdas.length, index => anglesFromPhase(
+        s.magnitudeSquared[index], s.phaseRad[index],
+        p.magnitudeSquared[index], p.phaseRad[index]) || reference(index));
+}
+
+/**
+ * Ψ(θ) and Δ(θ) across an angle sweep at one wavelength.
+ *
+ * The batched kernel takes one angle for a whole grid, so an angle sweep goes
+ * through the single-point kernel instead. Layers as computeEllipsometry takes
+ * them.
+ *
+ * @param {number} lambda_nm
+ * @param {number[]} thetas
+ * @param {[re,im]} n0
+ * @param {[re,im]} ns
+ * @param {{ n:[re,im], d:number }[]} layers
+ * @returns {{ psi:number[], delta:number[] }}
+ */
+export function evaluateEllipsometryAngles(lambda_nm, thetas, n0, ns, layers) {
+    const reference = (index) => computeEllipsometry(lambda_nm, thetas[index], n0, ns, layers);
+
+    const wasm = phaseKernel();
+    if (!wasm) return collectSweep(thetas.length, reference);
+
+    const n0Jet = constantJet(n0);
+    const nsJet = constantJet(ns);
+    const jetLayers = layers.map(layer => ({ nJet: constantJet(layer.n), d: layer.d }));
+    return collectSweep(thetas.length, (index) => {
+        const s = wasm.tmmPhaseOne(lambda_nm, thetas[index], 0, n0Jet, nsJet, jetLayers).r;
+        const p = wasm.tmmPhaseOne(lambda_nm, thetas[index], 1, n0Jet, nsJet, jetLayers).r;
+        return (s && p && anglesFromPhase(
+            s.magnitudeSquared, s.phaseRad, p.magnitudeSquared, p.phaseRad)) || reference(index);
+    });
 }
 
 // ── Group Delay / GDD / TOD ───────────────────────────────────────────────────
@@ -972,7 +1099,7 @@ export function computeGroupDelaySpectrumAtWavelengthStep(
  * layer stack vs geometrical depth, at a single wavelength.
  *
  * This is a structural (non-optical) representation: there is no wave physics
- * here — n and k are just the dispersive material values sampled at `lambda`
+ * here: n and k are just the dispersive material values sampled at `lambda`
  * and laid out as a step function of physical depth z. Depth runs from the
  * incident medium (z < 0, shown as a short lead-in segment), through each
  * front layer in deposition order, into the substrate (z > total, shown as a

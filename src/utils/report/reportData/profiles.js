@@ -4,7 +4,7 @@
  */
 
 import {
-  computeRIProfile, computeEFieldProfile, computeEllipsometry,
+  computeRIProfile, computeEFieldProfile, evaluateEllipsometrySpectrum,
 } from '../../physics/thinFilmMath.js';
 import { designMaterialLookup } from '../../materials/designMaterials.js';
 import { mediumId } from './engines.js';
@@ -22,16 +22,18 @@ export function computeEllipsometrySpectrum(design, opts = {}) {
   const lambda = [];
   for (let l = lambdaStart; l <= lambdaEnd + 1e-9; l += lambdaStep) lambda.push(Math.round(l * 1000) / 1000);
 
-  const series = thetas.map(theta => {
-    const psi = [], delta = [];
-    for (const lam of lambda) {
-      const n0 = n0mat.getNK(lam), ns = nsmat.getNK(lam);
-      const layers = layerMats.map(l => ({ n: resolveMaterial(l.material).getNK(lam), d: l.thickness }));
-      const e = computeEllipsometry(lam, theta, n0, ns, layers);
-      psi.push(e.psi); delta.push(e.delta);
-    }
-    return { theta, psi, delta };
+  const n0List = lambda.map(lam => n0mat.getNK(lam));
+  const nsList = lambda.map(lam => nsmat.getNK(lam));
+  const layerNK = layerMats.map((l) => {
+    const material = resolveMaterial(l.material);
+    return lambda.map(lam => material.getNK(lam));
   });
+  const thick = layerMats.map(l => l.thickness);
+
+  const series = thetas.map(theta => ({
+    theta,
+    ...evaluateEllipsometrySpectrum(lambda, theta, n0List, nsList, layerNK, thick),
+  }));
   return { lambda, series };
 }
 

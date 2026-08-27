@@ -1,6 +1,8 @@
-import { computeEllipsometry } from '../../../../utils/physics/thinFilmMath.js';
+import {
+    evaluateEllipsometryAngles, evaluateEllipsometrySpectrum,
+} from '../../../../utils/physics/thinFilmMath.js';
 import { designMaterialLookup } from '../../../../utils/materials/designMaterials.js';
-import { nkAt, sideLayersAt, sideMedia, toDeltaConvention } from './model.js';
+import { nkAt, sideLayersAt, sideMedia, sideStack, toDeltaConvention } from './model.js';
 
 export function computeSpectral(design, options) {
     const { side, lambdaStart, lambdaEnd, lambdaStep, thetaDeg } = options;
@@ -8,13 +10,18 @@ export function computeSpectral(design, options) {
     const resolveMaterial = designMaterialLookup(design);
     const n0mat = resolveMaterial(n0Id);
     const nsmat = resolveMaterial(nsId);
-    const x = [], psi = [], delta = [];
+    const x = [];
     for (let lam = lambdaStart; lam <= lambdaEnd + 1e-9; lam += lambdaStep) {
-        const L = Math.round(lam * 1000) / 1000;
-        const layers = sideLayersAt(resolveMaterial, design, side, L);
-        const e = computeEllipsometry(L, thetaDeg, nkAt(n0mat, L), nkAt(nsmat, L), layers);
-        x.push(L); psi.push(e.psi); delta.push(e.delta);
+        x.push(Math.round(lam * 1000) / 1000);
     }
+    const stack = sideStack(resolveMaterial, design, side);
+    const { psi, delta } = evaluateEllipsometrySpectrum(
+        x, thetaDeg,
+        x.map(lam => nkAt(n0mat, lam)),
+        x.map(lam => nkAt(nsmat, lam)),
+        stack.map(layer => x.map(lam => nkAt(layer.material, lam))),
+        stack.map(layer => layer.thickness),
+    );
     return { x, psi, delta, xLabel: 'Wavelength (nm)' };
 }
 
@@ -27,12 +34,11 @@ export function computeAngular(design, options) {
     const n0 = nkAt(n0mat, lambdaNm);
     const ns = nkAt(nsmat, lambdaNm);
     const layers = sideLayersAt(resolveMaterial, design, side, lambdaNm);
-    const x = [], psi = [], delta = [];
+    const x = [];
     for (let a = angleStart; a <= angleEnd + 1e-9; a += angleStep) {
-        const A = Math.round(a * 1000) / 1000;
-        const e = computeEllipsometry(lambdaNm, A, n0, ns, layers);
-        x.push(A); psi.push(e.psi); delta.push(e.delta);
+        x.push(Math.round(a * 1000) / 1000);
     }
+    const { psi, delta } = evaluateEllipsometryAngles(lambdaNm, x, n0, ns, layers);
     return { x, psi, delta, xLabel: 'Angle of incidence (°)' };
 }
 
