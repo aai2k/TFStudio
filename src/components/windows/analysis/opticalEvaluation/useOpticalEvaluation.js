@@ -6,13 +6,14 @@ import { makeConeSpec, coneIsActive } from '../../../../utils/physics/optimizer.
 import { useAnalysisEvaluation } from '../useAnalysisEvaluation.js';
 import { buildCSV, createTargetOperands, editTargetOperands, deleteTargetOperand } from './model.js';
 import { opticalEvaluationSession, opticalTargetSession } from './sessionState.js';
+import { opticalEnvSession } from './envSession.js';
 import { useWindowSession } from '../../windowSession.js';
 
 const { useState, useEffect, useCallback, useMemo } = React;
 
 // The spectrum is computed from the sampled design, so a run redraws this
 // window at the shared preview cadence rather than once per progress message.
-function useSpectrumEvaluation({ params, evalMode }) {
+function useSpectrumEvaluation({ params, evalMode, envIndex = -1 }) {
     const { design } = useLiveDesign();
     // Narrowed to what the spectrum is actually computed from. The display unit
     // travels with the range but only changes axis labels, so recomputing every
@@ -23,19 +24,19 @@ function useSpectrumEvaluation({ params, evalMode }) {
         [lambdaStart, lambdaEnd, lambdaStep, thetas]);
     const coneActive = coneIsActive(makeConeSpec(design?.cone || {}));
     const payload = useMemo(
-        () => ({ design, params: spectrumParams, evalMode }),
-        [design, spectrumParams, evalMode],
+        () => ({ design, params: spectrumParams, evalMode, envIndex }),
+        [design, spectrumParams, evalMode, envIndex],
     );
     const workerResult = useAnalysisEvaluation(coneActive, 'opticalSpectrum', payload);
     const directResult = useMemo(() => {
         if (coneActive) return { data: null, error: null };
         try {
-            return { data: computeOpticalSpectrum(design, spectrumParams, evalMode), error: null };
+            return { data: computeOpticalSpectrum(design, spectrumParams, evalMode, envIndex), error: null };
         } catch (error) {
             console.error('TMM error:', error);
             return { data: null, error: 'ANALYSIS_EVALUATION_FAILED' };
         }
-    }, [coneActive, design, spectrumParams, evalMode]);
+    }, [coneActive, design, spectrumParams, evalMode, envIndex]);
     return coneActive
         ? { data: workerResult.data, error: workerResult.error, busy: workerResult.busy }
         : directResult;
@@ -143,14 +144,23 @@ function designSummary(design, evalMode, data) {
 export function useOpticalEvaluation() {
     const context = useDesign();
     const { design, updateDesign, evalMode, evalParams: params, setEvalParams: setParams } = context;
+    const [envSession, setEnvField] = useWindowSession(opticalEnvSession, design);
+    const { envIndex, locked, lockedEnvIndex } = envSession;
+    const effectiveEnvIndex = locked ? lockedEnvIndex : envIndex;
     const display = useDisplayOptions(params, setParams, design);
-    const spectrum = useSpectrumEvaluation({ params, evalMode });
+    const spectrum = useSpectrumEvaluation({ params, evalMode, envIndex: effectiveEnvIndex });
     const targets = useTargetEditor({ design, updateDesign });
     const csv = useCsvActions({
         data: spectrum.data, showCurves: display.showCurves, yScale: display.yScale, design,
     });
     return {
         design, evalMode, params, setParams,
+        envIndex, setEnvIndex: value => setEnvField('envIndex', value),
+        locked,
+        toggleLock: () => {
+            if (locked) setEnvField('locked', false);
+            else { setEnvField('lockedEnvIndex', envIndex); setEnvField('locked', true); }
+        },
         ...display, ...spectrum, ...targets, ...csv,
         ...designSummary(design, evalMode, spectrum.data),
     };

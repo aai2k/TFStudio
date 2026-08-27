@@ -4,6 +4,7 @@ import { activeFill } from '../chrome/controls.js';
 import { ControlRow } from '../chrome/layout.js';
 import { NoticeBadge } from '../chrome/popover.js';
 import { SetupPanel } from './SetupPanel.js';
+import { EnvironmentSelector } from './EnvironmentSelector.js';
 
 const { createElement: h } = React;
 
@@ -25,6 +26,27 @@ function EditTargetsButton({ c, oe, editMode, setEditMode }) {
             h('svg', { width: 13, height: 13, viewBox: '0 0 16 16', fill: 'none' },
                 h('path', { d: 'M11 2l3 3-8 8H3v-3l8-8z', stroke: 'currentColor', strokeWidth: 1.3, strokeLinejoin: 'round' })),
             oe.editTargets);
+}
+
+function LockEnvButton({ c, oe, locked, toggleLock }) {
+    return h('button', {
+            onClick: toggleLock,
+            title: oe.compareHint,
+            'aria-pressed': locked,
+            style: {
+                display: 'flex', alignItems: 'center', gap: 4,
+                height: 28, padding: '0 9px', cursor: 'pointer', outline: 'none',
+                border: `1px solid ${c.border}`, borderRadius: 6,
+                backgroundColor: locked ? activeFill(c) : 'transparent',
+                color: c.text,
+                fontSize: 11, fontFamily: 'system-ui, -apple-system, sans-serif',
+                fontWeight: 500,
+            }
+        },
+            h('svg', { width: 13, height: 13, viewBox: '0 0 16 16', fill: 'none' },
+                h('path', { d: 'M5 7V5a3 3 0 016 0v2h1v6H4V7h1z', stroke: 'currentColor', strokeWidth: 1.3, strokeLinejoin: 'round' })),
+            locked ? (oe.unlockView || 'Unlock view') : (oe.lockView || 'Lock view')
+        );
 }
 
 function ShowTargetsButton({ c, oe, editMode, showTargets, setShowTargets, hasTargets }) {
@@ -58,9 +80,25 @@ function ShowTargetsButton({ c, oe, editMode, showTargets, setShowTargets, hasTa
  */
 export function ControlBar(props) {
     const { c, t, oe, showCurves, toggleCurve, notices } = props;
+    // The environment dropdown and the view lock only make sense while the
+    // design actually has environments; without them the row keeps its old
+    // shape exactly.
+    const envControls = (props.design?.meritEnvironments?.length)
+        ? [
+            h(EnvironmentSelector, {
+                key: 'env', c, oe, design: props.design,
+                envIndex: props.envIndex, onChange: props.setEnvIndex,
+            }),
+            h(LockEnvButton, {
+                key: 'lock', c, oe,
+                locked: props.locked, toggleLock: props.toggleLock,
+            }),
+        ]
+        : [];
     return h(ControlRow, {
         c,
         trailing: [
+            ...envControls,
             h(ShowTargetsButton, { key: 'targets', ...props }),
             h(EditTargetsButton, { key: 'edit', ...props }),
             h(NoticeBadge, { key: 'notices', c, notices, label: t.analysisChrome.notices }),

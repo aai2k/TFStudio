@@ -2,6 +2,7 @@ import assert from 'node:assert';
 import { computeOpticalSpectrum } from '../src/components/windows/analysis/opticalEvaluation/spectrum.js';
 import { computeDesignSpectrum } from '../src/utils/io/designSpectrum.js';
 import { resolveEnvironment, environmentOptions, environmentLabel } from '../src/utils/physics/environment.js';
+import { opticalEnvSession } from '../src/components/windows/analysis/opticalEvaluation/envSession.js';
 
 // 不用 makeDefaultDesign：DesignContext.js 依赖全局 React（Electron renderer），
 // 纯 node 测试直接构造普通对象即可。
@@ -56,3 +57,29 @@ assert.ok(diff2 > 1e-6, 'env spectrum differs from design-level (substrate BK7 v
 const dsd = computeDesignSpectrum(design2, params2, 'front', 0);
 assert.ok(dsd.series && dsd.series[0].R[0] !== undefined, 'computeDesignSpectrum env path works');
 console.log('spectrum envIndex OK');
+
+// ── Task 3: envSession store 行为 ──────────────────────────────
+const designA = { id: 'design-A', meritEnvironments: [{ id: 'e1', incidentMedium: 'Air', exitMedium: 'Water' }] };
+const designB = { id: 'design-B', meritEnvironments: [] };
+
+// 默认值
+let s0 = opticalEnvSession.read(designA);
+assert.equal(s0.envIndex, -1, 'default envIndex -1');
+assert.equal(s0.locked, false, 'default unlocked');
+
+// 写入 envIndex + 锁定快照
+opticalEnvSession.write(designA, { envIndex: 0, locked: true, lockedEnvIndex: 0 });
+let s1 = opticalEnvSession.read(designA);
+assert.equal(s1.envIndex, 0, 'envIndex persists');
+assert.equal(s1.locked, true, 'locked persists');
+
+// 切换 design → onDesignChange 复位
+let s2 = opticalEnvSession.read(designB);
+assert.equal(s2.envIndex, -1, 'design switch resets envIndex');
+assert.equal(s2.locked, false, 'design switch unlocks');
+
+// 复位后不再影响 designA
+opticalEnvSession.write(designB, { envIndex: 5 });
+let s3 = opticalEnvSession.read(designA);
+assert.equal(s3.envIndex, 0, 'per-slot isolation preserved');
+console.log('envSession OK');

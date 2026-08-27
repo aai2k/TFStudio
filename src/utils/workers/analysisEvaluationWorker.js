@@ -45,7 +45,7 @@ export function dispatchAnalysisEvaluation(operation, payload) {
     const { design } = payload;
     switch (operation) {
         case 'opticalSpectrum':
-            return computeOpticalSpectrum(design, payload.params, payload.evalMode);
+            return computeOpticalSpectrum(design, payload.params, payload.evalMode, payload.envIndex);
         case 'integralSpectrum':
             return computeSpectrumForMode(design, payload.params, payload.evalMode);
         case 'colorReport': {
