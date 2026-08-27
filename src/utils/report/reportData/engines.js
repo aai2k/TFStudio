@@ -10,6 +10,7 @@ import {
 } from '../../physics/thinFilmMath.js';
 import { resolveEvalMode } from '../../physics/optimizer.js';
 import { designMaterialLookup } from '../../materials/designMaterials.js';
+import { resolveEnvironment } from '../../physics/environment.js';
 
 // ── Material resolution ─────────────────────────────────────────────────────
 // Mirrors the helper used by every analysis window so the report sees the same
@@ -51,7 +52,7 @@ export function designEvalMode(design) {
 // Shape is identical to OpticalEvaluation's so a section can reuse the curves.
 export function buildSpectrum(design, opts = {}) {
   const {
-    lambdaStart = 400, lambdaEnd = 800, lambdaStep = 2, pol = 'avg',
+    lambdaStart = 400, lambdaEnd = 800, lambdaStep = 2, pol = 'avg', envIndex = -1,
   } = opts;
   // Accept either a `thetas` list (multi-AOI) or a single `aoi` (wizard option).
   const thetas = (opts.thetas && opts.thetas.length) ? opts.thetas
@@ -59,10 +60,11 @@ export function buildSpectrum(design, opts = {}) {
   const evalMode = designEvalMode(design);
   const resolve = designMaterialLookup(design);
 
-  const incMat  = resolve(mediumId(design.incidentMedium));
-  const subMat  = resolve(design.substrate?.material);
-  const exitMat = resolve(mediumId(design.exitMedium));
-  const subThk  = design.substrate?.thickness ?? 1.0;
+  const media   = resolveEnvironment(design, envIndex);
+  const incMat  = resolve(mediumId(media.incidentMedium));
+  const subMat  = resolve(media.substrate?.material);
+  const exitMat = resolve(mediumId(media.exitMedium));
+  const subThk  = media.substrate?.thickness ?? 1.0;
   const front   = frontLayersWithMat(design, resolve);
   const back    = backLayersWithMat(design, resolve);
 
@@ -87,13 +89,14 @@ export function buildSpectrum(design, opts = {}) {
 
 // Interpolating R|T(λ) fraction function from a fine TMM sweep — used for
 // colorimetry (which samples on its own 5 nm CMF/SPD grid).
-export function buildResponseFn(design, characteristic = 'R', pol = 'avg', theta = 0) {
+export function buildResponseFn(design, characteristic = 'R', pol = 'avg', theta = 0, envIndex = -1) {
   const evalMode = designEvalMode(design);
   const resolve = designMaterialLookup(design);
-  const incMat  = resolve(mediumId(design.incidentMedium));
-  const subMat  = resolve(design.substrate?.material);
-  const exitMat = resolve(mediumId(design.exitMedium));
-  const subThk  = design.substrate?.thickness ?? 1.0;
+  const media   = resolveEnvironment(design, envIndex);
+  const incMat  = resolve(mediumId(media.incidentMedium));
+  const subMat  = resolve(media.substrate?.material);
+  const exitMat = resolve(mediumId(media.exitMedium));
+  const subThk  = media.substrate?.thickness ?? 1.0;
   const front   = frontLayersWithMat(design, resolve);
   const back    = backLayersWithMat(design, resolve);
   const params  = { lambdaStart: 380, lambdaEnd: 780, lambdaStep: 1, theta, polarization: pol };

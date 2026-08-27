@@ -14,6 +14,8 @@ import { computeSpectrumForMode } from '../src/components/windows/analysis/integ
 import { computeTotalRegions, computeProfileForSide } from '../src/components/windows/analysis/refractiveIndexProfiler/profileModel.js';
 import { buildInterfaceLabels, calculateRoughness, getRoughnessContext } from '../src/components/windows/analysis/roughnessScattering/model.js';
 import { buildEvaluationContext } from '../src/components/windows/analysis/plotEngine/materialContext.js';
+import { buildSpectrum, buildResponseFn } from '../src/utils/report/reportData/engines.js';
+import { buildAllProcessFiles } from '../src/utils/io/processFileExport.js';
 
 // 不用 makeDefaultDesign：DesignContext.js 依赖全局 React（Electron renderer），
 // 纯 node 测试直接构造普通对象即可。
@@ -211,3 +213,36 @@ const c1 = computeColorReport({ ...colorOpts, envIndex: 0 });
 assert.ok(c0 && c1, 'color report runs');
 assert.ok(Math.abs(c0.xy.x - c1.xy.x) > 1e-9, 'color env xy differs');
 console.log('analysis windows env OK');
+
+// ── Task 7: 导出路径按 envIndex 取介质 ────────────────────────
+// 设计级基底 BK7，环境 0 基底 SiO2（均内置、n 1.52 vs 1.46），
+// 判别手段与 Task 2/5/6 一致：基底材料切换制造可观测差异。
+const edesign = {
+  frontLayers: [{ material: 'TiO2', thickness: 100 }],
+  incidentMedium: 'Air', exitMedium: 'Air',
+  substrate: { material: 'BK7', thickness: 1.0 },
+  meritEnvironments: [{ id: 'e1', incidentMedium: 'Air', exitMedium: 'Air', substrate: { material: 'SiO2', thickness: 1.0 } }],
+};
+const ep = { lambdaStart: 400, lambdaEnd: 700, lambdaStep: 100, thetas: [0] };
+
+// (a) buildSpectrum —— opts.envIndex 决定介质；-1 回设计级（BK7），0 用环境（SiO2）
+const sp0 = buildSpectrum(edesign, { ...ep, envIndex: -1 });
+const sp1 = buildSpectrum(edesign, { ...ep, envIndex: 0 });
+let sdiff = 0;
+for (let i = 0; i < sp0.series[0].R.length; i++) sdiff += Math.abs(sp0.series[0].R[i] - sp1.series[0].R[i]);
+assert.ok(sdiff > 1e-6, 'buildSpectrum env differs (substrate BK7 vs SiO2)');
+
+// (b) buildResponseFn —— 返回 (lam) => … 闭包；第 5 参 envIndex
+const rf0 = buildResponseFn(edesign, 'R', 'avg', 0, -1);
+const rf1 = buildResponseFn(edesign, 'R', 'avg', 0, 0);
+assert.ok(Math.abs(rf0(550) - rf1(550)) > 1e-6, 'buildResponseFn env differs (substrate BK7 vs SiO2)');
+
+// (c) buildAllProcessFiles —— .res 谱数据区随基底变化（只比数据行，
+//     避开含秒级时间戳的头部，防止跨秒误判）
+const edep = { activeSide: 'front', secondSurface: 'bare', quantity: 'R', aoi: 0, polarization: 'avg', lambdaStart: 400, lambdaEnd: 700, lambdaStep: 100 };
+const exp0 = buildAllProcessFiles(edesign, { ...edep, envIndex: -1 });
+const exp1 = buildAllProcessFiles(edesign, { ...edep, envIndex: 0 });
+assert.ok(exp0.length === 1 && exp1.length === 1, 'process files built for 1-layer design');
+const dataOf = (f) => f.content.split('\r\n').filter(l => /^\s*\d+\.\d{4}\s+/.test(l)).join('\n');
+assert.notStrictEqual(dataOf(exp0[0]), dataOf(exp1[0]), 'process file spectrum differs (BK7 vs SiO2)');
+console.log('export env OK');

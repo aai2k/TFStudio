@@ -27,6 +27,7 @@
 
 import { evaluateSpectrumTotal } from '../physics/thinFilmMath.js';
 import { designMaterialLookup } from '../materials/designMaterials.js';
+import { resolveEnvironment } from '../physics/environment.js';
 
 // ── Formatting helpers ────────────────────────────────────────────────────────
 
@@ -284,14 +285,16 @@ export function buildAllProcessFiles(design, opts) {
         outputDir = '',
         appVersion = '',
         projectLabel = '',
+        envIndex = -1,
     } = opts;
 
     const resolveMaterial = designMaterialLookup(design);
     const controlLambda = design.referenceWavelength || 550;
-    const incidentMat   = resolveMaterial(design.incidentMedium);
-    const exitMat       = resolveMaterial(design.exitMedium);
-    const substrateMat  = resolveMaterial(design.substrate?.material);
-    const substrateThk  = design.substrate?.thickness || 1.0;
+    const media = resolveEnvironment(design, envIndex);
+    const incidentMat  = resolveMaterial(media.incidentMedium);
+    const exitMat      = resolveMaterial(media.exitMedium);
+    const substrateMat = resolveMaterial(media.substrate?.material);
+    const substrateThk = media.substrate?.thickness || 1.0;
 
     // Build the ACTIVE coating in deposition order (substrate-side first).
     // frontLayers storage: substrate-side LAST  → reverse
