@@ -1,6 +1,7 @@
 import { evaluateSpectrum, evaluateSpectrumBack, evaluateSpectrumTotal } from '../../../../utils/physics/thinFilmMath.js';
 import { designMaterialLookup } from '../../../../utils/materials/designMaterials.js';
 import { makeConeSpec, coneAverageResult } from '../../../../utils/physics/optimizer.js';
+import { resolveEnvironment } from '../../../../utils/physics/environment.js';
 
 const CONE_SPEC_KEYS = ['T', 'R', 'A', 'Ts', 'Rs', 'Tp', 'Rp', 'As', 'Ap'];
 
@@ -20,21 +21,22 @@ function evaluateAtAngle(state, theta) {
     );
 }
 
-function spectrumState(design, params, evalMode) {
+function spectrumState(design, params, evalMode, envIndex = -1) {
+    const media = resolveEnvironment(design, envIndex);
     const resolveMaterial = designMaterialLookup(design);
     return {
         design, params, evalMode,
-        incMat: resolveMaterial(design.incidentMedium),
-        subMat: resolveMaterial(design.substrate.material),
-        exitMat: resolveMaterial(design.exitMedium),
-        subThick: design.substrate.thickness ?? 1.0,
+        incMat: resolveMaterial(media.incidentMedium),
+        subMat: resolveMaterial(media.substrate?.material),
+        exitMat: resolveMaterial(media.exitMedium),
+        subThick: media.substrate?.thickness ?? 1.0,
         frontLayers: resolveLayers(resolveMaterial, design.frontLayers),
         backLayers: resolveLayers(resolveMaterial, design.backLayers),
     };
 }
 
-export function computeOpticalSpectrum(design, params, evalMode) {
-    const state = spectrumState(design, params, evalMode);
+export function computeOpticalSpectrum(design, params, evalMode, envIndex = -1) {
+    const state = spectrumState(design, params, evalMode, envIndex);
     const thetas = params.thetas?.length ? params.thetas : [0];
     const coneSpec = makeConeSpec(design.cone || {});
     const series = [];

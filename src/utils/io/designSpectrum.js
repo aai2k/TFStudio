@@ -13,6 +13,7 @@
 
 import { evaluateSpectrum, evaluateSpectrumBack, evaluateSpectrumTotal } from '../physics/thinFilmMath.js';
 import { designMaterialLookup } from '../materials/designMaterials.js';
+import { resolveEnvironment } from '../physics/environment.js';
 
 function formatTheta(t) {
     return Number.isInteger(t) ? String(t) : t.toFixed(1);
@@ -23,13 +24,15 @@ function formatTheta(t) {
  * @param design   TFStudio design object
  * @param params   { lambdaStart, lambdaEnd, lambdaStep, thetas?: number[] }
  * @param evalMode 'front' | 'back' | 'total'
+ * @param envIndex multi-environment index; -1 (default) = design level
  */
-export function computeDesignSpectrum(design, params, evalMode) {
+export function computeDesignSpectrum(design, params, evalMode, envIndex = -1) {
+    const media = resolveEnvironment(design, envIndex);
     const resolveMaterial = designMaterialLookup(design);
-    const incMat = resolveMaterial(design.incidentMedium);
-    const subMat = resolveMaterial(design.substrate?.material);
-    const exitMat = resolveMaterial(design.exitMedium);
-    const subThick = design.substrate?.thickness ?? 1.0;
+    const incMat = resolveMaterial(media.incidentMedium);
+    const subMat = resolveMaterial(media.substrate?.material);
+    const exitMat = resolveMaterial(media.exitMedium);
+    const subThick = media.substrate?.thickness ?? 1.0;
 
     const front = (design.frontLayers || [])
         .filter(l => l.thickness > 0)
