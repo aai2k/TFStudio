@@ -71,6 +71,10 @@ for (let i = 0; i < sd.series[0].R.length; i++) diff2 += Math.abs(sd.series[0].R
 assert.ok(diff2 > 1e-6, 'env spectrum differs from design-level (substrate BK7 vs SiO2)');
 const dsd = computeDesignSpectrum(design2, params2, 'front', 0);
 assert.ok(dsd.series && dsd.series[0].R[0] !== undefined, 'computeDesignSpectrum env path works');
+const dsdDesign = computeDesignSpectrum(design2, params2, 'front', -1); // 设计级基底 BK7
+let dsdDiff = 0;
+for (let i = 0; i < dsdDesign.series[0].R.length; i++) dsdDiff += Math.abs(dsdDesign.series[0].R[i] - dsd.series[0].R[i]);
+assert.ok(dsdDiff > 1e-6, 'designSpectrum env differs from design-level (substrate BK7 vs SiO2)');
 console.log('spectrum envIndex OK');
 
 // ── Task 3: envSession store 行为 ──────────────────────────────

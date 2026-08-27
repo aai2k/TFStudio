@@ -2,6 +2,7 @@ import { useDesign } from '../../../../state/DesignContext.js';
 import { useLiveDesign } from '../../../../state/useLiveDesign.js';
 import { useAnalysisDefaults, useAnalysisSettings } from '../../../../state/AnalysisSettingsContext.js';
 import { computeOpticalSpectrum } from './spectrum.js';
+import { resolveEnvironment } from '../../../../utils/physics/environment.js';
 import { makeConeSpec, coneIsActive } from '../../../../utils/physics/optimizer.js';
 import { useAnalysisEvaluation } from '../useAnalysisEvaluation.js';
 import { buildCSV, createTargetOperands, editTargetOperands, deleteTargetOperand } from './model.js';
@@ -126,14 +127,14 @@ function useCsvActions({ data, showCurves, yScale, design }) {
     return { copied, saved, copyCSV, saveCSV };
 }
 
-function designSummary(design, evalMode, data) {
+function designSummary(design, evalMode, data, envIndex = -1) {
     const frontLayers = design.frontLayers || [];
     const backLayers = design.backLayers || [];
     const frontCount = frontLayers.length;
     const backCount = backLayers.length;
     const frontNm = frontLayers.reduce((sum, layer) => sum + (layer.thickness || 0), 0);
     const backNm = backLayers.reduce((sum, layer) => sum + (layer.thickness || 0), 0);
-    const subThick = design.substrate.thickness ?? 1.0;
+    const subThick = resolveEnvironment(design, envIndex).substrate?.thickness ?? 1.0;
     return {
         frontCount, backCount, frontNm, backNm, subThick,
         showEmpty: evalMode === 'front' && frontCount === 0 && !data,
@@ -162,6 +163,6 @@ export function useOpticalEvaluation() {
             else { setEnvField('lockedEnvIndex', envIndex); setEnvField('locked', true); }
         },
         ...display, ...spectrum, ...targets, ...csv,
-        ...designSummary(design, evalMode, spectrum.data),
+        ...designSummary(design, evalMode, spectrum.data, effectiveEnvIndex),
     };
 }
