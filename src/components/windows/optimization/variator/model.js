@@ -4,6 +4,7 @@ import {
 } from '../../../../utils/physics/thinFilmMath.js';
 import { wrapMaterial } from '../../../../utils/misc/variator.js';
 import { createWindowSession } from '../../windowSession.js';
+import { resolveEnvironment } from '../../../../utils/physics/environment.js';
 
 export function resolveMat(design, id) {
     return designMaterialLookup(design)(id);
@@ -52,8 +53,9 @@ export function computeAnyVaried(dThkFront, dThkBack, dSubMm, dN, dK) {
 // Unique-by-material-id list for the n/k offset sliders — one row per
 // material actually used somewhere in the stack (front, back, incident,
 // substrate, exit).
-export function collectUniqueMaterials(design) {
+export function collectUniqueMaterials(design, envIndex = -1) {
     const resolveMaterial = designMaterialLookup(design);
+    const media = resolveEnvironment(design, envIndex);
     const ids = new Set();
     const out = [];
     const collect = (id) => {
@@ -63,9 +65,9 @@ export function collectUniqueMaterials(design) {
     };
     (design.frontLayers || []).forEach(l => collect(l.material));
     (design.backLayers  || []).forEach(l => collect(l.material));
-    collect(design.incidentMedium);
-    collect(design.substrate?.material);
-    collect(design.exitMedium);
+    collect(media.incidentMedium);
+    collect(media.substrate?.material);
+    collect(media.exitMedium);
     return out;
 }
 
@@ -104,8 +106,9 @@ export function buildThicknessPatch(design, cache, nextDF, nextDB, nextDSubMm) {
 //                 Δn,Δk) — this is what Revert restores to, so the dotted
 //                 curve stays put regardless of which slider the user
 //                 touches (thickness AND n/k).
-export function computeVariatorSpectrum({ design, params, evalMode, dN, dK, cache }) {
+export function computeVariatorSpectrum({ design, params, evalMode, dN, dK, cache, envIndex = -1 }) {
     const resolveMaterial = designMaterialLookup(design);
+    const media = resolveEnvironment(design, envIndex);
     const baseFrontById = new Map((cache.baseFront || []).map(l => [l.id, l.thickness]));
     const baseBackById  = new Map((cache.baseBack  || []).map(l => [l.id, l.thickness]));
     const baseSubMm     = cache.baseSubstrateMm ?? (design.substrate?.thickness ?? 1.0);
@@ -114,10 +117,10 @@ export function computeVariatorSpectrum({ design, params, evalMode, dN, dK, cach
         const base = resolveMaterial(id);
         return wrapMaterial(base, dN[id] || 0, dK[id] || 0);
     };
-    const incMat  = wrap(design.incidentMedium);
-    const subMat  = wrap(design.substrate?.material);
-    const exitMat = wrap(design.exitMedium);
-    const subThick = design.substrate?.thickness ?? 1.0;
+    const incMat  = wrap(media.incidentMedium);
+    const subMat  = wrap(media.substrate?.material);
+    const exitMat = wrap(media.exitMedium);
+    const subThick = media.substrate?.thickness ?? 1.0;
 
     const front = (design.frontLayers || [])
         .filter(l => l.thickness > 0)
@@ -127,9 +130,9 @@ export function computeVariatorSpectrum({ design, params, evalMode, dN, dK, cach
         .map(l => ({ material: wrap(l.material), thickness: l.thickness }));
 
     // Baseline arm — original snapshot thicknesses, raw materials.
-    const incMatB  = resolveMaterial(design.incidentMedium);
-    const subMatB  = resolveMaterial(design.substrate?.material);
-    const exitMatB = resolveMaterial(design.exitMedium);
+    const incMatB  = resolveMaterial(media.incidentMedium);
+    const subMatB  = resolveMaterial(media.substrate?.material);
+    const exitMatB = resolveMaterial(media.exitMedium);
     const frontB = (design.frontLayers || []).map(l => {
         const t0 = baseFrontById.has(l.id) ? baseFrontById.get(l.id) : l.thickness;
         return { material: resolveMaterial(l.material), thickness: t0 };

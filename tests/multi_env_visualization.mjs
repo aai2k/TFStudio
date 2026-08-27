@@ -3,6 +3,7 @@ import { computeOpticalSpectrum } from '../src/components/windows/analysis/optic
 import { computeDesignSpectrum } from '../src/utils/io/designSpectrum.js';
 import { resolveEnvironment, environmentOptions, environmentLabel } from '../src/utils/physics/environment.js';
 import { opticalEnvSession } from '../src/components/windows/analysis/opticalEvaluation/envSession.js';
+import { computeVariatorSpectrum } from '../src/components/windows/optimization/variator/model.js';
 
 // 不用 makeDefaultDesign：DesignContext.js 依赖全局 React（Electron renderer），
 // 纯 node 测试直接构造普通对象即可。
@@ -96,3 +97,23 @@ assert.equal(s4.envIndex, -1, 'out-of-range envIndex resets to design level');
 assert.equal(s4.locked, false, 'out-of-range lock cleared');
 assert.equal(s4.lockedEnvIndex, -1, 'out-of-range lockedEnvIndex resets');
 console.log('envSession OK');
+
+// ── Task 5: Variator 多环境感知 ──────────────────────────────
+// 'front' 模式只使用入射介质 + 基底 + 正面膜层（不含出射介质），
+// 故用"基底 BK7 → SiO2"制造差异（两者均内置、折射率 1.52 vs 1.46）。
+const vdesign = {
+  frontLayers: [{ id: 'l1', material: 'TiO2', thickness: 100 }],
+  incidentMedium: 'Air', exitMedium: 'Air',
+  substrate: { material: 'BK7', thickness: 1.0 },
+  meritEnvironments: [{ id: 'e1', incidentMedium: 'Air', exitMedium: 'Air', substrate: { material: 'SiO2', thickness: 1.0 } }],
+};
+const vparams = { lambdaStart: 400, lambdaEnd: 700, lambdaStep: 100, thetas: [0] };
+const vcache = { baseFront: [{ id: 'l1', thickness: 100 }], baseBack: [], baseSubstrateMm: 1.0 };
+const vdN = {}; const vdK = {};
+
+const va = computeVariatorSpectrum({ design: vdesign, params: vparams, evalMode: 'front', dN: vdN, dK: vdK, cache: vcache, envIndex: -1 });
+const vb = computeVariatorSpectrum({ design: vdesign, params: vparams, evalMode: 'front', dN: vdN, dK: vdK, cache: vcache, envIndex: 0 });
+let vdiff = 0;
+for (let i = 0; i < va.R.length; i++) vdiff += Math.abs(va.R[i] - vb.R[i]);
+assert.ok(vdiff > 1e-6, 'variator env differs (substrate BK7 vs SiO2)');
+console.log('variator env OK');
