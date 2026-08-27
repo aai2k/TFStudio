@@ -37,7 +37,13 @@ onmessage = async (e) => {
         await awaitTmmWasmReady();
         if (CACHE.sid !== job.sid || !CACHE.opt) {
             const resolveMat = makeResolveMat(job.materials || {}, 'mfEvalWorker');
-            CACHE = { sid: job.sid, opt: new DLSOptimizer(job.operands, job.design, resolveMat) };
+            // Thread the design's environments explicitly so the evaluator's
+            // multi-env mode (and per-environment operand sets, oracle #7) is
+            // driven by the job payload, not by whatever the design object
+            // happens to carry at construction time.
+            CACHE = { sid: job.sid, opt: new DLSOptimizer(job.operands, job.design, resolveMat, {
+                environments: job.design?.meritEnvironments || []
+            }) };
         }
         const opt = CACHE.opt;
         const vectors = job.vectors || [];

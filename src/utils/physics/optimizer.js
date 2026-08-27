@@ -25,3 +25,4 @@ export * from './optimizer/consolidate.js';
 export * from './optimizer/evalCore.js';
 export * from './optimizer/lsqEngine.js';
 export * from './optimizer/scanners.js';
+export { buildEnvironmentSpecs, calcMFMultiEnv } from './optimizer/multiEnv.js';

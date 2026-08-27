@@ -149,13 +149,22 @@ export function scanNeedlesAnalytic(args) {
     const envResults = [];
 
     for (const spec of envSpecs) {
-        // Create a design clone with this environment's media
+        // Create a design clone with this environment's media (from the spec's
+        // EFFECTIVE media — env override ?? design default — not from the
+        // resolved ctx, whose material objects may not carry a `.name`).
         const envDesign = {
             ...design,
-            incidentMedium: spec.ctx.n0mat?.name || design.incidentMedium,
-            exitMedium: spec.ctx.neMat?.name || design.exitMedium,
+            incidentMedium: spec.incidentMedium ?? design.incidentMedium,
+            exitMedium: spec.exitMedium ?? design.exitMedium,
+            substrate: spec.substrate ?? design.substrate,
         };
-        const prep = _prepareScan({ ...args, design: envDesign }, surfaceMode, side);
+        // Per-environment operand set when the env defines one, else the shared
+        // operand set (backward compatible) — oracle #3.
+        const prep = _prepareScan({
+            ...args,
+            design: envDesign,
+            operands: spec.operands ?? args.operands
+        }, surfaceMode, side);
         if (!prep) continue;
         const { optOps, descs, cfg, mf0, sumW } = prep;
 

@@ -6,13 +6,19 @@
  * and weight.
  */
 
-const { createElement: h, useState } = React;
+const { createElement: h } = React;
 
 /**
  * Environment editor component for multi-environment optimization.
  * Displays a list of environments with media selectors and weights.
+ *
+ * Each row also exposes per-environment operand editing (breadcrumb
+ * navigation): "Edit operands" switches the merit table's operand source to
+ * this environment; an environment without its own operands shows a
+ * "Uses design-level merit function" tag plus a "Customize" button that
+ * materializes a private copy (with regenerated operand ids).
  */
-export function EnvironmentEditor({ design, updateDesign, t, c }) {
+export function EnvironmentEditor({ design, updateDesign, t, c, perEnvMf, activeEnvIndex, onEditOperands, onCustomize }) {
     const environments = design.meritEnvironments || [];
     const te = t.meritFunctionEditor || {};
 
@@ -95,6 +101,29 @@ export function EnvironmentEditor({ design, updateDesign, t, c }) {
         borderColor: '#c00',
     };
 
+    const activeRowStyle = {
+        ...envRowStyle,
+        background: `${c.accent || '#0a84ff'}14`,
+        borderRadius: 3,
+    };
+
+    const mfValueStyle = {
+        fontSize: 11,
+        fontFamily: 'monospace',
+        color: c.text,
+        minWidth: 55,
+        textAlign: 'right',
+    };
+
+    const tagStyle = {
+        fontSize: 10,
+        padding: '1px 5px',
+        borderRadius: 3,
+        background: (c.border || '#ccc') + '40',
+        color: c.textDim,
+        whiteSpace: 'nowrap',
+    };
+
     return h('div', { style: containerStyle },
         h('div', { style: headerStyle },
             h('span', null, te.environments || 'Environments'),
@@ -108,45 +137,66 @@ export function EnvironmentEditor({ design, updateDesign, t, c }) {
             ? h('div', { style: { color: c.textDim, fontStyle: 'italic', padding: '4px 0' } },
                 te.noEnvironments || 'No environments defined. Click "Add" to create one.')
             : environments.map((env, idx) =>
-                h('div', { key: env.id, style: envRowStyle },
-                    h('span', { style: { width: 20, color: c.textDim } }, `E${idx + 1}`),
-                    h('label', { style: { fontSize: 11 } }, te.incident || 'Incident:'),
-                    h('input', {
-                        style: inputStyle,
-                        value: env.incidentMedium || '',
-                        onChange: (e) => updateEnvironment(env.id, { incidentMedium: e.target.value }),
-                        placeholder: 'Air'
-                    }),
-                    h('label', { style: { fontSize: 11 } }, te.exit || 'Exit:'),
-                    h('input', {
-                        style: inputStyle,
-                        value: env.exitMedium || '',
-                        onChange: (e) => updateEnvironment(env.id, { exitMedium: e.target.value }),
-                        placeholder: 'Air'
-                    }),
-                    h('label', { style: { fontSize: 11 } }, te.substrate || 'Substrate:'),
-                    h('input', {
-                        style: inputStyle,
-                        value: env.substrate?.material || '',
-                        onChange: (e) => updateEnvironment(env.id, {
-                            substrate: { ...env.substrate, material: e.target.value }
+                h('div', { key: env.id, style: { borderBottom: `1px solid ${c.border}20` } },
+                    h('div', {
+                        style: activeEnvIndex === idx ? activeRowStyle : envRowStyle
+                    },
+                        h('span', { style: { width: 20, color: c.textDim } }, `E${idx + 1}`),
+                        h('label', { style: { fontSize: 11 } }, te.incident || 'Incident:'),
+                        h('input', {
+                            style: inputStyle,
+                            value: env.incidentMedium || '',
+                            onChange: (e) => updateEnvironment(env.id, { incidentMedium: e.target.value }),
+                            placeholder: 'Air'
                         }),
-                        placeholder: 'BK7'
-                    }),
-                    h('label', { style: { fontSize: 11 } }, te.weight || 'Weight:'),
-                    h('input', {
-                        style: weightInputStyle,
-                        type: 'number',
-                        min: 0,
-                        step: 0.1,
-                        value: env.weight ?? 1.0,
-                        onChange: (e) => updateEnvironment(env.id, { weight: parseFloat(e.target.value) || 0 }),
-                    }),
-                    h('button', {
-                        style: removeButtonStyle,
-                        onClick: () => removeEnvironment(env.id),
-                        title: te.removeEnvironment || 'Remove environment'
-                    }, '×')
+                        h('label', { style: { fontSize: 11 } }, te.exit || 'Exit:'),
+                        h('input', {
+                            style: inputStyle,
+                            value: env.exitMedium || '',
+                            onChange: (e) => updateEnvironment(env.id, { exitMedium: e.target.value }),
+                            placeholder: 'Air'
+                        }),
+                        h('label', { style: { fontSize: 11 } }, te.substrate || 'Substrate:'),
+                        h('input', {
+                            style: inputStyle,
+                            value: env.substrate?.material || '',
+                            onChange: (e) => updateEnvironment(env.id, {
+                                substrate: { ...env.substrate, material: e.target.value }
+                            }),
+                            placeholder: 'BK7'
+                        }),
+                        h('label', { style: { fontSize: 11 } }, te.weight || 'Weight:'),
+                        h('input', {
+                            style: weightInputStyle,
+                            type: 'number',
+                            min: 0,
+                            step: 0.1,
+                            value: env.weight ?? 1.0,
+                            onChange: (e) => updateEnvironment(env.id, { weight: parseFloat(e.target.value) || 0 }),
+                        }),
+                        perEnvMf && perEnvMf[idx] != null
+                            ? h('span', { style: mfValueStyle }, (te.mfLabel || 'MF:') + ' ' + perEnvMf[idx].toFixed(4))
+                            : null,
+                        env.operands
+                            ? h('button', {
+                                style: activeEnvIndex === idx ? { ...buttonStyle, background: c.accent || '#4a9', color: c.accentText || '#fff', borderColor: c.accent || '#4a9' } : buttonStyle,
+                                onClick: () => onEditOperands(idx),
+                                title: te.editOperandsTip || 'Edit the operand table for this environment'
+                            }, te.editOperands || 'Edit')
+                            : h('span', { style: { display: 'inline-flex', alignItems: 'center', gap: 6 } },
+                                h('span', { style: tagStyle }, te.usingDesignMf || 'Using design-level MF'),
+                                h('button', {
+                                    style: buttonStyle,
+                                    onClick: () => onCustomize(idx),
+                                    title: te.customizeOperandsTip || 'Create an independent operand set for this environment'
+                                }, te.customizeOperands || 'Customize')
+                            ),
+                        h('button', {
+                            style: removeButtonStyle,
+                            onClick: () => removeEnvironment(env.id),
+                            title: te.removeEnvironment || 'Remove environment'
+                        }, '×')
+                    )
                 )
             )
     );
@@ -207,6 +257,6 @@ export function MultiEnvToggle({ design, updateDesign, t, c }) {
             style: { cursor: 'pointer' }
         }),
         h('span', null, te.multiEnvironment || 'Multi-environment'),
-        h('span', { style: badgeStyle }, isMultiEnv ? 'ON' : 'OFF')
+        h('span', { style: badgeStyle }, isMultiEnv ? (te.on || 'ON') : (te.off || 'OFF'))
     );
 }

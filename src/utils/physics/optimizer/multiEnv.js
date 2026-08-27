@@ -17,7 +17,14 @@ import { buildEvalContext, evaluateOperands, getMeritAccumulation } from './eval
  *
  * @param {object} design - Design object with optional meritEnvironments array
  * @param {function} resolveMat - Material resolution function
- * @returns {Array<{ctx: object, weight: number, index: number}>}
+ * @returns {Array<{ctx: object, weight: number, index: number, operands: Array|null,
+ *   incidentMedium: string, exitMedium: string, substrate: object}>}
+ *   `operands` is the environment's own operand set, or null when the env
+ *   defines none (callers then fall back to the shared operand set).
+ *   `incidentMedium`/`exitMedium`/`substrate` are the environment's EFFECTIVE
+ *   media (env override ?? design default), so callers that rebuild a design
+ *   per environment (e.g. the analytic needle scan) do not need to re-derive
+ *   them from the resolved ctx.
  */
 export function buildEnvironmentSpecs(design, resolveMat) {
     const envs = design.meritEnvironments;
@@ -27,7 +34,11 @@ export function buildEnvironmentSpecs(design, resolveMat) {
         return [{
             ctx: buildEvalContext(design, resolveMat),
             weight: 1.0,
-            index: 0
+            index: 0,
+            operands: null,
+            incidentMedium: design.incidentMedium,
+            exitMedium: design.exitMedium,
+            substrate: design.substrate
         }];
     }
 
@@ -50,7 +61,11 @@ export function buildEnvironmentSpecs(design, resolveMat) {
         return {
             ctx: buildEvalContext(clonedDesign, resolveMat),
             weight: env.weight ?? 1.0,
-            index: i
+            index: i,
+            operands: env.operands ?? null,
+            incidentMedium: clonedDesign.incidentMedium,
+            exitMedium: clonedDesign.exitMedium,
+            substrate: clonedDesign.substrate
         };
     });
 }
@@ -58,10 +73,24 @@ export function buildEnvironmentSpecs(design, resolveMat) {
 /**
  * Multi-environment weighted merit function.
  *
- * MF_total = sqrt( sum_e(W_e * sumWRes2_e) / sum_e(W_e * sumWopt_e) )
+ * Denominator semantics (oracle #8): the weighted RMS is computed over the
+ * POOLED per-environment accumulations —
+ *
+ *   MF_total = sqrt( Σ_e W_e·sumWRes2_e / Σ_e W_e·sumWopt_e )
+ *
+ * i.e. operand-count-weighted normalization: each environment's residual
+ * sum-of-squares and optical-weight denominator are scaled by the environment
+ * weight and combined into ONE RMS. This is the exact multi-environment
+ * generalization of calcMF (a single environment reduces to
+ * sqrt(sumWRes2/sumWopt), bit-identical to calcMF), and it keeps the result
+ * identical to the pre-P3 behavior when no environment defines its own
+ * operands (backward compatibility). The alternative — normalizing each
+ * environment's MF first and then RMS-averaging the per-env MFs — was
+ * considered and rejected because it changes the shared-operand result.
  *
  * @param {Array} specs - Environment specs from buildEnvironmentSpecs
- * @param {Array} operands - Operand array
+ * @param {Array} operands - Shared operand array (fallback when a spec has no
+ *   per-environment operands; each spec may carry its own `operands` instead)
  * @param {object} opts - Options (skipConstraints, getMeritAccumulation)
  * @returns {{mf: number, perEnvMf: number[], totalSumWRes2: number, totalSumWopt: number, totalSumWcon: number}}
  */
@@ -73,9 +102,12 @@ export function calcMFMultiEnv(specs, operands, opts = {}) {
     const perEnvMf = [];
 
     for (const spec of specs) {
-        const values = evaluateOperands(operands, spec.ctx);
+        // Per-environment operand set when the env defines one, else the
+        // shared operand set (backward compatible).
+        const ops = spec.operands || operands;
+        const values = evaluateOperands(ops, spec.ctx);
         const { sumWRes2, sumWopt, sumWcon } =
-            getMeritAccumulation(operands, values, skipConstraints);
+            getMeritAccumulation(ops, values, skipConstraints);
 
         totalSumWRes2 += spec.weight * sumWRes2;
         totalSumWopt  += spec.weight * sumWopt;

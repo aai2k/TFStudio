@@ -22,7 +22,7 @@ import {
     evaluateOperands, phaseDispersionThicknessPoint,
     operandResidualScale, calcMF, mfWeightDenominator, _operandResidual,
     operandEvaluationErrors, OperandEvaluationError,
-    getMeritAccumulation, buildEvalContext,
+    getMeritAccumulation,
 } from './evalCore.js';
 import { buildEnvironmentSpecs, calcMFMultiEnv } from './multiEnv.js';
 import {
@@ -115,17 +115,20 @@ export class LSQEngine {
         this.environments = opts.environments || design.meritEnvironments || [];
         this._multiEnvMode = this.environments.length > 0;
         if (this._multiEnvMode) {
-            // Pre-build static environment contexts (media fixed, thickness varies)
-            this._envCtxs = this.environments.map(env => {
-                const clonedDesign = {
-                    ...design,
-                    incidentMedium: env.incidentMedium ?? design.incidentMedium,
-                    exitMedium: env.exitMedium ?? design.exitMedium,
-                    substrate: env.substrate ? { ...design.substrate, ...env.substrate } : design.substrate
-                };
-                return buildEvalContext(clonedDesign, resolveMat);
-            });
-            this._envWeights = this.environments.map(e => e.weight ?? 1.0);
+            // Pre-build static environment contexts (media fixed, thickness
+            // varies) via the shared factory so weights AND per-environment
+            // operands stay in sync with buildEnvironmentSpecs — no duplicated
+            // clone/buildEvalContext logic here (oracle #4/#10). The effective
+            // env list (opts.environments override) is threaded through the
+            // design clone so the factory sees exactly what this engine uses.
+            const envSpecs = buildEnvironmentSpecs(
+                { ...design, meritEnvironments: this.environments },
+                resolveMat
+            );
+            this._envCtxs = envSpecs.map(s => s.ctx);
+            this._envWeights = envSpecs.map(s => s.weight);
+            // Per-environment operand set, falling back to the shared set.
+            this._envOperands = envSpecs.map(s => s.operands ?? this.operands);
         }
 
         const comp0    = evaluateOperands(this.operands, this._ctxFor(this.thicknesses));
@@ -136,7 +139,11 @@ export class LSQEngine {
                 `Row ${errorIndex + 1} ${op.type}: ${operandEvaluationErrors(comp0)[errorIndex]}`,
             );
         }
-        this.mf        = calcMF(this.operands, comp0);
+        // In multi-environment mode the engine's own MF is the weighted
+        // multi-env MF (per-env operands), so step()/isConverged()/restoreBest()
+        // all score the same quantity the user sees. Single-env mode keeps the
+        // legacy calcMF path byte-for-byte.
+        this.mf        = this._multiEnvMode ? this.mfAt(this.thicknesses) : calcMF(this.operands, comp0);
         this.mfBest    = this.mf;
         this.thickBest = [...this.thicknesses];
         this.iter      = 0;
@@ -517,6 +524,13 @@ export class LSQEngine {
     }
 
     step() {
+        // Multi-environment mode: the LM linearization below is single-env
+        // (shared operands on the design's own media), so it would optimize
+        // only the first environment. Route to the multi-env FD step, which
+        // differentiates the true weighted multi-env MF (mfAt) and therefore
+        // lowers it. Single-env mode keeps the LM path byte-for-byte.
+        if (this._multiEnvMode) return this._stepMultiEnv();
+
         const thk     = this.thicknesses;
         const freeIdx = thk.map((_, i) => i).filter(i => !this.lockedMask[i]);
         const nFree   = freeIdx.length;
@@ -580,6 +594,69 @@ export class LSQEngine {
         this.iter++;
     }
 
+    // Multi-environment Levenberg–Marquardt-style step. The single-env LM
+    // machinery (_linearizationAt/_residuals/_analyticJacobian) is built on the
+    // shared operand set and the design's own media, so it cannot represent the
+    // weighted multi-env merit. Instead this step takes a damped steepest-descent
+    // move along the TRUE gradient of the multi-env MF (central differences of
+    // mfAt, which is per-env-operand aware), with a backtracking line search so
+    // every accepted move strictly lowers the multi-env MF. `lamD` plays the LM
+    // damping role: it grows on success and shrinks on failure.
+    _stepMultiEnv() {
+        const thk     = this.thicknesses;
+        const freeIdx = thk.map((_, i) => i).filter(i => !this.lockedMask[i]);
+        const nFree   = freeIdx.length;
+        if (nFree === 0) return;
+
+        const mf0 = this.mfAt(thk);
+        if (!isFinite(mf0)) { this.iter++; return; }
+
+        // Central-difference gradient of the multi-env MF (true ∇MF).
+        const g = new Array(thk.length).fill(0);
+        let gNormSq = 0;
+        for (let ci = 0; ci < nFree; ci++) {
+            const k  = freeIdx[ci];
+            const hk = Math.max(this.h, Math.abs(thk[k]) * 1e-4);
+            const thkP = thk.slice(); thkP[k] = Math.min(thk[k] + hk, this.D_MAX);
+            const thkM = thk.slice(); thkM[k] = Math.max(thk[k] - hk, this.D_MIN);
+            const dh = thkP[k] - thkM[k];
+            if (dh <= 0) continue;
+            g[k] = (this.mfAt(thkP) - this.mfAt(thkM)) / dh;
+            gNormSq += g[k] * g[k];
+        }
+        const gNorm = Math.sqrt(gNormSq);
+        if (!(gNorm > 0)) { this.lamD = Math.min(this.lamD * 5.0, 1e8); this.iter++; return; }
+
+        // Backtracking line search along −g. Initial step length scales lamD
+        // (≈1e-2) up to the thickness scale (×1e3 → ~10 nm); halve on failure.
+        let alpha = this.lamD * 1e3;
+        let thkTry = null, mfTry = Infinity;
+        for (let t = 0; t < 24; t++) {
+            const cand = thk.slice();
+            for (let ci = 0; ci < nFree; ci++) {
+                const k = freeIdx[ci];
+                cand[k] = Math.max(this.D_MIN, Math.min(this.D_MAX, thk[k] - alpha * g[k] / gNorm));
+            }
+            const mfCand = this.mfAt(cand);
+            if (mfCand < mf0) { thkTry = cand; mfTry = mfCand; break; }
+            alpha *= 0.5;
+        }
+
+        if (thkTry) {
+            this.thicknesses = thkTry;
+            this._linearizationCache = null;
+            this.mf  = mfTry;
+            this.lamD = Math.max(this.lamD * 1.5, 1e-8);
+            if (mfTry < this.mfBest) {
+                this.mfBest    = mfTry;
+                this.thickBest = [...thkTry];
+            }
+        } else {
+            this.lamD = Math.min(this.lamD * 5.0, 1e8);
+        }
+        this.iter++;
+    }
+
     // ── Pure evaluator helpers (no state mutation) ─────────────────────────────
     // Shared by the Global-Refinement engines (DE / SA / CG), which wrap a
     // DLSOptimizer purely as an evaluator so they inherit the exact surface-mode
@@ -589,23 +666,59 @@ export class LSQEngine {
 
     // Merit function at an arbitrary thickness vector (identical math to the
     // value DLS / DE / SA minimize — straight calcMF on _ctxFor(thk)).
-    // In multi-environment mode, returns weighted RMS across all environments.
+    // In multi-environment mode, returns weighted RMS across all environments,
+    // each evaluated with its OWN operand set (falls back to the shared set
+    // when an environment defines none).
     mfAt(thk) {
         if (this._multiEnvMode) {
             const specs = this._envCtxs.map((ctx, i) => ({
                 ctx: this._envCtxFor(thk, ctx),
                 weight: this._envWeights[i],
-                index: i
+                index: i,
+                operands: this._envOperands[i]
             }));
             return calcMFMultiEnv(specs, this.operands, { getMeritAccumulation }).mf;
         }
         return calcMF(this.operands, evaluateOperands(this.operands, this._ctxFor(thk)));
     }
 
+    // Merit function AND per-environment merit values at an arbitrary thickness
+    // vector. Multi-environment mode returns the weighted total `mf` plus the
+    // `perEnvMf` array (each environment scored with its OWN operand set,
+    // falling back to the shared set when an environment defines none).
+    // Single-environment mode returns `{ mf, perEnvMf: [mf] }` — the same
+    // scalar as mfAt, wrapped for a uniform consumer contract. Surfaced for
+    // display ONLY; the optimizer still minimizes mfAt.
+    mfAtWithPerEnv(thk) {
+        if (this._multiEnvMode) {
+            const specs = this._envCtxs.map((ctx, i) => ({
+                ctx: this._envCtxFor(thk, ctx),
+                weight: this._envWeights[i],
+                index: i,
+                operands: this._envOperands[i]
+            }));
+            const { mf, perEnvMf } = calcMFMultiEnv(specs, this.operands, { getMeritAccumulation });
+            return { mf, perEnvMf };
+        }
+        const mf = calcMF(this.operands, evaluateOperands(this.operands, this._ctxFor(thk)));
+        return { mf, perEnvMf: [mf] };
+    }
+
     // Optical merit (OMF) at an arbitrary thickness vector — same eval as mfAt
     // but excluding MNT/MXT/TT manufacturability penalties (skipConstraints).
     // Surfaced for display ONLY; the optimizer still minimizes the full mfAt.
+    // In multi-environment mode, returns the weighted multi-env OMF (per-env
+    // operands, constraints skipped).
     mfOpticalAt(thk) {
+        if (this._multiEnvMode) {
+            const specs = this._envCtxs.map((ctx, i) => ({
+                ctx: this._envCtxFor(thk, ctx),
+                weight: this._envWeights[i],
+                index: i,
+                operands: this._envOperands[i]
+            }));
+            return calcMFMultiEnv(specs, this.operands, { skipConstraints: true, getMeritAccumulation }).mf;
+        }
         return calcMF(this.operands, evaluateOperands(this.operands, this._ctxFor(thk)), { skipConstraints: true });
     }
 
@@ -626,7 +739,9 @@ export class LSQEngine {
         const g     = new Array(thk.length).fill(0);
         if (nFree === 0) return g;
 
-        // Multi-environment mode: weighted gradient across all environments
+        // Multi-environment mode: weighted gradient across all environments.
+        // Each environment contributes its OWN operand set (this._envOperands),
+        // so a per-env target only steers the gradient of its own environment.
         if (this._multiEnvMode) {
             const mfTotal = this.mfAt(thk);
             if (mfTotal === 0 || !isFinite(mfTotal)) return g;
@@ -636,14 +751,15 @@ export class LSQEngine {
             let totalSumWcon = 0;
             for (let e = 0; e < this._envCtxs.length; e++) {
                 const envCtx = this._envCtxFor(thk, this._envCtxs[e]);
-                const envComp = evaluateOperands(this.operands, envCtx);
-                const { sumWopt, sumWcon } = getMeritAccumulation(this.operands, envComp, false);
+                const envOps = this._envOperands[e];
+                const envComp = evaluateOperands(envOps, envCtx);
+                const { sumWopt, sumWcon } = getMeritAccumulation(envOps, envComp, false);
                 totalSumWopt += this._envWeights[e] * sumWopt;
                 totalSumWcon += this._envWeights[e] * sumWcon;
 
                 // Get gradient for this environment using FD fallback
                 // (analytic Jacobian for arbitrary ctx is complex; use FD for now)
-                const envGrad = this._gradMFForCtx(thk, envCtx, free);
+                const envGrad = this._gradMFForCtx(thk, envCtx, free, envOps);
                 const W = this._envWeights[e];
                 for (let ci = 0; ci < nFree; ci++) {
                     g[free[ci]] += W * envGrad[free[ci]];
@@ -697,10 +813,13 @@ export class LSQEngine {
     }
 
     // Gradient for a specific environment context (used by multi-env mode).
-    // Uses finite differences on the environment-specific MF.
-    _gradMFForCtx(thk, envCtx, free) {
+    // Uses finite differences on the environment-specific MF, evaluated with
+    // that environment's OWN operand set (`operands`; falls back to the shared
+    // set when omitted — backward compatible with the single-env callers).
+    _gradMFForCtx(thk, envCtx, free, operands) {
         const g = new Array(thk.length).fill(0);
-        const mf0 = calcMF(this.operands, evaluateOperands(this.operands, envCtx));
+        const ops = operands || this.operands;
+        const mf0 = calcMF(ops, evaluateOperands(ops, envCtx));
         if (mf0 === 0 || !isFinite(mf0)) return g;
 
         for (let ci = 0; ci < free.length; ci++) {
@@ -716,8 +835,8 @@ export class LSQEngine {
             // Evaluate MF at perturbed thickness for this environment
             const envCtxP = this._envCtxFor(thkP, envCtx);
             const envCtxM = this._envCtxFor(thkM, envCtx);
-            const mfP = calcMF(this.operands, evaluateOperands(this.operands, envCtxP));
-            const mfM = calcMF(this.operands, evaluateOperands(this.operands, envCtxM));
+            const mfP = calcMF(ops, evaluateOperands(ops, envCtxP));
+            const mfM = calcMF(ops, evaluateOperands(ops, envCtxM));
             g[k] = (mfP - mfM) / dh;
         }
         return g;
@@ -750,6 +869,10 @@ export class LSQEngine {
 
     restoreBest() {
         this.thicknesses = [...this.thickBest];
+        if (this._multiEnvMode) {
+            this.mf = this.mfAt(this.thicknesses);
+            return;
+        }
         const comp = evaluateOperands(this.operands, this._ctxFor(this.thicknesses));
         this.mf = calcMF(this.operands, comp);
     }
