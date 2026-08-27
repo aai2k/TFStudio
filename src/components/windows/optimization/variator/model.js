@@ -111,7 +111,7 @@ export function computeVariatorSpectrum({ design, params, evalMode, dN, dK, cach
     const media = resolveEnvironment(design, envIndex);
     const baseFrontById = new Map((cache.baseFront || []).map(l => [l.id, l.thickness]));
     const baseBackById  = new Map((cache.baseBack  || []).map(l => [l.id, l.thickness]));
-    const baseSubMm     = cache.baseSubstrateMm ?? (design.substrate?.thickness ?? 1.0);
+    const baseSubMm     = cache.baseSubstrateMm ?? (media.substrate?.thickness ?? 1.0);
 
     const wrap = (id) => {
         const base = resolveMaterial(id);
