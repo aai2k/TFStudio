@@ -77,8 +77,19 @@ for (const key of KEYS) {
     }
 }
 
+// Task 4: opticalEval namespace keys for the env selector/lock button.
+const oeEn = getLocale('en').opticalEval || {};
+const oeZh = getLocale('zh').opticalEval || {};
+const OE_KEYS = ['environment', 'designLevel', 'lockView', 'unlockView', 'compareHint'];
+for (const key of OE_KEYS) {
+    check(key in oeEn, `EN opticalEval missing "${key}"`);
+    check(key in oeZh, `ZH opticalEval missing "${key}"`);
+    if (key in oeEn) check(typeof oeEn[key] === 'string' && oeEn[key].trim() !== '', `EN opticalEval "${key}" empty`);
+    if (key in oeZh) check(typeof oeZh[key] === 'string' && oeZh[key].trim() !== '', `ZH opticalEval "${key}" empty`);
+}
+
 if (failures > 0) {
     console.error(`multi_env_i18n: FAIL (${failures} problem(s))`);
     process.exit(1);
 }
-console.log('multi_env_i18n: PASS — all 12 keys present and translated in EN + ZH');
+console.log('multi_env_i18n: PASS — all 12 meritFunctionEditor + 5 opticalEval keys present and translated in EN + ZH');
