@@ -16,6 +16,8 @@ import { buildInterfaceLabels, calculateRoughness, getRoughnessContext } from '.
 import { buildEvaluationContext } from '../src/components/windows/analysis/plotEngine/materialContext.js';
 import { buildSpectrum, buildResponseFn } from '../src/utils/report/reportData/engines.js';
 import { buildAllProcessFiles } from '../src/utils/io/processFileExport.js';
+import { perEnvMfFor } from '../src/components/windows/optimization/refinement/refinementEnvMf.js';
+import { makeOperand } from '../src/utils/physics/optimizer/operandModel.js';
 
 // 不用 makeDefaultDesign：DesignContext.js 依赖全局 React（Electron renderer），
 // 纯 node 测试直接构造普通对象即可。
@@ -246,3 +248,28 @@ assert.ok(exp0.length === 1 && exp1.length === 1, 'process files built for 1-lay
 const dataOf = (f) => f.content.split('\r\n').filter(l => /^\s*\d+\.\d{4}\s+/.test(l)).join('\n');
 assert.notStrictEqual(dataOf(exp0[0]), dataOf(exp1[0]), 'process file spectrum differs (BK7 vs SiO2)');
 console.log('export env OK');
+
+// ── Task 8: per-env MF 分解（per-state 重算）────────────────────
+// 两环境：环境 0 与设计级共用 RGT target 0，环境 1 target 0.5（差异可辨）。
+// 注意：makeOperand 真实签名是单对象参数 makeOperand({...})（operandModel.js），
+// 与 brief 中的 makeOperand('RGT', {...}) 不同——按真实 API 调整，断言不变。
+const mdesign = {
+  incidentMedium: 'Air', exitMedium: 'Air',
+  substrate: { material: 'BK7', thickness: 1.0 },
+  frontLayers: [{ material: 'TiO2', thickness: 100 }],
+  meritEnvironments: [
+    { id: 'e1', incidentMedium: 'Air', exitMedium: 'Air', substrate: { material: 'BK7', thickness: 1.0 } },
+    { id: 'e2', incidentMedium: 'Air', exitMedium: 'Air', substrate: { material: 'BK7', thickness: 1.0 }, operands: [ makeOperand({ type: 'RGT', target: 0.5, weight: 1, lambdaStart: 400, lambdaEnd: 700 }) ] },
+  ],
+};
+const mops = [ makeOperand({ type: 'RGT', target: 0, weight: 1, lambdaStart: 400, lambdaEnd: 700 }) ];
+
+const envMf = perEnvMfFor(mdesign, mops);
+assert.ok(Array.isArray(envMf) && envMf.length === 2, 'perEnvMfFor returns 2 env values');
+assert.ok(Number.isFinite(envMf[0]) && Number.isFinite(envMf[1]), 'perEnvMf values finite');
+
+// 无多环境 → null
+assert.equal(perEnvMfFor({ ...mdesign, meritEnvironments: [] }, mops), null, 'single-env returns null');
+// 无操作数 → null
+assert.equal(perEnvMfFor(mdesign, []), null, 'no operands returns null');
+console.log('refinement env MF OK');

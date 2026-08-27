@@ -10,6 +10,43 @@ const { createElement: h } = React;
 
 // ── Main Refinement window ────────────────────────────────────────────────────
 
+// Compact per-environment MF breakdown strip. Only in multi-env mode (the
+// per-state recompute returns non-null then): each environment's merit for the
+// current design state, with the saved (Reset/initial) state alongside for
+// comparison. Subdued styling matches the window's secondary text — fontSize
+// 11, c.textDim — so it stays quiet next to the trend plot.
+function EnvMfStrip({ r, c, t }) {
+    const cur = r.perEnvMf;
+    const ini = r.perEnvMfInitial;
+    if (!cur && !ini) return null;
+    const count = Math.max(cur?.length || 0, ini?.length || 0);
+    if (count === 0) return null;
+    const fmt = v => (v != null && Number.isFinite(v) ? v.toFixed(4) : '—');
+    const initialLabel = t.refinement.history.initial;
+    const rows = [];
+    for (let i = 0; i < count; i++) {
+        rows.push(
+            h('div', { key: i, style: { display: 'flex', gap: 4, alignItems: 'baseline' } },
+                h('span', { style: { color: c.text } }, `E${i + 1} MF:`),
+                h('span', { style: { color: c.textDim } }, fmt(cur?.[i])),
+                ini && ini[i] != null &&
+                    h('span', { style: { color: c.textDim, opacity: 0.7 } }, `${initialLabel} ${fmt(ini[i])}`)
+            )
+        );
+    }
+    return h('div', {
+        style: {
+            flexShrink: 0, display: 'flex', gap: 14, alignItems: 'baseline',
+            borderTop: `1px solid ${c.border}`, padding: '3px 10px',
+            fontSize: 11, color: c.textDim, background: c.bg,
+            overflow: 'hidden', whiteSpace: 'nowrap',
+        }
+    },
+        h('span', { style: { fontWeight: 600, color: c.text } }, 'Env MF:'),
+        ...rows
+    );
+}
+
 export function Refinement({ c, theme, t }) {
     const r = useRefinement({ t });
     const scopeNotice = phaseOperandScopeNotice(r.design, r.operands, t.meritFunctionEditor);
@@ -76,6 +113,9 @@ export function Refinement({ c, theme, t }) {
         },
             h(MFTrendPlot, { history: r.plotHistory, c, theme })
         ),
+
+        // Per-environment MF breakdown — only in multi-env mode (non-null)
+        h(EnvMfStrip, { r, c, t }),
 
         h(HistoryPanel, {
             entries: r.histEntries, selectedId: r.selectedHistoryId,

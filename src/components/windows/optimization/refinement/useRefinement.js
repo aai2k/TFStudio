@@ -12,6 +12,7 @@ import {
 import { loadMethod, saveMethod, MAXITER_FOR, ALL_ORDER } from './refinementConfig.js';
 import { clearRefinement, readRefinement, writeRefinement } from './sessionState.js';
 import { computeOperandDisplay, firstOperandErrorMessage } from './refinementUtils.js';
+import { useRefinementEnvMf } from './refinementEnvMf.js';
 import { runDlsEvent } from './runners/dlsPool.js';
 import { runMethodsFlow } from './runners/methodsFlow.js';
 
@@ -469,11 +470,16 @@ export function useRefinement({ t }) {
     const selectedHistory = histEntries.find(entry => entry.id === selectedHistoryId);
     const plotHistory = selectedHistory?.mfHistory?.length ? selectedHistory.mfHistory : mfHistory;
 
+    // Per-environment MF breakdown for the current design state and the saved
+    // (Reset/initial) state — recomputed per state (see refinementEnvMf.js).
+    const envMf = useRefinementEnvMf(design, savedDesign, operands);
+
     return {
         design, operands, selectedId, setSelectedId, computed, evaluationErrors,
         running, iter, mf, mfBest, mfInitial, omf, omfBest, canReset,
         method, nRestarts, perturbPct, restartIdx, maxIter, stopReason,
         mfHistory, plotHistory, histEntries, selectedHistoryId,
+        ...envMf,
         onRun: runOpt, onStop: stopOpt, onReset: resetOpt, onBest: bestOpt,
         onMethod: setMethod, onNRestarts: setNRestarts, onPerturbPct: setPerturbPct, onMaxIter: setMaxIter,
         onEdit: handleEdit, onAdd: handleAdd, onInsertAt: handleInsertAt, onDuplicate: handleDuplicate,
