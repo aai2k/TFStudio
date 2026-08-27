@@ -2,9 +2,9 @@ import { computeEllipsometry } from '../../../../utils/physics/thinFilmMath.js';
 import { designMaterialLookup } from '../../../../utils/materials/designMaterials.js';
 import { nkAt, sideLayersAt, sideMedia, toDeltaConvention } from './model.js';
 
-export function computeSpectral(design, options) {
+export function computeSpectral(design, options, envIndex = -1) {
     const { side, lambdaStart, lambdaEnd, lambdaStep, thetaDeg } = options;
-    const { n0Id, nsId } = sideMedia(design, side);
+    const { n0Id, nsId } = sideMedia(design, side, envIndex);
     const resolveMaterial = designMaterialLookup(design);
     const n0mat = resolveMaterial(n0Id);
     const nsmat = resolveMaterial(nsId);
@@ -18,9 +18,9 @@ export function computeSpectral(design, options) {
     return { x, psi, delta, xLabel: 'Wavelength (nm)' };
 }
 
-export function computeAngular(design, options) {
+export function computeAngular(design, options, envIndex = -1) {
     const { side, lambdaNm, angleStart, angleEnd, angleStep } = options;
-    const { n0Id, nsId } = sideMedia(design, side);
+    const { n0Id, nsId } = sideMedia(design, side, envIndex);
     const resolveMaterial = designMaterialLookup(design);
     const n0mat = resolveMaterial(n0Id);
     const nsmat = resolveMaterial(nsId);
@@ -36,7 +36,7 @@ export function computeAngular(design, options) {
     return { x, psi, delta, xLabel: 'Angle of incidence (°)' };
 }
 
-export function computeEllipsometrySweep(design, options) {
+export function computeEllipsometrySweep(design, options, envIndex = -1) {
     let raw;
     if (options.mode === 'spectral') {
         const step = Math.max(1, Math.min(options.lambdaStep, Math.abs(options.lambdaEnd - options.lambdaStart) || 1));
@@ -46,7 +46,7 @@ export function computeEllipsometrySweep(design, options) {
             lambdaEnd: Math.max(options.lambdaStart, options.lambdaEnd),
             lambdaStep: step,
             thetaDeg: options.thetaDeg,
-        });
+        }, envIndex);
     } else {
         const step = Math.max(0.05, Math.min(options.angleStep, Math.abs(options.angleEnd - options.angleStart) || 1));
         raw = computeAngular(design, {
@@ -55,7 +55,7 @@ export function computeEllipsometrySweep(design, options) {
             angleStart: Math.min(options.angleStart, options.angleEnd),
             angleEnd: Math.min(89.5, Math.max(options.angleStart, options.angleEnd)),
             angleStep: step,
-        });
+        }, envIndex);
     }
     return { ...raw, delta: toDeltaConvention(raw.delta, options.deltaConvention) };
 }

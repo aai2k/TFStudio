@@ -1,4 +1,5 @@
 import { designMaterialLookup } from '../../../../utils/materials/designMaterials.js';
+import { resolveEnvironment } from '../../../../utils/physics/environment.js';
 import {
     evaluateSpectrum, evaluateSpectrumBack, evaluateSpectrumTotal,
 } from '../../../../utils/physics/thinFilmMath.js';
@@ -20,15 +21,16 @@ export function getRoughnessContext(design, evalMode) {
     return { hasBack, activeSides, frontN, backN, nIfaces };
 }
 
-export function buildInterfaceLabels(design) {
+export function buildInterfaceLabels(design, envIndex = -1) {
     const resolveMaterial = designMaterialLookup(design);
+    const media = resolveEnvironment(design, envIndex);
     const front = design?.frontLayers
         ? enumerateInterfaces(
             design.frontLayers.map(layer => ({
                 material: resolveMaterial(layer.material), thickness: layer.thickness,
             })),
-            design.incidentMedium || 'Inc',
-            design.substrate?.material || 'Sub'
+            media.incidentMedium || 'Inc',
+            media.substrate?.material || 'Sub'
         )
         : [];
     const back = design?.backLayers?.length
@@ -36,21 +38,22 @@ export function buildInterfaceLabels(design) {
             design.backLayers.map(layer => ({
                 material: resolveMaterial(layer.material), thickness: layer.thickness,
             })),
-            design.substrate?.material || 'Sub',
-            design.exitMedium || 'Exit'
+            media.substrate?.material || 'Sub',
+            media.exitMedium || 'Exit'
         )
         : [];
     return { front, back };
 }
 
-export function calculateRoughness({ design, params, rough, evalMode, aoi, context }) {
+export function calculateRoughness({ design, params, rough, evalMode, aoi, context, envIndex = -1 }) {
     if (!design?.frontLayers) return { data: null, error: null };
     try {
         const resolveMaterial = designMaterialLookup(design);
-        const incMat = resolveMaterial(design.incidentMedium);
-        const subMat = resolveMaterial(design.substrate?.material);
-        const exitMat = resolveMaterial(design.exitMedium);
-        const subThk = design.substrate?.thickness ?? 1.0;
+        const media = resolveEnvironment(design, envIndex);
+        const incMat = resolveMaterial(media.incidentMedium);
+        const subMat = resolveMaterial(media.substrate?.material);
+        const exitMat = resolveMaterial(media.exitMedium);
+        const subThk = media.substrate?.thickness ?? 1.0;
         const frontRaw = (design.frontLayers || [])
             .filter(layer => layer.thickness > 0)
             .map(layer => ({ material: resolveMaterial(layer.material), thickness: layer.thickness }));

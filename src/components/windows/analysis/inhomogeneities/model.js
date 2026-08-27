@@ -1,4 +1,5 @@
 import { designMaterialLookup } from '../../../../utils/materials/designMaterials.js';
+import { resolveEnvironment } from '../../../../utils/physics/environment.js';
 import {
     evaluateSpectrum, evaluateSpectrumBack, evaluateSpectrumTotal,
 } from '../../../../utils/physics/thinFilmMath.js';
@@ -27,29 +28,31 @@ export function hasLayersForMode(design, evalMode) {
     return hasFront || hasBack;
 }
 
-export function designInterfaces(design) {
+export function designInterfaces(design, envIndex = -1) {
+    const media = resolveEnvironment(design, envIndex);
     const front = design?.frontLayers
         ? enumerateInterfaces(
             design.frontLayers,
-            design.incidentMedium || 'Inc',
-            design.substrate?.material || 'Sub',
+            media.incidentMedium || 'Inc',
+            media.substrate?.material || 'Sub',
         )
         : [];
     const back = design?.backLayers?.length
         ? enumerateInterfaces(
             design.backLayers,
-            design.substrate?.material || 'Sub',
-            design.exitMedium || 'Exit',
+            media.substrate?.material || 'Sub',
+            media.exitMedium || 'Exit',
         )
         : [];
     return { front, back };
 }
 
-export function buildExpandedStacks(design, inh) {
+export function buildExpandedStacks(design, inh, envIndex = -1) {
     const resolveMaterial = designMaterialLookup(design);
-    const incMat = resolveMaterial(design.incidentMedium);
-    const subMat = resolveMaterial(design.substrate?.material);
-    const exitMat = resolveMaterial(design.exitMedium);
+    const media = resolveEnvironment(design, envIndex);
+    const incMat = resolveMaterial(media.incidentMedium);
+    const subMat = resolveMaterial(media.substrate?.material);
+    const exitMat = resolveMaterial(media.exitMedium);
     const frontRaw = resolveLayers(resolveMaterial, design.frontLayers);
     const backRaw = resolveLayers(resolveMaterial, design.backLayers);
     const frontExp = expandLayersWithInterlayers(frontRaw, incMat, subMat, inh.interlayers || []);
@@ -57,10 +60,10 @@ export function buildExpandedStacks(design, inh) {
     return { incMat, subMat, exitMat, frontRaw, backRaw, frontExp, backExp };
 }
 
-export function computeInhomogeneitySpectra(design, params, inh, evalMode) {
-    const stacks = buildExpandedStacks(design, inh);
+export function computeInhomogeneitySpectra(design, params, inh, evalMode, envIndex = -1) {
+    const stacks = buildExpandedStacks(design, inh, envIndex);
     const { incMat, subMat, exitMat, frontRaw, backRaw, frontExp, backExp } = stacks;
-    const subThk = design.substrate?.thickness ?? 1.0;
+    const subThk = resolveEnvironment(design, envIndex).substrate?.thickness ?? 1.0;
     if (evalMode === 'back') {
         return {
             baseline: evaluateSpectrumBack(params, exitMat, subMat, backRaw),
@@ -79,8 +82,8 @@ export function computeInhomogeneitySpectra(design, params, inh, evalMode) {
     };
 }
 
-export function buildSpecificationInputs(design, inh) {
-    const { frontExp, backExp } = buildExpandedStacks(design, inh);
+export function buildSpecificationInputs(design, inh, envIndex = -1) {
+    const { frontExp, backExp } = buildExpandedStacks(design, inh, envIndex);
     const specDesign = {
         ...design,
         frontLayers: frontExp.map(layer => ({ material: layer.material, thickness: layer.thickness })),

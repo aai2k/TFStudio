@@ -4,6 +4,7 @@ import {
     evaluateSpectrumTotal,
 } from '../../../../utils/physics/thinFilmMath.js';
 import { designMaterialLookup } from '../../../../utils/materials/designMaterials.js';
+import { resolveEnvironment } from '../../../../utils/physics/environment.js';
 import { makeConeSpec, coneAverageResult } from '../../../../utils/physics/optimizer.js';
 
 function resolvedLayers(resolveMaterial, layers) {
@@ -15,12 +16,13 @@ function resolvedLayers(resolveMaterial, layers) {
         }));
 }
 
-export function computeSpectrumForMode(design, params, evalMode) {
+export function computeSpectrumForMode(design, params, evalMode, envIndex = -1) {
     const resolveMaterial = designMaterialLookup(design);
-    const incident = resolveMaterial(design.incidentMedium);
-    const substrate = resolveMaterial(design.substrate.material);
-    const exit = resolveMaterial(design.exitMedium);
-    const substrateThickness = design.substrate.thickness ?? 1.0;
+    const media = resolveEnvironment(design, envIndex);
+    const incident = resolveMaterial(media.incidentMedium);
+    const substrate = resolveMaterial(media.substrate?.material);
+    const exit = resolveMaterial(media.exitMedium);
+    const substrateThickness = media.substrate?.thickness ?? 1.0;
     const frontLayers = resolvedLayers(resolveMaterial, design.frontLayers);
     const backLayers = resolvedLayers(resolveMaterial, design.backLayers);
 

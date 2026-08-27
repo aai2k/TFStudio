@@ -11,6 +11,7 @@
 
 import { designMaterialLookup } from '../../../../utils/materials/designMaterials.js';
 import { colorReport } from '../../../../utils/physics/colorimetry.js';
+import { resolveEnvironment } from '../../../../utils/physics/environment.js';
 import { coneAverageResult, makeConeSpec } from '../../../../utils/physics/optimizer.js';
 import {
     evaluateSpectrum, evaluateSpectrumBack, evaluateSpectrumTotal,
@@ -24,12 +25,13 @@ export const formatValue = (value, digits = 4) =>
     (value == null || !isFinite(value) ? '—' : value.toFixed(digits));
 
 // Build an interpolating R|T(λ) fraction-function from a TMM spectrum sweep.
-function responseFn(design, evalMode, characteristic, pol, theta) {
+function responseFn(design, evalMode, characteristic, pol, theta, envIndex = -1) {
     const resolveMaterial = designMaterialLookup(design);
-    const incMat = resolveMaterial(design.incidentMedium);
-    const subMat = resolveMaterial(design.substrate?.material);
-    const exitMat = resolveMaterial(design.exitMedium);
-    const subThk = design.substrate?.thickness ?? 1.0;
+    const media = resolveEnvironment(design, envIndex);
+    const incMat = resolveMaterial(media.incidentMedium);
+    const subMat = resolveMaterial(media.substrate?.material);
+    const exitMat = resolveMaterial(media.exitMedium);
+    const subThk = media.substrate?.thickness ?? 1.0;
     const params = {
         lambdaStart: COLOR_RANGE_NM[0], lambdaEnd: COLOR_RANGE_NM[1], lambdaStep: 1,
         theta, polarization: pol,
@@ -75,12 +77,12 @@ function responseFn(design, evalMode, characteristic, pol, theta) {
  */
 export function computeColorReport(options) {
     const { design, evalMode, characteristic, pol, theta,
-            observer, illuminant, step, setError } = options;
+            observer, illuminant, step, envIndex = -1, setError } = options;
     if (!design) return null;
     const front = (design.frontLayers || []).filter(layer => layer.thickness > 0);
     if (evalMode === 'front' && front.length === 0) return null;
     try {
-        const response = responseFn(design, evalMode, characteristic, pol, theta);
+        const response = responseFn(design, evalMode, characteristic, pol, theta, envIndex);
         setError(null);
         return colorReport(response, { observer, illuminant, step });
     } catch (error) {

@@ -1,6 +1,7 @@
 import { computeRIProfile } from '../../../../utils/physics/thinFilmMath.js';
 import { resolveColor } from '../../../../utils/materials/catalogManager.js';
 import { designMaterialLookup } from '../../../../utils/materials/designMaterials.js';
+import { resolveEnvironment } from '../../../../utils/physics/environment.js';
 
 export function buildMatColorMap(design, layers) {
     const resolveMaterial = designMaterialLookup(design);
@@ -16,16 +17,17 @@ export function buildMatColorMap(design, layers) {
 }
 
 // Profiles always run from the incident medium through the coating to the substrate.
-export function computeProfileForSide(design, lambda_nm, side) {
+export function computeProfileForSide(design, lambda_nm, side, envIndex = -1) {
     const rawLayers = side === 'back'
         ? (design?.backLayers || [])
         : (design?.frontLayers || []);
     if (!rawLayers.length) return null;
 
-    const n0Id = side === 'back' ? design.exitMedium : design.incidentMedium;
+    const media = resolveEnvironment(design, envIndex);
+    const n0Id = side === 'back' ? media.exitMedium : media.incidentMedium;
     const resolveMaterial = designMaterialLookup(design);
     const n0mat = resolveMaterial(n0Id);
-    const nsmat = resolveMaterial(design.substrate?.material);
+    const nsmat = resolveMaterial(media.substrate?.material);
     const [n0n, n0k] = n0mat.getNK(lambda_nm);
     const [nsn, nsk] = nsmat.getNK(lambda_nm);
 
@@ -65,8 +67,9 @@ export function buildRegionProfile(layers) {
     return { z, n, k, layerBounds, validLayers: layers, totalThk: acc };
 }
 
-export function computeTotalRegions(design, lambda_nm, rp) {
+export function computeTotalRegions(design, lambda_nm, rp, envIndex = -1) {
     const resolveMaterial = designMaterialLookup(design);
+    const media = resolveEnvironment(design, envIndex);
     const sampleLayers = (rawLayers) => (rawLayers || [])
         .filter(l => l.material && l.thickness > 0)
         .map(l => {
@@ -89,9 +92,9 @@ export function computeTotalRegions(design, lambda_nm, rp) {
         });
     }
 
-    const subThkMm = design?.substrate?.thickness;
+    const subThkMm = media?.substrate?.thickness;
     if (subThkMm && subThkMm > 0) {
-        const subMat = resolveMaterial(design?.substrate?.material);
+        const subMat = resolveMaterial(media?.substrate?.material);
         const [sn, sk] = subMat.getNK(lambda_nm);
         const subThkNm = subThkMm * 1e6;
         regions.push({
@@ -104,8 +107,8 @@ export function computeTotalRegions(design, lambda_nm, rp) {
             k: [sk, sk],
             layerBounds: [0, subThkMm],
             validLayers: [{ n: sn, k: sk, d: subThkNm,
-                            materialId: design?.substrate?.material,
-                            name: subMat?.name || design?.substrate?.material }],
+                            materialId: media?.substrate?.material,
+                            name: subMat?.name || media?.substrate?.material }],
             totalThk: subThkMm,
         });
     }

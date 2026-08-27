@@ -1,4 +1,6 @@
 // thinFilmMath uses n + ik with nonnegative k for passive absorption.
+import { resolveEnvironment } from '../../../../utils/physics/environment.js';
+
 export function nkAt(material, lambdaNm) {
     const [nr, nk] = material.getNK(lambdaNm);
     return [nr, nk];
@@ -14,10 +16,11 @@ export function sideLayersAt(resolveMaterial, design, side, lambdaNm) {
         .map(layer => ({ n: nkAt(resolveMaterial(layer.material), lambdaNm), d: layer.thickness }));
 }
 
-export function sideMedia(design, side) {
+export function sideMedia(design, side, envIndex = -1) {
+    const media = resolveEnvironment(design, envIndex);
     return side === 'back'
-        ? { n0Id: design.exitMedium, nsId: design.substrate?.material }
-        : { n0Id: design.incidentMedium, nsId: design.substrate?.material };
+        ? { n0Id: media.exitMedium, nsId: media.substrate?.material }
+        : { n0Id: media.incidentMedium, nsId: media.substrate?.material };
 }
 
 export function sideHasLayers(design, side) {

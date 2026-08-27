@@ -8,6 +8,7 @@
 
 import { ANALYSIS_DEFAULTS, paletteColors } from '../../../../constants/analysisDefaults.js';
 import { designMaterialLookup } from '../../../../utils/materials/designMaterials.js';
+import { resolveEnvironment } from '../../../../utils/physics/environment.js';
 import { tmmWithAdmittances } from '../../../../utils/physics/thinFilmMath.js';
 
 function cadd([ar, ai], [br, bi]) { return [ar + br, ai + bi]; }
@@ -207,10 +208,11 @@ export function sideStackLayers(design, side) {
 }
 
 function buildOnePol(design, conditions, pol) {
-    const { lambda_nm, theta_deg, side, view: viewKind } = conditions;
+    const { lambda_nm, theta_deg, side, view: viewKind, envIndex = -1 } = conditions;
     const resolveMaterial = designMaterialLookup(design);
-    const n0mat = resolveMaterial(side === 'back' ? design.exitMedium : design.incidentMedium);
-    const nsmat = resolveMaterial(design.substrate?.material);
+    const media = resolveEnvironment(design, envIndex);
+    const n0mat = resolveMaterial(side === 'back' ? media.exitMedium : media.incidentMedium);
+    const nsmat = resolveMaterial(media.substrate?.material);
     const [n0r, n0k] = n0mat.getNK(lambda_nm);
     const n0 = [n0r, n0k];
     const [nsr, nsk] = nsmat.getNK(lambda_nm);
@@ -266,8 +268,8 @@ export function sideHasLayers(design, side) {
  * ('admittance' or 'reflection').
  */
 export function buildDiagramData(design, conditions) {
-    const { pol, side = 'front', view = 'admittance' } = conditions;
+    const { pol, side = 'front', view = 'admittance', envIndex = -1 } = conditions;
     if (!sideHasLayers(design, side)) return null;
     const pols = pol === 'avg' ? ['s', 'p'] : [pol];
-    return pols.map(p => buildOnePol(design, { ...conditions, side, view }, p));
+    return pols.map(p => buildOnePol(design, { ...conditions, side, view, envIndex }, p));
 }

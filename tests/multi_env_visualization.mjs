@@ -4,6 +4,16 @@ import { computeDesignSpectrum } from '../src/utils/io/designSpectrum.js';
 import { resolveEnvironment, environmentOptions, environmentLabel } from '../src/utils/physics/environment.js';
 import { opticalEnvSession } from '../src/components/windows/analysis/opticalEvaluation/envSession.js';
 import { computeVariatorSpectrum } from '../src/components/windows/optimization/variator/model.js';
+import { computeColorReport } from '../src/components/windows/analysis/colorEvaluation/colorModel.js';
+import { sideMedia } from '../src/components/windows/analysis/ellipsometryEvaluation/model.js';
+import { computeSpectral } from '../src/components/windows/analysis/ellipsometryEvaluation/spectrum.js';
+import { computeProfile } from '../src/components/windows/analysis/eFieldEvaluation/profileModel.js';
+import { buildDiagramData } from '../src/components/windows/analysis/admittanceDiagram/model.js';
+import { buildExpandedStacks, computeInhomogeneitySpectra } from '../src/components/windows/analysis/inhomogeneities/model.js';
+import { computeSpectrumForMode } from '../src/components/windows/analysis/integralValues/spectrum.js';
+import { computeTotalRegions, computeProfileForSide } from '../src/components/windows/analysis/refractiveIndexProfiler/profileModel.js';
+import { buildInterfaceLabels, calculateRoughness, getRoughnessContext } from '../src/components/windows/analysis/roughnessScattering/model.js';
+import { buildEvaluationContext } from '../src/components/windows/analysis/plotEngine/materialContext.js';
 
 // 不用 makeDefaultDesign：DesignContext.js 依赖全局 React（Electron renderer），
 // 纯 node 测试直接构造普通对象即可。
@@ -117,3 +127,87 @@ let vdiff = 0;
 for (let i = 0; i < va.R.length; i++) vdiff += Math.abs(va.R[i] - vb.R[i]);
 assert.ok(vdiff > 1e-6, 'variator env differs (substrate BK7 vs SiO2)');
 console.log('variator env OK');
+
+// ── Task 6: 其余分析窗口模型层接入 resolveEnvironment ──────────
+// 共享设计：设计级基底 BK7，环境 0 = SiO2（均内置、n 1.52 vs 1.46）。
+// 判别手段统一为"基底材料切换"；envIndex = -1 必须等于设计级行为。
+const mkDesign = () => ({
+    frontLayers: [{ material: 'TiO2', thickness: 100 }],
+    incidentMedium: 'Air', exitMedium: 'Air',
+    substrate: { material: 'BK7', thickness: 1.0 },
+    meritEnvironments: [{ id: 'e1', incidentMedium: 'Air', exitMedium: 'Air', substrate: { material: 'SiO2', thickness: 1.0 } }],
+});
+const p6 = { lambdaStart: 400, lambdaEnd: 700, lambdaStep: 100, thetas: [0] };
+const sumAbsDiff = (a, b) => a.reduce((s, v, i) => s + Math.abs(v - b[i]), 0);
+
+// (a) plotEngine materialContext —— 解析后介质对象 nk 直接可比
+const ctx0 = buildEvaluationContext(mkDesign(), -1);
+const ctx1 = buildEvaluationContext(mkDesign(), 0);
+assert.ok(Math.abs(ctx0.subMat.getNK(550)[0] - ctx1.subMat.getNK(550)[0]) > 1e-6, 'plotEngine env substrate nk differs');
+
+// (b) refractiveIndexProfiler —— computeTotalRegions 返回 regions 数组（非 {regions}），
+//     以 key==='substrate' 的区折射率判别
+const r0 = computeTotalRegions(mkDesign(), 550, {}, -1);
+const r1 = computeTotalRegions(mkDesign(), 550, {}, 0);
+const subR0 = r0.find(g => g.key === 'substrate');
+const subR1 = r1.find(g => g.key === 'substrate');
+assert.ok(subR0 && subR1, 'profiler substrate region present');
+assert.ok(Math.abs(subR0.n[0] - subR1.n[0]) > 1e-6, 'profiler substrate n differs');
+const pf0 = computeProfileForSide(mkDesign(), 550, 'front', -1);
+assert.ok(pf0 && pf0.z?.length > 0, 'profiler per-side profile default -1 runs');
+
+// (c) admittanceDiagram —— conditions 包带 envIndex；etaS 为基底导纳（实部≈ns）
+const cond = { lambda_nm: 550, theta_deg: 0, pol: 's', side: 'front', view: 'admittance' };
+const adm0 = buildDiagramData(mkDesign(), { ...cond, envIndex: -1 });
+const adm1 = buildDiagramData(mkDesign(), { ...cond, envIndex: 0 });
+assert.ok(adm0 && adm1, 'admittance diagram data built');
+assert.ok(Math.abs(adm0[0].etaS[0] - adm1[0].etaS[0]) > 1e-6, 'admittance substrate admittance differs');
+
+// (d) integralValues —— 'front' 模式反射谱随基底变化
+const iv0 = computeSpectrumForMode(mkDesign(), p6, 'front', -1);
+const iv1 = computeSpectrumForMode(mkDesign(), p6, 'front', 0);
+assert.ok(sumAbsDiff(iv0.R, iv1.R) > 1e-6, 'integralValues env R differs');
+
+// (e) ellipsometry —— sideMedia 直接给出介质 id；谱随基底变化
+//     （正入射时 ψ/Δ 退化恒为 45°/180°，改用 60° 入射角）
+assert.equal(sideMedia(mkDesign(), 'front', -1).nsId, 'BK7', 'ellipsometry design-level substrate');
+assert.equal(sideMedia(mkDesign(), 'front', 0).nsId, 'SiO2', 'ellipsometry env substrate');
+const es0 = computeSpectral(mkDesign(), { side: 'front', lambdaStart: 400, lambdaEnd: 600, lambdaStep: 50, thetaDeg: 60 }, -1);
+const es1 = computeSpectral(mkDesign(), { side: 'front', lambdaStart: 400, lambdaEnd: 600, lambdaStep: 50, thetaDeg: 60 }, 0);
+assert.ok(sumAbsDiff(es0.psi, es1.psi) > 1e-6, 'ellipsometry env psi differs');
+
+// (f) inhomogeneities —— buildExpandedStacks 的 subMat 与基线谱均随基底变化
+const inh = { interlayers: [], backInterlayers: [] };
+const st0 = buildExpandedStacks(mkDesign(), inh, -1);
+const st1 = buildExpandedStacks(mkDesign(), inh, 0);
+assert.ok(Math.abs(st0.subMat.getNK(550)[0] - st1.subMat.getNK(550)[0]) > 1e-6, 'inhomogeneities env subMat differs');
+const ih0 = computeInhomogeneitySpectra(mkDesign(), p6, inh, 'front', -1);
+const ih1 = computeInhomogeneitySpectra(mkDesign(), p6, inh, 'front', 0);
+assert.ok(sumAbsDiff(ih0.baseline.R, ih1.baseline.R) > 1e-6, 'inhomogeneities env baseline R differs');
+
+// (g) roughnessScattering —— 界面标签的基底名与理想谱随基底变化
+const lab0 = buildInterfaceLabels(mkDesign(), -1);
+const lab1 = buildInterfaceLabels(mkDesign(), 0);
+assert.ok(lab0.front.at(-1).label.endsWith('BK7'), 'roughness design-level sub label');
+assert.ok(lab1.front.at(-1).label.endsWith('SiO2'), 'roughness env sub label');
+const roughCtx = getRoughnessContext(mkDesign(), 'front');
+const rough = { mode: 'uniform', sigma: 1, sigmas: [], backSigmas: [] };
+const ro0 = calculateRoughness({ design: mkDesign(), params: p6, rough, evalMode: 'front', aoi: 0, context: roughCtx, envIndex: -1 });
+const ro1 = calculateRoughness({ design: mkDesign(), params: p6, rough, evalMode: 'front', aoi: 0, context: roughCtx, envIndex: 0 });
+assert.ok(ro0.data && ro1.data, 'roughness calculation runs');
+assert.ok(sumAbsDiff(ro0.data.ideal.R, ro1.data.ideal.R) > 1e-6, 'roughness env ideal R differs');
+
+// (h) eFieldEvaluation —— 场分布随基底介质变化（正常入射、s 偏振）
+const ef0 = computeProfile(mkDesign(), 550, 0, 's', 'front', -1);
+const ef1 = computeProfile(mkDesign(), 550, 0, 's', 'front', 0);
+assert.ok(ef0 && ef1, 'efield profile runs');
+assert.ok(sumAbsDiff(ef0.s.e2, ef1.s.e2) > 1e-6, 'efield env e2 differs');
+
+// (i) colorEvaluation —— 色度坐标随基底变化（380-780 网格，略慢）
+const colorOpts = { design: mkDesign(), evalMode: 'front', characteristic: 'R', pol: 'avg', theta: 0,
+                    observer: '2', illuminant: 'D65', step: 5, setError: () => {} };
+const c0 = computeColorReport({ ...colorOpts, envIndex: -1 });
+const c1 = computeColorReport({ ...colorOpts, envIndex: 0 });
+assert.ok(c0 && c1, 'color report runs');
+assert.ok(Math.abs(c0.xy.x - c1.xy.x) > 1e-9, 'color env xy differs');
+console.log('analysis windows env OK');

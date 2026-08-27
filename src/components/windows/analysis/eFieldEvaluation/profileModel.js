@@ -1,6 +1,7 @@
 import { computeEFieldProfile } from '../../../../utils/physics/thinFilmMath.js';
 import { resolveColor } from '../../../../utils/materials/catalogManager.js';
 import { designMaterialLookup } from '../../../../utils/materials/designMaterials.js';
+import { resolveEnvironment } from '../../../../utils/physics/environment.js';
 
 const NPTS = 60;
 
@@ -24,15 +25,16 @@ function sampleLayer(resolveMaterial, layer, lambda_nm) {
 }
 
 // Back layers are stored substrate-to-exit and are reversed into propagation order.
-export function computeProfile(design, lambda_nm, theta_deg, pol, side = 'front') {
+export function computeProfile(design, lambda_nm, theta_deg, pol, side = 'front', envIndex = -1) {
     if (!design) return null;
     const srcLayers = side === 'back' ? design.backLayers : design.frontLayers;
     if (!srcLayers?.length) return null;
 
-    const incidentId = side === 'back' ? design.exitMedium : design.incidentMedium;
+    const media = resolveEnvironment(design, envIndex);
+    const incidentId = side === 'back' ? media.exitMedium : media.incidentMedium;
     const resolveMaterial = designMaterialLookup(design);
     const n0mat = resolveMaterial(incidentId);
-    const nsmat = resolveMaterial(design.substrate?.material);
+    const nsmat = resolveMaterial(media.substrate?.material);
     const n0raw = n0mat.getNK(lambda_nm);
     const nsraw = nsmat.getNK(lambda_nm);
     // The physics engine uses n + ik with nonnegative k for passive absorption.
