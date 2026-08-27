@@ -267,6 +267,7 @@ const mops = [ makeOperand({ type: 'RGT', target: 0, weight: 1, lambdaStart: 400
 const envMf = perEnvMfFor(mdesign, mops);
 assert.ok(Array.isArray(envMf) && envMf.length === 2, 'perEnvMfFor returns 2 env values');
 assert.ok(Number.isFinite(envMf[0]) && Number.isFinite(envMf[1]), 'perEnvMf values finite');
+assert.notStrictEqual(envMf[0], envMf[1], 'per-env MF differs across environments');
 
 // 无多环境 → null
 assert.equal(perEnvMfFor({ ...mdesign, meritEnvironments: [] }, mops), null, 'single-env returns null');
