@@ -66,6 +66,7 @@ const designB = { id: 'design-B', meritEnvironments: [] };
 let s0 = opticalEnvSession.read(designA);
 assert.equal(s0.envIndex, -1, 'default envIndex -1');
 assert.equal(s0.locked, false, 'default unlocked');
+assert.equal(s0.lockedEnvIndex, -1, 'default lockedEnvIndex -1');
 
 // 写入 envIndex + 锁定快照
 opticalEnvSession.write(designA, { envIndex: 0, locked: true, lockedEnvIndex: 0 });
@@ -82,4 +83,16 @@ assert.equal(s2.locked, false, 'design switch unlocks');
 opticalEnvSession.write(designB, { envIndex: 5 });
 let s3 = opticalEnvSession.read(designA);
 assert.equal(s3.envIndex, 0, 'per-slot isolation preserved');
+
+// onDesignChange 复位分支：存储的索引在新 design 上越界（环境列表收缩）→
+// 切回时守卫返回复位补丁（设计级 + 解锁）。仅 1 个环境却存了索引 2。
+const designC = { id: 'design-C', meritEnvironments: [{ id: 'e1', incidentMedium: 'Air', exitMedium: 'Water' }] };
+const designD = { id: 'design-D', meritEnvironments: [] };
+opticalEnvSession.read(designC); // 建立 designC 槽位
+opticalEnvSession.write(designC, { envIndex: 2, locked: true, lockedEnvIndex: 2 }); // 2 越界（1 个环境）
+opticalEnvSession.read(designD); // 切到别的 design
+let s4 = opticalEnvSession.read(designC); // 切回 → 触发 onDesignChange，索引已无效
+assert.equal(s4.envIndex, -1, 'out-of-range envIndex resets to design level');
+assert.equal(s4.locked, false, 'out-of-range lock cleared');
+assert.equal(s4.lockedEnvIndex, -1, 'out-of-range lockedEnvIndex resets');
 console.log('envSession OK');
