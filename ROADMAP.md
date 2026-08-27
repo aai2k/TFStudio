@@ -2,7 +2,7 @@
 
 What is planned for TFStudio, roughly in the order it is likely to happen.
 
-TFStudio is developed by one person alongside a full-time job, so this is a statement of direction rather than a set of commitments, and it carries no dates. Items move between sections as priorities change. A release ships whatever is finished at the time it is cut.
+This is a statement of direction rather than a set of commitments, and it carries no dates. Items move between sections as priorities change. A release ships whatever is finished at the time it is cut.
 
 If something here matters to your work, or something you need is missing, open an issue. Feedback changes this list.
 
@@ -18,7 +18,6 @@ If something here matters to your work, or something you need is missing, open a
 
 - **Coating Library.** Saving and reusing user-made coating stacks. A curated set of starting designs with real materials will be shipped too. 
 - **New window with a layer thicknesses diagram.** 
-- **Fitting a design to a measured spectrum.** Measured spectra can already be imported and plotted. The next step is generating merit function targets from an imported curve, so layer thicknesses can be fitted to what was actually deposited.
 - **Report layout.** Denser layer tables and better defaults in generated reports.
 - **Visual GD/GDD target editing.** Draw, move and remove dispersion targets directly on the GD/GDD plot instead of switching to the merit table.
 - **Pulse Analysis.** Propagate Gaussian, sech-squared or measured pulses through a coating and show temporal broadening, spectral phase and residual chirp.
