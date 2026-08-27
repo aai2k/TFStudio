@@ -126,6 +126,7 @@ export default defineConfig({
             { label: 'Design Cleaner',       translations: { 'zh-CN': '设计清理器' }, slug: 'synthesis/design-cleaner' },
             { label: 'Filter Design',        translations: { 'zh-CN': '滤光片设计' }, slug: 'synthesis/wdm-wizard' },
             { label: 'Optimization Methods', translations: { 'zh-CN': '优化方法' },   slug: 'synthesis/optimization-methods' },
+            { label: 'Multi-Environment Optimization', translations: { 'zh-CN': '多环境优化' }, slug: 'synthesis/multi-environment' },
           ],
         },
         {
