@@ -1,5 +1,6 @@
 import {
-    OPERAND_POLS, OPERAND_TYPES, isFractionalUnit, isValidMeritWeight,
+    GENERATED_ONLY_OPERAND_TYPES, OPERAND_POLS, OPERAND_TYPES,
+    isFractionalUnit, isValidMeritWeight,
 } from '../../../../../utils/physics/optimizer.js';
 
 export function serializeOperandsTsv(operands, selectedIds) {
@@ -20,6 +21,10 @@ export function parseOperandsTsv(text) {
         const aoi = parseFloat(aoiText);
         const target = parseFloat(targetText);
         const weight = parseFloat(weightText);
+        // A generated row carries data the clipboard does not: a measured block
+        // is its sampled curve. Retyping it would paste an unrelated operand
+        // built from the block's range and its target of zero, so skip it.
+        if (GENERATED_ONLY_OPERAND_TYPES.includes(type)) return;
         const safeType = OPERAND_TYPES.includes(type) ? type : 'RAV';
         items.push({
             type: safeType,

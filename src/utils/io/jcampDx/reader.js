@@ -96,7 +96,7 @@ export function buildSpectrum(data, ctx) {
         xUnit: unitToX(ctx.xunits),
         quantity,
         isAbsorbance,
-        isPercent: !isAbsorbance && maxY > 1.5,
+        isPercent: !isAbsorbance && (/%|PERCENT/i.test(ctx.yunits || '') || maxY > 1.5),
         x: data.x,
         y: data.y,
     };

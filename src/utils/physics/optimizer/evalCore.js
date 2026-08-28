@@ -13,7 +13,8 @@ import { tmm, tmmNeedleScan, tmmThicknessJacobian, tmmThicknessHessian, computeE
 import { evaluateStackPhaseDispersion } from '../phaseDispersion.js';
 import { resolveSourceSpec, resolveDetectorSpec } from '../spectralWeightings.js';
 import { tmmWasmActive, getTmmWasm } from '../../../tmmcore.js';
-import { isConstraint, isDmfs, isBlank, isTotalThickness, isRangeTarget, isIntegral, isMinmax, isMinType, isArgwave, isArgwaveMin, isMath, isEllipsometry, isPhaseShift, isGroupDelay, isGroupDelayFlat, isEField, isPhase, argwaveOpticalChar, argwavePolCode, polFromType, isRamp, isValidMeritWeight } from './operandModel.js';
+import { isConstraint, isDmfs, isBlank, isTotalThickness, isRangeTarget, isMeasuredCurve, isIntegral, isMinmax, isMinType, isArgwave, isArgwaveMin, isMath, isEllipsometry, isPhaseShift, isGroupDelay, isGroupDelayFlat, isEField, isPhase, argwaveOpticalChar, argwavePolCode, polFromType, isRamp, isValidMeritWeight } from './operandModel.js';
+import { expandMeasuredCurveOperands } from './measuredCurveOperand.js';
 import { isRangeAvg, charOf, operandSampleLambdas } from './sampling.js';
 
 import { makeConeSpec, coneIsActive, coneNodes } from './coneAngle.js';
@@ -224,20 +225,25 @@ function _densifyOne(op, ctx, cfg, state) {
 }
 
 export function densifyOperandsForFeatures(operands, design, resolveMat, cfg = ADAPTIVE_SAMPLING_DEFAULTS, notify = null) {
-    if (!cfg || cfg.enabled === false || !Array.isArray(operands) || operands.length === 0) return operands;
+    if (!Array.isArray(operands) || operands.length === 0) return operands;
+    // Measured blocks always expand at this run-launch seam, independent of
+    // adaptive feature sampling. The expanded list is fed to both
+    // requiredLambdas/material pre-sampling and the optimizer/worker job.
+    const expanded = expandMeasuredCurveOperands(operands);
+    if (!cfg || cfg.enabled === false) return expanded;
     let ctx;
     try { ctx = buildEvalContext(design, resolveMat); }
-    catch { return operands; }   // can't probe → fail safe to the uniform default
+    catch { return expanded; }   // can't probe → keep measured expansion, skip adaptive probing
 
     const state = { capped: 0 };
-    const out = operands.map(op => _densifyOne(op, ctx, cfg, state));
+    const out = expanded.map(op => _densifyOne(op, ctx, cfg, state));
     // A densified operand is a fresh object (≠ its input); unchanged ones keep identity.
-    const changed = out.some((o, i) => o !== operands[i]);
+    const changed = out.some((o, i) => o !== expanded[i]);
     if (changed && typeof notify === 'function') {
-        const bumped = out.filter((o, i) => o !== operands[i]).length;
+        const bumped = out.filter((o, i) => o !== expanded[i]).length;
         notify({ bumped, capped: state.capped });
     }
-    return changed ? out : operands;
+    return changed ? out : expanded;
 }
 
 // Every distinct material identifier a design references (incident / exit /
@@ -714,11 +720,53 @@ function _evalRangeTarget(op, ctx) {
     return Math.sqrt(sumSq / n);
 }
 
+function _assertMeasurementSide(op, ctx) {
+    const requested = isMeasuredCurve(op.type) ? op.side : op.measurementSide;
+    if (!requested) return;
+    // The existing full-system model is illuminated from the front. A back
+    // measurement therefore requires the design's back-only evaluation mode;
+    // refusing a mismatch is safer than silently fitting a different spectrum.
+    const evaluated = !ctx.evalFullSystem && ctx.surfaceMode === 'back_only' ? 'back' : 'front';
+    if (requested !== evaluated) {
+        throw new OperandEvaluationError(
+            `Measured curve expects ${requested}-side incidence, but the design merit function evaluates ${evaluated}-side incidence.`,
+        );
+    }
+}
+
+// Persisted measured-curve block: its value is already the RMS residual, so
+// `_operandResidual` consumes it directly just like a continuous range target.
+function _evalMeasuredCurve(op, ctx) {
+    _assertMeasurementSide(op, ctx);
+    const lambdas = op.sampleLambdas;
+    const targets = op.sampleTargets;
+    if (!Array.isArray(lambdas) || !Array.isArray(targets)
+        || lambdas.length === 0 || lambdas.length !== targets.length) {
+        throw new OperandEvaluationError('Measured curve snapshot has no valid sample pairs.');
+    }
+    const char = ['T', 'R', 'A'].includes(op.quantity) ? op.quantity : 'R';
+    const pol = op.pol || 'avg';
+    let sumSq = 0;
+    for (let index = 0; index < lambdas.length; index++) {
+        const lambda = lambdas[index];
+        const target = targets[index];
+        if (!Number.isFinite(lambda) || lambda <= 0 || !Number.isFinite(target)) {
+            throw new OperandEvaluationError('Measured curve snapshot contains an invalid wavelength or target.');
+        }
+        const difference = tmmProp(
+            lambda, op.aoi ?? 0, pol, char, ctx, ctx.frontThicks, ctx.frontMats,
+        ) - target;
+        sumSq += difference * difference;
+    }
+    return Math.sqrt(sumSq / lambdas.length);
+}
+
 // Band average (TAV/RAV/AAV = mean of C(λ) over the band) or, for a plain
 // single-wavelength operand, C at op.lambdaStart. The λ grid comes from the
 // centralized helper so the worker pre-sampler cannot diverge from what we
 // evaluate here → bit-identical.
 function _evalBandAvgOrSingle(op, ctx) {
+    _assertMeasurementSide(op, ctx);
     const char = charOf(op.type);
     const pol  = polFromType(op.type) ?? op.pol;
     if (!isRangeAvg(op.type)) {
@@ -949,6 +997,7 @@ const _EVAL_DISPATCH = [
     [isIntegral,       _evalIntegral],
     [isMinmax,         _evalMinmax],
     [isRangeTarget,    _evalRangeTarget],
+    [isMeasuredCurve,  _evalMeasuredCurve],
     [isEllipsometry,   _evalEllipsometry],
     [isGroupDelayFlat, _evalGroupDelayFlat],
     [isPhaseShift,     _evalPhaseDispersionPoint],
@@ -1174,7 +1223,7 @@ export function _operandResidual(op, val) {
     }
     if (isMath(op.type)) return mathResidual(op, val);
     // Ramp (TGT/RGT/AGT) and GD/GDD flatness already carry their RMS deviation.
-    if (isRamp(op) || isGroupDelayFlat(op.type)) return val;
+    if (isRamp(op) || isMeasuredCurve(op.type) || isGroupDelayFlat(op.type)) return val;
     if (isPhaseShift(op.type)) return _normalizeDegrees(val - op.target);
     return val - op.target;
 }

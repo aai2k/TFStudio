@@ -1,4 +1,4 @@
-import { OPERAND_TYPES } from '../../../../../utils/physics/optimizer.js';
+import { GENERATED_ONLY_OPERAND_TYPES, OPERAND_TYPES } from '../../../../../utils/physics/optimizer.js';
 import { PickerDropdown } from '../../../../ui/PickerDropdown.js';
 
 const { createElement: h } = React;
@@ -13,6 +13,7 @@ function operandCategories(t) {
     const operandGroups = t?.meritFunctionEditor?.operandGroups || {};
     const byGroup = new Map();
     for (const type of OPERAND_TYPES) {
+        if (GENERATED_ONLY_OPERAND_TYPES.includes(type)) continue;
         const group = operandTypes[type]?.group || 'optical';
         if (!byGroup.has(group)) byGroup.set(group, []);
         byGroup.get(group).push(type);

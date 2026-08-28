@@ -34,20 +34,24 @@ export function splitFields(line, delimiter) {
     return line.split(delimiter).map(f => f.trim());
 }
 
-// Reward many rows that split into >=2 numeric columns, plus a consistent
-// column count. A delimiter that never produces 2 numeric columns scores 0.
+// Reward rows whose fields are predominantly numeric, plus a consistent column
+// count. The numeric fraction matters: in a decimal-comma row such as
+// `400,0;88,51`, splitting on comma produces two numeric fragments out of three
+// fields, while splitting on semicolon produces two complete numeric fields.
+// Counting only "at least two numbers" makes those candidates tie.
 function scoreDelimiter(lines, delimiterId, decimal) {
-    let good = 0, fieldCount = null, consistent = true;
+    let good = 0, numericFraction = 0, fieldCount = null, consistent = true;
     for (const line of lines) {
         if (!line.trim()) continue;
         const fields = splitFields(line, delimiterId);
         const nums = fields.filter(f => Number.isFinite(parseNumber(f, decimal)));
         if (nums.length < 2) continue;
         good++;
+        numericFraction += nums.length / fields.length;
         if (fieldCount == null) fieldCount = fields.length;
         else if (fields.length !== fieldCount) consistent = false;
     }
-    return good === 0 ? 0 : good + (consistent ? 0.5 : 0);
+    return good === 0 ? 0 : numericFraction + (consistent ? 0.25 : 0);
 }
 
 /**

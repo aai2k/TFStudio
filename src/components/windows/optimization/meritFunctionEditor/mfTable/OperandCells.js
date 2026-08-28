@@ -3,6 +3,7 @@ import {
 } from '../../../../../utils/physics/optimizer.js';
 import { CellInput, CellSelect } from './CellControls.js';
 import { OperandTypePicker } from './OperandTypePicker.js';
+import { measuredSnapshotCell, measuredTypeCell } from './measuredCells.js';
 import {
     contributionBarWidth, fmtContribution, fmtCurrent, fmtTargetDisplay, residualTooltip,
 } from './operandViewModel.js';
@@ -284,6 +285,14 @@ export function rowRenderers(op, meta) {
         renderers.lambdaEnd = mathReferenceCell;
         renderers.aoi = dashCell;
         renderers.pol = dashCell;
+    }
+    if (meta.isMeasured) {
+        renderers.type = measuredTypeCell;
+        renderers.lambdaStart = measuredSnapshotCell;
+        renderers.lambdaEnd = measuredSnapshotCell;
+        renderers.aoi = measuredSnapshotCell;
+        renderers.pol = measuredSnapshotCell;
+        renderers.target = dashCell;
     }
     return renderers;
 }

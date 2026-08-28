@@ -2,14 +2,14 @@
  * JCAMP-DX block serialization (AFFN encoding) for the writer.
  */
 
-import { X_UNITS } from '../spectrumTable.js';
+import { X_UNITS } from '../spectrumTable/constants.js';
 
 const X_UNIT_LABEL = { [X_UNITS.NM]: 'NANOMETERS', [X_UNITS.CM1]: '1/CM', [X_UNITS.UM]: 'MICROMETERS' };
-const Y_UNIT_LABEL = { T: 'TRANSMITTANCE', R: 'REFLECTANCE', A: 'ABSORBANCE' };
+const Y_UNIT_LABEL = { T: 'TRANSMITTANCE', R: 'REFLECTANCE', A: 'ABSORPTANCE' };
 
 function fmtNum(v) {
     if (!Number.isFinite(v)) return '0';
-    return Number(v.toFixed(6)).toString();
+    return Number(v.toFixed(12)).toString();
 }
 
 function isUniform(x) {
@@ -55,7 +55,10 @@ function xypointsLines(x, y, n) {
 export function buildBlock(s, { version = '4.24', dataType = 'UV/VIS SPECTRUM' } = {}) {
     const x = s.x, y = s.y, n = x.length;
     const xUnitLabel = X_UNIT_LABEL[s.xUnit || X_UNITS.NM] || 'NANOMETERS';
-    const yUnitLabel = Y_UNIT_LABEL[s.quantity] || (s.isAbsorbance ? 'ABSORBANCE' : 'ARBITRARY UNITS');
+    const baseYUnit = s.isAbsorbance ? 'ABSORBANCE' : Y_UNIT_LABEL[s.quantity];
+    const yUnitLabel = baseYUnit
+        ? `${s.isPercent && !s.isAbsorbance ? '% ' : ''}${baseYUnit}`
+        : 'ARBITRARY UNITS';
 
     const lines = [
         `##TITLE=${s.title || 'Spectrum'}`,

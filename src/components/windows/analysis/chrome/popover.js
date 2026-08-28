@@ -187,7 +187,14 @@ export function SettingDivider({ c }) {
 export function NoticeBadge({ c, notices, label }) {
     const items = (notices || []).filter(Boolean);
     if (!items.length) return null;
-    const tone = items.some(notice => notice.tone === 'error') ? c.error : c.warning;
+    const colorFor = tone => tone === 'error' ? c.error
+        : tone === 'success' ? c.success
+        : tone === 'info' ? c.accent
+        : (tone && tone !== 'warning' ? tone : c.warning);
+    const badgeNotice = items.find(notice => notice.tone === 'error')
+        || items.find(notice => !notice.tone || notice.tone === 'warning')
+        || items[0];
+    const tone = colorFor(badgeNotice.tone);
     return h(PopoverButton, {
         c, tone, width: 280,
         label: `${items.length}`,
@@ -201,7 +208,7 @@ export function NoticeBadge({ c, notices, label }) {
                 borderTop: index ? `1px solid ${c.border}` : undefined,
             },
         },
-            h('div', { style: { fontWeight: 600, color: notice.tone === 'error' ? c.error : c.warning } },
+            h('div', { style: { fontWeight: 600, color: colorFor(notice.tone) } },
                 notice.label),
             notice.detail && h('div', {
                 style: { marginTop: 2, color: c.textDim, lineHeight: 1.45 },

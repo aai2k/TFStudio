@@ -8,11 +8,19 @@ export const spectrumExchangeSession = createWindowSession({
     parsed: null,
     fileName: '',
     colIdx: 0,
-    name: '',
+    selectedCurveId: null,
     tab: 'import',
     expSource: 'design',
     expFormat: 'csv',
+    expSelected: {},
+    expXUnit: X_UNITS.NM,
+    expYScale: 'percent',
     xUnit: X_UNITS.NM,
-    // Per-column quantity and scale overrides, keyed by column index.
+    aoi: 0,
+    pol: 'avg',
+    side: 'front',
+    // Per-curve measured-target generation controls, keyed by curve id.
+    fitOptions: {},
+    // Per-column name, quantity and scale overrides, keyed by column index.
     ov: {},
 });

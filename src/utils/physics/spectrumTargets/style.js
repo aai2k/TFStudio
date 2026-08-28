@@ -62,7 +62,12 @@ function operandPol(op) {
 
 // Colour = R/T/A family (full saturation). Dash = polarization, mirroring the
 // Optical-Evaluation curve convention (avg solid, s dot, p dash).
-export function targetColor(op) { return FAMILY_COLOR[operandFamily(op.type)] || '#aaaaaa'; }
+export function targetColor(op) {
+    // A measured block names its channel in a field rather than in its type
+    // code, so the type says nothing about which family to colour it.
+    const family = op.type === 'MCURVE' ? (op.quantity || 'R') : operandFamily(op.type);
+    return FAMILY_COLOR[family] || '#aaaaaa';
+}
 export function targetDash(op) {
     const p = operandPol(op);
     return p === 's' ? 'dotted' : p === 'p' ? 'dashed' : 'solid';

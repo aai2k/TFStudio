@@ -4,7 +4,8 @@
 import {
     parseSpectrumTable, makeMeasuredCurve, curvesToCsv, tableToCsv,
     parseNumber, sniffDelimiter, detectDecimal, detectXUnit, detectQuantity,
-    detectIsPercent, xToNm, absorbanceToT, guessXUnitFromRange, X_UNITS,
+    detectIsPercent, xToNm, nmToX, absorbanceToT, guessXUnitFromRange,
+    measuredCurveData, X_UNITS,
 } from '../src/utils/io/spectrumTable.js';
 import { designSpectrumColumns } from '../src/utils/io/designSpectrum.js';
 
@@ -25,6 +26,8 @@ ok('parseNumber thousands+comma', approx(parseNumber('1.234,5', ','), 1234.5));
 ok('sniff comma', sniffDelimiter(['380,4.2', '381,4.3']) === ',');
 ok('sniff tab', sniffDelimiter(['380\t4.2', '381\t4.3']) === '\t');
 ok('sniff semicolon', sniffDelimiter(['380;4,2', '381;4,3'], ',') === ';');
+ok('sniff semicolon with decimal X and Y', sniffDelimiter(['400,0;88,51', '401,0;88,62'], ',') === ';');
+ok('sniff tab with decimal X and Y', sniffDelimiter(['400,0\t88,51', '401,0\t88,62'], ',') === '\t');
 ok('sniff whitespace', sniffDelimiter(['380   4.2', '381   4.3']) === ' ');
 
 // ── detectDecimal ───────────────────────────────────────────────────────────────
@@ -40,6 +43,7 @@ ok('guess nm range', guessXUnitFromRange([400, 550, 700]) === X_UNITS.NM);
 ok('guess um range', guessXUnitFromRange([0.4, 0.55, 0.7]) === X_UNITS.UM);
 ok('guess cm-1 range', guessXUnitFromRange([4000, 8000, 40000]) === X_UNITS.CM1);
 ok('quantity T', detectQuantity('%T') === 'T');
+ok('quantity transmission', detectQuantity('Transmission [%]') === 'T');
 ok('quantity R', detectQuantity('Reflectance') === 'R');
 ok('quantity A', detectQuantity('Absorbance') === 'A');
 
@@ -52,6 +56,8 @@ ok('fraction via range', detectIsPercent('T', [0.04, 0.5, 0.9]) === false);
 ok('xToNm nm', xToNm(550, X_UNITS.NM) === 550);
 ok('xToNm um', xToNm(0.55, X_UNITS.UM) === 550);
 ok('xToNm cm-1', approx(xToNm(20000, X_UNITS.CM1), 500));   // 1e7/20000 = 500
+ok('nmToX um', approx(nmToX(550, X_UNITS.UM), 0.55));
+ok('nmToX cm-1', approx(nmToX(500, X_UNITS.CM1), 20000));
 ok('absorbance→T A=0', approx(absorbanceToT(0), 1));
 ok('absorbance→T A=1', approx(absorbanceToT(1), 0.1));
 ok('absorbance→T A=2', approx(absorbanceToT(2), 0.01));
@@ -122,6 +128,23 @@ ok('absorbance→T A=2', approx(absorbanceToT(2), 0.01));
     ok('de value', approx(r.columns[0].values[0], 4.2));
 }
 
+// ── parse: decimal-comma values in both X and Y ───────────────────────────────
+{
+    const csv = `Wellenlänge (nm);Transmission [%]\n400,0;88,51\n401,0;88,62\n`;
+    const r = parseSpectrumTable(csv);
+    ok('de decimal X/Y parses', r.ok);
+    ok('de decimal X/Y delimiter', r.delimiter === ';');
+    ok('de decimal X/Y values', approx(r.x[0], 400) && approx(r.columns[0].values[0], 88.51));
+}
+
+{
+    const txt = `Wellenlänge (nm)\tTransmission [%]\n400,0\t88,51\n401,0\t88,62\n`;
+    const r = parseSpectrumTable(txt);
+    ok('tab decimal X/Y parses', r.ok);
+    ok('tab decimal X/Y delimiter', r.delimiter === '\t');
+    ok('tab decimal X/Y values', approx(r.x[1], 401) && approx(r.columns[0].values[1], 88.62));
+}
+
 // ── parse: multi-column (T and R) ───────────────────────────────────────────────
 {
     const csv = `Wavelength (nm),%T,%R\n400,90,8\n500,92,6\n`;
@@ -129,6 +152,50 @@ ok('absorbance→T A=2', approx(absorbanceToT(2), 0.01));
     ok('multi 2 cols', r.columns.length === 2);
     ok('multi col0 T', r.columns[0].quantity === 'T');
     ok('multi col1 R', r.columns[1].quantity === 'R');
+}
+
+// ── parse: Cary-style repeated wavelength/sample groups ──────────────────────
+{
+    const csv = `Sample A,,Sample B,\nWavelength (nm),%T,Wavelength (nm),%T\n400,90,400,80\n500,92,500,82\n`;
+    const r = parseSpectrumTable(csv);
+    ok('repeated X parse ok', r.ok);
+    ok('repeated X omitted as data', r.columns.length === 2);
+    ok('repeated X source indexes', r.columns[0].index === 1 && r.columns[1].index === 3);
+    ok('repeated X column grids', r.columns[0].x[1] === 500 && r.columns[1].x[1] === 500);
+    ok('repeated names qualified', r.columns[0].name === 'Sample A: %T' && r.columns[1].name === 'Sample B: %T');
+    ok('repeated quantities', r.columns.every(column => column.quantity === 'T'));
+}
+
+// ── parse: marker after the real column header ────────────────────────────────
+{
+    const txt = `Instrument export\nWavelength (nm)\tTransmission [%]\tReflection [%]\n>>>>>Begin Spectral Data<<<<<\n400\t90\t8\n500\t92\t6\n`;
+    const r = parseSpectrumTable(txt);
+    ok('marker parse ok', r.ok && r.columns.length === 2);
+    ok('marker not used as name', r.columns[0].name === 'Transmission [%]' && r.columns[1].name === 'Reflection [%]');
+    ok('transmission and reflection typed', r.columns[0].quantity === 'T' && r.columns[1].quantity === 'R');
+    ok('marker removed from header', !r.headerText.includes('Begin Spectral Data'));
+}
+
+// ── measured-curve measurement conditions and JSON persistence ───────────────
+{
+    const curve = makeMeasuredCurve({
+        name: 'conditions', x: [500], xUnit: X_UNITS.NM, y: [0.5], quantity: 'T',
+        aoi: 8, pol: 'p', side: 'back',
+    });
+    const saved = JSON.parse(JSON.stringify(curve));
+    ok('curve conditions stored', saved.aoi === 8 && saved.pol === 'p' && saved.side === 'back');
+    const defaults = makeMeasuredCurve({ name: 'defaults', x: [500], y: [0.5] });
+    ok('curve condition defaults', defaults.aoi === 0 && defaults.pol === 'avg' && defaults.side === 'front');
+}
+
+// ── non-destructive trim view ────────────────────────────────────────────────
+{
+    const curve = makeMeasuredCurve({ name: 'trim', x: [400, 500, 600], y: [0.4, 0.5, 0.6] });
+    curve.trimMin = 450;
+    curve.trimMax = 550;
+    const view = measuredCurveData(curve);
+    ok('trim filters view', view.x.length === 1 && view.x[0] === 500 && view.y[0] === 0.5);
+    ok('trim preserves source arrays', curve.x.length === 3 && curve.y.length === 3);
 }
 
 // ── CSV export: shared grid (single λ column) ───────────────────────────────────
@@ -144,6 +211,45 @@ ok('absorbance→T A=2', approx(absorbanceToT(2), 0.01));
     ok('csv round-trip cols', back.columns.length === 2);
     ok('csv round-trip x', approx(back.x[0], 400) && approx(back.x[1], 500));
     ok('csv round-trip T pct', approx(back.columns[0].values[0], 90));
+}
+
+// CSV export: requested X unit, Y scale, and trim bounds.
+{
+    const curve = makeMeasuredCurve({
+        name: 'T', x: [400, 500, 600], xUnit: X_UNITS.NM,
+        y: [0.9, 0.8, 0.7], quantity: 'T', isPercent: false,
+    });
+    curve.trimMin = 450;
+    curve.trimMax = 550;
+    const csv = curvesToCsv([curve], { xUnit: X_UNITS.UM, asPercent: false });
+    ok('csv export unit header', csv.startsWith('Wavelength (µm),T T\r\n'));
+    ok('csv export trim and fraction', csv.includes('\r\n0.5,0.8\r\n') && !csv.includes('0.4,0.9'));
+}
+
+// Requested units and scale survive export → re-import to the plan's 1e-12 tolerance.
+{
+    const source = makeMeasuredCurve({
+        name: 'Precise T', x: [412.345678901, 523.456789012], xUnit: X_UNITS.NM,
+        y: [0.123456789012, 0.876543210987], quantity: 'T', isPercent: false,
+    });
+    const csv = curvesToCsv([source], { xUnit: X_UNITS.CM1, asPercent: false });
+    const parsed = parseSpectrumTable(csv);
+    const restored = makeMeasuredCurve({
+        name: parsed.columns[0].name,
+        x: parsed.x,
+        xUnit: parsed.xUnit,
+        y: parsed.columns[0].values,
+        quantity: parsed.columns[0].quantity,
+        isPercent: parsed.columns[0].isPercent,
+    });
+    ok('csv option round-trip x 1e-12', source.x.every((value, index) => approx(value, restored.x[index], 1e-12)));
+    ok('csv option round-trip y 1e-12', source.y.every((value, index) => approx(value, restored.y[index], 1e-12)));
+}
+
+{
+    const curve = makeMeasuredCurve({ name: 'A', x: [500], y: [0.1], quantity: 'A' });
+    const csv = curvesToCsv([curve], { xUnit: X_UNITS.CM1, asPercent: true });
+    ok('csv A percent and wavenumber', csv === 'Wavenumber (cm-1),A %A\r\n20000,10\r\n');
 }
 
 // CSV export: user-controlled names are RFC-style escaped.
@@ -219,6 +325,129 @@ ok('garbage not ok', parseSpectrumTable('hello world\nfoo bar baz').ok === false
 }
 const csvD = tableToCsv(designSpectrumColumns({ lambda: [400, 500], series: [{ theta: 0, T: [0.9, 0.92], R: [0.08, 0.06], A: [0.02, 0.02] }] }));
 ok('dsc → tableToCsv header', csvD.split('\r\n')[0] === 'Wavelength (nm),T %,R %,A %');
+
+// ── Layouts taken from real instrument exports ──────────────────────────────
+// Each block reproduces the shape of a file that a real instrument writes, with
+// invented numbers. The originals and what each one used to do are recorded in
+// the corpus these were built from; the numbers here are not measurements.
+
+// PerkinElmer PEDS ASCII: a long header of bare settings, one of which reads as
+// two numbers and a word, then #DATA. Without the marker the header's own
+// values are read as the start of the spectrum.
+{
+    const text = [
+        'PE FL                   SPECTRUM    ASCII       PEDS        1.60',
+        '  -1', 'SAMPLE01.TXT', '07/12/10', '#GR', 'NM', '',
+        '350.00', '4.50', '405 350 NORM', '181', '106.949666', '27.150000',
+        '#DATA',
+        '405.000000\t27.150000', '405.500000\t32.344666', '406.000000\t33.378666',
+    ].join('\n');
+    const t = parseSpectrumTable(text);
+    ok('peds parses', t.ok && t.nRows === 3);
+    ok('peds starts at the data marker', t.x[0] === 405 && t.x[2] === 406);
+    ok('peds takes no name from a settings line', t.columns[0].name === 'Column 2');
+    ok('peds first value', approx(t.columns[0].values[0], 27.15));
+}
+
+// A marker that closes the data rather than introducing it must not take the
+// whole file with it.
+{
+    const text = [
+        'Wavelength\tT', '400\t88.5', '401\t88.7', '>>>>>End Spectral Data<<<<<',
+    ].join('\n');
+    const t = parseSpectrumTable(text);
+    ok('trailing marker still imports', t.ok && t.nRows === 2 && t.x[0] === 400);
+}
+
+// ADAP reflectometer: every row is tagged with the measurement it belongs to.
+{
+    const text = [
+        'Measured data written by ADAP', 'nm',
+        'uR  402.523800  0.000000  0.237728  0.010000',
+        'uR  405.837300  0.000000  0.253238  0.010000',
+        'uR  409.149400  0.000000  0.262970  0.010000',
+    ].join('\n');
+    const t = parseSpectrumTable(text);
+    ok('row tag parses', t.ok && t.nRows === 3);
+    ok('row tag dropped from x', approx(t.x[0], 402.5238));
+    ok('row tag leaves three y columns', t.columns.length === 3);
+    ok('row tag y value', approx(t.columns[1].values[0], 0.237728));
+}
+
+// A tagged file whose header names the tag column: the names still line up.
+{
+    const text = [
+        'SE PSI DELTA', 'AOI\t 75.7',
+        'SE 239.986\t0.73023\t-0.026679',
+        'SE 240.100\t0.744085\t-0.0293415',
+    ].join('\n');
+    const t = parseSpectrumTable(text);
+    ok('tagged header names', t.columns.map(c => c.name).join('|') === 'PSI|DELTA');
+    ok('tagged header skips the AOI line', t.nRows === 2 && approx(t.x[0], 239.986));
+}
+
+// Avantes AvaSoft: names on one line, units on the next. The units belong to
+// their own column, so a neighbour's [%] must not set the scale of [counts].
+{
+    const text = [
+        'Data measured with spectrometer [name]: 1209167U1',
+        'Wave   ;Sample   ;Dark     ;Reflectance',
+        '[nm]   ;[counts] ;[counts] ;[%]',
+        ' 300.00;    0.400;    0.200;42.5',
+        ' 301.00;    0.410;    0.200;43.1',
+    ].join('\n');
+    const t = parseSpectrumTable(text);
+    ok('two-line header names', t.columns.map(c => c.name).join('|') === 'Sample|Dark|Reflectance');
+    ok('two-line header units', t.columns.map(c => c.unit).join('|') === '[counts]|[counts]|[%]');
+    ok('unit percent does not leak', t.columns[0].isPercent === false && t.columns[2].isPercent === true);
+    ok('two-line header quantity', t.columns[2].quantity === 'R');
+}
+
+// A header line commented out with a marker has one field more than it has
+// columns, which used to shift every name onto its neighbour.
+{
+    const text = [
+        '; ENVI/IDL output', '; Wavelength S000 S001 S002',
+        '1100.0 0.0367 0.0119 -0.1638', '1107.0 0.0371 0.0122 -0.1601',
+    ].join('\n');
+    const t = parseSpectrumTable(text);
+    ok('comment header names', t.columns.map(c => c.name).join('|') === 'S000|S001|S002');
+}
+
+// Shimadzu UV-Probe: quoted header, and the percent sign after the letter.
+{
+    const text = [
+        '"R_0.spc - RawData"', '"Wavelength nm.","R%"',
+        '400.00,21.563', '401.00, ', '402.00,21.396', '403.00, ', '404.00,21.244',
+    ].join('\n');
+    const t = parseSpectrumTable(text);
+    ok('quoted header name', t.columns[0].name === 'R%');
+    ok('R% is reflectance', t.columns[0].quantity === 'R');
+    ok('blank value rows are dropped', t.nRows === 3);
+    ok('blank value rows are counted', t.skippedRows === 2);
+}
+
+// A header that numbers its samples is still a header, not a tagged data row.
+{
+    const text = ['Wavelength,1,2,3', '400,0.1,0.2,0.3', '401,0.11,0.21,0.31'].join('\n');
+    const t = parseSpectrumTable(text);
+    ok('numeric column names kept', t.columns.map(c => c.name).join('|') === '1|2|3');
+    ok('numeric header not read as data', t.nRows === 2 && t.x[0] === 400);
+}
+
+// Export and re-import must not change what the curve measures.
+{
+    for (const quantity of ['T', 'R', 'A']) {
+        const curve = makeMeasuredCurve({
+            name: 'Sample', x: [400, 500, 600], xUnit: X_UNITS.NM,
+            y: [0.10, 0.20, 0.30], quantity,
+        });
+        const back = parseSpectrumTable(curvesToCsv([curve]));
+        ok(`csv round trip keeps ${quantity}`, back.columns[0].quantity === quantity);
+        ok(`csv round trip keeps ${quantity} values`,
+            approx(back.columns[0].values[0], 10) && back.columns[0].isPercent);
+    }
+}
 
 console.log(`\n${pass} passed, ${fail} failed`);
 process.exit(fail ? 1 : 0);

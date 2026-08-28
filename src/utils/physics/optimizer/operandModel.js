@@ -9,6 +9,13 @@
  * Reference: H.A. Macleod, Thin-Film Optical Filters, 5th ed., Ch.13
  */
 
+import {
+    GENERATED_ONLY_OPERAND_TYPES, MEASURED_CURVE_OPERAND_TYPES,
+    isMeasuredCurve, seedMeasuredCurve,
+} from './measuredCurveType.js';
+
+export { GENERATED_ONLY_OPERAND_TYPES, MEASURED_CURVE_OPERAND_TYPES, isMeasuredCurve };
+
 // ── Operand type lists ────────────────────────────────────────────────────────
 
 // Polarization is chosen via the Pol column (op.pol = avg/s/p), NOT baked into
@@ -111,6 +118,7 @@ export const ARGWAVE_OPERAND_TYPES    = [
 export const OPERAND_TYPES = [
     ...OPTICAL_OPERAND_TYPES,
     ...RANGE_TARGET_OPERAND_TYPES,
+    ...MEASURED_CURVE_OPERAND_TYPES,
     ...INTEGRAL_OPERAND_TYPES,
     ...MINMAX_OPERAND_TYPES,
     ...PHASE_OPERAND_TYPES,
@@ -339,6 +347,7 @@ export function makeOperand(overrides = {}) {
     if (isRangeTarget(base.type) && base.targetEnd == null) {
         base.targetEnd = base.target;
     }
+    seedMeasuredCurve(base);
     // Total-thickness (TT): target is in nm. A brand-new TT operand inherits the
     // 0.99 default from the RAV "+ Add" path, which is meaningless for nm — seed
     // a sensible non-zero nm target instead.

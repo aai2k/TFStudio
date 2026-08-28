@@ -29,10 +29,12 @@ export function guessXUnitFromRange(xs) {
 
 // Ordered header→quantity rules: the word-based patterns take precedence over
 // the bare single-letter token fallback (e.g. a column named exactly "T").
+// The percent sign sits on either side of the letter depending on the vendor:
+// Cary writes "%T", Shimadzu writes "T%".
 const QUANTITY_PATTERNS = [
-    { q: 'T', re: /transmit|trans\b|%\s*t\b|\btau\b|\bt\s*\[|\bt\(/ },
-    { q: 'R', re: /reflect|refl\b|%\s*r\b|\br\s*\[|\br\(/ },
-    { q: 'A', re: /absorb|absorpt|\babs\b|\ba\s*\[|\ba\(|optical\s*density|\bod\b/ },
+    { q: 'T', re: /transmit|transmiss|trans\b|%\s*t\b|\bt\s*%|\btau\b|\bt\s*\[|\bt\(/ },
+    { q: 'R', re: /reflect|refl\b|%\s*r\b|\br\s*%|\br\s*\[|\br\(/ },
+    { q: 'A', re: /absorb|absorpt|\babs\b|%\s*a\b|\ba\s*%|\ba\s*\[|\ba\(|optical\s*density|\bod\b/ },
     { q: 'T', re: /(^|[\s,;])t([\s,;]|$)/ },
     { q: 'R', re: /(^|[\s,;])r([\s,;]|$)/ },
     { q: 'A', re: /(^|[\s,;])a([\s,;]|$)/ },

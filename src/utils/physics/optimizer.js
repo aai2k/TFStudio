@@ -16,6 +16,7 @@
  */
 
 export * from './optimizer/operandModel.js';
+export * from './optimizer/measuredCurveOperand.js';
 export * from './optimizer/operandDomains.js';
 export * from './optimizer/filterCatalog.js';
 export * from './optimizer/coneAngle.js';

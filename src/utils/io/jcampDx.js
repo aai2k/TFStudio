@@ -28,6 +28,28 @@ import { parseRecords, CTX_SETTERS } from './jcampDx/ldr.js';
 import { decodeXYDATA, decodeXYPOINTS, buildSpectrum } from './jcampDx/reader.js';
 import { buildBlock } from './jcampDx/writer.js';
 
+// Older TFStudio releases emitted the physical absorptance channel with the
+// spectroscopy term `ABSORBANCE`. In a three-block design export the sibling
+// titles are `<name> T`, `<name> R`, `<name> A`, which lets us recognize that
+// legacy file without reinterpreting ordinary single-spectrum absorbance data.
+function restoreLegacyTfStudioAbsorptance(spectra) {
+    const groups = new Map();
+    for (const spectrum of spectra) {
+        const match = /^(.*\S)\s+([TRA])$/i.exec(spectrum.title || '');
+        if (!match) continue;
+        const stem = match[1].toLowerCase();
+        if (!groups.has(stem)) groups.set(stem, new Set());
+        groups.get(stem).add(match[2].toUpperCase());
+    }
+    return spectra.map(spectrum => {
+        if (!spectrum.isAbsorbance) return spectrum;
+        const match = /^(.*\S)\s+A$/i.exec(spectrum.title || '');
+        const siblings = match ? groups.get(match[1].toLowerCase()) : null;
+        if (!siblings?.has('T') || !siblings.has('R')) return spectrum;
+        return { ...spectrum, quantity: 'A', isAbsorbance: false };
+    });
+}
+
 /**
  * Parse JCAMP-DX text into one or more spectra.
  * @returns {{ ok:boolean, error?:string, spectra: Array<{
@@ -56,7 +78,7 @@ export function parseJcampDx(text) {
         }
     }
 
-    const valid = spectra.filter(s => s && s.x.length);
+    const valid = restoreLegacyTfStudioAbsorptance(spectra.filter(s => s && s.x.length));
     if (!valid.length) return { ok: false, error: 'No XYDATA/XYPOINTS found', spectra: [] };
     return { ok: true, spectra: valid };
 }

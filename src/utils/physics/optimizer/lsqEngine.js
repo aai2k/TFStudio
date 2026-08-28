@@ -25,9 +25,10 @@ import {
 } from './evalCore.js';
 import {
     isConstraint, isTotalThickness, isRangeTarget, isIntegral,
-    isMinmax, isArgwave, isMath, isEllipsometry, isEField,
+    isMinmax, isArgwave, isMath, isEllipsometry, isEField, isMeasuredCurve,
     polFromType,
 } from './operandModel.js';
+import { expandMeasuredCurveOperands } from './measuredCurveOperand.js';
 import { isRangeAvg, charOf } from './sampling.js';
 import { makeConeSpec, coneIsActive } from './coneAngle.js';
 import { mirrorLayers } from './layerOps.js';
@@ -42,7 +43,12 @@ import { _jtjUpper, _mirrorUpper, makeHessianSampler, _addS, _curvRangeTarget, _
 
 export class LSQEngine {
     constructor(operands, design, resolveMat, opts = {}) {
-        this.operands    = operands;
+        // Measured spectra persist as one compact, immutable snapshot operand,
+        // but least-squares engines need one residual row per measured point.
+        // Expanding defensively here covers every optimizer entry point (main
+        // thread, workers, cleaner, manual needle, and benchmark), including
+        // callers that do not pass through the adaptive-sampling run seam.
+        this.operands    = expandMeasuredCurveOperands(operands);
         this.resolveMat  = resolveMat;
         this.surfaceMode = design?.surfaceMode || 'front_only';
         this.mfEvalMode  = design?.mfEvalMode  || 'side';
@@ -288,6 +294,7 @@ export class LSQEngine {
             const op = this.operands[i];
             if (!op.enabled || comp[i] == null) continue;
             if (isArgwave(op.type) || isMath(op.type) || isTotalThickness(op.type)
+                || isMeasuredCurve(op.type)
                 || isEllipsometry(op.type) || isEField(op.type)) return null;
             const row = _jacRow(op, i, jc);
             if (!row) return null;

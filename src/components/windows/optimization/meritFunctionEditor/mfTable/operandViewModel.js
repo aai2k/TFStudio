@@ -2,6 +2,7 @@ import {
     isArgwave, isBlank, isConstraint, isDmfs, isInequality, isIntegral,
     isMath, isMathPairRef, isMathSingleRef, isMinmax, isRangeTarget,
     isTotalThickness, isPhase, isPhaseShift, isGroupDelayFlat, isFractionalUnit,
+    isMeasuredCurve,
     _operandResidual,
 } from '../../../../../utils/physics/optimizer.js';
 
@@ -36,6 +37,7 @@ const TYPE_COLORS = {
     GDTFLAT: [110, 180, 220], GDDFLAT: [110, 180, 220], GDDTFLAT: [110, 180, 220],
     TODFLAT: [110, 180, 220], TODTFLAT: [110, 180, 220],
     EFMX: [220, 120, 180],
+    MCURVE: [230, 170, 70],
     MNT: [180, 100, 255], MXT: [180, 100, 255], BLNK: [140, 140, 140],
 };
 
@@ -76,6 +78,7 @@ export const RANGE_TARGET_TYPES = new Set(['TGT', 'RGT', 'AGT']);
 const EDITABLE_KEYS = ['enabled', 'type', 'lambdaStart', 'lambdaEnd', 'aoi', 'pol', 'target', 'weight'];
 
 const HEADER_LABELS = [
+    [op => isMeasuredCurve(op.type), { lambdaStart: 'λ Start', lambdaEnd: 'λ End' }],
     [op => isBlank(op.type), { lambdaStart: 'Comment', lambdaEnd: '—' }],
     [op => isTotalThickness(op.type), { lambdaStart: 'Cmp', lambdaEnd: '—' }],
     [op => isConstraint(op.type), { lambdaStart: 'Layer 1', lambdaEnd: 'Layer 2' }],
@@ -90,6 +93,7 @@ const HEADER_LABELS = [
 ];
 
 const EDITABLE_COLS = [
+    [op => isMeasuredCurve(op.type), ['enabled', 'weight']],
     [op => isDmfs(op.type) || isBlank(op.type), ['enabled']],
     [op => isTotalThickness(op.type), ['enabled', 'type', 'lambdaStart', 'target', 'weight']],
     [op => isConstraint(op.type), ['enabled', 'type', 'lambdaStart', 'lambdaEnd', 'target', 'weight']],
@@ -123,6 +127,7 @@ export function editableColsForRow(op) {
 // instead of a dash. Must stay in step with editableColsForRow and
 // dynamicHeaderLabels: the flatness operands sample a band and own a λ End.
 export function isRangeType(type) {
+    if (isMeasuredCurve(type)) return true;
     if (RANGE_AVG_TYPES.has(type) || RANGE_TARGET_TYPES.has(type)) return true;
     return isMinmax(type) || isInequality(type) || isArgwave(type)
         || isGroupDelayFlat(type);
@@ -135,13 +140,14 @@ export function rowDisplayMeta(op, rawCur, mathPercent, bandLevel = null) {
     const isMth = isMath(op.type);
     const isPhs = isPhase(op.type);
     const isFlat = isGroupDelayFlat(op.type);
+    const isMeasured = isMeasuredCurve(op.type);
     // Fraction-unit rows display value ×100 as a percent. Optical T/R/A carry a
     // fractional unit; a math row inherits percent only when its refs are optical.
     const useFraction = isFractionalUnit(op.type) || (isMth && mathPercent);
     const value = rawCur != null ? (useFraction ? rawCur * 100 : rawCur) : null;
     // Spectral-target and phase-flatness rows carry an RMS deviation as their
     // evaluated value, rather than a signed current-minus-target difference.
-    const isRampRow = isRangeTarget(op.type) || isFlat;
+    const isRampRow = isRangeTarget(op.type) || isMeasured || isFlat;
     const tgt = useFraction ? op.target * 100 : op.target;
     // A phase-shift residual wraps to the shortest signed difference in
     // -180°..180°, so it is taken from the merit function's own residual rather
@@ -157,7 +163,8 @@ export function rowDisplayMeta(op, rawCur, mathPercent, bandLevel = null) {
     // against Target directly; the RMS remains available in the tooltip.
     const cur = isFlat && bandLevel != null ? bandLevel : value;
     return {
-        isCon, isTT, isArg, isMth, isPhs, phaseUnit: isPhs ? phaseUnit(op.type) : '',
+        isCon, isTT, isArg, isMth, isPhs, isMeasured,
+        phaseUnit: isPhs ? phaseUnit(op.type) : '',
         mthPct: mathPercent, useFraction, cur, tgt,
         rawResidual, isRampRow, isRange: isRangeType(op.type),
     };
