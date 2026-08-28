@@ -111,8 +111,9 @@ dropdown in its toolbar whenever the design has environments. It lists:
 
 - **Design (all)** — the design-level media (the same spectrum you saw before
   the feature existed).
-- **E1, E2, …** — one entry per environment, labelled with its media, e.g.
-  `E1: air → cement`.
+- **E1, E2, …** — one entry per environment, shown as a plain code (e.g. `E1`,
+  `E2`). Hovering an entry reveals its media detail (e.g. `E1: air → cement`)
+  as a tooltip.
 
 Selecting an environment switches the plot to that environment's spectrum. The
 selection is remembered per design, so a design reopens on the environment you

@@ -30,7 +30,7 @@ export function environmentOptions(design) {
   const envs = (design && design.meritEnvironments) || [];
   const opts = [{ value: -1, label: 'designLevel' }];
   envs.forEach((e, i) => {
-    opts.push({ value: i, label: `E${i + 1}: ${e.incidentMedium || '?'} → ${e.exitMedium || '?'}` });
+    opts.push({ value: i, label: `E${i + 1}` });
   });
   return opts;
 }
