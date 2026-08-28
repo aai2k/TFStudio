@@ -141,6 +141,7 @@ export default defineConfig({
           translations: { 'zh-CN': '数据交换' },
           items: [
             { label: 'Measured Spectra', translations: { 'zh-CN': '实测光谱' },   slug: 'data-exchange/measured-spectra' },
+            { label: 'Spectrum File Formats', translations: { 'zh-CN': '光谱文件格式' }, slug: 'data-exchange/spectrum-file-formats' },
             { label: 'Zemax Coatings',   translations: { 'zh-CN': 'Zemax 膜层' }, slug: 'data-exchange/zemax-coatings' },
             { label: 'Process Exporter', translations: { 'zh-CN': '工艺导出' },   slug: 'simulation/process-simulator' },
           ],

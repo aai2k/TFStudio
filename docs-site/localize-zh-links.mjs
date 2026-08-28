@@ -2,8 +2,11 @@
 // 只处理 ](/section...) 形式的 Markdown 内链；外链、锚点、已有 /zh/ 的链接不动。
 import fs from 'node:fs';
 import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 
-const zhRoot = new URL('./src/content/docs/zh/', import.meta.url).pathname.replace(/^\/([A-Za-z]:)/, '$1');
+// fileURLToPath, not .pathname: a checkout under a path with a space in it
+// arrives here as %20 and every readdir fails.
+const zhRoot = fileURLToPath(new URL('./src/content/docs/zh/', import.meta.url));
 
 const SECTIONS = 'analysis|design|synthesis|simulation|data-exchange';
 const RE = new RegExp(`\\]\\(/((?:${SECTIONS})[^)]*)\\)`, 'g');
