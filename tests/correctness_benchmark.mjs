@@ -224,9 +224,11 @@ for (const ang of [0, 40, 70]) {
 
 // ═══════════════════════════════════════════════════════════════════════════
 // §6  Ellipsometry (Ψ, Δ) — independent Rouard oracle + known values
-//     Ψ is convention-free (|r_p/r_s|); Δ is pinned to the Fujiwara/Woollam
-//     convention. Bare dielectric: Δ≈180° below Brewster, 0° above, Ψ→0 at θ_B.
-//     Macleod §16 states Ag(n=0.13,k=3.99)@65° ⇒ Δ≈230.8° (Woollam standard).
+//     Ψ is convention-free (|r_p/r_s|). Δ here is the engine's own value,
+//     arg(r_p/r_s) in the exp(−iωt), ñ = n + ik convention; an instrument file
+//     carries its conjugate, 360° − Δ. Bare dielectric: Δ≈180° below Brewster,
+//     0° above, Ψ→0 at θ_B. All three are unchanged by the conjugation, so they
+//     cannot pin the sign. The absorbing-surface anchor below can.
 // ═══════════════════════════════════════════════════════════════════════════
 head('§6  Ellipsometry Ψ, Δ (independent Rouard oracle)');
 function ellipRef(lambda, thetaDeg, n0c, nsc, layers) {
@@ -245,10 +247,29 @@ function ellipRef(lambda, thetaDeg, n0c, nsc, layers) {
     near(above.delta, 0, 1e-6, 'bare dielectric Δ=0° above Brewster');
     near(computeEllipsometry(550, brew, [n0, 0], [ns, 0], []).psi, 0, 1e-6, 'bare dielectric Ψ→0 at Brewster');
 }
-// (b) known metal value — Macleod §16 worked figure
+// (b) absorbing surface: the anchor that pins the SIGN of Δ, not just its size.
+//     A bare absorbing surface runs from Δ=180° at normal incidence to 0° at
+//     grazing, through 90° at the principal angle. That is what a measurement
+//     file shows; the engine carries the conjugate, so it runs 180°→360° and
+//     passes 270° there. Checked against a real J.A. Woollam WVASE export of a
+//     20 nm PNIPAM / 2 nm SiO2 / Si sample: the conjugate reproduces the file's
+//     Δ to 0.7° RMS, the unconjugated value is out by 63°.
 {
     const e = computeEllipsometry(632.8, 65, [1, 0], [0.13, 3.99], []);
-    near(e.delta, 230.8, 0.3, 'Ag(0.13,3.99)@65° Δ≈230.8° (Woollam/Macleod §16)');
+    near(e.delta, 230.8, 0.3, 'Ag(0.13,3.99)@65° engine Δ≈230.8° (file reads 129.2°)');
+
+    // Principal angle of a weakly absorbing surface is atan(n), where a file
+    // reads Δ=90°. Reversing the sign here would put the engine at 90° and the
+    // file at 270°, which no instrument writes.
+    const principal = Math.atan(3.88) * 180 / Math.PI;
+    const atPrincipal = computeEllipsometry(632.8, principal, [1, 0], [3.88, 0.02], []);
+    near(atPrincipal.delta, 269.83, 0.05, 'bare Si engine Δ≈270° at the principal angle');
+
+    // and Δ is monotonic in angle across the whole range, in that direction.
+    const sweep = [10, 30, 50, 65, 80, 88].map(
+        theta => computeEllipsometry(632.8, theta, [1, 0], [0.13, 3.99], []).delta);
+    ok(sweep.every((value, index) => index === 0 || value > sweep[index - 1]),
+        `Ag Δ rises with angle in the engine convention: ${sweep.map(v => v.toFixed(1)).join(' ')}`);
 }
 // (c) engine vs independent Rouard — dielectric multilayer, metal film, buried metal
 {

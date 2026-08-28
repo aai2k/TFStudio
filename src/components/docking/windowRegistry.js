@@ -16,18 +16,24 @@
  *   help       Starlight help-site slug (→ helpAnchorFor). Omit → '/index/'.
  *   theme      Pass the `theme` prop to the component (most windows need it).
  *   dialog     Pass the `setInputDialog` prop (editors that prompt for input).
+ *   createDesign
+ *              Pass the `onCreateDesign` prop: add a ready-made design to the
+ *              project explorer and open it. It is absent while no folder is
+ *              selected to create one in, so a window can disable the action.
  *   requiresResolvedMaterials
  *              Do not mount the window while the active design references a
  *              material with no embedded or catalog definition.
  *
  * Props contract preserved exactly from the old ToolContent: every window gets
- * { c, t }; `theme:true` adds `theme`; `dialog:true` adds `setInputDialog`.
+ * { c, t }; `theme:true` adds `theme`; `dialog:true` adds `setInputDialog`;
+ * `createDesign:true` adds `onCreateDesign`.
  */
 
 import { DesignEditor } from '../windows/design/designEditor/DesignEditor.js';
 import { OpticalEvaluation } from '../windows/analysis/opticalEvaluation/OpticalEvaluation.js';
 import { ColorEvaluation } from '../windows/analysis/colorEvaluation/ColorEvaluation.js';
 import { MaterialEditor } from '../windows/design/materialEditor/MaterialEditor.js';
+import { NkCharacterization } from '../windows/design/nkCharacterization/NkCharacterization.js';
 import { Refinement } from '../windows/optimization/refinement/Refinement.js';
 import { MeritFunctionEditor } from '../windows/optimization/meritFunctionEditor/MeritFunctionEditor.js';
 import { NeedleVariation } from '../windows/optimization/needleVariation/NeedleVariation.js';
@@ -60,6 +66,7 @@ export const WINDOW_REGISTRY = {
   // ── Design ──────────────────────────────────────────────────────────────────
   'design-editor':   { component: DesignEditor,        title: 'Design Editor',        label: 'Design Editor — layer stack table',                                   help: 'design/design-editor' },
   'material-editor': { component: MaterialEditor,       title: 'Material Editor',       label: 'Material Editor — n,k database',                                       help: 'design/material-editor', dialog: true },
+  'nk-characterization': { component: NkCharacterization, title: 'n,k Characterization', label: 'n,k Characterization: derive a film\'s n, k and thickness from a measured spectrum', help: 'design/nk-characterization', theme: true, dialog: true, createDesign: true },
   'specification':   { component: Specification,        title: 'Specification',         label: 'Specification — design requirements (PASS/FAIL qualifiers)',            help: 'design/specification', theme: true, dialog: true, requiresResolvedMaterials: true },
   'merit-function':  { component: MeritFunctionEditor,  title: 'Merit Function Editor', label: 'Merit Function Editor — operand table',                                help: 'design/merit-function-editor', dialog: true, requiresResolvedMaterials: true },
   'variator':        { component: Variator,             title: 'Variator',              label: 'Variator — live parameter slider',                                     help: 'design/variator', theme: true, requiresResolvedMaterials: true },

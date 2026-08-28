@@ -211,7 +211,7 @@ export const ANALYSIS_DEFAULTS = {
     },
     enums: {
       mode: { def: 'spectral', options: ['spectral', 'angular'] },
-      deltaConvention: { def: 'azzam', options: ['azzam', 'woollam'] },
+      deltaConvention: { def: 'azzam', options: ['azzam', 'reversed'] },
     },
     booleans: { showPsi: true, showDelta: true, showTable: false },
   },

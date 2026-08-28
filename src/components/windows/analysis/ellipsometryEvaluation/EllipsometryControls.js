@@ -132,8 +132,8 @@ function EllipsometrySetup({ c, t, text, state }) {
                 ariaLabel: text.deltaConv,
                 activeId: state.deltaConvention, onSelect: state.setDeltaConvention, c,
                 items: [
-                    { id: 'azzam', label: text.deltaAzzam },
-                    { id: 'woollam', label: text.deltaWoollam },
+                    { id: 'azzam', label: text.deltaAzzam, title: text.deltaAzzamTip },
+                    { id: 'reversed', label: text.deltaReversed, title: text.deltaReversedTip },
                 ],
             }),
         ),
