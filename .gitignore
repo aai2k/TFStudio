@@ -75,3 +75,6 @@ build/seed/agf/*
 # Precompiled builds (all go under prebuild/)
 prebuild/
 .slim/
+
+# Deepwork progress state (git-local, OpenCode-readable)
+.slim/deepwork/
