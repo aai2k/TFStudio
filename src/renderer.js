@@ -1276,6 +1276,7 @@ const App = () => {
             'tutorials':     () => setShowTutorials(true),
             'open-settings': () => setShowSettings(true),
             'new-design':    () => addItem(),
+            'open-project':  () => openDesignFromFile(),
             'save':          () => saveDesignToDisk(),
             'export-report': () => setShowReportGen(true),
             'undo':          () => undo(),
@@ -1292,7 +1293,7 @@ const App = () => {
         if (action.startsWith('tool:')) {
             setToolRequests(prev => [...prev, { toolId: action.slice(5), ts: Date.now() }]);
         }
-    }, [addItem, saveDesignToDisk, undo, redo, locale]);
+    }, [addItem, openDesignFromFile, saveDesignToDisk, undo, redo, locale]);
 
     const handleToolAction = useCallback((toolId) => {
         const actions = {
