@@ -25,6 +25,10 @@ const FOLDER_SPECS = [
 
 const FOLDER_KEYS = FOLDER_SPECS.map(spec => spec.key);
 
+// All folder keys except 'preferences' — these follow the preferences path
+// when it changes, unless the user has individually overridden them.
+const LINKED_KEYS = FOLDER_KEYS.filter(k => k !== 'preferences');
+
 // Probe whether a directory can actually be used: create it if missing, then
 // write and remove a temp file. Existence alone is not enough — a path can
 // resolve onto a read-only share or a disconnected drive letter.
@@ -59,6 +63,28 @@ function currentPath(state, key) {
   return state.overrides.get(key) || defaultPathFor(state, key);
 }
 
+// When the preferences folder moves, rebase every non-overridden linked folder
+// as a sibling under the same parent directory so the whole data tree follows
+// in one click.  For example, if Preferences is at D:\Data\Preferences, then
+// Designs becomes D:\Data\Projects, Materials becomes D:\Data\Materials, etc.
+// Folders the user individually overrode are left alone — they stay at their
+// custom path until the user resets them.
+function syncLinkedFolders(state, prefsPath) {
+  const parentDir = state.path.dirname(prefsPath);
+  const updated = [];
+  for (const key of LINKED_KEYS) {
+    if (state.overrides.has(key)) continue; // user overrode, skip
+    const spec = FOLDER_SPECS.find(s => s.key === key);
+    const newPath = state.path.join(parentDir, spec.subdir);
+    const result = validateOverride(state, newPath);
+    if (result.ok) {
+      state.overrides.set(key, result.dir);
+      updated.push(key);
+    }
+  }
+  return updated;
+}
+
 // Apply the `folders` block from settings.json. An override that no longer works
 // (unplugged drive, revoked permission, deleted parent) falls back to the
 // default rather than leaving the app with a dead directory; the reason is kept
@@ -87,6 +113,10 @@ function setPath(state, key, dir) {
   if (!result.ok) return { success: false, error: result.reason };
   state.overrides.set(key, result.dir);
   state.rejected.delete(key);
+  // When preferences moves, rebase linked folders under the new location
+  if (key === 'preferences') {
+    syncLinkedFolders(state, result.dir);
+  }
   return { success: true, path: result.dir };
 }
 
@@ -94,7 +124,12 @@ function resetPath(state, key) {
   if (!FOLDER_KEYS.includes(key)) return { success: false, error: `unknown folder key: ${key}` };
   state.overrides.delete(key);
   state.rejected.delete(key);
-  return { success: true, path: defaultPathFor(state, key) };
+  const defaultPath = defaultPathFor(state, key);
+  // When preferences resets, rebase linked folders under the default location
+  if (key === 'preferences') {
+    syncLinkedFolders(state, defaultPath);
+  }
+  return { success: true, path: defaultPath };
 }
 
 // What the Settings pane renders: current path, the default it would fall back
