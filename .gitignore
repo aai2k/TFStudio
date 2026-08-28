@@ -71,3 +71,8 @@ build/seed/agf/*
 .git/
 .github/
 .opencode/
+
+# Precompiled multienv/viz builds
+dist-multienv/
+dist-viz/
+.slim/

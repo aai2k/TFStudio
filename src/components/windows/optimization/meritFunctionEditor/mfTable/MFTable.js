@@ -229,12 +229,12 @@ export function MFTable(props) {
             },
         },
             h(TblBtn, {
-                label: 'Add',
+                label: t?.meritFunctionEditor?.addOperand || '+ Add',
                 onClick: () => onAdd(null, computeInsertIndex(operands, selIds, focusCell)),
                 c,
             }),
             h(TblBtn, {
-                label: 'Delete', onClick: () => onDelete([...selIds]), disabled: !hasSelection, c,
+                label: t?.meritFunctionEditor?.deleteOperand || 'Delete', onClick: () => onDelete([...selIds]), disabled: !hasSelection, c,
             }),
             h(TblBtn, { label: '↑', onClick: onMoveUp, disabled: !primarySel, c }),
             h(TblBtn, { label: '↓', onClick: onMoveDown, disabled: !primarySel, c }),
