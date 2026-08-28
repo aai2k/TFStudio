@@ -908,6 +908,13 @@ const App = () => {
         );
     }, [selectedFolder, existingDesignNames, persistProjectChange]);
 
+    // Docked windows that produce a whole design (n,k Characterization) add it
+    // through the same path. Null while no folder is selected, so the window can
+    // disable the action instead of appearing to do nothing.
+    const createDesignFromWindow = React.useMemo(
+        () => (selectedFolder ? (design) => { addItemFromDesign(design); } : null),
+        [selectedFolder, addItemFromDesign]);
+
     // ── Open: import an external .tfs file into the project tree and open it ──
     // The main process shows a native picker and returns the parsed design; we
     // re-key it (fresh design + layer ids, collision-free name) so it can never
@@ -1404,6 +1411,7 @@ const App = () => {
                     layoutRequest,
                     onWindowListChange: setOpenWindowIds,
                     onCreateProject: createProjectFromEmpty,
+                    onCreateDesign: createDesignFromWindow,
                     setInputDialog,
                     ribbonStyle
                 })

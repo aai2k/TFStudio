@@ -119,7 +119,7 @@ assert.deepEqual(angular, {
 });
 const spectralSweepOptions = {
     mode: 'spectral', side: 'front', lambdaStart: 509.334, lambdaEnd: 501.234,
-    lambdaStep: 2.7, thetaDeg: 63.25, deltaConvention: 'woollam',
+    lambdaStep: 2.7, thetaDeg: 63.25, deltaConvention: 'reversed',
 };
 const angularSweepOptions = {
     mode: 'angular', side: 'back', lambdaNm: 632.8, angleStart: 57.875,

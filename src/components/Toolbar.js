@@ -40,6 +40,16 @@ export const ICONS = {
     'design-editor':  I([ R(2,2,16,16,1), L(2,7,18,7), L(7,7,7,18), L(2,12,18,12) ]),
     'material-editor':I([ R(3,2,10,14,1), P('M7 6h4M7 9h4M7 12h2'), Rf(13,11,4,5,1,'currentColor'), L(13,9,17,9,1.4) ]),
 
+    // n,k Characterization — the measurement it works from: a beam onto an
+    // unknown film (solid) on a substrate (outline), reflected back out.
+    'nk-characterization': I([
+                          Rf(2.5,9,15,2,0.5,'currentColor'),
+                          R(2.5,11,15,5,0.5),
+                          P('M5.5 3L10 9'),
+                          P('M10 9L14.5 3'),
+                          P('M14.5 3L12.9 3.5M14.5 3L14.1 4.7'),
+                      ]),
+
     // Specification — clipboard with checkmark + check rows (PASS/FAIL spec sheet)
     'specification':  I([
                           R(4,3,12,14,1),
@@ -294,7 +304,8 @@ export const GROUP_COLORS = {
 const TOOL_GROUP = {
     'new-design': 'file', 'open-project': 'file', 'save': 'file', 'save-as': 'file',
     'undo': 'edit', 'redo': 'edit', 'history': 'edit',
-    'design-editor': 'design', 'material-editor': 'design', 'specification': 'design', 'stack-formula': 'design',
+    'design-editor': 'design', 'material-editor': 'design', 'nk-characterization': 'design',
+    'specification': 'design', 'stack-formula': 'design',
     'optical-eval': 'analysis', 'color-eval': 'analysis', 'admittance': 'analysis', 'efield': 'analysis',
     'ellipsometry': 'analysis', 'gd-gdd': 'analysis', 'material-dispersion': 'analysis', 'ri-profiler': 'analysis', 'integral-values': 'analysis',
     'tolerance': 'analysis', 'plot-engine': 'analysis', 'error-analysis': 'analysis', 'sensitivity': 'analysis',
@@ -346,6 +357,7 @@ function makeGroups(t) {
             items: [
                 { id: 'design-editor',   label: tb.buttons['design-editor'],   title: tb.tooltips['design-editor']   },
                 { id: 'material-editor', label: tb.buttons['material-editor'], title: tb.tooltips['material-editor'] },
+                { id: 'nk-characterization', label: tb.buttons['nk-characterization'], title: tb.tooltips['nk-characterization'] },
                 { id: 'specification',   label: tb.buttons['specification'],   title: tb.tooltips['specification']   },
                 { id: 'stack-formula',   label: tb.buttons['stack-formula'],   title: tb.tooltips['stack-formula']   },
             ]

@@ -21,13 +21,14 @@ import {
     jetSqrt,
     jetSubtract,
 } from '../../tmmcore.js';
+import { levenbergMarquardt, solveLinear, sumSquares } from '../math/leastSquares.js';
 
 const HC_EV_UM = 1.239841984;
 
 // A term is kept only when it cuts the RMS residual by at least this much. Past
 // that the extra freedom follows the rounding in the table rather than the
 // material's dispersion, and the fit is chosen for the user rather than by them.
-const TERM_GAIN = 0.1;
+export const TERM_GAIN = 0.1;
 
 // Most oscillators any metal fit is built from. Rakic's models of the coinage
 // metals use five over the visible and near infrared.
@@ -98,29 +99,6 @@ function evaluateComplexDispersionModelJets(model, wavelengthMicrometersJet) {
         nJet: index.map(coefficient => [coefficient[0], 0]),
         kJet: index.map(coefficient => [coefficient[1], 0]),
     };
-}
-
-function solveLinear(matrix, vector) {
-    const size = vector.length;
-    const augmented = matrix.map((row, index) => [...row, vector[index]]);
-    for (let column = 0; column < size; column++) {
-        let pivot = column;
-        for (let row = column + 1; row < size; row++) {
-            if (Math.abs(augmented[row][column]) > Math.abs(augmented[pivot][column])) pivot = row;
-        }
-        if (Math.abs(augmented[pivot][column]) < 1e-20) return null;
-        [augmented[column], augmented[pivot]] = [augmented[pivot], augmented[column]];
-        const divisor = augmented[column][column];
-        for (let item = column; item <= size; item++) augmented[column][item] /= divisor;
-        for (let row = 0; row < size; row++) {
-            if (row === column) continue;
-            const factor = augmented[row][column];
-            for (let item = column; item <= size; item++) {
-                augmented[row][item] -= factor * augmented[column][item];
-            }
-        }
-    }
-    return augmented.map(row => row[size]);
 }
 
 function linearLeastSquares(rows, featureAt, valueAt, parameterCount) {
@@ -242,62 +220,11 @@ function initialSellmeier(rows, terms) {
     return parameters;
 }
 
-function sumSquares(values) {
-    return values.reduce((sum, value) => sum + value * value, 0);
-}
-
 function sellmeierResiduals(parameters, rows, terms, rangeSquared) {
     return rows.map(row => {
         const predicted = sellmeierValue(parameters, row[0] / 1000, terms, rangeSquared);
         return Number.isFinite(predicted) ? predicted - row[1] : 1e6;
     });
-}
-
-function levenbergMarquardt(initial, residualAt, iterations = 80) {
-    let parameters = initial.slice();
-    let residual = residualAt(parameters);
-    let cost = sumSquares(residual);
-    let damping = 1e-6;
-    for (let iteration = 0; iteration < iterations; iteration++) {
-        const jacobian = residual.map(() => Array(parameters.length).fill(0));
-        for (let parameter = 0; parameter < parameters.length; parameter++) {
-            const delta = 1e-6 * Math.max(1, Math.abs(parameters[parameter]));
-            const shifted = parameters.slice();
-            shifted[parameter] += delta;
-            const next = residualAt(shifted);
-            for (let row = 0; row < residual.length; row++) {
-                jacobian[row][parameter] = (next[row] - residual[row]) / delta;
-            }
-        }
-        const normal = Array.from({ length: parameters.length }, () => Array(parameters.length).fill(0));
-        const rhs = Array(parameters.length).fill(0);
-        for (let row = 0; row < residual.length; row++) {
-            for (let i = 0; i < parameters.length; i++) {
-                rhs[i] -= jacobian[row][i] * residual[row];
-                for (let j = 0; j < parameters.length; j++) {
-                    normal[i][j] += jacobian[row][i] * jacobian[row][j];
-                }
-            }
-        }
-        for (let index = 0; index < parameters.length; index++) {
-            normal[index][index] += damping * Math.max(1e-12, normal[index][index]);
-        }
-        const step = solveLinear(normal, rhs);
-        if (!step) break;
-        const candidate = parameters.map((value, index) => value + step[index]);
-        const candidateResidual = residualAt(candidate);
-        const candidateCost = sumSquares(candidateResidual);
-        if (candidateCost < cost) {
-            parameters = candidate;
-            residual = candidateResidual;
-            if (Math.abs(cost - candidateCost) <= 1e-14 * Math.max(1, cost)) break;
-            cost = candidateCost;
-            damping = Math.max(1e-12, damping / 3);
-        } else {
-            damping = Math.min(1e12, damping * 10);
-        }
-    }
-    return parameters;
 }
 
 function fitSellmeier(rows, termCount, rangeNm) {
@@ -584,16 +511,26 @@ export function evaluateDispersionFitJets(fit, wavelengthMicrometersJet) {
     };
 }
 
+/** The term counts a model is fitted at when nothing asks for a particular one. */
+export function indexModelTermRange(model) {
+    return model === 'sellmeier' ? [1, 3] : [2, 6];
+}
+
 /**
  * The transparent-model fit with the terms the data supports: keep adding terms
  * while each cuts the residual by TERM_GAIN and leaves a curve that behaves
  * between the tabulated points. The first candidate is always returned, so a
  * table that suits no model still produces a fit with visible residuals rather
  * than an error.
+ *
+ * `forcedTerms` fits at one count and stops. Characterization uses it because
+ * there the residual worth judging a term by is the one against the measured
+ * spectrum, which this function cannot see.
  */
-function fitIndexModel(rows, model, rangeNm) {
-    const first = model === 'sellmeier' ? 1 : 2;
-    const last = model === 'sellmeier' ? 3 : 6;
+function fitIndexModel(rows, model, rangeNm, forcedTerms) {
+    const [defaultFirst, defaultLast] = indexModelTermRange(model);
+    const first = forcedTerms || defaultFirst;
+    const last = forcedTerms || defaultLast;
     const parametersFor = terms => (model === 'sellmeier' ? 1 + 2 * terms : terms);
     let accepted = null;
     let acceptedRms = Infinity;
@@ -640,7 +577,7 @@ export function fitTabulatedMaterial(rows, options = {}) {
         );
         return fit;
     }
-    const n = fitIndexModel(selected, model, rangeNm);
+    const n = fitIndexModel(selected, model, rangeNm, options.nTerms);
     const k = fitUrbach(selected);
     const fit = {
         active: true,
@@ -712,6 +649,97 @@ export function dispersionFitParameters(fit) {
         : 'n²(λ) = A + Σ Bj λ² / (λ² − Cj)';
     const kFormula = fit.k.kind === 'urbach' ? ',  k(λ) = k0 exp(kb/λ + kc λ)' : ',  k = 0';
     return { formula: `${nFormula}${kFormula},  λ in µm`, parameters };
+}
+
+/**
+ * A fit's coefficients as a flat parameter vector, and back again.
+ *
+ * Fitting a model to a table is linear enough to be done coefficient by
+ * coefficient. Fitting one to a measured spectrum is not: the model has to move
+ * as a whole while a transfer-matrix calculation stands between it and the
+ * residual, so its coefficients have to be a vector an optimizer can step.
+ *
+ * Quantities that may not go negative travel as logarithms, the encoding the
+ * metal fit already uses, so no step can produce a negative amplitude, damping
+ * or resonance. Everything else travels as itself.
+ *
+ * @param {object} fit  a fit from fitTabulatedMaterial
+ * @returns {{ encode:()=>number[], decode:(values:number[])=>object, labels:string[] }}
+ */
+export function dispersionFitCodec(fit) {
+    if (fit.complex) {
+        const model = fit.complex;
+        const oscillatorCount = (model.oscillators || []).length;
+        const labels = ['ln ε∞', 'ln ωp', 'ln γD'];
+        for (let index = 0; index < oscillatorCount; index++) {
+            labels.push(`ln f${index + 1}`, `ln ω${index + 1}`, `ln γ${index + 1}`);
+        }
+        return {
+            labels,
+            encode: () => [
+                Math.log(model.epsilonInfinity),
+                Math.log(model.plasmaEnergyEv),
+                Math.log(model.drudeDampingEv),
+                ...(model.oscillators || []).flatMap(oscillator => [
+                    Math.log(oscillator.strengthEv2),
+                    Math.log(oscillator.resonanceEv),
+                    Math.log(oscillator.dampingEv),
+                ]),
+            ],
+            decode: values => ({
+                ...fit,
+                complex: decodeMetalParameters(values, model.kind, oscillatorCount),
+            }),
+        };
+    }
+
+    const indexCount = fit.n.coefficients.length;
+    const hasExtinction = fit.k.kind === 'urbach';
+    const labels = fit.n.coefficients.map((_, index) => `n${index}`);
+    if (hasExtinction) labels.push('ln k0', 'kb', 'kc');
+    return {
+        labels,
+        encode: () => [
+            ...fit.n.coefficients,
+            ...(hasExtinction
+                ? [Math.log(Math.max(1e-300, fit.k.coefficients[0])),
+                    fit.k.coefficients[1], fit.k.coefficients[2]]
+                : []),
+        ],
+        decode: values => ({
+            ...fit,
+            n: { ...fit.n, coefficients: values.slice(0, indexCount) },
+            k: hasExtinction
+                ? {
+                    ...fit.k,
+                    coefficients: [
+                        Math.exp(values[indexCount]),
+                        values[indexCount + 1],
+                        values[indexCount + 2],
+                    ],
+                }
+                : fit.k,
+        }),
+    };
+}
+
+/**
+ * Whether a Sellmeier fit has put a resonance inside the wavelengths it is
+ * meant to describe, where the model returns an infinite index.
+ *
+ * The table fit forbids this while it searches. A fit being refined against a
+ * spectrum has to be checked as it moves, because nothing else stops a pole
+ * drifting into the range.
+ */
+export function dispersionFitHasPoleInRange(fit, rangeNm) {
+    if (fit.complex || fit.n.kind !== 'sellmeier') return false;
+    const low = (Math.min(...rangeNm) / 1000) ** 2;
+    const high = (Math.max(...rangeNm) / 1000) ** 2;
+    for (let term = 0; term < fit.n.terms; term++) {
+        const pole = fit.n.coefficients[2 + 2 * term];
+        if (pole > low && pole < high) return true;
+    }
+    return false;
 }
 
 export function dispersionFitModelName(fit) {

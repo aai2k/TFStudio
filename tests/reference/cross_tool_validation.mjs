@@ -68,9 +68,11 @@ for (const c of ref.cases) {
 
 // ── Ellipsometry Ψ, Δ ────────────────────────────────────────────────────────
 // Ψ is convention-free and must match exactly. Δ differs by a global +180°:
-// TFStudio follows Macleod Eq. 16.2 (Δ = φ_p − φ_s ± 180°, the Woollam/Nebraska
-// convention); Byrnes tmm uses the opposite p-sign. The offset must be EXACTLY
-// 180° at every point for the convention to be self-consistent.
+// TFStudio follows Macleod Eq. 16.2 (Δ = φ_p − φ_s ± 180°); Byrnes tmm uses the
+// opposite p-sign. The offset must be EXACTLY 180° at every point for the
+// convention to be self-consistent. Both are in the exp(−iωt) time convention;
+// an ellipsometer file carries the conjugate of either, which is a separate
+// question handled on the way to the screen.
 console.log('\n  Ellipsometry (Ψ convention-free; Δ_TF = Δ_tmm + 180°, Macleod Eq. 16.2):');
 const circ = (a, b) => { let d = Math.abs(a - b) % 360; return d > 180 ? 360 - d : d; };
 let maxOff = 0;

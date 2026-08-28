@@ -56,10 +56,11 @@ function zoneToAction(zone) {
 // ── Tool content — registry-driven dispatch ───────────────────────────────────
 // Every window's component + prop contract lives in windowRegistry.js. The prop
 // contract is preserved exactly: each window gets { c, t }; entries flagged
-// `theme` also get `theme`; entries flagged `dialog` also get `setInputDialog`.
+// `theme` also get `theme`; entries flagged `dialog` also get `setInputDialog`;
+// entries flagged `createDesign` also get `onCreateDesign`.
 // An id with no component (modal/wizard/stub) falls through to the placeholder.
 
-export function ToolContent({ toolId, c, theme, t, setInputDialog,
+export function ToolContent({ toolId, c, theme, t, setInputDialog, onCreateDesign,
   missingMaterialIds = [], onReplaceMaterials }) {
   const entry = WINDOW_REGISTRY[toolId];
   if (entry?.requiresResolvedMaterials && missingMaterialIds.length > 0) {
@@ -71,6 +72,7 @@ export function ToolContent({ toolId, c, theme, t, setInputDialog,
     const props = { c, t };
     if (entry.theme)  props.theme = theme;
     if (entry.dialog) props.setInputDialog = setInputDialog;
+    if (entry.createDesign) props.onCreateDesign = onCreateDesign;
     return h(entry.component, props);
   }
 
@@ -138,7 +140,7 @@ export function loadSavedLayout() {
 
 // ── DockingLayout ─────────────────────────────────────────────────────────────
 
-export function DockingLayout({ c, theme, toolRequests, onWindowListChange, layoutRequest, t, setInputDialog, locale, ribbonStyle = 'colorful', onCreateProject }) {
+export function DockingLayout({ c, theme, toolRequests, onWindowListChange, layoutRequest, t, setInputDialog, locale, ribbonStyle = 'colorful', onCreateProject, onCreateDesign }) {
   const { design, updateDesign } = useDesign();
   const missingMaterialIds = useUnresolvedMaterials(design);
   const [tree, setTree]               = useState(null);
@@ -368,7 +370,8 @@ export function DockingLayout({ c, theme, toolRequests, onWindowListChange, layo
         onTabDragStart:  handleTabDragStart,
         onGroupFocus:    handleGroupFocus,
         renderContent:   (tab) => h(ToolContent, {
-          toolId: tab.toolId, c, theme, t, setInputDialog, missingMaterialIds,
+          toolId: tab.toolId, c, theme, t, setInputDialog, onCreateDesign,
+          missingMaterialIds,
           onReplaceMaterials: () => setReplaceMaterialsOpen(true),
         }),
         helpAnchorFor,
@@ -378,7 +381,7 @@ export function DockingLayout({ c, theme, toolRequests, onWindowListChange, layo
 
     return null;
   }, [c, dragActive, dragSrcGroupId, handleTabClick, handleTabClose, handleTabDragStart,
-    handleGroupFocus, t, locale, ribbonStyle, missingMaterialIds]);
+    handleGroupFocus, t, locale, ribbonStyle, missingMaterialIds, onCreateDesign]);
 
   // ── Render ─────────────────────────────────────────────────────────────────
 

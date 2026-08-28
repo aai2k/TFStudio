@@ -411,10 +411,20 @@ export function buildLambdaGrid(lambdaStart, lambdaEnd, lambdaStep) {
  * @returns {{ lambda:number[], R:number[], T:number[], A:number[], Rs,Ts,As,Rp,Tp,Ap }}
  */
 export function evaluateSpectrum(params, incidentMaterial, substrateMaterial, layers) {
-    const { lambdaStart = 400, lambdaEnd = 800, lambdaStep = 5,
-            theta = 0, polarization = 'avg' } = params;
+    const { lambdaStart = 400, lambdaEnd = 800, lambdaStep = 5 } = params;
+    return evaluateSpectrumAt(buildLambdaGrid(lambdaStart, lambdaEnd, lambdaStep),
+        params, incidentMaterial, substrateMaterial, layers);
+}
 
-    const lambdas = buildLambdaGrid(lambdaStart, lambdaEnd, lambdaStep);
+/**
+ * The same front-coating spectrum on an explicit wavelength list.
+ *
+ * Characterization fits the film's constants at the wavelengths the instrument
+ * measured, which are rarely a uniform grid, so the list is the argument and
+ * `params` carries only the geometry.
+ */
+export function evaluateSpectrumAt(lambdas, params, incidentMaterial, substrateMaterial, layers) {
+    const { theta = 0, polarization = 'avg' } = params;
 
     const result = { lambda: lambdas, R: [], T: [], A: [], Rs: [], Ts: [], As: [], Rp: [], Tp: [], Ap: [] };
 
@@ -642,10 +652,22 @@ export function evaluateSpectrumBack(params, exitMaterial, substrateMaterial, la
  */
 export function evaluateSpectrumTotal(params, incMaterial, subMaterial, exitMaterial,
                                        frontLayers, backLayers, subThickness_mm) {
-    const { lambdaStart = 400, lambdaEnd = 800, lambdaStep = 5,
-            theta = 0, polarization = 'avg' } = params;
+    const { lambdaStart = 400, lambdaEnd = 800, lambdaStep = 5 } = params;
+    return evaluateSpectrumTotalAt(buildLambdaGrid(lambdaStart, lambdaEnd, lambdaStep),
+        params, incMaterial, subMaterial, exitMaterial, frontLayers, backLayers, subThickness_mm);
+}
 
-    const lambdas = buildLambdaGrid(lambdaStart, lambdaEnd, lambdaStep);
+/**
+ * The same full-system spectrum on an explicit wavelength list.
+ *
+ * This is the geometry a spectrophotometer measures a coated witness in: a
+ * coating on the front face, the substrate's own back face reflecting light
+ * back into the sample. Characterization evaluates it at the measured
+ * wavelengths, so the list is the argument.
+ */
+export function evaluateSpectrumTotalAt(lambdas, params, incMaterial, subMaterial, exitMaterial,
+                                        frontLayers, backLayers, subThickness_mm) {
+    const { theta = 0, polarization = 'avg' } = params;
 
     const result = emptySpectrum(lambdas);
 
@@ -702,19 +724,25 @@ export function evaluateSpectrumTotal(params, incMaterial, subMaterial, exitMate
 //         ellipsometry."
 //
 // Inputs use this module's ñ = n + ik convention (k ≥ 0 absorbing), i.e. the
-// exp(−iωt) time convention, the same one standard ellipsometers (WVASE /
-// Woollam, the "Nebraska" convention) assume, so no time-convention
-// conjugation is needed here. One convention conversion remains:
+// exp(−iωt) time convention. One convention conversion is applied here:
 //
 //   p-admittance sign:  Macleod's η_p = ñ/cosθ gives
 //   r_p = (η_0p − η_p)/(η_0p + η_p), which differs from the Fresnel r_p by an
 //   overall sign, the documented ±180° offset in Macleod Eq. (16.2).
 //
-// So the displayed Δ is  Δ = (arg r_p − arg r_s) + 180°, wrapped to [0°, 360°).
-// Validation: a bare dielectric substrate gives Δ ≈ 180° below Brewster and
-// Δ ≈ 0° above it, with Ψ → 0 at Brewster; a bare metal reproduces the Woollam-
-// standard Δ (≈ 230.8° for Ag n=0.13, k=3.99 at 65°). Energy is conserved for
-// absorbing films because k enters with its physical + sign.
+// So Δ returned here is  Δ = (arg r_p − arg r_s) + 180°, wrapped to [0°, 360°).
+//
+// This is NOT the sign an ellipsometer writes. A measurement file carries
+// 360° − Δ, the complex conjugate, which is what the exp(+iωt) time convention
+// gives for the same sample. Ellipsometry Evaluation converts on the way to the
+// screen, and its Azzam-Bashara option is the one that matches a file; see
+// toDeltaConvention in the ellipsometryEvaluation window.
+//
+// Validation: a bare dielectric gives Δ ≈ 180° below Brewster and Δ ≈ 0° above
+// it, with Ψ → 0 at Brewster. Those two are fixed points of the conjugation and
+// so cannot pin the sign; a bare absorbing surface can, and passes 270° here at
+// the principal angle where a file reads 90°. Energy is conserved for absorbing
+// films because k enters with its physical + sign.
 //
 // Inputs follow the rest of this module: ñ = n + ik (k ≥ 0 absorbing),
 // passed as [re, im] = [n, k]; `layers` = [{ n:[re,im], d:nm }, …].
