@@ -4,6 +4,7 @@ import { renderToStaticMarkup } from 'react-dom/server';
 import {
     loadApp,
     makeLocale,
+    makeSampleDesign,
     makeTheme,
     shimBrowserGlobals,
     withDesign,
@@ -12,8 +13,9 @@ import {
 shimBrowserGlobals();
 await loadApp();
 
-const [{ SpectrumExchange }, model, session, actionHooks] = await Promise.all([
+const [{ SpectrumExchange }, { MeasuredFitDialog }, model, session, actionHooks] = await Promise.all([
     import('../src/components/windows/dataExchange/spectrumExchange/SpectrumExchange.js'),
+    import('../src/components/windows/dataExchange/spectrumExchange/MeasuredFitDialog.js'),
     import('../src/components/windows/dataExchange/spectrumExchange/model.js'),
     import('../src/components/windows/windowSession.js'),
     import('../src/components/windows/dataExchange/spectrumExchange/importActions.js'),
@@ -22,11 +24,58 @@ const [{ SpectrumExchange }, model, session, actionHooks] = await Promise.all([
 const c = makeTheme();
 const t = makeLocale();
 const markup = renderToStaticMarkup(withDesign(React.createElement(SpectrumExchange, { c, t })));
-assert.equal(markup.length, 1724);
+assert.equal(markup.length, 6388);
 assert.equal(
     createHash('sha256').update(markup).digest('hex'),
-    '8380b0a9905f8f94bf815995ce433d3a6e542b8736f8dc80f40caeaf0cf8aaf4',
+    '4f36a51bd11f032f5cdedb1af99fda9b5519ceead0b5c246a856a4397cdd5315',
 );
+
+const previewDesign = {
+    ...makeSampleDesign(),
+    measuredCurves: [{
+        id: 'preview', name: 'Preview R', quantity: 'R',
+        x: [450, 500, 550], y: [0.1, 0.08, 0.06],
+        color: '#ef5350', visible: true, aoi: 8, pol: 'p', side: 'front',
+        yWasPercent: false,
+    }],
+};
+const previewMarkup = renderToStaticMarkup(withDesign(
+    React.createElement(SpectrumExchange, { c, t }), previewDesign));
+assert.match(previewMarkup, /Preview R/);
+assert.match(previewMarkup, /Trim range/);
+assert.match(previewMarkup, /Fit…/);
+assert.doesNotMatch(previewMarkup, /Import a spectrum or select an existing curve/,
+    'a stored or directly imported JCAMP curve must reach the preview chart');
+assert.match(previewMarkup, /min-height:200px/,
+    'the selected imported curve should render the real spectrum chart');
+assert.match(previewMarkup, /tfs-spectrum-import-layout/);
+assert.match(previewMarkup, /tfs-spectrum-import-preview/);
+assert.match(previewMarkup, /grid-template-columns:112px minmax\(0, 1fr\)/,
+    'import metadata labels need enough width for Angle of incidence');
+assert.ok(previewMarkup.length > markup.length, 'curve preview should render more than the empty state');
+
+const dialogCurve = previewDesign.measuredCurves[0];
+const dialogConfig = {
+    ...model.defaultMeasuredFitOptions(dialogCurve),
+    outputMode: 'replace', constraintsEnabled: true,
+    minThicknessNm: 12, maxThicknessNm: 900, constraintWeight: 2,
+};
+const dialogMarkup = renderToStaticMarkup(React.createElement(MeasuredFitDialog, {
+    c, sx: t.spectrumExchange,
+    controller: {
+        fitDialogCurve: dialogCurve,
+        fitConfig: dialogConfig,
+        fitSnapshot: model.measuredFitSnapshot(previewDesign, dialogCurve, dialogConfig),
+        setFitOption() {}, onCreateFitOperand() {}, closeFitDialog() {},
+        missingMaterialIds: [],
+    },
+}));
+assert.match(dialogMarkup, /Fit to measured curve/);
+assert.match(dialogMarkup, /Append/);
+assert.match(dialogMarkup, /Replace/);
+assert.match(dialogMarkup, /Add thickness constraints/);
+assert.match(dialogMarkup, /Minimum thickness/);
+assert.match(dialogMarkup, /Maximum thickness/);
 
 // The window is unmounted whenever its tab is not the active one, so the tab
 // selection has to come back from the store rather than from React state.
@@ -62,6 +111,19 @@ const csv = model.measuredExportDocument(design, 'csv');
 assert.equal(csv.fileName, 'Measured_Sample_measured.csv');
 assert.equal(createHash('sha256').update(csv.text).digest('hex').slice(0, 16), '2ad7bc48ab40aab7');
 
+const selectedExport = model.measuredExportDocument({
+    name: 'Selected',
+    measuredCurves: [
+        { id: 'a', name: 'A', quantity: 'T', x: [400, 500], y: [0.9, 0.8] },
+        { id: 'b', name: 'B', quantity: 'R', x: [400, 500], y: [0.1, 0.2] },
+    ],
+}, 'csv', {
+    curves: [{ id: 'b', name: 'B', quantity: 'R', x: [400, 500], y: [0.1, 0.2], trimMin: 500 }],
+    xUnit: 'um',
+    asPercent: false,
+});
+assert.equal(selectedExport.text, 'Wavelength (µm),B R\r\n0.5,0.2\r\n');
+
 const actionEvents = [];
 const actionDesign = {
     measuredCurves: [
@@ -95,7 +157,18 @@ renderToStaticMarkup(React.createElement(ActionProbe));
 actions.onAdd();
 assert.equal(actionEvents[0], 'checkpoint');
 assert.equal(actionEvents[1][0], 'update');
-assert.equal(actionEvents[1][1].measuredCurves.at(-1), actions.previewCurve);
+const firstAdded = actionEvents[1][1].measuredCurves.at(-1);
+assert.deepEqual(firstAdded.y, actions.previewCurve.y);
+assert.equal(firstAdded.name, actions.previewCurve.name);
+
+// The preview curves are memoized, so adding twice hands the same object over
+// twice. Each curve on the design must still get an id of its own, or toggling
+// one flips the other and neither can be removed on its own.
+actionEvents.length = 0;
+actions.onAdd();
+const secondAdded = actionEvents[1][1].measuredCurves.at(-1);
+assert.notEqual(secondAdded.id, firstAdded.id, 'a curve added twice must not reuse its id');
+assert.deepEqual(secondAdded.y, firstAdded.y);
 actionEvents.length = 0;
 actions.removeCurve('remove');
 assert.deepEqual(actionEvents.slice(0, 2), [
@@ -107,6 +180,56 @@ actions.toggleCurve('keep');
 assert.equal(actionEvents[0][0], 'update');
 assert.equal(actionEvents[0][1].measuredCurves[0].visible, false);
 assert.equal(actionEvents.includes('checkpoint'), false);
+
+actionEvents.length = 0;
+actions.setCurveScale('keep', 'percent');
+assert.equal(actionEvents[0], 'checkpoint');
+assert.equal(actionEvents[1][1].measuredCurves[0].y[0], 0.001);
+assert.equal(actionEvents[1][1].measuredCurves[0].yWasPercent, true);
+
+actionEvents.length = 0;
+actions.setCurveTrim('keep', 'min', 500);
+assert.equal(actionEvents[0], 'checkpoint');
+assert.equal(actionEvents[1][1].measuredCurves[0].trimMin, 500);
+
+const multiEvents = [];
+let multiActions;
+function MultiColumnProbe() {
+    const parsed = {
+        x: [500, 600],
+        columns: [
+            { name: 'Transmission', x: [500, 600], values: [90, 91], quantity: 'T', isPercent: true },
+            { name: 'Reflection', x: [500, 600], values: [8, 7], quantity: 'R', isPercent: true },
+        ],
+    };
+    multiActions = actionHooks.useImportActions({
+        sx: t.spectrumExchange,
+        design: { measuredCurves: [] },
+        updateDesign: (patch) => multiEvents.push(['update', patch]),
+        checkpoint: () => multiEvents.push('checkpoint'),
+        flash: (type, msg) => multiEvents.push(['flash', type, msg]),
+        parsed,
+        col: parsed.columns[0],
+        xUnit: 'nm',
+        fileName: 'pair.csv',
+        ov: { 1: { name: 'Rear R' } },
+        aoi: 8,
+        pol: 'p',
+        side: 'back',
+        setLoading() {}, setStatus() {}, setParsed() {}, setFileName() {},
+        setColIdx() {}, setOv() {}, setXUnit() {},
+    });
+    return React.createElement('span');
+}
+renderToStaticMarkup(React.createElement(MultiColumnProbe));
+multiActions.onAdd();
+const importedPair = multiEvents[1][1].measuredCurves;
+assert.equal(importedPair.length, 2);
+assert.deepEqual(importedPair.map(curve => [curve.name, curve.quantity]), [
+    ['pair: Transmission', 'T'],
+    ['Rear R', 'R'],
+]);
+assert.ok(importedPair.every(curve => curve.aoi === 8 && curve.pol === 'p' && curve.side === 'back'));
 
 const originalApi = window.electronAPI;
 window.electronAPI = {

@@ -10,6 +10,7 @@ import {
 import { targetSeries } from '../../../ui/targetSeries.js';
 import { plotMargin } from '../chrome/plot.js';
 import { yScaleAxisOption, yScaleOf, yScaleTooltip } from './yScale.js';
+import { measuredCurveData } from '../../../../utils/io/spectrumTable.js';
 
 const CURVE_SHAPES = [
     { key: 'T',  label: 'T avg', dash: 'solid',  group: 'avg' },
@@ -52,8 +53,9 @@ function hexToRgba(hex, alpha) {
 
 export function buildMeasuredSeries(overlays) {
     return (overlays || []).filter(curve => curve && curve.visible !== false && curve.x?.length).map(curve => {
+        const data = measuredCurveData(curve);
         const series = lineSeries({
-            x: curve.x, y: curve.y.map(value => value * 100),
+            x: data.x, y: data.y.map(value => value * 100),
             name: `${curve.name} (${curve.quantity} meas)`, color: curve.color,
             width: 1.4, dash: 'dotted', symbol: 'circle', symbolSize: 4,
         });

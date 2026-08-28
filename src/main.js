@@ -97,7 +97,7 @@ function createWindow() {
     },
     backgroundColor: '#eceef1',
     show: false,
-    icon: path.join(__dirname, '..', 'icons', process.platform === 'win32' ? 'tfstudio-purple2.ico' : 'tfstudio-purple2.png'),
+    icon: path.join(__dirname, '..', 'icons', process.platform === 'win32' ? 'tfstudio.ico' : 'tfstudio.png'),
     frame: false,
     titleBarStyle: 'hidden'
   });

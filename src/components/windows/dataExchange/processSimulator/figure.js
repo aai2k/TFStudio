@@ -66,6 +66,12 @@ export function buildSpectraSeries(data, colors, labels) {
                 : dimColor(colors.text),
             width: focused ? 2.4 : 1.1,
             z: focused ? 3 : 1,
+            // A curve that is only context takes no part in hovering. The axis
+            // tooltip does not report it and it is not meant to light up, so
+            // every mouse move would otherwise restyle and redraw sixty
+            // polylines to show a highlight nobody reads.
+            silent: !focused,
+            emphasis: focused ? undefined : { disabled: true },
         }));
     });
     if (data.liveCurve) series.push(lineSeries({

@@ -6,7 +6,7 @@ import {
 } from '../src/components/windows/optimization/meritFunctionEditor/mfTable/operandViewModel.js';
 import {
     OPERAND_TYPES, isBlank, isConstraint, isDmfs, isIntegral, isMath,
-    isTotalThickness,
+    isMeasuredCurve, isTotalThickness,
 } from '../src/utils/physics/optimizer/operandModel.js';
 import { _operandResidual } from '../src/utils/physics/optimizer/evalCore.js';
 
@@ -156,7 +156,10 @@ assert.equal(typeRgba('unknown', 0.5), null);
 // column the keyboard will still walk into and edit.
 for (const type of OPERAND_TYPES) {
     if (isBlank(type) || isDmfs(type) || isTotalThickness(type)
-        || isIntegral(type) || isMath(type) || isConstraint(type)) continue;
+        || isIntegral(type) || isMath(type) || isConstraint(type)
+        // Generated measured snapshots show their stored range but deliberately
+        // protect it from table edits; they are configured through the fit dialog.
+        || isMeasuredCurve(type)) continue;
     const row = op(type, { lambdaStart: 600, lambdaEnd: 900 });
     const labelled = dynamicHeaderLabels(row).lambdaEnd !== '—';
     assert.equal(editableColsForRow(row).includes('lambdaEnd'), labelled,

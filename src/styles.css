@@ -268,6 +268,32 @@ button:active {
     appearance: textfield;
 }
 
+/* Measured-spectra import keeps controls/curves on the left and the comparison
+   plot on the right. Both wrappers explicitly permit flex shrinking so the
+   chart owns all horizontal space left after the established 380 px sidebar. */
+.tfs-spectrum-import-layout {
+    display: flex;
+    width: 100%;
+    height: 100%;
+    min-width: 0;
+    min-height: 0;
+}
+
+.tfs-spectrum-import-sidebar {
+    display: flex;
+    width: 380px;
+    min-width: 0;
+    min-height: 0;
+    flex-shrink: 0;
+}
+
+.tfs-spectrum-import-preview {
+    display: flex;
+    flex: 1;
+    min-width: 0;
+    min-height: 0;
+}
+
 /* A list walked with the arrow keys.
 
    No focus ring: the row the keys act on is always marked inside the list, by

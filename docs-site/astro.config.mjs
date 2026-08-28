@@ -14,7 +14,7 @@ export default defineConfig({
     starlight({
       title: 'TFStudio Docs',
       description: 'Optical thin-film coating design — reference manual',
-      // Branding — the TFStudio app icon (icons/tfstudio-purple2.*), copied
+      // Branding: the TFStudio app icon (icons/tfstudio.*), copied
       // into public/ as favicon.{ico,png}. `favicon` sets the primary .ico;
       // the head links add the high-res PNG + Apple touch icon. Served
       // identically by the offline help server (it serves docs-site/dist).
@@ -142,6 +142,7 @@ export default defineConfig({
           translations: { 'zh-CN': '数据交换' },
           items: [
             { label: 'Measured Spectra', translations: { 'zh-CN': '实测光谱' },   slug: 'data-exchange/measured-spectra' },
+            { label: 'Spectrum File Formats', translations: { 'zh-CN': '光谱文件格式' }, slug: 'data-exchange/spectrum-file-formats' },
             { label: 'Zemax Coatings',   translations: { 'zh-CN': 'Zemax 膜层' }, slug: 'data-exchange/zemax-coatings' },
             { label: 'Process Exporter', translations: { 'zh-CN': '工艺导出' },   slug: 'simulation/process-simulator' },
           ],

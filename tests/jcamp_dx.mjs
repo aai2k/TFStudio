@@ -138,6 +138,44 @@ ok('reject empty', parseJcampDx('').ok === false);
     ok('link block1 R', r.spectra[1].quantity === 'R' && arrApprox(r.spectra[1].y, [0.08, 0.07, 0.06], 1e-5));
 }
 
+// ── Legacy TFStudio LINK: A was labelled ABSORBANCE before ABSORPTANCE ───────────
+{
+    const block = (title, units, y) =>
+`##TITLE=Old Design ${title}\n##XUNITS=NANOMETERS\n##YUNITS=${units}\n##FIRSTX=400\n##DELTAX=10\n##XYDATA=(X++(Y..Y))\n400 ${y}\n##END=`;
+    const txt = `##TITLE=Old Design spectrum\n##DATA TYPE=LINK\n##BLOCKS=3\n${block('T', 'TRANSMITTANCE', '0.9 0.8')}\n${block('R', 'REFLECTANCE', '0.1 0.15')}\n${block('A', 'ABSORBANCE', '0 0.05')}\n##END=`;
+    const r = parseJcampDx(txt);
+    ok('legacy TFStudio link parses 3', r.spectra.length === 3);
+    ok('legacy TFStudio A restored as absorptance',
+        r.spectra[2].quantity === 'A' && !r.spectra[2].isAbsorbance
+        && arrApprox(r.spectra[2].y, [0, 0.05]));
+}
+
+// ── Writer: explicit percent and absorptance semantics ─────────────────────────
+{
+    const spec = {
+        title: 'A percent', xUnit: X_UNITS.UM, quantity: 'A', isPercent: true,
+        x: [0.4, 0.5], y: [10, 20],
+    };
+    const txt = buildJcampDx([spec]);
+    ok('writer percent absorptance units', /##YUNITS=% ABSORPTANCE/.test(txt));
+    const r = parseJcampDx(txt);
+    ok('percent absorptance round-trip type', r.spectra[0].quantity === 'A' && !r.spectra[0].isAbsorbance);
+    ok('percent absorptance round-trip scale', r.spectra[0].isPercent && arrApprox(r.spectra[0].y, [10, 20]));
+    ok('writer micrometer round-trip', r.spectra[0].xUnit === X_UNITS.UM && arrApprox(r.spectra[0].x, [0.4, 0.5]));
+}
+
+// Writer precision preserves measured points at the window export tolerance.
+{
+    const spec = {
+        title: 'Precise R', xUnit: X_UNITS.CM1, quantity: 'R',
+        x: [19103.456789012, 20789.012345678],
+        y: [0.123456789012, 0.876543210987],
+    };
+    const restored = parseJcampDx(buildJcampDx([spec])).spectra[0];
+    ok('writer precision x 1e-12', arrApprox(restored.x, spec.x, 1e-12));
+    ok('writer precision y 1e-12', arrApprox(restored.y, spec.y, 1e-12));
+}
+
 // ── $$ comments + whitespace tolerance ──────────────────────────────────────────
 {
     const txt = HEAD('100 10 12 14 16 16 16 13').replace('##XYDATA=(X++(Y..Y))', '##XYDATA=(X++(Y..Y)) $$ data follows');

@@ -28,7 +28,22 @@ function makeMockInstance() {
     const malloc = (b) => { bump = (bump + 7) & ~7; const p = bump; bump += b; return p; };
     const free = () => {};
     const f64 = (p, n) => new Float64Array(memory.buffer, p, n);
-    const tmm_one = () => {};
+    // Faithful tmm_one, obeying the same ABI as the C kernel: the layer triples
+    // (n, k, d) sit at `ptr` and the R/T/A triple is written at `outPtr`. The
+    // substrate-side passes of a whole-sample spectrum go through this one,
+    // since each wavelength needs its own angle.
+    const tmm_one = (lambda_nm, theta_deg, polCode, n0re, n0im, nsre, nsim, ptr, N, outPtr) => {
+        kernelCalls++;
+        const buf = f64(ptr, 3 * N);
+        const layers = [];
+        for (let k = 0; k < N; k++) {
+            layers.push({ n: [buf[3 * k], buf[3 * k + 1]], d: buf[3 * k + 2] });
+        }
+        const out = tmm(lambda_nm, theta_deg, polCode ? 'p' : 's',
+            [n0re, n0im], [nsre, nsim], layers);
+        const dst = f64(outPtr, 3);
+        dst[0] = out.R; dst[1] = out.T; dst[2] = out.A;
+    };
     const tmm_jacobian = () => {};
     const tmm_spectrum = (lamPtr, nLam, n0Ptr, nsPtr, mPtr, thPtr, N, theta,
                           rsPtr, tsPtr, asPtr, rpPtr, tpPtr, apPtr) => {
@@ -96,17 +111,22 @@ const wFront = evaluateSpectrum(params, air, bk7, frontLayers);
 const wBack = evaluateSpectrumBack(params, air, bk7, backLayers);
 const wFrontS = evaluateSpectrum({ ...params, polarization: 's' }, air, bk7, frontLayers);
 const wFrontP = evaluateSpectrum({ ...params, polarization: 'p' }, air, bk7, frontLayers);
+// The forward pass runs at the angle of incidence, one angle for the whole grid,
+// so it is a single batched call. The two substrate-side passes start at the
+// refracted angle, which follows the substrate's dispersion and so differs at
+// every wavelength: those go one wavelength at a time, both polarizations.
+const nLam = jsTotal.lambda.length;
 kernelCalls = 0;
 const wTotal = evaluateSpectrumTotal(normal, air, bk7, air, frontLayers, backLayers, 1.1);
-ok(kernelCalls === 3, `total takes one kernel call per pass (got ${kernelCalls})`);
+ok(kernelCalls === 1 + 4 * nLam,
+    `total is one batched pass plus two per-wavelength passes (got ${kernelCalls})`);
 const wTotalP = evaluateSpectrumTotal({ ...normal, polarization: 'p' },
     air, bk7, air, frontLayers, backLayers, 1.1);
-// Away from normal the ray inside the substrate refracts by an angle that
-// follows the substrate's dispersion, so each wavelength needs its own angle
-// and the batched kernel, which takes one for the whole grid, cannot serve it.
+// The same path serves any angle of incidence: there is no slow fallback left.
 kernelCalls = 0;
 const wTotalOblique = evaluateSpectrumTotal(params, air, bk7, air, frontLayers, backLayers, 1.1);
-ok(kernelCalls === 0, `oblique incidence stays on the per-wavelength loop (got ${kernelCalls})`);
+ok(kernelCalls === 1 + 4 * nLam,
+    `oblique incidence takes the same path (got ${kernelCalls})`);
 
 compareAll('front avg', jsFront, wFront);
 compareAll('back avg', jsBack, wBack);

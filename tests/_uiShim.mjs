@@ -134,10 +134,10 @@ export function makeTheme() {
     };
 }
 
-// The full English locale object (`t`). Requires loadApp() first.
-export function makeLocale() {
+// A full locale object (`t`), English by default. Requires loadApp() first.
+export function makeLocale(code = 'en') {
     if (!_app) throw new Error('call loadApp() before makeLocale()');
-    return _app.getLocale('en');
+    return _app.getLocale(code);
 }
 
 // A minimal but complete design used by windows that read the active design.

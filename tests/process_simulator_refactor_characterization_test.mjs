@@ -42,6 +42,9 @@ assert.match(html, /inputMode="decimal"/);
 // An auto-sized table redraws every column as the material names change, so the
 // numbers move under the pointer while a run plays.
 assert.match(html, /table-layout:fixed/, 'the sequence table holds its columns');
+assert.match(html,
+    /<colgroup><col style="width:26px"\/><col\/><col style="width:86px"\/><col style="width:54px"\/><\/colgroup>/,
+    'the thickness heading has enough room to show its complete unit');
 
 // The bar down the left of a row marks the layer the timeline is on, so a run
 // moving through the stack is as easy to follow as a layer picked by hand.
@@ -217,6 +220,12 @@ assert.ok(chartOption.toolbox.feature.saveAsImage, 'native chart export remains 
         ['rgba(224,224,224,0.16)', 'rgba(224,224,224,0.16)'],
         'every other step curve greys out');
     assert.ok(steps[1].lineStyle.width > steps[2].lineStyle.width);
+
+    // Context curves take no part in hovering. The readout does not report them
+    // and they are not meant to light up, so every mouse move would otherwise
+    // restyle and redraw sixty polylines to show a highlight nobody reads.
+    assert.deepEqual(steps.map(item => item.silent), [true, false, true]);
+    assert.deepEqual(steps.map(item => item.emphasis?.disabled), [true, undefined, true]);
 
     // Sixty curves over one plot is a grey haze with the answer somewhere
     // inside it, so only the layer the timeline is on is drawn by default.

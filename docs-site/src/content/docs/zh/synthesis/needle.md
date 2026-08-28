@@ -8,11 +8,11 @@ ribbonIcon: needle
 
 功能区中有两个版本。两者共享同一个候选材料池和相同的底层扫描。
 
-## 针式自动（Needle Automatic）
+## <span id="needle-automatic"></span>针式自动（Needle Automatic）
 
 自行运行整个“扫描—插入—精炼”循环，直到达到针式最优。
 
-## 针式手动（Needle Manual）
+## <span id="needle-manual"></span>针式手动（Needle Manual）
 
 将同样的 P 函数扫描以图表形式展示给你，并允许你点击位置和材料，手动插入单个针式层。这对于验证某个拓扑想法、在你已知某层应处的位置播下种子，或逐次插入地逐步推进合成非常有用。
 

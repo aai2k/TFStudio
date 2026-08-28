@@ -41,6 +41,14 @@ function processHtml(filePath) {
     `$1${pfx}`,
   );
 
+  // Starlight applies Astro's `trailingSlash: 'always'` formatter to the
+  // manual Needle sidebar links as a whole, including their hash fragment.
+  // Keep the route slash, but remove the spurious slash after these fragments.
+  out = out.replace(
+    /(\bhref=["'][^"']*\/synthesis\/needle\/#needle-(?:automatic|manual))\/(["'])/g,
+    '$1$2',
+  );
+
   // url('/...') and url("/...") in inline style / script blocks
   out = out.replace(/\burl\('\/(?!\/)/g, `url('${pfx}`);
   out = out.replace(/\burl\("\/(?!\/)/g, `url("${pfx}`);

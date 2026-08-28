@@ -4,25 +4,45 @@
 import { X_UNITS } from './constants.js';
 import { parseNumber, splitFields, sniffDelimiter, detectDecimal } from './numberParsing.js';
 import { detectXUnit, guessXUnitFromRange, detectQuantity, detectIsPercent, isAbsorbanceHeader } from './headerHeuristics.js';
+import {
+    detectHeaderLayout, isDataMarkerLine, uniqueColumnNames,
+} from './headerLayout.js';
+import { buildColumn, columnDescriptors, columnXUnit } from './columnModel.js';
 
 // Failure/empty result shape shared by every early exit of parseSpectrumTable.
 function emptyTable(error, extra = {}) {
     return {
         ok: false, error,
         delimiter: ',', decimal: '.',
-        headerText: '', headerLines: [], nRows: 0,
+        headerText: '', headerLines: [], nRows: 0, skippedRows: 0,
         xUnit: X_UNITS.UNKNOWN, x: [], columns: [],
         ...extra,
     };
 }
 
-// A line is "data" if its first two fields parse as numbers.
-function isSpectrumDataLine(line, delimiter, decimal) {
-    if (!line.trim()) return false;
-    const f = splitFields(line, delimiter);
-    return f.length >= 2 &&
-           Number.isFinite(parseNumber(f[0], decimal)) &&
-           Number.isFinite(parseNumber(f[1], decimal));
+/**
+ * Fields of one data row, or null if the line is not data.
+ *
+ * A data row is a wavelength followed by at least one value. Some instruments
+ * tag every row with the measurement it belongs to, as ADAP does with
+ * `uR 402.5238 0.0 0.237728 0.01`, so a leading non-numeric field is accepted
+ * when everything after it is a number. That last part is what keeps prose out:
+ * "Integration Time (sec): 1.0" has a non-numeric field after the first one.
+ */
+function dataRowFields(line, delimiter, decimal, allowTag = false) {
+    if (!line.trim()) return null;
+    const fields = splitFields(line, delimiter);
+    if (fields.length >= 2
+        && Number.isFinite(parseNumber(fields[0], decimal))
+        && Number.isFinite(parseNumber(fields[1], decimal))) {
+        return fields;
+    }
+    if (allowTag && fields.length >= 3
+        && !Number.isFinite(parseNumber(fields[0], decimal))
+        && fields.slice(1).every(field => Number.isFinite(parseNumber(field, decimal)))) {
+        return fields.slice(1);
+    }
+    return null;
 }
 
 // Column count = the modal field count among data rows (robust to a stray
@@ -33,28 +53,61 @@ function modalFieldCount(dataRows) {
     return +Object.keys(counts).reduce((a, b) => counts[b] > counts[a] ? b : a);
 }
 
-// Column names come from the last header line only IF it splits into ~nCols
-// fields and is non-numeric (a real header row like "Wavelength (nm),%T").
-function detectColumnNames(headerLines, delimiter, decimal, nCols) {
-    if (!headerLines.length) return [];
-    const cand = splitFields(headerLines[headerLines.length - 1], delimiter);
-    const nonNumeric = cand.filter(f => !Number.isFinite(parseNumber(f, decimal))).length;
-    if (cand.length >= 2 && Math.abs(cand.length - nCols) <= 1 && nonNumeric >= 1) return cand;
-    return [];
+/**
+ * Where the numbers start, and whether the rows carry a leading tag.
+ *
+ * A marker line says where the header ends. Without one the first line holding
+ * two numbers has to stand in, and a header full of numeric settings then puts
+ * its own values into the spectrum: a PerkinElmer PEDS export opens with the
+ * excitation wavelength and the scan range. The marker is only a hint, so a
+ * file that closes with one rather than introducing its data with one still
+ * imports. Row tags are the last reading tried, because "Wavelength,1,2,3" is a
+ * header naming its samples by number, and taking it for a tag and three values
+ * would eat the only line carrying the column names.
+ */
+function locateData(rawLines, delimiter, decimal) {
+    const markerIndex = rawLines.findIndex(isDataMarkerLine);
+    const findFrom = (start, allowTag) => {
+        for (let i = start; i < rawLines.length; i++) {
+            if (dataRowFields(rawLines[i], delimiter, decimal, allowTag)) return i;
+        }
+        return -1;
+    };
+    const attempts = markerIndex >= 0
+        ? [[markerIndex + 1, false], [markerIndex + 1, true], [0, false], [0, true]]
+        : [[0, false], [0, true]];
+    for (const [start, allowTag] of attempts) {
+        const firstData = findFrom(start, allowTag);
+        if (firstData >= 0) return { firstData, allowTag };
+    }
+    return { firstData: -1, allowTag: false };
 }
 
-function buildColumn(values, k, columnNames, headerText) {
-    const name = columnNames[k + 1] || `Column ${k + 2}`;
-    const hdr = `${headerText}\n${name}`;
-    const isAbsorbance = isAbsorbanceHeader(name) || (columnNames.length === 0 && isAbsorbanceHeader(headerText));
-    return {
-        index: k + 1,
-        name,
-        values,
-        quantity: detectQuantity(name) || detectQuantity(headerText),
-        isPercent: isAbsorbance ? false : detectIsPercent(hdr, values),
-        isAbsorbance,
-    };
+/**
+ * Every data row from `firstData` on, and a count of the lines between them
+ * that held none.
+ *
+ * A blank or comment line inside the block is stepped over rather than ending
+ * it, because instruments append statistics footers, and those simply never
+ * match a data row. The count matters: a Shimadzu export can alternate a value
+ * row with an empty one, and losing half a measurement in silence is worse than
+ * losing it loudly.
+ */
+function collectDataRows(rawLines, firstData, delimiter, decimal, allowTag) {
+    const dataRows = [];
+    let skippedRows = 0;
+    let pendingSkips = 0;
+    for (let i = firstData; i < rawLines.length; i++) {
+        const row = dataRowFields(rawLines[i], delimiter, decimal, allowTag);
+        if (row) {
+            dataRows.push(row);
+            skippedRows += pendingSkips;
+            pendingSkips = 0;
+        } else if (rawLines[i].trim() !== '' && !isDataMarkerLine(rawLines[i])) {
+            pendingSkips++;
+        }
+    }
+    return { dataRows, skippedRows };
 }
 
 /**
@@ -68,8 +121,11 @@ function buildColumn(values, k, columnNames, headerText) {
  *   ok: boolean, error?: string,
  *   delimiter: string, decimal: string,
  *   headerText: string, headerLines: string[], nRows: number,
+ *   skippedRows: number,   lines inside the data block that held no row
  *   xUnit: string, x: number[],
- *   columns: Array<{ index:number, name:string, values:number[], quantity:(string|null), isPercent:boolean, isAbsorbance:boolean }>
+ *   columns: Array<{ index:number, name:string, unit:string, sampleName:string,
+ *     xIndex:number, x:number[], xUnit:string, values:number[],
+ *     quantity:(string|null), isPercent:boolean, isAbsorbance:boolean }>
  * }}
  *
  * The first numeric column is X; every remaining numeric column is a Y
@@ -88,38 +144,41 @@ export function parseSpectrumTable(text, opts = {}) {
     const sample = rawLines.filter(l => l.trim()).slice(0, 200);
     const delimiter = opts.delimiter || sniffDelimiter(sample, decimal);
 
-    // Leading non-data lines = header. Find first data line.
-    const firstData = rawLines.findIndex(l => isSpectrumDataLine(l, delimiter, decimal));
+    const { firstData, allowTag } = locateData(rawLines, delimiter, decimal);
     if (firstData < 0) {
         return emptyTable('No numeric data rows found', { delimiter, decimal, headerLines: rawLines });
     }
-    const headerLines = rawLines.slice(0, firstData).filter(l => l.trim() !== '');
+    const headerLines = rawLines.slice(0, firstData)
+        .filter(line => line.trim() !== '' && !isDataMarkerLine(line));
 
-    // Collect contiguous-ish data rows (skip the occasional blank/comment line
-    // interspersed, but stop nothing — instruments sometimes append a stats
-    // footer of non-numeric lines, which simply won't match isSpectrumDataLine).
-    const dataRows = [];
-    for (let i = firstData; i < rawLines.length; i++) {
-        if (isSpectrumDataLine(rawLines[i], delimiter, decimal)) dataRows.push(splitFields(rawLines[i], delimiter));
-    }
-
+    const { dataRows, skippedRows } = collectDataRows(rawLines, firstData, delimiter, decimal, allowTag);
     const nCols = modalFieldCount(dataRows);
-    const columnNames = detectColumnNames(headerLines, delimiter, decimal, nCols);
+    const { names: columnNames, units: columnUnits, sampleNames } =
+        detectHeaderLayout(headerLines, delimiter, decimal, nCols);
     const headerText = headerLines.join('\n');
 
-    // Build X (col 0) + Y columns (cols 1..nCols-1).
-    const x = [];
-    const colValues = Array.from({ length: nCols - 1 }, () => []);
+    // Parse all columns first so later columns that repeat the primary X axis
+    // can become sample boundaries instead of being offered as Y data.
+    const allValues = Array.from({ length: nCols }, () => []);
     for (const r of dataRows) {
         if (r.length < nCols) continue;        // skip ragged short rows
-        x.push(parseNumber(r[0], decimal));
-        for (let c = 1; c < nCols; c++) colValues[c - 1].push(parseNumber(r[c], decimal));
+        for (let c = 0; c < nCols; c++) allValues[c].push(parseNumber(r[c], decimal));
     }
+    const x = allValues[0];
 
-    let xUnit = detectXUnit(headerText + ' ' + (columnNames[0] || ''));
-    if (xUnit === X_UNITS.UNKNOWN) xUnit = guessXUnitFromRange(x);
+    const xUnit = columnXUnit(headerText, columnNames[0], x);
 
-    const columns = colValues.map((values, k) => buildColumn(values, k, columnNames, headerText));
+    const namedColumns = uniqueColumnNames(columnDescriptors({
+        nCols, allValues, headerText, columnNames, columnUnits, sampleNames,
+    }));
+    const columns = namedColumns.map(column => buildColumn({
+        ...column,
+        hasColumnNames: columnNames.length > 0,
+        headerText,
+    }));
 
-    return { ok: true, delimiter, decimal, headerText, headerLines, nRows: x.length, xUnit, x, columns };
+    return {
+        ok: true, delimiter, decimal, headerText, headerLines,
+        nRows: x.length, skippedRows, xUnit, x, columns,
+    };
 }

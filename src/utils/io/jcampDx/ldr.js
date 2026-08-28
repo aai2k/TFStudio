@@ -26,7 +26,8 @@ export function unitsToQuantity(yunits) {
     const s = (yunits || '').toUpperCase();
     if (/TRANSMIT/.test(s)) return { quantity: 'T', isAbsorbance: false };
     if (/REFLECT/.test(s))  return { quantity: 'R', isAbsorbance: false };
-    if (/ABSORB/.test(s))   return { quantity: 'A', isAbsorbance: true };
+    if (/ABSORPTANCE/.test(s)) return { quantity: 'A', isAbsorbance: false };
+    if (/ABSORB|OPTICAL\s+DENSITY/.test(s)) return { quantity: 'A', isAbsorbance: true };
     return { quantity: null, isAbsorbance: false };
 }
 

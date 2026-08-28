@@ -1,6 +1,6 @@
 import { ANALYSIS_DEFAULTS } from '../../../../constants/analysisDefaults.js';
 import {
-    cartesianOption, formatChartNumber, itemTooltip, lineSeries, niceTickInterval,
+    cartesianOption, chartToolbox, formatChartNumber, itemTooltip, lineSeries, niceTickInterval,
     scatterSeries, valueAxis,
 } from '../../../ui/chartOptions.js';
 import { plotMargin } from '../chrome/plot.js';
@@ -9,6 +9,38 @@ const FACTORY = ANALYSIS_DEFAULTS.admittanceDiagram.colors;
 const MAX_LEGEND_CHARS = 16;
 const REFLECTION_RANGE = { x: [-1.2, 1.2], y: [-1.2, 1.2], interval: 0.4 };
 const FRAME_SPAN = 4;
+const ZOOM_OUT_FACTOR = 4;
+export const ADMITTANCE_ZOOM_IDS = Object.freeze({
+    x: 'admittance-x-zoom',
+    y: 'admittance-y-zoom',
+});
+
+function navigationDomain(range) {
+    if (!range) return { range: null, start: 0, end: 100 };
+    const centerX = (range.x[0] + range.x[1]) / 2;
+    const centerY = (range.y[0] + range.y[1]) / 2;
+    const half = (range.x[1] - range.x[0]) * ZOOM_OUT_FACTOR / 2;
+    const initialSpan = 100 / ZOOM_OUT_FACTOR;
+    return {
+        range: {
+            x: [centerX - half, centerX + half],
+            y: [centerY - half, centerY + half],
+        },
+        start: (100 - initialSpan) / 2,
+        end: (100 + initialSpan) / 2,
+    };
+}
+
+function resetViewPatch(navigation) {
+    return {
+        xAxis: [{ min: navigation.range?.x[0], max: navigation.range?.x[1] }],
+        yAxis: [{ min: navigation.range?.y[0], max: navigation.range?.y[1] }],
+        dataZoom: [
+            { id: ADMITTANCE_ZOOM_IDS.x, start: navigation.start, end: navigation.end },
+            { id: ADMITTANCE_ZOOM_IDS.y, start: navigation.start, end: navigation.end },
+        ],
+    };
+}
 
 function niceSquareRange(x, y) {
     const span = Math.max(x[1] - x[0], y[1] - y[0]);
@@ -124,23 +156,47 @@ function admittanceSeries(source, matColorMap, matName, colors, marks) {
 
 export function buildAdmittanceOption(source, matColorMap, matName, colors, marks = FACTORY, grid) {
     const range = computeAdmittanceRange(source);
+    const navigation = navigationDomain(range);
     const symbol = isReflection(source) ? 'Γ' : 'Y';
     const series = admittanceSeries(source, matColorMap, matName, colors, marks);
     return cartesianOption({
         colors,
         grid: grid || plotMargin(),
         fileName: 'admittance',
+        toolbox: chartToolbox('admittance', {
+            colors, resetView: resetViewPatch(navigation),
+        }),
         tooltip: itemTooltip(),
         xAxis: valueAxis({
             name: `Re(${symbol})`, color: colors.text, gridColor: colors.border,
-            min: range?.x[0], max: range?.x[1], interval: range?.interval,
+            min: navigation.range?.x[0], max: navigation.range?.x[1], splitNumber: 6,
             scale: !range, formatter: formatChartNumber,
         }),
         yAxis: valueAxis({
             name: `Im(${symbol})`, color: colors.text, gridColor: colors.border,
-            min: range?.y[0], max: range?.y[1], interval: range?.interval,
+            min: navigation.range?.y[0], max: navigation.range?.y[1], splitNumber: 6,
             scale: !range, formatter: formatChartNumber,
         }),
+        // X and Y need independent percentage windows. A single dataZoom model
+        // linked to both axes makes ECharts reuse one brush percentage for the
+        // two dimensions, so a non-square rectangle gives Re(Y) the Im(Y)
+        // scale. AdmittanceChart owns wheel/pan input so it can dispatch both
+        // axis ranges in one animation-free frame and lock their spans. Native
+        // inside-zoom panning adds a 100 ms transition to every drag update.
+        dataZoom: [
+            {
+                id: ADMITTANCE_ZOOM_IDS.x,
+                type: 'inside', xAxisIndex: 0, filterMode: 'none',
+                zoomOnMouseWheel: false, moveOnMouseMove: false, moveOnMouseWheel: false,
+                start: navigation.start, end: navigation.end,
+            },
+            {
+                id: ADMITTANCE_ZOOM_IDS.y,
+                type: 'inside', yAxisIndex: 0, filterMode: 'none',
+                zoomOnMouseWheel: false, moveOnMouseMove: false, moveOnMouseWheel: false,
+                start: navigation.start, end: navigation.end,
+            },
+        ],
         series,
     });
 }

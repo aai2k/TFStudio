@@ -1,6 +1,6 @@
 {
   "name": "tfstudio",
-  "version": "1.6.2",
+  "version": "1.6.3",
   "description": "TFStudio - Optical Thin Film Coating Design",
   "main": "src/main.js",
   "desktopName": "tfstudio.desktop",
@@ -54,7 +54,8 @@
     "decimal.js": "^10.6.0",
     "electron": "^43.4.0",
     "electron-builder": "^26.15.3",
-    "esbuild": "^0.28.2"
+    "esbuild": "^0.28.2",
+    "sharp": "^0.35.4"
   },
   "dependencies": {
     "echarts": "^6.1.0",
@@ -105,7 +106,7 @@
           ]
         }
       ],
-      "icon": "icons/tfstudio-purple2.ico",
+      "icon": "icons/tfstudio.ico",
       "requestedExecutionLevel": "asInvoker"
     },
     "linux": {
@@ -129,7 +130,7 @@
           ]
         }
       ],
-      "icon": "icons/tfstudio-purple2.png",
+      "icon": "build/icons/linux",
       "category": "Science",
       "synopsis": "Optical thin-film coating design and analysis",
       "artifactName": "TFStudio-${version}-${arch}.${ext}",
@@ -141,8 +142,8 @@
         "to": "tmm_kernel.wasm"
       },
       {
-        "from": "icons/tfstudio-purple2.ico",
-        "to": "tfstudio-purple2.ico"
+        "from": "icons/tfstudio.ico",
+        "to": "tfstudio.ico"
       },
       {
         "from": "docs-site/dist",
@@ -158,9 +159,9 @@
       "perMachine": false,
       "allowElevation": false,
       "allowToChangeInstallationDirectory": true,
-      "installerIcon": "icons/tfstudio-purple2.ico",
-      "uninstallerIcon": "icons/tfstudio-purple2.ico",
-      "installerHeaderIcon": "icons/tfstudio-purple2.ico",
+      "installerIcon": "icons/tfstudio.ico",
+      "uninstallerIcon": "icons/tfstudio.ico",
+      "installerHeaderIcon": "icons/tfstudio.ico",
       "createDesktopShortcut": true,
       "createStartMenuShortcut": true,
       "shortcutName": "TFStudio",

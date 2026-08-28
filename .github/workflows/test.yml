@@ -1,6 +1,6 @@
 name: Tests
 
-# Lightweight regression gate. Runs ONLY the fast test suite (`npm test`).
+# Lightweight regression gate. Runs the fast test suite and bundles the renderer.
 # It deliberately does NOT:
 #   - build the app (electron-builder) — that's the heavy `build.yml`, which
 #     stays manual-only.
@@ -44,3 +44,6 @@ jobs:
         # GitHub's Linux runners have ~4 vCPUs; the serial suite (~2.5 min) drops
         # to under a minute. The slow ones are real optimizer/synthesis runs.
         run: npm test -- --jobs=4
+
+      - name: Bundle renderer
+        run: npm run build:renderer

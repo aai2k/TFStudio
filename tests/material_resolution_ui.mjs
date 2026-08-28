@@ -70,6 +70,12 @@ const editor = renderToStaticMarkup(withDesign(
 assert.match(editor, /data-material-missing="true"/,
     'unresolved layer rows are visibly marked');
 assert.match(editor, /Ta2O5/);
+const russianEditor = renderToStaticMarkup(withDesign(
+    React.createElement(DesignEditor, { c, t: makeLocale('ru') }), broken));
+assert.match(russianEditor, />мм<\/span>/,
+    'the substrate-thickness unit is localized in the Russian Design Editor');
+assert.match(russianEditor, />нм<\/span>/,
+    'the reference-wavelength unit is localized in the Russian Design Editor');
 const missingPicker = renderToStaticMarkup(React.createElement(MaterialPicker, {
     value: missingId, onChange: () => {}, c, t,
 }));

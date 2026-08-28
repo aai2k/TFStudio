@@ -30,7 +30,13 @@ export {
     detectIsPercent,
     isAbsorbanceHeader,
 } from './spectrumTable/headerHeuristics.js';
-export { xToNm, absorbanceToT } from './spectrumTable/conversions.js';
+export { xToNm, nmToX, absorbanceToT } from './spectrumTable/conversions.js';
 export { parseSpectrumTable } from './spectrumTable/tableParser.js';
-export { makeMeasuredCurve } from './spectrumTable/measuredCurve.js';
+export {
+    makeMeasuredCurve, measuredCurveData, measuredCurveId, withUniqueCurveIds,
+} from './spectrumTable/measuredCurve.js';
+export {
+    MEASURED_GRID_MODES, MAX_MEASURED_TARGET_POINTS,
+    measuredCurveSpacing, sampleMeasuredCurve,
+} from './spectrumTable/measuredSampling.js';
 export { curvesToCsv, tableToCsv } from './spectrumTable/csvExport.js';

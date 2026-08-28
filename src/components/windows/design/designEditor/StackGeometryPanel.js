@@ -51,7 +51,7 @@ function StackSettingsFields({ design, updateDesign, refLambda, c, t }) {
                 onChange: (s) => { const v = parseNumberStrict(s); if (!isNaN(v) && v >= 0) updateDesign({ substrate: { ...design.substrate, thickness: v } }); },
                 style: numStyle,
             }),
-            unit('mm'),
+            unit(de.unitMm || 'mm'),
             h('div', { style: { width: 1, height: 18, background: c.border, margin: '0 6px' } }),
             fldLabel(de.refLambdaShort || de.refLambda, 'Reference wavelength λ₀ used for QWOT / FWOT thickness display'),
             h(DebouncedInput, {
@@ -73,7 +73,7 @@ function StackSettingsFields({ design, updateDesign, refLambda, c, t }) {
                 },
                 style: numStyle,
             }),
-            unit('nm'),
+            unit(de.unitNm || 'nm'),
         ),
         h(Sep, { c }),
         // Cone-angle averaging (convergent/divergent beam)

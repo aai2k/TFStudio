@@ -8,14 +8,16 @@ import {
 
 const { useCallback } = React;
 
-export function useMeasuredExport({ design, expFormat, flash, sx }) {
+export function useMeasuredExport({ design, expFormat, curves, xUnit, asPercent, flash, sx }) {
     return useCallback(async () => {
-        const list = design.measuredCurves || [];
+        const list = curves || [];
         if (!list.length) {
             flash('info', sx.nothingToExport);
             return;
         }
-        const output = measuredExportDocument(design, expFormat);
+        const output = measuredExportDocument(design, expFormat, {
+            curves: list, xUnit, asPercent,
+        });
         try {
             const result = await window.electronAPI.spectrumSaveFile(output.text, output.fileName);
             if (result?.success) flash('success', sx.exported(result.filePath));
@@ -23,7 +25,7 @@ export function useMeasuredExport({ design, expFormat, flash, sx }) {
         } catch (err) {
             flash('error', sx.errExport(err.message));
         }
-    }, [design, expFormat, sx]);
+    }, [design, expFormat, curves, xUnit, asPercent, sx]);
 }
 
 export function useDesignExport(options) {

@@ -13,7 +13,9 @@ const { createElement: h, useEffect, useRef } = React;
 // Fixed column widths. Material names run from "SiO2" to "Ta2O5 (Peleng 2024)",
 // and an auto-sized table redraws every column as the current layer changes, so
 // the numbers move under the pointer while a run plays.
-const SEQUENCE_COLUMNS = [26, null, 66, 54];
+// Leave enough room for the localized thickness heading; 66 px clipped the
+// English "Thickness (nm)" after the first unit character.
+const SEQUENCE_COLUMNS = [26, null, 86, 54];
 const RATE_COLUMNS = [null, 86];
 
 function formatNumber(value, decimals = 1) {

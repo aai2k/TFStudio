@@ -10,7 +10,7 @@
 
 import {
     isDmfs, isBlank, isConstraint, isTotalThickness, isMath, isRangeTarget,
-    isIntegral, isArgwave, isMinmax, isGroupDelayFlat,
+    isIntegral, isArgwave, isMinmax, isGroupDelayFlat, isMeasuredCurve,
     bandSampleCount, ARGWAVE_DEFAULT_POINTS,
 } from './operandModel.js';
 import { materialOmegaResponse } from '../../materials/materialDispersion.js';
@@ -88,6 +88,16 @@ function _bandLambdas(op, range) {
 // worker) must request exactly these λ. The arithmetic here REPRODUCES
 // evalOperand's expressions EXACTLY (`range*f` for ramp, `(range*i)/(n-1)` for
 // avg) — do not "simplify" it; bit-identical IEEE-754 floats are the contract.
+// Math operands reference other rows by id, so they contribute no λ of their
+// own and requiredLambdas picks up the referenced rows naturally. Legacy shim:
+// an OPGT/OPLT written before refId carries `baseType` and forwards to it.
+function mathSampleLambdas(op) {
+    if ((op.type === 'OPGT' || op.type === 'OPLT') && op.baseType && !op.refId) {
+        return operandSampleLambdas({ ...op, type: op.baseType });
+    }
+    return [];
+}
+
 export function operandSampleLambdas(op) {
     // DMFS / BLNK are inert; constraints & TT act on layer thicknesses, not λ.
     if (isDmfs(op.type) || isBlank(op.type) || isConstraint(op.type) || isTotalThickness(op.type)) return [];
@@ -97,11 +107,12 @@ export function operandSampleLambdas(op) {
     // (Legacy shim: an old OPGT/OPLT with `op.baseType` set forwards to the
     // baseType operand for backward compat with files written by the
     // pre-refId build.)
-    if (isMath(op.type)) {
-        if ((op.type === 'OPGT' || op.type === 'OPLT') && op.baseType && !op.refId) {
-            return operandSampleLambdas({ ...op, type: op.baseType });
-        }
-        return [];
+    if (isMath(op.type)) return mathSampleLambdas(op);
+    // A measured block owns its grid as persisted data. Do not derive or
+    // resample it here: this exact array is shared by direct evaluation and the
+    // worker material pre-sampler, and is expanded point-for-point at run time.
+    if (isMeasuredCurve(op.type)) {
+        return Array.isArray(op.sampleLambdas) ? op.sampleLambdas.slice() : [];
     }
     if (isBandSampled(op.type)) {
         const range = op.lambdaEnd - op.lambdaStart;
