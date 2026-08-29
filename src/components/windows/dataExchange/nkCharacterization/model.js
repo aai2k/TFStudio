@@ -7,20 +7,37 @@
  */
 
 import { measuredCurveData } from '../../../../utils/io/spectrumTable.js';
+import { ellipsometryCurves } from '../measuredEllipsometry/model.js';
 import { resolveDesignMaterial } from '../../../../utils/materials/designMaterials.js';
 import { characterizeFilm } from '../../../../utils/materials/characterization/nkFit.js';
+import {
+    portableSample, sampleFromPortable,
+} from '../../../../utils/materials/characterization/portableSample.js';
 import { evaluateDispersionFit } from '../../../../utils/materials/dispersionFits.js';
 import { resolveEvalMode } from '../../../../utils/physics/optimizer/evalCore.js';
 
-/** Curves on the design that a characterization can be run against. */
-export function characterizableCurves(design) {
-    return (design?.measuredCurves || [])
-        .filter(curve => curve.quantity === 'T' || curve.quantity === 'R')
-        .filter(curve => (curve.x?.length || 0) >= 8);
+const ENOUGH_POINTS = 8;
+
+/**
+ * Curves a characterization can run against, for one kind of measurement.
+ *
+ * The two kinds live in separate lists on the design because they are imported
+ * by separate windows from separate instruments. Photometry never sees a Ψ/Δ
+ * pair and ellipsometry never sees a spectrum, so neither mode can be handed
+ * the wrong measurement by mistake.
+ */
+export function characterizableCurves(design, measurementMode = 'photometry') {
+    const list = measurementMode === 'ellipsometry'
+        ? ellipsometryCurves(design)
+        : (design?.measuredCurves || []);
+    const wanted = measurementMode === 'ellipsometry' ? ['PSI', 'DEL'] : ['T', 'R'];
+    return list
+        .filter(curve => wanted.includes(curve.quantity))
+        .filter(curve => (curve.x?.length || 0) >= ENOUGH_POINTS);
 }
 
-export function curveById(design, id) {
-    return characterizableCurves(design).find(curve => curve.id === id) || null;
+export function curveById(design, id, measurementMode = 'photometry') {
+    return characterizableCurves(design, measurementMode).find(curve => curve.id === id) || null;
 }
 
 /**
@@ -29,14 +46,22 @@ export function curveById(design, id) {
  * combination that solves n and k at a wavelength rather than assuming one.
  */
 export function defaultCurveSelection(design) {
-    const curves = characterizableCurves(design);
+    const photometric = characterizableCurves(design, 'photometry');
+    const angular = characterizableCurves(design, 'ellipsometry');
     return {
-        transmittanceId: curves.find(curve => curve.quantity === 'T')?.id || '',
-        reflectanceId: curves.find(curve => curve.quantity === 'R')?.id || '',
+        transmittanceId: photometric.find(curve => curve.quantity === 'T')?.id || '',
+        reflectanceId: photometric.find(curve => curve.quantity === 'R')?.id || '',
+        psiId: angular.find(curve => curve.quantity === 'PSI')?.id || '',
+        deltaId: angular.find(curve => curve.quantity === 'DEL')?.id || '',
     };
 }
 
-function channelOf(curve) {
+export function defaultMeasurementMode(design) {
+    const defaults = defaultCurveSelection(design);
+    return (defaults.transmittanceId || defaults.reflectanceId) ? 'photometry' : 'ellipsometry';
+}
+
+function channelOf(curve, settings) {
     const { x, y } = measuredCurveData(curve);
     return {
         quantity: curve.quantity,
@@ -45,6 +70,7 @@ function channelOf(curve) {
         aoi: curve.aoi ?? 0,
         pol: curve.pol ?? 'avg',
         side: curve.side ?? 'front',
+        deltaConvention: settings.deltaConvention || curve.deltaConvention || 'azzam',
     };
 }
 
@@ -95,32 +121,65 @@ export function sampleFor(design, settings) {
         // CSV spectra do not carry sample geometry. Follow the same design-wide
         // evaluation mode that produced an Optical Evaluation export; an
         // instrument measurement can override this to "slab" in Settings.
-        geometry: settings.geometry || defaultSampleGeometry(design),
+        geometry: settings.measurementMode === 'ellipsometry'
+            ? 'coating'
+            : (settings.geometry || defaultSampleGeometry(design)),
         substrateId,
     };
 }
 
 /**
- * Run the extraction for the window's current settings.
+ * The extraction the window's current settings ask for, as data.
+ *
+ * Built here rather than inside the run so the same request can be handed to a
+ * worker: materials resolve on this thread, where the catalogs are, and cross
+ * as sampled tables.
+ *
+ * @returns `{ request, measurementMode }`, or `{ error }` naming what stopped it.
+ */
+export function characterizationRequest(design, settings) {
+    const measurementMode = settings.measurementMode || defaultMeasurementMode(design);
+    const ids = measurementMode === 'ellipsometry'
+        ? [settings.psiId, settings.deltaId]
+        : [settings.transmittanceId, settings.reflectanceId];
+    const chosen = ids.map(id => curveById(design, id, measurementMode)).filter(Boolean);
+    if (chosen.length === 0) return { error: 'noCurves' };
+    if (measurementMode === 'ellipsometry' && chosen.length < 2) {
+        return { error: 'ellipsometryPair' };
+    }
+
+    const range = [Number(settings.lambdaStart), Number(settings.lambdaEnd)];
+    const channels = chosen.map(curve => channelOf(curve, settings));
+    return {
+        measurementMode,
+        request: {
+            channels,
+            sample: portableSample(sampleFor(design, { ...settings, measurementMode }), channels),
+            indexModel: settings.indexModel,
+            thicknessNm: thicknessSettingNm(design, settings),
+            fixThickness: !!settings.fixThickness,
+            rangeNm: range.every(Number.isFinite) && range[1] > range[0] ? range : null,
+        },
+    };
+}
+
+/**
+ * Run the extraction on this thread.
+ *
+ * The window runs it in a worker instead, because a spectroscopic grid takes
+ * tens of seconds. This is the same computation without the plumbing, for tests
+ * and for any caller that is not a rendering thread.
  *
  * @returns the characterization result, or `{ error }` naming what stopped it.
  */
 export function runCharacterization(design, settings) {
-    const chosen = [
-        curveById(design, settings.transmittanceId),
-        curveById(design, settings.reflectanceId),
-    ].filter(Boolean);
-    if (chosen.length === 0) return { error: 'noCurves' };
-
-    const range = [Number(settings.lambdaStart), Number(settings.lambdaEnd)];
-    return characterizeFilm({
-        channels: chosen.map(channelOf),
-        sample: sampleFor(design, settings),
-        indexModel: settings.indexModel,
-        thicknessNm: thicknessSettingNm(design, settings),
-        fixThickness: !!settings.fixThickness,
-        rangeNm: range.every(Number.isFinite) && range[1] > range[0] ? range : null,
+    const prepared = characterizationRequest(design, settings);
+    if (prepared.error) return prepared;
+    const result = characterizeFilm({
+        ...prepared.request,
+        sample: sampleFromPortable(prepared.request.sample),
     });
+    return result.error ? result : { ...result, measurementMode: prepared.measurementMode };
 }
 
 /**

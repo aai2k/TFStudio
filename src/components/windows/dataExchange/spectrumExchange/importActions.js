@@ -27,7 +27,7 @@ function importedJcampCurves(jcamp, result, conditions) {
 function useImportFile(options) {
     const {
         sx, design, updateDesign, checkpoint, flash, setLoading, setStatus,
-        setParsed, setFileName, setColIdx, setOv, setXUnit, setSelectedCurveId,
+        setParsed, setFileName, setColIdx, setOv, setXUnit, setSelectedCurveId, setAoi,
         aoi, pol, side,
     } = options;
     return useCallback(async () => {
@@ -64,6 +64,8 @@ function useImportFile(options) {
             }
             setParsed(nextParsed); setFileName(result.fileName || 'spectrum');
             setColIdx(0); setOv({}); setXUnit(nextParsed.xUnit === X_UNITS.UNKNOWN ? X_UNITS.NM : nextParsed.xUnit);
+            const detectedAoi = nextParsed.aoi ?? nextParsed.columns.find(column => Number.isFinite(column.aoi))?.aoi;
+            if (Number.isFinite(detectedAoi)) setAoi?.(detectedAoi);
             const loadedMessage = sx.loaded(result.fileName || '', nextParsed.nRows, nextParsed.columns.length);
             flash('success', nextParsed.skippedRows > 0
                 ? `${loadedMessage}. ${sx.skippedRows(nextParsed.skippedRows)}`
@@ -109,7 +111,7 @@ export function useImportActions(options) {
                 isPercent: resolvedScale === 'percent',
                 isAbsorbance: resolvedScale === 'absorbance',
                 source: fileName,
-                aoi,
+                aoi: Number.isFinite(column.aoi) ? column.aoi : aoi,
                 pol,
                 side,
             });

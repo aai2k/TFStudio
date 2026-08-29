@@ -76,6 +76,9 @@ function buildColumn({ index, name, baseName, unit, sampleName, xIndex, x, xUnit
     // "[%]" belonging to one column decides the scale of every other column in
     // the file, which is how raw detector counts end up divided by 100.
     const percentText = unit ? `${baseName} ${unit}` : hdr;
+    const quantity = detectQuantity(baseName) || detectQuantity(unit)
+        || detectQuantity(headerText, { angular: false });
+    const angular = quantity === 'PSI' || quantity === 'DEL';
     return {
         index,
         name,
@@ -85,8 +88,8 @@ function buildColumn({ index, name, baseName, unit, sampleName, xIndex, x, xUnit
         x,
         xUnit,
         values,
-        quantity: detectQuantity(baseName) || detectQuantity(unit) || detectQuantity(headerText),
-        isPercent: isAbsorbance ? false : detectIsPercent(percentText, values),
+        quantity,
+        isPercent: angular || isAbsorbance ? false : detectIsPercent(percentText, values),
         isAbsorbance,
     };
 }

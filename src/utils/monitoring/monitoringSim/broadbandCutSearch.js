@@ -41,7 +41,7 @@ function checkCutConfirm(d_hat, d_target, confirmScans, aboveCount) {
 
 export function runBroadbandLayerCut(p) {
     const {
-        theta, incMat, subMat, truthMats, modelMats, i,
+        theta, incMat, subMat, subThickMM, truthMats, modelMats, i,
         truthThicksBelow, modelThicksBelow, lambdas, char, pol,
         r, dt, d_target, t_target, dHiCap, confirmScans,
         randomPct, driftSlope, fitStartFrac, fitMaxIter, rng,
@@ -67,8 +67,8 @@ export function runBroadbandLayerCut(p) {
     //
     // Deposition runs substrate-first, so the layers beneath the growing layer
     // `i` are the higher storage indices i+1…N-1 (storage is air→substrate).
-    const truthEval = createMonitorTmmEvaluator(theta, incMat, subMat, truthMats.slice(i + 1), truthThicksBelow, lambdas);
-    const modelEval = createMonitorTmmEvaluator(theta, incMat, subMat, modelMats.slice(i + 1), modelThicksBelow, lambdas);
+    const truthEval = createMonitorTmmEvaluator(theta, incMat, subMat, truthMats.slice(i + 1), truthThicksBelow, lambdas, subThickMM ?? 1);
+    const modelEval = createMonitorTmmEvaluator(theta, incMat, subMat, modelMats.slice(i + 1), modelThicksBelow, lambdas, subThickMM ?? 1);
 
     const noiseStdFrac = randomPct / 100;
 

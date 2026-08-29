@@ -102,6 +102,15 @@ export function SaveAction({ c, nk, state, onCreateDesign }) {
 
 function ChartBody({ c, nk, state }) {
     const { result, view } = state;
+    // The mode has nothing to fit, but the design does. Say which window brings
+    // this kind in and leave the toolbar above alone, so the other mode is one
+    // click away.
+    if (state.curves.length === 0) {
+        return h(CenteredMessage, {
+            c,
+            message: state.measurementMode === 'ellipsometry' ? nk.noEllipsometry : nk.noPhotometry,
+        });
+    }
     if (!result) return h(CenteredMessage, { c, message: nk.notRunYet });
     if (result.error) {
         return h(CenteredMessage, {
@@ -113,7 +122,7 @@ function ChartBody({ c, nk, state }) {
         labels: {
             measured: nk.measured, calculated: nk.calculated,
             pointwiseIndex: nk.pointwiseIndex, pointwiseExtinction: nk.pointwiseExtinction,
-            residualAxis: nk.residualAxis,
+            residualAxis: nk.residualAxis, residualAxisDegrees: nk.residualAxisDegrees,
         },
     });
 }
@@ -131,7 +140,7 @@ export function NkCharacterization({ c, t, onCreateDesign }) {
     );
 
     if (!state.design) return h(CenteredMessage, { c, message: nk.noDesign });
-    if (state.curves.length === 0) return h(CenteredMessage, { c, message: nk.noCurves });
+    if (state.anyCurves.length === 0) return h(CenteredMessage, { c, message: nk.noCurves });
 
     return h(AnalysisWindow, { c },
         h(CharacterizationControls, {

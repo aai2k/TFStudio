@@ -51,13 +51,16 @@ export function resultRows(result, nk) {
         { quantity: nk.rowThickness, value: thicknessText(result, nk) },
         { quantity: nk.rowModel, value: result.modelName.replace(/^Fit: /, '') },
     ];
-    for (const quantity of ['T', 'R']) {
+    for (const [quantity, label] of [['T', 'T'], ['R', 'R'], ['PSI', 'Ψ'], ['DEL', 'Δ']]) {
         const residual = result.residuals[quantity];
         if (!residual) continue;
+        // Ψ and Δ are angles, and reading a 53° miss as 5.3e+1 hides it.
+        const format = quantity === 'PSI' || quantity === 'DEL'
+            ? value => `${fixed(value, 3)}°`
+            : value => exponential(value);
         rows.push({
-            quantity: nk.rowResidual(quantity),
-            value: `${exponential(residual.rms)} ${nk.rms}, `
-                + `${exponential(residual.max)} ${nk.max}`,
+            quantity: nk.rowResidual(label),
+            value: `${format(residual.rms)} ${nk.rms}, ${format(residual.max)} ${nk.max}`,
         });
     }
     rows.push(

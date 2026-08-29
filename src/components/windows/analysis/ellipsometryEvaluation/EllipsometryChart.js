@@ -15,6 +15,12 @@ export function buildEllipsometryOption(
         show.psi && lineSeries({ x: data.x, y: data.psi, name: 'Ψ', color: curve.psi, width: 2, yAxisIndex: 0 }),
         show.delta && lineSeries({ x: data.x, y: data.delta, name: 'Δ', color: curve.delta, width: 2, yAxisIndex: 1 }),
     ].filter(Boolean);
+    // Ψ and Δ have different ranges and need an axis each, but two sets of grid
+    // lines across one plot read as neither. The grid belongs to Ψ while both are
+    // drawn, and to whichever one is actually on screen otherwise: a hidden axis
+    // draws no lines, so leaving it on Ψ would leave a Δ-only plot with no grid
+    // at all.
+    const gridAxis = show.psi ? 0 : 1;
     return cartesianOption({
         colors,
         grid: plotMargin({ rightAxis: !!show.delta }),
@@ -23,8 +29,12 @@ export function buildEllipsometryOption(
         xAxis: valueAxis({ name: data.xLabel, color: colors.text, gridColor: colors.grid }),
         yAxis: [
             valueAxis({ name: '°', color: curve.psi, gridColor: colors.grid, min: 0, max: 90, interval: 10, position: 'left' }),
-            { ...valueAxis({ name: '°', color: curve.delta, gridColor: colors.grid, min: 0, max: 360, position: 'right', splitLine: false }), interval: 60 },
-        ].map((axis, index) => ({ ...axis, show: index === 0 ? !!show.psi : !!show.delta })),
+            { ...valueAxis({ name: '°', color: curve.delta, gridColor: colors.grid, min: 0, max: 360, position: 'right' }), interval: 60 },
+        ].map((axis, index) => ({
+            ...axis,
+            show: index === 0 ? !!show.psi : !!show.delta,
+            splitLine: { ...axis.splitLine, show: index === gridAxis },
+        })),
         series,
     });
 }

@@ -49,6 +49,7 @@ function makeInitialMonoState() {
         selMat: null, rateNonce: 0, rateYAt0: true,
         shutterMean: 0, shutterRms: 0,
         quantity: 'T', pol: 'avg', aoi: 0, scanInterval: 1.0, confirmScans: 2,
+        chipMaterial: null,                       // witness glass; null = design substrate
         lamMin: 400, lamMax: 800,                 // display band (spectrum pages)
         previewLayer: 1, monNonce: 0, sigNonce: 0,
         randomPct: 0.3, drift: 0, driftMeanTime: 5, driftRms: 1, yFixed: true,
@@ -124,7 +125,7 @@ function buildRunCfg(p, materialIds) {
         shutterDelayMeanS: p.shutterMean, shutterDelayRmsS: p.shutterRms,
         excludeLayers, relThkErrByLayer,
         monTable,
-        mon: { char: p.quantity, theta: p.aoi, polarization: p.pol, scanIntervalSec: p.scanInterval, confirmScans: Math.max(1, p.confirmScans | 0) },
+        mon: { char: p.quantity, theta: p.aoi, polarization: p.pol, chipMaterial: p.chipMaterial || null, scanIntervalSec: p.scanInterval, confirmScans: Math.max(1, p.confirmScans | 0) },
         sig: { randomPct: p.randomPct, driftPctPer1000s: p.drift },
         recordTrajectory: true,
     };
@@ -134,12 +135,17 @@ function emptyBody(c, message) {
     return h('div', { style: { flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', color: c.textDim } }, message);
 }
 
-function buildWizardBody({ step, p, set, materialIds, layers, c, B, ctx, design, run, setRun, buildCfg }) {
+function buildWizardBody({ step, p, set, materialIds, layers, c, B, t, ctx, design, run, setRun, buildCfg }) {
+    // The monitor watches the witness chip, so the signal-preview pages read
+    // the chip's glass; the spectrum pages keep scoring on the design substrate.
+    const monCtx = p.chipMaterial && ctx
+        ? { ...ctx, subMat: ctx.resolveMat(p.chipMaterial) }
+        : ctx;
     const pages = {
         1: () => h(PageRates,        { p, set, materialIds, resolveMat: ctx.resolveMat, c, B }),
         2: () => h(PageDeviations,   { p, set, materialIds, layers, resolveMat: ctx.resolveMat, c, B }),
-        3: () => h(PageMonoSystem,   { p, set, layers, c, B, ctx, design }),
-        4: () => h(PageSignalErrors, { p, set, layers, c, B, ctx, design }),
+        3: () => h(PageMonoSystem,   { p, set, layers, c, B, t, ctx: monCtx, design }),
+        4: () => h(PageSignalErrors, { p, set, layers, c, B, ctx: monCtx, design }),
         5: () => h(PageSimulation,   { p, set, layers, c, B, ctx, run, setRun, buildCfg }),
         6: () => h(PageResults,      { p, set, layers, c, B, ctx, run }),
     };
@@ -169,7 +175,7 @@ export function MonoWizard({ c, t, onClose }) {
     if (!design) return h(ModalFrame, { c, B, step, setStep, onClose, design, t, helpAnchor: 'simulation/mono-simulator', body: emptyBody(c, B.noDesign) });
     if (!layers.length) return h(ModalFrame, { c, B, step, setStep, onClose, design, t, helpAnchor: 'simulation/mono-simulator', body: emptyBody(c, B.noLayers) });
 
-    const body = buildWizardBody({ step, p, set, materialIds, layers, c, B, ctx, design, run, setRun, buildCfg });
+    const body = buildWizardBody({ step, p, set, materialIds, layers, c, B, t, ctx, design, run, setRun, buildCfg });
 
     return h(ModalFrame, { c, B, step, setStep, onClose, design, t, helpAnchor: 'simulation/mono-simulator', body });
 }

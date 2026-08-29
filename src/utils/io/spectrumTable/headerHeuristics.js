@@ -8,6 +8,11 @@ export function detectXUnit(headerText) {
     if (/\bcm-?1\b|1\s*\/\s*cm|cm\^?-?1|wavenumber|cm⁻/.test(s)) return X_UNITS.CM1;
     if (/nanomet|\bnm\b/.test(s)) return X_UNITS.NM;
     if (/microm|micron|µm|μm|\bum\b/.test(s)) return X_UNITS.UM;
+    // Ellipsometry software commonly works in photon energy rather than
+    // wavelength. Checked last so an explicit wavelength unit always wins: an eV
+    // axis and a µm axis span the same numbers, so a wrong guess here would
+    // convert silently.
+    if (/\bev\b|photon\s*energy/.test(s)) return X_UNITS.EV;
     return X_UNITS.UNKNOWN;
 }
 
@@ -16,6 +21,9 @@ export function detectXUnit(headerText) {
  * UV/Vis/NIR thin-film work is overwhelmingly nm (≈ 190–25000); µm spectra are
  * small (≈ 0.2–50); IR wavenumber is large (≈ 400–50000 cm⁻¹). We bias toward
  * nm because that is what coating spectrophotometers emit.
+ *
+ * eV is deliberately absent: 0.6–6.5 eV and 0.6–6.5 µm are the same numbers, so
+ * a photon-energy axis is only ever taken from a header that says so.
  */
 export function guessXUnitFromRange(xs) {
     const finite = xs.filter(Number.isFinite);
@@ -32,6 +40,8 @@ export function guessXUnitFromRange(xs) {
 // The percent sign sits on either side of the letter depending on the vendor:
 // Cary writes "%T", Shimadzu writes "T%".
 const QUANTITY_PATTERNS = [
+    { q: 'PSI', re: /(?:^|[\s,;])(?:psi|ψ)(?:[\s,;\[(]|$)/i },
+    { q: 'DEL', re: /(?:^|[\s,;])(?:delta|δ|Δ)(?:[\s,;\[(]|$)/i },
     { q: 'T', re: /transmit|transmiss|trans\b|%\s*t\b|\bt\s*%|\btau\b|\bt\s*\[|\bt\(/ },
     { q: 'R', re: /reflect|refl\b|%\s*r\b|\br\s*%|\br\s*\[|\br\(/ },
     { q: 'A', re: /absorb|absorpt|\babs\b|%\s*a\b|\ba\s*%|\ba\s*\[|\ba\(|optical\s*density|\bod\b/ },
@@ -40,9 +50,21 @@ const QUANTITY_PATTERNS = [
     { q: 'A', re: /(^|[\s,;])a([\s,;]|$)/ },
 ];
 
-export function detectQuantity(headerText) {
+/**
+ * The quantity a header names, or null.
+ *
+ * `angular` decides whether Ψ and Δ are candidates. They are named in their own
+ * column, never inferred from the file's header as a whole: an ellipsometry
+ * export mentions Psi and Delta somewhere in nearly every line of its header,
+ * and matching that would type the exposure time and the region of interest as
+ * Ψ along with the two columns that really are.
+ */
+export function detectQuantity(headerText, { angular = true } = {}) {
     const s = (headerText || '').toLowerCase();
-    const hit = QUANTITY_PATTERNS.find(p => p.re.test(s));
+    const patterns = angular
+        ? QUANTITY_PATTERNS
+        : QUANTITY_PATTERNS.filter(p => p.q !== 'PSI' && p.q !== 'DEL');
+    const hit = patterns.find(p => p.re.test(s));
     return hit ? hit.q : null;
 }
 

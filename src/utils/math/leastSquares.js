@@ -87,6 +87,10 @@ function normalEquations(jacobian, residual, parameterCount) {
     return { normal, rhs };
 }
 
+// Largest damping a step is tried at. Beyond it the step is shorter than the
+// residual can resolve, so a further increase buys nothing.
+const MAX_DAMPING = 1e12;
+
 export function levenbergMarquardt(initial, residualAt, iterations = 80) {
     let parameters = initial.slice();
     let residual = residualAt(parameters);
@@ -110,7 +114,14 @@ export function levenbergMarquardt(initial, residualAt, iterations = 80) {
             cost = candidateCost;
             damping = Math.max(1e-12, damping / 3);
         } else {
-            damping = Math.min(1e12, damping * 10);
+            // A step rejected at the largest damping is a fixed point: the
+            // parameters, the residual and the damping are all unchanged, so
+            // every remaining iteration recomputes the same Jacobian, takes the
+            // same step and rejects it again. Stopping returns what running them
+            // would return, and a converged film fit spends about half its
+            // iteration budget here otherwise.
+            if (damping >= MAX_DAMPING) break;
+            damping = Math.min(MAX_DAMPING, damping * 10);
         }
     }
     return parameters;

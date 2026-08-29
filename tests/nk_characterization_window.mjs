@@ -37,20 +37,20 @@ const [
     { resolveEvalMode },
     { WINDOW_REGISTRY },
 ] = await Promise.all([
-    import('../src/components/windows/design/nkCharacterization/NkCharacterization.js'),
-    import('../src/components/windows/design/nkCharacterization/CharacterizationControls.js'),
-    import('../src/components/windows/design/nkCharacterization/model.js'),
-    import('../src/components/windows/design/nkCharacterization/resultsModel.js'),
-    import('../src/components/windows/design/nkCharacterization/charts.js'),
+    import('../src/components/windows/dataExchange/nkCharacterization/NkCharacterization.js'),
+    import('../src/components/windows/dataExchange/nkCharacterization/CharacterizationControls.js'),
+    import('../src/components/windows/dataExchange/nkCharacterization/model.js'),
+    import('../src/components/windows/dataExchange/nkCharacterization/resultsModel.js'),
+    import('../src/components/windows/dataExchange/nkCharacterization/charts.js'),
     import('../src/utils/materials/characterization/sampleSpectrum.js'),
     import('../src/utils/materials/characterization/nkFit.js'),
     import('../src/utils/materials/materialDatabase.js'),
-    import('../src/components/windows/design/nkCharacterization/saveMaterial.js'),
-    import('../src/components/windows/design/nkCharacterization/sessionState.js'),
+    import('../src/components/windows/dataExchange/nkCharacterization/saveMaterial.js'),
+    import('../src/components/windows/dataExchange/nkCharacterization/sessionState.js'),
     import('../src/utils/materials/catalogManager.js'),
-    import('../src/components/windows/design/nkCharacterization/resultDesign.js'),
-    import('../src/components/windows/design/nkCharacterization/materialPreview.js'),
-    import('../src/components/windows/design/nkCharacterization/SaveMaterialDialog.js'),
+    import('../src/components/windows/dataExchange/nkCharacterization/resultDesign.js'),
+    import('../src/components/windows/dataExchange/nkCharacterization/materialPreview.js'),
+    import('../src/components/windows/dataExchange/nkCharacterization/SaveMaterialDialog.js'),
     import('../src/utils/physics/optimizer.js'),
     import('../src/components/docking/windowRegistry.js'),
 ]);
@@ -209,6 +209,22 @@ assert.ok(Math.abs(result.thicknessNm - 420) < 0.5,
     assert.deepEqual(
         resultsModel.characterizationNotices(result, nk, true).map(notice => notice.label),
         [nk.stale], 'an edited setting marks the shown result stale');
+
+    // An ellipsometric fit reports its residual too, in degrees. Without it a
+    // model that misses Δ by fifty degrees looks the same in the table as one
+    // that reproduces the measurement.
+    const angular = {
+        ...result,
+        residuals: {
+            PSI: { rms: 7.96, max: 37.685, points: 201 },
+            DEL: { rms: 35.55, max: 179.653, points: 201 },
+        },
+    };
+    const angularRows = resultsModel.resultRows(angular, nk);
+    const residualRow = label => angularRows.find(row => row.quantity === nk.rowResidual(label));
+    assert.ok(residualRow('Ψ') && residualRow('Δ'), 'Ψ and Δ each get a residual row');
+    assert.match(residualRow('Δ').value, /35\.550°/,
+        'an angular residual reads in degrees, not as a mantissa and exponent');
 }
 
 // ── The CSV carries both the model and the points it was fitted to ────────────
@@ -396,7 +412,8 @@ assert.ok(Math.abs(result.thicknessNm - 420) < 0.5,
         assert.ok(nk.errors[code], `missing message for error ${code}`);
     }
     for (const code of ['risingExtinction', 'anomalousDispersion', 'indexOutOfRange',
-        'energyExcess', 'modelMismatch', 'extinctionFromReflectanceOnly']) {
+        'extinctionOutOfRange', 'energyExcess', 'modelMismatch',
+        'extinctionFromReflectanceOnly']) {
         assert.ok(nk.warnings[code], `missing message for warning ${code}`);
     }
 }

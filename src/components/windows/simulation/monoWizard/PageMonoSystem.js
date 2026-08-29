@@ -1,9 +1,10 @@
 /**
  * Page 3 — Monitoring System (per-layer λ + strategy).
  *
- * Measured quantity + AOI + scan interval, a PER-LAYER table of monitoring
- * wavelength + termination strategy (turning point / level / by time), and an
- * ideal single-λ signal-vs-thickness preview for the selected layer.
+ * Measured quantity + AOI + scan interval + witness chip glass, a PER-LAYER
+ * table of monitoring wavelength + termination strategy (turning point /
+ * level / by time), and an ideal single-λ signal-vs-thickness preview for the
+ * selected layer.
  */
 
 import { pickSensitiveLambda } from '../../../../utils/monitoring/monoSim.js';
@@ -11,12 +12,13 @@ import { flipLayerIndex }      from '../../../../utils/monitoring/depositionSpec
 import {
     matName, cullName, inputStyle, NumField, cellNum, LayerTabs, Chart,
 }                               from '../wizardShared.js';
+import { MaterialPicker }      from '../../../ui/MaterialPicker.js';
 import { monoSignalVsThickness } from './monoSignalModel.js';
 import { lineSeries }             from '../../../ui/chartOptions.js';
 
 const { createElement: h, useMemo } = React;
 
-export function PageMonoSystem({ p, set, layers, c, B, ctx, design }) {
+export function PageMonoSystem({ p, set, layers, c, B, t, ctx, design }) {
     const resolveMat = ctx.resolveMat;
     const k = Math.min(Math.max(1, p.previewLayer || 1), layers.length);
     const common = { char: p.quantity, aoi: p.aoi, pol: p.pol };
@@ -39,7 +41,7 @@ export function PageMonoSystem({ p, set, layers, c, B, ctx, design }) {
     const autoAll = () => {
         const ref = design.referenceWavelength || 550;
         const arr = layers.map((l, i) => {
-            const lam = pickSensitiveLambda({ design, resolveMat, layerIdx: i, lamA: ref * 0.7, lamB: ref * 1.3, theta: p.aoi, pol: p.pol, char: p.quantity });
+            const lam = pickSensitiveLambda({ design, resolveMat, layerIdx: i, lamA: ref * 0.7, lamB: ref * 1.3, theta: p.aoi, pol: p.pol, char: p.quantity, chipMaterial: p.chipMaterial || null });
             return { ...(p.monTable[i] || {}), lambda: lam };
         });
         set('monTable', arr); set('monNonce', (p.monNonce | 0) + 1);
@@ -59,6 +61,12 @@ export function PageMonoSystem({ p, set, layers, c, B, ctx, design }) {
             h(NumField, { label: B.incidence, value: p.aoi, min: 0, max: 89, step: 1, c, width: 80, onChange: (v) => set('aoi', v) }),
             h(NumField, { label: B.scanInterval, value: p.scanInterval, min: 0.05, max: 60, step: 0.1, c, width: 90, onChange: (v) => set('scanInterval', v) }),
             h(NumField, { label: B.confirmScans, value: p.confirmScans, min: 1, max: 10, step: 1, c, width: 70, onChange: (v) => set('confirmScans', Math.max(1, Math.round(v))) }),
+            // The witness chip's glass. Opens on the design substrate; picking
+            // another material moves the monitor signal onto that glass.
+            h('label', { style: { display: 'flex', flexDirection: 'column', gap: 4, fontSize: 12, color: c.textDim }, title: B.chipGlassHint },
+                h('span', null, B.chipGlass),
+                h('div', { style: { width: 150 } },
+                    h(MaterialPicker, { value: p.chipMaterial || design.substrate?.material || 'builtin:BK7', onChange: (v) => set('chipMaterial', v), c, t, compact: true }))),
             h('button', { onClick: autoAll, title: B.autoLambdaHint,
                 style: { padding: '7px 12px', fontSize: 12, cursor: 'pointer', borderRadius: 4, border: `1px solid ${c.border}`, background: c.bg, color: c.text } }, B.autoLambda)),
         // Preview chart

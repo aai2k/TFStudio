@@ -449,15 +449,52 @@ function drawableGrid(grid, background) {
     return { ...normalized, show: true, backgroundColor: background, borderWidth: 0 };
 }
 
-function dataBoundXAxis(axis) {
-    if (Array.isArray(axis)) return axis.map(dataBoundXAxis);
+// A wavelength axis reads best on round 50 nm ticks, which is what an optical
+// spectrum sits on.
+const WAVELENGTH_INTERVAL_NM = 50;
+
+// Below two ticks there is no axis left to read, and past this many the labels
+// collide, ECharts hides all of them, and the split lines go with them. Both
+// ends are reached in practice: a wavelength axis re-read as micrometres spans
+// hundreds of thousands and asks for ten thousand ticks, the same axis as
+// photon energy spans a few units and gets none, and an infrared spectrum out
+// to 25 µm asks for five hundred. The span decides the interval in those cases.
+const MIN_TICKS = 2;
+const MAX_TICKS = 40;
+
+/** X extent across every series drawn as [x, y] pairs, or null. */
+function seriesXSpan(series) {
+    let low = Infinity;
+    let high = -Infinity;
+    for (const item of series || []) {
+        for (const point of item?.data || []) {
+            const x = Array.isArray(point) ? point[0] : null;
+            if (!Number.isFinite(x)) continue;
+            if (x < low) low = x;
+            if (x > high) high = x;
+        }
+    }
+    return high > low ? high - low : null;
+}
+
+function wavelengthInterval(span) {
+    if (span == null) return WAVELENGTH_INTERVAL_NM;
+    const ticks = span / WAVELENGTH_INTERVAL_NM;
+    return ticks >= MIN_TICKS && ticks <= MAX_TICKS
+        ? WAVELENGTH_INTERVAL_NM
+        : niceTickInterval(span);
+}
+
+function dataBoundXAxis(axis, span) {
+    if (Array.isArray(axis)) return axis.map(item => dataBoundXAxis(item, span));
     if (axis?.type !== 'value') return axis;
     const isNanometreWavelength = typeof axis.name === 'string'
         && /(?:wavelength|λ).*nm/i.test(axis.name);
+    const pinTicks = axis.interval == null && axis.splitNumber == null && isNanometreWavelength;
     return {
         ...axis,
         scale: true,
-        ...(axis.interval == null && axis.splitNumber == null && isNanometreWavelength ? { interval: 50 } : {}),
+        ...(pinTicks ? { interval: wavelengthInterval(span) } : {}),
     };
 }
 
@@ -504,7 +541,7 @@ export function cartesianOption({
         grid: grids,
         // Scientific X axes represent the configured/sample domain. ECharts
         // otherwise expands positive-only value axes back toward zero.
-        xAxis: dataBoundXAxis(xAxis),
+        xAxis: dataBoundXAxis(xAxis, seriesXSpan(series)),
         yAxis: standardYAxis(yAxis),
         series,
         legend: normalizedLegend(legend, series),

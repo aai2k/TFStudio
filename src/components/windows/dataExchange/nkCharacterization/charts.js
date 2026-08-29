@@ -18,12 +18,15 @@ import {
 import { drawChart, useChartTeardown } from '../../../ui/plotSurface.js';
 import { legendAbove, plotMargin } from '../../analysis/chrome/plot.js';
 import { evaluateDispersionFit } from '../../../../utils/materials/dispersionFits.js';
+import { channelDifference } from '../../../../utils/materials/characterization/sampleSpectrum.js';
 
 const { createElement: h, useEffect, useRef } = React;
 
 const INDEX_COLOR = '#4fc3f7';
 const EXTINCTION_COLOR = '#ff8a65';
-const MEASURED_COLOR = { T: '#2196f3', R: '#ef5350' };
+const MEASURED_COLOR = {
+    T: '#2196f3', R: '#ef5350', PSI: '#4fc3f7', DEL: '#ff8a65',
+};
 const CALCULATED_COLOR = '#ffd54f';
 
 const MODEL_POINTS = 300;
@@ -113,30 +116,37 @@ export function buildConstantsOption(result, palette, labels, showPointwise) {
     });
 }
 
+// The ellipsometric pair is written with its own symbols everywhere else in the
+// window, so the legend uses them too rather than the internal channel names.
+const CURVE_LABEL = { T: 'T', R: 'R', PSI: 'Ψ', DEL: 'Δ' };
+
 export function buildFitOption(result, palette, labels, residual) {
-    // Both views are in percentage points, so a residual reads against the same
-    // scale as the curves it came from.
-    const scale = 100;
+    const ellipsometry = Array.isArray(result.measured.PSI) || Array.isArray(result.measured.DEL);
     const series = [];
-    for (const quantity of ['T', 'R']) {
+    for (const quantity of ['T', 'R', 'PSI', 'DEL']) {
         if (!result.measured[quantity]) continue;
+        const label = CURVE_LABEL[quantity];
+        const scale = quantity === 'T' || quantity === 'R' ? 100 : 1;
+        const yAxisIndex = !residual && quantity === 'DEL' ? 1 : 0;
         if (residual) {
             series.push(lineSeries({
                 x: result.lambdas,
                 y: result.calculated[quantity].map(
-                    (value, point) => (value - result.measured[quantity][point]) * scale),
-                name: quantity, color: MEASURED_COLOR[quantity], width: 1.6,
+                    (value, point) => channelDifference(
+                        quantity, value, result.measured[quantity][point]) * scale),
+                name: label, color: MEASURED_COLOR[quantity], width: 1.6,
             }));
             continue;
         }
         series.push(lineSeries({
             x: result.lambdas, y: result.measured[quantity].map(value => value * scale),
-            name: `${quantity} ${labels.measured}`, color: MEASURED_COLOR[quantity], width: 2,
+            name: `${label} ${labels.measured}`, color: MEASURED_COLOR[quantity],
+            width: 2, yAxisIndex,
         }));
         const calculated = lineSeries({
             x: result.lambdas, y: result.calculated[quantity].map(value => value * scale),
-            name: `${quantity} ${labels.calculated}`, color: CALCULATED_COLOR,
-            width: 1.4, dash: 'dash',
+            name: `${label} ${labels.calculated}`, color: CALCULATED_COLOR,
+            width: 1.4, dash: 'dash', yAxisIndex,
         });
         series.push(calculated);
     }
@@ -145,10 +155,21 @@ export function buildFitOption(result, palette, labels, residual) {
         grid: plotMargin(),
         fileName: residual ? 'characterization-residual' : 'characterization-fit',
         legend: legendAbove({ color: palette.text }),
-        tooltip: axisTooltip({ colors: palette, valueSuffix: '%' }),
+        tooltip: axisTooltip({ colors: palette, valueSuffix: ellipsometry ? '°' : '%' }),
         xAxis: valueAxis({ name: 'λ (nm)', color: palette.text, gridColor: palette.grid }),
-        yAxis: valueAxis({
-            name: residual ? labels.residualAxis : '%',
+        yAxis: ellipsometry && !residual ? [
+            valueAxis({
+                name: 'Ψ (°)', color: MEASURED_COLOR.PSI, gridColor: palette.grid,
+                min: 0, max: 90, interval: 10,
+            }),
+            valueAxis({
+                name: 'Δ (°)', color: MEASURED_COLOR.DEL, gridColor: palette.grid,
+                min: 0, max: 360, position: 'right', splitLine: false,
+            }),
+        ] : valueAxis({
+            name: residual
+                ? (ellipsometry ? labels.residualAxisDegrees : labels.residualAxis)
+                : '%',
             color: palette.text, gridColor: palette.grid,
             ...(residual ? { scale: true } : { min: 0, max: 100, interval: 10 }),
         }),

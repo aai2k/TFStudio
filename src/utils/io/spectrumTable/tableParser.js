@@ -15,8 +15,82 @@ function emptyTable(error, extra = {}) {
         ok: false, error,
         delimiter: ',', decimal: '.',
         headerText: '', headerLines: [], nRows: 0, skippedRows: 0,
-        xUnit: X_UNITS.UNKNOWN, x: [], columns: [],
+        xUnit: X_UNITS.UNKNOWN, x: [], columns: [], aoi: null, aois: [],
         ...extra,
+    };
+}
+
+// Ellipsometers commonly write the incidence angle either as a header setting
+// (`AOI 70`) or as a column beside wavelength, Psi and Delta. Keep that
+// condition separate from measured spectra so an ellipsometer export does not
+// offer AOI as if it were another optical curve.
+function headerAoi(headerLines, decimal) {
+    const label = /(?:\baoi\b|angle\s+of\s+incidence|incidence\s+angle)/i;
+    for (const line of headerLines) {
+        const hit = String(line || '').match(label);
+        if (!hit) continue;
+        const tail = line.slice((hit.index || 0) + hit[0].length);
+        const number = tail.match(/[-+]?\d+(?:[.,]\d+)?/);
+        const value = number ? parseNumber(number[0], decimal) : NaN;
+        if (Number.isFinite(value) && value >= 0 && value <= 90) return value;
+    }
+    return null;
+}
+
+function isAoiColumn(column) {
+    const label = `${column?.baseName || column?.name || ''} ${column?.unit || ''}`.trim();
+    return /^(?:aoi\b|angle\s+of\s+incidence\b|incidence\s+angle\b)/i.test(label);
+}
+
+function distinctAois(values) {
+    const output = [];
+    for (const value of values || []) {
+        if (!Number.isFinite(value) || value < 0 || value > 90) continue;
+        if (!output.some(existing => Math.abs(existing - value) <= 1e-7)) output.push(value);
+    }
+    return output;
+}
+
+function columnsWithAoi(columns, aoiColumn, declaredAoi) {
+    const spectra = columns.filter(column => column !== aoiColumn);
+    if (!aoiColumn) {
+        return {
+            columns: Number.isFinite(declaredAoi)
+                ? spectra.map(column => ({ ...column, aoi: declaredAoi }))
+                : spectra,
+            aois: Number.isFinite(declaredAoi) ? [declaredAoi] : [],
+        };
+    }
+
+    const aois = distinctAois(aoiColumn.values);
+    if (aois.length <= 1) {
+        const aoi = aois[0] ?? declaredAoi;
+        return {
+            columns: Number.isFinite(aoi)
+                ? spectra.map(column => ({ ...column, aoi }))
+                : spectra,
+            aois: Number.isFinite(aoi) ? [aoi] : [],
+        };
+    }
+
+    // A flat variable-angle export repeats wavelengths for each AOI. Split it
+    // into ordinary single-angle curves, which the characterization module can
+    // pair and fit without a new multidimensional curve type.
+    return {
+        aois,
+        columns: spectra.flatMap(column => aois.map((aoi) => {
+            const indexes = [];
+            for (let index = 0; index < aoiColumn.values.length; index++) {
+                if (Math.abs(aoiColumn.values[index] - aoi) <= 1e-7) indexes.push(index);
+            }
+            return {
+                ...column,
+                name: `${column.name} @${Number.isInteger(aoi) ? aoi : aoi.toFixed(3)}°`,
+                x: indexes.map(index => column.x[index]),
+                values: indexes.map(index => column.values[index]),
+                aoi,
+            };
+        })),
     };
 }
 
@@ -171,14 +245,22 @@ export function parseSpectrumTable(text, opts = {}) {
     const namedColumns = uniqueColumnNames(columnDescriptors({
         nCols, allValues, headerText, columnNames, columnUnits, sampleNames,
     }));
-    const columns = namedColumns.map(column => buildColumn({
+    const builtColumns = namedColumns.map(column => buildColumn({
         ...column,
         hasColumnNames: columnNames.length > 0,
         headerText,
     }));
+    const declaredAoi = headerAoi(headerLines, decimal);
+    const withAoi = columnsWithAoi(
+        builtColumns,
+        builtColumns.find(isAoiColumn) || null,
+        declaredAoi,
+    );
 
     return {
         ok: true, delimiter, decimal, headerText, headerLines,
-        nRows: x.length, skippedRows, xUnit, x, columns,
+        nRows: x.length, skippedRows, xUnit, x, columns: withAoi.columns,
+        aoi: withAoi.aois.length === 1 ? withAoi.aois[0] : null,
+        aois: withAoi.aois,
     };
 }

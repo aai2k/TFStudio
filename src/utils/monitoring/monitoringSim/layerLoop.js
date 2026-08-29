@@ -15,7 +15,7 @@ import { recordZeroThicknessLayer } from '../zeroThicknessLayer.js';
 function runLayerCutSearch({ i, d_target, r, t_target }, ctx, mut) {
     const dHiCap = Math.max(d_target * 3, d_target + 50);
     const scan = runBroadbandLayerCut({
-        theta: ctx.theta, incMat: ctx.incMat, subMat: ctx.subMat,
+        theta: ctx.theta, incMat: ctx.incMat, subMat: ctx.subMat, subThickMM: ctx.subThickMM,
         truthMats: ctx.truthMats, modelMats: ctx.modelMats, i,
         truthThicksBelow: mut.truthThicks.slice(i + 1),
         modelThicksBelow: mut.modelThicks.slice(i + 1),

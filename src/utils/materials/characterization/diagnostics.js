@@ -12,6 +12,8 @@
  */
 
 import { evaluateDispersionFit } from '../dispersionFits.js';
+import { channelDifference } from './sampleSpectrum.js';
+import { EXTINCTION_MAX } from './pointwiseNk.js';
 
 // The accuracy a careful reflectance and transmittance measurement reaches,
 // from Macleod's discussion of the extraction: "unlikely to be much better than
@@ -32,11 +34,11 @@ export function resolvableExtinction(lambdaNm, thicknessNm) {
     return PHOTOMETRIC_ACCURACY * lambdaNm / (4 * Math.PI * thicknessNm);
 }
 
-function residualSummary(calculated, measured) {
+function residualSummary(calculated, measured, quantity) {
     let sumSquared = 0;
     let maximum = 0;
     for (let point = 0; point < measured.length; point++) {
-        const error = calculated[point] - measured[point];
+        const error = channelDifference(quantity, calculated[point], measured[point]);
         sumSquared += error * error;
         maximum = Math.max(maximum, Math.abs(error));
     }
@@ -49,9 +51,9 @@ function residualSummary(calculated, measured) {
 
 export function channelResiduals(calculated, measured) {
     const residuals = {};
-    for (const channel of ['T', 'R']) {
+    for (const channel of Object.keys(measured || {})) {
         if (Array.isArray(measured[channel])) {
-            residuals[channel] = residualSummary(calculated[channel], measured[channel]);
+            residuals[channel] = residualSummary(calculated[channel], measured[channel], channel);
         }
     }
     return residuals;
@@ -64,7 +66,8 @@ export function channelResiduals(calculated, measured) {
  * boundary; the residual values remain available for the exact judgement.
  */
 export function modelMismatch(residuals) {
-    const channels = Object.entries(residuals || {});
+    const channels = Object.entries(residuals || {})
+        .filter(([quantity]) => quantity === 'T' || quantity === 'R');
     if (channels.length === 0) return null;
     const [quantity, worst] = channels.reduce((current, entry) => (
         entry[1].rms > current[1].rms ? entry : current));
@@ -145,6 +148,27 @@ export function risingIndex(rows, transparent) {
         : null;
 }
 
+/**
+ * Where a fitted extinction leaves the values a dielectric film can have.
+ *
+ * The pointwise extraction brackets its own solve at the same value (see
+ * EXTINCTION_MAX in pointwiseNk.js), so a model that leaves it is describing
+ * something the measurement could not have produced. It is reached by a
+ * degenerate extinction model rather than by an unusual film: two of its
+ * parameters trade off exactly, the residual goes flat along that direction, and
+ * the fit runs out along it until the numbers overflow.
+ *
+ * Metals are excluded, as they are for the index: their k passes ten in the
+ * infrared.
+ */
+function extinctionOutOfRange(rows) {
+    for (const row of rows) {
+        if (!Number.isFinite(row.k)) return { k: NaN, lambda: row.lambda };
+        if (row.k > EXTINCTION_MAX) return { k: row.k, lambda: row.lambda };
+    }
+    return null;
+}
+
 /** Where a transparent-film model leaves the indices such a film can have. */
 function indexOutOfRange(rows) {
     let lowest = Infinity;
@@ -196,6 +220,8 @@ export function fitDiagnostics({ fit, rangeNm, thicknessNm, measured, residuals,
     if (!metallic) {
         const outOfRange = indexOutOfRange(rows);
         if (outOfRange) warnings.push({ code: 'indexOutOfRange', detail: outOfRange });
+        const absorbing = extinctionOutOfRange(rows);
+        if (absorbing) warnings.push({ code: 'extinctionOutOfRange', detail: absorbing });
     }
 
     const excess = energyExcess(measured);
@@ -207,7 +233,8 @@ export function fitDiagnostics({ fit, rangeNm, thicknessNm, measured, residuals,
     // Macleod is explicit that reflectance fringes on their own must not be used
     // to extract an extinction coefficient: reflectance is insensitive to
     // absorption unless it is very large.
-    if (!Array.isArray(measured.T) && rows.some(row => row.k > 0)) {
+    if (!Array.isArray(measured.T) && !Array.isArray(measured.PSI)
+        && !Array.isArray(measured.DEL) && rows.some(row => row.k > 0)) {
         warnings.push({ code: 'extinctionFromReflectanceOnly', detail: {} });
     }
 

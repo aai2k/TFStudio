@@ -19,13 +19,16 @@ export function PageSignalErrors({ p, set, layers, c, B, ctx }) {
         if (!layers.length || !ctx) return null;
         const baseThicks = layers.map(l => l.thickness || 0);
         const thk = partialThicknesses(baseThicks, k, 1);
-        // Semi-infinite active coating — the in-chamber monitor signal (see Page 3).
+        // The witness chip as a plane-parallel slab, bare back face included:
+        // the in-chamber monitor signal (see Page 3).
         const clean = systemSpectrum({
-            evalMode: 'front',
+            evalMode: 'total',
             frontStored: layers.map((l, i) => ({ material: ctx.resolveMat(l.material), thickness: thk[i] })),
+            backStored: [],
             quantity: p.quantity, aoi: p.aoi, polarization: p.pol,
             lambdaStart: p.lamMin, lambdaEnd: p.lamMax, lambdaStep: Math.max(0.5, (p.lamMax - p.lamMin) / 200),
             incidentMat: ctx.incidentMatActive, substrateMat: ctx.subMat,
+            exitMat: ctx.incidentMatActive, substrateThk: ctx.subThk,
         });
         // Apply random noise (% of signal) for the preview.
         const rng = mulberry32(nonce + 7);

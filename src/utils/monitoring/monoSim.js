@@ -22,6 +22,9 @@
  *   - simulateRunMonoConfig.js cfg destructuring/defaults
  *   - layerLoop.js             per-layer step (exported below via simulateRunMono)
  *   - simulateRunMono.js       the run orchestrator (exported below)
+ *   - worksheetSignal.js       one layer's monitor curve + termination error
+ *   - worksheetChip.js         one witness chip's worksheet rows
+ *   - worksheet.js             the witness-chip worksheet for a whole run
  *
  * References:
  *   - H. A. Macleod, Thin-Film Optical Filters, 5th ed., Ch. 12.
@@ -33,3 +36,6 @@
 export { mulberry32, deriveSeed, makeShiftedMaterial } from './monitoringSim.js';
 export { pickSensitiveLambda, autoMonoStrategy, defaultMonoTable } from './monoSim/monitorTable.js';
 export { simulateRunMono } from './monoSim/simulateRunMono.js';
+export {
+    assignChips, autoChipLambdas, buildMonitorWorksheet, depositionOrder, WORKSHEET_DEFAULTS,
+} from './monoSim/worksheet.js';

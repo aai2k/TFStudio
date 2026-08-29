@@ -20,14 +20,14 @@
  * its own.
  */
 
-import { griddedFilm, makeSampleEvaluator } from './sampleSpectrum.js';
+import { channelDifference, griddedFilm, makeSampleEvaluator } from './sampleSpectrum.js';
 
 // No deposited film has constants outside this. The bracket is not a fit
 // constraint, it stops a near-singular Newton step throwing a point somewhere
 // the transfer matrix returns nothing useful from, which would strand it.
 const INDEX_MIN = 0.5;
 const INDEX_MAX = 8;
-const EXTINCTION_MAX = 10;
+export const EXTINCTION_MAX = 10;
 
 // Largest change either constant may take in one step. A trust region, not a
 // tolerance: an undamped step near a turning point in T(n) overshoots into the
@@ -78,7 +78,8 @@ function solve2x2(a11, a12, a21, a22, b1, b2) {
 /** The residual of every channel at every point, and the worst of them. */
 function residualsOf(channels, calculated) {
     const rows = calculated[0].map((_, point) =>
-        channels.map((channel, index) => calculated[index][point] - channel.values[point]));
+        channels.map((channel, index) => channelDifference(
+            channel.quantity, calculated[index][point], channel.values[point])));
     return {
         rows,
         worst: rows.map(row => Math.max(...row.map(Math.abs))),
@@ -131,16 +132,30 @@ function newtonSweeps(evaluate, channels, n, k, solvedExtinction) {
             if (!active[point]) continue;
             const residuals = rows[point];
             const dIndex = channels.map((_, index) =>
-                (shiftedIndex[index][point] - base[index][point]) / INDEX_DELTA);
+                channelDifference(channels[index].quantity,
+                    shiftedIndex[index][point], base[index][point]) / INDEX_DELTA);
             let stepIndex;
             let stepExtinction = 0;
             if (solvedExtinction) {
                 const dExtinction = channels.map((_, index) =>
-                    (shiftedExtinction[index][point] - base[index][point]) / EXTINCTION_DELTA);
-                const step = solve2x2(
-                    dIndex[0], dExtinction[0], dIndex[1], dExtinction[1],
-                    -residuals[0], -residuals[1],
-                );
+                    channelDifference(channels[index].quantity,
+                        shiftedExtinction[index][point], base[index][point]) / EXTINCTION_DELTA);
+                let step;
+                if (channels.length === 2) {
+                    step = solve2x2(
+                        dIndex[0], dExtinction[0], dIndex[1], dExtinction[1],
+                        -residuals[0], -residuals[1]);
+                } else {
+                    let nn = 0, nk = 0, kk = 0, nr = 0, kr = 0;
+                    for (let channel = 0; channel < channels.length; channel++) {
+                        nn += dIndex[channel] ** 2;
+                        nk += dIndex[channel] * dExtinction[channel];
+                        kk += dExtinction[channel] ** 2;
+                        nr -= dIndex[channel] * residuals[channel];
+                        kr -= dExtinction[channel] * residuals[channel];
+                    }
+                    step = solve2x2(nn, nk, nk, kk, nr, kr);
+                }
                 if (!step) { settle(point); continue; }
                 [stepIndex, stepExtinction] = step;
             } else {
@@ -185,7 +200,7 @@ function continueFromNeighbours(evaluate, channels, n, k, solvedExtinction) {
 
 export function invertPointwise(channels, thicknessNm, seed) {
     const { lambdas } = channels[0].conditions;
-    const solvedExtinction = channels.length === 2;
+    const solvedExtinction = channels.length >= 2;
     const n = seed.n.slice();
     const k = seed.k.slice();
 

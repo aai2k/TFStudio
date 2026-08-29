@@ -15,9 +15,10 @@ const { getMaterial } = await import('../src/utils/materials/materialDatabase.js
 const { computeAngular, computeEllipsometrySweep, computeSpectral } = await import(
     '../src/components/windows/analysis/ellipsometryEvaluation/spectrum.js'
 );
-const { sideLayersAt, toDeltaConvention } = await import(
+const { sideLayersAt } = await import(
     '../src/components/windows/analysis/ellipsometryEvaluation/model.js'
 );
+const { toDeltaConvention } = await import('../src/utils/physics/thinFilmMath.js');
 const { designMaterialLookup } = await import('../src/utils/materials/designMaterials.js');
 const { buildEllipsometryTable } = await import(
     '../src/components/windows/analysis/ellipsometryEvaluation/EllipsometryResults.js'
@@ -155,9 +156,19 @@ assert.deepEqual(option.yAxis.map(axis => axis.name), ['°', '°'],
     'the legend identifies Ψ and Δ while the axes show only their unit');
 assert.deepEqual(option.yAxis.map(axis => axis.interval), [10, 60],
     'Ψ uses a 10-degree grid while the 360-degree phase axis stays uncluttered');
-assert.equal(buildEllipsometryOption(spectral, {
-    background: c.bg, paper: c.panel, grid: c.border, text: c.text,
-}).xAxis.interval, 50, 'spectral Ellipsometry uses the shared 50 nm grid');
+// A spectral sweep takes the shared 50 nm wavelength grid, except where that
+// grid would put no tick on the axis at all: this fixture spans eight
+// nanometres, and 50 nm apart there is nothing to draw.
+const chartColors = { background: c.bg, paper: c.panel, grid: c.border, text: c.text };
+assert.equal(buildEllipsometryOption(
+    computeSpectral(design, { ...spectralOptions, lambdaStart: 400, lambdaEnd: 700, lambdaStep: 10 }),
+    chartColors).xAxis.interval, 50, 'spectral Ellipsometry uses the shared 50 nm grid');
+{
+    const narrow = buildEllipsometryOption(spectral, chartColors).xAxis;
+    const ticks = (spectral.x[spectral.x.length - 1] - spectral.x[0]) / narrow.interval;
+    assert.ok(ticks >= 2 && ticks <= 40,
+        `an eight-nanometre sweep must still carry ticks, got ${ticks.toFixed(1)}`);
+}
 assert.deepEqual(option.series[0].data[2], [angular.x[2], angular.psi[2]]);
 
 // Ψ and Δ are switched independently, and the curve that is off takes its

@@ -3,7 +3,7 @@
  * spectra as CSV or JCAMP-DX.
  */
 
-import { TabBtn } from './controls.js';
+import { TabBtn } from '../chrome/panel.js';
 import { ExportTab } from './ExportTab.js';
 import { ImportTab } from './ImportTab.js';
 import { MeasuredFitDialog } from './MeasuredFitDialog.js';

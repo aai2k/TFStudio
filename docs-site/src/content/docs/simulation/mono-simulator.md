@@ -30,9 +30,12 @@ lag.
 
 **Page 3: Monitoring System.** Set the measured **quantity** and polarization,
 the **angle of incidence**, the **scan interval**, and the number of
-**confirm scans** a cut needs before it is accepted. The per-layer table is the
-heart of this page: for each layer choose the **monitoring wavelength** and the
-termination **strategy**:
+**confirm scans** a cut needs before it is accepted. **Chip glass** is the
+witness chip the monitor watches: it opens on the design substrate, and picking
+another material moves the monitor signal onto that glass, for a witness that
+is not the same glass as the part. The per-layer table is the heart of this
+page: for each layer choose the **monitoring wavelength** and the termination
+**strategy**:
 
 - **Turning point**: cut when the monitor signal reaches an expected extremum.
   The **order** column picks which extremum.
@@ -59,9 +62,11 @@ bars, and tables of as-built **thicknesses** and **refractive indices**.
 
 The deposited side and the way the resulting spectrum is scored follow the
 surface mode set in the [Design Editor](/design/design-editor/), shown as a
-badge on the window. The monitor signal is computed on a semi-infinite
-substrate, the way a single-wavelength monitor actually sees the growing
-coating.
+badge on the window. The monitor signal is read through the whole witness chip:
+the growing coating on its front face and its bare back face, added
+incoherently, the way a transmittance monitor actually sees a chip in the
+chamber. A bare chip of n = 1.52 glass reads 91.8 %, not the 95.7 % of the
+coated surface alone.
 
 ## How to read it
 

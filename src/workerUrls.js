@@ -33,3 +33,4 @@ export const FILTER_WORKER_URL    = u('./utils/workers/filterDesignWorker.js');
 export const PLOT_SURFACE_WORKER_URL = u('./utils/workers/plotSurfaceWorker.js');
 export const BENCHMARK_WORKER_URL = u('./utils/workers/benchmarkWorker.js');
 export const ANALYSIS_EVALUATION_WORKER_URL = u('./utils/workers/analysisEvaluationWorker.js');
+export const CHARACTERIZATION_WORKER_URL = u('./utils/workers/characterizationWorker.js');

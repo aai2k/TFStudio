@@ -32,7 +32,7 @@ import {
 } from '../dispersionFits.js';
 import { levenbergMarquardt, parameterSpread, sumSquares } from '../../math/leastSquares.js';
 import { extractEnvelope } from './envelope.js';
-import { constantFilm, makeSampleEvaluator } from './sampleSpectrum.js';
+import { channelDifference, constantFilm, makeSampleEvaluator } from './sampleSpectrum.js';
 import { indexRoughness, invertPointwise } from './pointwiseNk.js';
 import { channelResiduals, fitDiagnostics, resolvableExtinction } from './diagnostics.js';
 
@@ -105,14 +105,21 @@ function alignChannels(rawChannels, rangeNm) {
         let values;
         if (sameGrid(channel.lambdas, lambdas)) {
             values = channel.values.slice();
-        } else if (channel === master) {
-            const keep = new Set(lambdas);
-            values = channel.values.filter((_, index) => keep.has(channel.lambdas[index]));
         } else {
-            const interpolate = createPchipInterpolator(
-                channel.lambdas.map((lambda, index) => [lambda, channel.values[index]]));
-            values = lambdas.map(interpolate);
-            resampled.push(channel.quantity);
+            // A channel measured on the same wavelengths is selected from, not
+            // interpolated, even when the range has clipped an end off the grid.
+            // Two curves out of one instrument file always take this path, so
+            // interpolating here would report every such pair as resampled.
+            const position = new Map(channel.lambdas.map((lambda, index) => [lambda, index]));
+            const picked = lambdas.map(lambda => position.get(lambda));
+            if (picked.every(index => index !== undefined)) {
+                values = picked.map(index => channel.values[index]);
+            } else {
+                const interpolate = createPchipInterpolator(
+                    channel.lambdas.map((lambda, index) => [lambda, channel.values[index]]));
+                values = lambdas.map(interpolate);
+                resampled.push(channel.quantity);
+            }
         }
         return { quantity: channel.quantity, values, source: channel };
     });
@@ -130,6 +137,7 @@ function conditionsFor(channel, lambdas, sample) {
         aoi: channel.source.aoi ?? 0,
         pol: channel.source.pol ?? 'avg',
         side: channel.source.side ?? 'front',
+        deltaConvention: channel.source.deltaConvention || 'azzam',
     };
 }
 
@@ -196,7 +204,8 @@ function flatSeedScan(channels, thicknessNm, metallic) {
             let cost = 0;
             channels.forEach((channel, position) => {
                 for (let point = 0; point < channel.values.length; point++) {
-                    const error = calculated[position][point] - channel.values[point];
+                    const error = channelDifference(
+                        channel.quantity, calculated[position][point], channel.values[point]);
                     cost += error * error;
                 }
             });
@@ -277,7 +286,7 @@ function measuredChannels(channels) {
  * and so a one percent change costs the same wherever it starts from.
  */
 function refine({ channels, sample, seedFit, thicknessNm, fixThickness, rangeNm, iterations }) {
-    const codec = dispersionFitCodec(seedFit);
+    const codec = dispersionFitCodec(seedFit, (rangeNm[0] + rangeNm[1]) / 2);
     const residualLength = channels.reduce((total, channel) => total + channel.values.length, 0);
     const decode = (values) => ({
         thicknessNm: fixThickness ? thicknessNm : Math.exp(values[0]),
@@ -292,7 +301,8 @@ function refine({ channels, sample, seedFit, thicknessNm, fixThickness, rangeNm,
         const residual = [];
         channels.forEach((channel, index) => {
             for (let point = 0; point < channel.values.length; point++) {
-                const error = calculated[index][point] - channel.values[point];
+                const error = channelDifference(
+                    channel.quantity, calculated[index][point], channel.values[point]);
                 residual.push(Number.isFinite(error) ? error : REJECTED_RESIDUAL);
             }
         });
@@ -366,8 +376,9 @@ function fitBestModel(context, rows) {
 
 /**
  * @param {object} request
- *   request.channels   [{ quantity:'T'|'R', lambdas, values, aoi, pol, side }]
- *                      values are fractions, wavelengths nm ascending
+ *   request.channels   [{ quantity, lambdas, values, aoi, pol, side }]
+ *                      quantity is 'T'|'R' as a fraction, or 'PSI'|'DEL' in
+ *                      degrees with a deltaConvention; wavelengths nm ascending
  *   request.sample     { incident, substrate, exit, substrateThicknessMm, geometry }
  *   request.indexModel one of INDEX_MODELS
  *   request.thicknessNm     approximate thickness, or the exact one when fixed
@@ -377,6 +388,16 @@ function fitBestModel(context, rows) {
  */
 export function characterizeFilm(request) {
     const { sample, indexModel = 'cauchy', fixThickness = false } = request;
+
+    // At normal incidence there is no p/s distinction to measure: r_p and r_s
+    // differ only by the sign that the reference frame flips, so any film gives
+    // Ψ = 45° and Δ = 180° and the pair carries nothing about the coating. A
+    // curve imported without an angle in its header arrives here at 0°, so this
+    // is the common way to reach it rather than an exotic one.
+    const normalIncidence = request.channels.filter(
+        channel => (channel.quantity === 'PSI' || channel.quantity === 'DEL') && !(channel.aoi > 0));
+    if (normalIncidence.length > 0) return { error: 'ellipsometryNormalIncidence' };
+
     const aligned = alignChannels(request.channels, request.rangeNm);
     if (aligned.error) return aligned;
     const { lambdas, channels, rangeNm } = aligned;
@@ -477,18 +498,30 @@ export function characterizeFilm(request) {
         || chosen.ranked;
     if (!best) return { error: 'noModel', envelope };
 
-    const { refined } = best;
-
     // The points are reported beside the model and are read against it, so they
-    // have to be solved at the thickness the model was refined to. The trial
-    // thickness they were fitted from is a point on a scan grid a sixtieth of
-    // the thickness apart, and extracting n at a thickness that far from the
-    // model's puts a fringe-period offset between the two that belongs to
-    // neither of them. The rows the model was fitted from are not re-made: that
-    // fit is finished, and this only decides what is shown and counted.
-    const shown = refined.thicknessNm === entry.thicknessNm
-        ? entry.extraction
-        : invertPointwise(solveChannels, refined.thicknessNm, seed);
+    // are solved at the thickness the model was refined to and started from the
+    // model itself.
+    //
+    // Two things follow from that. The trial thickness they were fitted from is
+    // a point on a scan grid a sixtieth of the thickness apart, and extracting n
+    // that far from the model's thickness puts a fringe-period offset between
+    // the two that belongs to neither of them. And a wavelength's own pair of
+    // measurements has more than one (n, k) that reproduces it, so which root
+    // Newton returns is decided by where it starts: from a flat guess it can
+    // land a whole interference order away and draw a second curve that fits
+    // every measured point and describes nothing. Starting from the model picks
+    // the root beside it, which is the comparison the plot is for. It does not
+    // pull the points toward the model: they still have to reproduce the
+    // measurement exactly, so a wrong model is left standing away from them.
+    //
+    // The rows the model was fitted from are not re-made: that fit is finished,
+    // and this only decides what is shown and counted.
+    const { refined } = best;
+    const modelFilm = filmFromFit(refined.fit);
+    const shown = invertPointwise(solveChannels, refined.thicknessNm, {
+        n: lambdas.map(lambda => modelFilm.getNK(lambda)[0]),
+        k: lambdas.map(lambda => modelFilm.getNK(lambda)[1]),
+    });
 
     const measured = measuredChannels(channels);
     const evaluated = context.sample(filmFromFit(refined.fit), refined.thicknessNm);
@@ -496,10 +529,15 @@ export function characterizeFilm(request) {
     channels.forEach((channel, index) => { calculated[channel.quantity] = evaluated[index]; });
     const residuals = channelResiduals(calculated, measured);
     const spread = parameterSpread(refined.parameters, refined.residualAt);
+    const source = measured.T && measured.R
+        ? 'measured R/T'
+        : measured.PSI && measured.DEL
+            ? 'measured Ψ/Δ'
+            : `measured ${Object.keys(measured).join('/')}`;
     const fit = {
         ...refined.fit,
         rangeNm,
-        source: 'measured R/T',
+        source,
         residuals: {},
     };
 

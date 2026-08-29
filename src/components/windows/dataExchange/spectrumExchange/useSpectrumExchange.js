@@ -165,7 +165,7 @@ export function useSpectrumExchange(sx) {
         sx, design, updateDesign, checkpoint, flash, parsed, col, name, xUnit,
         quantity, yscale, fileName, colIdx, ov, aoi, pol, side,
         setLoading, setStatus, setParsed, setFileName, setColIdx, setOv, setXUnit,
-        setSelectedCurveId,
+        setSelectedCurveId, setAoi,
     });
     const previewCurve = (selectedCurveId ? selectedCurve : null) || importActions.previewCurve || selectedCurve;
     const preview = useMemo(

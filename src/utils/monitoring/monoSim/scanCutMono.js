@@ -69,12 +69,12 @@ function runMonoScanLoop(ctx) {
 }
 
 export function _scanCutMono(p) {
-    const { monLam, theta, pol, char, incMat, subMat, modelMats, modelThicksBelow,
+    const { monLam, theta, pol, char, incMat, subMat, subThickMM, modelMats, modelThicksBelow,
             i, d_target, truthMats, truthThicksBelow, r, dt, t_target, confirmScans,
             noiseFrac, driftSlope, strat, order, rng } = p;
     let { t_global, cut_d_actual, cut_time } = p;
 
-    const sys = { theta, pol, char, incMat, subMat };
+    const sys = { theta, pol, char, incMat, subMat, subThickMM };
     // Storage is air→substrate, so the layers already deposited beneath the
     // growing layer `i` are the higher indices; the growing layer leads the
     // stack because it faces the incident medium.

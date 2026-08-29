@@ -28,14 +28,18 @@ export function monoSignalVsThickness({ layers, k, monRow, common, ctx, noisePct
             if (dep === k) return d;
             return 0;
         });
-        // In-chamber monitor signal: the active coating on a SEMI-INFINITE
-        // substrate (no back surface), independent of the front/back/total mode.
+        // In-chamber monitor signal: the witness chip as a plane-parallel slab,
+        // the growing coating on its front face, its bare back face returning
+        // light incoherently, both faces in the chamber medium. Independent of
+        // the front/back/total mode.
         const r = systemSpectrum({
-            evalMode: 'front',
+            evalMode: 'total',
             frontStored: frontDep.map((fd, idx) => ({ material: fd.material, thickness: thicks[idx] })),
+            backStored: [],
             quantity: common.char, aoi: common.aoi, polarization: common.pol,
             lambdaStart: lam, lambdaEnd: lam, lambdaStep: 1,
             incidentMat: ctx.incidentMatActive, substrateMat: ctx.subMat,
+            exitMat: ctx.incidentMatActive, substrateThk: ctx.subThk,
         });
         let v = r.values[0];
         if (rng) {

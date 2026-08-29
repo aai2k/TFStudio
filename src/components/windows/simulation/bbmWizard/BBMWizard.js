@@ -86,7 +86,7 @@ function buildRunCfg({ p, materialIds, recordTrajectory }) {
         rates, matDev, perMaterial: true,
         shutterDelayMeanS: p.shutterMean, shutterDelayRmsS: p.shutterRms,
         excludeLayers, relThkErrByLayer,
-        mon: { char: p.quantity, theta: p.aoi, polarization: p.pol,
+        mon: { char: p.quantity, theta: p.aoi, polarization: p.pol, chipMaterial: p.chipMaterial || null,
                lambdaStart: p.lamMin, lambdaEnd: p.lamMax, nPoints: p.points, scanIntervalSec: p.scanInterval, confirmScans: 2 },
         sig: { randomPct: p.randomPct, driftPctPer1000s: p.drift },
         // Cheaper fit for the live single run (Monte-Carlo path is untouched).
@@ -102,10 +102,13 @@ function presampleMaterialsFor({ design, simDesign, materialIds, resolveMat, p }
     const nP = Math.max(3, p.points | 0);
     const step = (p.lamMax - p.lamMin) / (nP - 1);
     const scanL = []; for (let i = 0; i < nP; i++) scanL.push(p.lamMin + i * step);
-    // Incident medium of the active run (the exit medium in back mode).
+    // Incident medium of the active run (the exit medium in back mode). The
+    // worker resolves the monitor substrate as chip glass || design substrate,
+    // so both ids ship with the pre-sample.
     const incId = medId(simDesign.incidentMedium);
     const subId = design.substrate?.material ?? 'BK7';
     const ids = new Set([incId, subId]); for (const id of materialIds) ids.add(id);
+    if (p.chipMaterial) ids.add(p.chipMaterial);
     const materials = {};
     for (const id of ids) {
         const m = resolveMat(id); const n = [], k = [];
@@ -131,6 +134,7 @@ export function BBMWizard({ c, t, onClose }) {
         // per scan per golden-section step, so 30 pts @ 3 s scans makes a full
         // run finish in ~1 s instead of stalling for many seconds.
         quantity: 'T', pol: 'avg', aoi: 0, scanInterval: 3.0, lamMin: 400, lamMax: 800, points: 30,
+        chipMaterial: null,                       // witness glass; null = design substrate
         previewLayer: 1, monNonce: 0, sigNonce: 0,
         randomPct: 0.3, drift: 0, driftMeanTime: 5, driftRms: 1, yFixed: true,
         timeMult: 10, resultTab: 'spectral', seed: 0xBBADCAFE,
@@ -152,11 +156,14 @@ export function BBMWizard({ c, t, onClose }) {
     if (!layers.length) return h(ModalFrame, { c, B, step, setStep, onClose, design, t, helpAnchor: 'simulation/bbm-simulator',
         body: h('div', { style: { flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', color: c.textDim } }, B.noLayers) });
 
+    // The monitor watches the witness chip, so the signal-preview pages read
+    // the chip's glass; the spectrum pages keep scoring on the design substrate.
+    const monCtx = p.chipMaterial ? { ...ctx, subMat: ctx.resolveMat(p.chipMaterial) } : ctx;
     const pages = {
         1: () => h(PageRates,        { p, set, materialIds, resolveMat: ctx.resolveMat, c, B }),
         2: () => h(PageDeviations,   { p, set, materialIds, layers, resolveMat: ctx.resolveMat, c, B }),
-        3: () => h(PageMonSystem,    { p, set, layers, c, B, ctx }),
-        4: () => h(PageSignalErrors, { p, set, layers, c, B, ctx }),
+        3: () => h(PageMonSystem,    { p, set, layers, c, B, t, ctx: monCtx }),
+        4: () => h(PageSignalErrors, { p, set, layers, c, B, ctx: monCtx }),
         5: () => h(PageSimulation,   { p, set, layers, c, B, ctx, run, setRun, buildCfg, presampleMaterials }),
         6: () => h(PageResults,      { p, set, layers, c, B, ctx, run, showDeferredActions: true }),
     };
