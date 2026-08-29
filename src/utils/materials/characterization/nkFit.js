@@ -286,7 +286,7 @@ function measuredChannels(channels) {
  * and so a one percent change costs the same wherever it starts from.
  */
 function refine({ channels, sample, seedFit, thicknessNm, fixThickness, rangeNm, iterations }) {
-    const codec = dispersionFitCodec(seedFit, (rangeNm[0] + rangeNm[1]) / 2);
+    const codec = dispersionFitCodec(seedFit);
     const residualLength = channels.reduce((total, channel) => total + channel.values.length, 0);
     const decode = (values) => ({
         thicknessNm: fixThickness ? thicknessNm : Math.exp(values[0]),

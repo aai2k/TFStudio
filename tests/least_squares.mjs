@@ -44,4 +44,27 @@ import { levenbergMarquardt, sumSquares } from '../src/utils/math/leastSquares.j
     assert.ok(sumSquares(residualAt(short)) < 1e-12, 'and that solution fits the data');
 }
 
+// ── A rejected step does not rebuild the Jacobian ────────────────────────────
+//
+// Rejection leaves the parameters unchanged, so the Jacobian is still exact and
+// rebuilding it buys nothing at the price of one residual evaluation per
+// parameter — and in the film fits one evaluation is a full transfer-matrix
+// spectrum. The residual below is nearly flat at the start, so the first step
+// overshoots and is rejected many times while the damping climbs; through all
+// of it the start point must be probed for the Jacobian exactly once.
+{
+    const start = 5;
+    const delta = 1e-6 * Math.max(1, Math.abs(start));
+    let probesAtStart = 0;
+    const residualAt = (parameters) => {
+        if (parameters[0] === start + delta) probesAtStart += 1;
+        return [10 * Math.tanh(parameters[0])];
+    };
+
+    const solution = levenbergMarquardt([start], residualAt, 80);
+    assert.ok(Math.abs(solution[0]) < start, 'the fit still moves off the flat start');
+    assert.equal(probesAtStart, 1,
+        `the start point's Jacobian is built once, not per rejected step (${probesAtStart})`);
+}
+
 console.log('PASS: least_squares');

@@ -76,6 +76,11 @@ export function FloatFrame({
         });
 
         const onMove = (me) => {
+            // A mouseup can be lost to a focus change mid-drag; the next move
+            // then arrives with no button held. Finishing the drag here keeps
+            // the window from following a released pointer, and closes the
+            // window-move bracket the lost mouseup would have closed.
+            if (me.buttons === 0) { onUp(me); return; }
             if (!moved && Math.hypot(me.clientX - grabX, me.clientY - grabY) <= 4) return;
             moved = true;
             const at = screenPoint(me);

@@ -96,8 +96,13 @@ export function levenbergMarquardt(initial, residualAt, iterations = 80) {
     let residual = residualAt(parameters);
     let cost = sumSquares(residual);
     let damping = 1e-6;
+    // A rejected step leaves the parameters where they were, so the Jacobian is
+    // still exact there; only an accepted step invalidates it. Each residual
+    // evaluation can be a full spectrum calculation, so rebuilding the Jacobian
+    // only after a move saves parameterCount evaluations per rejected step.
+    let jacobian = null;
     for (let iteration = 0; iteration < iterations; iteration++) {
-        const jacobian = residualJacobian(parameters, residualAt, residual);
+        if (!jacobian) jacobian = residualJacobian(parameters, residualAt, residual);
         const { normal, rhs } = normalEquations(jacobian, residual, parameters.length);
         for (let index = 0; index < parameters.length; index++) {
             normal[index][index] += damping * Math.max(1e-12, normal[index][index]);
@@ -110,16 +115,17 @@ export function levenbergMarquardt(initial, residualAt, iterations = 80) {
         if (candidateCost < cost) {
             parameters = candidate;
             residual = candidateResidual;
+            jacobian = null;
             if (Math.abs(cost - candidateCost) <= 1e-14 * Math.max(1, cost)) break;
             cost = candidateCost;
             damping = Math.max(1e-12, damping / 3);
         } else {
             // A step rejected at the largest damping is a fixed point: the
             // parameters, the residual and the damping are all unchanged, so
-            // every remaining iteration recomputes the same Jacobian, takes the
-            // same step and rejects it again. Stopping returns what running them
-            // would return, and a converged film fit spends about half its
-            // iteration budget here otherwise.
+            // every remaining iteration would take the same step and reject it
+            // again. Stopping returns what running them would return, and a
+            // converged film fit spends about half its iteration budget here
+            // otherwise.
             if (damping >= MAX_DAMPING) break;
             damping = Math.min(MAX_DAMPING, damping * 10);
         }

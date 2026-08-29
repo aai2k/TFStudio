@@ -196,8 +196,10 @@ function newtonSweeps(evaluate, channels, n, k, solvedExtinction) {
  * film's constants do not jump between adjacent wavelengths, so the root that
  * continues the curve is the physical one.
  *
- * The restart is kept only where it reaches tolerance as well, so this chooses
- * between roots and never trades a solved point for a smoother unsolved one.
+ * The restart is kept wherever it reaches tolerance: where both solves reach it
+ * this chooses the root that continues the curve, and where only the restart
+ * does it rescues a point the seeded solve missed. A restart that falls short
+ * is discarded, so a solved point is never traded for a smoother unsolved one.
  */
 function continueFromNeighbours(evaluate, channels, n, k, solvedExtinction) {
     const startIndex = n.map((value, point) =>
@@ -206,11 +208,9 @@ function continueFromNeighbours(evaluate, channels, n, k, solvedExtinction) {
         (point > 0 && point < k.length - 1) ? (k[point - 1] + k[point + 1]) / 2 : value);
     newtonSweeps(evaluate, channels, startIndex, startExtinction, solvedExtinction);
 
-    const before = residualsOf(channels, evaluate(n, k)).worst;
     const after = residualsOf(channels, evaluate(startIndex, startExtinction)).worst;
     for (let point = 0; point < n.length; point++) {
         if (after[point] > RESIDUAL_TOLERANCE) continue;
-        if (before[point] > RESIDUAL_TOLERANCE) continue;
         n[point] = startIndex[point];
         k[point] = startExtinction[point];
     }

@@ -10,7 +10,7 @@ import {
 import { measuredEllipsometrySession } from './sessionState.js';
 import { useWindowSession } from '../../windowSession.js';
 
-const { useCallback, useMemo, useState } = React;
+const { useCallback, useEffect, useMemo, useRef, useState } = React;
 
 function defaultCurveName(fileName, parsed, column) {
     const base = (fileName || 'ellipsometry').replace(/\.[^.]+$/, '');
@@ -28,10 +28,15 @@ export function useMeasuredEllipsometry(mx) {
     const [status, setStatus] = useState(null);
     const [loading, setLoading] = useState(false);
 
+    // One timer for the status line, so an earlier message's expiry cannot
+    // clear a later one, and nothing fires after the window is gone.
+    const statusTimer = useRef(null);
     const flash = useCallback((type, msg) => {
         setStatus({ type, msg });
-        setTimeout(() => setStatus(null), 4000);
+        clearTimeout(statusTimer.current);
+        statusTimer.current = setTimeout(() => setStatus(null), 4000);
     }, []);
+    useEffect(() => () => clearTimeout(statusTimer.current), []);
 
     const curves = ellipsometryCurves(design);
     const selectedCurve = curves.find(curve => curve.id === selectedCurveId) || null;
