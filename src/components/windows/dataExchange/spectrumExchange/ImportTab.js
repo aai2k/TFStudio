@@ -5,7 +5,7 @@ import { SidePanel } from '../../analysis/chrome/layout.js';
 import { measuredCurveData, X_UNITS } from '../../../../utils/io/spectrumTable.js';
 import { SpectrumPreview } from './SpectrumPreview.js';
 import { delimiterName } from './model.js';
-import { FieldRow, PanelSection, textInputStyle } from './panelUi.js';
+import { FieldRow, PanelSection, textInputStyle } from '../chrome/panel.js';
 
 const { createElement: h, useEffect, useState } = React;
 

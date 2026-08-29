@@ -5,11 +5,12 @@ import { nmToX } from './conversions.js';
 import { X_UNITS } from './constants.js';
 import { measuredCurveData } from './measuredCurve.js';
 
-const Q_LABEL = { T: '%T', R: '%R', A: '%A' };
+const Q_LABEL = { T: '%T', R: '%R', A: '%A', PSI: 'Psi (deg)', DEL: 'Delta (deg)' };
 const X_LABEL = {
     [X_UNITS.NM]: 'Wavelength (nm)',
     [X_UNITS.UM]: 'Wavelength (µm)',
     [X_UNITS.CM1]: 'Wavenumber (cm-1)',
+    [X_UNITS.EV]: 'Photon energy (eV)',
 };
 
 function csvRow(fields, delimiter) {
@@ -81,8 +82,11 @@ export function curvesToCsv(curves, opts = {}) {
     if (!list.length) return '';
 
     const xOut = value => nmToX(value, xUnit);
-    const yOut = (_curve, value) => asPercent ? value * 100 : value;
-    const yHdr = curve => asPercent ? Q_LABEL[curve.quantity] : curve.quantity;
+    const angular = curve => curve.quantity === 'PSI' || curve.quantity === 'DEL';
+    const yOut = (curve, value) => asPercent && !angular(curve) ? value * 100 : value;
+    const yHdr = curve => angular(curve)
+        ? Q_LABEL[curve.quantity]
+        : (asPercent ? Q_LABEL[curve.quantity] : curve.quantity);
 
     const format = { delimiter: d, xLabel: X_LABEL[xUnit], xOut, yHdr, yOut };
     const lines = curvesShareGrid(list)

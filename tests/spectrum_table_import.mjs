@@ -384,6 +384,77 @@ ok('dsc → tableToCsv header', csvD.split('\r\n')[0] === 'Wavelength (nm),T %,R
     const t = parseSpectrumTable(text);
     ok('tagged header names', t.columns.map(c => c.name).join('|') === 'PSI|DELTA');
     ok('tagged header skips the AOI line', t.nRows === 2 && approx(t.x[0], 239.986));
+    ok('ellipsometry quantities detected',
+        t.columns[0].quantity === 'PSI' && t.columns[1].quantity === 'DEL');
+    ok('ellipsometry angles are not percentages',
+        !t.columns[0].isPercent && !t.columns[1].isPercent);
+    ok('tagged ellipsometry AOI preserved',
+        t.aoi === 75.7 && t.columns.every(column => column.aoi === 75.7));
+}
+
+// A variable-angle export repeats the wavelengths once per angle in one flat
+// table. It is split into one Psi/Delta pair per AOI; the AOI column itself is a
+// measurement condition, not a plottable spectrum.
+{
+    const text = [
+        'Wavelength (nm)\tAOI (deg)\tPsi (deg)\tDelta (deg)',
+        '400\t65\t22.1\t174.2', '500\t65\t24.3\t161.8',
+        '400\t70\t20.7\t169.4', '500\t70\t23.1\t154.6',
+    ].join('\n');
+    const t = parseSpectrumTable(text);
+    ok('variable-angle table parses', t.ok && t.columns.length === 4);
+    ok('AOI column is not a spectrum', !t.columns.some(column => /^AOI/i.test(column.name)));
+    ok('variable AOIs preserved', t.aois.join('|') === '65|70');
+    ok('pairs are typed and split',
+        t.columns.map(column => `${column.quantity}@${column.aoi}`).join('|')
+            === 'PSI@65|PSI@70|DEL@65|DEL@70');
+    ok('split grids retain matching rows',
+        t.columns[1].x.join('|') === '400|500' && t.columns[1].values.join('|') === '20.7|23.1');
+}
+
+// Ψ and Δ are read from a column's own name, never from the file header as a
+// whole. An ellipsometry export names them in its header text and then writes
+// half a dozen other columns beside them; matching the header would type the
+// exposure time and the region of interest as Ψ along with the real pair.
+{
+    const text = [
+        '#ROIidx\tAOI\tLambda\tExposureTime\tDelta\tPsi',
+        '#-\tdeg\tnm\tus\tdeg\tdeg',
+        '0\t40.000\t365.0\t115908\t179.785\t32.536',
+        '0\t40.000\t370.0\t113546\t179.816\t32.514',
+    ].join('\n');
+    const t = parseSpectrumTable(text);
+    ok('only the named columns are angular',
+        t.columns.filter(column => column.quantity === 'PSI').length <= 1
+        && t.columns.filter(column => column.quantity === 'DEL').length <= 1);
+    ok('a header mentioning Psi does not type an unnamed column',
+        detectQuantity('#ROIidx AOI Lambda Delta Psi', { angular: false }) === null);
+    ok('a column named Psi still is Psi', detectQuantity('Psi (deg)') === 'PSI');
+}
+
+// Ellipsometry software works in photon energy. An eV axis and a µm axis cover
+// the same numbers, so eV is taken from the header only: an unlabelled 1.5 stays
+// 1.5 µm, and calling it eV would put the point at 1500 nm instead of 827 nm.
+{
+    const text = [
+        'Photon Energy (eV)\tPsi (deg)\tDelta (deg)',
+        '1.5\t22.14\t152.4', '2.0\t24.31\t141.8', '3.0\t27.02\t128.6',
+    ].join('\n');
+    const t = parseSpectrumTable(text);
+    ok('eV axis detected from the header', t.xUnit === X_UNITS.EV);
+    ok('eV converts through Planck', approx(xToNm(1.5, X_UNITS.EV), 826.561322, 1e-5));
+    ok('eV round-trips', approx(nmToX(xToNm(2.0, X_UNITS.EV), X_UNITS.EV), 2.0, 1e-9));
+
+    const curve = makeMeasuredCurve({
+        name: 'Psi', x: t.x, xUnit: t.xUnit, y: t.columns[0].values,
+        quantity: 'PSI', aoi: 70,
+    });
+    ok('eV curve lands on the right wavelengths',
+        approx(curve.x[0], 413.280661, 1e-5) && approx(curve.x[2], 826.561322, 1e-5));
+    ok('an unlabelled small axis is still µm',
+        guessXUnitFromRange([1.5, 2.0, 3.0]) === X_UNITS.UM);
+    ok('a wavelength unit in the header beats eV',
+        detectXUnit('Wavelength (nm), scanned 1.5-6.5 eV') === X_UNITS.NM);
 }
 
 // Avantes AvaSoft: names on one line, units on the next. The units belong to
@@ -437,7 +508,7 @@ ok('dsc → tableToCsv header', csvD.split('\r\n')[0] === 'Wavelength (nm),T %,R
 
 // Export and re-import must not change what the curve measures.
 {
-    for (const quantity of ['T', 'R', 'A']) {
+for (const quantity of ['T', 'R', 'A']) {
         const curve = makeMeasuredCurve({
             name: 'Sample', x: [400, 500, 600], xUnit: X_UNITS.NM,
             y: [0.10, 0.20, 0.30], quantity,
@@ -447,6 +518,23 @@ ok('dsc → tableToCsv header', csvD.split('\r\n')[0] === 'Wavelength (nm),T %,R
         ok(`csv round trip keeps ${quantity} values`,
             approx(back.columns[0].values[0], 10) && back.columns[0].isPercent);
     }
+}
+
+// Ellipsometric angles stay in degrees even when measured curves are exported
+// with the ordinary photometric "percent" option enabled.
+{
+    const psi = makeMeasuredCurve({
+        name: 'Psi', x: [500, 600], y: [23.5, 24.1], quantity: 'PSI', isPercent: true,
+    });
+    const delta = makeMeasuredCurve({
+        name: 'Delta', x: [500, 600], y: [179.5, 181.2], quantity: 'DEL', isPercent: true,
+    });
+    ok('ellipsometry curve stores degrees', psi.y[0] === 23.5 && delta.y[1] === 181.2);
+    const back = parseSpectrumTable(curvesToCsv([psi, delta]));
+    ok('ellipsometry CSV round trip keeps quantities',
+        back.columns[0].quantity === 'PSI' && back.columns[1].quantity === 'DEL');
+    ok('ellipsometry CSV round trip keeps degrees',
+        back.columns[0].values[0] === 23.5 && back.columns[1].values[1] === 181.2);
 }
 
 console.log(`\n${pass} passed, ${fail} failed`);

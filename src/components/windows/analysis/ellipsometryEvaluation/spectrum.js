@@ -1,8 +1,8 @@
 import {
-    evaluateEllipsometryAngles, evaluateEllipsometrySpectrum,
+    evaluateEllipsometryAngles, evaluateEllipsometrySpectrum, toDeltaConvention,
 } from '../../../../utils/physics/thinFilmMath.js';
 import { designMaterialLookup } from '../../../../utils/materials/designMaterials.js';
-import { nkAt, sideLayersAt, sideMedia, sideStack, toDeltaConvention } from './model.js';
+import { nkAt, sideLayersAt, sideMedia, sideStack } from './model.js';
 
 export function computeSpectral(design, options) {
     const { side, lambdaStart, lambdaEnd, lambdaStep, thetaDeg } = options;

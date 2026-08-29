@@ -12,6 +12,10 @@ import { createWindowSession } from '../../windowSession.js';
 export const nkCharacterizationSession = createWindowSession({
     transmittanceId: '',
     reflectanceId: '',
+    psiId: '',
+    deltaId: '',
+    measurementMode: '',
+    deltaConvention: 'azzam',
     indexModel: 'cauchy',
     // Empty follows the design-wide evaluation mode: FRONT/BACK is one coating
     // on a semi-infinite substrate, TOTAL includes the substrate's back face.

@@ -2,7 +2,7 @@ import {
     ActionButton, CheckField, ChoiceGroup, FieldLabel, NumInput, RangeField,
 } from '../../analysis/chrome/controls.js';
 import { X_UNITS } from '../../../../utils/io/spectrumTable.js';
-import { InlineRow, PanelSection } from './panelUi.js';
+import { InlineRow, PanelSection } from '../chrome/panel.js';
 
 const { createElement: h } = React;
 

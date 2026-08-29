@@ -41,7 +41,7 @@ const WORKERS = [
   'optimizerWorker.js', 'mfEvalWorker.js', 'synthesisWorker.js',
   'bbmRunWorker.js', 'filterDesignWorker.js',
   'plotSurfaceWorker.js', 'benchmarkWorker.js',
-  'analysisEvaluationWorker.js',
+  'analysisEvaluationWorker.js', 'characterizationWorker.js',
 ];
 
 function clean(dir) {

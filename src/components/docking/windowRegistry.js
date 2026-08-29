@@ -33,7 +33,7 @@ import { DesignEditor } from '../windows/design/designEditor/DesignEditor.js';
 import { OpticalEvaluation } from '../windows/analysis/opticalEvaluation/OpticalEvaluation.js';
 import { ColorEvaluation } from '../windows/analysis/colorEvaluation/ColorEvaluation.js';
 import { MaterialEditor } from '../windows/design/materialEditor/MaterialEditor.js';
-import { NkCharacterization } from '../windows/design/nkCharacterization/NkCharacterization.js';
+import { NkCharacterization } from '../windows/dataExchange/nkCharacterization/NkCharacterization.js';
 import { Refinement } from '../windows/optimization/refinement/Refinement.js';
 import { MeritFunctionEditor } from '../windows/optimization/meritFunctionEditor/MeritFunctionEditor.js';
 import { NeedleVariation } from '../windows/optimization/needleVariation/NeedleVariation.js';
@@ -54,6 +54,7 @@ import { HistoryWindow } from '../windows/edit/HistoryWindow.js';
 import { ProcessSimulator } from '../windows/dataExchange/processSimulator/ProcessSimulator.js';
 import { ZemaxCoatings } from '../windows/dataExchange/zemaxCoatings/ZemaxCoatings.js';
 import { SpectrumExchange } from '../windows/dataExchange/spectrumExchange/SpectrumExchange.js';
+import { MeasuredEllipsometry } from '../windows/dataExchange/measuredEllipsometry/MeasuredEllipsometry.js';
 import { Variator } from '../windows/optimization/variator/Variator.js';
 import { SystematicDeviations } from '../windows/analysis/systematicDeviations/SystematicDeviations.js';
 import { Inhomogeneities } from '../windows/analysis/inhomogeneities/Inhomogeneities.js';
@@ -66,7 +67,6 @@ export const WINDOW_REGISTRY = {
   // ── Design ──────────────────────────────────────────────────────────────────
   'design-editor':   { component: DesignEditor,        title: 'Design Editor',        label: 'Design Editor — layer stack table',                                   help: 'design/design-editor' },
   'material-editor': { component: MaterialEditor,       title: 'Material Editor',       label: 'Material Editor — n,k database',                                       help: 'design/material-editor', dialog: true },
-  'nk-characterization': { component: NkCharacterization, title: 'n,k Characterization', label: 'n,k Characterization: derive a film\'s n, k and thickness from a measured spectrum', help: 'design/nk-characterization', theme: true, dialog: true, createDesign: true },
   'specification':   { component: Specification,        title: 'Specification',         label: 'Specification — design requirements (PASS/FAIL qualifiers)',            help: 'design/specification', theme: true, dialog: true, requiresResolvedMaterials: true },
   'merit-function':  { component: MeritFunctionEditor,  title: 'Merit Function Editor', label: 'Merit Function Editor — operand table',                                help: 'design/merit-function-editor', dialog: true, requiresResolvedMaterials: true },
   'variator':        { component: Variator,             title: 'Variator',              label: 'Variator — live parameter slider',                                     help: 'design/variator', theme: true, requiresResolvedMaterials: true },
@@ -103,7 +103,9 @@ export const WINDOW_REGISTRY = {
   // ── Data Exchange ──────────────────────────────────────────────────────────────
   'process-sim':     { component: ProcessSimulator,  title: 'Process Exporter',   label: 'Process Exporter — scrub through deposition + export .res files', help: 'simulation/process-simulator', theme: true, requiresResolvedMaterials: true },
   'zemax-coatings':  { component: ZemaxCoatings,     title: 'Zemax Coatings',     label: 'Zemax Coatings — import / export COATING.DAT (materials + coatings)', help: 'data-exchange/zemax-coatings', theme: true, dialog: true },
-  'spectrum-exchange': { component: SpectrumExchange, title: 'Measured Spectra',   label: 'Measured Spectra — import measured R/T/A (CSV/TXT/ASCII/JCAMP-DX) as overlays; export design or measured spectra to CSV/JCAMP-DX', help: 'data-exchange/measured-spectra', theme: true },
+  'spectrum-exchange': { component: SpectrumExchange, title: 'Measured Spectra',   label: 'Measured Spectra — import measured R/T/A spectra (CSV/TXT/ASCII/JCAMP-DX) as overlays; export design or measured spectra to CSV/JCAMP-DX', help: 'data-exchange/measured-spectra', theme: true },
+  'measured-ellipsometry': { component: MeasuredEllipsometry, title: 'Measured Ellipsometry', label: 'Measured Ellipsometry — import measured Ψ/Δ from a spectroscopic ellipsometer; export measured or calculated Ψ/Δ to CSV', help: 'data-exchange/measured-ellipsometry', theme: true },
+  'nk-characterization': { component: NkCharacterization, title: 'n,k Characterization', label: 'n,k Characterization — derive the n, k and thickness of a film from a measured R/T spectrum or a measured Ψ/Δ pair', help: 'data-exchange/nk-characterization', theme: true, dialog: true, createDesign: true },
 
   // ── Dev / QA (opened from the dev-only View menu; not in the user ribbon) ───────
   'optimizer-benchmark': { component: OptimizerBenchmark, title: 'Optimizer Benchmark', label: 'Optimizer Benchmark — live cross-optimizer comparison (dev/QA)', help: 'index', theme: true, requiresResolvedMaterials: true },

@@ -13,11 +13,11 @@ import { initWasmForTest } from './_wasmInit.mjs';
 import { getMaterial } from '../src/utils/materials/materialDatabase.js';
 import { evaluateDispersionFit } from '../src/utils/materials/dispersionFits.js';
 import {
-    filmSpectrum, constantFilm, griddedFilm, makeSampleEvaluator,
+    filmEllipsometry, filmSpectrum, constantFilm, griddedFilm, makeSampleEvaluator,
 } from '../src/utils/materials/characterization/sampleSpectrum.js';
 import { extractEnvelope } from '../src/utils/materials/characterization/envelope.js';
 import { characterizeFilm } from '../src/utils/materials/characterization/nkFit.js';
-import { resolvableExtinction } from '../src/utils/materials/characterization/diagnostics.js';
+import { fitDiagnostics, resolvableExtinction } from '../src/utils/materials/characterization/diagnostics.js';
 
 // The same kernel the application runs on. It falls back to the JS loop when
 // the kernel has not been built, which changes the numbers below by about 1e-15
@@ -65,6 +65,19 @@ function measure(lambdas, film, thicknessNm, quantities = ['T', 'R'], scale = 1)
         quantity, lambdas,
         values: spectrum[quantity].map(value => value * scale),
         aoi: 0, pol: 'avg', side: 'front',
+    }));
+}
+
+/** Generate a conventional instrument Ψ/Δ pair at one angle. */
+function measureEllipsometry(lambdas, film, thicknessNm, aoi = 70) {
+    const conditions = {
+        ...SAMPLE, geometry: 'coating', lambdas, aoi, side: 'front',
+        deltaConvention: 'azzam',
+    };
+    const spectrum = filmEllipsometry(conditions, film, thicknessNm);
+    return ['PSI', 'DEL'].map(quantity => ({
+        quantity, lambdas, values: spectrum[quantity], aoi, side: 'front',
+        deltaConvention: 'azzam',
     }));
 }
 
@@ -224,6 +237,77 @@ function maxExtinctionError(result) {
         `thickness ${result.thicknessNm.toFixed(2)} nm, expected 420`);
     console.log(`R only, seeded at 380 nm: d = ${result.thicknessNm.toFixed(2)} nm (420), `
         + `k model = ${result.fit.k.kind}`);
+}
+
+// ── Spectroscopic ellipsometry ───────────────────────────────────────────────
+//
+// Ψ and Δ are two independent observables at every wavelength, so they solve n
+// and k without a photometric scale. Δ is deliberately in the instrument
+// convention here; the forward model must apply the same convention and use a
+// circular residual at the 0°/360° boundary.
+{
+    const lambdas = grid(450, 850, 4);
+    const thicknessNm = 180;
+    const result = characterizeFilm({
+        channels: measureEllipsometry(lambdas, knownFilm(false), thicknessNm),
+        sample: { ...SAMPLE, geometry: 'coating' },
+        indexModel: 'cauchy', thicknessNm: 160,
+    });
+    assert.ok(!result.error, `ellipsometry characterization failed: ${result.error}`);
+    assert.ok(Math.abs(result.thicknessNm - thicknessNm) < 1,
+        `ellipsometry returned ${result.thicknessNm} nm, expected ${thicknessNm}`);
+    const indexError = maxIndexError(result);
+    assert.ok(indexError < 0.01,
+        `a clean Ψ/Δ pair must recover the film index, error ${indexError}`);
+    assert.ok(result.residuals.PSI.rms < 0.02 && result.residuals.DEL.rms < 0.02,
+        `ellipsometric residual is too large: ${JSON.stringify(result.residuals)}`);
+}
+
+// ── The forward model reports Δ the way a file does ──────────────────────────
+//
+// The case above generates its measurement from the same function that fits it,
+// so it would pass just as happily with the Δ convention inverted. This anchors
+// the direction outside the module: a bare absorbing surface passes Δ = 90° at
+// the principal angle, which is the definition of that angle, and the same
+// sample is pinned to 269.83° in the engine's own sign in the correctness
+// benchmark. Getting this backwards costs about 180° in Δ and is invisible in Ψ.
+{
+    const silicon = { getNK: () => [3.88, 0.02] };
+    const principal = Math.atan(3.88) * 180 / Math.PI;
+    const bare = convention => filmEllipsometry(
+        { lambdas: [632.8], incident: air, substrate: silicon, exit: air,
+            aoi: principal, side: 'front', deltaConvention: convention },
+        constantFilm(1, 0), 0).DEL[0];
+
+    assert.ok(Math.abs(bare('azzam') - 90.17) < 0.05,
+        `Azzam-Bashara Δ at the principal angle is ${bare('azzam').toFixed(2)}°, expected 90°`);
+    assert.ok(Math.abs(bare('reversed') - 269.83) < 0.05,
+        `the engine's own Δ is ${bare('reversed').toFixed(2)}°, expected 269.83°`);
+}
+
+// ── Normal incidence measures nothing ────────────────────────────────────────
+//
+// r_p and r_s differ only by the sign the reference frame flips, so Ψ = 45° and
+// Δ = 180° for every film. A Ψ/Δ curve whose file carried no angle arrives with
+// aoi 0, which is the ordinary way to reach this, so it has to be refused
+// rather than fitted.
+{
+    const lambdas = grid(450, 850, 4);
+    const flat = filmEllipsometry(
+        { lambdas, incident: air, substrate: bk7, exit: air, aoi: 0, side: 'front',
+            deltaConvention: 'azzam' },
+        knownFilm(false), 180);
+    assert.ok(flat.PSI.every(value => Math.abs(value - 45) < 1e-9)
+        && flat.DEL.every(value => Math.abs(value - 180) < 1e-9),
+        'the forward model should be film-independent at normal incidence');
+
+    const channels = measureEllipsometry(lambdas, knownFilm(false), 180)
+        .map(channel => ({ ...channel, aoi: 0 }));
+    const refused = characterizeFilm({
+        channels, sample: { ...SAMPLE, geometry: 'coating' },
+        indexModel: 'cauchy', thicknessNm: 180,
+    });
+    assert.equal(refused.error, 'ellipsometryNormalIncidence');
 }
 
 // ── A film with no fringes holds no thickness ─────────────────────────────────
@@ -536,6 +620,132 @@ function maxExtinctionError(result) {
     const expected = 0.001 * 550 / (4 * Math.PI * 420);
     assert.ok(Math.abs(floor - expected) < 1e-12);
     console.log(`resolvable k for a 420 nm film at 550 nm: ${floor.toExponential(2)}`);
+}
+
+// ── A Ψ/Δ pair out of one file is never reported as resampled ────────────────
+//
+// Both curves carry the instrument's own wavelengths, and the λ range rounds to
+// whole nanometres, so it clips an end off that grid. A channel whose points are
+// all present in the clipped grid is selected from rather than interpolated:
+// otherwise every pair from every ellipsometer reads as having been resampled,
+// and the notice that means something stops meaning it.
+{
+    const lambdas = grid(400.37, 800.37, 2);
+    const angles = filmEllipsometry(
+        { lambdas, incident: air, substrate: bk7, exit: air, aoi: 70, side: 'front',
+            deltaConvention: 'azzam' },
+        knownFilm(false), 240);
+    const channels = ['PSI', 'DEL'].map(quantity => ({
+        quantity, lambdas, values: angles[quantity],
+        aoi: 70, pol: 'avg', side: 'front', deltaConvention: 'azzam',
+    }));
+    const result = characterizeFilm({
+        channels, indexModel: 'cauchy', thicknessNm: 240,
+        sample: { incident: air, substrate: bk7, exit: air, substrateThicknessMm: 1,
+            geometry: 'coating' },
+        rangeNm: [401, 800],
+    });
+    assert.ok(!result.error, `ellipsometric characterization failed: ${result.error}`);
+    assert.deepEqual(result.resampled, [],
+        'two curves on one grid must not be interpolated because the range clipped an end');
+    assert.ok(Math.abs(result.thicknessNm - 240) < 0.05,
+        `Ψ and Δ alone should recover the thickness, got ${result.thicknessNm.toFixed(2)} nm`);
+    assert.ok(result.residuals.PSI.rms < 1e-3 && result.residuals.DEL.rms < 1e-3,
+        'and reproduce the pair it was fitted to');
+    console.log(`Ψ/Δ at 70°: d = ${result.thicknessNm.toFixed(2)} nm (240), `
+        + `residual ${result.residuals.PSI.rms.toExponential(1)}° / `
+        + `${result.residuals.DEL.rms.toExponential(1)}°`);
+}
+
+// ── The points drawn beside the model are on the same branch as it ───────────
+//
+// A wavelength's own Ψ and Δ have more than one (n, k) that reproduces them at a
+// given thickness, so the per-wavelength solve returns whichever root it started
+// nearest. Started from a flat guess, a half-micron film came back a whole
+// interference order out: n near 3.1 where the film is 2.4 to 2.8, with k up to
+// 0.14 on a transparent oxide, and every one of those points reproduced the
+// measurement to eight decimal places. Drawn against the fitted curve on the
+// same plot, that is a second answer with nothing to say which is the film.
+{
+    const tio2 = getMaterial('TiO2');
+    const lambdas = grid(400, 800, 5);
+    const conditions = {
+        lambdas, incident: air, substrate: bk7, exit: air,
+        aoi: 70, side: 'front', deltaConvention: 'azzam',
+    };
+    const measured = filmEllipsometry(conditions, tio2, 500);
+    const channels = ['PSI', 'DEL'].map(quantity => ({
+        quantity, lambdas, values: measured[quantity],
+        aoi: 70, pol: 'avg', side: 'front', deltaConvention: 'azzam',
+    }));
+    const result = characterizeFilm({
+        channels, indexModel: 'cauchy', thicknessNm: 500,
+        sample: { incident: air, substrate: bk7, exit: air, substrateThicknessMm: 1,
+            geometry: 'coating' },
+    });
+    assert.ok(!result.error, `characterization failed: ${result.error}`);
+
+    let worstIndex = 0;
+    let worstExtinction = 0;
+    result.lambdas.forEach((lambda, index) => {
+        if (!result.pointwise.resolved[index]) return;
+        worstIndex = Math.max(worstIndex, Math.abs(result.pointwise.n[index] - tio2.getNK(lambda)[0]));
+        worstExtinction = Math.max(worstExtinction, result.pointwise.k[index]);
+    });
+    assert.ok(worstIndex < 0.01,
+        `a reported point misses the film's index by ${worstIndex.toFixed(3)}, which is another root`);
+    assert.ok(worstExtinction < 0.01,
+        `a transparent film came back with k = ${worstExtinction.toFixed(3)} at a point`);
+
+    // Choosing the root does not make the points agree with the model by
+    // construction: they still have to reproduce the measurement on their own.
+    const solved = ['PSI', 'DEL'].map((quantity, index) => ({
+        quantity, values: result.measured[quantity],
+        conditions: { ...conditions, lambdas: result.lambdas },
+    }));
+    const atPoints = makeSampleEvaluator(solved)(
+        griddedFilm(result.lambdas, result.pointwise.n, result.pointwise.k), result.thicknessNm);
+    let worstResidual = 0;
+    result.lambdas.forEach((lambda, index) => {
+        if (!result.pointwise.resolved[index]) return;
+        worstResidual = Math.max(worstResidual,
+            Math.abs(atPoints[0][index] - result.measured.PSI[index]),
+            Math.abs(((atPoints[1][index] - result.measured.DEL[index] + 540) % 360) - 180));
+    });
+    assert.ok(worstResidual < 1e-5,
+        `a reported point misses the measurement by ${worstResidual.toExponential(2)} degrees`);
+    console.log(`500 nm TiO₂ from Ψ/Δ: d = ${result.thicknessNm.toFixed(2)} nm, `
+        + `points within ${worstIndex.toExponential(1)} of the film's n`);
+}
+
+// ── An extinction that leaves the physical range is named ────────────────────
+//
+// The absorption model has two parameters that trade off exactly, so a fit with
+// nothing holding it can run out along that direction until the numbers
+// overflow. It reaches the window as a material with a k in the hundreds, which
+// no film has.
+{
+    const rangeNm = [320, 850];
+    const index = { kind: 'cauchy', coefficients: [1.68, 0.1056] };
+    // The coefficients a Ψ/Δ fit of a three-layer sample came back with: ln k0
+    // travels unbounded, so the amplitude ends at the top of double precision and
+    // k peaks near 800 where the two exponential terms cancel.
+    const runaway = fitDiagnostics({
+        fit: { n: index, k: { kind: 'urbach', coefficients: [1.742117362593985e308, -136.684259, -904.064492] } },
+        rangeNm, thicknessNm: 240, measured: { PSI: [], DEL: [] }, residuals: {},
+        metallic: false,
+    });
+    assert.ok(runaway.extinctionRange[1] > 100, 'the case has to reach a k no film has');
+    assert.ok(runaway.warnings.some(warning => warning.code === 'extinctionOutOfRange'),
+        `a k of ${runaway.extinctionRange[1].toExponential(1)} has to be named`);
+
+    const ordinary = fitDiagnostics({
+        fit: { n: index, k: { kind: 'urbach', coefficients: [URBACH.amplitude, URBACH.inverse, 0] } },
+        rangeNm, thicknessNm: 240, measured: { T: [], R: [] }, residuals: {},
+        metallic: false,
+    });
+    assert.ok(!ordinary.warnings.some(warning => warning.code === 'extinctionOutOfRange'),
+        'an ordinary absorbing film raises nothing');
 }
 
 console.log('PASS: nk_characterization');

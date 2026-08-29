@@ -141,6 +141,8 @@ export default defineConfig({
           translations: { 'zh-CN': '数据交换' },
           items: [
             { label: 'Measured Spectra', translations: { 'zh-CN': '实测光谱' },   slug: 'data-exchange/measured-spectra' },
+            { label: 'Measured Ellipsometry', translations: { 'zh-CN': '实测椭偏' }, slug: 'data-exchange/measured-ellipsometry' },
+            { label: 'n,k Characterization', translations: { 'zh-CN': 'n,k 表征' }, slug: 'data-exchange/nk-characterization' },
             { label: 'Spectrum File Formats', translations: { 'zh-CN': '光谱文件格式' }, slug: 'data-exchange/spectrum-file-formats' },
             { label: 'Zemax Coatings',   translations: { 'zh-CN': 'Zemax 膜层' }, slug: 'data-exchange/zemax-coatings' },
             { label: 'Process Exporter', translations: { 'zh-CN': '工艺导出' },   slug: 'simulation/process-simulator' },

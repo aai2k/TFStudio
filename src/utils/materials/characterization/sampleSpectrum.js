@@ -12,7 +12,10 @@
  * implements.
  */
 
-import { evaluateSpectrumAt, evaluateSpectrumTotalAt } from '../../physics/thinFilmMath.js';
+import {
+    evaluateEllipsometrySpectrum, evaluateSpectrumAt, evaluateSpectrumTotalAt,
+    toDeltaConvention,
+} from '../../physics/thinFilmMath.js';
 
 /**
  * How much of the sample the measurement saw.
@@ -44,6 +47,31 @@ export function constantFilm(n, k) {
 
 function selectedChannels(spectrum) {
     return { R: spectrum.R, T: spectrum.T, A: spectrum.A };
+}
+
+/** Signed angular difference, or the ordinary difference for photometry. */
+export function channelDifference(quantity, left, right) {
+    if (quantity !== 'DEL') return left - right;
+    return ((left - right + 540) % 360) - 180;
+}
+
+/**
+ * Ψ and Δ of the coherent coated surface seen by an ellipsometer.
+ *
+ * Δ comes back in the convention the measurement is in, so the residual is
+ * taken between two numbers that mean the same thing.
+ */
+export function filmEllipsometry(conditions, film, thicknessNm) {
+    const { lambdas, substrate, aoi } = conditions;
+    const incident = conditions.side === 'back' ? conditions.exit : conditions.incident;
+    const raw = evaluateEllipsometrySpectrum(
+        lambdas, aoi,
+        lambdas.map(lambda => incident.getNK(lambda)),
+        lambdas.map(lambda => substrate.getNK(lambda)),
+        [lambdas.map(lambda => film.getNK(lambda))],
+        [thicknessNm],
+    );
+    return { PSI: raw.psi, DEL: toDeltaConvention(raw.delta, conditions.deltaConvention) };
 }
 
 /**
@@ -85,7 +113,8 @@ export function bareSubstrateSpectrum(conditions) {
 }
 
 const conditionsKey = conditions =>
-    `${conditions.geometry}|${conditions.aoi}|${conditions.pol}|${conditions.side}`;
+    `${conditions.geometry}|${conditions.aoi}|${conditions.pol}|${conditions.side}`
+    + `|${conditions.deltaConvention || ''}`;
 
 /**
  * One call that evaluates every measured channel of a sample.
@@ -115,8 +144,16 @@ export function makeSampleEvaluator(channels) {
     return (film, thicknessNm) => {
         const output = new Array(channels.length);
         for (const group of groups) {
-            const spectrum = filmSpectrum(group.conditions, film, thicknessNm);
-            for (const member of group.members) output[member.index] = spectrum[member.quantity];
+            const photometric = group.members.some(member => ['T', 'R', 'A'].includes(member.quantity));
+            const angular = group.members.some(member => member.quantity === 'PSI' || member.quantity === 'DEL');
+            const spectrum = photometric ? filmSpectrum(group.conditions, film, thicknessNm) : null;
+            const ellipsometry = angular
+                ? filmEllipsometry(group.conditions, film, thicknessNm)
+                : null;
+            for (const member of group.members) {
+                output[member.index] = (ellipsometry || {})[member.quantity]
+                    || (spectrum || {})[member.quantity];
+            }
         }
         return output;
     };

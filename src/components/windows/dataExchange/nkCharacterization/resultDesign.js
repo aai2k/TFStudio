@@ -39,9 +39,12 @@ function measuredSide(chosen) {
 export function buildCharacterizedDesign({
     design, settings, chosen, result, materialId, materialName,
 }) {
-    const sample = sampleFor(design, settings);
+    const sample = sampleFor(design, {
+        ...settings, measurementMode: result.measurementMode || settings.measurementMode,
+    });
     const base = makeDefaultDesign(`${materialName} witness`);
     const side = measuredSide(chosen);
+    const ellipsometric = chosen.some(curve => curve.quantity === 'PSI' || curve.quantity === 'DEL');
     const layer = {
         id: `${base.id}-film`,
         material: materialId,
@@ -65,7 +68,11 @@ export function buildCharacterizedDesign({
         frontLayers: side === 'back' ? [] : [layer],
         backLayers: side === 'back' ? [layer] : [],
         referenceWavelength: Math.round((low + high) / 2),
-        measuredCurves: chosen.map(curve => ({ ...curve })),
+        // The measurement travels with the design so the new material can be
+        // checked against what it was fitted to. It goes back into the list it
+        // came from, so the window that imported it still owns it.
+        [ellipsometric ? 'measuredEllipsometry' : 'measuredCurves']:
+            chosen.map(curve => ({ ...curve })),
         notes: `Characterized from measured ${Object.keys(result.measured).join(' and ')}`
             + ` over ${Math.round(low)}-${Math.round(high)} nm.`,
     };

@@ -19,7 +19,9 @@ export function measuredCurveId() {
     return `meas-${++_curveSeq}-${Math.round(now)}-${Math.random().toString(36).slice(2, 8)}`;
 }
 
-const FAMILY_COLOR = { R: '#ef5350', T: '#2196f3', A: '#66bb6a' };
+const FAMILY_COLOR = {
+    R: '#ef5350', T: '#2196f3', A: '#66bb6a', PSI: '#4fc3f7', DEL: '#ff8a65',
+};
 const POLARIZATIONS = ['avg', 's', 'p'];
 const SIDES = ['front', 'back'];
 
@@ -43,7 +45,8 @@ const SIDES = ['front', 'back'];
 export function makeMeasuredCurve(p) {
     const xUnit = p.xUnit || X_UNITS.NM;
     let quantity = QUANTITIES.includes(p.quantity) ? p.quantity : 'T';
-    const isAbs = !!p.isAbsorbance;
+    const angular = quantity === 'PSI' || quantity === 'DEL';
+    const isAbs = !angular && !!p.isAbsorbance;
     const parsedAoi = Number(p.aoi);
     const aoi = Number.isFinite(parsedAoi) ? parsedAoi : 0;
     const pol = POLARIZATIONS.includes(p.pol) ? p.pol : 'avg';
@@ -57,7 +60,7 @@ export function makeMeasuredCurve(p) {
         let yv = p.y[i];
         if (!Number.isFinite(xn) || !Number.isFinite(yv)) continue;
         if (isAbs) { yv = absorbanceToT(yv); quantity = 'T'; }
-        else if (p.isPercent) yv = yv / 100;
+        else if (!angular && p.isPercent) yv = yv / 100;
         pairs.push([xn, yv]);
     }
     pairs.sort((a, b) => a[0] - b[0]);   // ascending nm
@@ -72,10 +75,11 @@ export function makeMeasuredCurve(p) {
         color: p.color || FAMILY_COLOR[quantity] || '#ffb300',
         visible: p.visible !== false,
         xUnit,
-        yWasPercent: isAbs ? false : !!p.isPercent,
+        yWasPercent: angular || isAbs ? false : !!p.isPercent,
         aoi,
         pol,
         side,
+        ...(quantity === 'DEL' ? { deltaConvention: p.deltaConvention || 'azzam' } : {}),
     };
 }
 

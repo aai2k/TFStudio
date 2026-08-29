@@ -40,13 +40,3 @@ export function sideSummary(design, side) {
     };
 }
 
-// computeEllipsometry returns Delta = arg(r_p/r_s) in this codebase's exp(-iwt),
-// n + ik convention. Azzam-Bashara is its conjugate, 360 - Delta, and is what an
-// ellipsometer writes: checked against a J.A. Woollam WVASE export of a known
-// 20 nm PNIPAM / 2 nm SiO2 / Si sample, which the conjugate reproduces to 0.7
-// deg in Delta while the unconjugated value is out by 63 deg. Psi is the same
-// either way, being a magnitude ratio.
-export function toDeltaConvention(delta, convention) {
-    if (convention !== 'azzam') return delta;
-    return delta.map(value => (((360 - value) % 360) + 360) % 360);
-}

@@ -1,8 +1,8 @@
 /**
- * The panel chrome both tabs of the Measured Spectra window are built from.
+ * The panel chrome the Data Exchange windows are built from.
  *
- * The window is a pair of side panels rather than a plot, so it does not use
- * the analysis frame's control row; it does use the same controls, sizes and
+ * These windows are pairs of side panels rather than plots, so they do not use
+ * the analysis frame's control row; they do use the same controls, sizes and
  * type from `analysis/chrome`, which is why the pieces here are only layout.
  */
 
@@ -11,6 +11,21 @@ import { FieldLabel } from '../../analysis/chrome/controls.js';
 const { createElement: h } = React;
 
 const FONT = 'system-ui, -apple-system, sans-serif';
+
+// Tabs are Data Exchange navigation rather than analysis settings, which is why
+// this one control lives here instead of in the shared analysis chrome.
+export function TabBtn({ active, onClick, c, children }) {
+    return h('button', {
+        type: 'button', onClick, 'aria-pressed': active,
+        style: {
+            height: 28, padding: '0 12px', border: 'none', borderRadius: 5,
+            borderBottom: `2px solid ${active ? c.accent : 'transparent'}`,
+            outline: 'none', cursor: 'pointer', background: active ? c.accent + '20' : 'transparent',
+            color: active ? c.text : c.textDim, fontSize: 11, fontWeight: active ? 600 : 500,
+            fontFamily: 'system-ui, -apple-system, sans-serif',
+        },
+    }, children);
+}
 
 /** One titled band of a panel, separated from the next by a rule. */
 export function PanelSection({ c, title, children }) {

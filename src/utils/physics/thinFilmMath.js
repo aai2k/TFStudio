@@ -734,9 +734,12 @@ export function evaluateSpectrumTotalAt(lambdas, params, incMaterial, subMateria
 //
 // This is NOT the sign an ellipsometer writes. A measurement file carries
 // 360° − Δ, the complex conjugate, which is what the exp(+iωt) time convention
-// gives for the same sample. Ellipsometry Evaluation converts on the way to the
-// screen, and its Azzam-Bashara option is the one that matches a file; see
-// toDeltaConvention in the ellipsometryEvaluation window.
+// gives for the same sample. toDeltaConvention below is the one place that
+// conversion happens, for display and for comparison against a measurement
+// alike. Checked against a J.A. Woollam WVASE export of a known 20 nm PNIPAM /
+// 2 nm SiO2 / Si sample: the conjugate reproduces it to 0.7° in Δ, while the
+// unconjugated value is out by 63°. Ψ is the same either way, being a
+// magnitude ratio.
 //
 // Validation: a bare dielectric gives Δ ≈ 180° below Brewster and Δ ≈ 0° above
 // it, with Ψ → 0 at Brewster. Those two are fixed points of the conjugation and
@@ -769,6 +772,22 @@ function ellipsometricAngles(absS, argS, absP, argP) {
         tanPsi:   Math.tan(psiRad),
         cosDelta: Math.cos(deltaDeg * Math.PI / 180),
     };
+}
+
+/**
+ * Δ in the convention asked for, given Δ as this module returns it.
+ *
+ * 'azzam' is the Azzam-Bashara sign an instrument writes, 360° − Δ. Anything
+ * else leaves the value alone. One function so a calculated Δ compared against
+ * a measurement and a calculated Δ drawn on a plot cannot use different signs.
+ *
+ * @param {number[]} delta  degrees, as computeEllipsometry returns them
+ * @param {string} convention
+ * @returns {number[]} degrees in [0°, 360°)
+ */
+export function toDeltaConvention(delta, convention) {
+    if (convention !== 'azzam') return delta;
+    return delta.map(value => (((360 - value) % 360) + 360) % 360);
 }
 
 export function computeEllipsometry(lambda_nm, theta_deg, n0, ns, layers) {

@@ -271,6 +271,16 @@ export const ICONS = {
                           Cf(15,6.2,0.9),
                       ]),
 
+    // Measured Ellipsometry — the polarization ellipse of the Ellipsometry icon
+    // carrying measured points, matching how Measured Spectra marks its own.
+    'measured-ellipsometry': I([
+                          P('M3 10q2-5 7 0t7 0'),
+                          P('M10 3v14', 1.2),
+                          Cf(5.4, 7.6, 0.9),
+                          Cf(10, 10, 0.9),
+                          Cf(14.6, 12.4, 0.9),
+                      ]),
+
     // Zemax coatings — a data file (page with stacked coating-layer lines) and a
     // bidirectional exchange arrow (import/export COATING.DAT).
     'zemax-coatings': I([
@@ -304,7 +314,7 @@ export const GROUP_COLORS = {
 const TOOL_GROUP = {
     'new-design': 'file', 'open-project': 'file', 'save': 'file', 'save-as': 'file',
     'undo': 'edit', 'redo': 'edit', 'history': 'edit',
-    'design-editor': 'design', 'material-editor': 'design', 'nk-characterization': 'design',
+    'design-editor': 'design', 'material-editor': 'design',
     'specification': 'design', 'stack-formula': 'design',
     'optical-eval': 'analysis', 'color-eval': 'analysis', 'admittance': 'analysis', 'efield': 'analysis',
     'ellipsometry': 'analysis', 'gd-gdd': 'analysis', 'material-dispersion': 'analysis', 'ri-profiler': 'analysis', 'integral-values': 'analysis',
@@ -313,7 +323,8 @@ const TOOL_GROUP = {
     'merit-function': 'optimization', 'refinement': 'optimization', 'needle-group': 'optimization', 'needle': 'optimization',
     'needle-manual': 'optimization', 'gradual': 'optimization', 'structural': 'optimization', 'variator': 'optimization', 'design-cleaner': 'optimization', 'filter-design': 'optimization',
     'bbm-simulator': 'simulation', 'mono-simulator': 'simulation',
-    'process-sim': 'data-exchange', 'zemax-coatings': 'data-exchange', 'spectrum-exchange': 'data-exchange',
+    'process-sim': 'data-exchange', 'zemax-coatings': 'data-exchange', 'spectrum-exchange': 'data-exchange', 'measured-ellipsometry': 'data-exchange',
+    'nk-characterization': 'data-exchange',
     'report-gen': 'information', 'help-docs': 'information',
 };
 
@@ -357,7 +368,6 @@ function makeGroups(t) {
             items: [
                 { id: 'design-editor',   label: tb.buttons['design-editor'],   title: tb.tooltips['design-editor']   },
                 { id: 'material-editor', label: tb.buttons['material-editor'], title: tb.tooltips['material-editor'] },
-                { id: 'nk-characterization', label: tb.buttons['nk-characterization'], title: tb.tooltips['nk-characterization'] },
                 { id: 'specification',   label: tb.buttons['specification'],   title: tb.tooltips['specification']   },
                 { id: 'stack-formula',   label: tb.buttons['stack-formula'],   title: tb.tooltips['stack-formula']   },
             ]
@@ -424,6 +434,8 @@ function makeGroups(t) {
             label: tb.groups.dataExchange,
             items: [
                 { id: 'spectrum-exchange', label: tb.buttons['spectrum-exchange'], title: tb.tooltips['spectrum-exchange'] },
+                { id: 'measured-ellipsometry', label: tb.buttons['measured-ellipsometry'], title: tb.tooltips['measured-ellipsometry'] },
+                { id: 'nk-characterization', label: tb.buttons['nk-characterization'], title: tb.tooltips['nk-characterization'] },
                 { id: 'zemax-coatings',    label: tb.buttons['zemax-coatings'],    title: tb.tooltips['zemax-coatings'] },
                 { id: 'process-sim',       label: tb.buttons['process-sim'],       title: tb.tooltips['process-sim']    },
             ]

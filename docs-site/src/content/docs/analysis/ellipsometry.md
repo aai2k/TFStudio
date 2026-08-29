@@ -17,8 +17,16 @@ light:
 ρ = r_p / r_s = tan(Ψ) · exp(i Δ)
 ```
 
+That is the reflected pair, and it is the only one modelled: an instrument
+working in transmission measures a different quantity, which this window does
+not compute. The sample is isotropic, so generalised and Mueller-matrix
+ellipsometry are outside it as well.
+
 You can sweep either wavelength at a fixed angle, or angle of incidence at a
 fixed wavelength.
+
+To bring a real instrument's Ψ and Δ into a design and compare the two, use
+[Measured Ellipsometry](/data-exchange/measured-ellipsometry/).
 
 ## Settings
 
