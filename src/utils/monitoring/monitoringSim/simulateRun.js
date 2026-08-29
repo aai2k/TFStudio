@@ -30,6 +30,8 @@ import { processLayer } from './layerLoop.js';
  *       - char:        'T' | 'R'           (default 'T')
  *       - theta:       deg                  (default 0)
  *       - polarization:'s'|'p'|'avg'       (default 'avg')
+ *       - chipMaterial: id of the witness chip's glass; the design substrate
+ *                       when not set
  *       - lambdaStart, lambdaEnd: nm        (default 400, 1000)
  *       - nPoints:     samples per scan     (default 41)
  *       - scanIntervalSec: time between scans (default 0.5)
@@ -64,7 +66,9 @@ export function simulateRun(design, resolveMat, cfg) {
     for (let i = 0; i < monCfg.nPoints; i++) lambdas[i] = monCfg.lamA + i * stepLam;
 
     const incId  = typeof design.incidentMedium === 'string' ? design.incidentMedium : (design.incidentMedium?.material ?? 'Air');
-    const subId  = design.substrate?.material ?? 'BK7';
+    // The monitor watches the witness chip, so its glass carries the signal;
+    // the run's scoring elsewhere stays on the design substrate.
+    const subId  = monCfg.chipMaterial || (design.substrate?.material ?? 'BK7');
     const incMat = resolveMat(incId);
     const subMat = resolveMat(subId);
 
@@ -115,7 +119,8 @@ export function simulateRun(design, resolveMat, cfg) {
     const ctx = {
         ...monCfg, ...sigCfg, ...layerCfg,
         rng, rates: rateCfg.rates,
-        incMat, subMat, lambdas, modelMats, truthMats, driftSlope,
+        incMat, subMat, subThickMM: design.substrate?.thickness ?? 1,
+        lambdas, modelMats, truthMats, driftSlope,
         N, onLayer: cfg.onLayer,
     };
 

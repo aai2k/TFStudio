@@ -9,6 +9,7 @@
  * Run: node tests/mono_wizard_engine.mjs
  */
 import { simulateRunMono, defaultMonoTable, mulberry32 } from '../src/utils/monitoring/monoSim.js';
+import { analyzeModelCurve, singleSignal } from '../src/utils/monitoring/monoSim/signalModel.js';
 
 // ── Synthetic non-dispersive materials (getNK(λ) → [n, k]) ────────────────────
 const mk = (n, k = 0) => ({ name: `n${n}`, getNK: () => [n, k] });
@@ -100,6 +101,47 @@ let maxTimeErr = 0;
 for (let i = 0; i < front.length; i++)
     maxTimeErr = Math.max(maxTimeErr, Math.abs(tt.asBuiltFront[i] - tt.targetFront[i]));
 ok(maxTimeErr < 1e-6, "'time' strategy with 0 rel-error hits target exactly");
+
+// ── 5. A thin level-cut layer lands on its own target ─────────────────────────
+// The level a cut terminates on is computed at the target thickness itself. A
+// 17 nm layer's target falls between the model-curve grid samples, so reading
+// the level off the nearest sample would make a perfect monitor converge to
+// the wrong thickness by a fraction of a nanometre, every run.
+{
+    const sys = { theta: 0, pol: 'avg', char: 'T',
+                  incMat: MATS.Air, subMat: MATS.BK7, subThickMM: 1 };
+    const an = analyzeModelCurve(550, { matsBelow: [], thicksBelow: [], curMat: MATS.L }, 17, sys);
+    ok(Math.abs(an.sAtTarget - singleSignal(550, [MATS.L], [17], sys)) < 1e-15,
+       'the level target is the signal at the target thickness, not at a grid sample');
+
+    const thin = { ...design, frontLayers: [{ material: 'L', thickness: 17 }] };
+    const table = defaultMonoTable(thin, resolveMat, { autoPickLambda: false })
+        .map(m => ({ ...m, strategy: 'level' }));
+    const r = simulateRunMono(thin, resolveMat, { ...baseCfg, monTable: table, rng: mulberry32(3) });
+    const d = r.asBuiltFront[0];
+    ok(d >= 17 - 0.01 && d <= 17 + 0.8,
+       `a zero-noise level cut crosses at the target, plus only the confirm delay (${d.toFixed(3)} nm)`);
+}
+
+// ── 6. Chip glass ─────────────────────────────────────────────────────────────
+// The monitor watches the witness chip. A single L quarter wave on BK7 swings
+// weakly and turns broadly, so the reversal confirms late; the same layer
+// monitored on a high-index chip swings harder, turns sharper, and cuts closer
+// to the quarter wave.
+{
+    const oneL = { ...design, frontLayers: [{ material: 'L', thickness: qwot('L') }] };
+    const table = defaultMonoTable(oneL, resolveMat, { autoPickLambda: false });
+    const runOn = (chipMaterial) => simulateRunMono(oneL, resolveMat, {
+        ...baseCfg, monTable: table,
+        mon: { ...baseCfg.mon, chipMaterial },
+        rng: mulberry32(7),
+    }).asBuiltFront[0];
+    const onSub = runOn(null);
+    ok(onSub === runOn('BK7'), 'no chip glass means the design substrate');
+    const onH = runOn('H');
+    ok(onH < onSub,
+       `a sharper turning point on a high-index chip cuts sooner (${onH.toFixed(2)} vs ${onSub.toFixed(2)} nm)`);
+}
 
 console.log(fail === 0 ? '\nALL PASS' : `\n${fail} FAILURE(S)`);
 process.exit(fail === 0 ? 0 : 1);

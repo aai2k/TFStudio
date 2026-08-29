@@ -284,6 +284,37 @@ export const ANALYSIS_DEFAULTS = {
     booleans: { includeLocked: false, showChart: false },
   },
 
+  monitorWorksheet: {
+    colors: {
+      // The part of each layer's curve the run actually traverses, the same
+      // layer continued past its cut so the next turning point is visible, the
+      // mark at each cut, and a layer whose termination error is out of budget.
+      signal: '#4fc3f7', continuation: '#8a8a8a', cut: '#9aa0a8', poor: '#ef5350',
+    },
+    numbers: {
+      // Two to four layers on a chip is the range optical monitoring is set up
+      // in; beyond that the later layers on the chip run out of swing.
+      layersPerChip: { def: 3, min: 1, max: 50, step: 1 },
+      // Witness thickness / part thickness, the monitor-to-work ratio.
+      witnessRatio: { def: 1, min: 0.05, max: 10, step: 0.01 },
+      // The monitor's own signal error, as a percentage of the reading. Same
+      // quantity and convention as the Monitoring Simulator's random error.
+      signalErrorPct: { def: 0.3, min: 0.001, max: 50, step: 0.1 },
+      // A layer is flagged when terminating it costs more thickness than this,
+      // as a percentage of the layer. 1 % is the perturbation the tolerance
+      // windows ship with, so it is the error the design is already read at.
+      maxTerminationErrPct: { def: 1, min: 0.01, max: 100, step: 0.1 },
+      // How many layers the chart opens on. A whole run drawn end to end is a
+      // picket fence, so the chart shows a window and scrolls along the run.
+      layersInView: { def: 8, min: 2, max: 200, step: 1 },
+      theta: AOI,
+    },
+    enums: {
+      char: { def: 'T', options: ['T', 'R'] },
+      polarization: POL,
+    },
+  },
+
   errorAnalysis: {
     colors: { T: '#4fc3f7', R: '#ef5350', A: '#66bb6a' },
     numbers: {

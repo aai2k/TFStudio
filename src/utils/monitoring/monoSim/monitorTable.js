@@ -9,12 +9,16 @@ import { singleSignal } from './signalModel.js';
  * Most-sensitive monitoring wavelength for layer `layerIdx` — Strategy 1
  * (Tikhonravov 2006): the λ in [lamA, lamB] that maximises |dS/dd| at d_target.
  */
-export function pickSensitiveLambda({ design, resolveMat, layerIdx, lamA, lamB, theta, pol, char }) {
+export function pickSensitiveLambda({
+    design, resolveMat, layerIdx, lamA, lamB, theta, pol, char, chipMaterial,
+}) {
     const front = design.frontLayers || [];
     if (!front[layerIdx]) return design.referenceWavelength || 550;
     const incId = typeof design.incidentMedium === 'string'
         ? design.incidentMedium : (design.incidentMedium?.material ?? 'Air');
-    const subId = design.substrate?.material ?? 'BK7';
+    // The monitor watches the witness chip; its glass is the design substrate
+    // unless `chipMaterial` names another material.
+    const subId = chipMaterial || (design.substrate?.material ?? 'BK7');
     const incMat = resolveMat(incId);
     const subMat = resolveMat(subId);
     // At the moment layer `layerIdx` is monitored it is the outermost one, with
@@ -26,7 +30,7 @@ export function pickSensitiveLambda({ design, resolveMat, layerIdx, lamA, lamB, 
     const eps = Math.max(0.05, 0.005 * d);
     const NG = 60;
     const step = (lamB - lamA) / (NG - 1);
-    const sys = { theta, pol, char, incMat, subMat };
+    const sys = { theta, pol, char, incMat, subMat, subThickMM: design.substrate?.thickness ?? 1 };
     let bestLam = lamA, bestSlope = -1;
     for (let g = 0; g < NG; g++) {
         const lam = lamA + g * step;
@@ -71,7 +75,10 @@ export function defaultMonoTable(design, resolveMat, opts = {}) {
     return front.map((l, i) => {
         const mat = resolveMat(l.material);
         const lambda = opts.autoPickLambda
-            ? pickSensitiveLambda({ design, resolveMat, layerIdx: i, lamA, lamB, theta, pol, char })
+            ? pickSensitiveLambda({
+                design, resolveMat, layerIdx: i, lamA, lamB, theta, pol, char,
+                chipMaterial: opts.chipMaterial,
+            })
             : ref;
         return { lambda, strategy: autoMonoStrategy(l, mat, lambda), order: 1, sigmaRelPct: 0 };
     });

@@ -224,6 +224,16 @@ export const ICONS = {
                           P('M3.8 10.5 C5.2 6.5 6.6 6.5 8 10.5 C9.4 14.5 10.8 14.5 12.2 10.5 C13.1 7.9 14 7.2 16.2 7.2',1.4),
                       ]),
 
+    // Monitor Worksheet — the worksheet itself: a sheet with a header row and a
+    // first column, carrying the monitoring signal and the cut it stops at.
+    'monitor-worksheet': I([
+                          R(2,3,16,14,1),
+                          L(2,6.8,18,6.8,0.9),
+                          L(6.5,6.8,6.5,17,0.9),
+                          P('M7.5 14.6 C8.4 9.6 9.3 9.1 10 9.1 C11 9.1 11.8 11.2 12.5 14.6 C13.2 12.1 14.5 10.6 16.2 10.1',1.4),
+                          L(10,9.1,10,16.6,0.9),
+                      ]),
+
     // Process Simulator — chamber with substrate, descending vapor stream and
     // a building stack of layers on top (deposition in progress).
     'process-sim':    I([
@@ -322,7 +332,7 @@ const TOOL_GROUP = {
     'inhomogeneities': 'analysis', 'systematic-dev': 'analysis', 'roughness': 'analysis',
     'merit-function': 'optimization', 'refinement': 'optimization', 'needle-group': 'optimization', 'needle': 'optimization',
     'needle-manual': 'optimization', 'gradual': 'optimization', 'structural': 'optimization', 'variator': 'optimization', 'design-cleaner': 'optimization', 'filter-design': 'optimization',
-    'bbm-simulator': 'simulation', 'mono-simulator': 'simulation',
+    'bbm-simulator': 'simulation', 'mono-simulator': 'simulation', 'monitor-worksheet': 'simulation',
     'process-sim': 'data-exchange', 'zemax-coatings': 'data-exchange', 'spectrum-exchange': 'data-exchange', 'measured-ellipsometry': 'data-exchange',
     'nk-characterization': 'data-exchange',
     'report-gen': 'information', 'help-docs': 'information',
@@ -427,6 +437,7 @@ function makeGroups(t) {
             items: [
                 { id: 'bbm-simulator',  label: tb.buttons['bbm-simulator'],  title: tb.tooltips['bbm-simulator']  },
                 { id: 'mono-simulator', label: tb.buttons['mono-simulator'], title: tb.tooltips['mono-simulator'] },
+                { id: 'monitor-worksheet', label: tb.buttons['monitor-worksheet'], title: tb.tooltips['monitor-worksheet'] },
             ]
         },
         {

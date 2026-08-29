@@ -59,7 +59,8 @@ export function processMonoLayer(i, layer, ctx, mut) {
     } else if (d_target > 0) {
         const scan = _scanCutMono({
             monLam: plan.monLam, theta: ctx.theta, pol: ctx.pol, char: ctx.char,
-            incMat: ctx.incMat, subMat: ctx.subMat, modelMats: ctx.modelMats,
+            incMat: ctx.incMat, subMat: ctx.subMat, subThickMM: ctx.subThickMM,
+            modelMats: ctx.modelMats,
             modelThicksBelow: mut.modelThicks.slice(i + 1),
             i, d_target, truthMats: ctx.truthMats, truthThicksBelow: mut.truthThicks.slice(i + 1),
             r, dt: ctx.dt, t_target, confirmScans: ctx.confirmScans,

@@ -22,6 +22,8 @@ export function parseMonoMonitorConfig(cfg) {
         char:         mon.char || 'T',
         theta:        mon.theta ?? 0,
         pol:          mon.polarization || 'avg',
+        // The witness chip's glass; the design substrate when not set.
+        chipMaterial: mon.chipMaterial || null,
         dt:           Math.max(1e-6, mon.scanIntervalSec ?? 0.5),
         confirmScans: Math.max(1, Math.floor(mon.confirmScans ?? 2)),
     };

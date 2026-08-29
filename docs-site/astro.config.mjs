@@ -134,6 +134,7 @@ export default defineConfig({
           items: [
             { label: 'BBM Simulator',  translations: { 'zh-CN': 'BBM 仿真器' }, slug: 'simulation/bbm-simulator' },
             { label: 'Mono Simulator', translations: { 'zh-CN': '单色仿真器' }, slug: 'simulation/mono-simulator' },
+            { label: 'Monitor Worksheet', translations: { 'zh-CN': '监控工作表' }, slug: 'simulation/monitor-worksheet' },
           ],
         },
         {

@@ -35,8 +35,11 @@ the lag between the cut decision and the shutter actually closing.
 **Page 3: Monitoring System.** Choose the measured **quantity** and
 polarization (T or R, s/p/average), the **angle of incidence**, the **scan
 interval** between spectrum readings, and the monitoring **band** (λ min, λ
-max, and number of points). The preview shows the ideal monitoring signal for
-the layer selected in the tab strip.
+max, and number of points). **Chip glass** is the witness chip the monitor
+watches: it opens on the design substrate, and picking another material moves
+the monitor signal onto that glass, for a witness that is not the same glass
+as the part. The preview shows the ideal monitoring signal for the layer
+selected in the tab strip.
 
 **Page 4: Signal Errors.** Add **random noise** (percent of signal) and a
 slow baseline **drift** to the monitor signal. The preview shows the noisy
@@ -56,8 +59,10 @@ layer, and tables of as-built **thicknesses** and **refractive indices**.
 The coating side that is deposited, and the way the resulting spectrum is
 scored, follow the surface mode set in the
 [Design Editor](/design/design-editor/), shown as a badge on the window. The
-in-chamber monitor signal is always computed on a semi-infinite substrate,
-the way a spectrophotometer aimed through the chamber actually sees it.
+in-chamber monitor signal is read through the whole witness chip: the growing
+coating on its front face and its bare back face, added incoherently, the way
+a spectrophotometer aimed through the chamber actually sees it. A bare chip of
+n = 1.52 glass reads 91.8 %, not the 95.7 % of the coated surface alone.
 
 ## How to read it
 

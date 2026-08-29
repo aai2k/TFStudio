@@ -4,7 +4,7 @@
  * point / level-crossing cut targets.
  */
 
-import { tmmAvg } from '../../physics/thinFilmMath.js';
+import { tmmTotalAvg } from '../../physics/thinFilmMath.js';
 
 function pickChar(res, char, pol) {
     if (char === 'R') return pol === 's' ? res.Rs : pol === 'p' ? res.Rp : res.R;
@@ -13,16 +13,25 @@ function pickChar(res, char, pol) {
 }
 
 /**
- * One-λ TMM signal over a layer stack. `sys` bundles the fixed optical
- * system: { theta, pol, char, incMat, subMat }.
+ * One-λ monitor signal over a layer stack on the witness chip. `sys` bundles
+ * the fixed optical system: { theta, pol, char, incMat, subMat, subThickMM }.
+ *
+ * The chip is a plane-parallel slab in the chamber: the growing coating on its
+ * front face, its bare back face returning light incoherently, and both faces
+ * in the same medium. A transmittance monitor reads through both surfaces, so
+ * the bare back face is part of the signal (a bare n = 1.52 chip reads 91.8 %,
+ * not the 95.7 % of the coated surface alone).
  */
 export function singleSignal(lam, mats, thicks, sys) {
-    const { theta, pol, char, incMat, subMat } = sys;
+    const { theta, pol, char, incMat, subMat, subThickMM } = sys;
     const lNDs = [];
     for (let i = 0; i < mats.length; i++) {
         if (thicks[i] > 0) lNDs.push({ n: mats[i].getNK(lam), d: thicks[i] });
     }
-    const res = tmmAvg(lam, theta, incMat.getNK(lam), subMat.getNK(lam), lNDs);
+    const ambient = incMat.getNK(lam);
+    const res = tmmTotalAvg(lam, theta,
+        { incident: ambient, substrate: subMat.getNK(lam), exit: ambient },
+        { front: lNDs, back: [] }, subThickMM ?? 1);
     return pickChar(res, char, pol);
 }
 
@@ -46,7 +55,6 @@ export function analyzeModelCurve(monLam, model, dTarget, sys) {
         ds[s] = d;
         ys[s] = singleSignal(monLam, [curMat].concat(matsBelow), [d].concat(thicksBelow), sys);
     }
-    const targetIdx = Math.max(1, Math.min(NP - 2, Math.round((dTarget / dHi) * (NP - 1))));
     const extrema = [];
     for (let s = 1; s < NP - 1; s++) {
         const a = ys[s - 1], b = ys[s], cv = ys[s + 1];
@@ -54,5 +62,11 @@ export function analyzeModelCurve(monLam, model, dTarget, sys) {
             extrema.push({ d: ds[s], isMax: b > a });
         }
     }
-    return { sAtTarget: ys[targetIdx], sStart: ys[0], extrema, dHi };
+    // The level a 'level' cut is terminated on is the signal at the target
+    // thickness itself, not at the nearest grid sample: on a layer thinner
+    // than the grid can center, the sample sits up to a percent of the layer
+    // away, and the cut would converge to that wrong level exactly.
+    const sAtTarget = singleSignal(
+        monLam, [curMat].concat(matsBelow), [dTarget].concat(thicksBelow), sys);
+    return { sAtTarget, sStart: ys[0], extrema, dHi };
 }

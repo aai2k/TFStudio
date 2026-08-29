@@ -62,6 +62,7 @@ import { RoughnessScattering } from '../windows/analysis/roughnessScattering/Rou
 import { PlotEngine } from '../windows/analysis/plotEngine/PlotEngine.js';
 import { Specification } from '../windows/design/specification/Specification.js';
 import { OptimizerBenchmark } from '../windows/optimization/optimizerBenchmark/OptimizerBenchmark.js';
+import { MonitorWorksheet } from '../windows/simulation/monitorWorksheet/MonitorWorksheet.js';
 
 export const WINDOW_REGISTRY = {
   // ── Design ──────────────────────────────────────────────────────────────────
@@ -99,6 +100,7 @@ export const WINDOW_REGISTRY = {
   'filter-design':   {                                                                                                                                                                    help: 'synthesis/wdm-wizard' },
 
   // ── Simulation ────────────────────────────────────────────────────────────────
+  'monitor-worksheet': { component: MonitorWorksheet, title: 'Monitor Worksheet', label: 'Monitor Worksheet: per-layer signal, swing and termination error on the witness chips the run would be monitored on', help: 'simulation/monitor-worksheet', requiresResolvedMaterials: true },
 
   // ── Data Exchange ──────────────────────────────────────────────────────────────
   'process-sim':     { component: ProcessSimulator,  title: 'Process Exporter',   label: 'Process Exporter — scrub through deposition + export .res files', help: 'simulation/process-simulator', theme: true, requiresResolvedMaterials: true },

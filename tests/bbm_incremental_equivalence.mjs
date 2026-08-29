@@ -19,11 +19,14 @@
  *          the old sampleChar (full-stack tmmAvg loop) to within floating-point
  *          association error, across materials (incl. absorbing), pols (s/p/avg),
  *          characteristics (T/R/A), AOIs, and growing-layer thicknesses incl. 0.
- * Test 2 — simulateRun is deterministic at a fixed seed (regression guard that
- *          the wiring did not introduce any nondeterminism).
+ * Test 2 — the evaluator's witness-chip slab mode (coated front + bare back,
+ *          incoherent sum) matches tmmTotalAvg, whose reverse pass runs the
+ *          reversed stack explicitly rather than off the anti-transposed matrix.
+ * Test 3 — simulateRun is deterministic at a fixed seed, no chip glass means
+ *          the design substrate, and the monitor's estimates react to the glass.
  */
 
-import { tmmAvg, createMonitorTmmEvaluator } from '../src/utils/physics/thinFilmMath.js';
+import { tmmAvg, tmmTotalAvg, createMonitorTmmEvaluator } from '../src/utils/physics/thinFilmMath.js';
 import { simulateRun } from '../src/utils/monitoring/monitoringSim.js';
 import { getMaterial } from '../src/utils/materials/materialDatabase.js';
 
@@ -152,9 +155,73 @@ function test_simulateRun_deterministic() {
     ok(maxAbs === 0, `simulateRun is deterministic at fixed seed (max |Δ as-built| = ${maxAbs})`);
 }
 
+// The witness-chip slab mode: the evaluator's reverse pass comes from the
+// anti-transposed cached matrix, and this must reproduce tmmTotalAvg, which
+// runs the reversed stack explicitly. The two re-derive the substrate-side
+// angle differently (a real-angle re-entry with a degree/asin round trip
+// against reuse of the complex-continuity matrices), and near-cancelling
+// reflection numerators amplify the last-ulp difference to ~1e-10 on a
+// dispersive high-index stack at oblique incidence. Any error in the
+// anti-transpose or the back-face/bulk combination shows up at ~1e-2.
+function test_evaluator_slab_mode() {
+    const incMat = resolveMat('Air');
+    const subMat = resolveMat('BK7');
+    const completedMats = [resolveMat('SiO2'), resolveMat('TiO2')];
+    const completedThicks = [104.1, 62.3];
+    const top = resolveMat('TiO2');
+    const lambdas = [420, 550, 680, 780];
+    let maxAbs = 0;
+    for (const theta of [0, 30]) {
+        const ev = createMonitorTmmEvaluator(theta, incMat, subMat, completedMats, completedThicks, lambdas, 1);
+        for (const char of ['T', 'R', 'A']) {
+            for (const dTop of [0, 42.5, 130]) {
+                const got = ev.sample(char, 'avg', top, dTop);
+                for (let li = 0; li < lambdas.length; li++) {
+                    const lam = lambdas[li];
+                    const front = [{ n: top.getNK(lam), d: dTop },
+                                   ...completedMats.map((m, k) => ({ n: m.getNK(lam), d: completedThicks[k] }))];
+                    const ref = tmmTotalAvg(lam, theta,
+                        { incident: incMat.getNK(lam), substrate: subMat.getNK(lam), exit: incMat.getNK(lam) },
+                        { front, back: [] }, 1);
+                    maxAbs = Math.max(maxAbs, Math.abs(got[li] - ref[char]));
+                }
+            }
+        }
+    }
+    ok(maxAbs < 1e-8,
+        `slab-mode evaluator matches tmmTotalAvg's explicit reversed-stack pass (max |Δ| = ${maxAbs.toExponential(2)})`);
+}
+
+// The run reads the witness chip, and the chip's glass is selectable: the
+// monitor's thickness estimate must react to the glass under it, and no
+// chipMaterial must mean exactly the design substrate.
+function test_simulateRun_chip_glass() {
+    const design = fourLayer();
+    const rates = new Map([['TiO2', { mean: 0.3, sigma: 0.02 }], ['SiO2', { mean: 0.5, sigma: 0.03 }]]);
+    const runOn = (chipMaterial) => simulateRun(design, resolveMat, {
+        rates,
+        mon: { char: 'T', theta: 0, polarization: 'avg', chipMaterial,
+               lambdaStart: 400, lambdaEnd: 800, nPoints: 15, scanIntervalSec: 0.4 },
+        sig: { randomPct: 0.5 }, rng: makeRng(777), recordTrajectory: true,
+    });
+    const onSub = runOn(null);
+    const onBK7 = runOn('BK7');
+    const onSi = runOn('Si');
+    let same = true;
+    let differs = false;
+    for (let i = 0; i < onSub.estimatedFront.length; i++) {
+        if (onSub.estimatedFront[i] !== onBK7.estimatedFront[i]) same = false;
+        if (onSub.estimatedFront[i] !== onSi.estimatedFront[i]) differs = true;
+    }
+    ok(same, 'no chip glass means the design substrate');
+    ok(differs, "the monitor's thickness estimates react to the chip glass");
+}
+
 test_evaluator_bit_identical();
 test_first_layer();
+test_evaluator_slab_mode();
 test_simulateRun_deterministic();
+test_simulateRun_chip_glass();
 
 if (fails) { console.error(`\n${fails} test(s) FAILED`); process.exit(1); }
 console.log('\nAll BBM incremental-equivalence tests passed.');

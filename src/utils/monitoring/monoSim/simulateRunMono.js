@@ -44,7 +44,9 @@ import { processMonoLayer } from './layerLoop.js';
  * Simulate one monochromatic-monitoring deposition run. cfg matches
  * monitoringSim.simulateRun, except the monitoring system is per-layer:
  *   - monTable: [{ lambda, strategy:'turning'|'level'|'time', order, sigmaRelPct }]
- *   - mon:      { char, theta, polarization, scanIntervalSec, confirmScans }
+ *   - mon:      { char, theta, polarization, chipMaterial, scanIntervalSec,
+ *                 confirmScans } — chipMaterial is the witness chip's glass,
+ *                 the design substrate when not set
  * Return shape is identical to simulateRun (+ cutStrategies).
  */
 export function simulateRunMono(design, resolveMat, cfg) {
@@ -57,7 +59,9 @@ export function simulateRunMono(design, resolveMat, cfg) {
 
     const incId  = typeof design.incidentMedium === 'string'
         ? design.incidentMedium : (design.incidentMedium?.material ?? 'Air');
-    const subId  = design.substrate?.material ?? 'BK7';
+    // The monitor watches the witness chip, so its glass carries the signal;
+    // the run's scoring elsewhere stays on the design substrate.
+    const subId  = monCfg.chipMaterial || (design.substrate?.material ?? 'BK7');
     const incMat = resolveMat(incId);
     const subMat = resolveMat(subId);
 
@@ -95,7 +99,8 @@ export function simulateRunMono(design, resolveMat, cfg) {
     const ctx = {
         ...monCfg, ...sigCfg, ...layerCfg,
         rng, rates: rateCfg.rates,
-        incMat, subMat, modelMats, truthMats, driftSlope, refLam,
+        incMat, subMat, subThickMM: design.substrate?.thickness ?? 1,
+        modelMats, truthMats, driftSlope, refLam,
         N, onLayer: cfg.onLayer,
     };
 
