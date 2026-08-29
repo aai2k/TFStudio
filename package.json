@@ -1,6 +1,6 @@
 {
   "name": "tfstudio",
-  "version": "1.6.3",
+  "version": "1.7.0",
   "description": "TFStudio - Optical Thin Film Coating Design",
   "main": "src/main.js",
   "desktopName": "tfstudio.desktop",

@@ -10,7 +10,7 @@
 **An open-source design, analysis, and optimization environment for optical thin-film coatings.**
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](./LICENSE)
-![Version](https://img.shields.io/badge/version-1.6.3-informational)
+![Version](https://img.shields.io/badge/version-1.7.0-informational)
 [![Downloads](https://img.shields.io/github/downloads/aai2k/TFStudio/total?label=downloads&color=informational)](../../releases)
 ![Platform](https://img.shields.io/badge/platform-Windows%20%7C%20Linux-2ea44f)
 [![Maintainability](https://qlty.sh/gh/aai2k/projects/TFStudio/maintainability.svg)](https://qlty.sh/gh/aai2k/projects/TFStudio)
@@ -47,10 +47,11 @@ TFStudio is a desktop application for designing and analyzing **optical thin-fil
 - **Needle** optimization and **gradual evolution** synthesis (automatic layer insertion from scratch)
 - Structural optimization over the layer count itself
 - Flexible merit function: spectral targets, ramps, band averages, worst-case operands, thickness constraints
+- Fitting to an imported measured spectrum, as one more row in the merit function
 - Multi-threaded via a Web Worker pool; hot kernels accelerated with **WebAssembly**
 
 **Analysis windows**
-- Optical evaluation, admittance diagrams, electric-field profiles, group delay / GDD, ellipsometric parameters, color evaluation, refractive-index profile
+- Optical evaluation, admittance diagrams, electric-field profiles, group delay / GDD, ellipsometric parameters, color evaluation, refractive-index profile, layer thickness diagram
 - Tolerance & manufacturing analysis: Monte-Carlo error analysis, layer sensitivity, inhomogeneity, roughness/scattering, systematic deviations
 
 **Materials**
@@ -60,12 +61,20 @@ TFStudio is a desktop application for designing and analyzing **optical thin-fil
 
  <img width="1225" height="866" alt="image" src="https://github.com/user-attachments/assets/6fc88e64-7a06-44a3-95bd-352d4c4716ed" />
 
+**Measured data**
+- Import of measured R / T / A spectra and of ellipsometric Ψ and Δ, drawn over the calculated curves
+- **n,k characterization:** derive a film's index, extinction and thickness from a measured transmittance and reflectance, or from a Ψ and Δ pair, and save the result as a material
+- Export of measured or calculated curves in nm, µm or wavenumber, as a fraction or a percentage
+
 **Manufacturing**
 - Deposition / monitoring simulation (broadband and monochromatic optical monitoring)
+- Monitoring worksheet: per-layer monitoring wavelength and witness-chip assignment, with the layers that cannot be terminated closely enough flagged before the run
 - Process exporter and optical-coating data interchange (including Zemax OpticStudio coating export/import)
 
 **Platform**
 - Cross-platform desktop app (Electron + React, pure JavaScript)
+- Tabbed ribbon with a search box that finds any tool by name
+- Windows dock, or tear off the layout onto a second monitor
 - Built-in help/documentation, English, Russian and Chinese UI
 
 

@@ -45,6 +45,7 @@ TFStudio 是一款用于设计、分析和合成多层光学薄膜镀膜的桌�
   <LinkCard title="椭偏仪" href="/zh/analysis/ellipsometry/" description="Ψ 和 Δ，椭偏仪测量的振幅比和相位量。" />
   <LinkCard title="GD / GDD" href="/zh/analysis/gd-gdd/" description="光谱相位及其导数，用于啁啾镜和超快镀膜的诊断。" />
   <LinkCard title="折射率分布" href="/zh/analysis/refractive-index-profile/" description="n(z) 和 k(z)，在选定波长下堆栈的折射率阶跃分布。" />
+  <LinkCard title="膜层厚度" href="/zh/analysis/layer-thicknesses/" description="把镀膜的每一层画成一根柱，可用物理或光学厚度单位，按材料着色。" />
   <LinkCard title="积分值" href="/zh/analysis/integral-values/" description="加权光谱平均值，如 Tvis、Tsol、TUV 和 TNIR。" />
   <LinkCard title="绘图引擎" href="/zh/analysis/plot-engine/" description="构建自定义多曲线 XY 图，或在两个扫描变量上映射物理量。" />
 </CardGrid>
@@ -79,12 +80,15 @@ TFStudio 是一款用于设计、分析和合成多层光学薄膜镀膜的桌�
 <CardGrid>
   <LinkCard title="BBM 仿真器" href="/zh/simulation/bbm-simulator/" description="模拟在宽带光学监控下制造镀膜的过程，查看实际制造的光谱。" />
   <LinkCard title="单色仿真器" href="/zh/simulation/mono-simulator/" description="模拟单波长监控，支持逐层的转折点、电平或定时切割策略。" />
+  <LinkCard title="监控工作表" href="/zh/simulation/monitor-worksheet/" description="逐层检查该设计能否在光学监控下停切，以及应放在哪一片监控片上。" />
 </CardGrid>
 
 ### 数据交换
 
 <CardGrid>
   <LinkCard title="实测光谱" href="/zh/data-exchange/measured-spectra/" description="导入实测的 R/T/A 光谱作为叠加层，并将曲线导出为 CSV 或 JCAMP-DX。" />
+  <LinkCard title="实测椭偏" href="/zh/data-exchange/measured-ellipsometry/" description="从光谱椭偏仪导入一对实测 Ψ 与 Δ，与设计对比，并把实测或计算的 Ψ/Δ 导出为 CSV。" />
+  <LinkCard title="n,k 表征" href="/zh/data-exchange/nk-characterization/" description="由实测 R/T 光谱或一对实测 Ψ/Δ 求出薄膜的折射率、消光系数与厚度，并把结果保存为材料。" />
   <LinkCard title="Zemax 膜层" href="/zh/data-exchange/zemax-coatings/" description="读写 Zemax OpticStudio COATING.DAT，包括材料和膜层堆栈。" />
   <LinkCard title="工艺导出" href="/zh/simulation/process-simulator/" description="逐层回放镀膜过程，并导出每步的沉积数据。" />
 </CardGrid>

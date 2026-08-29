@@ -10,7 +10,7 @@
 **开源的光学薄膜设计、分析与优化环境**
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](./LICENSE)
-![Version](https://img.shields.io/badge/version-1.6.3-informational)
+![Version](https://img.shields.io/badge/version-1.7.0-informational)
 [![Downloads](https://img.shields.io/github/downloads/aai2k/TFStudio/total?label=downloads&color=informational)](../../releases)
 ![Platform](https://img.shields.io/badge/platform-Windows%20%7C%20Linux-2ea44f)
 [![Maintainability](https://qlty.sh/gh/aai2k/projects/TFStudio/maintainability.svg)](https://qlty.sh/gh/aai2k/projects/TFStudio)
@@ -46,10 +46,11 @@ TFStudio 是一款用于**光学薄膜**设计与分析的桌面软件，适用�
 - **针式优化（needle）**与**逐步演化（gradual evolution）**自动合成，可从零开始自动插入膜层
 - 针对膜层数本身的结构优化
 - 灵活的评价函数：光谱目标值、斜坡目标、波段平均、最差值操作数、厚度约束
+- 可将膜系拟合到导入的实测光谱，该拟合作为评价函数中的一行参与优化
 - 基于 Web Worker 线程池的多线程计算，核心运算采用 **WebAssembly** 加速
 
 **分析窗口**
-- 光学性能计算、导纳图、电场分布、群延迟与群延迟色散（GD / GDD）、椭偏参数、颜色计算、折射率剖面
+- 光学性能计算、导纳图、电场分布、群延迟与群延迟色散（GD / GDD）、椭偏参数、颜色计算、折射率剖面、膜层厚度图
 - 容差与工艺分析：蒙特卡罗误差分析、膜层灵敏度、折射率不均匀性、粗糙度与散射、系统性偏差
 
 **材料**
@@ -59,12 +60,20 @@ TFStudio 是一款用于**光学薄膜**设计与分析的桌面软件，适用�
 
 ![材料浏览器](assets/screenshot-cn-material.png)
 
+**实测数据**
+- 支持导入实测的反射率 / 透射率 / 吸收率光谱，以及椭偏参数 Ψ 与 Δ，并叠加显示在计算曲线上
+- **n,k 表征：** 由实测的透射率与反射率，或由一组 Ψ 与 Δ，反演薄膜的折射率、消光系数与厚度，结果可保存为材料
+- 实测或计算曲线可按纳米、微米或波数导出，数值可用小数或百分比表示
+
 **镀膜工艺**
 - 镀膜与监控过程仿真（宽带光学监控与单色光监控）
+- 监控工作表：逐层给出监控波长与监控片分配，并在开镀前标出无法精确截止的膜层
 - 工艺导出，以及光学镀膜数据交换（含 Zemax OpticStudio 膜系导入/导出）
 
 **平台**
 - 跨平台桌面应用（Electron + React，纯 JavaScript 实现）
+- 选项卡式功能区，并带有可按名称查找任意工具的搜索框
+- 窗口既可停靠，也可拖出布局放到第二台显示器上
 - 内置帮助文档，界面支持英文、俄文与中文
 
 ## 科学依据
