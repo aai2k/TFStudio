@@ -5,8 +5,30 @@
 
 import { UpdateBadge } from './ui/UpdateBadge.js';
 import { useUpdate } from './ui/UpdateContext.js';
+import { ICONS } from './Toolbar.js';
+import { DEFAULT_QUICK_ACCESS } from './dialogs/settings/QuickAccessPane.js';
 
-export function TitleBar({ c, activeDesign, isDirty, t }) {
+function QuickBtn({ id, title, c, onClick }) {
+  const [hov, setHov] = React.useState(false);
+  return React.createElement('button', {
+    onClick, title,
+    onMouseEnter: () => setHov(true),
+    onMouseLeave: () => setHov(false),
+    style: {
+      display: 'flex', alignItems: 'center', justifyContent: 'center',
+      width: 26, height: 24, flexShrink: 0,
+      border: 'none', borderRadius: 3,
+      backgroundColor: hov ? c.hover : 'transparent',
+      color: c.text, cursor: 'pointer', outline: 'none',
+      transition: 'background-color 0.1s'
+    }
+  }, ICONS[id]);
+}
+
+export function TitleBar({ c, activeDesign, isDirty, t, onToolAction, quickAccess }) {
+  // Which tools sit here is a preference; the shipped list stands until the user
+  // changes it. An empty list is a choice and is left empty.
+  const quickTools = Array.isArray(quickAccess) ? quickAccess : DEFAULT_QUICK_ACCESS;
   const update = useUpdate();
   const [isMaximized, setIsMaximized] = React.useState(false);
 
@@ -36,6 +58,7 @@ export function TitleBar({ c, activeDesign, isDirty, t }) {
 
   return React.createElement('div', {
     style: {
+      position: 'relative',
       display: 'flex',
       alignItems: 'center',
       justifyContent: 'space-between',
@@ -46,10 +69,20 @@ export function TitleBar({ c, activeDesign, isDirty, t }) {
       userSelect: 'none'
     }
   },
-    // Left side - update indicator (draws nothing when there is nothing to report)
+    // Left side - quick access, then the update indicator, which takes no room
+    // at all while there is nothing to report.
     React.createElement('div', {
-      style: { width: '48px', height: '100%', display: 'flex' }
+      style: { height: '100%', display: 'flex', alignItems: 'center', gap: 1, paddingLeft: 6 }
     },
+      onToolAction && React.createElement('div', {
+        style: { display: 'flex', alignItems: 'center', gap: 1, WebkitAppRegion: 'no-drag' }
+      },
+        quickTools.map(id => React.createElement(QuickBtn, {
+          key: id, id, c,
+          title: t?.toolbar?.tooltips?.[id],
+          onClick: () => onToolAction(id)
+        }))
+      ),
       t && update && React.createElement(UpdateBadge, {
         c, t,
         status: update.status,
@@ -58,9 +91,12 @@ export function TitleBar({ c, activeDesign, isDirty, t }) {
       })
     ),
 
-    // Center - Title
+    // Center - Title. Positioned independently of the side blocks so it stays
+    // centred in the window however wide they grow.
     React.createElement('div', {
       style: {
+        position: 'absolute', left: '50%', transform: 'translateX(-50%)',
+        pointerEvents: 'none',
         display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 0,
         fontFamily: 'system-ui, -apple-system, sans-serif',
         lineHeight: 1.2

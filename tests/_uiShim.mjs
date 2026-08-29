@@ -75,7 +75,7 @@ export function shimBrowserGlobals() {
     const elementStub = () => ({
         style: {}, classList: { add: noop, remove: noop, toggle: noop, contains: () => false },
         setAttribute: noop, getAttribute: () => null, removeAttribute: noop,
-        appendChild: (x) => x, removeChild: (x) => x, addEventListener: noop,
+        appendChild: (x) => x, append: noop, removeChild: (x) => x, addEventListener: noop,
         removeEventListener: noop, querySelector: () => null, querySelectorAll: () => [],
         getContext: () => null, getBoundingClientRect: () => ({ width: 0, height: 0, top: 0, left: 0 }),
         focus: noop, click: noop, remove: noop, insertBefore: (x) => x, contains: () => false,

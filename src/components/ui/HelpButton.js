@@ -5,8 +5,8 @@ const { createElement: h, useState } = React;
 // 'analysis/optical-evaluation'). Locale follows the app's current language;
 // fall back to 'en' if a per-locale page is missing.
 //
-// Placement: tab-bar right corner (DockingLayout) + Help ribbon button +
-// MenuBar's Help → Documentation. Sized for a 30px tab bar.
+// Placement: tab-bar right corner (DockingLayout). The same destination is
+// reachable from the ribbon's help menu. Sized for a 30px tab bar.
 export function HelpButton({ c, anchor, locale, size, title }) {
     const [hov, setHov] = useState(false);
     const d = size || 18;

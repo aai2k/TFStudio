@@ -1,6 +1,6 @@
-// Settings → Appearance: colour theme (built-in + imported) and ribbon style.
+// Preferences → Appearance: colour theme (built-in + imported) and ribbon style.
 import { getPaletteNames } from '../../../constants/colorPalettes.js';
-import { Section, selectStyle, hintStyle, buttonStyle } from './ui.js';
+import { Row, selectStyle, buttonStyle } from './ui.js';
 
 const { createElement: h } = React;
 
@@ -15,7 +15,7 @@ export const AppearancePane = ({ theme, setTheme, ribbonStyle, setRibbonStyle, c
   const isCustomTheme = !!customThemes[theme];
 
   return h('div', null,
-    h(Section, { c, title: t.settings.colorTheme },
+    h(Row, { c, label: t.settings.colorTheme },
       h('select', {
         value: theme,
         onChange: (e) => setTheme(e.target.value),
@@ -25,24 +25,23 @@ export const AppearancePane = ({ theme, setTheme, ribbonStyle, setRibbonStyle, c
           builtinNames.map(name => h('option', { key: name, value: name }, name))),
         customNames.length > 0 && h('optgroup', { label: t.settings.themeImported },
           customNames.map(name => h('option', { key: name, value: name }, name)))
-      ),
-      h('div', { style: { display: 'flex', gap: '8px', marginTop: '8px' } },
-        h('button', {
-          onClick: () => onImportTheme && onImportTheme(),
-          style: {
-            ...buttonStyle(c), flex: 1,
-            display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px',
-          },
-        }, h(ImportIcon), t.settings.importVscodeTheme),
-        isCustomTheme && h('button', {
-          onClick: () => onDeleteTheme && onDeleteTheme(theme),
-          title: t.settings.removeTheme,
-          style: { ...buttonStyle(c), backgroundColor: 'transparent', color: c.error },
-        }, t.settings.removeTheme)
-      ),
-      h('span', { style: hintStyle(c) }, t.settings.themeImportHint)
+      )
     ),
-    h(Section, { c, title: t.settings.ribbonStyle },
+    h(Row, { c, label: t.settings.importVscodeTheme, hint: t.settings.themeImportHint },
+      h('button', {
+        onClick: () => onImportTheme && onImportTheme(),
+        style: {
+          ...buttonStyle(c),
+          display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px',
+        },
+      }, h(ImportIcon), t.settings.importVscodeTheme),
+      isCustomTheme && h('button', {
+        onClick: () => onDeleteTheme && onDeleteTheme(theme),
+        title: t.settings.removeTheme,
+        style: { ...buttonStyle(c), backgroundColor: 'transparent', color: c.error },
+      }, t.settings.removeTheme)
+    ),
+    h(Row, { c, label: t.settings.ribbonStyle, hint: t.settings.ribbonStyleHint },
       h('select', {
         value: ribbonStyle || 'colorful',
         onChange: (e) => setRibbonStyle && setRibbonStyle(e.target.value),
@@ -50,8 +49,7 @@ export const AppearancePane = ({ theme, setTheme, ribbonStyle, setRibbonStyle, c
       },
         h('option', { value: 'colorful' }, t.settings.ribbonColorful),
         h('option', { value: 'minimalist' }, t.settings.ribbonMinimalist)
-      ),
-      h('span', { style: hintStyle(c) }, t.settings.ribbonStyleHint)
+      )
     )
   );
 };

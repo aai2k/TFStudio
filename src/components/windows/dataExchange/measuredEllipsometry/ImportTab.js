@@ -90,7 +90,7 @@ function ConfigurePanel({ controller, c, mx }) {
 function CurveCard({ curve, selected, onSelect, controller, c, mx }) {
     const [draftName, setDraftName] = useState(curve.name);
     useEffect(() => setDraftName(curve.name), [curve.name]);
-    const { updateCurve, removeCurve } = controller;
+    const { updateCurve, toggleCurve, removeCurve } = controller;
     const data = measuredCurveData(curve);
     return h('div', {
         onClick: onSelect,
@@ -103,7 +103,7 @@ function CurveCard({ curve, selected, onSelect, controller, c, mx }) {
         h('div', { style: { display: 'flex', alignItems: 'center', gap: 6 } },
             h(CheckField, {
                 c, label: '', checked: curve.visible !== false,
-                onChange: () => updateCurve(curve.id, { visible: curve.visible === false }),
+                onChange: () => toggleCurve(curve.id),
                 title: mx.visibleLabel,
             }),
             h('input', {

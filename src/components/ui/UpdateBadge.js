@@ -1,13 +1,15 @@
-// Title-bar update indicator, in the 48 px slot at the left of the title bar.
+// Title-bar update indicator, at the left of the title bar.
 //
 // Carries the check state persistently, with the reason on hover, so a startup
 // card that auto-dismissed still leaves the information reachable. Clicking
-// runs a manual check, which ignores the skip list and always reports.
+// runs a manual check, which ignores the skip list and always reports. With
+// nothing to report it takes no room at all; a check can still be started from
+// the ribbon's help menu.
 
 const { createElement: h } = React;
 
 const buttonStyle = (c) => ({
-  width: '48px', height: '100%', border: 'none', backgroundColor: 'transparent',
+  width: '32px', height: '100%', border: 'none', backgroundColor: 'transparent',
   color: c.textDim, cursor: 'pointer', display: 'flex',
   alignItems: 'center', justifyContent: 'center',
   WebkitAppRegion: 'no-drag', outline: 'none', padding: 0,
@@ -47,9 +49,10 @@ function glyphFor(status, c) {
 
 export function UpdateBadge({ status, latest, onClick, c, t }) {
   const glyph = glyphFor(status, c);
-  const title = glyph
-    ? (glyph.key === 'available' ? t.update.badgeAvailable(latest) : t.update.badge[glyph.key])
-    : t.update.badge.idle;
+  if (!glyph) return null;
+  const title = glyph.key === 'available'
+    ? t.update.badgeAvailable(latest)
+    : t.update.badge[glyph.key];
 
   return h('button', {
     onClick,
@@ -58,5 +61,5 @@ export function UpdateBadge({ status, latest, onClick, c, t }) {
     style: buttonStyle(c),
     onMouseEnter: (e) => { e.currentTarget.style.backgroundColor = c.hover; },
     onMouseLeave: (e) => { e.currentTarget.style.backgroundColor = 'transparent'; },
-  }, glyph ? glyph.node : null);
+  }, glyph.node);
 }

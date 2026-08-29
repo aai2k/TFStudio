@@ -19,13 +19,13 @@ export function buildEllipsometryTable(mode, data) {
     return { columns, rows };
 }
 
-export function EllipsometryResults({ c, t, text, state, table, hasData, exportMenu }) {
+export function EllipsometryResults({ c, t, text, state, table, hasData, overlays, exportMenu }) {
     const dt = t.dataTable;
     return h(PlotArea, null,
         h('div', { style: { flex: 1, minHeight: 0, overflow: 'hidden', display: 'flex' } },
             hasData
                 ? h(EllipsometryChart, {
-                    data: state.data, c,
+                    data: state.data, c, overlays,
                     show: { psi: state.showPsi, delta: state.showDelta },
                 })
                 : h(CenteredMessage, { c, message: text.noLayers }),

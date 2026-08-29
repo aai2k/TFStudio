@@ -194,6 +194,12 @@ export function chartToolbox(fileName, {
     };
 }
 
+// Where a tooltip's element is put. It has to leave the chart container or the
+// container clips it, but "the body" resolved from the global is the main
+// window's: a tool torn off into its own window would have its readout appear
+// back in the main window, behind the window that drew it.
+export const tooltipContainer = (chartContainer) => chartContainer?.ownerDocument?.body;
+
 function themedTooltip(tooltip, colors) {
     if (!tooltip) return tooltip;
     const palette = chartColors(colors);
@@ -276,20 +282,100 @@ function axisRows(params, include, formatValue, valueSuffix) {
     ].join('');
 }
 
+// A data point's [x, y], whether the point is a bare pair or an object carrying
+// extra fields (a target line tags its points with the operand they came from).
+const pointXY = point => (Array.isArray(point) ? point : point?.value);
+
+/**
+ * The reading of one series closest to `x`, or null if there is none to give.
+ *
+ * A series is only read inside the span it covers: a curve measured from 400 to
+ * 800 nm must report nothing at 900, rather than repeating its last point across
+ * the rest of the plot. Data is ascending in x on every chart that uses this, so
+ * the search is a bisection.
+ */
+function readingAt(series, x) {
+    const data = series?.data;
+    if (!Array.isArray(data) || data.length === 0) return null;
+    const first = pointXY(data[0]);
+    const last = pointXY(data[data.length - 1]);
+    if (!first || !last || x < first[0] || x > last[0]) return null;
+
+    let low = 0, high = data.length - 1;
+    while (high - low > 1) {
+        const mid = (low + high) >> 1;
+        if (pointXY(data[mid])[0] <= x) low = mid; else high = mid;
+    }
+    const a = pointXY(data[low]), b = pointXY(data[high]);
+    const nearest = Math.abs(a[0] - x) <= Math.abs(b[0] - x) ? a : b;
+    return Number.isFinite(nearest[1]) ? nearest[1] : null;
+}
+
+const swatch = color =>
+    `<span style="display:inline-block;margin-right:4px;border-radius:10px;width:10px;height:10px;background-color:${color}"></span>`;
+
+const seriesColor = series =>
+    series?.itemStyle?.color || series?.lineStyle?.color || 'transparent';
+
+/**
+ * Every named series read at the pointer, not only the ones ECharts matched.
+ *
+ * On a value axis ECharts lists a series only where it has a data point exactly
+ * at the axis pointer. A measured curve is sampled on the instrument's own
+ * wavelength grid, so between the design's samples the readout showed the
+ * measurement alone, and on them the design alone. Anything ECharts did match is
+ * used as it comes; the rest are read from their own data.
+ *
+ * Unnamed series are skipped: those are the target lines, markers and band
+ * decoration, which are annotations on the plot rather than readings.
+ */
+function allSeriesRows(params, series, formatValue, valueSuffix) {
+    const matched = Array.isArray(params) ? params : [params];
+    if (!matched.length) return '';
+    const x = matched[0].axisValue;
+    const byIndex = new Map(matched.map(entry => [entry.seriesIndex, entry]));
+
+    const rows = [];
+    series.forEach((entry, index) => {
+        if (!entry?.name) return;
+        const hit = byIndex.get(index);
+        const value = hit
+            ? (Array.isArray(hit.value) ? hit.value[1] : hit.value)
+            : readingAt(entry, x);
+        if (value == null) return;
+        rows.push([
+            '<div style="display:flex;gap:14px;align-items:baseline">',
+            `<span style="flex:1">${hit ? hit.marker : swatch(seriesColor(entry))}${entry.name}</span>`,
+            `<span style="font-weight:600">${formatValue(value)}${valueSuffix}</span>`,
+            '</div>',
+        ].join(''));
+    });
+    if (!rows.length) return '';
+    return [`<div style="margin-bottom:3px">${formatChartReadout(x)}</div>`, ...rows].join('');
+}
+
 /**
  * Tooltip that reads every series at the wavelength under the pointer.
  *
  *   include  optional predicate over the tooltip's own params; only the series
  *            it accepts are listed. Use it where the plot carries more curves
  *            than a tooltip can show.
+ *   series   the chart's own series array. Pass it where curves sit on
+ *            different x grids, and every one of them is read at the pointer
+ *            instead of only those ECharts happened to match.
  */
 export function axisTooltip({
-    cross = true, colors, valueSuffix = '', formatValue = formatChartReadout, include,
+    cross = true, colors, valueSuffix = '', formatValue = formatChartReadout, include, series,
 } = {}) {
+    const formatter = series
+        ? params => allSeriesRows(params, series, formatValue, valueSuffix)
+        : include
+            ? params => axisRows(params, include, formatValue, valueSuffix)
+            : null;
     return themedTooltip({
         trigger: 'axis',
-        ...(include ? { formatter: params => axisRows(params, include, formatValue, valueSuffix) } : {}),
-        appendToBody: true,
+        ...(formatter ? { formatter } : {}),
+        appendTo: tooltipContainer,
         confine: true,
         transitionDuration: 0,
         enterable: false,
@@ -313,7 +399,7 @@ export function axisTooltip({
 
 export function itemTooltip(colors) {
     return themedTooltip({
-        trigger: 'item', appendToBody: true, confine: true,
+        trigger: 'item', appendTo: tooltipContainer, confine: true,
         transitionDuration: 0, enterable: false, padding: [5, 7],
         textStyle: { fontSize: 11, fontWeight: 'normal', lineHeight: 16 },
         valueFormatter: value => formatChartReadout(value),

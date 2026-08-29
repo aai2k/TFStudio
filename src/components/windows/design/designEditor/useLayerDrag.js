@@ -18,6 +18,10 @@ function edgeScrollStep(container, pointerY) {
 }
 
 function createRowGhost(row, c, count, pointerX, pointerY) {
+    // The row's own document, not the global one: in a Design Editor torn off
+    // into its own window the ghost would otherwise be built in the main window
+    // and never appear under the cursor.
+    const doc = row.ownerDocument;
     const bounds = row.getBoundingClientRect();
     const ghost = row.cloneNode(true);
     ghost.removeAttribute('data-layer-id');
@@ -31,7 +35,7 @@ function createRowGhost(row, c, count, pointerX, pointerY) {
         willChange: 'transform',
     });
     if (count > 1) {
-        const badge = document.createElement('span');
+        const badge = doc.createElement('span');
         badge.textContent = `×${count}`;
         Object.assign(badge.style, {
             position: 'absolute', right: '5px', top: '3px', zIndex: '1',
@@ -40,7 +44,7 @@ function createRowGhost(row, c, count, pointerX, pointerY) {
         });
         ghost.appendChild(badge);
     }
-    document.body.appendChild(ghost);
+    doc.body.appendChild(ghost);
     return {
         element: ghost,
         sourceRow: row,

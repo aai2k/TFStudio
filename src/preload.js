@@ -18,7 +18,20 @@ contextBridge.exposeInMainWorld('electronAPI', {
   saveSettings:     (settings) => ipcRenderer.invoke('save-settings', settings),
   importVscodeTheme: () => ipcRenderer.invoke('theme:import-vscode'),
   windowControl:    (action) => ipcRenderer.send('window-control', action),
+  setWindowBackground: (color) => ipcRenderer.send('window-background', color),
+  // The preview that follows the cursor while a docked tool is dragged. It is a
+  // window rather than an element so it stays visible past the frame edge, which
+  // is where a tear-off is aimed.
+  dragGhost: {
+    show: (opts) => ipcRenderer.send('drag-ghost:show', opts),
+    move: (point) => ipcRenderer.send('drag-ghost:move', point),
+    hide: () => ipcRenderer.send('drag-ghost:hide'),
+  },
   onWindowMaximized:   (cb) => ipcRenderer.on('window-maximized', cb),
+  // A torn-off window being dragged over the layout: where the cursor is on
+  // every move, and one report when the drag ends.
+  onFloatWindowMove:   (cb) => ipcRenderer.on('float-window-move', (event, info) => cb(info)),
+  onFloatWindowDropped: (cb) => ipcRenderer.on('float-window-dropped', (event, info) => cb(info)),
   onWindowUnmaximized: (cb) => ipcRenderer.on('window-unmaximized', cb),
   toggleDevTools:   () => ipcRenderer.send('toggle-devtools'),
   openExternal:     (url) => ipcRenderer.send('open-external', url),
@@ -80,6 +93,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   // Settings → Analysis or saved from the window's own settings panel.
   loadPreferences:        () => ipcRenderer.invoke('prefs:load'),
   saveAnalysisSettings:   (block) => ipcRenderer.invoke('prefs:save-analysis', block),
+  saveQuickAccess:        (toolIds) => ipcRenderer.invoke('prefs:save-quick-access', toolIds),
   // Update check (notify only; downloading and installing stay manual)
   checkForUpdates:        () => ipcRenderer.invoke('updates:check'),
 });

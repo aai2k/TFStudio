@@ -1,12 +1,12 @@
-// Settings → Language: interface locale.
+// Preferences → Language: interface locale.
 import { availableLocales } from '../../../constants/locales.js';
-import { Section, selectStyle } from './ui.js';
+import { Row, selectStyle } from './ui.js';
 
 const { createElement: h } = React;
 
 export const LanguagePane = ({ locale, setLocale, c, t }) =>
   h('div', null,
-    h(Section, { c, title: t.settings.language },
+    h(Row, { c, label: t.settings.language },
       h('select', {
         value: locale,
         onChange: (e) => setLocale(e.target.value),

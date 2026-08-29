@@ -1,28 +1,18 @@
-// Settings → Performance: WASM transfer-matrix kernel toggle and update checks.
+// Preferences → Performance: WASM transfer-matrix kernel toggle and update checks.
 import { Checkbox } from '../../ui/Checkbox.js';
-import { Section } from './ui.js';
+import { Row } from './ui.js';
 import { UpdateCheckRow } from './UpdateCheckRow.js';
 
 const { createElement: h } = React;
 
 export const PerformancePane = ({ wasmTmm, setWasmTmm, updateCheckEnabled, setUpdateCheckEnabled, c, t }) =>
   h('div', null,
-    h(Section, { c, title: t.settings.performance },
-      h('label', { style: { display: 'flex', alignItems: 'flex-start', gap: '10px', cursor: 'pointer' } },
-        h(Checkbox, {
-          c,
-          checked: !!wasmTmm,
-          onChange: (e) => setWasmTmm && setWasmTmm(e.target.checked),
-          style: { marginTop: '2px' },
-        }),
-        h('span', { style: { fontSize: '13px', color: c.text } },
-          h('span', { style: { fontWeight: '600' } }, t.settings.wasmAccel),
-          h('span', { style: { display: 'block', fontSize: '12px', color: c.textDim, marginTop: '2px' } },
-            t.settings.wasmAccelHint)
-        )
-      )
+    h(Row, { c, label: t.settings.wasmAccel, hint: t.settings.wasmAccelHint },
+      h(Checkbox, {
+        c,
+        checked: !!wasmTmm,
+        onChange: (e) => setWasmTmm && setWasmTmm(e.target.checked),
+      })
     ),
-    h(Section, { c, title: t.settings.updates },
-      h(UpdateCheckRow, { updateCheckEnabled, setUpdateCheckEnabled, c, t })
-    )
+    h(UpdateCheckRow, { updateCheckEnabled, setUpdateCheckEnabled, c, t })
   );

@@ -6,7 +6,8 @@
 // require-able in plain Node for smoke checks. `ctx.getMainWindow()` is called
 // per-invocation because the window ref is reassigned on (re)create.
 function register(ipcMain, ctx) {
-  ipcMain.on('window-control', (event, action) => handleWindowControl(ctx, action));
+  ipcMain.on('window-control', (event, action) => handleWindowControl(ctx, action, event.sender));
+  ipcMain.on('window-background', (event, color) => handleWindowBackground(ctx, color));
   ipcMain.on('toggle-devtools', () => handleToggleDevtools(ctx));
   ipcMain.on('open-external', (event, url) => handleOpenExternal(ctx, url));
   ipcMain.handle('help:open', async (event, opts) => handleHelpOpen(ctx, opts));
@@ -15,15 +16,29 @@ function register(ipcMain, ctx) {
   ipcMain.on('diag:log', (event, msg) => { try { ctx.log(`[renderer] ${msg}`); } catch (_) {} });
 }
 
-function handleWindowControl(ctx, action) {
-  const mainWindow = ctx.getMainWindow();
-  if (!mainWindow || mainWindow.isDestroyed()) return;
+// Acts on whichever window sent the request. Torn-off tool windows are
+// frameless too and draw the same buttons, so they have to control themselves
+// rather than the main window. Falls back to the main window when the sender
+// cannot be resolved.
+function handleWindowControl(ctx, action, sender) {
+  const win = (sender && ctx.BrowserWindow?.fromWebContents(sender)) || ctx.getMainWindow();
+  if (!win || win.isDestroyed()) return;
   switch (action) {
-    case 'minimize': mainWindow.minimize(); break;
+    case 'minimize': win.minimize(); break;
     case 'maximize':
-      mainWindow.isMaximized() ? mainWindow.unmaximize() : mainWindow.maximize();
+      win.isMaximized() ? win.unmaximize() : win.maximize();
       break;
-    case 'close': mainWindow.close(); break;
+    case 'close': win.close(); break;
+  }
+}
+
+// Repaint every window's frame in the new theme's background, so a resize right
+// after a theme change does not expose the old colour along the edge. The
+// startup colour comes from settings; this keeps the running app in step.
+function handleWindowBackground(ctx, color) {
+  if (typeof color !== 'string' || !/^#[0-9a-fA-F]{6}$/.test(color)) return;
+  for (const win of ctx.BrowserWindow?.getAllWindows() || []) {
+    if (!win.isDestroyed()) win.setBackgroundColor(color);
   }
 }
 

@@ -1,3 +1,6 @@
+import APP_ICON from '../constants/icon.js';
+import { useUpdate } from './ui/UpdateContext.js';
+
 const { createElement: h, useState, useRef, useEffect } = React;
 
 // ── SVG icon primitives ───────────────────────────────────────────────────────
@@ -17,7 +20,6 @@ const Fop = (d, op) => h('path', { d, fill: 'currentColor', opacity: op != null 
 const R   = (x, y, w, hh, rx) => h('rect', { x, y, width: w, height: hh, rx: rx || 0, stroke: 'currentColor', strokeWidth: 1.4, fill: 'none' });
 const Rf  = (x, y, w, hh, rx, fill) => h('rect', { x, y, width: w, height: hh, rx: rx || 0, fill: fill || 'currentColor' });
 const L   = (x1, y1, x2, y2, w) => h('line', { x1, y1, x2, y2, stroke: 'currentColor', strokeWidth: w || 1.4, strokeLinecap: 'round' });
-const Ld  = (x1, y1, x2, y2, w) => h('line', { x1, y1, x2, y2, stroke: 'currentColor', strokeWidth: w || 0.9, strokeLinecap: 'round', strokeDasharray: '1.5 1.5' });
 const C   = (cx, cy, r, sw) => h('circle', { cx, cy, r, stroke: 'currentColor', strokeWidth: sw || 1.4, fill: 'none' });
 const Cf  = (cx, cy, r) => h('circle', { cx, cy, r, fill: 'currentColor' });
 
@@ -73,6 +75,39 @@ export const ICONS = {
                           P('M21.2 4.5 Q22.7 3 24.2 4.5 L24.2 8',1.6),
                       ], 28),
     'help-docs':      I([ C(10,10,8), P('M7.5 7.8q0-2 2.5-2t2.5 2q0 1.5-2.5 2.5v1', 1.5), Cf(10,14.7,0.7) ]),
+
+    // Welcome — a flag planted at the start of the route the tour walks.
+    'welcome':        I([
+                          L(5,2.5,5,17.5,1.7),
+                          P('M5 3.5h9.5l-2.4 2.8 2.4 2.8H5z'),
+                      ]),
+
+    // Tutorials — a graduation cap over its tassel.
+    'tutorials':      I([
+                          P('M2 7.6L10 4l8 3.6L10 11.2z'),
+                          P('M5.6 9.2v4.1c0 1.2 2 2.2 4.4 2.2s4.4-1 4.4-2.2V9.2'),
+                          L(17.4,8.3,17.4,12.4,1.2),
+                          Cf(17.4,13.2,0.8),
+                      ]),
+
+    // About — the information mark.
+    'about':          I([ C(10,10,8), Cf(10,6.1,1), L(10,9,10,14.2,1.8) ]),
+
+    // Check for updates — a download arrow inside a re-check arc.
+    'check-updates':  I([
+                          P('M16.4 10a6.4 6.4 0 1 1-1.9-4.5'),
+                          P('M16.9 3v3.4h-3.4'),
+                          L(10,6.6,10,12.2,1.6),
+                          P('M7.7 10L10 12.4L12.3 10',1.6),
+                      ]),
+
+    // Preferences — a cogwheel with square teeth. Deliberately heavier than the
+    // thin sun-gear the Refinement icon uses, so the two never read as the same
+    // button at 20px.
+    'preferences':    I([
+                          P('M8.15 2.3h3.7l.33 2.1 1.42.82 1.96-.79 1.85 3.2-1.6 1.4v1.64l1.6 1.4-1.85 3.2-1.96-.79-1.42.82-.33 2.1h-3.7l-.33-2.1-1.42-.82-1.96.79-1.85-3.2 1.6-1.4V9.03l-1.6-1.4 1.85-3.2 1.96.79 1.42-.82z', 1.3),
+                          C(10,10,2.5),
+                      ]),
 
     // Optical Evaluation — axes with complementary R (descending) and T (ascending)
     // spectral sigmoids crossing in the middle (T/R vs λ).
@@ -139,26 +174,11 @@ export const ICONS = {
     'roughness':      I([ P('M2 12q1-1 2 0t2 0t2 0t2 0t2 0t2 0t2 0t2 0',1.4), L(2,16,18,16), P('M3 13l-1 2M5 13l-1 2M7 13l-1 2M9 13l-1 2M11 13l-1 2M13 13l-1 2M15 13l-1 2',1) ]),
     'plot-engine':    I([ L(3,17,3,3,1.4), L(3,17,17,17,1.4), P('M3 13l4-4 3 2 3-6 4 5'), C(7,9,1.2,1.2), C(10,11,1.2,1.2), C(13,5,1.2,1.2) ]),
 
-    // Tolerance group icon — Gaussian bell curve over baseline (statistical/tolerance theme)
-    'tolerance':      I([
-                          P('M2 16C6 16 7 4 10 4C13 4 14 16 18 16',1.7),
-                          L(2,16,18,16,1),
-                          Ld(10,5.2,10,16,0.9),
-                      ]),
-
     'merit-function': I([ R(2,2,16,16,1), L(2,7,18,7,1.8), L(2,11,18,11), L(2,15,18,15), L(8,7,8,18), L(13,7,13,18), P('M4 4h3',1.4), P('M10 4.5h4',0.8) ]),
     'refinement':     I([ C(10,10,3), P('M10 2v3M10 15v3M2 10h3M15 10h3'), P('M4.9 4.9l2.1 2.1M12.9 12.9l2.1 2.1M4.9 15.1l2.1-2.1M12.9 7.1l2.1-2.1') ]),
 
     // Needle — clear sewing-needle silhouette: circular eye, thick shaft, sharp triangular tip
     'needle':         I([
-                          C(10,3,1.5),
-                          L(10,4.5,10,14,2.6),
-                          F('M8.4 14L11.6 14L10 17.5Z'),
-                          L(3,19,17,19,0.8),
-                      ]),
-
-    // Needle group (dropdown parent) — same sewing-needle silhouette as Needle Automatic
-    'needle-group':   I([
                           C(10,3,1.5),
                           L(10,4.5,10,14,2.6),
                           F('M8.4 14L11.6 14L10 17.5Z'),
@@ -304,9 +324,10 @@ export const ICONS = {
                       ]),
 };
 
-// ── Per-group signature colors (the "colorful" ribbon mode) ──────
-// One hue per ribbon group; used to tint icons in colorful mode and the mini
-// icons in the docking tabs. Chosen to read on both dark and light themes.
+// ── Per-family signature colors (the "colorful" ribbon mode) ──────
+// One hue per tool family; used to tint icons in colorful mode and the mini
+// icons in the docking tabs, so a tool keeps its color wherever it appears.
+// Chosen to read on both dark and light themes.
 export const GROUP_COLORS = {
     file:         '#4a90e2',  // blue
     edit:         '#7c8aa5',  // slate
@@ -314,160 +335,141 @@ export const GROUP_COLORS = {
     analysis:     '#46b450',  // green
     optimization: '#e8943a',  // amber
     simulation:   '#a472d8',  // purple
-    'data-exchange': '#cf5fa0', // rose — import/export hub
+    'data-exchange': '#cf5fa0', // rose, import/export hub
     information:  '#9aa0a8',  // gray
 };
 
-// toolId → group key (locale-independent). Includes dropdown sub-tools, which
-// inherit their parent group's color. Drives both the colorful ribbon icons and
-// the docking-tab mini icons.
+// toolId → family key (locale-independent). A tool's family is what kind of
+// tool it is, which is not always the ribbon tab it is filed under.
 const TOOL_GROUP = {
     'new-design': 'file', 'open-project': 'file', 'save': 'file', 'save-as': 'file',
     'undo': 'edit', 'redo': 'edit', 'history': 'edit',
     'design-editor': 'design', 'material-editor': 'design',
     'specification': 'design', 'stack-formula': 'design',
+    'preferences': 'information',
     'optical-eval': 'analysis', 'color-eval': 'analysis', 'admittance': 'analysis', 'efield': 'analysis',
     'ellipsometry': 'analysis', 'gd-gdd': 'analysis', 'material-dispersion': 'analysis', 'ri-profiler': 'analysis', 'integral-values': 'analysis',
-    'tolerance': 'analysis', 'plot-engine': 'analysis', 'error-analysis': 'analysis', 'sensitivity': 'analysis',
+    'plot-engine': 'analysis', 'error-analysis': 'analysis', 'sensitivity': 'analysis',
     'inhomogeneities': 'analysis', 'systematic-dev': 'analysis', 'roughness': 'analysis',
-    'merit-function': 'optimization', 'refinement': 'optimization', 'needle-group': 'optimization', 'needle': 'optimization',
-    'needle-manual': 'optimization', 'gradual': 'optimization', 'structural': 'optimization', 'variator': 'optimization', 'design-cleaner': 'optimization', 'filter-design': 'optimization',
+    'merit-function': 'optimization', 'refinement': 'optimization', 'needle': 'optimization',
+    'needle-manual': 'optimization', 'gradual': 'optimization', 'structural': 'optimization',
+    'variator': 'optimization', 'design-cleaner': 'optimization', 'filter-design': 'optimization',
     'bbm-simulator': 'simulation', 'mono-simulator': 'simulation', 'monitor-worksheet': 'simulation',
-    'process-sim': 'data-exchange', 'zemax-coatings': 'data-exchange', 'spectrum-exchange': 'data-exchange', 'measured-ellipsometry': 'data-exchange',
+    'process-sim': 'simulation',
+    'zemax-coatings': 'data-exchange', 'spectrum-exchange': 'data-exchange', 'measured-ellipsometry': 'data-exchange',
     'nk-characterization': 'data-exchange',
     'report-gen': 'information', 'help-docs': 'information',
+    'welcome': 'information', 'tutorials': 'information',
+    'about': 'information', 'check-updates': 'information',
 };
 
-// Signature color for a tool's group, or null if unknown. Returns null when not
-// in colorful mode is the caller's responsibility.
+// Signature color for a tool's family, or null if unknown. Returning null when
+// not in colorful mode is the caller's responsibility.
 export const iconColorForTool = (id) => GROUP_COLORS[TOOL_GROUP[id]] || null;
 
-// IDs that live inside the Tolerance / Sensitivity dropdown
-const TOLERANCE_TOOL_IDS = ['error-analysis', 'sensitivity', 'inhomogeneities', 'systematic-dev', 'roughness'];
+// ── Ribbon tabs (locale-driven) ───────────────────────────────────────────────
+//
+// Four tabs in the order a design is worked on: build it, look at it, optimize
+// it, take it to the coating plant. The title bar repeats New/Open/Save/Undo/Redo
+// as a quick-access strip so those never cost a tab switch, but they stay on the
+// Design tab too, where anyone looking for them will look first.
 
-// IDs that live inside the Needle dropdown (Automatic + Manual)
-const NEEDLE_TOOL_IDS = ['needle', 'needle-manual'];
+export const RIBBON_TABS = ['setup', 'analysis', 'optimization', 'production', 'help'];
 
-// ── Ribbon groups definition (locale-driven) ──────────────────────────────────
-
-function makeGroups(t) {
+export function makeTabs(t) {
     const tb = t.toolbar;
+    // Most buttons open a tool. A few run an application action instead (the
+    // welcome tour, the tutorials, About, an update check); those carry the
+    // action and are routed to the same handler the application menu uses.
+    const btn = (id, action) => ({ id, label: tb.buttons[id], title: tb.tooltips[id], action });
+    const grp = (key, ids) => ({
+        key,
+        label: tb.groups[key],
+        items: ids.map(id => (Array.isArray(id) ? btn(id[0], id[1]) : btn(id))),
+    });
     return [
         {
-            key: 'file',
-            label: tb.groups.file,
-            items: [
-                { id: 'new-design',   label: tb.buttons['new-design'],   title: tb.tooltips['new-design']   },
-                { id: 'open-project', label: tb.buttons['open-project'], title: tb.tooltips['open-project'] },
-                { id: 'save',         label: tb.buttons['save'],         title: tb.tooltips['save']         },
-                { id: 'save-as',      label: tb.buttons['save-as'],      title: tb.tooltips['save-as']      },
+            key: 'setup', label: tb.tabs.setup, groups: [
+                grp('project',     ['new-design', 'open-project', 'save', 'save-as']),
+                grp('edit',        ['undo', 'redo', 'history']),
+                grp('design',      ['design-editor', 'material-editor', 'specification', 'stack-formula']),
+                grp('preferences', ['preferences']),
             ]
         },
         {
-            key: 'edit',
-            label: tb.groups.edit,
-            items: [
-                { id: 'undo',    label: tb.buttons['undo'],    title: tb.tooltips['undo']    },
-                { id: 'redo',    label: tb.buttons['redo'],    title: tb.tooltips['redo']    },
-                { id: 'history', label: tb.buttons['history'], title: tb.tooltips['history'] },
+            key: 'analysis', label: tb.tabs.analysis, groups: [
+                grp('general',   ['optical-eval', 'color-eval', 'integral-values',
+                                  'admittance', 'efield', 'ri-profiler', 'plot-engine']),
+                grp('phase',     ['gd-gdd', 'material-dispersion', 'ellipsometry']),
+                grp('tolerance', ['error-analysis', 'sensitivity', 'inhomogeneities', 'systematic-dev', 'roughness']),
             ]
         },
         {
-            key: 'design',
-            label: tb.groups.design,
-            items: [
-                { id: 'design-editor',   label: tb.buttons['design-editor'],   title: tb.tooltips['design-editor']   },
-                { id: 'material-editor', label: tb.buttons['material-editor'], title: tb.tooltips['material-editor'] },
-                { id: 'specification',   label: tb.buttons['specification'],   title: tb.tooltips['specification']   },
-                { id: 'stack-formula',   label: tb.buttons['stack-formula'],   title: tb.tooltips['stack-formula']   },
+            key: 'optimization', label: tb.tabs.optimization, groups: [
+                grp('refinement', ['merit-function', 'refinement', 'variator']),
+                grp('synthesis',  ['needle', 'needle-manual', 'gradual', 'structural', 'filter-design']),
+                grp('cleanup',    ['design-cleaner']),
             ]
         },
         {
-            key: 'analysis',
-            label: tb.groups.analysis,
-            items: [
-                { id: 'optical-eval',    label: tb.buttons['optical-eval'],    title: tb.tooltips['optical-eval']    },
-                { id: 'color-eval',      label: tb.buttons['color-eval'],      title: tb.tooltips['color-eval']      },
-                { id: 'admittance',      label: tb.buttons['admittance'],      title: tb.tooltips['admittance']      },
-                { id: 'efield',          label: tb.buttons['efield'],          title: tb.tooltips['efield']          },
-                { id: 'ellipsometry',    label: tb.buttons['ellipsometry'],    title: tb.tooltips['ellipsometry']    },
-                { id: 'gd-gdd',          label: tb.buttons['gd-gdd'],          title: tb.tooltips['gd-gdd']          },
-                { id: 'material-dispersion', label: tb.buttons['material-dispersion'], title: tb.tooltips['material-dispersion'] },
-                { id: 'ri-profiler',     label: tb.buttons['ri-profiler'],     title: tb.tooltips['ri-profiler']     },
-                { id: 'integral-values', label: tb.buttons['integral-values'], title: tb.tooltips['integral-values'] },
-                {
-                    id: 'tolerance',
-                    label: tb.buttons['tolerance'],
-                    title: tb.tooltips['tolerance'],
-                    dropdown: TOLERANCE_TOOL_IDS.map(sid => ({
-                        id: sid,
-                        label: tb.buttons[sid],
-                        title: tb.tooltips[sid],
-                    }))
-                },
-                { id: 'plot-engine',     label: tb.buttons['plot-engine'],     title: tb.tooltips['plot-engine']     },
+            key: 'production', label: tb.tabs.production, groups: [
+                grp('monitoring', ['bbm-simulator', 'mono-simulator', 'monitor-worksheet', 'process-sim']),
+                grp('measured',   ['spectrum-exchange', 'measured-ellipsometry', 'nk-characterization']),
+                grp('exchange',   ['zemax-coatings', 'report-gen']),
             ]
         },
         {
-            key: 'optimization',
-            label: tb.groups.optimization,
-            items: [
-                { id: 'merit-function', label: tb.buttons['merit-function'], title: tb.tooltips['merit-function'] },
-                { id: 'refinement',     label: tb.buttons['refinement'],     title: tb.tooltips['refinement']     },
-                {
-                    id: 'needle-group',
-                    label: tb.buttons['needle-group'],
-                    title: tb.tooltips['needle-group'],
-                    dropdown: NEEDLE_TOOL_IDS.map(sid => ({
-                        id: sid,
-                        label: tb.buttons[sid],
-                        title: tb.tooltips[sid],
-                    }))
-                },
-                { id: 'gradual',        label: tb.buttons['gradual'],        title: tb.tooltips['gradual']        },
-                { id: 'structural',     label: tb.buttons['structural'],     title: tb.tooltips['structural']     },
-                { id: 'variator',       label: tb.buttons['variator'],       title: tb.tooltips['variator']       },
-                { id: 'design-cleaner', label: tb.buttons['design-cleaner'], title: tb.tooltips['design-cleaner'] },
-                { id: 'filter-design',  label: tb.buttons['filter-design'],  title: tb.tooltips['filter-design']  },
-            ]
-        },
-        {
-            key: 'simulation',
-            label: tb.groups.simulation,
-            items: [
-                { id: 'bbm-simulator',  label: tb.buttons['bbm-simulator'],  title: tb.tooltips['bbm-simulator']  },
-                { id: 'mono-simulator', label: tb.buttons['mono-simulator'], title: tb.tooltips['mono-simulator'] },
-                { id: 'monitor-worksheet', label: tb.buttons['monitor-worksheet'], title: tb.tooltips['monitor-worksheet'] },
-            ]
-        },
-        {
-            key: 'data-exchange',
-            label: tb.groups.dataExchange,
-            items: [
-                { id: 'spectrum-exchange', label: tb.buttons['spectrum-exchange'], title: tb.tooltips['spectrum-exchange'] },
-                { id: 'measured-ellipsometry', label: tb.buttons['measured-ellipsometry'], title: tb.tooltips['measured-ellipsometry'] },
-                { id: 'nk-characterization', label: tb.buttons['nk-characterization'], title: tb.tooltips['nk-characterization'] },
-                { id: 'zemax-coatings',    label: tb.buttons['zemax-coatings'],    title: tb.tooltips['zemax-coatings'] },
-                { id: 'process-sim',       label: tb.buttons['process-sim'],       title: tb.tooltips['process-sim']    },
-            ]
-        },
-        {
-            key: 'information',
-            label: tb.groups.information,
-            items: [
-                { id: 'report-gen',   label: tb.buttons['report-gen'],   title: tb.tooltips['report-gen']   },
-                { id: 'help-docs',    label: tb.buttons['help-docs'],    title: tb.tooltips['help-docs']    },
+            key: 'help', label: tb.tabs.help, groups: [
+                grp('guides', [['welcome', 'welcome'], ['tutorials', 'tutorials'], 'help-docs']),
+                grp('about',  [['about', 'about'], ['check-updates', 'check-updates']]),
             ]
         },
     ];
 }
 
+// ── Application and help menus ────────────────────────────────────────────────
+//
+// The former File and Edit menus are gone: every entry they carried is a ribbon
+// button or a quick-access button. What is left needs a menu, and sits behind
+// the logo button (application) and the ? button (help) on the tab strip. The
+// Reload / DevTools / Optimizer Benchmark entries are dev-only and are hidden in
+// packaged builds unless started with --debug.
+
+function appMenuItems(t, devAllowed) {
+    return [
+        { label: t.menu.layoutFilterDesign, action: 'layout-filter-design', shortcut: 'Ctrl+1' },
+        { label: t.menu.layoutFullAnalysis, action: 'layout-full-analysis' },
+        { label: t.menu.layoutSynthesis,    action: 'layout-synthesis' },
+        { label: t.menu.saveLayout,         action: 'layout-save' },
+        { label: t.menu.restoreLayout,      action: 'layout-restore' },
+        { type: 'sep' },
+        { label: t.menu.toggleFullscreen, action: 'toggleFullscreen', shortcut: 'F11' },
+        ...(devAllowed ? [
+            { label: t.menu.reload,         action: 'reload',          shortcut: 'Ctrl+R' },
+            { label: t.menu.toggleDevTools, action: 'toggle-devtools', shortcut: 'Ctrl+Shift+I' },
+            { label: t.menu.optimizerBenchmark || 'Optimizer Benchmark…', action: 'tool:optimizer-benchmark' },
+        ] : []),
+    ];
+}
+
+// Window-level actions have no renderer state to change, so they are handled
+// here; everything else is forwarded.
+function runMenuAction(action, onMenuAction) {
+    if (action === 'reload')          { window.location.reload(); return; }
+    if (action === 'toggle-devtools') { window.electronAPI?.toggleDevTools?.(); return; }
+    if (action === 'toggleFullscreen') {
+        document.fullscreenElement ? document.exitFullscreen() : document.documentElement.requestFullscreen();
+        return;
+    }
+    onMenuAction?.(action);
+}
+
 // ── Ribbon button ─────────────────────────────────────────────────────────────
 
-function RibbonBtn({ id, label, title, active, disabled, c, onClick, chevron, iconColor }) {
+function RibbonBtn({ id, label, title, active, disabled, c, onClick, iconColor }) {
     const [hov, setHov] = useState(false);
     const icon = ICONS[id];
-    // In colorful mode the icon wears its group hue (label keeps the button's
+    // In colorful mode the icon wears its family hue (label keeps the button's
     // text/accent color). Disabled icons fall back to the dim text color.
     const iconTint = iconColor ? (disabled ? c.textDim : iconColor) : null;
     return h('button', {
@@ -501,99 +503,90 @@ function RibbonBtn({ id, label, title, active, disabled, c, onClick, chevron, ic
                 transition: 'color 0.1s, filter 0.1s'
             }
         }, icon || h('div', { style: { width: 20, height: 20 } })),
-        h('span', { style: { whiteSpace: 'nowrap', display: 'inline-flex', alignItems: 'center', gap: 2 } },
-            label,
-            chevron && h('span', { style: { fontSize: 8, opacity: 0.7, lineHeight: 1 } }, '▾')
-        )
+        h('span', { style: { whiteSpace: 'nowrap' } }, label)
     );
 }
 
-// ── Dropdown menu item ────────────────────────────────────────────────────────
+// ── Menu button (logo / help) with its popup ──────────────────────────────────
 
-function DropdownItem({ id, label, title, active, c, onClick, iconColor }) {
-    const [hov, setHov] = useState(false);
-    const icon = ICONS[id];
-    return h('div', {
-        title: title || label,
-        onClick,
-        onMouseEnter: () => setHov(true),
-        onMouseLeave: () => setHov(false),
-        style: {
-            display: 'flex', alignItems: 'center', gap: 10,
-            padding: '6px 10px', borderRadius: 3,
-            backgroundColor: active ? c.accent + '30' : hov ? c.hover : 'transparent',
-            color: active ? c.accent : c.text,
-            cursor: 'pointer',
-            fontSize: 12, fontFamily: 'system-ui, -apple-system, sans-serif',
-            userSelect: 'none', whiteSpace: 'nowrap'
-        }
-    },
-        h('span', { style: { display: 'flex', color: iconColor || 'inherit' } },
-            icon || h('div', { style: { width: 20, height: 20 } })),
-        h('span', null, label)
-    );
-}
-
-// ── Ribbon dropdown (button + popup menu) ─────────────────────────────────────
-
-function RibbonDropdown({ id, label, title, items, c, active, onToolAction, iconColor }) {
+function MenuButton({ c, items, title, tourId, onAction, align = 'left', width = 230, children }) {
     const [open, setOpen] = useState(false);
     const [pos, setPos] = useState({ x: 0, y: 0 });
     const wrapRef = useRef(null);
 
     useEffect(() => {
         if (!open) return;
-        const handler = (e) => {
-            if (wrapRef.current && !wrapRef.current.contains(e.target)) setOpen(false);
-        };
+        const outside = (e) => { if (wrapRef.current && !wrapRef.current.contains(e.target)) setOpen(false); };
         const esc = (e) => { if (e.key === 'Escape') setOpen(false); };
-        document.addEventListener('mousedown', handler);
+        document.addEventListener('mousedown', outside);
         document.addEventListener('keydown', esc);
         return () => {
-            document.removeEventListener('mousedown', handler);
+            document.removeEventListener('mousedown', outside);
             document.removeEventListener('keydown', esc);
         };
     }, [open]);
 
-    const handleClick = () => {
+    const toggle = () => {
         if (!open && wrapRef.current) {
             const r = wrapRef.current.getBoundingClientRect();
-            setPos({ x: r.left, y: r.bottom });
+            setPos({ x: align === 'right' ? r.right - width : r.left, y: r.bottom });
         }
         setOpen(o => !o);
     };
 
-    return h('div', { ref: wrapRef, style: { position: 'relative', flexShrink: 0 } },
-        h(RibbonBtn, { id, label, title, active, c, chevron: true, onClick: handleClick, iconColor }),
+    const pick = (action) => { setOpen(false); onAction(action); };
+
+    return h('div', {
+        ref: wrapRef,
+        'data-tour': tourId || undefined,
+        style: { position: 'relative', flexShrink: 0, WebkitAppRegion: 'no-drag' }
+    },
+        h('button', {
+            onClick: toggle,
+            title,
+            style: {
+                display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 4,
+                height: '100%', padding: '0 8px',
+                border: 'none', borderRadius: 3,
+                backgroundColor: open ? c.hover : 'transparent',
+                color: c.text, cursor: 'pointer', outline: 'none',
+                fontSize: 13, fontFamily: 'system-ui, -apple-system, sans-serif'
+            },
+            onMouseEnter: (e) => { e.currentTarget.style.backgroundColor = c.hover; },
+            onMouseLeave: (e) => { if (!open) e.currentTarget.style.backgroundColor = 'transparent'; }
+        }, children),
         open && h('div', {
             style: {
-                position: 'fixed',
-                top: pos.y + 2, left: pos.x,
-                zIndex: 10000,
-                backgroundColor: c.panel,
-                border: `1px solid ${c.border}`,
-                borderRadius: 4,
-                boxShadow: '0 4px 14px rgba(0,0,0,0.25)',
-                padding: 4,
-                minWidth: 180,
+                position: 'fixed', left: pos.x, top: pos.y + 2, zIndex: 10000,
+                backgroundColor: c.panel, border: `1px solid ${c.border}`,
+                borderRadius: 5, boxShadow: '0 6px 18px rgba(0,0,0,0.35)',
+                minWidth: width, padding: 4
             }
-        }, items.map(it =>
-            h(DropdownItem, {
-                key: it.id,
-                id: it.id, label: it.label, title: it.title,
-                active: false,
-                c, iconColor,
-                onClick: () => { onToolAction(it.id); setOpen(false); }
-            })
+        }, items.map((item, i) =>
+            item.type === 'sep'
+                ? h('div', { key: i, style: { height: 1, backgroundColor: c.border, margin: '3px 8px' } })
+                : h('div', {
+                    key: i,
+                    onClick: () => pick(item.action),
+                    style: {
+                        padding: '6px 12px', fontSize: 13, color: c.text,
+                        cursor: 'pointer', borderRadius: 4,
+                        display: 'flex', justifyContent: 'space-between', alignItems: 'center'
+                    },
+                    onMouseEnter: (e) => { e.currentTarget.style.backgroundColor = c.hover; },
+                    onMouseLeave: (e) => { e.currentTarget.style.backgroundColor = 'transparent'; }
+                },
+                    h('span', null, item.label),
+                    item.shortcut && h('span', { style: { color: c.textDim, fontSize: 11, marginLeft: 24 } }, item.shortcut)
+                )
         ))
     );
 }
 
 // ── Ribbon group (buttons + labeled footer) ───────────────────────────────────
 
-function RibbonGroup({ label, children, c, isLast, tourId }) {
+function RibbonGroup({ label, children, c, isLast }) {
     return h('div', {
-        'data-tour': tourId || undefined,
         style: {
             display: 'flex', flexDirection: 'column',
             borderRight: isLast ? 'none' : `1px solid ${c.border}`,
@@ -605,71 +598,346 @@ function RibbonGroup({ label, children, c, isLast, tourId }) {
         h('div', {
             style: { display: 'flex', alignItems: 'center', gap: 1, flex: 1, paddingBottom: 2 }
         }, children),
+        // The group is as wide as its buttons and no wider. `width: 0` keeps the
+        // label out of that measurement, `minWidth: 100%` then stretches it back
+        // over the buttons, so a long name wraps to a second line instead of
+        // padding the whole ribbon out sideways.
         h('div', {
             style: {
-                textAlign: 'center', fontSize: 9.5,
-                color: c.textDim, paddingTop: 2,
+                width: 0, minWidth: '100%', boxSizing: 'border-box',
+                textAlign: 'center', fontSize: 9,
+                color: c.textDim, paddingTop: 3, paddingBottom: 2,
                 borderTop: `1px solid ${c.border}`,
                 letterSpacing: '0.04em', textTransform: 'uppercase',
-                userSelect: 'none', lineHeight: 1, paddingBottom: 17
+                userSelect: 'none', lineHeight: 1.2,
+                maxHeight: 24, overflow: 'hidden'
             }
         }, label)
     );
 }
 
-// ── Ribbon ────────────────────────────────────────────────────────────────────
+// ── Ribbon search ─────────────────────────────────────────────────────────────
+//
+// Forty-odd tools across four tabs means knowing which tab a tool is on before
+// you can reach it. Typing its name finds it wherever it lives, and the result
+// says which tab it came from so the next time you go straight there.
 
-export function Toolbar({ c, onToolAction, openWindows = [], t, ribbonStyle = 'colorful' }) {
-    const groups = makeGroups(t);
-    const colorful = ribbonStyle !== 'minimalist';
+// Ranked matches for `query` across every tab. A label that starts with the
+// query beats one that merely contains it, which beats a tooltip match, so the
+// tool someone is typing the name of comes first.
+export function searchRibbon(tabs, query) {
+    const q = query.trim().toLowerCase();
+    if (!q) return [];
+    const hits = [];
+    for (const tab of tabs) {
+        for (const group of tab.groups) {
+            for (const item of group.items) {
+                const label = (item.label || '').toLowerCase();
+                const title = (item.title || '').toLowerCase();
+                let rank = -1;
+                if (label.startsWith(q)) rank = 0;
+                else if (label.includes(q)) rank = 1;
+                else if (item.id.includes(q)) rank = 2;
+                else if (title.includes(q)) rank = 3;
+                if (rank >= 0) hits.push({ ...item, rank, tabKey: tab.key, tabLabel: tab.label });
+            }
+        }
+    }
+    return hits.sort((a, b) => a.rank - b.rank || a.label.localeCompare(b.label)).slice(0, 8);
+}
 
+function RibbonSearch({ c, t, tabs, onPick }) {
+    const [query, setQuery] = useState('');
+    const [open, setOpen] = useState(false);
+    const [cursor, setCursor] = useState(0);
+    const wrapRef = useRef(null);
+
+    const hits = open ? searchRibbon(tabs, query) : [];
+
+    useEffect(() => { setCursor(0); }, [query]);
+
+    useEffect(() => {
+        if (!open) return;
+        const outside = (e) => { if (wrapRef.current && !wrapRef.current.contains(e.target)) setOpen(false); };
+        document.addEventListener('mousedown', outside);
+        return () => document.removeEventListener('mousedown', outside);
+    }, [open]);
+
+    const choose = (hit) => {
+        if (!hit) return;
+        setQuery('');
+        setOpen(false);
+        onPick(hit);
+    };
+
+    const onKeyDown = (e) => {
+        if (e.key === 'Escape') { setQuery(''); setOpen(false); e.currentTarget.blur(); return; }
+        if (!hits.length) return;
+        if (e.key === 'ArrowDown') { e.preventDefault(); setCursor(i => (i + 1) % hits.length); }
+        else if (e.key === 'ArrowUp') { e.preventDefault(); setCursor(i => (i - 1 + hits.length) % hits.length); }
+        else if (e.key === 'Enter') { e.preventDefault(); choose(hits[cursor]); }
+    };
+
+    // Same shape as the explorer's search box: magnifier, field, clear button.
     return h('div', {
-        className: 'tf-ribbon',
+        ref: wrapRef,
         style: {
-            display: 'flex', alignItems: 'stretch',
-            height: 74, minHeight: 74,
-            backgroundColor: c.panel,
-            borderBottom: `1px solid ${c.border}`,
-            padding: '4px 8px 0',
-            gap: 0, userSelect: 'none',
-            overflowX: 'auto', overflowY: 'hidden',
-            flexShrink: 0
+            position: 'relative',
+            // The strip stretches its children, so the box has to centre itself
+            // or it sits against the top border.
+            display: 'flex', alignItems: 'center',
+            flexShrink: 1, minWidth: 110, maxWidth: 240, width: 240,
+            WebkitAppRegion: 'no-drag',
         }
     },
-        groups.map((group, gi) => {
-            const groupColor = colorful ? (GROUP_COLORS[group.key] || null) : null;
-            return h(RibbonGroup, {
-                key: group.label,
-                label: group.label,
-                c,
-                isLast: gi === groups.length - 1,
-                tourId: `ribbon-${group.key}`
+        h('div', {
+            style: {
+                display: 'flex', alignItems: 'center', gap: 5, width: '100%',
+                padding: '0 6px', height: 22, boxSizing: 'border-box',
+                backgroundColor: c.field, border: `1px solid ${c.border}`,
+                borderRadius: 4, color: c.textDim,
+            }
+        },
+            h('svg', { width: 13, height: 13, viewBox: '0 0 16 16', fill: 'none', style: { flexShrink: 0 } },
+                h('circle', { cx: 7, cy: 7, r: 4, stroke: 'currentColor', strokeWidth: 1.3 }),
+                h('path', { d: 'M10 10l3 3', stroke: 'currentColor', strokeWidth: 1.3, strokeLinecap: 'round' })),
+            h('input', {
+                value: query,
+                type: 'search',
+                placeholder: t.toolbar.searchPlaceholder,
+                'aria-label': t.toolbar.searchPlaceholder,
+                onChange: (e) => { setQuery(e.target.value); setOpen(true); },
+                onFocus: () => setOpen(true),
+                onKeyDown,
+                style: {
+                    flex: 1, minWidth: 0, border: 'none', outline: 'none', padding: 0,
+                    backgroundColor: 'transparent', color: c.text, fontSize: 12,
+                    fontFamily: 'system-ui, -apple-system, sans-serif',
+                }
+            }),
+            query && h('span', {
+                onClick: () => { setQuery(''); setOpen(false); },
+                title: t.toolbar.clearSearch,
+                style: {
+                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    width: 14, height: 14, flexShrink: 0, cursor: 'pointer', color: c.textDim,
+                }
             },
-                group.items.map(btn =>
-                    btn.dropdown
-                      ? h(RibbonDropdown, {
-                            key: btn.id,
-                            id: btn.id,
-                            label: btn.label,
-                            title: btn.title,
-                            items: btn.dropdown,
-                            active: false,
-                            c,
-                            onToolAction,
-                            iconColor: groupColor,
-                        })
-                      : h(RibbonBtn, {
-                            key: btn.id,
-                            id: btn.id,
-                            label: btn.label,
-                            title: btn.title,
-                            active: false,
-                            c,
-                            iconColor: groupColor,
-                            onClick: () => onToolAction(btn.id)
-                        })
-                )
-            );
+                h('svg', { width: 11, height: 11, viewBox: '0 0 16 16', fill: 'none' },
+                    h('path', { d: 'M4 4l8 8M12 4l-8 8', stroke: 'currentColor', strokeWidth: 1.4, strokeLinecap: 'round' })))
+        ),
+
+        open && hits.length > 0 && h('div', {
+            style: {
+                position: 'absolute', top: 26, right: 0, zIndex: 10000,
+                minWidth: 280, maxWidth: 360,
+                background: c.panel, border: `1px solid ${c.border}`,
+                borderRadius: 5, boxShadow: '0 6px 18px rgba(0,0,0,0.35)', padding: 4,
+            }
+        }, hits.map((hit, i) =>
+            h('div', {
+                key: hit.id,
+                onMouseEnter: () => setCursor(i),
+                onMouseDown: (e) => { e.preventDefault(); choose(hit); },
+                title: hit.title,
+                style: {
+                    display: 'flex', alignItems: 'center', gap: 9,
+                    padding: '6px 9px', borderRadius: 4, cursor: 'pointer',
+                    background: i === cursor ? c.hover : 'transparent',
+                    color: c.text, fontSize: 12.5,
+                    fontFamily: 'system-ui, -apple-system, sans-serif',
+                }
+            },
+                h('span', { style: { display: 'flex', flexShrink: 0, color: iconColorForTool(hit.id) || 'inherit' } },
+                    ICONS[hit.id] || h('div', { style: { width: 20, height: 20 } })),
+                h('span', { style: { flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' } }, hit.label),
+                h('span', { style: { color: c.textDim, fontSize: 10.5, flexShrink: 0 } }, hit.tabLabel)
+            )
+        ))
+    );
+}
+
+// ── Tab button ────────────────────────────────────────────────────────────────
+
+function TabBtn({ label, active, c, onMouseDown, onClick, onDoubleClick }) {
+    const [hov, setHov] = useState(false);
+    return h('button', {
+        onMouseDown, onClick, onDoubleClick,
+        onMouseEnter: () => setHov(true),
+        onMouseLeave: () => setHov(false),
+        style: {
+            height: '100%', padding: '0 14px',
+            border: 'none', borderBottom: `2px solid ${active ? c.accent : 'transparent'}`,
+            backgroundColor: active ? c.panel : hov ? c.hover : 'transparent',
+            color: active ? c.accent : c.text,
+            fontSize: 12.5, fontWeight: active ? 600 : 400,
+            fontFamily: 'system-ui, -apple-system, sans-serif',
+            cursor: 'pointer', outline: 'none', flexShrink: 0,
+            WebkitAppRegion: 'no-drag'
+        }
+    }, label);
+}
+
+// ── Ribbon ────────────────────────────────────────────────────────────────────
+
+// Renderer-local UI state: which tab was last used and whether the ribbon body
+// is collapsed. Kept out of settings.json because it is per-window chrome, not a
+// preference the user configures.
+const TAB_KEY = 'tfstudio-ribbon-tab';
+const COLLAPSE_KEY = 'tfstudio-ribbon-collapsed';
+
+const readTab = () => {
+    try {
+        const v = localStorage.getItem(TAB_KEY);
+        return RIBBON_TABS.includes(v) ? v : RIBBON_TABS[0];
+    } catch (_) { return RIBBON_TABS[0]; }
+};
+const readCollapsed = () => {
+    try { return localStorage.getItem(COLLAPSE_KEY) === '1'; } catch (_) { return false; }
+};
+
+export function Toolbar({ c, onToolAction, onMenuAction, t, devAllowed = true, ribbonStyle = 'colorful' }) {
+    const tabs = makeTabs(t);
+    const colorful = ribbonStyle !== 'minimalist';
+
+    const [activeTab, setActiveTab] = useState(readTab);
+    const [collapsed, setCollapsed] = useState(readCollapsed);
+    // Collapse-on-double-click has to know whether the ribbon was already open
+    // when the click sequence started, since the first click of the pair expands
+    // a collapsed ribbon.
+    const wasCollapsed = useRef(false);
+
+    useEffect(() => { try { localStorage.setItem(TAB_KEY, activeTab); } catch (_) {} }, [activeTab]);
+    useEffect(() => { try { localStorage.setItem(COLLAPSE_KEY, collapsed ? '1' : '0'); } catch (_) {} }, [collapsed]);
+
+    // The guided tour steps through tabs it does not own; it asks for one by
+    // dispatching this event rather than reaching into ribbon state.
+    useEffect(() => {
+        const onRequest = (e) => {
+            if (!RIBBON_TABS.includes(e.detail)) return;
+            setActiveTab(e.detail);
+            setCollapsed(false);
+        };
+        window.addEventListener('tfstudio:ribbon-tab', onRequest);
+        return () => window.removeEventListener('tfstudio:ribbon-tab', onRequest);
+    }, []);
+
+    const tab = tabs.find(x => x.key === activeTab) || tabs[0];
+
+    // Checking for updates is the ribbon's own business: the shared check is
+    // already in context here, so the menu runs it rather than routing an action
+    // out to the renderer and back.
+    const update = useUpdate();
+    const runAction = (action) => {
+        if (action === 'check-updates') { update?.onBadgeClick?.(); return; }
+        runMenuAction(action, onMenuAction);
+    };
+
+    const chevron = h('svg', { width: 12, height: 12, viewBox: '0 0 12 12', fill: 'none' },
+        h('path', {
+            d: collapsed ? 'M2.5 4.5L6 8l3.5-3.5' : 'M2.5 7.5L6 4l3.5 3.5',
+            stroke: 'currentColor', strokeWidth: 1.4, strokeLinecap: 'round', strokeLinejoin: 'round'
         })
+    );
+
+    return h('div', { style: { display: 'flex', flexDirection: 'column', flexShrink: 0 } },
+        // Tab strip. Empty space stays draggable so the window keeps a grab area
+        // beyond the 32px title bar.
+        h('div', {
+            className: 'tf-ribbon-tabs',
+            style: {
+                display: 'flex', alignItems: 'stretch',
+                height: 30, minHeight: 30,
+                backgroundColor: c.bg,
+                borderBottom: `1px solid ${c.border}`,
+                padding: '0 6px', gap: 2, userSelect: 'none',
+                WebkitAppRegion: 'drag'
+            }
+        },
+            h(MenuButton, {
+                c, t,
+                items: appMenuItems(t, devAllowed),
+                title: 'TFStudio',
+                onAction: runAction,
+                width: 240,
+            },
+                h('img', { src: APP_ICON, alt: '', style: { width: 18, height: 18, objectFit: 'contain' } }),
+                h('span', { style: { fontSize: 8, opacity: 0.7, lineHeight: 1 } }, '▾')
+            ),
+
+            h('div', { style: { width: 1, backgroundColor: c.border, margin: '6px 4px' } }),
+
+            tabs.map(x => h(TabBtn, {
+                key: x.key,
+                label: x.label,
+                active: x.key === activeTab,
+                c,
+                onMouseDown: (e) => { if (e.detail === 1) wasCollapsed.current = collapsed; },
+                onClick: () => { setActiveTab(x.key); if (collapsed) setCollapsed(false); },
+                onDoubleClick: () => { if (!wasCollapsed.current && x.key === activeTab) setCollapsed(true); },
+            })),
+
+            h('div', { style: { flex: 1, minWidth: 8 } }),
+
+            h(RibbonSearch, {
+                c, t, tabs,
+                // Run the tool, and move to its tab so the button it came from
+                // is where the eye lands next.
+                onPick: (hit) => {
+                    setActiveTab(hit.tabKey);
+                    setCollapsed(false);
+                    if (hit.action) runAction(hit.action); else onToolAction(hit.id);
+                },
+            }),
+
+            h('button', {
+                onClick: () => setCollapsed(v => !v),
+                title: collapsed ? t.toolbar.expandRibbon : t.toolbar.collapseRibbon,
+                style: {
+                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    width: 28, border: 'none', borderRadius: 3,
+                    backgroundColor: 'transparent', color: c.textDim,
+                    cursor: 'pointer', outline: 'none', flexShrink: 0,
+                    WebkitAppRegion: 'no-drag'
+                },
+                onMouseEnter: (e) => { e.currentTarget.style.backgroundColor = c.hover; },
+                onMouseLeave: (e) => { e.currentTarget.style.backgroundColor = 'transparent'; }
+            }, chevron)
+        ),
+
+        // Ribbon body for the active tab.
+        !collapsed && h('div', {
+            className: 'tf-ribbon',
+            'data-tour': `ribbon-${tab.key}`,
+            style: {
+                display: 'flex', alignItems: 'stretch',
+                height: 74, minHeight: 74,
+                backgroundColor: c.panel,
+                borderBottom: `1px solid ${c.border}`,
+                padding: '4px 8px 0',
+                gap: 0, userSelect: 'none',
+                overflowX: 'auto', overflowY: 'hidden'
+            }
+        },
+            tab.groups.map((group, gi) =>
+                h(RibbonGroup, {
+                    key: group.key,
+                    label: group.label,
+                    c,
+                    isLast: gi === tab.groups.length - 1,
+                },
+                    group.items.map(b => h(RibbonBtn, {
+                        key: b.id,
+                        id: b.id,
+                        label: b.label,
+                        title: b.title,
+                        active: false,
+                        c,
+                        iconColor: colorful ? iconColorForTool(b.id) : null,
+                        onClick: () => (b.action ? runAction(b.action) : onToolAction(b.id))
+                    }))
+                )
+            )
+        )
     );
 }

@@ -7,6 +7,8 @@
  * expose the same neutral line geometry.
  */
 
+import { observeResize } from './observeResize.js';
+
 const { createElement: h, useCallback, useEffect, useRef, useState } = React;
 const AXES = { xAxisIndex: 0, yAxisIndex: 0 };
 const PLOT = { gridIndex: 0 };
@@ -93,8 +95,7 @@ function ActiveTargetEditorOverlay({
             }
             chart.on('datazoom', scheduleRefresh);
             chart.on('finished', scheduleRefresh);
-            observer = new ResizeObserver(scheduleRefresh);
-            if (svgRef.current) observer.observe(svgRef.current);
+            observer = observeResize(svgRef.current, scheduleRefresh);
             scheduleRefresh();
         };
         attach();

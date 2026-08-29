@@ -2,10 +2,12 @@ import {
   makeGroup, cleanup,
   addTab, removeTab, setSizes, setActiveTab,
   findNode, findFirstGroup, groupForTab,
-  moveToGroup, moveToSplit, reorderTab, newTabId, rekeyTree,
+  moveToGroup, moveToSplit, reorderTab, newTabId, rekeyTree, splitGroup,
 } from './treeUtils.js';
 import { SplitPane } from './SplitPane.js';
 import { TabGroup } from './TabGroup.js';
+import { FloatFrame } from './FloatFrame.js';
+import { PopoutWindow, toScreenPoint, toClientPoint } from './PopoutWindow.js';
 import { useDesign } from '../../state/DesignContext.js';
 import { useUnresolvedMaterials } from '../../utils/materials/useUnresolvedMaterials.js';
 import { ReplaceMaterialsDialog } from '../dialogs/ReplaceMaterialsDialog.js';
@@ -125,17 +127,166 @@ export const LAYOUT_PRESETS = {
 
 const LAYOUT_STORAGE_KEY = 'tfstudio-saved-layout';
 
-export function saveLayout(tree) {
-    try { localStorage.setItem(LAYOUT_STORAGE_KEY, JSON.stringify(tree)); } catch {}
+// A saved layout is the docked tree plus the tools that were torn off, with the
+// screen rectangle each one occupied. Layouts saved before tear-off existed are
+// a bare tree, and still load.
+export function saveLayout(tree, floats = []) {
+    try {
+        localStorage.setItem(LAYOUT_STORAGE_KEY, JSON.stringify({
+            version: 2,
+            tree,
+            floats: floats.map(f => ({ toolId: f.toolId, title: f.title, bounds: f.bounds })),
+        }));
+    } catch {}
+}
+
+// A window restored onto a monitor that is no longer attached would be
+// unreachable, so a rectangle that does not overlap the screen we can see is
+// pulled back onto it. The bounds are in CSS pixels, matching what
+// `window.open` takes.
+export function clampToScreen(bounds, screenInfo) {
+    const s = screenInfo || {};
+    const availLeft = Number.isFinite(s.availLeft) ? s.availLeft : 0;
+    const availTop = Number.isFinite(s.availTop) ? s.availTop : 0;
+    const availWidth = s.availWidth || 1280;
+    const availHeight = s.availHeight || 800;
+
+    const width = Math.max(320, Math.min(bounds?.width || 720, availWidth));
+    const height = Math.max(240, Math.min(bounds?.height || 520, availHeight));
+    const right = availLeft + availWidth;
+    const bottom = availTop + availHeight;
+
+    const left = Number.isFinite(bounds?.left) ? bounds.left : availLeft + 120;
+    const top = Number.isFinite(bounds?.top) ? bounds.top : availTop + 120;
+
+    // Since the size is already no bigger than the screen, pinning each edge
+    // inside the available area is enough to bring back a window saved on a
+    // monitor that is no longer attached, whichever side it was on.
+    return {
+        left: Math.min(Math.max(left, availLeft), right - width),
+        top: Math.min(Math.max(top, availTop), bottom - height),
+        width, height,
+    };
 }
 
 export function loadSavedLayout() {
     try {
         const raw = localStorage.getItem(LAYOUT_STORAGE_KEY);
+        if (!raw) return null;
+        const saved = JSON.parse(raw);
+        const isTree = saved && (saved.type === 'tabs' || saved.type === 'split');
         // Re-key on load so restored ids can't collide with this session's
         // freshly-generated ids (H7).
-        return raw ? rekeyTree(JSON.parse(raw)) : null;
+        return {
+            tree: rekeyTree(isTree ? saved : saved.tree),
+            floats: (isTree ? [] : saved.floats || []).map(f => ({
+                id: newTabId(),
+                toolId: f.toolId,
+                title: f.title || TOOL_CONFIGS[f.toolId]?.title || f.toolId,
+                bounds: clampToScreen(f.bounds, typeof screen !== 'undefined' ? screen : null),
+            })),
+        };
     } catch { return null; }
+}
+
+// ── Drag preview ──────────────────────────────────────────────────────────────
+//
+// Dragging a tab drags the window, so the thing under the cursor is shaped like
+// the window: the same proportions as the pane it came from, its title strip and
+// window buttons, and a dimmed body. A name chip on its own gave no sense of
+// what was about to be moved or where it would end up.
+
+const PREVIEW_MAX_W = 340;
+const PREVIEW_MAX_H = 250;
+
+export function previewSize(sourceRect) {
+    const w = sourceRect?.width || 720;
+    const h = sourceRect?.height || 520;
+    const scale = Math.min(PREVIEW_MAX_W / w, PREVIEW_MAX_H / h, 1);
+    return {
+        width: Math.max(200, Math.round(w * scale)),
+        height: Math.max(130, Math.round(h * scale)),
+    };
+}
+
+function makeDragPreview({ c, title, sourceRect }) {
+    const { width, height } = previewSize(sourceRect);
+    const el = document.createElement('div');
+    Object.assign(el.style, {
+        position: 'fixed', width: `${width}px`, height: `${height}px`,
+        // Held near the title strip, the way a window is held by its title bar.
+        transform: 'translate(-38px, -12px)',
+        background: c.panel,
+        border: `1px solid ${c.accent}`,
+        borderRadius: '4px',
+        boxShadow: '0 10px 30px rgba(0,0,0,0.55)',
+        opacity: '0.9', pointerEvents: 'none', overflow: 'hidden',
+        zIndex: '99999', userSelect: 'none',
+        fontFamily: 'system-ui, -apple-system, sans-serif',
+    });
+
+    const strip = document.createElement('div');
+    Object.assign(strip.style, {
+        display: 'flex', alignItems: 'center', height: '24px',
+        padding: '0 8px', background: c.bg,
+        borderBottom: `1px solid ${c.border}`,
+        color: c.text, fontSize: '11px',
+    });
+    const name = document.createElement('span');
+    name.textContent = title;
+    Object.assign(name.style, {
+        flex: '1', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+    });
+    const buttons = document.createElement('span');
+    buttons.textContent = '– □ ×';
+    Object.assign(buttons.style, { color: c.textDim, fontSize: '10px', letterSpacing: '2px' });
+    strip.append(name, buttons);
+
+    const body = document.createElement('div');
+    Object.assign(body.style, { flex: '1', height: `${height - 24}px`, background: c.panel });
+
+    el.append(strip, body);
+    return el;
+}
+
+// Start the preview and hand back the two things a drag does with it.
+//
+// In the app it is a window of its own, because an element cannot be painted
+// outside the window that owns it: as a `<div>` the preview was cut off at the
+// frame edge, which is precisely where a tear-off is aimed. The browser build
+// has no windows to give it and no desktop to drop it on, so there it stays an
+// element and the viewport is the whole world anyway.
+export function startDragPreview({ c, title, sourceRect, clientX, clientY }) {
+    const { width, height } = previewSize(sourceRect);
+    const bridge = typeof window !== 'undefined' && window.electronAPI && window.electronAPI.dragGhost;
+
+    if (bridge) {
+        bridge.show({
+            ...toScreenPoint(window, clientX, clientY), width, height, title,
+            // Where the pane sits in the page, so the preview can be given a
+            // picture of it and carry the window's contents rather than a blank
+            // box with its name on it.
+            pane: sourceRect && {
+                x: sourceRect.left, y: sourceRect.top,
+                width: sourceRect.width, height: sourceRect.height,
+            },
+            panel: c.panel, bg: c.bg, border: c.border,
+            accent: c.accent, text: c.text, textDim: c.textDim,
+        });
+        return {
+            move: (x, y) => bridge.move(toScreenPoint(window, x, y)),
+            end: () => bridge.hide(),
+        };
+    }
+
+    const el = makeDragPreview({ c, title, sourceRect });
+    el.style.left = `${clientX}px`;
+    el.style.top = `${clientY}px`;
+    document.body.appendChild(el);
+    return {
+        move: (x, y) => { el.style.left = `${x}px`; el.style.top = `${y}px`; },
+        end: () => { if (el.parentNode) el.parentNode.removeChild(el); },
+    };
 }
 
 // ── DockingLayout ─────────────────────────────────────────────────────────────
@@ -144,15 +295,18 @@ export function DockingLayout({ c, theme, toolRequests, onWindowListChange, layo
   const { design, updateDesign } = useDesign();
   const missingMaterialIds = useUnresolvedMaterials(design);
   const [tree, setTree]               = useState(null);
+  const [floats, setFloats]           = useState([]);   // torn-off tools, one OS window each
   const [dragActive, setDragActive]   = useState(false);
   const [dragSrcGroupId, setDragSrcGroupId] = useState(null);
+  const [forcedZone, setForcedZone]   = useState(null); // zone lit by a drag from a float
   const [replaceMaterialsOpen, setReplaceMaterialsOpen] = useState(false);
 
   const dropTargetRef  = useRef(null);  // { groupId, zone }
   const dragDataRef    = useRef(null);  // { tabId, fromGroupId, tab }
   const dragInsertRef  = useRef(null);  // { groupId, insertIdx } — same-group tab reorder
-  const ghostRef       = useRef(null);  // DOM element
+  const ghostRef       = useRef(null);  // live drag preview, between down and up
   const lastGroupRef   = useRef(null);  // last focused group id
+  const floatWinsRef   = useRef(new Map()); // floatId → its OS window, for live bounds
 
   // ── Open tool ──────────────────────────────────────────────────────────────
 
@@ -200,13 +354,15 @@ export function DockingLayout({ c, theme, toolRequests, onWindowListChange, layo
     if (!layoutRequest) return;
     if (layoutRequest.type === 'preset') {
       const preset = LAYOUT_PRESETS[layoutRequest.id];
-      if (preset) setTree(makePresetTree(preset.tools));
+      if (preset) { setTree(makePresetTree(preset.tools)); setFloats([]); }
     } else if (layoutRequest.type === 'restore') {
       const saved = loadSavedLayout();
-      if (saved) setTree(saved);
+      if (saved) { setTree(saved.tree); setFloats(saved.floats); }
     } else if (layoutRequest.type === 'save') {
-      setTree(prev => { saveLayout(prev); return prev; });
+      setTree(prev => { saveLayout(prev, floatsWithBounds()); return prev; });
     }
+    // `floatsWithBounds` reads a ref, so the effect does not need floats as a dep.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [layoutRequest]);
 
   // Report the list of open tools to the parent whenever the tree changes.
@@ -226,8 +382,129 @@ export function DockingLayout({ c, theme, toolRequests, onWindowListChange, layo
       else if (n.type === 'split') n.children.forEach(collect);
     };
     collect(tree);
+    // Torn-off tools are still open, so they belong on this list too. Leaving
+    // them off would let the parent believe the workspace is empty and re-apply
+    // a preset over a layout the user is using.
+    floats.forEach(f => ids.push(f.toolId));
     onWindowListChange(ids);
-  }, [tree, onWindowListChange]);
+  }, [tree, floats, onWindowListChange]);
+
+  // ── Torn-off windows ───────────────────────────────────────────────────────
+
+  const floatsRef = useRef([]);
+  useEffect(() => { floatsRef.current = floats; }, [floats]);
+
+  // The user can move and resize a float once it is open, so the rectangle we
+  // save has to be read off the live window, not from where it was created.
+  const floatsWithBounds = useCallback(() => floatsRef.current.map(f => {
+    const win = floatWinsRef.current.get(f.id);
+    if (!win || win.closed) return f;
+    return {
+      ...f,
+      bounds: { left: win.screenX, top: win.screenY, width: win.innerWidth, height: win.innerHeight },
+    };
+  }), []);
+
+  // Which drop zone sits under a point in this window's client coordinates.
+  // Reads the zone overlays TabGroup renders, so a drag arriving from a float
+  // resolves to exactly the target an in-window drag would.
+  const zoneAt = useCallback((x, y) => {
+    const el = document.elementFromPoint(x, y);
+    const zone = el && el.closest && el.closest('[data-dockzone]');
+    if (!zone) return null;
+    return { groupId: zone.getAttribute('data-dockgroup'), zone: zone.getAttribute('data-dockzone') };
+  }, []);
+
+  // Put a tab into the tree at a drop target. Center joins the group; an edge
+  // splits it.
+  const placeTab = useCallback((prev, tab, target) => {
+    if (!prev) return makeGroup([tab]);
+    if (!findNode(prev, target.groupId)) {
+      const first = findFirstGroup(prev);
+      return first ? addTab(prev, first.id, tab) : makeGroup([tab]);
+    }
+    if (target.zone === 'center') return addTab(prev, target.groupId, tab);
+    const action = zoneToAction(target.zone);
+    if (!action) return addTab(prev, target.groupId, tab);
+    return splitGroup(prev, target.groupId, action.direction, action.side, tab);
+  }, []);
+
+  // A tab dropped on nothing leaves the layout and becomes its own OS window,
+  // opened where the pointer let go and at the size the pane had, so it lands
+  // looking like the preview that was under the cursor.
+  const tearOff = useCallback((tab, screenPoint, sourceRect) => {
+    setTree(prev => {
+      const [detached] = removeTab(prev, tab.id);
+      return cleanup(detached);
+    });
+    setFloats(prev => [...prev, {
+      id: tab.id,
+      toolId: tab.toolId,
+      title: tab.title,
+      bounds: clampToScreen({
+        left: screenPoint.x - 38,
+        top: screenPoint.y - 12,
+        width: Math.round(sourceRect?.width || 720),
+        height: Math.round(sourceRect?.height || 520),
+      }, typeof screen !== 'undefined' ? screen : null),
+    }]);
+  }, []);
+
+  const closeFloat = useCallback((floatId) => {
+    floatWinsRef.current.delete(floatId);
+    setFloats(prev => prev.filter(f => f.id !== floatId));
+  }, []);
+
+  // Return a float to the layout, at `target` if a drag chose one, otherwise
+  // wherever a freshly-opened tool would land.
+  const dockFloat = useCallback((floatId, target) => {
+    const float = floatsRef.current.find(f => f.id === floatId);
+    if (!float) return;
+    const tab = { id: newTabId(), title: float.title, toolId: float.toolId };
+    setTree(prev => {
+      if (target) return placeTab(prev, tab, target);
+      if (!prev) return makeGroup([tab]);
+      const groupId = lastGroupRef.current && findNode(prev, lastGroupRef.current)
+        ? lastGroupRef.current
+        : findFirstGroup(prev)?.id;
+      return groupId ? addTab(prev, groupId, tab) : makeGroup([tab]);
+    });
+    closeFloat(floatId);
+  }, [placeTab, closeFloat]);
+
+  // Dragging the whole window over the layout docks it. That drag belongs to
+  // the OS, so no mouse events reach this document: the main process reports the
+  // cursor on every move and once more when the drag ends.
+  // The preload bridge has no way to remove a listener, so this subscribes once
+  // and reaches the current handlers through a ref.
+  const floatDragRef = useRef({ zoneAt, dockFloat });
+  floatDragRef.current = { zoneAt, dockFloat };
+
+  useEffect(() => {
+    const api = window.electronAPI;
+    if (!api?.onFloatWindowMove) return;
+
+    const idFor = (info) => (info?.frameName || '').replace(/^tfstudio-float-/, '');
+    const zoneUnder = (info) => {
+      const local = info?.cursor && toClientPoint(window, info.cursor.x, info.cursor.y);
+      return local ? floatDragRef.current.zoneAt(local.x, local.y) : null;
+    };
+
+    api.onFloatWindowMove((info) => {
+      if (!floatsRef.current.some(f => f.id === idFor(info))) return;
+      setDragActive(true);
+      setForcedZone(zoneUnder(info));
+    });
+    api.onFloatWindowDropped?.((info) => {
+      const target = zoneUnder(info);
+      setForcedZone(null);
+      setDragActive(false);
+      const id = idFor(info);
+      if (target && floatsRef.current.some(f => f.id === id)) {
+        floatDragRef.current.dockFloat(id, target);
+      }
+    });
+  }, []);
 
   // ── Tab interactions ───────────────────────────────────────────────────────
 
@@ -253,58 +530,51 @@ export function DockingLayout({ c, theme, toolRequests, onWindowListChange, layo
     if (e.button !== 0) return;
     e.preventDefault();
 
-    dragDataRef.current   = { tabId: tab.id, fromGroupId, tab };
+    const sourceRect = document
+      .querySelector(`[data-dockgroup-root="${fromGroupId}"]`)
+      ?.getBoundingClientRect();
+
+    dragDataRef.current   = { tabId: tab.id, fromGroupId, tab, sourceRect };
     dragInsertRef.current = null;
     setDragSrcGroupId(fromGroupId);
 
-    // Create ghost element
-    const ghost = document.createElement('div');
-    ghost.textContent = (t && t.windowTitles && t.windowTitles[tab.toolId]) || tab.title;
-    Object.assign(ghost.style, {
-      position:      'fixed',
-      left:          e.clientX + 'px',
-      top:           e.clientY + 'px',
-      transform:     'translate(-50%, -50%)',
-      padding:       '4px 14px',
-      background:    c.panel,
-      border:        `1px solid ${c.accent}`,
-      borderRadius:  '4px',
-      color:         c.text,
-      fontSize:      '12px',
-      pointerEvents: 'none',
-      zIndex:        '99999',
-      boxShadow:     '0 4px 14px rgba(0,0,0,0.5)',
-      userSelect:    'none',
-      fontFamily:    'system-ui, -apple-system, sans-serif',
-      whiteSpace:    'nowrap'
+    ghostRef.current = startDragPreview({
+      c,
+      title: (t && t.windowTitles && t.windowTitles[tab.toolId]) || tab.title,
+      sourceRect,
+      clientX: e.clientX,
+      clientY: e.clientY,
     });
-    document.body.appendChild(ghost);
-    ghostRef.current = ghost;
 
     setDragActive(true);
 
     const onMove = (e) => {
-      if (ghostRef.current) {
-        ghostRef.current.style.left = e.clientX + 'px';
-        ghostRef.current.style.top  = e.clientY + 'px';
-      }
+      if (ghostRef.current) ghostRef.current.move(e.clientX, e.clientY);
     };
 
-    const onUp = () => {
+    const onUp = (ue) => {
       document.removeEventListener('mousemove', onMove);
       document.removeEventListener('mouseup', onUp);
 
-      // Remove ghost
       if (ghostRef.current) {
-        document.body.removeChild(ghostRef.current);
+        ghostRef.current.end();
         ghostRef.current = null;
       }
 
       const target = dropTargetRef.current;
       const insert = dragInsertRef.current;
-      const { tabId, fromGroupId } = dragDataRef.current;
+      const { tabId, fromGroupId, tab: draggedTab, sourceRect } = dragDataRef.current;
 
-      if (insert && insert.groupId === fromGroupId) {
+      // Let go anywhere that is not a drop target and the tool leaves the layout
+      // for a window of its own: over the explorer, over the ribbon, or off the
+      // frame entirely. Chromium keeps delivering the drag's mouse events to
+      // this document after the pointer crosses the frame, so a drop on the
+      // desktop arrives here too, with client coordinates outside the viewport.
+      const missed = !target && !insert;
+
+      if (missed) {
+        tearOff(draggedTab, toScreenPoint(window, ue?.clientX ?? 0, ue?.clientY ?? 0), sourceRect);
+      } else if (insert && insert.groupId === fromGroupId) {
         // Same-group reorder: move tab to insertIdx position
         setTree(prev => {
           const group = groupForTab(prev, tabId);
@@ -340,7 +610,14 @@ export function DockingLayout({ c, theme, toolRequests, onWindowListChange, layo
 
     document.addEventListener('mousemove', onMove);
     document.addEventListener('mouseup', onUp);
-  }, [c, t]);   // `t` is used for the ghost label — include it so a locale switch isn't stale
+  }, [c, t, tearOff]);   // `t` is used for the ghost label — include it so a locale switch isn't stale
+
+  // The preview outlives this component if the layout goes away mid-drag, and
+  // it is an always-on-top window: it would sit over everything with nothing
+  // left to dismiss it.
+  useEffect(() => () => {
+    if (ghostRef.current) { ghostRef.current.end(); ghostRef.current = null; }
+  }, []);
 
   // ── Recursive tree renderer ────────────────────────────────────────────────
 
@@ -365,6 +642,7 @@ export function DockingLayout({ c, theme, toolRequests, onWindowListChange, layo
         dragSrcGroupId,
         dragInsertRef,
         dropTargetRef,
+        forcedZone,
         onTabClick:      handleTabClick,
         onTabClose:      handleTabClose,
         onTabDragStart:  handleTabDragStart,
@@ -380,7 +658,7 @@ export function DockingLayout({ c, theme, toolRequests, onWindowListChange, layo
     }
 
     return null;
-  }, [c, dragActive, dragSrcGroupId, handleTabClick, handleTabClose, handleTabDragStart,
+  }, [c, dragActive, dragSrcGroupId, forcedZone, handleTabClick, handleTabClose, handleTabDragStart,
     handleGroupFocus, t, locale, ribbonStyle, missingMaterialIds, onCreateDesign]);
 
   // ── Render ─────────────────────────────────────────────────────────────────
@@ -397,12 +675,40 @@ export function DockingLayout({ c, theme, toolRequests, onWindowListChange, layo
       ids: missingMaterialIds, c, t,
       onRepair: () => setReplaceMaterialsOpen(true),
     }),
-    !tree
+    !tree && floats.length === 0
       ? h(EmptyWorkspace, { c, t, onCreateProject })
       : renderNode(tree),
     replaceMaterialsOpen && h(ReplaceMaterialsDialog, {
       design, updateDesign, c, t, onClose: () => setReplaceMaterialsOpen(false),
-    })
+    }),
+
+    // Torn-off tools. Each is a real OS window, but it renders here inside the
+    // same React tree, so the design and the run state behind it are the ones
+    // the docked windows are using.
+    floats.map(f => h(PopoutWindow, {
+      key: f.id,
+      id: f.id,
+      title: (t && t.windowTitles && t.windowTitles[f.toolId]) || f.title,
+      bounds: f.bounds,
+      background: c.panel,
+      onClose: () => closeFloat(f.id),
+      onWindowReady: (win) => floatWinsRef.current.set(f.id, win),
+    },
+      (win) => h(FloatFrame, {
+        c, t, locale, ribbonStyle, win,
+        toolId: f.toolId,
+        title: (t && t.windowTitles && t.windowTitles[f.toolId]) || f.title,
+        helpAnchor: helpAnchorFor(f.toolId),
+        onDock: () => dockFloat(f.id, null),
+        onClose: () => closeFloat(f.id),
+      },
+        h(ToolContent, {
+          toolId: f.toolId, c, theme, t, setInputDialog, onCreateDesign,
+          missingMaterialIds,
+          onReplaceMaterials: () => setReplaceMaterialsOpen(true),
+        })
+      )
+    ))
   );
 }
 

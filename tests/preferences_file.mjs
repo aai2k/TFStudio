@@ -47,7 +47,7 @@ const read = disk => JSON.parse(disk.get(PREFS_FILE));
 {
   const { ctx, disk } = makeCtx();
   const prefs = preferencesFile.load(ctx);
-  assert.deepEqual(prefs, { version: 1, analysis: {} });
+  assert.deepEqual(prefs, { version: 1, analysis: {}, quickAccess: null });
   assert.equal(disk.has(PREFS_FILE), false,
     'nothing is written until there is something to save');
 }
@@ -83,7 +83,7 @@ const read = disk => JSON.parse(disk.get(PREFS_FILE));
 {
   const { ctx, disk, logs } = makeCtx({ [PREFS_FILE]: '{ "analysis": ' });
   const prefs = preferencesFile.load(ctx);
-  assert.deepEqual(prefs, { version: 1, analysis: {} },
+  assert.deepEqual(prefs, { version: 1, analysis: {}, quickAccess: null },
     'a hand-edited file with a typo in it must not stop the app from starting');
   assert.equal(logs.some(line => line.includes('could not be parsed')), true,
     'and the reason is reported');
@@ -127,6 +127,54 @@ const read = disk => JSON.parse(disk.get(PREFS_FILE));
   });
   assert.match(disk.get(PREFS_FILE), /\n {2}"analysis": \{/,
     'indented, so the user can open it in an editor and see what is in it');
+}
+
+// ── The quick-access list ───────────────────────────────────────────────────
+//
+// It is in this file rather than settings.json for one reason: a reinstall
+// takes settings.json with it, and a title bar the user arranged by hand is
+// exactly the kind of thing they would have to redo from scratch.
+{
+  const { ctx, disk } = makeCtx();
+
+  // Never chosen is not the same as chosen to be empty: null lets the title bar
+  // fall back to the shipped list, [] means the user cleared it.
+  assert.equal(preferencesFile.load(ctx).quickAccess, null);
+
+  preferencesFile.saveBlock(ctx, 'quickAccess', ['save', 'undo', 'redo']);
+  assert.deepEqual(read(disk).quickAccess, ['save', 'undo', 'redo'],
+    'the order is the order they appear in');
+
+  preferencesFile.saveBlock(ctx, 'quickAccess', []);
+  assert.deepEqual(read(disk).quickAccess, [], 'an emptied list stays empty');
+
+  // Writing one block leaves the other alone.
+  preferencesFile.saveBlock(ctx, 'analysis', { opticalEvaluation: { colors: { T: '#fff' } } });
+  assert.deepEqual(read(disk).quickAccess, []);
+  preferencesFile.saveBlock(ctx, 'quickAccess', ['save']);
+  assert.deepEqual(read(disk).analysis, { opticalEvaluation: { colors: { T: '#fff' } } });
+}
+
+// ── A hand-edited list with rubbish in it ───────────────────────────────────
+{
+  const { ctx } = makeCtx({
+    [PREFS_FILE]: JSON.stringify({ version: 1, quickAccess: ['save', 42, '', null, 'undo'] }),
+  });
+  assert.deepEqual(preferencesFile.load(ctx).quickAccess, ['save', 'undo'],
+    'anything that is not a tool id is dropped rather than reaching the title bar');
+}
+{
+  const { ctx } = makeCtx({
+    [PREFS_FILE]: JSON.stringify({ version: 1, quickAccess: 'save' }),
+  });
+  assert.equal(preferencesFile.load(ctx).quickAccess, null,
+    'a value of the wrong shape falls back to the shipped list');
+}
+
+// ── A block nobody knows about ──────────────────────────────────────────────
+{
+  const { ctx } = makeCtx();
+  assert.throws(() => preferencesFile.saveBlock(ctx, 'nonsense', {}), /unknown preferences block/);
 }
 
 console.log('preferences_file: passed');

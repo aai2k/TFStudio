@@ -7,6 +7,8 @@
  * avoids creating a canvas whose drawable area is empty.
  */
 
+import { observeResize } from './observeResize.js';
+
 const { useEffect, useRef } = React;
 
 function numericInset(value) {
@@ -276,16 +278,15 @@ export function useChartTeardown(divRef, chartRef, onResize) {
     useEffect(() => {
         const element = divRef.current;
         if (!element) return undefined;
-        const observer = new ResizeObserver(() => {
+        const observer = observeResize(element, () => {
             // ResizeObserver runs after layout and before paint. Resizing here
             // keeps the canvas in lockstep with the docking pane; deferring to
             // requestAnimationFrame exposes one frame of empty background.
             resizeChart(element, chartRef);
             resizeCallbackRef.current?.(chartRef.current);
         });
-        observer.observe(element);
         return () => {
-            observer.disconnect();
+            observer?.disconnect();
             const chart = chartRef.current || chartForElement(element);
             if (chart && !chart.isDisposed?.()) chart.dispose();
             chartRef.current = null;

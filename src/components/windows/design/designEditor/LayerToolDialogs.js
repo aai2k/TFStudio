@@ -13,7 +13,6 @@ function DialogFrame({ title, c, children, onClose }) {
             position: 'fixed', inset: 0, zIndex: 1100, display: 'flex',
             alignItems: 'center', justifyContent: 'center', background: 'rgba(0,0,0,0.68)',
         },
-        onMouseDown: event => { if (event.target === event.currentTarget) onClose(); },
     }, h('div', {
         style: {
             width: 470, maxWidth: '92vw', maxHeight: '86vh', overflow: 'auto',
@@ -47,6 +46,9 @@ function NumberInput({ value, onChange, min, max, step, c, width = 90 }) {
 
 function Footer({ c, strings, onClose, onApply, applyLabel, disabled = false }) {
     const button = primary => ({
+        // A native button does not inherit the dialog's font, so every one of
+        // them has to ask for it or they render in the browser default.
+        font: 'inherit',
         padding: '6px 15px', borderRadius: 5, cursor: disabled && primary ? 'default' : 'pointer',
         border: `1px solid ${primary ? c.accent : c.border}`,
         color: primary ? '#fff' : c.text, background: primary ? c.accent : 'transparent',
@@ -166,6 +168,7 @@ export function PerturbDialog({ design, side, c, t, onApply, onClose }) {
             h('button', {
                 onClick: () => setSample(makePerturbationMap(design[key] || [])),
                 style: {
+                    font: 'inherit',
                     height: 25, padding: '0 9px', color: c.text, background: 'transparent',
                     border: `1px solid ${c.border}`, borderRadius: 4, cursor: 'pointer',
                 },

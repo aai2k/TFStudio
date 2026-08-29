@@ -862,9 +862,28 @@ function ellipsometricAngles(absS, argS, absP, argP) {
  * @param {string} convention
  * @returns {number[]} degrees in [0°, 360°)
  */
+const conjugateDelta = delta => delta.map(value => (((360 - value) % 360) + 360) % 360);
+
 export function toDeltaConvention(delta, convention) {
     if (convention !== 'azzam') return delta;
-    return delta.map(value => (((360 - value) % 360) + 360) % 360);
+    return conjugateDelta(delta);
+}
+
+/**
+ * Δ moved from the convention it is already in to another one.
+ *
+ * The two conventions differ by that same conjugation, which is its own
+ * inverse, so the direction does not change the arithmetic. Used to draw a
+ * measured curve, which is in whatever convention its file was written in,
+ * against a calculated curve drawn in the convention the user picked.
+ *
+ * @param {number[]} delta  degrees
+ * @param {string} from     the convention the values are in
+ * @param {string} to       the convention to draw them in
+ * @returns {number[]} degrees in [0°, 360°)
+ */
+export function convertDeltaConvention(delta, from, to) {
+    return from === to ? delta : conjugateDelta(delta);
 }
 
 export function computeEllipsometry(lambda_nm, theta_deg, n0, ns, layers) {

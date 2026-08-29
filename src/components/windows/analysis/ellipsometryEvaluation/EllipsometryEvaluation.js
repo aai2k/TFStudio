@@ -10,7 +10,7 @@ import { csvFromRows } from '../../../ui/ResultsSection.js';
 import { AnalysisWindow, CenteredMessage } from '../chrome/layout.js';
 import { EllipsometryControls } from './EllipsometryControls.js';
 import { buildEllipsometryTable, EllipsometryResults } from './EllipsometryResults.js';
-import { sideSummary } from './model.js';
+import { measuredEllipsometryOverlays, sideSummary } from './model.js';
 import { useEllipsometryEvaluation } from './useEllipsometryEvaluation.js';
 import { useAnalysisColors } from '../../../../state/AnalysisSettingsContext.js';
 
@@ -43,6 +43,11 @@ export function EllipsometryEvaluation({ c, theme, t }) {
         }),
         h(EllipsometryResults, {
             c, t, text, state, table, hasData,
+            overlays: measuredEllipsometryOverlays(design, {
+                mode: state.mode, side: state.side,
+                showPsi: state.showPsi, showDelta: state.showDelta,
+                deltaConvention: state.deltaConvention,
+            }),
             exportMenu: h(ExportMenu, {
                 c, enabled: table.rows.length > 0, ...csv,
                 labels: {

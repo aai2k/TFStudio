@@ -124,7 +124,7 @@ for (const code of ['en', 'ru']) {
   ok(loc && loc.report, `getLocale('${code}').report exists`);
   ok(loc.report.sectionTitles && loc.report.sectionTitles['optical-eval'], `${code} report.sectionTitles populated`);
   ok(loc.report.wizard && loc.report.wizard.generate, `${code} report.wizard populated`);
-  ok(loc.menu.exportReport, `${code} menu.exportReport string present`);
+  ok(loc.toolbar.buttons['report-gen'], `${code} Report Generator ribbon label present`);
   const tr = { ...loc.report, kinds: (loc.specification && loc.specification.kinds) || {} };
   const doc = composeReport({ lang: code, tr, sections: ['optical-eval', 'qualifiers'], perSection,
     cover: { title: 'X' }, designs: [{ design, data }], meta: {} });

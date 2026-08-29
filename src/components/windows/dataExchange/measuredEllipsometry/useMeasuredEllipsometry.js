@@ -122,6 +122,15 @@ export function useMeasuredEllipsometry(mx) {
         });
     }, [design, updateDesign, checkpoint]);
 
+    // Visibility is a view state, not an edit, so it takes no undo checkpoint.
+    const toggleCurve = useCallback((id) => {
+        updateDesign({
+            measuredEllipsometry: ellipsometryCurves(design).map(curve => (
+                curve.id === id ? { ...curve, visible: curve.visible === false } : curve
+            )),
+        });
+    }, [design, updateDesign]);
+
     const removeCurve = useCallback((id) => {
         checkpoint();
         updateDesign({
@@ -191,7 +200,7 @@ export function useMeasuredEllipsometry(mx) {
         onImport, loading, status, cosDeltaCurve,
         onAddSelected: () => addCurves([previewColumn]),
         onAddAll: () => addCurves(previewCurves.filter((_, index) => !!columnQuantity(index))),
-        updateCurve, removeCurve,
+        updateCurve, toggleCurve, removeCurve,
         expSource, setExpSource: value => setField('expSource', value),
         expXUnit, setExpXUnit: value => setField('expXUnit', value),
         expSelected, setExpSelected: (id, on) => setField('expSelected', { ...expSelected, [id]: on }),

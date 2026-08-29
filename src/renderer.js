@@ -3,7 +3,6 @@ import { parseVscodeTheme } from './utils/theme/vscodeTheme.js';
 import { getLocale, getCurrentLocale, saveLocale } from './constants/locales.js';
 import { MessageNotification } from './components/ui/MessageNotification.js';
 import { TitleBar } from './components/TitleBar.js';
-import { MenuBar } from './components/MenuBar.js';
 import { Toolbar } from './components/Toolbar.js';
 import { ProjectExplorer } from './components/panels/ProjectExplorer.js';
 import { updateExplorerItemMtime } from './components/panels/projectExplorerModel.js';
@@ -55,6 +54,30 @@ const MAX_HISTORY = 50;
 const WELCOME_SEEN_KEY = 'tfstudio-welcome-seen';
 // Completed tutorial keys — JSON array in localStorage.
 const TUTORIALS_DONE_KEY = 'tfstudio-tutorials-done';
+
+// The theme lives in settings.json, which is read over IPC and so arrives a
+// frame or two after React has already painted. Mirroring it here, where it can
+// be read synchronously, is what stops the app opening in the default light
+// palette and switching to the user's a moment later.
+const APPEARANCE_KEY = 'tfstudio-appearance';
+
+function cachedAppearance() {
+    try { return JSON.parse(localStorage.getItem(APPEARANCE_KEY)) || {}; }
+    catch (_) { return {}; }
+}
+
+// The imported themes have to be registered before the first paint too, or a
+// custom theme name resolves to nothing on the way through.
+function initialTheme() {
+    const cached = cachedAppearance();
+    if (cached.customThemes && typeof cached.customThemes === 'object') {
+        // Pruned the same way the disk copy is, so a cached import cannot
+        // shadow the built-in it was named after for one frame.
+        try { registerCustomThemes(pruneBuiltInThemeNames(cached.customThemes)); }
+        catch (_) { /* an unusable cache just costs this launch its first paint */ }
+    }
+    return getPaletteNames().includes(cached.theme) ? cached.theme : 'Light';
+}
 
 // ── Session persistence (v3: designs + per-design undo/redo history) ───────────
 // History is persisted so undo/redo survives an app restart, per the working-
@@ -243,15 +266,16 @@ const App = () => {
         try { return new Set(JSON.parse(localStorage.getItem(TUTORIALS_DONE_KEY) || '[]')); }
         catch (_) { return new Set(); }
     });
-    const [theme,          setTheme]          = useState('Light');
+    const [theme,          setTheme]          = useState(initialTheme);
     // Imported VS Code themes: { [name]: paletteObject }. Registered into the
     // palette module so getPalette()/getPaletteNames() see them like built-ins,
     // and persisted in settings.json alongside the selected theme name.
-    const [customThemes,   setCustomThemes]   = useState({});
+    const [customThemes,   setCustomThemes]   = useState(() => cachedAppearance().customThemes || {});
     const [locale,         setLocaleState]    = useState(getCurrentLocale());
     // Ribbon appearance: 'minimalist' (default) keeps ribbon +
     // docking-tab icons monochrome; 'colorful' tints them by group hue.
-    const [ribbonStyle,    setRibbonStyle]    = useState('minimalist');
+    const [ribbonStyle,    setRibbonStyle]    = useState(
+        () => cachedAppearance().ribbonStyle || 'minimalist');
     // WASM TMM acceleration. ON by default (opt-out): a
     // missing persisted setting is treated as enabled; only an explicit `false`
     // disables it. Toggled in Settings; flips the runtime flag (main thread +
@@ -261,6 +285,9 @@ const App = () => {
     // Analysis-window display overrides as stored in the preferences file;
     // resolved against the factory registry by AnalysisSettingsProvider.
     const [analysisSettings, setAnalysisSettings] = useState(null);
+    // null until the preferences file is read, and again if the user has never
+    // chosen: the title bar falls back to its own default list.
+    const [quickAccess, setQuickAccessState] = useState(null);
     // Update check. On by default (opt-out): the request is an unauthenticated
     // GET to a public API that sends no identifiers and stores nothing, and the
     // toggle exists for restricted networks.
@@ -444,6 +471,10 @@ const App = () => {
         r.setProperty('--tf-warning',      c.warning);
         r.setProperty('--tf-error',        c.error);
         r.setProperty('--tf-info',         c.info);
+        // The window frame paints with its own colour, not the document's, in
+        // any area a resize exposes. Keep it on the theme.
+        document.body.style.backgroundColor = c.bg;
+        window.electronAPI?.setWindowBackground?.(c.bg);
     }, [c]);
 
     // ── Session save (debounced 500 ms) ────────────────────────────────────────
@@ -619,24 +650,6 @@ const App = () => {
         }
     }, [activeDesignId, persistProjectChange, t]);
 
-    // ── Keyboard shortcuts ────────────────────────────────────────────────────
-    useEffect(() => {
-        const onKey = (e) => {
-            const mod = e.ctrlKey || e.metaKey;
-            if (mod && e.key === 's') { e.preventDefault(); saveDesignToDisk(); }
-            if (mod && !e.shiftKey && e.key === 'z') { e.preventDefault(); undo(); }
-            if (mod && (e.key === 'y' || (e.shiftKey && e.key === 'z'))) { e.preventDefault(); redo(); }
-            if (e.key === 'F1') {
-                e.preventDefault();
-                if (window.electronAPI && window.electronAPI.openHelp) {
-                    window.electronAPI.openHelp({ anchor: 'index', locale });
-                }
-            }
-        };
-        document.addEventListener('keydown', onKey);
-        return () => document.removeEventListener('keydown', onKey);
-    }, [saveDesignToDisk, undo, redo, locale]);
-
     // ── Disk I/O ──────────────────────────────────────────────────────────────
 
     const loadFoldersFromDisk = async ({ restoreSession = true, restoreLayout = true } = {}) => {
@@ -761,7 +774,15 @@ const App = () => {
         setAnalysisSettings(prefs?.analysis && typeof prefs.analysis === 'object'
             ? prefs.analysis
             : {});
+        setQuickAccessState(Array.isArray(prefs?.quickAccess) ? prefs.quickAccess : null);
     };
+
+    // Written straight through rather than on a debounce: the list changes one
+    // button at a time, and it has to survive the app being closed right after.
+    const setQuickAccess = useCallback((toolIds) => {
+        setQuickAccessState(toolIds);
+        window.electronAPI?.saveQuickAccess?.(toolIds);
+    }, []);
 
     // Main-process directory getters switch immediately after a successful
     // Settings change. Refresh the corresponding renderer registry in the same
@@ -780,7 +801,18 @@ const App = () => {
             await window.electronAPI.saveSettings({
                 theme, locale, wasmTmm, ribbonStyle, customThemes,
                 updateCheckEnabled, skippedVersion,
+                // The colour the window frame paints with. Electron fills a
+                // newly exposed area during a resize, and the whole window
+                // before the first frame, with the window's own background, so
+                // it has to be the theme's or both flash the wrong colour.
+                windowBackground: c.bg,
             });
+        }
+        try {
+            localStorage.setItem(APPEARANCE_KEY,
+                JSON.stringify({ theme, ribbonStyle, customThemes }));
+        } catch (_) {
+            // A full or disabled store only costs the next launch its first paint.
         }
     };
 
@@ -942,6 +974,37 @@ const App = () => {
             setToolRequests(prev => [...prev, { toolId: 'design-editor', ts: Date.now() }]);
         }
     }, [selectedFolder, addItemFromDesign, existingDesignNames]);
+
+    // ── Keyboard shortcuts ────────────────────────────────────────────────────
+    useEffect(() => {
+        const onKey = (e) => {
+            const mod = e.ctrlKey || e.metaKey;
+            if (mod && e.key === 's') { e.preventDefault(); saveDesignToDisk(); }
+            if (mod && e.key === 'n') { e.preventDefault(); addItem(); }
+            if (mod && e.key === 'o') { e.preventDefault(); openDesignFromFile(); }
+            if (mod && e.key === ',') { e.preventDefault(); setShowSettings(true); }
+            if (mod && e.key === '1') {
+                e.preventDefault();
+                setLayoutRequest({ type: 'preset', id: 'filter-design', ts: Date.now() });
+            }
+            if (mod && !e.shiftKey && e.key === 'z') { e.preventDefault(); undo(); }
+            if (mod && (e.key === 'y' || (e.shiftKey && e.key === 'z'))) { e.preventDefault(); redo(); }
+            if (e.key === 'F1') {
+                e.preventDefault();
+                if (window.electronAPI && window.electronAPI.openHelp) {
+                    window.electronAPI.openHelp({ anchor: 'index', locale });
+                }
+            }
+            if (e.key === 'F11') {
+                e.preventDefault();
+                document.fullscreenElement
+                    ? document.exitFullscreen()
+                    : document.documentElement.requestFullscreen();
+            }
+        };
+        document.addEventListener('keydown', onKey);
+        return () => document.removeEventListener('keydown', onKey);
+    }, [saveDesignToDisk, addItem, openDesignFromFile, undo, redo, locale]);
 
     // ── Save As: persist the active design under a new name as a separate file ──
     const saveDesignAs = useCallback(() => {
@@ -1281,12 +1344,6 @@ const App = () => {
             'about':         () => setShowAbout(true),
             'welcome':       () => setShowWelcome(true),
             'tutorials':     () => setShowTutorials(true),
-            'open-settings': () => setShowSettings(true),
-            'new-design':    () => addItem(),
-            'save':          () => saveDesignToDisk(),
-            'export-report': () => setShowReportGen(true),
-            'undo':          () => undo(),
-            'redo':          () => redo(),
             'help-docs':     () => window.electronAPI?.openHelp?.({ anchor: 'index', locale }),
 
             'layout-filter-design': () => setLayoutRequest({ type: 'preset', id: 'filter-design', ts: Date.now() }),
@@ -1299,7 +1356,7 @@ const App = () => {
         if (action.startsWith('tool:')) {
             setToolRequests(prev => [...prev, { toolId: action.slice(5), ts: Date.now() }]);
         }
-    }, [addItem, saveDesignToDisk, undo, redo, locale]);
+    }, [locale]);
 
     const handleToolAction = useCallback((toolId) => {
         const actions = {
@@ -1309,6 +1366,7 @@ const App = () => {
             'open-project':   () => openDesignFromFile(),
             'undo':           () => undo(),
             'redo':           () => redo(),
+            'preferences':    () => setShowSettings(true),
             'filter-design':  () => setShowFilterDesign(true),
             'bbm-simulator':  () => setShowBBM(true),
             'mono-simulator': () => setShowMono(true),
@@ -1389,9 +1447,8 @@ const App = () => {
                 fontFamily: 'system-ui, -apple-system, sans-serif'
             }
         },
-            h(TitleBar,  { c, t, activeDesign, isDirty: isActiveDirty }),
-            h(MenuBar,   { c, onMenuAction: handleMenuAction, t, devAllowed }),
-            h(Toolbar,   { c, t, onToolAction: handleToolAction, openWindows: openWindowIds, ribbonStyle }),
+            h(TitleBar,  { c, t, activeDesign, isDirty: isActiveDirty, onToolAction: handleToolAction, quickAccess }),
+            h(Toolbar,   { c, t, onToolAction: handleToolAction, onMenuAction: handleMenuAction, devAllowed, ribbonStyle }),
             h('div', { style: { display: 'flex', flex: 1, overflow: 'hidden' } },
                 h(ProjectExplorer, {
                     folders, selectedFolder, selectedItem, selectedItems,
@@ -1424,6 +1481,7 @@ const App = () => {
                 onUserPathChanged: handleUserPathChanged,
                 canChangeUserPath: (key) => key !== 'projects' || !Object.values(dirtyDesigns).some(Boolean),
                 ribbonStyle, setRibbonStyle,
+                quickAccess, setQuickAccess,
                 customThemes,
                 onImportTheme: importThemeFromVscode,
                 onDeleteTheme: deleteCustomTheme,

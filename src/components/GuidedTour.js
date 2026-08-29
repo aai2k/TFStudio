@@ -16,13 +16,14 @@ const { createElement: h, useState, useEffect, useCallback, useRef } = React;
 
 // Ordered tour steps. `sel` resolves a data-tour anchor; `k` keys into
 // t.tour.steps[k] = { title, body }; `placement` is the preferred card side.
+// `tab` names the ribbon tab that has to be showing for the anchor to exist.
 const STEPS = [
     { sel: '[data-tour="explorer"]',           k: 'explorer',     placement: 'right'  },
-    { sel: '[data-tour="ribbon-design"]',      k: 'design',       placement: 'bottom' },
-    { sel: '[data-tour="ribbon-analysis"]',    k: 'analysis',     placement: 'bottom' },
-    { sel: '[data-tour="ribbon-optimization"]',k: 'optimization', placement: 'bottom' },
+    { sel: '[data-tour="ribbon-setup"]',       k: 'design',       placement: 'bottom', tab: 'setup'        },
+    { sel: '[data-tour="ribbon-analysis"]',    k: 'analysis',     placement: 'bottom', tab: 'analysis'     },
+    { sel: '[data-tour="ribbon-optimization"]',k: 'optimization', placement: 'bottom', tab: 'optimization' },
     { sel: '[data-tour="docking"]',            k: 'workspace',    placement: 'left'   },
-    { sel: '[data-tour="ribbon-information"]', k: 'help',         placement: 'bottom' },
+    { sel: '[data-tour="ribbon-help"]',        k: 'help',         placement: 'bottom', tab: 'help'         },
 ];
 
 const PAD = 6;          // spotlight padding around the target
@@ -37,6 +38,13 @@ export function GuidedTour({ c, t, onClose }) {
     const last = idx === steps.length - 1;
     const tt = t.tour;
     const stepText = tt.steps[step.k] || { title: '', body: '' };
+
+    // Ribbon steps point at a tab's own buttons, so ask the ribbon to show that
+    // tab before measuring the anchor.
+    useEffect(() => {
+        if (!step?.tab) return;
+        window.dispatchEvent(new CustomEvent('tfstudio:ribbon-tab', { detail: step.tab }));
+    }, [step]);
 
     const rect = useTargetRect(step?.sel);
 

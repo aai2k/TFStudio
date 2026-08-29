@@ -1,5 +1,5 @@
 import {
-    cartesianOption, formatChartNumber, formatChartReadout, niceTickInterval,
+    cartesianOption, formatChartNumber, formatChartReadout, niceTickInterval, tooltipContainer,
 } from '../../../ui/chartOptions.js';
 
 const COLOR_SCALES = {
@@ -57,7 +57,7 @@ function parameterLabelInterval(data) {
 
 function sweepTooltip(sweepData, colors) {
     return {
-        trigger: 'item', appendToBody: true, confine: true,
+        trigger: 'item', appendTo: tooltipContainer, confine: true,
         transitionDuration: 0, enterable: false, padding: [5, 7],
         backgroundColor: colors.paper || colors.panel,
         borderColor: colors.border,

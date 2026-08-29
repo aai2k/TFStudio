@@ -12,6 +12,7 @@
 const { createElement: h, useState, useRef, useEffect, useCallback } = React;
 
 import { attachTabWheelScroll } from '../docking/tabWheel.js';
+import { observeResize } from './observeResize.js';
 
 // Fraction of the visible width one arrow click aims to move, leaving a tab or so
 // of overlap so nothing is stepped over between one click and the next.
@@ -114,8 +115,7 @@ export function PickerTabs({ groups, catFilter, setCatFilter, allLabel, c }) {
         const strip = stripRef.current;
         if (!strip) return undefined;
         measure();
-        const observer = typeof ResizeObserver !== 'undefined' ? new ResizeObserver(measure) : null;
-        if (observer) observer.observe(strip);
+        const observer = observeResize(strip, measure);
         return () => { if (observer) observer.disconnect(); };
     }, [groups.length, measure]);
 

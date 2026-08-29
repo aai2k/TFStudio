@@ -4,6 +4,7 @@
 // getMainWindow, helpServer, safe* path helpers, dir paths, …) and
 // calls registerAllIpc(ipcMain, ctx). Each module exports register(ipcMain, ctx).
 const appWindow = require('./appWindow');
+const dragGhost = require('../dragGhost');
 const wasm = require('./wasm');
 const projects = require('./projects');
 const catalogs = require('./catalogs');
@@ -21,6 +22,7 @@ const updates = require('./updates');
 
 function registerAllIpc(ipcMain, ctx) {
   appWindow.register(ipcMain, ctx);
+  dragGhost.register(ipcMain, ctx);
   wasm.register(ipcMain, ctx);
   projects.register(ipcMain, ctx);
   catalogs.register(ipcMain, ctx);

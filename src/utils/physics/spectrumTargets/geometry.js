@@ -62,14 +62,21 @@ function measuredGeometry(operand) {
     };
 }
 
-// Sort the enabled operands into the three shapes a target can take. A measured
-// block is drawn whether or not the curve it came from is still on this design:
-// a merit function loaded from a preset carries the snapshot but not the curve.
-function classifyTargets(operands) {
+// Sort the enabled operands into the three shapes a target can take.
+//
+// A measured block carries a snapshot of the curve it was fitted to, and is
+// drawn from that snapshot when the curve itself is not on the plot: a merit
+// function loaded from a preset carries the block but not the curve. When the
+// curve IS on the plot, `drawnCurveIds` names it and the block is skipped, or
+// the same measurement would be drawn twice, once as itself and once as a
+// nameless target line at identical values.
+function classifyTargets(operands, drawnCurveIds) {
     const measured = [], bands = [], points = [];
     for (const operand of operands || []) {
         if (!operand.enabled) continue;
-        if (operand.type === 'MCURVE') measured.push(operand);
+        if (operand.type === 'MCURVE') {
+            if (!drawnCurveIds?.has(operand.curveId)) measured.push(operand);
+        }
         else if (!OPTICAL_TYPES.has(operand.type)) continue;
         else if (isBandType(operand.type)) bands.push(operand);
         else points.push(operand);
@@ -77,8 +84,8 @@ function classifyTargets(operands) {
     return { measured, bands, points };
 }
 
-export function buildTargetGeometry(operands) {
-    const { measured, bands, points: pointOperands } = classifyTargets(operands);
+export function buildTargetGeometry(operands, { drawnCurveIds } = {}) {
+    const { measured, bands, points: pointOperands } = classifyTargets(operands, drawnCurveIds);
     const lines = measured.map(measuredGeometry).filter(Boolean);
     const markers = [];
     for (const operand of bands) {

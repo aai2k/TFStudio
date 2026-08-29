@@ -11,8 +11,8 @@ PDF** file, available in **English or Russian**, and it reuses the same
 validated calculation engines as the analysis windows, so every number in the
 report matches what you see in the app.
 
-Open it from the **Report** button in the Information ribbon group, or from
-**File → Export Report**. It runs as a 6-step wizard.
+Open it from the **Report** button on the **Production** ribbon tab. It runs
+as a 6-step wizard.
 
 ## Settings
 

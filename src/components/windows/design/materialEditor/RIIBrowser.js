@@ -21,7 +21,6 @@ export function RIIBrowser({ c, t, onClose, onAdded }) {
             backgroundColor: 'rgba(0,0,0,0.55)',
             display: 'flex', alignItems: 'center', justifyContent: 'center',
         },
-        onMouseDown: (e) => { if (e.target === e.currentTarget) onClose(); },
     },
         h('div', {
             style: {

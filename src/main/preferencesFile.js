@@ -5,11 +5,13 @@
 // therefore lives here instead, under the configurable Preferences folder in
 // Documents, where it survives a reinstall and can be copied to another machine.
 //
-// The file holds one block, `analysis`: every configured value an analysis
+// The file holds two blocks. `analysis` is every configured value an analysis
 // window starts from, keyed by window id and grouped by kind (colours, numbers,
-// enums, booleans, lists). Settings → Analysis edits it field by field and a
+// enums, booleans, lists); Preferences → Analysis edits it field by field and a
 // window's Save button writes what the window is set to into the same block, so
-// the two screens cannot show different values for one setting.
+// the two screens cannot show different values for one setting. `quickAccess`
+// is the list of tool ids in the title bar, or null while the user has not
+// chosen, which is not the same as an empty list they cleared on purpose.
 //
 // CommonJS, Electron-free (deps injected) so the logic is testable.
 
@@ -20,7 +22,7 @@ const FILE_NAME = 'window-defaults.json';
 // not destroy settings the older release cannot represent.
 const PREFERENCES_VERSION = 1;
 
-const EMPTY = { version: PREFERENCES_VERSION, analysis: {} };
+const EMPTY = { version: PREFERENCES_VERSION, analysis: {}, quickAccess: null };
 
 function preferencesPath(ctx) {
   return ctx.path.join(ctx.userPaths.get('preferences'), FILE_NAME);
@@ -30,15 +32,24 @@ function plainObject(value) {
   return value && typeof value === 'object' && !Array.isArray(value) ? value : {};
 }
 
+// null means "never chosen", so the app can fall back to its own default list.
+function stringList(value) {
+  if (!Array.isArray(value)) return null;
+  return value.filter(entry => typeof entry === 'string' && entry);
+}
+
+// How each block is read back off disk and written to it. A block missing from
+// here is dropped rather than passed through.
+const BLOCKS = { analysis: plainObject, quickAccess: stringList };
+
 // Anything unrecognised is dropped rather than passed through. The renderer
 // validates each field against its registry entry on top of this, so a
 // hand-edited value of the wrong kind never reaches a plot.
 function normalize(raw) {
   if (!raw || typeof raw !== 'object') return { ...EMPTY };
-  return {
-    version: Number.isInteger(raw.version) ? raw.version : PREFERENCES_VERSION,
-    analysis: plainObject(raw.analysis),
-  };
+  const out = { version: Number.isInteger(raw.version) ? raw.version : PREFERENCES_VERSION };
+  for (const [name, read] of Object.entries(BLOCKS)) out[name] = read(raw[name]);
+  return out;
 }
 
 function readFile(ctx) {
@@ -85,13 +96,15 @@ function load(ctx) {
 
 /** Replace one top-level block, leaving the other as it is on disk. */
 function saveBlock(ctx, name, block) {
+  const read = BLOCKS[name];
+  if (!read) throw new Error(`unknown preferences block: ${name}`);
   const current = load(ctx);
-  const next = { ...current, version: PREFERENCES_VERSION, [name]: plainObject(block) };
+  const next = { ...current, version: PREFERENCES_VERSION, [name]: read(block) };
   writeFile(ctx, next);
   return next;
 }
 
 module.exports = {
-  FILE_NAME, PREFERENCES_VERSION,
+  FILE_NAME, PREFERENCES_VERSION, BLOCKS,
   preferencesPath, load, saveBlock, normalize,
 };

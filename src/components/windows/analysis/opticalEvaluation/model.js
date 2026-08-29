@@ -51,17 +51,22 @@ function hexToRgba(hex, alpha) {
     return `rgba(${red},${green},${blue},${alpha})`;
 }
 
+export function visibleOverlays(overlays) {
+    return (overlays || []).filter(curve => curve && curve.visible !== false && curve.x?.length);
+}
+
 export function buildMeasuredSeries(overlays) {
-    return (overlays || []).filter(curve => curve && curve.visible !== false && curve.x?.length).map(curve => {
+    return visibleOverlays(overlays).map((curve) => {
         const data = measuredCurveData(curve);
-        const series = lineSeries({
-            x: data.x, y: data.y.map(value => value * 100),
-            name: `${curve.name} (${curve.quantity} meas)`, color: curve.color,
-            width: 1.4, dash: 'dotted', symbol: 'circle', symbolSize: 4,
+        return lineSeries({
+        x: data.x, y: data.y.map(value => value * 100),
+        name: `${curve.name} (${curve.quantity} meas)`, color: curve.color,
+        // `emptyCircle` draws the reading hollow, so measured points stay
+        // distinct from a computed curve, while the tooltip swatch keeps the
+        // curve's real colour. Filling the symbol with transparent instead
+        // leaves the tooltip with an invisible marker.
+        width: 1.4, dash: 'dotted', symbol: 'emptyCircle', symbolSize: 4,
         });
-        series.itemStyle.color = 'transparent';
-        series.itemStyle.borderColor = curve.color;
-        return series;
     });
 }
 
@@ -89,7 +94,12 @@ function computedSeries(data, showCurves, curveColors) {
 export function buildChartSeries({ data, showCurves, targets, targetsVisible, overlays, curveColors }) {
     const output = data?.lambda && data?.series?.length ? computedSeries(data, showCurves, curveColors) : [];
     output.push(...buildMeasuredSeries(overlays));
-    if (targetsVisible) output.push(...targetSeries(buildTargetGeometry(targets)));
+    if (targetsVisible) {
+        // A fit target whose curve is already drawn above must not be drawn a
+        // second time from its own snapshot.
+        const drawnCurveIds = new Set(visibleOverlays(overlays).map(curve => curve.id));
+        output.push(...targetSeries(buildTargetGeometry(targets, { drawnCurveIds })));
+    }
     return output;
 }
 
@@ -112,10 +122,13 @@ export function buildChartOption(options) {
         splitNumber: spectralUnit === 'nm' ? 8 : undefined,
     });
     xAxis.axisLabel = { ...xAxis.axisLabel, ...spectral.axisLabel };
+    // A measured overlay is on the instrument's wavelength grid, not the
+    // design's, so the tooltip is given the series to read them all itself.
+    const series = buildChartSeries({ data, showCurves, targets, targetsVisible, overlays, curveColors });
     return cartesianOption({
         colors: { background: bgColor, paper: paperColor, grid: gridColor, text: textColor },
         grid: plotMargin(),
-        tooltip: drawing ? { show: false } : axisTooltip(yScaleTooltip(yScale)),
+        tooltip: drawing ? { show: false } : axisTooltip({ ...yScaleTooltip(yScale), series }),
         toolbox: chartToolbox('spectrum', { dataZoom: !drawing, restore: true }),
         xAxis,
         yAxis: valueAxis({
@@ -129,7 +142,7 @@ export function buildChartOption(options) {
             type: 'inside', xAxisIndex: 0, filterMode: 'none',
             zoomOnMouseWheel: true, moveOnMouseMove: false, moveOnMouseWheel: false,
         }],
-        series: buildChartSeries({ data, showCurves, targets, targetsVisible, overlays, curveColors }),
+        series,
     });
 }
 

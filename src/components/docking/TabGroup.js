@@ -2,11 +2,12 @@ const { createElement: h, useState, useRef, useCallback, useEffect } = React;
 import { HelpButton } from '../ui/HelpButton.js';
 import { ICONS, iconColorForTool } from '../Toolbar.js';
 import { attachTabWheelScroll } from './tabWheel.js';
+import { observeResize } from '../ui/observeResize.js';
 
 // Mini tool icon for a docking tab. Scaled to 14px to sit beside
 // the tab title. In colorful mode it wears the tool's group hue; otherwise it
 // inherits the surrounding text color. Returns null for tools with no icon.
-function TabIcon({ toolId, colorful, dim }) {
+export function TabIcon({ toolId, colorful, dim }) {
   const icon = ICONS[toolId];
   if (!icon) return null;
   const tint = colorful ? iconColorForTool(toolId) : null;
@@ -18,21 +19,35 @@ function TabIcon({ toolId, colorful, dim }) {
   }, h('span', { style: { display: 'flex', flexShrink: 0, transform: 'scale(0.7)', transformOrigin: 'top left' } }, icon));
 }
 
-// Drop zones: each defines a screen region + what action it triggers.
+// Drop targets are a compass at the centre of the group rather than five
+// translucent slabs over it: the buttons are small and explicit, the pane stays
+// readable while dragging, and a drop that misses them all means "not here".
+//
+// `box` positions each button inside a 108×108 pad centred on the pane;
+// `preview` is the share of the pane the drop would take, shaded so the result
+// is visible before the mouse is released.
+const PAD = 108;
+const BTN = 32;
+const MID = (PAD - BTN) / 2;
 const ZONES = [
-  { id: 'center', label: '⊕',
-    box: { top: '20%', left: '20%', right: '20%', bottom: '20%' } },
-  { id: 'top',    label: '↑',
-    box: { top: 0, left: '10%', right: '10%', height: '22%' } },
-  { id: 'bottom', label: '↓',
-    box: { bottom: 0, left: '10%', right: '10%', height: '22%' } },
-  { id: 'left',   label: '←',
-    box: { top: '10%', bottom: '10%', left: 0, width: '22%' } },
-  { id: 'right',  label: '→',
-    box: { top: '10%', bottom: '10%', right: 0, width: '22%' } },
+  { id: 'center', arrow: null,
+    box: { left: MID, top: MID },
+    preview: { inset: 0 } },
+  { id: 'top',    arrow: 'M6 10.5L11 5.5L16 10.5',
+    box: { left: MID, top: MID - BTN - 4 },
+    preview: { left: 0, right: 0, top: 0, height: '50%' } },
+  { id: 'bottom', arrow: 'M6 5.5L11 10.5L16 5.5',
+    box: { left: MID, top: MID + BTN + 4 },
+    preview: { left: 0, right: 0, bottom: 0, height: '50%' } },
+  { id: 'left',   arrow: 'M10.5 5L5.5 10L10.5 15',
+    box: { left: MID - BTN - 4, top: MID },
+    preview: { top: 0, bottom: 0, left: 0, width: '50%' } },
+  { id: 'right',  arrow: 'M5.5 5L10.5 10L5.5 15',
+    box: { left: MID + BTN + 4, top: MID },
+    preview: { top: 0, bottom: 0, right: 0, width: '50%' } },
 ];
 
-export function TabGroup({ node, c, dragActive, dragSrcGroupId, dragInsertRef, dropTargetRef, onTabClick, onTabClose, onTabDragStart, onGroupFocus, renderContent, helpAnchorFor, locale, t, ribbonStyle = 'colorful' }) {
+export function TabGroup({ node, c, dragActive, dragSrcGroupId, dragInsertRef, dropTargetRef, forcedZone, onTabClick, onTabClose, onTabDragStart, onGroupFocus, renderContent, helpAnchorFor, locale, t, ribbonStyle = 'colorful' }) {
   const colorful = ribbonStyle !== 'minimalist';
   const [hovZone,     setHovZone]     = useState(null);
   const [insertAtIdx, setInsertAtIdx] = useState(-1);  // insertion cursor for same-group reorder
@@ -61,8 +76,7 @@ export function TabGroup({ node, c, dragActive, dragSrcGroupId, dragInsertRef, d
     if (!bar) return;
     const measure = () => setOverflowing(bar.scrollWidth > bar.clientWidth + 1);
     measure();
-    const ro = (typeof ResizeObserver !== 'undefined') ? new ResizeObserver(measure) : null;
-    if (ro) ro.observe(bar);
+    const ro = observeResize(bar, measure);
     return () => { if (ro) ro.disconnect(); };
   }, [node.tabs.length]);
 
@@ -138,6 +152,9 @@ export function TabGroup({ node, c, dragActive, dragSrcGroupId, dragInsertRef, d
 
   return h('div', {
     onClick: () => onGroupFocus && onGroupFocus(node.id),
+    // Measured when a tab is torn off, so the drag preview is the shape of the
+    // window being dragged rather than a generic box.
+    'data-dockgroup-root': node.id,
     style: {
       display: 'flex', flexDirection: 'column',
       width: '100%', height: '100%',
@@ -270,30 +287,71 @@ export function TabGroup({ node, c, dragActive, dragSrcGroupId, dragInsertRef, d
     },
       activeTab && renderContent(activeTab),
 
-      // ── Drop zones overlay (visible during any drag) ─────────────────────
-      dragActive && h('div', {
-        style: { position: 'absolute', inset: 0, zIndex: 200, pointerEvents: 'all' }
-      },
-        ZONES.map(zone =>
-          h('div', {
-            key: zone.id,
-            onMouseEnter: () => handleZoneEnter(zone.id),
-            onMouseLeave: () => handleZoneLeave(zone.id),
+      // ── Drop compass (visible during any drag) ───────────────────────────
+      // A drag inside this window highlights a button through mouseenter. A drag
+      // coming from a torn-off window has no pointer in this document, so the
+      // layout hit-tests the buttons by screen position and names the winner in
+      // `forcedZone` instead. `data-dockzone` is what that hit test reads.
+      dragActive && (() => {
+        const litZone = (forcedZone && forcedZone.groupId === node.id)
+          ? forcedZone.zone
+          : hovZone;
+        const lit = ZONES.find(z => z.id === litZone);
+        return h('div', {
+          style: { position: 'absolute', inset: 0, zIndex: 200, pointerEvents: 'none' }
+        },
+          // Where the tool would land, shaded behind the compass.
+          lit && h('div', {
             style: {
-              position: 'absolute', ...zone.box,
-              display: 'flex', alignItems: 'center', justifyContent: 'center',
-              fontSize: 20,
-              backgroundColor: hovZone === zone.id ? c.accent + '55' : 'transparent',
-              border: hovZone === zone.id ? `2px solid ${c.accent}` : '2px dashed transparent',
-              borderRadius: 4,
-              color: hovZone === zone.id ? c.accent : 'transparent',
-              transition: 'background-color 0.1s, border-color 0.1s, color 0.1s',
-              boxSizing: 'border-box',
-              pointerEvents: 'all'
+              position: 'absolute', ...lit.preview,
+              backgroundColor: c.accent + '33',
+              border: `1px solid ${c.accent}`,
+              boxSizing: 'border-box', pointerEvents: 'none',
             }
-          }, hovZone === zone.id ? zone.label : '')
-        )
-      )
+          }),
+
+          h('div', {
+            style: {
+              position: 'absolute', left: '50%', top: '50%',
+              width: PAD, height: PAD, marginLeft: -PAD / 2, marginTop: -PAD / 2,
+              pointerEvents: 'none',
+            }
+          },
+            ZONES.map(zone => {
+              const on = litZone === zone.id;
+              return h('div', {
+                key: zone.id,
+                'data-dockzone': zone.id,
+                'data-dockgroup': node.id,
+                onMouseEnter: () => handleZoneEnter(zone.id),
+                onMouseLeave: () => handleZoneLeave(zone.id),
+                style: {
+                  position: 'absolute', ...zone.box, width: BTN, height: BTN,
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  backgroundColor: on ? c.accent : c.panel,
+                  border: `1px solid ${on ? c.accent : c.border}`,
+                  borderRadius: 4,
+                  color: on ? '#fff' : c.textDim,
+                  boxShadow: '0 2px 8px rgba(0,0,0,0.4)',
+                  transition: 'background-color 0.1s, color 0.1s, border-color 0.1s',
+                  boxSizing: 'border-box', pointerEvents: 'all',
+                }
+              },
+                zone.arrow
+                  ? h('svg', { width: 21, height: 21, viewBox: '0 0 21 21', fill: 'none' },
+                      h('path', {
+                        d: zone.arrow, stroke: 'currentColor', strokeWidth: 1.6,
+                        strokeLinecap: 'round', strokeLinejoin: 'round',
+                      }))
+                  // Centre: a tab joining the group it is dropped on.
+                  : h('svg', { width: 21, height: 21, viewBox: '0 0 21 21', fill: 'none' },
+                      h('rect', { x: 3.5, y: 4.5, width: 14, height: 12, rx: 1, stroke: 'currentColor', strokeWidth: 1.4 }),
+                      h('path', { d: 'M3.5 8.5h14M11 4.5v4', stroke: 'currentColor', strokeWidth: 1.4 }))
+              );
+            })
+          )
+        );
+      })()
     )
   );
 }

@@ -1,4 +1,4 @@
-const { app, BrowserWindow, Menu, ipcMain, shell, dialog } = require('electron');
+const { app, BrowserWindow, Menu, ipcMain, screen, shell, dialog } = require('electron');
 const path = require('path');
 const fs = require('fs');
 const logger = require('./main/logger');
@@ -7,6 +7,7 @@ const { safeName, safeFilePath, readJsonSafe, writeFileAtomic, readTextAuto } = 
 const seed = require('./main/seed');
 const helpServer = require('./main/helpServer');
 const { createUserPaths } = require('./main/userPaths');
+const dragGhost = require('./main/dragGhost');
 const { registerAllIpc } = require('./main/ipc');
 
 const isPackaged = app.isPackaged;
@@ -83,7 +84,24 @@ function appIndexFile() {
 }
 
 
+// The colour the window frame paints with before the renderer has drawn, and in
+// any area a resize exposes. It has to be the current theme's background or the
+// app flashes the wrong colour on startup and along the edge while resizing;
+// the renderer writes it to settings whenever the theme changes. Dark is the
+// safer default for a first run, since the shipped themes mostly are.
+const FALLBACK_WINDOW_BG = '#1e1e1e';
+function windowBackgroundColor() {
+  try {
+    const saved = readJsonSafe(path.join(app.getPath('userData'), 'settings.json'));
+    const color = saved && saved.windowBackground;
+    if (typeof color === 'string' && /^#[0-9a-fA-F]{6}$/.test(color)) return color;
+  } catch (_) { /* settings unreadable: the fallback is fine */ }
+  return FALLBACK_WINDOW_BG;
+}
+
+
 function createWindow() {
+  const backgroundColor = windowBackgroundColor();
   mainWindow = new BrowserWindow({
     width: 1400,
     height: 900,
@@ -95,7 +113,7 @@ function createWindow() {
       devTools: devToolsAllowed,   // off in packaged builds unless launched with --debug
       preload: path.join(__dirname, 'preload.js')
     },
-    backgroundColor: '#eceef1',
+    backgroundColor,
     show: false,
     icon: path.join(__dirname, '..', 'icons', process.platform === 'win32' ? 'tfstudio.ico' : 'tfstudio.png'),
     frame: false,
@@ -125,7 +143,68 @@ function createWindow() {
     mainWindow.webContents.openDevTools();
   }
 
-  mainWindow.on('closed', () => { mainWindow = null; });
+  // Torn-off tool windows. The renderer calls window.open() with a name of
+  // `tfstudio-float-<id>`; the window it gets back is a real top-level window the
+  // user can move to another monitor, but it stays in the main window's renderer
+  // process, so the React tree behind it is the same one and the design needs no
+  // cross-process sync. Anything else asking for a window is denied and sent to
+  // the user's browser instead.
+  // Size and position come from the features string the renderer passes, which
+  // Electron has already turned into window options; these override the rest.
+  mainWindow.webContents.setWindowOpenHandler(({ url, frameName }) => {
+    if (frameName && frameName.startsWith('tfstudio-float-')) {
+      return {
+        action: 'allow',
+        overrideBrowserWindowOptions: {
+          // Frameless, like the main window: the tool draws its own strip with
+          // the window buttons on it, so a torn-off window never shows two
+          // stacked title bars.
+          frame: false,
+          backgroundColor,
+          minWidth: 320,
+          minHeight: 240,
+          icon: path.join(__dirname, '..', 'icons', process.platform === 'win32' ? 'tfstudio.ico' : 'tfstudio.png'),
+          webPreferences: {
+            nodeIntegration: false,
+            contextIsolation: true,
+            devTools: devToolsAllowed,
+            preload: path.join(__dirname, 'preload.js'),
+          },
+        },
+      };
+    }
+    if (/^https?:/i.test(url)) shell.openExternal(url);
+    return { action: 'deny' };
+  });
+
+  mainWindow.webContents.on('did-create-window', (child, { frameName }) => {
+    // A torn-off window draws its own maximize button, so it needs the same
+    // maximize/unmaximize reports the main window gets, addressed to itself.
+    const send = (channel) => () => {
+      if (!child.isDestroyed()) child.webContents.send(channel);
+    };
+    child.on('maximize', send('window-maximized'));
+    child.on('unmaximize', send('window-unmaximized'));
+
+    // Dragging a torn-off window over the layout docks it. The drag is the OS
+    // one, so the renderer sees no mouse events for it: the main process
+    // reports where the cursor is on every move instead, and says when the drag
+    // ended.
+    const tell = (channel) => {
+      if (mainWindow && !mainWindow.isDestroyed()) {
+        mainWindow.webContents.send(channel, {
+          frameName, cursor: screen.getCursorScreenPoint(),
+        });
+      }
+    };
+    child.on('move', () => { if (!child.isDestroyed()) tell('float-window-move'); });
+    child.on('moved', () => { if (!child.isDestroyed()) tell('float-window-dropped'); });
+  });
+
+  // The drag preview is a hidden window between drags, and a hidden window
+  // still counts as open: leaving it alive would stop 'window-all-closed' from
+  // firing and the app would never quit.
+  mainWindow.on('closed', () => { mainWindow = null; dragGhost.destroy(); });
   mainWindow.on('maximize', () => { mainWindow.webContents.send('window-maximized'); });
   mainWindow.on('unmaximize', () => { mainWindow.webContents.send('window-unmaximized'); });
 
