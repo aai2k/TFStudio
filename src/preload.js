@@ -19,6 +19,10 @@ contextBridge.exposeInMainWorld('electronAPI', {
   importVscodeTheme: () => ipcRenderer.invoke('theme:import-vscode'),
   windowControl:    (action) => ipcRenderer.send('window-control', action),
   setWindowBackground: (color) => ipcRenderer.send('window-background', color),
+  // This host can give a tool a top-level OS window of its own, so a tab may be
+  // torn out of the docking layout. Other hosts that stand in for this bridge,
+  // such as the browser demo, have only a popup to offer and leave it undefined.
+  nativeWindows:    true,
   // The preview that follows the cursor while a docked tool is dragged. It is a
   // window rather than an element so it stays visible past the frame edge, which
   // is where a tear-off is aimed.

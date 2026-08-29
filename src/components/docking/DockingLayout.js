@@ -127,6 +127,15 @@ export const LAYOUT_PRESETS = {
 
 const LAYOUT_STORAGE_KEY = 'tfstudio-saved-layout';
 
+// Whether a tool can be given a top-level OS window of its own. The desktop
+// bridge says so outright; hosts that stand in for it, such as the browser
+// demo, have only a popup to offer and leave the flag undefined. Asking for the
+// bridge alone is not enough, since standing in for it is exactly what the
+// browser demo's shim is for.
+export function hasNativeWindows() {
+    return typeof window !== 'undefined' && !!window.electronAPI?.nativeWindows;
+}
+
 // A saved layout is the docked tree plus the tools that were torn off, with the
 // screen rectangle each one occupied. Layouts saved before tear-off existed are
 // a bare tree, and still load.
@@ -177,15 +186,26 @@ export function loadSavedLayout() {
         const isTree = saved && (saved.type === 'tabs' || saved.type === 'split');
         // Re-key on load so restored ids can't collide with this session's
         // freshly-generated ids (H7).
-        return {
-            tree: rekeyTree(isTree ? saved : saved.tree),
-            floats: (isTree ? [] : saved.floats || []).map(f => ({
-                id: newTabId(),
-                toolId: f.toolId,
-                title: f.title || TOOL_CONFIGS[f.toolId]?.title || f.toolId,
-                bounds: clampToScreen(f.bounds, typeof screen !== 'undefined' ? screen : null),
-            })),
-        };
+        let tree = rekeyTree(isTree ? saved : saved.tree);
+        const floats = (isTree ? [] : saved.floats || []).map(f => ({
+            id: newTabId(),
+            toolId: f.toolId,
+            title: f.title || TOOL_CONFIGS[f.toolId]?.title || f.toolId,
+            bounds: clampToScreen(f.bounds, typeof screen !== 'undefined' ? screen : null),
+        }));
+
+        // A layout carrying torn-off tools can reach a host with no window to
+        // put them in. They are docked rather than dropped, so restoring keeps
+        // every tool the layout was saved with.
+        if (floats.length && !hasNativeWindows()) {
+            for (const f of floats) {
+                const group = tree && findFirstGroup(tree);
+                const tab = { id: f.id, toolId: f.toolId, title: f.title };
+                tree = group ? addTab(tree, group.id, tab) : makeGroup([tab]);
+            }
+            return { tree, floats: [] };
+        }
+        return { tree, floats };
     } catch { return null; }
 }
 
@@ -564,7 +584,7 @@ export function DockingLayout({ c, theme, toolRequests, onWindowListChange, layo
         // give: window.open there makes a popup the blocker may eat, and the
         // tab has already left the tree, so the tool would vanish with it. In
         // the browser a drop on nothing leaves the tab where it was.
-        if (window.electronAPI) {
+        if (hasNativeWindows()) {
           tearOff(draggedTab, toScreenPoint(window, ue?.clientX ?? 0, ue?.clientY ?? 0), sourceRect);
         }
       } else if (insert && insert.groupId === fromGroupId) {

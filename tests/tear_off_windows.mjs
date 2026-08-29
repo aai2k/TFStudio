@@ -25,7 +25,7 @@ await loadApp();
 
 const { toScreenPoint, toClientPoint } = await import('../src/components/docking/PopoutWindow.js');
 const { FloatFrame } = await import('../src/components/docking/FloatFrame.js');
-const { clampToScreen, saveLayout, loadSavedLayout, previewSize } =
+const { clampToScreen, saveLayout, loadSavedLayout, previewSize, hasNativeWindows } =
     await import('../src/components/docking/DockingLayout.js');
 const { makeGroup, addTab, removeTab, cleanup, splitGroup, newTabId } =
     await import('../src/components/docking/treeUtils.js');
@@ -302,8 +302,35 @@ assert.deepEqual(moves, [], 'and nothing else moved anything');
 // vanish with it. A drop on nothing in the browser leaves the tab where it was.
 const layoutSource = readFileSync(
     new URL('../src/components/docking/DockingLayout.js', import.meta.url), 'utf8');
-assert.match(layoutSource, /if \(window\.electronAPI\) \{\s*\r?\n\s*tearOff\(/,
-    'tearing off is gated on the bridge that makes it possible');
+assert.match(layoutSource, /if \(hasNativeWindows\(\)\) \{\s*\r?\n\s*tearOff\(/,
+    'tearing off is gated on the host that makes it possible');
+
+// The gate has to name the capability, not the bridge. The browser demo's shim
+// exists to impersonate window.electronAPI, so the bridge being present says
+// nothing about whether a tool can be given a window: gating on that let a drop
+// on nothing in the demo open a popup, portal into it, and take the page down.
+assert.equal(hasNativeWindows(), true, 'the desktop bridge declares its windows');
+
+const desktopApi = window.electronAPI;
+window.electronAPI = { getAppVersion: () => Promise.resolve('web-demo') };
+assert.equal(hasNativeWindows(), false,
+    'a stand-in bridge with no window to give is not the desktop app');
+
+// A layout carrying a torn-off tool can still reach such a host. Every tool in
+// it comes back, docked, rather than as a window the host cannot open.
+localStorage.clear();
+saveLayout(docked, [
+    { id: 'tb', toolId: 'optical-eval', title: 'Optical Evaluation',
+      bounds: { left: 300, top: 150, width: 900, height: 640 } },
+]);
+const inBrowser = loadSavedLayout();
+assert.deepEqual(inBrowser.floats, [], 'a host without windows restores no floats');
+assert.deepEqual(
+    inBrowser.tree.tabs.map(tab => tab.toolId), ['design-editor', 'optical-eval'],
+    'and the tool that was torn off is docked instead of lost');
+
+window.electronAPI = desktopApi;
+localStorage.clear();
 
 for (const code of ['en', 'ru', 'zh']) {
     const tl = makeLocale(code);
