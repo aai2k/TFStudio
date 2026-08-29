@@ -101,3 +101,66 @@ export function designRangeCoverage(design, evaluated) {
     const covered = Number.isFinite(low) && Number.isFinite(high) && high > low ? [low, high] : null;
     return { offenders, covered };
 }
+
+/**
+ * The largest evaluated range free of clamped or extrapolated values: the
+ * evaluated span clipped to the `covered` span from `designRangeCoverage`, or
+ * `covered` itself when the two do not overlap. Bounds are rounded inward onto
+ * 0.1 nm, so applying the result never re-raises the warning it fixes. Null
+ * when no such range exists.
+ *
+ * @param   {[number, number]} covered
+ * @param   {[number, number]} evaluated `[fromNm, toNm]`, either order
+ * @returns {[number, number]|null}
+ */
+export function clampToCovered(covered, evaluated) {
+    const span = normalizedRange(evaluated);
+    if (!span || !covered) return null;
+    let low = Math.max(span[0], covered[0]);
+    let high = Math.min(span[1], covered[1]);
+    if (!(high > low)) [low, high] = covered;
+    low = Math.ceil(low * 10 - 1e-6) / 10;
+    high = Math.floor(high * 10 + 1e-6) / 10;
+    return high > low ? [low, high] : null;
+}
+
+/**
+ * Contiguous parts of an evaluated wavelength range that at least one material
+ * does not cover, in a shape spectral plots can draw as bands.
+ *
+ * Follows the same rule as `designRangeCoverage`: only declared ranges count,
+ * so a band is never drawn from a reader's placeholder span. Parts contributed
+ * by different materials are merged where they overlap or touch, one region per
+ * contiguous span, carrying the names of every material short there.
+ *
+ * @param   {object} design
+ * @param   {[number, number]} evaluated `[fromNm, toNm]`, either order
+ * @returns {{ x0: number, x1: number, materials: string[] }[]} ascending, in nm
+ */
+export function uncoveredRegions(design, evaluated) {
+    const span = normalizedRange(evaluated);
+    if (!span) return [];
+
+    const parts = [];
+    for (const { name, rangeNm } of designRangeCoverage(design, evaluated).offenders) {
+        if (span[0] < rangeNm[0] - EDGE_TOLERANCE_NM) {
+            parts.push({ x0: span[0], x1: Math.min(rangeNm[0], span[1]), name });
+        }
+        if (span[1] > rangeNm[1] + EDGE_TOLERANCE_NM) {
+            parts.push({ x0: Math.max(rangeNm[1], span[0]), x1: span[1], name });
+        }
+    }
+    parts.sort((a, b) => a.x0 - b.x0);
+
+    const regions = [];
+    for (const part of parts) {
+        const last = regions[regions.length - 1];
+        if (last && part.x0 <= last.x1 + EDGE_TOLERANCE_NM) {
+            last.x1 = Math.max(last.x1, part.x1);
+            if (!last.materials.includes(part.name)) last.materials.push(part.name);
+        } else {
+            regions.push({ x0: part.x0, x1: part.x1, materials: [part.name] });
+        }
+    }
+    return regions;
+}

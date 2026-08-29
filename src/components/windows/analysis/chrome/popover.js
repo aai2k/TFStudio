@@ -182,7 +182,9 @@ export function SettingDivider({ c }) {
  * range, a derivative taken across a table knot, samples off the vertical
  * scale. Renders nothing when there are none, so a clean result costs no room.
  *
- *   notices  [{ label, detail, tone? }] - `tone` overrides the warning colour
+ *   notices  [{ label, detail, tone?, action? }] - `tone` overrides the warning
+ *            colour; `action` is `{ label, onClick }` for a notice the window
+ *            can resolve itself, drawn as a button under the detail.
  */
 export function NoticeBadge({ c, notices, label }) {
     const items = (notices || []).filter(Boolean);
@@ -213,6 +215,16 @@ export function NoticeBadge({ c, notices, label }) {
             notice.detail && h('div', {
                 style: { marginTop: 2, color: c.textDim, lineHeight: 1.45 },
             }, notice.detail),
+            notice.action && h('button', {
+                type: 'button',
+                onClick: notice.action.onClick,
+                style: {
+                    marginTop: 6, height: 24, padding: '0 8px',
+                    border: `1px solid ${c.border}`, borderRadius: 5,
+                    backgroundColor: 'transparent', color: c.text, cursor: 'pointer',
+                    fontSize: 11, fontWeight: 500, fontFamily: FONT, whiteSpace: 'nowrap',
+                },
+            }, notice.action.label),
         )),
     );
 }

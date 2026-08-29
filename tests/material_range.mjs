@@ -6,7 +6,7 @@
  * span when the file states no range, and a warning raised on that span would
  * fire for materials whose real range nobody knows.
  */
-const { materialRangeNm, rangeExceeds, designRangeCoverage } =
+const { materialRangeNm, rangeExceeds, designRangeCoverage, uncoveredRegions, clampToCovered } =
   await import(new URL('../src/utils/materials/materialRange.js', import.meta.url));
 
 let passed = 0;
@@ -125,6 +125,79 @@ const designWith = (materials) => ({
   ok(designRangeCoverage(design, [NaN, 800]).offenders.length === 0, 'NaN bound is ignored');
   ok(designRangeCoverage(design, [900, 300]).offenders.length === 1,
     'a reversed evaluated range is normalized, not skipped');
+}
+
+// ── uncoveredRegions: merged plot bands from the same coverage rule ────────
+{
+  const design = designWith({
+    'x:sub': declared('x:sub', 0.35, 0.9),
+    'x:narrow': declared('x:narrow', 0.4, 0.7),
+  });
+
+  const regions = uncoveredRegions(design, [300, 1100]);
+  ok(regions.length === 2, 'one region per contiguous uncovered span');
+  ok(regions[0].x0 === 300 && regions[0].x1 === 400,
+    'the low region runs to the last material edge inside it');
+  ok(regions[0].materials.length === 2,
+    'overlapping shortfalls merge into one region naming both materials');
+  ok(regions[1].x0 === 700 && regions[1].x1 === 1100,
+    'the high region starts at the first material edge inside it');
+
+  const oneSide = uncoveredRegions(design, [400, 1100]);
+  ok(oneSide.length === 1 && oneSide[0].x0 === 700,
+    'a range covered at one end produces only the other end');
+  ok(oneSide[0].materials[0] === 'x:narrow' && oneSide[0].materials[1] === 'x:sub',
+    'the merged region lists each offender once');
+
+  ok(uncoveredRegions(design, [450, 650]).length === 0,
+    'a fully covered range draws no bands');
+  ok(uncoveredRegions(design, [1100, 300]).length === 2,
+    'a reversed evaluated range is normalized');
+  ok(uncoveredRegions(null, [300, 1100]).length === 0, 'no design, no bands');
+  ok(uncoveredRegions(design, null).length === 0, 'no range, no bands');
+
+  // A material whose whole declared range sits outside the evaluated span
+  // shades the entire span, not a negative-width sliver.
+  const far = designWith({ 'x:ir': declared('x:ir', 2.0, 12.0) });
+  const whole = uncoveredRegions(far, [400, 700]);
+  ok(whole.length === 1 && whole[0].x0 === 400 && whole[0].x1 === 700,
+    'a material with no data anywhere in the span shades all of it');
+}
+
+// ── clampToCovered: the range the warning's fix button applies ─────────────
+{
+  ok(clampToCovered(null, [400, 800]) === null, 'no covered span, nothing to set');
+  ok(clampToCovered([370.1, 826.6], null) === null, 'no evaluated range, nothing to set');
+
+  const clipped = clampToCovered([370.1, 826.6], [360, 1000]);
+  ok(clipped[0] === 370.1 && clipped[1] === 826.6,
+    'a range reaching out both sides is clipped to the covered span');
+
+  const oneEnd = clampToCovered([370.1, 826.6], [400, 1000]);
+  ok(oneEnd[0] === 400 && oneEnd[1] === 826.6,
+    'an end already inside the covered span is left where the user put it');
+
+  const disjoint = clampToCovered([2000, 12000], [400, 700]);
+  ok(disjoint[0] === 2000 && disjoint[1] === 12000,
+    'a range with no overlap moves to the covered span instead of collapsing');
+
+  const dusty = clampToCovered([370.0999999999, 826.6000000001], [300, 900]);
+  ok(dusty[0] === 370.1 && dusty[1] === 826.6,
+    'floating-point dust rounds onto 0.1 nm without leaving the covered span');
+
+  const inward = clampToCovered([370.14, 826.57], [300, 900]);
+  ok(inward[0] === 370.2 && inward[1] === 826.5,
+    'bounds round inward, so the applied range cannot re-raise the warning');
+
+  ok(clampToCovered([500.04, 500.06], [300, 900]) === null,
+    'a covered span too narrow to hold a 0.1 nm range yields nothing');
+}
+
+// ── Undeclared ranges never shade ──────────────────────────────────────────
+{
+  const design = designWith({ 'x:sub': defaulted('x:sub'), 'x:b': untagged('x:b') });
+  ok(uncoveredRegions(design, [100, 9000]).length === 0,
+    'placeholder ranges draw no bands, matching the notice');
 }
 
 // ── Parser tagging: the flag reaches the material records ──────────────────

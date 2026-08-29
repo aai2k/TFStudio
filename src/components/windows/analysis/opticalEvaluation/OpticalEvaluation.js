@@ -7,12 +7,16 @@ import { ChartPanel } from './ChartPanel.js';
 import { ResultsPanel } from './ResultsPanel.js';
 import { AnalysisWindow } from '../chrome/layout.js';
 
-const { createElement: h } = React;
+const { createElement: h, useCallback } = React;
 
 export function OpticalEvaluation({ c, theme, t }) {
     const state = useOpticalEvaluation();
+    const { setParams } = state;
+    const fixRange = useCallback(
+        ([from, to]) => setParams({ lambdaStart: from, lambdaEnd: to }),
+        [setParams]);
     const rangeNotice = useMaterialRangeNotice(
-        state.design, state.params.lambdaStart, state.params.lambdaEnd, t);
+        state.design, state.params.lambdaStart, state.params.lambdaEnd, t, fixRange);
     const oe = t.opticalEval;
     const exportMenu = h(ExportMenu, {
         c, enabled: !!state.data,

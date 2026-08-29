@@ -7,7 +7,7 @@
  * extrapolated optical constant. Gating the window would hide a spectrum the
  * user may well want to see; the banner says what part of it to distrust.
  */
-import { designRangeCoverage } from '../../utils/materials/materialRange.js';
+import { clampToCovered, designRangeCoverage } from '../../utils/materials/materialRange.js';
 
 const { createElement: h, useMemo } = React;
 
@@ -68,21 +68,34 @@ export function MaterialRangeWarning({ design, fromNm, toNm, c, t }) {
  * windows that give their height to the plot and carry no banner. Null when
  * every material covers the evaluated range.
  *
- * @returns {{ label: string, detail: string } | null}
+ * `onFix`, when given, receives a `[fromNm, toNm]` range every material covers
+ * and puts the notice's fix button on the badge. Windows whose evaluated range
+ * the user can edit pass their range setter; the button disappears with the
+ * warning once the range is applied.
+ *
+ * @returns {{ label: string, detail: string,
+ *             action?: { label: string, onClick: () => void } } | null}
  */
-export function useMaterialRangeNotice(design, fromNm, toNm, t) {
-    const { offenders } = useMemo(
+export function useMaterialRangeNotice(design, fromNm, toNm, t, onFix) {
+    const { offenders, covered } = useMemo(
         () => designRangeCoverage(design, [fromNm, toNm]),
         [design, fromNm, toNm],
     );
     return useMemo(() => {
         if (!offenders.length) return null;
+        const fixed = onFix ? clampToCovered(covered, [fromNm, toNm]) : null;
         return {
             label: t.materialRange.banner(offenders.length, format(fromNm), format(toNm)),
             detail: offenders
                 .map(({ id, name, rangeNm }) =>
                     t.materialRange.materialLine(name || id, format(rangeNm[0]), format(rangeNm[1])))
                 .join('\n'),
+            ...(fixed ? {
+                action: {
+                    label: t.materialRange.fixAction(format(fixed[0]), format(fixed[1])),
+                    onClick: () => onFix(fixed),
+                },
+            } : {}),
         };
-    }, [offenders, fromNm, toNm, t]);
+    }, [offenders, covered, fromNm, toNm, t, onFix]);
 }

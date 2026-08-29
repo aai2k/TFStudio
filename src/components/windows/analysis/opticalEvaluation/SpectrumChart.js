@@ -10,7 +10,7 @@ export function SpectrumChart(props) {
     const {
         data, designId, showCurves, targets, showTargets, c,
         editMode = false, editTool = 'draw', editCurve = 'R', lamRange, yRange, yScale,
-        spectralUnit = 'nm', overlays = [],
+        spectralUnit = 'nm', overlays = [], materialBands,
     } = props;
     const divRef = useRef(null);
     const chartRef = useRef(null);
@@ -36,7 +36,7 @@ export function SpectrumChart(props) {
         drawChart(divRef.current, chartRef, buildChartOption({
             data, showCurves, targets, targetsVisible: showTargets || editMode,
             overlays, curveColors, ...colors, editMode, editTool, yRange, yScale,
-            spectralUnit, lamRange,
+            spectralUnit, lamRange, materialBands,
         }));
     });
     useChartTeardown(divRef, chartRef);

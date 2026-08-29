@@ -1,6 +1,6 @@
 import { ANALYSIS_DEFAULTS } from '../../../../constants/analysisDefaults.js';
 import {
-    axisTooltip, cartesianOption, formatChartNumber, lineSeries, niceTickInterval,
+    axisTooltip, cartesianOption, lineSeries, niceTickInterval,
     scatterSeries, valueAxis,
 } from '../../../ui/chartOptions.js';
 import { legendInsideLeft, plotMargin } from '../chrome/plot.js';
@@ -20,13 +20,9 @@ export function buildOverlayOption({ spectrum, char, weighting, minMaxMarks, col
     if (!spectrum?.lambda) return { series: [] };
     const lambdaLow = spectrum.lambda[0];
     const lambdaHigh = spectrum.lambda.at(-1);
-    const labelStep = niceTickInterval(lambdaHigh - lambdaLow, { targetTicks: 10, min: 50 });
-    const wavelengthLabel = value => {
-        const multiple = (Number(value) - lambdaLow) / labelStep;
-        const endpoint = Math.abs(Number(value) - lambdaHigh) < 1e-7;
-        return endpoint || Math.abs(multiple - Math.round(multiple)) < 1e-7
-            ? formatChartNumber(value) : '';
-    };
+    // Ticks follow the integration span: 50 nm over a visible band, wider steps
+    // over a broadband or infrared span that would otherwise grid every 50 nm.
+    const tickStep = niceTickInterval(lambdaHigh - lambdaLow, { targetTicks: 10, min: 50 });
     const series = [lineSeries({
         x: spectrum.lambda, y: (spectrum[char] || []).map(value => value * 100),
         name: `${char}(λ)`, color: overlayCharColor(char, curve), width: 2,
@@ -59,7 +55,7 @@ export function buildOverlayOption({ spectrum, char, weighting, minMaxMarks, col
         legend: legendInsideLeft({ panel: colors.panel, border: colors.grid }, { color: colors.text }),
         xAxis: valueAxis({
             name: 'λ (nm)', color: colors.text, gridColor: colors.grid,
-            min: lambdaLow, max: lambdaHigh, interval: 50, formatter: wavelengthLabel,
+            min: lambdaLow, max: lambdaHigh, interval: tickStep,
         }),
         yAxis: valueAxis({
             name: '%', color: colors.text, gridColor: colors.grid,

@@ -1157,6 +1157,8 @@ const en = {
     banner: (n, from, to) =>
       `${from}–${to} nm reaches outside the data range of ${n} material${n === 1 ? '' : 's'} — values there are held flat or extrapolated`,
     materialLine: (name, from, to) => `${name}: ${from}–${to} nm`,
+    bandLabel: (names) => `no data: ${names}`,
+    fixAction: (from, to) => `Set range to ${from}–${to} nm`,
   },
   opticalEval: {
     lambdaRange: 'λ range (nm)',
@@ -4433,6 +4435,8 @@ const ru = {
     banner: (n, from, to) =>
       `${from}–${to} нм выходит за диапазон данных материалов (${n}) — значения там продлены константой или экстраполированы`,
     materialLine: (name, from, to) => `${name}: ${from}–${to} нм`,
+    bandLabel: (names) => `нет данных: ${names}`,
+    fixAction: (from, to) => `Установить диапазон ${from}–${to} нм`,
   },
   opticalEval: {
     lambdaRange: 'λ диапазон (нм)',
@@ -7831,6 +7835,8 @@ const zh = {
   materialRange: {
     banner: (n, from, to) => `${from}–${to} nm 超出 ${n} 种材料的数据范围 — 该范围的值保持平坦或外推`,
     materialLine: (name, from, to) => `${name}: ${from}–${to} nm`,
+    bandLabel: (names) => `无数据: ${names}`,
+    fixAction: (from, to) => `将范围设为 ${from}–${to} nm`,
   },
   opticalEval: {
     lambdaRange: 'λ 范围 (nm)',

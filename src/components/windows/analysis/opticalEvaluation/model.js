@@ -5,7 +5,7 @@ import { makeOperand } from '../../../../utils/physics/optimizer.js';
 import { spectralAxisOption } from '../../../../utils/physics/spectralAxis.js';
 import { ANALYSIS_DEFAULTS } from '../../../../constants/analysisDefaults.js';
 import {
-    axisTooltip, cartesianOption, chartToolbox, lineSeries, valueAxis,
+    axisTooltip, cartesianOption, chartToolbox, dimmedBandSeries, lineSeries, valueAxis,
 } from '../../../ui/chartOptions.js';
 import { targetSeries } from '../../../ui/targetSeries.js';
 import { plotMargin } from '../chrome/plot.js';
@@ -107,8 +107,9 @@ export function buildChartOption(options) {
     const {
         data, showCurves, targets, targetsVisible, overlays, curveColors,
         paperColor, bgColor, gridColor, textColor,
-        editMode, editTool, yRange, yScale, spectralUnit, lamRange,
+        editMode, editTool, yRange, yScale, spectralUnit, lamRange, materialBands,
     } = options;
+    const palette = { background: bgColor, paper: paperColor, grid: gridColor, text: textColor };
     const drawing = editMode && editTool === 'draw';
     const spectral = spectralAxisOption(spectralUnit, lamRange?.min, lamRange?.max);
     const vertical = yScaleAxisOption(yScale);
@@ -125,8 +126,11 @@ export function buildChartOption(options) {
     // A measured overlay is on the instrument's wavelength grid, not the
     // design's, so the tooltip is given the series to read them all itself.
     const series = buildChartSeries({ data, showCurves, targets, targetsVisible, overlays, curveColors });
+    // Band x coordinates are nanometres, like every plotted point, whatever
+    // unit the axis is labelled in.
+    series.push(...dimmedBandSeries(materialBands, palette));
     return cartesianOption({
-        colors: { background: bgColor, paper: paperColor, grid: gridColor, text: textColor },
+        colors: palette,
         grid: plotMargin(),
         tooltip: drawing ? { show: false } : axisTooltip({ ...yScaleTooltip(yScale), series }),
         toolbox: chartToolbox('spectrum', { dataZoom: !drawing, restore: true }),

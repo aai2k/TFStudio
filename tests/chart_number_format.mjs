@@ -59,4 +59,26 @@ assert.equal(itemTooltip().valueFormatter(1.005), '1.005');
     }
 }
 
+// The Integral Values overlay sets its own interval and follows the same rule:
+// 50 nm over a visible band, a wider step over a span where 50 nm would draw a
+// hatch of gridlines.
+{
+    const { buildOverlayOption } = await import(
+        '../src/components/windows/analysis/integralValues/overlayFigure.js');
+    const colors = { text: '#cccccc', grid: '#3a3a3a', panel: '#252526' };
+    const overlayInterval = (low, high) => {
+        const points = 101;
+        const lambda = Array.from({ length: points }, (_, index) => (
+            low + ((high - low) * index) / (points - 1)));
+        const spectrum = { lambda, T: lambda.map(() => 0.5) };
+        return buildOverlayOption({ spectrum, char: 'T', colors }).xAxis.interval;
+    };
+
+    assert.equal(overlayInterval(400, 700), 50, 'a visible integration span keeps 50 nm ticks');
+    const wide = overlayInterval(300, 5000);
+    const count = (5000 - 300) / wide;
+    assert.ok(count >= 2 && count <= 40,
+        `a broadband integration span must stay readable, got ${count.toFixed(1)} ticks`);
+}
+
 console.log('Chart number formatting passed.');

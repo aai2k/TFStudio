@@ -74,6 +74,40 @@ export function scatterSeries({
     };
 }
 
+/**
+ * Silent decoration series that dims x-axis bands of the plot.
+ *
+ * Used for wavelength spans where a curve is computed from clamped or
+ * extrapolated material data. The shade is the theme's text colour at low
+ * opacity, so it reads as a dimmed region in either theme and cannot be
+ * mistaken for the coloured bands merit operands draw. Each band may carry a
+ * label drawn inside its top edge.
+ *
+ * @param {{ x0: number, x1: number, label?: string }[]} bands
+ */
+export function dimmedBandSeries(bands, colors) {
+    if (!bands?.length) return [];
+    const palette = chartColors(colors);
+    const host = lineSeries({ data: [], name: '', color: 'transparent', silent: true });
+    host.markArea = {
+        silent: true,
+        data: bands.map(band => [
+            {
+                xAxis: band.x0,
+                name: band.label || '',
+                itemStyle: { color: palette.text, opacity: 0.08 },
+                label: {
+                    show: !!band.label, position: 'insideTop', distance: 6,
+                    color: palette.text, fontSize: 10, opacity: 0.75,
+                },
+            },
+            { xAxis: band.x1 },
+        ]),
+    };
+    host.z = -3;
+    return [host];
+}
+
 export function valueAxis({
     name, color = '#cccccc', gridColor = '#3a3a3a', min, max,
     position = 'bottom', inverse = false, axisLabel, nameGap = 30,
