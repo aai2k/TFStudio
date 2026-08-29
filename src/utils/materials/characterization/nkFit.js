@@ -514,14 +514,44 @@ export function characterizeFilm(request) {
     // pull the points toward the model: they still have to reproduce the
     // measurement exactly, so a wrong model is left standing away from them.
     //
-    // The rows the model was fitted from are not re-made: that fit is finished,
-    // and this only decides what is shown and counted.
-    const { refined } = best;
-    const modelFilm = filmFromFit(refined.fit);
-    const shown = invertPointwise(solveChannels, refined.thicknessNm, {
-        n: lambdas.map(lambda => modelFilm.getNK(lambda)[0]),
-        k: lambdas.map(lambda => modelFilm.getNK(lambda)[1]),
-    });
+    // The rows the model was fitted from are not re-made: that fit is finished.
+    const pointsBesideModel = (candidate, heldAtZero) => {
+        const film = filmFromFit(candidate.fit);
+        return invertPointwise(solveChannels, candidate.thicknessNm, {
+            n: lambdas.map(lambda => film.getNK(lambda)[0]),
+            k: heldAtZero ? lambdas.map(() => 0) : lambdas.map(lambda => film.getNK(lambda)[1]),
+        }, heldAtZero
+            ? { heldExtinctionFloor: lambda => resolvableExtinction(lambda, candidate.thicknessNm) }
+            : {});
+    };
+    let refined = best.refined;
+    let shown = pointsBesideModel(refined, false);
+
+    // Whether the film absorbs at all is also judged on these points, not on
+    // the rows the model was fitted from: those come from a solve started at a
+    // flat guess, which can sit a whole interference order from the film and
+    // carry an absorption that belongs to another root. When no resolved point
+    // reaches the extinction the measurement could resolve, the film is
+    // transparent as far as this measurement can say, and the model is
+    // refitted from the same rows without an extinction term. An extinction
+    // model kept anyway describes nothing and cannot be determined: over one
+    // fitted range its exponent is close enough to affine that its parameters
+    // trade off exactly, and the fit runs out along that flat direction until
+    // a coefficient overflows. With nothing resolved there is no evidence
+    // either way, and the fit is left alone.
+    if (!refined.fit.complex && refined.fit.k.kind !== 'zero' && shown.resolvedCount > 0
+        && lambdas.every((lambda, point) => !shown.resolved[point]
+            || shown.k[point] <= resolvableExtinction(lambda, refined.thicknessNm))) {
+        const transparentRows = chosen.rows.map(([lambda, index]) => [lambda, index, 0]);
+        const refit = fitBestModel({ ...context, thicknessNm: entry.thicknessNm }, transparentRows);
+        if (refit) {
+            refined = refit.refined;
+            // The points beside a k = 0 model hold k = 0 too. Solved freely
+            // they would clamp against k ≥ 0 wherever the exact root wants a
+            // small negative extinction, and fail to resolve.
+            shown = pointsBesideModel(refined, true);
+        }
+    }
 
     const measured = measuredChannels(channels);
     const evaluated = context.sample(filmFromFit(refined.fit), refined.thicknessNm);

@@ -88,6 +88,7 @@ export default defineConfig({
             { label: 'GD / GDD',           slug: 'analysis/gd-gdd' },
             { label: 'Material Dispersion', translations: { 'zh-CN': '材料色散' },  slug: 'analysis/material-dispersion' },
             { label: 'RI Profile',         translations: { 'zh-CN': '折射率分布' }, slug: 'analysis/refractive-index-profile' },
+            { label: 'Layer Thicknesses',  translations: { 'zh-CN': '膜层厚度' },   slug: 'analysis/layer-thicknesses' },
             { label: 'Integral Values',    translations: { 'zh-CN': '积分值' },     slug: 'analysis/integral-values' },
             {
               label: 'Tolerance',

@@ -46,6 +46,7 @@ import { EllipsometryEvaluation } from '../windows/analysis/ellipsometryEvaluati
 import { GDGDDEvaluation } from '../windows/analysis/gdGddEvaluation/GDGDDEvaluation.js';
 import { MaterialDispersionEvaluation } from '../windows/analysis/materialDispersion/MaterialDispersionEvaluation.js';
 import { RefractiveIndexProfiler } from '../windows/analysis/refractiveIndexProfiler/RefractiveIndexProfiler.js';
+import { LayerThicknesses } from '../windows/analysis/layerThicknesses/LayerThicknesses.js';
 import { LayerSensitivity } from '../windows/analysis/layerSensitivity/LayerSensitivity.js';
 import { ErrorAnalysis } from '../windows/analysis/errorAnalysis/ErrorAnalysis.js';
 import { IntegralValues } from '../windows/analysis/integralValues/IntegralValues.js';
@@ -82,6 +83,7 @@ export const WINDOW_REGISTRY = {
   'gd-gdd':          { component: GDGDDEvaluation,           title: 'Group Delay / GDD',           label: 'Group Delay / GDD — dispersion',                                  help: 'analysis/gd-gdd', theme: true, requiresResolvedMaterials: true },
   'material-dispersion': { component: MaterialDispersionEvaluation, title: 'Material Dispersion', label: 'Material Dispersion: bulk phase, GD, GDD, and TOD', help: 'analysis/material-dispersion', theme: true },
   'ri-profiler':     { component: RefractiveIndexProfiler,   title: 'RI Profiler',                 label: 'RI Profiler — n(z) and k(z)',                                     help: 'analysis/refractive-index-profile', theme: true, requiresResolvedMaterials: true },
+  'layer-thicknesses': { component: LayerThicknesses,        title: 'Layer Thicknesses',           label: 'Layer Thicknesses — per-layer bar diagram',                       help: 'analysis/layer-thicknesses', theme: true, requiresResolvedMaterials: true },
   'sensitivity':     { component: LayerSensitivity,          title: 'Layer Sensitivity',           label: 'Layer Sensitivity — ∂MF/∂dᵢ',                                     help: 'analysis/layer-sensitivity', theme: true, requiresResolvedMaterials: true },
   'error-analysis':  { component: ErrorAnalysis,             title: 'Monte-Carlo',                 label: 'Monte-Carlo — manufacturing-error yield simulation',              help: 'analysis/error-analysis', theme: true, requiresResolvedMaterials: true },
   'integral-values': { component: IntegralValues,            title: 'Integral Values',             label: 'Integral Values — Tvis/Tsol/TUV/TNIR',                            help: 'analysis/integral-values', theme: true, requiresResolvedMaterials: true },

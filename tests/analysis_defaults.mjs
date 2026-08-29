@@ -52,7 +52,7 @@ function ok(condition, message) {
 
 // ── Registry shape ──────────────────────────────────────────────────────────
 {
-  ok(ANALYSIS_WINDOW_IDS.length === 16, 'registry covers the sixteen windows with display settings');
+  ok(ANALYSIS_WINDOW_IDS.length === 17, 'registry covers the seventeen windows with display settings');
   ok(ANALYSIS_WINDOW_IDS[0] === 'opticalEvaluation', 'Optical Evaluation leads the rail');
   ok(!ANALYSIS_WINDOW_IDS.includes('shared'),
     'there is no catch-all entry: every setting belongs to the window that shows it');
@@ -193,6 +193,7 @@ function ok(condition, message) {
     systematicDeviations:   ['#4fc3f7', '#ef5350', '#66bb6a'],
     roughnessScattering:    ['#ef5350', '#4fc3f7', '#ffb74d'],
     refractiveIndexProfiler:['#4fc3f7', '#ef5350'],
+    layerThicknesses:       ['#4fc3f7'],
     admittanceDiagram:      ['#ffca28', '#66bb6a', '#ef5350'],
     integralValues:         ['#4fc3f7', '#ef5350', '#66bb6a', '#ffd54f'],
     errorAnalysis:          ['#4fc3f7', '#ef5350', '#66bb6a'],
@@ -352,7 +353,7 @@ function ok(condition, message) {
   const stateDir = join(src, 'components', 'windows', 'analysis');
   const windows = [
     'opticalEvaluation', 'gdGddEvaluation', 'materialDispersion', 'eFieldEvaluation',
-    'refractiveIndexProfiler', 'ellipsometryEvaluation', 'admittanceDiagram',
+    'refractiveIndexProfiler', 'layerThicknesses', 'ellipsometryEvaluation', 'admittanceDiagram',
     'layerSensitivity', 'roughnessScattering', 'inhomogeneities',
     'systematicDeviations', 'integralValues', 'colorEvaluation', 'errorAnalysis',
   ];

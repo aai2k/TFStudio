@@ -472,39 +472,26 @@ export function DockingLayout({ c, theme, toolRequests, onWindowListChange, layo
     closeFloat(floatId);
   }, [placeTab, closeFloat]);
 
-  // Dragging the whole window over the layout docks it. That drag belongs to
-  // the OS, so no mouse events reach this document: the main process reports the
-  // cursor on every move and once more when the drag ends.
-  // The preload bridge has no way to remove a listener, so this subscribes once
-  // and reaches the current handlers through a ref.
-  const floatDragRef = useRef({ zoneAt, dockFloat });
-  floatDragRef.current = { zoneAt, dockFloat };
+  // Dragging a float's title bar over the layout docks it. The float moves
+  // itself rather than being moved by the OS, so its mouse events are readable
+  // here and the drop targets can light up as it passes over them; the pointer's
+  // screen position is what crosses between the two windows.
+  const zoneUnder = useCallback((screenPoint) => {
+    const local = screenPoint && toClientPoint(window, screenPoint.x, screenPoint.y);
+    return local ? zoneAt(local.x, local.y) : null;
+  }, [zoneAt]);
 
-  useEffect(() => {
-    const api = window.electronAPI;
-    if (!api?.onFloatWindowMove) return;
+  const handleFloatDragOver = useCallback((screenPoint) => {
+    setDragActive(true);
+    setForcedZone(zoneUnder(screenPoint));
+  }, [zoneUnder]);
 
-    const idFor = (info) => (info?.frameName || '').replace(/^tfstudio-float-/, '');
-    const zoneUnder = (info) => {
-      const local = info?.cursor && toClientPoint(window, info.cursor.x, info.cursor.y);
-      return local ? floatDragRef.current.zoneAt(local.x, local.y) : null;
-    };
-
-    api.onFloatWindowMove((info) => {
-      if (!floatsRef.current.some(f => f.id === idFor(info))) return;
-      setDragActive(true);
-      setForcedZone(zoneUnder(info));
-    });
-    api.onFloatWindowDropped?.((info) => {
-      const target = zoneUnder(info);
-      setForcedZone(null);
-      setDragActive(false);
-      const id = idFor(info);
-      if (target && floatsRef.current.some(f => f.id === id)) {
-        floatDragRef.current.dockFloat(id, target);
-      }
-    });
-  }, []);
+  const handleFloatDrop = useCallback((floatId, screenPoint) => {
+    const target = zoneUnder(screenPoint);
+    setForcedZone(null);
+    setDragActive(false);
+    if (target) dockFloat(floatId, target);
+  }, [zoneUnder, dockFloat]);
 
   // ── Tab interactions ───────────────────────────────────────────────────────
 
@@ -573,7 +560,13 @@ export function DockingLayout({ c, theme, toolRequests, onWindowListChange, layo
       const missed = !target && !insert;
 
       if (missed) {
-        tearOff(draggedTab, toScreenPoint(window, ue?.clientX ?? 0, ue?.clientY ?? 0), sourceRect);
+        // Tearing off needs a real OS window, and the browser build has none to
+        // give: window.open there makes a popup the blocker may eat, and the
+        // tab has already left the tree, so the tool would vanish with it. In
+        // the browser a drop on nothing leaves the tab where it was.
+        if (window.electronAPI) {
+          tearOff(draggedTab, toScreenPoint(window, ue?.clientX ?? 0, ue?.clientY ?? 0), sourceRect);
+        }
       } else if (insert && insert.groupId === fromGroupId) {
         // Same-group reorder: move tab to insertIdx position
         setTree(prev => {
@@ -675,9 +668,15 @@ export function DockingLayout({ c, theme, toolRequests, onWindowListChange, layo
       ids: missingMaterialIds, c, t,
       onRepair: () => setReplaceMaterialsOpen(true),
     }),
-    !tree && floats.length === 0
+    // Nothing docked, whether or not tools are floating: tearing the last window
+    // out used to leave the workspace blank, with no pane and so no compass, and
+    // that window could then only be brought back from its dock button.
+    !tree
       ? h(EmptyWorkspace, { c, t, onCreateProject })
       : renderNode(tree),
+    !tree && dragActive && h(EmptyDropTarget, {
+      c, t, lit: !!(forcedZone && forcedZone.zone === 'center'),
+    }),
     replaceMaterialsOpen && h(ReplaceMaterialsDialog, {
       design, updateDesign, c, t, onClose: () => setReplaceMaterialsOpen(false),
     }),
@@ -701,6 +700,8 @@ export function DockingLayout({ c, theme, toolRequests, onWindowListChange, layo
         helpAnchor: helpAnchorFor(f.toolId),
         onDock: () => dockFloat(f.id, null),
         onClose: () => closeFloat(f.id),
+        onDragOver: handleFloatDragOver,
+        onDrop: (screenPoint) => handleFloatDrop(f.id, screenPoint),
       },
         h(ToolContent, {
           toolId: f.toolId, c, theme, t, setInputDialog, onCreateDesign,
@@ -717,6 +718,53 @@ export function DockingLayout({ c, theme, toolRequests, onWindowListChange, layo
 // single primary action — create a new project — which the renderer wires to
 // "create + open a design + arrange the default layout". The user's other path
 // is simply to pick an existing design in the Explorer.
+
+// The drop target for an empty workspace. There is no pane to aim at and only
+// one place the window can go, so the whole area is the target rather than the
+// five-way compass a populated pane offers.
+export function EmptyDropTarget({ c, t, lit }) {
+  // One centred button in the compass's style, not the whole area: covering the
+  // workspace meant a float could not be left hovering over the empty window,
+  // since anywhere the user let go of it docked it. Letting go anywhere but the
+  // button leaves the window floating.
+  return h('div', {
+    style: {
+      position: 'absolute', inset: 0, zIndex: 200,
+      display: 'flex', flexDirection: 'column',
+      alignItems: 'center', justifyContent: 'center', gap: 10,
+      pointerEvents: 'none',
+    }
+  },
+    // Where the tool would land, shaded the way a compass preview is.
+    lit && h('div', {
+      style: {
+        position: 'absolute', inset: 12,
+        backgroundColor: c.accent + '33',
+        border: `1px solid ${c.accent}`,
+        boxSizing: 'border-box', pointerEvents: 'none',
+      }
+    }),
+    h('div', {
+      'data-dockzone': 'center',
+      title: (t && t.docking && t.docking.dropHere) || 'Drop to dock',
+      style: {
+        width: 48, height: 48,
+        display: 'flex', alignItems: 'center', justifyContent: 'center',
+        backgroundColor: lit ? c.accent : c.panel,
+        border: `1px solid ${lit ? c.accent : c.border}`,
+        borderRadius: 4,
+        color: lit ? '#fff' : c.textDim,
+        boxShadow: '0 2px 8px rgba(0,0,0,0.4)',
+        boxSizing: 'border-box', pointerEvents: 'all',
+      }
+    },
+      // The compass centre's glyph: a tab joining the group it is dropped on.
+      h('svg', { width: 27, height: 27, viewBox: '0 0 21 21', fill: 'none' },
+        h('rect', { x: 3.5, y: 4.5, width: 14, height: 12, rx: 1, stroke: 'currentColor', strokeWidth: 1.4 }),
+        h('path', { d: 'M3.5 8.5h14M11 4.5v4', stroke: 'currentColor', strokeWidth: 1.4 }))),
+    h('span', { style: { fontSize: 12, color: c.textDim } },
+      (t && t.docking && t.docking.dropHere) || 'Drop to dock'));
+}
 
 function EmptyWorkspace({ c, t, onCreateProject }) {
   const e = (t && t.docking && t.docking.empty) || {};

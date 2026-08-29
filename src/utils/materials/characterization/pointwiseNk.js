@@ -66,12 +66,21 @@ function solve2x2(a11, a12, a21, a22, b1, b2) {
  * point, and pretending otherwise is how a photometric error becomes an
  * absorption.
  *
+ * `heldExtinctionFloor` holds k at its seed even when two channels were
+ * measured, and n is then solved against every channel in least squares. The
+ * exact root at the fitted thickness can want an extinction the physical
+ * bracket excludes: on a film the model calls transparent it is negative about
+ * half the time. So a held point is judged against the movement an extinction
+ * at the given floor would produce in each channel, rather than against the
+ * exact tolerance, which an n-only solve cannot meet.
+ *
  * Each channel carries its own conditions, so a transmittance taken at normal
  * incidence and a reflectance taken at eight degrees are still one solve.
  *
  * @param {{quantity:'T'|'R', conditions:object, values:number[]}[]} channels
  * @param {number} thicknessNm
  * @param {{n:number[], k:number[]}} seed
+ * @param {{heldExtinctionFloor?:(lambdaNm:number)=>number}} [options]
  * @returns {{ n:number[], k:number[], resolved:boolean[], resolvedCount:number,
  *             maxResidual:number, solvedExtinction:boolean }}
  */
@@ -159,8 +168,17 @@ function newtonSweeps(evaluate, channels, n, k, solvedExtinction) {
                 if (!step) { settle(point); continue; }
                 [stepIndex, stepExtinction] = step;
             } else {
-                if (!(Math.abs(dIndex[0]) > 1e-12)) { settle(point); continue; }
-                stepIndex = -residuals[0] / dIndex[0];
+                // k is held, so n is the one unknown. Against one channel this
+                // is Newton's step; against two it is the least-squares step,
+                // because one unknown cannot zero both residuals.
+                let curvature = 0;
+                let gradient = 0;
+                for (let channel = 0; channel < channels.length; channel++) {
+                    curvature += dIndex[channel] ** 2;
+                    gradient -= dIndex[channel] * residuals[channel];
+                }
+                if (!(curvature > 1e-24)) { settle(point); continue; }
+                stepIndex = gradient / curvature;
             }
             n[point] = clamp(n[point] + limitedStep(stepIndex), INDEX_MIN, INDEX_MAX);
             k[point] = clamp(k[point] + limitedStep(stepExtinction), 0, EXTINCTION_MAX);
@@ -198,9 +216,9 @@ function continueFromNeighbours(evaluate, channels, n, k, solvedExtinction) {
     }
 }
 
-export function invertPointwise(channels, thicknessNm, seed) {
+export function invertPointwise(channels, thicknessNm, seed, { heldExtinctionFloor } = {}) {
     const { lambdas } = channels[0].conditions;
-    const solvedExtinction = channels.length >= 2;
+    const solvedExtinction = channels.length >= 2 && !heldExtinctionFloor;
     const n = seed.n.slice();
     const k = seed.k.slice();
 
@@ -209,10 +227,24 @@ export function invertPointwise(channels, thicknessNm, seed) {
         sample(griddedFilm(lambdas, indices, extinctions), thicknessNm);
 
     newtonSweeps(evaluate, channels, n, k, solvedExtinction);
-    if (n.length > 2) continueFromNeighbours(evaluate, channels, n, k, solvedExtinction);
+    // With k held, the restart's acceptance test cannot pass, and the seed is a
+    // refined model whose points all start on one branch already, so the
+    // neighbour continuation has nothing to choose between.
+    if (n.length > 2 && !heldExtinctionFloor) {
+        continueFromNeighbours(evaluate, channels, n, k, solvedExtinction);
+    }
 
-    const { worst } = residualsOf(channels, evaluate(n, k));
-    const resolved = worst.map((value, point) => value <= RESIDUAL_TOLERANCE
+    const base = evaluate(n, k);
+    const { worst } = residualsOf(channels, base);
+    let allowance = worst.map(() => RESIDUAL_TOLERANCE);
+    if (heldExtinctionFloor) {
+        const atFloor = evaluate(n, k.map((value, point) =>
+            value + heldExtinctionFloor(lambdas[point])));
+        allowance = allowance.map((minimum, point) => Math.max(minimum,
+            ...channels.map((channel, index) => Math.abs(channelDifference(
+                channel.quantity, atFloor[index][point], base[index][point])))));
+    }
+    const resolved = worst.map((value, point) => value <= allowance[point]
         // A point sitting on the edge of the physical bracket ran out of room
         // rather than being solved; carrying it would put a wall in n(λ).
         && n[point] > INDEX_MIN && n[point] < INDEX_MAX && k[point] < EXTINCTION_MAX);

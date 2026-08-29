@@ -164,6 +164,8 @@ function maxExtinctionError(result) {
     assert.ok(indexError < 0.005, `index off by ${indexError.toFixed(5)}`);
     assert.ok(result.residuals.T.rms < 1e-4 && result.residuals.R.rms < 1e-4,
         'residual should be at the level of the model itself');
+    assert.equal(result.fit.k.kind, 'zero',
+        'a transparent film must come back without an absorption model');
     for (const lambda of grid(400, 1000, 10)) {
         assert.ok(evaluateDispersionFit(result.fit, lambda)[1] >= 0,
             `k went negative at ${lambda} nm`);
@@ -425,6 +427,8 @@ function maxExtinctionError(result) {
         `the full term sweep did not improve the spectrum: ${JSON.stringify(result.residuals)}`);
     assert.ok(result.diagnostics.warnings.some(warning => warning.code === 'modelMismatch'),
         'a fit outside photometric accuracy must warn before it is saved as a material');
+    assert.equal(result.fit.k.kind, 'zero',
+        'the transparent verdict has to hold on a tabulated material as well');
     console.log(`500 nm TiO2 TOTAL export: d = ${result.thicknessNm.toFixed(2)} nm, `
         + `RMS T ${result.residuals.T.rms.toExponential(2)}, `
         + `R ${result.residuals.R.rms.toExponential(2)}, ${result.modelName}`);
@@ -666,6 +670,16 @@ function maxExtinctionError(result) {
 // 0.14 on a transparent oxide, and every one of those points reproduced the
 // measurement to eight decimal places. Drawn against the fitted curve on the
 // same plot, that is a second answer with nothing to say which is the film.
+//
+// The same film is also the transparent-extinction case. No point solved from
+// the refined model reaches the extinction the measurement could resolve, so
+// the fit must come back without an absorption model rather than with a
+// three-parameter one whose coefficients nothing determines: fitted anyway,
+// they trade off exactly and run off until one overflows. And dropping the
+// model must not cost the per-wavelength points, which was the failure mode of
+// the first attempt at this: with k pinned at zero the exact root at the
+// fitted thickness wants a slightly negative k that the physical bracket
+// excludes, and every one of these 81 points came back unresolved.
 {
     const tio2 = getMaterial('TiO2');
     const lambdas = grid(400, 800, 5);
@@ -684,22 +698,33 @@ function maxExtinctionError(result) {
             geometry: 'coating' },
     });
     assert.ok(!result.error, `characterization failed: ${result.error}`);
+    assert.ok(Math.abs(result.thicknessNm - 500) < 0.5,
+        `thickness ${result.thicknessNm.toFixed(2)} nm, expected 500`);
+    assert.equal(result.fit.k.kind, 'zero',
+        'a film whose solved points never reach the resolvable floor gets no absorption model');
+    assert.equal(result.pointwise.solvedExtinction, false,
+        'points beside a k = 0 model hold k rather than solving it');
+    const resolvedCount = result.pointwise.resolved.filter(Boolean).length;
+    assert.ok(resolvedCount >= 0.9 * result.lambdas.length,
+        `only ${resolvedCount} of ${result.lambdas.length} points resolved with k held`);
 
     let worstIndex = 0;
-    let worstExtinction = 0;
     result.lambdas.forEach((lambda, index) => {
         if (!result.pointwise.resolved[index]) return;
         worstIndex = Math.max(worstIndex, Math.abs(result.pointwise.n[index] - tio2.getNK(lambda)[0]));
-        worstExtinction = Math.max(worstExtinction, result.pointwise.k[index]);
+        assert.equal(result.pointwise.k[index], 0,
+            `a transparent film came back with k = ${result.pointwise.k[index]} at a point`);
     });
     assert.ok(worstIndex < 0.01,
         `a reported point misses the film's index by ${worstIndex.toFixed(3)}, which is another root`);
-    assert.ok(worstExtinction < 0.01,
-        `a transparent film came back with k = ${worstExtinction.toFixed(3)} at a point`);
 
     // Choosing the root does not make the points agree with the model by
     // construction: they still have to reproduce the measurement on their own.
-    const solved = ['PSI', 'DEL'].map((quantity, index) => ({
+    // With k held at zero the reproduction is exact only to within the movement
+    // an extinction below the resolvable floor could produce, a few thousandths
+    // of a degree here, because that much of the measurement carries no
+    // information about the film.
+    const solved = ['PSI', 'DEL'].map(quantity => ({
         quantity, values: result.measured[quantity],
         conditions: { ...conditions, lambdas: result.lambdas },
     }));
@@ -712,10 +737,11 @@ function maxExtinctionError(result) {
             Math.abs(atPoints[0][index] - result.measured.PSI[index]),
             Math.abs(((atPoints[1][index] - result.measured.DEL[index] + 540) % 360) - 180));
     });
-    assert.ok(worstResidual < 1e-5,
+    assert.ok(worstResidual < 0.02,
         `a reported point misses the measurement by ${worstResidual.toExponential(2)} degrees`);
-    console.log(`500 nm TiO₂ from Ψ/Δ: d = ${result.thicknessNm.toFixed(2)} nm, `
-        + `points within ${worstIndex.toExponential(1)} of the film's n`);
+    console.log(`500 nm TiO₂ from Ψ/Δ: d = ${result.thicknessNm.toFixed(2)} nm, ${result.modelName}, `
+        + `${resolvedCount}/${result.lambdas.length} points within `
+        + `${worstIndex.toExponential(1)} of the film's n`);
 }
 
 // ── An extinction that leaves the physical range is named ────────────────────

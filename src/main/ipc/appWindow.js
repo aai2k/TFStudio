@@ -7,6 +7,7 @@
 // per-invocation because the window ref is reassigned on (re)create.
 function register(ipcMain, ctx) {
   ipcMain.on('window-control', (event, action) => handleWindowControl(ctx, action, event.sender));
+  ipcMain.on('window-move', (event, rect) => handleWindowMove(ctx, rect, event.sender));
   ipcMain.on('window-background', (event, color) => handleWindowBackground(ctx, color));
   ipcMain.on('toggle-devtools', () => handleToggleDevtools(ctx));
   ipcMain.on('open-external', (event, url) => handleOpenExternal(ctx, url));
@@ -30,6 +31,47 @@ function handleWindowControl(ctx, action, sender) {
       break;
     case 'close': win.close(); break;
   }
+}
+
+// Move the window that asked, in screen coordinates. A torn-off tool draws its
+// own title bar and drags itself, because the drag has to light the layout's
+// drop targets as it passes over them, which an OS-driven window move cannot do.
+//
+// Every step states the whole rectangle, at a size that is never measured
+// during a drag. The window's size in DIP is a rounding of its physical size,
+// and setting it back converts with another rounding; on a display that is not
+// at 100% scale the two do not cancel, so every measurement can cost a pixel,
+// and a measurement whose result is fed into the next set is a feedback loop
+// that grows the window for as long as it runs.
+//
+// So the size is measured once per window and refreshed only by a resize the
+// user made. Telling those apart matters: SetWindowPos delivers the resize
+// event synchronously from inside setBounds, so a listener that re-measured on
+// every resize WAS the feedback loop, one pixel per step. A drag brackets its
+// moves with an end message, and resizes inside that bracket are this handler's
+// own echo, not the user's.
+const dragSizes = new WeakMap();   // win → {width, height} in DIP
+const dragging = new WeakSet();
+
+function handleWindowMove(ctx, move, sender) {
+  const win = sender && ctx.BrowserWindow?.fromWebContents(sender);
+  if (!win || win.isDestroyed() || win === ctx.getMainWindow()) return;
+  if (move && move.end) { dragging.delete(win); return; }
+  const { x, y } = move || {};
+  if (!Number.isFinite(x) || !Number.isFinite(y)) return;
+
+  if (!dragSizes.has(win)) {
+    const remember = () => {
+      if (win.isDestroyed() || dragging.has(win)) return;
+      const { width, height } = win.getBounds();
+      dragSizes.set(win, { width, height });
+    };
+    remember();
+    win.on('resize', remember);
+  }
+  dragging.add(win);
+  const { width, height } = dragSizes.get(win);
+  win.setBounds({ x: Math.round(x), y: Math.round(y), width, height });
 }
 
 // Repaint every window's frame in the new theme's background, so a resize right

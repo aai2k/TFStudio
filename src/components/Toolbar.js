@@ -133,6 +133,13 @@ export const ICONS = {
     'material-dispersion': I([ P('M2 15l4-7 4 4 4-8 4 5'), L(2,17,18,17), Cf(14,4,1) ]),
     'ri-profiler':    I([ R(2,4,4,12), R(6,4,4,12), R(10,4,4,12), R(14,4,4,12) ]),
 
+    // Layer Thicknesses — bar chart of uneven heights on a baseline, unlike the
+    // equal-height stack the RI Profiler icon draws.
+    'layer-thicknesses': I([
+                          R(2.5,9,3,8), R(6.5,4,3,13), R(10.5,12,3,5), R(14.5,7,3,10),
+                          L(2,17,18,17,1),
+                      ]),
+
     // Sensitivity — layer stack with middle layer highlighted + bidirectional thickness arrows
     'sensitivity':    I([
                           R(2,3,11,3),
@@ -348,7 +355,7 @@ const TOOL_GROUP = {
     'specification': 'design', 'stack-formula': 'design',
     'preferences': 'information',
     'optical-eval': 'analysis', 'color-eval': 'analysis', 'admittance': 'analysis', 'efield': 'analysis',
-    'ellipsometry': 'analysis', 'gd-gdd': 'analysis', 'material-dispersion': 'analysis', 'ri-profiler': 'analysis', 'integral-values': 'analysis',
+    'ellipsometry': 'analysis', 'gd-gdd': 'analysis', 'material-dispersion': 'analysis', 'ri-profiler': 'analysis', 'layer-thicknesses': 'analysis', 'integral-values': 'analysis',
     'plot-engine': 'analysis', 'error-analysis': 'analysis', 'sensitivity': 'analysis',
     'inhomogeneities': 'analysis', 'systematic-dev': 'analysis', 'roughness': 'analysis',
     'merit-function': 'optimization', 'refinement': 'optimization', 'needle': 'optimization',
@@ -399,7 +406,7 @@ export function makeTabs(t) {
         {
             key: 'analysis', label: tb.tabs.analysis, groups: [
                 grp('general',   ['optical-eval', 'color-eval', 'integral-values',
-                                  'admittance', 'efield', 'ri-profiler', 'plot-engine']),
+                                  'admittance', 'efield', 'ri-profiler', 'layer-thicknesses', 'plot-engine']),
                 grp('phase',     ['gd-gdd', 'material-dispersion', 'ellipsometry']),
                 grp('tolerance', ['error-analysis', 'sensitivity', 'inhomogeneities', 'systematic-dev', 'roughness']),
             ]

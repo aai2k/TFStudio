@@ -11,9 +11,9 @@
  *
  * Not covered here, deliberately:
  *   • Theme fallbacks (`c.panel || '#252526'`) — those follow the colour theme.
- *   • Material-derived colours (matColorMap in the E-field, Layer Sensitivity
- *     and Refractive Index Profiler plots) — those come from the material
- *     definitions and must keep agreeing with the Material Editor.
+ *   • Material-derived colours (matColorMap in the E-field, Layer Sensitivity,
+ *     Layer Thicknesses and Refractive Index Profiler plots) — those come from
+ *     the material definitions and must keep agreeing with the Material Editor.
  *
  * `shared` is not a window. It holds the spectral range that seeds the
  * session-wide evaluation parameters (state/DesignContext.js), which every
@@ -247,6 +247,17 @@ export const ANALYSIS_DEFAULTS = {
     colors: { n: '#4fc3f7', k: '#ef5350' },
     enums: {
       quantity: { def: 'n', options: ['n', 'k'] },
+      side: SIDE,
+    },
+    booleans: { showTable: false },
+  },
+
+  layerThicknesses: {
+    // Bars are tinted per material; this is the fallback for a layer whose
+    // material carries no colour.
+    colors: { fallback: '#4fc3f7' },
+    enums: {
+      units: { def: 'nm', options: ['nm', 'OT', 'QWOT', 'FWOT'] },
       side: SIDE,
     },
     booleans: { showTable: false },

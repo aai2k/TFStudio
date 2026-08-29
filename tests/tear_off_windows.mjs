@@ -13,8 +13,12 @@
  */
 
 import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
+import { createRequire } from 'node:module';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { loadApp, makeLocale, makeTheme, shimBrowserGlobals } from './_uiShim.mjs';
+
+const require = createRequire(import.meta.url);
 
 shimBrowserGlobals();
 await loadApp();
@@ -196,16 +200,149 @@ assert.equal(/border-bottom:2px solid/.test(frame), false,
 // buttons, and dragging it moves the window the way a title bar does.
 assert.ok(frame.includes(t.docking.minimize), 'the strip has a minimize button');
 assert.ok(frame.includes(t.docking.maximize), 'the strip has a maximize button');
-assert.ok(frame.includes('-webkit-app-region:drag'), 'the strip moves the window');
-assert.ok(frame.includes('-webkit-app-region:no-drag'),
-    'the buttons must not move the window');
+
+// ── The float moves itself, rather than being moved by the OS ─────────────────
+//
+// Handing the strip to the OS with `-webkit-app-region: drag` costs the drag its
+// mouse events: no document sees them, so the layout underneath cannot light its
+// drop targets as the window passes over it. The compass never appeared and the
+// only way back was the dock button. The app carries the move instead.
+
+assert.equal(frame.includes('-webkit-app-region'), false,
+    'an OS-driven window move cannot tell the layout where the cursor is');
+
+const appWindowIpc = require('../src/main/ipc/appWindow.js');
+
+const channels = new Map();
+const moves = [];
+// The size a window reports is a rounding of its physical size, and setting it
+// back rounds again; on a display that is not at 100% scale the two do not
+// cancel, so every measurement can cost a pixel. Modelled here as a window
+// whose size reads one larger than what was last set. SetWindowPos also
+// delivers the resize event synchronously from inside setBounds, and the model
+// does too: a handler that re-measures on that event is a feedback loop that
+// grows the window on every single step, which is the bug as shipped twice.
+const scaled = () => ({
+    isDestroyed: () => false,
+    bounds: { x: 0, y: 0, width: 720, height: 520 },
+    reads: 0,
+    listeners: {},
+    on(event, cb) { this.listeners[event] = cb; },
+    getBounds() {
+        this.reads++;
+        return { ...this.bounds, width: this.bounds.width + 1, height: this.bounds.height + 1 };
+    },
+    setBounds(next) {
+        const resized = next.width !== this.bounds.width || next.height !== this.bounds.height;
+        this.bounds = { ...next };
+        moves.push({ ...next });
+        if (resized) this.listeners.resize?.();
+    },
+    setPosition(x, y) {
+        const b = this.getBounds();
+        this.setBounds({ ...b, x, y });
+    },
+});
+const floatWindow = scaled();
+const theMainWindow = scaled();
+
+appWindowIpc.register(
+    { on: (channel, cb) => channels.set(channel, cb), handle: (channel, cb) => channels.set(channel, cb) },
+    { BrowserWindow: { fromWebContents: (sender) => sender }, getMainWindow: () => theMainWindow },
+);
+
+const move = channels.get('window-move');
+assert.ok(move, 'the renderer has somewhere to send the move');
+
+// One drag: measured once, then the same size on every step. The first set
+// echoes a resize event from inside setBounds; re-measuring on it is the
+// feedback loop, one pixel per step.
+move({ sender: floatWindow }, { x: 300.4, y: 120.6 });
+move({ sender: floatWindow }, { x: 340, y: 160 });
+move({ sender: floatWindow }, { x: 380, y: 200 });
+assert.deepEqual(moves, [
+    { x: 300, y: 121, width: 721, height: 521 },
+    { x: 340, y: 160, width: 721, height: 521 },
+    { x: 380, y: 200, width: 721, height: 521 },
+], 'the window moves, rounded, at one unchanging size');
+move({ sender: floatWindow }, { end: true });
+
+// A second grab must not measure again: on a scaled display each measurement
+// grows the window by a pixel, which is the same bug at one pixel per click.
+moves.length = 0;
+move({ sender: floatWindow }, { x: 400, y: 200 });
+move({ sender: floatWindow }, { end: true });
+assert.deepEqual(moves, [{ x: 400, y: 200, width: 721, height: 521 }],
+    'a new grab reuses the size instead of measuring the window again');
+assert.equal(floatWindow.reads, 1,
+    'the size is measured once in the window\'s life, not once per grab');
+
+// A resize outside a drag is the user's, and is the one thing that refreshes it.
+floatWindow.bounds = { ...floatWindow.bounds, width: 900, height: 600 };
+floatWindow.listeners.resize();
+moves.length = 0;
+move({ sender: floatWindow }, { x: 10, y: 20 });
+move({ sender: floatWindow }, { end: true });
+assert.deepEqual(moves, [{ x: 10, y: 20, width: 901, height: 601 }],
+    'a window the user resized keeps its new size on the next drag');
+
+// Everything else is refused rather than throwing a window off the screen.
+moves.length = 0;
+move({ sender: theMainWindow }, { x: 10, y: 10 });
+move({ sender: floatWindow }, { x: NaN, y: 10 });
+move({ sender: floatWindow }, { x: 10, y: undefined });
+move({ sender: null }, { x: 10, y: 10 });
+move({ sender: floatWindow }, null);
+assert.deepEqual(moves, [], 'and nothing else moved anything');
+
+// ── The browser build does not tear off ───────────────────────────────────────
+//
+// There is no OS window to give the tool there: window.open makes a popup the
+// blocker may eat, and the tab has already left the tree, so the tool would
+// vanish with it. A drop on nothing in the browser leaves the tab where it was.
+const layoutSource = readFileSync(
+    new URL('../src/components/docking/DockingLayout.js', import.meta.url), 'utf8');
+assert.match(layoutSource, /if \(window\.electronAPI\) \{\s*\r?\n\s*tearOff\(/,
+    'tearing off is gated on the bridge that makes it possible');
 
 for (const code of ['en', 'ru', 'zh']) {
     const tl = makeLocale(code);
-    for (const key of ['dock', 'close', 'dragToDock', 'minimize', 'maximize']) {
+    for (const key of ['dock', 'close', 'dragToDock', 'dropHere', 'minimize', 'maximize']) {
         assert.ok(tl.docking[key], `${code}: docking.${key} is missing`);
     }
 }
+
+// ── An empty workspace is still somewhere to drop ─────────────────────────────
+//
+// Tearing the last docked window out leaves no tree. The workspace then drew
+// nothing at all: no pane, so no tab group, so no compass, and the window could
+// only be brought back from its dock button.
+
+const { EmptyDropTarget } = await import('../src/components/docking/DockingLayout.js');
+const emptyTarget = renderToStaticMarkup(React.createElement(EmptyDropTarget, { c, t, lit: false }));
+assert.ok(emptyTarget.includes('data-dockzone="center"'),
+    'the drop hit test reads data-dockzone, so an area without one can never be dropped on');
+assert.ok(emptyTarget.includes(t.docking.dropHere), 'and it says what it is');
+
+// The target is one centred button, not the whole area. Covering the workspace
+// meant a float could not be left hovering over the empty window: anywhere the
+// user let go of it docked it.
+assert.ok(emptyTarget.includes('pointer-events:none'),
+    'the area around the button is not part of the target');
+assert.ok(emptyTarget.includes('width:48px'),
+    'the target is a button, sized like the compass, not the workspace');
+const zones = emptyTarget.split('data-dockzone').length - 1;
+assert.equal(zones, 1, 'exactly one drop zone');
+assert.equal(emptyTarget.includes('inset:12px'), false,
+    'nothing target-like spans the area while the button is not hovered');
+const litTarget = renderToStaticMarkup(React.createElement(EmptyDropTarget, { c, t, lit: true }));
+assert.ok(litTarget.includes('inset:12px'),
+    'hovering the button shades where the tool will land, like a compass preview');
+
+assert.equal(/!tree && floats\.length === 0/.test(layoutSource), false,
+    'the workspace shows whenever nothing is docked, tools floating or not');
+assert.match(layoutSource, /!tree && dragActive && h\(EmptyDropTarget/,
+    'and offers somewhere to drop while a window is dragged over it');
 
 // ── A floated tool resizes with its window ────────────────────────────────────
 //

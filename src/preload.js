@@ -28,10 +28,9 @@ contextBridge.exposeInMainWorld('electronAPI', {
     hide: () => ipcRenderer.send('drag-ghost:hide'),
   },
   onWindowMaximized:   (cb) => ipcRenderer.on('window-maximized', cb),
-  // A torn-off window being dragged over the layout: where the cursor is on
-  // every move, and one report when the drag ends.
-  onFloatWindowMove:   (cb) => ipcRenderer.on('float-window-move', (event, info) => cb(info)),
-  onFloatWindowDropped: (cb) => ipcRenderer.on('float-window-dropped', (event, info) => cb(info)),
+  // Move the calling window. A torn-off tool draws its own title bar, so
+  // dragging it is this app's job to carry out rather than the OS's.
+  moveWindow:       (move) => ipcRenderer.send('window-move', move),
   onWindowUnmaximized: (cb) => ipcRenderer.on('window-unmaximized', cb),
   toggleDevTools:   () => ipcRenderer.send('toggle-devtools'),
   openExternal:     (url) => ipcRenderer.send('open-external', url),

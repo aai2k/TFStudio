@@ -1,4 +1,4 @@
-const { app, BrowserWindow, Menu, ipcMain, screen, shell, dialog } = require('electron');
+const { app, BrowserWindow, Menu, ipcMain, shell, dialog } = require('electron');
 const path = require('path');
 const fs = require('fs');
 const logger = require('./main/logger');
@@ -177,7 +177,7 @@ function createWindow() {
     return { action: 'deny' };
   });
 
-  mainWindow.webContents.on('did-create-window', (child, { frameName }) => {
+  mainWindow.webContents.on('did-create-window', (child) => {
     // A torn-off window draws its own maximize button, so it needs the same
     // maximize/unmaximize reports the main window gets, addressed to itself.
     const send = (channel) => () => {
@@ -185,20 +185,6 @@ function createWindow() {
     };
     child.on('maximize', send('window-maximized'));
     child.on('unmaximize', send('window-unmaximized'));
-
-    // Dragging a torn-off window over the layout docks it. The drag is the OS
-    // one, so the renderer sees no mouse events for it: the main process
-    // reports where the cursor is on every move instead, and says when the drag
-    // ended.
-    const tell = (channel) => {
-      if (mainWindow && !mainWindow.isDestroyed()) {
-        mainWindow.webContents.send(channel, {
-          frameName, cursor: screen.getCursorScreenPoint(),
-        });
-      }
-    };
-    child.on('move', () => { if (!child.isDestroyed()) tell('float-window-move'); });
-    child.on('moved', () => { if (!child.isDestroyed()) tell('float-window-dropped'); });
   });
 
   // The drag preview is a hidden window between drags, and a hidden window
