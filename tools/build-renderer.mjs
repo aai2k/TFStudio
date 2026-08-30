@@ -15,6 +15,7 @@
 //   build/app/index.html               <- generated (rebased asset paths)
 //   build/app/vendor/                  <- React(prod)/ReactDOM(prod)/ECharts/KaTeX
 //   build/icons/                       <- copied; renderer uses ../icons/ from the doc
+//   build/splash.bmp                   <- portable-launch splash (tools/gen-splash.mjs)
 //
 // NOTE: sourcemap is intentionally OFF — a shipped .map would undo the obfuscation.
 
@@ -23,6 +24,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import sharp from 'sharp';
+import { generateSplash } from './gen-splash.mjs';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const root = path.resolve(here, '..');
@@ -129,6 +131,7 @@ async function main() {
   clean(outApp);
   clean(outIcons);
   await generateIcons();
+  await generateSplash();
 
   // 1. Bundle: renderer entry + workers. Common ancestor is src/, so esbuild
   //    emits renderer.js at outdir root and utils/<worker>.js beneath it.

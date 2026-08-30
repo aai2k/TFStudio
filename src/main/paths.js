@@ -78,4 +78,19 @@ function readTextAuto(filePath) {
   return buf.toString('utf8');
 }
 
-module.exports = { safeName, safeFilePath, readJsonSafe, writeFileAtomic, readTextAuto };
+// The directory the portable AppData folder and app-debug.log sit beside.
+//
+// The portable build is a self-extracting archive: its launcher unpacks the
+// application into a temporary directory, runs it from there, and deletes that
+// directory again on exit. process.execPath therefore points somewhere that
+// does not outlive the session, and anything written next to it — settings, the
+// window layout, the Chromium profile and its compiled-code cache — is lost
+// between runs and rebuilt cold on the next launch. The launcher sets
+// PORTABLE_EXECUTABLE_DIR to the folder holding the .exe the user actually
+// double-clicked, which is the location that persists.
+function resolveExeDir({ portableDir, isPackaged, execPath, appPath }) {
+  if (portableDir) return portableDir;
+  return isPackaged ? path.dirname(execPath) : appPath;
+}
+
+module.exports = { safeName, safeFilePath, readJsonSafe, writeFileAtomic, readTextAuto, resolveExeDir };

@@ -12,7 +12,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { spawnSync } from 'node:child_process';
 import { createRequire } from 'node:module';
-import { pathToFileURL } from 'node:url';
+import { fileURLToPath, pathToFileURL } from 'node:url';
 
 const require = createRequire(import.meta.url);
 
@@ -42,7 +42,33 @@ export function prepareBuilderEnvironment(source = process.env, options = {}) {
   return env;
 }
 
+/**
+ * Install build/portable.nsi over electron-builder's stock portable template.
+ *
+ * The portable target's NSIS script is hardcoded in app-builder-lib (no custom
+ * script option exists for it, unlike the installer target), and the stock
+ * script briefly shows the installer dialog at launch and again, titled
+ * "Setup: Completed", after the app exits. The fork parks that dialog
+ * off-screen; see the header of build/portable.nsi.
+ */
+export function installPortableTemplate(options = {}) {
+  const readFile = options.readFileSync || fs.readFileSync;
+  const writeFile = options.writeFileSync || fs.writeFileSync;
+  const source = options.source ||
+    path.join(path.dirname(fileURLToPath(import.meta.url)), '..', 'build', 'portable.nsi');
+  const target = options.target ||
+    path.join(path.dirname(require.resolve('app-builder-lib/package.json')), 'templates', 'nsis', 'portable.nsi');
+  const wanted = readFile(source, 'utf8');
+  const current = (() => { try { return readFile(target, 'utf8'); } catch { return null; } })();
+  if (current === null) throw new Error(`stock portable template not found at ${target}`);
+  if (current === wanted) return { target, updated: false };
+  writeFile(target, wanted, 'utf8');
+  console.warn('[build] Installed build/portable.nsi over the stock portable template.');
+  return { target, updated: true };
+}
+
 export function runElectronBuilder(args = process.argv.slice(2)) {
+  installPortableTemplate();
   const cli = require.resolve('electron-builder/cli.js');
   const result = spawnSync(process.execPath, [cli, ...args], {
     cwd: process.cwd(),

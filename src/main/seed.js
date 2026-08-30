@@ -7,6 +7,7 @@ const fs = require('fs');
 const path = require('path');
 const { log } = require('./logger');
 const { readJsonSafe } = require('./paths');
+const { unzipEntries } = require('./zip');
 
 // Bump to force a re-copy of the bundled AGF / coating-substrate catalogs on next
 // launch. (The RII mirror is re-seeded only when the bundled snapshot is newer
@@ -21,15 +22,6 @@ function resolveSeedDir(isPackaged, srcDir) {
   return isPackaged
     ? path.join(process.resourcesPath, 'materials-seed')
     : path.resolve(srcDir, '..', 'build', 'seed');
-}
-
-function copyTreeSync(src, dst) {
-  fs.mkdirSync(dst, { recursive: true });
-  for (const e of fs.readdirSync(src, { withFileTypes: true })) {
-    const s = path.join(src, e.name), d = path.join(dst, e.name);
-    if (e.isDirectory()) copyTreeSync(s, d);
-    else if (e.isFile()) fs.copyFileSync(s, d);
-  }
 }
 
 // Remove bundled-catalog files in `to` that share a seed catalog's id but not
@@ -101,24 +93,46 @@ function seedBundledMaterials(materialsDir, { isPackaged, srcDir }) {
 
   try { fs.writeFileSync(marker, SEED_VERSION, 'utf-8'); } catch (_) {}
 
-  // RefractiveIndex.info offline mirror (~56 MB / 4000+ files). Deferred off the
-  // startup path so first launch isn't blocked; it's only needed once the user
-  // opens the RII browser. Idempotent, so a retry next launch is harmless.
-  setImmediate(() => { try { seedRiiMirror(seedDir, materialsDir); } catch (err) { log(`RII seed failed: ${err.message}`); } });
+  // RefractiveIndex.info offline mirror (~56 MB / 4000+ files once unpacked).
+  // Deferred off the startup path so first launch isn't blocked; it's only needed
+  // once the user opens the RII browser. Idempotent, so a retry next launch is
+  // harmless.
+  setImmediate(() => {
+    seedRiiMirror(seedDir, materialsDir).catch(err => log(`RII seed failed: ${err.message}`));
+  });
 }
 
 // Seed the offline RII mirror if absent, or if the bundled snapshot is newer than
 // what the user currently has (never downgrade a user-downloaded update).
-function seedRiiMirror(seedDir, materialsDir) {
-  const riiSeed = path.join(seedDir, 'rii-db');
+//
+// The mirror ships as rii-db.zip with its manifest written loose beside it, so
+// the common case (already seeded, nothing newer) costs one small JSON read
+// instead of opening the archive.
+async function seedRiiMirror(seedDir, materialsDir) {
+  const zipPath = path.join(seedDir, 'rii-db.zip');
   const riiDst = path.join(materialsDir, 'refractiveindex-db');
-  if (!fs.existsSync(path.join(riiSeed, 'catalog-nk.yml'))) return;
+  if (!fs.existsSync(zipPath)) return;
   const localM = readJsonSafe(path.join(riiDst, 'manifest.json'));
-  const seedM = readJsonSafe(path.join(riiSeed, 'manifest.json'));
+  const seedM = readJsonSafe(path.join(seedDir, 'rii-db.manifest.json'));
   const haveLocal = fs.existsSync(path.join(riiDst, 'catalog-nk.yml'));
   if (haveLocal && !((seedM?.lastUpdated || '') > (localM?.lastUpdated || ''))) return;
+
+  // Extract into a staging directory and swap it in, so a first run interrupted
+  // part-way leaves the previous mirror rather than a half-written one.
+  const staging = riiDst + '.new';
+  if (fs.existsSync(staging)) fs.rmSync(staging, { recursive: true, force: true });
+  fs.mkdirSync(staging, { recursive: true });
+  let written = 0;
+  for (const ent of unzipEntries(fs.readFileSync(zipPath))) {
+    const dst = path.join(staging, ent.name);
+    fs.mkdirSync(path.dirname(dst), { recursive: true });
+    fs.writeFileSync(dst, ent.data);
+    // Inflating 4000-odd entries without a break would hold the main process for
+    // the whole extract, freezing every IPC call including the window controls.
+    if (++written % 64 === 0) await new Promise(r => setImmediate(r));
+  }
   if (fs.existsSync(riiDst)) fs.rmSync(riiDst, { recursive: true, force: true });
-  copyTreeSync(riiSeed, riiDst);
+  fs.renameSync(staging, riiDst);
   log(`Seeded RefractiveIndex.info mirror (${seedM?.materialCount ?? '?'} materials, ${seedM?.lastUpdated ?? '?'})`);
 }
 

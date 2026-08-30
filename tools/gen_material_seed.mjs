@@ -7,9 +7,14 @@
  *
  *   build/seed/
  *     agf/schott2025.AGF                         ← Schott glass catalog (auto-scanned)
- *     rii-db/catalog-nk.yml                       ← RefractiveIndex.info offline mirror
- *     rii-db/data/**.yml
- *     rii-db/manifest.json                        ← { lastUpdated, materialCount, source }
+ *     rii-db.zip                                  ← RefractiveIndex.info offline mirror
+ *     rii-db.manifest.json                        ← { lastUpdated, materialCount, source }
+ *
+ * The mirror ships as one archive rather than 4000-odd loose files because the
+ * portable build unpacks its whole payload on every launch, and that cost is
+ * driven by the number of files far more than by their size. The loose manifest
+ * beside it lets first-run seeding compare snapshot dates without inflating the
+ * archive.
  *
  * The coating/substrate catalogs (build/seed/library/*.catalog.json) are native
  * JSON committed to the repo — they are NOT produced by this script. The committed
@@ -23,6 +28,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import url from 'node:url';
 import { execSync } from 'node:child_process';
+import { createZip } from './zip-writer.mjs';
 
 const ROOT = path.resolve(path.dirname(url.fileURLToPath(import.meta.url)), '..');
 const MATERIALS = path.join(ROOT, 'materials');
@@ -82,13 +88,18 @@ function genAgf() {
 }
 
 // ── 2. RefractiveIndex.info offline mirror ──────────────────────────────────────
-function copyTree(src, dst) {
-    mkdirp(dst);
+// Read a tree into archive entries under `prefix`, returning the .yml count that
+// the manifest reports as the material count.
+function collectTree(src, prefix, entries) {
     let n = 0;
     for (const e of fs.readdirSync(src, { withFileTypes: true })) {
-        const s = path.join(src, e.name), d = path.join(dst, e.name);
-        if (e.isDirectory()) n += copyTree(s, d);
-        else if (e.isFile()) { fs.copyFileSync(s, d); if (e.name.endsWith('.yml')) n++; }
+        const s = path.join(src, e.name);
+        const name = prefix + e.name;
+        if (e.isDirectory()) n += collectTree(s, name + '/', entries);
+        else if (e.isFile()) {
+            entries.push({ name, data: fs.readFileSync(s) });
+            if (e.name.endsWith('.yml')) n++;
+        }
     }
     return n;
 }
@@ -98,13 +109,20 @@ function genRii(buildDate, riiSrc) {
         console.log(`  ! RII source not found at ${riiSrc} — offline RII mirror NOT bundled (committed seed kept).`);
         return;
     }
-    const outDir = path.join(SEED, 'rii-db');
-    rmrf(outDir); mkdirp(outDir);
-    fs.copyFileSync(path.join(riiSrc, 'catalog-nk.yml'), path.join(outDir, 'catalog-nk.yml'));
-    const count = copyTree(path.join(riiSrc, 'data'), path.join(outDir, 'data'));
+    const entries = [{
+        name: 'catalog-nk.yml',
+        data: fs.readFileSync(path.join(riiSrc, 'catalog-nk.yml')),
+    }];
+    const count = collectTree(path.join(riiSrc, 'data'), 'data/', entries);
     const manifest = { lastUpdated: buildDate, materialCount: count, source: 'bundled' };
-    fs.writeFileSync(path.join(outDir, 'manifest.json'), JSON.stringify(manifest, null, 2), 'utf-8');
-    console.log(`  RII mirror: ${count} material files, dated ${buildDate}`);
+    entries.push({ name: 'manifest.json', data: Buffer.from(JSON.stringify(manifest, null, 2), 'utf-8') });
+
+    const zip = createZip(entries);
+    fs.writeFileSync(path.join(SEED, 'rii-db.zip'), zip);
+    fs.writeFileSync(path.join(SEED, 'rii-db.manifest.json'), JSON.stringify(manifest, null, 2), 'utf-8');
+    rmrf(path.join(SEED, 'rii-db'));   // loose tree written by earlier versions of this script
+    const mb = (zip.length / 1048576).toFixed(1);
+    console.log(`  RII mirror: ${count} material files, dated ${buildDate} → rii-db.zip (${mb} MB, ${entries.length} entries)`);
 }
 
 // ── Main ────────────────────────────────────────────────────────────────────────

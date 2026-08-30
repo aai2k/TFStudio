@@ -3,7 +3,7 @@ const path = require('path');
 const fs = require('fs');
 const logger = require('./main/logger');
 const { log, flushLog } = logger;
-const { safeName, safeFilePath, readJsonSafe, writeFileAtomic, readTextAuto } = require('./main/paths');
+const { safeName, safeFilePath, readJsonSafe, writeFileAtomic, readTextAuto, resolveExeDir } = require('./main/paths');
 const seed = require('./main/seed');
 const helpServer = require('./main/helpServer');
 const { createUserPaths } = require('./main/userPaths');
@@ -14,12 +14,12 @@ const isPackaged = app.isPackaged;
 // DevTools allowed in dev always, and in packaged builds only when launched with
 // --debug (so we can diagnose a shipped build without weakening normal installs).
 const devToolsAllowed = !isPackaged || process.argv.includes('--debug');
-let exeDir;
-if (isPackaged) {
-  exeDir = path.dirname(process.execPath);
-} else {
-  exeDir = app.getAppPath();
-}
+const exeDir = resolveExeDir({
+  portableDir: process.env.PORTABLE_EXECUTABLE_DIR,
+  isPackaged,
+  execPath: process.execPath,
+  appPath: app.getAppPath(),
+});
 logger.init(exeDir);
 
 let portableDataDir = path.join(exeDir, 'AppData');

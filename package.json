@@ -52,24 +52,29 @@
   "devDependencies": {
     "cross-env": "^10.1.0",
     "decimal.js": "^10.6.0",
+    "echarts": "^6.1.0",
+    "echarts-gl": "^2.1.0",
     "electron": "^43.4.0",
     "electron-builder": "^26.15.3",
     "esbuild": "^0.28.2",
-    "sharp": "^0.35.4"
-  },
-  "dependencies": {
-    "echarts": "^6.1.0",
-    "echarts-gl": "^2.1.0",
-    "js-yaml": "^4.3.1",
     "katex": "^0.18.4",
     "react": "^18.2.0",
     "react-dom": "^18.2.0",
+    "sharp": "^0.35.4"
+  },
+  "dependencies": {
+    "js-yaml": "^4.3.1",
     "tmmcore": "^0.2.0"
   },
   "build": {
     "appId": "com.tfstudio.app",
     "productName": "TFStudio",
     "asar": true,
+    "electronLanguages": [
+      "en-US",
+      "ru",
+      "zh-CN"
+    ],
     "asarUnpack": [
       "**/*.ico",
       "build/app/**"
@@ -171,7 +176,8 @@
       "include": "build/installer.nsh"
     },
     "portable": {
-      "artifactName": "${productName}-${version}-Portable.${ext}"
+      "artifactName": "${productName}-${version}-Portable.${ext}",
+      "splashImage": "build/splash.bmp"
     },
     "deb": {
       "maintainer": "Andrey Achapovsky <aai2k@users.noreply.github.com>",
