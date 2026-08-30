@@ -78,25 +78,27 @@ assert.ok(dsdDiff > 1e-6, 'designSpectrum env differs from design-level (substra
 console.log('spectrum envIndex OK');
 
 // ── Task 3: envSession store 行为 ──────────────────────────────
+// 锁定是当前窗口实例的瞬时 UI 状态（由 useOpticalEvaluation 的 useState 管理，
+// 只在组件内生效，跨窗口/跨设计不共享），不再进入 store；
+// store 只持久化 envIndex（scope 'design' → 按 design.id 单 slot）。
 const designA = { id: 'design-A', meritEnvironments: [{ id: 'e1', incidentMedium: 'Air', exitMedium: 'Water' }] };
 const designB = { id: 'design-B', meritEnvironments: [] };
 
 // 默认值
 let s0 = opticalEnvSession.read(designA);
 assert.equal(s0.envIndex, -1, 'default envIndex -1');
-assert.equal(s0.locked, false, 'default unlocked');
-assert.equal(s0.lockedEnvIndex, -1, 'default lockedEnvIndex -1');
+assert.equal(s0.locked, undefined, 'store no longer holds lock state');
+assert.equal(s0.lockedEnvIndex, undefined, 'store no longer holds lock snapshot');
 
-// 写入 envIndex + 锁定快照
-opticalEnvSession.write(designA, { envIndex: 0, locked: true, lockedEnvIndex: 0 });
+// 写入 envIndex（锁字段不再写入 store）
+opticalEnvSession.write(designA, { envIndex: 0 });
 let s1 = opticalEnvSession.read(designA);
 assert.equal(s1.envIndex, 0, 'envIndex persists');
-assert.equal(s1.locked, true, 'locked persists');
+assert.equal(s1.locked, undefined, 'lock fields stay out of the store');
 
 // 切换 design → onDesignChange 复位
 let s2 = opticalEnvSession.read(designB);
 assert.equal(s2.envIndex, -1, 'design switch resets envIndex');
-assert.equal(s2.locked, false, 'design switch unlocks');
 
 // 复位后不再影响 designA
 opticalEnvSession.write(designB, { envIndex: 5 });
@@ -104,16 +106,14 @@ let s3 = opticalEnvSession.read(designA);
 assert.equal(s3.envIndex, 0, 'per-slot isolation preserved');
 
 // onDesignChange 复位分支：存储的索引在新 design 上越界（环境列表收缩）→
-// 切回时守卫返回复位补丁（设计级 + 解锁）。仅 1 个环境却存了索引 2。
+// 切回时守卫返回复位补丁（仅 envIndex 复位为设计级）。仅 1 个环境却存了索引 2。
 const designC = { id: 'design-C', meritEnvironments: [{ id: 'e1', incidentMedium: 'Air', exitMedium: 'Water' }] };
 const designD = { id: 'design-D', meritEnvironments: [] };
 opticalEnvSession.read(designC); // 建立 designC 槽位
-opticalEnvSession.write(designC, { envIndex: 2, locked: true, lockedEnvIndex: 2 }); // 2 越界（1 个环境）
+opticalEnvSession.write(designC, { envIndex: 2 }); // 2 越界（1 个环境）
 opticalEnvSession.read(designD); // 切到别的 design
 let s4 = opticalEnvSession.read(designC); // 切回 → 触发 onDesignChange，索引已无效
 assert.equal(s4.envIndex, -1, 'out-of-range envIndex resets to design level');
-assert.equal(s4.locked, false, 'out-of-range lock cleared');
-assert.equal(s4.lockedEnvIndex, -1, 'out-of-range lockedEnvIndex resets');
 console.log('envSession OK');
 
 // ── Task 5: Variator 多环境感知 ──────────────────────────────

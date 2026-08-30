@@ -2,11 +2,12 @@ import { environmentOptions } from '../../../../utils/physics/environment.js';
 
 const { createElement: h } = React;
 
-export function EnvironmentSelector({ c, oe, design, envIndex, onChange }) {
+export function EnvironmentSelector({ c, oe, design, envIndex, onChange, disabled }) {
   const opts = environmentOptions(design);
   const envs = (design && design.meritEnvironments) || [];
   return h('select', {
     value: String(envIndex),
+    disabled: !!disabled,
     onChange: (e) => onChange(Number(e.target.value)),
     title: oe.environment || 'Environment',
     style: { fontSize: 12, marginLeft: 8 },

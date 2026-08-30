@@ -146,8 +146,27 @@ export function useOpticalEvaluation() {
     const context = useDesign();
     const { design, updateDesign, evalMode, evalParams: params, setEvalParams: setParams } = context;
     const [envSession, setEnvField] = useWindowSession(opticalEnvSession, design);
-    const { envIndex, locked, lockedEnvIndex } = envSession;
-    const effectiveEnvIndex = locked ? lockedEnvIndex : envIndex;
+    const { envIndex } = envSession;
+    // The view lock is transient UI state for this window instance only. A
+    // module-scoped store would be shared by every mount of the same design and
+    // go stale in a multi-window comparison, so the lock lives here in local
+    // React state: it survives remounts of this component, never leaks into
+    // another window, and is not persisted anywhere.
+    const [locked, setLocked] = useState(false);
+    const [lockedEnvIndex, setLockedEnvIndex] = useState(-1);
+    // A design switch does not remount the component; the lock is a transient
+    // view state and must not carry across designs, so reset it with the id.
+    useEffect(() => {
+        setLocked(false);
+        setLockedEnvIndex(-1);
+    }, [design?.id]); // eslint-disable-line react-hooks/exhaustive-deps
+    // While locked, keep showing the environment the lock snapshot was taken
+    // from, even if the dropdown selection changes. A lock whose snapshot is
+    // out of range for the current environment list (or was never taken) falls
+    // back to the dropdown selection instead of freezing on a stale index.
+    const envCount = (design?.meritEnvironments || []).length;
+    const lockValid = locked && (lockedEnvIndex === -1 || (lockedEnvIndex >= 0 && lockedEnvIndex < envCount));
+    const effectiveEnvIndex = lockValid ? lockedEnvIndex : envIndex;
     const display = useDisplayOptions(params, setParams, design);
     const spectrum = useSpectrumEvaluation({ params, evalMode, envIndex: effectiveEnvIndex });
     const targets = useTargetEditor({ design, updateDesign });
@@ -159,8 +178,8 @@ export function useOpticalEvaluation() {
         envIndex, setEnvIndex: value => setEnvField('envIndex', value),
         locked,
         toggleLock: () => {
-            if (locked) setEnvField('locked', false);
-            else { setEnvField('lockedEnvIndex', envIndex); setEnvField('locked', true); }
+            if (locked) setLocked(false);
+            else { setLockedEnvIndex(envIndex); setLocked(true); }
         },
         ...display, ...spectrum, ...targets, ...csv,
         ...designSummary(design, evalMode, spectrum.data, effectiveEnvIndex),

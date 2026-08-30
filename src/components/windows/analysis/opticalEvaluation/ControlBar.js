@@ -88,6 +88,7 @@ export function ControlBar(props) {
             h(EnvironmentSelector, {
                 key: 'env', c, oe, design: props.design,
                 envIndex: props.envIndex, onChange: props.setEnvIndex,
+                disabled: props.locked,
             }),
             h(LockEnvButton, {
                 key: 'lock', c, oe,
