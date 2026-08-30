@@ -20,8 +20,9 @@
 
 **English** · [简体中文](./README.zh-CN.md)
 
+![TFStudio main window](assets/screenshot-main.png)
+
 </div>
-<img width="1919" height="1141" alt="Screenshot_83" src="https://github.com/user-attachments/assets/bcd4f5cc-e2d4-4382-a07d-8aed9346cd48" />
 
 
 
