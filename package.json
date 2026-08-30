@@ -138,7 +138,7 @@
     },
     "extraResources": [
       {
-        "from": "node_modules/tmmcore/src/tmm_kernel.wasm",
+        "from": "prebuild/tmm_kernel.wasm",
         "to": "tmm_kernel.wasm"
       },
       {

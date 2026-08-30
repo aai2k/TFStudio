@@ -359,12 +359,23 @@ try {
     }
 
     # --- 4. Verify the tmmcore WASM artifact ---------------------------------
+    # The packaging pipeline reads the binary ONLY from prebuild/. If the staged
+    # copy is missing (e.g. a fresh checkout), sync it from the tmmcore package
+    # that npm install just provisioned.
     Section "Verifying tmmcore WASM kernel"
-    $wasmPath = (& node -p "require.resolve('tmmcore/tmm_kernel.wasm')").Trim()
-    if ($LASTEXITCODE -ne 0 -or -not (Test-Path -LiteralPath $wasmPath)) {
-        throw 'tmmcore/tmm_kernel.wasm could not be resolved after npm install.'
+    $prebuiltWasm = Join-Path $proj 'prebuild\tmm_kernel.wasm'
+    if (-not (Test-Path -LiteralPath $prebuiltWasm)) {
+        Write-Host "prebuild/tmm_kernel.wasm missing -> syncing from node_modules/tmmcore..." -ForegroundColor Yellow
+        $prebuildDir = Split-Path -Parent $prebuiltWasm
+        if (-not (Test-Path -LiteralPath $prebuildDir)) {
+            New-Item -ItemType Directory -Force -Path $prebuildDir | Out-Null
+        }
+        Copy-Item -LiteralPath (Join-Path $proj 'node_modules\tmmcore\src\tmm_kernel.wasm') -Destination $prebuiltWasm -Force
+        if (-not (Test-Path -LiteralPath $prebuiltWasm)) {
+            throw 'prebuilt WASM kernel could not be provisioned (source: node_modules/tmmcore/src/tmm_kernel.wasm).'
+        }
     }
-    Write-Host ("tmmcore WASM kernel present: {0:N0} bytes" -f (Get-Item -LiteralPath $wasmPath).Length) -ForegroundColor Green
+    Write-Host ("tmmcore WASM kernel present: {0:N0} bytes" -f (Get-Item -LiteralPath $prebuiltWasm).Length) -ForegroundColor Green
 
     # --- 5. Package: seed + docs + renderer + installers (npm run build) ------
     # Optional cache wipe is OPT-IN only (-CleanCache). Wiping it forces a

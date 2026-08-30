@@ -6,7 +6,7 @@
  * first on PATH and the Windows PowerShell directory missing. electron-builder
  * invokes powershell.exe while collecting production dependencies, so that
  * otherwise fails late with `spawn powershell.exe ENOENT`. TFStudio does not
- * need emsdk: tmmcore and its WASM binary arrive prebuilt from npm.
+ * need emsdk: tmmcore and its WASM binary arrive prebuilt, staged in prebuild/.
  */
 import fs from 'node:fs';
 import path from 'node:path';

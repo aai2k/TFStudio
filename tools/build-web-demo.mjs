@@ -20,7 +20,7 @@ const root = path.resolve(here, '..');
 const buildApp = path.join(root, 'build', 'app');
 const webSrc = path.join(root, 'web');
 const outDir = path.join(webSrc, 'dist');
-const wasmSrc = createRequire(import.meta.url).resolve('tmmcore/tmm_kernel.wasm');
+const wasmSrc = path.join(root, 'prebuild', 'tmm_kernel.wasm');
 
 function clean(dir) {
   if (fs.existsSync(dir)) fs.rmSync(dir, { recursive: true, force: true });
@@ -64,9 +64,14 @@ function main() {
     console.warn('[build-web-demo] WARNING: build/icons not found — logo will 404.');
   }
 
-  // WASM kernel (static fetch target for the web shim).
+  // WASM kernel (static fetch target for the web shim). Sourced from prebuild/,
+  // the same prebuilt binary the desktop packaging pipeline consumes.
+  if (!fs.existsSync(wasmSrc)) {
+    console.error('[build-web-demo] prebuild/tmm_kernel.wasm not found — sync it from node_modules/tmmcore/src/tmm_kernel.wasm (see build-release.ps1 step 4).');
+    process.exit(1);
+  }
   fs.copyFileSync(wasmSrc, path.join(outDir, 'tmm_kernel.wasm'));
-  console.log('[build-web-demo] copied tmmcore/tmm_kernel.wasm');
+  console.log('[build-web-demo] copied prebuild/tmm_kernel.wasm');
 
   // js-yaml, for the RefractiveIndex.info browser. The desktop parses the
   // catalog in the main process; the browser has to do it itself. It is NOT in

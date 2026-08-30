@@ -184,9 +184,16 @@ else
 fi
 
 # --- 3. Verify the tmmcore WASM artifact -------------------------------------
+# The packaging pipeline reads the binary ONLY from prebuild/. If the staged
+# copy is missing, sync it from the tmmcore package that npm install provisioned.
 section "Verifying tmmcore WASM kernel"
-WASM="$(node -p "require.resolve('tmmcore/tmm_kernel.wasm')")"
-[ -f "$WASM" ] || { echo "tmmcore/tmm_kernel.wasm could not be resolved." >&2; exit 1; }
+WASM="prebuild/tmm_kernel.wasm"
+if [ ! -f "$WASM" ]; then
+    echo "prebuild/tmm_kernel.wasm missing -> syncing from node_modules/tmmcore..."
+    mkdir -p prebuild
+    cp -f node_modules/tmmcore/src/tmm_kernel.wasm "$WASM"
+    [ -f "$WASM" ] || { echo "prebuilt WASM kernel could not be provisioned (source: node_modules/tmmcore/src/tmm_kernel.wasm)." >&2; exit 1; }
+fi
 printf 'tmmcore WASM kernel present: %s bytes\n' "$(stat -c %s "$WASM")"
 
 # --- 4. Package --------------------------------------------------------------
