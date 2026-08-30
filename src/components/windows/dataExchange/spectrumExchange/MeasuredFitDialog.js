@@ -36,6 +36,20 @@ export function MeasuredFitDialog({ controller, c, sx }) {
     const sampledCount = fitSnapshot.sampled?.lambdas?.length || 0;
     const constraintsInvalid = measuredFitConstraintsInvalid(fitConfig);
     const disabled = missingMaterialIds.length > 0 || !fitSnapshot.operand || constraintsInvalid;
+    const clipToCoverage = fitConfig.clipToCoverage !== false;
+    // The span every design material has optical data for.
+    const covered = fitSnapshot.coverage?.covered;
+    const curveFrom = curve.x[0];
+    const curveTo = curve.x[curve.x.length - 1];
+    // With the clip on the range fields already hold the covered span, so the
+    // notice explains why they read as they do rather than reporting a change.
+    const limitedByMaterials = Boolean(clipToCoverage && covered
+        && (covered[0] > curveFrom + 1e-6 || covered[1] < curveTo - 1e-6));
+    // With the clip off the points outside that span are kept, and scored
+    // against an extrapolated n and k.
+    const uncovered = !clipToCoverage && fitSnapshot.coverage?.offenders?.length
+        ? covered
+        : null;
 
     return h('div', {
         role: 'dialog', 'aria-modal': true, 'aria-label': sx.fitTitle,
@@ -89,6 +103,13 @@ export function MeasuredFitDialog({ controller, c, sx }) {
                     max: curve.x[curve.x.length - 1], step: 1,
                     onChange: value => setFitOption('rangeMax', value),
                 },
+            }),
+        ),
+        h(DialogRow, { c, label: '' },
+            h(CheckField, {
+                c, label: sx.fitClipToCoverage, checked: clipToCoverage,
+                onChange: () => setFitOption('clipToCoverage', !clipToCoverage),
+                title: sx.fitClipToCoverageTip,
             }),
         ),
         fitConfig.mode === 'thinned' && h(DialogRow, { c, label: sx.fitEveryLabel },
@@ -162,8 +183,8 @@ export function MeasuredFitDialog({ controller, c, sx }) {
         fitSnapshot.error && h(Notice, { tone: 'error', c },
             sx.fitErrors[fitSnapshot.error] || sx.fitErrors.range),
         constraintsInvalid && h(Notice, { tone: 'error', c }, sx.fitConstraintError),
-        fitSnapshot.sampled?.clipped && fitSnapshot.sampled.range && h(Notice, { c },
-            sx.fitClipped(fitSnapshot.sampled.range[0], fitSnapshot.sampled.range[1])),
+        limitedByMaterials && h(Notice, { c }, sx.fitClipped(covered[0], covered[1])),
+        uncovered && h(Notice, { c }, sx.fitExtrapolated(uncovered[0], uncovered[1])),
         fitSnapshot.sampled?.stepTooFine && h(Notice, { c },
             sx.fitStepFine(fitSnapshot.sampled.spacingNm)),
 

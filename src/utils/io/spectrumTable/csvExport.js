@@ -68,7 +68,8 @@ function independentGridLines(list, format) {
  *
  * @param {measuredCurve[]} curves
  * @param {object} [opts] opts.delimiter (default ','), opts.asPercent (default true),
- *   opts.xUnit ('nm' | 'um' | 'cm-1', default 'nm')
+ *   opts.xUnit ('nm' | 'um' | 'cm-1', default 'nm'),
+ *   opts.headerLines (preamble written above the column names)
  * @returns {string} CSV text with CRLF endings.
  */
 export function curvesToCsv(curves, opts = {}) {
@@ -92,7 +93,7 @@ export function curvesToCsv(curves, opts = {}) {
     const lines = curvesShareGrid(list)
         ? sharedGridLines(list, format)
         : independentGridLines(list, format);
-    return lines.join('\r\n') + '\r\n';
+    return [...(opts.headerLines || []), ...lines].join('\r\n') + '\r\n';
 }
 
 function fmt(v) {
@@ -105,11 +106,15 @@ function fmt(v) {
 /**
  * Build a CSV from an arbitrary X grid + named Y columns (used to export the
  * design's COMPUTED spectrum: T/R/A vs λ). Values are written verbatim.
+ *
+ * opts.headerLines are written above the column names, and are how the
+ * measurement conditions travel with the file; the column-name row stays last
+ * so the importer still reads the names from it.
  */
 export function tableToCsv({ x, columns, xLabel = 'Wavelength (nm)' }, opts = {}) {
     const d = opts.delimiter || ',';
     const cols = columns || [];
-    const lines = [csvRow([xLabel, ...cols.map(c => c.name)], d)];
+    const lines = [...(opts.headerLines || []), csvRow([xLabel, ...cols.map(c => c.name)], d)];
     for (let i = 0; i < x.length; i++) {
         lines.push(csvRow([fmt(x[i]), ...cols.map(c => fmt(c.values[i]))], d));
     }

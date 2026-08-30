@@ -109,6 +109,8 @@ export function useMeasuredEllipsometry(mx) {
             const detectedAoi = next.aoi
                 ?? next.columns.find(col => Number.isFinite(col.aoi))?.aoi;
             if (Number.isFinite(detectedAoi)) setField('aoi', detectedAoi);
+            // The calculated Psi/Delta export names the side it was taken from.
+            if (next.side) setField('side', next.side);
             flash(Number.isFinite(detectedAoi) ? 'success' : 'warning',
                 Number.isFinite(detectedAoi)
                     ? mx.loaded(result.fileName || '', next.nRows, detectedAoi)

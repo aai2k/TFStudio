@@ -16,6 +16,7 @@ function emptyTable(error, extra = {}) {
         delimiter: ',', decimal: '.',
         headerText: '', headerLines: [], nRows: 0, skippedRows: 0,
         xUnit: X_UNITS.UNKNOWN, x: [], columns: [], aoi: null, aois: [],
+        pol: null, side: null,
         ...extra,
     };
 }
@@ -33,6 +34,37 @@ function headerAoi(headerLines, decimal) {
         const number = tail.match(/[-+]?\d+(?:[.,]\d+)?/);
         const value = number ? parseNumber(number[0], decimal) : NaN;
         if (Number.isFinite(value) && value >= 0 && value <= 90) return value;
+    }
+    return null;
+}
+
+// Polarization and incidence side, when a file states them in its header. Only
+// a recognised value counts: a header that mentions the condition without
+// naming one of these settings reads as absent, leaving the import panel's own
+// setting untouched. A file cannot silently change a condition it never
+// declared.
+function headerPolarization(headerLines) {
+    const AVERAGE = /^(?:avg|ave|average|mean|unpolari[sz]ed|natural|random)$/;
+    for (const line of headerLines) {
+        const hit = String(line || '').match(/\bpolari[sz]ation\b\s*[:=]?\s*([a-z]+)/i);
+        if (!hit) continue;
+        const value = hit[1].toLowerCase();
+        if (value === 's' || value === 'p') return value;
+        if (AVERAGE.test(value)) return 'avg';
+    }
+    return null;
+}
+
+// "front side" and "back side" name the side a measurement was taken from;
+// "backside", written as one word, is a property of the sample ("backside
+// polished") far more often than a statement about the measurement, so a
+// separator is required.
+function headerSide(headerLines) {
+    for (const line of headerLines) {
+        const text = String(line || '');
+        const hit = text.match(/\b(front|back)[\s-]+side\b/i)
+            || text.match(/\b(?:incidence|measurement)\s+side\b\s*[:=]?\s*(front|back)\b/i);
+        if (hit) return hit[1].toLowerCase();
     }
     return null;
 }
@@ -262,5 +294,7 @@ export function parseSpectrumTable(text, opts = {}) {
         nRows: x.length, skippedRows, xUnit, x, columns: withAoi.columns,
         aoi: withAoi.aois.length === 1 ? withAoi.aois[0] : null,
         aois: withAoi.aois,
+        pol: headerPolarization(headerLines),
+        side: headerSide(headerLines),
     };
 }

@@ -4,7 +4,7 @@ import {
     curvesToCsv, makeMeasuredCurve, measuredCurveData, measuredCurveSpacing, nmToX,
     sampleMeasuredCurve, tableToCsv, X_UNITS,
 } from '../../../../utils/io/spectrumTable.js';
-import { designRangeCoverage } from '../../../../utils/materials/materialRange.js';
+import { clampToCovered, designRangeCoverage } from '../../../../utils/materials/materialRange.js';
 import {
     DEFAULT_CONSTRAINT_LAST_LAYER, isMeasuredCurve, makeConstraintOperand,
     makeMeasuredCurveOperand, resolveEvalMode,
@@ -32,11 +32,30 @@ export function defaultMeasuredFitOptions(curve) {
         stepNm: spacing,
         weight: 1,
         outputMode: 'append',
+        clipToCoverage: true,
         constraintsEnabled: false,
         minThicknessNm: 10,
         maxThicknessNm: 1000,
         constraintWeight: 1,
     };
+}
+
+/**
+ * The fit range as the dialog shows and uses it: clamped to the span every
+ * design material has optical data for while the clip is switched on, so the
+ * range fields state the range the target will actually cover instead of the
+ * one that was asked for.
+ *
+ * The stored range is left untouched, so switching the clip off puts the user's
+ * own bounds straight back.
+ */
+export function clampedFitRange(design, config) {
+    if (!design || !config || config.clipToCoverage === false) return config;
+    const requested = [config.rangeMin, config.rangeMax];
+    const { covered } = designRangeCoverage(design, requested);
+    const clamped = clampToCovered(covered, requested);
+    if (!clamped) return config;
+    return { ...config, rangeMin: clamped[0], rangeMax: clamped[1] };
 }
 
 // Which side of the sample the merit function illuminates. A whole-sample
@@ -57,7 +76,12 @@ export function measuredFitSnapshot(design, curve, options = {}) {
     const config = { ...defaults, ...options };
     const requestedRange = [config.rangeMin, config.rangeMax];
     const coverage = designRangeCoverage(design, requestedRange);
-    const safeRange = coverage.offenders.length ? coverage.covered : null;
+    // Residuals outside the materials' declared data would be scored against an
+    // extrapolated n and k. Clipping them away is the default; the caller can
+    // keep them, and the dialog says so when it does.
+    const safeRange = config.clipToCoverage !== false && coverage.offenders.length
+        ? coverage.covered
+        : null;
     const sampled = sampleMeasuredCurve(curve, { ...config, safeRange });
     if (sampled.error || !sampled.lambdas.length) {
         return {
@@ -168,6 +192,34 @@ export function measuredFitMeritOperands(existing, measuredOperand, config = {})
         : [...(existing || []), ...generated];
 }
 
+const POLARIZATION_LABEL = { avg: 'average', s: 's', p: 'p' };
+
+/**
+ * The conditions a spectrum was taken under, as header lines above the column
+ * names. Without them a file exported from TFStudio comes back carrying
+ * whatever conditions the import panel happened to be set to, and a spectrum
+ * read at the wrong angle does not lie on the design it came from.
+ *
+ * The shape matches the calculated Psi/Delta export. A condition the columns do
+ * not agree on is left out rather than guessed: one header line cannot describe
+ * columns taken at different angles or polarizations.
+ */
+export function spectrumConditionLines({ name, aoi, pol, side }) {
+    const conditions = [];
+    if (Number.isFinite(aoi)) conditions.push(`AOI ${aoi} deg`);
+    if (side) conditions.push(`${side} side`);
+    const lines = [`# ${name || 'design'}`];
+    if (conditions.length) lines.push(`# ${conditions.join(', ')}`);
+    lines.push(`# Polarization: ${POLARIZATION_LABEL[pol] || 'per column'}`);
+    return lines;
+}
+
+/** The one value every curve shares, or null when they differ. */
+function sharedValue(values) {
+    const [first] = values;
+    return values.length && values.every(value => value === first) ? first : null;
+}
+
 export function measuredExportDocument(design, expFormat, options = {}) {
     const list = options.curves || design.measuredCurves || [];
     const xUnit = options.xUnit || X_UNITS.NM;
@@ -191,8 +243,14 @@ export function measuredExportDocument(design, expFormat, options = {}) {
             fileName: `${base}_measured.dx`,
         };
     }
+    const headerLines = spectrumConditionLines({
+        name: design.name,
+        aoi: sharedValue(list.map(curve => curve.aoi ?? 0)),
+        pol: sharedValue(list.map(curve => curve.pol || 'avg')),
+        side: sharedValue(list.map(curve => curve.side || 'front')),
+    });
     return {
-        text: curvesToCsv(list, { xUnit, asPercent }),
+        text: curvesToCsv(list, { xUnit, asPercent, headerLines }),
         fileName: `${base}_measured.csv`,
     };
 }
@@ -249,5 +307,13 @@ export function designExportDocument({ spec, design, quantities, includeSP, expF
         quantities,
         pols: includeSP ? ['avg', 's', 'p'] : ['avg'],
     });
-    return { text: tableToCsv(columns), fileName: `${base}_spectrum.csv` };
+    // A multi-angle export names each column for its own angle, so the file has
+    // no single angle to declare.
+    const headerLines = spectrumConditionLines({
+        name: design.name,
+        aoi: spec.series.length === 1 ? spec.series[0].theta : null,
+        pol: includeSP ? null : 'avg',
+        side: evaluatedMeasurementSide(design),
+    });
+    return { text: tableToCsv(columns, { headerLines }), fileName: `${base}_spectrum.csv` };
 }

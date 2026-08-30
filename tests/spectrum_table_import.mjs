@@ -537,5 +537,101 @@ for (const quantity of ['T', 'R', 'A']) {
         back.columns[0].values[0] === 23.5 && back.columns[1].values[1] === 181.2);
 }
 
+// ── Measurement conditions survive an export → import round trip ────────────
+// A spectrum exported from TFStudio used to carry no conditions at all, so
+// loading it back stamped it with whatever the import panel was set to and drew
+// it against the design at the wrong angle.
+{
+    const { designExportDocument, measuredExportDocument, spectrumConditionLines } =
+        await import('../src/components/windows/dataExchange/spectrumExchange/model.js');
+
+    const design = { name: 'Formula Design (4)', surfaceMode: 'front_only', mfEvalMode: 'side' };
+    const spec = { lambda: [400, 500], series: [{ theta: 0, T: [0.9, 0.92], R: [0.08, 0.06] }] };
+    const single = designExportDocument({
+        spec, design, quantities: ['T', 'R'], includeSP: false, expFormat: 'csv', base: 'd',
+    });
+    const back = parseSpectrumTable(single.text);
+    ok('design export declares its angle', back.aoi === 0);
+    ok('design export declares its polarization', back.pol === 'avg');
+    ok('design export declares its side', back.side === 'front');
+    ok('design export still names its columns',
+        back.columns.map(c => c.name).join('|') === 'T %|R %');
+    ok('design export column scale survives the preamble',
+        back.columns[0].isPercent === true && back.columns[0].quantity === 'T');
+    ok('design export values survive the preamble',
+        approx(back.columns[0].values[0], 90) && approx(back.columns[1].values[1], 6));
+    // The preamble sits above the column names, never below: the parser reads
+    // the names from the last header line.
+    ok('design export keeps the column names last',
+        back.headerLines.at(-1).startsWith('Wavelength')
+        && back.headerLines.at(-2).startsWith('# Polarization'));
+
+    // A file whose columns differ in a condition must not claim a single one.
+    const multi = designExportDocument({
+        spec: { lambda: [400], series: [{ theta: 0, T: [0.9] }, { theta: 45, T: [0.8] }] },
+        design, quantities: ['T'], includeSP: false, expFormat: 'csv', base: 'd',
+    });
+    ok('multi-angle export declares no single angle', parseSpectrumTable(multi.text).aoi === null);
+    const sp = designExportDocument({
+        spec, design, quantities: ['T'], includeSP: true, expFormat: 'csv', base: 'd',
+    });
+    ok('s/p export declares no single polarization', parseSpectrumTable(sp.text).pol === null);
+
+    // Measured curves carry their own conditions; the export states them only
+    // when every exported curve agrees.
+    const curve = (name, aoi, pol, side) => makeMeasuredCurve({
+        name, x: [400, 500], xUnit: X_UNITS.NM, y: [0.5, 0.6],
+        quantity: 'T', isPercent: false, aoi, pol, side,
+    });
+    const agreed = parseSpectrumTable(measuredExportDocument(design, 'csv', {
+        curves: [curve('a', 45, 's', 'back'), curve('b', 45, 's', 'back')],
+    }).text);
+    ok('measured export states shared conditions',
+        agreed.aoi === 45 && agreed.pol === 's' && agreed.side === 'back');
+    const mixed = parseSpectrumTable(measuredExportDocument(design, 'csv', {
+        curves: [curve('a', 45, 's', 'front'), curve('b', 8, 'p', 'back')],
+    }).text);
+    ok('measured export states nothing the curves disagree on',
+        mixed.aoi === null && mixed.pol === null && mixed.side === null);
+
+    ok('conditions omitted rather than guessed',
+        spectrumConditionLines({ name: 'd' }).join('|') === '# d|# Polarization: per column');
+}
+
+// A file that declares no conditions leaves the import panel's own settings
+// alone: an instrument export must not be given conditions it never stated.
+{
+    const bare = parseSpectrumTable('Wavelength\tT\n400\t88.5\n401\t88.7\n');
+    ok('a bare file declares no conditions',
+        bare.aoi === null && bare.pol === null && bare.side === null);
+
+    // Words that appear in real instrument headers without naming a condition.
+    for (const header of [
+        'Polarizer: 45.0 deg',
+        'Polarization state: unknown',
+        'Analyzer polarization angle 30',
+        'Polarisation modulator frequency 50 kHz',
+        'Polarization: circular',
+        'Sample mounted backside down',
+        'Side-illuminated integrating sphere',
+        'Measured on the front panel of the instrument',
+    ]) {
+        const t = parseSpectrumTable(`${header}\nWavelength\tT\n400\t88.5\n401\t88.7\n`);
+        ok(`no condition read from "${header}"`, t.pol === null && t.side === null);
+    }
+
+    // The values that do count, in the shape both CSV exports write.
+    const stated = parseSpectrumTable(
+        '# design\n# AOI 45 deg, back side\n# Polarization: p\nWavelength\tT\n400\t88.5\n401\t88.7\n');
+    ok('stated conditions are read',
+        stated.aoi === 45 && stated.side === 'back' && stated.pol === 'p');
+    ok('average is read under either spelling',
+        parseSpectrumTable('# Polarization: average\nW\tT\n400\t1\n401\t2\n').pol === 'avg'
+        && parseSpectrumTable('# Polarization: unpolarised\nW\tT\n400\t1\n401\t2\n').pol === 'avg');
+    // The header the calculated Psi/Delta export has always written.
+    ok('psi/delta export side is read',
+        parseSpectrumTable('# d\n# AOI 70 deg, front side\nWavelength (nm),Psi (deg),Delta (deg)\n400,13.3,172.7\n405,13.1,171.9\n').side === 'front');
+}
+
 console.log(`\n${pass} passed, ${fail} failed`);
 process.exit(fail ? 1 : 0);

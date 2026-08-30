@@ -19,7 +19,8 @@ import {
 } from '../src/utils/io/spectrumTable.js';
 import { getMaterial } from '../src/utils/materials/materialDatabase.js';
 import {
-    measuredFitMeritOperands, measuredFitSnapshot, orphanFitBlocks, restoredFitCurves,
+    clampedFitRange, measuredFitMeritOperands, measuredFitSnapshot, orphanFitBlocks,
+    restoredFitCurves,
 } from '../src/components/windows/dataExchange/spectrumExchange/model.js';
 import { buildTargetGeometry } from '../src/utils/physics/spectrumTargets/geometry.js';
 import {
@@ -173,6 +174,59 @@ assert.deepEqual(
 assert.equal(measuredFitSnapshot(
     { ...comparisonDesign, surfaceMode: 'back_only' }, curve,
 ).error, 'side');
+
+// Fitting outside a material's declared data would score residuals against an
+// extrapolated n and k, so the range is clipped to the data by default. The
+// clip is the user's to switch off, and switching it off must keep every point
+// it would have dropped.
+{
+    const coveredDesign = {
+        ...comparisonDesign,
+        frontLayers: [{ id: 'L1', material: 'user:Limited', thickness: 100, locked: false }],
+        materials: {
+            'user:Limited': {
+                id: 'user:Limited',
+                name: 'Limited',
+                lambdaMin: 0.410,
+                lambdaMax: 0.430,
+                tabData: [[410, 2.4, 0], [420, 2.4, 0], [430, 2.4, 0]],
+            },
+        },
+    };
+    const range = { mode: 'measured', rangeMin: 400, rangeMax: 440 };
+
+    const onByDefault = measuredFitSnapshot(coveredDesign, curve, range);
+    assert.deepEqual(onByDefault.operand.sampleLambdas, [410, 420, 430],
+        'the fit range is clipped to the declared material data by default');
+    assert.equal(onByDefault.sampled.clipped, true);
+    assert.ok(onByDefault.coverage.offenders.length > 0,
+        'the dialog needs to know which material fell short');
+    assert.deepEqual(onByDefault.coverage.covered, [410, 430]);
+
+    const off = measuredFitSnapshot(coveredDesign, curve, { ...range, clipToCoverage: false });
+    assert.deepEqual(off.operand.sampleLambdas, [400, 410, 420, 430, 440],
+        'switching the clip off keeps the points outside the material data');
+    assert.equal(off.sampled.clipped, false);
+    assert.ok(off.coverage.offenders.length > 0,
+        'the shortfall is still reported so the dialog can warn about extrapolation');
+
+    // A design whose materials declare no range is never clipped either way.
+    const unlimited = measuredFitSnapshot(comparisonDesign, curve, range);
+    assert.deepEqual(unlimited.coverage.offenders, []);
+    assert.equal(unlimited.sampled.clipped, false);
+
+    // The dialog's range fields must state the range that will actually be
+    // stored, so the clamped range is what it reads, not the asked-for one.
+    const asked = { ...range, clipToCoverage: true };
+    const shown = clampedFitRange(coveredDesign, asked);
+    assert.deepEqual([shown.rangeMin, shown.rangeMax], [410, 430],
+        'the range fields show the covered span while the clip is on');
+    const kept = { ...range, clipToCoverage: false };
+    assert.deepEqual(clampedFitRange(coveredDesign, kept), kept,
+        'switching the clip off puts the asked-for range straight back');
+    assert.deepEqual(clampedFitRange(comparisonDesign, asked), asked,
+        'a design with no declared material range leaves the fields alone');
+}
 
 const existingRow = makeOperand({ id: 'existing', type: 'T', lambdaStart: 550 });
 const generationConfig = {

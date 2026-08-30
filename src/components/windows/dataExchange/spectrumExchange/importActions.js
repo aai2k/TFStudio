@@ -27,7 +27,8 @@ function importedJcampCurves(jcamp, result, conditions) {
 function useImportFile(options) {
     const {
         sx, design, updateDesign, checkpoint, flash, setLoading, setStatus,
-        setParsed, setFileName, setColIdx, setOv, setXUnit, setSelectedCurveId, setAoi,
+        setParsed, setFileName, setColIdx, setOv, setXUnit, setSelectedCurveId,
+        setAoi, setPol, setSide,
         aoi, pol, side,
     } = options;
     return useCallback(async () => {
@@ -64,8 +65,13 @@ function useImportFile(options) {
             }
             setParsed(nextParsed); setFileName(result.fileName || 'spectrum');
             setColIdx(0); setOv({}); setXUnit(nextParsed.xUnit === X_UNITS.UNKNOWN ? X_UNITS.NM : nextParsed.xUnit);
+            // Conditions the file states replace the panel's own. A file that
+            // declares none leaves every setting as the user left it, so an
+            // instrument export without a header still imports as before.
             const detectedAoi = nextParsed.aoi ?? nextParsed.columns.find(column => Number.isFinite(column.aoi))?.aoi;
             if (Number.isFinite(detectedAoi)) setAoi?.(detectedAoi);
+            if (nextParsed.pol) setPol?.(nextParsed.pol);
+            if (nextParsed.side) setSide?.(nextParsed.side);
             const loadedMessage = sx.loaded(result.fileName || '', nextParsed.nRows, nextParsed.columns.length);
             flash('success', nextParsed.skippedRows > 0
                 ? `${loadedMessage}. ${sx.skippedRows(nextParsed.skippedRows)}`

@@ -109,7 +109,7 @@ const design = {
 };
 const csv = model.measuredExportDocument(design, 'csv');
 assert.equal(csv.fileName, 'Measured_Sample_measured.csv');
-assert.equal(createHash('sha256').update(csv.text).digest('hex').slice(0, 16), '2ad7bc48ab40aab7');
+assert.equal(createHash('sha256').update(csv.text).digest('hex').slice(0, 16), '1e39511d96338a8a');
 
 const selectedExport = model.measuredExportDocument({
     name: 'Selected',
@@ -122,7 +122,9 @@ const selectedExport = model.measuredExportDocument({
     xUnit: 'um',
     asPercent: false,
 });
-assert.equal(selectedExport.text, 'Wavelength (µm),B R\r\n0.5,0.2\r\n');
+assert.equal(selectedExport.text,
+    '# Selected\r\n# AOI 0 deg, front side\r\n# Polarization: average\r\n'
+    + 'Wavelength (µm),B R\r\n0.5,0.2\r\n');
 
 const actionEvents = [];
 const actionDesign = {

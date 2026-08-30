@@ -6,8 +6,8 @@ import { resolveEvalMode } from '../../../../utils/physics/optimizer.js';
 import { useDesignExport, useMeasuredExport } from './exportActions.js';
 import { useImportActions } from './importActions.js';
 import {
-    defaultMeasuredFitOptions, measuredFitConstraintsInvalid, measuredFitMeritOperands,
-    measuredFitSnapshot, orphanFitBlocks, restoredFitCurves,
+    clampedFitRange, defaultMeasuredFitOptions, measuredFitConstraintsInvalid,
+    measuredFitMeritOperands, measuredFitSnapshot, orphanFitBlocks, restoredFitCurves,
 } from './model.js';
 import { spectrumExchangeSession } from './sessionState.js';
 import { useWindowSession } from '../../windowSession.js';
@@ -100,10 +100,10 @@ export function useSpectrumExchange(sx) {
     }, [design, updateDesign, checkpoint, sx, curves.length]);
     const selectedCurve = curves.find(curve => curve.id === selectedCurveId) || curves[0] || null;
     const fitDialogCurve = curves.find(curve => curve.id === fitDialogCurveId) || null;
-    const fitConfig = useMemo(() => ({
+    const fitConfig = useMemo(() => clampedFitRange(design, {
         ...defaultMeasuredFitOptions(fitDialogCurve),
         ...(fitDialogCurve ? fitOptions[fitDialogCurve.id] : {}),
-    }), [fitDialogCurve, fitOptions]);
+    }), [design, fitDialogCurve, fitOptions]);
     const setFitOption = (key, value) => {
         if (!fitDialogCurve) return;
         setField('fitOptions', previous => ({
@@ -134,9 +134,10 @@ export function useSpectrumExchange(sx) {
             meritOperands: measuredFitMeritOperands(
                 design.meritOperands, fitSnapshot.operand, fitConfig),
         });
-        const message = fitSnapshot.sampled.clipped
-            ? sx.fitAddedClipped(fitSnapshot.operand.curveName, fitSnapshot.sampled.lambdas.length)
-            : sx.fitAdded(fitSnapshot.operand.curveName, fitSnapshot.sampled.lambdas.length);
+        // The dialog's range fields already state the range being stored, so
+        // the confirmation does not need to report a clip.
+        const message = sx.fitAdded(
+            fitSnapshot.operand.curveName, fitSnapshot.sampled.lambdas.length);
         flash('success', message);
         closeFitDialog();
     }, [fitSnapshot, fitConfig, design, updateDesign, checkpoint, sx]);
@@ -165,7 +166,7 @@ export function useSpectrumExchange(sx) {
         sx, design, updateDesign, checkpoint, flash, parsed, col, name, xUnit,
         quantity, yscale, fileName, colIdx, ov, aoi, pol, side,
         setLoading, setStatus, setParsed, setFileName, setColIdx, setOv, setXUnit,
-        setSelectedCurveId, setAoi,
+        setSelectedCurveId, setAoi, setPol, setSide,
     });
     const previewCurve = (selectedCurveId ? selectedCurve : null) || importActions.previewCurve || selectedCurve;
     const preview = useMemo(
