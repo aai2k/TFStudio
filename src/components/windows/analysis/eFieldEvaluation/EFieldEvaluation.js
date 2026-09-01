@@ -5,7 +5,7 @@
  */
 
 import { useDesign } from '../../../../state/DesignContext.js';
-import { useMaterialRangeNotice } from '../../../materials/MaterialRangeNotice.js';
+import { useMaterialLambdaNotice } from '../../../materials/MaterialRangeNotice.js';
 import { ExportMenu, useCsvExport } from '../../../ui/ExportMenu.js';
 import { csvFromRows, ResultsGrid, ResultsSection } from '../../../ui/ResultsSection.js';
 import { AnalysisWindow, CenteredMessage, PlotArea } from '../chrome/layout.js';
@@ -24,7 +24,7 @@ export function EFieldEvaluation({ c, theme, t }) {
     const { design } = useDesign();
     const state = useEFieldState(design);
     const table = buildProfileTable(state.profile, state.pol) || EMPTY_TABLE;
-    const rangeNotice = useMaterialRangeNotice(design, state.lambda, state.lambda, t);
+    const rangeNotice = useMaterialLambdaNotice(design, state.lambda, t, state.setLambda);
     const csv = useCsvExport(
         () => csvFromRows(table.columns, table.rows),
         () => `${(design?.name || 'design').replace(/[^\w.-]+/g, '_')}_efield.csv`,

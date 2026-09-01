@@ -20,6 +20,7 @@
  * analysis window reads.
  */
 import { SPECTRAL_UNIT_IDS } from '../utils/physics/spectralAxis.js';
+import { COLORSCALES } from '../utils/physics/plotQuantities.js';
 
 export { SPECTRAL_UNIT_IDS };
 
@@ -139,6 +140,28 @@ export const ANALYSIS_DEFAULTS = {
       thetas: { def: [0], min: 0, max: 89, maxLength: 6 },
     },
     booleans: { yAuto: false, showTargets: true, showTable: false },
+  },
+
+  wavelengthAngleMap: {
+    // Both axes are swept, so each carries a range and a step of its own. The
+    // angle range opens at 0 to 60°, the span most coatings are specified over;
+    // the field takes anything up to 89°.
+    numbers: {
+      ...lambdaRange(400, 800),
+      lambdaStep: { def: 2, min: 0.1, max: 1000, step: 0.5 },
+      angleStart: { def: 0, min: 0, max: 89, step: 5 },
+      angleEnd: { def: 60, min: 0, max: 89, step: 5 },
+      angleStep: { def: 1, min: 0.05, max: 45, step: 0.5 },
+    },
+    enums: {
+      channel: { def: 'T', options: ['T', 'R', 'A'] },
+      pol: POL,
+      render: { def: 'heatmap', options: ['heatmap', 'surface'] },
+      // The same colorscales the Plot Engine surface offers, so a map moved
+      // between the two windows keeps its appearance.
+      colorscale: { def: 'Turbo', options: COLORSCALES },
+    },
+    booleans: { showTable: false },
   },
 
   plotEngine: {

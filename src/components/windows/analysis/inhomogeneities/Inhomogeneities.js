@@ -6,6 +6,7 @@
 
 import { totalInterlayerThickness } from '../../../../utils/physics/inhomogeneity.js';
 import { EvalModeBadge } from '../../../SurfaceModeBar.js';
+import { useMaterialRangeNotice } from '../../../materials/MaterialRangeNotice.js';
 import { SpecVerdict } from '../../../SpecVerdict.js';
 import { ExportMenu, useCsvExport } from '../../../ui/ExportMenu.js';
 import { csvFromRows, ResultsGrid, ResultsSection } from '../../../ui/ResultsSection.js';
@@ -14,7 +15,7 @@ import {
     InhomogeneityControls, InhomogeneityEditor, InhomogeneityEditorActions,
 } from './InhomogeneityControls.js';
 import { OverlayChart } from './OverlayChart.js';
-import { hasLayersForMode } from './model.js';
+import { hasLayersForMode } from '../layersForMode.js';
 import { overlayColumns, overlayRows } from './tableModel.js';
 import { useInhomogeneities } from './useInhomogeneities.js';
 
@@ -25,12 +26,13 @@ function activeInterlayerCount(inh) {
         .filter(interlayer => interlayer.enabled !== false).length;
 }
 
-function buildNotices({ state, ih }) {
+function buildNotices({ state, ih, rangeNotice }) {
     const notices = [];
     if (state.error) notices.push({ label: state.error, tone: 'error' });
     if (state.activeSides.includes('back') && !state.hasBack) {
         notices.push({ label: ih.noBackLayers });
     }
+    if (rangeNotice) notices.push(rangeNotice);
     return notices;
 }
 
@@ -45,6 +47,13 @@ export function Inhomogeneities({ c, theme, t }) {
         () => csvFromRows(columns, rows),
         () => `${(design?.name || 'design').replace(/[^\w.-]+/g, '_')}_interlayers.csv`,
     );
+    const { setLambdaStart, setLambdaEnd } = state;
+    const fixRange = ([from, to]) => {
+        setLambdaStart(from);
+        setLambdaEnd(to);
+    };
+    const rangeNotice = useMaterialRangeNotice(
+        design, state.lambdaStart, state.lambdaEnd, t, fixRange);
 
     if (!design) return h(CenteredMessage, { c, message: ih.noDesign });
     if (!hasLayersForMode(design, evalMode)) {
@@ -52,7 +61,7 @@ export function Inhomogeneities({ c, theme, t }) {
     }
 
     return h(AnalysisWindow, { c },
-        h(InhomogeneityControls, { c, t, ih, state, notices: buildNotices({ state, ih }) }),
+        h(InhomogeneityControls, { c, t, ih, state, notices: buildNotices({ state, ih, rangeNotice }) }),
         h(PlotArea, null,
             h(OverlayChart, {
                 baseline: state.baseline, perturbed: state.perturbed,

@@ -52,7 +52,7 @@ function ok(condition, message) {
 
 // ── Registry shape ──────────────────────────────────────────────────────────
 {
-  ok(ANALYSIS_WINDOW_IDS.length === 17, 'registry covers the seventeen windows with display settings');
+  ok(ANALYSIS_WINDOW_IDS.length === 18, 'registry covers the eighteen windows with display settings');
   ok(ANALYSIS_WINDOW_IDS[0] === 'opticalEvaluation', 'Optical Evaluation leads the rail');
   ok(!ANALYSIS_WINDOW_IDS.includes('shared'),
     'there is no catch-all entry: every setting belongs to the window that shows it');

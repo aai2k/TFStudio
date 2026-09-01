@@ -8,7 +8,7 @@ import { buildAxisVarOptions, parseAxisVar } from './axisVars.js';
 
 export const Z_QUANTITIES = ['T', 'R', 'A', 'MF'];
 export const SURFACE_RENDERS = ['surface', 'heatmap'];
-export const COLORSCALES = ['Viridis', 'Cividis', 'Jet', 'Hot', 'Portland', 'Electric', 'Greys'];
+export const COLORSCALES = ['Turbo', 'Jet', 'Viridis', 'Cividis', 'Hot', 'Portland', 'Electric', 'Greys'];
 
 // ECharts/echarts-gl can render materially denser sweeps than the retired
 // Keep one shared UI/compute limit so the displayed grid size can
@@ -51,7 +51,7 @@ export function makeDefaultSurfaceSpec(design, defaults = {}) {
         yTo:   hasL1 ? compact(d1 * 1.5) : 60,
         ySteps: 40,
         render: 'surface',
-        colorscale: 'Viridis',
+        colorscale: 'Turbo',
         ...defaults,
     };
 }

@@ -44,7 +44,13 @@ export function GDGDDEvaluation({ c, theme, t }) {
     const { design } = useDesign();
     const state = useGDGDDState(design);
     const curve = useAnalysisColors('gdGddEvaluation');
-    const rangeNotice = useMaterialRangeNotice(design, state.lamStart, state.lamEnd, t);
+    const { setLamStart, setLamEnd } = state;
+    const fixRange = ([from, to]) => {
+        setLamStart(from);
+        setLamEnd(to);
+    };
+    const rangeNotice = useMaterialRangeNotice(
+        design, state.lamStart, state.lamEnd, t, fixRange);
 
     // The view holds the chart series and axis range. Rebuilding it on every
     // render hands the chart new objects each time and forces a full re-plot of a

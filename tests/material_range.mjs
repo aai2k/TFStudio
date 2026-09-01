@@ -6,7 +6,8 @@
  * span when the file states no range, and a warning raised on that span would
  * fire for materials whose real range nobody knows.
  */
-const { materialRangeNm, rangeExceeds, designRangeCoverage, uncoveredRegions, clampToCovered } =
+const { materialRangeNm, rangeExceeds, designRangeCoverage, uncoveredRegions, clampToCovered,
+  clampLambdaToCovered } =
   await import(new URL('../src/utils/materials/materialRange.js', import.meta.url));
 
 let passed = 0;
@@ -249,6 +250,28 @@ const designWith = (materials) => ({
   });
   ok(tabular.formulaNum === -1 && tabular.interp === 'pchip',
     'an OptiLayer table stores the PCHIP rule');
+}
+
+// ── clampLambdaToCovered: what the fix button offers a single-wavelength window ─
+//
+// Those windows evaluate at one wavelength, so there is no range to pull in and
+// the fix moves the wavelength itself onto data every material has.
+{
+  const covered = [300, 2480];
+  ok(clampLambdaToCovered(covered, 2600) === 2480, 'past the top, it comes back to the top');
+  ok(clampLambdaToCovered(covered, 250) === 300, 'below the bottom, it comes up to the bottom');
+  ok(clampLambdaToCovered(covered, 1000) === null,
+    'a wavelength already covered offers no button, because there is nothing to fix');
+  ok(clampLambdaToCovered(covered, 300) === null && clampLambdaToCovered(covered, 2480) === null,
+    'and neither does one sitting exactly on a limit');
+  ok(clampLambdaToCovered(null, 2600) === null, 'no covered span, nothing to move to');
+  ok(clampLambdaToCovered(covered, Number.NaN) === null, 'nor for a wavelength that is not one');
+
+  // Rounded inward, so applying the result cannot re-raise the warning it clears.
+  ok(clampLambdaToCovered([300.04, 2480.06], 2600) === 2480,
+    'the top is rounded down onto 0.1 nm rather than up past the data');
+  ok(clampLambdaToCovered([300.04, 2480.06], 250) === 300.1,
+    'and the bottom is rounded up');
 }
 
 console.log(`material_range: ${passed} passed`);

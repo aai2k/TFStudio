@@ -10,6 +10,7 @@ import { GDChart } from '../gdGddEvaluation/GDChart.js';
 import { getMaterialById } from '../../../../utils/materials/catalogManager.js';
 import { materialPropagationDispersion } from '../../../../utils/materials/materialDispersion.js';
 import { resolveDesignMaterial } from '../../../../utils/materials/designMaterials.js';
+import { clampToCovered, materialRangeNm } from '../../../../utils/materials/materialRange.js';
 import { useAnalysisColors } from '../../../../state/AnalysisSettingsContext.js';
 import { useDesign } from '../../../../state/DesignContext.js';
 import { materialDispersionSession } from './sessionState.js';
@@ -193,13 +194,30 @@ function tableModel(spectrum) {
     return { columns, rows };
 }
 
+/**
+ * The notice's fix button, when the plotted range reaches past the material's
+ * declared data and pulling it in would clear that part of the masking.
+ */
+function rangeAction(material, start, end, patchSession, t) {
+    const covered = material ? materialRangeNm(material) : null;
+    const fixed = covered ? clampToCovered(covered, [start, end]) : null;
+    if (!fixed || (fixed[0] <= start && fixed[1] >= end)) return {};
+    const format = value => (Math.round(value * 10) / 10).toString();
+    return {
+        action: {
+            label: t.materialRange.fixAction(format(fixed[0]), format(fixed[1])),
+            onClick: () => patchSession({ start: fixed[0], end: fixed[1] }),
+        },
+    };
+}
+
 export function MaterialDispersionEvaluation({ c, t }) {
     const footerText = t.gdgdd || {};
     // The picker offers the open design's own materials, including definitions
     // that travelled inside a .tfs and exist in no local catalog, so the id is
     // resolved against the design before the registry.
     const { design } = useDesign();
-    const [session, setField] = useWindowSession(materialDispersionSession, design);
+    const [session, setField, patchSession] = useWindowSession(materialDispersionSession, design);
     const {
         materialId, thicknessMm, thicknessUnit, quantity, start, end, showTable,
     } = session;
@@ -239,7 +257,14 @@ export function MaterialDispersionEvaluation({ c, t }) {
         });
     }
     if (masked) {
-        notices.push({ label: footerText.maskedShort(spectrum.invalid.length), detail: masked });
+        notices.push({
+            label: footerText.maskedShort(spectrum.invalid.length),
+            detail: masked,
+            // Samples are masked for several reasons, so the offer to narrow the
+            // range is only made when narrowing would actually change it: that
+            // is the case where this material's declared data ran out.
+            ...rangeAction(material, start, end, patchSession, t),
+        });
     }
 
     return h(AnalysisWindow, { c },

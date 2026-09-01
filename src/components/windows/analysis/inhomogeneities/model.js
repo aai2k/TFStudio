@@ -19,14 +19,6 @@ export function activeDesignSides(design, evalMode) {
     return ['front'];
 }
 
-export function hasLayersForMode(design, evalMode) {
-    const hasFront = !!design.frontLayers?.length;
-    const hasBack = !!design.backLayers?.length;
-    if (evalMode === 'back') return hasBack;
-    if (evalMode === 'front') return hasFront;
-    return hasFront || hasBack;
-}
-
 export function designInterfaces(design) {
     const front = design?.frontLayers
         ? enumerateInterfaces(

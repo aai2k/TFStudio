@@ -61,6 +61,7 @@ import { SystematicDeviations } from '../windows/analysis/systematicDeviations/S
 import { Inhomogeneities } from '../windows/analysis/inhomogeneities/Inhomogeneities.js';
 import { RoughnessScattering } from '../windows/analysis/roughnessScattering/RoughnessScattering.js';
 import { PlotEngine } from '../windows/analysis/plotEngine/PlotEngine.js';
+import { WavelengthAngleMap } from '../windows/analysis/wavelengthAngleMap/WavelengthAngleMap.js';
 import { Specification } from '../windows/design/specification/Specification.js';
 import { OptimizerBenchmark } from '../windows/optimization/optimizerBenchmark/OptimizerBenchmark.js';
 import { MonitorWorksheet } from '../windows/simulation/monitorWorksheet/MonitorWorksheet.js';
@@ -76,6 +77,7 @@ export const WINDOW_REGISTRY = {
 
   // ── Analysis ────────────────────────────────────────────────────────────────
   'optical-eval':    { component: OpticalEvaluation,         title: 'Optical Evaluation',          label: 'Optical Evaluation — T/R/A plots',                                help: 'analysis/optical-evaluation', theme: true, requiresResolvedMaterials: true },
+  'wavelength-angle-map': { component: WavelengthAngleMap,   title: 'Wavelength vs Angle',         label: 'Wavelength vs Angle — T, R or A mapped over wavelength and angle of incidence', help: 'analysis/wavelength-angle-map', theme: true, requiresResolvedMaterials: true },
   'color-eval':      { component: ColorEvaluation,           title: 'Color Evaluation',            label: 'Color Evaluation — CIE diagram',                                  help: 'analysis/color-evaluation', theme: true, requiresResolvedMaterials: true },
   'admittance':      { component: AdmittanceDiagram,         title: 'Admittance Diagram',          label: 'Admittance Diagram — locus plot',                                 help: 'analysis/admittance', theme: true, requiresResolvedMaterials: true },
   'efield':          { component: EFieldEvaluation,          title: 'Electric Field',              label: 'Electric Field — |E(z)|² vs depth',                               help: 'analysis/efield', theme: true, requiresResolvedMaterials: true },

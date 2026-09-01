@@ -3,7 +3,7 @@
  */
 
 import { useDesign } from '../../../../state/DesignContext.js';
-import { useMaterialRangeNotice } from '../../../materials/MaterialRangeNotice.js';
+import { useMaterialLambdaNotice } from '../../../materials/MaterialRangeNotice.js';
 import { ExportMenu, useCsvExport } from '../../../ui/ExportMenu.js';
 import { csvFromRows, ResultsGrid, ResultsSection } from '../../../ui/ResultsSection.js';
 import { AnalysisWindow, CenteredMessage, PlotArea } from '../chrome/layout.js';
@@ -21,7 +21,7 @@ export function RefractiveIndexProfiler({ c, theme, t }) {
     const { design } = useDesign();
     const state = useProfilerState(design, rp);
     const view = buildProfileViewModel(state.side, state.profile, state.regions);
-    const rangeNotice = useMaterialRangeNotice(design, state.lambda, state.lambda, t);
+    const rangeNotice = useMaterialLambdaNotice(design, state.lambda, t, state.setLambda);
     const csv = useCsvExport(
         () => csvFromRows(view.tableColumns, view.tableRows),
         () => `${(design?.name || 'design').replace(/[^\w.-]+/g, '_')}_index_profile.csv`,

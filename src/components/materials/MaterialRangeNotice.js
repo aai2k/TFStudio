@@ -7,7 +7,9 @@
  * extrapolated optical constant. Gating the window would hide a spectrum the
  * user may well want to see; the banner says what part of it to distrust.
  */
-import { clampToCovered, designRangeCoverage } from '../../utils/materials/materialRange.js';
+import {
+    clampLambdaToCovered, clampToCovered, designRangeCoverage,
+} from '../../utils/materials/materialRange.js';
 
 const { createElement: h, useMemo } = React;
 
@@ -63,6 +65,14 @@ export function MaterialRangeWarning({ design, fromNm, toNm, c, t }) {
     return h(MaterialRangeBanner, { offenders, evaluated: [fromNm, toNm], c, t });
 }
 
+/** One line per material that falls short, naming the range it does cover. */
+function offenderDetail(offenders, t) {
+    return offenders
+        .map(({ id, name, rangeNm }) =>
+            t.materialRange.materialLine(name || id, format(rangeNm[0]), format(rangeNm[1])))
+        .join('\n');
+}
+
 /**
  * The same warning as one entry for an analysis window's notice badge, for
  * windows that give their height to the plot and carry no banner. Null when
@@ -86,10 +96,7 @@ export function useMaterialRangeNotice(design, fromNm, toNm, t, onFix) {
         const fixed = onFix ? clampToCovered(covered, [fromNm, toNm]) : null;
         return {
             label: t.materialRange.banner(offenders.length, format(fromNm), format(toNm)),
-            detail: offenders
-                .map(({ id, name, rangeNm }) =>
-                    t.materialRange.materialLine(name || id, format(rangeNm[0]), format(rangeNm[1])))
-                .join('\n'),
+            detail: offenderDetail(offenders, t),
             ...(fixed ? {
                 action: {
                     label: t.materialRange.fixAction(format(fixed[0]), format(fixed[1])),
@@ -98,4 +105,35 @@ export function useMaterialRangeNotice(design, fromNm, toNm, t, onFix) {
             } : {}),
         };
     }, [offenders, covered, fromNm, toNm, t, onFix]);
+}
+
+/**
+ * The same warning for a window that evaluates at a single wavelength.
+ *
+ * There is no range to pull in, so `onFix` is offered a wavelength every
+ * material has data for instead: the nearest covered one to where the window is
+ * now. Windows whose wavelength the user can set pass their setter.
+ *
+ * @returns {{ label: string, detail: string,
+ *             action?: { label: string, onClick: () => void } } | null}
+ */
+export function useMaterialLambdaNotice(design, lambdaNm, t, onFix) {
+    const { offenders, covered } = useMemo(
+        () => designRangeCoverage(design, [lambdaNm, lambdaNm]),
+        [design, lambdaNm],
+    );
+    return useMemo(() => {
+        if (!offenders.length) return null;
+        const fixed = onFix ? clampLambdaToCovered(covered, lambdaNm) : null;
+        return {
+            label: t.materialRange.banner(offenders.length, format(lambdaNm), format(lambdaNm)),
+            detail: offenderDetail(offenders, t),
+            ...(fixed != null ? {
+                action: {
+                    label: t.materialRange.fixLambda(format(fixed)),
+                    onClick: () => onFix(fixed),
+                },
+            } : {}),
+        };
+    }, [offenders, covered, lambdaNm, t, onFix]);
 }

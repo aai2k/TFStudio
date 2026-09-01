@@ -1,6 +1,8 @@
 import {
     AXIS_PROPS, MAX_AXIS_STEPS, axisTarget, axisProp, composeAxisVar, defaultAxisRange,
 } from '../../../../utils/physics/plotQuantities.js';
+import { FieldLabel, NumInput, RangeField, SelectField } from '../chrome/controls.js';
+import { SettingRow } from '../chrome/popover.js';
 
 const { createElement: h } = React;
 
@@ -39,7 +41,14 @@ function compactInputNumber(value) {
     return Number.isFinite(value) ? Number(value.toFixed(4)) : value;
 }
 
-export function SurfaceAxisGroup({ which, spec, design, onUpdate, targetOptions, styles, c, pe }) {
+/**
+ * One axis of the surface: what it sweeps, and over what.
+ *
+ * The variable is picked in two steps, layer first, so a hundred-layer stack
+ * stays one dropdown rather than three hundred entries. The property row is
+ * only shown for a layer, since wavelength and angle have nothing to choose.
+ */
+export function SurfaceAxisGroup({ which, spec, design, onUpdate, targetOptions, selectWidth, c, pe }) {
     const values = axisValues(spec, which);
     const target = axisTarget(values.variable);
     const property = axisProp(values.variable) || 'thk';
@@ -50,33 +59,42 @@ export function SurfaceAxisGroup({ which, spec, design, onUpdate, targetOptions,
     };
     const setRange = (patch) => onUpdate(rangePatch(which, values, patch));
 
-    return h('div', { style: { marginBottom: 8 } },
-        h('div', { style: styles.lbl }, which === 'x' ? (pe.xAxisVar || 'X axis') : (pe.yAxisVar || 'Y axis')),
-        h('select', {
-            value: target,
-            onChange: (e) => setVariable(composeAxisVar(e.target.value, property)),
-            style: styles.selStyle,
-        }, targetOptions.map(option => h('option', { key: option.value, value: option.value }, targetLabel(option, pe)))),
-        isLayer && h('select', {
-            value: property,
-            onChange: (e) => setVariable(composeAxisVar(target, e.target.value)),
-            style: { ...styles.selStyle, marginTop: 4 },
-        }, AXIS_PROPS.map(option => h('option', { key: option.value, value: option.value }, propertyLabel(option, pe)))),
-        h('div', { style: { display: 'flex', gap: 4, alignItems: 'center', marginTop: 4 } },
-            h('input', {
-                type: 'number', value: compactInputNumber(values.from), style: styles.numStyle,
-                onChange: (e) => setRange({ from: parseFloat(e.target.value) || 0 }),
+    return h('div', null,
+        h(SettingRow, { c, label: which === 'x' ? (pe.xAxisVar || 'X axis') : (pe.yAxisVar || 'Y axis') },
+            h(SelectField, {
+                c, width: selectWidth, value: target,
+                onChange: value => setVariable(composeAxisVar(value, property)),
+                options: targetOptions.map(option => ({
+                    id: option.value, label: targetLabel(option, pe),
+                })),
             }),
-            h('span', { style: { color: c.textDim } }, '–'),
-            h('input', {
-                type: 'number', value: compactInputNumber(values.to), style: styles.numStyle,
-                onChange: (e) => setRange({ to: parseFloat(e.target.value) || 0 }),
+        ),
+        isLayer && h(SettingRow, { c, label: '' },
+            h(SelectField, {
+                c, width: selectWidth, value: property,
+                onChange: value => setVariable(composeAxisVar(target, value)),
+                options: AXIS_PROPS.map(option => ({
+                    id: option.value, label: propertyLabel(option, pe),
+                })),
             }),
-            h('span', { style: { color: c.textDim, fontSize: 10, marginLeft: 4 } }, pe.steps || 'steps'),
-            h('input', {
-                type: 'number', value: values.steps, min: 2, max: MAX_AXIS_STEPS,
-                style: { ...styles.numStyle, width: 46 },
-                onChange: (e) => setRange({ steps: parseInt(e.target.value, 10) || 2 }),
+        ),
+        h(SettingRow, { c, label: pe.range || 'Range' },
+            h(RangeField, {
+                c, width: 58,
+                from: {
+                    value: compactInputNumber(values.from),
+                    onChange: value => setRange({ from: value }),
+                },
+                to: {
+                    value: compactInputNumber(values.to),
+                    onChange: value => setRange({ to: value }),
+                },
+            }),
+            h(FieldLabel, { c }, pe.steps || 'steps'),
+            h(NumInput, {
+                c, width: 52, value: values.steps, min: 2, max: MAX_AXIS_STEPS,
+                // A grid axis is sampled a whole number of times.
+                onChange: value => setRange({ steps: Math.round(value) }),
             }),
         ),
     );

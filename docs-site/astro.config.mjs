@@ -81,6 +81,7 @@ export default defineConfig({
           translations: { 'zh-CN': '分析' },
           items: [
             { label: 'Optical Evaluation', translations: { 'zh-CN': '光学评价' },   slug: 'analysis/optical-evaluation' },
+            { label: 'Wavelength vs Angle', translations: { 'zh-CN': '波长与角度' }, slug: 'analysis/wavelength-angle-map' },
             { label: 'Color Evaluation',   translations: { 'zh-CN': '颜色评价' },   slug: 'analysis/color-evaluation' },
             { label: 'Admittance Diagram', translations: { 'zh-CN': '导纳图' },     slug: 'analysis/admittance' },
             { label: 'Electric Field',     translations: { 'zh-CN': '电场' },       slug: 'analysis/efield' },

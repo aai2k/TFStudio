@@ -125,6 +125,28 @@ export function clampToCovered(covered, evaluated) {
 }
 
 /**
+ * The nearest wavelength to `lambdaNm` that every material has data for.
+ *
+ * The single-wavelength counterpart of `clampToCovered`: a window evaluating at
+ * one wavelength has no range to narrow, so the fix is to move the wavelength
+ * itself. Rounded inward onto 0.1 nm for the same reason, so applying the
+ * result never re-raises the warning it clears. Null when there is nothing to
+ * clamp to, or when the wavelength is already covered.
+ *
+ * @param   {[number, number]|null} covered from `designRangeCoverage`
+ * @param   {number} lambdaNm
+ * @returns {number|null}
+ */
+export function clampLambdaToCovered(covered, lambdaNm) {
+    if (!covered || !Number.isFinite(lambdaNm)) return null;
+    const low = Math.ceil(covered[0] * 10 - 1e-6) / 10;
+    const high = Math.floor(covered[1] * 10 + 1e-6) / 10;
+    if (!(high >= low)) return null;
+    const clamped = Math.min(Math.max(lambdaNm, low), high);
+    return clamped === lambdaNm ? null : clamped;
+}
+
+/**
  * Contiguous parts of an evaluated wavelength range that at least one material
  * does not cover, in a shape spectral plots can draw as bands.
  *

@@ -87,6 +87,14 @@ export function NumInput({ value, onChange, min, max, step = 1, c, width = 60, t
 }
 
 /**
+ * A list of plain values as `SelectField` options, where the value is its own
+ * id. `label`, when given, is what each one is shown as.
+ */
+export function valueOptions(values, label) {
+    return values.map(value => ({ id: value, label: label ? label(value) : value }));
+}
+
+/**
  * Dropdown for a list too long to spend a row on as buttons.
  *
  *   options  [{ id, label }]

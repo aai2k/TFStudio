@@ -289,4 +289,23 @@ for (const file of walk(sourceRoot)) {
         `${file}: concise callbacks must not leak an ECharts instance as a return value`);
 }
 
+// A chart option must not follow the container size frame by frame.
+//
+// Resizing is handled by chart.resize(); the option comparison above is what
+// makes the renders a splitter drag causes into no-ops. A size measured into
+// the option defeats that, and every frame of the drag discards and rebuilds
+// the chart instead. The colour bar is the one measured value in an option, so
+// it is taken once on mount and then only after a resize has stopped.
+{
+    const surface = readFileSync(
+        fileURLToPath(new URL('../src/components/windows/analysis/plotEngine/charts/SurfaceChart.js', import.meta.url)),
+        'utf8');
+    assert.match(surface, /BAR_SETTLE_MS\s*=\s*\d+/,
+        'SurfaceChart.js: the measured bar height needs a settle delay to wait for');
+    assert.match(surface, /setTimeout\(\s*\(\)\s*=>\s*setBarHeight\([\s\S]*?BAR_SETTLE_MS\)/,
+        'SurfaceChart.js: a resize schedules the bar height rather than applying it mid-drag');
+    assert.match(surface, /clearTimeout\(barTimerRef\.current\)/,
+        'SurfaceChart.js: each resize cancels the pending one, so only the size it settles at is applied');
+}
+
 console.log('PASS: ECharts resize contract');

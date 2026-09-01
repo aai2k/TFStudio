@@ -14,7 +14,7 @@ import { IntegralControls } from './Controls.js';
 import { OverlayChart } from './OverlayChart.js';
 import { ResultsTable } from './ResultsTable.js';
 import { SpectrumTableEditor } from './SpectrumTableEditor.js';
-import { hasLayersForMode } from './integralModel.js';
+import { hasLayersForMode } from '../layersForMode.js';
 import { exportColumns, exportRows } from './exportModel.js';
 import { useIntegralValues } from './useIntegralValues.js';
 
@@ -47,8 +47,10 @@ export function IntegralValues({ c, theme, t }) {
     const model = useIntegralValues(design, evalMode);
     const columns = exportColumns(t);
     const rows = exportRows(model.integrals, model.results);
+    const { setParams } = model;
+    const fixRange = ([from, to]) => setParams({ lambdaStart: from, lambdaEnd: to });
     const rangeNotice = useMaterialRangeNotice(
-        design, model.params.lambdaStart, model.params.lambdaEnd, t);
+        design, model.params.lambdaStart, model.params.lambdaEnd, t, fixRange);
     const csv = useCsvExport(
         () => csvFromRows(columns, rows),
         () => `${(design?.name || 'design').replace(/[^\w.-]+/g, '_')}_integrals.csv`,

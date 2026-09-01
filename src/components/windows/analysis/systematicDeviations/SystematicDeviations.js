@@ -4,6 +4,7 @@
  */
 
 import { EvalModeBadge } from '../../../SurfaceModeBar.js';
+import { useMaterialRangeNotice } from '../../../materials/MaterialRangeNotice.js';
 import { SpecVerdict } from '../../../SpecVerdict.js';
 import { ExportMenu, useCsvExport } from '../../../ui/ExportMenu.js';
 import { csvFromRows, ResultsGrid, ResultsSection } from '../../../ui/ResultsSection.js';
@@ -57,6 +58,13 @@ export function SystematicDeviations({ c, theme, t }) {
     const dt = t.dataTable;
     const error = state.computeError || state.error;
     const { columns, rows } = resultTable(state, t);
+    const { setLambdaStart, setLambdaEnd } = state;
+    const fixRange = ([from, to]) => {
+        setLambdaStart(from);
+        setLambdaEnd(to);
+    };
+    const rangeNotice = useMaterialRangeNotice(
+        design, state.lambdaStart, state.lambdaEnd, t, fixRange);
     const csv = useCsvExport(
         () => csvFromRows(columns, rows),
         () => `${(design?.name || 'design').replace(/[^\w.-]+/g, '_')}_deviations.csv`,
@@ -70,7 +78,10 @@ export function SystematicDeviations({ c, theme, t }) {
     return h(AnalysisWindow, { c },
         h(SystematicControls, {
             c, t, sd, state,
-            notices: error ? [{ label: error, tone: 'error' }] : [],
+            notices: [
+                error && { label: error, tone: 'error' },
+                rangeNotice,
+            ].filter(Boolean),
         }),
         h(PlotArea, null, plotBody({ state, sd, c })),
         h(ResultsSection, {

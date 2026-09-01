@@ -181,6 +181,22 @@ export const ICONS = {
     'roughness':      I([ P('M2 12q1-1 2 0t2 0t2 0t2 0t2 0t2 0t2 0t2 0',1.4), L(2,16,18,16), P('M3 13l-1 2M5 13l-1 2M7 13l-1 2M9 13l-1 2M11 13l-1 2M13 13l-1 2M15 13l-1 2',1) ]),
     'plot-engine':    I([ L(3,17,3,3,1.4), L(3,17,17,17,1.4), P('M3 13l4-4 3 2 3-6 4 5'), C(7,9,1.2,1.2), C(10,11,1.2,1.2), C(13,5,1.2,1.2) ]),
 
+    // Wavelength vs angle — axes around a heatmap whose cells shade along the
+    // diagonal, the shape the window draws.
+    'wavelength-angle-map': I([
+                          L(3,17,3,3,1.4),
+                          L(3,17,17,17,1.4),
+                          Fop('M5 4h3.6v3.6H5z', 0.22),
+                          Fop('M9 4h3.6v3.6H9z', 0.5),
+                          Fop('M13 4h3.6v3.6H13z', 0.88),
+                          Fop('M5 8h3.6v3.6H5z', 0.5),
+                          Fop('M9 8h3.6v3.6H9z', 0.88),
+                          Fop('M13 8h3.6v3.6H13z', 0.5),
+                          Fop('M5 12h3.6v3.6H5z', 0.88),
+                          Fop('M9 12h3.6v3.6H9z', 0.5),
+                          Fop('M13 12h3.6v3.6H13z', 0.22),
+                      ]),
+
     'merit-function': I([ R(2,2,16,16,1), L(2,7,18,7,1.8), L(2,11,18,11), L(2,15,18,15), L(8,7,8,18), L(13,7,13,18), P('M4 4h3',1.4), P('M10 4.5h4',0.8) ]),
     'refinement':     I([ C(10,10,3), P('M10 2v3M10 15v3M2 10h3M15 10h3'), P('M4.9 4.9l2.1 2.1M12.9 12.9l2.1 2.1M4.9 15.1l2.1-2.1M12.9 7.1l2.1-2.1') ]),
 
@@ -357,6 +373,7 @@ const TOOL_GROUP = {
     'optical-eval': 'analysis', 'color-eval': 'analysis', 'admittance': 'analysis', 'efield': 'analysis',
     'ellipsometry': 'analysis', 'gd-gdd': 'analysis', 'material-dispersion': 'analysis', 'ri-profiler': 'analysis', 'layer-thicknesses': 'analysis', 'integral-values': 'analysis',
     'plot-engine': 'analysis', 'error-analysis': 'analysis', 'sensitivity': 'analysis',
+    'wavelength-angle-map': 'analysis',
     'inhomogeneities': 'analysis', 'systematic-dev': 'analysis', 'roughness': 'analysis',
     'merit-function': 'optimization', 'refinement': 'optimization', 'needle': 'optimization',
     'needle-manual': 'optimization', 'gradual': 'optimization', 'structural': 'optimization',
@@ -405,7 +422,7 @@ export function makeTabs(t) {
         },
         {
             key: 'analysis', label: tb.tabs.analysis, groups: [
-                grp('general',   ['optical-eval', 'color-eval', 'integral-values',
+                grp('general',   ['optical-eval', 'wavelength-angle-map', 'color-eval', 'integral-values',
                                   'admittance', 'efield', 'ri-profiler', 'layer-thicknesses', 'plot-engine']),
                 grp('phase',     ['gd-gdd', 'material-dispersion', 'ellipsometry']),
                 grp('tolerance', ['error-analysis', 'sensitivity', 'inhomogeneities', 'systematic-dev', 'roughness']),

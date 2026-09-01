@@ -61,11 +61,3 @@ export function makeCustomDefinition(builder, counter) {
         band: [builder.bandMin, builder.bandMax],
     };
 }
-
-export function hasLayersForMode(design, evalMode) {
-    const hasFront = !!design.frontLayers?.length;
-    const hasBack = !!design.backLayers?.length;
-    if (evalMode === 'back') return hasBack;
-    if (evalMode === 'front') return hasFront;
-    return hasFront || hasBack;
-}

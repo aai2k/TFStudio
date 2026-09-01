@@ -6,7 +6,7 @@
  */
 
 import { useDesign } from '../../../../state/DesignContext.js';
-import { useMaterialRangeNotice } from '../../../materials/MaterialRangeNotice.js';
+import { useMaterialLambdaNotice } from '../../../materials/MaterialRangeNotice.js';
 import { ExportMenu, useCsvExport } from '../../../ui/ExportMenu.js';
 import { csvFromRows, ResultsGrid, ResultsSection } from '../../../ui/ResultsSection.js';
 import { AnalysisWindow, CenteredMessage, PlotArea } from '../chrome/layout.js';
@@ -36,7 +36,7 @@ export function AdmittanceDiagram({ c, theme, t }) {
     const { design } = useDesign();
     const state = useAdmittanceDiagram(design);
     const columns = tableColumns(t);
-    const rangeNotice = useMaterialRangeNotice(design, state.lambda, state.lambda, t);
+    const rangeNotice = useMaterialLambdaNotice(design, state.lambda, t, state.setLambda);
     const csv = useCsvExport(
         () => csvFromRows(columns, state.tableRows),
         () => `${(design?.name || 'design').replace(/[^\w.-]+/g, '_')}_admittance.csv`,

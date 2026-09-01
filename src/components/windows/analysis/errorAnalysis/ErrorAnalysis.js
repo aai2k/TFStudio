@@ -7,6 +7,7 @@
 
 import { useDesign } from '../../../../state/DesignContext.js';
 import { EvalModeBadge } from '../../../SurfaceModeBar.js';
+import { useMaterialRangeNotice } from '../../../materials/MaterialRangeNotice.js';
 import { ExportMenu, useCsvExport } from '../../../ui/ExportMenu.js';
 import { csvFromRows, ResultsGrid, ResultsSection } from '../../../ui/ResultsSection.js';
 import { ActionButton } from '../chrome/controls.js';
@@ -78,6 +79,11 @@ export function ErrorAnalysis({ c, t }) {
     const { result, error, running, corridorSigma, showEnvelope } = state;
     const columns = statisticsColumns(t, state.char, corridorSigma);
     const rows = statisticsRows(result, corridorSigma);
+    const { setParams } = state;
+    const fixRange = ([from, to]) =>
+        setParams(previous => ({ ...previous, lambdaStart: from, lambdaEnd: to }));
+    const rangeNotice = useMaterialRangeNotice(
+        design, state.params.lambdaStart, state.params.lambdaEnd, t, fixRange);
     const csv = useCsvExport(
         () => csvFromRows(columns, rows),
         () => `${(design?.name || 'design').replace(/[^\w.-]+/g, '_')}_montecarlo.csv`,
@@ -92,7 +98,10 @@ export function ErrorAnalysis({ c, t }) {
         h(ErrorControls, {
             c, t, ea, state,
             trailing: runControls({ state, ea, c }),
-            notices: error ? [{ label: error, tone: 'error' }] : [],
+            notices: [
+                error && { label: error, tone: 'error' },
+                rangeNotice,
+            ].filter(Boolean),
         }),
         running && h(ProgressBar, { progress: state.progress, c }),
         h(PlotArea, null,

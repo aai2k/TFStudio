@@ -34,7 +34,13 @@ export function RoughnessScattering({ c, theme, t }) {
     const dt = t.dataTable;
     const columns = scatterColumns(t, units, state.showCurves, calc);
     const rows = scatterRows(calc, state.showCurves);
-    const rangeNotice = useMaterialRangeNotice(design, state.lambdaStart, state.lambdaEnd, t);
+    const { setLambdaStart, setLambdaEnd } = state;
+    const fixRange = ([from, to]) => {
+        setLambdaStart(from);
+        setLambdaEnd(to);
+    };
+    const rangeNotice = useMaterialRangeNotice(
+        design, state.lambdaStart, state.lambdaEnd, t, fixRange);
     const csv = useCsvExport(
         () => csvFromRows(columns, rows),
         () => `${(design?.name || 'design').replace(/[^\w.-]+/g, '_')}_scattering.csv`,

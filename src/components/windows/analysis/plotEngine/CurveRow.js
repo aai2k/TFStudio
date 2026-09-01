@@ -2,123 +2,140 @@ import {
     X_AXES, Y_CHANNELS, POLARIZATIONS, SURFACE_MODES, DASHES,
 } from '../../../../utils/physics/plotQuantities.js';
 import { Checkbox } from '../../../ui/Checkbox.js';
+import { FieldLabel, NumInput, RangeField, SelectField, valueOptions } from '../chrome/controls.js';
+import { SettingRow } from '../chrome/popover.js';
 
 const { createElement: h } = React;
 
-export function CurveRow({ curve, onUpdate, onDelete, c, t }) {
-    const pe = (t && t.plotEngine) || {};
-    const inputStyle = {
-        background: c.inputBg || c.hover, color: c.text,
-        border: `1px solid ${c.border}`, borderRadius: 3,
-        padding: '1px 4px', fontSize: 11,
-        fontFamily: 'system-ui, -apple-system, sans-serif',
-    };
-    const selStyle = { ...inputStyle, width: 'auto' };
-    const numStyle = { ...inputStyle, width: 64 };
-    const fieldRow = { display: 'grid', gridTemplateColumns: '70px 1fr', gap: 6, alignItems: 'center', marginBottom: 3 };
-    const lbl = { color: c.textDim, fontSize: 10 };
+const FONT = 'system-ui, -apple-system, sans-serif';
+const SELECT_WIDTH = 110;
 
+/**
+ * What the curve is called and whether it is drawn: the switch, its colour, its
+ * name and the control that removes it, on one line above the settings.
+ */
+function CurveHeader({ curve, onUpdate, onDelete, c, pe }) {
     return h('div', {
-        style: {
-            padding: '8px',
-            borderBottom: `1px solid ${c.border}`,
-            background: curve.visible ? c.panel : c.bg,
-            opacity: curve.visible ? 1 : 0.55,
-        },
+        style: { display: 'flex', alignItems: 'center', gap: 6, marginBottom: 4 },
     },
-    h('div', { style: { display: 'flex', alignItems: 'center', gap: 6, marginBottom: 6 } },
         h(Checkbox, {
             c, checked: curve.visible,
-            onChange: (e) => onUpdate({ visible: e.target.checked }),
+            onChange: event => onUpdate({ visible: event.target.checked }),
             title: pe.visible || 'Visible',
         }),
         h('input', {
             type: 'color', value: curve.color,
-            onChange: (e) => onUpdate({ color: e.target.value }),
+            onChange: event => onUpdate({ color: event.target.value }),
             title: pe.color || 'Color',
-            style: { width: 22, height: 18, border: 'none', background: 'transparent', cursor: 'pointer', padding: 0 },
+            style: {
+                width: 24, height: 22, padding: 0, cursor: 'pointer',
+                background: 'transparent', border: `1px solid ${c.border}`, borderRadius: 4,
+            },
         }),
         h('input', {
             type: 'text', value: curve.label,
-            onChange: (e) => onUpdate({ label: e.target.value }),
-            style: { ...inputStyle, flex: 1 },
+            onChange: event => onUpdate({ label: event.target.value }),
+            style: {
+                flex: 1, minWidth: 0, height: 24, padding: '0 5px',
+                backgroundColor: c.field, color: c.text,
+                border: `1px solid ${c.border}`, borderRadius: 3,
+                fontSize: 12, fontFamily: FONT, outline: 'none',
+            },
         }),
         h('button', {
-            onClick: onDelete,
-            title: pe.delete || 'Delete curve',
+            type: 'button', onClick: onDelete, title: pe.delete || 'Delete curve',
             style: {
-                width: 22, height: 18, padding: 0,
+                width: 22, height: 22, padding: 0, flexShrink: 0,
                 background: 'transparent', color: c.textDim,
-                border: 'none', cursor: 'pointer', fontSize: 16, lineHeight: 1,
+                border: 'none', borderRadius: 4, cursor: 'pointer',
+                fontSize: 15, lineHeight: 1, fontFamily: FONT,
             },
         }, '×'),
-    ),
-    h('div', { style: fieldRow },
-        h('span', { style: lbl }, pe.xAxis || 'X axis'),
-        h('select', {
-            value: curve.xAxis,
-            onChange: (e) => onUpdate({ xAxis: e.target.value }),
-            style: selStyle,
-        }, X_AXES.map(v => h('option', { key: v, value: v }, v === 'aoi' ? 'AOI' : (pe.xWavelength || 'wavelength')))),
-    ),
-    h('div', { style: fieldRow },
-        h('span', { style: lbl }, pe.range || 'Range'),
-        h('div', { style: { display: 'flex', gap: 4, alignItems: 'center' } },
-            h('input', {
-                type: 'number', value: curve.rangeFrom, step: curve.xAxis === 'aoi' ? 5 : 10, style: numStyle,
-                onChange: (e) => onUpdate({ rangeFrom: parseFloat(e.target.value) || 0 }),
-            }),
-            h('span', null, '–'),
-            h('input', {
-                type: 'number', value: curve.rangeTo, step: curve.xAxis === 'aoi' ? 5 : 10, style: numStyle,
-                onChange: (e) => onUpdate({ rangeTo: parseFloat(e.target.value) || 0 }),
-            }),
-            h('span', { style: { color: c.textDim, fontSize: 10 } }, curve.xAxis === 'aoi' ? '°' : 'nm'),
-        ),
-    ),
-    h('div', { style: fieldRow },
-        h('span', { style: lbl }, pe.step || 'Step'),
-        h('input', {
-            type: 'number', value: curve.rangeStep, step: 1, min: 0.1, style: numStyle,
-            onChange: (e) => { const v = parseFloat(e.target.value); onUpdate({ rangeStep: v > 0 ? v : 1 }); },
-        }),
-    ),
-    curve.xAxis === 'wavelength' && h('div', { style: fieldRow },
-        h('span', { style: lbl }, pe.fixedAOI || 'AOI fixed'),
-        h('input', {
-            type: 'number', value: curve.aoiFixed_deg, step: 5, min: 0, max: 89, style: numStyle,
-            onChange: (e) => onUpdate({ aoiFixed_deg: parseFloat(e.target.value) || 0 }),
-        }),
-    ),
-    curve.xAxis === 'aoi' && h('div', { style: fieldRow },
-        h('span', { style: lbl }, pe.fixedLambda || 'λ fixed'),
-        h('input', {
-            type: 'number', value: curve.lambdaFixed_nm, step: 10, min: 100, style: numStyle,
-            onChange: (e) => onUpdate({ lambdaFixed_nm: parseFloat(e.target.value) || 550 }),
-        }),
-    ),
-    h('div', { style: { ...fieldRow, gridTemplateColumns: '70px 1fr 1fr' } },
-        h('span', { style: lbl }, pe.channel || 'Y'),
-        h('select', { value: curve.yChannel, onChange: (e) => onUpdate({ yChannel: e.target.value }), style: selStyle },
-            Y_CHANNELS.map(v => h('option', { key: v, value: v }, v))),
-        h('select', { value: curve.polarization, onChange: (e) => onUpdate({ polarization: e.target.value }), style: selStyle },
-            POLARIZATIONS.map(v => h('option', { key: v, value: v }, v))),
-    ),
-    h('div', { style: fieldRow },
-        h('span', { style: lbl }, pe.surface || 'Surface'),
-        h('select', { value: curve.surfaceMode, onChange: (e) => onUpdate({ surfaceMode: e.target.value }), style: selStyle },
-            SURFACE_MODES.map(v => h('option', { key: v, value: v }, v))),
-    ),
-    h('div', { style: fieldRow },
-        h('span', { style: lbl }, pe.dash || 'Dash'),
-        h('div', { style: { display: 'flex', gap: 4 } },
-            h('select', { value: curve.dash, onChange: (e) => onUpdate({ dash: e.target.value }), style: selStyle },
-                DASHES.map(v => h('option', { key: v, value: v }, v))),
-            h('input', {
-                type: 'number', value: curve.width, step: 0.5, min: 0.5, max: 5,
-                style: { ...numStyle, width: 40 },
-                onChange: (e) => onUpdate({ width: parseFloat(e.target.value) || 2 }),
+    );
+}
+
+export function CurveRow({ curve, onUpdate, onDelete, c, t }) {
+    const pe = (t && t.plotEngine) || {};
+    const overAngle = curve.xAxis === 'aoi';
+    const rangeStep = overAngle ? 5 : 10;
+
+    return h('div', {
+        style: {
+            padding: '6px 0',
+            borderBottom: `1px solid ${c.border}`,
+            opacity: curve.visible ? 1 : 0.55,
+        },
+    },
+        h(CurveHeader, { curve, onUpdate, onDelete, c, pe }),
+        h(SettingRow, { c, label: pe.xAxis || 'X axis' },
+            h(SelectField, {
+                c, width: SELECT_WIDTH, value: curve.xAxis,
+                onChange: value => onUpdate({ xAxis: value }),
+                options: valueOptions(X_AXES, v => (v === 'aoi' ? 'AOI' : (pe.xWavelength || 'wavelength'))),
             }),
         ),
-    ));
+        h(SettingRow, { c, label: pe.range || 'Range' },
+            h(RangeField, {
+                c, width: 58, unit: overAngle ? '°' : 'nm',
+                from: {
+                    value: curve.rangeFrom, step: rangeStep,
+                    onChange: value => onUpdate({ rangeFrom: value }),
+                },
+                to: {
+                    value: curve.rangeTo, step: rangeStep,
+                    onChange: value => onUpdate({ rangeTo: value }),
+                },
+            }),
+        ),
+        h(SettingRow, { c, label: pe.step || 'Step' },
+            h(NumInput, {
+                c, width: 58, value: curve.rangeStep, step: 1, min: 0.1,
+                onChange: value => onUpdate({ rangeStep: value }),
+            }),
+        ),
+        // The parameter the curve is not swept over is held at one value.
+        !overAngle && h(SettingRow, { c, label: pe.fixedAOI || 'AOI fixed' },
+            h(NumInput, {
+                c, width: 58, value: curve.aoiFixed_deg, step: 5, min: 0, max: 89,
+                onChange: value => onUpdate({ aoiFixed_deg: value }),
+            }),
+        ),
+        overAngle && h(SettingRow, { c, label: pe.fixedLambda || 'λ fixed' },
+            h(NumInput, {
+                c, width: 58, value: curve.lambdaFixed_nm, step: 10, min: 100,
+                onChange: value => onUpdate({ lambdaFixed_nm: value }),
+            }),
+        ),
+        h(SettingRow, { c, label: pe.channel || 'Y' },
+            h(SelectField, {
+                c, width: 58, value: curve.yChannel,
+                onChange: value => onUpdate({ yChannel: value }),
+                options: valueOptions(Y_CHANNELS),
+            }),
+            h(SelectField, {
+                c, width: 66, value: curve.polarization,
+                onChange: value => onUpdate({ polarization: value }),
+                options: valueOptions(POLARIZATIONS),
+            }),
+        ),
+        h(SettingRow, { c, label: pe.surface || 'Surface' },
+            h(SelectField, {
+                c, width: SELECT_WIDTH, value: curve.surfaceMode,
+                onChange: value => onUpdate({ surfaceMode: value }),
+                options: valueOptions(SURFACE_MODES),
+            }),
+        ),
+        h(SettingRow, { c, label: pe.dash || 'Dash' },
+            h(SelectField, {
+                c, width: SELECT_WIDTH, value: curve.dash,
+                onChange: value => onUpdate({ dash: value }),
+                options: valueOptions(DASHES),
+            }),
+            h(FieldLabel, { c }, pe.width || 'Width'),
+            h(NumInput, {
+                c, width: 48, value: curve.width, step: 0.5, min: 0.5, max: 5,
+                onChange: value => onUpdate({ width: value }),
+            }),
+        ),
+    );
 }

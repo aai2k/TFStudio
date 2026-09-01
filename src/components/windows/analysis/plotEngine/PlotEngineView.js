@@ -2,7 +2,7 @@ import { ExportMenu, useCsvExport } from '../../../ui/ExportMenu.js';
 import { csvFromRows, ResultsGrid, ResultsSection } from '../../../ui/ResultsSection.js';
 import { ActionButton, ChoiceGroup } from '../chrome/controls.js';
 import { AnalysisWindow, ControlRow, PlotArea } from '../chrome/layout.js';
-import { PopoverButton } from '../chrome/popover.js';
+import { NoticeBadge, PopoverButton } from '../chrome/popover.js';
 import { CurveRow } from './CurveRow.js';
 import { SurfacePanel } from './SurfacePanel.js';
 import { MultiCurveChart, SurfaceChart } from './charts.js';
@@ -61,7 +61,7 @@ function resultTable({ is2D, curvePlot, surfacePlot, t }) {
     };
 }
 
-export function PlotEngineView({ curvePlot, surfacePlot, design, c, t, pe }) {
+export function PlotEngineView({ curvePlot, surfacePlot, design, c, t, pe, notices }) {
     const dt = t.dataTable;
     const is2D = surfacePlot.plotMode === '2d';
     const { columns, rows } = resultTable({ is2D, curvePlot, surfacePlot, t });
@@ -73,9 +73,12 @@ export function PlotEngineView({ curvePlot, surfacePlot, design, c, t, pe }) {
     return h(AnalysisWindow, { c },
         h(ControlRow, {
             c,
-            trailing: is2D
-                ? h(CurveList, { curvePlot, c, t, pe })
-                : h(SurfaceSettings, { surfacePlot, design, c, t, pe }),
+            trailing: [
+                h(NoticeBadge, { key: 'notices', c, notices, label: t.analysisChrome.notices }),
+                is2D
+                    ? h(CurveList, { key: 'curves', curvePlot, c, t, pe })
+                    : h(SurfaceSettings, { key: 'surface', surfacePlot, design, c, t, pe }),
+            ],
         },
             h(ChoiceGroup, {
                 ariaLabel: pe.mode2D, activeId: surfacePlot.plotMode, c,
