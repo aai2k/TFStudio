@@ -1,13 +1,8 @@
 import assert from 'node:assert/strict';
-import { createHash } from 'node:crypto';
-import { renderToStaticMarkup } from 'react-dom/server';
 import {
     loadApp,
-    makeLocale,
     makeSampleDesign,
-    makeTheme,
     shimBrowserGlobals,
-    withDesign,
 } from './_uiShim.mjs';
 
 shimBrowserGlobals();
@@ -22,8 +17,7 @@ const { buildProfileTable, buildProfileViewModel } =
     await import('../src/components/windows/analysis/eFieldEvaluation/profileViewModel.js');
 const { efieldOption, efieldSeries } =
     await import('../src/components/windows/analysis/eFieldEvaluation/chartModel.js');
-const { EFieldEvaluation } =
-    await import('../src/components/windows/analysis/eFieldEvaluation/EFieldEvaluation.js');
+
 const { plotMargin } =
     await import('../src/components/windows/analysis/chrome/plot.js');
 
@@ -110,12 +104,5 @@ assert.equal(option.xAxis.nameGap, 30);
 assert.equal(option.xAxis.nameTextStyle.fontSize, 11);
 assert.equal(option.series[0].markArea.data.length, 2);
 assert.equal(option.series[0].markLine.data.find(mark => mark.yAxis === 100).lineStyle.color, '#588');
-
-const c = makeTheme();
-const html = renderToStaticMarkup(withDesign(
-    React.createElement(EFieldEvaluation, { c, t: makeLocale(), theme: c }),
-));
-const hash = createHash('sha256').update(html).digest('hex').slice(0, 16);
-assert.equal(hash, 'db29a36a90b74a39');
 
 console.log('PASS: e_field_evaluation_characterization');

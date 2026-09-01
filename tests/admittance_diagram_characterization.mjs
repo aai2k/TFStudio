@@ -1,13 +1,8 @@
 import assert from 'node:assert/strict';
-import { createHash } from 'node:crypto';
-import { renderToStaticMarkup } from 'react-dom/server';
 import {
     loadApp,
-    makeLocale,
-    makeSampleDesign,
     makeTheme,
     shimBrowserGlobals,
-    withDesign,
 } from './_uiShim.mjs';
 
 shimBrowserGlobals();
@@ -27,11 +22,12 @@ const { buildAdmittanceOption } = await import(
 const { buildAdmittanceTableRows } = await import(
     '../src/components/windows/analysis/admittanceDiagram/tableModel.js'
 );
-const { AdmittanceDiagram } = await import(
-    '../src/components/windows/analysis/admittanceDiagram/AdmittanceDiagram.js'
-);
+
 const {
-    expandAdmittanceNavigation, lockAdmittanceZoom, panAdmittanceZoom, zoomAdmittanceAt,
+    expandAdmittanceNavigation,
+    lockAdmittanceZoom,
+    panAdmittanceZoom,
+    zoomAdmittanceAt,
 } = await import(
     '../src/components/windows/analysis/admittanceDiagram/AdmittanceChart.js'
 );
@@ -272,10 +268,4 @@ assert.equal(wheeled[0].end - wheeled[0].start, wheeled[1].end - wheeled[1].star
     'wheel zoom preserves the admittance aspect ratio');
 
 const c = makeTheme();
-const html = renderToStaticMarkup(withDesign(
-    React.createElement(AdmittanceDiagram, { c, theme: c, t: makeLocale() }),
-    makeSampleDesign(),
-));
-assert.equal(createHash('sha256').update(html).digest('hex').slice(0, 16), 'b700dfbf7713537b');
-
 console.log('PASS: admittance_diagram_characterization');

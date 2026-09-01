@@ -1,19 +1,26 @@
 /**
  * Newton vs CG/DLS PERFORMANCE probe on a large (~50-layer) design.
  *
- * Newton refinement on a 50-layer multipassband is so
- * slow per iteration that it shows no wall-clock win over CG. This quantifies it
- * and locates the cost (dense O(N²) Hessian assembly + O(N³) solve, pure-JS, no
- * WASM) so we can decide the fix (endgame-only / matrix-free Truncated Newton).
+ * Newton refinement on a 50-layer multipassband is so slow per iteration that it
+ * shows no wall-clock win over CG. This quantifies it and locates the cost:
+ * dense O(N²) Hessian assembly + O(N³) solve.
  *
- * Pure-JS TMM (no WASM) — in the GUI CG/DLS use the WASM Jacobian while the
- * Hessian is JS-only, so the real gap is WORSE than measured here.
+ * Runs on the WASM kernel, as the GUI does. That matters for the comparison
+ * rather than only for the absolute numbers: CG/DLS get the WASM Jacobian while
+ * the Hessian assembly stays pure JS, so the gap measured here is the gap a user
+ * sees. Measured on the JS fallback it comes out far too flattering to Newton.
  *
  * Run: node tests/newton_perf.mjs
  */
 import { DLSOptimizer, makeOperand } from '../src/utils/physics/optimizer.js';
 import { makeEngine } from '../src/utils/optimizers/index.js';
 import { getMaterial } from '../src/utils/materials/materialDatabase.js';
+import { initWasmForTest, tmmWasmActive } from './_wasmInit.mjs';
+
+// The GUI runs every TMM hot path on the WASM kernel, so a JS-fallback run
+// here would time (and pace) a path the app never takes.
+await initWasmForTest();
+console.log(`Newton perf probe · WASM ${tmmWasmActive() ? 'ON' : 'off (JS fallback)'}`);
 
 const resolveMat = id => getMaterial(id);
 const deep = x => JSON.parse(JSON.stringify(x));
@@ -43,7 +50,7 @@ const operands = [
   makeOperand({ type: 'TAV', lambdaStart: 650, lambdaEnd: 700, aoi: 0, pol: 'avg', target: 0, weight: 1 }),
 ];
 
-console.log(`=== Newton vs CG/DLS perf — ${N}-layer multipassband (pure-JS TMM) ===`);
+console.log(`=== Newton vs CG/DLS perf — ${N}-layer multipassband ===`);
 
 // (1) Per-step time + MF after a fixed iteration count.
 const ITERS = 30;

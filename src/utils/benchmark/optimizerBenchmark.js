@@ -145,10 +145,10 @@ export const BENCH_CASES = [
         thick: () => baseDesign([{ id: 'T1', material: 'TiO2', thickness: 3000, locked: false }]),
     },
     {
-        // The OTF-demo 4-line multipassband (tests/synthesis_4band_escape.mjs): a
-        // genuinely hard target that is the canonical needle stress-test — needle
-        // adds no bulk, so it MUST start from a thick HIGH-index (TiO2) seed that
-        // already holds the total optical thickness for it to CARVE.
+        // The OTF-demo 4-line multipassband: a genuinely hard target and the
+        // canonical needle stress-test — needle adds no bulk, so it MUST start
+        // from a thick HIGH-index (TiO2) seed that already holds the total
+        // optical thickness for it to CARVE.
         id: 'otf4', name: '4-line multipassband  (OTF demo, HIGH-index seed)', refineN: 16,
         ops: [
             tgt('TGT', 437, 467, 1), tgt('TGT', 512, 543, 1), tgt('TGT', 593, 648, 1), tgt('TGT', 700, 763, 1), // passbands

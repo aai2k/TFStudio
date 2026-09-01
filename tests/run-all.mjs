@@ -37,27 +37,12 @@ const PROJECT_ROOT = join(TESTS_DIR, '..');
 // ── Long-running benchmarks / reporting tools (excluded from default suite) ──
 const BENCH = new Set([
     'optimizer_benchmarks.mjs',       // reporting tool — no pass/fail, multi-engine timing
-    'global_optimizers.mjs',          // DE / SA / CG full runs
     'newton_perf.mjs',                // perf timing
-    'cg_single_run_depth.mjs',        // deep CG convergence sweep
     'wasm_bench.mjs',                 // WASM vs JS micro-benchmark
-    'structural_optimizer.mjs',       // SA over structure (mutation search)
     'structural_deep_spin.mjs',       // deep-mode spin (reporting tool, minutes)
-    'mc_presample_equivalence.mjs',   // Monte-Carlo equivalence sweep
-    'error_analysis_layer_sensitivity.mjs',
-    'synthesis_inner_engine.mjs',
-    'synthesis_scan_profile.mjs',
-    'synthesis_conv_stop.mjs',
-    'synthesis_4band_escape.mjs',
-    'synthesis_merit_landscape.mjs',
-    'synthesis_multipassband_diag.mjs',
-    'synthesis_preserve_bulk.mjs',
-    'central_lambda_vs_mxwt_diag.mjs',
-    'filter_design_explore.mjs',      // (m,k)-equivalence sweep / reporting tool (not pass/fail)
     'sqp_benchmark.mjs',              // optimizer method × mode benchmark (reporting tool)
     'optimizer_grand_benchmark.mjs',  // grand cross-optimizer benchmark (reporting tool, minutes)
     'synthesis_single_seed_bbar.mjs', // single-layer-seed → BBAR GE/Structural (time-budgeted)
-    'consolidate_achromat.mjs',       // achromat seed/consolidate diagnostic (reads user Documents)
     'cone_angle_perf.mjs',            // cone-node cache before/after timing report
     'cone_angle_offload_perf.mjs',    // worker responsiveness under a heavy cone display job
 ]);

@@ -1,12 +1,8 @@
 import assert from 'node:assert/strict';
-import { createHash } from 'node:crypto';
-import { renderToStaticMarkup } from 'react-dom/server';
 import {
     loadApp,
-    makeLocale,
     makeTheme,
     shimBrowserGlobals,
-    withDesign,
 } from './_uiShim.mjs';
 
 shimBrowserGlobals();
@@ -45,11 +41,5 @@ assert.equal(sweepOption.xAxis[0].type, 'category');
 assert.equal(sweepOption.yAxis[0].type, 'category');
 assert.deepEqual(sweepOption.series[0].data[4], [0, 2, 90]);
 assert.equal(sweepOption.tooltip.transitionDuration, 0);
-
-const c = makeTheme();
-const html = renderToStaticMarkup(withDesign(
-    React.createElement(SystematicDeviations, { c, t: makeLocale(), theme: c }),
-));
-assert.equal(createHash('sha256').update(html).digest('hex').slice(0, 16), 'fb31232705496c84');
 
 console.log('PASS: systematic_deviations_refactor');

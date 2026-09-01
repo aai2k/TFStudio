@@ -29,6 +29,12 @@
 import { computeLayerSensitivity, runErrorAnalysisMC } from '../src/utils/physics/errorAnalysis.js';
 import { getMaterial } from '../src/utils/materials/materialDatabase.js';
 import { buildEvalContext, evaluateOperands, calcMF } from '../src/utils/physics/optimizer.js';
+import { initWasmForTest, tmmWasmActive } from './_wasmInit.mjs';
+
+// The GUI runs every TMM hot path on the WASM kernel, so a JS-fallback run
+// here would time (and pace) a path the app never takes.
+await initWasmForTest();
+console.log(`layer sensitivity + Monte Carlo · WASM ${tmmWasmActive() ? 'ON' : 'off (JS fallback)'}`);
 
 let fails = 0;
 const ok   = (cond, msg) => { if (!cond) { console.error('FAIL:', msg); fails++; } };

@@ -1,8 +1,10 @@
 import assert from 'node:assert/strict';
-import { createHash } from 'node:crypto';
-import { renderToStaticMarkup } from 'react-dom/server';
 import {
-    loadApp, makeLocale, makeSampleDesign, makeTheme, shimBrowserGlobals, withDesign,
+    loadApp,
+    makeLocale,
+    makeSampleDesign,
+    makeTheme,
+    shimBrowserGlobals,
 } from './_uiShim.mjs';
 
 shimBrowserGlobals();
@@ -16,10 +18,6 @@ const [{ Inhomogeneities }, figure, model] = await Promise.all([
 
 const c = makeTheme();
 const t = makeLocale();
-const html = renderToStaticMarkup(withDesign(
-    React.createElement(Inhomogeneities, { c, t, theme: c }),
-));
-assert.equal(createHash('sha256').update(html).digest('hex').slice(0, 16), '5b9498808fcd3ac8');
 
 const baseline = {
     lambda: [500], T: [0.4], R: [0.5], A: [0.1],

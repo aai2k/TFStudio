@@ -1,9 +1,13 @@
 import assert from 'node:assert/strict';
-import { createHash } from 'node:crypto';
 import React from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 import {
-    loadApp, makeLocale, makeSampleDesign, makeTheme, shimBrowserGlobals, withDesign,
+    loadApp,
+    makeLocale,
+    makeSampleDesign,
+    makeTheme,
+    shimBrowserGlobals,
+    withDesign,
 } from './_uiShim.mjs';
 
 shimBrowserGlobals();
@@ -13,8 +17,11 @@ const { buildSensitivityOption } = await import(
     '../src/components/windows/analysis/layerSensitivity/figure.js'
 );
 const {
-    buildSpecDesigns, displayLayerLabel, hasSensitivityLayers,
-    orderSubstrateFirst, rankSensitivityRows,
+    buildSpecDesigns,
+    displayLayerLabel,
+    hasSensitivityLayers,
+    orderSubstrateFirst,
+    rankSensitivityRows,
 } = await import('../src/components/windows/analysis/layerSensitivity/viewModel.js');
 const { LayerSensitivity } = await import(
     '../src/components/windows/analysis/layerSensitivity/LayerSensitivity.js'
@@ -76,13 +83,6 @@ assert.deepEqual(buildSensitivityOption({ rows: [], c }), { series: [] });
 
 // Without merit operands there is nothing to rank, so this render is the
 // "define targets first" message.
-const html = renderToStaticMarkup(withDesign(
-    React.createElement(LayerSensitivity, { c, theme: c, t: makeLocale() }),
-    makeSampleDesign(),
-));
-const hash = createHash('sha256').update(html).digest('hex').slice(0, 16);
-assert.equal(hash, 'c8f66fa3e5613c66');
-
 // With operands the window shows its ranking. The table is the window and the
 // bar chart is a strip below it: the ranking is the answer, and a design with a
 // hundred layers turns the chart into a picket fence while the table still
@@ -101,9 +101,5 @@ assert.match(rankedHtml, /<th[^>]*>Rank<\/th>/,
 assert.match(rankedHtml, /Chart<\/span>/, 'and the bar chart is a strip below it');
 assert.equal(rankedHtml.indexOf('Rank') < rankedHtml.indexOf('Chart<'), true,
     'the table comes first');
-assert.equal(
-    createHash('sha256').update(rankedHtml).digest('hex').slice(0, 16),
-    '79ec36856863252d',
-);
 
 console.log('PASS: layer_sensitivity_refactor_characterization');

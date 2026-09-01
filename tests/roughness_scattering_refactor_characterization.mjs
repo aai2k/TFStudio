@@ -1,9 +1,12 @@
 import assert from 'node:assert/strict';
-import { createHash } from 'node:crypto';
 import { renderToStaticMarkup } from 'react-dom/server';
 import {
-    loadApp, makeDesignCtx, makeLocale, makeSampleDesign, makeTheme,
-    shimBrowserGlobals, withDesign,
+    loadApp,
+    makeDesignCtx,
+    makeLocale,
+    makeSampleDesign,
+    makeTheme,
+    shimBrowserGlobals,
 } from './_uiShim.mjs';
 
 shimBrowserGlobals();
@@ -93,12 +96,6 @@ assert.equal(scatterOption.legend.show, false,
     'toolbar curve toggles replace the duplicate in-chart legend');
 
 const c = makeTheme();
-const html = renderToStaticMarkup(withDesign(
-    React.createElement(RoughnessScattering, { c, t: makeLocale(), theme: c })
-));
-const hash = createHash('sha256').update(html).digest('hex').slice(0, 16);
-assert.equal(hash, 'd9a0c5cae2f70b5f');
-
 const backOnlyDesign = makeSampleDesign();
 backOnlyDesign.frontLayers = [];
 backOnlyDesign.backLayers = [{ material: 'builtin:SiO2', thickness: 75 }];

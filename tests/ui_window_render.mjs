@@ -1,12 +1,16 @@
 /**
- * UI window RENDER smoke test.
+ * UI window render smoke test.
  *
- * Goes one step beyond ui_window_smoke.mjs (which only imports each window
- * module): this actually server-renders every registry window plus the modal
- * wizards to static markup. That exercises the full initial-render tree — every
- * render-time closure, `.map`, destructure and JSX branch — so a refactor that
- * drops a prop, mis-names a variable, or breaks a sub-component render is caught
- * automatically instead of only by clicking through the app.
+ * Server-renders every registry window plus the modal wizards to static markup.
+ * That exercises the full initial-render tree — every render-time closure,
+ * `.map`, destructure and JSX branch — so a change that drops a prop, mis-names
+ * a variable, or breaks a sub-component render is caught automatically instead
+ * of only by clicking through the app. A window whose module fails to load at
+ * all (broken import, syntax error, top-level throw, missing export) surfaces
+ * here too, as "white screen on open" would.
+ *
+ * The registry's own derived tables are checked at the end: a window that
+ * renders but is missing from TOOL_CONFIGS / TOOL_LABELS still cannot be opened.
  *
  * `useEffect` does not run under server render, so effect-only chart
  * init, worker wiring, network) are intentionally out of scope — those stay with
@@ -19,13 +23,8 @@
 import { readFileSync } from 'node:fs';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { dirname, resolve } from 'node:path';
-import { createHash } from 'node:crypto';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { shimBrowserGlobals, loadApp, makeTheme, makeLocale, withDesign } from './_uiShim.mjs';
-
-// `--hash` prints a JSON map of window → render-markup hash instead of pass/fail,
-// for before/after bit-identity checks when refactoring a window's render path.
-const HASH = process.argv.includes('--hash');
 
 shimBrowserGlobals();
 
@@ -58,7 +57,7 @@ const noop = () => {};
 let c, t;
 
 let fails = 0;
-const hashes = {};
+const ok = (cond, msg) => { if (!cond) { console.error('  FAIL:', msg); fails++; } };
 
 async function renderOne(name, abs, props) {
     try {
@@ -68,11 +67,10 @@ async function renderOne(name, abs, props) {
         const el = withDesign(React.createElement(Comp, props));
         const html = renderToStaticMarkup(el);
         if (typeof html !== 'string') { console.error(`  FAIL ${name}: render produced ${typeof html}`); fails++; return; }
-        if (HASH) hashes[name] = createHash('sha256').update(html).digest('hex').slice(0, 16);
-        else console.log(`  ok   ${name}  (${html.length} chars)`);
+        console.log(`  ok   ${name}  (${html.length} chars)`);
     } catch (e) {
-        if (HASH) hashes[name] = 'THREW';
-        else { console.error(`  FAIL ${name}: render threw — ${e && e.message ? e.message : e}`); fails++; }
+        console.error(`  FAIL ${name}: render threw — ${e && e.message ? e.message : e}`);
+        fails++;
     }
 }
 
@@ -81,7 +79,7 @@ async function main() {
     c = makeTheme();
     t = makeLocale();
     const windows = parseWindowImports();
-    if (!HASH) console.log(`UI window render — ${windows.length} registry windows + ${EXTRA_MODALS.length} modals\n`);
+    console.log(`UI window render — ${windows.length} registry windows + ${EXTRA_MODALS.length} modals\n`);
 
     for (const w of windows) {
         await renderOne(w.name, w.abs, { c, t, theme: c, setInputDialog: noop, onClose: noop });
@@ -90,7 +88,22 @@ async function main() {
         await renderOne(w.name, resolve(dirname(REGISTRY), w.rel), { c, t, onClose: noop, ...(w.props || {}) });
     }
 
-    if (HASH) { console.log(JSON.stringify(hashes)); process.exit(0); }
+    // The registry itself must import and build the tables the docking layer
+    // reads to open, label and help-link a window.
+    try {
+        const reg = await import(pathToFileURL(REGISTRY).href);
+        ok(reg.WINDOW_REGISTRY && typeof reg.WINDOW_REGISTRY === 'object', 'WINDOW_REGISTRY export missing');
+        ok(reg.TOOL_CONFIGS && Object.keys(reg.TOOL_CONFIGS).length > 0, 'TOOL_CONFIGS derived table empty');
+        ok(reg.TOOL_LABELS && Object.keys(reg.TOOL_LABELS).length > 0, 'TOOL_LABELS derived table empty');
+        ok(typeof reg.helpAnchorFor === 'function', 'helpAnchorFor export missing');
+        for (const [id, entry] of Object.entries(reg.WINDOW_REGISTRY)) {
+            if (entry.component != null)
+                ok(typeof entry.component === 'function', `registry '${id}'.component is not a function`);
+        }
+    } catch (e) {
+        console.error(`  FAIL: windowRegistry.js import threw: ${e && e.message ? e.message : e}`);
+        fails++;
+    }
 
     console.log('');
     if (fails === 0) { console.log(`PASS — all windows render to static markup.`); process.exit(0); }

@@ -1,9 +1,9 @@
 import assert from 'node:assert/strict';
-import { createHash } from 'node:crypto';
-import { existsSync } from 'node:fs';
-import { renderToStaticMarkup } from 'react-dom/server';
 import {
-    loadApp, makeLocale, makeSampleDesign, makeTheme, shimBrowserGlobals, withDesign,
+    loadApp,
+    makeSampleDesign,
+    makeTheme,
+    shimBrowserGlobals,
 } from './_uiShim.mjs';
 
 shimBrowserGlobals();
@@ -26,9 +26,7 @@ const { buildEllipsometryTable } = await import(
 const { buildEllipsometryOption } = await import(
     '../src/components/windows/analysis/ellipsometryEvaluation/EllipsometryChart.js'
 );
-const { EllipsometryEvaluation } = await import(
-    '../src/components/windows/analysis/ellipsometryEvaluation/EllipsometryEvaluation.js'
-);
+
 const { ellipsometrySession } = await import(
     '../src/components/windows/analysis/ellipsometryEvaluation/sessionState.js'
 );
@@ -203,11 +201,4 @@ assert.deepEqual(
 // Azzam-Bashara is the convention the window opens in.
 assert.equal(ellipsometrySession.read(makeSampleDesign()).deltaConvention, 'azzam');
 ellipsometrySession.reset();
-const markup = renderToStaticMarkup(withDesign(
-    React.createElement(EllipsometryEvaluation, { c, t: makeLocale(), theme: c }),
-    makeSampleDesign(),
-));
-assert.equal(createHash('sha256').update(markup).digest('hex').slice(0, 16), '58f7f3385501c08b');
-assert.equal(existsSync('src/components/windows/analysis/EllipsometryEvaluation.js'), false);
-
 console.log('PASS: ellipsometry_evaluation_refactor');

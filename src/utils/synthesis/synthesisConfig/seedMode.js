@@ -35,7 +35,6 @@
  * (4821 vs 3169 nm) — same quality, faster, more OTF-like structure. (For the
  * CG engine it also holds far more TOT: 5574 vs 2556 nm.) preserve-bulk would
  * REGRESS Needle, but Needle doesn't read this, so the flip is GE-only and safe.
- * tests/synthesis_preserve_bulk.mjs.
  */
 const SEED_MODE_KEY = 'tfstudio-synth-seed-mode';
 export const SYNTHESIS_SEED_MODES = ['refine', 'preserve-bulk'];

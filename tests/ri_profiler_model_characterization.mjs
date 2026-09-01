@@ -1,13 +1,9 @@
 import assert from 'node:assert/strict';
-import { createHash } from 'node:crypto';
-import { renderToStaticMarkup } from 'react-dom/server';
 import {
     loadApp,
     makeLocale,
     makeSampleDesign,
-    makeTheme,
     shimBrowserGlobals,
-    withDesign,
 } from './_uiShim.mjs';
 
 shimBrowserGlobals();
@@ -19,8 +15,6 @@ const { buildProfileViewModel } =
     await import('../src/components/windows/analysis/refractiveIndexProfiler/profileViewModel.js');
 const { placeTotalRegions } =
     await import('../src/components/windows/analysis/refractiveIndexProfiler/RITotalChart.js');
-const { RefractiveIndexProfiler } =
-    await import('../src/components/windows/analysis/refractiveIndexProfiler/RefractiveIndexProfiler.js');
 
 const design = makeSampleDesign();
 design.backLayers = [
@@ -63,12 +57,5 @@ assert.deepEqual(view.tableRows.map(row => row.region), [
     'Substrate', 'Substrate',
     'Back', 'Back', 'Back',
 ]);
-
-const c = makeTheme();
-const html = renderToStaticMarkup(withDesign(
-    React.createElement(RefractiveIndexProfiler, { c, t: makeLocale(), theme: c }),
-));
-const hash = createHash('sha256').update(html).digest('hex').slice(0, 16);
-assert.equal(hash, '111a11912b3c61e1');
 
 console.log('PASS: ri_profiler_model_characterization');

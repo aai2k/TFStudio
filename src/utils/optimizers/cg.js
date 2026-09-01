@@ -37,8 +37,7 @@ export class CGOptimizer extends EngineBase {
         // manual "re-run CG ~5×" workflow. DEFAULT OFF so the validated
         // SYNTHESIS inner-refiner (synthesisWorker → makeEngine('cg')) is byte-
         // identical to before; only the standalone Refinement window opts in
-        // (optimizerWorker passes persistent:true). The
-        // synthesis_conv_stop A/B depends on the classic stall behavior.
+        // (optimizerWorker passes persistent:true).
         this._persistent = opts.persistent ?? false;
         // Diminishing-returns detector + AUTO-RELAUNCH. On a
         // 50-layer design a manual relaunch of CG ~5× was needed to keep improving:

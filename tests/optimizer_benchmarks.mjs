@@ -16,6 +16,12 @@
 import { DLSOptimizer, makeOperand } from '../src/utils/physics/optimizer.js';
 import { makeEngine } from '../src/utils/optimizers/index.js';
 import { getMaterial } from '../src/utils/materials/materialDatabase.js';
+import { initWasmForTest, tmmWasmActive } from './_wasmInit.mjs';
+
+// The GUI runs every TMM hot path on the WASM kernel, so a JS-fallback run
+// here would time (and pace) a path the app never takes.
+await initWasmForTest();
+console.log(`optimizer benchmarks · WASM ${tmmWasmActive() ? 'ON' : 'off (JS fallback)'}`);
 
 const resolveMat = id => getMaterial(id);
 const now = () => Number(process.hrtime.bigint() / 1000n) / 1000; // ms

@@ -11,6 +11,12 @@ import {
     buildEvalContext, evaluateOperands, makeOperand,
 } from '../src/utils/physics/optimizer.js';
 import { getMaterial } from '../src/utils/materials/materialDatabase.js';
+import { initWasmForTest, tmmWasmActive } from './_wasmInit.mjs';
+
+// The GUI runs every TMM hot path on the WASM kernel, so a JS-fallback run
+// here would time (and pace) a path the app never takes.
+await initWasmForTest();
+console.log(`cone-node cache benchmark · WASM ${tmmWasmActive() ? 'ON' : 'off (JS fallback)'}`);
 
 const resolveMat = id => getMaterial(id);
 const op = makeOperand({

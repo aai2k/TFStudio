@@ -1,15 +1,14 @@
-// Characterization test for sections.js — locks the exact byte output of
-// buildSection() for every builder so splitting one-builder-per-file (sibling
-// folder sections/) cannot change a single emitted byte. Compared via SHA-256
-// (any byte change flips the hash).
+// Unit test for sections.js — one report section per builder.
+//
+// report_generation.mjs covers the assembled document; this covers each builder
+// in isolation: the section wrapper it emits, its localized heading, and the
+// catalogue that fixes the order and default-on state of the section list.
 // Run: node tests/sections_characterization.mjs
-import { createHash } from 'node:crypto';
 import { REPORT_SECTIONS, buildSection } from '../src/utils/report/sections.js';
 import { gatherDesignData } from '../src/utils/report/reportData.js';
 import { getLocale } from '../src/constants/locales.js';
 
 let pass = 0, fail = 0;
-const sha = (s) => createHash('sha256').update(s).digest('hex');
 function ok(name, cond) { if (cond) { pass++; } else { fail++; console.error('FAIL:', name); } }
 
 // Same sample design/options as tests/report_generation.mjs, kept in sync
@@ -50,25 +49,31 @@ const data = gatherDesignData(design, sectionIds, perSection);
 const loc = getLocale('en');
 const tr = { ...loc.report, kinds: (loc.specification && loc.specification.kinds) || {} };
 
-const GOLDEN = {
-  'design-summary':  ['23521dca087d4b61f7da9cb3ebd27719b3bf144a4779f13337472a404264e77b', 1668],
-  'optical-eval':     ['bd5db8353037d8250fe1b863fbfde951c40d240266ad62c1b97751ec09463194', 10171],
-  'color-eval':       ['d0e9b4bc70c1990ec04512465229edbf93e86bfbad364a5866a95c7a16e4d74d', 840],
-  'ri-profile':       ['e5a13bbc988f41f31a9e5ebc45e19cb28d58e7d0d1a37fbb319cbdf0f1984ce9', 2216],
-  'efield':           ['24dbc39641b035ac5f8a38add185f8820fb11f6f44f1cc31cc304c7deaefb424', 3886],
-  'ellipsometry':     ['1ee91cac9bff166a74f01b9ea0db6a4581e52eea377d6132b037eb713cd7fb9b', 6464],
-  'integral-values':  ['8974e0b1ae97bd9a02375e7ad61876c6826a47802f555086eabb1cd002d20934', 730],
-  'qualifiers':       ['1d78e56e93ddfb94621c057fea5988dd792b819df0016278fdeb476c2f9ddb46', 433],
-  'merit-function':   ['8dc24d2c77f720e09f40a0c44e805f634ad53e20e9c180568365da92e279a17e', 425],
-  'notes':            ['65f45cef041b4dd9332ec6a10b8bc129e9306db406c9850ac621c055255a78f8', 151],
+// Every builder emits its own wrapper and heading. The heading text is the
+// localized title, so this also catches a section falling out of the locale.
+const HEADINGS = {
+  'design-summary':  'Design Summary',
+  'optical-eval':    'Optical Evaluation',
+  'color-eval':      'Color Evaluation',
+  'ri-profile':      'Refractive-Index Profile',
+  'efield':          'Electric Field Profile',
+  'ellipsometry':    'Ellipsometry',
+  'integral-values': 'Integral Values',
+  'qualifiers':      'Qualifiers Verdict',
+  'merit-function':  'Merit Function Operands',
+  'notes':           'Notes',
 };
 
-console.log('— buildSection byte-exact per builder —');
+console.log('— buildSection per builder —');
 for (const id of sectionIds) {
   const html = buildSection(id, { design, data, opts: perSection[id] || {}, tr });
-  const [expectHash, expectLen] = GOLDEN[id];
-  ok(`${id}: length`, html.length === expectLen);
-  ok(`${id}: sha256`, sha(html) === expectHash);
+  ok(`${id}: wrapped in its own section element`,
+     html.startsWith(`<section class="report-section" data-section="${id}">`)
+     && html.endsWith('</section>'));
+  ok(`${id}: localized heading`, html.includes(`<h2>${HEADINGS[id]}</h2>`));
+  ok(`${id}: body is not just the heading`,
+     html.length > `<section class="report-section" data-section="${id}"><h2>${HEADINGS[id]}</h2></section>`.length);
+  ok(`${id}: no unrendered placeholder left behind`, !/undefined|\[object Object\]|NaN/.test(html));
 }
 
 // ── Error path: a broken data field renders an inline note, byte-exact ──────

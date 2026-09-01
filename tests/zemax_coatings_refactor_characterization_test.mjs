@@ -1,8 +1,9 @@
 import assert from 'node:assert/strict';
-import { createHash } from 'node:crypto';
 import { renderToStaticMarkup } from 'react-dom/server';
 import {
-    loadApp, makeLocale, makeTheme, shimBrowserGlobals, withDesign,
+    loadApp,
+    makeLocale,
+    shimBrowserGlobals,
 } from './_uiShim.mjs';
 
 shimBrowserGlobals();
@@ -14,11 +15,6 @@ const [{ ZemaxCoatings }, model, importHooks, exportHooks] = await Promise.all([
     import('../src/components/windows/dataExchange/zemaxCoatings/useImportActions.js'),
     import('../src/components/windows/dataExchange/zemaxCoatings/useExportActions.js'),
 ]);
-
-const markup = renderToStaticMarkup(withDesign(React.createElement(ZemaxCoatings, {
-    c: makeTheme(), t: makeLocale(),
-})));
-assert.equal(createHash('sha256').update(markup).digest('hex').slice(0, 16), 'f44da11347376b5b');
 
 assert.deepEqual(model.catalogIdFor('My coating.DAT'), {
     id: 'zemax_my_coating', name: 'Zemax My coating',

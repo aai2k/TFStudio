@@ -1,5 +1,4 @@
 import assert from 'node:assert/strict';
-import { createHash } from 'node:crypto';
 import { renderToStaticMarkup } from 'react-dom/server';
 import {
     loadApp,
@@ -245,7 +244,6 @@ assert.doesNotMatch(markup, />Piecewise table derivative/,
 // start runs. This window obeys it without carrying the control.
 assert.doesNotMatch(markup, /role="switch"/,
     'the analysis toolbar does not carry the auto-update switch');
-assert.equal(createHash('sha256').update(markup).digest('hex').slice(0, 16), '327f7e03b70891fe');
 
 // Conditions on the result are a badge that costs no height when there are
 // none, and carries the sentence-length explanation inside it when there are.

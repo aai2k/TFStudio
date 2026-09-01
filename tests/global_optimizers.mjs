@@ -20,6 +20,12 @@
 import { DLSOptimizer, makeOperand, calcMF, evaluateOperands, buildEvalContext } from '../src/utils/physics/optimizer.js';
 import { makeEngine, DEOptimizer, SAOptimizer, CGOptimizer } from '../src/utils/optimizers/index.js';
 import { getMaterial } from '../src/utils/materials/materialDatabase.js';
+import { initWasmForTest, tmmWasmActive } from './_wasmInit.mjs';
+
+// The GUI runs every TMM hot path on the WASM kernel, so a JS-fallback run
+// here would time (and pace) a path the app never takes.
+await initWasmForTest();
+console.log(`global optimizer tests · WASM ${tmmWasmActive() ? 'ON' : 'off (JS fallback)'}`);
 
 let fails = 0;
 const ok = (cond, msg) => { if (!cond) { console.error('FAIL:', msg); fails++; } else { console.log('  ok:', msg); } };

@@ -1,9 +1,10 @@
-// Characterization test for reportData.js — locks the exact numeric output of
-// designSummary / buildSpectrum / computeRiProfile / computeEField /
-// computeEllipsometrySpectrum so splitting the file into sibling modules
-// (reportData/) cannot change a single computed value. These reuse the same
-// validated TMM/colorimetry engines as the analysis windows, so golden values
-// were captured by running the UNMODIFIED file, not hand-derived.
+// Numeric regression test for reportData.js — pins the output of designSummary /
+// buildSpectrum / computeRiProfile / computeEField / computeEllipsometrySpectrum
+// so a change in what the report reports has to be a deliberate one.
+//
+// These reuse the same validated TMM / colorimetry engines as the analysis
+// windows, so the golden values are captured engine output rather than
+// hand-derived. A failure here means a number a user reads in a report moved.
 // Run: node tests/reportData_characterization.mjs
 import {
   designSummary, buildSpectrum, computeRiProfile, computeEField, computeEllipsometrySpectrum,
