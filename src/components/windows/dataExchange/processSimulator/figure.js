@@ -41,6 +41,10 @@ export function focusedStep(data) {
     return step >= 1 && step <= (data.stepPoints?.length || 0) ? step : null;
 }
 
+// Grid margins, shared with the haze bitmap so the two can never disagree
+// about where the plot area sits.
+const GRID = { left: 52, right: 16, top: 34, bottom: 42 };
+
 export function buildSpectraSeries(data, colors, labels) {
     const series = [];
     const focus = focusedStep(data);
@@ -52,33 +56,147 @@ export function buildSpectraSeries(data, colors, labels) {
         baseline.lineStyle.opacity = 0.55;
         series.push(baseline);
     }
-    // Without "show all layers" only the layer in focus is drawn. Sixty curves
-    // over one plot is a grey haze with the answer somewhere inside it.
-    (data.stepPoints || []).forEach((points, index) => {
-        const step = index + 1;
-        const focused = step === focus;
-        if (!data.showAll && !focused) return;
+    if (focus !== null) {
         series.push(lineSeries({
-            data: points,
-            name: labels.legendStep(step),
-            color: focused
-                ? stepColor(index, data.stepPoints.length, 0.95)
-                : dimColor(colors.text),
-            width: focused ? 2.4 : 1.1,
-            z: focused ? 3 : 1,
-            // A curve that is only context takes no part in hovering. The axis
-            // tooltip does not report it and it is not meant to light up, so
-            // every mouse move would otherwise restyle and redraw sixty
-            // polylines to show a highlight nobody reads.
-            silent: !focused,
-            emphasis: focused ? undefined : { disabled: true },
+            data: data.stepPoints[focus - 1],
+            name: labels.legendStep(focus),
+            color: stepColor(focus - 1, data.stepPoints.length, 0.95),
+            width: 2.4,
+            z: 3,
         }));
-    });
-    if (data.liveCurve) series.push(lineSeries({
-        x: data.lambdas, y: data.liveCurve.map(value => value * 100),
-        name: labels.legendLive, color: colors.accent, width: 2.6,
-    }));
+    }
+    if (data.liveCurve) {
+        series.push(lineSeries({
+            x: data.lambdas, y: data.liveCurve.map(value => value * 100),
+            name: labels.legendLive, color: colors.accent, width: 2.6,
+        }));
+    }
     return series;
+}
+
+// ── The all-layers haze, as a bitmap ─────────────────────────────────────────
+//
+// With "show all layers" on, the unfocused step curves are drawn from a
+// pre-rasterized offscreen canvas rather than as series. ECharts clears and
+// repaints every canvas on any option apply and on every axis pointer move, so
+// two hundred curves kept as series are re-stroked per timeline tick, per
+// hover frame and per resize step; on a 200-step run that stroke alone is the
+// whole frame budget. As a bitmap the same haze costs one drawImage.
+//
+// The bitmap holds every step, the focused one included: the bright focused
+// series draws exactly over its dim copy, so following the run does not
+// invalidate it. It is rebuilt when the curves change or when the plot size
+// settles after a resize, and stretched in between.
+
+const CONTEXT_IMAGE_ID = 'processContextImage';
+const contextImages = new WeakMap();   // chart instance → { stepPoints, key, canvas, lastData, lastColors, zoomTimer }
+const zoomWired = new WeakSet();       // charts whose dataZoom events re-sync the bitmap
+
+function gridRect(chart) {
+    return {
+        x: GRID.left,
+        y: GRID.top,
+        w: Math.max(1, chart.getWidth() - GRID.left - GRID.right),
+        h: Math.max(1, chart.getHeight() - GRID.top - GRID.bottom),
+    };
+}
+
+// Everything the raster depends on besides the curves themselves: the plot
+// size, the axis window (a toolbox zoom remaps the axes without touching the
+// data), and the haze color (the theme can change under a live chart).
+function contextKey(chart, rect, color) {
+    const lo = chart.convertFromPixel({ gridIndex: 0 }, [rect.x, rect.y + rect.h]);
+    const hi = chart.convertFromPixel({ gridIndex: 0 }, [rect.x + rect.w, rect.y]);
+    const window = lo && hi ? `${lo[0]},${lo[1]},${hi[0]},${hi[1]}` : '';
+    return `${rect.w}x${rect.h}|${window}|${color}`;
+}
+
+// A zoom leaves the series remapped but the bitmap rasterized under the old
+// axes; re-sync it once the zoom has applied. Deferred a tick so
+// convertToPixel reads the post-zoom coordinate system.
+function wireZoomResync(chart) {
+    if (zoomWired.has(chart)) return;
+    zoomWired.add(chart);
+    chart.on('datazoom', () => {
+        const entry = contextImages.get(chart);
+        if (!entry) return;
+        clearTimeout(entry.zoomTimer);
+        entry.zoomTimer = setTimeout(() => {
+            if (!chart.isDisposed?.()) syncContextImage(chart, entry.lastData, entry.lastColors);
+        }, 0);
+    });
+}
+
+function paintContext(chart, stepPoints, color, rect) {
+    const ratio = window.devicePixelRatio || 1;
+    const canvas = document.createElement('canvas');
+    canvas.width = Math.max(1, Math.round(rect.w * ratio));
+    canvas.height = Math.max(1, Math.round(rect.h * ratio));
+    const g = canvas.getContext('2d');
+    g.scale(ratio, ratio);
+    g.strokeStyle = color;
+    g.lineWidth = 1.1;
+    for (const points of stepPoints) {
+        g.beginPath();
+        for (let k = 0; k < points.length; k++) {
+            const [px, py] = chart.convertToPixel({ gridIndex: 0 }, points[k]);
+            if (k === 0) g.moveTo(px - rect.x, py - rect.y);
+            else g.lineTo(px - rect.x, py - rect.y);
+        }
+        g.stroke();
+    }
+    return canvas;
+}
+
+/**
+ * Bring the haze bitmap in line with the chart: absent unless Show all layers
+ * is on, rebuilt when the curves or the settled plot size changed, reattached
+ * otherwise. Runs after every option apply, because a full apply drops the
+ * graphic with the rest of the old option.
+ */
+export function syncContextImage(chart, data, colors) {
+    if (!chart || chart.isDisposed?.()) return;
+    if (!data.showAll || !data.stepPoints?.length) {
+        if (contextImages.has(chart)) {
+            contextImages.delete(chart);
+            chart.setOption({ graphic: [{ id: CONTEXT_IMAGE_ID, $action: 'remove' }] });
+        }
+        return;
+    }
+    wireZoomResync(chart);
+    const color = dimColor(colors.text);
+    const rect = gridRect(chart);
+    const key = contextKey(chart, rect, color);
+    const cached = contextImages.get(chart);
+    let canvas = cached && cached.stepPoints === data.stepPoints && cached.key === key
+        ? cached.canvas
+        : null;
+    if (!canvas) {
+        canvas = paintContext(chart, data.stepPoints, color, rect);
+    }
+    contextImages.set(chart, {
+        stepPoints: data.stepPoints, key, canvas,
+        lastData: data, lastColors: colors,
+        zoomTimer: cached?.zoomTimer,
+    });
+    chart.setOption({ graphic: [{
+        type: 'image', id: CONTEXT_IMAGE_ID, silent: true, z: 1,
+        style: { image: canvas, x: rect.x, y: rect.y, width: rect.w, height: rect.h },
+    }] });
+}
+
+/**
+ * Follow a resize in progress: the existing bitmap is stretched to the new
+ * plot rect, which keeps the drag fluid; the caller rebuilds it crisp via
+ * syncContextImage once the size settles.
+ */
+export function stretchContextImage(chart) {
+    if (!chart || chart.isDisposed?.() || !contextImages.has(chart)) return;
+    const rect = gridRect(chart);
+    chart.setOption({ graphic: [{
+        id: CONTEXT_IMAGE_ID,
+        style: { x: rect.x, y: rect.y, width: rect.w, height: rect.h },
+    }] });
 }
 
 /**
@@ -99,7 +217,7 @@ export function buildSpectraOption(data, colors, labels) {
     const named = new Set(namedCurves(focus, labels));
     return cartesianOption({
         colors,
-        grid: { left: 52, right: 16, top: 34, bottom: 42 },
+        grid: { ...GRID },
         fileName: 'process',
         legend: {
             ...horizontalLegend({ color: colors.text, top: 3, right: 72 }),

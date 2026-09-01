@@ -66,6 +66,12 @@ position as the work.
 percentage of the reading. This is the same quantity as the random signal error
 in the Mono Simulator.
 
+**Absolute noise** is the monitor's photometric noise floor, in percent of full
+scale. Unlike the signal error it does not shrink with the reading, so a
+wavelength where the signal has died, deep inside a stopband, scores as
+unusable instead of as noiseless. It is what steers **Auto λ** away from a
+mirror's own band.
+
 **Max Δd** is the thickness error a layer is allowed to be terminated with,
 as a percentage of the layer. A layer that costs more than this is flagged.
 

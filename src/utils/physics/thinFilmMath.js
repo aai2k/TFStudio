@@ -135,169 +135,14 @@ export function tmmAvg(lambda_nm, theta_deg, n0, ns, layers) {
     };
 }
 
-// ── Incremental monitoring evaluator, the "fast" BBM algorithm ────────────────
+// ── Incremental monitoring evaluators + incoherent slab pieces ───────────────
 //
-// During the deposition of ONE layer the completed layers below it never change,
-// so their characteristic-matrix product M_base (per wavelength, per polarization)
-// is constant and only needs building ONCE when the layer starts. Each subsequent
-// monitoring scan / thickness-fit evaluation then costs O(Nλ), one extra 2×2
-// complex multiply by the growing top layer, instead of the O(Nλ · Nlayers)
-// full-stack recompute that tmm()/tmmAvg() perform every call. This is the
-// O(1) incremental control algorithm
-// (see Tikhonravov & Trubetskov, Appl. Opt. 44, 6877 (2005)).
-//
-// The growing layer is the one facing the incident medium: in a chamber the
-// layer currently being deposited is always the outermost, and everything
-// already deposited lies beneath it, toward the substrate. Its characteristic
-// matrix therefore multiplies the completed product from the LEFT.
-//
-// The result equals looping tmmAvg() over the full stack, by matrix
-// associativity (Macleod 5th ed. §2.6, char. matrix of an assembly):
-//     M_full = M_top · (M_0·M_1···M_{i-1}) = M_top · M_base
-// The base product and the growing-layer multiply use the exact same layerMatrix
-// / matmul calls and the [B,C]→r,t→R,T,A tail reproduces tmm() verbatim. Because
-// the cached factor is the suffix product while a full-stack loop associates from
-// the incident side, the two group their multiplies differently and agree to a few
-// ULP rather than bit-exactly. Verified by tests/bbm_incremental_equivalence.mjs.
-//
-//   theta_deg       : angle of incidence (deg)
-//   incMat, subMat  : incident & substrate material objects (.getNK(λ) → [re,im])
-//   completedMats   : material objects of the already-deposited layers beneath the
-//                     growing one, in storage order (nearest the growing layer first,
-//                     substrate-adjacent last)
-//   completedThicks : their thicknesses (nm), index-aligned to completedMats
-//   lambdas         : scan wavelength grid (nm)
-//   subThickMM      : witness-chip thickness in mm. When given, the sampled
-//                     signal is the whole chip as a plane-parallel slab: the
-//                     growing coating on its front face, its bare back face
-//                     returning light incoherently into the incident medium,
-//                     and bulk absorption over this thickness — the same
-//                     combination tmmTotalAvg assembles. The reverse-direction
-//                     reflectance of the coating comes from the SAME cached
-//                     characteristic matrix (its anti-transpose is the
-//                     reversed-stack product, since every layer matrix is
-//                     invariant under anti-transposition), and the reverse
-//                     transmittance equals the forward one by reciprocity, so
-//                     the O(Nλ) cost per evaluation is kept. Omitted → the
-//                     coated surface alone on a semi-infinite substrate.
-//
-// Returns { lambdas, sample(char, pol, topMat, dTop) } where sample() returns a
-// Float64Array of the chosen characteristic ('T'|'R'|'A', pol 's'|'p'|'avg') over
-// `lambdas`, identical to sampleChar(... [topMat, completed...], [dTop, completedThicks...]).
-export function createMonitorTmmEvaluator(theta_deg, incMat, subMat, completedMats, completedThicks, lambdas, subThickMM = null) {
-    const sinTheta0 = [Math.sin(theta_deg * Math.PI / 180), 0];
-    const NL = lambdas.length;
-    const I = [[[1, 0], [0, 0]], [[0, 0], [1, 0]]];
-
-    // Per-λ, per-pol cache: incident/substrate admittances + completed-stack
-    // matrix product (reproducing tmm()'s loop over the completed prefix exactly).
-    // Slab mode adds the bare back face's R/T per polarization and the bulk
-    // pass P per wavelength, all fixed for the life of the evaluator.
-    const cache = new Array(NL);
-    for (let li = 0; li < NL; li++) {
-        const lam = lambdas[li];
-        const n0 = incMat.getNK(lam);
-        const ns = subMat.getNK(lam);
-        const per = {};
-        for (const pol of ['s', 'p']) {
-            const cosTheta0 = csqrt(csub([1, 0], cmul(sinTheta0, sinTheta0)));
-            const eta0 = pol === 's' ? cmul(n0, cosTheta0) : cdiv(n0, cosTheta0);
-            const cosThetaS = snellCosTheta(n0, sinTheta0, ns);
-            const etaS = pol === 's' ? cmul(ns, cosThetaS) : cdiv(ns, cosThetaS);
-            let M = I;
-            let logScale = 0;
-            for (let k = 0; k < completedMats.length; k++) {
-                const d = completedThicks[k];
-                if (d <= 0) continue;
-                const n = completedMats[k].getNK(lam);
-                const cosThetaJ = snellCosTheta(n0, sinTheta0, n);
-                M = matmul(M, layerMatrix(n, d, lam, cosThetaJ, pol));
-                logScale += rescaleMatrix(M);
-            }
-            per[pol] = { n0, eta0, etaS, M, logScale };
-            if (subThickMM != null) {
-                const den = cadd(etaS, eta0);
-                per[pol].Rb = cabs2(cdiv(csub(etaS, eta0), den));
-                per[pol].Tb = Math.max(0,
-                    creal(eta0) / creal(etaS) * cabs2(cdiv(cmul([2, 0], etaS), den)));
-            }
-        }
-        if (subThickMM != null) {
-            per.P = substratePass(ns[1], subThickMM, lam,
-                substrateRay(n0, ns, sinTheta0[0]).cosThetaSub);
-        }
-        cache[li] = per;
-    }
-
-    // [B,C]→r,t→R,T,A tail, byte-identical to tmm()'s final block.
-    function tail(M, eta0, etaS, logScale) {
-        const B = cadd(M[0][0], cmul(M[0][1], etaS));
-        const C = cadd(M[1][0], cmul(M[1][1], etaS));
-        const eta0B = cmul(eta0, B);
-        const r = cdiv(csub(eta0B, C), cadd(eta0B, C));
-        const t = cdiv(cmul([2, 0], eta0), cadd(eta0B, C));
-        const R = cabs2(r);
-        const T = Math.max(0, creal(etaS) / creal(eta0) * cabs2(t) * Math.exp(-2 * logScale));
-        const A = Math.max(0, 1 - R - T);
-        return { R, T, A };
-    }
-
-    // Slab combination for one polarization: the coated front's forward pass,
-    // its reverse reflectance off the anti-transposed matrix (the common
-    // rescale factor cancels in the amplitude ratio), the bare back face, and
-    // the incoherent sum over internal reflections, exactly as totalSample.
-    // The reverse transmittance equals the forward one by reciprocity.
-    function slabTail(fwd, M, c, P) {
-        const B = cadd(M[1][1], cmul(M[0][1], c.eta0));
-        const C = cadd(M[1][0], cmul(M[0][0], c.eta0));
-        const etaSB = cmul(c.etaS, B);
-        const Rrev = cabs2(cdiv(csub(etaSB, C), cadd(etaSB, C)));
-        const P2 = P * P;
-        const denom = 1 - Rrev * c.Rb * P2;
-        if (denom <= 1e-15) return { R: 1, T: 0, A: 0 };
-        const T = Math.max(0, fwd.T * P * c.Tb / denom);
-        const R = Math.max(0, fwd.R + fwd.T * fwd.T * P2 * c.Rb / denom);
-        return { R, T, A: Math.max(0, 1 - R - T) };
-    }
-
-    function evalPol(li, pol, topMat, dTop, lam) {
-        const c = cache[li][pol];
-        let M = c.M;
-        let logScale = c.logScale;
-        if (dTop > 0) {
-            const n = topMat.getNK(lam);
-            const cosThetaJ = snellCosTheta(c.n0, sinTheta0, n);
-            M = matmul(layerMatrix(n, dTop, lam, cosThetaJ, pol), M);
-            logScale += rescaleMatrix(M);
-        }
-        const fwd = tail(M, c.eta0, c.etaS, logScale);
-        return subThickMM != null ? slabTail(fwd, M, c, cache[li].P) : fwd;
-    }
-
-    return {
-        lambdas,
-        sample(char, pol, topMat, dTop) {
-            const out = new Float64Array(NL);
-            for (let li = 0; li < NL; li++) {
-                const lam = lambdas[li];
-                let v;
-                if (pol === 's' || pol === 'p') {
-                    const res = evalPol(li, pol, topMat, dTop, lam);
-                    v = char === 'R' ? res.R : char === 'A' ? res.A : res.T;
-                } else {
-                    // 'avg': same (s+p)/2 as tmmAvg()
-                    const s = evalPol(li, 's', topMat, dTop, lam);
-                    const p = evalPol(li, 'p', topMat, dTop, lam);
-                    if (char === 'R')      v = (s.R + p.R) / 2;
-                    else if (char === 'A') v = (s.A + p.A) / 2;
-                    else                   v = (s.T + p.T) / 2;
-                }
-                out[li] = v;
-            }
-            return out;
-        },
-    };
-}
+// Implementation lives in ./thinFilmMath/ (monitorEval.js, totalSystem.js);
+// re-exported here so this module stays the single import surface for TMM
+// evaluation. The slab helpers are also imported for the spectrum builders
+// below.
+export { createMonitorTmmEvaluator, createGrowingLayerEvaluator } from './thinFilmMath/monitorEval.js';
+import { materialNkTable, substratePass, substrateRay, totalSample } from './thinFilmMath/totalSystem.js';
 
 // Push one λ-sample of the s/p/avg spectrum into the result accumulator,
 // selecting the requested polarization. avg = (s+p)/2, identical to tmmAvg().
@@ -329,33 +174,6 @@ function fillSpectrumWasm(result, lambdas, incMat, subMat, validLayers, theta, p
         pushSpectrumSample(result, sp.Rs[i], sp.Ts[i], sp.As[i], sp.Rp[i], sp.Tp[i], sp.Ap[i], polarization);
     }
     return true;
-}
-
-// Substrate bulk transmittance for one pass: P = exp(-4π k d / (λ cosθ)),
-// with the substrate thickness given in mm and λ in nm.
-function substratePass(k_sub, subThickness_mm, lam, cosThetaSub) {
-    return (k_sub > 0 && cosThetaSub > 0)
-        ? Math.exp(-4 * Math.PI * k_sub * subThickness_mm * 1e6 / (lam * cosThetaSub))
-        : 1.0;
-}
-
-// Add one λ-sample of a front + incoherent substrate + back system to the
-// result, from the three coherent passes and the substrate's single-pass
-// transmittance. Shared by the JS loop and the WASM batched path so both
-// assemble results byte-for-byte the same way.
-function totalSample(fwd, rev, back, P) {
-    const P2 = P * P;
-    const combine = (Rf, Tf, Rf_r, Tf_r, Rb, Tb) => {
-        const denom = 1 - Rf_r * Rb * P2;
-        if (denom <= 1e-15) return { R: 1, T: 0, A: 0 };
-        const T = Math.max(0, Tf * P * Tb / denom);
-        const R = Math.max(0, Rf + Tf * Tf_r * P2 * Rb / denom);
-        return { R, T, A: Math.max(0, 1 - R - T) };
-    };
-    return {
-        s: combine(fwd.Rs, fwd.Ts, rev.Rs, rev.Ts, back.Rs, back.Ts),
-        p: combine(fwd.Rp, fwd.Tp, rev.Rp, rev.Tp, back.Rp, back.Tp),
-    };
 }
 
 function pushTotalSample(result, fwd, rev, back, P, polarization) {
@@ -392,26 +210,6 @@ export function tmmTotalAvg(lambda_nm, theta_deg, media, stacks, subThickness_mm
 
 function emptySpectrum(lambdas) {
     return { lambda: lambdas, R: [], T: [], A: [], Rs: [], Ts: [], As: [], Rp: [], Tp: [], Ap: [] };
-}
-
-/**
- * Geometry of the ray inside the substrate, by real-part Snell's law.
- *
- * M1: at or beyond the critical angle (n0·sinθ₀ ≥ ns, possible in immersed or
- * cemented configurations where the incident medium is denser than the
- * substrate) the real-angle model would set sinθ_sub = 1 → θ_sub = 90°, and the
- * substrate-side passes then form cdiv(n,[0,0]) for p-polarization → R/T/A =
- * NaN. Cap the ray JUST below grazing so the result stays defined: the passes
- * saturate at approximately total reflection, the physical TIR limit, instead
- * of emitting NaN.
- */
-const SIN_SUB_MAX = 0.999999;   // ≈ sin(89.92°); keeps cosθ_sub > 0
-function substrateRay(n0, ns, sinTheta0) {
-    const sinThetaSub = ns[0] > 0 ? Math.min(SIN_SUB_MAX, n0[0] * sinTheta0 / ns[0]) : 0;
-    return {
-        cosThetaSub: Math.sqrt(1 - sinThetaSub * sinThetaSub),
-        thetaSub_deg: Math.asin(sinThetaSub) * 180 / Math.PI,
-    };
 }
 
 /** One coherent pass through the kernel, both polarizations. */
@@ -784,6 +582,79 @@ export function evaluateSpectrumTotalAt(lambdas, params, incMaterial, subMateria
     }
 
     return result;
+}
+
+/**
+ * The full-system spectrum after every step of a deposition run, in one call.
+ *
+ * `depositionLayers` is the run in DEPOSITION order (first deposited,
+ * substrate-adjacent, first); the result is one spectrum per step, each the
+ * same shape evaluateSpectrumTotal returns for that partial stack. The back
+ * face does not change during the run, so its pass and the substrate's bulk
+ * pass are computed once and reused across every step.
+ *
+ * With the WASM growing-stack kernel the run costs about what its final
+ * spectrum costs alone: the kernel folds each layer into the running front
+ * product instead of rebuilding the stack per step. Without it, the steps are
+ * evaluated one by one.
+ */
+export function evaluateDepositionSpectra(params, incMaterial, subMaterial, exitMaterial,
+                                          depositionLayers, backLayers, subThickness_mm) {
+    const { lambdaStart = 400, lambdaEnd = 800, lambdaStep = 5,
+            theta = 0, polarization = 'avg' } = params;
+    const lambdas = buildLambdaGrid(lambdaStart, lambdaEnd, lambdaStep);
+    const N = depositionLayers.length;
+
+    const wasm = tmmWasmActive() ? getTmmWasm() : null;
+    if (!wasm || !wasm.hasGrowingKernels?.()) {
+        return depositionLayers.map((_, step) => {
+            const stored = depositionLayers.slice(0, step + 1).reverse();
+            return evaluateSpectrumTotalAt(lambdas, params, incMaterial, subMaterial,
+                exitMaterial, stored, backLayers, subThickness_mm);
+        });
+    }
+
+    // One ñ(λ) row per MATERIAL, not per layer: a run repeats a few materials
+    // hundreds of times, and the rows are read-only in the kernel call.
+    const nkFor = materialNkTable(lambdas);
+    const n0List = nkFor(incMaterial);
+    const nsList = nkFor(subMaterial);
+    // A missing material only occurs with zero thickness, which the kernel
+    // skips; ñ = 1 keeps the marshalled row well-formed.
+    const airRow = lambdas.map(() => [1, 0]);
+    const layerNK = depositionLayers.map(l => (l.material ? nkFor(l.material) : airRow));
+    const thick = depositionLayers.map(l => (l.material ? l.thickness : 0));
+    const sp = wasm.depositionSpectra(lambdas, n0List, nsList, layerNK, thick, theta);
+
+    // The static side of the system, once per wavelength: the back coating's
+    // pass at the refracted angle and the substrate's bulk transmittance.
+    const validBack = backLayers.filter(l => l.material && l.thickness > 0);
+    const sinTheta0 = Math.sin(theta * Math.PI / 180);
+    const backPass = new Array(lambdas.length);
+    const bulkPass = new Array(lambdas.length);
+    lambdas.forEach((lam, li) => {
+        const n0 = n0List[li];
+        const ns = nsList[li];
+        const { cosThetaSub, thetaSub_deg } = substrateRay(n0, ns, sinTheta0);
+        backPass[li] = wasmPass(wasm, lam, thetaSub_deg, ns, exitMaterial.getNK(lam),
+            validBack.map(l => ({ n: l.material.getNK(lam), d: l.thickness })));
+        bulkPass[li] = substratePass(ns[1], subThickness_mm, lam, cosThetaSub);
+    });
+
+    const out = new Array(N);
+    for (let step = 0; step < N; step++) {
+        const result = emptySpectrum(lambdas);
+        for (let li = 0; li < lambdas.length; li++) {
+            const at = step * lambdas.length + li;
+            pushTotalSample(result,
+                { Rs: sp.Rs[at], Ts: sp.Ts[at], Rp: sp.Rp[at], Tp: sp.Tp[at] },
+                // Reverse transmittance equals the forward one by reciprocity.
+                { Rs: sp.Rrs[at], Ts: sp.Ts[at], Rp: sp.Rrp[at], Tp: sp.Tp[at] },
+                backPass[li], bulkPass[li], polarization);
+        }
+        out[step] = result;
+    }
+    return out;
 }
 
 // ── Ellipsometric parameters Ψ, Δ ─────────────────────────────────────────────

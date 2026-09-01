@@ -18,14 +18,16 @@ import { fit1DThickness } from './spectralFit.js';
 import { createMonitorTmmEvaluator } from '../../physics/thinFilmMath.js';
 
 // Add measurement noise + drift to the true scan:
-//   T_meas(λ) = T_true(λ) · (1 + ε_rnd) + drift · t_global
-// Multiplicative random noise (% of signal) is a reasonable model for a
-// spectrophotometer where shot noise scales with intensity.
-function buildMeasuredSpectrum(T_true, noiseStdFrac, driftSlope, t_global, rng) {
+//   T_meas(λ) = T_true(λ) · (1 + ε_rnd) + ε_abs + drift · t_global
+// Multiplicative random noise (% of signal) models shot noise scaling with
+// intensity; the absolute term is the photometric noise floor, which does
+// not shrink with the signal.
+function buildMeasuredSpectrum(T_true, noiseStdFrac, absNoiseFrac, driftSlope, t_global, rng) {
     const T_meas = new Float64Array(T_true.length);
     for (let li = 0; li < T_true.length; li++) {
         const eps = noiseStdFrac > 0 ? gauss(rng) * noiseStdFrac : 0;
-        T_meas[li] = T_true[li] * (1 + eps) + driftSlope * t_global;
+        const abs = absNoiseFrac > 0 ? gauss(rng) * absNoiseFrac : 0;
+        T_meas[li] = T_true[li] * (1 + eps) + abs + driftSlope * t_global;
     }
     return T_meas;
 }
@@ -44,7 +46,7 @@ export function runBroadbandLayerCut(p) {
         theta, incMat, subMat, subThickMM, truthMats, modelMats, i,
         truthThicksBelow, modelThicksBelow, lambdas, char, pol,
         r, dt, d_target, t_target, dHiCap, confirmScans,
-        randomPct, driftSlope, fitStartFrac, fitMaxIter, rng,
+        randomPct, absNoisePct = 0, driftSlope, fitStartFrac, fitMaxIter, rng,
     } = p;
     let { t_global } = p;
 
@@ -67,47 +69,61 @@ export function runBroadbandLayerCut(p) {
     //
     // Deposition runs substrate-first, so the layers beneath the growing layer
     // `i` are the higher storage indices i+1…N-1 (storage is air→substrate).
-    const truthEval = createMonitorTmmEvaluator(theta, incMat, subMat, truthMats.slice(i + 1), truthThicksBelow, lambdas, subThickMM ?? 1);
-    const modelEval = createMonitorTmmEvaluator(theta, incMat, subMat, modelMats.slice(i + 1), modelThicksBelow, lambdas, subThickMM ?? 1);
+    // Declared outside the try so the finally can release whichever of the
+    // two exists: the evaluators hold kernel-side state when the WASM growing
+    // evaluator is active, and a throw from the fit or from the second
+    // creation must not strand it.
+    let truthEval = null;
+    let modelEval = null;
+    try {
+        truthEval = createMonitorTmmEvaluator(theta, incMat, subMat, truthMats.slice(i + 1), truthThicksBelow, lambdas, subThickMM ?? 1);
+        modelEval = createMonitorTmmEvaluator(theta, incMat, subMat, modelMats.slice(i + 1), modelThicksBelow, lambdas, subThickMM ?? 1);
 
-    const noiseStdFrac = randomPct / 100;
+        const noiseStdFrac = randomPct / 100;
+        const absNoiseFrac = absNoisePct / 100;
 
-    for (let k = 1; k <= maxScans; k++) {
-        const t = k * dt;
-        const d_actual_k = r * t;
-        t_global += dt;
+        for (let k = 1; k <= maxScans; k++) {
+            const t = k * dt;
+            const d_actual_k = r * t;
+            t_global += dt;
 
-        // Performance: only run the (expensive) spectral fit when the actual
-        // thickness is close enough to the target that a fit *could* return
-        // d_hat ≥ d_target. Before that, just step the simulation.
-        if (d_actual_k < fitStartFrac * d_target) continue;
+            // Performance: only run the (expensive) spectral fit when the actual
+            // thickness is close enough to the target that a fit *could* return
+            // d_hat ≥ d_target. Before that, just step the simulation.
+            if (d_actual_k < fitStartFrac * d_target) continue;
 
-        // True (noisy-free) scan: truth materials, truth previous + current
-        // actual — incremental (only the growing layer varies per scan).
-        const T_true = truthEval.sample(char, pol, truthMats[i], d_actual_k);
-        const T_meas = buildMeasuredSpectrum(T_true, noiseStdFrac, driftSlope, t_global, rng);
+            // True (noisy-free) scan: truth materials, truth previous + current
+            // actual — incremental (only the growing layer varies per scan).
+            const T_true = truthEval.sample(char, pol, truthMats[i], d_actual_k);
+            const T_meas = buildMeasuredSpectrum(T_true, noiseStdFrac, absNoiseFrac, driftSlope, t_global, rng);
 
-        // Fit current-layer thickness using NOMINAL materials and the
-        // monitor's accumulated history of previous layers.
-        const d_hat = fit1DThickness({
-            sampleModel: (d) => modelEval.sample(char, pol, modelMats[i], d),
-            T_meas,
-            dLo: 0,
-            dHi: dHiCap,
-            dGuess: d_hat_prev > 0 ? d_hat_prev + r * dt : d_actual_k,
-            maxIter: fitMaxIter,
-        });
+            // Fit current-layer thickness using NOMINAL materials and the
+            // monitor's accumulated history of previous layers.
+            const d_hat = fit1DThickness({
+                sampleModel: (d) => modelEval.sample(char, pol, modelMats[i], d),
+                T_meas,
+                dLo: 0,
+                dHi: dHiCap,
+                dGuess: d_hat_prev > 0 ? d_hat_prev + r * dt : d_actual_k,
+                maxIter: fitMaxIter,
+            });
 
-        const cut = checkCutConfirm(d_hat, d_target, confirmScans, aboveCount);
-        aboveCount = cut.aboveCount;
-        if (cut.confirmed) {
-            cut_time = t;
-            cut_d_actual = d_actual_k;
-            cut_d_hat = d_hat;
-            break;
+            const cut = checkCutConfirm(d_hat, d_target, confirmScans, aboveCount);
+            aboveCount = cut.aboveCount;
+            if (cut.confirmed) {
+                cut_time = t;
+                cut_d_actual = d_actual_k;
+                cut_d_hat = d_hat;
+                break;
+            }
+            d_hat_prev = d_hat;
         }
-        d_hat_prev = d_hat;
-    }
 
-    return { cut_time, cut_d_actual, cut_d_hat, t_global };
+        return { cut_time, cut_d_actual, cut_d_hat, t_global };
+    } finally {
+        // Unconditional release; the JS evaluators have no free and nothing
+        // to release.
+        truthEval?.free?.();
+        modelEval?.free?.();
+    }
 }

@@ -104,12 +104,19 @@ assert.ok(entry.requiresResolvedMaterials,
     const colors = ANALYSIS_DEFAULTS.monitorWorksheet.colors;
     const option = buildWorksheetOption({ rows, c, t });
 
-    // The overview the scrollbar draws from, then the chip bands, then a
-    // continuation and a deposited series per layer, then the numbered cuts.
-    assert.equal(option.series.length, 7);
-    assert.equal(option.series[3].lineStyle.color, colors.signal, 'a layer in budget draws normally');
-    assert.equal(option.series[5].lineStyle.color, colors.poor, 'a flagged layer draws in the flag colour');
-    assert.equal(option.series[2].lineStyle.type, 'dashed', 'the continuation is dashed');
+    // The overview the scrollbar draws from, then the chip bands, then one
+    // series per style (continuations, in-budget layers, flagged layers) with
+    // a NaN break between layers, then the numbered cuts. The count stays flat
+    // however long the run is; per-series cost is what made 200 layers lag.
+    // The style buckets are found by their colour rather than their position,
+    // because a bucket with nothing in it is not emitted at all.
+    assert.equal(option.series.length, 6);
+    const signalSeries = option.series.find(s => s.lineStyle?.color === colors.signal);
+    const poorSeries = option.series.find(s => s.lineStyle?.color === colors.poor);
+    const continuation = option.series.find(s => s.lineStyle?.type === 'dashed');
+    assert.ok(signalSeries, 'a layer in budget draws normally');
+    assert.ok(poorSeries, 'a flagged layer draws in the flag colour');
+    assert.ok(continuation, 'the continuation is dashed');
 
     // The scrollbar's overview strip comes from the first series on the axis,
     // so that has to be the whole run rather than whichever layer draws first.
@@ -118,13 +125,13 @@ assert.ok(entry.requiresResolvedMaterials,
     assert.deepEqual(overview.data.at(0), [0, 95]);
     assert.deepEqual(overview.data.at(-1), [2, 80], 'it spans the run to the last cut');
 
-    const deposited = option.series[3].data;
+    const deposited = signalSeries.data;
     assert.deepEqual(deposited[deposited.length - 1], [1, 50],
         'the traversed curve ends exactly on the cut');
-    assert.deepEqual(option.series[2].data[0], [1, 50],
+    assert.deepEqual(continuation.data[0], [1, 50],
         'and the continuation starts there, so the two meet');
 
-    const marks = option.series[6];
+    const marks = option.series.find(s => s.type === 'scatter');
     assert.deepEqual(marks.data.map(item => item.name), ['1', '2'], 'every cut is numbered');
     assert.equal(option.yAxis.max, 100, 'the signal axis is the full scale');
     assert.deepEqual(buildWorksheetOption({ rows: [], c, t }), { series: [] });
@@ -203,6 +210,17 @@ assert.ok(entry.requiresResolvedMaterials,
         { ...makeSampleDesign(), frontLayers: [] },
     ));
     assert.ok(bare.includes('No layers in design.'), 'a bare substrate says so');
+}
+// ── Chip sizes above the old 50 cap survive the settings load gate ───────────
+// resolveAnalysisSettings discards a stored number outside the registry bounds,
+// so a registry max at the old control cap silently reset a saved whole-run
+// chip size to the factory default on the next start.
+{
+    const { resolveAnalysisSettings } = await import('../src/utils/analysisSettings.js');
+    const resolved = resolveAnalysisSettings('monitorWorksheet',
+        { monitorWorksheet: { numbers: { layersPerChip: 200 } } });
+    assert.equal(resolved.numbers.layersPerChip, 200,
+        'a saved 200-layer single-chip plan survives a reload');
 }
 
 console.log('PASS: monitor_worksheet_window');

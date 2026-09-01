@@ -1,4 +1,4 @@
-import { evaluateSpectrumTotal } from '../../../../utils/physics/thinFilmMath.js';
+import { evaluateDepositionSpectra, evaluateSpectrumTotal } from '../../../../utils/physics/thinFilmMath.js';
 import { getMaterial } from '../../../../utils/materials/materialDatabase.js';
 import { designMaterialLookup } from '../../../../utils/materials/designMaterials.js';
 
@@ -146,4 +146,49 @@ export function computeSpectrum(options) {
     if (options.quantity === 'R') values = spec.R;
     if (options.quantity === 'A') values = spec.A;
     return { lambda: spec.lambda, values };
+}
+
+function pickQuantity(spec, quantity) {
+    let values = spec.T;
+    if (quantity === 'R') values = spec.R;
+    if (quantity === 'A') values = spec.A;
+    return { lambda: spec.lambda, values };
+}
+
+/**
+ * The finished-layer spectrum for every step of the run.
+ *
+ * A front-side run goes through evaluateDepositionSpectra, which computes all
+ * steps in one pass over the growing stack. A back-side run keeps the per-step
+ * path: its coating grows on the far side of the substrate, where each pass
+ * runs at the refracted angle per wavelength, and that geometry is not worth a
+ * second kernel for the rarer direction.
+ */
+export function computeStepSpectra(options) {
+    if (!options.activeDep.length) return [];
+    if (options.activeSide === 'front') {
+        const deposition = options.activeDep.map(
+            layer => ({ material: layer.matObj, thickness: layer.thickness }));
+        const backStored = options.secondSurface === 'coated'
+            ? options.otherDep.map(layer => ({ material: layer.matObj, thickness: layer.thickness }))
+            : [];
+        const specs = evaluateDepositionSpectra(
+            {
+                lambdaStart: options.lambdaStart,
+                lambdaEnd: options.lambdaEnd,
+                lambdaStep: options.lambdaStep,
+                theta: options.aoi,
+                polarization: options.polarization,
+            },
+            options.incidentMat,
+            options.substrateMat,
+            options.exitMat,
+            deposition,
+            backStored,
+            options.substrateThk,
+        );
+        return specs.map(spec => pickQuantity(spec, options.quantity));
+    }
+    return options.activeDep.map((_, index) =>
+        computeSpectrum({ ...options, layerIdx: index + 1, frac: 1 }));
 }

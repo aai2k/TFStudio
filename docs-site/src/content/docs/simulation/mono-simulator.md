@@ -4,7 +4,7 @@ description: Simulate making your coating under a single-wavelength monitor, wit
 ribbonIcon: mono-simulator
 ---
 
-The **Mono Simulator** is a 6-page wizard that simulates depositing your
+The **Mono Simulator** is a 7-page wizard that simulates depositing your
 design under an in-chamber **single-wavelength optical monitor**. It is the
 monochromatic counterpart of the
 [Broadband Monitoring Simulator](/simulation/bbm-simulator/) and shares the
@@ -12,8 +12,8 @@ same setup and playback; the difference is that each layer is cut from one
 monitoring wavelength using one of three classic termination strategies.
 
 You configure the deposition conditions and the per-layer monitoring plan on
-the first four pages, run a single manufacturing experiment on page 5, and
-read the resulting performance on page 6.
+the first five pages, run a single manufacturing experiment on page 6, and
+read the resulting performance on page 7.
 
 ## Settings
 
@@ -33,9 +33,11 @@ the **angle of incidence**, the **scan interval**, and the number of
 **confirm scans** a cut needs before it is accepted. **Chip glass** is the
 witness chip the monitor watches: it opens on the design substrate, and picking
 another material moves the monitor signal onto that glass, for a witness that
-is not the same glass as the part. The per-layer table is the heart of this
-page: for each layer choose the **monitoring wavelength** and the termination
-**strategy**:
+is not the same glass as the part. The preview plots the ideal signal versus
+deposited thickness for the selected layer, with the cut point marked.
+
+**Page 4: Monitoring Wavelengths.** The per-layer plan: for each layer choose
+the **monitoring wavelength** and the termination **strategy**:
 
 - **Turning point**: cut when the monitor signal reaches an expected extremum.
   The **order** column picks which extremum.
@@ -43,20 +45,26 @@ page: for each layer choose the **monitoring wavelength** and the termination
   direction.
 - **By time**: cut after a precomputed time, with no signal feedback.
 
-**Auto wavelength** picks a sensitive monitoring wavelength for every layer.
-The preview plots the ideal signal versus deposited thickness for the selected
-layer, with the cut point marked.
+**Auto λ (all)** picks, for every layer, the wavelength and strategy whose cut
+is most precise. Quarter-wave layers keep the reference wavelength's turning
+point, and its self-compensation, while the reversal is still detectable; once
+a stopband saturates the signal, its layers are monitored outside the band,
+and a layer no wavelength can serve is cut by time. **Set all** puts one
+wavelength on the whole run, and the strategy dropdown beside it applies one
+termination rule to every layer at once. Clicking a table row shows that
+layer's ideal signal in the preview beside the table.
 
-**Page 4: Signal Errors.** Add **random noise** and a slow **drift** to the
-single-wavelength signal; the preview shows the noisy signal for the selected
-layer.
+**Page 5: Signal Errors.** Add **random noise** (percent of the reading), the
+monitor's **absolute noise** floor (percent of full scale, which does not
+shrink with the signal), and a slow **drift** to the single-wavelength signal;
+the preview shows the noisy signal for the selected layer.
 
-**Page 5: Deposition Simulation.** Press **Start** to run one manufacturing
+**Page 6: Deposition Simulation.** Press **Start** to run one manufacturing
 experiment, then play it back on the interactive timeline. The bar chart shows
 the **estimated / actual / target** thickness of the current layer; the
 spectrum shows the theoretical guide curves against the as-built curve.
 
-**Page 6: Resulting Performance.** Tabs show the **manufactured vs.
+**Page 7: Resulting Performance.** Tabs show the **manufactured vs.
 theoretical** spectrum, per-layer **relative** and **absolute** thickness-error
 bars, and tables of as-built **thicknesses** and **refractive indices**.
 
@@ -74,7 +82,7 @@ Match the strategy to the layer. When a layer's thickness is close to a
 quarter-wave multiple at the monitoring wavelength, a turning point is precise
 and direction-blind, so it is the natural choice. For other thicknesses, pick a
 level cut at a wavelength where the signal slope is steep through the cut point,
-which gives the best precision. On page 6, layers with large thickness errors
+which gives the best precision. On page 7, layers with large thickness errors
 are the ones whose monitoring wavelength or strategy isn't serving them; try
 the auto-wavelength suggestion or a different strategy, then re-run. Run the
 experiment several times to see the spread rather than a single outcome.

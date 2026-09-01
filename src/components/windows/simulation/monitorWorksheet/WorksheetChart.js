@@ -23,17 +23,32 @@ export function WorksheetChart({ rows, c, t, layersInView }) {
     const divRef = useRef(null);
     const chartRef = useRef(null);
     const shapeRef = useRef(null);
+    const staleRef = useRef(false);
+    const argsRef = useRef(null);
     const colors = useAnalysisColors('monitorWorksheet');
+    argsRef.current = { rows, c, t, layersInView, colors };
+    // Depends on the actual chart inputs: a render caused by anything else
+    // must not rebuild and re-diff the option.
     useEffect(() => {
         const shape = `${rows.length}:${layersInView}`;
         const kept = shapeRef.current === shape ? currentWindow(chartRef.current) : null;
         shapeRef.current = shape;
         const chart = drawChart(divRef.current, chartRef,
             buildWorksheetOption({ rows, c, t, layersInView, colors }));
+        // drawChart declines while the pane has no drawable room; remember
+        // that so the resize path below can retry once room comes back.
+        staleRef.current = !chart;
         if (chart && kept) {
             chart.dispatchAction({ type: 'dataZoom', dataZoomId: ZOOM_ID, ...kept });
         }
+    }, [rows, layersInView, colors, c, t]);
+    // A declined draw is retried when the pane is opened back up: the
+    // ResizeObserver is the only signal that arrives without a render.
+    useChartTeardown(divRef, chartRef, () => {
+        if (!staleRef.current) return;
+        if (drawChart(divRef.current, chartRef, buildWorksheetOption(argsRef.current))) {
+            staleRef.current = false;
+        }
     });
-    useChartTeardown(divRef, chartRef);
     return h('div', { ref: divRef, style: { width: '100%', height: '100%' } });
 }

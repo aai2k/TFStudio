@@ -42,17 +42,22 @@ export function ProcessSimulator({ c, t }) {
         () => buildStepPoints(spectra.lambdas, spectra.baselineSpec && [spectra.baselineSpec.values])[0],
         [spectra.lambdas, spectra.baselineSpec],
     );
-    const chartData = {
+    // Memoised so the chart effect only refires when a curve or the focus
+    // actually changed, not on every render of the window.
+    const liveCurve = spectra.liveSpec?.values;
+    const focusStep = deposition.pinnedStep ?? deposition.layerIdx;
+    const chartData = useMemo(() => ({
         lambdas: spectra.lambdas,
         baselinePoints,
         stepPoints,
-        liveCurve: spectra.liveSpec?.values,
+        liveCurve,
         // A held layer is what the chart follows; without one it follows the
         // layer being deposited, which is the one worth watching during a run.
-        focusStep: deposition.pinnedStep ?? deposition.layerIdx,
+        focusStep,
         showAll: setup.showAll,
         quantity: setup.quantity,
-    };
+    }), [spectra.lambdas, baselinePoints, stepPoints, liveCurve,
+         focusStep, setup.showAll, setup.quantity]);
 
     return h(AnalysisWindow, { c },
         h(ProcessControls, {

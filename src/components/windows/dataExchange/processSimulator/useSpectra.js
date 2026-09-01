@@ -1,4 +1,4 @@
-import { computeSpectrum } from './model.js';
+import { computeSpectrum, computeStepSpectra } from './model.js';
 
 const { useMemo } = React;
 
@@ -63,12 +63,7 @@ export function useSpectra(design, setup, deposition) {
 
     const stepSpectra = useMemo(() => {
         let spectra = null;
-        if (validRange) {
-            spectra = [];
-            for (let layer = 1; layer <= deposition.N; layer++) {
-                spectra.push(computeSpectrum({ ...common, layerIdx: layer, frac: 1 }));
-            }
-        }
+        if (validRange) spectra = computeStepSpectra(common);
         return spectra;
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [spectrumKey]);

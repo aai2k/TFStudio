@@ -1,102 +1,38 @@
 /**
- * Page 3 — Monitoring System (per-layer λ + strategy).
- *
- * Measured quantity + AOI + scan interval + witness chip glass, a PER-LAYER
- * table of monitoring wavelength + termination strategy (turning point /
- * level / by time), and an ideal single-λ signal-vs-thickness preview for the
- * selected layer.
+ * Page 3 — Monitoring System (measured quantity, incidence, scan timing,
+ * witness chip glass) with an ideal single-λ signal-vs-thickness preview for
+ * the selected layer. The per-layer wavelength/strategy plan is the next page.
  */
 
-import { pickSensitiveLambda } from '../../../../utils/monitoring/monoSim.js';
-import { flipLayerIndex }      from '../../../../utils/monitoring/depositionSpectrum.js';
 import {
-    matName, cullName, inputStyle, NumField, cellNum, LayerTabs, Chart,
+    inputStyle, RowField, LayerTabs, Chart, SplitPage,
 }                               from '../wizardShared.js';
 import { MaterialPicker }      from '../../../ui/MaterialPicker.js';
-import { monoSignalVsThickness } from './monoSignalModel.js';
-import { lineSeries }             from '../../../ui/chartOptions.js';
+import { useMonoPreview }      from './useMonoPreview.js';
 
-const { createElement: h, useMemo } = React;
+const { createElement: h } = React;
 
 export function PageMonoSystem({ p, set, layers, c, B, t, ctx, design }) {
-    const resolveMat = ctx.resolveMat;
-    const k = Math.min(Math.max(1, p.previewLayer || 1), layers.length);
-    const common = { char: p.quantity, aoi: p.aoi, pol: p.pol };
-    // `k` is a deposition layer; `monTable` is storage-indexed (see LayerTabs).
-    const monRow = p.monTable[flipLayerIndex(layers.length, k)] || { lambda: design.referenceWavelength || 550, strategy: 'turning', order: 1 };
+    const { k, series, referenceLines } = useMonoPreview({ p, layers, ctx, design, nonce: p.monNonce });
 
-    const preview = useMemo(() =>
-        (layers.length && ctx) ? monoSignalVsThickness({ layers, k, monRow, common, ctx, noisePct: 0, nonce: p.monNonce }) : null,
-        // eslint-disable-next-line react-hooks/exhaustive-deps
-        [layers, k, monRow.lambda, p.quantity, p.aoi, p.pol, p.monNonce, ctx]);
-
-    const series = preview ? [lineSeries({ x: preview.d, y: preview.signal, color: '#1f6feb', width: 1.6 })] : [];
-    const referenceLines = preview ? [{ x: preview.dTarget, color: '#2da44e', width: 1.2, dash: 'dashed' }] : [];
-
-    // Storage-order rows paired with their deposition number, listed in the order
-    // the chamber grows them (substrate-adjacent first).
-    const depRows = layers.map((l, i) => ({ l, i, num: flipLayerIndex(layers.length, i) })).reverse();
-
-    const setMon = (i, key, v) => { const arr = p.monTable.map(x => ({ ...x })); arr[i] = { ...arr[i], [key]: v }; set('monTable', arr); };
-    const autoAll = () => {
-        const ref = design.referenceWavelength || 550;
-        const arr = layers.map((l, i) => {
-            const lam = pickSensitiveLambda({ design, resolveMat, layerIdx: i, lamA: ref * 0.7, lamB: ref * 1.3, theta: p.aoi, pol: p.pol, char: p.quantity, chipMaterial: p.chipMaterial || null });
-            return { ...(p.monTable[i] || {}), lambda: lam };
-        });
-        set('monTable', arr); set('monNonce', (p.monNonce | 0) + 1);
-    };
-
-    const th = { textAlign: 'left', padding: '5px 8px', borderBottom: `1px solid ${c.border}`, fontWeight: 600, color: c.textDim, fontSize: 11.5, whiteSpace: 'nowrap', position: 'sticky', top: 0, background: c.panel };
-    const td = { padding: '3px 8px', borderBottom: `1px solid ${c.border}55`, fontSize: 12, color: c.text };
-    const stratOpts = [['turning', B.stratTurning], ['level', B.stratLevel], ['time', B.stratTime]];
-
-    return h('div', { style: { display: 'flex', flexDirection: 'column', gap: 12, flex: 1, minHeight: 0 } },
-        // Controls row
-        h('div', { style: { display: 'flex', gap: 18, alignItems: 'flex-end', flexWrap: 'wrap', flexShrink: 0 } },
-            h('label', { style: { display: 'flex', flexDirection: 'column', gap: 4, fontSize: 12, color: c.textDim } },
+    return h(SplitPage, { c, leftWidth: 230,
+        left: [
+            h('label', { key: 'q', style: { display: 'flex', flexDirection: 'column', gap: 4, fontSize: 12, color: c.textDim } },
                 h('span', null, B.quantity),
-                h('select', { value: p.quantity + p.pol, onChange: (e) => { const v = e.target.value; set('quantity', v[0]); set('pol', v.slice(1)); }, style: { ...inputStyle(c, 110), padding: '4px 6px' } },
+                h('select', { value: p.quantity + p.pol, onChange: (e) => { const v = e.target.value; set('quantity', v[0]); set('pol', v.slice(1)); }, style: { ...inputStyle(c, 130), padding: '4px 6px' } },
                     [['Tavg', B.qTavg], ['Ts', B.qTs], ['Tp', B.qTp], ['Ravg', B.qRavg], ['Rs', B.qRs], ['Rp', B.qRp]].map(([v, l]) => h('option', { key: v, value: v }, l)))),
-            h(NumField, { label: B.incidence, value: p.aoi, min: 0, max: 89, step: 1, c, width: 80, onChange: (v) => set('aoi', v) }),
-            h(NumField, { label: B.scanInterval, value: p.scanInterval, min: 0.05, max: 60, step: 0.1, c, width: 90, onChange: (v) => set('scanInterval', v) }),
-            h(NumField, { label: B.confirmScans, value: p.confirmScans, min: 1, max: 10, step: 1, c, width: 70, onChange: (v) => set('confirmScans', Math.max(1, Math.round(v))) }),
+            h(RowField, { key: 'aoi', label: B.incidence, value: p.aoi, min: 0, max: 89, step: 1, c, onChange: (v) => set('aoi', v) }),
+            h(RowField, { key: 'si', label: B.scanInterval, value: p.scanInterval, min: 0.05, max: 60, step: 0.1, c, onChange: (v) => set('scanInterval', v) }),
+            h(RowField, { key: 'cs', label: B.confirmScans, value: p.confirmScans, min: 1, max: 10, step: 1, c, onChange: (v) => set('confirmScans', Math.max(1, Math.round(v))) }),
             // The witness chip's glass. Opens on the design substrate; picking
             // another material moves the monitor signal onto that glass.
-            h('label', { style: { display: 'flex', flexDirection: 'column', gap: 4, fontSize: 12, color: c.textDim }, title: B.chipGlassHint },
+            h('label', { key: 'cg', style: { display: 'flex', flexDirection: 'column', gap: 4, fontSize: 12, color: c.textDim }, title: B.chipGlassHint },
                 h('span', null, B.chipGlass),
-                h('div', { style: { width: 150 } },
-                    h(MaterialPicker, { value: p.chipMaterial || design.substrate?.material || 'builtin:BK7', onChange: (v) => set('chipMaterial', v), c, t, compact: true }))),
-            h('button', { onClick: autoAll, title: B.autoLambdaHint,
-                style: { padding: '7px 12px', fontSize: 12, cursor: 'pointer', borderRadius: 4, border: `1px solid ${c.border}`, background: c.bg, color: c.text } }, B.autoLambda)),
-        // Preview chart
-        h('div', { style: { height: 200, flexShrink: 0, display: 'flex', flexDirection: 'column' } },
+                h(MaterialPicker, { value: p.chipMaterial || design.substrate?.material || 'builtin:BK7', onChange: (v) => set('chipMaterial', v), c, t, compact: true })),
+        ],
+        right: h('div', { style: { flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column' } },
             h('div', { style: { flex: 1, minHeight: 0 } },
                 h(Chart, { series, xTitle: B.thicknessAxis, yTitle: `${p.quantity}${p.pol === 'avg' ? '' : p.pol}, %`, c, referenceLines, minHeight: 0 })),
             h(LayerTabs, { n: layers.length, current: k, onSelect: (kk) => set('previewLayer', kk), c, label: B.layerWord })),
-        // Per-layer monitor table
-        h('div', { style: { flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column' } },
-            h('div', { style: { fontSize: 12.5, fontWeight: 600, color: c.text, marginBottom: 6 } }, B.monAlgoTitle),
-            h('div', { style: { border: `1px solid ${c.border}`, borderRadius: 4, overflow: 'auto', flex: 1 } },
-                h('table', { style: { width: '100%', borderCollapse: 'collapse' } },
-                    h('thead', null, h('tr', null, [B.colNum, B.colMaterial, B.colLambda, B.colStrategy, B.colOrder].map((x, i) => h('th', { key: i, style: th }, x)))),
-                    // Listed in deposition order (layer 1 = substrate-adjacent,
-                    // grown first) to match the layer tabs and the Design Editor;
-                    // `monTable` itself stays storage-indexed.
-                    h('tbody', null, depRows.map(({ l, i, num }) => {
-                        const m = p.monTable[i] || { lambda: design.referenceWavelength || 550, strategy: 'turning', order: 1 };
-                        const active = num === k;
-                        return h('tr', { key: i, onClick: () => set('previewLayer', num),
-                            style: { cursor: 'pointer', background: active ? c.accent + '18' : 'transparent' } },
-                            h('td', { style: td }, num),
-                            h('td', { style: { ...td, maxWidth: 150, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }, title: matName(resolveMat, l.material) }, cullName(matName(resolveMat, l.material), 18)),
-                            h('td', { style: td }, cellNum({ value: m.lambda ?? 550, step: 1, min: 100, max: 20000, c, width: 78, onChange: (v) => setMon(i, 'lambda', v) })),
-                            h('td', { style: td },
-                                h('select', { value: m.strategy || 'turning', onChange: (e) => setMon(i, 'strategy', e.target.value), style: { ...inputStyle(c, 120), padding: '3px 5px', fontSize: 12 } },
-                                    stratOpts.map(([v, lbl]) => h('option', { key: v, value: v }, lbl)))),
-                            h('td', { style: td }, m.strategy === 'turning'
-                                ? cellNum({ value: m.order ?? 1, step: 1, min: 1, max: 12, c, width: 54, onChange: (v) => setMon(i, 'order', Math.max(1, Math.round(v))) })
-                                : h('span', { style: { color: c.textDim } }, '—')));
-                    }))))),
-    );
+    });
 }

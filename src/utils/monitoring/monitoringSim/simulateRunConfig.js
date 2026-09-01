@@ -36,6 +36,10 @@ export function parseSignalConfig(cfg) {
     const sig = cfg.sig || {};
     return {
         randomPct:        sig.randomPct ?? 1.0,
+        // The monitor's photometric noise floor, in percent of full scale: it
+        // does not shrink with the signal, which is what makes a saturated
+        // stopband wavelength unusable at a real monitor.
+        absNoisePct:      sig.absNoisePct ?? 0,
         driftPctPer1000s: sig.driftPctPer1000s ?? 0,
     };
 }

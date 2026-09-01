@@ -46,6 +46,7 @@ export const WORKSHEET_DEFAULTS = {
     witnessRatio: 1,
     layersPerChip: 3,
     signalErrorPct: 0.3,
+    absSignalErrorPct: 0.1,
     maxTerminationErrPct: 1,
     coarse: false,
     withCurve: true,
@@ -151,6 +152,10 @@ function worstErrPct(rows) {
  *   signalErrorPct           the monitor's signal error, as a percentage of the
  *                            reading, on the same convention as the Monitoring
  *                            Simulator's random signal error
+ *   absSignalErrorPct        the monitor's photometric noise floor, in percent
+ *                            of full scale; it does not shrink with the
+ *                            reading, which is what rules out a wavelength
+ *                            where the signal has saturated
  *   maxTerminationErrPct     a layer is flagged when the termination error
  *                            exceeds this percentage of its own thickness
  * @returns {{ rows, chips, xEnd }} rows in deposition order.

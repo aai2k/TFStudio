@@ -24,6 +24,11 @@
  *    the RUNNER logic, not the optimizer kernel (optimizer_refactor_guard's job).
  *  - navigator.hardwareConcurrency is pinned so the pool size (poolSize) and the
  *    scan-slice count are the same on every machine / in CI.
+ *  - The engines yield between algorithm steps with `setTimeout(fn, 0)`, which
+ *    costs a full scheduler quantum per step under Node. useImmediateTimers()
+ *    keeps the same yield semantics without that wait, so a run takes tens of
+ *    milliseconds instead of seconds and waitIdle's deadline measures a genuine
+ *    hang rather than how loaded the machine is.
  *
  *   Update baseline (after a verified intentional change):  node tests/ge_runner_guard.mjs --update
  *   Run the guard:                                          node tests/ge_runner_guard.mjs
@@ -31,9 +36,10 @@
 import { readFileSync, writeFileSync, existsSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
-import { shimBrowserGlobals } from './_uiShim.mjs';
+import { shimBrowserGlobals, useImmediateTimers } from './_uiShim.mjs';
 
 shimBrowserGlobals();
+useImmediateTimers();
 // Pin the detected core count so poolSize() (= scan-slice / batch width) is the
 // same everywhere. 1 → a single scan slice, the simplest deterministic shape.
 Object.defineProperty(globalThis, 'navigator', {
@@ -138,7 +144,13 @@ function makeCtx(design, ops, settings) {
     return { ctx, snap };
 }
 
-async function waitIdle(ctx, ms = 10000) {
+// Backstop against an engine that never finishes, so a hang fails with a
+// readable error instead of being SIGKILLed by the suite runner. It is NOT a
+// performance budget: with immediate timers a scenario costs tens of
+// milliseconds, but the suite runs tests concurrently, so the wall clock
+// reflects machine load as much as engine health. Keep it far above the
+// real cost.
+async function waitIdle(ctx, ms = 60000) {
     const t0 = Date.now();
     while (ctx.runningRef.current) {
         if (Date.now() - t0 > ms) throw new Error('engine did not finish in time');
@@ -207,7 +219,7 @@ async function runScenario(name) {
 const SCENARIOS = ['mainThread/front', 'mainThread/back', 'worker/front', 'worker/back'];
 
 const results = {};
-for (const name of SCENARIOS) results[name] = await runScenario(name);
+for (const name of SCENARIOS) { results[name] = await runScenario(name); }
 
 if (UPDATE || !existsSync(GOLDEN)) {
     writeFileSync(GOLDEN, JSON.stringify(results, null, 2) + '\n');

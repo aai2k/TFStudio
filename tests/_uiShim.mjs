@@ -123,6 +123,44 @@ export function shimBrowserGlobals() {
     }
 }
 
+/**
+ * Route zero-delay timer yields to `setImmediate`.
+ *
+ * The synthesis and refinement run engines are setTimeout-driven state machines:
+ * they advance one algorithm step per `setTimeout(fn, 0)` so the browser can
+ * repaint between steps. Node gives a zero-delay timer no such fast path — on
+ * Windows the default scheduler quantum is ~15 ms, so a run of a few hundred
+ * steps spends seconds waiting on timers while doing almost no work, and that
+ * wait grows again when the suite runs several tests concurrently. Tests that
+ * drive these engines to completion behind a wall-clock deadline then fail on a
+ * loaded machine even though the engine itself is deterministic.
+ *
+ * `setImmediate` keeps the same contract the engines rely on (the callback runs
+ * after the current stack unwinds, never synchronously) with no timer wait, so
+ * the run trajectory is unchanged and only the wall-clock cost disappears.
+ * Delays greater than zero keep the real timer, so deliberate waits still wait.
+ *
+ * Call once, before importing the engine under test.
+ */
+export function useImmediateTimers() {
+    const g = globalThis;
+    const realSetTimeout = g.setTimeout;
+    const realClearTimeout = g.clearTimeout;
+    const immediates = new WeakSet();
+
+    g.setTimeout = (fn, ms, ...args) => {
+        if (typeof fn !== 'function' || (Number(ms) || 0) > 0) return realSetTimeout(fn, ms, ...args);
+        const handle = setImmediate(fn, ...args);
+        immediates.add(handle);
+        return handle;
+    };
+    g.clearTimeout = (handle) => {
+        if (handle && typeof handle === 'object' && immediates.has(handle)) return clearImmediate(handle);
+        return realClearTimeout(handle);
+    };
+    if (g.window && g.window !== g) { g.window.setTimeout = g.setTimeout; g.window.clearTimeout = g.clearTimeout; }
+}
+
 // A theme-colour object (`c`) with every key the windows read for styling.
 // Values are placeholders — only their presence matters for a render.
 export function makeTheme() {

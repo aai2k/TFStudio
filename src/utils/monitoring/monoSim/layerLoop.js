@@ -64,7 +64,8 @@ export function processMonoLayer(i, layer, ctx, mut) {
             modelThicksBelow: mut.modelThicks.slice(i + 1),
             i, d_target, truthMats: ctx.truthMats, truthThicksBelow: mut.truthThicks.slice(i + 1),
             r, dt: ctx.dt, t_target, confirmScans: ctx.confirmScans,
-            noiseFrac: ctx.randomPct / 100, driftSlope: ctx.driftSlope,
+            noiseFrac: ctx.randomPct / 100, absNoiseFrac: (ctx.absNoisePct || 0) / 100,
+            driftSlope: ctx.driftSlope,
             strat: plan.strat, order: plan.order, rng: ctx.rng,
             t_global: mut.t_global, cut_d_actual, cut_time,
         });

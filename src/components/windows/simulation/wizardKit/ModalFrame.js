@@ -1,9 +1,9 @@
 /**
  * Shared modal shell for the deposition-monitoring wizards (BBM / Mono).
  *
- * Header (title + "page X of 6" + evaluation-mode badge), scrollable body, and
- * footer (Help / step dots / Back / Next-or-Finish / Cancel). The two wizards
- * differ only in their help anchor, passed as `helpAnchor`.
+ * Header (title + page label + evaluation-mode badge), scrollable body, and
+ * footer (Help / step dots / Back / Next-or-Finish / Cancel). The wizards
+ * differ in their help anchor (`helpAnchor`) and page count (`pages`).
  */
 
 import { getCurrentLocale } from '../../../../constants/locales.js';
@@ -11,7 +11,7 @@ import { EvalModeBadge }    from '../../../SurfaceModeBar.js';
 
 const { createElement: h } = React;
 
-export function ModalFrame({ c, B, step, setStep, onClose, body, design, t, helpAnchor }) {
+export function ModalFrame({ c, B, step, setStep, onClose, body, design, t, helpAnchor, pages = 6 }) {
     return h('div', { style: { position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.7)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000 } },
         h('div', { style: { background: c.panel, borderRadius: 8, padding: 20, width: 880, maxWidth: '96vw', height: 640, maxHeight: '94vh', display: 'flex', flexDirection: 'column', boxShadow: '0 10px 40px rgba(0,0,0,0.45)', border: `1px solid ${c.border}` } },
             // Header
@@ -26,13 +26,13 @@ export function ModalFrame({ c, B, step, setStep, onClose, body, design, t, help
             h('div', { style: { display: 'flex', alignItems: 'center', justifyContent: 'space-between', paddingTop: 12, borderTop: `1px solid ${c.border}`, marginTop: 12 } },
                 h('button', { onClick: () => window.electronAPI?.openHelp?.({ anchor: helpAnchor, locale: getCurrentLocale() }), title: B.help,
                     style: { padding: '8px 16px', fontSize: 13, background: c.bg, color: c.text, border: `1px solid ${c.border}`, borderRadius: 4, cursor: 'pointer' } }, B.help),
-                h('div', { style: { display: 'flex', gap: 6 } }, [1, 2, 3, 4, 5, 6].map(s => h('div', { key: s, style: { width: 8, height: 8, borderRadius: '50%', background: s === step ? c.accent : s < step ? c.accent + '88' : c.border } }))),
+                h('div', { style: { display: 'flex', gap: 6 } }, Array.from({ length: pages }, (_, i) => i + 1).map(s => h('div', { key: s, style: { width: 8, height: 8, borderRadius: '50%', background: s === step ? c.accent : s < step ? c.accent + '88' : c.border } }))),
                 h('div', { style: { display: 'flex', gap: 8 } },
                     h('button', { onClick: () => setStep(s => Math.max(1, s - 1)), disabled: step === 1,
                         style: { padding: '8px 16px', fontSize: 13, background: c.bg, color: c.text, border: `1px solid ${c.border}`, borderRadius: 4, cursor: step === 1 ? 'default' : 'pointer', opacity: step === 1 ? 0.4 : 1 } }, B.back),
-                    step < 6 && h('button', { onClick: () => setStep(s => Math.min(6, s + 1)),
+                    step < pages && h('button', { onClick: () => setStep(s => Math.min(pages, s + 1)),
                         style: { padding: '8px 20px', fontSize: 13, fontWeight: 600, background: c.accent, color: '#fff', border: 'none', borderRadius: 4, cursor: 'pointer' } }, B.next),
-                    step === 6 && h('button', { onClick: onClose,
+                    step === pages && h('button', { onClick: onClose,
                         style: { padding: '8px 22px', fontSize: 13, fontWeight: 600, background: c.accent, color: '#fff', border: 'none', borderRadius: 4, cursor: 'pointer' } }, B.finish),
                     h('button', { onClick: onClose,
                         style: { padding: '8px 16px', fontSize: 13, background: c.bg, color: c.text, border: `1px solid ${c.border}`, borderRadius: 4, cursor: 'pointer' } }, B.cancel)))));

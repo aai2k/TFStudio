@@ -1,29 +1,22 @@
 /**
- * Page 4 — Signal Errors (random noise + drift; noisy single-λ preview).
+ * Page 5 — Signal Errors (random noise + drift; noisy single-λ preview).
  */
 
 import { RowField, Radio, Chart, LayerTabs, SplitPage } from '../wizardShared.js';
-import { monoSignalVsThickness } from './monoSignalModel.js';
-import { flipLayerIndex } from '../../../../utils/monitoring/depositionSpectrum.js';
-import { lineSeries } from '../../../ui/chartOptions.js';
+import { useMonoPreview } from './useMonoPreview.js';
 
-const { createElement: h, useMemo } = React;
+const { createElement: h } = React;
 
 export function PageSignalErrors({ p, set, layers, c, B, ctx, design }) {
-    const k = Math.min(Math.max(1, p.previewLayer || 1), layers.length);
-    const common = { char: p.quantity, aoi: p.aoi, pol: p.pol };
-    // `k` is a deposition layer; `monTable` is storage-indexed (see LayerTabs).
-    const monRow = p.monTable[flipLayerIndex(layers.length, k)] || { lambda: design.referenceWavelength || 550, strategy: 'turning', order: 1 };
-    const preview = useMemo(() =>
-        (layers.length && ctx) ? monoSignalVsThickness({ layers, k, monRow, common, ctx, noisePct: p.randomPct, nonce: p.sigNonce }) : null,
-        // eslint-disable-next-line react-hooks/exhaustive-deps
-        [layers, k, monRow.lambda, p.quantity, p.aoi, p.pol, p.randomPct, p.sigNonce, ctx]);
-    const series = preview ? [lineSeries({ x: preview.d, y: preview.signal, color: '#e5484d', width: 1.3 })] : [];
-    const referenceLines = preview ? [{ x: preview.dTarget, color: '#2da44e', width: 1.2, dash: 'dashed' }] : [];
+    const { k, series, referenceLines } = useMonoPreview({
+        p, layers, ctx, design,
+        noisePct: p.randomPct, absPct: p.absNoisePct, nonce: p.sigNonce, color: '#e5484d', width: 1.3,
+    });
 
     return h(SplitPage, { c, leftWidth: 210,
         left: [
             h(RowField, { key: 're', label: B.randomErrors, value: p.randomPct, min: 0, max: 20, step: 0.05, c, onChange: (v) => set('randomPct', v) }),
+            h(RowField, { key: 'an', label: B.absNoise, value: p.absNoisePct, min: 0, max: 10, step: 0.05, c, onChange: (v) => set('absNoisePct', v) }),
             h('div', { key: 'fl', style: { fontSize: 12, fontWeight: 600, color: c.text, marginTop: 2 } }, B.fluctuations),
             h(RowField, { key: 'dr', label: B.drift, value: p.drift, min: 0, max: 50, step: 0.05, c, onChange: (v) => set('drift', v) }),
             h(RowField, { key: 'mt', label: B.meanTime, value: p.driftMeanTime, min: 0, max: 1000, step: 0.5, c, onChange: (v) => set('driftMeanTime', v) }),

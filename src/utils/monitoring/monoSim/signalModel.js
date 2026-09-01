@@ -4,7 +4,7 @@
  * point / level-crossing cut targets.
  */
 
-import { tmmTotalAvg } from '../../physics/thinFilmMath.js';
+import { createGrowingLayerEvaluator, tmmTotalAvg } from '../../physics/thinFilmMath.js';
 
 function pickChar(res, char, pol) {
     if (char === 'R') return pol === 's' ? res.Rs : pol === 'p' ? res.Rp : res.R;
@@ -36,6 +36,20 @@ export function singleSignal(lam, mats, thicks, sys) {
 }
 
 /**
+ * Batched sampler for one growing layer's signal at the monitor wavelength.
+ * The layers beneath the growing one are fixed while it grows, so their matrix
+ * product is built once and every thickness sampled costs one 2x2 multiply
+ * (batched into a single WASM call when the kernel is available). Same signal
+ * as singleSignal([curMat, ...matsBelow], [d, ...thicksBelow]), at linear
+ * rather than quadratic cost over a grid.
+ */
+export function growingSignalSampler(lam, matsBelow, thicksBelow, sys) {
+    const ev = createGrowingLayerEvaluator(sys.theta, sys.incMat, sys.subMat,
+        matsBelow, thicksBelow, lam, sys.subThickMM ?? 1);
+    return (curMat, dArr) => ev.sampleMany(sys.char, sys.pol, curMat, dArr);
+}
+
+/**
  * Model curve analysis (target level + extrema): samples the current layer's
  * signal on a fixed grid of candidate thicknesses [0, dHi] and returns the
  * theoretical level at d_target plus every local extremum found — used to
@@ -49,12 +63,9 @@ export function analyzeModelCurve(monLam, model, dTarget, sys) {
     const dHi = Math.max(2 * dTarget, dTarget + 50);
     const NP = 81;
     const ds = new Float64Array(NP);
-    const ys = new Float64Array(NP);
-    for (let s = 0; s < NP; s++) {
-        const d = (s / (NP - 1)) * dHi;
-        ds[s] = d;
-        ys[s] = singleSignal(monLam, [curMat].concat(matsBelow), [d].concat(thicksBelow), sys);
-    }
+    for (let s = 0; s < NP; s++) ds[s] = (s / (NP - 1)) * dHi;
+    const sample = growingSignalSampler(monLam, matsBelow, thicksBelow, sys);
+    const ys = sample(curMat, ds);
     const extrema = [];
     for (let s = 1; s < NP - 1; s++) {
         const a = ys[s - 1], b = ys[s], cv = ys[s + 1];
@@ -66,7 +77,6 @@ export function analyzeModelCurve(monLam, model, dTarget, sys) {
     // thickness itself, not at the nearest grid sample: on a layer thinner
     // than the grid can center, the sample sits up to a percent of the layer
     // away, and the cut would converge to that wrong level exactly.
-    const sAtTarget = singleSignal(
-        monLam, [curMat].concat(matsBelow), [dTarget].concat(thicksBelow), sys);
+    const sAtTarget = sample(curMat, [dTarget])[0];
     return { sAtTarget, sStart: ys[0], extrema, dHi };
 }

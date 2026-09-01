@@ -61,12 +61,13 @@ export function useMonitorWorksheet() {
         chipMaterial: session.chipMaterial,
         witnessRatio: session.witnessRatio,
         signalErrorPct: session.signalErrorPct,
+        absSignalErrorPct: session.absSignalErrorPct,
         maxTerminationErrPct: session.maxTerminationErrPct,
         chipByStep,
         lambdaByStep,
     }), [session.char, session.theta, session.polarization, session.chipMaterial,
-         session.witnessRatio, session.signalErrorPct, session.maxTerminationErrPct,
-         chipByStep, lambdaByStep]);
+         session.witnessRatio, session.signalErrorPct, session.absSignalErrorPct,
+         session.maxTerminationErrPct, chipByStep, lambdaByStep]);
 
     const result = useMemo(
         () => computeWorksheet(design, resolveMat, options),

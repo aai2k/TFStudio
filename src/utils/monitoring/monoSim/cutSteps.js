@@ -13,10 +13,10 @@ function _crossedInDir(startDir, up, dn) {
 // One turning-mode scan. Tracks the running extreme within a tight window around
 // the model's predicted extremum (hysteretic 3σ band) and cuts `confirmScans`
 // after it reverses. Mutates `st` = { runExtS, runExtD, runExtT, confirm };
-// `tc` = { extIsMax, trackD0, trackD1, armD, confirmScans, noiseFrac, bufFill }.
-// Returns { d, t } to cut at, or null.
+// `tc` = { extIsMax, trackD0, trackD1, armD, confirmScans, noiseFrac,
+// absNoiseFrac, bufFill }. Returns { d, t } to cut at, or null.
 export function _turningStep(sS, d_now, t, st, tc) {
-    const sigmaS = tc.noiseFrac * Math.abs(sS) / Math.sqrt(tc.bufFill);
+    const sigmaS = (tc.noiseFrac * Math.abs(sS) + (tc.absNoiseFrac || 0)) / Math.sqrt(tc.bufFill);
     const margin = Math.max(2e-4, 3 * sigmaS);
     if (d_now >= tc.trackD0 && d_now <= tc.trackD1) {
         if (tc.extIsMax ? (sS > st.runExtS + margin) : (sS < st.runExtS - margin)) {

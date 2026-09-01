@@ -134,8 +134,10 @@ ok(thin.referenceInEarlierLayer, 'it is read against the turning point in the la
 ok(thin.swingIn > 0, 'its swing in is measured from that earlier turning point');
 
 // ── 7. Termination error follows the rule the layer is cut with ───────────────
+// The exact scaling law holds for the relative error alone, so the
+// photometric floor is zeroed here; its own effect is pinned below.
 const errAt = (signalErrorPct) => buildMonitorWorksheet(stack, resolveMat, {
-    layersPerChip: 2, signalErrorPct,
+    layersPerChip: 2, signalErrorPct, absSignalErrorPct: 0,
 }).rows.map(r => r.terminationErrNm);
 const eBase = errAt(0.4);
 const eHalf = errAt(0.2);
@@ -152,6 +154,17 @@ for (let i = 0; i < eBase.length; i++) {
 }
 ok(scalingHolds, 'halving the signal error halves a level cut and divides a turn by sqrt(2)');
 ok(w2.rows.every(r => r.terminationErrNm > 0), 'every optically cut layer reports a termination error');
+
+// The photometric floor does not shrink with the reading: at a near-zero
+// relative error, a positive floor still costs thickness, which is what
+// rules out a wavelength where the signal has died.
+const floorRows = (absSignalErrorPct) => buildMonitorWorksheet(stack, resolveMat, {
+    layersPerChip: 2, signalErrorPct: 0.001, absSignalErrorPct,
+}).rows.map(r => r.terminationErrNm);
+const eNoFloor = floorRows(0);
+const eFloor = floorRows(0.2);
+ok(eFloor.every((e, i) => e > eNoFloor[i]),
+   'the absolute noise floor adds termination error the relative term cannot remove');
 
 // ── 8. Witness ratio scales what the chip receives ────────────────────────────
 const scaled = buildMonitorWorksheet(stack, resolveMat, { layersPerChip: 2, witnessRatio: 1.1 });

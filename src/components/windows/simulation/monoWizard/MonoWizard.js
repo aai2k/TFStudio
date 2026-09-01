@@ -1,28 +1,29 @@
 /**
- * Monochromatic Monitoring Wizard — 6-page modal wizard.
+ * Monochromatic Monitoring Wizard — 7-page modal wizard.
  *
  * The monochromatic counterpart of BBMWizard. The broadband and
  * monochromatic monitoring simulators are nearly identical experiments that
  * differ only in the cut rule, so this wizard intentionally reuses BBMWizard's
- * structure and visual style; only the Monitoring-System page and the run
+ * structure and visual style; only the monitoring pages and the run
  * engine differ:
  *
  *   Page 1  Deposition Rates       — per-material mean / RMS / correlation time
  *   Page 2  Parameters Deviation   — per-material index deviations, layers
  *                                     excluded from monitoring, shutter delay
- *   Page 3  Monitoring System      — measured quantity + AOI + scan interval,
- *                                     and a PER-LAYER table of monitoring
- *                                     wavelength + termination strategy
- *                                     (turning point / level / by time);
- *                                     ideal single-λ signal-vs-thickness preview
- *   Page 4  Signal Errors          — random noise + drift; noisy single-λ preview
- *   Page 5  Deposition Simulation  — ONE computational-manufacturing run, played
+ *   Page 3  Monitoring System      — measured quantity + AOI + scan interval +
+ *                                     witness chip glass; ideal single-λ
+ *                                     signal-vs-thickness preview
+ *   Page 4  Monitoring Wavelengths — PER-LAYER table of monitoring wavelength +
+ *                                     termination strategy (turning point /
+ *                                     level / by time), with batch λ tools
+ *   Page 5  Signal Errors          — random noise + drift; noisy single-λ preview
+ *   Page 6  Deposition Simulation  — ONE computational-manufacturing run, played
  *                                     back layer-by-layer with E/A/T bars + spectrum
- *   Page 6  Resulting Performance  — manufactured vs theory + error / thk / RI tables
+ *   Page 7  Resulting Performance  — manufactured vs theory + error / thk / RI tables
  *
  * Engine: utils/monoSim.js `simulateRunMono` (single-wavelength turning/level/
  * time cut), which mirrors monitoringSim.simulateRun's cfg + return shape, so
- * pages 1/2/4/5/6 are shared with BBM. Spectra go through
+ * pages 1/2/5/6/7 are shared with BBM. Spectra go through
  * depositionSpectrum.systemSpectrum → thinFilmMath, the validated path.
  *
  * Reference: Macleod, Thin-Film Optical Filters 5th ed., Ch. 12;
@@ -38,6 +39,7 @@ import { PageResults }       from '../wizardKit/PageResults.js';
 import { PageHead } from '../wizardShared.js';
 import { PageRates }         from './PageRates.js';
 import { PageMonoSystem }    from './PageMonoSystem.js';
+import { PageMonoLambdas }   from './PageMonoLambdas.js';
 import { PageSignalErrors }  from './PageSignalErrors.js';
 import { PageSimulation }    from './PageSimulation.js';
 
@@ -50,9 +52,10 @@ function makeInitialMonoState() {
         shutterMean: 0, shutterRms: 0,
         quantity: 'T', pol: 'avg', aoi: 0, scanInterval: 1.0, confirmScans: 2,
         chipMaterial: null,                       // witness glass; null = design substrate
+        bulkLambda: null,                         // batch λ field; null = design reference λ
         lamMin: 400, lamMax: 800,                 // display band (spectrum pages)
         previewLayer: 1, monNonce: 0, sigNonce: 0,
-        randomPct: 0.3, drift: 0, driftMeanTime: 5, driftRms: 1, yFixed: true,
+        randomPct: 0.3, absNoisePct: 0.1, drift: 0, driftMeanTime: 5, driftRms: 1, yFixed: true,
         timeMult: 10, resultTab: 'spectral', seed: 0x300FCAFE,
     };
 }
@@ -126,7 +129,7 @@ function buildRunCfg(p, materialIds) {
         excludeLayers, relThkErrByLayer,
         monTable,
         mon: { char: p.quantity, theta: p.aoi, polarization: p.pol, chipMaterial: p.chipMaterial || null, scanIntervalSec: p.scanInterval, confirmScans: Math.max(1, p.confirmScans | 0) },
-        sig: { randomPct: p.randomPct, driftPctPer1000s: p.drift },
+        sig: { randomPct: p.randomPct, absNoisePct: p.absNoisePct, driftPctPer1000s: p.drift },
         recordTrajectory: true,
     };
 }
@@ -145,12 +148,13 @@ function buildWizardBody({ step, p, set, materialIds, layers, c, B, t, ctx, desi
         1: () => h(PageRates,        { p, set, materialIds, resolveMat: ctx.resolveMat, c, B }),
         2: () => h(PageDeviations,   { p, set, materialIds, layers, resolveMat: ctx.resolveMat, c, B }),
         3: () => h(PageMonoSystem,   { p, set, layers, c, B, t, ctx: monCtx, design }),
-        4: () => h(PageSignalErrors, { p, set, layers, c, B, ctx: monCtx, design }),
-        5: () => h(PageSimulation,   { p, set, layers, c, B, ctx, run, setRun, buildCfg }),
-        6: () => h(PageResults,      { p, set, layers, c, B, ctx, run }),
+        4: () => h(PageMonoLambdas,  { p, set, layers, c, B, ctx: monCtx, design }),
+        5: () => h(PageSignalErrors, { p, set, layers, c, B, ctx: monCtx, design }),
+        6: () => h(PageSimulation,   { p, set, layers, c, B, ctx, run, setRun, buildCfg }),
+        7: () => h(PageResults,      { p, set, layers, c, B, ctx, run }),
     };
-    const titles = [B.p1Title, B.p2Title, B.p3Title, B.p4Title, B.p5Title, B.p6Title];
-    const subs   = [B.p1Sub, B.p2Sub, B.p3Sub, B.p4Sub, B.p5Sub, B.p6Sub];
+    const titles = [B.p1Title, B.p2Title, B.p3Title, B.p4Title, B.p5Title, B.p6Title, B.p7Title];
+    const subs   = [B.p1Sub, B.p2Sub, B.p3Sub, B.p4Sub, B.p5Sub, B.p6Sub, B.p7Sub];
     return h('div', { style: { display: 'flex', flexDirection: 'column', flex: 1, minHeight: 0 } },
         h(PageHead, { title: titles[step - 1], subtitle: subs[step - 1], c }),
         pages[step]());
@@ -172,10 +176,10 @@ export function MonoWizard({ c, t, onClose }) {
 
     const buildCfg = useCallback(() => buildRunCfg(p, materialIds), [p, materialIds]);
 
-    if (!design) return h(ModalFrame, { c, B, step, setStep, onClose, design, t, helpAnchor: 'simulation/mono-simulator', body: emptyBody(c, B.noDesign) });
-    if (!layers.length) return h(ModalFrame, { c, B, step, setStep, onClose, design, t, helpAnchor: 'simulation/mono-simulator', body: emptyBody(c, B.noLayers) });
+    if (!design) return h(ModalFrame, { c, B, step, setStep, onClose, design, t, pages: 7, helpAnchor: 'simulation/mono-simulator', body: emptyBody(c, B.noDesign) });
+    if (!layers.length) return h(ModalFrame, { c, B, step, setStep, onClose, design, t, pages: 7, helpAnchor: 'simulation/mono-simulator', body: emptyBody(c, B.noLayers) });
 
     const body = buildWizardBody({ step, p, set, materialIds, layers, c, B, t, ctx, design, run, setRun, buildCfg });
 
-    return h(ModalFrame, { c, B, step, setStep, onClose, design, t, helpAnchor: 'simulation/mono-simulator', body });
+    return h(ModalFrame, { c, B, step, setStep, onClose, design, t, pages: 7, helpAnchor: 'simulation/mono-simulator', body });
 }

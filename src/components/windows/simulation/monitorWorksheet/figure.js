@@ -46,20 +46,55 @@ function runOverview(rows) {
         }
         data.push([row.xCut, row.signal * 100]);
     }
-    return lineSeries({ data, color: 'transparent', width: 0, z: 0, silent: true });
+    const overview = lineSeries({ data, color: 'transparent', width: 0, z: 0, silent: true });
+    // Painted in one pass (a long run puts this over the progressive
+    // threshold, and a hover restarts a progressive render) and off the base
+    // layer, which the axis pointer dirties on every mouse move.
+    overview.progressive = 0;
+    overview.zlevel = 1;
+    return overview;
 }
 
+// One series per style rather than two per layer. Segments sharing a style are
+// joined into a single series with a [NaN, NaN] break between layers, which
+// draws identically: ECharts costs are per series far more than per point, and
+// two series per layer made a 200-layer run rebuild 400 series models on every
+// option apply.
 function layerSeries(rows, colors) {
-    const series = [];
+    const signal = [];
+    const poor = [];
+    const continuation = [];
+    const gap = [NaN, NaN];
     for (const row of rows) {
         if (!row.curve) continue;
         const { deposited, rest } = splitAtCut(row);
-        series.push(lineSeries({
-            data: rest, color: colors.continuation, width: 1, dash: 'dash', z: 1, silent: true,
-        }));
-        series.push(lineSeries({
-            data: deposited, color: row.poor ? colors.poor : colors.signal, width: 2, z: 3, silent: true,
-        }));
+        const target = row.poor ? poor : signal;
+        if (target.length) target.push(gap);
+        for (const point of deposited) target.push(point);
+        if (continuation.length) continuation.push(gap);
+        for (const point of rest) continuation.push(point);
+    }
+    // Out of the axis pointer's collection (the readout is built from the rows,
+    // not from these), painted in one pass (past the progressive threshold a
+    // hover restarts a progressive render), and on their own canvas layer: the
+    // axis pointer rebuilds its elements through the base layer on every mouse
+    // move, and a long run's curves re-rasterized per move is the whole frame
+    // budget. The overview stays collected so the axis tooltip still fires.
+    const merged = (options) => {
+        const one = lineSeries({ ...options, silent: true, tooltip: { show: false } });
+        one.progressive = 0;
+        one.zlevel = 1;
+        return one;
+    };
+    const series = [];
+    if (continuation.length) {
+        series.push(merged({ data: continuation, color: colors.continuation, width: 1, dash: 'dash', z: 1 }));
+    }
+    if (signal.length) {
+        series.push(merged({ data: signal, color: colors.signal, width: 2, z: 3 }));
+    }
+    if (poor.length) {
+        series.push(merged({ data: poor, color: colors.poor, width: 2, z: 3 }));
     }
     return series;
 }
@@ -76,6 +111,9 @@ function cutMarkers(rows, colors, text) {
         },
         labelLayout: { hideOverlap: true },
         z: 4,
+        // With the curves: off the base layer the axis pointer dirties, so a
+        // mouse move does not re-rasterize two hundred marks and labels.
+        zlevel: 1,
         silent: true,
         animation: false,
     };

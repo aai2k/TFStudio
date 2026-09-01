@@ -184,10 +184,10 @@ const series = figure.buildSpectraSeries({
     quantity: 'T',
 }, colors, sp);
 assert.deepEqual(series.map(item => item.data.map(point => point[1])), [
-    [10, 20], [30, 40], [50, 60], [70, 80],
-]);
-assert.equal(series[2].lineStyle.color, 'hsla(0, 70%, 55%, 0.95)');
-assert.equal(series[2].lineStyle.width, 2.4);
+    [10, 20], [50, 60], [70, 80],
+], 'baseline, focused step and live curve; the haze is not a series');
+assert.equal(series[1].lineStyle.color, 'hsla(0, 70%, 55%, 0.95)');
+assert.equal(series[1].lineStyle.width, 2.4);
 const chartOption = figure.buildSpectraOption({ quantity: 'R' }, colors, sp);
 assert.deepEqual([chartOption.yAxis.min, chartOption.yAxis.max], [0, 100]);
 assert.ok(chartOption.toolbox.feature.saveAsImage, 'native chart export remains available');
@@ -211,21 +211,21 @@ assert.ok(chartOption.toolbox.feature.saveAsImage, 'native chart export remains 
     assert.equal(figure.focusedStep({ ...focusData, focusStep: null }), null);
 
     const focused = figure.buildSpectraSeries(focusData, colors, sp);
-    const steps = focused.slice(1, 4);
-    assert.deepEqual(steps.map(item => item.z), [1, 3, 1],
-        'the focused curve is drawn over the others');
-    assert.equal(steps[1].lineStyle.color, 'hsla(110, 70%, 55%, 0.95)',
+    // Baseline, the focused step, the live curve, and nothing else: the
+    // unfocused curves are not series at all. ECharts repaints every canvas on
+    // any option apply and on every pointer move, so two hundred step series
+    // were re-stroked per timeline tick, hover frame and resize step. The haze
+    // is rasterized once into an offscreen bitmap instead (syncContextImage)
+    // and a repaint costs one drawImage.
+    assert.equal(focused.length, 3);
+    const inFocus = focused[1];
+    assert.equal(inFocus.z, 3, 'the focused curve is drawn over the haze');
+    assert.equal(inFocus.lineStyle.color, 'hsla(110, 70%, 55%, 0.95)',
         'the focused curve keeps its own colour at full strength');
-    assert.deepEqual([steps[0].lineStyle.color, steps[2].lineStyle.color],
-        ['rgba(224,224,224,0.16)', 'rgba(224,224,224,0.16)'],
-        'every other step curve greys out');
-    assert.ok(steps[1].lineStyle.width > steps[2].lineStyle.width);
-
-    // Context curves take no part in hovering. The readout does not report them
-    // and they are not meant to light up, so every mouse move would otherwise
-    // restyle and redraw sixty polylines to show a highlight nobody reads.
-    assert.deepEqual(steps.map(item => item.silent), [true, false, true]);
-    assert.deepEqual(steps.map(item => item.emphasis?.disabled), [true, undefined, true]);
+    assert.equal(inFocus.tooltip, undefined, 'the focused curve keeps its readout');
+    assert.deepEqual(figure.buildSpectraSeries({ ...focusData, showAll: false }, colors, sp)
+        .map(item => item.name), focused.map(item => item.name),
+        'Show all layers adds no series; the haze is the bitmap');
 
     // Sixty curves over one plot is a grey haze with the answer somewhere
     // inside it, so only the layer the timeline is on is drawn by default.

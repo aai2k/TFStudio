@@ -1,3 +1,4 @@
+import { ANALYSIS_DEFAULTS } from '../../../../constants/analysisDefaults.js';
 import { ActionButton, ChoiceGroup, FieldLabel, NumInput } from '../../analysis/chrome/controls.js';
 import { ControlRow } from '../../analysis/chrome/layout.js';
 import { SettingDivider, SettingRow, SettingsMenu } from '../../analysis/chrome/popover.js';
@@ -19,7 +20,13 @@ export function WorksheetControls({ c, t, state, trailing = [] }) {
     },
         h(FieldLabel, { c }, mw.layersPerChip),
         h(NumInput, {
-            value: session.layersPerChip, min: 1, max: 50, step: 1, c, width: 56,
+            // A coater property, not a design one: the saved value must
+            // survive a short design without being clamped down to it. More
+            // layers than the run deposits simply puts the whole run on one
+            // chip, which the planner handles as direct monitoring.
+            value: session.layersPerChip, min: 1,
+            max: ANALYSIS_DEFAULTS.monitorWorksheet.numbers.layersPerChip.max,
+            step: 1, c, width: 56,
             title: mw.layersPerChipTip, onChange: state.setLayersPerChip,
         }),
         h(ActionButton, {
@@ -106,6 +113,13 @@ function MonitorSetup({ c, t, state }) {
             h(NumInput, {
                 value: session.signalErrorPct, min: 0.001, max: 50, step: 0.1, c, width: 68,
                 title: mw.signalErrorTip, onChange: value => setField('signalErrorPct', value),
+            }),
+            h(FieldLabel, { c }, '%'),
+        ),
+        h(SettingRow, { c, label: mw.absSignalError },
+            h(NumInput, {
+                value: session.absSignalErrorPct, min: 0, max: 10, step: 0.05, c, width: 68,
+                title: mw.absSignalErrorTip, onChange: value => setField('absSignalErrorPct', value),
             }),
             h(FieldLabel, { c }, '%'),
         ),

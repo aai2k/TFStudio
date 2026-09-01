@@ -303,14 +303,20 @@ export const ANALYSIS_DEFAULTS = {
       signal: '#4fc3f7', continuation: '#8a8a8a', cut: '#9aa0a8', poor: '#ef5350',
     },
     numbers: {
-      // Two to four layers on a chip is the range optical monitoring is set up
-      // in; beyond that the later layers on the chip run out of swing.
-      layersPerChip: { def: 3, min: 1, max: 50, step: 1 },
+      // Two to four layers on a chip is the usual indirect-monitoring setup;
+      // direct monitoring holds a whole run on one chip. A value beyond the
+      // run length just means one chip for everything, so no tighter bound
+      // exists to enforce.
+      layersPerChip: { def: 3, min: 1, max: 10000, step: 1 },
       // Witness thickness / part thickness, the monitor-to-work ratio.
       witnessRatio: { def: 1, min: 0.05, max: 10, step: 0.01 },
       // The monitor's own signal error, as a percentage of the reading. Same
       // quantity and convention as the Monitoring Simulator's random error.
       signalErrorPct: { def: 0.3, min: 0.001, max: 50, step: 0.1 },
+      // The monitor's photometric noise floor, in percent of full scale. It
+      // does not shrink with the reading, so a wavelength where the signal
+      // has saturated scores as unusable rather than as noiseless.
+      absSignalErrorPct: { def: 0.1, min: 0, max: 10, step: 0.05 },
       // A layer is flagged when terminating it costs more thickness than this,
       // as a percentage of the layer. 1 % is the perturbation the tolerance
       // windows ship with, so it is the error the design is already read at.

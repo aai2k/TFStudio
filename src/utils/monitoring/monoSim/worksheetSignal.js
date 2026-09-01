@@ -24,7 +24,7 @@
  * Reference: H. A. Macleod, Thin-Film Optical Filters, 5th ed., Ch. 12.
  */
 
-import { singleSignal } from './signalModel.js';
+import { createGrowingLayerEvaluator } from '../../physics/thinFilmMath.js';
 
 // Enough of the layer's continuation to bracket the next turning point. Turning
 // points of a lossless layer fall one quarter wave apart; the margin covers the
@@ -33,9 +33,21 @@ const CONTINUATION_QW = 1.35;
 const GRID = { samplesPerQW: 50, maxSamples: 800 };
 const COARSE_GRID = { samplesPerQW: 16, maxSamples: 200 };
 
+// The layers below the growing one are fixed while it grows, so their matrix
+// product is built once per layer and every sample costs one multiply. Cached
+// on the ctx, which lives exactly as long as the layer's row is being built.
+function layerEvaluator(ctx) {
+    if (!ctx._eval) {
+        const { sys } = ctx;
+        ctx._eval = createGrowingLayerEvaluator(sys.theta, sys.incMat, sys.subMat,
+            ctx.belowMats, ctx.belowThicks, ctx.lam, sys.subThickMM ?? 1);
+    }
+    return ctx._eval;
+}
+
 /** Monitor signal with the growing layer at thickness `d`. */
 export function signalAt(ctx, d) {
-    return singleSignal(ctx.lam, [ctx.curMat, ...ctx.belowMats], [d, ...ctx.belowThicks], ctx.sys);
+    return layerEvaluator(ctx).sampleMany(ctx.sys.char, ctx.sys.pol, ctx.curMat, [d])[0];
 }
 
 /**
@@ -53,11 +65,8 @@ export function sampleLayerCurve(ctx, dCut, dQW, coarse = false) {
     const count = Math.min(maxSamples, Math.max(24, Math.ceil((dMax / dQW) * samplesPerQW) + 1));
     const h = dMax / (count - 1);
     const d = new Float64Array(count);
-    const s = new Float64Array(count);
-    for (let k = 0; k < count; k++) {
-        d[k] = k * h;
-        s[k] = signalAt(ctx, d[k]);
-    }
+    for (let k = 0; k < count; k++) d[k] = k * h;
+    const s = layerEvaluator(ctx).sampleMany(ctx.sys.char, ctx.sys.pol, ctx.curMat, d);
     return { d, s, h, dMax };
 }
 

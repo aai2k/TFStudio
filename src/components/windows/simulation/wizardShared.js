@@ -77,12 +77,19 @@ export function Radio({ checked, onChange, label, c }) {
 
 // ── Layer tab strip ("Layer 1 2 … N" selector) ────────────────────────────────
 export function LayerTabs({ n, current, onSelect, c, label }) {
+    const activeRef = useRef(null);
+    // A long design wraps the strip to many rows, so it scrolls past a few of
+    // them; the selected button is kept in view so playback stepping through a
+    // late layer does not leave the highlight off-screen.
+    useEffect(() => { activeRef.current?.scrollIntoView({ block: 'nearest' }); }, [current, n]);
     if (!n) return null;
-    return h('div', { style: { display: 'flex', alignItems: 'center', gap: 2, flexWrap: 'wrap',
+    return h('div', { style: { display: 'flex', alignItems: 'center', alignContent: 'flex-start',
+                               gap: 2, flexWrap: 'wrap', maxHeight: 96, overflowY: 'auto',
                                padding: '6px 4px 0', borderTop: `1px solid ${c.border}` } },
         Array.from({ length: n }, (_, i) => {
             const k = i + 1, active = k === current;
             return h('button', { key: k, onClick: () => onSelect(k),
+                ref: active ? activeRef : undefined,
                 style: { padding: '3px 9px', fontSize: 11, cursor: 'pointer',
                          border: `1px solid ${active ? c.accent : c.border}`,
                          background: active ? c.accent + '33' : c.bg,

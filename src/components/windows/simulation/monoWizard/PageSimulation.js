@@ -1,5 +1,5 @@
 /**
- * Page 5 — Deposition Simulation (main-thread mono run).
+ * Page 6 — Deposition Simulation (main-thread mono run).
  *
  * A single-λ run is cheap; unlike BBM's spectral run this stays on the main
  * thread (no worker needed for one experiment). Playback and the theory/actual

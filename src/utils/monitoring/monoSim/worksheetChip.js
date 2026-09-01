@@ -75,7 +75,11 @@ function terminationFigures({ ctx, dCut, extrema, sCut, cfg }) {
     const slope = slopeAtCut(ctx, dCut);
     const errNm = terminationError({
         strategy,
-        signalError: (cfg.signalErrorPct / 100) * Math.abs(sCut),
+        // Relative error of the reading plus the photometric floor: the floor
+        // is what makes a saturated-stopband wavelength score as unusable
+        // instead of as noiseless.
+        signalError: (cfg.signalErrorPct / 100) * Math.abs(sCut)
+            + (cfg.absSignalErrorPct || 0) / 100,
         slope,
         cutExtremum: nearestExtremum(extrema, dCut),
     });

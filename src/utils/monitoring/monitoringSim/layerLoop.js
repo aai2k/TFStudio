@@ -21,7 +21,7 @@ function runLayerCutSearch({ i, d_target, r, t_target }, ctx, mut) {
         modelThicksBelow: mut.modelThicks.slice(i + 1),
         lambdas: ctx.lambdas, char: ctx.char, pol: ctx.pol,
         r, dt: ctx.dt, d_target, t_target, dHiCap, confirmScans: ctx.confirmScans,
-        randomPct: ctx.randomPct, driftSlope: ctx.driftSlope,
+        randomPct: ctx.randomPct, absNoisePct: ctx.absNoisePct || 0, driftSlope: ctx.driftSlope,
         fitStartFrac: ctx.fitStartFrac, fitMaxIter: ctx.fitMaxIter, rng: ctx.rng,
         t_global: mut.t_global,
     });

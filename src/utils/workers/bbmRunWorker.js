@@ -17,6 +17,7 @@
  */
 
 import { simulateRun, mulberry32 } from '../monitoring/monitoringSim.js';
+import { noteTmmWasmBytes, awaitTmmWasmReady } from '../../tmmcore.js';
 
 function makeResolveMat(materials) {
     const cache = new Map();
@@ -42,13 +43,17 @@ function makeResolveMat(materials) {
     };
 }
 
-self.onmessage = (e) => {
+self.onmessage = async (e) => {
     const job = e.data;
+    // The wizard ships the kernel bytes before the job so the run's per-scan
+    // spectra ride the WASM growing evaluator; without them the JS path runs.
+    if (job && job.type === 'wasmInit') { noteTmmWasmBytes(job.wasmBytes); return; }
     if (!job || job.cmd !== 'bbm-run') {
         postMessage({ type: 'error', message: `bbmRunWorker: unknown cmd "${job?.cmd}"` });
         return;
     }
     try {
+        await awaitTmmWasmReady();
         const { design, cfg, materials, seed } = job;
         const resolveMat = makeResolveMat(materials);
         const cfgLocal = {
