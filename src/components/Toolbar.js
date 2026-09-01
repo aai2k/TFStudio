@@ -886,7 +886,7 @@ export function Toolbar({ c, onToolAction, onMenuAction, t, devAllowed = true, r
                 width: 240,
             },
                 h('img', { src: APP_ICON, alt: '', style: { width: 18, height: 18, objectFit: 'contain' } }),
-                h('span', { style: { fontSize: 8, opacity: 0.7, lineHeight: 1 } }, '▾')
+                h('span', { style: { fontSize: 15, opacity: 0.9, lineHeight: 1 } }, '▾')
             ),
 
             h('div', { style: { width: 1, backgroundColor: c.border, margin: '6px 4px' } }),

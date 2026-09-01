@@ -183,6 +183,14 @@ const asDev = renderToStaticMarkup(React.createElement(Toolbar, {
 }));
 assert.equal(asDev, render('analysis'), 'devAllowed changed the rendered ribbon');
 
+// The app menu's arrow sits next to an 18px logo. Much under 10px the glyph
+// reads as a dot rather than an arrow, so the size is asserted, not just its
+// presence.
+const arrows = [...render('design').matchAll(/<span style="([^"]*)">▾<\/span>/g)];
+assert.equal(arrows.length, 1, 'the app menu arrow is missing from the tab strip');
+const arrowPx = Number(arrows[0][1].match(/font-size:([\d.]+)px/)?.[1]);
+assert.ok(arrowPx >= 10, `the app menu arrow renders at ${arrowPx}px, too small to read as an arrow`);
+
 // ── Quick access ──────────────────────────────────────────────────────────────
 
 const titleBar = renderToStaticMarkup(React.createElement(TitleBar, {

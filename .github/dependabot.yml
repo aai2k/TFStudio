@@ -15,6 +15,13 @@ updates:
         update-types: ["version-update:semver-major"]
       - dependency-name: "react-dom"
         update-types: ["version-update:semver-major"]
+      # js-yaml 5 rejects a block scalar whose only line is whitespace, a shape
+      # used by 610 of the 4166 refractiveindex.info database files. js-yaml 4
+      # and PyYAML both accept it, and the database is maintained in Python, so
+      # the files will not change. Staying on 4.x until js-yaml fixes it.
+      # CI cannot catch this: the test suite never parses the RII database.
+      - dependency-name: "js-yaml"
+        update-types: ["version-update:semver-major"]
     groups:
       # One PR for all patch/minor dev-dependency updates. Major dev bumps
       # (e.g. an Electron or electron-builder major) are left OUT of the group
@@ -41,6 +48,10 @@ updates:
     schedule:
       interval: "weekly"
     open-pull-requests-limit: 5
+    ignore:
+      # Same js-yaml 5 problem as the app; docs-site pins it via "overrides".
+      - dependency-name: "js-yaml"
+        update-types: ["version-update:semver-major"]
     groups:
       docs-site:
         patterns:
