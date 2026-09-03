@@ -71,6 +71,53 @@ console.log('— adjacency segmentation —');
     ok(near(c.layers[1].thickness, 1 * qwOf('builtin:SiO2'), 1e-7), '2HL: second layer 1·QW');
 }
 
+// ── 3b. Coefficient inside a run of symbols (LHLHL6HLHLH) ────────────────────
+console.log('— coefficient inside a run —');
+{
+    const H = 'builtin:TiO2', L = 'builtin:SiO2';
+    const run = buildStackFromFormula({ text: 'LHLHL6HLHLH', symbolMap: SM, refLambda: LAM });
+    ok(run.ok, '"LHLHL6HLHLH" parses: ' + (run.error || ''));
+    ok(run.layers.length === 10, 'LHLHL6HLHLH → 10 layers (got ' + run.layers.length + ')');
+    const mats = [L, H, L, H, L, H, L, H, L, H];
+    ok(run.layers.every((l, k) => l.material === mats[k]), 'LHLHL6HLHLH material sequence');
+    run.layers.forEach((l, k) => {
+        const coef = k === 5 ? 6 : 1;
+        ok(near(l.thickness, coef * qwOf(mats[k]), 1e-7), `LHLHL6HLHLH layer ${k} = ${coef}·QW`);
+    });
+
+    const spaced = buildStackFromFormula({ text: 'LHLHL 6HLHLH', symbolMap: SM, refLambda: LAM });
+    ok(spaced.ok && spaced.layers.length === 10, '"LHLHL 6HLHLH" parses to 10 layers');
+    ok(spaced.layers.every((l, k) => l.material === run.layers[k].material && near(l.thickness, run.layers[k].thickness, 1e-9)),
+        'spaced and no-space forms build the same stack');
+
+    const h2l = buildStackFromFormula({ text: 'H2L', symbolMap: SM, refLambda: LAM });
+    ok(h2l.ok && h2l.layers.length === 2, '"H2L" → 2 layers');
+    ok(h2l.ok && near(h2l.layers[0].thickness, qwOf(H), 1e-7), 'H2L: H is 1·QW');
+    ok(h2l.ok && near(h2l.layers[1].thickness, 2 * qwOf(L), 1e-7), 'H2L: L is 2·QW');
+
+    // The atom's leading coefficient still binds to the first symbol only.
+    const lead = buildStackFromFormula({ text: '2HL', symbolMap: SM, refLambda: LAM });
+    ok(lead.ok && near(lead.layers[0].thickness, 2 * qwOf(H), 1e-7) && near(lead.layers[1].thickness, qwOf(L), 1e-7),
+        '"2HL" unchanged: 2H then L');
+    const grp = buildStackFromFormula({ text: '(HL)^3 2H', symbolMap: SM, refLambda: LAM });
+    ok(grp.ok && grp.layers.length === 7 && near(grp.layers[6].thickness, 2 * qwOf(H), 1e-7),
+        '"(HL)^3 2H" unchanged: 7 layers, last 2H');
+
+    // A direct material name resolves before segmentation.
+    const direct = buildStackFromFormula({ text: 'HL SiO2', symbolMap: SM, refLambda: LAM });
+    ok(direct.ok && direct.layers.length === 3 && direct.layers[2].material.includes('SiO2'),
+        '"HL SiO2": SiO2 is one direct-material layer, not a run');
+
+    // A run that does not segment cleanly is reported as a whole.
+    for (const bad of ['HL6X', 'H2O', 'HL6']) {
+        const e = buildStackFromFormula({ text: bad, symbolMap: SM, refLambda: LAM });
+        ok(!e.ok && e.unknownSymbols && e.unknownSymbols.join() === bad, `"${bad}" is rejected naming the run (got ${e.unknownSymbols})`);
+    }
+
+    const ra = resolveAtom({ coef: 2, sym: 'HL6H' }, SM);
+    ok(ra.specs && ra.specs.map(s => s.coef).join() === '2,1,6', 'resolveAtom 2·HL6H → coefs 2, 1, 6');
+}
+
 // ── 4. Media sides + aliases ─────────────────────────────────────────────────
 console.log('— media sides —');
 {

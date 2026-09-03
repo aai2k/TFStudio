@@ -27,6 +27,10 @@ written between the two bars.
 - **Coefficients** are quarter-wave multipliers at the reference wavelength:
   `2H` is a half-wave of the high material, `0.5L` an eighth-wave of the low.
   A bare symbol is one quarter-wave.
+- **Runs** of single-letter symbols need no spaces, and a whole-number
+  coefficient can sit inside the run: `LHLHL6HLHLH` reads as
+  `L H L H L 6H L H L H`. Multi-letter symbols and material names such as `Hi`
+  or `SiO2` stay separated by spaces.
 - **Repeat groups** `(...)^n` expand the enclosed layers n times.
 - **`@λ`** on a medium overrides the reference wavelength used for the
   conversion.
@@ -45,7 +49,7 @@ front coating is bounded by the incident medium and the substrate; the back
 coating by the substrate and the exit medium.
 
 **Start from substrate**: reads the formula from the substrate outward instead
-of from the incident medium inward.
+of from the incident medium inward. On by default.
 
 **Apply to side**: choose whether the formula populates the front coating, the
 back coating, or both. (A symmetric design always writes the front and mirrors

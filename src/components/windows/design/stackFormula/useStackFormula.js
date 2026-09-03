@@ -4,7 +4,7 @@ import {
 import { designMaterialLookup } from '../../../../utils/materials/designMaterials.js';
 import {
     computeSeed, buildSymbolMap, withRowMat, withRowSym, usedSymbolSet, missingSymbolRows,
-    stackTotalThickness,
+    stackTotalThickness, DEFAULT_START_FROM_SUBSTRATE,
 } from './model.js';
 import { buildNewDesignFromFormula, buildReplaceAppendPatch } from './designBuild.js';
 
@@ -60,7 +60,7 @@ export function useStackFormula({ design, updateDesign, checkpoint, onClose, onC
         setSymRows(prev => prev.filter((_, i) => i !== idx)), []);
 
     const [refLambda, setRefLambda] = useState(() => design.referenceWavelength || 550);
-    const [startFromSubstrate, setStartFromSubstrate] = useState(false);
+    const [startFromSubstrate, setStartFromSubstrate] = useState(DEFAULT_START_FROM_SUBSTRATE);
     // Media as dropdowns (initialised from the design) — the formula carries
     // layers only. The front coating is bounded by the incident medium +
     // substrate; the back coating by the substrate + exit medium.

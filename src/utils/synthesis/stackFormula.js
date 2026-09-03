@@ -11,8 +11,11 @@
  *         (H L)^4 H     →  9 layers  (HL repeated 4×, then one H)
  *   • "Start from substrate" toggles whether the sequence is read from the
  *     substrate side or from the ambient (incident) side.
- *   • Two-character (multi-character) abbreviations must be separated by
- *     spaces; single-character symbols may be written adjacently (HL → H, L).
+ *   • Multi-character abbreviations must be separated by spaces.
+ *     Single-character symbols may be written adjacently, and a whole-number
+ *     coefficient may sit anywhere inside such a run:
+ *         HL            →  H, L
+ *         LHLHL6HLHLH   →  L H L H L 6H L H L H
  *
  * TFStudio extension: the formula may carry the media as
  *   <incident> | <layers> | <substrate>
@@ -307,11 +310,31 @@ function parseAtom(ctx, out, t) {
 
 // ── Symbol resolution + single-char segmentation ────────────────────────────
 
+// One group of a symbol run: an optional whole-number coefficient followed by a
+// single letter ("6H", "L").
+const RUN_GROUP = /(\d+)?([A-Za-z])/g;
+
+// Split a run such as "LHLHL6HLHLH" into [{sym, coef}] groups. Every group's
+// letter must be a single-char symbol and the groups must cover the whole run;
+// otherwise null (a trailing digit, a digit before an unknown letter, ...).
+function segmentRun(sym, singles) {
+    const parts = [];
+    let end = 0;
+    for (const m of sym.matchAll(RUN_GROUP)) {
+        if (m.index !== end || !singles.has(m[2])) return null;
+        parts.push({ sym: m[2], coef: m[1] ? Number(m[1]) : 1 });
+        end = m.index + m[0].length;
+    }
+    return end === sym.length ? parts : null;
+}
+
 /**
  * Resolve one atom's raw symbol to a list of {matId, coef} layer specs.
- * Tries: (1) symbol map, (2) direct material, (3) greedy single-char
- * segmentation against the symbol map (so "HL" → H, L). The coefficient binds
- * to the FIRST resulting layer; the rest get coef 1.
+ * Tries: (1) symbol map, (2) direct material, (3) segmentation of a run of
+ * single-char symbols, each optionally preceded by a whole-number coefficient
+ * ("HL" → H, L; "LHLHL6HLHLH" → L H L H L 6H L H L H). The atom's own
+ * coefficient binds to the FIRST resulting layer; the rest keep the coefficient
+ * written inside the run, or 1.
  * Returns { specs } or { unknown: <substring that failed> }.
  */
 export function resolveAtom(atom, symbolMap, resolvers = DEFAULT_RESOLVERS) {
@@ -323,16 +346,12 @@ export function resolveAtom(atom, symbolMap, resolvers = DEFAULT_RESOLVERS) {
     // (2) direct material (alias / catalog / legacy)
     const direct = resolvers.resolveMatId(sym);
     if (direct) return { specs: [{ matId: direct, coef }] };
-    // (3) single-char segmentation against the symbol map
+    // (3) run of single-char symbols with optional inner coefficients
     const singles = new Set(Object.keys(symbolMap).filter(k => k.length === 1));
     if (sym.length > 1 && singles.size > 0) {
-        const parts = [];
-        for (const chr of sym) {
-            if (singles.has(chr)) parts.push(chr);
-            else { parts.length = 0; break; }
-        }
-        if (parts.length === sym.length) {
-            return { specs: parts.map((chr, k) => ({ matId: symbolMap[chr], coef: k === 0 ? coef : 1 })) };
+        const parts = segmentRun(sym, singles);
+        if (parts) {
+            return { specs: parts.map((p, k) => ({ matId: symbolMap[p.sym], coef: k === 0 ? coef : p.coef })) };
         }
     }
     return { unknown: sym };

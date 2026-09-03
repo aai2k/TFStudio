@@ -5,9 +5,15 @@ import {
     resolveAtom, DEFAULT_SYMBOL_MAP, stackFormulaResolvers,
 } from '../../../../utils/synthesis/stackFormula.js';
 
+// The dialog opens with the formula read from the substrate outward, the order
+// a stack is written down and deposited. The seed formula emitted from an
+// existing design is written in the same direction so it reads back unchanged.
+export const DEFAULT_START_FROM_SUBSTRATE = true;
+
 // Which symbols in the parsed atoms need a symbol→material assignment row?
 // Direct catalog material names (SiO2, BK7, …) don't; H/L/M and any unknown
-// token do. Multi-char tokens that segment into singles contribute the singles.
+// token do. Multi-char tokens that segment into singles contribute the singles
+// (letters only: a coefficient written inside the run is not a symbol).
 export function neededSymbols(atoms, symbolMap) {
     const out = [];
     const seen = new Set();
@@ -22,8 +28,8 @@ export function neededSymbols(atoms, symbolMap) {
             continue;
         }
         if (r.specs && r.specs.length > 1) {
-            // segmented into singles — list each single char
-            for (const chr of sym) add(chr);
+            // segmented into singles — list each letter
+            for (const chr of sym) if (/[A-Za-z]/.test(chr)) add(chr);
             continue;
         }
         // unknown
@@ -100,7 +106,12 @@ export function computeSeed(design, resolvers = stackFormulaResolvers(design)) {
     }
     const { symbolMap, id2sym, ranked } = autoSymbolMap(layers, lam, resolvers);
     let text = '';
-    try { text = formulaOf({ layers, refLambda: lam, symbolMap, resolvers }); } catch { text = ''; }
+    try {
+        text = formulaOf({
+            layers, refLambda: lam, symbolMap, resolvers,
+            startFromSubstrate: DEFAULT_START_FROM_SUBSTRATE,
+        });
+    } catch { text = ''; }
     const rows = ranked.map(id => ({ sym: id2sym[id], matId: id, fixed: false }));
     return { text, rows };
 }

@@ -13,12 +13,15 @@
 import './_uiShim.mjs';
 import {
     computeSeed, buildSymbolMap, previewWavelengthRange, withRowMat, withRowSym,
+    neededSymbols, DEFAULT_START_FROM_SUBSTRATE,
 } from '../src/components/windows/design/stackFormula/model.js';
 import {
     buildNewDesignFromFormula, buildReplaceAppendPatch,
 } from '../src/components/windows/design/stackFormula/designBuild.js';
 import { makeDefaultDesign } from '../src/state/DesignContext.js';
-import { buildStackFromFormula, DEFAULT_SYMBOL_MAP } from '../src/utils/synthesis/stackFormula.js';
+import {
+    buildStackFromFormula, parseStackFormula, DEFAULT_SYMBOL_MAP,
+} from '../src/utils/synthesis/stackFormula.js';
 
 let fails = 0;
 const ok = (cond, msg) => { if (!cond) { console.error('FAIL:', msg); fails++; } };
@@ -48,6 +51,35 @@ console.log('— computeSeed —');
     const reseed = computeSeed(seeded);
     ok(reseed.text.length > 0, 'non-empty design auto-detects a formula from its front stack');
     ok(reseed.rows.every(r => !r.fixed), 'auto-detected rows are editable, not fixed');
+
+    // The dialog opens reading from the substrate, and the seed is written in
+    // that direction: a stack that is not its own mirror must read back as is.
+    ok(DEFAULT_START_FROM_SUBSTRATE === true, 'Start from substrate is on by default');
+    const lopsided = {
+        ...empty, referenceWavelength: LAM,
+        frontLayers: [
+            { id: 'a', material: 'builtin:TiO2',  thickness: 100 },
+            { id: 'b', material: 'builtin:SiO2',  thickness: 80 },
+            { id: 'c', material: 'builtin:Al2O3', thickness: 60 },
+        ],
+    };
+    const seedL = computeSeed(lopsided);
+    const back = buildStackFromFormula({
+        text: seedL.text, symbolMap: buildSymbolMap(seedL.rows), refLambda: LAM,
+        startFromSubstrate: DEFAULT_START_FROM_SUBSTRATE,
+    });
+    ok(back.ok && back.layers.map(l => l.material).join() === lopsided.frontLayers.map(l => l.material).join(),
+        'seed formula reads back to the design\'s own layer order under the default direction (got "' + seedL.text + '")');
+    ok(back.ok && back.layers.every((l, k) => Math.abs(l.thickness - lopsided.frontLayers[k].thickness) < 1e-3),
+        'seed formula reads back to the design\'s own thicknesses');
+}
+
+// ── neededSymbols ────────────────────────────────────────────────────────────
+console.log('— neededSymbols —');
+{
+    const p = parseStackFormula('LHLHL6HLHLH');
+    const need = neededSymbols(p.atoms, DEFAULT_SYMBOL_MAP);
+    ok(need.join() === 'L,H', 'a run with an inner coefficient needs only its letters (got ' + need.join() + ')');
 }
 
 // ── symbol row edits ─────────────────────────────────────────────────────────
