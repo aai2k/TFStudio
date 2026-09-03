@@ -1,49 +1,96 @@
 import { evaluateDepositionSpectra, evaluateSpectrumTotal } from '../../../../utils/physics/thinFilmMath.js';
 import { getMaterial } from '../../../../utils/materials/materialDatabase.js';
 import { designMaterialLookup } from '../../../../utils/materials/designMaterials.js';
+import { CHAMBER_MEDIUM_ID } from '../../../../utils/monitoring/chamberMedium.js';
+import { chipsInRunOrder } from '../../../../utils/monitoring/monoSim.js';
 
-function resolveLayers(layers, resolveMaterial) {
-    return layers.map((layer, index) => ({
-        id: `${layer.id || index}-${layer.material}`,
-        materialId: layer.material,
-        thickness: layer.thickness,
-        matObj: resolveMaterial(layer.material),
-    }));
+// One side's layers in deposition order, the empty ones dropped. Each keeps
+// its step over the whole side, so a chip plan indexed by step still applies
+// after the drop, and carries the thickness the piece being read receives.
+function resolveLayers(layers, resolveMaterial, { chipByStep = null, witnessRatio = 1 } = {}) {
+    return layers
+        .map((layer, step) => ({ layer, step }))
+        .filter(({ layer }) => layer && layer.thickness > 0)
+        .map(({ layer, step }, index) => ({
+            id: `${layer.id || index}-${layer.material}`,
+            step,
+            materialId: layer.material,
+            partThickness: layer.thickness,
+            thickness: layer.thickness * witnessRatio,
+            matObj: resolveMaterial(layer.material),
+            chip: chipByStep ? (chipByStep[step] ?? 1) : null,
+        }));
 }
 
-export function buildDepositionModel(design, activeSide) {
-    let model;
+/**
+ * The run as the exporter models it: the active side in deposition order, the
+ * other side, and the media the spectrum is read through.
+ *
+ * The part or the witness chip sits in the chamber, so the spectrum the
+ * monitor sees has air on both sides of it whatever media the design is
+ * embedded in.
+ *
+ * With `chips` the run is split over witness chips: each layer carries its
+ * chip number and the thickness the witness receives, the substrate is the
+ * chip glass, and `chips` lists the chips in the order they enter the run with
+ * the deposition indices on each.
+ *
+ * @param {object|null} chips  { chipByStep, chipMaterial, witnessRatio } for a
+ *                             witness-chip run, null for the part
+ */
+export function buildDepositionModel(design, activeSide, chips = null) {
     if (!design) {
-        model = {
-            activeDep: [], otherDep: [], materials: [],
-            incidentMat: getMaterial('Air'), substrateMat: getMaterial('BK7'),
+        return {
+            activeDep: [], otherDep: [], materials: [], chips: null,
+            incidentMat: getMaterial('Air'), substrateId: null, substrateMat: getMaterial('BK7'),
             exitMat: getMaterial('Air'), substrateThk: 1.0,
         };
-    } else {
-        const resolveMaterial = designMaterialLookup(design);
-        // Front layers are stored outermost-to-substrate; back layers are stored
-        // substrate-to-exit. Deposition order is substrate-side first on both sides.
-        const frontStored = (design.frontLayers || []).filter(layer => layer && layer.thickness > 0);
-        const backStored = (design.backLayers || []).filter(layer => layer && layer.thickness > 0);
-        const frontDep = [...frontStored].reverse();
-        const backDep = backStored.slice();
-        const active = activeSide === 'front' ? frontDep : backDep;
-        const other = activeSide === 'front' ? backDep : frontDep;
-        const activeDep = resolveLayers(active, resolveMaterial);
-        const otherDep = resolveLayers(other, resolveMaterial);
-        const materialIds = new Set();
-        for (const layer of [...activeDep, ...otherDep]) materialIds.add(layer.materialId);
-        model = {
-            activeDep,
-            otherDep,
-            materials: Array.from(materialIds),
-            incidentMat: resolveMaterial(design.incidentMedium),
-            substrateMat: resolveMaterial(design.substrate?.material),
-            exitMat: resolveMaterial(design.exitMedium),
-            substrateThk: design.substrate?.thickness ?? 1.0,
-        };
     }
-    return model;
+    const resolveMaterial = designMaterialLookup(design);
+    // Front layers are stored outermost-to-substrate; back layers are stored
+    // substrate-to-exit. Deposition order is substrate-side first on both sides.
+    const frontDep = [...(design.frontLayers || [])].reverse();
+    const backDep = (design.backLayers || []).slice();
+    const active = activeSide === 'front' ? frontDep : backDep;
+    const other = activeSide === 'front' ? backDep : frontDep;
+    const activeDep = resolveLayers(active, resolveMaterial, chips
+        ? { chipByStep: chips.chipByStep, witnessRatio: chips.witnessRatio || 1 }
+        : {});
+    const otherDep = resolveLayers(other, resolveMaterial);
+    const materialIds = new Set();
+    for (const layer of [...activeDep, ...otherDep]) materialIds.add(layer.materialId);
+    const air = resolveMaterial(CHAMBER_MEDIUM_ID);
+    const substrateId = (chips && chips.chipMaterial) || design.substrate?.material || null;
+    return {
+        activeDep,
+        otherDep,
+        materials: Array.from(materialIds),
+        chips: chips ? chipsInRunOrder(activeDep.map(layer => layer.chip)) : null,
+        incidentMat: air,
+        substrateId,
+        substrateMat: resolveMaterial(substrateId),
+        exitMat: air,
+        substrateThk: design.substrate?.thickness ?? 1.0,
+    };
+}
+
+/**
+ * Every material the spectrum is computed with, for the data-range check: the
+ * chamber medium, the glass of the piece, the layers being deposited, and the
+ * other side's layers when the part is read with them on. The design's own
+ * media are not among them, because the piece is read in air.
+ *
+ * @returns {{ id: string, material: object }[]}
+ */
+export function evaluatedMaterials(deposition, secondSurface) {
+    const asEntry = layer => ({ id: layer.materialId, material: layer.matObj });
+    const withOther = !deposition.chips && secondSurface === 'coated';
+    return [
+        { id: CHAMBER_MEDIUM_ID, material: deposition.incidentMat },
+        { id: deposition.substrateId, material: deposition.substrateMat },
+        ...deposition.activeDep.map(asEntry),
+        ...(withOther ? deposition.otherDep.map(asEntry) : []),
+    ];
 }
 
 export function effectiveRate(rates, materialId) {
@@ -93,19 +140,30 @@ export function deriveProgressState(progress, cumulativeTimes, layerTimes, layer
     return state;
 }
 
-function partialDepositionState(activeDep, layerIdx, frac) {
-    return activeDep.map((layer, index) => {
+// The stack on the piece the current layer grows on, in deposition order:
+// the layers before it at full thickness, the current one at `frac`, the rest
+// at zero. On witness chips only the layers assigned to that chip are on the
+// piece, and before the first layer there is nothing on it.
+function partialDepositionState(activeDep, layerIdx, frac, chips) {
+    const chip = chips && layerIdx >= 1 ? activeDep[layerIdx - 1].chip : null;
+    const state = [];
+    activeDep.forEach((layer, index) => {
+        if (chips && layer.chip !== chip) return;
         const depositionNumber = index + 1;
         let thickness = 0;
         if (depositionNumber < layerIdx) thickness = layer.thickness;
         if (depositionNumber === layerIdx) {
             thickness = layer.thickness * Math.max(0, Math.min(1, frac));
         }
-        return { material: layer.matObj, thickness };
+        state.push({ material: layer.matObj, thickness });
     });
+    return state;
 }
 
+// A witness chip is grown like a front coating whichever side of the part the
+// run deposits, and its back face is bare.
 function storageStacks(options, activeState) {
+    if (options.chips) return { frontStored: [...activeState].reverse(), backStored: [] };
     let frontStored;
     let backStored;
     if (options.activeSide === 'front') {
@@ -122,19 +180,23 @@ function storageStacks(options, activeState) {
     return { frontStored, backStored };
 }
 
+function spectrumParams(options) {
+    return {
+        lambdaStart: options.lambdaStart,
+        lambdaEnd: options.lambdaEnd,
+        lambdaStep: options.lambdaStep,
+        theta: options.aoi,
+        polarization: options.polarization,
+    };
+}
+
 export function computeSpectrum(options) {
     // layerIdx is one-based in deposition order; zero represents the uncoated
     // active side. Wavelengths and thicknesses are in nanometers.
-    const activeState = partialDepositionState(options.activeDep, options.layerIdx, options.frac);
+    const activeState = partialDepositionState(options.activeDep, options.layerIdx, options.frac, options.chips);
     const { frontStored, backStored } = storageStacks(options, activeState);
     const spec = evaluateSpectrumTotal(
-        {
-            lambdaStart: options.lambdaStart,
-            lambdaEnd: options.lambdaEnd,
-            lambdaStep: options.lambdaStep,
-            theta: options.aoi,
-            polarization: options.polarization,
-        },
+        spectrumParams(options),
         options.incidentMat,
         options.substrateMat,
         options.exitMat,
@@ -158,32 +220,39 @@ function pickQuantity(spec, quantity) {
 /**
  * The finished-layer spectrum for every step of the run.
  *
- * A front-side run goes through evaluateDepositionSpectra, which computes all
- * steps in one pass over the growing stack. A back-side run keeps the per-step
- * path: its coating grows on the far side of the substrate, where each pass
- * runs at the refracted angle per wavelength, and that geometry is not worth a
- * second kernel for the rarer direction.
+ * A witness-chip run is a short run per chip, each from bare glass, whose
+ * spectra land on the steps of the run its layers occupy. A front-side run on
+ * the part goes through evaluateDepositionSpectra, which computes all steps in
+ * one pass over the growing stack. A back-side run keeps the per-step path:
+ * its coating grows on the far side of the substrate, where each pass runs at
+ * the refracted angle per wavelength, and that geometry is not worth a second
+ * kernel for the rarer direction.
  */
 export function computeStepSpectra(options) {
     if (!options.activeDep.length) return [];
+    const params = spectrumParams(options);
+    const asDeposition = layer => ({ material: layer.matObj, thickness: layer.thickness });
+    if (options.chips) {
+        const out = new Array(options.activeDep.length);
+        for (const { steps } of options.chips) {
+            const specs = evaluateDepositionSpectra(
+                params, options.incidentMat, options.substrateMat, options.exitMat,
+                steps.map(index => asDeposition(options.activeDep[index])), [], options.substrateThk,
+            );
+            steps.forEach((index, k) => { out[index] = pickQuantity(specs[k], options.quantity); });
+        }
+        return out;
+    }
     if (options.activeSide === 'front') {
-        const deposition = options.activeDep.map(
-            layer => ({ material: layer.matObj, thickness: layer.thickness }));
         const backStored = options.secondSurface === 'coated'
-            ? options.otherDep.map(layer => ({ material: layer.matObj, thickness: layer.thickness }))
+            ? options.otherDep.map(asDeposition)
             : [];
         const specs = evaluateDepositionSpectra(
-            {
-                lambdaStart: options.lambdaStart,
-                lambdaEnd: options.lambdaEnd,
-                lambdaStep: options.lambdaStep,
-                theta: options.aoi,
-                polarization: options.polarization,
-            },
+            params,
             options.incidentMat,
             options.substrateMat,
             options.exitMat,
-            deposition,
+            options.activeDep.map(asDeposition),
             backStored,
             options.substrateThk,
         );

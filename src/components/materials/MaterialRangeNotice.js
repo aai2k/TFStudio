@@ -8,7 +8,7 @@
  * user may well want to see; the banner says what part of it to distrust.
  */
 import {
-    clampLambdaToCovered, clampToCovered, designRangeCoverage,
+    clampLambdaToCovered, clampToCovered, designRangeCoverage, materialsRangeCoverage,
 } from '../../utils/materials/materialRange.js';
 
 const { createElement: h, useMemo } = React;
@@ -87,10 +87,27 @@ function offenderDetail(offenders, t) {
  *             action?: { label: string, onClick: () => void } } | null}
  */
 export function useMaterialRangeNotice(design, fromNm, toNm, t, onFix) {
-    const { offenders, covered } = useMemo(
+    const coverage = useMemo(
         () => designRangeCoverage(design, [fromNm, toNm]),
         [design, fromNm, toNm],
     );
+    return useCoverageNotice(coverage, fromNm, toNm, t, onFix);
+}
+
+/**
+ * The same notice for a window that computes with a stack other than the
+ * design's own. `materials` is `[{ id, material }]`, every material the window
+ * evaluates, memoized by the caller.
+ */
+export function useMaterialsRangeNotice(materials, fromNm, toNm, t, onFix) {
+    const coverage = useMemo(
+        () => materialsRangeCoverage(materials, [fromNm, toNm]),
+        [materials, fromNm, toNm],
+    );
+    return useCoverageNotice(coverage, fromNm, toNm, t, onFix);
+}
+
+function useCoverageNotice({ offenders, covered }, fromNm, toNm, t, onFix) {
     return useMemo(() => {
         if (!offenders.length) return null;
         const fixed = onFix ? clampToCovered(covered, [fromNm, toNm]) : null;

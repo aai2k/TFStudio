@@ -1,14 +1,18 @@
 import {
     buildCumulativeTimes, buildDepositionModel, buildLayerTimes, deriveProgressState,
-    stepSeekTime,
+    evaluatedMaterials, stepSeekTime,
 } from './model.js';
 
 const { useState, useEffect, useMemo } = React;
 
-export function useDepositionState(design, setup) {
+export function useDepositionState(design, setup, chipPlan = null) {
     const deposition = useMemo(
-        () => buildDepositionModel(design, setup.activeSide),
-        [design, setup.activeSide],
+        () => buildDepositionModel(design, setup.activeSide, chipPlan),
+        [design, setup.activeSide, chipPlan],
+    );
+    const evaluated = useMemo(
+        () => evaluatedMaterials(deposition, setup.secondSurface),
+        [deposition, setup.secondSurface],
     );
     const layerTimes = useMemo(
         () => buildLayerTimes(deposition.activeDep, setup.rates),
@@ -100,6 +104,7 @@ export function useDepositionState(design, setup) {
 
     return {
         ...deposition,
+        evaluatedMaterials: evaluated,
         N: deposition.activeDep.length,
         layerTimes, totalTime, cumTimes,
         progress, playing,

@@ -33,8 +33,8 @@
 
 import { autoMonoStrategy } from './monitorTable.js';
 import {
-    findExtrema, isFlatCurve, nearestExtremum, sampleLayerCurve, signalAt, slopeAtCut,
-    terminationError,
+    isFlatCurve, nearestExtremum, sampleLayerCurve, scanExtrema, signalAt, signalErrorOf,
+    slopeAtCut, terminationError,
 } from './worksheetSignal.js';
 
 // Layers already on the chip, written outermost first as the signal model wants.
@@ -71,13 +71,6 @@ function swingFigures({ sStart, sCut, reference, next }) {
     };
 }
 
-// The monitor's own error on a reading: the relative error of the reading
-// plus the photometric floor. The floor is what makes a saturated-stopband
-// wavelength score as unusable instead of as noiseless.
-function signalErrorAt(cfg, sCut) {
-    return (cfg.signalErrorPct / 100) * Math.abs(sCut) + (cfg.absSignalErrorPct || 0) / 100;
-}
-
 function terminationFigures({ ctx, dCut, extrema, flat, signalError }) {
     const strategy = dCut > 0 ? autoMonoStrategy({ thickness: dCut }, ctx.curMat, ctx.lam) : 'time';
     // A flat curve has no slope either; the arithmetic residue of a central
@@ -96,18 +89,18 @@ function chartCurve(curve, xStart, xPerNm) {
     return { x: Array.from(curve.d, d => xStart + d * xPerNm), y: Array.from(curve.s) };
 }
 
-function buildRow({ layer, chip, onChip, ctx, geom, cfg, chipStartLevel, chipExtrema, xStart }) {
+function buildRow({ layer, chip, onChip, ctx, geom, cfg, noise, chipStartLevel, chipExtrema, xStart }) {
     const dCut = layer.thickness;
     const curve = sampleLayerCurve(ctx, dCut, geom.dQW, cfg.coarse);
     const sStart = curve.s[0];
     const sCut = dCut > 0 ? signalAt(ctx, dCut) : sStart;
-    const signalError = signalErrorAt(cfg, sCut);
+    const signalError = signalErrorOf(noise, sCut);
     // A layer whose whole swing is smaller than the monitor's own error
     // cannot be seen to move: no turning points, no slope, nothing to stop
     // on. A layer of the chip's own index is the extreme case; a layer deep
     // in a saturated stopband is the common one.
     const flat = isFlatCurve(curve, signalError);
-    const extrema = flat ? [] : findExtrema(curve);
+    const extrema = flat ? [] : scanExtrema(curve);
     // A quarter-wave layer is stopped on its own turning point, and the refined
     // extremum lands either side of the cut by up to a sample. Within one
     // sample of the cut the turning point is the cut's own.
@@ -169,6 +162,12 @@ export function buildChipRows({ chip, layers, lam, sys, resolveMat, opts }) {
     const chipExtrema = [];
     const rows = [];
     let chipStartLevel = null;
+    // The monitor's error as fractions of full scale, from the percentages the
+    // window works in.
+    const noise = {
+        relFrac: opts.signalErrorPct / 100,
+        absFrac: (opts.absSignalErrorPct || 0) / 100,
+    };
 
     for (let i = 0; i < layers.length; i++) {
         const layer = layers[i];
@@ -176,7 +175,7 @@ export function buildChipRows({ chip, layers, lam, sys, resolveMat, opts }) {
         const ctx = { lam, curMat, ...stackBelow(deposited), sys };
         const geom = { dQW: quarterWave(curMat, lam), xPerNm: layer.xPerNm };
         const built = buildRow({
-            layer, chip, onChip: i + 1, ctx, geom, cfg: opts,
+            layer, chip, onChip: i + 1, ctx, geom, cfg: opts, noise,
             chipStartLevel, chipExtrema, xStart: layer.xStart,
         });
         if (i === 0) chipStartLevel = built.row.signalStart;

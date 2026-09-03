@@ -25,8 +25,10 @@
  * produced for Windows 8.18n).
  */
 
-import { evaluateSpectrumTotal } from '../physics/thinFilmMath.js';
+import { evaluateDepositionSpectra, evaluateSpectrumTotal } from '../physics/thinFilmMath.js';
 import { designMaterialLookup } from '../materials/designMaterials.js';
+import { CHAMBER_MEDIUM_ID } from '../monitoring/chamberMedium.js';
+import { chipsInRunOrder } from '../monitoring/monoSim.js';
 
 // ── Formatting helpers ────────────────────────────────────────────────────────
 
@@ -161,6 +163,12 @@ function buildLayerTable(allLayers, stepK, controlLambda) {
  *   cfg.appVersion     — string, TFStudio version stamped in the header.
  *   cfg.projectLabel   — string, optional project / design label for the
  *                        4th header line (defaults to the design name).
+ *   cfg.comment        the design comment line of the header; 'No comment'
+ *                        when absent. A witness-chip file names the design
+ *                        layer it belongs to here.
+ *   cfg.spectrum       the step's spectrum when the run was evaluated in one
+ *                        pass, in the shape evaluateSpectrumTotal returns;
+ *                        evaluated here from the layer state otherwise.
  * @returns {string} .res file content with CRLF line endings (ASCII-safe).
  */
 export function buildResFileContent(cfg) {
@@ -168,16 +176,79 @@ export function buildResFileContent(cfg) {
         designName, controlLambda, aoi, polarization, quantity,
         lambdaStart, lambdaEnd, lambdaStep,
         allLayers, stepK,
-        substrateMat, substrateThk,
-        incidentMat, exitMat,
-        otherSideLayers, activeSide,
         outputDir = '',
         appVersion = '',
         projectLabel = '',
     } = cfg;
 
-    // ── 1. Build partial-deposition state in DEPOSITION ORDER ────────────────
     const N = allLayers.length;
+
+    // Use spec.lambda as the authoritative wavelength array — building a
+    // parallel local grid risks a length mismatch (multiplication vs the
+    // engine's float-accumulation loop) that puts undefined in the last row.
+    const spec = cfg.spectrum || stepSpectrum(cfg);
+    const lambdas = spec.lambda;
+    const nPoints = lambdas.length;
+
+    const series = (quantity === 'R') ? spec.R
+                 : (quantity === 'A') ? spec.A
+                 :                       spec.T;
+
+    // ── Assemble file ───────────────────────────────────────────────────────
+    const lines = [];
+    const CRLF = '\r\n';
+
+    // Header — line count matches the original .res 5-line block so
+    // parsers that use fixed line offsets still locate the layer table and
+    // spectrum at the expected positions.
+    const verStr = appVersion ? `, version: ${asciiSafe(appVersion)}` : '';
+    const dirStr = outputDir
+        ? asciiSafe(outputDir).replace(/[\\/]+$/, '') + '\\'
+        : '';
+    const projStr = asciiSafe(projectLabel || designName || '');
+    lines.push(`TFStudio Process Deposition Report${verStr}`);
+    lines.push(timestampString());
+    lines.push(`Output directory:  ${dirStr}`);
+    lines.push(`Project:           ${projStr}`);
+    lines.push('**********************************************************');
+    lines.push('');
+    lines.push(`Design: ${asciiSafe(designName)}`);
+    lines.push(`Comment: ${asciiSafe(cfg.comment || 'No comment')}`);
+    lines.push(`The number of layers = ${N}`);
+    lines.push(`Control wavelength   = ${controlLambda} nm`);
+    lines.push('Match angle          = 0 deg');
+    lines.push('Match medium         = 1.000000    ');
+    lines.push('');
+    lines.push(buildLayerTable(allLayers, stepK, controlLambda));
+    lines.push('');
+    lines.push(`Target file: ${Math.round(lambdaStart)}-${Math.round(lambdaEnd)} `);
+    lines.push('Comment: No comment');
+    lines.push('');
+    lines.push(`Spectral characteristics: ${nPoints} points`);
+    lines.push('');
+    lines.push(`Page # 1,  Angle of incidence = ${aoi.toFixed(2).padStart(5)}`);
+    lines.push(` Wavelength      ${tagForQuantity(quantity)}    `);
+
+    for (let i = 0; i < lambdas.length; i++) {
+        const val_pct = series[i] * 100;
+        lines.push(`${fmtFixed(lambdas[i], 10, 4)}    ${val_pct.toFixed(5)}`);
+    }
+
+    return lines.join(CRLF) + CRLF;
+}
+
+// The spectrum of one step evaluated from its own partial stack: layers 1..k
+// at full thickness, the rest at zero, over the whole system. A back-side run
+// takes this path for every step; a front-side run and a witness chip are
+// evaluated in one pass instead (see processFileSteps).
+function stepSpectrum(cfg) {
+    const {
+        aoi, polarization, lambdaStart, lambdaEnd, lambdaStep,
+        allLayers, stepK, substrateMat, substrateThk,
+        incidentMat, exitMat, otherSideLayers, activeSide,
+    } = cfg;
+
+    // ── 1. Build partial-deposition state in DEPOSITION ORDER ────────────────
     const activeStateDep = allLayers.map((l, i) => ({
         materialId: l.materialId,
         matObj:     l.matObj,
@@ -202,65 +273,14 @@ export function buildResFileContent(cfg) {
         frontStored = [...otherSideLayers].reverse();
     }
 
-    // ── 3 + 4. Spectrum (engine builds the lambda grid internally) ───────────
-    // Use spec.lambda as the authoritative wavelength array — building a
-    // parallel local grid risks a length mismatch (multiplication vs the
-    // engine's float-accumulation loop) that puts undefined in the last row.
-    const spec = evaluateSpectrumTotal(
+    // ── 3. Spectrum (engine builds the lambda grid internally) ──────────────
+    return evaluateSpectrumTotal(
         { lambdaStart, lambdaEnd, lambdaStep, theta: aoi, polarization },
         incidentMat, substrateMat, exitMat,
         frontStored.map(l => ({ material: l.matObj, thickness: l.thickness })),
         backStored .map(l => ({ material: l.matObj, thickness: l.thickness })),
         substrateThk,
     );
-    const lambdas = spec.lambda;
-    const nPoints = lambdas.length;
-
-    const series = (quantity === 'R') ? spec.R
-                 : (quantity === 'A') ? spec.A
-                 :                       spec.T;
-
-    // ── 5. Assemble file ────────────────────────────────────────────────────
-    const lines = [];
-    const CRLF = '\r\n';
-
-    // Header — line count matches the original .res 5-line block so
-    // parsers that use fixed line offsets still locate the layer table and
-    // spectrum at the expected positions.
-    const verStr = appVersion ? `, version: ${asciiSafe(appVersion)}` : '';
-    const dirStr = outputDir
-        ? asciiSafe(outputDir).replace(/[\\/]+$/, '') + '\\'
-        : '';
-    const projStr = asciiSafe(projectLabel || designName || '');
-    lines.push(`TFStudio Process Deposition Report${verStr}`);
-    lines.push(timestampString());
-    lines.push(`Output directory:  ${dirStr}`);
-    lines.push(`Project:           ${projStr}`);
-    lines.push('**********************************************************');
-    lines.push('');
-    lines.push(`Design: ${asciiSafe(designName)}`);
-    lines.push('Comment: No comment');
-    lines.push(`The number of layers = ${N}`);
-    lines.push(`Control wavelength   = ${controlLambda} nm`);
-    lines.push('Match angle          = 0 deg');
-    lines.push('Match medium         = 1.000000    ');
-    lines.push('');
-    lines.push(buildLayerTable(allLayers, stepK, controlLambda));
-    lines.push('');
-    lines.push(`Target file: ${Math.round(lambdaStart)}-${Math.round(lambdaEnd)} `);
-    lines.push('Comment: No comment');
-    lines.push('');
-    lines.push(`Spectral characteristics: ${nPoints} points`);
-    lines.push('');
-    lines.push(`Page # 1,  Angle of incidence = ${aoi.toFixed(2).padStart(5)}`);
-    lines.push(` Wavelength      ${tagForQuantity(quantity)}    `);
-
-    for (let i = 0; i < lambdas.length; i++) {
-        const val_pct = series[i] * 100;
-        lines.push(`${fmtFixed(lambdas[i], 10, 4)}    ${val_pct.toFixed(5)}`);
-    }
-
-    return lines.join(CRLF) + CRLF;
 }
 
 // ── Public driver: build all step files for one save action ───────────────────
@@ -274,50 +294,104 @@ export function buildResFileContent(cfg) {
 //   aoi           degrees
 //   polarization  'avg' | 's' | 'p'
 //   lambdaStart, lambdaEnd, lambdaStep    nm
+//   chips         { chipByStep, chipMaterial, witnessRatio } for a run read on
+//                 witness chips, null for the part
 //
-// Returns [{ filename, content }] — one entry per deposition step.
+// Returns [{ filename, content }]: one entry per deposition step, with a
+// `subdir` per chip on a witness-chip run.
 
 export function buildAllProcessFiles(design, opts) {
+    return Array.from(processFileSteps(design, opts), step => step.file);
+}
+
+/**
+ * The files of one save, one per step, produced in order as
+ * `{ file, index, total }` so a caller can write them, or hand the window a
+ * turn, between steps.
+ *
+ * A front-side run is one growing stack on a fixed back, and a witness chip
+ * is one on bare glass, so their spectra come from one pass over the run
+ * before the first file: the work then grows with the layer count, not with
+ * its square. A back-side run grows behind the substrate, where there is no
+ * growing kernel, so each of its steps is evaluated as its file is built.
+ */
+export function* processFileSteps(design, opts) {
     const {
         activeSide, secondSurface, quantity, aoi, polarization,
         lambdaStart, lambdaEnd, lambdaStep,
         outputDir = '',
         appVersion = '',
         projectLabel = '',
+        chips = null,
     } = opts;
 
     const resolveMaterial = designMaterialLookup(design);
     const controlLambda = design.referenceWavelength || 550;
-    const incidentMat   = resolveMaterial(design.incidentMedium);
-    const exitMat       = resolveMaterial(design.exitMedium);
-    const substrateMat  = resolveMaterial(design.substrate?.material);
-    const substrateThk  = design.substrate?.thickness || 1.0;
+    // The part or the chip sits in the chamber: air on both sides of it,
+    // whatever media the design is embedded in. The header's match medium of
+    // 1.0 tells the monitoring software the same.
+    const air          = resolveMaterial(CHAMBER_MEDIUM_ID);
+    const substrateMat = resolveMaterial((chips && chips.chipMaterial) || design.substrate?.material);
+    const substrateThk = design.substrate?.thickness || 1.0;
 
-    // Build the ACTIVE coating in deposition order (substrate-side first).
-    // frontLayers storage: substrate-side LAST  → reverse
-    // backLayers  storage: substrate-side FIRST → as-is
-    const activeStoredRaw =
-        (activeSide === 'front' ? design.frontLayers : design.backLayers) || [];
-    const otherStoredRaw  =
-        (activeSide === 'front' ? design.backLayers  : design.frontLayers) || [];
+    // Deposition order, substrate side first, over every layer of the side so
+    // a chip plan indexed by step still applies once the empty layers are
+    // dropped. frontLayers storage is substrate-side last, backLayers storage
+    // substrate-side first.
+    const frontStored = design.frontLayers || [];
+    const backStored  = design.backLayers || [];
+    const activeAll   = activeSide === 'front' ? [...frontStored].reverse() : backStored.slice();
+    const otherDep    = (activeSide === 'front' ? backStored.slice() : [...frontStored].reverse())
+        .filter(l => l && l.thickness > 0);
 
-    const activeStored = activeStoredRaw.filter(l => l && l.thickness > 0);
-    const otherStored  = otherStoredRaw .filter(l => l && l.thickness > 0);
+    const ratio = chips ? (chips.witnessRatio || 1) : 1;
+    const allLayers = activeAll
+        .map((l, step) => ({ l, chip: chips ? (chips.chipByStep?.[step] ?? 1) : null }))
+        .filter(({ l }) => l && l.thickness > 0)
+        .map(({ l, chip }) => ({
+            materialId: l.material,
+            thickness:  l.thickness * ratio,
+            matObj:     resolveMaterial(l.material),
+            chip,
+        }));
 
-    // Convert to deposition-order arrays
-    const activeDep = activeSide === 'front'
-        ? [...activeStored].reverse()         // top→sub becomes sub→top (deposition order)
-        : activeStored.slice();               // already sub→top
+    const N = allLayers.length;
+    if (N === 0) return;
 
-    const otherDep = activeSide === 'front'
-        ? otherStored.slice()                 // back storage already sub→exit (deposition order)
-        : [...otherStored].reverse();         // front storage top→sub → reverse for deposition order
+    const common = {
+        designName: design.name, controlLambda, aoi, polarization, quantity,
+        lambdaStart, lambdaEnd, lambdaStep, substrateMat, substrateThk,
+        incidentMat: air, exitMat: air, appVersion, projectLabel,
+    };
+    const params = { lambdaStart, lambdaEnd, lambdaStep, theta: aoi, polarization };
+    const asDeposition = l => ({ material: l.matObj, thickness: l.thickness });
+    const padK = (k) => k < 10 ? '0' + k : String(k);
 
-    const allLayers = activeDep.map(l => ({
-        materialId: l.material,
-        thickness:  l.thickness,
-        matObj:     resolveMaterial(l.material),
-    }));
+    if (chips) {
+        // Each chip is its own short run from bare glass, grown like a front
+        // coating whichever side of the part the run deposits, back face bare.
+        // Its files go in a folder of their own, numbered from 01 on the chip,
+        // and each one names the design layer it belongs to.
+        let index = 0;
+        for (const { chip, steps } of chipsInRunOrder(allLayers.map(l => l.chip))) {
+            const subdir = `chip-${chip}`;
+            const chipLayers = steps.map(i => allLayers[i]);
+            const spectra = evaluateDepositionSpectra(
+                params, air, substrateMat, air, chipLayers.map(asDeposition), [], substrateThk);
+            for (let k = 1; k <= chipLayers.length; k++) {
+                const content = buildResFileContent({
+                    ...common, allLayers: chipLayers, stepK: k, spectrum: spectra[k - 1],
+                    otherSideLayers: [], activeSide: 'front',
+                    outputDir: outputDir ? `${outputDir.replace(/[\\/]+$/, '')}\\${subdir}` : subdir,
+                    comment: `Witness chip ${chip}, layer ${k} of ${chipLayers.length} on the chip: `
+                        + `design layer ${steps[k - 1] + 1} of ${N}`,
+                });
+                index += 1;
+                yield { file: { subdir, filename: `${padK(k)}.res`, content }, index, total: N };
+            }
+        }
+        return;
+    }
 
     const otherSideLayers = (secondSurface === 'coated')
         ? otherDep.map(l => ({
@@ -327,34 +401,18 @@ export function buildAllProcessFiles(design, opts) {
         }))
         : [];
 
-    const N = allLayers.length;
-    if (N === 0) return [];
-
-    const files = [];
-    const padK = (k) => k < 10 ? '0' + k : String(k);
+    // The other side of a front-side run is the back coating, whose deposition
+    // order is its storage order.
+    const spectra = activeSide === 'front'
+        ? evaluateDepositionSpectra(params, air, substrateMat, air,
+            allLayers.map(asDeposition), otherSideLayers.map(asDeposition), substrateThk)
+        : null;
 
     for (let k = 1; k <= N; k++) {
         const content = buildResFileContent({
-            designName:  design.name,
-            controlLambda,
-            aoi,
-            polarization,
-            quantity,
-            lambdaStart, lambdaEnd, lambdaStep,
-            allLayers,
-            stepK: k,
-            substrateMat,
-            substrateThk,
-            incidentMat,
-            exitMat,
-            otherSideLayers,
-            activeSide,
-            outputDir,
-            appVersion,
-            projectLabel,
+            ...common, allLayers, stepK: k, otherSideLayers, activeSide, outputDir,
+            spectrum: spectra ? spectra[k - 1] : null,
         });
-        files.push({ filename: `${padK(k)}.res`, content });
+        yield { file: { filename: `${padK(k)}.res`, content }, index: k, total: N };
     }
-
-    return files;
 }

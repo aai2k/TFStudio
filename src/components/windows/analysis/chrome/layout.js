@@ -87,6 +87,24 @@ export function ModeRow({ c, children, ...rest }) {
     }, children);
 }
 
+/**
+ * Progress of a run that takes seconds to minutes: a hairline under the control
+ * row while it is going, and nothing at all once it is done.
+ *
+ *   progress  { i, total }
+ */
+export function ProgressHairline({ c, progress }) {
+    return h('div', { style: { height: 3, background: c.border, flexShrink: 0 } },
+        h('div', {
+            style: {
+                height: '100%', background: c.accent,
+                width: progress.total ? `${100 * progress.i / progress.total}%` : '0%',
+                transition: 'width 100ms linear',
+            },
+        }),
+    );
+}
+
 /** The plot itself: takes the space left over and clips rather than scrolls. */
 export function PlotArea({ children, relative = false }) {
     return h('div', {

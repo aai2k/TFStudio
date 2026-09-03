@@ -6,8 +6,8 @@
  * span when the file states no range, and a warning raised on that span would
  * fire for materials whose real range nobody knows.
  */
-const { materialRangeNm, rangeExceeds, designRangeCoverage, uncoveredRegions, clampToCovered,
-  clampLambdaToCovered } =
+const { materialRangeNm, rangeExceeds, designRangeCoverage, materialsRangeCoverage,
+  uncoveredRegions, clampToCovered, clampLambdaToCovered } =
   await import(new URL('../src/utils/materials/materialRange.js', import.meta.url));
 
 let passed = 0;
@@ -96,6 +96,42 @@ const designWith = (materials) => ({
   const touching = designRangeCoverage(narrow, [400, 700]);
   ok(touching.offenders.length === 0,
     'a range exactly touching the narrowest material does not warn');
+}
+
+// ── materialsRangeCoverage: the same rule over an explicit material list ───
+//
+// For a window that computes with a stack other than the design's own: the
+// Process Exporter reads the part or a witness chip in air, so it checks the
+// materials in the chamber rather than the design's.
+{
+  const entries = [
+    { id: 'Air', material: { id: 'Air', name: 'Air' } },
+    { id: 'x:chip', material: declared('x:chip', 0.35, 2.0) },
+    { id: 'x:narrow', material: declared('x:narrow', 0.4, 0.7) },
+    { id: 'x:narrow', material: declared('x:narrow', 0.4, 0.7) },
+    { id: null, material: declared('unset', 0.5, 0.6) },
+  ];
+
+  const outside = materialsRangeCoverage(entries, [300, 900]);
+  ok(outside.offenders.map(item => item.id).join() === 'x:chip,x:narrow',
+    'each declared material short of the range is reported once, in list order');
+  ok(outside.covered[0] === 400 && outside.covered[1] === 700,
+    'covered is the intersection of the declared ranges');
+
+  const inside = materialsRangeCoverage(entries, [450, 650]);
+  ok(inside.offenders.length === 0, 'a range inside every material warns about nothing');
+
+  ok(materialsRangeCoverage([], [300, 900]).covered === null,
+    'no materials, no known covered span');
+  ok(materialsRangeCoverage(entries, null).offenders.length === 0, 'no range, no offenders');
+
+  // designRangeCoverage is the same check over the design's resolved materials.
+  const viaDesign = designRangeCoverage(
+    designWith({ 'x:sub': declared('x:sub', 0.35, 2.0), 'x:narrow': declared('x:narrow', 0.4, 0.7) }),
+    [300, 900]);
+  ok(viaDesign.offenders.map(item => item.id).join() === 'x:sub,x:narrow'
+    && viaDesign.covered[0] === 400 && viaDesign.covered[1] === 700,
+    'a design resolves to the same offenders and covered span');
 }
 
 // ── A defaulted range never warns, even far outside it ─────────────────────

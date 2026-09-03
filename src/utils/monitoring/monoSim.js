@@ -37,5 +37,6 @@ export { mulberry32, deriveSeed, makeShiftedMaterial } from './monitoringSim.js'
 export { pickMonitoringPlan, autoMonoStrategy, defaultMonoTable } from './monoSim/monitorTable.js';
 export { simulateRunMono } from './monoSim/simulateRunMono.js';
 export {
-    assignChips, autoChipLambdas, buildMonitorWorksheet, depositionOrder, WORKSHEET_DEFAULTS,
+    assignChips, autoChipLambdas, buildMonitorWorksheet, chipsInRunOrder, depositionOrder,
+    WORKSHEET_DEFAULTS,
 } from './monoSim/worksheet.js';

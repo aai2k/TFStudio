@@ -111,12 +111,11 @@ export function isFlatCurve({ s }, floor = 0) {
 }
 
 /**
- * Local extrema of a sampled curve, each refined off the sampling grid. A flat
- * curve has none: its ripple is arithmetic, not signal.
+ * Local extrema of a sampled curve, each refined off the sampling grid, with
+ * no check that the curve is worth reading: a caller that has already judged
+ * that with isFlatCurve uses this directly.
  */
-export function findExtrema(curve) {
-    if (isFlatCurve(curve)) return [];
-    const { d, s, h } = curve;
+export function scanExtrema({ d, s, h }) {
     const out = [];
     for (let k = 1; k < s.length - 1; k++) {
         const a = s[k - 1], b = s[k], c = s[k + 1];
@@ -125,6 +124,24 @@ export function findExtrema(curve) {
         if (isMax || isMin) out.push(refineExtremum({ dAt: d[k], h, a, b, c, isMax }));
     }
     return out;
+}
+
+/**
+ * Local extrema of a sampled curve. A flat curve has none: its ripple is
+ * arithmetic, not signal.
+ */
+export function findExtrema(curve) {
+    return isFlatCurve(curve) ? [] : scanExtrema(curve);
+}
+
+/**
+ * The monitor's own error on a reading: its relative error times the reading
+ * plus the photometric floor, both as fractions of full scale. The floor is
+ * what makes a saturated-stopband wavelength score as unusable instead of as
+ * noiseless.
+ */
+export function signalErrorOf(noise, reading) {
+    return noise.relFrac * Math.abs(reading) + noise.absFrac;
 }
 
 /** dS/dd at the cut, by central difference on the exact signal. */

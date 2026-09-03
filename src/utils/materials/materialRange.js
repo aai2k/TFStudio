@@ -77,16 +77,38 @@ function normalizedRange(evaluated) {
  *          over which no value is clamped or extrapolated.
  */
 export function designRangeCoverage(design, evaluated) {
+    const materials = [];
+    for (const id of designMaterialIds(design)) {
+        const { material, status } = resolveDesignMaterial(design, id);
+        if (status !== 'missing' && status !== 'unset') materials.push({ id, material });
+    }
+    return materialsRangeCoverage(materials, evaluated);
+}
+
+/**
+ * The same check over an explicit set of materials, for a window that computes
+ * with a stack other than the design's own. The Process Exporter reads the part
+ * or a witness chip in air, so the design's media are not evaluated there and
+ * the chip glass, which the design does not list, is.
+ *
+ * @param   {{ id: string, material: object }[]} materials  a material listed
+ *          twice is checked once; an entry without an id has nothing to check
+ * @param   {[number, number]} evaluated `[fromNm, toNm]`, either order
+ * @returns {{ offenders: {id: string, name: string, rangeNm: [number, number]}[],
+ *             covered: [number, number]|null }}
+ */
+export function materialsRangeCoverage(materials, evaluated) {
     const span = normalizedRange(evaluated);
     if (!span) return { offenders: [], covered: null };
 
     const offenders = [];
+    const seen = new Set();
     let low = -Infinity;
     let high = Infinity;
 
-    for (const id of designMaterialIds(design)) {
-        const { material, status } = resolveDesignMaterial(design, id);
-        if (status === 'missing' || status === 'unset') continue;
+    for (const { id, material } of materials) {
+        if (!id || seen.has(id)) continue;
+        seen.add(id);
 
         const rangeNm = materialRangeNm(material);
         if (!rangeNm) continue;

@@ -5,7 +5,8 @@
  */
 
 import {
-    findExtrema, nearestExtremum, sampleLayerCurve, signalAt, slopeAtCut, terminationError,
+    findExtrema, nearestExtremum, sampleLayerCurve, signalAt, signalErrorOf, slopeAtCut,
+    terminationError,
 } from './worksheetSignal.js';
 import { CHAMBER_MEDIUM_ID } from '../chamberMedium.js';
 
@@ -42,7 +43,7 @@ function quarterWave(curMat, lam) {
 function scoreLayerAt(ctx, dTarget, noise) {
     const curve = sampleLayerCurve(ctx, dTarget, quarterWave(ctx.curMat, ctx.lam), true);
     const sCut = signalAt(ctx, dTarget);
-    const signalError = noise.relFrac * Math.abs(sCut) + noise.absFrac;
+    const signalError = signalErrorOf(noise, sCut);
 
     const ext = nearestExtremum(findExtrema(curve), dTarget);
     const turning = ext
@@ -77,7 +78,7 @@ function levelCutIsClean(ctx, belowScale, dTarget, noise) {
         : { ...ctx, belowThicks: ctx.belowThicks.map(t => t * belowScale) };
     const curve = sampleLayerCurve(p, dTarget, quarterWave(p.curMat, p.lam), true);
     const sCut = signalAt(p, dTarget);
-    const signalError = noise.relFrac * Math.abs(sCut) + noise.absFrac;
+    const signalError = signalErrorOf(noise, sCut);
     if (Math.abs(sCut - curve.s[0]) < 5 * signalError) return false;
     const startDir = Math.sign(sCut - curve.s[0]) || 1;
     for (let k = 1; k < curve.s.length && curve.d[k] < dTarget - curve.h; k++) {
@@ -120,7 +121,7 @@ function planForLayer({ front, i, resolveMat, sys, ref, candidates, noise }) {
     const refExt = nearestExtremum(
         findExtrema(sampleLayerCurve(refCtx, d, dQWref, true)), d);
     if (refExt && Math.abs(refExt.d - d) <= dQWref / 8) {
-        const sigErr = noise.relFrac * Math.abs(signalAt(refCtx, d)) + noise.absFrac;
+        const sigErr = signalErrorOf(noise, signalAt(refCtx, d));
         const detect = terminationError({
             strategy: 'turning', signalError: sigErr, slope: 0, cutExtremum: refExt,
         });

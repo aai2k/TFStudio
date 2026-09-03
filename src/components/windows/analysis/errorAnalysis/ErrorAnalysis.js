@@ -11,7 +11,7 @@ import { useMaterialRangeNotice } from '../../../materials/MaterialRangeNotice.j
 import { ExportMenu, useCsvExport } from '../../../ui/ExportMenu.js';
 import { csvFromRows, ResultsGrid, ResultsSection } from '../../../ui/ResultsSection.js';
 import { ActionButton } from '../chrome/controls.js';
-import { AnalysisWindow, CenteredMessage, PlotArea } from '../chrome/layout.js';
+import { AnalysisWindow, CenteredMessage, PlotArea, ProgressHairline } from '../chrome/layout.js';
 import { ErrorChart } from './ErrorChart.js';
 import { ErrorControls, ErrorEditor, errorEditorSummary } from './ErrorControls.js';
 import { statisticsColumns, statisticsRows } from './resultTable.js';
@@ -22,19 +22,6 @@ import { useErrorAnalysis } from './useErrorAnalysis.js';
 
 const { createElement: h } = React;
 
-// A run takes seconds to minutes, so its progress gets a hairline under the
-// control row while it is going and nothing at all once it is done.
-function ProgressBar({ progress, c }) {
-    return h('div', { style: { height: 3, background: c.border, flexShrink: 0 } },
-        h('div', {
-            style: {
-                height: '100%', background: c.accent,
-                width: progress.total ? `${100 * progress.i / progress.total}%` : '0%',
-                transition: 'width 100ms linear',
-            },
-        }),
-    );
-}
 
 /** How many trials met the design's spec, and which qualifier failed the most. */
 function SpecStatus({ spec, c, ea }) {
@@ -103,7 +90,7 @@ export function ErrorAnalysis({ c, t }) {
                 rangeNotice,
             ].filter(Boolean),
         }),
-        running && h(ProgressBar, { progress: state.progress, c }),
+        running && h(ProgressHairline, { progress: state.progress, c }),
         h(PlotArea, null,
             result
                 ? h(ErrorChart, { result, char: state.char, c, corridorSigma, showEnvelope })

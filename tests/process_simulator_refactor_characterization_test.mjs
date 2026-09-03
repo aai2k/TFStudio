@@ -25,13 +25,17 @@ const html = renderToStaticMarkup(withDesign(
 assert.match(html, /Deposition sequence/);
 assert.ok(html.length > 10000, 'the full simulator controls render');
 
-// Every setting is on the control row. This window is driven while a run is
-// being set up, and a setting behind a panel is a setting nobody checks.
-for (const label of ['Active side', 'Opposite side', 'Quantity', 'Polarization',
-    'Export step (nm)', 'Show all layers']) {
+// The row holds what defines the run and what is drawn. The monitor's own
+// geometry, the spectral range and the export step are behind the Settings
+// button, so the row fits a docked window without wrapping and rearranging
+// itself on every resize.
+for (const label of ['Active side', 'Deposit on', 'Opposite side', 'Quantity', 'Show all layers']) {
     assert.ok(html.includes(label), `${label} is on the control row`);
 }
-assert.doesNotMatch(html, /aria-expanded/, 'no settings popover holds any of it');
+assert.match(html, /aria-expanded="false"/, 'the settings panel is closed behind its button');
+for (const label of ['Polarization', 'Export step (nm)']) {
+    assert.ok(!html.includes(label), `${label} is a setting, not a row control`);
+}
 
 // A number field is a text field, not type="number": a native number input
 // renders and accepts the decimal separator of the browser locale, so a step of
@@ -58,6 +62,46 @@ assert.equal(timeline.thumbCentre(0), 'calc(0% + 6px)');
 assert.equal(timeline.thumbCentre(1), 'calc(100% - 6px)');
 assert.equal(timeline.thumbCentre(0.5), 'calc(50% + 0px)', 'the midpoint needs no correction');
 assert.match(html, /--tfs-thumb:12px/, 'the CSS thumb size comes from the constant the ticks use');
+
+function renderWith(persisted, withDesignOf) {
+    localStorage.clear();
+    persistence.savePersist(persisted);
+    return renderToStaticMarkup(withDesign(
+        React.createElement(ProcessSimulator, { c, theme: c, t: makeLocale() }), withDesignOf));
+}
+
+// The data-range warning checks the materials the chamber sees. A layer whose
+// data stops at 700 nm raises the notice badge over the default 400-1100 nm
+// range and is quiet once the range is pulled inside its data.
+const narrowDesign = {
+    id: 'narrow', name: 'Narrow',
+    incidentMedium: 'Air', exitMedium: 'Air',
+    substrate: { material: 'builtin:BK7', thickness: 1 },
+    frontLayers: [{ id: 'n1', material: 'x:narrow', thickness: 100 }],
+    backLayers: [],
+    materials: {
+        'x:narrow': {
+            id: 'x:narrow', name: 'Narrow', formulaNum: -1, lambdaMin: 0.4, lambdaMax: 0.7,
+            tabData: [[400, 1.5, 0], [550, 1.5, 0], [700, 1.5, 0]],
+        },
+    },
+};
+assert.match(renderWith({ lambdaStart: 400, lambdaEnd: 1100 }, narrowDesign), /⚠/,
+    'a range past a material\'s data raises the notice badge');
+assert.doesNotMatch(renderWith({ lambdaStart: 450, lambdaEnd: 650 }, narrowDesign), /⚠/,
+    'a range inside every material\'s data raises nothing');
+
+// On witness chips the chip setup sits in the sidebar, whose width is fixed,
+// the opposite-surface choice does not apply, and the sequence table carries
+// the chip column.
+const chipHtml = renderWith({ mode: 'chips' }, narrowDesign);
+for (const label of ['Layers per chip', 'Chip glass', 'Witness ratio']) {
+    assert.ok(chipHtml.includes(label), `${label} is in the sidebar on witness chips`);
+}
+assert.ok(!chipHtml.includes('Opposite side'), 'a witness chip has no opposite-surface choice');
+assert.match(chipHtml, /<colgroup><col style="width:26px"\/><col style="width:50px"\/><col\/>/,
+    'the sequence table gains the chip column');
+localStorage.clear();
 
 const design = {
     id: 'process-model',

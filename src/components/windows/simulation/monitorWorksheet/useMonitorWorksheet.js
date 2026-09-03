@@ -14,8 +14,8 @@ const EMPTY = { rows: [], chips: [], xEnd: 0 };
 
 // A plan entered by hand is only meaningful while it still has one entry per
 // deposited layer; after the stack is edited it is dropped and the chip size
-// takes over again.
-function planForSteps(plan, stepCount) {
+// takes over again. The Process Exporter reads the same plan with this rule.
+export function planForSteps(plan, stepCount) {
     return Array.isArray(plan) && plan.length === stepCount ? plan : null;
 }
 

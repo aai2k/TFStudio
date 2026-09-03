@@ -5,6 +5,9 @@ const { useState, useEffect, useRef } = React;
 export function useSetupState() {
     const persisted = useRef(loadPersist()).current;
     const [activeSide, setActiveSide] = useState(persisted.activeSide || 'front');
+    // What is being read in the chamber: the part, or witness chips that carry
+    // only the layers assigned to them.
+    const [mode, setMode] = useState(persisted.mode === 'chips' ? 'chips' : 'part');
     const [secondSurface, setSecondSurface] = useState(persisted.secondSurface || 'bare');
     const [quantity, setQuantity] = useState(persisted.quantity || 'T');
     const [aoi, setAoi] = useState(persisted.aoi != null ? persisted.aoi : 0);
@@ -19,15 +22,16 @@ export function useSetupState() {
 
     useEffect(() => {
         savePersist({
-            activeSide, secondSurface, quantity, aoi, polarization,
+            activeSide, mode, secondSurface, quantity, aoi, polarization,
             lambdaStart, lambdaEnd, lambdaStep, exportStep, showAll,
             rates, playSpeed,
         });
-    }, [activeSide, secondSurface, quantity, aoi, polarization, lambdaStart,
+    }, [activeSide, mode, secondSurface, quantity, aoi, polarization, lambdaStart,
         lambdaEnd, lambdaStep, exportStep, showAll, rates, playSpeed]);
 
     return {
         activeSide, setActiveSide,
+        mode, setMode,
         secondSurface, setSecondSurface,
         quantity, setQuantity,
         aoi, setAoi,

@@ -25,6 +25,8 @@ function spectrumMedia(deposition) {
 }
 
 export function useSpectra(design, setup, deposition) {
+    // The piece is read in air, so the design's media are not part of the
+    // key; the chip plan and the chip glass are, since they change the stack.
     const spectrumKey = useMemo(() => JSON.stringify({
         activeSide: setup.activeSide,
         secondSurface: setup.secondSurface,
@@ -38,17 +40,18 @@ export function useSpectra(design, setup, deposition) {
         N: deposition.N,
         active: deposition.activeDep.map(layer => `${layer.materialId}@${layer.thickness}`),
         other: deposition.otherDep.map(layer => `${layer.materialId}@${layer.thickness}`),
-        subId: design?.substrate?.material,
+        chips: deposition.chips ? deposition.activeDep.map(layer => layer.chip) : null,
+        subId: deposition.substrateMat?.id ?? deposition.substrateMat?.name ?? null,
         subThk: design?.substrate?.thickness,
-        inc: design?.incidentMedium,
-        exit: design?.exitMedium,
     }), [setup.activeSide, setup.secondSurface, setup.quantity, setup.aoi,
         setup.polarization, setup.lambdaStart, setup.lambdaEnd, setup.lambdaStep,
-        deposition.activeDep, deposition.otherDep, design, deposition.N]);
+        deposition.activeDep, deposition.otherDep, deposition.chips, deposition.substrateMat,
+        design, deposition.N]);
 
     const common = {
         activeDep: deposition.activeDep,
         otherDep: deposition.otherDep,
+        chips: deposition.chips,
         ...setupSpectrumOptions(setup),
         ...spectrumMedia(deposition),
     };

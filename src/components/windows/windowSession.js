@@ -167,11 +167,21 @@ export function createWindowSession(defaults, options = {}) {
         return { ...slots.get(key) };
     }
 
+    // Mounts told after every write, so two windows open on the same values,
+    // the Monitor Worksheet and the Process Exporter on one chip plan, show
+    // the same thing.
+    const subscribers = new Set();
+    function subscribe(fn) {
+        subscribers.add(fn);
+        return () => subscribers.delete(fn);
+    }
+
     /** Merge `patch` into the slot for `design` and return the new values. */
     function write(design, patch) {
         const key = slotFor(design);
         touched = true;
         slots.set(key, normalize({ ...slots.get(key), ...patch }));
+        for (const fn of subscribers) fn();
         return { ...slots.get(key) };
     }
 
@@ -238,7 +248,7 @@ export function createWindowSession(defaults, options = {}) {
         return { ...slots.get(slotFor(design)) };
     }
 
-    const store = { read, write, reset, id, savableKeys: savable, savableValues, rebase };
+    const store = { read, write, reset, subscribe, id, savableKeys: savable, savableValues, rebase };
     if (id) registered.set(id, [...windowSessionStores(id), store]);
     return store;
 }
@@ -272,6 +282,13 @@ export function useWindowSession(store, design) {
     useEffect(() => {
         setState(store.read(design));
     }, [store, design?.id]); // eslint-disable-line react-hooks/exhaustive-deps
+
+    // Another mount of the same store wrote to it: re-read, so two windows on
+    // one value never disagree.
+    useEffect(
+        () => store.subscribe(() => setState(store.read(design))),
+        [store, design?.id], // eslint-disable-line react-hooks/exhaustive-deps
+    );
 
     // Saving or restoring the window's defaults rebases the store underneath an
     // open window, and the preferences file arrives shortly after startup.

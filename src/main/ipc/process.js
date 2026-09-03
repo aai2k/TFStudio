@@ -42,8 +42,13 @@ async function handleSaveFiles(ctx, files, dir) {
     }
     for (const f of files) {
       if (!f?.filename || typeof f.content !== 'string') continue;
-      const safe = safeName(f.filename);
-      fs.writeFileSync(path.join(dir, safe), f.content, 'utf-8');
+      // A witness-chip export puts each chip's files in a folder of its own.
+      let target = dir;
+      if (f.subdir) {
+        target = path.join(dir, safeName(String(f.subdir)));
+        if (!fs.existsSync(target)) fs.mkdirSync(target, { recursive: true });
+      }
+      fs.writeFileSync(path.join(target, safeName(f.filename)), f.content, 'utf-8');
     }
     return { success: true, dir, count: files.length };
   } catch (err) {

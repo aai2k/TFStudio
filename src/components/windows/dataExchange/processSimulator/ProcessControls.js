@@ -1,16 +1,21 @@
 /**
- * The window's one row of controls.
+ * The window's control row and its settings panel.
  *
- * Everything that shapes the spectrum or the export is on the row: this window
- * is driven while a run is being set up, and a setting behind a panel is a
- * setting nobody checks. The row wraps when the dock is narrow.
+ * The row holds what defines the run and what is drawn: the side being
+ * deposited, whether it goes on the part or on witness chips, the state of the
+ * opposite surface, the quantity, and the layer curves. The monitor's geometry,
+ * the spectral range and the export step are settings: they are set once per
+ * instrument, and on the row they wrapped a docked window twice over and moved
+ * every control on each resize.
  */
 
 import {
-    ActionButton, CheckField, ChoiceGroup, Divider, FieldLabel, NumInput, RangeField,
+    ActionButton, CheckField, ChoiceGroup, NumInput, RangeField,
 } from '../../analysis/chrome/controls.js';
 import { ControlRow } from '../../analysis/chrome/layout.js';
-import { NoticeBadge } from '../../analysis/chrome/popover.js';
+import {
+    NoticeBadge, SettingDivider, SettingRow, SettingsMenu,
+} from '../../analysis/chrome/popover.js';
 
 const { createElement: h } = React;
 
@@ -30,24 +35,59 @@ function StatusMessage({ c, status }) {
     }, status.message);
 }
 
-export function ProcessControls({ c, t, sp, setup, deposition, save, notices }) {
+function ProcessSettings({ c, t, sp, setup }) {
+    return h(SettingsMenu, { c, t, label: t.analysisChrome.settings, width: 300 },
+        h(SettingRow, { c, label: sp.polarization },
+            h(ChoiceGroup, {
+                ariaLabel: sp.polarization, activeId: setup.polarization, onSelect: setup.setPolarization, c,
+                items: [{ id: 'avg', label: sp.polAvg }, { id: 's', label: 's' }, { id: 'p', label: 'p' }],
+            }),
+        ),
+        h(SettingRow, { c, label: sp.aoi },
+            h(NumInput, { c, width: 68, value: setup.aoi, min: 0, max: 89, step: 1, onChange: setup.setAoi }),
+        ),
+        h(SettingRow, { c, label: 'λ' },
+            h(RangeField, {
+                c, unit: 'nm', width: 60,
+                from: { value: setup.lambdaStart, min: 100, max: 50000, step: 10, onChange: setup.setLambdaStart },
+                to: { value: setup.lambdaEnd, min: 100, max: 50000, step: 10, onChange: setup.setLambdaEnd },
+            }),
+        ),
+        h(SettingRow, { c, label: sp.step },
+            h(NumInput, {
+                c, width: 68, value: setup.lambdaStep, min: 0.1, max: 100, step: 0.5,
+                onChange: setup.setLambdaStep,
+            }),
+        ),
+        h(SettingDivider, { c }),
+        h(SettingRow, { c, label: sp.exportStep },
+            h(NumInput, {
+                c, width: 68, title: sp.exportStepHint,
+                value: setup.exportStep, min: 0.01, max: 100, step: 0.1,
+                onChange: setup.setExportStep,
+            }),
+        ),
+    );
+}
+
+function saveLabel(sp, save) {
+    if (!save.saving) return sp.saveBtn;
+    return save.progress ? sp.savingStep(save.progress.i, save.progress.total) : sp.saving;
+}
+
+export function ProcessControls({ c, t, sp, setup, deposition, save, notices, chipMode }) {
     const hasActive = deposition.N > 0;
     return h(ControlRow, {
         c,
         trailing: [
             h(NoticeBadge, { key: 'notices', c, notices, label: t.analysisChrome.notices }),
             save.statusMsg && h(StatusMessage, { key: 'status', c, status: save.statusMsg }),
-            h(FieldLabel, { key: 'export-label', c }, sp.exportStep),
-            h(NumInput, {
-                key: 'export-step', c, width: 64, title: sp.exportStepHint,
-                value: setup.exportStep, min: 0.01, max: 100, step: 0.1,
-                onChange: setup.setExportStep,
-            }),
             h(ActionButton, {
-                key: 'save', c, label: save.saving ? sp.saving : sp.saveBtn,
+                key: 'save', c, label: saveLabel(sp, save),
                 title: sp.saveBtn, disabled: !hasActive || save.saving,
                 onClick: save.handleSave,
             }),
+            h(ProcessSettings, { key: 'settings', c, t, sp, setup }),
         ],
     },
         h(ChoiceGroup, {
@@ -58,6 +98,15 @@ export function ProcessControls({ c, t, sp, setup, deposition, save, notices }) 
             ],
         }),
         h(ChoiceGroup, {
+            label: sp.depositOn, activeId: setup.mode, onSelect: setup.setMode, c,
+            items: [
+                { id: 'part', label: sp.modePart },
+                { id: 'chips', label: sp.modeChips },
+            ],
+        }),
+        // A witness chip's back face is always bare; the opposite-side choice
+        // belongs to the part alone.
+        !chipMode && h(ChoiceGroup, {
             label: sp.secondSurface, activeId: setup.secondSurface, onSelect: setup.setSecondSurface, c,
             items: [
                 { id: 'bare', label: sp.bare },
@@ -68,24 +117,6 @@ export function ProcessControls({ c, t, sp, setup, deposition, save, notices }) 
             label: sp.quantity, activeId: setup.quantity, onSelect: setup.setQuantity, c,
             items: [{ id: 'T', label: 'T' }, { id: 'R', label: 'R' }, { id: 'A', label: 'A' }],
         }),
-        h(FieldLabel, { c }, sp.aoi),
-        h(NumInput, { c, width: 52, value: setup.aoi, min: 0, max: 89, step: 1, onChange: setup.setAoi }),
-        h(ChoiceGroup, {
-            label: sp.polarization, activeId: setup.polarization, onSelect: setup.setPolarization, c,
-            items: [{ id: 'avg', label: sp.polAvg }, { id: 's', label: 's' }, { id: 'p', label: 'p' }],
-        }),
-        h(Divider, { c }),
-        h(RangeField, {
-            c, label: 'λ', unit: 'nm', width: 58,
-            from: { value: setup.lambdaStart, min: 100, max: 50000, step: 10, onChange: setup.setLambdaStart },
-            to: { value: setup.lambdaEnd, min: 100, max: 50000, step: 10, onChange: setup.setLambdaEnd },
-        }),
-        h(FieldLabel, { c }, sp.step),
-        h(NumInput, {
-            c, width: 52, value: setup.lambdaStep, min: 0.1, max: 100, step: 0.5,
-            onChange: setup.setLambdaStep,
-        }),
-        h(Divider, { c }),
         h(CheckField, {
             c, label: sp.showAllLayers, title: sp.showAllHint,
             checked: setup.showAll,

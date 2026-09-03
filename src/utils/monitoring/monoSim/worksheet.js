@@ -99,15 +99,25 @@ function runLayout(design, resolveMat, cfg, refLam) {
     return { layers, xEnd: x };
 }
 
-// Layers grouped onto the physical chip they are monitored on, chips in the
-// order they first enter the run.
-function chipGroups(layers) {
+/**
+ * The chips of a run in the order they first enter it, each with the
+ * deposition steps (0-based) assigned to it. Layers carrying the same chip
+ * number are on the same physical piece even when they are not deposited one
+ * after another.
+ */
+export function chipsInRunOrder(chipByStep) {
     const byChip = new Map();
-    for (const layer of layers) {
-        if (!byChip.has(layer.chip)) byChip.set(layer.chip, []);
-        byChip.get(layer.chip).push(layer);
-    }
-    return [...byChip].map(([chip, own]) => ({ chip, layers: own }));
+    chipByStep.forEach((chip, step) => {
+        if (!byChip.has(chip)) byChip.set(chip, []);
+        byChip.get(chip).push(step);
+    });
+    return [...byChip].map(([chip, steps]) => ({ chip, steps }));
+}
+
+// Layers grouped onto the physical chip they are monitored on.
+function chipGroups(layers) {
+    return chipsInRunOrder(layers.map(layer => layer.chip))
+        .map(({ chip, steps }) => ({ chip, layers: steps.map(step => layers[step]) }));
 }
 
 // The witness chip's glass is the design substrate unless `chipMaterial` names
