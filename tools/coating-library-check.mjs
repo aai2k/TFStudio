@@ -11,7 +11,8 @@
  *   node tools/coating-library-check.mjs --id=bbar  # entries whose id contains "bbar"
  */
 import { BUILTIN_COATINGS } from '../src/utils/coatingLibrary/builtin/index.js';
-import { COATING_TAGS, bandsText, entryMetrics, entrySpecResults } from '../src/utils/coatingLibrary/entryModel.js';
+import { COATING_TAGS, bandsText, entrySpecResults } from '../src/utils/coatingLibrary/entryModel.js';
+import { entryMetrics } from '../src/utils/coatingLibrary/entryProperties.js';
 import { validateEntry } from '../src/utils/coatingLibrary/validateEntry.js';
 import { initWasmForTest } from '../tests/_wasmInit.mjs';
 
@@ -35,9 +36,13 @@ for (const entry of entries) {
     if (problems.length > 0) { failures++; continue; }
 
     const m = entryMetrics(entry);
-    for (const band of m.bands) {
-        console.log(`  ${band.range[0]}-${band.range[1]} nm:  R avg ${pct(band.rAvg)}  max ${pct(band.rMax)}  min ${pct(band.rMin)}   `
-            + `T avg ${pct(band.tAvg)}  max ${pct(band.tMax)}  min ${pct(band.tMin)}   A avg ${pct(band.aAvg)}`);
+    const label = row => `${row.channel}${row.pol === 's' || row.pol === 'p' ? row.pol : ''} ${row.stat}`;
+    m.bands.forEach((band, b) => {
+        console.log(`  ${band[0]}-${band[1]} nm:  ${m.rows.map(row => `${label(row)} ${pct(row.values[b])}`).join('  ')}`);
+    });
+    for (const row of m.shape) {
+        const text = row.unit === 'ratio' ? `${row.value?.toFixed(1)} : 1` : `${row.value?.toFixed(2)} nm`;
+        console.log(`  ${label(row)} ${row.value == null ? '?' : text}`);
     }
     console.log(`  total ${m.totalThickness.toFixed(1)} nm`);
 

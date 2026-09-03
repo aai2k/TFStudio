@@ -60,6 +60,17 @@ export function KeyValue({ label, value, c, title }) {
 
 export const percent = value => Number.isFinite(value) ? `${(value * 100).toFixed(2)} %` : '?';
 
+/**
+ * The angle and polarization something is stated at, as "45° s" or "0°".
+ * Takes an entry or a qualifier (both carry `aoi`; entries name the
+ * polarization `polarization`, qualifiers `pol`). The angle is always shown so
+ * a coating meant for oblique use cannot be mistaken for a normal-incidence one.
+ */
+export function angleText(item, ts) {
+    const pol = item.polarization ?? item.pol ?? 'avg';
+    return pol === 'avg' ? `${item.aoi}°` : `${item.aoi}° ${ts.pols[pol] || pol}`;
+}
+
 // One hue per family, chosen to read on both themes and to sit with the
 // ribbon's family colors.
 export const TYPE_COLORS = {

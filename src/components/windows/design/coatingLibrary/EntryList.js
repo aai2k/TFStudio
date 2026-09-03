@@ -1,7 +1,7 @@
 import { materialLabel } from '../../../../utils/materials/catalogManager.js';
 import { COATING_TYPES, bandsText } from '../../../../utils/coatingLibrary/entryModel.js';
 import { StackStrip } from './StackStrip.js';
-import { TYPE_COLORS, alpha } from './ui.js';
+import { TYPE_COLORS, alpha, angleText } from './ui.js';
 
 const { createElement: h } = React;
 
@@ -10,6 +10,7 @@ function EntryRow({ entry, selected, onSelect, c, ts }) {
         ts.layersShort(entry.layers.length),
         materialLabel(entry.substrate),
         bandsText(entry),
+        angleText(entry, ts),
     ].join(' · ');
     const color = TYPE_COLORS[entry.type] || TYPE_COLORS.other;
     return h('div', {

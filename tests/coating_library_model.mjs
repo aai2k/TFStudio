@@ -12,9 +12,10 @@
  */
 import assert from 'node:assert/strict';
 import {
-    COATING_TAGS, COATING_TAG_GROUPS, bandsText, entryDesign, entryFromDesign, entryMetrics, entrySpecResults,
+    COATING_TAGS, COATING_TAG_GROUPS, bandsText, entryDesign, entryFromDesign, entrySpecResults,
     entrySpectrum, makeCoatingEntry, previewRange, slugify, tagGroupOf,
 } from '../src/utils/coatingLibrary/entryModel.js';
+import { entryMetrics } from '../src/utils/coatingLibrary/entryProperties.js';
 import { validateEntry } from '../src/utils/coatingLibrary/validateEntry.js';
 import { applyCoatingPatch, mergeEntryMaterials } from '../src/utils/coatingLibrary/applyCoating.js';
 import { filterEntries, substratesOf, tagCounts } from '../src/utils/coatingLibrary/filter.js';
@@ -246,22 +247,44 @@ assert.deepEqual(validateEntry(bbar), []);
 // ── Metrics, spectrum and specification agree ─────────────────────────────────
 
 {
+    // Properties follow the family: an AR reports R avg, R max and T avg.
     const all = entryMetrics(bbar);
     assert.equal(all.layerCount, 4);
     assert.equal(all.totalThickness, 252);
-    assert.equal(all.bands.length, 1);
-    const metrics = all.bands[0];
-    assert.deepEqual(metrics.range, [450, 650]);
-    assert.ok(metrics.rAvg > 0 && metrics.rAvg < 0.02);
-    assert.ok(near(metrics.rAvg + metrics.tAvg + metrics.aAvg, 1, 1e-9), 'R + T + A = 1 for the averages');
-    assert.ok(metrics.rMin <= metrics.rAvg && metrics.rAvg <= metrics.rMax);
+    assert.deepEqual(all.bands, [[450, 650]]);
+    const stat = (m, channel, s, pol = 'avg') => m.rows.find(r => r.channel === channel && r.stat === s && r.pol === pol);
+    assert.deepEqual(all.rows.map(r => `${r.channel} ${r.stat}`), ['R avg', 'R max', 'T avg']);
+    assert.deepEqual(all.shape, [], 'an AR has no shape figures');
+    const rAvg = stat(all, 'R', 'avg').values[0];
+    assert.ok(rAvg > 0 && rAvg < 0.02);
+    assert.ok(stat(all, 'R', 'max').values[0] >= rAvg);
+    const metrics = { rAvg };
+
+    // A mirror at 45° reports its s, p and averaged reflectance minima.
+    const tiltedMirror = makeCoatingEntry({ ...bbar, id: 'hr45', type: 'mirror', aoi: 45 });
+    const mirrorRows = entryMetrics(tiltedMirror).rows.map(r => `${r.channel}${r.pol} ${r.stat}`);
+    assert.deepEqual(mirrorRows.slice(0, 3), ['Rs min', 'Rp min', 'Ravg min']);
+    assert.ok(mirrorRows.includes('A avg') || mirrorRows.includes('Aavg avg'), 'absorptance is not split by polarization');
+
+    // A band-pass reports where its peak is and how wide it is, measured on
+    // the band where T peaks; a notch the same for its dip.
+    const bp = makeCoatingEntry({
+        ...bbar, id: 'bp', type: 'bandpass', bands: [[500, 600]],
+        layers: [...Array(4).fill([{ material: 'builtin:TiO2', thickness: 58 }, { material: 'builtin:SiO2', thickness: 94 }]).flat(),
+            { material: 'builtin:TiO2', thickness: 116 },
+            ...Array(4).fill([{ material: 'builtin:SiO2', thickness: 94 }, { material: 'builtin:TiO2', thickness: 58 }]).flat()],
+    });
+    const bpMetrics = entryMetrics(bp);
+    assert.deepEqual(bpMetrics.shape.map(r => r.stat), ['center', 'fwhm']);
+    const [bpCenter, bpWidth] = bpMetrics.shape.map(r => r.value);
+    assert.ok(bpCenter > 500 && bpCenter < 600, `band-pass centre ${bpCenter}`);
+    assert.ok(bpWidth > 0 && bpWidth < 100, `band-pass FWHM ${bpWidth}`);
 
     // A multi-band entry is measured in each band on its own, and its claims
     // land on the band they name.
     const tri = entryMetrics(triBand);
-    assert.equal(tri.bands.length, 3);
-    assert.deepEqual(tri.bands.map(b => b.range), triBand.bands);
-    assert.ok(tri.bands.every(b => Number.isFinite(b.rAvg)));
+    assert.deepEqual(tri.bands, triBand.bands);
+    assert.ok(tri.rows.every(r => r.values.length === 3 && r.values.every(Number.isFinite)));
     const triQuals = entrySpecResults(triBand).qualifiers;
     assert.deepEqual([triQuals[0].lambdaStart, triQuals[0].lambdaEnd], [400, 700], 'a claim defaults to the first band');
     assert.deepEqual([triQuals[1].lambdaStart, triQuals[1].lambdaEnd], [3500, 4950], 'band: 2 picks the third band');
@@ -277,9 +300,27 @@ assert.deepEqual(validateEntry(bbar), []);
         design.frontLayers.map(l => ({ material: resolve(l.material), thickness: l.thickness })));
     const directAvg = direct.R.reduce((s, v) => s + v, 0) / direct.R.length;
     assert.ok(near(metrics.rAvg, directAvg, 2e-4), `operand average ${metrics.rAvg} vs grid average ${directAvg}`);
+    // A notch is measured by where T comes back up through 50% either side of
+    // its dip: centre between the crossings, width between them.
+    const notch = makeCoatingEntry({
+        ...bbar, id: 'notch', type: 'notch', bands: [[520, 545]],
+        // Quarter waves at 532 nm: Al2O3 (n 1.77) 75.3 nm, SiO2 (n 1.46) 91.1 nm.
+        layers: Array.from({ length: 41 }, (_, i) => (i % 2 ? { material: 'builtin:SiO2', thickness: 91.1 } : { material: 'builtin:Al2O3', thickness: 75.3 })),
+    });
+    const notchMetrics = entryMetrics(notch);
+    assert.deepEqual(notchMetrics.shape.map(r => r.stat), ['notch-center', 'notch-width']);
+    const [center, width] = notchMetrics.shape.map(r => r.value);
+    assert.ok(center > 520 && center < 545, `notch centre ${center}`);
+    // Twenty Al2O3/SiO2 pairs have an index contrast of 0.3, so the 50% width
+    // of the stop band is several tens of nanometres.
+    assert.ok(width > 30 && width < 120, `notch width ${width}`);
 
     const spectrum = entrySpectrum(bbar, 41);
     assert.equal(spectrum.lambda.length, 41);
+    assert.ok(spectrum.Rs && spectrum.Rp && spectrum.Ts && spectrum.Tp, 'the s and p components come with the spectrum');
+    assert.ok(spectrum.Rs.every((v, i) => near(v, spectrum.Rp[i], 1e-12)), 'at normal incidence s and p coincide');
+    const tilted = entrySpectrum(makeCoatingEntry({ ...bbar, id: 'tilted', aoi: 45 }), 41);
+    assert.ok(tilted.Rs.some((v, i) => Math.abs(v - tilted.Rp[i]) > 1e-3), 'at 45° they differ');
     assert.ok(near(spectrum.lambda[0], 390, 1e-9) && near(spectrum.lambda.at(-1), 710, 1e-9));
     assert.ok(spectrum.R.every(v => v >= 0 && v <= 1));
 

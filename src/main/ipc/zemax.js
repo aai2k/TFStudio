@@ -8,6 +8,8 @@
 
 // Decode honoring a byte-order mark — the sample COATING.DAT Zemax ships is
 // UTF-16 LE with a BOM, which decodes to NUL-interleaved garbage as UTF-8.
+const { saveTextFile } = require('./saveTextFile');
+
 // Best-effort default folder: the standard Zemax coatings directory.
 function defaultZemaxDir(fs, path) {
   const home = process.env.USERPROFILE || process.env.HOME || '';
@@ -44,22 +46,12 @@ async function handlePickCoatingFile(ctx) {
   }
 }
 
-async function handleSaveCoatingFile(ctx, text, suggestedName) {
-  const { dialog, getMainWindow, fs, log } = ctx;
-  try {
-    if (typeof text !== 'string' || text.length === 0) return { success: false, error: 'Nothing to write' };
-    const result = await dialog.showSaveDialog(getMainWindow(), {
-      title: 'Export Zemax Coating File',
-      defaultPath: suggestedName || 'COATING.DAT',
-      filters: [{ name: 'Zemax Coating File', extensions: ['dat'] }],
-    });
-    if (result.canceled || !result.filePath) return { success: false, canceled: true };
-    fs.writeFileSync(result.filePath, text, 'utf-8');
-    return { success: true, filePath: result.filePath };
-  } catch (err) {
-    log(`zemax:save-coating-file error: ${err.message}`);
-    return { success: false, error: err.message };
-  }
+function handleSaveCoatingFile(ctx, text, suggestedName) {
+  return saveTextFile(ctx, 'zemax:save-coating-file', text, {
+    title: 'Export Zemax Coating File',
+    defaultPath: suggestedName || 'COATING.DAT',
+    filters: [{ name: 'Zemax Coating File', extensions: ['dat'] }],
+  });
 }
 
 module.exports = { register };

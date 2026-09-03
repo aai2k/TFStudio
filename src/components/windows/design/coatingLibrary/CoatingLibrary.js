@@ -13,7 +13,7 @@ import { materialLabel } from '../../../../utils/materials/catalogManager.js';
 import { EntryList } from './EntryList.js';
 import { EntryDetail } from './EntryDetail.js';
 import { SaveCoatingDialog } from './SaveCoatingDialog.js';
-import { ImportLinkDialog } from './ImportLinkDialog.js';
+import { ShareDialog } from './ShareDialog.js';
 import { useCoatingLibrary } from './useCoatingLibrary.js';
 import { Chip, FONT, Segmented, TAG_GROUP_COLORS, buttonStyle, inputStyle } from './ui.js';
 
@@ -24,7 +24,7 @@ const barStyle = (c, edge) => ({
     padding: '6px 10px', background: c.panel, [edge]: `1px solid ${c.border}`,
 });
 
-function FilterBar({ session, setField, entries, visible, substrates, onSave, onImport, c, ts }) {
+function FilterBar({ session, setField, entries, visible, substrates, onSave, onShare, c, ts }) {
     const label = text => h('span', { style: { fontSize: 11, color: c.textDim } }, text);
     return h('div', { style: barStyle(c, 'borderBottom') },
         h(Segmented, {
@@ -60,8 +60,8 @@ function FilterBar({ session, setField, entries, visible, substrates, onSave, on
         }),
         label(ts.count(visible.length, entries.length)),
         h('span', { style: { flex: 1 } }),
-        h('button', { onClick: onImport, title: ts.importLinkTip, style: buttonStyle(c) }, ts.importLink),
-        h('button', { onClick: onSave, title: ts.saveCurrentTip, style: buttonStyle(c) }, ts.saveCurrent));
+        h('button', { onClick: onSave, title: ts.saveCurrentTip, style: buttonStyle(c) }, ts.saveCurrent),
+        h('button', { onClick: onShare, title: ts.share.buttonTip, style: buttonStyle(c) }, ts.share.button));
 }
 
 function tagChip(tag, count, active, toggleTag, c) {
@@ -137,7 +137,7 @@ export function CoatingLibrary({ c, t }) {
         selected, message, setMessage, apply, remove,
     } = useCoatingLibrary(ts);
     const [saving, setSaving] = useState(false);
-    const [importing, setImporting] = useState(false);
+    const [sharing, setSharing] = useState(false);
 
     const emptyText = entries.length === 0
         ? (session.source === 'user' ? ts.emptyUser : ts.emptyBuiltin)
@@ -151,7 +151,7 @@ export function CoatingLibrary({ c, t }) {
     },
         h(FilterBar, {
             session, setField, entries, visible, substrates,
-            onSave: () => setSaving(true), onImport: () => setImporting(true), c, ts,
+            onSave: () => setSaving(true), onShare: () => setSharing(true), c, ts,
         }),
         h(TagBar, { session, setField, tags, toggleTag, c, ts }),
         h('div', { style: { display: 'flex', flex: 1, minHeight: 0 } },
@@ -171,9 +171,7 @@ export function CoatingLibrary({ c, t }) {
             onClose: () => setSaving(false),
             onSaved: name => { setField('source', 'user'); setMessage(ts.saveDialog.saved(name)); },
         }),
-        importing && h(ImportLinkDialog, {
-            c, t,
-            onClose: () => setImporting(false),
-            onSaved: name => { setField('source', 'user'); setMessage(ts.importDialog.imported(name)); },
+        sharing && h(ShareDialog, {
+            entry: session.source === 'user' ? selected : null, c, t, onClose: () => setSharing(false),
         }));
 }

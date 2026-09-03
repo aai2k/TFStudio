@@ -1,11 +1,12 @@
 import { materialLabel } from '../../../../utils/materials/catalogManager.js';
 import {
-    COATING_TAGS, METRIC_KEYS, bandsText, entryMetrics, entrySpecResults, tagGroupOf, totalThickness,
+    COATING_TAGS, bandsText, entrySpecResults, tagGroupOf, totalThickness,
 } from '../../../../utils/coatingLibrary/entryModel.js';
+import { entryMetrics } from '../../../../utils/coatingLibrary/entryProperties.js';
 import { validateEntry } from '../../../../utils/coatingLibrary/validateEntry.js';
 import { PreviewPlot } from './PreviewPlot.js';
 import { StackStrip, entryMaterialColors } from './StackStrip.js';
-import { Chip, KeyValue, SectionTitle, TAG_GROUP_COLORS, TypeBadge, percent } from './ui.js';
+import { Chip, KeyValue, SectionTitle, TAG_GROUP_COLORS, TypeBadge, angleText, percent } from './ui.js';
 
 const { createElement: h, useMemo } = React;
 
@@ -54,8 +55,22 @@ function Paragraph({ c, children }) {
     return h('div', { style: { fontSize: 12, lineHeight: 1.45, color: c.text, whiteSpace: 'pre-wrap' } }, children);
 }
 
-// One column per design band, so a multi-band coating shows what it does in
-// each band rather than an average over the gaps between them.
+// "Rs avg", "T FWHM": the channel with its polarization, then the statistic.
+function metricLabel(row, ts) {
+    const channel = row.pol === 's' || row.pol === 'p' ? `${row.channel}${row.pol}` : row.channel;
+    return `${channel} ${ts.stats[row.stat]}`;
+}
+
+function metricValue(row, value) {
+    if (value == null || !Number.isFinite(value)) return '?';
+    if (row.unit === '%') return percent(value);
+    if (row.unit === 'nm') return `${value.toFixed(value < 100 ? 2 : 1)} nm`;
+    return `${value >= 100 ? value.toFixed(0) : value.toFixed(1)} : 1`;
+}
+
+// The numbers that matter for this family (PROPERTY_SETS): one column per
+// design band for the band statistics, then the whole-coating figures such as
+// an edge wavelength or a passband width.
 function Properties({ entry, metrics, c, ts }) {
     if (metrics.error) return null;
     const head = (key, text, align) => h('th', {
@@ -65,11 +80,12 @@ function Properties({ entry, metrics, c, ts }) {
         h('table', { style: { borderCollapse: 'collapse', maxWidth: 520 } },
             h('thead', null, h('tr', null,
                 head('metric', '', 'left'),
-                metrics.bands.map((band, i) => head(i, `${band.range[0]}-${band.range[1]} nm`, 'right')))),
-            h('tbody', null, METRIC_KEYS.map(key => h('tr', { key },
-                h('td', { style: { ...cellStyle(c), color: c.textDim } }, ts[key]),
-                metrics.bands.map((band, i) => h('td', { key: i, style: cellStyle(c, 'right') }, percent(band[key]))))))),
+                metrics.bands.map((band, i) => head(i, `${band[0]}-${band[1]} nm`, 'right')))),
+            h('tbody', null, metrics.rows.map((row, r) => h('tr', { key: r },
+                h('td', { style: { ...cellStyle(c), color: c.textDim } }, metricLabel(row, ts)),
+                row.values.map((value, i) => h('td', { key: i, style: cellStyle(c, 'right') }, metricValue(row, value))))))),
         h('div', { style: { maxWidth: 420, marginTop: 6 } },
+            metrics.shape.map((row, i) => h(KeyValue, { key: i, label: metricLabel(row, ts), value: metricValue(row, row.value), c })),
             h(KeyValue, { label: ts.layerCount, value: String(entry.layers.length), c }),
             h(KeyValue, { label: ts.totalThickness, value: `${totalThickness(entry).toFixed(1)} nm`, c })));
 }
@@ -87,7 +103,10 @@ function SpecList({ spec, c, ts }) {
     if (spec.qualifiers.length === 0) {
         return h('div', { style: { fontSize: 12, color: c.textDim, fontStyle: 'italic' } }, ts.noSpec);
     }
-    return h('div', { style: { maxWidth: 420 } }, spec.qualifiers.map((qualifier, i) => {
+    // Every claim states its own angle and polarization, since a beamsplitter
+    // or polarizer is specified by s and p claims at one angle and a claim's
+    // angle is what its number means.
+    return h('div', { style: { maxWidth: 480 } }, spec.qualifiers.map((qualifier, i) => {
         const result = spec.results[i];
         const label = qualifier.label || `${qualifier.kind} ${qualifier.channel || ''}`.trim();
         return h('div', {
@@ -98,6 +117,8 @@ function SpecList({ spec, c, ts }) {
                 style: { color: result?.pass ? c.success : c.error, fontWeight: 600, minWidth: 34 },
             }, result?.pass ? ts.pass : ts.fail),
             h('span', { style: { color: c.textDim, flex: 1 } }, label),
+            h('span', { style: { color: c.textDim, fontVariantNumeric: 'tabular-nums', minWidth: 44, textAlign: 'right' } },
+                angleText(qualifier, ts)),
             h('span', { style: { fontVariantNumeric: 'tabular-nums' } }, result?.summary || ''));
     }));
 }
@@ -112,10 +133,14 @@ export function EntryDetail({ entry, c, ts }) {
         h('div', { style: { display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' } },
             h('span', { style: { fontSize: 15, fontWeight: 600, color: c.text } }, entry.name),
             h(TypeBadge, { type: entry.type, ts })),
-        h('div', { style: { fontSize: 11, color: c.textDim, marginTop: 2 } },
-            `${ts.layersShort(entry.layers.length)} · `
-            + `${ts.band} ${bandsText(entry)} · ${ts.aoi} ${entry.aoi}° · ${ts.polarization} ${pol}`
-            + ` · ${ts.referenceWavelength} ${entry.referenceWavelength} nm`),
+        h('div', { style: { fontSize: 12, color: c.text, marginTop: 4 } },
+            h('span', { style: { color: c.textDim } }, `${ts.aoi} `),
+            h('span', { style: { fontWeight: 600 } }, `${entry.aoi}°`),
+            h('span', { style: { color: c.textDim } }, ` · ${ts.polarization} `),
+            h('span', { style: { fontWeight: 600 } }, pol),
+            h('span', { style: { color: c.textDim } },
+                ` · ${ts.band} ${bandsText(entry)} · ${ts.layersShort(entry.layers.length)}`
+                + ` · ${ts.referenceWavelength} ${entry.referenceWavelength} nm`)),
         h('div', { style: { margin: '8px 0 2px', maxWidth: 520 } }, h(StackStrip, { entry, c, height: 10 })),
         h(Tags, { entry, c }),
 
@@ -134,7 +159,7 @@ export function EntryDetail({ entry, c, ts }) {
                 h(SectionTitle, { c }, ts.stackHeading),
                 h(StackTable, { entry, c, ts })),
             h('div', { style: { minWidth: 260, flex: 1 } },
-                h(SectionTitle, { c }, ts.propertiesHeading),
+                h(SectionTitle, { c }, `${ts.propertiesHeading} · ${angleText(entry, ts)}`),
                 h(Properties, { entry, metrics, c, ts }),
                 h(SectionTitle, { c }, ts.specHeading),
                 h(SpecList, { spec, c, ts }))),

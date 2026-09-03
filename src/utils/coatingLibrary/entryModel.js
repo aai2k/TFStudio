@@ -54,7 +54,8 @@
  * function use, so a number shown here is the number the optimizer would see.
  *
  * Whether an entry is sound at all (ids, thicknesses, bands, materials) is the
- * question `validateEntry.js` answers.
+ * question `validateEntry.js` answers; the headline numbers of a coating, chosen
+ * by family, come from `entryProperties.js`.
  */
 import {
     designMaterialIds, designMaterialLookup, isBuiltinId, resolveDesignMaterial,
@@ -62,7 +63,6 @@ import {
 import { stripGetNK } from '../materials/catalogManager/persistence.js';
 import { designRangeCoverage } from '../materials/materialRange.js';
 import { evaluateSpectrum } from '../physics/thinFilmMath.js';
-import { buildEvalContext, evaluateOperands, makeOperand } from '../physics/optimizer.js';
 import { aggregateVerdict, evaluateQualifiers, makeQualifier } from '../synthesis/qualifiers.js';
 
 /** The families. The type filter in the library window is built on this list. */
@@ -312,7 +312,9 @@ export function totalThickness(entry) {
 }
 
 /**
- * T, R and A of the coating over the preview range, as fractions.
+ * T, R and A of the coating over the preview range at the entry's own angle
+ * and polarization, as fractions, with the s and p components alongside so an
+ * oblique coating can be shown as the two curves it is specified by.
  * Returns `{ error }` when a material cannot be resolved.
  */
 export function entrySpectrum(entry, points = PREVIEW_POINTS) {
@@ -329,43 +331,10 @@ export function entrySpectrum(entry, points = PREVIEW_POINTS) {
             resolve(design.substrate.material),
             design.frontLayers.map(layer => ({ material: resolve(layer.material), thickness: layer.thickness })),
         );
-        return { lambda: spectrum.lambda, T: spectrum.T, R: spectrum.R, A: spectrum.A };
-    } catch (err) {
-        return { error: err.message };
-    }
-}
-
-// Metric name → operand type. Averages and band extremes, through the same
-// operands the merit function evaluates.
-const METRIC_OPERANDS = [
-    ['rAvg', 'RAV'], ['tAvg', 'TAV'], ['aAvg', 'AAV'],
-    ['rMax', 'RMX'], ['rMin', 'RMN'], ['tMax', 'TMX'], ['tMin', 'TMN'],
-];
-
-/** The metric keys `entryMetrics` reports for each band, in display order. */
-export const METRIC_KEYS = METRIC_OPERANDS.map(([key]) => key);
-
-/**
- * Headline numbers for judging an entry without opening it: for each design
- * band the averages and extremes of T, R and A (fractions), plus layer count
- * and total thickness (nm). Returns `{ error }` when a material cannot be
- * resolved.
- */
-export function entryMetrics(entry) {
-    const design = entryDesign(entry);
-    try {
-        const ctx = buildEvalContext(design, designMaterialLookup(design));
-        const operands = entry.bands.flatMap(([lambdaStart, lambdaEnd]) => METRIC_OPERANDS.map(([, type]) =>
-            makeOperand({
-                type, lambdaStart, lambdaEnd, aoi: entry.aoi, pol: entry.polarization, target: 0, weight: 1,
-            })));
-        const values = evaluateOperands(operands, ctx);
-        const bands = entry.bands.map((range, b) => {
-            const metrics = { range };
-            METRIC_OPERANDS.forEach(([key], i) => { metrics[key] = values[b * METRIC_OPERANDS.length + i]; });
-            return metrics;
-        });
-        return { layerCount: entry.layers.length, totalThickness: totalThickness(entry), bands };
+        return {
+            lambda: spectrum.lambda, T: spectrum.T, R: spectrum.R, A: spectrum.A,
+            Ts: spectrum.Ts, Tp: spectrum.Tp, Rs: spectrum.Rs, Rp: spectrum.Rp,
+        };
     } catch (err) {
         return { error: err.message };
     }

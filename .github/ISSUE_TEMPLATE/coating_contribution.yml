@@ -1,0 +1,89 @@
+name: Coating contribution
+description: Share a coating design for the built-in Coating Library
+title: "Coating: "
+labels: ["coating-library"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thank you for sharing a design. Anything with a layer table and a stated
+        purpose is welcome, in whatever form you have it: a `.tfs` or `.tfsc` file
+        from TFStudio, a table typed by hand, or a design exported from another
+        program. A description is welcome but not required. The coating ships in
+        the next release with a credit to you in its source line.
+
+        In TFStudio, **Coating Library, Share a coating…** fills this form from a
+        saved coating and can write a file to attach here (GitHub accepts `.json`,
+        `.txt` and `.zip` attachments; zip a `.tfs` before attaching it).
+  - type: input
+    id: coating
+    attributes:
+      label: Coating name
+      placeholder: Broadband AR 400-700 nm on BK7
+    validations:
+      required: true
+  - type: textarea
+    id: design
+    attributes:
+      label: Layer table or file
+      description: >
+        Materials and physical thicknesses in nm, one layer per line, and say
+        whether layer 1 sits on the substrate or faces the incident medium. Or
+        paste the contents of a `.tfs` / `.tfsc` file, or attach one.
+      placeholder: |
+        Layer 1 on the substrate
+        1  TiO2   12.4
+        2  SiO2   38.1
+        ...
+    validations:
+      required: true
+  - type: textarea
+    id: conditions
+    attributes:
+      label: Design conditions
+      description: Substrate, incident medium, design band, angle of incidence, polarization, reference wavelength.
+      placeholder: |
+        Substrate: BK7
+        Incident medium: air
+        Design band: 400-700 nm
+        Angle of incidence: 0°
+    validations:
+      required: true
+  - type: textarea
+    id: purpose
+    attributes:
+      label: What it is for and what it achieves
+      description: The use case and the specification it meets, if you have them. Leave blank if not.
+    validations:
+      required: false
+  - type: dropdown
+    id: origin
+    attributes:
+      label: Where the design comes from
+      options:
+        - My own design
+        - A published source (book, paper, application note, patent, forum post)
+        - An example shipped with another program
+    validations:
+      required: true
+  - type: textarea
+    id: source
+    attributes:
+      label: Source
+      description: For a published design, where it was published. For your own, anything you want recorded about it.
+    validations:
+      required: false
+  - type: input
+    id: credit
+    attributes:
+      label: How to credit you
+      description: The name or handle to put in the coating's source line. Leave blank for no credit.
+    validations:
+      required: false
+  - type: checkboxes
+    id: rights
+    attributes:
+      label: Rights
+      options:
+        - label: I have the right to share this design and agree that it ships with TFStudio under the MIT license.
+          required: true

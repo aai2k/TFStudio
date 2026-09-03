@@ -12,8 +12,9 @@
 import assert from 'node:assert/strict';
 import { BUILTIN_COATINGS } from '../src/utils/coatingLibrary/builtin/index.js';
 import {
-    COATING_TAGS, COATING_TYPES, METRIC_KEYS, entryMaterialIds, entryMetrics, entrySpecResults, entrySpectrum,
+    COATING_TAGS, COATING_TYPES, entryMaterialIds, entrySpecResults, entrySpectrum,
 } from '../src/utils/coatingLibrary/entryModel.js';
+import { entryMetrics } from '../src/utils/coatingLibrary/entryProperties.js';
 import { validateEntry } from '../src/utils/coatingLibrary/validateEntry.js';
 import { isBuiltinId } from '../src/utils/materials/designMaterials.js';
 import { initWasmForTest } from './_wasmInit.mjs';
@@ -44,13 +45,20 @@ for (const entry of BUILTIN_COATINGS) {
             `${where}: material "${id}" is neither built in nor embedded`);
     }
 
+    // The family's property set must come out as numbers for every band, and
+    // the whole-coating figures (edge, centre, width, extinction) must exist
+    // where the family asks for them: an edge filter with no 50% crossing is
+    // not an edge filter.
     const metrics = entryMetrics(entry);
     assert.ok(!metrics.error, `${where}: metrics failed: ${metrics.error}`);
-    assert.equal(metrics.bands.length, entry.bands.length, `${where}: one metric set per band`);
-    for (const band of metrics.bands) {
-        for (const key of METRIC_KEYS) {
-            assert.ok(Number.isFinite(band[key]), `${where}: metric ${key} on ${band.range} is ${band[key]}`);
-        }
+    assert.ok(metrics.rows.length > 0, `${where}: no properties for type ${entry.type}`);
+    for (const row of metrics.rows) {
+        assert.equal(row.values.length, entry.bands.length, `${where}: ${row.channel} ${row.stat} has a value per band`);
+        row.values.forEach((value, i) => assert.ok(Number.isFinite(value),
+            `${where}: ${row.channel}${row.pol} ${row.stat} on band ${i} is ${value}`));
+    }
+    for (const row of metrics.shape) {
+        assert.ok(Number.isFinite(row.value) && row.value > 0, `${where}: ${row.channel} ${row.stat} is ${row.value}`);
     }
 
     const spectrum = entrySpectrum(entry, 101);

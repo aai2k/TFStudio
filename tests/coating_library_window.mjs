@@ -13,13 +13,13 @@ await loadApp();
 
 const { CoatingLibrary } = await import('../src/components/windows/design/coatingLibrary/CoatingLibrary.js');
 const { SaveCoatingDialog } = await import('../src/components/windows/design/coatingLibrary/SaveCoatingDialog.js');
-const { ImportLinkDialog } = await import('../src/components/windows/design/coatingLibrary/ImportLinkDialog.js');
+const { ShareDialog } = await import('../src/components/windows/design/coatingLibrary/ShareDialog.js');
 const { coatingLibrarySession } = await import('../src/components/windows/design/coatingLibrary/sessionState.js');
 const { LayerList } = await import('../src/components/windows/design/designEditor/LayerList.js');
 const { WINDOW_REGISTRY } = await import('../src/components/docking/windowRegistry.js');
 const { ICONS, makeTabs } = await import('../src/components/Toolbar.js');
 const { BUILTIN_COATINGS } = await import('../src/utils/coatingLibrary/builtin/index.js');
-const { COATING_TYPES } = await import('../src/utils/coatingLibrary/entryModel.js');
+const { COATING_TYPES, bandsText } = await import('../src/utils/coatingLibrary/entryModel.js');
 
 const c = makeTheme();
 const esc = (s) => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
@@ -45,6 +45,7 @@ for (const code of ['en', 'ru', 'zh']) {
     assert.equal(typeof ts.applied(3, ts.sideFront), 'string');
     assert.equal(typeof ts.saveDialog.saved('x'), 'string');
     assert.ok(t.designEditor.tools.saveToLibrary, `${code}: the Design Editor tools menu has no save entry`);
+    assert.ok(ts.share.button && ts.share.issue && ts.share.email('x') && ts.share.packed('f'), `${code}: share strings`);
     assert.ok(t.settings.folders.coatings, `${code}: the Coatings folder has no label in Settings`);
     assert.ok(t.toolbar.buttons['coating-library'] && t.toolbar.tooltips['coating-library'], `${code}: ribbon strings`);
 }
@@ -58,7 +59,7 @@ coatingLibrarySession.reset();
 let html = renderToStaticMarkup(withDesign(React.createElement(CoatingLibrary, { c, t })));
 assert.ok(html.includes(esc(ts.sourceBuiltin)) && html.includes(esc(ts.sourceUser)), 'both shelves are offered');
 assert.ok(html.includes(esc(ts.saveCurrent)), 'the save action is in the window');
-assert.ok(html.includes(esc(ts.importLink)), 'the share-link import is in the window');
+assert.ok(html.includes(esc(ts.share.button)), 'the share action is in the window');
 assert.ok(html.includes(esc(ts.anySubstrate)), 'the substrate filter is offered');
 assert.ok(html.includes(esc(ts.selectHint)), 'nothing selected shows the hint');
 if (BUILTIN_COATINGS.length > 0) {
@@ -103,6 +104,18 @@ if (BUILTIN_COATINGS.length > 0) {
     assert.ok(!html.includes(esc(ts.problemsHeading)), 'a built-in entry has no problems to show');
     assert.ok(html.includes(`${esc(first.layers[0].thickness.toFixed(1))} nm"`),
         'the material-colored stack strip names its layers');
+
+    // An oblique entry says so in its list row, its header and on every claim.
+    const oblique = BUILTIN_COATINGS.find(entry => entry.aoi > 0);
+    if (oblique) {
+        coatingLibrarySession.write(null, { selectedId: oblique.id, collapsedTypes: [] });
+        const tilted = renderToStaticMarkup(withDesign(React.createElement(CoatingLibrary, { c, t })));
+        const angle = `${oblique.aoi}°`;
+        assert.ok(tilted.includes(`${esc(bandsText(oblique))} · ${angle}`), 'the list row states the angle');
+        assert.ok(tilted.includes(`>${angle}<`), 'the header states the angle in bold');
+        const claimAngles = (tilted.match(new RegExp(`>${angle}( [sp])?<`, 'g')) || []).length;
+        assert.ok(claimAngles >= 1 + oblique.spec.length, `every claim states its angle (${claimAngles} found)`);
+    }
 } else {
     assert.ok(html.includes(esc(ts.emptyBuiltin)));
 }
@@ -123,12 +136,6 @@ assert.ok(html.includes(esc(ts.saveDialog.title)));
 assert.ok(html.includes(`value="${esc(design.name)} front"`), 'the name is proposed from the design');
 assert.ok(html.includes(esc(ts.layersShort(design.frontLayers.length))), 'the dialog says how many layers it will save');
 
-// The import dialog renders with its explanation and a disabled Import button
-// until a link is pasted.
-html = renderToStaticMarkup(React.createElement(ImportLinkDialog, { c, t, onClose: () => {} }));
-assert.ok(html.includes(esc(ts.importDialog.title)) && html.includes(esc(ts.importDialog.hint)));
-assert.ok(html.includes(`disabled=""`), 'Import is disabled with nothing pasted');
-
 // The Design Editor's tools menu offers the save action.
 html = renderToStaticMarkup(withDesign(React.createElement(LayerList, {
     layers: design.frontLayers, side: 'front', design, updateDesign: () => {}, missingMaterialIds: new Set(), c, t,
@@ -140,5 +147,18 @@ html = renderToStaticMarkup(withDesign(React.createElement(LayerList, {
 }), design));
 assert.ok(html.includes(`value="saveToLibrary"`) && html.includes(esc(t.designEditor.tools.saveToLibrary)),
     'the Design Editor tools menu lists "Save coating to library"');
+
+// Share dialog: without an entry it offers the issue and the email; with one
+// of the user's coatings it shows what will be sent and offers the file.
+html = renderToStaticMarkup(React.createElement(ShareDialog, { entry: null, c, t, onClose: () => {} }));
+assert.ok(html.includes(esc(ts.share.issue)) && html.includes('achapovskyai@gmail.com'), 'issue and email are offered');
+assert.ok(!html.includes(esc(ts.share.pack)), 'no file to save without an entry');
+if (BUILTIN_COATINGS.length > 0) {
+    const own = { ...BUILTIN_COATINGS[0], id: 'user-x' };
+    html = renderToStaticMarkup(React.createElement(ShareDialog, { entry: own, c, t, onClose: () => {} }));
+    assert.ok(html.includes(esc(ts.share.forEntry(own.name))) && html.includes(esc(ts.share.pack)),
+        'a selected coating is shown ready to send with the file action');
+    assert.ok(html.includes('Layer 1 on the substrate'), 'the layer table is shown');
+}
 
 console.log('PASS coating_library_window');

@@ -26,6 +26,7 @@ function makeHarness() {
     },
     readFileSync(file) { return files.get(file); },
     unlinkSync(file) { files.delete(file); },
+    writeFileSync(file, data) { files.set(file, data); },
   };
   const ctx = {
     fs,
@@ -36,6 +37,8 @@ function makeHarness() {
     coatingsDir: '/coatings',
     safeName(value) { return String(value).replace(/[^a-z0-9_-]/gi, '_'); },
     writeFileAtomic(file, data) { files.set(file, data); },
+    dialog: { async showSaveDialog(_window, options) { return { filePath: '/sent/' + path.posix.basename(options.defaultPath) }; } },
+    getMainWindow() { return null; },
   };
   const ipcMain = { handle(channel, handler) { handlers.set(channel, handler); } };
   meritPresets.register(ipcMain, ctx);
@@ -45,7 +48,7 @@ function makeHarness() {
 }
 
 const { files, handlers, logs, ctx } = makeHarness();
-ok(handlers.size === 12, 'the three preset domains register four handlers each');
+ok(handlers.size === 13, 'the three preset domains register four handlers each, coatings one more to pack a file');
 
 // A coating is saved and listed whole: the fields beyond name and layers are
 // what make it a coating rather than a layer list.
@@ -63,6 +66,12 @@ ok(coatingList.presets.length === 1 && coatingList.presets[0].record.substrate =
   'listing coatings returns each whole record');
 ok((await handlers.get('coatings:save')(null, { name: 'No layers' })).error === 'preset.layers required',
   'a coating without layers is refused');
+
+// Packing writes the text it is given where the save dialog points.
+const packed = await handlers.get('coatings:pack')(null, '{"name":"BBAR vis"}', 'bbar-vis.tfsc.json');
+ok(packed.success && packed.filePath === '/sent/bbar-vis.tfsc.json' && files.get('/sent/bbar-vis.tfsc.json') === '{"name":"BBAR vis"}',
+  'a packed coating lands at the chosen path');
+ok((await handlers.get('coatings:pack')(null, '', 'x.json')).error === 'Nothing to write', 'an empty pack is refused');
 
 const mfPreset = { name: 'BBAR VIS', description: 'Visible BBAR', operands: [{ type: 'R' }] };
 ok((await handlers.get('mf:save')(null, mfPreset)).success, 'merit preset saves');
