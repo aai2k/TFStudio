@@ -11,6 +11,7 @@ const catalogs = require('./catalogs');
 const integrals = require('./integrals');
 const qualifiers = require('./qualifiers');
 const meritPresets = require('./meritPresets');
+const coatings = require('./coatings');
 const report = require('./report');
 const processFiles = require('./process');
 const rii = require('./rii');
@@ -29,6 +30,7 @@ function registerAllIpc(ipcMain, ctx) {
   integrals.register(ipcMain, ctx);
   qualifiers.register(ipcMain, ctx);
   meritPresets.register(ipcMain, ctx);
+  coatings.register(ipcMain, ctx);
   report.register(ipcMain, ctx);
   processFiles.register(ipcMain, ctx);
   rii.register(ipcMain, ctx);

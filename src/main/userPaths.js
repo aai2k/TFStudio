@@ -15,6 +15,7 @@
 const FOLDER_SPECS = [
   { key: 'projects',       ctxKey: 'projectsDir',       subdir: 'Projects' },
   { key: 'materials',      ctxKey: 'materialsDir',      subdir: 'Materials' },
+  { key: 'coatings',       ctxKey: 'coatingsDir',       subdir: 'Coatings' },
   { key: 'meritFunctions', ctxKey: 'meritFunctionsDir', subdir: 'MeritFunctions' },
   { key: 'qualifiers',     ctxKey: 'qualifiersDir',     subdir: 'Qualifiers' },
   { key: 'integrals',      ctxKey: 'integralsDir',      subdir: 'IntegralPresets' },

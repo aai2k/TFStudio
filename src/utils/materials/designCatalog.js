@@ -74,7 +74,7 @@ export function designSelectionTarget(catalog, selectionId) {
 
 // Only the fields that determine n,k. Name, color and comment differ freely
 // between two copies of one material and are not a physical disagreement.
-function dispersionFingerprint(mat) {
+export function dispersionFingerprint(mat) {
     return JSON.stringify([
         mat.formulaNum ?? null,
         mat.coefficients ?? null,

@@ -72,6 +72,7 @@ export default defineConfig({
           items: [
             { label: 'Design Editor',   translations: { 'zh-CN': '设计编辑器' }, slug: 'design/design-editor' },
             { label: 'Material Editor', translations: { 'zh-CN': '材料编辑器' }, slug: 'design/material-editor' },
+            { label: 'Coating Library', translations: { 'zh-CN': '镀膜库' },     slug: 'design/coating-library' },
             { label: 'Specification',   translations: { 'zh-CN': '技术规格' },   slug: 'design/specification' },
             { label: 'Stack Formula',   translations: { 'zh-CN': '膜系公式' },   slug: 'design/stack-formula' },
           ],

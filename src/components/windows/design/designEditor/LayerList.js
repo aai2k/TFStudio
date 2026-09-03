@@ -18,6 +18,7 @@ import { expandHerpinLayer, isHerpinLayer } from './layerTools.js';
 import {
     HerpinDialog, PerturbDialog, QuantizeDialog, localizedHerpinError,
 } from './LayerToolDialogs.js';
+import { SaveCoatingDialog } from '../coatingLibrary/SaveCoatingDialog.js';
 
 const { createElement: h, useRef, useCallback, useEffect, useMemo, useState } = React;
 
@@ -436,6 +437,7 @@ export function LayerList({ layers, side, design, updateDesign, missingMaterialI
                     else if (action === 'quantize') setToolDialog('quantize');
                     else if (action === 'perturb') setToolDialog('perturb');
                     else if (action === 'copyTable') copyStackAsTable();
+                    else if (action === 'saveToLibrary') setToolDialog('saveToLibrary');
                     else if (action === 'herpinCollapse') {
                         if (selectedIds.size < 2) {
                             setToolNotice(layerToolText.errors.HERPIN_MIN_SELECTION);
@@ -459,6 +461,7 @@ export function LayerList({ layers, side, design, updateDesign, missingMaterialI
                 h('option', { value: 'quantize' }, de.tools.quantize),
                 h('option', { value: 'perturb' }, de.tools.perturb),
                 h('option', { value: 'copyTable' }, de.tools.copyTable),
+                h('option', { value: 'saveToLibrary' }, de.tools.saveToLibrary),
                 h('option', { value: 'herpinCollapse' }, de.tools.herpinCollapse),
                 // Leave Expand enabled: its handler explains what must be
                 // selected instead of making an invalid selection a silent no-op.
@@ -557,6 +560,11 @@ export function LayerList({ layers, side, design, updateDesign, missingMaterialI
         toolDialog === 'herpin' && h(HerpinDialog, {
             design, side, selectedIds: selectedIdArray, c, t,
             onApply: applyToolDesign, onClose: () => setToolDialog(null),
+        }),
+        toolDialog === 'saveToLibrary' && h(SaveCoatingDialog, {
+            design, side, c, t,
+            onClose: () => setToolDialog(null),
+            onSaved: name => setToolNotice(t.coatingLibrary.saveDialog.saved(name)),
         })
     );
 }

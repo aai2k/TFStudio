@@ -57,13 +57,14 @@ const make = (unwritable) => {
   const { paths } = make();
   ok(paths.get('projects') === `${DOCS}/TFStudio/Projects`, 'projects defaults under Documents/TFStudio');
   ok(paths.get('materials') === `${DOCS}/TFStudio/Materials`, 'materials default is unchanged');
+  ok(paths.get('coatings') === `${DOCS}/TFStudio/Coatings`, 'coatings default is under Documents/TFStudio');
   ok(paths.get('meritFunctions') === `${DOCS}/TFStudio/MeritFunctions`, 'merit functions default is unchanged');
   ok(paths.get('qualifiers') === `${DOCS}/TFStudio/Qualifiers`, 'qualifiers default is unchanged');
   ok(paths.get('integrals') === `${DOCS}/TFStudio/IntegralPresets`, 'integral presets default is unchanged');
   ok(paths.get('reportPresets') === `${DOCS}/TFStudio/ReportPresets`, 'report presets default is unchanged');
   ok(paths.get('branding') === `${DOCS}/TFStudio/Branding`, 'branding default is unchanged');
   ok(paths.get('preferences') === `${DOCS}/TFStudio/Preferences`, 'preferences default is under Documents so it survives a reinstall');
-  ok(FOLDER_KEYS.length === 8, 'eight configurable folders');
+  ok(FOLDER_KEYS.length === 9, 'nine configurable folders');
   ok(paths.list().every(entry => !entry.overridden), 'nothing is overridden on a fresh install');
   ok(Object.keys(paths.toSettings()).length === 0, 'an untouched install persists no folders block');
 }

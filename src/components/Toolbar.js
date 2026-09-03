@@ -42,6 +42,14 @@ export const ICONS = {
     'design-editor':  I([ R(2,2,16,16,1), L(2,7,18,7), L(7,7,7,18), L(2,12,18,12) ]),
     'material-editor':I([ R(3,2,10,14,1), P('M7 6h4M7 9h4M7 12h2'), Rf(13,11,4,5,1,'currentColor'), L(13,9,17,9,1.4) ]),
 
+    // Coating Library — a shelf of layer stacks: a bookcase frame with a
+    // three-layer stack on the shelf and a bookmark tab on the top edge.
+    'coating-library': I([
+                          R(2.5,3,15,14,1),
+                          L(5,13,15,13,1.6), L(5,10,15,10,1.6), L(5,7,15,7,1.6),
+                          Rf(12.5,1.5,3,4,0.5,'currentColor'),
+                      ]),
+
     // n,k Characterization — the measurement it works from: a beam onto an
     // unknown film (solid) on a substrate (outline), reflected back out.
     'nk-characterization': I([
@@ -367,7 +375,7 @@ export const GROUP_COLORS = {
 const TOOL_GROUP = {
     'new-design': 'file', 'open-project': 'file', 'save': 'file', 'save-as': 'file',
     'undo': 'edit', 'redo': 'edit', 'history': 'edit',
-    'design-editor': 'design', 'material-editor': 'design',
+    'design-editor': 'design', 'material-editor': 'design', 'coating-library': 'design',
     'specification': 'design', 'stack-formula': 'design',
     'preferences': 'information',
     'optical-eval': 'analysis', 'color-eval': 'analysis', 'admittance': 'analysis', 'efield': 'analysis',
@@ -416,7 +424,7 @@ export function makeTabs(t) {
             key: 'setup', label: tb.tabs.setup, groups: [
                 grp('project',     ['new-design', 'open-project', 'save', 'save-as']),
                 grp('edit',        ['undo', 'redo', 'history']),
-                grp('design',      ['design-editor', 'material-editor', 'specification', 'stack-formula']),
+                grp('design',      ['design-editor', 'material-editor', 'coating-library', 'specification', 'stack-formula']),
                 grp('preferences', ['preferences']),
             ]
         },

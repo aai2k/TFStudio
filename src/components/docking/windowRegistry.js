@@ -63,6 +63,7 @@ import { RoughnessScattering } from '../windows/analysis/roughnessScattering/Rou
 import { PlotEngine } from '../windows/analysis/plotEngine/PlotEngine.js';
 import { WavelengthAngleMap } from '../windows/analysis/wavelengthAngleMap/WavelengthAngleMap.js';
 import { Specification } from '../windows/design/specification/Specification.js';
+import { CoatingLibrary } from '../windows/design/coatingLibrary/CoatingLibrary.js';
 import { OptimizerBenchmark } from '../windows/optimization/optimizerBenchmark/OptimizerBenchmark.js';
 import { MonitorWorksheet } from '../windows/simulation/monitorWorksheet/MonitorWorksheet.js';
 
@@ -70,6 +71,7 @@ export const WINDOW_REGISTRY = {
   // ── Design ──────────────────────────────────────────────────────────────────
   'design-editor':   { component: DesignEditor,        title: 'Design Editor',        label: 'Design Editor — layer stack table',                                   help: 'design/design-editor' },
   'material-editor': { component: MaterialEditor,       title: 'Material Editor',       label: 'Material Editor — n,k database',                                       help: 'design/material-editor', dialog: true },
+  'coating-library': { component: CoatingLibrary,       title: 'Coating Library',       label: 'Coating Library: reusable coating stacks, yours and the built-in starting designs', help: 'design/coating-library' },
   'specification':   { component: Specification,        title: 'Specification',         label: 'Specification — design requirements (PASS/FAIL qualifiers)',            help: 'design/specification', theme: true, dialog: true, requiresResolvedMaterials: true },
   'merit-function':  { component: MeritFunctionEditor,  title: 'Merit Function Editor', label: 'Merit Function Editor — operand table',                                help: 'design/merit-function-editor', dialog: true, requiresResolvedMaterials: true },
   'variator':        { component: Variator,             title: 'Variator',              label: 'Variator — live parameter slider',                                     help: 'design/variator', theme: true, requiresResolvedMaterials: true },

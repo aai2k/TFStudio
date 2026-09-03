@@ -73,6 +73,11 @@ contextBridge.exposeInMainWorld('electronAPI', {
   loadQualifierPreset:    (name) => ipcRenderer.invoke('qualifiers:load', name),
   saveQualifierPreset:    (preset) => ipcRenderer.invoke('qualifiers:save', preset),
   deleteQualifierPreset:  (name) => ipcRenderer.invoke('qualifiers:delete', name),
+  // Coating library entries — .tfsc files in Documents\TFStudio\Coatings\
+  listCoatings:           () => ipcRenderer.invoke('coatings:list'),
+  loadCoating:            (name) => ipcRenderer.invoke('coatings:load', name),
+  saveCoating:            (entry) => ipcRenderer.invoke('coatings:save', entry),
+  deleteCoating:          (name) => ipcRenderer.invoke('coatings:delete', name),
   // Merit-function presets — .tfsm files in Documents\TFStudio\MeritFunctions\
   listMFPresets:          () => ipcRenderer.invoke('mf:list-presets'),
   loadMFPreset:           (name) => ipcRenderer.invoke('mf:load', name),

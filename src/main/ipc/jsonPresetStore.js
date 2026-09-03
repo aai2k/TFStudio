@@ -24,6 +24,21 @@ const STORE_SPECS = {
     itemsKey: 'qualifiers',
     readErrorLabel: 'qualifier preset read error',
   },
+  // A coating is more than its layer list (substrate, band, materials, claims),
+  // so the whole record is written and listed, not just name and items.
+  coatings: {
+    channels: {
+      list: 'coatings:list',
+      load: 'coatings:load',
+      save: 'coatings:save',
+      delete: 'coatings:delete',
+    },
+    directoryKey: 'coatingsDir',
+    extension: '.tfsc',
+    itemsKey: 'layers',
+    readErrorLabel: 'coating read error',
+    wholeRecord: true,
+  },
 };
 
 function stripExtension(value, extension) {
@@ -61,6 +76,7 @@ function listPresets(ctx, spec) {
             description: preset.description || '',
             file,
             count: preset[spec.itemsKey].length,
+            ...(spec.wholeRecord ? { record: preset } : {}),
           });
         }
       } catch (err) {
@@ -92,12 +108,14 @@ function savePreset(ctx, spec, preset) {
     if (!Array.isArray(preset[spec.itemsKey])) {
       return { success: false, error: `preset.${spec.itemsKey} required` };
     }
-    const output = {
-      ver: 1,
-      name: preset.name,
-      description: preset.description || '',
-      [spec.itemsKey]: preset[spec.itemsKey],
-    };
+    const output = spec.wholeRecord
+      ? { ver: 1, ...preset }
+      : {
+        ver: 1,
+        name: preset.name,
+        description: preset.description || '',
+        [spec.itemsKey]: preset[spec.itemsKey],
+      };
     ctx.writeFileAtomic(
       presetPath(ctx, spec, preset.name),
       JSON.stringify(output, null, 2),

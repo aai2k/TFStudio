@@ -4,6 +4,7 @@ import path from 'node:path';
 const require = createRequire(import.meta.url);
 const meritPresets = require('../src/main/ipc/meritPresets.js');
 const qualifiers = require('../src/main/ipc/qualifiers.js');
+const coatings = require('../src/main/ipc/coatings.js');
 
 let passed = 0;
 function ok(condition, message) {
@@ -15,7 +16,7 @@ function makeHarness() {
   const files = new Map();
   const logs = [];
   const handlers = new Map();
-  const directories = new Set(['/merit', '/qualifiers', '/elsewhere']);
+  const directories = new Set(['/merit', '/qualifiers', '/coatings', '/elsewhere']);
   const fs = {
     existsSync(file) { return directories.has(file) || files.has(file); },
     readdirSync(directory) {
@@ -32,17 +33,36 @@ function makeHarness() {
     log(message) { logs.push(message); },
     meritFunctionsDir: '/merit',
     qualifiersDir: '/qualifiers',
+    coatingsDir: '/coatings',
     safeName(value) { return String(value).replace(/[^a-z0-9_-]/gi, '_'); },
     writeFileAtomic(file, data) { files.set(file, data); },
   };
   const ipcMain = { handle(channel, handler) { handlers.set(channel, handler); } };
   meritPresets.register(ipcMain, ctx);
   qualifiers.register(ipcMain, ctx);
+  coatings.register(ipcMain, ctx);
   return { files, handlers, logs, ctx };
 }
 
 const { files, handlers, logs, ctx } = makeHarness();
-ok(handlers.size === 8, 'both preset domains register four handlers');
+ok(handlers.size === 12, 'the three preset domains register four handlers each');
+
+// A coating is saved and listed whole: the fields beyond name and layers are
+// what make it a coating rather than a layer list.
+const coating = {
+  name: 'BBAR vis', type: 'ar', substrate: 'builtin:BK7', band: [420, 680],
+  layers: [{ material: 'builtin:TiO2', thickness: 12.5 }], materials: { 'lab:X': { formulaNum: -1 } },
+};
+ok((await handlers.get('coatings:save')(null, coating)).success, 'coating saves');
+ok(files.has('/coatings/BBAR_vis.tfsc'), 'coating uses the .tfsc path');
+const savedCoating = JSON.parse(files.get('/coatings/BBAR_vis.tfsc'));
+ok(savedCoating.ver === 1 && savedCoating.type === 'ar' && savedCoating.band[1] === 680
+  && savedCoating.materials['lab:X'].formulaNum === -1, 'the whole coating record is written');
+const coatingList = await handlers.get('coatings:list')();
+ok(coatingList.presets.length === 1 && coatingList.presets[0].record.substrate === 'builtin:BK7',
+  'listing coatings returns each whole record');
+ok((await handlers.get('coatings:save')(null, { name: 'No layers' })).error === 'preset.layers required',
+  'a coating without layers is refused');
 
 const mfPreset = { name: 'BBAR VIS', description: 'Visible BBAR', operands: [{ type: 'R' }] };
 ok((await handlers.get('mf:save')(null, mfPreset)).success, 'merit preset saves');
