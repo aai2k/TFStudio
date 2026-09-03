@@ -182,7 +182,8 @@ ok(strict.rows.every(r => r.poor), 'a zero tolerance flags every layer');
 ok(loose.rows.every(r => !r.poor), 'a tolerance nothing can exceed flags none');
 ok(strict.rows.every(r => r.crystalNm === r.partThickness),
    'a flagged layer reports the thickness the crystal has to run');
-ok(loose.rows.every(r => r.crystalNm === null), 'an unflagged layer leaves the crystal column empty');
+ok(loose.rows.every(r => r.crystalNm === r.partThickness),
+   'an unflagged layer reports it too, so the run sheet is complete');
 
 // ── 10. One monitoring wavelength per chip ────────────────────────────────────
 const lambdas = autoChipLambdas(stack, resolveMat, { layersPerChip: 2 });
@@ -306,6 +307,77 @@ ok(empty.rows.length === 0 && empty.chips.length === 0, 'a bare substrate produc
     const followed = buildMonitorWorksheet(oneL, resolveMat, { layersPerChip: 1, chipMaterial: null });
     close(followed.rows[0].initialLevel, slabT(NS), 1e-9,
        'no override means the design substrate');
+}
+
+// ── 17. The chip is monitored in air ─────────────────────────────────────────
+// A cemented filter is designed embedded in glass and carries a glass incident
+// medium. The witness chip hangs in the chamber all the same, so its signal is
+// the one a chip in air gives.
+{
+    const embedded = { ...stack, incidentMedium: 'BK7' };
+    const inGlass = buildMonitorWorksheet(embedded, resolveMat, { layersPerChip: 2 });
+    close(inGlass.rows[0].initialLevel, slabT(NS), 1e-9,
+       'an embedded design still starts from a bare chip in air');
+    ok(inGlass.rows.every((r, i) => Math.abs(r.signal - w2.rows[i].signal) < 1e-12),
+       'and every level matches the same design in air');
+}
+
+// ── 18. A layer that leaves no signal ─────────────────────────────────────────
+// Silica on a silica chip extends the chip: the signal stays exactly flat, and
+// the arithmetic ripple on it is not a row of turning points. Both cut rules
+// see it: the quarter wave would be cut on a turn, the 1.2 quarter waves on a
+// level.
+{
+    const nL = resolveMat('L').getNK(REF)[0];
+    const matched = makeDesign([
+        { material: 'L', thickness: qwot('L') },
+        { material: 'L', thickness: 1.2 * qwot('L') },
+        { material: 'H', thickness: qwot('H') },
+    ]);
+    const onL = buildMonitorWorksheet(matched, resolveMat, { layersPerChip: 3, chipMaterial: 'L' });
+    for (const row of onL.rows.slice(0, 2)) {
+        ok(row.turningPoints === 0, `silica on a silica chip shows no turning point (${row.strategy} cut)`);
+        ok(row.amplitude === null && row.cutoffRatio === null, 'it has no amplitude and no cutoff ratio');
+        ok(row.terminationErrNm === Infinity, 'its termination error is infinite, not an arithmetic residue');
+        ok(row.poor && row.crystalNm === row.partThickness, 'it is flagged and handed to the crystal');
+        close(row.signal, slabT(nL, nL), 1e-9, 'the chip level does not move while it grows');
+    }
+    const after = onL.rows[2];
+    ok(after.turningPoints === 1 && Number.isFinite(after.terminationErrNm),
+       'the layer after them is read normally');
+
+    // No wavelength can help a layer with no signal, so it does not decide the
+    // chip's pick: the wavelength is the one the layer that can be monitored gets.
+    const picked = autoChipLambdas(matched, resolveMat, { layersPerChip: 3, chipMaterial: 'L' });
+    const alone = autoChipLambdas(makeDesign([{ material: 'H', thickness: qwot('H') }]),
+                                  resolveMat, { layersPerChip: 3, chipMaterial: 'L' });
+    ok(picked[0] === alone[0],
+       `a layer with no signal does not decide the chip's wavelength (${picked[0]} vs ${alone[0]})`);
+}
+
+// ── 19. A swing below the monitor's own error is not a signal ─────────────────
+// Deep in its own stopband a mirror still moves the reading by a millionth per
+// layer: a real curve with real extrema, and nothing a monitor could see. Below
+// the signal error the row reads as no signal; with the noise set to zero the
+// same layer gets its numbers back.
+{
+    const mirror = makeDesign(Array.from({ length: 40 }, (_, i) => {
+        const id = i % 2 ? 'L' : 'H';
+        return { material: id, thickness: qwot(id) };
+    }));
+    const noisy = buildMonitorWorksheet(mirror, resolveMat, { layersPerChip: 40 });
+    const first = noisy.rows[0];
+    const deep = noisy.rows[noisy.rows.length - 1];
+    ok(first.turningPoints === 1 && Number.isFinite(first.terminationErrNm),
+       'the first layer of the mirror is monitored normally');
+    ok(deep.turningPoints === 0 && deep.amplitude === null && deep.cutoffRatio === null,
+       'the deepest layer shows no turning point, amplitude or cutoff ratio');
+    ok(deep.terminationErrNm === Infinity && deep.poor, 'and an infinite error, flagged');
+    const quiet = buildMonitorWorksheet(mirror, resolveMat,
+        { layersPerChip: 40, signalErrorPct: 0, absSignalErrorPct: 0 });
+    const deepQuiet = quiet.rows[quiet.rows.length - 1];
+    ok(deepQuiet.turningPoints === 1 && Number.isFinite(deepQuiet.terminationErrNm),
+       'a noiseless monitor would still see it turn');
 }
 
 console.log(fail === 0 ? '\nALL PASS' : `\n${fail} FAILURE(S)`);

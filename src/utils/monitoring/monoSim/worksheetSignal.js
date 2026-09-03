@@ -84,8 +84,39 @@ function refineExtremum({ dAt, h, a, b, c, isMax }) {
     };
 }
 
-/** Local extrema of a sampled curve, each refined off the sampling grid. */
-export function findExtrema({ d, s, h }) {
+// A curve whose whole range sits below this is flat: the growing layer leaves
+// no trace on the monitor. Double-precision ripple on a flat transmittance is
+// around 1e-16, while two materials whose indices differ by a millionth
+// already swing it by about 1e-7, so nothing physical lands in between.
+const FLAT_SIGNAL = 1e-9;
+
+/**
+ * True when the layer leaves no usable trace on the monitor: its whole swing
+ * sits below `floor`, or below the arithmetic floor when none is given.
+ *
+ * With no floor this is what a film of the chip's own index does on a bare
+ * chip: silica on a fused-silica witness, the first layer of many filter
+ * runs. The worksheet passes the monitor's own signal error, so a layer deep
+ * in a saturated stopband, which still moves the reading by a millionth, is
+ * treated the same way: the monitor could not see it move.
+ */
+export function isFlatCurve({ s }, floor = 0) {
+    let lo = Infinity;
+    let hi = -Infinity;
+    for (let k = 0; k < s.length; k++) {
+        if (s[k] < lo) lo = s[k];
+        if (s[k] > hi) hi = s[k];
+    }
+    return hi - lo < Math.max(FLAT_SIGNAL, floor);
+}
+
+/**
+ * Local extrema of a sampled curve, each refined off the sampling grid. A flat
+ * curve has none: its ripple is arithmetic, not signal.
+ */
+export function findExtrema(curve) {
+    if (isFlatCurve(curve)) return [];
+    const { d, s, h } = curve;
     const out = [];
     for (let k = 1; k < s.length - 1; k++) {
         const a = s[k - 1], b = s[k], c = s[k + 1];

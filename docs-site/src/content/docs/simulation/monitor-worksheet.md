@@ -34,7 +34,7 @@ that only exists on the same curve.
 first control to reach for when the numbers come out badly.
 
 **Auto λ** picks one monitoring wavelength per chip: the wavelength at which the
-worst layer on that chip terminates most precisely.
+worst layer on that chip terminates most precisely. A layer that has no signal at any wavelength, one of the chip's own index, is left out of the choice: it goes to the crystal whichever wavelength is picked.
 
 **Set all** puts the wavelength in the box beside it on every layer of the run,
 for a machine that monitors everything at one wavelength.
@@ -70,7 +70,7 @@ in the Mono Simulator.
 scale. Unlike the signal error it does not shrink with the reading, so a
 wavelength where the signal has died, deep inside a stopband, scores as
 unusable instead of as noiseless. It is what steers **Auto λ** away from a
-mirror's own band.
+mirror's own band. A layer whose whole swing is smaller than this floor plus the signal error has no usable signal, and the row says so.
 
 **Max Δd** is the thickness error a layer is allowed to be terminated with,
 as a percentage of the layer. A layer that costs more than this is flagged.
@@ -92,7 +92,7 @@ the chip starts from and appears on the first layer of each chip only, which is
 where the gain is set.
 
 **Turning points** is how many the layer passes through. Zero means the layer is
-read against a turning point in an earlier layer on the same chip.
+read against a turning point in an earlier layer on the same chip, or that the monitor could not see the layer move at all: a layer whose whole swing is smaller than the monitor's own error, deep in a saturated stopband, shows zero with no amplitude and ∞ for Δd.
 
 **Amplitude** is the full swing available to the layer, measured between the
 turning point before the cut and the one after it. It is not the swing the layer
@@ -113,8 +113,7 @@ the rule the layer is cut with, either following the signal to a level or
 detecting the reversal at a turning point, so both are on the same scale. Layers
 cut on time have no optical feedback and show none.
 
-**Crystal** is the thickness to run the quartz monitor to, in kilo-angstroms,
-filled in for the flagged layers, which are the ones the crystal has to carry.
+**Crystal** is the thickness to run the quartz monitor to, in kilo-angstroms, on every layer. The flagged layers are the ones the crystal has to carry and are drawn in full; the rest are dimmed.
 
 **Export** writes the table to CSV.
 
@@ -144,7 +143,7 @@ be run on the crystal.
 The signal is read through the whole witness chip: the growing coating on the
 front face and the bare back face, added incoherently, the same convention the
 monochromatic simulator uses. A bare chip of n = 1.52 glass reads 91.8 %, and
-that is the level the monitor's gain is set against.
+that is the level the monitor's gain is set against. The chip hangs in the chamber, so the signal is read with air above the growing coating whatever medium the design is embedded in: a filter designed between two glasses still monitors like a chip in air, and its first layer reads the bare-chip level, not 100 %.
 
 ## References
 

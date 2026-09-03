@@ -145,6 +145,20 @@ function test_regression_bitidentical() {
     ok(maxd === 0, `deterministic + regression-safe: max |Δ as-built| = ${maxd} (expect 0)`);
 }
 
+// ── The chip is monitored in air ────────────────────────────────────────────
+// A cemented filter is designed embedded in glass; the witness chip hangs in
+// the chamber all the same, so the run is the one a chip in air gives.
+function test_chip_in_air() {
+    const cfg = () => ({
+        rates: new Map([['TiO2', { mean: 0.3, sigma: 0.05 }], ['SiO2', { mean: 0.5, sigma: 0.05 }]]),
+        mon: baseMon, sig: { randomPct: 1.0, driftPctPer1000s: 0 }, rng: makeRng(31),
+    });
+    const inAir = simulateRun(fourLayer(), resolveMat, cfg());
+    const embedded = simulateRun({ ...fourLayer(), incidentMedium: 'BK7' }, resolveMat, cfg());
+    ok(inAir.asBuiltFront.every((d, i) => d === embedded.asBuiltFront[i]),
+       'a design embedded in glass is monitored exactly like the same run in air');
+}
+
 console.log('Running BBM wizard backend tests...\n');
 test_ou_path();
 test_shutter_delay();
@@ -152,6 +166,7 @@ test_exclude_layer();
 test_matdev();
 test_trajectory();
 test_regression_bitidentical();
+test_chip_in_air();
 
 if (fails === 0) { console.log('\n✓ All BBM wizard tests passed'); process.exit(0); }
 else { console.error(`\n✗ ${fails} test(s) failed`); process.exit(1); }

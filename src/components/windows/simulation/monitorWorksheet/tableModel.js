@@ -95,6 +95,12 @@ function terminationCell(c, t) {
     };
 }
 
+// The thickness the quartz monitor runs to, on every layer. The flagged
+// layers are the ones the crystal has to carry; the rest are dimmed.
+function crystalCell(c) {
+    return (value, row) => h('span', { style: { color: row.poor ? c.text : c.textDim } }, fixed(3)(value));
+}
+
 export function worksheetColumns({ t, c, matColorMap, onChip, onLambda }) {
     const mw = t.monitorWorksheet;
     return [
@@ -109,7 +115,7 @@ export function worksheetColumns({ t, c, matColorMap, onChip, onLambda }) {
         { key: 'swingOut', label: mw.colSwingOut, fmt: fixed(2) },
         { key: 'cutoffRatio', label: mw.colCutoff, fmt: fixed(3) },
         { key: 'terminationErrNm', label: mw.colTermination, fmt: terminationCell(c, t) },
-        { key: 'crystal', label: mw.colCrystal, fmt: fixed(3) },
+        { key: 'crystal', label: mw.colCrystal, fmt: crystalCell(c) },
         { key: 'initialLevel', label: mw.colInitial, fmt: fixed(2) },
     ];
 }

@@ -13,6 +13,8 @@ import { resolveEvalMode }  from '../../../../utils/physics/optimizer.js';
 import { designMaterialLookup } from '../../../../utils/materials/designMaterials.js';
 import { medId } from '../wizardShared.js';
 
+import { CHAMBER_MEDIUM_ID } from '../../../../utils/monitoring/chamberMedium.js';
+
 const { useMemo } = React;
 
 export function useWizardShell(design) {
@@ -46,10 +48,10 @@ export function useWizardShell(design) {
         subMat: resolveMat(design.substrate?.material),
         exitMat: resolveMat(design.exitMedium),
         subThk: design.substrate?.thickness ?? 1.0,
-        // Incident medium of the coating actually being deposited (the exit
-        // medium in back mode) — drives the in-chamber MONITOR signal, which is
-        // the active coating on a semi-infinite substrate (no back surface).
-        incidentMatActive: resolveMat(medId(simDesign.incidentMedium)),
+        // Medium above the growing coating for the in-chamber MONITOR signal:
+        // the chip hangs in the chamber, so this is air whatever the design is
+        // embedded in and whichever side is being deposited.
+        incidentMatActive: resolveMat(CHAMBER_MEDIUM_ID),
         // The opposite, static coating in ITS storage order (front: top→substrate,
         // back: substrate→exit), resolved at nominal thickness.
         otherStored: (activeSide === 'back' ? (design.frontLayers || []) : (design.backLayers || []))

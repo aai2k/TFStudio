@@ -36,6 +36,7 @@
  *     fall in previous layers.
  */
 
+import { CHAMBER_MEDIUM_ID } from '../chamberMedium.js';
 import { buildChipRows } from './worksheetChip.js';
 
 export const WORKSHEET_DEFAULTS = {
@@ -110,14 +111,14 @@ function chipGroups(layers) {
 }
 
 // The witness chip's glass is the design substrate unless `chipMaterial` names
-// another material, for a witness that is not the same glass as the part.
+// another material, for a witness that is not the same glass as the part. The
+// chip hangs in the chamber, so it is read in air whatever medium the design
+// is embedded in.
 function opticalSystem(design, resolveMat, { char, theta, pol, chipMaterial }) {
-    const incId = typeof design.incidentMedium === 'string'
-        ? design.incidentMedium : (design.incidentMedium?.material ?? 'Air');
     const subId = chipMaterial || (design.substrate?.material ?? 'BK7');
     return {
         theta, pol, char,
-        incMat: resolveMat(incId), subMat: resolveMat(subId),
+        incMat: resolveMat(CHAMBER_MEDIUM_ID), subMat: resolveMat(subId),
         subThickMM: design.substrate?.thickness ?? 1,
     };
 }
@@ -128,11 +129,22 @@ function resolveChipByStep(cfg, stepCount) {
         : assignChips(stepCount, cfg.layersPerChip);
 }
 
-// How badly the worst layer on a chip terminates. A layer cut on time reports
-// no optical error, and not being able to monitor it is not the wavelength's
-// fault, so it does not count against the chip.
-function worstErrPct(rows) {
-    return rows.reduce((worst, row) => Math.max(worst, row.terminationErrPct ?? 0), 0);
+// Termination error of every layer on a chip at each candidate wavelength: a
+// row per wavelength, a column per layer, null for a layer cut on time.
+function chipErrorTable({ group, sys, resolveMat, cfg, lams }) {
+    return lams.map(lam => buildChipRows({
+        chip: group.chip, layers: group.layers, lam, sys, resolveMat, opts: cfg,
+    }).rows.map(row => row.terminationErrPct));
+}
+
+// How badly a wavelength serves the chip: the worst of the layers the choice
+// can do anything for. A layer cut on time has no optical error to report. A
+// layer with no signal at any candidate, one of the chip's own index, is going
+// to the crystal whichever wavelength is picked, so it takes no part either. A
+// layer dead at this wavelength and alive at another does take part, and this
+// wavelength loses.
+function wavelengthScore(errs, inPlay) {
+    return errs.reduce((worst, err, i) => (inPlay[i] ? Math.max(worst, err) : worst), 0);
 }
 
 /**
@@ -188,19 +200,22 @@ export function buildMonitorWorksheet(design, resolveMat, opts = {}) {
     return { rows, chips, xEnd: layout.xEnd };
 }
 
-// The wavelength whose worst layer on this chip terminates most precisely. The
-// design's own reference wavelength is the incumbent, so a chip whose layers
-// all score the same keeps it rather than drifting to the edge of the band.
+// The wavelength whose worst served layer on this chip terminates most
+// precisely. The design's own reference wavelength is the incumbent, so a chip
+// whose layers all score the same keeps it rather than drifting to the edge of
+// the band.
 function bestLambdaForChip({ group, sys, resolveMat, band, cfg }) {
-    const scoreAt = lam => worstErrPct(buildChipRows({
-        chip: group.chip, layers: group.layers, lam, sys, resolveMat, opts: cfg,
-    }).rows);
-    let bestLam = band.refLam;
-    let bestScore = scoreAt(band.refLam);
+    const lams = [band.refLam];
     for (let g = 0; g < band.steps; g++) {
-        const lam = band.lamA + (g * (band.lamB - band.lamA)) / (band.steps - 1);
-        const score = scoreAt(lam);
-        if (score < bestScore) { bestScore = score; bestLam = lam; }
+        lams.push(band.lamA + (g * (band.lamB - band.lamA)) / (band.steps - 1));
+    }
+    const table = chipErrorTable({ group, sys, resolveMat, cfg, lams });
+    const inPlay = group.layers.map((_, i) => table.some(errs => Number.isFinite(errs[i])));
+    let bestLam = lams[0];
+    let bestScore = wavelengthScore(table[0], inPlay);
+    for (let k = 1; k < lams.length; k++) {
+        const score = wavelengthScore(table[k], inPlay);
+        if (score < bestScore) { bestScore = score; bestLam = lams[k]; }
     }
     return Math.round(bestLam);
 }

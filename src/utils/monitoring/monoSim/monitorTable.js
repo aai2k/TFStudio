@@ -7,6 +7,7 @@
 import {
     findExtrema, nearestExtremum, sampleLayerCurve, signalAt, slopeAtCut, terminationError,
 } from './worksheetSignal.js';
+import { CHAMBER_MEDIUM_ID } from '../chamberMedium.js';
 
 // Candidate wavelengths tried per layer, matching the worksheet's search.
 const LAM_STEPS = 25;
@@ -161,14 +162,13 @@ export function pickMonitoringPlan({
     const N = front.length;
     if (!N) return [];
     const ref = design.referenceWavelength || 550;
-    const incId = typeof design.incidentMedium === 'string'
-        ? design.incidentMedium : (design.incidentMedium?.material ?? 'Air');
-    // The monitor watches the witness chip; its glass is the design substrate
-    // unless `chipMaterial` names another material.
+    // The monitor watches the witness chip: in air, since the chip hangs in
+    // the chamber whatever the design is embedded in, and on the design
+    // substrate's glass unless `chipMaterial` names another material.
     const subId = chipMaterial || (design.substrate?.material ?? 'BK7');
     const sys = {
         theta, pol, char,
-        incMat: resolveMat(incId), subMat: resolveMat(subId),
+        incMat: resolveMat(CHAMBER_MEDIUM_ID), subMat: resolveMat(subId),
         subThickMM: design.substrate?.thickness ?? 1,
     };
     const noise = { relFrac: Math.max(0, noisePct) / 100, absFrac: Math.max(0, absNoisePct) / 100 };

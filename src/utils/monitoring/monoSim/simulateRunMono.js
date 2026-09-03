@@ -39,6 +39,7 @@ import { gauss } from './rng.js';
 import { drawFrontMaterialDeltas } from './materialPerturbation.js';
 import { parseMonoRateConfig, parseMonoMonitorConfig, parseMonoSignalConfig, parseMonoLayerConfig } from './simulateRunMonoConfig.js';
 import { processMonoLayer } from './layerLoop.js';
+import { CHAMBER_MEDIUM_ID } from '../chamberMedium.js';
 
 /**
  * Simulate one monochromatic-monitoring deposition run. cfg matches
@@ -57,12 +58,10 @@ export function simulateRunMono(design, resolveMat, cfg) {
     const { rng } = rateCfg;
     const refLam = design.referenceWavelength || 550;
 
-    const incId  = typeof design.incidentMedium === 'string'
-        ? design.incidentMedium : (design.incidentMedium?.material ?? 'Air');
-    // The monitor watches the witness chip, so its glass carries the signal;
-    // the run's scoring elsewhere stays on the design substrate.
+    // The monitor watches the witness chip, in air, so its glass carries the
+    // signal; the run's scoring elsewhere stays on the design's own media.
     const subId  = monCfg.chipMaterial || (design.substrate?.material ?? 'BK7');
-    const incMat = resolveMat(incId);
+    const incMat = resolveMat(CHAMBER_MEDIUM_ID);
     const subMat = resolveMat(subId);
 
     const front = (design.frontLayers || []).map(l => ({ ...l }));

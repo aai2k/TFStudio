@@ -132,5 +132,14 @@ ok(late.every(row => row.strategy === 'time' || row.lambda < 485 || row.lambda >
 ok(late.some(row => row.strategy === 'level'),
    'deep mirror: off-band layers carry level cuts, not blanket time cuts');
 
+// ── 5. The chip is monitored in air ──────────────────────────────────────────
+// A design embedded in glass carries a glass incident medium; the plan is for
+// the witness chip, which hangs in the chamber.
+{
+    const inGlass = pickMonitoringPlan({ design: { ...mixedDesign, incidentMedium: 'BK7' }, ...PICK });
+    ok(inGlass.every((row, i) => row.lambda === plan[i].lambda && row.strategy === plan[i].strategy),
+       'a design embedded in glass gets the plan of the same design in air');
+}
+
 console.log(fail === 0 ? '\nALL PASS' : `\n${fail} FAILURE(S)`);
 process.exit(fail === 0 ? 0 : 1);

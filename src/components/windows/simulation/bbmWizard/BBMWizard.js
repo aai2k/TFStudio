@@ -37,7 +37,8 @@ import { ModalFrame } from '../wizardKit/ModalFrame.js';
 import { PageDeviations } from '../wizardKit/PageDeviations.js';
 import { PageResults } from '../wizardKit/PageResults.js';
 import { mulberry32 } from '../../../../utils/monitoring/monitoringSim.js';
-import { medId, PageHead } from '../wizardShared.js';
+import { PageHead } from '../wizardShared.js';
+import { CHAMBER_MEDIUM_ID } from '../../../../utils/monitoring/chamberMedium.js';
 import { PageRates } from './PageRates.js';
 import { PageMonSystem } from './PageMonSystem.js';
 import { PageSignalErrors } from './PageSignalErrors.js';
@@ -98,16 +99,15 @@ function buildRunCfg({ p, materialIds, recordTrajectory }) {
 // Pre-samples every referenced material's [n,k] on the monitor scan λ grid so
 // the run can execute in a Web Worker (Approach A). simulateRun only samples
 // on this grid, so the worker result matches the main-thread path.
-function presampleMaterialsFor({ design, simDesign, materialIds, resolveMat, p }) {
+function presampleMaterialsFor({ design, materialIds, resolveMat, p }) {
     const nP = Math.max(3, p.points | 0);
     const step = (p.lamMax - p.lamMin) / (nP - 1);
     const scanL = []; for (let i = 0; i < nP; i++) scanL.push(p.lamMin + i * step);
-    // Incident medium of the active run (the exit medium in back mode). The
-    // worker resolves the monitor substrate as chip glass || design substrate,
-    // so both ids ship with the pre-sample.
-    const incId = medId(simDesign.incidentMedium);
+    // The monitor reads the chip in air, and the worker resolves the monitor
+    // substrate as chip glass || design substrate, so both ids ship with the
+    // pre-sample.
     const subId = design.substrate?.material ?? 'BK7';
-    const ids = new Set([incId, subId]); for (const id of materialIds) ids.add(id);
+    const ids = new Set([CHAMBER_MEDIUM_ID, subId]); for (const id of materialIds) ids.add(id);
     if (p.chipMaterial) ids.add(p.chipMaterial);
     const materials = {};
     for (const id of ids) {

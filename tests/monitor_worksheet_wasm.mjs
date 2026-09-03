@@ -79,6 +79,9 @@ for (let i = 0; i < js.rows.length; i++) {
             if (va !== vb) { fail++; console.log(`FAIL  row ${i + 1} ${key}: ${va} vs ${vb}`); }
             continue;
         }
+        // Deep in the stopband both paths report an infinite termination
+        // error, which is agreement, not a difference.
+        if (va === vb) continue;
         worstRow = Math.max(worstRow, Math.abs(va - vb));
     }
     for (let k = 0; k < a.curve.y.length; k++) {

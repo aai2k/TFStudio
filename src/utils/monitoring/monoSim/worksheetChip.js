@@ -33,7 +33,8 @@
 
 import { autoMonoStrategy } from './monitorTable.js';
 import {
-    findExtrema, nearestExtremum, sampleLayerCurve, signalAt, slopeAtCut, terminationError,
+    findExtrema, isFlatCurve, nearestExtremum, sampleLayerCurve, signalAt, slopeAtCut,
+    terminationError,
 } from './worksheetSignal.js';
 
 // Layers already on the chip, written outermost first as the signal model wants.
@@ -70,17 +71,20 @@ function swingFigures({ sStart, sCut, reference, next }) {
     };
 }
 
-function terminationFigures({ ctx, dCut, extrema, sCut, cfg }) {
+// The monitor's own error on a reading: the relative error of the reading
+// plus the photometric floor. The floor is what makes a saturated-stopband
+// wavelength score as unusable instead of as noiseless.
+function signalErrorAt(cfg, sCut) {
+    return (cfg.signalErrorPct / 100) * Math.abs(sCut) + (cfg.absSignalErrorPct || 0) / 100;
+}
+
+function terminationFigures({ ctx, dCut, extrema, flat, signalError }) {
     const strategy = dCut > 0 ? autoMonoStrategy({ thickness: dCut }, ctx.curMat, ctx.lam) : 'time';
-    const slope = slopeAtCut(ctx, dCut);
+    // A flat curve has no slope either; the arithmetic residue of a central
+    // difference would otherwise become a finite, absurd thickness error.
+    const slope = flat ? 0 : slopeAtCut(ctx, dCut);
     const errNm = terminationError({
-        strategy,
-        // Relative error of the reading plus the photometric floor: the floor
-        // is what makes a saturated-stopband wavelength score as unusable
-        // instead of as noiseless.
-        signalError: (cfg.signalErrorPct / 100) * Math.abs(sCut)
-            + (cfg.absSignalErrorPct || 0) / 100,
-        slope,
+        strategy, signalError, slope,
         cutExtremum: nearestExtremum(extrema, dCut),
     });
     const errPct = errNm != null && dCut > 0 ? (errNm / dCut) * 100 : null;
@@ -95,19 +99,25 @@ function chartCurve(curve, xStart, xPerNm) {
 function buildRow({ layer, chip, onChip, ctx, geom, cfg, chipStartLevel, chipExtrema, xStart }) {
     const dCut = layer.thickness;
     const curve = sampleLayerCurve(ctx, dCut, geom.dQW, cfg.coarse);
-    const extrema = findExtrema(curve);
+    const sStart = curve.s[0];
+    const sCut = dCut > 0 ? signalAt(ctx, dCut) : sStart;
+    const signalError = signalErrorAt(cfg, sCut);
+    // A layer whose whole swing is smaller than the monitor's own error
+    // cannot be seen to move: no turning points, no slope, nothing to stop
+    // on. A layer of the chip's own index is the extreme case; a layer deep
+    // in a saturated stopband is the common one.
+    const flat = isFlatCurve(curve, signalError);
+    const extrema = flat ? [] : findExtrema(curve);
     // A quarter-wave layer is stopped on its own turning point, and the refined
     // extremum lands either side of the cut by up to a sample. Within one
     // sample of the cut the turning point is the cut's own.
     const atCut = dCut + curve.h;
     const inLayer = extrema.filter(e => e.d <= atCut);
     const next = extrema.find(e => e.d > atCut) || null;
-    const sStart = curve.s[0];
-    const sCut = dCut > 0 ? signalAt(ctx, dCut) : sStart;
     // The first layer on a chip is itself where the chip's signal starts.
     const reference = referencePoint(inLayer, chipExtrema, chipStartLevel ?? sStart);
     const swings = swingFigures({ sStart, sCut, reference, next });
-    const term = terminationFigures({ ctx, dCut, extrema, sCut, cfg });
+    const term = terminationFigures({ ctx, dCut, extrema, flat, signalError });
     const poor = swings.amplitude == null
         || (term.errPct != null && term.errPct > cfg.maxTerminationErrPct);
 
@@ -135,7 +145,9 @@ function buildRow({ layer, chip, onChip, ctx, geom, cfg, chipStartLevel, chipExt
             terminationErrNm: term.errNm,
             terminationErrPct: term.errPct,
             poor,
-            crystalNm: poor ? layer.partThickness : null,
+            // The thickness the quartz monitor runs to, on every layer; the
+            // flag says which layers it has to carry.
+            crystalNm: layer.partThickness,
             xStart,
             xCut: xStart + dCut * geom.xPerNm,
             xEnd: xStart + curve.dMax * geom.xPerNm,

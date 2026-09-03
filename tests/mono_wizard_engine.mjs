@@ -143,5 +143,17 @@ ok(maxTimeErr < 1e-6, "'time' strategy with 0 rel-error hits target exactly");
        `a sharper turning point on a high-index chip cuts sooner (${onH.toFixed(2)} vs ${onSub.toFixed(2)} nm)`);
 }
 
+// ── 7. The chip is monitored in air ──────────────────────────────────────────
+// A cemented filter is designed embedded in glass; the witness chip hangs in
+// the chamber all the same, so the run is the one a chip in air gives.
+{
+    const noisy = { ...baseCfg, sig: { randomPct: 0.5, driftPctPer1000s: 0 } };
+    const inAir = simulateRunMono(design, resolveMat, { ...noisy, rng: mulberry32(11) });
+    const embedded = simulateRunMono({ ...design, incidentMedium: 'BK7' }, resolveMat,
+                                     { ...noisy, rng: mulberry32(11) });
+    ok(inAir.asBuiltFront.every((d, i) => d === embedded.asBuiltFront[i]),
+       'a design embedded in glass is monitored exactly like the same run in air');
+}
+
 console.log(fail === 0 ? '\nALL PASS' : `\n${fail} FAILURE(S)`);
 process.exit(fail === 0 ? 0 : 1);

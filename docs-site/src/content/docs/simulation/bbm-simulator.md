@@ -62,7 +62,7 @@ scored, follow the surface mode set in the
 in-chamber monitor signal is read through the whole witness chip: the growing
 coating on its front face and its bare back face, added incoherently, the way
 a spectrophotometer aimed through the chamber actually sees it. A bare chip of
-n = 1.52 glass reads 91.8 %, not the 95.7 % of the coated surface alone.
+n = 1.52 glass reads 91.8 %, not the 95.7 % of the coated surface alone. The chip hangs in the chamber, so the signal is read with air above the growing coating whatever medium the design is embedded in.
 
 ## How to read it
 
