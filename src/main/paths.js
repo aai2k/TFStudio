@@ -64,18 +64,58 @@ function decodeBomlessUtf16(buf) {
   return null;
 }
 
+// TextDecoder labels of the Windows ANSI code pages whose number is not a
+// label of its own.
+const CODE_PAGE_LABELS = { 932: 'shift_jis', 936: 'gbk', 949: 'euc-kr', 950: 'big5', 874: 'windows-874' };
+
+// The system's ANSI code page as a TextDecoder label ('windows-1251' on a
+// Russian Windows), read once from the registry. Null off Windows, or when the
+// registry cannot be read or the page has no decoder.
+let ansiLabel;
+function ansiCodePage() {
+  if (ansiLabel !== undefined) return ansiLabel;
+  ansiLabel = null;
+  if (process.platform === 'win32') {
+    try {
+      const out = require('child_process').execFileSync('reg',
+        ['query', 'HKLM\\SYSTEM\\CurrentControlSet\\Control\\Nls\\CodePage', '/v', 'ACP'],
+        { encoding: 'ascii', windowsHide: true, timeout: 3000 });
+      const m = /\bACP\s+REG_SZ\s+(\d+)/.exec(out);
+      if (m) {
+        const label = CODE_PAGE_LABELS[m[1]] || `windows-${m[1]}`;
+        new TextDecoder(label);
+        ansiLabel = label;
+      }
+    } catch (_) { /* no registry, or no decoder for the page */ }
+  }
+  return ansiLabel;
+}
+
+// Decode bytes that are not UTF-8 as a Windows code page. Older coating
+// programs (TFCalc among them) write text in the system's ANSI code page, so
+// a Cyrillic material name written on a Russian Windows arrives as
+// windows-1251 bytes and reads back through the same page. The label defaults
+// to the system's own page, and to windows-1252 where there is none.
+function decodeAnsi(buf, label = ansiCodePage() || 'windows-1252') {
+  return new TextDecoder(label).decode(buf);
+}
+
 // Read a text file, auto-detecting its encoding. Handles the three BOM-marked
 // encodings AND BOM-less UTF-16 (Notepad/instrument exports often omit the BOM):
 // ASCII-range text encoded as UTF-16 has a NUL in every other byte, so we sniff
 // whether NULs cluster at odd offsets (little-endian) or even (big-endian).
-// (Deduped from three identical copies in spectrum.js / zemax.js / catalogs.js.)
+// Bytes that are not valid UTF-8 are read as an ANSI code page.
 function readTextAuto(filePath) {
   const buf = fs.readFileSync(filePath);
   const byBom = decodeByBom(buf);
   if (byBom !== null) return byBom;
   const bomless = decodeBomlessUtf16(buf);
   if (bomless !== null) return bomless;
-  return buf.toString('utf8');
+  try {
+    return new TextDecoder('utf-8', { fatal: true }).decode(buf);
+  } catch (_) {
+    return decodeAnsi(buf);
+  }
 }
 
 // The directory the portable AppData folder and app-debug.log sit beside.
@@ -93,4 +133,4 @@ function resolveExeDir({ portableDir, isPackaged, execPath, appPath }) {
   return isPackaged ? path.dirname(execPath) : appPath;
 }
 
-module.exports = { safeName, safeFilePath, readJsonSafe, writeFileAtomic, readTextAuto, resolveExeDir };
+module.exports = { safeName, safeFilePath, readJsonSafe, writeFileAtomic, readTextAuto, decodeAnsi, ansiCodePage, resolveExeDir };

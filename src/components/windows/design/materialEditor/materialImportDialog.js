@@ -19,14 +19,9 @@ import { MACLEOD_N_MODELS } from '../../../../utils/materials/macleodParser.js';
 import { sampleReadOnlyChart, readOnlyFormulaBlock, readOnlyNkTable } from './materialEditorReadOnly.js';
 import { clearMaterialChart } from './materialChart.js';
 import { smallBtn, catTabStyle, formatNm } from './materialEditorUI.js';
+import { cell, headCell, fieldStyle } from '../../../ui/importDialogUI.js';
 
 const { createElement: h, useState, useMemo, useEffect, useRef } = React;
-
-const fieldStyle = (c) => ({
-    height: 24, boxSizing: 'border-box', backgroundColor: c.bg, color: c.text,
-    border: `1px solid ${c.border}`, borderRadius: 3, fontSize: 12, padding: '0 6px',
-    outline: 'none', fontFamily: 'inherit', maxWidth: 220,
-});
 
 // Data-type label in the source program's own terms, so a TFCalc "Sellmeier 3"
 // is not listed under the Zemax formula name it maps onto.
@@ -45,17 +40,6 @@ function typeLabel(item, me) {
         return me.importTypeTerms(MACLEOD_N_MODELS[e.macleod.nType] || FORMULA_NAMES[e.formulaNum], e.macleod.terms);
     }
     return FORMULA_NAMES[e.formulaNum] || String(e.formulaNum);
-}
-
-function cell(content, extra) {
-    return h('td', { style: { padding: '3px 8px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', ...extra } }, content);
-}
-
-function headCell(label, c, extra) {
-    return h('th', {
-        style: { textAlign: 'left', padding: '4px 8px', color: c.textDim, fontWeight: 600, fontSize: 11,
-                 borderBottom: `1px solid ${c.border}`, position: 'sticky', top: 0, backgroundColor: c.panel, ...extra }
-    }, label);
 }
 
 function renderList({ items, errors, currentItem, excluded, toggle, setCurrent, me, c }) {

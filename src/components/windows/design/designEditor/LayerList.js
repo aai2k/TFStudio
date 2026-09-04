@@ -335,10 +335,10 @@ export function LayerList({ layers, side, design, updateDesign, missingMaterialI
             onContextMenu: openContextMenu,
             onPointerDownDrag,
             dropPosition: dropIndicator?.id === layer.id ? dropIndicator.position : null,
-            refLambda, t,
+            refLambda, designMaterials: design.materials, t,
         }));
     }, [layers, reversed, selectedId, selectedIds, activeUnit, editRequest,
-        dropIndicator, missingMaterialIds, refLambda, c, t,
+        dropIndicator, missingMaterialIds, refLambda, design.materials, c, t,
         selectAndFocus, onMaterialChangeRow, onThicknessChangeRow, onLockToggleRow,
         onRemoveRow,
         activateCell, navigateCell, finishCellEditing, openContextMenu, onPointerDownDrag]);

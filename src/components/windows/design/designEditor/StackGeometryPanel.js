@@ -34,7 +34,7 @@ function StackSettingsFields({ design, updateDesign, refLambda, c, t }) {
             h(MediaCol, { label: de.exitMedium, materialId: design.exitMedium,
                 onChange: (m) => updateDesign({ exitMedium: m }), c, t }),
         ),
-        materialHasNoK(design.substrate.material) && h('div', {
+        materialHasNoK(design.substrate.material, design.materials) && h('div', {
             title: de.substrateNoK,
             style: { display: 'flex', alignItems: 'center', gap: 5, padding: '2px 0', fontSize: 10, color: c.warning || '#ef9800' },
         },
@@ -67,8 +67,8 @@ function StackSettingsFields({ design, updateDesign, refLambda, c, t }) {
                     const old = refLambda;
                     updateDesign({
                         referenceWavelength: v,
-                        frontLayers: rescaleLayersPreserveQWOT(design.frontLayers || [], old, v),
-                        backLayers:  rescaleLayersPreserveQWOT(design.backLayers  || [], old, v),
+                        frontLayers: rescaleLayersPreserveQWOT(design.frontLayers || [], old, v, design.materials),
+                        backLayers:  rescaleLayersPreserveQWOT(design.backLayers  || [], old, v, design.materials),
                     });
                 },
                 style: numStyle,

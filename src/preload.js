@@ -9,6 +9,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   loadFolders:      () => ipcRenderer.invoke('load-folders'),
   saveDesign:       (folderName, design) => ipcRenderer.invoke('save-design', folderName, design),
   importTfs:        () => ipcRenderer.invoke('import-tfs'),
+  importDesignFiles: () => ipcRenderer.invoke('import-design-files'),
   deleteItem:       (folderName, itemName) => ipcRenderer.invoke('delete-item', folderName, itemName),
   renameItem:       (folderName, oldName, newName) => ipcRenderer.invoke('rename-item', folderName, oldName, newName),
   createFolder:     (folderName) => ipcRenderer.invoke('create-folder', folderName),

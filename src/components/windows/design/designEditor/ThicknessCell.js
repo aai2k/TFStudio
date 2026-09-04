@@ -90,9 +90,13 @@ function thicknessCellDisplay({ text, titleText, locked, primary, active, hover,
     }, text);
 }
 
+// `designMaterials` is the design's own `materials` block, so a layer whose
+// material travels inside the design converts with that definition. An optical
+// unit of a material that resolves nowhere has no value to show and shows a
+// dash; typing into it commits nothing.
 export function ThicknessCell({ value_nm, onChange, locked, c, materialId, refLambda,
     unit, primary, active = false, editRequest = 0, editSeed = null,
-    onActivate, onNavigate, onExit }) {
+    onActivate, onNavigate, onExit, designMaterials }) {
     const [editing, setEditing] = useState(false);
     const [hover, setHover]     = useState(false);
     const [raw, setRaw]         = useState('');
@@ -100,8 +104,9 @@ export function ThicknessCell({ value_nm, onChange, locked, c, materialId, refLa
     const finishRef = useRef(false);
     const lastEditRequestRef = useRef(0);
 
-    const displayed = nmToUnit(value_nm, materialId, refLambda, unit);
+    const displayed = nmToUnit(value_nm, materialId, refLambda, unit, designMaterials);
     const decimals  = (unit === 'QWOT' || unit === 'FWOT') ? 4 : 2;
+    const text      = Number.isFinite(displayed) ? displayed.toFixed(decimals) : '–';
 
     // `seed` is the character the user typed to start the edit. The cell then
     // opens holding just that character, caret behind it, rather than the
@@ -111,7 +116,7 @@ export function ThicknessCell({ value_nm, onChange, locked, c, materialId, refLa
         onActivate?.();
         finishRef.current = false;
         setHover(false);
-        setRaw(seed != null ? seed : displayed.toFixed(decimals));
+        setRaw(seed != null ? seed : Number.isFinite(displayed) ? displayed.toFixed(decimals) : '');
         setEditing(true);
         setTimeout(() => {
             const input = inputRef.current;
@@ -128,7 +133,7 @@ export function ThicknessCell({ value_nm, onChange, locked, c, materialId, refLa
     const commit = () => {
         if (finishRef.current) return false;
         finishRef.current = true;
-        const nm = thicknessEntryToNm(raw, materialId, refLambda, unit);
+        const nm = thicknessEntryToNm(raw, materialId, refLambda, unit, designMaterials);
         const valid = nm != null;
         if (valid) onChange(nm);
         setHover(false);
@@ -158,7 +163,7 @@ export function ThicknessCell({ value_nm, onChange, locked, c, materialId, refLa
     }
 
     return thicknessCellDisplay({
-        text: displayed.toFixed(decimals),
+        text,
         titleText: thicknessCellTitle(unit),
         locked, primary, active, hover, startEdit, setHover, onActivate, c,
     });

@@ -149,6 +149,7 @@ export default defineConfig({
             { label: 'n,k Characterization', translations: { 'zh-CN': 'n,k 表征' }, slug: 'data-exchange/nk-characterization' },
             { label: 'Spectrum File Formats', translations: { 'zh-CN': '光谱文件格式' }, slug: 'data-exchange/spectrum-file-formats' },
             { label: 'Zemax Coatings',   translations: { 'zh-CN': 'Zemax 膜层' }, slug: 'data-exchange/zemax-coatings' },
+            { label: 'Design Import',    translations: { 'zh-CN': '设计导入' },   slug: 'data-exchange/design-import' },
             { label: 'Process Exporter', translations: { 'zh-CN': '工艺导出' },   slug: 'simulation/process-simulator' },
           ],
         },

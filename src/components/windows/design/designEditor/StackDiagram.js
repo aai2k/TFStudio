@@ -61,8 +61,8 @@ const ELIDED_ENDS = 8;
 // blocks shrink until neither their width nor their material colour reads, so
 // the diagram stops carrying information exactly when the stack is complex
 // enough to need it. Eliding leaves the survivors wide enough to see.
-function coatingBlocks(layers, de) {
-    const block = layer => ({ label: layer.material, role: 'layer', mat: resolveMaterial(layer.material) });
+function coatingBlocks(layers, de, designMaterials) {
+    const block = layer => ({ label: layer.material, role: 'layer', mat: resolveMaterial(layer.material, designMaterials) });
     if (layers.length <= ELIDE_ABOVE) return layers.map(block);
 
     const hidden = layers.slice(ELIDED_ENDS, layers.length - ELIDED_ENDS);
@@ -92,7 +92,7 @@ function lightDirection(design, de) {
 
 export const StackDiagram = React.memo(function StackDiagram({ design, c, t }) {
     const de = t.designEditor;
-    const subMat = resolveMaterial(design.substrate.material);
+    const subMat = resolveMaterial(design.substrate.material, design.materials);
     const front = design.frontLayers || [];
     const back  = design.backLayers  || [];
 
@@ -101,9 +101,9 @@ export const StackDiagram = React.memo(function StackDiagram({ design, c, t }) {
     // +83, 8 back, ambient. That caps the row at a width every block survives.
     const blocks = [
         { label: matDisplayName(design.incidentMedium), fullId: design.incidentMedium, role: 'ambient' },
-        ...coatingBlocks(front, de),
+        ...coatingBlocks(front, de, design.materials),
         { label: matDisplayName(design.substrate.material), fullId: design.substrate.material, role: 'substrate' },
-        ...coatingBlocks(back, de),
+        ...coatingBlocks(back, de, design.materials),
         { label: matDisplayName(design.exitMedium), fullId: design.exitMedium, role: 'ambient' }
     ];
 

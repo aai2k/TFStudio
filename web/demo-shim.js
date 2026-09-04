@@ -411,6 +411,7 @@
     loadFolders,
     saveDesign,
     importTfs,
+    importDesignFiles: () => Promise.resolve({ success: false, canceled: true }),
     deleteItem,
     renameItem,
     createFolder,

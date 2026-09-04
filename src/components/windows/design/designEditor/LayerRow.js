@@ -19,12 +19,14 @@ const LAYER_ROW_H = 26;
 // changed. Handlers are id-passing and stabilized with useCallback in LayerList,
 // and `layer` keeps a stable object reference, so untouched rows are skipped
 // entirely — and scrolling, which changes no props, never re-renders any row.
+// `designMaterials` is the design's `materials` block rather than the design
+// itself for the same reason: it changes only when a definition does.
 export const LayerRow = React.memo(function LayerRow({ layer, index, isSelected, onSelect, c,
     onMaterialChange, onThicknessChange, onLockToggle, onRemove,
     isMaterialMissing, activeUnit, editRequestToken, editRequestUnit, editRequestSeed,
     onActivateCell, onNavigateCell, onFinishEditing, onContextMenu,
     onPointerDownDrag, dropPosition,
-    refLambda, t }) {
+    refLambda, designMaterials, t }) {
 
     const de = t.designEditor;
     const missingTitle = isMaterialMissing ? t.materialResolution.rowMissing(layer.material) : undefined;
@@ -79,7 +81,7 @@ export const LayerRow = React.memo(function LayerRow({ layer, index, isSelected,
             h(ThicknessCell, {
                 value_nm: layer.thickness,
                 onChange: thickness => onThicknessChange(layer.id, thickness),
-                locked: layer.locked, c, materialId: layer.material, refLambda,
+                locked: layer.locked, c, materialId: layer.material, refLambda, designMaterials,
                 unit: column.unit, primary: column.primary,
                 active: activeUnit === column.unit,
                 editRequest: editRequestUnit === column.unit ? editRequestToken : 0,

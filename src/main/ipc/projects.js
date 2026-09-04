@@ -13,6 +13,7 @@ function register(ipcMain, ctx) {
   ipcMain.handle('load-folders', async () => handleLoadFolders(ctx));
   ipcMain.handle('save-design', async (event, folderName, design) => handleSaveDesign(ctx, folderName, design));
   ipcMain.handle('import-tfs', async () => handleImportTfs(ctx));
+  ipcMain.handle('import-design-files', async () => handleImportDesignFiles(ctx));
   ipcMain.handle('delete-item', async (event, folderName, itemName) => handleDeleteItem(ctx, folderName, itemName));
   ipcMain.handle('rename-item', async (event, folderName, oldName, newName) => handleRenameItem(ctx, folderName, oldName, newName));
   ipcMain.handle('create-folder', async (event, folderName) => handleCreateFolder(ctx, folderName));
@@ -238,6 +239,58 @@ async function handleImportTfs(ctx) {
     log(`import-tfs error: ${err.message}`);
     return { success: false, error: `Could not read design: ${err.message}` };
   }
+}
+
+// ── Pick design files from other coating programs ──────────────────────────
+// TFCalc (.tfd), Essential Macleod (.dds) and OptiLayer (.dsg). Returns the
+// file texts; the renderer parses them, resolves the materials and saves the
+// designs through the normal add path. An OptiLayer design names its
+// materials only by abbreviation, so its problem folder travels with it: the
+// project file and the .lm / .sub material files beside the design. A folder
+// is read once and shared by every design picked from it. A file that cannot
+// be read is returned with its error instead of its text, so the renderer
+// lists it as unreadable and the rest of the pick still imports; a folder
+// file that cannot be read is left out and logged.
+async function handleImportDesignFiles(ctx) {
+  const { dialog, getMainWindow, path, fs, log, readTextAuto } = ctx;
+  const result = await dialog.showOpenDialog(getMainWindow(), {
+    title: 'Import Design Files',
+    filters: [
+      { name: 'Design files', extensions: ['tfd', 'dds', 'dsg'] },
+      { name: 'TFCalc designs', extensions: ['tfd'] },
+      { name: 'Essential Macleod designs', extensions: ['dds'] },
+      { name: 'OptiLayer designs', extensions: ['dsg'] },
+    ],
+    properties: ['openFile', 'multiSelections'],
+  });
+  if (result.canceled || result.filePaths.length === 0) {
+    return { success: false, canceled: true };
+  }
+  const readText = (fp) => {
+    try { return { text: readTextAuto(fp) }; }
+    catch (err) { log(`import-design-files: ${fp}: ${err.message}`); return { text: null, error: err.message }; }
+  };
+  const folders = new Map();
+  const optilayerFolder = (dir) => {
+    if (!folders.has(dir)) {
+      let names = [];
+      try { names = fs.readdirSync(dir); }
+      catch (err) { log(`import-design-files: ${dir}: ${err.message}`); }
+      const project = names.find(n => /\.olproj$/i.test(n));
+      const siblings = names.filter(n => /\.(lm|sub)$/i.test(n)).map(n => ({
+        name: path.basename(n, path.extname(n)), ext: path.extname(n).slice(1).toLowerCase(), ...readText(path.join(dir, n)),
+      })).filter(f => f.text != null);
+      folders.set(dir, { projectText: project ? readText(path.join(dir, project)).text || '' : '', siblings });
+    }
+    return folders.get(dir);
+  };
+  const files = result.filePaths.map(fp => {
+    const ext = path.extname(fp).slice(1).toLowerCase();
+    const file = { name: path.basename(fp, path.extname(fp)), ext, dir: path.basename(path.dirname(fp)), ...readText(fp) };
+    if (ext === 'dsg' && file.text != null) Object.assign(file, optilayerFolder(path.dirname(fp)));
+    return file;
+  });
+  return { success: true, files };
 }
 
 // ── Delete a .tfs file ─────────────────────────────────────────────────────

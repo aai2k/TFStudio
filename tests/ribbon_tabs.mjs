@@ -31,7 +31,7 @@ const allIds = tabs.flatMap(idsOf);
 // Ribbon ids that open a renderer-level dialog instead of a docked window, so
 // they are absent from WINDOW_REGISTRY on purpose. Mirrors handleToolAction.
 const RENDERER_HANDLED = new Set([
-    'new-design', 'open-project', 'save', 'save-as', 'undo', 'redo',
+    'new-design', 'open-project', 'import-designs', 'save', 'save-as', 'undo', 'redo',
     'stack-formula', 'filter-design', 'bbm-simulator', 'mono-simulator',
     'report-gen', 'help-docs', 'preferences',
 ]);
@@ -61,12 +61,12 @@ for (const id of QUICK_ACCESS) {
         `${id} is in the title bar's quick access but on no tab, so it is unfindable`);
 }
 
-// New / Open / Save / Save As are the first thing on the first tab.
+// New / Open / Import / Save / Save As are the first thing on the first tab.
 const setupTab = tabs.find(x => x.key === 'setup');
 assert.equal(setupTab.groups[0].key, 'project',
     'the Setup tab opens with the project group');
 assert.deepEqual(setupTab.groups[0].items.map(i => i.id),
-    ['new-design', 'open-project', 'save', 'save-as']);
+    ['new-design', 'open-project', 'import-designs', 'save', 'save-as']);
 assert.equal(setupTab.groups[1].key, 'edit', 'undo/redo/history are their own block');
 assert.deepEqual(setupTab.groups[1].items.map(i => i.id), ['undo', 'redo', 'history']);
 assert.ok(setupTab.groups.some(g => g.items.some(i => i.id === 'preferences')),

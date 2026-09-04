@@ -10,6 +10,8 @@ import { DockingLayout } from './components/docking/DockingLayout.js';
 import { SettingsModal } from './components/dialogs/settings/SettingsModal.js';
 import { InputDialog } from './components/dialogs/InputDialog.js';
 import { AboutDialog } from './components/dialogs/AboutDialog.js';
+import { DesignImportDialog } from './components/dialogs/designImport/DesignImportDialog.js';
+import { DEFAULT_DESIGN_IMPORT_UNITS } from './utils/io/designImport/designFileImport.js';
 import { FilterDesignWizard } from './components/windows/optimization/filterDesignWizard/FilterDesignWizard.js';
 import { BBMWizard } from './components/windows/simulation/bbmWizard/BBMWizard.js';
 import { MonoWizard } from './components/windows/simulation/monoWizard/MonoWizard.js';
@@ -255,6 +257,8 @@ const App = () => {
     const [showMono,          setShowMono]          = useState(false);
     const [showStackFormula, setShowStackFormula] = useState(false);
     const [showReportGen,  setShowReportGen]  = useState(false);
+    // Design files picked for import from another coating program: { files, units }.
+    const [designImport,   setDesignImport]   = useState(null);
     // First-run welcome screen + guided tour. "Seen" is tracked in
     // localStorage (renderer-local, synchronous — no settings.json load race).
     const [showWelcome,    setShowWelcome]    = useState(false);
@@ -975,6 +979,49 @@ const App = () => {
         }
     }, [selectedFolder, addItemFromDesign, existingDesignNames]);
 
+    // ── Import: designs from TFCalc / Essential Macleod files ─────────────────
+    // The main process shows the picker and returns the file texts; the dialog
+    // parses them and resolves the materials, and each ticked design is then
+    // re-keyed and added through the normal addItemFromDesign path.
+    const importDesignsFromFiles = useCallback(async () => {
+        if (!window.electronAPI?.importDesignFiles) return;
+        const res = await window.electronAPI.importDesignFiles();
+        if (!res || res.canceled) return;
+        if (!res.success) {
+            setMessageNotification({ type: 'error', message: t.designImport.error(res.error || t.designImport.unknownError) });
+            return;
+        }
+        setDesignImport({ files: res.files, units: { ...DEFAULT_DESIGN_IMPORT_UNITS } });
+    }, [t]);
+
+    // Names are made unique here, against the tree and against the batch: the
+    // folder list the add path checks is refreshed only after React commits,
+    // which is after the next design of the loop has already been named.
+    const commitDesignImport = useCallback(async (designs, folderId) => {
+        setDesignImport(null);
+        const targetFolder = foldersRef.current.find(f => f.id === folderId) || selectedFolder || foldersRef.current[0];
+        if (!targetFolder) return;
+        const taken = existingDesignNames();
+        let added = 0;
+        for (const imported of designs) {
+            const ts = `${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
+            const name = uniqueDesignName(imported.name, taken, (b, k) => `${b} (${k})`);
+            taken.push(name);
+            const design = {
+                ...imported,
+                id: `design-${ts}`,
+                name,
+                frontLayers: rekeyLayers(imported.frontLayers, ts, 'f'),
+                backLayers:  rekeyLayers(imported.backLayers, ts, 'b'),
+            };
+            if (await addItemFromDesign(design, targetFolder)) added++;
+        }
+        const failed = designs.length - added;
+        if (failed) setMessageNotification({ type: 'error', message: t.designImport.importedPartly(added, failed) });
+        else if (added) setMessageNotification({ type: 'success', message: t.designImport.imported(added) });
+        if (added) setToolRequests(prev => [...prev, { toolId: 'design-editor', ts: Date.now() }]);
+    }, [selectedFolder, addItemFromDesign, existingDesignNames, t]);
+
     // ── Keyboard shortcuts ────────────────────────────────────────────────────
     useEffect(() => {
         const onKey = (e) => {
@@ -1364,6 +1411,7 @@ const App = () => {
             'save':           () => saveDesignToDisk(),
             'save-as':        () => saveDesignAs(),
             'open-project':   () => openDesignFromFile(),
+            'import-designs': () => importDesignsFromFiles(),
             'undo':           () => undo(),
             'redo':           () => redo(),
             'preferences':    () => setShowSettings(true),
@@ -1376,7 +1424,7 @@ const App = () => {
         };
         if (actions[toolId]) { actions[toolId](); return; }
         setToolRequests(prev => [...prev, { toolId, ts: Date.now() }]);
-    }, [addItem, saveDesignToDisk, saveDesignAs, openDesignFromFile, undo, redo, locale]);
+    }, [addItem, saveDesignToDisk, saveDesignAs, openDesignFromFile, importDesignsFromFiles, undo, redo, locale]);
 
     // Open the Stack Formula dialog from within a tool window (Design Editor
     // toolbar button dispatches this decoupled event since tool windows don't
@@ -1488,6 +1536,14 @@ const App = () => {
                 onClose: () => setShowSettings(false), c, t
             }),
             showAbout && h(AboutDialog, { c, t, onClose: () => setShowAbout(false) }),
+            designImport && h(DesignImportDialog, {
+                c, t,
+                fileImport: designImport,
+                setFileImport: setDesignImport,
+                folders,
+                defaultFolderId: selectedFolder?.id,
+                onCommit: commitDesignImport,
+            }),
             showFilterDesign && h(FilterDesignWizard, {
                 c, t,
                 folderName: selectedFolder?.name,

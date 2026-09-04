@@ -26,6 +26,8 @@ const Cf  = (cx, cy, r) => h('circle', { cx, cy, r, fill: 'currentColor' });
 export const ICONS = {
     'new-design':     I([ R(3,2,11,14,1), P('M10 2v4h4'), L(6,9,12,9), L(6,12,12,12) ]),
     'open-project':   I([ P('M3 8h14l-1.5 8H4.5L3 8z'), P('M3 8V6a1 1 0 011-1h4l2 2h5a1 1 0 011 1v0') ]),
+    // Import designs: the open folder with an arrow coming in from the top right.
+    'import-designs': I([ P('M3 8h14l-1.5 8H4.5L3 8z'), P('M3 8V6a1 1 0 011-1h4l2 2h5a1 1 0 011 1v0'), P('M16 1v5'), P('M14 4l2 2 2-2') ]),
     'save':           I([ R(2,2,16,16,2), P('M6 2v5h8V2'), P('M5 11h10v5H5z'), Rf(7,3,4,3,0,'currentColor') ]),
     // Save As — full floppy disk (matching `save`) with a bold "+" on the label
     // = "save as a new one".
@@ -373,7 +375,7 @@ export const GROUP_COLORS = {
 // toolId → family key (locale-independent). A tool's family is what kind of
 // tool it is, which is not always the ribbon tab it is filed under.
 const TOOL_GROUP = {
-    'new-design': 'file', 'open-project': 'file', 'save': 'file', 'save-as': 'file',
+    'new-design': 'file', 'open-project': 'file', 'import-designs': 'file', 'save': 'file', 'save-as': 'file',
     'undo': 'edit', 'redo': 'edit', 'history': 'edit',
     'design-editor': 'design', 'material-editor': 'design', 'coating-library': 'design',
     'specification': 'design', 'stack-formula': 'design',
@@ -422,7 +424,7 @@ export function makeTabs(t) {
     return [
         {
             key: 'setup', label: tb.tabs.setup, groups: [
-                grp('project',     ['new-design', 'open-project', 'save', 'save-as']),
+                grp('project',     ['new-design', 'open-project', 'import-designs', 'save', 'save-as']),
                 grp('edit',        ['undo', 'redo', 'history']),
                 grp('design',      ['design-editor', 'material-editor', 'coating-library', 'specification', 'stack-formula']),
                 grp('preferences', ['preferences']),
