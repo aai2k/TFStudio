@@ -1,13 +1,17 @@
 import { buildCurves } from './model.js';
 import { activeFill, CurveToggleGroup } from '../chrome/controls.js';
 import { useAnalysisColors } from '../../../../state/AnalysisSettingsContext.js';
+import { yScaleReadsQuantity } from './yScale.js';
 
 const { createElement: h } = React;
 
-export function CurveGroup({ group, showCurves, onToggle, c, polLabels }) {
+export function CurveGroup({ group, showCurves, onToggle, c, polLabels, yScale, oe }) {
     // Swatches follow the configured curve colours so the toolbar matches the plot.
     const curveColors = useAnalysisColors('opticalEvaluation');
     const byKey = Object.fromEntries(buildCurves(curveColors).map(cv => [cv.key, cv]));
+    // Optical density reads transmittance and nothing else, so the other two
+    // groups are parked rather than left switching curves the plot will not draw.
+    const disabled = !yScaleReadsQuantity(yScale, group.q);
     return h(CurveToggleGroup, {
         c,
         quantity: group.q,
@@ -16,6 +20,8 @@ export function CurveGroup({ group, showCurves, onToggle, c, polLabels }) {
         active: showCurves,
         onToggle,
         labels: polLabels,
+        disabled,
+        disabledTitle: oe.unitTransmittanceOnly,
     });
 }
 

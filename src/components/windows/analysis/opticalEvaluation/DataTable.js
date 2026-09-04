@@ -6,7 +6,7 @@ const { createElement: h } = React;
 
 export function DataTable({ data, showCurves, yScale, c, oe }) {
     const curveColors = useAnalysisColors('opticalEvaluation');
-    const columns = buildTableColumns(data, showCurves, curveColors);
+    const columns = buildTableColumns(data, showCurves, curveColors, yScale);
     const thBase = {
         padding: '3px 8px', fontWeight: 600, fontSize: 11,
         borderBottom: `1px solid ${c.border}`,

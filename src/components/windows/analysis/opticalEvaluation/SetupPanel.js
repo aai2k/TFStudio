@@ -55,13 +55,13 @@ function VerticalRange({ c, oe, yAuto, setYAuto, yMin, setYMin, yMax, setYMax, y
         h(NumInput, {
             value: range.start, min: range.min, max: range.max, step: range.step,
             c, width: 56, disabled: yAuto,
-            onChange: value => setYMin(Math.min(range.toPercent(value), yMax - 1))
+            onChange: value => setYMin(range.clampMin(value))
         }),
         h('span', { style: { color: c.textDim, fontSize: 11 } }, '–'),
         h(NumInput, {
             value: range.end, min: range.min, max: range.max, step: range.step,
             c, width: 56, disabled: yAuto,
-            onChange: value => setYMax(Math.max(range.toPercent(value), yMin + 1))
+            onChange: value => setYMax(range.clampMax(value))
         }),
         h(SelectField, {
             c, value: yScaleOf(yScale).id, onChange: setYScale,

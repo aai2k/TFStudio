@@ -181,14 +181,17 @@ export function ChoiceGroup({ label, items, activeId, onSelect, c, ariaLabel }) 
  *   active    { key: boolean }
  *   labels    polarization names, keyed by `pol`
  */
-export function CurveToggleGroup({ c, quantity, color, members, active, onToggle, labels }) {
+export function CurveToggleGroup({
+    c, quantity, color, members, active, onToggle, labels, disabled, disabledTitle,
+}) {
     const fill = activeFill(c, color);
     return h('div', {
-        role: 'group', 'aria-label': quantity,
+        role: 'group', 'aria-label': quantity, title: disabled ? disabledTitle : undefined,
         style: {
             display: 'inline-flex', alignItems: 'center', gap: 2, flexShrink: 0,
             height: 28, padding: '0 3px 0 8px', border: `1px solid ${c.border}`,
             borderRadius: 7, backgroundColor: c.bg,
+            opacity: disabled ? 0.45 : 1,
         },
     },
         h('span', {
@@ -201,14 +204,16 @@ export function CurveToggleGroup({ c, quantity, color, members, active, onToggle
             style: { fontSize: 12, fontWeight: 700, color: c.text, marginRight: 2 },
         }, quantity),
         members.map(member => {
-            const on = !!active[member.key];
+            const on = !!active[member.key] && !disabled;
             return h('button', {
-                key: member.key, type: 'button', title: member.title,
+                key: member.key, type: 'button', disabled,
+                title: disabled ? disabledTitle : member.title,
                 onClick: () => onToggle(member.key), 'aria-pressed': on,
                 style: {
                     height: 22, padding: '0 7px',
                     display: 'flex', alignItems: 'center', justifyContent: 'center',
-                    cursor: 'pointer', outline: 'none', border: 'none', lineHeight: 1,
+                    cursor: disabled ? 'default' : 'pointer',
+                    outline: 'none', border: 'none', lineHeight: 1,
                     borderRadius: 4, backgroundColor: on ? fill : 'transparent',
                     color: on ? c.text : c.textDim,
                     fontSize: 11, fontWeight: 500, fontFamily: FONT,

@@ -32,15 +32,27 @@ export function dataPoint(chart, pixel) {
     return finitePoint(point) ? point : null;
 }
 
-function moveGeometry(source, start, current, part) {
+/** `point` carried by a fixed pixel offset, converted through the chart's axes. */
+function shiftedPoint(chart, point, shift) {
+    const pixel = chart?.convertToPixel(AXES, point);
+    if (!finitePoint(pixel)) return null;
+    const moved = chart.convertFromPixel(AXES, [pixel[0] + shift[0], pixel[1] + shift[1]]);
+    return finitePoint(moved) ? moved : null;
+}
+
+// A handle drag places that end at the pointer. A drag on the line body moves
+// the whole line by the pointer's pixel travel, each end converted through the
+// axes on its own: on a logarithmic axis a constant pixel step is a constant
+// ratio, and adding one data-space difference to both ends would bend the line
+// and push its lower end below zero.
+function moveGeometry(chart, source, part, current, shift) {
     if (part === 'start') return { ...source, x0: current[0], y0: current[1] };
     if (part === 'end') return { ...source, x1: current[0], y1: current[1] };
-    const dx = current[0] - start[0], dy = current[1] - start[1];
-    return {
-        ...source,
-        x0: source.x0 + dx, x1: source.x1 + dx,
-        y0: source.y0 + dy, y1: source.y1 + dy,
-    };
+    const start = shiftedPoint(chart, [source.x0, source.y0], shift);
+    const end = shiftedPoint(chart, [source.x1, source.y1], shift);
+    return start && end
+        ? { ...source, x0: start[0], y0: start[1], x1: end[0], y1: end[1] }
+        : source;
 }
 
 export function hasPointerTravelled(start, end, minimum = 3) {
@@ -120,10 +132,9 @@ function ActiveTargetEditorOverlay({
         if (tool !== 'draw') return;
         const chart = chartRef.current;
         const pixel = eventPixel(event, svgRef.current);
-        const startData = dataPoint(chart, pixel);
-        if (!startData) return;
+        if (!dataPoint(chart, pixel)) return;
         dragRef.current = {
-            mode: 'edit', source: item, part, startData, startPixel: pixel,
+            mode: 'edit', source: item, part, startPixel: pixel,
             pointerId: event.pointerId, captureTarget: event.currentTarget,
         };
         event.currentTarget.setPointerCapture?.(event.pointerId);
@@ -144,12 +155,14 @@ function ActiveTargetEditorOverlay({
     const updateDrag = event => {
         const drag = dragRef.current;
         if (!drag) return;
-        const current = dataPoint(chartRef.current, eventPixel(event, svgRef.current));
+        const pixel = eventPixel(event, svgRef.current);
+        const current = dataPoint(chartRef.current, pixel);
         if (!current) return;
         if (drag.mode === 'create') {
             showPreview({ x0: drag.startData[0], y0: drag.startData[1], x1: current[0], y1: current[1], color: drawColor });
         } else {
-            showPreview(moveGeometry(drag.source, drag.startData, current, drag.part));
+            const shift = [pixel[0] - drag.startPixel[0], pixel[1] - drag.startPixel[1]];
+            showPreview(moveGeometry(chartRef.current, drag.source, drag.part, current, shift));
         }
     };
 

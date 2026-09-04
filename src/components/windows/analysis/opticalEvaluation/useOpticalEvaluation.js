@@ -6,6 +6,7 @@ import { makeConeSpec, coneIsActive } from '../../../../utils/physics/optimizer.
 import { useAnalysisEvaluation } from '../useAnalysisEvaluation.js';
 import { buildCSV, createTargetOperands, editTargetOperands, deleteTargetOperand } from './model.js';
 import { opticalEvaluationSession, opticalTargetSession } from './sessionState.js';
+import { isLogYScale, yScaleReadsQuantity } from './yScale.js';
 import { useWindowSession } from '../../windowSession.js';
 
 const { useState, useEffect, useCallback, useMemo } = React;
@@ -41,24 +42,33 @@ function useSpectrumEvaluation({ params, evalMode }) {
         : directResult;
 }
 
-function useTargetEditor({ design, updateDesign }) {
+function useTargetEditor({ design, updateDesign, yScale }) {
     const [session, setField] = useWindowSession(opticalTargetSession, design);
-    const { editMode, editTool, editCurve, editPol, editKind, snapOn, snapNm, snapPct } = session;
+    const { editMode, editTool, editPol, editKind, snapOn, snapNm } = session;
+    // The level snap steps a grid of percentage points, which a logarithmic
+    // axis does not rule: a stopband drawn at 0.001 % would land on 0, a level
+    // that axis cannot even show. Wavelengths snap as they always do.
+    const logScale = isLogYScale(yScale);
+    const snapPct = logScale ? 0 : session.snapPct;
+    // Optical density reads transmittance and nothing else, so while it is
+    // shown a new target is drawn on T whatever family was chosen; the choice
+    // itself is kept for when another unit comes back.
+    const editCurve = yScaleReadsQuantity(yScale, session.editCurve) ? session.editCurve : 'T';
     const onCreateTarget = useCallback(line => {
         updateDesign({
             meritOperands: createTargetOperands({
                 operands: design.meritOperands || [], line,
-                editCurve, editPol, editKind, snapOn, snapNm, snapPct,
+                editCurve, editPol, editKind, snapOn, snapNm, snapPct, logScale,
             })
         });
-    }, [design, updateDesign, editCurve, editPol, editKind, snapOn, snapNm, snapPct]);
+    }, [design, updateDesign, editCurve, editPol, editKind, snapOn, snapNm, snapPct, logScale]);
     const onEditTarget = useCallback((meta, coords) => {
         updateDesign({
             meritOperands: editTargetOperands({
-                operands: design.meritOperands || [], meta, coords, snapOn, snapNm, snapPct,
+                operands: design.meritOperands || [], meta, coords, snapOn, snapNm, snapPct, logScale,
             })
         });
-    }, [design, updateDesign, snapOn, snapNm, snapPct]);
+    }, [design, updateDesign, snapOn, snapNm, snapPct, logScale]);
     const onDeleteTarget = useCallback(opId => {
         updateDesign({ meritOperands: deleteTargetOperand(design.meritOperands || [], opId) });
     }, [design, updateDesign]);
@@ -70,7 +80,8 @@ function useTargetEditor({ design, updateDesign }) {
         editKind, setEditKind: value => setField('editKind', value),
         snapOn, setSnapOn: value => setField('snapOn', value),
         snapNm, setSnapNm: value => setField('snapNm', value),
-        snapPct, setSnapPct: value => setField('snapPct', value),
+        snapPct: session.snapPct, setSnapPct: value => setField('snapPct', value),
+        snapLevels: !logScale,
         onCreateTarget, onEditTarget, onDeleteTarget,
     };
 }
@@ -145,7 +156,7 @@ export function useOpticalEvaluation() {
     const { design, updateDesign, evalMode, evalParams: params, setEvalParams: setParams } = context;
     const display = useDisplayOptions(params, setParams, design);
     const spectrum = useSpectrumEvaluation({ params, evalMode });
-    const targets = useTargetEditor({ design, updateDesign });
+    const targets = useTargetEditor({ design, updateDesign, yScale: display.yScale });
     const csv = useCsvActions({
         data: spectrum.data, showCurves: display.showCurves, yScale: display.yScale, design,
     });

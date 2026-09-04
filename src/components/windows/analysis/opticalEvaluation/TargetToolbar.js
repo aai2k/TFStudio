@@ -3,21 +3,24 @@ import { curveColorFor } from './model.js';
 import { FieldLabel, NumInput } from '../chrome/controls.js';
 import { SegmentedButton } from './controls.js';
 import { ModeRow } from '../chrome/layout.js';
+import { yScaleReadsQuantity } from './yScale.js';
 
 const { createElement: h } = React;
 
-function FamilyButton({ family, editCurve, setEditCurve, c, oe }) {
-    const active = editCurve === family;
+function FamilyButton({ family, editCurve, setEditCurve, c, oe, disabled }) {
+    const active = editCurve === family && !disabled;
     const activeFill = curveColorFor(family) + (c.light ? '20' : '38');
     return h('button', {
         onClick: () => setEditCurve(family),
-        title: oe.editAsTooltip,
+        disabled,
+        title: disabled ? oe.unitTransmittanceOnly : oe.editAsTooltip,
         'aria-pressed': active,
         style: {
-            height: 24, padding: '0 8px', cursor: 'pointer', outline: 'none', border: 'none',
-            borderRadius: 4,
+            height: 24, padding: '0 8px', cursor: disabled ? 'default' : 'pointer',
+            outline: 'none', border: 'none', borderRadius: 4,
             backgroundColor: active ? activeFill : 'transparent',
             color: active ? c.text : c.textDim,
+            opacity: disabled ? 0.45 : 1,
             fontSize: 11, fontFamily: 'system-ui, -apple-system, sans-serif',
             fontWeight: 500,
         }
@@ -35,7 +38,7 @@ function ControlGroup({ c, children }) {
 }
 
 function SnapControls(props) {
-    const { c, oe, snapOn, setSnapOn, snapNm, setSnapNm, snapPct, setSnapPct } = props;
+    const { c, oe, snapOn, setSnapOn, snapNm, setSnapNm, snapPct, setSnapPct, snapLevels } = props;
     return h(ControlGroup, { c },
         h('label', {
             style: { display: 'flex', alignItems: 'center', gap: 4, padding: '0 5px', fontSize: 11, cursor: 'pointer', color: c.text, whiteSpace: 'nowrap' },
@@ -46,15 +49,17 @@ function SnapControls(props) {
         ),
         snapOn && h(NumInput, { value: snapNm, min: 0, max: 100, step: 1, c, width: 40, onChange: setSnapNm }),
         snapOn && h('span', { style: { fontSize: 10, color: c.textDim } }, oe.snapNmUnit),
-        snapOn && h(NumInput, { value: snapPct, min: 0, max: 50, step: 1, c, width: 36, onChange: setSnapPct }),
-        snapOn && h('span', { style: { fontSize: 10, color: c.textDim } }, oe.snapPctUnit)
+        // The level snap is a grid of percentage points, so it is offered only
+        // while the axis is ruled in them.
+        snapOn && snapLevels && h(NumInput, { value: snapPct, min: 0, max: 50, step: 1, c, width: 36, onChange: setSnapPct }),
+        snapOn && snapLevels && h('span', { style: { fontSize: 10, color: c.textDim } }, oe.snapPctUnit)
     );
 }
 
 export function TargetToolbar(props) {
     const {
         c, oe, editMode, editTool, setEditTool, editKind, setEditKind,
-        editCurve, setEditCurve, editPol, setEditPol,
+        editCurve, setEditCurve, editPol, setEditPol, yScale,
     } = props;
     if (!editMode) return null;
     const tools = [
@@ -75,8 +80,11 @@ export function TargetToolbar(props) {
             key: item.id, item, activeId: editKind, onSelect: setEditKind, c,
             title: oe.editKindTooltip
         }))),
+        // The same families the plot can draw in the chosen unit: optical
+        // density parks R and A here as it does on the curve switches.
         drawing && h(ControlGroup, { c }, ['R', 'T', 'A'].map(family => h(FamilyButton, {
-            key: family, family, editCurve, setEditCurve, c, oe
+            key: family, family, editCurve, setEditCurve, c, oe,
+            disabled: !yScaleReadsQuantity(yScale, family),
         }))),
         drawing && h('select', {
             value: editPol, onChange: event => setEditPol(event.target.value),

@@ -57,7 +57,7 @@ function ShowTargetsButton({ c, oe, editMode, showTargets, setShowTargets, hasTa
  * rather than switches, so they live in the Setup panel.
  */
 export function ControlBar(props) {
-    const { c, t, oe, showCurves, toggleCurve, notices } = props;
+    const { c, t, oe, showCurves, toggleCurve, notices, yScale } = props;
     return h(ControlRow, {
         c,
         trailing: [
@@ -68,7 +68,7 @@ export function ControlBar(props) {
         ],
     },
         CURVE_GROUPS.map(group => h(CurveGroup, {
-            key: group.q, group, showCurves, onToggle: toggleCurve, c,
+            key: group.q, group, showCurves, onToggle: toggleCurve, c, yScale, oe,
             polLabels: { avg: oe.polAvg, s: oe.polSShort, p: oe.polPShort },
         })),
     );
