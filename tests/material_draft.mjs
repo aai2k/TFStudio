@@ -16,7 +16,9 @@
 
 const {
     buildNKFromDraft, materialToDraft, draftToMaterial, validateDraft, emptyDraft,
+    coefficientSlots, withFormula, withAddedTerm,
 } = await import('../src/components/windows/design/materialEditor/materialDraft.js');
+const { evalN } = await import('../src/utils/materials/dispersionFormulas.js');
 
 let fails = 0;
 const ok = (cond, msg) => { if (!cond) { console.error('FAIL:', msg); fails++; } else { console.log('  ✓', msg); } };
@@ -141,6 +143,52 @@ ok(validateDraft({ ...emptyDraft('c'), name: 'X', id: 'good_id', isNew: false },
 const catsDup = [{ id: 'c', materials: { taken: { id: 'taken' } } }];
 ok(validateDraft({ ...emptyDraft('c'), name: 'X', id: 'taken', isNew: true, catalogId: 'c' }, catsDup, me) === 'dup:taken', 'validate: duplicate id in new draft rejected');
 ok(validateDraft({ ...emptyDraft('c'), name: 'X', id: 'fresh', isNew: true, catalogId: 'c' }, catsDup, me) === null, 'validate: unused id in new draft passes');
+
+// ── 6. Open-ended series keep exactly the terms they carry ───────────────────
+const cauchyMat = {
+    id: 'cau', name: 'Cauchy', formulaNum: 102, coefficients: [2.25, -0.014, 0.0099, 0.0002],
+    lambdaMin: 0.36, lambdaMax: 1.0, kTable: [], tabData: [], color: 'auto',
+};
+const cauchyDraft = materialToDraft('user_cat', cauchyMat);
+ok(cauchyDraft.coeffs[3] === '0.0002', 'materialToDraft: fourth Cauchy term kept');
+ok(draftToMaterial(cauchyDraft).coefficients.length === 4, 'draftToMaterial: four-term Cauchy stays four terms');
+ok(draftToMaterial({ ...cauchyDraft, coeffs: ['2.25', '-0.014', '0.0099', '', '', '', '', '', '', ''] }).coefficients.length === 3,
+    'draftToMaterial: empty trailing Cauchy fields are not terms');
+const sellDraft = materialToDraft('user_cat', { ...cauchyMat, formulaNum: 101, coefficients: [1, 1.03, 0.006, 0.23, 0.02, 1.01, 103.5, 0.5, 0] });
+ok(draftToMaterial(sellDraft).coefficients.length === 9, 'draftToMaterial: a Sellmeier pair with one zero half stays a whole pair');
+ok(draftToMaterial({ ...sellDraft, coeffs: sellDraft.coeffs.map((v, i) => (i >= 7 ? '' : v)) }).coefficients.length === 7,
+    'draftToMaterial: an empty extra Sellmeier pair is dropped');
+ok(draftToMaterial(formD).coefficients.length === 10, 'draftToMaterial: fixed formulas keep their coefficient slots');
+
+// ── 7. Shown coefficient fields: explicit count, formula switch, Add term ────
+ok(coefficientSlots(cauchyDraft) === 4, 'coefficientSlots: an imported four-term Cauchy shows four fields');
+ok(coefficientSlots({ ...cauchyDraft, coeffs: ['2.25', '-0.014', '0.0099', '', '', '', '', '', '', ''] }) === 4,
+    'coefficientSlots: emptying the last field to retype it keeps the field');
+ok(coefficientSlots({ ...cauchyDraft, coeffSlots: undefined }) === 4, 'coefficientSlots: a draft without the count falls back to the values');
+ok(coefficientSlots(formD) === 6, 'coefficientSlots: fixed formula shows its own list');
+ok(coefficientSlots(emptyDraft('c')) === 6, 'coefficientSlots: empty draft');
+
+const sellmeier5 = materialToDraft('user_cat', { ...cauchyMat, formulaNum: 11, coefficients: [1.03, 0.006, 0.23, 0.02, 1.01, 103.5, 0.1, 0.5, 0.2, 1.2] });
+const switched = withFormula(sellmeier5, 102);
+ok(switched.formulaNum === 102 && coefficientSlots(switched) === 3, 'withFormula: switching to Cauchy shows three fields');
+ok(switched.coeffs.slice(3).every(v => v === ''), 'withFormula: slots beyond the new formula are cleared');
+{
+    const saved = draftToMaterial(switched);
+    ok(saved.coefficients.length === 3, 'withFormula: stale values do not become Cauchy terms');
+    const l2 = 0.55 * 0.55;
+    ok(close(evalN(102, saved.coefficients, 0.55), 1.03 + 0.006 / l2 + 0.23 / (l2 * l2)),
+        'withFormula: the saved index is the three-term Cauchy of the kept slots, not of all ten');
+}
+const grown = withAddedTerm(cauchyDraft);
+ok(coefficientSlots(grown) === 5 && grown.coeffs[4] === '', 'withAddedTerm: one more empty Cauchy field');
+ok(draftToMaterial(grown).coefficients.length === 4, 'withAddedTerm: an empty added term is not saved');
+const sellGrown = withAddedTerm(sellDraft);
+ok(coefficientSlots(sellGrown) === 11, 'withAddedTerm: a Sellmeier term is a pair');
+ok(withAddedTerm(formD) === formD, 'withAddedTerm: no-op on a fixed formula');
+
+// k-table wavelengths keep their decimals through the draft.
+const finek = materialToDraft('user_cat', { ...cauchyMat, kTable: [{ lam_um: 0.1204, k: 0.001 }, { lam_um: 0.1208, k: 0.0009 }] });
+ok(finek.kRows[0].lam === '120.4' && finek.kRows[1].lam === '120.8', 'materialToDraft: sub-nanometre k rows stay distinct');
 
 if (fails) { console.error(`\n${fails} test(s) FAILED`); process.exit(1); }
 console.log('\nAll tests passed.');

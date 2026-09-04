@@ -11,7 +11,8 @@
  * sibling modules: the draft model and converters (materialDraft.js), the
  * read-only material view (materialEditorReadOnly.js), the left panel
  * (materialEditorLeftPanel.js) and its catalog action menu (catalogMenu.js),
- * the destination-catalog modals (materialEditorModals.js), the editable form
+ * the copy-to-catalog modal (materialEditorModals.js), the material file
+ * import dialog (materialImportDialog.js), the editable form
  * (userMaterialForm.js), the n/k grid (nkDataGrid.js), and shared
  * presentational atoms (materialEditorUI.js).
  */
@@ -20,7 +21,8 @@ import { RIIBrowser } from './RIIBrowser.js';
 import { useMaterialEditor } from './useMaterialEditor.js';
 import { renderReadOnlyMaterial } from './materialEditorReadOnly.js';
 import { renderLeftPanel } from './materialEditorLeftPanel.js';
-import { renderCopyPickerModal, renderOptiLayerImportModal } from './materialEditorModals.js';
+import { renderCopyPickerModal } from './materialEditorModals.js';
+import { MaterialImportDialog } from './materialImportDialog.js';
 import { UserMaterialForm } from './userMaterialForm.js';
 
 const { createElement: h } = React;
@@ -32,7 +34,7 @@ export function MaterialEditor({ c, t, setInputDialog }) {
         handleSaveMaterial, handleDeleteMaterial, handleCopyUserMaterial,
         showRii, setShowRii, handleRiiAdded,
         copyPickerFor, setCopyPickerFor, doCopyToCatalog,
-        olImport, doImportOptiLayer, setOlImport,
+        fileImport, doImportFiles, setFileImport,
     } = s;
 
     const rightPanel = h('div', {
@@ -64,7 +66,7 @@ export function MaterialEditor({ c, t, setInputDialog }) {
         showRii && h(RIIBrowser, { c, t, onClose: () => setShowRii(false), onAdded: handleRiiAdded }),
         // Destination-catalog picker (shown when there are ≥2 user catalogs).
         copyPickerFor && renderCopyPickerModal({ copyPickerFor, catalogs, doCopyToCatalog, setCopyPickerFor, me, c }),
-        // OptiLayer import: choose destination catalog (any non-builtin) or create new.
-        olImport && renderOptiLayerImportModal({ olImport, catalogs, doImportOptiLayer, setOlImport, me, c })
+        // Material file import: review the parsed batch, then pick the destination catalog.
+        fileImport && h(MaterialImportDialog, { fileImport, setFileImport, catalogs, onCommit: doImportFiles, me, c })
     );
 }

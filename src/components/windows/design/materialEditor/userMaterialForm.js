@@ -9,14 +9,16 @@
 
 import { ndColor } from '../../../../utils/materials/catalogManager.js';
 import { clearMaterialChart, drawIndexChart, drawResidualChart } from './materialChart.js';
-import { FORMULA_LATEX } from '../../../../utils/materials/dispersionFormulas.js';
+import { FORMULA_LATEX, coefficientNames } from '../../../../utils/materials/dispersionFormulas.js';
 import { NKDataGrid } from './nkDataGrid.js';
 import {
     buildNKFromDraft, PRESET_COLORS, nextPresetColor,
     fitModelsForRows, effectiveFitModel,
+    coefficientSlots, withFormula, withAddedTerm,
 } from './materialDraft.js';
 import { parseNumber, parseNumberStrict } from '../../../../utils/misc/numberParsing.js';
-import { KaTeXSpan, dotStyle, catTabStyle, smallBtn } from './materialEditorUI.js';
+import { KaTeXSpan, NkProbe, dotStyle, catTabStyle, smallBtn } from './materialEditorUI.js';
+import { readOnlyNkTable } from './materialEditorReadOnly.js';
 import {
     dispersionFitModelName,
     dispersionFitParameters,
@@ -24,7 +26,10 @@ import {
     fitTabulatedMaterial,
 } from '../../../../utils/materials/dispersionFits.js';
 
-const { createElement: h, useRef, useEffect, useState } = React;
+const { createElement: h, useRef, useEffect, useState, useMemo } = React;
+
+// Rows of the sampled n,k table under the chart.
+const PREVIEW_TABLE_ROWS = 80;
 
 // A pasted cell as the grid stores it: the number it holds, with a comma decimal
 // separator resolved, or the fallback when the cell is not a number at all.
@@ -49,8 +54,7 @@ function drawDraftChart(chartEl, draft, c, me) {
     const getNK = buildNKFromDraft(draft);
     if (!getNK) { clearMaterialChart(chartEl); return; }
 
-    const lMin = Math.max(1, parseNumber(draft.lambdaMinNm) || 300);
-    const lMax = Math.max(lMin + 1, parseNumber(draft.lambdaMaxNm) || 2500);
+    const [lMin, lMax] = draftRangeNm(draft);
     const step = Math.max(1e-3, (lMax - lMin) / 250);
     const lams = [], ns = [], ks = [];
     for (let l = lMin; l <= lMax; l += step) {
@@ -72,6 +76,32 @@ function drawDraftChart(chartEl, draft, c, me) {
         nLabel: me.chartN,
         kLabel: me.chartK,
     });
+}
+
+// The draft's wavelength range in nm, as the chart and the sampled table use it.
+function draftRangeNm(draft) {
+    const lMin = Math.max(1, parseNumber(draft.lambdaMinNm) || 300);
+    const lMax = Math.max(lMin + 1, parseNumber(draft.lambdaMaxNm) || 2500);
+    return [lMin, lMax];
+}
+
+// getNK plus an evenly spaced [λ, n, k] table over the draft's range, for the
+// numbers shown under the chart.
+function sampleDraftPreview(draft) {
+    const getNK = buildNKFromDraft(draft);
+    const rangeNm = draftRangeNm(draft);
+    const rows = [];
+    if (getNK) {
+        const [lMin, lMax] = rangeNm;
+        for (let i = 0; i < PREVIEW_TABLE_ROWS; i++) {
+            const l = lMin + (lMax - lMin) * i / (PREVIEW_TABLE_ROWS - 1);
+            try {
+                const [n, k] = getNK(l);
+                if (isFinite(n)) rows.push([l, n, isFinite(k) ? k : 0]);
+            } catch (_) { /* skip the point */ }
+        }
+    }
+    return { getNK, rangeNm, rows };
 }
 
 function drawFitResidualChart(chartEl, draft, c) {
@@ -302,12 +332,13 @@ function renderFitPanel({ draft, set, runFit, fitError, me, c, sectionLabel, inp
 
 function renderFormulaEditor(ctx) {
     const { draft, set, me, c, sectionLabel, formulaInfo, coeffCount, inputStyle, labelStyle,
-            addKRow, delKRow, editKRow, pasteKRows } = ctx;
+            addKRow, delKRow, editKRow, pasteKRows, addTerm, changeFormula } = ctx;
+    const coeffLabels = coefficientNames(draft.formulaNum, coeffCount);
     return h('div', null,
         sectionLabel(me.formulaLabel),
         h('select', {
             value: draft.formulaNum,
-            onChange: e => set('formulaNum', Number(e.target.value)),
+            onChange: e => changeFormula(Number(e.target.value)),
             style: { ...inputStyle, padding: '3px 6px', cursor: 'pointer', marginBottom: 6 }
         },
             Object.entries(FORMULA_LATEX).map(([num, info]) =>
@@ -315,7 +346,9 @@ function renderFormulaEditor(ctx) {
             )
         ),
 
-        formulaInfo && h('div', { style: { marginBottom: 6, padding: '4px 6px', backgroundColor: c.panel, borderRadius: 3, border: `1px solid ${c.border}`, fontSize: 12, overflowX: 'auto' } },
+        // Horizontal scrolling only: the rendered formula's sub-pixel height would
+        // otherwise raise a vertical scrollbar with nothing to scroll.
+        formulaInfo && h('div', { style: { marginBottom: 6, padding: '6px 6px 8px', backgroundColor: c.panel, borderRadius: 3, border: `1px solid ${c.border}`, fontSize: 12, overflowX: 'auto', overflowY: 'hidden' } },
             h(KaTeXSpan, { latex: formulaInfo.template, displayMode: false })
         ),
 
@@ -323,7 +356,7 @@ function renderFormulaEditor(ctx) {
         h('div', { style: { display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '4px 8px' } },
             Array.from({ length: coeffCount }, (_, i) =>
                 h('div', { key: i, style: { display: 'flex', alignItems: 'center', gap: 4 } },
-                    h('span', { style: { ...labelStyle, width: 28, textAlign: 'right', fontFamily: 'monospace' } }, formulaInfo?.coeffNames[i] || `c${i}`),
+                    h('span', { style: { ...labelStyle, width: 28, textAlign: 'right', fontFamily: 'monospace' } }, coeffLabels[i]),
                     h('input', {
                         type: 'text',
                         value: draft.coeffs[i] || '',
@@ -337,6 +370,9 @@ function renderFormulaEditor(ctx) {
                     })
                 )
             )
+        ),
+        formulaInfo?.termSize && h('div', { style: { marginTop: 4 } },
+            h('button', { onClick: addTerm, style: smallBtn(c) }, me.addTerm)
         ),
 
         // k table for formula mode
@@ -357,12 +393,16 @@ function renderFormulaEditor(ctx) {
     );
 }
 
-function renderPreviewChart({ chartRef, residualChartRef, showResidual, me, c, sectionLabel }) {
+function renderPreviewChart({ chartRef, residualChartRef, showResidual, preview, me, c, sectionLabel }) {
     return h('div', { style: { flexShrink: 0, marginTop: 8, borderTop: `1px solid ${c.border}` } },
         sectionLabel(me.chartTitle),
         h('div', { ref: chartRef, style: { height: 160 } }),
         showResidual && sectionLabel('Fit residual'),
         showResidual && h('div', { ref: residualChartRef, style: { height: 130 } }),
+        preview.getNK && h('div', { style: { padding: '6px 0 2px' } },
+            h(NkProbe, { getNK: preview.getNK, rangeNm: preview.rangeNm, c, me })),
+        preview.rows.length > 0 && readOnlyNkTable(`${me.nkTableSampled} (${preview.rows.length})`, preview.rows, c,
+            { padding: '8px 0 4px', borderTop: 'none' }),
     );
 }
 
@@ -469,7 +509,11 @@ export function UserMaterialForm({ draft, onChange, onSave, onRevert, onDelete, 
     };
 
     const formulaInfo = FORMULA_LATEX[draft.formulaNum];
-    const coeffCount = formulaInfo?.coeffNames?.length || 6;
+    const coeffCount = coefficientSlots(draft);
+    const changeFormula = (formulaNum) => onChange(withFormula(draft, formulaNum));
+    // A term left empty or at 0 is dropped again on save.
+    const addTerm = () => onChange(withAddedTerm(draft));
+    const preview = useMemo(() => sampleDraftPreview(draft), [draft]);
 
     const colorIsAuto = !draft.color || draft.color === 'auto';
     const autoColor = computeDraftAutoColor(draft);
@@ -490,7 +534,7 @@ export function UserMaterialForm({ draft, onChange, onSave, onRevert, onDelete, 
         formulaInfo, coeffCount, colorIsAuto, autoColor,
         addRow, delRow, editRow, sortRows, pasteRows,
         runFit, fitError,
-        addKRow, delKRow, editKRow, pasteKRows,
+        addKRow, delKRow, editKRow, pasteKRows, addTerm, changeFormula,
     };
 
     return h('div', { style: { display: 'flex', flexDirection: 'column', height: '100%', overflow: 'hidden', padding: '0 12px' } },
@@ -503,7 +547,7 @@ export function UserMaterialForm({ draft, onChange, onSave, onRevert, onDelete, 
             draft.type === 'formula' && renderFormulaEditor(ctx),
             renderPreviewChart({
                 chartRef, residualChartRef, showResidual: !!draft.dispersionFit,
-                me, c, sectionLabel,
+                preview, me, c, sectionLabel,
             })
         ),
         renderFormFooter({ onSave, onRevert, dirty, me, c })

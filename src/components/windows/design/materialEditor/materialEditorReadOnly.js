@@ -8,8 +8,8 @@
 
 import { resolveColor } from '../../../../utils/materials/catalogManager.js';
 import { drawIndexChart } from './materialChart.js';
-import { FORMULA_LATEX } from '../../../../utils/materials/dispersionFormulas.js';
-import { KaTeXSpan, dotStyle, statusBadge, propRow, formatCoeff, smallBtn } from './materialEditorUI.js';
+import { FORMULA_LATEX, coefficientNames } from '../../../../utils/materials/dispersionFormulas.js';
+import { KaTeXSpan, NkProbe, dotStyle, statusBadge, propRow, formatCoeff, formatNm, formatK, smallBtn } from './materialEditorUI.js';
 
 const { createElement: h } = React;
 
@@ -82,25 +82,25 @@ function readOnlyPropsBlock(selectedMat, me, c) {
             selectedMat.nd && propRow(me.nd, selectedMat.nd.toFixed(5), c),
             selectedMat.vd && propRow(me.vd, selectedMat.vd.toFixed(2), c),
             selectedMat.density && propRow(me.density, `${selectedMat.density.toFixed(3)} g/cm³`, c),
-            selectedMat.lambdaMin && propRow(me.lambdaRange, `${(selectedMat.lambdaMin * 1000).toFixed(0)} – ${(selectedMat.lambdaMax * 1000).toFixed(0)} nm`, c),
+            selectedMat.lambdaMin && propRow(me.lambdaRange, `${formatNm(selectedMat.lambdaMin * 1000)} – ${formatNm(selectedMat.lambdaMax * 1000)} nm`, c),
             selectedMat.comment && propRow('Comment', selectedMat.comment, c)
         )
     );
 }
 
-function readOnlyFormulaBlock(selectedMat, me, c) {
+export function readOnlyFormulaBlock(selectedMat, me, c) {
     if (!(selectedMat.formulaNum > 0)) return null;
     const info = FORMULA_LATEX[selectedMat.formulaNum];
     return h('div', { style: { padding: '0 12px 8px', flexShrink: 0, borderTop: `1px solid ${c.border}`, paddingTop: 8 } },
         h('div', { style: { fontSize: 10, color: c.textDim, textTransform: 'uppercase', letterSpacing: 1, marginBottom: 6 } }, me.formula),
-        info && h('div', { style: { padding: '6px 8px', backgroundColor: c.panel, borderRadius: 4, border: `1px solid ${c.border}`, fontSize: 13, overflowX: 'auto', color: c.text, fontStyle: 'italic', marginBottom: 6 } },
+        info && h('div', { style: { padding: '6px 8px 8px', backgroundColor: c.panel, borderRadius: 4, border: `1px solid ${c.border}`, fontSize: 13, overflowX: 'auto', overflowY: 'hidden', color: c.text, fontStyle: 'italic', marginBottom: 6 } },
             h('div', { style: { marginBottom: 2, fontSize: 11, color: c.textDim } }, info.name),
             h(KaTeXSpan, { latex: info.template, displayMode: true })
         ),
         selectedMat.coefficients?.length > 0 && h('div', null,
             h('div', { style: { fontSize: 10, color: c.textDim, textTransform: 'uppercase', letterSpacing: 1, marginBottom: 4 } }, me.coefficients),
             h('div', { style: { display: 'flex', flexWrap: 'wrap', gap: 4, fontSize: 11 } },
-                info?.coeffNames.map((name, i) => {
+                coefficientNames(selectedMat.formulaNum, selectedMat.coefficients.length).map((name, i) => {
                     const v = selectedMat.coefficients[i];
                     if (v == null || v === 0) return null;
                     return h('div', { key: i, style: { padding: '2px 6px', backgroundColor: c.panel, borderRadius: 3, border: `1px solid ${c.border}` } },
@@ -115,8 +115,9 @@ function readOnlyFormulaBlock(selectedMat, me, c) {
 
 // Scrollable table of [λ, n, k] rows — shared by the stored-tabData and the
 // sampled views (title + row source differ, structure is identical).
-function readOnlyNkTable(title, rows, c) {
-    return h('div', { style: { flexShrink: 0, borderTop: `1px solid ${c.border}`, padding: '8px 12px 4px' } },
+// `wrapStyle` lets a host with its own gutter override the outer padding.
+export function readOnlyNkTable(title, rows, c, wrapStyle) {
+    return h('div', { style: { flexShrink: 0, borderTop: `1px solid ${c.border}`, padding: '8px 12px 4px', ...wrapStyle } },
         h('div', { style: { fontSize: 10, color: c.textDim, textTransform: 'uppercase', letterSpacing: 1, marginBottom: 4 } }, title),
         h('div', { style: { maxHeight: 150, overflowY: 'auto', border: `1px solid ${c.border}`, borderRadius: 4 } },
             h('table', { style: { width: '100%', borderCollapse: 'collapse', fontSize: 11, fontFamily: 'monospace' } },
@@ -128,7 +129,7 @@ function readOnlyNkTable(title, rows, c) {
                     h('tr', { key: i },
                         h('td', { style: { padding: '2px 8px', color: c.text } }, (+row[0]).toFixed(1)),
                         h('td', { style: { padding: '2px 8px', textAlign: 'right', color: c.text } }, (+row[1]).toFixed(5)),
-                        h('td', { style: { padding: '2px 8px', textAlign: 'right', color: c.textDim } }, (+(row[2] || 0)).toFixed(5))
+                        h('td', { style: { padding: '2px 8px', textAlign: 'right', color: c.textDim } }, formatK(+(row[2] || 0)))
                     )
                 ))
             )
@@ -156,16 +157,23 @@ export function renderReadOnlyMaterial({ selectedMat, sampledTable, chartRef, op
             designOriginBlock(designConflict, me, c),
             readOnlyPropsBlock(selectedMat, me, c),
             readOnlyFormulaBlock(selectedMat, me, c),
-            // Tabulated n,k data (for table-type materials, incl. OptiLayer nType 0)
-            hasStoredTab && readOnlyNkTable(`${me.nkTable} (${selectedMat.tabData.length})`, selectedMat.tabData, c),
-            // Sampled n,k table — for materials with no stored tabData (built-in
-            // functions, AGF/OptiLayer dispersion formulas), computed from getNK.
-            !hasStoredTab && sampledTable.length > 0 && readOnlyNkTable(`${me.nkTableSampled} (${sampledTable.length})`, sampledTable, c),
-            // n/k chart
-            h('div', { style: { flex: 1, minHeight: 160, padding: '4px 0', flexShrink: 0 } },
-                h('div', { style: { fontSize: 10, color: c.textDim, textTransform: 'uppercase', letterSpacing: 1, margin: '0 12px 2px' } }, me.chartTitle),
+            // n/k chart, then the numbers under it: a probe at one wavelength and
+            // the table (stored rows for table materials, sampled from getNK for
+            // built-in functions and dispersion formulas).
+            h('div', { style: { padding: '4px 0', flexShrink: 0, borderTop: `1px solid ${c.border}` } },
+                h('div', { style: { fontSize: 10, color: c.textDim, textTransform: 'uppercase', letterSpacing: 1, margin: '4px 12px 2px' } }, me.chartTitle),
                 h('div', { ref: chartRef, style: { height: 200, padding: '0 4px' } })
-            )
+            ),
+            selectedMat.getNK && h('div', { style: { padding: '2px 12px 8px', flexShrink: 0 } },
+                h(NkProbe, {
+                    key: selectedMat.id,
+                    getNK: selectedMat.getNK,
+                    rangeNm: selectedMat.lambdaMin ? [selectedMat.lambdaMin * 1000, selectedMat.lambdaMax * 1000] : null,
+                    c, me,
+                })
+            ),
+            hasStoredTab && readOnlyNkTable(`${me.nkTable} (${selectedMat.tabData.length})`, selectedMat.tabData, c),
+            !hasStoredTab && sampledTable.length > 0 && readOnlyNkTable(`${me.nkTableSampled} (${sampledTable.length})`, sampledTable, c)
         )
     );
 }

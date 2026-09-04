@@ -1,14 +1,18 @@
 import { disposeChart, setChartOption } from '../../../ui/plotSurface.js';
-import { cartesianOption, horizontalLegend, lineSeries, niceAxisBounds, valueAxis } from '../../../ui/chartOptions.js';
+import { cartesianOption, horizontalLegend, lineSeries, valueAxis } from '../../../ui/chartOptions.js';
 
+// The axis spans the data's own wavelength range, so a material stated from
+// 361.2 nm starts its plot there; ticks fall on readable values inside. The
+// data need not be sorted, and a single wavelength gets a 1 nm margin.
 function wavelengthAxis(wavelengths, c, name) {
-    const range = wavelengths?.length
-        ? niceAxisBounds(wavelengths[0], wavelengths.at(-1), { targetTicks: 6, minInterval: 50 })
-        : null;
-    return valueAxis({
-        name, color: c.textDim, gridColor: c.border, nameGap: 25,
-        min: range?.min, max: range?.max, interval: range?.interval,
-    });
+    const values = (wavelengths || []).filter(Number.isFinite);
+    let min, max;
+    if (values.length) {
+        min = Math.min(...values);
+        max = Math.max(...values);
+        if (min === max) { min -= 1; max += 1; }
+    }
+    return valueAxis({ name, color: c.textDim, gridColor: c.border, nameGap: 25, min, max });
 }
 
 export function clearMaterialChart(element) {

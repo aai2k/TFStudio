@@ -134,31 +134,41 @@ function extended3(coeffs, lum) {
     return Math.sqrt(Math.max(n2, 1));
 }
 
-// ── OptiLayer dispersion formulas ──────────────────────────────────────────────
+// ── Open-ended series and the OptiLayer family (101+) ─────────────────────────
 //
-// OptiLayer (.lm / .sub) uses its own dispersion-model family, distinct from the
-// Zemax AGF set above. We give them a separate formula-number space (101+) so the
-// two never collide. λ is in micrometers, exactly as for the Zemax evaluators.
+// A separate formula-number space from the Zemax AGF set above, so the two
+// never collide. λ is in micrometers, exactly as for the Zemax evaluators.
+// 101 and 102 are the general Sellmeier and Cauchy series: they take any number
+// of terms, which is what OptiLayer, Essential Macleod and TFCalc formula
+// materials import onto.
 //
 // CONFIRMED forms — reverse-engineered by exact numerical agreement (Δn < 1e-6)
 // against the precomputed n-tables embedded in OptiLayer's own .lm/.sub files and
 // cross-checked against the formula shown in the OptiLayer "Formula" material
 // editor (docs/optilayer docs → edmat_formula.png):
-//   • OptiLayer Cauchy:    n = A₀ + A₁/λ² + A₂/λ⁴                    (file nType 5)
-//   • OptiLayer Sellmeier: n² = A₀ + Σᵢ Bᵢλ²/(λ²−Cᵢ)  (Cᵢ in µm²)    (file nType 4)
+//   • Cauchy series:       n = Σ Aᵢ λ⁻²ⁱ  (OptiLayer writes three terms)   (file nType 5)
+//   • Sellmeier, general:  n² = A₀ + Σᵢ Bᵢλ²/(λ²−Cᵢ)  (Cᵢ in µm²)         (file nType 4)
 //   • OptiLayer Schott:    n² = A₀ + A₁λ² + A₂/λ² + A₃/λ⁴ + A₄/λ⁶ + A₅/λ⁸ + A₆λ⁴
 //                          a 7-coefficient extended Schott (NOTE the trailing
 //                          A₆·λ⁴ term — required to reproduce e.g. H-ZK3.sub at
 //                          2400 nm; omitting it gives Δn > 4)                (file nType 7)
 
-/** 102 — OptiLayer Cauchy: n = A₀ + A₁·λ⁻² + A₂·λ⁻⁴ */
-function olCauchy(coeffs, lum) {
-    const l2 = lum * lum;
-    return c(coeffs, 0) + c(coeffs, 1) / l2 + c(coeffs, 2) / (l2 * l2);
+/**
+ * 102, Cauchy series: n = A₀ + A₁·λ⁻² + A₂·λ⁻⁴ + …
+ * One coefficient per term, as many terms as the material carries.
+ */
+function cauchySeries(coeffs, lum) {
+    const inverseSquared = 1 / (lum * lum);
+    let n = 0, power = 1;
+    for (let i = 0; i < (coeffs?.length || 0); i++) {
+        n += c(coeffs, i) * power;
+        power *= inverseSquared;
+    }
+    return n;
 }
 
 /**
- * 101 — OptiLayer Sellmeier: n² = A₀ + Σᵢ Bᵢλ²/(λ²−Cᵢ)
+ * 101, Sellmeier, general: n² = A₀ + Σᵢ Bᵢλ²/(λ²−Cᵢ)
  * Coefficients: [A₀, B₁, C₁, B₂, C₂, …] — a leading constant followed by
  * (Bᵢ, Cᵢ) pairs. Cᵢ are already squared resonance wavelengths (µm²), so they
  * are NOT squared again here. Any number of pairs is supported.
@@ -250,7 +260,7 @@ const FORMULA_FN = [
 // OptiLayer formula-number space (101+), kept separate from Zemax 1–13.
 const OPTILAYER_FN = {
     101: olSellmeier,
-    102: olCauchy,
+    102: cauchySeries,
     103: olSchott,
     104: olHartmann,    // gated: not produced by the parser yet (code unconfirmed)
     105: olHartmann2,   // gated
@@ -279,6 +289,23 @@ export function evalN(formulaNum, coeffs, lambda_um) {
 export { evalNJet } from './dispersionFormulaJet.js';
 
 // ── LaTeX templates ───────────────────────────────────────────────────────────
+
+const SUBSCRIPT_DIGITS = '₀₁₂₃₄₅₆₇₈₉';
+function subscript(n) {
+    return String(n).split('').map(d => SUBSCRIPT_DIGITS[+d]).join('');
+}
+
+/**
+ * Coefficient labels for `count` coefficients of a formula. Fixed formulas
+ * return their own list; an open-ended series extends it as far as needed.
+ */
+export function coefficientNames(formulaNum, count) {
+    const info = FORMULA_LATEX[formulaNum];
+    if (!info) return Array.from({ length: count }, (_, i) => `c${i}`);
+    const names = info.coeffNames.slice(0, Math.max(count, info.termSize ? info.coeffNames.length : count));
+    for (let i = names.length; i < count; i++) names.push(info.extraName ? info.extraName(i) : `c${i}`);
+    return names;
+}
 
 export const FORMULA_LATEX = {
     1: {
@@ -346,16 +373,22 @@ export const FORMULA_LATEX = {
         template: 'n^2 = a_0 + a_1\\lambda^2 + a_2\\lambda^4 + \\dfrac{a_3}{\\lambda^2} + \\dfrac{a_4}{\\lambda^4} + \\dfrac{a_5}{\\lambda^6} + \\dfrac{a_6}{\\lambda^8} + \\dfrac{a_7}{\\lambda^{10}} + \\dfrac{a_8}{\\lambda^{12}}',
         coeffNames: ['a₀','a₁','a₂','a₃','a₄','a₅','a₆','a₇','a₈'],
     },
-    // ── OptiLayer formula space (101+) ──
+    // ── Open-ended series and the OptiLayer family (101+) ──
+    // `termSize` marks a series that takes any number of terms: coeffNames are
+    // the terms always shown, `extraName(i)` names a coefficient beyond them.
     101: {
-        name: 'OptiLayer Sellmeier',
+        name: 'Sellmeier (general)',
         template: 'n^2 = A_0 + \\sum_i \\dfrac{B_i\\lambda^2}{\\lambda^2 - C_i}',
         coeffNames: ['A₀','B₁','C₁','B₂','C₂','B₃','C₃'],
+        termSize: 2,
+        extraName: i => (i % 2 ? 'B' : 'C') + subscript(i % 2 ? (i + 1) / 2 : i / 2),
     },
     102: {
-        name: 'OptiLayer Cauchy',
-        template: 'n = A_0 + \\dfrac{A_1}{\\lambda^2} + \\dfrac{A_2}{\\lambda^4}',
+        name: 'Cauchy',
+        template: 'n = A_0 + \\dfrac{A_1}{\\lambda^2} + \\dfrac{A_2}{\\lambda^4} + \\cdots',
         coeffNames: ['A₀','A₁','A₂'],
+        termSize: 1,
+        extraName: i => 'A' + subscript(i),
     },
     103: {
         name: 'OptiLayer Schott',

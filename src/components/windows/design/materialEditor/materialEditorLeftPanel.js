@@ -11,7 +11,7 @@
 
 import { resolveColor } from '../../../../utils/materials/catalogManager.js';
 import { DESIGN_CATALOG_ID } from '../../../../utils/materials/designCatalog.js';
-import { dotStyle, smallBtn } from './materialEditorUI.js';
+import { dotStyle, smallBtn, formatNm } from './materialEditorUI.js';
 import { CatalogMenu } from './catalogMenu.js';
 
 const { createElement: h } = React;
@@ -32,7 +32,7 @@ const fieldStyle = (c) => ({
 function menuItems(s) {
     const { me, currentCatalog, isUserCatalog, importing,
             handleCreateCatalog, handleRenameCatalog, handleDuplicateCatalog, handleRemoveCatalog,
-            handleImport, handleImportOptiLayer, setShowRii } = s;
+            handleImport, handleImportFiles, setShowRii } = s;
     // The design catalog lives on the design, not in the registry: it can be
     // browsed and its materials copied out, but not renamed, duplicated or
     // deleted as a catalog.
@@ -48,7 +48,7 @@ function menuItems(s) {
           disabled: !canDelete, danger: true },
         { id: 'sep',    separator: true },
         { id: 'agf',    glyph: '↓',  label: me.importAgf,        onClick: handleImport,           disabled: importing },
-        { id: 'ol',     glyph: '↓',  label: me.importOptiLayer,  onClick: handleImportOptiLayer,  disabled: importing },
+        { id: 'files',  glyph: '↓',  label: me.importFiles,      onClick: handleImportFiles,      disabled: importing },
         { id: 'rii',    glyph: '↗',  label: me.browseRii,        onClick: () => setShowRii(true) },
     ];
 }
@@ -116,7 +116,7 @@ function renderCountRow(s) {
 function materialSubtitle(material, catalogName, catFilter) {
     const parts = [];
     if (material.lambdaMin && material.lambdaMax) {
-        parts.push(`${Math.round(material.lambdaMin * 1000)}–${Math.round(material.lambdaMax * 1000)} nm`);
+        parts.push(`${formatNm(material.lambdaMin * 1000)}–${formatNm(material.lambdaMax * 1000)} nm`);
     }
     if (catFilter === 'all' && catalogName) parts.push(catalogName);
     return parts.join(' · ');

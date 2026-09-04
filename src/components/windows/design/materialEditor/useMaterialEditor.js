@@ -15,7 +15,7 @@ import {
 } from '../../../../utils/materials/designCatalog.js';
 import { useDesign } from '../../../../state/DesignContext.js';
 import {
-    importAgfCatalog, importOptiLayerFiles, commitOptiLayerImport,
+    importAgfCatalog, importMaterialFiles, commitFileImport,
     removeCatalogWithConfirm, createCatalogWithPrompt, renameCatalogWithPrompt,
     duplicateCatalogWithPrompt,
 } from './materialEditorActions.js';
@@ -60,7 +60,7 @@ export function useMaterialEditor({ c, t, setInputDialog }) {
     const [notification,     setNotification]     = useState(null);
     const [menuOpen,         setMenuOpen]         = useState(false);
     const [copyPickerFor,    setCopyPickerFor]    = useState(null);
-    const [olImport,         setOlImport]         = useState(null);
+    const [fileImport,       setFileImport]       = useState(null);
 
     const me = t.materialEditor;
     const { design } = useDesign();
@@ -132,12 +132,12 @@ export function useMaterialEditor({ c, t, setInputDialog }) {
         c, t, me, notify, loadCatalogs, setInputDialog,
         catalogs, catFilter, setCatFilter,
         selectedId, setSelectedId, editDraft, setEditDraft,
-        copyPickerFor, setCopyPickerFor, olImport, setOlImport,
+        copyPickerFor, setCopyPickerFor, setFileImport,
     };
 
     const handleImport = () => runImportGuarded(importAgfCatalog, ctx, importing, setImporting);
-    const handleImportOptiLayer = () => runImportGuarded(importOptiLayerFiles, ctx, importing, setImporting);
-    const doImportOptiLayer = (targetCatId) => commitOptiLayerImport(targetCatId, ctx);
+    const handleImportFiles = () => runImportGuarded(importMaterialFiles, ctx, importing, setImporting);
+    const doImportFiles = (targetCatId, entries, newCatalogName) => commitFileImport(targetCatId, entries, ctx, newCatalogName);
     const handleRemoveCatalog = (catId) => removeCatalogWithConfirm(catId, ctx);
     const handleCreateCatalog = () => createCatalogWithPrompt(ctx);
     const handleRenameCatalog = (catId) => renameCatalogWithPrompt(catId, ctx);
@@ -173,11 +173,11 @@ export function useMaterialEditor({ c, t, setInputDialog }) {
         editDraft, setEditDraft, updateDraft, isDirty, handleRevertMaterial,
         results, selectedMat, currentCatalog, isUserCatalog,
         browseCatalogs, designConflict,
-        handleImport, handleImportOptiLayer, doImportOptiLayer,
+        handleImport, handleImportFiles, doImportFiles,
         handleRemoveCatalog, handleCreateCatalog, handleRenameCatalog, handleDuplicateCatalog,
         handleNewMaterial, handleSelectMaterial, handleSaveMaterial, handleDeleteMaterial,
         handleCopyUserMaterial, openCopyPicker, doCopyToCatalog,
-        copyPickerFor, setCopyPickerFor, olImport, setOlImport,
+        copyPickerFor, setCopyPickerFor, fileImport, setFileImport,
         chartRef, sampledTable, handleRiiAdded,
     };
 }

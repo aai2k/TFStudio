@@ -193,11 +193,13 @@ const evaluators = {
         return squareRootIndex(nSquared, 1e-6);
     },
     102(coefficients, lambda) {
-        const inverseSquared = reciprocal(square(lambda));
+        // Cauchy series with one coefficient per term, as many as the material carries.
+        const terms = Math.max(coefficients.length, 1);
+        const { powers } = inverseEvenPowers(lambda, Math.max(1, terms - 1));
         return sum(
             constant(coefficient(coefficients, 0)),
-            jetScale(inverseSquared, coefficient(coefficients, 1)),
-            jetScale(square(inverseSquared), coefficient(coefficients, 2)),
+            ...Array.from({ length: terms - 1 }, (_, offset) =>
+                jetScale(powers[offset + 1], coefficient(coefficients, offset + 1))),
         );
     },
     103(coefficients, lambda) {

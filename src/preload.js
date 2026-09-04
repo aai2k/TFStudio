@@ -39,7 +39,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   toggleDevTools:   () => ipcRenderer.send('toggle-devtools'),
   openExternal:     (url) => ipcRenderer.send('open-external', url),
   importCatalogAgf: () => ipcRenderer.invoke('catalog:import-agf'),
-  importCatalogOptiLayer: () => ipcRenderer.invoke('catalog:import-optilayer'),
+  importMaterialFiles: () => ipcRenderer.invoke('catalog:import-material-files'),
   loadCatalogs:    () => ipcRenderer.invoke('catalog:load-all'),
   saveCatalog:     (catalog) => ipcRenderer.invoke('catalog:save', catalog),
   deleteCatalog:   (catalogId, source) => ipcRenderer.invoke('catalog:delete', catalogId, source),

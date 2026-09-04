@@ -423,7 +423,7 @@
 
     // materials / catalogs
     importCatalogAgf:       () => Promise.resolve({ success: false, canceled: true }),
-    importCatalogOptiLayer: () => Promise.resolve({ success: false, canceled: true }),
+    importMaterialFiles:    () => Promise.resolve({ success: false, canceled: true }),
     loadCatalogs,
     saveCatalog:   (catalog) => guard(async () => {
       if (!catalog || !catalog.id) return 'Catalog has no id';

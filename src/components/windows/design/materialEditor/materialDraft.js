@@ -13,6 +13,7 @@
  */
 
 import { TABULATED_INTERPOLATION } from '../../../../utils/materials/pchip.js';
+import { FORMULA_LATEX } from '../../../../utils/materials/dispersionFormulas.js';
 import { parseNumber, parseNumberStrict } from '../../../../utils/misc/numberParsing.js';
 
 export { buildNKFromDraft } from './nkSamplers.js';
@@ -80,6 +81,7 @@ export function emptyDraft(catalogId) {
         rows: [],
         formulaNum: 2,
         coeffs: Array(10).fill(''),
+        coeffSlots: seriesSlotCount(2, []),
         kRows: [],
         dispersionFit: null,
         fitModel: 'cauchy',
@@ -92,6 +94,54 @@ function padCoeffs(arr) {
     const r = arr.map(String);
     while (r.length < 10) r.push('');
     return r;
+}
+
+// An open-ended series (Cauchy, general Sellmeier) has as many terms as it
+// carries, so the empty fields after the last filled one are not terms. Whole
+// terms only: a Sellmeier pair with one zero half stays a pair.
+export function trimSeriesCoefficients(formulaNum, coefficients) {
+    const info = FORMULA_LATEX[formulaNum];
+    if (!info?.termSize) return coefficients;
+    const base = info.coeffNames.length;
+    let end = coefficients.length;
+    while (end > base && !(Math.abs(coefficients[end - 1]) > 0)) end--;
+    end = base + Math.ceil((end - base) / info.termSize) * info.termSize;
+    return coefficients.slice(0, end);
+}
+
+// Coefficient fields a formula shows: a fixed formula its own list, an
+// open-ended series its base terms plus every whole term the values carry.
+export function seriesSlotCount(formulaNum, coefficients) {
+    const info = FORMULA_LATEX[formulaNum];
+    if (!info) return 6;
+    const base = info.coeffNames.length;
+    if (!info.termSize) return base;
+    return Math.max(base, trimSeriesCoefficients(formulaNum, coefficients || []).length);
+}
+
+// Fields the form shows for a draft. The draft's own count survives a field
+// being emptied for retyping; a value beyond it is never hidden.
+export function coefficientSlots(draft) {
+    return Math.max(draft.coeffSlots ?? 0, seriesSlotCount(draft.formulaNum, (draft.coeffs || []).map(parseNumber)));
+}
+
+// Switch a formula draft to another formula. Slots beyond the new formula's
+// own list are cleared, so values typed for one formula never become extra
+// terms of an open-ended series.
+export function withFormula(draft, formulaNum) {
+    const info = FORMULA_LATEX[formulaNum];
+    const base = info ? info.coeffNames.length : 6;
+    return { ...draft, formulaNum, coeffSlots: base, coeffs: padCoeffs(draft.coeffs.slice(0, base)) };
+}
+
+// One more term of an open-ended series (a pair for Sellmeier), shown empty.
+export function withAddedTerm(draft) {
+    const info = FORMULA_LATEX[draft.formulaNum];
+    if (!info?.termSize) return draft;
+    const coeffSlots = coefficientSlots(draft) + info.termSize;
+    const coeffs = draft.coeffs.slice();
+    while (coeffs.length < coeffSlots) coeffs.push('');
+    return { ...draft, coeffSlots, coeffs };
 }
 
 // Sample a built-in getNK function into draft rows over the material's range.
@@ -131,8 +181,9 @@ export function materialToDraft(catalogId, mat) {
         ? (mat.tabData || []).map(r => ({ _key: seq++, lam: String(r[0]), n: String(r[1]), k: String(r[2] || 0) }))
         : sampled.rows;
     const kRows = (!isTab && !isBuiltin && mat.kTable)
-        ? mat.kTable.map(r => ({ _key: seq++, lam: String(Math.round(r.lam_um * 1000)), k: String(r.k) }))
+        ? mat.kTable.map(r => ({ _key: seq++, lam: String(Number((r.lam_um * 1000).toFixed(3))), k: String(r.k) }))
         : [];
+    const formulaNum = (isTab || isBuiltin) ? 2 : (mat.formulaNum || 2);
 
     return {
         catalogId,
@@ -144,14 +195,16 @@ export function materialToDraft(catalogId, mat) {
         sourceUrl: mat.sourceUrl || null,
         name: mat.name || mat.id,
         color: mat.color || 'auto',   // no stored color → automatic (index-derived)
-        lambdaMinNm: String(Math.round((mat.lambdaMin || 0.3) * 1000)),
-        lambdaMaxNm: String(Math.round((mat.lambdaMax || 2.5) * 1000)),
+        // Kept to the picometre so a stated 361.2 nm limit stays 361.2 in the form.
+        lambdaMinNm: String(Number(((mat.lambdaMin || 0.3) * 1000).toFixed(3))),
+        lambdaMaxNm: String(Number(((mat.lambdaMax || 2.5) * 1000).toFixed(3))),
         type: (isTab || isBuiltin) ? 'tabular' : 'formula',
         interp: TABULATED_INTERPOLATION,
         isRii: !!mat.dataPath,   // true for refractiveindex.info imports — hides Zemax formula UI
         rows: tabRows,
-        formulaNum: (isTab || isBuiltin) ? 2 : (mat.formulaNum || 2),
+        formulaNum,
         coeffs: (isTab || isBuiltin) ? Array(10).fill('') : padCoeffs(mat.coefficients || []),
+        coeffSlots: seriesSlotCount(formulaNum, (isTab || isBuiltin) ? [] : (mat.coefficients || [])),
         kRows,
         dispersionFit: mat.dispersionFit ? structuredClone(mat.dispersionFit) : null,
         fitModel: mat.dispersionFit?.complex?.kind
@@ -185,7 +238,7 @@ export function draftToMaterial(draft) {
             ...(draft.sourceUrl ? { sourceUrl: draft.sourceUrl } : {}),
         };
     }
-    const coefficients = draft.coeffs.map(parseNumber);
+    const coefficients = trimSeriesCoefficients(draft.formulaNum, draft.coeffs.map(parseNumber));
     const kTable = draft.kRows
         .map(r => ({ lam_um: parseNumber(r.lam) / 1000, k: parseNumber(r.k) }))
         .filter(r => r.lam_um > 0)

@@ -6,7 +6,53 @@
  * used across the Material Editor's panels and forms.
  */
 
-const { createElement: h, useRef, useEffect } = React;
+import { parseNumber } from '../../../../utils/misc/numberParsing.js';
+
+const { createElement: h, useRef, useEffect, useState } = React;
+
+/** Wavelength in nm for display: up to two decimals, trailing zeros dropped. */
+export function formatNm(nm) {
+    return String(Number((+nm).toFixed(2)));
+}
+
+/** Extinction coefficient for display: five decimals, or exponent form below 1e-4. */
+export function formatK(k) {
+    if (k === 0) return '0';
+    return Math.abs(k) >= 1e-4 ? k.toFixed(5) : k.toExponential(3);
+}
+
+// n and k at one typed wavelength, read from a getNK(lambda_nm) function. A
+// wavelength outside the material's stated range still evaluates the way the
+// material always does beyond its data (clamped or extrapolated) and is marked.
+export function NkProbe({ getNK, rangeNm, c, me }) {
+    const [text, setText] = useState(() => {
+        const [lo, hi] = rangeNm || [];
+        const covers550 = lo == null || hi == null || (lo <= 550 && 550 <= hi);
+        return covers550 ? '550' : formatNm((lo + hi) / 2);
+    });
+    const lam = parseNumber(text);
+    let n = null, k = 0;
+    if (getNK && Number.isFinite(lam) && lam > 0) {
+        try {
+            const nk = getNK(lam);
+            if (Number.isFinite(nk?.[0])) { n = nk[0]; k = Number.isFinite(nk[1]) ? nk[1] : 0; }
+        } catch (_) { n = null; }
+    }
+    const outside = !!rangeNm && Number.isFinite(lam) && lam > 0 && (lam < rangeNm[0] || lam > rangeNm[1]);
+    return h('div', { style: { display: 'flex', alignItems: 'center', gap: 10, fontSize: 12, flexWrap: 'wrap' } },
+        h('span', { style: { color: c.textDim, fontSize: 11, whiteSpace: 'nowrap' } }, me.nkAtLabel),
+        h('input', {
+            value: text,
+            onChange: e => setText(e.target.value),
+            style: { width: 84, height: 22, boxSizing: 'border-box', backgroundColor: c.bg, color: c.text,
+                     border: `1px solid ${c.border}`, borderRadius: 3, fontSize: 12, padding: '0 6px',
+                     outline: 'none', fontFamily: 'monospace' },
+        }),
+        h('span', { style: { fontFamily: 'monospace', color: c.text } }, n == null ? '–' : `n = ${n.toFixed(5)}`),
+        n != null && h('span', { style: { fontFamily: 'monospace', color: c.textDim } }, `k = ${formatK(k)}`),
+        outside && h('span', { style: { fontSize: 11, color: '#e6a23c' } }, me.nkAtOutOfRange)
+    );
+}
 
 // KaTeX formula renderer. Falls back to raw LaTeX text if KaTeX is unavailable
 // or throws, so a malformed formula can never blank the panel.

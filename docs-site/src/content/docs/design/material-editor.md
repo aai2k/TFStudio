@@ -37,8 +37,33 @@ store internal transmittance versus wavelength; TFStudio converts that to
 `k(λ)` automatically. AGF files you place in your TFStudio materials folder are
 also picked up automatically when the app starts.
 
-**Import .lm / .sub**: load optical material-library files. You choose which
-catalog the parsed materials are added to, or create a new one.
+**Import material files**: load materials written by other coating programs,
+any mix of them in one pick:
+
+| Program          | Files                                                                                   |
+| ---------------- | --------------------------------------------------------------------------------------- |
+| TFCalc           | `.mat` from the `MATERIAL` and `SUBSTRAT` folders                                        |
+| Essential Macleod | `.tfx` from a materials database folder, or `.mtx` written by File → Export → Material |
+| OptiLayer        | `.lm` and `.sub`                                                                        |
+
+The import dialog lists every material it read with its program and data type
+(table with its point count, or the formula in the program's own name), and
+previews the highlighted one: formula and coefficients or the table rows, and
+an n/k chart. Untick what you do not want, choose the catalog to add to, or
+create a new one.
+
+TFCalc and Essential Macleod files do not record their wavelength unit. The
+dialog assumes nanometres, reads the unit from an Essential Macleod database's
+own settings when the `.tfx` file sits in its database folder, and has a
+switch to micrometres for when the preview shows the curve in the wrong place.
+
+Formula materials keep their formula where TFStudio has the same form. The
+TFCalc forms it lacks (Hartmann, Drude, and every k formula) are sampled onto
+a table over the range the file states. An Essential Macleod
+internal-transmittance table has no equivalent here and is left out; the `k`
+column is imported as it is. The compressed files of the Essential Macleod
+materials library cannot be read: open such a material in Essential Macleod
+and save it into your database first.
 
 **Browse RII**: open the refractiveindex.info browser to pick from the online
 database (an internet connection is needed the first time you fetch a
@@ -61,10 +86,15 @@ Open a user catalog and choose **New material**, then pick a data type:
 2. **Formula**: choose a dispersion formula (Sellmeier, Cauchy, Conrady,
    Schott, Herzberger and other standard forms), enter its coefficients, and
    optionally add a `λ, k` table for absorption. The formula is rendered in
-   full so you can confirm the convention.
+   full so you can confirm the convention. The Cauchy and general Sellmeier
+   forms take as many terms as you add; a term left at zero is dropped when
+   the material is saved.
 
 A live n/k chart updates as you edit, and the wavelength range you set bounds
-where the material is valid.
+where the material is valid and the span the chart shows. Under the chart,
+type a wavelength to read `n` and `k` there, and a sampled table lists the
+curve's numbers. The same probe and table sit under the chart of a read-only
+material.
 
 TFStudio evaluates every tabulated `n` and `k` column with shape-preserving
 PCHIP interpolation. The curve passes through every supplied point and stays

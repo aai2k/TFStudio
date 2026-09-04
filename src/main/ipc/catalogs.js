@@ -1,7 +1,7 @@
 // IPC: material catalog import + persistence (Documents\TFStudio\Materials\).
-// Import AGF (.agf) and OptiLayer (.lm/.sub) files (parsing happens in the
-// renderer), load/save/delete catalog JSON files, report the Materials dir, and
-// auto-scan the agf/ subfolder.
+// Import AGF (.agf) catalogs and material files from other coating programs
+// (parsing happens in the renderer), load/save/delete catalog JSON files,
+// report the Materials dir, and auto-scan the agf/ subfolder.
 //
 // CommonJS, Electron-free (deps via ctx).
 
@@ -12,7 +12,7 @@
 // ASCII / UTF-8 (the common case, incl. SCHOTT/HOYA) falls through unchanged.
 function register(ipcMain, ctx) {
   ipcMain.handle('catalog:import-agf', async () => handleImportAgf(ctx));
-  ipcMain.handle('catalog:import-optilayer', async () => handleImportOptilayer(ctx));
+  ipcMain.handle('catalog:import-material-files', async () => handleImportMaterialFiles(ctx));
   ipcMain.handle('catalog:load-all', async () => handleLoadAllCatalogs(ctx));
   ipcMain.handle('catalog:save', async (event, catalog) => handleSaveCatalog(ctx, catalog));
   ipcMain.handle('catalog:delete', async (event, catalogId, source) => handleDeleteCatalog(ctx, catalogId, source));
@@ -40,24 +40,39 @@ async function handleImportAgf(ctx) {
   }
 }
 
-// Import one or more OptiLayer layer-material (.lm) / substrate (.sub) files.
-// Returns { success, files: [{ name, text }] } — parsing happens in the renderer
-// (optilayerParser.js) so it shares the importer used by the build-time seed.
-async function handleImportOptilayer(ctx) {
-  const { dialog, getMainWindow, path, readTextAuto } = ctx;
+// Import material files from TFCalc (.mat), Essential Macleod (.tfx / .mtx) and
+// OptiLayer (.lm / .sub) in one pick. Returns
+// { success, files: [{ name, ext, dir, text, unitsText }] }; parsing happens in
+// the renderer (materialFileImport.js). `dir` is the parent folder name, which
+// tells TFCalc substrates (SUBSTRAT) from layer materials. For an Essential
+// Macleod file the sibling units.tfp is read as `unitsText` when present: it
+// records the wavelength unit of the database the file belongs to.
+async function handleImportMaterialFiles(ctx) {
+  const { dialog, getMainWindow, path, fs, readTextAuto } = ctx;
   const result = await dialog.showOpenDialog(getMainWindow(), {
-    title: 'Import OptiLayer Materials (.lm / .sub)',
-    filters: [{ name: 'OptiLayer Materials', extensions: ['lm', 'sub'] }],
+    title: 'Import Material Files',
+    filters: [
+      { name: 'Material files', extensions: ['mat', 'tfx', 'mtx', 'lm', 'sub'] },
+      { name: 'TFCalc materials', extensions: ['mat'] },
+      { name: 'Essential Macleod materials', extensions: ['tfx', 'mtx'] },
+      { name: 'OptiLayer materials', extensions: ['lm', 'sub'] },
+    ],
     properties: ['openFile', 'multiSelections'],
   });
   if (result.canceled || result.filePaths.length === 0) {
     return { success: false, canceled: true };
   }
   try {
-    const files = result.filePaths.map(fp => ({
-      name: path.basename(fp, path.extname(fp)),
-      text: readTextAuto(fp),
-    }));
+    const files = result.filePaths.map(fp => {
+      const ext = path.extname(fp).slice(1).toLowerCase();
+      const dir = path.dirname(fp);
+      const file = { name: path.basename(fp, path.extname(fp)), ext, dir: path.basename(dir), text: readTextAuto(fp) };
+      if (ext === 'tfx' || ext === 'mtx') {
+        const units = path.join(dir, 'units.tfp');
+        if (fs.existsSync(units)) file.unitsText = readTextAuto(units);
+      }
+      return file;
+    });
     return { success: true, files };
   } catch (err) {
     return { success: false, error: err.message };

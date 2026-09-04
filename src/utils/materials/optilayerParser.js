@@ -93,31 +93,3 @@ export function parseOptiLayerFile(text, fileName, opts = {}) {
     const baseName = String(fileName || '').replace(/\.(lm|sub)$/i, '');
     return parseOptiLayerDoc(doc, { fallbackName: baseName, ...opts });
 }
-
-/**
- * Build a catalogManager catalog object from a list of OptiLayer files.
- *
- * @param {Array<{name: string, text: string}>} files
- * @param {Object} cat   { id, name, source, group? }
- * @returns {{ catalog: Object, errors: Array<{file: string, error: string}> }}
- */
-export function buildOptiLayerCatalog(files, cat) {
-    const materials = {};
-    const errors = [];
-    for (const f of files) {
-        try {
-            const mat = parseOptiLayerFile(f.text, f.name, cat.group ? { group: cat.group } : {});
-            // Ensure a unique key within this catalog.
-            let id = sanitizeId(mat.name), n = 2;
-            while (materials[id]) id = sanitizeId(mat.name) + '_' + n++;
-            mat.id = id;
-            materials[id] = mat;
-        } catch (e) {
-            errors.push({ file: f.name, error: e.message });
-        }
-    }
-    return {
-        catalog: { id: cat.id, name: cat.name, source: cat.source || 'optilayer', materials },
-        errors,
-    };
-}

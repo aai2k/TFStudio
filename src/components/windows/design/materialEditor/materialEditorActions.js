@@ -12,7 +12,7 @@ import {
     importMaterialsIntoCatalog,
 } from '../../../../utils/materials/catalogManager.js';
 import { parseAGF } from '../../../../utils/materials/agfParser.js';
-import { buildOptiLayerCatalog } from '../../../../utils/materials/optilayerParser.js';
+import { DEFAULT_IMPORT_UNITS } from '../../../../utils/materials/materialFileImport.js';
 
 export async function importAgfCatalog(ctx) {
     const { me, notify, loadCatalogs, setCatFilter } = ctx;
@@ -30,52 +30,43 @@ export async function importAgfCatalog(ctx) {
     }
 }
 
-// Parse the selected OptiLayer files and stash the result as pending import
-// state — nothing is created until the user picks a destination catalog via
-// commitOptiLayerImport.
-export async function importOptiLayerFiles(ctx) {
-    const { me, notify, setOlImport } = ctx;
+// Pick material files (TFCalc, Essential Macleod, OptiLayer) and hand them to
+// the import dialog. Nothing is parsed or created here: the dialog parses the
+// batch under the unit settings the user picks and commits through
+// commitFileImport.
+export async function importMaterialFiles(ctx) {
+    const { me, notify, setFileImport } = ctx;
     try {
-        const result = await window.electronAPI.importCatalogOptiLayer();
+        const result = await window.electronAPI.importMaterialFiles();
         if (result.canceled) return;
         if (!result.success) { notify('error', me.importError(result.error || 'Unknown error')); return; }
-        const { catalog, errors } = buildOptiLayerCatalog(result.files, {
-            id: '__import__', name: 'OptiLayer', source: 'optilayer',
-        });
-        const count = Object.keys(catalog.materials).length;
-        if (count === 0) {
-            notify('error', me.importError(errors[0]?.error || 'No materials parsed'));
-            return;
-        }
-        setOlImport({ materials: catalog.materials, count, errors });
+        setFileImport({ files: result.files, units: { ...DEFAULT_IMPORT_UNITS } });
     } catch (err) {
         notify('error', me.importError(err.message));
     }
 }
 
-// Commit a parsed OptiLayer import into the chosen catalog ('__new__' = create one).
-export function commitOptiLayerImport(targetCatId, ctx) {
-    const { olImport, catalogs, loadCatalogs, setCatFilter, setOlImport, notify, me } = ctx;
-    const imp = olImport;
-    if (!imp) return;
+// Commit the dialog's ticked entries into the chosen catalog ('__new__' =
+// create one under `newCatalogName`).
+export function commitFileImport(targetCatId, entries, ctx, newCatalogName) {
+    const { catalogs, loadCatalogs, setCatFilter, setFileImport, notify, me } = ctx;
     try {
         let catId = targetCatId, catName;
         if (catId === '__new__') {
-            const cat = createUserCatalog('Imported OptiLayer');
+            const cat = createUserCatalog(newCatalogName || me.importedCatalogDefault);
             catId = cat.id; catName = cat.name;
         } else {
             catName = catalogs.find(cat => cat.id === catId)?.name || catId;
         }
-        const added = importMaterialsIntoCatalog(catId, imp.materials);
+        const materials = Object.fromEntries(entries.map(entry => [entry.id, entry]));
+        const added = importMaterialsIntoCatalog(catId, materials);
         loadCatalogs();
         setCatFilter(catId);
-        setOlImport(null);
-        notify('ok', imp.errors.length
-            ? me.importOptiLayerErrors(added, imp.errors.length)
-            : me.importOptiLayerSuccess(added, catName));
+        setFileImport(null);
+        notify('ok', me.importFilesSuccess(added, catName));
     } catch (err) {
         notify('error', me.importError(err.message));
-        setOlImport(null);
+        setFileImport(null);
     }
 }
 
