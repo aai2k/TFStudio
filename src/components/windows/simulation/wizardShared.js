@@ -8,31 +8,16 @@
  * Style mirrors FilterDesignWizard / ProcessSimulator.
  */
 
-import { axisTooltip, cartesianOption, valueAxis } from '../../ui/chartOptions.js';
+import { axisTooltip, cartesianOption, seriesExtent, valueAxis } from '../../ui/chartOptions.js';
 import { drawChart, useChartTeardown } from '../../ui/plotSurface.js';
 import { makeShiftedMaterial } from '../../../utils/monitoring/monitoringSim.js';
 import { systemSpectrum, splitActiveStacks } from '../../../utils/monitoring/depositionSpectrum.js';
 
 const { createElement: h, useRef, useEffect } = React;
 
-function seriesYExtent(series) {
-    let min = Infinity;
-    let max = -Infinity;
-    for (const item of series) {
-        for (const point of item?.data || []) {
-            const raw = Array.isArray(point) ? point.at(-1) : (point?.value ?? point);
-            const value = Number(raw);
-            if (!Number.isFinite(value)) continue;
-            min = Math.min(min, value);
-            max = Math.max(max, value);
-        }
-    }
-    return Number.isFinite(min) ? [min, max] : null;
-}
-
 function percentChartRange(series, explicitRange) {
     if (explicitRange) return explicitRange;
-    const extent = seriesYExtent(series);
+    const extent = seriesExtent(series, 1);
     if (!extent || (extent[1] - extent[0] < 10 && extent[1] < 20)) return null;
     const min = Math.floor(extent[0] / 10) * 10;
     const max = Math.ceil(extent[1] / 10) * 10;

@@ -86,7 +86,9 @@ export function isLogYScale(id) { return !!yScaleOf(id).log; }
  * already spoken for, so there is no density of a reflectance to quote, and a
  * density of an absorptance turns the meaning around: A of 1e-5 would read as
  * density 5, which sounds like heavy blocking and is almost no absorption at
- * all. Macleod warns against that same confusion where he defines it.
+ * all. Macleod makes a neighbouring point where he defines it: absorption is
+ * the wrong word for a neutral-density filter's loss, part of which is
+ * reflected.
  */
 export function yScaleReadsQuantity(id, quantity) {
     return !yScaleOf(id).transmittanceOnly || !!quantity?.startsWith('T');
@@ -239,24 +241,22 @@ export function plotPercent(id, quantity) {
 }
 
 // A logarithmic reading of zero is infinite, and of a negative round-off value
-// it is nothing at all. Shown as what they are rather than as a number.
-function formatLogSafe(value, decimals) {
-    if (Number.isFinite(value)) return value.toFixed(decimals);
-    if (value === Infinity) return '∞';
-    return value === -Infinity ? '−∞' : '';
+// it is nothing at all. `infinite` says how such a reading is shown.
+function formatReading(id, value, decimalsOf, infinite) {
+    const scale = yScaleOf(id);
+    const shown = scale.fromFraction(value);
+    return Number.isFinite(shown) ? shown.toFixed(decimalsOf(scale)) : infinite(shown);
 }
 
 /** One results-table cell, from the computed fraction behind it. */
 export function formatYCell(id, value) {
-    const scale = yScaleOf(id);
-    return formatLogSafe(scale.fromFraction(value), scale.tableDecimals);
+    return formatReading(id, value, scale => scale.tableDecimals,
+        shown => (shown === Infinity ? '∞' : shown === -Infinity ? '−∞' : ''));
 }
 
 /** One exported cell. A reading with no finite value is left empty. */
 export function formatYExport(id, value) {
-    const scale = yScaleOf(id);
-    const shown = scale.fromFraction(value);
-    return Number.isFinite(shown) ? shown.toFixed(scale.csvDecimals) : '';
+    return formatReading(id, value, scale => scale.csvDecimals, () => '');
 }
 
 /** Hover and crosshair readout fields for the plotted percentages. */

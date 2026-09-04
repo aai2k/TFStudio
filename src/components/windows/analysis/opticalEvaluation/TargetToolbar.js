@@ -3,7 +3,7 @@ import { curveColorFor } from './model.js';
 import { FieldLabel, NumInput } from '../chrome/controls.js';
 import { SegmentedButton } from './controls.js';
 import { ModeRow } from '../chrome/layout.js';
-import { yScaleReadsQuantity } from './yScale.js';
+import { yScaleOf, yScaleReadsQuantity } from './yScale.js';
 
 const { createElement: h } = React;
 
@@ -37,8 +37,30 @@ function ControlGroup({ c, children }) {
     }, children);
 }
 
+// Rounding clears the dust a unit conversion leaves in the field.
+const clean = value => Number(value.toPrecision(12));
+
+/**
+ * The level grid is entered in the unit the axis is ruled in: percentage points
+ * on a linear axis, decibels or density on a logarithmic one. The logarithmic
+ * step is stored in decades, so 5 dB and OD 0.5 are the same setting.
+ */
+function levelField(scale, oe, snapPct, setSnapPct, snapDecades, setSnapDecades) {
+    if (!scale.log) return { value: snapPct, max: 50, step: 1, unit: oe.snapPctUnit, onChange: setSnapPct };
+    const perDecade = 1 / scale.decadesPerUnit;
+    return {
+        value: clean(snapDecades * perDecade), max: 5 * perDecade, step: clean(0.1 * perDecade),
+        unit: scale.short,
+        onChange: value => setSnapDecades(clean(value / perDecade)),
+    };
+}
+
 function SnapControls(props) {
-    const { c, oe, snapOn, setSnapOn, snapNm, setSnapNm, snapPct, setSnapPct, snapLevels } = props;
+    const {
+        c, oe, snapOn, setSnapOn, snapNm, setSnapNm, snapPct, setSnapPct,
+        snapDecades, setSnapDecades, yScale,
+    } = props;
+    const level = levelField(yScaleOf(yScale), oe, snapPct, setSnapPct, snapDecades, setSnapDecades);
     return h(ControlGroup, { c },
         h('label', {
             style: { display: 'flex', alignItems: 'center', gap: 4, padding: '0 5px', fontSize: 11, cursor: 'pointer', color: c.text, whiteSpace: 'nowrap' },
@@ -49,10 +71,10 @@ function SnapControls(props) {
         ),
         snapOn && h(NumInput, { value: snapNm, min: 0, max: 100, step: 1, c, width: 40, onChange: setSnapNm }),
         snapOn && h('span', { style: { fontSize: 10, color: c.textDim } }, oe.snapNmUnit),
-        // The level snap is a grid of percentage points, so it is offered only
-        // while the axis is ruled in them.
-        snapOn && snapLevels && h(NumInput, { value: snapPct, min: 0, max: 50, step: 1, c, width: 36, onChange: setSnapPct }),
-        snapOn && snapLevels && h('span', { style: { fontSize: 10, color: c.textDim } }, oe.snapPctUnit)
+        snapOn && h(NumInput, {
+            value: level.value, min: 0, max: level.max, step: level.step, c, width: 36, onChange: level.onChange,
+        }),
+        snapOn && h('span', { style: { fontSize: 10, color: c.textDim } }, level.unit)
     );
 }
 

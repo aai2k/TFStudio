@@ -118,10 +118,11 @@ instead of typing them into the
   ramp.
 - **Delete**: switch to the delete tool and click a target's line or marker to
   remove it.
-- **Snapping**: endpoints snap to a grid (in nm and %) and to existing target
-  ends, so near-flat lines settle onto clean levels such as a 50 % band. The
-  level grid is offered only while the axis is ruled in percent; on a dB or
-  density axis, wavelengths still snap and levels are taken as drawn.
+- **Snapping**: endpoints snap to a grid (in nm and in the vertical unit) and to
+  existing target ends, so near-flat lines settle onto clean levels such as a
+  50 % band. On a dB or density axis the level grid is in that unit, half a
+  decade by default, so a blocking level lands on −40 dB or OD 4 rather than
+  on a percentage.
 
 Every edit writes straight to the design's targets, so the Merit Function Editor
 stays in sync and each change is a single undo step.

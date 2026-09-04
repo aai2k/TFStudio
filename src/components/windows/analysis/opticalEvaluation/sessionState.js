@@ -35,4 +35,7 @@ export const opticalTargetSession = createWindowSession({
     snapOn: true,
     snapNm: 10,
     snapPct: 5,
+    // The level grid on a logarithmic axis, in decades below full
+    // transmittance: half a decade is 5 dB or OD 0.5.
+    snapDecades: 0.5,
 });

@@ -138,9 +138,10 @@ check(drawnTargets('dB').filter(level => close(level, 1e-3)).length === 1,
 
 // ── Density reads transmittance and nothing else ─────────────────────────────
 
-// Macleod defines D from the incident and the transmitted irradiance, and warns
-// in the same passage against reading it as an absorption. A of 1e-5 would read
-// as density 5, which sounds like heavy blocking and is almost no loss at all.
+// Macleod defines D from the incident and the transmitted irradiance, and notes
+// in the same passage that absorption is the wrong word for such a filter's
+// loss. A of 1e-5 would read as density 5, which sounds like heavy blocking and
+// is almost no loss at all.
 for (const quantity of ['T', 'Ts', 'Tp']) {
     check(yScaleReadsQuantity('OD', quantity), `density reads ${quantity}`);
 }
@@ -332,6 +333,17 @@ check(close(drawn('average', true).target, 1e-4), 'an average target takes the g
 check(close(drawn('continuous', true).target, 1e-2) && close(drawn('continuous', true).targetEnd, 1e-6),
     'a continuous target keeps the ends it was drawn with');
 check(close(drawn('average', false).target, 0.0050005), 'a linear axis keeps the arithmetic mean');
+
+// Levels snap in decades on a logarithmic axis: a stroke a little either side
+// of 0.01 % is flattened onto it, where a percentage grid would send it to 0.
+const nearBlocking = { x0: 503, y0: 0.012, x1: 597, y1: 0.008 };
+const snapped = logScale => createTargetOperands({
+    operands: [], line: nearBlocking, editCurve: 'T', editPol: 'avg', editKind: 'average',
+    snapOn: true, snapNm: 10, snapPct: 5, snapDecades: 0.5, logScale,
+})[0];
+check(close(snapped(true).target, 1e-4) && snapped(true).lambdaStart === 500,
+    'a level drawn on a logarithmic axis snaps onto the decade grid');
+check(snapped(false).target === 0, 'the percentage grid is what a linear axis still snaps to');
 
 // ── The export names its unit ────────────────────────────────────────────────
 

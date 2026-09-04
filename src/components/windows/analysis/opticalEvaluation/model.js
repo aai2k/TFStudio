@@ -6,7 +6,8 @@ import { makeOperand } from '../../../../utils/physics/optimizer.js';
 import { spectralAxisOption } from '../../../../utils/physics/spectralAxis.js';
 import { ANALYSIS_DEFAULTS } from '../../../../constants/analysisDefaults.js';
 import {
-    axisTooltip, cartesianOption, chartToolbox, dimmedBandSeries, lineSeries, valueAxis,
+    axisTooltip, cartesianOption, chartToolbox, dimmedBandSeries, lineSeries, seriesExtent,
+    valueAxis,
 } from '../../../ui/chartOptions.js';
 import { targetSeries } from '../../../ui/targetSeries.js';
 import { plotMargin } from '../chrome/plot.js';
@@ -156,20 +157,6 @@ export function buildChartSeries({ data, showCurves, targets, targetsVisible, ov
     return output;
 }
 
-/** Lowest and highest value drawn across every series, or null if none is. */
-function seriesYExtent(series) {
-    let low = Infinity, high = -Infinity;
-    for (const item of series) {
-        for (const point of item?.data || []) {
-            const y = (Array.isArray(point) ? point : point?.value)?.[1];
-            if (!Number.isFinite(y)) continue;
-            if (y < low) low = y;
-            if (y > high) high = y;
-        }
-    }
-    return high >= low ? [low, high] : null;
-}
-
 export function buildChartOption(options) {
     const {
         data, showCurves, targets, targetsVisible, overlays, curveColors,
@@ -197,7 +184,7 @@ export function buildChartOption(options) {
     // A logarithmic axis picks its ticks from the span it actually has to
     // cover, so it is measured before the decoration is added: bands carry
     // wavelengths only, and would contribute nothing but undefined ends.
-    const vertical = yScaleAxisOption(yScale, yRange, seriesYExtent(series));
+    const vertical = yScaleAxisOption(yScale, yRange, seriesExtent(series, 1));
     // Band x coordinates are nanometres, like every plotted point, whatever
     // unit the axis is labelled in.
     series.push(...dimmedBandSeries(materialBands, palette));
@@ -270,16 +257,40 @@ function levelledOnLogAxis(line, logScale) {
     return { ...line, y0: level, y1: level };
 }
 
+/**
+ * The grid levels snap to. On a linear axis it is `snapPct` percentage points;
+ * on a logarithmic one it is `snapDecades` below full transmittance, the grid
+ * both decibels and density are ruled on, so half a decade lands a level on
+ * −40 dB or OD 4 rather than on a percentage.
+ */
+function levelSnap(logScale, snapDecades) {
+    if (!logScale) return null;
+    return {
+        toUnit: percent => Math.log10(percent / 100),
+        fromUnit: decades => 100 * 10 ** decades,
+        step: snapDecades,
+    };
+}
+
 export function createTargetOperands(options) {
-    const { operands, line, editCurve, editPol, editKind, snapOn, snapNm, snapPct, logScale } = options;
-    const drawn = snapOn ? snapDrawnLine(line, { operands, snapNm, snapPct }) : line;
+    const {
+        operands, line, editCurve, editPol, editKind, snapOn, snapNm, snapPct, snapDecades, logScale,
+    } = options;
+    const drawn = snapOn
+        ? snapDrawnLine(line, { operands, snapNm, snapPct, levelScale: levelSnap(logScale, snapDecades) })
+        : line;
     const levelled = editKind === 'continuous' ? drawn : levelledOnLogAxis(drawn, logScale);
     return [...operands, makeOperand(operandOverridesFromDrawnLine(levelled, editCurve, editPol, editKind))];
 }
 
 export function editTargetOperands(options) {
-    const { operands, meta, coords, snapOn, snapNm, snapPct, logScale } = options;
-    const edited = snapOn ? snapDrawnLine(coords, { operands, snapNm, snapPct, excludeId: meta.opId }) : coords;
+    const { operands, meta, coords, snapOn, snapNm, snapPct, snapDecades, logScale } = options;
+    const edited = snapOn
+        ? snapDrawnLine(coords, {
+            operands, snapNm, snapPct, excludeId: meta.opId,
+            levelScale: levelSnap(logScale, snapDecades),
+        })
+        : coords;
     return operands.map(operand => operand.id === meta.opId
         ? {
             ...operand,

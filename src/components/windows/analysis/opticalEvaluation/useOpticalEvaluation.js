@@ -44,12 +44,11 @@ function useSpectrumEvaluation({ params, evalMode }) {
 
 function useTargetEditor({ design, updateDesign, yScale }) {
     const [session, setField] = useWindowSession(opticalTargetSession, design);
-    const { editMode, editTool, editPol, editKind, snapOn, snapNm } = session;
-    // The level snap steps a grid of percentage points, which a logarithmic
-    // axis does not rule: a stopband drawn at 0.001 % would land on 0, a level
+    const { editMode, editTool, editPol, editKind, snapOn, snapNm, snapPct, snapDecades } = session;
+    // On a logarithmic axis levels snap in decades rather than percentage
+    // points: a stopband drawn at 0.001 % would otherwise land on 0, a level
     // that axis cannot even show. Wavelengths snap as they always do.
     const logScale = isLogYScale(yScale);
-    const snapPct = logScale ? 0 : session.snapPct;
     // Optical density reads transmittance and nothing else, so while it is
     // shown a new target is drawn on T whatever family was chosen; the choice
     // itself is kept for when another unit comes back.
@@ -58,17 +57,18 @@ function useTargetEditor({ design, updateDesign, yScale }) {
         updateDesign({
             meritOperands: createTargetOperands({
                 operands: design.meritOperands || [], line,
-                editCurve, editPol, editKind, snapOn, snapNm, snapPct, logScale,
+                editCurve, editPol, editKind, snapOn, snapNm, snapPct, snapDecades, logScale,
             })
         });
-    }, [design, updateDesign, editCurve, editPol, editKind, snapOn, snapNm, snapPct, logScale]);
+    }, [design, updateDesign, editCurve, editPol, editKind, snapOn, snapNm, snapPct, snapDecades, logScale]);
     const onEditTarget = useCallback((meta, coords) => {
         updateDesign({
             meritOperands: editTargetOperands({
-                operands: design.meritOperands || [], meta, coords, snapOn, snapNm, snapPct, logScale,
+                operands: design.meritOperands || [], meta, coords,
+                snapOn, snapNm, snapPct, snapDecades, logScale,
             })
         });
-    }, [design, updateDesign, snapOn, snapNm, snapPct, logScale]);
+    }, [design, updateDesign, snapOn, snapNm, snapPct, snapDecades, logScale]);
     const onDeleteTarget = useCallback(opId => {
         updateDesign({ meritOperands: deleteTargetOperand(design.meritOperands || [], opId) });
     }, [design, updateDesign]);
@@ -80,8 +80,8 @@ function useTargetEditor({ design, updateDesign, yScale }) {
         editKind, setEditKind: value => setField('editKind', value),
         snapOn, setSnapOn: value => setField('snapOn', value),
         snapNm, setSnapNm: value => setField('snapNm', value),
-        snapPct: session.snapPct, setSnapPct: value => setField('snapPct', value),
-        snapLevels: !logScale,
+        snapPct, setSnapPct: value => setField('snapPct', value),
+        snapDecades, setSnapDecades: value => setField('snapDecades', value),
         onCreateTarget, onEditTarget, onDeleteTarget,
     };
 }

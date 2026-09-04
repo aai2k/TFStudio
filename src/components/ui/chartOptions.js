@@ -582,19 +582,37 @@ const WAVELENGTH_INTERVAL_NM = 50;
 const MIN_TICKS = 2;
 const MAX_TICKS = 40;
 
-/** X extent across every series drawn as [x, y] pairs, or null. */
-function seriesXSpan(series) {
+// The coordinate a data point carries along `dim`. A point is an [x, y] pair,
+// an object holding the pair in `value` (target lines tag their points with the
+// operand they came from), or a bare number, which is a value on its own.
+function pointCoordinate(point, dim) {
+    const pair = Array.isArray(point) ? point : point?.value;
+    if (Array.isArray(pair)) return pair[dim];
+    return dim === 1 ? Number(pair ?? point) : NaN;
+}
+
+/**
+ * Lowest and highest coordinate drawn across every series along one dimension
+ * (0 for x, 1 for y), or null if nothing is drawn there.
+ */
+export function seriesExtent(series, dim) {
     let low = Infinity;
     let high = -Infinity;
     for (const item of series || []) {
         for (const point of item?.data || []) {
-            const x = Array.isArray(point) ? point[0] : null;
-            if (!Number.isFinite(x)) continue;
-            if (x < low) low = x;
-            if (x > high) high = x;
+            const value = pointCoordinate(point, dim);
+            if (!Number.isFinite(value)) continue;
+            if (value < low) low = value;
+            if (value > high) high = value;
         }
     }
-    return high > low ? high - low : null;
+    return high >= low ? [low, high] : null;
+}
+
+/** Width of the x extent across every series, or null if it has none. */
+function seriesXSpan(series) {
+    const extent = seriesExtent(series, 0);
+    return extent && extent[1] > extent[0] ? extent[1] - extent[0] : null;
 }
 
 function wavelengthInterval(span) {
