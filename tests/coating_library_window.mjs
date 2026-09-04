@@ -64,15 +64,16 @@ assert.ok(html.includes(esc(ts.anySubstrate)), 'the substrate filter is offered'
 assert.ok(html.includes(esc(ts.selectHint)), 'nothing selected shows the hint');
 if (BUILTIN_COATINGS.length > 0) {
     const first = BUILTIN_COATINGS[0];
-    assert.ok(html.includes(esc(first.name)), 'the first built-in entry is listed');
-    // Entries sit in one folder per family, each folder a header that folds.
-    assert.ok(html.includes(`aria-expanded="true"`) && html.includes(esc(ts.types[first.type])),
-        'the list shows family folders');
-    coatingLibrarySession.write(null, { collapsedTypes: [first.type] });
-    const folded = renderToStaticMarkup(withDesign(React.createElement(CoatingLibrary, { c, t })));
-    assert.ok(!folded.includes(esc(first.name)) && folded.includes(`aria-expanded="false"`),
-        'a folded family hides its entries but keeps its header');
-    coatingLibrarySession.write(null, { collapsedTypes: [] });
+    // Entries sit in one folder per family. Every folder starts folded: its
+    // header and count show, its entries do not, until it is unfolded.
+    assert.ok(html.includes(`aria-expanded="false"`) && html.includes(esc(ts.types[first.type])),
+        'the list shows family folders, folded');
+    assert.ok(!html.includes(esc(first.name)), 'a folded family hides its entries');
+    coatingLibrarySession.write(null, { openTypes: [first.type] });
+    const unfolded = renderToStaticMarkup(withDesign(React.createElement(CoatingLibrary, { c, t })));
+    assert.ok(unfolded.includes(esc(first.name)) && unfolded.includes(`aria-expanded="true"`),
+        'an unfolded family lists its entries under its header');
+    coatingLibrarySession.write(null, { openTypes: [] });
 
     // The tag panel is folded by default; only the toggle shows.
     assert.ok(html.includes(esc(ts.showTags)), 'the tag toggle is shown when entries carry tags');
@@ -86,7 +87,7 @@ if (BUILTIN_COATINGS.length > 0) {
     assert.ok(opened.includes(esc(ts.tagGroups.region)), 'chips are listed under the kind of tag');
     // Choosing a tag narrows the list to entries carrying it, and the chosen
     // chip stays in view with the panel folded again.
-    coatingLibrarySession.write(null, { tags: [firstTag], tagsOpen: false });
+    coatingLibrarySession.write(null, { tags: [firstTag], tagsOpen: false, openTypes: COATING_TYPES });
     const narrowed = renderToStaticMarkup(withDesign(React.createElement(CoatingLibrary, { c, t })));
     assert.ok(narrowed.includes(esc(ts.clearTags)), 'a chosen tag offers Clear tags');
     assert.ok(narrowed.includes(`aria-pressed="true"`), 'the chosen tag stays visible while folded');
@@ -108,7 +109,7 @@ if (BUILTIN_COATINGS.length > 0) {
     // An oblique entry says so in its list row, its header and on every claim.
     const oblique = BUILTIN_COATINGS.find(entry => entry.aoi > 0);
     if (oblique) {
-        coatingLibrarySession.write(null, { selectedId: oblique.id, collapsedTypes: [] });
+        coatingLibrarySession.write(null, { selectedId: oblique.id, openTypes: [oblique.type] });
         const tilted = renderToStaticMarkup(withDesign(React.createElement(CoatingLibrary, { c, t })));
         const angle = `${oblique.aoi}°`;
         assert.ok(tilted.includes(`${esc(bandsText(oblique))} · ${angle}`), 'the list row states the angle');

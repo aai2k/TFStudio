@@ -158,7 +158,7 @@ export function CoatingLibrary({ c, t }) {
             h(EntryList, {
                 entries: visible, selectedId: session.selectedId,
                 onSelect: id => { setField('selectedId', id); setMessage(''); },
-                collapsedTypes: session.collapsedTypes, onToggleType: toggleType,
+                openTypes: session.openTypes, onToggleType: toggleType,
                 emptyText, c, ts,
             }),
             h('div', { style: { flex: 1, minWidth: 0, overflow: 'auto' } },

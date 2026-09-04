@@ -11,6 +11,7 @@
  */
 import assert from 'node:assert/strict';
 import { BUILTIN_COATINGS } from '../src/utils/coatingLibrary/builtin/index.js';
+import { EMBEDDED_MATERIALS } from '../src/utils/coatingLibrary/builtin/materials.js';
 import {
     COATING_TAGS, COATING_TYPES, entryMaterialIds, entrySpecResults, entrySpectrum,
 } from '../src/utils/coatingLibrary/entryModel.js';
@@ -24,6 +25,7 @@ await initWasmForTest();
 assert.ok(BUILTIN_COATINGS.length > 0, 'the built-in library is empty');
 
 const ids = new Set();
+const usedMaterialIds = new Set();
 for (const entry of BUILTIN_COATINGS) {
     const where = `entry "${entry.id}"`;
     assert.ok(!ids.has(entry.id), `${where}: duplicate id`);
@@ -43,6 +45,14 @@ for (const entry of BUILTIN_COATINGS) {
     for (const id of entryMaterialIds(entry)) {
         assert.ok(isBuiltinId(id) || entry.materials?.[id],
             `${where}: material "${id}" is neither built in nor embedded`);
+    }
+    // A material an entry carries is the library's one record of that id. A
+    // design keeps the first meaning it is given for an id, so two coatings
+    // that carried different data under one id would make the second one
+    // compute with the first one's data.
+    for (const [id, record] of Object.entries(entry.materials || {})) {
+        assert.equal(record, EMBEDDED_MATERIALS[id], `${where}: embedded "${id}" is not the shared record`);
+        usedMaterialIds.add(id);
     }
 
     // The family's property set must come out as numbers for every band, and
@@ -71,6 +81,25 @@ for (const entry of BUILTIN_COATINGS) {
         assert.ok(result.pass, `${where}: claim ${i + 1} (${qualifiers[i].kind}) fails: ${result.summary}`);
     });
     assert.ok(verdict.allPass, `${where}: specification does not pass`);
+}
+
+// The shared records themselves: sound tables, and none that no entry uses,
+// so the generated data cannot drift away from the coatings.
+for (const [id, record] of Object.entries(EMBEDDED_MATERIALS)) {
+    const where = `embedded material "${id}"`;
+    assert.equal(record.id, id, `${where}: id field differs from its key`);
+    assert.ok(usedMaterialIds.has(id), `${where}: no built-in entry uses it`);
+    assert.equal(record.formulaNum, -1, `${where}: not tabulated`);
+    assert.ok(Array.isArray(record.tabData) && record.tabData.length >= 2, `${where}: no table`);
+    record.tabData.forEach((row, i) => {
+        assert.ok(row.length === 3 && row.every(Number.isFinite), `${where}: row ${i} is not [nm, n, k]`);
+        assert.ok(row[1] > 0 && row[2] >= 0, `${where}: row ${i} has n ${row[1]}, k ${row[2]}`);
+        if (i > 0) assert.ok(row[0] > record.tabData[i - 1][0], `${where}: wavelengths not increasing at row ${i}`);
+    });
+    const first = record.tabData[0][0] / 1000;
+    const last = record.tabData[record.tabData.length - 1][0] / 1000;
+    assert.ok(Math.abs(record.lambdaMin - first) < 1e-9, `${where}: lambdaMin ${record.lambdaMin} is not the first point ${first}`);
+    assert.ok(Math.abs(record.lambdaMax - last) < 1e-9, `${where}: lambdaMax ${record.lambdaMax} is not the last point ${last}`);
 }
 
 console.log(`PASS coating_library_builtin: ${BUILTIN_COATINGS.length} entries meet their specification`);

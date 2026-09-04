@@ -48,8 +48,8 @@ function GroupHeader({ type, count, collapsed, onToggle, c, ts }) {
         h('span', { style: { fontSize: 11, fontWeight: 400, color: c.textDim } }, count));
 }
 
-/** The entries, sorted into one folder per family. */
-export function EntryList({ entries, selectedId, onSelect, emptyText, collapsedTypes, onToggleType, c, ts }) {
+/** The entries, sorted into one folder per family. Folders start folded; `openTypes` names the ones unfolded. */
+export function EntryList({ entries, selectedId, onSelect, emptyText, openTypes, onToggleType, c, ts }) {
     const groups = COATING_TYPES
         .map(type => ({ type, items: entries.filter(entry => entry.type === type) }))
         .filter(group => group.items.length > 0);
@@ -60,7 +60,7 @@ export function EntryList({ entries, selectedId, onSelect, emptyText, collapsedT
         groups.length === 0
             ? h('div', { style: { padding: 14, fontSize: 12, color: c.textDim, fontStyle: 'italic' } }, emptyText)
             : groups.map(({ type, items }) => {
-                const collapsed = collapsedTypes.includes(type);
+                const collapsed = !openTypes.includes(type);
                 return h('div', { key: type },
                     h(GroupHeader, { type, count: items.length, collapsed, onToggle: () => onToggleType(type), c, ts }),
                     !collapsed && items.map(entry => h(EntryRow, {

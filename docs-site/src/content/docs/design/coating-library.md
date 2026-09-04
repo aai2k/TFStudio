@@ -65,8 +65,9 @@ is for (laser, telecom, CWDM and DWDM grids, imaging, solar), what it does
 (quarter-wave stack, V-coat, metal-dielectric, the material pair), the geometry
 and the substrate. Hover a tag to read what it means.
 
-The list keeps one folder per family, each with its own color; click a folder's
-header to fold or unfold it. Every row carries a strip of its stack in the
+The list keeps one folder per family, each with its own color and a count of
+what it holds. Folders start folded; click a header to unfold or fold it. Every
+row carries a strip of its stack in the
 materials' own colors, the same colors the Design Editor uses, substrate side
 on the left.
 

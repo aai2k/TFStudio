@@ -42,7 +42,7 @@ export function useCoatingLibrary(ts) {
 
     const toggleTag = useCallback(tag => setField('tags', current =>
         (current.includes(tag) ? current.filter(item => item !== tag) : [...current, tag])), [setField]);
-    const toggleType = useCallback(type => setField('collapsedTypes', current =>
+    const toggleType = useCallback(type => setField('openTypes', current =>
         (current.includes(type) ? current.filter(item => item !== type) : [...current, type])), [setField]);
 
     const apply = useCallback(() => {

@@ -1,4 +1,6 @@
 // Low-emissivity and solar-control coatings. Field reference: ../entryModel.js.
+import { embedded } from './materials.js';
+
 export const LOW_E = [
     {
         id: 'heat-mirror-zns-ag-zns',
@@ -25,6 +27,39 @@ export const LOW_E = [
             { kind: 'MIN_MAX', channel: 'T', direction: 'min', cmp: 'ge', band: 0, target: 0.60, label: 'T min 420-680 nm ≥ 60%' },
             { kind: 'R_AVG', channel: 'R', cmp: 'ge', band: 1, target: 0.85, label: 'R avg 1000-1900 nm ≥ 85%' },
             { kind: 'MIN_MAX', channel: 'R', direction: 'min', cmp: 'ge', band: 1, target: 0.70, label: 'R min 1000-1900 nm ≥ 70%' },
+        ],
+    },
+    {
+        id: 'low-e-double-silver-si3n4-ag-9l',
+        name: 'Double-silver low-E, passes 420-680 nm and reflects 900-1800 nm, Si3N4/Ag, 9 layers',
+        type: 'lowE',
+        tags: ['visible', 'nir', 'swir', 'solar', 'glazing', 'heat-mirror', 'induced-transmission', 'metal-dielectric', 'silver', 'normal-incidence', 'glass', 'textbook'],
+        use: 'Use this on architectural glazing that has to stay clear to the eye and still turn back the sun. Two silver layers do the reflecting, the silicon nitride layers between them match the silver into air and glass so it keeps transmitting, and the thin nickel layers under and over each silver are the barriers that stop the silver reacting during and after deposition.',
+        limitations: 'About a fifth of the visible light is absorbed, in the silver and in the four barrier layers, which is normal for this family and is why the transmittance sits near 70% rather than near 90%. Reflection is claimed to 1800 nm because the built-in silver data stops at 1937 nm; the thermal infrared beyond that, where a low-E coating does most of its work on a heated room, lies outside every dataset used here. The barriers are 0.7 nm, only two or three atoms thick, and the model treats them as continuous films, so the real absorption depends on how the metal nucleates.',
+        source: 'OptiLayer sample design "Double silver low-E" from the LEC25D22 example (OptiLayer GmbH): a nine-layer Si3N4 / NiCr / Ag / NiCr / Si3N4 / NiCr / Ag / NiCr / Si3N4 stack on soda lime glass, designed for high transmittance over 420-680 nm and high reflectance over 900-1800 nm, with the four NiCr barriers pinned at 0.7 nm. Nickel stands in for the 80/20 nickel-chromium alloy, which has no published open dataset; nickel is the majority constituent and plays the same barrier role. Re-optimized in TFStudio over 420-1800 nm against the built-in silver data and the embedded silicon nitride, nickel and soda lime glass data, with only the nitride and silver thicknesses free, against the specification below.',
+        incidentMedium: 'builtin:Air',
+        substrate: 'rii:SodaLime-Rubin',
+        referenceWavelength: 600,
+        bands: [[420, 680], [900, 1800]],
+        aoi: 0,
+        polarization: 'avg',
+        layers: [
+            { material: 'rii:Si3N4-Luke', thickness: 36.56 },
+            { material: 'rii:Ni-Johnson', thickness: 0.70 },
+            { material: 'builtin:Ag', thickness: 11.39 },
+            { material: 'rii:Ni-Johnson', thickness: 0.70 },
+            { material: 'rii:Si3N4-Luke', thickness: 90.61 },
+            { material: 'rii:Ni-Johnson', thickness: 0.70 },
+            { material: 'builtin:Ag', thickness: 15.40 },
+            { material: 'rii:Ni-Johnson', thickness: 0.70 },
+            { material: 'rii:Si3N4-Luke', thickness: 37.30 },
+        ],
+        materials: embedded('rii:SodaLime-Rubin', 'rii:Si3N4-Luke', 'rii:Ni-Johnson'),
+        spec: [
+            { kind: 'T_AVG', channel: 'T', cmp: 'ge', band: 0, target: 0.70, label: 'T avg 420-680 nm ≥ 70%' },
+            { kind: 'MIN_MAX', channel: 'T', direction: 'min', cmp: 'ge', band: 0, target: 0.60, label: 'T min 420-680 nm ≥ 60%' },
+            { kind: 'R_AVG', channel: 'R', cmp: 'ge', band: 1, target: 0.90, label: 'R avg 900-1800 nm ≥ 90%' },
+            { kind: 'MIN_MAX', channel: 'R', direction: 'min', cmp: 'ge', band: 1, target: 0.75, label: 'R min 900-1800 nm ≥ 75%' },
         ],
     },
 ];

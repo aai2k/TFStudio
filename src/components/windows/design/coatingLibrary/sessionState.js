@@ -8,7 +8,7 @@ export const coatingLibrarySession = createWindowSession({
     type: '',               // one of COATING_TYPES, '' for all
     tags: [],               // selected tag keys; an entry must carry all of them
     tagsOpen: false,        // whether the full tag panel is unfolded
-    collapsedTypes: [],     // family folders folded in the list
+    openTypes: [],          // family folders unfolded in the list; every folder starts folded
     substrate: '',          // material id, '' for any
     lambda: '',             // nm as typed, '' for no wavelength filter
     maxLayers: '',          // as typed, '' for no limit

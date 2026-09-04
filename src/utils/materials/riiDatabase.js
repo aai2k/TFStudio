@@ -19,7 +19,7 @@
  */
 
 export { loadCatalog, clearCatalogCache, getDatabaseStatus, updateDatabase } from './riiDatabase/catalog.js';
-export { fetchMaterial } from './riiDatabase/materialParser.js';
+export { fetchMaterial, parseMaterialDoc } from './riiDatabase/materialParser.js';
 export { evalFormulaN } from './riiDatabase/formulas.js';
 export { sampleMaterial } from './riiDatabase/sampling.js';
 export { searchCatalog } from './riiDatabase/search.js';

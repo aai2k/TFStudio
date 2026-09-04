@@ -27,7 +27,7 @@ export async function fetchMaterial(dataPath) {
     if (cache.materials[dataPath]) return cache.materials[dataPath];
 
     const doc = await fetchYamlCached('data/' + dataPath, RII_RAW_BASE + '/data/' + dataPath);
-    const mat = _parseMaterialDoc(doc, dataPath);
+    const mat = parseMaterialDoc(doc, dataPath);
     cache.materials[dataPath] = mat;
     return mat;
 }
@@ -72,7 +72,12 @@ function _applyBlock(block, state) {
     }
 }
 
-function _parseMaterialDoc(doc, dataPath) {
+/**
+ * Parse an already-loaded material YAML document (the object js-yaml returns
+ * for one refractiveindex.info page) into the shape `fetchMaterial` returns.
+ * Lets a local copy of the database be read without the fetch layer.
+ */
+export function parseMaterialDoc(doc, dataPath) {
     const refs    = _stripHtml((doc.REFERENCES || '').replace(/\s+/g, ' ').trim());
     const comment = _stripHtml((doc.COMMENTS   || '').replace(/\s+/g, ' ').trim());
     const blocks  = doc.DATA || [];
