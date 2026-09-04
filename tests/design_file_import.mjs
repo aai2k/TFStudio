@@ -16,6 +16,9 @@
  *     notes are worded through the locale.
  *  5. The built design evaluates: a quarter-wave MgF2 layer on glass gives the
  *     textbook reflectance at the reference wavelength.
+ *  6. The index a file carries of its own: derived from a layer that stores
+ *     both its quarter waves and its physical thickness, taken from a
+ *     constant, and absent where the file has neither.
  *
  * Run: node tests/design_file_import.mjs
  */
@@ -26,7 +29,7 @@ import { evaluateSpectrum } from '../src/utils/physics/thinFilmMath.js';
 import { resolveEvalMode } from '../src/utils/physics/optimizer/evalCore.js';
 import { getLocale } from '../src/constants/locales.js';
 import {
-    parseDesignFiles, programForExtension, batchMaterialNames, designMaterialNames, DESIGN_FILE_EXTENSIONS, materialKey,
+    parseDesignFiles, programForExtension, batchMaterialNames, designMaterialNames, DESIGN_FILE_EXTENSIONS, materialKey, sourceIndexOf,
 } from '../src/utils/io/designImport/designFileImport.js';
 import { suggestMaterialId, constantIndexRecord } from '../src/utils/io/designImport/materialResolution.js';
 import { buildImportedDesign, importNoteText, importWarningText } from '../src/utils/io/designImport/buildDesign.js';
@@ -204,6 +207,25 @@ ok(tw.design.materials['import:Ag_Silver'].name === 'Ag (Silver)' && tw.design.m
     // Quarter-wave 1.38 on 1.52: R = ((n0 ns - n1²) / (n0 ns + n1²))²
     const expected = Math.pow((1.52 - 1.38 * 1.38) / (1.52 + 1.38 * 1.38), 2);
     near(r.R[0], expected, 1e-6, 'quarter-wave MgF2 on glass at λ0');
+}
+
+// ── 6. The index the file itself carries ──────────────────────────────────────
+{
+    const src = (item, name) => sourceIndexOf(item, name);
+    // A TFCalc layer stores quarter waves and physical thickness: n = qwot λ0 / (4 d).
+    near(src(items[0].item, 'MGF2').n, 1.38, 1e-6, 'TFCalc layer gives the index the design was built with');
+    ok(src(items[0].item, 'GLASS') === null && src(items[0].item, 'AIR') === null, 'a medium has no layer and no index');
+    // Essential Macleod stores optical thickness alone, so nothing can be derived.
+    ok(src(items[1].item, 'MgF2') === null, 'a Macleod design carries no index');
+    // An OptiLayer abbreviation with no folder file becomes a constant, which is the index.
+    const bare = parseDesignFiles([{ name: 'QW', ext: 'dsg', dir: 'ol', text: dsg }]).items[0].item;
+    const bareName = designMaterialNames(bare).find(n => /^L /.test(n));
+    ok(src(bare, bareName).n === 1.38, `a constant is its own index (${bareName})`);
+    // The relation holds at normal incidence, so a match angle rules it out.
+    const oblique = parseDesignFiles([{
+        name: 'QW', ext: 'dsg', dir: 'ol', text: dsg.replace('"matchAngle":0', '"matchAngle":45'), ...dsgFolder,
+    }]).items[0].item;
+    ok(oblique.matchAngleDeg === 45 && src(oblique, 'MgF2 const') === null, 'an optical thickness defined at an angle gives no index');
 }
 
 console.log(fails ? `\n${fails} FAILED` : '\nALL PASS');

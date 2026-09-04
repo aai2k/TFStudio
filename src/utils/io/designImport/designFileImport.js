@@ -99,6 +99,29 @@ export function constantIndexOf(item, name) {
     return constant && Number.isFinite(constant.n) ? { n: constant.n, k: Number(constant.k) || 0 } : null;
 }
 
+/**
+ * Index the design was built with for a source name, as { n, k }, or null when
+ * the file carries none.
+ *
+ * A constant is that index. Otherwise it comes from a layer that stores both
+ * its quarter waves and its physical thickness, since d = qwot λ0 / (4 n)
+ * leaves n. That relation holds at normal incidence only, so a layer whose
+ * optical thickness is defined at an angle is passed over, and a file that
+ * stores optical thickness alone (Essential Macleod) has nothing to give.
+ */
+export function sourceIndexOf(item, name) {
+    const constant = constantIndexOf(item, name);
+    if (constant) return constant;
+    const lam0 = item.referenceWavelengthNm;
+    for (const layer of [...item.front, ...item.back]) {
+        if (layer.material !== name || !layer.optical || layer.optical.kind !== 'qwot' || layer.optical.angleDeg) continue;
+        if (!(layer.thicknessNm > 0) || !(layer.optical.value > 0)) continue;
+        const n = layer.optical.value * lam0 / (4 * layer.thicknessNm);
+        if (n > 0 && Number.isFinite(n)) return { n, k: 0 };
+    }
+    return null;
+}
+
 /** Catalog entry that came with the file's folder for a source name, or null. */
 export function embeddedDefinition(item, name) {
     return item.embedded && Object.hasOwn(item.embedded, name) ? item.embedded[name] : null;

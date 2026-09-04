@@ -8,18 +8,21 @@
  * could not be read. The right side shows the highlighted design: media,
  * reference wavelength, the stack with thicknesses as they will be imported,
  * a table of its material names with a picker each, and the spectrum once
- * every name resolves. A name the file defines itself (a definition from an
- * OptiLayer folder, a constant index) keeps that definition unless a
- * catalog material is picked for it, and can be given back to the file's
- * definition. Names are shared across the batch, so assigning a material
- * once covers every design that uses it. Ticked designs go to the chosen
+ * every name resolves. Each material row says how it was arrived at, and where
+ * the file carries an index of its own it shows that index beside the picked
+ * material's: a catalog material with the same name is not the same claim as
+ * the material the design was computed with. A name the file defines itself
+ * (a definition from an OptiLayer folder, a constant index) keeps that
+ * definition unless a catalog material is picked for it, and can be given
+ * back to the file's definition. Names are shared across the batch, so
+ * assigning a material once covers every design that uses it. Ticked designs go to the chosen
  * project folder on Import. The dialog closes only through Cancel or Import.
  */
 
 import {
-    parseDesignFiles, batchMaterialNames, designMaterialNames, materialKey, constantIndexOf, embeddedDefinition, nameHasDefinition,
+    parseDesignFiles, batchMaterialNames, designMaterialNames, materialKey, constantIndexOf, embeddedDefinition, nameHasDefinition, sourceIndexOf,
 } from '../../../utils/io/designImport/designFileImport.js';
-import { suggestMaterialId } from '../../../utils/io/designImport/materialResolution.js';
+import { constantIndexRecord, getNKOf, suggestMaterialId } from '../../../utils/io/designImport/materialResolution.js';
 import { buildImportedDesign, importNoteText, importWarningText, MISSING_PREFIX } from '../../../utils/io/designImport/buildDesign.js';
 import { computeDesignSpectrum } from '../../../utils/io/designSpectrum.js';
 import { materialLabel } from '../../../utils/materials/catalogManager.js';
@@ -118,37 +121,86 @@ function stackTable(title, sourceLayers, builtLayers, di, c) {
     );
 }
 
+// Names new to the batch get the catalog match as their starting point. A name
+// whose definition came with the file's folder keeps it: that is the material
+// the design was computed with, and the picker can still override it. An
+// assignment already made is never overwritten.
+function withSuggestions(mapping, names) {
+    let next = null;
+    for (const { name, program, embedded } of names) {
+        const key = materialKey(program, name);
+        if (key in mapping || embedded) continue;
+        const id = suggestMaterialId(name, program);
+        if (id) (next ||= { ...mapping })[key] = id;
+    }
+    return next || mapping;
+}
+
+// Index at the reference wavelength of whatever a row resolves to now: the
+// picked catalog material, or the definition the file carries.
+function assignedIndex(item, name, id, lam0) {
+    const constant = constantIndexOf(item, name);
+    const target = id || embeddedDefinition(item, name) || (constant ? constantIndexRecord(constant.n, constant.k) : null);
+    const nk = target ? getNKOf(target) : null;
+    const n = nk ? nk(lam0)[0] : NaN;
+    return n > 0 ? n : null;
+}
+
 function materialsTable({ entry, names, mapping, setMapping, di, t, c }) {
+    const item = entry.item;
+    const lam0 = item.referenceWavelengthNm;
     const assign = (key, id) => setMapping(prev => ({ ...prev, [key]: id }));
     const release = (key) => setMapping(prev => {
         // eslint-disable-next-line no-unused-vars
         const { [key]: dropped, ...rest } = prev;
         return rest;
     });
-    const rows = designMaterialNames(entry.item).map(name => {
+    let anyNameMatch = false;
+    let anySourceIndex = false;
+    const rows = designMaterialNames(item).map(name => {
         const key = materialKey(entry.program, name);
         const info = names.find(n => n.program === entry.program && n.name === name);
         const id = mapping[key] || null;
-        const constant = constantIndexOf(entry.item, name);
-        const defined = nameHasDefinition(entry.item, name);
-        const status = id ? di.statusFound
-            : embeddedDefinition(entry.item, name) ? di.statusFolderFile
+        const constant = constantIndexOf(item, name);
+        const defined = nameHasDefinition(item, name);
+        const status = id ? di.statusNameMatch
+            : embeddedDefinition(item, name) ? di.statusFolderFile
             : constant ? di.statusConstant(constant.k ? `${formatValue(constant.n)}, k = ${formatValue(constant.k)}` : formatValue(constant.n))
             : di.statusMissing;
         const missing = !id && !defined;
+        if (id && !defined) anyNameMatch = true;
+        // The index the file was computed with, beside the one the row resolves
+        // to now. A name match that moved the index moved the design with it.
+        const source = sourceIndexOf(item, name);
+        if (source) anySourceIndex = true;
+        const chosen = assignedIndex(item, name, id, lam0);
+        const pair = source && chosen != null ? [source.n.toFixed(4), chosen.toFixed(4)] : null;
         return h('tr', { key },
             cell(name),
             cell(info ? info.designs : 1, { textAlign: 'right', color: c.textDim }),
             cell(h('div', { style: { borderRadius: 3, outline: missing ? `1px solid ${WARNING_COLOR}` : 'none' } },
                 h(MaterialPicker, { value: id || MISSING_PREFIX + name, onChange: (next) => assign(key, next), c, t, catalogsOnly: true })
             ), { overflow: 'visible' }),
-            cell(h('div', { style: { display: 'flex', alignItems: 'center', gap: 6 } },
+            cell(h('div', { style: { display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' } },
                 h('span', null, status),
-                id && defined && h('button', { onClick: () => release(key), style: smallBtn(c), title: di.useFileDefinition }, '↺')
+                id && defined && h('button', { onClick: () => release(key), style: smallBtn(c), title: di.useFileDefinition }, '↺'),
+                // Differing at the precision shown is the whole signal; no
+                // threshold decides it and nothing is rejected on it.
+                pair && h('span', {
+                    style: { flexBasis: '100%', fontVariantNumeric: 'tabular-nums', color: pair[0] === pair[1] ? c.textDim : WARNING_COLOR },
+                }, di.indexPair(pair[0], pair[1]))
             ), { color: id || defined ? c.textDim : WARNING_COLOR, whiteSpace: 'normal' })
         );
     });
-    const anyMissing = designMaterialNames(entry.item).some(name => !mapping[materialKey(entry.program, name)] && !nameHasDefinition(entry.item, name));
+    const anyMissing = designMaterialNames(item).some(name => !mapping[materialKey(entry.program, name)] && !nameHasDefinition(item, name));
+    // Only a file that stores optical thickness converts through the material.
+    const opticalThickness = [...item.front, ...item.back].some(layer => layer.thicknessNm == null);
+    const hints = [
+        anyMissing && di.missingHint,
+        anyNameMatch && di.nameMatchHint,
+        anyNameMatch && !anySourceIndex && di.noSourceIndexHint(di.programName[entry.program]),
+        opticalThickness && di.thicknessFollowsMaterialHint,
+    ].filter(Boolean);
     return h(Fragment, null,
         sectionTitle(di.materialsTitle, c),
         h('table', { style: { width: '100%', borderCollapse: 'collapse', fontSize: 12, tableLayout: 'fixed' } },
@@ -156,11 +208,12 @@ function materialsTable({ entry, names, mapping, setMapping, di, t, c }) {
                 headCell(di.colName, c),
                 headCell(di.colUses, c, { width: 60, textAlign: 'right' }),
                 headCell(di.colAssigned, c, { width: 190 }),
-                headCell('', c, { width: 150 })
+                headCell(di.colMatch, c, { width: 170 })
             )),
             h('tbody', null, rows)
         ),
-        anyMissing && h('div', { style: { fontSize: 11, color: c.textDim, padding: '4px 12px 0' } }, di.missingHint)
+        hints.length > 0 && h('div', { style: { fontSize: 11, color: c.textDim, padding: '4px 12px 0' } },
+            hints.map((text, i) => h('div', { key: i, style: { marginBottom: 2 } }, text)))
     );
 }
 
@@ -255,28 +308,14 @@ export function DesignImportDialog({ fileImport, setFileImport, folders, default
     const { files, units } = fileImport;
     const parsed = useMemo(() => parseDesignFiles(files, units), [files, units]);
     const names = useMemo(() => batchMaterialNames(parsed.items), [parsed]);
-    const [mapping, setMapping] = useState({});
+    const [mapping, setMapping] = useState(() => withSuggestions({}, names));
     const [excluded, setExcluded] = useState(() => new Set());
     const [current, setCurrent] = useState(null);
     const [folderId, setFolderId] = useState(() => defaultFolderId || folders[0]?.id || '');
     const [pickError, setPickError] = useState(null);
 
-    // Names new to the batch get the catalog match as their starting point.
-    // A name whose definition came with the file's folder keeps it: that is
-    // the material the design was computed with, and the picker can still
-    // override it. An assignment already made is never overwritten.
-    useEffect(() => {
-        setMapping(prev => {
-            let next = null;
-            for (const { name, program, embedded } of names) {
-                const key = materialKey(program, name);
-                if (key in prev || embedded) continue;
-                const id = suggestMaterialId(name, program);
-                if (id) (next ||= { ...prev })[key] = id;
-            }
-            return next || prev;
-        });
-    }, [names]);
+    // Files added from the header bring names of their own.
+    useEffect(() => { setMapping(prev => withSuggestions(prev, names)); }, [names]);
 
     const built = useMemo(() => parsed.items.map(entry => ({
         entry, ...buildImportedDesign(entry.item, name => mapping[materialKey(entry.program, name)] || null, di),
