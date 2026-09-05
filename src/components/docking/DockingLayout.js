@@ -501,9 +501,14 @@ export function DockingLayout({ c, theme, toolRequests, onWindowListChange, layo
     return local ? zoneAt(local.x, local.y) : null;
   }, [zoneAt]);
 
+  // The float reports every mouse move. The zone is replaced only when it is a
+  // different one, or each move would re-render every docked window.
   const handleFloatDragOver = useCallback((screenPoint) => {
     setDragActive(true);
-    setForcedZone(zoneUnder(screenPoint));
+    const next = zoneUnder(screenPoint);
+    setForcedZone(prev => (
+      (prev?.groupId === next?.groupId && prev?.zone === next?.zone) ? prev : next
+    ));
   }, [zoneUnder]);
 
   const handleFloatDrop = useCallback((floatId, screenPoint) => {

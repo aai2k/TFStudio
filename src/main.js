@@ -1,4 +1,4 @@
-const { app, BrowserWindow, Menu, ipcMain, shell, dialog } = require('electron');
+const { app, BrowserWindow, Menu, ipcMain, shell, dialog, screen } = require('electron');
 const path = require('path');
 const fs = require('fs');
 const logger = require('./main/logger');
@@ -9,6 +9,7 @@ const helpServer = require('./main/helpServer');
 const { createUserPaths } = require('./main/userPaths');
 const dragGhost = require('./main/dragGhost');
 const { registerAllIpc } = require('./main/ipc');
+const appWindowIpc = require('./main/ipc/appWindow');
 
 const isPackaged = app.isPackaged;
 // DevTools allowed in dev always, and in packaged builds only when launched with
@@ -185,6 +186,9 @@ function createWindow() {
     };
     child.on('maximize', send('window-maximized'));
     child.on('unmaximize', send('window-unmaximized'));
+    // Sized so it covers the same pixels wherever it is dragged; see the
+    // window-move handler.
+    appWindowIpc.settleWindowSize({ screen }, child);
   });
 
   // The drag preview is a hidden window between drags, and a hidden window
@@ -234,7 +238,7 @@ function setupIpcHandlers() {
   // user-directory keys are live getters installed by defineCtxGetters, so a
   // handler that reads ctx.<x>Dir per call follows a folder change immediately.
   const ctx = userPaths.defineCtxGetters({
-    app, shell, dialog, BrowserWindow, fs, path, log,
+    app, shell, dialog, BrowserWindow, screen, fs, path, log,
     devToolsAllowed, isPackaged, resourcesDir: process.resourcesPath, srcDir: __dirname,
     getMainWindow: () => mainWindow,
     helpServer,

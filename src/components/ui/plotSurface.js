@@ -210,6 +210,23 @@ function disarmRectangleZoom(chart) {
 }
 
 /**
+ * A drag that leaves the chart, a scrollbar handle pulled past the plot's edge
+ * or a zoom box drawn out of it, is followed through listeners zrender mounts
+ * on the global `document` for the drag's duration. That is the main window's
+ * document. A chart in a torn-off window never hears a release made anywhere
+ * else in its own window, so the handle or the box keeps following the pointer
+ * whenever it comes back over the plot, until a click on the plot lets go.
+ *
+ * The listeners are pointed at the chart's own document instead. Nothing is
+ * mounted until a drag begins, so the target can be changed at creation.
+ */
+function trackReleaseInOwnDocument(chart, element) {
+    const scope = chart.getZr?.()?.handler?.proxy?._globalHandlerScope;
+    const doc = element.ownerDocument;
+    if (scope && doc && scope.domTarget !== doc) scope.domTarget = doc;
+}
+
+/**
  * Create or update a chart using a native ECharts option.
  *
  * `chartRef.current` stores the ECharts instance itself, which gives interactive
@@ -232,6 +249,7 @@ export function drawChart(element, chartRef, option, initOptions) {
         });
         chartRef.current = chart;
         bindZoomHandlers(chart);
+        trackReleaseInOwnDocument(chart, element);
     }
     const previous = appliedOptions.get(chart);
     if (previous !== undefined && worthComparing(option)

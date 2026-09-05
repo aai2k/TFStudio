@@ -295,6 +295,104 @@ move({ sender: null }, { x: 10, y: 10 });
 move({ sender: floatWindow }, null);
 assert.deepEqual(moves, [], 'and nothing else moved anything');
 
+// ── The held size covers the same pixels wherever the window stands ───────────
+//
+// Windows lays a DIP rectangle onto pixels by rounding its origin and enclosing
+// its far edge, so the pixel width is ceil((x + w) * s) - floor(x * s) and
+// changes with x for most widths. Modelled here at 125%, the scale Electron
+// reported on the machine this was seen on: 802 DIP is 1003 pixels at one
+// position and 1004 a step over, and every flip re-lays out the window's
+// content, so its controls twitch while it is dragged. 801 DIP is 1002 pixels
+// everywhere. The reverse conversion rounds the same way, so a size read back
+// is one or two DIP larger than what was set.
+
+const scale = 1.25;
+const enclose = (r, s) => ({
+    x: Math.round(r.x * s), y: Math.round(r.y * s),
+    width: Math.ceil((r.x + r.width) * s) - Math.floor(r.x * s),
+    height: Math.ceil((r.y + r.height) * s) - Math.floor(r.y * s),
+});
+const dipToScreenRect = (_win, dip) => enclose(dip, scale);
+const screenToDipRect = (px) => enclose(px, 1 / scale);
+
+// The old rule, holding whatever DIP width was measured, is not steady.
+const measuredWidths = new Set([300, 301, 302, 303].map(x =>
+    dipToScreenRect(null, { x, y: 0, width: 802, height: 1 }).width));
+assert.deepEqual([...measuredWidths].sort(), [1003, 1004],
+    'the same DIP width covers a different number of pixels at different positions');
+
+// A window as the OS holds it: a pixel rectangle, reported back in DIP.
+const scaledWindow = (pixels) => ({
+    pixels,
+    resizes: 0,
+    listeners: {},
+    isDestroyed: () => false,
+    isMaximized: () => false,
+    isFullScreen: () => false,
+    getMinimumSize: () => [320, 240],
+    on(event, cb) { this.listeners[event] = cb; },
+    getBounds() { return screenToDipRect(this.pixels); },
+    setBounds(dip) {
+        const next = dipToScreenRect(this, dip);
+        const resized = next.width !== this.pixels.width || next.height !== this.pixels.height;
+        this.pixels = next;
+        if (resized) { this.resizes++; this.listeners.resize?.(); }
+    },
+    setSize(width, height) { this.setBounds({ ...this.getBounds(), width, height }); },
+});
+
+const steadyChannels = new Map();
+appWindowIpc.register(
+    { on: (channel, cb) => steadyChannels.set(channel, cb), handle: () => {} },
+    {
+        BrowserWindow: { fromWebContents: (sender) => sender },
+        getMainWindow: () => theMainWindow,
+        screen: { dipToScreenRect },
+    },
+);
+const steadyMove = steadyChannels.get('window-move');
+
+// Opened 1003 by 753 pixels, which no DIP size holds steadily. The first move
+// may settle it; after that the window covers the same pixels at every step.
+const wobbly = scaledWindow({ x: 125, y: 125, width: 1003, height: 753 });
+const sizesSeen = [];
+for (let step = 0; step < 12; step++) {
+    steadyMove({ sender: wobbly }, { x: 300 + step, y: 200 + step });
+    sizesSeen.push(`${wobbly.pixels.width}x${wobbly.pixels.height}`);
+}
+steadyMove({ sender: wobbly }, { end: true });
+assert.equal(new Set(sizesSeen).size, 1,
+    `the window keeps one pixel size through the drag, saw ${[...new Set(sizesSeen)].join(', ')}`);
+assert.equal(sizesSeen[0], '1002x752',
+    'the size held is the nearest steady one, a pixel or two under what was measured');
+assert.equal(wobbly.resizes, 1, 'the one resize is the settling on the first move');
+
+// A window settled when it is created never resizes during a drag at all.
+const fresh = scaledWindow({ x: 500, y: 300, width: 1003, height: 753 });
+appWindowIpc.settleWindowSize({ screen: { dipToScreenRect } }, fresh);
+assert.equal(`${fresh.pixels.width}x${fresh.pixels.height}`, '1002x752',
+    'settling snaps a new window to a steady size');
+fresh.resizes = 0;
+for (let step = 0; step < 8; step++) steadyMove({ sender: fresh }, { x: 600 + step, y: 400 + step });
+steadyMove({ sender: fresh }, { end: true });
+assert.equal(fresh.resizes, 0, 'and its drag begins and ends at that size');
+
+// The user resizes the window by its frame to a size that is not steady. When
+// they let go it is snapped to the nearest steady size, and the next drag holds
+// that one without a further change.
+fresh.pixels = { ...fresh.pixels, width: 1250, height: 900 };
+fresh.listeners.resize();
+fresh.resizes = 0;
+fresh.listeners.resized();
+assert.equal(fresh.resizes, 1, 'letting go of the frame settles the size once');
+const afterResize = `${fresh.pixels.width}x${fresh.pixels.height}`;
+assert.notEqual(afterResize, '1002x752', 'to the size the user chose, not the old one');
+fresh.resizes = 0;
+for (let step = 0; step < 8; step++) steadyMove({ sender: fresh }, { x: 100 + step, y: 100 + step });
+steadyMove({ sender: fresh }, { end: true });
+assert.equal(fresh.resizes, 0, 'and the next drag never resizes it');
+assert.equal(`${fresh.pixels.width}x${fresh.pixels.height}`, afterResize);
+
 // ── The browser build does not tear off ───────────────────────────────────────
 //
 // There is no OS window to give the tool there: window.open makes a popup the
@@ -448,5 +546,93 @@ assert.deepEqual(small, { width: 260, height: 180 });
 // No pane to measure (a tab dragged before layout settles) still gives a size.
 const fallback = previewSize(undefined);
 assert.ok(fallback.width >= 200 && fallback.height >= 130);
+
+// ── The float follows the pointer, not its own reported position ──────────────
+//
+// The window is moved by the drag itself. The position it reports lags those
+// moves by a frame or more and skips some, while the pointer inside it is
+// already measured from where the window really is. Adding the two lands a
+// step behind on every move after the first, so the window jumps back and the
+// drag shakes. The pointer's desktop position is read off the event instead.
+
+const { dragOrigin } = await import('../src/components/docking/FloatFrame.js');
+
+// Grabbed 40px in from the left edge of a window at x=100.
+const grab = { x: 40, y: 12 };
+let windowAt = 100;    // where the window really is
+let reportedAt = 100;  // what it reports, one move behind once the drag starts
+const expected = [];
+const fromEvent = [];
+const fromReported = [];
+for (const pointerAt of [180, 230, 260]) {
+    // The OS stamps the event with the pointer's desktop position and with its
+    // position inside the window as the window really stands.
+    const event = { screenX: pointerAt, screenY: 112, clientX: pointerAt - windowAt, clientY: 12 };
+    expected.push(pointerAt - grab.x);
+    fromEvent.push(dragOrigin(grab, event).x);
+    fromReported.push(reportedAt + event.clientX - grab.x);
+    reportedAt = windowAt;
+    windowAt = dragOrigin(grab, event).x;
+}
+assert.deepEqual(fromEvent, expected, 'the grab point stays under the pointer on every move');
+assert.deepEqual(fromReported, [140, 150, 170],
+    'summing the reported position with the pointer inside falls further behind each move');
+assert.equal(dragOrigin(grab, { screenX: 180, screenY: 112 }).y, 100, 'and the same holds vertically');
+
+const frameSource = readFileSync(
+    new URL('../src/components/docking/FloatFrame.js', import.meta.url), 'utf8');
+assert.equal(/win\.screen[XY]/.test(frameSource), false,
+    'the strip never asks the window where it is in the middle of moving it');
+
+// ── A divider in a float is dragged in the float's own document ───────────────
+//
+// The Monitor Worksheet splits its table from its plot with the docking
+// divider. Listening on this module's `document` for the drag meant that in a
+// torn-off window the divider never moved, and the listeners stayed mounted on
+// the main window with the resize cursor stuck on it: the next mouse move over
+// the main window resized the float's panes from there.
+
+const splitSource = readFileSync(
+    new URL('../src/components/docking/SplitPane.js', import.meta.url), 'utf8');
+assert.equal(/\bdocument\./.test(splitSource), false,
+    'the divider drag never touches the global document');
+assert.match(splitSource, /ownerDocument/, 'it listens on the document the divider is in');
+
+// ── A plot in a float hears the release in its own window ─────────────────────
+//
+// zrender follows a drag that leaves the chart, a scrollbar handle pulled past
+// the plot's edge or a zoom box drawn out of it, through listeners it mounts
+// on the global document, which is the main window's. A floated plot then
+// never hears the release, and the handle keeps following the pointer whenever
+// it comes back over the plot.
+
+const { drawChart } = await import('../src/components/ui/plotSurface.js');
+
+const mainDocument = { name: 'main document' };
+const floatDocument = { name: 'float document' };
+const previousRuntime = globalThis.echarts;
+const releaseScopes = [];
+globalThis.echarts = {
+    getInstanceByDom: () => null,
+    init: () => {
+        const scope = { domTarget: mainDocument, mounted: {} };
+        releaseScopes.push(scope);
+        return {
+            setOption() {}, on() {}, isDisposed: () => false,
+            getZr: () => ({ on() {}, handler: { proxy: { _globalHandlerScope: scope } } }),
+        };
+    },
+};
+const chartElement = (doc) => ({ ownerDocument: doc, clientWidth: 400, clientHeight: 300 });
+const chartOption = { grid: { left: 10, right: 10, top: 10, bottom: 10 }, series: [] };
+
+drawChart(chartElement(floatDocument), { current: null }, chartOption);
+assert.equal(releaseScopes[0].domTarget, floatDocument,
+    'a floated chart tracks the release in its own document');
+drawChart(chartElement(mainDocument), { current: null }, chartOption);
+assert.equal(releaseScopes[1].domTarget, mainDocument,
+    'a docked chart stays on the document it always used');
+
+globalThis.echarts = previousRuntime;
 
 console.log('PASS tear_off_windows');

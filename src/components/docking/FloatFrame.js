@@ -35,6 +35,14 @@ const glyph = (d, extra) => h('svg', { width: 11, height: 11, viewBox: '0 0 11 1
     h('path', { d, stroke: 'currentColor', strokeWidth: 1, strokeLinecap: 'round', strokeLinejoin: 'round' }),
     extra);
 
+// Where the window's origin goes so that the point it was grabbed by stays
+// under the pointer. `grab` is that point's offset from the origin, fixed at
+// the mousedown; the pointer is taken in screen coordinates as the event
+// reports them.
+export function dragOrigin(grab, event) {
+    return { x: event.screenX - grab.x, y: event.screenY - grab.y };
+}
+
 export function FloatFrame({
     c, t, toolId, title, locale, ribbonStyle = 'colorful', win,
     helpAnchor, onDock, onClose, onDragOver, onDrop, children,
@@ -60,20 +68,20 @@ export function FloatFrame({
     // the layout underneath cannot light its drop targets as the window passes
     // over them, which is how the window gets docked again.
     //
-    // Cursor and window position track each other: the pointer's screen
-    // position is the window's own origin plus the pointer inside it, and both
-    // halves change together as the window follows, so the grab point stays put.
+    // The pointer's place on the desktop is read off each event. It is not the
+    // window's own position plus the pointer inside it: the window is moved by
+    // this very drag, and the position it reports lags those moves by a frame
+    // or more and skips some, while the pointer inside it is already measured
+    // from where the window really is. That sum lands a step behind, the
+    // window jumps back, and the drag shakes.
     const handleStripMouseDown = (e) => {
         if (e.button !== 0 || !win) return;
         e.preventDefault();
         const doc = e.currentTarget.ownerDocument;
-        const grabX = e.clientX, grabY = e.clientY;
+        const grab = { x: e.clientX, y: e.clientY };
         let moved = false;
 
-        const screenPoint = (me) => ({
-            x: (win.screenX || 0) + me.clientX,
-            y: (win.screenY || 0) + me.clientY,
-        });
+        const screenPoint = (me) => ({ x: me.screenX, y: me.screenY });
 
         const onMove = (me) => {
             // A mouseup can be lost to a focus change mid-drag; the next move
@@ -81,13 +89,12 @@ export function FloatFrame({
             // the window from following a released pointer, and closes the
             // window-move bracket the lost mouseup would have closed.
             if (me.buttons === 0) { onUp(me); return; }
-            if (!moved && Math.hypot(me.clientX - grabX, me.clientY - grabY) <= 4) return;
+            if (!moved && Math.hypot(me.clientX - grab.x, me.clientY - grab.y) <= 4) return;
             moved = true;
-            const at = screenPoint(me);
             // Position only. The size is the main process's business: measuring
             // it here, in CSS pixels, resized the window a little on every grab.
-            try { win.electronAPI?.moveWindow?.({ x: at.x - grabX, y: at.y - grabY }); } catch (_) {}
-            onDragOver?.(at);
+            try { win.electronAPI?.moveWindow?.(dragOrigin(grab, me)); } catch (_) {}
+            onDragOver?.(screenPoint(me));
         };
 
         const onUp = (me) => {

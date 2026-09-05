@@ -21,6 +21,10 @@ export function SplitPane({ node, c, onSizesChange, children }) {
 
     const container = containerRef.current;
     if (!container) return;
+    // The divider can sit in a torn-off window, whose mouse events never reach
+    // this module's `document`. The drag listens on the divider's own.
+    const doc = e.currentTarget.ownerDocument;
+    const view = doc.defaultView || window;
     const rect = container.getBoundingClientRect();
     const totalPx = isH ? rect.width : rect.height;
     const startCoord = isH ? e.clientX : e.clientY;
@@ -58,23 +62,23 @@ export function SplitPane({ node, c, onSizesChange, children }) {
         const pane = paneAt(container, idx);
         if (pane) pane.style[sizeProp] = paneSize(next, idx, count);
       }
-      if (!frame) frame = requestAnimationFrame(commit);
+      if (!frame) frame = view.requestAnimationFrame(commit);
     };
 
     const onUp = () => {
-      document.removeEventListener('mousemove', onMove);
-      document.removeEventListener('mouseup', onUp);
-      if (frame) cancelAnimationFrame(frame);
+      doc.removeEventListener('mousemove', onMove);
+      doc.removeEventListener('mouseup', onUp);
+      if (frame) view.cancelAnimationFrame(frame);
       commit();
-      document.documentElement.classList.remove('tf-split-resizing-h', 'tf-split-resizing-v');
+      doc.documentElement.classList.remove('tf-split-resizing-h', 'tf-split-resizing-v');
     };
 
     // A plain `body { cursor }` loses to any element under the pointer that
     // sets its own, so the cursor flickers as the drag crosses the plots and
     // the toolbars. The class wins everywhere, as layer dragging already does.
-    document.documentElement.classList.add(isH ? 'tf-split-resizing-h' : 'tf-split-resizing-v');
-    document.addEventListener('mousemove', onMove);
-    document.addEventListener('mouseup', onUp);
+    doc.documentElement.classList.add(isH ? 'tf-split-resizing-h' : 'tf-split-resizing-v');
+    doc.addEventListener('mousemove', onMove);
+    doc.addEventListener('mouseup', onUp);
   }, [node, isH, onSizesChange]);
 
   return h('div', {

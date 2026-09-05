@@ -49,9 +49,15 @@ function handleWindowControl(ctx, action, sender) {
 // event synchronously from inside setBounds, so a listener that re-measured on
 // every resize WAS the feedback loop, one pixel per step. A drag brackets its
 // moves with an end message, and resizes inside that bracket are this handler's
-// own echo, not the user's.
-const dragSizes = new WeakMap();   // win → {width, height} in DIP
+// own echo, not the user's; a resize this module makes itself is flagged while
+// it runs, for the same reason.
+//
+// The size held is a steady one, see steadySize: most DIP sizes come out a
+// pixel larger at some positions than at others, and a window whose pixel size
+// flips as it moves re-lays out its content at every flip.
+const dragSizes = new WeakMap();   // win → {width, height, steady} in DIP
 const dragging = new WeakSet();
+const settling = new WeakSet();
 
 function handleWindowMove(ctx, move, sender) {
   const win = sender && ctx.BrowserWindow?.fromWebContents(sender);
@@ -60,18 +66,100 @@ function handleWindowMove(ctx, move, sender) {
   const { x, y } = move || {};
   if (!Number.isFinite(x) || !Number.isFinite(y)) return;
 
-  if (!dragSizes.has(win)) {
-    const remember = () => {
-      if (win.isDestroyed() || dragging.has(win)) return;
-      const { width, height } = win.getBounds();
-      dragSizes.set(win, { width, height });
-    };
-    remember();
-    win.on('resize', remember);
-  }
+  if (!dragSizes.has(win)) watchSize(ctx, win);
+  const { width, height } = heldSize(ctx, win);
   dragging.add(win);
-  const { width, height } = dragSizes.get(win);
   win.setBounds({ x: Math.round(x), y: Math.round(y), width, height });
+}
+
+// Measure the window once, and follow the resizes the user makes from then on.
+function watchSize(ctx, win) {
+  const { width, height } = win.getBounds();
+  dragSizes.set(win, steadySize(ctx, win, { width, height }));
+  win.on('resize', () => {
+    if (win.isDestroyed() || dragging.has(win) || settling.has(win)) return;
+    const measured = win.getBounds();
+    dragSizes.set(win, { width: measured.width, height: measured.height, steady: false });
+  });
+  // Fires once when the user lets go of the frame. The size they chose is
+  // snapped to the nearest steady one, a pixel or two away, so the next drag
+  // does not begin by resizing the window.
+  win.on('resized', () => {
+    if (win.isDestroyed() || dragging.has(win)) return;
+    applyHeldSize(ctx, win);
+  });
+}
+
+// The size a drag holds, steadied if a user resize left it raw.
+function heldSize(ctx, win) {
+  let size = dragSizes.get(win);
+  if (!size.steady) {
+    size = steadySize(ctx, win, size);
+    dragSizes.set(win, size);
+  }
+  return size;
+}
+
+function applyHeldSize(ctx, win) {
+  const { width, height } = heldSize(ctx, win);
+  if (win.isMaximized?.() || win.isFullScreen?.()) return;
+  settling.add(win);
+  try { win.setSize(width, height); } finally { settling.delete(win); }
+}
+
+// Give a torn-off window a steady size from its first moment, so its first
+// drag does not begin by resizing it.
+function settleWindowSize(ctx, win) {
+  if (!win || win.isDestroyed()) return;
+  if (!dragSizes.has(win)) watchSize(ctx, win);
+  applyHeldSize(ctx, win);
+}
+
+// Windows lays a DIP rectangle onto pixels by rounding its origin and enclosing
+// its far edge, so a width w at position x covers ceil((x + w) * s) - floor(x * s)
+// pixels: for most widths, one pixel more at some positions than at others. At
+// 125% a window 802 DIP wide covers 1003 pixels at one position and 1004 a step
+// to the right, and each flip re-lays out its content, so the controls inside
+// twitch as it is dragged. One width in every few is steady: 801 DIP is 1002
+// pixels wherever it stands.
+//
+// Nothing here assumes that arithmetic. The conversion is asked whether a
+// candidate comes out the same size at a run of positions, and the nearest
+// steady candidate to the size given is the answer, the smaller one first since
+// a measured size is rounded up. Where the conversion is not offered (Linux,
+// macOS) the size stands as given.
+const STEADY_SEARCH = 6;    // candidates tried either side of the given size
+const STEADY_PHASES = 12;   // positions probed; covers scale denominators up to 12
+
+function steadySize(ctx, win, size) {
+  const screen = ctx.screen;
+  const steadied = { width: size.width, height: size.height, steady: true };
+  if (!screen || typeof screen.dipToScreenRect !== 'function') return steadied;
+  const { x, y } = win.getBounds();
+  const [minWidth, minHeight] = win.getMinimumSize?.() || [0, 0];
+  const convert = (rect) => screen.dipToScreenRect(win, rect);
+  steadied.width = steadyLength(size.width, minWidth,
+    (w, k) => convert({ x: x + k, y, width: w, height: 1 }).width);
+  steadied.height = steadyLength(size.height, minHeight,
+    (h, k) => convert({ x, y: y + k, width: 1, height: h }).height);
+  return steadied;
+}
+
+function steadyLength(length, min, pixelsAt) {
+  const steady = (candidate) => {
+    const first = pixelsAt(candidate, 0);
+    for (let k = 1; k < STEADY_PHASES; k++) {
+      if (pixelsAt(candidate, k) !== first) return false;
+    }
+    return true;
+  };
+  if (steady(length)) return length;
+  for (let d = 1; d <= STEADY_SEARCH; d++) {
+    for (const candidate of [length - d, length + d]) {
+      if (candidate >= min && steady(candidate)) return candidate;
+    }
+  }
+  return length;
 }
 
 // Repaint every window's frame in the new theme's background, so a resize right
@@ -152,4 +240,4 @@ async function handleHelpOpen(ctx, opts) {
   }
 }
 
-module.exports = { register };
+module.exports = { register, settleWindowSize };
