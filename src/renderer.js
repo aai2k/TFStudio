@@ -39,6 +39,7 @@ import {
     updateDirtyDesigns,
 } from './utils/io/projectPersistence.js';
 import { appendDistinctSnapshot } from './utils/history.js';
+import { appShortcutFor } from './utils/misc/appShortcuts.js';
 
 const { createElement: h, useState, useEffect, useRef, useCallback } = React;
 
@@ -1025,28 +1026,29 @@ const App = () => {
     // ── Keyboard shortcuts ────────────────────────────────────────────────────
     useEffect(() => {
         const onKey = (e) => {
-            const mod = e.ctrlKey || e.metaKey;
-            if (mod && e.key === 's') { e.preventDefault(); saveDesignToDisk(); }
-            if (mod && e.key === 'n') { e.preventDefault(); addItem(); }
-            if (mod && e.key === 'o') { e.preventDefault(); openDesignFromFile(); }
-            if (mod && e.key === ',') { e.preventDefault(); setShowSettings(true); }
-            if (mod && e.key === '1') {
-                e.preventDefault();
-                setLayoutRequest({ type: 'preset', id: 'filter-design', ts: Date.now() });
-            }
-            if (mod && !e.shiftKey && e.key === 'z') { e.preventDefault(); undo(); }
-            if (mod && (e.key === 'y' || (e.shiftKey && e.key === 'z'))) { e.preventDefault(); redo(); }
-            if (e.key === 'F1') {
-                e.preventDefault();
-                if (window.electronAPI && window.electronAPI.openHelp) {
-                    window.electronAPI.openHelp({ anchor: 'index', locale });
-                }
-            }
-            if (e.key === 'F11') {
-                e.preventDefault();
-                document.fullscreenElement
-                    ? document.exitFullscreen()
-                    : document.documentElement.requestFullscreen();
+            const action = appShortcutFor(e);
+            if (!action) return;
+            e.preventDefault();
+            switch (action) {
+                case 'save':     saveDesignToDisk(); break;
+                case 'new':      addItem(); break;
+                case 'open':     openDesignFromFile(); break;
+                case 'settings': setShowSettings(true); break;
+                case 'undo':     undo(); break;
+                case 'redo':     redo(); break;
+                case 'layout-filter-design':
+                    setLayoutRequest({ type: 'preset', id: 'filter-design', ts: Date.now() });
+                    break;
+                case 'help':
+                    if (window.electronAPI && window.electronAPI.openHelp) {
+                        window.electronAPI.openHelp({ anchor: 'index', locale });
+                    }
+                    break;
+                case 'fullscreen':
+                    document.fullscreenElement
+                        ? document.exitFullscreen()
+                        : document.documentElement.requestFullscreen();
+                    break;
             }
         };
         document.addEventListener('keydown', onKey);
