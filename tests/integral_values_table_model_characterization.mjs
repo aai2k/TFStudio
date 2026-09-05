@@ -49,6 +49,10 @@ assert.deepEqual(tableKeyAction(event('ArrowRight')), { kind: 'navigate', direct
 assert.equal(tableKeyAction(event('ArrowLeft')), null);
 assert.deepEqual(tableKeyAction(event('Delete', { ctrlKey: true })), { kind: 'deleteRow' });
 assert.deepEqual(tableKeyAction(event('c', { ctrlKey: true })), { kind: 'copyRows' });
-assert.equal(tableKeyAction(event('C', { ctrlKey: true })), null);
+// Caps Lock only changes the case of the character, and a Cyrillic layout
+// replaces it; the copy chord has to survive both. Shift is not part of it.
+assert.deepEqual(tableKeyAction(event('C', { ctrlKey: true })), { kind: 'copyRows' });
+assert.deepEqual(tableKeyAction(event('с', { ctrlKey: true, code: 'KeyC' })), { kind: 'copyRows' });
+assert.equal(tableKeyAction(event('c', { ctrlKey: true, shiftKey: true })), null);
 
 console.log('PASS: integral_values_table_model_characterization');

@@ -1,3 +1,5 @@
+import { isCtrlChord } from '../../../../utils/misc/keyChords.js';
+
 export const EMPTY_TABLE_ROWS = [[0, 0], [0, 0]];
 
 const FIXED_DIRECTIONS = {
@@ -67,7 +69,7 @@ export function tableKeyAction(event) {
         action = { kind: 'navigate', direction: 'left' };
     } else if (event.ctrlKey && event.key === 'Delete') {
         action = { kind: 'deleteRow' };
-    } else if (event.ctrlKey && event.key === 'c') {
+    } else if (isCtrlChord(event, 'c')) {
         action = { kind: 'copyRows' };
     }
     return action;

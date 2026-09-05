@@ -21,6 +21,8 @@
 // out of unrelated focused inputs — the hook auto-ignores events that
 // originated inside <input>/<textarea>/<select> or contentEditable).
 
+import { isCtrlChord } from '../utils/misc/keyChords.js';
+
 const { useCallback } = React;
 
 function isEditingInside(e) {
@@ -30,21 +32,6 @@ function isEditingInside(e) {
     if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') return true;
     if (tgt.isContentEditable) return true;
     return false;
-}
-
-/**
- * Whether `e` is the Ctrl (or Cmd) chord for a physical key position.
- *
- * Matching is on `e.code` rather than `e.key`, because `e.key` carries the
- * character the active keyboard layout produces: under a Cyrillic layout the C
- * key reports 'с' and the V key 'м', which would put copy and paste out of
- * reach entirely. The chord is the key position, the same one on every layout.
- *
- * Alt is excluded because Windows reports AltGr as Ctrl+Alt, so a chord with
- * Alt held is someone typing a third-level character, not invoking a shortcut.
- */
-function isCtrlChord(e, code) {
-    return (e.ctrlKey || e.metaKey) && !e.shiftKey && !e.altKey && e.code === code;
 }
 
 /**
@@ -150,12 +137,12 @@ export function useTableShortcuts(opts) {
             return onActivate(focusIdx, e.key);
         }
 
-        if (isCtrlChord(e, 'KeyC') && onCopy) {
+        if (isCtrlChord(e, 'c') && onCopy) {
             e.preventDefault();
             return onCopy();
         }
 
-        if (isCtrlChord(e, 'KeyV') && onPaste) {
+        if (isCtrlChord(e, 'v') && onPaste) {
             e.preventDefault();
             return onPaste();
         }
@@ -170,7 +157,7 @@ export function useTableShortcuts(opts) {
 
         // Ctrl+D — duplicate (note: in Chromium this is "Bookmark this page",
         // which is suppressed inside Electron BrowserWindows anyway).
-        if (isCtrlChord(e, 'KeyD')) {
+        if (isCtrlChord(e, 'd')) {
             return duplicateRowKey(e, { focusIdx, onDuplicate });
         }
     }, [enabled, focusIdx, rows, isLocked, onInsertAbove, onInsertBelow, onDelete,

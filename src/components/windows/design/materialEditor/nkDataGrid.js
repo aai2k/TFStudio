@@ -15,6 +15,8 @@
  * (Ctrl+C / Ctrl+V).
  */
 
+import { isCtrlChord } from '../../../../utils/misc/keyChords.js';
+
 const { createElement: h, useState, useRef, useCallback } = React;
 
 // ── Clipboard helpers (shared by the container and per-cell key handlers) ──────
@@ -58,12 +60,12 @@ function gridContainerKeyDown(e, { containerRef, focusCell, rows, cols, onDelete
         const row = rows[focusCell.rowIdx];
         if (row) onDelete(row._key);
     }
-    if (e.ctrlKey && e.key === 'c' && focusCell) {
+    if (isCtrlChord(e, 'c') && focusCell) {
         e.preventDefault();
         const row = rows[focusCell.rowIdx];
         if (row) copyRowTsv(row, cols);
     }
-    if (e.ctrlKey && e.key === 'v') {
+    if (isCtrlChord(e, 'v')) {
         e.preventDefault();
         navigator.clipboard?.readText().then(text => onPasteRows(parseClipboardRows(text, cols))).catch(() => {});
     }
@@ -76,12 +78,12 @@ function gridCellKeyDown(e, { row, ri, ci, cols, navigate, onDelete, onPasteRows
     if (e.key === 'ArrowDown') { e.preventDefault(); navigate(ri, ci, 'down'); }
     if (e.key === 'ArrowUp')   { e.preventDefault(); navigate(ri, ci, 'up'); }
     if (e.key === 'Delete' && e.ctrlKey) { e.preventDefault(); onDelete(row._key); }
-    if (e.ctrlKey && e.key === 'c') {
+    if (isCtrlChord(e, 'c')) {
         // let the browser copy a text selection; if none, copy the whole row
         const sel = window.getSelection?.()?.toString();
         if (!sel) { e.preventDefault(); copyRowTsv(row, cols); }
     }
-    if (e.ctrlKey && e.key === 'v') {
+    if (isCtrlChord(e, 'v')) {
         e.preventDefault();
         navigator.clipboard?.readText().then(text => onPasteRows(parseClipboardRows(text, cols))).catch(() => {});
     }

@@ -93,6 +93,10 @@ console.log('— Optional spreadsheet navigation —');
         // chord still has to reach copy and paste.
         [{ key: 'с', code: 'KeyC', ctrl: true }, ['copy']],
         [{ key: 'м', code: 'KeyV', ctrl: true }, ['paste']],
+        // Dvorak moves the letters to other positions; the chord follows the
+        // key the user sees, which is the character it produces.
+        [{ key: 'c', code: 'KeyI', ctrl: true }, ['copy']],
+        [{ key: 'v', code: 'Period', ctrl: true }, ['paste']],
     ];
     cases.forEach(([eventOptions, expected]) => {
         const event = makeEvent(eventOptions);
