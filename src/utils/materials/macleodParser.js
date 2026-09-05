@@ -44,7 +44,7 @@
 
 import { sanitizeId } from './optilayerParser/idUtils.js';
 import { computeNd } from './optilayerParser/nd.js';
-import { TABULATED_INTERPOLATION } from './pchip.js';
+import { LINEAR_INTERPOLATION, TABULATED_INTERPOLATION } from './pchip.js';
 
 export const MACLEOD_N_MODELS = { 1: 'Table', 2: 'Sellmeier', 3: 'Cauchy' };
 
@@ -173,7 +173,9 @@ function buildTableEntry(base, text, conv) {
     if (!data.length) throw new Error(`Essential Macleod material "${base.name}" has no n,k table`);
     base.formulaNum = -1;
     base.tabData = data;
-    base.interp = TABULATED_INTERPOLATION;
+    // The program evaluates a table linearly between its points; the same
+    // rule here reproduces what it computed.
+    base.interp = LINEAR_INTERPOLATION;
     base.lambdaMin = data[0][0] / 1000;
     base.lambdaMax = data[data.length - 1][0] / 1000;
     return base;
@@ -189,9 +191,16 @@ function buildSellmeierEntry(base, text, conv, kType) {
     base.lambdaMin = lmin;
     base.lambdaMax = lmax;
     base.macleod.terms = terms.length;
-    base.kTable = kTableFor(kModel(text, kType, conv), lmin, lmax);
-    if (base.kTable.length) base.interp = TABULATED_INTERPOLATION;
+    attachKTable(base, kModel(text, kType, conv), lmin, lmax);
     return base;
+}
+
+// A k table the file holds is read the way the program reads it, linearly.
+// A k formula is sampled, and a sampled smooth function is better rebuilt by
+// PCHIP than by straight lines.
+function attachKTable(base, model, lmin, lmax) {
+    base.kTable = kTableFor(model, lmin, lmax);
+    if (base.kTable.length) base.interp = model.kind === 'table' ? LINEAR_INTERPOLATION : TABULATED_INTERPOLATION;
 }
 
 function buildCauchyEntry(base, text, conv, kType) {
@@ -210,8 +219,7 @@ function buildCauchyEntry(base, text, conv, kType) {
     base.lambdaMin = lmin;
     base.lambdaMax = lmax;
     base.macleod.terms = terms.length;
-    base.kTable = kTableFor(kModel(text, kType, conv), lmin, lmax);
-    if (base.kTable.length) base.interp = TABULATED_INTERPOLATION;
+    attachKTable(base, kModel(text, kType, conv), lmin, lmax);
     return base;
 }
 

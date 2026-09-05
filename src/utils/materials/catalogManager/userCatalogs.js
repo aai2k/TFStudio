@@ -1,6 +1,6 @@
 import { getRegistry, peekRegistry } from './state.js';
 import { persistCatalog } from './persistence.js';
-import { hasTabulatedComponent, TABULATED_INTERPOLATION } from '../pchip.js';
+import { hasTabulatedComponent, interpolationRuleOf, TABULATED_INTERPOLATION } from '../pchip.js';
 
 /** Create a new empty user-defined catalog with a unique generated ID. */
 export function createUserCatalog(name) {
@@ -48,7 +48,7 @@ export function saveUserMaterial(catalogId, mat) {
     if (!cat || cat.source !== 'user') throw new Error('Not a user catalog: ' + catalogId);
     // Strip cached getNK so it gets rebuilt from stored data
     const { getNK, ...rest } = mat;
-    if (hasTabulatedComponent(rest)) rest.interp = TABULATED_INTERPOLATION;
+    if (hasTabulatedComponent(rest)) rest.interp = interpolationRuleOf(rest);
     cat.materials[rest.id] = rest;
     persistCatalog(cat);
     return rest;
@@ -86,7 +86,7 @@ function materialToUserCopy(mat) {
     }
     return {
         ...rest,
-        ...(hasTabulatedComponent(rest) ? { interp: TABULATED_INTERPOLATION } : {}),
+        ...(hasTabulatedComponent(rest) ? { interp: interpolationRuleOf(rest) } : {}),
         group: rest.group || 'User',
     };
 }
@@ -143,7 +143,7 @@ export function importMaterialsIntoCatalog(catalogId, materials) {
     for (const m of Object.values(materials || {})) {
         // eslint-disable-next-line no-unused-vars
         const { getNK, ...rest } = m;
-        if (hasTabulatedComponent(rest)) rest.interp = TABULATED_INTERPOLATION;
+        if (hasTabulatedComponent(rest)) rest.interp = interpolationRuleOf(rest);
         let id = rest.id || 'material', n = 2;
         while (cat.materials[id]) id = (rest.id || 'material') + '_' + n++;
         rest.id = id;

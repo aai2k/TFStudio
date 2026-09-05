@@ -44,6 +44,9 @@ export function importNoteText(note, di) {
         case 'noMedium':            return di.noteNoMedium(note.which === 'exit' ? di.mediumExit : di.mediumIncident, note.assumed);
         case 'substrateFromFolder': return di.noteSubstrateFromFolder(note.name);
         case 'noSubstrate':         return di.noteNoSubstrate;
+        case 'materialsFromDatabase': return di.noteMaterialsFromDatabase(note.count, note.dir);
+        case 'noDatabase':          return di.noteNoDatabase;
+        case 'databaseUnused':      return di.noteDatabaseUnused(note.dir);
         default:                    return String(note.code);
     }
 }

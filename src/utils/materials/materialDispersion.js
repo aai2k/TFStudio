@@ -35,7 +35,23 @@ function modelName(formula) {
     return FORMULA_NAMES[formula.formulaNum] || `Formula ${formula.formulaNum}`;
 }
 
-function pchipJet(interpolator, wavelengthJet, wavelength) {
+// A table is either C1 (PCHIP: value and slope continuous, curvature jumps at
+// a knot) or C0 (linear: the slope itself jumps). The order says which
+// derivative is the first to be discontinuous, so a caller can break a curve
+// there rather than draw through a jump.
+const TABLE_MODEL = { pchip: 'Table (PCHIP)', linear: 'Table (linear)' };
+const CONTINUOUS_ORDER_BY_MODEL = { [TABLE_MODEL.pchip]: 1, [TABLE_MODEL.linear]: 0 };
+
+function tableModelName(interpolator) {
+    return TABLE_MODEL[interpolator?.interp] || TABLE_MODEL.pchip;
+}
+
+// Lowest continuity among the named models; 3 when none of them is a table.
+function continuousOrderOf(...models) {
+    return Math.min(3, ...models.map(model => CONTINUOUS_ORDER_BY_MODEL[model] ?? 3));
+}
+
+function tableJet(interpolator, wavelengthJet, wavelength) {
     if (!interpolator?.derivativesAt) return null;
     const sample = interpolator.derivativesAt(wavelength);
     return {
@@ -67,7 +83,9 @@ function materialRangeContains(material, wavelengthNm) {
 /**
  * Evaluate n + ik and its first three omega derivatives at one wavelength.
  * Formula materials are differentiated directly. Tabulated components use the
- * exact polynomial derivatives of the active PCHIP piece.
+ * exact derivatives of the active piece under the material's own rule: the
+ * local cubic for PCHIP, the secant for a linear table, whose second and
+ * third derivatives are zero inside a piece.
  */
 export function materialOmegaResponse(material, wavelengthNm) {
     const precomputed = material?.getOmegaResponse?.(wavelengthNm);
@@ -99,11 +117,11 @@ export function materialOmegaResponse(material, wavelengthNm) {
         nJet = evalNJet(formula.formulaNum, formula.coefficients, wavelengthMicrometersJet);
         nModel = modelName(formula);
     } else if (tables) {
-        const evaluated = pchipJet(tables.nAt, wavelengthJet, wavelengthNm);
+        const evaluated = tableJet(tables.nAt, wavelengthJet, wavelengthNm);
         nJet = evaluated?.jet;
         inRange = inRange && !!evaluated?.inRange;
         nKnotSegment = evaluated?.segment ?? null;
-        nModel = 'Table (PCHIP)';
+        nModel = tableModelName(tables.nAt);
     } else if (material?.getNK?.constantNK) {
         nJet = jetConstant(material.getNK.constantNK[0]);
         nModel = 'Constant';
@@ -111,14 +129,14 @@ export function materialOmegaResponse(material, wavelengthNm) {
 
     const kInterpolator = material?.getNK?.kInterpolator;
     if (!useFit && tables) {
-        const evaluated = pchipJet(tables.kAt, wavelengthJet, wavelengthNm);
+        const evaluated = tableJet(tables.kAt, wavelengthJet, wavelengthNm);
         kJet = evaluated?.jet;
         inRange = inRange && !!evaluated?.inRange;
         kKnotSegment = evaluated?.segment ?? null;
-        kModel = 'Table (PCHIP)';
+        kModel = tableModelName(tables.kAt);
     } else if (!useFit && kInterpolator) {
         const useNanometers = material.getNK.kInterpolatorUnit === 'nm';
-        const evaluated = pchipJet(
+        const evaluated = tableJet(
             kInterpolator,
             useNanometers ? wavelengthJet : wavelengthMicrometersJet,
             useNanometers ? wavelengthNm : wavelengthNm / 1000,
@@ -126,7 +144,7 @@ export function materialOmegaResponse(material, wavelengthNm) {
         kJet = evaluated?.jet;
         inRange = inRange && !!evaluated?.inRange;
         kKnotSegment = evaluated?.segment ?? null;
-        kModel = 'Table (PCHIP)';
+        kModel = tableModelName(kInterpolator);
     } else if (!useFit) {
         kJet = jetConstant(baseNK[1] || 0);
         kModel = baseNK[1] ? 'Constant' : 'Zero';
@@ -138,8 +156,10 @@ export function materialOmegaResponse(material, wavelengthNm) {
             derivatives: null,
             model: 'Unavailable',
             phaseModel: nModel || 'Unavailable',
-            phaseContinuousOrder: nModel === 'Table (PCHIP)' ? 1 : 0,
-            continuousOrder: nModel === 'Table (PCHIP)' || kModel === 'Table (PCHIP)' ? 1 : 0,
+            // Nothing is known about a model that could not be built, so it
+            // counts as C0 here; a table that could still reports its order.
+            phaseContinuousOrder: CONTINUOUS_ORDER_BY_MODEL[nModel] ?? 0,
+            continuousOrder: Math.max(CONTINUOUS_ORDER_BY_MODEL[nModel] ?? 0, CONTINUOUS_ORDER_BY_MODEL[kModel] ?? 0),
             maxOrder: 0,
             inRange,
             knotSegment: nKnotSegment,
@@ -155,8 +175,8 @@ export function materialOmegaResponse(material, wavelengthNm) {
         jet: nkJet,
         model: nModel === kModel ? nModel : `n: ${nModel}; k: ${kModel}`,
         phaseModel: nModel,
-        phaseContinuousOrder: nModel === 'Table (PCHIP)' ? 1 : 3,
-        continuousOrder: nModel === 'Table (PCHIP)' || kModel === 'Table (PCHIP)' ? 1 : 3,
+        phaseContinuousOrder: continuousOrderOf(nModel),
+        continuousOrder: continuousOrderOf(nModel, kModel),
         maxOrder: 3,
         inRange,
         knotSegment: nKnotSegment,

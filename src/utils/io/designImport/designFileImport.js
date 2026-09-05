@@ -17,7 +17,9 @@
  *            locked },
  *   formula, symbols,
  *   constants: names that mean a constant index, as a number or { n, k },
- *   embedded: names whose definition came with the file's folder, as catalog entries,
+ *   embedded: names whose definition came with the file, as catalog entries:
+ *     from the design's folder (OptiLayer) or the program's material
+ *     database (Essential Macleod),
  *   comments (the file's own notes),
  *   notes: what the reader dropped, assumed or changed, as { code, … } records
  *     worded by the import dialog (importNoteText in buildDesign.js),
@@ -54,7 +56,7 @@ function parseOne(file, units) {
     const fileName = `${file.name}.${file.ext}`;
     if (file.text == null) throw new Error(file.error || `"${fileName}" could not be read`);
     if (program === 'tfcalc') return { program, item: parseTFCalcDesign(file.text, fileName, { wavelengthUnit: units.tfcalc }) };
-    if (program === 'macleod') return { program, item: parseMacleodDesign(file.text, fileName) };
+    if (program === 'macleod') return { program, item: parseMacleodDesign(file.text, fileName, { siblings: file.siblings, unitsText: file.unitsText, databaseDir: file.databaseDir }) };
     if (program === 'optilayer') return { program, item: parseOptiLayerDesign(file.text, fileName, { projectText: file.projectText, siblings: file.siblings }) };
     const err = new Error(`Unsupported file type: .${file.ext}`);
     err.code = 'unsupported-type';
@@ -65,8 +67,10 @@ function parseOne(file, units) {
  * Parse a batch of picked files.
  *
  * @param {Array<{ name: string, ext: string, dir: string, text: string|null, error?: string,
- *                 projectText?: string, siblings?: Array }>} files
- *        a file the main process could not read has text null and the reason in error
+ *                 projectText?: string, siblings?: Array, unitsText?: string, databaseDir?: string }>} files
+ *        a file the main process could not read has text null and the reason in error;
+ *        an OptiLayer design carries its folder, an Essential Macleod design the
+ *        program's material database
  * @param {{ tfcalc: 'auto'|'nm'|'um' }} [units]
  * @returns {{ items: Array<{ fileIndex, file, program, item }>,
  *             errors: Array<{ fileIndex, file, program, error, code? }> }}
@@ -122,12 +126,12 @@ export function sourceIndexOf(item, name) {
     return null;
 }
 
-/** Catalog entry that came with the file's folder for a source name, or null. */
+/** Catalog entry the file brought with it for a source name (from the design's folder or the program's database), or null. */
 export function embeddedDefinition(item, name) {
     return item.embedded && Object.hasOwn(item.embedded, name) ? item.embedded[name] : null;
 }
 
-/** True when the file itself defines the material: a constant index or a definition from its folder. */
+/** True when the file itself defines the material: a constant index or a definition it brought with it. */
 export function nameHasDefinition(item, name) {
     return !!(constantIndexOf(item, name) || embeddedDefinition(item, name));
 }

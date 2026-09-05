@@ -22,7 +22,7 @@ import { getMaterialById } from './catalogManager.js';
 import { makeGetNK } from './catalogManager/dispersion.js';
 import { stripGetNK } from './catalogManager/persistence.js';
 import { getMaterial, MATERIAL_MAP } from './materialDatabase.js';
-import { hasTabulatedComponent, TABULATED_INTERPOLATION } from './pchip.js';
+import { hasTabulatedComponent, interpolationRuleOf } from './pchip.js';
 
 // Material objects built from embedded records, keyed by the record itself.
 // Embedded records live on the design, which is React state and is posted to
@@ -45,7 +45,7 @@ function embeddedMaterial(record) {
     if (!material) {
         material = {
             ...record,
-            ...(hasTabulatedComponent(record) ? { interp: TABULATED_INTERPOLATION } : {}),
+            ...(hasTabulatedComponent(record) ? { interp: interpolationRuleOf(record) } : {}),
             getNK: makeGetNK(record),
         };
         embeddedCache.set(record, material);

@@ -12,7 +12,7 @@
  *   formula   — one of the Zemax dispersion formulas + optional k table
  */
 
-import { TABULATED_INTERPOLATION } from '../../../../utils/materials/pchip.js';
+import { interpolationRuleOf, TABULATED_INTERPOLATION } from '../../../../utils/materials/pchip.js';
 import { FORMULA_LATEX } from '../../../../utils/materials/dispersionFormulas.js';
 import { parseNumber, parseNumberStrict } from '../../../../utils/misc/numberParsing.js';
 
@@ -199,7 +199,7 @@ export function materialToDraft(catalogId, mat) {
         lambdaMinNm: String(Number(((mat.lambdaMin || 0.3) * 1000).toFixed(3))),
         lambdaMaxNm: String(Number(((mat.lambdaMax || 2.5) * 1000).toFixed(3))),
         type: (isTab || isBuiltin) ? 'tabular' : 'formula',
-        interp: TABULATED_INTERPOLATION,
+        interp: interpolationRuleOf(mat),
         isRii: !!mat.dataPath,   // true for refractiveindex.info imports — hides Zemax formula UI
         rows: tabRows,
         formulaNum,
@@ -228,7 +228,7 @@ export function draftToMaterial(draft) {
         const lMax = tabData.length > 1 ? tabData[tabData.length - 1][0] / 1000 : lambdaMax;
         return {
             id, name: draft.name.trim() || id, formulaNum: -1,
-            interp: TABULATED_INTERPOLATION,
+            interp: interpolationRuleOf(draft),
             tabData, lambdaMin: lMin, lambdaMax: lMax,
             coefficients: [], kTable: [],
             ...(draft.dispersionFit ? { dispersionFit: draft.dispersionFit } : {}),
@@ -246,7 +246,7 @@ export function draftToMaterial(draft) {
     return {
         id, name: draft.name.trim() || id, formulaNum: draft.formulaNum,
         coefficients, kTable, tabData: [],
-        ...(kTable.length ? { interp: TABULATED_INTERPOLATION } : {}),
+        ...(kTable.length ? { interp: interpolationRuleOf(draft) } : {}),
         lambdaMin, lambdaMax,
         color: draft.color, group: 'User', comment: '',
         nd: null, vd: null, density: null,

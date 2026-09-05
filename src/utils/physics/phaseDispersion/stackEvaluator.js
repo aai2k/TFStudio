@@ -9,7 +9,8 @@
  *
  * Reported continuity metadata lets callers break a drawn curve where it is
  * genuinely discontinuous: PCHIP interpolation of tabulated n and k is only C1,
- * so GDD and TOD jump at table knots.
+ * so GDD and TOD jump at table knots; a linearly interpolated table is C0, so
+ * GD jumps there as well.
  */
 
 import { materialOmegaResponse, C_NM_PER_FS } from '../../materials/materialDispersion.js';

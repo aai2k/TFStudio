@@ -9,13 +9,20 @@
  *  3. The wavelength unit block: its own <Unit> child in either position, a
  *     <Parameters> tag with attributes, and a file with no unit block.
  *  4. Rejections, packing density (the program's rugate mechanism) among them.
- *  5. Maintainer-only: every shipped sample design parses.
+ *  5. The program's material database: every name it holds is embedded, read
+ *     under the database's unit and the program's linear rule, matched without
+ *     regard to case, and converts the optical thicknesses on build; a name it
+ *     does not hold, an unreadable file and an eV database are passed over.
+ *  6. Maintainer-only: every shipped sample design parses.
  *
  * Run: node tests/macleod_design.mjs
  */
 import fs from 'node:fs';
 import path from 'node:path';
 import { parseMacleodDesign, isConstantIndexName } from '../src/utils/io/designImport/macleodDesign.js';
+import { buildImportedDesign } from '../src/utils/io/designImport/buildDesign.js';
+import { makeGetNK } from '../src/utils/materials/catalogManager/dispersion.js';
+import { getLocale } from '../src/constants/locales.js';
 
 let fails = 0;
 const ok = (cond, msg) => { console.log(`${cond ? '✓' : '✗'} ${msg}`); if (!cond) fails++; };
@@ -104,6 +111,47 @@ ok(threw, 'an unknown thickness type is refused');
 message = '';
 try { parseMacleodDesign(P.replace('<PackingDensity> 1</PackingDensity>', '<PackingDensity> 1.2231</PackingDensity>'), 'rugate.dds'); } catch (e) { message = e.message; }
 ok(/packing density \(layer 1\)/.test(message), 'a layer with packing density is refused as a rugate mechanism');
+
+// ── The program's material database ──────────────────────────────────────────
+const tfx = (name, points) => `<?xml version="1.0"?>\r\n<EssentialMacleodMaterial Name="${name}" NType="1" KType="1" TType="-1"><NKPoints>${points.map(([w, n, k]) => `<NKPoint W="${w}" n="${n}" k="${k}"/>`).join('')}</NKPoints><Cauchy Max="0" Min="0"><Parameter N="0" A="1"/></Cauchy><Sellmeier Max="0" Min="0"><Parameter N="0" A="0" B="0"/></Sellmeier><KPoints><KPoint W="100" k="0"/><KPoint W="1000" k="0"/></KPoints><KCauchy><Parameter N="0" A="0"/></KCauchy><KExp><Parameter A="0" B="0"/></KExp><Notes></Notes></EssentialMacleodMaterial>\r\n`;
+const database = {
+    databaseDir: 'C:\\db',
+    unitsText: '"Wavelength",1E-09,"nm","####0.00"',
+    siblings: [
+        { name: 'M1', ext: 'tfx', text: tfx('Glass', [[300, 1.553, 0], [500, 1.521, 0], [700, 1.513, 0]]) },
+        { name: 'M2', ext: 'tfx', text: tfx('MgF2', [[400, 1.385, 0], [600, 1.380, 0], [800, 1.378, 0]]) },
+        { name: 'M3', ext: 'tfx', text: tfx('ZrO2', [[400, 2.10, 0], [600, 2.05, 0], [800, 2.03, 0]]) },
+        { name: 'M5', ext: 'tfx', text: tfx('Air', [[300, 1, 0], [2000, 1, 0]]) },
+        { name: 'M4', ext: 'tfx', text: 'MT1\rN\u00d9-\u0000\u00007\u0000garbage' },
+    ],
+};
+const db = parseMacleodDesign(AR, 'Four Layer AR.dds', database);
+ok(Object.keys(db.embedded).sort().join() === 'Glass,MgF2,ZrO2', `every name the database holds is embedded: ${Object.keys(db.embedded).join(', ')}`);
+ok(db.embedded.MgF2.formulaNum === -1 && db.embedded.MgF2.interp === 'linear', 'a database table is read the way the program reads it');
+ok(!('Air' in db.embedded), 'Air stays the built-in Air even when the database holds one');
+ok(!('Water' in parseMacleodDesign(AR.replace('<Medium>Air</Medium>', '<Medium>Water</Medium>'), 'w.dds', database).embedded), 'a name the database does not hold is left for the catalogs');
+ok(db.notes.some(n => n.code === 'materialsFromDatabase' && n.count === 3 && n.dir === 'C:\\db'), 'the design says what it took from the database and where');
+ok(!db.notes.some(n => n.code === 'noDatabase') && d.notes.some(n => n.code === 'noDatabase'), 'and without a database it says that instead');
+
+const upper = parseMacleodDesign(AR.replace('<Substrate>Glass</Substrate>', '<Substrate>GLASS</Substrate>'), 'upper.dds', database);
+ok(upper.embedded.GLASS?.name === 'Glass' && !('Glass' in upper.embedded), 'names match without regard to case, under the file\'s own spelling');
+
+const um = { ...database, unitsText: '"Wavelength",.000001,"µm","####0.00"', siblings: [{ name: 'M1', ext: 'tfx', text: tfx('Glass', [[0.3, 1.553, 0], [0.5, 1.521, 0], [0.7, 1.513, 0]]) }] };
+near(parseMacleodDesign(AR, 'um.dds', um).embedded.Glass.lambdaMin, 0.3, 1e-12, 'a µm database is read in its own unit');
+const wavenumber = parseMacleodDesign(AR, 'cm.dds', { ...database, unitsText: '"Wavelength",0.01,"cm-1"' });
+ok(Object.keys(wavenumber.embedded).length === 0 && wavenumber.notes.some(n => n.code === 'databaseUnused' && n.dir === 'C:\\db'), 'a database in a unit the importer cannot read is passed over, and the design says so');
+const stranger = parseMacleodDesign(AR, 'other.dds', { ...database, siblings: [{ name: 'M1', ext: 'tfx', text: tfx('Other', [[300, 1.5, 0], [700, 1.5, 0]]) }] });
+ok(Object.keys(stranger.embedded).length === 0 && stranger.notes.some(n => n.code === 'databaseUnused') && !stranger.notes.some(n => n.code === 'noDatabase'), 'a database holding none of the names says so rather than nothing');
+
+{
+    const built = buildImportedDesign(db, name => name === 'Air' ? 'builtin:Air' : null, getLocale('en').designImport);
+    ok(built.unresolved.length === 0 && built.warnings.length === 0, 'every name resolves through the database');
+    ok(built.design.substrate.material === 'import:Glass' && built.design.frontLayers[0].material === 'import:MgF2', 'the database materials are embedded in the design');
+    const n = makeGetNK(db.embedded.MgF2)(510)[0];
+    near(n, 1.385 + (1.380 - 1.385) * 110 / 200, 1e-12, 'linear index at the reference wavelength');
+    near(built.design.frontLayers[0].thickness, 0.2516994 * 510 / n, 1e-9, 'full waves converted with the database material at λ0');
+    ok(built.design.materials['import:MgF2'].interp === 'linear', 'the embedded definition carries the linear rule into the design');
+}
 
 // ── Maintainer-only: the shipped sample designs ──────────────────────────────
 const DIR = 'C:\\Users\\Public\\Documents\\Thin Film Center\\Designs';

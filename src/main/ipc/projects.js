@@ -14,6 +14,7 @@ function register(ipcMain, ctx) {
   ipcMain.handle('save-design', async (event, folderName, design) => handleSaveDesign(ctx, folderName, design));
   ipcMain.handle('import-tfs', async () => handleImportTfs(ctx));
   ipcMain.handle('import-design-files', async () => handleImportDesignFiles(ctx));
+  ipcMain.handle('pick-macleod-database', async () => handlePickMacleodDatabase(ctx));
   ipcMain.handle('delete-item', async (event, folderName, itemName) => handleDeleteItem(ctx, folderName, itemName));
   ipcMain.handle('rename-item', async (event, folderName, oldName, newName) => handleRenameItem(ctx, folderName, oldName, newName));
   ipcMain.handle('create-folder', async (event, folderName) => handleCreateFolder(ctx, folderName));
@@ -284,13 +285,83 @@ async function handleImportDesignFiles(ctx) {
     }
     return folders.get(dir);
   };
+  // Essential Macleod keeps its materials in one database folder rather than
+  // beside the design; found and read once per pick, and only when a design
+  // needs it.
+  let macleod;
+  const macleodDatabase = () => {
+    if (macleod === undefined) macleod = findMacleodDatabase(ctx);
+    return macleod;
+  };
   const files = result.filePaths.map(fp => {
     const ext = path.extname(fp).slice(1).toLowerCase();
     const file = { name: path.basename(fp, path.extname(fp)), ext, dir: path.basename(path.dirname(fp)), ...readText(fp) };
     if (ext === 'dsg' && file.text != null) Object.assign(file, optilayerFolder(path.dirname(fp)));
+    if (ext === 'dds' && file.text != null) {
+      const database = macleodDatabase();
+      if (database) Object.assign(file, { siblings: database.siblings, unitsText: database.unitsText, databaseDir: database.dir });
+    }
     return file;
   });
   return { success: true, files };
+}
+
+// ── The Essential Macleod materials database ───────────────────────────────
+// The program records its materials folder in the registry; the installer's
+// default stands in when the value is absent.
+const MACLEOD_MATERIALS_KEY = 'HKCU\\Software\\Thin Film Center Inc.\\The Essential Macleod\\Material';
+const MACLEOD_MATERIALS_VALUE = 'MaterialsDirectory';
+// The installer's default database folder, under the public profile.
+const macleodMaterialsDefault = () => `${process.env.PUBLIC || 'C:\\Users\\Public'}\\Documents\\Thin Film Center\\Materials\\Standard`;
+
+// The database on this machine: the folder the program records, else the
+// installer's default, whichever comes first that holds a material file.
+// Null when neither does.
+function findMacleodDatabase(ctx) {
+  const { fs, registryValue } = ctx;
+  const recorded = registryValue ? registryValue(MACLEOD_MATERIALS_KEY, MACLEOD_MATERIALS_VALUE) : null;
+  for (const dir of [recorded, macleodMaterialsDefault()]) {
+    if (!dir || !fs.existsSync(dir)) continue;
+    const database = readMacleodDatabase(ctx, dir);
+    if (database.siblings.length) return database;
+  }
+  return null;
+}
+
+// Every material file of a database folder as { name, ext, text }, with the
+// folder's units.tfp, which records the wavelength unit the files are written
+// in. A file that cannot be read is left out and logged.
+function readMacleodDatabase(ctx, dir) {
+  const { fs, path, log, readTextAuto } = ctx;
+  const readText = (fp) => {
+    try { return readTextAuto(fp); }
+    catch (err) { log(`macleod-database: ${fp}: ${err.message}`); return null; }
+  };
+  let names = [];
+  try { names = fs.readdirSync(dir); }
+  catch (err) { log(`macleod-database: ${dir}: ${err.message}`); }
+  const siblings = names.filter(n => /\.tfx$/i.test(n))
+    .map(n => ({ name: path.basename(n, path.extname(n)), ext: 'tfx', text: readText(path.join(dir, n)) }))
+    .filter(f => f.text != null);
+  const units = names.find(n => /^units\.tfp$/i.test(n));
+  return { dir, siblings, unitsText: units ? readText(path.join(dir, units)) || '' : '' };
+}
+
+// Let the user point the import at a database folder the program did not
+// record, or one on another machine.
+async function handlePickMacleodDatabase(ctx) {
+  const { dialog, getMainWindow } = ctx;
+  const result = await dialog.showOpenDialog(getMainWindow(), {
+    title: 'Essential Macleod Materials Database',
+    properties: ['openDirectory'],
+  });
+  if (result.canceled || result.filePaths.length === 0) {
+    return { success: false, canceled: true };
+  }
+  const database = readMacleodDatabase(ctx, result.filePaths[0]);
+  // A code rather than a sentence: the dialog words it in the user's language.
+  if (database.siblings.length === 0) return { success: false, error: 'no-materials', dir: result.filePaths[0] };
+  return { success: true, database };
 }
 
 // ── Delete a .tfs file ─────────────────────────────────────────────────────

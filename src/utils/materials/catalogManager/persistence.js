@@ -1,6 +1,6 @@
 // Drop the getNK closure that getMaterialById attaches lazily, leaving the
 // plain dispersion record. Anything written to disk goes through here.
-import { hasTabulatedComponent, TABULATED_INTERPOLATION } from '../pchip.js';
+import { hasTabulatedComponent, interpolationRuleOf } from '../pchip.js';
 
 export function stripGetNK(material) {
     // eslint-disable-next-line no-unused-vars
@@ -31,12 +31,15 @@ export function deleteCatalogFile(catalogId, source) {
 // catalog) — those rendered as dead grey rows that sorted to the top (empty id)
 // and crashed materialToDraft (`mat.id.replace`). Normalising here, at the one
 // registration boundary, heals existing AND future catalogs in place.
+//
+// A tabulated material also gets an explicit interpolation rule: the one it
+// names, or PCHIP for a catalog saved before the field existed.
 export function normalizeCatalogMaterials(cat) {
     if (!cat || !cat.materials) return cat;
     for (const [key, m] of Object.entries(cat.materials)) {
         if (!m) continue;
         if (m.id == null || m.id === '') m.id = key;
-        if (hasTabulatedComponent(m)) m.interp = TABULATED_INTERPOLATION;
+        if (hasTabulatedComponent(m)) m.interp = interpolationRuleOf(m);
     }
     return cat;
 }

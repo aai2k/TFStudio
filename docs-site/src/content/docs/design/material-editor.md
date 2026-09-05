@@ -96,13 +96,30 @@ type a wavelength to read `n` and `k` there, and a sampled table lists the
 curve's numbers. The same probe and table sit under the chart of a read-only
 material.
 
-TFStudio evaluates every tabulated `n` and `k` column with shape-preserving
-PCHIP interpolation. The curve passes through every supplied point and stays
-inside the values of each bracketing pair, so a non-negative `k` table cannot
-acquire optical gain from interpolation overshoot. Outside the tabulated range,
-the nearest endpoint value is held constant. PCHIP defines the values between
-measurements; it does not add measured information that is absent from the
-table.
+### Between the table points
+
+A table says nothing about the wavelengths between its points, so every
+tabulated `n` and `k` column carries a rule for reading it there. The control
+under the grid offers two:
+
+- **Shape-preserving cubic** (PCHIP), the default for a new material. The
+  curve passes through every supplied point and stays inside the values of
+  each bracketing pair, so a non-negative `k` table cannot acquire optical
+  gain from interpolation overshoot, and it has a slope everywhere, which is
+  what phase and dispersion calculations need.
+- **Linear**, straight lines between the points. This is how Essential
+  Macleod and TFCalc evaluate a table, and a material imported from either
+  keeps it, so a design imported with such materials reproduces the numbers
+  it produced there. The slope changes abruptly at each point; the GD/GDD
+  window breaks its curves there rather than draw through the jump.
+
+The rule belongs to the material, not to a window, so it reaches every
+calculation made with it, travels with a material embedded in a design, and
+is what the two programs disagree on between measured points. Neither rule
+adds information the table does not hold: where the answer depends on the
+curvature of `n(λ)` between measurements, a smooth dispersion fit is the
+honest model. Outside the tabulated range both rules hold the nearest
+endpoint value constant.
 
 ### Smooth dispersion fit
 

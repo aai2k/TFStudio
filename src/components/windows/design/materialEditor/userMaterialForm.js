@@ -17,6 +17,7 @@ import {
     coefficientSlots, withFormula, withAddedTerm,
 } from './materialDraft.js';
 import { parseNumber, parseNumberStrict } from '../../../../utils/misc/numberParsing.js';
+import { INTERPOLATION_RULES, interpolationRuleOf } from '../../../../utils/materials/pchip.js';
 import { KaTeXSpan, NkProbe, dotStyle, catTabStyle, smallBtn } from './materialEditorUI.js';
 import { readOnlyNkTable } from './materialEditorReadOnly.js';
 import {
@@ -264,6 +265,24 @@ function renderTabularEditor({ draft, editRow, delRow, addRow, pasteRows, sortRo
     );
 }
 
+// How the table is read between its points. The rule belongs to the material
+// and reaches every calculation made with it, so it sits with the data it
+// governs: under the n/k grid of a tabular material, under the k table of a
+// formula material that has one.
+function renderInterpolationField({ draft, set, me, c, sectionLabel }) {
+    const labels = { pchip: me.interpPchip, linear: me.interpLinear };
+    const rule = interpolationRuleOf(draft);
+    return h('div', null,
+        sectionLabel(me.interpLabel),
+        h('div', { style: { display: 'flex', gap: 6 } },
+            INTERPOLATION_RULES.map(value =>
+                h('button', { key: value, onClick: () => set('interp', value), style: catTabStyle(rule === value, c) }, labels[value])
+            )
+        ),
+        h('div', { style: { fontSize: 10, color: c.textDim, marginTop: 3, fontStyle: 'italic' } }, me.interpHint)
+    );
+}
+
 // The coefficients the material is computed from, with the formula they sit in.
 function renderFitCoefficients(fit, c) {
     const { formula, parameters } = dispersionFitParameters(fit);
@@ -389,7 +408,8 @@ function renderFormulaEditor(ctx) {
             onPasteRows: pasteKRows,
             addLabel: me.addRow,
             c,
-        })
+        }),
+        draft.kRows.length > 0 && renderInterpolationField(ctx)
     );
 }
 
@@ -543,6 +563,7 @@ export function UserMaterialForm({ draft, onChange, onSave, onRevert, onDelete, 
             renderPropertiesGrid(ctx),
             !draft.isRii && renderTypeToggle(ctx),
             draft.type === 'tabular' && renderTabularEditor(ctx),
+            draft.type === 'tabular' && renderInterpolationField(ctx),
             draft.type === 'tabular' && renderFitPanel(ctx),
             draft.type === 'formula' && renderFormulaEditor(ctx),
             renderPreviewChart({

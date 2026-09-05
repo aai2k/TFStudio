@@ -28,11 +28,22 @@
  * varies (manual, Modeling a Rugate, p. 102). TFStudio has no graded or
  * packed layer, so a design that uses one is refused.
  *
+ * A design names its materials the way the program's own database does, and
+ * that database is one folder on the machine, not the design's folder. The
+ * caller hands its files over (opts.siblings, each { name, ext, text }, with
+ * the folder's units.tfp as opts.unitsText); every name the database holds
+ * becomes an `embedded` entry, read by the material importer under the
+ * database's wavelength unit, so the design carries the definitions it was
+ * computed with. A name the database does not hold is left for the catalogs,
+ * and so is Air, which is the built-in Air throughout the import.
+ *
  * Output is the neutral imported-design description shared with the TFCalc
  * reader, with layers in TFStudio front storage order (incident medium
  * first). Optical thicknesses stay as full-wave values here; they become
  * nanometres once the materials are resolved.
  */
+
+import { parseMacleodFile, parseMacleodUnits } from '../../materials/macleodParser.js';
 
 function unescapeXml(s) {
     return s.replace(/&(amp|lt|gt|quot|apos|#(\d+));/g, (m, e, d) =>
@@ -117,12 +128,43 @@ function readLayer(inner, index, thicknessType, toNm, fileName) {
     };
 }
 
+// Parsed databases by the file array the caller handed over. The main
+// process gives every design of a pick the same array, so a batch parses
+// its database once however many designs it holds.
+const parsedDatabases = new WeakMap();
+
+// The database's materials by name, lower-cased, each read under the
+// database's wavelength unit; the first file of a repeated name wins. An eV
+// or GHz database cannot be read as nanometres and yields nothing, as does a
+// file the material importer refuses.
+function databaseMaterials(opts) {
+    const siblings = opts.siblings || [];
+    if (!siblings.length) return new Map();
+    const cached = parsedDatabases.get(siblings);
+    if (cached && cached.unitsText === opts.unitsText) return cached.byName;
+    const byName = new Map();
+    const unit = parseMacleodUnits(opts.unitsText);
+    if (unit !== 'unsupported') {
+        for (const file of siblings) {
+            try {
+                const entry = parseMacleodFile(file.text, `${file.name}.${file.ext || 'tfx'}`, { wavelengthUnit: unit || 'nm' });
+                const key = String(entry.name || file.name).trim().toLowerCase();
+                if (!byName.has(key)) byName.set(key, entry);
+            } catch (_) { /* not a material the importer can read */ }
+        }
+    }
+    parsedDatabases.set(siblings, { unitsText: opts.unitsText, byName });
+    return byName;
+}
+
 /**
  * @param {string} text      file content
  * @param {string} fileName  used for the design name and messages
+ * @param {{ siblings?: Array<{ name, ext, text }>, unitsText?: string, databaseDir?: string }} [opts]
+ *        the program's material database, when the caller found it
  * @returns {object} imported-design description (see designFileImport.js)
  */
-export function parseMacleodDesign(text, fileName) {
+export function parseMacleodDesign(text, fileName, opts = {}) {
     if (!/<EssentialMacleodDesign[\s>]/.test(text)) throw new Error(`"${fileName}" is not an Essential Macleod design file`);
     const params = innerOf(text, 'Parameters') || '';
     const notes = [];
@@ -150,9 +192,21 @@ export function parseMacleodDesign(text, fileName) {
     if (front.length === 0) throw new Error(`"${fileName}" has no layers`);
 
     const constants = Object.create(null);
+    const embedded = Object.create(null);
+    const database = databaseMaterials(opts);
     for (const name of [incidentMedium, substrate, ...front.map(l => l.material)]) {
-        if (isConstantIndexName(name)) constants[name] = Number(name);
+        if (isConstantIndexName(name)) { constants[name] = Number(name); continue; }
+        const key = name.trim().toLowerCase();
+        // Air stays the built-in Air; a database entry for it would only carry
+        // a table of ones into the design.
+        if (key === 'air' || Object.hasOwn(embedded, name)) continue;
+        const found = database.get(key);
+        if (found) embedded[name] = found;
     }
+    const fromDatabase = Object.keys(embedded).length;
+    if (!(opts.siblings || []).length) notes.push({ code: 'noDatabase' });
+    else if (fromDatabase) notes.push({ code: 'materialsFromDatabase', count: fromDatabase, dir: opts.databaseDir || '' });
+    else notes.push({ code: 'databaseUnused', dir: opts.databaseDir || '' });
 
     const formulaBlock = /<Formula>\s*<Formula>([\s\S]*?)<\/Formula>/.exec(text);
     const formula = formulaBlock ? unescapeXml(formulaBlock[1]).trim() || null : null;
@@ -193,7 +247,7 @@ export function parseMacleodDesign(text, fileName) {
         formula,
         symbols,
         constants,
-        embedded: Object.create(null),
+        embedded,
         comments,
         notes,
         spectrum: lo > 0 && hi > lo ? { fromNm: lo, toNm: hi } : null,

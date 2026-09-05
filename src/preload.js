@@ -10,6 +10,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   saveDesign:       (folderName, design) => ipcRenderer.invoke('save-design', folderName, design),
   importTfs:        () => ipcRenderer.invoke('import-tfs'),
   importDesignFiles: () => ipcRenderer.invoke('import-design-files'),
+  pickMacleodDatabase: () => ipcRenderer.invoke('pick-macleod-database'),
   deleteItem:       (folderName, itemName) => ipcRenderer.invoke('delete-item', folderName, itemName),
   renameItem:       (folderName, oldName, newName) => ipcRenderer.invoke('rename-item', folderName, oldName, newName),
   createFolder:     (folderName) => ipcRenderer.invoke('create-folder', folderName),

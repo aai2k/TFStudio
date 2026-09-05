@@ -46,6 +46,18 @@ way a `.tfs` file carries its materials, so the design computes with the
 definition it was made with. Pick a catalog material in its row to use that
 instead; the button beside the status gives the file's definition back.
 
+An Essential Macleod design names its materials the way the program's own
+database does, and that database is one folder on the computer, not the
+design's folder. The reader looks for it where the program records it, the
+materials folder set in Essential Macleod's own settings, or the installer's
+default. Every name the database holds is taken from it, marked "from the
+program's material database", read between its table points the way Essential
+Macleod reads it, and carried inside the design, so an imported design
+reproduces the numbers the program computed. If the database is not found, or
+lives somewhere else, **Essential Macleod materials…** in the header points
+the batch at a folder. A name the database does not hold is matched against
+your catalogs as above.
+
 **Footer.** TFCalc files do not record their wavelength unit, but every
 layer carries both its quarter waves and its physical thickness, and the two
 agree only in the right unit, so the switch reads the unit from the file.

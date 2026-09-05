@@ -91,6 +91,45 @@ function ansiCodePage() {
   return ansiLabel;
 }
 
+// The system's OEM code page as a TextDecoder, read once from the registry;
+// reg.exe writes its output in that page when it is not attached to a
+// console. Null off Windows, when the registry cannot be read, or for a page
+// the platform has no decoder for (the western OEM pages 437 and 850 among
+// them, which are exact for ASCII under the UTF-8 fallback anyway).
+let oemDecoder;
+function oemTextDecoder() {
+  if (oemDecoder !== undefined) return oemDecoder;
+  oemDecoder = null;
+  if (process.platform === 'win32') {
+    try {
+      const out = require('child_process').execFileSync('reg',
+        ['query', 'HKLM\\SYSTEM\\CurrentControlSet\\Control\\Nls\\CodePage', '/v', 'OEMCP'],
+        { encoding: 'ascii', windowsHide: true, timeout: 3000 });
+      const m = /\bOEMCP\s+REG_SZ\s+(\d+)/.exec(out);
+      const label = m && (m[1] === '866' ? 'ibm866' : CODE_PAGE_LABELS[m[1]]);
+      if (label) oemDecoder = new TextDecoder(label);
+    } catch (_) { /* no registry, or no decoder for the page */ }
+  }
+  return oemDecoder;
+}
+
+// A string value under a registry key, or null when the value is absent, the
+// registry cannot be read, or this is not Windows. The output is decoded in
+// the OEM page reg.exe writes, so a path under a Cyrillic or CJK profile
+// survives; an expandable value has its %VAR% references filled from the
+// environment; the value name is matched whatever its case.
+function registryValue(key, name) {
+  if (process.platform !== 'win32') return null;
+  try {
+    const raw = require('child_process').execFileSync('reg', ['query', key, '/v', name],
+      { windowsHide: true, timeout: 3000 });
+    const out = (oemTextDecoder() || new TextDecoder('utf-8')).decode(raw);
+    const escaped = name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    const m = new RegExp(`^\\s*${escaped}\\s+REG_(?:EXPAND_)?SZ\\s+(.+?)\\s*$`, 'mi').exec(out);
+    return m ? m[1].replace(/%([^%]+)%/g, (whole, variable) => process.env[variable] ?? whole) : null;
+  } catch (_) { return null; }
+}
+
 // Decode bytes that are not UTF-8 as a Windows code page. Older coating
 // programs (TFCalc among them) write text in the system's ANSI code page, so
 // a Cyrillic material name written on a Russian Windows arrives as
@@ -133,4 +172,4 @@ function resolveExeDir({ portableDir, isPackaged, execPath, appPath }) {
   return isPackaged ? path.dirname(execPath) : appPath;
 }
 
-module.exports = { safeName, safeFilePath, readJsonSafe, writeFileAtomic, readTextAuto, decodeAnsi, ansiCodePage, resolveExeDir };
+module.exports = { safeName, safeFilePath, readJsonSafe, writeFileAtomic, readTextAuto, decodeAnsi, ansiCodePage, registryValue, resolveExeDir };

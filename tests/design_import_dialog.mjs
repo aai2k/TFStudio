@@ -90,9 +90,30 @@ try {
     // optical layer with no material gets a worded warning.
     const ml = render([{ name: 'One Layer AR', ext: 'dds', dir: 'ml', text: dds.replace('MgF2', 'MgF2 lab') }]);
     assert.ok(has(ml, di.warnNoIndex(di.sideFront, 1, 'MgF2 lab', 550)), 'the build warning is shown');
-    assert.ok(has(ml, di.noSourceIndexHint(di.programName.macleod)), 'a Macleod design says its name matches cannot be checked');
+    const mlMatch = render([{ name: 'One Layer AR', ext: 'dds', dir: 'ml', text: dds }]);
+    assert.ok(has(mlMatch, di.noSourceIndexHint(di.programName.macleod)), 'a Macleod design with a name match says it cannot be checked');
+    assert.ok(!has(ml, di.noSourceIndexHint(di.programName.macleod)), 'and one whose only catalog match is Air has nothing to check');
     assert.ok(has(ml, di.thicknessFollowsMaterialHint), 'and that the material picked sets the thicknesses');
+    assert.ok(has(ml, di.noteNoDatabase) && has(ml, di.pickMacleodDatabase), 'without the program\'s database the design says so and the header offers the picker');
     assert.ok(!has(html, di.noSourceIndexHint(di.programName.tfcalc)), 'a TFCalc design has an index to check against');
+    assert.ok(!has(ol, di.pickMacleodDatabase), 'a batch with no Macleod design has no database picker');
+
+    // The same Macleod design with the program's database at hand: its names
+    // come from there and the optical layer converts with them.
+    const tfx = (name, points) => `<?xml version="1.0"?>\r\n<EssentialMacleodMaterial Name="${name}" NType="1" KType="1" TType="-1"><NKPoints>${points.map(([w, n, k]) => `<NKPoint W="${w}" n="${n}" k="${k}"/>`).join('')}</NKPoints><Cauchy Max="0" Min="0"><Parameter N="0" A="1"/></Cauchy><Sellmeier Max="0" Min="0"><Parameter N="0" A="0" B="0"/></Sellmeier><KPoints><KPoint W="100" k="0"/><KPoint W="1000" k="0"/></KPoints><KCauchy><Parameter N="0" A="0"/></KCauchy><KExp><Parameter A="0" B="0"/></KExp><Notes></Notes></EssentialMacleodMaterial>\r\n`;
+    const database = {
+        databaseDir: 'C:\\db', unitsText: '"Wavelength",1E-09,"nm"',
+        siblings: [
+            { name: 'M1', ext: 'tfx', text: tfx('Glass', [[300, 1.553, 0], [500, 1.521, 0], [700, 1.513, 0]]) },
+            { name: 'M2', ext: 'tfx', text: tfx('MgF2', [[400, 1.385, 0], [600, 1.380, 0], [800, 1.378, 0]]) },
+        ],
+    };
+    const mdb = render([{ name: 'One Layer AR', ext: 'dds', dir: 'ml', text: dds, ...database }]);
+    assert.ok(has(mdb, di.statusProgramDatabase) && !has(mdb, di.statusMissing), 'names the database holds are taken from it');
+    assert.ok(has(mdb, di.noteMaterialsFromDatabase(2, 'C:\\db')) && !has(mdb, di.noteNoDatabase), 'and the design says what came from it');
+    assert.ok(!has(mdb, di.warnNoIndex(di.sideFront, 1, 'MgF2', 550)), 'the optical layer converts with the database material');
+    assert.ok(has(mdb, di.materialsOk), 'the list says every name is covered');
+    assert.ok(!has(mdb, di.nameMatchHint), 'Air resolving by rule is no name match, so there is nothing to warn about');
 
     const keyComplaints = errors.filter(e => /unique "key" prop|Each child in a list/.test(e));
     assert.equal(keyComplaints.length, 0, `React key warnings: ${keyComplaints.join(' | ')}`);

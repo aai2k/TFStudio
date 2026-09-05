@@ -164,11 +164,13 @@ function materialsTable({ entry, names, mapping, setMapping, di, t, c }) {
         const constant = constantIndexOf(item, name);
         const defined = nameHasDefinition(item, name);
         const status = id ? di.statusNameMatch
-            : embeddedDefinition(item, name) ? di.statusFolderFile
+            : embeddedDefinition(item, name) ? (entry.program === 'macleod' ? di.statusProgramDatabase : di.statusFolderFile)
             : constant ? di.statusConstant(constant.k ? `${formatValue(constant.n)}, k = ${formatValue(constant.k)}` : formatValue(constant.n))
             : di.statusMissing;
         const missing = !id && !defined;
-        if (id && !defined) anyNameMatch = true;
+        // Air resolves by rule, not through a catalog name, so it is no name match.
+        const byRule = id === 'builtin:Air' && name.trim().toLowerCase() === 'air';
+        if (id && !defined && !byRule) anyNameMatch = true;
         // The index the file was computed with, beside the one the row resolves
         // to now. A name match that moved the index moved the design with it.
         const source = sourceIndexOf(item, name);
@@ -335,14 +337,47 @@ export function DesignImportDialog({ fileImport, setFileImport, folders, default
     const setUnit = (program, value) => setFileImport({ ...fileImport, units: { ...units, [program]: value } });
 
     // Append another pick to the batch; indices of the files already listed
-    // stay put, so ticks, assignments and the highlighted row survive.
+    // stay put, so ticks, assignments and the highlighted row survive. A
+    // Macleod design the main process found no database for takes the one the
+    // batch already has, which may be the folder the user pointed at.
     const addFiles = async () => {
         try {
             const result = await window.electronAPI.importDesignFiles();
             if (result.canceled) return;
             if (!result.success) { setPickError(result.error || di.unknownError); return; }
             setPickError(null);
-            setFileImport({ ...fileImport, files: [...files, ...result.files] });
+            const known = files.find(file => file.ext === 'dds' && file.databaseDir);
+            const added = result.files.map(file => known && file.ext === 'dds' && !file.databaseDir
+                ? { ...file, siblings: known.siblings, unitsText: known.unitsText, databaseDir: known.databaseDir }
+                : file);
+            setFileImport({ ...fileImport, files: [...files, ...added] });
+        } catch (err) {
+            setPickError(err.message);
+        }
+    };
+
+    // Point every Essential Macleod design of the batch at a materials database
+    // the program did not record. A name the database defines drops the
+    // assignment made for it before, so the database's definition takes its
+    // place; every other assignment stays as the user left it.
+    const pickMacleodDatabase = async () => {
+        try {
+            const result = await window.electronAPI.pickMacleodDatabase();
+            if (result.canceled) return;
+            if (!result.success) {
+                setPickError(result.error === 'no-materials' ? di.noMaterialFiles(result.dir) : (result.error || di.unknownError));
+                return;
+            }
+            setPickError(null);
+            const { dir, siblings, unitsText } = result.database;
+            const updated = files.map(file => file.ext === 'dds' ? { ...file, siblings, unitsText, databaseDir: dir } : file);
+            const defined = new Set(parseDesignFiles(updated, units).items
+                .filter(entry => entry.program === 'macleod')
+                .flatMap(entry => designMaterialNames(entry.item)
+                    .filter(name => embeddedDefinition(entry.item, name))
+                    .map(name => materialKey(entry.program, name))));
+            setMapping(prev => Object.fromEntries(Object.entries(prev).filter(([key]) => !defined.has(key))));
+            setFileImport({ ...fileImport, files: updated });
         } catch (err) {
             setPickError(err.message);
         }
@@ -361,6 +396,7 @@ export function DesignImportDialog({ fileImport, setFileImport, folders, default
         pickError && h('span', { style: { fontSize: 11, color: '#e74c3c' } }, di.error(pickError)),
         h('div', { style: { marginLeft: 'auto', display: 'flex', gap: 6 } },
             h('button', { onClick: addFiles, style: smallBtn(c) }, di.addFiles),
+            programs.has('macleod') && h('button', { onClick: pickMacleodDatabase, style: smallBtn(c), title: di.pickMacleodDatabaseTip }, di.pickMacleodDatabase),
             h('button', { onClick: () => setExcluded(new Set()), style: smallBtn(c) }, di.selectAll),
             h('button', { onClick: () => setExcluded(new Set(items.map(entry => entry.fileIndex))), style: smallBtn(c) }, di.selectNone)
         )

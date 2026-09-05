@@ -46,7 +46,7 @@
 
 import { sanitizeId } from './optilayerParser/idUtils.js';
 import { computeNd } from './optilayerParser/nd.js';
-import { TABULATED_INTERPOLATION } from './pchip.js';
+import { LINEAR_INTERPOLATION, TABULATED_INTERPOLATION } from './pchip.js';
 
 export const TFCALC_N_FORMULAS = {
     1: 'Sellmeier 1', 2: 'Sellmeier 2', 3: 'Sellmeier 2′', 4: 'Sellmeier 3', 5: 'Cauchy',
@@ -186,7 +186,10 @@ function buildTable(rec, base, wlScale) {
     if (!rows.length) throw new Error(`TFCalc table "${base.name}" has no data points`);
     base.formulaNum = -1;
     base.tabData = rows;
-    base.interp = TABULATED_INTERPOLATION;
+    // TFCalc evaluates a table linearly between its points; the same rule
+    // here reproduces what it computed. A formula sampled below stays PCHIP,
+    // since a sampled smooth function is better rebuilt by a cubic.
+    base.interp = LINEAR_INTERPOLATION;
     base.lambdaMin = rows[0][0] / 1000;
     base.lambdaMax = rows[rows.length - 1][0] / 1000;
     return base;
