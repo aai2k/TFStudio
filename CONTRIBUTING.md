@@ -19,9 +19,9 @@ project's [MIT license](./LICENSE).
   writing code. For anything touching the optical engine or optimizer, cite the
   method you have in mind (paper + equation).
 - **Share a coating:** The built-in Coating Library grows from designs users
-  send in. Open a [coating contribution](https://github.com/aai2k/TFStudio/issues/new?template=coating_contribution.yml)
-  issue with a layer table, a `.tfs`/`.tfsc` file or a design from another
-  program, or use **Share a coating…** in the Coating Library window, which
+  send in. Post it in the [Coatings](https://github.com/aai2k/TFStudio/discussions/new?category=coatings)
+  discussion category with a layer table, a `.tfs`/`.tfsc` file or a design
+  from another program, or use **Share a coating…** in the Coating Library window, which
   fills the form from a saved coating. Contributed coatings ship in the next
   release with a credit in their source line.
 - **Improve documentation:** The user docs live in [`docs-site/`](./docs-site).

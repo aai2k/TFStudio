@@ -111,8 +111,8 @@ coating. **Delete** removes the selected saved coating.
 ## Sharing a coating
 
 **Share a coating…** sends one of your coatings to the project for the
-built-in library. With one of My coatings selected, the dialog opens a GitHub
-issue prefilled with the layer table and the design conditions, or an email
+built-in library. With one of My coatings selected, the dialog opens a new
+GitHub discussion prefilled with the layer table and the design conditions, or an email
 with the same text, and **Save file for sending…** writes the coating with its
 embedded material data as one file to attach to either. With nothing selected
 it only points at the two ways to send a design.

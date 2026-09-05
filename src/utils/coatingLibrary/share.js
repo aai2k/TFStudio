@@ -1,17 +1,17 @@
 /**
  * Sending a coating to the project. The built-in library grows from what
- * users send in, so a saved coating can be turned into a GitHub issue with
- * the contribution form prefilled, an email with the same text, or one file
- * to attach to either. The issue and the email carry the layer table and the
- * design conditions; the file carries the whole entry, embedded material
+ * users send in, so a saved coating can be posted as a GitHub discussion
+ * with the contribution form prefilled, an email with the same text, or one
+ * file to attach to either. The post and the email carry the layer table and
+ * the design conditions; the file carries the whole entry, embedded material
  * data included.
  */
 import { materialLabel } from '../materials/catalogManager.js';
 import { bandsText, slugify } from './entryModel.js';
 
 export const REPO_URL = 'https://github.com/aai2k/TFStudio';
-/** The issue form in .github/ISSUE_TEMPLATE; the query fields below are its field ids. */
-export const CONTRIBUTE_TEMPLATE = 'coating_contribution.yml';
+/** Discussions category whose form (.github/DISCUSSION_TEMPLATE/<category>.yml) the query fields below fill. */
+export const CONTRIBUTE_CATEGORY = 'coatings';
 export const CONTRIBUTE_EMAIL = 'achapovskyai@gmail.com';
 
 // Longest URL handed to the browser for a prefilled form. Past this the
@@ -55,14 +55,14 @@ function withQuery(base, params) {
     return `${base}?${query.toString()}`;
 }
 
-/** The new-issue page with the contribution form, prefilled when an entry is given. */
-export function issueUrl(entry) {
-    const base = `${REPO_URL}/issues/new`;
-    if (!entry) return withQuery(base, { template: CONTRIBUTE_TEMPLATE });
+/** The new-discussion page in the contribution category, its form prefilled when an entry is given. */
+export function discussionUrl(entry) {
+    const base = `${REPO_URL}/discussions/new`;
+    if (!entry) return withQuery(base, { category: CONTRIBUTE_CATEGORY });
     const fields = shareFields(entry);
-    const full = withQuery(base, { template: CONTRIBUTE_TEMPLATE, title: `Coating: ${entry.name}`, ...fields });
+    const full = withQuery(base, { category: CONTRIBUTE_CATEGORY, title: `Coating: ${entry.name}`, ...fields });
     if (full.length <= URL_LIMIT) return full;
-    return withQuery(base, { template: CONTRIBUTE_TEMPLATE, title: `Coating: ${entry.name}`, ...fields, design: '' });
+    return withQuery(base, { category: CONTRIBUTE_CATEGORY, title: `Coating: ${entry.name}`, ...fields, design: '' });
 }
 
 /** A mailto link to the maintainer, with the same text in the body when an entry is given. */
@@ -81,7 +81,7 @@ export function packText(entry) {
     return JSON.stringify(record, null, 2);
 }
 
-/** File name for the packed entry; .json so issue trackers and mail clients accept it. */
+/** File name for the packed entry; .json so GitHub and mail clients accept it as an attachment. */
 export function packFileName(entry) {
     return `${slugify(entry.name) || 'coating'}.tfsc.json`;
 }

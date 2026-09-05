@@ -1,7 +1,4 @@
-name: Coating contribution
-description: Share a coating design for the built-in Coating Library
 title: "Coating: "
-labels: ["coating-library"]
 body:
   - type: markdown
     attributes:

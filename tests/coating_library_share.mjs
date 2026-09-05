@@ -1,6 +1,6 @@
 /**
- * Sharing a coating with the project: the prefilled issue URL names the
- * contribution form and its field ids, the email carries the same text, and
+ * Sharing a coating with the project: the prefilled discussion URL names the
+ * contribution category and its form's field ids, the email carries the same text, and
  * the packed file is the entry as a .tfsc record.
  *
  * Run: node tests/coating_library_share.mjs
@@ -10,7 +10,7 @@ import { readFileSync } from 'node:fs';
 
 const { makeCoatingEntry } = await import('../src/utils/coatingLibrary/entryModel.js');
 const {
-    CONTRIBUTE_EMAIL, CONTRIBUTE_TEMPLATE, REPO_URL, conditionsText, issueUrl, layerTable, mailUrl,
+    CONTRIBUTE_CATEGORY, CONTRIBUTE_EMAIL, REPO_URL, conditionsText, discussionUrl, layerTable, mailUrl,
     packFileName, packText, shareFields,
 } = await import('../src/utils/coatingLibrary/share.js');
 
@@ -21,9 +21,9 @@ const entry = makeCoatingEntry({
 });
 
 // The form exists and has every field the URL fills.
-const form = readFileSync(new URL(`../.github/ISSUE_TEMPLATE/${CONTRIBUTE_TEMPLATE}`, import.meta.url), 'utf8');
+const form = readFileSync(new URL(`../.github/DISCUSSION_TEMPLATE/${CONTRIBUTE_CATEGORY}.yml`, import.meta.url), 'utf8');
 for (const id of Object.keys(shareFields(entry))) {
-    assert.ok(form.includes(`id: ${id}\n`), `the issue form has a field with id ${id}`);
+    assert.ok(form.includes(`id: ${id}\n`), `the discussion form has a field with id ${id}`);
 }
 
 // Text.
@@ -38,13 +38,13 @@ const purpose = shareFields(entry).purpose;
 assert.ok(purpose.includes('HeNe') && purpose.includes('Limitations: Narrow'));
 
 // Links.
-const empty = new URL(issueUrl(null));
-assert.equal(`${empty.origin}${empty.pathname}`, `${REPO_URL}/issues/new`);
-assert.equal(empty.searchParams.get('template'), CONTRIBUTE_TEMPLATE);
+const empty = new URL(discussionUrl(null));
+assert.equal(`${empty.origin}${empty.pathname}`, `${REPO_URL}/discussions/new`);
+assert.equal(empty.searchParams.get('category'), CONTRIBUTE_CATEGORY);
 assert.equal(empty.searchParams.get('coating'), null, 'nothing prefilled without an entry');
 
-const filled = new URL(issueUrl(entry));
-assert.equal(filled.searchParams.get('template'), CONTRIBUTE_TEMPLATE);
+const filled = new URL(discussionUrl(entry));
+assert.equal(filled.searchParams.get('category'), CONTRIBUTE_CATEGORY);
 assert.equal(filled.searchParams.get('title'), 'Coating: Test V-coat 633');
 assert.equal(filled.searchParams.get('coating'), entry.name);
 assert.equal(filled.searchParams.get('design'), table);
@@ -56,8 +56,8 @@ const long = makeCoatingEntry({
     ...entry,
     layers: Array.from({ length: 400 }, (_, i) => ({ material: i % 2 ? 'SiO2' : 'TiO2', thickness: 100 + i })),
 });
-const trimmed = new URL(issueUrl(long));
-assert.ok(issueUrl(long).length <= 7000, 'a prefilled URL stays under the limit');
+const trimmed = new URL(discussionUrl(long));
+assert.ok(discussionUrl(long).length <= 7000, 'a prefilled URL stays under the limit');
 assert.equal(trimmed.searchParams.get('design'), null, 'the table is dropped from an over-long URL');
 assert.equal(trimmed.searchParams.get('coating'), long.name);
 

@@ -45,7 +45,7 @@ for (const code of ['en', 'ru', 'zh']) {
     assert.equal(typeof ts.applied(3, ts.sideFront), 'string');
     assert.equal(typeof ts.saveDialog.saved('x'), 'string');
     assert.ok(t.designEditor.tools.saveToLibrary, `${code}: the Design Editor tools menu has no save entry`);
-    assert.ok(ts.share.button && ts.share.issue && ts.share.email('x') && ts.share.packed('f'), `${code}: share strings`);
+    assert.ok(ts.share.button && ts.share.discussion && ts.share.email('x') && ts.share.packed('f'), `${code}: share strings`);
     assert.ok(t.settings.folders.coatings, `${code}: the Coatings folder has no label in Settings`);
     assert.ok(t.toolbar.buttons['coating-library'] && t.toolbar.tooltips['coating-library'], `${code}: ribbon strings`);
 }
@@ -152,7 +152,7 @@ assert.ok(html.includes(`value="saveToLibrary"`) && html.includes(esc(t.designEd
 // Share dialog: without an entry it offers the issue and the email; with one
 // of the user's coatings it shows what will be sent and offers the file.
 html = renderToStaticMarkup(React.createElement(ShareDialog, { entry: null, c, t, onClose: () => {} }));
-assert.ok(html.includes(esc(ts.share.issue)) && html.includes('achapovskyai@gmail.com'), 'issue and email are offered');
+assert.ok(html.includes(esc(ts.share.discussion)) && html.includes('achapovskyai@gmail.com'), 'discussion and email are offered');
 assert.ok(!html.includes(esc(ts.share.pack)), 'no file to save without an entry');
 if (BUILTIN_COATINGS.length > 0) {
     const own = { ...BUILTIN_COATINGS[0], id: 'user-x' };

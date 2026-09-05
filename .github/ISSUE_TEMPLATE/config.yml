@@ -3,3 +3,6 @@ contact_links:
   - name: Question / discussion
     url: https://github.com/aai2k/TFStudio/discussions
     about: For usage questions, help, and open-ended discussion.
+  - name: Share a coating
+    url: https://github.com/aai2k/TFStudio/discussions/new?category=coatings
+    about: Send a design for the built-in Coating Library.

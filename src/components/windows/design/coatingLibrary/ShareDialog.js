@@ -1,5 +1,5 @@
 import {
-    CONTRIBUTE_EMAIL, conditionsText, issueUrl, layerTable, mailUrl, packCoating,
+    CONTRIBUTE_EMAIL, conditionsText, discussionUrl, layerTable, mailUrl, packCoating,
 } from '../../../../utils/coatingLibrary/share.js';
 import { FONT, buttonStyle } from './ui.js';
 
@@ -12,7 +12,7 @@ function openLink(url) {
 
 /**
  * Send a coating to the project for the built-in library. With one of the
- * user's saved coatings selected, the GitHub issue and the email open
+ * user's saved coatings selected, the GitHub post and the email open
  * prefilled with its layer table and design conditions, and the coating can
  * be written as one file to attach. With nothing selected, the dialog only
  * points at the two ways to send a design.
@@ -53,7 +53,7 @@ export function ShareDialog({ entry, c, t, onClose }) {
                 },
             }, `${layerTable(entry)}\n\n${conditionsText(entry)}`)),
         h('div', { style: { display: 'flex', gap: 8, flexWrap: 'wrap' } },
-            h('button', { onClick: () => openLink(issueUrl(entry)), style: buttonStyle(c, { primary: true }) }, ts.issue),
+            h('button', { onClick: () => openLink(discussionUrl(entry)), style: buttonStyle(c, { primary: true }) }, ts.discussion),
             h('button', { onClick: () => openLink(mailUrl(entry)), style: buttonStyle(c) }, ts.email(CONTRIBUTE_EMAIL)),
             entry && h('button', { onClick: pack, title: ts.packTip, style: buttonStyle(c) }, ts.pack)),
         entry && h('div', { style: { color: c.textDim, marginTop: 10, lineHeight: 1.45 } }, ts.fileHint),
