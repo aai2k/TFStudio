@@ -9,29 +9,17 @@
 import {
   designSummary, buildSpectrum, computeRiProfile, computeEField, computeEllipsometrySpectrum,
 } from '../src/utils/report/reportData.js';
+import { REPORT_TEST_DESIGN } from './_reportFixture.mjs';
 
 let pass = 0, fail = 0;
 function ok(name, cond) { if (cond) { pass++; } else { fail++; console.error('FAIL:', name); } }
 
-const design = {
-  id: 'd1', name: 'AR Test Stack',
-  incidentMedium: 'Air',
-  substrate: { material: 'BK7', thickness: 1.0 },
-  exitMedium: 'Air',
-  surfaceMode: 'front_only', mfEvalMode: 'side',
-  referenceWavelength: 550,
-  frontLayers: [
-    { id: 'l1', material: 'TiO2', thickness: 116.7, locked: false },
-    { id: 'l2', material: 'SiO2', thickness: 187.3, locked: false },
-    { id: 'l3', material: 'TiO2', thickness: 90.0,  locked: true  },
-  ],
-  backLayers: [],
-  notes: 'Sample design for report test.\nSecond line.',
-  qualifiers: [],
-  meritOperands: [],
-};
+const design = { ...REPORT_TEST_DESIGN, qualifiers: [], meritOperands: [] };
 
 // ── designSummary: layer table, totals, optical-thickness family, materials ─
+// Layers are numbered from the substrate, as the Design Editor numbers them,
+// so the stored order (incident side first) reads back reversed. The display
+// color comes from the material definition and is checked for presence only.
 console.log('— designSummary —');
 {
   const ds = designSummary(design);
@@ -40,27 +28,31 @@ console.log('— designSummary —');
     substrateThickness: 1, exitMedium: 'Air', referenceWavelength: 550, surfaceMode: 'front_only',
     frontCount: 3, backCount: 0, frontThickness: 394, backThickness: 0, totalThickness: 394,
     front: [
-      { index: 1, material: 'TiO2 (anatase)', thickness: 116.7, locked: false,
-        n: 2.5165803324330853, ot: 293.6849247949411, qwot: 2.1358903621450263, fwot: 0.5339725905362566 },
-      { index: 2, material: 'SiO2 (Fused Silica)', thickness: 187.3, locked: false,
-        n: 1.4599108864687285, ot: 273.44130903559284, qwot: 1.9886640657134025, fwot: 0.4971660164283506 },
-      { index: 3, material: 'TiO2 (anatase)', thickness: 90, locked: true,
+      { index: 1, materialId: 'TiO2', material: 'TiO2 (anatase)', thickness: 90, locked: true,
         n: 2.5165803324330853, ot: 226.49222991897767, qwot: 1.6472162175925649, fwot: 0.4118040543981412 },
+      { index: 2, materialId: 'SiO2', material: 'SiO2 (Fused Silica)', thickness: 187.3, locked: false,
+        n: 1.4599108864687285, ot: 273.44130903559284, qwot: 1.9886640657134025, fwot: 0.4971660164283506 },
+      { index: 3, materialId: 'TiO2', material: 'TiO2 (anatase)', thickness: 116.7, locked: false,
+        n: 2.5165803324330853, ot: 293.6849247949411, qwot: 2.1358903621450263, fwot: 0.5339725905362566 },
     ],
     materials: [
       { id: 'TiO2', name: 'TiO2 (anatase)', n: 2.5165803324330853, k: 0 },
       { id: 'SiO2', name: 'SiO2 (Fused Silica)', n: 1.4599108864687285, k: 0 },
     ],
   };
+  const withoutColor = ({ color, ...rest }) => rest;
   const got = {
     name: ds.name, incidentMedium: ds.incidentMedium, substrate: ds.substrate,
     substrateThickness: ds.substrateThickness, exitMedium: ds.exitMedium,
     referenceWavelength: ds.referenceWavelength, surfaceMode: ds.surfaceMode,
     frontCount: ds.frontCount, backCount: ds.backCount,
     frontThickness: ds.frontThickness, backThickness: ds.backThickness, totalThickness: ds.totalThickness,
-    front: ds.front, materials: ds.materials,
+    front: ds.front.map(withoutColor), materials: ds.materials.map(withoutColor),
   };
   ok('designSummary matches golden snapshot', JSON.stringify(got) === JSON.stringify(expect));
+  ok('every layer and material carries a display color',
+    [...ds.front, ...ds.materials].every(x => typeof x.color === 'string' && x.color.length > 0)
+    && typeof ds.substrateColor === 'string');
 }
 
 // ── buildSpectrum: multi-AOI TMM sweep (R/T/A + s/p components) ─────────────

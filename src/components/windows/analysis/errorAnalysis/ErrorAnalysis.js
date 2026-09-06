@@ -17,7 +17,7 @@ import { ErrorControls, ErrorEditor, errorEditorSummary } from './ErrorControls.
 import { statisticsColumns, statisticsRows } from './resultTable.js';
 import { TrialsModal } from './TrialsModal.js';
 import { hasPerturbableLayers } from './trialModel.js';
-import { chip } from './ui.js';
+import { chip, yieldColor } from './ui.js';
 import { useErrorAnalysis } from './useErrorAnalysis.js';
 
 const { createElement: h } = React;
@@ -26,9 +26,7 @@ const { createElement: h } = React;
 /** How many trials met the design's spec, and which qualifier failed the most. */
 function SpecStatus({ spec, c, ea }) {
     const yieldValue = spec.yield;
-    const color = yieldValue == null
-        ? c.textDim
-        : yieldValue >= 0.95 ? c.success : yieldValue >= 0.8 ? c.warning : c.error;
+    const color = yieldColor(c, yieldValue);
     const failures = (spec.perQualifier || [])
         .filter(qualifier => qualifier.failRate > 0)
         .sort((a, b) => b.failRate - a.failRate);

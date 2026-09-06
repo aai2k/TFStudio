@@ -609,10 +609,10 @@ export function seriesExtent(series, dim) {
     return high >= low ? [low, high] : null;
 }
 
-/** Width of the x extent across every series, or null if it has none. */
-function seriesXSpan(series) {
+/** The x extent across every series, or null while it has no width. */
+function seriesXExtent(series) {
     const extent = seriesExtent(series, 0);
-    return extent && extent[1] > extent[0] ? extent[1] - extent[0] : null;
+    return extent && extent[1] > extent[0] ? extent : null;
 }
 
 function wavelengthInterval(span) {
@@ -623,16 +623,24 @@ function wavelengthInterval(span) {
         : niceTickInterval(span);
 }
 
-function dataBoundXAxis(axis, span) {
-    if (Array.isArray(axis)) return axis.map(item => dataBoundXAxis(item, span));
+// A wavelength axis spans the range the window computed over. Left to itself
+// ECharts rounds the ends out to its automatic tick step before the fixed 50 nm
+// interval is applied, so a range from 399 nm would draw from 300. An axis that
+// declares its own bounds keeps them.
+function dataBoundXAxis(axis, extent) {
+    if (Array.isArray(axis)) return axis.map(item => dataBoundXAxis(item, extent));
     if (axis?.type !== 'value') return axis;
     const isNanometreWavelength = typeof axis.name === 'string'
         && /(?:wavelength|λ).*nm/i.test(axis.name);
+    const span = extent ? extent[1] - extent[0] : null;
+    const unbounded = axis.min == null && axis.max == null;
     const pinTicks = axis.interval == null && axis.splitNumber == null && isNanometreWavelength;
+    const pinRange = isNanometreWavelength && unbounded && extent;
     return {
         ...axis,
         scale: true,
         ...(pinTicks ? { interval: wavelengthInterval(span) } : {}),
+        ...(pinRange ? { min: extent[0], max: extent[1] } : {}),
     };
 }
 
@@ -677,9 +685,9 @@ export function cartesianOption({
         backgroundColor: palette.paper,
         textStyle: { color: palette.text, fontFamily: 'system-ui, -apple-system, sans-serif', fontSize: 11 },
         grid: grids,
-        // Scientific X axes represent the configured/sample domain. ECharts
-        // otherwise expands positive-only value axes back toward zero.
-        xAxis: dataBoundXAxis(xAxis, seriesXSpan(series)),
+        // Scientific X axes represent the computed domain. ECharts otherwise
+        // expands positive-only value axes back toward zero.
+        xAxis: dataBoundXAxis(xAxis, seriesXExtent(series)),
         yAxis: standardYAxis(yAxis),
         series,
         legend: normalizedLegend(legend, series),

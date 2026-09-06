@@ -1,182 +1,177 @@
 /**
- * Table- and plot-based report section builders (color, integrals, qualifiers,
- * merit, RI profile, E-field, ellipsometry, notes).
+ * Table- and plot-based block builders: color, integrals, qualifiers, merit
+ * operands, n(z) profile, |E|² profile, notes and signatures.
  *
- * Each takes the report context { data, opts, tr } and returns one <section>'s
- * HTML. A section whose data carries an `{ error }` renders a note instead.
+ * Each takes the block context { design, data, block, settings, tr, designName }
+ * and returns one <section>'s HTML. A block whose data carries an `{ error }`
+ * renders a note instead.
  */
 
 import { lineChartSVG, escapeHtml } from '../svgChart.js';
-import { pct, num, deg, tt, sectionTitle, errNote, wrap, table } from './format.js';
+import {
+  pct, num, deg, tt, blockTitle, errNote, wrap, table, note, plotHeight, subtitleOf,
+} from './format.js';
 
-export function buildColor({ data, tr }) {
-  const title = sectionTitle(tr, 'color-eval', 'Color Evaluation');
-  const cdata = data.color;
-  if (!cdata) return wrap('color-eval', title, errNote('not computed'));
-  if (cdata.error) return wrap('color-eval', title, errNote(cdata.error));
-  const L = tr || {};
-  const r = cdata.report;
-
-  const swatch = `<div class="tf-swatch" style="background:${escapeHtml(r.rgb)}"></div>`;
-  const rows = table(
-    [tt(L, 'quantity', 'Quantity'), tt(L, 'value', 'Value')],
-    [
-      ['x, y, Y', `${num(r.xy.x, 4)}, ${num(r.xy.y, 4)}, ${num(r.XYZ.Y, 3)}`],
-      ['X, Y, Z', `${num(r.XYZ.X, 3)}, ${num(r.XYZ.Y, 3)}, ${num(r.XYZ.Z, 3)}`],
-      ['L*, a*, b*', `${num(r.Lab.L, 2)}, ${num(r.Lab.a, 2)}, ${num(r.Lab.b, 2)}`],
-      ['C*ab, h°ab', `${num(r.Lab.C, 2)}, ${num(r.Lab.h, 1)}°`],
-      ['L*, u*, v*', `${num(r.Luv.L, 2)}, ${num(r.Luv.u, 2)}, ${num(r.Luv.v, 2)}`],
-      ["u', v'", `${num(r.uvP.up, 4)}, ${num(r.uvP.vp, 4)}`],
-      [tt(L, 'dominantWl', 'Dominant λ'),
-        r.dom?.dom != null ? `${num(r.dom.dom, 1)} nm (${tt(L, 'purity', 'purity')} ${num(r.dom.purity * 100, 1)}%)`
-        : r.dom?.comp != null ? `${tt(L, 'compl', 'compl.')} ${num(r.dom.comp, 1)} nm`
-        : '—'],
-      ['CCT', `${num(r.cct?.cct, 0)} K  (Duv ${num(r.cct?.duv, 4)})`],
-    ]
-  );
-  const cap = `<p class="tf-note">${escapeHtml(cdata.characteristic === 'T' ? tt(L, 'transmittance', 'Transmittance') : tt(L, 'reflectance', 'Reflectance'))}`
-    + ` · ${escapeHtml(cdata.observer)}° · ${escapeHtml(cdata.illuminant)} · AOI ${deg(cdata.theta)}°</p>`;
-  return wrap('color-eval', title,
-    `<div class="tf-cols"><div class="tf-swatch-wrap">${swatch}<div class="tf-note">${escapeHtml(cdata.illuminant)}</div></div><div>${rows}</div></div>${cap}`);
+/** The block's computed data, or the section to render when there is none. */
+export function blockData(ctx, type, title) {
+  const d = ctx.data.blocks[ctx.block.id];
+  if (!d) return { fail: wrap(type, title, errNote('not computed'), { subtitle: subtitleOf(ctx) }) };
+  if (d.error) return { fail: wrap(type, title, errNote(d.error), { subtitle: subtitleOf(ctx) }) };
+  return { d };
 }
 
-export function buildIntegrals({ data, tr }) {
-  const title = sectionTitle(tr, 'integral-values', 'Integral Values');
-  const iv = data.integrals;
-  if (!iv) return wrap('integral-values', title, errNote('not computed'));
-  if (iv.error) return wrap('integral-values', title, errNote(iv.error));
+/** The color block's rows, shared with the comparison table. */
+export function colorRows(r, tr) {
   const L = tr || {};
+  let dominant = num(null);
+  if (r.dom?.dom != null) dominant = `${num(r.dom.dom, 1)} nm (${tt(L, 'purity', 'purity')} ${num(r.dom.purity * 100, 1)}%)`;
+  else if (r.dom?.comp != null) dominant = `${tt(L, 'compl', 'compl.')} ${num(r.dom.comp, 1)} nm`;
+  return [
+    ['x, y, Y', `${num(r.xy.x, 4)}, ${num(r.xy.y, 4)}, ${num(r.XYZ.Y, 3)}`],
+    ['L*, a*, b*', `${num(r.Lab.L, 2)}, ${num(r.Lab.a, 2)}, ${num(r.Lab.b, 2)}`],
+    ['C*ab, h°ab', `${num(r.Lab.C, 2)}, ${num(r.Lab.h, 1)}°`],
+    ["u', v'", `${num(r.uvP.up, 4)}, ${num(r.uvP.vp, 4)}`],
+    [tt(L, 'dominantWl', 'Dominant λ'), dominant],
+    ['CCT', `${num(r.cct?.cct, 0)} K (Duv ${num(r.cct?.duv, 4)})`],
+  ];
+}
+
+export function colorCaption(cdata, tr) {
+  const L = tr || {};
+  const quantity = cdata.characteristic === 'T' ? tt(L, 'transmittance', 'Transmittance') : tt(L, 'reflectance', 'Reflectance');
+  return `${escapeHtml(quantity)} · ${escapeHtml(cdata.observer)}° · ${escapeHtml(cdata.illuminant)} · ${escapeHtml(tt(L, 'aoi', 'AOI'))} ${deg(cdata.theta)}°`;
+}
+
+export function buildColor(ctx) {
+  const { tr } = ctx;
+  const title = blockTitle(tr, 'color', 'Color');
+  const { d: cdata, fail } = blockData(ctx, 'color', title);
+  if (fail) return fail;
+  const r = cdata.report;
+  const swatch = `<div class="tf-swatch" style="background:${escapeHtml(r.rgb)}"></div>`;
+  const rows = table([tt(tr, 'quantity', 'Quantity'), tt(tr, 'value', 'Value')].map(escapeHtml),
+    colorRows(r, tr).map(([k, v]) => [escapeHtml(k), escapeHtml(v)]), { align: ['l', 'r'] });
+  const inner = `<div class="tf-cols"><div class="tf-swatch-wrap">${swatch}</div><div>${rows}</div></div>`;
+  return wrap('color', title, inner, { subtitle: subtitleOf(ctx, colorCaption(cdata, tr)) });
+}
+
+export function buildIntegrals(ctx) {
+  const { tr } = ctx;
+  const title = blockTitle(tr, 'integrals', 'Integral values');
+  const { d: iv, fail } = blockData(ctx, 'integrals', title);
+  if (fail) return fail;
   const rows = iv.defs.map(def => {
     const v = iv.values[def.key];
-    return [escapeHtml(def.label || def.key), v ? pct(v.value, 3) + ' %' : '—'];
+    return [escapeHtml(def.label || def.key), v ? pct(v.value, 2) + ' %' : num(null)];
   });
-  const cap = `<p class="tf-note">AOI ${deg(iv.theta)}° · ${escapeHtml(iv.pol)}</p>`;
-  return wrap('integral-values', title,
-    table([tt(L, 'quantity', 'Quantity'), tt(L, 'value', 'Value')], rows, { align: ['', 'r'] }) + cap);
+  const sub = `${escapeHtml(tt(tr, 'aoi', 'AOI'))} ${deg(iv.theta)}° · ${escapeHtml(iv.pol)}`;
+  return wrap('integrals', title,
+    table([tt(tr, 'quantity', 'Quantity'), tt(tr, 'value', 'Value')].map(escapeHtml), rows, { align: ['l', 'r'] }),
+    { subtitle: subtitleOf(ctx, sub) });
 }
 
-export function buildQualifiers({ data, tr }) {
-  const title = sectionTitle(tr, 'qualifiers', 'Qualifiers Verdict');
-  const q = data.qualifiers;
-  if (!q) return wrap('qualifiers', title, errNote('not computed'));
-  if (q.error) return wrap('qualifiers', title, errNote(q.error));
-  const L = tr || {};
-  if (!q.qualifiers.length)
-    return wrap('qualifiers', title, `<p class="tf-note">${escapeHtml(tt(L, 'noQualifiers', 'No design requirements defined.'))}</p>`);
+export function verdictMark(pass) {
+  if (pass === true) return '<span class="tf-pass">✔</span>';
+  if (pass === false) return '<span class="tf-fail">✘</span>';
+  return '<span class="tf-skip">–</span>';
+}
 
+export function qualifierLabel(ql, tr) {
+  const L = tr || {};
+  return ql.label || (L.kinds && L.kinds[ql.kind]) || ql.kind;
+}
+
+function verdictBanner(v, tr) {
+  if (v.total === 0) return '';
+  const cls = v.allPass ? 'tf-pass' : 'tf-fail';
+  const text = v.allPass ? tt(tr, 'allPass', 'All requirements met') : tt(tr, 'someFail', 'Some requirements not met');
+  return `<p class="tf-verdict ${cls}">${escapeHtml(text)} (${v.passing}/${v.total})</p>`;
+}
+
+export function buildQualifiers(ctx) {
+  const { tr } = ctx;
+  const title = blockTitle(tr, 'qualifiers', 'Specification');
+  const { d: q, fail } = blockData(ctx, 'qualifiers', title);
+  if (fail) return fail;
+  if (!q.qualifiers.length) {
+    return wrap('qualifiers', title, note(escapeHtml(tt(tr, 'noQualifiers', 'No design requirements defined.'))), { subtitle: subtitleOf(ctx) });
+  }
   const rows = q.qualifiers.map((ql, i) => {
     const r = q.results[i] || {};
-    const mark = r.pass === true ? '<span class="tf-pass">✔</span>'
-               : r.pass === false ? '<span class="tf-fail">✘</span>'
-               : '<span class="tf-skip">–</span>';
-    return [
-      escapeHtml(ql.label || (L.kinds && L.kinds[ql.kind]) || ql.kind),
-      escapeHtml(r.displayValue || '—'),
-      escapeHtml(r.summary || ''),
-      mark,
-    ];
+    return [escapeHtml(qualifierLabel(ql, tr)), escapeHtml(r.displayValue || num(null)), escapeHtml(r.summary || ''), verdictMark(r.pass)];
   });
-  const v = q.verdict;
-  const banner = v.total === 0 ? ''
-    : v.allPass
-      ? `<p class="tf-verdict tf-pass">${escapeHtml(tt(L, 'allPass', 'All requirements met'))} (${v.passing}/${v.total})</p>`
-      : `<p class="tf-verdict tf-fail">${escapeHtml(tt(L, 'someFail', 'Some requirements not met'))} (${v.passing}/${v.total})</p>`;
-  return wrap('qualifiers', title, banner + table(
-    [tt(L, 'requirement', 'Requirement'), tt(L, 'value', 'Value'), tt(L, 'detail', 'Detail'), tt(L, 'verdict', 'Verdict')],
-    rows, { align: ['', 'r', '', ''] }));
+  const headers = [tt(tr, 'requirement', 'Requirement'), tt(tr, 'value', 'Value'), tt(tr, 'detail', 'Detail'), tt(tr, 'verdict', 'Verdict')].map(escapeHtml);
+  return wrap('qualifiers', title, verdictBanner(q.verdict, tr) + table(headers, rows, { align: ['l', 'r', 'l', 'l'] }),
+    { subtitle: subtitleOf(ctx) });
 }
 
-export function buildMerit({ data, tr }) {
-  const title = sectionTitle(tr, 'merit-function', 'Merit Function Operands');
-  const m = data.merit;
-  if (!m) return wrap('merit-function', title, errNote('not computed'));
-  if (m.error) return wrap('merit-function', title, errNote(m.error));
-  const L = tr || {};
-  if (!m.length)
-    return wrap('merit-function', title, `<p class="tf-note">${escapeHtml(tt(L, 'noOperands', 'No merit-function operands defined.'))}</p>`);
+function operandRange(op) {
+  if (op.lambdaStart == null) return num(null);
+  return op.lambdaStart === op.lambdaEnd ? num(op.lambdaStart, 0) : `${num(op.lambdaStart, 0)}-${num(op.lambdaEnd, 0)}`;
+}
+
+export function buildMerit(ctx) {
+  const { tr } = ctx;
+  const title = blockTitle(tr, 'merit', 'Merit function operands');
+  const { d: m, fail } = blockData(ctx, 'merit', title);
+  if (fail) return fail;
+  if (!m.length) {
+    return wrap('merit', title, note(escapeHtml(tt(tr, 'noOperands', 'No merit-function operands defined.'))), { subtitle: subtitleOf(ctx) });
+  }
   const rows = m.map(op => [
-    `${op.index}`, escapeHtml(op.type),
-    (op.lambdaStart != null ? (op.lambdaStart === op.lambdaEnd ? `${num(op.lambdaStart, 0)}` : `${num(op.lambdaStart, 0)}–${num(op.lambdaEnd, 0)}`) : '—'),
-    `${deg(op.aoi)}°`, escapeHtml(op.pol),
-    op.target != null ? num(op.target, 4) : '—',
-    num(op.weight, 2),
+    `${op.index}`, escapeHtml(op.type), operandRange(op), `${deg(op.aoi)}°`, escapeHtml(op.pol),
+    op.target != null ? num(op.target, 4) : num(null), num(op.weight, 2),
   ]);
-  return wrap('merit-function', title, table(
-    ['#', tt(L, 'type', 'Type'), 'λ (nm)', tt(L, 'aoi', 'AOI'), tt(L, 'pol', 'Pol'),
-     tt(L, 'target', 'Target'), tt(L, 'weight', 'Weight')],
-    rows, { align: ['', '', '', 'r', '', 'r', 'r'] }));
+  const headers = ['#', tt(tr, 'type', 'Type'), 'λ, nm', tt(tr, 'aoi', 'AOI'), tt(tr, 'pol', 'Pol'),
+                   tt(tr, 'target', 'Target'), tt(tr, 'weight', 'Weight')].map(escapeHtml);
+  return wrap('merit', title, table(headers, rows, { align: ['r', 'l', 'r', 'r', 'l', 'r', 'r'] }), { subtitle: subtitleOf(ctx) });
 }
 
-export function buildRiProfile({ data, tr }) {
-  const title = sectionTitle(tr, 'ri-profile', 'Refractive-Index Profile');
-  const rp = data.riProfile;
-  if (!rp) return wrap('ri-profile', title, errNote('not computed'));
-  if (rp.error) return wrap('ri-profile', title, errNote(rp.error));
-  const L = tr || {};
-  if (!rp.z || !rp.z.length)
-    return wrap('ri-profile', title, `<p class="tf-note">${escapeHtml(tt(L, 'noLayers', 'No layers'))}</p>`);
-  const svg = lineChartSVG({
-    width: 720, height: 260,
-    series: [{ x: rp.z, y: rp.n, color: '#6a1b9a', label: 'n', step: true }],
-    xLabel: tt(L, 'depthNm', 'Depth z (nm)'), yLabel: 'n',
-  });
-  const cap = `<p class="tf-note">λ = ${num(rp.lambda, 1)} nm</p>`;
-  return wrap('ri-profile', title, `<div class="tf-plot">${svg}</div>${cap}`);
+// A depth profile as one plot, or nothing when the block's plot is switched off.
+function profilePlot(series, xLabel, yLabel, settings) {
+  const height = plotHeight(settings.plot);
+  if (height <= 0) return '';
+  return `<div class="tf-plot">${lineChartSVG({ width: 720, height, series, xLabel, yLabel })}</div>`;
 }
 
-export function buildEField({ data, tr }) {
-  const title = sectionTitle(tr, 'efield', 'Electric Field Profile');
-  const ef = data.efield;
-  if (!ef) return wrap('efield', title, errNote('not computed'));
-  if (ef.error) return wrap('efield', title, errNote(ef.error));
-  const L = tr || {};
-  if (!ef.z || !ef.z.length)
-    return wrap('efield', title, `<p class="tf-note">${escapeHtml(tt(L, 'noLayers', 'No layers'))}</p>`);
-  const svg = lineChartSVG({
-    width: 720, height: 300,
-    series: [{ x: ef.z, y: ef.e2, color: '#00838f', label: '|E|²' }],
-    xLabel: tt(L, 'depthNm', 'Depth z (nm)'), yLabel: '|E|² (norm.)',
-  });
-  const cap = `<p class="tf-note">λ = ${num(ef.lambda, 1)} nm · AOI ${deg(ef.theta)}° · ${escapeHtml(ef.pol)}</p>`;
-  return wrap('efield', title, `<div class="tf-plot">${svg}</div>${cap}`);
+export function buildRiProfile(ctx) {
+  const { tr, settings } = ctx;
+  const title = blockTitle(tr, 'riProfile', 'Refractive index profile');
+  const { d: rp, fail } = blockData(ctx, 'riProfile', title);
+  if (fail) return fail;
+  if (!rp.z || !rp.z.length) return wrap('riProfile', title, note(escapeHtml(tt(tr, 'noLayers', 'No layers'))), { subtitle: subtitleOf(ctx) });
+  const plot = profilePlot([{ x: rp.z, y: rp.n, color: '#6a1b9a', label: 'n', step: true }],
+    tt(tr, 'depthNm', 'Depth z, nm'), 'n', settings);
+  return wrap('riProfile', title, plot, { subtitle: subtitleOf(ctx, `λ ${num(rp.lambda, 1)} nm`) });
 }
 
-export function buildEllipsometry({ data, opts, tr }) {
-  const title = sectionTitle(tr, 'ellipsometry', 'Ellipsometry');
-  const e = data.ellipsometry;
-  if (!e) return wrap('ellipsometry', title, errNote('not computed'));
-  if (e.error) return wrap('ellipsometry', title, errNote(e.error));
-  const L = tr || {};
-  const o = opts || {};
-  const which = o.quantity || 'both'; // 'psi' | 'delta' | 'both'
-
-  const psiSeries = [], deltaSeries = [];
-  e.series.forEach((s, si) => {
-    const suffix = e.series.length > 1 ? ` @${deg(s.theta)}°` : '';
-    const dash = si === 0 ? null : (si === 1 ? '4 3' : '1 3');
-    psiSeries.push({ x: e.lambda, y: s.psi, color: '#1565c0', label: 'Ψ' + suffix, dash });
-    deltaSeries.push({ x: e.lambda, y: s.delta, color: '#c62828', label: 'Δ' + suffix, dash });
-  });
-
-  let plots = '';
-  if (which === 'psi' || which === 'both')
-    plots += `<div class="tf-plot">${lineChartSVG({ width: 720, height: 240, series: psiSeries,
-      xLabel: tt(L, 'wavelengthNm', 'Wavelength (nm)'), yLabel: 'Ψ (°)', yMin: 0, yMax: 90 })}</div>`;
-  if (which === 'delta' || which === 'both')
-    plots += `<div class="tf-plot">${lineChartSVG({ width: 720, height: 240, series: deltaSeries,
-      xLabel: tt(L, 'wavelengthNm', 'Wavelength (nm)'), yLabel: 'Δ (°)', yMin: 0, yMax: 360 })}</div>`;
-
-  const cap = `<p class="tf-note">${escapeHtml(tt(L, 'aoi', 'AOI'))}: `
-    + e.series.map(s => `${deg(s.theta)}°`).join(', ') + `</p>`;
-  return wrap('ellipsometry', title, plots + cap);
+export function buildEField(ctx) {
+  const { tr, settings } = ctx;
+  const title = blockTitle(tr, 'efield', 'Electric field');
+  const { d: ef, fail } = blockData(ctx, 'efield', title);
+  if (fail) return fail;
+  if (!ef.z || !ef.z.length) return wrap('efield', title, note(escapeHtml(tt(tr, 'noLayers', 'No layers'))), { subtitle: subtitleOf(ctx) });
+  const plot = profilePlot([{ x: ef.z, y: ef.e2, color: '#00838f', label: '|E|²' }],
+    tt(tr, 'depthNm', 'Depth z, nm'), '|E|²', settings);
+  const sub = `λ ${num(ef.lambda, 1)} nm · ${escapeHtml(tt(tr, 'aoi', 'AOI'))} ${deg(ef.theta)}° · ${escapeHtml(ef.pol)}`;
+  return wrap('efield', title, plot, { subtitle: subtitleOf(ctx, sub) });
 }
 
-export function buildNotes({ design, opts, tr }) {
-  const title = sectionTitle(tr, 'notes', 'Notes');
-  const L = tr || {};
-  const text = (opts && opts.text != null) ? opts.text : (design.notes || '');
+export function buildNotes(ctx) {
+  const { design, settings, tr } = ctx;
+  const title = blockTitle(tr, 'notes', 'Notes');
+  const text = (settings.text && settings.text.trim()) ? settings.text : (design.notes || '');
   const body = text.trim()
-    ? `<div class="tf-notes">${escapeHtml(text).replace(/\n/g, '<br>')}</div>`
-    : `<p class="tf-note">${escapeHtml(tt(L, 'noNotes', 'No notes.'))}</p>`;
-  return wrap('notes', title, body);
+    ? `<div class="tf-notes">${escapeHtml(text)}</div>`
+    : note(escapeHtml(tt(tr, 'noNotes', 'No notes.')));
+  return wrap('notes', title, body, { subtitle: subtitleOf(ctx) });
+}
+
+export function buildSignatures(ctx) {
+  const { tr } = ctx;
+  const title = blockTitle(tr, 'signatures', 'Signatures');
+  const roles = [tt(tr, 'prepared', 'Prepared'), tt(tr, 'checked', 'Checked'), tt(tr, 'approved', 'Approved')];
+  const line = escapeHtml(tt(tr, 'nameDate', 'name, date'));
+  const inner = `<div class="tf-sign">${roles.map(r => `<div>${escapeHtml(r)} · ${line}</div>`).join('')}</div>`;
+  return wrap('signatures', title, inner);
 }

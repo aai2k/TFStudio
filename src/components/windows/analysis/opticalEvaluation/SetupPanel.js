@@ -8,7 +8,8 @@ import { Y_SCALE_IDS, yRangeControl, yScaleOf } from './yScale.js';
 
 const { createElement: h } = React;
 
-function SpectralRange({ c, oe, params, setParams, spectralUnit, setSpectralUnit }) {
+/** The spectral range in the chosen unit, its step, and the unit itself. Shared with the report's spectrum block. */
+export function SpectralRange({ c, oe, params, setParams, spectralUnit, setSpectralUnit }) {
     const range = spectralRangeControl(spectralUnit, params.lambdaStart, params.lambdaEnd);
     return h(React.Fragment, null,
         h(SettingRow, { c, label: range.symbol },
@@ -44,8 +45,9 @@ const Y_BOUNDS = { min: -10, max: 200 };
 // The bounds stay in place while Auto is on, disabled rather than hidden, so
 // ticking the box does not resize the panel under the pointer. They are stored
 // as percentages whichever unit is selected, so the two ends of the range keep
-// their meaning when the unit changes under them.
-function VerticalRange({ c, oe, yAuto, setYAuto, yMin, setYMin, yMax, setYMax, yScale, setYScale }) {
+// their meaning when the unit changes under them. Shared with the report's
+// spectrum block.
+export function VerticalRange({ c, oe, yAuto, setYAuto, yMin, setYMin, yMax, setYMax, yScale, setYScale }) {
     const range = yRangeControl(yScale, yMin, yMax, Y_BOUNDS);
     return h(SettingRow, { c, label: 'Y' },
         h(CheckField, {

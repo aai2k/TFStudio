@@ -1,54 +1,90 @@
 /**
- * Report section catalogue and dispatcher.
+ * Block builders and their dispatcher.
  *
- * One builder per section (see ./sections/). Each takes a context
- * { design, data, opts, tr } (tr = the `t.report` locale object) and returns an
- * HTML string for a single <section>; the template composes the ordered, enabled
- * sections. Numeric results come pre-computed from reportData.gatherDesignData —
- * builders only format. A builder that throws is caught here and rendered as a
- * small note, so one failure never aborts the report.
+ * One builder per block type (see ./sections/). Each takes the block context
+ * { design, data, block, settings, tr, designName } and returns the HTML for
+ * one <section>; the template composes the ordered, enabled blocks. Numeric
+ * results come pre-computed from reportData.gatherDesignData, keyed by block
+ * id, so builders only format. A builder that throws is caught here and
+ * rendered as a note, so one failure never aborts the report.
+ *
+ * Block types with a comparison form render once for several designs; the
+ * rest render per design.
  */
 
-import { sectionTitle, errNote, wrap } from './sections/format.js';
-import { buildDesignSummary, buildOptical } from './sections/summaryOptical.js';
+import { blockTitle, errNote, wrap } from './sections/format.js';
+import { buildFacts } from './sections/facts.js';
+import { buildLayers } from './sections/layers.js';
+import { buildMaterials } from './sections/materials.js';
+import { buildSpectrum } from './sections/spectrum.js';
+import { buildSpectrumComparison } from './sections/spectrumComparison.js';
+import { buildEllipsometry } from './sections/ellipsometry.js';
+import { buildGdGdd } from './sections/dispersion.js';
+import { buildMonteCarlo } from './sections/monteCarlo.js';
+import { buildWorksheet } from './sections/worksheet.js';
 import {
   buildColor, buildIntegrals, buildQualifiers, buildMerit,
-  buildRiProfile, buildEField, buildEllipsometry, buildNotes,
+  buildRiProfile, buildEField, buildNotes, buildSignatures,
 } from './sections/otherSections.js';
-
-// ── Section catalogue (id → default order / title key) ──────────────────────
-// `dataKey` names the gatherDesignData field a section consumes (if any).
-export const REPORT_SECTIONS = [
-  { id: 'cover',           dataKey: null,            defaultOn: true },
-  { id: 'design-summary',  dataKey: 'summary',       defaultOn: true },
-  { id: 'optical-eval',    dataKey: 'spectrum',      defaultOn: true },
-  { id: 'color-eval',      dataKey: 'color',         defaultOn: false },
-  { id: 'ri-profile',      dataKey: 'riProfile',     defaultOn: false },
-  { id: 'efield',          dataKey: 'efield',        defaultOn: false },
-  { id: 'ellipsometry',    dataKey: 'ellipsometry',  defaultOn: false },
-  { id: 'integral-values', dataKey: 'integrals',     defaultOn: false },
-  { id: 'qualifiers',      dataKey: 'qualifiers',    defaultOn: false },
-  { id: 'merit-function',  dataKey: 'merit',         defaultOn: false },
-  { id: 'notes',           dataKey: null,            defaultOn: false },
-];
+import {
+  buildFactsComparison, buildLayersComparison, buildMaterialsComparison,
+  buildQualifiersComparison, buildIntegralsComparison, buildColorComparison,
+} from './sections/comparison.js';
+import { withDefaults } from './blocks.js';
 
 const BUILDERS = {
-  'design-summary': buildDesignSummary,
-  'optical-eval':   buildOptical,
-  'color-eval':     buildColor,
-  'integral-values':buildIntegrals,
-  'qualifiers':     buildQualifiers,
-  'merit-function': buildMerit,
-  'ri-profile':     buildRiProfile,
-  'efield':         buildEField,
-  'ellipsometry':   buildEllipsometry,
-  'notes':          buildNotes,
+  facts: buildFacts,
+  layers: buildLayers,
+  materials: buildMaterials,
+  spectrum: buildSpectrum,
+  color: buildColor,
+  integrals: buildIntegrals,
+  qualifiers: buildQualifiers,
+  merit: buildMerit,
+  riProfile: buildRiProfile,
+  efield: buildEField,
+  ellipsometry: buildEllipsometry,
+  gdGdd: buildGdGdd,
+  monteCarlo: buildMonteCarlo,
+  worksheet: buildWorksheet,
+  notes: buildNotes,
+  signatures: buildSignatures,
 };
 
-/** Build one section's HTML. Returns '' for unknown / cover (cover is template). */
-export function buildSection(id, ctx) {
-  const fn = BUILDERS[id];
+const COMPARISON_BUILDERS = {
+  facts: buildFactsComparison,
+  layers: buildLayersComparison,
+  materials: buildMaterialsComparison,
+  spectrum: buildSpectrumComparison,
+  qualifiers: buildQualifiersComparison,
+  integrals: buildIntegralsComparison,
+  color: buildColorComparison,
+};
+
+// Rendered once whatever the number of designs.
+const ONCE = new Set(['title', 'signatures']);
+
+export function rendersOnce(type) { return ONCE.has(type); }
+export function hasComparisonForm(type) { return type in COMPARISON_BUILDERS; }
+
+/** One block's HTML for one design. Returns '' for the title, which is page furniture. */
+export function buildBlock(block, ctx) {
+  const fn = BUILDERS[block.type];
   if (!fn) return '';
-  try { return fn(ctx); }
-  catch (e) { return wrap(id, sectionTitle(ctx.tr, id, id), errNote(e.message || String(e))); }
+  const settings = withDefaults(block.type, block.settings);
+  try { return fn({ ...ctx, block, settings }); }
+  catch (e) {
+    return wrap(block.type, blockTitle(ctx.tr, block.type, block.type), errNote(e.message || String(e)));
+  }
+}
+
+/** One block's HTML across several designs, or null when the type has no comparison form. */
+export function buildComparisonBlock(block, ctx) {
+  const fn = COMPARISON_BUILDERS[block.type];
+  if (!fn) return null;
+  const settings = withDefaults(block.type, block.settings);
+  try { return fn({ ...ctx, block, settings }); }
+  catch (e) {
+    return wrap(block.type, blockTitle(ctx.tr, block.type, block.type), errNote(e.message || String(e)));
+  }
 }

@@ -76,6 +76,16 @@ const backCoated = {
     assert.equal(second.theta, 45, 'the angle is a display preference and carries over');
     assert.equal(second.pol, 'p');
 
+    // A reader other than the window (the Report) peeks: it sees what the
+    // window would show for another design without moving the window off its
+    // own, so a side set by hand survives the look.
+    eFieldSession.write(backCoated, { side: 'front' });
+    const peeked = eFieldSession.peek(coated);
+    assert.equal(peeked.side, 'front', 'a peek reseeds a copy for the other design');
+    assert.equal(peeked.lambda, 625);
+    assert.equal(eFieldSession.read(backCoated).side, 'front',
+        'and the window keeps the side set for its own design');
+
     eFieldSession.reset();
 }
 

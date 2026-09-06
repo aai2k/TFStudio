@@ -236,6 +236,14 @@ const chartOption = figure.buildSpectraOption({ quantity: 'R' }, colors, sp);
 assert.deepEqual([chartOption.yAxis.min, chartOption.yAxis.max], [0, 100]);
 assert.ok(chartOption.toolbox.feature.saveAsImage, 'native chart export remains available');
 
+// The wavelength axis is pinned to the range that was set. Left to ECharts it
+// rounds its start down to a tick, so a range from 399 nm drew from 300.
+{
+    const pinned = figure.buildSpectraOption({ quantity: 'R', range: [399, 800] }, colors, sp).xAxis;
+    assert.deepEqual([pinned.min, pinned.max], [399, 800]);
+    assert.deepEqual([chartOption.xAxis.min, chartOption.xAxis.max], [undefined, undefined], 'no range set, no pin');
+}
+
 // Focusing a layer greys the other step curves rather than hiding them: a
 // monitoring turning point is read against the curves that came before it.
 {

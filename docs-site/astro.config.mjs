@@ -157,7 +157,7 @@ export default defineConfig({
           label: 'Information',
           translations: { 'zh-CN': '信息' },
           items: [
-            { label: 'Report Generator', translations: { 'zh-CN': '报告生成器' }, slug: 'data-exchange/report-generator' },
+            { label: 'Report', translations: { 'zh-CN': '报告' }, slug: 'data-exchange/report-generator' },
           ],
         },
         {

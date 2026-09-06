@@ -65,7 +65,7 @@ Design Editor from the substrate outwards.
 
 ## Data Exchange
 
-- [Report Generator](https://docs.tfstudio.xyz/data-exchange/report-generator/): assembling design documentation for export.
+- [Report](https://docs.tfstudio.xyz/data-exchange/report-generator/): a document assembled from blocks over one or several designs, saved as PDF or HTML.
 - [Zemax Coatings](https://docs.tfstudio.xyz/data-exchange/zemax-coatings/): reading and writing Zemax COATING.DAT files.
 - [Measured Spectra](https://docs.tfstudio.xyz/data-exchange/measured-spectra/): importing spectrophotometer data for comparison against a design.
 - [Process Exporter](https://docs.tfstudio.xyz/simulation/process-simulator/): exporting a layer schedule for a deposition controller.

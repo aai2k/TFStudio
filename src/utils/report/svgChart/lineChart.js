@@ -1,6 +1,6 @@
 import { resolveXRange, resolveYRange } from './chartRange.js';
 import { axisTicksSVG, axisLabelsSVG } from './chartAxes.js';
-import { seriesPolylinesSVG, legendSVG } from './chartSeries.js';
+import { seriesPolylinesSVG, legendLayout, legendSVG, LEGEND_ROW_HEIGHT } from './chartSeries.js';
 
 const M_LEFT = 56, M_RIGHT = 16, M_TOP = 14, M_BOTTOM = 46;
 
@@ -13,8 +13,12 @@ function emptyChartSVG(width, height) {
 /**
  * Line chart.
  *
+ * The legend sits under the plot, in rows that wrap at the plot width, and
+ * adds its own height below `height`, so it never covers a curve and the plot
+ * area is the same with or without it.
+ *
  * @param {object} cfg
- *   width,height   px (viewBox; CSS scales to container)
+ *   width,height   px of the plot (viewBox; CSS scales to container)
  *   series         [{ x:[…], y:[…], color, label, dash? }]
  *   xLabel,yLabel  axis titles
  *   yMin,yMax      optional fixed y-range (else auto)
@@ -43,15 +47,19 @@ export function lineChartSVG(cfg) {
 
   const geom = { xMin, xMax, yMin, yMax, mL, mR, mT, mB, pw, ph, width, height, sx, sy };
 
+  const rows = legend && all.length > 1 ? legendLayout(all, mL, pw) : [];
+  const legendHeight = rows.length ? rows.length * LEGEND_ROW_HEIGHT + 4 : 0;
+  const total = height + legendHeight;
+
   const parts = [];
-  parts.push(`<svg viewBox="0 0 ${width} ${height}" class="tf-chart" xmlns="http://www.w3.org/2000/svg">`);
-  parts.push(`<rect x="0" y="0" width="${width}" height="${height}" fill="#ffffff"/>`);
+  parts.push(`<svg viewBox="0 0 ${width} ${total}" class="tf-chart" xmlns="http://www.w3.org/2000/svg">`);
+  parts.push(`<rect x="0" y="0" width="${width}" height="${total}" fill="#ffffff"/>`);
   parts.push(`<rect x="${mL}" y="${mT}" width="${pw}" height="${ph}" fill="#ffffff" stroke="#888" stroke-width="1"/>`);
 
   parts.push(...axisTicksSVG(geom));
   parts.push(...seriesPolylinesSVG(all, sx, sy));
   parts.push(...axisLabelsSVG(geom, xLabel, yLabel));
-  if (legend && all.length > 1) parts.push(...legendSVG(geom, all));
+  if (rows.length) parts.push(...legendSVG(rows, height));
 
   parts.push(`</svg>`);
   return parts.join('');

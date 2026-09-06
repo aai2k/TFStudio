@@ -1,4 +1,4 @@
-import { tableStyles } from './ui.js';
+import { tableStyles, yieldColor } from './ui.js';
 
 const { createElement: h } = React;
 
@@ -63,7 +63,7 @@ const formatPercent = (value) => value == null ? '—' : (value * 100).toFixed(2
 
 function OverviewStatistics({ result, corridorSigma, blockLbl, c, ea }) {
     const sp = result.spec;
-    const yieldCol = !sp || sp.yield == null ? c.textDim : sp.yield >= 0.95 ? c.success : sp.yield >= 0.8 ? c.warning : c.error;
+    const yieldCol = yieldColor(c, sp?.yield);
     return h(React.Fragment, null,
         h('div', { style: blockLbl }, ea.statsOverview || 'Overview'),
         h(StatRow, { c, label: ea.trialsDone || 'Trials', value: String(result.nTrials) }),

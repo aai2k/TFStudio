@@ -1,16 +1,19 @@
-// IPC: Report Generator — self-contained HTML export, headless
-// print-to-PDF (offscreen BrowserWindow), report-config presets
-// (Documents\TFStudio\ReportPresets\<name>.tfsr) and branding-logo load.
+// IPC for the Report window: self-contained HTML export, headless print-to-PDF
+// (offscreen BrowserWindow) with a running header and footer, report templates
+// (Documents\TFStudio\ReportPresets\<name>.tfsr), the branding profile
+// (Documents\TFStudio\Branding\branding.json) and branding-logo load.
 //
 // CommonJS, Electron-free (deps via ctx).
 function register(ipcMain, ctx) {
   ipcMain.handle('report:save-html', async (event, html, suggestedName) => handleSaveHtml(ctx, html, suggestedName));
-  ipcMain.handle('report:export-pdf', async (event, html, suggestedName) => handleExportPdf(ctx, html, suggestedName));
+  ipcMain.handle('report:export-pdf', async (event, html, suggestedName, options) => handleExportPdf(ctx, html, suggestedName, options));
   ipcMain.handle('report:list-presets', async () => handleListPresets(ctx));
   ipcMain.handle('report:load-preset', async (event, name) => handleLoadPreset(ctx, name));
   ipcMain.handle('report:save-preset', async (event, preset) => handleSavePreset(ctx, preset));
   ipcMain.handle('report:delete-preset', async (event, name) => handleDeletePreset(ctx, name));
   ipcMain.handle('report:load-logo', async () => handleLoadLogo(ctx));
+  ipcMain.handle('report:load-branding', async () => handleLoadBranding(ctx));
+  ipcMain.handle('report:save-branding', async (event, branding) => handleSaveBranding(ctx, branding));
 }
 
 async function handleSaveHtml(ctx, html, suggestedName) {
@@ -31,7 +34,27 @@ async function handleSaveHtml(ctx, html, suggestedName) {
   }
 }
 
-async function handleExportPdf(ctx, html, suggestedName) {
+const PAGE_SIZES = new Set(['A4', 'Letter']);
+
+// Page margins in inches, matching the @page rule in the report stylesheet;
+// the header and footer templates are drawn inside the top and bottom ones.
+const PDF_MARGINS = { top: 0.55, bottom: 0.63, left: 0.47, right: 0.47 };
+
+function pdfOptions(options) {
+  const o = options || {};
+  const header = typeof o.headerTemplate === 'string' ? o.headerTemplate : '';
+  const footer = typeof o.footerTemplate === 'string' ? o.footerTemplate : '';
+  return {
+    printBackground: true,
+    pageSize: PAGE_SIZES.has(o.pageSize) ? o.pageSize : 'A4',
+    margins: PDF_MARGINS,
+    displayHeaderFooter: !!(header || footer),
+    headerTemplate: header || '<span></span>',
+    footerTemplate: footer || '<span></span>',
+  };
+}
+
+async function handleExportPdf(ctx, html, suggestedName, options) {
   const { dialog, getMainWindow, BrowserWindow, app, fs, path, log, safeName } = ctx;
   let win = null;
   let tmpFile = null;
@@ -57,11 +80,7 @@ async function handleExportPdf(ctx, html, suggestedName) {
     await win.loadFile(tmpFile);
     // Give layout/SVG a tick to settle before printing.
     await new Promise(r => setTimeout(r, 250));
-    const pdf = await win.webContents.printToPDF({
-      printBackground: true,
-      pageSize: 'A4',
-      margins: { marginType: 'default' },
-    });
+    const pdf = await win.webContents.printToPDF(pdfOptions(options));
     fs.writeFileSync(res.filePath, pdf);
     return { success: true, path: res.filePath };
   } catch (err) {
@@ -109,7 +128,7 @@ async function handleSavePreset(ctx, preset) {
   const { path, log, reportPresetsDir, safeName, writeFileAtomic } = ctx;
   try {
     if (!preset?.name) return { success: false, error: 'preset.name required' };
-    const out = { ver: 1, ...preset };
+    const out = { ver: 2, ...preset };
     const file = path.join(reportPresetsDir, safeName(preset.name) + '.tfsr');
     writeFileAtomic(file, JSON.stringify(out, null, 2), 'utf-8');
     return { success: true };
@@ -132,21 +151,17 @@ async function handleDeletePreset(ctx, name) {
   }
 }
 
-// Load a cover-page logo. Defaults to Documents\TFStudio\Branding\logo.png if
-// present, else prompts. Returns a data: URL for inline embedding.
+// Pick a logo image file and return it as a data: URL for inline embedding.
 async function handleLoadLogo(ctx) {
-  const { dialog, getMainWindow, fs, path, log, brandingDir } = ctx;
+  const { dialog, getMainWindow, fs, path, log } = ctx;
   try {
-    let file = path.join(brandingDir, 'logo.png');
-    if (!fs.existsSync(file)) {
-      const pick = await dialog.showOpenDialog(getMainWindow(), {
-        title: 'Select cover logo',
-        properties: ['openFile'],
-        filters: [{ name: 'Images', extensions: ['png', 'jpg', 'jpeg', 'gif', 'webp', 'svg'] }],
-      });
-      if (pick.canceled || !pick.filePaths.length) return { canceled: true };
-      file = pick.filePaths[0];
-    }
+    const pick = await dialog.showOpenDialog(getMainWindow(), {
+      title: 'Select logo',
+      properties: ['openFile'],
+      filters: [{ name: 'Images', extensions: ['png', 'jpg', 'jpeg', 'gif', 'webp', 'svg'] }],
+    });
+    if (pick.canceled || !pick.filePaths.length) return { canceled: true };
+    const file = pick.filePaths[0];
     const ext = path.extname(file).toLowerCase().slice(1);
     const mime = ext === 'svg' ? 'image/svg+xml'
                : ext === 'jpg' || ext === 'jpeg' ? 'image/jpeg'
@@ -155,6 +170,33 @@ async function handleLoadLogo(ctx) {
     return { success: true, dataUrl: `data:${mime};base64,${b64}` };
   } catch (err) {
     log(`report:load-logo error: ${err.message}`);
+    return { success: false, error: err.message };
+  }
+}
+
+const BRANDING_FILE = 'branding.json';
+
+async function handleLoadBranding(ctx) {
+  const { fs, path, log, brandingDir } = ctx;
+  try {
+    const file = path.join(brandingDir, BRANDING_FILE);
+    if (!fs.existsSync(file)) return { success: true, branding: null };
+    return { success: true, branding: JSON.parse(fs.readFileSync(file, 'utf-8')) };
+  } catch (err) {
+    log(`report:load-branding error: ${err.message}`);
+    return { success: false, error: err.message };
+  }
+}
+
+async function handleSaveBranding(ctx, branding) {
+  const { fs, path, log, brandingDir, writeFileAtomic } = ctx;
+  try {
+    if (!branding || typeof branding !== 'object') return { success: false, error: 'branding required' };
+    if (!fs.existsSync(brandingDir)) fs.mkdirSync(brandingDir, { recursive: true });
+    writeFileAtomic(path.join(brandingDir, BRANDING_FILE), JSON.stringify({ ver: 1, ...branding }, null, 2), 'utf-8');
+    return { success: true };
+  } catch (err) {
+    log(`report:save-branding error: ${err.message}`);
     return { success: false, error: err.message };
   }
 }

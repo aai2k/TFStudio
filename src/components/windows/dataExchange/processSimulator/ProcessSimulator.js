@@ -78,8 +78,10 @@ export function ProcessSimulator({ c, t }) {
         focusStep,
         showAll: setup.showAll,
         quantity: setup.quantity,
+        // The set range, which the axis is pinned to; null until it is a range.
+        range: setup.lambdaEnd > setup.lambdaStart ? [setup.lambdaStart, setup.lambdaEnd] : null,
     }), [spectra.lambdas, baselinePoints, stepPoints, liveCurve,
-         focusStep, setup.showAll, setup.quantity]);
+         focusStep, setup.showAll, setup.quantity, setup.lambdaStart, setup.lambdaEnd]);
 
     const chipControls = chipMode ? chips : null;
     return h(AnalysisWindow, { c },

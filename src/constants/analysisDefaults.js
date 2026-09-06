@@ -424,6 +424,16 @@ export const ANALYSIS_DEFAULTS = {
     enums: { units: { def: 'ppm', options: ['ppm', 'frac'] } },
     booleans: { showEditor: true, showTable: false },
   },
+
+  // The Report window: what a new report opens with. 'app' as the language
+  // means the language the app is running in; the codes are the locales the
+  // app ships.
+  report: {
+    enums: {
+      paper: { def: 'A4', options: ['A4', 'Letter'] },
+      lang: { def: 'app', options: ['app', 'en', 'ru', 'zh'] },
+    },
+  },
 };
 
 // Rail order for the Settings pane. `shared` leads because its spectral range

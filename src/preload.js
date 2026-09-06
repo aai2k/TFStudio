@@ -86,9 +86,11 @@ contextBridge.exposeInMainWorld('electronAPI', {
   loadMFPreset:           (name) => ipcRenderer.invoke('mf:load', name),
   saveMFPreset:           (preset) => ipcRenderer.invoke('mf:save', preset),
   deleteMFPreset:         (name) => ipcRenderer.invoke('mf:delete', name),
-  // Report Generator — HTML/PDF export, presets, branding logo
+  // Report window: HTML/PDF export, templates, branding profile and logo
   saveReportHtml:         (html, name) => ipcRenderer.invoke('report:save-html', html, name),
-  exportReportPdf:        (html, name) => ipcRenderer.invoke('report:export-pdf', html, name),
+  exportReportPdf:        (html, name, options) => ipcRenderer.invoke('report:export-pdf', html, name, options),
+  loadReportBranding:     () => ipcRenderer.invoke('report:load-branding'),
+  saveReportBranding:     (branding) => ipcRenderer.invoke('report:save-branding', branding),
   listReportPresets:      () => ipcRenderer.invoke('report:list-presets'),
   loadReportPreset:       (name) => ipcRenderer.invoke('report:load-preset', name),
   saveReportPreset:       (preset) => ipcRenderer.invoke('report:save-preset', preset),

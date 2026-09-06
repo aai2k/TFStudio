@@ -104,6 +104,18 @@ export function recordMCTrial(config, state, trial, data, spec) {
     });
 }
 
+// The bands a specification yield is coloured with wherever it is shown: the
+// Monte-Carlo window's status line and statistics panel, and the report.
+export const YIELD_PASS = 0.95;
+export const YIELD_WARN = 0.8;
+
+/** 'pass', 'warn' or 'fail' for a yield fraction, null when there is none. */
+export function yieldBand(value) {
+    if (value == null) return null;
+    if (value >= YIELD_PASS) return 'pass';
+    return value >= YIELD_WARN ? 'warn' : 'fail';
+}
+
 function makeMCSpecSummary(config, state) {
     if (!(config.evaluateSpec && config.qualifiers.length)) return null;
     return {

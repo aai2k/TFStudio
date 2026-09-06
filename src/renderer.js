@@ -16,7 +16,6 @@ import { FilterDesignWizard } from './components/windows/optimization/filterDesi
 import { BBMWizard } from './components/windows/simulation/bbmWizard/BBMWizard.js';
 import { MonoWizard } from './components/windows/simulation/monoWizard/MonoWizard.js';
 import { StackFormulaDialog } from './components/windows/design/stackFormula/StackFormulaDialog.js';
-import { ReportGenerator } from './components/windows/information/reportGenerator/ReportGenerator.js';
 import { WelcomeScreen } from './components/dialogs/WelcomeScreen.js';
 import { GuidedTour } from './components/GuidedTour.js';
 import { TutorialsBrowser } from './components/dialogs/TutorialsBrowser.js';
@@ -257,7 +256,6 @@ const App = () => {
     const [showBBM,           setShowBBM]           = useState(false);
     const [showMono,          setShowMono]          = useState(false);
     const [showStackFormula, setShowStackFormula] = useState(false);
-    const [showReportGen,  setShowReportGen]  = useState(false);
     // Design files picked for import from another coating program: { files, units }.
     const [designImport,   setDesignImport]   = useState(null);
     // First-run welcome screen + guided tour. "Seen" is tracked in
@@ -1421,7 +1419,6 @@ const App = () => {
             'bbm-simulator':  () => setShowBBM(true),
             'mono-simulator': () => setShowMono(true),
             'stack-formula':  () => setShowStackFormula(true),
-            'report-gen':     () => setShowReportGen(true),
             'help-docs':      () => window.electronAPI?.openHelp?.({ anchor: 'index', locale }),
         };
         if (actions[toolId]) { actions[toolId](); return; }
@@ -1477,6 +1474,7 @@ const App = () => {
         h(DesignProvider, {
             activeDesignId,
             designs,
+            folders,
             onDesignChange:   handleDesignChange,
             onCheckpoint:     pushCheckpoint,
             historyView,
@@ -1571,12 +1569,6 @@ const App = () => {
                 onClose: () => setShowStackFormula(false),
                 onCreateNew: (design) => { addItemFromDesign(design); }
             })),
-            showReportGen && h(ReportGenerator, {
-                c, t,
-                designs, activeDesignId,
-                folderName: selectedFolder?.name,
-                onClose: () => setShowReportGen(false)
-            }),
             // ── First-run welcome screen + guided tour ──
             showWelcome && h(WelcomeScreen, {
                 c, t,

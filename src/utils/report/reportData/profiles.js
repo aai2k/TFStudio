@@ -13,6 +13,7 @@ import { mediumId } from './engines.js';
 export function computeEllipsometrySpectrum(design, opts = {}) {
   const resolveMaterial = designMaterialLookup(design);
   const { lambdaStart = 400, lambdaEnd = 800, lambdaStep = 5 } = opts;
+  if (!(lambdaStep > 0)) throw new Error(`Wavelength step must be positive: ${lambdaStep} nm`);
   const thetas = (opts.thetas && opts.thetas.length) ? opts.thetas
                : (opts.aoi != null ? [opts.aoi] : [65]);
   const n0mat = resolveMaterial(mediumId(design.incidentMedium));

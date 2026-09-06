@@ -236,7 +236,12 @@ export function buildSpectraOption(data, colors, labels) {
             colors, valueSuffix: '%',
             include: row => named.has(row.seriesName),
         }),
-        xAxis: valueAxis({ name: 'Wavelength (nm)', color: colors.text, gridColor: colors.grid, nameGap: 28 }),
+        // Pinned to the range that was set, as Optical Evaluation pins its own;
+        // the shared wavelength rule supplies the 50 nm ticks.
+        xAxis: valueAxis({
+            name: 'Wavelength (nm)', color: colors.text, gridColor: colors.grid, nameGap: 28,
+            min: data.range?.[0], max: data.range?.[1],
+        }),
         yAxis: valueAxis({ name: '%', color: colors.text, gridColor: colors.grid, min: 0, max: 100, interval: 10 }),
         series: buildSpectraSeries(data, colors, labels),
     });

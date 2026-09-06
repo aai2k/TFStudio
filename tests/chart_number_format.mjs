@@ -48,6 +48,14 @@ assert.equal(itemTooltip().valueFormatter(1.005), '1.005');
 
     assert.equal(axisFor(400, 700).interval, 50, 'a visible spectrum keeps its 50 nm ticks');
     assert.equal(axisFor(319.84, 850.03).interval, 50, 'so does a full ellipsometer sweep');
+    assert.deepEqual([axisFor(399, 800).min, axisFor(399, 800).max], [399, 800],
+        'the axis spans the range computed, not the tick below its start');
+    const declared = cartesianOption({
+        xAxis: valueAxis({ name: 'Wavelength (nm)', min: 380, max: 780 }),
+        yAxis: valueAxis({ name: 'y' }),
+        series: [{ type: 'line', data: [[400, 1], [700, 1]] }],
+    }).xAxis;
+    assert.deepEqual([declared.min, declared.max], [380, 780], 'an axis with its own bounds keeps them');
     for (const [low, high, what] of [
         [319840, 850030, 'a wavelength column read as micrometres'],
         [1.459, 3.876, 'the same column read as photon energy'],

@@ -25,6 +25,9 @@ function unitFor(id) { return SPECTRAL_UNITS[id] || SPECTRAL_UNITS.nm; }
 export function fromNm(nm, unit) { return unitFor(unit).fromNm(nm); }
 export function toNm(value, unit) { return unitFor(unit).toNm(value); }
 
+/** The quantity symbol a unit is read in: λ, ν̃, f or E. */
+export function spectralSymbol(unit) { return RANGE_CONTROL[unitFor(unit).id].symbol; }
+
 export function spectralRangeControl(unit, nmStart, nmEnd) {
     const id = SPECTRAL_UNITS[unit] ? unit : 'nm';
     const config = RANGE_CONTROL[id];

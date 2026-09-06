@@ -1,4 +1,14 @@
+import { yieldBand } from '../../../../utils/physics/errorAnalysis/mcResult.js';
+
 const { createElement: h } = React;
+
+/** Theme colour for a specification yield, by the band it falls in. */
+export function yieldColor(c, value) {
+    const band = yieldBand(value);
+    if (band === 'pass') return c.success;
+    if (band === 'warn') return c.warning;
+    return band === 'fail' ? c.error : c.textDim;
+}
 
 export function chip(txt, color, tip, key) {
     return h('span', {

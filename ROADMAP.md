@@ -8,7 +8,6 @@ If something here matters to your work, or something you need is missing, open a
 
 ## Next
 
-- **Coating Library.** Saving and reusing user-made coating stacks. A curated set of starting designs with real materials will be shipped too. 
 - **Report layout.** Denser layer tables and better defaults in generated reports.
 - **Visual GD/GDD target editing.** Draw, move and remove dispersion targets directly on the GD/GDD plot instead of switching to the merit table.
 - **Pulse Analysis.** Propagate Gaussian, sech-squared or measured pulses through a coating and show temporal broadening, spectral phase and residual chirp.

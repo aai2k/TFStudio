@@ -7,6 +7,7 @@ import { colorReport } from '../../physics/colorimetry.js';
 import { computeIntegralValueBatch, DEFAULT_INTEGRALS } from '../../physics/integralValues.js';
 import { evaluateQualifiers, aggregateVerdict } from '../../synthesis/qualifiers.js';
 import { designMaterialLookup } from '../../materials/designMaterials.js';
+import { resolveColor } from '../../materials/catalogManager.js';
 import { materialName, buildSpectrum, buildResponseFn } from './engines.js';
 
 // ── Color ───────────────────────────────────────────────────────────────────
@@ -53,13 +54,18 @@ export function designSummary(design) {
   const frontThk = front.reduce((s, l) => s + (l.thickness || 0), 0);
   const backThk  = back.reduce((s, l) => s + (l.thickness || 0), 0);
 
+  // The display color is the same one the Design Editor and the analysis
+  // plots use, so the stack diagram in the report matches the app.
+  const colorOf = (id) => { try { return resolveColor(resolveMaterial(id)); } catch (_) { return '#999999'; } };
+
   const layerRow = (l, i) => {
     const d = l.thickness ?? 0;
     let nRef = NaN;
     try { const [nr] = resolveMaterial(l.material).getNK(lamRef); nRef = nr; } catch (_) {}
     const ot = isFinite(nRef) ? nRef * d : NaN;
     return {
-      index: i + 1, material: materialName(design, l.material),
+      index: i + 1, materialId: l.material, material: materialName(design, l.material),
+      color: colorOf(l.material),
       thickness: d, locked: !!l.locked,
       n: nRef, ot, qwot: isFinite(ot) ? ot / (lamRef / 4) : NaN,
       fwot: isFinite(ot) ? ot / lamRef : NaN,
@@ -72,18 +78,23 @@ export function designSummary(design) {
     const m = resolveMaterial(id);
     let n = NaN, k = NaN;
     try { const [nr, ni] = m.getNK(lamRef); n = nr; k = ni; } catch (_) {}
-    return { id, name: m?.name || id, n, k };
+    return { id, name: m?.name || id, n, k, color: colorOf(id) };
   });
+  const substrateColor = colorOf(design.substrate?.material);
 
   return {
     name: design.name || '—',
     incidentMedium: materialName(design, design.incidentMedium),
     substrate: materialName(design, design.substrate?.material),
+    substrateColor,
     substrateThickness: design.substrate?.thickness ?? null,  // mm
     exitMedium: materialName(design, design.exitMedium),
     referenceWavelength: lamRef,
     surfaceMode: design.surfaceMode || 'front_only',
-    front: front.map(layerRow),
+    // Numbered as the Design Editor numbers them: layer 1 is next to the
+    // substrate on both sides. Front layers are stored incident-side first, so
+    // they are reversed here; back layers are stored substrate first.
+    front: [...front].reverse().map(layerRow),
     back: back.map(layerRow),
     frontCount: front.length, backCount: back.length,
     frontThickness: frontThk, backThickness: backThk,

@@ -1,93 +1,129 @@
 /**
- * Formatting and table helpers shared by the report section builders.
+ * Formatting and table helpers shared by the report block builders.
  *
- * Numbers render with a fixed decimal count; nullish/non-finite values collapse
- * to an em-dash so a missing datum never prints `NaN`. Cell contents passed to
- * `table` are already escaped/formatted by the caller.
+ * Numbers render with a fixed decimal count; a missing or non-finite value
+ * prints as a dash so a gap never prints `NaN`. Cell contents handed to `table`
+ * are already escaped and formatted by the caller.
  */
 
 import { escapeHtml } from '../svgChart.js';
+import { PLOT_SIZES } from '../blocks.js';
 
-export const pct = (frac, d = 3) => (frac == null || !isFinite(frac)) ? '—' : (frac * 100).toFixed(d);
-export const num = (v, d = 2) => (v == null || !isFinite(v)) ? '—' : v.toFixed(d);
+export const DASH = '–';
+
+export const pct = (frac, d = 2) => (frac == null || !isFinite(frac)) ? DASH : (frac * 100).toFixed(d);
+export const num = (v, d = 2) => (v == null || !isFinite(v)) ? DASH : v.toFixed(d);
 export const deg = (t) => Number.isInteger(t) ? `${t}` : t.toFixed(1);
 
-// Cull over-long material names so layer tables stay narrow/compact.
+/** Shorten an over-long material name so a layer table stays narrow. */
 export function cull(name, max = 18) {
   const s = String(name == null ? '' : name);
   return s.length > max ? s.slice(0, max - 1) + '…' : s;
 }
 
 export function tt(tr, key, fallback) { return (tr && tr[key] != null) ? tr[key] : fallback; }
-export function sectionTitle(tr, id, fallback) {
-  return (tr && tr.sectionTitles && tr.sectionTitles[id]) || fallback;
+
+export function blockTitle(tr, type, fallback) {
+  return (tr && tr.sectionTitles && tr.sectionTitles[type]) || fallback;
 }
 
 export function errNote(msg) {
-  return `<p class="tf-note tf-err">⚠ ${escapeHtml(msg)}</p>`;
+  return `<p class="tf-note tf-err">${escapeHtml(msg)}</p>`;
 }
 
-export function wrap(id, title, inner) {
-  return `<section class="report-section" data-section="${id}">`
-       + `<h2>${escapeHtml(title)}</h2>${inner}</section>`;
+export function note(html) {
+  return `<p class="tf-note">${html}</p>`;
 }
 
-// HTML table from a header array + row arrays (cells already escaped/formatted).
+/**
+ * One block of the document: a heading, an optional small subtitle on the
+ * heading's right, and the body. `breakable` lets a long block (the layer
+ * table) split across pages; everything else keeps together.
+ */
+export function wrap(type, title, inner, { subtitle = '', breakable = false, heading = true } = {}) {
+  const cls = `tf-block tf-block-${type}${breakable ? ' tf-breakable' : ''}`;
+  const head = heading
+    ? `<h2><span>${escapeHtml(title)}</span>${subtitle ? `<span class="tf-sub">${subtitle}</span>` : ''}</h2>`
+    : '';
+  return `<section class="${cls}" data-block="${type}">${head}${inner}</section>`;
+}
+
+/**
+ * Heading subtitle for a block: the design's name when several designs render
+ * one after another, then whatever the block adds.
+ */
+export function subtitleOf(ctx, extra = '') {
+  const parts = [];
+  if (ctx && ctx.designName) {
+    const name = escapeHtml(cull(ctx.designName, 40));
+    parts.push(ctx.designLabel ? `<b>${escapeHtml(ctx.designLabel)}</b> ${name}` : name);
+  }
+  if (extra) parts.push(extra);
+  return parts.join(' · ');
+}
+
+/** Letter label of the i-th design in a comparison: A, B, …, Z, AA, AB, … */
+export function designLetter(i) {
+  let n = i, out = '';
+  do { out = String.fromCharCode(65 + (n % 26)) + out; n = Math.floor(n / 26) - 1; } while (n >= 0);
+  return out;
+}
+
+/** Smaller heading inside a block, for the front and back coating. */
+export function h3(text, right = '') {
+  return `<h3><span>${escapeHtml(text)}</span>${right ? `<span class="tf-sub">${right}</span>` : ''}</h3>`;
+}
+
+/**
+ * HTML table from a header array and row arrays (cells already escaped and
+ * formatted). `align[i]` is 'r' for a numeric column. A row may be given as
+ * `{ cells, cls }` to carry a class, for the heavy rule at a group boundary.
+ */
 export function table(headers, rows, opts = {}) {
   const align = opts.align || [];
-  const th = headers.map((h, i) =>
-    `<th${align[i] === 'r' ? ' class="r"' : ''}>${escapeHtml(h)}</th>`).join('');
-  const trs = rows.map(r =>
-    '<tr>' + r.map((cell, i) =>
-      `<td${align[i] === 'r' ? ' class="r"' : ''}>${cell}</td>`).join('') + '</tr>').join('');
-  return `<table class="tf-table"><thead><tr>${th}</tr></thead><tbody>${trs}</tbody></table>`;
+  const th = headers.map((label, i) =>
+    `<th${align[i] === 'r' ? ' class="r"' : ''}>${label}</th>`).join('');
+  const trs = rows.map(row => {
+    const cells = Array.isArray(row) ? row : row.cells;
+    const cls = Array.isArray(row) ? '' : (row.cls ? ` class="${row.cls}"` : '');
+    return `<tr${cls}>` + cells.map((cell, i) =>
+      `<td${align[i] === 'r' ? ' class="r"' : ''}>${cell}</td>`).join('') + '</tr>';
+  }).join('');
+  const cls = opts.cls ? ` ${opts.cls}` : '';
+  return `<table class="tf-table${cls}"><thead><tr>${th}</tr></thead><tbody>${trs}</tbody></table>`;
 }
 
-// ── Curve definitions for the optical plot ──────────────────────────────────
-const OPTICAL_CURVES = [
-  { key: 'T', color: '#1565c0', label: 'T' },
-  { key: 'R', color: '#c62828', label: 'R' },
-  { key: 'A', color: '#2e7d32', label: 'A' },
-];
-
-// Per-series dash pattern: solid for the first AOI, dashed for the rest.
-function seriesDash(si) {
-  return si === 0 ? null : (si === 1 ? '4 3' : '1 3');
-}
-
-// Chart series for the optical plot: one entry per enabled, present curve on
-// each spectrum series, with T/R/A percentages and an AOI-tagged label.
-export function opticalChartSeries(sp, curves) {
-  const series = [];
-  sp.series.forEach((s, si) => {
-    const suffix = sp.series.length > 1 ? ` @${deg(s.theta)}°` : '';
-    OPTICAL_CURVES.filter(cv => curves.includes(cv.key)).forEach(cv => {
-      if (!s[cv.key]) return;
-      series.push({
-        x: sp.lambda, y: s[cv.key].map(v => v * 100),
-        color: cv.color, label: cv.label + suffix, dash: seriesDash(si),
-      });
-    });
-  });
-  return series;
-}
-
-// Sampled data table for the optical section (row count capped near 40).
-export function opticalDataTable(sp, curves) {
-  const step = Math.max(1, Math.ceil(sp.lambda.length / 40)); // cap rows
-  const headers = ['λ (nm)'];
-  const cols = [];
-  sp.series.forEach((s) => {
-    const suffix = sp.series.length > 1 ? ` @${deg(s.theta)}°` : '';
-    OPTICAL_CURVES.filter(cv => curves.includes(cv.key)).forEach(cv => {
-      if (!s[cv.key]) return;
-      headers.push(cv.label + suffix);
-      cols.push(s[cv.key]);
-    });
-  });
-  const rows = [];
-  for (let i = 0; i < sp.lambda.length; i += step) {
-    rows.push([num(sp.lambda[i], 1), ...cols.map(arr => pct(arr[i], 3))]);
+/** `rows` cut into `ncol` consecutive slices of near-equal length. */
+export function splitRows(rows, ncol) {
+  const per = Math.ceil(rows.length / Math.max(1, ncol));
+  const out = [];
+  for (let k = 0; k < ncol; k++) {
+    const slice = rows.slice(k * per, (k + 1) * per);
+    if (slice.length) out.push(slice);
   }
-  return table(headers, rows, { align: headers.map((_, i) => i === 0 ? '' : 'r') });
+  return out;
 }
+
+/** Tables laid side by side, each taking an equal share of the width. */
+export function flow(tables) {
+  if (tables.length === 1) return tables[0];
+  return `<div class="tf-flow">${tables.join('')}</div>`;
+}
+
+/** Small color square ahead of a material name. */
+export function chip(color) {
+  return `<span class="tf-chip" style="background:${escapeHtml(color || '#999')}"></span>`;
+}
+
+/** Color square plus the (escaped) material name. */
+export function matCell(row) {
+  return chip(row.color) + escapeHtml(cull(row.material));
+}
+
+/** Plot height in px for a size id; 0 means no plot. */
+export function plotHeight(size) {
+  return PLOT_SIZES[size] ?? PLOT_SIZES.m;
+}
+
+/** One color per design in a comparison, in the order the designs are given. */
+export const DESIGN_COLORS = ['#c62828', '#1565c0', '#2e7d32', '#6a1b9a', '#ef6c00', '#00838f', '#5d4037', '#455a64'];

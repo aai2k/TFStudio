@@ -66,6 +66,7 @@ import { Specification } from '../windows/design/specification/Specification.js'
 import { CoatingLibrary } from '../windows/design/coatingLibrary/CoatingLibrary.js';
 import { OptimizerBenchmark } from '../windows/optimization/optimizerBenchmark/OptimizerBenchmark.js';
 import { MonitorWorksheet } from '../windows/simulation/monitorWorksheet/MonitorWorksheet.js';
+import { ReportWindow } from '../windows/information/report/ReportWindow.js';
 
 export const WINDOW_REGISTRY = {
   // ── Design ──────────────────────────────────────────────────────────────────
@@ -114,6 +115,7 @@ export const WINDOW_REGISTRY = {
   'spectrum-exchange': { component: SpectrumExchange, title: 'Measured Spectra',   label: 'Measured Spectra — import measured R/T/A spectra (CSV/TXT/ASCII/JCAMP-DX) as overlays; export design or measured spectra to CSV/JCAMP-DX', help: 'data-exchange/measured-spectra', theme: true },
   'measured-ellipsometry': { component: MeasuredEllipsometry, title: 'Measured Ellipsometry', label: 'Measured Ellipsometry — import measured Ψ/Δ from a spectroscopic ellipsometer; export measured or calculated Ψ/Δ to CSV', help: 'data-exchange/measured-ellipsometry', theme: true },
   'nk-characterization': { component: NkCharacterization, title: 'n,k Characterization', label: 'n,k Characterization — derive the n, k and thickness of a film from a measured R/T spectrum or a measured Ψ/Δ pair', help: 'data-exchange/nk-characterization', theme: true, dialog: true, createDesign: true },
+  'report-gen':      { component: ReportWindow,     title: 'Report',             label: 'Report: a document built from blocks over one or several designs, saved as PDF or HTML', help: 'data-exchange/report-generator', theme: true, requiresResolvedMaterials: true },
 
   // ── Dev / QA (opened from the dev-only View menu; not in the user ribbon) ───────
   'optimizer-benchmark': { component: OptimizerBenchmark, title: 'Optimizer Benchmark', label: 'Optimizer Benchmark — live cross-optimizer comparison (dev/QA)', help: 'index', theme: true, requiresResolvedMaterials: true },

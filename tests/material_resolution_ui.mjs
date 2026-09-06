@@ -15,7 +15,6 @@ const [
     { collectMaterials, replaceMaterialReferences },
     { MaterialPicker },
     { SpectralMonitor },
-    { ReportGenerator },
     { MaterialResolutionModalGuard },
     { SpectrumExchange },
     { ExportTab: SpectrumExportTab },
@@ -28,7 +27,6 @@ const [
     import('../src/components/dialogs/ReplaceMaterialsDialog.js'),
     import('../src/components/ui/MaterialPicker.js'),
     import('../src/components/SpectralMonitor.js'),
-    import('../src/components/windows/information/reportGenerator/ReportGenerator.js'),
     import('../src/components/materials/MaterialResolutionModalGuard.js'),
     import('../src/components/windows/dataExchange/spectrumExchange/SpectrumExchange.js'),
     import('../src/components/windows/dataExchange/spectrumExchange/ExportTab.js'),
@@ -92,12 +90,12 @@ const monitor = renderToStaticMarkup(withDesign(
 assert.match(monitor, /monitors paused/,
     'the always-mounted spectral monitor reports its blocked state');
 
-const report = renderToStaticMarkup(React.createElement(ReportGenerator, {
-    c, t, onClose: () => {}, designs: { [broken.id]: broken },
-    activeDesignId: broken.id, folderName: 'Demo',
+const report = renderToStaticMarkup(React.createElement(ToolContent, {
+    toolId: 'report-gen', c, theme: c, t,
+    missingMaterialIds: [missingId], onReplaceMaterials: () => {},
 }));
-assert.match(report, /Report generation is blocked/,
-    'the report generator reports missing material data before computing');
+assert.match(report, /data-material-resolution="blocked"/,
+    'the Report window is not mounted while a material is unresolved');
 
 const guardedModal = renderToStaticMarkup(withDesign(
     React.createElement(MaterialResolutionModalGuard, {

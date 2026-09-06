@@ -131,7 +131,7 @@ function useEvalParams() {
     return [evalParams, patch];
 }
 
-export function DesignProvider({ children, activeDesignId, designs, onDesignChange, onCheckpoint, historyView, onJumpToHistory }) {
+export function DesignProvider({ children, activeDesignId, designs, folders, onDesignChange, onCheckpoint, historyView, onJumpToHistory }) {
     // Local fallback: if parent doesn't pass controlled props, manage state internally.
     const [localDesigns, setLocalDesigns] = useState(() => {
         const d = makeDefaultDesign();
@@ -303,6 +303,11 @@ export function DesignProvider({ children, activeDesignId, designs, onDesignChan
     return React.createElement(DesignContext.Provider, {
         value: {
             design,
+            // Every open design, the project folders they sit in, and which one
+            // is active, for a window that reports on several designs at once.
+            designs: _designs,
+            folders: folders || null,
+            activeDesignId: _activeId,
             updateDesign,
             checkpoint,
             history, jumpToHistory,

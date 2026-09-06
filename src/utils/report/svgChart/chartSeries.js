@@ -31,18 +31,37 @@ export function seriesPolylinesSVG(all, sx, sy) {
   return parts;
 }
 
-// Legend swatches, stacked top-left inside the plot area.
-export function legendSVG(geom, all) {
-  const { mL, mT } = geom;
-  let lx = mL + 8, ly = mT + 6;
-  const parts = [`<g font-size="10">`];
+export const LEGEND_ROW_HEIGHT = 14;
+const LEGEND_GAP = 14;
+const CHAR_WIDTH = 5.6;
+
+/**
+ * Legend entries laid out in rows under the plot, wrapping at the plot width,
+ * so the legend never covers a curve. Returns rows of `{ s, x }`.
+ */
+export function legendLayout(all, left, maxWidth) {
+  const rows = [];
+  let row = [], x = left;
   for (const s of all) {
-    const w = 8 + (s.label || '').length * 5.6 + 18;
-    parts.push(`<rect x="${lx}" y="${ly-9}" width="${w}" height="13" fill="#ffffff" fill-opacity="0.75"/>`);
-    parts.push(`<line x1="${lx+2}" y1="${ly-2}" x2="${lx+16}" y2="${ly-2}" stroke="${s.color}" stroke-width="2"${s.dash?` stroke-dasharray="${s.dash}"`:''}/>`);
-    parts.push(`<text x="${lx+20}" y="${ly+1}" fill="#222">${escapeHtml(s.label || '')}</text>`);
-    ly += 15;
+    const w = 22 + (s.label || '').length * CHAR_WIDTH;
+    if (row.length && x + w > left + maxWidth) { rows.push(row); row = []; x = left; }
+    row.push({ s, x });
+    x += w + LEGEND_GAP;
   }
+  if (row.length) rows.push(row);
+  return rows;
+}
+
+/** The legend rows drawn from `top` downwards. */
+export function legendSVG(rows, top) {
+  const parts = [`<g font-size="10">`];
+  rows.forEach((row, r) => {
+    const y = top + r * LEGEND_ROW_HEIGHT + 9;
+    for (const { s, x } of row) {
+      parts.push(`<line x1="${x}" y1="${y}" x2="${x + 16}" y2="${y}" stroke="${s.color}" stroke-width="2"${s.dash ? ` stroke-dasharray="${s.dash}"` : ''}/>`);
+      parts.push(`<text x="${x + 21}" y="${y + 3}" fill="#222">${escapeHtml(s.label || '')}</text>`);
+    }
+  });
   parts.push(`</g>`);
   return parts;
 }

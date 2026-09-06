@@ -122,7 +122,7 @@ export function resetWindowSessions(windowId, values) {
  *        Window id this store belongs to. Required for saved defaults.
  * @param {string[]} [options.savable]
  *        Keys the window's Save button writes to the preferences file.
- * @returns {{read: Function, write: Function, reset: Function}}
+ * @returns {{read: Function, peek: Function, write: Function, reset: Function}}
  */
 export function createWindowSession(defaults, options = {}) {
     const {
@@ -165,6 +165,17 @@ export function createWindowSession(defaults, options = {}) {
             if (patch) slots.set(key, normalize({ ...slots.get(key), ...patch }));
         }
         return { ...slots.get(key) };
+    }
+
+    /**
+     * What `read(design)` would return, for a reader other than the window
+     * itself: nothing is stored, no slot is created and the design the window
+     * last read stays as it was, so the window's own reseeding is undisturbed.
+     */
+    function peek(design) {
+        const current = slots.get(slotKey(design)) || normalize({ ...base });
+        const patch = (design?.id ?? null) !== lastDesignId ? onDesignChange(design, current) : null;
+        return patch ? normalize({ ...current, ...patch }) : { ...current };
     }
 
     // Mounts told after every write, so two windows open on the same values,
@@ -248,7 +259,7 @@ export function createWindowSession(defaults, options = {}) {
         return { ...slots.get(slotFor(design)) };
     }
 
-    const store = { read, write, reset, subscribe, id, savableKeys: savable, savableValues, rebase };
+    const store = { read, peek, write, reset, subscribe, id, savableKeys: savable, savableValues, rebase };
     if (id) registered.set(id, [...windowSessionStores(id), store]);
     return store;
 }

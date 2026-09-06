@@ -1,63 +1,39 @@
 ---
-title: Report Generator
-description: Build a polished multi-section HTML or PDF report, the deliverable you hand a customer or file with a design.
+title: Report
+description: Assemble a document from blocks over one or several designs, then save it as a PDF or a single HTML file.
 ribbonIcon: report-gen
 ---
 
-The **Report Generator** builds a production-quality document that gathers the
-analyses you choose, the kind of artifact a coating engineer hands to a
-customer or files in a design package. The output is a self-contained **HTML or
-PDF** file, available in **English or Russian**, and it reuses the same
-validated calculation engines as the analysis windows, so every number in the
-report matches what you see in the app.
+The **Report** window builds the document you hand to a customer or file with a design. It is a docked window like the analysis windows: the block list on the left, the page on the right, and the page follows the design as you edit it. Every number comes from the same calculation engines as the analysis windows, so the report shows what the app shows.
 
-Open it from the **Report** button on the **Production** ribbon tab. It runs
-as a 6-step wizard.
+Open it from the **Report** button on the **Production** ribbon tab.
 
-## Settings
+## Blocks
 
-**Step 1: Scope.** Report on the current design, or on several designs as a
-**comparison** report. This step also holds the cover-page fields: title,
-customer, project, designer, date, and an optional logo.
+A report is an ordered list of blocks. Each block is a table first, with an optional plot. Five blocks are in every new report: title, design facts with the stack diagram, layer table, materials, and notes. A template can switch them off but not remove them.
 
-**Step 2: Sections.** Tick the sections to include and reorder them with the
-▲ / ▼ buttons. Available sections include the cover, design summary (layer
-table and totals), optical evaluation, color, refractive-index profile, |E|²
-field profile, ellipsometry (Ψ/Δ), integral values, the qualifiers verdict,
-merit operands, and free-text notes.
+Other blocks come from the analysis windows: spectrum, color, integral values, group delay with GDD and TOD, ellipsometry, electric field and refractive index profile, plus the specification verdict, the merit function operands and a signature line. Add them with **Add block** at the bottom of the rail. A new block copies the settings its window shows right now, or that window's saved defaults if it has not been opened, so a range set once in Optical Evaluation is not typed again.
 
-**Step 3: Options.** Per-section settings: wavelength and angle-of-incidence
-ranges, which curves (T / R / A) and data tables to include, the color
-illuminant, optional `n / OT / QWOT / FWOT` layer columns, and tabulated
-material n,k. Sections that need no options are skipped here.
+Two blocks reach into production. **Monte-Carlo** prints the last run made in the Monte-Carlo window for the design: the design curve, the mean over the trials, the corridor, the statistics per wavelength and the specification yield. It does not repeat the run; run it there again to refresh. **Monitoring worksheet** prints the witness-chip table from the Monitor Worksheet: one row per deposited layer with every column the window shows. The chip plan, the wavelengths, the chip glass and the monitor settings are the window's own for the design; change them there and the report follows.
 
-**Step 4: Language.** Generate the report in English or Russian; this sets
-all headings, axis labels, and table headers.
+Tick a block to include it, drag it to reorder, and open its gear to change its settings: range and step, angles, curves, plot size, and how often the table samples the curve. The spectrum block carries the Optical Evaluation window's own controls: the angle chips, the curves with their s and p components, the spectral unit, and the vertical scale (percent, fraction, dB or optical density) with its range. The gear also moves or removes the block.
 
-**Step 5: Output.** Choose a single self-contained **HTML** file or a
-print-quality **PDF**. This step also manages **presets**: save the current
-report configuration under a name and reload it later.
+## Layer table
 
-**Step 6: Preview & Generate.** A live preview of the finished report; press
-generate to export it.
+The layer table lists number, material, thickness and QWOT. Layer 1 is next to the substrate, on both sides, and the page says so under the table. A long stack flows into side-by-side columns, so about 150 layers fit on one page. Switch on **n, OT, FWOT columns** for the full optical thickness family; it trades columns for width. **Group identical periods** merges a repeated period such as (H L) × 24 into one row. Only rows identical at the printed precision merge, so a refined stack whose thicknesses differ in the last digit prints every layer.
 
-Plots are drawn as inline vector graphics, so the report looks identical in the
-preview, in the saved HTML, and in the PDF. Presets and an optional cover logo
-are stored in your `Documents\TFStudio` folder.
+## Templates, document fields and branding
 
-## How to read it
+The **Template** list holds three: Design record, the default, with everything including the recipe; Customer report, with the specification first, no recipe and signature lines; and Comparison. Save your own block list with **Save as template**.
 
-The generated report is the deliverable, not an analysis tool, so read it the way
-your customer will. Use the comparison scope when you want one document that
-puts several candidate designs side by side. Because the report pulls its
-numbers straight from the same engines as the
-[Optical Evaluation](/analysis/optical-evaluation/),
-[Color Evaluation](/analysis/color-evaluation/), and
-[Integral Values](/analysis/integral-values/) windows, the values are exactly
-what those windows show; if something looks off, check the per-section options
-(wavelength range, angle, illuminant) rather than expecting the report to
-differ from the app.
+**Document** holds the fields that change per report: title, customer, document number, revision, date and designer. **Branding** holds what does not: company line, accent color, footer line, default designer and logo. Save the profile once and every report uses it.
 
-## References
+## Several designs
 
-- H. A. Macleod, *Thin-Film Optical Filters*, 5th ed.
+Pick more than one design under **Designs** and the report becomes a comparison. The designs are lettered A, B, C and listed with their full names in a key under the masthead; tables, plot legends and recipe headings refer to them by letter, so a long name never widens a column. Facts, verdicts, integral values and color render as one table with a column per design, six designs to a table, the spectrum block draws every design on one plot, and the recipes sit side by side. Blocks without a comparison form render once per design.
+
+## Export
+
+The Export menu at the bottom right saves a PDF with a running header and footer and page numbers, saves a single self-contained HTML file, or copies every table as tab-separated text for a spreadsheet. Paper size is A4 or Letter, and the language of the document is chosen independently of the app's. Both have defaults under Settings, Analysis, Report.
+
+Saved templates go to the ReportPresets folder and the branding profile to the Branding folder under your TFStudio documents folder.
