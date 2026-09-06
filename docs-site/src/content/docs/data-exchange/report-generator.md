@@ -24,6 +24,10 @@ The layer table lists number, material, thickness and QWOT. Layer 1 is next to t
 
 ## Templates, document fields and branding
 
+Plots are drawn as inline vector graphics, so the report looks identical in the
+preview, in the saved HTML, and in the PDF. Presets and an optional cover logo
+are stored in your TFStudio Data folder.
+
 The **Template** list holds three: Design record, the default, with everything including the recipe; Customer report, with the specification first, no recipe and signature lines; and Comparison. Save your own block list with **Save as template**.
 
 **Document** holds the fields that change per report: title, customer, document number, revision, date and designer. **Branding** holds what does not: company line, accent color, footer line, default designer and logo. Save the profile once and every report uses it.
@@ -36,4 +40,4 @@ Pick more than one design under **Designs** and the report becomes a comparison.
 
 The Export menu at the bottom right saves a PDF with a running header and footer and page numbers, saves a single self-contained HTML file, or copies every table as tab-separated text for a spreadsheet. Paper size is A4 or Letter, and the language of the document is chosen independently of the app's. Both have defaults under Settings, Analysis, Report.
 
-Saved templates go to the ReportPresets folder and the branding profile to the Branding folder under your TFStudio documents folder.
+Saved templates and the branding profile go to your TFStudio Data folder.

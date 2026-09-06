@@ -227,8 +227,8 @@ function setupIpcHandlers() {
 
   // User-facing data lives in Documents\TFStudio by default so it persists
   // across app installs; each folder can be pointed elsewhere from Settings.
-  userPaths = createUserPaths({ documentsDir: app.getPath('documents'), fs, path, log });
-  userPaths.loadOverrides(readJsonSafe(settingsPath)?.folders);
+  userPaths = createUserPaths({ documentsDir: app.getPath('documents'), fs, path, exeDir, log });
+  userPaths.load(readJsonSafe(settingsPath));
   userPaths.ensureAll();
 
   // ── IPC: all domain handlers live in src/main/ipc/ ──────────────
