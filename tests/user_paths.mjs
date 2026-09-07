@@ -15,11 +15,12 @@ const require = createRequire(import.meta.url);
 const { createUserPaths, FOLDER_SPECS } = require('../src/main/userPaths.js');
 const { writeMainOwnedKey } = require('../src/main/settingsFile.js');
 
-// Cross-platform unusable root: probeUsable fails on Windows (no Q: drive)
-// AND Linux (/proc is read-only virtual filesystem).
+// Cross-platform unusable root: probeUsable must fail immediately.
+// Windows: Q: drive doesn't exist → ENOENT.
+// Linux/macOS: path component exceeds 255-byte NAME_MAX → ENAMETOOLONG.
 const BAD_ROOT = process.platform === 'win32'
   ? 'Q:\\TFStudio'
-  : '/proc/__tfstudio_test__';
+  : path.join(os.tmpdir(), 'x'.repeat(300));
 
 let passed = 0;
 function ok(condition, message) {
