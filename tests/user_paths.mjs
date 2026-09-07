@@ -15,6 +15,12 @@ const require = createRequire(import.meta.url);
 const { createUserPaths, FOLDER_SPECS } = require('../src/main/userPaths.js');
 const { writeMainOwnedKey } = require('../src/main/settingsFile.js');
 
+// Cross-platform unusable root: probeUsable fails on Windows (no Q: drive)
+// AND Linux (/proc is read-only virtual filesystem).
+const BAD_ROOT = process.platform === 'win32'
+  ? 'Q:\\TFStudio'
+  : '/proc/__tfstudio_test__';
+
 let passed = 0;
 function ok(condition, message) {
   if (!condition) throw new Error(message);
@@ -143,7 +149,7 @@ function posixDefault(subdir) { return posixJoin(BASE, subdir); }
 // ── 4. USB unavailable (mkdir/probe failure) → rejected + fallback ──────────────
 {
   const { paths, logs } = makeReal();
-  const badRoot = 'Q:\\TFStudio';
+  const badRoot = BAD_ROOT;
   paths.load({ folders: { root: badRoot } });
   ok(paths.rootDir !== badRoot, '不可用 root → fallback 到默认');
   ok(paths.rejected !== null, '不可用 root → rejected 非空');
@@ -156,7 +162,7 @@ function posixDefault(subdir) { return posixJoin(BASE, subdir); }
 // ── 5. configuredRoot not lost due to fallback ────────────────────────────────
 {
   const { paths } = makeReal();
-  const badRoot = 'Q:\\Missing\\Drive';
+  const badRoot = BAD_ROOT;
   paths.load({ folders: { root: badRoot } });
   ok(paths.configuredRoot === badRoot, 'fallback 期间 configuredRoot 保留配置值');
   ok(paths.rootDir === paths.baseDir, 'fallback 期间 rootDir 使用 baseDir');
@@ -191,7 +197,7 @@ function posixDefault(subdir) { return posixJoin(BASE, subdir); }
 {
   const { paths } = makeReal();
   // First: unavailable root → rejected
-  paths.load({ folders: { root: 'Q:\\Bad' } });
+  paths.load({ folders: { root: BAD_ROOT } });
   ok(paths.rejected !== null, '第一次 load 后 rejected 非空');
   // Second: valid root → rejected cleared
   const goodRoot = tmpDir('second-load');
@@ -221,7 +227,7 @@ function posixDefault(subdir) { return posixJoin(BASE, subdir); }
 // ── 11. toSettings: fallback still writes configuredRoot ───────────────────
 {
   const { paths } = makeReal();
-  const badRoot = 'Q:\\TFStudio';
+  const badRoot = BAD_ROOT;
   const customRoot = tmpDir('tosettings-fallback');
   // Load unavailable root → fallback
   paths.load({ folders: { root: badRoot } });
@@ -305,7 +311,7 @@ function posixDefault(subdir) { return posixJoin(BASE, subdir); }
 {
   const { paths } = makeReal();
   // First create rejected
-  paths.load({ folders: { root: 'Q:\\Bad' } });
+  paths.load({ folders: { root: BAD_ROOT } });
   ok(paths.rejected !== null, 'setup: rejected 非空');
 
   // applyRoot (pure internal assignment)
@@ -320,7 +326,7 @@ function posixDefault(subdir) { return posixJoin(BASE, subdir); }
 {
   const { paths } = makeReal();
   // First create rejected
-  paths.load({ folders: { root: 'Q:\\Bad' } });
+  paths.load({ folders: { root: BAD_ROOT } });
   ok(paths.rejected !== null, 'setup: rejected 非空');
 
   // applyRoot(baseDir)
@@ -434,7 +440,7 @@ function posixDefault(subdir) { return posixJoin(BASE, subdir); }
 // ── 25. applyRoot cleans rejected ──────────────────────────────────────────
 {
   const { paths } = makeReal();
-  paths.load({ folders: { root: 'Q:\\Bad' } });
+  paths.load({ folders: { root: BAD_ROOT } });
   ok(paths.rejected !== null, 'setup: rejected 非空');
   paths.applyRoot('/data/new');
   ok(paths.rejected === null, 'applyRoot 后 rejected 被清');
@@ -497,7 +503,7 @@ function posixDefault(subdir) { return posixJoin(BASE, subdir); }
   ok(paths.rejected === null, '第一次 load: 无 rejected');
 
   // Invalid root
-  paths.load({ folders: { root: 'Q:\\XBad' } });
+  paths.load({ folders: { root: BAD_ROOT } });
   ok(paths.rootDir === paths.baseDir, '第二次 load: fallback');
   ok(paths.rejected !== null, '第二次 load: rejected 非空');
 
