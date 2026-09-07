@@ -1,34 +1,34 @@
 /**
- * dataFolderMove.js — 单一 Data Folder 迁移逻辑（issue #75 收敛版）。
+ * dataFolderMove.js — Single Data Folder migration logic (issue #75 consolidated version).
  *
- * 公共 API（最小）：
+ * Public API (minimal):
  *   createDataFolderMove({ fs, path }) => { checkTarget, moveTree }
  *
- * 内部 helper（不暴露）：
- *   tree traversal、file-count tally、byte tally、copy、verify、
- *   partial cleanup、safeRemove、delete。
+ * Internal helpers (not exposed):
+ *   tree traversal, file-count tally, byte tally, copy, verify,
+ *   partial cleanup, safeRemove, delete.
  *
- * 设计原则：
- *   - async fs（RII mirror 约 4000 文件，避免阻塞窗口）；
- *   - checkTarget 纯检查，无 mkdir / 无写文件（无持久副作用）；
- *   - moveTree 不提前 stat.dev 判断磁盘；
- *   - 不在函数内部删除 src；不碰 settings。
+ * Design principles:
+ *   - async fs (RII mirror ~4000 files, avoid blocking the window);
+ *   - checkTarget pure check, no mkdir / no writing files (no persistent side effects);
+ *   - moveTree doesn't pre-stat.dev disk judgment;
+ *   - Don't delete src inside functions; don't touch settings.
  */
 
 'use strict';
 
 /**
- * 创建 dataFolderMove 实例。
- * @param {{ fs: object, path: object }} deps — 注入的 fs / path 模块
+ * Create dataFolderMove instance.
+ * @param {{ fs: object, path: object }} deps — Injected fs / path modules
  * @returns {{ checkTarget: Function, moveTree: Function }}
  */
 function createDataFolderMove({ fs: _fs, path: _path }) {
 
-  // ── 路径归一化 ────────────────────────────────────────────────────────
-  // resolve + 尾分隔符剥离；不做大小写折叠 / realpath（端口由调用方保证）。
+  // ── Path normalization ────────────────────────────────────────────────────
+  // resolve + trailing separator strip; no case folding / realpath (caller ensures canonical port).
   function normalize(p) {
     let r = _path.resolve(p);
-    // 尾分隔符去掉（保持一致）
+    // Trailing separator removal (keep consistent)
     if (r.length > 1 && (r.endsWith('/') || r.endsWith('\\'))) {
       r = r.slice(0, -1);
     }
@@ -38,18 +38,18 @@ function createDataFolderMove({ fs: _fs, path: _path }) {
   // ── checkTarget(current, target) ──────────────────────────────────────
 
   /**
-   * 验证 target 是否可作为迁移目标。
+   * Validate whether target can be a migration target.
    *
-   * 规则：
-   *   1. target 必须为空或不存在；
-   *   2. target 不能在 current 内；
-   *   3. current 不能在 target 内；
-   *   4. 纯检查，不 mkdir，不写文件；
-   *   5. target == current（normalize 后）→ no-op success；
-   *   6. current root 不存在 → 'current root unavailable'。
+   * Rules:
+   *   1. target must be empty or non-existent;
+   *   2. target must not be inside current;
+   *   3. current must not be inside target;
+   *   4. Pure check, no mkdir, no writing files;
+   *   5. target == current (after normalize) → no-op success;
+   *   6. current root does not exist → 'current root unavailable'.
    *
-   * @param {string} current — 当前数据根目录
-   * @param {string} target  — 拟迁移目标目录
+   * @param {string} current — Current data root directory
+   * @param {string} target — Target migration directory
    * @returns {{ ok: boolean, reason?: string }}
    */
   function checkTarget(current, target) {
@@ -61,7 +61,7 @@ function createDataFolderMove({ fs: _fs, path: _path }) {
       return { ok: true };
     }
 
-    // 6. current root 不存在
+    // 6. current root does not exist
     try {
       const st = _fs.statSync(cur);
       if (!st.isDirectory()) {
@@ -71,26 +71,26 @@ function createDataFolderMove({ fs: _fs, path: _path }) {
       return { ok: false, reason: 'current root unavailable' };
     }
 
-    // 2. target 不能在 current 内（先检查嵌套，再检查非空）
+    // 2. target must not be inside current (check nested first, then check non-empty)
     if (tgt.startsWith(cur + _path.sep) || tgt.startsWith(cur + '/')) {
       return { ok: false, reason: 'target is inside current root' };
     }
 
-    // 3. current 不能在 target 内
+    // 3. current must not be inside target
     if (cur.startsWith(tgt + _path.sep) || cur.startsWith(tgt + '/')) {
       return { ok: false, reason: 'current root is inside target' };
     }
 
-    // 1. target 必须为空或不存在
+    // 1. target must be empty or non-existent
     let tgtExists = false;
     try {
       _fs.statSync(tgt);
       tgtExists = true;
     } catch (_) {
-      // 不存在 → 允许
+      // does not exist → allowed
     }
 
-    // target 存在但非空 → 拒绝
+    // target exists but non-empty → reject
     if (tgtExists) {
       try {
         const entries = _fs.readdirSync(tgt);
@@ -98,7 +98,7 @@ function createDataFolderMove({ fs: _fs, path: _path }) {
           return { ok: false, reason: 'target is not empty' };
         }
       } catch (_) {
-        // 读取失败（如无权限），视为非空
+        // read failure (e.g., no permission) → considered non-empty
         return { ok: false, reason: 'target is not empty' };
       }
     }
@@ -106,10 +106,10 @@ function createDataFolderMove({ fs: _fs, path: _path }) {
     return { ok: true };
   }
 
-  // ── 内部 helper ───────────────────────────────────────────────────────
+  // ── Internal helpers ───────────────────────────────────────────────────────
 
   /**
-   * 递归遍历目录树，异步收集文件/目录计数和字节数。
+   * Recursively traverse directory tree, async collect file/dir counts and byte counts.
    * @returns {Promise<{ fileCount: number, dirCount: number, totalBytes: number }>}
    */
   async function traverseStats(dir) {
@@ -137,7 +137,7 @@ function createDataFolderMove({ fs: _fs, path: _path }) {
   }
 
   /**
-   * 递归拷贝目录树（stream/pipeline 不适用于目录结构，使用 async fs 逐文件拷贝）。
+   * Recursively copy directory tree (stream/pipeline not suitable for directory structure, use async fs to copy file by file).
    * @param {string} srcDir
    * @param {string} dstDir
    */
@@ -153,14 +153,14 @@ function createDataFolderMove({ fs: _fs, path: _path }) {
         const link = await _fs.promises.readlink(src);
         await _fs.promises.symlink(link, dst);
       } else {
-        // 文件：使用 fs.promises.copyFile（底层用 sendfile/CoW，性能足够）
+        // File: use fs.promises.copyFile (underlying sendfile/CoW, performance sufficient)
         await _fs.promises.copyFile(src, dst);
       }
     }
   }
 
   /**
-   * 验证拷贝完整性：fileCount + totalBytes（dirCount 附加）。
+   * Verify copy integrity: fileCount + totalBytes (dirCount appended).
    * @returns {Promise<{ ok: boolean, reason?: string }>}
    */
   async function verifyCopy(fromDir, toDir) {
@@ -189,20 +189,20 @@ function createDataFolderMove({ fs: _fs, path: _path }) {
   }
 
   /**
-   * 幂等 safeRemove：递归删除目录，不存在时不报错。
+   * Idempotent safeRemove: recursively delete directory, no error if not exists.
    * @returns {Promise<void>}
    */
   async function safeRemove(dir) {
     try {
       await _fs.promises.rm(dir, { recursive: true, force: true });
     } catch (err) {
-      // force: true 本身应该不抛，但以防万一
+      // force: true should not throw in itself, but just in case
       throw Object.assign(err, { residualPath: dir, cleanupPath: dir });
     }
   }
 
   /**
-   * 检查路径是否为非空目录。
+   * Check if path is a non-empty directory.
    */
   async function isNonEmptyDir(p) {
     try {
@@ -218,71 +218,71 @@ function createDataFolderMove({ fs: _fs, path: _path }) {
   // ── moveTree(from, to) ────────────────────────────────────────────────
 
   /**
-   * 迁移目录树 from → to。
+   * Migrate directory tree from → to.
    *
-   * 流程：
+   * Flow:
    *   try rename
    *     ↓  EXDEV → async copy → verify
-   *     ↓  EPERM/EEXIST 且 target 为空目录 → rmdir(target) 后重试 rename → 仍失败降级 copy
+   *     ↓  EPERM/EEXIST and target is empty directory → rmdir(target) then retry rename → still failed downgrade copy
    *
-   * 不提前 stat.dev 判断磁盘。
-   * copy 分支开头断言 to 不存在（TOCTOU 防御）。
-   * copy 失败 → partial cleanup（safeRemove 幂等）。
-   * 不在函数内部删除 src；不碰 settings。
+   * Don't pre-stat.dev disk judgment.
+   * copy branch asserts to does not exist at start (TOCTOU defense).
+   * copy fails → partial cleanup (safeRemove idempotent).
+   * Don't delete src inside function; don't touch settings.
    *
-   * @param {string} from — 源目录
-   * @param {string} to   — 目标目录
+   * @param {string} from — Source directory
+   * @param {string} to — Target directory
    * @returns {Promise<{ success: boolean, method?: string, error?: string, crossDevice?: boolean }>}
    */
   async function moveTree(from, to) {
     const resolvedFrom = normalize(from);
     const resolvedTo = normalize(to);
 
-    // 目标 == 源 → no-op
+    // target == source → no-op
     if (resolvedFrom === resolvedTo) {
       return { success: true, method: 'rename' };
     }
 
-    // 尝试 rename
+    // try rename
     try {
       await _fs.promises.rename(resolvedFrom, resolvedTo);
       return { success: true, method: 'rename' };
     } catch (err) {
       const code = err.code;
 
-      // EXDEV → 跨盘，降级 copy
+      // EXDEV → cross-disk, downgrade to copy
       if (code === 'EXDEV') {
         return await doCopyWithVerify(resolvedFrom, resolvedTo);
       }
 
-      // EPERM/EEXIST 且 target 为空目录 → rmdir 重试 rename
+      // EPERM/EEXIST and target is empty directory → rmdir retry rename
       if (code === 'EPERM' || code === 'EEXIST') {
         const nonEmpty = await isNonEmptyDir(resolvedTo);
         if (nonEmpty) {
-          // target 非空 → 不 rmdir、直接报错/降级
+          // target non-empty → don't rmdir, directly report/downgrade
           return {
             success: false,
             error: `target directory is not empty (${code})`,
             crossDevice: false,
           };
         }
-        // target 为空 → rmdir 后重试 rename
+        // target empty → rmdir then retry rename
         try {
           await _fs.promises.rmdir(resolvedTo);
         } catch (_) {
-          // rmdir 失败 → 降级 copy
+          // rmdir failed → downgrade copy
           return await doCopyWithVerify(resolvedFrom, resolvedTo);
         }
         try {
           await _fs.promises.rename(resolvedFrom, resolvedTo);
           return { success: true, method: 'rename' };
         } catch (_) {
-          // 重试仍失败 → 降级 copy
+          // retry still failed → downgrade copy
           return await doCopyWithVerify(resolvedFrom, resolvedTo);
         }
       }
 
-      // 其他错误
+      // other errors
       return {
         success: false,
         error: err.message || String(err),
@@ -292,14 +292,14 @@ function createDataFolderMove({ fs: _fs, path: _path }) {
   }
 
   /**
-   * 跨盘 copy + verify 流程（内部分支）。
+   * Cross-disk copy + verify process (internal branch).
    * @returns {Promise<{ success: boolean, method?: string, error?: string, crossDevice?: boolean }>}
    */
   async function doCopyWithVerify(from, to) {
-    // TOCTOU 防御（P1-3）：copy 分支开头断言 to 不存在（存在即抛）
+    // TOCTOU defense (P1-3): copy branch asserts to does not exist (throw if exists)
     try {
       await _fs.promises.stat(to);
-      // 如果 to 存在，检查是否非空
+      // If to exists, check if non-empty
       const nonEmpty = await isNonEmptyDir(to);
       if (nonEmpty) {
         return {
@@ -308,7 +308,7 @@ function createDataFolderMove({ fs: _fs, path: _path }) {
           crossDevice: true,
         };
       }
-      // 空目录 → 先删再 copy
+      // Empty directory → delete then copy
       await _fs.promises.rmdir(to);
     } catch (err) {
       if (err.code !== 'ENOENT') {
@@ -318,19 +318,19 @@ function createDataFolderMove({ fs: _fs, path: _path }) {
           crossDevice: true,
         };
       }
-      // ENOENT → 不存在，正常
+      // ENOENT → does not exist, normal
     }
 
     try {
       await asyncCopyDir(from, to);
     } catch (copyErr) {
-      // copy 失败 → partial cleanup
+      // copy failure → partial cleanup
       try {
         await safeRemove(to);
       } catch (cleanupErr) {
         return {
           success: false,
-          error: `copy failed: ${copyErr.message}, cleanup failed: ${cleanupErr.message}, 残留路径: ${to}`,
+          error: `copy failed: ${copyErr.message}, cleanup failed: ${cleanupErr.message}, residual path: ${to}`,
           crossDevice: true,
         };
       }
@@ -341,7 +341,7 @@ function createDataFolderMove({ fs: _fs, path: _path }) {
       };
     }
 
-    // verify（异常时 safeRemove 清理并返回 verify failed，防 broken symlink 导致 new root 残留）
+    // verify (when an exception occurs, safeRemove cleans up and returns verify failed, preventing broken symlink from causing new root residual)
     let vResult;
     try {
       vResult = await verifyCopy(from, to);
@@ -350,11 +350,11 @@ function createDataFolderMove({ fs: _fs, path: _path }) {
       return { success: false, error: `verify exception: ${verifyErr.message}`, crossDevice: true };
     }
     if (!vResult.ok) {
-      // verify 失败 → partial cleanup
+      // verify failed → partial cleanup
       try {
         await safeRemove(to);
       } catch (_) {
-        // safeRemove 幂等——存在异常时仍报告 verify 错误
+        // safeRemove idempotent — report verify error even during exception
       }
       return {
         success: false,

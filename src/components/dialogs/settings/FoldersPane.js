@@ -1,20 +1,20 @@
-// Settings → Data Folder：单一根目录 + 9 行只读子目录（issue #75 收敛版，Phase E）。
+// Settings → Data Folder: single root directory + 9 read-only subdirectories.
 //
-// UI 结构（设计 §10.2）：
+// UI structure:
 //   Data folder
 //   /current/root
 //   [Browse] [Reset] [Open]
 //   default / rejected / error / warning / critical note
 //   ---------------------
-//   9 个 read-only subfolder paths（从 paths:list 的 folders.subfolders 派生）
+//   9 read-only subfolder paths (derived from paths:list's folders.subfolders)
 //
-// 交互流：
-//   Browse：choose → 取消中止 → confirm dialog → setUserPath → Moving… → success/inline error
-//   Reset：confirm → resetUserPath → Moving… → success/inline error；已 default 时 disabled
-//   Open：revealUserPath()
-//   unsaved-designs guard：Browse 与 Reset 都先过
-//   inline 状态：rejected / error / warning / critical（不弹窗）
-//   Moving… busy state：所有按钮 disabled
+// Interaction flow:
+//   Browse: choose → cancel aborts → confirm dialog → setUserPath → Moving… → success/inline error
+//   Reset: confirm → resetUserPath → Moving… → success/inline error; disabled when already default
+//   Open: revealUserPath()
+//   unsaved-designs guard: both Browse and Reset pass through it first
+//   inline states: rejected / error / warning / critical (no popup)
+//   Moving… busy state: all buttons disabled
 import { FolderRow } from './FolderRow.js';
 import { SubfolderList } from './SubfolderList.js';
 import { hintStyle, buttonStyle } from './ui.js';
@@ -22,26 +22,26 @@ import { hintStyle, buttonStyle } from './ui.js';
 const { createElement: h, useState, useEffect, useCallback, useRef } = React;
 
 /**
- * 从 paths:list 返回结构中提取当前 root 路径。
+ * Extract the current root path from the paths:list return structure.
  */
 function getRootPath(listResult) {
   return listResult?.folders?.root || '';
 }
 
 /**
- * FoldersPane：单一 Data Folder 设置面板。
+ * FoldersPane: single Data Folder settings panel.
  *
  * @param {object} props
- * @param {object} props.c - 主题色对象
- * @param {object} props.t - 本地化字符串
- * @param {Function} props.onUserPathChanged - 事务成功后的 reload 回调
- * @param {Function} props.canChangeUserPath - 未保存设计守卫（key 参数已废弃，统一检查 root）
- * @param {Function} props.showConfirm - app 级确认对话框 (message) => Promise<boolean>
+ * @param {object} props.c - theme color object
+ * @param {object} props.t - localized strings
+ * @param {Function} props.onUserPathChanged - reload callback after a successful transaction
+ * @param {Function} props.canChangeUserPath - unsaved-design guard (key param deprecated, checks root uniformly)
+ * @param {Function} props.showConfirm - app-level confirm dialog (message) => Promise<boolean>
  */
 export const FoldersPane = ({ c, t, onUserPathChanged, canChangeUserPath, showConfirm }) => {
-  const [folders, setFolders] = useState(null);     // paths:list 返回的完整 folders 对象
+  const [folders, setFolders] = useState(null);     // full folders object returned by paths:list
   const [error, setError] = useState(null);          // move error / critical
-  const [warning, setWarning] = useState(null);      // oldStillThere warning（黄色）
+  const [warning, setWarning] = useState(null);      // oldStillThere warning (yellow)
   const [moving, setMoving] = useState(false);       // Moving… busy state
   const errorRef = useRef(null);
 
@@ -55,28 +55,24 @@ export const FoldersPane = ({ c, t, onUserPathChanged, canChangeUserPath, showCo
 
   useEffect(() => { refresh(); }, [refresh]);
 
-  // 是否处于默认目录（overridden=false）
+  // whether in the default directory (overridden=false)
   const isDefault = !folders?.overridden;
   const rootPath = folders?.root || '';
   const subfolders = folders?.subfolders || [];
   const rejected = folders?.rejected || null;
 
-  // ── 移动结果处理：统一处理 success/warning/error/critical ──────────────
-  const handleMoveResult = useCallback((result) => {
+  // ── move result handling: unify success/warning/error/critical ─────────
+  const handleMoveResult = useCallback(async (result) => {
     if (!result) return;
     if (!result.success) {
-      // critical 特殊处理：显示 dataLocation + 不自动 reload
+      // critical special handling: show dataLocation + no auto reload
       if (result.critical) {
-        setError(
-          t.settings.folders.criticalError
-            ? t.settings.folders.criticalError(result.dataLocation)
-            : `Critical: data is at ${result.dataLocation} but settings could not be saved.`
-        );
-        // critical 时不调 onUserPathChanged（设计要求）
+        setError(t.settings.folders.criticalError(result.dataLocation));
+        // do not call onUserPathChanged on critical (design requirement)
       } else {
         setError(t.settings.folders.changeFailed(result.error || ''));
       }
-      // 即使失败，也刷新 folders 以反映最新状态
+      // even on failure, refresh folders to reflect the latest state
       if (result.folders) setFolders(result.folders);
       return;
     }
@@ -84,34 +80,35 @@ export const FoldersPane = ({ c, t, onUserPathChanged, canChangeUserPath, showCo
     setError(null);
     if (result.folders) setFolders(result.folders);
     if (result.warning) {
-      // 成功但有 warning（如 old folder still exists）—— 用独立 amber 样式
+      // success with warning (e.g. old folder still exists) — use a separate amber style
       setWarning(t.settings.folders.oldStillThere
         ? t.settings.folders.oldStillThere
         : result.warning);
     } else {
       setWarning(null);
     }
-    // 只在成功或 warning 时调 reload（critical 不调）
-    onUserPathChanged?.();
+    // only call reload on success or warning (not on critical); await so the
+    // busy state is not cleared until the reload completes
+    await onUserPathChanged?.();
   }, [t, onUserPathChanged]);
 
-  // ── Browse：choose → confirm → setUserPath → Moving… ──────────────────
+  // ── Browse: choose → confirm → setUserPath → Moving… ──────────────────
   const onBrowse = useCallback(async () => {
-    // 未保存设计守卫
+    // unsaved-design guard
     if (canChangeUserPath && !canChangeUserPath()) {
       setError(t.settings.folders.projectsLocked);
       return;
     }
 
     try {
-      // 1. choose — 只返回选择路径
+      // 1. choose — returns the chosen path only
       const chooseResult = await window.electronAPI?.chooseUserPath?.();
       if (!chooseResult || chooseResult.canceled || !chooseResult.path) return;
 
-      // 2. app confirm dialog（优先使用注入的 showConfirm，回退到 window.confirm）
+      // 2. app confirm dialog (prefer the injected showConfirm, fall back to window.confirm)
       const confirmFn = showConfirm || ((msg) => Promise.resolve(window.confirm(msg)));
       const confirmed = await confirmFn(
-        t.settings.folders.confirmMove?.(chooseResult.path) || `Move all data to ${chooseResult.path}?`
+        t.settings.folders.confirmMove(chooseResult.path)
       );
       if (!confirmed) return;
 
@@ -131,15 +128,15 @@ export const FoldersPane = ({ c, t, onUserPathChanged, canChangeUserPath, showCo
     }
   }, [canChangeUserPath, showConfirm, t, handleMoveResult]);
 
-  // ── Reset：confirm → resetUserPath → Moving… ──────────────────────────
+  // ── Reset: confirm → resetUserPath → Moving… ──────────────────────────
   const onReset = useCallback(async () => {
-    // 未保存设计守卫
+    // unsaved-design guard
     if (canChangeUserPath && !canChangeUserPath()) {
       setError(t.settings.folders.projectsLocked);
       return;
     }
 
-    // 已 default 时不操作
+    // no-op when already default
     if (isDefault) return;
 
     try {
@@ -147,7 +144,7 @@ export const FoldersPane = ({ c, t, onUserPathChanged, canChangeUserPath, showCo
       const confirmFn2 = showConfirm || ((msg) => Promise.resolve(window.confirm(msg)));
       const defaultRoot = folders?.defaultRoot || '';
       const confirmed = await confirmFn2(
-        t.settings.folders.confirmReset?.(defaultRoot) || `Reset to default location (${defaultRoot})?`
+        t.settings.folders.confirmReset(defaultRoot)
       );
       if (!confirmed) return;
 
@@ -167,26 +164,26 @@ export const FoldersPane = ({ c, t, onUserPathChanged, canChangeUserPath, showCo
     }
   }, [isDefault, canChangeUserPath, showConfirm, folders, t, handleMoveResult]);
 
-  // ── Open：revealUserPath() ────────────────────────────────────────────
+  // ── Open: revealUserPath() ────────────────────────────────────────────
   const onOpen = useCallback(async () => {
     const result = await window.electronAPI?.revealUserPath?.();
     if (result && !result.success) setError(t.settings.folders.openFailed);
   }, [t]);
 
-  // ── 子目录行 Open ─────────────────────────────────────────────────────
+  // ── subdirectory row Open ─────────────────────────────────────────────
   const onOpenSubfolder = useCallback(async (key) => {
     const result = await window.electronAPI?.revealUserPath?.(key);
     if (result && !result.success) setError(t.settings.folders.openFailed);
   }, [t]);
 
   return h('div', null,
-    // ── 标题 ──
+    // ── title ──
     h('span', { style: { ...hintStyle(c), marginTop: 0, marginBottom: '8px' } },
       t.settings.folders.hint),
 
-    // ── inline 状态 ──
+    // ── inline states ──
 
-    // rejected（configured root 不可用）
+    // rejected (configured root unusable)
     rejected && h('div', {
       role: 'status',
       style: {
@@ -195,7 +192,7 @@ export const FoldersPane = ({ c, t, onUserPathChanged, canChangeUserPath, showCo
       },
     }, t.settings.folders.rejected(rejected.configured, rejected.reason)),
 
-    // error（move error / critical）—— 红色
+    // error (move error / critical) — red
     error && h('div', {
       role: 'alert',
       style: {
@@ -204,7 +201,7 @@ export const FoldersPane = ({ c, t, onUserPathChanged, canChangeUserPath, showCo
       },
     }, error),
 
-    // warning（oldStillThere）—— amber/yellow
+    // warning (oldStillThere) — amber/yellow
     warning && h('div', {
       role: 'status',
       style: {
@@ -218,12 +215,12 @@ export const FoldersPane = ({ c, t, onUserPathChanged, canChangeUserPath, showCo
       style: {
         fontSize: '12px', color: c.accent, padding: '8px', marginBottom: '8px',
       },
-    }, t.settings.folders.moving || 'Moving data…'),
+    }, t.settings.folders.moving),
 
-    // ── Root path 行 ──
+    // ── Root path row ──
     rootPath && h(FolderRow, {
       entry: { key: 'root', path: rootPath, overridden: !isDefault },
-      label: t.settings.folders.title || 'Data folder',
+      label: t.settings.folders.title,
       onBrowse: () => onBrowse(),
       onReset: () => onReset(),
       onOpen: () => onOpen(),
@@ -231,7 +228,7 @@ export const FoldersPane = ({ c, t, onUserPathChanged, canChangeUserPath, showCo
       c, t,
     }),
 
-    // ── 只读子目录列表 ──
+    // ── read-only subdirectory list ──
     subfolders.length > 0 && h(SubfolderList, {
       subfolders: subfolders.map(sf => ({ ...sf, name: sf.key })),
       onOpen: onOpenSubfolder,

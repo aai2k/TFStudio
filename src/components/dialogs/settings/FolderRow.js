@@ -1,6 +1,6 @@
-// Root path 行：路径 + Browse / Reset / Open 按钮（Phase E 单一 Data Folder）。
-// `entry` 来自 paths:list 返回的 folders 对象。
-// `moving` 为 true 时所有按钮 disabled（Moving… busy state）。
+// Root path row: path + Browse / Reset / Open buttons (single Data Folder).
+// `entry` comes from the folders object returned by paths:list.
+// `moving` disables all buttons when true (Moving… busy state).
 import { buttonStyle } from './ui.js';
 
 const { createElement: h } = React;

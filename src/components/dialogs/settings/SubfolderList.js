@@ -1,6 +1,6 @@
-// 只读子目录列表：显示 Data folder 下 9 个子目录（Phase E）。
-// 数据源：paths:list 返回的 folders.subfolders（不写死数量）。
-// 每行：状态点 + key 名 + Open 按钮（reveals 子目录路径）。
+// Read-only subdirectory list: shows the 9 subdirectories under the Data folder.
+// Data source: paths:list's folders.subfolders (count not hardcoded).
+// Each row: status dot + key name + Open button (reveals the subdirectory path).
 import { buttonStyle } from './ui.js';
 
 const { createElement: h } = React;

@@ -791,7 +791,7 @@ const App = () => {
     // Settings change. Refresh the corresponding renderer registry in the same
     // interaction so its visible state and all following commands refer to the
     // same root.
-    // Phase E：root 迁移后统一 reload（design tree + catalogs），不再按 key 分发。
+    // Phase E: unified reload after root migration (design tree + catalogs), no longer dispatches by key.
     const handleUserPathChanged = async () => {
         await loadFoldersFromDisk({ restoreSession: false, restoreLayout: false });
         await loadCatalogsFromDisk();
@@ -1525,7 +1525,7 @@ const App = () => {
                 wasmTmm, setWasmTmm,
                 updateCheckEnabled, setUpdateCheckEnabled,
                 onUserPathChanged: handleUserPathChanged,
-                // Phase E：unsaved-designs guard 统一检查（不再按 key 分发）
+                // Phase E: unified unsaved-designs guard check (no longer dispatches by key)
                 canChangeUserPath: () => !Object.values(dirtyDesigns).some(Boolean),
                 ribbonStyle, setRibbonStyle,
                 quickAccess, setQuickAccess,

@@ -1,10 +1,10 @@
 /**
- * 单一 Data Folder 模型测试（src/main/userPaths.js，issue #75 收敛版）。
+ * Single Data Folder Model Test (src/main/userPaths.js, issue #75 convergence version).
  *
- * 覆盖：startup validation (load)、toSettings、applyRoot/setRoot、
- * defineCtxGetters、ensureAll、legacy keys 检测、fallback 行为。
+ * Covers: startup validation (load), toSettings, applyRoot/setRoot,
+ * defineCtxGetters, ensureAll, legacy keys detection, fallback behavior.
  *
- * ESM + createRequire 加载 CJS 模块。用真实 fs + os.tmpdir() 建临时目录，用完清理。
+ * ESM + createRequire loading CJS module. Using real fs + os.tmpdir() to create temp directory, clean up after.
  */
 import { createRequire } from 'node:module';
 import path from 'node:path';
@@ -21,7 +21,7 @@ function ok(condition, message) {
   passed++;
 }
 
-// ── 辅助：临时目录 + 真实 fs ──────────────────────────────────────────────
+// ── Helper: temp dir + real fs ──────────────────────────────────────────────
 const TMP_ROOT = fs.mkdtempSync(path.join(os.tmpdir(), 'user-paths-test-'));
 
 function tmpDir(name) {
@@ -34,7 +34,7 @@ function cleanTmp() {
   fs.rmSync(TMP_ROOT, { recursive: true, force: true });
 }
 
-// POSIX path 用于不需要实际文件系统操作的纯逻辑测试
+// POSIX path for pure logic tests that don't need actual file system operations
 const POSIX = path.posix;
 const DOCS = '/home/test/Documents';
 const BASE = DOCS + '/TFStudio';
@@ -51,7 +51,7 @@ const makePosix = (opts = {}) => {
   return { paths, fs: inMemoryFs, logs };
 };
 
-// 真实 fs（用于 load/ensureAll 等需要真实 IO 的测试）
+// Real fs (for load/ensureAll and other tests needing real IO)
 function makeReal(exeDir) {
   const docs = tmpDir('docs');
   const logs = [];
@@ -65,7 +65,7 @@ function makeReal(exeDir) {
   return { paths, logs, docs };
 }
 
-// ── 内存 fs（用于纯逻辑测试）──────────────────────────────────────────────
+// ── Memory fs (for pure logic tests) ──────────────────────────────────────────────
 function makeInMemoryFs(unwritable = []) {
   const dirs = new Set();
   const files = new Map();
@@ -90,12 +90,12 @@ function makeInMemoryFs(unwritable = []) {
   };
 }
 
-// 辅助：拼接 POSIX 路径
+// Helper: concatenate POSIX paths
 function posixJoin(...parts) { return POSIX.join(...parts); }
 function posixDefault(subdir) { return posixJoin(BASE, subdir); }
 
 // ═══════════════════════════════════════════════════════════════════════════
-// 测试用例
+// Test cases
 // ═══════════════════════════════════════════════════════════════════════════
 
 // ── 1. defaults ───────────────────────────────────────────────────────
@@ -115,7 +115,7 @@ function posixDefault(subdir) { return posixJoin(BASE, subdir); }
   ok(Object.keys(paths.toSettings()).length === 0, 'toSettings returns {} by default');
 }
 
-// ── 2. configured root 非空且可用 → accepted ────────────────────────────
+// ── 2. configured root non-empty and usable → accepted ────────────────────────────
 {
   const { paths } = makeReal();
   const customRoot = tmpDir('custom-root');
@@ -126,12 +126,12 @@ function posixDefault(subdir) { return posixJoin(BASE, subdir); }
   cleanTmp();
 }
 
-// ── 3. 路径不存在但设备可用（mkdir+probe 成功）→ accepted ────────────────
+// ── 3. Path does not exist but device available (mkdir+probe success) → accepted ────────────────
 {
   const { paths } = makeReal();
   const parent = tmpDir('device-ok');
   const newRoot = path.join(parent, 'nonexistent');
-  // 确保路径不存在
+  // Ensure path does not exist
   ok(!fs.existsSync(newRoot), 'setup: 目标路径不存在');
   paths.load({ folders: { root: newRoot } });
   ok(fs.existsSync(newRoot), 'mkdir 成功创建了目标路径');
@@ -140,7 +140,7 @@ function posixDefault(subdir) { return posixJoin(BASE, subdir); }
   cleanTmp();
 }
 
-// ── 4. USB 不可用（mkdir/probe 失败）→ rejected + fallback ──────────────
+// ── 4. USB unavailable (mkdir/probe failure) → rejected + fallback ──────────────
 {
   const { paths, logs } = makeReal();
   const badRoot = 'Q:\\TFStudio';
@@ -153,7 +153,7 @@ function posixDefault(subdir) { return posixJoin(BASE, subdir); }
   cleanTmp();
 }
 
-// ── 5. configuredRoot 不因 fallback 丢失 ────────────────────────────────
+// ── 5. configuredRoot not lost due to fallback ────────────────────────────────
 {
   const { paths } = makeReal();
   const badRoot = 'Q:\\Missing\\Drive';
@@ -163,20 +163,20 @@ function posixDefault(subdir) { return posixJoin(BASE, subdir); }
   cleanTmp();
 }
 
-// ── 6. relative root 按 exeDir resolve ──────────────────────────────────
+// ── 6. relative root resolved by exeDir ──────────────────────────────────
 {
   const exeDir = tmpDir('exe-rel');
   const relName = 'mydata';
   const expectedRoot = path.join(exeDir, relName);
   const { paths } = makeReal(exeDir);
-  // 使用相对路径：相对于 exeDir resolve
+  // Use relative path: resolved relative to exeDir
   paths.load({ folders: { root: relName } });
   ok(paths.configuredRoot === relName, '相对路径保存为原始值');
   ok(paths.rootDir === expectedRoot, '相对路径按 exeDir resolve');
   cleanTmp();
 }
 
-// ── 7. legacy keys 检测 + log（不阻断有效 root）─────────────────────────
+// ── 7. legacy keys detection + log (does not block valid root) ─────────────────────────
 {
   const { paths, logs } = makeReal();
   const customRoot = tmpDir('legacy-ok');
@@ -187,13 +187,13 @@ function posixDefault(subdir) { return posixJoin(BASE, subdir); }
   cleanTmp();
 }
 
-// ── 8. 第二次 load 清理第一次 rejected ──────────────────────────────────
+// ── 8. Second load cleans first rejected ──────────────────────────────────
 {
   const { paths } = makeReal();
-  // 第一次：不可用 root → rejected
+  // First: unavailable root → rejected
   paths.load({ folders: { root: 'Q:\\Bad' } });
   ok(paths.rejected !== null, '第一次 load 后 rejected 非空');
-  // 第二次：有效 root → rejected 被清
+  // Second: valid root → rejected cleared
   const goodRoot = tmpDir('second-load');
   paths.load({ folders: { root: goodRoot } });
   ok(paths.rejected === null, '第二次 load 清理了 rejected');
@@ -218,60 +218,60 @@ function posixDefault(subdir) { return posixJoin(BASE, subdir); }
   ok(Object.keys(paths.toSettings()).length === 0, '默认 toSettings 返回 {}');
 }
 
-// ── 11. toSettings：fallback 期间仍写 configuredRoot ───────────────────
+// ── 11. toSettings: fallback still writes configuredRoot ───────────────────
 {
   const { paths } = makeReal();
   const badRoot = 'Q:\\TFStudio';
   const customRoot = tmpDir('tosettings-fallback');
-  // 加载不可用 root → fallback
+  // Load unavailable root → fallback
   paths.load({ folders: { root: badRoot } });
   ok(paths.rootDir === paths.baseDir, 'fallback 期间 rootDir = baseDir');
-  // toSettings 应仍写 configuredRoot（不因 fallback 误删）
+  // toSettings should still write configuredRoot (not accidentally deleted by fallback)
   const s = paths.toSettings();
   ok(s.root === badRoot, 'fallback 期间 toSettings 仍写 configuredRoot');
   cleanTmp();
 }
 
-// ── 12. setRoot(exeDir 内) → toSettings 输出相对路径（P1-3 portable §11）─
+// ── 12. applyRoot (within exeDir) → toSettings outputs relative path (P1-3 portable §11) ─
 {
   const exeDir = tmpDir('exe-portable');
   const dataDir = path.join(exeDir, 'portable-data');
   fs.mkdirSync(dataDir, { recursive: true });
   const { paths } = makeReal(exeDir);
-  // setRoot 设置一个位于 exeDir 下的路径
-  paths.setRoot(dataDir);
+  // applyRoot sets a path under exeDir
+  paths.applyRoot(dataDir);
   const s = paths.toSettings();
   const expectedRel = 'portable-data';
-  ok(s.root === expectedRel, `setRoot(exeDir 内) → toSettings 输出相对路径 '${expectedRel}'，got: ${s.root}`);
-  // rootDir 仍存绝对路径
+  ok(s.root === expectedRel, `applyRoot(exeDir 内) → toSettings 输出相对路径 '${expectedRel}'，got: ${s.root}`);
+  // rootDir still stores absolute path
   ok(paths.rootDir === dataDir, 'rootDir 仍存绝对路径');
   cleanTmp();
 }
 
-// ── 13. setRoot(escape exeDir) → toSettings 输出绝对路径 ─────────────────
+// ── 13. applyRoot (escape exeDir) → toSettings outputs absolute path ─────────────────
 {
   const exeDir = tmpDir('exe-abs');
   const absRoot = tmpDir('abs-root');
   const { paths } = makeReal(exeDir);
-  paths.setRoot(absRoot);
+  paths.applyRoot(absRoot);
   const s = paths.toSettings();
   ok(s.root === absRoot, 'escape exeDir → toSettings 输出绝对路径');
   ok(paths.rootDir === absRoot, 'rootDir 仍存绝对路径');
   cleanTmp();
 }
 
-// ── 13b. applyRoot(exeDir 内) → toSettings 输出相对路径 ──────────────────
+// ── 13b. applyRoot (within exeDir) → toSettings outputs relative path ──────────────────
 {
   const exeDir = '/opt/app/bin';
   const { paths } = makePosix({ exeDir });
-  // 模拟 applyRoot 设置一个位于 exeDir 下的路径
+  // Simulate applyRoot setting a path under exeDir
   paths.applyRoot('/opt/app/bin/Projects');
   const s = paths.toSettings();
   ok(s.root === 'Projects', `applyRoot(exeDir 内) → toSettings 输出 'Projects'，got: ${s.root}`);
   ok(paths.rootDir === '/opt/app/bin/Projects', 'rootDir 仍存绝对路径');
 }
 
-// ── 14. applyRoot 后 getter 实时变化 ───────────────────────────────────
+// ── 14. applyRoot after getter real-time change ───────────────────────────────────
 {
   const { paths } = makePosix();
   const ctx = paths.defineCtxGetters({});
@@ -301,25 +301,25 @@ function posixDefault(subdir) { return posixJoin(BASE, subdir); }
   ok(ctx.userDocsDir === newRoot, 'applyRoot 后 userDocsDir = active rootDir');
 }
 
-// ── 16. setRoot 后清 rejected ──────────────────────────────────────────
+// ── 16. applyRoot after rejected cleaned ──────────────────────────────────────────
 {
   const { paths } = makeReal();
-  // 先制造 rejected
+  // First create rejected
   paths.load({ folders: { root: 'Q:\\Bad' } });
   ok(paths.rejected !== null, 'setup: rejected 非空');
 
-  // setRoot（纯内部赋值）
+  // applyRoot (pure internal assignment)
   const newRoot = tmpDir('setroot-ok');
-  paths.setRoot(newRoot);
-  ok(paths.rejected === null, 'setRoot 后 rejected 被清');
-  ok(paths.rootDir === newRoot, 'setRoot 后 rootDir 更新');
+  paths.applyRoot(newRoot);
+  ok(paths.rejected === null, 'applyRoot 后 rejected 被清');
+  ok(paths.rootDir === newRoot, 'applyRoot 后 rootDir 更新');
   cleanTmp();
 }
 
-// ── 17. applyRoot(baseDir) 后清 rejected ──────────────────────────────
+// ── 17. applyRoot(baseDir) after rejected cleaned ──────────────────────────────
 {
   const { paths } = makeReal();
-  // 先制造 rejected
+  // First create rejected
   paths.load({ folders: { root: 'Q:\\Bad' } });
   ok(paths.rejected !== null, 'setup: rejected 非空');
 
@@ -331,9 +331,9 @@ function posixDefault(subdir) { return posixJoin(BASE, subdir); }
   cleanTmp();
 }
 
-// ── 18. legacy keys 下一次 write 物理丢弃 ─────────────────────────────
-// toSettings 只输出 {root}；writeMainOwnedKey 整块替换 folders，
-// 因此 legacy per-folder keys 在下一次写盘时被物理删除。
+// ── 18. legacy keys next write physically discarded ─────────────────────────────
+// toSettings only outputs {root}; writeMainOwnedKey replaces folders entirely，
+// Therefore legacy per-folder keys are physically deleted on the next write.
 {
   let stored = null;
   const ctx = {
@@ -342,7 +342,7 @@ function posixDefault(subdir) { return posixJoin(BASE, subdir); }
     writeFileAtomic: (_file, data) => { stored = data; },
   };
 
-  // 模拟有 legacy keys 的旧 settings
+  // Simulate old settings with legacy keys
   stored = JSON.stringify({
     folders: { root: '/data/root', projects: '/old/Projects', materials: '/old/Materials' },
     theme: 'Dark',
@@ -353,7 +353,7 @@ function posixDefault(subdir) { return posixJoin(BASE, subdir); }
   const s = paths.toSettings();
   ok(s.root === '/data/root', 'toSettings 输出 root');
 
-  // 写盘
+  // Write to disk
   writeMainOwnedKey(ctx, 'folders', s);
   const after = JSON.parse(stored);
   ok(after.folders.root === '/data/root', 'write 后 root 保留');
@@ -362,7 +362,7 @@ function posixDefault(subdir) { return posixJoin(BASE, subdir); }
   ok(after.theme === 'Dark', 'write 后 renderer keys 保留');
 }
 
-// ── 19. ensureAll 创建 active rootDir 的 9 个子目录 ────────────────────
+// ── 19. ensureAll creates 9 subdirectories under active rootDir ────────────────────
 {
   const { paths } = makeReal();
   paths.ensureAll();
@@ -374,7 +374,7 @@ function posixDefault(subdir) { return posixJoin(BASE, subdir); }
   cleanTmp();
 }
 
-// ── 20. ensureAll 在非默认 root 下创建子目录 ──────────────────────────
+// ── 20. ensureAll creates subdirectories under non-default root ──────────────────────────
 {
   const { paths } = makeReal();
   const customRoot = tmpDir('ensureall-custom');
@@ -387,7 +387,7 @@ function posixDefault(subdir) { return posixJoin(BASE, subdir); }
   cleanTmp();
 }
 
-// ── 21. list() 返回正确形状 ────────────────────────────────────────────
+// ── 21. list() returns correct shape ────────────────────────────────────────────
 {
   const { paths } = makePosix();
   const result = paths.list();
@@ -404,7 +404,7 @@ function posixDefault(subdir) { return posixJoin(BASE, subdir); }
   ok(keys.includes('reportPresets'), 'subfolders 含 reportPresets');
 }
 
-// ── 22. load() 无配置 → 使用默认 ──────────────────────────────────────
+// ── 22. load() no config → use default ──────────────────────────────────────
 {
   const { paths } = makeReal();
   paths.load({});
@@ -414,7 +414,7 @@ function posixDefault(subdir) { return posixJoin(BASE, subdir); }
   cleanTmp();
 }
 
-// ── 23. load() folders 为空对象 → 使用默认 ────────────────────────────
+// ── 23. load() folders empty object → use default ────────────────────────────
 {
   const { paths } = makeReal();
   paths.load({ folders: {} });
@@ -423,7 +423,7 @@ function posixDefault(subdir) { return posixJoin(BASE, subdir); }
   cleanTmp();
 }
 
-// ── 24. load() cfg 为 null → 使用默认 ─────────────────────────────────
+// ── 24. load() cfg is null → use default ─────────────────────────────────
 {
   const { paths } = makeReal();
   paths.load(null);
@@ -431,7 +431,7 @@ function posixDefault(subdir) { return posixJoin(BASE, subdir); }
   cleanTmp();
 }
 
-// ── 25. applyRoot 清 rejected ──────────────────────────────────────────
+// ── 25. applyRoot cleans rejected ──────────────────────────────────────────
 {
   const { paths } = makeReal();
   paths.load({ folders: { root: 'Q:\\Bad' } });
@@ -440,7 +440,7 @@ function posixDefault(subdir) { return posixJoin(BASE, subdir); }
   ok(paths.rejected === null, 'applyRoot 后 rejected 被清');
 }
 
-// ── 26. applyRoot(baseDir) 将 configuredRoot 设为 null ────────────────
+// ── 26. applyRoot(baseDir) sets configuredRoot to null ────────────────
 {
   const { paths } = makePosix();
   paths.applyRoot('/data/custom');
@@ -449,16 +449,15 @@ function posixDefault(subdir) { return posixJoin(BASE, subdir); }
   ok(paths.configuredRoot === null, 'applyRoot(baseDir) → configuredRoot = null');
 }
 
-// ── 27. setRoot 不触发验证（纯赋值）─────────────────────────────────────
+// ── 27. applyRoot does not trigger validation (pure assignment) ──────────────────────────────────────
 {
   const { paths } = makePosix();
-  // 即使传入不可达路径，setRoot 也不验证
-  const result = paths.setRoot('/impossible/path');
-  ok(result.success === true, 'setRoot 总是成功（纯赋值）');
-  ok(paths.rootDir === '/impossible/path', 'setRoot 直接赋值 rootDir');
+  // Even with unreachable path, applyRoot does not validate
+  paths.applyRoot('/impossible/path');
+  ok(paths.rootDir === '/impossible/path', 'applyRoot directly assigns rootDir');
 }
 
-// ── 28. defaultPath 与 get 的关系 ──────────────────────────────────────
+// ── 28. defaultPath relationship with get ──────────────────────────────────────
 {
   const { paths } = makePosix();
   ok(paths.defaultPath('projects') === posixDefault('Projects'), 'defaultPath 返回 baseDir + subdir');
@@ -467,11 +466,11 @@ function posixDefault(subdir) { return posixJoin(BASE, subdir); }
   ok(paths.defaultPath('projects') === posixDefault('Projects'), 'defaultPath 不受 applyRoot 影响');
 }
 
-// ── 29. ensureAll 不重复创建已存在的目录 ──────────────────────────────
+// ── 29. ensureAll does not duplicate existing directories ──────────────────────────────
 {
   const { paths } = makeReal();
   paths.ensureAll();
-  // 第二次调用不报错
+  // Second call does not error
   paths.ensureAll();
   for (const spec of FOLDER_SPECS) {
     ok(fs.existsSync(path.join(paths.rootDir, spec.subdir)), 'ensureAll 幂等：' + spec.subdir + ' 存在');
@@ -479,7 +478,7 @@ function posixDefault(subdir) { return posixJoin(BASE, subdir); }
   cleanTmp();
 }
 
-// ── 30. legacy keys 在无 root 时也检测 ─────────────────────────────────
+// ── 30. legacy keys detected even without root ─────────────────────────────────
 {
   const { paths, logs } = makeReal();
   paths.load({ folders: { projects: '/old/Projects' } });
@@ -488,21 +487,21 @@ function posixDefault(subdir) { return posixJoin(BASE, subdir); }
   cleanTmp();
 }
 
-// ── 31. 多次 load 切换有效/无效 root ───────────────────────────────────
+// ── 31. multiple load switching valid/invalid root ───────────────────────────────────
 {
   const { paths } = makeReal();
-  // 有效 root
+  // Valid root
   const goodRoot1 = tmpDir('multi-1');
   paths.load({ folders: { root: goodRoot1 } });
   ok(paths.rootDir === goodRoot1, '第一次 load: 有效 root');
   ok(paths.rejected === null, '第一次 load: 无 rejected');
 
-  // 无效 root
+  // Invalid root
   paths.load({ folders: { root: 'Q:\\XBad' } });
   ok(paths.rootDir === paths.baseDir, '第二次 load: fallback');
   ok(paths.rejected !== null, '第二次 load: rejected 非空');
 
-  // 有效 root
+  // Valid root
   const goodRoot2 = tmpDir('multi-2');
   paths.load({ folders: { root: goodRoot2 } });
   ok(paths.rootDir === goodRoot2, '第三次 load: 有效 root');

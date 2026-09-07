@@ -1,15 +1,15 @@
 /**
- * FoldersPane 逻辑测试 + preload API 契约验证（issue #75 Phase E）。
+ * FoldersPane logic tests + preload API contract verification (issue #75 Phase E).
  *
- * 覆盖：
- *   - preload.js IPC 契约（setUserPath/resetUserPath/chooseUserPath 签名对齐 Phase C）
- *   - renderer.js handleUserPathChanged 无 key 参数
- *   - SubfolderList 从 subfolders 数组渲染（map，不写死数量）
- *   - FolderRow moving 状态按钮 disabled
- *   - FoldersPane 数据流：listUserPaths → subfolders 派生
- *   - FoldersPane 内联状态：rejected / error / warning / critical / moving
+ * Covers:
+ *   - preload.js IPC contract (setUserPath/resetUserPath/chooseUserPath signatures aligned with Phase C)
+ *   - renderer.js handleUserPathChanged without key parameter
+ *   - SubfolderList renders from subfolders array (map, not hardcoded count)
+ *   - FolderRow moving state disables buttons
+ *   - FoldersPane data flow: listUserPaths → subfolders derivation
+ *   - FoldersPane inline states: rejected / error / warning / critical / moving
  *
- * ESM + createRequire 加载 CJS 模块。
+ * ESM + createRequire loading CJS module.
  * Run: node tests/folders_pane.mjs
  */
 import { createRequire } from 'node:module';
@@ -19,89 +19,81 @@ import os from 'node:os';
 
 const require = createRequire(import.meta.url);
 
-// ── 断言框架 ──────────────────────────────────────────────────────────
+// ── Assertion framework ──────────────────────────────────────────────────
 let P = 0, F = 0;
 function ok(c, m) { if (!c) { F++; console.error('FAIL:', m); } else P++; }
 function eq(a, b, m) { ok(a === b, `${m}: expected ${JSON.stringify(b)}, got ${JSON.stringify(a)}`); }
 function includes(s, sub, m) { ok(typeof s === 'string' && s.includes(sub), `${m}: expected string containing '${sub}', got ${JSON.stringify(s)}`); }
 
 // ═══════════════════════════════════════════════════════════════════════
-// 1. preload.js IPC 契约验证
+// 1. preload.js IPC contract verification
 // ═══════════════════════════════════════════════════════════════════════
 {
-  // 验证 preload.js 源码中的 API 签名
+  // Verify API signatures in preload.js source
   const preloadSrc = fs.readFileSync(path.join(process.cwd(), 'src/preload.js'), 'utf8');
 
-  // setUserPath(dir) — 不再接受 key 参数
+  // setUserPath(dir) — no longer accepts key parameter
   includes(preloadSrc, 'setUserPath:', 'preload exports setUserPath');
   ok(!preloadSrc.includes('setUserPath:            (key, dir)'),
     'setUserPath 不再接受 key 参数');
 
-  // resetUserPath() — 不再接受 key 参数
+  // resetUserPath() — no longer accepts key parameter
   includes(preloadSrc, 'resetUserPath:', 'preload exports resetUserPath');
   ok(!preloadSrc.includes('resetUserPath:          (key)'),
     'resetUserPath 不再接受 key 参数');
 
-  // chooseUserPath() — 不再接受 key 参数
+  // chooseUserPath() — no longer accepts key parameter
   includes(preloadSrc, 'chooseUserPath:', 'preload exports chooseUserPath');
   ok(!preloadSrc.includes('chooseUserPath:         (key)'),
     'chooseUserPath 不再接受 key 参数');
 
-  // revealUserPath(key) — 保留 key 参数
+  // revealUserPath(key) — keeps key parameter
   includes(preloadSrc, 'revealUserPath:', 'preload exports revealUserPath');
   ok(preloadSrc.includes('revealUserPath:         (key)'),
     'revealUserPath 保留 key 参数');
 
-  // listUserPaths 保留
+  // listUserPaths kept
   includes(preloadSrc, 'listUserPaths:', 'preload exports listUserPaths');
 
-  // 旧 API 已移除
+  // Old APIs removed
   ok(!preloadSrc.includes('setUserPathRoot:'), 'setUserPathRoot 已移除');
   ok(!preloadSrc.includes('listSubfolders:'), 'listSubfolders 已移除');
 }
 
 // ═══════════════════════════════════════════════════════════════════════
-// 2. ipc/paths.js handler 契约验证
+// 2. ipc/paths.js handler contract verification
 // ═══════════════════════════════════════════════════════════════════════
 {
   const pathsSrc = fs.readFileSync(path.join(process.cwd(), 'src/main/ipc/paths.js'), 'utf8');
 
-  // paths:set 接受 (event, key, dir)，其中 key 被忽略（_key）
+  // paths:set accepts (event, key, dir), where key is ignored (_key)
   includes(pathsSrc, 'async function handleSet(ctx, _key, dir)',
     'handleSet 接受 _key 参数（兼容旧签名但忽略）');
 
-  // paths:reset 不接受 key
+  // paths:reset does not accept key
   includes(pathsSrc, 'async function handleReset(ctx, _key)',
     'handleReset 接受 _key 参数（兼容但忽略）');
 
-  // paths:choose 不接受 key
+  // paths:choose does not accept key
   includes(pathsSrc, 'async function handleChoose(ctx, key)',
     'handleChoose 接受 key 参数但不使用');
 
-  // paths:list 返回 folders 对象含 subfolders
+  // paths:list returns folders object containing subfolders
   includes(pathsSrc, "return { success: true, folders: ctx.userPaths.list() }",
     'handleList 返回 folders.list()');
-
-  // listSubfolders 兼容 handler 保留
-  includes(pathsSrc, "ipcMain.handle('paths:listSubfolders'",
-    'listSubfolders 兼容 handler 保留');
-
-  // paths:setRoot 兼容 handler 保留
-  includes(pathsSrc, "ipcMain.handle('paths:setRoot'",
-    'setRoot 兼容 handler 保留');
 }
 
 // ═══════════════════════════════════════════════════════════════════════
-// 3. renderer.js handleUserPathChanged 签名验证
+// 3. renderer.js handleUserPathChanged signature verification
 // ═══════════════════════════════════════════════════════════════════════
 {
   const rendererSrc = fs.readFileSync(path.join(process.cwd(), 'src/renderer.js'), 'utf8');
 
-  // handleUserPathChanged 不再接受 key 参数
+  // handleUserPathChanged no longer accepts key parameter
   includes(rendererSrc, 'const handleUserPathChanged = async () =>',
     'handleUserPathChanged 不再接受 key 参数');
 
-  // 统一 reload（不再按 key 分发）
+  // Unified reload (no longer dispatches by key)
   includes(rendererSrc, 'await loadFoldersFromDisk({ restoreSession: false, restoreLayout: false })',
     'handleUserPathChanged 调 loadFoldersFromDisk');
   includes(rendererSrc, 'await loadCatalogsFromDisk()',
@@ -109,26 +101,26 @@ function includes(s, sub, m) { ok(typeof s === 'string' && s.includes(sub), `${m
 }
 
 // ═══════════════════════════════════════════════════════════════════════
-// 4. FoldersPane 组件结构验证
+// 4. FoldersPane component structure verification
 // ═══════════════════════════════════════════════════════════════════════
 {
   const foldersPaneSrc = fs.readFileSync(path.join(process.cwd(), 'src/components/dialogs/settings/FoldersPane.js'), 'utf8');
 
-  // 使用 SubfolderList 组件
+  // Uses SubfolderList component
   includes(foldersPaneSrc, "import { SubfolderList } from './SubfolderList.js'",
     'FoldersPane 导入 SubfolderList');
 
-  // 使用 FolderRow 组件
+  // Uses FolderRow component
   includes(foldersPaneSrc, "import { FolderRow } from './FolderRow.js'",
     'FoldersPane 导入 FolderRow');
 
-  // 从 listUserPaths 获取数据（不使用 listSubfolders）
+  // Gets data from listUserPaths (does not use listSubfolders)
   includes(foldersPaneSrc, 'listUserPaths',
     'FoldersPane 使用 listUserPaths 获取数据');
   ok(!foldersPaneSrc.includes('listSubfolders'),
     'FoldersPane 不使用旧的 listSubfolders');
 
-  // subfolders 从 folders.subfolders 派生
+  // subfolders derived from folders.subfolders
   includes(foldersPaneSrc, 'folders?.subfolders',
     'FoldersPane 从 folders.subfolders 派生子目录');
 
@@ -138,7 +130,7 @@ function includes(s, sub, m) { ok(typeof s === 'string' && s.includes(sub), `${m
   includes(foldersPaneSrc, 'setMoving',
     'FoldersPane 有 setMoving setter');
 
-  // inline 状态
+  // inline states
   includes(foldersPaneSrc, 'rejected',
     'FoldersPane 处理 rejected 状态');
   includes(foldersPaneSrc, 'error',
@@ -148,26 +140,26 @@ function includes(s, sub, m) { ok(typeof s === 'string' && s.includes(sub), `${m
   includes(foldersPaneSrc, 'warning',
     'FoldersPane 处理 warning 状态');
 
-  // unsaved-designs guard（canChangeUserPath）
+  // unsaved-designs guard (canChangeUserPath)
   includes(foldersPaneSrc, 'canChangeUserPath',
     'FoldersPane 使用 canChangeUserPath 守卫');
 
-  // confirm dialog（window.confirm 回退）
+  // confirm dialog (window.confirm fallback)
   includes(foldersPaneSrc, 'window.confirm',
     'FoldersPane 有 window.confirm 回退');
 }
 
 // ═══════════════════════════════════════════════════════════════════════
-// 5. FolderRow moving 状态验证
+// 5. FolderRow moving state verification
 // ═══════════════════════════════════════════════════════════════════════
 {
   const folderRowSrc = fs.readFileSync(path.join(process.cwd(), 'src/components/dialogs/settings/FolderRow.js'), 'utf8');
 
-  // FolderRow 接受 moving prop
+  // FolderRow accepts moving prop
   includes(folderRowSrc, 'moving',
     'FolderRow 接受 moving prop');
 
-  // 按钮 disabled 与 moving 联动
+  // Button disabled tied to moving state
   includes(folderRowSrc, 'disabled: moving',
     'Browse 按钮在 moving 时 disabled');
   includes(folderRowSrc, "(!entry.overridden || moving)",
@@ -175,30 +167,30 @@ function includes(s, sub, m) { ok(typeof s === 'string' && s.includes(sub), `${m
 }
 
 // ═══════════════════════════════════════════════════════════════════════
-// 6. SubfolderList 从 subfolders 数组渲染（不写死数量）
+// 6. SubfolderList renders from subfolders array (not hardcoded count)
 // ═══════════════════════════════════════════════════════════════════════
 {
   const subfolderListSrc = fs.readFileSync(path.join(process.cwd(), 'src/components/dialogs/settings/SubfolderList.js'), 'utf8');
 
-  // SubfolderList 接受 onOpen prop
+  // SubfolderList accepts onOpen prop
   includes(subfolderListSrc, 'onOpen',
     'SubfolderList 接受 onOpen prop');
 
-  // SubfolderList 接受 moving prop
+  // SubfolderList accepts moving prop
   includes(subfolderListSrc, 'moving',
     'SubfolderList 接受 moving prop');
 
-  // 使用 map 渲染（不写死数量）
+  // Uses map to render (not hardcoded count)
   includes(subfolderListSrc, '.map(sf',
     'SubfolderList 使用 map 渲染（不写死数量）');
 
-  // 有 Open 按钮
+  // Has Open button
   includes(subfolderListSrc, 'onOpen',
     'SubfolderList 每行有 Open 按钮');
 }
 
 // ═══════════════════════════════════════════════════════════════════════
-// 7. userPaths.list() 返回结构验证（Phase C 契约）
+// 7. userPaths.list() return structure verification (Phase C contract)
 // ═══════════════════════════════════════════════════════════════════════
 {
   const { createUserPaths, FOLDER_SPECS } = require('../src/main/userPaths.js');
@@ -211,7 +203,7 @@ function includes(s, sub, m) { ok(typeof s === 'string' && s.includes(sub), `${m
 
   const list = up.list();
 
-  // 验证 list 返回结构
+  // Verify list return structure
   ok(typeof list.root === 'string', 'list.root 是字符串');
   ok(typeof list.defaultRoot === 'string', 'list.defaultRoot 是字符串');
   ok('configuredRoot' in list, 'list 含 configuredRoot');
@@ -220,20 +212,20 @@ function includes(s, sub, m) { ok(typeof s === 'string' && s.includes(sub), `${m
   ok(Array.isArray(list.subfolders), 'list.subfolders 是数组');
   eq(list.subfolders.length, 9, 'subfolders 共 9 项');
 
-  // 验证每个 subfolder 的结构
+  // Verify each subfolder structure
   for (const sf of list.subfolders) {
     ok(typeof sf.key === 'string', `subfolder ${sf.key} 有 key`);
     ok(typeof sf.path === 'string', `subfolder ${sf.key} 有 path`);
     ok(typeof sf.exists === 'boolean', `subfolder ${sf.key} 有 exists`);
   }
 
-  // 验证 9 个 key 与 FOLDER_SPECS 一致
+  // Verify 9 keys match FOLDER_SPECS
   const keys = list.subfolders.map(sf => sf.key);
   for (const spec of FOLDER_SPECS) {
     ok(keys.includes(spec.key), `subfolders 包含 ${spec.key}`);
   }
 
-  // 验证 overridden 行为
+  // Verify overridden behavior
   eq(list.overridden, false, '默认 overridden=false');
 
   up.applyRoot('/data/custom-root');
@@ -244,12 +236,12 @@ function includes(s, sub, m) { ok(typeof s === 'string' && s.includes(sub), `${m
   const list3 = up.list();
   eq(list3.overridden, false, '恢复默认后 overridden=false');
 
-  // 清理
+  // Cleanup
   fs.rmSync(TMP, { recursive: true, force: true });
 }
 
 // ═══════════════════════════════════════════════════════════════════════
-// 8. ipc/paths.js 事务流程验证（关键路径）
+// 8. ipc/paths.js transaction flow verification (critical paths)
 // ═══════════════════════════════════════════════════════════════════════
 {
   const { createUserPaths } = require('../src/main/userPaths.js');
@@ -276,7 +268,7 @@ function includes(s, sub, m) { ok(typeof s === 'string' && s.includes(sub), `${m
   const handlers = {};
   const fakeIpcMain = { handle(ch, fn) { handlers[ch] = fn; } };
 
-  // mock move 工厂（同盘 rename 成功）
+  // mock move factory (same-disk rename success)
   const fakeMove = {
     checkTarget: () => ({ ok: true }),
     async moveTree(from, to) {
@@ -288,13 +280,13 @@ function includes(s, sub, m) { ok(typeof s === 'string' && s.includes(sub), `${m
 
   register(fakeIpcMain, ctx, fakeMove);
 
-  // paths:list 返回结构
+  // paths:list return structure
   const listResult = await handlers['paths:list']();
   ok(listResult.success, 'paths:list 返回 success');
   ok(listResult.folders.root === up.rootDir, 'paths:list 返回当前 root');
   ok(listResult.folders.subfolders.length === 9, 'paths:list 返回 9 个 subfolders');
 
-  // paths:set(dir) 成功
+  // paths:set(dir) success
   const newRoot = path.join(TMP, 'new-root');
   fs.mkdirSync(newRoot, { recursive: true });
   const setResult = await handlers['paths:set'](null, null, newRoot);
@@ -302,25 +294,25 @@ function includes(s, sub, m) { ok(typeof s === 'string' && s.includes(sub), `${m
   ok(setResult.folders.root === newRoot, 'paths:set 返回新 root');
   ok(changeCount === 1, 'onUserPathsChanged 被调用 1 次');
 
-  // paths:reset → no-op（已 default）
+  // paths:reset → no-op (already default)
   const resetResult = await handlers['paths:reset']();
   ok(resetResult.success, 'paths:reset no-op 成功');
 
-  // paths:reveal — 不抛异常
+  // paths:reveal — does not throw
   const revealResult = await handlers['paths:reveal']();
   ok(typeof revealResult.success === 'boolean', 'paths:reveal 返回结果');
 
-  // paths:choose — 取消
+  // paths:choose — canceled
   const chooseResult = await handlers['paths:choose']();
   ok(chooseResult.success, 'paths:choose 取消返回 success');
   ok(chooseResult.canceled, 'paths:choose 取消返回 canceled');
 
-  // 清理
+  // Cleanup
   fs.rmSync(TMP, { recursive: true, force: true });
 }
 
 // ═══════════════════════════════════════════════════════════════════════
-// 9. critical recovery 不触发 onUserPathChanged
+// 9. critical recovery does not trigger onUserPathChanged
 // ═══════════════════════════════════════════════════════════════════════
 {
   const { createUserPaths } = require('../src/main/userPaths.js');
@@ -347,13 +339,13 @@ function includes(s, sub, m) { ok(typeof s === 'string' && s.includes(sub), `${m
   const handlers = {};
   const fakeIpcMain = { handle(ch, fn) { handlers[ch] = fn; } };
 
-  // mock move 工厂：rename 成功但 persist 失败 + compensation 失败 → critical
+  // mock move factory: rename succeeds but persist fails + compensation fails → critical
   const criticalMove = {
     checkTarget: () => ({ ok: true }),
     async moveTree(from, to) {
       fs.cpSync(from, to, { recursive: true });
       fs.rmSync(from, { recursive: true, force: true });
-      // 模拟补偿 rename 也失败
+      // Simulate compensation rename also failing
       fs.rmSync(to, { recursive: true, force: true });
       return { success: true, method: 'rename' };
     },
@@ -372,6 +364,6 @@ function includes(s, sub, m) { ok(typeof s === 'string' && s.includes(sub), `${m
   fs.rmSync(TMP, { recursive: true, force: true });
 }
 
-// ── 结果汇总 ───────────────────────────────────────────────────────
+// ── Summary of results ───────────────────────────────────────────────────
 console.log(`\nfolders_pane: ${P} passed, ${F} failed`);
 process.exit(F > 0 ? 1 : 0);

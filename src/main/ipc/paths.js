@@ -1,27 +1,26 @@
-// IPC: 单一 Data Folder 迁移事务协调（issue #75 收敛版，Phase C + P1-1 消除）。
+// IPC: single Data Folder migration transaction coordinator.
 //
-// 四约束：
-//   1. mutate 无验证（setRoot 是纯赋值，验证前置到 checkTarget）
-//   2. 回滚：直接调用 setRoot(previousRoot) 恢复内存（不再依赖 loadOverrides）
-//   3. onUserPathsChanged 短路：补偿失败路径绝不触发（含 prepareMaterialsDir seed 副作用）
-//   4. 补偿二次翻转：同盘补偿失败 → 内存再切回 new（直接赋值）
+// Four constraints:
+//   1. mutate has no validation (applyRoot is a pure assignment; validation is front-loaded to checkTarget)
+//   2. rollback: call applyRoot(previousRoot) directly to restore memory (no longer relies on loadOverrides)
+//   3. onUserPathsChanged short-circuit: never triggered on compensation-failure paths (incl. prepareMaterialsDir seed side effects)
+//   4. compensation double-flip: same-disk compensation failure → switch memory back to new (direct assignment)
 //
-// CommonJS, Electron-free（deps via ctx），move 工厂可注入（可测性）。
+// CommonJS, Electron-free (deps via ctx), move factory injectable (testability).
 
 const { writeMainOwnedKey } = require('../settingsFile');
 
 // ── move mutex ────────────────────────────────────────────────────────────
 let moveInProgress = false;
 
-// ── Handler 契约（Step 2b，已定稿）────────────────────────────────────────
+// ── Handler contract ──────────────────────────────────────────────────────
 //
 // paths:list → { success, folders: { root, defaultRoot, configuredRoot,
-//                overridden, rejected, subfolders: [9 项] } }
-// paths:choose → { success, canceled?, path }（只返回路径，不触发 set）
-// paths:set(dir) → 事务返回（含 warning / critical 变体）
-// paths:reset → 等价 set(defaultPath)（已 default 时 no-op）
-// paths:reveal(key?) → root 和子目录都能 Open
-// paths:listSubfolders → 兼容旧 renderer，折入 list 的 subfolders
+//                overridden, rejected, subfolders: [9 entries] } }
+// paths:choose → { success, canceled?, path } (returns path only, does not trigger set)
+// paths:set(dir) → transaction return (incl. warning / critical variants)
+// paths:reset → equivalent to set(defaultPath) (no-op when already default)
+// paths:reveal(key?) → both root and subdirectories can be opened
 
 function register(ipcMain, ctx, moveFactory) {
   ipcMain.handle('paths:list', async () => handleList(ctx));
@@ -29,23 +28,20 @@ function register(ipcMain, ctx, moveFactory) {
   ipcMain.handle('paths:set', async (event, key, dir) => handleSet(ctx, key, dir));
   ipcMain.handle('paths:reset', async (event, key) => handleReset(ctx, key));
   ipcMain.handle('paths:reveal', async (event, key) => handleReveal(ctx, key));
-  // 兼容旧 renderer（preload.js 仍注册这些 API）
-  ipcMain.handle('paths:setRoot', async (event, dir) => handleSet(ctx, null, dir));
-  ipcMain.handle('paths:listSubfolders', async () => handleListSubfolders(ctx));
-  // 注入 move 工厂（默认用真实 dataFolderMove）
-  ctx._moveFactory = moveFactory || null;
+  // inject move factory (default uses the real dataFolderMove)
+  ctx.moveFactory = moveFactory || null;
 }
 
-// ── 内部：获取 move 工厂实例 ──────────────────────────────────────────────
+// ── internal: get the move factory instance ──────────────────────────────
 function getMove(ctx) {
-  if (ctx._moveFactory) return ctx._moveFactory;
-  // 默认：延迟 require，避免循环依赖 + 测试可注入
+  if (ctx.moveFactory) return ctx.moveFactory;
+  // default: lazy require, avoids circular dependency + test injection
   const { createDataFolderMove } = require('../dataFolderMove');
   const deps = { fs: require('fs'), path: require('path') };
   return createDataFolderMove(deps);
 }
 
-// ── persist：writeMainOwnedKey 整块替换语义 ───────────────────────────────
+// ── persist: writeMainOwnedKey whole-block replacement semantics ─────────
 function persist(ctx) {
   try {
     writeMainOwnedKey(ctx, 'folders', ctx.userPaths.toSettings());
@@ -61,13 +57,7 @@ function handleList(ctx) {
   return { success: true, folders: ctx.userPaths.list() };
 }
 
-// ── paths:listSubfolders（兼容旧 renderer）────────────────────────────────
-function handleListSubfolders(ctx) {
-  const folders = ctx.userPaths.list();
-  return { success: true, subfolders: folders.subfolders };
-}
-
-// ── paths:choose（只返回选择路径，不触发 set）──────────────────────────────
+// ── paths:choose (returns the chosen path only, does not trigger set) ─────
 async function handleChoose(ctx, key) {
   const { dialog, getMainWindow, userPaths } = ctx;
   const defaultPath = userPaths.rootDir;
@@ -81,12 +71,12 @@ async function handleChoose(ctx, key) {
   return { success: true, path: result.filePaths[0] };
 }
 
-// ── paths:set(dir) — 核心事务协调 ────────────────────────────────────────
-// 内联事务（快照→persist→回滚，语义复刻旧 applyChange）：
+// ── paths:set(dir) — core transaction coordinator ────────────────────────
+// Inline transaction (snapshot → persist → rollback, replicating the old applyChange semantics):
 async function handleSet(ctx, _key, dir) {
   const { userPaths, log } = ctx;
 
-  // move mutex（set / reset 共用）
+  // move mutex (shared by set / reset)
   if (moveInProgress) {
     return { success: false, error: 'data folder move already in progress' };
   }
@@ -96,7 +86,7 @@ async function handleSet(ctx, _key, dir) {
     const currentRoot = userPaths.rootDir;
     const move = getMove(ctx);
 
-    // 1. checkTarget — 纯检查，无副作用
+    // 1. checkTarget — pure check, no side effects
     const validation = move.checkTarget(currentRoot, dir);
     if (!validation.ok) {
       return { success: false, error: validation.reason, folders: userPaths.list() };
@@ -106,33 +96,32 @@ async function handleSet(ctx, _key, dir) {
     const moveResult = await move.moveTree(currentRoot, dir);
 
     if (!moveResult.success) {
-      // moveTree 失败（copy/verify 失败已 partial cleanup）
+      // moveTree failed (copy/verify failure already partial-cleaned)
       return { success: false, error: moveResult.error, folders: userPaths.list() };
     }
 
-    // ── moveTree 成功 ────────────────────────────────────────────────────
+    // ── moveTree succeeded ───────────────────────────────────────────────
     const method = moveResult.method; // 'rename' | 'copy'
     const isSameDisk = method === 'rename';
 
-    // 3. applyChange 事务：快照 → 临时切换 → persist → 成功则 commit / 失败则回滚
-    // 关键：setRoot 在 persist 前调用（需序列化 new root），persist 失败立即回滚。
+    // 3. applyChange transaction: snapshot → temporary switch → persist → commit on success / rollback on failure
+    // Key: applyRoot is called before persist (needs to serialize the new root); roll back immediately if persist fails.
     const previousRoot = userPaths.rootDir;
-    userPaths.setRoot(dir);
+    userPaths.applyRoot(dir);
 
     const saved = persist(ctx);
 
     if (saved.success) {
-      // persist 成功 → commit（ensureAll + 通知 + 清理旧目录）
+      // persist succeeded → commit (ensureAll + notify + clean old directory)
       userPaths.ensureAll();
       ctx.onUserPathsChanged?.();
 
-      // delete old（仅跨盘 copy 路径需要；同盘 rename 已移走）
+      // delete old (only needed on the cross-disk copy path; same-disk rename already moved it)
       let warning = null;
       if (!isSameDisk) {
         try {
-          const fs = require('fs');
-          // 用 sync rm 避免 Windows 上 promises.rm 可能的挂起
-          fs.rmSync(currentRoot, { recursive: true, force: true });
+          const { promises: fsp } = require('fs');
+          await fsp.rm(currentRoot, { recursive: true, force: true });
         } catch (_) {
           warning = `old folder still exists at ${currentRoot}`;
         }
@@ -143,35 +132,35 @@ async function handleSet(ctx, _key, dir) {
       return result;
     }
 
-    // ── persist 失败 → 回滚 ──────────────────────────────────────────────
+    // ── persist failed → rollback ────────────────────────────────────────
     if (isSameDisk) {
-      // 同盘：数据已 rename 到 dir，先回滚内存，再补偿 rename(dir → currentRoot)
-      userPaths.setRoot(previousRoot);
+      // same disk: data already renamed to dir, first roll back memory, then compensate rename(dir → currentRoot)
+      userPaths.applyRoot(previousRoot);
       try {
-        const fs = require('fs');
-        fs.renameSync(dir, currentRoot);
-        // 补偿成功 → 三方一致（old），内存已回滚
+        const { promises: fsp } = require('fs');
+        await fsp.rename(dir, currentRoot);
+        // compensation succeeded → three-way consistent (old), memory already rolled back
         return { success: false, error: saved.error, folders: userPaths.list() };
       } catch (_) {
-        // 补偿 rename 也失败 → 二次 persist(newRoot)
-        // 此时数据在 dir，内存在 previousRoot → 需切到 dir 使 persist 写 newRoot
-        userPaths.setRoot(dir);
+        // compensation rename also failed → second persist(newRoot)
+        // data is in dir, memory is previousRoot → switch to dir so persist writes newRoot
+        userPaths.applyRoot(dir);
         const secondPersist = persist(ctx);
         if (secondPersist.success) {
-          // 二次 persist 成功 → warning（数据在 new，设置已恢复）
+          // second persist succeeded → warning (data in new, settings recovered)
           return {
             success: true,
             folders: userPaths.list(),
             warning: `data moved to ${dir} but settings were recovered`,
           };
         }
-        // 二次 persist 仍失败 → 内存切 new + critical
-        // 四约束 #4：直接内部赋值，不走 applyChange
-        userPaths.setRoot(dir);
+        // second persist still failed → memory switch to new + critical
+        // constraint #4: direct internal assignment, not through applyChange
+        userPaths.applyRoot(dir);
         userPaths.ensureAll();
-        // P1-4：critical 写 rejected，确保 list() 能反映警示痕迹
+        // critical writes rejected so list() reflects the warning trace
         userPaths.setRejected(currentRoot, 'settings could not be saved');
-        // 四约束 #3：绝不触发 onUserPathsChanged
+        // constraint #3: never trigger onUserPathsChanged
         log(`CRITICAL: data at ${dir}, settings could not be saved`);
         return {
           success: false,
@@ -182,14 +171,13 @@ async function handleSet(ctx, _key, dir) {
         };
       }
     } else {
-      // 跨盘：copy 已完成但 persist 失败 → 回滚内存 + 删除 new copy，保留 old
-      userPaths.setRoot(previousRoot);
+      // cross disk: copy done but persist failed → roll back memory + delete new copy, keep old
+      userPaths.applyRoot(previousRoot);
       try {
-        const fs = require('fs');
-        // 用 sync rm 避免 Windows 上 promises.rm 可能的挂起
-        fs.rmSync(dir, { recursive: true, force: true });
+        const { promises: fsp } = require('fs');
+        await fsp.rm(dir, { recursive: true, force: true });
       } catch (cleanupErr) {
-        // P2-4：清理失败时 error 附加清理路径信息
+        // on cleanup failure, append the cleanup path info to the error
         return { success: false, error: `${saved.error} (cleanup of ${dir} failed: ${cleanupErr.message})`, folders: userPaths.list() };
       }
       return { success: false, error: saved.error, folders: userPaths.list() };
@@ -199,29 +187,29 @@ async function handleSet(ctx, _key, dir) {
   }
 }
 
-// ── paths:reset — 等价 set(defaultPath)（设计 §9.1）───────────────────────
+// ── paths:reset — equivalent to set(defaultPath) ─────────────────────────
 async function handleReset(ctx, _key) {
   const { userPaths } = ctx;
   const defaultPath = userPaths.baseDir;
 
-  // 已 default 且非 fallback → no-op success
+  // already default and not fallback → no-op success
   if (userPaths.rootDir === defaultPath && userPaths.rejected === null) {
     return { success: true, folders: userPaths.list() };
   }
 
-  // fallback 状态下（rejected != null）即使 active 已是 defaultRoot，
-  // 仍需清除 configuredRoot（用户显式放弃原配置）
+  // in fallback state (rejected != null), even if active is already defaultRoot,
+  // still clear configuredRoot (user explicitly gives up the original config)
   if (userPaths.rootDir === defaultPath && userPaths.rejected !== null) {
     userPaths.clearOverride();
     persist(ctx);
     return { success: true, folders: userPaths.list() };
   }
 
-  // 委托给 handleSet（复用完整事务流程）
+  // delegate to handleSet (reuse the full transaction flow)
   return handleSet(ctx, null, defaultPath);
 }
 
-// ── paths:reveal(key?) — root 和子目录都能 Open ──────────────────────────
+// ── paths:reveal(key?) — both root and subdirectories can be opened ──────
 async function handleReveal(ctx, key) {
   const { shell, userPaths, log } = ctx;
   try {

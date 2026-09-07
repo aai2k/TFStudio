@@ -68,9 +68,4 @@ build/seed/agf/*
 # Deepwork session state (git-local, OpenCode-readable)
 .slim/deepwork/
 
-# ripgrep config
-.ignore
 
-# Design plans (internal reference)
-docs/superpowers/
-.slim/

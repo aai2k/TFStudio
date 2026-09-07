@@ -96,7 +96,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   saveReportPreset:       (preset) => ipcRenderer.invoke('report:save-preset', preset),
   deleteReportPreset:     (name) => ipcRenderer.invoke('report:delete-preset', name),
   loadReportLogo:         () => ipcRenderer.invoke('report:load-logo'),
-  // 单一 Data Folder（issue #75 收敛版，Phase E）——root 语义 IPC
+  // Single Data Folder — root semantics IPC
   listUserPaths:          () => ipcRenderer.invoke('paths:list'),
   chooseUserPath:         () => ipcRenderer.invoke('paths:choose'),
   setUserPath:            (dir) => ipcRenderer.invoke('paths:set', null, dir),

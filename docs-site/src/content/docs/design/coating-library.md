@@ -97,7 +97,7 @@ says so. The coating may then compute differently than it does in the library.
 
 ## Saving a coating
 
-**Save current coating…** in this window, or **Save coating to library…** in
+**Save current coating...** in this window, or **Save coating to library...** in
 the Design Editor's Tools menu, saves the front or back stack of the active
 design into My coatings. Give it a name, a type and a short use note, and set
 the band, angle and polarization it is meant for. Non-built-in materials are
@@ -110,10 +110,10 @@ coating. **Delete** removes the selected saved coating.
 
 ## Sharing a coating
 
-**Share a coating…** sends one of your coatings to the project for the
+**Share a coating...** sends one of your coatings to the project for the
 built-in library. With one of My coatings selected, the dialog opens a new
 GitHub discussion prefilled with the layer table and the design conditions, or an email
-with the same text, and **Save file for sending…** writes the coating with its
+with the same text, and **Save file for sending...** writes the coating with its
 embedded material data as one file to attach to either. With nothing selected
 it only points at the two ways to send a design.
 

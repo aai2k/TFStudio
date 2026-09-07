@@ -1,13 +1,15 @@
-// 数据目录注册表（单一 Data Folder 模型，issue #75 收敛版）。
-//
-// 新模型只保留一个 optional root，替代所有 per-folder overrides。
-// 每个子目录解析为 rootDir + subdir。
-// 配置的根目录（configuredRoot）与实际使用的根目录（rootDir）分离——
-// fallback 期间不清 configuredRoot，确保设备恢复后可重新加载。
-//
-// CommonJS, Electron-free (deps injected) 以便测试。
+/**
+ * Data directory registry (single Data Folder model).
+ *
+ * The new model keeps a single optional root, replacing all per-folder overrides.
+ * Each subdirectory resolves to rootDir + subdir.
+ * The configured root (configuredRoot) is separated from the actually-used root (rootDir) —
+ * during fallback, configuredRoot is kept so it can be reloaded after device recovery.
+ *
+ * CommonJS, Electron-free (deps injected) for testability.
+ */
 
-// 目标基线：1.7.2/main 的 FOLDER_SPECS（9 项，含 Coatings）
+// Target baseline: 1.7.2/main FOLDER_SPECS (9 entries, incl. Coatings)
 const FOLDER_SPECS = [
   { key: 'projects',       ctxKey: 'projectsDir',       subdir: 'Projects' },
   { key: 'materials',      ctxKey: 'materialsDir',      subdir: 'Materials' },
@@ -20,7 +22,7 @@ const FOLDER_SPECS = [
   { key: 'preferences',    ctxKey: 'preferencesDir',    subdir: 'Preferences' },
 ];
 
-// probe：mkdir + 写临时文件 + 删除，验证目录可写
+// probe: mkdir + write temp file + delete, verifies the directory is writable
 function probeUsable(fs, path, dir) {
   try {
     fs.mkdirSync(dir, { recursive: true });
@@ -34,28 +36,28 @@ function probeUsable(fs, path, dir) {
 }
 
 /**
- * 构建路径注册表。
+ * Build the path registry.
  *
  * @param {object} deps
- * @param {string} deps.documentsDir  OS 文档文件夹（app.getPath('documents')）
- * @param {object} deps.fs            Node fs（注入供测试）
- * @param {object} deps.path          Node path（注入供测试）
- * @param {string} [deps.exeDir]      exe 所在目录（portable relative 解析用）
- * @param {Function} [deps.log]       日志输出
+ * @param {string} deps.documentsDir  OS documents folder (app.getPath('documents'))
+ * @param {object} deps.fs            Node fs (injected for testing)
+ * @param {object} deps.path          Node path (injected for testing)
+ * @param {string} [deps.exeDir]      exe directory (used for portable relative resolution)
+ * @param {Function} [deps.log]       log output
  */
 function createUserPaths({ documentsDir, fs, path, exeDir, log = () => {} }) {
   const baseDir = path.join(documentsDir, 'TFStudio');
   const resolvedExeDir = exeDir || path.dirname(process.execPath);
 
-  // ── 内部状态 ──────────────────────────────────────────────────────────
+  // ── Internal state ──────────────────────────────────────────────────
   const state = {
-    baseDir,              // Documents\TFStudio（默认根目录）
-    configuredRoot: null, // settings 中用户真正配置的 root（null = 默认）
-    rootDir: baseDir,     // 当前本次运行实际使用的 root
-    rejected: null,       // configuredRoot 暂不可用的原因 { configured, reason }
+    baseDir,              // Documents\TFStudio (default root)
+    configuredRoot: null, // root actually configured by the user in settings (null = default)
+    rootDir: baseDir,     // root actually used for this run
+    rejected: null,       // reason configuredRoot is temporarily unusable { configured, reason }
   };
 
-  // ── 派生路径 ──────────────────────────────────────────────────────────
+  // ── Derived paths ──────────────────────────────────────────────────
   function subdirPath(key) {
     const spec = FOLDER_SPECS.find(s => s.key === key);
     if (!spec) throw new Error(`unknown folder key: ${key}`);
@@ -68,29 +70,29 @@ function createUserPaths({ documentsDir, fs, path, exeDir, log = () => {} }) {
     return path.join(baseDir, spec.subdir);
   }
 
-  // ── load(cfg)：startup validation ─────────────────────────────────────
+  // ── load(cfg): startup validation ─────────────────────────────────────
   function load(cfg) {
-    // 每次 load 前清 rejected
+    // clear rejected before each load
     state.rejected = null;
 
     const folders = cfg && cfg.folders;
     const configured = folders && folders.root;
     if (!configured) {
-      // 没有配置 root，使用默认
+      // no configured root, use default
       state.configuredRoot = null;
       state.rootDir = baseDir;
-      // 检测 legacy keys
+      // detect legacy keys
       detectLegacyKeys(folders, log);
       return;
     }
 
-    // 相对路径则相对 exeDir resolve
+    // resolve relative paths against exeDir
     let resolved = configured;
     if (!path.isAbsolute(configured)) {
       resolved = path.resolve(resolvedExeDir, configured);
     }
 
-    // 验证 absolute（resolve 后一定绝对，但双重检查）
+    // verify absolute (resolve always yields absolute, but double-check)
     if (!path.isAbsolute(resolved)) {
       state.configuredRoot = configured;
       state.rejected = { configured, reason: 'path must be absolute' };
@@ -100,7 +102,7 @@ function createUserPaths({ documentsDir, fs, path, exeDir, log = () => {} }) {
       return;
     }
 
-    // mkdir + write probe（configuredRoot 保留原始值，相对路径原样持久化）
+    // mkdir + write probe (configuredRoot keeps original value, relative path persisted as-is)
     const probe = probeUsable(fs, path, resolved);
     if (probe.ok) {
       state.configuredRoot = configured;
@@ -112,11 +114,11 @@ function createUserPaths({ documentsDir, fs, path, exeDir, log = () => {} }) {
       log(`Folder root "${configured}" is unusable (${probe.reason}); using default ${baseDir}`);
     }
 
-    // 检测 legacy keys（不因 root 有效就提前 return）
+    // detect legacy keys (do not early-return just because root is valid)
     detectLegacyKeys(folders, log);
   }
 
-  // 检测 folders 中除 root 外的 legacy per-folder keys
+  // detect legacy per-folder keys in folders other than root
   function detectLegacyKeys(folders, logFn) {
     if (!folders || typeof folders !== 'object') return;
     for (const key of Object.keys(folders)) {
@@ -133,14 +135,14 @@ function createUserPaths({ documentsDir, fs, path, exeDir, log = () => {} }) {
   }
 
   // ── applyRoot(root) ───────────────────────────────────────────────────
-  // 供事务协调用：rootDir = root；configuredRoot 可能是相对路径（portable §11）；清 rejected
+  // For transaction coordination: rootDir = root; configuredRoot may be a relative path (portable); clear rejected
   function applyRoot(root) {
     state.rootDir = root;
     if (root === baseDir) {
-      // 回到默认 → 无覆盖
+      // back to default → no override
       state.configuredRoot = null;
     } else {
-      // portable（§11）：root 在 exeDir 下时 configuredRoot 存相对路径
+      // portable: when root is under exeDir, configuredRoot stores a relative path
       const rel = path.relative(resolvedExeDir, root);
       if (rel && !rel.startsWith('..') && !path.isAbsolute(rel)) {
         state.configuredRoot = rel;
@@ -151,42 +153,23 @@ function createUserPaths({ documentsDir, fs, path, exeDir, log = () => {} }) {
     state.rejected = null;
   }
 
-  // ── setRoot(dir)：纯内部赋值（无验证），供事务协调用 ──────────────────
-  function setRoot(dir) {
-    state.rootDir = dir;
-    if (dir === baseDir) {
-      // 回到默认 → 无覆盖
-      state.configuredRoot = null;
-    } else {
-      // portable（§11）：dir 在 exeDir 下时 configuredRoot 存相对路径
-      const rel = path.relative(resolvedExeDir, dir);
-      if (rel && !rel.startsWith('..') && !path.isAbsolute(rel)) {
-        state.configuredRoot = rel;
-      } else {
-        state.configuredRoot = dir;
-      }
-    }
-    state.rejected = null;
-    return { success: true };
-  }
-
-  // ── setRejected(configured, reason)：窄写 rejected（供 critical 分支调用）──
+  // ── setRejected(configured, reason): narrow write of rejected (for critical branch) ──
   function setRejected(configured, reason) {
     state.rejected = { configured, reason };
   }
 
-  // ── clearOverride()：清 configuredRoot（fallback Reset 用）───────────
+  // ── clearOverride(): clear configuredRoot (for fallback Reset) ────────
   function clearOverride() {
     state.configuredRoot = null;
     state.rejected = null;
   }
 
-  // ── get(key)：rootDir + subdir ────────────────────────────────────────
+  // ── get(key): rootDir + subdir ────────────────────────────────────────
   function get(key) {
     return subdirPath(key);
   }
 
-  // ── defaultPath(key)：baseDir + subdir ────────────────────────────────
+  // ── defaultPath(key): baseDir + subdir ────────────────────────────────
   function defaultPath(key) {
     return defaultSubdirPath(key);
   }
@@ -196,7 +179,7 @@ function createUserPaths({ documentsDir, fs, path, exeDir, log = () => {} }) {
     const subfolders = FOLDER_SPECS.map(spec => {
       const p = path.join(state.rootDir, spec.subdir);
       let exists = false;
-      try { exists = fs.statSync(p).isDirectory(); } catch (_) { /* 不存在 */ }
+      try { exists = fs.statSync(p).isDirectory(); } catch (_) { /* does not exist */ }
       return { key: spec.key, path: p, exists };
     });
     return {
@@ -209,7 +192,7 @@ function createUserPaths({ documentsDir, fs, path, exeDir, log = () => {} }) {
     };
   }
 
-  // ── ensureAll()：创建 active rootDir 的 9 个子目录 ───────────────────
+  // ── ensureAll(): create the 9 subdirectories under the active rootDir ──
   function ensureAll() {
     for (const spec of FOLDER_SPECS) {
       const dir = path.join(state.rootDir, spec.subdir);
@@ -220,8 +203,8 @@ function createUserPaths({ documentsDir, fs, path, exeDir, log = () => {} }) {
   }
 
   // ── defineCtxGetters(ctx) ─────────────────────────────────────────────
-  // 9 个子目录 getter 活读取 rootDir + subdir
-  // userDocsDir 返回 active rootDir（不是 configuredRoot）
+  // 9 subdirectory getters read rootDir + subdir live
+  // userDocsDir returns the active rootDir (not configuredRoot)
   function defineCtxGetters(ctx) {
     for (const spec of FOLDER_SPECS) {
       Object.defineProperty(ctx, spec.ctxKey, {
@@ -229,7 +212,7 @@ function createUserPaths({ documentsDir, fs, path, exeDir, log = () => {} }) {
         enumerable: true,
       });
     }
-    // userDocsDir 返回 active rootDir
+    // userDocsDir returns the active rootDir
     Object.defineProperty(ctx, 'userDocsDir', {
       get: () => state.rootDir,
       enumerable: true,
@@ -244,12 +227,11 @@ function createUserPaths({ documentsDir, fs, path, exeDir, log = () => {} }) {
     load,
     toSettings,
     applyRoot,
-    setRoot,
     ensureAll,
     defineCtxGetters,
     setRejected,
     clearOverride,
-    // 供 ipc/paths.js 等外部模块直接访问的只读属性
+    // read-only properties for external modules such as ipc/paths.js
     get baseDir() { return baseDir; },
     get rootDir() { return state.rootDir; },
     get configuredRoot() { return state.configuredRoot; },
