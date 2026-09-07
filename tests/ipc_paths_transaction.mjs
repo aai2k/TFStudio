@@ -223,7 +223,7 @@ async function test() {
 }
 
 test().then(({ passed, failed }) => {
-  console.log(`\npc_paths_transaction: ${passed} passed, ${failed} failed`);
+  console.log(`\nipc_paths_transaction: ${passed} passed, ${failed} failed`);
   process.exit(failed > 0 ? 1 : 0);
 }).catch(err => {
   console.error('ERROR:', err.stack);
