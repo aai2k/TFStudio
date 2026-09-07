@@ -53,6 +53,16 @@ function ok(name, cond) { if (cond) { pass++; } else { fail++; console.error('FA
     ok('over-100% clamps to 1', approx(o.target, 1));
 }
 
+// A target is measured at one angle, so the angle it was drawn at is carried
+// into the operand rather than left at normal incidence.
+{
+    const avg = operandOverridesFromDrawnLine({ x0: 400, y0: 1, x1: 700, y1: 1 }, 'R', 'avg', 'average', 45);
+    const cont = operandOverridesFromDrawnLine({ x0: 400, y0: 90, x1: 700, y1: 10 }, 'T', 'p', 'continuous', 30);
+    ok('avg carries drawn AOI', avg.aoi === 45);
+    ok('cont carries drawn AOI', cont.aoi === 30);
+    ok('AOI defaults to normal incidence', operandOverridesFromDrawnLine({ x0: 400, y0: 1, x1: 700, y1: 1 }, 'R', 'avg', 'average').aoi === 0);
+}
+
 // ── applyHandleEdit ───────────────────────────────────────────────────────────
 // Band average: kept flat, target = midpoint level.
 {

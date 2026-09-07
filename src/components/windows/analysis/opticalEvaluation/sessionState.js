@@ -32,6 +32,9 @@ export const opticalTargetSession = createWindowSession({
     editCurve: 'R',
     editPol: 'avg',
     editKind: 'average',
+    // The angle a drawn target belongs to. The window can plot several, and a
+    // target is measured at exactly one of them.
+    editAoi: 0,
     snapOn: true,
     snapNm: 10,
     snapPct: 5,

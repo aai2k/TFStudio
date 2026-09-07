@@ -20,7 +20,8 @@ const noop = () => {};
 const editorMarkup = renderToStaticMarkup(React.createElement(TargetToolbar, {
     c, oe, editMode: true, editTool: 'draw', setEditTool: noop,
     editKind: 'average', setEditKind: noop, editCurve: 'R', setEditCurve: noop,
-    editPol: 'avg', setEditPol: noop, snapOn: true, setSnapOn: noop,
+    editPol: 'avg', setEditPol: noop, editAoi: 45, setEditAoi: noop,
+    params: { thetas: [0, 45] }, snapOn: true, setSnapOn: noop,
     snapNm: 10, setSnapNm: noop, snapPct: 5, setSnapPct: noop,
 }));
 
@@ -54,6 +55,8 @@ check(exportIndex > resultsIndex, 'the export control renders in the Results str
 check(markup.includes('FRONT'), 'the evaluation-mode badge stays visible');
 check(editorMarkup.includes(oe.editToolDraw) && editorMarkup.includes(oe.snap),
     'expanded target editor renders the redesigned grouped controls');
+check(editorMarkup.includes('>0°<') && editorMarkup.includes('>45°<'),
+    'the target editor offers every angle the window plots');
 check(!hasPointerTravelled([10, 10], [10, 10]),
     'a bare target click is not treated as an edit drag');
 check(hasPointerTravelled([10, 10], [14, 10]),

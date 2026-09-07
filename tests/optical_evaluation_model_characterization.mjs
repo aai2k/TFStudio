@@ -109,9 +109,11 @@ check(drawOption.tooltip.show === false && !drawOption.toolbox.feature.dataZoom,
 const existingTarget = { id: 'existing', enabled: true, type: 'RAV', lambdaStart: 400, lambdaEnd: 700, target: 0.1 };
 const createdTargets = createTargetOperands({
     operands: [existingTarget], line: { x0: 500, y0: 20, x1: 600, y1: 20 },
-    editCurve: 'R', editPol: 'avg', editKind: 'average', snapOn: false, snapNm: 10, snapPct: 5,
+    editCurve: 'R', editPol: 'avg', editKind: 'average', editAoi: 45,
+    snapOn: false, snapNm: 10, snapPct: 5,
 });
 check(createdTargets[0] === existingTarget && createdTargets[1].type === 'RAV', 'target creation appends without rewriting existing operands');
+check(createdTargets[1].aoi === 45, 'a drawn target is created at the angle chosen in the toolbar');
 const editedTargets = editTargetOperands({
     operands: [existingTarget], meta: { opId: 'existing', kind: 'band', type: 'RAV' },
     coords: { x0: 410, x1: 690, y0: 30, y1: 30 }, snapOn: false, snapNm: 10, snapPct: 5,
