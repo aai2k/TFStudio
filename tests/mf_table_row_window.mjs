@@ -88,12 +88,26 @@ const spansTable = (view, count) =>
     const header = 17;
     assert.equal(scrollToRow(50, ROW_H * 50 - header, height, header), null,
         'a row already in view does not move the scroller');
-    assert.equal(scrollToRow(10, ROW_H * 40, height, header), 10 * ROW_H - header,
+    assert.equal(scrollToRow(10, ROW_H * 40, height, header), 10 * ROW_H,
         'a row above the fold comes to the top, clear of the header');
-    assert.equal(scrollToRow(100, 0, height, header), 101 * ROW_H - height,
+    assert.equal(scrollToRow(100, 0, height, header), header + 101 * ROW_H - height,
         'a row below the fold comes to the bottom');
     assert.equal(scrollToRow(0, ROW_H * 5, height, header), 0,
         'the first row does not scroll past the start of the table');
+
+    // The header is scrolled content sitting above row 0, so a row spans
+    // [header + i*ROW_H, header + (i+1)*ROW_H). Asserting the returned offset
+    // against that, rather than against the formula that produced it, is what
+    // catches an offset that leaves the row under the header or off the foot.
+    for (const rowIdx of [0, 1, 10, 100, 3617]) {
+        for (const from of [0, ROW_H * 40, ROW_H * 4000]) {
+            const moved = scrollToRow(rowIdx, from, height, header);
+            const at = moved == null ? from : moved;
+            const rowTop = header + rowIdx * ROW_H;
+            assert.ok(rowTop >= at + header && rowTop + ROW_H <= at + height,
+                `row ${rowIdx} from ${from}px is wholly between the header and the foot`);
+        }
+    }
 }
 
 // ── Scrolled to the end, the last row is built ───────────────────────────────
@@ -132,6 +146,35 @@ const spansTable = (view, count) =>
     const missing = 4000 - rows.length;
     assert.ok(html.includes(`height:${missing * ROW_H}px`),
         'the rest of the table is held open by a spacer');
+
+    // ── Nothing in a row may outgrow ROW_H ──────────────────────────────────
+    // A row is placed from its index, and `height` on a table row is only a
+    // minimum, so any cell content taller than ROW_H silently pushes the whole
+    // table out of step with its scrollbar. Two things in a row can: the
+    // dropdowns, which the customizable-select UA style gives a 24px minimum
+    // height of their own, and the DMFS header, which is a sentence.
+    for (const tag of html.match(/<select[^>]*>/g) || []) {
+        assert.match(tag, /min-height:0/, `a row dropdown clears the UA minimum: ${tag.slice(0, 90)}`);
+        assert.match(tag, new RegExp(`height:${ROW_H - 2}px`),
+            `a row dropdown is given a height that fits the row: ${tag.slice(0, 90)}`);
+    }
+    assert.ok((html.match(/<select[^>]*>/g) || []).length > 0, 'the fixture does render dropdowns');
+}
+
+// ── The DMFS header is cut short rather than wrapped ────────────────────────
+{
+    const long = 'Bandpass, stop 300-450 | pass 500-600 | stop 650-1000 nm, AOI 0-45 deg (5 steps), avg pol, discrete @1 nm';
+    const html = renderToStaticMarkup(React.createElement(MFTable, {
+        operands: [{ id: 'h', type: 'DMFS', enabled: true, comment: long }],
+        computed: [null], selectedId: null, noOperandsMsg: 'none',
+        onSelect: () => {}, onEdit: () => {}, onAdd: () => {}, onInsertAt: () => {},
+        onDuplicate: () => {}, onDelete: () => {}, onClear: () => {},
+        onMoveUp: () => {}, onMoveDown: () => {}, c: makeTheme(), t: makeLocale(),
+    }));
+    assert.ok(html.includes(long), 'the header is rendered in full');
+    const cell = html.match(/<td colspan="\d+"[^>]*>/i)?.[0] || '';
+    assert.match(cell, /white-space:nowrap/, 'the DMFS cell does not wrap onto a second line');
+    assert.match(cell, /text-overflow:ellipsis/, 'and says so where it is cut');
 }
 
 console.log('mf_table_row_window: passed');

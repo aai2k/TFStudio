@@ -4,6 +4,7 @@ import {
     operandOverridesFromDrawnLine, applyHandleEdit,
     buildEditableTargetGeometry, snapDrawnLine, buildTargetGeometry,
 } from '../src/utils/physics/spectrumTargets.js';
+import { targetSeries } from '../src/components/ui/targetSeries.js';
 
 let pass = 0, fail = 0;
 const approx = (a, b, eps = 1e-9) => Math.abs(a - b) <= eps;
@@ -140,18 +141,85 @@ function ok(name, cond) { if (cond) { pass++; } else { fail++; console.error('FA
     ok('exclude self → grid snap not self-snap', s.x0 === 400 && s.x1 === 700);
 }
 
-// ── Visible target geometry is densely sampled + click-taggable ─────────────
+// ── Visible target geometry: sampled where the axis bends it, click-taggable ─
+//
+// A ramp is straight in the data and a curve on a logarithmic axis, so it is
+// sampled along its length. A flat target is horizontal on either axis, so its
+// two ends describe it exactly; a merit function written per wavelength is
+// thousands of flat targets, and sampling each into 24 points is what made a
+// plot of them slow to draw and slower to resize.
 {
     const ops = [{ id: 'b1', enabled: true, type: 'RGT', lambdaStart: 400, lambdaEnd: 700, target: 0.5, targetEnd: 0.5 }];
     const visible = buildTargetGeometry(ops);
     const line = visible.lines[0];
     ok('band fill stays subtle', visible.bands[0]?.opacity === 0.06);
     ok('band has a visible line', !!line);
-    ok('line densely sampled', line.points.length >= 10);
+    ok('flat target is its two ends', line.points.length === 2);
+    ok('flat target is level', line.points[0][1] === line.points.at(-1)[1]);
     ok('line spans the band', line.points[0][0] === 400 && line.points.at(-1)[0] === 700);
     ok('line tagged with opId', line.opId === 'b1');
+
+    const ramp = buildTargetGeometry([
+        { id: 'r1', enabled: true, type: 'RGT', lambdaStart: 400, lambdaEnd: 700, target: 0.1, targetEnd: 0.9 },
+    ]).lines[0];
+    ok('ramp densely sampled', ramp.points.length >= 10);
+    ok('ramp spans the band', ramp.points[0][0] === 400 && ramp.points.at(-1)[0] === 700);
+    ok('ramp rises across it', ramp.points[0][1] < ramp.points.at(-1)[1]);
+    const rises = ramp.points.every((p, i) => i === 0 || p[1] > ramp.points[i - 1][1]);
+    ok('ramp samples step evenly', rises);
+
     const point = buildTargetGeometry([{ id: 'p1', enabled: true, type: 'R', lambdaStart: 550, target: 0.5 }]);
     ok('point marker tagged with opId', point.markers[0]?.opId === 'p1');
+}
+
+// ── Every band type is drawn the same way ──────────────────────────────────
+// Six operand types draw a band: the averages, which are level by definition,
+// and the per-λ targets, which are level unless a ramp end says otherwise.
+{
+    const BAND_TYPES = ['TAV', 'TGT', 'RAV', 'RGT', 'AAV', 'AGT'];
+    for (const type of BAND_TYPES) {
+        const flat = buildTargetGeometry([
+            { id: 'f', enabled: true, type, lambdaStart: 400, lambdaEnd: 700, target: 0.5, targetEnd: 0.5 },
+        ]).lines[0];
+        ok(`${type} flat target is its two ends`, flat.points.length === 2);
+        ok(`${type} carries three markers`,
+            buildTargetGeometry([{ id: 'f', enabled: true, type, lambdaStart: 400, lambdaEnd: 700, target: 0.5 }])
+                .markers.length === 3);
+    }
+    for (const type of ['TGT', 'RGT', 'AGT']) {
+        const ramp = buildTargetGeometry([
+            { id: 'r', enabled: true, type, lambdaStart: 400, lambdaEnd: 700, target: 0.1, targetEnd: 0.9 },
+        ]).lines[0];
+        ok(`${type} ramp stays sampled`, ramp.points.length >= 10);
+    }
+}
+
+// ── One series per style, not one per target ────────────────────────────────
+// Each target is a short run in one of a few colours. A series apiece is
+// thousands for the chart to lay out and redraw while drawing no more ink, so
+// runs of one style share a series and are split by a gap.
+{
+    const many = [];
+    for (const type of ['TAV', 'TGT', 'RAV', 'RGT', 'AAV', 'AGT']) {
+        for (let i = 0; i < 200; i++) {
+            many.push({ id: type + i, enabled: true, type, lambdaStart: 400, lambdaEnd: 700, target: 0.5, targetEnd: 0.5 });
+        }
+    }
+    const series = targetSeries(buildTargetGeometry(many));
+    ok('1200 targets do not become 1200 series', series.length < 10);
+    const lines = series.filter(s => s.type === 'line' && s.data?.length > 2);
+    // T, R and A keep a colour each; the averages and the per-λ targets of one
+    // quantity are drawn alike, so they share it.
+    ok('the target lines are one series per colour', lines.length === 3);
+    for (const line of lines) {
+        const drawn = line.data.filter(p => p.value[0] !== null);
+        const runs = line.data.filter(p => p.value[0] === null).length + 1;
+        ok('each target keeps its own run', runs === 400);
+        ok('a run is a pair of ends', drawn.length === 800);
+        ok('points still name their operand', drawn[0].operandId.length > 0);
+    }
+    const colours = new Set(lines.map(l => l.lineStyle.color));
+    ok('the three quantities stay visually apart', colours.size === 3);
 }
 
 console.log(`\n${pass} passed, ${fail} failed`);

@@ -2,8 +2,8 @@
  * Band shading for optical merit targets on the spectrum plot.
  *
  * A band target shades the wavelengths it covers. A merit function carries many
- * of them over the same range — the wizard writes a pair of rows per angle of
- * incidence — and one fill per target compounds its alpha until the region is
+ * of them over the same range, since the wizard writes a pair of rows per angle
+ * of incidence, and one fill per target compounds its alpha until the region is
  * opaque and the curves behind it are lost. Run: node tests/target_band_shading.mjs
  */
 import assert from 'node:assert/strict';

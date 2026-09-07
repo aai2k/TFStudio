@@ -34,15 +34,18 @@ function formatCustomTarget({ params: p }) {
     return `${p.channel} ${cmp} ${p.valuePct}%, λ ${p.lamStart}–${p.lamEnd} nm`;
 }
 
+// The first entry whose key the type carries wins, so a three-band type has to
+// be matched before the two-band one: a bandpass has a `passStart` of its own,
+// and read as a plain pass-and-stop pair it would name a stop it does not have.
 const FIELD_FORMATTERS = [
     ['channel', formatCustomTarget],
     ['lamStart', formatRangeFields],
     ['lam0', ({ params: p }) => `λ₀=${p.lam0} nm`],
     ['lam3', ({ params: p }) => `λ=${p.lam1}/${p.lam2}/${p.lam3} nm`],
     ['lam2', ({ params: p }) => `λ=${p.lam1}/${p.lam2} nm`],
-    ['passStart', formatPassStopFields],
     ['lowStopStart', ({ params: p }) => `stop ${p.lowStopStart}–${p.lowStopEnd} | pass ${p.passStart}–${p.passEnd} | stop ${p.highStopStart}–${p.highStopEnd} nm`],
     ['lowPassStart', ({ params: p }) => `pass ${p.lowPassStart}–${p.lowPassEnd} | stop ${p.stopStart}–${p.stopEnd} | pass ${p.highPassStart}–${p.highPassEnd} nm`],
+    ['passStart', formatPassStopFields],
 ];
 
 function formatDmfsFields(def, params) {

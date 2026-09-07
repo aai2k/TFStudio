@@ -1,3 +1,5 @@
+import { ROW_H } from './rowWindow.js';
+
 const { createElement: h, useState, useEffect, useRef, useCallback } = React;
 
 export function CellInput({ initValue, onCommit, onCancel, onNavigate, c }) {
@@ -40,12 +42,22 @@ export function TblBtn({ label, onClick, disabled, c, accent, title }) {
     }, label);
 }
 
+/**
+ * A dropdown sized to sit inside one table row.
+ *
+ * The customizable select the app opts into carries a 24 px minimum height of
+ * its own, which is taller than a row. Left alone it stretches the row past
+ * `ROW_H`, and since a row is placed from its index the whole table then drifts
+ * out of step with its scrollbar. The minimum is cleared and the height given
+ * outright.
+ */
 export function CellSelect({ value, onChange, title, color, children }) {
     return h('select', {
         value, onChange, title,
         style: {
             width: '100%', background: 'transparent', color, border: 'none',
             fontSize: 11, padding: '1px 2px', fontFamily: 'inherit', outline: 'none', cursor: 'pointer',
+            height: ROW_H - 2, minHeight: 0, boxSizing: 'border-box',
         },
     }, children);
 }

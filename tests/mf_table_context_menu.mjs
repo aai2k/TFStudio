@@ -21,6 +21,11 @@ assert.equal(menuTargetFromEvent({ target: { tagName: 'DIV', closest: () => null
     'the empty area below the rows has no target');
 assert.equal(menuTargetFromEvent(cellEvent(3, 2, 'INPUT'), COLS), null,
     'a text control keeps the browser menu, which is where paste into it lives');
+// A dropdown has no menu of its own to keep, so Pol, the comparison, the
+// integral preset and the reference cells open the operand menu like any other.
+assert.deepEqual(menuTargetFromEvent(cellEvent(6, 2, 'SELECT'), COLS),
+    { rowIdx: 2, colKey: 'pol', rowInput: false },
+    'a dropdown cell opens the operand menu');
 assert.deepEqual(menuTargetFromEvent(cellEvent(3, 2, 'INPUT', { rowMenu: 'comment' }), COLS),
     { rowIdx: 2, colKey: 'lambdaStart', rowInput: true },
     'the comment input is the whole row, so it opens the operand menu');
@@ -46,6 +51,13 @@ assert.equal(menuScope({ type: 'DMFS' }, 'target', new Set()), 'rows');
 assert.equal(menuScope({ type: 'R' }, 'target', new Set()), 'cell');
 assert.equal(menuScope({ type: 'R' }, 'type', new Set()), 'rows');
 assert.equal(menuScope({ type: 'R' }, 'target', new Set(['a', 'b'])), 'rows');
+
+// A column the row does not carry shows a dash. There is nothing there to copy
+// and nothing that may be pasted over, so the row is the unit.
+assert.equal(menuScope({ type: 'MNT' }, 'aoi', new Set()), 'rows',
+    'a thickness constraint has no angle to copy');
+assert.equal(menuScope({ type: 'MNT' }, 'target', new Set()), 'cell',
+    'but its own thickness is still a cell');
 
 // ── The menu ─────────────────────────────────────────────────────────────────
 
@@ -111,7 +123,28 @@ const ctx = {
 };
 const key = (target) => ({ key: 'x', shiftKey: false, ctrlKey: false, altKey: false, metaKey: false, target, preventDefault() {} });
 doKeyDown(ctx, key({ tagName: 'INPUT' }));
+doKeyDown(ctx, key({ tagName: 'SELECT' }));
 doKeyDown(ctx, key({ tagName: 'TD' }));
 assert.deepEqual(edits, [[0, 'weight', 'x']], 'only the key typed on the table itself opens the cell editor');
+
+// A dropdown takes the keys it uses itself, but Delete and the clipboard mean
+// nothing to a closed one, so the table keeps them: a row stays deletable while
+// its Pol cell holds focus.
+{
+    const deleted = [];
+    const rowCtx = {
+        editCell: null, focusCell: { rowIdx: 0, colKey: 'pol' }, selectedIds: new Set(['a']),
+        operands: [{ id: 'a', type: 'R' }], startEdit: () => {},
+        onDelete: ids => deleted.push(ids), setSelIds() {}, setFocusCell() {},
+    };
+    const press = (k, target, ctrlKey = false) => doKeyDown(rowCtx,
+        { key: k, shiftKey: false, ctrlKey, altKey: false, metaKey: false, target, preventDefault() {} });
+    press('Delete', { tagName: 'SELECT' });
+    assert.deepEqual(deleted, [['a']], 'Delete reaches the table from a dropdown cell');
+    press('Delete', { tagName: 'INPUT' });
+    assert.equal(deleted.length, 1, 'but never from a text input');
+    press('ArrowDown', { tagName: 'SELECT' });
+    assert.equal(rowCtx.focusCell.rowIdx, 0, 'arrows stay with the dropdown, which uses them itself');
+}
 
 console.log('mf_table_context_menu: passed');

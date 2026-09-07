@@ -54,7 +54,9 @@ export function rowWindow(count, scrollTop, viewportHeight, rowHeight = ROW_H) {
  * of the scroller and would otherwise hide the row the keyboard just reached.
  */
 export function scrollToRow(rowIdx, scrollTop, viewportHeight, headerHeight, rowHeight = ROW_H) {
-    const top = rowIdx * rowHeight;
+    // The header is part of the scrolled content and sits above the first row,
+    // so a row starts that much further down than its index alone would put it.
+    const top = headerHeight + rowIdx * rowHeight;
     if (top - headerHeight < scrollTop) return Math.max(0, top - headerHeight);
     if (top + rowHeight > scrollTop + viewportHeight) {
         return top + rowHeight - viewportHeight;

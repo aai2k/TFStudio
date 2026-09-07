@@ -4,6 +4,7 @@ import {
 } from '../src/components/windows/optimization/meritFunctionEditor/wizardModel.js';
 import { buildWizardBlock } from '../src/components/windows/optimization/meritFunctionEditor/meritOperandModel.js';
 import { FILTER_TYPES } from '../src/utils/physics/optimizer/filterCatalog.js';
+import { FILTER_CATEGORIES, defaultFilterParams } from '../src/utils/physics/optimizer.js';
 
 // The Preset box has five rows: the two dropdowns and at most three field rows,
 // so switching type never changes the box's height. Every field of every type
@@ -52,5 +53,24 @@ assert.equal(
     'Polarizing (Rs/Rp) · 1565–1630 nm · 44.5–45.5°',
 );
 assert.equal(wizardSummary({ typeLabel: 'V-coat', params: { lam0: 550 }, aoi: 0, aoiEnd: 0 }), 'V-coat · 0°');
+
+// The DMFS header names the bands the preset was built from. Every type must
+// name its own: a three-band filter carries a passStart like the two-band ones,
+// so reading it as a plain pass-and-stop pair left its stop edges blank.
+for (const cat of FILTER_CATEGORIES) {
+    for (const id of cat.types) {
+        const header = buildWizardBlock({
+            tw, typeId: id, params: defaultFilterParams(id), aoi: 0, aoiEnd: 0, aoiSteps: 1,
+            pol: 'avg', targetMode: 'continuous', stepNm: 1,
+            constraintsEnabled: false, totalEnabled: false,
+        })[0].comment;
+        assert.ok(!/undefined|NaN/.test(header), `${id} header names a field it does not have: ${header}`);
+    }
+}
+assert.match(buildWizardBlock({
+    tw, typeId: 'BANDPASS', params: defaultFilterParams('BANDPASS'), aoi: 0, aoiEnd: 0, aoiSteps: 1,
+    pol: 'avg', targetMode: 'continuous', stepNm: 1, constraintsEnabled: false, totalEnabled: false,
+})[0].comment, /stop 300–450 \| pass 500–600 \| stop 650–1000 nm/,
+'a bandpass names its low stop, its pass and its high stop');
 
 console.log('wizard model ok');

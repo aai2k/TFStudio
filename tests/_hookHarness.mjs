@@ -2,9 +2,9 @@
  * A hook runtime small enough to run a hook again and again and watch what it
  * returns.
  *
- * There is no test renderer in the project, and the property worth guarding —
- * "a re-render with nothing changed hands the rows the props they already had"
- * — only exists across renders, so a single server render cannot see it. This
+ * There is no test renderer in the project. The property worth guarding, that a
+ * re-render with nothing changed hands the rows the props they already had,
+ * only exists across renders, so a single server render cannot see it. This
  * implements the five hooks the table's own hooks use, with slots that persist
  * between renders exactly as React's do.
  *
@@ -13,8 +13,8 @@
  * harness whose whole point is to be simple enough to trust.
  *
  * Install it in place of the global React BEFORE importing the module under
- * test — a window module reads `React` at its top level — and put the real one
- * back afterwards.
+ * test, since a window module reads `React` at its top level, and put the real
+ * one back afterwards.
  */
 const sameDeps = (before, after) =>
     Array.isArray(before) && Array.isArray(after)

@@ -45,7 +45,10 @@ test('DMFS comments cover every field shape', () => {
         ['DUAL_AR', 'Label DUAL_AR, λ=450/650 nm'],
         ['LONGPASS', 'Label LONGPASS, stop 400–600 nm, pass 700–1000 nm'],
         ['SHORTPASS', 'Label SHORTPASS, pass 400–600 nm, stop 700–1000 nm'],
-        ['BANDPASS', 'Label BANDPASS, pass 500–600 nm, stop undefined–undefined nm'],
+        // A bandpass has a low stop, a pass and a high stop, and no plain
+        // `stop` pair. Reading it as a two-band type named a field it does not
+        // carry and wrote "undefined" into the header.
+        ['BANDPASS', 'Label BANDPASS, stop 300–450 | pass 500–600 | stop 650–1000 nm'],
         ['NOTCH', 'Label NOTCH, pass 300–450 | stop 500–600 | pass 650–1000 nm'],
     ];
     for (const [typeId, prefix] of cases) {

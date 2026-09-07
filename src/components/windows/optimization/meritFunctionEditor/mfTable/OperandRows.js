@@ -30,9 +30,15 @@ function DmfsRowView({ op, rowIdx, rowSel, c, onEdit, selectRow }) {
         }, op.enabled ? '✓' : '○'),
         h('td', {
             colSpan: COLS.length - 2,
+            // A wizard-generated header names every band, the angle range and
+            // the target mode, which is wider than the columns it spans. It is
+            // cut short rather than wrapped: the row is placed from its index,
+            // so a second line would put every row below it out of step.
+            title: op.comment || undefined,
             style: {
                 padding: '2px 8px', fontStyle: 'italic', color: c.accent,
                 fontSize: 11, borderLeft: `2px solid ${c.accent}50`,
+                whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
             },
         }, '▶ DMFS — ' + (op.comment || 'Default merit function')),
     );

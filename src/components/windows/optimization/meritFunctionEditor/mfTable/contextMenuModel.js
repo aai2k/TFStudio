@@ -5,14 +5,16 @@ import { clipboardScope } from './tableKeyboard.js';
  * Which row and column a right-click landed on, read from the table's own DOM:
  * the cell's index in its row is the column, the row's index in the body is
  * the operand. A click outside a cell (the empty area below the rows) has no
- * target. Neither has a right-click inside a text control, which keeps the
+ * target. Neither has a right-click inside a typed control, which keeps the
  * browser's own copy and paste menu; the one exception is a comment row's
- * input, marked `data-row-menu`, since it covers the whole row.
+ * input, marked `data-row-menu`, since it covers the whole row. A dropdown is
+ * not one of them: it offers nothing of its own to right-click, so the Pol,
+ * comparison, integral and reference cells open the operand menu like any other.
  */
 export function menuTargetFromEvent(event, columns) {
     const target = event.target;
     const tag = target?.tagName;
-    const textControl = tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT';
+    const textControl = tag === 'INPUT' || tag === 'TEXTAREA';
     if (textControl && !target.dataset?.rowMenu) return null;
     const cell = target?.closest?.('td');
     const row = cell?.parentElement;
@@ -37,7 +39,7 @@ export function menuTargetFromEvent(event, columns) {
  */
 export function menuScope(op, colKey, selectedIds) {
     if (!op || isDmfs(op.type) || isBlank(op.type)) return 'rows';
-    return clipboardScope({ focusCell: { rowIdx: 0, colKey }, selectedIds });
+    return clipboardScope({ op, focusCell: { rowIdx: 0, colKey }, selectedIds });
 }
 
 /**

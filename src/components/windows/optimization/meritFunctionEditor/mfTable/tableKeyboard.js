@@ -3,6 +3,7 @@ import {
     isFractionalUnit, isValidMeritWeight,
 } from '../../../../../utils/physics/optimizer.js';
 import { targetInitialValue } from './editModel.js';
+import { editableColsForRow } from './operandViewModel.js';
 
 // Columns whose text a single cell can carry through the clipboard. Type and
 // Pol are picked, not typed, and stay with the row.
@@ -12,9 +13,15 @@ const CELL_TEXT_COLUMNS = new Set(['lambdaStart', 'lambdaEnd', 'aoi', 'target', 
  * What Ctrl+C and Ctrl+V act on: one cell, when a text cell has focus and no
  * more than its own row is selected; otherwise whole rows, as a click in the #
  * column or a multi-row selection asks for.
+ *
+ * Which columns a row actually carries depends on its operand type: a thickness
+ * constraint has no angle, a measured curve no target, and those cells show a
+ * dash. A dash holds nothing to copy and must not be pasted over, so the row
+ * stays the unit there.
  */
-export function clipboardScope({ focusCell, selectedIds }) {
+export function clipboardScope({ op, focusCell, selectedIds }) {
     if (!focusCell || !CELL_TEXT_COLUMNS.has(focusCell.colKey)) return 'rows';
+    if (op && !editableColsForRow(op).includes(focusCell.colKey)) return 'rows';
     return selectedIds.size > 1 ? 'rows' : 'cell';
 }
 
@@ -152,9 +159,17 @@ function rowsToCopy(ctx) {
     return new Set(focused ? [focused.id] : []);
 }
 
+// The scope a key press acts on. The focused row is what decides whether its
+// column carries a value at all, so it goes in with the focus.
+function scopeOf(ctx) {
+    return clipboardScope({
+        op: ctx.operands[ctx.rowIdx], focusCell: ctx.focusCell, selectedIds: ctx.selectedIds,
+    });
+}
+
 function copyRows(ctx) {
     ctx.event.preventDefault();
-    if (clipboardScope(ctx) === 'cell') {
+    if (scopeOf(ctx) === 'cell') {
         const op = ctx.operands[ctx.rowIdx];
         copyCellText(cellText(op, ctx.colKey, ctx.isMathPct(op)));
         return;
@@ -164,7 +179,7 @@ function copyRows(ctx) {
 
 function pasteRows(ctx) {
     ctx.event.preventDefault();
-    if (clipboardScope(ctx) === 'cell') {
+    if (scopeOf(ctx) === 'cell') {
         pasteIntoCell(ctx);
         return;
     }
@@ -222,14 +237,25 @@ export function isTextControl(target) {
     return tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT';
 }
 
+// A closed dropdown answers arrows, Enter, Tab and typing itself, but makes no
+// use of these, so the table keeps them while a Pol or comparison cell holds
+// focus. An input or a textarea takes every key it is sent.
+const SELECT_LEAVES_TO_TABLE = new Set(['Delete', 'Insert', 'Ctrl+c', 'Ctrl+v', 'Ctrl+x', 'Ctrl+d']);
+
+function belongsToControl(target, combo) {
+    if (!isTextControl(target)) return false;
+    return target.tagName !== 'SELECT' || !SELECT_LEAVES_TO_TABLE.has(combo);
+}
+
 export function doKeyDown(ctx, event) {
     const { editCell, focusCell, selectedIds, operands, startEdit } = ctx;
-    if (isTextControl(event.target)) return;
+    const combo = keyComboOf(event);
+    if (belongsToControl(event.target, combo)) return;
     if (editCell || (!focusCell && selectedIds.size === 0)) return;
     const rowIdx = focusCell?.rowIdx ?? operands.findIndex(op => selectedIds.has(op.id));
     if (rowIdx < 0) return;
     const colKey = focusCell?.colKey ?? 'type';
-    const handled = runKeyAction(keyComboOf(event), { ...ctx, event, rowIdx, colKey });
+    const handled = runKeyAction(combo, { ...ctx, event, rowIdx, colKey });
     if (!handled && isPrintableEditKey(event)) {
         startEdit(rowIdx, colKey, event.key);
     }

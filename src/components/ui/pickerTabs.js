@@ -182,9 +182,10 @@ export function PickerTabs({ groups, catFilter, setCatFilter, currentGroup = nul
             style: {
                 display: 'flex', gap: 2, flex: 1, minWidth: 0,
                 overflowX: 'auto', overflowY: 'hidden', position: 'relative',
-                // Wheel scrolling lands wherever it lands; snapping keeps it on
-                // the same boundaries the arrows use.
-                scrollSnapType: 'x mandatory',
+                // No scroll snapping: the strip is placed deliberately, by the
+                // arrows and by scrollTabIntoView, and neither lands on a tab
+                // boundary. Mandatory snapping would pull the marked tab back
+                // off the centre it has just been brought to.
                 maskImage: fadeMask(edges), WebkitMaskImage: fadeMask(edges),
             }
         },
@@ -193,7 +194,7 @@ export function PickerTabs({ groups, catFilter, setCatFilter, currentGroup = nul
                 ref: g.id === markedGroup ? activeTabRef : undefined,
                 onClick: () => setCatFilter(g.id),
                 onMouseDown: keepSearchFocus,
-                style: { ...tabStyle(catFilter === g.id, c, g.id === currentGroup), scrollSnapAlign: 'start' }
+                style: tabStyle(catFilter === g.id, c, g.id === currentGroup)
             }, g.label))
         ),
         edges.overflowing && arrowEl('▸', edges.atEnd, () => page(1), c)

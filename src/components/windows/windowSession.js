@@ -277,14 +277,19 @@ export function useWindowSession(store, design) {
     const { useCallback, useEffect, useState } = React;
     const [state, setState] = useState(() => store.read(design));
 
+    // The store is written here, at the call, and never from inside a setState
+    // updater. React runs an updater during the render pass, and a write tells
+    // every other mount of the store to re-read: from an updater that lands as
+    // one component setting state on another mid-render, which React refuses.
+    // Current values come from the store rather than from React state, which is
+    // both what they are merged into and the fresher of the two.
     const patch = useCallback(next => {
-        setState(current => store.write(design, typeof next === 'function' ? next(current) : next));
+        setState(store.write(design, typeof next === 'function' ? next(store.peek(design)) : next));
     }, [store, design]);
 
     const setField = useCallback((key, value) => {
-        setState(current => store.write(design, {
-            [key]: typeof value === 'function' ? value(current[key]) : value,
-        }));
+        const next = typeof value === 'function' ? value(store.peek(design)[key]) : value;
+        setState(store.write(design, { [key]: next }));
     }, [store, design]);
 
     // Re-reads on a design change so `onDesignChange` reseeds the design-dependent

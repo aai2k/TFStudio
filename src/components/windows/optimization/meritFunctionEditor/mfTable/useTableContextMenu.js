@@ -21,8 +21,8 @@ function rowsFor(operands, selectedIds, rowIdx) {
  */
 export function useTableContextMenu(table) {
     const {
-        operands, selIds, focusAt, selectRow, setFocusCell, onAdd, onInsertAt, onDuplicate, onDelete,
-        commitEdit, isMathPct, te,
+        operands, selIds, setSelIds, focusAt, selectRow, setFocusCell,
+        onAdd, onInsertAt, onDuplicate, onDelete, commitEdit, isMathPct, te,
     } = table;
     const [menu, setMenu] = useState(null);
 
@@ -55,15 +55,23 @@ export function useTableContextMenu(table) {
     const op = operands[rowIdx];
     const ids = rowsFor(operands, selIds, rowIdx);
     const scope = menuScope(op, colKey, new Set(ids));
+    // Rows the menu removes are gone, so the selection and the focused cell go
+    // with them: both name rows by id and by index, and a stale index lands the
+    // focus outline and the next keystroke on whichever row moved up into it.
+    const dropRows = () => {
+        onDelete(ids);
+        setSelIds(new Set());
+        setFocusCell(null);
+    };
     const actions = {
         copyCell: () => copyCellText(cellText(op, colKey, isMathPct(op))),
         pasteCell: () => pasteIntoCell({ rowIdx, colKey, commitEdit, onAdd }),
         copyRows: () => copySelectedOperands(operands, new Set(ids)),
-        cutRows: () => { copySelectedOperands(operands, new Set(ids)); onDelete(ids); },
+        cutRows: () => { copySelectedOperands(operands, new Set(ids)); dropRows(); },
         pasteRows: () => pasteOperands(onAdd, rowIdx + 1),
         insertAt: index => onInsertAt(index, op),
         duplicate: () => onDuplicate(ids),
-        deleteRows: () => onDelete(ids),
+        deleteRows: dropRows,
     };
     return {
         menu, onContextMenu, closeMenu,

@@ -2,6 +2,7 @@ import {
     OPERAND_POLS, FILTER_CATEGORIES, FILTER_TYPES, defaultFilterParams,
 } from '../../../../utils/physics/optimizer.js';
 import { Checkbox } from '../../../ui/Checkbox.js';
+import { NumInput, SelectField } from '../../analysis/chrome/controls.js';
 import { useWindowSession } from '../../windowSession.js';
 import { buildWizardBlock, wizardAppendRow, wizardGenerationRows } from './meritOperandModel.js';
 import { meritWizardSession } from './sessionState.js';
@@ -22,33 +23,31 @@ const fieldUnit = key => (Object.prototype.hasOwnProperty.call(FIELD_UNITS, key)
 // nothing there and shows only as empty space once one wraps onto its own line.
 const BOX_ROWS = 5;
 
+// Height of one row of controls, which is what NumInput and SelectField stand.
+const CONTROL_H = 24;
+
 function styles(c) {
-    const control = {
-        background: c.bg, color: c.text, border: `1px solid ${c.border}`,
-        borderRadius: 3, fontSize: 11, padding: '2px 5px', fontFamily: 'inherit',
-        height: 22, boxSizing: 'border-box', outline: 'none', whiteSpace: 'nowrap',
-    };
     return {
-        control,
+        c,
         label: { fontSize: 11, color: c.textDim, whiteSpace: 'nowrap' },
         group: { display: 'flex', alignItems: 'center', gap: 4 },
         unit: { fontSize: 11, color: c.textDim },
     };
 }
 
+// The app's shared fields, so a wizard entry behaves like every other number in
+// TFStudio: a dot is a dot whatever the machine's locale says, and the value is
+// taken on blur rather than after each digit typed.
 function numberInput(s, value, onChange, width, extra = {}) {
-    const { disabled, ...rest } = extra;
-    return h('input', {
-        type: 'number', value, disabled: !!disabled,
-        onChange: e => onChange(+e.target.value),
-        style: { ...s.control, width, opacity: disabled ? 0.5 : 1 },
-        ...rest,
-    });
+    const { disabled, min, max, step, title } = extra;
+    return h(NumInput, { value, onChange, min, max, step, title, disabled, c: s.c, width });
 }
 
 function select(s, value, onChange, options, width) {
-    return h('select', { value, onChange: e => onChange(e.target.value), style: { ...s.control, width } },
-        options.map(option => h('option', { key: option.value, value: option.value }, option.label)));
+    return h(SelectField, {
+        value, onChange, c: s.c, width,
+        options: options.map(option => ({ id: option.value, label: option.label })),
+    });
 }
 
 // A box never shrinks below the width its controls need: a pane narrower than
@@ -70,7 +69,7 @@ function groupBox({ title, columns, rows, minWidth, grow = true, c }) {
             style: {
                 border: `1px solid ${c.border}`, borderRadius: 3, background: c.panel,
                 padding: '8px', display: 'grid', gridTemplateColumns: columns,
-                gridAutoRows: 22, rowGap: 6, columnGap: 5, alignItems: 'center',
+                gridAutoRows: CONTROL_H, rowGap: 6, columnGap: 5, alignItems: 'center',
                 flex: 1,
             },
         }, rows));
@@ -219,18 +218,23 @@ function useStartRow(design, operandCount) {
     return [startRow, setStartRow];
 }
 
-function bottomLine(ctx, block, startRow, setStartRow, onGenerate) {
-    const { s, tw, c } = ctx;
+// The row count and the Generate button, which are the only things that need
+// the block itself. Building it is what the whole form amounts to: an
+// angle-swept preset in discrete mode runs to thousands of operands, so it is
+// built here, inside the branch that only renders while the form is open.
+function bottomLine(ctx, startRow, setStartRow, onGenerate) {
+    const { s, tw, c, session, typeId } = ctx;
+    const block = buildWizardBlock({ tw, ...session, typeId });
     const summary = blockSummary(block);
-    return h('div', { style: { display: 'flex', alignItems: 'center', gap: 8, height: 22 } },
+    return h('div', { style: { display: 'flex', alignItems: 'center', gap: 8, height: CONTROL_H } },
         h('span', { style: s.label }, tw.preview(summary.count, summary.types.join(', '))),
         h('span', { style: { flex: 1 } }),
         h('span', { style: s.label, title: tw.startRowTip }, tw.startRow + ':'),
         numberInput(s, startRow, v => setStartRow(Math.max(1, Math.round(v) || 1)), 52, { min: 1, step: 1 }),
         h('button', {
-            onClick: onGenerate, title: tw.willReplace,
+            onClick: () => onGenerate(block), title: tw.willReplace,
             style: {
-                marginLeft: 8, height: 22, padding: '0 14px', fontSize: 11, border: 'none', borderRadius: 3,
+                marginLeft: 8, height: CONTROL_H, padding: '0 14px', fontSize: 11, border: 'none', borderRadius: 3,
                 background: c.accent, color: c.accentText, cursor: 'pointer', fontWeight: 600, fontFamily: 'inherit',
             },
         }, tw.generate));
@@ -245,8 +249,7 @@ export function DMFWizard({ design, onGenerate, operandCount, mf, omf, busy, c, 
     const updateParam = (key, value) => setField('params', prev => ({ ...prev, [key]: value }));
     const ctx = { s: styles(c), tw, c, session, setField, patch, typeId, updateParam };
 
-    const block = buildWizardBlock({ tw, ...session, typeId });
-    const generate = () => {
+    const generate = (block) => {
         const rows = wizardGenerationRows(startRow, block.length);
         onGenerate(block, rows.startRow);
         setStartRow(rows.nextStartRow);
@@ -268,7 +271,7 @@ export function DMFWizard({ design, onGenerate, operandCount, mf, omf, busy, c, 
         },
             h('div', { style: { display: 'flex', flexWrap: 'wrap', gap: 8, alignItems: 'stretch' } },
                 presetBox(ctx), angleBox(ctx), limitsBox(ctx)),
-            bottomLine(ctx, block, startRow, setStartRow, generate),
+            bottomLine(ctx, startRow, setStartRow, generate),
         ),
     );
 }

@@ -9,6 +9,7 @@
  * Run: node tests/mf_table_handler_stability.mjs
  */
 import assert from 'node:assert/strict';
+import { readFile } from 'node:fs/promises';
 import { makeHookRuntime, importWithHookRuntime } from './_hookHarness.mjs';
 import { loadApp, makeLocale, makeTheme, shimBrowserGlobals } from './_uiShim.mjs';
 
@@ -29,9 +30,11 @@ const operands = [
 ];
 const noop = () => {};
 
-// Every handler a row is handed. `onKeyDown` is not among them: it belongs to
-// the table's container, not to a row.
-const ROW_HANDLERS = ['selectRow', 'focusAt', 'startEdit', 'commitEdit', 'navigate', 'isMathPct'];
+// Every handler a row is handed. `onEdit` belongs here too: the window rebuilds
+// it whenever the operand list changes, which is on every committed edit, so a
+// row given the window's own copy loses its memo the moment anything is typed.
+// `onKeyDown` is not among them: it belongs to the table's container, not a row.
+const ROW_HANDLERS = ['selectRow', 'focusAt', 'startEdit', 'commitEdit', 'navigate', 'isMathPct', 'onEdit'];
 
 const render = props => runtime.render(() => useMFTableSelection(props));
 const assertHandlersHeld = (before, after, why) => {
@@ -100,6 +103,12 @@ const assertHandlersHeld = (before, after, why) => {
     let reported = null;
     render({ ...props, operands: grown, onSelect: id => { reported = id; } }).focusAt(2, 'target');
     assert.equal(reported, 'c', 'the handler reaches the row only the newest list has');
+
+    // The same for the edit callback: held steady for the rows, but still
+    // calling whichever one the window handed over this render.
+    const edits = [];
+    render({ ...props, onEdit: (...args) => edits.push(args) }).onEdit('a', 'weight', 3);
+    assert.deepEqual(edits, [['a', 'weight', 3]], 'the steady onEdit calls the current one');
 }
 
 // ── End to end: a frame of a divider drag redraws no row at all ─────────────
@@ -124,7 +133,7 @@ const assertHandlersHeld = (before, after, why) => {
             largestContribution: 1, selIds: selection.selIds,
             focusCell: selection.focusCell, editCell: selection.editCell,
             operands, integralPresets, isMathPct: selection.isMathPct, c, t,
-            onEdit: noop, selectRow: selection.selectRow, focusAt: selection.focusAt,
+            onEdit: selection.onEdit, selectRow: selection.selectRow, focusAt: selection.focusAt,
             startEdit: selection.startEdit, commitEdit: selection.commitEdit,
             navigate: selection.navigate, setEditCell: selection.setEditCell,
             setFocusCell: selection.setFocusCell,
@@ -141,6 +150,17 @@ const assertHandlersHeld = (before, after, why) => {
             .some(key => !Object.is(a[key], b[key]));
     });
     assert.equal(redrawn.length, 0, 'a frame that changed nothing redraws no row');
+}
+
+// ── The table hands the rows the steady callback, not the window's own ──────
+// The hook can only hold an identity the table actually passes on, and the
+// window's `onEdit` prop is in scope at that line, so the two are easy to swap.
+{
+    const source = await readFile(new URL(
+        '../src/components/windows/optimization/meritFunctionEditor/mfTable/MFTable.js',
+        import.meta.url), 'utf8');
+    assert.match(source, /onEdit: handleEdit,/,
+        'rowContext carries the steady onEdit from useMFTableSelection');
 }
 
 console.log('mf_table_handler_stability: passed');

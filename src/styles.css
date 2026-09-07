@@ -189,8 +189,8 @@ select option:checked {
 }
 
 /* ── Menus that cannot be a <select> ──────────────────────────────────────
-   A list whose rows carry more than a label — a count, a delete control, a
-   tick — has to be built from elements. These rules give it the surface,
+   Some rows carry more than a label: a count, a delete control, a tick. Those
+   have to be built from elements. These rules give it the surface,
    spacing and motion of ::picker(select) above, so a menu and the selects
    beside it read as one control. Placement stays with the component. */
 .tf-menu {

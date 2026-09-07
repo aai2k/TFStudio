@@ -53,4 +53,23 @@ const html = renderToStaticMarkup(React.createElement(DMFWizard, {
         'a box whose controls can use the room still grows');
 }
 
+// ── A folded wizard builds no operands ───────────────────────────────────────
+// The block a preset amounts to runs to thousands of operands for an
+// angle-swept discrete target, and only the Generate line needs it. Building it
+// for a wizard nobody has open costs that on every render of the window.
+{
+    const { meritWizardSession } = await import(
+        '../src/components/windows/optimization/meritFunctionEditor/sessionState.js');
+    meritWizardSession.write(null, { open: false });
+    const folded = renderToStaticMarkup(React.createElement(DMFWizard, {
+        design, onGenerate: () => {}, operandCount: 0, mf: 0.5, omf: 0.5, busy: false, c, t,
+    }));
+    meritWizardSession.write(null, { open: true });
+    const tw = t.meritFunctionEditor.wizard;
+    assert.ok(!folded.includes(tw.generate),
+        'a folded wizard renders no Generate button, so it built no block to generate');
+    assert.equal([...folded.matchAll(/min-width:(\d+)px/g)].length, 0, 'and none of the three boxes');
+    assert.ok(folded.includes(tw.title), 'the bar it folds into stays');
+}
+
 console.log('mf_wizard_layout: passed');

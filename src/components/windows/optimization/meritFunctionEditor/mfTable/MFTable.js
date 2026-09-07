@@ -97,8 +97,6 @@ function tableBody(rowContext, view, noOperandsMsg) {
     ];
 }
 
-const TABLE_HINT = 'Click=select  Shift/Ctrl+Click=multi  Del=delete  Ctrl+C/V=copy/paste  Enter/Tab=edit/nav';
-
 function tableToolbar(options) {
     const {
         operands, selIds, focusCell, primarySel, toolbarStart,
@@ -135,12 +133,12 @@ function tableToolbar(options) {
         // The hint gives way before the buttons do: it shrinks and truncates
         // in a narrow pane rather than wrapping the buttons beside it.
         h('span', {
-            title: TABLE_HINT,
+            title: te.tableHint,
             style: {
                 fontSize: 10, color: c.textDim, marginLeft: 'auto', minWidth: 0,
                 whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
             },
-        }, TABLE_HINT),
+        }, te.tableHint),
     );
 }
 
@@ -153,10 +151,10 @@ export function MFTable(props) {
     } = props;
     const integralPresets = useIntegralPresets();
     const {
-        selIds, focusCell, setFocusCell, editCell, setEditCell, tableRef,
+        selIds, setSelIds, focusCell, setFocusCell, editCell, setEditCell, tableRef,
         isMathPct, selectRow: handleSelectRow, focusAt: handleFocusAt,
         startEdit: handleStartEdit, commitEdit: handleCommitEdit,
-        navigate: handleNavigate, onKeyDown,
+        navigate: handleNavigate, onEdit: handleEdit, onKeyDown,
     } = useMFTableSelection({
         operands, selectedId, onSelect, onEdit, onDelete, onInsertAt, onDuplicate, onAdd,
     });
@@ -184,7 +182,7 @@ export function MFTable(props) {
         computed, evaluationErrors, bandLevels, contributions, largestContribution,
         selIds, focusCell, editCell,
         operands, integralPresets, isMathPct, c, t,
-        onEdit, selectRow: handleSelectRow, focusAt: handleFocusAt, startEdit: handleStartEdit,
+        onEdit: handleEdit, selectRow: handleSelectRow, focusAt: handleFocusAt, startEdit: handleStartEdit,
         commitEdit: handleCommitEdit, navigate: handleNavigate, setEditCell, setFocusCell,
     };
     const scrollRef = useRef(null);
@@ -207,7 +205,7 @@ export function MFTable(props) {
     }, [focusRow]);
 
     const contextMenu = useTableContextMenu({
-        operands, selIds, focusAt: handleFocusAt, selectRow: handleSelectRow, setFocusCell,
+        operands, selIds, setSelIds, focusAt: handleFocusAt, selectRow: handleSelectRow, setFocusCell,
         onAdd, onInsertAt, onDuplicate, onDelete, commitEdit: handleCommitEdit, isMathPct,
         te: t?.meritFunctionEditor || {},
     });
@@ -224,7 +222,7 @@ export function MFTable(props) {
     },
         contextMenu.menu && h(ContextMenu, {
             x: contextMenu.menu.x, y: contextMenu.menu.y, items: contextMenu.items, c, dense: true,
-            onClose: contextMenu.closeMenu, ariaLabel: t?.meritFunctionEditor?.contextMenu?.title || 'Operand menu',
+            onClose: contextMenu.closeMenu, ariaLabel: t?.meritFunctionEditor?.contextMenu?.title,
         }),
         notice && h('div', {
             title: notice,

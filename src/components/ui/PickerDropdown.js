@@ -361,8 +361,15 @@ export function PickerDropdown(props) {
         if (!open) { opening.current = false; return; }
         const list = listRef.current;
         if (!list) return;
-        const current = cells.findIndex(cell => cell.item && activeOf(cell.item));
-        const top = opening.current ? scrollTopFor(tops, current, list.clientHeight) : 0;
+        // Finding the current entry means walking the whole list, which on a
+        // machine carrying the full catalogs is thousands of rows. Only the
+        // render that opens the picker needs it; every keystroke after that
+        // goes to the top regardless.
+        let top = 0;
+        if (opening.current) {
+            const current = cells.findIndex(cell => cell.item && activeOf(cell.item));
+            top = scrollTopFor(tops, current, list.clientHeight);
+        }
         opening.current = false;
         list.scrollTop = top;
         setScrollTop(top);

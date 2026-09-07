@@ -84,6 +84,13 @@ export function useMFTableSelection(props) {
 
     const isMathPct = useCallback(op => mathTargetInPercent(op, live.current.operandsById), []);
 
+    // The window's own edit callback is rebuilt whenever the operand list is,
+    // since it closes over that list. Every row is handed one, so passing it
+    // through would change every row's props on each committed edit; reaching
+    // it through the ref is what keeps the rows memoised.
+    const handleEdit = useCallback(
+        (id, key, value) => live.current.onEdit(id, key, value), []);
+
     const handleSelectRow = useCallback((id, shift, ctrl, keepFocus) => selectRow({
         operands: live.current.operands, anchor: live.current.anchor,
         onSelect: live.current.onSelect, lastReported, tableRef, setSelIds, setAnchor,
@@ -118,9 +125,9 @@ export function useMFTableSelection(props) {
     ]);
 
     return {
-        selIds, focusCell, setFocusCell, editCell, setEditCell, tableRef,
+        selIds, setSelIds, focusCell, setFocusCell, editCell, setEditCell, tableRef,
         isMathPct, selectRow: handleSelectRow, focusAt: handleFocusAt,
         startEdit: handleStartEdit, commitEdit: handleCommitEdit,
-        navigate: handleNavigate, onKeyDown,
+        navigate: handleNavigate, onEdit: handleEdit, onKeyDown,
     };
 }

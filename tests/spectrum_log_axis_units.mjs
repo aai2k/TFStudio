@@ -129,7 +129,10 @@ const drawnTargets = yScale => buildChartSeries({
     data, showCurves, targets, targetsVisible: true, overlays: [], yScale,
 }).slice(3).filter(item => item.data?.length)
     .flatMap(item => item.data.map(point => (point.value || point)[1]));
-check(drawnTargets(undefined).filter(level => level === 0).length === 27,
+// A flat target is drawn as its two ends, and a band carries three markers:
+// start, middle and end. All five sit at zero, none of them dropped.
+const linearLevels = drawnTargets(undefined);
+check(linearLevels.filter(level => level === 0).length === 2 + 3,
     'the antireflection target is drawn at zero on a linear axis, line and markers');
 check(drawnTargets('dB').every(level => level > 0),
     'nothing is drawn at zero on a logarithmic axis');
