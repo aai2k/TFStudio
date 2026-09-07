@@ -124,8 +124,12 @@ export const normalizePalette = (seed) => {
   p.text = text; // force the contrast-lifted value (overrides any dim original)
   def('textDim',      mix(text, bg, 0.40));
   def('field',        lightFlag ? mix(panel, '#000000', 0.03) : darken(bg, 0.30));
-  def('border',       mix(panel, text, lightFlag ? 0.14 : 0.16));
-  def('borderStrong', mix(panel, text, lightFlag ? 0.28 : 0.34));
+  // A 1 px divider needs more of the text colour on a light panel than on a
+  // dark one: 14% on white reads at about 1.3:1 and vanishes between two white
+  // panels, while the dark themes' 16% reads at about 1.6:1. The light factors
+  // put both borders at the contrast the dark themes already have.
+  def('border',       mix(panel, text, lightFlag ? 0.24 : 0.16));
+  def('borderStrong', mix(panel, text, lightFlag ? 0.48 : 0.34));
   // hover MUST stay distinct from border (the legacy palettes set hover===border,
   // which is exactly why hovered rows looked like they merged into outlines).
   def('hover',        mix(panel, text, lightFlag ? 0.07 : 0.10));

@@ -1,7 +1,7 @@
 import { isBlank, isDmfs, isMath } from '../../../../../utils/physics/optimizer.js';
 import { OperandTypePicker } from './OperandTypePicker.js';
 import { editingCell, rowRenderers, textCell } from './OperandCells.js';
-import { COLS, rowDisplayMeta, typeRgba } from './operandViewModel.js';
+import { COLS, rowDisplayMeta, rowTintAlpha, typeRgba } from './operandViewModel.js';
 
 const { createElement: h } = React;
 
@@ -85,7 +85,7 @@ export function MFDataRow(props) {
         navigate, setEditCell, setFocusCell,
     } = props;
     const meta = rowDisplayMeta(op, rawCur, isMath(op.type) && isMathPct(op), bandLevel);
-    const rowBg = typeRgba(op.type, 0.12) || 'transparent';
+    const rowBg = typeRgba(op.type, rowTintAlpha(c.light)) || 'transparent';
     const rowStripe = typeRgba(op.type, 0.75);
 
     const tdBase = (colKey, width, extra) => {
