@@ -7,8 +7,10 @@ import { doKeyDown, isTextControl } from '../src/components/windows/optimization
 
 // ── Where a right-click landed ────────────────────────────────────────────────
 
-function cellEvent(cellIndex, sectionRowIndex, tagName = 'TD', dataset = {}) {
-    const cell = { cellIndex, parentElement: { sectionRowIndex } };
+// A built row names the operand it stands for, which is what the menu reads:
+// only the rows on screen exist, so a row's DOM position is not its index.
+function cellEvent(cellIndex, rowIdx, tagName = 'TD', dataset = {}) {
+    const cell = { cellIndex, parentElement: { dataset: { row: String(rowIdx) } } };
     return { target: { tagName, dataset, closest: sel => (sel === 'td' ? cell : null) } };
 }
 assert.deepEqual(menuTargetFromEvent(cellEvent(7, 3), COLS), { rowIdx: 3, colKey: 'target', rowInput: false });
@@ -23,6 +25,19 @@ assert.deepEqual(menuTargetFromEvent(cellEvent(3, 2, 'INPUT', { rowMenu: 'commen
     { rowIdx: 2, colKey: 'lambdaStart', rowInput: true },
     'the comment input is the whole row, so it opens the operand menu');
 assert.equal(menuTargetFromEvent({ target: { tagName: 'TH', closest: () => null } }, COLS), null);
+
+// A row far down a windowed table is the operand it names, not the position it
+// happens to hold among the handful of rows built around it.
+assert.deepEqual(menuTargetFromEvent(cellEvent(7, 3617), COLS),
+    { rowIdx: 3617, colKey: 'target', rowInput: false });
+
+// The spacer standing in for the rows off screen names no operand, so a click
+// on it acts on nothing.
+{
+    const spacer = { cellIndex: 0, parentElement: { dataset: {} } };
+    assert.equal(menuTargetFromEvent(
+        { target: { tagName: 'TD', dataset: {}, closest: () => spacer } }, COLS), null);
+}
 
 // A header or comment row never offers a cell to copy; other rows follow the
 // keyboard's rule.

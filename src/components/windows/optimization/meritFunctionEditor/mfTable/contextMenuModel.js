@@ -16,9 +16,13 @@ export function menuTargetFromEvent(event, columns) {
     if (textControl && !target.dataset?.rowMenu) return null;
     const cell = target?.closest?.('td');
     const row = cell?.parentElement;
-    if (!cell || !row || row.sectionRowIndex == null || row.sectionRowIndex < 0) return null;
+    // The row carries which operand it is. Only the rows on screen are built,
+    // with spacers standing in for the rest, so a row's position among the
+    // built ones says nothing about where it is in the table.
+    const rowIdx = Number(row?.dataset?.row);
+    if (!cell || !Number.isInteger(rowIdx) || rowIdx < 0) return null;
     return {
-        rowIdx: row.sectionRowIndex,
+        rowIdx,
         colKey: columns[cell.cellIndex]?.key || 'type',
         // Set when the click was inside a comment input, which must keep the
         // caret it has while its row is selected.

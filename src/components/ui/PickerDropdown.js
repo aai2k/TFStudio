@@ -299,7 +299,7 @@ export function overlayEl(s) {
 }
 
 // Close the overlay on outside-click or Escape while it is open.
-function useDismiss(open, setOpen, dropRef, triggerRef) {
+export function useDismiss(open, setOpen, dropRef, triggerRef) {
     useEffect(() => {
         if (!open) return undefined;
         const onDown = (e) => {

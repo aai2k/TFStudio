@@ -15,7 +15,11 @@ const { createElement: h, useState, useEffect } = React;
 const FIELD_UNITS = { rPct: '%', rsPct: '%', rpPct: '%', valuePct: '%', tStart: '', tEnd: '', points: '' };
 const fieldUnit = key => (Object.prototype.hasOwnProperty.call(FIELD_UNITS, key) ? FIELD_UNITS[key] : 'nm');
 
-// Every box has the same five rows, so switching type never moves a control.
+// The Preset box holds a different set of fields for every filter type, up to
+// five rows for a triple-band AR, and is padded to that height so switching type
+// never moves the controls below it. The other two boxes hold a fixed set of
+// rows and are stretched to match while they sit beside it, so padding them buys
+// nothing there and shows only as empty space once one wraps onto its own line.
 const BOX_ROWS = 5;
 
 function styles(c) {
@@ -50,14 +54,23 @@ function select(s, value, onChange, options, width) {
 // A box never shrinks below the width its controls need: a pane narrower than
 // the three boxes together wraps a whole box onto the next line, and the
 // controls inside every box stay where they are.
-function groupBox({ title, columns, rows, minWidth, c }) {
-    return h('div', { style: { display: 'flex', flexDirection: 'column', gap: 4, flex: `1 1 ${minWidth}px`, minWidth } },
+//
+// `grow` is for a box whose controls are all fixed width. Spare room does
+// nothing for it, and taking a share of it is what makes a wrapped box span the
+// pane with its controls stranded at one end.
+function groupBox({ title, columns, rows, minWidth, grow = true, c }) {
+    return h('div', {
+        style: {
+            display: 'flex', flexDirection: 'column', gap: 4, minWidth,
+            flex: grow ? `1 1 ${minWidth}px` : `0 0 ${minWidth}px`,
+        },
+    },
         h('span', { style: { fontSize: 11, fontWeight: 600, color: c.textDim } }, title),
         h('div', {
             style: {
                 border: `1px solid ${c.border}`, borderRadius: 3, background: c.panel,
-                padding: '8px 10px', display: 'grid', gridTemplateColumns: columns,
-                gridAutoRows: 22, rowGap: 6, columnGap: 6, alignItems: 'center',
+                padding: '8px', display: 'grid', gridTemplateColumns: columns,
+                gridAutoRows: 22, rowGap: 6, columnGap: 5, alignItems: 'center',
                 flex: 1,
             },
         }, rows));
@@ -129,7 +142,7 @@ function presetBox(ctx) {
         ...rows.flatMap(row => presetRow(ctx, row)),
     ];
     return groupBox({
-        title: tw.presetBox, columns: '84px minmax(130px, 1fr)', minWidth: 244, c,
+        title: tw.presetBox, columns: '84px minmax(130px, 1fr)', minWidth: 238, c,
         rows: padRows(cells, 2, 2 + rows.length),
     });
 }
@@ -163,7 +176,7 @@ function angleBox(ctx) {
             discrete && numberInput(s, session.stepNm, v => setField('stepNm', v), 48, { min: 0.1, step: 0.5 }),
         ) : h('span', { key: 'mode-c' }),
     ];
-    return groupBox({ title: tw.angleBox, columns: '64px minmax(116px, 1fr)', minWidth: 212, c, rows: padRows(cells, 2, 4) });
+    return groupBox({ title: tw.angleBox, columns: '64px minmax(116px, 1fr)', minWidth: 204, c, rows: cells });
 }
 
 function limitRow(ctx, { key, checked, onToggle, name, label, value, onChange }) {
@@ -194,7 +207,10 @@ function limitsBox(ctx) {
             name: tw.totalLabel, label: tw.maxTotalLabel, value: session.maxTotal, onChange: v => setField('maxTotal', v),
         }),
     ];
-    return groupBox({ title: tw.limitsBox, columns: '70px 62px minmax(64px, 1fr)', minWidth: 232, c, rows: padRows(cells, 3, 3) });
+    return groupBox({
+        title: tw.limitsBox, columns: '70px 62px minmax(64px, 1fr)', minWidth: 224,
+        grow: false, c, rows: cells,
+    });
 }
 
 function useStartRow(design, operandCount) {
@@ -250,7 +266,7 @@ export function DMFWizard({ design, onGenerate, operandCount, mf, omf, busy, c, 
                 background: c.bg, borderBottom: `1px solid ${c.border}`, flexShrink: 0,
             },
         },
-            h('div', { style: { display: 'flex', flexWrap: 'wrap', gap: 10, alignItems: 'stretch' } },
+            h('div', { style: { display: 'flex', flexWrap: 'wrap', gap: 8, alignItems: 'stretch' } },
                 presetBox(ctx), angleBox(ctx), limitsBox(ctx)),
             bottomLine(ctx, block, startRow, setStartRow, generate),
         ),

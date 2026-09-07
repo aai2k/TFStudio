@@ -11,7 +11,7 @@ function chevron(open, c) {
 }
 
 function meritValue(label, value, title, c) {
-    return h('span', { title },
+    return h('span', { title, style: { whiteSpace: 'nowrap' } },
         label + ' ',
         h('span', { style: { color: c.text, fontWeight: 600 } }, value.toFixed(6)));
 }
@@ -27,7 +27,7 @@ export function WizardHeader({ open, onToggle, summary, design, mf, omf, busy, c
         style: {
             display: 'flex', alignItems: 'center', gap: 10, height: 26, padding: '0 10px',
             background: c.panel, borderBottom: `1px solid ${c.border}`, flexShrink: 0,
-            boxSizing: 'border-box', fontSize: 11, color: c.textDim,
+            boxSizing: 'border-box', fontSize: 11, color: c.textDim, overflow: 'hidden',
         },
     },
         h('button', {
@@ -38,9 +38,16 @@ export function WizardHeader({ open, onToggle, summary, design, mf, omf, busy, c
                 display: 'flex', alignItems: 'center', gap: 8, padding: 0,
                 border: 'none', background: 'transparent', cursor: 'pointer',
                 color: c.text, fontFamily: 'inherit', fontSize: 11, fontWeight: 600,
+                whiteSpace: 'nowrap',
             },
         }, chevron(open, c), tw.title),
-        !open && summary && h('span', { style: { whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' } }, summary),
+        // The summary is the one thing on the bar that can be cut short. It
+        // gives up its room as the pane narrows, so the badges and the merit
+        // values keep theirs instead of breaking onto a second line the bar is
+        // too short to show.
+        !open && summary && h('span', {
+            style: { minWidth: 0, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' },
+        }, summary),
         h('span', { style: { flex: 1 } }),
         h(OptimizeBadge, { design, c, t }),
         h(EvalModeBadge, { design, c, t }),
