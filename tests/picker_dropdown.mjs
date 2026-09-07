@@ -1,9 +1,11 @@
 /**
  * The pickers open on what is already chosen.
  *
- * A material list runs to hundreds of entries and the operand list to dozens.
+ * A material list runs to thousands of entries and the operand list to dozens.
  * Opening either at the top and leaving the selection somewhere below the fold
- * makes the user search for a value the picker already knows.
+ * makes the user search for a value the picker already knows. The material list
+ * is also far too long to put in the DOM whole, so only the part on screen is
+ * built and the rest is stood in for by two spacers.
  */
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
@@ -13,7 +15,7 @@ shimBrowserGlobals();
 await loadApp();
 
 const [
-    { scrollToActive, overlayEl, dropPositionFrom },
+    { listCells, cellTops, visibleWindow, scrollTopFor, overlayEl, dropPositionFrom },
     { PickerTabs, scrollTabIntoView, stripEdges, pagedOffset, fadeMask, keepSearchFocus },
     { designEntries, rowIsCurrent, currentGroupOf },
     { initCatalogs },
@@ -26,37 +28,69 @@ const [
 
 initCatalogs({});
 
+const items = (n, group) => Array.from({ length: n }, (_, i) => ({ id: `${group || 'i'}${i}`, label: `M${i}`, group }));
+
 // ── The selected row is centred in the list ───────────────────────────────────
 
-const list = (scrollHeight, clientHeight) => ({
-    ref: { current: { scrollHeight, clientHeight, scrollTop: 0 } },
-});
-const row = (offsetTop, offsetHeight = 20) => ({ current: { offsetTop, offsetHeight } });
+const flatCells = listCells(items(100), [], false);
+const flatTops  = cellTops(flatCells);
+const ROW_H     = flatTops[1] - flatTops[0];
+const TOTAL     = flatTops[flatCells.length];
 
-const middle = list(2000, 300);
-scrollToActive(middle.ref, row(1000));
-assert.equal(middle.ref.current.scrollTop, 1000 - (300 - 20) / 2,
+assert.equal(TOTAL, 100 * ROW_H, 'a row-only list is as tall as its rows');
+
+assert.equal(scrollTopFor(flatTops, 48, 300), 48 * ROW_H - (300 - ROW_H) / 2,
     'a row far down the list is centred');
-
-const nearTop = list(2000, 300);
-scrollToActive(nearTop.ref, row(10));
-assert.equal(nearTop.ref.current.scrollTop, 0,
+assert.equal(scrollTopFor(flatTops, 0, 300), 0,
     'a row near the top does not scroll past the start of the list');
-
-const nearBottom = list(2000, 300);
-scrollToActive(nearBottom.ref, row(1990));
-assert.equal(nearBottom.ref.current.scrollTop, 1700,
+assert.equal(scrollTopFor(flatTops, 99, 300), TOTAL - 300,
     'a row near the end does not scroll past the end of the list');
-
-const shortList = list(120, 300);
-scrollToActive(shortList.ref, row(40));
-assert.equal(shortList.ref.current.scrollTop, 0,
+assert.equal(scrollTopFor(cellTops(listCells(items(5), [], false)), 2, 300), 0,
     'a list shorter than its viewport does not scroll');
 
-// A closed or empty list is not an error: the effect runs on every open,
-// including one where nothing is selected.
-assert.doesNotThrow(() => scrollToActive({ current: null }, row(10)));
-assert.doesNotThrow(() => scrollToActive(list(2000, 300).ref, { current: null }));
+// Nothing in the list is current: an id that resolves nowhere, or a query that
+// filtered the current value out. The list opens at the top, not off its end.
+assert.equal(scrollTopFor(flatTops, -1, 300), 0, 'no current entry means no scroll');
+
+// ── Only the entries on screen are built ─────────────────────────────────────
+//
+// The material picker offers a few thousand entries on a machine carrying the
+// substrate and coating libraries. Building all of them cost close to a second
+// on every open and on every keystroke in the search box.
+
+const bigGroups = [{ id: 'g1', label: 'One' }, { id: 'g2', label: 'Two' }];
+const bigCells  = listCells([...items(1000, 'g1'), ...items(2000, 'g2')], bigGroups, true);
+const bigTops   = cellTops(bigCells);
+const HEADER_H  = bigTops[1] - bigTops[0];
+
+assert.equal(bigCells.length, 3002, 'every result is a cell, plus one header per group');
+
+const deep = visibleWindow(bigCells, bigTops, 30000, 320);
+assert.ok(deep.to - deep.from < 40,
+    'a 320px viewport builds a few dozen cells, whatever the length of the list');
+assert.equal(deep.stuck.id, 'g2',
+    'a list scrolled well into a catalog still carries that catalog\'s heading');
+assert.equal(
+    deep.padTop + HEADER_H + (bigTops[deep.to + 1] - bigTops[deep.from]) + deep.padBottom,
+    bigTops[bigCells.length],
+    'the spacers stand in for exactly the cells left out, so the scrollbar measures the whole list');
+
+const atTop = visibleWindow(bigCells, bigTops, 0, 320);
+assert.equal(atTop.from, 0, 'the top of the list starts at its first cell');
+assert.equal(atTop.padTop, 0, 'with nothing above it to stand in for');
+assert.equal(atTop.stuck, null, 'and its own heading already in the window');
+
+assert.deepEqual(visibleWindow([], [0], 0, 320), { from: 0, to: -1, padTop: 0, padBottom: 0, stuck: null },
+    'an empty result list renders no cells');
+
+// Groups keep the order of the tab strip, and a row belonging to no listed
+// group has no heading to sit under.
+const ordered = listCells(
+    [{ id: 'b', label: 'B', group: 'g2' }, { id: 'a', label: 'A', group: 'g1' }, { id: 'x', label: 'X', group: 'gone' }],
+    bigGroups, true);
+assert.deepEqual(ordered.map(cell => cell.header ? `#${cell.header.id}` : cell.item.id),
+    ['#g1', 'a', '#g2', 'b'],
+    'each group is a heading followed by its own rows, in tab order');
 
 // ── The tab strip scrolls sideways ────────────────────────────────────────────
 
@@ -65,17 +99,31 @@ const tab = (offsetLeft, offsetWidth = 60) => ({ offsetLeft, offsetWidth });
 
 const offRight = strip(0);
 scrollTabIntoView(offRight, tab(600));
-assert.equal(offRight.scrollLeft, 600,
-    'the tab the list opened filtered to is brought to the left edge, whole');
+assert.equal(offRight.scrollLeft, 600 - (300 - 60) / 2,
+    'the tab the picker marks is centred, not left against the edge where the fade cuts it');
 
 const offLeft = strip(400);
 scrollTabIntoView(offLeft, tab(100));
-assert.equal(offLeft.scrollLeft, 100, 'the same from the other side');
+assert.equal(offLeft.scrollLeft, 0,
+    'centring never scrolls past the start; a tab near it is shown whole instead');
+
+const underRightFade = strip(100);
+scrollTabIntoView(underRightFade, tab(380));
+assert.equal(underRightFade.scrollLeft, 380 - (300 - 60) / 2,
+    'a tab the soft edge is fading, not only one off the end, is brought out from under it');
+
+const underLeftFade = strip(200);
+scrollTabIntoView(underLeftFade, tab(205));
+assert.equal(underLeftFade.scrollLeft, 205 - (300 - 60) / 2, 'and the same at the near edge');
 
 const alreadyVisible = strip(100);
 scrollTabIntoView(alreadyVisible, tab(150));
 assert.equal(alreadyVisible.scrollLeft, 100,
-    'a tab already on screen does not move the strip under the pointer');
+    'a tab already clear of both fades does not move the strip under the pointer');
+
+const fits = { scrollWidth: 300, clientWidth: 300, scrollLeft: 0 };
+scrollTabIntoView(fits, tab(200));
+assert.equal(fits.scrollLeft, 0, 'a row that fits has nowhere to scroll to');
 
 assert.doesNotThrow(() => scrollTabIntoView(null, tab(10)));
 assert.doesNotThrow(() => scrollTabIntoView(strip(0), null));
@@ -205,12 +253,14 @@ assert.ok(rowIsCurrent(embeddedRow, { value: 'lab:Ta2O5_run7', resolvedId: 'lab:
     assert.equal(high.top, 145, 'it hangs just under its trigger');
 
     // The overlay applies whichever edge the position names.
+    const oneCell = listCells([{ id: 'a', label: 'A' }], [], false);
     const flipped = overlayEl({
-        dropRef: { current: null }, listRef: { current: null }, activeRef: { current: null },
+        dropRef: { current: null }, listRef: { current: null },
         searchRef: { current: null }, dropPos: low, c: makeTheme(), query: '', setQuery: () => {},
         searchPlaceholder: 'Search', groups: [], catFilter: 'all', allLabel: 'All',
-        setCatFilter: () => {}, sections: false, emptyText: 'nothing',
-        activeOf: () => false, select: () => {}, search: () => [{ id: 'a', label: 'A' }],
+        setCatFilter: () => {}, emptyText: 'nothing',
+        activeOf: () => false, select: () => {}, onListScroll: () => {},
+        cells: oneCell, tops: cellTops(oneCell), scrollTop: 0,
     });
     assert.equal(flipped.props.style.bottom, low.bottom, 'the flipped overlay is styled bottom-up');
     assert.equal(flipped.props.style.top, undefined, 'and carries no top that would fight it');
@@ -219,15 +269,18 @@ assert.ok(rowIsCurrent(embeddedRow, { value: 'lab:Ta2O5_run7', resolvedId: 'lab:
 // ── The overlay's own layout ──────────────────────────────────────────────────
 
 const c = makeTheme();
+const overlayCells = listCells(
+    [{ id: 'a', label: 'A', group: 'g1' }, { id: 'b', label: 'B', group: 'g1' }],
+    [{ id: 'g1', label: 'One' }, { id: 'g2', label: 'Two' }], true);
 const overlay = overlayEl({
-    dropRef: { current: null }, listRef: { current: null }, activeRef: { current: null },
+    dropRef: { current: null }, listRef: { current: null },
     searchRef: { current: null }, dropPos: { top: 0, left: 0, width: 300, maxH: 320 },
     c, query: '', setQuery: () => {}, searchPlaceholder: 'Search',
     groups: [{ id: 'g1', label: 'One' }, { id: 'g2', label: 'Two' }],
     catFilter: 'all', currentGroup: 'g2', allLabel: 'All', setCatFilter: () => {},
-    sections: true, emptyText: 'nothing',
-    activeOf: item => item.id === 'b', select: () => {},
-    search: () => [{ id: 'a', label: 'A', group: 'g1' }, { id: 'b', label: 'B', group: 'g1' }],
+    emptyText: 'nothing',
+    activeOf: item => item.id === 'b', select: () => {}, onListScroll: () => {},
+    cells: overlayCells, tops: cellTops(overlayCells), scrollTop: 0,
 });
 
 // Clicks inside the open list stay inside it. The material picker sits in a
@@ -241,13 +294,14 @@ const overlay = overlayEl({
 }
 
 const listEl = overlay.props.children[2];
-assert.equal(listEl.props.style.position, 'relative',
-    'the list is the offset parent of its rows: scrollToActive reads row.offsetTop, '
-    + 'which measured from the fixed overlay instead is high by the search box and tab strip');
+assert.equal(typeof listEl.props.onScroll, 'function',
+    'the list reports its scroll offset: that is what decides which cells are built');
 
 const header = listEl.props.children.find(el => el.key === 'hdr-g1');
 assert.equal(header.props.style.backgroundColor, c.panel,
     'the section header is opaque, so rows scrolling under it do not show through');
+assert.equal(header.props.style.position, 'sticky',
+    'and stays at the top while its own rows scroll past');
 
 const tabs = overlay.props.children[1];
 assert.equal(tabs.type, PickerTabs, 'the filter tabs sit between the search box and the list');
@@ -286,7 +340,7 @@ assert.match(pickerSource, /const onTrigger = \(\) => \{\s*if \(open\) \{ setOpe
     'a click on an open picker closes it instead of re-opening it');
 assert.match(pickerSource, /!triggerRef\.current\?\.contains\(e\.target\)\) setOpen\(false\)/,
     'and dismissal still ignores the trigger, so the two do not fight over the same click');
-assert.match(pickerSource, /setCatFilter\('all'\);\s*setOpen\(true\);/,
+assert.match(pickerSource, /setCatFilter\('all'\);[\s\S]{0,120}setOpen\(true\);/,
     'opening always shows the full list; the current group is marked, never used as the filter');
 
 console.log('PASS: picker_dropdown');

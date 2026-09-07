@@ -52,17 +52,34 @@ export function stripEdges(strip) {
     };
 }
 
+// The span of the row that is not under a soft edge. A tab sitting inside the
+// fade is faded itself, which reads as a cut-off name rather than as the tab the
+// picker is pointing at.
+function clearSpan(strip) {
+    const travel = strip.scrollWidth - strip.clientWidth;
+    return {
+        from: strip.scrollLeft + (strip.scrollLeft > 0 ? FADE : 0),
+        to: strip.scrollLeft + strip.clientWidth - (strip.scrollLeft < travel - 1 ? FADE : 0),
+    };
+}
+
 /**
- * Bring a tab into view, aligned to the left edge. The picker opens filtered to
- * the group holding the current value, and that group's tab can sit past the
- * right edge, leaving a filtered list with nothing on screen saying what
- * filtered it.
+ * Bring a tab into view, centred. The picker marks the group holding the
+ * current value, and that group's tab can sit anywhere along the row: off the
+ * end, or under one of the fades, where it reads as clipped. Centring puts it
+ * where it is read first and shows the groups on either side of it.
+ *
+ * A tab already clear of both fades is left alone: the strip must not jump
+ * under the pointer when a click on a visible tab changes the filter.
  */
 export function scrollTabIntoView(strip, tab) {
     if (!strip || !tab) return;
-    const visible = tab.offsetLeft >= strip.scrollLeft
-        && tab.offsetLeft + tab.offsetWidth <= strip.scrollLeft + strip.clientWidth;
-    if (!visible) strip.scrollLeft = tab.offsetLeft;
+    const travel = strip.scrollWidth - strip.clientWidth;
+    if (travel <= 0) return;
+    const { from, to } = clearSpan(strip);
+    if (tab.offsetLeft >= from && tab.offsetLeft + tab.offsetWidth <= to) return;
+    const centred = tab.offsetLeft - (strip.clientWidth - tab.offsetWidth) / 2;
+    strip.scrollLeft = Math.max(0, Math.min(centred, travel));
 }
 
 /**
