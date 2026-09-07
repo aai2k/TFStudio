@@ -21,16 +21,25 @@ const PAGE = 0.8;
 // Width of the soft edge where the row continues past the boundary.
 const FADE = 14;
 
-function tabStyle(active, c) {
+// `current` marks the group the picker's value belongs to while the list is
+// unfiltered: an underline, so it is not mistaken for the active filter.
+function tabStyle(active, c, current = false) {
     return {
         padding: '1px 7px', fontSize: 11, flexShrink: 0, whiteSpace: 'nowrap',
         border: `1px solid ${active ? c.accent : c.border}`,
         borderRadius: 3,
         backgroundColor: active ? c.accent + '33' : 'transparent',
-        color: active ? c.accent : c.textDim,
+        color: active || current ? c.accent : c.textDim,
+        boxShadow: current && !active ? `inset 0 -2px 0 0 ${c.accent}` : 'none',
         cursor: 'pointer', outline: 'none',
         fontFamily: 'system-ui, -apple-system, sans-serif'
     };
+}
+
+// Tabs and arrows are buttons, and a button takes focus when clicked, which
+// would end typing in the search box above them. Changing the filter must not.
+export function keepSearchFocus(event) {
+    event.preventDefault();
 }
 
 /** Whether the row overflows, and whether it is scrolled to either end. */
@@ -88,6 +97,7 @@ export function fadeMask({ overflowing, atStart, atEnd }) {
 function arrowEl(glyph, disabled, onClick, c) {
     return h('button', {
         onClick: disabled ? undefined : onClick,
+        onMouseDown: keepSearchFocus,
         style: {
             flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center',
             width: 14, height: 17, padding: 0, fontSize: 10, lineHeight: 1,
@@ -98,7 +108,10 @@ function arrowEl(glyph, disabled, onClick, c) {
     }, glyph);
 }
 
-export function PickerTabs({ groups, catFilter, setCatFilter, allLabel, c }) {
+export function PickerTabs({ groups, catFilter, setCatFilter, currentGroup = null, allLabel, c }) {
+    // The tab brought into view: the filter, or the current group while the
+    // list is unfiltered, so an open picker says where its value comes from.
+    const markedGroup = catFilter === 'all' ? currentGroup : catFilter;
     const stripRef     = useRef(null);
     const activeTabRef = useRef(null);
     const [edges, setEdges] = useState({ overflowing: false, atStart: true, atEnd: true });
@@ -122,7 +135,7 @@ export function PickerTabs({ groups, catFilter, setCatFilter, allLabel, c }) {
     useEffect(() => {
         scrollTabIntoView(stripRef.current, activeTabRef.current);
         measure();
-    }, [catFilter, measure]);
+    }, [markedGroup, measure]);
 
     const page = (direction) => {
         const strip = stripRef.current;
@@ -143,6 +156,7 @@ export function PickerTabs({ groups, catFilter, setCatFilter, allLabel, c }) {
         // filtered view, and the picker opens filtered to the current selection.
         h('button', {
             onClick: () => setCatFilter('all'),
+            onMouseDown: keepSearchFocus,
             style: tabStyle(catFilter === 'all', c)
         }, allLabel),
         edges.overflowing && arrowEl('◂', edges.atStart, () => page(-1), c),
@@ -159,9 +173,10 @@ export function PickerTabs({ groups, catFilter, setCatFilter, allLabel, c }) {
         },
             groups.map(g => h('button', {
                 key: g.id,
-                ref: g.id === catFilter ? activeTabRef : undefined,
+                ref: g.id === markedGroup ? activeTabRef : undefined,
                 onClick: () => setCatFilter(g.id),
-                style: { ...tabStyle(catFilter === g.id, c), scrollSnapAlign: 'start' }
+                onMouseDown: keepSearchFocus,
+                style: { ...tabStyle(catFilter === g.id, c, g.id === currentGroup), scrollSnapAlign: 'start' }
             }, g.label))
         ),
         edges.overflowing && arrowEl('▸', edges.atEnd, () => page(1), c)

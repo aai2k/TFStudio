@@ -1,9 +1,16 @@
 const { createElement: h, useEffect, useRef, useState } = React;
 
-/** Theme-aware application context menu, clamped to the visible viewport. */
-export function ContextMenu({ x, y, items, c, onClose, ariaLabel = 'Context menu' }) {
+/**
+ * Theme-aware application context menu, clamped to the visible viewport.
+ *
+ * The icon column is drawn only when an item carries an icon; a menu of plain
+ * labels would otherwise open with an empty gutter. `dense` is the tighter
+ * spacing for menus over a table.
+ */
+export function ContextMenu({ x, y, items, c, onClose, ariaLabel = 'Context menu', dense = false }) {
     const menuRef = useRef(null);
     const [position, setPosition] = useState({ left: x, top: y });
+    const hasIcons = items.some(item => !item.separator && item.icon);
 
     useEffect(() => {
         const menu = menuRef.current;
@@ -37,7 +44,7 @@ export function ContextMenu({ x, y, items, c, onClose, ariaLabel = 'Context menu
             onContextMenu: event => { event.preventDefault(); event.stopPropagation(); },
             style: {
                 position: 'fixed', left: position.left, top: position.top,
-                minWidth: 190, padding: '4px 0', zIndex: 1001,
+                minWidth: dense ? 150 : 190, padding: '4px 0', zIndex: 1001,
                 background: c.panel, border: `1px solid ${c.border}`,
                 borderRadius: 6, boxShadow: '0 6px 24px rgba(0,0,0,0.4)',
                 fontFamily: 'system-ui, -apple-system, sans-serif',
@@ -65,13 +72,14 @@ export function ContextMenu({ x, y, items, c, onClose, ariaLabel = 'Context menu
                     onMouseLeave: event => { event.currentTarget.style.background = 'transparent'; },
                     style: {
                         display: 'flex', alignItems: 'center', gap: 8,
-                        minHeight: 28, padding: '4px 12px', fontSize: 13,
+                        minHeight: dense ? 24 : 28, padding: dense ? '3px 10px' : '4px 12px',
+                        fontSize: dense ? 12 : 13,
                         whiteSpace: 'nowrap', cursor: item.disabled ? 'default' : 'pointer',
                         opacity: item.disabled ? 0.4 : 1,
                         color: item.danger ? c.error : c.text,
                     },
                 },
-                    h('span', {
+                    hasIcons && h('span', {
                         style: {
                             width: 16, display: 'flex', alignItems: 'center',
                             justifyContent: 'center', flexShrink: 0,

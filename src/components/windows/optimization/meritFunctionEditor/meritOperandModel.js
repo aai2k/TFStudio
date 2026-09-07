@@ -1,7 +1,7 @@
 import {
     DEFAULT_CONSTRAINT_LAST_LAYER, FILTER_TYPES, generateFilterOperands,
     makeOperand, makeConstraintOperand, makeDmfsOperand,
-    isConstraint, isFractionalUnit, isMath, mathTargetInPercent,
+    isConstraint, isFractionalUnit, isMath, isRangeTarget, mathTargetInPercent,
     removeOperandsAndDependents, rowRangeDomain, targetDomain,
 } from '../../../../utils/physics/optimizer.js';
 
@@ -62,7 +62,10 @@ export function buildDmfsComment(options) {
     const aoiText = common.aoi === common.aoiEnd || common.aoiEnd == null
         ? `AOI ${common.aoi}°`
         : `AOI ${common.aoi}–${common.aoiEnd}° (${common.aoiSteps} steps)`;
-    let text = `${typeLabel}, ${fieldText}, ${aoiText}, ${common.pol} pol`;
+    // A type that sets polarization itself does not carry the wizard's choice.
+    let text = def.fixedPol
+        ? `${typeLabel}, ${fieldText}, ${aoiText}`
+        : `${typeLabel}, ${fieldText}, ${aoiText}, ${common.pol} pol`;
     if (def.supportsTargetMode) {
         text += common.targetMode === 'discrete'
             ? `, discrete @${common.stepNm} nm`
@@ -165,7 +168,11 @@ export function editOperand(operands, id, key, value) {
         const operandsById = new Map(operands.map(item => [item.id, item]));
         const mathPercent = isMath(op.type) && mathTargetInPercent(op, operandsById);
         const percentTarget = isFractionalUnit(op.type) || (isMath(op.type) && mathPercent);
-        return { ...op, target: percentTarget ? target / 100 : target };
+        const next = { ...op, target: percentTarget ? target / 100 : target };
+        // A single number typed into a spectral target means a flat target: the
+        // ramp end follows, or a row set to 100→100 would turn into 0→100.
+        if (isRangeTarget(op.type)) next.targetEnd = next.target;
+        return next;
     });
 }
 

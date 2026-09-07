@@ -229,6 +229,8 @@ export const FILTER_TYPES = {
     CUSTOM_BS: {
         category: 'BS',
         supportsTargetMode: true,
+        // Generates s and p rows itself, so the wizard's Pol choice does not apply.
+        fixedPol: true,
         // Independent s/p reflectance (e.g. polarizing splitter Rs=30, Rp=70, or
         // a balanced 50/50). T targets are auto-set to the complement (paired) so
         // the optimizer can't satisfy R by absorbing.

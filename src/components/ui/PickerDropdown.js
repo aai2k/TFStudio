@@ -14,8 +14,9 @@
  * @param {string}   triggerLabel   text shown in the closed trigger
  * @param {string}   [triggerColor] dot colour in the trigger (omit for no dot)
  * @param {Array}    [groups]    [{ id, label }] filter tabs; tabs shown when >1
- * @param {string}   [openGroup] group tab selected when the list opens; the full
- *                   list when omitted or when it names no group
+ * @param {string}   [currentGroup] group the current value belongs to. Its tab
+ *                   is marked when the list opens; the list itself opens
+ *                   unfiltered, scrolled to the current value
  * @param {function} search      (query, groupId|null) => [{ id, label, color?, badge?, title?, group? }]
  * @param {function} [isActive]  (item) => bool; defaults to item.id === value
  * @param {boolean}  [sections]  when the "all" tab is active, render group headers
@@ -27,6 +28,10 @@
 const { createElement: h, useState, useEffect, useRef } = React;
 
 import { PickerTabs } from './pickerTabs.js';
+
+function stopPropagation(event) {
+    event.stopPropagation();
+}
 
 function dotStyle(color) {
     return {
@@ -132,7 +137,7 @@ function triggerEl(s) {
 // Open-state positioned overlay: search box, filter tabs, result list.
 export function overlayEl(s) {
     const { dropRef, dropPos, c, searchRef, query, setQuery, searchPlaceholder,
-            search, catFilter, setCatFilter, allLabel, sections, emptyText,
+            search, catFilter, setCatFilter, currentGroup, allLabel, sections, emptyText,
             activeOf, select, groups, listRef, activeRef } = s;
     const results = search(query, catFilter === 'all' ? null : catFilter);
     const listBody = results.length === 0
@@ -143,6 +148,12 @@ export function overlayEl(s) {
         });
     return h('div', {
         ref: dropRef,
+        // The overlay is a descendant of whatever cell holds the trigger, so a
+        // click on a tab or an arrow would bubble to that host: a layer row
+        // answers a click by focusing its table, which takes focus off the
+        // search box mid-word. Nothing inside the list is the host's business.
+        onClick: stopPropagation,
+        onContextMenu: stopPropagation,
         style: {
             position: 'fixed', zIndex: 9999,
             ...(dropPos.top != null ? { top: dropPos.top } : { bottom: dropPos.bottom }),
@@ -167,7 +178,7 @@ export function overlayEl(s) {
                 }
             })
         ),
-        h(PickerTabs, { groups, catFilter, setCatFilter, allLabel, c }),
+        h(PickerTabs, { groups, catFilter, setCatFilter, currentGroup, allLabel, c }),
         // The list is positioned so that it, and not the fixed overlay, is the
         // offset parent of its rows: scrollToActive reads row.offsetTop, which is
         // measured from the nearest positioned ancestor. Measured from the
@@ -211,7 +222,7 @@ function useDismiss(open, setOpen, dropRef, triggerRef) {
 export function PickerDropdown(props) {
     const {
         value, onChange, c, compact, triggerLabel, triggerColor,
-        groups = [], openGroup, search, isActive, sections = false,
+        groups = [], currentGroup = null, search, isActive, sections = false,
         searchPlaceholder, allLabel, emptyText, minDropWidth = 240,
     } = props;
 
@@ -245,11 +256,11 @@ export function PickerDropdown(props) {
     const onTrigger = () => {
         if (open) { setOpen(false); return; }
         if (triggerRef.current) setDropPos(dropPositionFrom(triggerRef.current.getBoundingClientRect(), minDropWidth));
-        // Open on the group the current value belongs to, so the list says where
-        // the selection comes from. Anything else falls back to the full list: a
-        // tab left over from an earlier visit can exclude the current selection
-        // entirely, which is the one entry the list has to show.
-        setCatFilter(groups.some(g => g.id === openGroup) ? openGroup : 'all');
+        // The list opens unfiltered every time: a tab left over from an earlier
+        // visit can hide the current value, and a filtered view hides the other
+        // groups the user may want next. Where the value comes from is said by
+        // marking its group's tab instead.
+        setCatFilter('all');
         setOpen(true);
     };
     const select = (id) => { onChange(id); setOpen(false); };
@@ -257,7 +268,7 @@ export function PickerDropdown(props) {
 
     const shared = {
         triggerRef, dropRef, searchRef, listRef, activeRef, onTrigger, open, compact, c,
-        triggerColor, triggerLabel, groups, catFilter, setCatFilter, allLabel,
+        triggerColor, triggerLabel, groups, catFilter, setCatFilter, currentGroup, allLabel,
         dropPos, query, setQuery, searchPlaceholder, search, sections, emptyText,
         activeOf, select,
     };

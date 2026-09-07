@@ -2,6 +2,48 @@ import {
     GENERATED_ONLY_OPERAND_TYPES, OPERAND_POLS, OPERAND_TYPES,
     isFractionalUnit, isValidMeritWeight,
 } from '../../../../../utils/physics/optimizer.js';
+import { targetInitialValue } from './editModel.js';
+
+// Columns whose text a single cell can carry through the clipboard. Type and
+// Pol are picked, not typed, and stay with the row.
+const CELL_TEXT_COLUMNS = new Set(['lambdaStart', 'lambdaEnd', 'aoi', 'target', 'weight']);
+
+/**
+ * What Ctrl+C and Ctrl+V act on: one cell, when a text cell has focus and no
+ * more than its own row is selected; otherwise whole rows, as a click in the #
+ * column or a multi-row selection asks for.
+ */
+export function clipboardScope({ focusCell, selectedIds }) {
+    if (!focusCell || !CELL_TEXT_COLUMNS.has(focusCell.colKey)) return 'rows';
+    return selectedIds.size > 1 ? 'rows' : 'cell';
+}
+
+/** The text a cell shows in its editor, which is also what it copies. */
+export function cellText(op, colKey, mathPercent) {
+    return colKey === 'target' ? targetInitialValue(op, mathPercent) : String(op[colKey] ?? '');
+}
+
+export function copyCellText(text, clipboard = navigator.clipboard) {
+    clipboard?.writeText(text).catch(() => {});
+}
+
+/**
+ * Paste into the focused cell. A single value goes through the cell editor's
+ * own commit, so percent and ramp syntax apply; text with tabs or newlines is
+ * rows and is inserted below, as a row paste would.
+ */
+export function pasteIntoCell(ctx, clipboard = navigator.clipboard) {
+    clipboard?.readText().then(raw => {
+        const text = (raw || '').replace(/\s+$/, '');
+        if (!text) return;
+        if (/[\t\n]/.test(text)) {
+            const items = parseOperandsTsv(text);
+            if (items.length) ctx.onAdd(items, ctx.rowIdx + 1);
+            return;
+        }
+        ctx.commitEdit(ctx.rowIdx, ctx.colKey, text);
+    }).catch(() => {});
+}
 
 export function serializeOperandsTsv(operands, selectedIds) {
     return operands.filter(op => selectedIds.has(op.id)).map(op => {
@@ -53,7 +95,7 @@ export function pasteOperands(onAdd, atIndex, clipboard = navigator.clipboard) {
 export function keyComboOf(event) {
     const key = event.key;
     if (event.ctrlKey && !event.shiftKey && (key === 'd' || key === 'D')) return 'Ctrl+d';
-    const ctrlKey = event.ctrlKey ? { c: 'Ctrl+c', v: 'Ctrl+v' }[key] : null;
+    const ctrlKey = event.ctrlKey ? { c: 'Ctrl+c', v: 'Ctrl+v', x: 'Ctrl+x' }[key] : null;
     return ctrlKey || (key === 'F2' ? 'Enter' : key);
 }
 
@@ -103,14 +145,42 @@ function moveTab(ctx) {
     ctx.navigate(ctx.rowIdx, ctx.colKey, ctx.event.shiftKey ? 'left' : 'right');
 }
 
+// Rows to copy: the selection, or the focused row when nothing is selected.
+function rowsToCopy(ctx) {
+    if (ctx.selectedIds.size > 0) return ctx.selectedIds;
+    const focused = ctx.operands[ctx.rowIdx];
+    return new Set(focused ? [focused.id] : []);
+}
+
 function copyRows(ctx) {
     ctx.event.preventDefault();
-    copySelectedOperands(ctx.operands, ctx.selectedIds);
+    if (clipboardScope(ctx) === 'cell') {
+        const op = ctx.operands[ctx.rowIdx];
+        copyCellText(cellText(op, ctx.colKey, ctx.isMathPct(op)));
+        return;
+    }
+    copySelectedOperands(ctx.operands, rowsToCopy(ctx));
 }
 
 function pasteRows(ctx) {
     ctx.event.preventDefault();
+    if (clipboardScope(ctx) === 'cell') {
+        pasteIntoCell(ctx);
+        return;
+    }
     pasteOperands(ctx.onAdd, ctx.rowIdx + 1);
+}
+
+// Cut always moves rows: a cell has nothing to cut, its value is replaced by
+// typing over it.
+function cutRows(ctx) {
+    ctx.event.preventDefault();
+    const ids = rowsToCopy(ctx);
+    if (ids.size === 0) return;
+    copySelectedOperands(ctx.operands, ids);
+    ctx.onDelete([...ids]);
+    ctx.setSelIds(new Set());
+    ctx.setFocusCell(null);
 }
 
 const KEY_ACTIONS = {
@@ -125,6 +195,7 @@ const KEY_ACTIONS = {
     Tab: moveTab,
     'Ctrl+c': copyRows,
     'Ctrl+v': pasteRows,
+    'Ctrl+x': cutRows,
 };
 
 export function runKeyAction(actionKey, ctx) {
@@ -141,8 +212,19 @@ function isPrintableEditKey(event) {
     return !hasModifier && event.key.length === 1;
 }
 
+/**
+ * Whether the event came from a control that takes typing itself: a comment
+ * row's input, a select, the cell editor. Keys typed there belong to it, not to
+ * the focused cell, or a comment would land in whichever cell was last focused.
+ */
+export function isTextControl(target) {
+    const tag = target?.tagName;
+    return tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT';
+}
+
 export function doKeyDown(ctx, event) {
     const { editCell, focusCell, selectedIds, operands, startEdit } = ctx;
+    if (isTextControl(event.target)) return;
     if (editCell || (!focusCell && selectedIds.size === 0)) return;
     const rowIdx = focusCell?.rowIdx ?? operands.findIndex(op => selectedIds.has(op.id));
     if (rowIdx < 0) return;

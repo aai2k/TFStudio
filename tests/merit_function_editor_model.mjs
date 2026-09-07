@@ -311,4 +311,17 @@ test('preset re-ID rewrites references between the re-keyed rows', () => {
     assert.ok(fresh.every(op => op.id !== 'base'), 'no operand keeps its old id');
 });
 
+test('a plain number typed into a spectral target sets both ends', () => {
+    const rows = [
+        { id: 'ramp', type: 'RGT', lambdaStart: 1565, lambdaEnd: 1630, target: 1, targetEnd: 1, weight: 1 },
+        { id: 'flat', type: 'R', lambdaStart: 550, lambdaEnd: 550, target: 0.5, weight: 1 },
+    ];
+    const edited = editOperand(rows, 'ramp', 'target', 0);
+    assert.equal(edited[0].target, 0);
+    assert.equal(edited[0].targetEnd, 0, 'the ramp end follows, so 100→100 does not become 0→100');
+    const single = editOperand(rows, 'flat', 'target', 25);
+    assert.equal(single[1].target, 0.25);
+    assert.equal(single[1].targetEnd, undefined, 'a single-wavelength operand gains no ramp end');
+});
+
 console.log(`merit_function_editor_model: ${passed} passed`);

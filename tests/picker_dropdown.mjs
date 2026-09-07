@@ -14,7 +14,7 @@ await loadApp();
 
 const [
     { scrollToActive, overlayEl, dropPositionFrom },
-    { PickerTabs, scrollTabIntoView, stripEdges, pagedOffset, fadeMask },
+    { PickerTabs, scrollTabIntoView, stripEdges, pagedOffset, fadeMask, keepSearchFocus },
     { designEntries, rowIsCurrent, currentGroupOf },
     { initCatalogs },
 ] = await Promise.all([
@@ -224,11 +224,21 @@ const overlay = overlayEl({
     searchRef: { current: null }, dropPos: { top: 0, left: 0, width: 300, maxH: 320 },
     c, query: '', setQuery: () => {}, searchPlaceholder: 'Search',
     groups: [{ id: 'g1', label: 'One' }, { id: 'g2', label: 'Two' }],
-    catFilter: 'all', allLabel: 'All', setCatFilter: () => {},
+    catFilter: 'all', currentGroup: 'g2', allLabel: 'All', setCatFilter: () => {},
     sections: true, emptyText: 'nothing',
     activeOf: item => item.id === 'b', select: () => {},
     search: () => [{ id: 'a', label: 'A', group: 'g1' }, { id: 'b', label: 'B', group: 'g1' }],
 });
+
+// Clicks inside the open list stay inside it. The material picker sits in a
+// layer row whose own click handler focuses the layer table, which took focus
+// off the search box after every tab click.
+{
+    let stopped = 0;
+    overlay.props.onClick({ stopPropagation: () => { stopped++; } });
+    overlay.props.onContextMenu({ stopPropagation: () => { stopped++; } });
+    assert.equal(stopped, 2, 'a click or right-click in the overlay does not reach the host row');
+}
 
 const listEl = overlay.props.children[2];
 assert.equal(listEl.props.style.position, 'relative',
@@ -242,6 +252,25 @@ assert.equal(header.props.style.backgroundColor, c.panel,
 const tabs = overlay.props.children[1];
 assert.equal(tabs.type, PickerTabs, 'the filter tabs sit between the search box and the list');
 assert.equal(tabs.props.catFilter, 'all');
+assert.equal(tabs.props.currentGroup, 'g2',
+    'the group the value belongs to reaches the tabs, so it can be marked without filtering');
+
+// ── The list opens unfiltered, with the current group marked ─────────────────
+//
+// Opening filtered to the value's group hid every other group behind a click
+// on All, and that click took focus off the search box. The list now opens on
+// All every time, the value's tab is underlined, and no tab click ends typing.
+const tabsSource = await readFile(new URL('../src/components/ui/pickerTabs.js', import.meta.url), 'utf8');
+const tabButtons = tabsSource.match(/h\('button', \{[^}]*\}/gs) || [];
+assert.equal(tabButtons.length, 3, 'the All tab, the group tabs and the arrows are the strip\'s buttons');
+for (const button of tabButtons) {
+    assert.match(button, /onMouseDown: keepSearchFocus/, 'every button in the strip keeps focus in the search box');
+}
+{
+    let prevented = false;
+    keepSearchFocus({ preventDefault() { prevented = true; } });
+    assert.ok(prevented, 'keepSearchFocus stops the mousedown that would move focus');
+}
 
 // ── The trigger closes the picker it opened ───────────────────────────────────
 //
@@ -257,5 +286,7 @@ assert.match(pickerSource, /const onTrigger = \(\) => \{\s*if \(open\) \{ setOpe
     'a click on an open picker closes it instead of re-opening it');
 assert.match(pickerSource, /!triggerRef\.current\?\.contains\(e\.target\)\) setOpen\(false\)/,
     'and dismissal still ignores the trigger, so the two do not fight over the same click');
+assert.match(pickerSource, /setCatFilter\('all'\);\s*setOpen\(true\);/,
+    'opening always shows the full list; the current group is marked, never used as the filter');
 
 console.log('PASS: picker_dropdown');

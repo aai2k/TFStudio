@@ -45,8 +45,8 @@ const samples = {
 
 const golden = {
   dark_with_comments: { name: 'My Dark', type: 'vs-dark', light: false, bg: '#1e1e1e', panel: '#2c2c2c', text: '#d4d4d4', accent: '#0e639c', border: '#474747' },
-  light_no_type:      { name: 'Pale', type: 'light', light: true, bg: '#ffffff', panel: '#ffffff', text: '#333333', accent: '#4f93e8', border: '#e2e2e2' },
-  string_with_slashes:{ name: 'Odd // name /* not a comment */', type: 'hc-light', light: true, bg: '#fafafa', panel: '#eeeeee', text: '#1f2329', accent: '#4f93e8', border: '#d1d2d2' },
+  light_no_type:      { name: 'Pale', type: 'light', light: true, bg: '#ffffff', panel: '#ffffff', text: '#333333', accent: '#4f93e8', border: '#cecece' },
+  string_with_slashes:{ name: 'Odd // name /* not a comment */', type: 'hc-light', light: true, bg: '#fafafa', panel: '#eeeeee', text: '#1f2329', accent: '#4f93e8', border: '#bcbdbf' },
   string_with_trailing_pattern:{ name: 'Comma,} Name and Array,] Name', type: 'dark', light: false, bg: '#202020', panel: '#2d2d2d', text: '#e6e7e9', accent: '#4f93e8', border: '#4b4b4b' },
   no_name_fallback:   { name: 'FB Name', type: 'vs-dark', light: false, bg: '#101010', panel: '#1e1e1e', text: '#e6e7e9', accent: '#4f93e8', border: '#303030' },
 };

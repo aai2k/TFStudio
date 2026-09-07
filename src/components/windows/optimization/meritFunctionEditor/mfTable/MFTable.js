@@ -2,9 +2,11 @@ import {
     mathTargetInPercent, operandContributions,
 } from '../../../../../utils/physics/optimizer.js';
 import { useIntegralPresets } from '../../../../../utils/physics/integralValues.js';
+import { ContextMenu } from '../../../../ui/ContextMenu.js';
 import { TblBtn } from './CellControls.js';
 import { commitEdit, startEdit } from './editModel.js';
 import { renderOperandRow } from './OperandRows.js';
+import { useTableContextMenu } from './useTableContextMenu.js';
 import {
     COLS, TABLE_W, columnPercent, dynamicHeaderLabels,
 } from './operandViewModel.js';
@@ -31,7 +33,9 @@ function computeInsertIndex(operands, selectedIds, focusCell) {
     return maxIndex < 0 ? operands.length : maxIndex + 1;
 }
 
-function selectRow(ctx, id, shift, ctrl) {
+// `keepFocus` leaves keyboard focus where it is, for a click into a control
+// that takes typing, such as a comment row's input.
+function selectRow(ctx, id, shift, ctrl, keepFocus = false) {
     const { operands, anchor, onSelect, lastReported, tableRef, setSelIds, setAnchor } = ctx;
     setSelIds(previous => {
         const next = selectionAfterRowClick({ operands, previous, anchor, id, shift, ctrl });
@@ -40,7 +44,7 @@ function selectRow(ctx, id, shift, ctrl) {
     });
     lastReported.current = id;
     onSelect(id);
-    tableRef.current?.focus();
+    if (!keepFocus) tableRef.current?.focus();
 }
 
 function focusAt(ctx, rowIdx, colKey) {
@@ -82,9 +86,9 @@ function useMFTableSelection(props) {
     operandsById.current = new Map(operands.map(op => [op.id, op]));
     const isMathPct = useCallback(op => mathTargetInPercent(op, operandsById.current), [operands]);
 
-    const handleSelectRow = useCallback((id, shift, ctrl) => selectRow({
+    const handleSelectRow = useCallback((id, shift, ctrl, keepFocus) => selectRow({
         operands, anchor, onSelect, lastReported, tableRef, setSelIds, setAnchor,
-    }, id, shift, ctrl), [anchor, operands, onSelect]);
+    }, id, shift, ctrl, keepFocus), [anchor, operands, onSelect]);
 
     const handleFocusAt = useCallback((rowIdx, colKey) => focusAt({
         operands, onSelect, lastReported, tableRef, setFocusCell, setSelIds, setAnchor,
@@ -106,9 +110,10 @@ function useMFTableSelection(props) {
         editCell, focusCell, selectedIds: selIds, operands, setSelIds, setFocusCell,
         onDelete, onInsertAt, onDuplicate, onAdd, focusAt: handleFocusAt,
         navigate: handleNavigate, startEdit: handleStartEdit,
+        commitEdit: handleCommitEdit, isMathPct,
     }, event), [
         editCell, focusCell, selIds, operands, onDelete, onAdd, onInsertAt,
-        onDuplicate, handleStartEdit, handleFocusAt, handleNavigate,
+        onDuplicate, handleStartEdit, handleFocusAt, handleNavigate, handleCommitEdit, isMathPct,
     ]);
 
     return {
@@ -137,7 +142,7 @@ export function MFTable(props) {
         operands, computed, evaluationErrors = [], bandLevels = [],
         selectedId, noOperandsMsg, notice,
         onSelect, onEdit, onAdd, onInsertAt,
-        onDuplicate, onDelete, onClear, onMoveUp, onMoveDown, showToolbar = true, c, t,
+        onDuplicate, onDelete, onClear, onMoveUp, onMoveDown, showToolbar = true, toolbarStart = null, c, t,
     } = props;
     const integralPresets = useIntegralPresets();
     const {
@@ -176,16 +181,26 @@ export function MFTable(props) {
         onEdit, selectRow: handleSelectRow, focusAt: handleFocusAt, startEdit: handleStartEdit,
         commitEdit: handleCommitEdit, navigate: handleNavigate, setEditCell, setFocusCell,
     };
+    const contextMenu = useTableContextMenu({
+        operands, selIds, focusAt: handleFocusAt, selectRow: handleSelectRow, setFocusCell,
+        onAdd, onInsertAt, onDuplicate, onDelete, commitEdit: handleCommitEdit, isMathPct,
+        te: t?.meritFunctionEditor || {},
+    });
 
     return h('div', {
         ref: tableRef,
         tabIndex: 0,
         onKeyDown,
+        onContextMenu: contextMenu.onContextMenu,
         style: {
             display: 'flex', flexDirection: 'column', height: '100%',
             overflow: 'hidden', outline: 'none',
         },
     },
+        contextMenu.menu && h(ContextMenu, {
+            x: contextMenu.menu.x, y: contextMenu.menu.y, items: contextMenu.items, c, dense: true,
+            onClose: contextMenu.closeMenu, ariaLabel: t?.meritFunctionEditor?.contextMenu?.title || 'Operand menu',
+        }),
         notice && h('div', {
             title: notice,
             style: {
@@ -228,6 +243,8 @@ export function MFTable(props) {
                 borderTop: `1px solid ${c.border}`, background: c.panel, flexShrink: 0,
             },
         },
+            toolbarStart,
+            toolbarStart && h('span', { style: { width: 1, height: 16, background: c.border, margin: '0 4px' } }),
             h(TblBtn, {
                 label: t?.meritFunctionEditor?.addOperand || '+ Add',
                 onClick: () => onAdd(null, computeInsertIndex(operands, selIds, focusCell)),
@@ -246,8 +263,14 @@ export function MFTable(props) {
             selIds.size > 1 && h('span', {
                 style: { fontSize: 10, color: c.textDim, marginLeft: 4 },
             }, `${selIds.size} selected`),
+            // The hint gives way before the buttons do: it shrinks and truncates
+            // in a narrow pane rather than wrapping the buttons beside it.
             h('span', {
-                style: { fontSize: 10, color: c.textDim, marginLeft: 'auto' },
+                title: 'Click=select  Shift/Ctrl+Click=multi  Del=delete  Ctrl+C/V=copy/paste  Enter/Tab=edit/nav',
+                style: {
+                    fontSize: 10, color: c.textDim, marginLeft: 'auto', minWidth: 0,
+                    whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
+                },
             }, 'Click=select  Shift/Ctrl+Click=multi  Del=delete  Ctrl+C/V=copy/paste  Enter/Tab=edit/nav'),
         ),
     );

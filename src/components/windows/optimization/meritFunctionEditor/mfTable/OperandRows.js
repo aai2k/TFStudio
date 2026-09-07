@@ -33,7 +33,11 @@ export function DmfsRow({ op, rowIdx, rowSel, c, onEdit, selectRow }) {
     );
 }
 
-export function BlnkRow({ op, rowIdx, rowSel, c, t, onEdit, selectRow }) {
+export function BlnkRow({ op, rowIdx, rowSel, c, t, onEdit, selectRow, setFocusCell }) {
+    // A click into the comment selects its row but leaves keyboard focus in the
+    // input, so the comment can be typed; the focused cell is cleared so row
+    // shortcuts act on this row.
+    const selectForTyping = () => { selectRow(op.id, false, false, true); setFocusCell?.(null); };
     return h('tr', {
         onClick: event => selectRow(op.id, event.shiftKey, event.ctrlKey || event.metaKey),
         style: { cursor: 'default', backgroundColor: rowSel ? c.accent + '66' : 'rgba(140,140,140,0.10)' },
@@ -65,8 +69,10 @@ export function BlnkRow({ op, rowIdx, rowSel, c, t, onEdit, selectRow }) {
         }, h('input', {
             value: op.comment || '',
             placeholder: '# comment…',
+            'data-row-menu': 'comment',
             onChange: event => onEdit(op.id, 'comment', event.target.value),
-            onClick: event => event.stopPropagation(),
+            onClick: event => { event.stopPropagation(); selectForTyping(); },
+            onFocus: selectForTyping,
             style: {
                 width: '100%', background: 'transparent', color: c.textDim, border: 'none',
                 fontSize: 11, fontStyle: 'italic', padding: '1px 2px',
@@ -140,7 +146,9 @@ export function renderOperandRow(ctx, op, rowIdx) {
     } = ctx;
     const rowSel = selIds.has(op.id);
     if (isDmfs(op.type)) return h(DmfsRow, { key: op.id, op, rowIdx, rowSel, c, onEdit, selectRow });
-    if (isBlank(op.type)) return h(BlnkRow, { key: op.id, op, rowIdx, rowSel, c, t, onEdit, selectRow });
+    if (isBlank(op.type)) {
+        return h(BlnkRow, { key: op.id, op, rowIdx, rowSel, c, t, onEdit, selectRow, setFocusCell: ctx.setFocusCell });
+    }
     return h(MFDataRow, {
         key: op.id,
         op,
