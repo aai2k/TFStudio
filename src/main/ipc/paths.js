@@ -60,8 +60,7 @@ async function handleChoose(ctx) {
 
 // ── paths:set(dir) ────────────────────────────────────────────────────────
 async function handleSet(ctx, _key, dir) {
-  const { userPaths, log, dataFolderMove: move } = ctx;
-  const fsp = ctx.fs.promises;
+  const { userPaths, dataFolderMove: move } = ctx;
 
   // One move at a time, shared by set and reset.
   if (moveInProgress) {
@@ -98,73 +97,88 @@ async function handleSet(ctx, _key, dir) {
     const saved = persist(ctx);
 
     if (saved.success) {
-      // persist succeeded → commit (ensureAll + notify + clean old directory)
-      userPaths.ensureAll();
-      ctx.onUserPathsChanged?.();
-
-      // Only the copy path leaves an old folder behind; a rename already moved it.
-      let warning = null;
-      if (!isSameDisk) {
-        try {
-          await fsp.rm(currentRoot, { recursive: true, force: true });
-        } catch (_) {
-          warning = `old folder still exists at ${currentRoot}`;
-        }
-      }
-
-      const result = { success: true, folders: userPaths.list() };
-      if (warning) result.warning = warning;
-      return result;
+      return await commitMove(ctx, { currentRoot, isSameDisk });
     }
-
-    // ── persist failed → rollback ────────────────────────────────────────
-    if (isSameDisk) {
-      // The files are already at dir. Roll memory back, then rename them back.
-      userPaths.applyRoot(previousRoot);
-      try {
-        await fsp.rename(dir, currentRoot);
-        return { success: false, error: saved.error, folders: userPaths.list() };
-      } catch (_) {
-        // The files could not be moved back either, so keep them where they are
-        // and try once more to save settings that point at dir.
-        userPaths.applyRoot(dir);
-        const secondPersist = persist(ctx);
-        if (secondPersist.success) {
-          return {
-            success: true,
-            folders: userPaths.list(),
-            warning: `data moved to ${dir} but settings were recovered`,
-          };
-        }
-        // Settings still could not be written. The data is at dir and the app
-        // runs from there for this session; the pane says so. onUserPathsChanged
-        // stays unfired, so nothing re-seeds against a root that will not survive
-        // a restart.
-        userPaths.applyRoot(dir);
-        userPaths.ensureAll();
-        userPaths.setRejected(currentRoot, 'settings could not be saved');
-        log(`CRITICAL: data at ${dir}, settings could not be saved`);
-        return {
-          success: false,
-          critical: true,
-          dataLocation: dir,
-          reason: 'settings could not be saved',
-          folders: userPaths.list(),
-        };
-      }
-    } else {
-      // The copy is complete but unreferenced. Drop it and keep the old folder.
-      userPaths.applyRoot(previousRoot);
-      try {
-        await fsp.rm(dir, { recursive: true, force: true });
-      } catch (cleanupErr) {
-        return { success: false, error: `${saved.error} (cleanup of ${dir} failed: ${cleanupErr.message})`, folders: userPaths.list() };
-      }
-      return { success: false, error: saved.error, folders: userPaths.list() };
-    }
+    return isSameDisk
+      ? await rollbackRename(ctx, { dir, currentRoot, previousRoot, error: saved.error })
+      : await rollbackCopy(ctx, { dir, previousRoot, error: saved.error });
   } finally {
     moveInProgress = false;
   }
+}
+
+// The settings write succeeded: create anything missing under the new root,
+// tell the renderer, and drop the old folder. Only the copy path leaves one
+// behind, and a folder that will not delete is a warning, not a failure.
+async function commitMove(ctx, { currentRoot, isSameDisk }) {
+  const { userPaths } = ctx;
+  userPaths.ensureAll();
+  ctx.onUserPathsChanged?.();
+
+  if (isSameDisk) return { success: true, folders: userPaths.list() };
+
+  try {
+    await ctx.fs.promises.rm(currentRoot, { recursive: true, force: true });
+  } catch (_) {
+    return {
+      success: true,
+      folders: userPaths.list(),
+      warning: `old folder still exists at ${currentRoot}`,
+    };
+  }
+  return { success: true, folders: userPaths.list() };
+}
+
+// The settings write failed after a rename. The files are at dir, so move them
+// back. If that fails they stay where they are and settings are written a
+// second time to match.
+async function rollbackRename(ctx, { dir, currentRoot, previousRoot, error }) {
+  const { userPaths, log } = ctx;
+  userPaths.applyRoot(previousRoot);
+  try {
+    await ctx.fs.promises.rename(dir, currentRoot);
+    return { success: false, error, folders: userPaths.list() };
+  } catch (_) {
+    userPaths.applyRoot(dir);
+    if (persist(ctx).success) {
+      return {
+        success: true,
+        folders: userPaths.list(),
+        warning: `data moved to ${dir} but settings were recovered`,
+      };
+    }
+    // Neither write went through. The data is at dir and the app runs from
+    // there for this session; the pane says so. onUserPathsChanged stays
+    // unfired, so nothing re-seeds against a root that will not survive a
+    // restart.
+    userPaths.ensureAll();
+    userPaths.setRejected(currentRoot, 'settings could not be saved');
+    log(`CRITICAL: data at ${dir}, settings could not be saved`);
+    return {
+      success: false,
+      critical: true,
+      dataLocation: dir,
+      reason: 'settings could not be saved',
+      folders: userPaths.list(),
+    };
+  }
+}
+
+// The settings write failed after a copy. The copy is complete but nothing
+// refers to it, so drop it and keep the old folder.
+async function rollbackCopy(ctx, { dir, previousRoot, error }) {
+  const { userPaths } = ctx;
+  userPaths.applyRoot(previousRoot);
+  try {
+    await ctx.fs.promises.rm(dir, { recursive: true, force: true });
+  } catch (cleanupErr) {
+    return {
+      success: false,
+      error: `${error} (cleanup of ${dir} failed: ${cleanupErr.message})`,
+      folders: userPaths.list(),
+    };
+  }
+  return { success: false, error, folders: userPaths.list() };
 }
 
 // ── paths:reset — set(defaultPath) ───────────────────────────────────────
