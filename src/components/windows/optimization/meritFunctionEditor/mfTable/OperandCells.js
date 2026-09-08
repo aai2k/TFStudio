@@ -1,5 +1,5 @@
 import { isIntegral, isMathPairRef, polFromType } from '../../../../../utils/physics/optimizer.js';
-import { CellInput, CellSelect, PolSelect, selectable } from './CellControls.js';
+import { CellInput, CellSelect, PolList, selectable } from './CellControls.js';
 import { OperandTypePicker } from './OperandTypePicker.js';
 import { measuredSnapshotCell, measuredTypeCell } from './measuredCells.js';
 import {
@@ -187,17 +187,19 @@ export function polarizationCell(ctx, colKey, width) {
     );
 }
 
-// The Pol cell while it is being edited: the list of the three values, open.
+// The Pol cell while it is being edited: its value, with the list of the
+// three dropped under it.
 export function polPickerCell(ctx, colKey, width) {
     const { op, rowIdx, c, tdBase, commitEdit, focusAt, setEditCell } = ctx;
-    return h('td', {
-        key: colKey, style: tdBase(colKey, width, { padding: '0 2px' }),
-    }, h(PolSelect, {
-        value: op.pol,
-        onCommit: pol => { commitEdit(rowIdx, colKey, pol); focusAt(rowIdx, colKey); },
-        onCancel: refocus => { setEditCell(null); if (refocus) focusAt(rowIdx, colKey); },
-        c,
-    }));
+    return h('td', { key: colKey, style: tdBase(colKey, width) },
+        op.pol,
+        h(PolList, {
+            value: op.pol,
+            onCommit: pol => { commitEdit(rowIdx, colKey, pol); focusAt(rowIdx, colKey); },
+            onCancel: refocus => { setEditCell(null); if (refocus) focusAt(rowIdx, colKey); },
+            c,
+        }),
+    );
 }
 
 function currentCell(ctx, colKey, width) {

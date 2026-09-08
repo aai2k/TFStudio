@@ -46,15 +46,19 @@ assert.ok(!html({ focusCell: { rowIdx: 0, colKey: 'aoi' } }).includes('▾'),
 assert.ok(!html({ focusCell: { rowIdx: 1, colKey: 'pol' } }).includes('▾'),
     'a constraint has no polarization to pick, so its dash shows none');
 
-// ── Editing, it is the list of the three values with the current one chosen ──
+// ── Editing, the list of the three values hangs under the cell ───────────────
+// It is drawn in the page, like the operand picker. A native dropdown was
+// tried first: in the app's window it opened as a widget of its own, took the
+// focus and reported no pick back, so the cell neither changed nor closed.
 {
     const editing = html({ editCell: { rowIdx: 0, colKey: 'pol', initValue: 's' } });
-    const list = editing.match(/<select[^>]*>[\s\S]*?<\/select>/)?.[0];
-    assert.ok(list, 'the editor is a list');
-    assert.equal((list.match(/<option/g) || []).length, 3, 'avg, s and p');
-    assert.match(list, /<option(?=[^>]*selected="")(?=[^>]*value="s")[^>]*>s<\/option>/, 'open on the current value');
-    assert.match(list, /min-height:0/, 'the list clears the row height the way every row dropdown does');
-    assert.equal((editing.match(/<select/g) || []).length, 1, 'the other row keeps its text');
+    const list = editing.match(/<div[^>]*position:fixed[^>]*>[\s\S]*?<\/div><\/td>/)?.[0];
+    assert.ok(list, 'the editor is a list dropped under the cell');
+    for (const pol of ['avg', 's', 'p']) assert.match(list, new RegExp(`>${pol}</div>`), `${pol} is offered`);
+    assert.match(list, /<div[^>]*font-weight:600[^>]*>s<\/div>/, 'the current value is marked');
+    assert.match(list, /visibility:hidden/, 'unmeasured, it is out of sight rather than at the page corner');
+    assert.equal((editing.match(/position:fixed/g) || []).length, 1, 'the other row keeps its text');
+    assert.ok(!editing.includes('<select'), 'no native dropdown');
 }
 
 console.log('mf_table_pol_editor: passed');
