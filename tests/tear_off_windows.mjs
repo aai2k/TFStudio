@@ -16,7 +16,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { createRequire } from 'node:module';
 import { renderToStaticMarkup } from 'react-dom/server';
-import { loadApp, makeLocale, makeTheme, shimBrowserGlobals } from './_uiShim.mjs';
+import { loadApp, makeLocale, makeTheme, shimBrowserGlobals, withDesign } from './_uiShim.mjs';
 
 const require = createRequire(import.meta.url);
 
@@ -634,5 +634,184 @@ assert.equal(releaseScopes[1].domTarget, mainDocument,
     'a docked chart stays on the document it always used');
 
 globalThis.echarts = previousRuntime;
+
+// ── An overlay is placed against the window it opens in ───────────────────────
+//
+// A picker measures its trigger in its own window's client coordinates and then
+// hangs the list off it with `position: fixed`, which in a torn-off window is
+// that window's viewport. Deciding where the list fits from the main window's
+// height told it there was room below that the small window it sits in does not
+// have, so the list ran past the bottom edge and the document clipped it.
+
+const picker = await import('../src/components/ui/PickerDropdown.js');
+const { ownerWindow, dismissDocuments, listenForDismiss } =
+    await import('../src/components/ui/ownerWindow.js');
+
+// The media pickers sit at the foot of the Design Editor settings section.
+const mediaTrigger = { top: 448, bottom: 470, left: 60, width: 120 };
+const floatView = { innerWidth: 720, innerHeight: 520 };
+
+const placedInFloat = picker.dropPositionFrom(mediaTrigger, 260, floatView);
+assert.equal(placedInFloat.top, null, 'a list with no room below it in its own window opens upward');
+assert.equal(placedInFloat.bottom, floatView.innerHeight - mediaTrigger.top + 2,
+    'and is pinned to the top of its trigger');
+assert.ok(placedInFloat.maxH <= mediaTrigger.top - 4, 'never taller than the room it has');
+
+// The same trigger measured against the main window is told the whole list fits
+// below it, which is what put the list under the foot of the float.
+const placedAgainstMain = picker.dropPositionFrom(mediaTrigger, 260, { innerWidth: 1400, innerHeight: 1040 });
+assert.equal(placedAgainstMain.top, mediaTrigger.bottom + 2, 'the main window really does have the room');
+assert.ok(placedAgainstMain.top + placedAgainstMain.maxH > floatView.innerHeight,
+    'so the list it places runs past the bottom edge of a torn-off window');
+
+// A window narrower than the list keeps it on screen instead of off the left edge.
+assert.equal(picker.dropPositionFrom({ top: 40, bottom: 62, left: 60, width: 120 }, 260,
+    { innerWidth: 200, innerHeight: 520 }).left, 4,
+    'a list wider than the window it is in starts at the edge of that window');
+
+// The window an overlay belongs to is the one its trigger is rendered in.
+assert.equal(ownerWindow({ ownerDocument: { defaultView: floatView } }), floatView);
+assert.equal(ownerWindow({ ownerDocument: null }), window, 'a detached trigger has only the global');
+assert.equal(ownerWindow(null), window);
+
+const pickerSource = readFileSync(
+    new URL('../src/components/ui/PickerDropdown.js', import.meta.url), 'utf8');
+assert.equal(/window\.inner(Width|Height)/.test(pickerSource), false,
+    'the picker never measures the main window to place a list drawn in another one');
+assert.match(pickerSource, /dropPositionFrom\(trigger\.getBoundingClientRect\(\), minDropWidth, ownerWindow\(trigger\)\)/,
+    'it measures the window its trigger is in');
+
+const savedMfSource = readFileSync(new URL(
+    '../src/components/windows/optimization/meritFunctionEditor/SavedMfMenu.js', import.meta.url), 'utf8');
+assert.match(savedMfSource, /ownerWindow\(trigger\)/,
+    'and so does the saved merit-function list, which opens off a bar at the window foot');
+
+// ── A picker in a float hears the clicks that should close it ─────────────────
+//
+// A mousedown in a torn-off window never reaches the main document: the two
+// share no event path. Listening there alone left every list opened in a float
+// standing open, so opening the substrate material list on top of the incident
+// one left both on screen.
+
+assert.deepEqual(dismissDocuments({ ownerDocument: document }), [document],
+    'a docked picker listens on the one document there is');
+const pickerDoc = { defaultView: floatView };
+assert.deepEqual(dismissDocuments({ ownerDocument: pickerDoc }), [pickerDoc, document],
+    'a floated picker listens in its own window, and in the main one so a click there closes it too');
+assert.deepEqual(dismissDocuments(null), [document], 'and an unmounted overlay is not a crash');
+
+assert.equal(/\bdocument\.(add|remove)EventListener/.test(pickerSource), false,
+    'the picker never mounts its dismissal on the global document');
+assert.match(pickerSource, /listenForDismiss\(triggerRef\.current/,
+    'it mounts on the documents its own trigger belongs to');
+
+// The listeners really do go on both, and come off both again.
+const listenerLog = [];
+const recordingDoc = (name) => ({
+    defaultView: floatView,
+    addEventListener: (type) => listenerLog.push('+' + name + ':' + type),
+    removeEventListener: (type) => listenerLog.push('-' + name + ':' + type),
+});
+document.addEventListener = (type) => listenerLog.push('+main:' + type);
+document.removeEventListener = (type) => listenerLog.push('-main:' + type);
+const stopListening = listenForDismiss({ ownerDocument: recordingDoc('float') },
+    { mousedown: () => {}, keydown: () => {} });
+assert.deepEqual(listenerLog,
+    ['+float:mousedown', '+float:keydown', '+main:mousedown', '+main:keydown'],
+    'a floated overlay watches its own window for the click that should close it');
+listenerLog.length = 0;
+stopListening();
+assert.deepEqual(listenerLog,
+    ['-float:mousedown', '-float:keydown', '-main:mousedown', '-main:keydown'],
+    'and leaves nothing mounted on either window behind it');
+
+const catalogMenuSource = readFileSync(new URL(
+    '../src/components/windows/design/materialEditor/catalogMenu.js', import.meta.url), 'utf8');
+assert.equal(/\bdocument\.(add|remove)EventListener/.test(catalogMenuSource), false,
+    'nor does the Material Editor catalog menu');
+
+// ── A menu drawn from the stylesheet wears the theme in a float ───────────────
+//
+// The palette reaches the stylesheets as `--tf-*` properties set on the main
+// document's root element, so cloning the stylesheets into a float brought the
+// rules that read them and none of the values. Every class-styled control in a
+// float then drew from the dark fallbacks the rules carry for safety, whatever
+// theme the app was in.
+
+const { mirrorRootStyle } = await import('../src/components/docking/PopoutWindow.js');
+
+const fakeRoot = (style) => {
+    const attributes = new Map(style == null ? [] : [['style', style]]);
+    return {
+        documentElement: {
+            getAttribute: (name) => (attributes.has(name) ? attributes.get(name) : null),
+            setAttribute: (name, value) => attributes.set(name, value),
+            removeAttribute: (name) => attributes.delete(name),
+        },
+        styleAttribute: () => (attributes.has('style') ? attributes.get('style') : null),
+    };
+};
+
+const palette = '--tf-panel: #f4f4f4; --tf-text: #202020;';
+const floatRoot = fakeRoot(null);
+mirrorRootStyle(fakeRoot(palette), floatRoot);
+assert.equal(floatRoot.styleAttribute(), palette,
+    'a float carries the palette the main window is painted with');
+
+// Switching to a theme that sets nothing leaves no stale palette behind.
+mirrorRootStyle(fakeRoot(null), floatRoot);
+assert.equal(floatRoot.styleAttribute(), null);
+
+const popoutSource = readFileSync(
+    new URL('../src/components/docking/PopoutWindow.js', import.meta.url), 'utf8');
+assert.match(popoutSource, /mirrorRootStyle\(document, doc\)/, 'a window takes the palette as it opens');
+assert.match(popoutSource, /MutationObserver/, 'and follows a theme change while it is open');
+
+// ── A context menu is clamped to the window it is opened in ───────────────────
+
+const { clampToViewport } = await import('../src/components/ui/ContextMenu.js');
+const menuBounds = { width: 190, height: 240 };
+assert.deepEqual(clampToViewport(600, 400, menuBounds, floatView), { left: 526, top: 276 },
+    'a menu near the corner of a float is pulled back inside it');
+assert.deepEqual(clampToViewport(600, 400, menuBounds, { innerWidth: 1400, innerHeight: 1040 }),
+    { left: 600, top: 400 }, 'and is left where it was asked for when the room is there');
+
+// ── A prompt raised in a float opens over that float ──────────────────────────
+//
+// Save MF, and the Material Editor rename and delete, ask through the dialog
+// host they are handed. The app host renders in the main window tree, so a
+// torn-off tool given that one got its dialog on the main window, behind the
+// window it was asked from.
+
+const { FloatToolHost } = await import('../src/components/docking/DockingLayout.js');
+const { WINDOW_REGISTRY: registry } = await import('../src/components/docking/windowRegistry.js');
+
+let toolDialogHost = null;
+registry['tearoff-prompt-probe'] = {
+    component: ({ setInputDialog }) => {
+        toolDialogHost = setInputDialog;
+        return React.createElement('div', null, 'probe tool');
+    },
+    title: 'probe', label: 'probe', dialog: true,
+};
+const appDialogHost = () => { throw new Error('a float must not prompt through the app host'); };
+const floatHtml = renderToStaticMarkup(withDesign(React.createElement(FloatToolHost, {
+    toolId: 'tearoff-prompt-probe', c, t, setInputDialog: appDialogHost,
+})));
+delete registry['tearoff-prompt-probe'];
+
+assert.ok(floatHtml.includes('probe tool'), 'the float renders its tool');
+assert.equal(typeof toolDialogHost, 'function', 'and hands it a dialog host');
+assert.notEqual(toolDialogHost, appDialogHost,
+    'one of its own, so the prompt opens over the window that asked for it');
+
+assert.equal(/h\(ToolContent, \{\s*toolId: f\.toolId/.test(layoutSource), false,
+    'the app hosts no longer reach a torn-off tool');
+assert.match(layoutSource, /h\(FloatToolHost, \{/, 'which is given hosts of its own instead');
+
+// The material repair a blocked tool offers is raised the same way, so it opens
+// in the float too rather than on the main window behind it.
+assert.equal(/h\(FloatToolHost, \{[^}]*onReplaceMaterials/.test(layoutSource), false,
+    'and that includes the material repair a blocked window offers');
 
 console.log('PASS tear_off_windows');

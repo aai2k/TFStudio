@@ -10,6 +10,8 @@
  * entries; an entry of `{ id, separator: true }` draws a divider.
  */
 
+import { listenForDismiss } from '../../../ui/ownerWindow.js';
+
 const { createElement: h, useEffect, useRef } = React;
 
 function menuItemStyle(item, c) {
@@ -42,16 +44,13 @@ export function CatalogMenu({ items, onClose, c }) {
     const ref = useRef(null);
 
     // Dismiss on outside click or Escape. `mousedown` (not `click`) so the menu
-    // closes before the click lands on whatever is underneath it.
+    // closes before the click lands on whatever is underneath it. The listeners
+    // cover the menu's own document, which is the torn-off window's when the
+    // Material Editor is torn off and not one the main document hears from.
     useEffect(() => {
         const onDown = (e) => { if (ref.current && !ref.current.contains(e.target)) onClose(); };
         const onKey  = (e) => { if (e.key === 'Escape') onClose(); };
-        document.addEventListener('mousedown', onDown);
-        document.addEventListener('keydown', onKey);
-        return () => {
-            document.removeEventListener('mousedown', onDown);
-            document.removeEventListener('keydown', onKey);
-        };
+        return listenForDismiss(ref.current, { mousedown: onDown, keydown: onKey });
     }, [onClose]);
 
     return h('div', {

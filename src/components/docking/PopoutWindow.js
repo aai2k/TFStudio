@@ -33,6 +33,18 @@ function copyStyles(from, to) {
     }
 }
 
+// The active palette reaches the stylesheets as `--tf-*` custom properties set
+// on the main document's root element, not as rules, so cloning the stylesheets
+// brings everything that reads them and none of the values. Copying the root's
+// inline style across is what makes a class-styled control (the menus built on
+// the `tf-menu` rules, chiefly) wear the theme in here rather than the hard-coded
+// dark fallbacks the rules carry for safety.
+export function mirrorRootStyle(from, to) {
+    const style = from.documentElement.getAttribute('style');
+    if (style) to.documentElement.setAttribute('style', style);
+    else to.documentElement.removeAttribute('style');
+}
+
 // Screen-space position of a point given in a window's client coordinates.
 // `screenX`/`screenY` are the viewport's own offset on the desktop, so no frame
 // correction is needed. Both windows report CSS pixels, which is what the caller
@@ -71,6 +83,11 @@ export function PopoutWindow({ id, title, bounds, background, onClose, onWindowR
         const doc = win.document;
         doc.title = title;
         copyStyles(document, doc);
+        mirrorRootStyle(document, doc);
+        // Switching theme rewrites the palette on the main root, so follow it:
+        // an open window changes with the rest of the app, not at its next open.
+        const palette = new MutationObserver(() => mirrorRootStyle(document, doc));
+        palette.observe(document.documentElement, { attributes: true, attributeFilter: ['style'] });
         doc.body.style.margin = '0';
         doc.body.style.overflow = 'hidden';
         doc.body.style.background = background || '#1e1e1e';
@@ -89,6 +106,7 @@ export function PopoutWindow({ id, title, bounds, background, onClose, onWindowR
         window.addEventListener('beforeunload', closeOnExit);
 
         return () => {
+            palette.disconnect();
             win.removeEventListener('beforeunload', closed);
             window.removeEventListener('beforeunload', closeOnExit);
             try { win.close(); } catch (_) {}

@@ -34,6 +34,7 @@
 const { createElement: h, useState, useEffect, useLayoutEffect, useMemo, useRef } = React;
 
 import { PickerTabs } from './pickerTabs.js';
+import { ownerWindow, listenForDismiss } from './ownerWindow.js';
 
 // Heights of a row and of a section header, in px. They are applied to the
 // elements rather than left to the font metrics: the windowed list places an
@@ -64,9 +65,14 @@ function dotStyle(color) {
 // the trigger. Deriving a `top` from maxH would assume the list fills all the
 // room available, and a shorter one (a filter tab with three entries, say) would
 // then be pushed that much too high and float away from the row it belongs to.
-export function dropPositionFrom(rect, minDropWidth) {
+//
+// `view` is the window the trigger is drawn in. A rect measured in a torn-off
+// window against the main window's viewport reports room that is not there, so
+// the overlay neither flips nor clamps and runs off the edge of the small window
+// it belongs to.
+export function dropPositionFrom(rect, minDropWidth, view = window) {
     const dropWidth = Math.max(rect.width, minDropWidth);
-    const spaceBelow = window.innerHeight - rect.bottom - 4;
+    const spaceBelow = view.innerHeight - rect.bottom - 4;
     const spaceAbove = rect.top - 4;
     const flipUp = spaceBelow < 220 && spaceAbove > spaceBelow;
     const maxH = flipUp
@@ -74,8 +80,8 @@ export function dropPositionFrom(rect, minDropWidth) {
         : Math.min(320, Math.max(120, spaceBelow));
     return {
         top: flipUp ? null : rect.bottom + 2,
-        bottom: flipUp ? Math.max(4, window.innerHeight - rect.top + 2) : null,
-        left: Math.min(rect.left, window.innerWidth - dropWidth - 4),
+        bottom: flipUp ? Math.max(4, view.innerHeight - rect.top + 2) : null,
+        left: Math.max(4, Math.min(rect.left, view.innerWidth - dropWidth - 4)),
         width: dropWidth, maxH,
     };
 }
@@ -299,6 +305,11 @@ export function overlayEl(s) {
 }
 
 // Close the overlay on outside-click or Escape while it is open.
+//
+// The listeners go on the trigger's own document as well as the main one. A
+// picker in a torn-off window sees none of that window's clicks through the main
+// document, so listening there alone left every picker the user opened standing
+// open until it was picked from or dismissed with Escape.
 export function useDismiss(open, setOpen, dropRef, triggerRef) {
     useEffect(() => {
         if (!open) return undefined;
@@ -306,12 +317,7 @@ export function useDismiss(open, setOpen, dropRef, triggerRef) {
             if (!dropRef.current?.contains(e.target) && !triggerRef.current?.contains(e.target)) setOpen(false);
         };
         const onKey = (e) => { if (e.key === 'Escape') setOpen(false); };
-        document.addEventListener('mousedown', onDown);
-        document.addEventListener('keydown', onKey);
-        return () => {
-            document.removeEventListener('mousedown', onDown);
-            document.removeEventListener('keydown', onKey);
-        };
+        return listenForDismiss(triggerRef.current, { mousedown: onDown, keydown: onKey });
     }, [open]); // eslint-disable-line
 }
 
@@ -383,7 +389,8 @@ export function PickerDropdown(props) {
     // somewhere else entirely.
     const onTrigger = () => {
         if (open) { setOpen(false); return; }
-        if (triggerRef.current) setDropPos(dropPositionFrom(triggerRef.current.getBoundingClientRect(), minDropWidth));
+        const trigger = triggerRef.current;
+        if (trigger) setDropPos(dropPositionFrom(trigger.getBoundingClientRect(), minDropWidth, ownerWindow(trigger)));
         // The list opens unfiltered every time: a tab left over from an earlier
         // visit can hide the current value, and a filtered view hides the other
         // groups the user may want next. Where the value comes from is said by

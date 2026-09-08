@@ -11,6 +11,7 @@ import { PopoutWindow, toScreenPoint, toClientPoint } from './PopoutWindow.js';
 import { useDesign } from '../../state/DesignContext.js';
 import { useUnresolvedMaterials } from '../../utils/materials/useUnresolvedMaterials.js';
 import { ReplaceMaterialsDialog } from '../dialogs/ReplaceMaterialsDialog.js';
+import { InputDialog } from '../dialogs/InputDialog.js';
 import {
   MaterialCalculationBlocked, MissingMaterialsBanner,
 } from '../materials/MissingMaterialsNotice.js';
@@ -86,6 +87,27 @@ export function ToolContent({ toolId, c, theme, t, setInputDialog, onCreateDesig
       textAlign: 'center', padding: 24
     }
   }, TOOL_LABELS[toolId] || toolId);
+}
+
+// A torn-off tool with the dialogs it can raise hosted beside it, so a name, a
+// confirmation or the material repair it asks for opens over the window the user
+// is working in. The app's own hosts live in the main window's tree: a dialog
+// raised through one of those from a torn-off tool opens on the main window,
+// behind the tool that asked for it.
+export function FloatToolHost(props) {
+  const { design, updateDesign } = useDesign();
+  const [inputDialog, setInputDialog] = useState(null);
+  const [repairMaterials, setRepairMaterials] = useState(false);
+  return h(React.Fragment, null,
+    h(ToolContent, {
+      ...props, setInputDialog, onReplaceMaterials: () => setRepairMaterials(true),
+    }),
+    h(InputDialog, { inputDialog, c: props.c, t: props.t }),
+    repairMaterials && h(ReplaceMaterialsDialog, {
+      design, updateDesign, c: props.c, t: props.t,
+      onClose: () => setRepairMaterials(false),
+    }),
+  );
 }
 
 // ── Preset layouts ────────────────────────────────────────────────────────────
@@ -728,10 +750,8 @@ export function DockingLayout({ c, theme, toolRequests, onWindowListChange, layo
         onDragOver: handleFloatDragOver,
         onDrop: (screenPoint) => handleFloatDrop(f.id, screenPoint),
       },
-        h(ToolContent, {
-          toolId: f.toolId, c, theme, t, setInputDialog, onCreateDesign,
-          missingMaterialIds,
-          onReplaceMaterials: () => setReplaceMaterialsOpen(true),
+        h(FloatToolHost, {
+          toolId: f.toolId, c, theme, t, onCreateDesign, missingMaterialIds,
         })
       )
     ))

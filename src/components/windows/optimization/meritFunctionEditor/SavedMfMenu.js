@@ -1,4 +1,5 @@
 import { dropPositionFrom, useDismiss } from '../../../ui/PickerDropdown.js';
+import { ownerWindow } from '../../../ui/ownerWindow.js';
 import { useWindowSession } from '../../windowSession.js';
 import { meritPresetSession } from './sessionState.js';
 import { TblBtn } from './mfTable/CellControls.js';
@@ -83,9 +84,10 @@ export function SavedMfMenu({ c, te, diskPresets, diskBusy, diskMsg, onSavePrese
     // click on the open list would be swallowed by that exclusion and re-open it.
     const toggle = () => {
         if (open) { setOpen(false); return; }
-        const rect = triggerRef.current?.getBoundingClientRect();
+        const trigger = triggerRef.current;
+        const rect = trigger?.getBoundingClientRect();
         if (!rect) return;
-        setPosition(dropPositionFrom(rect, MENU_MIN_WIDTH));
+        setPosition(dropPositionFrom(rect, MENU_MIN_WIDTH, ownerWindow(trigger)));
         setOpen(true);
     };
 

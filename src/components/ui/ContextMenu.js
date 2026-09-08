@@ -1,4 +1,17 @@
+import { ownerWindow, listenForDismiss } from './ownerWindow.js';
+
 const { createElement: h, useEffect, useRef, useState } = React;
+
+// Keep the menu inside the viewport it is drawn in, corner included. `view` is
+// the menu's own window: a menu in a torn-off tool clamped against the main
+// window's viewport is not clamped at all, and opens over the edge of the small
+// window it belongs to.
+export function clampToViewport(x, y, bounds, view) {
+    return {
+        left: Math.max(4, Math.min(x, view.innerWidth - bounds.width - 4)),
+        top: Math.max(4, Math.min(y, view.innerHeight - bounds.height - 4)),
+    };
+}
 
 /**
  * Theme-aware application context menu, clamped to the visible viewport.
@@ -15,19 +28,14 @@ export function ContextMenu({ x, y, items, c, onClose, ariaLabel = 'Context menu
     useEffect(() => {
         const menu = menuRef.current;
         if (!menu) return;
-        const bounds = menu.getBoundingClientRect();
-        setPosition({
-            left: Math.max(4, Math.min(x, window.innerWidth - bounds.width - 4)),
-            top: Math.max(4, Math.min(y, window.innerHeight - bounds.height - 4)),
-        });
+        setPosition(clampToViewport(x, y, menu.getBoundingClientRect(), ownerWindow(menu)));
     }, [x, y, items]);
 
     useEffect(() => {
         const handleKeyDown = event => {
             if (event.key === 'Escape') onClose();
         };
-        window.addEventListener('keydown', handleKeyDown);
-        return () => window.removeEventListener('keydown', handleKeyDown);
+        return listenForDismiss(menuRef.current, { keydown: handleKeyDown });
     }, [onClose]);
 
     return h('div', {
