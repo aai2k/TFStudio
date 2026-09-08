@@ -1,5 +1,11 @@
 const { contextBridge, ipcRenderer } = require('electron');
 
+// Set by the main process on a platform that cannot place its own windows,
+// Wayland being the one that matters. Delivered as a launch argument rather
+// than over IPC so the answer is here before the first render.
+// See main/windowPlacement.js.
+const nativeWindowDrag = process.argv.includes('--tfs-native-window-drag');
+
 contextBridge.exposeInMainWorld('electronAPI', {
   getAppVersion:    () => ipcRenderer.invoke('get-app-version'),
   getDevAllowed:    () => ipcRenderer.invoke('app:dev-allowed'),
@@ -25,10 +31,18 @@ contextBridge.exposeInMainWorld('electronAPI', {
   // torn out of the docking layout. Other hosts that stand in for this bridge,
   // such as the browser demo, have only a popup to offer and leave it undefined.
   nativeWindows:    true,
+  // Whether the strip a torn-off window draws moves that window itself, or marks
+  // itself a native drag region and lets the compositor do it. See FloatFrame.
+  nativeWindowDrag,
   // The preview that follows the cursor while a docked tool is dragged. It is a
   // window rather than an element so it stays visible past the frame edge, which
   // is where a tear-off is aimed.
-  dragGhost: {
+  //
+  // A window this app cannot place is also one it cannot walk across the desktop:
+  // offered on Wayland, the preview would stand still through the whole gesture.
+  // Withheld, the drag falls back to an element in the page, which is cut off at
+  // the frame edge but does follow the cursor. See startDragPreview.
+  dragGhost: nativeWindowDrag ? null : {
     show: (opts) => ipcRenderer.send('drag-ghost:show', opts),
     move: (point) => ipcRenderer.send('drag-ghost:move', point),
     hide: () => ipcRenderer.send('drag-ghost:hide'),

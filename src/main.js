@@ -11,11 +11,18 @@ const { createDataFolderMove } = require('./main/dataFolderMove');
 const dragGhost = require('./main/dragGhost');
 const { registerAllIpc } = require('./main/ipc');
 const appWindowIpc = require('./main/ipc/appWindow');
+const { canPlaceOwnWindows } = require('./main/windowPlacement');
 
 const isPackaged = app.isPackaged;
 // DevTools allowed in dev always, and in packaged builds only when launched with
 // --debug (so we can diagnose a shipped build without weakening normal installs).
 const devToolsAllowed = !isPackaged || process.argv.includes('--debug');
+// Wayland gives a client no way to place its own window, so a torn-off tool
+// cannot move itself and the compositor has to do it. The renderers are told
+// through an argument rather than asked over IPC, so the strip is built the
+// right way on its first render. See main/windowPlacement.js.
+const nativeWindowDrag = !canPlaceOwnWindows();
+const rendererArgs = nativeWindowDrag ? ['--tfs-native-window-drag'] : [];
 const exeDir = resolveExeDir({
   portableDir: process.env.PORTABLE_EXECUTABLE_DIR,
   isPackaged,
@@ -29,6 +36,11 @@ let portableDataDir = path.join(exeDir, 'AppData');
 
 log('=== App Startup ===');
 log(`Packaged: ${isPackaged}`);
+// Logged because nothing else reports it: where the compositor owns the move,
+// every position the app can read back about a torn-off window looks correct.
+log(`Window placement: ${nativeWindowDrag
+  ? 'compositor (the app may not place its own windows; a torn-off tool is docked with its Dock button)'
+  : 'app'}`);
 log(`Exe directory: ${exeDir}`);
 log(`Data directory: ${portableDataDir}`);
 
@@ -113,7 +125,8 @@ function createWindow() {
       nodeIntegration: false,
       contextIsolation: true,
       devTools: devToolsAllowed,   // off in packaged builds unless launched with --debug
-      preload: path.join(__dirname, 'preload.js')
+      preload: path.join(__dirname, 'preload.js'),
+      additionalArguments: rendererArgs
     },
     backgroundColor,
     show: false,
@@ -171,6 +184,7 @@ function createWindow() {
             contextIsolation: true,
             devTools: devToolsAllowed,
             preload: path.join(__dirname, 'preload.js'),
+            additionalArguments: rendererArgs,
           },
         },
       };

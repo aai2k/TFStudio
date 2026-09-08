@@ -664,6 +664,7 @@ const en = {
     maximize: 'Maximize',
     dock: 'Dock back into the layout',
     dragToDock: 'Drag onto the main window to dock',
+    dragToMove: 'Drag to move. The Dock button puts it back in the layout',
     dropHere: 'Drop to dock',
     empty: {
       hint: 'Create a project to begin, or pick an existing design from the Explorer on the left.',
@@ -4318,6 +4319,7 @@ const ru = {
     maximize: 'Развернуть',
     dock: 'Вернуть в раскладку',
     dragToDock: 'Перетащите на главное окно, чтобы состыковать',
+    dragToMove: 'Перетащите, чтобы переместить. Кнопка «Вернуть в раскладку» вернёт окно',
     dropHere: 'Отпустите, чтобы состыковать',
     empty: {
       hint: 'Создайте проект, чтобы начать, или выберите существующее покрытие в проводнике слева.',
@@ -8017,6 +8019,7 @@ const zh = {
     maximize: '最大化',
     dock: '停靠回布局',
     dragToDock: '拖到主窗口以停靠',
+    dragToMove: '拖动以移动窗口。使用“停靠”按钮放回布局',
     dropHere: '松开以停靠',
     empty: {
       hint: '创建项目开始，或从左侧资源管理器选择现有设计。',

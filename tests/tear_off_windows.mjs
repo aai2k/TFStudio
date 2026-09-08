@@ -206,9 +206,16 @@ assert.ok(frame.includes(t.docking.maximize), 'the strip has a maximize button')
 // Handing the strip to the OS with `-webkit-app-region: drag` costs the drag its
 // mouse events: no document sees them, so the layout underneath cannot light its
 // drop targets as the window passes over it. The compass never appeared and the
-// only way back was the dock button. The app carries the move instead.
+// only way back was the dock button. The app carries the move instead, wherever
+// the platform lets it place a window at all. The Wayland section below covers
+// the one place that trade is forced the other way.
 
-assert.equal(frame.includes('-webkit-app-region'), false,
+// The buttons on the strip mark themselves `no-drag` in either mode, which does
+// nothing unless something is a drag region; what matters is the strip itself.
+const marksDragRegion = (html) =>
+    html.replace(/-webkit-app-region:no-drag/g, '').includes('-webkit-app-region:drag');
+
+assert.equal(marksDragRegion(frame), false,
     'an OS-driven window move cannot tell the layout where the cursor is');
 
 const appWindowIpc = require('../src/main/ipc/appWindow.js');
@@ -583,6 +590,98 @@ const frameSource = readFileSync(
     new URL('../src/components/docking/FloatFrame.js', import.meta.url), 'utf8');
 assert.equal(/win\.screen[XY]/.test(frameSource), false,
     'the strip never asks the window where it is in the middle of moving it');
+
+// ── Where the app may not place its own windows ───────────────────────────────
+//
+// Wayland has no request for a client to position its own toplevel. The move is
+// accepted and remembered: setBounds returns cleanly, getBounds hands the asked
+// origin back, and the renderer's screenX/screenY, derived from that same
+// remembered origin, track it exactly. Every number above stays correct and the
+// window does not move, so nothing measured against a fake window can catch it.
+// What is worth asserting is the decision made from that, and the strip built on
+// it: the compositor is asked to do the moving instead.
+
+const { canPlaceOwnWindows, usesWayland } =
+    require('../src/main/windowPlacement.js');
+
+// Only Linux can take the ability away.
+assert.equal(canPlaceOwnWindows({ platform: 'win32', env: {}, argv: [] }), true);
+assert.equal(canPlaceOwnWindows({ platform: 'darwin', env: {}, argv: [] }), true);
+assert.equal(
+    canPlaceOwnWindows({ platform: 'win32', env: { WAYLAND_DISPLAY: 'wayland-0' }, argv: [] }), true,
+    'a stray Wayland variable does not disarm a platform that has no Wayland');
+
+// A Linux session that offers Wayland is taken as Wayland, by either signal.
+assert.equal(usesWayland({ WAYLAND_DISPLAY: 'wayland-0' }, []), true);
+assert.equal(usesWayland({ XDG_SESSION_TYPE: 'wayland' }, []), true,
+    'the socket variable can be unset and libwayland will still find wayland-0');
+assert.equal(usesWayland({ XDG_SESSION_TYPE: 'x11', DISPLAY: ':0' }, []), false);
+assert.equal(usesWayland({}, []), false);
+
+// An explicit backend settles it either way, over any session.
+assert.equal(usesWayland({ WAYLAND_DISPLAY: 'wayland-0' }, ['--ozone-platform=x11']), false,
+    'the X11 backend places its own windows, whatever session it runs on');
+assert.equal(usesWayland({}, ['--ozone-platform=wayland']), true);
+assert.equal(usesWayland({ WAYLAND_DISPLAY: 'wayland-0' }, ['--ozone-platform-hint=x11']), false);
+assert.equal(usesWayland({ WAYLAND_DISPLAY: 'wayland-0' }, ['--ozone-platform-hint=auto']), true);
+// Chromium takes the last of a repeated switch, so this reading has to as well.
+assert.equal(usesWayland({}, ['--ozone-platform=wayland', '--ozone-platform=x11']), false);
+
+// The guess leans towards Wayland where the session is unclear: reading X11 as
+// Wayland costs dragging a window home, which the Dock button also does, while
+// reading Wayland as X11 brings back a window that cannot be moved at all.
+assert.equal(canPlaceOwnWindows(
+    { platform: 'linux', env: { XDG_SESSION_TYPE: 'wayland' }, argv: [] }), false);
+
+// The strip the decision builds. Rendered with the bridge reporting each answer.
+const renderStrip = (bridge) => {
+    const had = Object.prototype.hasOwnProperty.call(globalThis.window, 'electronAPI');
+    const before = globalThis.window.electronAPI;
+    globalThis.window.electronAPI = bridge;
+    try {
+        return renderToStaticMarkup(React.createElement(FloatFrame, {
+            c, t, locale: 'en',
+            toolId: 'optical-eval',
+            title: 'Optical Evaluation',
+            onDock: () => {}, onClose: () => {},
+        }, React.createElement('div', null, 'tool body')));
+    } finally {
+        if (had) globalThis.window.electronAPI = before;
+        else delete globalThis.window.electronAPI;
+    }
+};
+
+const compositorDrags = renderStrip({ nativeWindowDrag: true });
+assert.equal(marksDragRegion(compositorDrags), true,
+    'the strip asks the compositor to move a window the app cannot place itself');
+assert.ok(compositorDrags.includes(t.docking.dragToMove),
+    'and says the drag moves the window rather than docking it');
+assert.equal(compositorDrags.includes(t.docking.dragToDock), false,
+    'it never offers a gesture that cannot reach a drop target');
+assert.match(compositorDrags, /-webkit-app-region:no-drag/,
+    'the buttons on the strip opt out, or the compositor swallows the click');
+
+const appDrags = renderStrip({ nativeWindowDrag: false });
+assert.equal(marksDragRegion(appDrags), false,
+    'where the app can place its own windows the strip stays an ordinary handle');
+assert.ok(appDrags.includes(t.docking.dragToDock),
+    'and goes on offering the drag that docks it');
+
+// A host with no bridge at all, the browser demo, keeps the app-driven path.
+assert.ok(renderStrip(undefined).includes(t.docking.dragToDock));
+
+// A window the app cannot place is one it cannot walk across the desktop, so the
+// tear-off preview is withheld rather than left standing still through a drag;
+// startDragPreview then falls back to an element that does follow the cursor.
+const preloadSource = readFileSync(
+    new URL('../src/preload.js', import.meta.url), 'utf8');
+assert.match(preloadSource, /dragGhost: nativeWindowDrag \? null :/,
+    'the drag preview window is withheld where it could not be moved');
+
+const layoutPreview = readFileSync(
+    new URL('../src/components/docking/DockingLayout.js', import.meta.url), 'utf8');
+assert.match(layoutPreview, /const bridge = [^;]*electronAPI\.dragGhost/,
+    'and startDragPreview takes the absence as its cue to draw an element instead');
 
 // ── A divider in a float is dragged in the float's own document ───────────────
 //

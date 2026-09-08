@@ -37,6 +37,12 @@ function handleWindowControl(ctx, action, sender) {
 // own title bar and drags itself, because the drag has to light the layout's
 // drop targets as it passes over them, which an OS-driven window move cannot do.
 //
+// Only ever called where the app may place its own windows. Wayland has no
+// request for a client to position its own toplevel, so there the strip is a
+// native drag region and sends nothing here. A call that arrived anyway would be
+// accepted and reported back by getBounds while the window stood still. See
+// src/main/windowPlacement.js.
+//
 // Every step states the whole rectangle, at a size that is never measured
 // during a drag. The window's size in DIP is a rounding of its physical size,
 // and setting it back converts with another rounding; on a display that is not

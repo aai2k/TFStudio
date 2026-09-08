@@ -7,6 +7,13 @@
 //
 // The window buttons talk to the main process through the child window's own
 // bridge, not this document's, or they would act on the main window.
+//
+// The strip moves the window one of two ways. Where the app may place its own
+// windows it does the moving itself, which is what lets the layout underneath
+// light a drop target and take the window back. Wayland does not allow that, so
+// there the strip is marked a native drag region and the compositor moves it.
+// A compositor-run move delivers no mouse events here, so no drop target lights
+// and the Dock button is the way home. See src/main/windowPlacement.js.
 
 import { HelpButton } from '../ui/HelpButton.js';
 import { TabIcon } from './TabGroup.js';
@@ -24,6 +31,9 @@ const CtrlBtn = ({ c, title, danger, onClick, children }) => {
             display: 'flex', alignItems: 'center', justifyContent: 'center',
             width: 40, height: '100%', flexShrink: 0,
             border: 'none', padding: 0, outline: 'none', cursor: 'pointer',
+            // The strip may be a native drag region; anything on it that is not
+            // the handle has to opt out or the compositor swallows the click.
+            WebkitAppRegion: 'no-drag',
             backgroundColor: hov ? (danger ? '#e81123' : c.hover) : 'transparent',
             color: hov && danger ? '#ffffff' : c.text,
             transition: 'background-color 0.15s, color 0.15s',
@@ -34,6 +44,38 @@ const CtrlBtn = ({ c, title, danger, onClick, children }) => {
 const glyph = (d, extra) => h('svg', { width: 11, height: 11, viewBox: '0 0 11 11', fill: 'none' },
     h('path', { d, stroke: 'currentColor', strokeWidth: 1, strokeLinecap: 'round', strokeLinejoin: 'round' }),
     extra);
+
+// Whether the compositor moves this window rather than the app. Decided in the
+// main process and delivered to the renderer as a launch argument, so it is
+// known on the first render.
+//
+// The flag has to be the boolean the desktop bridge sets, not merely something
+// truthy: a host that stands in for the bridge answers every property, and the
+// app-driven drag is what such a host wants. Only this app's own preload says
+// true here, and only where the platform will not place a window itself.
+export function hasNativeWindowDrag() {
+    return typeof window !== 'undefined' && window.electronAPI?.nativeWindowDrag === true;
+}
+
+// How the title strip carries a drag, which is the whole of what the placement
+// question changes here. Where the app moves the window itself the strip is an
+// ordinary handle whose mousedown starts the drag; where the compositor moves
+// it, the strip is a drag region instead and the gesture never reaches this
+// document, so it offers to move the window rather than to dock it.
+function stripDrag(nativeDrag, dk, onStripMouseDown) {
+    if (nativeDrag) {
+        return {
+            onMouseDown: undefined,
+            title: dk.dragToMove || 'Drag to move. The Dock button puts it back in the layout',
+            region: 'drag',
+        };
+    }
+    return {
+        onMouseDown: onStripMouseDown,
+        title: dk.dragToDock || 'Drag onto the main window to dock',
+        region: undefined,
+    };
+}
 
 // Where the window's origin goes so that the point it was grabbed by stays
 // under the pointer. `grab` is that point's offset from the origin, fixed at
@@ -50,6 +92,8 @@ export function FloatFrame({
     const colorful = ribbonStyle !== 'minimalist';
     const dk = (t && t.docking) || {};
     const [isMaximized, setIsMaximized] = useState(false);
+    // Fixed for the life of the process, so it is read rather than watched.
+    const nativeDrag = hasNativeWindowDrag();
 
     // The child window's own bridge, not this document's: `window.electronAPI`
     // here belongs to the main window and would minimize the wrong thing.
@@ -74,6 +118,8 @@ export function FloatFrame({
     // or more and skips some, while the pointer inside it is already measured
     // from where the window really is. That sum lands a step behind, the
     // window jumps back, and the drag shakes.
+    // Left unattached where the compositor owns the drag: the two would fight,
+    // and the moves it sends would be ignored anyway.
     const handleStripMouseDown = (e) => {
         if (e.button !== 0 || !win) return;
         e.preventDefault();
@@ -112,6 +158,8 @@ export function FloatFrame({
         doc.addEventListener('mouseup', onUp);
     };
 
+    const strip = stripDrag(nativeDrag, dk, handleStripMouseDown);
+
     return h('div', {
         style: {
             display: 'flex', flexDirection: 'column',
@@ -121,14 +169,16 @@ export function FloatFrame({
         }
     },
         h('div', {
-            onMouseDown: handleStripMouseDown,
-            title: dk.dragToDock || 'Drag onto the main window to dock',
+            onMouseDown: strip.onMouseDown,
+            title: strip.title,
             style: {
                 display: 'flex', alignItems: 'stretch', flexShrink: 0,
                 height: 32, backgroundColor: c.bg,
                 borderBottom: `1px solid ${c.border}`,
                 userSelect: 'none', fontSize: 12,
                 cursor: 'default',
+                // 'drag' asks the compositor to move the window, since the app cannot.
+                WebkitAppRegion: strip.region,
             }
         },
             // The window's name, not a tab. There is one tool in this window and
@@ -156,6 +206,7 @@ export function FloatFrame({
                 style: {
                     display: 'flex', alignItems: 'center', padding: '0 8px',
                     flexShrink: 0,
+                    WebkitAppRegion: 'no-drag',
                 }
             },
                 h(HelpButton, { c, anchor: helpAnchor, locale, size: 18, title: 'Help for this window (F1)' })
