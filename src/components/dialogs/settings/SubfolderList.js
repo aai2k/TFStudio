@@ -32,15 +32,15 @@ export const SubfolderList = ({ subfolders, onOpen, moving, c, t }) =>
         fontSize: '11px', fontWeight: 600, color: c.textDim,
         padding: '0 8px 4px', textTransform: 'uppercase', letterSpacing: '0.5px',
       },
-    }, t.settings.folders.subfolders || 'Subfolders'),
+    }, t.settings.folders.subfolders),
     ...subfolders.map(sf =>
       h('div', { key: sf.key, style: { ...listItemStyle(c, sf.exists), justifyContent: 'space-between' } },
         h('div', { style: { display: 'flex', alignItems: 'center', gap: '8px', minWidth: 0, flex: 1 } },
           h('span', { style: dotStyle(c, sf.exists) }),
-          h('span', { style: { flex: 1, minWidth: 0 } }, t.settings.folders[sf.key] || sf.name),
+          h('span', { style: { flex: 1, minWidth: 0 } }, t.settings.folders[sf.key]),
           !sf.exists && h('span', {
             style: { fontSize: '10px', color: c.textDim, marginLeft: '4px', flexShrink: 0 },
-          }, `(${t.settings.folders.notCreated || 'not yet created'})`)
+          }, `(${t.settings.folders.notCreated})`)
         ),
         onOpen && h('button', {
           onClick: () => onOpen(sf.key),

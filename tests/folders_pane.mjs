@@ -1,12 +1,10 @@
 /**
- * FoldersPane functional tests (issue #75 Phase E).
+ * What the settings pane is given to work with.
  *
- * Covers:
- *   - userPaths.list() return structure and overridden behavior
- *   - IPC transaction flow: paths:list, paths:set, paths:reset, paths:reveal, paths:choose
- *   - Critical recovery: persist failure + compensation failure → critical state
+ *   - the shape of userPaths.list(), which the pane renders directly
+ *   - the IPC round trip: paths:list, paths:set, paths:reset, paths:reveal, paths:choose
+ *   - that the critical case does not ask the renderer to reload
  *
- * ESM + createRequire loading CJS module.
  * Run: node tests/folders_pane.mjs
  */
 import { createRequire } from 'node:module';
@@ -22,7 +20,7 @@ function ok(c, m) { if (!c) { F++; console.error('FAIL:', m); } else P++; }
 function eq(a, b, m) { ok(a === b, `${m}: expected ${JSON.stringify(b)}, got ${JSON.stringify(a)}`); }
 
 // ═══════════════════════════════════════════════════════════════════════
-// 1. userPaths.list() return structure verification (Phase C contract)
+// 1. userPaths.list() return structure
 // ═══════════════════════════════════════════════════════════════════════
 {
   const { createUserPaths, FOLDER_SPECS } = require('../src/main/userPaths.js');
@@ -88,29 +86,28 @@ function eq(a, b, m) { ok(a === b, `${m}: expected ${JSON.stringify(b)}, got ${J
 
   let changeCount = 0;
   const ctx = {
-    userPaths: up, log: () => {},
+    userPaths: up, log: () => {}, fs, path,
     settingsPath: path.join(TMP, 's.json'), readJsonSafe: () => null,
     writeFileAtomic: () => {},
     onUserPathsChanged: () => { changeCount++; },
     dialog: { async showOpenDialog() { return { canceled: true }; } },
     getMainWindow: () => ({}), shell: { async openPath() { return ''; } },
+    // A move engine that renames within one volume and succeeds.
+    dataFolderMove: {
+      checkTarget: () => ({ ok: true }),
+      async moveTree(from, to) {
+        fs.cpSync(from, to, { recursive: true });
+        fs.rmSync(from, { recursive: true, force: true });
+        return { success: true, method: 'rename' };
+      },
+    },
     _dir: TMP,
   };
 
   const handlers = {};
   const fakeIpcMain = { handle(ch, fn) { handlers[ch] = fn; } };
 
-  // mock move factory (same-disk rename success)
-  const fakeMove = {
-    checkTarget: () => ({ ok: true }),
-    async moveTree(from, to) {
-      fs.cpSync(from, to, { recursive: true });
-      fs.rmSync(from, { recursive: true, force: true });
-      return { success: true, method: 'rename' };
-    },
-  };
-
-  register(fakeIpcMain, ctx, fakeMove);
+  register(fakeIpcMain, ctx);
 
   // paths:list return structure
   const listResult = await handlers['paths:list']();
@@ -159,31 +156,30 @@ function eq(a, b, m) { ok(a === b, `${m}: expected ${JSON.stringify(b)}, got ${J
 
   let changeCount = 0;
   const ctx = {
-    userPaths: up, log: () => {},
+    userPaths: up, log: () => {}, fs, path,
     settingsPath: path.join(TMP, 's.json'), readJsonSafe: () => null,
     writeFileAtomic: () => { throw new Error('disk full'); },
     onUserPathsChanged: () => { changeCount++; },
     dialog: { async showOpenDialog() { return { canceled: true }; } },
     getMainWindow: () => ({}), shell: { async openPath() { return ''; } },
+    // The move reports success and then loses both copies, so the settings
+    // write fails and the files cannot be put back either.
+    dataFolderMove: {
+      checkTarget: () => ({ ok: true }),
+      async moveTree(from, to) {
+        fs.cpSync(from, to, { recursive: true });
+        fs.rmSync(from, { recursive: true, force: true });
+        fs.rmSync(to, { recursive: true, force: true });
+        return { success: true, method: 'rename' };
+      },
+    },
     _dir: TMP,
   };
 
   const handlers = {};
   const fakeIpcMain = { handle(ch, fn) { handlers[ch] = fn; } };
 
-  // mock move factory: rename succeeds but persist fails + compensation fails → critical
-  const criticalMove = {
-    checkTarget: () => ({ ok: true }),
-    async moveTree(from, to) {
-      fs.cpSync(from, to, { recursive: true });
-      fs.rmSync(from, { recursive: true, force: true });
-      // Simulate compensation rename also failing
-      fs.rmSync(to, { recursive: true, force: true });
-      return { success: true, method: 'rename' };
-    },
-  };
-
-  register(fakeIpcMain, ctx, criticalMove);
+  register(fakeIpcMain, ctx);
 
   const newRoot = path.join(TMP, 'crit-root');
   fs.mkdirSync(newRoot, { recursive: true });

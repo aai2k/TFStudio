@@ -35,7 +35,7 @@ function getRootPath(listResult) {
  * @param {object} props.c - theme color object
  * @param {object} props.t - localized strings
  * @param {Function} props.onUserPathChanged - reload callback after a successful transaction
- * @param {Function} props.canChangeUserPath - unsaved-design guard (key param deprecated, checks root uniformly)
+ * @param {Function} props.canChangeUserPath - unsaved-design guard
  * @param {Function} props.showConfirm - app-level confirm dialog (message) => Promise<boolean>
  */
 export const FoldersPane = ({ c, t, onUserPathChanged, canChangeUserPath, showConfirm }) => {
@@ -79,16 +79,10 @@ export const FoldersPane = ({ c, t, onUserPathChanged, canChangeUserPath, showCo
     // success
     setError(null);
     if (result.folders) setFolders(result.folders);
-    if (result.warning) {
-      // success with warning (e.g. old folder still exists) — use a separate amber style
-      setWarning(t.settings.folders.oldStillThere
-        ? t.settings.folders.oldStillThere
-        : result.warning);
-    } else {
-      setWarning(null);
-    }
-    // only call reload on success or warning (not on critical); await so the
-    // busy state is not cleared until the reload completes
+    // A move that succeeded but could not remove the old folder is still a
+    // success; it is shown in the warning style rather than as an error.
+    setWarning(result.warning ? t.settings.folders.oldStillThere : null);
+    // Reload runs on success and on success-with-warning, never on critical.
     await onUserPathChanged?.();
   }, [t, onUserPathChanged]);
 
@@ -118,7 +112,7 @@ export const FoldersPane = ({ c, t, onUserPathChanged, canChangeUserPath, showCo
       setWarning(null);
       try {
         const result = await window.electronAPI?.setUserPath?.(chooseResult.path);
-        handleMoveResult(result);
+        await handleMoveResult(result);
       } finally {
         setMoving(false);
       }
@@ -154,7 +148,7 @@ export const FoldersPane = ({ c, t, onUserPathChanged, canChangeUserPath, showCo
       setWarning(null);
       try {
         const result = await window.electronAPI?.resetUserPath?.();
-        handleMoveResult(result);
+        await handleMoveResult(result);
       } finally {
         setMoving(false);
       }
@@ -230,7 +224,7 @@ export const FoldersPane = ({ c, t, onUserPathChanged, canChangeUserPath, showCo
 
     // ── read-only subdirectory list ──
     subfolders.length > 0 && h(SubfolderList, {
-      subfolders: subfolders.map(sf => ({ ...sf, name: sf.key })),
+      subfolders,
       onOpen: onOpenSubfolder,
       moving,
       c, t,

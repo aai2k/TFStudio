@@ -1,6 +1,7 @@
 /**
- * ipc/paths.js transaction coordinator tests.
- * ESM + createRequire for CJS modules. Real fs + os.tmpdir().
+ * ipc/paths.js: the data folder move transaction.
+ * Real fs under os.tmpdir(); the move engine is a stub so each failure mode
+ * can be reached on demand.
  * Run: node tests/ipc_paths_transaction.mjs
  */
 import { createRequire } from 'node:module';
@@ -23,7 +24,7 @@ function mkCtx(opts = {}) {
   up.load(opts.loadRoot ? { folders: { root: opts.loadRoot } } : {});
   up.ensureAll();
   let cc = 0;
-  return { userPaths: up, log: () => {},
+  return { userPaths: up, log: () => {}, fs, path,
     settingsPath: path.join(d, 's.json'), readJsonSafe: () => null,
     writeFileAtomic: opts.writeFileAtomic || (() => {}),
     onUserPathsChanged: () => { cc++; }, get onUserPathsChangedCount() { return cc; },
@@ -40,185 +41,200 @@ function mkMove(o = {}) {
       return { success: true, method: o.m || 'rename', crossDevice: o.m === 'copy' };
     } };
 }
+// A move that lands the files at the target and then loses both copies, which
+// is what the compensating rename hits when it cannot put them back.
+function mkLosingMove() {
+  return { checkTarget: () => ({ ok: true }),
+    async moveTree(f, t) {
+      fs.cpSync(f, t, { recursive: true });
+      fs.rmSync(f, { recursive: true, force: true });
+      fs.rmSync(t, { recursive: true, force: true });
+      return { success: true, method: 'rename' };
+    } };
+}
 function mkIpc() { const h = {}; return { im: { handle(c, f) { h[c] = f; } }, inv(c, ...a) { return h[c](null, ...a); } }; }
+// Put the move engine on ctx the way main.js does, then register.
+function wire(c, move) {
+  if (move) c.dataFolderMove = move;
+  const { im, inv } = mkIpc();
+  register(im, c);
+  return inv;
+}
 
 async function test() {
-  // Same-disk transaction
-  // 1: rename + persist success
+  // ── same volume ───────────────────────────────────────────────────────
+  // rename, settings written
   { const c = mkCtx(); const old = c.userPaths.rootDir;
     fs.mkdirSync(path.join(old, 'P'), { recursive: true }); fs.writeFileSync(path.join(old, 'P', 'a'), 'x');
     const nr = path.join(c._dir, 'nr'); fs.mkdirSync(nr, { recursive: true });
-    const { im, inv } = mkIpc(); register(im, c, mkMove());
-    const r = await inv('paths:set', null, nr); ok(r.success, '1'); ok(c.userPaths.rootDir === nr, '1r'); }
-  // 2: moveTree fail
-  { const c = mkCtx(); const { im, inv } = mkIpc(); register(im, c, mkMove({ fail: true, err: 'EPERM' }));
+    const inv = wire(c, mkMove());
+    const r = await inv('paths:set', null, nr);
+    ok(r.success, 'rename move succeeds');
+    ok(c.userPaths.rootDir === nr, 'root follows the move'); }
+  // the move itself fails
+  { const c = mkCtx(); const inv = wire(c, mkMove({ fail: true, err: 'EPERM' }));
     const nr = path.join(c._dir, 'nr'); fs.mkdirSync(nr, { recursive: true });
-    const r = await inv('paths:set', null, nr); ok(!r.success, '2'); }
-  // 3: persist fail + compensation
+    const r = await inv('paths:set', null, nr); ok(!r.success, 'a failed move is reported'); }
+  // settings write fails, files are renamed back
   { const c = mkCtx(); const old = c.userPaths.rootDir;
     fs.mkdirSync(path.join(old, 'P'), { recursive: true }); fs.writeFileSync(path.join(old, 'P', 'a'), 'x');
     const nr = path.join(c._dir, 'nr'); fs.mkdirSync(nr, { recursive: true });
-    const { im, inv } = mkIpc(); register(im, c, mkMove());
+    const inv = wire(c, mkMove());
     c.writeFileAtomic = () => { throw new Error('disk full'); };
-    const r = await inv('paths:set', null, nr); ok(!r.success, '3'); ok(c.userPaths.rootDir === old, '3r'); }
-  // 4: persist fail + comp fail + second persist → warning
+    const r = await inv('paths:set', null, nr);
+    ok(!r.success, 'a failed settings write fails the move');
+    ok(c.userPaths.rootDir === old, 'the old root is restored'); }
+  // settings write fails, files cannot be moved back, second write succeeds
   { const c = mkCtx(); fs.mkdirSync(path.join(c.userPaths.rootDir, 'P'), { recursive: true });
     const nr = path.join(c._dir, 'nr'); fs.mkdirSync(nr, { recursive: true });
-    const { im, inv } = mkIpc();
-    register(im, c, { checkTarget: () => ({ ok: true }),
-      async moveTree(f, t) { fs.cpSync(f, t, { recursive: true }); fs.rmSync(f, { recursive: true, force: true }); fs.rmSync(t, { recursive: true, force: true }); return { success: true, method: 'rename' }; } });
+    const inv = wire(c, mkLosingMove());
     let pc = 0; c.writeFileAtomic = (f, d) => { pc++; if (pc <= 1) throw new Error('full'); fs.writeFileSync(f, d); };
-    const r = await inv('paths:set', null, nr); ok(r.success, '4'); ok(r.warning?.includes('recovered'), '4w'); }
-  // 5: critical
+    const r = await inv('paths:set', null, nr);
+    ok(r.success, 'settings recovered on the second write');
+    ok(r.warning?.includes('recovered'), 'the recovery is reported as a warning'); }
+  // neither write succeeds: data is at the new root and settings are not
   { const c = mkCtx(); fs.mkdirSync(path.join(c.userPaths.rootDir, 'P'), { recursive: true });
     const nr = path.join(c._dir, 'nr'); fs.mkdirSync(nr, { recursive: true });
-    const { im, inv } = mkIpc();
-    register(im, c, { checkTarget: () => ({ ok: true }),
-      async moveTree(f, t) { fs.cpSync(f, t, { recursive: true }); fs.rmSync(f, { recursive: true, force: true }); fs.rmSync(t, { recursive: true, force: true }); return { success: true, method: 'rename' }; } });
+    const inv = wire(c, mkLosingMove());
     c.writeFileAtomic = () => { throw new Error('full'); };
-    const r = await inv('paths:set', null, nr); ok(!r.success, '5'); ok(r.critical, '5c'); ok(r.dataLocation === nr, '5d'); }
-  // Cross-disk transaction
-  // 6: cross-disk full success
+    const r = await inv('paths:set', null, nr);
+    ok(!r.success, 'no settings write means no success');
+    ok(r.critical, 'the caller is told this one is critical');
+    ok(r.dataLocation === nr, 'and where the data now is'); }
+
+  // ── other volume ──────────────────────────────────────────────────────
   { const c = mkCtx(); fs.mkdirSync(path.join(c.userPaths.rootDir, 'P'), { recursive: true });
     const nr = path.join(c._dir, 'nr'); fs.mkdirSync(nr, { recursive: true });
-    const { im, inv } = mkIpc(); register(im, c, mkMove({ m: 'copy' }));
-    const r = await inv('paths:set', null, nr); ok(r.success, '6'); }
-  // 7: copy fail
+    const inv = wire(c, mkMove({ m: 'copy' }));
+    const r = await inv('paths:set', null, nr); ok(r.success, 'copy move succeeds'); }
+  // copy fails
   { const c = mkCtx(); fs.mkdirSync(path.join(c.userPaths.rootDir, 'P'), { recursive: true });
     const nr = path.join(c._dir, 'nr');
-    const { im, inv } = mkIpc(); register(im, c, mkMove({ fail: true, err: 'ENOSPC' }));
-    const r = await inv('paths:set', null, nr); ok(!r.success, '7'); }
-  // 8: copy + persist fail → new cleaned
+    const inv = wire(c, mkMove({ fail: true, err: 'ENOSPC' }));
+    const r = await inv('paths:set', null, nr); ok(!r.success, 'a failed copy is reported'); }
+  // copy succeeded but settings failed: the copy is removed, the old folder stays
   { const c = mkCtx(); fs.mkdirSync(path.join(c.userPaths.rootDir, 'P'), { recursive: true });
     const nr = path.join(c._dir, 'nr'); fs.mkdirSync(nr, { recursive: true });
-    const { im, inv } = mkIpc(); register(im, c, mkMove({ m: 'copy' }));
+    const inv = wire(c, mkMove({ m: 'copy' }));
     c.writeFileAtomic = () => { throw new Error('full'); };
-    const r = await inv('paths:set', null, nr); ok(!r.success, '8'); ok(!fs.existsSync(nr), '8c'); }
-  // 9: cross-disk success
+    const r = await inv('paths:set', null, nr);
+    ok(!r.success, 'a failed settings write fails the copy move');
+    ok(!fs.existsSync(nr), 'the unreferenced copy is removed'); }
+  // the old folder cannot be deleted: still a success, with a warning
   { const c = mkCtx(); fs.mkdirSync(path.join(c.userPaths.rootDir, 'P'), { recursive: true });
+    const oldRoot = c.userPaths.rootDir;
     const nr = path.join(c._dir, 'nr'); fs.mkdirSync(nr, { recursive: true });
-    const { im, inv } = mkIpc(); register(im, c, mkMove({ m: 'copy' }));
-    const r = await inv('paths:set', null, nr); ok(r.success, '9'); }
-  // mutex
-  // 10: mutex fast fail
-  { const c = mkCtx(); const { im, inv } = mkIpc(); register(im, c, mkMove({ fail: true, err: 'x' }));
-    const r1 = await inv('paths:set', null, path.join(c._dir, 'a')); ok(!r1.success, '10a');
-    const r2 = await inv('paths:set', null, path.join(c._dir, 'b')); ok(typeof r2.success === 'boolean', '10b'); }
-  // 11: mutex release
-  { const c = mkCtx(); const { im, inv } = mkIpc(); let n = 0;
-    register(im, c, { checkTarget: () => ({ ok: true }),
+    const inv = wire(c, { checkTarget: () => ({ ok: true }),
+      async moveTree(f, t) { fs.cpSync(f, t, { recursive: true }); return { success: true, method: 'copy' }; } });
+    c.fs = { promises: { ...fs.promises,
+      async rm(p, o) { if (p === oldRoot) throw new Error('EBUSY'); return fs.promises.rm(p, o); } } };
+    const r = await inv('paths:set', null, nr);
+    ok(r.success, 'a move whose cleanup fails still succeeds');
+    ok(r.warning?.includes(oldRoot), 'the old folder is named in the warning');
+    ok(fs.existsSync(oldRoot), 'and it is still on disk'); }
+
+  // ── one move at a time ────────────────────────────────────────────────
+  { const c = mkCtx(); const inv = wire(c, mkMove({ fail: true, err: 'x' }));
+    const r1 = await inv('paths:set', null, path.join(c._dir, 'a')); ok(!r1.success, 'first move fails');
+    const r2 = await inv('paths:set', null, path.join(c._dir, 'b')); ok(typeof r2.success === 'boolean', 'the lock is released after a failure'); }
+  { const c = mkCtx(); let n = 0;
+    const inv = wire(c, { checkTarget: () => ({ ok: true }),
       async moveTree() { n++; return n === 1 ? { success: false, error: 'x' } : { success: true, method: 'rename' }; } });
-    const r1 = await inv('paths:set', null, path.join(c._dir, 'a')); ok(!r1.success, '11a');
-    const r2 = await inv('paths:set', null, path.join(c._dir, 'b')); ok(typeof r2.success === 'boolean', '11b'); }
-  // reset
-  // 12: reset custom→default
+    const r1 = await inv('paths:set', null, path.join(c._dir, 'a')); ok(!r1.success, 'first move fails');
+    const r2 = await inv('paths:set', null, path.join(c._dir, 'b')); ok(typeof r2.success === 'boolean', 'a later move can run'); }
+  // a second move while one is in flight is refused
+  { const c = mkCtx();
+    let resolveFirst;
+    const inv = wire(c, { checkTarget: () => ({ ok: true }),
+      async moveTree() { return new Promise((resolve) => { resolveFirst = resolve; }); } });
+    const p1 = inv('paths:set', null, path.join(c._dir, 'a'));
+    const r2 = await inv('paths:set', null, path.join(c._dir, 'b'));
+    ok(r2.success === false, 'a concurrent move is refused');
+    ok(r2.error === 'data folder move already in progress', 'with the in-progress message');
+    resolveFirst({ success: false, error: 'cancelled' });
+    await p1; }
+
+  // ── reset ─────────────────────────────────────────────────────────────
   { const c = mkCtx(); const cr = path.join(c._dir, 'cr'); fs.mkdirSync(cr, { recursive: true });
     fs.mkdirSync(path.join(cr, 'P'), { recursive: true }); fs.writeFileSync(path.join(cr, 'P', 'a'), 'x');
     c.userPaths.load({ folders: { root: cr } }); c.userPaths.ensureAll();
-    const { im, inv } = mkIpc(); register(im, c, mkMove());
-    const r = await inv('paths:reset'); ok(r.success, '12'); ok(c.userPaths.rootDir === c.userPaths.baseDir, '12b'); }
-  // 13: no-op
-  { const c = mkCtx(); const { im, inv } = mkIpc();
-    register(im, c, { checkTarget: () => { throw new Error('NO'); }, async moveTree() { throw new Error('NO'); } });
-    const r = await inv('paths:reset'); ok(r.success, '13'); ok(c.onUserPathsChangedCount === 0, '13n'); }
-  // 14: reset persist fail + compensation
+    const inv = wire(c, mkMove());
+    const r = await inv('paths:reset');
+    ok(r.success, 'reset moves the data back');
+    ok(c.userPaths.rootDir === c.userPaths.baseDir, 'and the root is the default again'); }
+  // already default: nothing happens
+  { const c = mkCtx();
+    const inv = wire(c, { checkTarget: () => { throw new Error('NO'); }, async moveTree() { throw new Error('NO'); } });
+    const r = await inv('paths:reset');
+    ok(r.success, 'reset at the default is a no-op');
+    ok(c.onUserPathsChangedCount === 0, 'and nothing is reloaded'); }
+  // reset whose settings write fails
   { const c = mkCtx(); const cr = path.join(c._dir, 'cr'); fs.mkdirSync(cr, { recursive: true });
     fs.mkdirSync(path.join(cr, 'P'), { recursive: true }); fs.writeFileSync(path.join(cr, 'P', 'a'), 'x');
     c.userPaths.load({ folders: { root: cr } }); c.userPaths.ensureAll();
     const orig = c.userPaths.rootDir;
-    const { im, inv } = mkIpc(); register(im, c, mkMove());
+    const inv = wire(c, mkMove());
     c.writeFileAtomic = () => { throw new Error('full'); };
-    const r = await inv('paths:reset'); ok(!r.success, '14'); ok(c.userPaths.rootDir === orig, '14r'); }
-  // handler contract
-  // 15: list shape
-  { const c = mkCtx(); const { im, inv } = mkIpc(); register(im, c);
-    const r = await inv('paths:list'); ok(r.success, '15'); ok(r.folders.subfolders.length === 9, '15n'); }
-  // 16: choose returns path
-  { const c = mkCtx(); const { im, inv } = mkIpc();
-    register(im, c, { checkTarget: () => { throw new Error('NO'); }, async moveTree() { throw new Error('NO'); } });
+    const r = await inv('paths:reset');
+    ok(!r.success, 'a failed settings write fails the reset');
+    ok(c.userPaths.rootDir === orig, 'and the configured root is restored'); }
+
+  // ── handlers ──────────────────────────────────────────────────────────
+  { const c = mkCtx(); const inv = wire(c);
+    const r = await inv('paths:list');
+    ok(r.success, 'list succeeds');
+    ok(r.folders.subfolders.length === 9, 'and returns nine subfolders'); }
+  { const c = mkCtx();
+    const inv = wire(c, { checkTarget: () => { throw new Error('NO'); }, async moveTree() { throw new Error('NO'); } });
     c.dialog = { async showOpenDialog() { return { canceled: false, filePaths: ['/x'] }; } };
-    const r = await inv('paths:choose'); ok(r.success, '16'); ok(r.path === '/x', '16p'); }
-  // 17: fallback set (avoid Windows timeout by not using network driver path)
+    const r = await inv('paths:choose');
+    ok(r.success, 'choose succeeds');
+    ok(r.path === '/x', 'and returns the picked path without moving anything'); }
+
+  // ── running from the default because the configured root was unusable ──
   { const c = mkCtx(); c.userPaths.load({ folders: { root: path.join(c._dir, 'nonexistent-subdir') } });
-    ok(c.userPaths.configuredRoot !== null, '17c');
+    ok(c.userPaths.configuredRoot !== null, 'the unusable root is remembered');
     const nr = path.join(c._dir, 'fb'); fs.mkdirSync(nr, { recursive: true });
-    const { im, inv } = mkIpc(); register(im, c, mkMove());
-    const r = await inv('paths:set', null, nr); ok(typeof r.success === 'boolean', '17'); }
-  // 18: listSubfolders removed (paths:listSubfolders deleted per maintainer review)
-  // P1-4: critical branch write rejected
+    const inv = wire(c, mkMove());
+    const r = await inv('paths:set', null, nr); ok(typeof r.success === 'boolean', 'a move out of the fallback returns a result'); }
+  // the critical branch records which root could not be saved
   { const c = mkCtx(); fs.mkdirSync(path.join(c.userPaths.rootDir, 'P'), { recursive: true });
     const origRoot = c.userPaths.rootDir;
     const nr = path.join(c._dir, 'nr'); fs.mkdirSync(nr, { recursive: true });
-    const { im, inv } = mkIpc();
-    register(im, c, { checkTarget: () => ({ ok: true }),
-      async moveTree(f, t) { fs.cpSync(f, t, { recursive: true }); fs.rmSync(f, { recursive: true, force: true }); fs.rmSync(t, { recursive: true, force: true }); return { success: true, method: 'rename' }; } });
+    const inv = wire(c, mkLosingMove());
     c.writeFileAtomic = () => { throw new Error('full'); };
     const r = await inv('paths:set', null, nr);
-    ok(!r.success, 'P1-4a: critical success=false');
-    ok(r.critical === true, 'P1-4b: critical=true');
-    ok(r.dataLocation === nr, 'P1-4c: dataLocation');
-    ok(c.userPaths.rejected !== null, 'P1-4d: rejected 已写');
-    ok(c.userPaths.rejected.configured === origRoot, 'P1-4e: rejected.configured = originalRoot'); }
-  // P1-5: mutex real concurrent test
-  { const c = mkCtx();
-    // Inject moveTree that never resolves
-    const { im, inv } = mkIpc();
-    let resolveFirst;
-    register(im, c, { checkTarget: () => ({ ok: true }),
-      async moveTree() { return new Promise((resolve) => { resolveFirst = resolve; }); } });
-    // Initiate first set (no await)
-    const p1 = inv('paths:set', null, path.join(c._dir, 'a'));
-    // Second set should be rejected by mutex
-    const r2 = await inv('paths:set', null, path.join(c._dir, 'b'));
-    ok(r2.success === false, 'P1-5a: 并发 set 被拒');
-    ok(r2.error === 'data folder move already in progress', 'P1-5b: 正确的 error 消息');
-    // Release first pending
-    resolveFirst({ success: false, error: 'cancelled' });
-    await p1; }
-  // P2-12a: fallback set truly overwrites (use "parent path is a file" to create real probe failure)
+    ok(!r.success, 'critical is not a success');
+    ok(r.critical === true, 'the flag is set');
+    ok(r.dataLocation === nr, 'the data location is reported');
+    ok(c.userPaths.rejected !== null, 'the pane is given something to show');
+    ok(c.userPaths.rejected.configured === origRoot, 'naming the root that could not be saved'); }
+  // a set out of the fallback state clears it
   { const c = mkCtx();
     const existingFile = path.join(c._dir, 'existing-file.txt');
     fs.writeFileSync(existingFile, 'locked');
-    const badSubdir = path.join(existingFile, 'sub');
-    c.userPaths.load({ folders: { root: badSubdir } });
-    ok(c.userPaths.rejected !== null, 'P2-12a: rejected != null（probe 失败）');
-    ok(c.userPaths.rootDir === c.userPaths.baseDir, 'P2-12a: rootDir = baseDir');
+    // A file cannot be a parent directory, so the write probe fails for real.
+    c.userPaths.load({ folders: { root: path.join(existingFile, 'sub') } });
+    ok(c.userPaths.rejected !== null, 'an unusable root is rejected at startup');
+    ok(c.userPaths.rootDir === c.userPaths.baseDir, 'and the default is used instead');
     const nr = path.join(c._dir, 'fb-ok'); fs.mkdirSync(nr, { recursive: true });
-    const { im, inv } = mkIpc(); register(im, c, mkMove());
+    const inv = wire(c, mkMove());
     const r = await inv('paths:set', null, nr);
-    ok(r.success, 'P2-12a: fallback set 成功');
-    ok(c.userPaths.rejected === null, 'P2-12a: rejected 被清');
-    ok(c.userPaths.configuredRoot === nr || c.userPaths.rootDir === nr, 'P2-12a: configuredRoot/rootDir 更新'); }
-  // P2-12b: cross-disk delete-fail warning
-  { const c = mkCtx(); fs.mkdirSync(path.join(c.userPaths.rootDir, 'P'), { recursive: true });
-    const nr = path.join(c._dir, 'nr'); fs.mkdirSync(nr, { recursive: true });
-    const { im, inv } = mkIpc();
-    // fake move succeeds but old directory remains (simulating delete failure)
-    register(im, c, { checkTarget: () => ({ ok: true }),
-      async moveTree(f, t) { fs.cpSync(f, t, { recursive: true }); return { success: true, method: 'copy' }; } });
-    // Simulate persist success but delete old fails (rmSync throws)
-    const origRmSync = fs.rmSync;
-    const origRoot = c.userPaths.rootDir;
-    // Make rmSync fail when deleting old directory
-    let rmFailed = false;
-    c._origRmSync = fs.rmSync;
-    const r = await inv('paths:set', null, nr);
-    // Since fake move does not delete old directory, delete old will succeed (directory still exists)
-    // We only need to verify success=true (warning is determined by real fs.rmSync behavior)
-    ok(r.success, 'P2-12b: cross-disk set 成功'); }
-  // P2-13: fallback Reset clears configuredRoot
+    ok(r.success, 'a new folder can be chosen from the fallback');
+    ok(c.userPaths.rejected === null, 'which clears the rejection');
+    ok(c.userPaths.configuredRoot === nr || c.userPaths.rootDir === nr, 'and takes effect'); }
+  // reset from the fallback state gives the configured root up
   { const c = mkCtx();
     const existingFile = path.join(c._dir, 'existing-file.txt');
     fs.writeFileSync(existingFile, 'locked');
     c.userPaths.load({ folders: { root: path.join(existingFile, 'sub') } });
-    ok(c.userPaths.rejected !== null, 'P2-13: setup rejected');
-    ok(c.userPaths.configuredRoot !== null, 'P2-13: setup configuredRoot');
-    // Reset should clear configuredRoot + rejected (even when rootDir == baseDir)
-    const { im, inv } = mkIpc(); register(im, c);
+    ok(c.userPaths.rejected !== null, 'setup: rejected');
+    ok(c.userPaths.configuredRoot !== null, 'setup: the choice is still recorded');
+    const inv = wire(c);
     const r = await inv('paths:reset');
-    ok(r.success, 'P2-13: fallback reset success');
-    ok(c.userPaths.configuredRoot === null, 'P2-13: configuredRoot = null');
-    ok(c.userPaths.rejected === null, 'P2-13: rejected = null'); }
+    ok(r.success, 'reset succeeds while running from the fallback');
+    ok(c.userPaths.configuredRoot === null, 'the choice is dropped');
+    ok(c.userPaths.rejected === null, 'and the rejection with it'); }
   return { passed: P, failed: F };
 }
 

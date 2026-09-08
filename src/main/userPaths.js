@@ -1,15 +1,16 @@
 /**
- * Data directory registry (single Data Folder model).
+ * Where user data lives: one data folder, with nine subfolders under it.
  *
- * The new model keeps a single optional root, replacing all per-folder overrides.
- * Each subdirectory resolves to rootDir + subdir.
- * The configured root (configuredRoot) is separated from the actually-used root (rootDir) —
- * during fallback, configuredRoot is kept so it can be reloaded after device recovery.
+ * configuredRoot is what the user chose and rootDir is what the app is running
+ * from. They differ when the chosen folder is unusable at startup, say a drive
+ * that is not plugged in: the app falls back to Documents\TFStudio for the
+ * session but keeps the choice, so the next start with the drive back uses it
+ * again.
  *
  * CommonJS, Electron-free (deps injected) for testability.
  */
 
-// Target baseline: 1.7.2/main FOLDER_SPECS (9 entries, incl. Coatings)
+// The nine subfolders, with the names they carry under the data folder.
 const FOLDER_SPECS = [
   { key: 'projects',       ctxKey: 'projectsDir',       subdir: 'Projects' },
   { key: 'materials',      ctxKey: 'materialsDir',      subdir: 'Materials' },

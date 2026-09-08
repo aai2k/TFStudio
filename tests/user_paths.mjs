@@ -1,10 +1,10 @@
 /**
- * Single Data Folder Model Test (src/main/userPaths.js, issue #75 convergence version).
+ * The data folder registry (src/main/userPaths.js).
  *
- * Covers: startup validation (load), toSettings, applyRoot/setRoot,
- * defineCtxGetters, ensureAll, legacy keys detection, fallback behavior.
- *
- * ESM + createRequire loading CJS module. Using real fs + os.tmpdir() to create temp directory, clean up after.
+ * Covers startup validation, what is persisted, the portable relative form,
+ * the fallback when the configured folder cannot be used, the live ctx getters
+ * the IPC handlers read through, and that the traversal guard in safeFilePath
+ * still holds when it is rooted at a configured (non-default) base.
  */
 import { createRequire } from 'node:module';
 import path from 'node:path';
@@ -13,14 +13,8 @@ import os from 'node:os';
 
 const require = createRequire(import.meta.url);
 const { createUserPaths, FOLDER_SPECS } = require('../src/main/userPaths.js');
-const { writeMainOwnedKey } = require('../src/main/settingsFile.js');
-
-// Cross-platform unusable root: probeUsable must fail immediately.
-// Windows: Q: drive doesn't exist → ENOENT.
-// Linux/macOS: path component exceeds 255-byte NAME_MAX → ENAMETOOLONG.
-const BAD_ROOT = process.platform === 'win32'
-  ? 'Q:\\TFStudio'
-  : path.join(os.tmpdir(), 'x'.repeat(300));
+const { safeFilePath } = require('../src/main/paths.js');
+const { writeMainOwnedKey, writeRendererSettings } = require('../src/main/settingsFile.js');
 
 let passed = 0;
 function ok(condition, message) {
@@ -31,6 +25,13 @@ function ok(condition, message) {
 // ── Helper: temp dir + real fs ──────────────────────────────────────────────
 const TMP_ROOT = fs.mkdtempSync(path.join(os.tmpdir(), 'user-paths-test-'));
 
+// A root whose parent is a file. mkdir there fails at once on every platform,
+// which is what an unplugged drive looks like to the write probe.
+const BLOCKING_FILE = path.join(TMP_ROOT, 'not-a-directory');
+const BAD_ROOT = path.join(BLOCKING_FILE, 'TFStudio');
+function makeBlockingFile() { fs.writeFileSync(BLOCKING_FILE, 'x'); }
+makeBlockingFile();
+
 function tmpDir(name) {
   const dir = path.join(TMP_ROOT, name);
   fs.mkdirSync(dir, { recursive: true });
@@ -39,9 +40,11 @@ function tmpDir(name) {
 
 function cleanTmp() {
   fs.rmSync(TMP_ROOT, { recursive: true, force: true });
+  fs.mkdirSync(TMP_ROOT, { recursive: true });
+  makeBlockingFile();
 }
 
-// POSIX path for pure logic tests that don't need actual file system operations
+// POSIX paths for the cases that need no real file system.
 const POSIX = path.posix;
 const DOCS = '/home/test/Documents';
 const BASE = DOCS + '/TFStudio';
@@ -58,7 +61,7 @@ const makePosix = (opts = {}) => {
   return { paths, fs: inMemoryFs, logs };
 };
 
-// Real fs (for load/ensureAll and other tests needing real IO)
+// Real fs, for load / ensureAll and anything else that must touch disk.
 function makeReal(exeDir) {
   const docs = tmpDir('docs');
   const logs = [];
@@ -72,7 +75,8 @@ function makeReal(exeDir) {
   return { paths, logs, docs };
 }
 
-// ── Memory fs (for pure logic tests) ──────────────────────────────────────────────
+// `unwritable` marks paths whose mkdir/write must fail, standing in for a
+// read-only share or a disconnected drive.
 function makeInMemoryFs(unwritable = []) {
   const dirs = new Set();
   const files = new Map();
@@ -97,15 +101,10 @@ function makeInMemoryFs(unwritable = []) {
   };
 }
 
-// Helper: concatenate POSIX paths
 function posixJoin(...parts) { return POSIX.join(...parts); }
 function posixDefault(subdir) { return posixJoin(BASE, subdir); }
 
-// ═══════════════════════════════════════════════════════════════════════════
-// Test cases
-// ═══════════════════════════════════════════════════════════════════════════
-
-// ── 1. defaults ───────────────────────────────────────────────────────
+// ── Defaults ────────────────────────────────────────────────────────────────
 {
   const { paths } = makePosix();
   ok(paths.get('projects') === posixDefault('Projects'), 'projects default is correct');
@@ -117,230 +116,197 @@ function posixDefault(subdir) { return posixJoin(BASE, subdir); }
   ok(paths.get('reportPresets') === posixDefault('ReportPresets'), 'reportPresets default is correct');
   ok(paths.get('branding') === posixDefault('Branding'), 'branding default is correct');
   ok(paths.get('preferences') === posixDefault('Preferences'), 'preferences default is correct');
-  ok(FOLDER_SPECS.length === 9, 'FOLDER_SPECS has 9 entries');
-  ok(paths.list().overridden === false, 'not overridden by default');
-  ok(Object.keys(paths.toSettings()).length === 0, 'toSettings returns {} by default');
+  ok(FOLDER_SPECS.length === 9, 'there are nine subfolders');
+  ok(paths.list().overridden === false, 'an untouched install is not overridden');
+  ok(Object.keys(paths.toSettings()).length === 0, 'an untouched install persists no folders block');
 }
 
-// ── 2. configured root non-empty and usable → accepted ────────────────────────────
+// ── A configured root that exists and is writable is used ───────────────────
 {
   const { paths } = makeReal();
   const customRoot = tmpDir('custom-root');
   paths.load({ folders: { root: customRoot } });
-  ok(paths.rootDir === customRoot, 'load 可用 root → rootDir 设为 configured');
-  ok(paths.configuredRoot === customRoot, 'load 可用 root → configuredRoot 设为该路径');
-  ok(paths.rejected === null, 'load 可用 root → rejected 为 null');
+  ok(paths.rootDir === customRoot, 'the configured root is used');
+  ok(paths.configuredRoot === customRoot, 'and recorded as configured');
+  ok(paths.rejected === null, 'with nothing rejected');
   cleanTmp();
 }
 
-// ── 3. Path does not exist but device available (mkdir+probe success) → accepted ────────────────
+// ── A root that does not exist yet is created ───────────────────────────────
 {
   const { paths } = makeReal();
   const parent = tmpDir('device-ok');
   const newRoot = path.join(parent, 'nonexistent');
-  // Ensure path does not exist
-  ok(!fs.existsSync(newRoot), 'setup: 目标路径不存在');
+  ok(!fs.existsSync(newRoot), 'setup: the target does not exist');
   paths.load({ folders: { root: newRoot } });
-  ok(fs.existsSync(newRoot), 'mkdir 成功创建了目标路径');
-  ok(paths.rootDir === newRoot, 'mkdir+probe 成功 → accepted');
-  ok(paths.rejected === null, 'mkdir+probe 成功 → 无 rejected');
+  ok(fs.existsSync(newRoot), 'load creates it');
+  ok(paths.rootDir === newRoot, 'and uses it');
+  ok(paths.rejected === null, 'with nothing rejected');
   cleanTmp();
 }
 
-// ── 4. USB unavailable (mkdir/probe failure) → rejected + fallback ──────────────
+// ── An unusable root falls back to the default ──────────────────────────────
 {
   const { paths, logs } = makeReal();
-  const badRoot = BAD_ROOT;
-  paths.load({ folders: { root: badRoot } });
-  ok(paths.rootDir !== badRoot, '不可用 root → fallback 到默认');
-  ok(paths.rejected !== null, '不可用 root → rejected 非空');
-  ok(paths.rejected.configured === badRoot, 'rejected 记录了配置的路径');
-  ok(typeof paths.rejected.reason === 'string', 'rejected 记录了原因');
-  ok(logs.some(m => m.includes('unusable')), 'fallback 被记录到日志');
+  paths.load({ folders: { root: BAD_ROOT } });
+  ok(paths.rootDir !== BAD_ROOT, 'an unusable root is not used');
+  ok(paths.rejected !== null, 'it is rejected');
+  ok(paths.rejected.configured === BAD_ROOT, 'the rejection names the configured path');
+  ok(typeof paths.rejected.reason === 'string', 'and carries a reason');
+  ok(logs.some(m => m.includes('unusable')), 'the fallback is logged');
   cleanTmp();
 }
 
-// ── 5. configuredRoot not lost due to fallback ────────────────────────────────
+// ── The fallback keeps the configured root for the next start ───────────────
 {
   const { paths } = makeReal();
-  const badRoot = BAD_ROOT;
-  paths.load({ folders: { root: badRoot } });
-  ok(paths.configuredRoot === badRoot, 'fallback 期间 configuredRoot 保留配置值');
-  ok(paths.rootDir === paths.baseDir, 'fallback 期间 rootDir 使用 baseDir');
+  paths.load({ folders: { root: BAD_ROOT } });
+  ok(paths.configuredRoot === BAD_ROOT, 'the choice survives the fallback');
+  ok(paths.rootDir === paths.baseDir, 'while the session runs from the default');
   cleanTmp();
 }
 
-// ── 6. relative root resolved by exeDir ──────────────────────────────────
+// ── A relative root resolves against the exe folder (portable build) ────────
 {
   const exeDir = tmpDir('exe-rel');
   const relName = 'mydata';
   const expectedRoot = path.join(exeDir, relName);
   const { paths } = makeReal(exeDir);
-  // Use relative path: resolved relative to exeDir
   paths.load({ folders: { root: relName } });
-  ok(paths.configuredRoot === relName, '相对路径保存为原始值');
-  ok(paths.rootDir === expectedRoot, '相对路径按 exeDir resolve');
+  ok(paths.configuredRoot === relName, 'the relative form is kept as written');
+  ok(paths.rootDir === expectedRoot, 'and resolves against exeDir');
   cleanTmp();
 }
 
-// ── 7. legacy keys detection + log (does not block valid root) ─────────────────────────
+// ── Per-folder keys from 1.5 to 1.7 are ignored, with a log line ────────────
 {
   const { paths, logs } = makeReal();
   const customRoot = tmpDir('legacy-ok');
   paths.load({ folders: { root: customRoot, projects: '/old/Projects', materials: '/old/Materials' } });
-  ok(paths.rootDir === customRoot, 'legacy keys 不阻断有效 root');
-  ok(logs.some(m => m.includes('Legacy folder key "projects"')), 'legacy projects 被检测到并记录日志');
-  ok(logs.some(m => m.includes('Legacy folder key "materials"')), 'legacy materials 被检测到并记录日志');
+  ok(paths.rootDir === customRoot, 'a valid root is still used');
+  ok(logs.some(m => m.includes('Legacy folder key "projects"')), 'the projects key is logged');
+  ok(logs.some(m => m.includes('Legacy folder key "materials"')), 'the materials key is logged');
   cleanTmp();
 }
 
-// ── 8. Second load cleans first rejected ──────────────────────────────────
+// ── A later load clears an earlier rejection ────────────────────────────────
 {
   const { paths } = makeReal();
-  // First: unavailable root → rejected
   paths.load({ folders: { root: BAD_ROOT } });
-  ok(paths.rejected !== null, '第一次 load 后 rejected 非空');
-  // Second: valid root → rejected cleared
+  ok(paths.rejected !== null, 'setup: rejected');
   const goodRoot = tmpDir('second-load');
   paths.load({ folders: { root: goodRoot } });
-  ok(paths.rejected === null, '第二次 load 清理了 rejected');
-  ok(paths.rootDir === goodRoot, '第二次 load rootDir 更新');
+  ok(paths.rejected === null, 'the rejection is cleared');
+  ok(paths.rootDir === goodRoot, 'and the new root is used');
   cleanTmp();
 }
 
-// ── 9. toSettings：custom root → { root } ──────────────────────────────
+// ── What toSettings writes ──────────────────────────────────────────────────
 {
   const { paths } = makeReal();
   const customRoot = tmpDir('tosettings-custom');
   paths.load({ folders: { root: customRoot } });
   const s = paths.toSettings();
-  ok(s.root === customRoot, 'toSettings 输出 custom root');
-  ok(Object.keys(s).length === 1, 'toSettings 只含 root 键');
+  ok(s.root === customRoot, 'a custom root is written');
+  ok(Object.keys(s).length === 1, 'and nothing else');
   cleanTmp();
 }
-
-// ── 10. toSettings：default → {} ────────────────────────────────────────
 {
   const { paths } = makePosix();
-  ok(Object.keys(paths.toSettings()).length === 0, '默认 toSettings 返回 {}');
+  ok(Object.keys(paths.toSettings()).length === 0, 'the default writes no folders block');
 }
-
-// ── 11. toSettings: fallback still writes configuredRoot ───────────────────
 {
   const { paths } = makeReal();
   const badRoot = BAD_ROOT;
-  const customRoot = tmpDir('tosettings-fallback');
-  // Load unavailable root → fallback
   paths.load({ folders: { root: badRoot } });
-  ok(paths.rootDir === paths.baseDir, 'fallback 期间 rootDir = baseDir');
-  // toSettings should still write configuredRoot (not accidentally deleted by fallback)
+  ok(paths.rootDir === paths.baseDir, 'setup: running from the default');
   const s = paths.toSettings();
-  ok(s.root === badRoot, 'fallback 期间 toSettings 仍写 configuredRoot');
+  ok(s.root === badRoot, 'a rejected root is still written, so it is there after a restart');
   cleanTmp();
 }
 
-// ── 12. applyRoot (within exeDir) → toSettings outputs relative path (P1-3 portable §11) ─
+// ── applyRoot stores a path under the exe folder relative to it ─────────────
 {
   const exeDir = tmpDir('exe-portable');
   const dataDir = path.join(exeDir, 'portable-data');
   fs.mkdirSync(dataDir, { recursive: true });
   const { paths } = makeReal(exeDir);
-  // applyRoot sets a path under exeDir
   paths.applyRoot(dataDir);
   const s = paths.toSettings();
-  const expectedRel = 'portable-data';
-  ok(s.root === expectedRel, `applyRoot(exeDir 内) → toSettings 输出相对路径 '${expectedRel}'，got: ${s.root}`);
-  // rootDir still stores absolute path
-  ok(paths.rootDir === dataDir, 'rootDir 仍存绝对路径');
+  ok(s.root === 'portable-data', `a root under exeDir is stored relative, got: ${s.root}`);
+  ok(paths.rootDir === dataDir, 'while rootDir stays absolute');
   cleanTmp();
 }
-
-// ── 13. applyRoot (escape exeDir) → toSettings outputs absolute path ─────────────────
 {
   const exeDir = tmpDir('exe-abs');
   const absRoot = tmpDir('abs-root');
   const { paths } = makeReal(exeDir);
   paths.applyRoot(absRoot);
   const s = paths.toSettings();
-  ok(s.root === absRoot, 'escape exeDir → toSettings 输出绝对路径');
-  ok(paths.rootDir === absRoot, 'rootDir 仍存绝对路径');
+  ok(s.root === absRoot, 'a root outside exeDir is stored absolute');
+  ok(paths.rootDir === absRoot, 'and rootDir with it');
   cleanTmp();
 }
-
-// ── 13b. applyRoot (within exeDir) → toSettings outputs relative path ──────────────────
 {
-  const exeDir = '/opt/app/bin';
-  const { paths } = makePosix({ exeDir });
-  // Simulate applyRoot setting a path under exeDir
+  const { paths } = makePosix({ exeDir: '/opt/app/bin' });
   paths.applyRoot('/opt/app/bin/Projects');
   const s = paths.toSettings();
-  ok(s.root === 'Projects', `applyRoot(exeDir 内) → toSettings 输出 'Projects'，got: ${s.root}`);
-  ok(paths.rootDir === '/opt/app/bin/Projects', 'rootDir 仍存绝对路径');
+  ok(s.root === 'Projects', `the stored form is relative, got: ${s.root}`);
+  ok(paths.rootDir === '/opt/app/bin/Projects', 'while rootDir stays absolute');
 }
 
-// ── 14. applyRoot after getter real-time change ───────────────────────────────────
+// ── The ctx getters follow the root as it changes ───────────────────────────
 {
   const { paths } = makePosix();
   const ctx = paths.defineCtxGetters({});
-  ok(ctx.projectsDir === posixDefault('Projects'), 'applyRoot 前 getter 返回默认路径');
+  ok(ctx.projectsDir === posixDefault('Projects'), 'the getter starts at the default');
 
   const newRoot = '/data/new-root';
   paths.applyRoot(newRoot);
-  ok(ctx.projectsDir === newRoot + '/Projects', 'applyRoot 后 projectsDir 实时变化');
-  ok(ctx.materialsDir === newRoot + '/Materials', 'materialsDir 随 applyRoot 变化');
-  ok(ctx.coatingsDir === newRoot + '/Coatings', 'coatingsDir 随 applyRoot 变化');
-  ok(ctx.meritFunctionsDir === newRoot + '/MeritFunctions', 'meritFunctionsDir 随 applyRoot 变化');
-  ok(ctx.qualifiersDir === newRoot + '/Qualifiers', 'qualifiersDir 随 applyRoot 变化');
-  ok(ctx.integralsDir === newRoot + '/IntegralPresets', 'integralsDir 随 applyRoot 变化');
-  ok(ctx.reportPresetsDir === newRoot + '/ReportPresets', 'reportPresetsDir 随 applyRoot 变化');
-  ok(ctx.brandingDir === newRoot + '/Branding', 'brandingDir 随 applyRoot 变化');
-  ok(ctx.preferencesDir === newRoot + '/Preferences', 'preferencesDir 随 applyRoot 变化');
+  ok(ctx.projectsDir === newRoot + '/Projects', 'projectsDir follows the new root');
+  ok(ctx.materialsDir === newRoot + '/Materials', 'materialsDir follows');
+  ok(ctx.coatingsDir === newRoot + '/Coatings', 'coatingsDir follows');
+  ok(ctx.meritFunctionsDir === newRoot + '/MeritFunctions', 'meritFunctionsDir follows');
+  ok(ctx.qualifiersDir === newRoot + '/Qualifiers', 'qualifiersDir follows');
+  ok(ctx.integralsDir === newRoot + '/IntegralPresets', 'integralsDir follows');
+  ok(ctx.reportPresetsDir === newRoot + '/ReportPresets', 'reportPresetsDir follows');
+  ok(ctx.brandingDir === newRoot + '/Branding', 'brandingDir follows');
+  ok(ctx.preferencesDir === newRoot + '/Preferences', 'preferencesDir follows');
 }
-
-// ── 15. userDocsDir = active rootDir ────────────────────────────────────
 {
   const { paths } = makePosix();
   const ctx = paths.defineCtxGetters({});
-  ok(ctx.userDocsDir === BASE, 'userDocsDir 默认 = baseDir');
-
+  ok(ctx.userDocsDir === BASE, 'userDocsDir starts at the default root');
   const newRoot = '/data/new-root';
   paths.applyRoot(newRoot);
-  ok(ctx.userDocsDir === newRoot, 'applyRoot 后 userDocsDir = active rootDir');
+  ok(ctx.userDocsDir === newRoot, 'and follows the active root');
 }
 
-// ── 16. applyRoot after rejected cleaned ──────────────────────────────────────────
+// ── applyRoot clears a rejection ────────────────────────────────────────────
 {
   const { paths } = makeReal();
-  // First create rejected
   paths.load({ folders: { root: BAD_ROOT } });
-  ok(paths.rejected !== null, 'setup: rejected 非空');
-
-  // applyRoot (pure internal assignment)
+  ok(paths.rejected !== null, 'setup: rejected');
   const newRoot = tmpDir('setroot-ok');
   paths.applyRoot(newRoot);
-  ok(paths.rejected === null, 'applyRoot 后 rejected 被清');
-  ok(paths.rootDir === newRoot, 'applyRoot 后 rootDir 更新');
+  ok(paths.rejected === null, 'the rejection is cleared');
+  ok(paths.rootDir === newRoot, 'and the root is the new one');
   cleanTmp();
 }
-
-// ── 17. applyRoot(baseDir) after rejected cleaned ──────────────────────────────
 {
   const { paths } = makeReal();
-  // First create rejected
   paths.load({ folders: { root: BAD_ROOT } });
-  ok(paths.rejected !== null, 'setup: rejected 非空');
-
-  // applyRoot(baseDir)
+  ok(paths.rejected !== null, 'setup: rejected');
   paths.applyRoot(paths.baseDir);
-  ok(paths.rejected === null, 'applyRoot(baseDir) 后 rejected 被清');
-  ok(paths.rootDir === paths.baseDir, 'applyRoot(baseDir) 后 rootDir = baseDir');
-  ok(paths.configuredRoot === null, 'applyRoot(baseDir) 后 configuredRoot = null');
+  ok(paths.rejected === null, 'applyRoot(default) clears the rejection');
+  ok(paths.rootDir === paths.baseDir, 'the root is the default');
+  ok(paths.configuredRoot === null, 'and there is no configured root left');
   cleanTmp();
 }
 
-// ── 18. legacy keys next write physically discarded ─────────────────────────────
-// toSettings only outputs {root}; writeMainOwnedKey replaces folders entirely，
-// Therefore legacy per-folder keys are physically deleted on the next write.
+// ── The next settings write drops the old per-folder keys ───────────────────
+// toSettings writes { root } alone and writeMainOwnedKey replaces the whole
+// folders block, so keys from 1.5 to 1.7 leave the file on the next write.
 {
   let stored = null;
   const ctx = {
@@ -349,7 +315,6 @@ function posixDefault(subdir) { return posixJoin(BASE, subdir); }
     writeFileAtomic: (_file, data) => { stored = data; },
   };
 
-  // Simulate old settings with legacy keys
   stored = JSON.stringify({
     folders: { root: '/data/root', projects: '/old/Projects', materials: '/old/Materials' },
     theme: 'Dark',
@@ -358,161 +323,174 @@ function posixDefault(subdir) { return posixJoin(BASE, subdir); }
   const { paths } = makePosix();
   paths.load({ folders: { root: '/data/root' } });
   const s = paths.toSettings();
-  ok(s.root === '/data/root', 'toSettings 输出 root');
+  ok(s.root === '/data/root', 'toSettings carries the root');
 
-  // Write to disk
   writeMainOwnedKey(ctx, 'folders', s);
   const after = JSON.parse(stored);
-  ok(after.folders.root === '/data/root', 'write 后 root 保留');
-  ok(after.folders.projects === undefined, 'write 后 legacy projects 被丢弃');
-  ok(after.folders.materials === undefined, 'write 后 legacy materials 被丢弃');
-  ok(after.theme === 'Dark', 'write 后 renderer keys 保留');
+  ok(after.folders.root === '/data/root', 'the root is written');
+  ok(after.folders.projects === undefined, 'the projects key is gone');
+  ok(after.folders.materials === undefined, 'the materials key is gone');
+  ok(after.theme === 'Dark', 'renderer settings are untouched');
 }
 
-// ── 19. ensureAll creates 9 subdirectories under active rootDir ────────────────────
+// ── The data folder survives a renderer settings write ──────────────────────
+// The renderer sends a fixed payload that does not carry `folders`, and it
+// writes on every theme or locale change. Without the merge the user's data
+// folder would be wiped the first time they switched theme.
+{
+  let stored = null;
+  const ctx = {
+    settingsPath: '/settings.json',
+    readJsonSafe: () => (stored ? JSON.parse(stored) : null),
+    writeFileAtomic: (_file, data) => { stored = data; },
+  };
+
+  writeMainOwnedKey(ctx, 'folders', { root: '/data/designs' });
+  ok(JSON.parse(stored).folders.root === '/data/designs', 'the data folder is persisted');
+
+  writeRendererSettings(ctx, { theme: 'Dark', locale: 'ru' });
+  const after = JSON.parse(stored);
+  ok(after.theme === 'Dark', 'the renderer payload is written');
+  ok(after.folders?.root === '/data/designs', 'a renderer settings write preserves the folders block');
+
+  writeMainOwnedKey(ctx, 'folders', {});
+  ok(JSON.parse(stored).folders === undefined, 'returning to the default removes the folders block');
+  ok(JSON.parse(stored).theme === 'Dark', 'and leaves renderer settings intact');
+}
+
+// ── The traversal guard still holds against a configured base ───────────────
+{
+  const base = path.resolve('/data/designs');
+  let threw = false;
+  try { safeFilePath(base, '..', 'escaped.tfs'); } catch (_) { threw = true; }
+  ok(threw, 'safeFilePath rejects .. against a configured base');
+  ok(safeFilePath(base, 'ok.tfs') === path.join(base, 'ok.tfs'), 'safeFilePath still resolves a legitimate child');
+}
+
+// ── ensureAll ───────────────────────────────────────────────────────────────
 {
   const { paths } = makeReal();
   paths.ensureAll();
-  const rootDir = paths.rootDir;
   for (const spec of FOLDER_SPECS) {
-    const dir = path.join(rootDir, spec.subdir);
-    ok(fs.existsSync(dir), 'ensureAll 创建 ' + spec.subdir);
+    ok(fs.existsSync(path.join(paths.rootDir, spec.subdir)), 'ensureAll creates ' + spec.subdir);
   }
   cleanTmp();
 }
-
-// ── 20. ensureAll creates subdirectories under non-default root ──────────────────────────
 {
   const { paths } = makeReal();
   const customRoot = tmpDir('ensureall-custom');
   paths.load({ folders: { root: customRoot } });
   paths.ensureAll();
   for (const spec of FOLDER_SPECS) {
-    const dir = path.join(customRoot, spec.subdir);
-    ok(fs.existsSync(dir), 'ensureAll 在 custom root 创建 ' + spec.subdir);
+    ok(fs.existsSync(path.join(customRoot, spec.subdir)), 'ensureAll creates ' + spec.subdir + ' under a custom root');
+  }
+  cleanTmp();
+}
+{
+  const { paths } = makeReal();
+  paths.ensureAll();
+  paths.ensureAll();
+  for (const spec of FOLDER_SPECS) {
+    ok(fs.existsSync(path.join(paths.rootDir, spec.subdir)), 'a second ensureAll leaves ' + spec.subdir + ' alone');
   }
   cleanTmp();
 }
 
-// ── 21. list() returns correct shape ────────────────────────────────────────────
+// ── What list() hands the settings pane ─────────────────────────────────────
 {
   const { paths } = makePosix();
   const result = paths.list();
-  ok(result.root === BASE, 'list.root = baseDir');
-  ok(result.defaultRoot === BASE, 'list.defaultRoot = baseDir');
-  ok(result.configuredRoot === null, 'list.configuredRoot = null（默认）');
-  ok(result.overridden === false, 'list.overridden = false（默认）');
-  ok(result.rejected === null, 'list.rejected = null（默认）');
-  ok(Array.isArray(result.subfolders), 'list.subfolders 是数组');
-  ok(result.subfolders.length === 9, 'list.subfolders 共 9 项');
+  ok(result.root === BASE, 'root is the active root');
+  ok(result.defaultRoot === BASE, 'defaultRoot is the default');
+  ok(result.configuredRoot === null, 'configuredRoot is empty by default');
+  ok(result.overridden === false, 'overridden is false by default');
+  ok(result.rejected === null, 'rejected is empty by default');
+  ok(Array.isArray(result.subfolders), 'subfolders is a list');
+  ok(result.subfolders.length === 9, 'of nine entries');
   const keys = result.subfolders.map(s => s.key);
-  ok(keys.includes('coatings'), 'subfolders 含 coatings');
-  ok(keys.includes('integrals'), 'subfolders 含 integrals');
-  ok(keys.includes('reportPresets'), 'subfolders 含 reportPresets');
+  ok(keys.includes('coatings'), 'including coatings');
+  ok(keys.includes('integrals'), 'including integrals');
+  ok(keys.includes('reportPresets'), 'including reportPresets');
 }
 
-// ── 22. load() no config → use default ──────────────────────────────────────
+// ── Settings with nothing in them ───────────────────────────────────────────
 {
   const { paths } = makeReal();
   paths.load({});
-  ok(paths.rootDir === paths.baseDir, '无配置 → rootDir = baseDir');
-  ok(paths.configuredRoot === null, '无配置 → configuredRoot = null');
-  ok(paths.rejected === null, '无配置 → rejected = null');
+  ok(paths.rootDir === paths.baseDir, 'no folders block means the default root');
+  ok(paths.configuredRoot === null, 'and no configured root');
+  ok(paths.rejected === null, 'and nothing rejected');
   cleanTmp();
 }
-
-// ── 23. load() folders empty object → use default ────────────────────────────
 {
   const { paths } = makeReal();
   paths.load({ folders: {} });
-  ok(paths.rootDir === paths.baseDir, '空 folders → rootDir = baseDir');
-  ok(paths.configuredRoot === null, '空 folders → configuredRoot = null');
+  ok(paths.rootDir === paths.baseDir, 'an empty folders block means the default root');
+  ok(paths.configuredRoot === null, 'and no configured root');
   cleanTmp();
 }
-
-// ── 24. load() cfg is null → use default ─────────────────────────────────
 {
   const { paths } = makeReal();
   paths.load(null);
-  ok(paths.rootDir === paths.baseDir, 'null cfg → rootDir = baseDir');
+  ok(paths.rootDir === paths.baseDir, 'no settings at all means the default root');
   cleanTmp();
 }
 
-// ── 25. applyRoot cleans rejected ──────────────────────────────────────────
+// ── applyRoot is a plain assignment ─────────────────────────────────────────
 {
   const { paths } = makeReal();
   paths.load({ folders: { root: BAD_ROOT } });
-  ok(paths.rejected !== null, 'setup: rejected 非空');
+  ok(paths.rejected !== null, 'setup: rejected');
   paths.applyRoot('/data/new');
-  ok(paths.rejected === null, 'applyRoot 后 rejected 被清');
+  ok(paths.rejected === null, 'applyRoot clears the rejection');
 }
-
-// ── 26. applyRoot(baseDir) sets configuredRoot to null ────────────────
 {
   const { paths } = makePosix();
   paths.applyRoot('/data/custom');
-  ok(paths.configuredRoot === '/data/custom', 'applyRoot(custom) → configuredRoot = custom');
+  ok(paths.configuredRoot === '/data/custom', 'a custom root is recorded');
   paths.applyRoot(BASE);
-  ok(paths.configuredRoot === null, 'applyRoot(baseDir) → configuredRoot = null');
+  ok(paths.configuredRoot === null, 'and going back to the default clears it');
 }
-
-// ── 27. applyRoot does not trigger validation (pure assignment) ──────────────────────────────────────
 {
   const { paths } = makePosix();
-  // Even with unreachable path, applyRoot does not validate
   paths.applyRoot('/impossible/path');
-  ok(paths.rootDir === '/impossible/path', 'applyRoot directly assigns rootDir');
+  ok(paths.rootDir === '/impossible/path', 'applyRoot does not validate; checkTarget already did');
 }
 
-// ── 28. defaultPath relationship with get ──────────────────────────────────────
+// ── defaultPath against get ─────────────────────────────────────────────────
 {
   const { paths } = makePosix();
-  ok(paths.defaultPath('projects') === posixDefault('Projects'), 'defaultPath 返回 baseDir + subdir');
+  ok(paths.defaultPath('projects') === posixDefault('Projects'), 'defaultPath is the default root plus the subfolder');
   paths.applyRoot('/data/new');
-  ok(paths.get('projects') === '/data/new/Projects', 'get 返回 rootDir + subdir');
-  ok(paths.defaultPath('projects') === posixDefault('Projects'), 'defaultPath 不受 applyRoot 影响');
+  ok(paths.get('projects') === '/data/new/Projects', 'get is the active root plus the subfolder');
+  ok(paths.defaultPath('projects') === posixDefault('Projects'), 'defaultPath does not move');
 }
 
-// ── 29. ensureAll does not duplicate existing directories ──────────────────────────────
-{
-  const { paths } = makeReal();
-  paths.ensureAll();
-  // Second call does not error
-  paths.ensureAll();
-  for (const spec of FOLDER_SPECS) {
-    ok(fs.existsSync(path.join(paths.rootDir, spec.subdir)), 'ensureAll 幂等：' + spec.subdir + ' 存在');
-  }
-  cleanTmp();
-}
-
-// ── 30. legacy keys detected even without root ─────────────────────────────────
+// ── Per-folder keys are logged even without a root ──────────────────────────
 {
   const { paths, logs } = makeReal();
   paths.load({ folders: { projects: '/old/Projects' } });
-  ok(logs.some(m => m.includes('Legacy folder key "projects"')), '无 root 时 legacy keys 也被检测');
-  ok(paths.rootDir === paths.baseDir, '无 root 时使用默认');
+  ok(logs.some(m => m.includes('Legacy folder key "projects"')), 'the key is logged');
+  ok(paths.rootDir === paths.baseDir, 'and the default root is used');
   cleanTmp();
 }
 
-// ── 31. multiple load switching valid/invalid root ───────────────────────────────────
+// ── A drive that comes and goes across restarts ─────────────────────────────
 {
   const { paths } = makeReal();
-  // Valid root
   const goodRoot1 = tmpDir('multi-1');
   paths.load({ folders: { root: goodRoot1 } });
-  ok(paths.rootDir === goodRoot1, '第一次 load: 有效 root');
-  ok(paths.rejected === null, '第一次 load: 无 rejected');
+  ok(paths.rootDir === goodRoot1, 'first start: the configured root');
+  ok(paths.rejected === null, 'nothing rejected');
 
-  // Invalid root
   paths.load({ folders: { root: BAD_ROOT } });
-  ok(paths.rootDir === paths.baseDir, '第二次 load: fallback');
-  ok(paths.rejected !== null, '第二次 load: rejected 非空');
+  ok(paths.rootDir === paths.baseDir, 'second start: the drive is gone, run from the default');
+  ok(paths.rejected !== null, 'and say why');
 
-  // Valid root
   const goodRoot2 = tmpDir('multi-2');
   paths.load({ folders: { root: goodRoot2 } });
-  ok(paths.rootDir === goodRoot2, '第三次 load: 有效 root');
-  ok(paths.rejected === null, '第三次 load: rejected 被清');
+  ok(paths.rootDir === goodRoot2, 'third start: the drive is back');
+  ok(paths.rejected === null, 'and the rejection is gone');
   cleanTmp();
 }
 

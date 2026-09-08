@@ -7,6 +7,7 @@ const { safeName, safeFilePath, readJsonSafe, writeFileAtomic, readTextAuto, reg
 const seed = require('./main/seed');
 const helpServer = require('./main/helpServer');
 const { createUserPaths } = require('./main/userPaths');
+const { createDataFolderMove } = require('./main/dataFolderMove');
 const dragGhost = require('./main/dragGhost');
 const { registerAllIpc } = require('./main/ipc');
 const appWindowIpc = require('./main/ipc/appWindow');
@@ -245,6 +246,7 @@ function setupIpcHandlers() {
     safeName, safeFilePath, readJsonSafe, writeFileAtomic, readTextAuto, registryValue,
     userDataPath, settingsPath,
     userPaths,
+    dataFolderMove: createDataFolderMove({ fs, path }),
     onUserPathsChanged: () => {
       userPaths.ensureAll();
       prepareMaterialsDir(userPaths.get('materials'));

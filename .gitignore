@@ -64,8 +64,3 @@ build/seed/agf/*
 !build/seed/agf/schott2025.AGF
 !build/seed/library/
 
-
-# Deepwork session state (git-local, OpenCode-readable)
-.slim/deepwork/
-
-

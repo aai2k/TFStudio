@@ -14,7 +14,7 @@ Materials are grouped into catalogs by source:
 | Catalog          | Source                                                                  | Editable          |
 | ---------------- | ----------------------------------------------------------------------- | ----------------- |
 | **Built-in**     | A curated set of 16 common optical materials.                           | Read-only         |
-| **AGF**          | Zemax `.agf` files placed in your TFStudio Data folder's `Materials` subfolder. | Via the file      |
+| **AGF**          | Zemax `.agf` files placed in your TFStudio data folder's `Materials` subfolder. | Via the file      |
 | **User**         | Materials and catalogs you create inside TFStudio.                      | Yes               |
 | **RefractiveIndex** | Materials you import from the refractiveindex.info database.          | Yes               |
 
@@ -34,7 +34,7 @@ the catalog you have selected.
 
 **Import AGF**: load a Zemax `.agf` glass file as a new catalog. AGF files
 store internal transmittance versus wavelength; TFStudio converts that to
-`k(λ)` automatically. AGF files you place in your TFStudio Data folder's `Materials`
+`k(λ)` automatically. AGF files you place in your TFStudio data folder's `Materials`
 subfolder are also picked up automatically when the app starts.
 
 **Import material files**: load materials written by other coating programs,
@@ -147,9 +147,9 @@ wavelength range when the source provides them, and the dispersion formula and
 coefficients when the material is formula-based. A material with a flat,
 zero `k` is non-absorbing across the plotted range.
 
-Catalogs are saved to your TFStudio Data folder's `Materials` subfolder and persist between
-sessions, so an imported or hand-built material is available the next time you
-open the app.
+Catalogs are saved to your TFStudio data folder's `Materials` subfolder and
+persist between sessions, so an imported or hand-built material is available
+the next time you open the app.
 
 ## References
 

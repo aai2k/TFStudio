@@ -1,13 +1,13 @@
 /**
- * dataFolderMove test (issue #75 concise version).
+ * Moving the data folder (src/main/dataFolderMove.js).
  *
- * Coverage:
- *   checkTarget — 6 cases (no side effect, target==current no-op, current doesn't exist, etc.)
- *   moveTree    — 10 cases (rename, EXDEV→copy+verify, EPERM/EEXIST, TOCTOU,
- *                  partial cleanup, verify not-equal fail, safeRemove idempotent)
+ * checkTarget: the rules that refuse a target, and that asking costs nothing.
+ * moveTree: rename, the copy path a cross-volume move falls back to, an
+ * occupied target, a copy that fails part way, and the three ways the copy
+ * check can find the two trees different.
  *
- * ESM + createRequire loads CJS module. Using real fs + os.tmpdir() to create temp directory tree,
- * cleanup after use. runner only collects tests/*.mjs.
+ * Real trees under os.tmpdir(); fs.promises is proxied where an error has to
+ * be forced.
  *
  * Run: node tests/data_folder_move.mjs
  */
@@ -65,7 +65,7 @@ function buildTree(root) {
   return root;
 }
 
-/** 获取目录下文件总字节数和文件数 */
+/** Total files and bytes under a directory. */
 function dirStats(root) {
   let fileCount = 0;
   let totalBytes = 0;
@@ -85,7 +85,7 @@ function dirStats(root) {
   return { fileCount, totalBytes };
 }
 
-/** 递归计算目录中文件数 */
+/** File count under a directory. */
 function countFiles(dir) {
   let count = 0;
   const entries = fs.readdirSync(dir, { withFileTypes: true });
@@ -139,10 +139,10 @@ const { checkTarget, moveTree } = createDataFolderMove({ fs, path });
 {
   const current = buildTree(tmpDir('ct1-current'));
   const target = path.join(TMP_ROOT, 'ct1-nonexistent');
-  ok(!fs.existsSync(target), 'setup: target 不存在');
+  ok(!fs.existsSync(target), 'setup: the target does not exist');
   const r = checkTarget(current, target);
-  ok(r.ok === true, `target 不存在 → 允许，got reason: ${r.reason}`);
-  ok(!fs.existsSync(target), 'validation 后 target 仍不存在（无副作用）');
+  ok(r.ok === true, `a target that does not exist is allowed, got reason: ${r.reason}`);
+  ok(!fs.existsSync(target), 'and checkTarget did not create it');
 }
 
 // ── 2. target is empty → allowed ─────────────────────────────────────────────
@@ -150,7 +150,7 @@ const { checkTarget, moveTree } = createDataFolderMove({ fs, path });
   const current = buildTree(tmpDir('ct2-current'));
   const target = tmpDir('ct2-empty');
   const r = checkTarget(current, target);
-  ok(r.ok === true, `target 空 → 允许，got reason: ${r.reason}`);
+  ok(r.ok === true, `an empty target is allowed, got reason: ${r.reason}`);
 }
 
 // ── 3. target is non-empty → rejected ───────────────────────────────────────────
@@ -158,8 +158,8 @@ const { checkTarget, moveTree } = createDataFolderMove({ fs, path });
   const current = buildTree(tmpDir('ct3-current'));
   const target = buildTree(tmpDir('ct3-nonempty'));
   const r = checkTarget(current, target);
-  ok(r.ok === false, 'target 非空 → 拒绝');
-  ok(r.reason && r.reason.includes('not empty'), `reason 包含 'not empty'，got: ${r.reason}`);
+  ok(r.ok === false, 'a target with files in it is refused');
+  ok(r.reason && r.reason.includes('not empty'), `the reason says it is not empty, got: ${r.reason}`);
 }
 
 // ── 4. bidirectional nesting → rejected ──────────────────────────────────────────────
@@ -168,12 +168,12 @@ const { checkTarget, moveTree } = createDataFolderMove({ fs, path });
   const target = path.join(current, 'nested');
   fs.mkdirSync(target, { recursive: true });
   const r1 = checkTarget(current, target);
-  ok(r1.ok === false, 'target 在 current 内 → 拒绝');
-  ok(r1.reason && r1.reason.includes('inside'), `reason 包含 'inside'，got: ${r1.reason}`);
+  ok(r1.ok === false, 'a target inside the current folder is refused');
+  ok(r1.reason && r1.reason.includes('inside'), `the reason says inside, got: ${r1.reason}`);
 
   const r2 = checkTarget(target, current);
-  ok(r2.ok === false, 'current 在 target 内 → 拒绝');
-  ok(r2.reason && r2.reason.includes('inside'), `reason 包含 'inside'，got: ${r2.reason}`);
+  ok(r2.ok === false, 'a target that contains the current folder is refused');
+  ok(r2.reason && r2.reason.includes('inside'), `the reason says inside, got: ${r2.reason}`);
 }
 
 // ── 5. target == current → no-op ────────────────────────────────────
@@ -188,8 +188,8 @@ const { checkTarget, moveTree } = createDataFolderMove({ fs, path });
   const nonExistent = path.join(TMP_ROOT, 'ct6-nonexistent');
   const target = tmpDir('ct6-target');
   const r = checkTarget(nonExistent, target);
-  ok(r.ok === false, 'current 不存在 → 拒绝');
-  ok(r.reason === 'current root unavailable', `reason = 'current root unavailable'，got: ${r.reason}`);
+  ok(r.ok === false, 'a current root that is gone is refused');
+  ok(r.reason === 'current root unavailable', `with 'current root unavailable', got: ${r.reason}`);
 }
 
 // ═══════════════════════════════════════════════════════════════════════
@@ -202,13 +202,13 @@ const { checkTarget, moveTree } = createDataFolderMove({ fs, path });
   const to = path.join(TMP_ROOT, 'mt7-to');
   const before = dirStats(from);
   const r = await moveTree(from, to);
-  ok(r.success === true, `rename 成功，got error: ${r.error}`);
-  ok(r.method === 'rename', `method = 'rename'，got: ${r.method}`);
-  ok(fs.existsSync(to), '目标目录存在');
-  ok(!fs.existsSync(from), '源目录不存在（rename 移动了目录）');
+  ok(r.success === true, `the rename succeeds, got error: ${r.error}`);
+  ok(r.method === 'rename', `and reports method 'rename', got: ${r.method}`);
+  ok(fs.existsSync(to), 'the target is there');
+  ok(!fs.existsSync(from), 'and the source is gone');
   const after = dirStats(to);
-  ok(after.fileCount === before.fileCount, `fileCount 一致: ${after.fileCount}`);
-  ok(after.totalBytes === before.totalBytes, `totalBytes 一致: ${after.totalBytes}`);
+  ok(after.fileCount === before.fileCount, `the file count matches: ${after.fileCount}`);
+  ok(after.totalBytes === before.totalBytes, `the byte count matches: ${after.totalBytes}`);
 }
 
 // ── 8. EXDEV → async copy + verify (inject fs mock throwing EXDEV)────────
@@ -220,11 +220,11 @@ const { checkTarget, moveTree } = createDataFolderMove({ fs, path });
   const to = path.join(TMP_ROOT, 'mt8-to');
   const before = dirStats(from);
   const r = await mt2(from, to);
-  ok(r.success === true, `EXDEV → copy+verify 成功，got error: ${r.error}`);
-  ok(r.method === 'copy', `method = 'copy'，got: ${r.method}`);
-  ok(fs.existsSync(to), '目标目录存在');
+  ok(r.success === true, `EXDEV falls back to copy and verify, got error: ${r.error}`);
+  ok(r.method === 'copy', `and reports method 'copy', got: ${r.method}`);
+  ok(fs.existsSync(to), 'the target is there');
   // moveTree does not delete src (design: does not touch settings), copy path keeps source
-  ok(fs.existsSync(from), 'copy 路径保留源目录（设计要求）');
+  ok(fs.existsSync(from), 'the copy path leaves the source in place');
   const after = dirStats(to);
   ok(after.fileCount === before.fileCount, `verify fileCount: ${after.fileCount} = ${before.fileCount}`);
   ok(after.totalBytes === before.totalBytes, `verify totalBytes: ${after.totalBytes} = ${before.totalBytes}`);
@@ -236,11 +236,11 @@ const { checkTarget, moveTree } = createDataFolderMove({ fs, path });
 {
   const from = buildTree(tmpDir('mt9-from'));
   const to = tmpDir('mt9-empty-to'); // existing empty directory
-  ok(fs.existsSync(to), 'setup: 目标空目录存在');
+  ok(fs.existsSync(to), 'setup: the empty target exists');
   const before = dirStats(from);
   const r = await moveTree(from, to);
-  ok(r.success === true, `空 target → 成功，got error: ${r.error}`);
-  ok(fs.existsSync(to), '目标目录存在');
+  ok(r.success === true, `an existing empty target still works, got error: ${r.error}`);
+  ok(fs.existsSync(to), 'the target is there');
   const after = dirStats(to);
   ok(after.fileCount === before.fileCount, `verify fileCount: ${after.fileCount} = ${before.fileCount}`);
 }
@@ -267,8 +267,8 @@ const { checkTarget, moveTree } = createDataFolderMove({ fs, path });
   const { moveTree: mt3 } = createDataFolderMove({ fs: mockFs, path });
 
   const r = await mt3(from, to);
-  ok(r.success === false, `非空 target + EPERM → 拒绝，got success: ${r.success}`);
-  ok(r.error && r.error.includes('not empty'), `error 包含 'not empty'，got: ${r.error}`);
+  ok(r.success === false, `EPERM with a non-empty target is refused, got success: ${r.success}`);
+  ok(r.error && r.error.includes('not empty'), `the error says not empty, got: ${r.error}`);
 }
 
 // ── 11. copy mid read/write error → reject + partial cleanup ──────
@@ -300,13 +300,13 @@ const { checkTarget, moveTree } = createDataFolderMove({ fs, path });
   const { moveTree: mt4 } = createDataFolderMove({ fs: mockFs, path });
 
   const r = await mt4(from, to);
-  ok(r.success === false, `copy error → reject，got success: ${r.success}`);
-  ok(r.error && r.error.includes('ENOSPC'), `error 包含 'ENOSPC'，got: ${r.error}`);
+  ok(r.success === false, `a copy error fails the move, got success: ${r.success}`);
+  ok(r.error && r.error.includes('ENOSPC'), `the error carries ENOSPC, got: ${r.error}`);
   // partial cleanup: to should not remain
-  ok(!fs.existsSync(to), 'partial cleanup 后 to 不存在');
+  ok(!fs.existsSync(to), 'and the partial copy is removed');
 }
 
-// ── 12. copy with to already existing and non-empty → rejected (TOCTOU, P1-3)──────────
+// ── 12. the target filled up between the check and the copy → refused ──────
 {
   const from = buildTree(tmpDir('mt12-from'));
   const to = buildTree(tmpDir('mt12-nonempty'));
@@ -328,9 +328,8 @@ const { checkTarget, moveTree } = createDataFolderMove({ fs, path });
   const { moveTree: mt5 } = createDataFolderMove({ fs: mockFs, path });
 
   const r = await mt5(from, to);
-  ok(r.success === false, `TOCTOU: to 已存在非空 → 拒绝，got success: ${r.success}`);
-  ok(r.error && (r.error.includes('TOCTOU') || r.error.includes('not empty')),
-    `error 包含 'TOCTOU' 或 'not empty'，got: ${r.error}`);
+  ok(r.success === false, `a target that filled up in the meantime is refused, got success: ${r.success}`);
+  ok(r.error && r.error.includes('not empty'), `the error says not empty, got: ${r.error}`);
 }
 
 // ── 13. verify fileCount differs → fail ──────────────────────────────
@@ -380,9 +379,9 @@ const { checkTarget, moveTree } = createDataFolderMove({ fs, path });
   const { moveTree: mt6 } = createDataFolderMove({ fs: mockFs, path });
 
   const r = await mt6(from, to);
-  ok(r.success === false, `verify fileCount 不等 → fail，got success: ${r.success}`);
-  ok(r.error && r.error.includes('fileCount'), `error 包含 'fileCount'，got: ${r.error}`);
-  ok(!fs.existsSync(to), 'partial cleanup 后 to 不存在');
+  ok(r.success === false, `a file count mismatch fails verification, got success: ${r.success}`);
+  ok(r.error && r.error.includes('fileCount'), `the error names fileCount, got: ${r.error}`);
+  ok(!fs.existsSync(to), 'and the partial copy is removed');
 }
 
 // ── 14. verify totalBytes differs → fail ─────────────────────────────
@@ -431,12 +430,12 @@ const { checkTarget, moveTree } = createDataFolderMove({ fs, path });
   const { moveTree: mt7 } = createDataFolderMove({ fs: mockFs, path });
 
   const r = await mt7(from, to);
-  ok(r.success === false, `verify totalBytes 不等 → fail，got success: ${r.success}`);
-  ok(r.error && r.error.includes('totalBytes'), `error 包含 'totalBytes'，got: ${r.error}`);
-  ok(!fs.existsSync(to), 'partial cleanup 后 to 不存在');
+  ok(r.success === false, `a byte count mismatch fails verification, got success: ${r.success}`);
+  ok(r.error && r.error.includes('totalBytes'), `the error names totalBytes, got: ${r.error}`);
+  ok(!fs.existsSync(to), 'and the partial copy is removed');
 }
 
-// ── 15. verify dirCount differs → fail (P2-6) ─────────────────────────
+// ── 15. verify dirCount differs → fail ────────────────────────────────
 // Strategy: copy after creating extra directories in to to make dirCount differ
 {
   const from = buildTree(tmpDir('mt15-from'));
@@ -471,8 +470,8 @@ const { checkTarget, moveTree } = createDataFolderMove({ fs, path });
   const { moveTree: mt8 } = createDataFolderMove({ fs: mockFs, path });
 
   const r = await mt8(from, to);
-  ok(r.success === false, `verify dirCount 不等 → fail，got success: ${r.success}`);
-  ok(r.error && r.error.includes('dirCount'), `error 包含 'dirCount'，got: ${r.error}`);
+  ok(r.success === false, `a directory count mismatch fails verification, got success: ${r.success}`);
+  ok(r.error && r.error.includes('dirCount'), `the error names dirCount, got: ${r.error}`);
 }
 
 // ── 16. safeRemove idempotent (does not error when non-existent) ───────────────────────────
@@ -510,10 +509,10 @@ const { checkTarget, moveTree } = createDataFolderMove({ fs, path });
   const { moveTree: mt9 } = createDataFolderMove({ fs: mockFs, path });
 
   const r = await mt9(from, to);
-  ok(r.success === false, `copy 失败 → reject，got success: ${r.success}`);
+  ok(r.success === false, `the copy failure is reported, got success: ${r.success}`);
   // safeRemove idempotent: to does not exist, safeRemove should not error
   ok(!r.error || !r.error.includes('cleanup failed'),
-    'safeRemove 幂等：不存在时不报错');
+    'and removing a target that was never created is not an error');
 }
 
 // ── 17. moveTree: same-disk rename, source does not exist (move semantics) ───────────
@@ -521,12 +520,12 @@ const { checkTarget, moveTree } = createDataFolderMove({ fs, path });
   const from = buildTree(tmpDir('mt17-from'));
   const to = path.join(TMP_ROOT, 'mt17-to');
   const r = await moveTree(from, to);
-  ok(r.success === true, 'rename 成功');
-  ok(!fs.existsSync(from), 'rename 后源目录不存在');
-  ok(fs.existsSync(to), 'rename 后目标目录存在');
-  ok(fs.existsSync(path.join(to, 'Projects')), 'Projects 子目录存在');
-  ok(fs.existsSync(path.join(to, 'Projects', 'design.tfs')), '文件内容存在');
-  ok(fs.existsSync(path.join(to, 'Coatings', 'coat.bin')), '二进制文件存在');
+  ok(r.success === true, 'the rename succeeds');
+  ok(!fs.existsSync(from), 'the source is gone');
+  ok(fs.existsSync(to), 'the target is there');
+  ok(fs.existsSync(path.join(to, 'Projects')), 'with the Projects subfolder');
+  ok(fs.existsSync(path.join(to, 'Projects', 'design.tfs')), 'the design file');
+  ok(fs.existsSync(path.join(to, 'Coatings', 'coat.bin')), 'and the binary file');
 }
 
 // ── 18. moveTree: to == from → no-op ──────────────────────────────
@@ -534,8 +533,8 @@ const { checkTarget, moveTree } = createDataFolderMove({ fs, path });
   const dir = buildTree(tmpDir('mt18-same'));
   const r = await moveTree(dir, dir);
   ok(r.success === true, 'to == from → no-op success');
-  ok(fs.existsSync(dir), '目录仍然存在');
-  ok(fs.existsSync(path.join(dir, 'Projects')), '子目录仍然存在');
+  ok(fs.existsSync(dir), 'the folder is still there');
+  ok(fs.existsSync(path.join(dir, 'Projects')), 'with its subfolders');
 }
 
 // ── 19. checkTarget: target exists but is empty → allowed ────────────────────
@@ -543,7 +542,7 @@ const { checkTarget, moveTree } = createDataFolderMove({ fs, path });
   const current = buildTree(tmpDir('ct19-current'));
   const target = tmpDir('ct19-empty');
   const r = checkTarget(current, target);
-  ok(r.ok === true, 'target 存在但为空 → 允许');
+  ok(r.ok === true, 'an existing but empty target is allowed');
 }
 
 // ── 20. moveTree: correctly copy large files (verify bytes) ────────────────────
@@ -557,14 +556,14 @@ const { checkTarget, moveTree } = createDataFolderMove({ fs, path });
   const to = path.join(TMP_ROOT, 'mt20-to');
   const before = dirStats(from);
   const r = await moveTree(from, to);
-  ok(r.success === true, '大文件拷贝成功');
+  ok(r.success === true, 'a large file moves');
   const after = dirStats(to);
   ok(after.fileCount === before.fileCount, `fileCount: ${after.fileCount} = ${before.fileCount}`);
   ok(after.totalBytes === before.totalBytes, `totalBytes: ${after.totalBytes} = ${before.totalBytes}`);
   // Verify large file content
   const readBuf = fs.readFileSync(path.join(to, 'big.bin'));
-  ok(readBuf.length === 1024 * 1024, '大文件大小正确');
-  ok(readBuf[0] === 0xAB, '大文件内容正确');
+  ok(readBuf.length === 1024 * 1024, 'with its size intact');
+  ok(readBuf[0] === 0xAB, 'and its contents');
 }
 
 // ── 21. EXDEV copy after verify success (full file verification) ──────────────────
@@ -575,14 +574,14 @@ const { checkTarget, moveTree } = createDataFolderMove({ fs, path });
   const { moveTree: mt21 } = createDataFolderMove({ fs: mockFs, path });
   const before = dirStats(from);
   const r = await mt21(from, to);
-  ok(r.success === true, `EXDEV copy 成功，got error: ${r.error}`);
+  ok(r.success === true, `the copy succeeds, got error: ${r.error}`);
   const after = dirStats(to);
   ok(after.fileCount === before.fileCount, `fileCount: ${after.fileCount} = ${before.fileCount}`);
   ok(after.totalBytes === before.totalBytes, `totalBytes: ${after.totalBytes} = ${before.totalBytes}`);
   // Binary file content identical
   const origBin = fs.readFileSync(path.join(from, 'Coatings', 'coat.bin'));
   const copyBin = fs.readFileSync(path.join(to, 'Coatings', 'coat.bin'));
-  ok(origBin.equals(copyBin), '二进制文件内容一致');
+  ok(origBin.equals(copyBin), 'the binary file is byte for byte identical');
 }
 
 // ── Cleanup ───────────────────────────────────────────────────────────

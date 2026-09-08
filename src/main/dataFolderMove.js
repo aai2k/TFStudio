@@ -1,34 +1,30 @@
 /**
- * dataFolderMove.js — Single Data Folder migration logic (issue #75 consolidated version).
+ * Moving the data folder from one place to another.
  *
- * Public API (minimal):
  *   createDataFolderMove({ fs, path }) => { checkTarget, moveTree }
  *
- * Internal helpers (not exposed):
- *   tree traversal, file-count tally, byte tally, copy, verify,
- *   partial cleanup, safeRemove, delete.
+ * checkTarget decides whether a folder may be moved to, and writes nothing.
+ * moveTree does the work: a rename where the file system allows one, otherwise
+ * copy and verify. It never deletes the source and never touches settings, so
+ * the caller still holds a complete copy whatever the outcome.
  *
- * Design principles:
- *   - async fs (RII mirror ~4000 files, avoid blocking the window);
- *   - checkTarget pure check, no mkdir / no writing files (no persistent side effects);
- *   - moveTree doesn't pre-stat.dev disk judgment;
- *   - Don't delete src inside functions; don't touch settings.
+ * The file operations are async because the bundled refractiveindex mirror
+ * alone is around 4000 files and the window must stay responsive.
  */
 
 'use strict';
 
 /**
- * Create dataFolderMove instance.
- * @param {{ fs: object, path: object }} deps — Injected fs / path modules
+ * @param {{ fs: object, path: object }} deps — fs and path, injected for testing
  * @returns {{ checkTarget: Function, moveTree: Function }}
  */
 function createDataFolderMove({ fs: _fs, path: _path }) {
 
   // ── Path normalization ────────────────────────────────────────────────────
-  // resolve + trailing separator strip; no case folding / realpath (caller ensures canonical port).
+  // Absolute form with any trailing separator removed. Case is left alone and
+  // symlinks are not resolved; the paths come from the directory picker.
   function normalize(p) {
     let r = _path.resolve(p);
-    // Trailing separator removal (keep consistent)
     if (r.length > 1 && (r.endsWith('/') || r.endsWith('\\'))) {
       r = r.slice(0, -1);
     }
@@ -38,7 +34,7 @@ function createDataFolderMove({ fs: _fs, path: _path }) {
   // ── checkTarget(current, target) ──────────────────────────────────────
 
   /**
-   * Validate whether target can be a migration target.
+   * Whether the data folder may be moved to target.
    *
    * Rules:
    *   1. target must be empty or non-existent;
@@ -109,7 +105,7 @@ function createDataFolderMove({ fs: _fs, path: _path }) {
   // ── Internal helpers ───────────────────────────────────────────────────────
 
   /**
-   * Recursively traverse directory tree, async collect file/dir counts and byte counts.
+   * Walk a tree and tally what is in it, for the copy check.
    * @returns {Promise<{ fileCount: number, dirCount: number, totalBytes: number }>}
    */
   async function traverseStats(dir) {
@@ -137,7 +133,7 @@ function createDataFolderMove({ fs: _fs, path: _path }) {
   }
 
   /**
-   * Recursively copy directory tree (stream/pipeline not suitable for directory structure, use async fs to copy file by file).
+   * Copy a tree file by file, recreating symlinks as links.
    * @param {string} srcDir
    * @param {string} dstDir
    */
@@ -153,14 +149,14 @@ function createDataFolderMove({ fs: _fs, path: _path }) {
         const link = await _fs.promises.readlink(src);
         await _fs.promises.symlink(link, dst);
       } else {
-        // File: use fs.promises.copyFile (underlying sendfile/CoW, performance sufficient)
         await _fs.promises.copyFile(src, dst);
       }
     }
   }
 
   /**
-   * Verify copy integrity: fileCount + totalBytes (dirCount appended).
+   * The copy is accepted only when file count, byte count and directory count
+   * all match the source.
    * @returns {Promise<{ ok: boolean, reason?: string }>}
    */
   async function verifyCopy(fromDir, toDir) {
@@ -189,14 +185,14 @@ function createDataFolderMove({ fs: _fs, path: _path }) {
   }
 
   /**
-   * Idempotent safeRemove: recursively delete directory, no error if not exists.
+   * Remove a directory if it is there. Carries the path on the error so the
+   * caller can name what was left behind.
    * @returns {Promise<void>}
    */
   async function safeRemove(dir) {
     try {
       await _fs.promises.rm(dir, { recursive: true, force: true });
     } catch (err) {
-      // force: true should not throw in itself, but just in case
       throw Object.assign(err, { residualPath: dir, cleanupPath: dir });
     }
   }
@@ -218,17 +214,19 @@ function createDataFolderMove({ fs: _fs, path: _path }) {
   // ── moveTree(from, to) ────────────────────────────────────────────────
 
   /**
-   * Migrate directory tree from → to.
+   * Move a tree from → to.
    *
-   * Flow:
-   *   try rename
-   *     ↓  EXDEV → async copy → verify
-   *     ↓  EPERM/EEXIST and target is empty directory → rmdir(target) then retry rename → still failed downgrade copy
+   * A rename is tried first and is what happens within one volume: it is
+   * instant and cannot leave half a folder behind. Whether the two paths are
+   * on the same volume is left to the file system to answer rather than
+   * guessed from device numbers, which are unreliable across mounts and
+   * mapped drives. EXDEV means they are not, and the move becomes a copy that
+   * is verified before the caller is told it succeeded. Windows answers EPERM
+   * or EEXIST when the target directory already exists, so an empty one is
+   * removed and the rename tried again.
    *
-   * Don't pre-stat.dev disk judgment.
-   * copy branch asserts to does not exist at start (TOCTOU defense).
-   * copy fails → partial cleanup (safeRemove idempotent).
-   * Don't delete src inside function; don't touch settings.
+   * A failed copy takes its own partial output with it. The source is never
+   * deleted here.
    *
    * @param {string} from — Source directory
    * @param {string} to — Target directory
@@ -250,39 +248,34 @@ function createDataFolderMove({ fs: _fs, path: _path }) {
     } catch (err) {
       const code = err.code;
 
-      // EXDEV → cross-disk, downgrade to copy
+      // Different volume.
       if (code === 'EXDEV') {
         return await doCopyWithVerify(resolvedFrom, resolvedTo);
       }
 
-      // EPERM/EEXIST and target is empty directory → rmdir retry rename
+      // The target directory is in the way.
       if (code === 'EPERM' || code === 'EEXIST') {
         const nonEmpty = await isNonEmptyDir(resolvedTo);
         if (nonEmpty) {
-          // target non-empty → don't rmdir, directly report/downgrade
           return {
             success: false,
             error: `target directory is not empty (${code})`,
             crossDevice: false,
           };
         }
-        // target empty → rmdir then retry rename
         try {
           await _fs.promises.rmdir(resolvedTo);
         } catch (_) {
-          // rmdir failed → downgrade copy
           return await doCopyWithVerify(resolvedFrom, resolvedTo);
         }
         try {
           await _fs.promises.rename(resolvedFrom, resolvedTo);
           return { success: true, method: 'rename' };
         } catch (_) {
-          // retry still failed → downgrade copy
           return await doCopyWithVerify(resolvedFrom, resolvedTo);
         }
       }
 
-      // other errors
       return {
         success: false,
         error: err.message || String(err),
@@ -292,23 +285,23 @@ function createDataFolderMove({ fs: _fs, path: _path }) {
   }
 
   /**
-   * Cross-disk copy + verify process (internal branch).
+   * Copy and verify, for a target on another volume.
    * @returns {Promise<{ success: boolean, method?: string, error?: string, crossDevice?: boolean }>}
    */
   async function doCopyWithVerify(from, to) {
-    // TOCTOU defense (P1-3): copy branch asserts to does not exist (throw if exists)
+    // The target was checked before the move started, so check again: something
+    // may have written into it since, and a copy into an occupied folder would
+    // mix two sets of data.
     try {
       await _fs.promises.stat(to);
-      // If to exists, check if non-empty
       const nonEmpty = await isNonEmptyDir(to);
       if (nonEmpty) {
         return {
           success: false,
-          error: 'target directory already exists and is not empty (TOCTOU)',
+          error: 'target directory already exists and is not empty',
           crossDevice: true,
         };
       }
-      // Empty directory → delete then copy
       await _fs.promises.rmdir(to);
     } catch (err) {
       if (err.code !== 'ENOENT') {
@@ -324,7 +317,6 @@ function createDataFolderMove({ fs: _fs, path: _path }) {
     try {
       await asyncCopyDir(from, to);
     } catch (copyErr) {
-      // copy failure → partial cleanup
       try {
         await safeRemove(to);
       } catch (cleanupErr) {
@@ -341,7 +333,8 @@ function createDataFolderMove({ fs: _fs, path: _path }) {
       };
     }
 
-    // verify (when an exception occurs, safeRemove cleans up and returns verify failed, preventing broken symlink from causing new root residual)
+    // A copy that cannot be verified is removed, so a half-written folder is
+    // never left standing next to the original.
     let vResult;
     try {
       vResult = await verifyCopy(from, to);
@@ -350,11 +343,10 @@ function createDataFolderMove({ fs: _fs, path: _path }) {
       return { success: false, error: `verify exception: ${verifyErr.message}`, crossDevice: true };
     }
     if (!vResult.ok) {
-      // verify failed → partial cleanup
       try {
         await safeRemove(to);
       } catch (_) {
-        // safeRemove idempotent — report verify error even during exception
+        // Removing it failed too; the verify failure is the useful half.
       }
       return {
         success: false,
