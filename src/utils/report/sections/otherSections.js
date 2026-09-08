@@ -9,7 +9,11 @@
 
 import { lineChartSVG, escapeHtml } from '../svgChart.js';
 import {
-  pct, num, deg, tt, blockTitle, errNote, wrap, table, note, plotHeight, subtitleOf,
+  isBlank, isConstraint, isDmfs, isMath, isMathPairRef, isMathSingleRef,
+  isTotalThickness, readsWavelengthBand,
+} from '../../physics/optimizer/operandModel.js';
+import {
+  DASH, pct, num, deg, tt, blockTitle, errNote, wrap, table, note, plotHeight, subtitleOf,
 } from './format.js';
 
 /** The block's computed data, or the section to render when there is none. */
@@ -105,9 +109,47 @@ export function buildQualifiers(ctx) {
     { subtitle: subtitleOf(ctx) });
 }
 
-function operandRange(op) {
-  if (op.lambdaStart == null) return num(null);
-  return op.lambdaStart === op.lambdaEnd ? num(op.lambdaStart, 0) : `${num(op.lambdaStart, 0)}-${num(op.lambdaEnd, 0)}`;
+const TT_COMPARISONS = { le: '≤', ge: '≥', eq: '=' };
+
+function layerRange(tr, first, last) {
+  const a = Math.round(first), b = Math.round(last);
+  if (typeof tr?.layerRange === 'function') return tr.layerRange(a, b);
+  return a === b ? `Layer ${a}` : `Layers ${a}-${b}`;
+}
+
+function referencedRow(rowNumber) { return rowNumber == null ? DASH : `#${rowNumber}`; }
+
+/** What an operand that reads no wavelength puts in the λ / Layer cell, or null. */
+function nonSpectralRange(op) {
+  if (isBlank(op.type) || isDmfs(op.type)) return escapeHtml(op.comment) || DASH;
+  if (isTotalThickness(op.type)) return TT_COMPARISONS[op.cmp] || TT_COMPARISONS.eq;
+  if (isMathPairRef(op.type)) return `${referencedRow(op.ref1)}, ${referencedRow(op.ref2)}`;
+  if (isMathSingleRef(op.type)) return referencedRow(op.ref1);
+  return null;
+}
+
+/**
+ * The λ / Layer cell. One column, but each operand family puts something else
+ * in it, so the cell names its own unit rather than leaning on the header: a
+ * wavelength or a band in nm, a layer range for a thickness constraint, the
+ * comparison a total-thickness row applies, the rows a math operand reads, or
+ * the text of a comment row.
+ */
+function operandRange(op, tr) {
+  const nonSpectral = nonSpectralRange(op);
+  if (nonSpectral != null) return nonSpectral;
+  if (op.lambdaStart == null) return DASH;
+  const end = op.lambdaEnd ?? op.lambdaStart;
+  if (isConstraint(op.type)) return escapeHtml(layerRange(tr, op.lambdaStart, end));
+  if (!readsWavelengthBand(op.type) || op.lambdaStart === end) return `${num(op.lambdaStart, 0)} nm`;
+  return `${num(op.lambdaStart, 0)}-${num(end, 0)} nm`;
+}
+
+const NO_INCIDENCE = [isConstraint, isTotalThickness, isMath, isBlank, isDmfs];
+
+/** Angle and polarization are properties of a ray, so a row that scores no ray has neither. */
+function hasIncidence(type) {
+  return !NO_INCIDENCE.some(inFamily => inFamily(type));
 }
 
 export function buildMerit(ctx) {
@@ -118,11 +160,17 @@ export function buildMerit(ctx) {
   if (!m.length) {
     return wrap('merit', title, note(escapeHtml(tt(tr, 'noOperands', 'No merit-function operands defined.'))), { subtitle: subtitleOf(ctx) });
   }
-  const rows = m.map(op => [
-    `${op.index}`, escapeHtml(op.type), operandRange(op), `${deg(op.aoi)}°`, escapeHtml(op.pol),
-    op.target != null ? num(op.target, 4) : num(null), num(op.weight, 2),
-  ]);
-  const headers = ['#', tt(tr, 'type', 'Type'), 'λ, nm', tt(tr, 'aoi', 'AOI'), tt(tr, 'pol', 'Pol'),
+  const rows = m.map(op => {
+    const incidence = hasIncidence(op.type);
+    return [
+      `${op.index}`, escapeHtml(op.type), operandRange(op, tr),
+      incidence ? `${deg(op.aoi)}°` : DASH,
+      incidence ? escapeHtml(op.pol) : DASH,
+      op.target != null ? num(op.target, 4) : num(null), num(op.weight, 2),
+    ];
+  });
+  const headers = ['#', tt(tr, 'type', 'Type'), tt(tr, 'lambdaOrLayer', 'λ / Layer'),
+                   tt(tr, 'aoi', 'AOI'), tt(tr, 'pol', 'Pol'),
                    tt(tr, 'target', 'Target'), tt(tr, 'weight', 'Weight')].map(escapeHtml);
   return wrap('merit', title, table(headers, rows, { align: ['r', 'l', 'r', 'r', 'l', 'r', 'r'] }), { subtitle: subtitleOf(ctx) });
 }

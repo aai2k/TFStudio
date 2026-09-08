@@ -136,6 +136,7 @@ export function isDmfs(type)       { return type === 'DMFS'; }
 export function isBlank(type)      { return type === 'BLNK'; }
 export function isTotalThickness(type) { return type === 'TT'; }
 export function isRangeTarget(type) { return RANGE_TARGET_OPERAND_TYPES.indexOf(type) >= 0; }
+export function isBandAverage(type) { return type === 'TAV' || type === 'RAV' || type === 'AAV'; }
 export function isIntegral(type)   { return type === 'TIW' || type === 'RIW' || type === 'AIW'; }
 export function isMinmax(type)     { return MINMAX_OPERAND_TYPES.indexOf(type) >= 0; }
 export function isMinType(type)    { return type === 'TMN' || type === 'RMN' || type === 'AMN'; }
@@ -151,6 +152,16 @@ export function isPhase(type)        { return isEllipsometry(type) || isPhaseShi
 export function isInequality(type) { return type === 'OPGT' || type === 'OPLT'; }
 export function isArgwave(type)    { return ARGWAVE_OPERAND_TYPES.indexOf(type) >= 0; }
 export function isArgwaveMin(type) { return type.startsWith('MNW'); }
+const BAND_FAMILIES = [
+    isBandAverage, isRangeTarget, isMinmax, isIntegral, isArgwave,
+    isGroupDelayFlat, isMeasuredCurve,
+];
+// Does the operand read λEnd, i.e. does it span a wavelength band? Every other
+// spectral operand is evaluated at λStart alone and ignores whatever λEnd it
+// carries, so a row that changed type keeps a λEnd nothing looks at.
+export function readsWavelengthBand(type) {
+    return BAND_FAMILIES.some(inFamily => inFamily(type));
+}
 // Math operand = any operand that REFERENCES another row instead of
 // evaluating a TMM characteristic directly.  Includes OPGT/OPLT and the
 // broader Zemax math family (OPVA / ABSO / ABGT / ABLT / DIFF / SUMM /

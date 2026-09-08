@@ -105,8 +105,14 @@ export function designSummary(design) {
 }
 
 // ── Merit-function operands (table only — no re-evaluation) ──────────────────
+// A row also carries the arguments its own type reads instead of a wavelength
+// band: the total-thickness comparison, a comment, or the rows a math operand
+// references. References resolve to row numbers here because operand ids are
+// opaque and the printed table has no other way to name a row.
 export function meritOperandsSummary(design) {
-  return (design.meritOperands || []).map((op, i) => ({
+  const operands = design.meritOperands || [];
+  const rowNumberOf = new Map(operands.map((op, i) => [op.id, i + 1]));
+  return operands.map((op, i) => ({
     index: i + 1,
     type: op.type || '—',
     lambdaStart: op.lambdaStart ?? null,
@@ -115,5 +121,9 @@ export function meritOperandsSummary(design) {
     pol: op.pol || 'avg',
     target: op.target ?? null,
     weight: op.weight ?? 1,
+    cmp: op.cmp || null,
+    comment: op.comment || '',
+    ref1: rowNumberOf.get(op.refId ?? op.refId1) ?? null,
+    ref2: rowNumberOf.get(op.refId2) ?? null,
   }));
 }
