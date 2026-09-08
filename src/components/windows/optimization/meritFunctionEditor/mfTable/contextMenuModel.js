@@ -47,7 +47,7 @@ export function menuScope(op, colKey, selectedIds) {
  * click landed on a text cell with no wider selection; the rest act on the
  * selected rows, or on the clicked row when nothing is selected.
  */
-export function contextMenuItems({ te, scope, rowIdx, selectedCount, actions }) {
+export function contextMenuItems({ te, scope, rowIdx, selectedCount, cellCount = 1, actions }) {
     const cm = te.contextMenu;
     const count = Math.max(1, selectedCount);
     const items = [];
@@ -56,9 +56,10 @@ export function contextMenuItems({ te, scope, rowIdx, selectedCount, actions }) 
     // otherwise.
     const cell = scope === 'cell';
     if (cell) {
+        const many = cellCount > 1;
         items.push(
-            { id: 'copyCell', label: cm.copyCell, shortcut: 'Ctrl+C', onClick: actions.copyCell },
-            { id: 'pasteCell', label: cm.pasteCell, shortcut: 'Ctrl+V', onClick: actions.pasteCell },
+            { id: 'copyCell', label: many ? cm.copyCells : cm.copyCell, shortcut: 'Ctrl+C', onClick: actions.copyCell },
+            { id: 'pasteCell', label: many ? cm.pasteCells : cm.pasteCell, shortcut: 'Ctrl+V', onClick: actions.pasteCell },
             { separator: true },
         );
     }

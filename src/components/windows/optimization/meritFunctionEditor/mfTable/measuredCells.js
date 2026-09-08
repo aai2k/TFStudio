@@ -4,8 +4,10 @@
  * The row is a snapshot, not a set of fields: its wavelengths, targets, angle
  * and polarization came from the curve it was generated from, and editing them
  * here would describe a measurement nobody took. They are shown as text, and
- * only Enabled and Weight stay editable.
+ * only Enabled and Weight stay editable. They still select like any cell, so
+ * a rectangle dragged through the row is not broken by it.
  */
+import { selectable } from './CellControls.js';
 
 const { createElement: h } = React;
 
@@ -18,7 +20,7 @@ function measuredTypeCell(ctx, colKey, width) {
     const { op, c, tdBase } = ctx;
     const points = op.sampleLambdas?.length || 0;
     return h('td', {
-        key: colKey,
+        key: colKey, ...selectable(ctx, colKey),
         title: `${op.curveName || 'Measured curve'} · ${op.quantity || 'R'} · ${points} points`,
         style: {
             ...tdBase(colKey, width), height: ROW_HEIGHT, color: c.text, fontWeight: 600,
@@ -34,7 +36,7 @@ function measuredSnapshotCell(ctx, colKey, width) {
     if (colKey === 'aoi') value = Number.isFinite(op.aoi) ? op.aoi : 0;
     if (Number.isFinite(value) && colKey !== 'aoi') value = Number(value.toFixed(3));
     return h('td', {
-        key: colKey,
+        key: colKey, ...selectable(ctx, colKey),
         title: op.curveName || undefined,
         style: { ...tdBase(colKey, width), color: c.textDim, overflow: 'hidden', textOverflow: 'ellipsis' },
     }, value ?? '');

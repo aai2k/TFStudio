@@ -326,10 +326,14 @@ export function PickerDropdown(props) {
         value, onChange, c, compact, triggerLabel, triggerColor,
         groups = [], currentGroup = null, search, isActive, sections = false,
         searchPlaceholder, allLabel, emptyText, minDropWidth = 240,
+        // A picker mounted already open, as a table cell does when its editor
+        // starts: `initialQuery` is what was typed to start it, and `onClose`
+        // tells the host the picker has closed so it can take the cell back.
+        autoOpen = false, initialQuery = '', onClose,
     } = props;
 
-    const [open,      setOpen]      = useState(false);
-    const [query,     setQuery]     = useState('');
+    const [open,      setOpen]      = useState(!!autoOpen);
+    const [query,     setQuery]     = useState(autoOpen ? initialQuery : '');
     const [catFilter, setCatFilter] = useState('all');
     const [scrollTop, setScrollTop] = useState(0);
     const [dropPos,   setDropPos]   = useState({ top: 0, left: 0, width: 0, maxH: 320 });
@@ -338,7 +342,20 @@ export function PickerDropdown(props) {
     const dropRef    = useRef(null);
     const searchRef  = useRef(null);
     const listRef    = useRef(null);
-    const opening    = useRef(false);
+    const opening    = useRef(!!autoOpen);
+
+    // Opened at mount, the overlay is placed from the trigger once it exists.
+    useLayoutEffect(() => {
+        if (!autoOpen) return;
+        const trigger = triggerRef.current;
+        if (trigger) setDropPos(dropPositionFrom(trigger.getBoundingClientRect(), minDropWidth, ownerWindow(trigger)));
+    }, []); // eslint-disable-line
+
+    const wasOpen = useRef(open);
+    useEffect(() => {
+        if (wasOpen.current && !open) onClose?.();
+        wasOpen.current = open;
+    }, [open]); // eslint-disable-line
 
     const activeOf = isActive || (item => item.id === value);
 

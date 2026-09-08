@@ -1,7 +1,5 @@
-import {
-    OPERAND_POLS, isIntegral, isMathPairRef, polFromType,
-} from '../../../../../utils/physics/optimizer.js';
-import { CellInput, CellSelect } from './CellControls.js';
+import { isIntegral, isMathPairRef, polFromType } from '../../../../../utils/physics/optimizer.js';
+import { CellInput, CellSelect, PolSelect, selectable } from './CellControls.js';
 import { OperandTypePicker } from './OperandTypePicker.js';
 import { measuredSnapshotCell, measuredTypeCell } from './measuredCells.js';
 import {
@@ -30,8 +28,13 @@ function describeCustomIntegral(op) {
     return `${char}·${srcLabel}·${detLabel} · ${op.lambdaStart}–${op.lambdaEnd} nm`;
 }
 
+// A cell the row does not carry. It is still a cell: it can be reached and
+// selected, copies as nothing and takes no paste.
 function dashCell(ctx, colKey, width) {
-    return h('td', { key: colKey, style: { ...ctx.tdBase(colKey, width), color: ctx.c.textDim } }, '—');
+    return h('td', {
+        key: colKey, ...selectable(ctx, colKey),
+        style: { ...ctx.tdBase(colKey, width), color: ctx.c.textDim },
+    }, '—');
 }
 
 function enabledCell(ctx, colKey, width) {
@@ -46,14 +49,31 @@ function enabledCell(ctx, colKey, width) {
     }, op.enabled ? '✓' : '○');
 }
 
-function typeCell(ctx, colKey, width) {
-    const { op, c, t, tdBase, onEdit } = ctx;
+// The operand code as text. Enter, a double-click or a typed letter opens the
+// picker in the cell; see typePickerCell.
+export function typeCell(ctx, colKey, width) {
+    const { op, rowIdx, c, tdBase, startEdit } = ctx;
+    return h('td', {
+        key: colKey, ...selectable(ctx, colKey),
+        onDoubleClick: () => startEdit(rowIdx, colKey, null),
+        style: { ...tdBase(colKey, width), color: c.text, fontWeight: 500 },
+    }, op.type);
+}
+
+// The Type cell while it is being edited: the operand picker, open, with what
+// was typed already in its search box. Closing it, by a pick, Escape or a
+// click elsewhere, returns the cell to text.
+export function typePickerCell(ctx, colKey, width) {
+    const { op, c, t, tdBase, editCell, onEdit, setEditCell } = ctx;
     return h('td', {
         key: colKey,
         style: tdBase(colKey, width, { padding: '0 2px' }),
     }, h(OperandTypePicker, {
         value: op.type,
         onChange: newType => onEdit(op.id, 'type', newType),
+        autoOpen: true,
+        initialQuery: editCell?.initValue || '',
+        onClose: () => setEditCell(null),
         c, t,
     }));
 }
@@ -145,25 +165,39 @@ function mathReferenceCell(ctx, colKey, width) {
     ));
 }
 
-function polarizationCell(ctx, colKey, width) {
-    const { op, c, tdBase, cellClick, onEdit } = ctx;
+// Polarization as text. Focused, the cell shows a chevron at its right, the
+// way a spreadsheet marks a cell that offers a list; the chevron, Enter or a
+// double-click drops the list open, and a typed a, s or p sets the value
+// outright. A type that carries its own polarization shows it dimmed and
+// takes no edit.
+export function polarizationCell(ctx, colKey, width) {
+    const { op, rowIdx, c, tdBase, startEdit, focusColKey } = ctx;
     const embedded = polFromType(op.type);
-    if (embedded) {
-        return h('td', {
-            key: colKey, onClick: event => cellClick(colKey, event),
-            style: tdBase(colKey, width, { color: c.textDim }),
-        }, embedded);
-    }
+    const open = () => startEdit(rowIdx, colKey, null);
     return h('td', {
-        key: colKey, onClick: event => cellClick(colKey, event),
-        style: tdBase(colKey, width, { padding: '0 2px' }),
-    }, h(CellSelect, {
+        key: colKey, ...selectable(ctx, colKey),
+        onDoubleClick: embedded ? undefined : open,
+        style: tdBase(colKey, width, { color: embedded ? c.textDim : c.text }),
+    },
+        embedded || op.pol,
+        !embedded && focusColKey === colKey && h('span', {
+            onClick: open,
+            style: { float: 'right', color: c.textDim, cursor: 'pointer', paddingLeft: 4 },
+        }, '▾'),
+    );
+}
+
+// The Pol cell while it is being edited: the list of the three values, open.
+export function polPickerCell(ctx, colKey, width) {
+    const { op, rowIdx, c, tdBase, commitEdit, focusAt, setEditCell } = ctx;
+    return h('td', {
+        key: colKey, style: tdBase(colKey, width, { padding: '0 2px' }),
+    }, h(PolSelect, {
         value: op.pol,
-        onChange: event => onEdit(op.id, 'pol', event.target.value),
-        color: c.text,
-    }, OPERAND_POLS.map(pol => h('option', {
-        key: pol, value: pol, style: { background: c.panel },
-    }, pol))));
+        onCommit: pol => { commitEdit(rowIdx, colKey, pol); focusAt(rowIdx, colKey); },
+        onCancel: refocus => { setEditCell(null); if (refocus) focusAt(rowIdx, colKey); },
+        c,
+    }));
 }
 
 function currentCell(ctx, colKey, width) {
@@ -210,11 +244,15 @@ function contributionCell(ctx, colKey, width) {
     );
 }
 
+// The row-number column selects rows: a press selects the row, Shift and Ctrl
+// extend and toggle the selection, and dragging down the column selects the
+// run of rows crossed.
 function numberCell(ctx, colKey, width) {
-    const { rowIdx, c, tdBase, cellClick, rowStripe } = ctx;
+    const { rowIdx, c, tdBase, rowDown, rowEnter, rowStripe } = ctx;
     return h('td', {
         key: colKey,
-        onClick: event => cellClick(colKey, event),
+        onMouseDown: rowDown,
+        onMouseEnter: rowEnter,
         style: {
             ...tdBase(colKey, width), textAlign: 'center', color: c.textDim,
             boxShadow: rowStripe ? `inset 3px 0 0 0 ${rowStripe}` : 'none',
@@ -236,7 +274,7 @@ function editingCell(ctx, colKey, width) {
 }
 
 export function textCell(ctx, colKey, width) {
-    const { op, meta, rowIdx, c, tdBase, cellClick, startEdit } = ctx;
+    const { op, meta, rowIdx, c, tdBase, startEdit } = ctx;
     let display = op[colKey];
     if (colKey === 'target') {
         display = fmtTargetDisplay(op, meta);
@@ -245,8 +283,7 @@ export function textCell(ctx, colKey, width) {
         else if (!meta.isRange) return dashCell(ctx, colKey, width);
     }
     return h('td', {
-        key: colKey,
-        onClick: event => cellClick(colKey, event),
+        key: colKey, ...selectable(ctx, colKey),
         onDoubleClick: () => startEdit(rowIdx, colKey, null),
         style: {
             ...tdBase(colKey, width), color: c.text, overflow: 'hidden',

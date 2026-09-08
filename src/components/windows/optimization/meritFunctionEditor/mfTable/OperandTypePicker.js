@@ -27,7 +27,7 @@ function operandCategories(t) {
 // Searchable, grouped replacement for the operand type <select>, mirroring the
 // Design Editor's material picker: a search box, category tabs, and category
 // section headers (grouped by operand category instead of material catalog).
-export function OperandTypePicker({ value, onChange, c, t }) {
+export function OperandTypePicker({ value, onChange, c, t, autoOpen = false, initialQuery = '', onClose }) {
     const operandTypes = t?.meritFunctionEditor?.operandTypes || {};
     const mp = t?.materialPicker || {};
     const categories = operandCategories(t);
@@ -58,6 +58,7 @@ export function OperandTypePicker({ value, onChange, c, t }) {
         triggerLabel: value, triggerColor: null,
         groups, search, sections: true, minDropWidth: 380,
         currentGroup: currentCategory ? currentCategory.group : null,
+        autoOpen, initialQuery, onClose,
         searchPlaceholder: mp.searchPlaceholder || 'Search…',
         allLabel: mp.allCatalogs || 'All',
         emptyText: 'No operands found',

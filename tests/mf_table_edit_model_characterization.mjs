@@ -59,7 +59,9 @@ startEdit(startCtx, 0, 'lambdaStart', null);
 startEdit(startCtx, 1, 'target', '7');
 assert.deepEqual(startCalls, [
     ['edit', 'a', 'enabled', false],
+    // Enter on the Type cell opens the picker in the cell with an empty search.
     ['focus', { rowIdx: 0, colKey: 'type' }],
+    ['editing', { rowIdx: 0, colKey: 'type', initValue: '' }],
     ['editing', { rowIdx: 0, colKey: 'lambdaStart', initValue: '450' }],
     ['editing', { rowIdx: 1, colKey: 'target', initValue: '7' }],
 ]);

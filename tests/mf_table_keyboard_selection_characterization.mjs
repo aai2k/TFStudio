@@ -163,7 +163,10 @@ assert.deepEqual(keyCalls, [[0, 'weight', '7']]);
 assert.equal(clipboardScope({ focusCell: { rowIdx: 0, colKey: 'target' }, selectedIds: new Set() }), 'cell');
 assert.equal(clipboardScope({ focusCell: { rowIdx: 0, colKey: 'target' }, selectedIds: new Set(['r']) }), 'cell');
 assert.equal(clipboardScope({ focusCell: { rowIdx: 0, colKey: 'target' }, selectedIds: new Set(['r', 'tt']) }), 'rows');
-assert.equal(clipboardScope({ focusCell: { rowIdx: 0, colKey: 'type' }, selectedIds: new Set() }), 'rows');
+assert.equal(clipboardScope({ focusCell: { rowIdx: 0, colKey: 'type' }, selectedIds: new Set() }), 'cell',
+    'the type code is text like any other value cell');
+assert.equal(clipboardScope({ focusCell: { rowIdx: 0, colKey: 'current' }, selectedIds: new Set() }), 'rows',
+    'a computed column is not a value cell');
 assert.equal(clipboardScope({ focusCell: null, selectedIds: new Set(['r']) }), 'rows');
 
 assert.equal(cellText(operands[0], 'target', false), '12.30', 'a fractional target copies as the percent the editor shows');

@@ -63,7 +63,12 @@ assert.ok(html.includes('opacity:0.45'));
 assert.ok(html.includes('<button'));
 assert.ok(html.includes(`>${t.meritFunctionEditor.addOperand}</button>`));
 assert.ok(html.includes(`>${t.meritFunctionEditor.deleteOperand}</button>`));
-assert.ok(html.includes('Ctrl+C/V=copy/paste'));
+// Type and Pol are text like every other value cell: no picker trigger or
+// dropdown sits in a row until the cell is being edited.
+assert.ok(!html.includes('▾'), 'no picker trigger in any row');
+assert.match(html, />R<\/td>/, 'the type code is the cell text');
+assert.match(html, />avg<\/td>/, 'the polarization is the cell text');
+assert.match(html, />BLNK<\/td>/, 'a comment row shows its type as text too');
 assert.ok(html.includes('aria-invalid="true"'));
 assert.ok(html.includes('TiO2: wavelength is outside the material model range'));
 assert.ok(html.includes('>Error</td>'));
@@ -72,7 +77,6 @@ assert.ok(html.includes('Total merit mode: phase operands score the front coatin
 const withoutToolbar = renderToStaticMarkup(React.createElement(MFTable, { ...props, showToolbar: false }));
 assert.equal((withoutToolbar.match(/<tr/g) || []).length, operands.length + 1);
 assert.ok(!withoutToolbar.includes('<button'));
-assert.ok(!withoutToolbar.includes('Ctrl+C/V=copy/paste'));
 
 const empty = renderToStaticMarkup(React.createElement(MFTable, {
     ...props, operands: [], computed: [], selectedId: null, showToolbar: false,

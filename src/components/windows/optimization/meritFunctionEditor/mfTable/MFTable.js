@@ -97,12 +97,22 @@ function tableBody(rowContext, view, noOperandsMsg) {
     ];
 }
 
+// The rows the Delete button removes: the selected rows, or the focused
+// cell's row. The Delete key is stricter and takes selected rows only, since
+// on a cell it reads as "clear", which a number cannot be.
+function rowsToDelete(operands, selIds, focusCell) {
+    if (selIds.size > 0) return [...selIds];
+    const focused = focusCell ? operands[focusCell.rowIdx] : null;
+    return focused ? [focused.id] : [];
+}
+
 function tableToolbar(options) {
     const {
         operands, selIds, focusCell, primarySel, toolbarStart,
         onAdd, onDelete, onClear, onMoveUp, onMoveDown, c, t,
     } = options;
     const te = t?.meritFunctionEditor || {};
+    const deletable = rowsToDelete(operands, selIds, focusCell);
     return h('div', {
         style: {
             display: 'flex', alignItems: 'center', gap: 4, padding: '4px 6px',
@@ -117,8 +127,8 @@ function tableToolbar(options) {
             c,
         }),
         h(TblBtn, {
-            label: te.deleteOperand || 'Delete', onClick: () => onDelete([...selIds]),
-            disabled: selIds.size === 0, c,
+            label: te.deleteOperand || 'Delete', onClick: () => onDelete(deletable),
+            disabled: deletable.length === 0, c,
         }),
         h(TblBtn, { label: '↑', onClick: onMoveUp, disabled: !primarySel, c }),
         h(TblBtn, { label: '↓', onClick: onMoveDown, disabled: !primarySel, c }),
@@ -130,15 +140,6 @@ function tableToolbar(options) {
         selIds.size > 1 && h('span', {
             style: { fontSize: 10, color: c.textDim, marginLeft: 4 },
         }, `${selIds.size} selected`),
-        // The hint gives way before the buttons do: it shrinks and truncates
-        // in a narrow pane rather than wrapping the buttons beside it.
-        h('span', {
-            title: te.tableHint,
-            style: {
-                fontSize: 10, color: c.textDim, marginLeft: 'auto', minWidth: 0,
-                whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
-            },
-        }, te.tableHint),
     );
 }
 
@@ -146,17 +147,19 @@ export function MFTable(props) {
     const {
         operands, computed, evaluationErrors = [], bandLevels = [],
         selectedId, noOperandsMsg, notice,
-        onSelect, onEdit, onAdd, onInsertAt,
+        onSelect, onEdit, onEditMany, onAdd, onInsertAt,
         onDuplicate, onDelete, onClear, onMoveUp, onMoveDown, showToolbar = true, toolbarStart = null, c, t,
     } = props;
     const integralPresets = useIntegralPresets();
     const {
         selIds, setSelIds, focusCell, setFocusCell, editCell, setEditCell, tableRef,
+        range, extraCells,
         isMathPct, selectRow: handleSelectRow, focusAt: handleFocusAt,
+        extendTo, toggleCell, beginDrag, dragOver,
         startEdit: handleStartEdit, commitEdit: handleCommitEdit,
         navigate: handleNavigate, onEdit: handleEdit, onKeyDown,
     } = useMFTableSelection({
-        operands, selectedId, onSelect, onEdit, onDelete, onInsertAt, onDuplicate, onAdd,
+        operands, selectedId, onSelect, onEdit, onEditMany, onDelete, onInsertAt, onDuplicate, onAdd,
     });
 
     const thStyle = {
@@ -165,7 +168,11 @@ export function MFTable(props) {
         borderBottom: `1px solid ${c.border}`, userSelect: 'none',
         whiteSpace: 'nowrap', position: 'sticky', top: 0, background: c.panel, zIndex: 1,
     };
-    const primarySel = selIds.size === 1 ? [...selIds][0] : null;
+    // The row the move buttons act on: the one selected row, or the focused
+    // cell's row.
+    const primarySel = selIds.size === 1 ? [...selIds][0]
+        : selIds.size === 0 && focusCell ? (operands[focusCell.rowIdx]?.id ?? null)
+        : null;
     const dynamicLabels = dynamicHeaderLabels(pickHeaderOp(operands, focusCell, primarySel));
     // Derived here rather than passed in: every caller already hands over the
     // operands and their computed values, which is all a share of the merit
@@ -180,9 +187,10 @@ export function MFTable(props) {
     );
     const rowContext = {
         computed, evaluationErrors, bandLevels, contributions, largestContribution,
-        selIds, focusCell, editCell,
+        selIds, focusCell, editCell, range, extraCells,
         operands, integralPresets, isMathPct, c, t,
-        onEdit: handleEdit, selectRow: handleSelectRow, focusAt: handleFocusAt, startEdit: handleStartEdit,
+        onEdit: handleEdit, selectRow: handleSelectRow, focusAt: handleFocusAt,
+        extendTo, toggleCell, beginDrag, dragOver, startEdit: handleStartEdit,
         commitEdit: handleCommitEdit, navigate: handleNavigate, setEditCell, setFocusCell,
     };
     const scrollRef = useRef(null);
@@ -205,8 +213,10 @@ export function MFTable(props) {
     }, [focusRow]);
 
     const contextMenu = useTableContextMenu({
-        operands, selIds, setSelIds, focusAt: handleFocusAt, selectRow: handleSelectRow, setFocusCell,
-        onAdd, onInsertAt, onDuplicate, onDelete, commitEdit: handleCommitEdit, isMathPct,
+        operands, selIds, setSelIds, focusCell, range, extraCells,
+        focusAt: handleFocusAt, selectRow: handleSelectRow, setFocusCell,
+        onAdd, onInsertAt, onDuplicate, onDelete, onEdit: handleEdit, onEditMany,
+        commitEdit: handleCommitEdit, isMathPct,
         te: t?.meritFunctionEditor || {},
     });
 

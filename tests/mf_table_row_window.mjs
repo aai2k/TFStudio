@@ -124,10 +124,14 @@ const spansTable = (view, count) =>
 // A row names the operand it stands for, because its position among the built
 // rows is not its position in the table.
 {
-    const operands = Array.from({ length: 4000 }, (_, index) => ({
-        id: `op${index}`, type: 'RGT', enabled: true, lambdaStart: 400, lambdaEnd: 700,
-        aoi: 0, pol: 'avg', target: 0, targetEnd: 0, weight: 1,
-    }));
+    // Type and Pol are text; the one dropdown left in a plain row is the
+    // comparison of a total-thickness operand, so one sits near the top.
+    const operands = Array.from({ length: 4000 }, (_, index) => (index === 1
+        ? { id: 'tt', type: 'TT', enabled: true, lambdaStart: 1, lambdaEnd: 1, aoi: 0, pol: 'avg', cmp: 'le', target: 3000, weight: 1 }
+        : {
+            id: `op${index}`, type: 'RGT', enabled: true, lambdaStart: 400, lambdaEnd: 700,
+            aoi: 0, pol: 'avg', target: 0, targetEnd: 0, weight: 1,
+        }));
     const html = renderToStaticMarkup(React.createElement(MFTable, {
         operands, computed: operands.map(() => 0.004), selectedId: null,
         noOperandsMsg: 'none', onSelect: () => {}, onEdit: () => {}, onAdd: () => {},

@@ -1,6 +1,19 @@
+import { OPERAND_POLS } from '../../../../../utils/physics/optimizer.js';
 import { ROW_H } from './rowWindow.js';
 
 const { createElement: h, useState, useEffect, useRef, useCallback } = React;
+
+/**
+ * The mouse handlers of a cell that is selected like a spreadsheet cell: the
+ * button going down focuses it, or stretches or toggles the selection with
+ * Shift or Ctrl, and dragging across cells grows the rectangle.
+ */
+export function selectable(ctx, colKey) {
+    return {
+        onMouseDown: event => ctx.cellDown(colKey, event),
+        onMouseEnter: () => ctx.cellEnter(colKey),
+    };
+}
 
 export function CellInput({ initValue, onCommit, onCancel, onNavigate, c }) {
     const [draft, setDraft] = useState(initValue);
@@ -51,13 +64,41 @@ export function TblBtn({ label, onClick, disabled, c, accent, title }) {
  * out of step with its scrollbar. The minimum is cleared and the height given
  * outright.
  */
-export function CellSelect({ value, onChange, title, color, children }) {
+export function CellSelect({ value, onChange, title, color, children, selectRef, onBlur, onKeyDown }) {
     return h('select', {
-        value, onChange, title,
+        ref: selectRef, value, onChange, onBlur, onKeyDown, title,
         style: {
             width: '100%', background: 'transparent', color, border: 'none',
             fontSize: 11, padding: '1px 2px', fontFamily: 'inherit', outline: 'none', cursor: 'pointer',
             height: ROW_H - 2, minHeight: 0, boxSizing: 'border-box',
         },
     }, children);
+}
+
+/**
+ * The Pol cell's editor: the three polarizations as a list, dropped open the
+ * moment it appears. A pick or Enter commits; Escape cancels and hands the
+ * focus back to the table; focus leaving the list, as a click elsewhere takes
+ * it, closes it without a change.
+ */
+export function PolSelect({ value, onCommit, onCancel, c }) {
+    const ref = useRef(null);
+    useEffect(() => {
+        const select = ref.current;
+        if (!select) return;
+        select.focus();
+        // Dropping the list open needs a user gesture, and the key or click
+        // that started the edit is one. Where it is refused the list is
+        // focused and closed, and opens on Space or Alt+Down.
+        try { select.showPicker?.(); } catch { /* opened from the keyboard instead */ }
+    }, []);
+    return h(CellSelect, {
+        selectRef: ref, value, color: c.text,
+        onChange: event => onCommit(event.target.value),
+        onBlur: () => onCancel(false),
+        onKeyDown: event => {
+            if (event.key === 'Escape') { event.preventDefault(); event.stopPropagation(); onCancel(true); }
+            if (event.key === 'Enter') { event.preventDefault(); event.stopPropagation(); onCommit(event.target.value); }
+        },
+    }, OPERAND_POLS.map(pol => h('option', { key: pol, value: pol, style: { background: c.panel } }, pol)));
 }

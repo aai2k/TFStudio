@@ -44,25 +44,58 @@ Reflection and transmission targets are typically generated in **paired** rows
 by the filter-type wizard so the optimizer can't trade absorption for an easy
 win.
 
-## Settings
+## The wizard
 
-**Filter-type wizard**: at the top, a set of coating categories (AR, HR,
-bandpass, notch, edge filters, ramps). Pick the goal and the wizard fills in
-sensible weights and operands you can then refine. The **Custom target**
-category generates a single user-specified target. Pick a channel (T/R/A), a
-comparison (`=`, `≤`, `≥`), a value, and a wavelength range, at the chosen
-polarization and angle of incidence, as a continuous line, discrete points, or
-a worst-case bound.
+The wizard sits above the table. Its bar carries the Optimize and Eval badges
+and the current MF and OMF; the chevron at the left folds the form away and
+brings it back. Under the bar are three boxes:
 
-**Operand table**: one row per operand; edit any cell inline. The **Type**
-cell opens a searchable picker with the operands grouped by category (the same
-control as the Design Editor's material picker). The advanced columns set each
-operand's weight, angle of incidence, polarization and an optional surface-mode
-override.
+- **Preset**: the coating category (AR, mirror, beamsplitter, edge filter,
+  bandpass or notch, gradient, integral or worst-case, custom target), the
+  type within it, and the type's own values, the wavelength range first. The
+  **Custom target** type generates a single target of your own: a channel
+  (T/R/A), a comparison (`=`, `≤`, `≥`), a value and a range.
+- **Angle and target**: the angle of incidence, or a range of angles with the
+  number of steps, the polarization, and whether the target is a continuous
+  line or discrete points. A type that sets polarization itself, such as the
+  polarizing beamsplitter, shows no polarization control.
+- **Thickness limits**: minimum and maximum layer thickness (`MNT`/`MXT`) and a
+  total thickness cap, each behind a checkbox.
 
-**Constraints**: set minimum and maximum layer-thickness bounds (`MNT`/`MXT`)
-per layer or per material. A bound can be written to cover layers that
-synthesis will add later.
+The line under the boxes says how many rows the wizard will add and of which
+types. **Start at row** is where the block goes; **Generate** adds it. The form
+keeps its values while the window is closed and reopened.
+
+## The table
+
+One row per operand. The table works like a spreadsheet:
+
+- Click a cell to focus it, type to replace its value, or press Enter or
+  double-click to edit it. Enter commits and moves down, Tab moves right,
+  Escape cancels.
+- The **Type** cell holds the operand code. Typing a letter opens the operand
+  picker searching for it; Enter or a double-click opens it on the current
+  type. The **Pol** cell shows a chevron while it is focused; the chevron,
+  Enter or a double-click opens its three values as a list, and `a`, `s` or
+  `p` typed straight in sets it without the list.
+- Drag across cells, or hold Shift, to select a rectangle; hold Ctrl to add
+  single cells. Ctrl+C copies the selection as tab-separated text, Ctrl+V
+  pastes text over it: one value fills every selected cell, a block of values
+  is laid out from the focused cell. Text that came from copying rows is
+  inserted as rows.
+- Rows are selected from the row-number column at the left: click one, drag
+  down the column for a run, Shift for a run, Ctrl to add. A comment or header
+  row is selected by a click anywhere on it. Delete, Ctrl+X and Ctrl+D act on
+  selected rows; Insert adds a row above the focused one, Shift+Insert below.
+- Right-click opens the same actions as a menu: copy and paste of the cell or
+  cells, cut, copy and paste of operands, insert, duplicate and delete.
+
+**Load MF** and **Save MF** in the table's bar load and save the whole table as
+a named merit function you can reuse in another design.
+
+**Constraints**: minimum and maximum layer-thickness bounds (`MNT`/`MXT`) per
+layer or per material. A bound can be written to cover layers that synthesis
+will add later.
 
 ## MF vs OMF
 

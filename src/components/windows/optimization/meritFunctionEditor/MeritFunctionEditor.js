@@ -42,6 +42,7 @@ export function MeritFunctionEditor({ c, t, setInputDialog }) {
                 noOperandsMsg: te.noOperands,
                 onSelect: merit.setSelectedId,
                 onEdit: merit.handleEdit,
+                onEditMany: merit.handleEditMany,
                 onAdd: merit.handleAdd,
                 onInsertAt: merit.handleInsertAt,
                 onDuplicate: merit.handleDuplicate,

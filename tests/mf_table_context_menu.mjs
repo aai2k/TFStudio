@@ -49,7 +49,8 @@ assert.deepEqual(menuTargetFromEvent(cellEvent(7, 3617), COLS),
 assert.equal(menuScope({ type: 'BLNK' }, 'lambdaStart', new Set()), 'rows');
 assert.equal(menuScope({ type: 'DMFS' }, 'target', new Set()), 'rows');
 assert.equal(menuScope({ type: 'R' }, 'target', new Set()), 'cell');
-assert.equal(menuScope({ type: 'R' }, 'type', new Set()), 'rows');
+assert.equal(menuScope({ type: 'R' }, 'type', new Set()), 'cell');
+assert.equal(menuScope({ type: 'R' }, 'current', new Set()), 'rows');
 assert.equal(menuScope({ type: 'R' }, 'target', new Set(['a', 'b'])), 'rows');
 
 // A column the row does not carry shows a dash. There is nothing there to copy

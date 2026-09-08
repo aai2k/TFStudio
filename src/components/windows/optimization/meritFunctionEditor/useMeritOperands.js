@@ -121,6 +121,12 @@ export function useMeritOperands({ design, updateDesign, checkpoint, setInputDia
         setOperands(prev => editOperand(prev, id, key, value));
     }, [setOperands]);
 
+    // A paste over many cells lands as one change to the design, so it is one
+    // step to undo and one re-evaluation.
+    const handleEditMany = useCallback((edits) => {
+        setOperands(prev => edits.reduce((list, edit) => editOperand(list, edit.id, edit.key, edit.value), prev));
+    }, [setOperands]);
+
     const handleGenerate = useCallback((block, startRow) => {
         const result = replaceOperandTail(operands, block, startRow);
         setOperands(result.operands);
@@ -168,7 +174,7 @@ export function useMeritOperands({ design, updateDesign, checkpoint, setInputDia
     return {
         operands, selectedId, setSelectedId, computed, errors, bandLevels, mf, omf,
         evaluationBusy: coneActive && workerResult.busy, setOperands,
-        handleEdit, handleGenerate, handleAdd, handleInsertAt, handleDuplicate,
+        handleEdit, handleEditMany, handleGenerate, handleAdd, handleInsertAt, handleDuplicate,
         handleDelete, handleClear, handleMoveUp, handleMoveDown,
     };
 }

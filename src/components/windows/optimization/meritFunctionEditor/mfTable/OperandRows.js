@@ -1,17 +1,37 @@
 import { isBlank, isDmfs, isMath } from '../../../../../utils/physics/optimizer.js';
 import { OperandTypePicker } from './OperandTypePicker.js';
-import { editingCell, rowRenderers, textCell } from './OperandCells.js';
+import {
+    editingCell, polPickerCell, polarizationCell, rowRenderers, textCell, typeCell, typePickerCell,
+} from './OperandCells.js';
 import { COLS, rowDisplayMeta, rowTintAlpha, typeRgba } from './operandViewModel.js';
+import { selectedColumnsForRow } from './selectionModel.js';
 import { ROW_H } from './rowWindow.js';
+import { isTextControl } from './tableKeyboard.js';
 
-const { createElement: h, memo } = React;
+const { createElement: h, memo, useState } = React;
 
-function DmfsRowView({ op, rowIdx, rowSel, c, onEdit, selectRow }) {
+// The press that selects a row: from the row-number column of a data row, or
+// anywhere on a header or comment row, which has no cells of its own. Shift
+// extends the selection and Ctrl toggles the row; a plain press selects it and
+// starts a drag that selects the rows the pointer crosses. A press in a
+// control that takes typing, the comment's input, is left to the control.
+function rowPress(op, selectRow, beginDrag) {
+    return event => {
+        if (event.button !== 0 || isTextControl(event.target)) return;
+        event.preventDefault();
+        const ctrl = event.ctrlKey || event.metaKey;
+        selectRow(op.id, event.shiftKey, ctrl);
+        if (!event.shiftKey && !ctrl) beginDrag('rows');
+    };
+}
+
+function DmfsRowView({ op, rowIdx, rowSel, c, onEdit, selectRow, beginDrag, dragOver }) {
     return h('tr', {
         'data-row': rowIdx,
-        onClick: event => selectRow(op.id, event.shiftKey, event.ctrlKey || event.metaKey),
+        onMouseDown: rowPress(op, selectRow, beginDrag),
+        onMouseEnter: () => dragOver(rowIdx, null),
         style: {
-            height: ROW_H, cursor: 'default',
+            height: ROW_H, cursor: 'default', userSelect: 'none',
             backgroundColor: rowSel ? c.accent + '66' : c.accent + '12',
         },
     },
@@ -44,16 +64,21 @@ function DmfsRowView({ op, rowIdx, rowSel, c, onEdit, selectRow }) {
     );
 }
 
-function BlnkRowView({ op, rowIdx, rowSel, c, t, onEdit, selectRow, setFocusCell }) {
+function BlnkRowView({ op, rowIdx, rowSel, c, t, onEdit, selectRow, beginDrag, dragOver }) {
+    // The type shows as text; a double-click opens the picker in the cell, the
+    // way a data row's Type cell does. While the picker is open the row takes
+    // no press of its own: a click in the picker's list must not select the
+    // row and move the focus off the search box.
+    const [picking, setPicking] = useState(false);
     // A click into the comment selects its row but leaves keyboard focus in the
-    // input, so the comment can be typed; the focused cell is cleared so row
-    // shortcuts act on this row.
-    const selectForTyping = () => { selectRow(op.id, false, false, true); setFocusCell?.(null); };
+    // input, so the comment can be typed.
+    const selectForTyping = () => selectRow(op.id, false, false, true);
     return h('tr', {
         'data-row': rowIdx,
-        onClick: event => selectRow(op.id, event.shiftKey, event.ctrlKey || event.metaKey),
+        onMouseDown: picking ? undefined : rowPress(op, selectRow, beginDrag),
+        onMouseEnter: () => dragOver(rowIdx, null),
         style: {
-            height: ROW_H, cursor: 'default',
+            height: ROW_H, cursor: 'default', userSelect: 'none',
             backgroundColor: rowSel ? c.accent + '66' : 'rgba(140,140,140,0.10)',
         },
     },
@@ -71,13 +96,16 @@ function BlnkRowView({ op, rowIdx, rowSel, c, t, onEdit, selectRow, setFocusCell
             onClick: event => { event.stopPropagation(); onEdit(op.id, 'enabled', !op.enabled); },
         }, op.enabled ? '✓' : '○'),
         h('td', {
-            style: { width: COLS[2].w, padding: '0 2px' },
-            onClick: event => event.stopPropagation(),
-        }, h(OperandTypePicker, {
-            value: op.type,
-            onChange: newType => onEdit(op.id, 'type', newType),
-            c, t,
-        })),
+            style: { width: COLS[2].w, padding: picking ? '0 2px' : '0 4px', color: c.text, fontWeight: 500, userSelect: 'none' },
+            onDoubleClick: () => setPicking(true),
+        }, picking
+            ? h(OperandTypePicker, {
+                value: op.type,
+                onChange: newType => onEdit(op.id, 'type', newType),
+                autoOpen: true, onClose: () => setPicking(false),
+                c, t,
+            })
+            : op.type),
         h('td', {
             colSpan: COLS.length - 3,
             style: { padding: '1px 6px', borderLeft: '2px solid rgba(140,140,140,0.4)' },
@@ -91,7 +119,7 @@ function BlnkRowView({ op, rowIdx, rowSel, c, t, onEdit, selectRow, setFocusCell
             style: {
                 width: '100%', background: 'transparent', color: c.textDim, border: 'none',
                 fontSize: 11, fontStyle: 'italic', padding: '1px 2px',
-                fontFamily: 'inherit', outline: 'none',
+                fontFamily: 'inherit', outline: 'none', userSelect: 'text',
             },
         })),
     );
@@ -100,10 +128,10 @@ function BlnkRowView({ op, rowIdx, rowSel, c, t, onEdit, selectRow, setFocusCell
 function MFDataRowView(props) {
     const {
         op, rowIdx, rawCur, bandLevel, contribution, largestContribution,
-        evaluationError, rowSel, focusColKey, rowEdit,
+        evaluationError, rowSel, focusColKey, selectedCols, rowEdit,
         operands, integralPresets,
-        isMathPct, c, t, onEdit, selectRow, focusAt, startEdit, commitEdit,
-        navigate, setEditCell, setFocusCell,
+        isMathPct, c, t, onEdit, selectRow, focusAt, extendTo, toggleCell, beginDrag, dragOver,
+        startEdit, commitEdit, navigate, setEditCell,
     } = props;
     const meta = rowDisplayMeta(op, rawCur, isMath(op.type) && isMathPct(op), bandLevel);
     const rowBg = typeRgba(op.type, rowTintAlpha(c.light)) || 'transparent';
@@ -111,33 +139,43 @@ function MFDataRowView(props) {
 
     const tdBase = (colKey, width, extra) => {
         const focused = focusColKey === colKey;
+        const selected = !!selectedCols && selectedCols.includes(colKey);
         return {
             width, padding: '0 4px',
-            backgroundColor: focused ? c.accent + 'AA' : rowSel ? c.accent + '66' : rowBg,
+            backgroundColor: focused ? c.accent + 'AA' : selected ? c.accent + '55' : rowSel ? c.accent + '66' : rowBg,
             outline: focused ? `1px solid ${c.accent}` : 'none',
             outlineOffset: -1, cursor: 'default', userSelect: 'none',
             ...extra,
         };
     };
 
-    const cellClick = (colKey, event) => {
-        if (colKey === 'num') {
-            event.preventDefault();
-            selectRow(op.id, event.shiftKey, event.ctrlKey || event.metaKey);
-            setFocusCell(null);
-        } else if (event.shiftKey || event.ctrlKey || event.metaKey) {
-            event.preventDefault();
-            selectRow(op.id, event.shiftKey, event.ctrlKey || event.metaKey);
-        } else {
-            focusAt(rowIdx, colKey);
-        }
+    // The row-number column selects rows and starts a drag over rows; a
+    // header or comment row entered by that drag joins the run too.
+    const rowDown = rowPress(op, selectRow, beginDrag);
+    const rowEnter = () => dragOver(rowIdx, null);
+
+    // A click on a cell holding a control, a comparison or a reference
+    // dropdown, only focuses it.
+    const cellClick = colKey => focusAt(rowIdx, colKey);
+
+    // Value cells select like spreadsheet cells: Shift stretches the rectangle
+    // to the cell, Ctrl adds or removes it, a plain press focuses it and starts
+    // a drag that grows the rectangle over the cells the pointer crosses.
+    const cellDown = (colKey, event) => {
+        if (event.button !== 0) return;
+        if (event.shiftKey) { event.preventDefault(); extendTo(rowIdx, colKey); return; }
+        if (event.ctrlKey || event.metaKey) { event.preventDefault(); toggleCell(rowIdx, colKey); return; }
+        focusAt(rowIdx, colKey);
+        beginDrag('cells');
     };
+    const cellEnter = colKey => dragOver(rowIdx, colKey);
 
     const ctx = {
         op, rowIdx, meta, c, t, operands, integralPresets, rowStripe,
         contribution, largestContribution,
-        editCell: rowEdit, evaluationError,
-        tdBase, cellClick, onEdit, focusAt, selectRow, startEdit, commitEdit, navigate, setEditCell,
+        editCell: rowEdit, evaluationError, focusColKey,
+        tdBase, rowDown, rowEnter, cellClick, cellDown, cellEnter, onEdit, focusAt, selectRow,
+        startEdit, commitEdit, navigate, setEditCell,
     };
     const renderers = rowRenderers(op, meta);
     return h('tr', {
@@ -148,8 +186,10 @@ function MFDataRowView(props) {
     },
         COLS.map(col => {
             let render = renderers[col.key];
-            if (render === textCell && rowEdit?.colKey === col.key) {
-                render = editingCell;
+            if (rowEdit?.colKey === col.key) {
+                if (render === textCell) render = editingCell;
+                else if (render === typeCell) render = typePickerCell;
+                else if (render === polarizationCell) render = polPickerCell;
             }
             return render(ctx, col.key, col.w);
         }));
@@ -174,9 +214,12 @@ export function renderOperandRow(ctx, op, rowIdx) {
         selIds, c, t, onEdit, selectRow,
     } = ctx;
     const rowSel = selIds.has(op.id);
-    if (isDmfs(op.type)) return h(DmfsRow, { key: op.id, op, rowIdx, rowSel, c, onEdit, selectRow });
+    const { beginDrag, dragOver } = ctx;
+    if (isDmfs(op.type)) {
+        return h(DmfsRow, { key: op.id, op, rowIdx, rowSel, c, onEdit, selectRow, beginDrag, dragOver });
+    }
     if (isBlank(op.type)) {
-        return h(BlnkRow, { key: op.id, op, rowIdx, rowSel, c, t, onEdit, selectRow, setFocusCell: ctx.setFocusCell });
+        return h(BlnkRow, { key: op.id, op, rowIdx, rowSel, c, t, onEdit, selectRow, beginDrag, dragOver });
     }
     return h(MFDataRow, {
         key: op.id,
@@ -188,11 +231,13 @@ export function renderOperandRow(ctx, op, rowIdx) {
         largestContribution,
         evaluationError: evaluationErrors?.[rowIdx] || null,
         rowSel,
-        // The focused column and the cell being edited are narrowed to this
-        // row before they are handed over. Passing the table's own focus and
-        // edit state would change every row's props on each arrow key, and no
-        // row but the two involved has anything new to draw.
+        // The focused column, the selected columns and the cell being edited
+        // are narrowed to this row before they are handed over. Passing the
+        // table's own focus and selection state would change every row's props
+        // on each arrow key, and no row but the ones involved has anything new
+        // to draw.
         focusColKey: ctx.focusCell?.rowIdx === rowIdx ? ctx.focusCell.colKey : null,
+        selectedCols: selectedColumnsForRow(ctx, rowIdx),
         rowEdit: ctx.editCell?.rowIdx === rowIdx ? ctx.editCell : null,
         operands: ctx.operands,
         integralPresets: ctx.integralPresets,
@@ -202,10 +247,13 @@ export function renderOperandRow(ctx, op, rowIdx) {
         onEdit,
         selectRow,
         focusAt: ctx.focusAt,
+        extendTo: ctx.extendTo,
+        toggleCell: ctx.toggleCell,
+        beginDrag,
+        dragOver,
         startEdit: ctx.startEdit,
         commitEdit: ctx.commitEdit,
         navigate: ctx.navigate,
         setEditCell: ctx.setEditCell,
-        setFocusCell: ctx.setFocusCell,
     });
 }

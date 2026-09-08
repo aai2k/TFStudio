@@ -2,15 +2,16 @@ import {
     GENERATED_ONLY_OPERAND_TYPES, OPERAND_POLS, OPERAND_TYPES,
     isFractionalUnit, isValidMeritWeight,
 } from '../../../../../utils/physics/optimizer.js';
-import { targetInitialValue } from './editModel.js';
+import { cellEdit, targetInitialValue } from './editModel.js';
 import { editableColsForRow } from './operandViewModel.js';
+import {
+    RANGE_COLUMNS, navigationTarget, pasteTargets, selectedCells,
+} from './selectionModel.js';
 
-// Columns whose text a single cell can carry through the clipboard. Type and
-// Pol are picked, not typed, and stay with the row.
-const CELL_TEXT_COLUMNS = new Set(['lambdaStart', 'lambdaEnd', 'aoi', 'target', 'weight']);
+const CELL_TEXT_COLUMNS = new Set(RANGE_COLUMNS);
 
 /**
- * What Ctrl+C and Ctrl+V act on: one cell, when a text cell has focus and no
+ * What Ctrl+C and Ctrl+V act on: one cell, when a value cell has focus and no
  * more than its own row is selected; otherwise whole rows, as a click in the #
  * column or a multi-row selection asks for.
  *
@@ -30,25 +31,110 @@ export function cellText(op, colKey, mathPercent) {
     return colKey === 'target' ? targetInitialValue(op, mathPercent) : String(op[colKey] ?? '');
 }
 
+/**
+ * A rectangle of cells as tab-separated lines, one per row. A cell the row does
+ * not carry is left empty, so the columns stay aligned for whatever reads it.
+ */
+export function rangeText(operands, range, isMathPct) {
+    const lines = [];
+    for (let rowIdx = range.rowStart; rowIdx <= range.rowEnd; rowIdx++) {
+        const op = operands[rowIdx];
+        const columns = op ? editableColsForRow(op) : [];
+        lines.push(range.colKeys
+            .map(colKey => (columns.includes(colKey) ? cellText(op, colKey, isMathPct(op)) : ''))
+            .join('\t'));
+    }
+    return lines.join('\n');
+}
+
+/**
+ * The selected cells as text when they are not one rectangle: the cells of a
+ * row tab-separated, rows on their own lines, in table order.
+ */
+export function selectionText(operands, selection, isMathPct) {
+    const lines = new Map();
+    for (const { rowIdx, colKey } of selectedCells(selection)) {
+        const op = operands[rowIdx];
+        if (!op || !editableColsForRow(op).includes(colKey)) continue;
+        if (!lines.has(rowIdx)) lines.set(rowIdx, []);
+        lines.get(rowIdx).push(cellText(op, colKey, isMathPct(op)));
+    }
+    return [...lines.values()].map(cells => cells.join('\t')).join('\n');
+}
+
 export function copyCellText(text, clipboard = navigator.clipboard) {
     clipboard?.writeText(text).catch(() => {});
 }
 
+/** Clipboard text as rows of cells: lines split on tabs. */
+export function parseCellGrid(text) {
+    return (text || '').replace(/\s+$/, '').split(/\r?\n/).map(line => line.split('\t'));
+}
+
 /**
- * Paste into the focused cell. A single value goes through the cell editor's
- * own commit, so percent and ramp syntax apply; text with tabs or newlines is
- * rows and is inserted below, as a row paste would.
+ * Whether the clipboard holds operand rows, as Ctrl+C on rows writes them:
+ * every line has the seven row fields and opens with a type code. Anything
+ * else is a grid of cell values.
+ */
+export function looksLikeOperandRows(grid) {
+    return grid.length > 0 && grid.every(line => line.length === 7 && OPERAND_TYPES.includes(line[0]));
+}
+
+/**
+ * The edits a grid of text makes to the table: one entry per target cell, in
+ * the form the window's edit callback takes. Text a cell cannot hold is skipped.
+ */
+export function gridEdits({ grid, range, focus, operands, cells, text }) {
+    const edits = [];
+    const targets = cells
+        ? cells.map(cell => ({ ...cell, text }))
+        : pasteTargets({ grid, range, focus, operands });
+    for (const target of targets) {
+        const op = operands[target.rowIdx];
+        const edit = cellEdit(op, target.colKey, target.text);
+        if (edit) edits.push({ id: op.id, key: edit[0], value: edit[1] });
+    }
+    return edits;
+}
+
+function applyEdits(ctx, edits) {
+    if (edits.length === 0) return;
+    if (ctx.onEditMany) ctx.onEditMany(edits);
+    else edits.forEach(edit => ctx.onEdit(edit.id, edit.key, edit.value));
+}
+
+/**
+ * Paste into the focused cell or over the selected range. A single value into
+ * a single cell goes through the cell editor's own commit, so percent and ramp
+ * syntax apply. Operand rows, as Ctrl+C on rows writes them, are inserted below
+ * the focused row unless a range is selected. Any other grid of values is laid
+ * over the range, or from the focused cell down and to the right.
  */
 export function pasteIntoCell(ctx, clipboard = navigator.clipboard) {
     clipboard?.readText().then(raw => {
-        const text = (raw || '').replace(/\s+$/, '');
-        if (!text) return;
-        if (/[\t\n]/.test(text)) {
-            const items = parseOperandsTsv(text);
+        const grid = parseCellGrid(raw);
+        const single = grid.length === 1 && grid[0].length === 1;
+        if (single && grid[0][0] === '') return;
+        // Cells gathered with Ctrl take one value each, whatever their shape.
+        if (single && ctx.extraCells?.size) {
+            const cells = selectedCells({
+                range: ctx.range, extraCells: ctx.extraCells, focus: { rowIdx: ctx.rowIdx, colKey: ctx.colKey },
+            });
+            applyEdits(ctx, gridEdits({ grid, range: null, focus: null, operands: ctx.operands, cells, text: grid[0][0] }));
+            return;
+        }
+        if (!ctx.range && single) {
+            ctx.commitEdit(ctx.rowIdx, ctx.colKey, grid[0][0]);
+            return;
+        }
+        if (!ctx.range && looksLikeOperandRows(grid)) {
+            const items = parseOperandsTsv(raw);
             if (items.length) ctx.onAdd(items, ctx.rowIdx + 1);
             return;
         }
-        ctx.commitEdit(ctx.rowIdx, ctx.colKey, text);
+        applyEdits(ctx, gridEdits({
+            grid, range: ctx.range || null, focus: { rowIdx: ctx.rowIdx, colKey: ctx.colKey }, operands: ctx.operands,
+        }));
     }).catch(() => {});
 }
 
@@ -131,14 +217,22 @@ function duplicateRows(ctx) {
     if (ids.length) ctx.onDuplicate(ids);
 }
 
+// With Shift held an arrow stretches the range from the anchor instead of
+// moving the focus; sideways it stays on the focused row.
 function moveVertical(ctx, step) {
     ctx.event.preventDefault();
     const rowIdx = Math.max(0, Math.min(ctx.rowIdx + step, ctx.operands.length - 1));
-    ctx.focusAt(rowIdx, ctx.colKey);
+    if (ctx.event.shiftKey && ctx.extendTo) ctx.extendTo(rowIdx, ctx.colKey);
+    else ctx.focusAt(rowIdx, ctx.colKey);
 }
 
 function moveHorizontal(ctx, direction) {
     ctx.event.preventDefault();
+    if (ctx.event.shiftKey && ctx.extendTo) {
+        const target = navigationTarget(ctx.operands, ctx.rowIdx, ctx.colKey, direction);
+        if (target && !target.focus) ctx.extendTo(ctx.rowIdx, target.colKey);
+        return;
+    }
     ctx.navigate(ctx.rowIdx, ctx.colKey, direction);
 }
 
@@ -150,6 +244,12 @@ function beginEdit(ctx) {
 function moveTab(ctx) {
     ctx.event.preventDefault();
     ctx.navigate(ctx.rowIdx, ctx.colKey, ctx.event.shiftKey ? 'left' : 'right');
+}
+
+function collapseRange(ctx) {
+    if (!ctx.range || !ctx.collapseRange) return;
+    ctx.event.preventDefault();
+    ctx.collapseRange();
 }
 
 // Rows to copy: the selection, or the focused row when nothing is selected.
@@ -167,8 +267,23 @@ function scopeOf(ctx) {
     });
 }
 
+// Whether more than the focused cell is selected: a rectangle, or cells
+// gathered with Ctrl.
+function hasCellSelection(ctx) {
+    return !!ctx.range || !!(ctx.extraCells && ctx.extraCells.size);
+}
+
 function copyRows(ctx) {
     ctx.event.preventDefault();
+    if (ctx.extraCells?.size) {
+        const focus = { rowIdx: ctx.rowIdx, colKey: ctx.colKey };
+        copyCellText(selectionText(ctx.operands, { range: ctx.range, extraCells: ctx.extraCells, focus }, ctx.isMathPct));
+        return;
+    }
+    if (ctx.range) {
+        copyCellText(rangeText(ctx.operands, ctx.range, ctx.isMathPct));
+        return;
+    }
     if (scopeOf(ctx) === 'cell') {
         const op = ctx.operands[ctx.rowIdx];
         copyCellText(cellText(op, ctx.colKey, ctx.isMathPct(op)));
@@ -179,18 +294,19 @@ function copyRows(ctx) {
 
 function pasteRows(ctx) {
     ctx.event.preventDefault();
-    if (scopeOf(ctx) === 'cell') {
+    if (hasCellSelection(ctx) || scopeOf(ctx) === 'cell') {
         pasteIntoCell(ctx);
         return;
     }
     pasteOperands(ctx.onAdd, ctx.rowIdx + 1);
 }
 
-// Cut always moves rows: a cell has nothing to cut, its value is replaced by
-// typing over it.
+// Cut moves rows, and only rows selected as rows: a cell has nothing to cut,
+// its value is replaced by typing over it, and a focused cell alone must not
+// take its row with it.
 function cutRows(ctx) {
     ctx.event.preventDefault();
-    const ids = rowsToCopy(ctx);
+    const ids = ctx.selectedIds;
     if (ids.size === 0) return;
     copySelectedOperands(ctx.operands, ids);
     ctx.onDelete([...ids]);
@@ -208,6 +324,7 @@ const KEY_ACTIONS = {
     ArrowLeft: ctx => moveHorizontal(ctx, 'left'),
     Enter: beginEdit,
     Tab: moveTab,
+    Escape: collapseRange,
     'Ctrl+c': copyRows,
     'Ctrl+v': pasteRows,
     'Ctrl+x': cutRows,
