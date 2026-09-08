@@ -65,7 +65,11 @@ function requestClear(ctx) {
 export function useMeritOperands({ design, updateDesign, checkpoint, setInputDialog, te }) {
     const [session, setSessionField] = useWindowSession(meritOperandSession, design);
     const selectedId = session.selectedId;
-    const setSelectedId = value => setSessionField('selectedId', value);
+    // Handed to the table as its selection callback and held in the preset
+    // hook's dependencies, so it keeps its identity rather than being rebuilt
+    // on every render of a window that can be showing thousands of rows.
+    const setSelectedId = useCallback(
+        value => setSessionField('selectedId', value), [setSessionField]);
     const [computed, setComputed] = useState([]);
     const [errors, setErrors] = useState([]);
     const [bandLevels, setBandLevels] = useState([]);

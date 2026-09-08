@@ -139,7 +139,7 @@ export function MaterialPicker({ value, onChange, c, t, compact, catalogsOnly })
         value: resolvedId, onChange, c, compact,
         triggerLabel: label, triggerColor: dotColor,
         groups, search, sections: true,
-        openGroup: currentGroupOf(design, resolvedId),
+        currentGroup: currentGroupOf(design, resolvedId),
         isActive: item => rowIsCurrent(item, { value, resolvedId, inCatalog }),
         searchPlaceholder: mp.searchPlaceholder,
         allLabel: mp.allCatalogs,

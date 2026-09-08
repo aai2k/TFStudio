@@ -1,34 +1,12 @@
 import { useDesign } from '../../../../state/DesignContext.js';
 import { MFTable } from './mfTable/MFTable.js';
-import { EvalModeBadge, OptimizeBadge } from '../../../SurfaceModeBar.js';
 import { DMFWizard } from './DMFWizard.js';
-import { PresetBar } from './PresetBar.js';
+import { SavedMfMenu } from './SavedMfMenu.js';
 import { useMeritOperands } from './useMeritOperands.js';
 import { useMeritPresets } from './useMeritPresets.js';
 import { phaseOperandScopeNotice } from '../phaseOperandScope.js';
 
 const { createElement: h } = React;
-
-function MeritSummary({ design, mf, omf, busy, c, t, te }) {
-    return h('div', {
-        style: {
-            padding: '3px 10px', background: c.panel, borderBottom: `1px solid ${c.border}`,
-            fontSize: 11, color: c.textDim, flexShrink: 0,
-            display: 'flex', alignItems: 'center', gap: 10,
-        }
-    },
-        h(OptimizeBadge, { design, c, t }),
-        h(EvalModeBadge, { design, c, t }),
-        busy && h('span', { style: { marginLeft: 'auto', fontStyle: 'italic' } }, te.evaluating),
-        mf != null && h('span', { style: { marginLeft: 'auto', display: 'inline-flex', gap: 12 } },
-            h('span', null, (te.mfLabel || 'MF:') + ' ',
-                h('span', { style: { color: c.text, fontWeight: 600 } }, mf.toFixed(6))),
-            omf != null && h('span', { title: te.omfTip || 'Optical merit — excludes thickness constraints (MNT/MXT/TT)' },
-                (te.omfLabel || 'OMF:') + ' ',
-                h('span', { style: { color: c.text, fontWeight: 600 } }, omf.toFixed(6)))
-        )
-    );
-}
 
 export function MeritFunctionEditor({ c, t, setInputDialog }) {
     const { design, updateDesign, checkpoint } = useDesign();
@@ -52,11 +30,8 @@ export function MeritFunctionEditor({ c, t, setInputDialog }) {
         }
     },
         h(DMFWizard, {
-            design, onGenerate: merit.handleGenerate, operandCount: merit.operands.length, c, t,
-        }),
-        h(PresetBar, { c, te, ...presets }),
-        h(MeritSummary, {
-            design, mf: merit.mf, omf: merit.omf, busy: merit.evaluationBusy, c, t, te,
+            design, onGenerate: merit.handleGenerate, operandCount: merit.operands.length,
+            mf: merit.mf, omf: merit.omf, busy: merit.evaluationBusy, c, t,
         }),
         h('div', { style: { flex: 1, overflow: 'hidden' } },
             h(MFTable, {
@@ -74,6 +49,7 @@ export function MeritFunctionEditor({ c, t, setInputDialog }) {
                 onClear: merit.handleClear,
                 onMoveUp: merit.handleMoveUp,
                 onMoveDown: merit.handleMoveDown,
+                toolbarStart: h(SavedMfMenu, { c, te, ...presets }),
                 c, t
             })
         )

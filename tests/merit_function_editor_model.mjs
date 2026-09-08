@@ -45,7 +45,10 @@ test('DMFS comments cover every field shape', () => {
         ['DUAL_AR', 'Label DUAL_AR, λ=450/650 nm'],
         ['LONGPASS', 'Label LONGPASS, stop 400–600 nm, pass 700–1000 nm'],
         ['SHORTPASS', 'Label SHORTPASS, pass 400–600 nm, stop 700–1000 nm'],
-        ['BANDPASS', 'Label BANDPASS, pass 500–600 nm, stop undefined–undefined nm'],
+        // A bandpass has a low stop, a pass and a high stop, and no plain
+        // `stop` pair. Reading it as a two-band type named a field it does not
+        // carry and wrote "undefined" into the header.
+        ['BANDPASS', 'Label BANDPASS, stop 300–450 | pass 500–600 | stop 650–1000 nm'],
         ['NOTCH', 'Label NOTCH, pass 300–450 | stop 500–600 | pass 650–1000 nm'],
     ];
     for (const [typeId, prefix] of cases) {
@@ -309,6 +312,19 @@ test('preset re-ID rewrites references between the re-keyed rows', () => {
     assert.equal(fresh[3].refId2, byOldPosition.other, 'second of a pair follows the new id');
     assert.equal(fresh[4].refId, 'not-in-preset', 'a reference outside the preset is left alone');
     assert.ok(fresh.every(op => op.id !== 'base'), 'no operand keeps its old id');
+});
+
+test('a plain number typed into a spectral target sets both ends', () => {
+    const rows = [
+        { id: 'ramp', type: 'RGT', lambdaStart: 1565, lambdaEnd: 1630, target: 1, targetEnd: 1, weight: 1 },
+        { id: 'flat', type: 'R', lambdaStart: 550, lambdaEnd: 550, target: 0.5, weight: 1 },
+    ];
+    const edited = editOperand(rows, 'ramp', 'target', 0);
+    assert.equal(edited[0].target, 0);
+    assert.equal(edited[0].targetEnd, 0, 'the ramp end follows, so 100→100 does not become 0→100');
+    const single = editOperand(rows, 'flat', 'target', 25);
+    assert.equal(single[1].target, 0.25);
+    assert.equal(single[1].targetEnd, undefined, 'a single-wavelength operand gains no ramp end');
 });
 
 console.log(`merit_function_editor_model: ${passed} passed`);

@@ -110,6 +110,13 @@ export function typeRgba(type, alpha) {
     return rgb ? `rgba(${rgb[0]},${rgb[1]},${rgb[2]},${alpha})` : null;
 }
 
+// Opacity of a row's type tint over the panel. 12% of a saturated colour on a
+// white panel reads at about 1.1:1, so rows of different types look alike; 20%
+// brings a light theme to the contrast the dark themes get from 12%.
+export function rowTintAlpha(light) {
+    return light ? 0.2 : 0.12;
+}
+
 export function dynamicHeaderLabels(op) {
     if (!op || isDmfs(op.type)) return { lambdaStart: 'λ / Layer', lambdaEnd: 'End *' };
     const hit = HEADER_LABELS.find(([test]) => test(op));

@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import {
-    copySelectedOperands, doKeyDown, keyComboOf, parseOperandsTsv,
-    pasteOperands, runKeyAction, serializeOperandsTsv,
+    cellText, clipboardScope, copySelectedOperands, doKeyDown, keyComboOf, parseOperandsTsv,
+    pasteIntoCell, pasteOperands, runKeyAction, serializeOperandsTsv,
 } from '../src/components/windows/optimization/meritFunctionEditor/mfTable/tableKeyboard.js';
 import {
     navigationTarget, selectionAfterRowClick,
@@ -50,6 +50,8 @@ assert.equal(combo('D', { ctrlKey: true, shiftKey: true }), 'D');
 assert.equal(combo('c', { ctrlKey: true }), 'Ctrl+c');
 assert.equal(combo('C', { ctrlKey: true }), 'C');
 assert.equal(combo('v', { ctrlKey: true }), 'Ctrl+v');
+assert.equal(combo('x', { ctrlKey: true }), 'Ctrl+x');
+assert.equal(combo('X', { ctrlKey: true }), 'X');
 assert.equal(combo('F2'), 'Enter');
 assert.equal(combo('Tab'), 'Tab');
 
@@ -129,5 +131,61 @@ doKeyDown(keyCtx, event('7'));
 doKeyDown({ ...keyCtx, editCell: { rowIdx: 0 } }, event('8'));
 doKeyDown({ ...keyCtx, focusCell: null, selectedIds: new Set() }, event('9'));
 assert.deepEqual(keyCalls, [[0, 'weight', '7']]);
+
+// ── Cut moves the rows, never a cell ─────────────────────────────────────────
+{
+    const deleted = [];
+    let selection = new Set(['r']);
+    let focus = { rowIdx: 0, colKey: 'target' };
+    const prevented = { count: 0 };
+    runKeyAction('Ctrl+x', {
+        event: { preventDefault: () => { prevented.count++; } },
+        operands, selectedIds: selection, focusCell: focus, rowIdx: 0, colKey: 'target',
+        onDelete: ids => deleted.push(ids),
+        setSelIds: next => { selection = next; }, setFocusCell: next => { focus = next; },
+    });
+    assert.deepEqual(deleted, [['r']], 'the focused row goes, even with a text cell focused');
+    assert.equal(selection.size, 0);
+    assert.equal(focus, null);
+    assert.equal(prevented.count, 1);
+    runKeyAction('Ctrl+x', {
+        event: { preventDefault() {} }, operands, selectedIds: new Set(), focusCell: null, rowIdx: 5, colKey: 'type',
+        onDelete: ids => deleted.push(ids), setSelIds() {}, setFocusCell() {},
+    });
+    assert.equal(deleted.length, 1, 'nothing to cut when no row is focused or selected');
+}
+
+// ── Single-cell copy and paste ────────────────────────────────────────────────
+//
+// A focused text cell copies and pastes its own value. Rows stay the unit when
+// the # column has focus (focusCell null), when more than one row is selected,
+// or when the focus is on a picked column such as Type or Pol.
+assert.equal(clipboardScope({ focusCell: { rowIdx: 0, colKey: 'target' }, selectedIds: new Set() }), 'cell');
+assert.equal(clipboardScope({ focusCell: { rowIdx: 0, colKey: 'target' }, selectedIds: new Set(['r']) }), 'cell');
+assert.equal(clipboardScope({ focusCell: { rowIdx: 0, colKey: 'target' }, selectedIds: new Set(['r', 'tt']) }), 'rows');
+assert.equal(clipboardScope({ focusCell: { rowIdx: 0, colKey: 'type' }, selectedIds: new Set() }), 'rows');
+assert.equal(clipboardScope({ focusCell: null, selectedIds: new Set(['r']) }), 'rows');
+
+assert.equal(cellText(operands[0], 'target', false), '12.30', 'a fractional target copies as the percent the editor shows');
+assert.equal(cellText(operands[1], 'target', false), '1200', 'a thickness target copies as is');
+assert.equal(cellText(operands[0], 'lambdaStart', false), '400');
+assert.equal(cellText({ type: 'R' }, 'weight', false), '');
+
+{
+    const commits = [];
+    const adds = [];
+    const ctx = { rowIdx: 0, colKey: 'target', commitEdit: (...args) => commits.push(args), onAdd: (...args) => adds.push(args) };
+    const clipboard = text => ({ readText: () => Promise.resolve(text) });
+    pasteIntoCell(ctx, clipboard('45'));
+    pasteIntoCell(ctx, clipboard('20→80\n'));
+    pasteIntoCell(ctx, clipboard('   '));
+    pasteIntoCell(ctx, clipboard('A\t300\t800\t0\tavg\t5\t1'));
+    await Promise.resolve();
+    await Promise.resolve();
+    assert.deepEqual(commits, [[0, 'target', '45'], [0, 'target', '20→80']],
+        'a single value, ramp syntax included, goes through the cell editor commit');
+    assert.deepEqual(adds, [[[{ type: 'A', lambdaStart: 300, lambdaEnd: 800, aoi: 0, pol: 'avg', target: 0.05, weight: 1 }], 1]],
+        'tab-separated text is rows and is inserted below the focused row');
+}
 
 console.log('mf_table_keyboard_selection_characterization: passed');

@@ -42,9 +42,13 @@ function useSpectrumEvaluation({ params, evalMode }) {
         : directResult;
 }
 
-function useTargetEditor({ design, updateDesign, yScale }) {
+function useTargetEditor({ design, updateDesign, yScale, thetas }) {
     const [session, setField] = useWindowSession(opticalTargetSession, design);
     const { editMode, editTool, editPol, editKind, snapOn, snapNm, snapPct, snapDecades } = session;
+    // A target is drawn against a curve, so it is offered the angles the window
+    // plots. Dropping the angle a target was set to draw at leaves the choice
+    // on the first one still on the plot.
+    const editAoi = thetas.includes(session.editAoi) ? session.editAoi : thetas[0];
     // On a logarithmic axis levels snap in decades rather than percentage
     // points: a stopband drawn at 0.001 % would otherwise land on 0, a level
     // that axis cannot even show. Wavelengths snap as they always do.
@@ -57,10 +61,12 @@ function useTargetEditor({ design, updateDesign, yScale }) {
         updateDesign({
             meritOperands: createTargetOperands({
                 operands: design.meritOperands || [], line,
-                editCurve, editPol, editKind, snapOn, snapNm, snapPct, snapDecades, logScale,
+                editCurve, editPol, editKind, editAoi,
+                snapOn, snapNm, snapPct, snapDecades, logScale,
             })
         });
-    }, [design, updateDesign, editCurve, editPol, editKind, snapOn, snapNm, snapPct, snapDecades, logScale]);
+    }, [design, updateDesign, editCurve, editPol, editKind, editAoi,
+        snapOn, snapNm, snapPct, snapDecades, logScale]);
     const onEditTarget = useCallback((meta, coords) => {
         updateDesign({
             meritOperands: editTargetOperands({
@@ -78,6 +84,7 @@ function useTargetEditor({ design, updateDesign, yScale }) {
         editCurve, setEditCurve: value => setField('editCurve', value),
         editPol, setEditPol: value => setField('editPol', value),
         editKind, setEditKind: value => setField('editKind', value),
+        editAoi, setEditAoi: value => setField('editAoi', value),
         snapOn, setSnapOn: value => setField('snapOn', value),
         snapNm, setSnapNm: value => setField('snapNm', value),
         snapPct, setSnapPct: value => setField('snapPct', value),
@@ -156,7 +163,9 @@ export function useOpticalEvaluation() {
     const { design, updateDesign, evalMode, evalParams: params, setEvalParams: setParams } = context;
     const display = useDisplayOptions(params, setParams, design);
     const spectrum = useSpectrumEvaluation({ params, evalMode });
-    const targets = useTargetEditor({ design, updateDesign, yScale: display.yScale });
+    const targets = useTargetEditor({
+        design, updateDesign, yScale: display.yScale, thetas: params.thetas,
+    });
     const csv = useCsvActions({
         data: spectrum.data, showCurves: display.showCurves, yScale: display.yScale, design,
     });

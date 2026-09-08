@@ -188,6 +188,77 @@ select option:checked {
     }
 }
 
+/* ── Menus that cannot be a <select> ──────────────────────────────────────
+   Some rows carry more than a label: a count, a delete control, a tick. Those
+   have to be built from elements. These rules give it the surface,
+   spacing and motion of ::picker(select) above, so a menu and the selects
+   beside it read as one control. Placement stays with the component. */
+.tf-menu {
+    background: var(--tf-panel, #353535);
+    border: 1px solid var(--tf-border, #454545);
+    border-radius: 7px;
+    box-shadow: 0 10px 28px rgba(0, 0, 0, 0.45);
+    padding: 4px;
+    font-size: 11px;
+    color: var(--tf-text, #e0e0e0);
+    scrollbar-width: thin;
+    scrollbar-color: rgba(128, 128, 128, 0.45) transparent;
+    animation: tf-menu-open 0.13s ease;
+}
+
+@keyframes tf-menu-open {
+    from { opacity: 0; transform: translateY(-4px); }
+    to   { opacity: 1; transform: translateY(0); }
+}
+
+.tf-menu-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 5px 10px;
+    border-radius: 4px;
+    color: var(--tf-text, #e0e0e0);
+    cursor: pointer;
+    white-space: nowrap;
+    transition: background-color 0.1s ease;
+}
+
+.tf-menu-item:hover {
+    background: var(--tf-hover, #454545);
+}
+
+.tf-menu-item[aria-checked="true"] {
+    background: color-mix(in srgb, var(--tf-accent, #4a90e2) 32%, var(--tf-panel, #353535));
+}
+
+.tf-menu-item[aria-disabled="true"] {
+    color: var(--tf-textdim, #999);
+    background: transparent;
+    cursor: default;
+}
+
+.tf-menu-sep {
+    height: 1px;
+    margin: 4px 6px;
+    background: var(--tf-border, #454545);
+}
+
+/* The chevron a menu's own button carries, drawn and turned like the one
+   ::picker-icon gives a select. */
+.tf-caret {
+    width: 10px;
+    height: 6px;
+    flex-shrink: 0;
+    background-color: var(--tf-textdim, #999);
+    -webkit-mask: url("data:image/svg+xml,%3Csvg width='10' height='6' viewBox='0 0 10 6' fill='none' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M1 1L5 5L9 1' stroke='black' stroke-width='1.6' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E") no-repeat center / contain;
+            mask: url("data:image/svg+xml,%3Csvg width='10' height='6' viewBox='0 0 10 6' fill='none' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M1 1L5 5L9 1' stroke='black' stroke-width='1.6' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E") no-repeat center / contain;
+    transition: transform 0.18s ease;
+}
+
+.tf-caret-open {
+    transform: rotate(180deg);
+}
+
 button:hover {
     opacity: 0.9;
 }

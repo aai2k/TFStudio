@@ -274,13 +274,15 @@ function levelSnap(logScale, snapDecades) {
 
 export function createTargetOperands(options) {
     const {
-        operands, line, editCurve, editPol, editKind, snapOn, snapNm, snapPct, snapDecades, logScale,
+        operands, line, editCurve, editPol, editKind, editAoi,
+        snapOn, snapNm, snapPct, snapDecades, logScale,
     } = options;
     const drawn = snapOn
         ? snapDrawnLine(line, { operands, snapNm, snapPct, levelScale: levelSnap(logScale, snapDecades) })
         : line;
     const levelled = editKind === 'continuous' ? drawn : levelledOnLogAxis(drawn, logScale);
-    return [...operands, makeOperand(operandOverridesFromDrawnLine(levelled, editCurve, editPol, editKind))];
+    return [...operands, makeOperand(
+        operandOverridesFromDrawnLine(levelled, editCurve, editPol, editKind, editAoi))];
 }
 
 export function editTargetOperands(options) {

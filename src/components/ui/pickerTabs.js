@@ -21,16 +21,25 @@ const PAGE = 0.8;
 // Width of the soft edge where the row continues past the boundary.
 const FADE = 14;
 
-function tabStyle(active, c) {
+// `current` marks the group the picker's value belongs to while the list is
+// unfiltered: an underline, so it is not mistaken for the active filter.
+function tabStyle(active, c, current = false) {
     return {
         padding: '1px 7px', fontSize: 11, flexShrink: 0, whiteSpace: 'nowrap',
         border: `1px solid ${active ? c.accent : c.border}`,
         borderRadius: 3,
         backgroundColor: active ? c.accent + '33' : 'transparent',
-        color: active ? c.accent : c.textDim,
+        color: active || current ? c.accent : c.textDim,
+        boxShadow: current && !active ? `inset 0 -2px 0 0 ${c.accent}` : 'none',
         cursor: 'pointer', outline: 'none',
         fontFamily: 'system-ui, -apple-system, sans-serif'
     };
+}
+
+// Tabs and arrows are buttons, and a button takes focus when clicked, which
+// would end typing in the search box above them. Changing the filter must not.
+export function keepSearchFocus(event) {
+    event.preventDefault();
 }
 
 /** Whether the row overflows, and whether it is scrolled to either end. */
@@ -43,17 +52,34 @@ export function stripEdges(strip) {
     };
 }
 
+// The span of the row that is not under a soft edge. A tab sitting inside the
+// fade is faded itself, which reads as a cut-off name rather than as the tab the
+// picker is pointing at.
+function clearSpan(strip) {
+    const travel = strip.scrollWidth - strip.clientWidth;
+    return {
+        from: strip.scrollLeft + (strip.scrollLeft > 0 ? FADE : 0),
+        to: strip.scrollLeft + strip.clientWidth - (strip.scrollLeft < travel - 1 ? FADE : 0),
+    };
+}
+
 /**
- * Bring a tab into view, aligned to the left edge. The picker opens filtered to
- * the group holding the current value, and that group's tab can sit past the
- * right edge, leaving a filtered list with nothing on screen saying what
- * filtered it.
+ * Bring a tab into view, centred. The picker marks the group holding the
+ * current value, and that group's tab can sit anywhere along the row: off the
+ * end, or under one of the fades, where it reads as clipped. Centring puts it
+ * where it is read first and shows the groups on either side of it.
+ *
+ * A tab already clear of both fades is left alone: the strip must not jump
+ * under the pointer when a click on a visible tab changes the filter.
  */
 export function scrollTabIntoView(strip, tab) {
     if (!strip || !tab) return;
-    const visible = tab.offsetLeft >= strip.scrollLeft
-        && tab.offsetLeft + tab.offsetWidth <= strip.scrollLeft + strip.clientWidth;
-    if (!visible) strip.scrollLeft = tab.offsetLeft;
+    const travel = strip.scrollWidth - strip.clientWidth;
+    if (travel <= 0) return;
+    const { from, to } = clearSpan(strip);
+    if (tab.offsetLeft >= from && tab.offsetLeft + tab.offsetWidth <= to) return;
+    const centred = tab.offsetLeft - (strip.clientWidth - tab.offsetWidth) / 2;
+    strip.scrollLeft = Math.max(0, Math.min(centred, travel));
 }
 
 /**
@@ -88,6 +114,7 @@ export function fadeMask({ overflowing, atStart, atEnd }) {
 function arrowEl(glyph, disabled, onClick, c) {
     return h('button', {
         onClick: disabled ? undefined : onClick,
+        onMouseDown: keepSearchFocus,
         style: {
             flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center',
             width: 14, height: 17, padding: 0, fontSize: 10, lineHeight: 1,
@@ -98,7 +125,10 @@ function arrowEl(glyph, disabled, onClick, c) {
     }, glyph);
 }
 
-export function PickerTabs({ groups, catFilter, setCatFilter, allLabel, c }) {
+export function PickerTabs({ groups, catFilter, setCatFilter, currentGroup = null, allLabel, c }) {
+    // The tab brought into view: the filter, or the current group while the
+    // list is unfiltered, so an open picker says where its value comes from.
+    const markedGroup = catFilter === 'all' ? currentGroup : catFilter;
     const stripRef     = useRef(null);
     const activeTabRef = useRef(null);
     const [edges, setEdges] = useState({ overflowing: false, atStart: true, atEnd: true });
@@ -122,7 +152,7 @@ export function PickerTabs({ groups, catFilter, setCatFilter, allLabel, c }) {
     useEffect(() => {
         scrollTabIntoView(stripRef.current, activeTabRef.current);
         measure();
-    }, [catFilter, measure]);
+    }, [markedGroup, measure]);
 
     const page = (direction) => {
         const strip = stripRef.current;
@@ -143,6 +173,7 @@ export function PickerTabs({ groups, catFilter, setCatFilter, allLabel, c }) {
         // filtered view, and the picker opens filtered to the current selection.
         h('button', {
             onClick: () => setCatFilter('all'),
+            onMouseDown: keepSearchFocus,
             style: tabStyle(catFilter === 'all', c)
         }, allLabel),
         edges.overflowing && arrowEl('◂', edges.atStart, () => page(-1), c),
@@ -151,17 +182,19 @@ export function PickerTabs({ groups, catFilter, setCatFilter, allLabel, c }) {
             style: {
                 display: 'flex', gap: 2, flex: 1, minWidth: 0,
                 overflowX: 'auto', overflowY: 'hidden', position: 'relative',
-                // Wheel scrolling lands wherever it lands; snapping keeps it on
-                // the same boundaries the arrows use.
-                scrollSnapType: 'x mandatory',
+                // No scroll snapping: the strip is placed deliberately, by the
+                // arrows and by scrollTabIntoView, and neither lands on a tab
+                // boundary. Mandatory snapping would pull the marked tab back
+                // off the centre it has just been brought to.
                 maskImage: fadeMask(edges), WebkitMaskImage: fadeMask(edges),
             }
         },
             groups.map(g => h('button', {
                 key: g.id,
-                ref: g.id === catFilter ? activeTabRef : undefined,
+                ref: g.id === markedGroup ? activeTabRef : undefined,
                 onClick: () => setCatFilter(g.id),
-                style: { ...tabStyle(catFilter === g.id, c), scrollSnapAlign: 'start' }
+                onMouseDown: keepSearchFocus,
+                style: tabStyle(catFilter === g.id, c, g.id === currentGroup)
             }, g.label))
         ),
         edges.overflowing && arrowEl('▸', edges.atEnd, () => page(1), c)

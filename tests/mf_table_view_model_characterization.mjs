@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import {
     COLS, TABLE_W, columnPercent, contributionBarWidth, dynamicHeaderLabels,
     editableColsForRow, fmtContribution, fmtCurrent, fmtResidual, fmtTargetDisplay,
-    isRangeType, residualTooltip, rowDisplayMeta, typeRgba,
+    isRangeType, residualTooltip, rowDisplayMeta, rowTintAlpha, typeRgba,
 } from '../src/components/windows/optimization/meritFunctionEditor/mfTable/operandViewModel.js';
 import {
     OPERAND_TYPES, isBlank, isConstraint, isDmfs, isIntegral, isMath,
@@ -149,6 +149,8 @@ assert.equal(phaseMeta.rawResidual, _operandResidual(op('DPT', { target: 30 }), 
 
 assert.equal(typeRgba('T', 0.12), 'rgba(80,150,255,0.12)');
 assert.equal(typeRgba('unknown', 0.5), null);
+assert.equal(rowTintAlpha(true), 0.2);
+assert.equal(rowTintAlpha(false), 0.12);
 
 // The λ End column is driven by three independent functions: the header label,
 // the editable-column list, and isRangeType (which decides value vs dash in

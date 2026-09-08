@@ -1,5 +1,5 @@
 import { Checkbox } from '../../../ui/Checkbox.js';
-import { curveColorFor } from './model.js';
+import { curveColorFor, formatTheta } from './model.js';
 import { FieldLabel, NumInput } from '../chrome/controls.js';
 import { SegmentedButton } from './controls.js';
 import { ModeRow } from '../chrome/layout.js';
@@ -25,6 +25,17 @@ function FamilyButton({ family, editCurve, setEditCurve, c, oe, disabled }) {
             fontWeight: 500,
         }
     }, family);
+}
+
+function ToolbarSelect({ c, value, onChange, title, options }) {
+    return h('select', {
+        value, onChange: event => onChange(event.target.value), title,
+        style: {
+            height: 30, backgroundColor: c.panel, color: c.text,
+            border: `1px solid ${c.border}`, borderRadius: 7,
+            fontSize: 11, padding: '0 8px', outline: 'none'
+        }
+    }, options.map(option => h('option', { key: option.value, value: option.value }, option.label)));
 }
 
 function ControlGroup({ c, children }) {
@@ -81,7 +92,8 @@ function SnapControls(props) {
 export function TargetToolbar(props) {
     const {
         c, oe, editMode, editTool, setEditTool, editKind, setEditKind,
-        editCurve, setEditCurve, editPol, setEditPol, yScale,
+        editCurve, setEditCurve, editPol, setEditPol, editAoi, setEditAoi,
+        params, yScale,
     } = props;
     if (!editMode) return null;
     const tools = [
@@ -108,19 +120,23 @@ export function TargetToolbar(props) {
             key: family, family, editCurve, setEditCurve, c, oe,
             disabled: !yScaleReadsQuantity(yScale, family),
         }))),
-        drawing && h('select', {
-            value: editPol, onChange: event => setEditPol(event.target.value),
-            title: oe.editPolTooltip,
-            style: {
-                height: 30, backgroundColor: c.panel, color: c.text,
-                border: `1px solid ${c.border}`, borderRadius: 7,
-                fontSize: 11, padding: '0 8px', outline: 'none'
-            }
-        },
-            h('option', { value: 'avg' }, 'avg'),
-            h('option', { value: 's' }, 's'),
-            h('option', { value: 'p' }, 'p')
-        ),
+        drawing && h(ToolbarSelect, {
+            c, value: editPol, onChange: setEditPol, title: oe.editPolTooltip,
+            options: [
+                { value: 'avg', label: 'avg' },
+                { value: 's', label: 's' },
+                { value: 'p', label: 'p' },
+            ],
+        }),
+        // The angles the window plots. A target belongs to one of them, so
+        // drawing at another angle means putting that angle on the plot first.
+        drawing && h(ToolbarSelect, {
+            c, value: editAoi, onChange: value => setEditAoi(Number(value)),
+            title: oe.editTargetAoiTooltip,
+            options: params.thetas.map(theta => ({
+                value: theta, label: `${formatTheta(theta)}°`,
+            })),
+        }),
         drawing && h(SnapControls, props),
         h('span', {
             style: {

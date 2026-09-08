@@ -9,7 +9,11 @@ function bandGeometry(operand) {
     const rangeTarget = RANGE_TARGET_TYPES.has(operand.type);
     const start = operand.target * 100;
     const end = rangeTarget && operand.targetEnd != null ? operand.targetEnd * 100 : start;
-    const count = operand.lambdaEnd === operand.lambdaStart ? 1 : 24;
+    // A ramp is sampled along its length because a line straight in the data is
+    // a curve once the axis is logarithmic. A flat target is horizontal on
+    // either axis, so its two ends describe it exactly, and a merit function
+    // written per wavelength is thousands of flat targets.
+    const count = operand.lambdaEnd === operand.lambdaStart ? 1 : (start === end ? 2 : 24);
     const points = Array.from({ length: count }, (_, index) => {
         const fraction = count === 1 ? 0 : index / (count - 1);
         return [
