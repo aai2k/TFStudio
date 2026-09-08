@@ -1,74 +1,192 @@
-// Settings → Folders: where TFStudio keeps designs, materials and presets.
+// Settings → Data Folder: single root directory + 9 read-only subdirectories.
 //
-// The list is owned by the main process (src/main/userPaths.js) and refreshed
-// from the IPC result after every change, so a path that was rejected and fell
-// back to its default is shown as the default rather than as what was asked for.
+// UI structure:
+//   Data folder
+//   /current/root
+//   [Browse] [Reset] [Open]
+//   default / rejected / error / warning / critical note
+//   ---------------------
+//   9 read-only subfolder paths (derived from paths:list's folders.subfolders)
+//
+// Interaction flow:
+//   Browse: choose → cancel aborts → confirm dialog → setUserPath → Moving… → success/inline error
+//   Reset: confirm → resetUserPath → Moving… → success/inline error; disabled when already default
+//   Open: revealUserPath()
+//   unsaved-designs guard: both Browse and Reset pass through it first
+//   inline states: rejected / error / warning / critical (no popup)
+//   Moving… busy state: all buttons disabled
 import { FolderRow } from './FolderRow.js';
-import { hintStyle } from './ui.js';
+import { SubfolderList } from './SubfolderList.js';
+import { hintStyle, buttonStyle } from './ui.js';
 
-const { createElement: h, useState, useEffect, useCallback } = React;
+const { createElement: h, useState, useEffect, useCallback, useRef } = React;
 
 /**
- * Browse and Reset differ only in the IPC call they make, so both run through
- * one guarded path: refuse the change if the renderer cannot safely switch
- * root, apply the result, then let the renderer resync whatever the new
- * directory owns.
+ * Extract the current root path from the paths:list return structure.
  */
-function useFolderChange({ setFolders, setError, refresh, onUserPathChanged, canChangeUserPath, t }) {
-  // A cancelled folder picker is not an error; anything else is reported inline.
-  const apply = useCallback(async (key, result) => {
-    if (!result || result.canceled) return;
-    if (!result.success) {
-      setError(t.settings.folders.changeFailed(result.error || ''));
-      return;
-    }
-    setError(null);
-    if (result.folders) setFolders(result.folders);
-    else refresh();
-    await onUserPathChanged?.(key);
-  }, [refresh, setFolders, setError, t, onUserPathChanged]);
-
-  return useCallback(async (key, invoke) => {
-    if (canChangeUserPath && !canChangeUserPath(key)) {
-      setError(t.settings.folders.projectsLocked);
-      return;
-    }
-    try {
-      await apply(key, await invoke(key));
-    } catch (err) {
-      setError(t.settings.folders.changeFailed(err?.message || ''));
-    }
-  }, [apply, canChangeUserPath, setError, t]);
+function getRootPath(listResult) {
+  return listResult?.folders?.root || '';
 }
 
-export const FoldersPane = ({ c, t, onUserPathChanged, canChangeUserPath }) => {
-  const [folders, setFolders] = useState([]);
-  const [error, setError] = useState(null);
+/**
+ * FoldersPane: single Data Folder settings panel.
+ *
+ * @param {object} props
+ * @param {object} props.c - theme color object
+ * @param {object} props.t - localized strings
+ * @param {Function} props.onUserPathChanged - reload callback after a successful transaction
+ * @param {Function} props.canChangeUserPath - unsaved-design guard
+ * @param {Function} props.showConfirm - app-level confirm dialog (message) => Promise<boolean>
+ */
+export const FoldersPane = ({ c, t, onUserPathChanged, canChangeUserPath, showConfirm }) => {
+  const [folders, setFolders] = useState(null);     // full folders object returned by paths:list
+  const [error, setError] = useState(null);          // move error / critical
+  const [warning, setWarning] = useState(null);      // oldStillThere warning (yellow)
+  const [moving, setMoving] = useState(false);       // Moving… busy state
+  const errorRef = useRef(null);
 
   const refresh = useCallback(async () => {
     const result = await window.electronAPI?.listUserPaths?.();
-    if (result?.success) setFolders(result.folders);
+    if (result?.success) {
+      setFolders(result.folders);
+      setError(null);
+    }
   }, []);
 
   useEffect(() => { refresh(); }, [refresh]);
 
-  const runChange = useFolderChange({
-    setFolders, setError, refresh, onUserPathChanged, canChangeUserPath, t,
-  });
+  // whether in the default directory (overridden=false)
+  const isDefault = !folders?.overridden;
+  const rootPath = folders?.root || '';
+  const subfolders = folders?.subfolders || [];
+  const rejected = folders?.rejected || null;
 
-  const onBrowse = useCallback(
-    (key) => runChange(key, k => window.electronAPI?.chooseUserPath?.(k)), [runChange]);
-  const onReset = useCallback(
-    (key) => runChange(key, k => window.electronAPI?.resetUserPath?.(k)), [runChange]);
+  // ── move result handling: unify success/warning/error/critical ─────────
+  const handleMoveResult = useCallback(async (result) => {
+    if (!result) return;
+    if (!result.success) {
+      // critical special handling: show dataLocation + no auto reload
+      if (result.critical) {
+        setError(t.settings.folders.criticalError(result.dataLocation));
+        // do not call onUserPathChanged on critical (design requirement)
+      } else {
+        setError(t.settings.folders.changeFailed(result.error || ''));
+      }
+      // even on failure, refresh folders to reflect the latest state
+      if (result.folders) setFolders(result.folders);
+      return;
+    }
+    // success
+    setError(null);
+    if (result.folders) setFolders(result.folders);
+    // A move that succeeded but could not remove the old folder is still a
+    // success; it is shown in the warning style rather than as an error.
+    setWarning(result.warning ? t.settings.folders.oldStillThere : null);
+    // Reload runs on success and on success-with-warning, never on critical.
+    await onUserPathChanged?.();
+  }, [t, onUserPathChanged]);
 
-  const onOpen = useCallback(async (key) => {
+  // ── Browse: choose → confirm → setUserPath → Moving… ──────────────────
+  const onBrowse = useCallback(async () => {
+    // unsaved-design guard
+    if (canChangeUserPath && !canChangeUserPath()) {
+      setError(t.settings.folders.projectsLocked);
+      return;
+    }
+
+    try {
+      // 1. choose — returns the chosen path only
+      const chooseResult = await window.electronAPI?.chooseUserPath?.();
+      if (!chooseResult || chooseResult.canceled || !chooseResult.path) return;
+
+      // 2. app confirm dialog (prefer the injected showConfirm, fall back to window.confirm)
+      const confirmFn = showConfirm || ((msg) => Promise.resolve(window.confirm(msg)));
+      const confirmed = await confirmFn(
+        t.settings.folders.confirmMove(chooseResult.path)
+      );
+      if (!confirmed) return;
+
+      // 3. setUserPath → Moving…
+      setMoving(true);
+      setError(null);
+      setWarning(null);
+      try {
+        const result = await window.electronAPI?.setUserPath?.(chooseResult.path);
+        await handleMoveResult(result);
+      } finally {
+        setMoving(false);
+      }
+    } catch (err) {
+      setError(t.settings.folders.changeFailed(err?.message || ''));
+      setMoving(false);
+    }
+  }, [canChangeUserPath, showConfirm, t, handleMoveResult]);
+
+  // ── Reset: confirm → resetUserPath → Moving… ──────────────────────────
+  const onReset = useCallback(async () => {
+    // unsaved-design guard
+    if (canChangeUserPath && !canChangeUserPath()) {
+      setError(t.settings.folders.projectsLocked);
+      return;
+    }
+
+    // no-op when already default
+    if (isDefault) return;
+
+    try {
+      // confirm dialog
+      const confirmFn2 = showConfirm || ((msg) => Promise.resolve(window.confirm(msg)));
+      const defaultRoot = folders?.defaultRoot || '';
+      const confirmed = await confirmFn2(
+        t.settings.folders.confirmReset(defaultRoot)
+      );
+      if (!confirmed) return;
+
+      // resetUserPath → Moving…
+      setMoving(true);
+      setError(null);
+      setWarning(null);
+      try {
+        const result = await window.electronAPI?.resetUserPath?.();
+        await handleMoveResult(result);
+      } finally {
+        setMoving(false);
+      }
+    } catch (err) {
+      setError(t.settings.folders.changeFailed(err?.message || ''));
+      setMoving(false);
+    }
+  }, [isDefault, canChangeUserPath, showConfirm, folders, t, handleMoveResult]);
+
+  // ── Open: revealUserPath() ────────────────────────────────────────────
+  const onOpen = useCallback(async () => {
+    const result = await window.electronAPI?.revealUserPath?.();
+    if (result && !result.success) setError(t.settings.folders.openFailed);
+  }, [t]);
+
+  // ── subdirectory row Open ─────────────────────────────────────────────
+  const onOpenSubfolder = useCallback(async (key) => {
     const result = await window.electronAPI?.revealUserPath?.(key);
     if (result && !result.success) setError(t.settings.folders.openFailed);
   }, [t]);
 
   return h('div', null,
+    // ── title ──
     h('span', { style: { ...hintStyle(c), marginTop: 0, marginBottom: '8px' } },
       t.settings.folders.hint),
+
+    // ── inline states ──
+
+    // rejected (configured root unusable)
+    rejected && h('div', {
+      role: 'status',
+      style: {
+        fontSize: '12px', color: c.warning, border: `1px solid ${c.warning}`,
+        borderRadius: '6px', padding: '8px', marginBottom: '8px',
+      },
+    }, t.settings.folders.rejected(rejected.configured, rejected.reason)),
+
+    // error (move error / critical) — red
     error && h('div', {
       role: 'alert',
       style: {
@@ -76,7 +194,40 @@ export const FoldersPane = ({ c, t, onUserPathChanged, canChangeUserPath }) => {
         borderRadius: '6px', padding: '8px', marginBottom: '8px',
       },
     }, error),
-    folders.map(entry =>
-      h(FolderRow, { key: entry.key, entry, onBrowse, onReset, onOpen, c, t }))
+
+    // warning (oldStillThere) — amber/yellow
+    warning && h('div', {
+      role: 'status',
+      style: {
+        fontSize: '12px', color: c.warning || '#e0a030', border: `1px solid ${c.warning || '#e0a030'}`,
+        borderRadius: '6px', padding: '8px', marginBottom: '8px',
+      },
+    }, warning),
+
+    // Moving… busy state
+    moving && h('div', {
+      style: {
+        fontSize: '12px', color: c.accent, padding: '8px', marginBottom: '8px',
+      },
+    }, t.settings.folders.moving),
+
+    // ── Root path row ──
+    rootPath && h(FolderRow, {
+      entry: { key: 'root', path: rootPath, overridden: !isDefault },
+      label: t.settings.folders.title,
+      onBrowse: () => onBrowse(),
+      onReset: () => onReset(),
+      onOpen: () => onOpen(),
+      moving,
+      c, t,
+    }),
+
+    // ── read-only subdirectory list ──
+    subfolders.length > 0 && h(SubfolderList, {
+      subfolders,
+      onOpen: onOpenSubfolder,
+      moving,
+      c, t,
+    }),
   );
 };

@@ -7,6 +7,7 @@ const { safeName, safeFilePath, readJsonSafe, writeFileAtomic, readTextAuto, reg
 const seed = require('./main/seed');
 const helpServer = require('./main/helpServer');
 const { createUserPaths } = require('./main/userPaths');
+const { createDataFolderMove } = require('./main/dataFolderMove');
 const dragGhost = require('./main/dragGhost');
 const { registerAllIpc } = require('./main/ipc');
 const appWindowIpc = require('./main/ipc/appWindow');
@@ -227,8 +228,8 @@ function setupIpcHandlers() {
 
   // User-facing data lives in Documents\TFStudio by default so it persists
   // across app installs; each folder can be pointed elsewhere from Settings.
-  userPaths = createUserPaths({ documentsDir: app.getPath('documents'), fs, path, log });
-  userPaths.loadOverrides(readJsonSafe(settingsPath)?.folders);
+  userPaths = createUserPaths({ documentsDir: app.getPath('documents'), fs, path, exeDir, log });
+  userPaths.load(readJsonSafe(settingsPath));
   userPaths.ensureAll();
 
   // ── IPC: all domain handlers live in src/main/ipc/ ──────────────
@@ -245,6 +246,7 @@ function setupIpcHandlers() {
     safeName, safeFilePath, readJsonSafe, writeFileAtomic, readTextAuto, registryValue,
     userDataPath, settingsPath,
     userPaths,
+    dataFolderMove: createDataFolderMove({ fs, path }),
     onUserPathsChanged: () => {
       userPaths.ensureAll();
       prepareMaterialsDir(userPaths.get('materials'));

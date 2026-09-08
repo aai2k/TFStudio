@@ -105,7 +105,7 @@ embedded in the saved entry, so it stays usable when the catalog it came from
 is renamed or removed.
 
 Saved coatings are plain JSON files with the `.tfsc` extension in the Coatings
-folder (Settings, Data Folders). Saving under an existing name replaces that
+folder (Settings, Data folder). Saving under an existing name replaces that
 coating. **Delete** removes the selected saved coating.
 
 ## Sharing a coating

@@ -788,15 +788,12 @@ const App = () => {
     }, []);
 
     // Main-process directory getters switch immediately after a successful
-    // Settings change. Refresh the corresponding renderer registry in the same
-    // interaction so its visible state and all following commands refer to the
-    // same root.
-    const handleUserPathChanged = async (key) => {
-        if (key === 'projects') {
-            await loadFoldersFromDisk({ restoreSession: false, restoreLayout: false });
-        } else if (key === 'materials') {
-            await loadCatalogsFromDisk();
-        }
+    // Settings change. The whole data folder moves at once, so both registries
+    // are reloaded in the same interaction and every following command refers
+    // to the new root.
+    const handleUserPathChanged = async () => {
+        await loadFoldersFromDisk({ restoreSession: false, restoreLayout: false });
+        await loadCatalogsFromDisk();
     };
 
     const saveSettingsToDisk = async () => {
@@ -1527,7 +1524,8 @@ const App = () => {
                 wasmTmm, setWasmTmm,
                 updateCheckEnabled, setUpdateCheckEnabled,
                 onUserPathChanged: handleUserPathChanged,
-                canChangeUserPath: (key) => key !== 'projects' || !Object.values(dirtyDesigns).some(Boolean),
+                // A move relocates every design on disk, so any unsaved design blocks it.
+                canChangeUserPath: () => !Object.values(dirtyDesigns).some(Boolean),
                 ribbonStyle, setRibbonStyle,
                 quickAccess, setQuickAccess,
                 customThemes,

@@ -36,4 +36,4 @@ Pick more than one design under **Designs** and the report becomes a comparison.
 
 The Export menu at the bottom right saves a PDF with a running header and footer and page numbers, saves a single self-contained HTML file, or copies every table as tab-separated text for a spreadsheet. Paper size is A4 or Letter, and the language of the document is chosen independently of the app's. Both have defaults under Settings, Analysis, Report.
 
-Saved templates go to the ReportPresets folder and the branding profile to the Branding folder under your TFStudio documents folder.
+Saved templates and the branding profile go to your TFStudio data folder.
