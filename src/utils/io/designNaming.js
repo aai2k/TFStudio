@@ -24,6 +24,24 @@ export function designFileKey(name) {
 }
 
 /**
+ * The design names one project folder holds.
+ *
+ * A name has to be unique inside its folder, because that is what decides the
+ * filename there. Two folders are two directories, so each may hold a design of
+ * the same name; the names to check a new one against are therefore the target
+ * folder's, not the whole tree's.
+ *
+ * A folder that cannot be resolved throws rather than answering "no names":
+ * an empty list reads as "nothing is taken here" and would let a caller that
+ * lost track of its folder create a second design over the first one's file.
+ */
+export function folderDesignNames(folders, folderId) {
+    const folder = (folders || []).find((candidate) => candidate.id === folderId);
+    if (!folder) throw new Error(`folderDesignNames: no folder with id ${JSON.stringify(folderId)}`);
+    return folder.items.map((item) => item.name);
+}
+
+/**
  * `base`, or the first `formatSuffix(base, k)` for k = 2, 3, … whose file key is
  * not already taken. `existingNames` is any iterable of design names.
  */

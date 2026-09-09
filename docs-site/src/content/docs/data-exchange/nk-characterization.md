@@ -33,6 +33,12 @@ Measure **absolute R and T over wavelengths that overlap**. T has to be the ligh
 
 Import the curves in [Measured Spectra](/data-exchange/measured-spectra/), pick **T / R**, and choose both. In **Settings**, set the substrate material and its thickness.
 
+### Checking the window against a design you already have
+
+A good way to see what this window does is to feed it a spectrum you generated yourself: build the film as a design, export its spectrum, import that back, and characterize it. The film should come back.
+
+Export it with the **whole-slab evaluation**, not FRONT or BACK. A FRONT export is the coated surface on its own, with no substrate rear face, which is not something an instrument can measure and not what this window fits. Feeding one in reports **"These curves are of the coated surface alone"** and stops, because the rear face is worth about four percentage points of reflectance on glass and the two do not invert to the same film.
+
 ### Measuring at an angle
 
 Each curve carries **its own angle, polarization and illuminated face**, and the fit uses them. The angle is from the normal, so 0° is straight on. T at 0° and R at 8° fit together; the two do not have to match.

@@ -1,7 +1,7 @@
 // IPC: settings + project/design file I/O — load/save settings, load all
-// folders+designs, save/import/delete/rename .tfs designs, create/rename/delete
-// project folders. All under Documents\TFStudio\Projects (+ machine-local
-// settings.json in AppData).
+// folders+designs, save/import/delete/rename/move .tfs designs,
+// create/rename/delete project folders. All under Documents\TFStudio\Projects
+// (+ machine-local settings.json in AppData).
 //
 // CommonJS, Electron-free (deps via ctx).
 const { writeRendererSettings } = require('../settingsFile');
@@ -17,6 +17,7 @@ function register(ipcMain, ctx) {
   ipcMain.handle('pick-macleod-database', async () => handlePickMacleodDatabase(ctx));
   ipcMain.handle('delete-item', async (event, folderName, itemName) => handleDeleteItem(ctx, folderName, itemName));
   ipcMain.handle('rename-item', async (event, folderName, oldName, newName) => handleRenameItem(ctx, folderName, oldName, newName));
+  ipcMain.handle('move-item', async (event, fromFolderName, toFolderName, itemName) => handleMoveItem(ctx, fromFolderName, toFolderName, itemName));
   ipcMain.handle('create-folder', async (event, folderName) => handleCreateFolder(ctx, folderName));
   ipcMain.handle('rename-folder', async (event, oldName, newName) => handleRenameFolder(ctx, oldName, newName));
   ipcMain.handle('delete-folder', async (event, folderName) => handleDeleteFolder(ctx, folderName));
@@ -403,6 +404,36 @@ function handleRenameItem(ctx, folderName, oldName, newName) {
     } else {
       writeFileAtomic(newPath, newJson, 'utf-8');
       if (oldPath !== newPath) fs.unlinkSync(oldPath);
+    }
+    return { success: true };
+  } catch (error) {
+    return { success: false, error: error.message };
+  }
+}
+
+// ── Move a .tfs file to another project folder ─────────────────────────────
+// The design keeps its id and its name; only the folder it sits in changes.
+// Both folders are under Projects, so this is always a same-volume rename.
+// A target that already holds that filename is refused rather than written
+// over: the two designs are different files and one would be lost.
+function moveRefusal(fs, oldPath, targetDir, newPath) {
+  if (!fs.existsSync(oldPath)) return 'File not found';
+  if (!fs.existsSync(targetDir)) return 'Target folder does not exist';
+  if (fs.existsSync(newPath)) return 'A design with that name already exists in the target folder';
+  return null;
+}
+
+function handleMoveItem(ctx, fromFolderName, toFolderName, itemName) {
+  const { fs, projectsDir, safeName, safeFilePath } = ctx;
+  try {
+    const fileName = safeName(itemName) + '.tfs';
+    const oldPath = safeFilePath(projectsDir, safeName(fromFolderName), fileName);
+    const targetDir = safeFilePath(projectsDir, safeName(toFolderName));
+    const newPath = safeFilePath(targetDir, fileName);
+    if (oldPath !== newPath) {
+      const refusal = moveRefusal(fs, oldPath, targetDir, newPath);
+      if (refusal) return { success: false, error: refusal };
+      fs.renameSync(oldPath, newPath);
     }
     return { success: true };
   } catch (error) {

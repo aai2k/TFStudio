@@ -5,7 +5,7 @@ import { MessageNotification } from './components/ui/MessageNotification.js';
 import { TitleBar } from './components/TitleBar.js';
 import { Toolbar } from './components/Toolbar.js';
 import { ProjectExplorer } from './components/panels/ProjectExplorer.js';
-import { updateExplorerItemMtime } from './components/panels/projectExplorerModel.js';
+import { moveExplorerItems, updateExplorerItemMtime } from './components/panels/projectExplorerModel.js';
 import { DockingLayout } from './components/docking/DockingLayout.js';
 import { SettingsModal } from './components/dialogs/settings/SettingsModal.js';
 import { InputDialog } from './components/dialogs/InputDialog.js';
@@ -31,7 +31,7 @@ import { initCatalogs, addCatalog } from './utils/materials/catalogManager.js';
 import { embedDesignMaterials } from './utils/materials/designMaterials.js';
 import { parseAGF } from './utils/materials/agfParser.js';
 import { initTmmWasmMainThread, tmmWasmActive } from './tmmcore.js';
-import { designFileKey, uniqueDesignName } from './utils/io/designNaming.js';
+import { designFileKey, folderDesignNames, uniqueDesignName } from './utils/io/designNaming.js';
 import {
     mergeSessionOverDisk,
     persistThenCommit,
@@ -877,20 +877,24 @@ const App = () => {
 
     // ── Project explorer actions ──────────────────────────────────────────────
 
-    // Names of every design in the tree. New, imported and duplicated designs are
-    // made unique against this list: a name decides the .tfs filename, so a
-    // collision would overwrite the other design's file (see designNaming.js).
+    // The design names one project folder holds. New, imported and duplicated
+    // designs are made unique against the names in the folder they are going
+    // into: a name decides the .tfs filename, so a collision inside a folder
+    // would overwrite the other design's file. Two folders are two directories
+    // and may each hold the same name (see designNaming.js).
     const existingDesignNames = useCallback(
-        () => foldersRef.current.flatMap(f => f.items.map(i => i.name)), []);
+        (folderId) => folderDesignNames(foldersRef.current, folderId), []);
 
     const addItem = useCallback(async (overrideFolder) => {
         const targetFolder = overrideFolder || selectedFolder;
         if (!targetFolder) return;
         // The running count is not unique on its own: deleting "Design 2" of
         // three makes the next default "Design 3", which already exists. Keep
-        // counting up rather than falling back to a parenthesised suffix.
-        const n       = foldersRef.current.flatMap(f => f.items).length + 1;
-        const name    = uniqueDesignName(`Design ${n}`, existingDesignNames(), (_, k) => `Design ${n + k - 1}`);
+        // counting up rather than falling back to a parenthesised suffix. The
+        // count is of this folder, so each one numbers its designs from 1.
+        const taken   = existingDesignNames(targetFolder.id);
+        const n       = taken.length + 1;
+        const name    = uniqueDesignName(`Design ${n}`, taken, (_, k) => `Design ${n + k - 1}`);
         const design  = makeDefaultDesign(name);
         const newItem = { id: design.id, name: design.name, mtime: Date.now() };
 
@@ -918,7 +922,7 @@ const App = () => {
     const addItemFromDesign = useCallback(async (incoming, overrideFolder) => {
         const targetFolder = overrideFolder || selectedFolder;
         if (!targetFolder || !incoming) return;
-        const name   = uniqueDesignName(incoming.name, existingDesignNames(), (b, k) => `${b} (${k})`);
+        const name   = uniqueDesignName(incoming.name, existingDesignNames(targetFolder.id), (b, k) => `${b} (${k})`);
         const design = name === incoming.name ? incoming : { ...incoming, name };
         const newItem = { id: design.id, name: design.name, mtime: Date.now() };
 
@@ -961,7 +965,7 @@ const App = () => {
 
         const ts       = `${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
         const base     = (res.design.name && String(res.design.name).trim()) || res.fileName || 'Imported design';
-        const name     = uniqueDesignName(base, existingDesignNames(), (b, k) => `${b} (${k})`);
+        const name     = uniqueDesignName(base, existingDesignNames(targetFolder.id), (b, k) => `${b} (${k})`);
 
         const design = {
             ...res.design,
@@ -997,7 +1001,7 @@ const App = () => {
         setDesignImport(null);
         const targetFolder = foldersRef.current.find(f => f.id === folderId) || selectedFolder || foldersRef.current[0];
         if (!targetFolder) return;
-        const taken = existingDesignNames();
+        const taken = existingDesignNames(targetFolder.id);
         let added = 0;
         for (const imported of designs) {
             const ts = `${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
@@ -1060,9 +1064,10 @@ const App = () => {
         if (!folder) return;
 
         const sa        = t.dialogs.saveAs;
-        const existing  = new Set(existingDesignNames().map(designFileKey));
+        const inFolder  = existingDesignNames(folder.id);
+        const existing  = new Set(inFolder.map(designFileKey));
         const base      = `${src.name} (copy)`;
-        const suggested = uniqueDesignName(base, existingDesignNames(), (b, k) => `${b} ${k}`);
+        const suggested = uniqueDesignName(base, inFolder, (b, k) => `${b} ${k}`);
 
         setInputDialog({
             title: sa.title,
@@ -1113,7 +1118,7 @@ const App = () => {
         const ts      = `${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
         const newId   = `design-${ts}`;
         const newName = uniqueDesignName(
-            `${item.name} (copy)`, existingDesignNames(), (b, k) => `${b} ${k}`);
+            `${item.name} (copy)`, existingDesignNames(folder.id), (b, k) => `${b} ${k}`);
         const clone   = {
             ...JSON.parse(JSON.stringify(src)),
             id: newId,
@@ -1280,6 +1285,79 @@ const App = () => {
             },
         );
     }, [persistProjectChange, t]);
+
+    // Move designs into another project folder, from a drag or the explorer's
+    // context menu. The design id and name do not change, so an open design
+    // keeps its unsaved edits and its undo history; the next save follows it,
+    // because saveDesignToDisk looks its folder up by item id each time.
+    const moveItemsToFolder = useCallback(async (itemIds, targetFolderId) => {
+        const target = foldersRef.current.find(f => f.id === targetFolderId);
+        if (!target) return false;
+        const moves = (itemIds || []).map((itemId) => {
+            const source = foldersRef.current.find(f => f.items.some(i => i.id === itemId));
+            if (!source || source.id === targetFolderId) return null;
+            const item = source.items.find(i => i.id === itemId);
+            return item ? { item, sourceName: source.name } : null;
+        }).filter(Boolean);
+        if (moves.length === 0) return false;
+
+        // A design is addressed on disk by its filename, so a name already taken
+        // in the target would put one design on top of another. Two designs in
+        // the batch can carry the same name as well, having come from different
+        // folders, so each name joins the taken set as it is checked. Refuse the
+        // whole move rather than half of it (see designNaming.js).
+        const taken = new Set(target.items.map(i => designFileKey(i.name)));
+        let clash = null;
+        for (const move of moves) {
+            const key = designFileKey(move.item.name);
+            if (taken.has(key)) { clash = move; break; }
+            taken.add(key);
+        }
+        if (clash) {
+            setMessageNotification({
+                type: 'error',
+                message: t.explorer.moveNameTaken(clash.item.name, target.name),
+            });
+            return false;
+        }
+
+        // Each design is committed to the tree as its own file lands, and the
+        // ref is moved with it rather than waiting for the render: a save fired
+        // while the batch is still running resolves the design's folder from
+        // this ref, and would otherwise write it back into the folder it left.
+        // The batch reports its own failures, so persistThenCommit is used
+        // directly and every design that did not move is named.
+        const movedIds = new Set();
+        const failed = [];
+        for (const move of moves) {
+            const result = await persistThenCommit(
+                window.electronAPI?.moveItem
+                    ? () => window.electronAPI.moveItem(move.sourceName, target.name, move.item.name)
+                    : null,
+                () => {
+                    movedIds.add(move.item.id);
+                    foldersRef.current = moveExplorerItems(foldersRef.current, [move.item.id], targetFolderId);
+                    setFolders(prev => moveExplorerItems(prev, [move.item.id], targetFolderId));
+                },
+            );
+            if (!result.success) failed.push(move.item.name);
+        }
+
+        if (failed.length === 1 && movedIds.size === 0) {
+            setMessageNotification({ type: 'error', message: t.explorer.moveFailed(failed[0]) });
+        } else if (failed.length > 0) {
+            setMessageNotification({
+                type: 'error',
+                message: t.explorer.movedPartly(movedIds.size, failed.length),
+            });
+        }
+        if (movedIds.size === 0) return false;
+
+        // Selection follows the design the user was working on, so the folder
+        // shown as selected still holds the open design.
+        if (movedIds.has(selectedItem?.id)) setSelectedFolder(target);
+        return true;
+    }, [selectedItem, t]);
 
     const renameFolder = useCallback(async (folderId, newName) => {
         const folder = foldersRef.current.find(f => f.id === folderId);
@@ -1499,7 +1577,7 @@ const App = () => {
                     folders, selectedFolder, selectedItem, selectedItems,
                     handleItemClick, setSelectedFolder, toggleFolderExpanded,
                     addItem, duplicateItem, removeSelectedItems, removeItem, setInputDialog, addFolder,
-                    renameFolder, renameItem, removeFolder,
+                    renameFolder, renameItem, removeFolder, moveItemsToFolder,
                     dirtyDesigns,
                     c, t,
                     onOpenDesign: (item) => {

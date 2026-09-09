@@ -739,6 +739,37 @@ function searchThickness(prepared, { request, indexModel, fixThickness }) {
     return best ? { chosen, best, context } : { error: 'noModel' };
 }
 
+/**
+ * Whether these curves would invert against a different sample geometry.
+ *
+ * Only asked once the fit has already failed, so it costs nothing in the
+ * ordinary case. Its point is to tell the reader something they can act on: a
+ * witness with a polished rear face and one with no rear face at all differ by
+ * about four percentage points of reflectance on glass, and a spectrum of the
+ * wrong one does not invert at any wavelength. Reported on its own, that reads
+ * as a broken measurement rather than as a spectrum of a sample this window
+ * does not model.
+ */
+function inverts(prepared, request, geometry) {
+    const { lambdas, solveChannels } = prepared;
+    const thicknessNm = Number(request.thicknessNm);
+    if (!Number.isFinite(thicknessNm) || !(thicknessNm > 0)) return false;
+    const channels = solveChannels.map(channel => ({
+        ...channel,
+        conditions: { ...channel.conditions, geometry },
+    }));
+    // Only the channels are taken from the subset: the seed used below is the
+    // one the scan finds, not the flat one onSubset needs to do its own work.
+    const positions = stride(lambdas.length, SCAN_POINTS);
+    const scanned = positions
+        ? onSubset(channels, seedFlat(lambdas, 1), positions).channels
+        : channels;
+    const seed = flatSeedScan(scanned, thicknessNm, isMetalModel(request.indexModel));
+    const extraction = invertPointwise(
+        scanned, thicknessNm, seedFlat(scanned[0].conditions.lambdas, seed.index, seed.extinction));
+    return extraction.resolvedCount > 0;
+}
+
 /** How the saved material records where its constants came from. */
 function measuredSource(measured) {
     if (measured.T && measured.R) return 'measured R/T';
@@ -849,7 +880,14 @@ export function characterizeFilm(request) {
     const { lambdas, channels, rangeNm, solveChannels, envelope } = prepared;
 
     const search = searchThickness(prepared, { request, indexModel, fixThickness });
-    if (search.error) return { error: search.error, envelope };
+    if (search.error) {
+        return {
+            error: search.error === 'notInvertible' && inverts(prepared, request, 'coating')
+                ? 'singleSurfaceSpectrum'
+                : search.error,
+            envelope,
+        };
+    }
     const { chosen, best, context } = search;
 
     const { refined, shown } = settleExtinction({

@@ -5,8 +5,9 @@
 // Covers the renderer-side naming rules (designNaming.js) and the main-process
 // save guard (ipc/projects.js).
 import { createRequire } from 'node:module';
+import { readFileSync } from 'node:fs';
 import path from 'node:path';
-import { designFileKey, uniqueDesignName } from '../src/utils/io/designNaming.js';
+import { designFileKey, folderDesignNames, uniqueDesignName } from '../src/utils/io/designNaming.js';
 
 const require = createRequire(import.meta.url);
 const projects = require('../src/main/ipc/projects.js');
@@ -23,6 +24,53 @@ ok(designFileKey('A/B') === designFileKey('A_B'), 'illegal characters sanitize t
 ok(designFileKey('Design 2.') === designFileKey('Design 2'), 'trailing dot is ignored');
 ok(designFileKey('Design 2 ') === designFileKey('Design 2'), 'trailing space is ignored');
 ok(designFileKey('AR VIS') !== designFileKey('AR NIR'), 'distinct names keep distinct keys');
+
+// ── The names a new design is checked against ───────────────────────────────
+// One folder, not the whole tree: a folder is a directory, so the same name in
+// two of them is two files and collides with nothing.
+{
+  const tree = [
+    { id: 'vis', name: 'Visible', items: [{ id: 'd1', name: 'AR VIS' }, { id: 'd2', name: 'Cold mirror' }] },
+    { id: 'ir', name: 'Infrared', items: [{ id: 'd3', name: 'Germanium AR' }] },
+    { id: 'empty', name: 'Archive', items: [] },
+  ];
+  ok(folderDesignNames(tree, 'vis').join() === 'AR VIS,Cold mirror', 'the folder\'s own designs are listed');
+  ok(folderDesignNames(tree, 'ir').join() === 'Germanium AR', 'and only its own');
+  ok(folderDesignNames(tree, 'empty').length === 0, 'an empty folder has none');
+
+  // A folder that cannot be resolved is a caller that lost track of it. An
+  // empty list would read as "nothing is taken here" and let the caller create
+  // a design over another one's file, so it throws instead.
+  const throws = (call) => { try { call(); return false; } catch (_) { return true; } };
+  ok(throws(() => folderDesignNames(tree, 'no-such-folder')), 'an unknown folder throws');
+  ok(throws(() => folderDesignNames(tree, undefined)), 'a caller that forgot the folder throws');
+  ok(throws(() => folderDesignNames(null, 'vis')), 'a missing tree throws');
+
+  // The rule this file exists for, stated the other way round: a name taken in
+  // another folder does not push a new design onto a suffix.
+  ok(uniqueDesignName('Germanium AR', folderDesignNames(tree, 'vis'), (b, k) => `${b} ${k}`) === 'Germanium AR',
+     'a name used in another folder is free here');
+  ok(uniqueDesignName('AR VIS', folderDesignNames(tree, 'vis'), (b, k) => `${b} ${k}`) === 'AR VIS 2',
+     'a name used in this folder is not');
+}
+
+// ── Every creation path names against a folder ──────────────────────────────
+// The defect this rule replaced was that new, imported, duplicated and Save As
+// designs were named against the whole tree while rename used one folder. A
+// call site that drops the argument would put that back, so the calls are
+// checked directly: folderDesignNames throws on an unresolved folder, but only
+// once a user reaches that path.
+{
+  const renderer = readFileSync(new URL('../src/renderer.js', import.meta.url), 'utf-8');
+  const calls = renderer.match(/existingDesignNames\([^)]*\)/g) || [];
+  ok(calls.length === 6, `all six creation paths still call it, found ${calls.length}`);
+  const bare = calls.filter(call => /existingDesignNames\(\s*\)/.test(call));
+  ok(bare.length === 0, `every call names the folder it is adding to, found ${bare.length} without one`);
+
+  // The default name counts within the folder, so each one numbers from 1.
+  ok(/const n\s*=\s*taken\.length \+ 1/.test(renderer),
+     'the "Design N" counter is of the target folder, not the whole tree');
+}
 
 // ── Unique names ────────────────────────────────────────────────────────────
 const copySuffix = (b, k) => `${b} ${k}`;

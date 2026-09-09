@@ -342,6 +342,47 @@ for (const test of cases) {
     }
 }
 
+// ── A spectrum of the coated surface alone ───────────────────────────────────
+//
+// Exporting a design from Optical Evaluation in FRONT or BACK gives the single
+// surface, with no substrate rear face. That is not a witness, and it does not
+// invert as one: the rear face is worth about four percentage points of
+// reflectance on glass. It failed with "could not be solved at any wavelength",
+// which reads as a broken measurement and sends the reader looking in the wrong
+// place, so the fit now recognizes the case and names it.
+{
+    const sample = {
+        incident: getMaterial('Air'), substrate: getMaterial('BK7'), exit: getMaterial('Air'),
+        substrateThicknessMm: 1, geometry: 'slab',
+        lambdas, aoi: 0, pol: 'avg', side: 'front',
+    };
+    const singleSurface = { ...sample, geometry: 'coating' };
+    for (const thickness of [80, 200, 500]) {
+        const seen = filmSpectrum(singleSurface, getMaterial('TiO2'), thickness);
+        const result = characterizeFilm({
+            sample,                                   // the witness the window assumes
+            channels: ['T', 'R'].map(quantity => ({
+                quantity, lambdas, values: seen[quantity], aoi: 0, pol: 'avg', side: 'front',
+            })),
+            indexModel: 'cauchy', thicknessNm: thickness, fixThickness: true,
+        });
+        check(result.error === 'singleSurfaceSpectrum',
+            `single-surface ${thickness} nm: got "${result.error}", which does not say what is wrong`);
+    }
+    // A measurement that is simply unusable still says so plainly, rather than
+    // blaming a geometry that would not have saved it either.
+    const rubbish = characterizeFilm({
+        sample,
+        channels: ['T', 'R'].map(quantity => ({
+            quantity, lambdas, values: lambdas.map(() => (quantity === 'T' ? 2.5 : 2.5)),
+            aoi: 0, pol: 'avg', side: 'front',
+        })),
+        indexModel: 'cauchy', thicknessNm: 200, fixThickness: true,
+    });
+    check(rubbish.error === 'notInvertible',
+        `an impossible spectrum must stay "notInvertible", got "${rubbish.error}"`);
+}
+
 const headers = ['case', 'thickness', 'error', 'max Δn', 'max Δk', 'worst rms', 'notices'];
 const widths = headers.map((header, column) =>
     Math.max(header.length, ...rows.map(row => row[column].length)));

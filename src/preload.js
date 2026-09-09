@@ -19,6 +19,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   pickMacleodDatabase: () => ipcRenderer.invoke('pick-macleod-database'),
   deleteItem:       (folderName, itemName) => ipcRenderer.invoke('delete-item', folderName, itemName),
   renameItem:       (folderName, oldName, newName) => ipcRenderer.invoke('rename-item', folderName, oldName, newName),
+  moveItem:         (fromFolder, toFolder, itemName) => ipcRenderer.invoke('move-item', fromFolder, toFolder, itemName),
   createFolder:     (folderName) => ipcRenderer.invoke('create-folder', folderName),
   renameFolder:     (oldName, newName) => ipcRenderer.invoke('rename-folder', oldName, newName),
   deleteFolder:     (folderName) => ipcRenderer.invoke('delete-folder', folderName),

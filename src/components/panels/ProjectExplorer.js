@@ -1,4 +1,4 @@
-import { filterExplorerFolders, sortExplorerItems } from './projectExplorerModel.js';
+import { dropTargetFolders, filterExplorerFolders, sortExplorerItems } from './projectExplorerModel.js';
 import { ContextMenu } from '../ui/ContextMenu.js';
 
 const { createElement: h, useState, useRef, useEffect, useCallback, useMemo } = React;
@@ -214,7 +214,7 @@ function FolderRow({ folder, isSelected, isContextTarget, c, onToggle, onSelect,
 
 // ── File row ───────────────────────────────────────────────────────────────────
 
-function FileRow({ item, folder, isSelected, isActive, isContextTarget, c, onClick, onDoubleClick, onContextMenu, onStartRename, onCommitRename, onCancelRename, onDelete, onDuplicate, isRenaming, tipRename, tipDelete, tipDuplicate, tipUnsaved }) {
+function FileRow({ item, folder, isSelected, isActive, isContextTarget, c, onClick, onDoubleClick, onContextMenu, onStartRename, onCommitRename, onCancelRename, onDelete, onDuplicate, onDragStart, onDragEnd, isRenaming, tipRename, tipDelete, tipDuplicate, tipUnsaved }) {
   const [hov, setHov] = useState(false);
   const bg = isSelected ? c.accent + '40'
     : isActive ? c.accent + '25'
@@ -227,6 +227,10 @@ function FileRow({ item, folder, isSelected, isActive, isContextTarget, c, onCli
     onClick,
     onDoubleClick,
     onContextMenu,
+    // A row being renamed holds a text field, which needs its own selection.
+    draggable: !isRenaming,
+    onDragStart,
+    onDragEnd,
     onKeyDown: (e) => {
       if (e.key === 'F2') { e.preventDefault(); onStartRename(); }
       if (e.key === 'Delete') { e.preventDefault(); onDelete(); }
@@ -293,7 +297,7 @@ export function ProjectExplorer({
   folders, selectedFolder, selectedItem, selectedItems,
   handleItemClick, setSelectedFolder, toggleFolderExpanded,
   addItem, duplicateItem, removeSelectedItems, removeItem, setInputDialog, addFolder,
-  renameFolder, renameItem, removeFolder,
+  renameFolder, renameItem, removeFolder, moveItemsToFolder,
   dirtyDesigns,
   c, t,
   onOpenDesign
@@ -306,7 +310,11 @@ export function ProjectExplorer({
   // Right-click target: the row gets a focus border (VS Code style) WITHOUT
   // becoming the selected/open design. { type:'item'|'folder', id } | null.
   const [contextTarget, setContextTarget] = useState(null);
+  // The designs being dragged. Held in a ref rather than dataTransfer because
+  // dragover has to know what they are to decide whether a folder can take
+  // them, and the payload is unreadable there.
   const dragRef = useRef(null);
+  const [dragOverFolderId, setDragOverFolderId] = useState(null);
   const closeCtxMenu = useCallback(() => { setCtxMenu(null); setContextTarget(null); }, []);
 
   // ── Item sort (name / date), persisted so it survives restarts ─────────────
@@ -398,6 +406,52 @@ export function ProjectExplorer({
     });
   }, [removeSelectedItems, setInputDialog, t]);
 
+  // ── Drag a design into another folder ──────────────────────────────────────
+  // Dragging a row that is part of a multi-selection takes the whole selection,
+  // matching what the context menu and Delete do with one.
+  // The dragged designs and the folders that would take them. Both are settled
+  // at dragstart: dragover fires on every pointer move and the answer cannot
+  // change while one drag is in flight.
+  const startItemDrag = useCallback((event, item) => {
+    const selected = (selectedItems || []).map(s => s.id);
+    const ids = (selected.includes(item.id) && selected.length > 1) ? selected : [item.id];
+    dragRef.current = {
+      ids,
+      targets: new Set(dropTargetFolders(folders, ids).map(f => f.id)),
+    };
+    event.dataTransfer.effectAllowed = 'move';
+    // A drag carrying nothing is cancelled by the browser before any drop.
+    event.dataTransfer.setData('text/plain', ids.join(','));
+  }, [folders, selectedItems]);
+
+  const endItemDrag = useCallback(() => {
+    dragRef.current = null;
+    setDragOverFolderId(null);
+  }, []);
+
+  const dragOverFolder = useCallback((event, folderId) => {
+    if (dragRef.current?.targets.has(folderId)) {
+      event.preventDefault();
+      event.dataTransfer.dropEffect = 'move';
+      setDragOverFolderId(folderId);
+    }
+  }, []);
+
+  const dragLeaveFolder = useCallback((event) => {
+    // dragleave also fires when the pointer crosses onto a child row, which is
+    // still inside the folder block.
+    if (!event.currentTarget.contains(event.relatedTarget)) setDragOverFolderId(null);
+  }, []);
+
+  const dropOnFolder = useCallback((event, folderId) => {
+    event.preventDefault();
+    event.stopPropagation();
+    const ids = dragRef.current?.ids;
+    dragRef.current = null;
+    setDragOverFolderId(null);
+    if (ids && ids.length > 0 && moveItemsToFolder) moveItemsToFolder(ids, folderId);
+  }, [moveItemsToFolder]);
+
   const filteredFolders = useMemo(
     () => filterExplorerFolders(folders, searchQuery), [folders, searchQuery]);
   const isSearching = searchQuery.trim().length > 0;
@@ -419,22 +473,42 @@ export function ProjectExplorer({
     dup:    h('svg', { width: 14, height: 14, viewBox: '0 0 16 16', fill: 'none' }, h('path', { d: 'M5 3h6.5L14 5.5V11H5V3z', stroke: 'currentColor', strokeWidth: 1.2 }), h('path', { d: 'M2 5h1M2 5v8h8v-1', stroke: 'currentColor', strokeWidth: 1.2, strokeLinecap: 'round' })),
     del:    h('svg', { width: 14, height: 14, viewBox: '0 0 16 16', fill: 'none' }, h('path', { d: 'M4 5h8M6 5V3h4v2M6 7v5M10 7v5M5 5l1 8h4l1-8', stroke: 'currentColor', strokeWidth: 1.2, strokeLinecap: 'round' })),
     newFile:h('svg', { width: 14, height: 14, viewBox: '0 0 16 16', fill: 'none' }, h('path', { d: 'M4 2h5.5L13 5.5V14H4V2z', stroke: 'currentColor', strokeWidth: 1.2 }), h('path', { d: 'M8 8v4M6 10h4', stroke: 'currentColor', strokeWidth: 1.2, strokeLinecap: 'round' })),
+    move:   h('svg', { width: 14, height: 14, viewBox: '0 0 16 16', fill: 'none' }, h('path', { d: 'M2 5a1 1 0 011-1h3.4l.8.8H13a1 1 0 011 1v5a1 1 0 01-1 1H3a1 1 0 01-1-1V5z', stroke: 'currentColor', strokeWidth: 1.2 }), h('path', { d: 'M6 8.5h4M8.5 7l1.5 1.5-1.5 1.5', stroke: 'currentColor', strokeWidth: 1.2, strokeLinecap: 'round', strokeLinejoin: 'round' })),
   };
+
+  // "Move to <folder>" for every folder that would actually receive something.
+  // ContextMenu is a flat list, so the folders sit in the menu itself. The list
+  // is drawn from the folders on screen, so a search that hides a folder hides
+  // it here too and the menu offers exactly what a drag could reach.
+  const moveMenuItems = useCallback((targets) => {
+    const ids = targets.map(target => target.id);
+    return (moveItemsToFolder ? dropTargetFolders(filteredFolders, ids) : []).map(folder => ({
+      id: `move-${folder.id}`,
+      label: targets.length > 1
+        ? t.explorer.moveSelectedTo(targets.length, folder.name)
+        : t.explorer.moveTo(folder.name),
+      icon: Icons.move,
+      onClick: () => moveItemsToFolder(ids, folder.id),
+    }));
+  }, [filteredFolders, moveItemsToFolder, t]);
 
   const openItemMenu = useCallback((e, item, folder, targets) => {
     const many = targets.length > 1;
     const items = [];
+    const moves = moveMenuItems(targets);
     if (!many) {
       items.push({ label: t.explorer.open, icon: Icons.open, onClick: () => onOpenDesign && onOpenDesign(item, folder) });
       items.push({ label: t.explorer.duplicate, icon: Icons.dup, onClick: () => duplicateItem && duplicateItem(item, folder) });
       items.push({ label: t.explorer.renameF2, icon: Icons.rename, onClick: () => startRename(`item-${item.id}`) });
+      if (moves.length > 0) items.push({ separator: true }, ...moves);
       items.push({ separator: true });
       items.push({ label: t.explorer.delete, icon: Icons.del, danger: true, onClick: () => deleteItem(item, folder) });
     } else {
+      if (moves.length > 0) items.push(...moves, { separator: true });
       items.push({ label: t.explorer.deleteSelected(targets.length), icon: Icons.del, danger: true, onClick: () => deleteItems(targets) });
     }
     setCtxMenu({ x: e.clientX, y: e.clientY, items });
-  }, [t, onOpenDesign, duplicateItem, startRename, deleteItem, deleteItems]);
+  }, [t, onOpenDesign, duplicateItem, startRename, deleteItem, deleteItems, moveMenuItems]);
 
   const openFolderMenu = useCallback((e, folder) => {
     const items = [
@@ -577,7 +651,17 @@ export function ProjectExplorer({
         const folderKey = `folder-${folder.id}`;
         const isSelectedFolder = selectedFolder?.id === folder.id;
 
-        return h('div', { key: folder.id },
+        // The whole folder block takes a drop, so a design can be let go over
+        // the folder row or anywhere among the designs already in it.
+        return h('div', {
+          key: folder.id,
+          onDragOver: (e) => dragOverFolder(e, folder.id),
+          onDragLeave: dragLeaveFolder,
+          onDrop: (e) => dropOnFolder(e, folder.id),
+          style: dragOverFolderId === folder.id
+            ? { outline: `1px solid ${c.accent}`, outlineOffset: -1, backgroundColor: c.accent + '14' }
+            : undefined,
+        },
           h(FolderRow, {
             folder,
             isSelected: isSelectedFolder,
@@ -643,6 +727,8 @@ export function ProjectExplorer({
                 else deleteItem(item, folder);
               },
               onDuplicate: () => duplicateItem && duplicateItem(item, folder),
+              onDragStart: (e) => startItemDrag(e, item),
+              onDragEnd: endItemDrag,
               tipRename: t.explorer.renameF2,
               tipDelete: t.explorer.delete,
               tipDuplicate: t.explorer.duplicate,

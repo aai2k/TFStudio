@@ -306,6 +306,31 @@ function renderFitCoefficients(fit, c) {
     );
 }
 
+/**
+ * What the fit panel says about how well the fit matched.
+ *
+ * A fit made here compares a formula against the material's own table, so it
+ * reports a residual in n and, where the table absorbs, in k. A material saved
+ * from n,k Characterization carries a fit too, but that one was refined against
+ * a measured spectrum through the transfer matrix and never saw a table of n
+ * and k, so it has no residual against one. Its residual is in the window that
+ * produced it, against the measurement, which is the only place it means
+ * anything.
+ */
+function fitResidualText(fit, me) {
+    const residuals = fit.residuals || {};
+    if (!residuals.n) {
+        return [me.fitFromMeasurement(fit.source)];
+    }
+    const summary = (label, value) =>
+        `${label} residual: RMS ${value.rms.toExponential(3)}, max ${value.max.toExponential(3)}`;
+    return [
+        summary('n', residuals.n),
+        // A table with no absorption in it has no k residual to report.
+        fit.k?.kind !== 'zero' && residuals.k ? `; ${summary('k', residuals.k)}` : '',
+    ];
+}
+
 function renderFitPanel({ draft, set, runFit, fitError, me, c, sectionLabel, inputStyle }) {
     const fit = draft.dispersionFit;
     const models = fitModelsForRows(draft.rows);
@@ -338,10 +363,7 @@ function renderFitPanel({ draft, set, runFit, fitError, me, c, sectionLabel, inp
             fit && h('div', { style: { fontSize: 11, color: c.text } },
                 dispersionFitModelName(fit).replace(/^Fit: /, ''),
                 h('br'),
-                `n residual: RMS ${fit.residuals.n.rms.toExponential(3)}, max ${fit.residuals.n.max.toExponential(3)}`,
-                // A table with no absorption in it has no k residual to report.
-                fit.k?.kind !== 'zero'
-                    && `; k residual: RMS ${fit.residuals.k.rms.toExponential(3)}, max ${fit.residuals.k.max.toExponential(3)}`,
+                ...fitResidualText(fit, me),
             ),
             fit && renderFitCoefficients(fit, c),
             fitError && h('div', { style: { color: '#ef5350', fontSize: 11 } }, fitError),

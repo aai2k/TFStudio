@@ -50,9 +50,17 @@ export function ContextMenu({ x, y, items, c, onClose, ariaLabel = 'Context menu
             'aria-label': ariaLabel,
             onClick: event => event.stopPropagation(),
             onContextMenu: event => { event.preventDefault(); event.stopPropagation(); },
+            // A wheel turn over the menu scrolls it. Without this the event
+            // reaches the backdrop, which closes the menu on any wheel, and a
+            // menu long enough to need scrolling could never be scrolled.
+            onWheel: event => event.stopPropagation(),
             style: {
                 position: 'fixed', left: position.left, top: position.top,
                 minWidth: dense ? 150 : 190, padding: '4px 0', zIndex: 1001,
+                // A menu listing something open-ended, project folders say, can
+                // outgrow the window; without this its lower items sit off
+                // screen with no way to reach them.
+                maxHeight: '80vh', overflowY: 'auto',
                 background: c.panel, border: `1px solid ${c.border}`,
                 borderRadius: 6, boxShadow: '0 6px 24px rgba(0,0,0,0.4)',
                 fontFamily: 'system-ui, -apple-system, sans-serif',
