@@ -22,10 +22,10 @@
 
 import { channelDifference, griddedFilm, makeSampleEvaluator } from './sampleSpectrum.js';
 
-// No deposited film has constants outside this. The bracket is not a fit
-// constraint, it stops a near-singular Newton step throwing a point somewhere
-// the transfer matrix returns nothing useful from, which would strand it.
-const INDEX_MIN = 0.5;
+// Numerical guardrails for Newton steps, not a range of dielectric indices.
+// Metals such as gold have n well below 0.5 in the visible; excluding those
+// values discards the very measurements needed to seed their dispersion fit.
+const INDEX_MIN = 0;
 const INDEX_MAX = 8;
 export const EXTINCTION_MAX = 10;
 
@@ -48,8 +48,13 @@ function limitedStep(value) {
     return clamp(value, -STEP_LIMIT, STEP_LIMIT);
 }
 
-/** Solve a 2x2 system, or null when it is singular. */
-function solve2x2(a11, a12, a21, a22, b1, b2) {
+/**
+ * Solve a 2x2 system, or null when it is singular.
+ *
+ * @param {number[][]} matrix [[a11, a12], [a21, a22]]
+ * @param {number[]}   rhs    [b1, b2]
+ */
+function solve2x2([[a11, a12], [a21, a22]], [b1, b2]) {
     const determinant = a11 * a22 - a12 * a21;
     if (!Number.isFinite(determinant) || Math.abs(determinant) < 1e-14) return null;
     return [
@@ -96,6 +101,81 @@ function residualsOf(channels, calculated) {
 }
 
 /**
+ * The Newton step in n and k at one wavelength, or null where it is singular.
+ *
+ * With two channels the system is square and solved outright. With more it is
+ * solved in least squares, which is the same thing when there are two.
+ */
+function solvedStep(dIndex, dExtinction, residuals) {
+    if (dIndex.length === 2) {
+        return solve2x2(
+            [[dIndex[0], dExtinction[0]], [dIndex[1], dExtinction[1]]],
+            [-residuals[0], -residuals[1]]);
+    }
+    let nn = 0, nk = 0, kk = 0, nr = 0, kr = 0;
+    for (let channel = 0; channel < dIndex.length; channel++) {
+        nn += dIndex[channel] ** 2;
+        nk += dIndex[channel] * dExtinction[channel];
+        kk += dExtinction[channel] ** 2;
+        nr -= dIndex[channel] * residuals[channel];
+        kr -= dExtinction[channel] * residuals[channel];
+    }
+    return solve2x2([[nn, nk], [nk, kk]], [nr, kr]);
+}
+
+/**
+ * The step in n alone, with k held.
+ *
+ * Against one channel this is Newton's step; against two it is the
+ * least-squares step, because one unknown cannot zero both residuals.
+ */
+function indexOnlyStep(dIndex, residuals) {
+    let curvature = 0;
+    let gradient = 0;
+    for (let channel = 0; channel < dIndex.length; channel++) {
+        curvature += dIndex[channel] ** 2;
+        gradient -= dIndex[channel] * residuals[channel];
+    }
+    return curvature > 1e-24 ? [gradient / curvature, 0] : null;
+}
+
+/** The derivative of every channel at one point, from a shifted evaluation. */
+function derivativesAt(channels, base, shifted, point, delta) {
+    return channels.map((channel, index) => channelDifference(
+        channel.quantity, shifted[index][point], base[index][point]) / delta);
+}
+
+/**
+ * One damped Newton pass over every still-active wavelength.
+ *
+ * Returns the points that ran out of gradient and have to be settled, rather
+ * than settling them here, so the caller keeps the bookkeeping in one place.
+ */
+function newtonPass({ evaluate, channels, n, k, solvedExtinction, active, rows, base }) {
+    const shiftedIndex = evaluate(n.map(value => value + INDEX_DELTA), k);
+    const shiftedExtinction = solvedExtinction
+        ? evaluate(n, k.map(value => value + EXTINCTION_DELTA))
+        : null;
+
+    const stalled = [];
+    for (let point = 0; point < n.length; point++) {
+        if (!active[point]) continue;
+        const residuals = rows[point];
+        const dIndex = derivativesAt(channels, base, shiftedIndex, point, INDEX_DELTA);
+        const step = solvedExtinction
+            ? solvedStep(
+                dIndex,
+                derivativesAt(channels, base, shiftedExtinction, point, EXTINCTION_DELTA),
+                residuals)
+            : indexOnlyStep(dIndex, residuals);
+        if (!step) { stalled.push(point); continue; }
+        n[point] = clamp(n[point] + limitedStep(step[0]), INDEX_MIN, INDEX_MAX);
+        k[point] = clamp(k[point] + limitedStep(step[1]), 0, EXTINCTION_MAX);
+    }
+    return stalled;
+}
+
+/**
  * Damped Newton on every wavelength at once.
  *
  * Each wavelength is its own solve, so each one decides for itself when it is
@@ -132,57 +212,10 @@ function newtonSweeps(evaluate, channels, n, k, solvedExtinction) {
         }
         if (!stepping) break;
 
-        const shiftedIndex = evaluate(n.map(value => value + INDEX_DELTA), k);
-        const shiftedExtinction = solvedExtinction
-            ? evaluate(n, k.map(value => value + EXTINCTION_DELTA))
-            : null;
-
-        for (let point = 0; point < n.length; point++) {
-            if (!active[point]) continue;
-            const residuals = rows[point];
-            const dIndex = channels.map((_, index) =>
-                channelDifference(channels[index].quantity,
-                    shiftedIndex[index][point], base[index][point]) / INDEX_DELTA);
-            let stepIndex;
-            let stepExtinction = 0;
-            if (solvedExtinction) {
-                const dExtinction = channels.map((_, index) =>
-                    channelDifference(channels[index].quantity,
-                        shiftedExtinction[index][point], base[index][point]) / EXTINCTION_DELTA);
-                let step;
-                if (channels.length === 2) {
-                    step = solve2x2(
-                        dIndex[0], dExtinction[0], dIndex[1], dExtinction[1],
-                        -residuals[0], -residuals[1]);
-                } else {
-                    let nn = 0, nk = 0, kk = 0, nr = 0, kr = 0;
-                    for (let channel = 0; channel < channels.length; channel++) {
-                        nn += dIndex[channel] ** 2;
-                        nk += dIndex[channel] * dExtinction[channel];
-                        kk += dExtinction[channel] ** 2;
-                        nr -= dIndex[channel] * residuals[channel];
-                        kr -= dExtinction[channel] * residuals[channel];
-                    }
-                    step = solve2x2(nn, nk, nk, kk, nr, kr);
-                }
-                if (!step) { settle(point); continue; }
-                [stepIndex, stepExtinction] = step;
-            } else {
-                // k is held, so n is the one unknown. Against one channel this
-                // is Newton's step; against two it is the least-squares step,
-                // because one unknown cannot zero both residuals.
-                let curvature = 0;
-                let gradient = 0;
-                for (let channel = 0; channel < channels.length; channel++) {
-                    curvature += dIndex[channel] ** 2;
-                    gradient -= dIndex[channel] * residuals[channel];
-                }
-                if (!(curvature > 1e-24)) { settle(point); continue; }
-                stepIndex = gradient / curvature;
-            }
-            n[point] = clamp(n[point] + limitedStep(stepIndex), INDEX_MIN, INDEX_MAX);
-            k[point] = clamp(k[point] + limitedStep(stepExtinction), 0, EXTINCTION_MAX);
-        }
+        const stalled = newtonPass({
+            evaluate, channels, n, k, solvedExtinction, active, rows, base,
+        });
+        for (const point of stalled) settle(point);
     }
     for (let point = 0; point < n.length; point++) if (active[point]) settle(point);
 }

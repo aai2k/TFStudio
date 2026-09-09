@@ -1,0 +1,47 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="800" height="360" viewBox="0 0 800 360" role="img" aria-labelledby="t d">
+<title id="t">Reflection ellipsometry of one film</title>
+<desc id="d">Polarized light meets the coated face at a known angle from the normal. The detector reads the change in polarization of the reflected beam, which gives Psi and Delta. Light coming back off the rear face of the substrate has to be kept out of the detector. Nothing is measured in transmission.</desc>
+<style>
+  /* No background is painted, so the page shows through in either theme, and
+     the colours are read from the viewer's own light or dark setting. */
+  text { font-family: system-ui, -apple-system, "Segoe UI", Arial, sans-serif; fill: #1c3350; }
+  .dim { fill: #5a6b80; }
+  .beam { stroke: #1b7fb5; fill: none; stroke-width: 3; }
+  .rule { stroke: #8494a6; fill: none; }
+  .film { fill: #c08c3c; }
+  .glass { fill: #9dc3e0; fill-opacity: 0.35; stroke: #6a97b7; }
+  .head { fill: #1b7fb5; }
+  .blocked { stroke: #b4553f; fill: none; stroke-width: 2; stroke-dasharray: 5 4; }
+  @media (prefers-color-scheme: dark) {
+    text { fill: #dce6f2; }
+    .dim { fill: #93a4b8; }
+    .beam { stroke: #5cc0f5; }
+    .head { fill: #5cc0f5; }
+    .rule { stroke: #7b8b9e; }
+    .film { fill: #d4a253; }
+    .glass { fill: #6f9ec4; stroke: #7fa8c6; }
+    .blocked { stroke: #e08b72; }
+  }
+</style>
+<defs><marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0L10 5L0 10Z" class="head"/></marker></defs>
+<text x="26" y="34" font-size="21" font-weight="600">&#936; and &#916;: how reflection changes the polarization</text>
+
+<rect x="95" y="200" width="500" height="22" class="film"/>
+<rect x="95" y="222" width="500" height="60" class="glass"/>
+
+<path d="M155 92L337 198" class="beam" marker-end="url(#arrow)"/>
+<path d="M345 200L527 94" class="beam" marker-end="url(#arrow)"/>
+<path d="M345 200L400 282L455 233" class="blocked" marker-end="url(#arrow)"/>
+<path d="M345 84V199" class="rule" stroke-dasharray="4 4"/>
+<path d="M345 152A48 48 0 0 0 303 176" class="rule" stroke-width="2"/>
+<text x="312" y="146" font-size="18">&#952;</text>
+<text x="357" y="100" font-size="14" class="dim">Normal</text>
+
+<text x="86" y="80" font-size="16">Polarized light in</text>
+<text x="470" y="80" font-size="17" font-weight="600">&#936;, &#916; detector</text>
+<text x="614" y="218" font-size="16">Film: n, k, d</text>
+<text x="614" y="258" font-size="16">Substrate you know</text>
+<text x="463" y="238" font-size="14" class="dim">Rear-face light: keep it out</text>
+<text x="26" y="326" font-size="15">Set the angle &#952; the instrument used. Nothing is measured in transmission.</text>
+<text x="26" y="348" font-size="13" class="dim">Not to scale.</text>
+</svg>

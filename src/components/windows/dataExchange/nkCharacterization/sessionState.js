@@ -17,9 +17,6 @@ export const nkCharacterizationSession = createWindowSession({
     measurementMode: '',
     deltaConvention: 'azzam',
     indexModel: 'cauchy',
-    // Empty follows the design-wide evaluation mode: FRONT/BACK is one coating
-    // on a semi-infinite substrate, TOTAL includes the substrate's back face.
-    geometry: '',
     substrateId: '',
     substrateThicknessMm: '',
     thicknessNm: '',

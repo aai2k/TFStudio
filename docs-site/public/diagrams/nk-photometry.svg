@@ -1,0 +1,49 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="800" height="380" viewBox="0 0 800 380" role="img" aria-labelledby="t d">
+<title id="t">R and T measured on one film on a glass slab polished on both faces</title>
+<desc id="d">Light enters near normal from the film side. R is the beam reflected off the coating. T is the beam leaving after the bare polished rear face of the glass. The reflections bouncing inside the glass are part of what the window calculates. The beams are drawn a little off normal only so they can be told apart.</desc>
+<style>
+  /* No background is painted, so the page shows through in either theme, and
+     the colours are read from the viewer's own light or dark setting. */
+  text { font-family: system-ui, -apple-system, "Segoe UI", Arial, sans-serif; fill: #1c3350; }
+  .dim { fill: #5a6b80; }
+  .beam { stroke: #1b7fb5; fill: none; stroke-width: 3; }
+  .weak { stroke: #1b7fb5; fill: none; stroke-width: 2; stroke-dasharray: 6 5; }
+  .rule { stroke: #8494a6; fill: none; }
+  .film { fill: #c08c3c; }
+  .glass { fill: #9dc3e0; fill-opacity: 0.35; stroke: #6a97b7; }
+  .head { fill: #1b7fb5; }
+  @media (prefers-color-scheme: dark) {
+    text { fill: #dce6f2; }
+    .dim { fill: #93a4b8; }
+    .beam, .weak { stroke: #5cc0f5; }
+    .head { fill: #5cc0f5; }
+    .rule { stroke: #7b8b9e; }
+    .film { fill: #d4a253; }
+    .glass { fill: #6f9ec4; stroke: #7fa8c6; }
+  }
+</style>
+<defs><marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0L10 5L0 10Z" class="head"/></marker></defs>
+<text x="26" y="34" font-size="21" font-weight="600">R and T: one film, a slab polished on both faces</text>
+
+<rect x="95" y="170" width="500" height="24" class="film"/>
+<rect x="95" y="194" width="500" height="98" class="glass"/>
+
+<path d="M274 70L306 160" class="beam" marker-end="url(#arrow)"/>
+<path d="M310 170L344 74" class="beam" marker-end="url(#arrow)"/>
+<path d="M310 170L339 292L359 346" class="beam" marker-end="url(#arrow)"/>
+<path d="M339 292L368 194L397 292" class="weak" marker-end="url(#arrow)"/>
+<path d="M310 62V166" class="rule" stroke-dasharray="4 4"/>
+
+<text x="262" y="62" font-size="16" text-anchor="end">Light in, film side</text>
+<text x="352" y="70" font-size="17" font-weight="600">R</text>
+<text x="366" y="344" font-size="17" font-weight="600">T</text>
+<text x="310" y="50" font-size="14" text-anchor="middle" class="dim">Normal</text>
+
+<text x="614" y="188" font-size="16">Film: n, k, d</text>
+<text x="614" y="240" font-size="16">Glass you know</text>
+<path d="M597 291H630" class="rule"/><text x="638" y="296" font-size="14" class="dim">Bare, polished</text>
+<text x="116" y="242" font-size="14" class="dim">Reflections inside the</text>
+<text x="116" y="262" font-size="14" class="dim">glass are included</text>
+<text x="26" y="352" font-size="13" class="dim">Both faces polished. T is measured at 0 degrees and R near normal, typically 8; the beams are</text>
+<text x="26" y="370" font-size="13" class="dim">drawn further apart than that so they can be told apart. Not to scale.</text>
+</svg>

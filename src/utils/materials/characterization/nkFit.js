@@ -36,8 +36,22 @@ import { channelDifference, constantFilm, makeSampleEvaluator } from './sampleSp
 import { indexRoughness, invertPointwise } from './pointwiseNk.js';
 import { channelResiduals, fitDiagnostics, resolvableExtinction } from './diagnostics.js';
 
-/** Index models offered. The extinction model follows from the data. */
-export const INDEX_MODELS = ['cauchy', 'sellmeier', 'drude', 'drude-lorentz'];
+/**
+ * Index models offered. The extinction model follows from the data.
+ *
+ * There is no separate Drude entry. Drude-Lorentz takes its oscillator count
+ * from the measurement and settles on none when the film has no absorption band
+ * in range, which is the same four-parameter fit Drude would have given: on
+ * aluminium the two agree to the last digit. On a metal that does absorb in
+ * range, Drude cannot follow it and does not say so, which made it a trap
+ * rather than a choice.
+ */
+export const INDEX_MODELS = ['cauchy', 'sellmeier', 'drude-lorentz'];
+
+/** Whether a model describes a metal, and so is fitted as a complex dispersion. */
+function isMetalModel(indexModel) {
+    return indexModel === 'drude' || indexModel === 'drude-lorentz';
+}
 
 // Thicknesses tried around the envelope's value. The envelope has already
 // pinned the interference order, so this only has to cover the error in it.
@@ -50,7 +64,23 @@ const BLIND_STEPS = 40;
 // Trial thicknesses carried through to a full model fit. The roughness ranking
 // is a good guide, not a decision, so the best few are each fitted properly and
 // compared on the residual that actually matters.
-const REFINED_CANDIDATES = 3;
+//
+// They are taken one per basin (see roughnessBasins). Roughness dips once per
+// interference order, and the scan spans half the entered thickness either way,
+// so a film with fringes in the measured range offers a handful of basins and
+// this covers them.
+const REFINED_CANDIDATES = 8;
+// Scan points nearest the entered thickness, tried alongside the basins. Enough
+// to cover the grid step either side of it, so a value entered between two
+// points is not missed by rounding.
+const NEAR_ENTERED_CANDIDATES = 3;
+// Ceiling swept over when a metal's oscillator count is being chosen against a
+// free thickness. The table fitter's own limit is the highest worth trying.
+const MAX_METAL_OSCILLATORS = 5;
+// A metal's scan has no basins to spread over, so it keeps the smoothest few
+// and leans harder on the thickness the operator entered.
+const METAL_CANDIDATES = 3;
+const METAL_NEAR_ENTERED = 5;
 // Points the ranking runs on. It only has to see where the fringes sit; the
 // thickness that wins is then extracted on every wavelength the instrument
 // measured. Ranking on the full grid costs tens of times more and changes the
@@ -167,9 +197,9 @@ const METAL_SEED_INDEX_MIN = 0.05;
 // whole interference order, which is 0.33 for a half-micron film in the visible,
 // so this samples each order half a dozen times.
 const SEED_INDEX_STEP = 0.05;
-// Absorption is searched over decades rather than steps, because k spans four of
-// them between a clean oxide and a metal.
-const SEED_EXTINCTION_LADDER = [0, 3e-4, 1e-3, 3e-3, 0.01, 0.03, 0.1, 0.3, 1, 3];
+// Absorption spans decades between a clean oxide and a metal. Sample the
+// strongly absorbing range more closely to initialize thin-metal R/T roots.
+const SEED_EXTINCTION_LADDER = [0, 3e-4, 1e-3, 3e-3, 0.01, 0.03, 0.1, 0.3, 1, 2, 3, 4, 6, 9];
 // Points the flat seed is scored on. It only has to tell one fringe count from
 // another.
 const SEED_POINTS = 80;
@@ -193,26 +223,41 @@ function seedFlat(lambdas, index, extinction = 0) {
  * stays at zero, because one measurement at one wavelength cannot separate an
  * index from an absorption.
  */
+/** Squared error of one trial film, in total and at each wavelength. */
+function flatSeedCost(channels, calculated) {
+    const perPoint = channels[0].values.map(() => 0);
+    let total = 0;
+    channels.forEach((channel, position) => {
+        for (let point = 0; point < channel.values.length; point++) {
+            const error = channelDifference(
+                channel.quantity, calculated[position][point], channel.values[point]);
+            total += error * error;
+            perPoint[point] += error * error;
+        }
+    });
+    return { total, perPoint };
+}
+
 function flatSeedScan(channels, thicknessNm, metallic) {
     const sample = makeSampleEvaluator(channels);
     const lowest = metallic ? METAL_SEED_INDEX_MIN : SEED_INDEX_MIN;
     const extinctions = channels.length === 2 ? SEED_EXTINCTION_LADDER : [0];
     let best = { index: lowest, extinction: 0, cost: Infinity };
+    // The best absorbing film at each wavelength on its own, kept only for a
+    // metal: it becomes the second starting point in `startingSeeds`.
+    const absorbing = metallic ? channels[0].values.map(() => ({ cost: Infinity })) : null;
     for (let index = lowest; index <= SEED_INDEX_MAX; index += SEED_INDEX_STEP) {
         for (const extinction of extinctions) {
-            const calculated = sample(constantFilm(index, extinction), thicknessNm);
-            let cost = 0;
-            channels.forEach((channel, position) => {
-                for (let point = 0; point < channel.values.length; point++) {
-                    const error = channelDifference(
-                        channel.quantity, calculated[position][point], channel.values[point]);
-                    cost += error * error;
-                }
+            const { total, perPoint } = flatSeedCost(
+                channels, sample(constantFilm(index, extinction), thicknessNm));
+            if (total < best.cost) best = { index, extinction, cost: total };
+            if (!absorbing || extinction <= index) continue;
+            perPoint.forEach((value, point) => {
+                if (value < absorbing[point].cost) absorbing[point] = { index, extinction, cost: value };
             });
-            if (cost < best.cost) best = { index, extinction, cost };
         }
     }
-    return best;
+    return { ...best, absorbing, lambdas: channels[0].conditions.lambdas };
 }
 
 /** Evenly spaced positions through a grid, both ends always included. */
@@ -239,6 +284,31 @@ function onSubset(solveChannels, seed, positions) {
         seed: { n: pick(seed.n, positions), k: pick(seed.k, positions) },
         lambdas,
     };
+}
+
+/**
+ * One trial thickness from each basin of the roughness scan, smoothest first.
+ *
+ * Roughness dips near every thickness that puts the fringes in about the right
+ * place, once per interference order, and rises between them. Its few smallest
+ * values are therefore neighbouring points inside whichever dip is deepest, and
+ * ranking on them alone spends every model fit on one interference order while
+ * the rest of the scan is never tried. The deepest dip is not reliably the
+ * right one: the extracted index is smooth at any thickness that keeps a point
+ * on one branch, whether or not that branch is the film.
+ *
+ * Taking each dip's own minimum spends the same number of fits on thicknesses
+ * an order apart, and the measured residual then decides between them, which is
+ * the comparison that can tell interference orders apart.
+ */
+function roughnessBasins(scanned, limit) {
+    const byThickness = [...scanned].sort((left, right) => left.thicknessNm - right.thicknessNm);
+    return byThickness
+        .filter((entry, index) =>
+            (index === 0 || byThickness[index - 1].roughness > entry.roughness)
+            && (index === byThickness.length - 1 || byThickness[index + 1].roughness >= entry.roughness))
+        .sort((left, right) => left.roughness - right.roughness)
+        .slice(0, limit);
 }
 
 function thicknessCandidates(centreNm, span, steps) {
@@ -285,16 +355,24 @@ function measuredChannels(channels) {
  * The thickness travels as its logarithm so no step can take it through zero,
  * and so a one percent change costs the same wherever it starts from.
  */
-function refine({ channels, sample, seedFit, thicknessNm, fixThickness, rangeNm, iterations }) {
+function refine({ channels, sample, seedFit, thicknessNm, fixThickness, thicknessBoundsNm, rangeNm, iterations }) {
     const codec = dispersionFitCodec(seedFit);
     const residualLength = channels.reduce((total, channel) => total + channel.values.length, 0);
     const decode = (values) => ({
         thicknessNm: fixThickness ? thicknessNm : Math.exp(values[0]),
         fit: codec.decode(fixThickness ? values : values.slice(1)),
     });
+    // A trial the model cannot be evaluated at, or one that has left the scanned
+    // bracket. The bracket matters because the optimizer is free in ln d and an
+    // opaque film gives it no gradient to hold it anywhere.
+    const outOfBounds = (trial) => !fixThickness && thicknessBoundsNm
+        && (trial < thicknessBoundsNm[0] || trial > thicknessBoundsNm[1]);
+    const unusable = (trial, fit) => !(trial > 0) || !Number.isFinite(trial)
+        || outOfBounds(trial) || dispersionFitHasPoleInRange(fit, rangeNm);
+
     const residualAt = (values) => {
         const { thicknessNm: trial, fit } = decode(values);
-        if (!(trial > 0) || dispersionFitHasPoleInRange(fit, rangeNm)) {
+        if (unusable(trial, fit)) {
             return Array(residualLength).fill(REJECTED_RESIDUAL);
         }
         const calculated = sample(filmFromFit(fit), trial);
@@ -334,6 +412,7 @@ function fitAtTerms(context, rows, terms) {
     try {
         seedFit = fitTabulatedMaterial(rows, {
             rangeNm: context.rangeNm, nModel: context.indexModel, nTerms: terms,
+            maxOscillators: context.maxOscillators,
         });
     } catch (_) {
         return null;
@@ -350,21 +429,43 @@ function fitAtTerms(context, rows, terms) {
  * visibly improves the calculated spectrum can be dropped for not improving a
  * set of intermediate values.
  *
+ * `parsimonious: false` drops that preference and returns the lowest residual
+ * the model reaches at any term count. Trial thicknesses are compared that way,
+ * because the term count a thickness happens to settle on is not a property of
+ * the thickness: one entry keeping a cheaper model and another spending a
+ * richer one turns a comparison between thicknesses into a comparison between
+ * model sizes. Parsimony is applied once, at the thickness that wins.
+ *
  * The metal models have no term count to sweep: the number of oscillators is
- * chosen by the fitter itself, from the data.
+ * chosen by the fitter itself, from the data. Their sweep is over the ceiling
+ * put on that choice, because at a wrong trial thickness extra oscillators can
+ * describe the distorted pointwise constants instead of moving the thickness.
  */
-function fitBestModel(context, rows) {
-    if (context.indexModel === 'drude' || context.indexModel === 'drude-lorentz') {
+function fitBestModel(context, rows, { parsimonious = true } = {}) {
+    const margin = parsimonious ? 1 - TERM_GAIN : 1;
+    const keep = (candidate, best) => candidate
+        && (!best || candidate.refined.rms < best.refined.rms * margin);
+    if (context.indexModel === 'drude-lorentz' && !context.fixThickness) {
+        let best = null;
+        // From none upward. A ceiling of zero is the plain Drude fit, and a film
+        // with no absorption band in range has to be able to reach it here, on
+        // the measured spectrum, rather than only on the extracted constants.
+        // Without it the sweep must spend an oscillator on a free-electron film
+        // and the thickness drifts to pay for it.
+        for (let maxOscillators = 0; maxOscillators <= MAX_METAL_OSCILLATORS; maxOscillators++) {
+            const candidate = fitAtTerms({ ...context, maxOscillators }, rows, undefined);
+            if (keep(candidate, best)) best = candidate;
+        }
+        return best;
+    }
+    if (isMetalModel(context.indexModel)) {
         return fitAtTerms(context, rows, undefined);
     }
     const [first, last] = indexModelTermRange(context.indexModel);
     let best = null;
     for (let terms = first; terms <= last; terms++) {
         const candidate = fitAtTerms(context, rows, terms);
-        if (!candidate) continue;
-        if (!best || candidate.refined.rms < best.refined.rms * (1 - TERM_GAIN)) {
-            best = candidate;
-        }
+        if (keep(candidate, best)) best = candidate;
         // Do not stop at the first rejected count. The coefficient spaces are
         // nested, but each candidate is then refined through a nonlinear TMM;
         // one local solve can stall while a later term count escapes it. A
@@ -372,6 +473,353 @@ function fitBestModel(context, rows) {
         // four terms stalls, while six cuts the spectrum residual materially.
     }
     return best;
+}
+
+/** Whether a 20% thickness change leaves every channel numerically unchanged. */
+function thicknessInsensitive(request, result) {
+    const channels = request.channels.map(source => ({
+        quantity: source.quantity,
+        conditions: conditionsFor({ source }, result.lambdas, request.sample),
+    }));
+    const evaluate = makeSampleEvaluator(channels);
+    const film = filmFromFit(result.fit);
+    return [0.8, 1.2].every(factor => {
+        const calculated = evaluate(film, result.thicknessNm * factor);
+        return channels.every((channel, index) => {
+            const tolerance = channel.quantity === 'PSI' || channel.quantity === 'DEL' ? 1e-5 : 1e-8;
+            return calculated[index].every((value, point) => Math.abs(channelDifference(
+                channel.quantity, value, result.calculated[channel.quantity][point])) <= tolerance);
+        });
+    });
+}
+
+/**
+ * The result for a metal whose thickness the measurement cannot reach.
+ *
+ * Fit the optical constants at the entered thickness first. Once the film is
+ * opaque its reflection holds no thickness sensitivity at all, and letting ln d
+ * float from there can carry it to astronomical values with the same spectrum.
+ * When a fifth either way changes nothing, the entered value is kept and
+ * labelled an assumption rather than reported as a fitted result.
+ *
+ * Returns null when the thickness is worth solving for after all, and the
+ * ordinary search should run.
+ */
+function opaqueMetalFit(request, fitHeld) {
+    if (!isMetalModel(request.indexModel)
+        || !Number.isFinite(request.thicknessNm) || !(request.thicknessNm > 0)) return null;
+    const held = fitHeld();
+    if (held.error || !thicknessInsensitive(request, held)) return null;
+    return {
+        ...held,
+        thicknessStatus: 'unresolved',
+        diagnostics: {
+            ...held.diagnostics,
+            warnings: [
+                ...held.diagnostics.warnings,
+                { code: 'thicknessUnresolved', detail: { assumedNm: request.thicknessNm } },
+            ],
+        },
+    };
+}
+
+/**
+ * The trial thicknesses the scan runs over, or an error naming what stopped it.
+ *
+ * With fringes the envelope has already pinned the interference order and the
+ * scan only has to cover the error in it. Without them the operator's estimate
+ * is all there is, so the scan is wider. With neither, the measurement holds no
+ * thickness at all: n and d enter it almost entirely as the product n·d, and
+ * saying so beats returning one of the infinitely many pairs that fit.
+ */
+function scanThicknesses({ fixThickness, thicknessNm, envelope }) {
+    if (fixThickness) {
+        return Number.isFinite(thicknessNm) && thicknessNm > 0
+            ? { candidates: [thicknessNm] }
+            : { error: 'noThickness' };
+    }
+    if (envelope && !envelope.error) {
+        return { candidates: thicknessCandidates(envelope.thicknessNm, SCAN_SPAN, SCAN_STEPS) };
+    }
+    if (Number.isFinite(thicknessNm) && thicknessNm > 0) {
+        return { candidates: thicknessCandidates(thicknessNm, BLIND_SPAN, BLIND_STEPS) };
+    }
+    return { error: 'thicknessUndetermined' };
+}
+
+/**
+ * The starting points the pointwise extraction is tried from.
+ *
+ * Usually one: the fringe envelope's index curve, or the flat film that best
+ * reproduces the measurement when there are no fringes to read one off.
+ *
+ * Thin-metal R/T gets a second. Such a measurement has both a high-index,
+ * weakly absorbing root and a strongly absorbing one, and a flat trial film can
+ * prefer the first even when no metal model can follow its wavelength
+ * dependence. Both are carried through model refinement and the measured
+ * residual decides.
+ */
+function startingSeeds({ lambdas, solveChannels, candidates, indexModel, envelopeSeed, hasTransmittance }) {
+    if (envelopeSeed) return [envelopeSeed];
+    const coarse = stride(lambdas.length, SEED_POINTS);
+    const scanned = coarse
+        ? onSubset(solveChannels, seedFlat(lambdas, 1), coarse)
+        : { channels: solveChannels };
+    const flatSeed = flatSeedScan(
+        scanned.channels,
+        candidates[Math.floor(candidates.length / 2)],
+        isMetalModel(indexModel),
+    );
+    const seeds = [seedFlat(lambdas, flatSeed.index, flatSeed.extinction)];
+    if (hasTransmittance && flatSeed.absorbing?.every(point => Number.isFinite(point.cost))) {
+        const at = pickValue => createPchipInterpolator(
+            flatSeed.lambdas.map((nm, index) => [nm, pickValue(flatSeed.absorbing[index])]));
+        const indexAt = at(point => point.index);
+        const extinctionAt = at(point => point.extinction);
+        seeds.push({ n: lambdas.map(indexAt), k: lambdas.map(extinctionAt) });
+    }
+    return seeds;
+}
+
+/**
+ * The trial thicknesses one seed contributes to the shortlist.
+ *
+ * Basins are interference orders, and a metal spectrum has none: over the range
+ * where a metal film is worth measuring it absorbs rather than interferes, so
+ * its roughness scan holds one broad trend instead of a dip per order. A metal
+ * is ranked on the smoothest few instead.
+ *
+ * Either way the thicknesses nearest the entered value are added. The
+ * operator's estimate is evidence in its own right and the search bracket was
+ * built around it, but roughness need not dip anywhere near it, so it is tried
+ * whether or not it is a basin and the measured residual decides.
+ */
+function shortlistForSeed(scanned, { fixThickness, metallic, enteredNm }) {
+    const ranked = [...scanned].sort((left, right) => left.roughness - right.roughness);
+    if (ranked.length === 0) return [];
+    if (fixThickness) return ranked.slice(0, 1);
+    const selected = metallic
+        ? ranked.slice(0, METAL_CANDIDATES)
+        : roughnessBasins(ranked, REFINED_CANDIDATES);
+    if (!Number.isFinite(enteredNm) || !(enteredNm > 0)) return selected;
+    const nearEntered = [...ranked]
+        .sort((left, right) => Math.abs(left.thicknessNm - enteredNm)
+            - Math.abs(right.thicknessNm - enteredNm))
+        .slice(0, metallic ? METAL_NEAR_ENTERED : NEAR_ENTERED_CANDIDATES);
+    for (const entry of nearEntered) if (!selected.includes(entry)) selected.push(entry);
+    return selected;
+}
+
+/**
+ * The shortlisted thickness that reproduces the measurement best.
+ *
+ * Each is compared at the model terms it does best on. A term count too low to
+ * describe the film leaves a residual larger than the difference between one
+ * interference order and the next, so comparing thicknesses at a single count
+ * compares model error rather than thickness. A 500 nm titania film measured by
+ * ellipsometry is the concrete case: at the default count the true thickness
+ * looks worse than an order away, and at six terms it is four hundred times
+ * better.
+ *
+ * Metals keep the parsimony rule here. Their oscillator count is chosen from
+ * the data at every candidate, so letting one spend extra oscillators only buys
+ * a wrong thickness the freedom to describe its own distorted constants.
+ */
+function rankThicknesses(context, shortlist, lambdas) {
+    let chosen = null;
+    for (const entry of shortlist) {
+        const rows = pointwiseRows(lambdas, entry.extraction, entry.thicknessNm);
+        if (rows.length < 4) continue;
+        const ranked = fitBestModel(
+            { ...context, thicknessNm: entry.thicknessNm, iterations: RANKING_ITERATIONS },
+            rows, { parsimonious: isMetalModel(context.indexModel) });
+        if (ranked && (!chosen || ranked.refined.cost < chosen.ranked.refined.cost)) {
+            chosen = { entry, rows, ranked };
+        }
+    }
+    return chosen;
+}
+
+/**
+ * The measured channels on one wavelength grid, with the sample conditions and
+ * the fringe envelope they support, or an error naming what stopped it.
+ *
+ * At normal incidence there is no p/s distinction to measure: r_p and r_s
+ * differ only by the sign that the reference frame flips, so any film gives
+ * Ψ = 45° and Δ = 180° and the pair carries nothing about the coating. A curve
+ * imported without an angle in its header arrives here at 0°, so this is the
+ * common way to reach it rather than an exotic one.
+ */
+function prepareChannels(request, sample) {
+    const normalIncidence = request.channels.some(
+        channel => (channel.quantity === 'PSI' || channel.quantity === 'DEL') && !(channel.aoi > 0));
+    if (normalIncidence) return { error: 'ellipsometryNormalIncidence' };
+
+    const aligned = alignChannels(request.channels, request.rangeNm);
+    if (aligned.error) return aligned;
+
+    const { lambdas, channels, rangeNm } = aligned;
+    const solveChannels = channels.map(channel => ({
+        quantity: channel.quantity,
+        values: channel.values,
+        conditions: conditionsFor(channel, lambdas, sample),
+    }));
+    const transmittance = channels.find(channel => channel.quantity === 'T');
+    const envelope = transmittance
+        ? extractEnvelope({
+            lambdas,
+            transmittance: transmittance.values,
+            incidentIndexAt: lambda => sample.incident.getNK(lambda)[0],
+            substrateIndexAt: lambda => sample.substrate.getNK(lambda)[0],
+        })
+        : null;
+    return {
+        lambdas, channels, rangeNm, solveChannels, envelope,
+        hasTransmittance: !!transmittance,
+        resampled: aligned.resampled,
+    };
+}
+
+/**
+ * The trial thickness and model that reproduce the measurement best.
+ *
+ * Every seed is extracted at every trial thickness, the shortlist keeps the
+ * ones worth a model fit, and the measured residual chooses between them. The
+ * winner is then fitted again without the iteration limit the ranking ran under.
+ */
+function searchThickness(prepared, { request, indexModel, fixThickness }) {
+    const { lambdas, rangeNm, solveChannels, envelope, hasTransmittance } = prepared;
+    const scan = scanThicknesses({ fixThickness, thicknessNm: request.thicknessNm, envelope });
+    if (scan.error) return { error: scan.error };
+    const { candidates } = scan;
+
+    const seeds = startingSeeds({
+        lambdas, solveChannels, candidates, indexModel, hasTransmittance,
+        envelopeSeed: seedFromEnvelope(lambdas, envelope),
+    });
+
+    const positions = stride(lambdas.length, SCAN_POINTS);
+    const scanned = seeds.map((trialSeed) => {
+        const subset = positions
+            ? onSubset(solveChannels, trialSeed, positions)
+            : { channels: solveChannels, seed: trialSeed, lambdas };
+        return candidates.map((thickness) => {
+            const extraction = invertPointwise(subset.channels, thickness, subset.seed);
+            return {
+                thicknessNm: thickness,
+                roughness: indexRoughness(subset.lambdas, extraction.n, extraction.resolved),
+                resolvedCount: extraction.resolvedCount,
+                seed: trialSeed,
+            };
+        }).filter(entry => entry.resolvedCount > 0 && Number.isFinite(entry.roughness));
+    });
+    if (scanned.every(entries => entries.length === 0)) return { error: 'notInvertible' };
+
+    // A seed whose every trial thickness failed to invert contributes nothing;
+    // the other one carries the fit.
+    const shortlist = scanned.flatMap(entries => shortlistForSeed(entries, {
+        fixThickness,
+        metallic: isMetalModel(indexModel),
+        enteredNm: request.thicknessNm,
+    })).map(entry => ({
+        ...entry,
+        extraction: invertPointwise(solveChannels, entry.thicknessNm, entry.seed),
+    }));
+
+    const context = {
+        channels: solveChannels, sample: makeSampleEvaluator(solveChannels),
+        rangeNm, indexModel, fixThickness,
+        thicknessBoundsNm: [Math.min(...candidates), Math.max(...candidates)],
+    };
+    const chosen = rankThicknesses(context, shortlist, lambdas);
+    if (!chosen) return { error: 'noModel' };
+
+    const best = fitBestModel({ ...context, thicknessNm: chosen.entry.thicknessNm }, chosen.rows)
+        || chosen.ranked;
+    return best ? { chosen, best, context } : { error: 'noModel' };
+}
+
+/** How the saved material records where its constants came from. */
+function measuredSource(measured) {
+    if (measured.T && measured.R) return 'measured R/T';
+    if (measured.PSI && measured.DEL) return 'measured Ψ/Δ';
+    return 'measured ' + Object.keys(measured).join('/');
+}
+
+/**
+ * Whether R + T is an energy balance for this pair of curves.
+ *
+ * Only when both were taken under the same illumination. A transmittance at
+ * normal incidence and a reflectance at forty-five degrees are both valid and
+ * routinely sum past one, which is not a calibration fault.
+ */
+function energyComparable(solveChannels) {
+    const photometric = solveChannels.filter(
+        channel => channel.quantity === 'T' || channel.quantity === 'R');
+    return photometric.length === 2 && ['aoi', 'pol', 'side'].every(
+        key => photometric[0].conditions[key] === photometric[1].conditions[key]);
+}
+
+/**
+ * The finished model and the pointwise constants drawn beside it, with the
+ * extinction model dropped when the measurement cannot see any absorption.
+ *
+ * The points are read against the model, so they are solved at the thickness
+ * the model was refined to and started from the model itself. Two things follow.
+ * The trial thickness they were fitted from is a point on a scan grid a
+ * sixtieth of the thickness apart, and extracting n that far from the model's
+ * thickness puts a fringe-period offset between the two that belongs to neither
+ * of them. And a wavelength's own pair of measurements has more than one (n, k)
+ * that reproduces it, so which root Newton returns is decided by where it
+ * starts: from a flat guess it can land a whole interference order away and
+ * draw a second curve that fits every measured point and describes nothing.
+ * Starting from the model picks the root beside it, which is the comparison the
+ * plot is for. It does not pull the points toward the model: they still have to
+ * reproduce the measurement exactly, so a wrong model is left standing away
+ * from them.
+ *
+ * Whether the film absorbs at all is judged on these points too, not on the
+ * rows the model was fitted from: those come from a solve started at a flat
+ * guess, which can sit a whole interference order from the film and carry an
+ * absorption that belongs to another root. When no resolved point reaches the
+ * extinction the measurement could resolve, the film is transparent as far as
+ * this measurement can say, and the model is refitted from the same rows
+ * without an extinction term. An extinction model kept anyway describes nothing
+ * and cannot be determined: over one fitted range its exponent is close enough
+ * to affine that its parameters trade off exactly, and the fit runs out along
+ * that flat direction until a coefficient overflows. With nothing resolved
+ * there is no evidence either way, and the fit is left alone.
+ *
+ * The rows the model was fitted from are not re-made: that fit is finished.
+ */
+function settleExtinction({ best, chosen, context, solveChannels, lambdas, thicknessNm }) {
+    const pointsBesideModel = (candidate, heldAtZero) => {
+        const film = filmFromFit(candidate.fit);
+        return invertPointwise(solveChannels, candidate.thicknessNm, {
+            n: lambdas.map(lambda => film.getNK(lambda)[0]),
+            k: heldAtZero ? lambdas.map(() => 0) : lambdas.map(lambda => film.getNK(lambda)[1]),
+        }, heldAtZero
+            ? { heldExtinctionFloor: lambda => resolvableExtinction(lambda, candidate.thicknessNm) }
+            : {});
+    };
+    const refined = best.refined;
+    const shown = pointsBesideModel(refined, false);
+
+    // A metal is fitted as a complex dispersion and carries no separate k model
+    // to drop, so it is left alone before `fit.k` is looked at.
+    if (refined.fit.complex) return { refined, shown };
+    const belowResolution = refined.fit.k.kind !== 'zero' && shown.resolvedCount > 0
+        && lambdas.every((lambda, point) => !shown.resolved[point]
+            || shown.k[point] <= resolvableExtinction(lambda, refined.thicknessNm));
+    if (!belowResolution) return { refined, shown };
+
+    const transparentRows = chosen.rows.map(([lambda, index]) => [lambda, index, 0]);
+    const refit = fitBestModel({ ...context, thicknessNm }, transparentRows);
+    if (!refit) return { refined, shown };
+    // The points beside a k = 0 model hold k = 0 too. Solved freely they would
+    // clamp against k >= 0 wherever the exact root wants a small negative
+    // extinction, and fail to resolve.
+    return { refined: refit.refined, shown: pointsBesideModel(refit.refined, true) };
 }
 
 /**
@@ -389,169 +837,24 @@ function fitBestModel(context, rows) {
 export function characterizeFilm(request) {
     const { sample, indexModel = 'cauchy', fixThickness = false } = request;
 
-    // At normal incidence there is no p/s distinction to measure: r_p and r_s
-    // differ only by the sign that the reference frame flips, so any film gives
-    // Ψ = 45° and Δ = 180° and the pair carries nothing about the coating. A
-    // curve imported without an angle in its header arrives here at 0°, so this
-    // is the common way to reach it rather than an exotic one.
-    const normalIncidence = request.channels.filter(
-        channel => (channel.quantity === 'PSI' || channel.quantity === 'DEL') && !(channel.aoi > 0));
-    if (normalIncidence.length > 0) return { error: 'ellipsometryNormalIncidence' };
-
-    const aligned = alignChannels(request.channels, request.rangeNm);
-    if (aligned.error) return aligned;
-    const { lambdas, channels, rangeNm } = aligned;
-    const conditions = channels.map(channel => conditionsFor(channel, lambdas, sample));
-    const solveChannels = channels.map((channel, index) => ({
-        quantity: channel.quantity,
-        values: channel.values,
-        conditions: conditions[index],
-    }));
-
-    const transmittance = channels.find(channel => channel.quantity === 'T');
-    const envelope = transmittance
-        ? extractEnvelope({
-            lambdas,
-            transmittance: transmittance.values,
-            incidentIndexAt: lambda => sample.incident.getNK(lambda)[0],
-            substrateIndexAt: lambda => sample.substrate.getNK(lambda)[0],
-        })
-        : null;
-
-    const envelopeSeed = seedFromEnvelope(lambdas, envelope);
-    let candidates;
-    if (fixThickness) {
-        if (!(request.thicknessNm > 0)) return { error: 'noThickness', envelope };
-        candidates = [request.thicknessNm];
-    } else if (envelope && !envelope.error) {
-        candidates = thicknessCandidates(envelope.thicknessNm, SCAN_SPAN, SCAN_STEPS);
-    } else if (request.thicknessNm > 0) {
-        candidates = thicknessCandidates(request.thicknessNm, BLIND_SPAN, BLIND_STEPS);
-    } else {
-        // Without fringes the measurement holds no thickness: n and d enter it
-        // almost entirely as the product n·d. Saying so beats returning one of
-        // the infinitely many pairs that fit.
-        return { error: 'thicknessUndetermined', envelope };
+    if (!fixThickness) {
+        const opaque = opaqueMetalFit(
+            { ...request, indexModel },
+            () => characterizeFilm({ ...request, fixThickness: true }));
+        if (opaque) return opaque;
     }
 
-    let seed = envelopeSeed;
-    let flatSeed = null;
-    if (!seed) {
-        const coarse = stride(lambdas.length, SEED_POINTS);
-        const scanned = coarse
-            ? onSubset(solveChannels, seedFlat(lambdas, 1), coarse)
-            : { channels: solveChannels };
-        flatSeed = flatSeedScan(
-            scanned.channels,
-            candidates[Math.floor(candidates.length / 2)],
-            indexModel === 'drude' || indexModel === 'drude-lorentz',
-        );
-        seed = seedFlat(lambdas, flatSeed.index, flatSeed.extinction);
-    }
+    const prepared = prepareChannels(request, sample);
+    if (prepared.error) return prepared;
+    const { lambdas, channels, rangeNm, solveChannels, envelope } = prepared;
 
-    const positions = stride(lambdas.length, SCAN_POINTS);
-    const scan = positions
-        ? onSubset(solveChannels, seed, positions)
-        : { channels: solveChannels, seed, lambdas };
-    const scanned = candidates.map((thickness) => {
-        const extraction = invertPointwise(scan.channels, thickness, scan.seed);
-        return {
-            thicknessNm: thickness,
-            roughness: indexRoughness(scan.lambdas, extraction.n, extraction.resolved),
-            resolvedCount: extraction.resolvedCount,
-        };
-    }).filter(entry => entry.resolvedCount > 0 && Number.isFinite(entry.roughness));
-    if (scanned.length === 0) return { error: 'notInvertible', envelope };
+    const search = searchThickness(prepared, { request, indexModel, fixThickness });
+    if (search.error) return { error: search.error, envelope };
+    const { chosen, best, context } = search;
 
-    scanned.sort((left, right) => left.roughness - right.roughness);
-    const shortlist = (fixThickness ? scanned.slice(0, 1) : scanned.slice(0, REFINED_CANDIDATES))
-        .map(entry => ({
-            ...entry,
-            extraction: invertPointwise(solveChannels, entry.thicknessNm, seed),
-        }));
-
-    const context = {
-        channels: solveChannels, sample: makeSampleEvaluator(solveChannels),
-        rangeNm, indexModel, fixThickness,
-    };
-
-    // Compare the trial thicknesses on one model each, then sweep the model's
-    // terms only at the one that wins. Sweeping terms at every trial thickness
-    // costs several times as much and decides nothing extra: the term count is a
-    // property of the film, not of which thickness is being tried.
-    let chosen = null;
-    for (const entry of shortlist) {
-        const rows = pointwiseRows(lambdas, entry.extraction, entry.thicknessNm);
-        if (rows.length < 4) continue;
-        const ranked = fitAtTerms(
-            { ...context, thicknessNm: entry.thicknessNm, iterations: RANKING_ITERATIONS },
-            rows, undefined,
-        );
-        if (ranked && (!chosen || ranked.refined.cost < chosen.ranked.refined.cost)) {
-            chosen = { entry, rows, ranked };
-        }
-    }
-    if (!chosen) return { error: 'noModel', envelope };
-
-    const entry = chosen.entry;
-    const best = fitBestModel({ ...context, thicknessNm: entry.thicknessNm }, chosen.rows)
-        || chosen.ranked;
-    if (!best) return { error: 'noModel', envelope };
-
-    // The points are reported beside the model and are read against it, so they
-    // are solved at the thickness the model was refined to and started from the
-    // model itself.
-    //
-    // Two things follow from that. The trial thickness they were fitted from is
-    // a point on a scan grid a sixtieth of the thickness apart, and extracting n
-    // that far from the model's thickness puts a fringe-period offset between
-    // the two that belongs to neither of them. And a wavelength's own pair of
-    // measurements has more than one (n, k) that reproduces it, so which root
-    // Newton returns is decided by where it starts: from a flat guess it can
-    // land a whole interference order away and draw a second curve that fits
-    // every measured point and describes nothing. Starting from the model picks
-    // the root beside it, which is the comparison the plot is for. It does not
-    // pull the points toward the model: they still have to reproduce the
-    // measurement exactly, so a wrong model is left standing away from them.
-    //
-    // The rows the model was fitted from are not re-made: that fit is finished.
-    const pointsBesideModel = (candidate, heldAtZero) => {
-        const film = filmFromFit(candidate.fit);
-        return invertPointwise(solveChannels, candidate.thicknessNm, {
-            n: lambdas.map(lambda => film.getNK(lambda)[0]),
-            k: heldAtZero ? lambdas.map(() => 0) : lambdas.map(lambda => film.getNK(lambda)[1]),
-        }, heldAtZero
-            ? { heldExtinctionFloor: lambda => resolvableExtinction(lambda, candidate.thicknessNm) }
-            : {});
-    };
-    let refined = best.refined;
-    let shown = pointsBesideModel(refined, false);
-
-    // Whether the film absorbs at all is also judged on these points, not on
-    // the rows the model was fitted from: those come from a solve started at a
-    // flat guess, which can sit a whole interference order from the film and
-    // carry an absorption that belongs to another root. When no resolved point
-    // reaches the extinction the measurement could resolve, the film is
-    // transparent as far as this measurement can say, and the model is
-    // refitted from the same rows without an extinction term. An extinction
-    // model kept anyway describes nothing and cannot be determined: over one
-    // fitted range its exponent is close enough to affine that its parameters
-    // trade off exactly, and the fit runs out along that flat direction until
-    // a coefficient overflows. With nothing resolved there is no evidence
-    // either way, and the fit is left alone.
-    if (!refined.fit.complex && refined.fit.k.kind !== 'zero' && shown.resolvedCount > 0
-        && lambdas.every((lambda, point) => !shown.resolved[point]
-            || shown.k[point] <= resolvableExtinction(lambda, refined.thicknessNm))) {
-        const transparentRows = chosen.rows.map(([lambda, index]) => [lambda, index, 0]);
-        const refit = fitBestModel({ ...context, thicknessNm: entry.thicknessNm }, transparentRows);
-        if (refit) {
-            refined = refit.refined;
-            // The points beside a k = 0 model hold k = 0 too. Solved freely
-            // they would clamp against k ≥ 0 wherever the exact root wants a
-            // small negative extinction, and fail to resolve.
-            shown = pointsBesideModel(refined, true);
-        }
-    }
+    const { refined, shown } = settleExtinction({
+        best, chosen, context, solveChannels, lambdas, thicknessNm: chosen.entry.thicknessNm,
+    });
 
     const measured = measuredChannels(channels);
     const evaluated = context.sample(filmFromFit(refined.fit), refined.thicknessNm);
@@ -559,20 +862,16 @@ export function characterizeFilm(request) {
     channels.forEach((channel, index) => { calculated[channel.quantity] = evaluated[index]; });
     const residuals = channelResiduals(calculated, measured);
     const spread = parameterSpread(refined.parameters, refined.residualAt);
-    const source = measured.T && measured.R
-        ? 'measured R/T'
-        : measured.PSI && measured.DEL
-            ? 'measured Ψ/Δ'
-            : `measured ${Object.keys(measured).join('/')}`;
     const fit = {
         ...refined.fit,
         rangeNm,
-        source,
+        source: measuredSource(measured),
         residuals: {},
     };
 
     return {
         thicknessNm: refined.thicknessNm,
+        thicknessStatus: fixThickness ? 'held' : 'fitted',
         // d travels as ln d, so its spread comes back relative; d·σ(ln d) is the
         // spread in nanometres.
         thicknessSpreadNm: fixThickness || !spread
@@ -593,11 +892,12 @@ export function characterizeFilm(request) {
             solvedExtinction: shown.solvedExtinction,
         },
         envelope,
-        resampled: aligned.resampled,
+        resampled: prepared.resampled,
         spread: spread ? { ...spread, labels: refined.labels } : null,
         diagnostics: fitDiagnostics({
             fit, rangeNm, thicknessNm: refined.thicknessNm, measured, residuals,
             metallic: !!fit.complex,
+            energyComparable: energyComparable(solveChannels),
         }),
     };
 }

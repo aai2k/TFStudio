@@ -113,6 +113,16 @@ const design = {
     assert.ok(html.includes(nk.notRunYet), 'the plot area must say what to do first');
     assert.ok(html.includes('grid-template-columns:auto minmax(0, 1fr) auto minmax(0, 1fr)'),
         'the T/R pair must stay together on one row');
+
+    // The three views are tabs on the plot they change, after the control row,
+    // rather than another switch beside the curve pickers.
+    for (const label of [nk.viewConstants, nk.viewFit, nk.viewResidual]) {
+        assert.ok(html.includes(label), `the ${label} view must be reachable`);
+        assert.ok(html.indexOf(label) > html.indexOf(nk.run),
+            `${label} belongs on the plot, below the run button`);
+    }
+    assert.ok(html.indexOf(nk.viewConstants) < html.indexOf(nk.notRunYet),
+        'the tabs sit above the plot they switch');
 }
 
 // ── Long exported names stay inside the T/R curve pickers ────────────────────
@@ -153,6 +163,33 @@ const design = {
     assert.ok(html.includes(nk.indexModel) && html.includes(nk.substrate),
         'opening Settings must render the model and substrate controls');
     assert.ok(html.includes('BK7'), 'the substrate material picker must render with its locale');
+    assert.equal(nk.geometries, undefined,
+        'the sample geometry selector is gone, and so are the strings it used');
+}
+
+// ── A withdrawn model in saved settings falls back to the one that covers it ──
+{
+    assert.equal(model.selectedIndexModel({ indexModel: 'drude' }), 'drude-lorentz',
+        'a design saved while Drude was offered must not leave the picker empty');
+    assert.equal(model.selectedIndexModel({ indexModel: 'cauchy' }), 'cauchy');
+    assert.equal(model.selectedIndexModel({}), 'drude-lorentz');
+}
+
+assert.match(resultsModel.thicknessText({ thicknessNm: 500, thicknessStatus: 'unresolved' }, nk),
+    /assumed; thickness not determined/, 'opaque Solve does not label thickness as measured');
+assert.match(resultsModel.thicknessText({ thicknessNm: 500, thicknessStatus: 'fitted', thicknessSpreadNm: null }, nk),
+    /uncertainty unavailable/, 'a singular fitted covariance is not called held');
+
+// ── The Results header carries no second copy of the thickness ───────────────
+//
+// It is the first row of the table the header opens, and the header has the
+// save and export controls beside it, so a copy there only had room to be cut
+// off mid-number.
+{
+    const html = renderToStaticMarkup(withDesign(
+        React.createElement(NkCharacterization, { c, t, theme: c }), design));
+    const header = html.slice(html.indexOf(nk.results));
+    assert.ok(!header.includes('d ='), 'the results header does not repeat the thickness');
 }
 
 // ── Only transmittance and reflectance can be characterized ───────────────────
@@ -167,13 +204,14 @@ const design = {
 
 // ── A run through the window's own settings ───────────────────────────────────
 
-const result = model.runCharacterization(design, {
+const settingsWithCurves = {
     transmittanceId: 'meas-t', reflectanceId: 'meas-r',
     indexModel: 'cauchy', geometry: 'slab',
     substrateId: '', substrateThicknessMm: '',
     thicknessNm: '', fixThickness: false,
     lambdaStart: '400', lambdaEnd: '1000',
-});
+};
+const result = model.runCharacterization(design, settingsWithCurves);
 assert.ok(!result.error, `window settings must produce a run: ${result.error}`);
 assert.ok(Math.abs(result.thicknessNm - 420) < 0.5,
     `thickness ${result.thicknessNm} through the window path`);
@@ -209,6 +247,7 @@ assert.ok(Math.abs(result.thicknessNm - 420) < 0.5,
     assert.deepEqual(
         resultsModel.characterizationNotices(result, nk, true).map(notice => notice.label),
         [nk.stale], 'an edited setting marks the shown result stale');
+
 
     // An ellipsometric fit reports its residual too, in degrees. Without it a
     // model that misses Δ by fifty degrees looks the same in the table as one
@@ -303,17 +342,25 @@ assert.ok(Math.abs(result.thicknessNm - 420) < 0.5,
     const built = model.sampleFor(design, {
         geometry: 'coating', substrateId: 'SiO2', substrateThicknessMm: '3',
     });
-    assert.equal(built.geometry, 'coating');
+    assert.equal(built.geometry, 'slab', 'obsolete geometry settings cannot suppress the rear face');
     assert.equal(built.substrateThicknessMm, 3);
     assert.ok(Math.abs(built.substrate.getNK(550)[0] - 1.46) < 0.02,
         'the substrate override has to reach the model');
     const fromDesign = model.sampleFor(design, {});
     assert.equal(fromDesign.substrateThicknessMm, 1.0);
-    assert.equal(fromDesign.geometry, 'coating',
-        'a FRONT Optical Evaluation export is a semi-infinite coating spectrum');
+    assert.equal(fromDesign.geometry, 'slab',
+        'photometry includes the rear face even when the design evaluates FRONT');
+
+    // The window models one sample: a witness polished on both faces. There is
+    // no setting that can suppress the rear face, because no preparation that
+    // does so leaves a measurement this window can fit.
+    assert.equal(model.sampleFor(design, { backFace: 'absorbing' }).geometry, 'slab',
+        'no setting turns photometry into a single-surface measurement');
     const total = model.sampleFor({ ...design, mfEvalMode: 'total' }, {});
     assert.equal(total.geometry, 'slab',
         'a TOTAL export includes the substrate and its back surface');
+    assert.equal(model.sampleFor(design, { measurementMode: 'ellipsometry' }).geometry,
+        'coating', 'ellipsometry still evaluates the coated surface alone');
 }
 
 // ── The thickness setting never starts at zero ───────────────────────────────
@@ -357,8 +404,8 @@ assert.ok(Math.abs(result.thicknessNm - 420) < 0.5,
     assert.ok(slab.name.includes('Ta2O5 run 14'));
 
     const coating = build({ geometry: 'coating' });
-    assert.equal(resolveEvalMode(coating), 'front',
-        '"film only" ignores the other side');
+    assert.equal(resolveEvalMode(coating), 'total',
+        'an obsolete film-only setting cannot change the saved photometry design');
 
     const backCurves = model.characterizableCurves(design)
         .map(curve => ({ ...curve, side: 'back' }));

@@ -16,10 +16,10 @@ import { ResultsGrid, ResultsSection } from '../../../ui/ResultsSection.js';
 import { ActionButton } from '../../analysis/chrome/controls.js';
 import { AnalysisWindow, CenteredMessage, PlotArea } from '../../analysis/chrome/layout.js';
 import { CharacterizationChart } from './charts.js';
-import { CharacterizationControls } from './CharacterizationControls.js';
+import { CharacterizationControls, ViewTabs } from './CharacterizationControls.js';
 import { buildCharacterizedDesign } from './resultDesign.js';
 import {
-    characterizationNotices, constantsCsv, resultColumns, resultRows, thicknessText,
+    characterizationNotices, constantsCsv, resultColumns, resultRows,
 } from './resultsModel.js';
 import { newSaveDialogState, SaveMaterialDialog } from './SaveMaterialDialog.js';
 import {
@@ -69,18 +69,15 @@ export function SaveAction({ c, nk, state, onCreateDesign }) {
 
     return h(React.Fragment, null,
         h('div', { style: { display: 'flex', alignItems: 'center', gap: 8 } },
-            saved && h('span', {
-                title: nk.saved(saved.name, saved.catalogName),
-                style: {
-                    color: c.success, fontSize: 11, maxWidth: 180,
-                    overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
-                },
-            }, nk.saved(saved.name, saved.catalogName)),
-            // Offered again after a save so a design can be built from the
-            // material already in the catalog rather than from a second copy.
+            // Offered once a material exists, so a design can be built from the
+            // one already in the catalog rather than from a second copy. Its
+            // appearance is what reports the save; the header has no room for a
+            // catalog and material name beside the buttons.
             saved && h(ActionButton, {
                 c, label: nk.openDesign,
-                title: onCreateDesign ? nk.openDesignHint : nk.openDesignNoFolder,
+                title: onCreateDesign
+                    ? nk.saved(saved.name, saved.catalogName)
+                    : nk.openDesignNoFolder,
                 disabled: !onCreateDesign, onClick: () => openDesign(saved),
             }),
             h(ActionButton, {
@@ -147,10 +144,14 @@ export function NkCharacterization({ c, t, onCreateDesign }) {
             c, t, nk, state,
             notices: characterizationNotices(state.result, nk, state.stale),
         }),
-        h(PlotArea, null, h(ChartBody, { c, nk, state })),
+        h(PlotArea, null,
+            h(ViewTabs, { c, nk, state }),
+            h(ChartBody, { c, nk, state })),
         h(ResultsSection, {
             c, label: nk.results,
-            summary: solved ? `d = ${thicknessText(solved, nk)}` : nk.notRunYet,
+            // No thickness here: it is the first row of the table this header
+            // opens, and a second copy of it only has room to be truncated.
+            summary: solved ? null : nk.notRunYet,
             open: state.view.showResults,
             setOpen: value => state.setViewField('showResults', value),
             actions: solved && h('div', {

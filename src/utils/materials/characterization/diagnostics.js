@@ -64,6 +64,11 @@ export function channelResiduals(calculated, measured) {
  * can plausibly explain should not be mistaken for a faithful material.
  * Three times the stated 0.1% absolute photometric accuracy is a conservative
  * boundary; the residual values remain available for the exact judgement.
+ *
+ * Photometry only. Ψ and Δ have no accuracy in the sources this module follows
+ * to compare a residual against, and a limit picked here would fail sound fits
+ * on films whose model error genuinely exceeds it. Their residuals are reported
+ * as numbers and read on the Residual plot instead.
  */
 export function modelMismatch(residuals) {
     const channels = Object.entries(residuals || {})
@@ -101,6 +106,12 @@ function sampleFit(fit, rangeNm, samples = 200) {
  *
  * Only flagged when the rise is above what the measurement could resolve;
  * a k of 1e-6 rising to 2e-6 is describing nothing.
+ *
+ * Dielectrics only. In a metal the free electrons make k rise with wavelength
+ * as a matter of course: Macleod §5.1.1 has it "roughly proportional to the
+ * wavelength" in most metals, which is why a metal thick enough to reflect in
+ * the visible still reflects far into the infrared. Reporting that as a danger
+ * signal would flag every sound metal fit.
  */
 export function risingExtinction(rows, thicknessNm) {
     const first = rows[0];
@@ -183,16 +194,34 @@ function indexOutOfRange(rows) {
     return null;
 }
 
-/** Sum of reflectance and transmittance above unity, beyond rounding. */
+/**
+ * Sum of reflectance and transmittance above unity, beyond rounding.
+ *
+ * Judged on the average over the range rather than on the worst wavelength. A
+ * calibration fault is a scale error: it lifts every wavelength together, and
+ * the average carries it. The worst single point does not, because noise on
+ * two channels at the accuracy this module assumes puts the largest of a few
+ * hundred sums about three times that accuracy above one on its own. Testing
+ * the maximum reported a calibration fault on every measurement made to the
+ * stated accuracy, which is the opposite of useful.
+ *
+ * The worst point still travels in the detail, as the place to go and look.
+ */
 export function energyExcess(measured) {
     if (!Array.isArray(measured.T) || !Array.isArray(measured.R)) return null;
     let worst = 0;
     let at = null;
+    let sum = 0;
+    let count = 0;
     for (let point = 0; point < measured.T.length; point++) {
         const total = measured.T[point] + measured.R[point];
         if (total > worst) { worst = total; at = point; }
+        sum += total;
+        count++;
     }
-    return worst > 1 + PHOTOMETRIC_ACCURACY ? { total: worst, point: at } : null;
+    if (count === 0) return null;
+    const mean = sum / count;
+    return mean > 1 + PHOTOMETRIC_ACCURACY ? { total: worst, mean, point: at } : null;
 }
 
 /**
@@ -205,26 +234,27 @@ export function energyExcess(measured) {
  * @returns {{ warnings:{code:string, detail:object}[], indexRange:[number,number],
  *             extinctionRange:[number,number], resolvableExtinction:number }}
  */
-export function fitDiagnostics({ fit, rangeNm, thicknessNm, measured, residuals, metallic }) {
+export function fitDiagnostics({ fit, rangeNm, thicknessNm, measured, residuals, metallic, energyComparable = true }) {
     const rows = sampleFit(fit, rangeNm);
     const warnings = [];
     const resolvableFloor = resolvableExtinction((rangeNm[0] + rangeNm[1]) / 2, thicknessNm);
     const transparent = !metallic && rows.every(row => row.k <= resolvableFloor);
 
-    const rising = risingExtinction(rows, thicknessNm);
-    if (rising) warnings.push({ code: 'risingExtinction', detail: rising });
-
     const anomalous = risingIndex(rows, transparent);
     if (anomalous) warnings.push({ code: 'anomalousDispersion', detail: anomalous });
 
     if (!metallic) {
+        const rising = risingExtinction(rows, thicknessNm);
+        if (rising) warnings.push({ code: 'risingExtinction', detail: rising });
+
         const outOfRange = indexOutOfRange(rows);
         if (outOfRange) warnings.push({ code: 'indexOutOfRange', detail: outOfRange });
         const absorbing = extinctionOutOfRange(rows);
         if (absorbing) warnings.push({ code: 'extinctionOutOfRange', detail: absorbing });
     }
 
-    const excess = energyExcess(measured);
+    // R + T is an energy balance only for the same illumination conditions.
+    const excess = energyComparable ? energyExcess(measured) : null;
     if (excess) warnings.push({ code: 'energyExcess', detail: excess });
 
     const mismatch = modelMismatch(residuals);

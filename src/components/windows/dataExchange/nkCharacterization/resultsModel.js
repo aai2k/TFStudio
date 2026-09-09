@@ -26,6 +26,10 @@ function exponential(value, digits = 2) {
 export function thicknessText(result, nk) {
     if (!Number.isFinite(result.thicknessNm)) return '-';
     const value = `${fixed(result.thicknessNm, 2)} nm`;
+    if (result.thicknessStatus === 'unresolved') return `${value} (${nk.thicknessAssumed})`;
+    if (result.thicknessStatus === 'fitted' && result.thicknessSpreadNm == null) {
+        return `${value} (${nk.thicknessUncertaintyUnavailable})`;
+    }
     if (result.thicknessSpreadNm == null) return `${value} (${nk.thicknessHeld})`;
     return `${value} ± ${fixed(result.thicknessSpreadNm, 2)}`;
 }

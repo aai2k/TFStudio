@@ -1,9 +1,10 @@
 /**
- * The window's one control row, and the sample settings behind it.
+ * The window's one control row, the sample settings behind it, and the tabs
+ * that pick which plot is drawn.
  *
- * On the row: which measurement is being characterized, what the plot is
- * showing, and the button that runs it. In the panel: everything that describes
- * the sample and the model, which is set once for a witness and then left alone.
+ * On the row: which measurement is being characterized, and the button that
+ * runs it. In the panel: everything that describes the sample and the model,
+ * which is set once for a witness and then left alone.
  */
 
 import { MaterialPicker } from '../../../ui/MaterialPicker.js';
@@ -14,8 +15,8 @@ import {
 import { NoticeBadge, SettingRow, SettingsMenu } from '../../analysis/chrome/popover.js';
 import { ControlRow } from '../../analysis/chrome/layout.js';
 import { INDEX_MODELS } from '../../../../utils/materials/characterization/nkFit.js';
-import { SAMPLE_GEOMETRIES } from '../../../../utils/materials/characterization/sampleSpectrum.js';
-import { defaultSampleGeometry, thicknessSettingNm } from './model.js';
+import { TabBtn } from '../chrome/panel.js';
+import { selectedIndexModel, thicknessSettingNm } from './model.js';
 
 const { createElement: h } = React;
 
@@ -71,15 +72,9 @@ export function SampleSettingsContent({ c, t, nk, state }) {
     return h(React.Fragment, null,
         h(SettingRow, { c, label: nk.indexModel },
             h(SelectField, {
-                c, width: 150, value: settings.indexModel,
+                c, width: 150, value: selectedIndexModel(settings),
                 onChange: value => setField('indexModel', value),
                 options: INDEX_MODELS.map(id => ({ id, label: nk.models[id] })),
-            })),
-        !ellipsometry && h(SettingRow, { c, label: nk.geometry },
-            h(SelectField, {
-                c, width: 150, value: settings.geometry || defaultSampleGeometry(design),
-                onChange: value => setField('geometry', value),
-                options: SAMPLE_GEOMETRIES.map(id => ({ id, label: nk.geometries[id] })),
             })),
         h(SettingRow, { c, label: nk.substrate },
             h('div', { style: { width: 150 } }, h(MaterialPicker, {
@@ -147,10 +142,32 @@ function SampleSettings({ c, t, nk, state }) {
         h(SampleSettingsContent, { c, t, nk, state }));
 }
 
+/**
+ * Which of the three plots is drawn.
+ *
+ * They are three views of one result rather than three settings, so they sit on
+ * the plot they change instead of in the control row, where they read as
+ * another switch beside the curve pickers and wrap away from the plot on a
+ * narrow dock.
+ */
+export function ViewTabs({ c, nk, state }) {
+    const { view, setViewField } = state;
+    return h('div', {
+        style: {
+            display: 'flex', alignItems: 'center', gap: 2, flexShrink: 0,
+            padding: '0 8px', borderBottom: `1px solid ${c.border}`,
+        },
+    }, [
+        ['constants', nk.viewConstants],
+        ['fit', nk.viewFit],
+        ['residual', nk.viewResidual],
+    ].map(([id, label]) => h(TabBtn, {
+        key: id, c, active: view.view === id, onClick: () => setViewField('view', id),
+    }, label)));
+}
+
 export function CharacterizationControls({ c, t, nk, state, notices }) {
-    const {
-        curves, settings, measurementMode, setField, view, setViewField, running,
-    } = state;
+    const { curves, settings, measurementMode, setField, running } = state;
     const noCurves = curves.length === 0;
     const ellipsometry = measurementMode === 'ellipsometry';
     const quantities = ellipsometry
@@ -200,15 +217,6 @@ export function CharacterizationControls({ c, t, nk, state, notices }) {
             title: running ? nk.stopHint : nk.runHint,
             disabled: !running && !ready,
             onClick: running ? state.stop : state.run,
-        }),
-        h(ChoiceGroup, {
-            c, activeId: view.view,
-            onSelect: id => setViewField('view', id),
-            items: [
-                { id: 'constants', label: nk.viewConstants },
-                { id: 'fit', label: nk.viewFit },
-                { id: 'residual', label: nk.viewResidual },
-            ],
         }),
     );
 }

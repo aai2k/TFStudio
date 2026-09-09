@@ -62,8 +62,8 @@ export function buildCharacterizedDesign({
         },
         surfaceMode: side === 'back' ? 'back_only' : 'front_only',
         // A slab measurement saw both faces of the witness, which is what a
-        // full-system evaluation computes. "Film only" is the single-surface
-        // spectrum, which is what ignoring the other side computes.
+        // full-system evaluation computes. Ellipsometry uses the single
+        // coated surface, with rear-face light excluded or negligible.
         mfEvalMode: sample.geometry === 'slab' ? 'total' : 'side',
         frontLayers: side === 'back' ? [] : [layer],
         backLayers: side === 'back' ? [layer] : [],
@@ -74,6 +74,10 @@ export function buildCharacterizedDesign({
         [ellipsometric ? 'measuredEllipsometry' : 'measuredCurves']:
             chosen.map(curve => ({ ...curve })),
         notes: `Characterized from measured ${Object.keys(result.measured).join(' and ')}`
-            + ` over ${Math.round(low)}-${Math.round(high)} nm.`,
+            + ` over ${Math.round(low)}-${Math.round(high)} nm.`
+            + (result.thicknessStatus === 'unresolved'
+                ? ` Film thickness ${result.thicknessNm.toFixed(1)} nm was assumed,`
+                    + ' not determined from the measurement.'
+                : ''),
     };
 }

@@ -380,7 +380,7 @@ function initialDrudeParameters(rows) {
  * that still behaves between the tabulated points. The count is not asked for,
  * because the number of oscillators a table supports is a property of the table.
  */
-function fitMetal(rows, kind, rangeNm) {
+function fitMetal(rows, kind, rangeNm, maxOscillators = MAX_OSCILLATORS) {
     const minDamping = minimumDampingEv(rows);
     const fitAt = (start, count, iterations) => levenbergMarquardt(
         start,
@@ -405,7 +405,7 @@ function fitMetal(rows, kind, rangeNm) {
     const energySpan = highEnergy - lowEnergy;
     const peakEpsilonImaginary = Math.max(...rows.map(row => 2 * row[1] * row[2]), 0.1);
 
-    for (let count = 1; count <= MAX_OSCILLATORS; count++) {
+    for (let count = 1; count <= Math.min(MAX_OSCILLATORS, maxOscillators); count++) {
         const damping = Math.max(minDamping, energySpan / (2 * count + 2));
         let best = [
             ...parameters,
@@ -432,8 +432,12 @@ function fitMetal(rows, kind, rangeNm) {
         // Cost is a sum of squares, so a TERM_GAIN cut in RMS is its square here.
         if (bestCost > acceptedCost * (1 - TERM_GAIN) ** 2) break;
         const model = decodeMetalParameters(best, kind, count, minDamping);
-        if (!staysWithinData(nm => evaluateComplexDispersionModel(model, nm)[0], rows, rangeNm, 1)) break;
         parameters = best;
+        // An underfit intermediate model can overshoot the table's range.
+        // Keep it only as the seed for the next oscillator, never as an
+        // accepted result. Stopping here strands gold at a Drude-only fit:
+        // its first Lorentz term overshoots, while later terms resolve it.
+        if (!staysWithinData(nm => evaluateComplexDispersionModel(model, nm)[0], rows, rangeNm, 1)) continue;
         accepted = model;
         acceptedCost = bestCost;
     }
@@ -557,7 +561,7 @@ export function fitTabulatedMaterial(rows, options = {}) {
     if (selected.length < 4) throw new Error('The selected fit range contains fewer than four rows.');
     const model = options.nModel || 'cauchy';
     if (model === 'drude' || model === 'drude-lorentz') {
-        const complex = fitMetal(selected, model, rangeNm);
+        const complex = fitMetal(selected, model, rangeNm, options.maxOscillators);
         const fit = {
             active: true,
             rangeNm: [Math.min(...rangeNm), Math.max(...rangeNm)],
@@ -723,6 +727,15 @@ export function dispersionFitCodec(fit) {
     };
 }
 
+// The index a dielectric film can have, the same bracket the pointwise solve
+// holds its Newton steps inside and the one the diagnostics call out of range.
+const INDEX_CEILING = 8;
+
+// Points the fitted index is sampled at to see whether it stayed finite. A
+// resonance makes itself felt over a wide span, so this only has to catch that
+// the curve has left the values a film can take, not locate the pole.
+const POLE_SAMPLES = 12;
+
 /**
  * Whether a Sellmeier fit has put a resonance inside the wavelengths it is
  * meant to describe, where the model returns an infinite index.
@@ -730,14 +743,28 @@ export function dispersionFitCodec(fit) {
  * The table fit forbids this while it searches. A fit being refined against a
  * spectrum has to be checked as it moves, because nothing else stops a pole
  * drifting into the range.
+ *
+ * The coefficient is not enough to decide it. A pole parked immediately outside
+ * the range still sends the index at the nearest measured wavelength through
+ * the roof, and lands on it exactly often enough to return a non-finite index
+ * there: a resonance at 0.15999947 µm² against a range starting at 400 nm, or
+ * 0.16 µm², is outside by five parts in ten million and still not usable. So
+ * the curve is judged as well as the coefficient, and an index that is not
+ * finite or has left what a film can have counts as a pole in range.
  */
 export function dispersionFitHasPoleInRange(fit, rangeNm) {
     if (fit.complex || fit.n.kind !== 'sellmeier') return false;
-    const low = (Math.min(...rangeNm) / 1000) ** 2;
-    const high = (Math.max(...rangeNm) / 1000) ** 2;
+    const low = Math.min(...rangeNm);
+    const high = Math.max(...rangeNm);
+    const lowSquared = (low / 1000) ** 2;
+    const highSquared = (high / 1000) ** 2;
     for (let term = 0; term < fit.n.terms; term++) {
         const pole = fit.n.coefficients[2 + 2 * term];
-        if (pole > low && pole < high) return true;
+        if (pole >= lowSquared && pole <= highSquared) return true;
+    }
+    for (let sample = 0; sample <= POLE_SAMPLES; sample++) {
+        const [index] = evaluateDispersionFit(fit, low + ((high - low) * sample) / POLE_SAMPLES);
+        if (!Number.isFinite(index) || index <= 0 || index > INDEX_CEILING) return true;
     }
     return false;
 }
@@ -745,9 +772,13 @@ export function dispersionFitHasPoleInRange(fit, rangeNm) {
 export function dispersionFitModelName(fit) {
     if (!fit) return 'Unavailable';
     if (fit.complex) {
-        const name = fit.complex.kind === 'drude'
+        // A Drude-Lorentz fit that took no oscillators is a Drude fit, and
+        // saying so is more use than "0 oscillators": it reports that the
+        // measurement found no absorption band in range.
+        const oscillators = fit.complex.oscillators.length;
+        const name = fit.complex.kind === 'drude' || oscillators === 0
             ? 'Drude'
-            : `Drude-Lorentz (${fit.complex.oscillators.length} oscillators)`;
+            : `Drude-Lorentz (${oscillators} oscillators)`;
         return `Fit: ${name}, ${fit.rangeNm[0]}-${fit.rangeNm[1]} nm`;
     }
     const nName = fit.n.kind === 'sellmeier'

@@ -9,12 +9,11 @@
 import { measuredCurveData } from '../../../../utils/io/spectrumTable.js';
 import { ellipsometryCurves } from '../measuredEllipsometry/model.js';
 import { resolveDesignMaterial } from '../../../../utils/materials/designMaterials.js';
-import { characterizeFilm } from '../../../../utils/materials/characterization/nkFit.js';
+import { characterizeFilm, INDEX_MODELS } from '../../../../utils/materials/characterization/nkFit.js';
 import {
     portableSample, sampleFromPortable,
 } from '../../../../utils/materials/characterization/portableSample.js';
 import { evaluateDispersionFit } from '../../../../utils/materials/dispersionFits.js';
-import { resolveEvalMode } from '../../../../utils/physics/optimizer/evalCore.js';
 
 const ENOUGH_POINTS = 8;
 
@@ -74,11 +73,6 @@ function channelOf(curve, settings) {
     };
 }
 
-/** The sample the film sits on, taken from the design unless overridden. */
-export function defaultSampleGeometry(design) {
-    return resolveEvalMode(design) === 'total' ? 'slab' : 'coating';
-}
-
 /**
  * The approximate film thickness the settings start at.
  *
@@ -118,14 +112,27 @@ export function sampleFor(design, settings) {
         substrateThicknessMm: Number(settings.substrateThicknessMm) > 0
             ? Number(settings.substrateThicknessMm)
             : (design?.substrate?.thickness ?? 1.0),
-        // CSV spectra do not carry sample geometry. Follow the same design-wide
-        // evaluation mode that produced an Optical Evaluation export; an
-        // instrument measurement can override this to "slab" in Settings.
-        geometry: settings.measurementMode === 'ellipsometry'
-            ? 'coating'
-            : (settings.geometry || defaultSampleGeometry(design)),
+        // Photometry is fitted through the whole witness, both faces of it.
+        // That is the sample this window models: one film on a substrate
+        // polished on both sides. Never taken from the design's evaluation
+        // mode, which is a way of looking at a design rather than a witness.
+        // Ellipsometry assumes rear-face light is excluded or negligible.
+        geometry: settings.measurementMode === 'ellipsometry' ? 'coating' : 'slab',
         substrateId,
     };
+}
+
+/**
+ * The model to fit with, from settings that may name one no longer offered.
+ *
+ * Drude was withdrawn once Drude-Lorentz proved able to settle on no
+ * oscillators by itself, which is the same four-parameter fit. A design whose
+ * saved settings still say Drude would otherwise leave the picker showing an
+ * empty box while the run went on using it.
+ */
+export function selectedIndexModel(settings) {
+    const model = settings.indexModel;
+    return INDEX_MODELS.includes(model) ? model : 'drude-lorentz';
 }
 
 /**
@@ -155,7 +162,7 @@ export function characterizationRequest(design, settings) {
         request: {
             channels,
             sample: portableSample(sampleFor(design, { ...settings, measurementMode }), channels),
-            indexModel: settings.indexModel,
+            indexModel: selectedIndexModel(settings),
             thicknessNm: thicknessSettingNm(design, settings),
             fixThickness: !!settings.fixThickness,
             rangeNm: range.every(Number.isFinite) && range[1] > range[0] ? range : null,
@@ -225,7 +232,8 @@ export function characterizedMaterial(result, { id, name, color }) {
         color: color || 'auto',
         group: 'User',
         comment: `Characterized from measured ${Object.keys(result.measured).join(' and ')}`
-            + `, film thickness ${result.thicknessNm.toFixed(1)} nm`,
+            + `, film thickness ${result.thicknessNm.toFixed(1)} nm`
+            + (result.thicknessStatus === 'unresolved' ? ' (assumed; thickness not determined)' : ''),
         nd: null, vd: null, density: null,
     };
 }
