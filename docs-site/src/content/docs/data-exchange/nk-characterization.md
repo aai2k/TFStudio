@@ -21,7 +21,7 @@ k is not the fraction of light the sample absorbs. Inside the material the inten
 
 ## Setting up an R/T measurement
 
-![One film on the front face of a glass slab polished on both faces. Light comes in near normal from the film side, R is measured off the coating, T is measured after the bare polished rear face, and the reflections bouncing inside the glass are part of what is calculated.](/diagrams/nk-photometry.svg)
+![One film on the front face of a glass slab polished on both faces. Light enters from the film side, R leaves off the coating, T leaves after the uncoated rear face, and the reflections bouncing inside the glass are part of what is calculated.](/diagrams/nk-photometry.svg)
 
 Coat **one face of a substrate you know, polished on both faces**, and leave the other face bare. A coated glass witness is the usual thing. This is the only sample the window models: the rear face is part of the calculation rather than a nuisance to be removed, and there is no setting that takes it out.
 
@@ -63,7 +63,7 @@ The model assumes you collect the light the rear face sends back. A stop or an a
 
 ## Setting up an ellipsometric measurement
 
-![Polarized light hits the coated face at a slant. The detector reads the change in polarization of the reflected beam. Light returning from the rear face of the substrate has to be kept out of it.](/diagrams/nk-ellipsometry.svg)
+![Polarized light hits the coated face at an angle from the normal, and the detector reads the change in polarization of the reflected beam.](/diagrams/nk-ellipsometry.svg)
 
 An ellipsometer reads how reflection changes the polarization. **Ψ** compares the reflected amplitudes of p and s, **Δ** is the phase between them. Between them they pin down n and k without needing any transmitted light.
 

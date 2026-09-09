@@ -89,15 +89,27 @@
     try {
       await ensureSeeded();
       const [folders, designs] = await Promise.all([S().listFolders(), S().listDesigns()]);
-      const byName = new Map();
-      const folderFor = (name, expanded) => {
-        if (!byName.has(name)) byName.set(name, { id: name, name, expanded: expanded !== false, items: [] });
-        return byName.get(name);
+      // Folders nest, and the store names one by its path, which is also its
+      // id. The folder's own name is the last segment of it.
+      const byId = new Map();
+      const folderFor = (id, expanded) => {
+        if (!byId.has(id)) {
+          byId.set(id, { id, name: id.slice(id.lastIndexOf('/') + 1), expanded: expanded !== false, items: [] });
+        }
+        return byId.get(id);
       };
+      const parentOf = (id) => (id.includes('/') ? id.slice(0, id.lastIndexOf('/')) : '');
       for (const f of folders) folderFor(f.name, f.expanded);
       for (const d of designs) folderFor(d.folder).items.push({ id: d.design.id, name: d.name, design: d.design, mtime: d.mtime || 0 });
+      // Folders and designs are two independent key lists, so a design can name
+      // a folder no record covers, and a folder deep in the tree can be the only
+      // record of its branch. The levels above are filled in, since a folder the
+      // tree cannot hang on its parent is a folder nobody can see.
+      for (const id of Array.from(byId.keys())) {
+        for (let parent = parentOf(id); parent; parent = parentOf(parent)) folderFor(parent);
+      }
 
-      const out = Array.from(byName.values()).sort((a, b) => a.name.localeCompare(b.name));
+      const out = Array.from(byId.values()).sort((a, b) => a.id.localeCompare(b.id));
       for (const f of out) f.items.sort((a, b) => a.name.localeCompare(b.name));
       if (out.length === 0) out.push({ id: DEFAULT_FOLDER, name: DEFAULT_FOLDER, expanded: true, items: [] });
       return ok({ folders: out });

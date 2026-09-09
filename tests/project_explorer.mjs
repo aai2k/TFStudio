@@ -4,6 +4,7 @@ import {
   updateExplorerItemMtime,
 } from '../src/components/panels/projectExplorerModel.js';
 import { renderToStaticMarkup } from 'react-dom/server';
+import { readFileSync } from 'node:fs';
 import { shimBrowserGlobals, loadApp, makeLocale, makeTheme } from './_uiShim.mjs';
 
 let passed = 0;
@@ -89,5 +90,13 @@ const markup = renderToStaticMarkup(React.createElement(ProjectExplorer, {
 }));
 ok(markup.includes('placeholder="Search"'), 'explorer renders the localized search field');
 ok(markup.includes('aria-label="Hide Explorer"'), 'explorer renders an accessible hide control');
+
+// A type="search" field draws a clear button of the browser's own, which sat
+// next to the panel's themed one as a second cross. The class below is what
+// hides it, and it is only worth anything with the rule in styles.css.
+ok(markup.includes('class="tfs-search"'), 'the search field carries the class that hides the native clear button');
+const styles = readFileSync(new URL('../src/styles.css', import.meta.url), 'utf-8');
+ok(/\.tfs-search::-webkit-search-cancel-button\s*\{[^}]*appearance:\s*none/.test(styles),
+  'and styles.css hides that button for it');
 
 console.log(`project_explorer: ${passed} passed`);

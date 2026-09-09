@@ -3,7 +3,7 @@ const path = require('path');
 const fs = require('fs');
 const logger = require('./main/logger');
 const { log, flushLog } = logger;
-const { safeName, safeFilePath, readJsonSafe, writeFileAtomic, readTextAuto, registryValue, resolveExeDir } = require('./main/paths');
+const { safeName, safeSegments, safeFilePath, readJsonSafe, writeFileAtomic, readTextAuto, registryValue, resolveExeDir } = require('./main/paths');
 const seed = require('./main/seed');
 const helpServer = require('./main/helpServer');
 const { createUserPaths } = require('./main/userPaths');
@@ -257,7 +257,7 @@ function setupIpcHandlers() {
     devToolsAllowed, isPackaged, resourcesDir: process.resourcesPath, srcDir: __dirname,
     getMainWindow: () => mainWindow,
     helpServer,
-    safeName, safeFilePath, readJsonSafe, writeFileAtomic, readTextAuto, registryValue,
+    safeName, safeSegments, safeFilePath, readJsonSafe, writeFileAtomic, readTextAuto, registryValue,
     userDataPath, settingsPath,
     userPaths,
     dataFolderMove: createDataFolderMove({ fs, path }),

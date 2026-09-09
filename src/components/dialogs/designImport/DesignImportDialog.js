@@ -409,7 +409,9 @@ export function DesignImportDialog({ fileImport, setFileImport, folders, default
             h('span', { style: { fontSize: 11, color: c.textDim } }, di.into),
             folders.length
                 ? h('select', { value: folderId, onChange: e => setFolderId(e.target.value), style: fieldStyle(c) },
-                    folders.map(folder => h('option', { key: folder.id, value: folder.id }, folder.name)))
+                    // Named by path: two folders under different parents can
+                    // share a name.
+                    folders.map(folder => h('option', { key: folder.id, value: folder.id }, folder.id)))
                 : h('span', { style: { fontSize: 11, color: WARNING_COLOR } }, di.noFolder),
             h('button', { onClick: () => setFileImport(null), style: smallBtn(c) }, di.cancel),
             h('button', {

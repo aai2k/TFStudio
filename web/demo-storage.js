@@ -157,27 +157,41 @@
   }
 
   // ── Folders ────────────────────────────────────────────────────────────────
+  // Folders nest, and one is named by its path under the root ('Archive/2026'),
+  // so an operation on a folder reaches everything filed below it.
   const listFolders = () => getAll(STORE_FOLDERS);
   const createFolder = (name) => put(STORE_FOLDERS, { name, expanded: true });
 
+  const within = (candidate, folder) =>
+    candidate === folder || String(candidate).startsWith(folder + '/');
+
   async function deleteFolder(name) {
-    const designs = await getAll(STORE_DESIGNS);
-    for (const d of designs) {
-      if (d.folder === name) await del(STORE_DESIGNS, d.key);
-    }
-    await del(STORE_FOLDERS, name);
+    const [designs, folders] = await Promise.all([getAll(STORE_DESIGNS), getAll(STORE_FOLDERS)]);
+    await Promise.all([
+      ...designs.filter(d => within(d.folder, name)).map(d => del(STORE_DESIGNS, d.key)),
+      ...folders.filter(f => within(f.name, name)).map(f => del(STORE_FOLDERS, f.name)),
+    ]);
   }
 
+  // Renaming a folder and moving one are the same rewrite of a path, and both
+  // carry the subfolders below along with the designs.
+  // Each record is moved by a delete and a write, in that order, but the records
+  // are independent of one another and go together: a subtree of any size costs
+  // one wait rather than two per design and per folder in it.
   async function renameFolder(oldName, newName) {
-    const designs = await getAll(STORE_DESIGNS);
-    for (const d of designs) {
-      if (d.folder !== oldName) continue;
-      await del(STORE_DESIGNS, d.key);
-      await put(STORE_DESIGNS, { key: key(newName, d.name), folder: newName, name: d.name, design: d.design, mtime: d.mtime });
-    }
-    const folder = await get(STORE_FOLDERS, oldName);
-    await del(STORE_FOLDERS, oldName);
-    await put(STORE_FOLDERS, { name: newName, expanded: folder ? folder.expanded : true });
+    const rehomed = (folder) => newName + String(folder).slice(oldName.length);
+    const [designs, folders] = await Promise.all([getAll(STORE_DESIGNS), getAll(STORE_FOLDERS)]);
+    await Promise.all([
+      ...designs.filter(d => within(d.folder, oldName)).map(async (d) => {
+        const folder = rehomed(d.folder);
+        await del(STORE_DESIGNS, d.key);
+        await put(STORE_DESIGNS, { key: key(folder, d.name), folder, name: d.name, design: d.design, mtime: d.mtime });
+      }),
+      ...folders.filter(f => within(f.name, oldName)).map(async (f) => {
+        await del(STORE_FOLDERS, f.name);
+        await put(STORE_FOLDERS, { name: rehomed(f.name), expanded: f.expanded !== false });
+      }),
+    ]);
   }
 
   // ── Designs ────────────────────────────────────────────────────────────────

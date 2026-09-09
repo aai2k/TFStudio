@@ -21,7 +21,7 @@ import { shimBrowserGlobals, loadApp, makeLocale, makeTheme } from './_uiShim.mj
 
 const require = createRequire(import.meta.url);
 const projects = require('../src/main/ipc/projects.js');
-const { safeName, safeFilePath, readJsonSafe, writeFileAtomic } = require('../src/main/paths.js');
+const { safeName, safeSegments, safeFilePath, readJsonSafe, writeFileAtomic } = require('../src/main/paths.js');
 
 let passed = 0;
 function ok(condition, message) {
@@ -95,7 +95,7 @@ for (const folder of ['My Designs', 'Archive', 'Empty']) {
 const handlers = new Map();
 projects.register({ handle(channel, handler) { handlers.set(channel, handler); } }, {
   fs, path, log: () => {}, projectsDir,
-  safeName, safeFilePath, readJsonSafe, writeFileAtomic,
+  safeName, safeSegments, safeFilePath, readJsonSafe, writeFileAtomic,
 });
 const move = (from, to, name) => handlers.get('move-item')(null, from, to, name);
 

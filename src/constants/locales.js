@@ -434,14 +434,15 @@ const en = {
   dialogs: {
     persistenceFailed: 'The project change could not be saved. Please try again.',
     contextMenu: {
-      rename: 'Rename',
       renameFolder: 'Rename Folder',
-      deleteFolder: 'Delete Folder',
-      deleteItem: 'Delete Item',
     },
     folder: {
       folderNameEmpty: 'Folder name cannot be empty',
       folderExists: 'A folder with this name already exists',
+      newFolderTitle: 'New Project Folder',
+      newSubfolderTitle: (parent) => `New Folder in "${parent}"`,
+      newFolderName: 'New Project',
+      pathTooLong: 'That folder path is too long for this system. Use shorter names or fewer levels.',
     },
     input: {
       ok: 'OK',
@@ -471,6 +472,7 @@ const en = {
     deleteProject: {
       title: 'Delete Project',
       message: (name) => `Delete project "${name}" and all its designs?`,
+      messageWithFolders: (name) => `Delete project "${name}", its subfolders and all their designs?`,
       confirm: 'Delete',
     },
     deleteDesign: {
@@ -634,6 +636,8 @@ const en = {
     title: 'Explorer',
     newDesignFile: 'New Design File',
     newProjectFolder: 'New Project Folder',
+    newSubfolder: 'New Subfolder',
+    moveToTop: 'Move to top level',
     collapseAll: 'Collapse All',
     renameF2: 'Rename (F2)',
     renameFolderF2: 'Rename Folder (F2)',
@@ -4096,14 +4100,15 @@ const ru = {
   dialogs: {
     persistenceFailed: 'Не удалось сохранить изменение проекта. Повторите попытку.',
     contextMenu: {
-      rename: 'Переименовать',
       renameFolder: 'Переименовать папку',
-      deleteFolder: 'Удалить папку',
-      deleteItem: 'Удалить элемент',
     },
     folder: {
       folderNameEmpty: 'Имя папки не может быть пустым',
       folderExists: 'Папка с таким именем уже существует',
+      newFolderTitle: 'Новая папка',
+      newSubfolderTitle: (parent) => `Новая папка в "${parent}"`,
+      newFolderName: 'Новая папка',
+      pathTooLong: 'Слишком длинный путь к папке для этой системы. Используйте более короткие имена или меньшую вложенность.',
     },
     input: {
       ok: 'OK',
@@ -4133,6 +4138,7 @@ const ru = {
     deleteProject: {
       title: 'Удалить проект',
       message: (name) => `Удалить папку "${name}" и все проекты в ней?`,
+      messageWithFolders: (name) => `Удалить папку "${name}", вложенные папки и все проекты в них?`,
       confirm: 'Удалить',
     },
     deleteDesign: {
@@ -4296,6 +4302,8 @@ const ru = {
     title: 'Проводник',
     newDesignFile: 'Новый проект',
     newProjectFolder: 'Новая папка',
+    newSubfolder: 'Новая вложенная папка',
+    moveToTop: 'Переместить на верхний уровень',
     collapseAll: 'Свернуть всё',
     renameF2: 'Переименовать (F2)',
     renameFolderF2: 'Переименовать папку (F2)',
@@ -7701,14 +7709,15 @@ const zh = {
   dialogs: {
     persistenceFailed: '项目更改无法保存。请重试。',
     contextMenu: {
-      rename: '重命名',
       renameFolder: '重命名文件夹',
-      deleteFolder: '删除文件夹',
-      deleteItem: '删除项目',
     },
     folder: {
       folderNameEmpty: '文件夹名称不能为空',
       folderExists: '已存在同名文件夹',
+      newFolderTitle: '新建项目文件夹',
+      newSubfolderTitle: (parent) => `在“${parent}”中新建文件夹`,
+      newFolderName: '新建项目',
+      pathTooLong: '文件夹路径对本系统而言过长。请使用更短的名称或减少层级。',
     },
     input: {
       ok: '确定',
@@ -7734,6 +7743,7 @@ const zh = {
     deleteProject: {
       title: '删除项目',
       message: (name) => `删除项目“${name}”及其所有设计？`,
+      messageWithFolders: (name) => `删除项目“${name}”、其子文件夹及其中的所有设计？`,
       confirm: '删除',
     },
     deleteDesign: {
@@ -8003,6 +8013,8 @@ const zh = {
     title: '资源管理器',
     newDesignFile: '新建设计文件',
     newProjectFolder: '新建项目文件夹',
+    newSubfolder: '新建子文件夹',
+    moveToTop: '移动到顶层',
     collapseAll: '全部折叠',
     renameF2: '重命名 (F2)',
     renameFolderF2: '重命名文件夹 (F2)',

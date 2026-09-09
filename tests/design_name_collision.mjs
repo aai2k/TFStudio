@@ -122,6 +122,7 @@ function makeHarness() {
     log(message) { logs.push(message); },
     projectsDir: '/projects',
     safeName(value) { return String(value).replace(/[<>:"/\\|?*]/g, '_'); },
+    safeSegments(id) { return String(id).split('/').map(part => part.replace(/[<>:"|?*]/g, '_')); },
     safeFilePath(base, ...parts) { return path.posix.join(base, ...parts); },
     writeFileAtomic(file, data) { files.set(file, data); },
     readJsonSafe(f) { try { return JSON.parse(files.get(f)); } catch (_) { return null; } },

@@ -10,6 +10,25 @@ function safeName(name) {
   return name.replace(/[<>:"/\\|?*]/g, '_');
 }
 
+// Split a project-folder id into sanitized path components.
+//
+// A project folder is identified by its path under the Projects root
+// ('Archive/2026/Q3'), so every segment is sanitized on its own rather than the
+// id as a whole: safeName() would otherwise turn the separator into an
+// underscore and flatten the path into one directory name. '.' and '..' are
+// refused rather than dropped: dropping them would silently retarget the call
+// at a folder the caller never named.
+//
+// Only '/' separates. A backslash is a legal character in a directory name on
+// Linux and macOS, so splitting on it too would read a folder named 'b\c' as
+// two levels and address a directory the user never made. Inside a segment it
+// is left to safeName, like every other character a filename cannot carry.
+function safeSegments(folderId) {
+  const parts = String(folderId ?? '').split('/').filter(Boolean);
+  if (!parts.length || parts.includes('.') || parts.includes('..')) throw new Error('Invalid path');
+  return parts.map(safeName);
+}
+
 // Resolve base + parts, refusing to escape `base` (path-traversal guard).
 function safeFilePath(base, ...parts) {
   const resolved = path.resolve(base, ...parts);
@@ -172,4 +191,4 @@ function resolveExeDir({ portableDir, isPackaged, execPath, appPath }) {
   return isPackaged ? path.dirname(execPath) : appPath;
 }
 
-module.exports = { safeName, safeFilePath, readJsonSafe, writeFileAtomic, readTextAuto, decodeAnsi, ansiCodePage, registryValue, resolveExeDir };
+module.exports = { safeName, safeSegments, safeFilePath, readJsonSafe, writeFileAtomic, readTextAuto, decodeAnsi, ansiCodePage, registryValue, resolveExeDir };

@@ -1,7 +1,11 @@
 // IPC: settings + project/design file I/O — load/save settings, load all
 // folders+designs, save/import/delete/rename/move .tfs designs,
-// create/rename/delete project folders. All under Documents\TFStudio\Projects
+// create/rename/move/delete project folders. All under Documents\TFStudio\Projects
 // (+ machine-local settings.json in AppData).
+//
+// Project folders nest to any depth, so a folder is named by its path under
+// Projects ('Archive/2026/Q3') rather than by a bare directory name. Every
+// handler taking one sanitizes it a segment at a time (safeSegments).
 //
 // CommonJS, Electron-free (deps via ctx).
 const { writeRendererSettings } = require('../settingsFile');
@@ -11,16 +15,16 @@ function register(ipcMain, ctx) {
   ipcMain.handle('save-settings', async (event, settings) => handleSaveSettings(ctx, settings));
   ipcMain.handle('theme:import-vscode', async () => handleImportVscodeTheme(ctx));
   ipcMain.handle('load-folders', async () => handleLoadFolders(ctx));
-  ipcMain.handle('save-design', async (event, folderName, design) => handleSaveDesign(ctx, folderName, design));
+  ipcMain.handle('save-design', async (event, folderId, design) => handleSaveDesign(ctx, folderId, design));
   ipcMain.handle('import-tfs', async () => handleImportTfs(ctx));
   ipcMain.handle('import-design-files', async () => handleImportDesignFiles(ctx));
   ipcMain.handle('pick-macleod-database', async () => handlePickMacleodDatabase(ctx));
-  ipcMain.handle('delete-item', async (event, folderName, itemName) => handleDeleteItem(ctx, folderName, itemName));
-  ipcMain.handle('rename-item', async (event, folderName, oldName, newName) => handleRenameItem(ctx, folderName, oldName, newName));
-  ipcMain.handle('move-item', async (event, fromFolderName, toFolderName, itemName) => handleMoveItem(ctx, fromFolderName, toFolderName, itemName));
-  ipcMain.handle('create-folder', async (event, folderName) => handleCreateFolder(ctx, folderName));
-  ipcMain.handle('rename-folder', async (event, oldName, newName) => handleRenameFolder(ctx, oldName, newName));
-  ipcMain.handle('delete-folder', async (event, folderName) => handleDeleteFolder(ctx, folderName));
+  ipcMain.handle('delete-item', async (event, folderId, itemName) => handleDeleteItem(ctx, folderId, itemName));
+  ipcMain.handle('rename-item', async (event, folderId, oldName, newName) => handleRenameItem(ctx, folderId, oldName, newName));
+  ipcMain.handle('move-item', async (event, fromFolderId, toFolderId, itemName) => handleMoveItem(ctx, fromFolderId, toFolderId, itemName));
+  ipcMain.handle('create-folder', async (event, folderId) => handleCreateFolder(ctx, folderId));
+  ipcMain.handle('rename-folder', async (event, oldId, newId) => handleRenameFolder(ctx, oldId, newId));
+  ipcMain.handle('delete-folder', async (event, folderId) => handleDeleteFolder(ctx, folderId));
 }
 
 function handleLoadSettings(ctx) {
@@ -117,8 +121,44 @@ function loadDesignFile(ctx, folderPath, tfsFile, items, seenIds) {
   } catch (err) { log(`Error loading ${tfsFile}: ${err.message}`); }
 }
 
+// Read one project directory and everything below it into `folders`, parent
+// before child. A folder is identified by its path under Projects
+// ('Archive/2026'), which is also how every folder-addressed call names it;
+// the separator is '/' whatever the platform writes, so one id survives a
+// project tree copied between machines.
+//
+// A directory symlink reports as a link rather than a directory, so a link
+// pointing back up the tree is left alone instead of being walked forever.
+function collectFolders(ctx, dirPath, folderId, folderName, folders) {
+  const { fs, path, log } = ctx;
+  let entries = [];
+  try { entries = fs.readdirSync(dirPath, { withFileTypes: true }); }
+  catch (err) { log(`load-folders: ${dirPath}: ${err.message}`); }
+
+  const items = [];
+  const seenIds = new Map(); // design.id -> { file, mtime } of file kept
+  // A symlinked design counts: someone keeping a shared design under version
+  // control and linking it into a project folder still sees it in the tree.
+  const tfsFiles = entries
+    .filter(e => (e.isFile() || e.isSymbolicLink()) && e.name.endsWith('.tfs'))
+    .map(e => e.name).sort();
+  for (const tfsFile of tfsFiles) {
+    loadDesignFile(ctx, dirPath, tfsFile, items, seenIds);
+  }
+  // The top level opens, the levels below it start closed: a deep tree would
+  // otherwise fill the panel with every folder it holds on every launch.
+  folders.push({ id: folderId, name: folderName, expanded: !folderId.includes('/'), items });
+
+  const subDirs = entries.filter(e => e.isDirectory()).sort((a, b) => a.name.localeCompare(b.name));
+  for (const subDir of subDirs) {
+    collectFolders(ctx, path.join(dirPath, subDir.name), `${folderId}/${subDir.name}`, subDir.name, folders);
+  }
+}
+
 // ── Load all projects / designs ────────────────────────────────────────────
-// Returns folders with items that include the full design object (from .tfs files).
+// Returns the whole tree as a flat list of folders, each with the designs it
+// holds directly; a folder's place in the tree is carried by its id. Items
+// include the full design object (from .tfs files).
 function handleLoadFolders(ctx) {
   const { fs, path, log, projectsDir } = ctx;
   try {
@@ -133,15 +173,7 @@ function handleLoadFolders(ctx) {
 
     const folders = [];
     for (const folderDir of folderDirs) {
-      const folderPath = path.join(projectsDir, folderDir.name);
-      const items = [];
-      const seenIds = new Map(); // design.id -> { file, mtime } of file kept
-      let files;
-      try { files = fs.readdirSync(folderPath).filter(f => f.endsWith('.tfs')); } catch (_) { files = []; }
-      for (const tfsFile of files.sort()) {
-        loadDesignFile(ctx, folderPath, tfsFile, items, seenIds);
-      }
-      folders.push({ id: folderDir.name, name: folderDir.name, expanded: true, items });
+      collectFolders(ctx, path.join(projectsDir, folderDir.name), folderDir.name, folderDir.name, folders);
     }
 
     return { success: true, folders };
@@ -165,13 +197,26 @@ function serializeDesign(design) {
   return JSON.stringify({ tfs_version: TFS_VERSION, ...rest }, null, 2);
 }
 
+// The directory a design goes in, created if it is missing, and null when the
+// path above it is gone. Only the one folder is created: building the levels
+// above it as well would resurrect a folder deleted or renamed elsewhere and
+// hide the design inside it.
+function designFolderPath(ctx, folderId) {
+  const { fs, path, projectsDir, safeSegments, safeFilePath } = ctx;
+  const folderPath = safeFilePath(projectsDir, ...safeSegments(folderId));
+  if (fs.existsSync(folderPath)) return folderPath;
+  if (!fs.existsSync(path.dirname(folderPath))) return null;
+  fs.mkdirSync(folderPath);
+  return folderPath;
+}
+
 // ── Save design as .tfs file ───────────────────────────────────────────────
 // The .tfs file is plain JSON readable with any text editor.
-function handleSaveDesign(ctx, folderName, design) {
-  const { fs, path, log, projectsDir, safeName, safeFilePath, writeFileAtomic, readJsonSafe } = ctx;
+function handleSaveDesign(ctx, folderId, design) {
+  const { fs, path, log, safeName, safeFilePath, writeFileAtomic, readJsonSafe } = ctx;
   try {
-    const folderPath = safeFilePath(projectsDir, safeName(folderName));
-    if (!fs.existsSync(folderPath)) fs.mkdirSync(folderPath, { recursive: true });
+    const folderPath = designFolderPath(ctx, folderId);
+    if (!folderPath) return { success: false, error: 'Folder does not exist' };
     const fileName = safeName(design.name) + '.tfs';
     const filePath = safeFilePath(folderPath, fileName);
 
@@ -366,10 +411,10 @@ async function handlePickMacleodDatabase(ctx) {
 }
 
 // ── Delete a .tfs file ─────────────────────────────────────────────────────
-function handleDeleteItem(ctx, folderName, itemName) {
-  const { fs, projectsDir, safeName, safeFilePath } = ctx;
+function handleDeleteItem(ctx, folderId, itemName) {
+  const { fs, projectsDir, safeName, safeSegments, safeFilePath } = ctx;
   try {
-    const filePath = safeFilePath(projectsDir, safeName(folderName), safeName(itemName) + '.tfs');
+    const filePath = safeFilePath(projectsDir, ...safeSegments(folderId), safeName(itemName) + '.tfs');
     if (fs.existsSync(filePath)) fs.unlinkSync(filePath);
     return { success: true };
   } catch (error) {
@@ -378,11 +423,12 @@ function handleDeleteItem(ctx, folderName, itemName) {
 }
 
 // ── Rename a .tfs file (updates name field inside too) ────────────────────
-function handleRenameItem(ctx, folderName, oldName, newName) {
-  const { fs, projectsDir, safeName, safeFilePath, writeFileAtomic } = ctx;
+function handleRenameItem(ctx, folderId, oldName, newName) {
+  const { fs, projectsDir, safeName, safeSegments, safeFilePath, writeFileAtomic } = ctx;
   try {
-    const oldPath = safeFilePath(projectsDir, safeName(folderName), safeName(oldName) + '.tfs');
-    const newPath = safeFilePath(projectsDir, safeName(folderName), safeName(newName) + '.tfs');
+    const folderSegments = safeSegments(folderId);
+    const oldPath = safeFilePath(projectsDir, ...folderSegments, safeName(oldName) + '.tfs');
+    const newPath = safeFilePath(projectsDir, ...folderSegments, safeName(newName) + '.tfs');
     if (!fs.existsSync(oldPath)) return { success: false, error: 'File not found' };
     const content = fs.readFileSync(oldPath, 'utf-8');
     const design = JSON.parse(content);
@@ -423,12 +469,12 @@ function moveRefusal(fs, oldPath, targetDir, newPath) {
   return null;
 }
 
-function handleMoveItem(ctx, fromFolderName, toFolderName, itemName) {
-  const { fs, projectsDir, safeName, safeFilePath } = ctx;
+function handleMoveItem(ctx, fromFolderId, toFolderId, itemName) {
+  const { fs, projectsDir, safeName, safeSegments, safeFilePath } = ctx;
   try {
     const fileName = safeName(itemName) + '.tfs';
-    const oldPath = safeFilePath(projectsDir, safeName(fromFolderName), fileName);
-    const targetDir = safeFilePath(projectsDir, safeName(toFolderName));
+    const oldPath = safeFilePath(projectsDir, ...safeSegments(fromFolderId), fileName);
+    const targetDir = safeFilePath(projectsDir, ...safeSegments(toFolderId));
     const newPath = safeFilePath(targetDir, fileName);
     if (oldPath !== newPath) {
       const refusal = moveRefusal(fs, oldPath, targetDir, newPath);
@@ -441,28 +487,70 @@ function handleMoveItem(ctx, fromFolderName, toFolderName, itemName) {
   }
 }
 
-function handleCreateFolder(ctx, folderName) {
-  const { fs, projectsDir, safeName, safeFilePath } = ctx;
+// Windows refuses to create a directory whose path reaches MAX_PATH - 12
+// characters unless long paths are enabled, and the Projects root already sits
+// several levels down under Documents. A few nested folders with long names
+// reach that cap, and the error the file system raises names neither the cap
+// nor the nesting, so a failure at that length is reported under its own code
+// for the renderer to word.
+const WINDOWS_DIRECTORY_PATH_LIMIT = 248;
+
+// The codes Windows answers with when the path is what it objects to. A folder
+// that long can also fail for reasons of its own, a lock or a permission among
+// them, and those keep their own message rather than being blamed on length.
+const PATH_LENGTH_CODES = new Set(['ENAMETOOLONG', 'ENOENT', 'EINVAL']);
+
+function folderWriteError(error, folderPath) {
+  const tooLong = error.code === 'ENAMETOOLONG'
+    || (process.platform === 'win32'
+      && folderPath.length >= WINDOWS_DIRECTORY_PATH_LIMIT
+      && PATH_LENGTH_CODES.has(error.code));
+  return tooLong ? 'path-too-long' : error.message;
+}
+
+// Whether `child` sits under `parent`. Both are already resolved, and
+// path.relative matches the platform's own case rules.
+function isInside(path, parent, child) {
+  const rel = path.relative(parent, child);
+  return rel !== '' && !rel.startsWith('..') && !path.isAbsolute(rel);
+}
+
+function handleCreateFolder(ctx, folderId) {
+  const { fs, projectsDir, safeSegments, safeFilePath } = ctx;
+  let folderPath = '';
   try {
-    const folderPath = safeFilePath(projectsDir, safeName(folderName));
+    folderPath = safeFilePath(projectsDir, ...safeSegments(folderId));
     if (fs.existsSync(folderPath)) return { success: false, error: 'Folder already exists' };
     fs.mkdirSync(folderPath, { recursive: true });
     return { success: true };
   } catch (error) {
-    return { success: false, error: error.message };
+    return { success: false, error: folderWriteError(error, folderPath) };
   }
 }
 
-function handleRenameFolder(ctx, oldName, newName) {
-  const { fs, projectsDir, safeName, safeFilePath } = ctx;
+// Why a folder rename cannot go ahead, or null when it can. A folder cannot be
+// moved into itself or into anything below it: the rename would carry its own
+// destination away with it.
+function renameFolderRefusal(ctx, oldPath, newPath, isCaseOnlyRename) {
+  const { fs, path } = ctx;
+  if (!fs.existsSync(oldPath)) return 'Folder does not exist';
+  if (isInside(path, oldPath, newPath)) return 'Target folder is inside the folder being moved';
+  if (!isCaseOnlyRename && fs.existsSync(newPath)) return 'Target folder name already exists';
+  return null;
+}
+
+// Rename a project folder, and move one. Both are a directory rename, a move
+// being a rename whose target sits under a different parent, so the two share
+// one set of guards instead of each carrying its own.
+function handleRenameFolder(ctx, oldId, newId) {
+  const { fs, projectsDir, safeSegments, safeFilePath } = ctx;
+  let newPath = '';
   try {
-    const oldPath = safeFilePath(projectsDir, safeName(oldName));
-    const newPath = safeFilePath(projectsDir, safeName(newName));
-    if (!fs.existsSync(oldPath)) return { success: false, error: 'Folder does not exist' };
+    const oldPath = safeFilePath(projectsDir, ...safeSegments(oldId));
+    newPath = safeFilePath(projectsDir, ...safeSegments(newId));
     const isCaseOnlyRename = oldPath.toLowerCase() === newPath.toLowerCase() && oldPath !== newPath;
-    if (!isCaseOnlyRename && fs.existsSync(newPath)) {
-      return { success: false, error: 'Target folder name already exists' };
-    }
+    const refusal = renameFolderRefusal(ctx, oldPath, newPath, isCaseOnlyRename);
+    if (refusal) return { success: false, error: refusal };
     if (isCaseOnlyRename) {
       const tmpPath = oldPath + '.tmp_rename_' + Date.now();
       fs.renameSync(oldPath, tmpPath);
@@ -477,14 +565,22 @@ function handleRenameFolder(ctx, oldName, newName) {
     }
     return { success: true };
   } catch (error) {
-    return { success: false, error: error.message };
+    const failure = folderWriteError(error, newPath);
+    // The source was checked above, so a missing path is the folder the move
+    // was aimed at, unless the length of the path is what the file system
+    // objected to.
+    if (failure !== 'path-too-long' && error.code === 'ENOENT') {
+      return { success: false, error: 'Target folder does not exist' };
+    }
+    return { success: false, error: failure };
   }
 }
 
-function handleDeleteFolder(ctx, folderName) {
-  const { fs, projectsDir, safeName, safeFilePath } = ctx;
+// Deletes the folder and everything below it, subfolders included.
+function handleDeleteFolder(ctx, folderId) {
+  const { fs, projectsDir, safeSegments, safeFilePath } = ctx;
   try {
-    const folderPath = safeFilePath(projectsDir, safeName(folderName));
+    const folderPath = safeFilePath(projectsDir, ...safeSegments(folderId));
     if (!fs.existsSync(folderPath)) return { success: false, error: 'Folder does not exist' };
     fs.rmSync(folderPath, { recursive: true, force: true });
     return { success: true };

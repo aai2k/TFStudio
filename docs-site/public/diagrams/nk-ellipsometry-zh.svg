@@ -1,10 +1,10 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="800" height="316" viewBox="0 0 800 316" role="img" aria-labelledby="t d">
-<title id="t">Reflection ellipsometry of one film</title>
-<desc id="d">Polarized light meets the coated face at a known angle from the normal. The detector reads the change in polarization of the reflected beam, which gives Psi and Delta. Nothing is measured in transmission.</desc>
+<title id="t">单层膜的反射式椭偏测量</title>
+<desc id="d">偏振光以相对法线的已知角度入射到镀膜面。探测器读取反射光束偏振态的变化，由此得到 Ψ 和 Δ。不测量透射。</desc>
 <style>
   /* No background is painted, so the page shows through in either theme, and
      the colours are read from the viewer's own light or dark setting. */
-  text { font-family: system-ui, -apple-system, "Segoe UI", Arial, sans-serif; fill: #1c3350; }
+  text { font-family: system-ui, "Microsoft YaHei", "PingFang SC", "Noto Sans SC", "Hiragino Sans GB", sans-serif; fill: #1c3350; }
   .dim { fill: #5a6b80; }
   .beam { stroke: #1b7fb5; fill: none; stroke-width: 3; }
   .rule { stroke: #8494a6; fill: none; }
@@ -31,12 +31,12 @@
 <path d="M345 40V150" class="rule" stroke-dasharray="4 4"/>
 <path d="M345 102A48 48 0 0 0 303 126" class="rule" stroke-width="2"/>
 <text x="312" y="96" font-size="18">&#952;</text>
-<text x="357" y="50" font-size="14" class="dim">Normal</text>
+<text x="357" y="50" font-size="14" class="dim">法线</text>
 
-<text x="86" y="30" font-size="16">Polarized light in</text>
-<text x="470" y="30" font-size="17" font-weight="600">&#936;, &#916; detector</text>
-<text x="614" y="167" font-size="16">Film: n, k, d</text>
-<text x="614" y="207" font-size="16">Substrate you know</text>
-<text x="26" y="278" font-size="15">Set the angle &#952; the instrument used. Nothing is measured in transmission.</text>
-<text x="26" y="300" font-size="13" class="dim">Not to scale.</text>
+<text x="76" y="30" font-size="16">偏振光入射</text>
+<text x="470" y="30" font-size="17" font-weight="600">&#936;、&#916; 探测器</text>
+<text x="614" y="167" font-size="16">薄膜：n、k、d</text>
+<text x="614" y="207" font-size="16">已知基底</text>
+<text x="26" y="278" font-size="15">角度 &#952; 按仪器实际使用值填写。不测量透射。</text>
+<text x="26" y="300" font-size="13" class="dim">非按比例。</text>
 </svg>

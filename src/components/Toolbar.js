@@ -738,6 +738,7 @@ function RibbonSearch({ c, t, tabs, onPick }) {
             h('input', {
                 value: query,
                 type: 'search',
+                className: 'tfs-search',
                 placeholder: t.toolbar.searchPlaceholder,
                 'aria-label': t.toolbar.searchPlaceholder,
                 onChange: (e) => { setQuery(e.target.value); setOpen(true); },

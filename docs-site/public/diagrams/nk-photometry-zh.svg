@@ -1,10 +1,10 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="800" height="366" viewBox="0 0 800 366" role="img" aria-labelledby="t d">
-<title id="t">R and T measured on one film on a glass slab polished on both faces</title>
-<desc id="d">Light enters from the film side. R is the beam reflected off the coating. T is the beam leaving after the uncoated rear face of the glass. The reflections bouncing inside the glass are part of what the window calculates.</desc>
+<title id="t">在两面抛光玻璃平板上测量单层膜的 R 与 T</title>
+<desc id="d">光从膜面入射。R 是从镀膜面反射出去的光束，T 是穿过未镀膜的玻璃背面之后出射的光束。玻璃内部往返的反射也计入本窗口的计算。</desc>
 <style>
   /* No background is painted, so the page shows through in either theme, and
      the colours are read from the viewer's own light or dark setting. */
-  text { font-family: system-ui, -apple-system, "Segoe UI", Arial, sans-serif; fill: #1c3350; }
+  text { font-family: system-ui, "Microsoft YaHei", "PingFang SC", "Noto Sans SC", "Hiragino Sans GB", sans-serif; fill: #1c3350; }
   .dim { fill: #5a6b80; }
   .beam { stroke: #1b7fb5; fill: none; stroke-width: 3; }
   .weak { stroke: #1b7fb5; fill: none; stroke-width: 2; stroke-dasharray: 6 5; }
@@ -33,16 +33,16 @@
 <path d="M338 272L360 174L382 272" class="weak" marker-end="url(#arrow)"/>
 <path d="M310 42V150" class="rule" stroke-dasharray="4 4"/>
 
-<text x="262" y="46" font-size="16" text-anchor="end">Light in, film side</text>
+<text x="262" y="46" font-size="16" text-anchor="end">光从膜面入射</text>
 <text x="354" y="48" font-size="17" font-weight="600">R</text>
 <text x="366" y="326" font-size="17" font-weight="600">T</text>
-<text x="310" y="34" font-size="14" text-anchor="middle" class="dim">Normal</text>
+<text x="310" y="34" font-size="14" text-anchor="middle" class="dim">法线</text>
 
-<text x="614" y="168" font-size="16">Film: n, k, d</text>
-<text x="614" y="214" font-size="16">Glass you know</text>
-<text x="614" y="236" font-size="14" class="dim">Polished on both faces</text>
-<path d="M597 271H630" class="rule"/><text x="638" y="276" font-size="14" class="dim">Uncoated</text>
-<text x="116" y="222" font-size="14" class="dim">Reflections inside the</text>
-<text x="116" y="242" font-size="14" class="dim">glass are included</text>
-<text x="26" y="354" font-size="13" class="dim">Not to scale.</text>
+<text x="614" y="168" font-size="16">薄膜：n、k、d</text>
+<text x="614" y="214" font-size="16">已知玻璃</text>
+<text x="614" y="236" font-size="14" class="dim">两面抛光</text>
+<path d="M597 271H630" class="rule"/><text x="638" y="276" font-size="14" class="dim">未镀膜</text>
+<text x="116" y="222" font-size="14" class="dim">玻璃内部的反射</text>
+<text x="116" y="242" font-size="14" class="dim">已计入计算</text>
+<text x="26" y="354" font-size="13" class="dim">非按比例。</text>
 </svg>

@@ -339,6 +339,13 @@ button:active {
     appearance: textfield;
 }
 
+/* Search fields draw their own themed clear button, so the browser's native one
+   is hidden rather than left sitting beside it as a second cross. */
+.tfs-search::-webkit-search-cancel-button {
+    -webkit-appearance: none;
+    appearance: none;
+}
+
 /* Measured-spectra import keeps controls/curves on the left and the comparison
    plot on the right. Both wrappers explicitly permit flex shrinking so the
    chart owns all horizontal space left after the established 380 px sidebar. */

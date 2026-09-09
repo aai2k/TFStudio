@@ -33,6 +33,7 @@ const appWindow = require('../src/main/ipc/appWindow.js');
         path: path.posix,
         projectsDir: '/projects',
         safeName: String,
+        safeSegments: (id) => String(id).split('/'),
         safeFilePath: path.posix.join,
     });
     const result = await handlers.get('rename-folder')(null, 'Foo', 'foo');

@@ -11,9 +11,12 @@
  *   • a line beginning with "SKIP" + exit 0 → SKIP (e.g. WASM tests when the
  *     kernel isn't built)
  *
- * BENCH set: long-running benchmarks / reporting tools (no strict pass-fail, or
- * heavy synthesis/global-optimizer runs). These are EXCLUDED from the default
- * suite so `npm test` stays fast. Run them explicitly with `--bench` / `--all`.
+ * BENCH set: two kinds of test that cost minutes rather than seconds. Reporting
+ * tools with no strict pass-fail (timings, cross-engine comparisons), and
+ * validation runs that do assert but drive a real fitter, synthesis or global
+ * optimizer to get their answer. Both are EXCLUDED from the default suite so
+ * `npm test` stays fast and no test approaches the per-test timeout on a shared
+ * CI runner. Run them explicitly with `--bench` / `--all`.
  * Move a filename in or out of BENCH below to recategorize it.
  *
  * Usage:
@@ -34,7 +37,7 @@ import { dirname, join } from 'node:path';
 const TESTS_DIR = dirname(fileURLToPath(import.meta.url));
 const PROJECT_ROOT = join(TESTS_DIR, '..');
 
-// ── Long-running benchmarks / reporting tools (excluded from default suite) ──
+// ── Long-running tests, excluded from the default suite (see the header) ──────
 const BENCH = new Set([
     'optimizer_benchmarks.mjs',       // reporting tool — no pass/fail, multi-engine timing
     'newton_perf.mjs',                // perf timing
@@ -45,6 +48,8 @@ const BENCH = new Set([
     'synthesis_single_seed_bbar.mjs', // single-layer-seed → BBAR GE/Structural (time-budgeted)
     'cone_angle_perf.mjs',            // cone-node cache before/after timing report
     'cone_angle_offload_perf.mjs',    // worker responsiveness under a heavy cone display job
+    'nk_characterization.mjs',        // n,k extraction checked against known films, a full fit per case
+    'nk_characterization_synthetic.mjs', // the same over synthetic measurements and the model set
 ]);
 
 // ── Arg parsing ──────────────────────────────────────────────────────────────

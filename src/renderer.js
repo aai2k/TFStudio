@@ -5,7 +5,10 @@ import { MessageNotification } from './components/ui/MessageNotification.js';
 import { TitleBar } from './components/TitleBar.js';
 import { Toolbar } from './components/Toolbar.js';
 import { ProjectExplorer } from './components/panels/ProjectExplorer.js';
-import { moveExplorerItems, updateExplorerItemMtime } from './components/panels/projectExplorerModel.js';
+import {
+    folderLeafName, folderSubtree, isFolderWithin, joinFolderId, moveExplorerItems,
+    parentFolderId, rehomeExplorerFolder, rehomedFolderId, updateExplorerItemMtime,
+} from './components/panels/projectExplorerModel.js';
 import { DockingLayout } from './components/docking/DockingLayout.js';
 import { SettingsModal } from './components/dialogs/settings/SettingsModal.js';
 import { InputDialog } from './components/dialogs/InputDialog.js';
@@ -223,18 +226,25 @@ function rekeyLayers(layers, ts, side) {
 
 // Single write path for .tfs files. Material definitions are attached here, at
 // the boundary, because the catalogs they come from live in the renderer and the
-// main process cannot see them.
-function writeDesignFile(folderName, design) {
-    return window.electronAPI.saveDesign(folderName, embedDesignMaterials(design));
+// main process cannot see them. The folder is named by its id, which is its path
+// under Projects.
+function writeDesignFile(folderId, design) {
+    return window.electronAPI.saveDesign(folderId, embedDesignMaterials(design));
 }
 
+// `failureMessage` may be a function of the error the main process returned,
+// for the cases where one operation can fail in more than one way worth telling
+// apart, such as a folder path too long for the file system.
 function useProjectPersistence(setMessageNotification, t) {
     return useCallback(async (operation, commit, failureMessage) => {
         const result = await persistThenCommit(operation, commit);
         if (!result.success) {
+            const message = typeof failureMessage === 'function'
+                ? failureMessage(result.error)
+                : failureMessage;
             setMessageNotification({
                 type: 'error',
-                message: failureMessage || t.dialogs.persistenceFailed,
+                message: message || t.dialogs.persistenceFailed,
             });
         }
         return result.success;
@@ -641,7 +651,7 @@ const App = () => {
         if (folder && window.electronAPI?.saveDesign) {
             const savedSnapshot = JSON.parse(JSON.stringify(targetDesign));
             return persistProjectChange(
-                () => writeDesignFile(folder.name, savedSnapshot),
+                () => writeDesignFile(folder.id, savedSnapshot),
                 () => {
                     diskDesignsRef.current[targetId] = savedSnapshot;
                     setFolders(current => updateExplorerItemMtime(current, targetId, Date.now()));
@@ -900,7 +910,7 @@ const App = () => {
 
         return persistProjectChange(
             window.electronAPI?.saveDesign
-                ? () => writeDesignFile(targetFolder.name, design)
+                ? () => writeDesignFile(targetFolder.id, design)
                 : null,
             () => {
                 diskDesignsRef.current[design.id] = JSON.parse(JSON.stringify(design));
@@ -928,7 +938,7 @@ const App = () => {
 
         return persistProjectChange(
             window.electronAPI?.saveDesign
-                ? () => writeDesignFile(targetFolder.name, design)
+                ? () => writeDesignFile(targetFolder.id, design)
                 : null,
             () => {
                 diskDesignsRef.current[design.id] = JSON.parse(JSON.stringify(design));
@@ -1090,7 +1100,7 @@ const App = () => {
                 const newItem = { id: newId, name, mtime: Date.now() };
                 const saved = await persistProjectChange(
                     window.electronAPI?.saveDesign
-                        ? () => writeDesignFile(folder.name, clone)
+                        ? () => writeDesignFile(folder.id, clone)
                         : null,
                     () => {
                         diskDesignsRef.current[newId] = JSON.parse(JSON.stringify(clone));
@@ -1129,7 +1139,7 @@ const App = () => {
         const newItem = { id: newId, name: newName, mtime: Date.now() };
         return persistProjectChange(
             window.electronAPI?.saveDesign
-                ? () => writeDesignFile(folder.name, clone)
+                ? () => writeDesignFile(folder.id, clone)
                 : null,
             () => {
                 diskDesignsRef.current[newId] = JSON.parse(JSON.stringify(clone));
@@ -1155,14 +1165,14 @@ const App = () => {
         // tree updates cannot retarget a later delete in the batch.
         const deletions = toRemove.map(item => {
             const folder = foldersRef.current.find(f => f.items.some(s => s.id === item.id));
-            return folder ? { item, folderName: folder.name, itemName: item.name } : null;
+            return folder ? { item, folderId: folder.id, itemName: item.name } : null;
         }).filter(Boolean);
 
         const removedIds = new Set();
         for (const d of deletions) {
             await persistProjectChange(
                 window.electronAPI?.deleteItem
-                    ? () => window.electronAPI.deleteItem(d.folderName, d.itemName)
+                    ? () => window.electronAPI.deleteItem(d.folderId, d.itemName)
                     : null,
                 () => removedIds.add(d.item.id),
             );
@@ -1197,7 +1207,7 @@ const App = () => {
         if (!item) return;
         return persistProjectChange(
             window.electronAPI?.deleteItem
-                ? () => window.electronAPI.deleteItem(folder.name, item.name)
+                ? () => window.electronAPI.deleteItem(folder.id, item.name)
                 : null,
             () => {
                 setFolders(prev => prev.map(f => f.id === folderId
@@ -1218,30 +1228,48 @@ const App = () => {
         );
     }, [persistProjectChange]);
 
-    const addFolder = useCallback(async () => {
+    // Windows caps the length of a directory path unless long paths are turned
+    // on, and nesting is what gets a project tree there. The main process
+    // answers with a code rather than a sentence, so the message is worded here.
+    const folderWriteFailure = useCallback(
+        (error) => (error === 'path-too-long' ? t.dialogs.folder.pathTooLong : null), [t]);
+
+    // A new project folder, at the top level or inside `parentFolder`. The name
+    // has to be free among that folder's siblings only: two folders under
+    // different parents are two directories and may share a name.
+    const addFolder = useCallback(async (parentFolder) => {
+        const parentId = parentFolder?.id || null;
+        const fd = t.dialogs.folder;
         setInputDialog({
-            title: 'New Project',
-            defaultValue: 'New Project',
+            title: parentId ? fd.newSubfolderTitle(parentFolder.name) : fd.newFolderTitle,
+            defaultValue: fd.newFolderName,
             validate: (name) => {
-                if (!name?.trim()) return 'Project name cannot be empty';
-                if (foldersRef.current.some(f => f.name.toLowerCase() === name.trim().toLowerCase()))
-                    return 'A project with this name already exists';
+                if (!name?.trim()) return fd.folderNameEmpty;
+                const id = joinFolderId(parentId, name.trim());
+                if (foldersRef.current.some(f => f.id.toLowerCase() === id.toLowerCase()))
+                    return fd.folderExists;
                 return '';
             },
             onConfirm: async (name) => {
                 if (name?.trim()) {
-                    const trimmedName = name.trim();
+                    const id = joinFolderId(parentId, name.trim());
                     const newFolder = {
-                        id: trimmedName, name: trimmedName, expanded: true, items: [],
+                        id, name: folderLeafName(id), expanded: true, items: [],
                     };
                     const created = await persistProjectChange(
                         window.electronAPI?.createFolder
-                            ? () => window.electronAPI.createFolder(trimmedName)
+                            ? () => window.electronAPI.createFolder(id)
                             : null,
                         () => {
-                            setFolders(prev => [...prev, newFolder]);
+                            // The parent is opened with it, or the new folder is
+                            // created out of sight.
+                            setFolders(prev => [
+                                ...prev.map(f => (f.id === parentId ? { ...f, expanded: true } : f)),
+                                newFolder,
+                            ]);
                             setSelectedFolder(newFolder);
                         },
+                        folderWriteFailure,
                     );
                     if (!created) return;
                 }
@@ -1249,7 +1277,7 @@ const App = () => {
             },
             onCancel: () => setInputDialog(null)
         });
-    }, [persistProjectChange]);
+    }, [persistProjectChange, folderWriteFailure, t]);
 
     const renameItem = useCallback(async (folderId, itemId, newName) => {
         const folder = foldersRef.current.find(f => f.id === folderId);
@@ -1266,7 +1294,7 @@ const App = () => {
         const updated = { ...item, name: newName };
         return persistProjectChange(
             window.electronAPI?.renameItem
-                ? () => window.electronAPI.renameItem(folder.name, oldName, newName)
+                ? () => window.electronAPI.renameItem(folder.id, oldName, newName)
                 : null,
             () => {
                 setFolders(prev => prev.map(f => f.id === folderId
@@ -1297,7 +1325,7 @@ const App = () => {
             const source = foldersRef.current.find(f => f.items.some(i => i.id === itemId));
             if (!source || source.id === targetFolderId) return null;
             const item = source.items.find(i => i.id === itemId);
-            return item ? { item, sourceName: source.name } : null;
+            return item ? { item, sourceId: source.id } : null;
         }).filter(Boolean);
         if (moves.length === 0) return false;
 
@@ -1316,7 +1344,7 @@ const App = () => {
         if (clash) {
             setMessageNotification({
                 type: 'error',
-                message: t.explorer.moveNameTaken(clash.item.name, target.name),
+                message: t.explorer.moveNameTaken(clash.item.name, target.id),
             });
             return false;
         }
@@ -1332,7 +1360,7 @@ const App = () => {
         for (const move of moves) {
             const result = await persistThenCommit(
                 window.electronAPI?.moveItem
-                    ? () => window.electronAPI.moveItem(move.sourceName, target.name, move.item.name)
+                    ? () => window.electronAPI.moveItem(move.sourceId, target.id, move.item.name)
                     : null,
                 () => {
                     movedIds.add(move.item.id);
@@ -1359,42 +1387,95 @@ const App = () => {
         return true;
     }, [selectedItem, t]);
 
+    // A folder id is its path, so renaming or moving one rewrites the ids of
+    // every folder below it. The tree is put in the ref as well as in state,
+    // for the same reason a design move is: a save fired before the render
+    // resolves its folder from the ref, and would otherwise write to the path
+    // the folder no longer has.
+    const applyFolderRehome = useCallback((folderId, newId) => {
+        const rehomed = rehomeExplorerFolder(foldersRef.current, folderId, newId);
+        foldersRef.current = rehomed;
+        // Applied to whatever the tree is when React commits, not to the copy
+        // taken above: a save committing in the same batch has its own update
+        // queued, and replacing the list outright would drop it.
+        setFolders(prev => rehomeExplorerFolder(prev, folderId, newId));
+        setSelectedFolder(prev => {
+            if (!prev) return prev;
+            const id = rehomedFolderId(prev.id, folderId, newId);
+            return id === prev.id ? prev : (rehomed.find(f => f.id === id) || prev);
+        });
+    }, []);
+
     const renameFolder = useCallback(async (folderId, newName) => {
         const folder = foldersRef.current.find(f => f.id === folderId);
         if (!folder) return;
+        const newId = joinFolderId(parentFolderId(folderId), newName);
+        // Compared without case on every platform, for the reason design names
+        // are (see designNaming.js): Windows reaches one directory from either
+        // spelling, and a data folder that relies on the difference stops making
+        // sense the moment it is opened there.
         const collides = foldersRef.current.some(candidate =>
-            candidate.id !== folderId && candidate.name.toLowerCase() === newName.toLowerCase());
+            candidate.id !== folderId && candidate.id.toLowerCase() === newId.toLowerCase());
         if (collides) {
             setMessageNotification({ type: 'error', message: t.dialogs.folder.folderExists });
             return false;
         }
-        const oldName = folder.name;
         return persistProjectChange(
             window.electronAPI?.renameFolder
-                ? () => window.electronAPI.renameFolder(oldName, newName)
+                ? () => window.electronAPI.renameFolder(folderId, newId)
+                : null,
+            () => applyFolderRehome(folderId, newId),
+            folderWriteFailure,
+        );
+    }, [persistProjectChange, applyFolderRehome, folderWriteFailure, t]);
+
+    // Move a project folder into another one, or back to the top level with a
+    // null parent. The folder keeps its name and everything below it; only
+    // where it sits changes, which on disk is one directory rename.
+    const moveFolder = useCallback(async (folderId, targetParentId) => {
+        const folder = foldersRef.current.find(f => f.id === folderId);
+        if (!folder) return false;
+        if (targetParentId !== null && !foldersRef.current.some(f => f.id === targetParentId)) return false;
+        // Into itself or into one of its own subfolders: the move would take
+        // its own destination with it.
+        if (targetParentId !== null && isFolderWithin(targetParentId, folderId)) return false;
+        const newId = joinFolderId(targetParentId, folder.name);
+        if (newId === folderId) return false;
+        if (foldersRef.current.some(f => f.id.toLowerCase() === newId.toLowerCase())) {
+            setMessageNotification({ type: 'error', message: t.dialogs.folder.folderExists });
+            return false;
+        }
+        return persistProjectChange(
+            window.electronAPI?.renameFolder
+                ? () => window.electronAPI.renameFolder(folderId, newId)
                 : null,
             () => {
-                setFolders(prev => prev.map(f =>
-                    f.id === folderId ? { ...f, id: newName, name: newName } : f));
-                setSelectedFolder(prev =>
-                    prev?.id === folderId ? { ...prev, id: newName, name: newName } : prev);
+                applyFolderRehome(folderId, newId);
+                // Opened, or the folder lands somewhere the user cannot see.
+                if (targetParentId !== null) {
+                    setFolders(prev => prev.map(f =>
+                        f.id === targetParentId ? { ...f, expanded: true } : f));
+                }
             },
+            (error) => folderWriteFailure(error) || t.explorer.moveFailed(folder.name),
         );
-    }, [persistProjectChange, t]);
+    }, [persistProjectChange, applyFolderRehome, folderWriteFailure, t]);
 
+    // Deleting a folder deletes everything below it, subfolders included.
     const removeFolder = useCallback(async (folderId) => {
         const folder = foldersRef.current.find(f => f.id === folderId);
         if (!folder) return;
-        const removedIds = new Set(folder.items.map(item => item.id));
+        const subtree = folderSubtree(foldersRef.current, folderId);
+        const removedIds = new Set(subtree.flatMap(f => f.items.map(item => item.id)));
         return persistProjectChange(
             window.electronAPI?.deleteFolder
-                ? () => window.electronAPI.deleteFolder(folder.name)
+                ? () => window.electronAPI.deleteFolder(folderId)
                 : null,
             () => {
-                setFolders(prev => prev.filter(f => f.id !== folderId));
+                setFolders(prev => prev.filter(f => !isFolderWithin(f.id, folderId)));
                 setSelectedFolder(prev => {
-                    if (prev?.id !== folderId) return prev;
-                    return foldersRef.current.find(f => f.id !== folderId) || null;
+                    if (!prev || !isFolderWithin(prev.id, folderId)) return prev;
+                    return foldersRef.current.find(f => !isFolderWithin(f.id, folderId)) || null;
                 });
                 setSelectedItem(prev => (removedIds.has(prev?.id) ? null : prev));
                 setSelectedItems(prev => prev.filter(item => !removedIds.has(item.id)));
@@ -1577,7 +1658,7 @@ const App = () => {
                     folders, selectedFolder, selectedItem, selectedItems,
                     handleItemClick, setSelectedFolder, toggleFolderExpanded,
                     addItem, duplicateItem, removeSelectedItems, removeItem, setInputDialog, addFolder,
-                    renameFolder, renameItem, removeFolder, moveItemsToFolder,
+                    renameFolder, renameItem, removeFolder, moveItemsToFolder, moveFolder,
                     dirtyDesigns,
                     c, t,
                     onOpenDesign: (item) => {
