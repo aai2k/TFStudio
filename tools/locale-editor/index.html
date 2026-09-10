@@ -493,7 +493,9 @@ async function save() {
     });
     const d = await r.json();
     if (!d.ok) { $('status').textContent = '❌ ' + d.error; $('save').disabled = false; return; }
-    $('status').textContent = `✓ saved ${d.written} change(s) · backup: ${d.backup.split(/[\\/]/).pop()}`;
+    $('status').textContent =
+      `✓ saved ${d.written} change(s) in ${d.files.join(', ')} · backed up ` +
+      d.backups.map((b) => b.split(/[\\/]/).pop()).join(', ');
     await load();
   } catch (err) {
     $('status').textContent = '❌ ' + err.message; $('save').disabled = false;

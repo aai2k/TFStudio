@@ -22,7 +22,7 @@ import path from 'node:path';
 import { parseMacleodDesign, isConstantIndexName } from '../src/utils/io/designImport/macleodDesign.js';
 import { buildImportedDesign } from '../src/utils/io/designImport/buildDesign.js';
 import { makeGetNK } from '../src/utils/materials/catalogManager/dispersion.js';
-import { getLocale } from '../src/constants/locales.js';
+import { getLocale } from '../src/constants/locales/index.js';
 
 let fails = 0;
 const ok = (cond, msg) => { console.log(`${cond ? '✓' : '✗'} ${msg}`); if (!cond) fails++; };

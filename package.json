@@ -90,7 +90,7 @@
       "src/main.js",
       "src/main/**/*",
       "src/preload.js",
-      "src/constants/locales.js",
+      "src/constants/locales/**/*",
       "node_modules/**/*",
       "!node_modules/tmmcore/**/*",
       "icons/**/*",

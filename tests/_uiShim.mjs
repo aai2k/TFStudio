@@ -56,7 +56,7 @@ let _app = null;
 export async function loadApp() {
     if (_app) return _app;
     const [{ getLocale }, { DesignContext }] = await Promise.all([
-        import('../src/constants/locales.js'),
+        import('../src/constants/locales/index.js'),
         import('../src/state/DesignContext.js'),
     ]);
     _app = { getLocale, DesignContext };

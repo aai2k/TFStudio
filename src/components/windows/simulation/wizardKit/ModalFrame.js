@@ -6,7 +6,7 @@
  * differ in their help anchor (`helpAnchor`) and page count (`pages`).
  */
 
-import { getCurrentLocale } from '../../../../constants/locales.js';
+import { getCurrentLocale } from '../../../../constants/locales/index.js';
 import { EvalModeBadge }    from '../../../SurfaceModeBar.js';
 
 const { createElement: h } = React;

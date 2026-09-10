@@ -82,7 +82,7 @@ to the kernel itself belong in that repository.
 | `src/utils/materials/` | Dispersion models, material database, catalog management |
 | `src/utils/workers/` | Web Worker pool for refinement, needle, gradual evolution |
 | `src/components/` | React UI (windows, panels, dialogs) |
-| `src/constants/locales.js` | All user-facing strings (English, Russian, Chinese) |
+| `src/constants/locales/` | All user-facing strings, one file per language (English, Russian, Chinese, Italian) |
 | `src/main/` | Electron main process |
 | `tests/` | Node-based test suite and numerical validations |
 | `docs-site/` | User documentation (Astro Starlight) |
@@ -138,7 +138,7 @@ be asked for one before review can continue.
 - The renderer is ES modules; the Electron main process is CommonJS. Keep to the
   convention of the file you are editing.
 - **Don't hardcode user-facing text.** UI strings go through the localization
-  system (`t.*`, backed by `src/constants/locales.js`); add the English string
+  system (`t.*`, backed by `src/constants/locales/`); add the English string
   there and leave the other locales to be filled in separately.
 - Keep changes focused. Unrelated refactors in the same PR make review harder.
 - Do not commit build output, logs, `node_modules`, or personal editor/config files.

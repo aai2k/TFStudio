@@ -1,5 +1,5 @@
 // Preferences → Language: interface locale.
-import { availableLocales } from '../../../constants/locales.js';
+import { availableLocales } from '../../../constants/locales/index.js';
 import { Row, selectStyle } from './ui.js';
 
 const { createElement: h } = React;

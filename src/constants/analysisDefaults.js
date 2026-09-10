@@ -431,7 +431,7 @@ export const ANALYSIS_DEFAULTS = {
   report: {
     enums: {
       paper: { def: 'A4', options: ['A4', 'Letter'] },
-      lang: { def: 'app', options: ['app', 'en', 'ru', 'zh'] },
+      lang: { def: 'app', options: ['app', 'en', 'ru', 'zh', 'it'] },
     },
   },
 };

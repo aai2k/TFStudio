@@ -17,7 +17,7 @@ await loadApp();
 const { meritOperandsSummary } = await import('../src/utils/report/reportData/sectionData.js');
 const { buildMerit } = await import('../src/utils/report/sections/otherSections.js');
 const { DASH } = await import('../src/utils/report/sections/format.js');
-const { getLocale } = await import('../src/constants/locales.js');
+const { getLocale } = await import('../src/constants/locales/index.js');
 
 const design = {
   meritOperands: [

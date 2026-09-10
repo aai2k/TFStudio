@@ -14,7 +14,7 @@ await loadApp();
 const { buildBlock, buildComparisonBlock, hasComparisonForm, rendersOnce } = await import('../src/utils/report/sections.js');
 const { gatherDesignData } = await import('../src/utils/report/reportData.js');
 const { BLOCK_TYPES, newBlock } = await import('../src/utils/report/blocks.js');
-const { getLocale } = await import('../src/constants/locales.js');
+const { getLocale } = await import('../src/constants/locales/index.js');
 
 const loc = getLocale('en');
 const tr = { ...loc.report, kinds: (loc.specification && loc.specification.kinds) || {} };

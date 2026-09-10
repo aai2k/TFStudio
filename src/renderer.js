@@ -1,6 +1,6 @@
 import { getPalette, getPaletteNames, registerCustomThemes, isBuiltInName } from './constants/colorPalettes.js';
 import { parseVscodeTheme } from './utils/theme/vscodeTheme.js';
-import { getLocale, getCurrentLocale, saveLocale } from './constants/locales.js';
+import { getLocale, getCurrentLocale, saveLocale } from './constants/locales/index.js';
 import { MessageNotification } from './components/ui/MessageNotification.js';
 import { TitleBar } from './components/TitleBar.js';
 import { Toolbar } from './components/Toolbar.js';

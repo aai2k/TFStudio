@@ -9,7 +9,7 @@
 // component owns no app state. All display text comes from `t.welcome.*`.
 
 import { getPaletteNames } from '../../constants/colorPalettes.js';
-import { availableLocales } from '../../constants/locales.js';
+import { availableLocales } from '../../constants/locales/index.js';
 import APP_ICON from '../../constants/icon.js';
 
 const { createElement: h, useState, useEffect } = React;

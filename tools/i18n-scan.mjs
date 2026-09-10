@@ -1,17 +1,18 @@
 /**
- * i18n completeness scan — Phase 15.3 (extended to all registered locales).
+ * i18n completeness scan over every registered locale.
  *
- * Walks the `en` locale tree (src/constants/locales.js) as the reference and
+ * Walks the `en` locale tree (src/constants/locales/index.js) as the reference and
  * compares every other registered locale (`availableLocales` minus `en`)
  * against it, reporting per language:
  *   • keys present in EN but MISSING in the locale (untranslated)
  *   • keys present in the locale but EXTRA (not in EN) (stale / typo)
- *   • TYPE MISMATCHES (string vs function vs object) — e.g. a dynamic
+ *   • TYPE MISMATCHES (string vs function vs object): e.g. a dynamic
  *     `t.foo.bar(x)` function in EN but a plain string elsewhere (would crash
  *     when called) or vice-versa.
- *   • EMPTY placeholders — string leaves that are '' (e.g. a freshly generated
- *     zh template). Reported for visibility, but NOT counted as a structural
- *     gap, so a scaffolded template does not fail the scan.
+ *   • EMPTY placeholders: string leaves that are '' where English is not.
+ *     Reported for visibility, but NOT counted as a structural gap, so a
+ *     scaffolded template does not fail the scan. Keys English deliberately
+ *     leaves blank (a blank column header, a unit-less suffix) are not flagged.
  *   • ESCAPED LINE BREAKS: a locale uses a literal `\\n` where English uses
  *     a real line break, which would render the two characters on screen.
  *
@@ -20,14 +21,14 @@
  * Run: npm run i18n:scan   (or: node tools/i18n-scan.mjs)
  * Exit 0 = structurally complete, 1 = gaps found.
  *
- * NOT part of `npm test`: some EN keys are intentionally left untranslated
- * (technical terms). This is a diagnostic to catch *accidental* new gaps, not a
- * release gate. Fill strings via `npm run locale-editor`.
+ * `tests/i18n_completeness.mjs` runs this as part of `npm test`, so a new EN
+ * string that no other locale defines fails the suite. Fill strings via
+ * `npm run locale-editor`.
  */
 
-import { getLocale, availableLocales } from '../src/constants/locales.js';
+import { localeSources, availableLocales } from '../src/constants/locales/index.js';
 
-const en = getLocale('en');
+const en = localeSources.en;
 const langs = availableLocales.map((l) => l.code).filter((c) => c !== 'en');
 
 const typeOf = (v) =>
@@ -45,7 +46,7 @@ function walk(a, b, path, stats) {
             if (a[k].length !== b[k].length)
                 stats.mismatch.push(`${p}  (fn arity en:${a[k].length} ${stats.lang}:${b[k].length})`);
         } else {
-            if (b[k] === '') stats.empty.push(p);
+            if (b[k] === '' && a[k] !== '') stats.empty.push(p);
             if (typeof a[k] === 'string' && typeof b[k] === 'string' &&
                 a[k].includes('\n') && b[k].includes('\\n')) {
                 stats.escapedLineBreak.push(p);
@@ -75,7 +76,7 @@ const enLeaves = (function count(o) {
     return n;
 })(en);
 
-console.log(`i18n completeness scan — ${enLeaves} EN leaf strings, ${langs.length + 1} locales (en + ${langs.join(', ')})\n`);
+console.log(`i18n completeness scan: ${enLeaves} EN leaf strings, ${langs.length + 1} locales (en + ${langs.join(', ')})\n`);
 
 const section = (title, arr) => {
     if (!arr.length) { console.log(`✓ ${title}: none`); return; }
@@ -88,7 +89,7 @@ const section = (title, arr) => {
 let total = 0;
 for (const code of langs) {
     const stats = { lang: code, missing: [], extra: [], mismatch: [], empty: [], escapedLineBreak: [] };
-    walk(en, getLocale(code), '', stats);
+    walk(en, localeSources[code] || {}, '', stats);
 
     console.log(`── ${code} ──`);
     section(`MISSING in ${code.toUpperCase()} (untranslated)`, stats.missing);

@@ -176,7 +176,7 @@ function generatedLine({ tr, meta, designs }) {
  * Compose the full report document.
  *
  * @param {object} args
- *   lang      'en' | 'ru' | 'zh'  (sets <html lang>)
+ *   lang      'en' | 'ru' | 'zh' | 'it'  (sets <html lang>)
  *   tr        t.report locale object
  *   brand     { company, line2, accent, footer, designer, logoDataUrl }
  *   doc       { title, customer, docNo, revision, date, designer }

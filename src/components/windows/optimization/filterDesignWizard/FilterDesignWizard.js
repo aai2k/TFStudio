@@ -17,7 +17,7 @@
  * Reference: example LEC25D9-1.
  */
 
-import { getCurrentLocale } from '../../../../constants/locales.js';
+import { getCurrentLocale } from '../../../../constants/locales/index.js';
 import { useFilterDesign } from './useFilterDesign.js';
 import { StepMaterials } from './StepMaterials.js';
 import { StepParams } from './StepParams.js';

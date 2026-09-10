@@ -162,7 +162,7 @@ for (const windowId of WINDOWS) {
 
 // ── Every setting has a label in both languages ──────────────────────────────
 {
-    const { getLocale } = await import('../src/constants/locales.js');
+    const { getLocale } = await import('../src/constants/locales/index.js');
     for (const [name, locale] of [['en', getLocale('en')], ['ru', getLocale('ru')]]) {
         for (const windowId of WINDOWS) {
             for (const key of registryKeys(windowId)) {

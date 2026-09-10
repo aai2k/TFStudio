@@ -1,7 +1,7 @@
 // Localization editor server.
 //   GET  /            -> the table UI
 //   GET  /api/data    -> parsed model (rows, languages)
-//   POST /api/save    -> apply edits surgically to locales.js, validate, write
+//   POST /api/save    -> apply edits surgically to the locale files, validate, write
 //
 // Run:  node tools/locale-editor/server.js   (then open http://localhost:4178)
 
@@ -12,7 +12,7 @@ import { dirname, join, resolve } from 'node:path';
 import { buildModel, applyEdits, validateSource } from './locales-model.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
-const LOCALES_PATH = resolve(__dirname, '../../src/constants/locales.js');
+const LOCALES_DIR = resolve(__dirname, '../../src/constants/locales');
 const BACKUP_DIR = join(__dirname, 'backups');
 const PORT = process.env.PORT ? Number(process.env.PORT) : 4178;
 
@@ -48,10 +48,10 @@ const server = createServer(async (req, res) => {
     }
 
     if (req.method === 'GET' && url.pathname === '/api/data') {
-      const model = buildModel(LOCALES_PATH);
+      const model = buildModel(LOCALES_DIR);
       sendJSON(res, 200, {
         ok: true,
-        path: LOCALES_PATH,
+        path: LOCALES_DIR,
         languages: model.languages,
         rows: model.rows,
       });
@@ -65,22 +65,29 @@ const server = createServer(async (req, res) => {
         sendJSON(res, 400, { ok: false, error: 'No edits provided.' });
         return;
       }
-      // Rebuild model from the CURRENT file so offsets are fresh.
-      const model = buildModel(LOCALES_PATH);
-      let newSrc;
+      // Rebuild model from the CURRENT files so offsets are fresh.
+      const model = buildModel(LOCALES_DIR);
+      let written;
       try {
-        newSrc = applyEdits(model, edits);
-        validateSource(newSrc);
+        written = applyEdits(model, edits);
+        // Validate every file before writing any, so a bad edit to one language
+        // cannot leave the folder half-updated.
+        for (const w of written) validateSource(w.source);
       } catch (err) {
         sendJSON(res, 400, { ok: false, error: `Edit produced invalid JS: ${err.message}` });
         return;
       }
-      // Backup, then write.
+      // Back up each language this save touches, then write it.
       if (!existsSync(BACKUP_DIR)) mkdirSync(BACKUP_DIR, { recursive: true });
-      const bak = join(BACKUP_DIR, `locales.${timestamp()}.js`);
-      copyFileSync(LOCALES_PATH, bak);
-      writeFileSync(LOCALES_PATH, newSrc, 'utf8');
-      sendJSON(res, 200, { ok: true, written: edits.length, backup: bak });
+      const stamp = timestamp();
+      const backups = [];
+      for (const w of written) {
+        const bak = join(BACKUP_DIR, `${w.lang}.${stamp}.js`);
+        copyFileSync(w.path, bak);
+        writeFileSync(w.path, w.source, 'utf8');
+        backups.push(bak);
+      }
+      sendJSON(res, 200, { ok: true, written: edits.length, files: written.map((w) => w.lang), backups });
       return;
     }
 
@@ -108,7 +115,7 @@ function listen(port, attemptsLeft) {
   });
   server.listen(port, () => {
     console.log(`\n  TFStudio Localization Editor`);
-    console.log(`  editing: ${LOCALES_PATH}`);
+    console.log(`  editing: ${LOCALES_DIR}`);
     console.log(`  open:    http://localhost:${port}\n`);
   });
 }

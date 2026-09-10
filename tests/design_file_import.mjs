@@ -27,7 +27,7 @@ import { makeGetNK } from '../src/utils/materials/catalogManager/dispersion.js';
 import { designMaterialLookup, unresolvedMaterials } from '../src/utils/materials/designMaterials.js';
 import { evaluateSpectrum } from '../src/utils/physics/thinFilmMath.js';
 import { resolveEvalMode } from '../src/utils/physics/optimizer/evalCore.js';
-import { getLocale } from '../src/constants/locales.js';
+import { getLocale } from '../src/constants/locales/index.js';
 import {
     parseDesignFiles, programForExtension, batchMaterialNames, designMaterialNames, DESIGN_FILE_EXTENSIONS, materialKey, sourceIndexOf,
 } from '../src/utils/io/designImport/designFileImport.js';

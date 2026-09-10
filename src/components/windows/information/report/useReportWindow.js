@@ -12,7 +12,7 @@
 import { useDesign } from '../../../../state/DesignContext.js';
 import { useLiveDesign } from '../../../../state/useLiveDesign.js';
 import { useWindowSession } from '../../windowSession.js';
-import { getLocale, getCurrentLocale } from '../../../../constants/locales.js';
+import { getLocale, getCurrentLocale } from '../../../../constants/locales/index.js';
 import { BUILTIN_TEMPLATES, DEFAULT_TEMPLATE_ID, blocksFromTemplate } from '../../../../utils/report/blocks.js';
 import { gatherDesignData } from '../../../../utils/report/reportData.js';
 import { composeReport } from '../../../../utils/report/template.js';

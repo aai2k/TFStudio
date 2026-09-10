@@ -14,7 +14,7 @@
 
 import { AnalysisWindow, ControlRow } from '../../analysis/chrome/layout.js';
 import { Divider, FieldLabel, ChoiceGroup, SelectField } from '../../analysis/chrome/controls.js';
-import { availableLocales } from '../../../../constants/locales.js';
+import { availableLocales } from '../../../../constants/locales/index.js';
 import { PAPERS } from '../../../../utils/report/template.js';
 import { useReportWindow } from './useReportWindow.js';
 import { BlockRail } from './BlockRail.js';

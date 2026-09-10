@@ -17,7 +17,7 @@ await loadApp();
 const { gatherDesignData } = await import('../src/utils/report/reportData.js');
 const { composeReport } = await import('../src/utils/report/template.js');
 const { BLOCK_TYPES, newBlock } = await import('../src/utils/report/blocks.js');
-const { getLocale } = await import('../src/constants/locales.js');
+const { getLocale } = await import('../src/constants/locales/index.js');
 
 const blocks = BLOCK_TYPES.map(spec => newBlock(spec.type, settings[spec.type]));
 const idOf = type => blocks.find(b => b.type === type).id;

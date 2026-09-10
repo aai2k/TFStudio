@@ -17,7 +17,7 @@ const {
   BLOCK_TYPES, BUILTIN_TEMPLATES, BUILTIN_TYPES, blocksFromTemplate, newBlock, convertLegacyPreset,
   normalizeTemplate, templateFromBlocks, withDefaults,
 } = await import('../src/utils/report/blocks.js');
-const { getLocale } = await import('../src/constants/locales.js');
+const { getLocale } = await import('../src/constants/locales/index.js');
 const { gatherDesignData } = await import('../src/utils/report/reportData.js');
 const { composeReport, pdfHeaderTemplate, pdfFooterTemplate, reportFileBase } =
   await import('../src/utils/report/template.js');
