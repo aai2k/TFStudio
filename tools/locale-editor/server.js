@@ -25,7 +25,12 @@ function sendJSON(res, status, obj) {
 function readBody(req) {
   return new Promise((resolve, reject) => {
     let data = '';
-    req.on('data', (c) => { data += c; if (data.length > 50e6) req.destroy(); });
+    req.on('data', (c) => {
+      data += c;
+      // Destroying the request never emits 'end', so reject here or the handler
+      // waits forever on a body that will not arrive.
+      if (data.length > 50e6) { req.destroy(); reject(new Error('Request body too large.')); }
+    });
     req.on('end', () => resolve(data));
     req.on('error', reject);
   });
@@ -100,20 +105,25 @@ const server = createServer(async (req, res) => {
 
 // Listen, and if the port is busy, walk forward to the next free one so a
 // stray previous instance never blocks startup. Set PORT to force a fixed port.
+//
+// Loopback only. /api/save takes no credentials and rewrites files the app
+// imports and runs, so it must not be reachable from the network.
+const HOST = '127.0.0.1';
+
 function listen(port, attemptsLeft) {
   server.once('error', (err) => {
     if (err.code === 'EADDRINUSE' && attemptsLeft > 0) {
-      console.log(`  port ${port} busy — trying ${port + 1}…`);
+      console.log(`  port ${port} busy, trying ${port + 1}…`);
       listen(port + 1, attemptsLeft - 1);
     } else if (err.code === 'EADDRINUSE') {
       console.error(`\n  Could not bind a port near ${PORT}. ` +
-        `Another locale-editor is probably already running — open it, or stop it first.\n`);
+        `Another locale-editor is probably already running: open it, or stop it first.\n`);
       process.exit(1);
     } else {
       throw err;
     }
   });
-  server.listen(port, () => {
+  server.listen(port, HOST, () => {
     console.log(`\n  TFStudio Localization Editor`);
     console.log(`  editing: ${LOCALES_DIR}`);
     console.log(`  open:    http://localhost:${port}\n`);

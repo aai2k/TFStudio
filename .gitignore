@@ -64,3 +64,8 @@ build/seed/agf/*
 !build/seed/agf/schott2025.AGF
 !build/seed/library/
 
+# Locale-editor safety copies. Every save writes one file per language it
+# touched (tools/locale-editor/server.js), so a translation session leaves
+# dozens of near-identical copies of the locale sources here.
+tools/locale-editor/backups/
+

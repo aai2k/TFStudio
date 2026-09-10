@@ -233,10 +233,19 @@ export function applyEdits(model, edits) {
     for (const it of inserts) {
       const segs = it.path.split('.');
       let ancestorPath = '';
-      // Find deepest existing ancestor object.
+      // Find deepest existing ancestor object. A parent that exists as a LEAF in
+      // this language (a string where English has a block) is not a container to
+      // insert into: writing the child anyway would emit a second property with
+      // the parent's name further up and silently shadow the existing one.
       for (let i = 0; i < segs.length - 1; i++) {
         const cand = segs.slice(0, i + 1).join('.');
-        if (L.objects.has(cand)) ancestorPath = cand; else break;
+        if (L.objects.has(cand)) { ancestorPath = cand; continue; }
+        if (L.leaves.has(cand)) {
+          throw new Error(
+            `Cannot add ${it.path} to ${lang}: ${cand} is a value there, not a block. ` +
+            `Fix ${cand} first (npm run i18n:scan reports it as a type mismatch).`);
+        }
+        break;
       }
       const node = L.objects.get(ancestorPath);
       if (!node) throw new Error(`No insertion point for ${it.path} in ${lang}`);

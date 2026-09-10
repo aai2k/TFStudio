@@ -1254,7 +1254,7 @@ export default {
     yAuto: 'Auto',
   },
   riiDatabase: {
-    title: 'RefractiveIndex.info material browser',
+    title: 'RefractiveIndex.info Material Browser',
     searchPlaceholder: 'Search by material name…',
     searchHint: 'Type to search the database',
     loading: 'Loading catalog…',
@@ -1855,7 +1855,7 @@ export default {
     dlsIter:      'Refine iter / gen',
     mfTrend:      'MF Trend',
     noTrendYet:   'Run to see the merit-function trend.',
-    scanPlot:     'Needle scan: ΔMF per position',
+    scanPlot:     'Needle Scan: ΔMF per position',
     generations:  'Accepted Improvements',
     topDesigns:   'Top Designs (Pareto: fewest layers & best MF)',
     genCol:       'Gen',

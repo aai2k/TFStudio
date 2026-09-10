@@ -21,6 +21,11 @@ const { efieldOption, efieldSeries } =
 const { plotMargin } =
     await import('../src/components/windows/analysis/chrome/plot.js');
 
+// Curve names and axis titles are display text, so they come from the locale
+// rather than from the chart and table modules.
+const { getLocale } = await import('../src/constants/locales/index.js');
+const ef = getLocale('en').eField;
+
 function legacyMaterial(id) {
     if (!id) return getMaterial('Air');
     return getMaterialById(id) || getMaterial(id) || getMaterial('Air');
@@ -80,19 +85,21 @@ assert.deepEqual(back.validLayers.map(layer => layer.d), [40, 60]);
 const summary = buildProfileViewModel(front, 'avg');
 assert.equal(summary.layerCount, 2);
 assert.equal(summary.totalThkNm, '190.0');
-const table = buildProfileTable(front, 'avg');
+const table = buildProfileTable(front, 'avg', ef);
 assert.deepEqual(table.columns.map(column => column.label), [
-    'z (nm)', '|E|² (avg)', '|E|² (s)', '|E|² (p)',
+    'z (nm)', ef.labelAvg, ef.labelS, ef.labelP,
 ]);
 assert.equal(table.rows.length, front.avg.z.length);
 assert.equal(table.rows[7].c0, front.avg.e2[7] * 100);
 
-const series = efieldSeries(front, 'avg');
-assert.deepEqual(series.map(item => item.name), ['|E|² (avg)', '|E|² (s)', '|E|² (p)']);
+const series = efieldSeries(front, 'avg', undefined, ef);
+assert.deepEqual(series.map(item => item.name), [ef.labelAvg, ef.labelS, ef.labelP]);
 assert.deepEqual(series[0].data.map(point => point[1]), front.avg.e2.map(value => value * 100));
 const option = efieldOption(front, 'avg', {}, {
     bgColor: '#1', paperColor: '#2', gridColor: '#3', textColor: '#4', accentColor: '#5',
-});
+}, { tr: ef });
+assert.equal(option.xAxis.name, ef.xAxisTitle);
+assert.equal(option.yAxis.name, ef.yAxisTitle);
 assert.deepEqual([option.xAxis.min, option.xAxis.max], [0, 190]);
 // Shared margin and axis-title treatment. The Results strip sits directly under
 // this plot, so a title without the standoff ends up against it.

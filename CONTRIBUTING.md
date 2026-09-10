@@ -89,7 +89,7 @@ to the kernel itself belong in that repository.
 
 ### Tests
 
-TFStudio ships an extensive test suite with in [`tests/`](./tests),
+TFStudio ships an extensive test suite in [`tests/`](./tests),
 covering the optical engine, optimizer and synthesis, material models, file I/O, and
 UI logic, including numerical validations against reference values. Please lean on it:
 

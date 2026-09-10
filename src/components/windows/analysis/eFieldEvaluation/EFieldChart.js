@@ -4,7 +4,7 @@ import { useAnalysisColors } from '../../../../state/AnalysisSettingsContext.js'
 
 const { createElement: h, useEffect, useRef } = React;
 
-export function EFieldChart({ profileData, pol, matColorMap, c }) {
+export function EFieldChart({ profileData, pol, matColorMap, c, ef }) {
     const divRef = useRef(null);
     const chartRef = useRef(null);
     const curve = useAnalysisColors('eFieldEvaluation');
@@ -18,7 +18,7 @@ export function EFieldChart({ profileData, pol, matColorMap, c }) {
 
     useEffect(() => {
         drawChart(divRef.current, chartRef,
-            efieldOption(profileData, pol, matColorMap, colors, curve));
+            efieldOption(profileData, pol, matColorMap, colors, { curve, tr: ef }));
     });
 
     useChartTeardown(divRef, chartRef);

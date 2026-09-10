@@ -30,26 +30,34 @@ const locales = { en, ru, zh, it };
 // actually missing, which the merge in `getLocale` would hide.
 export const localeSources = locales;
 
+// The kind of one node in the tree. This is the single definition of "shape"
+// used by the fill-in below, by `npm run i18n:scan` and by the completeness
+// test, so all three agree on what counts as a difference.
+//
+// An array is NOT an object here. The tutorial step lists are arrays and the
+// tutorial player iterates them, so a locale that writes one as a plain object
+// keyed 0..n carries every string through intact and still breaks the window.
+// A checker that lumps the two together cannot see that.
+export function nodeShape(value) {
+  if (Array.isArray(value)) return 'array';
+  if (value === null) return 'null';
+  // 'function', 'object', 'string', and the number/boolean a locale must never hold.
+  return value === undefined ? 'missing' : typeof value;
+}
+
 // A locale may be partial. Any key it does not define is served from English, so
 // a half-filled translation renders English text instead of blank labels, and a
 // missing nested block cannot throw on property access. Keys the locale defines
 // win even when the value is an empty string, because English uses '' in a few
-// places on purpose. Keys absent from English are dropped.
-//
-// An array in the tree (the tutorial step lists) stays an array: the tutorial
-// player iterates it, so a merge that returned a plain object keyed 0..n would
-// pass every string through intact and still break the window.
+// places on purpose. Keys absent from English are dropped, and so is a locale
+// branch whose shape disagrees with English.
 function mergeWithEnglish(englishNode, localeNode) {
   const out = Array.isArray(englishNode) ? [] : {};
   for (const [key, englishValue] of Object.entries(englishNode)) {
-    const isBranch = englishValue && typeof englishValue === 'object';
+    const englishShape = nodeShape(englishValue);
     const localeValue = localeNode ? localeNode[key] : undefined;
-    if (isBranch) {
-      const localeBranch =
-        localeValue && typeof localeValue === 'object' &&
-        Array.isArray(localeValue) === Array.isArray(englishValue)
-          ? localeValue
-          : null;
+    if (englishShape === 'object' || englishShape === 'array') {
+      const localeBranch = nodeShape(localeValue) === englishShape ? localeValue : null;
       out[key] = mergeWithEnglish(englishValue, localeBranch);
     } else {
       out[key] = localeNode && key in localeNode ? localeValue : englishValue;

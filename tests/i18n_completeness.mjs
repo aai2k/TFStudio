@@ -1,17 +1,18 @@
 /**
  * Two things must hold for every registered locale.
  *
- * 1. It defines every key the English tree defines. A missing key renders blank
- *    or English text, and a function-valued key whose arity does not match
- *    throws when it is called. `tools/i18n-scan.mjs` checks the locale files as
- *    written; this runs it and requires exit 0. Run `npm run i18n:scan` directly
- *    to read the full per-locale report.
+ * 1. Each locale file, AS WRITTEN, defines every key the English tree defines
+ *    with the same shape. A missing key renders blank or English text, a
+ *    function-valued key whose arity does not match throws when it is called,
+ *    and a step list written as an object keyed 0..n instead of an array is
+ *    dropped by the fill-in so the lesson silently reverts to English.
+ *    `tools/i18n-scan.mjs` checks the unmerged sources; this runs it and
+ *    requires exit 0. Run `npm run i18n:scan` directly for the full report.
  *
- * 2. What `getLocale` hands a component has the same SHAPE as English. That is a
- *    separate claim from (1): the English fill-in in `constants/locales/index.js`
- *    rebuilds the tree, and a rebuild that turns the tutorial step arrays into
- *    plain objects keyed 0..n passes every string through intact while breaking
- *    every window that iterates one.
+ * 2. What `getLocale` hands a component has the same shape as English. That is a
+ *    separate claim from (1): (1) covers the locale files, (2) covers the
+ *    English fill-in that rebuilds the tree on top of them. Both use `nodeShape`
+ *    from the registry, so there is one definition of a shape difference.
  */
 import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
@@ -36,14 +37,7 @@ assert.equal(scan.status, 0, 'locales are structurally incomplete (see the repor
 
 // ── 2. The merged tree keeps the English shape ────────────────────────────────
 
-const { getLocale, availableLocales } = await import('../src/constants/locales/index.js');
-
-const shapeOf = (v) => {
-    if (typeof v === 'function') return 'function';
-    if (Array.isArray(v)) return 'array';
-    if (v && typeof v === 'object') return 'object';
-    return 'string';
-};
+const { getLocale, availableLocales, nodeShape } = await import('../src/constants/locales/index.js');
 
 const en = getLocale('en');
 let checked = 0;
@@ -52,25 +46,25 @@ function compare(enNode, node, path, code) {
     for (const [key, enValue] of Object.entries(enNode)) {
         const p = path ? `${path}.${key}` : key;
         const got = node?.[key];
-        assert.equal(shapeOf(got), shapeOf(enValue), `${code}: ${p} is ${shapeOf(got)}, English has ${shapeOf(enValue)}`);
-        if (shapeOf(enValue) === 'array') {
+        const want = nodeShape(enValue);
+        assert.equal(nodeShape(got), want, `${code}: ${p} is ${nodeShape(got)}, English has ${want}`);
+        if (want === 'array') {
             assert.equal(got.length, enValue.length, `${code}: ${p} has ${got.length} items, English has ${enValue.length}`);
         }
-        if (shapeOf(enValue) === 'function') {
+        if (want === 'function') {
             assert.equal(got.length, enValue.length, `${code}: ${p} takes ${got.length} args, English takes ${enValue.length}`);
         }
-        if (enValue && typeof enValue === 'object' && typeof enValue !== 'function') {
-            compare(enValue, got, p, code);
-        }
+        if (want === 'object' || want === 'array') compare(enValue, got, p, code);
         checked++;
     }
 }
 
-for (const { code } of availableLocales) {
-    compare(en, getLocale(code), '', code);
-}
+// English is the reference, and `getLocale('en')` hands back that very object, so
+// comparing it with itself would assert nothing.
+const translated = availableLocales.map((l) => l.code).filter((c) => c !== 'en');
+for (const code of translated) compare(en, getLocale(code), '', code);
 
 console.log(
-    `i18n: ${availableLocales.length} locales define the full English key tree, ` +
+    `i18n: ${translated.length} translated locales define the full English key tree, ` +
     `and ${checked} merged nodes keep its shape.`
 );

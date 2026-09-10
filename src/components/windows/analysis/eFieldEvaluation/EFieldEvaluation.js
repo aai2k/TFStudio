@@ -23,7 +23,7 @@ export function EFieldEvaluation({ c, theme, t }) {
     const dt = t.dataTable;
     const { design } = useDesign();
     const state = useEFieldState(design);
-    const table = buildProfileTable(state.profile, state.pol) || EMPTY_TABLE;
+    const table = buildProfileTable(state.profile, state.pol, ef) || EMPTY_TABLE;
     const rangeNotice = useMaterialLambdaNotice(design, state.lambda, t, state.setLambda);
     const csv = useCsvExport(
         () => csvFromRows(table.columns, table.rows),
@@ -38,7 +38,7 @@ export function EFieldEvaluation({ c, theme, t }) {
             state.profile
                 ? h(EFieldChart, {
                     profileData: state.profile, pol: state.pol,
-                    matColorMap: state.matColorMap, c,
+                    matColorMap: state.matColorMap, c, ef,
                 })
                 : h(CenteredMessage, { c, message: ef.noLayers }),
         ),

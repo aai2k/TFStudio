@@ -1735,63 +1735,63 @@ export default {
     operandTypes: {
       T: {
         label: 'T: 透射率',
-        group: '光学',
+        group: 'optical',
       },
       TS: {
         label: 'TS: 透射率，s 偏振',
-        group: '光学',
+        group: 'optical',
       },
       TP: {
         label: 'TP: 透射率，p 偏振',
-        group: '光学',
+        group: 'optical',
       },
       R: {
         label: 'R: 反射率',
-        group: '光学',
+        group: 'optical',
       },
       RS: {
         label: 'RS: 反射率，s 偏振',
-        group: '光学',
+        group: 'optical',
       },
       RP: {
         label: 'RP: 反射率，p 偏振',
-        group: '光学',
+        group: 'optical',
       },
       A: {
         label: 'A: 吸收率',
-        group: '光学',
+        group: 'optical',
       },
       AS: {
         label: 'AS: 吸收率，s 偏振',
-        group: '光学',
+        group: 'optical',
       },
       AP: {
         label: 'AP: 吸收率，p 偏振',
-        group: '光学',
+        group: 'optical',
       },
       TAV: {
         label: 'TAV: 波段平均透射率（单一目标）',
-        group: '波段平均',
+        group: 'range',
       },
       RAV: {
         label: 'RAV: 波段平均反射率（单一目标）',
-        group: '波段平均',
+        group: 'range',
       },
       AAV: {
         label: 'AAV: 波段平均吸收率（单一目标）',
-        group: '波段平均',
+        group: 'range',
       },
       TGT: {
         label: 'TGT: 波段内 T 光谱目标（平坦或斜坡）',
-        group: '光谱目标',
+        group: 'rangetarget',
       },
       RGT: {
         label: 'RGT: 波段内 R 光谱目标（平坦或斜坡）',
-        group: '光谱目标',
+        group: 'rangetarget',
       },
       AGT: {
         label: 'AGT: 波段内 A 光谱目标（平坦或斜坡）',
-        group: '光谱目标',
+        group: 'rangetarget',
       },
       MCURVE: {
         label: 'MCURVE: 实测曲线快照',
@@ -1799,199 +1799,199 @@ export default {
       },
       TIW: {
         label: 'TIW: 加权积分 T（光源 × 探测器）',
-        group: '积分',
+        group: 'integral',
       },
       RIW: {
         label: 'RIW: 加权积分 R（光源 × 探测器）',
-        group: '积分',
+        group: 'integral',
       },
       AIW: {
         label: 'AIW: 加权积分 A（光源 × 探测器）',
-        group: '积分',
+        group: 'integral',
       },
       TMN: {
         label: 'TMN: 波段内最坏情况最小 T（T ≥ 目标）',
-        group: '最坏情况',
+        group: 'worst',
       },
       RMN: {
         label: 'RMN: 波段内最坏情况最小 R',
-        group: '最坏情况',
+        group: 'worst',
       },
       AMN: {
         label: 'AMN: 波段内最坏情况最小 A',
-        group: '最坏情况',
+        group: 'worst',
       },
       TMX: {
         label: 'TMX: 波段内最坏情况最大 T',
-        group: '最坏情况',
+        group: 'worst',
       },
       RMX: {
         label: 'RMX: 波段内最坏情况最大 R（R ≤ 目标）',
-        group: '最坏情况',
+        group: 'worst',
       },
       AMX: {
         label: 'AMX: 波段内最坏情况最大 A（A ≤ 目标）',
-        group: '最坏情况',
+        group: 'worst',
       },
       PSI: {
         label: 'PSI: 波长 λ 处椭偏 Ψ（度）',
-        group: '相位/场',
+        group: 'phase',
       },
       DEL: {
         label: 'DEL: 波长 λ 处椭偏 Δ（度）',
-        group: '相位/场',
+        group: 'phase',
       },
       TANPSI: {
         label: 'TANPSI: 波长 λ 处 tan Ψ（椭偏仪原生）',
-        group: '相位/场',
+        group: 'phase',
       },
       COSDEL: {
         label: 'COSDEL: 波长 λ 处 cos Δ（椭偏仪原生）',
-        group: '相位/场',
+        group: 'phase',
       },
       PR: {
         label: 'PR: 波长 λ 处反射相移（度）',
-        group: '相位/场',
+        group: 'phase',
       },
       PT: {
         label: 'PT: 波长 λ 处透射相移（度）',
-        group: '相位/场',
+        group: 'phase',
       },
       DPR: {
         label: 'DPR: 反射差分相位 p−s（度）',
-        group: '相位/场',
+        group: 'phase',
       },
       DPT: {
         label: 'DPT: 透射差分相位 p−s（度）',
-        group: '相位/场',
+        group: 'phase',
       },
       GD: {
         label: 'GD: 波长 λ 处反射群延迟 (fs)',
-        group: '相位/场',
+        group: 'phase',
       },
       GDT: {
         label: 'GDT: 波长 λ 处透射群延迟 (fs)',
-        group: '相位/场',
+        group: 'phase',
       },
       GDD: {
         label: 'GDD: 波长 λ 处群延迟色散 (fs²)',
-        group: '相位/场',
+        group: 'phase',
       },
       GDDT: {
         label: 'GDDT: 透射 GDD at λ (fs²)',
-        group: '相位/场',
+        group: 'phase',
       },
       TOD: {
         label: 'TOD: 反射三阶色散 (fs³)',
-        group: '相位/场',
+        group: 'phase',
       },
       TODT: {
         label: 'TODT: 透射三阶色散 (fs³)',
-        group: '相位/场',
+        group: 'phase',
       },
       GDFLAT: {
         label: 'GDFLAT: 波段内平坦 GD 目标（RMS, fs）',
-        group: '相位/场',
+        group: 'phase',
       },
       GDTFLAT: {
         label: 'GDTFLAT: 平坦透射 GD (RMS, fs)',
-        group: '相位/场',
+        group: 'phase',
       },
       GDDFLAT: {
         label: 'GDDFLAT: 波段内平坦 GDD 目标（RMS, fs²）',
-        group: '相位/场',
+        group: 'phase',
       },
       GDDTFLAT: {
         label: 'GDDTFLAT: 平坦透射 GDD (RMS, fs²)',
-        group: '相位/场',
+        group: 'phase',
       },
       TODFLAT: {
         label: 'TODFLAT: 平坦反射 TOD (RMS, fs³)',
-        group: '相位/场',
+        group: 'phase',
       },
       TODTFLAT: {
         label: 'TODTFLAT: 平坦透射 TOD (RMS, fs³)',
-        group: '相位/场',
+        group: 'phase',
       },
       EFMX: {
         label: 'EFMX: 镀膜中峰值 |E|²（最小化）',
-        group: '相位/场',
+        group: 'phase',
       },
       OPGT: {
         label: 'OPGT: 操作数 ≥ 目标（单侧，引用其他行）',
-        group: '数学',
+        group: 'math',
       },
       OPLT: {
         label: 'OPLT: 操作数 ≤ 目标（单侧，引用其他行）',
-        group: '数学',
+        group: 'math',
       },
       OPVA: {
         label: 'OPVA: 操作数等于目标（双侧相等）',
-        group: '数学',
+        group: 'math',
       },
       ABSO: {
         label: 'ABSO: |操作数| 等于目标',
-        group: '数学',
+        group: 'math',
       },
       ABGT: {
         label: 'ABGT: |操作数| ≥ 目标（单侧）',
-        group: '数学',
+        group: 'math',
       },
       ABLT: {
         label: 'ABLT: |操作数| ≤ 目标（单侧）',
-        group: '数学',
+        group: 'math',
       },
       DIFF: {
         label: 'DIFF: 操作数1 − 操作数2 等于目标',
-        group: '数学',
+        group: 'math',
       },
       SUMM: {
         label: 'SUMM: 操作数1 + 操作数2 等于目标',
-        group: '数学',
+        group: 'math',
       },
       PROD: {
         label: 'PROD: 操作数1 × 操作数2 等于目标',
-        group: '数学',
+        group: 'math',
       },
       MXWT: {
         label: 'MXWT: 波段内最大 T 的 λ（偏振通过列指定）',
-        group: '极值波长',
+        group: 'argwave',
       },
       MXWR: {
         label: 'MXWR: 波段内最大 R 的 λ（偏振通过列指定）',
-        group: '极值波长',
+        group: 'argwave',
       },
       MXWA: {
         label: 'MXWA: 波段内最大 A 的 λ（偏振通过列指定）',
-        group: '极值波长',
+        group: 'argwave',
       },
       MNWT: {
         label: 'MNWT: 波段内最小 T 的 λ（偏振通过列指定）',
-        group: '极值波长',
+        group: 'argwave',
       },
       MNWR: {
         label: 'MNWR: 波段内最小 R 的 λ（偏振通过列指定）',
-        group: '极值波长',
+        group: 'argwave',
       },
       MNWA: {
         label: 'MNWA: 波段内最小 A 的 λ（偏振通过列指定）',
-        group: '极值波长',
+        group: 'argwave',
       },
       TT: {
         label: 'TT: 所有膜层的总物理厚度 (nm)',
-        group: '厚度',
+        group: 'thick',
       },
       MNT: {
         label: 'MNT: 最小厚度约束 (≥ nm)',
-        group: '厚度',
+        group: 'thick',
       },
       MXT: {
         label: 'MXT: 最大厚度约束 (≤ nm)',
-        group: '厚度',
+        group: 'thick',
       },
       BLNK: {
         label: 'BLNK: 空白/注释行（对评价函数无影响）',
-        group: '注释',
+        group: 'misc',
       },
     },
     operandGroups: {

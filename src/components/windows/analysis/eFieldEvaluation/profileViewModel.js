@@ -1,4 +1,4 @@
-export function selectPlottedCurves(profileData, pol) {
+export function selectPlottedCurves(profileData, pol, tr) {
     if (!profileData) return [];
     const curves = [];
     const push = (e2arr, z, label) => {
@@ -6,13 +6,13 @@ export function selectPlottedCurves(profileData, pol) {
         curves.push({ label, z, y: e2arr.map(v => v * 100) });
     };
     if (pol === 'avg' && profileData.avg) {
-        push(profileData.avg.e2, profileData.avg.z, '|E|² (avg)');
-        push(profileData.s.e2, profileData.s.z, '|E|² (s)');
-        push(profileData.p.e2, profileData.p.z, '|E|² (p)');
+        push(profileData.avg.e2, profileData.avg.z, tr.labelAvg);
+        push(profileData.s.e2, profileData.s.z, tr.labelS);
+        push(profileData.p.e2, profileData.p.z, tr.labelP);
     } else if (pol === 's' && profileData.s) {
-        push(profileData.s.e2, profileData.s.z, '|E|² (s)');
+        push(profileData.s.e2, profileData.s.z, tr.labelS);
     } else if (pol === 'p' && profileData.p) {
-        push(profileData.p.e2, profileData.p.z, '|E|² (p)');
+        push(profileData.p.e2, profileData.p.z, tr.labelP);
     }
     return curves;
 }
@@ -34,8 +34,8 @@ export function buildProfileViewModel(profile, pol) {
     };
 }
 
-export function buildProfileTable(profile, pol) {
-    const curves = selectPlottedCurves(profile, pol);
+export function buildProfileTable(profile, pol, tr) {
+    const curves = selectPlottedCurves(profile, pol, tr);
     if (!curves.length) return null;
     const zArr = curves[0].z;
     const columns = [

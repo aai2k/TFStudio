@@ -4,32 +4,32 @@ import {
 } from '../../../ui/chartOptions.js';
 import { legendAbove, plotMargin } from '../chrome/plot.js';
 
-/** Native ECharts line series for the selected polarization. */
-export function efieldSeries(profileData, pol, curve = ANALYSIS_DEFAULTS.eFieldEvaluation.colors) {
+/** Native ECharts line series for the selected polarization. `tr` is `t.eField`. */
+export function efieldSeries(profileData, pol, curve = ANALYSIS_DEFAULTS.eFieldEvaluation.colors, tr) {
     if (!profileData) return [];
     const series = [];
     const addCurve = (e2arr, z, name, color, dash) => series.push(lineSeries({
         x: z, y: e2arr.map(value => value * 100), name, color, width: 2, dash,
     }));
     if (pol === 'avg' && profileData.avg) {
-        addCurve(profileData.avg.e2, profileData.avg.z, '|E|² (avg)', curve.avg);
-        addCurve(profileData.s.e2, profileData.s.z, '|E|² (s)', curve.s, 'dot');
-        addCurve(profileData.p.e2, profileData.p.z, '|E|² (p)', curve.p, 'dash');
+        addCurve(profileData.avg.e2, profileData.avg.z, tr.labelAvg, curve.avg);
+        addCurve(profileData.s.e2, profileData.s.z, tr.labelS, curve.s, 'dot');
+        addCurve(profileData.p.e2, profileData.p.z, tr.labelP, curve.p, 'dash');
     } else if (pol === 's' && profileData.s) {
-        addCurve(profileData.s.e2, profileData.s.z, '|E|² (s)', curve.s);
+        addCurve(profileData.s.e2, profileData.s.z, tr.labelS, curve.s);
     } else if (pol === 'p' && profileData.p) {
-        addCurve(profileData.p.e2, profileData.p.z, '|E|² (p)', curve.p);
+        addCurve(profileData.p.e2, profileData.p.z, tr.labelP, curve.p);
     }
     return series;
 }
 
-export function efieldOption(profileData, pol, matColorMap, colors, curve) {
+export function efieldOption(profileData, pol, matColorMap, colors, { curve, tr }) {
     const { bgColor, paperColor, gridColor, textColor, accentColor } = colors;
     const profileRef = pol === 'avg' ? profileData?.avg : profileData?.[pol];
     const bounds = profileRef?.layerBounds || [];
     const totalZ = bounds.length > 1 ? bounds[bounds.length - 1] : 0;
     const validLayers = profileData?.validLayers || [];
-    const series = efieldSeries(profileData, pol, curve);
+    const series = efieldSeries(profileData, pol, curve, tr);
     const peak = Math.max(100, ...series.flatMap(item => item.data.map(point => point[1])).filter(Number.isFinite));
     const yBounds = niceAxisBounds(0, peak, { targetTicks: 10, minInterval: 10, includeZero: true });
 
@@ -62,9 +62,9 @@ export function efieldOption(profileData, pol, matColorMap, colors, curve) {
         legend: legendAbove({ color: textColor }),
         fileName: 'efield',
         tooltip: axisTooltip({ valueSuffix: '%' }),
-        xAxis: valueAxis({ name: 'Depth (nm)', color: textColor, gridColor, min: totalZ > 0 ? 0 : undefined, max: totalZ > 0 ? totalZ : undefined }),
+        xAxis: valueAxis({ name: tr.xAxisTitle, color: textColor, gridColor, min: totalZ > 0 ? 0 : undefined, max: totalZ > 0 ? totalZ : undefined }),
         yAxis: valueAxis({
-            name: '|E|² (%)', color: textColor, gridColor, min: yBounds.min,
+            name: tr.yAxisTitle, color: textColor, gridColor, min: yBounds.min,
             max: yBounds.max, interval: yBounds.interval,
         }),
         series,

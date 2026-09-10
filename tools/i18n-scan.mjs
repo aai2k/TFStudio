@@ -6,9 +6,12 @@
  * against it, reporting per language:
  *   • keys present in EN but MISSING in the locale (untranslated)
  *   • keys present in the locale but EXTRA (not in EN) (stale / typo)
- *   • TYPE MISMATCHES (string vs function vs object): e.g. a dynamic
+ *   • TYPE MISMATCHES (string vs function vs object vs array): e.g. a dynamic
  *     `t.foo.bar(x)` function in EN but a plain string elsewhere (would crash
- *     when called) or vice-versa.
+ *     when called), or a tutorial step list written as an object keyed 0..n
+ *     instead of an array (the player iterates it, so the window breaks while
+ *     every string is present). Shapes come from `nodeShape` in the locale
+ *     registry, the same predicate the English fill-in uses.
  *   • EMPTY placeholders: string leaves that are '' where English is not.
  *     Reported for visibility, but NOT counted as a structural gap, so a
  *     scaffolded template does not fail the scan. Keys English deliberately
@@ -26,23 +29,22 @@
  * `npm run locale-editor`.
  */
 
-import { localeSources, availableLocales } from '../src/constants/locales/index.js';
+import { localeSources, availableLocales, nodeShape } from '../src/constants/locales/index.js';
 
 const en = localeSources.en;
 const langs = availableLocales.map((l) => l.code).filter((c) => c !== 'en');
 
-const typeOf = (v) =>
-    typeof v === 'function' ? 'fn' : v && typeof v === 'object' ? 'obj' : 'str';
+const isBranch = (shape) => shape === 'object' || shape === 'array';
 
 function walk(a, b, path, stats) {
     for (const k of Object.keys(a)) {
         const p = path ? `${path}.${k}` : k;
-        const ta = typeOf(a[k]);
+        const ta = nodeShape(a[k]);
         if (!(k in b)) { collectMissing(a[k], p, stats.missing); continue; }
-        const tb = typeOf(b[k]);
+        const tb = nodeShape(b[k]);
         if (ta !== tb) { stats.mismatch.push(`${p}  (en:${ta} ${stats.lang}:${tb})`); continue; }
-        if (ta === 'obj') walk(a[k], b[k], p, stats);
-        else if (ta === 'fn') {
+        if (isBranch(ta)) walk(a[k], b[k], p, stats);
+        else if (ta === 'function') {
             if (a[k].length !== b[k].length)
                 stats.mismatch.push(`${p}  (fn arity en:${a[k].length} ${stats.lang}:${b[k].length})`);
         } else {
@@ -60,7 +62,7 @@ function walk(a, b, path, stats) {
 }
 
 function collectMissing(node, path, sink) {
-    if (node && typeof node === 'object' && typeof node !== 'function') {
+    if (isBranch(nodeShape(node))) {
         for (const k of Object.keys(node)) collectMissing(node[k], `${path}.${k}`, sink);
     } else {
         sink.push(path);
@@ -70,8 +72,7 @@ function collectMissing(node, path, sink) {
 const enLeaves = (function count(o) {
     let n = 0;
     for (const k of Object.keys(o)) {
-        const t = typeOf(o[k]);
-        if (t === 'obj') n += count(o[k]); else n++;
+        if (isBranch(nodeShape(o[k]))) n += count(o[k]); else n++;
     }
     return n;
 })(en);
