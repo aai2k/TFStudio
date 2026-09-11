@@ -20,7 +20,7 @@
  * not a single design), so it does not use this component.
  */
 
-import { evaluateQualifiers, aggregateVerdict } from '../utils/synthesis/qualifiers.js';
+import { evaluateQualifiers, aggregateVerdict, qualifierSummary } from '../utils/synthesis/qualifiers.js';
 
 const { createElement: h, useMemo } = React;
 
@@ -47,10 +47,13 @@ export function SpecVerdict({ design, designs, resolveMat, c, t, label, style })
                 if (r?.pass === false) { pass = false; if (!failRef) failRef = r; }
                 else if (r?.pass == null) anyNull = true;
             }
+            const said = failRef || base;
             return {
                 ...base,
                 pass: !pass ? false : (anyNull ? null : true),
-                summary: failRef?.summary || base.summary,
+                summary: said.summary,
+                summaryKey: said.summaryKey,
+                summaryArgs: said.summaryArgs,
             };
         });
         return { qualifiers: quals, results: merged };
@@ -79,7 +82,7 @@ export function SpecVerdict({ design, designs, resolveMat, c, t, label, style })
         .map((q, i) => ({ q, i, r: results[i] }))
         .filter(x => x.r?.pass === false)
         .map(x => chip('✗ ' + qLabel(x.q, x.i), '#ef5350',
-            (x.r?.summary || x.r?.displayValue || ''), x.q.id || x.i));
+            (qualifierSummary(x.r, ts.summaries) || x.r?.displayValue || ''), x.q.id || x.i));
 
     const fullTip = qualifiers.map((q, i) => {
         const r = results[i];

@@ -188,7 +188,7 @@
     "mfBest": 0.05,
     "mfInitial": 0.397235701,
     "iter": 60,
-    "stopReason": "best: Conjugate Gradient",
+    "stopReason": "best:cg",
     "history": [
       {
         "label": "Conjugate Gradient",
@@ -228,7 +228,7 @@
     "mfBest": 0.05,
     "mfInitial": 0.196654712,
     "iter": 20,
-    "stopReason": "best: Conjugate Gradient",
+    "stopReason": "best:cg",
     "history": [
       {
         "label": "Conjugate Gradient",

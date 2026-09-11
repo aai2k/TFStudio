@@ -75,8 +75,9 @@ export function evalBandDerived(qual, design, ctx) {
             // Couldn't bracket both crossings inside the scan band.
             return {
                 value: NaN, pass: false, deviation: NaN,
-                displayValue: '— (no crossings)', unit: 'nm',
-                summary: `FWHM @ ${(level*100).toFixed(0)}% not bracketed in [${qual.lambdaStart},${qual.lambdaEnd}] nm`,
+                displayValue: '—', unit: 'nm',
+                summaryKey: 'fwhmNotBracketed',
+                summaryArgs: [(level * 100).toFixed(0), qual.lambdaStart, qual.lambdaEnd],
             };
         }
         const fwhm = rightLam - leftLam;
@@ -91,8 +92,8 @@ export function evalBandDerived(qual, design, ctx) {
     if (which == null) {
         return {
             value: NaN, pass: false, deviation: NaN,
-            displayValue: '— (no crossing)', unit: 'nm',
-            summary: `Edge level ${(level*100).toFixed(0)}% not crossed in band`,
+            displayValue: '—', unit: 'nm',
+            summaryKey: 'edgeNotCrossed', summaryArgs: [(level * 100).toFixed(0)],
         };
     }
     return finishCompare(qual, which, 'nm');

@@ -4,7 +4,7 @@ import { cartesianOption, itemTooltip, lineSeries, valueAxis } from '../../../ui
 
 const { createElement: h, useRef, useEffect } = React;
 
-export function MFTrendPlot({ history, c }) {
+export function MFTrendPlot({ history, c, t }) {
     const divRef = useRef(null);
     const chartRef = useRef(null);
     useEffect(() => {
@@ -17,7 +17,7 @@ export function MFTrendPlot({ history, c }) {
             colors: c,
             grid: { left: 58, right: 8, top: 6, bottom: 28 },
             tooltip: itemTooltip(),
-            xAxis: valueAxis({ name: 'Iteration', color: c.text, gridColor: c.border, nameGap: 22 }),
+            xAxis: valueAxis({ name: t.refinement.iterAxis, color: c.text, gridColor: c.border, nameGap: 22 }),
             yAxis: { ...valueAxis({ name: 'MF', color: c.text, gridColor: c.border, nameGap: 34 }), type: 'log' },
             series: [series],
         }));

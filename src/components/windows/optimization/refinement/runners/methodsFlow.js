@@ -10,7 +10,7 @@
 import { DLSOptimizer } from '../../../../../utils/physics/optimizer.js';
 import { designMaterialLookup } from '../../../../../utils/materials/designMaterials.js';
 import { appendMfSample, densifyForRun, presampleMaterials, buildPayload } from '../refinementUtils.js';
-import { countFreeVars, METHOD_LABELS } from '../refinementConfig.js';
+import { countFreeVars } from '../refinementConfig.js';
 import { runOptMainThread } from './mainThread.js';
 import { runEngineP } from './engineRun.js';
 import { runParallelDEP, runMultiP } from './deEngine.js';
@@ -45,7 +45,7 @@ function recordMethodResult(ctx, F, m, res) {
     const layers = (F.layerSide === 'backLayers' ? res.backLayers : res.frontLayers) || [];
     ctx.addHistEntry({
         id: Math.random().toString(36).slice(2),
-        label: METHOD_LABELS[m],
+        label: ctx.t.refinement.methods[m],
         iter: F.completedMethodIters, mf: res.mf, omf: res.omf, layers, layerCount: layers.length,
         layerSide: F.layerSide,
         mfHistory: [...F.methodHistory],
@@ -69,7 +69,7 @@ function finalizeMethodsFlow(ctx, F, gb, methods) {
     };
     ctx.setIter(F.iterationOffset);
     ctx.setMf(gb.mf); ctx.setMfBest(gb.mf); ctx.setOmf(gb.omf); ctx.setOmfBest(gb.omf);
-    ctx.setStopReason(gb.mf < 1e-6 ? 'target' : (gb.method && methods.length > 1 ? `best: ${METHOD_LABELS[gb.method]}` : 'stalled'));
+    ctx.setStopReason(gb.mf < 1e-6 ? 'target' : (gb.method && methods.length > 1 ? `best:${gb.method}` : 'stalled'));
     if (methods.length > 1) console.log(`[Refine] Try-all done: best = ${gb.method} (MF=${gb.mf.toFixed(6)})`);
 }
 

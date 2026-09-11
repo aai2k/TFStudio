@@ -4,11 +4,11 @@ const C_NM_THZ = 299792.458;
 const HC_EV_NM = 1239.841984;
 
 export const SPECTRAL_UNITS = {
-    nm:  { id: 'nm',  short: 'nm',   title: 'Wavelength (nm)',     decimals: 0, toNm: value => value,            fromNm: nm => nm },
-    um:  { id: 'um',  short: 'µm',   title: 'Wavelength (µm)',     decimals: 3, toNm: value => value * 1000,     fromNm: nm => nm / 1000 },
-    cm1: { id: 'cm1', short: 'cm⁻¹', title: 'Wavenumber (cm⁻¹)',   decimals: 0, toNm: value => 1e7 / value,      fromNm: nm => 1e7 / nm },
-    THz: { id: 'THz', short: 'THz',  title: 'Frequency (THz)',     decimals: 1, toNm: value => C_NM_THZ / value, fromNm: nm => C_NM_THZ / nm },
-    eV:  { id: 'eV',  short: 'eV',   title: 'Photon energy (eV)',  decimals: 3, toNm: value => HC_EV_NM / value,  fromNm: nm => HC_EV_NM / nm },
+    nm:  { id: 'nm',  short: 'nm',   decimals: 0, toNm: value => value,            fromNm: nm => nm },
+    um:  { id: 'um',  short: 'µm',   decimals: 3, toNm: value => value * 1000,     fromNm: nm => nm / 1000 },
+    cm1: { id: 'cm1', short: 'cm⁻¹', decimals: 0, toNm: value => 1e7 / value,      fromNm: nm => 1e7 / nm },
+    THz: { id: 'THz', short: 'THz',  decimals: 1, toNm: value => C_NM_THZ / value, fromNm: nm => C_NM_THZ / nm },
+    eV:  { id: 'eV',  short: 'eV',   decimals: 3, toNm: value => HC_EV_NM / value,  fromNm: nm => HC_EV_NM / nm },
 };
 
 export const SPECTRAL_UNIT_IDS = ['nm', 'um', 'cm1', 'THz', 'eV'];
@@ -48,11 +48,14 @@ function formatValue(value, decimals) {
     return decimals > 0 ? fixed.replace(/\.?0+$/, '') : fixed;
 }
 
-/** Native ECharts value-axis fields; data coordinates always remain nanometres. */
-export function spectralAxisOption(unit, nmMin, nmMax) {
+/**
+ * Native ECharts value-axis fields; data coordinates always remain nanometres.
+ * `titles` is t.spectralAxis, keyed by unit id.
+ */
+export function spectralAxisOption(unit, nmMin, nmMax, titles) {
     const config = unitFor(unit);
     return {
-        name: config.title,
+        name: titles[config.id],
         min: Number.isFinite(nmMin) ? nmMin : undefined,
         max: Number.isFinite(nmMax) ? nmMax : undefined,
         axisLabel: {

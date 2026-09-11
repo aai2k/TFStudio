@@ -37,7 +37,7 @@ export function PreviewToolbar(props) {
             'nm'
         ),
         h('label', { style: { display: 'flex', alignItems: 'center', gap: 4, fontSize: 11, color: c.textDim } },
-            'AOI',
+            t.opticalEval.aoi,
             h('input', {
                 type: 'number', value: params.theta, min: 0, max: 89,
                 onChange: (e) => setParams(p => ({ ...p, theta: parseFloat(e.target.value) || 0 })),

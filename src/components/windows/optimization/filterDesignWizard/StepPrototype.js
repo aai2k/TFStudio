@@ -83,7 +83,8 @@ export function StepPrototype({ p, set, c, t }) {
                         h('input', { type: 'radio', checked: p.spacerKind === v, onChange: () => set('spacerKind', v) }), l)))),
             // right: preview + stack bar
             h('div', { style: { flex: 1, display: 'flex', flexDirection: 'column' } },
-                h(SpectrumPlot, { layersFn, p, mode: 'embedded', c, height: 240 }),
+                h(SpectrumPlot, { layersFn, p, mode: 'embedded', c, height: 240,
+                    lambdaAxis: t.spectralAxis.lambdaShort }),
                 h(StackBar, { layers: stackLayers, c, height: 24 }),
                 h('div', { style: { fontSize: 12, color: c.textDim, marginTop: 4 } }, `N = ${nLayers}    Th = ${thNm.toFixed(1)} nm    (embedded preview)`))));
 }

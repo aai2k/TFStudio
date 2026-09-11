@@ -88,7 +88,7 @@ export function curvePairs(curves) {
 }
 
 /** What the preview chart draws for one curve or one pair. */
-export function chartData(curves) {
+export function chartData(curves, xLabel) {
     const psi = (curves || []).find(curve => curve.quantity === 'PSI');
     const delta = (curves || []).find(curve => curve.quantity === 'DEL');
     const source = psi || delta;
@@ -97,7 +97,7 @@ export function chartData(curves) {
         x: measuredCurveData(source).x,
         psi: psi ? measuredCurveData(psi).y : [],
         delta: delta ? measuredCurveData(delta).y : [],
-        xLabel: 'Wavelength (nm)',
+        xLabel,
     };
 }
 

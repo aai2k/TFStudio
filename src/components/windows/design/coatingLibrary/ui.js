@@ -116,3 +116,12 @@ export function TypeBadge({ type, ts }) {
         },
     }, ts.types[type]);
 }
+
+/**
+ * Why a coating could not be written. The library refuses with a key, since
+ * saving and packing need the desktop bridge the web build does not have;
+ * anything the file system itself reported arrives as its own message.
+ */
+export function failReason(result, ts) {
+    return (result?.errorKey && ts[result.errorKey]) || result?.error || '?';
+}

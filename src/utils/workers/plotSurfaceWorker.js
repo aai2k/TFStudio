@@ -43,7 +43,7 @@ onmessage = async (e) => {
             const r = computeSurface(STATE.spec, STATE.design, STATE.resolveMat,
                 { rowFrom: msg.rowFrom, rowTo: msg.rowTo });
             postMessage({
-                type: 'result', id: msg.id, ok: r.ok, error: r.error,
+                type: 'result', id: msg.id, ok: r.ok, error: r.errorKey,
                 rowFrom: msg.rowFrom, rowTo: msg.rowTo,
                 rows: r.ok ? r.z.slice(msg.rowFrom, msg.rowTo) : null,
             });

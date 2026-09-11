@@ -1,6 +1,7 @@
 import {
     BUILTIN_SOURCES,
     BUILTIN_DETECTORS,
+    describedLabel,
 } from '../../../../utils/physics/spectralWeightings.js';
 import { ActionButton, ChoiceGroup, NumInput, RangeField, SelectField } from '../chrome/controls.js';
 import { ControlRow } from '../chrome/layout.js';
@@ -105,7 +106,7 @@ function CustomBuilder({ c, t, model }) {
         h(SettingRow, { c, label: iv.source },
             h(SelectField, {
                 value: builder.source.id, c, width: 180,
-                options: BUILTIN_SOURCES.map(source => ({ id: source.id, label: source.label })),
+                options: BUILTIN_SOURCES.map(source => ({ id: source.id, label: describedLabel(source, t.illuminants) })),
                 onChange: id => setBuilder({ ...builder, source: { ...builder.source, id } }),
             }),
         ),
@@ -126,7 +127,7 @@ function CustomBuilder({ c, t, model }) {
             h(SelectField, {
                 value: builder.detector.id, c, width: 180,
                 options: BUILTIN_DETECTORS.map(detector => ({
-                    id: detector.id, label: detector.label,
+                    id: detector.id, label: describedLabel(detector, t.illuminants),
                 })),
                 onChange: id => setBuilder({ ...builder, detector: { ...builder.detector, id } }),
             }),

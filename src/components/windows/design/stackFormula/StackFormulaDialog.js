@@ -45,7 +45,7 @@ export function StackFormulaDialog({ onClose, onCreateNew, folderName, hasActive
 
             h('div', { style: { flex: 1, overflowY: 'auto', display: 'flex', gap: 16, minHeight: 300 } },
                 h(FormulaPanel, { state, c, t, sf }),
-                h(ResultsPanel, { state, c, sf }),
+                h(ResultsPanel, { state, c, sf, lambdaAxis: t.spectralAxis.lambdaShort }),
             ),
 
             h(Footer, { state, c, sf, folderName, hasActiveDesign, onClose }),

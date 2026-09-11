@@ -40,6 +40,6 @@ export function StepAdjust({ p, set, c, t }) {
                 h('label', { style: fieldLabel(c) }, h('span', {}, T.step6.name),
                     h('input', { type: 'text', value: p.name, onChange: (e) => set('name', e.target.value), style: inputStyle(c, '100%') }))),
             h('div', { style: { flex: 1 } },
-                h(SpectrumPlot, { layersFn, p, mode: 'air', c, height: 280 }),
+                h(SpectrumPlot, { layersFn, p, mode: 'air', c, height: 280, lambdaAxis: t.spectralAxis.lambdaShort }),
                 h('div', { style: { fontSize: 12, color: c.textDim, marginTop: 4 } }, `N = ${nLayers}  (final, in ${p.incidentMedium.split(':').pop()})`))));
 }

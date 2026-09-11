@@ -9,12 +9,12 @@ function chartColors(c) {
 }
 
 export function OverlayChart(props) {
-    const { spectrum, char, weighting, c, minMaxMarks, title } = props;
+    const { spectrum, char, weighting, c, minMaxMarks, title, lambdaAxis } = props;
     const divRef = useRef(null);
     const chartRef = useRef(null);
     const curve = useAnalysisColors('integralValues');
     useEffect(() => { drawChart(divRef.current, chartRef, buildOverlayOption({
-        spectrum, char, weighting, minMaxMarks, colors: chartColors(c), curve, title,
+        spectrum, char, weighting, minMaxMarks, colors: chartColors(c), curve, title, lambdaAxis,
     })); });
     useChartTeardown(divRef, chartRef);
     return h('div', { ref: divRef, style: { width: '100%', height: '100%', minHeight: 200 } });

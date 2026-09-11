@@ -36,7 +36,7 @@ export function MFTrendChart({ generations, c, theme, emptyMsg, t }) {
             colors: c,
             grid: { left: 54, right: 8, top: groups.length > 1 ? 24 : 4, bottom: 30 },
             ...(groups.length > 1 ? { legend: horizontalLegend({ color: c.text, top: 0 }) } : {}),
-            xAxis: valueAxis({ name: 'Generation', color: c.text, gridColor: c.border, nameGap: 24 }),
+            xAxis: valueAxis({ name: t.needle.genAxis, color: c.text, gridColor: c.border, nameGap: 24 }),
             yAxis: { ...valueAxis({ name: 'MF', color: c.text, gridColor: c.border, nameGap: 34 }), type: 'log' },
             series: groups.map((group, i) => lineSeries({
                 x: group.rows.map(row => row.genNum),

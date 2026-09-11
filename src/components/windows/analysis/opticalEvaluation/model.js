@@ -17,14 +17,16 @@ import {
 } from './yScale.js';
 import { measuredCurveData } from '../../../../utils/io/spectrumTable.js';
 
+// Plot shape per curve. The names the reader sees live in
+// t.opticalEval.curveLabels, keyed the same way.
 const CURVE_SHAPES = [
-    { key: 'T',  label: 'T avg', dash: 'solid',  group: 'avg' },
-    { key: 'R',  label: 'R avg', dash: 'solid',  group: 'avg' },
-    { key: 'A',  label: 'A avg', dash: 'solid',  group: 'avg' },
-    { key: 'Ts', label: 'T (s)', dash: 'dotted', group: 's' },
-    { key: 'Rs', label: 'R (s)', dash: 'dotted', group: 's' },
-    { key: 'Tp', label: 'T (p)', dash: 'dashed', group: 'p' },
-    { key: 'Rp', label: 'R (p)', dash: 'dashed', group: 'p' },
+    { key: 'T',  dash: 'solid',  group: 'avg' },
+    { key: 'R',  dash: 'solid',  group: 'avg' },
+    { key: 'A',  dash: 'solid',  group: 'avg' },
+    { key: 'Ts', dash: 'dotted', group: 's' },
+    { key: 'Rs', dash: 'dotted', group: 's' },
+    { key: 'Tp', dash: 'dashed', group: 'p' },
+    { key: 'Rp', dash: 'dashed', group: 'p' },
 ];
 
 export function buildCurves(colors = ANALYSIS_DEFAULTS.opticalEvaluation.colors) {
@@ -97,7 +99,7 @@ export function buildMeasuredSeries(overlays, yScale) {
     });
 }
 
-function computedSeries(data, showCurves, curveColors, yScale) {
+function computedSeries(data, showCurves, curveColors, yScale, curveLabels) {
     const enabled = readableCurves(showCurves, curveColors, yScale);
     const output = [];
     data.series.forEach((result, resultIndex) => {
@@ -107,7 +109,7 @@ function computedSeries(data, showCurves, curveColors, yScale) {
             output.push(lineSeries({
                 x: data.lambda,
                 y: result[curve.key].map(plotPercent(yScale, curve.key)),
-                name: curve.label + suffix,
+                name: curveLabels[curve.key] + suffix,
                 color: hexToRgba(curve.color, aoiAlpha(resultIndex, data.series.length)),
                 width: 1.5,
                 dash: curve.dash,
@@ -143,9 +145,9 @@ function drawableTargetGeometry(geometry) {
     };
 }
 
-export function buildChartSeries({ data, showCurves, targets, targetsVisible, overlays, curveColors, yScale }) {
+export function buildChartSeries({ data, showCurves, targets, targetsVisible, overlays, curveColors, yScale, curveLabels }) {
     const output = data?.lambda && data?.series?.length
-        ? computedSeries(data, showCurves, curveColors, yScale) : [];
+        ? computedSeries(data, showCurves, curveColors, yScale, curveLabels) : [];
     output.push(...buildMeasuredSeries(overlays, yScale));
     if (targetsVisible) {
         // A fit target whose curve is already drawn above must not be drawn a
@@ -162,10 +164,11 @@ export function buildChartOption(options) {
         data, showCurves, targets, targetsVisible, overlays, curveColors,
         paperColor, bgColor, gridColor, textColor,
         editMode, editTool, yRange, yScale, spectralUnit, lamRange, materialBands,
+        spectralTitles, curveLabels,
     } = options;
     const palette = { background: bgColor, paper: paperColor, grid: gridColor, text: textColor };
     const drawing = editMode && editTool === 'draw';
-    const spectral = spectralAxisOption(spectralUnit, lamRange?.min, lamRange?.max);
+    const spectral = spectralAxisOption(spectralUnit, lamRange?.min, lamRange?.max, spectralTitles);
     const xAxis = valueAxis({
         name: spectral.name, color: textColor, gridColor,
         min: spectral.min, max: spectral.max,
@@ -179,7 +182,7 @@ export function buildChartOption(options) {
     // A measured overlay is on the instrument's wavelength grid, not the
     // design's, so the tooltip is given the series to read them all itself.
     const series = buildChartSeries({
-        data, showCurves, targets, targetsVisible, overlays, curveColors, yScale,
+        data, showCurves, targets, targetsVisible, overlays, curveColors, yScale, curveLabels,
     });
     // A logarithmic axis picks its ticks from the span it actually has to
     // cover, so it is measured before the decoration is added: bands carry
@@ -213,7 +216,13 @@ export function buildChartOption(options) {
     });
 }
 
-export function buildTableColumns(data, showCurves, curveColors, yScale) {
+/**
+ * Columns for the results table and for the CSV. `curveLabels` is
+ * t.opticalEval.curveLabels; the CSV names its columns from the curve key and
+ * passes nothing, so a column then carries no display label rather than an
+ * English one.
+ */
+export function buildTableColumns(data, showCurves, curveColors, yScale, curveLabels = null) {
     const enabled = readableCurves(showCurves, curveColors, yScale);
     const multiple = data.series.length > 1;
     const columns = [];
@@ -222,7 +231,9 @@ export function buildTableColumns(data, showCurves, curveColors, yScale) {
             cv: curve,
             theta: series.theta,
             ys: series[curve.key],
-            label: curve.label + (multiple ? ` @ ${formatTheta(series.theta)}°` : ''),
+            label: curveLabels
+                ? curveLabels[curve.key] + (multiple ? ` @ ${formatTheta(series.theta)}°` : '')
+                : null,
         });
     }));
     return columns;

@@ -50,9 +50,11 @@ globalThis.echarts = {
 };
 
 const { MFTrendPlot } = await import('../src/components/windows/optimization/refinement/MFTrendPlot.js');
+const { default: EN } = await import('../src/constants/locales/en.js');
 const tree = MFTrendPlot({
     history: [{ iter: 0, mf: 1e-2 }, { iter: 13, mf: 1e-6 }],
     c: { bg: '#111', panel: '#222', border: '#333', text: '#eee' },
+    t: EN,
 });
 const host = { clientWidth: 800, clientHeight: 260, offsetWidth: 800, offsetHeight: 260 };
 tree.props.ref.current = host;

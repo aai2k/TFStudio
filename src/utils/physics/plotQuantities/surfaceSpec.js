@@ -82,8 +82,14 @@ export function requiredSurfaceLambdas(spec, design) {
     return Array.from(set).sort((a, b) => a - b);
 }
 
-/** Axis title for a surface axis variable. */
-export function surfaceAxisLabel(varTok, design) {
+/**
+ * Axis title for a surface axis variable. `labels` is t.plotEngine, which carries
+ * the translated names for the wavelength and AOI axes; layer variables are
+ * designations rather than words and read the same in every language.
+ */
+export function surfaceAxisLabel(varTok, design, labels) {
+    if (varTok === 'wavelength') return labels.varWavelength;
+    if (varTok === 'aoi') return labels.varAOI;
     const opts = buildAxisVarOptions(design, true);
     const found = opts.find(o => o.value === varTok);
     return found ? found.label : varTok;

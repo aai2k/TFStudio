@@ -53,10 +53,10 @@ function StackSettingsFields({ design, updateDesign, refLambda, c, t }) {
             }),
             unit(de.unitMm || 'mm'),
             h('div', { style: { width: 1, height: 18, background: c.border, margin: '0 6px' } }),
-            fldLabel(de.refLambdaShort || de.refLambda, 'Reference wavelength λ₀ used for QWOT / FWOT thickness display'),
+            fldLabel(de.refLambdaShort || de.refLambda, de.refLambdaTip),
             h(DebouncedInput, {
                 value: refLambda,
-                title: 'Reference wavelength λ₀ used for QWOT / FWOT thickness display',
+                title: de.refLambdaTip,
                 onChange: (s) => {
                     const v = parseNumberStrict(s);
                     if (isNaN(v) || v <= 0) return;

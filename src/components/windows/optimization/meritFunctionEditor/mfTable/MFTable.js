@@ -8,7 +8,7 @@ import { ROW_H, rowWindow, scrollToRow } from './rowWindow.js';
 import { useTableContextMenu } from './useTableContextMenu.js';
 import { useMFTableSelection } from './useTableSelection.js';
 import {
-    COLS, TABLE_W, columnPercent, dynamicHeaderLabels,
+    COLS, TABLE_W, colLabel, columnPercent, dynamicHeaderLabels,
 } from './operandViewModel.js';
 
 const { createElement: h, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } = React;
@@ -67,10 +67,10 @@ function useScrollViewport(scrollRef) {
 // The λ Start / λ End headers change with the selected row's operand type, so
 // they carry a title and clip: a label wider than its column would otherwise
 // overflow into the next one. Widths come from the colgroup, not from here.
-function headerCell(col, dynamicLabels, style) {
+function headerCell(col, dynamicLabels, style, cols) {
     const label = col.key === 'lambdaStart' ? dynamicLabels.lambdaStart
         : col.key === 'lambdaEnd' ? dynamicLabels.lambdaEnd
-        : col.label;
+        : colLabel(col, cols);
     return h('th', {
         key: col.key, title: label,
         style: { ...style, overflow: 'hidden', textOverflow: 'ellipsis' },
@@ -173,7 +173,8 @@ export function MFTable(props) {
     const primarySel = selIds.size === 1 ? [...selIds][0]
         : selIds.size === 0 && focusCell ? (operands[focusCell.rowIdx]?.id ?? null)
         : null;
-    const dynamicLabels = dynamicHeaderLabels(pickHeaderOp(operands, focusCell, primarySel));
+    const cols = t.meritFunctionEditor.cols;
+    const dynamicLabels = dynamicHeaderLabels(pickHeaderOp(operands, focusCell, primarySel), cols);
     // Derived here rather than passed in: every caller already hands over the
     // operands and their computed values, which is all a share of the merit
     // needs, and deriving it keeps the column from disagreeing with the table.
@@ -258,7 +259,7 @@ export function MFTable(props) {
                     key: col.key, style: { width: columnPercent(col) },
                 }))),
                 h('thead', { ref: headRef },
-                    h('tr', null, COLS.map(col => headerCell(col, dynamicLabels, thStyle))),
+                    h('tr', null, COLS.map(col => headerCell(col, dynamicLabels, thStyle, cols))),
                 ),
                 h('tbody', null, tableBody(rowContext, view, noOperandsMsg)),
             ),

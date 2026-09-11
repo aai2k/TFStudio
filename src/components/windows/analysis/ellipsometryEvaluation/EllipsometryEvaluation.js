@@ -24,7 +24,9 @@ export function EllipsometryEvaluation({ c, theme, t }) {
     const { design } = useDesign();
     const state = useEllipsometryEvaluation(design);
     const curveColors = useAnalysisColors('ellipsometryEvaluation');
-    const table = buildEllipsometryTable(state.mode, state.data);
+    const table = buildEllipsometryTable(state.mode, state.data, {
+        lambda: t.spectralAxis.lambdaShort, aoi: t.spectrumExchange.aoiLabel,
+    });
     const spectral = state.mode === 'spectral';
     const { setLambdaStart, setLambdaEnd } = state;
     const fixRange = useCallback(([from, to]) => {
@@ -53,6 +55,7 @@ export function EllipsometryEvaluation({ c, theme, t }) {
         }),
         h(EllipsometryResults, {
             c, t, text, state, table, hasData,
+            xLabel: spectral ? t.spectralAxis.nm : text.aoiAxis,
             overlays: measuredEllipsometryOverlays(design, {
                 mode: state.mode, side: state.side,
                 showPsi: state.showPsi, showDelta: state.showDelta,

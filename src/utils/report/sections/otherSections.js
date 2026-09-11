@@ -15,6 +15,7 @@ import {
 import {
   DASH, pct, num, deg, tt, blockTitle, errNote, wrap, table, note, plotHeight, subtitleOf,
 } from './format.js';
+import { qualifierSummary } from '../../synthesis/qualifiers.js';
 
 /** The block's computed data, or the section to render when there is none. */
 export function blockData(ctx, type, title) {
@@ -102,7 +103,7 @@ export function buildQualifiers(ctx) {
   }
   const rows = q.qualifiers.map((ql, i) => {
     const r = q.results[i] || {};
-    return [escapeHtml(qualifierLabel(ql, tr)), escapeHtml(r.displayValue || num(null)), escapeHtml(r.summary || ''), verdictMark(r.pass)];
+    return [escapeHtml(qualifierLabel(ql, tr)), escapeHtml(r.displayValue || num(null)), escapeHtml(qualifierSummary(r, tr.summaries)), verdictMark(r.pass)];
   });
   const headers = [tt(tr, 'requirement', 'Requirement'), tt(tr, 'value', 'Value'), tt(tr, 'detail', 'Detail'), tt(tr, 'verdict', 'Verdict')].map(escapeHtml);
   return wrap('qualifiers', title, verdictBanner(q.verdict, tr) + table(headers, rows, { align: ['l', 'r', 'l', 'l'] }),

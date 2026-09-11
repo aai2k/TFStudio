@@ -10,7 +10,7 @@ const PERCENT = value => (value == null ? '' : (value * 100).toFixed(4));
 
 export function scatterColumns(t, units, showCurves, calc) {
     const rs = t.roughnessScattering;
-    const columns = [{ key: 'lambda', label: 'λ (nm)', fmt: value => value.toFixed(1) }];
+    const columns = [{ key: 'lambda', label: t.spectralAxis.lambdaShort, fmt: value => value.toFixed(1) }];
     for (const key of enabledScatterCurves(showCurves, calc)) {
         columns.push({ key: `${key}0`, label: `${key} ${rs.traceIdeal} (%)`, fmt: PERCENT });
         columns.push({ key, label: `${key} ${rs.traceSpecular} (%)`, fmt: PERCENT });

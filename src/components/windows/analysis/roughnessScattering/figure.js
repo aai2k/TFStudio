@@ -33,7 +33,7 @@ export function buildScatterSeries({ calc, showCurves, units, names,
     return series;
 }
 
-export function buildScatterOption({ calc, showCurves, units, names, c,
+export function buildScatterOption({ calc, showCurves, units, names, c, lambdaAxis,
                                      colors = ANALYSIS_DEFAULTS.roughnessScattering.colors,
                                      specularTitle = 'R, T specular (%)' }) {
     const text = c.text || '#cccccc';
@@ -42,7 +42,7 @@ export function buildScatterOption({ calc, showCurves, units, names, c,
         colors: c,
         grid: plotMargin({ rightAxis: true }),
         fileName: 'scattering',
-        xAxis: valueAxis({ name: 'λ (nm)', color: text, gridColor }),
+        xAxis: valueAxis({ name: lambdaAxis, color: text, gridColor }),
         yAxis: [
             valueAxis({
                 name: specularTitle, color: text, gridColor,

@@ -28,7 +28,7 @@ function computeSpectrumData({ layersFn, analyticT, p, mode, windowNm }) {
     } catch (error) { return { error: error.message }; }
 }
 
-export function SpectrumPlot({ layersFn, analyticT = null, p, mode = 'embedded', c, height = 280, levelLines = [], windowNm = null }) {
+export function SpectrumPlot({ layersFn, analyticT = null, p, mode = 'embedded', c, height = 280, levelLines = [], windowNm = null, lambdaAxis }) {
     const divRef = useRef(null);
     const chartRef = useRef(null);
     const data = useMemo(() => computeSpectrumData({ layersFn, analyticT, p, mode, windowNm }),
@@ -50,7 +50,7 @@ export function SpectrumPlot({ layersFn, analyticT = null, p, mode = 'embedded',
             colors: c,
             grid: { left: 46, right: 12, top: 8, bottom: 36 },
             tooltip: axisTooltip({ colors: c, valueSuffix: '%' }),
-            xAxis: valueAxis({ name: 'λ (nm)', color: c.text, gridColor: c.border, nameGap: 26 }),
+            xAxis: valueAxis({ name: lambdaAxis, color: c.text, gridColor: c.border, nameGap: 26 }),
             yAxis: valueAxis({ name: '%', color: c.text, gridColor: c.border, min: 0, max: 100, interval: 10, nameGap: 30 }),
             series: [series],
         }));

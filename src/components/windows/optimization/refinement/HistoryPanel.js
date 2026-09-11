@@ -4,7 +4,8 @@
 const { createElement: h } = React;   // React is a window global
 
 export function HistoryPanel({ entries, selectedId, onSelect, onRestore, c, t }) {
-    const th = t.refinement.history;
+    const tr = t.refinement;
+    const th = tr.history;
 
     return h('div', {
         style: {
@@ -33,9 +34,9 @@ export function HistoryPanel({ entries, selectedId, onSelect, onRestore, c, t })
                         }
                     },
                         h('span', { style: { color: c.accent, fontWeight: 600, minWidth: 72 } }, entry.label),
-                        h('span', { style: { color: c.textDim } }, `iter: ${entry.iter}`),
-                        h('span', { style: { color: c.text, marginLeft: 4 } }, `MF: ${entry.mf.toFixed(6)}`),
-                        h('span', { style: { color: c.textDim, marginLeft: 4 } }, `${entry.layerCount} layers`),
+                        h('span', { style: { color: c.textDim } }, `${tr.iterLabel} ${entry.iter}`),
+                        h('span', { style: { color: c.text, marginLeft: 4 } }, `${tr.mfLabel} ${entry.mf.toFixed(6)}`),
+                        h('span', { style: { color: c.textDim, marginLeft: 4 } }, th.layers(entry.layerCount)),
                         h('div', { style: { flex: 1 } }),
                         hasPlot && h('button', {
                             onClick: () => onSelect(entry),

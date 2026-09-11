@@ -1,3 +1,5 @@
+import { weightingText } from '../../../../utils/physics/integralValues/builtinWeightings.js';
+
 const { createElement: h } = React;
 
 function tableStyles(c) {
@@ -110,7 +112,7 @@ function ResultRow(props) {
             background: selected ? c.accent + '22'
                 : (index % 2 === 0 ? 'transparent' : c.panel + '55'),
         },
-        title: definition.weighting.reference,
+        title: weightingText(definition.weighting, iv.weightings).reference,
     },
         h('td', {
             style: {

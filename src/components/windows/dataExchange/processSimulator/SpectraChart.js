@@ -16,7 +16,7 @@ export function SpectraChart({ c, data, t }) {
     // must not rebuild and re-diff the option.
     useEffect(() => {
         const chart = drawChart(divRef.current, chartRef,
-            buildSpectraOption(data, spectraColors(c), t.processSim));
+            buildSpectraOption(data, spectraColors(c), t.processSim, t.spectralAxis.nm));
         // drawChart declines while the pane has no drawable room; remember
         // that so the resize path below can retry once room comes back.
         staleRef.current = !chart;

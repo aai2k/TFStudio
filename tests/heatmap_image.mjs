@@ -34,7 +34,7 @@ const result = {
         [0.5, 0.5],   // 30 deg
         [1.0, 0.9],   // top row: 60 deg
     ],
-    zLabel: 'Transmittance',
+    zKey: 'T',
 };
 const extent = { min: 0, max: 100 };
 

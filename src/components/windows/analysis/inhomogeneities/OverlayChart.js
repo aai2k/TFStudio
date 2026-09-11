@@ -9,8 +9,10 @@ export function OverlayChart({ baseline, perturbed, showCurves, c, t }) {
     const chartRef = useRef(null);
     const colors = useAnalysisColors('inhomogeneities');
     const names = { homogeneous: t.inhomogeneities.traceHomogeneous, graded: t.inhomogeneities.traceWithInterlayers };
-    useEffect(() => { drawChart(divRef.current, chartRef,
-        buildOverlayOption(baseline, perturbed, showCurves, colors, names, c)); });
+    useEffect(() => { drawChart(divRef.current, chartRef, buildOverlayOption({
+        baseline, perturbed, showCurves, colors, names, c,
+        lambdaAxis: t.spectralAxis.lambdaShort,
+    })); });
     useChartTeardown(divRef, chartRef);
     return h('div', { ref: divRef, style: { width: '100%', height: '100%' } });
 }

@@ -13,7 +13,9 @@ const { createElement: h, useEffect, useRef } = React;
 // naturally empty upper-right part of the chromaticity grid.
 const MARGIN = { left: 48, right: 12, top: 64, bottom: 42 };
 
-export function buildChromaticitySeries(report, observer, c,
+/** `tr` is t.colorEval; it names the three series the legend shows. Required,
+ *  so it sits ahead of the optional palette. */
+export function buildChromaticitySeries(report, observer, c, tr,
                                         colors = ANALYSIS_DEFAULTS.colorEvaluation.colors) {
   const text = c.text || '#cccccc';
   const locus = spectralLocusXy(observer);
@@ -28,12 +30,12 @@ export function buildChromaticitySeries(report, observer, c,
     formatter: params => String(params.data.wavelength),
   };
   const series = [
-    lineSeries({ data: closed, name: 'Spectrum locus', color: text, width: 1.3, showSymbol: false }),
+    lineSeries({ data: closed, name: tr.chartLocus, color: text, width: 1.3, showSymbol: false }),
     ticks,
   ];
   if (report) {
     const white = scatterSeries({
-      data: [[report.whiteXy.x, report.whiteXy.y]], name: 'White point',
+      data: [[report.whiteXy.x, report.whiteXy.y]], name: tr.chartWhitePoint,
       color: colors.whitePoint, symbol: THIN_X_SYMBOL, symbolSize: 11,
     });
     white.itemStyle.color = 'transparent';
@@ -41,7 +43,7 @@ export function buildChromaticitySeries(report, observer, c,
     white.itemStyle.borderWidth = 2;
     series.push(white);
     const coating = scatterSeries({
-      data: [[report.xy.x, report.xy.y]], name: 'Coating', color: report.rgb,
+      data: [[report.xy.x, report.xy.y]], name: tr.chartCoating, color: report.rgb,
       symbol: 'circle', symbolSize: 13,
     });
     coating.itemStyle.borderColor = colors.coating;
@@ -51,7 +53,7 @@ export function buildChromaticitySeries(report, observer, c,
   return series;
 }
 
-export function buildChromaticityOption(report, observer, c, colors, grid) {
+export function buildChromaticityOption(report, observer, c, { colors, grid, tr }) {
   const text = c.text || '#cccccc';
   const gridColor = c.border || '#3a3a3a';
   return cartesianOption({
@@ -66,17 +68,18 @@ export function buildChromaticityOption(report, observer, c, colors, grid) {
     yAxis: valueAxis({
       name: 'y', color: text, gridColor, min: 0, max: 0.9, interval: 0.1, nameGap: 28,
     }),
-    series: buildChromaticitySeries(report, observer, c, colors),
+    series: buildChromaticitySeries(report, observer, c, tr, colors),
   });
 }
 
-export function ChromaticityChart({ report, observer, c }) {
+export function ChromaticityChart({ report, observer, c, tr }) {
   const divRef = useRef(null);
   const chartRef = useRef(null);
   const colors = useAnalysisColors('colorEvaluation');
   const redraw = () => {
     drawChart(divRef.current, chartRef,
-      buildChromaticityOption(report, observer, c, colors, squareGrid(divRef.current, MARGIN)));
+      buildChromaticityOption(report, observer, c,
+        { colors, grid: squareGrid(divRef.current, MARGIN), tr }));
   };
   useEffect(redraw);
   useChartTeardown(divRef, chartRef, redraw);

@@ -189,6 +189,7 @@ export function TabGroup({ node, c, dragActive, dragSrcGroupId, dragInsertRef, d
           h(DockTab, {
             key: tab.id, tab, idx,
             displayTitle: titleFor(tab),
+            closeTitle: t.windowChrome.close,
             isActive: idx === node.activeTab,
             c, colorful,
             showInsertBefore: isSameGroupDrag && insertAtIdx === idx,
@@ -270,7 +271,7 @@ export function TabGroup({ node, c, dragActive, dragSrcGroupId, dragInsertRef, d
           anchor: helpAnchorFor(activeTab.toolId),
           locale,
           size: 18,
-          title: 'Help for this window (F1)'
+          title: t.windowChrome.help
         })
       )
     ),
@@ -358,7 +359,7 @@ export function TabGroup({ node, c, dragActive, dragSrcGroupId, dragInsertRef, d
 
 // ── Individual tab ──────────────────────────────────────────────────────────
 
-function DockTab({ tab, idx, isActive, c, colorful, displayTitle, showInsertBefore, showInsertAfter, accentColor, onClick, onClose, onDragStart }) {
+function DockTab({ tab, idx, isActive, c, colorful, displayTitle, closeTitle, showInsertBefore, showInsertAfter, accentColor, onClick, onClose, onDragStart }) {
   const [hov,      setHov]      = useState(false);
   const [closeHov, setCloseHov] = useState(false);
   const pendingDragRef = useRef(null);
@@ -428,7 +429,7 @@ function DockTab({ tab, idx, isActive, c, colorful, displayTitle, showInsertBefo
       onClick: (e) => { e.stopPropagation(); onClose(); },
       onMouseEnter: () => setCloseHov(true),
       onMouseLeave: () => setCloseHov(false),
-      title: 'Close',
+      title: closeTitle,
       style: {
         flexShrink: 0, width: 16, height: 16,
         display: 'flex', alignItems: 'center', justifyContent: 'center',

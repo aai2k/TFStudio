@@ -130,6 +130,5 @@ export function computeOpticalSurface(spec, design, resolveMat, grid, fullRange)
     } else {
         fillPerPointRows(z, spec, baseCtx, grid);
     }
-    const zLabel = { T: 'Transmittance', R: 'Reflectance', A: 'Absorptance' }[spec.z] || spec.z;
-    return { ok: true, x, y, z, zLabel, nPoints };
+    return { ok: true, x, y, z, zKey: spec.z, nPoints };
 }

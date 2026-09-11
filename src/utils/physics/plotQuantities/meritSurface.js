@@ -61,13 +61,13 @@ function meritSurfaceZ({ spec, evalCtx, operands, xv, yv, optical = false }) {
 
 /**
  * Compute the MF surface over `grid` = {x, y, rowFrom, rowTo, nPoints}.
- * Returns an error result (ok:false) if no merit operands are enabled.
+ * Returns an error result (ok:false, errorKey) if no merit operands are enabled.
  */
 export function computeMeritSurface(spec, design, resolveMat, grid) {
     const { x, y, rowFrom, rowTo, nPoints } = grid;
     const operands = (design.meritOperands || []).filter(op => op && op.enabled);
     if (!operands.length) {
-        return { ok: false, error: 'No enabled merit operands. Set up targets in the Merit Function Editor.', x: [], y: [], z: [] };
+        return { ok: false, errorKey: 'errNoOperands', x: [], y: [], z: [] };
     }
     const evalCtx = buildEvalContext(design, resolveMat);
     const z = new Array(y.length);
@@ -78,5 +78,5 @@ export function computeMeritSurface(spec, design, resolveMat, grid) {
         }
         z[j] = row;
     }
-    return { ok: true, x, y, z, zLabel: 'Merit Function', nPoints };
+    return { ok: true, x, y, z, zKey: 'MF', nPoints };
 }

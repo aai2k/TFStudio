@@ -1,4 +1,6 @@
 import { ILLUMINANTS, OBSERVERS } from '../../../../utils/physics/colorimetry.js';
+// The illuminant designations are standard names; only their descriptions are translated.
+import { describedLabel } from '../../../../utils/physics/spectralWeightings.js';
 import { ChoiceGroup, FieldLabel, NumInput, SelectField } from '../chrome/controls.js';
 import { ControlRow } from '../chrome/layout.js';
 import { NoticeBadge, SettingDivider, SettingRow, SettingsMenu } from '../chrome/popover.js';
@@ -80,7 +82,7 @@ function ColorSetup({ c, t, ce, state }) {
         h(SettingRow, { c, label: ce.illuminant },
             h(SelectField, {
                 value: state.illuminant, onChange: state.setIllum, c, width: 160,
-                options: ILLUMINANTS,
+                options: ILLUMINANTS.map(entry => ({ id: entry.id, label: describedLabel(entry, t.illuminants) })),
             }),
         ),
         h(SettingRow, { c, label: ce.step },

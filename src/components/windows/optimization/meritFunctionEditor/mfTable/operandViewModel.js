@@ -51,19 +51,24 @@ const TYPE_COLORS = {
 // names (GDDTFLAT, TODTFLAT) must read in full inside the picker, which spends
 // about 25 px of the column on its padding and caret. The wavelength, layer,
 // angle and weight columns hold at most a four-digit number.
+// Column widths, and the t.meritFunctionEditor.cols key each header reads. The
+// row number and the enabled tick are symbols and carry no key.
 export const COLS = [
-    { key: 'num', w: 24, label: '#' },
-    { key: 'enabled', w: 20, label: '✓' },
-    { key: 'type', w: 82, label: 'Type' },
-    { key: 'lambdaStart', w: 54, label: 'λ / Layer' },
-    { key: 'lambdaEnd', w: 50, label: 'End *' },
-    { key: 'aoi', w: 44, label: 'AOI (°)' },
-    { key: 'pol', w: 42, label: 'Pol' },
-    { key: 'target', w: 64, label: 'Target' },
-    { key: 'weight', w: 44, label: 'Weight' },
-    { key: 'current', w: 70, label: 'Current' },
-    { key: 'contribution', w: 50, label: '% of MF²' },
+    { key: 'num', w: 24, symbol: '#' },
+    { key: 'enabled', w: 20, symbol: '✓' },
+    { key: 'type', w: 82, tr: 'type' },
+    { key: 'lambdaStart', w: 54, tr: 'lambdaLayer' },
+    { key: 'lambdaEnd', w: 50, tr: 'endDefault' },
+    { key: 'aoi', w: 44, tr: 'aoi' },
+    { key: 'pol', w: 42, tr: 'pol' },
+    { key: 'target', w: 64, tr: 'target' },
+    { key: 'weight', w: 44, tr: 'weight' },
+    { key: 'current', w: 70, tr: 'current' },
+    { key: 'contribution', w: 50, tr: 'contribution' },
 ];
+
+/** Header text for a column. `cols` is t.meritFunctionEditor.cols. */
+export const colLabel = (col, cols) => col.symbol || cols[col.tr];
 
 const COLS_W = COLS.reduce((sum, col) => sum + col.w, 0);
 
@@ -77,19 +82,24 @@ export const RANGE_AVG_TYPES = new Set(['TAV', 'RAV', 'AAV']);
 export const RANGE_TARGET_TYPES = new Set(['TGT', 'RGT', 'AGT']);
 const EDITABLE_KEYS = ['enabled', 'type', 'lambdaStart', 'lambdaEnd', 'aoi', 'pol', 'target', 'weight'];
 
+// What the λ columns are headed for each operand family, as keys into
+// t.meritFunctionEditor.cols. λ and the not-applicable dash are symbols and stay
+// here; DASH is the empty column, not a word.
+const DASH = '—';
+const LAMBDA = 'λ';
 const HEADER_LABELS = [
-    [op => isMeasuredCurve(op.type), { lambdaStart: 'λ Start', lambdaEnd: 'λ End' }],
-    [op => isBlank(op.type), { lambdaStart: 'Comment', lambdaEnd: '—' }],
-    [op => isTotalThickness(op.type), { lambdaStart: 'Cmp', lambdaEnd: '—' }],
-    [op => isConstraint(op.type), { lambdaStart: 'Layer 1', lambdaEnd: 'Layer 2' }],
-    [op => isIntegral(op.type), { lambdaStart: 'Integral', lambdaEnd: '—' }],
-    [op => isArgwave(op.type), { lambdaStart: 'λ Start', lambdaEnd: 'λ End' }],
-    [op => isGroupDelayFlat(op.type), { lambdaStart: 'λ Start', lambdaEnd: 'λ End' }],
-    [op => isPhase(op.type), { lambdaStart: 'λ', lambdaEnd: '—' }],
-    [op => isMathSingleRef(op.type), { lambdaStart: 'Ref Op#', lambdaEnd: '—' }],
-    [op => isMathPairRef(op.type), { lambdaStart: 'Ref Op#1', lambdaEnd: 'Ref Op#2' }],
+    [op => isMeasuredCurve(op.type), { lambdaStart: 'lamStart', lambdaEnd: 'lamEnd' }],
+    [op => isBlank(op.type), { lambdaStart: 'comment', lambdaEnd: DASH }],
+    [op => isTotalThickness(op.type), { lambdaStart: 'cmp', lambdaEnd: DASH }],
+    [op => isConstraint(op.type), { lambdaStart: 'layer1', lambdaEnd: 'layer2' }],
+    [op => isIntegral(op.type), { lambdaStart: 'integral', lambdaEnd: DASH }],
+    [op => isArgwave(op.type), { lambdaStart: 'lamStart', lambdaEnd: 'lamEnd' }],
+    [op => isGroupDelayFlat(op.type), { lambdaStart: 'lamStart', lambdaEnd: 'lamEnd' }],
+    [op => isPhase(op.type), { lambdaStart: LAMBDA, lambdaEnd: DASH }],
+    [op => isMathSingleRef(op.type), { lambdaStart: 'refOp', lambdaEnd: DASH }],
+    [op => isMathPairRef(op.type), { lambdaStart: 'refOp1', lambdaEnd: 'refOp2' }],
     [op => isMinmax(op.type) || RANGE_AVG_TYPES.has(op.type) || RANGE_TARGET_TYPES.has(op.type),
-        { lambdaStart: 'λ Start', lambdaEnd: 'λ End' }],
+        { lambdaStart: 'lamStart', lambdaEnd: 'lamEnd' }],
 ];
 
 const EDITABLE_COLS = [
@@ -117,10 +127,15 @@ export function rowTintAlpha(light) {
     return light ? 0.2 : 0.12;
 }
 
-export function dynamicHeaderLabels(op) {
-    if (!op || isDmfs(op.type)) return { lambdaStart: 'λ / Layer', lambdaEnd: 'End *' };
-    const hit = HEADER_LABELS.find(([test]) => test(op));
-    return hit ? hit[1] : { lambdaStart: 'λ', lambdaEnd: '—' };
+/**
+ * What the two λ columns are headed for the operand in focus. `cols` is
+ * t.meritFunctionEditor.cols; a symbol in HEADER_LABELS is not a key there and
+ * passes straight through.
+ */
+export function dynamicHeaderLabels(op, cols) {
+    if (!op || isDmfs(op.type)) return { lambdaStart: cols.lambdaLayer, lambdaEnd: cols.endDefault };
+    const hit = HEADER_LABELS.find(([test]) => test(op))?.[1] ?? { lambdaStart: LAMBDA, lambdaEnd: DASH };
+    return { lambdaStart: cols[hit.lambdaStart] ?? hit.lambdaStart, lambdaEnd: cols[hit.lambdaEnd] ?? hit.lambdaEnd };
 }
 
 export function editableColsForRow(op) {

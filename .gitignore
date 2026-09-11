@@ -35,14 +35,9 @@ settings.json
 .claude/
 *.swp
 
-# Legacy user data
-surfaces/
-SurfaceExpertData/
-tempsurfacedata.txt
-ConvertSettings.txt
-FitReport.txt
-FitMetrics.txt
-FitDeviations.txt
+# Windows reserved device name. Shell redirection to `nul` from a context that
+# does not recognise it leaves a real file behind, which is awkward to remove
+# once committed.
 nul
 
 .VSCodeCounter/

@@ -1,4 +1,4 @@
-import { QUALIFIER_KINDS, defaultTolForKind } from '../../../../utils/synthesis/qualifiers.js';
+import { QUALIFIER_KINDS, defaultTolForKind, qualifierSummary } from '../../../../utils/synthesis/qualifiers.js';
 import { OPERAND_POLS } from '../../../../utils/physics/optimizer.js';
 import { Checkbox } from '../../../ui/Checkbox.js';
 import { KIND_META } from './model.js';
@@ -39,8 +39,8 @@ export function QRow({ q, r, c, ts, updateQualifier, removeQualifier, integralPr
         h('div', { style: { display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap', fontSize: 11, color: c.textDim } },
             renderChannelPick(meta, q, onF, c, ts),
             renderChannelFixed(meta, c),
-            renderWavelength(meta, q, onF, c),
-            renderAoi(meta, q, onF, c),
+            renderWavelength(meta, q, onF, c, ts),
+            renderAoi(meta, q, onF, c, ts),
             renderPol(meta, q, onF, c, ts),
             renderDirection(meta, q, onF, c, ts),
             renderLevel(meta, q, onF, c, ts),
@@ -51,9 +51,9 @@ export function QRow({ q, r, c, ts, updateQualifier, removeQualifier, integralPr
         ),
 
         // Tooltip / summary line for non-pass cases
-        r?.summary && r?.pass === false && h('div', {
+        r?.pass === false && qualifierSummary(r, ts.summaries) && h('div', {
             style: { fontSize: 10, color: c.textDim, fontStyle: 'italic', paddingLeft: 4 },
-        }, r.summary)
+        }, qualifierSummary(r, ts.summaries))
     );
 }
 
@@ -125,24 +125,24 @@ function renderChannelFixed(meta, c) {
 // λ — single, band, or hidden (geom-only kinds). Integral kinds derive their
 // band from the chosen preset, so the editable band inputs are suppressed and
 // the band is shown read-only by renderIntegral instead.
-function renderWavelength(meta, q, onF, c) {
+function renderWavelength(meta, q, onF, c, ts) {
     if (meta.integral) return null;
     return meta.single
         ? h(Field, { label: 'λ', c },
             numInp(q.lambda, v => onF('lambda', v), c))
         : !meta.geomOnly
             ? [
-                h(Field, { label: 'λ start', c, key: 'ls' },
+                h(Field, { label: ts.lamStart, c, key: 'ls' },
                     numInp(q.lambdaStart, v => onF('lambdaStart', v), c)),
-                h(Field, { label: 'λ end',   c, key: 'le' },
+                h(Field, { label: ts.lamEnd, c, key: 'le' },
                     numInp(q.lambdaEnd,   v => onF('lambdaEnd',   v), c)),
               ]
             : null;
 }
 
 // AOI, pol — only for optical kinds
-function renderAoi(meta, q, onF, c) {
-    return !meta.geomOnly && h(Field, { label: 'AOI', c },
+function renderAoi(meta, q, onF, c, ts) {
+    return !meta.geomOnly && h(Field, { label: ts.aoi, c },
         numInp(q.aoi, v => onF('aoi', v), c));
 }
 

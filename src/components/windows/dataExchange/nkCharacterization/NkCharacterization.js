@@ -88,6 +88,7 @@ export function SaveAction({ c, nk, state, onCreateDesign }) {
         ),
         dialog && h(SaveMaterialDialog, {
             c, nk, catalogs, dialog,
+            lambdaAxis: t.spectralAxis.lambdaShort,
             result: state.result,
             onChange: change,
             onSave: store,
@@ -97,7 +98,7 @@ export function SaveAction({ c, nk, state, onCreateDesign }) {
     );
 }
 
-function ChartBody({ c, nk, state }) {
+function ChartBody({ c, nk, state, lambdaAxis }) {
     const { result, view } = state;
     // The mode has nothing to fit, but the design does. Say which window brings
     // this kind in and leave the toolbar above alone, so the other mode is one
@@ -120,6 +121,7 @@ function ChartBody({ c, nk, state }) {
             measured: nk.measured, calculated: nk.calculated,
             pointwiseIndex: nk.pointwiseIndex, pointwiseExtinction: nk.pointwiseExtinction,
             residualAxis: nk.residualAxis, residualAxisDegrees: nk.residualAxisDegrees,
+            lambdaAxis,
         },
     });
 }
@@ -146,7 +148,7 @@ export function NkCharacterization({ c, t, onCreateDesign }) {
         }),
         h(PlotArea, null,
             h(ViewTabs, { c, nk, state }),
-            h(ChartBody, { c, nk, state })),
+            h(ChartBody, { c, nk, state, lambdaAxis: t.spectralAxis.lambdaShort })),
         h(ResultsSection, {
             c, label: nk.results,
             // No thickness here: it is the first row of the table this header

@@ -1,6 +1,5 @@
 // Final application and Design History recording for the DLS worker pool.
 
-import { METHOD_LABELS } from '../refinementConfig.js';
 
 export function finalizeDlsRun(ctx, S) {
     if (S.finished) return;
@@ -15,7 +14,7 @@ export function finalizeDlsRun(ctx, S) {
         const layers = S.layerSide === 'backLayers' ? best.backLayers : best.frontLayers;
         ctx.addHistEntry({
             id: Math.random().toString(36).slice(2),
-            label: S.isMulti ? `${S.runLabel} (×${S.N})` : METHOD_LABELS.dls,
+            label: S.isMulti ? `${S.runLabel} (×${S.N})` : ctx.t.refinement.methods.dls,
             iter: S.cumIter, omf: best.omf, mf: best.mfBest, layers,
             layerCount: (layers || []).length, layerSide: S.layerSide,
             mfHistory: [...S.mfHistory],

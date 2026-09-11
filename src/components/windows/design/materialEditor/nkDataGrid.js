@@ -8,7 +8,7 @@
  *   onDelete(key)
  *   onAdd()
  *   onPasteRows([{ ...values }])   — called with parsed TSV rows
- *   c, addLabel, sortBtn
+ *   c, addLabel, emptyLabel, sortBtn
  *
  * Supports cell-to-cell keyboard navigation (Enter/Tab/Arrows), row delete
  * (Ctrl+Delete or Delete when the grid shell is focused), and TSV copy/paste
@@ -135,7 +135,7 @@ function renderNkRow(row, ri, ctx) {
     );
 }
 
-export function NKDataGrid({ cols, rows, onEdit, onDelete, onAdd, onPasteRows, c, addLabel, sortBtn }) {
+export function NKDataGrid({ cols, rows, onEdit, onDelete, onAdd, onPasteRows, c, addLabel, emptyLabel, sortBtn }) {
     // focusCell: { rowIdx, colIdx } — which cell is active
     const [focusCell, setFocusCell] = useState(null);
     const inputRefs   = useRef({}); // key: `${rowIdx}_${colIdx}` → input DOM node
@@ -176,7 +176,7 @@ export function NKDataGrid({ cols, rows, onEdit, onDelete, onAdd, onPasteRows, c
             sortBtn,
         ),
         rows.length === 0
-            ? h('div', { style: { color: c.textDim, fontSize: 11, fontStyle: 'italic', padding: '2px 0' } }, 'No data. Click Add or paste (Ctrl+V).')
+            ? h('div', { style: { color: c.textDim, fontSize: 11, fontStyle: 'italic', padding: '2px 0' } }, emptyLabel)
             : h('div', {
                 ref: containerRef,
                 tabIndex: 0,

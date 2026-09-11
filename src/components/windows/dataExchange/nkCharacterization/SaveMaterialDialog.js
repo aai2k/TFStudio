@@ -39,11 +39,11 @@ export function saveDialogIncomplete(dialog) {
         || (dialog.catalogId === NEW_CATALOG_ID && !dialog.catalogName.trim());
 }
 
-function PreviewChart({ material, c }) {
+function PreviewChart({ material, c, lambdaAxis }) {
     const divRef = useRef(null);
     const chartRef = useRef(null);
     useEffect(() => {
-        drawChart(divRef.current, chartRef, buildPreviewOption(material, paletteFrom(c)));
+        drawChart(divRef.current, chartRef, buildPreviewOption(material, paletteFrom(c), lambdaAxis));
     });
     useChartTeardown(divRef, chartRef);
     return h('div', { ref: divRef, style: { width: '100%', height: 160, flexShrink: 0 } });
@@ -56,7 +56,7 @@ function LabelledField({ c, label, children }) {
     );
 }
 
-function Preview({ c, nk, material }) {
+function Preview({ c, nk, material, lambdaAxis }) {
     const rows = useMemo(() => previewRows(material), [material]);
     const [low, high] = material.dispersionFit.rangeNm;
     return h('div', {
@@ -67,7 +67,7 @@ function Preview({ c, nk, material }) {
             h('div', { style: { fontSize: 11, color: c.textDim } },
                 nk.previewSampled(Math.round(low), Math.round(high), rows.length)),
         ),
-        h(PreviewChart, { material, c }),
+        h(PreviewChart, { material, c, lambdaAxis }),
         h('div', { style: { border: `1px solid ${c.border}`, borderRadius: 4, overflow: 'hidden' } },
             h(ResultsGrid, { columns: previewColumns({ lambda: nk.previewLambda }), rows, c, height: 150 })),
     );
@@ -80,7 +80,7 @@ function Preview({ c, nk, material }) {
  * @param canOpenDesign  false when there is no project folder to create one in
  */
 export function SaveMaterialDialog({
-    c, nk, result, catalogs, dialog, onChange, onSave, onCancel, canOpenDesign,
+    c, nk, result, catalogs, dialog, onChange, onSave, onCancel, canOpenDesign, lambdaAxis,
 }) {
     // Built from the result alone: the name and the destination decide where the
     // record goes, not what is in it, so typing a name does not resample it.
@@ -142,7 +142,7 @@ export function SaveMaterialDialog({
                     nk.openDesignHint),
                 dialog.error && h('div', { style: { color: c.error, fontSize: 11 } }, dialog.error),
             ),
-            h(Preview, { c, nk, material }),
+            h(Preview, { c, nk, material, lambdaAxis }),
         ),
         h('div', { style: { display: 'flex', justifyContent: 'flex-end', gap: 8 } },
             h(ActionButton, { c, label: nk.cancel, onClick: onCancel }),

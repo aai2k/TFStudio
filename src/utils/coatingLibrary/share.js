@@ -89,6 +89,6 @@ export function packFileName(entry) {
 /** Write the packed entry through a save dialog. Unavailable outside the desktop app. */
 export async function packCoating(entry) {
     const api = window.electronAPI;
-    if (!api?.packCoating) return { success: false, error: 'not available here' };
+    if (!api?.packCoating) return { success: false, errorKey: 'desktopOnly' };
     return api.packCoating(packText(entry), packFileName(entry));
 }

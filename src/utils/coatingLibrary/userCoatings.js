@@ -30,7 +30,7 @@ export async function listUserCoatings() {
  */
 export async function saveUserCoating(entry) {
     const api = window.electronAPI;
-    if (!api?.saveCoating) return { success: false, error: 'not available here' };
+    if (!api?.saveCoating) return { success: false, errorKey: 'desktopOnly' };
     const record = Object.fromEntries(Object.entries(entry).filter(([, value]) => value != null));
     const result = await api.saveCoating(record);
     if (result?.success) announce();
@@ -39,7 +39,7 @@ export async function saveUserCoating(entry) {
 
 export async function deleteUserCoating(name) {
     const api = window.electronAPI;
-    if (!api?.deleteCoating) return { success: false, error: 'not available here' };
+    if (!api?.deleteCoating) return { success: false, errorKey: 'desktopOnly' };
     const result = await api.deleteCoating(name);
     if (result?.success) announce();
     return result;

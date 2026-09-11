@@ -14,6 +14,11 @@ import {
 import {
     formatYCell, isLogYScale, logAxisZoomTicks, yRangeControl, yScaleOf, yScaleReadsQuantity,
 } from '../src/components/windows/analysis/opticalEvaluation/yScale.js';
+// The spectral x-axis title is display text, so it comes from the locale.
+import { getLocale } from '../src/constants/locales/index.js';
+
+const spectralTitles = getLocale('en').spectralAxis;
+const CL = getLocale('en').opticalEval.curveLabels;
 
 let failures = 0;
 
@@ -63,7 +68,7 @@ const palette = {
 const option = (yScale, yRange, extra = {}) => buildChartOption({
     ...palette, data, showCurves, overlays: [], targets: [], targetsVisible: false,
     editMode: false, editTool: 'draw', editCurve: 'R', yScale, yRange,
-    spectralUnit: 'nm', lamRange: { min: 500, max: 700 }, ...extra,
+    spectralUnit: 'nm', lamRange: { min: 500, max: 700 }, spectralTitles, curveLabels: CL, ...extra,
 });
 
 const dbOption = option('dB', { auto: false, min: 1e-4, max: 100 });
@@ -89,7 +94,7 @@ check(option('percent', { auto: false, min: 0, max: 100 }).yAxis.min === 0,
 
 // ── What a logarithmic axis can draw ─────────────────────────────────────────
 
-const logSeries = buildChartSeries({ data, showCurves, overlays: [], yScale: 'dB' });
+const logSeries = buildChartSeries({ curveLabels: CL, data, showCurves, overlays: [], yScale: 'dB' });
 const [tSeries, rSeries, aSeries] = logSeries;
 check(tSeries.data.every((point, index) => close(point[1], data.series[0].T[index] * 100, 1e-12)),
     'plotted values stay on the percentage scale the target overlay uses');
@@ -97,7 +102,7 @@ check(rSeries.data[0][1] === null && rSeries.data[1][1] === 99.9,
     'a curve that touches zero loses that sample and keeps the rest');
 check(aSeries.data.every(point => point[1] === null),
     'a lossless stack has no absorptance curve on a logarithmic axis');
-check(buildChartSeries({ data, showCurves, overlays: [] })[2].data.every(point => point[1] === 0),
+check(buildChartSeries({ curveLabels: CL, data, showCurves, overlays: [] })[2].data.every(point => point[1] === 0),
     'the same curve is drawn flat at zero on a linear axis');
 
 // A transparent stack does not leave A at zero. It leaves what is left of
@@ -112,7 +117,7 @@ const roundOff = {
         A: [2.22e-16, 5.55e-16, 0, 1e-9],
     }],
 };
-const noise = buildChartSeries({ data: roundOff, showCurves, overlays: [], yScale: 'dB' });
+const noise = buildChartSeries({ curveLabels: CL, data: roundOff, showCurves, overlays: [], yScale: 'dB' });
 check(noise[2].data.slice(0, 3).every(point => point[1] === null),
     'absorptance at the round-off of 1 - R - T is not drawn');
 check(close(noise[2].data[3][1], 1e-7),
@@ -126,7 +131,7 @@ const targets = [
     { id: 'block', enabled: true, type: 'T', lambdaStart: 600, target: 1e-5 },
 ];
 const drawnTargets = yScale => buildChartSeries({
-    data, showCurves, targets, targetsVisible: true, overlays: [], yScale,
+    data, showCurves, targets, targetsVisible: true, overlays: [], yScale, curveLabels: CL,
 }).slice(3).filter(item => item.data?.length)
     .flatMap(item => item.data.map(point => (point.value || point)[1]));
 // A flat target is drawn as its two ends, and a band carries three markers:
@@ -162,11 +167,11 @@ const allOn = { T: true, R: true, A: true, Ts: false, Rs: false, Tp: false, Rp: 
 const named = yScale => buildChartSeries({
     data: mixed, showCurves: allOn, overlays: [
         { id: 'm1', name: 'meas', quantity: 'R', color: '#fff', visible: true, x: [500], y: [0.09] },
-    ], yScale,
+    ], yScale, curveLabels: CL,
 }).map(item => item.name).filter(Boolean);
-check(named('dB').join('|') === 'T avg|R avg|A avg|meas (R meas)',
+check(named('dB').join('|') === [CL.T, CL.R, CL.A, 'meas (R meas)'].join('|'),
     'decibels draw every switched-on curve and every overlay');
-check(named('OD').join('|') === 'T avg',
+check(named('OD').join('|') === CL.T,
     'density draws the transmittance curves alone, overlays included');
 check(named('percent').length === 4, 'the linear units are untouched');
 
@@ -175,14 +180,14 @@ const mixedTargets = [
     { id: 'r', enabled: true, type: 'R', lambdaStart: 550, target: 0.02 },
 ];
 const targetLevels = yScale => buildChartSeries({
-    data: mixed, showCurves: allOn, targets: mixedTargets, targetsVisible: true, overlays: [], yScale,
+    data: mixed, showCurves: allOn, targets: mixedTargets, targetsVisible: true, overlays: [], yScale, curveLabels: CL,
 }).filter(item => item.type === 'scatter').flatMap(item => item.data.map(point => point.value[1]));
 check(targetLevels('dB').length === 2 && targetLevels('OD').length === 1
     && close(targetLevels('OD')[0], 1e-2),
     'a reflectance target is not drawn on a density axis either');
 
-check(buildTableColumns(mixed, allOn, undefined, 'OD').map(column => column.cv.key).join('') === 'T'
-    && buildTableColumns(mixed, allOn, undefined, 'dB').map(column => column.cv.key).join('') === 'TRA',
+check(buildTableColumns(mixed, allOn, undefined, 'OD', CL).map(column => column.cv.key).join('') === 'T'
+    && buildTableColumns(mixed, allOn, undefined, 'dB', CL).map(column => column.cv.key).join('') === 'TRA',
     'the results table follows the plot');
 check(buildCSV(mixed, allOn, 'OD').split('\n')[0] === 'lambda_nm,T_OD',
     'and so does the export, which names the unit');
@@ -194,7 +199,7 @@ check(buildCSV(mixed, allOn, 'OD').split('\n')[0] === 'lambda_nm,T_OD',
 const axisFor = (data, yScale, yRange = { auto: true }) => buildChartOption({
     ...palette, data, showCurves: allOn, overlays: [], targets: [], targetsVisible: false,
     editMode: false, editTool: 'draw', editCurve: 'R', yScale, yRange,
-    spectralUnit: 'nm', lamRange: { min: 400, max: 600 },
+    spectralUnit: 'nm', lamRange: { min: 400, max: 600 }, spectralTitles, curveLabels: CL,
 }).yAxis;
 
 const shallow = { lambda: [400, 500], series: [{ theta: 0, T: [0.912, 0.999] }] };
@@ -312,7 +317,7 @@ check(readableTargets(fitTargets, 'OD').map(target => target.id).join() === 'fit
     && readableTargets(fitTargets, 'dB').length === 2,
     'density keeps a transmittance fit target and drops a reflectance one');
 check(buildChartSeries({
-    data: mixed, showCurves: allOn, targets: fitTargets, targetsVisible: true, overlays: [], yScale: 'OD',
+    data: mixed, showCurves: allOn, targets: fitTargets, targetsVisible: true, overlays: [], yScale: 'OD', curveLabels: CL,
 }).filter(item => item.type === 'line' && item.data?.length === 2 && !item.name).length === 1,
     'the transmittance fit target is drawn under density');
 
@@ -322,8 +327,8 @@ const fine = {
     lambda: Array.from({ length: 2001 }, (_, index) => 400 + index * 0.1),
     series: [{ theta: 0, T: Array.from({ length: 2001 }, () => 0.5) }],
 };
-check(buildChartSeries({ data: fine, showCurves: allOn, overlays: [], yScale: 'dB' })[0].sampling === 'minmax'
-    && buildChartSeries({ data: fine, showCurves: allOn, overlays: [] })[0].sampling === 'lttb',
+check(buildChartSeries({ curveLabels: CL, data: fine, showCurves: allOn, overlays: [], yScale: 'dB' })[0].sampling === 'minmax'
+    && buildChartSeries({ curveLabels: CL, data: fine, showCurves: allOn, overlays: [] })[0].sampling === 'lttb',
     'a logarithmic axis samples by extremes, a linear one by shape');
 
 // A flat level drawn on a logarithmic axis lands at the middle of the stroke as

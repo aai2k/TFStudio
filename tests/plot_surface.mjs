@@ -78,7 +78,7 @@ const bbar = {
     let allIn = true;
     for (const row of r.z) for (const v of row) if (!(v >= 0 && v <= 1)) allIn = false;
     ok(allIn, '1c every T in [0,1]');
-    ok(r.zLabel === 'Transmittance', '1d zLabel = Transmittance');
+    ok(r.zKey === 'T', '1d zKey = T');
 }
 
 // ── 2. AR transmission peaks near the quarter-wave thickness ────────────────────
@@ -174,7 +174,7 @@ const bbar = {
 {
     const bad = makeDefaultSurfaceSpec(bbar, { z: 'MF', xVar: 'wavelength', yVar: 'thk:1' });
     const r = computeSurface(bad, bbar, resolveMat);
-    ok(!r.ok && /layer parameter/i.test(r.error || ''), '6a MF rejects a wavelength axis');
+    ok(!r.ok && r.errorKey === 'errMfAxes', '6a MF rejects a wavelength axis');
 
     const optOpts = buildAxisVarOptions(bbar, true).map(o => o.value);
     const mfOpts = buildAxisVarOptions(bbar, false).map(o => o.value);

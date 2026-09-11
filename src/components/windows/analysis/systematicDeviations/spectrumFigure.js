@@ -26,7 +26,7 @@ export function buildSpectrumSeries(baseline, deviated, channel, showBaseline,
     return series;
 }
 
-export function buildSpectrumOption(baseline, deviated, channel, showBaseline, colors, c) {
+export function buildSpectrumOption(baseline, deviated, { channel, showBaseline, colors, c, lambdaAxis }) {
     const text = c.text || '#cccccc';
     const gridColor = c.border || '#3a3a3a';
     return cartesianOption({
@@ -35,7 +35,7 @@ export function buildSpectrumOption(baseline, deviated, channel, showBaseline, c
         fileName: 'deviations',
         legend: legendAbove({ color: text }),
         tooltip: axisTooltip({ colors: c, valueSuffix: '%' }),
-        xAxis: valueAxis({ name: 'λ (nm)', color: text, gridColor }),
+        xAxis: valueAxis({ name: lambdaAxis, color: text, gridColor }),
         yAxis: valueAxis({ name: '%', color: text, gridColor, min: 0, max: 100, interval: 10 }),
         series: buildSpectrumSeries(baseline, deviated, channel, showBaseline, colors),
     });

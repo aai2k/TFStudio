@@ -9,6 +9,10 @@ import {
   withDesign,
 } from './_uiShim.mjs';
 
+
+// Series names are display text and come from the locale.
+import { getLocale } from '../src/constants/locales/index.js';
+const CE = getLocale('en').colorEval;
 shimBrowserGlobals();
 await loadApp();
 
@@ -29,7 +33,7 @@ const report = {
   xy: { x: 0.2, y: 0.3 },
   rgb: 'rgb(12,34,56)',
 };
-const series = buildChromaticitySeries(report, '2', c);
+const series = buildChromaticitySeries(report, '2', c, CE);
 
 assert.equal(series.length, 4);
 assert.deepEqual(series.map(item => [item.name || null, item.type]), [
@@ -47,7 +51,7 @@ assert.deepEqual(series[3].data, [[0.2, 0.3]]);
 assert.equal(series[3].itemStyle.color, 'rgb(12,34,56)');
 assert.equal(series[3].itemStyle.borderColor, '#ffffff');
 
-const option = buildChromaticityOption(report, '2', c);
+const option = buildChromaticityOption(report, '2', c, { tr: CE });
 assert.deepEqual([option.xAxis.min, option.xAxis.max], [0, 0.8]);
 assert.deepEqual([option.yAxis.min, option.yAxis.max], [0, 0.9]);
 assert.equal(option.xAxis.interval, 0.1);

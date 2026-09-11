@@ -105,7 +105,7 @@ function sampleDraftPreview(draft) {
     return { getNK, rangeNm, rows };
 }
 
-function drawFitResidualChart(chartEl, draft, c) {
+function drawFitResidualChart(chartEl, draft, c, me) {
     const fit = draft.dispersionFit;
     if (!fit) {
         clearMaterialChart(chartEl);
@@ -118,7 +118,7 @@ function drawFitResidualChart(chartEl, draft, c) {
     const wavelength = rows.map(row => row[0]);
     const nResidual = rows.map(row => evaluateDispersionFit(fit, row[0])[0] - row[1]);
     const kResidual = rows.map(row => evaluateDispersionFit(fit, row[0])[1] - row[2]);
-    drawResidualChart(chartEl, { wavelength, nResidual, kResidual, c });
+    drawResidualChart(chartEl, { wavelength, nResidual, kResidual, c, xLabel: me.wavelengthNm, yLabel: me.fitResidual });
 }
 
 // Automatic dot color — derived from the refractive index at 550 nm, previewing
@@ -242,12 +242,12 @@ function renderTypeToggle({ draft, set, me, c, sectionLabel }) {
     );
 }
 
-function renderTabularEditor({ draft, editRow, delRow, addRow, pasteRows, sortRows, me, c, sectionLabel }) {
+function renderTabularEditor({ draft, editRow, delRow, addRow, pasteRows, sortRows, me, c, sectionLabel, lambdaAxis }) {
     return h('div', null,
-        sectionLabel('n/k data'),
+        sectionLabel(me.nkTable),
         h(NKDataGrid, {
             cols: [
-                { key: 'lam', label: 'λ (nm)', width: '33%' },
+                { key: 'lam', label: lambdaAxis, width: '33%' },
                 { key: 'n',   label: 'n',       width: '33%' },
                 { key: 'k',   label: 'k',       width: '33%' },
             ],
@@ -257,6 +257,7 @@ function renderTabularEditor({ draft, editRow, delRow, addRow, pasteRows, sortRo
             onAdd: addRow,
             onPasteRows: pasteRows,
             addLabel: me.addRow,
+            emptyLabel: me.noRows,
             sortBtn: draft.rows.length > 1
                 ? h('button', { onClick: sortRows, style: { padding: '2px 8px', fontSize: 11, border: `1px solid ${c.border}`, borderRadius: 3, background: c.panel, color: c.text, cursor: 'pointer', fontFamily: 'inherit' } }, me.sortRows)
                 : null,
@@ -372,7 +373,7 @@ function renderFitPanel({ draft, set, runFit, fitError, me, c, sectionLabel, inp
 }
 
 function renderFormulaEditor(ctx) {
-    const { draft, set, me, c, sectionLabel, formulaInfo, coeffCount, inputStyle, labelStyle,
+    const { draft, set, me, c, sectionLabel, formulaInfo, coeffCount, inputStyle, labelStyle, lambdaAxis,
             addKRow, delKRow, editKRow, pasteKRows, addTerm, changeFormula } = ctx;
     const coeffLabels = coefficientNames(draft.formulaNum, coeffCount);
     return h('div', null,
@@ -393,7 +394,7 @@ function renderFormulaEditor(ctx) {
             h(KaTeXSpan, { latex: formulaInfo.template, displayMode: false })
         ),
 
-        sectionLabel('Coefficients'),
+        sectionLabel(me.coefficients),
         h('div', { style: { display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '4px 8px' } },
             Array.from({ length: coeffCount }, (_, i) =>
                 h('div', { key: i, style: { display: 'flex', alignItems: 'center', gap: 4 } },
@@ -420,7 +421,7 @@ function renderFormulaEditor(ctx) {
         sectionLabel(me.kTableLabel),
         h(NKDataGrid, {
             cols: [
-                { key: 'lam', label: 'λ (nm)', width: '50%' },
+                { key: 'lam', label: lambdaAxis, width: '50%' },
                 { key: 'k',   label: 'k',       width: '50%' },
             ],
             rows: draft.kRows,
@@ -429,6 +430,7 @@ function renderFormulaEditor(ctx) {
             onAdd: addKRow,
             onPasteRows: pasteKRows,
             addLabel: me.addRow,
+            emptyLabel: me.noRows,
             c,
         }),
         draft.kRows.length > 0 && renderInterpolationField(ctx)
@@ -439,7 +441,7 @@ function renderPreviewChart({ chartRef, residualChartRef, showResidual, preview,
     return h('div', { style: { flexShrink: 0, marginTop: 8, borderTop: `1px solid ${c.border}` } },
         sectionLabel(me.chartTitle),
         h('div', { ref: chartRef, style: { height: 160 } }),
-        showResidual && sectionLabel('Fit residual'),
+        showResidual && sectionLabel(me.fitResidual),
         showResidual && h('div', { ref: residualChartRef, style: { height: 130 } }),
         preview.getNK && h('div', { style: { padding: '6px 0 2px' } },
             h(NkProbe, { getNK: preview.getNK, rangeNm: preview.rangeNm, c, me })),
@@ -495,7 +497,7 @@ export function UserMaterialForm({ draft, onChange, onSave, onRevert, onDelete, 
     useEffect(() => {
         if (!chartRef.current) return;
         drawDraftChart(chartRef.current, draft, c, me);
-        if (residualChartRef.current) drawFitResidualChart(residualChartRef.current, draft, c);
+        if (residualChartRef.current) drawFitResidualChart(residualChartRef.current, draft, c, me);
     });
 
     // Field / draft update helpers
@@ -573,6 +575,7 @@ export function UserMaterialForm({ draft, onChange, onSave, onRevert, onDelete, 
 
     const ctx = {
         draft, set, setId, me, c, inputStyle, labelStyle, sectionLabel,
+        lambdaAxis: t.spectralAxis.lambdaShort,
         formulaInfo, coeffCount, colorIsAuto, autoColor,
         addRow, delRow, editRow, sortRows, pasteRows,
         runFit, fitError,

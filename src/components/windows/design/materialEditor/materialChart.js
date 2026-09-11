@@ -42,14 +42,14 @@ export function drawIndexChart(element, options) {
     setChartOption(element, buildIndexOption(options));
 }
 
-export function drawResidualChart(element, { wavelength, nResidual, kResidual, c }) {
+export function drawResidualChart(element, { wavelength, nResidual, kResidual, c, xLabel, yLabel }) {
     if (!element) return;
     setChartOption(element, cartesianOption({
         colors: { background: c.bg, paper: c.bg, grid: c.border, text: c.text },
         grid: { left: 52, right: 12, top: 24, bottom: 28 },
         legend: horizontalLegend({ color: c.text, top: 0 }),
-        xAxis: wavelengthAxis(wavelength, c, 'Wavelength (nm)'),
-        yAxis: valueAxis({ name: 'Fit residual', color: c.textDim, gridColor: c.border, scale: true, nameGap: 34 }),
+        xAxis: wavelengthAxis(wavelength, c, xLabel),
+        yAxis: valueAxis({ name: yLabel, color: c.textDim, gridColor: c.border, scale: true, nameGap: 34 }),
         series: [
             lineSeries({ x: wavelength, y: nResidual, name: 'Δn', color: '#5dade2', width: 1.5, symbol: 'circle', symbolSize: 3 }),
             lineSeries({ x: wavelength, y: kResidual, name: 'Δk', color: '#e74c3c', width: 1.2, symbol: 'circle', symbolSize: 3 }),

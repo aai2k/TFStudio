@@ -97,7 +97,7 @@ export function NeedleManual({ c, theme, t }) {
                             : h(PFunctionPlot, {
                                 materials: s.plotData.materials, boundaries: s.plotData.boundaries,
                                 bands: s.plotData.bands, totalZ: s.plotData.totalZ,
-                                selected: s.selected, onPick: s.handlePick, c, theme,
+                                selected: s.selected, onPick: s.handlePick, c, theme, tn,
                             })
                     )
                 ),

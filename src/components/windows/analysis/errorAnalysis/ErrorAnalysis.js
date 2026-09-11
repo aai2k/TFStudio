@@ -91,7 +91,7 @@ export function ErrorAnalysis({ c, t }) {
         running && h(ProgressHairline, { progress: state.progress, c }),
         h(PlotArea, null,
             result
-                ? h(ErrorChart, { result, char: state.char, c, corridorSigma, showEnvelope })
+                ? h(ErrorChart, { result, char: state.char, c, corridorSigma, showEnvelope, tr: t.errorAnalysis, lambdaAxis: t.spectralAxis.lambdaShort })
                 : h(CenteredMessage, {
                     c,
                     message: running

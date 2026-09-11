@@ -9,7 +9,7 @@ const PERCENT = value => (value == null ? '' : (value * 100).toFixed(4));
 export function statisticsColumns(t, char, corridorSigma) {
     const ea = t.errorAnalysis;
     return [
-        { key: 'lambda', label: 'λ (nm)', fmt: value => value.toFixed(1) },
+        { key: 'lambda', label: t.spectralAxis.lambdaShort, fmt: value => value.toFixed(1) },
         { key: 'theory', label: `${char} ${ea.colNominalSpectrum}`, fmt: PERCENT },
         { key: 'mean', label: `${char} ${ea.colMean}`, fmt: PERCENT },
         { key: 'stdev', label: `${char} σ`, fmt: PERCENT },

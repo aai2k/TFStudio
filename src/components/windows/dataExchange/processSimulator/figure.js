@@ -212,7 +212,7 @@ function namedCurves(focus, labels) {
         : [labels.legendBaseline, labels.legendStep(focus), labels.legendLive];
 }
 
-export function buildSpectraOption(data, colors, labels) {
+export function buildSpectraOption(data, colors, labels, xLabel) {
     const focus = focusedStep(data);
     const named = new Set(namedCurves(focus, labels));
     return cartesianOption({
@@ -239,7 +239,7 @@ export function buildSpectraOption(data, colors, labels) {
         // Pinned to the range that was set, as Optical Evaluation pins its own;
         // the shared wavelength rule supplies the 50 nm ticks.
         xAxis: valueAxis({
-            name: 'Wavelength (nm)', color: colors.text, gridColor: colors.grid, nameGap: 28,
+            name: xLabel, color: colors.text, gridColor: colors.grid, nameGap: 28,
             min: data.range?.[0], max: data.range?.[1],
         }),
         yAxis: valueAxis({ name: '%', color: colors.text, gridColor: colors.grid, min: 0, max: 100, interval: 10 }),

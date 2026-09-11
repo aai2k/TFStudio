@@ -1,5 +1,7 @@
 /** Small native-ECharts option factories shared by TFStudio charts. */
 
+import { getCurrentLocale, getLocale } from '../../constants/locales/index.js';
+
 export const THIN_X_SYMBOL = 'path://M-5,-4L-4,-5L0,-1L4,-5L5,-4L1,0L5,4L4,5L0,1L-4,5L-5,4L-1,0Z';
 export const LINE_LEGEND_ICON = 'path://M0,4L24,4L24,6L0,6Z';
 const RECTANGLE_ZOOM_ICON = 'path://M0,13.5h26.9 M13.5,26.9V0 M32.1,13.5H58V58H13.5 V32.1';
@@ -161,7 +163,10 @@ export function chartToolbox(fileName, {
     // reset path.
     if (restore) feature.myZoomRestore = {
         show: true,
-        title: 'Reset zoom',
+        // The toolbox is built from a chart model rather than a component, and
+        // every window that owns a chart would otherwise have to thread the
+        // locale down to it for this one tooltip.
+        title: getLocale(getCurrentLocale()).chart.resetZoom,
         icon: 'path://M3.8,33.4 M47,18.9h9.8V8.7 M56.3,20.1 C52.1,9,40.5,0.6,26.8,2.1C12.6,3.7,1.6,16.2,2.1,30.6 M13,41.1H3.1v10.2 M3.7,39.9c4.2,11.1,15.8,19.5,29.5,18 c14.2-1.6,25.2-14.1,24.7-28.5',
         onclick: (_model, api) => {
             api.dispatchAction({

@@ -42,14 +42,14 @@ export function MFTrendChart({ cycles, c, theme, emptyMsg, t }) {
         if (geCycles.length) {
             series.push(scatterSeries({
                 data: geCycles.map(cycle => ({ value: [cycle.genNum, cycle.mf], geStep: cycle.geStep })),
-                name: 'GE step', color: '#ff7043', symbol: 'triangle', symbolSize: 8,
+                name: t.gradualEvolution.geStepSeries, color: '#ff7043', symbol: 'triangle', symbolSize: 8,
             }));
         }
         return cartesianOption({
             colors: c,
             grid: { left: 54, right: 8, top: 24, bottom: 30 },
             legend: horizontalLegend({ color: c.text, top: 0 }),
-            xAxis: valueAxis({ name: 'Generation', color: c.text, gridColor: c.border, nameGap: 24 }),
+            xAxis: valueAxis({ name: t.gradualEvolution.genAxis, color: c.text, gridColor: c.border, nameGap: 24 }),
             yAxis: { ...valueAxis({ name: 'MF', color: c.text, gridColor: c.border, nameGap: 34 }), type: 'log' },
             series,
         });

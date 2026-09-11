@@ -25,7 +25,7 @@ export async function updateRiiDatabase(ctx) {
             setCatalogTree(await loadCatalog());
             setCatalogLoading(false);
         } else {
-            setUpdateMsg(rii.updateError(res.error || ''));
+            setUpdateMsg(res.unavailable ? rii.updateUnavailable : rii.updateError(res.error || ''));
         }
     } catch (err) {
         setUpdateMsg(rii.updateError(err.message));

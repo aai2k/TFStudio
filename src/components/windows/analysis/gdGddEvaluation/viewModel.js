@@ -50,7 +50,7 @@ function buildPlotData(raw, meta, quantity, referenceLambda, showReference) {
     return segmentCurve(raw, y, meta.order);
 }
 
-function buildTable(raw) {
+function buildTable(raw, lambdaAxis, text) {
     const columns = [];
     const rows = [];
     if (!raw?.lambda?.length) return { columns, rows };
@@ -60,11 +60,11 @@ function buildTable(raw) {
         gdd: Array.isArray(raw.gdd),
         tod: Array.isArray(raw.tod),
     };
-    columns.push({ key: 'lambda', label: 'λ (nm)', align: 'left', fmt: value => value.toFixed(1) });
-    if (available.gd) columns.push({ key: 'gd', label: 'GD (fs)', fmt: value => value.toFixed(3) });
-    if (available.gdd) columns.push({ key: 'gdd', label: 'GDD (fs²)', fmt: value => value.toFixed(3) });
-    if (available.phase) columns.push({ key: 'phase', label: 'Phase (°)', fmt: value => value.toFixed(2) });
-    if (available.tod) columns.push({ key: 'tod', label: 'TOD (fs³)', fmt: value => value.toFixed(3) });
+    columns.push({ key: 'lambda', label: lambdaAxis, align: 'left', fmt: value => value.toFixed(1) });
+    if (available.gd) columns.push({ key: 'gd', label: text.gdAxis, fmt: value => value.toFixed(3) });
+    if (available.gdd) columns.push({ key: 'gdd', label: text.gddAxis, fmt: value => value.toFixed(3) });
+    if (available.phase) columns.push({ key: 'phase', label: text.phaseAxis, fmt: value => value.toFixed(2) });
+    if (available.tod) columns.push({ key: 'tod', label: text.todAxis, fmt: value => value.toFixed(3) });
     for (let i = 0; i < raw.lambda.length; i++) {
         const row = { lambda: raw.lambda[i] };
         if (available.gd) row.gd = raw.gd[i];
@@ -132,9 +132,9 @@ export function autoYRange(plotData) {
     return { range, interval: bounds.interval, outside };
 }
 
-export function buildGdGddView(raw, options, text, colors) {
+export function buildGdGddView(raw, options, text, colors, lambdaAxis) {
     const meta = quantityMeta(options.quantity, text, colors);
-    const table = buildTable(raw);
+    const table = buildTable(raw, lambdaAxis, text);
     const plotData = buildPlotData(
         raw, meta, options.quantity, options.referenceLambda, options.showReference);
     return {

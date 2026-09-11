@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import {
-    COLS, TABLE_W, columnPercent, contributionBarWidth, dynamicHeaderLabels,
+    COLS, TABLE_W, colLabel, columnPercent, contributionBarWidth, dynamicHeaderLabels,
     editableColsForRow, fmtContribution, fmtCurrent, fmtResidual, fmtTargetDisplay,
     isRangeType, residualTooltip, rowDisplayMeta, rowTintAlpha, typeRgba,
 } from '../src/components/windows/optimization/meritFunctionEditor/mfTable/operandViewModel.js';
@@ -11,9 +11,14 @@ import {
 import { _operandResidual } from '../src/utils/physics/optimizer/evalCore.js';
 
 const op = (type, extra = {}) => ({ id: type, type, target: 0.5, ...extra });
+const { getLocale } = await import('../src/constants/locales/index.js');
+const COLS_TR = getLocale('en').meritFunctionEditor.cols;
+
 const theme = { success: 'success', error: 'error', textDim: 'dim' };
 
-assert.deepEqual(COLS.map(col => [col.key, col.label]), [
+// Header text is display copy and comes from the locale; the row number and the
+// enabled tick are symbols the model still owns.
+assert.deepEqual(COLS.map(col => [col.key, colLabel(col, COLS_TR)]), [
     ['num', '#'], ['enabled', '✓'], ['type', 'Type'], ['lambdaStart', 'λ / Layer'],
     ['lambdaEnd', 'End *'], ['aoi', 'AOI (°)'], ['pol', 'Pol'], ['target', 'Target'],
     ['weight', 'Weight'], ['current', 'Current'], ['contribution', '% of MF²'],
@@ -54,7 +59,7 @@ const headerCases = [
     [op('R'), ['λ', '—']],
 ];
 for (const [operand, expected] of headerCases) {
-    const labels = dynamicHeaderLabels(operand);
+    const labels = dynamicHeaderLabels(operand, COLS_TR);
     assert.deepEqual([labels.lambdaStart, labels.lambdaEnd], expected, operand?.type || 'none');
 }
 
@@ -163,7 +168,7 @@ for (const type of OPERAND_TYPES) {
         // protect it from table edits; they are configured through the fit dialog.
         || isMeasuredCurve(type)) continue;
     const row = op(type, { lambdaStart: 600, lambdaEnd: 900 });
-    const labelled = dynamicHeaderLabels(row).lambdaEnd !== '—';
+    const labelled = dynamicHeaderLabels(row, COLS_TR).lambdaEnd !== '—';
     assert.equal(editableColsForRow(row).includes('lambdaEnd'), labelled,
         `${type}: λ End editability must match its header label`);
     assert.equal(isRangeType(type), labelled,
@@ -200,11 +205,11 @@ assert.equal(rampUnchanged.rawResidual, 2.5);
 // operands are single-wavelength and must not.
 for (const type of ['GDFLAT', 'GDTFLAT', 'GDDFLAT', 'GDDTFLAT', 'TODFLAT', 'TODTFLAT']) {
     assert.equal(isRangeType(type), true, `${type} spans a wavelength band`);
-    assert.equal(dynamicHeaderLabels(op(type)).lambdaEnd, 'λ End');
+    assert.equal(dynamicHeaderLabels(op(type), COLS_TR).lambdaEnd, COLS_TR.lamEnd);
 }
 for (const type of ['PR', 'PT', 'DPR', 'DPT', 'GD', 'GDT', 'GDD', 'GDDT', 'TOD', 'TODT']) {
     assert.equal(isRangeType(type), false, `${type} is evaluated at one wavelength`);
-    assert.equal(dynamicHeaderLabels(op(type)).lambdaEnd, '—');
+    assert.equal(dynamicHeaderLabels(op(type), COLS_TR).lambdaEnd, '—');
 }
 
 console.log('mf_table_view_model_characterization: passed');

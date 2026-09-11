@@ -163,7 +163,7 @@ export function CoatingLibrary({ c, t }) {
             }),
             h('div', { style: { flex: 1, minWidth: 0, overflow: 'auto' } },
                 selected
-                    ? h(EntryDetail, { entry: selected, c, ts })
+                    ? h(EntryDetail, { entry: selected, c, ts, summaries: t.specification.summaries, lambdaAxis: t.spectralAxis.lambdaShort })
                     : h('div', { style: { padding: 24, fontSize: 12, color: c.textDim, fontStyle: 'italic' } }, ts.selectHint))),
         h(ApplyBar, { session, setField, selected, onApply: apply, onDelete: remove, message, c, ts }),
         saving && h(SaveCoatingDialog, {

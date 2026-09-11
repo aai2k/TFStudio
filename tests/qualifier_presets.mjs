@@ -12,13 +12,16 @@
  */
 
 import {
-    QUALIFIER_PRESETS, applyPreset, getPreset,
+    QUALIFIER_PRESETS, applyPreset, getPreset, presetText,
 } from '../src/utils/synthesis/qualifierPresets.js';
 import {
     makeQualifier, QUALIFIER_KINDS, evaluateQualifiers, aggregateVerdict,
 } from '../src/utils/synthesis/qualifiers.js';
 import { getMaterial } from '../src/utils/materials/materialDatabase.js';
 
+
+import { getLocale } from '../src/constants/locales/index.js';
+const PRESET_TEXT = getLocale('en').specification.presets;
 let fails = 0;
 const ok = (cond, msg) => { if (!cond) { console.error('FAIL:', msg); fails++; } };
 
@@ -38,9 +41,12 @@ console.log('— preset library structure —');
     const ids = QUALIFIER_PRESETS.map(p => p.id);
     ok(new Set(ids).size === ids.length, `all preset ids unique`);
     for (const p of QUALIFIER_PRESETS) {
-        ok(typeof p.label === 'string' && p.label.length > 0,
+        // The name and description are display text and live in the locale; the
+        // preset carries the key that finds them.
+        const text = presetText(p, PRESET_TEXT);
+        ok(typeof text.label === 'string' && text.label.length > 0,
             `preset ${p.id}: has label`);
-        ok(typeof p.description === 'string',
+        ok(typeof text.description === 'string' && text.description.length > 0,
             `preset ${p.id}: has description`);
         ok(Array.isArray(p.kinds) && p.kinds.length > 0,
             `preset ${p.id}: non-empty kinds`);

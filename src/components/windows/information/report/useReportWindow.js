@@ -38,6 +38,7 @@ function reportLocale(code) {
     return {
         ...(loc.report || {}),
         kinds: (loc.specification && loc.specification.kinds) || {},
+        summaries: (loc.specification && loc.specification.summaries) || {},
         mw: loc.monitorWorksheet || {},
     };
 }

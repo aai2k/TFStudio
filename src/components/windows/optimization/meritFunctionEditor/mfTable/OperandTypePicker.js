@@ -61,6 +61,6 @@ export function OperandTypePicker({ value, onChange, c, t, autoOpen = false, ini
         autoOpen, initialQuery, onClose,
         searchPlaceholder: mp.searchPlaceholder || 'Search…',
         allLabel: mp.allCatalogs || 'All',
-        emptyText: 'No operands found',
+        emptyText: t.meritFunctionEditor.noOperandsFound,
     });
 }

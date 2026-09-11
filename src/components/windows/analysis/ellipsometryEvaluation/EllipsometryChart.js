@@ -20,12 +20,11 @@ function measuredSeries(overlays, curve) {
     }));
 }
 
-export function buildEllipsometryOption(
-    data, colors,
+export function buildEllipsometryOption(data, colors, xLabel, {
     curve = ANALYSIS_DEFAULTS.ellipsometryEvaluation.colors,
     show = { psi: true, delta: true },
     overlays = [],
-) {
+} = {}) {
     const series = [
         show.psi && lineSeries({ x: data.x, y: data.psi, name: 'Ψ', color: curve.psi, width: 2, yAxisIndex: 0 }),
         show.delta && lineSeries({ x: data.x, y: data.delta, name: 'Δ', color: curve.delta, width: 2, yAxisIndex: 1 }),
@@ -42,7 +41,7 @@ export function buildEllipsometryOption(
         grid: plotMargin({ rightAxis: !!show.delta }),
         fileName: 'ellipsometry',
         tooltip: axisTooltip({ colors, valueSuffix: '°', series }),
-        xAxis: valueAxis({ name: data.xLabel, color: colors.text, gridColor: colors.grid }),
+        xAxis: valueAxis({ name: xLabel, color: colors.text, gridColor: colors.grid }),
         yAxis: [
             valueAxis({ name: '°', color: curve.psi, gridColor: colors.grid, min: 0, max: 90, interval: 10, position: 'left' }),
             { ...valueAxis({ name: '°', color: curve.delta, gridColor: colors.grid, min: 0, max: 360, position: 'right' }), interval: 60 },
@@ -55,7 +54,7 @@ export function buildEllipsometryOption(
     });
 }
 
-export function EllipsometryChart({ data, c, show = { psi: true, delta: true }, overlays = [] }) {
+export function EllipsometryChart({ data, c, xLabel, show = { psi: true, delta: true }, overlays = [] }) {
     const divRef = useRef(null);
     const chartRef = useRef(null);
     const curve = useAnalysisColors('ellipsometryEvaluation');
@@ -64,7 +63,7 @@ export function EllipsometryChart({ data, c, show = { psi: true, delta: true }, 
         grid: c.border || '#3a3a3a', text: c.text || '#cccccc',
     };
     useEffect(() => {
-        if (data) drawChart(divRef.current, chartRef, buildEllipsometryOption(data, colors, curve, show, overlays));
+        if (data) drawChart(divRef.current, chartRef, buildEllipsometryOption(data, colors, xLabel, { curve, show, overlays }));
     });
     useChartTeardown(divRef, chartRef);
     return h('div', { ref: divRef, style: { width: '100%', height: '100%' } });

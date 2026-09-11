@@ -48,7 +48,7 @@ export function useRIIBrowser({ c, t, onAdded }) {
     useEffect(() => fetchSelectedMaterial(selected, { setMat, setMatLoading, setMatErr, setPhase }), [selected]);
 
     // No dependency list: see plotSurface.js for why every render redraws.
-    useEffect(() => { drawRiiChart(chartRef.current, mat, c); });
+    useEffect(() => { drawRiiChart(chartRef.current, mat, c, t.spectralAxis.nm); });
 
     const toggleShelf = useCallback((shelfId) => {
         setExpandedShelves(prev => toggleInSet(prev, shelfId));

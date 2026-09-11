@@ -36,6 +36,12 @@ import { getMaterialById, materialLabel, normalizeId } from '../materials/catalo
 import { getMaterial } from '../materials/materialDatabase.js';
 import { designMaterialLookup } from '../materials/designMaterials.js';
 
+
+// A failure travels as a code plus its arguments; the Stack Formula window turns
+// it into text with t.stackFormula.errors. Keeping words out of the parser lets
+// the same message read in the user's language.
+const passError = (r) => ({ errorKey: r.errorKey, errorArgs: r.errorArgs, errorPos: r.errorPos });
+
 // ── Default symbol table ────────────────────────────────────────────────────
 //
 // H / L / M follow the filter-design convention (high / low / medium index).
@@ -107,7 +113,7 @@ function scanNumber(s, i) {
     // (dropping ".3"), so guard against more than one decimal point in the
     // consumed run in addition to the non-finite check.
     if (!isFinite(val) || (raw.match(/\./g) || []).length > 1) {
-        return { error: `Invalid number "${raw}"`, errorPos: i };
+        return { errorKey: 'invalidNumber', errorArgs: [raw], errorPos: i };
     }
     return { token: { type: TOK.NUM, value: val, raw, pos: i }, next: j };
 }
@@ -131,8 +137,8 @@ export function tokenizeStackFormula(text) {
         let scan = null;
         if (isDigit(ch) || ch === '.') scan = scanNumber(s, i);
         else if (isAlpha(ch)) scan = scanIdent(s, i);
-        else return { error: `Unexpected character "${ch}"`, errorPos: i };
-        if (scan.error) return { error: scan.error, errorPos: scan.errorPos };
+        else return { errorKey: 'unexpectedChar', errorArgs: [ch], errorPos: i };
+        if (scan.errorKey) return passError(scan);
         tokens.push(scan.token);
         i = scan.next;
     }
@@ -158,34 +164,34 @@ export function tokenizeStackFormula(text) {
 // plus the resolved sides, or { error, errorPos }.
 function preflightFormula(text) {
     const tk = tokenizeStackFormula(text);
-    if (tk.error) return { error: tk.error, errorPos: tk.errorPos };
+    if (tk.errorKey) return passError(tk);
     const tokens = tk.tokens;
-    if (tokens.length === 0) return { error: 'Empty formula', errorPos: 0 };
+    if (tokens.length === 0) return { errorKey: 'empty', errorPos: 0 };
 
     // Split on top-level pipes (pipes never appear inside groups in this grammar).
     const pipeIdx = [];
     tokens.forEach((t, idx) => { if (t.type === TOK.PIPE) pipeIdx.push(idx); });
     if (pipeIdx.length !== 0 && pipeIdx.length !== 2) {
         const at = pipeIdx.length === 1 ? tokens[pipeIdx[0]].pos : tokens[0].pos;
-        return { error: 'Use exactly two "|" separators (incident | layers | substrate) or none', errorPos: at };
+        return { errorKey: 'twoPipes', errorPos: at };
     }
 
     const hasSides = pipeIdx.length === 2;
     const sides = hasSides ? splitSides(tokens, pipeIdx) : {};
-    if (sides.error) return { error: sides.error, errorPos: sides.errorPos };
+    if (sides.errorKey) return passError(sides);
     return { incident: null, exit: null, layerToks: tokens, refLambdaOverride: null, hasSides, ...sides };
 }
 
 export function parseStackFormula(text) {
     const pre = preflightFormula(text);
-    if (pre.error) return { ok: false, error: pre.error, errorPos: pre.errorPos };
+    if (pre.errorKey) return { ok: false, ...passError(pre) };
     const { incident, exit, layerToks, refLambdaOverride, hasSides } = pre;
 
     const ctx = { toks: layerToks, i: 0 };
     const atoms = [];
     const res = parseLayers(ctx, atoms, /*topLevel*/ true);
-    if (res.error) return { ok: false, error: res.error, errorPos: res.errorPos };
-    if (atoms.length === 0) return { ok: false, error: 'No layers in formula', errorPos: layerToks[0]?.pos ?? 0 };
+    if (res.errorKey) return { ok: false, ...passError(res) };
+    if (atoms.length === 0) return { ok: false, errorKey: 'noLayers', errorPos: layerToks[0]?.pos ?? 0 };
 
     return {
         ok: true,
@@ -202,9 +208,9 @@ export function parseStackFormula(text) {
 function splitSides(tokens, pipeIdx) {
     const layerToks = tokens.slice(pipeIdx[0] + 1, pipeIdx[1]);
     const lside = parseSide(tokens.slice(0, pipeIdx[0]));
-    if (lside.error) return { error: lside.error, errorPos: lside.errorPos };
+    if (lside.errorKey) return passError(lside);
     const rside = parseSide(tokens.slice(pipeIdx[1] + 1));
-    if (rside.error) return { error: rside.error, errorPos: rside.errorPos };
+    if (rside.errorKey) return passError(rside);
     let refLambdaOverride = null;
     if (lside.refLambda != null) refLambdaOverride = lside.refLambda;
     if (rside.refLambda != null) refLambdaOverride = rside.refLambda;
@@ -218,17 +224,17 @@ function splitSides(tokens, pipeIdx) {
 
 function parseSide(toks) {
     if (toks.length === 0) return { sym: null };   // empty side = keep current
-    if (toks[0].type !== TOK.ID) return { error: 'Side must be a material symbol', errorPos: toks[0].pos };
+    if (toks[0].type !== TOK.ID) return { errorKey: 'sideSymbol', errorPos: toks[0].pos };
     const sym = toks[0].value, pos = toks[0].pos;
     let refLambda = null;
     let k = 1;
     if (k < toks.length && toks[k].type === TOK.AT) {
         if (k + 1 >= toks.length || toks[k + 1].type !== TOK.NUM)
-            return { error: 'Expected wavelength after "@"', errorPos: toks[k].pos };
+            return { errorKey: 'wavelengthAfterAt', errorPos: toks[k].pos };
         refLambda = toks[k + 1].value;
         k += 2;
     }
-    if (k < toks.length) return { error: 'Unexpected token after side material', errorPos: toks[k].pos };
+    if (k < toks.length) return { errorKey: 'tokenAfterSide', errorPos: toks[k].pos };
     return { sym, pos, refLambda };
 }
 
@@ -237,14 +243,14 @@ function parseLayers(ctx, out, topLevel) {
     while (ctx.i < ctx.toks.length) {
         const t = ctx.toks[ctx.i];
         if (t.type === TOK.RP) {
-            if (topLevel) return { error: 'Unmatched ")"', errorPos: t.pos };
+            if (topLevel) return { errorKey: 'unmatchedParen', errorPos: t.pos };
             return { ok: true, produced };
         }
         const g = parseGroup(ctx, out);
-        if (g.error) return g;
+        if (g.errorKey) return g;
         produced += g.produced;
     }
-    if (!topLevel) return { error: 'Missing ")"', errorPos: ctx.toks[ctx.toks.length - 1]?.pos ?? 0 };
+    if (!topLevel) return { errorKey: 'missingParen', errorPos: ctx.toks[ctx.toks.length - 1]?.pos ?? 0 };
     return { ok: true, produced };
 }
 
@@ -256,12 +262,12 @@ function parseGroup(ctx, out) {
 // '^' Integer — consume the exponent suffix after a group's ')'. Returns { n }
 // (a positive integer repeat count) or { error, errorPos }.
 function parseRepeatCount(ctx, t) {
-    if (ctx.toks[ctx.i]?.type !== TOK.CARET) return { error: 'Expected "^n" after group', errorPos: ctx.toks[ctx.i]?.pos ?? t.pos };
+    if (ctx.toks[ctx.i]?.type !== TOK.CARET) return { errorKey: 'caretAfterGroup', errorPos: ctx.toks[ctx.i]?.pos ?? t.pos };
     ctx.i++; // consume '^'
     const nTok = ctx.toks[ctx.i];
-    if (!nTok || nTok.type !== TOK.NUM) return { error: 'Expected repeat count after "^"', errorPos: nTok?.pos ?? t.pos };
+    if (!nTok || nTok.type !== TOK.NUM) return { errorKey: 'repeatCount', errorPos: nTok?.pos ?? t.pos };
     const n = nTok.value;
-    if (!(Number.isInteger(n) && n >= 1)) return { error: 'Repeat count must be a positive integer', errorPos: nTok.pos };
+    if (!(Number.isInteger(n) && n >= 1)) return { errorKey: 'repeatPositive', errorPos: nTok.pos };
     ctx.i++; // consume number
     return { n };
 }
@@ -272,12 +278,12 @@ function parseRepeatGroup(ctx, out, t) {
     ctx.i++; // consume '('
     const start = out.length;
     const inner = parseLayers(ctx, out, /*topLevel*/ false);
-    if (inner.error) return inner;
+    if (inner.errorKey) return inner;
     // ctx.i now points at the matching ')'
-    if (ctx.toks[ctx.i]?.type !== TOK.RP) return { error: 'Missing ")"', errorPos: t.pos };
+    if (ctx.toks[ctx.i]?.type !== TOK.RP) return { errorKey: 'missingParen', errorPos: t.pos };
     ctx.i++; // consume ')'
     const cnt = parseRepeatCount(ctx, t);
-    if (cnt.error) return cnt;
+    if (cnt.errorKey) return cnt;
     const n = cnt.n;
     const block = out.slice(start);
     let produced = block.length;
@@ -295,7 +301,7 @@ function parseAtom(ctx, out, t) {
         const idx = ctx.i + 1;
         const idTok = ctx.toks[idx];
         if (!idTok || idTok.type !== TOK.ID)
-            return { error: 'Expected a material symbol after the coefficient', errorPos: idTok?.pos ?? t.pos };
+            return { errorKey: 'symbolAfterCoefficient', errorPos: idTok?.pos ?? t.pos };
         out.push({ coef: t.value, sym: idTok.value, pos: t.pos });
         ctx.i = idx + 1;
         return { ok: true, produced: 1 };
@@ -305,7 +311,7 @@ function parseAtom(ctx, out, t) {
         ctx.i++;
         return { ok: true, produced: 1 };
     }
-    return { error: 'Expected a layer, "(", or coefficient', errorPos: t.pos };
+    return { errorKey: 'expectedLayer', errorPos: t.pos };
 }
 
 // ── Symbol resolution + single-char segmentation ────────────────────────────
@@ -427,10 +433,10 @@ export function buildStackFromFormula(opts) {
     } = opts || {};
 
     const parsed = parseStackFormula(text);
-    if (!parsed.ok) return { ok: false, error: parsed.error, errorPos: parsed.errorPos };
+    if (!parsed.ok) return { ok: false, ...passError(parsed) };
 
     const refLambda = parsed.refLambdaOverride != null ? parsed.refLambdaOverride : refLambdaIn;
-    if (!(refLambda > 0)) return { ok: false, error: 'Reference wavelength must be > 0', errorPos: 0 };
+    if (!(refLambda > 0)) return { ok: false, errorKey: 'refLambdaPositive', errorPos: 0 };
 
     // Resolve layer and boundary symbols before constructing any layers.
     const sides = resolveStackSides(parsed, symbolMap, resolvers);
@@ -444,7 +450,8 @@ export function buildStackFromFormula(opts) {
     if (unknownSymbols.length > 0) {
         return {
             ok: false,
-            error: `Unknown symbol${unknownSymbols.length > 1 ? 's' : ''}: ${unknownSymbols.join(', ')} — assign a material`,
+            errorKey: 'unknownSymbols',
+            errorArgs: [unknownSymbols.join(', '), unknownSymbols.length],
             errorPos: unresolved[0]?.pos ?? 0,
             unknownSymbols,
         };

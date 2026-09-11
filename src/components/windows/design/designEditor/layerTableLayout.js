@@ -1,10 +1,19 @@
-/** Shared column geometry for the Design Editor header and layer rows. */
+/**
+ * Shared column geometry for the Design Editor header and layer rows. `tr` and
+ * `tipTr` key into t.layerThicknesses, which already names these four columns
+ * for the Layer Thicknesses window. OT, QW and FW are the standard thin-film
+ * abbreviations and stay as written.
+ */
 export const LAYER_THICKNESS_COLUMNS = Object.freeze([
-    { unit: 'nm', label: 'd (nm)', title: 'Physical thickness (nm) — editable', primary: true },
-    { unit: 'OT', label: 'OT', title: 'Optical thickness n·d (nm)' },
-    { unit: 'QWOT', label: 'QW', title: 'Quarter-wave optical thickness 4·n·d/λ₀' },
-    { unit: 'FWOT', label: 'FW', title: 'Full-wave optical thickness n·d/λ₀' },
+    { unit: 'nm', tr: 'colPhysical', tipTr: 'unitNmTip', primary: true },
+    { unit: 'OT', label: 'OT', tipTr: 'unitOtTip' },
+    { unit: 'QWOT', label: 'QW', tipTr: 'unitQwotTip' },
+    { unit: 'FWOT', label: 'FW', tipTr: 'unitFwotTip' },
 ]);
+
+/** Header text and tooltip for a thickness column. `lt` is t.layerThicknesses. */
+export const thicknessColumnText = (column, lt) =>
+    ({ label: column.label || lt[column.tr], title: lt[column.tipTr] });
 
 export const LAYER_TABLE = Object.freeze({
     gap: 2,

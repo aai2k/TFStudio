@@ -33,5 +33,6 @@ export function StepParams({ p, set, c, t }) {
                     h(NumField, { label: T.step2.stopLevel, value: p.stopLevel, min: 0.001, max: 50, step: 0.01, suffix: '%', c, width: 80, onChange: (v) => set('stopLevel', v) }))),
             h('div', { style: { flex: 1, display: 'flex', flexDirection: 'column' } },
                 h('div', { style: { fontSize: 11, color: c.textDim, marginBottom: 2 } }, T.step2.previewHint),
-                h(SpectrumPlot, { analyticT, p, c, height: 300, levelLines }))));
+                h(SpectrumPlot, { analyticT, p, c, height: 300, levelLines,
+                    lambdaAxis: t.spectralAxis.lambdaShort }))));
 }

@@ -680,6 +680,35 @@ export default {
   },
   // Window tab titles, keyed by toolId (windowRegistry.js). Resolved live in
   // TabGroup so persisted layouts re-localize on language switch.
+  // Spectral x-axis titles. Chart axes use the parenthetical form; the report
+  // uses its own comma form in report.spectralAxis.
+  spectralAxis: {
+    lambdaShort: 'λ (nm)',
+    nm:  'Wavelength (nm)',
+    um:  'Wavelength (µm)',
+    cm1: 'Wavenumber (cm⁻¹)',
+    THz: 'Frequency (THz)',
+    eV:  'Photon energy (eV)',
+  },
+  // Tooltips on the window frame itself: the docked tab strip and a torn-off
+  // window's title bar.
+  // Light sources and detectors. A standard designation (D65, AM1.5G, CIE 1931)
+  // is a name, not words, and stays in the code; only the description beside it
+  // is translated here.
+  illuminants: {
+    d65:          'daylight 6504 K',
+    d50:          'daylight 5003 K',
+    incandescent: 'incandescent 2856 K',
+    equalEnergy:  'equal energy',
+    blackbody:    'Blackbody (T_K user)',
+    customTable:  'Custom (user table)',
+    photopic:     'Photopic V(λ), CIE 1924',
+    flat:         'Flat (no detector / unity)',
+  },
+  windowChrome: {
+    help:  'Help for this window (F1)',
+    close: 'Close',
+  },
   windowTitles: {
     'design-editor':   'Design Editor',
     'material-editor': 'Material Editor',
@@ -1052,6 +1081,7 @@ export default {
     substrateNoK: 'No k data, so substrate absorption is not modelled (affects total T)',
     settingsSection: 'Settings',
     settingsToggleTip: 'Show/hide media, reference λ₀ and cone-angle settings (the stack diagram stays visible)',
+    refLambdaTip: 'Reference wavelength λ₀ used for QWOT / FWOT thickness display',
     refLambdaShort: 'Reference λ₀',
     cone: {
       title: 'Cone angle (convergent beam)',
@@ -1219,6 +1249,7 @@ export default {
     step: 'step',
     axisUnit: 'Axis',
     curves: 'Curves',
+    curveLabels: { T: 'T avg', R: 'R avg', A: 'A avg', Ts: 'T (s)', Rs: 'R (s)', Tp: 'T (p)', Rp: 'R (p)' },
     polAvg: 'avg',
     polSShort: 's',
     polPShort: 'p',
@@ -1279,6 +1310,7 @@ export default {
     dbOnlineOnly: 'No offline database, online only',
     updateButton: 'Update database',
     updating: 'Updating…',
+    updateUnavailable: 'Update not available in this build',
     updateDownloading: 'Downloading…',
     updateExtracting: 'Extracting…',
     updateError: (msg) => `Update failed: ${msg}`,
@@ -1341,6 +1373,7 @@ export default {
     vd: 'V_d',
     density: 'Density',
     chartTitle: 'Refractive index vs wavelength',
+    fitResidual: 'Fit residual',
     chartN: 'n(λ)',
     chartK: 'k(λ)',
     wavelengthNm: 'Wavelength (nm)',
@@ -1518,6 +1551,7 @@ export default {
     designCatalog: 'This design',
   },
   meritFunctionEditor: {
+    noOperandsFound: 'No operands found',
     title:         'Merit Function Editor',
     mfLabel:       'MF:',
     omfLabel:      'OMF:',
@@ -1647,6 +1681,27 @@ export default {
       MXT:  { label: 'MXT: Max Thickness constraint (≤ nm)', group: 'thick' },
       // ── Comment ──────────────────────────────────────────────────────────
       BLNK: { label: 'BLNK: Blank/comment row (no effect on MF)', group: 'misc' },
+    },
+    cols: {
+      type:         'Type',
+      lambdaLayer:  'λ / Layer',
+      endDefault:   'End *',
+      aoi:          'AOI (°)',
+      pol:          'Pol',
+      target:       'Target',
+      weight:       'Weight',
+      current:      'Current',
+      contribution: '% of MF²',
+      lamStart:     'λ Start',
+      lamEnd:       'λ End',
+      comment:      'Comment',
+      cmp:          'Cmp',
+      layer1:       'Layer 1',
+      layer2:       'Layer 2',
+      integral:     'Integral',
+      refOp:        'Ref Op#',
+      refOp1:       'Ref Op#1',
+      refOp2:       'Ref Op#2',
     },
     operandGroups: {
       optical:     'Optical, single λ',
@@ -1785,7 +1840,35 @@ export default {
     stalled:       'no further improvement',
     targetReached: 'target reached',
     maxIterReached:'max iter',
+    iterAxis: 'Iteration',
+    methods: {
+      cg:          'Conjugate Gradient',
+      dls:         'Damped Least Squares',
+      newton:      'Newton',
+      'newton-cg': 'Newton-CG',
+      sqp:         'Sequential QP',
+      'dls-multi': 'DLS multi-start',
+      de:          'Differential Evolution',
+      sa:          'Simulated Annealing',
+      all:         'Try all — keep best',
+    },
+    methodNotes: {
+      cg:          'Conjugate Gradient — local, gradient-only; great for polishing a decent design / large stacks.',
+      dls:         'Damped Least Squares (Levenberg–Marquardt) — the classic local refiner.',
+      newton:      'Newton — second-order local refiner. Uses the exact analytic Hessian (JᵀJ + curvature) when scoring a single side (Front or Back with "ignore the other side" on); uses a Gauss-Newton Hessian (JᵀJ) for full-filter evaluation (Both / symmetric, or a single side with "ignore the other side" off). Quadratic endgame, fewest iterations.',
+      'newton-cg': 'Truncated Newton (Newton-CG) — matrix-free second-order; solves the Newton step by inner CG using Hessian-vector products. Scales to large stacks; works in all surface modes.',
+      sqp:         'Sequential QP (bounded) — Newton step with the layer thickness bounds [MNT/MXT]∩[Dmin,Dmax] as HARD constraints (exact bound satisfaction, no penalty tuning). Works in all surface modes.',
+      'dls-multi': 'DLS from N perturbed starts, keep best — escapes shallow local minima.',
+      de:          'Differential Evolution — global, gradient-free; for poor starts / multimodal targets (parallel).',
+      sa:          'Simulated Annealing — global, gradient-free; accepts uphill moves then cools.',
+      all:         'Run every method from the same start and keep the best result (DLS multi-start last).',
+    },
+    maxIterTip:    'Maximum optimizer iterations (the run still stops early at convergence). Defaults to the selected method’s natural budget.',
+    stalledTip:    'No improvement for many iterations — at a (local) minimum for this method.',
+    bestLabel:     'best:',
+    initLabel:     'init:',
     history: {
+      layers:    n => `${n} layers`,
       title:     'Design History',
       empty:     'No history yet. Run the optimizer to record designs.',
       plot:      'Plot',
@@ -1855,6 +1938,7 @@ export default {
     dlsIter:      'Refine iter / gen',
     mfTrend:      'MF Trend',
     noTrendYet:   'Run to see the merit-function trend.',
+    genAxis: 'Generation',
     scanPlot:     'Needle Scan: ΔMF per position',
     generations:  'Accepted Improvements',
     topDesigns:   'Top Designs (Pareto: fewest layers & best MF)',
@@ -1983,6 +2067,8 @@ export default {
     alreadyOptimal: 'No improving needle; the design is needle-optimal.',
     scanDone:     (total, improving) => `${total} candidates · ${improving} improving (∂MF/∂d < 0).`,
     profileTitle: 'P-function ∂MF/∂d vs depth. Click a point to pick position + material',
+    depthAxis: 'Stack depth',
+    pAxisNote: '< 0 improves',
     previewTitle: 'Insertion Preview',
     noProfile:    'Click "Compute P-function" to scan candidate materials along the stack depth.',
     clickHint:    'Click a point on a curve (below the zero line = improving) to preview an insertion.',
@@ -2064,6 +2150,7 @@ export default {
     lamStep:     'λ step (nm)',
     wavelength:  'λ (nm)',
     aoi:         'AOI (°)',
+    aoiAxis: 'Angle of incidence (°)',
     aoiStart:    'AOI min (°)',
     aoiEnd:      'AOI max (°)',
     aoiStep:     'AOI step (°)',
@@ -2092,6 +2179,7 @@ export default {
     lamEnd:       'λ max (nm)',
     aoi:          'AOI (°)',
     refLam:       'Ref λ (nm)',
+    slabThickness: 'Thickness',
     phaseAxis:    'Phase φ (°)',
     gdAxis:       'Group Delay (fs)',
     gddAxis:      'GDD (fs²)',
@@ -2250,6 +2338,9 @@ export default {
     colY:          'y',
     colZ:          'z',
     quantity:      'Quantity (Z)',
+    zT:            'Transmittance',
+    zR:            'Reflectance',
+    zA:            'Absorptance',
     zMF:           'Merit Function',
     zOMF:          'Optical Merit Function',
     mfHint:        'MF is plotted over two layer parameters: the optimizer landscape. Axes must be layer thickness / n / k.',
@@ -2269,6 +2360,10 @@ export default {
     gridSize:      'Grid',
     points:        'points',
     surfacePrompt: 'Configure the axes and quantity, then press Compute.',
+    errCannotCompute: 'Cannot compute surface.',
+    errNoOperands: 'No enabled merit operands. Set up targets in the Merit Function Editor.',
+    errMfAxes:     'MF axes must be layer parameters (thickness / n / k).',
+    errGridTooLarge: (points, max) => `Grid too large (${points} > ${max} points). Reduce steps.`,
     varWavelength: 'Wavelength (nm)',
     varAOI:        'AOI (°)',
     propThickness: 'Thickness (nm)',
@@ -2416,6 +2511,11 @@ export default {
     rmsImNTip:          'Error on the imaginary part of the refractive index k (extinction). Exact meaning depends on the distribution selector; for Gaussian ~68% of layers stay within ±this value.',
     envelope:           'min/max',
     envelopeTip:        'Overlay the realized min/max envelope (the extreme spectra across all trials). For Uniform/Truncated this is the true hard bound; for Gaussian it has no fixed limit and widens with the number of trials.',
+    chartMean: 'Exp (mean)',
+    chartEnvelopeMin: 'Envelope min',
+    chartEnvelope: 'Min/max envelope',
+    chartCorridor: (k) => `Corridor (±${k}σ)`,
+    chartTheoretical: (char) => `${char} theoretical`,
     corridorTip:        'Shaded band = mean ± k·σ of the spectrum across trials (k below). Display only: changing k re-draws the band without re-running the Monte Carlo, and does not affect the yield. k≈1 ≈ 68% only for Gaussian.',
     specYield:        'Spec yield',
     specYieldTip:     'Evaluate the design Specification (qualifiers) on every Monte-Carlo trial and report process yield, the % of trials where all requirements pass. Scored on the thickness-perturbed design.',
@@ -2739,6 +2839,16 @@ export default {
   },
 
   integralValues: {
+    // Names of the built-in weightings. V(λ), D65, AM1.5G, UV and NIR are
+    // designations and stay as written; the words around them are translated.
+    weightings: {
+      photopic: 'Photopic (V(λ) × D65)',
+      solar:    'Solar (AM1.5G)',
+      uv:       'UV (300–380 nm flat)',
+      nir:      'NIR (780–2500 nm flat)',
+      uvRef:    'Flat (uniform) over 300–380 nm',
+      nirRef:   'Flat (uniform) over 780–2500 nm',
+    },
     noDesign:    'No design selected.',
     noLayers:    'No layers in design.',
     lambdaRange: 'λ',
@@ -2916,7 +3026,12 @@ export default {
     },
   },
 
+  chart: {
+    resetZoom: 'Reset zoom',
+  },
+
   coatingLibrary: {
+    desktopOnly: 'only available in the desktop app',
     sourceBuiltin: 'Built-in',
     sourceUser: 'My coatings',
     searchPlaceholder: 'Search name, use, tag or material…',
@@ -3019,6 +3134,28 @@ export default {
     },
   },
   stackFormula: {
+    // Stack-formula parser messages, keyed by the code the parser returns. The
+    // quoted characters are formula syntax and are the same in every language.
+    errors: {
+      empty:                  'Empty formula',
+      twoPipes:               'Use exactly two "|" separators (incident | layers | substrate) or none',
+      noLayers:               'No layers in formula',
+      sideSymbol:             'Side must be a material symbol',
+      wavelengthAfterAt:      'Expected wavelength after "@"',
+      tokenAfterSide:         'Unexpected token after side material',
+      unmatchedParen:         'Unmatched ")"',
+      missingParen:           'Missing ")"',
+      caretAfterGroup:        'Expected "^n" after group',
+      repeatCount:            'Expected repeat count after "^"',
+      repeatPositive:         'Repeat count must be a positive integer',
+      symbolAfterCoefficient: 'Expected a material symbol after the coefficient',
+      expectedLayer:          'Expected a layer, "(", or coefficient',
+      refLambdaPositive:      'Reference wavelength must be > 0',
+      invalidNumber:          (raw) => `Invalid number "${raw}"`,
+      unexpectedChar:         (ch) => `Unexpected character "${ch}"`,
+      unknownSymbols:         (list, n) => `Unknown symbol${n > 1 ? 's' : ''}: ${list}. Assign a material`,
+    },
+    noPreview: 'no preview',
     title:      'Stack Formula',
     intro:      'Type the layer sequence (e.g. (H L)^4 H). Coefficients are ' +
                 'quarter-wave optical thickness (QWOT) multipliers (1 may be ' +
@@ -3113,6 +3250,9 @@ export default {
     expFit:        'Fit hue',
     swatchR:       'Reflected color',
     swatchT:       'Transmitted color',
+    chartLocus: 'Spectrum locus',
+    chartWhitePoint: 'White point',
+    chartCoating: 'Coating',
     refWhite:      'Reference white',
     xyY:           'x y Y (chromaticity)',
     XYZ:           'X Y Z (tristimulus)',
@@ -3125,6 +3265,25 @@ export default {
   },
 
   specification: {
+    // Qualifier preset names for the Specification toolbar. BBAR, AR, HR, NIR,
+    // DWDM, FWHM, V-coat and the channel letters are designations and read the
+    // same everywhere; the words around them do not.
+    presets: {
+      bbarVis:        'BBAR visible (400–700 nm)',
+      bbarVisDesc:    'Broadband AR: Tavg ≥ 99 %, Rmax ≤ 1 % across the visible band.',
+      photopicAr:     'Photopic AR (Tvis ≥ 99 %)',
+      photopicArDesc: 'Visual-weighted Tvis ≥ 99 % under D65 × CIE 2° photopic.',
+      coldMirror:     'Cold mirror (vis HR + NIR pass)',
+      coldMirrorDesc: 'Reflects visible (R ≥ 95 % on 400–700), transmits NIR (T ≥ 90 % on 800–1100).',
+      hotMirror:      'Hot mirror (vis pass + NIR HR)',
+      hotMirrorDesc:  'Transmits visible (T ≥ 90 % on 400–700), reflects NIR (R ≥ 90 % on 800–1100).',
+      dwdm:           'DWDM C-band 100 GHz (≈1550 nm)',
+      dwdmDesc:       'Bandpass filter: peak at 1550 ± 0.1 nm, FWHM ≤ 0.4 nm, Tpeak ≥ 95 %.',
+      longPass:       'Long-pass filter @ 600 nm',
+      longPassDesc:   'Edge at 600 nm: T ≤ 1 % below 580 nm, T ≥ 90 % above 620 nm.',
+      vCoat:          'V-coat AR @ 550 nm',
+      vCoatDesc:      'Single-wavelength AR: R(550) ≤ 0.2 %, T(550) ≥ 99 %.',
+    },
     noDesign:       'No design selected. Open or create a design first.',
     add:            '+ Add',
     addKindLabel:   'Add:',
@@ -3165,6 +3324,9 @@ export default {
     presetTip:      'Canned spec sheets for common coating types',
     apply:          'Apply',
     modeReplace:    'replace',
+    lamStart: 'λ start',
+    lamEnd: 'λ end',
+    aoi: 'AOI',
     modeAppend:     'append',
     modeTip:        'Replace = overwrite current list; Append = add to it',
     savedLabel:     'Saved:',
@@ -3183,6 +3345,13 @@ export default {
     confirmDelete:  'Delete preset',
     deleteTip:      'Delete the selected saved preset',
     deleted:        'Deleted',
+    summaries: {
+      notComputable:     'value not computable',
+      disabled:          'disabled',
+      unknownKind:       (kind) => `Unknown qualifier kind: ${kind}`,
+      fwhmNotBracketed:  (pct, lamStart, lamEnd) => `FWHM @ ${pct}% not bracketed in [${lamStart},${lamEnd}] nm`,
+      edgeNotCrossed:    (pct) => `Edge level ${pct}% not crossed in band`,
+    },
     kinds: {
       T_AT:             'T at λ',
       R_AT:             'R at λ',
@@ -3250,6 +3419,8 @@ export default {
     omfLabel:      'OMF:',
     omfTip:        'Optical merit, excluding thickness constraints (MNT/MXT/TT)',
     bestLabel:     'Best:',
+    genAxis: 'Generation',
+    geStepSeries: 'GE step',
     geStepLabel:   'GE steps:',
     noDesign:      'No design selected. Open or create a design first.',
     noOperands:    'No operands. Open Merit Function Editor to set up targets.',

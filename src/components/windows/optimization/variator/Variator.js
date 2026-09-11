@@ -75,6 +75,7 @@ export function Variator({ c, theme, t }) {
                         c, theme,
                         targets: state.design.meritOperands,
                         showTargets: state.showTargets,
+                        xLabel: t.spectralAxis.nm,
                     })
             ),
 

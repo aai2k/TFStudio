@@ -32,8 +32,8 @@ function layerDecorations(profile, matColorMap, gridColor) {
     };
 }
 
-export function buildRIOption(profile, quantity, matColorMap, colors,
-                              curve = ANALYSIS_DEFAULTS.refractiveIndexProfiler.colors) {
+export function buildRIOption({ profile, quantity, matColorMap, colors, depthAxis,
+                                curve = ANALYSIS_DEFAULTS.refractiveIndexProfiler.colors }) {
     const { bgColor, paperColor, gridColor, textColor } = colors;
     const series = buildRISeries(profile, quantity, curve);
     const decorations = layerDecorations(profile, matColorMap, gridColor);
@@ -52,7 +52,7 @@ export function buildRIOption(profile, quantity, matColorMap, colors,
         fileName: 'index_profile',
         legend: both ? legendAbove({ color: textColor }) : { show: false },
         xAxis: valueAxis({
-            name: 'Depth (nm)', color: textColor, gridColor,
+            name: depthAxis, color: textColor, gridColor,
             min: zBounds?.min, max: zBounds?.max, interval: zBounds?.interval,
         }),
         yAxis: [
@@ -63,7 +63,7 @@ export function buildRIOption(profile, quantity, matColorMap, colors,
     });
 }
 
-export function RIChart({ profile, quantity, matColorMap, c }) {
+export function RIChart({ profile, quantity, matColorMap, c, depthAxis }) {
     const divRef = useRef(null);
     const chartRef = useRef(null);
     const curve = useAnalysisColors('refractiveIndexProfiler');
@@ -72,7 +72,7 @@ export function RIChart({ profile, quantity, matColorMap, c }) {
         gridColor: c.border || '#3a3a3a', textColor: c.text || '#cccccc',
     };
     useEffect(() => { drawChart(divRef.current, chartRef,
-        buildRIOption(profile, quantity, matColorMap, colors, curve)); });
+        buildRIOption({ profile, quantity, matColorMap, colors, depthAxis, curve })); });
     useChartTeardown(divRef, chartRef);
     return h('div', { ref: divRef, style: { width: '100%', height: '100%' } });
 }

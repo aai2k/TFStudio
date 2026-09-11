@@ -15,18 +15,6 @@
 // for poor/multimodal starts.
 export const REFINE_METHODS = ['sqp', 'dls', 'cg', 'newton', 'newton-cg', 'dls-multi', 'de', 'sa', 'all'];
 
-export const METHOD_LABELS = {
-    cg:          'Conjugate Gradient',
-    dls:         'Damped Least Squares',
-    newton:      'Newton',
-    'newton-cg': 'Newton-CG',
-    sqp:         'Sequential QP',
-    'dls-multi': 'DLS multi-start',
-    de:          'Differential Evolution',
-    sa:          'Simulated Annealing',
-    all:         'Try all — keep best',
-};
-
 // Order used by 'all'. dls-multi last (slowest).
 export const ALL_ORDER = ['cg', 'dls', 'newton', 'newton-cg', 'sqp', 'de', 'sa', 'dls-multi'];
 
@@ -34,18 +22,6 @@ export const ALL_ORDER = ['cg', 'dls', 'newton', 'newton-cg', 'sqp', 'de', 'sa',
 // methods (newton / newton-cg / sqp) converge quadratically near the minimum, so
 // they need far fewer steps than LM.
 export const MAXITER_FOR = { cg: 600, dls: 500, newton: 200, 'newton-cg': 200, sqp: 200, sa: 400, de: 250 };
-
-export const METHOD_NOTES = {
-    cg:          'Conjugate Gradient — local, gradient-only; great for polishing a decent design / large stacks.',
-    dls:         'Damped Least Squares (Levenberg–Marquardt) — the classic local refiner.',
-    newton:      'Newton — second-order local refiner. Uses the exact analytic Hessian (JᵀJ + curvature) when scoring a single side (Front or Back with "ignore the other side" on); uses a Gauss-Newton Hessian (JᵀJ) for full-filter evaluation (Both / symmetric, or a single side with "ignore the other side" off). Quadratic endgame, fewest iterations.',
-    'newton-cg': 'Truncated Newton (Newton-CG) — matrix-free second-order; solves the Newton step by inner CG using Hessian-vector products. Scales to large stacks; works in all surface modes.',
-    sqp:         'Sequential QP (bounded) — Newton step with the layer thickness bounds [MNT/MXT]∩[Dmin,Dmax] as HARD constraints (exact bound satisfaction, no penalty tuning). Works in all surface modes.',
-    'dls-multi': 'DLS from N perturbed starts, keep best — escapes shallow local minima.',
-    de:          'Differential Evolution — global, gradient-free; for poor starts / multimodal targets (parallel).',
-    sa:          'Simulated Annealing — global, gradient-free; accepts uphill moves then cools.',
-    all:         'Run every method from the same start and keep the best result (DLS multi-start last).',
-};
 
 const METHOD_KEY = 'tfstudio-refinement-method';
 

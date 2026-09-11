@@ -16,6 +16,12 @@
 import assert from 'node:assert/strict';
 import { loadApp, shimBrowserGlobals } from './_uiShim.mjs';
 
+
+// Axis titles are display text, so they come from the locale.
+import { getLocale } from '../src/constants/locales/index.js';
+const AX = getLocale('en').spectralAxis;
+const CL = getLocale('en').opticalEval.curveLabels;
+
 shimBrowserGlobals();
 await loadApp();
 
@@ -46,7 +52,7 @@ const data = { lambda: lambdas, series: [{ theta: 0, T: values, R: values, A: va
 const showCurves = { T: true, R: false, A: false, Ts: false, Rs: false, Tp: false, Rp: false };
 
 const seriesFor = (overlays, targets) => buildChartSeries({
-    data, showCurves, targets, targetsVisible: true, overlays,
+    data, showCurves, targets, targetsVisible: true, overlays, curveLabels: CL,
 });
 
 // The curve is on the design and a fit target was made from it: one line.
@@ -111,11 +117,10 @@ assert.equal(overlays.filter(o => o.psi).length, 1);
 
 // Ψ on the left axis, Δ on the right, same as the calculated pair.
 const option = buildEllipsometryOption(
-    { x: lambdas, psi: [1, 2, 3, 4], delta: [5, 6, 7, 8], xLabel: 'λ' },
+    { x: lambdas, psi: [1, 2, 3, 4], delta: [5, 6, 7, 8] },
     { background: '#000', paper: '#111', grid: '#222', text: '#eee' },
-    { psi: '#0f0', delta: '#f0f' },
-    { psi: true, delta: true },
-    overlays,
+    'λ (nm)',
+    { curve: { psi: '#0f0', delta: '#f0f' }, show: { psi: true, delta: true }, overlays },
 );
 const measuredOnChart = option.series.filter(s => s.name && s.name.includes('meas'));
 assert.equal(measuredOnChart.length, 2, 'both measured curves reach the chart');
@@ -172,7 +177,7 @@ const offGrid = {
     id: 'm1', name: 'witness', quantity: 'T',
     x: [402, 407, 413], xUnit: 'nm', y: [0.51, 0.55, 0.62], color: '#0af',
 };
-const spectrumOption = buildChartOption({
+const spectrumOption = buildChartOption({ spectralTitles: AX, curveLabels: CL,
     data: grid, showCurves: { ...showCurves, T: true }, targets: [], targetsVisible: false,
     overlays: [offGrid], paperColor: '#111', bgColor: '#000', gridColor: '#222', textColor: '#eee',
     yScale: 'percent', spectralUnit: 'nm',
@@ -199,7 +204,7 @@ assert.equal(/witness/.test(pastMeasured), false,
 
 // Target lines and band decoration carry no name and are annotations, not
 // readings, so they stay out of the readout.
-const withTargets = buildChartOption({
+const withTargets = buildChartOption({ spectralTitles: AX, curveLabels: CL,
     data: grid, showCurves: { ...showCurves, T: true }, targetsVisible: true,
     targets: [{ id: 'op', type: 'T', enabled: true, lambdaStart: 400, lambdaEnd: 420, target: 0.9 }],
     overlays: [], paperColor: '#111', bgColor: '#000', gridColor: '#222', textColor: '#eee',

@@ -22,7 +22,7 @@ const OBLIQUE_CURVES = [
 ];
 
 /** ECharts option for a coating's spectrum at its own angle, the design bands marked and the angle stated. */
-export function buildPreviewOption(spectrum, entry, c, ts) {
+export function buildPreviewOption(spectrum, entry, c, ts, lambdaAxis) {
     const curves = entry.aoi > 0 ? OBLIQUE_CURVES : NORMAL_CURVES;
     const series = [
         ...dimmedBandSeries(entry.bands.map(([x0, x1], i) => ({ x0, x1, label: i === 0 ? ts.band : '' })), c),
@@ -40,7 +40,7 @@ export function buildPreviewOption(spectrum, entry, c, ts) {
         legend: horizontalLegend({ color: c.text, top: 16 }),
         tooltip: axisTooltip({ colors: c, valueSuffix: '%' }),
         xAxis: valueAxis({
-            name: 'λ (nm)', color: c.text, gridColor: c.border, nameGap: 24,
+            name: lambdaAxis, color: c.text, gridColor: c.border, nameGap: 24,
             min: spectrum.lambda[0], max: spectrum.lambda.at(-1),
         }),
         yAxis: valueAxis({ name: '%', color: c.text, gridColor: c.border, min: 0, max: 100, interval: 10, nameGap: 30 }),
@@ -48,13 +48,13 @@ export function buildPreviewOption(spectrum, entry, c, ts) {
     });
 }
 
-export function PreviewPlot({ entry, c, ts, height = 240 }) {
+export function PreviewPlot({ entry, c, ts, lambdaAxis, height = 240 }) {
     const divRef = useRef(null);
     const chartRef = useRef(null);
     const spectrum = useMemo(() => entrySpectrum(entry), [entry]);
     useEffect(() => {
         if (spectrum.error) disposeChart(divRef.current, chartRef);
-        else drawChart(divRef.current, chartRef, buildPreviewOption(spectrum, entry, c, ts));
+        else drawChart(divRef.current, chartRef, buildPreviewOption(spectrum, entry, c, ts, lambdaAxis));
     });
     useChartTeardown(divRef, chartRef);
     return h('div', { style: { position: 'relative', width: '100%', height } },

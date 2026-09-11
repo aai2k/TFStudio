@@ -16,9 +16,10 @@ function corridorArrays(result, corridorSigma) {
     return { k, lower, upper };
 }
 
+/** `tr` is t.errorAnalysis. */
 export function buildErrorOption({
     result, char, c, corridorSigma = 1, showEnvelope = false,
-    colors = ANALYSIS_DEFAULTS.errorAnalysis.colors,
+    colors = ANALYSIS_DEFAULTS.errorAnalysis.colors, tr, lambdaAxis,
 }) {
     if (!result) return { series: [] };
     const background = c.bg || '#1e1e1e';
@@ -30,30 +31,36 @@ export function buildErrorOption({
     const kLabel = Math.round(k * 100) / 100;
     const lowerPct = toPercent(lower);
     const corridorHeight = upper.map((value, i) => (value - lower[i]) * 100);
+    // Two series are drawn but kept out of the legend: the transparent base the
+    // corridor stacks on, and the lower envelope, which bounds the same band as
+    // the upper one. Which those are is decided here rather than by matching a
+    // name later, since two names that translate alike would hide both.
+    const hidden = new Set();
+    const hide = (item) => { hidden.add(item); return item; };
     const series = [
-        lineSeries({
+        hide(lineSeries({
             x: result.lambda, y: lowerPct, name: '__corridor_base__', color: 'transparent',
             width: 0, stack: 'corridor', areaStyle: { color: 'transparent', opacity: 0 }, silent: true,
-        }),
+        })),
         lineSeries({
-            x: result.lambda, y: corridorHeight, name: `Corridor (±${kLabel}σ)`, color,
+            x: result.lambda, y: corridorHeight, name: tr.chartCorridor(kLabel), color,
             width: 0, stack: 'corridor', areaStyle: { color, opacity: 0.2 },
         }),
-        lineSeries({ x: result.lambda, y: toPercent(result.mean), name: 'Exp (mean)', color, width: 1.5, dash: 'dot' }),
-        lineSeries({ x: result.lambda, y: toPercent(result.theory), name: `${char} theoretical`, color, width: 2 }),
+        lineSeries({ x: result.lambda, y: toPercent(result.mean), name: tr.chartMean, color, width: 1.5, dash: 'dot' }),
+        lineSeries({ x: result.lambda, y: toPercent(result.theory), name: tr.chartTheoretical(char), color, width: 2 }),
     ];
     if (showEnvelope && result.envLower && result.envUpper) {
-        series.push(lineSeries({ x: result.lambda, y: toPercent(result.envLower), name: 'Envelope min', color, width: 1, dash: 'dash' }));
-        series.push(lineSeries({ x: result.lambda, y: toPercent(result.envUpper), name: 'Min/max envelope', color, width: 1, dash: 'dash' }));
+        series.push(hide(lineSeries({ x: result.lambda, y: toPercent(result.envLower), name: tr.chartEnvelopeMin, color, width: 1, dash: 'dash' })));
+        series.push(lineSeries({ x: result.lambda, y: toPercent(result.envUpper), name: tr.chartEnvelope, color, width: 1, dash: 'dash' }));
     }
-    const legendNames = series.map(item => item.name).filter(name => name !== '__corridor_base__' && name !== 'Envelope min');
+    const legendNames = series.filter(item => !hidden.has(item)).map(item => item.name);
     return cartesianOption({
         colors: { background, paper, grid: gridColor, text },
         grid: plotMargin(),
         legend: { ...legendAbove({ color: text }), data: legendNames },
         fileName: 'montecarlo',
         tooltip: axisTooltip({ colors: c, valueSuffix: '%' }),
-        xAxis: valueAxis({ name: 'λ (nm)', color: text, gridColor }),
+        xAxis: valueAxis({ name: lambdaAxis, color: text, gridColor }),
         yAxis: valueAxis({ name: '%', color: text, gridColor, min: 0, interval: 10 }),
         series,
     });

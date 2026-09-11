@@ -7,6 +7,12 @@ import { computeOpticalSpectrum } from '../src/components/windows/analysis/optic
 import { evaluateSpectrum, evaluateSpectrumBack, evaluateSpectrumTotal } from '../src/utils/physics/thinFilmMath.js';
 import { getMaterial } from '../src/utils/materials/materialDatabase.js';
 
+
+// Axis titles are display text, so they come from the locale.
+import { getLocale } from '../src/constants/locales/index.js';
+const AX = getLocale('en').spectralAxis;
+const CL = getLocale('en').opticalEval.curveLabels;
+
 let failures = 0;
 
 function check(condition, message) {
@@ -30,7 +36,7 @@ const overlays = [{
 }];
 const targets = [{ id: 'target-1', enabled: true, type: 'R', lambdaStart: 550, target: 0.25 }];
 
-const series = buildChartSeries({ data, showCurves, targets, targetsVisible: true, overlays });
+const series = buildChartSeries({ curveLabels: CL, data, showCurves, targets, targetsVisible: true, overlays });
 check(
     series.slice(0, 5).map(item => item.name).join('|') ===
         'T avg @ 0°|R avg @ 0°|T avg @ 45°|R avg @ 45°|Measured (R meas)',
@@ -47,7 +53,7 @@ const expectedCsv = [
 ].join('\n');
 check(buildCSV(data, showCurves) === expectedCsv, 'CSV column order and numeric formatting remain stable');
 
-const option = buildChartOption({
+const option = buildChartOption({ spectralTitles: AX, curveLabels: CL,
     paperColor: '#222222', bgColor: '#111111', gridColor: '#333333', textColor: '#eeeeee',
     data, showCurves, overlays: [], targets: [], targetsVisible: false,
     editMode: false, editTool: 'draw', editCurve: 'R',
@@ -78,7 +84,7 @@ check(zoomFeature.filterMode === 'none' && option.dataZoom[0].filterMode === 'no
 // Choosing 0-1 relabels the axis and rescales what is read off it. The plotted
 // coordinates stay percentages, which is what the merit targets and the target
 // editor work in, so a switch of units cannot move a target off its curve.
-const fractionOption = buildChartOption({
+const fractionOption = buildChartOption({ spectralTitles: AX, curveLabels: CL,
     paperColor: '#222222', bgColor: '#111111', gridColor: '#333333', textColor: '#eeeeee',
     data, showCurves, overlays: [], targets: [], targetsVisible: false,
     editMode: false, editTool: 'draw', editCurve: 'R', yScale: 'fraction',
@@ -97,7 +103,7 @@ check(formatYCell('percent', 0.987254321) === '98.7254'
     'the results table follows the chosen unit at matching precision');
 check(buildCSV(data, showCurves, 'fraction').split('\n')[1] === '500.00,0.10000000,0.90000000,0.30000000,0.70000000',
     'the exported CSV follows the table');
-const drawOption = buildChartOption({
+const drawOption = buildChartOption({ spectralTitles: AX, curveLabels: CL,
     paperColor: '#222222', bgColor: '#111111', gridColor: '#333333', textColor: '#eeeeee',
     data, showCurves, overlays: [], targets: [], targetsVisible: false,
     editMode: true, editTool: 'draw', yRange: { auto: true }, spectralUnit: 'nm',

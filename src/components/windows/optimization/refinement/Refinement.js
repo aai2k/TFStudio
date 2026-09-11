@@ -74,7 +74,7 @@ export function Refinement({ c, theme, t }) {
                 padding: '2px 4px', background: c.bg, overflow: 'hidden'
             }
         },
-            h(MFTrendPlot, { history: r.plotHistory, c, theme })
+            h(MFTrendPlot, { history: r.plotHistory, c, theme, t })
         ),
 
         h(HistoryPanel, {

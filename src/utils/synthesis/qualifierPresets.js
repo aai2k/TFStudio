@@ -14,13 +14,14 @@
 
 import { makeQualifier } from './qualifiers.js';
 
-// Each preset = { id, label, description, kinds: [...] } where kinds is a
-// list of qualifier override objects passed to makeQualifier.
+// Each preset = { id, tr, kinds: [...] }. `tr` names the preset in
+// t.specification.presets: `<tr>` is its name and `<tr>Desc` its description.
+// The labels inside `kinds` are seed values for a qualifier's own editable
+// label field, which travels in the saved design, so they stay in English.
 export const QUALIFIER_PRESETS = [
     {
         id:          'BBAR_VIS',
-        label:       'BBAR visible (400–700 nm)',
-        description: 'Broadband AR: Tavg ≥ 99 %, Rmax ≤ 1 % across the visible band.',
+        tr:          'bbarVis',
         kinds: [
             { kind: 'T_AVG', channel: 'T', cmp: 'ge', target: 0.99,
               lambdaStart: 400, lambdaEnd: 700, label: 'T avg ≥ 99 %' },
@@ -30,8 +31,7 @@ export const QUALIFIER_PRESETS = [
     },
     {
         id:          'PHOTOPIC_AR',
-        label:       'Photopic AR (Tvis ≥ 99 %)',
-        description: 'Visual-weighted Tvis ≥ 99 % under D65 × CIE 2° photopic.',
+        tr:          'photopicAr',
         kinds: [
             { kind: 'INTEGRAL', channel: 'T', cmp: 'ge', target: 0.99,
               lambdaStart: 380, lambdaEnd: 780,
@@ -41,8 +41,7 @@ export const QUALIFIER_PRESETS = [
     },
     {
         id:          'COLD_MIRROR',
-        label:       'Cold mirror (vis HR + NIR pass)',
-        description: 'Reflects visible (R ≥ 95 % on 400–700), transmits NIR (T ≥ 90 % on 800–1100).',
+        tr:          'coldMirror',
         kinds: [
             { kind: 'R_AVG', channel: 'R', cmp: 'ge', target: 0.95,
               lambdaStart: 400, lambdaEnd: 700, label: 'R vis ≥ 95 %' },
@@ -52,8 +51,7 @@ export const QUALIFIER_PRESETS = [
     },
     {
         id:          'HOT_MIRROR',
-        label:       'Hot mirror (vis pass + NIR HR)',
-        description: 'Transmits visible (T ≥ 90 % on 400–700), reflects NIR (R ≥ 90 % on 800–1100).',
+        tr:          'hotMirror',
         kinds: [
             { kind: 'T_AVG', channel: 'T', cmp: 'ge', target: 0.90,
               lambdaStart: 400, lambdaEnd: 700, label: 'T vis ≥ 90 %' },
@@ -63,8 +61,7 @@ export const QUALIFIER_PRESETS = [
     },
     {
         id:          'DWDM_100GHZ_C',
-        label:       'DWDM C-band 100 GHz (≈1550 nm)',
-        description: 'Bandpass filter: peak at 1550 ± 0.1 nm, FWHM ≤ 0.4 nm, Tpeak ≥ 95 %.',
+        tr:          'dwdm',
         kinds: [
             { kind: 'CENTRAL_LAMBDA', channel: 'T', direction: 'max',
               cmp: 'eq', target: 1550, tol: 0.1,
@@ -80,8 +77,7 @@ export const QUALIFIER_PRESETS = [
     },
     {
         id:          'LP_FILTER_VIS',
-        label:       'Long-pass filter @ 600 nm',
-        description: 'Edge at 600 nm: T ≤ 1 % below 580 nm, T ≥ 90 % above 620 nm.',
+        tr:          'longPass',
         kinds: [
             { kind: 'T_AVG', channel: 'T', cmp: 'le', target: 0.01,
               lambdaStart: 400, lambdaEnd: 580, label: 'T blocked ≤ 1 %' },
@@ -94,8 +90,7 @@ export const QUALIFIER_PRESETS = [
     },
     {
         id:          'AR_550_VCOAT',
-        label:       'V-coat AR @ 550 nm',
-        description: 'Single-wavelength AR: R(550) ≤ 0.2 %, T(550) ≥ 99 %.',
+        tr:          'vCoat',
         kinds: [
             { kind: 'R_AT', channel: 'R', cmp: 'le', target: 0.002,
               lambda: 550, label: 'R(550) ≤ 0.2 %' },
@@ -115,4 +110,9 @@ export function applyPreset(presetId) {
 // Find a preset descriptor (for UI display).
 export function getPreset(presetId) {
     return QUALIFIER_PRESETS.find(x => x.id === presetId) || null;
+}
+
+/** Name and description of a preset. `tr` is t.specification.presets. */
+export function presetText(preset, tr) {
+    return { label: tr[preset.tr], description: tr[preset.tr + 'Desc'] };
 }

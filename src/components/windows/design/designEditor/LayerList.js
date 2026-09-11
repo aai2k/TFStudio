@@ -6,7 +6,7 @@ import { useLayerKeyboard } from './useLayerKeyboard.js';
 import { designEditorSession } from './sessionState.js';
 import { useWindowSession } from '../../windowSession.js';
 import {
-    fixedLayerTrack, LAYER_TABLE, LAYER_TABLE_MIN_WIDTH, LAYER_THICKNESS_COLUMNS,
+    fixedLayerTrack, LAYER_TABLE, LAYER_TABLE_MIN_WIDTH, LAYER_THICKNESS_COLUMNS, thicknessColumnText,
     materialLayerTrack, nextThicknessCell,
 } from './layerTableLayout.js';
 import {
@@ -343,15 +343,7 @@ export function LayerList({ layers, side, design, updateDesign, missingMaterialI
         onRemoveRow,
         activateCell, navigateCell, finishCellEditing, openContextMenu, onPointerDownDrag]);
 
-    const menuText = de.layerContextMenu || {
-        label: 'Layer actions', insert: 'Insert layer', insertAbove: 'Insert above',
-        insertBelow: 'Insert below', copy: 'Copy', paste: 'Paste', delete: 'Delete',
-        copySelected: count => `Copy ${count} layers`,
-        deleteSelected: count => `Delete ${count} layers`,
-        pasteAbove: count => `Paste ${count} layer${count === 1 ? '' : 's'} above`,
-        pasteBelow: count => `Paste ${count} layer${count === 1 ? '' : 's'} below`,
-        pasteCount: count => `Paste ${count} layer${count === 1 ? '' : 's'}`,
-    };
+    const menuText = de.layerContextMenu;
     const pasteCount = contextMenu?.pasteLayers?.length || 0;
     const menuItems = contextMenu && (contextMenu.targetId
         ? [
@@ -505,14 +497,17 @@ export function LayerList({ layers, side, design, updateDesign, missingMaterialI
                     boxSizing: 'border-box', paddingLeft: LAYER_TABLE.materialTextInset,
                     whiteSpace: 'nowrap', textOverflow: 'ellipsis',
                 }) }, de.colMaterial),
-                ...LAYER_THICKNESS_COLUMNS.map(column => h('div', {
-                    key: column.unit,
-                    style: fixedLayerTrack(LAYER_TABLE.thicknessWidth, {
-                        boxSizing: 'border-box', textAlign: 'right',
-                        paddingRight: LAYER_TABLE.numericTextInset,
-                    }),
-                    title: column.title,
-                }, column.label)),
+                ...LAYER_THICKNESS_COLUMNS.map((column) => {
+                    const text = thicknessColumnText(column, t.layerThicknesses);
+                    return h('div', {
+                        key: column.unit,
+                        style: fixedLayerTrack(LAYER_TABLE.thicknessWidth, {
+                            boxSizing: 'border-box', textAlign: 'right',
+                            paddingRight: LAYER_TABLE.numericTextInset,
+                        }),
+                        title: text.title,
+                    }, text.label);
+                }),
                 h('div', { style: fixedLayerTrack(LAYER_TABLE.lockWidth) }),
                 h('div', { style: fixedLayerTrack(LAYER_TABLE.actionsWidth) })
             ),

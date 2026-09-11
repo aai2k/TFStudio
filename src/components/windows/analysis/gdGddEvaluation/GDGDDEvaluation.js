@@ -59,7 +59,8 @@ export function GDGDDEvaluation({ c, theme, t }) {
         quantity: state.quantity,
         referenceLambda: state.refLam,
         showReference: state.showRef,
-    }, text, curve), [state.raw, state.quantity, state.refLam, state.showRef, text, curve]);
+    }, text, curve, t.spectralAxis.lambdaShort),
+    [state.raw, state.quantity, state.refLam, state.showRef, text, curve, t]);
     const csv = useCsvExport(
         () => csvFromRows(view.tableColumns, view.tableRows),
         () => `${(design?.name || 'design').replace(/[^\w.-]+/g, '_')}_dispersion.csv`,

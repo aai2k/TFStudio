@@ -22,7 +22,7 @@ function spectrumSeries(data, targets, showTargets) {
     return series;
 }
 
-export function SpectrumPlot({ data, c, targets, showTargets }) {
+export function SpectrumPlot({ data, c, targets, showTargets, xLabel }) {
     const divRef = useRef(null);
     const chartRef = useRef(null);
     const text = c.text || '#cccccc';
@@ -33,7 +33,7 @@ export function SpectrumPlot({ data, c, targets, showTargets }) {
         fileName: 'variator_spectrum',
         legend: horizontalLegend({ color: text, top: 0 }),
         tooltip: axisTooltip({ colors: c, valueSuffix: '%' }),
-        xAxis: valueAxis({ name: 'Wavelength (nm)', color: text, gridColor: grid }),
+        xAxis: valueAxis({ name: xLabel, color: text, gridColor: grid }),
         yAxis: valueAxis({ name: '%', color: text, gridColor: grid, min: 0, max: 100, interval: 10 }),
         series: spectrumSeries(data, targets, showTargets),
     })); });

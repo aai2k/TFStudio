@@ -82,22 +82,32 @@ function tableSampler(table) {
  * blackbody) are sampled wherever asked but typically bounded by the user band.
  */
 export const BUILTIN_SOURCES = [
-    { id: 'D65',       label: 'D65 (daylight 6504 K)',     lamMin: D65_RANGE_NM[0],   lamMax: D65_RANGE_NM[1]   },
-    { id: 'D50',       label: 'D50 (daylight 5003 K)',     lamMin: D50_RANGE_NM[0],   lamMax: D50_RANGE_NM[1]   },
-    { id: 'A',         label: 'A (incandescent 2856 K)',   lamMin: 200,               lamMax: 4000              },
-    { id: 'AM1.5G',    label: 'AM1.5G (ASTM G173-03)',     lamMin: SOLAR_RANGE_NM[0], lamMax: SOLAR_RANGE_NM[1] },
-    { id: 'E',         label: 'E (equal energy)',          lamMin: 0,                 lamMax: 1e9               },
-    { id: 'blackbody', label: 'Blackbody (T_K user)',      lamMin: 0,                 lamMax: 1e9, needsT: true },
-    { id: 'custom',    label: 'Custom (user table)',       lamMin: null,              lamMax: null              },
+    { id: 'D65',       name: 'D65',                    descTr: 'd65',          lamMin: D65_RANGE_NM[0],   lamMax: D65_RANGE_NM[1]   },
+    { id: 'D50',       name: 'D50',                    descTr: 'd50',          lamMin: D50_RANGE_NM[0],   lamMax: D50_RANGE_NM[1]   },
+    { id: 'A',         name: 'A',                      descTr: 'incandescent', lamMin: 200,               lamMax: 4000              },
+    { id: 'AM1.5G',    name: 'AM1.5G (ASTM G173-03)',                          lamMin: SOLAR_RANGE_NM[0], lamMax: SOLAR_RANGE_NM[1] },
+    { id: 'E',         name: 'E',                      descTr: 'equalEnergy',  lamMin: 0,                 lamMax: 1e9               },
+    { id: 'blackbody',                                 labelTr: 'blackbody',   lamMin: 0,                 lamMax: 1e9, needsT: true },
+    { id: 'custom',                                    labelTr: 'customTable', lamMin: null,              lamMax: null              },
 ];
+
+/**
+ * Display name for a source, detector or illuminant. `tr` is t.illuminants.
+ * A standard designation lives in `name` and is never translated; `descTr`
+ * names the description that follows it, `labelTr` a label that is all words.
+ */
+export function describedLabel(entry, tr) {
+    if (entry.labelTr) return tr[entry.labelTr];
+    return entry.descTr ? `${entry.name} (${tr[entry.descTr]})` : entry.name;
+}
 
 /**
  * BUILTIN_DETECTORS — UI-facing list. Same shape as BUILTIN_SOURCES.
  */
 export const BUILTIN_DETECTORS = [
-    { id: 'photopic', label: 'Photopic V(λ) — CIE 1924',   lamMin: PHOTOPIC_RANGE_NM[0], lamMax: PHOTOPIC_RANGE_NM[1] },
-    { id: 'flat',     label: 'Flat (no detector / unity)', lamMin: 0,                    lamMax: 1e9                  },
-    { id: 'custom',   label: 'Custom (user table)',        lamMin: null,                 lamMax: null                 },
+    { id: 'photopic', labelTr: 'photopic',    lamMin: PHOTOPIC_RANGE_NM[0], lamMax: PHOTOPIC_RANGE_NM[1] },
+    { id: 'flat',     labelTr: 'flat',        lamMin: 0,                    lamMax: 1e9                  },
+    { id: 'custom',   labelTr: 'customTable', lamMin: null,                 lamMax: null                 },
 ];
 
 // ── Spec resolution ───────────────────────────────────────────────────────────
@@ -124,12 +134,16 @@ function resolveCustomTable(spec, fallbackLabel) {
 // 'E' to 200–4000, but 'E' (equal energy) is declared 0–1e9 — so integrals
 // using source E were silently truncated beyond 4000 nm even though equal
 // energy applies at every λ.
+// The resolvers run inside the optimizer as well as the UI, so they have no
+// locale. `label` here is the standard designation, which is what the integral
+// formula wants to read ("T(λ) × D65"); the described form for a picker comes
+// from describedLabel above.
 function resolveIlluminantSource(spec) {
     const meta = BUILTIN_SOURCES.find(s => s.id === spec.id);
     return {
         sampler: (lam) => illuminantSPD(spec.id, lam),
         lamMin: meta.lamMin, lamMax: meta.lamMax,
-        label:  meta.label,
+        label:  meta.name,
     };
 }
 

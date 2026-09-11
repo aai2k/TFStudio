@@ -10,7 +10,7 @@ export function ScatterChart({ calc, showCurves, units, c, t }) {
     const chartRef = useRef(null);
     const colors = useAnalysisColors('roughnessScattering');
     useEffect(() => { drawChart(divRef.current, chartRef, buildScatterOption({
-        calc, showCurves, units, colors, c,
+        calc, showCurves, units, colors, c, lambdaAxis: t.spectralAxis.lambdaShort,
         names: { ideal: rs.traceIdeal, specular: rs.traceSpecular },
         specularTitle: rs.axisSpecular,
     })); });

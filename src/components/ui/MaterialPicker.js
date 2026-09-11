@@ -143,6 +143,6 @@ export function MaterialPicker({ value, onChange, c, t, compact, catalogsOnly })
         isActive: item => rowIsCurrent(item, { value, resolvedId, inCatalog }),
         searchPlaceholder: mp.searchPlaceholder,
         allLabel: mp.allCatalogs,
-        emptyText: 'No materials found',
+        emptyText: t.materialEditor.noMaterials,
     });
 }

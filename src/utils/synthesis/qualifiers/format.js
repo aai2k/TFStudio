@@ -39,12 +39,26 @@ function compareToThreshold(qual, value, unit) {
     return { pass: false, deviation: 0, cmpStr: '' };
 }
 
+/**
+ * The summary line for one evaluated qualifier, in the reader's language.
+ *
+ * A qualifier that was computed summarises itself in numbers and comparison
+ * symbols, which are the same in every language and are carried in `summary`.
+ * One that could not be computed carries the reason as a key into `summaries`
+ * instead, since that reason is a sentence.
+ */
+export function qualifierSummary(result, summaries = {}) {
+    const entry = result?.summaryKey && summaries[result.summaryKey];
+    if (typeof entry === 'function') return entry(...(result.summaryArgs || []));
+    return entry || result?.summary || '';
+}
+
 // Compare a scalar value against the qualifier's threshold(s), produce a
 // PASS/FAIL verdict + deviation magnitude + human summary.
 export function finishCompare(qual, value, unit) {
     if (value == null || !Number.isFinite(value)) {
         return { value, pass: false, deviation: null, displayValue: '—', unit,
-                 summary: 'value not computable' };
+                 summaryKey: 'notComputable' };
     }
 
     const { pass, deviation, cmpStr } = compareToThreshold(qual, value, unit);

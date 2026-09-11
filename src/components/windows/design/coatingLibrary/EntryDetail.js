@@ -4,6 +4,7 @@ import {
 } from '../../../../utils/coatingLibrary/entryModel.js';
 import { entryMetrics } from '../../../../utils/coatingLibrary/entryProperties.js';
 import { validateEntry } from '../../../../utils/coatingLibrary/validateEntry.js';
+import { qualifierSummary } from '../../../../utils/synthesis/qualifiers.js';
 import { PreviewPlot } from './PreviewPlot.js';
 import { StackStrip, entryMaterialColors } from './StackStrip.js';
 import { Chip, KeyValue, SectionTitle, TAG_GROUP_COLORS, TypeBadge, angleText, percent } from './ui.js';
@@ -99,7 +100,7 @@ function Tags({ entry, c }) {
         })));
 }
 
-function SpecList({ spec, c, ts }) {
+function SpecList({ spec, c, ts, summaries }) {
     if (spec.qualifiers.length === 0) {
         return h('div', { style: { fontSize: 12, color: c.textDim, fontStyle: 'italic' } }, ts.noSpec);
     }
@@ -119,11 +120,11 @@ function SpecList({ spec, c, ts }) {
             h('span', { style: { color: c.textDim, flex: 1 } }, label),
             h('span', { style: { color: c.textDim, fontVariantNumeric: 'tabular-nums', minWidth: 44, textAlign: 'right' } },
                 angleText(qualifier, ts)),
-            h('span', { style: { fontVariantNumeric: 'tabular-nums' } }, result?.summary || ''));
+            h('span', { style: { fontVariantNumeric: 'tabular-nums' } }, qualifierSummary(result, summaries)));
     }));
 }
 
-export function EntryDetail({ entry, c, ts }) {
+export function EntryDetail({ entry, c, ts, summaries, lambdaAxis }) {
     const problems = useMemo(() => validateEntry(entry), [entry]);
     const metrics = useMemo(() => (problems.length ? { error: problems[0] } : entryMetrics(entry)), [entry, problems]);
     const spec = useMemo(() => entrySpecResults(entry), [entry]);
@@ -152,7 +153,7 @@ export function EntryDetail({ entry, c, ts }) {
         entry.limitations && h('div', null, h(SectionTitle, { c }, ts.limitationsHeading), h(Paragraph, { c }, entry.limitations)),
 
         h(SectionTitle, { c }, ts.previewHeading),
-        h(PreviewPlot, { entry, c, ts }),
+        h(PreviewPlot, { entry, c, ts, lambdaAxis }),
 
         h('div', { style: { display: 'flex', flexWrap: 'wrap', gap: '0 40px' } },
             h('div', null,
@@ -162,7 +163,7 @@ export function EntryDetail({ entry, c, ts }) {
                 h(SectionTitle, { c }, `${ts.propertiesHeading} · ${angleText(entry, ts)}`),
                 h(Properties, { entry, metrics, c, ts }),
                 h(SectionTitle, { c }, ts.specHeading),
-                h(SpecList, { spec, c, ts }))),
+                h(SpecList, { spec, c, ts, summaries }))),
 
         entry.source && h('div', null, h(SectionTitle, { c }, ts.sourceHeading),
             h('div', { style: { fontSize: 11, color: c.textDim, lineHeight: 1.45, whiteSpace: 'pre-wrap' } }, entry.source)));

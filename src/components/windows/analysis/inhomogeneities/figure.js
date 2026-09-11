@@ -30,7 +30,7 @@ export function buildOverlaySeries(baseline, perturbed, showCurves,
     return series;
 }
 
-export function buildOverlayOption(baseline, perturbed, showCurves, colors, names, c) {
+export function buildOverlayOption({ baseline, perturbed, showCurves, colors, names, c, lambdaAxis }) {
     const text = c.text || '#cccccc';
     const gridColor = c.border || '#3a3a3a';
     return cartesianOption({
@@ -39,7 +39,7 @@ export function buildOverlayOption(baseline, perturbed, showCurves, colors, name
         fileName: 'interlayers',
         legend: legendAbove({ color: text }),
         tooltip: axisTooltip({ colors: c, valueSuffix: '%' }),
-        xAxis: valueAxis({ name: 'λ (nm)', color: text, gridColor }),
+        xAxis: valueAxis({ name: lambdaAxis, color: text, gridColor }),
         yAxis: valueAxis({ name: '%', color: text, gridColor, min: 0, max: 100, interval: 10 }),
         series: buildOverlaySeries(baseline, perturbed, showCurves, colors, names),
     });

@@ -7,6 +7,9 @@ import {
 shimBrowserGlobals();
 await loadApp();
 
+const { getLocale } = await import('../src/constants/locales/index.js');
+// Surface axis titles are display text supplied by the window.
+const PE = getLocale('en').plotEngine;
 const { buildCurveSeries, buildSurfaceOption } = await import(
     '../src/components/windows/analysis/plotEngine/charts.js'
 );
@@ -35,17 +38,17 @@ assert.deepEqual(curveSeries.map(series => series.lineStyle), [
 ]);
 
 const c = { panel: '#panel', bg: '#bg', text: '#text', border: '#border' };
-const result = { ok: true, x: [1, 2], y: [3, 4], z: [[5, 6], [7, 8]], zLabel: 'Reflectance' };
+const result = { ok: true, x: [1, 2], y: [3, 4], z: [[5, 6], [7, 8]], zKey: 'R' };
 const design = { frontLayers: [], backLayers: [] };
 const baseSpec = { xVar: 'wavelength', yVar: 'aoi', z: 'R', colorscale: 'Cividis' };
-const heatmap = buildSurfaceOption(result, { ...baseSpec, render: 'heatmap' }, design, c);
+const heatmap = buildSurfaceOption(result, { ...baseSpec, render: 'heatmap' }, design, c, { labels: PE });
 
 assert.equal(heatmap.series.length, 1);
 assert.equal(heatmap.series[0].type, 'heatmap');
 assert.deepEqual(heatmap.series[0].data, [[0, 0, 500], [1, 0, 600], [0, 1, 700], [1, 1, 800]]);
 assert.deepEqual(heatmap.visualMap.inRange.color, ['#00204c', '#424086', '#7c7b78', '#bcae5c', '#ffea46']);
-assert.equal(heatmap.xAxis.name, 'Wavelength (nm)');
-assert.equal(heatmap.yAxis.name, 'AOI (°)');
+assert.equal(heatmap.xAxis.name, PE.varWavelength);
+assert.equal(heatmap.yAxis.name, PE.varAOI);
 assert.deepEqual(heatmap.xAxis.data, [1, 2]);
 assert.deepEqual(heatmap.yAxis.data, [3, 4]);
 // A heat map is a normal 2D plot, so it takes the analysis windows' shared
@@ -56,7 +59,7 @@ assert.deepEqual(
     [58, 84, 38, 52],
 );
 
-const surface = buildSurfaceOption(result, { ...baseSpec, render: 'surface' }, design, c);
+const surface = buildSurfaceOption(result, { ...baseSpec, render: 'surface' }, design, c, { labels: PE });
 assert.equal(surface.series[0].type, 'surface');
 assert.deepEqual(surface.series[0].data, [[1, 3, 500], [2, 3, 600], [1, 4, 700], [2, 4, 800]]);
 assert.equal(surface.series[0].wireframe.show, false);
@@ -65,7 +68,7 @@ assert.equal(surface.grid3D.viewControl.rotateSensitivity, 2.5);
 assert.equal(surface.grid3D.viewControl.zoomSensitivity, 2);
 assert.equal(surface.grid3D.viewControl.panSensitivity, 1.5);
 assert.equal(surface.grid3D.boxWidth, surface.grid3D.boxDepth);
-assert.equal(surface.xAxis3D.name, 'Wavelength (nm)');
+assert.equal(surface.xAxis3D.name, PE.varWavelength);
 
 // A 3D value axis works its own range out and ECharts forces that range to
 // include zero, which drew a 400-800 nm sweep from 0. Both swept axes carry the
@@ -77,13 +80,13 @@ assert.equal(surface.yAxis3D.max, 4);
 
 // Entered high-to-low, the axis still runs low to high.
 const reversed = buildSurfaceOption(
-    { ...result, x: [2, 1] }, { ...baseSpec, render: 'surface' }, design, c);
+    { ...result, x: [2, 1] }, { ...baseSpec, render: 'surface' }, design, c, { labels: PE });
 assert.equal(reversed.xAxis3D.min, 1);
 assert.equal(reversed.xAxis3D.max, 2);
 
 // Both ends the same has no width; the axis is padded rather than left flat.
 const flat = buildSurfaceOption(
-    { ...result, x: [5, 5] }, { ...baseSpec, render: 'surface' }, design, c);
+    { ...result, x: [5, 5] }, { ...baseSpec, render: 'surface' }, design, c, { labels: PE });
 assert.ok(flat.xAxis3D.max > flat.xAxis3D.min, 'a zero-width axis is padded');
 assert.equal(surface.zAxis3D.name, '%');
 assert.equal(surface.visualMap.text[0], 'R (%)');
@@ -93,11 +96,11 @@ assert.equal(surface.visualMap.text[0], 'R (%)');
 // with its name three lines above it.
 assert.equal(
     heatmap.tooltip.formatter({ value: [1, 0, 600] }),
-    'Wavelength (nm): 2<br/>AOI (°): 3<br/>Reflectance (%): 600',
+    `${PE.varWavelength}: 2<br/>${PE.varAOI}: 3<br/>Reflectance (%): 600`,
 );
 assert.equal(
     surface.tooltip.formatter({ value: [2, 3, 600] }),
-    'Wavelength (nm): 2<br/>AOI (°): 3<br/>Reflectance (%): 600',
+    `${PE.varWavelength}: 2<br/>${PE.varAOI}: 3<br/>Reflectance (%): 600`,
 );
 
 assert.equal(buildSurfaceOption(null, baseSpec, design, c), null);
@@ -112,7 +115,7 @@ assert.equal(buildSurfaceOption({ ok: false }, baseSpec, design, c), null);
 // second readout on top of the window's own.
 {
     const heatSpec = { ...baseSpec, render: 'heatmap' };
-    const imaged = buildSurfaceOption(result, heatSpec, design, c, { image: { imageId: 7 } });
+    const imaged = buildSurfaceOption(result, heatSpec, design, c, { labels: PE, image: { imageId: 7 } });
 
     assert.equal(imaged.tooltip.show, false, 'an image map asks for no tooltip');
     assert.equal(imaged.series[0].type, 'custom');
@@ -125,7 +128,7 @@ assert.equal(buildSurfaceOption({ ok: false }, baseSpec, design, c), null);
     // chart goes on drawing the one before.
     assert.equal(imaged.series[0].imageId, 7);
     assert.notEqual(
-        buildSurfaceOption(result, heatSpec, design, c, { image: { imageId: 8 } }).series[0].imageId,
+        buildSurfaceOption(result, heatSpec, design, c, { labels: PE, image: { imageId: 8 } }).series[0].imageId,
         imaged.series[0].imageId,
         'a different image is a different option');
 
@@ -133,14 +136,14 @@ assert.equal(buildSurfaceOption({ ok: false }, baseSpec, design, c), null);
     // into it, both ends go NaN, every cell maps to the bottom of the scale and
     // the bar prints NaN: a map with one hole would misreport every value it has.
     const holed = buildSurfaceOption(
-        { ...result, z: [[5, Number.NaN], [7, 8]] }, heatSpec, design, c, { image: { imageId: 9 } });
+        { ...result, z: [[5, Number.NaN], [7, 8]] }, heatSpec, design, c, { labels: PE, image: { imageId: 9 } });
     assert.equal(holed.visualMap.min, 500, 'the extent spans the cells that did evaluate');
     assert.equal(holed.visualMap.max, 800);
 
     // Nothing evaluated at all still has to leave the bar a range to draw on.
     const blank = buildSurfaceOption(
         { ...result, z: [[Number.NaN, Number.NaN], [Number.NaN, Number.NaN]] },
-        heatSpec, design, c, { image: { imageId: 10 } });
+        heatSpec, design, c, { labels: PE, image: { imageId: 10 } });
     assert.ok(Number.isFinite(blank.visualMap.min) && blank.visualMap.max > blank.visualMap.min,
         'an empty grid still gives the colour bar a finite range');
 }
@@ -152,8 +155,8 @@ assert.equal(buildSurfaceOption({ ok: false }, baseSpec, design, c), null);
 // through the axes instead, and the plot clips what falls outside it.
 {
     const heatSpec = { ...baseSpec, render: 'heatmap' };
-    const wide = { ok: true, x: [400, 500, 600], y: [0, 30, 60], z: [[1, 2, 3], [4, 5, 6], [7, 8, 9]], zLabel: 'T' };
-    const series = buildSurfaceOption(wide, heatSpec, design, c, { image: { imageId: 13 } }).series[0];
+    const wide = { ok: true, x: [400, 500, 600], y: [0, 30, 60], z: [[1, 2, 3], [4, 5, 6], [7, 8, 9]], zKey: 'T' };
+    const series = buildSurfaceOption(wide, heatSpec, design, c, { labels: PE, image: { imageId: 13 } }).series[0];
     const grid = { x: 10, y: 20, width: 300, height: 200 };
 
     // All three columns in view: index i sits at the centre of band i, so the
@@ -190,7 +193,7 @@ assert.equal(buildSurfaceOption({ ok: false }, baseSpec, design, c), null);
     const heatSpec = { ...baseSpec, render: 'heatmap' };
     const floored = buildSurfaceOption(
         { ...result, z: [[5.24e-26, 0.9951], [0.5, 0.2]] },
-        { ...heatSpec, z: 'T' }, design, c, { image: { imageId: 11 } });
+        { ...heatSpec, z: 'T' }, design, c, { labels: PE, image: { imageId: 11 } });
     const label = floored.visualMap.formatter;
     assert.equal(label(floored.visualMap.min), '0',
         'a floor far below what the bar can resolve reads as zero');
@@ -200,7 +203,7 @@ assert.equal(buildSurfaceOption({ ok: false }, baseSpec, design, c), null);
     // the rounding follows the bar rather than a fixed number of places.
     const tiny = buildSurfaceOption(
         { ...result, z: [[1.2e-8, 3.4e-8], [2e-8, 2.5e-8]] },
-        { ...heatSpec, z: 'k' }, design, c, { image: { imageId: 12 } });
+        { ...heatSpec, z: 'k' }, design, c, { labels: PE, image: { imageId: 12 } });
     assert.equal(tiny.visualMap.formatter(tiny.visualMap.min), '1.2e-8');
     assert.equal(tiny.visualMap.formatter(tiny.visualMap.max), '3.4e-8');
 }
@@ -232,7 +235,7 @@ assert.equal(buildSurfaceOption({ ok: false }, baseSpec, design, c), null);
 
     // With a computed surface the results table lays the grid out row by row.
     plotEngineSession.write(sample, {
-        surfaceResult: { ok: true, x: [1, 2], y: [3, 4], z: [[5, 6], [7, 8]], zLabel: 'T' },
+        surfaceResult: { ok: true, x: [1, 2], y: [3, 4], z: [[5, 6], [7, 8]], zKey: 'T' },
         showTable: true,
     });
     const computedHtml = render();

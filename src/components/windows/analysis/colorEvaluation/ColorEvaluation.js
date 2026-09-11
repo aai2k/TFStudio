@@ -139,7 +139,7 @@ export function ColorEvaluation({ c, theme, t }) {
                 ? h(CenteredMessage, { c, message: t.analysisEvaluation.computing })
                 : report
                 ? h(React.Fragment, null,
-                    h(ChromaticityChart, { report, observer: state.observer, c, theme }),
+                    h(ChromaticityChart, { report, observer: state.observer, c, theme, tr: ce }),
                     h(Swatches, { report, sampleRgb, state, ce, c }))
                 : h(CenteredMessage, { c, message: ce.noData }),
         ),

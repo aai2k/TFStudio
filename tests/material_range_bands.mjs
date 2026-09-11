@@ -10,6 +10,11 @@ import assert from 'node:assert/strict';
 import { dimmedBandSeries } from '../src/components/ui/chartOptions.js';
 import { buildChartOption } from '../src/components/windows/analysis/opticalEvaluation/model.js';
 
+
+// Axis titles are display text, so they come from the locale.
+import { getLocale } from '../src/constants/locales/index.js';
+const AX = getLocale('en').spectralAxis;
+
 // ── dimmedBandSeries shape ───────────────────────────────────────────────────
 {
     assert.deepEqual(dimmedBandSeries(undefined, {}), [], 'no bands, no series');
@@ -41,12 +46,12 @@ import { buildChartOption } from '../src/components/windows/analysis/opticalEval
     };
 
     const bands = [{ x0: 700, x1: 900, label: 'no data: TiO2' }];
-    const withBands = buildChartOption({ ...base, materialBands: bands });
+    const withBands = buildChartOption({ spectralTitles: AX, ...base, materialBands: bands });
     const hosts = withBands.series.filter(entry => entry.markArea);
     assert.equal(hosts.length, 1, 'one decoration series for the bands');
     assert.equal(hosts[0].markArea.data[0][0].xAxis, 700, 'band coordinates are nanometres');
 
-    const without = buildChartOption(base);
+    const without = buildChartOption({ spectralTitles: AX, ...base });
     assert.equal(without.series.filter(entry => entry.markArea).length, 0,
         'a design whose materials cover the range draws no bands');
 }

@@ -21,11 +21,31 @@ const SURFACE_INTERACTION = Object.freeze({
     panSensitivity: 1.5,
 });
 
-export function surfacePlotAxisLabel(token, design) {
+export function surfacePlotAxisLabel(token, design, labels) {
     const parsed = parseAxisVar(token);
     if (parsed.kind === 'thk') return `L${parsed.layer + 1} d (nm)`;
     if (parsed.kind === 'n' || parsed.kind === 'k') return `L${parsed.layer + 1} ${parsed.kind}`;
-    return surfaceAxisLabel(token, design);
+    return surfaceAxisLabel(token, design, labels);
+}
+
+/**
+ * The quantity's full name, for a tooltip, a series or a table heading. The
+ * compute returns the quantity as a key (T, R, A, MF); a key with no entry of
+ * its own is shown as it comes.
+ */
+export function surfaceZLabel(result, labels = {}) {
+    const key = result?.zKey;
+    return (key && labels[`z${key}`]) || key || '';
+}
+
+/**
+ * Why a grid could not be computed. A throw carries its own message and has no
+ * key, so it is passed through as it arrived.
+ */
+export function surfaceErrorText(result, labels = {}) {
+    const entry = result?.errorKey && labels[result.errorKey];
+    if (typeof entry === 'function') return entry(...(result.errorArgs || []));
+    return entry || result?.error || labels.errCannotCompute;
 }
 
 function surfaceData(result, scale = 1, categorical = false) {
@@ -269,20 +289,22 @@ function heatmapCellSeries(zLabel, heatmap, c) {
  * rasterised, and `range` the band selected on the bar.
  */
 export function buildSurfaceOption(result, spec, design, c, view = {}) {
+    const labels = view.labels;
     const { barHeight = DEFAULT_BAR_HEIGHT, image = null, range = null } = view;
     if (!result?.ok) return null;
-    const xName = surfacePlotAxisLabel(spec.xVar, design);
-    const yName = surfacePlotAxisLabel(spec.yVar, design);
+    const xName = surfacePlotAxisLabel(spec.xVar, design, labels);
+    const yName = surfacePlotAxisLabel(spec.yVar, design, labels);
     const colors = colorScale(spec.colorscale);
     const percent = isPercentQuantity(spec);
     const scale = heatmapScale(spec);
-    const zLabel = `${result.zLabel}${percent ? ' (%)' : ''}`;
+    const zName = surfaceZLabel(result, labels);
+    const zLabel = `${zName}${percent ? ' (%)' : ''}`;
     // The tooltip and the series name carry the quantity's full name. The
     // captions on the chart itself take the symbol instead: a colour bar sits in
     // a margin about as wide as it is, and "Transmittance (%)" centred over it
     // runs off the edge of a narrow split-pane window.
     const barLabel = percent ? `${spec.z} (%)` : spec.z;
-    const zAxisLabel = percent ? '%' : result.zLabel;
+    const zAxisLabel = percent ? '%' : zName;
     const extent = valueExtent(result, scale);
     const zBounds = niceAxisBounds(extent.min, extent.max, {
         targetTicks: 6, minInterval: percent ? 1 : 0,

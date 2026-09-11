@@ -12,7 +12,7 @@ const PERCENT = value => (value == null ? '' : (value * 100).toFixed(4));
 
 export function overlayColumns(t, showCurves) {
     const ih = t.inhomogeneities;
-    const columns = [{ key: 'lambda', label: 'λ (nm)', fmt: value => value.toFixed(1) }];
+    const columns = [{ key: 'lambda', label: t.spectralAxis.lambdaShort, fmt: value => value.toFixed(1) }];
     for (const key of enabledOverlayCurves(showCurves)) {
         columns.push({ key: `${key}0`, label: `${key} ${ih.colHomogeneous}`, fmt: PERCENT });
         columns.push({ key, label: `${key} ${ih.colGraded}`, fmt: PERCENT });

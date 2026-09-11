@@ -133,7 +133,7 @@ export function evaluateQualifier(qual, design, resolveMat) {
         return {
             value: null, pass: false, deviation: null,
             displayValue: '—', unit: '',
-            summary: `Unknown qualifier kind: ${qual.kind}`,
+            summaryKey: 'unknownKind', summaryArgs: [qual.kind],
         };
     }
     return evaluator(qual, design, ctx);
@@ -144,7 +144,7 @@ export function evaluateQualifiers(qualifiers, design, resolveMat) {
     return (qualifiers || []).map(q =>
         q.enabled
             ? evaluateQualifier(q, design, resolveMat)
-            : { value: null, pass: null, deviation: null, displayValue: '—', unit: '', summary: 'disabled' }
+            : { value: null, pass: null, deviation: null, displayValue: '—', unit: '', summaryKey: 'disabled' }
     );
 }
 

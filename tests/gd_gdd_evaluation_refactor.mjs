@@ -9,6 +9,11 @@ import {
     withDesign,
 } from './_uiShim.mjs';
 
+
+// Axis titles are display text, so they come from the locale.
+import { getLocale } from '../src/constants/locales/index.js';
+const AX = getLocale('en').spectralAxis;
+
 shimBrowserGlobals();
 await loadApp();
 
@@ -97,11 +102,14 @@ assert.equal(averageSpectrum.tod[0], (sPoint.todFs3 + pPoint.todFs3) / 2,
 
 const c = makeTheme();
 const text = makeLocale().gdgdd;
+const LAM_AXIS = getLocale('en').spectralAxis.lambdaShort;
 const raw = computeGdGddSpectrum(design, cases[0]);
 const view = buildGdGddView(raw, {
     quantity: 'phase', referenceLambda: raw.lambda[2], showReference: true,
-}, text);
+}, text, undefined, LAM_AXIS);
 assert.deepEqual(view.tableColumns.map(column => column.key), ['lambda', 'gd', 'gdd', 'phase', 'tod']);
+assert.equal(view.tableColumns[0].label, LAM_AXIS,
+    'the wavelength column is named from the shared locale key');
 assert.deepEqual(view.tableRows[2], {
     lambda: raw.lambda[2], gd: raw.gd[2], gdd: raw.gdd[2],
     phase: raw.phaseDeg[2], tod: raw.tod[2],
@@ -120,7 +128,7 @@ assert.ok(gddView.plotData.lambda.length > raw.lambda.length
     && gddView.plotData.y.some(Number.isNaN),
     'coating GDD leaves visible gaps at participating n/k table knots');
 
-const chart = buildGDChartOption({
+const chart = buildGDChartOption({ xLabel: AX.nm,
     data: view.plotData, meta: view.meta,
     referenceLambda: raw.lambda[2], showReference: true,
     colors: { background: c.bg, paper: c.panel, grid: c.border, text: c.text },
@@ -196,7 +204,7 @@ assert.deepEqual(selectGdGddTargets(operands, {
     surfaceMode: 'back_only', side: 'front', target: 'R', quantity: 'gdd',
     polarization: 'p', thetaDeg: 17.5,
 }), [], 'back-only merit targets are not shown on a front-side calculation');
-const targetChart = buildGDChartOption({
+const targetChart = buildGDChartOption({ xLabel: AX.nm,
     data: gddView.plotData, meta: gddView.meta,
     referenceLambda: 550, showReference: false, targets,
     colors: { background: c.bg, paper: c.panel, grid: c.border, text: c.text },

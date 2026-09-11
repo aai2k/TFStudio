@@ -35,7 +35,7 @@ export function previewColumns(labels) {
     ];
 }
 
-export function buildPreviewOption(material, palette) {
+export function buildPreviewOption(material, palette, lambdaAxis) {
     const rows = material.tabData || [];
     const lambda = rows.map(row => row[0]);
     const absorbing = rows.some(row => row[2] > 0);
@@ -55,7 +55,7 @@ export function buildPreviewOption(material, palette) {
         grid: { ...plotMargin({ rightAxis: absorbing }), top: 26, bottom: 34 },
         legend: legendAbove({ color: palette.text }),
         tooltip: axisTooltip({ colors: palette }),
-        xAxis: valueAxis({ name: 'λ (nm)', color: palette.text, gridColor: palette.grid }),
+        xAxis: valueAxis({ name: lambdaAxis, color: palette.text, gridColor: palette.grid }),
         yAxis: [
             valueAxis({
                 name: 'n', color: INDEX_COLOR, gridColor: palette.grid,

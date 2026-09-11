@@ -3,7 +3,7 @@ import { drawChart, useChartTeardown } from '../../../ui/plotSurface.js';
 
 const { createElement: h, useEffect, useRef } = React;
 
-export function GDChart({ data, meta, refLambda, showRef, targets = [], yRange, yInterval, c }) {
+export function GDChart({ data, meta, refLambda, showRef, targets = [], yRange, yInterval, c, xLabel }) {
     const divRef = useRef(null);
     const chartRef = useRef(null);
     const colors = {
@@ -13,7 +13,7 @@ export function GDChart({ data, meta, refLambda, showRef, targets = [], yRange, 
     useEffect(() => {
         if (data) drawChart(divRef.current, chartRef, buildGDChartOption({
             data, meta, referenceLambda: refLambda, showReference: showRef,
-            targets, yRange, yInterval, colors,
+            targets, yRange, yInterval, colors, xLabel,
         }));
     });
     useChartTeardown(divRef, chartRef);

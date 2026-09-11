@@ -16,7 +16,7 @@ function overlayWeightValues(lambda, weighting) {
     return raw.map(value => 100 * value / maximum);
 }
 
-export function buildOverlayOption({ spectrum, char, weighting, minMaxMarks, colors, title, curve = FACTORY }) {
+export function buildOverlayOption({ spectrum, char, weighting, minMaxMarks, colors, title, lambdaAxis, curve = FACTORY }) {
     if (!spectrum?.lambda) return { series: [] };
     const lambdaLow = spectrum.lambda[0];
     const lambdaHigh = spectrum.lambda.at(-1);
@@ -54,7 +54,7 @@ export function buildOverlayOption({ spectrum, char, weighting, minMaxMarks, col
         tooltip: axisTooltip({ colors, valueSuffix: '%' }),
         legend: legendInsideLeft({ panel: colors.panel, border: colors.grid }, { color: colors.text }),
         xAxis: valueAxis({
-            name: 'λ (nm)', color: colors.text, gridColor: colors.grid,
+            name: lambdaAxis, color: colors.text, gridColor: colors.grid,
             min: lambdaLow, max: lambdaHigh, interval: tickStep,
         }),
         yAxis: valueAxis({

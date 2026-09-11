@@ -209,7 +209,7 @@ export function FloatFrame({
                     WebkitAppRegion: 'no-drag',
                 }
             },
-                h(HelpButton, { c, anchor: helpAnchor, locale, size: 18, title: 'Help for this window (F1)' })
+                h(HelpButton, { c, anchor: helpAnchor, locale, size: 18, title: t.windowChrome.help })
             ),
 
             h(CtrlBtn, { c, title: dk.dock || 'Dock back into the layout', onClick: onDock },

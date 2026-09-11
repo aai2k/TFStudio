@@ -4,14 +4,19 @@ import { SymbolsPanel } from './SymbolsPanel.js';
 
 const { createElement: h } = React;
 
-function errorLine(compiled, c) {
-    return !compiled.ok && h('div', {
+/** The parser reports a code; `errors` is t.stackFormula.errors. */
+export function formulaErrorText(compiled, errors) {
+    const entry = errors[compiled.errorKey];
+    return typeof entry === 'function' ? entry(...(compiled.errorArgs || [])) : entry;
+}
+
+function errorLine(compiled, c, errors) {
+    if (compiled.ok) return false;
+    const text = formulaErrorText(compiled, errors);
+    return h('div', {
         style: { fontSize: 12, color: c.warning || '#ef5350',
                  fontFamily: 'ui-monospace, Consolas, monospace' }
-    },
-        compiled.errorPos != null
-            ? `↳ @${compiled.errorPos}: ${compiled.error}`
-            : compiled.error);
+    }, compiled.errorPos != null ? `↳ @${compiled.errorPos}: ${text}` : text);
 }
 
 function optionsRow(state, c, sf) {
@@ -46,7 +51,7 @@ export function FormulaPanel({ state, c, t, sf }) {
                      border: `1px solid ${state.parsed.ok ? c.border : (c.warning || '#ef5350')}`,
                      borderRadius: 4, outline: 'none' }
         }),
-        errorLine(state.compiled, c),
+        errorLine(state.compiled, c, sf.errors),
         optionsRow(state, c, sf),
         h(MediaRow, { state, c, t, sf }),
         h(SymbolsPanel, { state, c, t, sf }),

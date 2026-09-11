@@ -3,7 +3,7 @@ import { PreviewPlot } from './PreviewPlot.js';
 
 const { createElement: h } = React;
 
-export function ResultsPanel({ state, c, sf }) {
+export function ResultsPanel({ state, c, sf, lambdaAxis }) {
     const {
         compiled, resolveMaterial, refLambda, effSide,
         incidentMat, exitMat, substrateMat, totalNm,
@@ -19,7 +19,8 @@ export function ResultsPanel({ state, c, sf }) {
         h(PreviewPlot, {
             compiled, resolveMaterial,
             incidentId: effSide === 'back' ? exitMat : incidentMat,
-            substrateId: substrateMat, refLambda, c, height: 200,
+            substrateId: substrateMat, refLambda, c, height: 200, noPreviewText: sf.noPreview,
+            lambdaAxis,
         }),
     );
 }

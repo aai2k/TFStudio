@@ -25,6 +25,7 @@ export function ChartPanel(props) {
                 data, designId: design.id, showCurves, targets: design.meritOperands, showTargets, c, theme,
                 editMode, editTool, editCurve, editPol, editKind, lamRange, yRange, yScale,
                 spectralUnit, overlays: design.measuredCurves, materialBands,
+                spectralTitles: t.spectralAxis, curveLabels: t.opticalEval.curveLabels,
                 onCreateTarget, onEditTarget, onDeleteTarget,
             }),
             busy && h('div', {

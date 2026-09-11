@@ -1,5 +1,5 @@
 import { QUALIFIER_KINDS } from '../../../../utils/synthesis/qualifiers.js';
-import { QUALIFIER_PRESETS } from '../../../../utils/synthesis/qualifierPresets.js';
+import { QUALIFIER_PRESETS, presetText } from '../../../../utils/synthesis/qualifierPresets.js';
 import { btnStyle, selStyle } from './fields.js';
 
 const { createElement: h, useState } = React;
@@ -47,11 +47,14 @@ export function Toolbar({
         },
             h('option', { value: '', style: { background: c.panel, color: c.textDim } },
               ts.presetPicker || '(pick a built-in spec…)'),
-            QUALIFIER_PRESETS.map(p => h('option', {
-                key: p.id, value: p.id,
-                title: p.description,
-                style: { background: c.panel },
-            }, p.label))
+            QUALIFIER_PRESETS.map(p => {
+                const text = presetText(p, ts.presets);
+                return h('option', {
+                    key: p.id, value: p.id,
+                    title: text.description,
+                    style: { background: c.panel },
+                }, text.label);
+            })
         ),
         h('select', {
             value: applyMode, onChange: e => setApplyMode(e.target.value),

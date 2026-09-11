@@ -237,7 +237,7 @@ function previewSpectrum(built) {
     }
 }
 
-function spectrumOption(spectrum, title, c) {
+function spectrumOption(spectrum, title, c, lambdaAxis) {
     const s = spectrum.series[0];
     return cartesianOption({
         colors: c,
@@ -245,20 +245,20 @@ function spectrumOption(spectrum, title, c) {
         title: { text: title, left: 44, top: 0, textStyle: { fontSize: 11, fontWeight: 'normal', color: c.textDim } },
         legend: horizontalLegend({ color: c.text, top: 14 }),
         tooltip: axisTooltip({ colors: c, valueSuffix: '%' }),
-        xAxis: valueAxis({ name: 'λ (nm)', color: c.text, gridColor: c.border, nameGap: 22, min: spectrum.lambda[0], max: spectrum.lambda.at(-1) }),
+        xAxis: valueAxis({ name: lambdaAxis, color: c.text, gridColor: c.border, nameGap: 22, min: spectrum.lambda[0], max: spectrum.lambda.at(-1) }),
         yAxis: valueAxis({ name: '%', color: c.text, gridColor: c.border, min: 0, max: 100, interval: 20, nameGap: 28 }),
         series: CURVES.map(([key, color]) => lineSeries({ x: spectrum.lambda, y: s[key].map(v => v * 100), name: key, color, width: 1.6 })),
     });
 }
 
-function SpectrumPanel({ built, di, c }) {
+function SpectrumPanel({ built, di, c, lambdaAxis }) {
     const divRef = useRef(null);
     const chartRef = useRef(null);
     const result = useMemo(() => previewSpectrum(built), [built]);
     useEffect(() => {
         if (result.error) { disposeChart(divRef.current, chartRef); return; }
         const title = result.mode === 'back' ? di.spectrumBack : result.mode === 'front' ? di.spectrumFront : di.spectrumTotal;
-        drawChart(divRef.current, chartRef, spectrumOption(result.spectrum, title, c));
+        drawChart(divRef.current, chartRef, spectrumOption(result.spectrum, title, c, lambdaAxis));
     });
     useChartTeardown(divRef, chartRef);
     return h('div', { style: { position: 'relative', height: 190, flexShrink: 0, borderTop: `1px solid ${c.border}` } },
@@ -435,7 +435,7 @@ export function DesignImportDialog({ fileImport, setFileImport, folders, default
                 renderList({ items, errors, current: currentEntry, excluded, toggle, setCurrent, mapping, di, c }),
                 h('div', { style: { flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', overflow: 'hidden' } },
                     renderPreview({ built: currentBuilt, names, mapping, setMapping, di, t, c }),
-                    h(SpectrumPanel, { built: currentBuilt, di, c })
+                    h(SpectrumPanel, { built: currentBuilt, di, c, lambdaAxis: t.spectralAxis.lambdaShort })
                 )
             ),
             footer

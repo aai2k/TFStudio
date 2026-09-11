@@ -2,7 +2,7 @@ import { useDesign } from '../../../../state/DesignContext.js';
 import { COATING_TYPES, POLARIZATIONS, entryFromDesign } from '../../../../utils/coatingLibrary/entryModel.js';
 import { validateEntry } from '../../../../utils/coatingLibrary/validateEntry.js';
 import { saveUserCoating } from '../../../../utils/coatingLibrary/userCoatings.js';
-import { FONT, Segmented, buttonStyle, inputStyle } from './ui.js';
+import { FONT, Segmented, buttonStyle, failReason, inputStyle } from './ui.js';
 
 const { createElement: h, useState } = React;
 
@@ -45,7 +45,7 @@ export function SaveCoatingDialog({ design, side: initialSide = 'front', c, t, o
         setBusy(true);
         const result = await saveUserCoating(entry);
         setBusy(false);
-        if (!result?.success) { setProblems([sd.saveFailed(result?.error || '?')]); return; }
+        if (!result?.success) { setProblems([sd.saveFailed(failReason(result, ts))]); return; }
         onSaved?.(entry.name);
         onClose();
     }

@@ -5,6 +5,10 @@
 import {
     fromNm, toNm, spectralAxisOption, spectralRangeControl, SPECTRAL_UNIT_IDS,
 } from '../src/utils/physics/spectralAxis.js';
+// Axis titles are display text, so they come from the locale.
+import { getLocale } from '../src/constants/locales/index.js';
+
+const AX = getLocale('en').spectralAxis;
 
 let pass = 0, fail = 0;
 const approx = (a, b, eps = 1e-6) => Math.abs(a - b) <= eps;
@@ -36,43 +40,43 @@ ok('fromNm 500 -> eV', approx(fromNm(500, 'eV'), 2.479683968));
 
 // ── Native axis options keep nanometres as data coordinates ──────────────────
 {
-    const p = spectralAxisOption('nm', 400, 700);
-    ok('option nm: title', p.name === 'Wavelength (nm)');
+    const p = spectralAxisOption('nm', 400, 700, AX);
+    ok('option nm: title', p.name === AX.nm);
     ok('option nm: physical range', p.min === 400 && p.max === 700);
     ok('option nm: 500 is not truncated to 5', p.axisLabel.formatter(500) === '500');
 }
 
 // ── Display formatters convert each native wavelength tick ───────────────────
 {
-    const p = spectralAxisOption('um', 400, 700);
-    ok('option um: title', p.name === 'Wavelength (µm)');
+    const p = spectralAxisOption('um', 400, 700, AX);
+    ok('option um: title', p.name === AX.um);
     ok('option um: labels', [400, 450, 500, 700].map(p.axisLabel.formatter).join(',') === '0.4,0.45,0.5,0.7');
 }
 
 {
-    const p = spectralAxisOption('cm1', 400, 700);
-    ok('option cm1: title', p.name === 'Wavenumber (cm⁻¹)');
+    const p = spectralAxisOption('cm1', 400, 700, AX);
+    ok('option cm1: title', p.name === AX.cm1);
     ok('option cm1: reciprocal labels', p.axisLabel.formatter(500) === '20000');
 }
 
 {
-    const p = spectralAxisOption('THz', 400, 2500);
-    ok('option THz: title', p.name === 'Frequency (THz)');
+    const p = spectralAxisOption('THz', 400, 2500, AX);
+    ok('option THz: title', p.name === AX.THz);
     ok('option THz: compact label', p.axisLabel.formatter(500) === '599.6');
 }
 
 {
-    const p = spectralAxisOption('eV', 300, 1000);
-    ok('option eV: title', p.name === 'Photon energy (eV)');
+    const p = spectralAxisOption('eV', 300, 1000, AX);
+    ok('option eV: title', p.name === AX.eV);
     ok('option eV: compact label', p.axisLabel.formatter(500) === '2.48');
 }
 
-ok('option um: NaN range stays automatic', spectralAxisOption('um', NaN, 700).min === undefined);
+ok('option um: NaN range stays automatic', spectralAxisOption('um', NaN, 700, AX).min === undefined);
 
 // ── Unknown unit id falls back to nm ─────────────────────────────────────────
 {
-    const p = spectralAxisOption('bogus', 400, 700);
-    ok('option unknown unit: title falls back to nm', p.name === 'Wavelength (nm)');
+    const p = spectralAxisOption('bogus', 400, 700, AX);
+    ok('option unknown unit: title falls back to nm', p.name === AX.nm);
     ok('option unknown unit: labels stay nm', p.axisLabel.formatter(650) === '650');
 }
 

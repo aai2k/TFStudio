@@ -1,7 +1,7 @@
 import {
     CONTRIBUTE_EMAIL, conditionsText, discussionUrl, layerTable, mailUrl, packCoating,
 } from '../../../../utils/coatingLibrary/share.js';
-import { FONT, buttonStyle } from './ui.js';
+import { FONT, buttonStyle, failReason } from './ui.js';
 
 const { createElement: h, useState } = React;
 
@@ -24,7 +24,7 @@ export function ShareDialog({ entry, c, t, onClose }) {
     async function pack() {
         const result = await packCoating(entry);
         if (result?.success) setStatus(ts.packed(result.filePath));
-        else if (!result?.canceled) setStatus(ts.packFailed(result?.error || '?'));
+        else if (!result?.canceled) setStatus(ts.packFailed(failReason(result, t.coatingLibrary)));
     }
 
     const paragraph = text => h('p', { style: { margin: '0 0 12px', lineHeight: 1.5 } }, text);

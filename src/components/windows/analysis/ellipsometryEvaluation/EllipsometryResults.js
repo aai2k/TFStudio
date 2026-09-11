@@ -4,10 +4,10 @@ import { EllipsometryChart } from './EllipsometryChart.js';
 
 const { createElement: h } = React;
 
-export function buildEllipsometryTable(mode, data) {
+export function buildEllipsometryTable(mode, data, xLabels) {
     const xColumn = mode === 'spectral'
-        ? { key: 'x', label: 'λ (nm)', align: 'left', fmt: value => value.toFixed(2) }
-        : { key: 'x', label: 'AOI (°)', align: 'left', fmt: value => value.toFixed(2) };
+        ? { key: 'x', label: xLabels.lambda, align: 'left', fmt: value => value.toFixed(2) }
+        : { key: 'x', label: xLabels.aoi, align: 'left', fmt: value => value.toFixed(2) };
     const columns = [
         xColumn,
         { key: 'psi', label: 'Ψ (°)', fmt: value => value.toFixed(4) },
@@ -19,13 +19,13 @@ export function buildEllipsometryTable(mode, data) {
     return { columns, rows };
 }
 
-export function EllipsometryResults({ c, t, text, state, table, hasData, overlays, exportMenu }) {
+export function EllipsometryResults({ c, t, text, state, table, hasData, overlays, xLabel, exportMenu }) {
     const dt = t.dataTable;
     return h(PlotArea, null,
         h('div', { style: { flex: 1, minHeight: 0, overflow: 'hidden', display: 'flex' } },
             hasData
                 ? h(EllipsometryChart, {
-                    data: state.data, c, overlays,
+                    data: state.data, c, overlays, xLabel,
                     show: { psi: state.showPsi, delta: state.showDelta },
                 })
                 : h(CenteredMessage, { c, message: text.noLayers }),

@@ -7,6 +7,8 @@
  * A surface is written as its grid, one row per (x, y) point.
  */
 
+import { surfaceZLabel } from './charts/surfaceOption.js';
+
 export function curveColumns(t) {
     const pe = t.plotEngine;
     return [
@@ -33,7 +35,7 @@ export function surfaceColumns(t, result) {
     return [
         { key: 'x', label: pe.colX, fmt: value => value.toFixed(4) },
         { key: 'y', label: pe.colY, fmt: value => value.toFixed(4) },
-        { key: 'z', label: result?.zLabel || pe.colZ, fmt: value => value.toFixed(6) },
+        { key: 'z', label: surfaceZLabel(result, pe) || pe.colZ, fmt: value => value.toFixed(6) },
     ];
 }
 

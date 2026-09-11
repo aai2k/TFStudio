@@ -34,11 +34,11 @@ function resultTable(state, t) {
     };
 }
 
-function plotBody({ state, sd, c }) {
+function plotBody({ state, sd, c, lambdaAxis }) {
     if (state.mode === 'single') {
         return h(SpectrumPlot, {
             baseline: state.baseline, deviated: state.deviated,
-            channel: state.channel, showBaseline: state.showBaseline, c,
+            channel: state.channel, showBaseline: state.showBaseline, c, lambdaAxis,
         });
     }
     if (state.sweepResult) {
@@ -83,7 +83,7 @@ export function SystematicDeviations({ c, theme, t }) {
                 rangeNotice,
             ].filter(Boolean),
         }),
-        h(PlotArea, null, plotBody({ state, sd, c })),
+        h(PlotArea, null, plotBody({ state, sd, c, lambdaAxis: t.spectralAxis.lambdaShort })),
         h(ResultsSection, {
             c, ...systematicEditorHeader(state, sd),
             open: state.showEditor, setOpen: state.setShowEditor,

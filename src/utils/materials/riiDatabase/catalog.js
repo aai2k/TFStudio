@@ -68,7 +68,8 @@ export async function getDatabaseStatus() {
  * Returns { success, lastUpdated, materialCount }.
  */
 export async function updateDatabase() {
-    if (!window.electronAPI?.riiUpdate) return { success: false, error: 'Update not available' };
+    // No text here: the Material Editor names this case from the locale.
+    if (!window.electronAPI?.riiUpdate) return { success: false, unavailable: true };
     const res = await window.electronAPI.riiUpdate();
     if (res.success) clearCatalogCache();
     return res;

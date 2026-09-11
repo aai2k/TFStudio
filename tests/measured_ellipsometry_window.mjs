@@ -260,13 +260,13 @@ function photometric(quantity) {
 {
     const { buildEllipsometryOption } = await import(
         '../src/components/windows/analysis/ellipsometryEvaluation/EllipsometryChart.js');
-    const data = { x: [400, 500], psi: [20, 21], delta: [170, 150], xLabel: 'λ' };
+    const data = { x: [400, 500], psi: [20, 21], delta: [170, 150] };
     const colors = { background: '#000', paper: '#111', grid: '#333', text: '#ccc' };
     const curve = { psi: '#4fc3f7', delta: '#ff8a65' };
 
     for (const show of [{ psi: true, delta: true }, { psi: true, delta: false },
         { psi: false, delta: true }]) {
-        const option = buildEllipsometryOption(data, colors, curve, show);
+        const option = buildEllipsometryOption(data, colors, 'λ (nm)', { curve, show });
         assert.ok(option.xAxis.splitLine.show, 'the vertical grid is always drawn');
         const gridding = option.yAxis.filter(axis => axis.show && axis.splitLine.show);
         assert.equal(gridding.length, 1,

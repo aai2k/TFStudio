@@ -17,7 +17,7 @@ function defaultCurveName(fileName, parsed, column) {
     return parsed.columns.length > 1 ? `${base}: ${column.name}` : base;
 }
 
-export function useMeasuredEllipsometry(mx) {
+export function useMeasuredEllipsometry(mx, xLabel) {
     const { design, updateDesign, checkpoint } = useDesign();
     const missingMaterialIds = useUnresolvedMaterials(design);
     const [session, setField] = useWindowSession(measuredEllipsometrySession, design);
@@ -179,8 +179,8 @@ export function useMeasuredEllipsometry(mx) {
     // The preview follows the file being configured until a curve on the design
     // is picked, so the panel the operator is looking at is the one drawn.
     const preview = useMemo(
-        () => chartData(selectedCurve ? [selectedCurve] : previewColumn ? [previewColumn] : []),
-        [selectedCurve, previewColumn]);
+        () => chartData(selectedCurve ? [selectedCurve] : previewColumn ? [previewColumn] : [], xLabel),
+        [selectedCurve, previewColumn, xLabel]);
 
     const cosDeltaCurve = curves.find(looksLikeCosDelta) || null;
 

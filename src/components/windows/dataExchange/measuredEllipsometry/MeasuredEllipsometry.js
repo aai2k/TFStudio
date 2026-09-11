@@ -19,7 +19,7 @@ const { createElement: h } = React;
 
 export function MeasuredEllipsometry({ c, t }) {
     const mx = t.measuredEllipsometry;
-    const controller = useMeasuredEllipsometry(mx);
+    const controller = useMeasuredEllipsometry(mx, t.spectralAxis.nm);
     const notices = [
         controller.status ? { label: controller.status.msg, tone: controller.status.type } : null,
         controller.cosDeltaCurve

@@ -5,6 +5,7 @@
  */
 
 import { useDesign } from '../../../../state/DesignContext.js';
+import { weightingText } from '../../../../utils/physics/integralValues/builtinWeightings.js';
 import { useMaterialRangeNotice } from '../../../materials/MaterialRangeNotice.js';
 import { ConeBadge, EvalModeBadge } from '../../../SurfaceModeBar.js';
 import { ExportMenu, useCsvExport } from '../../../ui/ExportMenu.js';
@@ -35,9 +36,9 @@ function editorLabel(model, iv) {
 
 // The weighting a value comes from is the caption the plot needs, and the title
 // sits in margin the chart already reserves rather than costing another band.
-function chartTitle(selected) {
+function chartTitle(selected, tr) {
     if (!selected) return '';
-    return `${selected.label}: ${selected.char}(λ) × ${selected.weighting.label}`;
+    return `${selected.label}: ${selected.char}(λ) × ${weightingText(selected.weighting, tr).label}`;
 }
 
 export function IntegralValues({ c, theme, t }) {
@@ -70,8 +71,8 @@ export function IntegralValues({ c, theme, t }) {
             model.spectrum && model.selected
                 ? h(OverlayChart, {
                     spectrum: model.spectrum, char: model.selected.char,
-                    weighting: model.selected.weighting, title: chartTitle(model.selected),
-                    minMaxMarks: model.selectedResult, c, theme,
+                    weighting: model.selected.weighting, title: chartTitle(model.selected, iv.weightings),
+                    minMaxMarks: model.selectedResult, lambdaAxis: t.spectralAxis.lambdaShort, c, theme,
                 })
                 : h(CenteredMessage, { c, message: iv.computing }),
         ),

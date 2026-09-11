@@ -7,7 +7,7 @@ import { plotMargin } from '../chrome/plot.js';
 
 export function buildGDChartOption(options) {
     const {
-        data, meta, referenceLambda, showReference, colors, targets = [], yRange, yInterval,
+        data, meta, referenceLambda, showReference, colors, targets = [], yRange, yInterval, xLabel,
     } = options;
     const main = lineSeries({ x: data.lambda, y: data.y, name: meta.label, color: meta.color, width: 2 });
     const targetGeometry = buildGdGddTargetGeometry(targets);
@@ -29,7 +29,7 @@ export function buildGDChartOption(options) {
         fileName: 'dispersion',
         legend: { show: false },
         tooltip: axisTooltip({ colors, valueSuffix: meta.unit ? ` ${meta.unit}` : '' }),
-        xAxis: valueAxis({ name: 'Wavelength (nm)', color: colors.text, gridColor: colors.grid }),
+        xAxis: valueAxis({ name: xLabel, color: colors.text, gridColor: colors.grid }),
         yAxis: valueAxis({
             name: meta.label, color: colors.text, gridColor: colors.grid,
             min: fixedRange ? yRange[0] : automatic?.min,

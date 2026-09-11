@@ -14,7 +14,7 @@ function channelsFor(channel) {
 
 export function deviationColumns(t, channel) {
     const sd = t.systematicDeviations;
-    const columns = [{ key: 'lambda', label: 'λ (nm)', fmt: value => value.toFixed(1) }];
+    const columns = [{ key: 'lambda', label: t.spectralAxis.lambdaShort, fmt: value => value.toFixed(1) }];
     for (const key of channelsFor(channel)) {
         columns.push({ key: `${key}0`, label: `${key} ${sd.colBaseline}`, fmt: PERCENT });
         columns.push({ key, label: `${key} ${sd.colDeviated}`, fmt: PERCENT });
@@ -39,7 +39,7 @@ export function sweepColumns(t, channel) {
     const sd = t.systematicDeviations;
     return [
         { key: 'param', label: sd.colParam, fmt: value => String(Number(value.toPrecision(6))) },
-        { key: 'lambda', label: 'λ (nm)', fmt: value => value.toFixed(1) },
+        { key: 'lambda', label: t.spectralAxis.lambdaShort, fmt: value => value.toFixed(1) },
         ...channelsFor(channel).map(key => ({ key, label: `${key} (%)`, fmt: PERCENT })),
     ];
 }

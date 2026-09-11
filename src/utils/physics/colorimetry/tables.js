@@ -127,10 +127,13 @@ export function planck(lambda_nm, T) {
 
 export const OBSERVERS   = [{ id: '2',  label: 'CIE 1931 2°' },
                             { id: '10', label: 'CIE 1964 10°' }];
-export const ILLUMINANTS  = [{ id: 'D65', label: 'D65 (daylight 6504 K)' },
-                            { id: 'D50', label: 'D50 (daylight 5003 K)' },
-                            { id: 'A',   label: 'A (incandescent 2856 K)' },
-                            { id: 'E',   label: 'E (equal energy)' }];
+// Designation plus the key naming its description in t.illuminants; see
+// describedLabel in spectralWeightings.js. CIE 1931 and CIE 1964 above are
+// designations end to end and carry no description.
+export const ILLUMINANTS  = [{ id: 'D65', name: 'D65', descTr: 'd65' },
+                            { id: 'D50', name: 'D50', descTr: 'd50' },
+                            { id: 'A',   name: 'A',   descTr: 'incandescent' },
+                            { id: 'E',   name: 'E',   descTr: 'equalEnergy' }];
 
 export function cmfTable(observer) { return observer === '10' ? CMF_10 : CMF_2; }
 

@@ -30,6 +30,7 @@ import assert from 'node:assert/strict';
 import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
 import { makeOperand } from '../src/utils/physics/optimizer.js';
+import EN from '../src/constants/locales/en.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const GOLDEN = join(__dirname, 'refinement_runner_guard.golden.json');
@@ -151,7 +152,7 @@ function makeCtx(design, ops, { multi = false, nRestarts = 1, perturbPct = 30, m
         setMfHistory: v => { snap.mfHistory = typeof v === 'function' ? v(snap.mfHistory) : v; },
         setRunning: () => {}, setCanReset: () => {}, setRestartIdx: () => {},
         setStopReason: v => snap.stopReason = v,
-        t: { refinement: { history: { run: (n) => `Run ${n}` } } },
+        t: { refinement: { ...EN.refinement, history: { run: (n) => `Run ${n}` } } },
     };
     return { ctx, snap };
 }

@@ -15,6 +15,7 @@ const { getMaterial } = await import('../src/utils/materials/materialDatabase.js
 const { computeAngular, computeEllipsometrySweep, computeSpectral } = await import(
     '../src/components/windows/analysis/ellipsometryEvaluation/spectrum.js'
 );
+const { getLocale } = await import('../src/constants/locales/index.js');
 const { sideLayersAt } = await import(
     '../src/components/windows/analysis/ellipsometryEvaluation/model.js'
 );
@@ -69,7 +70,7 @@ function legacySpectral(design, options) {
         const e = computeEllipsometry(L, options.thetaDeg, legacyNkAt(n0mat, L), legacyNkAt(nsmat, L), layers);
         x.push(L); psi.push(e.psi); delta.push(e.delta);
     }
-    return { x, psi, delta, xLabel: 'Wavelength (nm)' };
+    return { x, psi, delta };
 }
 
 function legacyAngular(design, options) {
@@ -85,7 +86,7 @@ function legacyAngular(design, options) {
         const e = computeEllipsometry(options.lambdaNm, A, n0, ns, layers);
         x.push(A); psi.push(e.psi); delta.push(e.delta);
     }
-    return { x, psi, delta, xLabel: 'Angle of incidence (°)' };
+    return { x, psi, delta };
 }
 
 const design = makeSampleDesign();
@@ -93,6 +94,7 @@ design.backLayers = [
     { material: 'builtin:SiO2', thickness: 71.25 },
     { material: 'builtin:TiO2', thickness: 43.75 },
 ];
+
 const spectralOptions = {
     side: 'front', lambdaStart: 501.234, lambdaEnd: 509.334, lambdaStep: 2.7, thetaDeg: 63.25,
 };
@@ -108,13 +110,11 @@ assert.deepEqual(spectral, {
     x: [501.234, 503.934, 506.634, 509.334],
     psi: [13.344157239812686, 13.341301740705479, 13.34483155249724, 13.354897066268977],
     delta: [314.31044504438694, 308.9402312535299, 303.9407434435898, 299.29200724757584],
-    xLabel: 'Wavelength (nm)',
 });
 assert.deepEqual(angular, {
     x: [51.125, 53.375, 55.625, 57.875],
     psi: [27.637504136582656, 25.783948397469725, 23.805759299693044, 21.706783360379465],
     delta: [166.0099624075965, 163.71817211903374, 160.93772789190882, 157.48736057433393],
-    xLabel: 'Angle of incidence (°)',
 });
 const spectralSweepOptions = {
     mode: 'spectral', side: 'front', lambdaStart: 509.334, lambdaEnd: 501.234,
@@ -139,14 +139,18 @@ assert.deepEqual(
     [43.75, 71.25]);
 assert.deepEqual(toDeltaConvention([0, 45.5, 360, -10], 'azzam'), [0, 314.5, 0, 10]);
 
-const table = buildEllipsometryTable('angular', angular);
+const table = buildEllipsometryTable('angular', angular, {
+    lambda: getLocale('en').spectralAxis.lambdaShort,
+    aoi: getLocale('en').spectrumExchange.aoiLabel,
+});
 assert.deepEqual(table.columns.map(column => column.label), ['AOI (°)', 'Ψ (°)', 'Δ (°)']);
 assert.deepEqual(table.rows[2], { x: angular.x[2], psi: angular.psi[2], delta: angular.delta[2] });
 
 const c = makeTheme();
+const AOI_AXIS = getLocale('en').ellipsometry.aoiAxis;
 const option = buildEllipsometryOption(angular, {
     background: c.bg, paper: c.panel, grid: c.border, text: c.text,
-});
+}, AOI_AXIS);
 assert.deepEqual(option.series.map(series => series.name), ['Ψ', 'Δ']);
 assert.equal(option.legend.show, false, 'toolbar curve toggles replace the duplicate in-chart legend');
 assert.equal(option.xAxis.scale, true, 'the configured X domain is not expanded toward zero');
@@ -158,11 +162,12 @@ assert.deepEqual(option.yAxis.map(axis => axis.interval), [10, 60],
 // grid would put no tick on the axis at all: this fixture spans eight
 // nanometres, and 50 nm apart there is nothing to draw.
 const chartColors = { background: c.bg, paper: c.panel, grid: c.border, text: c.text };
+const LAM_AXIS = getLocale('en').spectralAxis.nm;
 assert.equal(buildEllipsometryOption(
     computeSpectral(design, { ...spectralOptions, lambdaStart: 400, lambdaEnd: 700, lambdaStep: 10 }),
-    chartColors).xAxis.interval, 50, 'spectral Ellipsometry uses the shared 50 nm grid');
+    chartColors, LAM_AXIS).xAxis.interval, 50, 'spectral Ellipsometry uses the shared 50 nm grid');
 {
-    const narrow = buildEllipsometryOption(spectral, chartColors).xAxis;
+    const narrow = buildEllipsometryOption(spectral, chartColors, LAM_AXIS).xAxis;
     const ticks = (spectral.x[spectral.x.length - 1] - spectral.x[0]) / narrow.interval;
     assert.ok(ticks >= 2 && ticks <= 40,
         `an eight-nanometre sweep must still carry ticks, got ${ticks.toFixed(1)}`);
@@ -173,13 +178,13 @@ assert.deepEqual(option.series[0].data[2], [angular.x[2], angular.psi[2]]);
 // vertical axis with it rather than leaving an unused scale on that edge.
 const psiOnly = buildEllipsometryOption(
     angular, { background: c.bg, paper: c.panel, grid: c.border, text: c.text },
-    undefined, { psi: true, delta: false });
+    AOI_AXIS, { show: { psi: true, delta: false } });
 assert.deepEqual(psiOnly.series.map(series => series.name), ['Ψ']);
 assert.equal(psiOnly.yAxis[0].show, true);
 assert.equal(psiOnly.yAxis[1].show, false);
 const deltaOnly = buildEllipsometryOption(
     angular, { background: c.bg, paper: c.panel, grid: c.border, text: c.text },
-    undefined, { psi: false, delta: true });
+    AOI_AXIS, { show: { psi: false, delta: true } });
 assert.deepEqual(deltaOnly.series.map(series => series.name), ['Δ']);
 assert.equal(deltaOnly.yAxis[0].show, false);
 // Δ reads against the right-hand axis, so its margin is the one that stays wide.

@@ -34,7 +34,7 @@ const qwOf = (matId) => LAM / (4 * nOf(matId));
 console.log('— QWOT coefficients —');
 {
     const r = buildStackFromFormula({ text: 'H 0.5L 2H L', symbolMap: SM, refLambda: LAM });
-    ok(r.ok, '"H 0.5L 2H L" parses: ' + (r.error || ''));
+    ok(r.ok, '"H 0.5L 2H L" parses: ' + (r.errorKey || ''));
     ok(r.layers.length === 4, '4 layers');
     const coefs = [1, 0.5, 2, 1];
     const mats  = ['builtin:TiO2', 'builtin:SiO2', 'builtin:TiO2', 'builtin:SiO2'];
@@ -76,7 +76,7 @@ console.log('— coefficient inside a run —');
 {
     const H = 'builtin:TiO2', L = 'builtin:SiO2';
     const run = buildStackFromFormula({ text: 'LHLHL6HLHLH', symbolMap: SM, refLambda: LAM });
-    ok(run.ok, '"LHLHL6HLHLH" parses: ' + (run.error || ''));
+    ok(run.ok, '"LHLHL6HLHLH" parses: ' + (run.errorKey || ''));
     ok(run.layers.length === 10, 'LHLHL6HLHLH → 10 layers (got ' + run.layers.length + ')');
     const mats = [L, H, L, H, L, H, L, H, L, H];
     ok(run.layers.every((l, k) => l.material === mats[k]), 'LHLHL6HLHLH material sequence');
@@ -137,7 +137,7 @@ console.log('— media sides —');
 console.log('— direct material names —');
 {
     const r = buildStackFromFormula({ text: 'SiO2 TiO2 Nb2O5', symbolMap: SM, refLambda: LAM });
-    ok(r.ok, 'direct material names parse: ' + (r.error || ''));
+    ok(r.ok, 'direct material names parse: ' + (r.errorKey || ''));
     ok(r.layers.length === 3, '3 layers');
     ok(r.layers[0].material.includes('SiO2') && r.layers[2].material.includes('Nb2O5'),
         'materials resolved directly from catalog');
@@ -190,20 +190,20 @@ console.log('— @lambda override —');
 console.log('— error handling —');
 {
     const e1 = parseStackFormula('Air | H L');
-    ok(!e1.ok && /two "\|"/.test(e1.error), 'single pipe rejected');
+    ok(!e1.ok && e1.errorKey === 'twoPipes', 'single pipe rejected');
 
     const e2 = parseStackFormula('(H L H');
     ok(!e2.ok, 'unmatched paren rejected');
 
     const e3 = parseStackFormula('H 2');
-    ok(!e3.ok && /coefficient/.test(e3.error), 'coefficient without symbol rejected');
+    ok(!e3.ok && e3.errorKey === 'symbolAfterCoefficient', 'coefficient without symbol rejected');
 
     const e4 = buildStackFromFormula({ text: 'H X L', symbolMap: SM, refLambda: LAM });
     ok(!e4.ok && e4.unknownSymbols.includes('X'), 'unknown symbol reported');
     ok(e4.errorPos === 2, 'error position points at X (pos 2), got ' + e4.errorPos);
 
     const e5 = parseStackFormula('(H L)^0');
-    ok(!e5.ok && /positive integer/.test(e5.error), '^0 rejected');
+    ok(!e5.ok && e5.errorKey === 'repeatPositive', '^0 rejected');
 
     const e6 = parseStackFormula('');
     ok(!e6.ok, 'empty formula rejected');
@@ -262,9 +262,9 @@ console.log('— auto-detect symbols —');
 console.log('— tokenizer —');
 {
     const t = tokenizeStackFormula('2H (L M)^3');
-    ok(!t.error && t.tokens.length === 8, 'tokenizes "2H (L M)^3" into 8 tokens (got ' + (t.tokens?.length) + ')');
+    ok(!t.errorKey && t.tokens.length === 8, 'tokenizes "2H (L M)^3" into 8 tokens (got ' + (t.tokens?.length) + ')');
     const bad = tokenizeStackFormula('H $ L');
-    ok(bad.error && bad.errorPos === 2, 'bad char flagged at pos 2');
+    ok(bad.errorKey && bad.errorPos === 2, 'bad char flagged at pos 2');
 }
 
 console.log(fails === 0 ? '\n✅ all stack-formula tests passed' : `\n❌ ${fails} assertion(s) failed`);

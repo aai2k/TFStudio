@@ -22,7 +22,7 @@ export function computeSpectral(design, options) {
         stack.map(layer => x.map(lam => nkAt(layer.material, lam))),
         stack.map(layer => layer.thickness),
     );
-    return { x, psi, delta, xLabel: 'Wavelength (nm)' };
+    return { x, psi, delta };
 }
 
 export function computeAngular(design, options) {
@@ -39,7 +39,7 @@ export function computeAngular(design, options) {
         x.push(Math.round(a * 1000) / 1000);
     }
     const { psi, delta } = evaluateEllipsometryAngles(lambdaNm, x, n0, ns, layers);
-    return { x, psi, delta, xLabel: 'Angle of incidence (°)' };
+    return { x, psi, delta };
 }
 
 export function computeEllipsometrySweep(design, options) {

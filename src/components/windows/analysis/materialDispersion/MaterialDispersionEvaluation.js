@@ -18,11 +18,13 @@ import { useWindowSession } from '../../windowSession.js';
 
 const { createElement: h, useMemo } = React;
 
+// `tr` names the axis title in t.gdgdd, which the Group Delay / GDD window
+// already carries for the same four quantities.
 const QUANTITIES = {
-    phase: { key: 'phaseDeg', label: 'Phase (deg)', unit: '°', digits: 2, order: 0 },
-    gd: { key: 'gdFs', label: 'Group Delay (fs)', unit: 'fs', digits: 3, order: 1 },
-    gdd: { key: 'gddFs2', label: 'GDD (fs²)', unit: 'fs²', digits: 3, order: 2 },
-    tod: { key: 'todFs3', label: 'TOD (fs³)', unit: 'fs³', digits: 3, order: 3 },
+    phase: { key: 'phaseDeg', tr: 'phaseAxis', unit: '°', digits: 2, order: 0 },
+    gd: { key: 'gdFs', tr: 'gdAxis', unit: 'fs', digits: 3, order: 1 },
+    gdd: { key: 'gddFs2', tr: 'gddAxis', unit: 'fs²', digits: 3, order: 2 },
+    tod: { key: 'todFs3', tr: 'todAxis', unit: 'fs³', digits: 3, order: 3 },
 };
 
 const THICKNESS_UNITS = {
@@ -149,7 +151,7 @@ function Setup({ state, c, t }) {
     return h(SettingsMenu, {
         c, t, windowId: 'materialDispersion', label: t.analysisChrome.settings, width: 300,
     },
-        h(SettingRow, { c, label: 'Thickness' },
+        h(SettingRow, { c, label: t.gdgdd.slabThickness },
             h(NumInput, {
                 value: state.thicknessValue,
                 onChange: value => state.setThicknessMm(thicknessToMm(value, state.thicknessUnit)),
@@ -173,14 +175,15 @@ function Setup({ state, c, t }) {
     );
 }
 
-function tableModel(spectrum) {
+function tableModel(spectrum, text, lambdaAxis) {
     if (!spectrum) return { columns: [], rows: [] };
+    // The group index is a symbol and reads the same everywhere.
     const columns = [
-        { key: 'lambda', label: 'λ (nm)', align: 'left', fmt: value => value.toFixed(2) },
-        { key: 'phase', label: 'Phase (°)', fmt: value => value.toFixed(2) },
-        { key: 'gd', label: 'GD (fs)', fmt: value => value.toFixed(3) },
-        { key: 'gdd', label: 'GDD (fs²)', fmt: value => value.toFixed(3) },
-        { key: 'tod', label: 'TOD (fs³)', fmt: value => value.toFixed(3) },
+        { key: 'lambda', label: lambdaAxis, align: 'left', fmt: value => value.toFixed(2) },
+        { key: 'phase', label: text.phaseAxis, fmt: value => value.toFixed(2) },
+        { key: 'gd', label: text.gdAxis, fmt: value => value.toFixed(3) },
+        { key: 'gdd', label: text.gddAxis, fmt: value => value.toFixed(3) },
+        { key: 'tod', label: text.todAxis, fmt: value => value.toFixed(3) },
         { key: 'groupIndex', label: 'nᵧ', fmt: value => value.toFixed(6) },
     ];
     const rows = spectrum.values.map((value, index) => ({
@@ -232,7 +235,7 @@ export function MaterialDispersionEvaluation({ c, t }) {
     );
     const quantityMeta = QUANTITIES[quantity];
     const plotData = plotModel(spectrum, quantity, quantityMeta);
-    const table = tableModel(spectrum);
+    const table = tableModel(spectrum, t.gdgdd, t.spectralAxis.lambdaShort);
     const csv = useCsvExport(
         () => csvFromRows(table.columns, table.rows),
         () => `${(material?.name || materialId).replace(/[^\w.-]+/g, '_')}_dispersion.csv`,
@@ -272,7 +275,7 @@ export function MaterialDispersionEvaluation({ c, t }) {
         h(PlotArea, null, plotData && h(GDChart, {
             data: plotData,
             meta: {
-                label: quantityMeta.label,
+                label: t.gdgdd[quantityMeta.tr],
                 unit: quantityMeta.unit,
                 color: curve.curve,
                 dp: quantityMeta.digits,

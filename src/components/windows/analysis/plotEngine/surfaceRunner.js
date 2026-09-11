@@ -61,7 +61,7 @@ async function runWorkerSweep(options, meta) {
         const z = new Array(meta.y.length);
         await runJobs({ pool, poolRef, jobs, z, setProgress, isCurrent });
         if (isCurrent() && poolRef.current === pool) {
-            setSurfaceResult({ ok: true, x: meta.x, y: meta.y, z, zLabel: meta.zLabel, nPoints: meta.nPoints });
+            setSurfaceResult({ ok: true, x: meta.x, y: meta.y, z, zKey: meta.zKey, nPoints: meta.nPoints });
         }
     } catch (err) {
         if (!isCurrent()) return;

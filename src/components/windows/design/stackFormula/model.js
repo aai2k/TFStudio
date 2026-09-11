@@ -116,10 +116,12 @@ export function computeSeed(design, resolvers = stackFormulaResolvers(design)) {
     return { text, rows };
 }
 
-// T/R spectrum for the preview plot, or { error } when the compiled stack /
-// media aren't resolvable. Pure of DOM/chart code — PreviewPlot only draws it.
+// T/R spectrum for the preview plot. A formula that did not compile comes back
+// as { errorKey }, a stack or medium that would not resolve as { error } holding
+// the thrown message; the plot draws neither and says so in the reader's
+// language. Pure of DOM/chart code: PreviewPlot only draws it.
 export function previewSpectrum(resolveMaterial, compiled, incidentId, substrateId, refLambda) {
-    if (!compiled.ok) return { error: compiled.error };
+    if (!compiled.ok) return { errorKey: compiled.errorKey };
     try {
         const incMat = resolveMaterial(incidentId);
         const subMat = resolveMaterial(substrateId);

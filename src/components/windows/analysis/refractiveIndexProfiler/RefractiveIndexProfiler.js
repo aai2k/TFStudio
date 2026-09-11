@@ -40,7 +40,7 @@ export function RefractiveIndexProfiler({ c, theme, t }) {
                     })
                     : h(RIChart, {
                         profile: state.profile, quantity: state.quantity,
-                        matColorMap: state.matColorMap, c,
+                        matColorMap: state.matColorMap, c, depthAxis: t.eField.xAxisTitle,
                     }))
                 : h(CenteredMessage, { c, message: rp.noLayers }),
         ),

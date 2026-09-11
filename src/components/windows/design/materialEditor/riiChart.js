@@ -2,7 +2,7 @@
 import { sampleMaterial } from '../../../../utils/materials/riiDatabase.js';
 import { clearMaterialChart, drawIndexChart } from './materialChart.js';
 
-export function drawRiiChart(element, material, c) {
+export function drawRiiChart(element, material, c, xLabel) {
     if (!element) return;
     if (!material) { clearMaterialChart(element); return; }
     const samples = sampleMaterial(material, 200, 20000, 10);
@@ -12,6 +12,6 @@ export function drawRiiChart(element, material, c) {
     const k = samples.map(row => row[2]);
     drawIndexChart(element, {
         wavelengths, n, k, hasK: k.some(value => value > 1e-8), c,
-        xLabel: 'Wavelength (nm)', nLabel: 'n(λ)', kLabel: 'k(λ)',
+        xLabel, nLabel: 'n(λ)', kLabel: 'k(λ)',
     });
 }

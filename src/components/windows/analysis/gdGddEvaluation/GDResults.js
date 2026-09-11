@@ -25,6 +25,7 @@ export function GDResults({ c, t, text, state, view, exportMenu }) {
                     refLambda: state.refLam, showRef: state.showRef, c,
                     targets, yRange,
                     yInterval: state.yAuto ? view.autoRange?.interval : undefined,
+                    xLabel: t.spectralAxis.nm,
                 })
                 : h(CenteredMessage, { c, message: text.noLayers }),
         ),

@@ -5,6 +5,7 @@ import {
 import { ActionButton, NumInput, SelectField, valueOptions } from '../chrome/controls.js';
 import { SettingDivider, SettingRow } from '../chrome/popover.js';
 import { SurfaceAxisGroup } from './SurfaceAxisGroup.js';
+import { surfaceErrorText } from './charts/surfaceOption.js';
 
 const { createElement: h } = React;
 
@@ -117,7 +118,7 @@ function ComputeFooter({ spec, onCompute, computing, progress, result, c, pe }) 
         result && !result.ok && h('div', {
             role: 'alert',
             style: { fontSize: 10, color: c.error, textAlign: 'center', lineHeight: 1.4 },
-        }, result.error),
+        }, surfaceErrorText(result, pe)),
     );
 }
 

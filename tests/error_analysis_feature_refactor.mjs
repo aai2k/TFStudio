@@ -16,6 +16,9 @@ const [{ ErrorAnalysis }, { buildErrorOption }, trialModel] = await Promise.all(
     import('../src/components/windows/analysis/errorAnalysis/trialModel.js'),
 ]);
 
+const { getLocale } = await import('../src/constants/locales/index.js');
+const EA = getLocale('en').errorAnalysis;
+
 const c = makeTheme();
 const t = makeLocale();
 
@@ -29,9 +32,11 @@ const result = {
     envLower: [0.2, 0.3],
     envUpper: [0.6, 1],
 };
-const option = buildErrorOption({ result, char: 'R', c, corridorSigma: 2, showEnvelope: true });
+const option = buildErrorOption({ result, char: 'R', c, corridorSigma: 2, showEnvelope: true, tr: EA });
+// Series names are display text and come from the locale.
 assert.deepEqual(option.series.map((series) => series.name || null), [
-    '__corridor_base__', 'Corridor (±2σ)', 'Exp (mean)', 'R theoretical', 'Envelope min', 'Min/max envelope',
+    '__corridor_base__', EA.chartCorridor(2), EA.chartMean, EA.chartTheoretical('R'),
+    EA.chartEnvelopeMin, EA.chartEnvelope,
 ]);
 assert.deepEqual(option.series[0].data.map(point => point[1]), [20, 20.000000000000007]);
 assert.deepEqual(option.series[1].data.map(point => point[1]), [40.00000000000001, 80]);

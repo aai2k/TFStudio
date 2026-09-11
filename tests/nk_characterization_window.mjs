@@ -14,6 +14,7 @@ import {
     loadApp, makeLocale, makeSampleDesign, makeTheme, shimBrowserGlobals, withDesign,
 } from './_uiShim.mjs';
 import { initWasmForTest } from './_wasmInit.mjs';
+import { getLocale } from '../src/constants/locales/index.js';
 
 shimBrowserGlobals();
 await loadApp();
@@ -429,8 +430,11 @@ assert.ok(Math.abs(result.thicknessNm - 420) < 0.5,
         [rows[0].lambda, rows[0].n, rows[0].k], material.tabData[0]);
 
     const palette = { background: '#000', paper: '#111', grid: '#333', text: '#ccc' };
-    const option = materialPreview.buildPreviewOption(material, palette);
+    const option = materialPreview.buildPreviewOption(
+        material, palette, getLocale('en').spectralAxis.lambdaShort);
     assert.equal(option.series[0].name, 'n');
+    assert.equal(option.xAxis.name, getLocale('en').spectralAxis.lambdaShort,
+        'the wavelength axis is named from the shared locale key');
     assert.equal(option.yAxis[1].show, false, 'a transparent film has no k axis to spend room on');
 
     const catalogs = [{ id: 'user_a', name: 'Process A' }];

@@ -11,7 +11,7 @@ import { rasteriseHeatmap } from '../heatmapImage.js';
 import { colorScale } from './colorScales.js';
 import {
     buildSurfaceOption, DEFAULT_BAR_HEIGHT, heatmapExtent, heatmapScale,
-    isPercentQuantity, readoutLines, surfacePlotAxisLabel,
+    isPercentQuantity, readoutLines, surfaceErrorText, surfacePlotAxisLabel, surfaceZLabel,
 } from './surfaceOption.js';
 
 const { createElement: h, useMemo, useEffect, useRef, useState } = React;
@@ -139,7 +139,7 @@ function useBarHeight(divRef, chartRef) {
 }
 
 /** The readout the flat map draws for itself, as the pointer moves over it. */
-function useHeatmapReadout(divRef, chartRef, { result, spec, design, tracking }) {
+function useHeatmapReadout(divRef, chartRef, { result, spec, design, tracking, labels }) {
     const [readout, setReadout] = useState(null);
     const clear = () => setReadout(null);
     const onPointer = (event) => {
@@ -147,9 +147,9 @@ function useHeatmapReadout(divRef, chartRef, { result, spec, design, tracking })
         setReadout(cell && {
             ...cell,
             lines: readoutLines([
-                [surfacePlotAxisLabel(spec.xVar, design), result.x[cell.column]],
-                [surfacePlotAxisLabel(spec.yVar, design), result.y[cell.row]],
-                [`${result.zLabel}${isPercentQuantity(spec) ? ' (%)' : ''}`,
+                [surfacePlotAxisLabel(spec.xVar, design, labels), result.x[cell.column]],
+                [surfacePlotAxisLabel(spec.yVar, design, labels), result.y[cell.row]],
+                [`${surfaceZLabel(result, labels)}${isPercentQuantity(spec) ? ' (%)' : ''}`,
                     cell.value * heatmapScale(spec)],
             ]),
         });
@@ -167,13 +167,14 @@ function surfaceOverlay(result, prompt, labels, c) {
             prompt || labels.surfacePrompt
                 || 'Configure the axes and quantity, then press Compute.', c);
     }
-    if (!result.ok) return surfaceError(result.error || 'Cannot compute surface.', c);
+    if (!result.ok) return surfaceError(surfaceErrorText(result, labels), c);
     return null;
 }
 
 // `prompt` replaces the stand-in shown before a grid exists, for a window that
 // sweeps on its own instead of waiting for a Compute press.
 export function SurfaceChart({ result, spec, design, c, t, prompt }) {
+    const labels = t.plotEngine;
     const divRef = useRef(null);
     const chartRef = useRef(null);
     // The band selected on the colour bar. Null is the whole range.
@@ -188,8 +189,8 @@ export function SurfaceChart({ result, spec, design, c, t, prompt }) {
             : null),
         [result, spec.render, spec.colorscale, spec.z, range]);
     const option = useMemo(
-        () => buildSurfaceOption(result, spec, design, c, { barHeight, image, range }),
-        [result, spec, design, c, barHeight, image, range]);
+        () => buildSurfaceOption(result, spec, design, c, { barHeight, image, range, labels }),
+        [result, spec, design, c, barHeight, image, range, labels]);
     // A new grid, or a different quantity, spans a different set of values, so
     // a band chosen against the old one would mean nothing against this one.
     useEffect(() => setRange(null), [result, spec.z, spec.render]);
@@ -210,8 +211,8 @@ export function SurfaceChart({ result, spec, design, c, t, prompt }) {
     // Only the image map reads itself out; the 3D surface keeps the tooltip
     // ECharts gives its own mesh.
     const { readout, handlers } = useHeatmapReadout(divRef, chartRef,
-        { result, spec, design, tracking: !!image });
-    const overlay = surfaceOverlay(result, prompt, t?.plotEngine || {}, c);
+        { result, spec, design, tracking: !!image, labels });
+    const overlay = surfaceOverlay(result, prompt, labels, c);
     return h('div', {
         style: { width: '100%', height: '100%', position: 'relative', overflow: 'hidden' },
         ...handlers,
