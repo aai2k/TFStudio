@@ -2748,7 +2748,6 @@ export default {
     computingProgress: (done, total) => `Calcolo ${done}/${total}`,
     computingFirst: 'Calcolo della mappa…',
     colLambda: 'λ (nm)',
-    colLambda: 'λ (nm)',
     colAngle: 'AOI (°)',
     colValue: 'Valore',
   },
