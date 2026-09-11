@@ -93,6 +93,14 @@ function loadDesignFile(ctx, folderPath, tfsFile, items, seenIds) {
       log(`Skipping ${tfsFile}: missing design.id`);
       return;
     }
+    // A design the renderer cannot draw is left out of the tree, the same way a
+    // file that will not parse is, so one bad file cannot take the whole
+    // workspace down when it is clicked. See validateDesign.
+    const invalid = validateDesign(design);
+    if (invalid) {
+      log(`Skipping ${tfsFile}: ${invalid}`);
+      return;
+    }
     // De-dupe by design.id: keep the most-recently-modified file, remove the rest.
     // This recovers from prior rename bugs where save-design left stale .tfs files behind.
     const prev = seenIds.get(design.id);
@@ -262,18 +270,51 @@ function handleSaveDesign(ctx, folderId, design) {
 // Read a .tfs and return the design it holds, alongside the file's own base
 // name for a design that has no usable name of its own. The on-disk version
 // wrapper key is dropped; the renderer owns id and name.
+// Check that a parsed design holds the parts the renderer dereferences without
+// guarding them, and fill in the ones that have an unambiguous empty value.
+// Returns an error string, or null when the design is usable.
+//
+// Only those parts are checked. A design missing `substrate.material` throws
+// during render — the Design Editor's layer list and stack diagram and the
+// Optical Evaluation and Integral Values spectra all read it directly — which
+// unmounts the React tree and leaves a white window with nothing said. Missing
+// layer arrays throw the same way through `.map` and `.length`. Requiring the
+// rest of the shape would refuse older files that open correctly today.
+//
+// A substrate is refused rather than defaulted: standing in a material would
+// silently change what the design computes. Absent layer arrays are filled in
+// as empty, which is what a bare substrate is written as anyway.
+function validateDesign(design) {
+  if (!design || typeof design !== 'object' || Array.isArray(design)) {
+    return 'File is not a valid TFStudio design.';
+  }
+  const substrate = design.substrate;
+  if (!substrate || typeof substrate !== 'object' || Array.isArray(substrate)
+      || typeof substrate.material !== 'string' || !substrate.material.trim()) {
+    return 'This design names no substrate material, so it cannot be evaluated.';
+  }
+  for (const side of ['frontLayers', 'backLayers']) {
+    if (design[side] === undefined || design[side] === null) { design[side] = []; continue; }
+    if (!Array.isArray(design[side])) return `This design's ${side} is not a list of layers.`;
+    if (design[side].some(layer => !layer || typeof layer !== 'object' || Array.isArray(layer))) {
+      return `This design has a layer in ${side} that is not a layer.`;
+    }
+  }
+  return null;
+}
+
 function readDesignFile(ctx, filePath) {
   const { fs, path } = ctx;
+  let design;
   try {
-    const design = JSON.parse(fs.readFileSync(filePath, 'utf-8'));
-    if (!design || typeof design !== 'object' || Array.isArray(design)) {
-      return { success: false, error: 'File is not a valid TFStudio design.' };
-    }
-    delete design.tfs_version;
-    return { success: true, design, fileName: path.basename(filePath, path.extname(filePath)) };
+    design = JSON.parse(fs.readFileSync(filePath, 'utf-8'));
   } catch (err) {
     return { success: false, error: `Could not read design: ${err.message}` };
   }
+  const invalid = validateDesign(design);
+  if (invalid) return { success: false, error: invalid };
+  delete design.tfs_version;
+  return { success: true, design, fileName: path.basename(filePath, path.extname(filePath)) };
 }
 
 // ── Open / import an external .tfs design file ─────────────────────────────

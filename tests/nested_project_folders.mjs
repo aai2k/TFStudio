@@ -199,7 +199,11 @@ const dirExists = (...parts) => fs.existsSync(path.join(projectsDir, ...parts));
 }
 
 {
-  const design = { id: 'design-1', name: 'Beamsplitter', frontLayers: [{ d: 100 }] };
+  const design = {
+    id: 'design-1', name: 'Beamsplitter',
+    substrate: { material: 'BK7', thickness: 1 },
+    frontLayers: [{ d: 100 }], backLayers: [],
+  };
   ok((await call('save-design', 'Archive/2026/Q3', design)).success, 'a design saves into a nested folder');
   const file = path.join(projectsDir, 'Archive', '2026', 'Q3', 'Beamsplitter.tfs');
   ok(fs.existsSync(file), 'as a .tfs file at that path');

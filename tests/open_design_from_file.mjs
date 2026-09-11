@@ -36,7 +36,7 @@ ok(designFileFromArgv([abs('TFStudio.exe'), abs('C:/designs/ar.tfs')]) === abs('
     'a packaged run finds the design after the executable');
 ok(designFileFromArgv([abs('electron.exe'), '.', abs('C:/designs/ar.tfs')]) === abs('C:/designs/ar.tfs'),
     'electron . finds the design one place further along');
-ok(designFileFromArgv([abs('TFStudio.exe'), '--dev', abs('C:/d/ar.TFS'), '--debug']) === abs('C:/d/ar.TFS'),
+ok(designFileFromArgv([abs('TFStudio.exe'), '--dev', abs('C:/d/ar.TFS'), '--no-sandbox']) === abs('C:/d/ar.TFS'),
     'switches on either side are skipped and the extension is matched whatever its case');
 ok(designFileFromArgv([abs('TFStudio.exe'), '--log-file=old.tfs']) === null,
     'a switch value ending in .tfs is not a design');
@@ -48,12 +48,20 @@ ok(designFileFromArgv([abs('TFStudio.exe'), 'ar.tfs']) === path.join(cwd, 'ar.tf
 
 // -- Classifying the file against the Projects tree ---------------------------
 const projectsDir = '/docs/TFStudio/Projects';
+// Every design carries a substrate, as a real .tfs does; a design without one
+// is refused before it reaches the renderer (see design_shape_validation).
+const design = (id, name, version) => JSON.stringify({
+    ...(version ? { tfs_version: version } : {}),
+    id, name,
+    substrate: { material: 'BK7', thickness: 1 },
+    frontLayers: [], backLayers: [],
+});
 const files = new Map([
-    [`${projectsDir}/My Designs/ar.tfs`, '{"tfs_version":"1.1","id":"design-1","name":"AR"}'],
-    [`${projectsDir}/Archive/2026/bp.tfs`, '{"tfs_version":"1.1","id":"design-2","name":"Bandpass"}'],
-    [`${projectsDir}/loose.tfs`, '{"id":"design-3","name":"Loose"}'],
-    ['/docs/TFStudio/Projects-old/ar.tfs', '{"id":"design-5","name":"AR"}'],
-    ['/desktop/shared.tfs', '{"tfs_version":"1.0","id":"design-4","name":"Shared"}'],
+    [`${projectsDir}/My Designs/ar.tfs`, design('design-1', 'AR', '1.1')],
+    [`${projectsDir}/Archive/2026/bp.tfs`, design('design-2', 'Bandpass', '1.1')],
+    [`${projectsDir}/loose.tfs`, design('design-3', 'Loose')],
+    ['/docs/TFStudio/Projects-old/ar.tfs', design('design-5', 'AR')],
+    ['/desktop/shared.tfs', design('design-4', 'Shared', '1.0')],
     ['/desktop/notes.tfs', 'not json at all'],
     ['/desktop/list.tfs', '[1,2,3]'],
 ]);

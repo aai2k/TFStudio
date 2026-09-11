@@ -466,8 +466,8 @@ export function makeTabs(t) {
 // The former File and Edit menus are gone: every entry they carried is a ribbon
 // button or a quick-access button. What is left needs a menu, and sits behind
 // the logo button (application) and the ? button (help) on the tab strip. The
-// Reload / DevTools / Optimizer Benchmark entries are dev-only and are hidden in
-// packaged builds unless started with --debug.
+// Reload / DevTools / Optimizer Benchmark entries are offered in every build, so
+// a user who hits a broken window can see what happened and report it.
 
 function appMenuItems(t, devAllowed) {
     return [

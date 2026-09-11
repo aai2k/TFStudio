@@ -15,9 +15,6 @@ const appWindowIpc = require('./main/ipc/appWindow');
 const { canPlaceOwnWindows } = require('./main/windowPlacement');
 
 const isPackaged = app.isPackaged;
-// DevTools allowed in dev always, and in packaged builds only when launched with
-// --debug (so we can diagnose a shipped build without weakening normal installs).
-const devToolsAllowed = !isPackaged || process.argv.includes('--debug');
 // Wayland gives a client no way to place its own window, so a torn-off tool
 // cannot move itself and the compositor has to do it. The renderers are told
 // through an argument rather than asked over IPC, so the strip is built the
@@ -146,7 +143,9 @@ function createWindow() {
     webPreferences: {
       nodeIntegration: false,
       contextIsolation: true,
-      devTools: devToolsAllowed,   // off in packaged builds unless launched with --debug
+      // Left at Electron's default (on) in shipped builds too: a user who hits a
+      // broken window has no other way to see what happened, and there is
+      // nothing in the renderer to protect.
       preload: path.join(__dirname, 'preload.js'),
       additionalArguments: rendererArgs
     },
@@ -176,7 +175,9 @@ function createWindow() {
   const revealFallback = setTimeout(revealWindow, 5000);
   mainWindow.once('ready-to-show', revealWindow);
 
-  if (devToolsAllowed && (process.argv.includes('--dev') || process.argv.includes('--debug'))) {
+  // A development run opens the pane on launch; an installed build opens it
+  // only when the user asks, from the View menu or Ctrl+Shift+I.
+  if (process.argv.includes('--dev')) {
     mainWindow.webContents.openDevTools();
   }
 
@@ -204,7 +205,6 @@ function createWindow() {
           webPreferences: {
             nodeIntegration: false,
             contextIsolation: true,
-            devTools: devToolsAllowed,
             preload: path.join(__dirname, 'preload.js'),
             additionalArguments: rendererArgs,
           },
@@ -276,7 +276,7 @@ function setupIpcHandlers() {
   // handler that reads ctx.<x>Dir per call follows a folder change immediately.
   const ctx = userPaths.defineCtxGetters({
     app, shell, dialog, BrowserWindow, screen, fs, path, log,
-    devToolsAllowed, isPackaged, resourcesDir: process.resourcesPath, srcDir: __dirname,
+    isPackaged, resourcesDir: process.resourcesPath, srcDir: __dirname,
     getMainWindow: () => mainWindow,
     helpServer,
     safeName, safeSegments, safeFilePath, readJsonSafe, writeFileAtomic, readTextAuto, registryValue,

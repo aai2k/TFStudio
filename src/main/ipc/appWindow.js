@@ -13,7 +13,8 @@ function register(ipcMain, ctx) {
   ipcMain.on('open-external', (event, url) => handleOpenExternal(ctx, url));
   ipcMain.handle('help:open', async (event, opts) => handleHelpOpen(ctx, opts));
   ipcMain.handle('get-app-version', () => ctx.app.getVersion());
-  ipcMain.handle('app:dev-allowed', () => ctx.devToolsAllowed);
+  // DevTools is available in every build, so the View menu always offers it.
+  ipcMain.handle('app:dev-allowed', () => true);
   ipcMain.on('diag:log', (event, msg) => { try { ctx.log(`[renderer] ${msg}`); } catch (_) {} });
 }
 
@@ -179,7 +180,6 @@ function handleWindowBackground(ctx, color) {
 }
 
 function handleToggleDevtools(ctx) {
-  if (!ctx.devToolsAllowed) return;
   const mainWindow = ctx.getMainWindow();
   if (!mainWindow || mainWindow.isDestroyed() || !mainWindow.webContents) return;
   if (mainWindow.webContents.isDevToolsOpened()) {
