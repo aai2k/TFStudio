@@ -96,13 +96,8 @@ The transfer-matrix engine is published separately as **[tmmcore](https://github
 ### Download (recommended)
 Grab the latest build for your platform from the [**Releases**](../../releases) page.
 
-**Windows:** `TFStudio Setup <ver>.exe` installs normally and makes `.tfs` designs open in TFStudio when you double-click them; `TFStudio-<ver>-Portable.exe` is a single executable that needs no installation, for locked-down deposition PCs, and registers nothing, so a double-click there still needs TFStudio opened first. Separate Windows 7/8.1 builds are published alongside.
+**Windows:** `TFStudio Setup <ver>.exe` installs normally; `TFStudio-<ver>-Portable.exe` is a single executable that needs no installation, for locked-down deposition PCs. Separate Windows 7/8.1 builds are published alongside.
 
-If you had already pointed `.tfs` at TFStudio by hand, through **Open with → Always use this app**, Windows remembers that choice and keeps using it instead of the one the installer registers, so designs open but still show the application icon rather than the document icon. Windows does not let an installer change a choice you made yourself. To clear it, run this in PowerShell and restart Explorer:
-
-```powershell
-$k=[Microsoft.Win32.Registry]::CurrentUser.OpenSubKey("SOFTWARE\Microsoft\Windows\CurrentVersion\Explorer\FileExts\.tfs",$true); $k.DeleteSubKey("UserChoice",$false); $k.Close()
-```
 
 **Linux:** On Debian and Ubuntu, `TFStudio-<ver>-amd64.deb` is the recommended package:
 
