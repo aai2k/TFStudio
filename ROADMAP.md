@@ -8,7 +8,7 @@ If something here matters to your work, or something you need is missing, open a
 
 ## Next
 
-- **Visual GD/GDD target editing.** Draw, move and remove dispersion targets directly on the GD/GDD plot instead of switching to the merit table.
+- **Better WDM design** Generate WDM filter designs that perform better further from normal incidence.
 - **Pulse Analysis.** Propagate Gaussian, sech-squared or measured pulses through a coating and show temporal broadening, spectral phase and residual chirp.
 
 ## After that
