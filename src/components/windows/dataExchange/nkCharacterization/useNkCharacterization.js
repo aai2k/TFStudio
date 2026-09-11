@@ -1,12 +1,10 @@
 import { useDesign } from '../../../../state/DesignContext.js';
-import { measuredCurveData } from '../../../../utils/io/spectrumTable.js';
 import { useWindowSession } from '../../windowSession.js';
-import { CHARACTERIZATION_WORKER_URL } from '../../../../workerUrls.js';
-import { getTmmWasmBytesForWorker } from '../../../../tmmcore.js';
+import { startCharacterization, stopCharacterization } from './characterizationRun.js';
 import {
-    characterizableCurves, characterizationRequest, curveById, defaultCurveSelection,
-    defaultMeasurementMode,
-} from './model.js';
+    applyDefaultRange, chosenCurves, commonRange, syncCurveSelection,
+} from './curveSelection.js';
+import { characterizableCurves, defaultMeasurementMode } from './model.js';
 import {
     nkCharacterizationResultSession,
     nkCharacterizationSession,
@@ -15,16 +13,16 @@ import {
 
 const { useCallback, useEffect, useMemo, useRef, useState } = React;
 
-/** The wavelengths every chosen curve covers. */
-function commonRange(curves) {
-    if (curves.length === 0) return null;
-    const spans = curves.map((curve) => {
-        const { x } = measuredCurveData(curve);
-        return [x[0], x[x.length - 1]];
-    });
-    const low = Math.max(...spans.map(span => span[0]));
-    const high = Math.min(...spans.map(span => span[1]));
-    return high > low ? [low, high] : null;
+/** Whole seconds since `since`, ticking once a second while `active`. */
+function useElapsedSeconds(active, since) {
+    const [now, setNow] = useState(0);
+    useEffect(() => {
+        if (!active) return undefined;
+        setNow(Date.now());
+        const timer = setInterval(() => setNow(Date.now()), 1000);
+        return () => clearInterval(timer);
+    }, [active, since]);
+    return active ? Math.max(0, Math.round((now - since) / 1000)) : 0;
 }
 
 export function useNkCharacterization() {
@@ -34,6 +32,12 @@ export function useNkCharacterization() {
     const [runState, , patchRunState] = useWindowSession(
         nkCharacterizationResultSession, design);
     const [running, setRunning] = useState(false);
+    // What the worker last said it was doing, and when it was started. A run
+    // is seconds to a minute of silence otherwise, with nothing to tell a
+    // stalled worker from a working one.
+    const [progress, setProgress] = useState(null);
+    const [startedAt, setStartedAt] = useState(0);
+    const elapsedSeconds = useElapsedSeconds(running, startedAt);
     // The settings the shown result was produced from, so an edited setting can
     // mark it stale instead of silently describing a run that no longer matches
     // the controls above it.
@@ -52,35 +56,19 @@ export function useNkCharacterization() {
         ...characterizableCurves(design, 'photometry'),
         ...characterizableCurves(design, 'ellipsometry'),
     ], [design]);
-    const chosen = useMemo(() => {
-        const ids = measurementMode === 'ellipsometry'
-            ? [settings.psiId, settings.deltaId]
-            : [settings.transmittanceId, settings.reflectanceId];
-        return ids.map(id => curveById(design, id, measurementMode)).filter(Boolean);
-    }, [design, measurementMode, settings.transmittanceId, settings.reflectanceId,
-        settings.psiId, settings.deltaId]);
+    const chosen = useMemo(
+        () => chosenCurves(design, settings, measurementMode),
+        [design, measurementMode, settings.transmittanceId, settings.reflectanceId,
+            settings.psiId, settings.deltaId]);
 
-    // Pick up a design's curves once, and let go of a curve that was removed.
     useEffect(() => {
-        const available = new Set(anyCurves.map(curve => curve.id));
-        const defaults = defaultCurveSelection(design);
-        for (const key of ['transmittanceId', 'reflectanceId', 'psiId', 'deltaId']) {
-            if (settings[key] && !available.has(settings[key])) setField(key, '');
-        }
-        const keys = measurementMode === 'ellipsometry'
-            ? ['psiId', 'deltaId'] : ['transmittanceId', 'reflectanceId'];
-        if (!settings[keys[0]] && !settings[keys[1]]) {
-            for (const key of keys) if (defaults[key]) setField(key, defaults[key]);
-        }
+        syncCurveSelection({ anyCurves, design, measurementMode, settings, setField });
     }, [anyCurves, design, measurementMode, settings.transmittanceId,
         settings.reflectanceId, settings.psiId, settings.deltaId]);
 
-    // The range follows the chosen curves until the user sets one.
     const range = useMemo(() => commonRange(chosen), [chosen]);
     useEffect(() => {
-        if (!range) return;
-        if (!settings.lambdaStart) setField('lambdaStart', String(Math.round(range[0])));
-        if (!settings.lambdaEnd) setField('lambdaEnd', String(Math.round(range[1])));
+        applyDefaultRange({ range, settings, setField });
     }, [range, settings.lambdaStart, settings.lambdaEnd]);
 
     const signature = useMemo(
@@ -88,70 +76,18 @@ export function useNkCharacterization() {
         [settings, design?.id, chosen],
     );
 
-    // The extraction runs in a worker. On a spectroscopic ellipsometer's own
-    // grid it is tens of seconds, which on this thread is an application that
-    // stops answering; here the window stays alive and the run can be stopped.
     const workerRef = useRef(null);
-    const stop = useCallback(() => {
-        if (workerRef.current) {
-            workerRef.current.terminate();
-            workerRef.current = null;
-        }
-        setRunning(false);
-    }, []);
+    const stop = useCallback(() => stopCharacterization(workerRef, setRunning), []);
     useEffect(() => stop, [stop]);
 
-    const run = useCallback(() => {
-        const prepared = characterizationRequest(design, settings);
-        if (prepared.error) {
-            patchRunState({ result: prepared, ranWith: signature });
-            return;
-        }
-        stop();
-        setRunning(true);
-
-        const finish = (result) => {
-            if (workerRef.current !== worker) return;
-            workerRef.current = null;
-            patchRunState({
-                result: result.error ? result : { ...result, measurementMode: prepared.measurementMode },
-                ranWith: signature,
-            });
-            setRunning(false);
-            worker.terminate();
-        };
-
-        let worker;
-        try {
-            worker = new Worker(CHARACTERIZATION_WORKER_URL, { type: 'module' });
-        } catch (caught) {
-            console.error('[Characterization worker] construction failed', caught);
-            patchRunState({
-                result: { error: 'failed', message: caught?.message || String(caught) },
-                ranWith: signature,
-            });
-            setRunning(false);
-            return;
-        }
-        workerRef.current = worker;
-        worker.onmessage = (event) => {
-            if (event.data?.type === 'result') finish(event.data.result);
-            else if (event.data?.type === 'error') {
-                console.error('[Characterization worker]', event.data.message);
-                finish({ error: 'failed', message: event.data.message });
-            }
-        };
-        worker.onerror = (event) => {
-            console.error('[Characterization worker]', event.message);
-            finish({ error: 'failed', message: event.message });
-        };
-        const wasmBytes = getTmmWasmBytesForWorker();
-        if (wasmBytes) worker.postMessage({ type: 'wasmInit', wasmBytes });
-        worker.postMessage({ type: 'characterize', request: prepared.request });
-    }, [design, settings, signature, patchRunState, stop]);
+    const run = useCallback(() => startCharacterization({
+        design, settings, signature, patchRunState, stop, workerRef,
+        setRunning, setProgress, setStartedAt,
+    }), [design, settings, signature, patchRunState, stop]);
 
     return {
         design, curves, anyCurves, chosen, settings, measurementMode, view, result, running,
+        progress, elapsedSeconds,
         stale: !!result && ranWith !== signature,
         measuredRange: range,
         setField, setViewField, run, stop,

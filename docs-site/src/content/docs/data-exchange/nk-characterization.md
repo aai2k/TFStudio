@@ -107,6 +107,8 @@ One trap when you are trying models against a spectrum TFStudio itself exported.
 
 **Film → Solve** fits the thickness too. Interference fringes in T give it a starting thickness and a range around it; without them, the value you type sets a range from half to one and a half times it, and the fit stays inside that. So the number you type has to be right to about a third. For an opaque metal, hold the thickness: a thick metal film reflects the same however much more you add, and a thickness kept automatically is labelled as assumed rather than measured.
 
+Then press **Extract**. A run takes from a second to a minute, longest for a metal with the thickness solved on a fine grid. While it works, the control row says which stage it is at and how long it has been running, and **Stop** ends it.
+
 ## The three tabs
 
 ### n and k

@@ -166,6 +166,22 @@ export function ViewTabs({ c, nk, state }) {
     }, label)));
 }
 
+/**
+ * What the run is doing and for how long, beside the Stop button.
+ *
+ * The stage comes from the worker and the seconds from this thread, so the
+ * line says that both are alive: a stage that stops changing with the clock
+ * still running is a worker that has stalled, and a clock that stops is the
+ * window itself.
+ */
+export function runStatus(nk, progress, elapsedSeconds) {
+    const stage = progress?.stage;
+    const doing = stage === 'ranking'
+        ? nk.progress.ranking(progress.done, progress.total)
+        : (nk.progress[stage] || nk.running);
+    return `${doing} · ${nk.elapsed(elapsedSeconds)}`;
+}
+
 export function CharacterizationControls({ c, t, nk, state, notices }) {
     const { curves, settings, measurementMode, setField, running } = state;
     const noCurves = curves.length === 0;
@@ -218,5 +234,8 @@ export function CharacterizationControls({ c, t, nk, state, notices }) {
             disabled: !running && !ready,
             onClick: running ? state.stop : state.run,
         }),
+        running && h('span', {
+            style: { color: c.textDim, fontSize: 11, whiteSpace: 'nowrap' },
+        }, runStatus(nk, state.progress, state.elapsedSeconds)),
     );
 }

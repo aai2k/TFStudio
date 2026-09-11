@@ -383,6 +383,60 @@ for (const test of cases) {
         `an impossible spectrum must stay "notInvertible", got "${rubbish.error}"`);
 }
 
+// ── A metal measured from its interband edge, thickness held ─────────────────
+//
+// Silver's interband absorption sits at 300-340 nm, where n falls from 1.35 to
+// 0.15. A 100 nm film held at its true thickness and fitted over 300-800 nm
+// came back as plain Drude on a 2 nm grid and with two oscillators on a 5 nm
+// one. The table fitter that seeded the model rejected every count whose n
+// strayed past the extracted values by more than one grid step, and a finer
+// grid shrank that step until no count survived. The residual was then wrong by
+// degrees, n(550) six times too high, and nothing said so. The count is chosen
+// on the measured spectrum now, held or solved, so the grid cannot decide it.
+{
+    const silver = getMaterial('Ag');
+    const sample = {
+        incident: getMaterial('Air'), substrate: getMaterial('BK7'), exit: getMaterial('Air'),
+        substrateThicknessMm: 1, geometry: 'coating',
+    };
+    const fitHeld = (stepNm) => {
+        const grid = Array.from({ length: Math.round(500 / stepNm) + 1 }, (_, index) => 300 + stepNm * index);
+        const conditions = { ...sample, lambdas: grid, aoi: 65, pol: 'avg', side: 'front', deltaConvention: 'azzam' };
+        const measured = filmEllipsometry(conditions, silver, 100);
+        return characterizeFilm({
+            sample,
+            channels: ['PSI', 'DEL'].map(quantity => ({
+                quantity, lambdas: grid, values: measured[quantity],
+                aoi: 65, pol: 'avg', side: 'front', deltaConvention: 'azzam',
+            })),
+            indexModel: 'drude-lorentz', thicknessNm: 100, fixThickness: true,
+        });
+    };
+    const fine = fitHeld(2);
+    const coarse = fitHeld(5);
+    const trueIndex = silver.getNK(550)[0];
+    for (const [label, result] of [['2 nm', fine], ['5 nm', coarse]]) {
+        check(!result.error, `silver held, ${label} grid: ${result.error}`);
+        if (result.error) continue;
+        check(result.fit.complex.oscillators.length > 0,
+            `silver held, ${label} grid: the interband edge needs Lorentz terms, got plain Drude`);
+        const worst = Math.max(result.residuals.PSI.rms, result.residuals.DEL.rms);
+        check(worst < 1.5, `silver held, ${label} grid: residual ${worst.toFixed(3)}°, plain Drude leaves 4°`);
+        const [n550] = evaluateDispersionFit(result.fit, 550);
+        check(Math.abs(n550 - trueIndex) < 0.15,
+            `silver held, ${label} grid: n(550) ${n550.toFixed(3)} against ${trueIndex.toFixed(3)}`);
+    }
+    if (!fine.error && !coarse.error) {
+        const counts = [fine, coarse].map(result => result.fit.complex.oscillators.length);
+        check(counts[0] === counts[1],
+            `the grid step chose the oscillator count: ${counts[0]} on 2 nm, ${counts[1]} on 5 nm`);
+        const ratio = fine.residuals.DEL.rms / coarse.residuals.DEL.rms;
+        check(ratio > 0.67 && ratio < 1.5,
+            `the grid step changed the fit: Δ residual ${fine.residuals.DEL.rms.toFixed(3)}° on 2 nm,`
+            + ` ${coarse.residuals.DEL.rms.toFixed(3)}° on 5 nm`);
+    }
+}
+
 const headers = ['case', 'thickness', 'error', 'max Δn', 'max Δk', 'worst rms', 'notices'];
 const widths = headers.map((header, column) =>
     Math.max(header.length, ...rows.map(row => row[column].length)));

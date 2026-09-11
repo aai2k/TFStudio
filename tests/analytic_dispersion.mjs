@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 
 import { evalN, evalNJet } from '../src/utils/materials/dispersionFormulas.js';
 import {
+    dispersionFitCodec,
     evaluateComplexDispersionModel,
     evaluateDispersionFit,
     fitTabulatedMaterial,
@@ -385,6 +386,32 @@ const quarterWaveDesign = (() => {
     });
     assert.ok(fit.residuals.n.rms < 1e-10, 'Drude-Lorentz recovers synthetic n');
     assert.ok(fit.residuals.k.rms < 1e-10, 'Drude-Lorentz recovers synthetic k');
+
+    // The codec's closed-form ∂n/∂p and ∂k/∂p, which the film fit builds its
+    // Jacobian from, against central differences of the model it decodes.
+    // Taken away from the fitted point too, where every term still moves.
+    const codec = dispersionFitCodec(fit);
+    for (const shift of [0, 0.3]) {
+        const values = codec.encode().map((value, index) => value + shift * (index % 2 ? 1 : -1));
+        for (const wavelength of [420, 610, 880]) {
+            const { n, k, dn, dk } = codec.derivatives(values, wavelength);
+            assert.deepEqual([n, k], evaluateDispersionFit(codec.decode(values), wavelength),
+                'the derivatives come with the model value they belong to');
+            values.forEach((value, index) => {
+                const h = 1e-5;
+                const moved = sign => evaluateDispersionFit(
+                    codec.decode(values.map((v, i) => (i === index ? v + sign * h : v))), wavelength);
+                const [up, down] = [moved(1), moved(-1)];
+                const scale = Math.max(1, Math.abs(dn[index]), Math.abs(dk[index]));
+                assert.ok(Math.abs(dn[index] - (up[0] - down[0]) / (2 * h)) < 1e-6 * scale,
+                    `∂n/∂(${codec.labels[index]}) at ${wavelength} nm: ${dn[index]} vs ${(up[0] - down[0]) / (2 * h)}`);
+                assert.ok(Math.abs(dk[index] - (up[1] - down[1]) / (2 * h)) < 1e-6 * scale,
+                    `∂k/∂(${codec.labels[index]}) at ${wavelength} nm: ${dk[index]} vs ${(up[1] - down[1]) / (2 * h)}`);
+            });
+        }
+    }
+    assert.equal(dispersionFitCodec(fitTabulatedMaterial(rows, { nModel: 'cauchy' })).derivatives, undefined,
+        'a dielectric codec offers no closed-form derivatives');
 
     const material = {
         name: 'Synthetic metal', dispersionFit: fit,

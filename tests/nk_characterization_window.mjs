@@ -212,10 +212,33 @@ const settingsWithCurves = {
     thicknessNm: '', fixThickness: false,
     lambdaStart: '400', lambdaEnd: '1000',
 };
-const result = model.runCharacterization(design, settingsWithCurves);
+const stages = [];
+const result = model.runCharacterization(design, settingsWithCurves, {
+    onProgress: progress => stages.push(progress),
+});
 assert.ok(!result.error, `window settings must produce a run: ${result.error}`);
 assert.ok(Math.abs(result.thicknessNm - 420) < 0.5,
     `thickness ${result.thicknessNm} through the window path`);
+
+// ── The run reports its stages, so the window can show it is still moving ────
+{
+    assert.deepEqual([...new Set(stages.map(progress => progress.stage))],
+        ['scan', 'ranking', 'final', 'points'],
+        `a dielectric run passes the scan, the ranking, the final fit and the points: ${stages.map(p => p.stage)}`);
+    const ranking = stages.filter(progress => progress.stage === 'ranking');
+    assert.ok(ranking.length >= 2, 'the ranking compares more than one trial thickness');
+    assert.ok(ranking.every((progress, index) => progress.done === index + 1 && progress.total === ranking.length),
+        'the ranking counts its trial thicknesses up to the total');
+    for (const stage of ['held', 'scan', 'ranking', 'final', 'points']) {
+        assert.ok(nk.progress[stage], `every stage needs a message, missing ${stage}`);
+    }
+    const { runStatus } = await import(
+        '../src/components/windows/dataExchange/nkCharacterization/CharacterizationControls.js');
+    assert.match(runStatus(nk, { stage: 'ranking', done: 3, total: 8 }, 12), /3.*8.*12/,
+        'the status line carries the count and the elapsed time');
+    assert.ok(runStatus(nk, null, 0).includes(nk.running),
+        'before the first stage the line still says the run is working');
+}
 
 // ── The explicit result survives a dock/tab remount ──────────────────────────
 {

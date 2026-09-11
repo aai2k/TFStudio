@@ -73,16 +73,25 @@ export function residualJacobian(parameters, residualAt, residual = residualAt(p
     return jacobian;
 }
 
+/**
+ * JᵀJ and −Jᵀr. The matrix is symmetric, so only the lower triangle is summed
+ * and the upper is its mirror: the same products in the same order, so the
+ * mirrored entry is the same number to the last bit.
+ */
 function normalEquations(jacobian, residual, parameterCount) {
     const normal = Array.from({ length: parameterCount }, () => Array(parameterCount).fill(0));
     const rhs = Array(parameterCount).fill(0);
     for (let row = 0; row < residual.length; row++) {
+        const entries = jacobian[row];
         for (let i = 0; i < parameterCount; i++) {
-            rhs[i] -= jacobian[row][i] * residual[row];
-            for (let j = 0; j < parameterCount; j++) {
-                normal[i][j] += jacobian[row][i] * jacobian[row][j];
+            rhs[i] -= entries[i] * residual[row];
+            for (let j = 0; j <= i; j++) {
+                normal[i][j] += entries[i] * entries[j];
             }
         }
+    }
+    for (let i = 0; i < parameterCount; i++) {
+        for (let j = 0; j < i; j++) normal[j][i] = normal[i][j];
     }
     return { normal, rhs };
 }
@@ -91,7 +100,15 @@ function normalEquations(jacobian, residual, parameterCount) {
 // residual can resolve, so a further increase buys nothing.
 const MAX_DAMPING = 1e12;
 
-export function levenbergMarquardt(initial, residualAt, iterations = 80) {
+/**
+ * @param {number[]} initial
+ * @param {(parameters:number[]) => number[]} residualAt
+ * @param {number} iterations
+ * @param {(parameters:number[], residualAt:Function, residual:number[]) => number[][]} jacobianAt
+ *        the Jacobian at a point; forward differences of the residual unless
+ *        the caller has a cheaper way to the same numbers
+ */
+export function levenbergMarquardt(initial, residualAt, iterations = 80, jacobianAt = residualJacobian) {
     let parameters = initial.slice();
     let residual = residualAt(parameters);
     let cost = sumSquares(residual);
@@ -102,7 +119,7 @@ export function levenbergMarquardt(initial, residualAt, iterations = 80) {
     // only after a move saves parameterCount evaluations per rejected step.
     let jacobian = null;
     for (let iteration = 0; iteration < iterations; iteration++) {
-        if (!jacobian) jacobian = residualJacobian(parameters, residualAt, residual);
+        if (!jacobian) jacobian = jacobianAt(parameters, residualAt, residual);
         const { normal, rhs } = normalEquations(jacobian, residual, parameters.length);
         for (let index = 0; index < parameters.length; index++) {
             normal[index][index] += damping * Math.max(1e-12, normal[index][index]);

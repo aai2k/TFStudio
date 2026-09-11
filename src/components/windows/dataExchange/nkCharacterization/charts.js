@@ -120,44 +120,62 @@ export function buildConstantsOption(result, palette, labels, showPointwise) {
 // window, so the legend uses them too rather than the internal channel names.
 const CURVE_LABEL = { T: 'T', R: 'R', PSI: 'Ψ', DEL: 'Δ' };
 
-export function buildFitOption(result, palette, labels, residual) {
-    const ellipsometry = Array.isArray(result.measured.PSI) || Array.isArray(result.measured.DEL);
-    const series = [];
-    for (const quantity of ['T', 'R', 'PSI', 'DEL']) {
-        if (!result.measured[quantity]) continue;
-        const label = CURVE_LABEL[quantity];
-        const scale = quantity === 'T' || quantity === 'R' ? 100 : 1;
-        const yAxisIndex = !residual && quantity === 'DEL' ? 1 : 0;
-        if (residual) {
-            series.push(lineSeries({
-                x: result.lambdas,
-                y: result.calculated[quantity].map(
-                    (value, point) => channelDifference(
-                        quantity, value, result.measured[quantity][point]) * scale),
-                name: label, color: MEASURED_COLOR[quantity], width: 1.6,
-            }));
-            continue;
-        }
-        series.push(lineSeries({
+// T and R are held as fractions and drawn as percent. Ψ and Δ are already in
+// degrees and are drawn as they come.
+const CURVE_SCALE = { T: 100, R: 100, PSI: 1, DEL: 1 };
+
+// Drawing order, so a plot reads the same whichever channels a measurement has.
+const FIT_CHANNELS = ['T', 'R', 'PSI', 'DEL'];
+
+/** One channel measured, against the model's recalculation of it. */
+function comparisonSeries({ result, quantity, labels }) {
+    const label = CURVE_LABEL[quantity];
+    const scale = CURVE_SCALE[quantity];
+    // Δ runs to 360° where Ψ stops at 90°, so Δ is read against the right axis.
+    const yAxisIndex = quantity === 'DEL' ? 1 : 0;
+    return [
+        lineSeries({
             x: result.lambdas, y: result.measured[quantity].map(value => value * scale),
             name: `${label} ${labels.measured}`, color: MEASURED_COLOR[quantity],
             width: 2, yAxisIndex,
-        }));
-        const calculated = lineSeries({
+        }),
+        lineSeries({
             x: result.lambdas, y: result.calculated[quantity].map(value => value * scale),
             name: `${label} ${labels.calculated}`, color: CALCULATED_COLOR,
             width: 1.4, dash: 'dash', yAxisIndex,
-        });
-        series.push(calculated);
+        }),
+    ];
+}
+
+/** One channel as calculated minus measured, in that channel's own unit. */
+function residualSeries({ result, quantity }) {
+    const scale = CURVE_SCALE[quantity];
+    return [lineSeries({
+        x: result.lambdas,
+        y: result.calculated[quantity].map(
+            (value, point) => channelDifference(
+                quantity, value, result.measured[quantity][point]) * scale),
+        name: CURVE_LABEL[quantity], color: MEASURED_COLOR[quantity], width: 1.6,
+    })];
+}
+
+function fitSeries({ result, labels, residual }) {
+    const build = residual ? residualSeries : comparisonSeries;
+    const series = [];
+    for (const quantity of FIT_CHANNELS) {
+        if (!result.measured[quantity]) continue;
+        series.push(...build({ result, quantity, labels }));
     }
-    return cartesianOption({
-        colors: palette,
-        grid: plotMargin(),
-        fileName: residual ? 'characterization-residual' : 'characterization-fit',
-        legend: legendAbove({ color: palette.text }),
-        tooltip: axisTooltip({ colors: palette, valueSuffix: ellipsometry ? '°' : '%' }),
-        xAxis: valueAxis({ name: labels.lambdaAxis, color: palette.text, gridColor: palette.grid }),
-        yAxis: ellipsometry && !residual ? [
+    return series;
+}
+
+// The y axes each kind of measurement is read against. Ψ and Δ have separate
+// fixed ranges in degrees and take an axis each; T and R share one percent axis
+// over the full 0 to 100. A residual is a difference in the same unit as the
+// channel it came from, and is scaled to whatever it turns out to be.
+const FIT_AXIS = {
+    ellipsometry: {
+        fit: ({ palette }) => [
             valueAxis({
                 name: 'Ψ (°)', color: MEASURED_COLOR.PSI, gridColor: palette.grid,
                 min: 0, max: 90, interval: 10,
@@ -166,14 +184,36 @@ export function buildFitOption(result, palette, labels, residual) {
                 name: 'Δ (°)', color: MEASURED_COLOR.DEL, gridColor: palette.grid,
                 min: 0, max: 360, position: 'right', splitLine: false,
             }),
-        ] : valueAxis({
-            name: residual
-                ? (ellipsometry ? labels.residualAxisDegrees : labels.residualAxis)
-                : '%',
-            color: palette.text, gridColor: palette.grid,
-            ...(residual ? { scale: true } : { min: 0, max: 100, interval: 10 }),
+        ],
+        residual: ({ palette, labels }) => valueAxis({
+            name: labels.residualAxisDegrees,
+            color: palette.text, gridColor: palette.grid, scale: true,
         }),
-        series,
+    },
+    photometry: {
+        fit: ({ palette }) => valueAxis({
+            name: '%', color: palette.text, gridColor: palette.grid,
+            min: 0, max: 100, interval: 10,
+        }),
+        residual: ({ palette, labels }) => valueAxis({
+            name: labels.residualAxis,
+            color: palette.text, gridColor: palette.grid, scale: true,
+        }),
+    },
+};
+
+export function buildFitOption(result, palette, labels, residual) {
+    const ellipsometry = Array.isArray(result.measured.PSI) || Array.isArray(result.measured.DEL);
+    const axes = FIT_AXIS[ellipsometry ? 'ellipsometry' : 'photometry'];
+    return cartesianOption({
+        colors: palette,
+        grid: plotMargin(),
+        fileName: residual ? 'characterization-residual' : 'characterization-fit',
+        legend: legendAbove({ color: palette.text }),
+        tooltip: axisTooltip({ colors: palette, valueSuffix: ellipsometry ? '°' : '%' }),
+        xAxis: valueAxis({ name: labels.lambdaAxis, color: palette.text, gridColor: palette.grid }),
+        yAxis: (residual ? axes.residual : axes.fit)({ palette, labels }),
+        series: fitSeries({ result, labels, residual }),
     });
 }
 

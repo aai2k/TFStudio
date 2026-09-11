@@ -177,15 +177,16 @@ export function characterizationRequest(design, settings) {
  * tens of seconds. This is the same computation without the plumbing, for tests
  * and for any caller that is not a rendering thread.
  *
+ * @param hooks  passed on to the extraction; `onProgress` hears each stage
  * @returns the characterization result, or `{ error }` naming what stopped it.
  */
-export function runCharacterization(design, settings) {
+export function runCharacterization(design, settings, hooks = {}) {
     const prepared = characterizationRequest(design, settings);
     if (prepared.error) return prepared;
     const result = characterizeFilm({
         ...prepared.request,
         sample: sampleFromPortable(prepared.request.sample),
-    });
+    }, hooks);
     return result.error ? result : { ...result, measurementMode: prepared.measurementMode };
 }
 

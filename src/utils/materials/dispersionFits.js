@@ -333,6 +333,20 @@ function positiveParameter(value, maximum) {
     return Math.min(maximum, Math.exp(Math.max(-18, Math.min(18, value))));
 }
 
+/** The metal model as the log-parameter vector decodeMetalParameters reads. */
+function encodeMetalParameters(model) {
+    return [
+        Math.log(model.epsilonInfinity),
+        Math.log(model.plasmaEnergyEv),
+        Math.log(model.drudeDampingEv),
+        ...(model.oscillators || []).flatMap(oscillator => [
+            Math.log(oscillator.strengthEv2),
+            Math.log(oscillator.resonanceEv),
+            Math.log(oscillator.dampingEv),
+        ]),
+    ];
+}
+
 function decodeMetalParameters(parameters, kind, oscillatorCount, minDampingEv = 0) {
     const model = {
         kind,
@@ -362,6 +376,81 @@ function metalResiduals(parameters, rows, kind, oscillatorCount, minDampingEv) {
     });
 }
 
+function multiplyComplex(left, right) {
+    return [
+        left[0] * right[0] - left[1] * right[1],
+        left[0] * right[1] + left[1] * right[0],
+    ];
+}
+
+/** d(decoded)/d(raw) of positiveParameter: the decoded value, or zero on a clamp. */
+function positiveParameterSlope(value, maximum) {
+    if (value <= -18 || value >= 18) return 0;
+    const decoded = Math.exp(value);
+    return decoded < maximum ? decoded : 0;
+}
+
+/**
+ * n and k of the metal model at one energy, with ∂n/∂p and ∂k/∂p for every
+ * log-parameter in the order decodeMetalParameters reads them.
+ *
+ * ε is a sum of terms that each hold one parameter set, so its derivatives are
+ * closed form: ε∞ contributes itself, the Drude term −ωp²/(E² + iγE) and each
+ * Lorentz term f/(ω0² − E² − iγE) differentiate term by term, and a logarithmic
+ * parameter multiplies its term's derivative by its own value. The index then
+ * follows from d√ε = dε/(2√ε). A parameter sitting on one of its clamps moves
+ * nothing, as the clamp itself moves nothing, and a model that cannot be
+ * evaluated has no derivative either, matching the residual it reports.
+ */
+function metalModelWithDerivatives(parameters, kind, oscillatorCount, minDampingEv, energyEv) {
+    const model = decodeMetalParameters(parameters, kind, oscillatorCount, minDampingEv);
+    const [n, k] = sqrtComplexPositive(dielectricAt(model, energyEv));
+    const dn = Array(parameters.length).fill(0);
+    const dk = Array(parameters.length).fill(0);
+    if (!Number.isFinite(n) || !Number.isFinite(k) || n * n + k * k === 0) return { n, k, dn, dk };
+
+    const energySquared = energyEv * energyEv;
+    const twoRoot = [2 * n, 2 * k];
+    const assign = (index, dEpsilon) => {
+        const derivative = divideComplex(dEpsilon, twoRoot);
+        dn[index] = derivative[0];
+        dk[index] = derivative[1];
+    };
+    assign(0, [positiveParameterSlope(parameters[0], 100), 0]);
+    const plasma = model.plasmaEnergyEv;
+    const drudeDenominator = [energySquared, model.drudeDampingEv * energyEv];
+    assign(1, divideComplex(
+        [-2 * plasma * positiveParameterSlope(parameters[1], 50), 0], drudeDenominator));
+    assign(2, divideComplex(
+        [0, plasma * plasma * energyEv * positiveParameterSlope(parameters[2], 50)],
+        multiplyComplex(drudeDenominator, drudeDenominator)));
+    model.oscillators.forEach((oscillator, index) => {
+        const offset = 3 + index * 3;
+        const denominator = [oscillator.resonanceEv ** 2 - energySquared, -oscillator.dampingEv * energyEv];
+        const squared = multiplyComplex(denominator, denominator);
+        const dampingSlope = positiveParameter(parameters[offset + 2], 50) > minDampingEv
+            ? positiveParameterSlope(parameters[offset + 2], 50)
+            : 0;
+        assign(offset, divideComplex([positiveParameterSlope(parameters[offset], 3000), 0], denominator));
+        assign(offset + 1, divideComplex([
+            -2 * oscillator.strengthEv2 * oscillator.resonanceEv
+                * positiveParameterSlope(parameters[offset + 1], 100),
+            0,
+        ], squared));
+        assign(offset + 2, divideComplex([0, oscillator.strengthEv2 * energyEv * dampingSlope], squared));
+    });
+    return { n, k, dn, dk };
+}
+
+/** The Jacobian of metalResiduals, two rows per tabulated point. */
+function metalResidualJacobian(parameters, rows, kind, oscillatorCount, minDampingEv) {
+    return rows.flatMap((row) => {
+        const { dn, dk } = metalModelWithDerivatives(
+            parameters, kind, oscillatorCount, minDampingEv, HC_EV_UM / (row[0] / 1000));
+        return [dn, dk];
+    });
+}
+
 function initialDrudeParameters(rows) {
     const row = rows.reduce((longest, current) => current[0] > longest[0] ? current : longest);
     const energy = HC_EV_UM / (row[0] / 1000);
@@ -375,29 +464,44 @@ function initialDrudeParameters(rows) {
 }
 
 /**
- * Fit the Drude term, then add Lorentz oscillators one at a time for as long as
- * each earns its place: it has to cut the residual by TERM_GAIN and leave a model
- * that still behaves between the tabulated points. The count is not asked for,
- * because the number of oscillators a table supports is a property of the table.
+ * The Drude term alone, then one more Lorentz oscillator at a time up to the
+ * ceiling, each model seeded from the one before it.
+ *
+ * Every count is tried from five resonances spread across the table's energy
+ * span and the best of them is kept, both as that count's model and as the
+ * start for the next. Nothing here decides how many oscillators the table
+ * supports: the caller judges each model on whichever residual it can see, and
+ * stops reading when it has what it needs, so a chain cut short costs nothing.
+ *
+ * A chain already fitted to nearly the same rows can hand its models over as
+ * `warmStart`, one per count. Each count then starts from that count's model
+ * instead of from five fresh resonances, and reaches its answer in a fraction
+ * of the work when the rows have barely moved. The floor under every count is
+ * still the count below it with a silent oscillator added, so a warm start
+ * that lands nowhere useful is dropped rather than carried.
  */
-function fitMetal(rows, kind, rangeNm, maxOscillators = MAX_OSCILLATORS) {
+function* metalLadder(rows, kind, warmStart = []) {
     const minDamping = minimumDampingEv(rows);
     const fitAt = (start, count, iterations) => levenbergMarquardt(
         start,
         values => metalResiduals(values, rows, kind, count, minDamping),
         iterations,
+        values => metalResidualJacobian(values, rows, kind, count, minDamping),
     );
     const costOf = (values, count) => sumSquares(metalResiduals(values, rows, kind, count, minDamping));
+    const warmParameters = (count) => {
+        const model = warmStart[count];
+        return model && (model.oscillators || []).length === count ? encodeMetalParameters(model) : null;
+    };
 
     let parameters = levenbergMarquardt(
-        initialDrudeParameters(rows),
+        warmParameters(0) || initialDrudeParameters(rows),
         values => metalResiduals(values, rows, 'drude', 0, minDamping),
         160,
+        values => metalResidualJacobian(values, rows, 'drude', 0, minDamping),
     );
-    if (kind === 'drude') return decodeMetalParameters(parameters, kind, 0, minDamping);
-
-    let accepted = decodeMetalParameters(parameters, kind, 0, minDamping);
-    let acceptedCost = costOf(parameters, 0);
+    yield { model: decodeMetalParameters(parameters, kind, 0, minDamping), cost: costOf(parameters, 0) };
+    if (kind === 'drude') return;
 
     const energies = rows.map(row => HC_EV_UM / (row[0] / 1000));
     const lowEnergy = Math.min(...energies);
@@ -405,41 +509,54 @@ function fitMetal(rows, kind, rangeNm, maxOscillators = MAX_OSCILLATORS) {
     const energySpan = highEnergy - lowEnergy;
     const peakEpsilonImaginary = Math.max(...rows.map(row => 2 * row[1] * row[2]), 0.1);
 
-    for (let count = 1; count <= Math.min(MAX_OSCILLATORS, maxOscillators); count++) {
+    for (let count = 1; count <= MAX_OSCILLATORS; count++) {
         const damping = Math.max(minDamping, energySpan / (2 * count + 2));
         let best = [
             ...parameters,
             Math.log(1e-8), Math.log((lowEnergy + highEnergy) / 2), Math.log(damping),
         ];
         let bestCost = costOf(best, count);
-        for (let index = 1; index <= 5; index++) {
+        const warm = warmParameters(count);
+        const starts = warm ? [warm] : [1, 2, 3, 4, 5].map((index) => {
             const resonance = lowEnergy + (index / 6) * energySpan;
             const strength = Math.max(
                 1e-3,
                 peakEpsilonImaginary * damping * resonance / (4 * count),
             );
-            const candidate = fitAt(
-                [...parameters, Math.log(strength), Math.log(resonance), Math.log(damping)],
-                count,
-                180,
-            );
+            return [...parameters, Math.log(strength), Math.log(resonance), Math.log(damping)];
+        });
+        for (const start of starts) {
+            const candidate = fitAt(start, count, 180);
             const candidateCost = costOf(candidate, count);
             if (candidateCost < bestCost) {
                 best = candidate;
                 bestCost = candidateCost;
             }
         }
-        // Cost is a sum of squares, so a TERM_GAIN cut in RMS is its square here.
-        if (bestCost > acceptedCost * (1 - TERM_GAIN) ** 2) break;
-        const model = decodeMetalParameters(best, kind, count, minDamping);
         parameters = best;
+        yield { model: decodeMetalParameters(best, kind, count, minDamping), cost: bestCost };
+    }
+}
+
+/**
+ * Fit the Drude term, then add Lorentz oscillators one at a time for as long as
+ * each earns its place: it has to cut the residual by TERM_GAIN and leave a model
+ * that still behaves between the tabulated points. The count is not asked for,
+ * because the number of oscillators a table supports is a property of the table.
+ */
+function fitMetal(rows, kind, rangeNm) {
+    let accepted = null;
+    let acceptedCost = Infinity;
+    for (const { model, cost } of metalLadder(rows, kind)) {
+        // Cost is a sum of squares, so a TERM_GAIN cut in RMS is its square here.
+        if (accepted && cost > acceptedCost * (1 - TERM_GAIN) ** 2) break;
         // An underfit intermediate model can overshoot the table's range.
         // Keep it only as the seed for the next oscillator, never as an
         // accepted result. Stopping here strands gold at a Drude-only fit:
         // its first Lorentz term overshoots, while later terms resolve it.
-        if (!staysWithinData(nm => evaluateComplexDispersionModel(model, nm)[0], rows, rangeNm, 1)) continue;
+        if (accepted && !staysWithinData(nm => evaluateComplexDispersionModel(model, nm)[0], rows, rangeNm, 1)) continue;
         accepted = model;
-        acceptedCost = bestCost;
+        acceptedCost = cost;
     }
     return accepted;
 }
@@ -553,33 +670,42 @@ function fitIndexModel(rows, model, rangeNm, forcedTerms) {
     return accepted;
 }
 
-export function fitTabulatedMaterial(rows, options = {}) {
+/** The rows inside the fitted range, or an error naming why they cannot be fitted. */
+function rowsToFit(rows, options) {
     const wavelengths = rows.map(row => row[0]).filter(Number.isFinite);
     if (wavelengths.length < 4) throw new Error('At least four tabulated rows are required for a fit.');
     const rangeNm = options.rangeNm || [Math.min(...wavelengths), Math.max(...wavelengths)];
     const selected = validRows(rows, rangeNm);
     if (selected.length < 4) throw new Error('The selected fit range contains fewer than four rows.');
+    return { selected, rangeNm };
+}
+
+function metalFit(selected, rangeNm, complex) {
+    const fit = {
+        active: true,
+        rangeNm: [Math.min(...rangeNm), Math.max(...rangeNm)],
+        complex,
+        source: 'tabulated n/k',
+        residuals: {},
+    };
+    fit.residuals.n = residualSummary(
+        selected,
+        wavelength => evaluateComplexDispersionModel(complex, wavelength)[0],
+        1,
+    );
+    fit.residuals.k = residualSummary(
+        selected,
+        wavelength => evaluateComplexDispersionModel(complex, wavelength)[1],
+        2,
+    );
+    return fit;
+}
+
+export function fitTabulatedMaterial(rows, options = {}) {
+    const { selected, rangeNm } = rowsToFit(rows, options);
     const model = options.nModel || 'cauchy';
     if (model === 'drude' || model === 'drude-lorentz') {
-        const complex = fitMetal(selected, model, rangeNm, options.maxOscillators);
-        const fit = {
-            active: true,
-            rangeNm: [Math.min(...rangeNm), Math.max(...rangeNm)],
-            complex,
-            source: 'tabulated n/k',
-            residuals: {},
-        };
-        fit.residuals.n = residualSummary(
-            selected,
-            wavelength => evaluateComplexDispersionModel(complex, wavelength)[0],
-            1,
-        );
-        fit.residuals.k = residualSummary(
-            selected,
-            wavelength => evaluateComplexDispersionModel(complex, wavelength)[1],
-            2,
-        );
-        return fit;
+        return metalFit(selected, rangeNm, fitMetal(selected, model, rangeNm));
     }
     const n = fitIndexModel(selected, model, rangeNm, options.nTerms);
     const k = fitUrbach(selected);
@@ -594,6 +720,30 @@ export function fitTabulatedMaterial(rows, options = {}) {
     fit.residuals.n = residualSummary(selected, wavelength => evaluateFitComponent(n, wavelength), 1);
     fit.residuals.k = residualSummary(selected, wavelength => evaluateFitComponent(k, wavelength), 2);
     return fit;
+}
+
+/**
+ * The metal fits at every oscillator count, Drude first, for a caller that can
+ * judge them on a better residual than the table's own.
+ *
+ * `fitTabulatedMaterial` keeps a count only while it pays on the tabulated rows
+ * and stays inside them, which is the right test when the rows are all there
+ * is. Film characterization fits the rows only as a starting point and then
+ * refines each model against the measured spectrum, and the table's tests
+ * applied there reject the wrong models: a count that overshoots the rows by a
+ * step and is then refined can still be the right one, and the overshoot
+ * allowance shrinks as the rows are sampled more finely, so the same film could
+ * come back with Lorentz terms on one grid and with none on another.
+ *
+ * Every fit here is complete, with the residuals it leaves on the rows.
+ * `options.warmStart`, a ladder fitted to nearly the same rows, makes each
+ * count start from the corresponding fit in it; see metalLadder.
+ */
+export function fitMetalLadder(rows, options = {}) {
+    const { selected, rangeNm } = rowsToFit(rows, options);
+    const kind = options.nModel === 'drude' ? 'drude' : 'drude-lorentz';
+    const warmStart = (options.warmStart || []).map(fit => fit.complex);
+    return [...metalLadder(selected, kind, warmStart)].map(({ model }) => metalFit(selected, rangeNm, model));
 }
 
 /**
@@ -667,8 +817,14 @@ export function dispersionFitParameters(fit) {
  * metal fit already uses, so no step can produce a negative amplitude, damping
  * or resonance. Everything else travels as itself.
  *
+ * The metal codec also carries `derivatives`: n and k at a wavelength together
+ * with ∂n/∂p and ∂k/∂p for every parameter, in closed form. An optimizer that
+ * knows how its residual depends on n and k can build its whole Jacobian from
+ * them instead of moving eighteen parameters one at a time.
+ *
  * @param {object} fit  a fit from fitTabulatedMaterial
- * @returns {{ encode:()=>number[], decode:(values:number[])=>object, labels:string[] }}
+ * @returns {{ encode:()=>number[], decode:(values:number[])=>object, labels:string[],
+ *             derivatives?:(values:number[], wavelengthNm:number)=>{n:number,k:number,dn:number[],dk:number[]} }}
  */
 export function dispersionFitCodec(fit) {
     if (fit.complex) {
@@ -680,20 +836,13 @@ export function dispersionFitCodec(fit) {
         }
         return {
             labels,
-            encode: () => [
-                Math.log(model.epsilonInfinity),
-                Math.log(model.plasmaEnergyEv),
-                Math.log(model.drudeDampingEv),
-                ...(model.oscillators || []).flatMap(oscillator => [
-                    Math.log(oscillator.strengthEv2),
-                    Math.log(oscillator.resonanceEv),
-                    Math.log(oscillator.dampingEv),
-                ]),
-            ],
+            encode: () => encodeMetalParameters(model),
             decode: values => ({
                 ...fit,
                 complex: decodeMetalParameters(values, model.kind, oscillatorCount),
             }),
+            derivatives: (values, wavelengthNm) => metalModelWithDerivatives(
+                values, model.kind, oscillatorCount, 0, HC_EV_UM / (wavelengthNm / 1000)),
         };
     }
 

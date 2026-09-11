@@ -11,6 +11,7 @@
 import assert from 'node:assert/strict';
 import {
     fitTabulatedMaterial,
+    fitMetalLadder,
     evaluateDispersionFit,
     evaluateComplexDispersionModel,
     dispersionFitParameters,
@@ -86,6 +87,48 @@ assert.ok(metalFit.residuals.n.rms < 1e-6, 'a genuine Drude-Lorentz material is 
 assert.ok(metalFit.residuals.k.rms < 1e-6, 'in k as well as n');
 assert.ok(metalFit.complex.oscillators.length >= 1,
     'and the oscillators the data supports are kept');
+
+// ── The whole chain is available to a caller with its own test to apply ──────
+//
+// Film characterization judges each count on the measured spectrum rather than
+// on the table, so it takes every rung. The rungs are the same fits the table
+// fitter chose from: the one it picked is in the ladder, unchanged.
+const ladder = fitMetalLadder(metalRows, { nModel: 'drude-lorentz' });
+assert.deepEqual(ladder.map(rung => rung.complex.oscillators.length), [0, 1, 2, 3, 4, 5],
+    'one fit per oscillator count, Drude first');
+assert.deepEqual(ladder[metalFit.complex.oscillators.length].complex, metalFit.complex,
+    'the table fitter\'s own choice is one of the rungs');
+assert.ok(ladder[0].residuals.n.rms > ladder[2].residuals.n.rms,
+    'a Drude-only rung leaves a residual the two-oscillator rung removes');
+assert.deepEqual(fitMetalLadder(metalRows, { nModel: 'drude' }).map(rung => rung.complex.oscillators.length), [0],
+    'asked for Drude, the ladder is the Drude fit alone');
+
+// ── A chain can start from a chain fitted to nearly the same rows ────────────
+//
+// Film characterization fits the chain at one trial thickness after another,
+// and the extracted rows barely move between neighbours. Started from the
+// chain of a slightly different material, every count still reaches the
+// material in the rows; started from its own chain, it reaches the same fits.
+const nearby = { ...source, epsilonInfinity: 3.2, plasmaEnergyEv: 8.5 };
+const nearbyRows = [];
+for (let nm = 400; nm <= 900; nm += 10) {
+    nearbyRows.push([nm, ...evaluateComplexDispersionModel(nearby, nm)]);
+}
+const warm = fitMetalLadder(metalRows, {
+    nModel: 'drude-lorentz', warmStart: fitMetalLadder(nearbyRows, { nModel: 'drude-lorentz' }),
+});
+assert.deepEqual(warm.map(rung => rung.complex.oscillators.length), [0, 1, 2, 3, 4, 5],
+    'a warm-started chain has every count');
+assert.ok(warm[2].residuals.n.rms < 1e-6 && warm[2].residuals.k.rms < 1e-6,
+    `warm-started from a nearby material, the two-oscillator rung still recovers this one (${warm[2].residuals.n.rms})`);
+// Judged on n and k together, which is what the fit minimises: at a count the
+// material does not need, a step can trade a little of one for more of the other.
+const fromItself = fitMetalLadder(metalRows, { nModel: 'drude-lorentz', warmStart: ladder });
+const combined = rung => rung.residuals.n.rms ** 2 + rung.residuals.k.rms ** 2;
+ladder.forEach((rung, count) => {
+    assert.ok(combined(fromItself[count]) <= combined(rung) * (1 + 1e-9) + 1e-24,
+        `started from its own answer, count ${count} does not get worse`);
+});
 
 // ── The coefficients are readable, since they are what gets computed ──────────
 

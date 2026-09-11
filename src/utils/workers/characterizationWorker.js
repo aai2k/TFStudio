@@ -9,7 +9,9 @@
  * it; here the window stays alive and can terminate the worker.
  *
  * The sample crosses as pre-sampled tables (see portableSample.js), so this
- * worker never resolves a material or touches the catalog registry.
+ * worker never resolves a material or touches the catalog registry. Each stage
+ * the run reaches is posted back as it happens, so the window can show that a
+ * long run is still moving.
  */
 
 import { characterizeFilm } from '../materials/characterization/nkFit.js';
@@ -29,7 +31,7 @@ globalThis.onmessage = async (event) => {
         const result = characterizeFilm({
             ...job.request,
             sample: sampleFromPortable(job.request.sample),
-        });
+        }, { onProgress: progress => postMessage({ type: 'progress', progress }) });
         postMessage({ type: 'result', result });
     } catch (error) {
         postMessage({ type: 'error', message: error?.stack || String(error) });
