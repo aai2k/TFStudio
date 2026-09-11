@@ -1379,6 +1379,8 @@ export default {
   materialRange: {
     banner: (n, from, to) =>
       `${from}–${to} nm esce dall'intervallo dei dati di ${n} material${n === 1 ? 'e' : 'i'}; lì i valori sono mantenuti costanti o estrapolati`,
+    targets: (n, from, to) =>
+      `I target a ${from}–${to} nm escono dall'intervallo dei dati di ${n} material${n === 1 ? 'e' : 'i'}; lì la funzione di merito è valutata su valori mantenuti costanti o estrapolati`,
     materialLine: (name, from, to) => `${name}: ${from}–${to} nm`,
     bandLabel: (names) => `nessun dato: ${names}`,
     fixAction: (from, to) => `Imposta l'intervallo a ${from}–${to} nm`,

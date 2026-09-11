@@ -25,6 +25,7 @@ export {
     poolSize, buildARSeedCandidates, computePareto,
 } from './synthesisMath.js';
 export { MaterialPoolPanel } from './MaterialPoolPanel.js';
+export { MeritRangeBadge } from './MeritRangeBadge.js';
 export { TopDesignsPanel } from './TopDesignsPanel.js';
 export { ChartSurface } from './ChartSurface.js';
 export { SynthesisHistoryTable } from './SynthesisHistoryTable.js';

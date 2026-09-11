@@ -13,6 +13,7 @@
 
 import { OptimizeBadge, EvalModeBadge } from '../../../SurfaceModeBar.js';
 import { MaterialPoolPanel, WARN_BADGE_STYLE } from './synthesisHelpers.js';
+import { MeritRangeBadge } from './MeritRangeBadge.js';
 import { synthesisSidebarSession } from './sessionState.js';
 import { useWindowSession } from '../../windowSession.js';
 import { DebouncedInput } from '../../../ui/DebouncedInput.js';
@@ -85,30 +86,34 @@ export function SynthesisControlBar({
         // Keep the design the run produced and start a clean history. Reset
         // undoes one run; this forgets all of them and touches nothing.
         onClearHistory && smallBtn(labels.clearHistory, onClearHistory, !hasHistory),
-        // What's being optimized + what's evaluated (matches Refinement).
+        // What's being optimized + what's evaluated (matches Refinement), and
+        // whether the targets reach past a material's data.
         h('span', { style: { marginLeft: 6, display: 'inline-flex', alignItems: 'center', gap: 4 } },
             h(OptimizeBadge, { design, c, t }),
             h(EvalModeBadge, { design, c, t }),
+            h(MeritRangeBadge, { design, c, t }),
         ),
         // Treat the changing readout, phase message and Live update switch as
         // one wrapping unit. If the dock is narrow the whole unit moves to the
-        // next toolbar line; its children never wrap independently, so phase
-        // transitions cannot move the switch between columns.
+        // next toolbar line and fills it; its children never wrap independently,
+        // so phase transitions cannot move the switch between columns.
         h('div', {
             'data-synthesis-readout': true,
             style: {
-                marginLeft: 'auto', display: 'flex', alignItems: 'center', flexWrap: 'nowrap',
-                flex: '0 1 720px', width: 720, maxWidth: '100%', minWidth: 0,
+                display: 'flex', alignItems: 'center', flexWrap: 'nowrap',
+                flex: '1 1 720px', maxWidth: '100%', minWidth: 0,
             },
         },
+            // The numbers read from the left: after the badges, or from the
+            // edge of the bar once the unit has wrapped onto its own line.
             h('span', {
                 style: {
-                    flex: '1 1 0', minWidth: 0, fontSize: 11, color: c.textDim,
-                    whiteSpace: 'nowrap', overflow: 'hidden', textAlign: 'right',
+                    flex: '0 1 auto', minWidth: 0, fontSize: 11, color: c.textDim,
+                    whiteSpace: 'nowrap', overflow: 'hidden',
                 },
             }, ...metrics),
-            // The phase message used to be conditionally mounted at its natural
-            // width. Keep a fixed slot (also while empty) within the readout.
+            // The phase message keeps a fixed slot, also while empty, so its
+            // coming and going never moves the switch.
             h('span', {
                 'data-synthesis-status': true,
                 title: statusMsg || undefined,
@@ -125,7 +130,10 @@ export function SynthesisControlBar({
                         visibility: statusMsg ? 'visible' : 'hidden',
                     }
             }, statusMsg || '\u00a0'),
-            h('span', { 'data-synthesis-live-update': true, style: { marginLeft: 10, flexShrink: 0 } },
+            h('span', {
+                'data-synthesis-live-update': true,
+                style: { marginLeft: 'auto', paddingLeft: 10, flexShrink: 0 },
+            },
                 h(LiveUpdateSwitch, { c, label: t.liveUpdate.label, title: t.liveUpdate.hint })),
         ),
     );

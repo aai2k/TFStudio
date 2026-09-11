@@ -99,8 +99,8 @@ function runControls({ running, method, nRestarts, perturbPct, maxIter, onMethod
     ];
 }
 
-// Right-aligned live readout: restart/method progress, MF/best/init, iter count,
-// and the end-of-run reason pill.
+// Live readout: restart/method progress, MF/best/init, iter count, and the
+// end-of-run reason pill. Rendered inside one unit with the Live update switch.
 function runReadout({ running, iter, mf, mfBest, mfInitial, restartIdx, method, nRestarts, stopReason, t, c }) {
     const tr = t.refinement;
     const reason = stopReasonView(stopReason, tr);
@@ -110,7 +110,6 @@ function runReadout({ running, iter, mf, mfBest, mfInitial, restartIdx, method, 
             background: reason.good ? (c.success + '33') : '#8d6e6344', color: reason.good ? c.success : '#d7c4a8',
             border: `1px solid ${reason.good ? (c.success + '66') : '#8d6e6388'}` };
     return [
-        h('div', { style: { flex: 1 } }),
         restartIdx > 0 && h('span', { style: { fontSize: 11, color: c.accent || '#ffa726', fontStyle: 'italic', marginRight: 8 } },
             method === 'all'
                 ? `${tr.tryingMethod || 'method'} ${restartIdx}/${ALL_ORDER.length}`
@@ -146,8 +145,17 @@ export function ControlBar(props) {
     },
         ...runButtons(props),
         ...runControls(props),
-        ...runReadout(props),
-        h('div', { style: { marginLeft: 'auto' } },
-            h(LiveUpdateSwitch, { c, label: t.liveUpdate.label, title: t.liveUpdate.hint })),
+        // The readout and the Live update switch are one unit anchored to the
+        // right, so the numbers stay beside the switch and the group moves to
+        // the next toolbar line together when the bar is narrow, instead of
+        // its pieces wrapping one at a time as the window is resized.
+        h('div', {
+            'data-refinement-readout': true,
+            style: { marginLeft: 'auto', display: 'flex', alignItems: 'center', flexWrap: 'nowrap' },
+        },
+            ...runReadout(props),
+            h('span', { style: { marginLeft: 12 } },
+                h(LiveUpdateSwitch, { c, label: t.liveUpdate.label, title: t.liveUpdate.hint })),
+        ),
     );
 }

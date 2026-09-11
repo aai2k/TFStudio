@@ -35,7 +35,13 @@ const computed = [null, null, 0.12, 0.79, 0.03, 0.77, 1300, 24, 299, 545, 0.12, 
 const props = {
     operands, computed, selectedId: 'ramp', noOperandsMsg: 'No test operands',
     evaluationErrors: [null, null, 'TiO2: wavelength is outside the material model range'],
-    notice: 'Total merit mode: phase operands score the front coating only.',
+    notices: [
+        { label: 'Total merit mode: phase operands score the front coating only.' },
+        {
+            label: 'Targets at 400–4950 nm reach outside the data range of 2 materials',
+            detail: 'TiO2: 370.1–826.6 nm\nBK7: 300–2500 nm',
+        },
+    ],
     onSelect: noop, onEdit: noop, onAdd: noop, onInsertAt: noop,
     onDuplicate: noop, onDelete: noop, onClear: noop,
     onMoveUp: noop, onMoveDown: noop, c, t,
@@ -73,6 +79,9 @@ assert.ok(html.includes('aria-invalid="true"'));
 assert.ok(html.includes('TiO2: wavelength is outside the material model range'));
 assert.ok(html.includes('>Error</td>'));
 assert.ok(html.includes('Total merit mode: phase operands score the front coating only.'));
+assert.ok(html.includes('Targets at 400–4950 nm reach outside the data range of 2 materials'),
+    'the material-range notice is a second strip above the rows');
+assert.ok(html.includes('TiO2: 370.1–826.6 nm'), 'the strip names each material and its data range');
 
 const withoutToolbar = renderToStaticMarkup(React.createElement(MFTable, { ...props, showToolbar: false }));
 assert.equal((withoutToolbar.match(/<tr/g) || []).length, operands.length + 1);

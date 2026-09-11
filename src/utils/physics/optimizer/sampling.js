@@ -132,6 +132,24 @@ export function requiredLambdas(operands) {
     return Array.from(set).sort((a, b) => a - b);
 }
 
+/**
+ * The wavelength span the enabled operands evaluate over, as `[minNm, maxNm]`,
+ * or null when none of them samples a wavelength. Taken from the same grid the
+ * optimizer scores on, so a check made against it cannot disagree with what a
+ * run actually computes. A row whose λ pair is not a wavelength (a layer range,
+ * a row reference, a comment) contributes nothing.
+ */
+export function operandWavelengthSpan(operands) {
+    let low = Infinity;
+    let high = -Infinity;
+    for (const lambda of requiredLambdas(operands)) {
+        if (!Number.isFinite(lambda)) continue;
+        if (lambda < low) low = lambda;
+        if (lambda > high) high = lambda;
+    }
+    return low <= high ? [low, high] : null;
+}
+
 // Build the worker materials table (Approach A): sample each {id, mat} pair's
 // [n,k] on the exact λ grid. Shared by Refinement (DLS) and the synthesis
 // worker (needle/GE — must also pre-sample the candidate pool).

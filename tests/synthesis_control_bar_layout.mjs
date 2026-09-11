@@ -48,8 +48,14 @@ function statusSlot(statusMsg) {
         ...shared, labels: common, metrics: [], statusMsg, noOperandsLabel: 'No operands',
     });
     const readout = bar.props.children.find(child => child?.props?.['data-synthesis-readout']);
-    assert.equal(readout.props.style.flex, '0 1 720px', 'right-side controls wrap as one stable unit');
-    return readout.props.children.find(child => child?.props?.['data-synthesis-status']);
+    assert.equal(readout.props.style.flex, '1 1 720px', 'the readout wraps as one unit and fills its line');
+    assert.equal(readout.props.style.marginLeft, undefined,
+        'the unit starts where the buttons end, or at the edge of its own line');
+    const [numbers, status, live] = readout.props.children;
+    assert.notEqual(numbers.props.style.textAlign, 'right', 'the numbers read from the left of the unit');
+    assert.ok(status.props['data-synthesis-status'], 'the phase message follows the numbers');
+    assert.equal(live.props.style.marginLeft, 'auto', 'the switch keeps the right edge');
+    return status;
 }
 
 const emptyStatus = statusSlot('');

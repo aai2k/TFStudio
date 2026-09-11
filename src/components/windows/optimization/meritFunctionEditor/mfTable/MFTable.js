@@ -146,7 +146,7 @@ function tableToolbar(options) {
 export function MFTable(props) {
     const {
         operands, computed, evaluationErrors = [], bandLevels = [],
-        selectedId, noOperandsMsg, notice,
+        selectedId, noOperandsMsg, notices = [],
         onSelect, onEdit, onEditMany, onAdd, onInsertAt,
         onDuplicate, onDelete, onClear, onMoveUp, onMoveDown, showToolbar = true, toolbarStart = null, c, t,
     } = props;
@@ -235,14 +235,23 @@ export function MFTable(props) {
             x: contextMenu.menu.x, y: contextMenu.menu.y, items: contextMenu.items, c, dense: true,
             onClose: contextMenu.closeMenu, ariaLabel: t?.meritFunctionEditor?.contextMenu?.title,
         }),
-        notice && h('div', {
-            title: notice,
+        // Conditions on the table as a whole, one strip each: a phase operand
+        // scored on one side of a total-mode design, targets reaching past a
+        // material's data. `detail` carries the lines that qualify the label.
+        notices.map((notice, index) => h('div', {
+            key: index,
+            title: notice.detail || notice.label,
             style: {
                 padding: '4px 8px', flexShrink: 0, fontSize: 10,
                 color: '#ffcc80', background: '#ff980012',
                 borderBottom: `1px solid ${c.border}`,
             },
-        }, notice),
+        },
+            notice.label,
+            notice.detail && h('div', {
+                style: { marginTop: 2, opacity: 0.85, whiteSpace: 'pre-line' },
+            }, notice.detail),
+        )),
         h('div', { ref: scrollRef, onScroll, style: { flex: 1, overflow: 'auto', minHeight: 0 } },
             // The table spans its container so the rows reach the right edge of
             // the window, and the columns keep their relative widths at any

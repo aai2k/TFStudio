@@ -10,6 +10,7 @@
 import {
     clampLambdaToCovered, clampToCovered, designRangeCoverage, materialsRangeCoverage,
 } from '../../utils/materials/materialRange.js';
+import { operandWavelengthSpan } from '../../utils/physics/optimizer.js';
 
 const { createElement: h, useMemo } = React;
 
@@ -122,6 +123,31 @@ function useCoverageNotice({ offenders, covered }, fromNm, toNm, t, onFix) {
             } : {}),
         };
     }, [offenders, covered, fromNm, toNm, t, onFix]);
+}
+
+/**
+ * The same warning for an optimizer window. There is no plot axis to check, so
+ * the evaluated range is the span of every wavelength the enabled merit
+ * operands sample, which is what a run scores the design on. Null when the
+ * merit function holds no spectral operand, or when every material covers that
+ * span.
+ *
+ * No fix action: the span is not a setting of the window but the targets
+ * themselves, and narrowing those is a design decision.
+ *
+ * @returns {{ label: string, detail: string } | null}
+ */
+export function useMeritRangeNotice(design, t) {
+    const operands = design?.meritOperands;
+    const span = useMemo(() => operandWavelengthSpan(operands || []), [operands]);
+    const { offenders } = useMemo(() => designRangeCoverage(design, span), [design, span]);
+    return useMemo(() => {
+        if (!span || !offenders.length) return null;
+        return {
+            label: t.materialRange.targets(offenders.length, format(span[0]), format(span[1])),
+            detail: offenderDetail(offenders, t),
+        };
+    }, [span, offenders, t]);
 }
 
 /**

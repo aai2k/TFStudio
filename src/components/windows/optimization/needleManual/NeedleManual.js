@@ -16,7 +16,7 @@
  */
 
 import { OptimizeBadge, EvalModeBadge } from '../../../SurfaceModeBar.js';
-import { WARN_BADGE_STYLE } from '../synthesisShared/synthesisHelpers.js';
+import { MeritRangeBadge, WARN_BADGE_STYLE } from '../synthesisShared/synthesisHelpers.js';
 import { LiveUpdateSwitch } from '../../../ui/LiveUpdateSwitch.js';
 import { useNeedleManual } from './useNeedleManual.js';
 import { PFunctionPlot } from './PFunctionPlot.js';
@@ -59,6 +59,7 @@ export function NeedleManual({ c, theme, t }) {
             }, s.scanning ? tn.scanningBtn : tn.compute),
             h(OptimizeBadge, { design: s.design, c, t }),
             h(EvalModeBadge, { design: s.design, c, t }),
+            h(MeritRangeBadge, { design: s.design, c, t }),
             h('div', { style: { flex: 1 } }),
             s.statusMsg && h('span', {
                 style: (s.statusMsg === tn.noOperands || s.scanBlocked)

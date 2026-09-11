@@ -1221,6 +1221,8 @@ export default {
   materialRange: {
     banner: (n, from, to) =>
       `${from}–${to} nm reaches outside the data range of ${n} material${n === 1 ? '' : 's'}; values there are held flat or extrapolated`,
+    targets: (n, from, to) =>
+      `Targets at ${from}–${to} nm reach outside the data range of ${n} material${n === 1 ? '' : 's'}; the merit function is scored on values held flat or extrapolated there`,
     materialLine: (name, from, to) => `${name}: ${from}–${to} nm`,
     bandLabel: (names) => `no data: ${names}`,
     fixAction: (from, to) => `Set range to ${from}–${to} nm`,
