@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  The .tfs type, as the freedesktop shared-mime-info database wants it.
+
+  electron-builder writes this file itself when a fileAssociation carries a
+  mimeType, but the entry it generates hardcodes <icon name="x-office-document"/>
+  and ships no icon of its own, so every .tfs draws the theme's generic page.
+  The `icon` an association names is read only by the Windows and macOS targets.
+  So the association in package.json deliberately carries no mimeType: that
+  keeps electron-builder out of /usr/share/mime/packages and lets the deb
+  install this file at that path instead (build.deb.fpm), while the desktop
+  entry still advertises the type through build.linux.mimeTypes.
+
+  <icon> names the document icon; build/linux-mime/icons/ is installed under
+  that name into hicolor/<size>/mimetypes/.
+
+  There is deliberately no <generic-icon>. GTK looks an icon up theme by theme
+  and, within each theme, tries every name GIO derived from this entry, so the
+  first theme holding ANY of those names wins and the order of the names counts
+  for nothing. A <generic-icon name="x-office-document"/> would therefore lose
+  us the icon on stock Ubuntu, where Yaru carries x-office-document but not our
+  name, and Yaru outranks hicolor. Left out, the only fallback GIO appends is
+  application-x-generic, which Yaru does not carry either, so the lookup reaches
+  hicolor and finds ours. A theme carrying neither still falls back to its own
+  generic page, which is what a .tfs drew before any of this.
+-->
+<mime-info xmlns="http://www.freedesktop.org/standards/shared-mime-info">
+  <mime-type type="application/x-tfstudio-design">
+    <comment>TFStudio thin-film design</comment>
+    <icon name="application-x-tfstudio-design"/>
+    <glob pattern="*.tfs"/>
+  </mime-type>
+</mime-info>

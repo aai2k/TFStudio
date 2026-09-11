@@ -1,5 +1,8 @@
 /**
- * Pack the .tfs document icon: icons/tfs-file.png -> icons/tfs-file.ico
+ * Pack the .tfs document icon from icons/tfs-file.png:
+ *
+ *   icons/tfs-file.ico          the icon Explorer draws, for the Windows targets
+ *   build/linux-mime/icons/     the icon a Linux file manager draws, for the deb
  *
  *   node tools/gen-file-icon.mjs
  *
@@ -7,13 +10,19 @@
  * install directory and points the registry's DefaultIcon at it, so this is the
  * icon Explorer draws for every .tfs on the machine.
  *
+ * Linux does not read the .ico at all. A file manager asks the icon theme for
+ * the name the shared-mime-info entry gives the type, so the deb installs these
+ * PNGs into hicolor/<size>/mimetypes/ under that name; see
+ * build/linux-mime/tfstudio.xml. Both outputs are committed, so a build only
+ * consumes them.
+ *
  * Sizes 48 and below are stored as 32-bit BMP and the larger ones as PNG. An
  * all-PNG .ico is legal from Vista on, but some shell surfaces still read the
  * small sizes through the classic path, and a BMP entry is what they expect.
  * The AND mask every BMP entry carries is left at zero: the 32-bit pixel data
  * has an alpha channel of its own, which is what the shell composites with.
  */
-import { readFileSync, writeFileSync } from 'node:fs';
+import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import sharp from 'sharp';
@@ -21,11 +30,17 @@ import sharp from 'sharp';
 const PROJECT_ROOT = path.join(path.dirname(fileURLToPath(import.meta.url)), '..');
 const SOURCE = path.join(PROJECT_ROOT, 'icons', 'tfs-file.png');
 const TARGET = path.join(PROJECT_ROOT, 'icons', 'tfs-file.ico');
+const MIME_TARGET = path.join(PROJECT_ROOT, 'build', 'linux-mime', 'icons');
 
 // 20 and 40 are the 125% and 250% steps Windows asks for on a scaled display;
 // without them the shell picks a neighbour and rescales it.
 const BMP_SIZES = [16, 20, 24, 32, 40, 48];
 const PNG_SIZES = [64, 128, 256];
+
+// The sizes hicolor keeps mimetype icons in. 20 and 40 are Windows scaling
+// steps no icon theme asks for, so they are left out of this list rather
+// than installed where nothing would read them.
+const MIME_SIZES = [16, 24, 32, 48, 64, 128, 256];
 
 // How opaque the outline below is over the background behind the icon.
 const OUTLINE_OPACITY = 0.55;
@@ -136,25 +151,45 @@ function icoFile(images) {
 }
 
 const source = readFileSync(SOURCE);
+
+// The artwork at one size, outlined, as raw RGBA. Cached because the .ico and
+// the mimetype icons ask for overlapping sizes.
+const pixels = new Map();
+async function iconPixels(size) {
+    if (!pixels.has(size)) {
+        const scaled = await sharp(source)
+            .resize(size, size, { kernel: 'lanczos3' })
+            .ensureAlpha()
+            .raw()
+            .toBuffer();
+        pixels.set(size, outline(scaled, size));
+    }
+    return pixels.get(size);
+}
+
+const encodePng = (rgba, size) =>
+    sharp(rgba, { raw: { width: size, height: size, channels: 4 } })
+        .png({ compressionLevel: 9 })
+        .toBuffer();
+
 const images = [];
 for (const size of [...BMP_SIZES, ...PNG_SIZES]) {
-    const scaled = await sharp(source)
-        .resize(size, size, { kernel: 'lanczos3' })
-        .ensureAlpha()
-        .raw()
-        .toBuffer();
-    const rgba = outline(scaled, size);
-    const data = BMP_SIZES.includes(size)
-        ? bmpImage(rgba, size)
-        : await sharp(rgba, { raw: { width: size, height: size, channels: 4 } })
-            .png({ compressionLevel: 9 })
-            .toBuffer();
+    const rgba = await iconPixels(size);
+    const data = BMP_SIZES.includes(size) ? bmpImage(rgba, size) : await encodePng(rgba, size);
     images.push({ size, data });
 }
 
 writeFileSync(TARGET, icoFile(images));
 
+mkdirSync(MIME_TARGET, { recursive: true });
+for (const size of MIME_SIZES) {
+    writeFileSync(path.join(MIME_TARGET, `${size}x${size}.png`),
+        await encodePng(await iconPixels(size), size));
+}
+
 const { width, height } = await sharp(source).metadata();
 console.log(`gen-file-icon: ${width}x${height} source -> ${images.length} sizes `
     + `(${images.map(i => i.size).join(', ')}), ${readFileSync(TARGET).length} bytes`);
 console.log(`gen-file-icon: wrote ${path.relative(PROJECT_ROOT, TARGET)}`);
+console.log(`gen-file-icon: wrote ${MIME_SIZES.length} mimetype icons `
+    + `(${MIME_SIZES.join(', ')}) -> ${path.relative(PROJECT_ROOT, MIME_TARGET)}`);

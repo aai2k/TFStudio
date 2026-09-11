@@ -85,7 +85,6 @@
         "ext": "tfs",
         "name": "TFStudio.Design",
         "description": "TFStudio thin-film design",
-        "mimeType": "application/x-tfstudio-design",
         "icon": "icons/tfs-file.ico",
         "role": "Editor"
       }
@@ -146,6 +145,9 @@
         }
       ],
       "icon": "build/icons/linux",
+      "mimeTypes": [
+        "application/x-tfstudio-design"
+      ],
       "category": "Science",
       "synopsis": "Optical thin-film coating design and analysis",
       "artifactName": "TFStudio-${version}-${arch}.${ext}",
@@ -193,6 +195,16 @@
       "maintainer": "Andrey Achapovsky <aai2k@users.noreply.github.com>",
       "executableArgs": [
         "%f"
+      ],
+      "fpm": [
+        "build/linux-mime/tfstudio.xml=/usr/share/mime/packages/tfstudio.xml",
+        "build/linux-mime/icons/16x16.png=/usr/share/icons/hicolor/16x16/mimetypes/application-x-tfstudio-design.png",
+        "build/linux-mime/icons/24x24.png=/usr/share/icons/hicolor/24x24/mimetypes/application-x-tfstudio-design.png",
+        "build/linux-mime/icons/32x32.png=/usr/share/icons/hicolor/32x32/mimetypes/application-x-tfstudio-design.png",
+        "build/linux-mime/icons/48x48.png=/usr/share/icons/hicolor/48x48/mimetypes/application-x-tfstudio-design.png",
+        "build/linux-mime/icons/64x64.png=/usr/share/icons/hicolor/64x64/mimetypes/application-x-tfstudio-design.png",
+        "build/linux-mime/icons/128x128.png=/usr/share/icons/hicolor/128x128/mimetypes/application-x-tfstudio-design.png",
+        "build/linux-mime/icons/256x256.png=/usr/share/icons/hicolor/256x256/mimetypes/application-x-tfstudio-design.png"
       ],
       "depends": [
         "libgtk-3-0t64 | libgtk-3-0",

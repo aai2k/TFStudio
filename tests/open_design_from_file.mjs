@@ -8,7 +8,9 @@
  * the tree comes back with no folder, to be imported as a copy. The build
  * config has to register the extension, the Linux desktop entry has to carry
  * %f without costing the AppImage its --no-sandbox, and the document icon has
- * to hold every size Explorer asks for.
+ * to hold every size Explorer asks for. Linux draws that icon from the theme
+ * rather than from the package, so the mime entry, the icon name it points at
+ * and the files the deb installs under that name are checked to agree.
  *
  * Run: node tests/open_design_from_file.mjs
  */
@@ -139,10 +141,17 @@ const openPath = (filePath) => handlers.get('open-tfs-path')(null, filePath);
         'the ProgID is dotted and space-free');
     ok(association.description && association.description !== association.name,
         'the Type column text is carried separately from the ProgID');
-    ok(association.mimeType === 'application/x-tfstudio-design',
-        'the association carries a MIME type, which is what the Linux packages register');
     ok(association.icon === 'icons/tfs-file.ico',
         'the document icon is named, so a missing one fails the build instead of falling back to the app icon');
+    // Naming a mimeType here would make electron-builder write
+    // /usr/share/mime/packages/tfstudio.xml itself, and the entry it writes
+    // hardcodes <icon name="x-office-document"/>, which is the theme's generic
+    // page. The type reaches the desktop entry through linux.mimeTypes instead,
+    // leaving that path free for build/linux-mime/tfstudio.xml below.
+    ok(association.mimeType === undefined,
+        'the association names no MIME type, so electron-builder writes no mime entry of its own');
+    ok(JSON.stringify(pkg.build.linux.mimeTypes) === JSON.stringify(['application/x-tfstudio-design']),
+        'the desktop entry still advertises the type');
     // The deb desktop entry needs %f so the file manager passes a local path.
     // Setting it on `linux` instead would reach the AppImage too, where it
     // replaces the default --no-sandbox argument that entry depends on.
@@ -150,6 +159,56 @@ const openPath = (filePath) => handlers.get('open-tfs-path')(null, filePath);
         'the Debian desktop entry is passed the file it was opened with');
     ok(pkg.build.linux.executableArgs === undefined,
         'the AppImage keeps its own launcher arguments');
+}
+
+// -- The document icon a Linux file manager draws for every .tfs ---------------
+// Nothing on Linux reads the .ico. The file manager asks the icon theme for the
+// name the installed shared-mime-info entry gives the type, so the entry, the
+// icon name it points at and the files installed under that name all have to
+// agree; any one of the three drifting puts the generic page back.
+{
+    const root = new URL('../', import.meta.url);
+    // The comment at the top of that file quotes the markup it exists to
+    // replace, so it is stripped before anything is read out of the entry.
+    const mime = readFileSync(new URL('build/linux-mime/tfstudio.xml', root), 'utf8')
+        .replace(/<!--[\s\S]*?-->/g, '');
+
+    ok(mime.includes('type="application/x-tfstudio-design"'),
+        'the entry declares the type the desktop file advertises');
+    ok(mime.includes('<glob pattern="*.tfs"/>'),
+        'the entry claims .tfs by extension');
+    ok(mime.includes('<icon name="application-x-tfstudio-design"/>'),
+        'the entry names our own icon rather than the theme generic page');
+    // GTK searches theme by theme and tries every name GIO derived from the
+    // entry inside each one, so the first theme holding any of those names wins
+    // and their order counts for nothing. A generic-icon of x-office-document
+    // is carried by Yaru, which outranks hicolor, and would take stock Ubuntu
+    // straight back to the generic page this exists to replace.
+    ok(!mime.includes('<generic-icon'),
+        'no generic fallback a desktop theme is likely to carry outranks our own icon');
+
+    const mappings = require('../package.json').build.deb.fpm;
+    ok(mappings[0] === 'build/linux-mime/tfstudio.xml=/usr/share/mime/packages/tfstudio.xml',
+        'the deb installs the entry where update-mime-database reads it');
+
+    // The icon name in the entry is what hicolor has to file the icons under.
+    const iconName = /<icon name="([^"]+)"\/>/.exec(mime)[1];
+    const installed = mappings.slice(1).map(mapping => {
+        const [from, to] = mapping.split('=');
+        const size = /\/hicolor\/(\d+)x\1\/mimetypes\//.exec(to);
+        ok(size, `${to} is a square hicolor mimetypes path`);
+        ok(to.endsWith(`/${iconName}.png`),
+            `${to} is filed under the name the mime entry points at`);
+
+        const png = readFileSync(new URL(from, root));
+        ok(png.toString('latin1', 1, 4) === 'PNG', `${from} is a PNG`);
+        ok(png.readUInt32BE(16) === Number(size[1]) && png.readUInt32BE(20) === Number(size[1]),
+            `${from} is ${size[1]}x${size[1]}, the size of the directory it installs into`);
+        return Number(size[1]);
+    });
+
+    ok(installed.join() === '16,24,32,48,64,128,256',
+        'every size hicolor keeps mimetype icons in is installed, smallest first');
 }
 
 // -- The document icon Explorer draws for every .tfs ---------------------------
