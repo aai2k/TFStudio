@@ -431,6 +431,7 @@ export default {
   },
   dialogs: {
     persistenceFailed: 'The project change could not be saved. Please try again.',
+    openDesignFailed: (msg) => `The design could not be opened: ${msg}`,
     contextMenu: {
       renameFolder: 'Rename Folder',
     },

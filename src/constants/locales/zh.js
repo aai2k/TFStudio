@@ -428,6 +428,7 @@ export default {
   },
   dialogs: {
     persistenceFailed: '项目更改无法保存。请重试。',
+    openDesignFailed: (msg) => `无法打开设计：${msg}`,
     contextMenu: {
       renameFolder: '重命名文件夹',
     },

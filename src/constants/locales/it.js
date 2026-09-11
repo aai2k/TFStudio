@@ -429,6 +429,7 @@ export default {
   },
   dialogs: {
     persistenceFailed: 'Non è stato possibile salvare la modifica al progetto. Riprova.',
+    openDesignFailed: (msg) => `Non è stato possibile aprire il design: ${msg}`,
     contextMenu: {
       renameFolder: 'Rinomina cartella',
     },

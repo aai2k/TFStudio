@@ -17,6 +17,8 @@ function register(ipcMain, ctx) {
   ipcMain.handle('load-folders', async () => handleLoadFolders(ctx));
   ipcMain.handle('save-design', async (event, folderId, design) => handleSaveDesign(ctx, folderId, design));
   ipcMain.handle('import-tfs', async () => handleImportTfs(ctx));
+  ipcMain.handle('open-file:take', async () => ctx.openFile.take());
+  ipcMain.handle('open-tfs-path', async (event, filePath) => handleOpenTfsPath(ctx, filePath));
   ipcMain.handle('import-design-files', async () => handleImportDesignFiles(ctx));
   ipcMain.handle('pick-macleod-database', async () => handlePickMacleodDatabase(ctx));
   ipcMain.handle('delete-item', async (event, folderId, itemName) => handleDeleteItem(ctx, folderId, itemName));
@@ -257,12 +259,29 @@ function handleSaveDesign(ctx, folderId, design) {
   }
 }
 
+// Read a .tfs and return the design it holds, alongside the file's own base
+// name for a design that has no usable name of its own. The on-disk version
+// wrapper key is dropped; the renderer owns id and name.
+function readDesignFile(ctx, filePath) {
+  const { fs, path } = ctx;
+  try {
+    const design = JSON.parse(fs.readFileSync(filePath, 'utf-8'));
+    if (!design || typeof design !== 'object' || Array.isArray(design)) {
+      return { success: false, error: 'File is not a valid TFStudio design.' };
+    }
+    delete design.tfs_version;
+    return { success: true, design, fileName: path.basename(filePath, path.extname(filePath)) };
+  } catch (err) {
+    return { success: false, error: `Could not read design: ${err.message}` };
+  }
+}
+
 // ── Open / import an external .tfs design file ─────────────────────────────
 // Shows a native file picker and returns the parsed design (raw JSON). The
 // renderer assigns a fresh id + collision-free name and persists it into the
 // chosen project folder via the normal save path (addItemFromDesign).
 async function handleImportTfs(ctx) {
-  const { fs, path, log, dialog, getMainWindow } = ctx;
+  const { log, dialog, getMainWindow } = ctx;
   const result = await dialog.showOpenDialog(getMainWindow(), {
     title: 'Open Design (.tfs)',
     filters: [{ name: 'TFStudio Design', extensions: ['tfs'] }],
@@ -271,21 +290,42 @@ async function handleImportTfs(ctx) {
   if (result.canceled || result.filePaths.length === 0) {
     return { success: false, canceled: true };
   }
-  try {
-    const filePath = result.filePaths[0];
-    const content  = fs.readFileSync(filePath, 'utf-8');
-    const design   = JSON.parse(content);
-    if (!design || typeof design !== 'object') {
-      return { success: false, error: 'File is not a valid TFStudio design.' };
-    }
-    // Drop the on-disk version wrapper key; the renderer owns id/name.
-    delete design.tfs_version;
-    const baseName = path.basename(filePath, path.extname(filePath));
-    return { success: true, design, fileName: baseName };
-  } catch (err) {
-    log(`import-tfs error: ${err.message}`);
-    return { success: false, error: `Could not read design: ${err.message}` };
+  const read = readDesignFile(ctx, result.filePaths[0]);
+  if (!read.success) log(`import-tfs: ${result.filePaths[0]}: ${read.error}`);
+  return read;
+}
+
+// The project folder a file sits directly in, named the way every
+// folder-addressed call names it ('Archive/2026'), or null when the file is
+// outside the Projects tree. A .tfs in the Projects root itself belongs to no
+// folder: the tree is built from the directories under Projects, so a design
+// lying beside them is not in it.
+function projectFolderIdFor(ctx, filePath) {
+  const { path, projectsDir } = ctx;
+  const relative = path.relative(path.resolve(projectsDir), filePath);
+  if (!relative || relative.startsWith('..') || path.isAbsolute(relative)) return null;
+  const segments = relative.split(/[\\/]/);
+  segments.pop();   // the filename
+  return segments.length ? segments.join('/') : null;
+}
+
+// ── Open a .tfs by path (a double-click in the file manager) ────────────────
+// Returns the design and, when the file lives in the Projects tree, the folder
+// holding it. A design already in the tree is the one the renderer has loaded,
+// so it is shown rather than copied; a design from anywhere else is imported,
+// which leaves the original file alone.
+function handleOpenTfsPath(ctx, filePath) {
+  const { path, log } = ctx;
+  if (typeof filePath !== 'string' || !filePath) {
+    return { success: false, error: 'No design file was named.' };
   }
+  const fullPath = path.resolve(filePath);
+  const read = readDesignFile(ctx, fullPath);
+  if (!read.success) {
+    log(`open-tfs-path: ${fullPath}: ${read.error}`);
+    return read;
+  }
+  return { ...read, folderId: projectFolderIdFor(ctx, fullPath) };
 }
 
 // ── Pick design files from other coating programs ──────────────────────────

@@ -80,6 +80,16 @@
       "build/app/**"
     ],
     "forceCodeSigning": false,
+    "fileAssociations": [
+      {
+        "ext": "tfs",
+        "name": "TFStudio.Design",
+        "description": "TFStudio thin-film design",
+        "mimeType": "application/x-tfstudio-design",
+        "icon": "icons/tfs-file.ico",
+        "role": "Editor"
+      }
+    ],
     "directories": {
       "output": "dist",
       "buildResources": "build"
@@ -181,6 +191,9 @@
     },
     "deb": {
       "maintainer": "Andrey Achapovsky <aai2k@users.noreply.github.com>",
+      "executableArgs": [
+        "%f"
+      ],
       "depends": [
         "libgtk-3-0t64 | libgtk-3-0",
         "libnss3",

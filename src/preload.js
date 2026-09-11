@@ -17,6 +17,17 @@ contextBridge.exposeInMainWorld('electronAPI', {
   loadFolders:      () => ipcRenderer.invoke('load-folders'),
   saveDesign:       (folderId, design) => ipcRenderer.invoke('save-design', folderId, design),
   importTfs:        () => ipcRenderer.invoke('import-tfs'),
+  // A .tfs opened from the file manager. The path the launch carried is
+  // collected once, after the project tree has been read; every later
+  // double-click arrives on the channel, because the copy already running
+  // handles it rather than a second one starting.
+  takePendingOpenFile: () => ipcRenderer.invoke('open-file:take'),
+  onOpenFile:       (cb) => {
+    const handler = (event, filePath) => cb(filePath);
+    ipcRenderer.on('open-file', handler);
+    return () => ipcRenderer.removeListener('open-file', handler);
+  },
+  openTfsPath:      (filePath) => ipcRenderer.invoke('open-tfs-path', filePath),
   importDesignFiles: () => ipcRenderer.invoke('import-design-files'),
   pickMacleodDatabase: () => ipcRenderer.invoke('pick-macleod-database'),
   deleteItem:       (folderId, itemName) => ipcRenderer.invoke('delete-item', folderId, itemName),

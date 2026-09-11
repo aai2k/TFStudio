@@ -308,6 +308,9 @@ const App = () => {
     const [skippedVersion, setSkippedVersion] = useState(null);
     const [appVersion, setAppVersion] = useState('');
     const [settingsLoaded, setSettingsLoaded] = useState(false);
+    // Set once the project tree has been read, which is when a design named on
+    // the command line can be opened.
+    const [foldersLoaded,  setFoldersLoaded]  = useState(false);
     const [inputDialog,    setInputDialog]    = useState(null);
     const [messageNotification, setMessageNotification] = useState(null);
     const [toolRequests,   setToolRequests]   = useState([]);
@@ -721,6 +724,8 @@ const App = () => {
         if (savedLayout) {
             setLayoutRequest({ type: 'restore', ts: Date.now() });
         }
+
+        setFoldersLoaded(true);
     };
 
     const loadCatalogsFromDisk = async () => {
@@ -895,6 +900,22 @@ const App = () => {
     const existingDesignNames = useCallback(
         (folderId) => folderDesignNames(foldersRef.current, folderId), []);
 
+    // Put a design into the tree and open it. The design store, the folder's
+    // item list and the selection move together, and the disk baseline is set
+    // so a design that matches its .tfs is not born dirty.
+    const commitNewDesign = useCallback((design, targetFolder) => {
+        const newItem = { id: design.id, name: design.name, mtime: Date.now() };
+        diskDesignsRef.current[design.id] = JSON.parse(JSON.stringify(design));
+        setDesigns(d => ({ ...d, [design.id]: design }));
+        setFolders(prev => prev.map(f =>
+            f.id === targetFolder.id ? { ...f, items: [...f.items, newItem] } : f
+        ));
+        setSelectedFolder(targetFolder);
+        setSelectedItem(newItem);
+        setSelectedItems([newItem]);
+        setActiveDesignId(design.id);
+    }, []);
+
     const addItem = useCallback(async (overrideFolder) => {
         const targetFolder = overrideFolder || selectedFolder;
         if (!targetFolder) return;
@@ -906,25 +927,14 @@ const App = () => {
         const n       = taken.length + 1;
         const name    = uniqueDesignName(`Design ${n}`, taken, (_, k) => `Design ${n + k - 1}`);
         const design  = makeDefaultDesign(name);
-        const newItem = { id: design.id, name: design.name, mtime: Date.now() };
 
         return persistProjectChange(
             window.electronAPI?.saveDesign
                 ? () => writeDesignFile(targetFolder.id, design)
                 : null,
-            () => {
-                diskDesignsRef.current[design.id] = JSON.parse(JSON.stringify(design));
-                setDesigns(d => ({ ...d, [design.id]: design }));
-                setFolders(prev => prev.map(f =>
-                    f.id === targetFolder.id ? { ...f, items: [...f.items, newItem] } : f
-                ));
-                setSelectedFolder(targetFolder);
-                setSelectedItem(newItem);
-                setSelectedItems([newItem]);
-                setActiveDesignId(design.id);
-            },
+            () => commitNewDesign(design, targetFolder),
         );
-    }, [selectedFolder, existingDesignNames, persistProjectChange]);
+    }, [selectedFolder, existingDesignNames, persistProjectChange, commitNewDesign]);
 
     // Add a project-explorer item from a pre-built design (e.g. WDM wizard output).
     // Same persistence path as `addItem`; differs only in that the design is
@@ -934,25 +944,14 @@ const App = () => {
         if (!targetFolder || !incoming) return;
         const name   = uniqueDesignName(incoming.name, existingDesignNames(targetFolder.id), (b, k) => `${b} (${k})`);
         const design = name === incoming.name ? incoming : { ...incoming, name };
-        const newItem = { id: design.id, name: design.name, mtime: Date.now() };
 
         return persistProjectChange(
             window.electronAPI?.saveDesign
                 ? () => writeDesignFile(targetFolder.id, design)
                 : null,
-            () => {
-                diskDesignsRef.current[design.id] = JSON.parse(JSON.stringify(design));
-                setDesigns(d => ({ ...d, [design.id]: design }));
-                setFolders(prev => prev.map(f =>
-                    f.id === targetFolder.id ? { ...f, items: [...f.items, newItem] } : f
-                ));
-                setSelectedFolder(targetFolder);
-                setSelectedItem(newItem);
-                setSelectedItems([newItem]);
-                setActiveDesignId(design.id);
-            },
+            () => commitNewDesign(design, targetFolder),
         );
-    }, [selectedFolder, existingDesignNames, persistProjectChange]);
+    }, [selectedFolder, existingDesignNames, persistProjectChange, commitNewDesign]);
 
     // Docked windows that produce a whole design (n,k Characterization) add it
     // through the same path. Null while no folder is selected, so the window can
@@ -962,32 +961,98 @@ const App = () => {
         [selectedFolder, addItemFromDesign]);
 
     // ── Open: import an external .tfs file into the project tree and open it ──
-    // The main process shows a native picker and returns the parsed design; we
-    // re-key it (fresh design + layer ids, collision-free name) so it can never
-    // clobber an existing design via the load-folders id de-dupe, then persist
-    // and open it through the normal addItemFromDesign path.
+    // The design is re-keyed (fresh design + layer ids, collision-free name) so
+    // it can never clobber an existing design via the load-folders id de-dupe,
+    // then persisted and opened through the normal addItemFromDesign path. The
+    // file it came from is left untouched: every later save goes to the copy.
+    // Returns the id of the design in the tree, or null if it could not be added.
+    const importDesignCopy = useCallback(async (incoming, fileName) => {
+        const targetFolder = selectedFolder || foldersRef.current[0];
+        if (!targetFolder) return null;
+
+        const ts   = `${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
+        const base = (incoming.name && String(incoming.name).trim()) || fileName || 'Imported design';
+        const name = uniqueDesignName(base, existingDesignNames(targetFolder.id), (b, k) => `${b} (${k})`);
+
+        const design = {
+            ...incoming,
+            id: `design-${ts}`,
+            name,
+            frontLayers: rekeyLayers(incoming.frontLayers, ts, 'f'),
+            backLayers:  rekeyLayers(incoming.backLayers, ts, 'b'),
+        };
+        if (!await addItemFromDesign(design, targetFolder)) return null;
+        setToolRequests(prev => [...prev, { toolId: 'design-editor', ts: Date.now() }]);
+        return design.id;
+    }, [selectedFolder, addItemFromDesign, existingDesignNames]);
+
     const openDesignFromFile = useCallback(async () => {
         if (!window.electronAPI?.importTfs) return;
         const res = await window.electronAPI.importTfs();
         if (!res?.success || !res.design) return;
-        const targetFolder = selectedFolder || foldersRef.current[0];
-        if (!targetFolder) return;
+        await importDesignCopy(res.design, res.fileName);
+    }, [importDesignCopy]);
 
-        const ts       = `${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
-        const base     = (res.design.name && String(res.design.name).trim()) || res.fileName || 'Imported design';
-        const name     = uniqueDesignName(base, existingDesignNames(targetFolder.id), (b, k) => `${b} (${k})`);
-
-        const design = {
-            ...res.design,
-            id: `design-${ts}`,
-            name,
-            frontLayers: rekeyLayers(res.design.frontLayers, ts, 'f'),
-            backLayers:  rekeyLayers(res.design.backLayers, ts, 'b'),
-        };
-        if (await addItemFromDesign(design, targetFolder)) {
-            setToolRequests(prev => [...prev, { toolId: 'design-editor', ts: Date.now() }]);
+    // Show a design the tree already holds. The selection is what makes a
+    // design active (see the activate effect above). False when no folder holds
+    // a design with that id.
+    const selectDesignInTree = useCallback((designId) => {
+        for (const folder of foldersRef.current) {
+            const item = folder.items.find(it => it.id === designId);
+            if (!item) continue;
+            setSelectedFolder(folder);
+            setSelectedItem(item);
+            setSelectedItems([item]);
+            return true;
         }
-    }, [selectedFolder, addItemFromDesign, existingDesignNames]);
+        return false;
+    }, []);
+
+    // ── Open a .tfs the file manager handed over ──────────────────────────────
+    // A design inside the Projects tree is the design on disk, so it is shown
+    // rather than copied. It is added to the tree first if it was put there
+    // after the tree was read, and nothing is written: the .tfs is already
+    // where it belongs. A design from anywhere else is imported as a copy, and
+    // a repeat double-click on that file shows the copy already made instead of
+    // making a second one.
+    const openedFileDesignsRef = useRef(new Map());   // absolute path -> design id
+
+    const openDesignFromPath = useCallback(async (filePath) => {
+        if (!filePath || !window.electronAPI?.openTfsPath) return;
+        const res = await window.electronAPI.openTfsPath(filePath);
+        if (!res?.success) {
+            setMessageNotification({
+                type: 'error',
+                message: t.dialogs.openDesignFailed(res?.error || t.designImport.unknownError),
+            });
+            return;
+        }
+        if (res.folderId && res.design.id) {
+            if (selectDesignInTree(res.design.id)) return;
+            const folder = foldersRef.current.find(f => f.id === res.folderId);
+            if (folder) { commitNewDesign(res.design, folder); return; }
+            // The folder is on disk but not in the tree either, so there is
+            // nowhere to show the design in place; it is imported like any
+            // other outside design.
+        }
+        const alreadyImported = openedFileDesignsRef.current.get(filePath);
+        if (alreadyImported && selectDesignInTree(alreadyImported)) return;
+        const designId = await importDesignCopy(res.design, res.fileName);
+        if (designId) openedFileDesignsRef.current.set(filePath, designId);
+    }, [t, selectDesignInTree, commitNewDesign, importDesignCopy]);
+
+    // Kept current for the effect below, which subscribes once rather than
+    // re-subscribing every time the selected folder changes.
+    const openDesignFromPathRef = useRef(openDesignFromPath);
+    useEffect(() => { openDesignFromPathRef.current = openDesignFromPath; }, [openDesignFromPath]);
+
+    useEffect(() => {
+        if (!foldersLoaded) return;
+        const open = (filePath) => openDesignFromPathRef.current(filePath);
+        const unsubscribe = window.electronAPI?.onOpenFile?.(open);
+        window.electronAPI?.takePendingOpenFile?.().then(open).catch(() => {});
+        return unsubscribe;
+    }, [foldersLoaded]);
 
     // ── Import: designs from TFCalc / Essential Macleod files ─────────────────
     // The main process shows the picker and returns the file texts; the dialog

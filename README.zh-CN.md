@@ -94,7 +94,7 @@ TFStudio 是一款用于**光学薄膜**设计与分析的桌面软件，适用�
 
 请从 [**Releases**](../../releases) 页面获取对应平台的最新版本。
 
-**Windows：** `TFStudio Setup <ver>.exe` 为常规安装程序；`TFStudio-<ver>-Portable.exe` 为免安装的单文件版本，适合权限受限的镀膜机控制电脑。同时另有 Windows 7 / 8.1 版本发布。
+**Windows：** `TFStudio Setup <ver>.exe` 为常规安装程序，安装后双击 `.tfs` 文件即可在 TFStudio 中打开；`TFStudio-<ver>-Portable.exe` 为免安装的单文件版本，适合权限受限的镀膜机控制电脑，它不注册任何文件类型，因此双击 `.tfs` 前仍需先启动 TFStudio。同时另有 Windows 7 / 8.1 版本发布。
 
 **Linux：** 在 Debian 与 Ubuntu 上推荐使用 `TFStudio-<ver>-amd64.deb`：
 
@@ -103,7 +103,7 @@ sudo apt install ./TFStudio-*-amd64.deb
 tfstudio
 ```
 
-以 root 身份安装才能保持 Chromium 沙箱处于启用状态。`.deb` 是唯一保留沙箱的 Linux 安装包，同时会将 TFStudio 添加到应用程序菜单。
+以 root 身份安装才能保持 Chromium 沙箱处于启用状态。`.deb` 是唯一保留沙箱的 Linux 安装包，也是唯一会将 TFStudio 添加到应用程序菜单、并让 `.tfs` 文件能从文件管理器中直接打开的安装包。AppImage 与 `.tar.gz` 都不经过安装，因此都不会注册该文件类型。
 
 `TFStudio-<ver>-x86_64.AppImage` 是便携式方案：
 

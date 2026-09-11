@@ -9,6 +9,7 @@ const helpServer = require('./main/helpServer');
 const { createUserPaths } = require('./main/userPaths');
 const { createDataFolderMove } = require('./main/dataFolderMove');
 const dragGhost = require('./main/dragGhost');
+const { designFileFromArgv } = require('./main/openFileArg');
 const { registerAllIpc } = require('./main/ipc');
 const appWindowIpc = require('./main/ipc/appWindow');
 const { canPlaceOwnWindows } = require('./main/windowPlacement');
@@ -84,7 +85,28 @@ if (!app.requestSingleInstanceLock()) {
   app.quit();
   process.exit(0);
 }
-app.on('second-instance', () => {
+
+// A .tfs named on the command line waits here until the renderer has read the
+// project tree and can act on it; before that there is no tree to open the
+// design in. Once the renderer has collected the launch path it listens for
+// further ones instead, so a second double-click is handed to the window
+// already on screen rather than queued behind it.
+let openFileQueued = designFileFromArgv(process.argv);
+let rendererTakesOpenFiles = false;
+
+function deliverOpenFile(file) {
+  if (!file) return;
+  if (rendererTakesOpenFiles && mainWindow && !mainWindow.isDestroyed()) {
+    mainWindow.webContents.send('open-file', file);
+  } else {
+    openFileQueued = file;
+  }
+}
+
+// The second launch never becomes a process of its own: Electron hands its
+// command line over here, which is where the design it names is opened.
+app.on('second-instance', (event, argv) => {
+  deliverOpenFile(designFileFromArgv(argv));
   if (mainWindow) {
     if (mainWindow.isMinimized()) mainWindow.restore();
     mainWindow.focus();
@@ -260,6 +282,16 @@ function setupIpcHandlers() {
     safeName, safeSegments, safeFilePath, readJsonSafe, writeFileAtomic, readTextAuto, registryValue,
     userDataPath, settingsPath,
     userPaths,
+    openFile: {
+      // Handed over once: a queued path is a launch argument, not state to
+      // replay on every reload.
+      take: () => {
+        rendererTakesOpenFiles = true;
+        const file = openFileQueued;
+        openFileQueued = null;
+        return file;
+      },
+    },
     dataFolderMove: createDataFolderMove({ fs, path }),
     onUserPathsChanged: () => {
       userPaths.ensureAll();
