@@ -76,7 +76,7 @@ TFStudio is a desktop application for designing and analyzing **optical thin-fil
 - Cross-platform desktop app (Electron + React, pure JavaScript)
 - Tabbed ribbon with a search box that finds any tool by name
 - Windows dock, or tear off the layout onto a second monitor
-- Built-in help/documentation, English, Russian and Chinese UI
+- Built-in help/documentation, English, Russian, Chinese and Italian UI
 
 
 ## Scientific basis
