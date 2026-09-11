@@ -3,6 +3,7 @@
 import {
     operandOverridesFromDrawnLine, applyHandleEdit,
     buildEditableTargetGeometry, snapDrawnLine, buildTargetGeometry,
+    PERCENT_LEVEL, UNIT_LEVEL, levelOperandOverrides,
 } from '../src/utils/physics/spectrumTargets.js';
 import { targetSeries } from '../src/components/ui/targetSeries.js';
 
@@ -139,6 +140,34 @@ function ok(name, cond) { if (cond) { pass++; } else { fail++; console.error('FA
     const ops = [{ id: 'self', type: 'RAV', lambdaStart: 400, lambdaEnd: 700, target: 0.2 }];
     const s = snapDrawnLine({ x0: 402, y0: 33, x1: 698, y1: 33 }, { operands: ops, snapNm: 10, snapPct: 5, excludeId: 'self' });
     ok('exclude self → grid snap not self-snap', s.x0 === 400 && s.x1 === 700);
+}
+
+// ── Level readings: the same drawing code serves a plot in any unit ───────────
+// The R/T/A plot reads a fraction as percent and clamps; a plot in a raw unit
+// such as fs² reads the axis value as it is and bounds nothing.
+{
+    ok('percent reading scales a fraction', PERCENT_LEVEL.toAxis(0.25) === 25);
+    ok('percent reading clamps to physical range', PERCENT_LEVEL.fromAxis(140) === 1);
+    ok('unit reading is the identity', UNIT_LEVEL.toAxis(-60) === -60 && UNIT_LEVEL.fromAxis(12000) === 12000);
+    const o = levelOperandOverrides(
+        { x0: 800, y0: -63, x1: 700, y1: -57 }, { type: 'GDDFLAT', pol: 'avg', aoi: 0 }, UNIT_LEVEL);
+    ok('unit level: mean height in the axis unit', approx(o.target, -60) && o.targetEnd === null);
+    ok('unit level: the caller\'s fields are kept', o.type === 'GDDFLAT' && o.pol === 'avg');
+    ok('unit level: wavelengths put in order', o.lambdaStart === 700 && o.lambdaEnd === 800);
+    const patch = applyHandleEdit({ kind: 'band', type: 'GDDFLAT' }, { type: 'GDDFLAT' },
+        { x0: 700, x1: 900, y0: -70, y1: -50 }, UNIT_LEVEL);
+    ok('unit level edit is flat, unclamped', approx(patch.target, -60) && !('targetEnd' in patch));
+    const pointPatch = applyHandleEdit({ kind: 'point', type: 'GDD' }, { type: 'GDD' },
+        { x0: 610, x1: 630, y0: -40, y1: -40 }, UNIT_LEVEL);
+    ok('unit level point edit', pointPatch.lambdaStart === 620 && pointPatch.target === -40);
+    const anchors = [{ id: 'g', type: 'GDD', lambdaStart: 600, lambdaEnd: 600, target: -50 }];
+    const s = snapDrawnLine({ x0: 603, y0: -52, x1: 700, y1: -20 },
+        { operands: anchors, snapNm: 10, snapPct: 10, types: new Set(['GDD']), level: UNIT_LEVEL });
+    ok('object-snap reads the anchors through the plot\'s level', s.x0 === 600 && s.y0 === -50);
+    ok('a steep line in the raw unit keeps its slope', s.y1 === -20);
+    const ignored = snapDrawnLine({ x0: 603, y0: -52, x1: 700, y1: -20 },
+        { operands: anchors, snapNm: 10, snapPct: 10, level: UNIT_LEVEL });
+    ok('operands of another plot are not anchors', ignored.x0 === 600 && ignored.y0 === -50 && ignored.x0 === 600);
 }
 
 // ── Visible target geometry: sampled where the axis bends it, click-taggable ─

@@ -1,6 +1,6 @@
 import { buildGdGddTargetGeometry } from './gdTargets.js';
 import {
-    axisTooltip, cartesianOption, lineSeries, niceAxisBounds, valueAxis,
+    axisTooltip, cartesianOption, chartToolbox, lineSeries, niceAxisBounds, valueAxis,
 } from '../../../ui/chartOptions.js';
 import { targetSeries } from '../../../ui/targetSeries.js';
 import { plotMargin } from '../chrome/plot.js';
@@ -8,7 +8,12 @@ import { plotMargin } from '../chrome/plot.js';
 export function buildGDChartOption(options) {
     const {
         data, meta, referenceLambda, showReference, colors, targets = [], yRange, yInterval, xLabel,
+        editMode = false, editTool = 'draw',
     } = options;
+    // While a target is being drawn the pointer belongs to the editor: the
+    // readout would freeze under it, and the rectangle zoom would take the
+    // drag that was meant to make a target.
+    const drawing = editMode && editTool === 'draw';
     const main = lineSeries({ x: data.lambda, y: data.y, name: meta.label, color: meta.color, width: 2 });
     const targetGeometry = buildGdGddTargetGeometry(targets);
     const reference = showReference && referenceLambda >= Math.min(...data.lambda)
@@ -26,9 +31,11 @@ export function buildGDChartOption(options) {
     return cartesianOption({
         colors,
         grid: plotMargin(),
-        fileName: 'dispersion',
         legend: { show: false },
-        tooltip: axisTooltip({ colors, valueSuffix: meta.unit ? ` ${meta.unit}` : '' }),
+        tooltip: drawing
+            ? { show: false }
+            : axisTooltip({ colors, valueSuffix: meta.unit ? ` ${meta.unit}` : '' }),
+        toolbox: chartToolbox('dispersion', { dataZoom: !drawing }),
         xAxis: valueAxis({ name: xLabel, color: colors.text, gridColor: colors.grid }),
         yAxis: valueAxis({
             name: meta.label, color: colors.text, gridColor: colors.grid,

@@ -47,6 +47,18 @@ phase may have an arbitrary reference offset. Current phase-dispersion merit
 operands evaluate the front coating normally and the back coating for a
 back-only design, so their overlays appear only on the side they score.
 
+**Edit**: build targets on the plot instead of typing them into the
+[Merit Function Editor](/design/merit-function-editor/). Click to add a target
+at one wavelength; drag across a band to add a flatness target at the level you
+release on. Drag a target line or either of its ends to move it, or switch to
+the delete tool and click a line to remove it. A drawn target takes the
+quantity, response, polarization and angle the window is showing, so there is
+nothing else to choose. Endpoints snap to a wavelength grid, to a level grid
+taken from the visible range and shown beside the wavelength step, and to the
+ends of existing targets. Phase has no editor, for the same reason it has no
+overlay, and the button is disabled on the side the merit function does not
+score.
+
 ## How the values are calculated
 
 GD, GDD, and TOD are evaluated point by point through third-order Taylor

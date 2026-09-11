@@ -64,9 +64,26 @@ export function targetGeometryChanged(source, result) {
     return ['x0', 'y0', 'x1', 'y1'].some(key => Number(source?.[key]) !== Number(result?.[key]));
 }
 
+/**
+ * What a released pointer amounts to: `{ create }`, `{ edit }` or null.
+ *
+ * A pointer that never travelled is a click. A click on empty plot area is
+ * ignored unless the host asked for `createOnClick`, in which case it creates
+ * a target of zero length at the point pressed: the preview may have wandered
+ * a pixel or two before release, so its far end is folded back onto the start.
+ */
+export function dropOutcome(drag, result, travelled, createOnClick = false) {
+    if (!result) return null;
+    if (drag.mode === 'create') {
+        if (travelled) return { create: result };
+        return createOnClick ? { create: { ...result, x1: result.x0, y1: result.y0 } } : null;
+    }
+    return travelled && targetGeometryChanged(drag.source, result) ? { edit: result } : null;
+}
+
 function ActiveTargetEditorOverlay({
     chartRef, geometry = [], enabled = false, tool = 'draw', drawColor = '#ef5350',
-    handleFill = '#1e1e1e', onCreate, onEdit, onDelete,
+    handleFill = '#1e1e1e', createOnClick = false, onCreate, onEdit, onDelete,
 }) {
     const svgRef = useRef(null);
     const dragRef = useRef(null);
@@ -173,13 +190,12 @@ function ActiveTargetEditorOverlay({
         dragRef.current = null;
         showPreview(null);
         drag.captureTarget?.releasePointerCapture?.(drag.pointerId);
-        if (!result) return;
         const endPixel = eventPixel(event, svgRef.current);
-        if (!hasPointerTravelled(drag.startPixel, endPixel)) return;
-        if (drag.mode === 'create') {
-            onCreate?.(result);
-        } else if (targetGeometryChanged(drag.source, result)) {
-            onEdit?.({ opId: drag.source.opId, kind: drag.source.kind, type: drag.source.type }, result);
+        const outcome = dropOutcome(
+            drag, result, hasPointerTravelled(drag.startPixel, endPixel), createOnClick);
+        if (outcome?.create) onCreate?.(outcome.create);
+        else if (outcome?.edit) {
+            onEdit?.({ opId: drag.source.opId, kind: drag.source.kind, type: drag.source.type }, outcome.edit);
         }
     };
 

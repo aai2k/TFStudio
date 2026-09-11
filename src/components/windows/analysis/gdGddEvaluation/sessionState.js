@@ -29,3 +29,13 @@ export const gdGddSession = createWindowSession({
         refLam: design?.referenceWavelength || 550,
     }),
 });
+
+// Target drawing: which tool is in hand and how a drawing snaps. These
+// describe how the user works rather than the coating, so they carry across a
+// design change. The level grid is not here: it follows the visible range.
+export const gdGddTargetSession = createWindowSession({
+    editMode: false,
+    editTool: 'draw',
+    snapOn: true,
+    snapNm: 10,
+});

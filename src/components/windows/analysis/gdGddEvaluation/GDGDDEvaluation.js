@@ -10,8 +10,10 @@ import { ExportMenu, useCsvExport } from '../../../ui/ExportMenu.js';
 import { AnalysisWindow, CenteredMessage } from '../chrome/layout.js';
 import { GDControls } from './GDControls.js';
 import { GDResults } from './GDResults.js';
+import { GDTargetToolbar } from './GDTargetToolbar.js';
 import { buildGdGddView } from './viewModel.js';
 import { useGDGDDState } from './useGDGDDState.js';
+import { useGdGddTargetEditor } from './useGdGddTargetEditor.js';
 import { useAnalysisColors } from '../../../../state/AnalysisSettingsContext.js';
 
 const { createElement: h, useMemo } = React;
@@ -41,7 +43,7 @@ function buildNotices({ raw, quantity, autoRange, rangeNotice, text }) {
 export function GDGDDEvaluation({ c, theme, t }) {
     const text = t.gdgdd;
     const dt = t.dataTable;
-    const { design } = useDesign();
+    const { design, updateDesign } = useDesign();
     const state = useGDGDDState(design);
     const curve = useAnalysisColors('gdGddEvaluation');
     const { setLamStart, setLamEnd } = state;
@@ -61,6 +63,14 @@ export function GDGDDEvaluation({ c, theme, t }) {
         showReference: state.showRef,
     }, text, curve, t.spectralAxis.lambdaShort),
     [state.raw, state.quantity, state.refLam, state.showRef, text, curve, t]);
+    // A fresh bounds array on every render counts as a changed chart input and
+    // re-plots the trace, so it is held stable across renders that do not move
+    // the axis. The target editor reads its level grid off the same bounds.
+    const yRange = useMemo(
+        () => state.yAuto ? view.autoRange?.range : [state.yMin, state.yMax],
+        [state.yAuto, state.yMin, state.yMax, view.autoRange],
+    );
+    const editor = useGdGddTargetEditor({ design, updateDesign, state, yRange });
     const csv = useCsvExport(
         () => csvFromRows(view.tableColumns, view.tableRows),
         () => `${(design?.name || 'design').replace(/[^\w.-]+/g, '_')}_dispersion.csv`,
@@ -84,8 +94,9 @@ export function GDGDDEvaluation({ c, theme, t }) {
     return h(AnalysisWindow, { c },
         h(GDControls, {
             c, t, text, state, raw: state.raw,
-            autoRange: view.autoRange, notices,
+            autoRange: view.autoRange, notices, editor,
         }),
-        h(GDResults, { c, t, text, state, view, exportMenu }),
+        h(GDTargetToolbar, { c, text, editor, unit: view.meta.unit }),
+        h(GDResults, { c, t, text, state, view, exportMenu, yRange, editor }),
     );
 }

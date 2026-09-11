@@ -7,13 +7,40 @@ import { gdGddTargetColor } from './gdTargets.js';
 
 const { createElement: h } = React;
 
+function pencilIcon() {
+    return h('svg', { width: 13, height: 13, viewBox: '0 0 16 16', fill: 'none' },
+        h('path', {
+            d: 'M11 2l3 3-8 8H3v-3l8-8z', stroke: 'currentColor',
+            strokeWidth: 1.3, strokeLinejoin: 'round',
+        }));
+}
+
+// A disabled Edit button says why in its tooltip, so a phase plot or the
+// unscored side is not read as the feature being missing.
+function editTitle(text, editor) {
+    if (editor.editBlocker === 'phase') return text.editPhaseTip;
+    if (editor.editBlocker === 'side') return text.editSideTip(text[editor.meritSide]);
+    return editor.editMode ? text.editTargetsTooltipOn : text.editTargetsTooltipOff;
+}
+
+function EditTargetsButton({ c, text, editor }) {
+    return h(ToggleButton, {
+        c, label: text.editTargets, active: editor.editMode, disabled: !!editor.editBlocker,
+        onClick: () => editor.setEditMode(current => !current),
+        title: editTitle(text, editor),
+    }, pencilIcon());
+}
+
 /**
  * The switches that decide which curve is drawn. Everything that describes the
  * range or the geometry it is drawn over lives in the Setup panel.
  */
-export function GDControls({ c, t, text, state, raw, autoRange, notices }) {
+export function GDControls({ c, t, text, state, raw, autoRange, notices, editor }) {
     const hasTargets = state.targets.length > 0;
     const targetColor = gdGddTargetColor(state.target);
+    // Editing shows the targets whatever the switch says, so the switch is
+    // parked on while it lasts.
+    const showing = (state.showTargets || editor.editMode) && hasTargets;
     return h(ControlRow, {
         c,
         'data-gd-toolbar': 'curves',
@@ -21,8 +48,8 @@ export function GDControls({ c, t, text, state, raw, autoRange, notices }) {
             h(ToggleButton, {
                 key: 'targets',
                 c, label: text.targets || 'Targets',
-                active: state.showTargets && hasTargets,
-                disabled: !hasTargets,
+                active: showing,
+                disabled: !hasTargets || editor.editMode,
                 onClick: () => state.setShowTargets(current => !current),
                 title: hasTargets
                     ? (text.targetsTip || 'Show merit-function targets for this curve')
@@ -35,6 +62,7 @@ export function GDControls({ c, t, text, state, raw, autoRange, notices }) {
                     },
                 }),
             ),
+            h(EditTargetsButton, { key: 'edit', c, text, editor }),
             h(NoticeBadge, { key: 'notices', c, notices, label: t.analysisChrome.notices }),
             h(GDSetup, { key: 'setup', c, t, text, state, raw, autoRange }),
         ],
