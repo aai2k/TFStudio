@@ -40,7 +40,7 @@ export function SpectrumExchange({ c, t }) {
         statusNotice, previewNotice, fitErrorNotice, fitClipNotice, fitStepNotice,
         range ? materialNotice : null,
     ].filter(Boolean);
-    const tabProps = { controller, c, sx };
+    const tabProps = { controller, c, sx, t };
 
     return h(AnalysisWindow, { c },
         h(ControlRow, {

@@ -210,7 +210,7 @@ function ImportedCurves({ controller, c, sx }) {
     );
 }
 
-export function ImportTab({ controller, c, sx }) {
+export function ImportTab({ controller, c, sx, t }) {
     const { loading, onImport, fileName } = controller;
     return h('div', {
         className: 'tfs-spectrum-import-container',
@@ -238,7 +238,7 @@ export function ImportTab({ controller, c, sx }) {
                 ),
             ),
             h('div', { className: 'tfs-spectrum-import-preview' },
-                h(SpectrumPreview, { controller, c, sx }),
+                h(SpectrumPreview, { controller, c, sx, t }),
             ),
         ),
     );

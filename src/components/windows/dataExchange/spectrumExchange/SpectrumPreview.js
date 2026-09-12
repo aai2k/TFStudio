@@ -3,7 +3,7 @@ import { CenteredMessage, PlotArea } from '../../analysis/chrome/layout.js';
 
 const { createElement: h } = React;
 
-export function SpectrumPreview({ controller, c, sx }) {
+export function SpectrumPreview({ controller, c, sx, t }) {
     const {
         design, previewCurve, previewData, previewRange, previewShowCurves,
     } = controller;
@@ -25,6 +25,8 @@ export function SpectrumPreview({ controller, c, sx }) {
             yScale: 'percent',
             spectralUnit: 'nm',
             overlays: [overlay],
+            spectralTitles: t.spectralAxis,
+            curveLabels: t.opticalEval.curveLabels,
         }),
     );
 }

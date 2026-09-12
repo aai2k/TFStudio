@@ -217,7 +217,7 @@ export function ImportTab({ controller, c, mx }) {
             h('div', { className: 'tfs-spectrum-import-preview' },
                 preview
                     ? h(PlotArea, null, h(EllipsometryChart, {
-                        data: preview, c,
+                        data: preview, c, xLabel: preview.xLabel,
                         show: { psi: preview.psi.length > 0, delta: preview.delta.length > 0 },
                     }))
                     : h(PlotArea, null, h('div', {
