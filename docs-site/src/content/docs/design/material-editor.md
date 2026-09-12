@@ -65,6 +65,13 @@ column is imported as it is. The compressed files of the Essential Macleod
 materials library cannot be read: open such a material in Essential Macleod
 and save it into your database first.
 
+A table point with `k` below zero is imported as written and marked in the
+dialog, with the count in the preview. Essential Macleod's own materials hold
+a few such points, and so do some refractiveindex.info tables; they are the
+residue of the fit that produced the table. A negative extinction coefficient
+would be gain, so every calculation reads `k = 0` at such a point, and the
+n,k grid of the Material Editor marks the row.
+
 **Browse RII**: open the refractiveindex.info browser to pick from the online
 database (an internet connection is needed the first time you fetch a
 material). The material is added to your chosen user catalog and then lives

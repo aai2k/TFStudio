@@ -8,7 +8,7 @@
 
 import { evalN } from '../../../../utils/materials/dispersionFormulas.js';
 import {
-    createInterpolator,
+    createKInterpolator,
     createTabulatedNKSampler,
     interpolationRuleOf,
 } from '../../../../utils/materials/pchip.js';
@@ -27,9 +27,9 @@ function makeTabularSampler(draft) {
 }
 
 // Interpolator over a sorted {lam_um, k} table (λ in µm) under the draft's
-// rule. Clamps outside.
+// rule. Clamps outside, and never goes below zero.
 function makeKInterpolator(kTable, draft) {
-    return createInterpolator(kTable.map(row => [row.lam_um, row.k]), interpolationRuleOf(draft)) || (() => 0);
+    return createKInterpolator(kTable.map(row => [row.lam_um, row.k]), interpolationRuleOf(draft)) || (() => 0);
 }
 
 // Formula-mode sampler: dispersion formula for n + optional λ/k table for k.

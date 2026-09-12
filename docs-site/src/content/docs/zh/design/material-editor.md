@@ -39,6 +39,8 @@ TFCalc 与 Essential Macleod 的文件不记录波长单位。对话框默认按
 
 公式材料在 TFStudio 具有相同形式时保留公式。TFStudio 没有的 TFCalc 形式（Hartmann、Drude 以及所有 k 公式）会在文件声明的范围内采样为表格。Essential Macleod 的内部透过率表在这里没有对应项，因此不导入；`k` 列按原样导入。Essential Macleod 材料库中的压缩文件无法读取：请先在 Essential Macleod 中打开该材料并保存到你的数据库中。
 
+`k` 小于零的表格点按原样导入，并在对话框中标出，预览里给出个数。Essential Macleod 自带的材料里有几个这样的点，refractiveindex.info 的一些表格也有；它们是生成表格的拟合留下的残余。负的消光系数意味着增益，因此所有计算在这类点处都按 `k = 0` 处理，材料编辑器的 n,k 网格也会标出该行。
+
 **浏览 RII**：打开 refractiveindex.info 浏览器，从在线数据库中选择（首次获取材料时需要互联网连接）。该材料被添加到你选择的用户目录中，之后即存在于本地。
 
 **新建目录**：创建一个空的用户目录来组织你自己的材料。

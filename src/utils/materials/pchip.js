@@ -188,8 +188,22 @@ export function createInterpolator(points, interp) {
 }
 
 /**
+ * Interpolator of the named rule over an extinction table [[x, k], ...], with
+ * every point below zero read as zero. A negative k in n + ik is gain, and a
+ * table that holds one (Essential Macleod's own materials and some
+ * refractiveindex.info tables carry a few, the residue of the fit that
+ * produced them) means k = 0 there. The table itself keeps the value as
+ * written; only the curve sampled from it is floored, at the points rather
+ * than the output, so the derivatives of a piece agree with its values.
+ */
+export function createKInterpolator(points, interp) {
+    return createInterpolator((points || []).map(point => [point?.[0], Math.max(0, Number(point?.[1]))]), interp);
+}
+
+/**
  * Build getNK(lambda_nm) from [[lambda_nm, n, k], ...] under the named rule,
- * PCHIP when none is given.
+ * PCHIP when none is given. `tabData` on the result is the table as given,
+ * sorted and made finite; the sampled k never goes below zero.
  */
 export function createTabulatedNKSampler(rows, interp = TABULATED_INTERPOLATION) {
     const data = (rows || [])
@@ -202,7 +216,7 @@ export function createTabulatedNKSampler(rows, interp = TABULATED_INTERPOLATION)
 
     const rule = interpolationRuleOf({ interp });
     const nAt = createInterpolator(data.map(row => [row[0], row[1]]), rule);
-    const kAt = createInterpolator(data.map(row => [row[0], row[2]]), rule);
+    const kAt = createKInterpolator(data.map(row => [row[0], row[2]]), rule);
     const getNK = lambdaNm => [nAt(lambdaNm), kAt(lambdaNm)];
     getNK.interp = rule;
     getNK.rangeNm = [nAt.knots[0], nAt.knots[nAt.knots.length - 1]];

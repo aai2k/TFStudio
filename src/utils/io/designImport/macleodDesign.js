@@ -89,6 +89,23 @@ export function isConstantIndexName(name) {
     return /^\s*\d*\.?\d+\s*$/.test(name || '');
 }
 
+// A scale factor this close to a power of ten is that power. Single precision
+// rounds to within 2^-24 (6e-8) of the value; the margin covers the decimal
+// text the file writes on top of that, and no wavelength unit sits this close
+// to a decade without being one.
+const DECADE_TOLERANCE = 1e-6;
+
+// Nanometres per unit from the unit's size in metres. Some files carry the
+// factor as a single-precision value widened to double (9.99999971718069E-10
+// is float32(1e-9)); the program treats such a unit as the exact nanometre,
+// and reading it literally would shrink every optical thickness by the same
+// 2.8e-8 and shift the whole spectrum with it.
+function nmPerUnit(metresPerUnit) {
+    const exponent = Math.round(Math.log10(metresPerUnit));
+    if (Math.abs(metresPerUnit / 10 ** exponent - 1) < DECADE_TOLERANCE) return 10 ** (exponent + 9);
+    return metresPerUnit * 1e9;
+}
+
 // Nanometres per wavelength unit of the file. Essential Macleod's default
 // unit is the nanometre; a file that names no unit is read that way and says
 // so in its notes, unless its reference wavelength cannot be nanometres.
@@ -103,8 +120,7 @@ function wavelengthScale(params, fileName, notes) {
     }
     const factor = num(textOf(unit, 'ScaleFactor'));
     if (!(factor > 0)) throw new Error(`"${fileName}": the wavelength unit has no scale factor`);
-    // Metres per unit → nanometres per unit.
-    return factor * 1e9;
+    return nmPerUnit(factor);
 }
 
 function readLayer(inner, index, thicknessType, toNm, fileName) {

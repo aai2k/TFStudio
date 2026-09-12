@@ -242,6 +242,15 @@ function renderTypeToggle({ draft, set, me, c, sectionLabel }) {
     );
 }
 
+// A k below zero is gain. The sampler reads k = 0 at such a row, so the grid
+// marks the cell and a line under it says how many rows that applies to.
+const negativeKCell = (me) => (row, key) => (key === 'k' && parseNumberStrict(row.k) < 0 ? me.negativeKCell : null);
+
+function negativeKNote(rows, me) {
+    const count = rows.filter(row => parseNumberStrict(row.k) < 0).length;
+    return count > 0 && h('div', { style: { fontSize: 10, color: '#e6a23c', marginTop: 3 } }, me.negativeKRows(count));
+}
+
 function renderTabularEditor({ draft, editRow, delRow, addRow, pasteRows, sortRows, me, c, sectionLabel, lambdaAxis }) {
     return h('div', null,
         sectionLabel(me.nkTable),
@@ -256,13 +265,15 @@ function renderTabularEditor({ draft, editRow, delRow, addRow, pasteRows, sortRo
             onDelete: delRow,
             onAdd: addRow,
             onPasteRows: pasteRows,
+            cellWarning: negativeKCell(me),
             addLabel: me.addRow,
             emptyLabel: me.noRows,
             sortBtn: draft.rows.length > 1
                 ? h('button', { onClick: sortRows, style: { padding: '2px 8px', fontSize: 11, border: `1px solid ${c.border}`, borderRadius: 3, background: c.panel, color: c.text, cursor: 'pointer', fontFamily: 'inherit' } }, me.sortRows)
                 : null,
             c,
-        })
+        }),
+        negativeKNote(draft.rows, me)
     );
 }
 
@@ -429,10 +440,12 @@ function renderFormulaEditor(ctx) {
             onDelete: delKRow,
             onAdd: addKRow,
             onPasteRows: pasteKRows,
+            cellWarning: negativeKCell(me),
             addLabel: me.addRow,
             emptyLabel: me.noRows,
             c,
         }),
+        negativeKNote(draft.kRows, me),
         draft.kRows.length > 0 && renderInterpolationField(ctx)
     );
 }

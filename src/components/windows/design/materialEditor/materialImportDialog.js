@@ -12,7 +12,7 @@
  */
 
 import { parseMaterialFiles } from '../../../../utils/materials/materialFileImport.js';
-import { makeGetNK } from '../../../../utils/materials/catalogManager/dispersion.js';
+import { makeGetNK, negativeKPoints } from '../../../../utils/materials/catalogManager/dispersion.js';
 import { FORMULA_NAMES } from '../../../../utils/materials/dispersionFormulas.js';
 import { TFCALC_N_FORMULAS, TFCALC_K_FORMULAS } from '../../../../utils/materials/tfcalcParser.js';
 import { MACLEOD_N_MODELS } from '../../../../utils/materials/macleodParser.js';
@@ -42,6 +42,16 @@ function typeLabel(item, me) {
     return FORMULA_NAMES[e.formulaNum] || String(e.formulaNum);
 }
 
+// The data-type label with a mark when the table holds points with k below
+// zero, so a file bringing one in is visible before the material is picked.
+function typeCell(item, me) {
+    const negative = negativeKPoints(item.entry).length;
+    return h('span', null,
+        typeLabel(item, me),
+        negative > 0 && h('span', { style: { color: '#e6a23c', marginLeft: 6 }, title: me.importNegativeK(negative) }, 'k < 0')
+    );
+}
+
 function renderList({ items, errors, currentItem, excluded, toggle, setCurrent, me, c }) {
     return h('div', { style: { flex: '1 1 55%', minWidth: 0, overflow: 'auto', borderRight: `1px solid ${c.border}` } },
         h('table', { style: { width: '100%', borderCollapse: 'collapse', fontSize: 12, tableLayout: 'fixed' } },
@@ -66,7 +76,7 @@ function renderList({ items, errors, currentItem, excluded, toggle, setCurrent, 
                     })),
                     cell(item.entry.name, { title: item.file }),
                     cell(me.importProgramName[item.program]),
-                    cell(typeLabel(item, me)),
+                    cell(typeCell(item, me)),
                     cell(item.entry.group)
                 );
             }))
@@ -81,6 +91,7 @@ function renderList({ items, errors, currentItem, excluded, toggle, setCurrent, 
 
 function renderPreview({ currentItem, sampled, chartRef, me, c }) {
     const entry = currentItem?.entry;
+    const negative = entry ? negativeKPoints(entry).length : 0;
     const details = !entry
         ? h('div', { style: { flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', color: c.textDim, fontStyle: 'italic', fontSize: 12 } }, me.importPreviewEmpty)
         : h('div', { style: { flex: 1, overflowY: 'auto', display: 'flex', flexDirection: 'column' } },
@@ -91,6 +102,7 @@ function renderPreview({ currentItem, sampled, chartRef, me, c }) {
                 entry.lambdaMin && h('div', { style: { fontSize: 11, color: c.textDim, marginTop: 2 } },
                     `${me.lambdaRange}: ${formatNm(entry.lambdaMin * 1000)} – ${formatNm(entry.lambdaMax * 1000)} nm`),
                 entry.macleod?.internalTransmittance && h('div', { style: { fontSize: 11, color: '#e6a23c', marginTop: 4 } }, me.importInternalTransmittance),
+                negative > 0 && h('div', { style: { fontSize: 11, color: '#e6a23c', marginTop: 4 } }, me.importNegativeK(negative)),
                 entry.comment && h('div', { style: { fontSize: 11, color: c.textDim, marginTop: 4 } }, entry.comment)
             ),
             readOnlyFormulaBlock(entry, me, c),

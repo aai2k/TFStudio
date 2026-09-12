@@ -7,7 +7,8 @@
  *  2. Physical thickness files, locks, a numeric material, a µm database and
  *     the single-line XML layout.
  *  3. The wavelength unit block: its own <Unit> child in either position, a
- *     <Parameters> tag with attributes, and a file with no unit block.
+ *     <Parameters> tag with attributes, a file with no unit block, and a
+ *     scale factor stored in single precision, which is the exact decade.
  *  4. Rejections, packing density (the program's rugate mechanism) among them.
  *  5. The program's material database: every name it holds is embedded, read
  *     under the database's unit and the program's linear rule, matched without
@@ -151,6 +152,27 @@ ok(Object.keys(stranger.embedded).length === 0 && stranger.notes.some(n => n.cod
     near(n, 1.385 + (1.380 - 1.385) * 110 / 200, 1e-12, 'linear index at the reference wavelength');
     near(built.design.frontLayers[0].thickness, 0.2516994 * 510 / n, 1e-9, 'full waves converted with the database material at λ0');
     ok(built.design.materials['import:MgF2'].interp === 'linear', 'the embedded definition carries the linear rule into the design');
+}
+
+// Some files store the unit's scale factor in single precision widened to
+// double. The program treats such a unit as the exact nanometre, so the
+// reader does too: the reference wavelength and every full-wave thickness
+// come out exactly as from a file carrying the exact factor.
+{
+    const rounded = AR.replace(unit('.000000001', 'nm'), unit('9.99999971718069E-10', 'nm'));
+    const r = parseMacleodDesign(rounded.replace('<ReferenceWavelength> 510', '<ReferenceWavelength> 1550'), 'rounded.dds');
+    ok(r.referenceWavelengthNm === 1550, `a single-precision scale factor is read as exactly 1 nm per unit (${r.referenceWavelengthNm})`);
+    ok(r.spectrum.fromNm === 400 && r.spectrum.toNm === 700, 'and so is the plot range');
+    const resolve = name => name === 'Air' ? 'builtin:Air' : null;
+    const di = getLocale('en').designImport;
+    const exact = buildImportedDesign(parseMacleodDesign(AR, 'exact.dds', database), resolve, di).design;
+    const fromRounded = buildImportedDesign(parseMacleodDesign(rounded, 'rounded.dds', database), resolve, di).design;
+    ok(exact.frontLayers.every((l, i) => l.thickness === fromRounded.frontLayers[i].thickness), 'every full-wave layer converts to the same nanometres as from the exact factor');
+    const um = parseMacleodDesign(P.replace(unit('.000001', 'µm'), unit(String(Math.fround(1e-6)), 'µm')), 'um32.dds');
+    near(um.referenceWavelengthNm, 600, 1e-12, 'a single-precision micrometre unit is the exact micrometre');
+    near(um.front[0].thicknessNm, 147.22, 1e-12, 'physical thicknesses convert with it');
+    const odd = parseMacleodDesign(P.replace(unit('.000001', 'µm'), unit('.0000015', 'x')), 'odd.dds');
+    near(odd.referenceWavelengthNm, 900, 1e-9, 'a unit that is not a decade is read as written');
 }
 
 // ── Maintainer-only: the shipped sample designs ──────────────────────────────

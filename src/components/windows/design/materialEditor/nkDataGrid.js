@@ -8,6 +8,7 @@
  *   onDelete(key)
  *   onAdd()
  *   onPasteRows([{ ...values }])   — called with parsed TSV rows
+ *   cellWarning(row, key)          — optional; a message marks that cell
  *   c, addLabel, emptyLabel, sortBtn
  *
  * Supports cell-to-cell keyboard navigation (Enter/Tab/Arrows), row delete
@@ -95,6 +96,7 @@ function renderNkCell(col, ci, row, ri, ctx) {
     const { c, focusCell, inputRefs, setFocusCell, onEdit, inputStyle } = ctx;
     const isFocused = focusCell?.rowIdx === ri && focusCell?.colIdx === ci;
     const rk = `${ri}_${ci}`;
+    const warning = ctx.cellWarning?.(row, col.key) || null;
     return h('td', {
         key: col.key,
         style: {
@@ -113,7 +115,8 @@ function renderNkCell(col, ci, row, ri, ctx) {
                 row, ri, ci, cols: ctx.cols, navigate: ctx.navigate,
                 onDelete: ctx.onDelete, onPasteRows: ctx.onPasteRows,
             }),
-            style: inputStyle,
+            title: warning || undefined,
+            style: warning ? { ...inputStyle, color: '#e6a23c' } : inputStyle,
         })
     );
 }
@@ -135,7 +138,7 @@ function renderNkRow(row, ri, ctx) {
     );
 }
 
-export function NKDataGrid({ cols, rows, onEdit, onDelete, onAdd, onPasteRows, c, addLabel, emptyLabel, sortBtn }) {
+export function NKDataGrid({ cols, rows, onEdit, onDelete, onAdd, onPasteRows, cellWarning, c, addLabel, emptyLabel, sortBtn }) {
     // focusCell: { rowIdx, colIdx } — which cell is active
     const [focusCell, setFocusCell] = useState(null);
     const inputRefs   = useRef({}); // key: `${rowIdx}_${colIdx}` → input DOM node
@@ -168,7 +171,7 @@ export function NKDataGrid({ cols, rows, onEdit, onDelete, onAdd, onPasteRows, c
         position: 'sticky', top: 0, background: c.panel, zIndex: 1,
     };
 
-    const rowCtx = { cols, c, focusCell, inputRefs, setFocusCell, onEdit, onDelete, onPasteRows, navigate, inputStyle };
+    const rowCtx = { cols, c, focusCell, inputRefs, setFocusCell, onEdit, onDelete, onPasteRows, cellWarning, navigate, inputStyle };
 
     return h('div', { style: { display: 'flex', flexDirection: 'column', gap: 4 } },
         h('div', { style: { display: 'flex', gap: 4, alignItems: 'center' } },

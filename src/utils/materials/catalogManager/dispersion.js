@@ -1,13 +1,13 @@
 import { evalN } from '../dispersionFormulas.js';
 import {
-    createInterpolator,
+    createKInterpolator,
     createTabulatedNKSampler,
     interpolationRuleOf,
 } from '../pchip.js';
 import { evaluateDispersionFit } from '../dispersionFits.js';
 
 // One interpolator per k table and rule; a table is shared by every getNK
-// built from the same record.
+// built from the same record. The sampled k never goes below zero.
 const kInterpolatorCache = new WeakMap();
 
 function makeKInterpolator(kTable, interp) {
@@ -16,15 +16,27 @@ function makeKInterpolator(kTable, interp) {
     if (!byRule) kInterpolatorCache.set(kTable, byRule = new Map());
     let interpolate = byRule.get(interp);
     if (!interpolate) {
-        interpolate = createInterpolator(kTable.map(row => [row.lam_um, row.k]), interp);
+        interpolate = createKInterpolator(kTable.map(row => [row.lam_um, row.k]), interp);
         byRule.set(interp, interpolate);
     }
     return interpolate;
 }
 
-/** Interpolate k from a [{lam_um, k}, ...] table under the named rule (PCHIP by default). */
+/** Interpolate k from a [{lam_um, k}, ...] table under the named rule (PCHIP by default), never below zero. */
 export function interpK(kTable, lambda_um, interp) {
     return makeKInterpolator(kTable, interpolationRuleOf({ interp }))?.(lambda_um) ?? 0;
+}
+
+/**
+ * Points of a material record's tables whose k is below zero, as
+ * [lambda_nm, k] in table order: the n,k table of a tabulated material and
+ * the k table of a formula material. The sampled curve reads k = 0 at these
+ * points; the record keeps them so the editor and the import dialog can say so.
+ */
+export function negativeKPoints(material) {
+    const points = (material?.tabData || []).map(row => [Number(row?.[0]), Number(row?.[2])])
+        .concat((material?.kTable || []).map(row => [Number(row?.lam_um) * 1000, Number(row?.k)]));
+    return points.filter(point => point[1] < 0);
 }
 
 /** Build a getNK(lambda_nm) function for a catalog material entry. */
