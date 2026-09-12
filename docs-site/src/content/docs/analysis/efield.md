@@ -32,15 +32,25 @@ The absolute forms depend on the incident medium, because a beam of a given irra
 
 At normal incidence, and for s-polarization at any angle, the field lies entirely along the layers, so the normal component is zero and the total equals it. Only p-polarization at an angle splits into two, and there the two components together are what the material sees.
 
+**Depth axis**: what the horizontal axis measures.
+
+- *Physical depth*, in nm, measured from the outer surface. This is the default.
+- *Optical distance (nm)*, the running sum of `n·d` through the stack.
+- *Optical distance (QWOT)* and *(FWOT)*, that same optical distance divided by the reference wavelength, in quarter waves or full waves.
+
+**λ₀**: the wavelength the optical units are measured at. It does not enter the field calculation, only where the curve's depths land, so it is inert while the axis reads physical depth. **From design** takes the design's own reference wavelength, which is what the Design Editor's thickness column uses, so the axis and the layer table carry the same numbers: a layer that reads 0.25 FWOT in the table spans 0.25 on the axis, and a peak can be traced back to a row. Clear the box to type another λ₀, for reading a stack against a wavelength it was not written in. Either way the axis title says which wavelength is in force, and the axis describes the stack: changing the wavelength the field is computed at moves the curves, not the boundaries.
+
 **Side**: profile the **front** coating or the **back** coating. Each side shows that coating's standing wave on the substrate, evaluated from its own incident medium; the substrate is the exit medium.
 
 ## How to read it
 
-The horizontal axis is physical depth in nanometres; vertical dotted lines and the coloured bands mark the layer boundaries and materials. A horizontal dotted line marks the incident beam's own level, so a field above it is being concentrated by the coating rather than merely passed through. Peaks are field anti-nodes and troughs are nodes.
+The horizontal axis runs from the incident medium into the substrate; vertical dotted lines and the coloured bands mark the layer boundaries and materials. A horizontal dotted line marks the incident beam's own level, so a field above it is being concentrated by the coating rather than merely passed through. Peaks are field anti-nodes and troughs are nodes.
+
+On an optical axis the nodes of a quarter-wave stack fall half a full wave apart at the wavelength the stack is tuned to, which is easier to check by eye than the uneven spacing a physical axis gives when the layers have different indices.
 
 For laser-damage work the layer containing the highest field is the bottleneck, and lowering the field there raises the damage threshold. In a well-designed mirror the anti-nodes sit preferentially in the more robust material, which is part of why mirrors tolerate high power. Read the total field for this, not one component: at oblique incidence the p-polarized field can have a node in its tangential component at a depth where the resultant field is not small at all, because the normal component carries the field there instead.
 
-The data table lists the field versus depth for the curves on screen, with the unit in each column heading, and exports to CSV. Reading the field against the [Refractive Index Profile](/analysis/refractive-index-profile/) shows which layer the standing-wave peak lands in.
+The data table lists the field against the same depth coordinate as the plot, with the unit in each column heading, and exports to CSV. Reading the field against the [Refractive Index Profile](/analysis/refractive-index-profile/) shows which layer the standing-wave peak lands in.
 
 ## References
 

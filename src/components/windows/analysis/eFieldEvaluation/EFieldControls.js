@@ -1,6 +1,7 @@
-import { ChoiceGroup, NumInput, SelectField } from '../chrome/controls.js';
+import { CheckField, ChoiceGroup, NumInput, SelectField } from '../chrome/controls.js';
 import { ControlRow } from '../chrome/layout.js';
 import { NoticeBadge, SettingRow, SettingsMenu } from '../chrome/popover.js';
+import { isOpticalUnit, X_UNIT_IDS } from './xScale.js';
 import { COMPONENT_IDS, Y_SCALE_IDS } from './yScale.js';
 
 const { createElement: h } = React;
@@ -9,10 +10,10 @@ const { createElement: h } = React;
 // chosen, so the two windows can be read side by side.
 const SIDE_COLORS = { front: '#1e88e5', back: '#e53935' };
 
-// Wide enough for the longest quantity and component name on one line. A
-// dropdown narrower than its text wraps the closed box and spills out of it,
-// so the names are kept short and this is sized to them.
-const SELECT_WIDTH = 164;
+// Wide enough for the longest quantity, component and depth-unit name on one
+// line. A dropdown narrower than its text wraps the closed box and spills out
+// of it, so the names are kept short and this is sized to them.
+const SELECT_WIDTH = 186;
 
 /** Which field is plotted; the wavelength and angle it is computed at are settings. */
 export function EFieldControls({ c, t, ef, state, notices }) {
@@ -38,6 +39,27 @@ export function EFieldControls({ c, t, ef, state, notices }) {
                 { id: 'front', label: ef.front, color: SIDE_COLORS.front },
                 { id: 'back', label: ef.back, color: SIDE_COLORS.back },
             ],
+        }),
+    );
+}
+
+/**
+ * The wavelength the depth axis measures optical distance at: the design's own
+ * while the box is ticked, typed when it is not. It does not enter the field
+ * calculation, only where the curve's depths land.
+ */
+function AxisReferenceRow({ c, ef, state }) {
+    const optical = isOpticalUnit(state.display.xUnit);
+    return h(SettingRow, { c, label: ef.axisRef },
+        h(CheckField, {
+            c, label: ef.axisRefFromDesign, title: ef.axisRefFromDesignTip,
+            checked: state.axisRefFromDesign, disabled: !optical,
+            onChange: event => state.setAxisRefFromDesign(event.target.checked),
+        }),
+        h(NumInput, {
+            value: state.axisRefLambda, min: 100, max: 10000, step: 10, c, width: 72,
+            disabled: !optical || state.axisRefFromDesign,
+            onChange: state.setAxisRefLambda,
         }),
     );
 }
@@ -70,5 +92,15 @@ function EFieldSetup({ c, t, ef, state }) {
                 options: COMPONENT_IDS.map(id => ({ id, label: ef.components[id] })),
             }),
         ),
+        h(SettingRow, { c, label: ef.xAxis },
+            h(SelectField, {
+                c, value: state.display.xUnit, onChange: state.setXUnit, width: SELECT_WIDTH,
+                options: X_UNIT_IDS.map(id => ({ id, label: ef.xUnits[id] })),
+            }),
+        ),
+        // λ₀ is what the optical units are measured at, so it does nothing at
+        // all on a physical depth axis. The row is disabled there rather than
+        // removed, so the panel keeps its height.
+        h(AxisReferenceRow, { c, ef, state }),
     );
 }

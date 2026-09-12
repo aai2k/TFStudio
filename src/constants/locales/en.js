@@ -324,7 +324,9 @@ export default {
         characteristic:  'Channel',
         sweepChannel:    'Swept channel',
         quantity:        'Quantity',
-        component:       'Component',
+        component:         'Component',
+        xUnit:             'Depth axis',
+        axisRefFromDesign: 'Depth axis λ₀ from the design',
         pol:             'Polarization',
         polarization:    'Polarization',
         theta:           'Angle of incidence (°)',
@@ -2175,6 +2177,26 @@ export default {
       tangential: 'Along the layers',
       normal:     'Normal to the layers',
     },
+    xAxis:         'Depth axis',
+    // Shown in the dropdown and carried into the axis title, so they name the
+    // quantity rather than just its unit.
+    xUnits: {
+      nm:   'Physical depth',
+      OT:   'Optical distance (nm)',
+      QWOT: 'Optical distance (QWOT)',
+      FWOT: 'Optical distance (FWOT)',
+    },
+    // Column headings for the same four units, kept short enough for a cell.
+    xColumns: {
+      nm:   'z (nm)',
+      OT:   'n·d (nm)',
+      QWOT: 'QWOT',
+      FWOT: 'FWOT',
+    },
+    xAxisOptical: (what, lambda0) => `${what}, λ₀ = ${lambda0} nm`,
+    axisRef:              'λ₀ (nm)',
+    axisRefFromDesign:    'From design',
+    axisRefFromDesignTip: 'Measure optical distance at the design\'s reference wavelength, so the axis and the layer table carry the same numbers. Clear it to type another λ₀.',
   },
 
   ellipsometry: {

@@ -3,6 +3,7 @@ import {
     axisTooltip, cartesianOption, formatChartNumber, lineSeries, niceAxisBounds, valueAxis,
 } from '../../../ui/chartOptions.js';
 import { legendAbove, plotMargin } from '../chrome/plot.js';
+import { depthScale, xAxisTitle } from './xScale.js';
 import {
     incidentAmplitudeVpm, incidentLevel, yAxisTitle, yScaleTooltip,
 } from './yScale.js';
@@ -10,8 +11,8 @@ import { plottedCurves } from './profileViewModel.js';
 
 /**
  * Native ECharts line series for the selected polarization. `tr` is `t.eField`.
- * `display` carries the quantity on the axis and which component of the field
- * is read; both come from the window's settings menu.
+ * `display` carries what the two axes read and which component of the field
+ * they read; all three come from the window's settings menu.
  */
 export function efieldSeries(profileData, pol, curve = ANALYSIS_DEFAULTS.eFieldEvaluation.colors, tr, display) {
     const curves = plottedCurves(profileData, pol, tr, display);
@@ -24,9 +25,11 @@ export function efieldSeries(profileData, pol, curve = ANALYSIS_DEFAULTS.eFieldE
 
 export function efieldOption(profileData, pol, matColorMap, colors, { curve, tr, display }) {
     const { bgColor, paperColor, gridColor, textColor, accentColor } = colors;
-    const profileRef = pol === 'avg' ? profileData?.avg : profileData?.[pol];
-    const bounds = profileRef?.layerBounds || [];
-    const totalZ = bounds.length > 1 ? bounds[bounds.length - 1] : 0;
+    // The boundary lines and material bands share the curves' axis, so they are
+    // measured in the chosen depth unit like every other coordinate here.
+    const depth = depthScale(profileData, display.xUnit);
+    const bounds = depth.bounds;
+    const totalZ = depth.total;
     const validLayers = profileData?.validLayers || [];
     const series = efieldSeries(profileData, pol, curve, tr, display);
     const { quantity, component } = display;
@@ -71,7 +74,10 @@ export function efieldOption(profileData, pol, matColorMap, colors, { curve, tr,
         // `series` is what installs the formatter, so the readout carries the
         // unit; with three quantities on offer a bare number is ambiguous.
         tooltip: axisTooltip({ ...yScaleTooltip(quantity), series }),
-        xAxis: valueAxis({ name: tr.xAxisTitle, color: textColor, gridColor, min: totalZ > 0 ? 0 : undefined, max: totalZ > 0 ? totalZ : undefined }),
+        xAxis: valueAxis({
+            name: xAxisTitle(depth, profileData?.refLambda, tr), color: textColor, gridColor,
+            min: totalZ > 0 ? 0 : undefined, max: totalZ > 0 ? totalZ : undefined,
+        }),
         yAxis: valueAxis({
             name: yAxisTitle(quantity, component), color: textColor, gridColor, min: yBounds.min,
             max: yBounds.max, interval: yBounds.interval, formatter: formatChartNumber,

@@ -60,6 +60,7 @@ const ALLOWED_UNDECLARED = [
     'sweep',                 // which parameter is being swept, chosen per design
     'materialId',            // which material is on screen
     'lambda', 'lambdaNm', 'refLam',   // reseeded from the design
+    'axisRefLambda',         // E-field depth axis λ₀, reseeded from the design
     'side',                  // reseeded from whichever side carries the coating
     'yMin', 'yMax',          // GD/GDD clears these whenever the quantity changes
 ];

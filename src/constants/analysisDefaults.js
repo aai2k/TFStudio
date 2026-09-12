@@ -279,8 +279,20 @@ export const ANALYSIS_DEFAULTS = {
         def: 'total', options: ['total', 'tangential', 'normal'],
         labelsAt: 'eField.components',
       },
+      // Depth read as physical distance or as optical distance, the running
+      // sum of n·d. The dimensionless units are fixed at the design's
+      // reference wavelength, the same λ₀ the Design Editor's thickness column
+      // uses, so a peak can be traced to a row in the layer table.
+      xUnit: {
+        def: 'nm', options: ['nm', 'OT', 'QWOT', 'FWOT'],
+        labelsAt: 'eField.xUnits',
+      },
     },
-    booleans: { showTable: false },
+    // The depth axis normally reads optical distance at the design's own
+    // reference wavelength, so it and the layer table carry the same numbers.
+    // Clearing this frees λ₀ to be typed, for reading a stack against a
+    // wavelength it was not written in.
+    booleans: { showTable: false, axisRefFromDesign: true },
   },
 
   refractiveIndexProfiler: {
