@@ -8,7 +8,7 @@
 
 import {
     getTmmWasm, tmmWasmActive,
-    cadd, cabs2, cdiv, cmul, creal, csqrt, csub,
+    cadd, cabs2, cdiv, cmul, creal, csub,
     layerMatrix, matmul, rescaleMatrix, snellCosTheta,
 } from '../../../tmmcore.js';
 import {
@@ -24,13 +24,12 @@ function buildMonitorCache({
     incMat, subMat, completedMats, completedThicks, lambdas, subThickMM, sinTheta0,
 }) {
     const I = [[[1, 0], [0, 0]], [[0, 0], [1, 0]]];
-    const cosTheta0 = csqrt(csub([1, 0], cmul(sinTheta0, sinTheta0)));
     const cache = new Array(lambdas.length);
     for (let li = 0; li < lambdas.length; li++) {
         const lam = lambdas[li];
         const n0 = incMat.getNK(lam);
         const ns = subMat.getNK(lam);
-        const face = bareInterface(n0, ns, sinTheta0, cosTheta0);
+        const face = bareInterface(n0, ns, sinTheta0);
         const per = {};
         for (const pol of ['s', 'p']) {
             let M = I;
@@ -214,13 +213,12 @@ function wasmMonitorEvaluator(wasm, {
     let bulkP = null;
     if (subThickMM != null) {
         const sinTheta0 = [Math.sin(theta_deg * Math.PI / 180), 0];
-        const cosTheta0 = csqrt(csub([1, 0], cmul(sinTheta0, sinTheta0)));
         backs = new Array(NL);
         bulkP = new Array(NL);
         for (let li = 0; li < NL; li++) {
             const n0 = n0List[li];
             const ns = nsList[li];
-            const face = bareInterface(n0, ns, sinTheta0, cosTheta0);
+            const face = bareInterface(n0, ns, sinTheta0);
             backs[li] = { Rs: face.s.R, Ts: face.s.T, Rp: face.p.R, Tp: face.p.T };
             bulkP[li] = substratePass(ns[1], subThickMM, lambdas[li],
                 substrateRay(n0, ns, sinTheta0[0]).cosThetaSub);
@@ -295,8 +293,7 @@ export function createGrowingLayerEvaluator(theta_deg, incMat, subMat,
     let P = 1;
     if (subThickMM != null) {
         const sinTheta0 = [Math.sin(theta_deg * Math.PI / 180), 0];
-        const cosTheta0 = csqrt(csub([1, 0], cmul(sinTheta0, sinTheta0)));
-        const face = bareInterface(n0, ns, sinTheta0, cosTheta0);
+        const face = bareInterface(n0, ns, sinTheta0);
         back = { Rs: face.s.R, Ts: face.s.T, Rp: face.p.R, Tp: face.p.T };
         P = substratePass(ns[1], subThickMM, lam,
             substrateRay(n0, ns, sinTheta0[0]).cosThetaSub);

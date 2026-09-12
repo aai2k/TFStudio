@@ -7,7 +7,7 @@
  */
 
 import {
-    cadd, cabs2, cdiv, cmul, creal, csub, snellCosTheta,
+    cadd, cabs2, cdiv, cmul, creal, csub, incidentCosTheta, snellCosTheta,
 } from '../../../tmmcore.js';
 
 // Substrate bulk transmittance for one pass: P = exp(-4π k d / (λ cosθ)),
@@ -61,9 +61,12 @@ export function totalSample(fwd, rev, back, P) {
  * The bare incident/substrate interface at one wavelength: per-polarization
  * admittances plus the interface's own R and T. This is the witness chip's
  * uncoated back face in the slab combination, and the admittances double as
- * the tail constants of the coated front pass.
+ * the tail constants of the coated front pass. The incident medium's cosθ0
+ * follows the kernel's rule, so an absorbing incident medium is tilted the
+ * way the coated pass tilts it.
  */
-export function bareInterface(n0, ns, sinTheta0, cosTheta0) {
+export function bareInterface(n0, ns, sinTheta0) {
+    const cosTheta0 = incidentCosTheta(n0, sinTheta0);
     const out = {};
     for (const pol of ['s', 'p']) {
         const eta0 = pol === 's' ? cmul(n0, cosTheta0) : cdiv(n0, cosTheta0);

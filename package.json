@@ -64,7 +64,7 @@
   },
   "dependencies": {
     "js-yaml": "^4.3.2",
-    "tmmcore": "^0.3.0"
+    "tmmcore": "^0.3.1"
   },
   "build": {
     "appId": "com.tfstudio.app",

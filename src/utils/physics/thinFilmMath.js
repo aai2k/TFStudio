@@ -39,8 +39,8 @@ import {
     cimag,
     cmul,
     creal,
-    csqrt,
     csub,
+    incidentCosTheta,
     layerMatrix,
     matmul,
     rescaleMatrix,
@@ -73,7 +73,7 @@ export { tmm, tmmNeedleScan, tmmThicknessHessian, tmmThicknessJacobian };
  */
 export function tmmWithAdmittances(lambda_nm, theta_deg, pol, n0, ns, layers) {
     const sinTheta0 = [Math.sin(theta_deg * Math.PI / 180), 0];
-    const cosTheta0 = csqrt(csub([1, 0], cmul(sinTheta0, sinTheta0)));
+    const cosTheta0 = incidentCosTheta(n0, sinTheta0);
 
     const eta0 = pol === 's' ? cmul(n0, cosTheta0) : cdiv(n0, cosTheta0);
     const cosThetaS = snellCosTheta(n0, sinTheta0, ns);
@@ -389,7 +389,7 @@ function sampleLayerEField(layer, cosThJ, ehBack, zBase, lambda_nm, pol, t2, nPt
 
 export function computeEFieldProfile(lambda_nm, theta_deg, pol, n0, ns, layers, nPtsPerLayer = 60) {
     const sinTheta0  = [Math.sin(theta_deg * Math.PI / 180), 0];
-    const cosTheta0c = csqrt(csub([1, 0], cmul(sinTheta0, sinTheta0)));
+    const cosTheta0c = incidentCosTheta(n0, sinTheta0);
 
     const cosThetaS = snellCosTheta(n0, sinTheta0, ns);
     const etaS = pol === 's' ? cmul(ns, cosThetaS) : cdiv(ns, cosThetaS);

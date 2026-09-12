@@ -9,6 +9,7 @@
 import { ANALYSIS_DEFAULTS, paletteColors } from '../../../../constants/analysisDefaults.js';
 import { designMaterialLookup } from '../../../../utils/materials/designMaterials.js';
 import { tmmWithAdmittances } from '../../../../utils/physics/thinFilmMath.js';
+import { incidentCosTheta, snellCosTheta } from '../../../../tmmcore.js';
 
 function cadd([ar, ai], [br, bi]) { return [ar + br, ai + bi]; }
 function csub([ar, ai], [br, bi]) { return [ar - br, ai - bi]; }
@@ -17,18 +18,8 @@ function cdiv([ar, ai], [br, bi]) {
     const d = br * br + bi * bi || 1e-300;
     return [(ar * br + ai * bi) / d, (ai * br - ar * bi) / d];
 }
-function csqrt([ar, ai]) {
-    const r = Math.sqrt(Math.sqrt(ar * ar + ai * ai));
-    const theta = Math.atan2(ai, ar) / 2;
-    return [r * Math.cos(theta), r * Math.sin(theta)];
-}
 function ccos([ar, ai]) { return [Math.cos(ar) * Math.cosh(ai), -Math.sin(ar) * Math.sinh(ai)]; }
 function csin([ar, ai]) { return [Math.sin(ar) * Math.cosh(ai), Math.cos(ar) * Math.sinh(ai)]; }
-
-function snellCos(n0, sinTheta0c, nj) {
-    const sinThetaJ = cdiv(cmul(n0, sinTheta0c), nj);
-    return csqrt(csub([1, 0], cmul(sinThetaJ, sinThetaJ)));
-}
 
 function layerEta(nj, cosThJ, pol) {
     return pol === 's' ? cmul(nj, cosThJ) : cdiv(nj, cosThJ);
@@ -226,14 +217,13 @@ function buildOnePol(design, conditions, pol) {
     const sinTheta0 = Math.sin(theta_deg * Math.PI / 180);
     const sinTheta0c = [sinTheta0, 0];
     const valid = allLayers.filter(l => l.d > 0);
-    const cosTheta0 = csqrt(csub([1, 0], cmul(sinTheta0c, sinTheta0c)));
-    const eta0 = layerEta(n0, cosTheta0, pol);
+    const eta0 = layerEta(n0, incidentCosTheta(n0, sinTheta0c), pol);
     const view = viewKind === 'reflection' ? reflectionView(eta0) : ADMITTANCE_VIEW;
     const arcs = [];
 
     for (let k = N - 1; k >= 0; k--) {
         const lyr = valid[k];
-        const cosThJ = snellCos(n0, sinTheta0c, lyr.n);
+        const cosThJ = snellCosTheta(n0, sinTheta0c, lyr.n);
         const eta = layerEta(lyr.n, cosThJ, pol);
         const delta = layerDelta(lyr.n, lyr.d, lambda_nm, cosThJ);
         const Y_R = Y[k + 1];
