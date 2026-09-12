@@ -15,8 +15,9 @@ import { InputDialog } from '../dialogs/InputDialog.js';
 import {
   MaterialCalculationBlocked, MissingMaterialsBanner,
 } from '../materials/MissingMaterialsNotice.js';
+import { ErrorBoundary, WindowFailedPane } from '../ui/ErrorBoundary.js';
 import {
-  WINDOW_REGISTRY, TOOL_CONFIGS, TOOL_LABELS, helpAnchorFor,
+  WINDOW_REGISTRY, TOOL_CONFIGS, TOOL_LABELS, helpAnchorFor, windowTitle,
 } from './windowRegistry.js';
 
 // Re-export for any external consumer that historically imported these from here.
@@ -76,7 +77,17 @@ export function ToolContent({ toolId, c, theme, t, setInputDialog, onCreateDesig
     if (entry.theme)  props.theme = theme;
     if (entry.dialog) props.setInputDialog = setInputDialog;
     if (entry.createDesign) props.onCreateDesign = onCreateDesign;
-    return h(entry.component, props);
+    // Every window, docked or torn off, is mounted here, so this is the one
+    // place a boundary has to go. What separates one mounted window from
+    // another is the tab it belongs to, which this does not know, so the caller
+    // keys the element (see `renderContent`): two tabs of the same tool would
+    // otherwise share a boundary and one's failure would show on the other.
+    return h(ErrorBoundary, {
+      label: toolId,
+      fallback: (error, retry) => h(WindowFailedPane, {
+        error, onReopen: retry, c, t, title: windowTitle(toolId, t),
+      }),
+    }, h(entry.component, props));
   }
 
   return h('div', {
@@ -687,7 +698,11 @@ export function DockingLayout({ c, theme, toolRequests, onWindowListChange, layo
         onTabClose:      handleTabClose,
         onTabDragStart:  handleTabDragStart,
         onGroupFocus:    handleGroupFocus,
+        // Keyed by the tab, not the tool: a group draws whichever of its tabs is
+        // active, at one position in the tree, and two tabs can hold the same
+        // tool. Unkeyed they share one mounted window and one error boundary.
         renderContent:   (tab) => h(ToolContent, {
+          key: tab.id,
           toolId: tab.toolId, c, theme, t, setInputDialog, onCreateDesign,
           missingMaterialIds,
           onReplaceMaterials: () => setReplaceMaterialsOpen(true),

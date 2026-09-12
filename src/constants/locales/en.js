@@ -710,6 +710,14 @@ export default {
     help:  'Help for this window (F1)',
     close: 'Close',
   },
+  windowError: {
+    paneTitle: (window) => `${window} stopped with an error`,
+    paneBody: 'The rest of the app kept running. Reopening the window builds it again from the current design.',
+    reopen: 'Reopen window',
+    appTitle: 'TFStudio stopped with an error',
+    appBody: 'Reloading brings the projects back as they were, including edits that were never saved. The last change before the error may not survive.',
+    reload: 'Reload TFStudio',
+  },
   windowTitles: {
     'design-editor':   'Design Editor',
     'material-editor': 'Material Editor',

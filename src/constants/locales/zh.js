@@ -800,6 +800,14 @@ export default {
     help: '此窗口的帮助 (F1)',
     close: '关闭',
   },
+  windowError: {
+    paneTitle: (window) => `${window} 因错误已停止`,
+    paneBody: '程序的其余部分仍在运行。重新打开该窗口会按当前设计重新构建它。',
+    reopen: '重新打开窗口',
+    appTitle: 'TFStudio 因错误已停止',
+    appBody: '重新加载后项目会恢复原样，包括尚未保存的修改。出错前的最后一次改动可能会丢失。',
+    reload: '重新加载 TFStudio',
+  },
   windowTitles: {
     'design-editor': '设计编辑器',
     'material-editor': '材料编辑器',

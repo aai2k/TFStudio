@@ -2,6 +2,7 @@ import { getPalette, getPaletteNames, registerCustomThemes, isBuiltInName } from
 import { parseVscodeTheme } from './utils/theme/vscodeTheme.js';
 import { getLocale, getCurrentLocale, saveLocale } from './constants/locales/index.js';
 import { MessageNotification } from './components/ui/MessageNotification.js';
+import { ErrorBoundary, AppFailedPage } from './components/ui/ErrorBoundary.js';
 import { TitleBar } from './components/TitleBar.js';
 import { Toolbar } from './components/Toolbar.js';
 import { ProjectExplorer } from './components/panels/ProjectExplorer.js';
@@ -1837,4 +1838,14 @@ const App = () => {
 };
 
 const root = ReactDOM.createRoot(document.getElementById('root'));
-root.render(h(App, null));
+// A throw outside any window still blanks the page, so the shell gets a boundary
+// of its own. Its theme and language come from the same cached preferences the
+// first paint uses, because App's state is gone by the time this draws. Both are
+// resolved here rather than inside the fallback: reading them registers the
+// imported themes, which is not work to repeat while rendering.
+const shellPalette = getPalette(initialTheme());
+const shellLocale = getLocale(getCurrentLocale());
+root.render(h(ErrorBoundary, {
+    label: 'app',
+    fallback: (error) => h(AppFailedPage, { error, c: shellPalette, t: shellLocale }),
+}, h(App, null)));

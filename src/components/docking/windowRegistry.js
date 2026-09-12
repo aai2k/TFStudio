@@ -136,3 +136,11 @@ export const TOOL_LABELS = Object.fromEntries(
 export function helpAnchorFor(toolId) {
   return WINDOW_REGISTRY[toolId]?.help || 'index';
 }
+
+// A tool's window title, localized. The locale is asked first so a persisted
+// layout (which baked the English title in at creation) re-localizes on a
+// language switch; the registry title covers the few tools with no
+// `windowTitles` entry.
+export function windowTitle(toolId, t) {
+  return t.windowTitles[toolId] || WINDOW_REGISTRY[toolId]?.title || toolId;
+}

@@ -801,6 +801,14 @@ export default {
     help: 'Guida per questa finestra (F1)',
     close: 'Chiudi',
   },
+  windowError: {
+    paneTitle: (window) => `La finestra «${window}» si è arrestata per un errore`,
+    paneBody: 'Il resto dell\'applicazione continua a funzionare. Riaprendo la finestra viene ricostruita dal design corrente.',
+    reopen: 'Riapri la finestra',
+    appTitle: 'TFStudio si è arrestato per un errore',
+    appBody: "Ricaricando, i progetti tornano come erano, comprese le modifiche mai salvate. L'ultima modifica prima dell'errore potrebbe non sopravvivere.",
+    reload: 'Ricarica TFStudio',
+  },
   windowTitles: {
     'design-editor': 'Editor del design',
     'material-editor': 'Editor dei materiali',

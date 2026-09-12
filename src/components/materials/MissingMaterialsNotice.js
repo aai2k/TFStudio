@@ -1,3 +1,5 @@
+import { NoticePane } from '../ui/NoticePane.js';
+
 const { createElement: h } = React;
 
 function MaterialIds({ ids, c, label }) {
@@ -47,21 +49,12 @@ export function MissingMaterialsBanner({ ids, c, t, onRepair }) {
 /** Replaces a calculation window so none of its render/effect paths can run. */
 export function MaterialCalculationBlocked({ ids, c, t, onRepair }) {
     const mr = t.materialResolution;
-    return h('div', {
-        role: 'alert',
+    return h(NoticePane, {
+        c,
         'data-material-resolution': 'blocked',
-        style: {
-            display: 'flex', flexDirection: 'column', alignItems: 'center',
-            justifyContent: 'center', gap: 10, height: '100%', padding: 24,
-            boxSizing: 'border-box', textAlign: 'center', color: c.text,
-            backgroundColor: c.bg, fontFamily: 'system-ui, -apple-system, sans-serif',
-        },
-    },
-        h('div', { style: { color: c.error, fontSize: 28 } }, '⚠'),
-        h('strong', { style: { fontSize: 14 } }, mr.blockedTitle),
-        h('div', { style: { maxWidth: 480, color: c.textDim, fontSize: 12, lineHeight: 1.5 } },
-            mr.blockedBody),
-        h(MaterialIds, { ids, c, label: mr.missingList }),
-        h(RepairButton, { c, label: mr.replace, onRepair }),
-    );
+        title: mr.blockedTitle,
+        body: mr.blockedBody,
+        detail: h(MaterialIds, { ids, c, label: mr.missingList }),
+        action: h(RepairButton, { c, label: mr.replace, onRepair }),
+    });
 }
