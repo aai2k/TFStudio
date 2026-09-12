@@ -45,12 +45,26 @@ export function computeProfile(design, lambda_nm, theta_deg, pol, side = 'front'
     if (!validLayers.length) return null;
 
     const layerInput = validLayers.map(({ n, d }) => ({ n, d }));
+    // The incident index sets the absolute scale of the field: a beam of a
+    // given irradiance carries amplitude 1/sqrt(n) of what it would in vacuum.
+    const incidentIndex = n0[0];
     if (pol === 'avg') {
         const s = computeEFieldProfile(lambda_nm, theta_deg, 's', n0, ns, layerInput, NPTS);
         const p = computeEFieldProfile(lambda_nm, theta_deg, 'p', n0, ns, layerInput, NPTS);
-        const e2avg = s.e2.map((v, i) => (v + p.e2[i]) / 2);
-        return { s, p, avg: { ...s, e2: e2avg }, validLayers, side };
+        return { s, p, avg: averagePolarizations(s, p), validLayers, side, incidentIndex };
     }
     const result = computeEFieldProfile(lambda_nm, theta_deg, pol, n0, ns, layerInput, NPTS);
-    return { [pol]: result, validLayers, side };
+    return { [pol]: result, validLayers, side, incidentIndex };
+}
+
+// The unpolarized curve is the mean of the two polarizations, taken component
+// by component so a component read on its own is the mean of that component.
+function averagePolarizations(s, p) {
+    const mean = key => s[key].map((value, index) => (value + p[key][index]) / 2);
+    return {
+        ...s,
+        e2: mean('e2'),
+        e2Tangential: mean('e2Tangential'),
+        e2Normal: mean('e2Normal'),
+    };
 }

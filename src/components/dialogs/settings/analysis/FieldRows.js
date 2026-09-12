@@ -64,13 +64,16 @@ export const NumberRow = ({ c, label, value, spec, onChange }) => {
     }));
 };
 
-export const EnumRow = ({ c, label, value, spec, onChange }) =>
+// Most enums store the word they show, so the option is its own label.
+// `optionLabels` covers the ones whose stored values are internal ids.
+export const EnumRow = ({ c, label, value, spec, optionLabels, onChange }) =>
   h(Row, { c, label },
     h('select', {
       value,
       onChange: (e) => onChange(e.target.value),
       style: { ...selectStyle(c), width: '120px', padding: '6px 8px' },
-    }, spec.options.map(option => h('option', { key: option, value: option }, option))));
+    }, spec.options.map(option =>
+      h('option', { key: option, value: option }, optionLabels?.[option] || option))));
 
 export const BooleanRow = ({ c, label, value, onChange }) =>
   h(Row, { c, label },

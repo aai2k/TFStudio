@@ -43,7 +43,10 @@ const FROM_WINDOW = {
         thetas: v.thetaDeg != null ? [v.thetaDeg] : undefined,
         showPsi: v.showPsi, showDelta: v.showDelta,
     }),
-    efield: v => ({ theta: v.theta, pol: v.pol === 'p' ? 'p' : (v.pol === 's' ? 's' : undefined), lambda: v.lambda }),
+    efield: v => ({
+        theta: v.theta, pol: v.pol === 'p' ? 'p' : (v.pol === 's' ? 's' : undefined),
+        lambda: v.lambda, quantity: v.quantity, component: v.component,
+    }),
     riProfile: v => ({ lambda: v.lambda }),
 };
 

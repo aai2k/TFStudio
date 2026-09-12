@@ -62,7 +62,7 @@ function AdmittanceSetup({ c, t, state }) {
         ),
         h(SettingRow, { c, label: ad.aoi },
             h(NumInput, {
-                value: state.theta, min: 0, max: 89, step: 0.5, c, width: 60,
+                value: state.theta, min: 0, max: 89, step: 0.5, c, width: 72,
                 onChange: state.setTheta,
             }),
         ),

@@ -1,6 +1,6 @@
 /**
  * Table- and plot-based block builders: color, integrals, qualifiers, merit
- * operands, n(z) profile, |E|² profile, notes and signatures.
+ * operands, n(z) profile, field profile, notes and signatures.
  *
  * Each takes the block context { design, data, block, settings, tr, designName }
  * and returns one <section>'s HTML. A block whose data carries an `{ error }`
@@ -8,6 +8,10 @@
  */
 
 import { lineChartSVG, escapeHtml } from '../svgChart.js';
+import { withDefaults } from '../blocks.js';
+import {
+  componentOf, incidentAmplitudeVpm, plotValue, yAxisTitle,
+} from '../../../components/windows/analysis/eFieldEvaluation/yScale.js';
 import {
   isBlank, isConstraint, isDmfs, isMath, isMathPairRef, isMathSingleRef,
   isTotalThickness, readsWavelengthBand,
@@ -200,8 +204,14 @@ export function buildEField(ctx) {
   const { d: ef, fail } = blockData(ctx, 'efield', title);
   if (fail) return fail;
   if (!ef.z || !ef.z.length) return wrap('efield', title, note(escapeHtml(tt(tr, 'noLayers', 'No layers'))), { subtitle: subtitleOf(ctx) });
-  const plot = profilePlot([{ x: ef.z, y: ef.e2, color: '#00838f', label: '|E|²' }],
-    tt(tr, 'depthNm', 'Depth z, nm'), '|E|²', settings);
+  // Same quantity, component and conversion as the E-field window, so the two
+  // cannot disagree about what the curve is.
+  const { quantity, component } = withDefaults('efield', settings);
+  const toAxis = plotValue(quantity, incidentAmplitudeVpm(ef.incidentIndex));
+  const label = yAxisTitle(quantity, component);
+  const values = ef[componentOf(component).key] || ef.e2;
+  const plot = profilePlot([{ x: ef.z, y: values.map(toAxis), color: '#00838f', label }],
+    tt(tr, 'depthNm', 'Depth z, nm'), label, settings);
   const sub = `λ ${num(ef.lambda, 1)} nm · ${escapeHtml(tt(tr, 'aoi', 'AOI'))} ${deg(ef.theta)}° · ${escapeHtml(ef.pol)}`;
   return wrap('efield', title, plot, { subtitle: subtitleOf(ctx, sub) });
 }

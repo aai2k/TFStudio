@@ -1,7 +1,10 @@
 /**
- * Electric-field intensity profile computed by the left-partial transfer matrix method.
+ * Electric-field profile computed by the left-partial transfer matrix method.
  * Reference: Macleod, Thin-Film Optical Filters, section 3, Eqs. 3.5-3.6.
- * Intensity is normalized to unit incident-field intensity (100%).
+ *
+ * The settings menu chooses what the vertical axis reads and which component
+ * of the field it reads; see yScale.js for the quantities and the conversion
+ * between them.
  */
 
 import { useDesign } from '../../../../state/DesignContext.js';
@@ -23,7 +26,7 @@ export function EFieldEvaluation({ c, theme, t }) {
     const dt = t.dataTable;
     const { design } = useDesign();
     const state = useEFieldState(design);
-    const table = buildProfileTable(state.profile, state.pol, ef) || EMPTY_TABLE;
+    const table = buildProfileTable(state.profile, state.pol, ef, state.display) || EMPTY_TABLE;
     const rangeNotice = useMaterialLambdaNotice(design, state.lambda, t, state.setLambda);
     const csv = useCsvExport(
         () => csvFromRows(table.columns, table.rows),
@@ -38,7 +41,7 @@ export function EFieldEvaluation({ c, theme, t }) {
             state.profile
                 ? h(EFieldChart, {
                     profileData: state.profile, pol: state.pol,
-                    matColorMap: state.matColorMap, c, ef,
+                    matColorMap: state.matColorMap, c, ef, display: state.display,
                 })
                 : h(CenteredMessage, { c, message: ef.noLayers }),
         ),

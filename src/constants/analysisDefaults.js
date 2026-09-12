@@ -263,7 +263,23 @@ export const ANALYSIS_DEFAULTS = {
   eFieldEvaluation: {
     colors: { avg: '#66bb6a', s: '#4fc3f7', p: '#ef5350' },
     numbers: { theta: AOI },
-    enums: { pol: POL },
+    enums: {
+      pol: POL,
+      // Volts per metre for 1 W/m² incident is the quantity Essential Macleod
+      // plots and the one a damage threshold is quoted against, so it leads.
+      // These two store internal ids, so they name the locale tables that
+      // spell them out for the Settings dialog.
+      quantity: {
+        def: 'amplitude', options: ['amplitude', 'fractionSquared', 'absoluteSquared'],
+        labelsAt: 'eField.quantities',
+      },
+      // The resultant field, with its component along the layers and its
+      // component normal to them available separately.
+      component: {
+        def: 'total', options: ['total', 'tangential', 'normal'],
+        labelsAt: 'eField.components',
+      },
+    },
     booleans: { showTable: false },
   },
 

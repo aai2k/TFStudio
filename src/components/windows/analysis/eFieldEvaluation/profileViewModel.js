@@ -1,50 +1,54 @@
-export function selectPlottedCurves(profileData, pol, tr) {
+import {
+    componentOf, curveLabel, formatCell, incidentAmplitudeVpm, plotValue, yScaleOf,
+} from './yScale.js';
+
+// Which polarizations are drawn, in drawing order. Choosing avg shows the mean
+// with the two polarizations behind it; choosing one shows only that one.
+const CURVE_KEYS = { avg: ['avg', 's', 'p'], s: ['s'], p: ['p'] };
+
+/**
+ * The curves on the plot, in the chosen quantity and component.
+ *
+ * `display` is `{ quantity, component }` from the window's settings menu. The
+ * engine returns each component as a fraction of the incident |E|², so an
+ * absolute reading needs the incident index, which the profile carries.
+ */
+export function plottedCurves(profileData, pol, tr, display) {
     if (!profileData) return [];
-    const curves = [];
-    const push = (e2arr, z, label) => {
-        if (!e2arr || !z) return;
-        curves.push({ label, z, y: e2arr.map(v => v * 100) });
-    };
-    if (pol === 'avg' && profileData.avg) {
-        push(profileData.avg.e2, profileData.avg.z, tr.labelAvg);
-        push(profileData.s.e2, profileData.s.z, tr.labelS);
-        push(profileData.p.e2, profileData.p.z, tr.labelP);
-    } else if (pol === 's' && profileData.s) {
-        push(profileData.s.e2, profileData.s.z, tr.labelS);
-    } else if (pol === 'p' && profileData.p) {
-        push(profileData.p.e2, profileData.p.z, tr.labelP);
-    }
-    return curves;
+    const { quantity, component } = display;
+    const toAxis = plotValue(quantity, incidentAmplitudeVpm(profileData.incidentIndex));
+    const key = componentOf(component).key;
+    const polSuffix = { avg: tr.polSuffixAvg, s: tr.polSuffixS, p: tr.polSuffixP };
+    return (CURVE_KEYS[pol] || CURVE_KEYS.avg)
+        .map(curveKey => ({ curveKey, profile: profileData[curveKey] }))
+        .filter(({ profile }) => profile?.[key] && profile.z)
+        .map(({ curveKey, profile }) => ({
+            key: curveKey,
+            label: curveLabel(quantity, component, polSuffix[curveKey]),
+            z: profile.z,
+            y: profile[key].map(toAxis),
+        }));
 }
 
-export function buildProfileViewModel(profile, pol) {
-    const profileForInfo = profile
-        ? (pol === 'avg' ? profile.avg : profile[pol])
-        : null;
-    const maxE2pct = profileForInfo
-        ? (Math.max(...profileForInfo.e2) * 100).toFixed(1)
-        : '—';
-    const totalThkNm = profileForInfo?.layerBounds
-        ? profileForInfo.layerBounds[profileForInfo.layerBounds.length - 1].toFixed(1)
-        : '—';
-    return {
-        maxE2pct,
-        totalThkNm,
-        layerCount: profile?.validLayers?.length ?? 0,
-    };
-}
-
-export function buildProfileTable(profile, pol, tr) {
-    const curves = selectPlottedCurves(profile, pol, tr);
+/**
+ * The results table. Column headers carry the unit, so a file exported from
+ * here is not read later as though it held percentages.
+ */
+export function buildProfileTable(profile, pol, tr, display) {
+    const curves = plottedCurves(profile, pol, tr, display);
     if (!curves.length) return null;
-    const zArr = curves[0].z;
+    const unit = yScaleOf(display.quantity).unit;
     const columns = [
-        { key: 'z', label: 'z (nm)', align: 'left', fmt: v => v.toFixed(1) },
-        ...curves.map((cv, i) => ({ key: 'c' + i, label: cv.label, fmt: v => (v == null ? '' : v.toFixed(4)) })),
+        { key: 'z', label: 'z (nm)', align: 'left', fmt: value => value.toFixed(1) },
+        ...curves.map((curve, index) => ({
+            key: 'c' + index,
+            label: `${curve.label} [${unit}]`,
+            fmt: value => formatCell(display.quantity, value),
+        })),
     ];
-    const rows = zArr.map((z, i) => {
+    const rows = curves[0].z.map((z, index) => {
         const row = { z };
-        curves.forEach((cv, j) => { row['c' + j] = cv.y[i]; });
+        curves.forEach((curve, column) => { row['c' + column] = curve.y[index]; });
         return row;
     });
     return { columns, rows };

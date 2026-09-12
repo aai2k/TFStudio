@@ -86,7 +86,10 @@ const SETTINGS_DEFAULTS = {
     lambdaStart: 400, lambdaEnd: 800, lambdaStep: 5, thetas: [65],
     showPsi: true, showDelta: true, plot: 'm', tableStep: 0,
   }),
-  efield:       () => ({ lambda: null, theta: 0, pol: 's', plot: 'm' }),
+  efield:       () => ({
+    lambda: null, theta: 0, pol: 's', plot: 'm',
+    quantity: 'amplitude', component: 'total',
+  }),
   riProfile:    () => ({ lambda: null, plot: 'm' }),
   monteCarlo:   () => ({ plot: 'm', tableStep: 10, envelope: false }),
 };

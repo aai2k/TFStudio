@@ -23,6 +23,15 @@ function fieldLabel(t, key) {
   return t.settings.analysis.savedFields[key] || t.settings.analysis.fields[key] || key;
 }
 
+// Most enums store the word the dropdown shows (`nm`, `front`, `D65`), so the
+// stored value is its own label. An enum whose values are internal ids instead
+// names the locale table that spells them out, in the window's own namespace so
+// Settings and the window read the same words.
+function optionLabels(t, spec) {
+  if (!spec.labelsAt) return null;
+  return spec.labelsAt.split('.').reduce((node, step) => node?.[step], t);
+}
+
 const groupTitleStyle = (c) => ({
   fontSize: '11px', fontWeight: '600', color: c.textDim,
   textTransform: 'uppercase', letterSpacing: '0.5px',
@@ -95,6 +104,7 @@ export const WindowFields = ({ windowId, resolved, onChange, c, t }) => {
         label: fieldLabel(t, key),
         value: resolved.enums[key],
         spec,
+        optionLabels: optionLabels(t, spec),
         onChange: (value) => onChange('enums', key, value),
       })),
       lists.map(([key, spec]) => h(ListRow, {

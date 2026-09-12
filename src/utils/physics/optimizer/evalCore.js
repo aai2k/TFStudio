@@ -977,7 +977,10 @@ function _evalEField(op, ctx) {
     const lam = op.lambdaStart;
     const { n0, ns, layers } = _frontStackAt(ctx, lam);
     const peakFor = (polCode) => {
-        const prof = computeEFieldProfile(lam, op.aoi, polCode, n0, ns, layers);
+        // Only the resultant is read, so the two component curves are left
+        // unbuilt: this runs once per operand per merit evaluation.
+        const prof = computeEFieldProfile(lam, op.aoi, polCode, n0, ns, layers, 60,
+            { components: false });
         let mx = 0;
         for (let i = 0; i < prof.e2.length; i++) if (prof.e2[i] > mx) mx = prof.e2[i];
         return mx;

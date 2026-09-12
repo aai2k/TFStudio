@@ -1,37 +1,44 @@
 import { ANALYSIS_DEFAULTS } from '../../../../constants/analysisDefaults.js';
 import {
-    axisTooltip, cartesianOption, lineSeries, niceAxisBounds, valueAxis,
+    axisTooltip, cartesianOption, formatChartNumber, lineSeries, niceAxisBounds, valueAxis,
 } from '../../../ui/chartOptions.js';
 import { legendAbove, plotMargin } from '../chrome/plot.js';
+import {
+    incidentAmplitudeVpm, incidentLevel, yAxisTitle, yScaleTooltip,
+} from './yScale.js';
+import { plottedCurves } from './profileViewModel.js';
 
-/** Native ECharts line series for the selected polarization. `tr` is `t.eField`. */
-export function efieldSeries(profileData, pol, curve = ANALYSIS_DEFAULTS.eFieldEvaluation.colors, tr) {
-    if (!profileData) return [];
-    const series = [];
-    const addCurve = (e2arr, z, name, color, dash) => series.push(lineSeries({
-        x: z, y: e2arr.map(value => value * 100), name, color, width: 2, dash,
+/**
+ * Native ECharts line series for the selected polarization. `tr` is `t.eField`.
+ * `display` carries the quantity on the axis and which component of the field
+ * is read; both come from the window's settings menu.
+ */
+export function efieldSeries(profileData, pol, curve = ANALYSIS_DEFAULTS.eFieldEvaluation.colors, tr, display) {
+    const curves = plottedCurves(profileData, pol, tr, display);
+    const dash = { avg: undefined, s: 'dot', p: 'dash' };
+    return curves.map(item => lineSeries({
+        x: item.z, y: item.y, name: item.label, color: curve[item.key], width: 2,
+        dash: curves.length > 1 ? dash[item.key] : undefined,
     }));
-    if (pol === 'avg' && profileData.avg) {
-        addCurve(profileData.avg.e2, profileData.avg.z, tr.labelAvg, curve.avg);
-        addCurve(profileData.s.e2, profileData.s.z, tr.labelS, curve.s, 'dot');
-        addCurve(profileData.p.e2, profileData.p.z, tr.labelP, curve.p, 'dash');
-    } else if (pol === 's' && profileData.s) {
-        addCurve(profileData.s.e2, profileData.s.z, tr.labelS, curve.s);
-    } else if (pol === 'p' && profileData.p) {
-        addCurve(profileData.p.e2, profileData.p.z, tr.labelP, curve.p);
-    }
-    return series;
 }
 
-export function efieldOption(profileData, pol, matColorMap, colors, { curve, tr }) {
+export function efieldOption(profileData, pol, matColorMap, colors, { curve, tr, display }) {
     const { bgColor, paperColor, gridColor, textColor, accentColor } = colors;
     const profileRef = pol === 'avg' ? profileData?.avg : profileData?.[pol];
     const bounds = profileRef?.layerBounds || [];
     const totalZ = bounds.length > 1 ? bounds[bounds.length - 1] : 0;
     const validLayers = profileData?.validLayers || [];
-    const series = efieldSeries(profileData, pol, curve, tr);
-    const peak = Math.max(100, ...series.flatMap(item => item.data.map(point => point[1])).filter(Number.isFinite));
-    const yBounds = niceAxisBounds(0, peak, { targetTicks: 10, minInterval: 10, includeZero: true });
+    const series = efieldSeries(profileData, pol, curve, tr, display);
+    const { quantity, component } = display;
+    const incident = incidentAmplitudeVpm(profileData?.incidentIndex);
+    // The incident beam's own level. It floors the axis so a weak field is not
+    // magnified to fill the plot, and sets the tick spacing: a tenth of it,
+    // which rules the percentage axis in tens.
+    const reference = incidentLevel(quantity, incident);
+    const peak = Math.max(reference, ...series.flatMap(item => item.data.map(point => point[1])).filter(Number.isFinite));
+    const yBounds = niceAxisBounds(0, peak, {
+        targetTicks: 10, minInterval: reference / 10, includeZero: true,
+    });
 
     if (series.length) {
         series[0].markLine = {
@@ -41,7 +48,7 @@ export function efieldOption(profileData, pol, matColorMap, colors, { curve, tr 
             lineStyle: { color: gridColor, width: 1, type: 'dotted' },
             data: [
                 ...bounds.slice(1, -1).map(value => ({ xAxis: value })),
-                { yAxis: 100, lineStyle: { color: `${accentColor}88`, type: 'dotted' } },
+                { yAxis: reference, lineStyle: { color: `${accentColor}88`, type: 'dotted' } },
             ],
         };
         series[0].markArea = {
@@ -61,11 +68,13 @@ export function efieldOption(profileData, pol, matColorMap, colors, { curve, tr 
         grid: plotMargin(),
         legend: legendAbove({ color: textColor }),
         fileName: 'efield',
-        tooltip: axisTooltip({ valueSuffix: '%' }),
+        // `series` is what installs the formatter, so the readout carries the
+        // unit; with three quantities on offer a bare number is ambiguous.
+        tooltip: axisTooltip({ ...yScaleTooltip(quantity), series }),
         xAxis: valueAxis({ name: tr.xAxisTitle, color: textColor, gridColor, min: totalZ > 0 ? 0 : undefined, max: totalZ > 0 ? totalZ : undefined }),
         yAxis: valueAxis({
-            name: tr.yAxisTitle, color: textColor, gridColor, min: yBounds.min,
-            max: yBounds.max, interval: yBounds.interval,
+            name: yAxisTitle(quantity, component), color: textColor, gridColor, min: yBounds.min,
+            max: yBounds.max, interval: yBounds.interval, formatter: formatChartNumber,
         }),
         series,
     });

@@ -329,8 +329,30 @@ function fitUrbach(rows) {
     };
 }
 
-function positiveParameter(value, maximum) {
-    return Math.min(maximum, Math.exp(Math.max(-18, Math.min(18, value))));
+// The metal parameters travel as logarithms, an encoding that cannot reach zero.
+// This is the smallest value it produces, and the floor under every parameter
+// with no physical lower limit of its own.
+const PARAMETER_FLOOR = Math.exp(-18);
+
+/**
+ * What each metal parameter is allowed to be, as [minimum, maximum].
+ *
+ * ε∞ carries every resonance above the fitted range and cannot be below 1, the
+ * vacuum value: a fit asking for less is asking for a material that does not
+ * exist. The rest are numerical guards, well clear of the coinage metals in
+ * Rakic's models.
+ */
+const METAL_BOUNDS = {
+    epsilonInfinity: [1, 100],
+    plasmaEnergyEv: [PARAMETER_FLOOR, 50],
+    drudeDampingEv: [PARAMETER_FLOOR, 50],
+    strengthEv2: [PARAMETER_FLOOR, 3000],
+    resonanceEv: [PARAMETER_FLOOR, 100],
+    dampingEv: [PARAMETER_FLOOR, 50],
+};
+
+function boundedParameter(value, [minimum, maximum]) {
+    return Math.min(maximum, Math.max(minimum, Math.exp(Math.max(-18, Math.min(18, value)))));
 }
 
 /** The metal model as the log-parameter vector decodeMetalParameters reads. */
@@ -350,17 +372,17 @@ function encodeMetalParameters(model) {
 function decodeMetalParameters(parameters, kind, oscillatorCount, minDampingEv = 0) {
     const model = {
         kind,
-        epsilonInfinity: positiveParameter(parameters[0], 100),
-        plasmaEnergyEv: positiveParameter(parameters[1], 50),
-        drudeDampingEv: positiveParameter(parameters[2], 50),
+        epsilonInfinity: boundedParameter(parameters[0], METAL_BOUNDS.epsilonInfinity),
+        plasmaEnergyEv: boundedParameter(parameters[1], METAL_BOUNDS.plasmaEnergyEv),
+        drudeDampingEv: boundedParameter(parameters[2], METAL_BOUNDS.drudeDampingEv),
         oscillators: [],
     };
     for (let index = 0; index < oscillatorCount; index++) {
         const offset = 3 + index * 3;
         model.oscillators.push({
-            strengthEv2: positiveParameter(parameters[offset], 3000),
-            resonanceEv: positiveParameter(parameters[offset + 1], 100),
-            dampingEv: Math.max(minDampingEv, positiveParameter(parameters[offset + 2], 50)),
+            strengthEv2: boundedParameter(parameters[offset], METAL_BOUNDS.strengthEv2),
+            resonanceEv: boundedParameter(parameters[offset + 1], METAL_BOUNDS.resonanceEv),
+            dampingEv: Math.max(minDampingEv, boundedParameter(parameters[offset + 2], METAL_BOUNDS.dampingEv)),
         });
     }
     return model;
@@ -383,11 +405,11 @@ function multiplyComplex(left, right) {
     ];
 }
 
-/** d(decoded)/d(raw) of positiveParameter: the decoded value, or zero on a clamp. */
-function positiveParameterSlope(value, maximum) {
+/** d(decoded)/d(raw) of boundedParameter: the decoded value, or zero on a bound. */
+function boundedParameterSlope(value, [minimum, maximum]) {
     if (value <= -18 || value >= 18) return 0;
     const decoded = Math.exp(value);
-    return decoded < maximum ? decoded : 0;
+    return decoded >= minimum && decoded < maximum ? decoded : 0;
 }
 
 /**
@@ -416,25 +438,26 @@ function metalModelWithDerivatives(parameters, kind, oscillatorCount, minDamping
         dn[index] = derivative[0];
         dk[index] = derivative[1];
     };
-    assign(0, [positiveParameterSlope(parameters[0], 100), 0]);
+    assign(0, [boundedParameterSlope(parameters[0], METAL_BOUNDS.epsilonInfinity), 0]);
     const plasma = model.plasmaEnergyEv;
     const drudeDenominator = [energySquared, model.drudeDampingEv * energyEv];
     assign(1, divideComplex(
-        [-2 * plasma * positiveParameterSlope(parameters[1], 50), 0], drudeDenominator));
+        [-2 * plasma * boundedParameterSlope(parameters[1], METAL_BOUNDS.plasmaEnergyEv), 0], drudeDenominator));
     assign(2, divideComplex(
-        [0, plasma * plasma * energyEv * positiveParameterSlope(parameters[2], 50)],
+        [0, plasma * plasma * energyEv * boundedParameterSlope(parameters[2], METAL_BOUNDS.drudeDampingEv)],
         multiplyComplex(drudeDenominator, drudeDenominator)));
     model.oscillators.forEach((oscillator, index) => {
         const offset = 3 + index * 3;
         const denominator = [oscillator.resonanceEv ** 2 - energySquared, -oscillator.dampingEv * energyEv];
         const squared = multiplyComplex(denominator, denominator);
-        const dampingSlope = positiveParameter(parameters[offset + 2], 50) > minDampingEv
-            ? positiveParameterSlope(parameters[offset + 2], 50)
+        const dampingSlope = boundedParameter(parameters[offset + 2], METAL_BOUNDS.dampingEv) > minDampingEv
+            ? boundedParameterSlope(parameters[offset + 2], METAL_BOUNDS.dampingEv)
             : 0;
-        assign(offset, divideComplex([positiveParameterSlope(parameters[offset], 3000), 0], denominator));
+        assign(offset, divideComplex(
+            [boundedParameterSlope(parameters[offset], METAL_BOUNDS.strengthEv2), 0], denominator));
         assign(offset + 1, divideComplex([
             -2 * oscillator.strengthEv2 * oscillator.resonanceEv
-                * positiveParameterSlope(parameters[offset + 1], 100),
+                * boundedParameterSlope(parameters[offset + 1], METAL_BOUNDS.resonanceEv),
             0,
         ], squared));
         assign(offset + 2, divideComplex([0, oscillator.strengthEv2 * energyEv * dampingSlope], squared));
@@ -670,13 +693,16 @@ function fitIndexModel(rows, model, rangeNm, forcedTerms) {
     return accepted;
 }
 
+/** Rows a band needs before the simplest of these models has more data than parameters. */
+export const MINIMUM_FIT_ROWS = 4;
+
 /** The rows inside the fitted range, or an error naming why they cannot be fitted. */
 function rowsToFit(rows, options) {
     const wavelengths = rows.map(row => row[0]).filter(Number.isFinite);
-    if (wavelengths.length < 4) throw new Error('At least four tabulated rows are required for a fit.');
+    if (wavelengths.length < MINIMUM_FIT_ROWS) throw new Error('At least four tabulated rows are required for a fit.');
     const rangeNm = options.rangeNm || [Math.min(...wavelengths), Math.max(...wavelengths)];
     const selected = validRows(rows, rangeNm);
-    if (selected.length < 4) throw new Error('The selected fit range contains fewer than four rows.');
+    if (selected.length < MINIMUM_FIT_ROWS) throw new Error('The selected fit range contains fewer than four rows.');
     return { selected, rangeNm };
 }
 
@@ -746,6 +772,78 @@ export function fitMetalLadder(rows, options = {}) {
     return [...metalLadder(selected, kind, warmStart)].map(({ model }) => metalFit(selected, rangeNm, model));
 }
 
+/** The metal model's fitted values, each with its label and the bounds it was held inside. */
+function metalParameterList(model) {
+    const list = [
+        { label: 'ε∞', value: model.epsilonInfinity, bounds: METAL_BOUNDS.epsilonInfinity },
+        { label: 'ωp (eV)', value: model.plasmaEnergyEv, bounds: METAL_BOUNDS.plasmaEnergyEv },
+        { label: 'γD (eV)', value: model.drudeDampingEv, bounds: METAL_BOUNDS.drudeDampingEv },
+    ];
+    (model.oscillators || []).forEach((oscillator, index) => {
+        list.push(
+            { label: `f${index + 1} (eV²)`, value: oscillator.strengthEv2, bounds: METAL_BOUNDS.strengthEv2 },
+            { label: `ω${index + 1} (eV)`, value: oscillator.resonanceEv, bounds: METAL_BOUNDS.resonanceEv },
+            { label: `γ${index + 1} (eV)`, value: oscillator.dampingEv, bounds: METAL_BOUNDS.dampingEv },
+        );
+    });
+    return list;
+}
+
+function onABound(value, [minimum, maximum]) {
+    return value <= minimum * (1 + 1e-9) || value >= maximum * (1 - 1e-9);
+}
+
+// Points the fitted band is sampled at to see what one oscillator does across
+// it. A Lorentz term is felt over a wide span of wavelengths, so this has only
+// to show the shape of its contribution, not resolve the resonance itself.
+const OSCILLATOR_SAMPLES = 32;
+
+/** Oscillators whose contribution to n varies across the band by less than the fit's own residual. */
+function flatOscillators(fit) {
+    const model = fit.complex;
+    const residual = fit.residuals?.n?.rms;
+    if (!(residual > 0) || !fit.rangeNm) return [];
+    const low = Math.min(...fit.rangeNm);
+    const high = Math.max(...fit.rangeNm);
+    return (model.oscillators || []).flatMap((oscillator, index) => {
+        const without = { ...model, oscillators: model.oscillators.filter((_, other) => other !== index) };
+        const contribution = [];
+        for (let sample = 0; sample <= OSCILLATOR_SAMPLES; sample++) {
+            const wavelength = low + ((high - low) * sample) / OSCILLATOR_SAMPLES;
+            contribution.push(evaluateComplexDispersionModel(model, wavelength)[0]
+                - evaluateComplexDispersionModel(without, wavelength)[0]);
+        }
+        const spread = Math.max(...contribution) - Math.min(...contribution);
+        return spread < residual ? [index + 1] : [];
+    });
+}
+
+/**
+ * What a metal fit ran into: parameters left sitting on one of the model's own
+ * bounds, and oscillators the fitted data cannot tell from a constant.
+ *
+ * A parameter on a bound is not a measurement. The optimiser wanted to go past
+ * it and could not, so the number reported is the limit rather than the
+ * material's, and the residual alone does not say so.
+ *
+ * An oscillator whose contribution to n varies across the band by less than the
+ * residual the fit already leaves is doing what ε∞ does: a resonance outside the
+ * fitted range, broad enough, is a constant over it. The two are then one degree
+ * of freedom, and nothing in the data says how the constant divides between
+ * them, so the fit can slide from one into the other until it hits a bound.
+ *
+ * @returns {{ pinned: string[], flat: number[] }} labels, and 1-based oscillators
+ */
+export function metalFitDiagnostics(fit) {
+    if (!fit?.complex) return { pinned: [], flat: [] };
+    return {
+        pinned: metalParameterList(fit.complex)
+            .filter(parameter => onABound(parameter.value, parameter.bounds))
+            .map(parameter => parameter.label),
+        flat: flatOscillators(fit),
+    };
+}
+
 /**
  * The fitted parameters, labelled, with the formula they belong to.
  *
@@ -758,22 +856,10 @@ export function fitMetalLadder(rows, options = {}) {
 export function dispersionFitParameters(fit) {
     if (!fit) return { formula: '', parameters: [] };
     if (fit.complex) {
-        const model = fit.complex;
-        const parameters = [
-            { label: 'ε∞', value: model.epsilonInfinity },
-            { label: 'ωp (eV)', value: model.plasmaEnergyEv },
-            { label: 'γD (eV)', value: model.drudeDampingEv },
-        ];
-        model.oscillators.forEach((oscillator, index) => {
-            parameters.push(
-                { label: `f${index + 1} (eV²)`, value: oscillator.strengthEv2 },
-                { label: `ω${index + 1} (eV)`, value: oscillator.resonanceEv },
-                { label: `γ${index + 1} (eV)`, value: oscillator.dampingEv },
-            );
-        });
         return {
             formula: 'ε(E) = ε∞ − ωp² / (E² + iγD E) + Σ fj / (ωj² − E² − iγj E),  n + ik = √ε',
-            parameters,
+            parameters: metalParameterList(fit.complex)
+                .map(({ label, value }) => ({ label, value })),
         };
     }
     const parameters = [];

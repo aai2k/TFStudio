@@ -333,9 +333,19 @@ export function evaluateSpectrumAt(lambdas, params, incidentMaterial, substrateM
 }
 
 /**
- * Electric field intensity profile |E(z)|² normalized to incident intensity.
- * Units: 1.0 = 100% of incident |E|² (standard normalization convention).
- *        For a perfect HR, |E|² in the incident medium can reach 4.0 (400%).
+ * Electric field profile through a coating, as a fraction of the incident field.
+ *
+ * Units: 1.0 = 100% of the incident |E|². For a perfect HR, |E|² just outside
+ * the first surface can reach 4.0 (400%).
+ *
+ * Three curves come back, matching what the field is actually made of at
+ * oblique incidence:
+ *
+ *   e2Tangential  the component along the layers
+ *   e2Normal      the component normal to them, zero for s and at normal
+ *                 incidence
+ *   e2            the resultant, the curve to read unless a component is
+ *                 wanted on its own
  *
  * Algorithm: right-partial field vectors (Macleod §3, Eq. 3.6 and surrounding text).
  *
@@ -347,9 +357,13 @@ export function evaluateSpectrumAt(lambdas, params, incidentMaterial, substrateM
  * At depth z_in_k from the FRONT of layer k (remaining = d_k − z_in_k):
  *   E(z) = (layerMatrix(n_k, remaining) · EH[k+1])[0]
  *
- * Normalization to incident E_inc = 1:
- *   |E_phys(z)|² = |E(z)|² · |t|²
- * where t = 2η₀ / (η₀B + C) is the amplitude transmission coefficient.
+ * The characteristic matrix carries the TANGENTIAL components of E and H
+ * (Macleod, Admittance Loci: "B and C … are normalized total tangential
+ * electric and magnetic fields"), so E(z) above is the tangential component
+ * and t = 2η₀/(η₀B + C), built from tilted admittances, is a ratio of
+ * tangential amplitudes. Normalizing by |t|² alone therefore measures the
+ * field against the tangential part of the incident beam; for p-polarization
+ * that is |cos θ₀| of the whole of it, which the extra factor below removes.
  *
  * References: Macleod, Thin-Film Optical Filters §3 Eqs. 3.5–3.6.
  *
@@ -360,34 +374,115 @@ export function evaluateSpectrumAt(lambdas, params, incidentMaterial, substrateM
  * @param {[re,im]}  ns               substrate
  * @param {{ n:[re,im], d:number }[]} layers
  * @param {number}   [nPtsPerLayer=60] sample points per layer (interior + boundaries)
- * @returns {{ z:number[], e2:number[], layerBounds:number[], nLayers:number }}
+ * @param {{ components?:boolean }} [options]  `components: false` returns the
+ *            resultant alone, leaving `e2Tangential` and `e2Normal` empty
+ * @returns {{ z:number[], e2:number[], e2Tangential:number[], e2Normal:number[],
+ *            layerBounds:number[], nLayers:number }}
  */
-// Sample |E(z)|² (substrate-normalized, scaled by |t|²) across one layer's
-// thickness. `ehBack` = [E, H] at the layer's back interface; `zBase` is the
-// layer's front-boundary depth. `skipFront` drops the p=0 point that coincides
-// with the previous layer's back boundary. Returns { z, e2 } in increasing depth.
-function sampleLayerEField(layer, cosThJ, ehBack, zBase, lambda_nm, pol, t2, nPtsPerLayer, skipFront) {
-    const { n, d } = layer;
-    const pts = Math.max(2, nPtsPerLayer);
-    const z = [], e2 = [];
+
+/**
+ * Component normal to the layers, from the tangential magnetic field.
+ *
+ * For p-polarization H lies entirely along the layers, so the pair the matrix
+ * already carries is enough and no second pass through the stack is needed.
+ * With E_full the whole field in a medium of index n, H = nE_full in
+ * free-space admittance units and the normal component is E_full·sin θ, so
+ *
+ *     E_normal = (sin θ / n) · H = (q / n²) · H,
+ *
+ * where q is the transverse invariant Snell's law is applied through, Re(n₀)
+ * sin θ₀, the same one snellCosTheta uses. The component steps across an
+ * interface, since n does; the tangential one does not.
+ */
+function normalEField(eh, n, invariant) {
+    return cmul(cdiv([invariant, 0], cmul(n, n)), eh[1]);
+}
+
+/**
+ * Squared semi-major axis of the ellipse the field vector traces.
+ *
+ * At oblique incidence the p-polarized field has a component along the layers
+ * and one normal to them, carrying a relative phase, so over the optical cycle
+ * the vector sweeps an ellipse rather than oscillating along a line. Its
+ * semi-major axis is the largest field the material ever sees, which is the
+ * quantity intrinsic damage follows: Macleod, Laser Damage, puts it as the
+ * square of the electric field being what counts. With
+ * a² + b² = |Eₜ|² + |Eₙ|² and a² − b² = |Eₜ² + Eₙ²|,
+ *
+ *     a² = ½ ( |Eₜ|² + |Eₙ|² + |Eₜ² + Eₙ²| ).
+ *
+ * For s-polarization, and for p at normal incidence, Eₙ is zero and this is
+ * just |Eₜ|², so those curves are unaffected by the distinction. Essential
+ * Macleod reports this quantity as the total field.
+ *
+ * That case is returned directly rather than through the formula: |Eₜ²| and
+ * |Eₜ|² are the same number in exact arithmetic but not in floating point, and
+ * the linearly polarized curves should come out bit-identical to the component
+ * they are made of.
+ */
+function resultantESquared(eTan, eNormal) {
+    const tangential = cabs2(eTan);
+    const normal = cabs2(eNormal);
+    if (normal === 0) return tangential;
+    const sumOfSquares = cadd(cmul(eTan, eTan), cmul(eNormal, eNormal));
+    return (tangential + normal + Math.hypot(sumOfSquares[0], sumOfSquares[1])) / 2;
+}
+
+// s-polarization has no component normal to the layers, and neither has p at
+// normal incidence. Read only.
+const NO_NORMAL_FIELD = [0, 0];
+
+/**
+ * One sample of the profile, appended to the curves being built.
+ *
+ * `eh` is the [E, H] pair at that depth and `n` the index of the medium the
+ * sample sits in, which is what the normal component is formed against; at an
+ * interface that is the layer the sample belongs to, since the normal
+ * component steps there while the tangential one does not.
+ *
+ * `ctx.components` decides whether the two components are kept alongside the
+ * resultant. A caller that reads only the resultant, such as a field target in
+ * the merit function, leaves them out and their arrays stay empty.
+ */
+function pushEFieldSample(out, eh, n, zAt, ctx) {
+    const eNormal = ctx.pol === 'p' ? normalEField(eh, n, ctx.invariant) : NO_NORMAL_FIELD;
+    out.z.push(zAt);
+    out.e2.push(resultantESquared(eh[0], eNormal) * ctx.scale);
+    if (!ctx.components) return;
+    out.e2Tangential.push(cabs2(eh[0]) * ctx.scale);
+    out.e2Normal.push(cabs2(eNormal) * ctx.scale);
+}
+
+// Sample one layer's thickness into `out`, in increasing depth. `ehBack` =
+// [E, H] at the layer's back interface; `zBase` is the layer's front-boundary
+// depth. `skipFront` drops the p=0 point that coincides with the previous
+// layer's back boundary. `ctx` carries what every layer shares: wavelength,
+// polarization, sample count, the Snell invariant, and the scale onto
+// "incident field = 1".
+function sampleLayerEField(out, layer, ehBack, zBase, skipFront, ctx) {
+    const { n, d, cosTheta } = layer;
+    const pts = Math.max(2, ctx.nPtsPerLayer);
     for (let p = 0; p <= pts; p++) {
         if (p === 0 && skipFront) continue;
         const zInK      = (p / pts) * d;
         const remaining = d - zInK;
-        let E_z;
+        let eh;
         if (remaining < 1e-10) {
-            E_z = ehBack[0]; // at the back interface of the layer
+            eh = ehBack; // at the back interface of the layer
         } else {
-            const Mrem = layerMatrix(n, remaining, lambda_nm, cosThJ, pol);
-            E_z = cadd(cmul(Mrem[0][0], ehBack[0]), cmul(Mrem[0][1], ehBack[1]));
+            const Mrem = layerMatrix(n, remaining, ctx.lambda_nm, cosTheta, ctx.pol);
+            eh = [
+                cadd(cmul(Mrem[0][0], ehBack[0]), cmul(Mrem[0][1], ehBack[1])),
+                cadd(cmul(Mrem[1][0], ehBack[0]), cmul(Mrem[1][1], ehBack[1])),
+            ];
         }
-        z.push(zBase + zInK);
-        e2.push(cabs2(E_z) * t2);
+        pushEFieldSample(out, eh, n, zBase + zInK, ctx);
     }
-    return { z, e2 };
 }
 
-export function computeEFieldProfile(lambda_nm, theta_deg, pol, n0, ns, layers, nPtsPerLayer = 60) {
+export function computeEFieldProfile(
+    lambda_nm, theta_deg, pol, n0, ns, layers, nPtsPerLayer = 60, { components = true } = {},
+) {
     const sinTheta0  = [Math.sin(theta_deg * Math.PI / 180), 0];
     const cosTheta0c = incidentCosTheta(n0, sinTheta0);
 
@@ -395,20 +490,28 @@ export function computeEFieldProfile(lambda_nm, theta_deg, pol, n0, ns, layers, 
     const etaS = pol === 's' ? cmul(ns, cosThetaS) : cdiv(ns, cosThetaS);
     const eta0 = pol === 's' ? cmul(n0, cosTheta0c) : cdiv(n0, cosTheta0c);
 
-    const valid = layers.filter(l => l.d > 0);
+    const valid = layers
+        .filter(l => l.d > 0)
+        .map(({ n, d }) => ({ n, d, cosTheta: snellCosTheta(n0, sinTheta0, n) }));
     const N = valid.length;
-
-    // Per-layer refraction angles
-    const cosThJs = valid.map(({ n }) => snellCosTheta(n0, sinTheta0, n));
 
     // Full transfer matrix → amplitude transmission t
     let Mfull = [[[1, 0], [0, 0]], [[0, 0], [1, 0]]];
-    const Ms = valid.map(({ n, d }, k) => layerMatrix(n, d, lambda_nm, cosThJs[k], pol));
+    const Ms = valid.map(({ n, d, cosTheta }) => layerMatrix(n, d, lambda_nm, cosTheta, pol));
     for (const Mj of Ms) Mfull = matmul(Mfull, Mj);
     const Bv = cadd(Mfull[0][0], cmul(Mfull[0][1], etaS));
     const Cv = cadd(Mfull[1][0], cmul(Mfull[1][1], etaS));
     const t  = cdiv(cmul([2, 0], eta0), cadd(cmul(eta0, Bv), Cv));
-    const t2 = cabs2(t); // |t|²
+    // |t|² lands on the tangential part of the incident beam; for p that is
+    // |cos θ₀| of the whole field, and the curves are fractions of the whole.
+    const scale = cabs2(t) * (pol === 'p' ? cabs2(cosTheta0c) : 1);
+    // Snell's law is applied through the real invariant Re(n₀)·sin θ₀ here and
+    // in snellCosTheta, so an absorbing incident medium shares one boundary
+    // problem with the stack.
+    const ctx = {
+        lambda_nm, pol, scale, nPtsPerLayer, components,
+        invariant: n0[0] * sinTheta0[0],
+    };
 
     // Right-partial field vectors EH[k] = [E, H] at the END of layer k (substrate-normalized)
     // EH[N] = [1, η_s];  EH[k] = M_{k+1} · EH[k+1]
@@ -428,23 +531,17 @@ export function computeEFieldProfile(lambda_nm, theta_deg, pol, n0, ns, layers, 
     const bounds = [0];
     for (const l of valid) bounds.push(bounds[bounds.length - 1] + l.d);
 
-    const zArr  = [];
-    const e2Arr = [];
+    const profile = { z: [], e2: [], e2Tangential: [], e2Normal: [] };
 
     for (let k = 0; k < N; k++) {
         // k>0 skips the p=0 sample that coincides with the previous layer's back boundary.
-        const s = sampleLayerEField(valid[k], cosThJs[k], EH[k + 1], bounds[k], lambda_nm, pol, t2, nPtsPerLayer, k > 0);
-        zArr.push(...s.z);
-        e2Arr.push(...s.e2);
+        sampleLayerEField(profile, valid[k], EH[k + 1], bounds[k], k > 0, ctx);
     }
 
-    // Empty stack: just one sample at z = 0
-    if (N === 0) {
-        zArr.push(0);
-        e2Arr.push(cabs2(EH[0][0]) * t2);
-    }
+    // No layers above zero thickness: one sample on the bare substrate surface.
+    if (N === 0) pushEFieldSample(profile, EH[0], ns, 0, ctx);
 
-    return { z: zArr, e2: e2Arr, layerBounds: bounds, nLayers: N };
+    return { ...profile, layerBounds: bounds, nLayers: N };
 }
 
 /**

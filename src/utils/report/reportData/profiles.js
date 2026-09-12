@@ -67,5 +67,7 @@ export function computeEField(design, opts = {}) {
     .filter(l => l.material && l.thickness > 0)
     .map(l => ({ n: resolveMaterial(l.material).getNK(lam), d: l.thickness }));
   const prof = computeEFieldProfile(lam, theta, pol, n0, ns, layers, 50);
-  return { lambda: lam, theta, pol, ...prof };
+  // The incident index sets the absolute scale of the field, so the report can
+  // draw the same quantity the E-field window does.
+  return { lambda: lam, theta, pol, incidentIndex: n0[0], ...prof };
 }

@@ -324,6 +324,7 @@ export default {
         characteristic:  'Channel',
         sweepChannel:    'Swept channel',
         quantity:        'Quantity',
+        component:       'Component',
         pol:             'Polarization',
         polarization:    'Polarization',
         theta:           'Angle of incidence (°)',
@@ -2147,15 +2148,25 @@ export default {
     side:          'Side',
     front:         'Front',
     back:          'Back',
-    labelS:        '|E|² (s-pol)',
-    labelP:        '|E|² (p-pol)',
-    labelAvg:      '|E|² (avg)',
+    polSuffixS:    's-pol',
+    polSuffixP:    'p-pol',
+    polSuffixAvg:  'avg',
     xAxisTitle:    'Depth (nm)',
-    yAxisTitle:    '|E|² (%)',
     chartTitle:    'Electric Field Profile',
-    maxLabel:      'Max |E|²',
-    totalThk:      'Total thickness',
-    layersLabel:   'Layers',
+    quantity:      'Quantity',
+    // Kept short enough to sit on one line in the dropdown; the axis carries
+    // the unit, and the manual spells out the 1 W/m² reference.
+    quantities: {
+      amplitude:       'Amplitude for 1 W/m²',
+      fractionSquared: 'Squared, % of incident',
+      absoluteSquared: 'Squared, absolute',
+    },
+    component:     'Component',
+    components: {
+      total:      'Total field',
+      tangential: 'Along the layers',
+      normal:     'Normal to the layers',
+    },
   },
 
   ellipsometry: {
