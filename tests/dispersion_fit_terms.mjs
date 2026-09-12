@@ -15,6 +15,7 @@ import {
     evaluateDispersionFit,
     evaluateComplexDispersionModel,
     dispersionFitParameters,
+    metalFitDiagnostics,
 } from '../src/utils/materials/dispersionFits.js';
 
 const oxide = [
@@ -129,6 +130,53 @@ ladder.forEach((rung, count) => {
     assert.ok(combined(fromItself[count]) <= combined(rung) * (1 + 1e-9) + 1e-24,
         `started from its own answer, count ${count} does not get worse`);
 });
+
+// ── ε∞ is not free to be below the vacuum value ───────────────────────────────
+//
+// ε∞ carries every resonance above the fitted range, so it cannot be below 1. A
+// Lorentz term with its resonance far above the data and a wide damping is
+// nearly constant across the band, which is what ε∞ is, so the two are one
+// degree of freedom: left free to reach the numerical floor, ε∞ slides into an
+// oscillator and both end up on their limits. Silver over its whole table came
+// back with ε∞ at 1.5e-8, a strength at its cap and a resonance at twice the
+// highest energy in the data, and the window reported only a poor residual.
+
+assert.ok(Math.abs(metalFit.complex.epsilonInfinity - source.epsilonInfinity) < 1e-6,
+    'a genuine material keeps the background it was made with');
+assert.deepEqual(metalFitDiagnostics(metalFit), { pinned: [], flat: [] },
+    'and has nothing to report');
+
+const belowVacuum = { ...source, epsilonInfinity: 0.2, oscillators: [] };
+const belowRows = [];
+for (let nm = 400; nm <= 900; nm += 10) {
+    belowRows.push([nm, ...evaluateComplexDispersionModel(belowVacuum, nm)]);
+}
+const floored = fitTabulatedMaterial(belowRows, { nModel: 'drude' });
+assert.ok(floored.complex.epsilonInfinity >= 1 && floored.complex.epsilonInfinity < 1.000001,
+    `a fit whose optimum is below the vacuum value stops at it, not ${floored.complex.epsilonInfinity}`);
+assert.deepEqual(metalFitDiagnostics(floored).pinned, ['ε∞'],
+    'and says so, since the number reported is then the bound and not the material');
+
+// ── A fit that ran into its own limits says which ones ───────────────────────
+
+const withDeadTerm = {
+    rangeNm: [400, 800],
+    // Both parts are judged, so a term is only flat when it moves neither.
+    residuals: { n: { rms: 1e-3 }, k: { rms: 1e-3 } },
+    complex: {
+        ...source,
+        oscillators: [{ strengthEv2: 1e-9, resonanceEv: 1e-9, dampingEv: 50 }, ...source.oscillators],
+    },
+};
+assert.deepEqual(metalFitDiagnostics(withDeadTerm), { pinned: [], flat: [1] },
+    'an oscillator the band cannot tell from a constant is named, and its own width is not');
+
+const atTheCap = {
+    ...withDeadTerm,
+    complex: { ...source, oscillators: [{ strengthEv2: 3000, resonanceEv: 28.7, dampingEv: 50 }] },
+};
+assert.deepEqual(metalFitDiagnostics(atTheCap).pinned, ['f1 (eV²)', 'γ1 (eV)'],
+    'a term that ran into its cap is reported by the name the panel shows it under');
 
 // ── The coefficients are readable, since they are what gets computed ──────────
 

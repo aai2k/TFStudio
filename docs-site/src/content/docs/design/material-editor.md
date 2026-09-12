@@ -135,14 +135,29 @@ that need higher derivatives. Transparent materials can use Cauchy or a one-
 to three-term Sellmeier model for `n`; `k` uses a non-negative Urbach form when
 the table contains enough positive values, otherwise it remains zero. Metals
 can use a coupled Drude or Drude-Lorentz dielectric model, which fits `n` and
-`k` together. The fit uses the material's stated wavelength range, never the
-range of an analysis window.
+`k` together.
+
+The fit covers its own wavelength range, set in **Fit from** and **Fit to** and
+separate from the validity range at the top of the form. It starts at the range
+the design is evaluated over, where the table reaches that far, because that is
+where the fit has to be right; outside the fit range the table itself is read,
+so a fit narrower than the table costs nothing. The range is stored with the
+fit and comes back the next time the material is opened.
+
+A range covering more than a decade of photon energy is reported as such. No
+single model holds free-electron behaviour, an interband edge and the
+transparent region at once, so a fit over all of it is poor everywhere, and the
+range the design is evaluated over is offered in its place with the residual it
+reaches.
 
 Choose **Fit** or **Refit** to calculate it. TFStudio shows RMS and maximum
 residuals for both `n` and `k`, plus a residual plot. Inspect those errors before
-using the model. The fit is not created silently. It is stored on the material,
-travels with an embedded user material, and is removed automatically when its
-source table changes. Built-in materials remain read-only; copy one to a user
+using the model. For the metal models it also reports a parameter left on one of
+the model's own limits, and an oscillator that changes `n` across the range by
+less than the residual: neither is a measurement of the material, and the
+residual alone does not say so. The fit is not created silently. It is stored
+on the material, travels with an embedded user material, and is removed
+automatically when its source table changes. Built-in materials remain read-only; copy one to a user
 catalog before fitting a different representation.
 
 ## How to read it

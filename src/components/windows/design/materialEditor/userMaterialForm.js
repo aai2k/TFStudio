@@ -13,19 +13,14 @@ import { FORMULA_LATEX, coefficientNames } from '../../../../utils/materials/dis
 import { NKDataGrid } from './nkDataGrid.js';
 import {
     buildNKFromDraft, PRESET_COLORS, nextPresetColor,
-    fitModelsForRows, effectiveFitModel,
-    coefficientSlots, withFormula, withAddedTerm,
+    coefficientSlots, fitRows, withFormula, withAddedTerm,
 } from './materialDraft.js';
+import { fitActions, renderFitPanel } from './fitPanel.js';
 import { parseNumber, parseNumberStrict } from '../../../../utils/misc/numberParsing.js';
 import { INTERPOLATION_RULES, interpolationRuleOf } from '../../../../utils/materials/pchip.js';
 import { KaTeXSpan, NkProbe, dotStyle, catTabStyle, smallBtn } from './materialEditorUI.js';
 import { readOnlyNkTable } from './materialEditorReadOnly.js';
-import {
-    dispersionFitModelName,
-    dispersionFitParameters,
-    evaluateDispersionFit,
-    fitTabulatedMaterial,
-} from '../../../../utils/materials/dispersionFits.js';
+import { evaluateDispersionFit } from '../../../../utils/materials/dispersionFits.js';
 
 const { createElement: h, useRef, useEffect, useState, useMemo } = React;
 
@@ -38,13 +33,6 @@ function numberText(value, fallback = '') {
     const parsed = parseNumberStrict(value);
     return Number.isFinite(parsed) ? String(parsed) : fallback;
 }
-
-const FIT_MODEL_LABELS = {
-    cauchy: 'Cauchy',
-    sellmeier: 'Sellmeier',
-    drude: 'Drude',
-    'drude-lorentz': 'Drude-Lorentz',
-};
 
 // ── Live preview chart ────────────────────────────────────────────────────────
 
@@ -111,10 +99,8 @@ function drawFitResidualChart(chartEl, draft, c, me) {
         clearMaterialChart(chartEl);
         return;
     }
-    const rows = draft.rows
-        .map(row => [parseNumberStrict(row.lam), parseNumberStrict(row.n), parseNumber(row.k)])
-        .filter(row => row.every(Number.isFinite)
-            && row[0] >= fit.rangeNm[0] && row[0] <= fit.rangeNm[1]);
+    const rows = fitRows(draft)
+        .filter(row => row[0] >= fit.rangeNm[0] && row[0] <= fit.rangeNm[1]);
     const wavelength = rows.map(row => row[0]);
     const nResidual = rows.map(row => evaluateDispersionFit(fit, row[0])[0] - row[1]);
     const kResidual = rows.map(row => evaluateDispersionFit(fit, row[0])[1] - row[2]);
@@ -295,94 +281,6 @@ function renderInterpolationField({ draft, set, me, c, sectionLabel }) {
     );
 }
 
-// The coefficients the material is computed from, with the formula they sit in.
-function renderFitCoefficients(fit, c) {
-    const { formula, parameters } = dispersionFitParameters(fit);
-    if (parameters.length === 0) return null;
-    return h('div', { style: { display: 'flex', flexDirection: 'column', gap: 4 } },
-        h('div', { style: { color: c.textDim, fontSize: 10 } }, formula),
-        h('div', {
-            style: {
-                display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(150px, 1fr))',
-                gap: '2px 12px', fontSize: 11, fontFamily: 'ui-monospace, Consolas, monospace',
-            },
-        },
-            parameters.map(parameter => h('div', {
-                key: parameter.label,
-                style: { display: 'flex', justifyContent: 'space-between', gap: 6 },
-            },
-                h('span', { style: { color: c.textDim } }, parameter.label),
-                h('span', { style: { color: c.text } }, parameter.value.toPrecision(7)),
-            )),
-        ),
-    );
-}
-
-/**
- * What the fit panel says about how well the fit matched.
- *
- * A fit made here compares a formula against the material's own table, so it
- * reports a residual in n and, where the table absorbs, in k. A material saved
- * from n,k Characterization carries a fit too, but that one was refined against
- * a measured spectrum through the transfer matrix and never saw a table of n
- * and k, so it has no residual against one. Its residual is in the window that
- * produced it, against the measurement, which is the only place it means
- * anything.
- */
-function fitResidualText(fit, me) {
-    const residuals = fit.residuals || {};
-    if (!residuals.n) {
-        return [me.fitFromMeasurement(fit.source)];
-    }
-    const summary = (label, value) =>
-        `${label} residual: RMS ${value.rms.toExponential(3)}, max ${value.max.toExponential(3)}`;
-    return [
-        summary('n', residuals.n),
-        // A table with no absorption in it has no k residual to report.
-        fit.k?.kind !== 'zero' && residuals.k ? `; ${summary('k', residuals.k)}` : '',
-    ];
-}
-
-function renderFitPanel({ draft, set, runFit, fitError, me, c, sectionLabel, inputStyle }) {
-    const fit = draft.dispersionFit;
-    const models = fitModelsForRows(draft.rows);
-    return h('div', null,
-        sectionLabel(me.dispersionFit || 'Smooth dispersion fit'),
-        h('div', {
-            style: {
-                padding: 8, border: `1px solid ${c.border}`, borderRadius: 4,
-                backgroundColor: c.panel, display: 'flex', flexDirection: 'column', gap: 7,
-            },
-        },
-            h('div', { style: { display: 'flex', alignItems: 'center', gap: 6 } },
-                h('select', {
-                    value: effectiveFitModel(draft),
-                    onChange: event => set('fitModel', event.target.value),
-                    style: { ...inputStyle, padding: '3px 6px' },
-                },
-                    models.map(id => h('option', { key: id, value: id }, FIT_MODEL_LABELS[id])),
-                ),
-                h('button', { type: 'button', onClick: runFit, style: smallBtn(c) },
-                    fit ? (me.refit || 'Refit') : (me.fit || 'Fit')),
-                fit && h('button', {
-                    type: 'button',
-                    onClick: () => set('dispersionFit', null),
-                    style: { ...smallBtn(c), color: '#ec7063' },
-                }, me.removeFit || 'Remove fit'),
-            ),
-            h('div', { style: { color: c.textDim, fontSize: 10, lineHeight: 1.4 } },
-                me.fitHint || 'The fit belongs to this material and uses the stated validity range. Residuals remain visible.'),
-            fit && h('div', { style: { fontSize: 11, color: c.text } },
-                dispersionFitModelName(fit).replace(/^Fit: /, ''),
-                h('br'),
-                ...fitResidualText(fit, me),
-            ),
-            fit && renderFitCoefficients(fit, c),
-            fitError && h('div', { style: { color: '#ef5350', fontSize: 11 } }, fitError),
-        ),
-    );
-}
-
 function renderFormulaEditor(ctx) {
     const { draft, set, me, c, sectionLabel, formulaInfo, coeffCount, inputStyle, labelStyle, lambdaAxis,
             addKRow, delKRow, editKRow, pasteKRows, addTerm, changeFormula } = ctx;
@@ -497,13 +395,14 @@ function renderFormFooter({ onSave, onRevert, dirty, me, c }) {
 
 // ── Component ─────────────────────────────────────────────────────────────────
 
-export function UserMaterialForm({ draft, onChange, onSave, onRevert, onDelete, onCopy, dirty, catalogs, c, t }) {
+export function UserMaterialForm({ draft, onChange, onSave, onRevert, onDelete, onCopy, dirty, catalogs, workingNm, c, t }) {
     const me = t.materialEditor;
     const chartRef = useRef(null);
     const residualChartRef = useRef(null);
     const seqRef = useRef(draft._rowSeq || (draft.rows.length + draft.kRows.length + 100));
     const nextKey = () => ++seqRef.current;
     const [fitError, setFitError] = useState('');
+    const [suggestion, setSuggestion] = useState(null);
 
     // Live n/k chart. No dependency list: see plotSurface.js for why every
     // render redraws.
@@ -537,21 +436,9 @@ export function UserMaterialForm({ draft, onChange, onSave, onRevert, onDelete, 
         const newRows = parsed.map(p => ({ _key: nextKey(), lam: numberText(p.lam), n: numberText(p.n), k: numberText(p.k, '0') })).filter(r => r.lam !== '' && r.n !== '');
         if (newRows.length > 0) onChange({ ...draft, dispersionFit: null, rows: [...draft.rows, ...newRows] });
     };
-    const runFit = () => {
-        try {
-            const rows = draft.rows
-                .map(row => [parseNumberStrict(row.lam), parseNumberStrict(row.n), parseNumber(row.k)])
-                .filter(row => row.every(Number.isFinite));
-            const dispersionFit = fitTabulatedMaterial(rows, {
-                nModel: effectiveFitModel(draft),
-                rangeNm: [parseNumber(draft.lambdaMinNm), parseNumber(draft.lambdaMaxNm)],
-            });
-            setFitError('');
-            onChange({ ...draft, dispersionFit });
-        } catch (error) {
-            setFitError(error.message || String(error));
-        }
-    };
+    const fitHandlers = fitActions({
+        draft, onChange, workingNm, suggestion, setFitError, setSuggestion,
+    });
 
     // Row helpers — k table (formula mode)
     const addKRow = () => {
@@ -591,7 +478,7 @@ export function UserMaterialForm({ draft, onChange, onSave, onRevert, onDelete, 
         lambdaAxis: t.spectralAxis.lambdaShort,
         formulaInfo, coeffCount, colorIsAuto, autoColor,
         addRow, delRow, editRow, sortRows, pasteRows,
-        runFit, fitError,
+        ...fitHandlers, fitError, workingNm, suggestion,
         addKRow, delKRow, editKRow, pasteKRows, addTerm, changeFormula,
     };
 

@@ -50,6 +50,7 @@ export function MaterialEditor({ c, t, setInputDialog }) {
                 onCopy: handleCopyUserMaterial,
                 dirty: s.isDirty,
                 catalogs,
+                workingNm: s.workingNm,
                 c,
                 t
             })

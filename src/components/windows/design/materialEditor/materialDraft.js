@@ -12,6 +12,7 @@
  *   formula   — one of the Zemax dispersion formulas + optional k table
  */
 
+import { anchoredFitRange } from '../../../../utils/materials/dispersionFitRange.js';
 import { interpolationRuleOf, TABULATED_INTERPOLATION } from '../../../../utils/materials/pchip.js';
 import { FORMULA_LATEX } from '../../../../utils/materials/dispersionFormulas.js';
 import { parseNumber, parseNumberStrict } from '../../../../utils/misc/numberParsing.js';
@@ -36,6 +37,57 @@ export function fitModelsForRows(rows) {
 export function effectiveFitModel(draft) {
     const models = fitModelsForRows(draft.rows);
     return models.includes(draft.fitModel) ? draft.fitModel : models[0];
+}
+
+/** The table as the fitter reads it: [λ nm, n, k] rows, half-typed ones dropped. */
+export function fitRows(draft) {
+    return (draft.rows || [])
+        .map(row => [parseNumberStrict(row.lam), parseNumberStrict(row.n), parseNumber(row.k)])
+        .filter(row => row.every(Number.isFinite));
+}
+
+/**
+ * The wavelengths a draft's table covers, in nm, or null while it has none.
+ *
+ * Walked rather than spread into Math.min: a table with more rows than the
+ * engine takes arguments is a stack overflow, and some published tables are
+ * already thousands of rows long.
+ */
+export function tableRangeNm(rows) {
+    let low = Infinity;
+    let high = -Infinity;
+    for (const row of rows || []) {
+        const wavelength = parseNumberStrict(row.lam);
+        if (!Number.isFinite(wavelength)) continue;
+        low = Math.min(low, wavelength);
+        high = Math.max(high, wavelength);
+    }
+    return low <= high ? [low, high] : null;
+}
+
+/**
+ * The band the fit covers, which is not the material's stated validity range.
+ *
+ * A table can hold far more than any one dispersion model describes, so the fit
+ * gets its own band and keeps it: `rangeNm` travels with the fit and comes back
+ * on the next load. Until one is set, the band offered is the one the design is
+ * evaluated over, where the table reaches that far, since that is where the fit
+ * has to be right; the whole table is the fallback and the worst case.
+ *
+ * Each edge is taken on its own, so filling one box keeps the other's offer
+ * rather than throwing the typed edge away, and both are held inside the table:
+ * a model asked for wavelengths its data never covered is worth less than the
+ * last row of the table, which is what is read there instead.
+ */
+export function fitRangeNm(draft, workingNm) {
+    const table = tableRangeNm(draft.rows);
+    if (!table) return null;
+    const offered = (workingNm
+        && anchoredFitRange(fitRows(draft).map(row => row[0]), workingNm)) || table;
+    const typed = [parseNumberStrict(draft.fitRangeMinNm), parseNumberStrict(draft.fitRangeMaxNm)];
+    const low = Math.max(table[0], Number.isFinite(typed[0]) ? typed[0] : offered[0]);
+    const high = Math.min(table[1], Number.isFinite(typed[1]) ? typed[1] : offered[1]);
+    return [Math.min(low, high), Math.max(low, high)];
 }
 
 // ── Preset dot colors for user materials ──────────────────────────────────────
@@ -86,6 +138,8 @@ export function emptyDraft(catalogId) {
         dispersionFit: null,
         fitModel: 'cauchy',
         fitTerms: 3,
+        fitRangeMinNm: '',
+        fitRangeMaxNm: '',
         _rowSeq: 0,
     };
 }
@@ -184,6 +238,7 @@ export function materialToDraft(catalogId, mat) {
         ? mat.kTable.map(r => ({ _key: seq++, lam: String(Number((r.lam_um * 1000).toFixed(3))), k: String(r.k) }))
         : [];
     const formulaNum = (isTab || isBuiltin) ? 2 : (mat.formulaNum || 2);
+    const fitRange = mat.dispersionFit?.rangeNm || [];
 
     return {
         catalogId,
@@ -210,6 +265,10 @@ export function materialToDraft(catalogId, mat) {
         fitModel: mat.dispersionFit?.complex?.kind
             || mat.dispersionFit?.n?.kind
             || 'cauchy',
+        // The band the stored fit covers, so a fit narrower than the table comes
+        // back as it was made rather than widening to the table on the next Refit.
+        fitRangeMinNm: fitRange[0] == null ? '' : String(fitRange[0]),
+        fitRangeMaxNm: fitRange[1] == null ? '' : String(fitRange[1]),
         _rowSeq: seq,
     };
 }

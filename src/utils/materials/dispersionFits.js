@@ -343,13 +343,27 @@ const PARAMETER_FLOOR = Math.exp(-18);
  * Rakic's models.
  */
 const METAL_BOUNDS = {
-    epsilonInfinity: [1, 100],
+    epsilonInfinity: [1 + PARAMETER_FLOOR, 100],
     plasmaEnergyEv: [PARAMETER_FLOOR, 50],
     drudeDampingEv: [PARAMETER_FLOOR, 50],
     strengthEv2: [PARAMETER_FLOOR, 3000],
     resonanceEv: [PARAMETER_FLOOR, 100],
     dampingEv: [PARAMETER_FLOOR, 50],
 };
+
+/**
+ * ε∞ travels as the logarithm of its excess over 1 rather than of itself.
+ *
+ * Its lower bound is physical and sits inside the range a fit works in, which a
+ * plain clamp cannot hold: the clamped region is flat, so a step that lands in
+ * it leaves the parameter with no derivative and nothing to climb back on, and
+ * ε∞ would be lost from the fit for good. As an excess the encoding is strictly
+ * increasing, reaches the bound only in the limit, and keeps a gradient
+ * everywhere on the way back.
+ */
+const EPSILON_INFINITY_EXCESS = [PARAMETER_FLOOR, METAL_BOUNDS.epsilonInfinity[1] - 1];
+const decodeEpsilonInfinity = value => 1 + boundedParameter(value, EPSILON_INFINITY_EXCESS);
+const encodeEpsilonInfinity = value => Math.log(Math.max(PARAMETER_FLOOR, value - 1));
 
 function boundedParameter(value, [minimum, maximum]) {
     return Math.min(maximum, Math.max(minimum, Math.exp(Math.max(-18, Math.min(18, value)))));
@@ -358,7 +372,7 @@ function boundedParameter(value, [minimum, maximum]) {
 /** The metal model as the log-parameter vector decodeMetalParameters reads. */
 function encodeMetalParameters(model) {
     return [
-        Math.log(model.epsilonInfinity),
+        encodeEpsilonInfinity(model.epsilonInfinity),
         Math.log(model.plasmaEnergyEv),
         Math.log(model.drudeDampingEv),
         ...(model.oscillators || []).flatMap(oscillator => [
@@ -372,7 +386,7 @@ function encodeMetalParameters(model) {
 function decodeMetalParameters(parameters, kind, oscillatorCount, minDampingEv = 0) {
     const model = {
         kind,
-        epsilonInfinity: boundedParameter(parameters[0], METAL_BOUNDS.epsilonInfinity),
+        epsilonInfinity: decodeEpsilonInfinity(parameters[0]),
         plasmaEnergyEv: boundedParameter(parameters[1], METAL_BOUNDS.plasmaEnergyEv),
         drudeDampingEv: boundedParameter(parameters[2], METAL_BOUNDS.drudeDampingEv),
         oscillators: [],
@@ -438,7 +452,7 @@ function metalModelWithDerivatives(parameters, kind, oscillatorCount, minDamping
         dn[index] = derivative[0];
         dk[index] = derivative[1];
     };
-    assign(0, [boundedParameterSlope(parameters[0], METAL_BOUNDS.epsilonInfinity), 0]);
+    assign(0, [boundedParameterSlope(parameters[0], EPSILON_INFINITY_EXCESS), 0]);
     const plasma = model.plasmaEnergyEv;
     const drudeDenominator = [energySquared, model.drudeDampingEv * energyEv];
     assign(1, divideComplex(
@@ -479,11 +493,13 @@ function initialDrudeParameters(rows) {
     const energy = HC_EV_UM / (row[0] / 1000);
     const epsilonReal = row[1] ** 2 - row[2] ** 2;
     const epsilonImaginary = 2 * row[1] * row[2];
-    const epsilonInfinity = 1;
+    // Clear of the vacuum value the encoding approaches only in the limit, so
+    // the background starts the fit with a gradient to move on.
+    const epsilonInfinity = 2;
     const delta = Math.max(1e-3, epsilonInfinity - epsilonReal);
     const damping = Math.max(1e-3, Math.abs(energy * epsilonImaginary / delta));
     const plasma = Math.sqrt(Math.max(1e-6, delta * (energy ** 2 + damping ** 2)));
-    return [Math.log(epsilonInfinity), Math.log(plasma), Math.log(damping)];
+    return [encodeEpsilonInfinity(epsilonInfinity), Math.log(plasma), Math.log(damping)];
 }
 
 /**
@@ -562,6 +578,20 @@ function* metalLadder(rows, kind, warmStart = []) {
 }
 
 /**
+ * The model without the oscillators the fit drove to nothing.
+ *
+ * A rung seeds the next one with a silent term, and a step can leave it silent.
+ * The rung is then the one below it wearing an extra resonance: keeping the term
+ * would have the model name a count, and the coefficient list three numbers,
+ * that describe nothing in the material. The ladder still hands the unstripped
+ * model on as its own seed.
+ */
+function withoutSilentOscillators(model) {
+    const oscillators = (model.oscillators || []).filter(oscillator => !atFloor(oscillator.strengthEv2));
+    return oscillators.length === (model.oscillators || []).length ? model : { ...model, oscillators };
+}
+
+/**
  * Fit the Drude term, then add Lorentz oscillators one at a time for as long as
  * each earns its place: it has to cut the residual by TERM_GAIN and leave a model
  * that still behaves between the tabulated points. The count is not asked for,
@@ -578,7 +608,7 @@ function fitMetal(rows, kind, rangeNm) {
         // accepted result. Stopping here strands gold at a Drude-only fit:
         // its first Lorentz term overshoots, while later terms resolve it.
         if (accepted && !staysWithinData(nm => evaluateComplexDispersionModel(model, nm)[0], rows, rangeNm, 1)) continue;
-        accepted = model;
+        accepted = withoutSilentOscillators(model);
         acceptedCost = cost;
     }
     return accepted;
@@ -772,25 +802,42 @@ export function fitMetalLadder(rows, options = {}) {
     return [...metalLadder(selected, kind, warmStart)].map(({ model }) => metalFit(selected, rangeNm, model));
 }
 
-/** The metal model's fitted values, each with its label and the bounds it was held inside. */
+const atFloor = value => value <= PARAMETER_FLOOR * (1 + 1e-9);
+
+/**
+ * The metal model's fitted values, each with its label and the bounds it was
+ * held inside.
+ *
+ * A term whose amplitude went to zero is a term the fit did without, and the
+ * width and position left inside it describe nothing. Those are marked `silent`
+ * so the diagnostics pass over them: they are still coefficients of the model
+ * and still listed, but wherever they ended up says nothing about the material.
+ */
 function metalParameterList(model) {
+    const drudeSilent = atFloor(model.plasmaEnergyEv);
     const list = [
         { label: 'ε∞', value: model.epsilonInfinity, bounds: METAL_BOUNDS.epsilonInfinity },
         { label: 'ωp (eV)', value: model.plasmaEnergyEv, bounds: METAL_BOUNDS.plasmaEnergyEv },
-        { label: 'γD (eV)', value: model.drudeDampingEv, bounds: METAL_BOUNDS.drudeDampingEv },
+        { label: 'γD (eV)', value: model.drudeDampingEv, bounds: METAL_BOUNDS.drudeDampingEv, silent: drudeSilent },
     ];
     (model.oscillators || []).forEach((oscillator, index) => {
+        const silent = atFloor(oscillator.strengthEv2);
         list.push(
             { label: `f${index + 1} (eV²)`, value: oscillator.strengthEv2, bounds: METAL_BOUNDS.strengthEv2 },
-            { label: `ω${index + 1} (eV)`, value: oscillator.resonanceEv, bounds: METAL_BOUNDS.resonanceEv },
-            { label: `γ${index + 1} (eV)`, value: oscillator.dampingEv, bounds: METAL_BOUNDS.dampingEv },
+            { label: `ω${index + 1} (eV)`, value: oscillator.resonanceEv, bounds: METAL_BOUNDS.resonanceEv, silent },
+            { label: `γ${index + 1} (eV)`, value: oscillator.dampingEv, bounds: METAL_BOUNDS.dampingEv, silent },
         );
     });
     return list;
 }
 
+// A parameter sitting on a limit the fit could not get past. The numerical floor
+// is not one of them: a term the fit drove to zero is a term it did without,
+// which the model's own name and the flat-oscillator test already report, and a
+// transparent material fitted with a metal model reaches it legitimately.
 function onABound(value, [minimum, maximum]) {
-    return value <= minimum * (1 + 1e-9) || value >= maximum * (1 - 1e-9);
+    return value >= maximum * (1 - 1e-9)
+        || (minimum > PARAMETER_FLOOR && value <= minimum * (1 + 1e-9));
 }
 
 // Points the fitted band is sampled at to see what one oscillator does across
@@ -798,23 +845,35 @@ function onABound(value, [minimum, maximum]) {
 // to show the shape of its contribution, not resolve the resonance itself.
 const OSCILLATOR_SAMPLES = 32;
 
-/** Oscillators whose contribution to n varies across the band by less than the fit's own residual. */
+/**
+ * Oscillators whose contribution varies across the band by less than the fit's
+ * own residual, in n and in k alike.
+ *
+ * Both parts have to be flat before the term is a background. ε∞ is real, so a
+ * term whose absorption moves across the band is one the data can still tell
+ * from it, however constant its contribution to the index looks.
+ */
 function flatOscillators(fit) {
     const model = fit.complex;
-    const residual = fit.residuals?.n?.rms;
-    if (!(residual > 0) || !fit.rangeNm) return [];
+    const residual = [fit.residuals?.n?.rms, fit.residuals?.k?.rms];
+    if (!residual.every(value => value > 0) || !fit.rangeNm) return [];
     const low = Math.min(...fit.rangeNm);
     const high = Math.max(...fit.rangeNm);
     return (model.oscillators || []).flatMap((oscillator, index) => {
         const without = { ...model, oscillators: model.oscillators.filter((_, other) => other !== index) };
-        const contribution = [];
+        const lowest = [Infinity, Infinity];
+        const highest = [-Infinity, -Infinity];
         for (let sample = 0; sample <= OSCILLATOR_SAMPLES; sample++) {
             const wavelength = low + ((high - low) * sample) / OSCILLATOR_SAMPLES;
-            contribution.push(evaluateComplexDispersionModel(model, wavelength)[0]
-                - evaluateComplexDispersionModel(without, wavelength)[0]);
+            const withTerm = evaluateComplexDispersionModel(model, wavelength);
+            const withoutTerm = evaluateComplexDispersionModel(without, wavelength);
+            for (const part of [0, 1]) {
+                const contribution = withTerm[part] - withoutTerm[part];
+                lowest[part] = Math.min(lowest[part], contribution);
+                highest[part] = Math.max(highest[part], contribution);
+            }
         }
-        const spread = Math.max(...contribution) - Math.min(...contribution);
-        return spread < residual ? [index + 1] : [];
+        return [0, 1].every(part => highest[part] - lowest[part] < residual[part]) ? [index + 1] : [];
     });
 }
 
@@ -826,7 +885,7 @@ function flatOscillators(fit) {
  * it and could not, so the number reported is the limit rather than the
  * material's, and the residual alone does not say so.
  *
- * An oscillator whose contribution to n varies across the band by less than the
+ * An oscillator whose contribution varies across the band by less than the
  * residual the fit already leaves is doing what ε∞ does: a resonance outside the
  * fitted range, broad enough, is a constant over it. The two are then one degree
  * of freedom, and nothing in the data says how the constant divides between
@@ -838,7 +897,7 @@ export function metalFitDiagnostics(fit) {
     if (!fit?.complex) return { pinned: [], flat: [] };
     return {
         pinned: metalParameterList(fit.complex)
-            .filter(parameter => onABound(parameter.value, parameter.bounds))
+            .filter(parameter => !parameter.silent && onABound(parameter.value, parameter.bounds))
             .map(parameter => parameter.label),
         flat: flatOscillators(fit),
     };

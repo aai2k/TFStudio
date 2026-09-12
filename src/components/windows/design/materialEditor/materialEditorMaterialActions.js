@@ -52,7 +52,13 @@ export function saveMaterial(ctx) {
         // Refresh draft with saved data (marks isNew=false)
         const cat = getCatalogs().find(cc => cc.id === draft.catalogId);
         if (cat?.materials?.[mat.id]) {
-            setEditDraft(materialToDraft(draft.catalogId, { ...cat.materials[mat.id] }));
+            setEditDraft({
+                ...materialToDraft(draft.catalogId, { ...cat.materials[mat.id] }),
+                // Only a fit stores a band, so a band typed before one was made
+                // would be thrown away by the refresh that follows a save.
+                fitRangeMinNm: draft.fitRangeMinNm,
+                fitRangeMaxNm: draft.fitRangeMaxNm,
+            });
         }
         notify('ok', me.saveSuccess(mat.name));
     } catch (err) {

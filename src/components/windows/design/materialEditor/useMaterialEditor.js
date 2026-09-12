@@ -63,7 +63,11 @@ export function useMaterialEditor({ c, t, setInputDialog }) {
     const [fileImport,       setFileImport]       = useState(null);
 
     const me = t.materialEditor;
-    const { design } = useDesign();
+    const { design, evalParams } = useDesign();
+
+    // The wavelengths the design is evaluated over. A fit has to be right where
+    // the coating is used, so this is the band the fit panel offers.
+    const workingNm = [evalParams.lambdaStart, evalParams.lambdaEnd];
 
     const loadCatalogs = useCallback(() => { setCatalogs(getCatalogs()); }, []);
     useEffect(() => {
@@ -172,7 +176,7 @@ export function useMaterialEditor({ c, t, setInputDialog }) {
         menuOpen, setMenuOpen,
         editDraft, setEditDraft, updateDraft, isDirty, handleRevertMaterial,
         results, selectedMat, currentCatalog, isUserCatalog,
-        browseCatalogs, designConflict,
+        browseCatalogs, designConflict, workingNm,
         handleImport, handleImportFiles, doImportFiles,
         handleRemoveCatalog, handleCreateCatalog, handleRenameCatalog, handleDuplicateCatalog,
         handleNewMaterial, handleSelectMaterial, handleSaveMaterial, handleDeleteMaterial,
