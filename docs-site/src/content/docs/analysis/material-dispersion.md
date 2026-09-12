@@ -38,11 +38,13 @@ sampling automatically because each wavelength is evaluated pointwise.
 Formula derivatives are exact for the stored coefficients. PCHIP derivatives
 are exact for the cubic piece drawn through the supplied table, but higher
 orders still describe that interpolation choice. PCHIP is continuous through
-its first derivative; GDD and TOD can jump at table knots. The plot leaves gaps
-at those jumps instead of connecting unrelated one-sided values. A user-created
-smooth fit is used only inside the validity range stored with the material.
-Points outside a model range are blank and the window reports how many were
-omitted.
+its first derivative; GDD and TOD can jump at table knots. The plot samples each
+knot and draws the jump as a step through the value on each side of it, so the
+curve is never cut there. A gap means the opposite, that the sample has no value:
+a wavelength outside a model range, or one the thickness has masked. A
+user-created smooth fit is used only inside the validity range stored with the
+material. Points outside a model range are blank and the window reports how many
+were omitted.
 
 For an absorbing material, k does not enter propagation phase directly. It
 sets how much of the direct pulse survives. TFStudio masks wavelengths where

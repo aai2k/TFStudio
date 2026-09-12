@@ -1,5 +1,6 @@
 import { ANALYSIS_DEFAULTS } from '../../../../constants/analysisDefaults.js';
 import { niceAxisBounds } from '../../../ui/chartOptions.js';
+import { knotSteps, stepAtKnots } from '../knots.js';
 
 /** `colors` are the configured curve colours; factory defaults when absent. */
 export function quantityMeta(quantity, text, colors = ANALYSIS_DEFAULTS.gdGddEvaluation.colors) {
@@ -10,23 +11,6 @@ export function quantityMeta(quantity, text, colors = ANALYSIS_DEFAULTS.gdGddEva
         case 'tod': return { key: 'tod', label: text.todAxis, unit: 'fs³', dp: 3, order: 3, color: colors.curve };
         default: return { key: 'gd', label: text.gdAxis, unit: 'fs', dp: 3, order: 1, color: colors.curve };
     }
-}
-
-function segmentCurve(raw, values, derivativeOrder) {
-    if (derivativeOrder <= (raw.phaseContinuousOrder ?? 3)) {
-        return { lambda: raw.lambda, y: values };
-    }
-    const lambda = [];
-    const y = [];
-    for (let index = 0; index < raw.lambda.length; index++) {
-        if (index > 0 && raw.knotSignatures?.[index] !== raw.knotSignatures?.[index - 1]) {
-            lambda.push(raw.lambda[index]);
-            y.push(NaN);
-        }
-        lambda.push(raw.lambda[index]);
-        y.push(values[index]);
-    }
-    return { lambda, y };
 }
 
 function buildPlotData(raw, meta, quantity, referenceLambda, showReference) {
@@ -47,88 +31,116 @@ function buildPlotData(raw, meta, quantity, referenceLambda, showReference) {
             y = y.map(value => Number.isFinite(value) ? value - offset : value);
         }
     }
-    return segmentCurve(raw, y, meta.order);
+    const extent = centralExtent(y);
+    const sides = knotSteps(raw.knotSamples, meta.key, {
+        order: meta.order, continuousOrder: raw.phaseContinuousOrder ?? 3,
+    });
+    return { ...stepAtKnots(raw.lambda, y, sides), extent };
+}
+
+// One-sided limits, written the way they are in an equation. A knot wavelength
+// gets a row for each: the sample on the plot there is the mean of the two, and
+// a number someone acts on should not be a midpoint without saying so.
+const KNOT_SIDE_LABELS = ['λ−', 'λ+'];
+
+// Which of the four series this spectrum carries, in the order they are shown.
+function tableSeries(raw, text) {
+    return [
+        { key: 'gd', label: text.gdAxis, digits: 3 },
+        { key: 'gdd', label: text.gddAxis, digits: 3 },
+        { key: 'phase', label: text.phaseAxis, digits: 2, source: 'phaseDeg' },
+        { key: 'tod', label: text.todAxis, digits: 3 },
+    ].filter(series => Array.isArray(raw[series.source || series.key]));
 }
 
 function buildTable(raw, lambdaAxis, text) {
-    const columns = [];
-    const rows = [];
-    if (!raw?.lambda?.length) return { columns, rows };
-    const available = {
-        phase: Array.isArray(raw.phaseDeg),
-        gd: Array.isArray(raw.gd),
-        gdd: Array.isArray(raw.gdd),
-        tod: Array.isArray(raw.tod),
+    if (!raw?.lambda?.length) return { columns: [], rows: [] };
+    const series = tableSeries(raw, text);
+    const knots = new Map((raw.knotSamples || []).map(sample => [sample.index, sample]));
+    const columns = [
+        { key: 'lambda', label: lambdaAxis, align: 'left', fmt: value => value.toFixed(1) },
+        ...(knots.size
+            ? [{ key: 'knot', label: text.knotColumn, align: 'left', fmt: value => value || '' }]
+            : []),
+        ...series.map(({ key, label, digits }) =>
+            ({ key, label, fmt: value => value.toFixed(digits) })),
+    ];
+    // Phase is continuous at a knot, so both of its rows carry the unwrapped
+    // value the series already holds; the three derivatives take a side.
+    const valueAt = (item, index, side) => {
+        const fromSeries = Boolean(item.source) || side === null;
+        return fromSeries ? raw[item.source || item.key][index] : knots.get(index)[item.key][side];
     };
-    columns.push({ key: 'lambda', label: lambdaAxis, align: 'left', fmt: value => value.toFixed(1) });
-    if (available.gd) columns.push({ key: 'gd', label: text.gdAxis, fmt: value => value.toFixed(3) });
-    if (available.gdd) columns.push({ key: 'gdd', label: text.gddAxis, fmt: value => value.toFixed(3) });
-    if (available.phase) columns.push({ key: 'phase', label: text.phaseAxis, fmt: value => value.toFixed(2) });
-    if (available.tod) columns.push({ key: 'tod', label: text.todAxis, fmt: value => value.toFixed(3) });
-    for (let i = 0; i < raw.lambda.length; i++) {
-        const row = { lambda: raw.lambda[i] };
-        if (available.gd) row.gd = raw.gd[i];
-        if (available.gdd) row.gdd = raw.gdd[i];
-        if (available.phase) row.phase = raw.phaseDeg[i];
-        if (available.tod) row.tod = raw.tod[i];
-        rows.push(row);
+    const rowAt = (index, side) => {
+        const row = { lambda: raw.lambda[index] };
+        if (side !== null) row.knot = KNOT_SIDE_LABELS[side];
+        for (const item of series) row[item.key] = valueAt(item, index, side);
+        return row;
+    };
+    const rows = [];
+    for (let index = 0; index < raw.lambda.length; index++) {
+        for (const side of knots.has(index) ? [0, 1] : [null]) rows.push(rowAt(index, side));
     }
     return { columns, rows };
 }
 
-// The automatic range keeps at least 96% of the samples in view: it is taken
-// from the 2nd to the 98th percentile. A single cut cannot be tighter and stay
-// honest, because the excursions at reflection minima are not a handful of
-// isolated points but a continuous heavy tail, one per minimum.
-//
-// It only narrows when the extremes actually dominate: if the full extent is
-// less than OUTLIER_RATIO times that central span, the curve is drawn whole and
-// nothing is excluded.
+// The central extent keeps at least 96% of the samples in view, and only
+// narrows when the extremes actually dominate: if the full extent is less than
+// OUTLIER_RATIO times that central span, nothing is excluded.
 const TAIL_FRACTION = 0.02;
 const OUTLIER_RATIO = 4;
 const RANGE_PADDING = 0.06;
 
 /**
- * A vertical range that shows the curve rather than one spike.
+ * The vertical extent a quantity occupies, the full one unless its extremes
+ * dominate, in which case the central 96%. `narrowed` says which it is.
  *
  * GD, GDD and TOD are logarithmic derivatives of the reflection coefficient, so
  * wherever the coefficient passes near a zero they grow by orders of magnitude
  * over a fraction of a nanometre. Those excursions are correct, but they are a
  * Taylor expansion evaluated far outside its useful range, at a wavelength where
- * almost nothing reflects. Scaling the axis to them flattens the rest of the
- * plot into a straight line.
+ * almost nothing reflects. A single cut cannot be tighter than the 2nd to the
+ * 98th percentile and stay honest, because the excursions are not a handful of
+ * isolated points but a continuous heavy tail, one per minimum.
+ */
+function centralExtent(values) {
+    const finite = [];
+    for (const value of values || []) if (Number.isFinite(value)) finite.push(value);
+    if (!finite.length) return null;
+    const sorted = finite.sort((a, b) => a - b);
+    const low = sorted[0];
+    const high = sorted[sorted.length - 1];
+    const fullSpan = high - low;
+    const quantile = fraction => sorted[Math.round(fraction * (sorted.length - 1))];
+    const innerLow = quantile(TAIL_FRACTION);
+    const innerHigh = quantile(1 - TAIL_FRACTION);
+    const innerSpan = innerHigh - innerLow;
+    if (!(fullSpan > 0) || !(innerSpan > 0) || fullSpan < OUTLIER_RATIO * innerSpan) {
+        return { low, high, span: fullSpan, narrowed: false };
+    }
+    return { low: innerLow, high: innerHigh, span: innerSpan, narrowed: true };
+}
+
+/**
+ * A vertical range that shows the curve rather than one spike.
+ *
+ * The extent is the one the curve was segmented against, so the axis and the
+ * knot threshold read the same number and the series is sorted once.
  *
  * `outside` reports how many samples fall beyond the returned range, so the
  * window can say so rather than quietly cropping.
  */
 export function autoYRange(plotData) {
-    const values = [];
-    for (const value of plotData?.y || []) if (Number.isFinite(value)) values.push(value);
-    if (!values.length) return null;
-    const sorted = [...values].sort((a, b) => a - b);
-    const low = sorted[0];
-    const high = sorted[sorted.length - 1];
-    const fullSpan = high - low;
-    if (!(fullSpan > 0)) {
-        const bounds = niceAxisBounds(low, high, { targetTicks: 10 });
-        return { range: [bounds.min, bounds.max], interval: bounds.interval, outside: 0 };
-    }
-
-    const quantile = (fraction) => sorted[Math.round(fraction * (sorted.length - 1))];
-    const innerLow = quantile(TAIL_FRACTION);
-    const innerHigh = quantile(1 - TAIL_FRACTION);
-    const innerSpan = innerHigh - innerLow;
-
-    if (!(innerSpan > 0) || fullSpan < OUTLIER_RATIO * innerSpan) {
-        const pad = fullSpan * RANGE_PADDING;
-        const bounds = niceAxisBounds(low - pad, high + pad, { targetTicks: 10 });
-        return { range: [bounds.min, bounds.max], interval: bounds.interval, outside: 0 };
-    }
-    const pad = innerSpan * RANGE_PADDING;
-    const bounds = niceAxisBounds(innerLow - pad, innerHigh + pad, { targetTicks: 10 });
+    const extent = plotData?.extent ?? centralExtent(plotData?.y);
+    if (!extent) return null;
+    const pad = extent.span * RANGE_PADDING;
+    const bounds = niceAxisBounds(extent.low - pad, extent.high + pad, { targetTicks: 10 });
     const range = [bounds.min, bounds.max];
+    if (!extent.narrowed) return { range, interval: bounds.interval, outside: 0 };
     let outside = 0;
-    for (const value of values) if (value < range[0] || value > range[1]) outside++;
+    for (const value of plotData.y) {
+        if (Number.isFinite(value) && (value < range[0] || value > range[1])) outside++;
+    }
     return { range, interval: bounds.interval, outside };
 }
 

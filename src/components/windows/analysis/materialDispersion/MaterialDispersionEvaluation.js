@@ -7,8 +7,11 @@ import { ChoiceGroup, NumInput, RangeField } from '../chrome/controls.js';
 import { AnalysisWindow, ControlRow, PlotArea } from '../chrome/layout.js';
 import { NoticeBadge, SettingRow, SettingsMenu } from '../chrome/popover.js';
 import { GDChart } from '../gdGddEvaluation/GDChart.js';
+import { knotGrid, knotSteps, sampleKnots, stepAtKnots } from '../knots.js';
 import { getMaterialById } from '../../../../utils/materials/catalogManager.js';
-import { materialPropagationDispersion } from '../../../../utils/materials/materialDispersion.js';
+import {
+    materialKnotWavelengths, materialPropagationDispersion,
+} from '../../../../utils/materials/materialDispersion.js';
 import { resolveDesignMaterial } from '../../../../utils/materials/designMaterials.js';
 import { clampToCovered, materialRangeNm } from '../../../../utils/materials/materialRange.js';
 import { useAnalysisColors } from '../../../../state/AnalysisSettingsContext.js';
@@ -19,12 +22,13 @@ import { useWindowSession } from '../../windowSession.js';
 const { createElement: h, useMemo } = React;
 
 // `tr` names the axis title in t.gdgdd, which the Group Delay / GDD window
-// already carries for the same four quantities.
+// already carries for the same four quantities. `knot` names the pair of
+// one-sided values a knot sample holds for it; phase is continuous and has none.
 const QUANTITIES = {
     phase: { key: 'phaseDeg', tr: 'phaseAxis', unit: '°', digits: 2, order: 0 },
-    gd: { key: 'gdFs', tr: 'gdAxis', unit: 'fs', digits: 3, order: 1 },
-    gdd: { key: 'gddFs2', tr: 'gddAxis', unit: 'fs²', digits: 3, order: 2 },
-    tod: { key: 'todFs3', tr: 'todAxis', unit: 'fs³', digits: 3, order: 3 },
+    gd: { key: 'gdFs', knot: 'gd', tr: 'gdAxis', unit: 'fs', digits: 3, order: 1 },
+    gdd: { key: 'gddFs2', knot: 'gdd', tr: 'gddAxis', unit: 'fs²', digits: 3, order: 2 },
+    tod: { key: 'todFs3', knot: 'tod', tr: 'todAxis', unit: 'fs³', digits: 3, order: 3 },
 };
 
 const THICKNESS_UNITS = {
@@ -63,15 +67,19 @@ function sampleWavelengths(start, end) {
 
 function buildSpectrum(material, start, end, thicknessMm) {
     if (!material) return null;
-    const lambda = sampleWavelengths(start, end);
-    const values = lambda.map(wavelength =>
-        materialPropagationDispersion(material, wavelength, thicknessMm));
+    const at = (wavelength, knotSide) =>
+        materialPropagationDispersion(material, wavelength, thicknessMm, knotSide);
+    const grid = knotGrid(
+        sampleWavelengths(start, end), materialKnotWavelengths(material), start, end);
+    const lambda = grid.wavelengths;
+    const values = lambda.map(wavelength => at(wavelength));
     const continuityOrders = values
         .map(value => value.phaseContinuousOrder)
         .filter(Number.isFinite);
     return {
         lambda,
         values,
+        knotSamples: sampleKnots(lambda, grid.knots, at),
         invalid: values.filter(value => !value.valid),
         model: values.find(value => value.model)?.model || 'Unavailable',
         phaseModel: values.find(value => value.phaseModel)?.phaseModel || 'Unavailable',
@@ -84,25 +92,15 @@ function quantityValue(value, quantity, meta) {
     return quantity === 'phase' ? value.phaseRad * 180 / Math.PI : value[meta.key];
 }
 
+// A table knot is drawn as a step through the value on each side of it, never
+// as a gap; a gap here means the sample was masked and has no value at all.
 function plotModel(spectrum, quantity, meta) {
     if (!spectrum) return null;
-    const lambda = [];
-    const y = [];
-    let previousSegment = null;
-    for (let index = 0; index < spectrum.values.length; index++) {
-        const value = spectrum.values[index];
-        const segmentChanged = index > 0
-            && value.knotSegment !== previousSegment
-            && meta.order > value.phaseContinuousOrder;
-        if (segmentChanged) {
-            lambda.push(spectrum.lambda[index]);
-            y.push(NaN);
-        }
-        lambda.push(spectrum.lambda[index]);
-        y.push(quantityValue(value, quantity, meta));
-        previousSegment = value.knotSegment;
-    }
-    return { lambda, y };
+    const values = spectrum.values.map(value => quantityValue(value, quantity, meta));
+    const sides = knotSteps(spectrum.knotSamples, meta.knot, {
+        order: meta.order, continuousOrder: spectrum.phaseContinuousOrder,
+    });
+    return stepAtKnots(spectrum.lambda, values, sides);
 }
 
 function invalidSummary(spectrum, thicknessUnit) {
@@ -240,7 +238,6 @@ export function MaterialDispersionEvaluation({ c, t }) {
         () => csvFromRows(table.columns, table.rows),
         () => `${(material?.name || materialId).replace(/[^\w.-]+/g, '_')}_dispersion.csv`,
     );
-    const discontinuous = quantityMeta.order > spectrum?.phaseContinuousOrder;
     const masked = invalidSummary(spectrum, thicknessUnit);
     const state = {
         materialId, setMaterialId: value => setField('materialId', value),
@@ -253,12 +250,6 @@ export function MaterialDispersionEvaluation({ c, t }) {
     };
 
     const notices = [];
-    if (discontinuous) {
-        notices.push({
-            label: footerText.piecewiseShort,
-            detail: footerText.piecewiseWarning(quantity.toUpperCase(), spectrum.phaseModel),
-        });
-    }
     if (masked) {
         notices.push({
             label: footerText.maskedShort(spectrum.invalid.length),

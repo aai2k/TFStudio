@@ -18,22 +18,14 @@ import { useAnalysisColors } from '../../../../state/AnalysisSettingsContext.js'
 
 const { createElement: h, useMemo } = React;
 
-const QUANTITY_ORDER = { phase: 0, gd: 1, gdd: 2, tod: 3 };
-
 /**
  * What the curve needs qualifying with: an optical constant taken from outside
- * a material's data range, a derivative taken across a knot in tabulated data,
- * samples the automatic vertical range left off the plot.
+ * a material's data range, samples the automatic vertical range left off the
+ * plot. A table knot needs none: the curve steps through it, which is what the
+ * material does there and all the reader has to see.
  */
-function buildNotices({ raw, quantity, autoRange, rangeNotice, text }) {
+function buildNotices({ autoRange, rangeNotice, text }) {
     const notices = [rangeNotice];
-    const order = QUANTITY_ORDER[quantity] ?? 1;
-    if (order > (raw?.phaseContinuousOrder ?? 3) && raw?.discontinuityModels?.length) {
-        notices.push({
-            label: text.piecewiseShort,
-            detail: `${text.tableKnotWarning} (${raw.discontinuityModels.join('; ')})`,
-        });
-    }
     if (autoRange?.outside > 0) {
         notices.push({ label: text.offScale(autoRange.outside), detail: text.offScaleHint });
     }
@@ -79,9 +71,7 @@ export function GDGDDEvaluation({ c, theme, t }) {
     if (!design) return h(CenteredMessage, { c, message: text.noDesign });
 
     const notices = buildNotices({
-        raw: state.raw, quantity: state.quantity,
-        autoRange: state.yAuto ? view.autoRange : null,
-        rangeNotice, text,
+        autoRange: state.yAuto ? view.autoRange : null, rangeNotice, text,
     });
     const exportMenu = h(ExportMenu, {
         c, enabled: view.tableRows.length > 0, ...csv,

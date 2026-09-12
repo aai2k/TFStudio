@@ -107,26 +107,97 @@ const raw = computeGdGddSpectrum(design, cases[0]);
 const view = buildGdGddView(raw, {
     quantity: 'phase', referenceLambda: raw.lambda[2], showReference: true,
 }, text, undefined, LAM_AXIS);
-assert.deepEqual(view.tableColumns.map(column => column.key), ['lambda', 'gd', 'gdd', 'phase', 'tod']);
+// The knot column appears only where the stack has table knots inside the
+// plotted range; it carries the side each one-sided row belongs to.
+assert.deepEqual(view.tableColumns.map(column => column.key), ['lambda', 'knot', 'gd', 'gdd', 'phase', 'tod']);
 assert.equal(view.tableColumns[0].label, LAM_AXIS,
     'the wavelength column is named from the shared locale key');
-assert.deepEqual(view.tableRows[2], {
-    lambda: raw.lambda[2], gd: raw.gd[2], gdd: raw.gdd[2],
-    phase: raw.phaseDeg[2], tod: raw.tod[2],
+assert.ok(raw.knotSamples.length > 0, 'this stack has table knots in range');
+const knotIndices = new Set(raw.knotSamples.map(sample => sample.index));
+const plainIndex = [2, 3, 4].find(index => !knotIndices.has(index));
+assert.deepEqual(view.tableRows.find(row => row.lambda === raw.lambda[plainIndex]), {
+    lambda: raw.lambda[plainIndex], gd: raw.gd[plainIndex], gdd: raw.gdd[plainIndex],
+    phase: raw.phaseDeg[plainIndex], tod: raw.tod[plainIndex],
 });
+const knotRows = view.tableRows.filter(row => row.lambda === raw.knotSamples[0].wavelengthNm);
+assert.equal(knotRows.length, 2, 'a knot wavelength is written as its two one-sided rows');
+assert.deepEqual(knotRows.map(row => row.gdd), raw.knotSamples[0].gdd,
+    'and those rows carry the one-sided values, not the midpoint on the plot');
 assert.equal(view.plotData.y[2], 0, 'phase remains referenced to the nearest sampled wavelength');
 
-const gdView = buildGdGddView(raw, {
-    quantity: 'gd', referenceLambda: raw.lambda[2], showReference: true,
+const quantityView = quantity => buildGdGddView(raw, {
+    quantity, referenceLambda: raw.lambda[2], showReference: true,
 }, text);
-const gddView = buildGdGddView(raw, {
-    quantity: 'gdd', referenceLambda: raw.lambda[2], showReference: true,
-}, text);
+const gdView = quantityView('gd');
+const gddView = quantityView('gdd');
+const todView = quantityView('tod');
 assert.equal(gdView.plotData.lambda.length, raw.lambda.length,
-    'PCHIP keeps the coating GD curve connected');
-assert.ok(gddView.plotData.lambda.length > raw.lambda.length
-    && gddView.plotData.y.some(Number.isNaN),
-    'coating GDD leaves visible gaps at participating n/k table knots');
+    'PCHIP keeps the coating GD curve smooth: it is C1, so GD does not step at a knot');
+// Every sampled knot is drawn as a step, so one grid sample becomes two points.
+assert.equal(todView.plotData.lambda.length, raw.lambda.length + raw.knotSamples.length,
+    'coating TOD steps at every knot');
+assert.ok(!todView.plotData.y.some(Number.isNaN),
+    'a table knot never puts a gap in the curve');
+const steppedKnot = raw.knotSamples[0];
+const at = todView.plotData.lambda.indexOf(steppedKnot.wavelengthNm);
+assert.equal(todView.plotData.lambda[at + 1], steppedKnot.wavelengthNm,
+    'the step is two points at the one wavelength');
+assert.deepEqual([todView.plotData.y[at], todView.plotData.y[at + 1]], steppedKnot.tod,
+    'carrying the value on each side of the knot');
+
+// A stack over a linearly read table. Such a table is C0, so GD itself steps at
+// every knot, and the curve is drawn through both sides of each one.
+const cauchy = lam => 1.45 + 0.004 * (500 / lam) ** 2 + 0.0002 * (500 / lam) ** 4;
+const tableEvery = step => {
+    const rows = [];
+    for (let lam = 400; lam <= 800 + 1e-9; lam += step) rows.push([lam, cauchy(lam), 0]);
+    return rows;
+};
+const linearTableDesign = rows => ({
+    incidentMedium: 'Air', exitMedium: 'Air',
+    substrate: { material: 'BK7', thickness: 1 },
+    referenceWavelength: 550, surfaceMode: 'front_only',
+    frontLayers: [{ id: 'l1', material: 'user_lab:lin', thickness: 250 }],
+    backLayers: [],
+    materials: {
+        'user_lab:lin': {
+            id: 'lin', name: 'LinTable', formulaNum: -1, interp: 'linear',
+            tabData: rows, coefficients: [], kTable: [],
+        },
+    },
+});
+const linearBand = (rows, lambdaEnd) => computeGdGddSpectrum(linearTableDesign(rows), {
+    side: 'front', target: 'R', polarization: 's', thetaDeg: 0, lambdaStart: 400, lambdaEnd,
+});
+{
+    const coarse = linearBand(tableEvery(10), 800);
+    assert.equal(coarse.phaseContinuousOrder, 0, 'a linear table is C0, so GD steps at its knots');
+    assert.ok(coarse.knotSamples.length >= 39);
+    const view = buildGdGddView(coarse, { quantity: 'gd', referenceLambda: 550 }, text);
+    assert.equal(view.plotData.lambda.length, coarse.lambda.length + coarse.knotSamples.length,
+        'GD steps at every knot of a linear table, by far less than the plot can show');
+    assert.ok(!view.plotData.y.some(Number.isNaN));
+
+    // The same design read past the end of its table. A refused point has no
+    // value at all, and that gap stays whatever the knots do.
+    const past = linearBand(tableEvery(10), 900);
+    assert.ok(past.invalid.length > 300, 'wavelengths past the table are refused');
+    const pastView = buildGdGddView(past, { quantity: 'gd', referenceLambda: 550 }, text);
+    assert.equal(pastView.plotData.y.filter(Number.isNaN).length, past.invalid.length,
+        'a refused point still leaves a gap');
+
+    // A table dense against the grid. Sampling a knot costs two more stack
+    // evaluations than the point it sits on, and at this spacing a step drawn at
+    // one could not be told from the sample beside it, so none are sampled.
+    const dense = linearBand(tableEvery(1), 800);
+    assert.equal(dense.knotSamples.length, 0, 'they are dense against the grid');
+    const denseView = buildGdGddView(dense, { quantity: 'tod', referenceLambda: 550 }, text);
+    assert.equal(denseView.plotData.lambda.length, dense.lambda.length,
+        'so the curve is drawn from the grid alone');
+    assert.equal(denseView.tableColumns.filter(column => column.key === 'knot').length, 0,
+        'with no one-sided rows to label');
+
+}
 
 const chart = buildGDChartOption({ xLabel: AX.nm,
     data: view.plotData, meta: view.meta,
@@ -246,8 +317,8 @@ assert.match(markup, /flex-wrap:wrap/,
 assert.match(markup, />Targets</, 'matching merit-function targets have a visibility control');
 assert.match(markup, />Results</, 'the sampled numbers sit in a collapsible Results section');
 assert.match(markup, />Export</, 'the Results strip exports the sampled numbers as CSV');
-assert.doesNotMatch(markup, />Piecewise table derivative/,
-    'the long piecewise note never occupies a band of its own');
+assert.doesNotMatch(markup, /table knots in the plotted range/,
+    'the long knot note never occupies a band of its own');
 // Auto-update follows one global setting, but it is set from the windows that
 // start runs. This window obeys it without carrying the control.
 assert.doesNotMatch(markup, /role="switch"/,

@@ -2,7 +2,8 @@
  * Interpolation rule per tabulated material.
  *
  *  1. The linear interpolator: exact secants, end values held, derivatives of
- *     the piece a point is on, a knot belonging to the piece on its right.
+ *     the piece a point is on, and at an interior knot the mean of the two
+ *     adjacent pieces unless one side is asked for.
  *  2. `interp` decides how a record is sampled: a table, a formula's k table,
  *     the Material Editor preview, and an embedded design material all follow
  *     the rule the record names, and PCHIP stays the default when it names none.
@@ -60,9 +61,20 @@ assert.equal(linear(9), 3.7, 'above the table the last value is held');
     assert.equal(inside.inRange, true);
     assert.equal(inside.segment, 1);
     const knot = linear.derivativesAt(1.9);
-    assert.equal(knot.segment, 2, 'a knot belongs to the piece on its right');
-    near(knot.derivatives[0], (4 - 2.1) / 1.1, 1e-15, 'and carries that piece\'s slope');
+    const leftSlope = (2.1 - 2.4) / 1.2;
+    const rightSlope = (4 - 2.1) / 1.1;
+    assert.equal(knot.onKnot, true, 'an interior knot is reported as one');
+    near(knot.derivatives[0], (leftSlope + rightSlope) / 2, 1e-15,
+        'and its slope is the mean of the two adjacent pieces');
+    near(linear.derivativesAt(1.9, 'left').derivatives[0], leftSlope, 1e-15, 'the left side is the piece before it');
+    near(linear.derivativesAt(1.9, 'right').derivatives[0], rightSlope, 1e-15, 'the right side is the piece after it');
+    assert.equal(linear.derivativesAt(1.9, 'left').segment, 1);
+    assert.equal(linear.derivativesAt(1.9, 'right').segment, 2);
+    assert.equal(linear(1.9), 2.1, 'the value itself is continuous there');
+    assert.equal(linear.derivativesAt(0).onKnot, false, 'the first knot has no piece to its left');
+    near(linear.derivativesAt(0).derivatives[0], (2.4 - 1) / 0.7, 1e-15, 'and carries the first piece\'s slope');
     assert.equal(linear.derivativesAt(5.5).segment, 3, 'the last knot belongs to the last piece');
+    assert.equal(linear.derivativesAt(5.5).onKnot, false, 'and has no piece to its right');
     assert.equal(linear.derivativesAt(-1).inRange, false, 'below the table is out of range');
     assert.deepEqual(linear.derivativesAt(-1).derivatives, [0, 0, 0], 'a held end value has no slope');
     assert.equal(linear.derivativesAt(9).inRange, false);
@@ -201,11 +213,12 @@ const macleodExpK = macleodSellmeier.replace('KType="1"', 'KType="2"').replace('
     const left = at(500 - 1e-6), right = at(500 + 1e-6);
     assert.ok(left.valid && right.valid, 'a linear table computes phase quantities');
     assert.equal(left.phaseContinuousOrder, 0, 'the design reports the lowest continuity among its materials');
-    assert.notEqual(left.knotSignature, right.knotSignature, 'the knot signature changes across a table point');
-    assert.ok(Math.abs(left.gdFs - right.gdFs) > 1e-6, 'and GD jumps there, which is what the signature is for');
+    assert.ok(Math.abs(left.gdFs - right.gdFs) > 1e-6, 'and GD jumps across a table point');
+    assert.equal(at(500).onKnot, true, 'a wavelength exactly on a table point is reported as a knot');
     // 625 and 640 nm sit on one piece of the layer's table and on one piece of
     // the substrate's k table alike.
-    assert.equal(at(625).knotSignature, at(640).knotSignature, 'and holds inside a piece');
+    assert.equal(at(625).onKnot, false, 'and a wavelength inside a piece is not');
+    assert.equal(at(640).onKnot, false);
 }
 
 // ── 6. Maintainer-only: Essential Macleod's own numbers ──────────────────────
@@ -229,12 +242,15 @@ if (fs.existsSync(TFS) && fs.existsSync(TBL) && fs.existsSync(TBL_PHASE)) {
         ...layer, thickness: layer.thickness * asStored(layer.material).getNK(510)[0] / ruled(layer.material).getNK(510)[0],
     }));
     const knots = Object.values(ar.materials).flatMap(m => m.tabData.map(r => r[0]));
-    const onKnot = lam => knots.some(x => Math.abs(x - lam) < 0.05);
+    // Near a knot without being on it, the program's numerical stencil spans the
+    // kink and reports neither piece nor their mean; those wavelengths cannot be
+    // compared. Exactly on one, both programs define the derivative the same way.
+    const nearKnot = lam => knots.some(x => x !== lam && Math.abs(x - lam) < 0.05);
     const inRange = lam => Object.values(ar.materials).every(m => lam >= m.tabData[0][0] && lam <= m.tabData.at(-1)[0]);
 
     const lam0 = dispersion[0][0], lamN = dispersion.at(-1)[0], step = dispersion[1][0] - lam0;
     const spectrum = computeDesignSpectrum(ar, { lambdaStart: lam0, lambdaEnd: lamN, lambdaStep: step, thetas: [0] }, 'front');
-    let checked = 0, skipped = 0;
+    let checked = 0, atKnot = 0, skipped = 0;
     dispersion.forEach(([lam, R, gd, gdd, tod], i) => {
         near(spectrum.series[0].R[i] * 100, R, 1e-10, `reflectance at ${lam} nm`);
         if (!inRange(lam)) return;
@@ -242,18 +258,27 @@ if (fs.existsSync(TFS) && fs.existsSync(TBL) && fs.existsSync(TBL_PHASE)) {
         assert.ok(p.valid, `phase at ${lam} nm is computed: ${p.reason || ''}`);
         const dPhase = ((p.phaseRad * 180 / Math.PI - phase.get(lam)) % 360 + 540) % 360 - 180;
         near(dPhase, 0, 1e-8, `reflection phase at ${lam} nm`);
-        // The program differentiates numerically; on a table point its stencil
-        // straddles the kink and reports a mean of the two sides, which is not
-        // a derivative of either piece. Those points are not compared.
-        if (onKnot(lam)) { skipped++; return; }
+        if (nearKnot(lam)) { skipped++; return; }
         near(p.gdFs, gd, 1e-4, `GD at ${lam} nm`);
         near(p.gddFs2, gdd, 1e-3, `GDD at ${lam} nm`);
         near(p.todFs3, tod, 5e-2, `TOD at ${lam} nm`);
         checked++;
+        if (!p.onKnot) return;
+        atKnot++;
+        // The two programs agree here to roundoff only because both take the
+        // derivative at a node as the mean of the two adjacent pieces. Reading
+        // one piece instead moves GD by up to 5e-3 fs on this design.
+        const sided = knotSide => evaluateDesignPhaseDispersion(
+            ar, { wavelengthNm: lam, side: 'front', target: 'R', knotSide });
+        const left = sided('left'), right = sided('right');
+        near(p.gdFs, gd, 1e-9, `GD on the knot at ${lam} nm`);
+        near(p.gdFs, (left.gdFs + right.gdFs) / 2, 1e-12, `the knot value at ${lam} nm is the mean of the two sides`);
     });
-    // The glass table has 10 nm spacing, so ten of the 25 covered wavelengths sit on a knot.
-    assert.ok(checked >= 12 && skipped >= 3, `compared ${checked} wavelengths, ${skipped} on a table point`);
-    console.log(`maintainer: AR 2-1 4-Layer matches Essential Macleod at ${checked} wavelengths (${skipped} on a knot compared for R and phase only)`);
+    // The glass table has 10 nm spacing, so most of the 25 covered wavelengths
+    // sit exactly on a knot.
+    assert.ok(checked >= 20 && atKnot >= 8,
+        `compared ${checked} wavelengths, ${atKnot} of them on a table point`);
+    console.log(`maintainer: AR 2-1 4-Layer matches Essential Macleod at ${checked} wavelengths (${atKnot} of them on a table knot, ${skipped} beside one not compared)`);
 } else {
     console.log('(maintainer section not run: Essential Macleod reference files not present)');
 }

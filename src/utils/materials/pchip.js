@@ -11,11 +11,13 @@
  * Both hold the first and last sample outside the tabulated range, matching
  * the material-range policy used everywhere else.
  *
- * Every interpolator exposes `interp`, `knots` and `derivativesAt(x)`, the
- * last returning the value with its first three derivatives on the piece the
- * point belongs to. An interior knot belongs to the piece on its right, so the
- * one-sided convention for a derivative that jumps there is explicit rather
- * than left to floating-point jitter.
+ * Every interpolator exposes `interp`, `knots` and `derivativesAt(x, side)`,
+ * the last returning the value with its first three derivatives. Inside a piece
+ * they are that piece's. Exactly at an interior knot two pieces meet and a
+ * derivative that jumps has no single value, so the default is the mean of the
+ * two adjacent pieces: the limit of the symmetric difference quotient, and the
+ * definition Essential Macleod's tabulated materials follow. Pass `side` as
+ * 'left' or 'right' for one of the two one-sided values instead.
  */
 
 export const TABULATED_INTERPOLATION = 'pchip';
@@ -59,14 +61,55 @@ function normalizePoints(points) {
     return unique;
 }
 
+const heldEnd = (value, segment) =>
+    ({ value, derivatives: [0, 0, 0], inRange: false, segment, onKnot: false });
+
+/**
+ * One sample of a built interpolator: the value with its first three
+ * derivatives. Outside the table the end value is held and has no slope.
+ * Inside a piece the derivatives are that piece's. At an interior knot two
+ * pieces meet and any derivative that jumps has no single value there, so the
+ * two are averaged unless `side` asks for one of them; the value itself is the
+ * same either way.
+ */
+function sampleDerivatives(table, x, side) {
+    const { xs, ys, count, piece, pieceDerivatives, segmentAt } = table;
+    if (!Number.isFinite(x)) {
+        return { value: NaN, derivatives: [NaN, NaN, NaN], inRange: false, segment: -1, onKnot: false };
+    }
+    if (x < xs[0]) return heldEnd(ys[0], 0);
+    if (x > xs[count - 1]) return heldEnd(ys[count - 1], Math.max(count - 2, 0));
+    const segment = x >= xs[count - 1] ? Math.max(count - 2, 0) : segmentAt(x);
+    const dx = x - xs[segment];
+    if (!(dx === 0 && segment > 0)) {
+        return {
+            value: piece(segment, dx),
+            derivatives: pieceDerivatives(segment, dx),
+            inRange: true,
+            segment,
+            onKnot: false,
+        };
+    }
+    const left = pieceDerivatives(segment - 1, xs[segment] - xs[segment - 1]);
+    const right = pieceDerivatives(segment, 0);
+    const mean = () => left.map((derivative, order) => (derivative + right[order]) / 2);
+    return {
+        value: ys[segment],
+        derivatives: side === 'left' ? left : side === 'right' ? right : mean(),
+        inRange: true,
+        segment: side === 'left' ? segment - 1 : segment,
+        onKnot: true,
+    };
+}
+
 /**
  * The shell both rules share: the sorted knots, the search for the piece a
- * point is on, the end values held outside the table, and the convention
- * that a knot belongs to the piece on its right. `build(xs, ys)` supplies
- * the rule itself as `piece(i, dx)`, the value on piece i at offset dx from
- * its left knot, and `pieceDerivatives(i, dx)`, the first three derivatives
- * there. A single point is a constant under either rule. Returns null when
- * no finite points are supplied.
+ * point is on, the end values held outside the table, and what a derivative
+ * reports at an interior knot. `build(xs, ys)` supplies the rule itself as
+ * `piece(i, dx)`, the value on piece i at offset dx from its left knot, and
+ * `pieceDerivatives(i, dx)`, the first three derivatives there. A single point
+ * is a constant under either rule. Returns null when no finite points are
+ * supplied.
  */
 function piecewiseInterpolator(points, rule, build) {
     const data = normalizePoints(points);
@@ -99,19 +142,8 @@ function piecewiseInterpolator(points, rule, build) {
     };
     interpolate.interp = rule;
     interpolate.knots = xs;
-    interpolate.derivativesAt = (x) => {
-        if (!Number.isFinite(x)) {
-            return { value: NaN, derivatives: [NaN, NaN, NaN], inRange: false, segment: -1 };
-        }
-        if (x < xs[0]) return { value: ys[0], derivatives: [0, 0, 0], inRange: false, segment: 0 };
-        if (x > xs[count - 1]) {
-            return { value: ys[count - 1], derivatives: [0, 0, 0], inRange: false, segment: Math.max(count - 2, 0) };
-        }
-        if (count === 1) return { value: ys[0], derivatives: [0, 0, 0], inRange: true, segment: 0 };
-        const segment = x === xs[count - 1] ? count - 2 : segmentAt(x);
-        const dx = x - xs[segment];
-        return { value: piece(segment, dx), derivatives: pieceDerivatives(segment, dx), inRange: true, segment };
-    };
+    const table = { xs, ys, count, piece, pieceDerivatives, segmentAt };
+    interpolate.derivativesAt = (x, side) => sampleDerivatives(table, x, side);
     return interpolate;
 }
 

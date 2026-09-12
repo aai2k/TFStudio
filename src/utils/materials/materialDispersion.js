@@ -51,13 +51,16 @@ function continuousOrderOf(...models) {
     return Math.min(3, ...models.map(model => CONTINUOUS_ORDER_BY_MODEL[model] ?? 3));
 }
 
-function tableJet(interpolator, wavelengthJet, wavelength) {
-    if (!interpolator?.derivativesAt) return null;
-    const sample = interpolator.derivativesAt(wavelength);
+const NO_TABLE = { jet: null, inRange: false, segment: null, onKnot: false };
+
+function tableJet(interpolator, wavelengthJet, wavelength, knotSide) {
+    const sample = interpolator?.derivativesAt?.(wavelength, knotSide);
+    if (!sample) return NO_TABLE;
     return {
         jet: jetCompose(sample.value, sample.derivatives, wavelengthJet),
         inRange: sample.inRange,
         segment: sample.segment,
+        onKnot: sample.onKnot,
     };
 }
 
@@ -81,14 +84,48 @@ function materialRangeContains(material, wavelengthNm) {
 }
 
 /**
+ * Wavelengths in nm where a material's model changes piece, so a derivative of
+ * high enough order jumps. Interior table knots only: the first and last are
+ * the ends of the material's range, beyond which it supplies nothing. Empty for
+ * a formula, and for the span an active dispersion fit covers, both being
+ * smooth to every order.
+ */
+export function materialKnotWavelengths(material) {
+    const getNK = material?.getNK;
+    const interior = interpolator => (interpolator?.knots || []).slice(1, -1);
+    let knots;
+    if (getNK?.nInterpolator && getNK?.kInterpolator) {
+        knots = [...interior(getNK.nInterpolator), ...interior(getNK.kInterpolator)];
+    } else if (getNK?.kInterpolator) {
+        const scale = getNK.kInterpolatorUnit === 'nm' ? 1 : 1000;
+        knots = interior(getNK.kInterpolator).map(knot => knot * scale);
+    } else {
+        return [];
+    }
+    const fit = material?.dispersionFit || getNK?.dispersionFit;
+    if (fit?.active) {
+        knots = knots.filter(knot => knot < fit.rangeNm[0] || knot > fit.rangeNm[1]);
+    }
+    return [...new Set(knots)].sort((left, right) => left - right);
+}
+
+// A worker carries jets precomputed at the wavelengths it was given, averaged
+// where one falls on a knot, so a request for one side goes to the
+// interpolators instead.
+function precomputedResponse(material, wavelengthNm, knotSide) {
+    return knotSide ? null : material?.getOmegaResponse?.(wavelengthNm);
+}
+
+/**
  * Evaluate n + ik and its first three omega derivatives at one wavelength.
  * Formula materials are differentiated directly. Tabulated components use the
  * exact derivatives of the active piece under the material's own rule: the
  * local cubic for PCHIP, the secant for a linear table, whose second and
- * third derivatives are zero inside a piece.
+ * third derivatives are zero inside a piece. Exactly on a table knot the two
+ * adjacent pieces are averaged unless `knotSide` names one of them.
  */
-export function materialOmegaResponse(material, wavelengthNm) {
-    const precomputed = material?.getOmegaResponse?.(wavelengthNm);
+export function materialOmegaResponse(material, wavelengthNm, knotSide) {
+    const precomputed = precomputedResponse(material, wavelengthNm, knotSide);
     if (precomputed) return precomputed;
     const omega = 2 * Math.PI * C_NM_PER_FS / wavelengthNm;
     const wavelengthJet = wavelengthOmegaJet(wavelengthNm, omega);
@@ -108,6 +145,7 @@ export function materialOmegaResponse(material, wavelengthNm) {
     let kModel;
     let nKnotSegment = null;
     let kKnotSegment = null;
+    const tableSamples = [];
 
     if (useFit) {
         ({ nJet, kJet } = evaluateDispersionFitJets(fit, wavelengthMicrometersJet));
@@ -117,10 +155,11 @@ export function materialOmegaResponse(material, wavelengthNm) {
         nJet = evalNJet(formula.formulaNum, formula.coefficients, wavelengthMicrometersJet);
         nModel = modelName(formula);
     } else if (tables) {
-        const evaluated = tableJet(tables.nAt, wavelengthJet, wavelengthNm);
-        nJet = evaluated?.jet;
-        inRange = inRange && !!evaluated?.inRange;
-        nKnotSegment = evaluated?.segment ?? null;
+        const evaluated = tableJet(tables.nAt, wavelengthJet, wavelengthNm, knotSide);
+        tableSamples.push(evaluated);
+        nJet = evaluated.jet;
+        inRange = inRange && evaluated.inRange;
+        nKnotSegment = evaluated.segment;
         nModel = tableModelName(tables.nAt);
     } else if (material?.getNK?.constantNK) {
         nJet = jetConstant(material.getNK.constantNK[0]);
@@ -129,10 +168,11 @@ export function materialOmegaResponse(material, wavelengthNm) {
 
     const kInterpolator = material?.getNK?.kInterpolator;
     if (!useFit && tables) {
-        const evaluated = tableJet(tables.kAt, wavelengthJet, wavelengthNm);
-        kJet = evaluated?.jet;
-        inRange = inRange && !!evaluated?.inRange;
-        kKnotSegment = evaluated?.segment ?? null;
+        const evaluated = tableJet(tables.kAt, wavelengthJet, wavelengthNm, knotSide);
+        tableSamples.push(evaluated);
+        kJet = evaluated.jet;
+        inRange = inRange && evaluated.inRange;
+        kKnotSegment = evaluated.segment;
         kModel = tableModelName(tables.kAt);
     } else if (!useFit && kInterpolator) {
         const useNanometers = material.getNK.kInterpolatorUnit === 'nm';
@@ -140,16 +180,19 @@ export function materialOmegaResponse(material, wavelengthNm) {
             kInterpolator,
             useNanometers ? wavelengthJet : wavelengthMicrometersJet,
             useNanometers ? wavelengthNm : wavelengthNm / 1000,
+            knotSide,
         );
-        kJet = evaluated?.jet;
-        inRange = inRange && !!evaluated?.inRange;
-        kKnotSegment = evaluated?.segment ?? null;
+        tableSamples.push(evaluated);
+        kJet = evaluated.jet;
+        inRange = inRange && evaluated.inRange;
+        kKnotSegment = evaluated.segment;
         kModel = tableModelName(kInterpolator);
     } else if (!useFit) {
         kJet = jetConstant(baseNK[1] || 0);
         kModel = baseNK[1] ? 'Constant' : 'Zero';
     }
 
+    const onKnot = tableSamples.some(sample => sample.onKnot);
     if (!nJet || !kJet) {
         return {
             nk: [baseNK[0], baseNK[1]],
@@ -162,8 +205,7 @@ export function materialOmegaResponse(material, wavelengthNm) {
             continuousOrder: Math.max(CONTINUOUS_ORDER_BY_MODEL[nModel] ?? 0, CONTINUOUS_ORDER_BY_MODEL[kModel] ?? 0),
             maxOrder: 0,
             inRange,
-            knotSegment: nKnotSegment,
-            knotSignature: `${nKnotSegment ?? '-'}:${kKnotSegment ?? '-'}`,
+            onKnot,
         };
     }
 
@@ -179,14 +221,16 @@ export function materialOmegaResponse(material, wavelengthNm) {
         continuousOrder: continuousOrderOf(nModel, kModel),
         maxOrder: 3,
         inRange,
-        knotSegment: nKnotSegment,
-        knotSignature: `${nKnotSegment ?? '-'}:${kKnotSegment ?? '-'}`,
+        onKnot,
     };
 }
 
-/** Single-pass bulk-material phase and dispersion at normal incidence. */
-export function materialPropagationDispersion(material, wavelengthNm, thicknessMm) {
-    const response = materialOmegaResponse(material, wavelengthNm);
+/**
+ * Single-pass bulk-material phase and dispersion at normal incidence.
+ * `knotSide` picks a one-sided value where the wavelength falls on a table knot.
+ */
+export function materialPropagationDispersion(material, wavelengthNm, thicknessMm, knotSide) {
+    const response = materialOmegaResponse(material, wavelengthNm, knotSide);
     if (!response.derivatives || response.maxOrder < 3 || !response.inRange) {
         return {
             wavelengthNm,
@@ -197,7 +241,6 @@ export function materialPropagationDispersion(material, wavelengthNm, thicknessM
             model: response.model,
             phaseModel: response.phaseModel,
             phaseContinuousOrder: response.phaseContinuousOrder,
-            knotSegment: response.knotSegment,
         };
     }
     const omega = 2 * Math.PI * C_NM_PER_FS / wavelengthNm;
@@ -218,7 +261,6 @@ export function materialPropagationDispersion(material, wavelengthNm, thicknessM
             model: response.model,
             phaseModel: response.phaseModel,
             phaseContinuousOrder: response.phaseContinuousOrder,
-            knotSegment: response.knotSegment,
             log10InternalTransmission,
             maximumThicknessMm,
         };
@@ -237,7 +279,6 @@ export function materialPropagationDispersion(material, wavelengthNm, thicknessM
         model: response.model,
         phaseModel: response.phaseModel,
         phaseContinuousOrder: response.phaseContinuousOrder,
-        knotSegment: response.knotSegment,
         log10InternalTransmission,
         maximumThicknessMm,
     };

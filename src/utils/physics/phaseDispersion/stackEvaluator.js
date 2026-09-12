@@ -10,7 +10,9 @@
  * Reported continuity metadata lets callers break a drawn curve where it is
  * genuinely discontinuous: PCHIP interpolation of tabulated n and k is only C1,
  * so GDD and TOD jump at table knots; a linearly interpolated table is C0, so
- * GD jumps there as well.
+ * GD jumps there as well. `onKnot` says the wavelength is exactly on one, where
+ * the two sides are averaged; `knotSide` asks for one of them instead, which is
+ * how a caller sizes the jump before deciding whether it is worth drawing.
  */
 
 import { materialOmegaResponse, C_NM_PER_FS } from '../../materials/materialDispersion.js';
@@ -92,16 +94,11 @@ function phaseQuantities(options, target, withThicknessJacobian) {
 }
 
 export function continuityMetadata(materials) {
-    const tabulated = materials.filter(item => item.response.continuousOrder < 3);
     return {
         phaseContinuousOrder: materials.length
             ? Math.min(...materials.map(item => item.response.continuousOrder ?? 3))
             : 3,
-        knotSignature: tabulated
-            .map(item => `${item.name}:${item.response.knotSignature || '-'}`)
-            .join('|'),
-        discontinuityModels: [...new Set(tabulated.map(item =>
-            `${item.name}: ${item.response.model}`))],
+        onKnot: materials.some(item => item.response.onKnot),
     };
 }
 
@@ -117,6 +114,7 @@ export function evaluateStackPhaseDispersion(options) {
         referenceIncidentMaterial = null,
         layers = [],
         withThicknessJacobian = false,
+        knotSide,
     } = options;
     const omega = 2 * Math.PI * C_NM_PER_FS / wavelengthNm;
     const wavelengthJet = wavelengthOmegaJet(wavelengthNm, omega);
@@ -125,7 +123,7 @@ export function evaluateStackPhaseDispersion(options) {
         if (!responseCache.has(material)) {
             responseCache.set(material, {
                 name: material?.name || material?.id || name,
-                response: materialOmegaResponse(material, wavelengthNm),
+                response: materialOmegaResponse(material, wavelengthNm, knotSide),
             });
         }
         return responseCache.get(material);

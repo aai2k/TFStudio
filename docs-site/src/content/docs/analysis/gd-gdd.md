@@ -69,14 +69,25 @@ the conjugate-Macleod convention once so a material transit time is positive,
 with the same sign as the Material Dispersion window.
 
 Formula materials are differentiated exactly. A tabulated material gives the
-exact derivative of its shape-preserving PCHIP curve. PCHIP is C1: GD is
-continuous, while higher derivatives can show finite steps at table knots and
-TOD is especially sensitive to how sparse data is represented. For coating
-reflection and transmission, both tabulated `n` and `k` contribute to this
-continuity limit. GDD and TOD plots leave gaps at their knot jumps, and the
-warning badge on the control row names the table models involved. A saved
-smooth fit replaces the table only inside its stated validity range and is
-named there too.
+exact derivative of its shape-preserving PCHIP curve, or of the straight line
+between two points when the material carries the linear rule that Essential
+Macleod and TFCalc read tables with. PCHIP is C1: GD is continuous, while higher
+derivatives can show finite steps at table knots and TOD is especially sensitive
+to how sparse data is represented. A linear table is C0, so GD steps there as
+well. For coating reflection and transmission, both tabulated `n` and `k`
+contribute to this continuity limit.
+
+Exactly on a knot two pieces of the table meet, and a derivative that steps there
+has no single value. The window reports the mean of the two sides. That is the
+limit of the symmetric difference quotient, and it is the number Essential
+Macleod gives at the same wavelength. Every knot inside the plotted range gets a
+sample of its own, and the curve is drawn through both of its one-sided values,
+so a jump appears as the step it is rather than a gap. The curve is never cut at
+a knot; a gap means the opposite, that the wavelength has no value at all.
+Fitting a smooth dispersion model to a material removes its knots, and a saved
+fit replaces the table only inside its stated validity range and is named in the
+model list. Where a table is fine enough that its knots crowd the plotted
+samples, they are left out and the curve is drawn from those samples alone.
 Wavelengths outside any material model range are left blank with a reason
 instead of treating a clamped endpoint as non-dispersive data.
 
@@ -90,7 +101,9 @@ deep reflectance minimum, although the same feature can matter when the coating
 is used in transmission.
 
 The data table lists phase and all three derivatives against wavelength for
-export.
+export. A knot wavelength is written as two rows, λ− and λ+, carrying the value
+on each side of it, so a number taken from the table is never a midpoint without
+saying so.
 
 ## References
 

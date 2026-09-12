@@ -1,5 +1,6 @@
 import { unwrapPhase } from '../../../../utils/physics/thinFilmMath.js';
 import { createDesignPhaseDispersionEvaluator } from '../../../../utils/physics/phaseDispersion.js';
+import { knotGrid, sampleKnots } from '../knots.js';
 
 export const AUTOMATIC_GD_GDD_FINE_STEP_NM = 0.2;
 const AUTOMATIC_GRID_MAX_INTERVALS = 2000;
@@ -67,11 +68,19 @@ function adaptiveWavelengthGrid(baseWavelengths, evaluate) {
     return [...wavelengths].sort((left, right) => left - right);
 }
 
-// The wavelengths a spectrum is presented on: an automatic grid, refined
-// around narrow coefficient minima unless this is a live preview.
-function presentationGrid(lambdaStart, lambdaEnd, preview, evaluate) {
+// The wavelengths a spectrum is presented on: an automatic grid, refined around
+// narrow coefficient minima and carrying a sample on every table knot, unless
+// this is a live preview.
+function presentationGrid(lambdaStart, lambdaEnd, preview, evaluate, pointEvaluator) {
     const base = automaticWavelengthGrid(lambdaStart, lambdaEnd, preview);
-    return { base, wavelengths: preview ? base : adaptiveWavelengthGrid(base, evaluate) };
+    const counts = { basePointCount: base.length, adaptivePointCount: 0 };
+    // A preview asks for no knots, so it must not read knotWavelengths either:
+    // gathering them walks every table the stack uses.
+    if (preview) return { wavelengths: base, knots: [], ...counts };
+    const refined = adaptiveWavelengthGrid(base, evaluate);
+    counts.adaptivePointCount = refined.length - base.length;
+    const knots = knotGrid(refined, pointEvaluator.knotWavelengths, lambdaStart, lambdaEnd);
+    return { ...knots, ...counts };
 }
 
 function normalizeRadians(value) {
@@ -102,11 +111,7 @@ function averagePolarizations(sValue, pValue) {
             sValue.phaseContinuousOrder ?? 3,
             pValue.phaseContinuousOrder ?? 3,
         ),
-        knotSignature: `${sValue.knotSignature || '-'}|${pValue.knotSignature || '-'}`,
-        discontinuityModels: [...new Set([
-            ...(sValue.discontinuityModels || []),
-            ...(pValue.discontinuityModels || []),
-        ])],
+        onKnot: !!(sValue.onKnot || pValue.onKnot),
     };
     return result;
 }
@@ -124,19 +129,21 @@ export function computeGdGddSpectrum(design, options) {
                 thetaDeg,
             }),
         ]));
+    const evaluateAt = (wavelengthNm, knotSide) => {
+        const evaluatePolarization = polarizationCode =>
+            pointEvaluators[polarizationCode](wavelengthNm, knotSide);
+        return polarization === 'avg'
+            ? averagePolarizations(evaluatePolarization('s'), evaluatePolarization('p'))
+            : evaluatePolarization(polarization);
+    };
     const evaluate = (wavelengthNm) => {
-        if (!valueCache.has(wavelengthNm)) {
-            const evaluatePolarization = polarizationCode =>
-                pointEvaluators[polarizationCode](wavelengthNm);
-            const value = polarization === 'avg'
-                ? averagePolarizations(evaluatePolarization('s'), evaluatePolarization('p'))
-                : evaluatePolarization(polarization);
-            valueCache.set(wavelengthNm, value);
-        }
+        if (!valueCache.has(wavelengthNm)) valueCache.set(wavelengthNm, evaluateAt(wavelengthNm));
         return valueCache.get(wavelengthNm);
     };
-    const { base: baseWavelengths, wavelengths } =
-        presentationGrid(lambdaStart, lambdaEnd, preview, evaluate);
+    const grid = presentationGrid(
+        lambdaStart, lambdaEnd, preview, evaluate,
+        pointEvaluators[polarization === 'avg' ? 's' : polarization]);
+    const { wavelengths, knots } = grid;
     const values = wavelengths.map(evaluate);
     const phaseRadians = unwrapFiniteRuns(
         values.map(value => value.valid ? value.phaseRad : NaN));
@@ -154,13 +161,11 @@ export function computeGdGddSpectrum(design, options) {
         models: values.find(value => value.models)?.models || [],
         phaseContinuousOrder: Math.min(...values.map(value =>
             value.phaseContinuousOrder ?? 3)),
-        knotSignatures: values.map(value => value.knotSignature || ''),
-        discontinuityModels: [...new Set(values.flatMap(value =>
-            value.discontinuityModels || []))],
+        knotSamples: sampleKnots(wavelengths, knots, evaluateAt),
         method: 'analytic Taylor jets',
         preview: !!preview,
-        basePointCount: baseWavelengths.length,
-        adaptivePointCount: wavelengths.length - baseWavelengths.length,
+        basePointCount: grid.basePointCount,
+        adaptivePointCount: grid.adaptivePointCount,
     };
 }
 

@@ -2247,16 +2247,13 @@ export default {
     snapLevelTip: 'Level step, taken from the visible range',
     editHintDraw: 'Click to add a target at one wavelength. Drag across a band to add a flatness target at the level you release on. Drag a target line or its ends to adjust; edits sync with the Merit Function table.',
     editHintDelete: 'Click a target line to remove it.',
-    tableKnotWarning: 'Piecewise table derivative; gaps mark data-knot jumps',
-    piecewiseShort: 'Piecewise',
+    knotColumn: 'Knot',
     maskedShort: count => `${count} masked`,
     yAuto: 'Auto',
     offScale: count => `${count} off scale`,
     offScaleHint: 'Samples outside the automatic range. They sit at reflection minima, where the dispersion orders grow without describing any real pulse. Clear Auto to set the range yourself.',
     modelLabel: 'Model',
     modelUnavailable: 'Unavailable',
-    piecewiseWarning: (quantity, model) =>
-        `${quantity} is piecewise for ${model}; gaps mark data-knot jumps`,
   },
 
   riProfile: {

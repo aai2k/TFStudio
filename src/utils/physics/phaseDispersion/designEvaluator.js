@@ -7,6 +7,7 @@
  */
 
 import { designMaterialLookup } from '../../materials/designMaterials.js';
+import { materialKnotWavelengths } from '../../materials/materialDispersion.js';
 import {
     evaluateStackPhaseDispersion,
     evaluateSubstratePropagation,
@@ -86,15 +87,15 @@ export function evaluateTotalTransmissionDispersion(design, options) {
         ])],
         phaseContinuousOrder: Math.min(...componentList.map(component =>
             component.phaseContinuousOrder ?? 3)),
-        knotSignature: componentList.map(component => component.knotSignature || '-').join('||'),
-        discontinuityModels: [...new Set(componentList.flatMap(component =>
-            component.discontinuityModels || []))],
+        onKnot: componentList.some(component => component.onKnot),
     };
 }
 
 /**
  * Evaluate phase, GD, GDD, and TOD at one wavelength. Values at this wavelength
- * are independent of all neighbouring presentation samples.
+ * are independent of all neighbouring presentation samples. `knotSide` picks a
+ * one-sided value where the wavelength falls on a table knot; without it the
+ * two sides are averaged there.
  */
 export function evaluateDesignPhaseDispersion(design, options) {
     const {
@@ -103,6 +104,7 @@ export function evaluateDesignPhaseDispersion(design, options) {
         target = 'R',
         polarization = 's',
         thetaDeg = 0,
+        knotSide,
     } = options;
     const resolveMaterial = designMaterialLookup(design);
     const definition = sideDefinition(design, side);
@@ -120,6 +122,7 @@ export function evaluateDesignPhaseDispersion(design, options) {
         incidentMaterial: resolveMaterial(definition.incidentId),
         substrateMaterial: resolveMaterial(definition.substrateId),
         layers,
+        knotSide,
     });
 }
 
@@ -127,6 +130,10 @@ export function evaluateDesignPhaseDispersion(design, options) {
  * Prepare a design stack once for repeated wavelength evaluation. This keeps
  * the pointwise mathematics identical while avoiding material and layer
  * resolution work at every plotted wavelength.
+ *
+ * The returned evaluator takes a wavelength and, optionally, which side of a
+ * table knot to read there; reading `knotWavelengths` on it lists every interior
+ * knot the stack's materials contribute, which is where that choice matters.
  */
 export function createDesignPhaseDispersionEvaluator(design, options = {}) {
     const {
@@ -145,7 +152,7 @@ export function createDesignPhaseDispersionEvaluator(design, options = {}) {
             material: resolveMaterial(layer.material),
             thicknessNm: layer.thickness,
         }));
-    return wavelengthNm => evaluateStackPhaseDispersion({
+    const evaluate = (wavelengthNm, knotSide) => evaluateStackPhaseDispersion({
         wavelengthNm,
         thetaDeg,
         polarization,
@@ -153,5 +160,23 @@ export function createDesignPhaseDispersionEvaluator(design, options = {}) {
         incidentMaterial,
         substrateMaterial,
         layers,
+        knotSide,
     });
+    // Gathering the knots walks every table the stack uses, which is wasted on
+    // the callers that never ask for them: the live optimizer preview and the
+    // report both evaluate wavelength by wavelength. Built on first read and
+    // kept after that.
+    const stack = [incidentMaterial, substrateMaterial, ...layers.map(layer => layer.material)];
+    let knotWavelengths = null;
+    Object.defineProperty(evaluate, 'knotWavelengths', {
+        get() {
+            if (!knotWavelengths) {
+                knotWavelengths = [...new Set(stack.flatMap(
+                    material => materialKnotWavelengths(material)))]
+                    .sort((left, right) => left - right);
+            }
+            return knotWavelengths;
+        },
+    });
+    return evaluate;
 }

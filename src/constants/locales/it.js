@@ -2655,16 +2655,13 @@ export default {
     snapLevelTip: "Passo di livello, preso dall'intervallo visibile",
     editHintDraw: "Clicca per aggiungere un target a una lunghezza d'onda. Trascina su una banda per aggiungere un target di planarità al livello in cui rilasci. Trascina la linea di un target o i suoi estremi per regolarlo; le modifiche si sincronizzano con la tabella della funzione di merito.",
     editHintDelete: 'Clicca la linea di un target per rimuoverlo.',
-    tableKnotWarning: 'Derivata tabulare a tratti; le interruzioni segnano i salti tra i nodi dei dati',
-    piecewiseShort: 'A tratti',
+    knotColumn: 'Nodo',
     maskedShort: count => `${count} mascherati`,
     yAuto: 'Auto',
     offScale: count => `${count} fuori scala`,
     offScaleHint: "Campioni fuori dall'intervallo automatico. Si trovano nei minimi di riflessione, dove gli ordini di dispersione crescono senza descrivere alcun impulso reale. Disattiva Auto per impostare l'intervallo a mano.",
     modelLabel: 'Modello',
     modelUnavailable: 'Non disponibile',
-    piecewiseWarning: (quantity, model) =>
-        `${quantity} è a tratti per ${model}; le interruzioni segnano i salti tra i nodi dei dati`,
   },
   riProfile: {
     noDesign: 'Nessun design selezionato. Apri o crea prima un design.',

@@ -69,7 +69,7 @@ function compare(off, on, label) {
     assert.deepEqual(off.models, on.models, `${label}: material models differ`);
     assert.equal(off.phaseContinuousOrder, on.phaseContinuousOrder,
         `${label}: continuity order differs`);
-    assert.equal(off.knotSignature, on.knotSignature, `${label}: knot signature differs`);
+    assert.equal(off.onKnot, on.onKnot, `${label}: knot flag differs`);
 
     assert.equal(!!off.thicknessJacobian, !!on.thicknessJacobian,
         `${label}: one backend returned a thickness Jacobian and the other did not`);
