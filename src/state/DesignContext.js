@@ -9,8 +9,6 @@ const { createContext, useContext, useState, useCallback, useEffect, useRef } = 
 
 import { resolveEvalMode, mirrorLayers } from '../utils/physics/optimizer.js';
 import { useAnalysisDefaults, useAnalysisSettings } from './AnalysisSettingsContext.js';
-import { useWindowSession } from '../components/windows/windowSession.js';
-import { evalParamsSession } from './evalParamsSession.js';
 
 // ── Default design factory ─────────────────────────────────────────────────────
 
@@ -117,20 +115,6 @@ export function useDesign() {
 // When activeDesignId changes, the provider switches to that design (creating
 // a default one on first access).
 
-/**
- * Optical Evaluation's evaluation grid (λ range / step / AOI list / display
- * unit), from the store in state/evalParamsSession.js.
- *
- * Held at App level so it survives closing and switching that window, and so
- * the Spectrum Exchange window can seed its export grid from it. The store is
- * pointed at the configured values by AnalysisSettingsProvider, so there is
- * nothing to seed here.
- */
-function useEvalParams() {
-    const [evalParams, , patch] = useWindowSession(evalParamsSession, null);
-    return [evalParams, patch];
-}
-
 export function DesignProvider({ children, activeDesignId, designs, folders, onDesignChange, onCheckpoint, historyView, onJumpToHistory }) {
     // Local fallback: if parent doesn't pass controlled props, manage state internally.
     const [localDesigns, setLocalDesigns] = useState(() => {
@@ -141,8 +125,6 @@ export function DesignProvider({ children, activeDesignId, designs, folders, onD
         const d = Object.values(localDesigns)[0];
         return d.id;
     });
-
-    const [evalParams, setEvalParams] = useEvalParams();
 
     // Active-optimizer counter. Tool windows (Refinement / Needle / GE) call
     // beginOptimization() on Run and endOptimization() on stop/finalize/unmount.
@@ -313,7 +295,6 @@ export function DesignProvider({ children, activeDesignId, designs, folders, onD
             history, jumpToHistory,
             addLayer, removeLayer, updateLayer, moveLayer, duplicateLayer,
             evalMode,
-            evalParams, setEvalParams,
             isOptimizing, beginOptimization, endOptimization,
             liveUpdate, setLiveUpdate,
             getDesignRevision

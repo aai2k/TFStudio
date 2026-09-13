@@ -10,6 +10,7 @@
  */
 
 import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
 import { readDockingSource } from './_dockingSource.mjs';
 import {
     applySavedWindowDefaults, createWindowSession, releaseWindowCopy,
@@ -18,6 +19,10 @@ import {
 import {
     addTab, adoptTabIds, makeGroup, makeSplit, newTabId, tabsIn,
 } from '../src/components/docking/treeUtils.js';
+import { evalParamsSession } from '../src/state/evalParamsSession.js';
+import { EVAL_PARAM_KEYS, pickDefaults } from '../src/constants/analysisDefaults.js';
+
+const defaultGrid = pickDefaults('opticalEvaluation', EVAL_PARAM_KEYS);
 
 const designA = { id: 'design-a', referenceWavelength: 625 };
 const designB = { id: 'design-b', referenceWavelength: 780 };
@@ -287,6 +292,62 @@ const designB = { id: 'design-b', referenceWavelength: 780 };
         'and so is closing a torn-off window, as against docking it back');
     assert.match(source, /adoptTabIds\(next, \[\.\.\.tabsIn\(prev\)/,
         'a preset or a restore carries the open copies onto the tabs it builds');
+}
+
+// ── Optical Evaluation's grid is per copy, and readable from outside ─────────
+//
+// The evaluation grid is the one set of controls two copies of a window were
+// found still sharing. It was not the store that shared them: the grid was read
+// once at App level, with no copy around it, and handed to both copies through
+// the design context. So this fixes the store's behaviour AND the wiring, since
+// either one alone would let the other come back.
+{
+    const grid = evalParamsSession;
+
+    grid.write(null, { thetas: [0], lambdaStart: 400, lambdaEnd: 800 }, 'oe-1');
+    grid.write(null, { thetas: [45] }, 'oe-2');
+
+    assert.deepEqual(grid.read(null, 'oe-1').thetas, [0],
+        'the angle set in one Optical Evaluation stays put when the other changes');
+    assert.deepEqual(grid.read(null, 'oe-2').thetas, [45],
+        'and the second window keeps the angle it was given');
+
+    grid.write(null, { lambdaStart: 250 }, 'oe-2');
+    assert.equal(grid.read(null, 'oe-1').lambdaStart, 400,
+        'the same for the band: two copies can look at two ranges');
+
+    // Spectrum Exchange, the Material Editor and the Coating Library read the
+    // grid without belonging to a copy of the window, so they follow whichever
+    // copy was changed last.
+    assert.equal(grid.peek(null).lambdaStart, 250,
+        'an outside reader follows the copy the user changed last');
+
+    releaseWindowCopy('oe-2');
+    assert.equal(grid.peek(null).lambdaStart, 400,
+        'and falls back to a copy still open when that one closes');
+
+    releaseWindowCopy('oe-1');
+    assert.equal(grid.peek(null).lambdaStart, defaultGrid.lambdaStart,
+        'with no copy open it reads what the window would open with');
+
+    resetWindowSessions();
+}
+
+// The wiring half. The grid reached both copies because DesignContext read it
+// and passed it down; a window's own controls have to come from the window.
+{
+    const contextSource = readFileSync(
+        new URL('../src/state/DesignContext.js', import.meta.url), 'utf8');
+    assert.equal(/\bevalParams\b/.test(contextSource), false,
+        'the design context does not carry Optical Evaluation\'s grid: every copy '
+        + 'reading one context value is what made two windows share it');
+
+    const windowSource = readFileSync(
+        new URL('../src/components/windows/analysis/opticalEvaluation/useOpticalEvaluation.js',
+            import.meta.url), 'utf8');
+    assert.match(windowSource, /useWindowSession\(evalParamsSession/,
+        'the window takes the grid through the session hook, which is what picks '
+        + 'up the copy it is drawn in');
 }
 
 console.log('window_session_copies: passed');

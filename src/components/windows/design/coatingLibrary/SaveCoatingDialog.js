@@ -1,10 +1,10 @@
-import { useDesign } from '../../../../state/DesignContext.js';
+import { evalParamsSession } from '../../../../state/evalParamsSession.js';
 import { COATING_TYPES, POLARIZATIONS, entryFromDesign } from '../../../../utils/coatingLibrary/entryModel.js';
 import { validateEntry } from '../../../../utils/coatingLibrary/validateEntry.js';
 import { saveUserCoating } from '../../../../utils/coatingLibrary/userCoatings.js';
 import { FONT, Segmented, buttonStyle, failReason, inputStyle } from './ui.js';
 
-const { createElement: h, useState } = React;
+const { createElement: h, useMemo, useState } = React;
 
 function Row({ label, c, children }) {
     return h('label', { style: { display: 'flex', alignItems: 'center', gap: 10, margin: '8px 0' } },
@@ -19,7 +19,9 @@ function Row({ label, c, children }) {
 export function SaveCoatingDialog({ design, side: initialSide = 'front', c, t, onClose, onSaved }) {
     const ts = t.coatingLibrary;
     const sd = ts.saveDialog;
-    const { evalParams } = useDesign();
+    // The band Optical Evaluation was last set to, as the band this coating is
+    // offered over. Read once: it seeds the fields below, which the user owns.
+    const evalParams = useMemo(() => evalParamsSession.peek(null), []);
     const [side, setSide] = useState(initialSide);
     const [name, setName] = useState(`${design.name} ${initialSide}`);
     const [type, setType] = useState('other');

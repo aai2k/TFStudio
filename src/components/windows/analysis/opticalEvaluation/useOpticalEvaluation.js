@@ -6,6 +6,7 @@ import { makeConeSpec, coneIsActive } from '../../../../utils/physics/optimizer.
 import { useAnalysisEvaluation } from '../useAnalysisEvaluation.js';
 import { buildCSV, createTargetOperands, editTargetOperands, deleteTargetOperand } from './model.js';
 import { opticalEvaluationSession, opticalTargetSession } from './sessionState.js';
+import { evalParamsSession } from '../../../../state/evalParamsSession.js';
 import { isLogYScale, yScaleReadsQuantity } from './yScale.js';
 import { useWindowSession } from '../../windowSession.js';
 
@@ -160,7 +161,11 @@ function designSummary(design, evalMode, data) {
 
 export function useOpticalEvaluation() {
     const context = useDesign();
-    const { design, updateDesign, evalMode, evalParams: params, setEvalParams: setParams } = context;
+    const { design, updateDesign, evalMode } = context;
+    // The evaluation grid is this copy's, so two windows can hold two angles.
+    // It lives in state/ rather than in this folder because three other windows
+    // read it; they peek at the copy last changed here.
+    const [params, , setParams] = useWindowSession(evalParamsSession, null);
     const display = useDisplayOptions(params, setParams, design);
     const spectrum = useSpectrumEvaluation({ params, evalMode });
     const targets = useTargetEditor({

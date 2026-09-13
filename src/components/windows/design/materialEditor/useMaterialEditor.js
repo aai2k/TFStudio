@@ -26,7 +26,8 @@ import {
 import { sampleReadOnlyChart } from './materialEditorReadOnly.js';
 import { draftFingerprint } from './materialDraft.js';
 import { materialEditorSession } from './sessionState.js';
-import { useWindowSession } from '../../windowSession.js';
+import { evalParamsSession } from '../../../../state/evalParamsSession.js';
+import { useWatchedSession, useWindowSession } from '../../windowSession.js';
 
 const { useState, useEffect, useRef, useCallback, useMemo } = React;
 
@@ -63,10 +64,13 @@ export function useMaterialEditor({ c, t, setInputDialog }) {
     const [fileImport,       setFileImport]       = useState(null);
 
     const me = t.materialEditor;
-    const { design, evalParams } = useDesign();
+    const { design } = useDesign();
+    // The wavelengths the design is evaluated over, from whichever copy of
+    // Optical Evaluation was changed last. A fit has to be right where the
+    // coating is used, so this is the band the fit panel offers, and it follows
+    // that window while this one is open.
+    const evalParams = useWatchedSession(evalParamsSession, null);
 
-    // The wavelengths the design is evaluated over. A fit has to be right where
-    // the coating is used, so this is the band the fit panel offers.
     const workingNm = [evalParams.lambdaStart, evalParams.lambdaEnd];
 
     const loadCatalogs = useCallback(() => { setCatalogs(getCatalogs()); }, []);

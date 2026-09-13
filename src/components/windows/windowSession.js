@@ -25,12 +25,15 @@
  * again.
  *
  * `copies: 'shared'` puts every mount on that one slot, for state two different
- * windows are meant to agree on: the Process Simulator and the Report both read
- * the Monitor Worksheet's chip plan, and Spectrum Exchange seeds its export grid
- * from Optical Evaluation's evaluation grid.
+ * windows are meant to agree on rather than each holding their own. One store
+ * needs it: the Monitor Worksheet's chip plan, which the Process Simulator runs
+ * and the Report prints.
  *
- * A window reading another window's store does so through `peek` and `watch`,
- * which are shown the copy the user changed last.
+ * Reading another window's values is not that, and does not need it. That goes
+ * through `peek` and `watch`, which are shown the copy the user changed last and
+ * the values the window would open with when none of it is open. Spectrum
+ * Exchange, the Material Editor and the Coating Library read Optical
+ * Evaluation's evaluation grid that way, and it stays per copy.
  *
  * Saved defaults
  * --------------
@@ -79,6 +82,14 @@ const identity = state => state;
 const noPatch = () => null;
 const isPlainObject = value =>
     !!value && typeof value === 'object' && !Array.isArray(value);
+
+// Whether two sets of stored values hold the same things. A store's values are
+// shallow-copied on the way out, so an untouched key keeps its reference and
+// comparing one level deep is enough.
+const sameValues = (a, b) => {
+    const keys = Object.keys(a);
+    return keys.length === Object.keys(b).length && keys.every(key => a[key] === b[key]);
+};
 
 // The slot a mount with no copy around it uses, and the one every mount of a
 // `copies: 'shared'` store uses.
@@ -483,4 +494,39 @@ export function useWindowSession(store, design) {
     );
 
     return [state, setField, patch];
+}
+
+/**
+ * Follow another window's store, read-only.
+ *
+ * Returns what the copy the user changed last holds, or the values that window
+ * would open with when none of it is open. Watched rather than subscribed to,
+ * because the window being followed can be open more than once and the reader
+ * has no copy of its own to belong to.
+ *
+ * Peeked rather than read, so following a window cannot move it off the design
+ * it last showed or reseed what it holds for one.
+ */
+export function useWatchedSession(store, design) {
+    const { useEffect, useState } = React;
+    const [state, setState] = useState(() => store.peek(design));
+
+    useEffect(() => {
+        // `peek` hands back a fresh object every time, so setting it unguarded
+        // would re-render on mount and on every write to a key this reader does
+        // not show. Only a changed value gets through.
+        const sync = () => setState(prev => {
+            const next = store.peek(design);
+            return sameValues(prev, next) ? prev : next;
+        });
+        // Once before subscribing, for a write that landed between the render
+        // that seeded the state and this effect.
+        sync();
+        return store.watch(sync);
+    // Keyed on the design id rather than the object, matching useWindowSession:
+    // a design edit leaves the values alone and only selecting a different
+    // design reseeds them, so re-subscribing per edit would be churn.
+    }, [store, design?.id]); // eslint-disable-line react-hooks/exhaustive-deps
+
+    return state;
 }

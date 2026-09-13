@@ -10,6 +10,7 @@ import {
     measuredFitMeritOperands, measuredFitSnapshot, orphanFitBlocks, restoredFitCurves,
 } from './model.js';
 import { spectrumExchangeSession } from './sessionState.js';
+import { evalParamsSession } from '../../../../state/evalParamsSession.js';
 import { useWindowSession } from '../../windowSession.js';
 
 const { useCallback, useEffect, useMemo, useState } = React;
@@ -51,7 +52,10 @@ function computePreview(design, curve, missingMaterialIds) {
 }
 
 export function useSpectrumExchange(sx) {
-    const { design, updateDesign, checkpoint, evalParams, evalMode } = useDesign();
+    const { design, updateDesign, checkpoint, evalMode } = useDesign();
+    // The grid Optical Evaluation was last set to, as the export defaults. Read
+    // once: these seed the fields below, which the user then owns.
+    const evalParams = useMemo(() => evalParamsSession.peek(null), []);
     const missingMaterialIds = useUnresolvedMaterials(design);
     const [session, setField] = useWindowSession(spectrumExchangeSession, design);
     const {
