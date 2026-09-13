@@ -24,8 +24,11 @@ import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
 import {
     tmm, tmmWithAdmittances, computeEllipsometry,
-    computeEFieldProfile, computeGroupDelaySpectrum, C_NM_PER_FS,
+    computeEFieldProfile, C_NM_PER_FS,
 } from '../../src/utils/physics/thinFilmMath.js';
+import { coefficientPhaseDispersion, tmmCoefficientJets }
+    from '../../src/utils/physics/phaseDispersion.js';
+import { jetConstant, wavelengthOmegaJet } from '../../src/tmmcore.js';
 
 const here = dirname(fileURLToPath(import.meta.url));
 const ref = JSON.parse(readFileSync(join(here, 'reference_tmm.json'), 'utf8'));
@@ -120,24 +123,42 @@ for (const c of ref.cases) {
 // ── Group delay on the dispersive (Gires–Tournois) mirror ────────────────────
 // tmm computes GD in its own time convention (values come out negative here);
 // TFStudio's is the conjugate convention, and its absolute sign is independently
-// pinned physically-correct by the matched-slab analytic oracle (gd_sign_slab).
-// So GD_TF must equal −GD_tmm to high precision, INCLUDING through the sharp
-// resonance — which validates GD/GDD (GDD is the derivative of this GD).
-console.log('\n  Group delay GD = −dφ/dω (Gires–Tournois mirror, fine matched grid):');
+// pinned physically-correct by the matched-slab closed form in
+// gd_gdd_physical_validation. So GD_TF must equal −GD_tmm, INCLUDING through the
+// sharp resonance.
+//
+// The two sides reach the number differently. TFStudio carries index Taylor jets
+// through the characteristic matrix and reads GD off a logarithmic derivative of
+// r at the wavelength asked for, owing nothing to a grid. The reference
+// differentiates tmm's unwrapped phase with central differences over a 2401-point
+// grid, so what remains between them is the reference's own truncation error,
+// largest where the resonance bends the phase hardest.
+console.log('\n  Group delay GD = −dφ/dω (Gires–Tournois mirror, analytic vs differentiated tmm):');
 {
     const g = ref.gd_case;
     const c = ref.cases.find(x => x.name === g.name);
     const { n0, ns, layers } = toLayers(c);
-    const coeffR = (L) => tmmWithAdmittances(L, 0, 's', n0, ns, layers).r;
-    const tf = computeGroupDelaySpectrum(coeffR, g.lo, g.hi, g.N);      // same grid as tmm
-    const gdAt = (L) => { let best = 0, bd = 1e9; for (let i = 0; i < tf.lambda.length; i++) { const dd = Math.abs(tf.lambda[i] - L); if (dd < bd) { bd = dd; best = tf.gd[i]; } } return best; };
+    // Every index in the reference is a constant complex number, so each carries
+    // a jet with zero derivatives and the only ω dependence left is the phase
+    // thickness of the layers.
+    const gdAt = (lambdaNm) => {
+        const coefficients = tmmCoefficientJets({
+            wavelengthJet: wavelengthOmegaJet(lambdaNm, 2 * Math.PI * C_NM_PER_FS / lambdaNm),
+            thetaDeg: 0,
+            polarization: 's',
+            incidentIndexJet: jetConstant(n0[0], n0[1]),
+            substrateIndexJet: jetConstant(ns[0], ns[1]),
+            layers: layers.map(l => ({ indexJet: jetConstant(l.n[0], l.n[1]), thicknessNm: l.d })),
+        });
+        return coefficientPhaseDispersion(coefficients.reflection).gd;
+    };
     let maxGD = 0, signOK = 0;
     for (let i = 0; i < g.lam.length; i++) {
         const a = gdAt(g.lam[i]), b = g.gd[i];
         if (Math.sign(a) === Math.sign(-b)) signOK++;      // GD_TF and −GD_tmm same sign
         const d = Math.abs(a - (-b)); maxGD = Math.max(maxGD, d); bump('GD [fs]', d);
     }
-    ok(maxGD < 0.05, `GD_TF = −GD_tmm across the GTI resonance (${g.lam.length} pts, maxΔ=${maxGD.toExponential(2)} fs)`);
+    ok(maxGD < 1e-5, `GD_TF = −GD_tmm across the GTI resonance (${g.lam.length} pts, maxΔ=${maxGD.toExponential(2)} fs)`);
     ok(signOK === g.lam.length, `sign relation GD_TF = −GD_tmm holds at every point (${signOK}/${g.lam.length})`);
     const rng = g.gd.reduce((m, v) => [Math.min(m[0], -v), Math.max(m[1], -v)], [1e9, -1e9]);
     console.log(`  ✓ ${g.name.padEnd(34)} GD ×${g.lam.length}  TFStudio range ${rng[0].toFixed(2)}…${rng[1].toFixed(2)} fs  maxΔ=${maxGD.toExponential(2)} fs`);

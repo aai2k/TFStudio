@@ -9,9 +9,8 @@
  * This is the complex conjugate of Macleod's convention (ñ = n - ik, exp(+iωt),
  * +i on the transfer-matrix off-diagonals); this module carries -i on the
  * off-diagonals throughout. R, T and A are identical under conjugation; the
- * phase-sensitive outputs (ellipsometry Δ, group delay) negate the raw TMM
- * phase to recover Macleod's physical sign. See computeEllipsometry and
- * computeGroupDelaySpectrum.
+ * phase-sensitive outputs negate the raw TMM phase to recover Macleod's
+ * physical sign. See computeEllipsometry.
  */
 
 // tmmcore owns the reference TMM kernels, the shared complex/matrix
@@ -1064,32 +1063,22 @@ export function evaluateEllipsometryThicknessJacobian(grid) {
     });
 }
 
-// ── Group Delay / GDD / TOD ───────────────────────────────────────────────────
+// ── Phase curves ──────────────────────────────────────────────────────────────
 //
-// Reference: H. A. Macleod, Thin-Film Optical Filters, 5th ed., Chapter 11
-// "Ultrafast Coatings", Eq. (11.17). Expanding the reflected-pulse phase to
-// third order in Δω about ω₀ identifies
+// Group delay and its higher orders are not computed here: GD, GDD and TOD come
+// from the analytic phase-dispersion evaluator in phaseDispersion/, which reads
+// them off Taylor jets carried through the characteristic matrix, so a value at
+// one wavelength owes nothing to its neighbours.
 //
-//     GD  = −dφ/dω        units of time           (fs)
-//     GDD = −d²φ/dω²       units of time²          (fs²)   ("group delay dispersion")
-//     TOD = −d³φ/dω³       units of time³          (fs³)   ("third-order dispersion")
-//
-// where φ is the phase change on reflection (or transmission), φ = arg(r)
-// resp. arg(t), and ω = 2πc/λ is the angular frequency.
-//
-// Sign/phase convention: this module uses the conjugate-Macleod convention
-// (ñ = n + ik, −i on off-diagonals of the transfer matrix), so the raw phase
-// arg(r) from the TMM runs opposite to Macleod Eq. (11.17).
-// computeGroupDelaySpectrum negates the unwrapped raw phase before computing
-// derivatives so that GD/GDD/TOD carry the correct physical sign GD = −dφ/dω.
-// Validated: a transparent spacer on a mirror gives a positive group delay
-// (≈ 2nL/c plus the mirror's own phase dispersion).
+// What remains is what a plotted phase curve needs. arg(·) returns a principal
+// value in (−π, π], so a spectrum of it jumps by 2π wherever the phase crosses
+// the branch; unwrapping removes the jumps and leaves a continuous curve.
 
 export const C_NM_PER_FS = 299.792458;   // speed of light in vacuum, nm/fs
 
 /**
  * Unwrap a radian-phase array, removing 2π jumps between consecutive samples.
- * Input is not mutated. Required before differentiating arg(·) (∈ (−π, π]).
+ * Input is not mutated.
  */
 export function unwrapPhase(phi) {
     const out = phi.slice();
@@ -1099,200 +1088,6 @@ export function unwrapPhase(phi) {
         while (d < -Math.PI) { out[i] += 2 * Math.PI; d = out[i] - out[i - 1]; }
     }
     return out;
-}
-
-/**
- * GD, GDD and TOD vs wavelength for the reflected or transmitted amplitude.
- *
- * Derivatives are evaluated on a grid that is **uniform in angular frequency
- * ω** (Macleod Eq. 11.17 is a Taylor expansion in ω, not λ), so the caller
- * supplies a sampler `coeffAtLambda(λ_nm) → [re, im]` returning the complex
- * r (for reflection GD) or t (for transmission GD) at that wavelength. Two
- * guard points are added at each end of the requested range so every returned
- * point uses a centred stencil:
- *
- *     f'   = (f₊₁ − f₋₁) / (2h)
- *     f''  = (f₊₁ − 2f₀ + f₋₁) / h²
- *     f''' = (f₊₂ − 2f₊₁ + 2f₋₁ − f₋₂) / (2h³)
- *
- * @param {(lambda_nm:number)=>[number,number]} coeffAtLambda  complex r or t
- * @param {number} lamStart_nm  displayed range start (nm)
- * @param {number} lamEnd_nm    displayed range end (nm)
- * @param {number} nPts         number of displayed spectral points (≥ 5)
- * @returns {{ lambda:number[], phaseDeg:number[], gd:number[],
- *             gdd:number[], tod:number[] }}  all ascending in λ;
- *           GD in fs, GDD in fs², TOD in fs³, phase in degrees (unwrapped).
- */
-export function computeGroupDelaySpectrum(coeffAtLambda, lamStart_nm, lamEnd_nm, nPts) {
-    const lamLo = Math.min(lamStart_nm, lamEnd_nm);
-    const lamHi = Math.max(lamStart_nm, lamEnd_nm);
-    if (!(lamHi > lamLo)) {
-        throw new RangeError('Group-delay wavelength endpoints must be distinct.');
-    }
-    const N = Math.max(5, Math.floor(nPts));
-
-    // Uniform ω grid over the displayed range (ascending in ω).
-    const TWO_PI_C = 2 * Math.PI * C_NM_PER_FS;
-    const wLo = TWO_PI_C / lamHi;   // low ω  ↔ long  λ
-    const wHi = TWO_PI_C / lamLo;   // high ω ↔ short λ
-    const h = (wHi - wLo) / (N - 1);
-
-    // Sample with 2 guard points each side; index i=2 → wLo, i=N+1 → wHi.
-    const M = N + 4;
-    const omega = new Array(M);
-    const phi   = new Array(M);
-    for (let i = 0; i < M; i++) {
-        const w = wLo + (i - 2) * h;
-        omega[i] = w;
-        const z = coeffAtLambda(TWO_PI_C / w);
-        phi[i] = Math.atan2(z[1], z[0]);
-    }
-    // Conjugate-Macleod convention: negate the unwrapped raw phase so that
-    // GD = −dφ/dω carries the correct physical (positive-delay) sign.
-    const phRaw = unwrapPhase(phi);
-    const ph = phRaw.map(v => -v);
-
-    const lambda = [], phaseDeg = [], gd = [], gdd = [], tod = [];
-    for (let i = 2; i < M - 2; i++) {
-        const fm2 = ph[i - 2], fm1 = ph[i - 1], f0 = ph[i],
-              fp1 = ph[i + 1], fp2 = ph[i + 2];
-        const d1 = (fp1 - fm1) / (2 * h);
-        const d2 = (fp1 - 2 * f0 + fm1) / (h * h);
-        const d3 = (fp2 - 2 * fp1 + 2 * fm1 - fm2) / (2 * h * h * h);
-        lambda.push(TWO_PI_C / omega[i]);
-        phaseDeg.push(f0 * 180 / Math.PI);
-        gd.push(-d1);    // fs
-        gdd.push(-d2);   // fs²
-        tod.push(-d3);   // fs³
-    }
-    // ω ascending ⇒ λ descending; reverse to ascending λ for plotting.
-    lambda.reverse(); phaseDeg.reverse();
-    gd.reverse(); gdd.reverse(); tod.reverse();
-    return { lambda, phaseDeg, gd, gdd, tod };
-}
-
-// ── Group delay on an exact wavelength grid ───────────────────────────────────
-
-// Weights for derivatives 0..maxOrder at x=0 on arbitrary nodes x[].
-// Fornberg, Math. Comp. 51 (1988), Eqs. (3.8) and (3.9).
-function finiteDifferenceWeights(x, maxOrder) {
-    const count = x.length;
-    const weights = Array.from({ length: count }, () => new Array(maxOrder + 1).fill(0));
-    weights[0][0] = 1;
-    let c1 = 1;
-    let c4 = x[0];
-
-    for (let i = 1; i < count; i++) {
-        const order = Math.min(i, maxOrder);
-        let c2 = 1;
-        const c5 = c4;
-        c4 = x[i];
-
-        for (let j = 0; j < i; j++) {
-            const c3 = x[i] - x[j];
-            c2 *= c3;
-            if (j === i - 1) {
-                for (let k = order; k >= 1; k--) {
-                    weights[i][k] = c1 * (k * weights[i - 1][k - 1] - c5 * weights[i - 1][k]) / c2;
-                }
-                weights[i][0] = -c1 * c5 * weights[i - 1][0] / c2;
-            }
-            for (let k = order; k >= 1; k--) {
-                weights[j][k] = (c4 * weights[j][k] - k * weights[j][k - 1]) / c3;
-            }
-            weights[j][0] = c4 * weights[j][0] / c3;
-        }
-        c1 = c2;
-    }
-    return weights;
-}
-
-/**
- * GD, GDD and TOD on a displayed grid with an exact wavelength step.
- *
- * The displayed samples are lambdaStart + i*lambdaStep, matching the
- * start-plus-step rule used by the other analysis windows. Their angular
- * frequencies are not equally spaced, so each derivative uses five-point
- * finite-difference weights calculated from the actual omega coordinates. This
- * differentiates directly in omega without resampling or interpolating the phase.
- *
- * Finite-difference weights: Fornberg, Math. Comp. 51 (1988), Eqs. (3.8), (3.9).
- * Phase convention and reported units are the same as computeGroupDelaySpectrum.
- *
- * @param {(lambda_nm:number)=>[number,number]} coeffAtLambda complex r or t
- * @param {number} lamStart_nm displayed range start (nm)
- * @param {number} lamEnd_nm displayed range end (nm)
- * @param {number} lambdaStep_nm displayed wavelength step (nm)
- * @returns {{ lambda:number[], phaseDeg:number[], gd:number[],
- *             gdd:number[], tod:number[] }} all ascending in wavelength
- */
-export function computeGroupDelaySpectrumAtWavelengthStep(
-    coeffAtLambda, lamStart_nm, lamEnd_nm, lambdaStep_nm,
-) {
-    const lamLo = Math.min(lamStart_nm, lamEnd_nm);
-    const lamHi = Math.max(lamStart_nm, lamEnd_nm);
-    if (!(lamHi > lamLo)) {
-        throw new RangeError('Group-delay wavelength endpoints must be distinct.');
-    }
-    const step = Number(lambdaStep_nm);
-    if (!(step > 0) || !Number.isFinite(step)) {
-        throw new RangeError('Group-delay wavelength step must be positive.');
-    }
-
-    const span = lamHi - lamLo;
-    const targetCount = Math.floor(span / step + 1e-12) + 1;
-
-    // Two guards on each side normally give a centred five-point stencil. If a
-    // very coarse step would cross lambda=0, move those guards to the red side
-    // and let the arbitrary-grid formula use a one-sided stencil at the blue end.
-    let firstOffset = -2;
-    while (firstOffset < 0 && lamLo + firstOffset * step <= 0) firstOffset++;
-    const sampleCount = targetCount + 4;
-    const sampleLambda = new Array(sampleCount);
-    const omega = new Array(sampleCount);
-    const rawPhase = new Array(sampleCount);
-    const TWO_PI_C = 2 * Math.PI * C_NM_PER_FS;
-    for (let i = 0; i < sampleCount; i++) {
-        const lambdaNm = lamLo + (firstOffset + i) * step;
-        sampleLambda[i] = lambdaNm;
-        omega[i] = TWO_PI_C / lambdaNm;
-        const z = coeffAtLambda(lambdaNm);
-        rawPhase[i] = Math.atan2(z[1], z[0]);
-    }
-
-    // Conjugate-Macleod convention, as in computeGroupDelaySpectrum.
-    const phase = unwrapPhase(rawPhase).map(value => -value);
-    const lambda = new Array(targetCount);
-    const phaseDeg = new Array(targetCount);
-    const gd = new Array(targetCount);
-    const gdd = new Array(targetCount);
-    const tod = new Array(targetCount);
-
-    for (let i = 0; i < targetCount; i++) {
-        const center = i - firstOffset;
-        const first = Math.max(0, Math.min(center - 2, sampleCount - 5));
-        const relativeOmega = new Array(5);
-        for (let j = 0; j < 5; j++) relativeOmega[j] = omega[first + j] - omega[center];
-        const weights = finiteDifferenceWeights(relativeOmega, 3);
-
-        let d1 = 0, d2 = 0, d3 = 0;
-        for (let j = 0; j < 5; j++) {
-            // A constant phase has zero derivative. Subtracting it before the
-            // weighted sum avoids cancellation against weights of order h^-3.
-            const value = phase[first + j] - phase[center];
-            d1 += weights[j][1] * value;
-            d2 += weights[j][2] * value;
-            d3 += weights[j][3] * value;
-        }
-
-        lambda[i] = sampleLambda[center];
-        phaseDeg[i] = phase[center] * 180 / Math.PI;
-        gd[i] = -d1;
-        gdd[i] = -d2;
-        tod[i] = -d3;
-    }
-
-    return { lambda, phaseDeg, gd, gdd, tod };
 }
 
 // ── Refractive-index profile ──────────────────────────────────────────────────

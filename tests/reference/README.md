@@ -43,7 +43,12 @@ metal film, bare metal, Gires–Tournois mirror):
 | Ψ (ellipsometry) | 2.1 × 10⁻¹⁴ deg |
 | Δ (ellipsometry, after +180° convention map) | 8.5 × 10⁻¹⁴ deg |
 | \|E\|² field profile | 3.3 × 10⁻¹⁶ |
-| Group delay (through a GTI resonance) | 1.9 × 10⁻³ fs |
+| Group delay (through a GTI resonance) | 5.8 × 10⁻⁷ fs |
+
+Group delay is the one row whose residual is not at machine epsilon, and the
+limit is the reference rather than the engine: TFStudio reads GD analytically off
+a Taylor jet of r, while `tmm`'s is its phase differentiated with central
+differences, so what the row measures is that grid's truncation error.
 
 ### Two documented convention relations (not errors)
 
@@ -53,4 +58,5 @@ metal film, bare metal, Gires–Tournois mirror):
 - **Group delay:** `GD_TF = −GD_tmm`. `tmm` uses the exp(+iωt) time convention;
   TFStudio uses exp(−iωt) (conjugate-Macleod) and negates the phase so GD comes
   out physically positive. That absolute sign is independently pinned correct by
-  the matched-slab analytic oracle in `tests/gd_sign_slab.mjs` (GD = +n·d/c).
+  the matched-slab closed form in `tests/gd_gdd_physical_validation.mjs`
+  (GD = +n·d/c).

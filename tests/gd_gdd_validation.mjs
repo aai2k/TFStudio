@@ -16,8 +16,8 @@
  *   2. An analytic phase. A quarter-wave stack at λ₀ has a real negative r,
  *      so the reported phase must be 180°.
  *   3. An independent differentiation: a 7-point stencil with Richardson
- *      extrapolation, sharing no code with computeGroupDelaySpectrum beyond
- *      the transfer matrix itself.
+ *      extrapolation, sharing no code with the window's analytic evaluator
+ *      beyond the transfer matrix itself.
  *   4. Step independence. A converged derivative must not depend on the
  *      sampling interval. This is the regression guard for the wavelength
  *      quantization defect, where GDD at 550 nm ranged over four orders of

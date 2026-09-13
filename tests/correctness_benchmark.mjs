@@ -34,10 +34,12 @@
  */
 
 import {
-    tmm, tmmWithAdmittances, computeEllipsometry,
-    computeGroupDelaySpectrum, computeEFieldProfile,
+    tmm, tmmWithAdmittances, computeEllipsometry, computeEFieldProfile,
     evaluateSpectrumTotal, C_NM_PER_FS,
 } from '../src/utils/physics/thinFilmMath.js';
+import { coefficientPhaseDispersion, tmmCoefficientJets }
+    from '../src/utils/physics/phaseDispersion.js';
+import { jetConstant, wavelengthOmegaJet } from '../src/tmmcore.js';
 import { getMaterial, getNK } from '../src/utils/materials/materialDatabase.js';
 import { tisAtLambda, effectiveRoughness, applyScatteringLoss } from '../src/utils/physics/scattering.js';
 import { mixMaterials, buildGradedSlices, applyProfile } from '../src/utils/physics/inhomogeneity.js';
@@ -318,16 +320,25 @@ head('§7  Multilayer R/T vs independent Rouard recursion');
 // §8  Group delay / GDD — index-matched slab closed form (Macleod §11)
 //     Matched slab (n0=ns=n): pure propagation t=exp(iδ) ⇒ GD=+n·d/c, GDD=0.
 //     Pins BOTH the sign and the magnitude of the dispersion quantities.
+//     The index is constant in ω, so the closed form is exact and the analytic
+//     evaluator has to reach it to machine precision rather than to a stencil's
+//     truncation error.
 // ═══════════════════════════════════════════════════════════════════════════
 head('§8  Group delay / GDD — matched-slab closed form');
 {
-    const n = 2, d = 2000, expectGD = n * d / C_NM_PER_FS;
-    const coeffT = (lam) => tmmWithAdmittances(lam, 0, 's', [n, 0], [n, 0], [{ n: [n, 0], d }]).t;
-    const res = computeGroupDelaySpectrum(coeffT, 1000, 1100, 201);
-    const mid = Math.floor(res.gd.length / 2);
-    ok(res.gd[mid] > 0, 'transmitted GD is POSITIVE (sign convention)', `GD=${res.gd[mid].toFixed(3)} fs`);
-    near(res.gd[mid], expectGD, 1e-3, 'matched-slab GD = +n·d/c');
-    near(res.gdd[mid], 0, 1e-6, 'matched-slab GDD = 0');
+    const n = 2, d = 2000, lam = 1050, expectGD = n * d / C_NM_PER_FS;
+    const indexJet = jetConstant(n, 0);
+    const coefficients = tmmCoefficientJets({
+        wavelengthJet: wavelengthOmegaJet(lam, 2 * Math.PI * C_NM_PER_FS / lam),
+        thetaDeg: 0, polarization: 's',
+        incidentIndexJet: indexJet, substrateIndexJet: indexJet,
+        layers: [{ indexJet, thicknessNm: d }],
+    });
+    const res = coefficientPhaseDispersion(coefficients.transmission);
+    ok(res.gd > 0, 'transmitted GD is POSITIVE (sign convention)', `GD=${res.gd.toFixed(3)} fs`);
+    near(res.gd, expectGD, 1e-12, 'matched-slab GD = +n·d/c');
+    near(res.gdd, 0, 1e-12, 'matched-slab GDD = 0');
+    near(res.tod, 0, 1e-12, 'matched-slab TOD = 0');
 }
 
 // ═══════════════════════════════════════════════════════════════════════════

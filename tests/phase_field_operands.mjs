@@ -88,7 +88,7 @@ ok(operandResidualScale({ type: 'EFMX' }) === 1, 'σ(EFMX) = 1');
     ok(close(val('COSDEL'), e.cosDelta, 1e-9), 'COSDEL matches cosΔ');
 }
 
-// ── GD/GDD point operands agree with computeGroupDelaySpectrum ────────────────
+// ── GD/GDD point operands agree with the analytic evaluator ───────────────────
 {
     const lam = 550, aoi = 0;
     const reflection = evaluateDesignPhaseDispersion(design, {

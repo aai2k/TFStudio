@@ -1,8 +1,14 @@
 /**
  * Builds `plot_data.json` — dense TFStudio curves computed on the SAME grids as
  * the tmm reference in `reference_tmm.json`, plus the pointwise residual. Feeds
- * the overlay plots in the validation dossier (TFStudio line vs tmm markers +
- * a residual trace that shows the gap sits at machine epsilon).
+ * the overlay plots in the validation dossier: TFStudio line vs tmm markers, and
+ * a residual trace.
+ *
+ * Every residual here sits at machine epsilon except the group delay, where the
+ * reference is tmm's phase differentiated with central differences on a 0.25 nm
+ * grid and the residual is that grid's truncation error near the resonance.
+ * Against the fine reference grid the same code agrees to 6e-7 fs; see
+ * cross_tool_validation.mjs.
  *
  * Run:  node tests/reference/make_plot_data.mjs
  */
@@ -10,9 +16,11 @@ import { readFileSync, writeFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
 import {
-    tmm, computeEllipsometry, computeEFieldProfile,
-    computeGroupDelaySpectrum, tmmWithAdmittances,
+    tmm, computeEllipsometry, computeEFieldProfile, C_NM_PER_FS,
 } from '../../src/utils/physics/thinFilmMath.js';
+import { coefficientPhaseDispersion, tmmCoefficientJets }
+    from '../../src/utils/physics/phaseDispersion.js';
+import { jetConstant, wavelengthOmegaJet } from '../../src/tmmcore.js';
 
 const here = dirname(fileURLToPath(import.meta.url));
 const ref = JSON.parse(readFileSync(join(here, 'reference_tmm.json'), 'utf8'));
@@ -80,10 +88,16 @@ for (const key of ['ar', 'mirror', 'absorb', 'metal']) {
 {
     const spec = P.gd; const { n0, ns, layers } = toLayers(caseByName(spec.case));
     const D = spec.data, lam = D.lam;
-    const coeffR = (L) => tmmWithAdmittances(L, 0, 's', n0, ns, layers).r;
-    const g = computeGroupDelaySpectrum(coeffR, lam[0], lam[lam.length - 1], lam.length);
-    // align g.lambda (its own grid) onto the reference lam by nearest sample
-    const gdAt = (L) => { let b = 0, bd = 1e9; for (let i = 0; i < g.lambda.length; i++) { const dd = Math.abs(g.lambda[i] - L); if (dd < bd) { bd = dd; b = g.gd[i]; } } return b; };
+    // Analytic, so each point lands on the reference wavelength itself and needs
+    // no alignment. The reference indices are constants, so every jet is one.
+    const gdAt = (L) => coefficientPhaseDispersion(tmmCoefficientJets({
+        wavelengthJet: wavelengthOmegaJet(L, 2 * Math.PI * C_NM_PER_FS / L),
+        thetaDeg: 0,
+        polarization: 's',
+        incidentIndexJet: jetConstant(n0[0], n0[1]),
+        substrateIndexJet: jetConstant(ns[0], ns[1]),
+        layers: layers.map(l => ({ indexJet: jetConstant(l.n[0], l.n[1]), thicknessNm: l.d })),
+    }).reflection).gd;
     const tf = lam.map(gdAt);
     const refGd = D.gd_tmm.map(v => -v);              // TFStudio convention = −tmm
     const res = tf.map((v, i) => v - refGd[i]);

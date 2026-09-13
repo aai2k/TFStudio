@@ -30,7 +30,6 @@ import {
 } from '../src/tmmcore.js';
 import {
     C_NM_PER_FS,
-    computeGroupDelaySpectrumAtWavelengthStep,
     tmmWithAdmittances,
 } from '../src/utils/physics/thinFilmMath.js';
 import {
@@ -215,45 +214,6 @@ const quarterWaveDesign = (() => {
         frontLayers, backLayers: [], surfaceMode: 'front_only',
     };
 })();
-
-// The former five-point path agrees at its truncation accuracy on formula-only
-// materials. This is a cross-check, not the independent analytic oracle in
-// tests/birge_phase_oracle.mjs.
-{
-    const wavelength = 550;
-    const high = getMaterial('Al2O3');
-    const low = getMaterial('MgF2');
-    const substrate = getMaterial('SiO2');
-    const incident = getMaterial('Air');
-    const layers = [];
-    for (let pair = 0; pair < 8; pair++) {
-        layers.push(
-            { material: high, thicknessNm: wavelength / (4 * high.getNK(wavelength)[0]) },
-            { material: low, thicknessNm: wavelength / (4 * low.getNK(wavelength)[0]) },
-        );
-    }
-    const analytic = evaluateDesignPhaseDispersion({
-        incidentMedium: 'Air', exitMedium: 'Air',
-        substrate: { material: 'SiO2', thickness: 1 },
-        frontLayers: layers.map(layer => ({
-            material: layer.material.id,
-            thickness: layer.thicknessNm,
-        })),
-        backLayers: [],
-    }, { wavelengthNm: wavelength, target: 'R', polarization: 's', thetaDeg: 0 });
-    const finite = computeGroupDelaySpectrumAtWavelengthStep(lambdaNm => {
-        const scalarLayers = layers.map(layer => ({
-            n: layer.material.getNK(lambdaNm), d: layer.thicknessNm,
-        }));
-        return tmmWithAdmittances(
-            lambdaNm, 0, 's', incident.getNK(lambdaNm), substrate.getNK(lambdaNm), scalarLayers,
-        ).r;
-    }, 500, 600, .2);
-    const index = finite.lambda.indexOf(wavelength);
-    relativeClose(analytic.gdFs, finite.gd[index], 1e-8, 'analytic vs five-point GD');
-    relativeClose(analytic.gddFs2, finite.gdd[index], 2e-5, 'analytic vs five-point GDD');
-    relativeClose(analytic.todFs3, finite.tod[index], 2e-3, 'analytic vs five-point TOD');
-}
 
 // Point values are independent of the presentation grid; knots stay finite.
 {
