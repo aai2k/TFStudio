@@ -10,7 +10,7 @@
  */
 
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
+import { readDockingSource } from './_dockingSource.mjs';
 import {
     applySavedWindowDefaults, createWindowSession, releaseWindowCopy,
     resetWindowSessions,
@@ -272,8 +272,9 @@ const designB = { id: 'design-b', referenceWavelength: 780 };
 
 // ── The layout wiring a store cannot reach ───────────────────────────────────
 {
-    const source = readFileSync(
-        new URL('../src/components/docking/DockingLayout.js', import.meta.url), 'utf8');
+    // These are properties of the docking layer rather than of any one module
+    // in it, so the whole folder is what gets read.
+    const source = readDockingSource();
 
     assert.match(source, /copyId: tab\.id/,
         'a docked window is drawn as the copy its tab names');

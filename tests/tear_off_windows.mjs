@@ -17,8 +17,13 @@ import { readFileSync } from 'node:fs';
 import { createRequire } from 'node:module';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { loadApp, makeLocale, makeTheme, shimBrowserGlobals, withDesign } from './_uiShim.mjs';
+import { readDockingSource } from './_dockingSource.mjs';
 
 const require = createRequire(import.meta.url);
+
+// Read once: nothing below writes to the folder, so both assertions that match
+// against it are looking at the same corpus.
+const dockingSource = readDockingSource();
 
 shimBrowserGlobals();
 await loadApp();
@@ -405,9 +410,7 @@ assert.equal(`${fresh.pixels.width}x${fresh.pixels.height}`, afterResize);
 // There is no OS window to give the tool there: window.open makes a popup the
 // blocker may eat, and the tab has already left the tree, so the tool would
 // vanish with it. A drop on nothing in the browser leaves the tab where it was.
-const layoutSource = readFileSync(
-    new URL('../src/components/docking/DockingLayout.js', import.meta.url), 'utf8');
-assert.match(layoutSource, /if \(hasNativeWindows\(\)\) \{\s*\r?\n\s*tearOff\(/,
+assert.match(dockingSource, /if \(hasNativeWindows\(\)\) \{\s*\r?\n\s*tearOff\(/,
     'tearing off is gated on the host that makes it possible');
 
 // The gate has to name the capability, not the bridge. The browser demo's shim
@@ -471,9 +474,9 @@ const litTarget = renderToStaticMarkup(React.createElement(EmptyDropTarget, { c,
 assert.ok(litTarget.includes('inset:12px'),
     'hovering the button shades where the tool will land, like a compass preview');
 
-assert.equal(/!tree && floats\.length === 0/.test(layoutSource), false,
+assert.equal(/!tree && floats\.length === 0/.test(dockingSource), false,
     'the workspace shows whenever nothing is docked, tools floating or not');
-assert.match(layoutSource, /!tree && dragActive && h\(EmptyDropTarget/,
+assert.match(dockingSource, /!tree && dragActive && h\(EmptyDropTarget/,
     'and offers somewhere to drop while a window is dragged over it');
 
 // ── A floated tool resizes with its window ────────────────────────────────────
@@ -678,9 +681,7 @@ const preloadSource = readFileSync(
 assert.match(preloadSource, /dragGhost: nativeWindowDrag \? null :/,
     'the drag preview window is withheld where it could not be moved');
 
-const layoutPreview = readFileSync(
-    new URL('../src/components/docking/DockingLayout.js', import.meta.url), 'utf8');
-assert.match(layoutPreview, /const bridge = [^;]*electronAPI\.dragGhost/,
+assert.match(dockingSource, /const bridge = [^;]*electronAPI\.dragGhost/,
     'and startDragPreview takes the absence as its cue to draw an element instead');
 
 // ── A divider in a float is dragged in the float's own document ───────────────
@@ -904,13 +905,13 @@ assert.equal(typeof toolDialogHost, 'function', 'and hands it a dialog host');
 assert.notEqual(toolDialogHost, appDialogHost,
     'one of its own, so the prompt opens over the window that asked for it');
 
-assert.equal(/h\(ToolContent, \{\s*toolId: f\.toolId/.test(layoutSource), false,
+assert.equal(/h\(ToolContent, \{\s*toolId: f\.toolId/.test(dockingSource), false,
     'the app hosts no longer reach a torn-off tool');
-assert.match(layoutSource, /h\(FloatToolHost, \{/, 'which is given hosts of its own instead');
+assert.match(dockingSource, /h\(FloatToolHost, \{/, 'which is given hosts of its own instead');
 
 // The material repair a blocked tool offers is raised the same way, so it opens
 // in the float too rather than on the main window behind it.
-assert.equal(/h\(FloatToolHost, \{[^}]*onReplaceMaterials/.test(layoutSource), false,
+assert.equal(/h\(FloatToolHost, \{[^}]*onReplaceMaterials/.test(dockingSource), false,
     'and that includes the material repair a blocked window offers');
 
 console.log('PASS tear_off_windows');
