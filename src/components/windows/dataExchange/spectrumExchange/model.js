@@ -1,14 +1,15 @@
 import { buildJcampDx } from '../../../../utils/io/jcampDx.js';
 import { designSpectrumColumns } from '../../../../utils/io/designSpectrum.js';
 import {
-    curvesToCsv, makeMeasuredCurve, measuredCurveData, measuredCurveSpacing, nmToX,
+    curvesToCsv, measuredCurveData, measuredCurveSpacing, nmToX,
     sampleMeasuredCurve, tableToCsv, X_UNITS,
 } from '../../../../utils/io/spectrumTable.js';
 import { clampToCovered, designRangeCoverage } from '../../../../utils/materials/materialRange.js';
 import {
-    DEFAULT_CONSTRAINT_LAST_LAYER, isMeasuredCurve, makeConstraintOperand,
+    DEFAULT_CONSTRAINT_LAST_LAYER, isEllipsometricMeasuredCurve, makeConstraintOperand,
     makeMeasuredCurveOperand, resolveEvalMode,
 } from '../../../../utils/physics/optimizer.js';
+import { orphanFitBlocksIn, restoredFitCurvesIn } from '../fitTargetCurves.js';
 
 export function delimiterName(delimiter, sx) {
     if (delimiter === ',') return sx.delimComma;
@@ -104,55 +105,17 @@ export function measuredFitSnapshot(design, curve, options = {}) {
     return { operand, sampled, coverage, evaluatedSide, error: null };
 }
 
-/**
- * Fit blocks whose curve is not on this design.
- *
- * A merit function saved as a preset carries its measured blocks but not the
- * curves they were generated from, so loading one into another design leaves
- * blocks that still score correctly, from their own snapshot, with nothing in
- * the curve list to look at. Deleting a curve and keeping its block does the
- * same. Each block holds everything a curve needs, so it can be given back.
- */
+// The blocks this window owns: a Ψ/Δ block belongs to Measured Ellipsometry.
+const photometric = operand => !isEllipsometricMeasuredCurve(operand);
+
+/** Fit blocks whose spectrum is not on this design; see fitTargetCurves.js. */
 export function orphanFitBlocks(design) {
-    const known = new Set((design?.measuredCurves || []).map(curve => curve.id));
-    return (design?.meritOperands || []).filter(
-        operand => isMeasuredCurve(operand.type)
-            && operand.sampleLambdas?.length
-            && !known.has(operand.curveId),
-    );
+    return orphanFitBlocksIn(design, 'measuredCurves', photometric);
 }
 
-/** The curve a fit block was generated from, rebuilt from its snapshot. */
-export function curveFromFitBlock(block) {
-    return makeMeasuredCurve({
-        name: block.curveName || 'Measured curve',
-        x: block.sampleLambdas,
-        xUnit: X_UNITS.NM,
-        y: block.sampleTargets,
-        quantity: block.quantity || 'R',
-        aoi: block.aoi ?? 0,
-        pol: block.pol || 'avg',
-        side: block.side || 'front',
-        source: 'fit target',
-    });
-}
-
-/**
- * Restore the curves for every orphaned block, and point each block at the
- * curve it now has, so restoring twice cannot make a second copy.
- */
+/** The spectra for every orphaned block, with the blocks pointed at them. */
 export function restoredFitCurves(design) {
-    const orphans = orphanFitBlocks(design);
-    if (!orphans.length) return null;
-    const curveByBlockId = new Map(orphans.map(block => [block.id, curveFromFitBlock(block)]));
-    return {
-        measuredCurves: [...(design.measuredCurves || []), ...curveByBlockId.values()],
-        meritOperands: (design.meritOperands || []).map(operand => (
-            curveByBlockId.has(operand.id)
-                ? { ...operand, curveId: curveByBlockId.get(operand.id).id }
-                : operand
-        )),
-    };
+    return restoredFitCurvesIn(design, 'measuredCurves', photometric);
 }
 
 /**
@@ -168,10 +131,13 @@ export function measuredFitConstraintsInvalid(config) {
     return !Number.isFinite(weight) || weight < 0;
 }
 
-/** Apply dialog output policy and optional thickness constraints as one block. */
-export function measuredFitMeritOperands(existing, measuredOperand, config = {}) {
-    if (!measuredOperand) return Array.isArray(existing) ? existing : [];
-    const generated = [measuredOperand];
+/**
+ * Apply dialog output policy and optional thickness constraints as one block.
+ * `measured` is one snapshot operand, or the two halves of a Ψ/Δ pair.
+ */
+export function measuredFitMeritOperands(existing, measured, config = {}) {
+    const generated = [].concat(measured || []).filter(Boolean);
+    if (!generated.length) return Array.isArray(existing) ? existing : [];
     if (config.constraintsEnabled) {
         const constraintBase = {
             lambdaStart: 1,

@@ -19,13 +19,13 @@
 
 import {
     isFullSystemEval,
-    evaluateOperands, phaseDispersionThicknessPoint,
+    evaluateOperands, phaseDispersionThicknessPoint, ellipsometryThicknessPoint,
     operandResidualScale, calcMF, mfWeightDenominator, _operandResidual,
     operandEvaluationErrors, OperandEvaluationError,
 } from './evalCore.js';
 import {
     isConstraint, isTotalThickness, isRangeTarget, isIntegral,
-    isMinmax, isArgwave, isMath, isEllipsometry, isEField, isMeasuredCurve,
+    isMinmax, isArgwave, isMath, isEField, isMeasuredCurve,
     polFromType,
 } from './operandModel.js';
 import { expandMeasuredCurveOperands } from './measuredCurveOperand.js';
@@ -35,6 +35,12 @@ import { mirrorLayers } from './layerOps.js';
 import { solveLeastSquaresQR } from './linalg.js';
 import { _surfaceLayout, makePointEvaluators, _jacRow } from './jacobianAssembly.js';
 import { _jtjUpper, _mirrorUpper, makeHessianSampler, _addS, _curvRangeTarget, _curvIntegral, _curvRangeAvg, _operandSupportsFullNewton } from './newtonAssembly.js';
+
+// Operand kinds whose analytic chain rule is not worked out. One of them in
+// the merit function puts the whole Jacobian onto finite differences.
+const DECLINES_ANALYTIC_JACOBIAN = [
+    isArgwave, isMath, isTotalThickness, isMeasuredCurve, isEField,
+];
 
 // ── DLS Optimizer (Levenberg-Marquardt) ───────────────────────────────────────
 //
@@ -207,7 +213,10 @@ export class LSQEngine {
             // Same per-type unit normalization as calcMF (σ = 1 for optical, so
             // pure-optical residuals are unchanged; argwave nm ÷ σ_λ). The FD
             // Jacobian differences this vector, so it inherits σ automatically;
-            // the analytic Jacobian only runs when σ = 1 everywhere.
+            // every analytic row builder divides by the same
+            // operandResidualScale(op), which is what keeps the two consistent
+            // for the σ ≠ 1 operands that have an analytic chain rule (Ψ, Δ,
+            // phase and dispersion).
             const scaled = Math.sqrt(op.weight) * res / operandResidualScale(op);
             // Guard against a NaN/Inf residual poisoning the QR/LM solve. Unlike
             // calcMF (a scalar reduction where skipping is safe), the residual
@@ -287,15 +296,14 @@ export class LSQEngine {
             propDeriv,
             propVal,
             phasePoint: (op, wavelength) => phaseDispersionThicknessPoint(op, ctx, wavelength),
+            ellipsometryPoint: op => ellipsometryThicknessPoint(op, ctx, this.operands),
             residualScale: operandResidualScale,
         };
         const J = [];
         for (let i = 0; i < this.operands.length; i++) {
             const op = this.operands[i];
             if (!op.enabled || comp[i] == null) continue;
-            if (isArgwave(op.type) || isMath(op.type) || isTotalThickness(op.type)
-                || isMeasuredCurve(op.type)
-                || isEllipsometry(op.type) || isEField(op.type)) return null;
+            if (DECLINES_ANALYTIC_JACOBIAN.some(test => test(op.type))) return null;
             const row = _jacRow(op, i, jc);
             if (!row) return null;
             J.push(row);

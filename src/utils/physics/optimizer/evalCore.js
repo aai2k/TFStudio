@@ -9,12 +9,12 @@
  * Sullivan & Dobrowolski Appl. Opt. 35 (1996).
  */
 
-import { tmm, tmmNeedleScan, tmmThicknessJacobian, tmmThicknessHessian, computeEllipsometry, computeEFieldProfile } from '../thinFilmMath.js';
+import { tmm, tmmNeedleScan, tmmThicknessJacobian, tmmThicknessHessian, computeEllipsometry, evaluateEllipsometrySpectrum, evaluateEllipsometryThicknessJacobian, computeEFieldProfile } from '../thinFilmMath.js';
 import { evaluateStackPhaseDispersion } from '../phaseDispersion.js';
 import { resolveSourceSpec, resolveDetectorSpec } from '../spectralWeightings.js';
 import { tmmWasmActive, getTmmWasm } from '../../../tmmcore.js';
-import { isConstraint, isDmfs, isBlank, isTotalThickness, isRangeTarget, isMeasuredCurve, isIntegral, isMinmax, isMinType, isArgwave, isArgwaveMin, isMath, isEllipsometry, isPhaseShift, isGroupDelay, isGroupDelayFlat, isEField, isPhase, argwaveOpticalChar, argwavePolCode, polFromType, isRamp, isValidMeritWeight } from './operandModel.js';
-import { expandMeasuredCurveOperands } from './measuredCurveOperand.js';
+import { isConstraint, isDmfs, isBlank, isTotalThickness, isRangeTarget, isMeasuredCurve, isEllipsometricMeasuredCurve, isIntegral, isMinmax, isMinType, isArgwave, isArgwaveMin, isMath, isEllipsometry, isPhaseShift, isWrappedAngle, isGroupDelay, isGroupDelayFlat, isEField, isPhase, argwaveOpticalChar, argwavePolCode, polFromType, isRamp, isValidMeritWeight } from './operandModel.js';
+import { expandMeasuredCurveOperands, measuredCurveEngineTargets } from './measuredCurveOperand.js';
 import { isRangeAvg, charOf, operandSampleLambdas } from './sampling.js';
 
 import { makeConeSpec, coneIsActive, coneNodes } from './coneAngle.js';
@@ -734,28 +734,142 @@ function _assertMeasurementSide(op, ctx) {
     }
 }
 
+// The wavelengths of a measured block, checked so a broken snapshot is
+// reported on its row rather than scored.
+function _measuredSnapshotLambdas(op) {
+    const lambdas = op.sampleLambdas;
+    const targets = op.sampleTargets;
+    const paired = Array.isArray(lambdas) && Array.isArray(targets) && lambdas.length === targets.length;
+    if (!paired || lambdas.length === 0) {
+        throw new OperandEvaluationError('Measured curve snapshot has no valid sample pairs.');
+    }
+    for (let index = 0; index < lambdas.length; index++) {
+        if (!Number.isFinite(lambdas[index]) || lambdas[index] <= 0 || !Number.isFinite(targets[index])) {
+            throw new OperandEvaluationError('Measured curve snapshot contains an invalid wavelength or target.');
+        }
+    }
+    return lambdas;
+}
+
 // Persisted measured-curve block: its value is already the RMS residual, so
 // `_operandResidual` consumes it directly just like a continuous range target.
 function _evalMeasuredCurve(op, ctx) {
+    if (isEllipsometricMeasuredCurve(op)) return _evalMeasuredEllipsometry(op, ctx);
     _assertMeasurementSide(op, ctx);
-    const lambdas = op.sampleLambdas;
+    const lambdas = _measuredSnapshotLambdas(op);
     const targets = op.sampleTargets;
-    if (!Array.isArray(lambdas) || !Array.isArray(targets)
-        || lambdas.length === 0 || lambdas.length !== targets.length) {
-        throw new OperandEvaluationError('Measured curve snapshot has no valid sample pairs.');
-    }
     const char = ['T', 'R', 'A'].includes(op.quantity) ? op.quantity : 'R';
     const pol = op.pol || 'avg';
     let sumSq = 0;
     for (let index = 0; index < lambdas.length; index++) {
-        const lambda = lambdas[index];
-        const target = targets[index];
-        if (!Number.isFinite(lambda) || lambda <= 0 || !Number.isFinite(target)) {
-            throw new OperandEvaluationError('Measured curve snapshot contains an invalid wavelength or target.');
-        }
         const difference = tmmProp(
-            lambda, op.aoi ?? 0, pol, char, ctx, ctx.frontThicks, ctx.frontMats,
-        ) - target;
+            lambdas[index], op.aoi ?? 0, pol, char, ctx, ctx.frontThicks, ctx.frontMats,
+        ) - targets[index];
+        sumSq += difference * difference;
+    }
+    return Math.sqrt(sumSq / lambdas.length);
+}
+
+// Ψ and Δ are evaluated on the front stack alone, so a back-side measurement
+// has nothing to be scored against, and a design evaluated on its back side
+// cannot take a front-side one.
+function _assertFrontEllipsometry(op, ctx) {
+    if ((op.side || op.measurementSide || 'front') === 'back') {
+        throw new OperandEvaluationError('An ellipsometric fit target is evaluated on the front side only.');
+    }
+    _assertMeasurementSide(op, ctx);
+}
+
+// The per-context memo tables the ellipsometry paths share. Created on demand
+// because the Jacobian assembles on a context evaluateOperands was not run on
+// (it is handed a precomputed comp vector instead), and reset there so a reused
+// context object can never serve a stale batch.
+const ELLIPSOMETRY_CACHES = ['_ellipsometryBatches', '_ellipsometryJacobians', '_blockGrids'];
+
+function _ellipsometryCache(ctx, name) {
+    let cache = ctx[name];
+    if (!cache) {
+        cache = new Map();
+        ctx[name] = cache;
+    }
+    return cache;
+}
+
+// A batch is memoized under its angle and wavelength list, so two blocks on
+// the same grid, the Ψ half and the Δ half of one measurement, run one kernel
+// pass between them.
+function _gridKey(aoi, lambdas) {
+    return `${aoi}|${lambdas.join(',')}`;
+}
+
+// The grid of the measured block a point was expanded from, with its key,
+// gathered once per context so a 500-point block does not rebuild a 500-number
+// key once per point. `operands` is the list a Jacobian is being assembled
+// for; an evaluation passes none and the context's own operand index is used.
+// Both hold the same siblings, so both give the same grid. Null for a
+// hand-typed operand, and where neither source of siblings is at hand.
+function _blockGrid(op, ctx, operands) {
+    const blockId = op.measuredCurveBlockId;
+    if (!blockId) return null;
+    const cache = _ellipsometryCache(ctx, '_blockGrids');
+    const cached = cache.get(blockId);
+    if (cached) return cached;
+    const siblings = operands || ctx._operandsById?.values();
+    if (!siblings) return null;
+    const lambdas = [];
+    for (const sibling of siblings) {
+        if (sibling.measuredCurveBlockId === blockId) lambdas.push(sibling.lambdaStart);
+    }
+    const grid = { lambdas, key: _gridKey(op.aoi ?? 0, lambdas) };
+    cache.set(blockId, grid);
+    return grid;
+}
+
+// The four quantities an ellipsometry operand can ask for, from the two angles,
+// so a batched sample answers everything a point evaluation does.
+function _ellipsometrySample(psi, delta) {
+    const toRad = Math.PI / 180;
+    return { psi, delta, tanPsi: Math.tan(psi * toRad), cosDelta: Math.cos(delta * toRad) };
+}
+
+// Ψ(λ) and Δ(λ) of the front stack over one wavelength list at one angle,
+// through the batched kernel, memoized for the duration of an evaluateOperands
+// call. The Ψ block and the Δ block of one measurement, and every point they
+// expand into, share a single pass, so the finite-difference Jacobian costs one
+// kernel call per block and perturbation rather than one per point.
+function _ellipsometryBatch(ctx, aoi, lambdas, key) {
+    const cache = _ellipsometryCache(ctx, '_ellipsometryBatches');
+    let batch = cache.get(key);
+    if (batch) return batch;
+    const n0List = lambdas.map(lam => nkOf(ctx, ctx.n0mat, lam));
+    const nsList = lambdas.map(lam => nkOf(ctx, ctx.nsmat, lam));
+    const layerNK = ctx.frontMats.map(mat => lambdas.map(lam => nkOf(ctx, mat, lam)));
+    const { psi, delta } = evaluateEllipsometrySpectrum(
+        lambdas, aoi, n0List, nsList, layerNK, ctx.frontThicks);
+    batch = new Map();
+    for (let index = 0; index < lambdas.length; index++) {
+        batch.set(lambdas[index], _ellipsometrySample(psi[index], delta[index]));
+    }
+    cache.set(key, batch);
+    return batch;
+}
+
+// A measured Ψ or Δ block: the RMS deviation of the front stack's Ψ or Δ from
+// the snapshot, with the snapshot's Δ moved into the sign the evaluator returns
+// and each Δ difference taken the short way round the circle.
+function _evalMeasuredEllipsometry(op, ctx) {
+    _assertFrontEllipsometry(op, ctx);
+    const lambdas = _measuredSnapshotLambdas(op);
+    const targets = measuredCurveEngineTargets(op);
+    const aoi = op.aoi ?? 0;
+    const batch = _ellipsometryBatch(ctx, aoi, lambdas, _gridKey(aoi, lambdas));
+    const delta = op.quantity === 'DEL';
+    let sumSq = 0;
+    for (let index = 0; index < lambdas.length; index++) {
+        const point = batch.get(lambdas[index]);
+        const difference = delta
+            ? _normalizeDegrees(point.delta - targets[index])
+            : point.psi - targets[index];
         sumSq += difference * difference;
     }
     return Math.sqrt(sumSq / lambdas.length);
@@ -795,12 +909,86 @@ function _frontStackAt(ctx, lam) {
     return { n0, ns, layers };
 }
 
+// A point expanded from a measured block reads the block's batched pass, which
+// its siblings share.
+function _measuredBlockPoint(op, ctx) {
+    const grid = _blockGrid(op, ctx, null);
+    if (!grid) return null;
+    return _ellipsometryBatch(ctx, op.aoi ?? 0, grid.lambdas, grid.key).get(op.lambdaStart) || null;
+}
+
+// Ψ, Δ and their thickness derivatives over the front stack at one angle and
+// one wavelength list, memoized like _ellipsometryBatch and under the same key:
+// a hand-typed operand asks for its own wavelength, the points expanded from a
+// measured block share the block's whole grid in one kernel crossing.
+function _ellipsometryJacobianBatch(ctx, aoi, lambdas, key) {
+    const cache = _ellipsometryCache(ctx, '_ellipsometryJacobians');
+    let batch = cache.get(key);
+    if (batch) return batch;
+    const n0List = lambdas.map(lam => nkOf(ctx, ctx.n0mat, lam));
+    const nsList = lambdas.map(lam => nkOf(ctx, ctx.nsmat, lam));
+    const layerNK = ctx.frontMats.map(mat => lambdas.map(lam => nkOf(ctx, mat, lam)));
+    const points = evaluateEllipsometryThicknessJacobian({
+        lambdas, theta_deg: aoi, n0List, nsList, layerNK, thick: ctx.frontThicks,
+    });
+    batch = new Map();
+    for (let index = 0; index < lambdas.length; index++) batch.set(lambdas[index], points[index]);
+    cache.set(key, batch);
+    return batch;
+}
+
+// Chain rule from Ψ and Δ in degrees to the operand's own quantity, per nm.
+function _ellipsometryQuantity(type, point) {
+    const toRad = Math.PI / 180;
+    if (type === 'PSI') return { value: point.psi, front: point.dPsi };
+    if (type === 'DEL') return { value: point.delta, front: point.dDelta };
+    if (type === 'TANPSI') {
+        const tan = Math.tan(point.psi * toRad);
+        return { value: tan, front: point.dPsi.map(slope => (1 + tan * tan) * slope * toRad) };
+    }
+    const rad = point.delta * toRad;   // COSDEL
+    return { value: Math.cos(rad), front: point.dDelta.map(slope => -Math.sin(rad) * slope * toRad) };
+}
+
+// Front-layer derivatives placed on the optimizer's thickness vector. Ψ and Δ
+// are evaluated on the front stack alone, so a back-side variable gets zero,
+// and in back_only mode, where the front stack is fixed, so does every entry.
+function _frontDerivativeVector(ctx, front) {
+    const size = ctx.fullThicks?.length ?? ctx.frontThicks.length;
+    const out = new Array(size).fill(0);
+    if ((ctx.surfaceMode || 'front_only') === 'back_only') return out;
+    const count = Math.min(front.length, ctx.frontThicks.length, size);
+    for (let index = 0; index < count; index++) out[index] = front[index];
+    return out;
+}
+
+/**
+ * Value and exact thickness derivative of an ellipsometry operand (Ψ, Δ, tan Ψ
+ * or cos Δ) over the optimizer's thickness vector. `operands` is the list the
+ * Jacobian is assembled for, so a point expanded from a measured block can
+ * share one batched kernel pass with its siblings. Null where a reflection
+ * amplitude vanishes, so the engine falls back to finite differences.
+ */
+export function ellipsometryThicknessPoint(op, ctx, operands = null) {
+    const aoi = op.aoi ?? 0;
+    const own = [op.lambdaStart];
+    const grid = _blockGrid(op, ctx, operands) || { lambdas: own, key: _gridKey(aoi, own) };
+    const point = _ellipsometryJacobianBatch(ctx, aoi, grid.lambdas, grid.key).get(op.lambdaStart);
+    if (!point) return null;
+    const { value, front } = _ellipsometryQuantity(op.type, point);
+    return { value, derivative: _frontDerivativeVector(ctx, front) };
+}
+
 // Ellipsometric Ψ/Δ (deg) or the ellipsometer-native tanΨ/cosΔ at op.lambdaStart.
 // Ψ, Δ use BOTH polarizations (ρ = r_p/r_s), so op.pol is not consulted.
 function _evalEllipsometry(op, ctx) {
+    if (op.measurementSide) _assertFrontEllipsometry(op, ctx);
     const lam = op.lambdaStart;
-    const { n0, ns, layers } = _frontStackAt(ctx, lam);
-    const e = computeEllipsometry(lam, op.aoi, n0, ns, layers);
+    let e = _measuredBlockPoint(op, ctx);
+    if (!e) {
+        const { n0, ns, layers } = _frontStackAt(ctx, lam);
+        e = computeEllipsometry(lam, op.aoi, n0, ns, layers);
+    }
     switch (op.type) {
         case 'PSI':    return e.psi;
         case 'DEL':    return e.delta;
@@ -1097,6 +1285,7 @@ export function evaluateOperands(operands, ctxOrN0, nsmatLegacy, thicknessesLega
     ctx._tmmCache = new Map();
     ctx._nkCache  = new Map();
     ctx._phaseDispersionCache = new Map();
+    for (const name of ELLIPSOMETRY_CACHES) ctx[name] = new Map();
     // Index operands by id so math operands can resolve op.refId / refId1/2
     // in O(1) and so makeRefResolver above can do recursive eval with
     // memoization + cycle detection.
@@ -1172,10 +1361,14 @@ export function operandBandLevels(computed) {
 //     softened to optical scale.
 //
 // Applied in exactly two chokepoints — calcMF (the reported MF) and
-// DLSOptimizer._residuals (the LM step). The analytic Jacobian only ever runs
-// for σ = 1 operands (argwave forces the FD fallback, which differences
-// _residuals and therefore inherits σ automatically), so no Jacobian change is
-// needed and the gradient stays exactly consistent with the residual.
+// DLSOptimizer._residuals (the LM step). The analytic Jacobian stays consistent
+// with it because every row builder divides its derivative by the same
+// operandResidualScale(op): that is what lets the σ ≠ 1 operands with a worked-
+// out chain rule (Ψ, Δ, phase, GD, GDD, TOD) take analytic rows. The operands
+// with no chain rule, argwave among them, force the FD fallback instead, which
+// differences _residuals and therefore inherits σ automatically. Either way the
+// gradient matches the residual. A new σ ≠ 1 operand needs its row builder to
+// carry the same division.
 //
 // TO REVERT to the old raw-nm behavior: set ARGWAVE_RESIDUAL_SCALE_NM = 1
 // (or make operandResidualScale always return 1 to disable normalization
@@ -1186,10 +1379,18 @@ export const ARGWAVE_RESIDUAL_SCALE_NM = 500;
 // optical miss when these are combined with T/R/A in one merit function; `weight`
 // then stays pure importance. Tunable — none of the math depends on the exact
 // numbers, and a phase-only merit (all one unit) is insensitive to them.
-//   Ψ (0–90°) → 90 ; Δ (0–360°) → 180 ; tanΨ/cosΔ/|E|² are O(1) → 1 ;
-//   GD → 50 fs ; GDD → 50 fs².
+//   Ψ → 10 ; Δ → 20 : ten times what a spectroscopic ellipsometer repeats to,
+//   about 0.01° in Ψ and 0.02° in Δ (Fujiwara, Spectroscopic Ellipsometry:
+//   Principles and Applications, Wiley 2007), the way 1 % is about ten times
+//   what a spectrophotometer repeats to. A fit to a measured Ψ/Δ pair and a
+//   fit to a measured R curve of the same quality then score alike, and
+//   neither buries the other when the two share a table. The ranges, 90° and
+//   360°, are not the right scale: an instrument resolves a tiny fraction of
+//   either, and a residual scaled by the range weighs a real Δ miss at half a
+//   Ψ miss of the same size for no physical reason.
+//   Phase → 180 ; tanΨ/cosΔ/|E|² are O(1) → 1 ; GD → 50 fs ; GDD → 50 fs².
 const PHASE_RESIDUAL_SCALE = {
-    PSI: 90, DEL: 180, TANPSI: 1, COSDEL: 1,
+    PSI: 10, DEL: 20, TANPSI: 1, COSDEL: 1,
     PR: 180, PT: 180, DPR: 180, DPT: 180,
     GD: 50, GDT: 50, GDFLAT: 50, GDTFLAT: 50,
     GDD: 50, GDDT: 50, GDDFLAT: 50, GDDTFLAT: 50,
@@ -1199,6 +1400,10 @@ const PHASE_RESIDUAL_SCALE = {
 export function operandResidualScale(op) {
     if (isArgwave(op.type)) return ARGWAVE_RESIDUAL_SCALE_NM;
     if (isPhase(op.type))   return PHASE_RESIDUAL_SCALE[op.type] ?? 1;
+    // A measured block scores in its channel's unit: degrees for a Ψ or Δ
+    // snapshot, a fraction for a photometric one. Its expansion carries the
+    // same scale per point, so the two forms stay equal.
+    if (isMeasuredCurve(op.type)) return PHASE_RESIDUAL_SCALE[op.quantity] ?? 1;
     return 1;
 }
 
@@ -1214,9 +1419,10 @@ function _ttResidual(op, val) {
 // and worst-case min/max are one-sided penalties (0 when satisfied); math
 // operands defer to mathResidual (one- or two-sided by kind); ramp AND group-
 // delay-flatness operands already carry their RMS deviation (target baked in);
-// everything else is two-sided (value − target). SINGLE SOURCE OF TRUTH for the
-// residual — shared by calcMF (the reported/accepted merit) and the LSQ engine's
-// residual vector (the step direction), so the two can never disagree.
+// phase shifts and Δ are taken the short way round the circle; everything else
+// is two-sided (value − target). SINGLE SOURCE OF TRUTH for the residual —
+// shared by calcMF (the reported/accepted merit) and the LSQ engine's residual
+// vector (the step direction), so the two can never disagree.
 export function _operandResidual(op, val) {
     if (isTotalThickness(op.type)) return _ttResidual(op, val);
     if (isConstraint(op.type) || isMinmax(op.type)) {
@@ -1227,7 +1433,7 @@ export function _operandResidual(op, val) {
     if (isMath(op.type)) return mathResidual(op, val);
     // Ramp (TGT/RGT/AGT) and GD/GDD flatness already carry their RMS deviation.
     if (isRamp(op) || isMeasuredCurve(op.type) || isGroupDelayFlat(op.type)) return val;
-    if (isPhaseShift(op.type)) return _normalizeDegrees(val - op.target);
+    if (isWrappedAngle(op.type)) return _normalizeDegrees(val - op.target);
     return val - op.target;
 }
 

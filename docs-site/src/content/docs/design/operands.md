@@ -50,7 +50,7 @@ MF = √( Σ wᵢ · (residualᵢ / σᵢ)²  /  Σ wᵢ )
 | All fraction-unit (T/R/A, averages, integrals, worst-case, spectral-target RMS, math) | **1**      | unchanged, pure-optical MFs are identical to before |
 | Argwave (`MXW*` / `MNW*`, nm)       | **500 nm** | 5 nm wavelength miss ≈ 1 % optical miss  |
 | Thickness (`TT`, `MNT`, `MXT`, nm)  | **1** (raw nm) | kept "hard": a violated manufacturing bound still dominates and is fixed first |
-| Ellipsometry `PSI` / `DEL` (deg)    | **90 / 180** | ~1° miss ≈ 1 % optical miss              |
+| Ellipsometry `PSI` / `DEL` (deg)    | **10 / 20** | 0.1° in Ψ or 0.2° in Δ ≈ 1 % optical miss: ten times what a spectroscopic ellipsometer repeats to, as 1 % is for a spectrophotometer |
 | Group delay `GD*` / `GDD*` (fs, fs²)| **50**     | a ~0.5 fs / fs² miss ≈ 1 % optical miss   |
 | Third-order dispersion `TOD*` (fs³) | **500**    | a ~5 fs³ miss ≈ 1 % optical miss          |
 | `TANPSI`, `COSDEL`, `EFMX` (O(1))   | **1**      | already comparable to an optical fraction |
@@ -206,10 +206,11 @@ one merit function, tune weights so the units are commensurate.
 Quantities derived from the **complex amplitude coefficients** or the **internal
 electric field** of the front coating, rather than an intensity T/R/A. They
 carry physical units (degrees, femtoseconds, or normalized field), so they use
-the per-type σ scales above and drive the optimizer through the finite-difference
-Jacobian. These match the [Ellipsometry](/analysis/ellipsometry/),
-[GD & GDD](/analysis/gd-gdd/) and [E-field](/analysis/efield/) analysis windows
-on the front surface.
+the per-type σ scales above. Ellipsometry, phase and dispersion rows carry
+exact thickness derivatives and drive the optimizer the way an R or T row does;
+only the field peak goes through the finite-difference Jacobian. These match
+the [Ellipsometry](/analysis/ellipsometry/), [GD & GDD](/analysis/gd-gdd/) and
+[E-field](/analysis/efield/) analysis windows on the front surface.
 
 ### Ellipsometry
 
@@ -224,8 +225,12 @@ column does not apply.
 | `TANPSI` | tan Ψ (ellipsometer-native)  | none        | ≥ 0             |
 | `COSDEL` | cos Δ (ellipsometer-native)  | none        | [−1, 1]         |
 
-Residual: `value − target` (two-sided). Use `PSI`/`DEL` to match a measured
-ellipsometric spectrum, or to force a specific reflection-phase relationship.
+Residual: `value − target` (two-sided). Δ is taken the short way round the
+circle, so 359° against a target of 1° is a 2° miss, not 358°. Use `PSI`/`DEL`
+to force a specific reflection-phase relationship at one wavelength. To fit a
+whole measured Ψ/Δ pair, generate the targets from
+[Measured Ellipsometry](/data-exchange/measured-ellipsometry/#fitting-the-design-to-a-measurement),
+which stores each channel as one row carrying its own Δ convention.
 
 ### Group delay & dispersion
 

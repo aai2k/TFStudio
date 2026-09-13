@@ -4,8 +4,8 @@ import {
 import { PlotArea, SidePanel } from '../../analysis/chrome/layout.js';
 import { EllipsometryChart } from '../../analysis/ellipsometryEvaluation/EllipsometryChart.js';
 import { measuredCurveData, X_UNITS } from '../../../../utils/io/spectrumTable.js';
-import { FieldRow, PanelSection, textInputStyle } from '../chrome/panel.js';
-import { curvePairs } from './model.js';
+import { FieldRow, ImportFilePanel, PanelSection, textInputStyle } from '../chrome/panel.js';
+import { curvePairs, pairKey } from './model.js';
 
 const { createElement: h, useEffect, useState } = React;
 
@@ -156,11 +156,42 @@ function CurveCard({ curve, selected, onSelect, controller, c, mx }) {
     );
 }
 
+// The conditions a pair was measured under, and the fit button once both
+// halves are present: a fit needs the two of them.
+function PairHeader({ pair, c, mx, onFit }) {
+    const complete = Boolean(pair.psi && pair.delta);
+    return h('div', {
+        style: { display: 'flex', alignItems: 'center', gap: 6, padding: '2px 10px 6px' },
+    },
+        h('span', { style: { flex: 1, minWidth: 0, color: c.textDim, fontSize: 10.5 } },
+            complete ? mx.pairComplete(pair.aoi) : mx.pairIncomplete(pair.aoi, pair.psi ? 'Δ' : 'Ψ')),
+        complete && h(ActionButton, { c, label: mx.fitPair, title: mx.fitPairTip, onClick: onFit }),
+    );
+}
+
+// Fit targets whose curves are not on the design, with the way to get them back.
+function OrphanFits({ controller, c, mx }) {
+    const { orphanFits, onRestoreFitCurves } = controller;
+    if (!orphanFits.length) return null;
+    return h('div', {
+        style: {
+            margin: '0 8px 8px', padding: 8, borderRadius: 6,
+            backgroundColor: c.accent + (c.light ? '0d' : '16'),
+            display: 'flex', flexDirection: 'column', gap: 6,
+        },
+    },
+        h('div', { style: { color: c.textDim, fontSize: 10.5, lineHeight: 1.45 } },
+            mx.orphanFits(orphanFits.length)),
+        h(ActionButton, { c, label: mx.restoreFitCurves, onClick: onRestoreFitCurves }),
+    );
+}
+
 /** What is on the design, grouped so a Ψ without its Δ is visible as such. */
 function ImportedCurves({ controller, c, mx }) {
-    const { curves, selectedCurve, setSelectedCurveId } = controller;
+    const { curves, selectedCurve, setSelectedCurveId, openFitDialog } = controller;
     if (!curves.length) {
         return h(PanelSection, { c, title: mx.importedTitle },
+            h(OrphanFits, { controller, c, mx }),
             h('div', { style: { color: c.textDim, fontSize: 11, fontStyle: 'italic' } }, mx.noCurves));
     }
     return h('div', { style: { paddingTop: 2 } },
@@ -170,12 +201,9 @@ function ImportedCurves({ controller, c, mx }) {
                 fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em',
             },
         }, mx.importedTitle),
-        ...curvePairs(curves).map(pair => h('div', { key: `${pair.aoi}|${pair.side}` },
-            h('div', {
-                style: { padding: '2px 10px 6px', color: c.textDim, fontSize: 10.5 },
-            }, pair.psi && pair.delta
-                ? mx.pairComplete(pair.aoi)
-                : mx.pairIncomplete(pair.aoi, pair.psi ? 'Δ' : 'Ψ')),
+        h(OrphanFits, { controller, c, mx }),
+        ...curvePairs(curves).map(pair => h('div', { key: pairKey(pair) },
+            h(PairHeader, { pair, c, mx, onFit: () => openFitDialog(pair) }),
             ...[pair.psi, pair.delta].filter(Boolean).map(curve => h(CurveCard, {
                 key: curve.id, curve, selected: selectedCurve?.id === curve.id,
                 onSelect: () => setSelectedCurveId(curve.id), controller, c, mx,
@@ -193,22 +221,10 @@ export function ImportTab({ controller, c, mx }) {
         h('div', { className: 'tfs-spectrum-import-layout' },
             h('div', { className: 'tfs-spectrum-import-sidebar' },
                 h(SidePanel, { c, width: '100%' },
-                    h(PanelSection, { c, title: mx.importTitle },
-                        h('div', { style: { display: 'flex', alignItems: 'center', gap: 8 } },
-                            h(ActionButton, {
-                                c, label: loading ? mx.importing : mx.import,
-                                onClick: onImport, disabled: loading,
-                            }),
-                            fileName && h('span', {
-                                title: fileName,
-                                style: {
-                                    minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis',
-                                    whiteSpace: 'nowrap', color: c.textDim, fontSize: 11,
-                                },
-                            }, fileName),
-                        ),
-                        h('div', { style: { color: c.textDim, fontSize: 10.5, lineHeight: 1.45 } }, mx.importHint),
-                    ),
+                    h(ImportFilePanel, {
+                        c, title: mx.importTitle, label: loading ? mx.importing : mx.import,
+                        onImport, loading, fileName, hint: mx.importHint,
+                    }),
                     h(MeasurementConditions, { controller, c, mx }),
                     h(ConfigurePanel, { controller, c, mx }),
                     h(ImportedCurves, { controller, c, mx }),

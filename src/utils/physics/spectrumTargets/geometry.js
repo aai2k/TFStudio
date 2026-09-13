@@ -4,6 +4,7 @@ import {
     targetColor, targetDash, POINT_TARGET_HOVER_LIMIT,
 } from './style.js';
 import { buildTargetBands } from './bands.js';
+import { isEllipsometricMeasuredCurve } from '../optimizer/measuredCurveType.js';
 
 function bandGeometry(operand) {
     const rangeTarget = RANGE_TARGET_TYPES.has(operand.type);
@@ -66,26 +67,33 @@ function measuredGeometry(operand) {
     };
 }
 
-// Sort the enabled operands into the three shapes a target can take.
-//
 // A measured block carries a snapshot of the curve it was fitted to, and is
 // drawn from that snapshot when the curve itself is not on the plot: a merit
 // function loaded from a preset carries the block but not the curve. When the
 // curve IS on the plot, `drawnCurveIds` names it and the block is skipped, or
 // the same measurement would be drawn twice, once as itself and once as a
-// nameless target line at identical values.
+// nameless target line at identical values. A Ψ/Δ block belongs to the
+// Ellipsometry plot; in percent it means nothing.
+function measuredToDraw(operand, drawnCurveIds) {
+    return !isEllipsometricMeasuredCurve(operand) && !drawnCurveIds?.has(operand.curveId);
+}
+
+// Which of the three shapes a target takes, or null when it is not drawn.
+function targetShape(operand, drawnCurveIds) {
+    if (!operand.enabled) return null;
+    if (operand.type === 'MCURVE') return measuredToDraw(operand, drawnCurveIds) ? 'measured' : null;
+    if (!OPTICAL_TYPES.has(operand.type)) return null;
+    return isBandType(operand.type) ? 'bands' : 'points';
+}
+
+// Sort the enabled operands into the three shapes a target can take.
 function classifyTargets(operands, drawnCurveIds) {
-    const measured = [], bands = [], points = [];
+    const shapes = { measured: [], bands: [], points: [] };
     for (const operand of operands || []) {
-        if (!operand.enabled) continue;
-        if (operand.type === 'MCURVE') {
-            if (!drawnCurveIds?.has(operand.curveId)) measured.push(operand);
-        }
-        else if (!OPTICAL_TYPES.has(operand.type)) continue;
-        else if (isBandType(operand.type)) bands.push(operand);
-        else points.push(operand);
+        const shape = targetShape(operand, drawnCurveIds);
+        if (shape) shapes[shape].push(operand);
     }
-    return { measured, bands, points };
+    return shapes;
 }
 
 export function buildTargetGeometry(operands, { drawnCurveIds } = {}) {

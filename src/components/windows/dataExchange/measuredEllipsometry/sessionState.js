@@ -26,4 +26,6 @@ export const measuredEllipsometrySession = createWindowSession({
     expAoi: 70,
     // Per-column name and quantity overrides, keyed by column index.
     ov: {},
+    // Fit dialog settings per Ψ/Δ pair, keyed by the pair's angle and side.
+    fitOptions: {},
 });

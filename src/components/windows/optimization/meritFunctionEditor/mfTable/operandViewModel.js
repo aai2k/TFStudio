@@ -1,7 +1,7 @@
 import {
     isArgwave, isBlank, isConstraint, isDmfs, isInequality, isIntegral,
     isMath, isMathPairRef, isMathSingleRef, isMinmax, isRangeTarget,
-    isTotalThickness, isPhase, isPhaseShift, isGroupDelayFlat, isFractionalUnit,
+    isTotalThickness, isPhase, isWrappedAngle, isGroupDelayFlat, isFractionalUnit,
     isMeasuredCurve,
     _operandResidual,
 } from '../../../../../utils/physics/optimizer.js';
@@ -160,24 +160,27 @@ export function rowDisplayMeta(op, rawCur, mathPercent, bandLevel = null) {
     const isTT = isTotalThickness(op.type);
     const isArg = isArgwave(op.type);
     const isMth = isMath(op.type);
-    const isPhs = isPhase(op.type);
     const isFlat = isGroupDelayFlat(op.type);
     const isMeasured = isMeasuredCurve(op.type);
+    // A measured block scores in its channel's unit, degrees for Ψ/Δ and a
+    // fraction otherwise, which its type code does not name.
+    const unitType = isMeasured ? (op.quantity || 'R') : op.type;
+    const isPhs = isPhase(unitType);
     // Fraction-unit rows display value ×100 as a percent. Optical T/R/A carry a
     // fractional unit; a math row inherits percent only when its refs are optical.
-    const useFraction = isFractionalUnit(op.type) || (isMth && mathPercent);
+    const useFraction = isFractionalUnit(unitType) || (isMth && mathPercent);
     const value = rawCur != null ? (useFraction ? rawCur * 100 : rawCur) : null;
     // Spectral-target and phase-flatness rows carry an RMS deviation as their
     // evaluated value, rather than a signed current-minus-target difference.
     const isRampRow = isRangeTarget(op.type) || isMeasured || isFlat;
     const tgt = useFraction ? op.target * 100 : op.target;
-    // A phase-shift residual wraps to the shortest signed difference in
+    // A wrapped angle's residual is the shortest signed difference in
     // -180°..180°, so it is taken from the merit function's own residual rather
     // than recomputed here: the tooltip and the contribution share sit in the
     // same cell and must not disagree at a wrap boundary.
     const rawResidual = value == null ? null
         : isRampRow ? value
-        : isPhaseShift(op.type) ? _operandResidual(op, rawCur)
+        : isWrappedAngle(op.type) ? _operandResidual(op, rawCur)
         : value - tgt;
     // A flatness operand's own value is an RMS deviation, which shares the
     // target's unit but not its meaning and goes to zero as the row is met.
@@ -186,7 +189,7 @@ export function rowDisplayMeta(op, rawCur, mathPercent, bandLevel = null) {
     const cur = isFlat && bandLevel != null ? bandLevel : value;
     return {
         isCon, isTT, isArg, isMth, isPhs, isMeasured,
-        phaseUnit: isPhs ? phaseUnit(op.type) : '',
+        phaseUnit: isPhs ? phaseUnit(unitType) : '',
         mthPct: mathPercent, useFraction, cur, tgt,
         rawResidual, isRampRow, isRange: isRangeType(op.type),
     };

@@ -9,7 +9,9 @@
 
 import { operandResidualScale } from '../evalCore.js';
 import { resolveSourceSpec, resolveDetectorSpec } from '../../spectralWeightings.js';
-import { isMath, isArgwave, isTotalThickness, polFromType } from '../operandModel.js';
+import {
+    isMath, isArgwave, isEField, isEllipsometry, isTotalThickness, polFromType,
+} from '../operandModel.js';
 import { charOf, operandSampleLambdas } from '../sampling.js';
 
 // Range-target (TGT/RGT/AGT): comp = √((1/n)Σ devₛ²). The row's JᵀJ already
@@ -88,8 +90,11 @@ export function _curvRangeAvg(op, rp, hc) {
 // Whether one operand is compatible with the FULL analytic Newton Hessian.
 // Math/argwave/total-thickness curvature isn't worked out, and σ-normalization
 // ≠ 1 means the Jacobian is FD (so the analytic curvature would not match).
+// Ellipsometry and field operands have no second derivative worked out either,
+// and tan Ψ, cos Δ and the field peak sit at σ = 1, so they are named here.
 export function _operandSupportsFullNewton(op) {
     if (!op.enabled) return true;
     if (isMath(op.type) || isArgwave(op.type) || isTotalThickness(op.type)) return false;
+    if (isEllipsometry(op.type) || isEField(op.type)) return false;
     return operandResidualScale(op) === 1;
 }

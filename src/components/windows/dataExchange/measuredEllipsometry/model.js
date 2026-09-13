@@ -87,6 +87,11 @@ export function curvePairs(curves) {
     return [...groups.values()].sort((left, right) => left.aoi - right.aoi);
 }
 
+/** What tells one pair from another: the conditions it was measured under. */
+export function pairKey(pair) {
+    return `${pair.aoi ?? 0}|${pair.side || 'front'}`;
+}
+
 /** What the preview chart draws for one curve or one pair. */
 export function chartData(curves, xLabel) {
     const psi = (curves || []).find(curve => curve.quantity === 'PSI');

@@ -11,6 +11,13 @@ function copyFreeDerivatives(derivative, freeIdx, scale) {
     return freeIdx.map(index => scale * derivative[index]);
 }
 
+/** Ψ, Δ, tan Ψ or cos Δ at one wavelength: the operand's own derivative row. */
+export function _jacRowEllipsometry(op, jc) {
+    const point = jc.ellipsometryPoint(op);
+    if (!point) return null;
+    return copyFreeDerivatives(point.derivative, jc.freeIdx, Math.sqrt(op.weight) / jc.residualScale(op));
+}
+
 export function _jacRowPhase(op, operandIndex, jc) {
     const {
         comp,

@@ -10,11 +10,14 @@
  */
 
 import {
-    GENERATED_ONLY_OPERAND_TYPES, MEASURED_CURVE_OPERAND_TYPES,
-    isMeasuredCurve, seedMeasuredCurve,
+    GENERATED_ONLY_OPERAND_TYPES, MEASURED_CURVE_OPERAND_TYPES, MEASURED_CURVE_QUANTITIES,
+    isEllipsometricMeasuredCurve, isEllipsometricQuantity, isMeasuredCurve, seedMeasuredCurve,
 } from './measuredCurveType.js';
 
-export { GENERATED_ONLY_OPERAND_TYPES, MEASURED_CURVE_OPERAND_TYPES, isMeasuredCurve };
+export {
+    GENERATED_ONLY_OPERAND_TYPES, MEASURED_CURVE_OPERAND_TYPES, MEASURED_CURVE_QUANTITIES,
+    isEllipsometricMeasuredCurve, isEllipsometricQuantity, isMeasuredCurve,
+};
 
 // ── Operand type lists ────────────────────────────────────────────────────────
 
@@ -142,6 +145,10 @@ export function isMinmax(type)     { return MINMAX_OPERAND_TYPES.indexOf(type) >
 export function isMinType(type)    { return type === 'TMN' || type === 'RMN' || type === 'AMN'; }
 export function isEllipsometry(type) { return ELLIPSOMETRY_OPERAND_TYPES.indexOf(type) >= 0; }
 export function isPhaseShift(type) { return PHASE_SHIFT_OPERAND_TYPES.indexOf(type) >= 0; }
+// Angles whose residual is taken the short way round the circle: a value of
+// 359° against a target of 1° is two degrees off, not 358. Ψ cannot leave
+// 0° to 90°, and tanΨ and cosΔ are plain numbers, so they are not here.
+export function isWrappedAngle(type) { return isPhaseShift(type) || type === 'DEL'; }
 export function isGroupDelay(type)   { return GROUPDELAY_OPERAND_TYPES.indexOf(type) >= 0; }
 export function isPhaseDispersion(type) { return isPhaseShift(type) || isGroupDelay(type); }
 // GD/GDD flatness operands whose value is already an RMS deviation from the flat

@@ -8,7 +8,8 @@
  * The operand evaluators must agree with the standalone thinFilmMath routines
  * that power the Ellipsometry / GD-GDD / E-field analysis windows (front side),
  * carry the right physical units, and retain the finite-difference fallback
- * for ellipsometry and E-field terms that lack an analytic thickness row.
+ * for the E-field term, which has no analytic thickness row. The ellipsometry
+ * rows are held by tests/ellipsometry_analytic_jacobian.mjs.
  */
 
 import {
@@ -68,8 +69,10 @@ ok(
 ok(isEField('EFMX'), 'isEField');
 
 // ── Residual scales are the documented per-type σ ─────────────────────────────
-ok(operandResidualScale({ type: 'PSI' }) === 90, 'σ(PSI) = 90');
-ok(operandResidualScale({ type: 'DEL' }) === 180, 'σ(DEL) = 180');
+// Ψ and Δ scale to what a spectroscopic ellipsometer repeats to, ten times
+// 0.01° and 0.02°, not to their 90° and 360° ranges.
+ok(operandResidualScale({ type: 'PSI' }) === 10, 'σ(PSI) = 10');
+ok(operandResidualScale({ type: 'DEL' }) === 20, 'σ(DEL) = 20');
 ok(operandResidualScale({ type: 'GD' }) === 50 && operandResidualScale({ type: 'GDD' }) === 50, 'σ(GD/GDD) = 50');
 ok(operandResidualScale({ type: 'EFMX' }) === 1, 'σ(EFMX) = 1');
 

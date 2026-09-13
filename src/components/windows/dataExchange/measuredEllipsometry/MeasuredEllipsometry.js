@@ -1,6 +1,7 @@
 /**
- * Imports measured Ψ and Δ from a spectroscopic ellipsometer, and exports
- * measured or calculated Ψ/Δ as CSV.
+ * Imports measured Ψ and Δ from a spectroscopic ellipsometer, turns a pair
+ * into merit targets the design can be fitted to, and exports measured or
+ * calculated Ψ/Δ as CSV.
  *
  * Separate from Measured Spectra because an ellipsometric measurement is not a
  * photometric one: it has no percent scale, no polarization to pick, it is
@@ -10,16 +11,19 @@
 
 import { ExportTab } from './ExportTab.js';
 import { ImportTab } from './ImportTab.js';
+import { fitDialogText } from './fitModel.js';
 import { useMeasuredEllipsometry } from './useMeasuredEllipsometry.js';
+import { MeasuredFitDialog } from '../spectrumExchange/MeasuredFitDialog.js';
 import { AnalysisWindow, ControlRow } from '../../analysis/chrome/layout.js';
 import { NoticeBadge } from '../../analysis/chrome/popover.js';
 import { TabBtn } from '../chrome/panel.js';
 
-const { createElement: h } = React;
+const { createElement: h, useMemo } = React;
 
 export function MeasuredEllipsometry({ c, t }) {
     const mx = t.measuredEllipsometry;
-    const controller = useMeasuredEllipsometry(mx, t.spectralAxis.nm);
+    const fitText = useMemo(() => fitDialogText(t), [t]);
+    const controller = useMeasuredEllipsometry(mx, t.spectralAxis.nm, fitText);
     const notices = [
         controller.status ? { label: controller.status.msg, tone: controller.status.type } : null,
         controller.cosDeltaCurve
@@ -43,5 +47,6 @@ export function MeasuredEllipsometry({ c, t }) {
             }, mx.tabExport),
         ),
         controller.tab === 'import' ? h(ImportTab, tabProps) : h(ExportTab, tabProps),
+        controller.fitDialogCurve && h(MeasuredFitDialog, { controller, c, sx: fitText }),
     );
 }

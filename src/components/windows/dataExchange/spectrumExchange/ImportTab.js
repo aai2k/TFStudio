@@ -5,7 +5,7 @@ import { SidePanel } from '../../analysis/chrome/layout.js';
 import { measuredCurveData, X_UNITS } from '../../../../utils/io/spectrumTable.js';
 import { SpectrumPreview } from './SpectrumPreview.js';
 import { delimiterName } from './model.js';
-import { FieldRow, PanelSection, textInputStyle } from '../chrome/panel.js';
+import { FieldRow, ImportFilePanel, PanelSection, textInputStyle } from '../chrome/panel.js';
 
 const { createElement: h, useEffect, useState } = React;
 
@@ -219,19 +219,10 @@ export function ImportTab({ controller, c, sx, t }) {
         h('div', { className: 'tfs-spectrum-import-layout' },
             h('div', { className: 'tfs-spectrum-import-sidebar' },
                 h(SidePanel, { c, width: '100%' },
-                    h(PanelSection, { c, title: sx.importTitle },
-                        h('div', { style: { display: 'flex', alignItems: 'center', gap: 8 } },
-                            h(ActionButton, {
-                                c, label: loading ? sx.importing : sx.import,
-                                onClick: onImport, disabled: loading,
-                            }),
-                            fileName && h('span', {
-                                title: fileName,
-                                style: { minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', color: c.textDim, fontSize: 11 },
-                            }, fileName),
-                        ),
-                        h('div', { style: { color: c.textDim, fontSize: 10.5, lineHeight: 1.45 } }, sx.importHint),
-                    ),
+                    h(ImportFilePanel, {
+                        c, title: sx.importTitle, label: loading ? sx.importing : sx.import,
+                        onImport, loading, fileName, hint: sx.importHint,
+                    }),
                     h(MeasurementConditions, { controller, c, sx }),
                     h(ConfigurePanel, { controller, c, sx }),
                     h(ImportedCurves, { controller, c, sx }),

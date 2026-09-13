@@ -108,6 +108,54 @@ tan Ψ and cos Δ under headings that say `PSI` and `DELTA`; read as degrees tho
 numbers are legal and the mistake is invisible, so the window says so instead of
 letting a fit run on them. Convert such a file to degrees before importing it.
 
+## Fitting the design to a measurement
+
+**Fit…** on a complete pair turns it into merit-function targets, so
+[Refinement](/synthesis/refinement/) can adjust the design's thicknesses until
+its calculated Ψ and Δ match what you measured. It is the same step
+[Measured Spectra](/data-exchange/measured-spectra/#fitting-the-design-to-a-measurement)
+offers for a reflectance or transmittance curve, with the same grid choices,
+range, weight and thickness constraints, and it is characterization of a stack
+you already know the recipe for, not recovery of an unknown one. Letting the
+index float alongside the thicknesses is what
+[n,k Characterization](/data-exchange/nk-characterization/) does.
+
+Ψ and Δ become two rows in the
+[Merit Function Editor](/design/merit-function-editor/), one per half of the
+measurement, each holding its own copy of the sampled points. The two are one
+fit: with only Ψ or only Δ switched on the thicknesses are under-determined,
+and the row that is left on says so.
+
+What is different from a photometric fit:
+
+- **The Δ convention travels with the target.** The row stores the sign its
+  file was written in and converts on the way into the merit function, so a
+  pair imported as Azzam–Bashara scores against the design's Δ in the same
+  sign. The wrong convention is out by tens of degrees, not by fractions.
+- **Δ is scored the short way round.** A design at 359° against a target of 1°
+  is two degrees away, not 358, so a target sitting next to the 0°/360° wrap
+  does not pull the optimizer the long way round.
+- **Ψ and Δ carry their own scale** against reflectance targets sharing the
+  table, set from what a spectroscopic ellipsometer resolves rather than from
+  the 90° and 360° ranges. See
+  [Operand reference](/design/operands/#mixed-unit-normalization).
+- **A uniform resample of Δ** interpolates the unwrapped angle, so a resampled
+  grid never invents targets passing through 180° where the measurement
+  crosses 360°.
+- **Ψ and Δ are sampled together.** Both halves take the same grid settings,
+  and where their curves cover different wavelengths the targets are cut to
+  the wavelengths the two share, so the two rows hold the same number of
+  points and weigh alike. A pair with no wavelength in common is refused.
+
+The fit is refused at normal incidence, where Ψ and Δ say nothing about the
+film, and for a pair measured on the back side: Ψ and Δ are evaluated on the
+front stack alone, and the design has to be evaluated on its front side too.
+
+[Ellipsometry](/analysis/ellipsometry/) draws the targets whether or not the
+design still holds the curves behind them, in whichever Δ convention the plot
+is showing, and the Import tab offers to restore the curves from the targets,
+as Measured Spectra does.
+
 ## Export
 
 **Measured** writes the curves on the design, with a checkbox per curve.

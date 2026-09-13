@@ -29,6 +29,7 @@ import {
     tmmNeedleScan,
     tmmThicknessHessian,
     tmmThicknessJacobian,
+    tmmPhaseThicknessJacobian,
     // WASM acceleration
     getTmmWasm,
     tmmWasmActive,
@@ -832,6 +833,13 @@ function ellipsometricAngles(absS, argS, absP, argP) {
  */
 const conjugateDelta = delta => delta.map(value => (((360 - value) % 360) + 360) % 360);
 
+/**
+ * The convention computeEllipsometry returns Δ in, named so a measured Δ can
+ * be moved into it with convertDeltaConvention before it is scored against a
+ * calculated one. It is the sign toDeltaConvention leaves alone.
+ */
+export const CALCULATED_DELTA_CONVENTION = 'reversed';
+
 export function toDeltaConvention(delta, convention) {
     if (convention !== 'azzam') return delta;
     return conjugateDelta(delta);
@@ -969,6 +977,90 @@ export function evaluateEllipsometryAngles(lambda_nm, thetas, n0, ns, layers) {
         const p = wasm.tmmPhaseOne(lambda_nm, thetas[index], 1, n0Jet, nsJet, jetLayers).r;
         return (s && p && anglesFromPhase(
             s.magnitudeSquared, s.phaseRad, p.magnitudeSquared, p.phaseRad)) || reference(index);
+    });
+}
+
+// ── Ψ and Δ with their thickness derivatives ─────────────────────────────────
+//
+// Δ = arg r_p − arg r_s + 180°, so its thickness derivative is the difference
+// of the two phase derivatives the phase kernel reports; the kernel's φ is
+// −arg r, which flips the sign. tan Ψ = |r_p| / |r_s| = √(R_p / R_s), so
+//
+//     dΨ/dd = ¼ sin 2Ψ · (dR_p/R_p − dR_s/R_s),
+//
+// and both relative intensity derivatives come out of the same pass: the phase
+// kernel's d(ln r)/dd has the phase derivative as its imaginary part and
+// d(ln |r|²)/dd as its real part, reported as dLogMagnitudeSquared. So a whole
+// Ψ/Δ spectrum with its Jacobian costs two kernel calls, one per polarization.
+// Where an amplitude is exactly zero Ψ has a cusp and Δ is undefined, and that
+// sample is reported null.
+
+// The reflection phase of one polarization with its thickness derivative at
+// every wavelength of a grid: the batched kernel call where the build carries
+// it, the single-wavelength kernel call otherwise, and the JavaScript reference
+// with no kernel. Each entry is `{ phaseRad, magnitudeSquared, dPhaseDeg,
+// dLogMagnitudeSquared }` or null where the amplitude vanishes.
+function reflectionPhaseJacobians(grid, polCode) {
+    const { lambdas, theta_deg, n0List, nsList, layerNK, thick } = grid;
+    const wasm = phaseKernel();
+    const N = thick.length;
+    if (wasm && wasm.hasPhaseJacobianSpectrum?.()) {
+        const batch = wasm.tmmPhaseJacobianSpectrum(
+            lambdas, n0List.map(constantJet), nsList.map(constantJet),
+            layerNK.map(row => row.map(constantJet)), thick, theta_deg, polCode).r;
+        return lambdas.map((_, index) => {
+            const undefinedSample = Number.isNaN(batch.magnitudeSquared[index])
+                || (N > 0 && Number.isNaN(batch.dPhaseDeg[index * N]));
+            return undefinedSample ? null : {
+                phaseRad: batch.phaseRad[index],
+                magnitudeSquared: batch.magnitudeSquared[index],
+                dPhaseDeg: batch.dPhaseDeg.subarray(index * N, (index + 1) * N),
+                dLogMagnitudeSquared:
+                    batch.dLogMagnitudeSquared.subarray(index * N, (index + 1) * N),
+            };
+        });
+    }
+    return lambdas.map((lambda, index) => {
+        const layers = layerNK.map((row, k) => ({ nJet: constantJet(row[index]), d: thick[k] }));
+        const n0Jet = constantJet(n0List[index]);
+        const nsJet = constantJet(nsList[index]);
+        const r = wasm
+            ? wasm.tmmPhaseJacobian(lambda, theta_deg, polCode, n0Jet, nsJet, layers).r
+            : tmmPhaseThicknessJacobian(lambda, theta_deg, polCode ? 'p' : 's', n0Jet, nsJet, layers).r;
+        return r && r.dPhaseDeg ? r : null;
+    });
+}
+
+/**
+ * Ψ(λ), Δ(λ) and their exact derivatives with respect to every layer thickness
+ * at one angle of incidence.
+ *
+ * @param {object} grid  the arguments of evaluateEllipsometrySpectrum by name:
+ *   `lambdas`, `theta_deg`, `n0List`, `nsList`, `layerNK` and `thick`
+ * @returns {(null|{psi:number, delta:number, dPsi:Float64Array, dDelta:Float64Array})[]}
+ *   per wavelength: degrees, and degrees per nanometre per layer, or null where
+ *   a reflection amplitude vanishes and the quantities are undefined.
+ */
+export function evaluateEllipsometryThicknessJacobian(grid) {
+    const sPhase = reflectionPhaseJacobians(grid, 0);
+    const pPhase = reflectionPhaseJacobians(grid, 1);
+    const N = grid.thick.length;
+    const toDeg = 180 / Math.PI;
+    return grid.lambdas.map((_, index) => {
+        const s = sPhase[index];
+        const p = pPhase[index];
+        if (!s || !p) return null;
+        if (!(s.magnitudeSquared > 0) || !(p.magnitudeSquared > 0)) return null;
+        const angles = anglesFromPhase(s.magnitudeSquared, s.phaseRad, p.magnitudeSquared, p.phaseRad);
+        if (!angles) return null;
+        const psiSlope = 0.25 * Math.sin(2 * angles.psi / toDeg) * toDeg;
+        const dPsi = new Float64Array(N);
+        const dDelta = new Float64Array(N);
+        for (let k = 0; k < N; k++) {
+            dPsi[k] = psiSlope * (p.dLogMagnitudeSquared[k] - s.dLogMagnitudeSquared[k]);
+            dDelta[k] = s.dPhaseDeg[k] - p.dPhaseDeg[k];
+        }
+        return { psi: angles.psi, delta: angles.delta, dPsi, dDelta };
     });
 }
 

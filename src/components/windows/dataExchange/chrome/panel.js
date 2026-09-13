@@ -6,7 +6,7 @@
  * type from `analysis/chrome`, which is why the pieces here are only layout.
  */
 
-import { FieldLabel } from '../../analysis/chrome/controls.js';
+import { ActionButton, FieldLabel } from '../../analysis/chrome/controls.js';
 
 const { createElement: h } = React;
 
@@ -42,6 +42,26 @@ export function PanelSection({ c, title, children }) {
             },
         }, title),
         children,
+    );
+}
+
+/**
+ * The Open file button, the name of the file it opened, and a line saying
+ * what the window loads. The same on every import tab.
+ */
+export function ImportFilePanel({ c, title, label, onImport, loading, fileName, hint }) {
+    return h(PanelSection, { c, title },
+        h('div', { style: { display: 'flex', alignItems: 'center', gap: 8 } },
+            h(ActionButton, { c, label, onClick: onImport, disabled: loading }),
+            fileName && h('span', {
+                title: fileName,
+                style: {
+                    minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis',
+                    whiteSpace: 'nowrap', color: c.textDim, fontSize: 11,
+                },
+            }, fileName),
+        ),
+        h('div', { style: { color: c.textDim, fontSize: 10.5, lineHeight: 1.45 } }, hint),
     );
 }
 
