@@ -51,16 +51,17 @@ const sign = (n) => (n === null ? null : Math.sign(n));
 // permanently suppressing the automatic card while manual checks still worked.
 {
   const hook = readFileSync(new URL('../src/components/ui/useUpdateCheck.js', import.meta.url), 'utf8');
-  const renderer = readFileSync(new URL('../src/renderer.js', import.meta.url), 'utf8');
+  const settings = readFileSync(new URL('../src/hooks/useAppSettings.js', import.meta.url), 'utf8');
+  const shell = readFileSync(new URL('../src/App.js', import.meta.url), 'utf8');
   const timer = hook.indexOf('const timer = setTimeout(async () => {');
   const markedStarted = hook.indexOf('started.current = true;', timer);
   ok(hook.includes('if (started.current || !ready || !enabled) return;'),
     'startup waits for settings and app version');
   ok(timer >= 0 && markedStarted > timer,
     'startup is marked started only after the surviving timer fires');
-  ok(renderer.includes('if (settingsLoaded) saveSettingsToDisk();'),
+  ok(settings.includes('if (settingsLoaded) saveSettingsToDisk();'),
     'default settings are not persisted before saved settings load');
-  ok(renderer.includes('ready: settingsLoaded && !!appVersion'),
+  ok(shell.includes('ready: settingsLoaded && !!appVersion'),
     'the update provider receives explicit startup readiness');
 }
 

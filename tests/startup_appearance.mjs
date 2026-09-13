@@ -21,28 +21,29 @@ import { createRequire } from 'node:module';
 
 const require = createRequire(import.meta.url);
 const read = name => readFileSync(new URL(`../src/${name}`, import.meta.url), 'utf8');
-const renderer = read('renderer.js');
+const appearance = read('utils/theme/appearance.js');
+const settings = read('hooks/useAppSettings.js');
 const main = read('main.js');
 
 // ── The renderer paints the saved theme on its first frame ──────────────────
 
-assert.equal(renderer.includes("useState('Light')"), false,
+assert.equal(settings.includes("useState('Light')"), false,
     'a hardcoded initial theme is a guaranteed flash for everyone not using it');
-assert.match(renderer, /const \[theme,\s*setTheme\]\s*=\s*useState\(initialTheme\)/,
+assert.match(settings, /const \[theme,\s*setTheme\]\s*=\s*useState\(initialTheme\)/,
     'the theme is seeded from the mirror, synchronously');
-assert.match(renderer, /localStorage\.setItem\(APPEARANCE_KEY/,
+assert.match(appearance, /localStorage\.setItem\(APPEARANCE_KEY/,
     'and the mirror is written whenever the settings are');
 
 // The mirror has to carry the imported themes too, or a custom theme name
 // resolves to nothing on the first paint.
-assert.match(renderer, /registerCustomThemes\(pruneBuiltInThemeNames\(cached\.customThemes\)\)/,
+assert.match(appearance, /registerCustomThemes\(pruneBuiltInThemeNames\(cached\.customThemes\)\)/,
     'cached imports are registered before the first paint, pruned like the disk copy');
-assert.match(renderer, /getPaletteNames\(\)\.includes\(cached\.theme\)/,
+assert.match(appearance, /getPaletteNames\(\)\.includes\(cached\.theme\)/,
     'a cached name that no longer resolves falls back rather than painting nothing');
 
 // A store that throws (private mode, disabled site data) must not stop startup.
 for (const call of ['cachedAppearance', 'initialTheme']) {
-    const body = renderer.slice(renderer.indexOf(`function ${call}(`));
+    const body = appearance.slice(appearance.indexOf(`function ${call}(`));
     assert.match(body.slice(0, 400), /try\s*{/, `${call} reads the store defensively`);
 }
 
@@ -52,9 +53,9 @@ assert.match(main, /const backgroundColor = windowBackgroundColor\(\);/,
     'the window takes its background from the saved theme');
 assert.equal(main.includes("backgroundColor: '#eceef1'"), false,
     'a hardcoded light frame flashes white around a dark theme');
-assert.match(renderer, /windowBackground: c\.bg/,
+assert.match(settings, /windowBackground: c\.bg/,
     'and the renderer keeps that saved colour on the current theme');
-assert.match(renderer, /setWindowBackground\?\.\(c\.bg\)/,
+assert.match(appearance, /setWindowBackground\?\.\(c\.bg\)/,
     'a theme change repaints the frame too, so a resize right after does not expose the old colour');
 
 // Both windows the app opens use it: a torn-off tool flashes just as visibly.

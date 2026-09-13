@@ -5,7 +5,7 @@
 // Covers the renderer-side naming rules (designNaming.js) and the main-process
 // save guard (ipc/projects.js).
 import { createRequire } from 'node:module';
-import { readFileSync } from 'node:fs';
+import { readFileSync, readdirSync } from 'node:fs';
 import path from 'node:path';
 import { designFileKey, folderDesignNames, uniqueDesignName } from '../src/utils/io/designNaming.js';
 
@@ -60,15 +60,22 @@ ok(designFileKey('AR VIS') !== designFileKey('AR NIR'), 'distinct names keep dis
 // call site that drops the argument would put that back, so the calls are
 // checked directly: folderDesignNames throws on an unresolved folder, but only
 // once a user reaches that path.
+// The creation paths are spread over the hooks that own them, so the whole
+// folder is read: what is asserted is a property of the project-tree layer and
+// not of any one file in it.
 {
-  const renderer = readFileSync(new URL('../src/renderer.js', import.meta.url), 'utf-8');
-  const calls = renderer.match(/existingDesignNames\([^)]*\)/g) || [];
+  const dir = new URL('../src/hooks/', import.meta.url);
+  const hooks = readdirSync(dir)
+    .filter(name => name.endsWith('.js'))
+    .map(name => readFileSync(new URL(name, dir), 'utf-8'))
+    .join('\n');
+  const calls = hooks.match(/existingDesignNames\([^)]*\)/g) || [];
   ok(calls.length === 6, `all six creation paths still call it, found ${calls.length}`);
   const bare = calls.filter(call => /existingDesignNames\(\s*\)/.test(call));
   ok(bare.length === 0, `every call names the folder it is adding to, found ${bare.length} without one`);
 
   // The default name counts within the folder, so each one numbers from 1.
-  ok(/const n\s*=\s*taken\.length \+ 1/.test(renderer),
+  ok(/const n\s*=\s*taken\.length \+ 1/.test(hooks),
      'the "Design N" counter is of the target folder, not the whole tree');
 }
 

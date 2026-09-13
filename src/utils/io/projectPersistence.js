@@ -67,6 +67,37 @@ export function mergeSessionOverDisk(diskDesigns, sessionDesigns) {
   return { initialDesigns: designs, initialDirty: dirty };
 }
 
+// Renderer-side guard against stale duplicate .tfs files sharing an id within a
+// folder; the main process cleans these on load, but never trust the input. The
+// design payload itself is dropped — the explorer tree only carries
+// id/name/mtime/etc.
+function dedupeFolderItems(folder) {
+  const seen = new Set();
+  const items = [];
+  for (const it of (folder.items || [])) {
+    if (!it || !it.id || seen.has(it.id)) continue;
+    seen.add(it.id);
+    const { design: _d, ...rest } = it;
+    items.push(rest);
+  }
+  return { ...folder, items };
+}
+
+/**
+ * Split an IPC loadFolders() result into the design payloads (keyed by id, used
+ * as the disk baseline) and the folder tree the explorer renders, which never
+ * carries a design payload inline.
+ */
+export function parseFoldersResult(result) {
+  const diskDesigns = {};
+  result.folders.forEach(f => {
+    (f.items || []).forEach(item => {
+      if (item.design) diskDesigns[item.id] = item.design;
+    });
+  });
+  return { diskDesigns, loadedFolders: result.folders.map(dedupeFolderItems) };
+}
+
 export async function persistThenCommit(operation, commit) {
   try {
     const response = operation ? await operation() : { success: true };

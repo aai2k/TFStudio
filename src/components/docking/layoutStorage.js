@@ -61,6 +61,13 @@ export function clampToScreen(bounds, screenInfo) {
     };
 }
 
+// Whether a layout was ever saved. Startup asks before restoring: with nothing
+// saved the workspace opens empty rather than on a preset.
+export function hasSavedLayout() {
+    try { return !!localStorage.getItem(LAYOUT_STORAGE_KEY); }
+    catch { return false; }
+}
+
 export function loadSavedLayout() {
     try {
         const raw = localStorage.getItem(LAYOUT_STORAGE_KEY);
