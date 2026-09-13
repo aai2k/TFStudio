@@ -66,10 +66,14 @@ export function evaluateTotalTransmissionDispersion(design, options) {
         })),
     });
     const components = { front, substrate, back };
-    const invalid = Object.values(components).find(component => !component.valid);
-    if (invalid) return { wavelengthNm, valid: false, reason: invalid.reason, components };
-    const add = key => front[key] + substrate[key] + back[key];
     const componentList = Object.values(components);
+    const outsideRange = componentList.find(component => component.outsideRange)?.outsideRange
+        ?? null;
+    const invalid = componentList.find(component => !component.valid);
+    if (invalid) {
+        return { wavelengthNm, valid: false, reason: invalid.reason, components, outsideRange };
+    }
+    const add = key => front[key] + substrate[key] + back[key];
     return {
         wavelengthNm,
         valid: true,
@@ -88,6 +92,7 @@ export function evaluateTotalTransmissionDispersion(design, options) {
         phaseContinuousOrder: Math.min(...componentList.map(component =>
             component.phaseContinuousOrder ?? 3)),
         onKnot: componentList.some(component => component.onKnot),
+        outsideRange,
     };
 }
 

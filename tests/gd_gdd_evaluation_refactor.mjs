@@ -23,6 +23,8 @@ const { evaluateDesignPhaseDispersion } =
     await import('../src/utils/physics/phaseDispersion.js');
 const { chromaticDispersionCoefficient } =
     await import('../src/utils/physics/thinFilmMath.js');
+const { uncoveredRegions } =
+    await import('../src/utils/materials/materialRange.js');
 const { buildGdGddView } =
     await import('../src/components/windows/analysis/gdGddEvaluation/viewModel.js');
 const { buildGDChartOption } =
@@ -191,13 +193,30 @@ const linearBand = (rows, lambdaEnd) => computeGdGddSpectrum(linearTableDesign(r
         'GD steps at every knot of a linear table, by far less than the plot can show');
     assert.ok(!view.plotData.y.some(Number.isNaN));
 
-    // The same design read past the end of its table. A refused point has no
-    // value at all, and that gap stays whatever the knots do.
+    // The same design read past the end of its table. The table holds its last
+    // row out there, so a value exists at every sample and the curve carries on:
+    // a gap on this plot means there is no value at all. The shaded band is what
+    // says the material stopped, and it covers exactly the span past the table.
     const past = linearBand(tableEvery(10), 900);
-    assert.ok(past.invalid.length > 300, 'wavelengths past the table are refused');
-    const pastView = buildGdGddView(past, { quantity: 'gd', referenceLambda: 550 }, text);
-    assert.equal(pastView.plotData.y.filter(Number.isNaN).length, past.invalid.length,
-        'a refused point still leaves a gap');
+    assert.equal(past.invalid.length, 0, 'a clamped table is drawn, not refused');
+    const pastView = buildGdGddView(
+        past, { quantity: 'gd', referenceLambda: 550, outsideLabel: 'Outside data' }, text);
+    assert.ok(!pastView.plotData.y.some(Number.isNaN), 'so the curve runs past the edge unbroken');
+
+    // The band says so on the plot; the table has to say so on the row, because
+    // a number read out of it or out of the CSV carries nothing else.
+    assert.ok(pastView.tableColumns.some(column => column.key === 'outside'),
+        'the table gains a column naming the material the row was taken outside of');
+    const marked = pastView.tableRows.filter(row => row.outside);
+    assert.ok(marked.length > 0 && marked.every(row => row.lambda > 800),
+        'and it marks exactly the rows past the end of the table');
+    assert.ok(pastView.tableRows.filter(row => row.lambda <= 800).every(row => !row.outside),
+        'while rows on measured data are left unmarked');
+    assert.deepEqual(
+        uncoveredRegions(linearTableDesign(tableEvery(10)), [400, 900])
+            .map(region => [region.x0, region.x1]),
+        [[800, 900]],
+        'and the band starts where the table ends');
 
     // A table dense against the grid. Sampling a knot costs two more stack
     // evaluations than the point it sits on, and at this spacing a step drawn at

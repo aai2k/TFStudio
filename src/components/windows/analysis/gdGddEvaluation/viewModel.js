@@ -88,14 +88,22 @@ function tableSeries(raw, text) {
         .filter(series => Array.isArray(raw[series.source || series.key]));
 }
 
-function buildTable(raw, lambdaAxis, text) {
+function buildTable(raw, lambdaAxis, text, outsideLabel) {
     if (!raw?.lambda?.length) return { columns: [], rows: [] };
     const series = tableSeries(raw, text);
     const knots = new Map((raw.knotSamples || []).map(sample => [sample.index, sample]));
+    // Rows taken from outside a material's data are marked with that material,
+    // the same name the plot's shaded band carries. On the plot the band says
+    // which part of the curve is not measurement; a row read from the table, or
+    // from the exported file, has only this column to say so.
+    const outside = (raw.outsideRange || []).some(Boolean);
     const columns = [
         { key: 'lambda', label: lambdaAxis, align: 'left', fmt: value => value.toFixed(1) },
         ...(knots.size
             ? [{ key: 'knot', label: text.knotColumn, align: 'left', fmt: value => value || '' }]
+            : []),
+        ...(outside
+            ? [{ key: 'outside', label: outsideLabel, align: 'left', fmt: value => value || '' }]
             : []),
         ...series.map(entry =>
             ({ key: entry.key, label: entry.label, fmt: value => formatQuantity(entry, value) })),
@@ -109,6 +117,7 @@ function buildTable(raw, lambdaAxis, text) {
     const rowAt = (index, side) => {
         const row = { lambda: raw.lambda[index] };
         if (side !== null) row.knot = KNOT_SIDE_LABELS[side];
+        if (outside) row.outside = raw.outsideRange[index] || '';
         for (const item of series) row[item.key] = valueAt(item, index, side);
         return row;
     };
@@ -181,7 +190,7 @@ export function autoYRange(plotData) {
 
 export function buildGdGddView(raw, options, text, colors, lambdaAxis) {
     const meta = quantityMeta(options.quantity, text, colors);
-    const table = buildTable(raw, lambdaAxis, text);
+    const table = buildTable(raw, lambdaAxis, text, options.outsideLabel);
     const plotData = buildPlotData(
         raw, meta, options.quantity, options.referenceLambda, options.showReference);
     return {

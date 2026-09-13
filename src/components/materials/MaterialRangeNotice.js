@@ -16,9 +16,26 @@ const { createElement: h, useMemo } = React;
 
 const format = (value) => (Math.round(value * 10) / 10).toString();
 
+/**
+ * One line per material that falls short, naming the range it does cover and,
+ * where the material is tabulated, that it is held flat outside it.
+ *
+ * The two kinds of outside behave differently and only one of them is a real
+ * extrapolation. A table held at its end value has no slope from the first
+ * wavelength past its last row, so it contributes nothing to a group delay or a
+ * dispersion out there; a formula carries on smoothly past the band it was
+ * fitted over. Which one a reader is looking at decides what the curve in the
+ * shaded band means.
+ */
+function offenderLines(offenders, t) {
+    return offenders.map(({ id, name, rangeNm, heldFlat }) => {
+        const line = heldFlat ? t.materialRange.materialLineHeld : t.materialRange.materialLine;
+        return line(name || id, format(rangeNm[0]), format(rangeNm[1]));
+    });
+}
+
 function OffenderList({ offenders, c, t }) {
-    const lines = offenders.map(({ id, name, rangeNm }) =>
-        t.materialRange.materialLine(name || id, format(rangeNm[0]), format(rangeNm[1])));
+    const lines = offenderLines(offenders, t);
     return h('div', {
         style: {
             color: c.textDim, fontSize: 11, lineHeight: 1.4,
@@ -66,12 +83,8 @@ export function MaterialRangeWarning({ design, fromNm, toNm, c, t }) {
     return h(MaterialRangeBanner, { offenders, evaluated: [fromNm, toNm], c, t });
 }
 
-/** One line per material that falls short, naming the range it does cover. */
 function offenderDetail(offenders, t) {
-    return offenders
-        .map(({ id, name, rangeNm }) =>
-            t.materialRange.materialLine(name || id, format(rangeNm[0]), format(rangeNm[1])))
-        .join('\n');
+    return offenderLines(offenders, t).join('\n');
 }
 
 /**

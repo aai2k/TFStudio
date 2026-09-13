@@ -3,9 +3,16 @@
  *
  * A stack is evaluated at one wavelength and returns phase, GD, GDD, and TOD
  * together with the material models that produced them. When a material cannot
- * supply third-order frequency derivatives, or the wavelength falls outside its
- * model range, the point is returned invalid with the offending material named
- * rather than silently approximated.
+ * supply third-order frequency derivatives the point is returned invalid with
+ * the offending material named rather than silently approximated.
+ *
+ * A wavelength outside a material's range is not that case: a table holds its
+ * end value there and a formula is extrapolated past the band it was fitted
+ * over, so a value exists. The point carries it, with `outsideRange` naming the
+ * first material it was taken outside of, or null. What to do with it is the
+ * caller's: an analysis window draws the point and shades the band, while the
+ * merit function refuses it (optimizer/evalCore.js), a target being scored
+ * rather than looked at.
  *
  * Reported continuity metadata lets callers break a drawn curve where it is
  * genuinely discontinuous: PCHIP interpolation of tabulated n and k is only C1,
@@ -143,17 +150,16 @@ export function evaluateStackPhaseDispersion(options) {
     const used = [incident, substrate, ...layerResponses.map(layer => layer.material)];
     if (referenceIncident) used.push(referenceIncident);
     const continuity = continuityMetadata(used);
+    const models = [...new Set(used.map(item => `${item.name}: ${item.response.model}`))];
+    const outsideRange = used.find(item => !item.response.inRange)?.name ?? null;
     const unavailable = used.find(item => item.response.maxOrder < 3 || !item.response.jet);
-    const outOfRange = used.find(item => !item.response.inRange);
-    if (unavailable || outOfRange) {
-        const offender = unavailable || outOfRange;
+    if (unavailable) {
         return {
             wavelengthNm,
             valid: false,
-            reason: unavailable
-                ? `${offender.name}: third-order material derivatives are unavailable`
-                : `${offender.name}: wavelength is outside the material model range`,
-            models: [...new Set(used.map(item => `${item.name}: ${item.response.model}`))],
+            reason: `${unavailable.name}: third-order material derivatives are unavailable`,
+            models,
+            outsideRange,
             ...continuity,
         };
     }
@@ -180,7 +186,8 @@ export function evaluateStackPhaseDispersion(options) {
             wavelengthNm,
             valid: false,
             reason: `${target === 'T' ? 'Transmission' : 'Reflection'} amplitude is exactly zero`,
-            models: [...new Set(used.map(item => `${item.name}: ${item.response.model}`))],
+            models,
+            outsideRange,
             ...continuity,
         };
     }
@@ -189,7 +196,8 @@ export function evaluateStackPhaseDispersion(options) {
         valid: true,
         ...quantities.dispersion,
         thicknessJacobian: quantities.thicknessJacobian,
-        models: [...new Set(used.map(item => `${item.name}: ${item.response.model}`))],
+        models,
+        outsideRange,
         ...continuity,
     };
 }
@@ -207,17 +215,18 @@ export function evaluateSubstratePropagation(options) {
     const wavelengthJet = wavelengthOmegaJet(wavelengthNm, omega);
     const incident = materialOmegaResponse(incidentMaterial, wavelengthNm);
     const substrate = materialOmegaResponse(substrateMaterial, wavelengthNm);
-    const continuity = continuityMetadata([
+    const used = [
         { name: incidentMaterial?.name || 'Incident medium', response: incident },
         { name: substrateMaterial?.name || 'Substrate', response: substrate },
-    ]);
-    if (!incident.jet || !substrate.jet || !incident.inRange || !substrate.inRange) {
+    ];
+    const continuity = continuityMetadata(used);
+    const outsideRange = used.find(item => !item.response.inRange)?.name ?? null;
+    if (!incident.jet || !substrate.jet) {
         return {
             wavelengthNm,
             valid: false,
-            reason: !incident.inRange || !substrate.inRange
-                ? 'Wavelength is outside the substrate propagation model range'
-                : 'Substrate propagation derivatives are unavailable',
+            reason: 'Substrate propagation derivatives are unavailable',
+            outsideRange,
             ...continuity,
         };
     }
@@ -240,6 +249,7 @@ export function evaluateSubstratePropagation(options) {
         gddFs2: second[0],
         todFs3: third[0],
         model: substrate.model,
+        outsideRange,
         ...continuity,
     };
 }

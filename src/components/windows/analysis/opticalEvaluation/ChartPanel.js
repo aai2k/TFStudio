@@ -1,4 +1,5 @@
 import { SpectrumChart } from './SpectrumChart.js';
+import { materialCoverageBands } from '../../../ui/chartOptions.js';
 import { uncoveredRegions } from '../../../../utils/materials/materialRange.js';
 
 const { createElement: h, useMemo } = React;
@@ -13,10 +14,9 @@ export function ChartPanel(props) {
     // Same coverage rule as the notices badge, so the bands and the notice
     // always agree on which wavelengths are extrapolated.
     const materialBands = useMemo(
-        () => uncoveredRegions(design, [lamRange.min, lamRange.max]).map(region => ({
-            x0: region.x0, x1: region.x1,
-            label: t.materialRange.bandLabel(region.materials.join(', ')),
-        })),
+        () => materialCoverageBands(
+            uncoveredRegions(design, [lamRange.min, lamRange.max]),
+            t.materialRange.bandLabel),
         [design, lamRange, t],
     );
     return h('div', { style: { flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column', overflow: 'hidden' } },

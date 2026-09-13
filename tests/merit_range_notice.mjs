@@ -92,7 +92,10 @@ const coverage = (meritOperands) =>
     assert.equal(Math.round(tio2.rangeNm[0]), 370, 'TiO2 is reported with the start of its table');
     assert.equal(Math.round(tio2.rangeNm[1]), 827, 'and the end of it');
     const bk7 = threeBand.offenders.find(item => item.id === 'builtin:BK7');
-    assert.deepEqual(bk7.rangeNm, [300, 2500], 'BK7 is reported with its declared Sellmeier range');
+    // The Sellmeier n is declared valid from 300 nm, but the k table derived
+    // from the internal transmittance starts at 310 and nothing below that can
+    // be evaluated, so 310 is the number the notice has to show.
+    assert.deepEqual(bk7.rangeNm, [310, 2500], 'BK7 is reported with the range it can be read over');
 
     const visible = coverage([band('RAV', 400, 700)]);
     assert.equal(visible.offenders.length, 0, 'targets inside every material raise nothing');

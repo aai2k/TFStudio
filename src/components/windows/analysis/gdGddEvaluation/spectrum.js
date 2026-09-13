@@ -90,11 +90,15 @@ function normalizeRadians(value) {
 }
 
 function averagePolarizations(sValue, pValue) {
+    // Both polarizations read the same materials at the same wavelength, so
+    // either one answers for the pair on whether it was taken outside the data.
+    const outsideRange = sValue.outsideRange ?? pValue.outsideRange ?? null;
     if (!sValue.valid || !pValue.valid) {
         return {
             valid: false,
             wavelengthNm: sValue.wavelengthNm,
             reason: sValue.valid ? pValue.reason : sValue.reason,
+            outsideRange,
         };
     }
     const average = key => Number.isFinite(sValue[key]) && Number.isFinite(pValue[key])
@@ -114,6 +118,7 @@ function averagePolarizations(sValue, pValue) {
             pValue.phaseContinuousOrder ?? 3,
         ),
         onKnot: !!(sValue.onKnot || pValue.onKnot),
+        outsideRange,
     };
     return result;
 }
@@ -164,6 +169,9 @@ export function computeGdGddSpectrum(design, options) {
             ? chromaticDispersionCoefficient(value.gddFs2, wavelengths[index])
             : NaN),
         magnitudeSquared: values.map(value => value.valid ? value.magnitudeSquared : NaN),
+        // The material each sample was taken outside the data range of, or null.
+        // The plot shades those wavelengths; the table and its export name them.
+        outsideRange: values.map(value => value.outsideRange ?? null),
         invalid: values
             .filter(value => !value.valid)
             .map(value => ({ wavelengthNm: value.wavelengthNm, reason: value.reason })),

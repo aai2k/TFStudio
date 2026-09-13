@@ -1406,7 +1406,10 @@ export default {
     banner: (n, from, to) => `${from}–${to} nm 超出 ${n} 种材料的数据范围 — 该范围的值保持平坦或外推`,
     targets: (n, from, to) => `目标 ${from}–${to} nm 超出 ${n} 种材料的数据范围；评价函数在该范围内按保持平坦或外推的值计算`,
     materialLine: (name, from, to) => `${name}: ${from}–${to} nm`,
+    materialLineHeld: (name, from, to) =>
+      `${name}: ${from}–${to} nm，范围外保持常数，因此在该处不贡献色散`,
     bandLabel: (names) => `无数据: ${names}`,
+    outsideColumn: '超出数据',
     fixAction: (from, to) => `将范围设为 ${from}–${to} nm`,
     fixLambda: (value) => `将 λ 设为 ${value} nm`,
   },

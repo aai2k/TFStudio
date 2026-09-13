@@ -9,6 +9,7 @@
 import assert from 'node:assert/strict';
 import { dimmedBandSeries } from '../src/components/ui/chartOptions.js';
 import { buildChartOption } from '../src/components/windows/analysis/opticalEvaluation/model.js';
+import { buildGDChartOption } from '../src/components/windows/analysis/gdGddEvaluation/chartModel.js';
 
 
 // Axis titles are display text, so they come from the locale.
@@ -54,6 +55,30 @@ const AX = getLocale('en').spectralAxis;
     const without = buildChartOption({ spectralTitles: AX, ...base });
     assert.equal(without.series.filter(entry => entry.markArea).length, 0,
         'a design whose materials cover the range draws no bands');
+}
+
+// ── The dispersion plot draws the same bands ─────────────────────────────────
+//
+// Group Delay and Material Dispersion share this chart. Both draw the curve
+// wherever a value exists and shade what is outside a material's data, so the
+// bands cannot disagree with the ones Optical Evaluation puts on the same design.
+{
+    const base = {
+        data: { lambda: [400, 500, 600], y: [1, 2, 3] },
+        meta: { label: 'GD', unit: 'fs', color: '#4fc3f7' },
+        colors: { text: '#cccccc', grid: '#3a3a3a', background: '#1e1e1e', paper: '#252526' },
+        xLabel: 'λ (nm)',
+    };
+
+    const bands = [{ x0: 550, x1: 600, label: 'no data: Ag' }];
+    const hosts = buildGDChartOption({ ...base, materialBands: bands })
+        .series.filter(entry => entry.markArea);
+    assert.equal(hosts.length, 1, 'one decoration series for the bands');
+    assert.equal(hosts[0].markArea.data[0][0].xAxis, 550, 'band coordinates are nanometres');
+    assert.equal(hosts[0].markArea.data[0][0].name, 'no data: Ag');
+
+    assert.equal(buildGDChartOption(base).series.filter(entry => entry.markArea).length, 0,
+        'a material that covers the range draws no bands');
 }
 
 console.log('material_range_bands passed.');

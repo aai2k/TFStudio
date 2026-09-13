@@ -1241,7 +1241,10 @@ export default {
     targets: (n, from, to) =>
       `Цели ${from}–${to} нм выходят за диапазон данных материалов (${n}); целевая функция там считается по значениям, продлённым константой или экстраполированным`,
     materialLine: (name, from, to) => `${name}: ${from}–${to} нм`,
+    materialLineHeld: (name, from, to) =>
+      `${name}: ${from}–${to} нм, за пределами продлён константой, поэтому дисперсии там не добавляет`,
     bandLabel: (names) => `нет данных: ${names}`,
+    outsideColumn: 'Вне данных',
     fixAction: (from, to) => `Установить диапазон ${from}–${to} нм`,
     fixLambda: (value) => `Установить λ = ${value} нм`,
   },

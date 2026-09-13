@@ -84,6 +84,42 @@ function materialRangeContains(material, wavelengthNm) {
 }
 
 /**
+ * The tables a material's optical constants are read from, with the factor that
+ * turns their knots into nm. One statement of the unit convention, for
+ * everything that has to reason about where a table starts and stops: a
+ * tabulated n,k pair is sampled in nm, while a k table read beside an analytic n
+ * carries the unit the material tagged it with and is µm when untagged, the unit
+ * a catalog record stores a k table in.
+ */
+function tableInterpolatorsNm(material) {
+    const getNK = material?.getNK;
+    if (getNK?.nInterpolator && getNK?.kInterpolator) {
+        return { tables: [getNK.nInterpolator, getNK.kInterpolator], scale: 1 };
+    }
+    if (getNK?.kInterpolator) {
+        return {
+            tables: [getNK.kInterpolator],
+            scale: getNK.kInterpolatorUnit === 'nm' ? 1 : 1000,
+        };
+    }
+    return { tables: [], scale: 1 };
+}
+
+/**
+ * Wavelength extents in nm of those tables, one `[minNm, maxNm]` pair each.
+ *
+ * Outside its extent a table holds the value in its last row and
+ * `materialOmegaResponse` reports the wavelength out of range, so these bound
+ * what can be evaluated whatever range the material declares around them. BK7
+ * states the 300 to 2500 nm validity of its Sellmeier n while the k table
+ * derived from its internal transmittance starts at 310.
+ */
+export function materialTableExtentsNm(material) {
+    const { tables, scale } = tableInterpolatorsNm(material);
+    return tables.map(at => [at.knots[0] * scale, at.knots[at.knots.length - 1] * scale]);
+}
+
+/**
  * Wavelengths in nm where a material's model changes piece, so a derivative of
  * high enough order jumps. Interior table knots only: the first and last are
  * the ends of the material's range, beyond which it supplies nothing. Empty for
@@ -91,18 +127,10 @@ function materialRangeContains(material, wavelengthNm) {
  * smooth to every order.
  */
 export function materialKnotWavelengths(material) {
-    const getNK = material?.getNK;
-    const interior = interpolator => (interpolator?.knots || []).slice(1, -1);
-    let knots;
-    if (getNK?.nInterpolator && getNK?.kInterpolator) {
-        knots = [...interior(getNK.nInterpolator), ...interior(getNK.kInterpolator)];
-    } else if (getNK?.kInterpolator) {
-        const scale = getNK.kInterpolatorUnit === 'nm' ? 1 : 1000;
-        knots = interior(getNK.kInterpolator).map(knot => knot * scale);
-    } else {
-        return [];
-    }
-    const fit = material?.dispersionFit || getNK?.dispersionFit;
+    const { tables, scale } = tableInterpolatorsNm(material);
+    if (!tables.length) return [];
+    let knots = tables.flatMap(at => at.knots.slice(1, -1).map(knot => knot * scale));
+    const fit = material?.dispersionFit || material?.getNK?.dispersionFit;
     if (fit?.active) {
         knots = knots.filter(knot => knot < fit.rangeNm[0] || knot > fit.rangeNm[1]);
     }
@@ -231,13 +259,17 @@ export function materialOmegaResponse(material, wavelengthNm, knotSide) {
  */
 export function materialPropagationDispersion(material, wavelengthNm, thicknessMm, knotSide) {
     const response = materialOmegaResponse(material, wavelengthNm, knotSide);
-    if (!response.derivatives || response.maxOrder < 3 || !response.inRange) {
+    // A wavelength outside the material's range still has a value: the table
+    // holds its end value there and a formula is extrapolated. The point is
+    // returned valid and flagged `outsideRange`, so the window can draw it and
+    // shade the band while the table and its export still say which rows are
+    // not measurement. A gap here means no value at all.
+    const outsideRange = !response.inRange;
+    if (!response.derivatives || response.maxOrder < 3) {
         return {
             wavelengthNm,
             valid: false,
-            reason: !response.inRange
-                ? `${material?.name || material?.id || 'Material'}: wavelength is outside the model range`
-                : `${material?.name || material?.id || 'Material'}: third-order derivatives are unavailable`,
+            reason: `${material?.name || material?.id || 'Material'}: third-order derivatives are unavailable`,
             model: response.model,
             phaseModel: response.phaseModel,
             phaseContinuousOrder: response.phaseContinuousOrder,
@@ -276,6 +308,7 @@ export function materialPropagationDispersion(material, wavelengthNm, thicknessM
         gddFs2: distanceOverC * (2 * first + omega * second),
         todFs3: distanceOverC * (3 * second + omega * third),
         groupIndex: n + omega * first,
+        outsideRange,
         model: response.model,
         phaseModel: response.phaseModel,
         phaseContinuousOrder: response.phaseContinuousOrder,

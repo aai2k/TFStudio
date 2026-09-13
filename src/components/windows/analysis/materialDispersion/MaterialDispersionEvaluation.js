@@ -2,6 +2,7 @@
 
 import { MaterialPicker } from '../../../ui/MaterialPicker.js';
 import { ExportMenu, useCsvExport } from '../../../ui/ExportMenu.js';
+import { materialCoverageBands } from '../../../ui/chartOptions.js';
 import { csvFromRows, ResultsGrid, ResultsSection } from '../../../ui/ResultsSection.js';
 import { ChoiceGroup, NumInput, RangeField } from '../chrome/controls.js';
 import { AnalysisWindow, ControlRow, PlotArea } from '../chrome/layout.js';
@@ -15,13 +16,14 @@ import {
     materialKnotWavelengths, materialPropagationDispersion,
 } from '../../../../utils/materials/materialDispersion.js';
 import { resolveDesignMaterial } from '../../../../utils/materials/designMaterials.js';
-import { clampToCovered, materialRangeNm } from '../../../../utils/materials/materialRange.js';
+import { uncoveredMaterialRegions } from '../../../../utils/materials/materialRange.js';
+import { useMaterialsRangeNotice } from '../../../materials/MaterialRangeNotice.js';
 import { useAnalysisColors } from '../../../../state/AnalysisSettingsContext.js';
 import { useDesign } from '../../../../state/DesignContext.js';
 import { materialDispersionSession } from './sessionState.js';
 import { useWindowSession } from '../../windowSession.js';
 
-const { createElement: h, useMemo } = React;
+const { createElement: h, useCallback, useMemo } = React;
 
 // `tr` names the axis title in t.gdgdd, which the Group Delay / GDD window
 // already carries for the same quantities. `knot` names the pair of one-sided
@@ -91,6 +93,7 @@ function buildSpectrum(material, start, end, thicknessMm) {
     return {
         lambda,
         values,
+        materialName: material.name || material.id || '',
         knotSamples: sampleKnots(lambda, grid.knots, at),
         invalid: values.filter(value => !value.valid),
         model: values.find(value => value.model)?.model || 'Unavailable',
@@ -188,11 +191,19 @@ function Setup({ state, c, t }) {
     );
 }
 
-function tableModel(spectrum, text, lambdaAxis) {
+function tableModel(spectrum, text, lambdaAxis, outsideLabel) {
     if (!spectrum) return { columns: [], rows: [] };
+    // Rows taken from outside the material's data are marked with the material,
+    // the same name the plot's shaded band carries. The plot says which part of
+    // the curve is not measurement; without this column a row copied out of the
+    // table, or read from the exported file, would not.
+    const outside = spectrum.values.some(value => value.outsideRange);
     // The group index is a symbol and reads the same everywhere.
     const columns = [
         { key: 'lambda', label: lambdaAxis, align: 'left', fmt: value => value.toFixed(2) },
+        ...(outside
+            ? [{ key: 'outside', label: outsideLabel, align: 'left', fmt: value => value || '' }]
+            : []),
         { key: 'phase', label: text.phaseAxis, fmt: value => value.toFixed(2) },
         { key: 'gd', label: text.gdAxis, fmt: value => value.toFixed(3) },
         { key: 'gdd', label: text.gddAxis, fmt: value => value.toFixed(3) },
@@ -202,6 +213,7 @@ function tableModel(spectrum, text, lambdaAxis) {
     ];
     const rows = spectrum.values.map((value, index) => ({
         lambda: spectrum.lambda[index],
+        outside: value.outsideRange ? spectrum.materialName : '',
         phase: value.valid ? value.phaseRad * 180 / Math.PI : NaN,
         gd: value.valid ? value.gdFs : NaN,
         gdd: value.valid ? value.gddFs2 : NaN,
@@ -210,23 +222,6 @@ function tableModel(spectrum, text, lambdaAxis) {
         groupIndex: value.valid ? value.groupIndex : NaN,
     }));
     return { columns, rows };
-}
-
-/**
- * The notice's fix button, when the plotted range reaches past the material's
- * declared data and pulling it in would clear that part of the masking.
- */
-function rangeAction(material, start, end, patchSession, t) {
-    const covered = material ? materialRangeNm(material) : null;
-    const fixed = covered ? clampToCovered(covered, [start, end]) : null;
-    if (!fixed || (fixed[0] <= start && fixed[1] >= end)) return {};
-    const format = value => (Math.round(value * 10) / 10).toString();
-    return {
-        action: {
-            label: t.materialRange.fixAction(format(fixed[0]), format(fixed[1])),
-            onClick: () => patchSession({ start: fixed[0], end: fixed[1] }),
-        },
-    };
 }
 
 export function MaterialDispersionEvaluation({ c, t }) {
@@ -250,12 +245,25 @@ export function MaterialDispersionEvaluation({ c, t }) {
     );
     const quantityMeta = QUANTITIES[quantity];
     const plotData = plotModel(spectrum, quantity, quantityMeta);
-    const table = tableModel(spectrum, t.gdgdd, t.spectralAxis.lambdaShort);
+    const table = tableModel(
+        spectrum, t.gdgdd, t.spectralAxis.lambdaShort, t.materialRange.outsideColumn);
     const csv = useCsvExport(
         () => csvFromRows(table.columns, table.rows),
         () => `${(material?.name || materialId).replace(/[^\w.-]+/g, '_')}_dispersion.csv`,
     );
     const masked = invalidSummary(spectrum, thicknessUnit);
+    // This window plots one material rather than a design stack, and the edge of
+    // its data is the whole reason to look at it here: the curve is drawn out
+    // there and the band shaded, with the same helpers Optical Evaluation uses.
+    const rangeMaterials = useMemo(() => [{ id: materialId, material }], [materialId, material]);
+    const fixRange = useCallback(
+        ([from, to]) => patchSession({ start: from, end: to }), [patchSession]);
+    const rangeNotice = useMaterialsRangeNotice(rangeMaterials, start, end, t, fixRange);
+    const materialBands = useMemo(
+        () => materialCoverageBands(
+            uncoveredMaterialRegions(rangeMaterials, [start, end]), t.materialRange.bandLabel),
+        [rangeMaterials, start, end, t],
+    );
     const state = {
         materialId, setMaterialId: value => setField('materialId', value),
         thicknessMm, setThicknessMm: value => setField('thicknessMm', value),
@@ -267,14 +275,11 @@ export function MaterialDispersionEvaluation({ c, t }) {
     };
 
     const notices = [];
+    if (rangeNotice) notices.push(rangeNotice);
     if (masked) {
         notices.push({
             label: footerText.maskedShort(spectrum.invalid.length),
             detail: masked,
-            // Samples are masked for several reasons, so the offer to narrow the
-            // range is only made when narrowing would actually change it: that
-            // is the case where this material's declared data ran out.
-            ...rangeAction(material, start, end, patchSession, t),
         });
     }
 
@@ -282,6 +287,7 @@ export function MaterialDispersionEvaluation({ c, t }) {
         h(Controls, { state, c, t, notices }),
         h(PlotArea, null, plotData && h(GDChart, {
             data: plotData,
+            materialBands,
             meta: {
                 label: t.gdgdd[quantityMeta.tr],
                 unit: quantityMeta.unit,

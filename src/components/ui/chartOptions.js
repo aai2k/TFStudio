@@ -78,6 +78,24 @@ export function scatterSeries({
 }
 
 /**
+ * Turn the uncovered regions of `utils/materials/materialRange.js` into the
+ * bands `dimmedBandSeries` draws, labelled with the materials short there.
+ *
+ * Every window that shades material coverage goes through here, so the label
+ * cannot drift between one plot and the next.
+ *
+ * @param {{ x0: number, x1: number, materials: string[] }[]} regions
+ * @param {(names: string) => string} bandLabel  `t.materialRange.bandLabel`
+ */
+export function materialCoverageBands(regions, bandLabel) {
+    return regions.map(region => ({
+        x0: region.x0,
+        x1: region.x1,
+        label: bandLabel(region.materials.join(', ')),
+    }));
+}
+
+/**
  * Silent decoration series that dims x-axis bands of the plot.
  *
  * Used for wavelength spans where a curve is computed from clamped or

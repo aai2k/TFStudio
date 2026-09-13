@@ -232,9 +232,15 @@ const quarterWaveDesign = (() => {
         const value = evaluateDesignPhaseDispersion(quarterWaveDesign, { wavelengthNm: wavelength });
         assert.ok(value.valid && Number.isFinite(value.todFs3), `finite TOD at TiO2 knot side ${wavelength}`);
     }
-    const outOfRange = evaluateDesignPhaseDispersion(quarterWaveDesign, { wavelengthNm: 900 });
-    assert.equal(outOfRange.valid, false);
-    assert.match(outOfRange.reason, /outside the material model range/);
+    // Past the end of TiO2's table the material is held at its last row, so the
+    // point has a value and is returned with the material it was taken outside
+    // of named. A plot draws it and shades the band; the merit function refuses
+    // the row (phase_operand_review_fixes.mjs).
+    const outside = evaluateDesignPhaseDispersion(quarterWaveDesign, { wavelengthNm: 900 });
+    assert.equal(outside.valid, true, 'a clamped material is evaluated, not refused');
+    assert.ok(Number.isFinite(outside.gddFs2) && Number.isFinite(outside.todFs3));
+    assert.equal(outside.outsideRange, getMaterial('TiO2').name,
+        'and names what it was taken outside of');
 }
 
 // Optimizer operands consume the same point evaluator, including worker tables.
@@ -425,6 +431,21 @@ const quarterWaveDesign = (() => {
     close(total.gdFs, 5157.5585, .001, '1 mm BK7 total GD');
     close(total.gddFs2, 77.0445, .001, '1 mm BK7 total GDD');
     close(total.todFs3, 30.8419, .001, '1 mm BK7 total TOD');
+}
+
+// A bulk material read past the end of its table. The table holds its last row
+// out there, so the point has a value and Material Dispersion draws it instead
+// of masking the sample. What the reader sees is the group delay of a
+// dispersionless slab: every frequency derivative of a held value is exactly
+// zero, which is why the band is shaded rather than left to look like data.
+{
+    const silver = getMaterial('Ag');
+    const knots = silver.getNK.nInterpolator.knots;
+    const past = materialPropagationDispersion(silver, knots[knots.length - 1] + 10, 0.000001);
+    assert.equal(past.valid, true, 'a wavelength past the table is evaluated, not masked');
+    assert.ok(past.gdFs > 0, 'the slab still delays the pulse');
+    assert.equal(past.gddFs2, 0, 'but a held index contributes no GDD');
+    assert.equal(past.todFs3, 0, 'and no TOD');
 }
 
 console.log('PASS: analytic_dispersion');

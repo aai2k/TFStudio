@@ -9,6 +9,7 @@ export function GDChart(props) {
     const {
         data, meta, refLambda, showRef, targets = [], yRange, yInterval, c, xLabel,
         editMode = false, editTool = 'draw', lamRange, drawColor, onCreate, onEdit, onDelete,
+        materialBands,
     } = props;
     const divRef = useRef(null);
     const chartRef = useRef(null);
@@ -23,7 +24,7 @@ export function GDChart(props) {
     useEffect(() => {
         if (data) drawChart(divRef.current, chartRef, buildGDChartOption({
             data, meta, referenceLambda: refLambda, showReference: showRef,
-            targets, yRange, yInterval, colors, xLabel, editMode, editTool,
+            targets, yRange, yInterval, colors, xLabel, editMode, editTool, materialBands,
         }));
     });
     useChartTeardown(divRef, chartRef);

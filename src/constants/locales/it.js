@@ -1409,7 +1409,10 @@ export default {
     targets: (n, from, to) =>
       `I target a ${from}–${to} nm escono dall'intervallo dei dati di ${n} material${n === 1 ? 'e' : 'i'}; lì la funzione di merito è valutata su valori mantenuti costanti o estrapolati`,
     materialLine: (name, from, to) => `${name}: ${from}–${to} nm`,
+    materialLineHeld: (name, from, to) =>
+      `${name}: ${from}–${to} nm, fuori è mantenuto costante, quindi lì non aggiunge dispersione`,
     bandLabel: (names) => `nessun dato: ${names}`,
+    outsideColumn: 'Fuori dai dati',
     fixAction: (from, to) => `Imposta l'intervallo a ${from}–${to} nm`,
     fixLambda: (value) => `Imposta λ a ${value} nm`,
   },

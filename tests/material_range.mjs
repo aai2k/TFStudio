@@ -7,7 +7,7 @@
  * fire for materials whose real range nobody knows.
  */
 const { materialRangeNm, rangeExceeds, designRangeCoverage, materialsRangeCoverage,
-  uncoveredRegions, clampToCovered, clampLambdaToCovered } =
+  uncoveredRegions, uncoveredMaterialRegions, clampToCovered, clampLambdaToCovered } =
   await import(new URL('../src/utils/materials/materialRange.js', import.meta.url));
 
 let passed = 0;
@@ -48,6 +48,94 @@ const untagged = (id) => ({ id, name: id, lambdaMin: 0.3, lambdaMax: 2.5 });
     'a non-finite bound is rejected');
   ok(materialRangeNm({ lambdaMin: 1, lambdaMax: 1, rangeDeclared: true }) === null,
     'a zero-width range is rejected');
+}
+
+// ── The reported range is the range that can actually be evaluated ──────────
+//
+// n and k can come from different sources. BK7 states the 300 to 2500 nm
+// validity of its Sellmeier n, while the k table derived from its internal
+// transmittance starts at 310, and the point evaluators refuse everything below
+// that. A range that still read 300 warned about a span ten nanometres wider
+// than the one the window would draw, so the first 10 nm went missing with no
+// notice, no band and no fix button.
+{
+  const { buildBuiltinCatalog } = await import(
+    new URL('../src/utils/materials/catalogManager/builtinCatalog.js', import.meta.url));
+  const { materialOmegaResponse } = await import(
+    new URL('../src/utils/materials/materialDispersion.js', import.meta.url));
+
+  const bk7 = buildBuiltinCatalog().materials.BK7;
+  ok(bk7.lambdaMin === 0.3 && bk7.lambdaMax === 2.5,
+    'the material still declares the validity range of its Sellmeier n');
+
+  const range = materialRangeNm(bk7);
+  ok(range[0] === 310 && range[1] === 2500,
+    'and the reported range is that intersected with the k table');
+  ok(materialOmegaResponse(bk7, range[0]).inRange && materialOmegaResponse(bk7, range[1]).inRange,
+    'both ends of the reported range evaluate');
+  ok(!materialOmegaResponse(bk7, range[0] - 0.1).inRange,
+    'and the wavelength below the low end does not');
+
+  // A tabulated material's own extent bounds it the same way, whether or not
+  // the record around it states one.
+  const table = { formulaNum: -1, interp: 'pchip', tabData: [[400, 1.5, 0], [600, 1.6, 0]] };
+  const { makeGetNK } = await import(
+    new URL('../src/utils/materials/catalogManager/dispersion.js', import.meta.url));
+  const tabulated = { id: 'x:table', name: 'Table', ...table, getNK: makeGetNK(table) };
+  const built = materialRangeNm(tabulated);
+  ok(built[0] === 400 && built[1] === 600, 'a table with no stated bounds reports its own');
+
+  // Which kind of outside it is. Past its last row a table holds the end value,
+  // so its index has no slope out there and the material adds no dispersion at
+  // all; a formula carries on past the band it was fitted over.
+  const { offenders } = materialsRangeCoverage([
+    { id: 'x:table', material: tabulated },
+    { id: 'x:formula', material: declared('x:formula', 0.4, 0.6) },
+  ], [300, 900]);
+  ok(offenders.find(item => item.id === 'x:table').heldFlat === true,
+    'a tabulated index is reported as held flat outside its range');
+  ok(offenders.find(item => item.id === 'x:formula').heldFlat === false,
+    'and an analytic one is not');
+  const bare = { id: 'x:bare', lambdaMin: 0.4, lambdaMax: 0.6, ...table };
+  ok(materialsRangeCoverage([{ id: 'x:bare', material: bare }], [300, 900])
+    .offenders[0].heldFlat === true,
+    'a table is held flat whether or not a sampler has been built over it');
+
+  // A k table stops the material dead whether or not the file it came from
+  // stated a range. An AGF glass with internal-transmittance rows and no LD
+  // record is the case: the evaluator refuses outside the table, so a notice
+  // that stayed silent there would disagree with the merit function.
+  const kOnly = { formulaNum: 1, coefficients: [1, 0, 0, 0, 0, 0], rangeDeclared: false,
+    kTable: [{ lam_um: 0.4, k: 1e-7 }, { lam_um: 0.9, k: 2e-7 }] };
+  const undeclared = materialRangeNm({ ...kOnly, getNK: makeGetNK(kOnly) });
+  ok(undeclared[0] === 400 && undeclared[1] === 900,
+    'a k table gives a range even when the material declares none');
+
+  // The two can fail to overlap, which is a k table entered in the wrong unit.
+  // The material can then be read nowhere, and that is the one it is least
+  // acceptable to say nothing about.
+  const wrongUnit = { formulaNum: 1, coefficients: [1, 0, 0, 0, 0, 0],
+    lambdaMin: 0.4, lambdaMax: 0.8, rangeDeclared: true,
+    kTable: [{ lam_um: 1.0, k: 1e-7 }, { lam_um: 2.0, k: 2e-7 }] };
+  const disjoint = materialRangeNm({ ...wrongUnit, getNK: makeGetNK(wrongUnit) });
+  ok(disjoint[0] === 400 && disjoint[1] === 800,
+    'an empty intersection still reports a range rather than dropping the warning');
+}
+
+// ── uncoveredMaterialRegions: the same bands over an explicit material list ──
+{
+  const materials = [
+    { id: 'x:narrow', material: declared('x:narrow', 0.4, 0.7) },
+    { id: null, material: declared('unset', 0.5, 0.6) },
+  ];
+  const regions = uncoveredMaterialRegions(materials, [300, 900]);
+  ok(regions.length === 2, 'one region per contiguous uncovered span');
+  ok(regions[0].x0 === 300 && regions[0].x1 === 400 && regions[0].materials[0] === 'x:narrow',
+    'the low region runs to the material edge and names it');
+  ok(regions[1].x0 === 700 && regions[1].x1 === 900, 'and the high region starts at the other');
+  ok(uncoveredMaterialRegions(materials, [450, 650]).length === 0,
+    'a covered range draws no bands');
+  ok(uncoveredMaterialRegions([], [300, 900]).length === 0, 'no materials, no bands');
 }
 
 // ── rangeExceeds: touching the limits exactly must not warn ─────────────────

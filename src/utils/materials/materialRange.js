@@ -18,6 +18,7 @@
  * the evaluation code and the UI both work in.
  */
 import { designMaterialIds, resolveDesignMaterial } from './designMaterials.js';
+import { materialTableExtentsNm } from './materialDispersion.js';
 
 const UM_TO_NM = 1000;
 
@@ -32,7 +33,27 @@ function hasTabulatedData(material) {
 }
 
 /**
- * Declared validity range of one material.
+ * True when the material's index comes from a table.
+ *
+ * Past the last row a table holds its end value, so every frequency derivative
+ * of it is exactly zero from there on: outside its range such a material
+ * contributes no dispersion at all, while a formula keeps going smoothly,
+ * extrapolated past the band it was fitted over but still dispersive.
+ */
+function indexHeldFlat(material) {
+    return !!material?.getNK?.nInterpolator || hasTabulatedData(material);
+}
+
+/**
+ * Range of one material, over the wavelengths its optical constants can
+ * actually be evaluated at.
+ *
+ * A stated range and the tables behind it can disagree, and the difference is
+ * what a reader loses without notice: where a table stops short, the point
+ * evaluators refuse that wavelength while the stated range says it is covered.
+ * A table extent is itself a declaration, so it counts on its own — a k table
+ * beside a formula stops the material dead whether or not the file it came from
+ * stated a range.
  *
  * @param   {object} material
  * @returns {[number, number]|null} `[minNm, maxNm]`, or null when the material
@@ -40,12 +61,22 @@ function hasTabulatedData(material) {
  */
 export function materialRangeNm(material) {
     if (!material) return null;
-    if (material.rangeDeclared !== true && !hasTabulatedData(material)) return null;
 
-    const min = Number(material.lambdaMin) * UM_TO_NM;
-    const max = Number(material.lambdaMax) * UM_TO_NM;
-    if (!Number.isFinite(min) || !Number.isFinite(max) || max <= min) return null;
-    return [min, max];
+    const bounds = [];
+    const declared = [Number(material.lambdaMin) * UM_TO_NM, Number(material.lambdaMax) * UM_TO_NM];
+    const declares = material.rangeDeclared === true || hasTabulatedData(material);
+    if (declares && declared.every(Number.isFinite)) bounds.push(declared);
+    bounds.push(...materialTableExtentsNm(material));
+    if (!bounds.length) return null;
+
+    const min = Math.max(...bounds.map(bound => bound[0]));
+    const max = Math.min(...bounds.map(bound => bound[1]));
+    if (max > min) return [min, max];
+    // Nothing overlaps, so the material can be read nowhere: a k table entered
+    // in the wrong unit, or one row of it. Report the first pair that is a range
+    // at all rather than nothing, since the material that covers least is the
+    // one the reader most needs named.
+    return bounds.find(pair => pair[1] > pair[0]) || null;
 }
 
 /** True when `[from, to]` reaches outside `range`, edges excluded. */
@@ -71,7 +102,8 @@ function normalizedRange(evaluated) {
  *
  * @param   {object} design
  * @param   {[number, number]} evaluated `[fromNm, toNm]`, either order
- * @returns {{ offenders: {id: string, name: string, rangeNm: [number, number]}[],
+ * @returns {{ offenders: {id: string, name: string, rangeNm: [number, number],
+ *                         heldFlat: boolean}[],
  *             covered: [number, number]|null }}
  *          `covered` is the span every declared material covers — the range
  *          over which no value is clamped or extrapolated.
@@ -94,7 +126,8 @@ export function designRangeCoverage(design, evaluated) {
  * @param   {{ id: string, material: object }[]} materials  a material listed
  *          twice is checked once; an entry without an id has nothing to check
  * @param   {[number, number]} evaluated `[fromNm, toNm]`, either order
- * @returns {{ offenders: {id: string, name: string, rangeNm: [number, number]}[],
+ * @returns {{ offenders: {id: string, name: string, rangeNm: [number, number],
+ *                         heldFlat: boolean}[],
  *             covered: [number, number]|null }}
  */
 export function materialsRangeCoverage(materials, evaluated) {
@@ -116,7 +149,12 @@ export function materialsRangeCoverage(materials, evaluated) {
         low = Math.max(low, rangeNm[0]);
         high = Math.min(high, rangeNm[1]);
         if (rangeExceeds(rangeNm, span)) {
-            offenders.push({ id, name: material.name || id, rangeNm });
+            offenders.push({
+                id,
+                name: material.name || id,
+                rangeNm,
+                heldFlat: indexHeldFlat(material),
+            });
         }
     }
 
@@ -182,11 +220,28 @@ export function clampLambdaToCovered(covered, lambdaNm) {
  * @returns {{ x0: number, x1: number, materials: string[] }[]} ascending, in nm
  */
 export function uncoveredRegions(design, evaluated) {
+    return regionsFromOffenders(designRangeCoverage(design, evaluated).offenders, evaluated);
+}
+
+/**
+ * The same bands over an explicit set of materials, for a window that plots
+ * something other than a design stack. Material Dispersion plots one material,
+ * where the edge of its data is the whole point of looking at it there.
+ *
+ * @param   {{ id: string, material: object }[]} materials
+ * @param   {[number, number]} evaluated `[fromNm, toNm]`, either order
+ * @returns {{ x0: number, x1: number, materials: string[] }[]} ascending, in nm
+ */
+export function uncoveredMaterialRegions(materials, evaluated) {
+    return regionsFromOffenders(materialsRangeCoverage(materials, evaluated).offenders, evaluated);
+}
+
+function regionsFromOffenders(offenders, evaluated) {
     const span = normalizedRange(evaluated);
     if (!span) return [];
 
     const parts = [];
-    for (const { name, rangeNm } of designRangeCoverage(design, evaluated).offenders) {
+    for (const { name, rangeNm } of offenders) {
         if (span[0] < rangeNm[0] - EDGE_TOLERANCE_NM) {
             parts.push({ x0: span[0], x1: Math.min(rangeNm[0], span[1]), name });
         }

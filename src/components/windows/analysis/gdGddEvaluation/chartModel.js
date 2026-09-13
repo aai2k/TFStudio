@@ -1,6 +1,7 @@
 import { buildGdGddTargetGeometry } from './gdTargets.js';
 import {
-    axisTooltip, cartesianOption, chartToolbox, lineSeries, niceAxisBounds, valueAxis,
+    axisTooltip, cartesianOption, chartToolbox, dimmedBandSeries, lineSeries, niceAxisBounds,
+    valueAxis,
 } from '../../../ui/chartOptions.js';
 import { targetSeries } from '../../../ui/targetSeries.js';
 import { plotMargin } from '../chrome/plot.js';
@@ -8,7 +9,7 @@ import { plotMargin } from '../chrome/plot.js';
 export function buildGDChartOption(options) {
     const {
         data, meta, referenceLambda, showReference, colors, targets = [], yRange, yInterval, xLabel,
-        editMode = false, editTool = 'draw',
+        editMode = false, editTool = 'draw', materialBands,
     } = options;
     // While a target is being drawn the pointer belongs to the editor: the
     // readout would freeze under it, and the rectangle zoom would take the
@@ -44,6 +45,10 @@ export function buildGDChartOption(options) {
             interval: yInterval ?? automatic?.interval,
             scale: !fixedRange,
         }),
-        series: [main, ...targetSeries(targetGeometry)],
+        series: [
+            main,
+            ...targetSeries(targetGeometry),
+            ...dimmedBandSeries(materialBands, colors),
+        ],
     });
 }

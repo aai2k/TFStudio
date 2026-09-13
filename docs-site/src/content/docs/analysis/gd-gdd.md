@@ -99,8 +99,15 @@ Fitting a smooth dispersion model to a material removes its knots, and a saved
 fit replaces the table only inside its stated validity range and is named in the
 model list. Where a table is fine enough that its knots crowd the plotted
 samples, they are left out and the curve is drawn from those samples alone.
-Wavelengths outside any material model range are left blank with a reason
-instead of treating a clamped endpoint as non-dispersive data.
+
+Outside a material's data range the curve is still drawn, over a shaded band
+naming the material and the range it does cover. A table holds the value in its
+last row out there, so its index has no slope and that material adds no
+dispersion in the band: what is left of the curve is the geometry of the stack.
+A formula is extrapolated past the band it was fitted over and keeps dispersing.
+The results table marks those rows with the material, so an exported number is
+never silently an extrapolation, and the notice offers to narrow the plotted
+range to the span every material covers.
 
 ## How to read it
 

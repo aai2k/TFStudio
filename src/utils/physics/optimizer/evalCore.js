@@ -1050,6 +1050,14 @@ function _phaseDispersionPolResult(op, ctx, wavelengthNm, polCode, withThickness
         withThicknessJacobian,
     });
     if (!result.valid) throw new OperandEvaluationError(result.reason);
+    // A value taken outside a material's data range is drawn by the analysis
+    // windows, with the band shaded to say what it is. Scoring one is different:
+    // a target is not looked at, it sets what the optimizer moves the design
+    // towards, so the row is an error instead.
+    if (result.outsideRange) {
+        throw new OperandEvaluationError(
+            `${result.outsideRange}: wavelength is outside the material model range`);
+    }
     ctx._phaseDispersionCache.set(key, result);
     return result;
 }

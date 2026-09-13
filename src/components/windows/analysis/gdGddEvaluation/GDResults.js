@@ -8,7 +8,7 @@ const { createElement: h, useMemo } = React;
 // Stable identity for "no targets", so hiding them does not re-plot every frame.
 const EMPTY_TARGETS = [];
 
-export function GDResults({ c, t, text, state, view, exportMenu, yRange, editor }) {
+export function GDResults({ c, t, text, state, view, exportMenu, yRange, editor, materialBands }) {
     const dt = t.dataTable;
     // The editor sizes a point target's handle against the plotted span. A
     // fresh range object on every render would rebuild the handles each frame.
@@ -26,7 +26,7 @@ export function GDResults({ c, t, text, state, view, exportMenu, yRange, editor 
                     refLambda: state.refLam, showRef: state.showRef, c,
                     targets, yRange,
                     yInterval: state.yAuto ? view.autoRange?.interval : undefined,
-                    xLabel: t.spectralAxis.nm,
+                    xLabel: t.spectralAxis.nm, materialBands,
                     editMode: editor.editMode, editTool: editor.editTool, lamRange,
                     drawColor: gdGddTargetColor(state.target),
                     onCreate: editor.onCreate, onEdit: editor.onEdit, onDelete: editor.onDelete,

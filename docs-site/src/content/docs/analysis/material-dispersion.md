@@ -44,10 +44,19 @@ orders still describe that interpolation choice. PCHIP is continuous through
 its first derivative; GDD and TOD can jump at table knots. The plot samples each
 knot and draws the jump as a step through the value on each side of it, so the
 curve is never cut there. A gap means the opposite, that the sample has no value:
-a wavelength outside a model range, or one the thickness has masked. A
-user-created smooth fit is used only inside the validity range stored with the
-material. Points outside a model range are blank and the window reports how many
-were omitted.
+a wavelength the thickness has masked, or one whose model cannot supply
+third-order derivatives. The window's notice gives the reason.
+
+Outside the material's data range the curve is still drawn, over a shaded band
+naming the material and the range it does cover. A table holds the value in its
+last row out there, so its index has no slope and the material adds no
+dispersion at all: what is plotted in the band is the delay of a dispersionless
+slab. A formula is extrapolated past the band it was fitted over and keeps
+dispersing, which is a model outside its validity rather than an absence of one.
+A user-created smooth fit is used only inside the validity range stored with the
+material. The results table marks those rows with the material, so an exported
+number is never silently an extrapolation, and narrowing the plotted range to
+the covered span is one click on the notice.
 
 For an absorbing material, k does not enter propagation phase directly. It
 sets how much of the direct pulse survives. TFStudio masks wavelengths where

@@ -4,8 +4,10 @@
  */
 
 import { useDesign } from '../../../../state/DesignContext.js';
+import { uncoveredRegions } from '../../../../utils/materials/materialRange.js';
 import { useMaterialRangeNotice } from '../../../materials/MaterialRangeNotice.js';
 import { csvFromRows } from '../../../ui/ResultsSection.js';
+import { materialCoverageBands } from '../../../ui/chartOptions.js';
 import { ExportMenu, useCsvExport } from '../../../ui/ExportMenu.js';
 import { AnalysisWindow, CenteredMessage } from '../chrome/layout.js';
 import { GDControls } from './GDControls.js';
@@ -45,6 +47,16 @@ export function GDGDDEvaluation({ c, theme, t }) {
     };
     const rangeNotice = useMaterialRangeNotice(
         design, state.lamStart, state.lamEnd, t, fixRange);
+    // The curve is drawn wherever a value exists, so an out-of-range wavelength
+    // is shaded rather than left as a gap: a gap on this plot means there is no
+    // value at all. Same helpers as Optical Evaluation, so the two windows
+    // cannot disagree about where the data stops.
+    const materialBands = useMemo(
+        () => materialCoverageBands(
+            uncoveredRegions(design, [state.lamStart, state.lamEnd]),
+            t.materialRange.bandLabel),
+        [design, state.lamStart, state.lamEnd, t],
+    );
 
     // The view holds the chart series and axis range. Rebuilding it on every
     // render hands the chart new objects each time and forces a full re-plot of a
@@ -53,6 +65,7 @@ export function GDGDDEvaluation({ c, theme, t }) {
         quantity: state.quantity,
         referenceLambda: state.refLam,
         showReference: state.showRef,
+        outsideLabel: t.materialRange.outsideColumn,
     }, text, curve, t.spectralAxis.lambdaShort),
     [state.raw, state.quantity, state.refLam, state.showRef, text, curve, t]);
     // A fresh bounds array on every render counts as a changed chart input and
@@ -87,6 +100,6 @@ export function GDGDDEvaluation({ c, theme, t }) {
             autoRange: view.autoRange, notices, editor,
         }),
         h(GDTargetToolbar, { c, text, editor, unit: view.meta.unit }),
-        h(GDResults, { c, t, text, state, view, exportMenu, yRange, editor }),
+        h(GDResults, { c, t, text, state, view, exportMenu, yRange, editor, materialBands }),
     );
 }
