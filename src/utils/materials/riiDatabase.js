@@ -21,6 +21,6 @@
 export { loadCatalog, clearCatalogCache, getDatabaseStatus, updateDatabase } from './riiDatabase/catalog.js';
 export { fetchMaterial, parseMaterialDoc } from './riiDatabase/materialParser.js';
 export { evalFormulaN } from './riiDatabase/formulas.js';
-export { sampleMaterial } from './riiDatabase/sampling.js';
+export { sampleMaterial, sampledRangeNm, RII_SAMPLE_RANGE_NM } from './riiDatabase/sampling.js';
 export { searchCatalog } from './riiDatabase/search.js';
 export { riiToMaterialEntry } from './riiDatabase/catalogEntry.js';

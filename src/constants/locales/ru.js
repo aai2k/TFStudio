@@ -716,6 +716,7 @@ export default {
   windowTitles: {
     'design-editor':   'Редактор',
     'material-editor': 'Материалы',
+    'coating-library': 'Библиотека покрытий',
     'nk-characterization': 'Определение n, k',
     'specification':   'Спец.',
     'merit-function':  'Ред. MF',
@@ -750,6 +751,7 @@ export default {
     'zemax-coatings':  'Покрытия Zemax',
     'spectrum-exchange': 'Измеренные спектры',
     'measured-ellipsometry': 'Измеренная эллипсометрия',
+    'report-gen':      'Отчёт',
   },
   monitorWorksheet: {
     noDesign:   'Проект не выбран.',
@@ -2767,13 +2769,13 @@ export default {
     p7Title: 'Итоговые характеристики',p7Sub: 'Изготовленный и теоретический спектр и послойные ошибки.',
 
     material:   'Материал',
-    meanRate:   'Средняя скорость',
-    rms:        'СКО',
-    corrTime:   'Время корр.',
+    meanRate:   'Средняя скорость, Å/с',
+    rms:        'СКО, Å/с',
+    corrTime:   'Время корр., с',
     yAxisAt0:   'Ось Y от 0',
     randomize:  'Случ. и обновить',
     timeAxis:   'Время, с',
-    rateAxis:   'Скорость, нм/с',
+    rateAxis:   'Скорость, Å/с',
 
     systRandTitle: 'Систематические и случайные отклонения (по материалам)',
     colNum:      '№',
@@ -2831,7 +2833,7 @@ export default {
     play: '▶ Воспр.', pause: '⏸ Пауза', reset: 'Сброс',
     wavelengthAxis: 'Длина волны, нм',
 
-    runFirst:    'Сначала выполните эксперимент осаждения на странице 5.',
+    runFirst:    'Сначала выполните эксперимент осаждения на странице 6.',
     spectralPerf:'Спектральные характеристики',
     relErrors:   'Относительные ошибки',
     absErrors:   'Абсолютные ошибки',

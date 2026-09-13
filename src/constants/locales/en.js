@@ -724,6 +724,7 @@ export default {
   windowTitles: {
     'design-editor':   'Design Editor',
     'material-editor': 'Material Editor',
+    'coating-library': 'Coating Library',
     'nk-characterization': 'n,k Characterization',
     'specification':   'Specification',
     'merit-function':  'Merit Function Editor',
@@ -758,6 +759,7 @@ export default {
     'zemax-coatings':  'Zemax Coatings',
     'spectrum-exchange': 'Measured Spectra',
     'measured-ellipsometry': 'Measured Ellipsometry',
+    'report-gen':      'Report',
   },
   monitorWorksheet: {
     noDesign:   'No design selected.',
@@ -2795,13 +2797,13 @@ export default {
     p7Title: 'Resulting Performance',  p7Sub: 'Manufactured vs theoretical spectrum and per-layer errors.',
 
     material:   'Material',
-    meanRate:   'Mean rate',
-    rms:        'RMS',
-    corrTime:   'Corr. time',
+    meanRate:   'Mean rate, Å/s',
+    rms:        'RMS, Å/s',
+    corrTime:   'Corr. time, s',
     yAxisAt0:   'Y axis at 0',
     randomize:  'Rndm & Update',
     timeAxis:   'Time, s',
-    rateAxis:   'Rate, nm/s',
+    rateAxis:   'Rate, Å/s',
 
     systRandTitle: 'Systematic & random deviations (per material)',
     colNum:      '#',
@@ -2859,7 +2861,7 @@ export default {
     play: '▶ Play', pause: '⏸ Pause', reset: 'Reset',
     wavelengthAxis: 'Wavelength, nm',
 
-    runFirst:    'Run a deposition experiment on page 5 first.',
+    runFirst:    'Run a deposition experiment on page 6 first.',
     spectralPerf:'Spectral performance',
     relErrors:   'Relative errors',
     absErrors:   'Absolute errors',

@@ -4,8 +4,8 @@
  * Pins pure helpers that moved during the materialEditor/ decomposition
  * (MaterialEditor.js + RIIBrowser.js split into a hook + small render/action
  * modules; see useMaterialEditor.js, useRIIBrowser.js):
- *   - riiRightPanel.js: wlRange (wavelengthRange / tableNK / no-data fallback)
- *     and typeLabel (known RII material types + unknown passthrough).
+ *   - riiRightPanel.js: wlRange (the span that will be sampled, and the no-data
+ *     fallback) and typeLabel (known RII material types + unknown passthrough).
  *   - riiEffects.js: toggleInSet (immutable Set toggle used by the shelf/book
  *     tree expand/collapse state).
  *
@@ -26,9 +26,15 @@ let fails = 0;
 const ok = (cond, msg) => { if (!cond) { console.error('FAIL:', msg); fails++; } else { console.log('  ✓', msg); } };
 
 // ── wlRange ─────────────────────────────────────────────────────────────────
-ok(wlRange({ wavelengthRange: [200.4, 2500.6] }) === '200–2501 nm', 'wlRange: wavelengthRange rounds to nearest nm');
-ok(wlRange({ tableNK: [[300, 1.5, 0], [1000, 1.4, 0]] }) === '300–1000 nm', 'wlRange: falls back to tableNK span');
-ok(wlRange({ wavelengthRange: [200, 2500], tableNK: [[300, 1.5, 0]] }) === '200–2500 nm', 'wlRange: wavelengthRange takes priority over tableNK');
+// wlRange reports the span that will be sampled, so the panel agrees with the
+// chart beside it and with what an import stores. It used to print the record's
+// declared range in preference to its data, which for an infrared record was a
+// range fifty times wider than the one that arrived. See tests/rii_sampled_range.mjs.
+ok(wlRange({ tableNK: [[300, 1.5, 0], [1000, 1.4, 0]] }) === '300–1000 nm', 'wlRange: a table reads its own span');
+ok(wlRange({ tableNK: [[200.4, 1.5, 0], [2500.6, 1.4, 0]] }) === '200–2501 nm', 'wlRange: rounds to nearest nm');
+ok(wlRange({ wavelengthRange: [200, 2500], tableNK: [[300, 1.5, 0]] }) === '300–300 nm', 'wlRange: the data wins over the declared range');
+ok(wlRange({ tableNK: [[500, 2.1, 0], [900000, 2.6, 0]] }) === '500–500 nm', 'wlRange: rows past the sampling window are not offered');
+ok(wlRange({ wavelengthRange: [200.4, 2500.6] }) === '—', 'wlRange: a declared range with no data behind it is not a span');
 ok(wlRange({}) === '—', 'wlRange: no data → em dash placeholder');
 ok(wlRange({ tableNK: [] }) === '—', 'wlRange: empty tableNK → em dash placeholder');
 

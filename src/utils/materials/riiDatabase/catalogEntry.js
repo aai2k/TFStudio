@@ -3,7 +3,7 @@
  */
 
 import { RII_RAW_BASE } from './fetch.js';
-import { sampleMaterial } from './sampling.js';
+import { sampleMaterial, RII_SAMPLE_RANGE_NM } from './sampling.js';
 import { TABULATED_INTERPOLATION } from '../pchip.js';
 
 /**
@@ -13,10 +13,11 @@ import { TABULATED_INTERPOLATION } from '../pchip.js';
  * Returns a material entry object (not a full catalog — caller adds it to a catalog).
  */
 export function riiToMaterialEntry(mat, pageName, bookName) {
-    // Wide range so IR-only materials aren't rejected and NIR/IR tails aren't
-    // truncated; the material's wavelengthRange still bounds the actual samples.
-    const samples = sampleMaterial(mat, 200, 20000, 10);
-    if (samples.length === 0) throw new Error('No data in wavelength range 200-20000 nm');
+    // The material's own data still bounds the samples inside this window.
+    const samples = sampleMaterial(mat, ...RII_SAMPLE_RANGE_NM, 10);
+    if (samples.length === 0) {
+        throw new Error(`No data in wavelength range ${RII_SAMPLE_RANGE_NM[0]}-${RII_SAMPLE_RANGE_NM[1]} nm`);
+    }
 
     const lmin_um = samples[0][0] / 1000;
     const lmax_um = samples[samples.length - 1][0] / 1000;

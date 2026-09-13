@@ -138,9 +138,14 @@ export const App = () => {
                     moveFolder:           project.moveFolder,
                     dirtyDesigns:         store.dirtyDesigns,
                     setInputDialog,
+                    // Opening a design is a request to look at it, so it focuses
+                    // the Design Editor already on screen rather than docking a
+                    // second one. A double-click fires this once on top of two
+                    // row clicks, and the ribbon is still the way to ask for a
+                    // second editor.
                     onOpenDesign: (item) => {
                         project.setSelectedItem(item);
-                        workspace.openTool('design-editor');
+                        workspace.openTool('design-editor', { focusExisting: true });
                     }
                 }),
                 h(DockingLayout, {

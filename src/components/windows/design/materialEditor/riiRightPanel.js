@@ -3,17 +3,18 @@
  * add-to-catalog action bar (including the destination-catalog picker).
  */
 
+import { sampledRangeNm } from '../../../../utils/materials/riiDatabase.js';
+
 const { createElement: h } = React;
 
+// The span that will be plotted beside this line and stored if the material is
+// added, not the range the database record declares. The two differ whenever a
+// record reaches past the sampling window, which infrared entries routinely do:
+// one declares 500 to 1000000 nm and delivers 500 to 19947.
 export function wlRange(mat) {
-    if (mat.wavelengthRange) {
-        return `${Math.round(mat.wavelengthRange[0])}–${Math.round(mat.wavelengthRange[1])} nm`;
-    }
-    if (mat.tableNK?.length) {
-        const lo = mat.tableNK[0][0], hi = mat.tableNK[mat.tableNK.length - 1][0];
-        return `${Math.round(lo)}–${Math.round(hi)} nm`;
-    }
-    return '—';
+    const range = sampledRangeNm(mat);
+    if (!range) return '—';
+    return `${Math.round(range[0])}–${Math.round(range[1])} nm`;
 }
 
 export function typeLabel(type) {
