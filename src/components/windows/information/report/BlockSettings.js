@@ -16,6 +16,7 @@ import { BUILTIN_TYPES, withDefaults } from '../../../../utils/report/blocks.js'
 import { blockName } from './blockText.js';
 import { TextArea, AngleListField, PanelButton } from './controls.js';
 import { RAIL_WIDTH } from './BlockRail.js';
+import { DISPERSION_QUANTITY_KEYS } from '../../../../utils/report/sections/dispersion.js';
 
 const { createElement: h } = React;
 
@@ -152,8 +153,9 @@ const FORMS = {
         h(SettingRow, { c, key: 'pol', label: W.polarization },
             h(ChoiceGroup, { c, items: POL_ITEMS, activeId: s.pol, onSelect: id => set('pol', id) })),
         h(SettingRow, { c, key: 'quantities', label: W.quantities, wrap: true },
-            [['phase', W.phase], ['gd', 'GD'], ['gdd', 'GDD'], ['tod', 'TOD']].map(([key, label]) => h(CheckField, {
-                key, c, label, checked: !!s.quantities?.[key],
+            DISPERSION_QUANTITY_KEYS.map(key => h(CheckField, {
+                label: key === 'phase' ? W.phase : key.toUpperCase(),
+                key, c, checked: !!s.quantities?.[key],
                 onChange: e => set('quantities', { ...s.quantities, [key]: e.target.checked }),
             }))),
         h(SettingDivider, { c, key: 'd' }),

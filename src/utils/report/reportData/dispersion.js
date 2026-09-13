@@ -1,11 +1,12 @@
 /**
  * Phase dispersion of a coating for the report: phase, group delay, group delay
- * dispersion and third-order dispersion against wavelength, from the same
- * analytic evaluator the Group Delay window uses, on the block's own grid.
+ * dispersion, chromatic dispersion coefficient and third-order dispersion
+ * against wavelength, from the same analytic evaluator the Group Delay window
+ * uses, on the block's own grid.
  */
 
 import { createDesignPhaseDispersionEvaluator } from '../../physics/phaseDispersion.js';
-import { unwrapPhase } from '../../physics/thinFilmMath.js';
+import { chromaticDispersionCoefficient, unwrapPhase } from '../../physics/thinFilmMath.js';
 
 function normalizeRadians(value) {
   return ((value + Math.PI) % (2 * Math.PI) + 2 * Math.PI) % (2 * Math.PI) - Math.PI;
@@ -40,8 +41,8 @@ function unwrapFiniteRuns(phases) {
  * @param {object} design
  * @param {object} s  { lambdaStart, lambdaEnd, lambdaStep, theta, target: 'R'|'T',
  *                      pol: 'avg'|'s'|'p', side: 'front'|'back' }
- * @returns {{ lambda, phaseDeg, gd, gdd, tod, invalid: number, side, target, pol, theta }}
- *          gd in fs, gdd in fs², tod in fs³
+ * @returns {{ lambda, phaseDeg, gd, gdd, cdc, tod, invalid: number, side, target, pol, theta }}
+ *          gd in fs, gdd in fs², cdc in fs/nm, tod in fs³
  */
 export function computeGdGdd(design, s) {
   const { lambdaStart = 400, lambdaEnd = 800, lambdaStep = 1, theta = 0, target = 'R', pol = 'avg', side = 'front' } = s;
@@ -59,6 +60,7 @@ export function computeGdGdd(design, s) {
     lambda,
     phaseDeg: unwrapFiniteRuns(pick('phaseRad')).map(v => v * 180 / Math.PI),
     gd: pick('gdFs'), gdd: pick('gddFs2'), tod: pick('todFs3'),
+    cdc: values.map((v, i) => (v.valid ? chromaticDispersionCoefficient(v.gddFs2, lambda[i]) : NaN)),
     invalid: values.filter(v => !v.valid).length,
     side, target, pol, theta,
   };

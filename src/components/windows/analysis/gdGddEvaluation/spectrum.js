@@ -1,4 +1,6 @@
-import { unwrapPhase } from '../../../../utils/physics/thinFilmMath.js';
+import {
+    chromaticDispersionCoefficient, unwrapPhase,
+} from '../../../../utils/physics/thinFilmMath.js';
 import { createDesignPhaseDispersionEvaluator } from '../../../../utils/physics/phaseDispersion.js';
 import { knotGrid, sampleKnots } from '../knots.js';
 
@@ -154,6 +156,13 @@ export function computeGdGddSpectrum(design, options) {
         gd: values.map(value => value.valid ? value.gdFs : NaN),
         gdd: values.map(value => value.valid ? value.gddFs2 : NaN),
         tod: values.map(value => value.valid ? value.todFs3 : NaN),
+        // CDC is GDD against wavelength rather than angular frequency, so the
+        // conversion depends only on the wavelength both polarizations share.
+        // Converting the average is therefore the average of the conversions,
+        // and `averagePolarizations` has nothing to do for this one.
+        cdc: values.map((value, index) => value.valid
+            ? chromaticDispersionCoefficient(value.gddFs2, wavelengths[index])
+            : NaN),
         magnitudeSquared: values.map(value => value.valid ? value.magnitudeSquared : NaN),
         invalid: values
             .filter(value => !value.valid)

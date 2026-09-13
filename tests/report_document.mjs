@@ -197,14 +197,22 @@ assert.equal(layerColumnCount(5, false, 4), 4, 'an explicit column count wins ev
 {
   const d = design(12);
   const blocks = [
-    newBlock('gdGdd', { lambdaStep: 5, quantities: { phase: true, gd: true, gdd: true, tod: true }, tableStep: 50 }),
+    newBlock('gdGdd', { lambdaStep: 5, quantities: { phase: true, gd: true, gdd: true, cdc: true, tod: true }, tableStep: 50 }),
     newBlock('worksheet'),
     newBlock('monteCarlo'),
   ];
   const html = render([d], blocks);
   const gd = section(html, 'gdGdd');
-  assert.equal(count(gd, '<svg'), 4, 'one plot per chosen dispersion quantity');
+  assert.equal(count(gd, '<svg'), 5, 'one plot per chosen dispersion quantity');
   assert.ok(gd.includes('GDD, fs²') && gd.includes('TOD, fs³') && gd.includes('<table'), 'axis units and the stepped table');
+  // CDC is converted from GDD rather than evaluated, so it is the column that
+  // silently empties if the field the renderer reads is not the one the data
+  // builder writes: every cell would be the placeholder dash and the plot flat.
+  assert.ok(gd.includes('CDC, fs/nm'), 'the chromatic dispersion coefficient has its own plot and column');
+  const cdc = gatherDesignData(d, [newBlock('gdGdd', { lambdaStep: 5 })]);
+  const series = Object.values(cdc.blocks)[0].cdc;
+  assert.ok(Array.isArray(series) && series.length > 10, 'the block carries a CDC series');
+  assert.ok(series.every(Number.isFinite), 'with a value at every wavelength');
   const badStep = gatherDesignData(d, [newBlock('gdGdd', { lambdaStep: 0 })]);
   assert.match(Object.values(badStep.blocks)[0].error, /step/i, 'a step of zero is refused instead of looping');
   const ws = section(html, 'worksheet');

@@ -9,6 +9,13 @@
 
 import { windowSessionStores } from '../../windowSession.js';
 import { blockSpec } from '../../../../utils/report/blocks.js';
+import { DISPERSION_QUANTITY_KEYS } from '../../../../utils/report/sections/dispersion.js';
+
+// The block starts with only the quantity the window shows, so every other
+// key the report knows about has to be present and false.
+const allQuantitiesOff = () =>
+    Object.fromEntries(DISPERSION_QUANTITY_KEYS.map(key => [key, false]));
+
 
 // The stores are peeked, not read: a read from the report must not move the
 // window off the design it last showed or reseed what it holds for it.
@@ -36,7 +43,7 @@ const FROM_WINDOW = {
     // The window shows one quantity at a time; the block starts with that one.
     gdGdd: v => ({
         lambdaStart: v.lamStart, lambdaEnd: v.lamEnd, theta: v.theta, target: v.target, pol: v.pol, side: v.side,
-        quantities: v.quantity ? { phase: false, gd: false, gdd: false, tod: false, [v.quantity]: true } : undefined,
+        quantities: v.quantity ? { ...allQuantitiesOff(), [v.quantity]: true } : undefined,
     }),
     ellipsometry: v => ({
         lambdaStart: v.lambdaStart, lambdaEnd: v.lambdaEnd, lambdaStep: v.lambdaStep,

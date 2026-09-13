@@ -15,10 +15,11 @@ function pencilIcon() {
         }));
 }
 
-// A disabled Edit button says why in its tooltip, so a phase plot or the
-// unscored side is not read as the feature being missing.
+// A disabled Edit button says why in its tooltip, so a phase plot, a CDC plot
+// or the unscored side is not read as the feature being missing.
 function editTitle(text, editor) {
     if (editor.editBlocker === 'phase') return text.editPhaseTip;
+    if (editor.editBlocker === 'cdc') return text.editCdcTip;
     if (editor.editBlocker === 'side') return text.editSideTip(text[editor.meritSide]);
     return editor.editMode ? text.editTargetsTooltipOn : text.editTargetsTooltipOff;
 }
@@ -70,10 +71,11 @@ export function GDControls({ c, t, text, state, raw, autoRange, notices, editor 
         h(ChoiceGroup, {
             label: text.quantity, activeId: state.quantity, onSelect: state.setQuantity, c,
             items: [
-                { id: 'phase', label: text.phase },
-                { id: 'gd', label: 'GD' },
-                { id: 'gdd', label: 'GDD' },
-                { id: 'tod', label: 'TOD' },
+                { id: 'phase', label: text.phase, title: text.phaseTip },
+                { id: 'gd', label: 'GD', title: text.gdTip },
+                { id: 'gdd', label: 'GDD', title: text.gddTip },
+                { id: 'cdc', label: 'CDC', title: text.cdcTip },
+                { id: 'tod', label: 'TOD', title: text.todTip },
             ],
         }),
         h(ChoiceGroup, {

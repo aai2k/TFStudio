@@ -7,7 +7,9 @@ ribbonIcon: gd-gdd
 The GD/GDD window computes the spectral phase of a coating and its derivatives
 with respect to angular frequency: group delay (GD), group-delay dispersion
 (GDD), and third-order dispersion (TOD). These quantities describe how a
-coating delays different parts of an optical pulse.
+coating delays different parts of an optical pulse. The same group-delay
+dispersion is also available against wavelength, as the chromatic dispersion
+coefficient (CDC) used in telecommunications.
 
 The phase comes from the complex reflection or transmission coefficient:
 
@@ -16,11 +18,17 @@ The phase comes from the complex reflection or transmission coefficient:
 GD  = -dφ/dω       [fs]
 GDD = -d²φ/dω²     [fs²]
 TOD = -d³φ/dω³     [fs³]
+CDC = GDD·2πc/λ²     [fs/nm]
 ```
+
+CDC carries no information GDD does not: it is the same number per nm of
+wavelength rather than per rad/fs. Fibre data sheets quote the equivalent per
+kilometre of fibre, in ps/(nm·km); a coating has no length, so the unit here
+is fs/nm.
 
 ## Settings
 
-**Quantity**: phase φ, GD, GDD, or TOD.
+**Quantity**: phase φ, GD, GDD, CDC, or TOD.
 
 **Reflection / Transmission**: take the phase from the reflected or transmitted
 complex amplitude.
@@ -37,15 +45,17 @@ transmission minima. There is no derivative or sampling step to tune.
 **AOI**: angle of incidence in degrees, measured in the incident medium.
 
 **Reference wavelength**: shifts the displayed phase to zero at the selected
-wavelength. This constant offset does not change GD, GDD, or TOD.
+wavelength. This constant offset does not change GD, GDD, CDC, or TOD.
 
 **Targets**: shows enabled GD, GDD, or TOD merit-function targets that match
 the selected reflection or transmission response, polarization, and AOI.
 Point operands appear as X markers. Flatness operands show their target level
 and wavelength band. Phase targets are not overlaid because the displayed
-phase may have an arbitrary reference offset. Current phase-dispersion merit
-operands evaluate the front coating normally and the back coating for a
-back-only design, so their overlays appear only on the side they score.
+phase may have an arbitrary reference offset, and CDC has no operand of its
+own, since the same requirement is written as a GDD target. Current
+phase-dispersion merit operands evaluate the front coating normally and the
+back coating for a back-only design, so their overlays appear only on the side
+they score.
 
 **Edit**: build targets on the plot instead of typing them into the
 [Merit Function Editor](/design/merit-function-editor/). Click to add a target
@@ -62,7 +72,8 @@ score.
 ## How the values are calculated
 
 GD, GDD, and TOD are evaluated point by point through third-order Taylor
-arithmetic in the characteristic matrix. The derivatives come from the complex
+arithmetic in the characteristic matrix, and CDC is converted from GDD at the
+same wavelength. The derivatives come from the complex
 logarithmic derivative of `r` or `t`; phase unwrapping is used only to draw the
 phase curve. TFStudio uses `n + ik` with an `exp(-iωt)` time factor, then applies
 the conjugate-Macleod convention once so a material transit time is positive,

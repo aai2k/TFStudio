@@ -1,6 +1,7 @@
 /** Small native-ECharts option factories shared by TFStudio charts. */
 
 import { getCurrentLocale, getLocale } from '../../constants/locales/index.js';
+import { toCompactExponential, toSignificantFigures } from '../../utils/math/significantFigures.js';
 
 export const THIN_X_SYMBOL = 'path://M-5,-4L-4,-5L0,-1L4,-5L5,-4L1,0L5,4L4,5L0,1L-4,5L-5,4L-1,0Z';
 export const LINE_LEGEND_ICON = 'path://M0,4L24,4L24,6L0,6Z';
@@ -445,12 +446,6 @@ export function itemTooltip(colors) {
     }, colors);
 }
 
-function compactExponential(number, significantDigits) {
-    return number.toExponential(Math.max(0, significantDigits - 1))
-        .replace(/(\.\d*?[1-9])0+(?=e)/, '$1')
-        .replace(/\.0+(?=e)/, '')
-        .replace('e+', 'e');
-}
 
 /** Compact axis-tick formatting, including distinct labels for small decades. */
 export function formatChartNumber(value) {
@@ -458,7 +453,7 @@ export function formatChartNumber(value) {
     if (!Number.isFinite(number)) return String(value ?? '');
     const magnitude = Math.abs(number);
     if (magnitude > 0 && (magnitude < 1e-3 || magnitude >= 1e6)) {
-        return compactExponential(number, 3);
+        return toCompactExponential(number, 3);
     }
     const decimals = magnitude >= 100 ? 1 : magnitude >= 1 ? 2 : 4;
     return number.toFixed(decimals).replace(/\.0+$|(\.\d*?[1-9])0+$/, '$1');
@@ -466,16 +461,7 @@ export function formatChartNumber(value) {
 
 /** Higher-precision scientific readout used by tooltips and crosshair labels. */
 export function formatChartReadout(value, significantDigits = 5) {
-    const number = Number(value);
-    if (!Number.isFinite(number)) return String(value ?? '');
-    if (number === 0) return '0';
-    const digits = Math.max(1, Math.floor(significantDigits));
-    const magnitude = Math.abs(number);
-    if (magnitude < 1e-4 || magnitude >= 1e6) return compactExponential(number, digits);
-    const precise = number.toPrecision(digits);
-    return precise.includes('e')
-        ? compactExponential(number, digits)
-        : precise.replace(/\.0+$|(\.\d*?[1-9])0+$/, '$1');
+    return toSignificantFigures(value, significantDigits) ?? String(value ?? '');
 }
 
 /** Percentage readout with a stable, plot-wide number of decimal places. */

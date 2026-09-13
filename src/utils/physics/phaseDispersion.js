@@ -21,7 +21,10 @@
  *
  * Units: GD in fs, GDD in fs^2, TOD in fs^3, wavelength and thickness in nm.
  * tmmcore itself is unit-agnostic and takes the angular frequency that fixes
- * them; `stackEvaluator.js` is where fs is chosen.
+ * them; `stackEvaluator.js` is where fs is chosen. The chromatic dispersion
+ * coefficient, the same GDD taken against wavelength, is a unit conversion
+ * rather than an evaluation and lives in `thinFilmMath.js` beside the speed of
+ * light it needs.
  */
 
 export {

@@ -1,16 +1,52 @@
 import { ANALYSIS_DEFAULTS } from '../../../../constants/analysisDefaults.js';
 import { niceAxisBounds } from '../../../ui/chartOptions.js';
+import { toSignificantFigures } from '../../../../utils/math/significantFigures.js';
 import { knotSteps, stepAtKnots } from '../knots.js';
+
+/**
+ * Every quantity the window can show, in the order the selector offers them.
+ *
+ * `order` is the derivative of phase the quantity represents, not its position
+ * in that list: the knot rule reads it to decide whether a curve steps at a
+ * table knot. CDC is GDD against wavelength rather than against angular
+ * frequency, so it is the same derivative and takes GDD's order.
+ *
+ * `decimals` is for the results table. CDC gets significant figures instead:
+ * the conversion divides GDD by about a thousand across the visible and near
+ * infrared, and multiplies it on a narrowband filter, so no fixed decimal count
+ * reads well for both. `tableIndex` is where the column sits in that table,
+ * which is not the order the selector uses.
+ */
+const QUANTITIES = {
+    phase: { key: 'phaseDeg', source: 'phaseDeg', labelKey: 'phaseAxis', unit: '°', decimals: 2, order: 0, tableIndex: 3 },
+    gd: { key: 'gd', labelKey: 'gdAxis', unit: 'fs', decimals: 3, order: 1, tableIndex: 0 },
+    gdd: { key: 'gdd', labelKey: 'gddAxis', unit: 'fs²', decimals: 3, order: 2, tableIndex: 1 },
+    cdc: { key: 'cdc', labelKey: 'cdcAxis', unit: 'fs/nm', significantFigures: 5, order: 2, tableIndex: 2 },
+    tod: { key: 'tod', labelKey: 'todAxis', unit: 'fs³', decimals: 3, order: 3, tableIndex: 4 },
+};
+
+/** The quantity ids, in selector order, so a caller need not restate them. */
+export const GD_GDD_QUANTITIES = Object.keys(QUANTITIES);
+
+// A plain object inherits from Object.prototype, so a stray id such as
+// 'constructor' or 'toString' would resolve to a prototype member and slip past
+// an `||` fallback. Only an own key names a quantity.
+function quantityEntry(quantity) {
+    return Object.hasOwn(QUANTITIES, quantity) ? QUANTITIES[quantity] : QUANTITIES.gd;
+}
+
+/** How one quantity's numbers are written, wherever they are written. */
+export function formatQuantity(entry, value) {
+    if (!Number.isFinite(value)) return '';
+    return entry.significantFigures
+        ? toSignificantFigures(value, entry.significantFigures)
+        : value.toFixed(entry.decimals);
+}
 
 /** `colors` are the configured curve colours; factory defaults when absent. */
 export function quantityMeta(quantity, text, colors = ANALYSIS_DEFAULTS.gdGddEvaluation.colors) {
-    switch (quantity) {
-        case 'phase': return { key: 'phaseDeg', label: text.phaseAxis, unit: '°', dp: 2, order: 0, color: colors.curve };
-        case 'gd': return { key: 'gd', label: text.gdAxis, unit: 'fs', dp: 3, order: 1, color: colors.curve };
-        case 'gdd': return { key: 'gdd', label: text.gddAxis, unit: 'fs²', dp: 3, order: 2, color: colors.curve };
-        case 'tod': return { key: 'tod', label: text.todAxis, unit: 'fs³', dp: 3, order: 3, color: colors.curve };
-        default: return { key: 'gd', label: text.gdAxis, unit: 'fs', dp: 3, order: 1, color: colors.curve };
-    }
+    const entry = quantityEntry(quantity);
+    return { ...entry, label: text[entry.labelKey], color: colors.curve };
 }
 
 function buildPlotData(raw, meta, quantity, referenceLambda, showReference) {
@@ -43,14 +79,13 @@ function buildPlotData(raw, meta, quantity, referenceLambda, showReference) {
 // a number someone acts on should not be a midpoint without saying so.
 const KNOT_SIDE_LABELS = ['λ−', 'λ+'];
 
-// Which of the four series this spectrum carries, in the order they are shown.
+// Which series this spectrum carries, in the order the table shows them, which
+// is the one QUANTITIES records rather than the selector's.
 function tableSeries(raw, text) {
-    return [
-        { key: 'gd', label: text.gdAxis, digits: 3 },
-        { key: 'gdd', label: text.gddAxis, digits: 3 },
-        { key: 'phase', label: text.phaseAxis, digits: 2, source: 'phaseDeg' },
-        { key: 'tod', label: text.todAxis, digits: 3 },
-    ].filter(series => Array.isArray(raw[series.source || series.key]));
+    return Object.entries(QUANTITIES)
+        .map(([id, entry]) => ({ ...entry, key: id, label: text[entry.labelKey] }))
+        .sort((left, right) => left.tableIndex - right.tableIndex)
+        .filter(series => Array.isArray(raw[series.source || series.key]));
 }
 
 function buildTable(raw, lambdaAxis, text) {
@@ -62,8 +97,8 @@ function buildTable(raw, lambdaAxis, text) {
         ...(knots.size
             ? [{ key: 'knot', label: text.knotColumn, align: 'left', fmt: value => value || '' }]
             : []),
-        ...series.map(({ key, label, digits }) =>
-            ({ key, label, fmt: value => value.toFixed(digits) })),
+        ...series.map(entry =>
+            ({ key: entry.key, label: entry.label, fmt: value => formatQuantity(entry, value) })),
     ];
     // Phase is continuous at a knot, so both of its rows carry the unwrapped
     // value the series already holds; the three derivatives take a side.
@@ -95,7 +130,7 @@ const RANGE_PADDING = 0.06;
  * The vertical extent a quantity occupies, the full one unless its extremes
  * dominate, in which case the central 96%. `narrowed` says which it is.
  *
- * GD, GDD and TOD are logarithmic derivatives of the reflection coefficient, so
+ * GD, GDD, CDC and TOD are logarithmic derivatives of the reflection coefficient, so
  * wherever the coefficient passes near a zero they grow by orders of magnitude
  * over a fraction of a nanometre. Those excursions are correct, but they are a
  * Taylor expansion evaluated far outside its useful range, at a wavelength where

@@ -21,6 +21,8 @@ const { computeGdGddSpectrum, AUTOMATIC_GD_GDD_FINE_STEP_NM } =
     await import('../src/components/windows/analysis/gdGddEvaluation/spectrum.js');
 const { evaluateDesignPhaseDispersion } =
     await import('../src/utils/physics/phaseDispersion.js');
+const { chromaticDispersionCoefficient } =
+    await import('../src/utils/physics/thinFilmMath.js');
 const { buildGdGddView } =
     await import('../src/components/windows/analysis/gdGddEvaluation/viewModel.js');
 const { buildGDChartOption } =
@@ -109,7 +111,7 @@ const view = buildGdGddView(raw, {
 }, text, undefined, LAM_AXIS);
 // The knot column appears only where the stack has table knots inside the
 // plotted range; it carries the side each one-sided row belongs to.
-assert.deepEqual(view.tableColumns.map(column => column.key), ['lambda', 'knot', 'gd', 'gdd', 'phase', 'tod']);
+assert.deepEqual(view.tableColumns.map(column => column.key), ['lambda', 'knot', 'gd', 'gdd', 'cdc', 'phase', 'tod']);
 assert.equal(view.tableColumns[0].label, LAM_AXIS,
     'the wavelength column is named from the shared locale key');
 assert.ok(raw.knotSamples.length > 0, 'this stack has table knots in range');
@@ -117,7 +119,7 @@ const knotIndices = new Set(raw.knotSamples.map(sample => sample.index));
 const plainIndex = [2, 3, 4].find(index => !knotIndices.has(index));
 assert.deepEqual(view.tableRows.find(row => row.lambda === raw.lambda[plainIndex]), {
     lambda: raw.lambda[plainIndex], gd: raw.gd[plainIndex], gdd: raw.gdd[plainIndex],
-    phase: raw.phaseDeg[plainIndex], tod: raw.tod[plainIndex],
+    cdc: raw.cdc[plainIndex], phase: raw.phaseDeg[plainIndex], tod: raw.tod[plainIndex],
 });
 const knotRows = view.tableRows.filter(row => row.lambda === raw.knotSamples[0].wavelengthNm);
 assert.equal(knotRows.length, 2, 'a knot wavelength is written as its two one-sided rows');
@@ -144,6 +146,17 @@ assert.equal(todView.plotData.lambda[at + 1], steppedKnot.wavelengthNm,
     'the step is two points at the one wavelength');
 assert.deepEqual([todView.plotData.y[at], todView.plotData.y[at + 1]], steppedKnot.tod,
     'carrying the value on each side of the knot');
+
+// CDC is GDD in another unit, so it is the same order of phase and has to break
+// exactly where GDD breaks. Reading its position in the selector as its order
+// would make it step where GDD does not.
+const cdcView = quantityView('cdc');
+assert.equal(cdcView.plotData.lambda.length, gddView.plotData.lambda.length,
+    'CDC steps at the same knots as the GDD it is converted from');
+assert.deepEqual(
+    [cdcView.plotData.y[at], cdcView.plotData.y[at + 1]],
+    steppedKnot.gdd.map(value => chromaticDispersionCoefficient(value, steppedKnot.wavelengthNm)),
+    'and both sides of the step are that conversion');
 
 // A stack over a linearly read table. Such a table is C0, so GD itself steps at
 // every knot, and the curve is drawn through both sides of each one.

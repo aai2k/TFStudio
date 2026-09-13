@@ -64,7 +64,7 @@ const design = makeSampleDesign();
   assert.equal(gd.lambdaStart, 700);
   assert.equal(gd.target, 'T');
   assert.equal(gd.side, 'back');
-  assert.deepEqual(gd.quantities, { phase: false, gd: false, gdd: true, tod: false }, 'the block starts with the quantity the window shows');
+  assert.deepEqual(gd.quantities, { phase: false, gd: false, gdd: true, cdc: false, tod: false }, 'the block starts with the quantity the window shows');
 
   // The Monte-Carlo and worksheet blocks print what their windows hold, read
   // when the page is built, so a new one copies nothing.

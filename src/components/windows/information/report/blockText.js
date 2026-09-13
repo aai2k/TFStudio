@@ -6,6 +6,7 @@
 import { withDefaults } from '../../../../utils/report/blocks.js';
 import { SPECTRAL_UNITS } from '../../../../utils/physics/spectralAxis.js';
 import { yScaleOf } from '../../analysis/opticalEvaluation/yScale.js';
+import { DISPERSION_QUANTITY_KEYS } from '../../../../utils/report/sections/dispersion.js';
 
 export function blockName(W, type) {
     return W.blockNames?.[type] || type;
@@ -42,7 +43,7 @@ const SUMMARIES = {
     integrals: (W, s) => [W.sourceWindows.integrals, `${s.theta}°`, s.polarization],
     gdGdd: (W, s) => [
         W.sourceWindows.gdGdd, range(s), `${s.target} ${W.sides?.[s.side] || s.side}`, `${s.theta}°`, s.pol,
-        ['phase', 'gd', 'gdd', 'tod'].filter(k => s.quantities?.[k]).map(k => (k === 'phase' ? W.phase : k.toUpperCase())).join(' '),
+        DISPERSION_QUANTITY_KEYS.filter(k => s.quantities?.[k]).map(k => (k === 'phase' ? W.phase : k.toUpperCase())).join(' '),
         ...plotAndTable(W, s),
     ],
     ellipsometry: (W, s) => [

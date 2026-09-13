@@ -1,6 +1,6 @@
 ---
 title: Material Dispersion
-description: Phase, group delay, GDD, and TOD for propagation through a bulk material.
+description: Phase, group delay, GDD, CDC and TOD for propagation through a bulk material.
 ribbonIcon: material-dispersion
 ---
 
@@ -16,6 +16,7 @@ reported propagation terms are:
 GD  = (d/c) [n + ω dn/dω]
 GDD = (d/c) [2 dn/dω + ω d²n/dω²]
 TOD = (d/c) [3 d²n/dω² + ω d³n/dω³]
+CDC = GDD·2πc/λ²
 ```
 
 ## Settings
@@ -28,7 +29,9 @@ film and substrate dimensions directly. For an opaque path, the warning badge on
 the control row reports the maximum thickness that keeps the full selected range
 evaluable.
 
-**Quantity**: phase, GD, GDD, or TOD.
+**Quantity**: phase, GD, GDD, CDC, or TOD. CDC is the same group delay
+dispersion taken against wavelength rather than angular frequency, in fs/nm,
+which is how a telecommunications specification is written.
 
 **Wavelength range**: the span plotted and exported. TFStudio selects the
 sampling automatically because each wavelength is evaluated pointwise.

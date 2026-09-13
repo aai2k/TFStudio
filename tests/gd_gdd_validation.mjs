@@ -31,7 +31,9 @@ import {
     computeGdGddSpectrum,
     AUTOMATIC_GD_GDD_FINE_STEP_NM,
 } from '../src/components/windows/analysis/gdGddEvaluation/spectrum.js';
-import { tmmWithAdmittances, C_NM_PER_FS } from '../src/utils/physics/thinFilmMath.js';
+import {
+    chromaticDispersionCoefficient, tmmWithAdmittances, C_NM_PER_FS,
+} from '../src/utils/physics/thinFilmMath.js';
 import { designMaterialLookup } from '../src/utils/materials/designMaterials.js';
 
 const TWO_PI_C = 2 * Math.PI * C_NM_PER_FS;
@@ -164,6 +166,54 @@ for (const lam of [500, 550, 600]) {
 {
     const t = 2 * 25 * (1000 / 4) / C_NM_PER_FS;
     ok(Math.abs(t - 42) < 1, `full-traverse round trip is about 42 fs (got ${t.toFixed(1)})`);
+}
+
+// ── 7. CDC is GDD against wavelength ────────────────────────────────────────
+// Essential Macleod reports both, so the conversion and its sign are pinned by
+// its own output rather than by an algebraic argument here. Reflectance, s
+// polarization, normal incidence, from the exports in validation/macleod.
+{
+    const macleod = [
+        [500, 0.054297809157203565, 0.00040911261328161407],   // Ag, one 100 nm layer
+        [900, 0.00018984743935080404, 4.4148941565767525e-7],   // Ag, one 100 nm layer
+        [700, -401.537976616122, -1.5435870183407834],          // 21 Layer Longwave Pass
+        [1545, -9453.3035112527632, -7.459800368750872],        // Three Cavity Narrowband
+    ];
+    for (const [lam, gdd, cdc] of macleod) {
+        const got = chromaticDispersionCoefficient(gdd, lam);
+        ok(rel(got, cdc) < 1e-12,
+           `CDC at ${lam} nm matches Essential Macleod (got ${got}, expected ${cdc})`);
+    }
+    // A positive GDD gives a positive CDC: the sign of the dw/dlambda factor is
+    // not carried, which is the convention the numbers above establish.
+    ok(chromaticDispersionCoefficient(1, 1000) > 0, 'CDC keeps the sign of GDD');
+
+    // And the window's own series carries that conversion of its own GDD at
+    // every wavelength. The expectation is written out from the constants
+    // rather than taken from the function under test, so a wrong factor, a
+    // wrong sign or a misaligned wavelength all fail here.
+    const stack = computeGdGddSpectrum(qwStack(11, true), {
+        side: 'front', lambdaStart: 450, lambdaEnd: 700,
+        lambdaStep: 0.5, thetaDeg: 0, polarization: 's', target: 'R',
+    });
+    let worst = 0;
+    let compared = 0;
+    for (let i = 0; i < stack.lambda.length; i++) {
+        if (!Number.isFinite(stack.gdd[i])) continue;
+        const lam = stack.lambda[i];
+        const expected = stack.gdd[i] * TWO_PI_C / (lam * lam);
+        worst = Math.max(worst, rel(stack.cdc[i], expected));
+        compared++;
+    }
+    ok(compared > 400, `the CDC series was actually compared (${compared} wavelengths)`);
+    ok(worst < 1e-15, `plotted CDC is GDD·2πc/λ² at every wavelength (worst ${worst})`);
+
+    // A wavelength that is not positive has no angular frequency, so there is
+    // no coefficient to report rather than an infinity to plot.
+    for (const bad of [0, -500, NaN, Infinity]) {
+        ok(Number.isNaN(chromaticDispersionCoefficient(1, bad)),
+           `CDC at a wavelength of ${bad} is NaN, not a number the plot would draw`);
+    }
 }
 
 console.log(fails === 0 ? 'PASS: gd_gdd_validation' : `${fails} assertion(s) failed`);

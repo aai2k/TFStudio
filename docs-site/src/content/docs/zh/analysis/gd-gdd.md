@@ -4,7 +4,7 @@ description: 用于啁啾镜与超快镀膜的频谱相位及其导数。
 ribbonIcon: gd-gdd
 ---
 
-GD/GDD 窗口计算镀膜的频谱相位及其对角频率的导数：群延迟（GD, group delay）、群延迟色散（GDD, group-delay dispersion）与三阶色散（TOD, third-order dispersion）。这些量描述镀膜如何延迟光脉冲的不同部分。
+GD/GDD 窗口计算镀膜的频谱相位及其对角频率的导数：群延迟（GD, group delay）、群延迟色散（GDD, group-delay dispersion）与三阶色散（TOD, third-order dispersion）。这些量描述镀膜如何延迟光脉冲的不同部分。同一群延迟色散也可以对波长给出，即电信领域使用的色散系数（CDC, chromatic dispersion coefficient）。
 
 相位来自复反射或透射系数：
 
@@ -13,11 +13,14 @@ GD/GDD 窗口计算镀膜的频谱相位及其对角频率的导数：群延迟�
 GD  = -dφ/dω       [fs]
 GDD = -d²φ/dω²     [fs²]
 TOD = -d³φ/dω³     [fs³]
+CDC = GDD·2πc/λ²     [fs/nm]
 ```
+
+CDC 不携带 GDD 之外的任何信息：它就是同一个数值，只是按每 nm 波长而非每 rad/fs 给出。光纤数据表按每公里光纤引用对应量，单位为 ps/(nm·km)；镀膜没有长度，因此此处单位为 fs/nm。
 
 ## 设置
 
-**量（Quantity）**：相位 φ、GD、GDD 或 TOD。
+**量（Quantity）**：相位 φ、GD、GDD、CDC 或 TOD。
 
 **反射 / 透射（Reflection / Transmission）**：从反射或透射的复振幅取相位。
 
@@ -29,13 +32,13 @@ TOD = -d³φ/dω³     [fs³]
 
 **AOI**：入射角，单位为度，在入射介质中测量。
 
-**参考波长（Reference wavelength）**：将显示的相位在所选波长处平移为零。该常数偏移不改变 GD、GDD 或 TOD。
+**参考波长（Reference wavelength）**：将显示的相位在所选波长处平移为零。该常数偏移不改变 GD、GDD、CDC 或 TOD。
 
-**目标（Targets）**：显示与所选反射或透射响应、偏振和 AOI 匹配的已启用 GD、GDD 或 TOD 评价函数目标。点操作数显示为 X 标记。平坦度操作数显示其目标水平与波长带。相位目标不叠加，因为显示的相位可能带有任意参考偏移。当前的相位色散评价函数操作数通常评估前镀膜，对仅后镀膜设计则评估后镀膜，因此其叠加仅出现在它们评分的那一侧。
+**目标（Targets）**：显示与所选反射或透射响应、偏振和 AOI 匹配的已启用 GD、GDD 或 TOD 评价函数目标。点操作数显示为 X 标记。平坦度操作数显示其目标水平与波长带。相位目标不叠加，因为显示的相位可能带有任意参考偏移；CDC 也没有自己的操作数，同样的要求用 GDD 目标表达。当前的相位色散评价函数操作数通常评估前镀膜，对仅后镀膜设计则评估后镀膜，因此其叠加仅出现在它们评分的那一侧。
 
 ## 数值如何计算
 
-GD、GDD 与 TOD 通过特征矩阵中的三阶泰勒算术逐点评估。导数来自 `r` 或 `t` 的复对数导数；相位解缠（unwrapping）仅用于绘制相位曲线。TFStudio 使用 `n + ik` 与 `exp(-iωt)` 时间因子，然后应用一次共轭-Macleod 约定，使材料渡越时间为正，符号与材料色散窗口相同。
+GD、GDD 与 TOD 通过特征矩阵中的三阶泰勒算术逐点评估，CDC 由同一波长处的 GDD 换算得到。导数来自 `r` 或 `t` 的复对数导数；相位解缠（unwrapping）仅用于绘制相位曲线。TFStudio 使用 `n + ik` 与 `exp(-iωt)` 时间因子，然后应用一次共轭-Macleod 约定，使材料渡越时间为正，符号与材料色散窗口相同。
 
 公式材料被精确微分。列表材料给出其保形 PCHIP 曲线的精确导数；若材料带有 Essential Macleod 与 TFCalc 读取表格所用的线性规则，则给出两点之间直线的精确导数。PCHIP 为 C1：GD 连续，而高阶导数在表格节点处可能出现有限阶跃，TOD 对稀疏数据的表示方式尤其敏感。线性表格为 C0，因此 GD 在节点处也会阶跃。对于镀膜反射与透射，列表的 `n` 与 `k` 都对该连续性极限有贡献。
 

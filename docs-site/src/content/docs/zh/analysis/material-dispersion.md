@@ -1,6 +1,6 @@
 ---
 title: 材料色散
-description: 穿过体材料传播的相位、群延迟、GDD 与 TOD。
+description: 穿过体材料传播的相位、群延迟、GDD、CDC 与 TOD。
 ribbonIcon: material-dispersion
 ---
 
@@ -12,6 +12,7 @@ ribbonIcon: material-dispersion
 GD  = (d/c) [n + ω dn/dω]
 GDD = (d/c) [2 dn/dω + ω d²n/dω²]
 TOD = (d/c) [3 d²n/dω² + ω d³n/dω³]
+CDC = GDD·2πc/λ²
 ```
 
 ## 设置
@@ -20,7 +21,7 @@ TOD = (d/c) [3 d²n/dω² + ω d³n/dω³]
 
 **厚度（Thickness）**：单次传播距离。选择 nm、µm 或 mm 以直接使用薄膜与基底尺寸。对于不透明路径，控制行上的警告徽标报告使完整所选范围可评估的最大厚度。
 
-**量（Quantity）**：相位、GD、GDD 或 TOD。
+**量（Quantity）**：相位、GD、GDD、CDC 或 TOD。CDC 是同一群延迟色散对波长而非对角频率给出的结果，单位 fs/nm，电信规格即按此书写。
 
 **波长范围**：绘制与导出的跨度。TFStudio 自动选择采样，因为每个波长逐点评估。
 

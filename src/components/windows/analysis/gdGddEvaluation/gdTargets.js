@@ -51,11 +51,13 @@ export function selectGdGddTargets(operands, options) {
  *
  * Phase has no overlay: the plot shows an unwrapped phase against a chosen
  * reference wavelength, while a phase operand holds a wrapped value at one
- * wavelength, and the two differ by whole turns. The other side is out because
- * the merit function scores one side only, so a target drawn on the other
- * would never be shown or evaluated.
+ * wavelength, and the two differ by whole turns. CDC is out because the merit
+ * function has no operand in fs/nm; the same requirement is written as a GDD
+ * target. The other side is out because the merit function scores one side
+ * only, so a target drawn on the other would never be shown or evaluated.
  */
 export function gdGddEditBlocker(options) {
+    if (options.quantity === 'cdc') return 'cdc';
     if (!TARGET_TYPES[options.quantity]) return 'phase';
     if (options.side !== meritTargetSide(options.surfaceMode)) return 'side';
     return null;

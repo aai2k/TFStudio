@@ -80,7 +80,7 @@ const SETTINGS_DEFAULTS = {
   integrals:    () => ({ theta: 0, polarization: 'avg' }),
   gdGdd:        () => ({
     lambdaStart: 400, lambdaEnd: 800, lambdaStep: 1, theta: 0, target: 'R', pol: 'avg', side: 'front',
-    quantities: { phase: false, gd: true, gdd: true, tod: false }, plot: 'm', tableStep: 0,
+    quantities: { phase: false, gd: true, gdd: true, cdc: false, tod: false }, plot: 'm', tableStep: 0,
   }),
   ellipsometry: () => ({
     lambdaStart: 400, lambdaEnd: 800, lambdaStep: 5, thetas: [65],

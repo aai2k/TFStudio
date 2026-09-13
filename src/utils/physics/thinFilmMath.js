@@ -1077,6 +1077,27 @@ export function evaluateEllipsometryThicknessJacobian(grid) {
 export const C_NM_PER_FS = 299.792458;   // speed of light in vacuum, nm/fs
 
 /**
+ * Chromatic dispersion coefficient, in fs/nm, from group delay dispersion in fs².
+ *
+ * The same pulse spreading GDD reports, differentiated against wavelength
+ * instead of angular frequency: CDC = GDD·dω/dλ with ω = 2πc/λ. Telecommunications
+ * quotes the equivalent per kilometre of fibre, in ps/(nm·km); a coating has no
+ * length, so the per-length division does not apply and the unit stays fs/nm.
+ *
+ * The sign follows Essential Macleod, which reports CDC with the same sign as
+ * GDD rather than carrying the minus of dω/dλ. Checked against its exports on
+ * three designs, both in reflection and transmission, agreeing to 1e-13 relative.
+ *
+ * NaN for a wavelength that is not positive and finite, since ω is undefined
+ * there. An infinite wavelength would otherwise return a clean zero, which is
+ * the right limit but not a number any caller should be plotting.
+ */
+export function chromaticDispersionCoefficient(gddFs2, wavelengthNm) {
+    if (!Number.isFinite(gddFs2) || !Number.isFinite(wavelengthNm) || wavelengthNm <= 0) return NaN;
+    return gddFs2 * 2 * Math.PI * C_NM_PER_FS / (wavelengthNm * wavelengthNm);
+}
+
+/**
  * Unwrap a radian-phase array, removing 2π jumps between consecutive samples.
  * Input is not mutated.
  */

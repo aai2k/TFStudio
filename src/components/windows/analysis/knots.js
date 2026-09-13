@@ -1,7 +1,7 @@
 /**
  * Table knots in an analysis plot: where they are, what the curve does there.
  * Shared by the Group Delay / GDD window and the Material Dispersion window,
- * which draw the same four quantities off a stack and off one material.
+ * which draw the same phase derivatives off a stack and off one material.
  *
  * A tabulated material is piecewise, so an order high enough to see the seam
  * jumps at every knot of every table in the stack. PCHIP is C1, so GDD and TOD
@@ -14,6 +14,8 @@
  * A gap means something else entirely, that there is no value at all, and stays
  * reserved for a wavelength the evaluator refuses.
  */
+
+import { chromaticDispersionCoefficient } from '../../../utils/physics/thinFilmMath.js';
 
 // A grid wavelength this close to a table knot is that knot, to the accuracy
 // the grid is accumulated with; the knot replaces it so the sample sits exactly
@@ -79,6 +81,12 @@ export function sampleKnots(wavelengths, knots, evaluateAt) {
             gd: [left.gdFs, right.gdFs],
             gdd: [left.gddFs2, right.gddFs2],
             tod: [left.todFs3, right.todFs3],
+            // Both sides sit at the same wavelength, so CDC steps wherever GDD
+            // does and by the same factor.
+            cdc: [
+                chromaticDispersionCoefficient(left.gddFs2, wavelengthNm),
+                chromaticDispersionCoefficient(right.gddFs2, wavelengthNm),
+            ],
         });
     });
     return samples;

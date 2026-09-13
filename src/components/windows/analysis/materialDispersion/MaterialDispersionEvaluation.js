@@ -8,6 +8,8 @@ import { AnalysisWindow, ControlRow, PlotArea } from '../chrome/layout.js';
 import { NoticeBadge, SettingRow, SettingsMenu } from '../chrome/popover.js';
 import { GDChart } from '../gdGddEvaluation/GDChart.js';
 import { knotGrid, knotSteps, sampleKnots, stepAtKnots } from '../knots.js';
+import { chromaticDispersionCoefficient } from '../../../../utils/physics/thinFilmMath.js';
+import { toSignificantFigures } from '../../../../utils/math/significantFigures.js';
 import { getMaterialById } from '../../../../utils/materials/catalogManager.js';
 import {
     materialKnotWavelengths, materialPropagationDispersion,
@@ -22,14 +24,24 @@ import { useWindowSession } from '../../windowSession.js';
 const { createElement: h, useMemo } = React;
 
 // `tr` names the axis title in t.gdgdd, which the Group Delay / GDD window
-// already carries for the same four quantities. `knot` names the pair of
-// one-sided values a knot sample holds for it; phase is continuous and has none.
+// already carries for the same quantities. `knot` names the pair of one-sided
+// values a knot sample holds for it; phase is continuous and has none. CDC is
+// GDD taken against wavelength, so it shares GDD's order and is written to
+// significant figures rather than decimals, its magnitude being set by the
+// conversion rather than by the material.
 const QUANTITIES = {
     phase: { key: 'phaseDeg', tr: 'phaseAxis', unit: '°', digits: 2, order: 0 },
     gd: { key: 'gdFs', knot: 'gd', tr: 'gdAxis', unit: 'fs', digits: 3, order: 1 },
     gdd: { key: 'gddFs2', knot: 'gdd', tr: 'gddAxis', unit: 'fs²', digits: 3, order: 2 },
+    cdc: { key: 'cdc', knot: 'cdc', tr: 'cdcAxis', unit: 'fs/nm', significantFigures: 5, order: 2 },
     tod: { key: 'todFs3', knot: 'tod', tr: 'todAxis', unit: 'fs³', digits: 3, order: 3 },
 };
+
+const figures = (entry, value) => (Number.isFinite(value)
+    ? (entry.significantFigures
+        ? toSignificantFigures(value, entry.significantFigures)
+        : value.toFixed(entry.digits))
+    : '');
 
 const THICKNESS_UNITS = {
     nm: { label: 'nm', perMm: 1e6 },
@@ -89,7 +101,9 @@ function buildSpectrum(material, start, end, thicknessMm) {
 
 function quantityValue(value, quantity, meta) {
     if (!value.valid) return NaN;
-    return quantity === 'phase' ? value.phaseRad * 180 / Math.PI : value[meta.key];
+    if (quantity === 'phase') return value.phaseRad * 180 / Math.PI;
+    if (quantity === 'cdc') return chromaticDispersionCoefficient(value.gddFs2, value.wavelengthNm);
+    return value[meta.key];
 }
 
 // A table knot is drawn as a step through the value on each side of it, never
@@ -135,10 +149,11 @@ function Controls({ state, c, t, notices }) {
             onSelect: state.setQuantity,
             c,
             items: [
-                { id: 'phase', label: text.phase || 'Phase' },
-                { id: 'gd', label: 'GD' },
-                { id: 'gdd', label: 'GDD' },
-                { id: 'tod', label: 'TOD' },
+                { id: 'phase', label: text.phase || 'Phase', title: text.phaseTip },
+                { id: 'gd', label: 'GD', title: text.gdTip },
+                { id: 'gdd', label: 'GDD', title: text.gddTip },
+                { id: 'cdc', label: 'CDC', title: text.cdcTip },
+                { id: 'tod', label: 'TOD', title: text.todTip },
             ],
         }),
     );
@@ -181,6 +196,7 @@ function tableModel(spectrum, text, lambdaAxis) {
         { key: 'phase', label: text.phaseAxis, fmt: value => value.toFixed(2) },
         { key: 'gd', label: text.gdAxis, fmt: value => value.toFixed(3) },
         { key: 'gdd', label: text.gddAxis, fmt: value => value.toFixed(3) },
+        { key: 'cdc', label: text.cdcAxis, fmt: value => figures(QUANTITIES.cdc, value) },
         { key: 'tod', label: text.todAxis, fmt: value => value.toFixed(3) },
         { key: 'groupIndex', label: 'nᵧ', fmt: value => value.toFixed(6) },
     ];
@@ -189,6 +205,7 @@ function tableModel(spectrum, text, lambdaAxis) {
         phase: value.valid ? value.phaseRad * 180 / Math.PI : NaN,
         gd: value.valid ? value.gdFs : NaN,
         gdd: value.valid ? value.gddFs2 : NaN,
+        cdc: value.valid ? chromaticDispersionCoefficient(value.gddFs2, spectrum.lambda[index]) : NaN,
         tod: value.valid ? value.todFs3 : NaN,
         groupIndex: value.valid ? value.groupIndex : NaN,
     }));
