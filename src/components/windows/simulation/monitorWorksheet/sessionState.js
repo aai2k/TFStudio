@@ -20,6 +20,10 @@ export const monitorWorksheetSession = createWindowSession(
     {
         id: 'monitorWorksheet',
         scope: 'design',
+        // The Process Simulator runs the plan this window draws up and the
+        // Report prints it, so all three are looking at one worksheet rather
+        // than at a copy each.
+        copies: 'shared',
         savable: registryKeys('monitorWorksheet'),
         // The wavelength the Set-all field offers starts at the design's own
         // reference wavelength, which is where a monitor is usually pointed

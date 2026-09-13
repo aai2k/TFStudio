@@ -43,10 +43,12 @@ function reportLocale(code) {
     };
 }
 
-// Re-render when a store written by another window changes.
+// Re-render when a store written by another window changes. Watched rather than
+// subscribed to: the window being followed can be open more than once, and the
+// report prints whichever copy the run came from.
 function useStoreTick(store) {
     const [tick, setTick] = useState(0);
-    useEffect(() => store.subscribe(() => setTick(n => n + 1)), [store]);
+    useEffect(() => store.watch(() => setTick(n => n + 1)), [store]);
     return tick;
 }
 

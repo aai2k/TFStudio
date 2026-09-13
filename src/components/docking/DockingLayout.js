@@ -3,7 +3,9 @@ import {
   addTab, removeTab, setSizes, setActiveTab,
   findNode, findFirstGroup, groupForTab,
   moveToGroup, moveToSplit, reorderTab, newTabId, rekeyTree, splitGroup,
+  adoptTabIds, tabsIn,
 } from './treeUtils.js';
+import { WindowCopyProvider, releaseWindowCopy } from '../windows/windowSession.js';
 import { SplitPane } from './SplitPane.js';
 import { TabGroup } from './TabGroup.js';
 import { FloatFrame } from './FloatFrame.js';
@@ -64,40 +66,44 @@ function zoneToAction(zone) {
 // entries flagged `createDesign` also get `onCreateDesign`.
 // An id with no component (modal/wizard/stub) falls through to the placeholder.
 
-export function ToolContent({ toolId, c, theme, t, setInputDialog, onCreateDesign,
+export function ToolContent({ toolId, copyId = null, c, theme, t, setInputDialog, onCreateDesign,
   missingMaterialIds = [], onReplaceMaterials }) {
+  // Every window, docked or torn off, is mounted here, so this is also where it
+  // is told which of its open copies it is. Its session store keys the controls
+  // on that, so two tabs of one tool hold two sets of them.
+  const asCopy = body => h(WindowCopyProvider, { copyId }, body);
   const entry = WINDOW_REGISTRY[toolId];
   if (entry?.requiresResolvedMaterials && missingMaterialIds.length > 0) {
-    return h(MaterialCalculationBlocked, {
+    return asCopy(h(MaterialCalculationBlocked, {
       ids: missingMaterialIds, c, t, onRepair: onReplaceMaterials,
-    });
+    }));
   }
   if (entry && entry.component) {
     const props = { c, t };
     if (entry.theme)  props.theme = theme;
     if (entry.dialog) props.setInputDialog = setInputDialog;
     if (entry.createDesign) props.onCreateDesign = onCreateDesign;
-    // Every window, docked or torn off, is mounted here, so this is the one
-    // place a boundary has to go. What separates one mounted window from
-    // another is the tab it belongs to, which this does not know, so the caller
-    // keys the element (see `renderContent`): two tabs of the same tool would
-    // otherwise share a boundary and one's failure would show on the other.
-    return h(ErrorBoundary, {
+    // Every window is mounted here, so this is the one place a boundary has to
+    // go. What separates one mounted window from another is the tab it belongs
+    // to, which this does not know, so the caller keys the element (see
+    // `renderContent`): two tabs of the same tool would otherwise share a
+    // boundary and one's failure would show on the other.
+    return asCopy(h(ErrorBoundary, {
       label: toolId,
       fallback: (error, retry) => h(WindowFailedPane, {
         error, onReopen: retry, c, t, title: windowTitle(toolId, t),
       }),
-    }, h(entry.component, props));
+    }, h(entry.component, props)));
   }
 
-  return h('div', {
+  return asCopy(h('div', {
     style: {
       display: 'flex', alignItems: 'center', justifyContent: 'center',
       height: '100%', color: c.textDim, fontSize: 13,
       fontFamily: 'system-ui, -apple-system, sans-serif',
       textAlign: 'center', padding: 24
     }
-  }, TOOL_LABELS[toolId] || toolId);
+  }, TOOL_LABELS[toolId] || toolId));
 }
 
 // A torn-off tool with the dialogs it can raise hosted beside it, so a name, a
@@ -405,12 +411,19 @@ export function DockingLayout({ c, theme, toolRequests, onWindowListChange, layo
   // ── Layout requests (presets / restore) ───────────────────────────────────
   useEffect(() => {
     if (!layoutRequest) return;
+    // A rearranged layout builds fresh tabs, and a fresh tab is a fresh copy of
+    // its tool holding none of the controls the user had set. Tools the new
+    // layout keeps open therefore take over the ids they already had.
+    const keepOpen = next => prev => adoptTabIds(next, [...tabsIn(prev), ...floatsRef.current]);
     if (layoutRequest.type === 'preset') {
       const preset = LAYOUT_PRESETS[layoutRequest.id];
-      if (preset) { setTree(makePresetTree(preset.tools)); setFloats([]); }
+      if (preset) { setTree(keepOpen(makePresetTree(preset.tools))); setFloats([]); }
     } else if (layoutRequest.type === 'restore') {
       const saved = loadSavedLayout();
-      if (saved) { setTree(saved.tree); setFloats(saved.floats); }
+      // The restored floats keep the ids `loadSavedLayout` drew for them: the
+      // docked tree has already taken what was open, and one id on two windows
+      // would put them both on one set of controls.
+      if (saved) { setTree(keepOpen(saved.tree)); setFloats(saved.floats); }
     } else if (layoutRequest.type === 'save') {
       setTree(prev => { saveLayout(prev, floatsWithBounds()); return prev; });
     }
@@ -428,18 +441,10 @@ export function DockingLayout({ c, theme, toolRequests, onWindowListChange, layo
   // stable across switches.
   useEffect(() => {
     if (!onWindowListChange) return;
-    const ids = [];
-    const collect = (n) => {
-      if (!n) return;
-      if (n.type === 'tabs') n.tabs.forEach(tab => ids.push(tab.toolId));
-      else if (n.type === 'split') n.children.forEach(collect);
-    };
-    collect(tree);
     // Torn-off tools are still open, so they belong on this list too. Leaving
     // them off would let the parent believe the workspace is empty and re-apply
     // a preset over a layout the user is using.
-    floats.forEach(f => ids.push(f.toolId));
-    onWindowListChange(ids);
+    onWindowListChange([...tabsIn(tree), ...floats].map(tab => tab.toolId));
   }, [tree, floats, onWindowListChange]);
 
   // ── Torn-off windows ───────────────────────────────────────────────────────
@@ -508,12 +513,21 @@ export function DockingLayout({ c, theme, toolRequests, onWindowListChange, layo
     setFloats(prev => prev.filter(f => f.id !== floatId));
   }, []);
 
+  // The float's own close button, as against docking it back: the window is gone
+  // for good, so what it was holding goes with it.
+  const closeFloatWindow = useCallback((floatId) => {
+    releaseWindowCopy(floatId);
+    closeFloat(floatId);
+  }, [closeFloat]);
+
   // Return a float to the layout, at `target` if a drag chose one, otherwise
   // wherever a freshly-opened tool would land.
   const dockFloat = useCallback((floatId, target) => {
     const float = floatsRef.current.find(f => f.id === floatId);
     if (!float) return;
-    const tab = { id: newTabId(), title: float.title, toolId: float.toolId };
+    // The float keeps the id it was torn off with, so docking it back is the
+    // same open copy of the tool and its controls come back with it.
+    const tab = { id: float.id, title: float.title, toolId: float.toolId };
     setTree(prev => {
       if (target) return placeTab(prev, tab, target);
       if (!prev) return makeGroup([tab]);
@@ -559,6 +573,9 @@ export function DockingLayout({ c, theme, toolRequests, onWindowListChange, layo
   }, []);
 
   const handleTabClose = useCallback((tabId) => {
+    // A closed window takes its controls with it. Tab ids are never reused, so
+    // what this copy held could not be reached again.
+    releaseWindowCopy(tabId);
     setTree(prev => {
       const [t2] = removeTab(prev, tabId);
       return cleanup(t2);
@@ -703,6 +720,7 @@ export function DockingLayout({ c, theme, toolRequests, onWindowListChange, layo
         // tool. Unkeyed they share one mounted window and one error boundary.
         renderContent:   (tab) => h(ToolContent, {
           key: tab.id,
+          copyId: tab.id,
           toolId: tab.toolId, c, theme, t, setInputDialog, onCreateDesign,
           missingMaterialIds,
           onReplaceMaterials: () => setReplaceMaterialsOpen(true),
@@ -752,7 +770,7 @@ export function DockingLayout({ c, theme, toolRequests, onWindowListChange, layo
       title: (t && t.windowTitles && t.windowTitles[f.toolId]) || f.title,
       bounds: f.bounds,
       background: c.panel,
-      onClose: () => closeFloat(f.id),
+      onClose: () => closeFloatWindow(f.id),
       onWindowReady: (win) => floatWinsRef.current.set(f.id, win),
     },
       (win) => h(FloatFrame, {
@@ -761,12 +779,12 @@ export function DockingLayout({ c, theme, toolRequests, onWindowListChange, layo
         title: (t && t.windowTitles && t.windowTitles[f.toolId]) || f.title,
         helpAnchor: helpAnchorFor(f.toolId),
         onDock: () => dockFloat(f.id, null),
-        onClose: () => closeFloat(f.id),
+        onClose: () => closeFloatWindow(f.id),
         onDragOver: handleFloatDragOver,
         onDrop: (screenPoint) => handleFloatDrop(f.id, screenPoint),
       },
         h(FloatToolHost, {
-          toolId: f.toolId, c, theme, t, onCreateDesign, missingMaterialIds,
+          toolId: f.toolId, copyId: f.id, c, theme, t, onCreateDesign, missingMaterialIds,
         })
       )
     ))

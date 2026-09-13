@@ -37,6 +37,9 @@ function fakeReact() {
         },
         useCallback: fn => fn,
         useEffect: () => {},
+        // No layout around the hook, so the mount belongs to no open copy.
+        createContext: value => ({ value }),
+        useContext: context => context.value,
     };
 }
 

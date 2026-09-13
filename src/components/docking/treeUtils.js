@@ -49,6 +49,20 @@ function walk(tree, fn) {
   return mapped;
 }
 
+// Give the tabs of `tree` the ids the same tools already hold in `open`, so a
+// layout preset or a restore keeps the controls of every tool it leaves open: a
+// tab id names one open copy of a tool, and the session stores key on it. Each
+// id is handed out once; a tool the layout adds keeps the id it was built with.
+export function adoptTabIds(tree, open) {
+  const spare = new Map();
+  for (const tab of open) {
+    if (!spare.has(tab.toolId)) spare.set(tab.toolId, []);
+    spare.get(tab.toolId).push(tab.id);
+  }
+  const adopt = tab => ({ ...tab, id: (spare.get(tab.toolId) || []).shift() || tab.id });
+  return walk(tree, n => (n.type === 'tabs' ? { ...n, tabs: n.tabs.map(adopt) } : n));
+}
+
 // Depth-first search returning the first node matching pred, or null.
 function findFirst(tree, pred) {
   if (!tree) return null;
@@ -63,6 +77,15 @@ export const findFirstGroup = (tree) => findFirst(tree, n => n.type === 'tabs');
 
 export const groupForTab = (tree, tabId) =>
   findFirst(tree, n => n.type === 'tabs' && n.tabs.some(t => t.id === tabId));
+
+// Every tab in the tree, including the tabs of groups that are not showing. A
+// tab is one open copy of its tool: its id is what a session store keys the
+// window's controls on, and its toolId is what the tool list reports.
+export function tabsIn(tree) {
+  if (!tree) return [];
+  if (tree.type === 'tabs') return [...tree.tabs];
+  return (tree.children || []).flatMap(child => tabsIn(child));
+}
 
 export function setActiveTab(tree, groupId, idx) {
   return walk(tree, n => n.id === groupId && n.type === 'tabs' ? { ...n, activeTab: idx } : n);

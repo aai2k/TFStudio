@@ -57,15 +57,19 @@ export function canSaveWindowDefaults(windowId) {
  * The window's settings as they are set right now, gathered from every store
  * registered under its id. Optical Evaluation has two: its own, and the
  * evaluation grid that lives at App level.
+ *
+ * `copyId` is the open copy the values are read from, since two copies of one
+ * window hold two sets of controls. Omitted, it is whichever copy was changed
+ * last.
  */
-export function currentWindowValues(windowId, design) {
+export function currentWindowValues(windowId, design, copyId) {
     return windowSessionStores(windowId).reduce(
-        (values, store) => ({ ...values, ...store.savableValues(design) }), {});
+        (values, store) => ({ ...values, ...store.savableValues(design, copyId) }), {});
 }
 
-/** Make the window's current settings the values it opens with. */
-export function saveWindowDefaults(windowId, design, analysisSettings) {
-    for (const [key, value] of Object.entries(currentWindowValues(windowId, design))) {
+/** Make the settings of the copy the button was pressed in the values the window opens with. */
+export function saveWindowDefaults(windowId, design, analysisSettings, copyId) {
+    for (const [key, value] of Object.entries(currentWindowValues(windowId, design, copyId))) {
         const section = registrySection(windowId, key);
         if (section) analysisSettings?.setField(windowId, section, key, value);
     }
@@ -79,9 +83,11 @@ export function saveWindowDefaults(windowId, design, analysisSettings) {
  *
  * The window is put back as well as the stored values. Nothing else pushes into
  * a store the user has changed, and a Restore that only took effect at the next
- * launch would read as a button that does nothing.
+ * launch would read as a button that does nothing. Only the copy the button was
+ * pressed in is put back: another copy of the same window is a separate view and
+ * is left as the user set it.
  */
-export function restoreWindowDefaults(windowId, analysisSettings) {
+export function restoreWindowDefaults(windowId, analysisSettings, copyId) {
     const registry = ANALYSIS_DEFAULTS[windowId] || {};
     for (const section of ['numbers', 'enums', 'booleans', 'lists']) {
         for (const [key, spec] of Object.entries(registry[section] || {})) {
@@ -91,7 +97,7 @@ export function restoreWindowDefaults(windowId, analysisSettings) {
         }
     }
     // An empty set of saved values is the shipped ones, which is what Restore means.
-    resetWindowSessions(windowId, {});
+    resetWindowSessions(windowId, {}, copyId);
 }
 
 /** True when the window would start from something other than the shipped values. */

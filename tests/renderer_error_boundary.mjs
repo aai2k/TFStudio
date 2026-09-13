@@ -113,10 +113,14 @@ for (const falsy of [undefined, null, 0, '']) {
 const windows = Object.entries(WINDOW_REGISTRY).filter(([, entry]) => entry.component);
 ok(windows.length > 0, 'the registry has windows to check');
 
+// ToolContent names the open copy it is drawing before it mounts anything, so
+// the boundary sits one level in.
+const mountedIn = element => element.props.children;
+
 for (const [toolId, entry] of windows) {
-    const mounted = ToolContent({ toolId, c, t });
-    assert.equal(mounted.type, ErrorBoundary, `${toolId} is mounted behind a boundary`);
-    assert.equal(mounted.props.children.type, entry.component,
+    const boundary = mountedIn(ToolContent({ toolId, c, t }));
+    assert.equal(boundary.type, ErrorBoundary, `${toolId} is mounted behind a boundary`);
+    assert.equal(boundary.props.children.type, entry.component,
         `${toolId}'s own component is what the boundary wraps`);
     passed++;
 }
@@ -132,14 +136,14 @@ ok(/renderContent:\s*\(tab\) => h\(ToolContent, \{\s*\n\s*key: tab\.id,/.test(la
 
 // A window blocked on unavailable materials is replaced before it is mounted, so
 // that path is unchanged.
-ok(ToolContent({
+ok(mountedIn(ToolContent({
     toolId: 'optical-eval', c, t, missingMaterialIds: ['user:mystery'],
-}).type !== ErrorBoundary, 'the unavailable-materials notice still replaces the window outright');
+})).type !== ErrorBoundary, 'the unavailable-materials notice still replaces the window outright');
 
 // ── The pane names the window and shows what it threw ────────────────────────
 
 {
-    const mounted = ToolContent({ toolId: 'optical-eval', c, t });
+    const mounted = mountedIn(ToolContent({ toolId: 'optical-eval', c, t }));
     const drawn = textOf(mounted.props.fallback(thrown, () => {}));
     ok(drawn.includes(t.windowTitles['optical-eval']),
         'the pane says which window failed, by its localized title');

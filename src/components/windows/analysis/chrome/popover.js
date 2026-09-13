@@ -19,6 +19,7 @@ import {
     canSaveWindowDefaults, hasSavedWindowDefaults,
     restoreWindowDefaults, saveWindowDefaults,
 } from '../../../../utils/windowDefaults.js';
+import { useWindowCopy } from '../../windowSession.js';
 
 const { createElement: h, useContext, useState } = React;
 
@@ -99,10 +100,15 @@ function footerButtonStyle(c, enabled) {
  * Save the panel above as the values this window opens with, or go back to the
  * shipped ones. The values are written to the preferences file, which lives in
  * Documents rather than in the app's data folder, so they survive a reinstall.
+ *
+ * Both buttons act on the copy of the window they were pressed in. The window
+ * can be open twice with different controls, and a second copy snapping back
+ * because the first one was restored is what having two copies is meant to end.
  */
 function DefaultsFooter({ c, t, windowId }) {
     const designCtx = useContext(DesignContext);
     const analysisSettings = useAnalysisSettings();
+    const copyId = useWindowCopy();
     const text = t.analysisChrome;
     const stored = hasSavedWindowDefaults(windowId, analysisSettings);
     const error = analysisSettings?.saveError;
@@ -116,12 +122,13 @@ function DefaultsFooter({ c, t, windowId }) {
         h('div', { style: { display: 'flex', gap: 6 } },
             h('button', {
                 type: 'button', title: text.saveDefaultsTip,
-                onClick: () => saveWindowDefaults(windowId, designCtx?.design, analysisSettings),
+                onClick: () => saveWindowDefaults(
+                    windowId, designCtx?.design, analysisSettings, copyId),
                 style: footerButtonStyle(c, true),
             }, text.saveDefaults),
             h('button', {
                 type: 'button', title: text.restoreDefaultsTip, disabled: !stored,
-                onClick: () => restoreWindowDefaults(windowId, analysisSettings),
+                onClick: () => restoreWindowDefaults(windowId, analysisSettings, copyId),
                 style: footerButtonStyle(c, stored),
             }, text.restoreDefaults),
         ),
