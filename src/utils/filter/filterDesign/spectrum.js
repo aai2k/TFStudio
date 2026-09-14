@@ -1,5 +1,25 @@
 import { tmm } from '../../physics/thinFilmMath.js';
+import { getTmmWasm, tmmWasmActive } from '../../../tmmcore.js';
 import { toNDLayers } from './prototypeLayers.js';
+
+/**
+ * Transmittance at one (λ, angle, polarization) for a prepared layer list.
+ * `media` is the [incident, substrate] admittance pair.
+ *
+ * The integer search evaluates this tens of millions of times on stacks of a
+ * hundred layers and more, so it goes through the WASM kernel whenever that is
+ * active, the same kernel and the same conventions the rest of the app uses.
+ * The JS kernel is the reference and stays the fallback; the two agree to
+ * float64 round-off (tests/wasm_tmm_equivalence.mjs).
+ */
+function transmittance(lam, nd, media, aoi, pol) {
+    const [n0, ns] = media;
+    if (pol === 'avg') {
+        return (transmittance(lam, nd, media, aoi, 's') + transmittance(lam, nd, media, aoi, 'p')) / 2;
+    }
+    if (tmmWasmActive()) return getTmmWasm().tmmOne(lam, aoi, pol === 'p' ? 1 : 0, n0, ns, nd).T;
+    return tmm(lam, aoi, pol, n0, ns, nd).T;
+}
 
 /**
  * Transmittance at one λ in the EMBEDDED case (incident index = substrate index).
@@ -12,11 +32,7 @@ import { toNDLayers } from './prototypeLayers.js';
 export function embeddedT(layers, lam, nSub, aoi = 0, pol = 's') {
     const v = nSub(lam);
     const ns = Array.isArray(v) ? v : [v, 0];
-    const nd = toNDLayers(layers, lam);
-    if (pol === 'avg') {
-        return (tmm(lam, aoi, 's', ns, ns, nd).T + tmm(lam, aoi, 'p', ns, ns, nd).T) / 2;
-    }
-    return tmm(lam, aoi, pol, ns, ns, nd).T;
+    return transmittance(lam, toNDLayers(layers, lam), [ns, ns], aoi, pol);
 }
 
 /** T at one λ for an arbitrary incident/substrate pair (used for step-6 / air). */
@@ -24,8 +40,7 @@ export function spectrumT(layers, lam, nInc, nSub) {
     const a = nInc(lam), b = nSub(lam);
     const n0 = Array.isArray(a) ? a : [a, 0];
     const ns = Array.isArray(b) ? b : [b, 0];
-    const { T } = tmm(lam, 0, 's', n0, ns, toNDLayers(layers, lam));
-    return T;
+    return transmittance(lam, toNDLayers(layers, lam), [n0, ns], 0, 's');
 }
 
 /**

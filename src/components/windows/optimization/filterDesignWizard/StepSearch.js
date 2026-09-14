@@ -4,6 +4,7 @@ import {
     targetSpan, buildFilterTarget, hashSeed, tiltWindowLow,
 } from '../../../../utils/filter/filterDesign.js';
 import { presampleForSearch } from '../../../../utils/filter/filterDesignBuild.js';
+import { getTmmWasmBytesForWorker } from '../../../../tmmcore.js';
 import { FILTER_WORKER_URL as WORKER_URL } from '../../../../workerUrls.js';
 import { candidateKey, couplingD, mergeCandidates, prototypeCandidate, shapeFactor } from './model.js';
 import { AxisToggle, CheckField, IntField, NumField, StepHeader } from './ui.js';
@@ -59,6 +60,10 @@ function startFilterSearch(ctx) {
     try { worker = new Worker(WORKER_URL, { type: 'module' }); }
     catch (e) { setStatus('Worker failed: ' + e.message); setRunning(false); return; }
     workerRef.current = worker;
+    // The search runs the TMM tens of millions of times, so hand the worker the
+    // kernel the GUI is using rather than leaving it on the JS fallback.
+    const wasmBytes = getTmmWasmBytesForWorker();
+    if (wasmBytes) worker.postMessage({ type: 'wasmInit', wasmBytes });
     const tables = presampleForSearch({ matH: p.matH, matL: p.matL, substrateMaterial: p.substrateMaterial, ...sampleWindow(p), step: 0.05 });
     worker.onmessage = (e) => handleSearchMessage(e.data, ctx);
     worker.onerror = (ev) => { setStatus('Error: ' + (ev.message || 'worker')); setRunning(false); };

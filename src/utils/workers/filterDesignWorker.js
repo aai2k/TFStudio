@@ -6,8 +6,14 @@
  * (`presampleForSearch` on the main thread); the worker rebuilds an
  * interpolating index function from the dense λ grid.
  *
+ * WASM: the main thread sends `{type:'wasmInit', wasmBytes}` once before the
+ * job, when the kernel is enabled, so the search's hot path runs on the same
+ * kernel the GUI uses. Without bytes `awaitTmmWasmReady()` resolves at once and
+ * the search falls back to the JS kernel.
+ *
  * Protocol:
- *   main → worker : { lambda0, targetParams, search, tables }
+ *   main → worker : { type:'wasmInit', wasmBytes }   (once, optional)
+ *                   { lambda0, targetParams, search, tables }
  *   worker → main : { type:'tick', best, candidates, iteration }  (after each restart)
  *                   { type:'result', candidates }         (search complete)
  *                   { type:'error',  message }
@@ -15,6 +21,7 @@
  */
 
 import { globalIntegerSearch, buildFilterTarget } from '../filter/filterDesign.js';
+import { noteTmmWasmBytes, awaitTmmWasmReady } from '../../tmmcore.js';
 
 /** Build an interpolating index fn [n,k] from a dense pre-sampled grid. */
 function interpIndexFn(grid) {
@@ -37,9 +44,11 @@ function interpIndexFn(grid) {
     };
 }
 
-self.onmessage = (e) => {
+self.onmessage = async (e) => {
     const msg = e.data || {};
+    if (msg.type === 'wasmInit') { noteTmmWasmBytes(msg.wasmBytes); return; }
     try {
+        await awaitTmmWasmReady();
         const { lambda0, targetParams, search, tables } = msg;
         const nH = interpIndexFn({ lambdas: tables.lambdas, nk: tables.H });
         const nL = interpIndexFn({ lambdas: tables.lambdas, nk: tables.L });
