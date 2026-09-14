@@ -3006,6 +3006,7 @@ export default {
   },
 
   filterDesign: {
+    axisLinear: 'Linear', axisLog: 'Log',
     title: 'Filter Design Wizard',
     back: 'Back', next: 'Next', finish: 'Finish', help: 'Help',
     noFolder: 'Select a project folder first',
@@ -3033,12 +3034,14 @@ export default {
     step4: {
       title: 'Prototype Specification',
       tableHeader: 'Equivalent prototypes (m, k)',
-      colWidth: 'Width', spacerMat: 'Spacer material',
+      spacerMat: 'Spacer material',
       extMirror: 'Ext. mirror layers (m)', spacerOrder: 'Spacer order (k)',
       spacerAny: 'Any',
     },
     step5: {
       title: 'Global Integer Search',
+      clearOnStart: 'Clear history on start', clearHistory: 'Clear',
+      iteration: 'Iteration',
       start: 'Start', stop: 'Stop',
       running: 'Searching…',
       found: (n) => `${n} candidates…`,
@@ -3046,6 +3049,8 @@ export default {
       empty: 'Press Start to run the integer optimization.',
       symMirrors: 'Symmetrical mirrors', symCavities: 'Symmetrical cavities',
       restarts: 'Restarts',
+      holdPassband: 'Hold the passband to ±θ',
+      holdPassbandHint: '0 = off. Every design is also scored tilted to this angle in air, so cavities that drift apart with angle lose.',
       seedTag: 'seed',
     },
     step6: {

@@ -1,15 +1,18 @@
 const { createElement: h } = React;
 
-// Bar colour by layer role: V-coat AR highlighted (purple), spacer by kind
-// (H/L), mirror layers dark/light gray by index.
+// Bar colour by material (H dark, L light) and role: the V-coat AR layers are
+// highlighted purple and the spacers carry the deeper shade of their material.
+const COLORS = {
+    ar:     { H: '#7e57c2', L: '#b39ddb' },
+    spacer: { H: '#37474f', L: '#90a4ae' },
+    mirror: { H: '#455a64', L: '#cfd8dc' },
+};
+
 function layerColor(l) {
-    if (l.tag === 'ar') return l.arMat === 'H' ? '#7e57c2' : '#b39ddb';
-    if (l.tag === 'spacer') return l.spacerKind === 'H' ? '#37474f' : '#90a4ae';
-    if (l.tag === 'H') return '#455a64';
-    return '#cfd8dc';
+    return (COLORS[l.role] || COLORS.mirror)[l.tag === 'H' ? 'H' : 'L'];
 }
 
-// layers: engine layers [{tag, d, arMat}] — width ∝ thickness, colour by index/role.
+// layers: engine layers [{tag, role, order, d}]. Width is proportional to thickness.
 export function StackBar({ layers, c, height = 26 }) {
     if (!layers || !layers.length) return null;
     const total = layers.reduce((s, l) => s + (l.d || 0), 0) || 1;

@@ -3408,6 +3408,7 @@ export default {
     tableCancel: 'Annulla',
   },
   filterDesign: {
+    axisLinear: 'Lineare', axisLog: 'Log',
     title: 'Procedura guidata per la progettazione di filtri',
     back: 'Indietro',
     next: 'Avanti',
@@ -3444,7 +3445,6 @@ export default {
     step4: {
       title: 'Specifica del prototipo',
       tableHeader: 'Prototipi equivalenti (m, k)',
-      colWidth: 'Larghezza',
       spacerMat: 'Materiale dello spaziatore',
       extMirror: 'Strati di specchio esterni (m)',
       spacerOrder: 'Ordine dello spaziatore (k)',
@@ -3452,6 +3452,8 @@ export default {
     },
     step5: {
       title: 'Ricerca intera globale',
+      clearOnStart: 'Cancella la cronologia all’avvio', clearHistory: 'Cancella',
+      iteration: 'Iterazione',
       start: 'Avvia',
       stop: 'Ferma',
       running: 'Ricerca in corso…',
@@ -3461,6 +3463,8 @@ export default {
       symMirrors: 'Specchi simmetrici',
       symCavities: 'Cavità simmetriche',
       restarts: 'Ripartenze',
+      holdPassband: 'Mantieni la banda passante fino a ±θ',
+      holdPassbandHint: '0 = spento. Ogni design viene valutato anche inclinato a questo angolo in aria, così le cavità che si disallineano con l’angolo perdono.',
       seedTag: 'iniziale',
     },
     step6: {

@@ -30,10 +30,13 @@ console.log(`\n[Step 3] Recommended cavities: q=${rec.q.toFixed(2)} → ${rec.re
 const N = 4;
 
 // ── Step 4: (m,k) prototype family ───────────────────────────────────────────
-const fam = buildPrototypeFamily({ nH, nL, nSub, lambda0_nm: LAM0, refMirrorLayers: 9 });
-console.log('\n[Step 4] Equivalent (m,k) prototype family   (reference table on the right)');
-console.log('   M  | k(ours) | k(reference)');
-const optiK = { 8:1, 6:5, 4:16, 2:44 };
+const fam = buildPrototypeFamily({ nH, nL, nSub, lambda0_nm: LAM0, cavities: N, targetFWHM: 2 * PASS_HALF });
+console.log('\n[Step 4] Equivalent (m,k) prototype family');
+console.log('   The right column is the LEC25D9 help table, from OptiLayer v2025.08.27.');
+console.log('   That build aims at a wider prototype than the one this engine targets,');
+console.log('   so its rows sit lower throughout.');
+console.log('   M  | k(ours) | k(v2025.08.27)');
+const optiK = { 8: 1, 6: 5, 4: 16, 2: 44 };   // v2025.08.27
 for (const r of fam) {
     const o = optiK[r.notationM];
     console.log(`   ${String(r.notationM).padStart(2)} |   ${String(r.spacerOrder).padStart(3)}   |   ${o ?? '·'}`);
@@ -55,11 +58,12 @@ console.log(`\n   (reference step-5 list: MF 0.0996 / N 56 best … similar tape
 
 // ── Step 6: Adjust to incident medium (V-coat) ───────────────────────────────
 const filterLayers = buildPrototypeLayers({ nH, nL, lambda0_nm: LAM0, mirrors: best.mirrors, spacers: best.spacers });
-const none = adjustToIncidentMedium({ filterLayers, nH, nL, nInc: nAir, nSub, lambda0_nm: LAM0, target, mode: 'none' });
-const vco  = adjustToIncidentMedium({ filterLayers, nH, nL, nInc: nAir, nSub, lambda0_nm: LAM0, target, mode: 'vcoat' });
+const none = adjustToIncidentMedium({ filterLayers, nH, nL, nInc: nAir, nSub, lambda0_nm: LAM0, mode: 'none' });
+const vco  = adjustToIncidentMedium({ filterLayers, nH, nL, nInc: nAir, nSub, lambda0_nm: LAM0, mode: 'vcoat' });
+const airPeak = (layers) => { let pk = 0; for (let lam = LAM0 - 3; lam <= LAM0 + 3; lam += 0.01) pk = Math.max(pk, spectrumT(layers, lam, nAir, nSub)); return pk; };
 console.log('\n[Step 6] Adjust to incident medium (air)');
-console.log(`   No AR   : air peak T = ${(none.peakT*100).toFixed(2)} %`);
-console.log(`   V-coat  : air peak T = ${(vco.peakT*100).toFixed(2)} %   (+ ${vco.arLayers.map(l=>`${l.arMat} ${l.d.toFixed(1)}nm`).join(' / ')})`);
+console.log(`   No AR   : air peak T = ${(airPeak(none.layers)*100).toFixed(2)} %`);
+console.log(`   V-coat  : air peak T = ${(airPeak(vco.layers)*100).toFixed(2)} %   (+ ${vco.arLayers.map(l=>`${l.arMat} ${l.d.toFixed(1)}nm`).join(' / ')})`);
 console.log(`   Final design: N = ${vco.layers.length} layers,  Th = ${vco.layers.reduce((s,l)=>s+l.d,0).toFixed(1)} nm   (reference final: N=58, Th=6894.7)`);
 
 // ── Spectrum (ASCII) of the FINAL air design with V-coat ─────────────────────

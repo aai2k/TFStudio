@@ -1,16 +1,18 @@
+import { prototypePositions } from './prototypeLayers.js';
+
 /** Count physical layers of a structure (mirrors + spacers). */
 export function structureLayerCount(mirrors, spacers) {
     return mirrors.reduce((a, g) => a + g, 0) + spacers.length;
 }
 
-/** Total physical thickness (nm) of a structure at λ₀ (QW-based). */
-export function structureThickness(mirrors, spacers, dH, dL, spacerIsL) {
+/**
+ * Total physical thickness (nm) of a structure at λ₀. Each position's material
+ * follows from its parity counted from the substrate, the same walk the layer
+ * builder uses.
+ */
+export function structureThickness(mirrors, spacers, dH, dL) {
     let th = 0;
-    // mirror layers alternate face(H for L-spacer); their QW thicknesses:
-    const faceD = spacerIsL ? dH : dL, otherD = spacerIsL ? dL : dH;
-    for (const g of mirrors) for (let i = 0; i < g; i++) th += (i % 2 === 0) ? faceD : otherD;
-    const spD = spacerIsL ? dL : dH;
-    for (const s of spacers) th += 2 * s * spD;
+    for (const { tag, qw } of prototypePositions(mirrors, spacers)) th += qw * (tag === 'H' ? dH : dL);
     return th;
 }
 

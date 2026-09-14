@@ -6,12 +6,17 @@ import { toNDLayers } from './prototypeLayers.js';
  * @param {Array} layers engine layers
  * @param {number} lam
  * @param {function} nSub substrate index fn (used for BOTH incident and exit)
+ * @param {number} [aoi=0]  angle of incidence, degrees
+ * @param {'s'|'p'|'avg'} [pol='s']  at normal incidence the two agree
  */
-export function embeddedT(layers, lam, nSub) {
+export function embeddedT(layers, lam, nSub, aoi = 0, pol = 's') {
     const v = nSub(lam);
     const ns = Array.isArray(v) ? v : [v, 0];
-    const { T } = tmm(lam, 0, 's', ns, ns, toNDLayers(layers, lam));
-    return T;
+    const nd = toNDLayers(layers, lam);
+    if (pol === 'avg') {
+        return (tmm(lam, aoi, 's', ns, ns, nd).T + tmm(lam, aoi, 'p', ns, ns, nd).T) / 2;
+    }
+    return tmm(lam, aoi, pol, ns, ns, nd).T;
 }
 
 /** T at one λ for an arbitrary incident/substrate pair (used for step-6 / air). */

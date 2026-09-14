@@ -30,6 +30,24 @@ export function CheckField({ label, value, onChange, c, hint }) {
             h('span', {}, label)),
         hint && h('span', { style: { fontSize: 10.5, color: c.textDim, opacity: 0.85 } }, hint));
 }
+/**
+ * Linear / log switch for a spectrum plot. Every OptiLayer build has one, and a
+ * rejection edge at a tenth of a percent is invisible on a linear axis.
+ */
+export function AxisToggle({ value, onChange, c, t }) {
+    const T = t.filterDesign;
+    const btn = (on, label, next, radius) => h('button', {
+        key: radius, onClick: () => onChange(next),
+        style: {
+            padding: '2px 9px', fontSize: 11, cursor: 'pointer', border: `1px solid ${c.border}`,
+            backgroundColor: on ? c.accent : c.bg, color: on ? '#fff' : c.text, borderRadius: radius,
+        },
+    }, label);
+    return h('div', { style: { display: 'flex', justifyContent: 'flex-end' } },
+        btn(!value, T.axisLinear, false, '3px 0 0 3px'),
+        btn(value, T.axisLog, true, '0 3px 3px 0'));
+}
+
 export function StepHeader({ step, title, c }) {
     return h('div', { style: { display: 'flex', alignItems: 'center', gap: 12, padding: '4px 0 12px', borderBottom: `1px solid ${c.border}`, marginBottom: 12 } },
         h('div', { style: { fontSize: 11, color: c.textDim, letterSpacing: '0.06em', textTransform: 'uppercase', fontWeight: 600 } }, `Step ${step} of 6`),

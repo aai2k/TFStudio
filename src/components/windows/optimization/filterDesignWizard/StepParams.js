@@ -1,6 +1,6 @@
 import { idealFilterCurve } from '../../../../utils/filter/filterDesign.js';
 import { shapeFactor } from './model.js';
-import { NumField, StepHeader } from './ui.js';
+import { AxisToggle, NumField, StepHeader } from './ui.js';
 import { SpectrumPlot } from './SpectrumPlot.js';
 
 const { createElement: h, useMemo, useCallback } = React;
@@ -32,7 +32,9 @@ export function StepParams({ p, set, c, t }) {
                     h(NumField, { label: T.step2.passLevel, value: p.passLevel, min: 1, max: 99.9, step: 0.01, suffix: '%', c, width: 80, onChange: (v) => set('passLevel', v) }),
                     h(NumField, { label: T.step2.stopLevel, value: p.stopLevel, min: 0.001, max: 50, step: 0.01, suffix: '%', c, width: 80, onChange: (v) => set('stopLevel', v) }))),
             h('div', { style: { flex: 1, display: 'flex', flexDirection: 'column' } },
-                h('div', { style: { fontSize: 11, color: c.textDim, marginBottom: 2 } }, T.step2.previewHint),
-                h(SpectrumPlot, { analyticT, p, c, height: 300, levelLines,
+                h('div', { style: { display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 2 } },
+                    h('div', { style: { fontSize: 11, color: c.textDim } }, T.step2.previewHint),
+                    h(AxisToggle, { value: p.logAxis, onChange: (v) => set('logAxis', v), c, t })),
+                h(SpectrumPlot, { analyticT, p, c, height: 300, levelLines, logAxis: p.logAxis,
                     lambdaAxis: t.spectralAxis.lambdaShort }))));
 }

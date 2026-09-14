@@ -1,51 +1,59 @@
 import { qwThickness } from './indexProviders.js';
 import { makeClampMirror, makeClampOrder } from './searchClamps.js';
-import { makeMfOf } from './searchEvaluate.js';
+import { makeMfOf, makePartsOf } from './searchEvaluate.js';
 import { descend } from './localDescent.js';
 import { makeCandidate } from './candidateBuilder.js';
 import { makeRecorder } from './candidateTracker.js';
+import { mulberry32 } from './rng.js';
 
 /**
  * Global Integer Search: discrete minimization of the embedded MF over per-mirror
- * QW layer counts (odd) and per-spacer orders (integer), seeded from a prototype.
+ * QW layer counts and per-spacer orders, seeded from a prototype.
  *
- * Coordinate descent with neighbourhood ±step on each variable, plus multi-start
- * perturbations to surface several near-optimal candidates (the
- * step-5 list). Mirror counts stay odd (±2 moves); spacer orders ≥1.
+ * Coordinate descent with neighbourhood ±1/±2 on each variable, plus multi-start
+ * perturbations to surface several near-optimal candidates (the step-5 list).
+ * Both vectors are indexed from the substrate.
  *
  * @param {object} p
  * @param {function} p.nH @param {function} p.nL @param {function} p.nSub
  * @param {number}   p.lambda0_nm
- * @param {object}   p.target               from buildFilterTarget
+ * @param {object}   p.target               from buildFilterTarget; a tiltDeg above
+ *   zero on it makes every merit below the pooled normal-and-tilted one
  * @param {number}   p.cavities             N
- * @param {number}   p.seedMirror           initial mirror layer count (odd)
+ * @param {number}   p.seedMirror           initial mirror layer count
  * @param {number}   p.seedSpacer           initial spacer order
- * @param {'H'|'L'}  [p.spacerKind='L']
+ * @param {number[]} [p.seedMirrors]        per-mirror seed vector, overrides seedMirror
  * @param {boolean}  [p.symMirrors=false]
  * @param {boolean}  [p.symCavities=false]
  * @param {number}   [p.minMirror=1] @param {number} [p.maxMirror=41]
- * @param {number}   [p.minOrder=1]  @param {number} [p.maxOrder=8]
+ * @param {number}   [p.minOrder=1]  @param {number} [p.maxOrder=400]
+ *   The order bound only ever clamps the seed: the descent moves by one or two
+ *   from it, and OptiLayer's own prototype tables reach orders in the hundreds.
  * @param {number}   [p.restarts=12]
- * @param {function} [p.rng=Math.random]
- * @param {function} [p.onProgress]         (best, candidates) callback
+ * @param {number}   [p.rngSeed]           seeds the multistart, so a run is reproducible
+ * @param {function} [p.rng]               overrides rngSeed; defaults to Math.random
+ * @param {function} [p.onProgress]         (best, candidates, iteration) callback
  * @returns {{ candidates: Array, best: object }}  candidates sorted by MF asc
- *   each candidate = { mirrors, spacers, mf, layers:N, thicknessNm }
+ *   each candidate = { mirrors, spacers, mf, mf0, mfTilt, layers:N, thicknessNm }
  */
 export function globalIntegerSearch(p) {
     const {
         nH, nL, nSub, lambda0_nm, target, cavities,
-        seedMirror, seedSpacer, seedMirrors = null, spacerKind = 'L',
+        seedMirror, seedSpacer, seedMirrors = null,
         symMirrors = false, symCavities = false,
-        minMirror = 1, maxMirror = 41, minOrder = 1, maxOrder = 200,
-        restarts = 12, rng = Math.random, onProgress = null,
+        minMirror = 1, maxMirror = 41, minOrder = 1, maxOrder = 400,
+        restarts = 12, rngSeed = null, onProgress = null,
+        rng = rngSeed != null ? mulberry32(rngSeed) : Math.random,
     } = p;
 
-    const spacerIsL = spacerKind !== 'H';
     const dH = qwThickness(nH, lambda0_nm), dL = qwThickness(nL, lambda0_nm);
     const clampMirror = makeClampMirror(minMirror, maxMirror);
     const clampOrder = makeClampOrder(minOrder, maxOrder);
-    const mfOf = makeMfOf({ nH, nL, lambda0_nm, spacerKind, symMirrors, symCavities, target, nSub });
-    const ctx = { clampMirror, clampOrder, mfOf, symMirrors, symCavities, dH, dL, spacerIsL };
+    const evalCtx = { nH, nL, lambda0_nm, symMirrors, symCavities, target, nSub };
+    const ctx = {
+        clampMirror, clampOrder, mfOf: makeMfOf(evalCtx), partsOf: makePartsOf(evalCtx),
+        symMirrors, symCavities, dH, dL,
+    };
 
     const N = cavities;
     const candidates = [];
@@ -74,7 +82,7 @@ export function globalIntegerSearch(p) {
             return clampMirror(g + taper + noise);
         });
         const spa = seedSpa.map((s) => clampOrder(s + Math.round((rng() - 0.5) * 2)));
-        record(descend(mir, spa, ctx));
+        record(descend(mir, spa, ctx), true);
     }
 
     return { candidates, best: candidates[0] };

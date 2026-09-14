@@ -1,30 +1,65 @@
 import { getMaterialById } from '../../../../utils/materials/catalogManager.js';
 import {
     materialIndexFn, buildPrototypeLayers, buildPrototypeFamily,
-    recommendCavities, coupledMirrors,
+    recommendCavities, coupledMirrors, buildFilterTarget,
 } from '../../../../utils/filter/filterDesign.js';
-import { couplingD, safeCall, shapeFactor } from './model.js';
-import { IntField, StepHeader } from './ui.js';
+import { couplingD, prototypeCandidate, safeCall, shapeFactor } from './model.js';
+import { AxisToggle, IntField, StepHeader } from './ui.js';
 import { SpectrumPlot } from './SpectrumPlot.js';
 import { StackBar } from './StackBar.js';
 
 const { createElement: h, useMemo, useCallback, useEffect } = React;
 
 // (m,k) equivalent-mirror family for the current passband width — the
-// prototype table populating step 4.
-function computePrototypeFamily({ p, eff, N }) {
+// prototype table populating step 4. One table, computed once; the spacer-
+// material radio only chooses which of its rows are offered.
+function computePrototypeFamily({ p, N }) {
     try {
         const nH = materialIndexFn(p.matH, getMaterialById), nL = materialIndexFn(p.matL, getMaterialById), nSub = materialIndexFn(p.substrateMaterial, getMaterialById);
-        // target passband full width (the equivalence is at this width)
-        return buildPrototypeFamily({ nH, nL, nSub, lambda0_nm: p.lambda0_nm, spacerKind: eff, cavities: N, targetFWHM: 2 * p.passHalf_nm });
+        return buildPrototypeFamily({
+            nH, nL, nSub, lambda0_nm: p.lambda0_nm, cavities: N,
+            targetFWHM: 2 * p.passHalf_nm, passLevel: p.passLevel / 100,
+        });
     } catch (e) { return []; }
 }
 
-// p.seedMirror holds the mirror order m (display); the BUILT outer mirror is
-// oddUp(m) and the prototype is a coupled-cavity stack (inner mirrors 2× outer).
-function buildPrototypeStackLayers({ p, eff, mSel, s, N, d }) {
+// An odd m leaves the spacers on L, an even m on H, because the spacer sits one
+// position past the outer mirror and materials follow position parity.
+function rowsForFilter(fam, spacerFilter) {
+    if (spacerFilter === 'H') return fam.filter(r => r.notationM % 2 === 0);
+    if (spacerFilter === 'L') return fam.filter(r => r.notationM % 2 === 1);
+    return fam;
+}
+
+function buildPrototypeStackLayers({ p, mSel, s, N, d }) {
     const nH = materialIndexFn(p.matH, getMaterialById), nL = materialIndexFn(p.matL, getMaterialById);
-    return buildPrototypeLayers({ nH, nL, lambda0_nm: p.lambda0_nm, mirrors: coupledMirrors(N, mSel, d), spacers: new Array(N).fill(s), spacerKind: eff });
+    return buildPrototypeLayers({ nH, nL, lambda0_nm: p.lambda0_nm, mirrors: coupledMirrors(N, mSel, d), spacers: new Array(N).fill(s) });
+}
+
+// The (m,k) table: click a row to seed the search with it.
+function renderFamilyTable({ rows, mSel, s, pick, c, T }) {
+    return h('div', { style: { maxHeight: 200, overflowY: 'auto', border: `1px solid ${c.border}`, borderRadius: 4 } },
+        h('table', { style: { width: '100%', borderCollapse: 'collapse', fontSize: 12, color: c.text } },
+            h('thead', {}, h('tr', { style: { backgroundColor: c.hover, position: 'sticky', top: 0 } },
+                ['m', 'k'].map((col, i) => h('th', { key: i, style: { textAlign: 'left', padding: '5px 10px', borderBottom: `1px solid ${c.border}`, fontWeight: 600 } }, col)))),
+            h('tbody', {}, rows.map((r, i) => {
+                const sel = r.notationM === mSel && r.spacerOrder === s;
+                return h('tr', { key: i, onClick: () => pick(r.notationM, r.spacerOrder),
+                    style: { cursor: 'pointer', backgroundColor: sel ? c.accent + '33' : 'transparent' } },
+                    h('td', { style: { padding: '4px 10px' } }, r.notationM),
+                    h('td', { style: { padding: '4px 10px' } }, r.spacerOrder));
+            }))));
+}
+
+// The points the merit scores, drawn over the preview so the user can see what
+// the search is being asked for.
+function targetPointsOf(p) {
+    try {
+        return buildFilterTarget({
+            lambda0_nm: p.lambda0_nm, halfPass: p.passHalf_nm,
+            halfStop: p.stopHalf_nm, passLevel: p.passLevel,
+        }).points;
+    } catch (e) { return null; }
 }
 
 // ── Step 4: Prototype family ──────────────────────────────────────────────────
@@ -32,26 +67,32 @@ export function StepPrototype({ p, set, c, t }) {
     const T = t.filterDesign;
     const sf = shapeFactor(p);
     const N = p.cavities ?? recommendCavities({ shapeFactor: sf, Tpass: p.passLevel / 100, Tstop: p.stopLevel / 100 }).recommended;
-    const eff = p.spacerKind === 'H' ? 'H' : 'L';   // 'any' previews as L (search tries both)
-    const fam = useMemo(() => computePrototypeFamily({ p, eff, N }),
-        [p.matH, p.matL, p.substrateMaterial, p.lambda0_nm, eff, N, p.passHalf_nm]);
+    const fam = useMemo(() => computePrototypeFamily({ p, N }),
+        [p.matH, p.matL, p.substrateMaterial, p.lambda0_nm, N, p.passHalf_nm, p.passLevel]);
+    const rows = useMemo(() => rowsForFilter(fam, p.spacerFilter), [fam, p.spacerFilter]);
 
-    // Reset the (m,k) pick to the recommended Thelen row (m largest, k=1 — bottom
-    // row) whenever the FAMILY changes: new materials / λ₀ / passband
-    // width / cavity count / spacer kind, and on first open. Keyed on a family
-    // SIGNATURE (not fam.length, which doesn't change between two same-size
-    // families) so a stale (m,k) from a PREVIOUSLY generated filter never lingers
-    // in the step-4 preview. A manual m/k pick within the SAME family is preserved
-    // (famKey unchanged → effect doesn't refire).
-    const famKey = `${p.matH}|${p.matL}|${p.substrateMaterial}|${p.lambda0_nm}|${eff}|${N}|${p.passHalf_nm}`;
+    // Picking a row is what selects the design: from here on the wizard has
+    // something to build, so Finish works with or without the integer search.
+    const pick = useCallback((m, k) => {
+        set('seedMirror', m); set('seedSpacer', k);
+        set('selected', prototypeCandidate(p, N, m, k));
+    }, [p, N, set]);
+
+    // Reset the (m,k) pick to the strongest-mirror row whenever the FAMILY or
+    // the row filter changes: new materials / λ₀ / passband width / cavity
+    // count, and on first open. Keyed on a family SIGNATURE (not rows.length,
+    // which doesn't change between two same-size families) so a stale (m,k)
+    // from a PREVIOUSLY generated filter never lingers in the step-4 preview.
+    // A manual m/k pick within the SAME family is preserved.
+    const famKey = `${p.matH}|${p.matL}|${p.substrateMaterial}|${p.lambda0_nm}|${N}|${p.passHalf_nm}|${p.passLevel}|${p.spacerFilter}`;
     useEffect(() => {
-        if (fam.length) { set('seedMirror', fam[0].notationM); set('seedSpacer', fam[0].spacerOrder); }
+        if (rows.length) pick(rows[0].notationM, rows[0].spacerOrder);
     }, [famKey]); // eslint-disable-line
 
     const mSel = p.seedMirror || 8, s = p.seedSpacer || 1;
     const d = couplingD(p);
-    const layersFn = useCallback(() => buildPrototypeStackLayers({ p, eff, mSel, s, N, d }),
-        [p.matH, p.matL, p.lambda0_nm, eff, mSel, s, N, d]);
+    const layersFn = useCallback(() => buildPrototypeStackLayers({ p, mSel, s, N, d }),
+        [p.matH, p.matL, p.lambda0_nm, mSel, s, N, d]);
     const stackLayers = useMemo(() => safeCall(layersFn, []), [layersFn]);
     const nLayers = stackLayers.length;
     const thNm = stackLayers.reduce((a, l) => a + l.d, 0);
@@ -62,29 +103,20 @@ export function StepPrototype({ p, set, c, t }) {
             // left: table + m/k fields + spacer material
             h('div', { style: { width: 250 } },
                 h('div', { style: { fontSize: 12, fontWeight: 600, color: c.text, marginBottom: 6 } }, T.step4.tableHeader),
-                h('div', { style: { maxHeight: 200, overflowY: 'auto', border: `1px solid ${c.border}`, borderRadius: 4 } },
-                    h('table', { style: { width: '100%', borderCollapse: 'collapse', fontSize: 12, color: c.text } },
-                        h('thead', {}, h('tr', { style: { backgroundColor: c.hover, position: 'sticky', top: 0 } },
-                            ['m', 'k', T.step4.colWidth].map((col, i) => h('th', { key: i, style: { textAlign: 'left', padding: '5px 10px', borderBottom: `1px solid ${c.border}`, fontWeight: 600 } }, col)))),
-                        h('tbody', {}, fam.map((r, i) => {
-                            const sel = r.notationM === mSel && r.spacerOrder === s;
-                            return h('tr', { key: i, onClick: () => { set('seedMirror', r.notationM); set('seedSpacer', r.spacerOrder); },
-                                style: { cursor: 'pointer', backgroundColor: sel ? c.accent + '33' : 'transparent' } },
-                                h('td', { style: { padding: '4px 10px' } }, r.notationM),
-                                h('td', { style: { padding: '4px 10px' } }, r.spacerOrder),
-                                h('td', { style: { padding: '4px 10px', color: c.textDim } }, r.width ? r.width.toFixed(2) + ' nm' : '—')); })))),
+                renderFamilyTable({ rows, mSel, s, pick, c, T }),
                 // m / k direct input fields (step-4 controls)
                 h('div', { style: { display: 'flex', gap: 10, marginTop: 10 } },
-                    h(IntField, { label: T.step4.extMirror, value: mSel, min: 1, max: 40, c, onChange: (v) => set('seedMirror', Math.max(1, v)) }),
-                    h(IntField, { label: T.step4.spacerOrder, value: s, min: 1, max: 200, c, onChange: (v) => set('seedSpacer', Math.max(1, v)) })),
+                    h(IntField, { label: T.step4.extMirror, value: mSel, min: 1, max: 40, c, onChange: (v) => pick(Math.max(1, v), s) }),
+                    h(IntField, { label: T.step4.spacerOrder, value: s, min: 1, max: 400, c, onChange: (v) => pick(mSel, Math.max(1, v)) })),
                 h('div', { style: { marginTop: 10, fontSize: 12, color: c.textDim } }, T.step4.spacerMat),
                 h('div', { style: { display: 'flex', gap: 12, marginTop: 4 } },
                     [['any', T.step4.spacerAny], ['H', 'H'], ['L', 'L']].map(([v, l]) => h('label', { key: v, style: { display: 'flex', gap: 5, alignItems: 'center', fontSize: 12, color: c.text, cursor: 'pointer' } },
-                        h('input', { type: 'radio', checked: p.spacerKind === v, onChange: () => set('spacerKind', v) }), l)))),
+                        h('input', { type: 'radio', checked: p.spacerFilter === v, onChange: () => set('spacerFilter', v) }), l)))),
             // right: preview + stack bar
             h('div', { style: { flex: 1, display: 'flex', flexDirection: 'column' } },
-                h(SpectrumPlot, { layersFn, p, mode: 'embedded', c, height: 240,
-                    lambdaAxis: t.spectralAxis.lambdaShort }),
+                h(AxisToggle, { value: p.logAxis, onChange: (v) => set('logAxis', v), c, t }),
+                h(SpectrumPlot, { layersFn, p, mode: 'embedded', c, height: 240, logAxis: p.logAxis,
+                    targetPoints: targetPointsOf(p), lambdaAxis: t.spectralAxis.lambdaShort }),
                 h(StackBar, { layers: stackLayers, c, height: 24 }),
                 h('div', { style: { fontSize: 12, color: c.textDim, marginTop: 4 } }, `N = ${nLayers}    Th = ${thNm.toFixed(1)} nm    (embedded preview)`))));
 }

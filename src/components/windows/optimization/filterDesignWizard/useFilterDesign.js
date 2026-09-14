@@ -1,6 +1,6 @@
 import { getMaterialById } from '../../../../utils/materials/catalogManager.js';
 import { buildFilterDesignObject } from '../../../../utils/filter/filterDesignBuild.js';
-import { DEFAULTS } from './model.js';
+import { DEFAULTS, rememberSetting, rememberedSettings } from './model.js';
 
 const { useState, useCallback, useEffect } = React;
 
@@ -13,7 +13,7 @@ function buildDesign(p) {
     return buildFilterDesignObject({
         name: p.name, matH: p.matH, matL: p.matL, substrateMaterial: p.substrateMaterial,
         substrateThicknessMm: p.substrateThicknessMm, incidentMedium: p.incidentMedium, exitMedium: p.exitMedium,
-        lambda0_nm: p.lambda0_nm, candidate: p.selected, spacerKind: p.spacerKind, arMode: p.arMode,
+        lambda0_nm: p.lambda0_nm, candidate: p.selected, arMode: p.arMode,
         halfPass: p.passHalf_nm, halfStop: p.stopHalf_nm, aoi: p.aoi, pol: p.pol,
     });
 }
@@ -23,9 +23,12 @@ function buildDesign(p) {
 // substrate index); step 6 introduces the real incident medium via `p.arMode`.
 export function useFilterDesign({ onClose, onGenerate, folderName, t }) {
     const T = t.filterDesign;
-    const [p, setParams] = useState(() => ({ ...DEFAULTS }));
+    const [p, setParams] = useState(() => ({ ...DEFAULTS, ...rememberedSettings() }));
     const [step, setStep] = useState(1);
-    const set = useCallback((key, value) => setParams(prev => ({ ...prev, [key]: value })), []);
+    const set = useCallback((key, value) => {
+        rememberSetting(key, value);
+        setParams(prev => ({ ...prev, [key]: value }));
+    }, []);
 
     useEffect(() => { const onKey = (e) => { if (e.key === 'Escape') onClose(); }; document.addEventListener('keydown', onKey); return () => document.removeEventListener('keydown', onKey); }, [onClose]);
 

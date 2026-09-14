@@ -8,7 +8,7 @@
  *
  * Protocol:
  *   main → worker : { lambda0, targetParams, search, tables }
- *   worker → main : { type:'tick',   best, candidates }   (after each restart)
+ *   worker → main : { type:'tick', best, candidates, iteration }  (after each restart)
  *                   { type:'result', candidates }         (search complete)
  *                   { type:'error',  message }
  *   Stop = main thread calls worker.terminate().
@@ -49,8 +49,8 @@ self.onmessage = (e) => {
         const { candidates } = globalIntegerSearch({
             ...search,
             nH, nL, nSub, lambda0_nm: lambda0, target,
-            onProgress: (best, cands) => {
-                self.postMessage({ type: 'tick', best, candidates: cands.slice(0, 16) });
+            onProgress: (best, cands, iteration) => {
+                self.postMessage({ type: 'tick', best, candidates: cands.slice(0, 16), iteration });
             },
         });
         self.postMessage({ type: 'result', candidates });

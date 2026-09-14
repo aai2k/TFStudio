@@ -1,10 +1,6 @@
-/** Build a mirror-layer-count clamp: rounds to nearest odd, then bounds to [minMirror,maxMirror]. */
+/** Build a mirror-layer-count clamp: rounds and bounds to [minMirror,maxMirror]. */
 export function makeClampMirror(minMirror, maxMirror) {
-    return (g) => {
-        let v = Math.round(g);
-        if (v % 2 === 0) v += 1;             // keep odd
-        return Math.max(minMirror, Math.min(maxMirror, v));
-    };
+    return (g) => Math.max(minMirror, Math.min(maxMirror, Math.round(g)));
 }
 
 /** Build a spacer-order clamp: rounds and bounds to [minOrder,maxOrder]. */
