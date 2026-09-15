@@ -1,12 +1,12 @@
 import { getMaterialById } from '../../../../utils/materials/catalogManager.js';
 import {
     materialIndexFn, buildPrototypeLayers, coupledMirrors, recommendCavities,
-    targetSpan, buildFilterTarget, hashSeed, tiltWindowLow,
+    targetSpan, deriveSeed, hashSeed, tiltWindowLow,
 } from '../../../../utils/filter/filterDesign.js';
 import { presampleForSearch } from '../../../../utils/filter/filterDesignBuild.js';
 import { getTmmWasmBytesForWorker } from '../../../../tmmcore.js';
 import { FILTER_WORKER_URL as WORKER_URL } from '../../../../workerUrls.js';
-import { candidateKey, couplingD, mergeCandidates, prototypeCandidate, shapeFactor } from './model.js';
+import { candidateKey, couplingD, mergeCandidates, prototypeCandidate, shapeFactor, targetPointsOf } from './model.js';
 import { AxisToggle, CheckField, IntField, NumField, StepHeader } from './ui.js';
 import { SpectrumPlot } from './SpectrumPlot.js';
 
@@ -53,6 +53,8 @@ function startFilterSearch(ctx) {
     stop();
     if (p.clearHistoryOnStart) clearHistory();
     setStatus(T.step5.running); setRunning(true);
+    const run = (runRef.current += 1);
+    set('searchRun', run);
     // A fresh run drops a stale pick back to the step-4 prototype, which is
     // always buildable, rather than to nothing.
     set('selected', prototypeCandidate(p, N, p.seedMirror || 8, seedSpacerVal));
@@ -91,7 +93,7 @@ function startFilterSearch(ctx) {
             // Seeded from the specification and the run number, so the same
             // design always gives the same answer and a second Start still
             // looks somewhere new.
-            rngSeed: hashSeed(seedKey) + (runRef.current += 1),
+            rngSeed: deriveSeed(hashSeed(seedKey), run),
         },
     });
 }
@@ -170,15 +172,15 @@ export function StepSearch({ p, set, c, t }) {
     const sf = shapeFactor(p);
     const N = p.cavities ?? recommendCavities({ shapeFactor: sf, Tpass: p.passLevel / 100, Tstop: p.stopLevel / 100 }).recommended;
     const [running, setRunning] = useState(false);
-    const [candidates, setCandidates] = useState([]);
     const [status, setStatus] = useState('');
     const [iteration, setIteration] = useState(0);
     const workerRef = useRef(null);
-    // The history outlives each run, so it lives in a ref the message handler
-    // can merge into without reading stale state.
-    const historyRef = useRef([]);
-    // Which run of this specification we are on, which seeds the multistart.
-    const runRef = useRef(0);
+    // The history and the run counter are kept in the wizard state so they
+    // survive leaving step 5; the refs mirror them so the worker's message
+    // handler can merge into the list without reading a stale closure.
+    const candidates = p.candidateHistory || [];
+    const historyRef = useRef(candidates);
+    const runRef = useRef(p.searchRun || 0);
 
     const stop = useCallback(() => {
         if (workerRef.current) { workerRef.current.terminate(); workerRef.current = null; }
@@ -187,23 +189,32 @@ export function StepSearch({ p, set, c, t }) {
     useEffect(() => () => stop(), [stop]); // cleanup on unmount
 
     const clearHistory = useCallback(() => {
-        historyRef.current = []; setCandidates([]); setIteration(0);
-    }, []);
+        historyRef.current = []; set('candidateHistory', []); setIteration(0);
+    }, [set]);
     const applyRun = useCallback((incoming) => {
         historyRef.current = mergeCandidates(historyRef.current, incoming);
-        setCandidates(historyRef.current);
+        set('candidateHistory', historyRef.current);
         return historyRef.current;
-    }, []);
+    }, [set]);
 
     // The coupled seed prototype (the step-4 design) — also the search seed.
     const seedMirrorsVec = useMemo(() => coupledMirrors(N, p.seedMirror || 8, couplingD(p)),
         [N, p.seedMirror, p.matH, p.matL, p.substrateMaterial, p.lambda0_nm]); // eslint-disable-line
     const seedSpacerVal = p.seedSpacer || 1;
-    // Signature of every design-defining input. When it changes the history is
-    // for a DIFFERENT filter, so it goes whatever the checkbox says.
-    const seedKey = `${N}|${seedMirrorsVec.join(',')}|${seedSpacerVal}|${p.matH}|${p.matL}|${p.substrateMaterial}|${p.lambda0_nm}|${p.passHalf_nm}|${p.stopHalf_nm}|${p.holdPassbandDeg}`;
+    // Signature of every design-defining input, the specification the merit is
+    // built from included. When it changes the history is for a DIFFERENT
+    // filter, so it goes whatever the checkbox says.
+    const seedKey = `${N}|${seedMirrorsVec.join(',')}|${seedSpacerVal}|${p.matH}|${p.matL}|${p.substrateMaterial}|${p.lambda0_nm}|${p.passHalf_nm}|${p.stopHalf_nm}|${p.passLevel}|${p.holdPassbandDeg}`;
+    // The history records which filter it is for, so only an actual CHANGE
+    // resets. Stepping away and back remounts this component, and a reset on
+    // mount would throw away the candidate the user picked here and leave
+    // Finish quietly building the step-4 prototype. The key lives beside the
+    // history rather than in a ref because the change can happen on another
+    // step, while this one is unmounted.
     useEffect(() => {
-        stop(); clearHistory(); setStatus(''); runRef.current = 0;
+        if (p.historyKey === seedKey) return;
+        stop(); clearHistory(); setStatus('');
+        runRef.current = 0; set('searchRun', 0); set('historyKey', seedKey);
         set('selected', prototypeCandidate(p, N, p.seedMirror || 8, seedSpacerVal));
     }, [seedKey]); // eslint-disable-line
 
@@ -217,11 +228,8 @@ export function StepSearch({ p, set, c, t }) {
     // (the step-4 design) — never a stale plot from a previous filter.
     const selLayersFn = useCallback(() => buildSelectedSearchLayers({ p, seedMirrorsVec, seedSpacerVal, N }),
         [p.selected, seedMirrorsVec, seedSpacerVal, N, p.matH, p.matL, p.lambda0_nm]);
-    const targetPoints = useMemo(() => {
-        try {
-            return buildFilterTarget({ lambda0_nm: p.lambda0_nm, halfPass: p.passHalf_nm, halfStop: p.stopHalf_nm, passLevel: p.passLevel }).points;
-        } catch (e) { return null; }
-    }, [p.lambda0_nm, p.passHalf_nm, p.stopHalf_nm, p.passLevel]);
+    const targetPoints = useMemo(() => targetPointsOf(p),
+        [p.lambda0_nm, p.passHalf_nm, p.stopHalf_nm, p.passLevel]); // eslint-disable-line
 
     return h('div', { style: { display: 'flex', flexDirection: 'column', gap: 10 } },
         h(StepHeader, { step: 5, title: T.step5.title, c }),

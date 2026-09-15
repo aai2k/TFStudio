@@ -1,7 +1,7 @@
 import { getMaterialById } from '../../../../utils/materials/catalogManager.js';
 import {
     materialIndexFn, couplingOrder, coupledMirrors, qwThickness,
-    structureLayerCount, structureThickness,
+    structureLayerCount, structureThickness, buildFilterTarget,
 } from '../../../../utils/filter/filterDesign.js';
 
 const idx = (id) => materialIndexFn(id, getMaterialById);
@@ -29,6 +29,18 @@ export function prototypeCandidate(p, N, m, k) {
         layers: structureLayerCount(mirrors, spacers),
         thicknessNm: structureThickness(mirrors, spacers, dH, dL),
     };
+}
+
+/**
+ * The points the merit scores, drawn over the step-4 and step-5 previews so the
+ * user can see what the search is being asked for. Null on invalid input, which
+ * a preview treats as nothing to draw.
+ */
+export function targetPointsOf(p) {
+    return safeCall(() => buildFilterTarget({
+        lambda0_nm: p.lambda0_nm, halfPass: p.passHalf_nm,
+        halfStop: p.stopHalf_nm, passLevel: p.passLevel,
+    }).points, null);
 }
 
 // ── Step-5 candidate history ───────────────────────────────────
@@ -127,6 +139,12 @@ export const DEFAULTS = {
     holdPassbandDeg: 0,
     // view setting, shared by every plot in the wizard
     logAxis: false,
+    // Step-5 candidate history, the filter signature it was collected for, and
+    // the run counter. They live in the wizard state, not in the step, because
+    // step 5 unmounts whenever the user navigates away and the list is meant to
+    // outlive that; the signature is what tells a remount whether the history
+    // still belongs to the filter now being designed.
+    candidateHistory: [], historyKey: null, searchRun: 0,
     // chosen candidate + AR (step 5/6)
     selected: null,            // { mirrors, spacers, mf, layers, thicknessNm }
     arMode: 'vcoat',

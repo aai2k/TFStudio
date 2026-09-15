@@ -143,6 +143,14 @@ function halfMaxCrossing(scan, iPeak, dir, half, limit) {
  * tilt and that sample is the centre. Every passband point of such a design
  * already sits far below its level, so the choice hardly moves its score.
  *
+ * The centre is held to the scan's own range at the bottom and to λ₀ at the
+ * top. A design whose band never falls to half maximum gives `halfMaxCrossing`
+ * no crossing to return, and the limit it returns instead can put the midpoint
+ * outside the window `tiltWindowLow` promises a caller; tilting only ever moves
+ * a band to shorter wavelengths, so the upper bound is λ₀. Without the clamp
+ * such a design is scored against materials read off the end of a sampled grid
+ * rather than at the wavelengths asked for.
+ *
  * @param {Array} tilted   layers from `tiltedLayers`
  * @param {object} target  from buildFilterTarget, with tiltDeg above zero
  * @returns {{ centre:number, peak:number }}  centre in nm, peak embedded T
@@ -161,5 +169,6 @@ export function tiltedBandCentre(tilted, target, nSub) {
     const scan = { xs, ts, step, Tof }, half = peak / 2, span = targetSpan(halfPass, halfStop);
     const left = halfMaxCrossing(scan, iPeak, -1, half, lo - span);
     const right = halfMaxCrossing(scan, iPeak, 1, half, hi + span);
-    return { centre: (left + right) / 2, peak };
+    const centre = Math.min(lambda0_nm, Math.max(lo - pad, (left + right) / 2));
+    return { centre, peak };
 }

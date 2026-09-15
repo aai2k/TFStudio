@@ -1,5 +1,6 @@
 import { nReal } from './nReal.js';
 import { couplingOrder } from './coupledPrototype.js';
+import { MIRROR_BOUNDS, ORDER_BOUNDS } from './searchClamps.js';
 
 /**
  * Fitted constant relating the specified passband width to the width the
@@ -12,18 +13,6 @@ import { couplingOrder } from './coupledPrototype.js';
  * not average them together.
  */
 export const WIDTH_CONSTANT = 0.98;
-
-/**
- * The same constant fitted to the other two OptiLayer builds on record. They
- * are not merged into the one above and are not used by the wizard: each build
- * aims at a different prototype width, and at 0.98 every row of theirs comes
- * out one order high. Kept so a change to the rule can be checked against all
- * three tables at once.
- */
-export const WIDTH_CONSTANT_BY_BUILD = { 'v2026.08.04': 1.03, 'v2025.08.27': 1.23 };
-
-/** Loop guard: (n_L/n_H)^x drives the k = 1 width to zero, so the scan always ends. */
-const MAX_ROWS = 200;
 
 /**
  * Ratio of a Chebyshev filter's half-power width to its width at the specified
@@ -63,20 +52,25 @@ function smallestOrder(m, relWidth, { nHv, nLv, delta }) {
  * seed.
  *
  * Rows run from m = 1 up to the first m that reaches the width at k = 1, and in
- * each row k is the smallest order that fits. Nothing here is a cap: OptiLayer's
- * own tables run to 15 rows and to orders in the hundreds. The table is
- * analytic: measuring each row by TMM costs a quarter of a second per row and
- * buys nothing.
+ * each row k is the smallest order that fits. Reference tables run to 15 rows
+ * and to orders in the hundreds, so the row count is not capped for its own
+ * sake; what bounds it is the range the integer search can actually hold, since
+ * a row outside that range would be clamped the moment the search started. The
+ * table is analytic: measuring each row by TMM costs a quarter of a second per
+ * row and buys nothing.
  *
  * @param {number} p.targetFWHM   specified passband full width (nm) = 2·halfPass
  * @param {number} p.cavities     q, which sets the Chebyshev width ratio
  * @param {number} p.passLevel    transmittance the half-width is quoted at (0–1)
  * @param {number} p.widthConstant  which build's prototype width to aim at
+ * @param {number} [p.maxMirror]  strongest mirror a row may ask for
+ * @param {number} [p.maxOrder]   highest spacer order a row may ask for
  * @returns {{notationM:number, spacerOrder:number}[]}  strongest mirror first
  */
 export function buildPrototypeFamily({
     nH, nL, nSub, lambda0_nm, cavities = 4, targetFWHM = 3, passLevel = 0.8913,
     widthConstant = WIDTH_CONSTANT,
+    maxMirror = MIRROR_BOUNDS.max, maxOrder = ORDER_BOUNDS.max,
 }) {
     const nHv = nReal(nH, lambda0_nm), nLv = nReal(nL, lambda0_nm);
     if (!(nHv > nLv && nLv > 0 && lambda0_nm > 0 && targetFWHM > 0)) return [];
@@ -84,10 +78,12 @@ export function buildPrototypeFamily({
     const q = Math.max(1, Math.round(cavities));
     const relWidth = widthConstant * halfPowerWidthRatio(q, passLevel) * targetFWHM / lambda0_nm;
 
+    // k falls monotonically in m, so the rows dropped for exceeding maxOrder are
+    // the weak-mirror tail and the kept rows stay contiguous in m.
     const rows = [];
-    for (let m = 1; m <= MAX_ROWS; m++) {
+    for (let m = 1; m <= maxMirror; m++) {
         const k = smallestOrder(m, relWidth, ctx);
-        rows.push({ notationM: m, spacerOrder: k });
+        if (k <= maxOrder) rows.push({ notationM: m, spacerOrder: k });
         if (k === 1) break;
     }
     rows.reverse();

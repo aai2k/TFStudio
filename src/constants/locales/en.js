@@ -3037,6 +3037,7 @@ export default {
       spacerMat: 'Spacer material',
       extMirror: 'Ext. mirror layers (m)', spacerOrder: 'Spacer order (k)',
       spacerAny: 'Any',
+      noRows: 'No prototype fits this specification. Widen the passband, or choose materials with more index contrast.',
     },
     step5: {
       title: 'Global Integer Search',

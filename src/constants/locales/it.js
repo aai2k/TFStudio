@@ -3449,6 +3449,7 @@ export default {
       extMirror: 'Strati di specchio esterni (m)',
       spacerOrder: 'Ordine dello spaziatore (k)',
       spacerAny: 'Qualsiasi',
+      noRows: 'Nessun prototipo soddisfa questa specifica. Allarga la banda passante o scegli materiali con un contrasto di indice maggiore.',
     },
     step5: {
       title: 'Ricerca intera globale',

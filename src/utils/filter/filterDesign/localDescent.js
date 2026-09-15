@@ -1,8 +1,5 @@
 import { makeCandidate } from './candidateBuilder.js';
-import { tryImproveCompound, tryImproveJoint } from './descentMoves.js';
-
-/** Accept a neighbour only when it improves the merit by more than round-off. */
-const better = (m2, mf) => m2 < mf - 1e-12;
+import { better, tryImproveCompound, tryImproveJoint } from './descentMoves.js';
 
 /** One mirror-vector improvement sweep: try ±1/±2 on each mirror. */
 function tryImproveMirrors(mirrors, spacers, mf, { clampMirror, mfOf, symMirrors }) {
@@ -62,5 +59,5 @@ export function descend(mirrors0, spacers0, ctx) {
             if (r.improved) improved = true;
         }
     }
-    return makeCandidate(mirrors, spacers, ctx);
+    return makeCandidate(mirrors, spacers, ctx, {}, mf);
 }

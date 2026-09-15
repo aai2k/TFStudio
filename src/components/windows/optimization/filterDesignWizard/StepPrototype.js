@@ -1,9 +1,9 @@
 import { getMaterialById } from '../../../../utils/materials/catalogManager.js';
 import {
     materialIndexFn, buildPrototypeLayers, buildPrototypeFamily,
-    recommendCavities, coupledMirrors, buildFilterTarget,
+    recommendCavities, coupledMirrors, MIRROR_BOUNDS, ORDER_BOUNDS,
 } from '../../../../utils/filter/filterDesign.js';
-import { couplingD, prototypeCandidate, safeCall, shapeFactor } from './model.js';
+import { couplingD, prototypeCandidate, safeCall, shapeFactor, targetPointsOf } from './model.js';
 import { AxisToggle, IntField, StepHeader } from './ui.js';
 import { SpectrumPlot } from './SpectrumPlot.js';
 import { StackBar } from './StackBar.js';
@@ -24,20 +24,30 @@ function computePrototypeFamily({ p, N }) {
 }
 
 // An odd m leaves the spacers on L, an even m on H, because the spacer sits one
-// position past the outer mirror and materials follow position parity.
+// position past the outer mirror and materials follow position parity. A table
+// short enough to hold only one parity is offered whole rather than empty,
+// since an empty table gives the user nothing to pick and no way to tell why.
 function rowsForFilter(fam, spacerFilter) {
-    if (spacerFilter === 'H') return fam.filter(r => r.notationM % 2 === 0);
-    if (spacerFilter === 'L') return fam.filter(r => r.notationM % 2 === 1);
-    return fam;
+    const wanted = spacerFilter === 'H' ? 0 : spacerFilter === 'L' ? 1 : null;
+    if (wanted === null) return fam;
+    const kept = fam.filter(r => r.notationM % 2 === wanted);
+    return kept.length ? kept : fam;
 }
+
+// Typed m and k are held to the range the integer search can carry, so the
+// preview can never show a prototype the search would quietly clamp away.
+const clampTo = ({ min, max }, v) => Math.max(min, Math.min(max, v));
 
 function buildPrototypeStackLayers({ p, mSel, s, N, d }) {
     const nH = materialIndexFn(p.matH, getMaterialById), nL = materialIndexFn(p.matL, getMaterialById);
     return buildPrototypeLayers({ nH, nL, lambda0_nm: p.lambda0_nm, mirrors: coupledMirrors(N, mSel, d), spacers: new Array(N).fill(s) });
 }
 
-// The (m,k) table: click a row to seed the search with it.
+// The (m,k) table: click a row to seed the search with it. A specification no
+// prototype in the search's range can meet leaves it empty, which says so
+// rather than showing a bare set of column headers.
 function renderFamilyTable({ rows, mSel, s, pick, c, T }) {
+    if (!rows.length) return h('div', { style: { fontSize: 11.5, color: c.textDim, padding: '8px 0' } }, T.step4.noRows);
     return h('div', { style: { maxHeight: 200, overflowY: 'auto', border: `1px solid ${c.border}`, borderRadius: 4 } },
         h('table', { style: { width: '100%', borderCollapse: 'collapse', fontSize: 12, color: c.text } },
             h('thead', {}, h('tr', { style: { backgroundColor: c.hover, position: 'sticky', top: 0 } },
@@ -49,17 +59,6 @@ function renderFamilyTable({ rows, mSel, s, pick, c, T }) {
                     h('td', { style: { padding: '4px 10px' } }, r.notationM),
                     h('td', { style: { padding: '4px 10px' } }, r.spacerOrder));
             }))));
-}
-
-// The points the merit scores, drawn over the preview so the user can see what
-// the search is being asked for.
-function targetPointsOf(p) {
-    try {
-        return buildFilterTarget({
-            lambda0_nm: p.lambda0_nm, halfPass: p.passHalf_nm,
-            halfStop: p.stopHalf_nm, passLevel: p.passLevel,
-        }).points;
-    } catch (e) { return null; }
 }
 
 // ── Step 4: Prototype family ──────────────────────────────────────────────────
@@ -96,6 +95,8 @@ export function StepPrototype({ p, set, c, t }) {
     const stackLayers = useMemo(() => safeCall(layersFn, []), [layersFn]);
     const nLayers = stackLayers.length;
     const thNm = stackLayers.reduce((a, l) => a + l.d, 0);
+    const targetPoints = useMemo(() => targetPointsOf(p),
+        [p.lambda0_nm, p.passHalf_nm, p.stopHalf_nm, p.passLevel]); // eslint-disable-line
 
     return h('div', { style: { display: 'flex', flexDirection: 'column', gap: 10 } },
         h(StepHeader, { step: 4, title: T.step4.title, c }),
@@ -106,8 +107,10 @@ export function StepPrototype({ p, set, c, t }) {
                 renderFamilyTable({ rows, mSel, s, pick, c, T }),
                 // m / k direct input fields (step-4 controls)
                 h('div', { style: { display: 'flex', gap: 10, marginTop: 10 } },
-                    h(IntField, { label: T.step4.extMirror, value: mSel, min: 1, max: 40, c, onChange: (v) => pick(Math.max(1, v), s) }),
-                    h(IntField, { label: T.step4.spacerOrder, value: s, min: 1, max: 400, c, onChange: (v) => pick(mSel, Math.max(1, v)) })),
+                    h(IntField, { label: T.step4.extMirror, value: mSel, min: MIRROR_BOUNDS.min, max: MIRROR_BOUNDS.max, c,
+                        onChange: (v) => pick(clampTo(MIRROR_BOUNDS, v), s) }),
+                    h(IntField, { label: T.step4.spacerOrder, value: s, min: ORDER_BOUNDS.min, max: ORDER_BOUNDS.max, c,
+                        onChange: (v) => pick(mSel, clampTo(ORDER_BOUNDS, v)) })),
                 h('div', { style: { marginTop: 10, fontSize: 12, color: c.textDim } }, T.step4.spacerMat),
                 h('div', { style: { display: 'flex', gap: 12, marginTop: 4 } },
                     [['any', T.step4.spacerAny], ['H', 'H'], ['L', 'L']].map(([v, l]) => h('label', { key: v, style: { display: 'flex', gap: 5, alignItems: 'center', fontSize: 12, color: c.text, cursor: 'pointer' } },
@@ -116,7 +119,7 @@ export function StepPrototype({ p, set, c, t }) {
             h('div', { style: { flex: 1, display: 'flex', flexDirection: 'column' } },
                 h(AxisToggle, { value: p.logAxis, onChange: (v) => set('logAxis', v), c, t }),
                 h(SpectrumPlot, { layersFn, p, mode: 'embedded', c, height: 240, logAxis: p.logAxis,
-                    targetPoints: targetPointsOf(p), lambdaAxis: t.spectralAxis.lambdaShort }),
+                    targetPoints, lambdaAxis: t.spectralAxis.lambdaShort }),
                 h(StackBar, { layers: stackLayers, c, height: 24 }),
                 h('div', { style: { fontSize: 12, color: c.textDim, marginTop: 4 } }, `N = ${nLayers}    Th = ${thNm.toFixed(1)} nm    (embedded preview)`))));
 }

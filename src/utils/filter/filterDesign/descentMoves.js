@@ -16,7 +16,7 @@
  */
 
 /** Accept a neighbour only when it improves the merit by more than round-off. */
-const better = (m2, mf) => m2 < mf - 1e-12;
+export const better = (m2, mf) => m2 < mf - 1e-12;
 
 /**
  * The compound move: one spacer by ±1 or ±2 orders, both adjacent mirrors by
@@ -42,6 +42,11 @@ export function tryImproveCompound(mirrors, spacers, mf, ctx) {
     let improved = false;
     for (let i = 0; i < spacers.length; i++) {
         if (ctx.symCavities && i > Math.floor(spacers.length / 2)) continue;
+        // The move steps mirrors i and i+1 together, so both have to sit in the
+        // half symmetry keeps. Otherwise applySymmetry overwrites mirror i+1 on
+        // the way into the merit and what gets scored is a one-sided step, not
+        // the paired one this sweep exists to try.
+        if (ctx.symMirrors && 2 * (i + 1) > mirrors.length - 1) continue;
         for (const move of COMPOUND_MOVES) {
             const cand = compoundNeighbour(mirrors, spacers, i, move, ctx);
             if (!cand) continue;

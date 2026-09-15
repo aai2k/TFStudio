@@ -63,7 +63,7 @@ for (const locale of ['en', 'ru', 'zh', 'it']) {
     for (const key of ['clearOnStart', 'clearHistory', 'iteration', 'start', 'stop', 'empty', 'restarts', 'holdPassband', 'holdPassbandHint']) {
         ok(typeof T.step5[key] === 'string', `${locale}: filterDesign.step5.${key} missing`);
     }
-    for (const key of ['tableHeader', 'spacerMat', 'spacerAny', 'extMirror', 'spacerOrder']) {
+    for (const key of ['tableHeader', 'spacerMat', 'spacerAny', 'extMirror', 'spacerOrder', 'noRows']) {
         ok(typeof T.step4[key] === 'string', `${locale}: filterDesign.step4.${key} missing`);
     }
     ok(T.step4.colWidth === undefined, `${locale}: filterDesign.step4.colWidth is orphaned and should be gone`);

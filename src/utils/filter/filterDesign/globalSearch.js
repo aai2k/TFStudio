@@ -1,5 +1,5 @@
 import { qwThickness } from './indexProviders.js';
-import { makeClampMirror, makeClampOrder } from './searchClamps.js';
+import { makeClampMirror, makeClampOrder, MIRROR_BOUNDS, ORDER_BOUNDS } from './searchClamps.js';
 import { makeMfOf, makePartsOf } from './searchEvaluate.js';
 import { descend } from './localDescent.js';
 import { makeCandidate } from './candidateBuilder.js';
@@ -25,10 +25,11 @@ import { mulberry32 } from './rng.js';
  * @param {number[]} [p.seedMirrors]        per-mirror seed vector, overrides seedMirror
  * @param {boolean}  [p.symMirrors=false]
  * @param {boolean}  [p.symCavities=false]
- * @param {number}   [p.minMirror=1] @param {number} [p.maxMirror=41]
- * @param {number}   [p.minOrder=1]  @param {number} [p.maxOrder=400]
- *   The order bound only ever clamps the seed: the descent moves by one or two
- *   from it, and OptiLayer's own prototype tables reach orders in the hundreds.
+ * @param {number}   [p.minMirror] @param {number} [p.maxMirror]
+ * @param {number}   [p.minOrder]  @param {number} [p.maxOrder]
+ *   Default to MIRROR_BOUNDS / ORDER_BOUNDS, the same range the step-4 table
+ *   offers. The order bound only ever clamps the seed: the descent moves by one
+ *   or two from it, and prototype tables reach orders in the hundreds.
  * @param {number}   [p.restarts=12]
  * @param {number}   [p.rngSeed]           seeds the multistart, so a run is reproducible
  * @param {function} [p.rng]               overrides rngSeed; defaults to Math.random
@@ -41,7 +42,8 @@ export function globalIntegerSearch(p) {
         nH, nL, nSub, lambda0_nm, target, cavities,
         seedMirror, seedSpacer, seedMirrors = null,
         symMirrors = false, symCavities = false,
-        minMirror = 1, maxMirror = 41, minOrder = 1, maxOrder = 400,
+        minMirror = MIRROR_BOUNDS.min, maxMirror = MIRROR_BOUNDS.max,
+        minOrder = ORDER_BOUNDS.min, maxOrder = ORDER_BOUNDS.max,
         restarts = 12, rngSeed = null, onProgress = null,
         rng = rngSeed != null ? mulberry32(rngSeed) : Math.random,
     } = p;
@@ -52,7 +54,7 @@ export function globalIntegerSearch(p) {
     const evalCtx = { nH, nL, lambda0_nm, symMirrors, symCavities, target, nSub };
     const ctx = {
         clampMirror, clampOrder, mfOf: makeMfOf(evalCtx), partsOf: makePartsOf(evalCtx),
-        symMirrors, symCavities, dH, dL,
+        tilted: target.tiltDeg > 0, symMirrors, symCavities, dH, dL,
     };
 
     const N = cavities;

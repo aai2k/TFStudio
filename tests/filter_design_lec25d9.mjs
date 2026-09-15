@@ -63,7 +63,7 @@ const vco  = adjustToIncidentMedium({ filterLayers, nH, nL, nInc: nAir, nSub, la
 const airPeak = (layers) => { let pk = 0; for (let lam = LAM0 - 3; lam <= LAM0 + 3; lam += 0.01) pk = Math.max(pk, spectrumT(layers, lam, nAir, nSub)); return pk; };
 console.log('\n[Step 6] Adjust to incident medium (air)');
 console.log(`   No AR   : air peak T = ${(airPeak(none.layers)*100).toFixed(2)} %`);
-console.log(`   V-coat  : air peak T = ${(airPeak(vco.layers)*100).toFixed(2)} %   (+ ${vco.arLayers.map(l=>`${l.arMat} ${l.d.toFixed(1)}nm`).join(' / ')})`);
+console.log(`   V-coat  : air peak T = ${(airPeak(vco.layers)*100).toFixed(2)} %   (+ ${vco.arLayers.map(l=>`${l.tag} ${l.d.toFixed(1)}nm`).join(' / ')})`);
 console.log(`   Final design: N = ${vco.layers.length} layers,  Th = ${vco.layers.reduce((s,l)=>s+l.d,0).toFixed(1)} nm   (reference final: N=58, Th=6894.7)`);
 
 // ── Spectrum (ASCII) of the FINAL air design with V-coat ─────────────────────

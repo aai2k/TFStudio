@@ -3442,6 +3442,7 @@ export default {
       extMirror: '外部反射镜层数 (m)',
       spacerOrder: '间隔层阶次 (k)',
       spacerAny: '任意',
+      noRows: '没有符合该规格的原型。请放宽通带宽度，或选择折射率对比度更大的材料。',
     },
     step5: {
       title: '全局整数搜索',
