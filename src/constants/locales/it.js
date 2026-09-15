@@ -3464,8 +3464,8 @@ export default {
       symMirrors: 'Specchi simmetrici',
       symCavities: 'Cavità simmetriche',
       restarts: 'Ripartenze',
-      holdPassband: 'Mantieni la banda passante fino a ±θ',
-      holdPassbandHint: '0 = spento. Ogni design viene valutato anche inclinato a questo angolo in aria, così le cavità che si disallineano con l’angolo perdono.',
+      holdPassband: 'Mantieni la banda passante su ±θ',
+      holdPassbandHint: '0 = spento. Ogni design viene valutato una seconda volta con questa inclinazione in più rispetto all’angolo di lavoro, così le cavità che si disallineano con l’angolo perdono.',
       seedTag: 'iniziale',
     },
     step6: {

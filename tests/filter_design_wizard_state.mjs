@@ -1,7 +1,7 @@
 /**
- * Filter Design wizard state helpers: the materials and the specification it
- * carries over to the next time it is opened, and the step-5 candidate history
- * it keeps across search runs.
+ * Filter Design wizard state helpers: the materials, the specification and the
+ * working angle it carries over to the next time it is opened, and the step-5
+ * candidate history it keeps across search runs.
  *
  * Run: node tests/filter_design_wizard_state.mjs
  */
@@ -9,7 +9,7 @@ import { shimBrowserGlobals } from './_uiShim.mjs';
 
 shimBrowserGlobals();
 
-const { rememberSetting, rememberedSettings, mergeCandidates, candidateKey, DEFAULTS } =
+const { rememberSetting, rememberedSettings, mergeCandidates, candidateKey, DEFAULTS, heldAoi, workingAoi } =
     await import('../src/components/windows/optimization/filterDesignWizard/model.js');
 
 let fails = 0;
@@ -44,6 +44,20 @@ ok(opened.matH === 'user:Ta2O5' && opened.lambda0_nm === 1530 && opened.stopHalf
     'the wizard opens on the materials and the specification it was last used with');
 ok(opened.cavities === DEFAULTS.cavities && opened.arMode === DEFAULTS.arMode,
     'everything else still opens on its defaults');
+
+// ── and so is the working angle, which zero is a real value of ────────
+for (const [key, value] of [['oblique', true], ['aoi', 45], ['pol', 'p'], ['holdPassbandDeg', 10]]) {
+    rememberSetting(key, value);
+    ok(rememberedSettings(resolve)[key] === value, `${key} carried over (got ${rememberedSettings(resolve)[key]})`);
+}
+rememberSetting('aoi', 0);
+ok(rememberedSettings(resolve).aoi === 0, 'an angle of 0 is remembered, not treated as nothing stored');
+rememberSetting('oblique', false);
+ok(rememberedSettings(resolve).oblique === false, 'and so is oblique incidence switched off');
+rememberSetting('pol', 'circular');
+ok(rememberedSettings(resolve).pol === 'p', 'a polarization outside the three cannot overwrite one');
+rememberSetting('aoi', 90);
+ok(rememberedSettings(resolve).aoi === 0, 'and grazing incidence cannot either');
 
 // ── only the listed fields are remembered ───────────────────────
 rememberSetting('restarts', 40);
@@ -82,6 +96,21 @@ ok(mergeCandidates(both, runTwo).length === 3, 'replaying a run adds nothing');
 ok(mergeCandidates(both, null).length === 3, 'a run that reported nothing leaves the history alone');
 // Structures differing only in their spacers are distinct candidates.
 ok(candidateKey(cand(1, [9, 19, 9], [2, 2])) !== candidateKey(cand(1, [9, 19, 9], [2, 3])), "the spacer vector is part of a candidate's identity");
+
+// ── the held angle cannot run past grazing ───────────────────────────
+// The two fields reach 89° and 80°, so their sum reaches 169°, and the invariant
+// an angle travels as is its sine: 100° would be scored as 80° and 169° as 11°,
+// shallower than the working angle it is measured from, which would silently
+// turn the hold environment off while the table still showed a column for it.
+const held = (aoi, hold) => heldAoi({ ...DEFAULTS, oblique: aoi > 0, aoi, holdPassbandDeg: hold });
+ok(held(45, 10) === 55, `a hold inside the range adds to the working angle (got ${held(45, 10)})`);
+ok(held(0, 15) === 15, `with no working angle the hold is the whole of it (got ${held(0, 15)})`);
+ok(held(89, 80) <= 89, `89° held over 80° stops at grazing rather than folding to 11° (got ${held(89, 80)})`);
+ok(held(60, 40) <= 89, `and so does 60° held over 40° (got ${held(60, 40)})`);
+for (const [aoi, hold] of [[45, 10], [60, 40], [89, 80], [50, 45], [30, 0]]) {
+    ok(held(aoi, hold) >= workingAoi({ ...DEFAULTS, oblique: aoi > 0, aoi }),
+        `the held angle is never shallower than the working angle (${aoi} + ${hold} gave ${held(aoi, hold)})`);
+}
 
 if (fails === 0) console.log('All wizard-state tests passed.');
 else { console.error(`\n${fails} assertion(s) failed.`); process.exit(1); }

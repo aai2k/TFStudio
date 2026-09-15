@@ -12,7 +12,7 @@ import { embeddedT, spectrumT } from './spectrum.js';
  * @param {function} [p.nInc]  incident index fn; defaults to nSub, the embedded case
  */
 export function measureWidth(layers, lambda0_nm, level, nSub, { span = 80, step = 0.02, nInc = null } = {}) {
-    const Tat = nInc ? (lam) => spectrumT(layers, lam, nInc, nSub) : (lam) => embeddedT(layers, lam, nSub);
+    const Tat = nInc ? (lam) => spectrumT(layers, lam, [nInc, nSub]) : (lam) => embeddedT(layers, lam, nSub);
     const lo = lambda0_nm - span, hi = lambda0_nm + span;
     const xs = [], ts = [];
     for (let lam = lo; lam <= hi + 1e-9; lam += step) { xs.push(lam); ts.push(Tat(lam)); }

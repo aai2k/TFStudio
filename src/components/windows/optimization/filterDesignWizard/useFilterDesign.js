@@ -1,6 +1,6 @@
 import { getMaterialById } from '../../../../utils/materials/catalogManager.js';
 import { buildFilterDesignObject } from '../../../../utils/filter/filterDesignBuild.js';
-import { DEFAULTS, rememberSetting, rememberedSettings } from './model.js';
+import { DEFAULTS, rememberSetting, rememberedSettings, workingAoi } from './model.js';
 
 const { useState, useCallback, useEffect } = React;
 
@@ -14,7 +14,7 @@ function buildDesign(p) {
         name: p.name, matH: p.matH, matL: p.matL, substrateMaterial: p.substrateMaterial,
         substrateThicknessMm: p.substrateThicknessMm, incidentMedium: p.incidentMedium, exitMedium: p.exitMedium,
         lambda0_nm: p.lambda0_nm, candidate: p.selected, arMode: p.arMode,
-        halfPass: p.passHalf_nm, halfStop: p.stopHalf_nm, aoi: p.aoi, pol: p.pol,
+        halfPass: p.passHalf_nm, halfStop: p.stopHalf_nm, aoi: workingAoi(p), pol: p.pol,
     });
 }
 

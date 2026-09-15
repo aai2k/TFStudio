@@ -14,8 +14,14 @@ import { toNDLayers } from './prototypeLayers.js';
  */
 function transmittance(lam, nd, media, aoi, pol) {
     const [n0, ns] = media;
+    // At normal incidence every tilted admittance is the index itself, η_s =
+    // n·cos θ and η_p = n/cos θ with cos θ = 1, so the two planes are the same
+    // wave and averaging them means running the same stack twice. The wizard
+    // offers 'avg' whether or not an angle is set, and a search that takes it
+    // literally at 0° doubles its own cost for an identical answer.
     if (pol === 'avg') {
-        return (transmittance(lam, nd, media, aoi, 's') + transmittance(lam, nd, media, aoi, 'p')) / 2;
+        const s = transmittance(lam, nd, media, aoi, 's');
+        return aoi === 0 ? s : (s + transmittance(lam, nd, media, aoi, 'p')) / 2;
     }
     if (tmmWasmActive()) return getTmmWasm().tmmOne(lam, aoi, pol === 'p' ? 1 : 0, n0, ns, nd).T;
     return tmm(lam, aoi, pol, n0, ns, nd).T;
@@ -35,12 +41,19 @@ export function embeddedT(layers, lam, nSub, aoi = 0, pol = 's') {
     return transmittance(lam, toNDLayers(layers, lam), [ns, ns], aoi, pol);
 }
 
-/** T at one λ for an arbitrary incident/substrate pair (used for step-6 / air). */
-export function spectrumT(layers, lam, nInc, nSub) {
-    const a = nInc(lam), b = nSub(lam);
+/**
+ * T at one λ for an arbitrary incident/substrate pair (used for step-6 / air).
+ *
+ * @param {[function, function]} media  [incident, substrate] index fns, the pair
+ *   that has to be quoted together for an angle to mean anything
+ * @param {number} [aoi=0]  angle in the INCIDENT medium, degrees
+ * @param {'s'|'p'|'avg'} [pol='s']
+ */
+export function spectrumT(layers, lam, media, aoi = 0, pol = 's') {
+    const a = media[0](lam), b = media[1](lam);
     const n0 = Array.isArray(a) ? a : [a, 0];
     const ns = Array.isArray(b) ? b : [b, 0];
-    return transmittance(lam, toNDLayers(layers, lam), [n0, ns], 0, 's');
+    return transmittance(lam, toNDLayers(layers, lam), [n0, ns], aoi, pol);
 }
 
 /**
@@ -55,7 +68,7 @@ export function sampleSpectrum({ layers, lamLo, lamHi, step, nInc, nSub }) {
     for (let lam = lamLo; lam <= lamHi + 1e-9; lam += step) {
         const x = Math.round(lam * 1000) / 1000;
         lambda.push(x);
-        T.push(spectrumT(layers, x, nInc, nSub));
+        T.push(spectrumT(layers, x, [nInc, nSub]));
     }
     return { lambda, T };
 }

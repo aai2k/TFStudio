@@ -14,7 +14,7 @@ function logFloor(stopLevel) {
     return Math.max(1e-8, (stopLevel > 0 ? stopLevel : 0.1) / 100);
 }
 
-function computeSpectrumData({ layersFn, analyticT, p, mode, windowNm, targetReach }) {
+function computeSpectrumData({ layersFn, analyticT, p, mode, windowNm, targetReach, aoi, pol }) {
     try {
         // The target points reach further out than the curve's own window would
         // go, so the window covers them: otherwise the axis stretches to the
@@ -34,8 +34,8 @@ function computeSpectrumData({ layersFn, analyticT, p, mode, windowNm, targetRea
         const substrateIndex = materialIndexFn(p.substrateMaterial, getMaterialById);
         const incidentIndex = mode === 'embedded' ? substrateIndex : materialIndexFn(p.incidentMedium, getMaterialById);
         const transmittance = x.map(value => (mode === 'embedded'
-            ? embeddedT(layers, value, substrateIndex)
-            : spectrumT(layers, value, incidentIndex, substrateIndex)) * 100);
+            ? embeddedT(layers, value, substrateIndex, aoi, pol)
+            : spectrumT(layers, value, [incidentIndex, substrateIndex], aoi, pol)) * 100);
         return { x, transmittance };
     } catch (error) { return { error: error.message }; }
 }
@@ -49,16 +49,23 @@ function targetSeries(targetPoints, floor) {
     };
 }
 
+/**
+ * `aoi` is the angle of the curve, in degrees, measured in whichever medium the
+ * mode makes incident: the substrate for 'embedded', the real incident medium for
+ * 'air'. A caller that wants the response at a working angle passes the angle for
+ * its own mode.
+ */
 export function SpectrumPlot({
     layersFn, analyticT = null, p, mode = 'embedded', c, height = 280,
     levelLines = [], windowNm = null, lambdaAxis, logAxis = false, targetPoints = null,
+    aoi = 0, pol = 's',
 }) {
     const divRef = useRef(null);
     const chartRef = useRef(null);
     const targetReach = useMemo(() => (targetPoints || []).reduce(
         (w, pt) => Math.max(w, Math.abs(pt.lambda - p.lambda0_nm)), 0), [targetPoints, p.lambda0_nm]);
-    const data = useMemo(() => computeSpectrumData({ layersFn, analyticT, p, mode, windowNm, targetReach }),
-        [layersFn, analyticT, p.lambda0_nm, p.passHalf_nm, p.stopHalf_nm, p.substrateMaterial, p.incidentMedium, mode, windowNm, targetReach]);
+    const data = useMemo(() => computeSpectrumData({ layersFn, analyticT, p, mode, windowNm, targetReach, aoi, pol }),
+        [layersFn, analyticT, p.lambda0_nm, p.passHalf_nm, p.stopHalf_nm, p.substrateMaterial, p.incidentMedium, mode, windowNm, targetReach, aoi, pol]);
     useEffect(() => {
         if (data.error || data.empty) return;
         const floor = logFloor(p.stopLevel);

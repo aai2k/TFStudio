@@ -41,7 +41,7 @@ function onKernel(useWasm, fn) {
 }
 
 // ── the merit agrees on both kernels ─────────────────────────────────────────
-console.log('— merit —');
+console.log('-- merit --');
 {
     const cases = [
         ['seed m=8 k=1', coupledMirrors(8, 8, 1), new Array(8).fill(1)],
@@ -57,20 +57,32 @@ console.log('— merit —');
     }
 }
 
-// ── the tilted merit agrees too, since it centres on a scan ──────────────────
-console.log('— tilted merit —');
+// ── the merit at an angle agrees too, since it centres on a scan ─────────────
+// Both the working angle and the held one put the kernel on its oblique path and
+// make the answer depend on a scan for the band, so a kernel that disagreed by
+// more than round-off could land on a different half-maximum crossing.
+console.log('-- merit at an angle --');
 {
-    const tilt = buildFilterTarget({ lambda0_nm: LAM0, halfPass: 7.5, halfStop: 10, tiltDeg: 15 });
     const layers = layersOf([5, 12, 15, 16, 14, 13, 13, 13, 7], [3, 3, 1, 2, 5, 4, 4, 1]);
-    const js = onKernel(false, () => meritFunctionEmbedded(layers, tilt, nSub));
-    const wa = onKernel(true, () => meritFunctionEmbedded(layers, tilt, nSub));
-    const rel = Math.abs(wa - js) / Math.max(js, 1e-12);
-    console.log(`    JS ${js.toFixed(9)}   WASM ${wa.toFixed(9)}   rel ${rel.toExponential(2)}`);
-    ok(rel < 1e-6, `tilted merit agrees across kernels (rel ${rel.toExponential(2)})`);
+    const at = (extra) => buildFilterTarget({ lambda0_nm: LAM0, halfPass: 7.5, halfStop: 10, ...extra });
+    const cases = [
+        ['working 20° s', at({ aoi: 20, pol: 's' })],
+        ['working 20° avg', at({ aoi: 20, pol: 'avg' })],
+        ['held to 10°', at({ holdAoi: 10 })],
+        ['working 20°, held 30°', at({ aoi: 20, holdAoi: 30, pol: 'p' })],
+    ];
+    for (const [label, target] of cases) {
+        const js = onKernel(false, () => meritFunctionEmbedded(layers, target, nSub));
+        const wa = onKernel(true, () => meritFunctionEmbedded(layers, target, nSub));
+        const rel = Math.abs(wa - js) / Math.max(js, 1e-12);
+        console.log(`    ${label.padEnd(22)} JS ${js.toFixed(9)}   WASM ${wa.toFixed(9)}   rel ${rel.toExponential(2)}`);
+        ok(js > 0, `${label}: the angle actually moves the merit off its normal-incidence value`);
+        ok(rel < 1e-6, `${label}: agrees across kernels (rel ${rel.toExponential(2)})`);
+    }
 }
 
 // ── the step-6 coat agrees ───────────────────────────────────────────────────
-console.log('— V coat —');
+console.log('-- V coat --');
 {
     const filterLayers = layersOf([9, 19, 21, 21, 19, 9], [3, 6, 4, 6, 3]);
     const coat = (w) => onKernel(w, () => adjustToIncidentMedium({
@@ -81,13 +93,13 @@ console.log('— V coat —');
     const dThick = Math.max(...js.layers.map((l, i) => Math.abs(l.d - wa.layers[i].d)));
     console.log(`    worst layer difference ${dThick.toExponential(2)} nm`);
     ok(dThick < 1e-9, `coat thicknesses agree (worst ${dThick.toExponential(2)} nm)`);
-    const tJs = onKernel(false, () => spectrumT(js.layers, LAM0, nAir, nSub));
-    const tWa = onKernel(true, () => spectrumT(wa.layers, LAM0, nAir, nSub));
+    const tJs = onKernel(false, () => spectrumT(js.layers, LAM0, [nAir, nSub]));
+    const tWa = onKernel(true, () => spectrumT(wa.layers, LAM0, [nAir, nSub]));
     ok(Math.abs(tJs - tWa) < 1e-9, `peak T agrees (${tJs.toFixed(9)} vs ${tWa.toFixed(9)})`);
 }
 
 // ── a whole search returns the same design, and faster ───────────────────────
-console.log('— search —');
+console.log('-- search --');
 {
     const run = (useWasm) => onKernel(useWasm, () => {
         const t0 = Date.now();

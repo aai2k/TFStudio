@@ -60,7 +60,7 @@ console.log('— embedded vs air —');
     let pE = 0, pA = 0;
     for (let lam = LAM0 - 5; lam <= LAM0 + 5; lam += 0.01) {
         pE = Math.max(pE, embeddedT(layers, lam, nSub));
-        pA = Math.max(pA, spectrumT(layers, lam, nAir, nSub));
+        pA = Math.max(pA, spectrumT(layers, lam, [nAir, nSub]));
     }
     ok(pE > 0.999, `embedded peak T ≈ 1.0 (got ${pE.toFixed(4)})`);
     ok(pA < 0.98, `air peak T notably lower (got ${pA.toFixed(4)})`);
@@ -335,7 +335,7 @@ console.log('— adjust to incident medium (AR / V-coat) —');
     });
     const filterLayers = buildPrototypeLayers({ nH, nL, lambda0_nm: LAM0, mirrors: best.mirrors, spacers: best.spacers });
     const coat = (mode) => adjustToIncidentMedium({ filterLayers, nH, nL, nInc: nAir, nSub, lambda0_nm: LAM0, mode });
-    const peak = (layers) => { let pk = 0; for (let lam = LAM0 - 3; lam <= LAM0 + 3; lam += 0.02) pk = Math.max(pk, spectrumT(layers, lam, nAir, nSub)); return pk; };
+    const peak = (layers) => { let pk = 0; for (let lam = LAM0 - 3; lam <= LAM0 + 3; lam += 0.02) pk = Math.max(pk, spectrumT(layers, lam, [nAir, nSub])); return pk; };
 
     const none = coat('none'), one = coat('1layer'), vco = coat('vcoat');
     const pNone = peak(none.layers), pOne = peak(one.layers), pV = peak(vco.layers);
@@ -375,7 +375,7 @@ console.log('— V coat vs the photographed runs —');
         ok(vco.layers.length === expN, `${name}: N = ${expN} (got ${vco.layers.length})`);
         ok(near(th, expTh, 0.1), `${name}: Th = ${expTh} nm (got ${th.toFixed(3)})`);
         ok(vco.residualR < 1e-8, `${name}: R at λ₀ below 1e-8 (got ${vco.residualR.toExponential(2)})`);
-        ok(spectrumT(vco.layers, M.lam, nAir, M.nSub) > 0.9999, `${name}: peak T in air ≥ 0.9999`);
+        ok(spectrumT(vco.layers, M.lam, [nAir, M.nSub]) > 0.9999, `${name}: peak T in air ≥ 0.9999`);
         ok(dt < 10, `${name}: step 6 under 10 ms (got ${dt} ms)`);
     }
     // Run 3's two coat layers are the ones OptiLayer photographed.
@@ -392,7 +392,7 @@ console.log('— V coat vs the photographed runs —');
     const vidCoat = adjustToIncidentMedium({ filterLayers: vid, nH: MATS.video.nH, nL: MATS.video.nL, nInc: nAir, nSub: MATS.video.nSub, lambda0_nm: 1530, mode: 'vcoat' });
     ok(vid[0].tag === 'L', 'the video design is L-terminated');
     ok(vidCoat.layers.length === 118, `L-terminated filter takes both coat layers, 116 → 118 (got ${vidCoat.layers.length})`);
-    ok(spectrumT(vidCoat.layers, 1530, nAir, MATS.video.nSub) > 0.9999, 'video design peak T in air ≥ 0.9999');
+    ok(spectrumT(vidCoat.layers, 1530, [nAir, MATS.video.nSub]) > 0.9999, 'video design peak T in air ≥ 0.9999');
 }
 
 if (fails === 0) console.log('\nAll filter-design engine tests passed.');

@@ -60,7 +60,7 @@ console.log(`\n   (reference step-5 list: MF 0.0996 / N 56 best … similar tape
 const filterLayers = buildPrototypeLayers({ nH, nL, lambda0_nm: LAM0, mirrors: best.mirrors, spacers: best.spacers });
 const none = adjustToIncidentMedium({ filterLayers, nH, nL, nInc: nAir, nSub, lambda0_nm: LAM0, mode: 'none' });
 const vco  = adjustToIncidentMedium({ filterLayers, nH, nL, nInc: nAir, nSub, lambda0_nm: LAM0, mode: 'vcoat' });
-const airPeak = (layers) => { let pk = 0; for (let lam = LAM0 - 3; lam <= LAM0 + 3; lam += 0.01) pk = Math.max(pk, spectrumT(layers, lam, nAir, nSub)); return pk; };
+const airPeak = (layers) => { let pk = 0; for (let lam = LAM0 - 3; lam <= LAM0 + 3; lam += 0.01) pk = Math.max(pk, spectrumT(layers, lam, [nAir, nSub])); return pk; };
 console.log('\n[Step 6] Adjust to incident medium (air)');
 console.log(`   No AR   : air peak T = ${(airPeak(none.layers)*100).toFixed(2)} %`);
 console.log(`   V-coat  : air peak T = ${(airPeak(vco.layers)*100).toFixed(2)} %   (+ ${vco.arLayers.map(l=>`${l.tag} ${l.d.toFixed(1)}nm`).join(' / ')})`);
@@ -73,7 +73,7 @@ for (let r = rows; r >= 0; r--) {
     const level = (r / rows) * 100;
     let line = String(Math.round(level)).padStart(3) + ' |';
     for (let lam = 588; lam <= 612; lam += 0.5) {
-        const T = spectrumT(vco.layers, lam, nAir, nSub) * 100;
+        const T = spectrumT(vco.layers, lam, [nAir, nSub]) * 100;
         line += (T >= level - 2.5) ? '#' : ' ';
     }
     console.log(line);
@@ -86,5 +86,5 @@ console.log('     588      592      596      600      604      608      612  (nm
 // numeric check points
 console.log('\n[Check points] final air design:');
 for (const lam of [600, 601.5, 598.5, 604.5, 595.5, 609, 591]) {
-    console.log(`   T(${lam.toFixed(1)} nm) = ${(spectrumT(vco.layers, lam, nAir, nSub)*100).toFixed(3)} %`);
+    console.log(`   T(${lam.toFixed(1)} nm) = ${(spectrumT(vco.layers, lam, [nAir, nSub])*100).toFixed(3)} %`);
 }

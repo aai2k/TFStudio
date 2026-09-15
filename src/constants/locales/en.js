@@ -3050,8 +3050,8 @@ export default {
       empty: 'Press Start to run the integer optimization.',
       symMirrors: 'Symmetrical mirrors', symCavities: 'Symmetrical cavities',
       restarts: 'Restarts',
-      holdPassband: 'Hold the passband to ±θ',
-      holdPassbandHint: '0 = off. Every design is also scored tilted to this angle in air, so cavities that drift apart with angle lose.',
+      holdPassband: 'Hold the passband over ±θ',
+      holdPassbandHint: '0 = off. Every design is scored a second time at this much more tilt than the working angle, so cavities that drift apart with angle lose.',
       seedTag: 'seed',
     },
     step6: {

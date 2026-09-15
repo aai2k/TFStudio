@@ -1,12 +1,16 @@
 import { getMaterialById } from '../../../../utils/materials/catalogManager.js';
 import {
     materialIndexFn, buildPrototypeLayers, coupledMirrors, recommendCavities,
-    targetSpan, deriveSeed, hashSeed, tiltWindowLow,
+    targetSpan, deriveSeed, hashSeed, angleWindowLow, invariantOf,
+    buildFilterTarget, designReference,
 } from '../../../../utils/filter/filterDesign.js';
 import { presampleForSearch } from '../../../../utils/filter/filterDesignBuild.js';
 import { getTmmWasmBytesForWorker } from '../../../../tmmcore.js';
 import { FILTER_WORKER_URL as WORKER_URL } from '../../../../workerUrls.js';
-import { candidateKey, couplingD, mergeCandidates, prototypeCandidate, shapeFactor, targetPointsOf } from './model.js';
+import {
+    candidateKey, couplingD, embeddedAoi, heldAoi, mergeCandidates, prototypeCandidate,
+    searchTargetParams, shapeFactor, targetPointsOf, workingAoi,
+} from './model.js';
 import { AxisToggle, CheckField, IntField, NumField, StepHeader } from './ui.js';
 import { SpectrumPlot } from './SpectrumPlot.js';
 
@@ -30,18 +34,20 @@ function handleSearchMessage(m, ctx) {
     }
 }
 
-// Wavelength range the worker needs the materials sampled on. The target
-// reaches no further than 2·halfStop from λ₀; holding the passband to an angle
-// also evaluates the design shifted to shorter wavelengths, as far down as the
-// tilted band can move.
+// Wavelength range the worker needs the materials sampled on. The target reaches
+// no further than 2·halfStop from λ₀; a design scored at an angle is asked for at
+// shorter wavelengths too, as far down as its band moves at the largest angle
+// scored, which is the working angle plus whatever the passband is held over.
 function sampleWindow(p) {
     const win = targetSpan(p.passHalf_nm, p.stopHalf_nm) + 0.05;
     let lamLo = p.lambda0_nm - win;
-    if (p.holdPassbandDeg > 0) {
+    const widest = heldAoi(p);
+    if (widest > 0) {
         const nAt = (id) => materialIndexFn(id, getMaterialById)(p.lambda0_nm)[0];
         const nLow = Math.min(nAt(p.matH), nAt(p.matL));
-        lamLo = Math.min(lamLo, tiltWindowLow({
-            lambda0_nm: p.lambda0_nm, tiltDeg: p.holdPassbandDeg, nLow, halfPass: p.passHalf_nm, halfStop: p.stopHalf_nm,
+        lamLo = Math.min(lamLo, angleWindowLow({
+            lambda0_nm: p.lambda0_nm, kappa: invariantOf(widest, nAt(p.incidentMedium)),
+            nLow, halfPass: p.passHalf_nm, halfStop: p.stopHalf_nm,
         }) - 0.05);
     }
     return { lamLo, lamHi: p.lambda0_nm + win };
@@ -71,17 +77,12 @@ function startFilterSearch(ctx) {
     worker.onerror = (ev) => { setStatus('Error: ' + (ev.message || 'worker')); setRunning(false); };
     worker.postMessage({
         lambda0: p.lambda0_nm,
-        // Steps 1 to 5 design the filter embedded, where the incident medium is
-        // the substrate, so an angle typed on step 1 is an angle in AIR and does
-        // not belong here unconverted. Converting it is not enough either: the
-        // band moves with angle and these target wavelengths do not follow it,
-        // so every design would score the same. The angle reaches step 6 and the
-        // exported operands as before. What the step-5 target does carry is the
-        // angle the passband is held to, which is an angle in air by definition.
-        targetParams: {
-            lambda0_nm: p.lambda0_nm, halfPass: p.passHalf_nm, halfStop: p.stopHalf_nm, passLevel: p.passLevel,
-            tiltDeg: p.holdPassbandDeg,
-        },
+        // The step-1 angle is an angle at the finished filter, while steps 1 to 5
+        // evaluate it embedded in its substrate, so it is converted before it
+        // gets here (45° in air is 27.8° in BK7). The target wavelengths stay put:
+        // the merit moves the band onto them per design, and the build stretches
+        // the reference afterwards so the band sits at λ₀ at that angle.
+        targetParams: searchTargetParams(p),
         tables,
         search: {
             cavities: N,
@@ -100,12 +101,21 @@ function startFilterSearch(ctx) {
 
 // Engine layers for the step-5 preview: the selected candidate, or (before any
 // search) the seed prototype from step 4.
+//
+// The search builds every candidate at λ₀ and moves the target onto its band
+// instead, which off normal incidence sits tens of nanometres lower. The preview
+// is drawn at the angle the filter will be used at, so it builds at the stretched
+// reference the design will actually be deposited at and the band appears where
+// the user is asking for it.
 function buildSelectedSearchLayers(ctx) {
     const { p, seedMirrorsVec, seedSpacerVal, N } = ctx;
     const nH = materialIndexFn(p.matH, getMaterialById), nL = materialIndexFn(p.matL, getMaterialById);
+    const nSub = materialIndexFn(p.substrateMaterial, getMaterialById);
     const mirrors = p.selected ? p.selected.mirrors : seedMirrorsVec;
     const spacers = p.selected ? p.selected.spacers : new Array(N).fill(seedSpacerVal);
-    return buildPrototypeLayers({ nH, nL, lambda0_nm: p.lambda0_nm, mirrors, spacers });
+    const buildAt = (reference_nm) => buildPrototypeLayers({ nH, nL, lambda0_nm: reference_nm, mirrors, spacers });
+    const target = buildFilterTarget(searchTargetParams(p));
+    return buildAt(designReference({ buildAt, target, nSub }));
 }
 
 // Step-5 left column: run/stop, status, history controls, search options.
@@ -126,13 +136,13 @@ function renderSearchControls(ctx) {
             hint: T.step5.holdPassbandHint, onChange: (v) => set('holdPassbandDeg', Math.max(0, v)) }));
 }
 
-// One row of the candidate table. With the passband held to an angle the
-// merit is shown as its two parts, at normal incidence and at that angle; the
+// One row of the candidate table. With the passband held over an extra angle the
+// merit is shown as its two parts, at the working angle and at the held one; the
 // list stays sorted on the pooled figure the search minimised.
-function renderCandidateRow(cd, i, { selKey, set, c, T, tiltDeg }) {
+function renderCandidateRow(cd, i, { selKey, set, c, T, held }) {
     const cell = (text, dim) => h('td', { style: { padding: '3px 8px', color: dim ? c.textDim : undefined } }, text);
     const seedTag = cd.isSeed && h('span', { style: { marginLeft: 5, fontSize: 9.5, color: c.accent, fontWeight: 600 } }, T.step5.seedTag || 'seed');
-    const mf = tiltDeg > 0
+    const mf = held
         ? [h('td', { style: { padding: '3px 8px' } }, (cd.mf0 ?? cd.mf).toFixed(5), seedTag), cell(cd.mfTilt != null ? cd.mfTilt.toFixed(5) : '')]
         : [h('td', { style: { padding: '3px 8px' } }, cd.mf.toFixed(5), seedTag)];
     const sel = candidateKey(cd) === selKey;
@@ -141,10 +151,12 @@ function renderCandidateRow(cd, i, { selKey, set, c, T, tiltDeg }) {
 }
 
 // Step-5 candidate history: click-to-select MF / N / TT table + empty hint.
+// The merit columns are labelled with the angles in the incident medium, the
+// angles the user typed, not the substrate angles the engine scores at.
 function renderCandidateTable(ctx) {
-    const { candidates, c, T, tiltDeg } = ctx;
-    const cols = tiltDeg > 0 ? ['MF 0°', `MF ${tiltDeg}°`, 'N', 'TT, nm'] : ['MF', 'N', 'TT, nm'];
-    return h('div', { style: { width: tiltDeg > 0 ? 310 : 250 } },
+    const { candidates, c, T, held, working } = ctx;
+    const cols = held ? [`MF ${working}°`, `MF ${held}°`, 'N', 'TT, nm'] : ['MF', 'N', 'TT, nm'];
+    return h('div', { style: { width: held ? 310 : 250 } },
         h('div', { style: { maxHeight: 300, overflowY: 'auto', border: `1px solid ${c.border}`, borderRadius: 4 } },
             h('table', { style: { width: '100%', borderCollapse: 'collapse', fontSize: 11.5, color: c.text } },
                 h('thead', {}, h('tr', { style: { backgroundColor: c.hover, position: 'sticky', top: 0 } },
@@ -160,7 +172,8 @@ function renderSearchPreview(ctx) {
         h('div', { style: { display: 'flex', alignItems: 'center', justifyContent: 'space-between' } },
             h('div', { style: { fontSize: 11, color: c.textDim } }, `${T.step5.iteration}: ${iteration}`),
             h(AxisToggle, { value: p.logAxis, onChange: (v) => set('logAxis', v), c, t })),
-        h(SpectrumPlot, { layersFn: selLayersFn, p, mode: 'embedded', c, height: 260, logAxis: p.logAxis, targetPoints }),
+        h(SpectrumPlot, { layersFn: selLayersFn, p, mode: 'embedded', c, height: 260, logAxis: p.logAxis, targetPoints,
+            aoi: embeddedAoi(p, workingAoi(p)), pol: p.pol }),
         p.selected && h('div', { style: { fontSize: 11.5, color: c.textDim, marginTop: 4 } },
             `[${p.selected.mirrors.join(' ')}] / [${p.selected.spacers.join(' ')}]` +
             (p.selected.mf != null ? `  MF=${p.selected.mf.toFixed(5)}` : '') +
@@ -204,7 +217,9 @@ export function StepSearch({ p, set, c, t }) {
     // Signature of every design-defining input, the specification the merit is
     // built from included. When it changes the history is for a DIFFERENT
     // filter, so it goes whatever the checkbox says.
-    const seedKey = `${N}|${seedMirrorsVec.join(',')}|${seedSpacerVal}|${p.matH}|${p.matL}|${p.substrateMaterial}|${p.lambda0_nm}|${p.passHalf_nm}|${p.stopHalf_nm}|${p.passLevel}|${p.holdPassbandDeg}`;
+    const seedKey = `${N}|${seedMirrorsVec.join(',')}|${seedSpacerVal}|${p.matH}|${p.matL}|${p.substrateMaterial}`
+        + `|${p.lambda0_nm}|${p.passHalf_nm}|${p.stopHalf_nm}|${p.passLevel}`
+        + `|${workingAoi(p)}|${p.pol}|${p.holdPassbandDeg}`;
     // The history records which filter it is for, so only an actual CHANGE
     // resets. Stepping away and back remounts this component, and a reset on
     // mount would throw away the candidate the user picked here and leave
@@ -227,7 +242,8 @@ export function StepSearch({ p, set, c, t }) {
     // Preview the selected candidate; before any search, show the SEED prototype
     // (the step-4 design) — never a stale plot from a previous filter.
     const selLayersFn = useCallback(() => buildSelectedSearchLayers({ p, seedMirrorsVec, seedSpacerVal, N }),
-        [p.selected, seedMirrorsVec, seedSpacerVal, N, p.matH, p.matL, p.lambda0_nm]);
+        [p.selected, seedMirrorsVec, seedSpacerVal, N, p.matH, p.matL, p.substrateMaterial, p.lambda0_nm,
+            p.passHalf_nm, p.stopHalf_nm, p.oblique, p.aoi, p.pol, p.holdPassbandDeg]);
     const targetPoints = useMemo(() => targetPointsOf(p),
         [p.lambda0_nm, p.passHalf_nm, p.stopHalf_nm, p.passLevel]); // eslint-disable-line
 
@@ -235,6 +251,9 @@ export function StepSearch({ p, set, c, t }) {
         h(StepHeader, { step: 5, title: T.step5.title, c }),
         h('div', { style: { display: 'flex', gap: 16 } },
             renderSearchControls({ running, stop, start, status, clearHistory, p, set, c, T }),
-            renderCandidateTable({ candidates, selKey, set, c, T, tiltDeg: p.holdPassbandDeg }),
+            renderCandidateTable({
+                candidates, selKey, set, c, T,
+                working: workingAoi(p), held: heldAoi(p) > workingAoi(p) ? heldAoi(p) : 0,
+            }),
             renderSearchPreview({ selLayersFn, targetPoints, iteration, p, set, c, t, T })));
 }

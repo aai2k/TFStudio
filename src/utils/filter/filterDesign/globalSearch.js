@@ -17,8 +17,8 @@ import { mulberry32 } from './rng.js';
  * @param {object} p
  * @param {function} p.nH @param {function} p.nL @param {function} p.nSub
  * @param {number}   p.lambda0_nm
- * @param {object}   p.target               from buildFilterTarget; a tiltDeg above
- *   zero on it makes every merit below the pooled normal-and-tilted one
+ * @param {object}   p.target               from buildFilterTarget; a holdAoi on it
+ *   above the working angle makes every merit below the pooled two-angle one
  * @param {number}   p.cavities             N
  * @param {number}   p.seedMirror           initial mirror layer count
  * @param {number}   p.seedSpacer           initial spacer order
@@ -54,7 +54,7 @@ export function globalIntegerSearch(p) {
     const evalCtx = { nH, nL, lambda0_nm, symMirrors, symCavities, target, nSub };
     const ctx = {
         clampMirror, clampOrder, mfOf: makeMfOf(evalCtx), partsOf: makePartsOf(evalCtx),
-        tilted: target.tiltDeg > 0, symMirrors, symCavities, dH, dL,
+        tilted: target.holdAoi > (target.aoi || 0), symMirrors, symCavities, dH, dL,
     };
 
     const N = cavities;

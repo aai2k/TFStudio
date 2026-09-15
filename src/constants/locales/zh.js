@@ -3457,8 +3457,8 @@ export default {
       symMirrors: '对称反射镜',
       symCavities: '对称腔',
       restarts: '重启次数',
-      holdPassband: '通带保持到 ±θ',
-      holdPassbandHint: '0 = 关闭。每个设计还会按在空气中倾斜到该角度进行评分，因此随角度彼此失谐的腔会被淘汰。',
+      holdPassband: '通带保持 ±θ 范围',
+      holdPassbandHint: '0 = 关闭。每个设计还会在比工作角度再倾斜该角度的条件下评分一次，因此随角度彼此失谐的腔会被淘汰。',
       seedTag: '种子',
     },
     step6: {

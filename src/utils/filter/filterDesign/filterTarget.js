@@ -35,25 +35,30 @@ const STOP_SIGMA = 0.2;
  * point only when T is ABOVE zero, which is what lets a design spend the 0.5 dB
  * allowance it was granted instead of being punished for the roll-off.
  *
- * Each point carries its own (λ, aoi, pol), so a second environment can be
- * added without changing the layout.
+ * The point layout is the same at every angle. What an angle changes is where
+ * the band the points are measured against sits, which the merit takes out per
+ * design (meritFunction.js), so the angles live on the target rather than on its
+ * points.
  *
  * @param {number} p.lambda0_nm
  * @param {number} p.halfPass   half-width of the transmission band (nm)
  * @param {number} p.halfStop   half-width where rejection must hold (nm)
  * @param {number} [p.passLevel=89.13]  transmittance the passband half-width is quoted at, %
- * @param {number} [p.aoi=0] @param {string} [p.pol='s']
- * @param {number} [p.tiltDeg=0]  angle in air, degrees, the passband is held
- *   to: above zero the merit scores every design tilted to it as well
- *   (meritFunction.js); 0 scores at normal incidence only
- * @returns {{ points: {lambda:number, target:number, band:'pass'|'stop', sigma:number, aoi:number, pol:string}[],
- *   lambda0_nm:number, halfPass:number, halfStop:number, tiltDeg:number }}
+ * @param {number} [p.aoi=0]  working angle INSIDE the embedded design, degrees
+ *   (`embeddedAngleDeg` converts the angle the finished filter is used at);
+ *   0 designs at normal incidence
+ * @param {string} [p.pol='s']  's' | 'p' | 'avg'; the two agree at aoi 0
+ * @param {number} [p.holdAoi=0]  a second, larger embedded angle the design is
+ *   scored at as well, so a design whose cavities come apart with angle loses;
+ *   0 or anything at or below `aoi` scores the working angle only
+ * @returns {{ points: {lambda:number, target:number, band:'pass'|'stop', sigma:number}[],
+ *   lambda0_nm:number, halfPass:number, halfStop:number, aoi:number, pol:string, holdAoi:number }}
  */
 export function buildFilterTarget({
-    lambda0_nm, halfPass, halfStop, passLevel = 89.13, aoi = 0, pol = 's', tiltDeg = 0,
+    lambda0_nm, halfPass, halfStop, passLevel = 89.13, aoi = 0, pol = 's', holdAoi = 0,
 }) {
     const points = [];
-    const add = (lambda, target, band, sigma) => points.push({ lambda, target, band, sigma, aoi, pol });
+    const add = (lambda, target, band, sigma) => points.push({ lambda, target, band, sigma });
 
     const half = (PASSBAND_POINTS - 1) / 2;
     for (let i = -half; i <= half; i++) {
@@ -62,7 +67,7 @@ export function buildFilterTarget({
     for (const side of [-1, 1]) {
         for (const m of STOPBAND_MULTIPLES) add(lambda0_nm + side * m * halfStop, 0, 'stop', STOP_SIGMA);
     }
-    return { points, lambda0_nm, halfPass, halfStop, tiltDeg };
+    return { points, lambda0_nm, halfPass, halfStop, aoi, pol, holdAoi };
 }
 
 /** How far out from λ₀ the target reaches (nm): the window a search has to sample. */

@@ -60,7 +60,10 @@ export { buildPrototypeFamily, WIDTH_CONSTANT } from './filterDesign/prototypeFa
 export { structureLayerCount, structureThickness } from './filterDesign/structureMetrics.js';
 export { buildFilterTarget, targetSpan } from './filterDesign/filterTarget.js';
 export { meritFunctionEmbedded, meritFunctionParts } from './filterDesign/meritFunction.js';
-export { tiltedLayers, tiltedBandCentre, tiltWindowLow } from './filterDesign/tiltEnvironment.js';
+export {
+    bandCentreAtAngle, embeddedAngleDeg, invariantOf, angleWindowLow,
+} from './filterDesign/tiltEnvironment.js';
+export { designReference } from './filterDesign/designReference.js';
 export { globalIntegerSearch } from './filterDesign/globalSearch.js';
 export { mulberry32, deriveSeed, hashSeed } from './filterDesign/rng.js';
 export { MIRROR_BOUNDS, ORDER_BOUNDS } from './filterDesign/searchClamps.js';

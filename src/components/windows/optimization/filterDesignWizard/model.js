@@ -1,10 +1,56 @@
 import { getMaterialById } from '../../../../utils/materials/catalogManager.js';
 import {
     materialIndexFn, couplingOrder, coupledMirrors, qwThickness,
-    structureLayerCount, structureThickness, buildFilterTarget,
+    structureLayerCount, structureThickness, buildFilterTarget, embeddedAngleDeg,
 } from '../../../../utils/filter/filterDesign.js';
 
 const idx = (id) => materialIndexFn(id, getMaterialById);
+
+/**
+ * The angle in the incident medium the filter is being designed for, degrees.
+ * Zero unless step 1 turned oblique incidence on.
+ */
+export function workingAoi(p) {
+    return p.oblique && p.aoi > 0 ? p.aoi : 0;
+}
+
+/**
+ * Steepest angle of incidence the wizard will design or score at, degrees, the
+ * bound the step-1 angle field already carries. Past 90° there is no angle of
+ * incidence left, and sin folds back: 100° would be scored as 80° and 169° as
+ * 11°, quietly shallower than the working angle it was measured from.
+ */
+const GRAZING = 89;
+
+/**
+ * The largest angle in the incident medium any design is scored at: the working
+ * angle plus whatever the passband is asked to be held over, held to grazing. A
+ * filter mounted at 45° and held over 10° has to survive 55°.
+ */
+export function heldAoi(p) {
+    return Math.min(GRAZING, workingAoi(p) + Math.max(0, p.holdPassbandDeg || 0));
+}
+
+/**
+ * An angle in the incident medium, as the angle inside the embedded design that
+ * steps 1 to 5 evaluate in. The wizard's fields are angles at the finished
+ * filter; everything the engine scores is embedded in the substrate.
+ */
+export function embeddedAoi(p, aoiDeg) {
+    return embeddedAngleDeg({
+        aoiDeg, nInc: idx(p.incidentMedium), nSub: idx(p.substrateMaterial), lambda0_nm: p.lambda0_nm,
+    });
+}
+
+/** The target the step-5 search minimises, in the embedded frame. */
+export function searchTargetParams(p) {
+    const working = workingAoi(p), held = heldAoi(p);
+    return {
+        lambda0_nm: p.lambda0_nm, halfPass: p.passHalf_nm, halfStop: p.stopHalf_nm, passLevel: p.passLevel,
+        aoi: embeddedAoi(p, working), pol: p.pol,
+        holdAoi: held > working ? embeddedAoi(p, held) : 0,
+    };
+}
 
 // Thelen coupling order δ (Eq. 10) from the chosen materials.
 export function couplingD(p) {
@@ -69,10 +115,28 @@ export function mergeCandidates(history, incoming) {
 
 // ── Remembered settings ─────────────────────────────────────
 // Reopening the wizard on its defaults means finding the same four materials in
-// the catalogs again and retyping the same specification. Both are carried over
-// from the last time it was used.
-const REMEMBERED_MATERIALS = ['matH', 'matL', 'substrateMaterial', 'incidentMedium'];
-const REMEMBERED_NUMBERS = ['lambda0_nm', 'passHalf_nm', 'stopHalf_nm', 'passLevel', 'stopLevel'];
+// the catalogs again and retyping the same specification and working angle. All
+// of it is carried over from the last time the wizard was used.
+//
+// Each key says what a stored value has to look like to be used. A value that
+// fails is dropped, so a deleted material or a corrupted store leaves the wizard
+// on its default rather than on something unusable.
+const REMEMBERED = {
+    matH: 'material', matL: 'material', substrateMaterial: 'material', incidentMedium: 'material',
+    lambda0_nm: 'positive', passHalf_nm: 'positive', stopHalf_nm: 'positive',
+    passLevel: 'positive', stopLevel: 'positive',
+    aoi: 'angle', holdPassbandDeg: 'angle',
+    oblique: 'flag', pol: 'pol',
+};
+
+const VALID = {
+    material: (v) => typeof v === 'string' && !!v,
+    positive: (v) => Number.isFinite(v) && v > 0,
+    angle: (v) => Number.isFinite(v) && v >= 0 && v < 90,
+    flag: (v) => typeof v === 'boolean',
+    pol: (v) => v === 's' || v === 'p' || v === 'avg',
+};
+
 const SETTINGS_KEY = 'filterDesign.settings';
 
 function readStore() {
@@ -83,31 +147,25 @@ function readStore() {
     } catch { return {}; }
 }
 
-/**
- * The settings the wizard last used, ready to spread over the defaults. A
- * material id the catalogs no longer resolve is dropped, so a deleted or
- * renamed material leaves the wizard on its default rather than on a broken
- * picker; a number that did not survive the round trip is dropped the same way.
- */
+/** The settings the wizard last used, ready to spread over the defaults. */
 export function rememberedSettings(resolve = getMaterialById) {
     const stored = readStore();
     const out = {};
-    for (const key of REMEMBERED_MATERIALS) {
-        const id = stored[key];
-        if (typeof id === 'string' && id && resolve(id)) out[key] = id;
-    }
-    for (const key of REMEMBERED_NUMBERS) {
-        const v = stored[key];
-        if (typeof v === 'number' && Number.isFinite(v) && v > 0) out[key] = v;
+    for (const [key, kind] of Object.entries(REMEMBERED)) {
+        if (!(key in stored) || !VALID[kind](stored[key])) continue;
+        // A material id the catalogs no longer resolve is dropped, so a deleted
+        // or renamed material leaves the wizard on its default rather than on a
+        // broken picker.
+        if (kind === 'material' && !resolve(stored[key])) continue;
+        out[key] = stored[key];
     }
     return out;
 }
 
 /** Record a setting for the next time the wizard opens. */
 export function rememberSetting(key, value) {
-    const isMaterial = REMEMBERED_MATERIALS.includes(key) && typeof value === 'string';
-    const isNumber = REMEMBERED_NUMBERS.includes(key) && Number.isFinite(value);
-    if (!isMaterial && !isNumber) return;
+    const kind = REMEMBERED[key];
+    if (!kind || !VALID[kind](value)) return;
     try {
         localStorage.setItem(SETTINGS_KEY, JSON.stringify({ ...readStore(), [key]: value }));
     } catch { /* no localStorage: the setting simply is not remembered */ }
@@ -134,8 +192,9 @@ export const DEFAULTS = {
     // integer-search options (step 5)
     symMirrors: false, symCavities: false, restarts: 14,
     clearHistoryOnStart: true,
-    // Angle in air, degrees, the passband is held to: above zero every design
-    // is also scored tilted to it. 0 scores at normal incidence only.
+    // Degrees of extra tilt, on top of the working angle, the passband is held
+    // over: above zero every design is scored a second time at working + this,
+    // so one that comes apart with angle loses. 0 scores the working angle only.
     holdPassbandDeg: 0,
     // view setting, shared by every plot in the wizard
     logAxis: false,
