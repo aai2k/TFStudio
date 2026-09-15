@@ -1,8 +1,8 @@
 import { getMaterialById } from '../../../../utils/materials/catalogManager.js';
 import { materialIndexFn } from '../../../../utils/filter/filterDesign.js';
 import { buildFilterDesignObject } from '../../../../utils/filter/filterDesignBuild.js';
-import { safeCall } from './model.js';
-import { StepHeader, fieldLabel, inputStyle } from './ui.js';
+import { safeCall, workingAoi } from './model.js';
+import { AxisToggle, StepHeader, fieldLabel, inputStyle } from './ui.js';
 import { SpectrumPlot } from './SpectrumPlot.js';
 
 const { createElement: h, useMemo, useCallback } = React;
@@ -13,8 +13,8 @@ function buildAdjustLayers(p) {
         const design = buildFilterDesignObject({
             name: p.name, matH: p.matH, matL: p.matL, substrateMaterial: p.substrateMaterial,
             incidentMedium: p.incidentMedium, exitMedium: p.exitMedium, lambda0_nm: p.lambda0_nm,
-            candidate: p.selected, spacerKind: p.spacerKind, arMode: p.arMode,
-            halfPass: p.passHalf_nm, halfStop: p.stopHalf_nm, aoi: p.aoi, pol: p.pol,
+            candidate: p.selected, arMode: p.arMode,
+            halfPass: p.passHalf_nm, halfStop: p.stopHalf_nm, aoi: workingAoi(p), pol: p.pol,
         });
         // map frontLayers back to engine-style for the air plot
         return design.frontLayers.map(l => ({ nk: materialIndexFn(l.material, getMaterialById), d: l.thickness }));
@@ -24,9 +24,13 @@ function buildAdjustLayers(p) {
 // ── Step 6: Adjust to incident medium ─────────────────────────────────────────
 export function StepAdjust({ p, set, c, t }) {
     const T = t.filterDesign;
-    const layersFn = useCallback(() => buildAdjustLayers(p),
-        [p.selected, p.arMode, p.matH, p.matL, p.substrateMaterial, p.incidentMedium, p.lambda0_nm, p.spacerKind]);
-    const nLayers = useMemo(() => safeCall(() => layersFn().length, 0), [layersFn]);
+    // The build is the whole step-6 assembly, and at a working angle it solves
+    // the design reference as well, so it is memoized once and handed to both
+    // the layer count and the plot rather than run again for each.
+    const layers = useMemo(() => safeCall(() => buildAdjustLayers(p), []),
+        [p.selected, p.arMode, p.matH, p.matL, p.substrateMaterial, p.incidentMedium, p.lambda0_nm, p.oblique, p.aoi, p.pol]);
+    const layersFn = useCallback(() => layers, [layers]);
+    const aoi = workingAoi(p);
 
     return h('div', { style: { display: 'flex', flexDirection: 'column', gap: 10 } },
         h(StepHeader, { step: 6, title: T.step6.title, c }),
@@ -40,6 +44,10 @@ export function StepAdjust({ p, set, c, t }) {
                 h('label', { style: fieldLabel(c) }, h('span', {}, T.step6.name),
                     h('input', { type: 'text', value: p.name, onChange: (e) => set('name', e.target.value), style: inputStyle(c, '100%') }))),
             h('div', { style: { flex: 1 } },
-                h(SpectrumPlot, { layersFn, p, mode: 'air', c, height: 280, lambdaAxis: t.spectralAxis.lambdaShort }),
-                h('div', { style: { fontSize: 12, color: c.textDim, marginTop: 4 } }, `N = ${nLayers}  (final, in ${p.incidentMedium.split(':').pop()})`))));
+                h(AxisToggle, { value: p.logAxis, onChange: (v) => set('logAxis', v), c, t }),
+                h(SpectrumPlot, { layersFn, p, mode: 'air', c, height: 280, logAxis: p.logAxis,
+                    lambdaAxis: t.spectralAxis.lambdaShort, aoi, pol: p.pol }),
+                h('div', { style: { fontSize: 12, color: c.textDim, marginTop: 4 } },
+                    `N = ${layers.length}  (final, in ${p.incidentMedium.split(':').pop()}`
+                    + (aoi > 0 ? `, ${aoi}°` : '') + ')'))));
 }

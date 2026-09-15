@@ -3401,6 +3401,7 @@ export default {
     tableCancel: '取消',
   },
   filterDesign: {
+    axisLinear: '线性', axisLog: '对数',
     title: '滤光片设计向导',
     back: '返回',
     next: '下一步',
@@ -3437,14 +3438,16 @@ export default {
     step4: {
       title: '原型规格',
       tableHeader: '等效原型 (m, k)',
-      colWidth: '宽度',
       spacerMat: '间隔层材料',
       extMirror: '外部反射镜层数 (m)',
       spacerOrder: '间隔层阶次 (k)',
       spacerAny: '任意',
+      noRows: '没有符合该规格的原型。请放宽通带宽度，或选择折射率对比度更大的材料。',
     },
     step5: {
       title: '全局整数搜索',
+      clearOnStart: '启动时清除历史', clearHistory: '清除',
+      iteration: '迭代',
       start: '开始',
       stop: '停止',
       running: '搜索中…',
@@ -3454,6 +3457,8 @@ export default {
       symMirrors: '对称反射镜',
       symCavities: '对称腔',
       restarts: '重启次数',
+      holdPassband: '通带保持 ±θ 范围',
+      holdPassbandHint: '0 = 关闭。每个设计还会在比工作角度再倾斜该角度的条件下评分一次，因此随角度彼此失谐的腔会被淘汰。',
       seedTag: '种子',
     },
     step6: {

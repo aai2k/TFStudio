@@ -1,79 +1,76 @@
 /**
- * Build a filter target sampler. T should be 1 across the passband and 0 in the
- * rejection band; the transition between Δλp and Δλr is "don't care" (weight 0),
- * matching the pass/stop spec drawn at the 89.13 % and 0.1 % levels.
+ * Number of points across the passband, the two outermost carrying the
+ * specified pass level and the rest 100 %.
  *
- * @param {object} p
+ * OptiLayer draws its target as crosses on the step-5 plot: a dense row at
+ * 100 % across the passband and one cross at the pass level at each ±halfPass.
+ * The crosses were read off a native-resolution video frame at 1530 nm and off
+ * a photograph at 600 nm; the two readings put the outermost 100 % cross at
+ * 0.93 and 0.73 of halfPass, which no single layout satisfies, so the count
+ * here is fitted instead. 17 points reproduces all three (structure, merit)
+ * pairs on record to 2 %, and puts that cross at 0.875 of halfPass, between the
+ * two readings.
+ */
+const PASSBAND_POINTS = 17;
+
+/** Stopband points, as multiples of halfStop on each side. Nothing lies further out. */
+const STOPBAND_MULTIPLES = [1, 1.1, 1.2, 2];
+
+/**
+ * Residual scale of a stopband point, in percent. A stop point five times
+ * tighter than a pass point is what reproduces the searched design's merit;
+ * without it the rejection edge cannot compete with the passband and the search
+ * widens the whole filter to flatten its top.
+ */
+const STOP_SIGMA = 0.2;
+
+/**
+ * Build the filter target: the sparse point set OptiLayer scores its step-5
+ * designs on, in percent.
+ *
+ * The specification is two half-widths: T at or above `passLevel` out to
+ * ±halfPass, and T at or below the stop level by ±halfStop. Those are the
+ * points the target carries and nothing else. Every point is one-sided: a
+ * passband point contributes only when T is BELOW its level and a stopband
+ * point only when T is ABOVE zero, which is what lets a design spend the 0.5 dB
+ * allowance it was granted instead of being punished for the roll-off.
+ *
+ * The point layout is the same at every angle. What an angle changes is where
+ * the band the points are measured against sits, which the merit takes out per
+ * design (meritFunction.js), so the angles live on the target rather than on its
+ * points.
+ *
  * @param {number} p.lambda0_nm
- * @param {number} p.halfPass   half-width of the transmission band (nm)  [Δλ@89.13%]
- * @param {number} p.halfStop   half-width where rejection must hold (nm) [Δλ@0.1%]
- * @param {number} [p.stopSpan] how far beyond halfStop the stopband extends (nm)
- * @param {number} [p.passStep] passband sample spacing (nm)
- * @param {number} [p.stopStep] stopband sample spacing (nm)
- * @param {number} [p.edgeBoost] extra weight on the near-edge skirt (default 6)
- * @returns {{ lambda:number[], target:number[], weight:number[] }}
- *
- * The defining spec is the TWO half-widths: T≥89.13 % out to ±halfPass and
- * T≤0.1 % by ±halfStop. The skirt in between (halfPass→halfStop) is sampled too
- * — its target follows the passband on the inner part and the stopband on the
- * outer part — and the near-edge stopband ([halfStop, halfStop+skirt]) carries
- * `edgeBoost` extra weight so the integer search is rewarded for placing the
- * 0.1 % level exactly at ±halfStop instead of letting the skirt run wide.
+ * @param {number} p.halfPass   half-width of the transmission band (nm)
+ * @param {number} p.halfStop   half-width where rejection must hold (nm)
+ * @param {number} [p.passLevel=89.13]  transmittance the passband half-width is quoted at, %
+ * @param {number} [p.aoi=0]  working angle INSIDE the embedded design, degrees
+ *   (`embeddedAngleDeg` converts the angle the finished filter is used at);
+ *   0 designs at normal incidence
+ * @param {string} [p.pol='s']  's' | 'p' | 'avg'; the two agree at aoi 0
+ * @param {number} [p.holdAoi=0]  a second, larger embedded angle the design is
+ *   scored at as well, so a design whose cavities come apart with angle loses;
+ *   0 or anything at or below `aoi` scores the working angle only
+ * @returns {{ points: {lambda:number, target:number, band:'pass'|'stop', sigma:number}[],
+ *   lambda0_nm:number, halfPass:number, halfStop:number, aoi:number, pol:string, holdAoi:number }}
  */
 export function buildFilterTarget({
-    lambda0_nm, halfPass, halfStop, stopSpan = null,
-    passStep = null, stopStep = null, edgeBoost = 6,
+    lambda0_nm, halfPass, halfStop, passLevel = 89.13, aoi = 0, pol = 's', holdAoi = 0,
 }) {
-    const skirt = Math.max(halfStop - halfPass, halfStop * 0.1);
-    const ps = passStep || Math.max(halfPass / 8, 0.02);
-    const ss = stopStep || Math.max(skirt / 12, 0.03);
-    const span = stopSpan || Math.max(halfStop * 3, halfStop + 5 * halfPass);
+    const points = [];
+    const add = (lambda, target, band, sigma) => points.push({ lambda, target, band, sigma });
 
-    const acc = { lambda: [], target: [], weight: [] };
-    addPassbandSamples(acc, lambda0_nm, halfPass, ps);
-    addStopbandSamples(acc, { lambda0_nm, halfStop, skirt, span, ss, edgeBoost });
-    bandBalanceWeights(acc.target, acc.weight);
-    return acc;
+    const half = (PASSBAND_POINTS - 1) / 2;
+    for (let i = -half; i <= half; i++) {
+        add(lambda0_nm + (i / half) * halfPass, Math.abs(i) === half ? passLevel : 100, 'pass', 1);
+    }
+    for (const side of [-1, 1]) {
+        for (const m of STOPBAND_MULTIPLES) add(lambda0_nm + side * m * halfStop, 0, 'stop', STOP_SIGMA);
+    }
+    return { points, lambda0_nm, halfPass, halfStop, aoi, pol, holdAoi };
 }
 
-/** Append passband samples (T=1, unit weight) across [λ₀−halfPass, λ₀+halfPass]. */
-function addPassbandSamples(acc, lambda0_nm, halfPass, ps) {
-    for (let x = lambda0_nm - halfPass; x <= lambda0_nm + halfPass + 1e-9; x += ps) {
-        acc.lambda.push(x); acc.target.push(1); acc.weight.push(1);
-    }
-}
-
-/**
- * Append stopband samples (T=0) on both sides from halfStop outward. Samples in
- * the near-edge skirt zone [halfStop, halfStop+skirt] carry `edgeBoost` extra
- * weight so the 0.1 % level pins to ±halfStop instead of letting the skirt run wide.
- */
-function addStopbandSamples(acc, { lambda0_nm, halfStop, skirt, span, ss, edgeBoost }) {
-    const edgeHi = halfStop + skirt;
-    for (let side = -1; side <= 1; side += 2) {
-        for (let off = halfStop; off <= span + 1e-9; off += ss) {
-            const w = (off <= edgeHi) ? edgeBoost : 1;
-            acc.lambda.push(lambda0_nm + side * off); acc.target.push(0); acc.weight.push(w);
-        }
-    }
-}
-
-/**
- * Band-balance the weights so the passband and stopband each carry equal TOTAL
- * weight (per-sample edgeBoost ratios inside the stopband are preserved).
- *
- * The stopband has ~10× more samples than the passband (it spans a much wider λ
- * range). With raw per-sample weights the merit function is dominated by the
- * stopband, so a discrete optimizer can lower the MF by COLLAPSING the passband
- * (a near-empty filter satisfies hundreds of stop samples while sacrificing only
- * a few pass samples). Balancing makes a true flat-top the merit minimum and
- * removes the "kill the passband" pathology.
- */
-function bandBalanceWeights(target, weight) {
-    let wp = 0, ws = 0;
-    for (let i = 0; i < target.length; i++) (target[i] === 1 ? (wp += weight[i]) : (ws += weight[i]));
-    for (let i = 0; i < weight.length; i++) {
-        const denom = target[i] === 1 ? wp : ws;
-        if (denom > 0) weight[i] /= denom;
-    }
+/** How far out from λ₀ the target reaches (nm): the window a search has to sample. */
+export function targetSpan(halfPass, halfStop) {
+    return Math.max(halfPass, halfStop * Math.max(...STOPBAND_MULTIPLES));
 }

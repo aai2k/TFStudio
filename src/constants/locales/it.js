@@ -3408,6 +3408,7 @@ export default {
     tableCancel: 'Annulla',
   },
   filterDesign: {
+    axisLinear: 'Lineare', axisLog: 'Log',
     title: 'Procedura guidata per la progettazione di filtri',
     back: 'Indietro',
     next: 'Avanti',
@@ -3444,14 +3445,16 @@ export default {
     step4: {
       title: 'Specifica del prototipo',
       tableHeader: 'Prototipi equivalenti (m, k)',
-      colWidth: 'Larghezza',
       spacerMat: 'Materiale dello spaziatore',
       extMirror: 'Strati di specchio esterni (m)',
       spacerOrder: 'Ordine dello spaziatore (k)',
       spacerAny: 'Qualsiasi',
+      noRows: 'Nessun prototipo soddisfa questa specifica. Allarga la banda passante o scegli materiali con un contrasto di indice maggiore.',
     },
     step5: {
       title: 'Ricerca intera globale',
+      clearOnStart: 'Cancella la cronologia all’avvio', clearHistory: 'Cancella',
+      iteration: 'Iterazione',
       start: 'Avvia',
       stop: 'Ferma',
       running: 'Ricerca in corso…',
@@ -3461,6 +3464,8 @@ export default {
       symMirrors: 'Specchi simmetrici',
       symCavities: 'Cavità simmetriche',
       restarts: 'Ripartenze',
+      holdPassband: 'Mantieni la banda passante su ±θ',
+      holdPassbandHint: '0 = spento. Ogni design viene valutato una seconda volta con questa inclinazione in più rispetto all’angolo di lavoro, così le cavità che si disallineano con l’angolo perdono.',
       seedTag: 'iniziale',
     },
     step6: {

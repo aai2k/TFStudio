@@ -5,9 +5,21 @@ import { axisTooltip, cartesianOption, lineSeries, valueAxis } from '../../../ui
 
 const { createElement: h, useMemo, useEffect, useRef } = React;
 
-function computeSpectrumData({ layersFn, analyticT, p, mode, windowNm }) {
+/**
+ * Floor of the logarithmic axis, in percent. Two decades below the stop level
+ * the user specified, so the rejection edge the whole design turns on is
+ * visible and the noise far below it is not.
+ */
+function logFloor(stopLevel) {
+    return Math.max(1e-8, (stopLevel > 0 ? stopLevel : 0.1) / 100);
+}
+
+function computeSpectrumData({ layersFn, analyticT, p, mode, windowNm, targetReach, aoi, pol }) {
     try {
-        const width = windowNm || Math.max(p.stopHalf_nm * 1.5, p.passHalf_nm * 2.5, 5);
+        // The target points reach further out than the curve's own window would
+        // go, so the window covers them: otherwise the axis stretches to the
+        // outermost cross and the curve stops short of the frame.
+        const width = windowNm || Math.max(p.stopHalf_nm * 1.5, p.passHalf_nm * 2.5, targetReach, 5);
         const low = p.lambda0_nm - width, high = p.lambda0_nm + width;
         const wavelengths = new Set();
         const coarse = Math.max((high - low) / 500, 0.02);
@@ -22,20 +34,45 @@ function computeSpectrumData({ layersFn, analyticT, p, mode, windowNm }) {
         const substrateIndex = materialIndexFn(p.substrateMaterial, getMaterialById);
         const incidentIndex = mode === 'embedded' ? substrateIndex : materialIndexFn(p.incidentMedium, getMaterialById);
         const transmittance = x.map(value => (mode === 'embedded'
-            ? embeddedT(layers, value, substrateIndex)
-            : spectrumT(layers, value, incidentIndex, substrateIndex)) * 100);
+            ? embeddedT(layers, value, substrateIndex, aoi, pol)
+            : spectrumT(layers, value, [incidentIndex, substrateIndex], aoi, pol)) * 100);
         return { x, transmittance };
     } catch (error) { return { error: error.message }; }
 }
 
-export function SpectrumPlot({ layersFn, analyticT = null, p, mode = 'embedded', c, height = 280, levelLines = [], windowNm = null, lambdaAxis }) {
+/** The target points, as a scatter series of crosses over the curve. */
+function targetSeries(targetPoints, floor) {
+    return {
+        type: 'scatter', name: 'target', symbol: 'diamond', symbolSize: 7,
+        itemStyle: { color: '#ffb300' }, z: 5, silent: true,
+        data: targetPoints.map(pt => [pt.lambda, Math.max(pt.target, floor)]),
+    };
+}
+
+/**
+ * `aoi` is the angle of the curve, in degrees, measured in whichever medium the
+ * mode makes incident: the substrate for 'embedded', the real incident medium for
+ * 'air'. A caller that wants the response at a working angle passes the angle for
+ * its own mode.
+ */
+export function SpectrumPlot({
+    layersFn, analyticT = null, p, mode = 'embedded', c, height = 280,
+    levelLines = [], windowNm = null, lambdaAxis, logAxis = false, targetPoints = null,
+    aoi = 0, pol = 's',
+}) {
     const divRef = useRef(null);
     const chartRef = useRef(null);
-    const data = useMemo(() => computeSpectrumData({ layersFn, analyticT, p, mode, windowNm }),
-        [layersFn, analyticT, p.lambda0_nm, p.passHalf_nm, p.stopHalf_nm, p.substrateMaterial, p.incidentMedium, mode, windowNm]);
+    const targetReach = useMemo(() => (targetPoints || []).reduce(
+        (w, pt) => Math.max(w, Math.abs(pt.lambda - p.lambda0_nm)), 0), [targetPoints, p.lambda0_nm]);
+    const data = useMemo(() => computeSpectrumData({ layersFn, analyticT, p, mode, windowNm, targetReach, aoi, pol }),
+        [layersFn, analyticT, p.lambda0_nm, p.passHalf_nm, p.stopHalf_nm, p.substrateMaterial, p.incidentMedium, mode, windowNm, targetReach, aoi, pol]);
     useEffect(() => {
         if (data.error || data.empty) return;
-        const series = lineSeries({ x: data.x, y: data.transmittance, name: 'T', color: '#4fc3f7', width: 1.7 });
+        const floor = logFloor(p.stopLevel);
+        // A log axis cannot carry a zero, and a lossless stopband reaches values
+        // no instrument would resolve, so the curve is clamped to the floor.
+        const y = logAxis ? data.transmittance.map(v => Math.max(v, floor)) : data.transmittance;
+        const series = lineSeries({ x: data.x, y, name: 'T', color: '#4fc3f7', width: 1.7 });
         series.markLine = {
             silent: true, symbol: 'none', label: { show: false },
             data: [
@@ -46,13 +83,19 @@ export function SpectrumPlot({ layersFn, analyticT = null, p, mode = 'embedded',
                 ]),
             ],
         };
+        const all = targetPoints?.length ? [series, targetSeries(targetPoints, floor)] : [series];
         drawChart(divRef.current, chartRef, cartesianOption({
             colors: c,
-            grid: { left: 46, right: 12, top: 8, bottom: 36 },
+            grid: { left: 52, right: 12, top: 8, bottom: 36 },
             tooltip: axisTooltip({ colors: c, valueSuffix: '%' }),
-            xAxis: valueAxis({ name: lambdaAxis, color: c.text, gridColor: c.border, nameGap: 26 }),
-            yAxis: valueAxis({ name: '%', color: c.text, gridColor: c.border, min: 0, max: 100, interval: 10, nameGap: 30 }),
-            series: [series],
+            // Pinned to the sampled range so the curve fills the frame whatever
+            // else is plotted over it.
+            xAxis: valueAxis({ name: lambdaAxis, color: c.text, gridColor: c.border, nameGap: 26,
+                min: data.x[0], max: data.x[data.x.length - 1] }),
+            yAxis: logAxis
+                ? { ...valueAxis({ name: '%', color: c.text, gridColor: c.border, nameGap: 38 }), type: 'log', min: floor, max: 100 }
+                : valueAxis({ name: '%', color: c.text, gridColor: c.border, min: 0, max: 100, interval: 10, nameGap: 30 }),
+            series: all,
         }));
     });
     useChartTeardown(divRef, chartRef);

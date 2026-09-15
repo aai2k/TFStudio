@@ -1,13 +1,21 @@
-import { embeddedT } from './spectrum.js';
+import { embeddedT, spectrumT } from './spectrum.js';
 
 /**
- * Full width (nm) of the central peak at an absolute T level, embedded case.
- * Returns 0 if the peak never reaches the level.
+ * Full width (nm) of the CENTRAL peak at an absolute T level. Returns 0 if the
+ * peak never reaches the level.
+ *
+ * Only the order containing λ₀ is measured. At high spacer order the free
+ * spectral range collapses and neighbouring orders fall inside any fixed
+ * window, so taking the outermost crossings would measure several orders at
+ * once.
+ *
+ * @param {function} [p.nInc]  incident index fn; defaults to nSub, the embedded case
  */
-export function measureWidth(layers, lambda0_nm, level, nSub, { span = 80, step = 0.02 } = {}) {
+export function measureWidth(layers, lambda0_nm, level, nSub, { span = 80, step = 0.02, nInc = null } = {}) {
+    const Tat = nInc ? (lam) => spectrumT(layers, lam, [nInc, nSub]) : (lam) => embeddedT(layers, lam, nSub);
     const lo = lambda0_nm - span, hi = lambda0_nm + span;
     const xs = [], ts = [];
-    for (let lam = lo; lam <= hi + 1e-9; lam += step) { xs.push(lam); ts.push(embeddedT(layers, lam, nSub)); }
+    for (let lam = lo; lam <= hi + 1e-9; lam += step) { xs.push(lam); ts.push(Tat(lam)); }
     // central peak: index of max T nearest λ₀
     let ci = -1, best = Infinity;
     for (let i = 0; i < xs.length; i++) {

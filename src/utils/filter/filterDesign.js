@@ -27,13 +27,14 @@
  *
  *     sub | M_1  S_1  M_2  S_2  …  S_N  M_{N+1} | inc
  *
- *   N cavities  ⇒  N spacers  +  (N+1) mirrors.
- *   Mirror M_i  = QW stack presenting the spacer-facing material on its faces.
- *                 For an L-spacer the faces are H; mirrors are both-ends-H,
- *                 i.e. odd layer count  H(LH)^a  (a = (g−1)/2).  The
- *                 step-5 example shows odd mirror counts (7, 15, 15).
- *   Spacer S_j  = one layer of the spacer material, order s = s half-waves
- *                 = thickness 2·s·QW.
+ *   N cavities  ⇒  N spacers  +  (N+1) mirrors, both vectors indexed from the
+ *   substrate. The whole stack is one strictly alternating quarter-wave list:
+ *   counting positions from the substrate, odd positions are H and even ones L,
+ *   and that is the only thing that sets a layer's material. Spacer positions
+ *   carry 2k quarter-waves instead of one. A mirror of even layer count
+ *   therefore ends on the other material from where it started, so the spacers
+ *   on its two sides are different materials, which is what OptiLayer's
+ *   "Spacer material: Any" buys, and what its searched designs use.
  *
  * References:
  *   - Worked example LEC25D9-1 (narrow band-pass, λ₀=600 nm, n_H=2.35, n_L=1.46,
@@ -49,14 +50,21 @@
  */
 
 export { constIndex, materialIndexFn, qwThickness } from './filterDesign/indexProviders.js';
-export { buildPrototypeLayers, toNDLayers } from './filterDesign/prototypeLayers.js';
+export { buildPrototypeLayers, prototypePositions, toNDLayers } from './filterDesign/prototypeLayers.js';
 export { embeddedT, spectrumT, sampleSpectrum } from './filterDesign/spectrum.js';
 export { measureWidth } from './filterDesign/bandwidth.js';
 export { recommendCavities } from './filterDesign/cavityRecommendation.js';
 export { idealFilterCurve } from './filterDesign/idealCurve.js';
-export { oddUp, couplingOrder, coupledMirrors } from './filterDesign/coupledPrototype.js';
-export { buildPrototypeFamily } from './filterDesign/prototypeFamily.js';
-export { buildFilterTarget } from './filterDesign/filterTarget.js';
-export { meritFunctionEmbedded } from './filterDesign/meritFunction.js';
+export { couplingOrder, coupledMirrors } from './filterDesign/coupledPrototype.js';
+export { buildPrototypeFamily, WIDTH_CONSTANT } from './filterDesign/prototypeFamily.js';
+export { structureLayerCount, structureThickness } from './filterDesign/structureMetrics.js';
+export { buildFilterTarget, targetSpan } from './filterDesign/filterTarget.js';
+export { meritFunctionEmbedded, meritFunctionParts } from './filterDesign/meritFunction.js';
+export {
+    bandCentreAtAngle, embeddedAngleDeg, invariantOf, angleWindowLow,
+} from './filterDesign/tiltEnvironment.js';
+export { designReference } from './filterDesign/designReference.js';
 export { globalIntegerSearch } from './filterDesign/globalSearch.js';
+export { mulberry32, deriveSeed, hashSeed } from './filterDesign/rng.js';
+export { MIRROR_BOUNDS, ORDER_BOUNDS } from './filterDesign/searchClamps.js';
 export { adjustToIncidentMedium } from './filterDesign/adjustToIncidentMedium.js';

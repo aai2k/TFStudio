@@ -7,7 +7,7 @@
  * Run: node tests/filter_design_build.mjs
  */
 import { buildFilterDesignObject, buildFilterOperands, presampleForSearch } from '../src/utils/filter/filterDesignBuild.js';
-import { globalIntegerSearch, buildFilterTarget, constIndex } from '../src/utils/filter/filterDesign.js';
+import { globalIntegerSearch, buildFilterTarget, constIndex, coupledMirrors } from '../src/utils/filter/filterDesign.js';
 
 let fails = 0;
 const ok = (c, m) => { if (!c) { console.error('FAIL:', m); fails++; } };
@@ -40,11 +40,13 @@ console.log('— design object —');
     const design = buildFilterDesignObject({
         name: 'LEC25D9', matH: 'H', matL: 'L', substrateMaterial: 'Sub',
         incidentMedium: 'Air', exitMedium: 'Air', lambda0_nm: LAM0,
-        candidate, spacerKind: 'L', arMode: 'vcoat', halfPass: 1.5, halfStop: 4.5,
+        candidate, arMode: 'vcoat', halfPass: 1.5, halfStop: 4.5,
         resolve,
     });
     const mirrorSum = 7 + 13 + 11 + 11 + 5;
-    const expected = mirrorSum + candidate.spacers.length + 2; // + V-coat 2 layers
+    // 47 mirror layers plus 4 spacers is 51 positions, an odd count, so the
+    // outermost layer is H and the V coat's inner H layer merges into it.
+    const expected = mirrorSum + candidate.spacers.length + 1;
     ok(design.frontLayers.length === expected, `frontLayers = ${expected} (got ${design.frontLayers.length})`);
     ok(design.referenceWavelength === LAM0, 'referenceWavelength = λ₀');
     ok(design.substrate.material === 'Sub', 'substrate carried');
@@ -55,6 +57,27 @@ console.log('— design object —');
     ok(design.filterRecipe && design.filterRecipe.mirrors.length === 5, 'filterRecipe persisted');
     // first layer is air-adjacent (V-coat outer); last touches substrate
     ok(design.frontLayers.length > 0, 'has layers');
+}
+
+// ── 2b. The step-4 prototype is buildable on its own ─────────────────
+// Finish must work from the prototype the user approved at step 4, without the
+// integer search having run. The prototype is the same {mirrors, spacers} shape
+// the search returns, so the bridge needs no special case for it.
+console.log('— prototype through the bridge —');
+{
+    const N = 4, m = 8, k = 1;
+    const mirrors = coupledMirrors(N, m, 1);           // [8, 17, 17, 17, 8]
+    const candidate = { mirrors, spacers: new Array(N).fill(k), isSeed: true };
+    const design = buildFilterDesignObject({
+        name: 'Prototype', matH: 'H', matL: 'L', substrateMaterial: 'Sub',
+        incidentMedium: 'Air', exitMedium: 'Air', lambda0_nm: LAM0,
+        candidate, arMode: 'vcoat', halfPass: 1.5, halfStop: 4.5, resolve,
+    });
+    // 67 mirror layers plus 4 spacers is 71 positions, an odd count, so the
+    // outermost layer is H and the coat merges into it: 72 layers.
+    ok(design.frontLayers.length === 72, `prototype + V coat = 72 layers (got ${design.frontLayers.length})`);
+    ok(design.frontLayers.every(l => l.thickness > 0), 'no zero-thickness layer');
+    ok(design.filterRecipe.mirrors.join() === mirrors.join(), 'recipe carries the prototype vector');
 }
 
 // ── 3. Pre-sample + interp reproduces direct search (worker path) ─────────────
