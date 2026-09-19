@@ -160,7 +160,8 @@ assert.match(operandEvaluationErrors(wrongSideValues)[0], /expects back-side inc
 assert.equal(calcMF([wrongSide], wrongSideValues), Infinity);
 
 // The import-window model generates one table row with the selected curve's
-// quantity/AOI/polarization/side and exact sampled data.
+// quantity/AOI/polarization and exact sampled data. A measurement is taken
+// with the coated face toward the beam, so the row states no side of its own.
 const fit = measuredFitSnapshot(comparisonDesign, curve, {
     mode: 'thinned', rangeMin: 400, rangeMax: 440, thinEvery: 2, weight: 4,
 });
@@ -169,11 +170,11 @@ assert.deepEqual(fit.operand.sampleLambdas, [400, 420, 440]);
 assert.deepEqual(fit.operand.sampleTargets, [0.10, 0.40, 0.20]);
 assert.deepEqual(
     [fit.operand.quantity, fit.operand.aoi, fit.operand.pol, fit.operand.side, fit.operand.weight],
-    ['R', 7, 'p', 'front', 4],
+    ['R', 7, 'p', undefined, 4],
 );
 assert.equal(measuredFitSnapshot(
     { ...comparisonDesign, surfaceMode: 'back_only' }, curve,
-).error, 'side');
+).error, null, 'the design decides what it evaluates; the curve does not refuse it');
 
 // Fitting outside a material's declared data would score residuals against an
 // extrapolated n and k, so the range is clipped to the data by default. The
@@ -282,7 +283,11 @@ assert.equal(typeCellStyle.height, 22,
     const restored = restoredFitCurves(designB);
     const curve = restored.measuredCurves[0];
     assert.equal(curve.name, 'AR front');
-    assert.deepEqual([curve.quantity, curve.aoi, curve.pol, curve.side], ['R', 8, 's', 'front']);
+    assert.deepEqual([curve.quantity, curve.aoi, curve.pol], ['R', 8, 's']);
+    // A block written by an older release may still name a side. A spectrum is
+    // taken with the coated face toward the beam, so the curve comes back
+    // without one and the design decides what it evaluates.
+    assert.ok(!('side' in curve), 'a restored spectrum carries no side');
     assert.deepEqual(curve.y, [0.04, 0.02, 0.05]);
     assert.equal(restored.meritOperands[0].curveId, curve.id, 'the block adopts the curve it got back');
     const designAfter = { ...designB, ...restored };

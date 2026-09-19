@@ -1,7 +1,6 @@
 import { useDesign } from '../../../../state/DesignContext.js';
 import { useUnresolvedMaterials } from '../../../../utils/materials/useUnresolvedMaterials.js';
-import { measuredCurveData } from '../../../../utils/io/spectrumTable.js';
-import { chartData, curvePairs, ellipsometryCurves, looksLikeCosDelta, pairKey } from './model.js';
+import { chartData, ellipsometryCurves, looksLikeCosDelta } from './model.js';
 import {
     ellipsometryFitSnapshot, orphanEllipsometryFitBlocks, restoredEllipsometryCurves,
 } from './fitModel.js';
@@ -11,41 +10,37 @@ import {
     clampedFitRange, defaultMeasuredFitOptions, measuredFitConstraintsInvalid,
     measuredFitMeritOperands,
 } from '../spectrumExchange/model.js';
-import { measuredEllipsometrySession } from './sessionState.js';
-import { useWindowSession } from '../../windowSession.js';
+import { measuredEllipsometrySession, measuredEllipsometryView } from './sessionState.js';
+import { useSplitWindowSession } from '../../windowSession.js';
 
 const { useCallback, useEffect, useMemo, useRef, useState } = React;
 
 /**
- * Turning a Ψ/Δ pair into merit targets, through the dialog Measured Spectra
- * uses. The dialog was written for one curve, so a pair hands it the Ψ curve's
- * grid under the pair's own name, which is all the dialog reads of the curve.
+ * Turning one measured Ψ or Δ into a merit target, through the dialog
+ * Measured Spectra uses.
  */
 function useFitDialog({ design, curves, fitOptions, setField, updateDesign, checkpoint, flash, mx, fitText }) {
-    const [fitPairKey, setFitPairKey] = useState(null);
-    const fitPair = useMemo(
-        () => curvePairs(curves).find(pair => pairKey(pair) === fitPairKey) || null,
-        [curves, fitPairKey]);
-    const fitDialogCurve = useMemo(() => (fitPair ? {
-        id: fitPairKey, name: mx.pairComplete(fitPair.aoi), x: measuredCurveData(fitPair.psi).x,
-    } : null), [fitPair, fitPairKey, mx]);
+    const [fitCurveId, setFitCurveId] = useState(null);
+    const fitDialogCurve = useMemo(
+        () => curves.find(curve => curve.id === fitCurveId) || null,
+        [curves, fitCurveId]);
     const fitConfig = useMemo(() => clampedFitRange(design, {
-        ...defaultMeasuredFitOptions(fitPair?.psi),
-        ...(fitPair ? fitOptions[fitPairKey] : {}),
-    }), [design, fitPair, fitPairKey, fitOptions]);
+        ...defaultMeasuredFitOptions(fitDialogCurve),
+        ...(fitDialogCurve ? fitOptions[fitCurveId] : {}),
+    }), [design, fitDialogCurve, fitCurveId, fitOptions]);
     const setFitOption = useCallback((key, value) => {
-        if (!fitPairKey) return;
+        if (!fitCurveId) return;
         setField('fitOptions', previous => ({
             ...previous,
-            [fitPairKey]: { ...(previous[fitPairKey] || {}), [key]: value },
+            [fitCurveId]: { ...(previous[fitCurveId] || {}), [key]: value },
         }));
-    }, [fitPairKey, setField]);
+    }, [fitCurveId, setField]);
     const fitSnapshot = useMemo(
-        () => ellipsometryFitSnapshot(design, fitPair, fitConfig),
-        [design, fitPair, fitConfig]);
-    const closeFitDialog = useCallback(() => setFitPairKey(null), []);
+        () => ellipsometryFitSnapshot(design, fitDialogCurve, fitConfig),
+        [design, fitDialogCurve, fitConfig]);
+    const closeFitDialog = useCallback(() => setFitCurveId(null), []);
     const onCreateFitOperand = useCallback(() => {
-        if (!fitSnapshot.operands.length) {
+        if (!fitSnapshot.operand) {
             flash('error', fitText.fitErrors[fitSnapshot.error] || fitText.fitErrors.range);
             return;
         }
@@ -55,14 +50,14 @@ function useFitDialog({ design, curves, fitOptions, setField, updateDesign, chec
         }
         checkpoint();
         updateDesign({
-            meritOperands: measuredFitMeritOperands(design.meritOperands, fitSnapshot.operands, fitConfig),
+            meritOperands: measuredFitMeritOperands(design.meritOperands, fitSnapshot.operand, fitConfig),
         });
-        flash('success', mx.fitAdded(fitPair.aoi, fitSnapshot.sampled.lambdas.length));
-        setFitPairKey(null);
-    }, [fitSnapshot, fitConfig, fitPair, design, updateDesign, checkpoint, flash, fitText, mx]);
+        flash('success', mx.fitAdded(fitDialogCurve.name, fitSnapshot.sampled.lambdas.length));
+        setFitCurveId(null);
+    }, [fitSnapshot, fitConfig, fitDialogCurve, design, updateDesign, checkpoint, flash, fitText, mx]);
     return {
         fitDialogCurve, fitConfig, setFitOption, fitSnapshot, onCreateFitOperand, closeFitDialog,
-        openFitDialog: pair => setFitPairKey(pairKey(pair)),
+        openFitDialog: curve => setFitCurveId(curve.id),
     };
 }
 
@@ -96,13 +91,15 @@ function useCurveEdits({ design, updateDesign, checkpoint }) {
 }
 
 export function useMeasuredEllipsometry(mx, xLabel, fitText) {
-    const { design, updateDesign, checkpoint } = useDesign();
+    const { design, updateDesign, checkpoint, hasActiveDesign } = useDesign();
     const missingMaterialIds = useUnresolvedMaterials(design);
-    const [session, setField] = useWindowSession(measuredEllipsometrySession, design);
+    const [session, setField] = useSplitWindowSession(
+        measuredEllipsometrySession, measuredEllipsometryView, design);
     const {
         tab, parsed, fileName, colIdx, selectedCurveId, xUnit, aoi, side, deltaConvention,
-        expSource, expXUnit, expSelected = {}, expStart, expEnd, expStep, expAoi, ov = {},
-        fitOptions = {},
+        expSource, expXUnit, expSelected = {}, expStart, expEnd, expStep, expAoi,
+        expDeltaConvention, ov = {},
+        fitOptions = {}, panelWidth,
     } = session;
     const [status, setStatus] = useState(null);
     const [loading, setLoading] = useState(false);
@@ -152,8 +149,12 @@ export function useMeasuredEllipsometry(mx, xLabel, fitText) {
         [previewSource, xLabel]);
 
     return {
-        design, curves, selectedCurve, missingMaterialIds,
+        design, hasActiveDesign, curves, selectedCurve, missingMaterialIds,
+        // Which face a curve belongs to matters only when there is a coating
+        // on each face to tell apart.
+        hasBackCoating: (design.backLayers || []).length > 0,
         tab, setTab: value => setField('tab', value),
+        panelWidth, setPanelWidth: value => setField('panelWidth', value),
         parsed, fileName, colIdx,
         // Configuring a column puts the preview back on the file, the way
         // Measured Spectra does: otherwise the plot keeps drawing whichever
@@ -184,6 +185,7 @@ export function useMeasuredEllipsometry(mx, xLabel, fitText) {
         expEnd, setExpEnd: value => setField('expEnd', value),
         expStep, setExpStep: value => setField('expStep', value),
         expAoi, setExpAoi: value => setField('expAoi', value),
+        expDeltaConvention, setExpDeltaConvention: value => setField('expDeltaConvention', value),
         ...exportActions,
     };
 }

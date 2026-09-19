@@ -29,7 +29,7 @@ function curveOptions(curves, quantity, noneLabel) {
             .filter(curve => curve.quantity === quantity)
             .map(curve => ({
                 id: curve.id,
-                label: `${curve.name} (${curve.aoi ?? 0}°, ${curve.side ?? 'front'})`,
+                label: `${curve.name} (${curve.aoi ?? 0}°)`,
             })),
     ];
 }

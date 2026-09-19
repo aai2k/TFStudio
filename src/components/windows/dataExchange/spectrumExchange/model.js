@@ -69,10 +69,6 @@ export function evaluatedMeasurementSide(design) {
 /** Build an immutable measured-target snapshot, clipped to declared material coverage. */
 export function measuredFitSnapshot(design, curve, options = {}) {
     if (!curve) return { operand: null, error: 'empty' };
-    const evaluatedSide = evaluatedMeasurementSide(design);
-    if ((curve.side || 'front') !== evaluatedSide) {
-        return { operand: null, error: 'side', evaluatedSide };
-    }
     const defaults = defaultMeasuredFitOptions(curve);
     const config = { ...defaults, ...options };
     const requestedRange = [config.rangeMin, config.rangeMax];
@@ -85,9 +81,7 @@ export function measuredFitSnapshot(design, curve, options = {}) {
         : null;
     const sampled = sampleMeasuredCurve(curve, { ...config, safeRange });
     if (sampled.error || !sampled.lambdas.length) {
-        return {
-            operand: null, error: sampled.error || 'range', sampled, coverage, evaluatedSide,
-        };
+        return { operand: null, error: sampled.error || 'range', sampled, coverage };
     }
     const operand = makeMeasuredCurveOperand({
         curveId: curve.id || null,
@@ -95,14 +89,13 @@ export function measuredFitSnapshot(design, curve, options = {}) {
         quantity: curve.quantity || 'R',
         aoi: curve.aoi ?? 0,
         pol: curve.pol || 'avg',
-        side: curve.side || 'front',
         gridMode: config.mode,
         sourceSpacingNm: sampled.spacingNm,
         sampleLambdas: sampled.lambdas,
         sampleTargets: sampled.targets,
         weight: Number.isFinite(config.weight) && config.weight >= 0 ? config.weight : 1,
     });
-    return { operand, sampled, coverage, evaluatedSide, error: null };
+    return { operand, sampled, coverage, error: null };
 }
 
 // The blocks this window owns: a Ψ/Δ block belongs to Measured Ellipsometry.
@@ -133,7 +126,7 @@ export function measuredFitConstraintsInvalid(config) {
 
 /**
  * Apply dialog output policy and optional thickness constraints as one block.
- * `measured` is one snapshot operand, or the two halves of a Ψ/Δ pair.
+ * `measured` is one snapshot operand, or a list of them.
  */
 export function measuredFitMeritOperands(existing, measured, config = {}) {
     const generated = [].concat(measured || []).filter(Boolean);
@@ -213,7 +206,6 @@ export function measuredExportDocument(design, expFormat, options = {}) {
         name: design.name,
         aoi: sharedValue(list.map(curve => curve.aoi ?? 0)),
         pol: sharedValue(list.map(curve => curve.pol || 'avg')),
-        side: sharedValue(list.map(curve => curve.side || 'front')),
     });
     return {
         text: curvesToCsv(list, { xUnit, asPercent, headerLines }),

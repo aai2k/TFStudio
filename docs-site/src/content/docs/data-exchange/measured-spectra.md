@@ -18,26 +18,33 @@ Press **Import Spectrum** and pick a file. What the importer accepts, and the
 instrument quirks it handles on its own, is on the
 [Spectrum File Formats](/data-exchange/spectrum-file-formats/) page.
 
-### Measurement conditions
-
-Set these before importing, because the file almost never states them and a
-wrong value poisons a fit without ever looking wrong:
-
-- **Angle of incidence**: the angle the instrument measured at. A near-normal
-  accessory is usually 6 or 8 degrees, not 0.
-- **Polarization**: average, s, or p.
-- **Side**: which face of the sample was illuminated.
-
-Every imported curve carries its own copy of these, and you can correct them
-afterwards on the curve itself.
+An opened file belongs to the design selected in the project explorer. Select
+another design and the window shows that design's curves and nothing of the
+file; come back and the file is where you left it. With no design selected
+there is nothing to import into, and the button is off.
 
 ### Confirming the parse
 
 For a text table the panel shows what was detected and lets you override it:
 the wavelength unit, which column to take, the quantity, the Y scale, and the
 curve's name. The preview beside it plots the incoming curve against the
-design's own spectrum, evaluated at that curve's angle and side, so you can see
-before committing whether the measurement sits where the design sits.
+design's own spectrum, evaluated at that curve's angle, so you can see before
+committing whether the measurement sits where the design sits.
+
+Below the name come the conditions the file leaves unsaid, which is most of
+them: a wrong value poisons a fit without ever looking wrong, so check each
+one before adding the curve.
+
+- **Angle of incidence**, asked when the file leaves any of its columns without
+  one. It covers every such column, because **Add all curves** adds them too. A
+  near-normal accessory is usually 6 or 8 degrees, not 0.
+- **Polarization**: average, s, or p. Not asked for absorptance, which is what
+  the sample keeps of everything that reached it and has no polarization to
+  pick.
+
+Every imported curve carries its own copy of these, and you can correct them
+afterwards on the curve itself. A measurement is taken with the coated face
+toward the beam; there is no setting for the other way round.
 
 **Add to design** adds the column you configured. **Add all curves** appears
 for a file with several data columns and adds every one of them, which is what
@@ -94,10 +101,8 @@ edited: the rest describes a measurement that was taken, not a target you
 choose. The value it reports is the RMS difference between design and
 measurement, in the same units as the curve.
 
-The target is refused if the curve was measured on a side the design is not
-evaluated on, rather than quietly fitting the wrong spectrum. If a curve runs
-past the wavelengths your materials have data for, the target is clipped to
-what can be evaluated and the dialog says so.
+If a curve runs past the wavelengths your materials have data for, the target
+is clipped to what can be evaluated and the dialog says so.
 
 Optical Evaluation draws the target whether or not the design still holds the
 curve behind it. Loading a saved merit function into another design therefore

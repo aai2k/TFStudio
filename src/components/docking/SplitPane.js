@@ -1,4 +1,5 @@
 import { resizeAdjacentSizes } from './treeUtils.js';
+import { startDividerDrag } from '../ui/dividerDrag.js';
 
 const { createElement: h, useRef, useCallback } = React;
 
@@ -16,69 +17,40 @@ export function SplitPane({ node, c, onSizesChange, children }) {
   const childArray = Array.isArray(children) ? children : [children];
 
   const startResize = useCallback((dividerIdx, e) => {
-    e.preventDefault();
     e.stopPropagation();
 
     const container = containerRef.current;
     if (!container) return;
-    // The divider can sit in a torn-off window, whose mouse events never reach
-    // this module's `document`. The drag listens on the divider's own.
-    const doc = e.currentTarget.ownerDocument;
-    const view = doc.defaultView || window;
     const rect = container.getBoundingClientRect();
     const totalPx = isH ? rect.width : rect.height;
     const startCoord = isH ? e.clientX : e.clientY;
     const startSizes = [...node.sizes];
 
-    // React is kept out of the drag. Routing every mouse move through state
-    // means the panes cannot move until a render commits, which lands a frame
-    // or more after the cursor and is what makes the divider trail it. The two
-    // adjacent panes are sized directly instead, which the browser lays out on
-    // the very next frame, and the resulting layout change is what drives each
-    // plot's ResizeObserver. State is caught up once per frame purely so the
-    // tree stays consistent and the sizes persist.
+    // The two adjacent panes are sized directly, which the browser lays out on
+    // the very next frame and is what drives each plot's ResizeObserver; see
+    // dividerDrag.js for why the drag stays out of React.
     const sizeProp = isH ? 'width' : 'height';
     const count = node.children.length;
     let latestSizes = startSizes;
-    let committedSizes = startSizes;
-    let frame = 0;
 
-    const commit = () => {
-      frame = 0;
-      if (latestSizes.every((size, idx) => size === committedSizes[idx])) return;
-      committedSizes = latestSizes;
-      onSizesChange(latestSizes);
-    };
-
-    const onMove = (e) => {
-      const coord = isH ? e.clientX : e.clientY;
-      const deltaPct = ((coord - startCoord) / totalPx) * 100;
-      const next = resizeAdjacentSizes(startSizes, dividerIdx, deltaPct);
-      // Past a pane's minimum the clamp returns the same sizes however much
-      // further the cursor travels, so there is nothing to move or re-render.
-      if (next.every((size, idx) => size === latestSizes[idx])) return;
-      latestSizes = next;
-      for (const idx of [dividerIdx, dividerIdx + 1]) {
-        const pane = paneAt(container, idx);
-        if (pane) pane.style[sizeProp] = paneSize(next, idx, count);
-      }
-      if (!frame) frame = view.requestAnimationFrame(commit);
-    };
-
-    const onUp = () => {
-      doc.removeEventListener('mousemove', onMove);
-      doc.removeEventListener('mouseup', onUp);
-      if (frame) view.cancelAnimationFrame(frame);
-      commit();
-      doc.documentElement.classList.remove('tf-split-resizing-h', 'tf-split-resizing-v');
-    };
-
-    // A plain `body { cursor }` loses to any element under the pointer that
-    // sets its own, so the cursor flickers as the drag crosses the plots and
-    // the toolbars. The class wins everywhere, as layer dragging already does.
-    doc.documentElement.classList.add(isH ? 'tf-split-resizing-h' : 'tf-split-resizing-v');
-    doc.addEventListener('mousemove', onMove);
-    doc.addEventListener('mouseup', onUp);
+    startDividerDrag(e, {
+      axis: isH ? 'h' : 'v',
+      track: (move) => {
+        const coord = isH ? move.clientX : move.clientY;
+        const deltaPct = ((coord - startCoord) / totalPx) * 100;
+        const next = resizeAdjacentSizes(startSizes, dividerIdx, deltaPct);
+        // Past a pane's minimum the clamp returns the same sizes however much
+        // further the cursor travels, so there is nothing to move or re-render.
+        if (next.every((size, idx) => size === latestSizes[idx])) return null;
+        latestSizes = next;
+        for (const idx of [dividerIdx, dividerIdx + 1]) {
+          const pane = paneAt(container, idx);
+          if (pane) pane.style[sizeProp] = paneSize(next, idx, count);
+        }
+        return next;
+      },
+      commit: onSizesChange,
+    });
   }, [node, isH, onSizesChange]);
 
   return h('div', {

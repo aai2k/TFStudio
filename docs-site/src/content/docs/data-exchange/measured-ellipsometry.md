@@ -28,8 +28,10 @@ from the reflected amplitude ratio,
 
 which is the same definition [Ellipsometry](/analysis/ellipsometry/) computes
 the design's own curves from. So a measurement imports and fits when it is a
-Ψ and Δ pair, in degrees, against wavelength, taken in reflection at a stated
-angle.
+Ψ or a Δ, in degrees, against wavelength, taken in reflection at a stated
+angle. A thickness fit takes either curve on its own;
+[n,k Characterization](/data-exchange/nk-characterization/) needs both halves
+of one measurement, because it solves for two unknowns at every wavelength.
 
 These are outside that, and none of them is read:
 
@@ -51,22 +53,32 @@ instrument exports have been checked against it, is on the
 [Ellipsometry file formats](/data-exchange/spectrum-file-formats/#ellipsometry-files)
 section of the formats page.
 
-### Measurement conditions
+An opened file belongs to the design selected in the project explorer. Select
+another design and the window shows that design's curves and nothing of the
+file; come back and the file is where you left it. With no design selected
+there is nothing to import into, and the button is off.
 
-Set these before adding a curve. They are stored on each curve and can be
-corrected afterwards on the curve's own card.
+### Configuring the columns
 
-- **Angle of incidence.** The angle the instrument measured at, and the one
-  setting a Ψ/Δ pair cannot be read without. At normal incidence there is no
-  p-versus-s distinction left to measure, so any film gives Ψ = 45° and
-  Δ = 180° and the pair says nothing about the coating. A fit refuses a curve
-  that arrives at 0°.
+The panel reports what was parsed and lets you correct it before anything is
+added: the wavelength unit, which column to take, whether it is Ψ or Δ, and the
+curve's name. The preview beside it plots the column you are configuring, and
+goes back to a curve on the design when you click one. Drag the divider
+between the panel and the plot to give either one more room.
 
-  The window starts at 70°, which is where most fixed-angle instruments sit,
-  near the principal angle of silicon. If the file states its angle it is read
-  from the file instead; many do not, so check it.
+Below the name come the things a file may leave unsaid. They are stored on the
+curve when it is added and stay editable on its card afterwards.
 
-- **Δ convention.** Two are offered:
+- **Angle of incidence**, asked only when the file leaves a column without
+  one, and covering every such column because **Add all typed columns** adds
+  them too. It is the one setting a Ψ/Δ pair cannot be read without: at normal
+  incidence there is no p-versus-s distinction left to measure, so any film
+  gives Ψ = 45° and Δ = 180° and the pair says nothing about the coating. A
+  fit refuses a curve that arrives at 0°. The field starts at 70°, which is
+  where most fixed-angle instruments sit, near the principal angle of silicon.
+
+- **Δ convention**, asked once the file holds a Δ column, because no file
+  states it. Two are offered:
 
   | Setting | What it means |
   | --- | --- |
@@ -78,14 +90,11 @@ corrected afterwards on the curve's own card.
   have to agree or the comparison is meaningless. If an imported Δ looks like a
   mirror image of the design's, this is the setting to change.
 
-- **Incidence side.** Which face of the sample the beam entered.
-
-### Configuring the columns
-
-The panel reports what was parsed and lets you correct it before anything is
-added: the wavelength unit, which column to take, whether it is Ψ or Δ, and the
-curve's name. The preview beside it plots the column you are configuring, and
-goes back to a curve on the design when you click one.
+- **Incidence side**, asked only for a design coated on both faces: which
+  face's coating the measurement belongs to. A back-face curve is drawn on the
+  back side of [Ellipsometry](/analysis/ellipsometry/) and cannot be fitted
+  yet. Its card keeps the setting whatever the design carries later, so a curve
+  marked as the back one can always be put back on the front.
 
 **Ψ and Δ are told apart from the values, not from the column order.** Ψ is the
 arctangent of a magnitude ratio, so it cannot leave 0 to 90 degrees, while Δ
@@ -98,10 +107,11 @@ every column that has a quantity, which is what a two-column Ψ/Δ file wants.
 
 ### What is on the design
 
-Curves are grouped by angle and side, because a fit needs both halves of one
-measurement. A group missing its partner says so rather than sitting in a flat
-list looking usable. Each card carries the curve's colour, name, quantity,
-angle, side, Δ convention and point count, and all of them stay editable.
+Each curve is one card: whether it is drawn, its colour, which half it is and
+its name on the first line, and under them the angle it was measured at, the
+face it belongs to when the design has two coated faces, the sign a Δ was
+written in, and its point count and range. Everything stays editable. Click a
+card to see that curve in the preview.
 
 A Δ column that never leaves −1 to 1 is flagged. At least one instrument writes
 tan Ψ and cos Δ under headings that say `PSI` and `DELTA`; read as degrees those
@@ -110,9 +120,9 @@ letting a fit run on them. Convert such a file to degrees before importing it.
 
 ## Fitting the design to a measurement
 
-**Fit…** on a complete pair turns it into merit-function targets, so
+**Fit…** on a curve turns it into a merit-function target, so
 [Refinement](/synthesis/refinement/) can adjust the design's thicknesses until
-its calculated Ψ and Δ match what you measured. It is the same step
+its calculated Ψ or Δ matches what you measured. It is the same step
 [Measured Spectra](/data-exchange/measured-spectra/#fitting-the-design-to-a-measurement)
 offers for a reflectance or transmittance curve, with the same grid choices,
 range, weight and thickness constraints, and it is characterization of a stack
@@ -120,11 +130,12 @@ you already know the recipe for, not recovery of an unknown one. Letting the
 index float alongside the thicknesses is what
 [n,k Characterization](/data-exchange/nk-characterization/) does.
 
-Ψ and Δ become two rows in the
-[Merit Function Editor](/design/merit-function-editor/), one per half of the
-measurement, each holding its own copy of the sampled points. The two are one
-fit: with only Ψ or only Δ switched on the thicknesses are under-determined,
-and the row that is left on says so.
+Curves are fitted one at a time, and each becomes one row in the
+[Merit Function Editor](/design/merit-function-editor/) holding its own copy of
+the sampled points. Ψ alone is a legitimate target: over a spectral range it
+determines the thicknesses of a known stack. So is Δ alone, and a Δ measured
+at another angle is simply another target. To fit both halves of one
+measurement, press **Fit…** on each; the rows add up in the merit function.
 
 What is different from a photometric fit:
 
@@ -142,13 +153,9 @@ What is different from a photometric fit:
 - **A uniform resample of Δ** interpolates the unwrapped angle, so a resampled
   grid never invents targets passing through 180° where the measurement
   crosses 360°.
-- **Ψ and Δ are sampled together.** Both halves take the same grid settings,
-  and where their curves cover different wavelengths the targets are cut to
-  the wavelengths the two share, so the two rows hold the same number of
-  points and weigh alike. A pair with no wavelength in common is refused.
 
 The fit is refused at normal incidence, where Ψ and Δ say nothing about the
-film, and for a pair measured on the back side: Ψ and Δ are evaluated on the
+film, and for a curve measured on the back face: Ψ and Δ are evaluated on the
 front stack alone, and the design has to be evaluated on its front side too.
 
 [Ellipsometry](/analysis/ellipsometry/) draws the targets whether or not the
@@ -163,7 +170,9 @@ as Measured Spectra does.
 **Calculated from the design** writes the design's own Ψ and Δ over a wavelength
 range and step you choose, at an angle you choose. Use it to hand a target to an
 instrument's own software, or to produce a reference file. Δ is written in the
-convention selected in the Import tab, which is stated under the button.
+convention chosen beside the button; an instrument's software reads
+Azzam–Bashara. That choice is the export's own: it does not change the
+convention an opened file is read under, which is on the Import tab.
 
 The X axis of either export can be nanometres, micrometres, or photon energy in
 eV.

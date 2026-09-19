@@ -41,11 +41,11 @@ Export it with the **whole-slab evaluation**, not FRONT or BACK. A FRONT export 
 
 ### Measuring at an angle
 
-Each curve carries **its own angle, polarization and illuminated face**, and the fit uses them. The angle is from the normal, so 0° is straight on. T at 0° and R at 8° fit together; the two do not have to match.
+Each curve carries **its own angle and polarization**, and the fit uses them. The angle is from the normal, so 0° is straight on. T at 0° and R at 8° fit together; the two do not have to match.
 
 Check these on the curve cards in Measured Spectra. They describe the measurement, not the design that happens to be open, and a curve imported without an angle arrives as 0°. Off normal, set the real **s**, **p** or **average** polarization, where average is an equal mix of the two intensities.
 
-**Front** means the light went in through the film. For a measurement made through the bare face, set that curve to **back**; the model turns the sample round. Front and back R are not the same number.
+The coated face is toward the beam. That is how a witness is measured, and the model has no other orientation.
 
 ### If the back face is not polished
 

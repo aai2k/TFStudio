@@ -177,15 +177,24 @@ ok('absorbance→T A=2', approx(absorbanceToT(2), 0.01));
 }
 
 // ── measured-curve measurement conditions and JSON persistence ───────────────
+//
+// A spectrum is taken with the coated face toward the beam and the design
+// decides what it evaluates, so only Ψ and Δ, which are evaluated on one side
+// of the design, carry a face of their own.
 {
     const curve = makeMeasuredCurve({
         name: 'conditions', x: [500], xUnit: X_UNITS.NM, y: [0.5], quantity: 'T',
         aoi: 8, pol: 'p', side: 'back',
     });
     const saved = JSON.parse(JSON.stringify(curve));
-    ok('curve conditions stored', saved.aoi === 8 && saved.pol === 'p' && saved.side === 'back');
+    ok('curve conditions stored', saved.aoi === 8 && saved.pol === 'p');
+    ok('a spectrum carries no side', !('side' in saved));
     const defaults = makeMeasuredCurve({ name: 'defaults', x: [500], y: [0.5] });
-    ok('curve condition defaults', defaults.aoi === 0 && defaults.pol === 'avg' && defaults.side === 'front');
+    ok('curve condition defaults', defaults.aoi === 0 && defaults.pol === 'avg');
+    const angular = makeMeasuredCurve({
+        name: 'psi', x: [500], xUnit: X_UNITS.NM, y: [20], quantity: 'PSI', aoi: 70, side: 'back',
+    });
+    ok('an ellipsometric curve keeps the face it was measured on', angular.side === 'back');
 }
 
 // ── non-destructive trim view ────────────────────────────────────────────────
@@ -430,6 +439,139 @@ ok('dsc → tableToCsv header', csvD.split('\r\n')[0] === 'Wavelength (nm),T %,R
     ok('a header mentioning Psi does not type an unnamed column',
         detectQuantity('#ROIidx AOI Lambda Delta Psi', { angular: false }) === null);
     ok('a column named Psi still is Psi', detectQuantity('Psi (deg)') === 'PSI');
+
+    // The same file, read the rest of the way: the marker glued to the first
+    // name is a marker, the bare unit row is a unit row, the wavelength is the
+    // axis although it sits third, and the angle column sets the angle.
+    ok('accurion wavelength column is the axis', t.x.join('|') === '365|370' && t.xUnit === X_UNITS.NM);
+    ok('accurion names from the marked row',
+        t.columns.map(column => `${column.name}[${column.unit}]`).join('|') === 'ExposureTime[us]|Delta[deg]|Psi[deg]');
+    ok('accurion pair typed by name, delta first',
+        t.columns.map(column => column.quantity || '-').join('|') === '-|DEL|PSI');
+    ok('accurion angle from its column', t.aoi === 40 && t.columns.every(column => column.aoi === 40));
+}
+
+// An imaging ellipsometer measures several regions of the sample in one run and
+// writes them interleaved, one row per region per wavelength. Each region is
+// its own measurement, so each becomes its own curve rather than four readings
+// at every wavelength of one curve.
+{
+    const text = [
+        '#ROIidx\tLambda\tBandwidth\tAOI\tExposureTime\tROI_x\tROI_y\tDelta\tPsi',
+        '#-\tnm\tnm\tdeg\tus\tµm\tµm\tdeg\tdeg',
+        '0\t360.0\t4.6\t65.000\t55369\t421.3\t380.9\t147.4\t9.4',
+        '1\t360.0\t4.6\t65.000\t55369\t421.5\t382.2\t183.1\t10.6',
+        '0\t362.0\t4.7\t65.000\t55369\t421.3\t380.9\t141.7\t32.5',
+        '1\t362.0\t4.7\t65.000\t55369\t421.5\t382.2\t134.9\t34.4',
+    ].join('\n');
+    const t = parseSpectrumTable(text);
+    const angular = t.columns.filter(column => column.quantity);
+    ok('regions become their own curves',
+        angular.map(column => column.name).join('|') === 'Delta (ROI 0)|Delta (ROI 1)|Psi (ROI 0)|Psi (ROI 1)');
+    ok('a region curve holds only its own rows',
+        angular[1].x.join('|') === '360|362' && angular[1].values.join('|') === '183.1|134.9');
+    ok('regions share the angle', t.aoi === 65 && angular.every(column => column.aoi === 65));
+    ok('the region index is a condition, not a curve', !t.columns.some(column => /^ROIidx/.test(column.name)));
+    ok('the region position columns are ordinary values',
+        t.columns.some(column => column.name === 'ROI_x (ROI 0)'));
+}
+
+// A file with no name row can leave a metadata line above its numbers to be
+// read as one. An Ocean Optics scan writes `X axis mode: Wavelengths`, whose
+// second field lines up with the readings, and naming a column is not enough
+// to make it the axis: the first column runs one way and the readings do not.
+{
+    const text = [
+        'Spectrometer: USB2+F04267',
+        'X axis mode: Wavelengths',
+        '>>>>>Begin Spectral Data<<<<<',
+        '192.649\t132.8',
+        '193.024\t6.77',
+        '193.399\t14.34',
+        '193.774\t-3.31',
+    ].join('\n');
+    const t = parseSpectrumTable(text);
+    ok('a metadata line does not move the wavelength axis',
+        t.x.join('|') === '192.649|193.024|193.399|193.774');
+    ok('and the column it happened to name holds the readings',
+        t.columns.length === 1 && t.columns[0].values.join('|') === '132.8|6.77|14.34|-3.31');
+}
+
+// An angle column the instrument never filled in states nothing. Grouping
+// the rows by it would match none of them and leave the file with no curves
+// at all, so the regions alone decide and the angle is simply absent.
+{
+    const text = [
+        '#ROIidx\tLambda\tAOI\tDelta\tPsi',
+        '#-\tnm\tdeg\tdeg\tdeg',
+        '0\t360.0\t-1\t147.4\t9.4',
+        '1\t360.0\t-1\t183.1\t10.6',
+        '0\t362.0\t-1\t141.7\t32.5',
+        '1\t362.0\t-1\t134.9\t34.4',
+    ].join('\n');
+    const t = parseSpectrumTable(text);
+    const angular = t.columns.filter(column => column.quantity);
+    ok('an unusable angle column does not take the curves with it',
+        angular.map(column => column.name).join('|')
+            === 'Delta (ROI 0)|Delta (ROI 1)|Psi (ROI 0)|Psi (ROI 1)');
+    ok('a region curve still holds only its own rows',
+        angular[1].values.join('|') === '183.1|134.9');
+    ok('and the file states no angle', t.aoi === null && t.aois.length === 0);
+}
+
+// Woollam CompleteEASE writes a variable-angle measurement as one wide table
+// whose header names the angles once per quantity, "Psi (45.00, 50.00°)", over
+// columns holding the pair per angle side by side: Ψ then Δ at 45°, then at
+// 50°. Read column by column it was six unnamed curves at no angle.
+{
+    const text = [
+        'Variable Angle Spectroscopic Ellipsometric (VASE) Data',
+        'Wavelength (nm)\tPsi (45.00, 50.00, 55.00°)\tDelta (45.00, 50.00, 55.00°)\t\t\t\t',
+        '400.0\t24.6\t175.1\t19.4\t172.8\t13.4\t168.3\t',
+        '410.0\t24.7\t175.3\t19.5\t173.1\t13.5\t168.6\t',
+    ].join('\n');
+    const t = parseSpectrumTable(text);
+    ok('completeease parses', t.ok && t.nRows === 2 && t.columns.length === 6);
+    ok('completeease names carry quantity and angle',
+        t.columns.map(column => column.name).join('|')
+            === 'Psi @45°|Delta @45°|Psi @50°|Delta @50°|Psi @55°|Delta @55°');
+    ok('completeease pairs typed and angled',
+        t.columns.map(column => `${column.quantity}@${column.aoi}`).join('|')
+            === 'PSI@45|DEL@45|PSI@50|DEL@50|PSI@55|DEL@55');
+    ok('completeease angles listed, no single angle', t.aois.join('|') === '45|50|55' && t.aoi === null);
+    ok('completeease values stay in their column', approx(t.columns[3].values[1], 173.1));
+    ok('completeease axis', t.xUnit === X_UNITS.NM && t.x[1] === 410);
+    ok('completeease angles are not percentages', t.columns.every(column => !column.isPercent));
+}
+
+// A variable-angle measurement has an angle per column and no single one to
+// state in its header, so the angle travels in each column's name. Exporting
+// those curves and reading the file back has to bring every angle with it,
+// or the round trip asks the operator for one angle to cover all of them.
+{
+    const text = [
+        'Variable Angle Spectroscopic Ellipsometric (VASE) Data',
+        'Wavelength (nm)\tPsi (45.00, 50.00, 55.00\u00b0)\tDelta (45.00, 50.00, 55.00\u00b0)\t\t\t\t',
+        '400.0\t24.6\t175.1\t19.4\t172.8\t13.4\t168.3\t',
+        '410.0\t24.7\t175.3\t19.5\t173.1\t13.5\t168.6\t',
+    ].join('\n');
+    const opened = parseSpectrumTable(text);
+    const curves = opened.columns.map(column => makeMeasuredCurve({
+        name: `CompleteEase_1: ${column.name}`,
+        x: column.x, xUnit: X_UNITS.NM, y: column.values,
+        quantity: column.quantity, aoi: column.aoi, pol: 'avg',
+    }));
+    const reread = parseSpectrumTable(curvesToCsv(curves, { xUnit: X_UNITS.NM, asPercent: false }));
+    ok('an exported variable-angle measurement keeps its angles',
+        reread.columns.map(column => column.aoi).join('|') === '45|45|50|50|55|55');
+    ok('and still has no single angle to declare', reread.aoi === null
+        && reread.aois.join('|') === '45|50|55');
+    ok('and the quantities survive the trip',
+        reread.columns.map(column => column.quantity).join('|') === 'PSI|DEL|PSI|DEL|PSI|DEL');
+
+    // Only a real angle counts: a name is not an instruction.
+    ok('a name without an angle states none',
+        parseSpectrumTable('Wavelength (nm),Psi (deg)\n400,24.6\n410,24.7\n').aoi === null);
 }
 
 // Ellipsometry software works in photon energy. An eV axis and a µm axis cover
@@ -578,18 +720,19 @@ for (const quantity of ['T', 'R', 'A']) {
     ok('s/p export declares no single polarization', parseSpectrumTable(sp.text).pol === null);
 
     // Measured curves carry their own conditions; the export states them only
-    // when every exported curve agrees.
-    const curve = (name, aoi, pol, side) => makeMeasuredCurve({
+    // when every exported curve agrees. A measurement has no side of its own:
+    // the coated face is toward the beam.
+    const curve = (name, aoi, pol) => makeMeasuredCurve({
         name, x: [400, 500], xUnit: X_UNITS.NM, y: [0.5, 0.6],
-        quantity: 'T', isPercent: false, aoi, pol, side,
+        quantity: 'T', isPercent: false, aoi, pol,
     });
     const agreed = parseSpectrumTable(measuredExportDocument(design, 'csv', {
-        curves: [curve('a', 45, 's', 'back'), curve('b', 45, 's', 'back')],
+        curves: [curve('a', 45, 's'), curve('b', 45, 's')],
     }).text);
     ok('measured export states shared conditions',
-        agreed.aoi === 45 && agreed.pol === 's' && agreed.side === 'back');
+        agreed.aoi === 45 && agreed.pol === 's' && agreed.side === null);
     const mixed = parseSpectrumTable(measuredExportDocument(design, 'csv', {
-        curves: [curve('a', 45, 's', 'front'), curve('b', 8, 'p', 'back')],
+        curves: [curve('a', 45, 's'), curve('b', 8, 'p')],
     }).text);
     ok('measured export states nothing the curves disagree on',
         mixed.aoi === null && mixed.pol === null && mixed.side === null);

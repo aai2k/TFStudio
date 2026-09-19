@@ -68,7 +68,6 @@ function channelOf(curve, settings) {
         values: y,
         aoi: curve.aoi ?? 0,
         pol: curve.pol ?? 'avg',
-        side: curve.side ?? 'front',
         deltaConvention: settings.deltaConvention || curve.deltaConvention || 'azzam',
     };
 }

@@ -7,7 +7,8 @@ import { detectXUnit, guessXUnitFromRange, detectQuantity, detectIsPercent, isAb
 import {
     detectHeaderLayout, isDataMarkerLine, uniqueColumnNames,
 } from './headerLayout.js';
-import { buildColumn, columnDescriptors, columnXUnit } from './columnModel.js';
+import { buildColumn, columnDescriptors, columnXUnit, primaryXIndex } from './columnModel.js';
+import { columnsUnderConditions } from './rowConditions.js';
 
 // Failure/empty result shape shared by every early exit of parseSpectrumTable.
 function emptyTable(error, extra = {}) {
@@ -19,23 +20,6 @@ function emptyTable(error, extra = {}) {
         pol: null, side: null,
         ...extra,
     };
-}
-
-// Ellipsometers commonly write the incidence angle either as a header setting
-// (`AOI 70`) or as a column beside wavelength, Psi and Delta. Keep that
-// condition separate from measured spectra so an ellipsometer export does not
-// offer AOI as if it were another optical curve.
-function headerAoi(headerLines, decimal) {
-    const label = /(?:\baoi\b|angle\s+of\s+incidence|incidence\s+angle)/i;
-    for (const line of headerLines) {
-        const hit = String(line || '').match(label);
-        if (!hit) continue;
-        const tail = line.slice((hit.index || 0) + hit[0].length);
-        const number = tail.match(/[-+]?\d+(?:[.,]\d+)?/);
-        const value = number ? parseNumber(number[0], decimal) : NaN;
-        if (Number.isFinite(value) && value >= 0 && value <= 90) return value;
-    }
-    return null;
 }
 
 // Polarization and incidence side, when a file states them in its header. Only
@@ -67,63 +51,6 @@ function headerSide(headerLines) {
         if (hit) return hit[1].toLowerCase();
     }
     return null;
-}
-
-function isAoiColumn(column) {
-    const label = `${column?.baseName || column?.name || ''} ${column?.unit || ''}`.trim();
-    return /^(?:aoi\b|angle\s+of\s+incidence\b|incidence\s+angle\b)/i.test(label);
-}
-
-function distinctAois(values) {
-    const output = [];
-    for (const value of values || []) {
-        if (!Number.isFinite(value) || value < 0 || value > 90) continue;
-        if (!output.some(existing => Math.abs(existing - value) <= 1e-7)) output.push(value);
-    }
-    return output;
-}
-
-function columnsWithAoi(columns, aoiColumn, declaredAoi) {
-    const spectra = columns.filter(column => column !== aoiColumn);
-    if (!aoiColumn) {
-        return {
-            columns: Number.isFinite(declaredAoi)
-                ? spectra.map(column => ({ ...column, aoi: declaredAoi }))
-                : spectra,
-            aois: Number.isFinite(declaredAoi) ? [declaredAoi] : [],
-        };
-    }
-
-    const aois = distinctAois(aoiColumn.values);
-    if (aois.length <= 1) {
-        const aoi = aois[0] ?? declaredAoi;
-        return {
-            columns: Number.isFinite(aoi)
-                ? spectra.map(column => ({ ...column, aoi }))
-                : spectra,
-            aois: Number.isFinite(aoi) ? [aoi] : [],
-        };
-    }
-
-    // A flat variable-angle export repeats wavelengths for each AOI. Split it
-    // into ordinary single-angle curves, which the characterization module can
-    // pair and fit without a new multidimensional curve type.
-    return {
-        aois,
-        columns: spectra.flatMap(column => aois.map((aoi) => {
-            const indexes = [];
-            for (let index = 0; index < aoiColumn.values.length; index++) {
-                if (Math.abs(aoiColumn.values[index] - aoi) <= 1e-7) indexes.push(index);
-            }
-            return {
-                ...column,
-                name: `${column.name} @${Number.isInteger(aoi) ? aoi : aoi.toFixed(3)}°`,
-                x: indexes.map(index => column.x[index]),
-                values: indexes.map(index => column.values[index]),
-                aoi,
-            };
-        })),
-    };
 }
 
 /**
@@ -259,8 +186,8 @@ export function parseSpectrumTable(text, opts = {}) {
 
     const { dataRows, skippedRows } = collectDataRows(rawLines, firstData, delimiter, decimal, allowTag);
     const nCols = modalFieldCount(dataRows);
-    const { names: columnNames, units: columnUnits, sampleNames } =
-        detectHeaderLayout(headerLines, delimiter, decimal, nCols);
+    const layout = detectHeaderLayout(headerLines, delimiter, decimal, nCols);
+    const { names: columnNames, units: columnUnits, sampleNames } = layout;
     const headerText = headerLines.join('\n');
 
     // Parse all columns first so later columns that repeat the primary X axis
@@ -270,30 +197,28 @@ export function parseSpectrumTable(text, opts = {}) {
         if (r.length < nCols) continue;        // skip ragged short rows
         for (let c = 0; c < nCols; c++) allValues[c].push(parseNumber(r[c], decimal));
     }
-    const x = allValues[0];
+    const primaryX = primaryXIndex(columnNames, allValues);
+    const x = allValues[primaryX];
 
-    const xUnit = columnXUnit(headerText, columnNames[0], x);
+    const xUnit = columnXUnit(headerText, columnNames[primaryX], x);
 
     const namedColumns = uniqueColumnNames(columnDescriptors({
-        nCols, allValues, headerText, columnNames, columnUnits, sampleNames,
+        nCols, allValues, headerText, columnNames, columnUnits, sampleNames, primaryX,
     }));
     const builtColumns = namedColumns.map(column => buildColumn({
         ...column,
         hasColumnNames: columnNames.length > 0,
         headerText,
     }));
-    const declaredAoi = headerAoi(headerLines, decimal);
-    const withAoi = columnsWithAoi(
-        builtColumns,
-        builtColumns.find(isAoiColumn) || null,
-        declaredAoi,
-    );
+    const { columns, aois } = columnsUnderConditions(builtColumns, {
+        headerLines, decimal, headerAois: layout.aois,
+    });
 
     return {
         ok: true, delimiter, decimal, headerText, headerLines,
-        nRows: x.length, skippedRows, xUnit, x, columns: withAoi.columns,
-        aoi: withAoi.aois.length === 1 ? withAoi.aois[0] : null,
-        aois: withAoi.aois,
+        nRows: x.length, skippedRows, xUnit, x, columns,
+        aoi: aois.length === 1 ? aois[0] : null,
+        aois,
         pol: headerPolarization(headerLines),
         side: headerSide(headerLines),
     };

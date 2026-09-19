@@ -1,12 +1,12 @@
 /**
- * Fitting a design to a measured Ψ and Δ.
+ * Fitting a design to a measured Ψ or Δ.
  *
- * A Ψ/Δ pair imported in Measured Ellipsometry becomes two measured-curve
- * blocks in the merit function, one per channel, the way a measured spectrum
- * becomes one. What the pair needs that a spectrum did not: the Δ convention
- * travels with the block and is converted on the way into the residual, Δ
- * differences are taken the short way round the circle, each channel carries
- * its own residual scale, and the two blocks know they are one measurement.
+ * A curve imported in Measured Ellipsometry becomes one measured-curve block
+ * in the merit function, the way a measured spectrum does. What it needs that
+ * a spectrum did not: the Δ convention travels with the block and is converted
+ * on the way into the residual, Δ differences are taken the short way round
+ * the circle, and each channel carries its own residual scale. Ψ and Δ are
+ * fitted one curve at a time: a Ψ needs no Δ beside it.
  *
  * Run: node tests/measured_ellipsometry_merit.mjs
  */
@@ -25,7 +25,6 @@ import {
     CALCULATED_DELTA_CONVENTION, convertDeltaConvention, toDeltaConvention,
 } from '../src/utils/physics/thinFilmMath.js';
 import { measuredEllipsometryOverlays } from '../src/components/windows/analysis/ellipsometryEvaluation/model.js';
-import { curvePairs } from '../src/components/windows/dataExchange/measuredEllipsometry/model.js';
 import {
     ellipsometryFitSnapshot, fitDialogText, orphanEllipsometryFitBlocks,
     restoredEllipsometryCurves, sampleDeltaCurve,
@@ -85,15 +84,17 @@ const deltaCurve = { ...makeMeasuredCurve({
     side: 'front', deltaConvention: 'azzam',
 }), id: 'delta-curve' };
 
-// ── One pair becomes two linked blocks ───────────────────────────────────────
-const [pair] = curvePairs([psiCurve, deltaCurve]);
-const fit = ellipsometryFitSnapshot(trueDesign, pair, { weight: 2 });
-assert.equal(fit.error, null);
-assert.equal(fit.operands.length, 2, 'Ψ and Δ each become a block');
-const [psiBlock, deltaBlock] = fit.operands;
-assert.ok(fit.operand === psiBlock, 'the dialog reads the Ψ block as the snapshot');
+// ── Each curve becomes a block of its own ────────────────────────────────────
+const fitPsi = ellipsometryFitSnapshot(trueDesign, psiCurve, { weight: 2 });
+const fitDelta = ellipsometryFitSnapshot(trueDesign, deltaCurve, { weight: 2 });
+assert.equal(fitPsi.error, null);
+assert.equal(fitDelta.error, null);
+const psiBlock = fitPsi.operand;
+const deltaBlock = fitDelta.operand;
+// The two blocks of one measurement, as a design holds them after both fits.
+const fit = { operands: [psiBlock, deltaBlock] };
 assert.deepEqual([psiBlock.quantity, deltaBlock.quantity], ['PSI', 'DEL']);
-assert.ok(psiBlock.pairId && psiBlock.pairId === deltaBlock.pairId, 'the two halves share a pair id');
+assert.equal(psiBlock.pairId, undefined, 'a curve fits on its own: nothing ties it to a partner');
 assert.equal(deltaBlock.deltaConvention, 'azzam', 'the Δ block records the sign its file was written in');
 assert.equal(psiBlock.deltaConvention, undefined, 'Ψ has no sign convention');
 assert.deepEqual([psiBlock.aoi, psiBlock.side, psiBlock.pol, psiBlock.weight], [AOI, 'front', 'avg', 2]);
@@ -102,15 +103,19 @@ assert.deepEqual(deltaBlock.sampleTargets, fileDelta, 'the snapshot keeps the fi
 assert.ok(isEllipsometricMeasuredCurve(psiBlock) && isEllipsometricMeasuredCurve(deltaBlock));
 assert.ok(!isEllipsometricMeasuredCurve(makeMeasuredCurveOperand({ quantity: 'R' })));
 
+// A Δ taken at another angle is another target, at its own angle.
+const otherAngle = ellipsometryFitSnapshot(trueDesign, { ...deltaCurve, aoi: 65 });
+assert.equal(otherAngle.error, null);
+assert.equal(otherAngle.operand.aoi, 65);
+
 // ── What the fit refuses ─────────────────────────────────────────────────────
-assert.equal(ellipsometryFitSnapshot(trueDesign, { ...pair, delta: null }).error, 'empty',
-    'half a measurement is not a fit');
-assert.equal(ellipsometryFitSnapshot(trueDesign, { ...pair, aoi: 0 }).error, 'aoi',
+assert.equal(ellipsometryFitSnapshot(trueDesign, null).error, 'empty', 'no curve, no fit');
+assert.equal(ellipsometryFitSnapshot(trueDesign, { ...psiCurve, aoi: 0 }).error, 'aoi',
     'at normal incidence Ψ and Δ say nothing about the film');
-assert.equal(ellipsometryFitSnapshot(trueDesign, { ...pair, side: 'back' }).error, 'backSide',
+assert.equal(ellipsometryFitSnapshot(trueDesign, { ...psiCurve, side: 'back' }).error, 'backSide',
     'Ψ and Δ are evaluated on the front stack alone');
-assert.equal(ellipsometryFitSnapshot(designWith(120, 200, { surfaceMode: 'back_only' }), pair).error,
-    'side', 'a design evaluated on its back side cannot take a front-side pair');
+assert.equal(ellipsometryFitSnapshot(designWith(120, 200, { surfaceMode: 'back_only' }), psiCurve).error,
+    'side', 'a design evaluated on its back side cannot take a front-side curve');
 
 // ── Expansion and the Δ convention ───────────────────────────────────────────
 const points = expandMeasuredCurveOperands(fit.operands);
@@ -244,7 +249,7 @@ assert.equal(operandResidualScale(makeMeasuredCurveOperand({ quantity: 'R' })), 
     assert.equal(restoredEllipsometryCurves(after), null, 'restoring twice must not copy the curves');
 }
 
-// ── Output policy takes the pair as one block ────────────────────────────────
+// ── Output policy takes several blocks at once ───────────────────────────────
 {
     const existing = makeOperand({ id: 'existing', type: 'T', lambdaStart: 550 });
     const appended = measuredFitMeritOperands([existing], fit.operands, {
@@ -266,8 +271,11 @@ assert.equal(operandResidualScale(makeMeasuredCurveOperand({ quantity: 'R' })), 
     assert.equal(text.fitCreate, t.spectrumExchange.fitCreate);
 }
 
-// ── The merit table shows degrees and knows the pair ─────────────────────────
+// ── The merit table shows degrees, and still knows a pair an older design saved ──
 {
+    // Blocks written by a release that stamped Ψ and Δ as one fit carry a
+    // shared pair id, and the table still calls out a switched-off partner.
+    const paired = [{ ...psiBlock, pairId: 'pair-1' }, { ...deltaBlock, pairId: 'pair-1' }];
     const meta = rowDisplayMeta(psiBlock, 0.5, false);
     assert.equal(meta.isPhs, true);
     assert.equal(meta.phaseUnit, '°');
@@ -285,17 +293,19 @@ assert.equal(operandResidualScale(makeMeasuredCurveOperand({ quantity: 'R' })), 
     );
     const c = makeTheme();
     const t = getLocale('en');
-    const typeCell = operands => rowRenderers(psiBlock, meta).type(
-        { op: psiBlock, c, t, operands, tdBase: () => ({}) }, 'type', 60);
-    const complete = typeCell([psiBlock, deltaBlock]);
-    assert.equal(complete.props.children, 'MCURVE Ψ', 'the row names its channel');
+    const typeCell = (op, operands) => rowRenderers(op, meta).type(
+        { op, c, t, operands, tdBase: () => ({}) }, 'type', 60);
+    const alone = typeCell(psiBlock, [psiBlock, deltaBlock]);
+    assert.equal(alone.props.children, 'MCURVE Ψ', 'the row names its channel');
+    assert.equal(alone.props.style.color, c.text, 'a block fitted on its own has no partner to miss');
+
+    const complete = typeCell(paired[0], paired);
     assert.equal(complete.props.style.color, c.text);
     assert.ok(!complete.props.title.includes('Δ of this measurement'));
-
-    const halfOff = typeCell([psiBlock, { ...deltaBlock, enabled: false }]);
+    const halfOff = typeCell(paired[0], [paired[0], { ...paired[1], enabled: false }]);
     assert.equal(halfOff.props.style.color, c.warning, 'a switched-off partner is called out');
     assert.ok(halfOff.props.title.includes(t.meritFunctionEditor.measuredPairOff('Δ')));
-    const halfGone = typeCell([psiBlock]);
+    const halfGone = typeCell(paired[0], [paired[0]]);
     assert.ok(halfGone.props.title.includes(t.meritFunctionEditor.measuredPairGone('Δ')));
 
     const polCell = rowRenderers(psiBlock, meta).pol({ op: psiBlock, c, tdBase: () => ({}) }, 'pol', 40);

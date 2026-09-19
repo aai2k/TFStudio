@@ -4,6 +4,7 @@ import {
 import { SidePanel } from '../../analysis/chrome/layout.js';
 import { X_UNITS } from '../../../../utils/io/spectrumTable.js';
 import { InlineRow, PanelSection } from '../chrome/panel.js';
+import { deltaConventionItems } from './model.js';
 
 const { createElement: h } = React;
 
@@ -39,7 +40,7 @@ function CalculatedPanel({ controller, c, mx }) {
     const {
         expStart, setExpStart, expEnd, setExpEnd, expStep, setExpStep,
         expAoi, setExpAoi, expXUnit, setExpXUnit, onExportCalculated,
-        deltaConvention, missingMaterialIds,
+        expDeltaConvention, setExpDeltaConvention, missingMaterialIds,
     } = controller;
     if (missingMaterialIds.length > 0) {
         return h(PanelSection, { c, title: mx.sourceCalculated },
@@ -65,10 +66,16 @@ function CalculatedPanel({ controller, c, mx }) {
         h(InlineRow, { c, label: mx.unitLabel },
             h(ChoiceGroup, { c, activeId: expXUnit, onSelect: setExpXUnit, items: UNIT_ITEMS }),
         ),
+        // The sign Δ is written in: the one the instrument's software reads.
+        // Its own setting, not the one an opened file was read under.
+        h(InlineRow, { c, label: mx.deltaConventionLabel },
+            h(ChoiceGroup, {
+                c, activeId: expDeltaConvention, onSelect: setExpDeltaConvention,
+                items: deltaConventionItems(mx),
+            }),
+        ),
         h(InlineRow, { c },
             h(ActionButton, { c, label: mx.exportCalculated, onClick: onExportCalculated }),
-            h('span', { style: { fontSize: 10.5, color: c.textDim } },
-                mx.exportConventionHint(deltaConvention === 'azzam' ? mx.deltaAzzam : mx.deltaReversed)),
         ),
     );
 }

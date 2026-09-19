@@ -199,6 +199,7 @@ export function makeSampleDesign() {
 export function makeDesignCtx(design = makeSampleDesign()) {
     return {
         design,
+        hasActiveDesign: true,
         updateDesign: noop, checkpoint: noop,
         history: { entries: [], index: 0 }, jumpToHistory: noop,
         addLayer: noop, removeLayer: noop, updateLayer: noop, moveLayer: noop, duplicateLayer: noop,

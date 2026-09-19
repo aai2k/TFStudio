@@ -430,14 +430,8 @@ assert.ok(Math.abs(result.thicknessNm - 420) < 0.5,
     const coating = build({ geometry: 'coating' });
     assert.equal(resolveEvalMode(coating), 'total',
         'an obsolete film-only setting cannot change the saved photometry design');
-
-    const backCurves = model.characterizableCurves(design)
-        .map(curve => ({ ...curve, side: 'back' }));
-    const back = build({ geometry: 'slab' }, backCurves);
-    assert.equal(back.frontLayers.length, 0);
-    assert.equal(back.backLayers.length, 1);
-    assert.equal(back.surfaceMode, 'back_only',
-        'a curve measured through the uncoated face puts the film on the far side');
+    assert.equal(slab.surfaceMode, 'front_only',
+        'the film is on the face toward the beam, which is how a witness is measured');
 
     assert.equal(WINDOW_REGISTRY['nk-characterization'].createDesign, true,
         'the window only receives onCreateDesign while the registry declares it');

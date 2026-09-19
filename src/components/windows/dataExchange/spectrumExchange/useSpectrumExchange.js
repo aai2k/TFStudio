@@ -9,9 +9,9 @@ import {
     clampedFitRange, defaultMeasuredFitOptions, measuredFitConstraintsInvalid,
     measuredFitMeritOperands, measuredFitSnapshot, orphanFitBlocks, restoredFitCurves,
 } from './model.js';
-import { spectrumExchangeSession } from './sessionState.js';
+import { spectrumExchangeSession, spectrumExchangeView } from './sessionState.js';
 import { evalParamsSession } from '../../../../state/evalParamsSession.js';
-import { useWindowSession } from '../../windowSession.js';
+import { useSplitWindowSession } from '../../windowSession.js';
 
 const { useCallback, useEffect, useMemo, useState } = React;
 
@@ -52,15 +52,16 @@ function computePreview(design, curve, missingMaterialIds) {
 }
 
 export function useSpectrumExchange(sx) {
-    const { design, updateDesign, checkpoint, evalMode } = useDesign();
+    const { design, updateDesign, checkpoint, evalMode, hasActiveDesign } = useDesign();
     // The grid Optical Evaluation was last set to, as the export defaults. Read
     // once: these seed the fields below, which the user then owns.
     const evalParams = useMemo(() => evalParamsSession.peek(null), []);
     const missingMaterialIds = useUnresolvedMaterials(design);
-    const [session, setField] = useWindowSession(spectrumExchangeSession, design);
+    const [session, setField] = useSplitWindowSession(
+        spectrumExchangeSession, spectrumExchangeView, design);
     const {
         tab, expSource, expFormat, expSelected = {}, expXUnit, expYScale,
-        parsed, fileName, colIdx, selectedCurveId, xUnit, aoi, pol, side,
+        parsed, fileName, colIdx, selectedCurveId, xUnit, aoi, pol,
         fitOptions = {}, ov,
     } = session;
     const setTab = value => setField('tab', value);
@@ -78,7 +79,6 @@ export function useSpectrumExchange(sx) {
     const setXUnit = value => setField('xUnit', value);
     const setAoi = value => setField('aoi', value);
     const setPol = value => setField('pol', value);
-    const setSide = value => setField('side', value);
     const setOv = value => setField('ov', value);
     const [loading, setLoading] = useState(false);
     const [status, setStatus] = useState(null);
@@ -168,9 +168,9 @@ export function useSpectrumExchange(sx) {
 
     const importActions = useImportActions({
         sx, design, updateDesign, checkpoint, flash, parsed, col, name, xUnit,
-        quantity, yscale, fileName, colIdx, ov, aoi, pol, side,
+        quantity, yscale, fileName, colIdx, ov, aoi, pol,
         setLoading, setStatus, setParsed, setFileName, setColIdx, setOv, setXUnit,
-        setSelectedCurveId, setAoi, setPol, setSide,
+        setSelectedCurveId, setAoi, setPol,
     });
     const previewCurve = (selectedCurveId ? selectedCurve : null) || importActions.previewCurve || selectedCurve;
     const preview = useMemo(
@@ -193,12 +193,12 @@ export function useSpectrumExchange(sx) {
     });
 
     return {
-        design, tab, setTab, expSource, setExpSource, expFormat, setExpFormat,
+        design, hasActiveDesign, tab, setTab, expSource, setExpSource, expFormat, setExpFormat,
         expXUnit, setExpXUnit, expYScale, setExpYScale,
         selectedExportCurves, setExportCurveSelected, selectAllExportCurves,
         parsed, fileName, colIdx, setColIdx, name, setName, loading, status,
         xUnit, setXUnit, quantity, yscale, setColOv, curves,
-        aoi, setAoi, pol, setPol, side, setSide,
+        aoi, setAoi, pol, setPol,
         selectedCurve, selectedCurveId, setSelectedCurveId,
         orphanFits, onRestoreFitCurves,
         fitDialogCurve, openFitDialog, closeFitDialog,

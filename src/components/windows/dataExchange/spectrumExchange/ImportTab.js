@@ -1,13 +1,13 @@
 import {
     ActionButton, CheckField, ChoiceGroup, NumInput, RangeField, SelectField,
 } from '../../analysis/chrome/controls.js';
-import { SidePanel } from '../../analysis/chrome/layout.js';
+import { CenteredMessage, SidePanel } from '../../analysis/chrome/layout.js';
 import { measuredCurveData, X_UNITS } from '../../../../utils/io/spectrumTable.js';
 import { SpectrumPreview } from './SpectrumPreview.js';
 import { delimiterName } from './model.js';
 import { FieldRow, ImportFilePanel, PanelSection, textInputStyle } from '../chrome/panel.js';
 
-const { createElement: h, useEffect, useState } = React;
+const { createElement: h, Fragment, useEffect, useState } = React;
 
 const UNIT_ITEMS = [
     { id: X_UNITS.NM, label: 'nm' },
@@ -15,23 +15,28 @@ const UNIT_ITEMS = [
     { id: X_UNITS.CM1, label: 'cm⁻¹' },
 ];
 
-function MeasurementConditions({ controller, c, sx }) {
-    const { aoi, setAoi, pol, setPol, side, setSide } = controller;
-    return h(PanelSection, { c, title: sx.conditionsTitle },
-        h(FieldRow, { c, label: sx.measurementAoiLabel },
+/**
+ * What the file leaves unsaid, stored on the curve when it is added and
+ * editable on its card afterwards: the angle when the file states none, the
+ * polarization when its header states none. Absorptance has no polarization to
+ * pick.
+ *
+ * The angle covers every column the file leaves without one, not only the one
+ * being configured, because "Add all curves" adds those columns too and they
+ * would otherwise be stamped with a setting the panel never showed.
+ */
+function ColumnConditions({ controller, quantity, c, sx }) {
+    const { parsed, aoi, setAoi, pol, setPol } = controller;
+    const anyColumnWithoutAngle = parsed.columns.some(column => !Number.isFinite(column.aoi));
+    return h(Fragment, null,
+        anyColumnWithoutAngle && h(FieldRow, { c, label: sx.measurementAoiLabel },
             h(NumInput, { value: aoi, onChange: setAoi, min: 0, max: 90, step: 0.1, width: 64, c }),
             h('span', { style: { color: c.textDim, fontSize: 11 } }, '°'),
         ),
-        h(FieldRow, { c, label: sx.polarizationLabel },
+        !parsed.pol && quantity !== 'A' && h(FieldRow, { c, label: sx.polarizationLabel },
             h(ChoiceGroup, {
                 c, activeId: pol, onSelect: setPol,
                 items: [{ id: 'avg', label: sx.polAverage }, { id: 's', label: 's' }, { id: 'p', label: 'p' }],
-            }),
-        ),
-        h(FieldRow, { c, label: sx.sideLabel },
-            h(ChoiceGroup, {
-                c, activeId: side, onSelect: setSide,
-                items: [{ id: 'front', label: sx.sideFront }, { id: 'back', label: sx.sideBack }],
             }),
         ),
     );
@@ -52,7 +57,7 @@ function ConfigurePanel({ controller, c, sx }) {
         ),
         parsed.columns.length > 1 && h(FieldRow, { c, label: sx.columnLabel },
             h(SelectField, {
-                c, value: String(colIdx), onChange: value => setColIdx(+value), width: 220,
+                c, value: String(colIdx), onChange: value => setColIdx(+value), width: '100%',
                 options: parsed.columns.map((column, index) => ({ id: String(index), label: column.name })),
             }),
         ),
@@ -76,6 +81,7 @@ function ConfigurePanel({ controller, c, sx }) {
             h('input', { value: name, onChange: event => setName(event.target.value), style: textInputStyle(c) }),
         ),
         yscale === 'absorbance' && h('div', { style: { color: c.textDim, fontSize: 10.5 } }, sx.absHint),
+        h(ColumnConditions, { controller, quantity, c, sx }),
         h('div', { style: { display: 'flex', gap: 6, flexWrap: 'wrap' } },
             h(ActionButton, {
                 c, label: sx.addOverlay, onClick: onAddSelected, disabled: !previewCurve?.x.length,
@@ -162,13 +168,6 @@ function CurveEditorCard({ curve, selected, onSelect, controller, c, sx }) {
                     items: [{ id: 'avg', label: sx.polAverage }, { id: 's', label: 's' }, { id: 'p', label: 'p' }],
                 }),
         ),
-        h(FieldRow, { c, label: sx.sideLabel },
-            h(ChoiceGroup, {
-                c, activeId: curve.side || 'front',
-                onSelect: value => updateCurve(curve.id, { side: value }),
-                items: [{ id: 'front', label: sx.sideFront }, { id: 'back', label: sx.sideBack }],
-            }),
-        ),
         h(FieldRow, { c, label: sx.trimLabel },
             h(RangeField, {
                 c, width: 58, unit: 'nm',
@@ -211,7 +210,9 @@ function ImportedCurves({ controller, c, sx }) {
 }
 
 export function ImportTab({ controller, c, sx, t }) {
-    const { loading, onImport, fileName } = controller;
+    const { loading, onImport, fileName, hasActiveDesign } = controller;
+    // With no design selected there is nothing to import into.
+    const noDesign = hasActiveDesign === false;
     return h('div', {
         className: 'tfs-spectrum-import-container',
         style: { flex: 1, minHeight: 0, minWidth: 0 },
@@ -221,15 +222,17 @@ export function ImportTab({ controller, c, sx, t }) {
                 h(SidePanel, { c, width: '100%' },
                     h(ImportFilePanel, {
                         c, title: sx.importTitle, label: loading ? sx.importing : sx.import,
-                        onImport, loading, fileName, hint: sx.importHint,
+                        onImport, loading, disabled: noDesign, fileName: noDesign ? '' : fileName,
+                        hint: noDesign ? sx.noDesign : sx.importHint,
                     }),
-                    h(MeasurementConditions, { controller, c, sx }),
-                    h(ConfigurePanel, { controller, c, sx }),
-                    h(ImportedCurves, { controller, c, sx }),
+                    !noDesign && h(ConfigurePanel, { controller, c, sx }),
+                    !noDesign && h(ImportedCurves, { controller, c, sx }),
                 ),
             ),
             h('div', { className: 'tfs-spectrum-import-preview' },
-                h(SpectrumPreview, { controller, c, sx, t }),
+                noDesign
+                    ? h(CenteredMessage, { c, message: sx.noDesign })
+                    : h(SpectrumPreview, { controller, c, sx, t }),
             ),
         ),
     );

@@ -6,13 +6,19 @@ import { ANALYSIS_DEFAULTS } from '../../../../constants/analysisDefaults.js';
 
 const { createElement: h, useEffect, useRef } = React;
 
+// Δ is drawn on a 0 to 360° axis. An instrument may write it in another range,
+// CompleteEASE in -90 to 270°, and a reading of -12° is 348° on this axis
+// rather than a point below it. A curve that runs past the top of the axis
+// comes back at the bottom, measured and calculated alike.
+const onDeltaAxis = values => (values || []).map(value => ((value % 360) + 360) % 360);
+
 // A measured Ψ or Δ, drawn the way Optical Evaluation draws a measured
 // spectrum: the same colour as its calculated counterpart would use unless the
 // curve carries one of its own, dotted, with the readings marked as hollow
 // points so a measurement is never mistaken for a computed line.
 function measuredSeries(overlays, curve) {
     return (overlays || []).map(overlay => lineSeries({
-        x: overlay.x, y: overlay.y,
+        x: overlay.x, y: overlay.psi ? overlay.y : onDeltaAxis(overlay.y),
         name: `${overlay.name} (${overlay.psi ? 'Ψ' : 'Δ'} meas @ ${overlay.aoi}°)`,
         color: overlay.color || (overlay.psi ? curve.psi : curve.delta),
         width: 1.4, dash: 'dotted', symbol: 'emptyCircle', symbolSize: 4,
@@ -27,7 +33,7 @@ export function buildEllipsometryOption(data, colors, xLabel, {
 } = {}) {
     const series = [
         show.psi && lineSeries({ x: data.x, y: data.psi, name: 'Ψ', color: curve.psi, width: 2, yAxisIndex: 0 }),
-        show.delta && lineSeries({ x: data.x, y: data.delta, name: 'Δ', color: curve.delta, width: 2, yAxisIndex: 1 }),
+        show.delta && lineSeries({ x: data.x, y: onDeltaAxis(data.delta), name: 'Δ', color: curve.delta, width: 2, yAxisIndex: 1 }),
         ...measuredSeries(overlays, curve),
     ].filter(Boolean);
     // Ψ and Δ have different ranges and need an axis each, but two sets of grid

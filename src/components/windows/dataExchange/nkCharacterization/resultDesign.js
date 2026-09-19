@@ -14,19 +14,6 @@ import { makeDefaultDesign } from '../../../../state/DesignContext.js';
 import { sampleFor } from './model.js';
 
 /**
- * Which face the instrument illuminated, as the design stores coatings.
- *
- * Transmittance is the same through either face, so a reflectance decides it
- * when one was measured. A curve taken through the uncoated face is a coating on
- * the design's back side: evaluated that way, the design sees what the
- * instrument saw.
- */
-function measuredSide(chosen) {
-    const deciding = chosen.find(curve => curve.quantity === 'R') || chosen[0];
-    return deciding?.side === 'back' ? 'back' : 'front';
-}
-
-/**
  * @param {object} request
  *   request.design    the design the curves were imported into
  *   request.settings  the window's sample settings
@@ -43,7 +30,6 @@ export function buildCharacterizedDesign({
         ...settings, measurementMode: result.measurementMode || settings.measurementMode,
     });
     const base = makeDefaultDesign(`${materialName} witness`);
-    const side = measuredSide(chosen);
     const ellipsometric = chosen.some(curve => curve.quantity === 'PSI' || curve.quantity === 'DEL');
     const layer = {
         id: `${base.id}-film`,
@@ -60,13 +46,13 @@ export function buildCharacterizedDesign({
             material: sample.substrateId,
             thickness: sample.substrateThicknessMm,
         },
-        surfaceMode: side === 'back' ? 'back_only' : 'front_only',
+        surfaceMode: 'front_only',
         // A slab measurement saw both faces of the witness, which is what a
         // full-system evaluation computes. Ellipsometry uses the single
         // coated surface, with rear-face light excluded or negligible.
         mfEvalMode: sample.geometry === 'slab' ? 'total' : 'side',
-        frontLayers: side === 'back' ? [] : [layer],
-        backLayers: side === 'back' ? [layer] : [],
+        frontLayers: [layer],
+        backLayers: [],
         referenceWavelength: Math.round((low + high) / 2),
         // The measurement travels with the design so the new material can be
         // checked against what it was fitted to. It goes back into the list it

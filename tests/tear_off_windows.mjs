@@ -692,11 +692,23 @@ assert.match(dockingSource, /const bridge = [^;]*electronAPI\.dragGhost/,
 // the main window with the resize cursor stuck on it: the next mouse move over
 // the main window resized the float's panes from there.
 
-const splitSource = readFileSync(
-    new URL('../src/components/docking/SplitPane.js', import.meta.url), 'utf8');
-assert.equal(/\bdocument\./.test(splitSource), false,
+const dragSource = readFileSync(
+    new URL('../src/components/ui/dividerDrag.js', import.meta.url), 'utf8');
+assert.equal(/\bdocument\./.test(dragSource), false,
     'the divider drag never touches the global document');
-assert.match(splitSource, /ownerDocument/, 'it listens on the document the divider is in');
+assert.match(dragSource, /ownerDocument/, 'it listens on the document the divider is in');
+
+// Every divider in the app goes through it: the docking panes, and the import
+// windows' own split between panel and plot.
+for (const path of [
+    '../src/components/docking/SplitPane.js',
+    '../src/components/windows/dataExchange/chrome/panel.js',
+]) {
+    const source = readFileSync(new URL(path, import.meta.url), 'utf8');
+    assert.match(source, /startDividerDrag/, `${path} drags its divider through the shared handler`);
+    assert.equal(/addEventListener\('mouse/.test(source), false,
+        `${path} mounts no drag listeners of its own`);
+}
 
 // ── A plot in a float hears the release in its own window ─────────────────────
 //

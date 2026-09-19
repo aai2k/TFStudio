@@ -497,6 +497,29 @@ export function useWindowSession(store, design) {
 }
 
 /**
+ * Two stores bound as one, for a window whose values are partly design-scoped
+ * and partly not.
+ *
+ * A window that holds both, an opened file that belongs to one design and a
+ * divider position that belongs to no design, cannot use one store for the
+ * two: `scope` is a property of the store, so scoping the file per design
+ * would reset the divider with it. The caller keeps the single `[state,
+ * setField]` shape, reads see both stores merged, and a write goes to whichever
+ * one declares the key.
+ */
+export function useSplitWindowSession(designStore, viewStore, design) {
+    const { useCallback, useMemo } = React;
+    const [designState, setDesignField] = useWindowSession(designStore, design);
+    const [viewState, setViewField] = useWindowSession(viewStore, design);
+    const state = useMemo(() => ({ ...designState, ...viewState }), [designState, viewState]);
+    const setField = useCallback((key, value) => {
+        const set = Object.prototype.hasOwnProperty.call(viewState, key) ? setViewField : setDesignField;
+        set(key, value);
+    }, [viewState, setViewField, setDesignField]);
+    return [state, setField];
+}
+
+/**
  * Follow another window's store, read-only.
  *
  * Returns what the copy the user changed last holds, or the values that window

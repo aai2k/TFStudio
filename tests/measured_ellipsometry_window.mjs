@@ -10,7 +10,7 @@
 import assert from 'node:assert/strict';
 import { renderToStaticMarkup } from 'react-dom/server';
 import {
-    loadApp, makeLocale, makeSampleDesign, makeTheme, shimBrowserGlobals, withDesign,
+    loadApp, makeDesignCtx, makeLocale, makeSampleDesign, makeTheme, shimBrowserGlobals, withDesign,
 } from './_uiShim.mjs';
 import { initWasmForTest } from './_wasmInit.mjs';
 
@@ -24,12 +24,18 @@ const [
     nkModel,
     { makeMeasuredCurve },
     { WINDOW_REGISTRY },
+    { measuredEllipsometrySession, measuredEllipsometryView },
+    { spectrumExchangeSession },
+    { DesignContext },
 ] = await Promise.all([
     import('../src/components/windows/dataExchange/measuredEllipsometry/MeasuredEllipsometry.js'),
     import('../src/components/windows/dataExchange/measuredEllipsometry/model.js'),
     import('../src/components/windows/dataExchange/nkCharacterization/model.js'),
     import('../src/utils/io/spectrumTable.js'),
     import('../src/components/docking/windowRegistry.js'),
+    import('../src/components/windows/dataExchange/measuredEllipsometry/sessionState.js'),
+    import('../src/components/windows/dataExchange/spectrumExchange/sessionState.js'),
+    import('../src/state/DesignContext.js'),
 ]);
 
 const c = makeTheme();
@@ -81,28 +87,190 @@ function photometric(quantity) {
     assert.ok(html.includes('Ψ') && html.includes('Δ'), 'the window must name both quantities');
 }
 
-// ── The angle is demanded up front ───────────────────────────────────────────
+// ── The angle is asked for only when the file does not state it ──────────────
 //
 // A pair measured at normal incidence carries nothing about the film, and a
-// file that states no angle is the ordinary way to arrive there, so the window
-// says so before an import rather than after a failed fit.
+// file that states no angle is the ordinary way to arrive there. The angle
+// field sits with the column being configured and covers every column the file
+// leaves without one, because "Add all typed columns" adds those too: a
+// CompleteEASE export names one per column and asks nothing. Before a file is
+// open there is nothing to ask about.
 {
+    const mx = t.measuredEllipsometry;
     const design = { ...makeSampleDesign(), measuredEllipsometry: [] };
-    const html = renderToStaticMarkup(withDesign(
+    const render = () => renderToStaticMarkup(withDesign(
         React.createElement(MeasuredEllipsometry, { c, t, theme: c }), design));
-    assert.ok(html.includes(t.measuredEllipsometry.aoiLabel), 'the angle field must be shown');
+    assert.ok(!render().includes(mx.aoiLabel), 'no file, no angle field');
+
+    const column = (name, aoi) => ({
+        name, values: [20, 21], quantity: 'PSI', ...(aoi == null ? {} : { aoi }),
+    });
+    const parsed = { ok: true, nRows: 2, x: [400, 500], xUnit: 'nm', columns: [column('Psi')], aoi: null, aois: [] };
+    measuredEllipsometrySession.write(design, { parsed, fileName: 'bare.txt', colIdx: 0, ov: {} }, null);
+    assert.ok(render().includes(mx.aoiLabel), 'a column without an angle asks for one');
+    assert.ok(!render().includes(mx.sideLabel),
+        'a design coated on one face has no side to tell a measurement apart by');
+
+    measuredEllipsometrySession.write(design, {
+        parsed: { ...parsed, columns: [column('Psi @45°', 45)], aoi: 45, aois: [45] },
+    }, null);
+    assert.ok(!render().includes(mx.aoiLabel), 'a column with its angle from the file asks nothing');
+
+    // The selected column states its angle, the other does not, and "Add all"
+    // would add both: the angle the second one takes has to be on screen.
+    measuredEllipsometrySession.write(design, {
+        parsed: { ...parsed, columns: [column('Psi @45°', 45), column('Delta')], aoi: null, aois: [45] },
+        colIdx: 0,
+    }, null);
+    assert.ok(render().includes(mx.aoiLabel), 'a column left without an angle asks for one');
+    measuredEllipsometrySession.reset(design);
+
+    // A coating on each face makes the side a real question.
+    const twoSided = { ...design, backLayers: [{ id: 'b1', material: 'builtin:SiO2', thickness: 100 }] };
+    measuredEllipsometrySession.write(twoSided, { parsed, fileName: 'bare.txt', colIdx: 0, ov: {} }, null);
+    const html = renderToStaticMarkup(withDesign(
+        React.createElement(MeasuredEllipsometry, { c, t, theme: c }), twoSided));
+    assert.ok(html.includes(mx.sideLabel), 'with a back coating the side is asked');
+    measuredEllipsometrySession.reset(twoSided);
 }
 
-// ── Curves are grouped into the pairs a fit can use ──────────────────────────
+// ── With no design selected there is nothing to import into ──────────────────
+//
+// Without a design from the explorer the provider shows a placeholder that
+// nothing keeps. A file opened then used to look imported and vanish when a
+// design was selected.
 {
-    const pairs = model.curvePairs([
-        angular('PSI', 70), angular('DEL', 70), angular('PSI', 65),
-    ]);
-    assert.equal(pairs.length, 2, 'two angles, two groups');
-    const [at65, at70] = pairs;
-    assert.equal(at65.aoi, 65);
-    assert.ok(at65.psi && !at65.delta, 'the lone Ψ at 65° must read as incomplete');
-    assert.ok(at70.psi && at70.delta, 'the pair at 70° must read as complete');
+    const mx = t.measuredEllipsometry;
+    const value = { ...makeDesignCtx(makeSampleDesign()), hasActiveDesign: false };
+    const html = renderToStaticMarkup(React.createElement(DesignContext.Provider, { value },
+        React.createElement(MeasuredEllipsometry, { c, t, theme: c })));
+    assert.ok(html.includes(mx.noDesign), 'the window says a design is needed');
+    assert.ok(!html.includes(mx.importHint), 'and does not invite an import');
+    assert.ok(/<button[^>]*disabled=""[^>]*>[^<]*Open file/.test(html), 'the file button is off');
+}
+
+// ── An opened file belongs to the design it was opened for ───────────────────
+{
+    const a = { ...makeSampleDesign(), id: 'design-a' };
+    const b = { ...makeSampleDesign(), id: 'design-b' };
+    for (const session of [measuredEllipsometrySession, spectrumExchangeSession]) {
+        session.write(a, { fileName: 'a.txt', parsed: { ok: true, nRows: 1, x: [500], columns: [] } }, null);
+        assert.equal(session.read(b, null).parsed, null, 'the other design is not offered the file');
+        assert.equal(session.read(a, null).fileName, 'a.txt', 'the design it was opened for keeps it');
+        session.reset(a);
+        session.reset(b);
+    }
+}
+
+// ── The stores stay readable without a browser ──────────────────────────────
+//
+// A session store is plain data, and windowSession.js defers every React read
+// so a store definition can be imported from a plain Node script. Reaching into
+// the window chrome for a default value would undo that: those modules read the
+// React global as they load.
+{
+    const { execFileSync } = await import('node:child_process');
+    for (const window_ of ['measuredEllipsometry', 'spectrumExchange']) {
+        const target = new URL(
+            `../src/components/windows/dataExchange/${window_}/sessionState.js`, import.meta.url).href;
+        try {
+            execFileSync(process.execPath,
+                ['--input-type=module', '-e', `await import(${JSON.stringify(target)})`],
+                { stdio: 'pipe' });
+        } catch (err) {
+            assert.fail(`${window_}/sessionState.js needs a browser to load: ${err.stderr}`);
+        }
+    }
+}
+
+// ── Each curve is one card, and fits on its own ──────────────────────────────
+//
+// Ψ alone determines the thicknesses of a known stack over a spectral range,
+// and a Δ taken at another angle is another target, so nothing pairs the
+// curves up: a lone Ψ at 70° has its Fit button like the others.
+{
+    const mx = t.measuredEllipsometry;
+    const design = {
+        ...makeSampleDesign(),
+        measuredEllipsometry: [angular('PSI', 65), angular('DEL', 65), angular('PSI', 70)],
+    };
+    const html = renderToStaticMarkup(withDesign(
+        React.createElement(MeasuredEllipsometry, { c, t, theme: c }), design));
+    assert.equal(html.split(`>${mx.fit}<`).length - 1, 3, 'one fit button per curve');
+    assert.equal(html.split(mx.deltaAzzam).length - 1, 1, 'the Δ sign is shown on the Δ card only');
+    assert.ok(html.includes(mx.points(40, 400, 790)), 'a card states its extent');
+}
+
+// ── The export's Δ sign is chosen beside the button ──────────────────────────
+{
+    const mx = t.measuredEllipsometry;
+    const design = { ...makeSampleDesign(), measuredEllipsometry: [] };
+    measuredEllipsometryView.write(design, { tab: 'export', expSource: 'calculated' }, null);
+    const html = renderToStaticMarkup(withDesign(
+        React.createElement(MeasuredEllipsometry, { c, t, theme: c }), design));
+    assert.ok(html.includes(mx.deltaConventionLabel) && html.includes(mx.deltaReversed),
+        'the calculated export offers both signs');
+    measuredEllipsometryView.reset();
+}
+
+// ── The export's sign is its own, and so is the window's arrangement ─────────
+//
+// The sign the calculated export writes Δ in is the one the instrument's
+// software reads. It is a different question from the sign an opened file was
+// written in, which every imported Δ is stamped with, so choosing one must not
+// answer the other. Neither of them, nor the divider or the export grid, means
+// anything about a particular design.
+{
+    const design = { ...makeSampleDesign(), id: 'design-a', measuredEllipsometry: [] };
+    const other = { ...makeSampleDesign(), id: 'design-b', measuredEllipsometry: [] };
+
+    measuredEllipsometryView.write(design, { expDeltaConvention: 'reversed', panelWidth: 520 }, null);
+    assert.equal(measuredEllipsometrySession.read(design, null).deltaConvention, 'azzam',
+        'the export sign does not reach the sign a file is read under');
+
+    measuredEllipsometrySession.write(design, { deltaConvention: 'reversed' }, null);
+    measuredEllipsometrySession.write(other, { deltaConvention: 'azzam' }, null);
+    assert.equal(measuredEllipsometrySession.read(design, null).deltaConvention, 'reversed',
+        'each design keeps the sign its own file was read under');
+
+    const elsewhere = measuredEllipsometryView.read(other, null);
+    assert.equal(elsewhere.panelWidth, 520, 'the divider stays where it was put');
+    assert.equal(elsewhere.expDeltaConvention, 'reversed', 'and so does the export sign');
+    measuredEllipsometryView.reset();
+    measuredEllipsometrySession.reset(design);
+    measuredEllipsometrySession.reset(other);
+}
+
+// ── A curve on the back face keeps the control that put it there ─────────────
+//
+// The side is worth asking about only on a design coated on each face, but a
+// curve already marked as the back one is refused by the fit, so the control
+// has to stay on that card whatever the design now carries.
+{
+    const mx = t.measuredEllipsometry;
+    const design = {
+        ...makeSampleDesign(),
+        measuredEllipsometry: [angular('PSI', 70, { side: 'back' })],
+    };
+    const html = renderToStaticMarkup(withDesign(
+        React.createElement(MeasuredEllipsometry, { c, t, theme: c }), design));
+    assert.ok(html.includes(mx.sideLabel), 'the back-side curve can be put back on the front');
+}
+
+// ── A restored spectrum carries no side ──────────────────────────────────────
+//
+// A measurement is taken with the coated face toward the beam, so only an
+// ellipsometric block names a face and only its curve gets one back.
+{
+    const { curveFromFitBlock } = await import(
+        '../src/components/windows/dataExchange/fitTargetCurves.js');
+    const block = {
+        type: 'MCURVE', curveName: 'R', quantity: 'R', aoi: 8, pol: 'avg',
+        sampleLambdas: [500, 600], sampleTargets: [0.2, 0.3],
+    };
+    assert.equal(curveFromFitBlock(block).side, undefined, 'a spectrum has no side to restore');
+    assert.equal(curveFromFitBlock({ ...block, quantity: 'PSI', side: 'back' }).side, 'back',
+        'an ellipsometric block names the face it was measured on');
 }
 
 // ── The two measurements never mix ───────────────────────────────────────────
@@ -273,6 +441,19 @@ function photometric(quantity) {
             `exactly one visible axis must carry the grid for ${JSON.stringify(show)}, `
             + `got ${gridding.length}`);
     }
+
+    // Δ is drawn on a 0 to 360° axis. CompleteEASE writes it in -90 to 270°,
+    // so a reading of -12° has to land at 348° and not below the axis. A curve
+    // that runs past the top of the axis comes back at the bottom, the way the
+    // design's own Δ does.
+    const overlays = [
+        { name: 'm', aoi: 75, psi: false, x: [400, 500], y: [-12, 8] },
+        { name: 'm', aoi: 75, psi: true, x: [400, 500], y: [20, 21] },
+    ];
+    const option = buildEllipsometryOption(data, colors, 'λ (nm)', { curve, overlays });
+    const [measuredDelta, measuredPsi] = option.series.slice(2);
+    assert.deepEqual(measuredDelta.data, [[400, 348], [500, 8]], 'Δ moved onto its axis');
+    assert.deepEqual(measuredPsi.data.map(point => point[1]), [20, 21], 'Ψ untouched');
 }
 
 // ── The sample survives the trip to a worker unchanged ───────────────────────

@@ -35,7 +35,9 @@ export function curveFromFitBlock(block) {
         quantity: block.quantity || 'R',
         aoi: block.aoi ?? 0,
         pol: block.pol || 'avg',
-        side: block.side || 'front',
+        // Whatever the block states, which is a face for an ellipsometric block
+        // and nothing for a spectrum.
+        side: block.side,
         deltaConvention: block.deltaConvention,
         source: 'fit target',
     });

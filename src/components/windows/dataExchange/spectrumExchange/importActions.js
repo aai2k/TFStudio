@@ -7,6 +7,11 @@ import { isJcampText } from './model.js';
 
 const { useCallback, useMemo } = React;
 
+// Absorptance is what the sample keeps of everything that reached it, so it has
+// no polarization to pick and the panel asks for none. Stamping the setting
+// left over from another column would model the curve at the wrong one.
+const polarizationFor = (quantity, pol) => (quantity === 'A' ? 'avg' : pol);
+
 function importedJcampCurves(jcamp, result, conditions) {
     const baseName = (result.fileName || 'spectrum').replace(/\.[^.]+$/, '');
     return jcamp.spectra.map((spectrum, index) => makeMeasuredCurve({
@@ -21,6 +26,7 @@ function importedJcampCurves(jcamp, result, conditions) {
         isAbsorbance: spectrum.isAbsorbance,
         source: result.fileName,
         ...conditions,
+        pol: polarizationFor(spectrum.quantity || 'T', conditions.pol),
     }));
 }
 
@@ -28,8 +34,8 @@ function useImportFile(options) {
     const {
         sx, design, updateDesign, checkpoint, flash, setLoading, setStatus,
         setParsed, setFileName, setColIdx, setOv, setXUnit, setSelectedCurveId,
-        setAoi, setPol, setSide,
-        aoi, pol, side,
+        setAoi, setPol,
+        aoi, pol,
     } = options;
     return useCallback(async () => {
         setLoading(true); setStatus(null);
@@ -48,7 +54,7 @@ function useImportFile(options) {
                     return;
                 }
                 checkpoint();
-                const added = importedJcampCurves(jcamp, result, { aoi, pol, side });
+                const added = importedJcampCurves(jcamp, result, { aoi, pol });
                 updateDesign({ measuredCurves: [...(design.measuredCurves || []), ...added] });
                 setParsed(null); setOv({});
                 setFileName(result.fileName || 'spectrum');
@@ -71,7 +77,6 @@ function useImportFile(options) {
             const detectedAoi = nextParsed.aoi ?? nextParsed.columns.find(column => Number.isFinite(column.aoi))?.aoi;
             if (Number.isFinite(detectedAoi)) setAoi?.(detectedAoi);
             if (nextParsed.pol) setPol?.(nextParsed.pol);
-            if (nextParsed.side) setSide?.(nextParsed.side);
             const loadedMessage = sx.loaded(result.fileName || '', nextParsed.nRows, nextParsed.columns.length);
             flash('success', nextParsed.skippedRows > 0
                 ? `${loadedMessage}. ${sx.skippedRows(nextParsed.skippedRows)}`
@@ -80,7 +85,7 @@ function useImportFile(options) {
             flash('error', sx.errLoad(err.message));
         }
         setLoading(false);
-    }, [sx, design, updateDesign, checkpoint, aoi, pol, side]);
+    }, [sx, design, updateDesign, checkpoint, aoi, pol]);
 }
 
 function columnScale(column, override) {
@@ -95,7 +100,7 @@ function defaultCurveName(fileName, parsed, column) {
 export function useImportActions(options) {
     const {
         sx, design, updateDesign, checkpoint, flash, parsed, col, name, quantity, yscale, xUnit,
-        fileName, colIdx, ov = {}, aoi = 0, pol = 'avg', side = 'front',
+        fileName, colIdx, ov = {}, aoi = 0, pol = 'avg',
     } = options;
     const onImport = useImportFile(options);
     const selectedIndex = Number.isInteger(colIdx)
@@ -108,21 +113,21 @@ export function useImportActions(options) {
             const selectedFallback = index === selectedIndex ? { name, quantity, yscale } : {};
             const override = { ...selectedFallback, ...(ov[index] || {}) };
             const resolvedScale = columnScale(column, override);
+            const quantityOf = override.quantity || column.quantity || 'T';
             return makeMeasuredCurve({
                 name: override.name || defaultCurveName(fileName, parsed, column),
                 x: column.x || parsed.x,
                 xUnit,
                 y: column.values,
-                quantity: override.quantity || column.quantity || 'T',
+                quantity: quantityOf,
                 isPercent: resolvedScale === 'percent',
                 isAbsorbance: resolvedScale === 'absorbance',
                 source: fileName,
                 aoi: Number.isFinite(column.aoi) ? column.aoi : aoi,
-                pol,
-                side,
+                pol: polarizationFor(quantityOf, pol),
             });
         });
-    }, [parsed, selectedIndex, name, quantity, yscale, xUnit, fileName, ov, aoi, pol, side]);
+    }, [parsed, selectedIndex, name, quantity, yscale, xUnit, fileName, ov, aoi, pol]);
     const previewCurve = previewCurves[selectedIndex] || null;
 
     const addCurves = useCallback((candidates) => {

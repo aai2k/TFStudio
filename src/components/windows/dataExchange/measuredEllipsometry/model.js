@@ -5,7 +5,8 @@
  * beside the photometric ones. They are a different measurement made on a
  * different instrument: they have no percent-or-fraction scale, no s/p
  * polarization to choose, they mean nothing without an angle of incidence, and
- * they are only meaningful as a Ψ paired with its Δ.
+ * Δ carries a sign convention that differs between instruments. Ψ and Δ are
+ * separate curves with separate conditions: each fits on its own.
  */
 
 import { curvesToCsv, measuredCurveData, X_UNITS } from '../../../../utils/io/spectrumTable.js';
@@ -66,30 +67,12 @@ export function ellipsometryCurves(design) {
     return design?.measuredEllipsometry || [];
 }
 
-/**
- * Ψ and Δ measured under the same conditions, grouped.
- *
- * A fit needs both halves of one measurement, so the window shows what it has
- * and what it is missing rather than a flat list in which an unpaired curve
- * looks the same as a usable one.
- */
-export function curvePairs(curves) {
-    const groups = new Map();
-    for (const curve of curves || []) {
-        const key = `${curve.aoi ?? 0}|${curve.side || 'front'}`;
-        if (!groups.has(key)) {
-            groups.set(key, { aoi: curve.aoi ?? 0, side: curve.side || 'front', psi: null, delta: null });
-        }
-        const group = groups.get(key);
-        if (curve.quantity === 'PSI' && !group.psi) group.psi = curve;
-        if (curve.quantity === 'DEL' && !group.delta) group.delta = curve;
-    }
-    return [...groups.values()].sort((left, right) => left.aoi - right.aoi);
-}
-
-/** What tells one pair from another: the conditions it was measured under. */
-export function pairKey(pair) {
-    return `${pair.aoi ?? 0}|${pair.side || 'front'}`;
+/** The two signs a file may write Δ in, as choices. */
+export function deltaConventionItems(mx) {
+    return [
+        { id: 'azzam', label: mx.deltaAzzam, title: mx.deltaAzzamTip },
+        { id: 'reversed', label: mx.deltaReversed, title: mx.deltaReversedTip },
+    ];
 }
 
 /** What the preview chart draws for one curve or one pair. */

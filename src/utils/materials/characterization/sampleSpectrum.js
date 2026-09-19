@@ -62,8 +62,7 @@ export function channelDifference(quantity, left, right) {
  * taken between two numbers that mean the same thing.
  */
 export function filmEllipsometry(conditions, film, thicknessNm) {
-    const { lambdas, substrate, aoi } = conditions;
-    const incident = conditions.side === 'back' ? conditions.exit : conditions.incident;
+    const { lambdas, incident, substrate, aoi } = conditions;
     const raw = evaluateEllipsometrySpectrum(
         lambdas, aoi,
         lambdas.map(lambda => incident.getNK(lambda)),
@@ -75,14 +74,11 @@ export function filmEllipsometry(conditions, film, thicknessNm) {
 }
 
 /**
- * Reflectance, transmittance and absorptance of the sample.
- *
- * `side` is the face the instrument illuminated. Transmittance is the same
- * either way, reflectance is not, so a curve measured through the uncoated face
- * is modelled with the film on the far side rather than being refused.
+ * Reflectance, transmittance and absorptance of the sample, with the coated
+ * face toward the beam: that is how a witness is measured.
  *
  * @param {object} conditions  lambdas, incident, substrate, exit,
- *                             substrateThicknessMm, aoi, pol, side, geometry
+ *                             substrateThicknessMm, aoi, pol, geometry
  * @param {object} film        material with getNK(λ)
  * @param {number} thicknessNm film thickness
  */
@@ -92,17 +88,10 @@ export function filmSpectrum(conditions, film, thicknessNm) {
     const layers = [{ material: film, thickness: thicknessNm }];
 
     if (conditions.geometry === 'coating') {
-        // A semi-infinite substrate has no far side to illuminate.
         return selectedChannels(evaluateSpectrumAt(lambdas, params, incident, substrate, layers));
     }
-    const illuminatedFromFilm = conditions.side !== 'back';
     return selectedChannels(evaluateSpectrumTotalAt(
-        lambdas, params,
-        illuminatedFromFilm ? incident : exit,
-        substrate,
-        illuminatedFromFilm ? exit : incident,
-        illuminatedFromFilm ? layers : [],
-        illuminatedFromFilm ? [] : layers,
+        lambdas, params, incident, substrate, exit, layers, [],
         conditions.substrateThicknessMm ?? 1.0,
     ));
 }
@@ -113,8 +102,7 @@ export function bareSubstrateSpectrum(conditions) {
 }
 
 const conditionsKey = conditions =>
-    `${conditions.geometry}|${conditions.aoi}|${conditions.pol}|${conditions.side}`
-    + `|${conditions.deltaConvention || ''}`;
+    `${conditions.geometry}|${conditions.aoi}|${conditions.pol}|${conditions.deltaConvention || ''}`;
 
 /**
  * One call that evaluates every measured channel of a sample.

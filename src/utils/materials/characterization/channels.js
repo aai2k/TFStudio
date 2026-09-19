@@ -3,9 +3,9 @@
  * was taken under.
  *
  * Every later step reads all the channels at the same wavelengths, while an
- * instrument file can carry two curves on different grids, at different angles
- * and through different faces of the sample. Everything that has to agree
- * before any solving starts is settled here.
+ * instrument file can carry two curves on different grids and at different
+ * angles. Everything that has to agree before any solving starts is settled
+ * here.
  */
 
 import { createPchipInterpolator } from '../pchip.js';
@@ -80,7 +80,6 @@ export function conditionsFor(channel, lambdas, sample) {
         geometry: sample.geometry,
         aoi: channel.source.aoi ?? 0,
         pol: channel.source.pol ?? 'avg',
-        side: channel.source.side ?? 'front',
         deltaConvention: channel.source.deltaConvention || 'azzam',
     };
 }
@@ -148,6 +147,6 @@ export function measuredSource(measured) {
 export function energyComparable(solveChannels) {
     const photometric = solveChannels.filter(
         channel => channel.quantity === 'T' || channel.quantity === 'R');
-    return photometric.length === 2 && ['aoi', 'pol', 'side'].every(
+    return photometric.length === 2 && ['aoi', 'pol'].every(
         key => photometric[0].conditions[key] === photometric[1].conditions[key]);
 }

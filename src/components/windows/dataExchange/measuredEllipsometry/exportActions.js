@@ -6,7 +6,9 @@ import { calculatedDocument, measuredDocument } from './model.js';
 const { useCallback } = React;
 
 export function useExportActions({ design, curves, session, missingMaterialIds, flash, mx }) {
-    const { expSelected = {}, expXUnit, expStart, expEnd, expStep, expAoi, side, deltaConvention } = session;
+    const {
+        expSelected = {}, expXUnit, expStart, expEnd, expStep, expAoi, side, expDeltaConvention,
+    } = session;
 
     const save = useCallback(async (document) => {
         if (!document.text) {
@@ -34,9 +36,9 @@ export function useExportActions({ design, curves, session, missingMaterialIds, 
         }
         return save(calculatedDocument(design, {
             lambdaStart: Number(expStart), lambdaEnd: Number(expEnd), lambdaStep: Number(expStep),
-            thetaDeg: Number(expAoi), side, deltaConvention, xUnit: expXUnit,
+            thetaDeg: Number(expAoi), side, deltaConvention: expDeltaConvention, xUnit: expXUnit,
         }));
-    }, [design, expStart, expEnd, expStep, expAoi, side, deltaConvention, expXUnit,
+    }, [design, expStart, expEnd, expStep, expAoi, side, expDeltaConvention, expXUnit,
         missingMaterialIds, flash, mx, save]);
 
     return { onExportMeasured, onExportCalculated };

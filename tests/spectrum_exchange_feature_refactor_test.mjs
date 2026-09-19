@@ -73,11 +73,11 @@ assert.match(dialogMarkup, /Maximum thickness/);
 
 // The window is unmounted whenever its tab is not the active one, so the tab
 // selection has to come back from the store rather than from React state.
-const { spectrumExchangeSession } = await import(
+const { spectrumExchangeSession, spectrumExchangeView } = await import(
     '../src/components/windows/dataExchange/spectrumExchange/sessionState.js');
 
 function SessionProbe({ nextValue }) {
-    const [state, setField] = session.useWindowSession(spectrumExchangeSession, null);
+    const [state, setField] = session.useWindowSession(spectrumExchangeView, null);
     if (nextValue && state.tab !== nextValue) setField('tab', nextValue);
     return React.createElement('span', null, state.tab);
 }
@@ -107,7 +107,7 @@ assert.equal(csv.fileName, 'Measured_Sample_measured.csv');
 // fractions written as percent.
 assert.deepEqual(csv.text.split('\r\n'), [
     '# Measured / Sample',
-    '# AOI 0 deg, front side',
+    '# AOI 0 deg',
     '# Polarization: average',
     'Wavelength (nm),R sample %R',
     '500,25',
@@ -127,7 +127,7 @@ const selectedExport = model.measuredExportDocument({
     asPercent: false,
 });
 assert.equal(selectedExport.text,
-    '# Selected\r\n# AOI 0 deg, front side\r\n# Polarization: average\r\n'
+    '# Selected\r\n# AOI 0 deg\r\n# Polarization: average\r\n'
     + 'Wavelength (µm),B R\r\n0.5,0.2\r\n');
 
 const actionEvents = [];
@@ -206,6 +206,7 @@ function MultiColumnProbe() {
         columns: [
             { name: 'Transmission', x: [500, 600], values: [90, 91], quantity: 'T', isPercent: true },
             { name: 'Reflection', x: [500, 600], values: [8, 7], quantity: 'R', isPercent: true },
+            { name: 'Absorptance', x: [500, 600], values: [2, 2], quantity: 'A', isPercent: true },
         ],
     };
     multiActions = actionHooks.useImportActions({
@@ -221,7 +222,6 @@ function MultiColumnProbe() {
         ov: { 1: { name: 'Rear R' } },
         aoi: 8,
         pol: 'p',
-        side: 'back',
         setLoading() {}, setStatus() {}, setParsed() {}, setFileName() {},
         setColIdx() {}, setOv() {}, setXUnit() {},
     });
@@ -230,12 +230,17 @@ function MultiColumnProbe() {
 renderToStaticMarkup(React.createElement(MultiColumnProbe));
 multiActions.onAdd();
 const importedPair = multiEvents[1][1].measuredCurves;
-assert.equal(importedPair.length, 2);
+assert.equal(importedPair.length, 3);
 assert.deepEqual(importedPair.map(curve => [curve.name, curve.quantity]), [
     ['pair: Transmission', 'T'],
     ['Rear R', 'R'],
+    ['pair: Absorptance', 'A'],
 ]);
-assert.ok(importedPair.every(curve => curve.aoi === 8 && curve.pol === 'p' && curve.side === 'back'));
+assert.ok(importedPair.every(curve => curve.aoi === 8));
+// Absorptance is what the sample keeps of everything that reached it, so the
+// panel asks for no polarization and the curve must not carry the one left over
+// from the column beside it.
+assert.deepEqual(importedPair.map(curve => curve.pol), ['p', 'p', 'avg']);
 
 const originalApi = window.electronAPI;
 window.electronAPI = {
@@ -251,5 +256,54 @@ window.electronAPI = originalApi;
 assert.deepEqual(actionEvents.slice(0, 2), [['loading', true], ['status', null]]);
 assert.ok(actionEvents.some(event => event[0] === 'parsed' && event[1].nRows === 2));
 assert.deepEqual(actionEvents.at(-1), ['loading', false]);
+
+// The conditions a file leaves unsaid are asked beside the column being
+// configured, and only those: a file that states its angle and polarization
+// asks nothing, and with no file open there is nothing to ask about. The angle
+// covers every column the file leaves without one, because "Add all curves"
+// adds those too.
+{
+    const sx = t.spectrumExchange;
+    const design = makeSampleDesign();
+    const labels = [sx.measurementAoiLabel, sx.polarizationLabel];
+    const render = () => renderToStaticMarkup(withDesign(
+        React.createElement(SpectrumExchange, { c, t }), design));
+    const parsed = {
+        ok: true, nRows: 2, x: [500, 600], xUnit: 'nm', delimiter: ',', decimal: '.',
+        columns: [{ name: 'T', values: [0.1, 0.2], quantity: 'T', isPercent: false }],
+        aoi: null, aois: [], pol: null, side: null,
+    };
+    assert.ok(labels.every(label => !render().includes(label)), 'no file, nothing asked');
+
+    spectrumExchangeSession.write(design, { parsed, fileName: 'bare.csv', colIdx: 0, ov: {} }, null);
+    const bare = render();
+    for (const label of labels) {
+        assert.ok(bare.includes(label), `${label} is asked when the file states none`);
+    }
+
+    spectrumExchangeSession.write(design, {
+        parsed: {
+            ...parsed, columns: [{ ...parsed.columns[0], aoi: 8 }],
+            aoi: 8, aois: [8], pol: 'p',
+        },
+    }, null);
+    const stated = render();
+    for (const label of labels) {
+        assert.ok(!stated.includes(label), `${label} is not asked when the file states it`);
+    }
+
+    // The configured column states its angle, the one beside it does not, and
+    // "Add all curves" would add both at whatever this field holds.
+    spectrumExchangeSession.write(design, {
+        parsed: {
+            ...parsed,
+            columns: [{ ...parsed.columns[0], aoi: 8 }, { name: 'R', values: [0.3, 0.4], quantity: 'R' }],
+            aoi: null, aois: [8], pol: 'p',
+        },
+    }, null);
+    assert.ok(render().includes(sx.measurementAoiLabel),
+        'a column left without an angle asks for one');
+    spectrumExchangeSession.reset(design);
+}
 
 console.log('PASS: spectrum_exchange_feature_refactor');

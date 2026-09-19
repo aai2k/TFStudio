@@ -1,11 +1,17 @@
 /**
- * Fitting a design to a measured Ψ/Δ pair: the merit blocks the pair becomes,
- * and the way back from the blocks to the curves.
+ * Fitting a design to a measured Ψ or Δ: the merit block a curve becomes, and
+ * the way back from the blocks to the curves.
  *
  * The mechanism is the measured-curve block Measured Spectra generates for a
- * spectrum. What a Ψ/Δ pair needs beyond it: the two halves are one fit and
- * are stamped as such, a Δ snapshot records the sign convention its file was
- * written in, and a uniform resample of Δ has to respect that Δ is an angle.
+ * spectrum. What an ellipsometric curve needs beyond it: a Δ block records the
+ * sign convention its file was written in, a uniform resample of Δ has to
+ * respect that Δ is an angle, and a curve at normal incidence or on the back
+ * side is refused.
+ *
+ * Ψ and Δ are fitted one curve at a time. Ψ alone over a spectral range
+ * determines the thicknesses of a known stack, so does Δ alone, and a Δ taken
+ * at another angle is simply another target. Only n,k Characterization needs
+ * both halves of one measurement, to solve for two unknowns per wavelength.
  */
 
 import { sampleMeasuredCurve } from '../../../../utils/io/spectrumTable.js';
@@ -38,97 +44,54 @@ export function sampleDeltaCurve(curve, options) {
     return { ...sampled, targets: sampled.targets.map(wrapDegrees) };
 }
 
-// Ψ and Δ are evaluated on the front stack alone, so a pair measured on the
-// back side, or a design evaluated on its back side, is refused. So is a pair
+// Ψ and Δ are evaluated on the front stack alone, so a curve measured on the
+// back side, or a design evaluated on its back side, is refused. So is a curve
 // at normal incidence, where Ψ and Δ carry nothing about the film.
-function fitRefusal(design, pair) {
-    if (!pair?.psi || !pair?.delta) return 'empty';
-    if (!((pair.aoi ?? 0) > 0)) return 'aoi';
-    if ((pair.side || 'front') !== 'front') return 'backSide';
+function fitRefusal(design, curve) {
+    if (!curve) return 'empty';
+    if (!((curve.aoi ?? 0) > 0)) return 'aoi';
+    if ((curve.side || 'front') !== 'front') return 'backSide';
     return evaluatedMeasurementSide(design) === 'front' ? null : 'side';
 }
 
-// Ψ and Δ of one measurement are one fit, so the two blocks have to land on
-// one grid: the per-point weight is the row weight divided by the point count,
-// and halves of different lengths would not weigh alike. The settings are
-// shared, but the halves can still come back on different grids, because each
-// is sampled from its own curve and a curve carries its own trim. So the two
-// are cut down to the wavelengths they agree on.
-function pairedSamples(sampledPsi, sampledDelta) {
-    const psiLambdas = sampledPsi.lambdas;
-    const deltaLambdas = sampledDelta.lambdas;
-    const sameGrid = psiLambdas.length === deltaLambdas.length
-        && psiLambdas.every((lambda, index) => lambda === deltaLambdas[index]);
-    if (sameGrid) return [sampledPsi, sampledDelta];
-    const shared = new Set(deltaLambdas);
-    const keep = psiLambdas.filter(lambda => shared.has(lambda));
-    const kept = new Set(keep);
-    const restrict = (sampled) => {
-        const indices = [];
-        sampled.lambdas.forEach((lambda, index) => { if (kept.has(lambda)) indices.push(index); });
-        return {
-            ...sampled,
-            lambdas: indices.map(index => sampled.lambdas[index]),
-            targets: indices.map(index => sampled.targets[index]),
-            range: keep.length ? [keep[0], keep[keep.length - 1]] : null,
-        };
-    };
-    return [restrict(sampledPsi), restrict(sampledDelta)];
-}
-
 /**
- * The two merit blocks that fit a design to a measured Ψ/Δ pair.
+ * The merit block that fits a design to one measured Ψ or Δ.
  *
- * Ψ and Δ of one measurement are one fit, so both halves are sampled on the
- * same settings, cut to the wavelengths they share, and stamped with one
- * `pairId`, which is how the merit table knows to say so when one of them is
- * switched off. A Δ block records the convention its points were written in;
- * the engine converts on the way in.
+ * A Δ block records the convention its points were written in; the engine
+ * converts on the way in.
  */
-export function ellipsometryFitSnapshot(design, pair, options = {}) {
-    const refused = error => ({ operand: null, operands: [], error });
-    const refusal = fitRefusal(design, pair);
+export function ellipsometryFitSnapshot(design, curve, options = {}) {
+    const refused = error => ({ operand: null, error });
+    const refusal = fitRefusal(design, curve);
     if (refusal) return refused(refusal);
-    const config = { ...defaultMeasuredFitOptions(pair.psi), ...options };
+    const config = { ...defaultMeasuredFitOptions(curve), ...options };
     const coverage = designRangeCoverage(design, [config.rangeMin, config.rangeMax]);
     const safeRange = config.clipToCoverage !== false && coverage.offenders.length
         ? coverage.covered
         : null;
-    const rawPsi = sampleMeasuredCurve(pair.psi, { ...config, safeRange });
-    const rawDelta = sampleDeltaCurve(pair.delta, { ...config, safeRange });
-    const failed = [rawPsi, rawDelta].find(sampled => sampled.error || !sampled.lambdas.length);
-    if (failed) {
-        return { ...refused(failed.error || 'range'), sampled: rawPsi, coverage };
+    const delta = curve.quantity === 'DEL';
+    const sampled = (delta ? sampleDeltaCurve : sampleMeasuredCurve)(curve, { ...config, safeRange });
+    if (sampled.error || !sampled.lambdas.length) {
+        return { ...refused(sampled.error || 'range'), sampled, coverage };
     }
-    const [sampledPsi, sampledDelta] = pairedSamples(rawPsi, rawDelta);
-    if (!sampledPsi.lambdas.length) {
-        return { ...refused('pairGrid'), sampled: rawPsi, coverage };
-    }
-    const pairId = `pair-${Math.random().toString(36).slice(2, 10)}`;
-    const weight = Number.isFinite(config.weight) && config.weight >= 0 ? config.weight : 1;
-    const block = (curve, sampled, extra) => makeMeasuredCurveOperand({
+    const operand = makeMeasuredCurveOperand({
         curveId: curve.id || null,
         curveName: curve.name || 'Measured curve',
         quantity: curve.quantity,
-        aoi: pair.aoi,
+        aoi: curve.aoi,
         pol: 'avg',
         side: 'front',
-        pairId,
         gridMode: config.mode,
         sourceSpacingNm: sampled.spacingNm,
         sampleLambdas: sampled.lambdas,
         sampleTargets: sampled.targets,
-        weight,
-        ...extra,
+        weight: Number.isFinite(config.weight) && config.weight >= 0 ? config.weight : 1,
+        ...(delta ? { deltaConvention: curve.deltaConvention || 'azzam' } : {}),
     });
-    const operands = [
-        block(pair.psi, sampledPsi, {}),
-        block(pair.delta, sampledDelta, { deltaConvention: pair.delta.deltaConvention || 'azzam' }),
-    ];
-    return { operand: operands[0], operands, sampled: sampledPsi, coverage, error: null };
+    return { operand, sampled, coverage, error: null };
 }
 
-/** Ψ/Δ fit blocks whose curve is not on this design; see fitTargetCurves.js. */
+/** Ellipsometric fit blocks whose curve is not on this design; see fitTargetCurves.js. */
 export function orphanEllipsometryFitBlocks(design) {
     return orphanFitBlocksIn(design, 'measuredEllipsometry', isEllipsometricMeasuredCurve);
 }
@@ -140,7 +103,7 @@ export function restoredEllipsometryCurves(design) {
 
 /**
  * The strings the fit dialog reads. It is the dialog Measured Spectra uses,
- * with the lines that differ for a Ψ/Δ pair swapped in.
+ * with the lines that differ for an ellipsometric curve swapped in.
  */
 export function fitDialogText(t) {
     const mx = t.measuredEllipsometry;

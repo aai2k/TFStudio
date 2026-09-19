@@ -138,7 +138,7 @@ function settleExtinction({ best, chosen, context, solveChannels, lambdas, thick
 
 /**
  * @param {object} request
- *   request.channels   [{ quantity, lambdas, values, aoi, pol, side }]
+ *   request.channels   [{ quantity, lambdas, values, aoi, pol }]
  *                      quantity is 'T'|'R' as a fraction, or 'PSI'|'DEL' in
  *                      degrees with a deltaConvention; wavelengths nm ascending
  *   request.sample     { incident, substrate, exit, substrateThicknessMm, geometry }

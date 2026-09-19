@@ -25,6 +25,12 @@ const FAMILY_COLOR = {
 const POLARIZATIONS = ['avg', 's', 'p'];
 const SIDES = ['front', 'back'];
 
+// Only Ψ and Δ are tied to a face, because they are evaluated on one side of
+// the design. A spectrum is measured with the coated face toward the beam, and
+// what a design evaluates is the design's own setting, so a side on a spectrum
+// would be a field nothing reads.
+const measuredFace = (angular, side) => (angular ? { side } : {});
+
 /**
  * Build a normalized measured-curve overlay from one X array + one Y column.
  *
@@ -38,9 +44,9 @@ const SIDES = ['front', 'back'];
  *   p.isAbsorbance Y is absorbance → convert to T = 10^-A (quantity forced to 'T')
  *   p.aoi         angle of incidence in degrees (default 0)
  *   p.pol         'avg' | 's' | 'p' (default 'avg')
- *   p.side        'front' | 'back' (default 'front')
+ *   p.side        'front' | 'back' (default 'front'), Ψ and Δ only
  *   p.color       optional override
- * @returns measuredCurve { id, name, quantity, source, x:nm[] (asc), y:frac[], color, visible, xUnit, yWasPercent, aoi, pol, side }
+ * @returns measuredCurve { id, name, quantity, source, x:nm[] (asc), y:frac[], color, visible, xUnit, yWasPercent, aoi, pol }
  */
 export function makeMeasuredCurve(p) {
     const xUnit = p.xUnit || X_UNITS.NM;
@@ -78,7 +84,7 @@ export function makeMeasuredCurve(p) {
         yWasPercent: angular || isAbs ? false : !!p.isPercent,
         aoi,
         pol,
-        side,
+        ...measuredFace(angular, side),
         ...(quantity === 'DEL' ? { deltaConvention: p.deltaConvention || 'azzam' } : {}),
     };
 }

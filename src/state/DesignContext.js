@@ -159,10 +159,10 @@ export function DesignProvider({ children, activeDesignId, designs, folders, onD
     const fallbackRef = React.useRef(null);
     if (!fallbackRef.current) fallbackRef.current = makeDefaultDesign();
 
-    // Get (or lazily create) the active design
-    const design = (_activeId != null && _designs[_activeId])
-        ? _designs[_activeId]
-        : fallbackRef.current;
+    // The design the explorer has selected, and the placeholder shown instead
+    // while it has none.
+    const activeDesign = _activeId != null ? _designs[_activeId] : null;
+    const design = activeDesign || fallbackRef.current;
 
     // Evaluation mode is DERIVED from the active design (surfaceMode + mfEvalMode),
     // not an independently-toggled state. This is the single source of truth that
@@ -290,6 +290,10 @@ export function DesignProvider({ children, activeDesignId, designs, folders, onD
             designs: _designs,
             folders: folders || null,
             activeDesignId: _activeId,
+            // Whether `design` is a real design rather than the placeholder.
+            // The placeholder is a design nothing keeps, so a window that would
+            // write to it, an import for instance, has nothing real to write to.
+            hasActiveDesign: !!activeDesign,
             updateDesign,
             checkpoint,
             history, jumpToHistory,
