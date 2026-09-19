@@ -8,8 +8,6 @@ If something here matters to your work, or something you need is missing, open a
 
 ## Next
 
-- **Fit a design to a measured Ψ and Δ.** Import an ellipsometric measurement, draw it against the calculated curve, and fit the layer thicknesses to it, the same way a design can already be fitted to a measured spectrum.
-- **Better WDM design** Generate WDM filter designs that perform better further from normal incidence.
 - **Pulse Analysis.** Propagate Gaussian, sech-squared or measured pulses through a coating and show temporal broadening, spectral phase and residual chirp.
 - **Coating stress as a design target.** Enter the stress you measured for each material and the optimizer keeps the sum of stress times thickness near zero alongside the optical targets. A back-surface coating enters with a negative coefficient, so a matching back stack cancels the bow.
 - **Stress analysis.** With Young's modulus, Poisson's ratio and expansion coefficient on the material and the substrate size entered, report the stress in each layer, the radius of curvature and centre deflection of the part, and cracking and delamination factors.
