@@ -51,12 +51,18 @@ export function MaterialEditor({ c, t, setInputDialog }) {
                 dirty: s.isDirty,
                 catalogs,
                 workingNm: s.workingNm,
+                detailTab: s.detailTab,
+                setDetailTab: s.setDetailTab,
                 c,
                 t
             })
             : !selectedMat
                 ? h('div', { style: { display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%', color: c.textDim, fontSize: 13, fontStyle: 'italic' } }, me.selectMaterial)
-                : renderReadOnlyMaterial({ selectedMat, sampledTable, chartRef, openCopyPicker, designConflict: s.designConflict, me, t, c })
+                : renderReadOnlyMaterial({
+                    selectedMat, sampledTable, chartRef, openCopyPicker,
+                    designConflict: s.designConflict,
+                    detailTab: s.detailTab, setDetailTab: s.setDetailTab, me, t, c,
+                })
     );
 
     return h('div', {

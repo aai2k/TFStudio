@@ -1,7 +1,8 @@
 /**
  * Zemax AGF (ASCII Glass Format) parser.
  *
- * Reference: Zemax OpticStudio AGF format specification
+ * Reference: OpticStudio User Manual 2026 R1, The Libraries Tab, "Description
+ * of catalog data", p. 1416
  *
  * Format overview:
  *   CC <comment>         — catalog header comment
@@ -20,6 +21,7 @@
  * Unknown mnemonics are silently skipped.
  */
 
+import { normalizeMechanical } from './mechanical.js';
 import { TABULATED_INTERPOLATION } from './pchip.js';
 
 /**
@@ -73,6 +75,20 @@ const GLASS_HANDLERS = {
         cur.density = parseFloat(tokens[3]) || null;
         cur.dPgF = parseFloat(tokens[4]) || null;
     },
+    // Mechanical data. Young's modulus is in GPa and Poisson's ratio is
+    // dimensionless, which is how the material record stores them; the Knoop
+    // hardness, specific heat and thermal conductivity that follow have no
+    // reader here. A catalog with no value for a field writes a zero, and
+    // neither a modulus of zero nor a glass that does not contract sideways
+    // exists, so a zero is read as an empty field rather than a measurement.
+    MD(cur, tokens) {
+        const modulus = parseFloat(tokens[1]);
+        const poisson = parseFloat(tokens[2]);
+        cur.mechanical = {
+            ...(modulus > 0 ? { youngsModulusGPa: modulus } : {}),
+            ...(poisson !== 0 && poisson > -1 && poisson < 0.5 ? { poissonsRatio: poisson } : {}),
+        };
+    },
     CD(cur, tokens) {
         cur.coefficients = [];
         for (let i = 1; i <= 10 && i < tokens.length; i++) {
@@ -111,6 +127,13 @@ function commitGlass(cur, itData, materials) {
         .map(pt => ({ lam_um: pt.lam_um, k: kFromIT(pt.T, pt.lam_um, pt.thick_mm) }))
         .sort((a, b) => a.lam_um - b.lam_um);
     if (cur.kTable.length) cur.interp = TABULATED_INTERPOLATION;
+    // Three of the constants the stress model reads come out of an AGF file:
+    // the modulus and Poisson's ratio of the MD line, and the -30/70 °C
+    // expansion coefficient of the ED line. A glass used as a substrate
+    // therefore arrives with everything the thermal stress and the curvature
+    // need from it.
+    const mechanical = normalizeMechanical({ ...cur.mechanical, linearExpansionPerK: cur.tce1 });
+    if (mechanical) cur.mechanical = mechanical; else delete cur.mechanical;
     if (materials[cur.id]) {
         console.warn(`AGF: duplicate glass name "${cur.id}" — later definition overwrites the earlier one.`);
     }

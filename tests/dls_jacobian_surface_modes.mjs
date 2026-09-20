@@ -47,6 +47,13 @@ function makeOps() {
         makeOperand({ type: 'RAV', lambdaStart: 450, lambdaEnd: 650, aoi: 0, pol: 'avg', target: 0,    weight: 1 }),
         makeOperand({ type: 'TAV', lambdaStart: 450, lambdaEnd: 650, aoi: 0, pol: 'avg', target: 1,    weight: 1 }),
         makeOperand({ type: 'R',   lambdaStart: 550,                   aoi: 0, pol: 'avg', target: 0,    weight: 1 }),
+        // TT takes an analytic row of its own since the film-stress operand
+        // gave the two of them a shared builder. Before that it declined the
+        // whole Jacobian and pushed every row onto finite differences, so this
+        // row is also the check that it no longer does.
+        makeOperand({ type: 'TT',  target: 200, weight: 1 }),
+        makeOperand({ type: 'TT',  target: 200, cmp: 'le', weight: 1 }),
+        makeOperand({ type: 'TT',  target: 9000, cmp: 'ge', weight: 1 }),
     ];
 }
 
@@ -65,12 +72,23 @@ function fdJacobian(opt, thk, freeIdx, h = 0.5) {
     return J;
 }
 
-function maxAbsDiff(A, B) {
-    let m = 0;
-    for (let i = 0; i < A.length; i++)
-        for (let j = 0; j < A[i].length; j++)
-            m = Math.max(m, Math.abs(A[i][j] - B[i][j]));
-    return m;
+// Worst |analytic − FD| measured against each row's OWN scale. A TT row's
+// entries are 1 and an optical row's are a few thousandths, so one tolerance
+// taken over the whole matrix would let a real error in an optical row hide
+// behind the size of the thickness rows.
+function worstRelativeMiss(A, B) {
+    let worst = 0, at = null;
+    for (let i = 0; i < A.length; i++) {
+        let rms = 0;
+        for (const v of B[i]) rms += v * v;
+        rms = Math.sqrt(rms / B[i].length);
+        const tol = Math.max(4e-6, 1e-3 * rms);
+        for (let j = 0; j < A[i].length; j++) {
+            const ratio = Math.abs(A[i][j] - B[i][j]) / tol;
+            if (ratio > worst) { worst = ratio; at = { diff: Math.abs(A[i][j] - B[i][j]), tol }; }
+        }
+    }
+    return { worst, at: at || { diff: 0, tol: 4e-6 } };
 }
 
 function runOne(mode, mfEvalMode = 'side') {
@@ -92,23 +110,17 @@ function runOne(mode, mfEvalMode = 'side') {
     ok(Jana.length === Jfd.length, `[${tag}] row count matches FD`);
     ok(Jana[0].length === Jfd[0].length, `[${tag}] col count matches FD`);
 
-    // Magnitude scale: take RMS of FD entries as the reference.
-    let rms = 0, n = 0;
-    for (const row of Jfd) for (const v of row) { rms += v * v; n++; }
-    rms = Math.sqrt(rms / n);
-    // Analytic Jacobian is the exact h→0 limit; the residual measured here is
-    // the FD reference's own O(h²) truncation at h=0.25 — largest in symmetric
+    // The analytic Jacobian is the exact h→0 limit; what is measured here is
+    // the FD reference's own O(h²) truncation at h=0.25, largest in symmetric
     // mode (front + mirrored-back double the curvature on the single-λ term).
-    // 0.1% relative + 4e-6 floor stays far below any value that could mask a
-    // genuine analytic error (which would scale with rms, not with h²).
-    const tol = Math.max(4e-6, 1e-3 * rms);
-
-    const diff = maxAbsDiff(Jana, Jfd);
-    ok(diff < tol,
-        `[${tag}] max |J_analytic − J_FD| = ${diff.toExponential(2)} ` +
-        `(rms ≈ ${rms.toExponential(2)}, tol ${tol.toExponential(2)})`);
+    // 0.1% of the row's own RMS plus a 4e-6 floor stays far below any value
+    // that could mask a genuine analytic error, which would scale with the row
+    // rather than with h².
+    const { worst, at } = worstRelativeMiss(Jana, Jfd);
+    ok(worst < 1,
+        `[${tag}] worst |J_analytic − J_FD| = ${at.diff.toExponential(2)} against its row tolerance ${at.tol.toExponential(2)}`);
     console.log(`  ${tag.padEnd(20)}  J shape ${Jana.length}×${Jana[0].length}  ` +
-                `max diff = ${diff.toExponential(2)}  tol = ${tol.toExponential(2)}`);
+                `worst miss = ${at.diff.toExponential(2)}  row tol = ${at.tol.toExponential(2)}`);
 }
 
 console.log('DLS analytic-Jacobian vs FD, per surface mode:');

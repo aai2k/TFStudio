@@ -438,6 +438,13 @@ export const ANALYSIS_DEFAULTS = {
     booleans: { showBaseline: true, showEditor: true, showTable: false },
   },
 
+  stressAnalysis: {
+    // Bars are tinted per material; this is the fallback for a layer whose
+    // material carries no colour.
+    colors: { fallback: '#4fc3f7' },
+    booleans: { showWhole: true, showTable: false },
+  },
+
   roughnessScattering: {
     colors: {
       R: '#ef5350', T: '#4fc3f7', tis: '#ffb74d',

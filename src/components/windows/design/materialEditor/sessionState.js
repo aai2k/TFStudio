@@ -9,4 +9,7 @@ export const materialEditorSession = createWindowSession({
     selectedId: null,
     editDraft: null,
     pristineDraft: null,
+    // Which page of the detail pane is open. How the window is arranged rather
+    // than what it holds, so selecting another material leaves it where it is.
+    detailTab: 'nk',
 });

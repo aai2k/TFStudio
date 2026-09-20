@@ -9,7 +9,9 @@ import {
     isConstraint, isPhaseDispersion, requiredLambdas,
     collectDesignMaterialIds, buildPresampledTable,
 } from '../../../../../utils/physics/optimizer.js';
-import { densifyForRun, activeSide, materialLookup } from '../../synthesisShared/synthesisHelpers.js';
+import {
+    densifyForRun, activeSide, materialLookup, serializableMedia,
+} from '../../synthesisShared/synthesisHelpers.js';
 
 // Reconcile edits, drop synthesis-incompatible thickness constraints, resolve
 // the scan sides and candidate pool. Returns the run seed or null on a guard
@@ -61,19 +63,7 @@ export function wpPresample(curDes, operands, pool) {
 // the CURRENT both-side state; for both_independent every cycle re-snaps both
 // sides from `best`, so both stacks evolve through the run.
 export function wpDesignHelpers(curDes, poolSlices) {
-    const media = {
-        surfaceMode:    curDes.surfaceMode || 'front_only',
-        mfEvalMode:     curDes.mfEvalMode ?? 'side',
-        incidentMedium: curDes.incidentMedium ?? 'Air',
-        exitMedium:     curDes.exitMedium ?? 'Air',
-        substrate: {
-            material:  curDes.substrate?.material ?? 'BK7',
-            thickness: curDes.substrate?.thickness ?? 1.0,
-        },
-        // Cone-angle averaging: ship to the synthesis workers so the scan (FD
-        // fallback) + DLS refine are cone-averaged like the eval.
-        ...(curDes.cone ? { cone: curDes.cone } : {}),
-    };
+    const media = serializableMedia(curDes);
     const mkLayers = arr => (arr || []).map(l => ({
         id: l.id, material: l.material, thickness: l.thickness || 0, locked: !!l.locked }));
     const designSnap = (front, back) => ({ ...media, frontLayers: mkLayers(front), backLayers: mkLayers(back) });

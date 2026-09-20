@@ -37,6 +37,12 @@ export const RANGE_TARGET_OPERAND_TYPES = ['TGT', 'RGT', 'AGT'];
 // Total-thickness operand: value = Σ layer thicknesses (nm) over the active
 // stack(s). Target is in nm; residual is two-sided (value − target).
 export const TOTAL_THICKNESS_OPERAND_TYPES = ['TT'];
+// Film-stress operand: value = Σ σ_l d_l over the coatings the evaluation mode
+// holds, the back one subtracting, in N/m (= MPa·µm). That is the bending force
+// per unit width of Klein 2001 Eq. (14); a target of 0 is his Eq. (34), the
+// zero-deflection condition. Per-layer stress comes off the material record,
+// never off the operand row.
+export const STRESS_OPERAND_TYPES = ['STR'];
 // Blank/comment operand — inert (contributes nothing to the merit function).
 // Carries a free-text `comment`; used to annotate the MF table.
 export const BLANK_OPERAND_TYPES = ['BLNK'];
@@ -129,6 +135,7 @@ export const OPERAND_TYPES = [
     ...MATH_OPERAND_TYPES,
     ...ARGWAVE_OPERAND_TYPES,
     ...TOTAL_THICKNESS_OPERAND_TYPES,
+    ...STRESS_OPERAND_TYPES,
     ...CONSTRAINT_OPERAND_TYPES,
     ...BLANK_OPERAND_TYPES,
 ];
@@ -138,6 +145,21 @@ export function isConstraint(type) { return type === 'MNT' || type === 'MXT'; }
 export function isDmfs(type)       { return type === 'DMFS'; }
 export function isBlank(type)      { return type === 'BLNK'; }
 export function isTotalThickness(type) { return type === 'TT'; }
+export function isStress(type)     { return type === 'STR'; }
+// Manufacturability rows: what the coater can build rather than what the
+// coating does optically. Their weight stays out of the merit's normalization
+// denominator, they are dropped from the OMF and from the synthesis scans, and
+// their value is linear in the layer thicknesses. One predicate so a new member
+// cannot reach some of those places and miss the others.
+export function isManufacturability(type) {
+    return isConstraint(type) || isTotalThickness(type) || isStress(type);
+}
+// Rows whose value is a plain linear function of the layer thicknesses, scored
+// against a target through a ≤ / ≥ / = comparison. Their analytic Jacobian row
+// is the coefficient vector and their curvature is zero.
+export function isLinearThickness(type) {
+    return isTotalThickness(type) || isStress(type);
+}
 export function isRangeTarget(type) { return RANGE_TARGET_OPERAND_TYPES.indexOf(type) >= 0; }
 export function isBandAverage(type) { return type === 'TAV' || type === 'RAV' || type === 'AAV'; }
 export function isIntegral(type)   { return type === 'TIW' || type === 'RIW' || type === 'AIW'; }
@@ -194,8 +216,7 @@ export function isFractionalUnit(type) {
     // False for the non-fractional (nm / deg / fs / placeholder / inherited)
     // types; true for T/R/A optical, TAV/RAV/AAV, TGT/RGT/AGT, TMN…
     return !(
-        isConstraint(type)                    // MNT/MXT in nm
-        || isTotalThickness(type)             // TT in nm
+        isManufacturability(type)             // MNT/MXT/TT in nm, STR in N/m
         || isArgwave(type) || isPhase(type)   // MXWT/MNWT (nm), Ψ/Δ (deg), GD (fs), |E|²
         || isMath(type)                       // math = inherit (resolved separately)
         || isDmfs(type)                       // DMFS = placeholder
@@ -230,7 +251,7 @@ export function polFromType(type) {
     // Skip the 'S'/'P' suffix interpretation for compound type codes whose
     // last letter is incidental (MNT/MXT/TMN/TMX/RMN/RMX/AMN/AMX/TIW/RIW/AIW
     // /math operands) or for argwave types (handled separately via argwavePolCode).
-    const hasNoPol = isConstraint(type) || isDmfs(type) || isBlank(type) || isTotalThickness(type) ||
+    const hasNoPol = isManufacturability(type) || isDmfs(type) || isBlank(type) ||
         isIntegral(type) || isMinmax(type) || isMath(type);
     if (hasNoPol) return null;
     if (isArgwave(type)) return argwavePolCode(type);
@@ -323,6 +344,67 @@ function seedPhaseTarget(base, overrides) {
     base.target = PHASE_DEFAULT_TARGET[base.type] ?? 0;
 }
 
+// True while the target still holds the RAV "+ Add" default (0.99, a fraction)
+// or nothing at all. A type whose target is a wavelength, a thickness or a
+// force reads that value as its own unit and has to replace it.
+function targetUnset(base) {
+    return !Number.isFinite(base.target) || base.target === 0.99;
+}
+
+// Source/detector for integral operands: without these the weighting would
+// silently fall back to E × flat = unity, changing the operand's meaning. So
+// we DO stamp these — they're part of the user's intent.
+function seedIntegralWeighting(base) {
+    if (!base.source)   base.source   = { id: 'D65' };
+    if (!base.detector) base.detector = { id: 'photopic' };
+}
+
+// Argwave: the target is the user-facing λ-comparison threshold. Seed at the
+// band midpoint so a brand-new operand isn't immediately reporting a huge
+// residual against a target of 0.
+function seedArgwaveTarget(base) {
+    if (targetUnset(base)) base.target = (base.lambdaStart + base.lambdaEnd) * 0.5;
+}
+
+// Range-target (TGT/RGT/AGT): a per-λ target line. `target` is the value at
+// λStart, `targetEnd` the value at λEnd. When targetEnd is unset the target is
+// FLAT, so a fresh range-target operand enforces a constant level across the
+// band until the user sets a ramp.
+function seedRangeTargetEnd(base) {
+    if (base.targetEnd == null) base.targetEnd = base.target;
+}
+
+/** Total thickness (TT): a target in nm, so a fraction is meaningless. */
+function seedTotalThicknessTarget(base) {
+    if (targetUnset(base)) base.target = 1000;
+}
+
+// Film stress (STR): the target is a force per unit width in N/m, and the one
+// value worth seeding is 0 — Klein's zero-deflection condition, which is what
+// a user reaches for this operand to ask for.
+function seedStressTarget(base) {
+    if (targetUnset(base)) base.target = 0;
+    if (base.cmp == null) base.cmp = 'eq';
+}
+
+/** Blank/comment operand: keep a comment field, no numeric meaning. */
+function seedComment(base) {
+    if (base.comment == null) base.comment = '';
+}
+
+// Per-family semantic seeding, first match wins. The families are disjoint, so
+// the order here is documentation rather than precedence. Math operands
+// (OPGT…PROD) are deliberately absent: their refId depends on which other rows
+// exist, so the UI sets it when the row is created.
+const TYPE_SEEDS = [
+    [isIntegral,       seedIntegralWeighting],
+    [isArgwave,        seedArgwaveTarget],
+    [isRangeTarget,    seedRangeTargetEnd],
+    [isTotalThickness, seedTotalThicknessTarget],
+    [isStress,         seedStressTarget],
+    [isBlank,          seedComment],
+];
+
 export function makeOperand(overrides = {}) {
     const base = {
         id:          Math.random().toString(36).slice(2, 10),
@@ -339,42 +421,9 @@ export function makeOperand(overrides = {}) {
     };
     if (!isValidMeritWeight(base.weight)) base.weight = 1;
     // ── Semantic defaults (persisted) ────────────────────────────────────────
-    // Source/detector for integral operands: without these the weighting
-    // would silently fall back to E × flat = unity, changing the operand's
-    // meaning. So we DO stamp these — they're part of the user's intent.
-    if (isIntegral(base.type)) {
-        if (!base.source)   base.source   = { id: 'D65' };
-        if (!base.detector) base.detector = { id: 'photopic' };
-    }
-    // Math operands (OPGT/OPLT/OPVA/ABSO/ABGT/ABLT/DIFF/SUMM/PROD) reference
-    // OTHER rows in the MF table by their stable `id`.  No default refId is
-    // stamped — the UI / qualifiersToMFOperands sets it when the row is
-    // created, since the right answer depends on which other operands exist.
-    // Argwave: target is the user-facing λ-comparison threshold. Seed at band
-    // midpoint so a brand-new operand isn't immediately reporting a huge
-    // residual against target=0 (which it inherits from RAV's "+ Add" default).
-    if (isArgwave(base.type)) {
-        if (!Number.isFinite(base.target) || base.target === 0.99) {
-            base.target = (base.lambdaStart + base.lambdaEnd) * 0.5;
-        }
-    }
-    // Range-target (TGT/RGT/AGT): a per-λ target line. `target` is the value at
-    // λStart, `targetEnd` the value at λEnd. When targetEnd is unset we make the
-    // target FLAT (targetEnd = target) so a fresh range-target operand enforces a
-    // constant level across the band until the user sets a ramp.
-    if (isRangeTarget(base.type) && base.targetEnd == null) {
-        base.targetEnd = base.target;
-    }
     seedMeasuredCurve(base);
-    // Total-thickness (TT): target is in nm. A brand-new TT operand inherits the
-    // 0.99 default from the RAV "+ Add" path, which is meaningless for nm — seed
-    // a sensible non-zero nm target instead.
-    if (isTotalThickness(base.type) && (!Number.isFinite(base.target) || base.target === 0.99)) {
-        base.target = 1000;
-    }
+    TYPE_SEEDS.find(([inFamily]) => inFamily(base.type))?.[1](base);
     seedPhaseTarget(base, overrides);
-    // Blank/comment operand: keep a comment field, no numeric meaning.
-    if (isBlank(base.type) && base.comment == null) base.comment = '';
     // ── Implementation hyperparameters NOT stamped ───────────────────────────
     // bandPoints, rampPoints, pNorm — runtime defaults via operandSampleLambdas
     // / evalOperand. This way a default change later automatically upgrades

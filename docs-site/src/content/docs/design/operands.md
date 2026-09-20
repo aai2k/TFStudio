@@ -49,7 +49,7 @@ MF = √( Σ wᵢ · (residualᵢ / σᵢ)²  /  Σ wᵢ )
 | ----------------------------------- | ---------- | ---------------------------------------- |
 | All fraction-unit (T/R/A, averages, integrals, worst-case, spectral-target RMS, math) | **1**      | unchanged, pure-optical MFs are identical to before |
 | Argwave (`MXW*` / `MNW*`, nm)       | **500 nm** | 5 nm wavelength miss ≈ 1 % optical miss  |
-| Thickness (`TT`, `MNT`, `MXT`, nm)  | **1** (raw nm) | kept "hard": a violated manufacturing bound still dominates and is fixed first |
+| Manufacturability (`TT`, `MNT`, `MXT` in nm; `STR` in N/m) | **1** (raw) | kept "hard": a violated manufacturing bound still dominates and is fixed first |
 | Ellipsometry `PSI` / `DEL` (deg)    | **10 / 20** | 0.1° in Ψ or 0.2° in Δ ≈ 1 % optical miss: ten times what a spectroscopic ellipsometer repeats to, as 1 % is for a spectrophotometer |
 | Group delay `GD*` / `GDD*` (fs, fs²)| **50**     | a ~0.5 fs / fs² miss ≈ 1 % optical miss   |
 | Third-order dispersion `TOD*` (fs³) | **500**    | a ~5 fs³ miss ≈ 1 % optical miss          |
@@ -63,16 +63,16 @@ functions that **mix wavelength-valued and optical operands** rebalance.
 Every operand row exposes the same columns; their **meaning changes with the
 operand type** (the column header updates to match the focused row):
 
-| Column        | Optical / band / integral / worst-case | Argwave (MXW*/MNW*) | Constraints (MNT/MXT) | Total thickness (TT) | Math (OPGT…PROD) |
-| ------------- | -------------------------------------- | ------------------- | --------------------- | -------------------- | ---------------- |
-| **λ / Start** | start wavelength (nm)                  | band start (nm)     | first layer index     | comparison (≤ ≥ =)   | referenced Op #  |
-| **End**       | end wavelength (nm), band types only   | band end (nm)       | last layer index      | n/a                  | second Op # (pair ops) |
-| **AOI (°)**   | angle of incidence                     | AOI                 | n/a                   | n/a                  | inherited from ref |
-| **Pol**       | `avg` / `s` / `p`                      | pol                 | n/a                   | n/a                  | inherited from ref |
-| **Target**    | desired value (see units below)        | desired λ (nm)      | bound (nm)            | total (nm)           | desired value (ref units) |
-| **Weight**    | relative importance (linear)           | weight              | weight                | weight               | weight           |
-| **Current**   | live computed value                    | computed λ (nm)     | min/max layer (nm)    | Σ thickness (nm)     | computed value   |
-| **% of MF²**  | row's share of the weighted squared residual | same | same | same | same |
+| Column        | Optical / band / integral / worst-case | Argwave (MXW*/MNW*) | Constraints (MNT/MXT) | Total thickness (TT) | Film stress (STR) | Math (OPGT…PROD) |
+| ------------- | -------------------------------------- | ------------------- | --------------------- | -------------------- | ----------------- | ---------------- |
+| **λ / Start** | start wavelength (nm)                  | band start (nm)     | first layer index     | comparison (≤ ≥ =)   | comparison (≤ ≥ =) | referenced Op #  |
+| **End**       | end wavelength (nm), band types only   | band end (nm)       | last layer index      | n/a                  | n/a               | second Op # (pair ops) |
+| **AOI (°)**   | angle of incidence                     | AOI                 | n/a                   | n/a                  | n/a               | inherited from ref |
+| **Pol**       | `avg` / `s` / `p`                      | pol                 | n/a                   | n/a                  | n/a               | inherited from ref |
+| **Target**    | desired value (see units below)        | desired λ (nm)      | bound (nm)            | total (nm)           | force (N/m)       | desired value (ref units) |
+| **Weight**    | relative importance (linear)           | weight              | weight                | weight               | weight            | weight           |
+| **Current**   | live computed value                    | computed λ (nm)     | min/max layer (nm)    | Σ thickness (nm)     | Σ σ·d (N/m)       | computed value   |
+| **% of MF²**  | row's share of the weighted squared residual | same | same | same | same | same |
 
 **Units:** T/R/A-valued operands store the target as a fraction in `[0,1]` and
 display it as a percentage. Wavelength, layer-index, and thickness operands use
@@ -297,13 +297,14 @@ The Specification window's "Generate MF" emits, for each `≥`/`≤` spec, a
 zero-weight measurement row (`TAV`, `TMN`, …) plus an `OPGT`/`OPLT` row that
 references it, so the table reads "spec = 99 %, value = 99.5 %".
 
-## Thickness operands
+## Thickness and stress operands
 
 Act on **layer thicknesses**, not the spectrum.
 
 | Type  | λ / Start  | End        | Computes                        | Target unit | Residual                                    |
 | ----- | ---------- | ---------- | ------------------------------- | ----------- | ------------------------------------------- |
 | `TT`  | comparison | n/a        | Σ of all active layer thicknesses | nm        | `≤`/`≥` one-sided, or `=` two-sided         |
+| `STR` | comparison | n/a        | film force Σ σ·d on the substrate | N/m       | `≤`/`≥` one-sided, or `=` two-sided         |
 | `MNT` | layer 1    | layer 2    | **min** thickness in layer range  | nm        | `max(0, target − minThk)` (≥ bound)         |
 | `MXT` | layer 1    | layer 2    | **max** thickness in layer range  | nm        | `max(0, maxThk − target)` (≤ bound)         |
 
@@ -313,6 +314,47 @@ deliberately past any stack you start from, so the constraint keeps covering the
 layers synthesis adds. During Needle / Gradual Evolution synthesis the thickness penalties are
 suppressed (the dMin floor + post-refine + Cleaner enforce bounds instead);
 they are active during Refinement.
+
+### Film stress (`STR`)
+
+A coating pulls on the substrate it sits on, and a substrate that is not thick
+enough to ignore it bends. The force per unit width behind that bend is
+
+```
+F = Σ σ_l · d_l      (N/m, which is MPa·µm)
+```
+
+summed over the films, with the back coating entering negative because it pulls
+the other way. `STR` puts that force in the merit function, so the bow becomes
+something the optimizer steers rather than something the first part off the
+machine reveals. **A target of 0 is the zero-deflection condition:** a coating
+whose compressive and tensile films balance leaves the substrate flat.
+
+Each film's stress comes off its material record, on the **Mechanical** tab of
+the [Material Editor](/design/material-editor/), never off the operand row. The
+one number `STR` needs is the **intrinsic stress in MPa**, tensile positive,
+which is what a wafer-bow measurement gives you; nothing else has to be
+measured. A material that states no intrinsic stress contributes nothing and
+the merit table names it, so a blank record can never quietly read as an
+unstressed film.
+
+If the material also states Young's modulus, Poisson's ratio, an expansion
+coefficient and the reference temperature its stress was measured at, and the
+design carries a deposition and an evaluation temperature, the thermal terms
+are added as well. That deposition temperature is the substrate's temperature
+while the film grows, not the evaporant's.
+
+Which coatings count follows the design's evaluation mode, as in every analysis
+window: the active side alone with "ignore the other side" on, both otherwise.
+In symmetric mode the mirrored back coating cancels the front exactly, so the
+row sits at zero whatever the layers do and the merit table says so.
+
+Like the other rows in this group the stress force stays out of the optical
+merit and out of the synthesis scans, and its weight is kept out of the merit's
+normalization denominator, so a satisfied row leaves MF equal to OMF. Its
+residual is raw N/m, so set the weight to balance it against your optical
+targets: with a weight around 3·10⁻³ a 1 N/m miss weighs about as much as a
+0.3 % reflectance miss.
 
 ## Comment / sentinel
 
@@ -331,3 +373,4 @@ source/detector presets used by `TIW`/`RIW`/`AIW` come from the
 
 - B. T. Sullivan, J. A. Dobrowolski, "Implementation of a numerical needle method for thin-film design," *Appl. Opt.* **35**, 5484 (1996).
 - H. A. Macleod, *Thin-Film Optical Filters*, 5th ed., §2.6.4 (two-sided system), Ch. 13 (merit functions and tolerancing).
+- C. A. Klein, "Normal and interfacial stresses in thin-film coated optics: the case of diamond-coated zinc sulfide windows," *Opt. Eng.* **40**, 1115 (2001): Eq. (14) for the film force, Eq. (34) for the zero-deflection condition a `STR` target of 0 asks for.

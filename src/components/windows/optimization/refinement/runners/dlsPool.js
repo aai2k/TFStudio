@@ -53,6 +53,9 @@ function buildMedia(curDes, surfMode) {
         // Cone-angle averaging — ship to the worker so the pool refinement is
         // cone-averaged identically to the main-thread eval.
         ...(curDes.cone ? { cone: curDes.cone } : {}),
+        // Stress run temperatures, so a worker scores an STR row with the same
+        // thermal terms the main thread shows.
+        ...(curDes.stress ? { stress: curDes.stress } : {}),
     };
 }
 

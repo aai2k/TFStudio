@@ -87,6 +87,25 @@ ok(!cleanAfterSave[savedSnapshot.id], 'an unchanged successful save clears dirty
 ok(designsEqual({ tfs_version: '1.0', ...savedSnapshot }, savedSnapshot),
   'disk metadata does not make an unchanged design dirty');
 
+// .tfs 1.2 adds `stress` and `substrate.diameterMm`. Nothing is migrated, so a
+// 1.1 file carrying neither has to load unchanged and stay clean, and the two
+// new keys have to mark the design dirty the way any other user data does:
+// they are typed in the Stress window and belong in the file.
+const v11OnDisk = {
+  id: 'design-2', name: 'Older file',
+  substrate: { material: 'BK7', thickness: 1 },
+  frontLayers: [{ d: 100 }],
+};
+ok(designsEqual({ tfs_version: '1.1', ...v11OnDisk }, v11OnDisk),
+  'a 1.1 file with none of the 1.2 keys loads unchanged and stays clean');
+ok(!designsEqual({ ...v11OnDisk, stress: { depositionTemperatureC: 250 } }, v11OnDisk),
+  'setting the deposition temperature marks the design dirty');
+ok(!designsEqual(
+  { ...v11OnDisk, substrate: { ...v11OnDisk.substrate, diameterMm: 25 } }, v11OnDisk),
+'and so does setting the substrate diameter');
+ok(designsEqual({ ...v11OnDisk, materials: { 'user:X': {} } }, v11OnDisk),
+  'while the embedded material block stays derived and marks nothing dirty');
+
 const renamedDisk = { id: 'demo-1', name: 'Canonical title', frontLayers: [{ d: 100 }] };
 const staleSession = { id: 'demo-1', name: 'Old — title', frontLayers: [{ d: 125 }] };
 const merged = mergeSessionOverDisk({ 'demo-1': renamedDisk }, { 'demo-1': staleSession });

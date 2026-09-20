@@ -13,15 +13,15 @@
  * and 700 are a sensible visible band, and nonsense as layer indices.
  */
 import {
-    isArgwave, isBlank, isConstraint, isDmfs, isIntegral, isMath, isPhase,
-    isTotalThickness,
+    isArgwave, isBlank, isConstraint, isDmfs, isIntegral, isLinearThickness,
+    isMath, isPhase, isStress, isTotalThickness,
 } from './operandModel.js';
 
 const ROW_RANGE_DOMAINS = [
     [isConstraint, 'layer'],
     [isMath, 'operandRef'],
     [isIntegral, 'preset'],
-    [isTotalThickness, 'comparison'],
+    [isLinearThickness, 'comparison'],
     [type => isBlank(type) || isDmfs(type), 'comment'],
 ];
 
@@ -36,6 +36,7 @@ export function rowRangeDomain(type) {
 // silently reinterpreted. Splitting them needs the per-type unit table, which
 // lives in the merit table's view model.
 const TARGET_DOMAINS = [
+    [isStress, 'force'],
     [type => isConstraint(type) || isTotalThickness(type), 'nm'],
     [isArgwave, 'wavelength'],
     [isPhase, 'phase'],

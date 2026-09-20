@@ -1,8 +1,8 @@
 import {
     isArgwave, isBlank, isConstraint, isDmfs, isInequality, isIntegral,
-    isMath, isMathPairRef, isMathSingleRef, isMinmax, isRangeTarget,
-    isTotalThickness, isPhase, isWrappedAngle, isGroupDelayFlat, isFractionalUnit,
-    isMeasuredCurve,
+    isLinearThickness, isMath, isMathPairRef, isMathSingleRef, isMinmax,
+    isRangeTarget, isStress, isTotalThickness, isPhase, isWrappedAngle,
+    isGroupDelayFlat, isFractionalUnit, isMeasuredCurve,
     _operandResidual,
 } from '../../../../../utils/physics/optimizer.js';
 
@@ -38,7 +38,8 @@ const TYPE_COLORS = {
     TODFLAT: [110, 180, 220], TODTFLAT: [110, 180, 220],
     EFMX: [220, 120, 180],
     MCURVE: [230, 170, 70],
-    MNT: [180, 100, 255], MXT: [180, 100, 255], BLNK: [140, 140, 140],
+    MNT: [180, 100, 255], MXT: [180, 100, 255], STR: [180, 100, 255],
+    BLNK: [140, 140, 140],
 };
 
 // Column widths are proportions, not pixels: the table fills whatever width it
@@ -90,7 +91,7 @@ const LAMBDA = 'λ';
 const HEADER_LABELS = [
     [op => isMeasuredCurve(op.type), { lambdaStart: 'lamStart', lambdaEnd: 'lamEnd' }],
     [op => isBlank(op.type), { lambdaStart: 'comment', lambdaEnd: DASH }],
-    [op => isTotalThickness(op.type), { lambdaStart: 'cmp', lambdaEnd: DASH }],
+    [op => isLinearThickness(op.type), { lambdaStart: 'cmp', lambdaEnd: DASH }],
     [op => isConstraint(op.type), { lambdaStart: 'layer1', lambdaEnd: 'layer2' }],
     [op => isIntegral(op.type), { lambdaStart: 'integral', lambdaEnd: DASH }],
     [op => isArgwave(op.type), { lambdaStart: 'lamStart', lambdaEnd: 'lamEnd' }],
@@ -105,7 +106,7 @@ const HEADER_LABELS = [
 const EDITABLE_COLS = [
     [op => isMeasuredCurve(op.type), ['enabled', 'weight']],
     [op => isDmfs(op.type) || isBlank(op.type), ['enabled']],
-    [op => isTotalThickness(op.type), ['enabled', 'type', 'lambdaStart', 'target', 'weight']],
+    [op => isLinearThickness(op.type), ['enabled', 'type', 'lambdaStart', 'target', 'weight']],
     [op => isConstraint(op.type), ['enabled', 'type', 'lambdaStart', 'lambdaEnd', 'target', 'weight']],
     [op => isIntegral(op.type), ['enabled', 'type', 'lambdaStart', 'aoi', 'pol', 'target', 'weight']],
     [op => isArgwave(op.type), ['enabled', 'type', 'lambdaStart', 'lambdaEnd', 'aoi', 'pol', 'target', 'weight']],
@@ -158,6 +159,7 @@ export function isRangeType(type) {
 export function rowDisplayMeta(op, rawCur, mathPercent, bandLevel = null) {
     const isCon = isConstraint(op.type);
     const isTT = isTotalThickness(op.type);
+    const isStr = isStress(op.type);
     const isArg = isArgwave(op.type);
     const isMth = isMath(op.type);
     const isFlat = isGroupDelayFlat(op.type);
@@ -188,7 +190,7 @@ export function rowDisplayMeta(op, rawCur, mathPercent, bandLevel = null) {
     // against Target directly; the RMS remains available in the tooltip.
     const cur = isFlat && bandLevel != null ? bandLevel : value;
     return {
-        isCon, isTT, isArg, isMth, isPhs, isMeasured,
+        isCon, isTT, isStr, isArg, isMth, isPhs, isMeasured,
         phaseUnit: isPhs ? phaseUnit(unitType) : '',
         mthPct: mathPercent, useFraction, cur, tgt,
         rawResidual, isRampRow, isRange: isRangeType(op.type),
@@ -226,27 +228,35 @@ export function residualTooltip(meta, text = {}) {
     return `${text.residualDifference || 'Current − target'}: ${shown}`;
 }
 
+// How a row's value prints: its unit and how many decimal places carry
+// meaning. A math row is not here because it inherits the unit of the row it
+// references, so it has no fixed scale of its own.
+function valueFormat(meta) {
+    if (meta.isPhs) return { decimals: 3, unit: meta.phaseUnit };
+    if (meta.isStr) return { decimals: 2, unit: 'N/m' };
+    if (meta.isCon || meta.isTT || meta.isArg) return { decimals: 2, unit: 'nm' };
+    return { decimals: 3, unit: '%' };
+}
+
 export function fmtCurrent(cur, meta) {
     if (cur == null) return '—';
     if (meta.isMth) return cur.toPrecision(4);
-    if (meta.isPhs) return withUnit(cur.toFixed(3), meta.phaseUnit);
-    if (meta.isCon || meta.isTT || meta.isArg) return cur.toFixed(2) + ' nm';
-    return cur.toFixed(3) + ' %';
+    const { decimals, unit } = valueFormat(meta);
+    return withUnit(cur.toFixed(decimals), unit);
 }
 
 export function fmtResidual(value, meta) {
     if (value == null) return '—';
     const sign = value >= 0 ? '+' : '';
     if (meta.isMth) return sign + value.toPrecision(3);
-    if (meta.isPhs) return withUnit(sign + value.toFixed(3), meta.phaseUnit);
-    if (meta.isCon || meta.isTT || meta.isArg) return sign + value.toFixed(2) + ' nm';
-    return sign + value.toFixed(3) + ' %';
+    const { decimals, unit } = valueFormat(meta);
+    return withUnit(sign + value.toFixed(decimals), unit);
 }
 
 export function fmtTargetDisplay(op, meta) {
     if (meta.isMth) return meta.mthPct ? (op.target * 100).toFixed(2) : (op.target?.toPrecision?.(4) ?? '0');
     if (meta.isPhs) return withUnit(op.target.toFixed(2), meta.phaseUnit);
-    if (meta.isCon || meta.isTT || meta.isArg) return op.target.toFixed(2);
+    if (meta.isCon || meta.isTT || meta.isStr || meta.isArg) return op.target.toFixed(2);
     if (meta.isRampRow) {
         const end = op.targetEnd != null ? op.targetEnd : op.target;
         return `${(op.target * 100).toFixed(1)}→${(end * 100).toFixed(1)}`;

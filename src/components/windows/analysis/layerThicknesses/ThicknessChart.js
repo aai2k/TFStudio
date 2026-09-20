@@ -1,39 +1,11 @@
 import { ANALYSIS_DEFAULTS } from '../../../../constants/analysisDefaults.js';
 import { cartesianOption, formatChartReadout, itemTooltip, valueAxis } from '../../../ui/chartOptions.js';
 import { drawChart, useChartTeardown } from '../../../ui/plotSurface.js';
-import { legendAbove, plotMargin } from '../chrome/plot.js';
+import { legendAbove, materialBarSeries, plotMargin } from '../chrome/plot.js';
 import { rowValue } from './thicknessModel.js';
 import { useAnalysisColors } from '../../../../state/AnalysisSettingsContext.js';
 
 const { createElement: h, useEffect, useRef } = React;
-
-/**
- * One bar series per distinct material, overlapped onto the same category
- * slots, so the legend doubles as the material key. Only one series holds a
- * value at any layer, which is what makes the overlap safe.
- */
-function materialSeries(rows, unit, matColorMap, gridColor, fallback) {
-    const byName = new Map();
-    rows.forEach((row, index) => {
-        if (!byName.has(row.materialName)) {
-            byName.set(row.materialName, {
-                name: row.materialName,
-                type: 'bar',
-                data: new Array(rows.length).fill(null),
-                barGap: '-100%',
-                barCategoryGap: '20%',
-                itemStyle: {
-                    color: matColorMap[row.materialId] || fallback,
-                    borderColor: gridColor,
-                    borderWidth: 1,
-                },
-                animation: false,
-            });
-        }
-        byName.get(row.materialName).data[index] = rowValue(row, unit);
-    });
-    return [...byName.values()];
-}
 
 export function buildThicknessOption({
     rows, unit, matColorMap, c, xTitle, yTitle, valueSuffix = '',
@@ -43,7 +15,8 @@ export function buildThicknessOption({
     const text = c.text || '#cccccc';
     const gridColor = c.border || '#3a3a3a';
     const labels = rows.map(row => String(row.layerNumber));
-    const series = materialSeries(rows, unit, matColorMap, gridColor, colors.fallback);
+    const series = materialBarSeries(rows, row => rowValue(row, unit),
+        { matColorMap, gridColor, fallback: colors.fallback });
     return cartesianOption({
         colors: c,
         grid: plotMargin(),

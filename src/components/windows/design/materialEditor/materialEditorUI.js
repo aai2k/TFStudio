@@ -7,8 +7,30 @@
  */
 
 import { parseNumber } from '../../../../utils/misc/numberParsing.js';
+import { TabBtn } from '../../../ui/tabBtn.js';
 
 const { createElement: h, useRef, useEffect, useState } = React;
+
+// The pages the detail pane is split into. The editable form and the read-only
+// view show the same strip, so a material reads the same way whichever catalog
+// it came from, and one stored choice serves both.
+export const DETAIL_TABS = ['nk', 'mechanical'];
+
+export function detailTabStrip({ tab, setTab, me, c, wrapStyle }) {
+    const labels = { nk: me.nkTab, mechanical: me.mechanicalTab };
+    return h('div', {
+        style: {
+            display: 'flex', alignItems: 'center', gap: 2, flexShrink: 0,
+            borderBottom: `1px solid ${c.border}`, backgroundColor: c.panel, ...wrapStyle,
+        },
+    }, DETAIL_TABS.map(id =>
+        h(TabBtn, { key: id, c, active: tab === id, onClick: () => setTab(id) }, labels[id])));
+}
+
+/** "Young's modulus (GPa)", or the bare label where the value has no unit. */
+export function unitLabel(label, unit) {
+    return unit ? `${label} (${unit})` : label;
+}
 
 /** Wavelength in nm for display: up to two decimals, trailing zeros dropped. */
 export function formatNm(nm) {

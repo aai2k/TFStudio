@@ -19,9 +19,12 @@ Materials are grouped into catalogs by source:
 | **RefractiveIndex** | Materials you import from the refractiveindex.info database.          | Yes               |
 
 The left panel holds a catalog selector, a search box, and the material list;
-the right panel shows the selected material. Built-in and AGF materials show
-read-only details (properties, dispersion formula, tabulated data, and an n/k
-chart); user and imported materials open in an editable form.
+the right panel shows the selected material on two pages, **n & k** and
+**Mechanical**. Built-in and AGF materials show read-only details (properties,
+dispersion formula, tabulated data, and an n/k chart); user and imported
+materials open in an editable form. The name, id, colour and wavelength range
+stay above the two pages, since they identify the material whichever page is
+open.
 
 ## Settings
 
@@ -85,7 +88,8 @@ catalog, which is the way to make an editable variant of a read-only material.
 
 ## Creating a material
 
-Open a user catalog and choose **New material**, then pick a data type:
+Open a user catalog and choose **New material**. The **n & k** page holds the
+optical data; pick a data type there:
 
 1. **Tabular**: paste or type a `λ, n, k` table. You can paste directly from a
    spreadsheet (Ctrl+V), and the grid supports keyboard navigation, sorting and
@@ -160,6 +164,31 @@ on the material, travels with an embedded user material, and is removed
 automatically when its source table changes. Built-in materials remain read-only; copy one to a user
 catalog before fitting a different representation.
 
+### Mechanical constants
+
+The **Mechanical** page holds what a material is besides its dispersion.
+
+| Constant | Unit | What it is |
+| --- | --- | --- |
+| Young's modulus | GPa | Stiffness under tension. |
+| Poisson's ratio | | Sideways contraction while it stretches. |
+| Linear expansion | ppm/K | How much it grows per kelvin. |
+| dn/dT | ppm/K | How the refractive index moves with temperature. |
+| Intrinsic stress | MPa | The stress a film of it is deposited with, tensile positive. |
+| Reference temperature | °C | The deposition temperature that intrinsic stress refers to. |
+| Surface energy | J/m² | The energy a fresh surface costs, which is what a crack or a delamination pays for. |
+
+Both temperature coefficients are entered in ppm/K, the way catalogs print
+them: an expansion coefficient of 0.00000055 per kelvin is typed as 0.55.
+
+Every box stands on its own and any of them may be left empty, which means
+unknown rather than zero: a material whose stress you measured but whose
+modulus you never looked up carries the stress alone. The constants are part
+of the material, so they follow it into a user catalog, into a copy, and into
+a design file that embeds it. A glass imported from an AGF catalog arrives
+with its expansion coefficient, Young's modulus and Poisson's ratio already
+filled in, which is what those files carry.
+
 ## How to read it
 
 For a built-in or imported material, the n/k chart shows the real index `n`
@@ -167,7 +196,9 @@ For a built-in or imported material, the n/k chart shows the real index `n`
 dashed). The properties panel lists the d-line index, Abbe number, density and
 wavelength range when the source provides them, and the dispersion formula and
 coefficients when the material is formula-based. A material with a flat,
-zero `k` is non-absorbing across the plotted range.
+zero `k` is non-absorbing across the plotted range. Its **Mechanical** page
+lists the constants the catalog stated and nothing else; a material that
+states none says so.
 
 Catalogs are saved to your TFStudio data folder's `Materials` subfolder and
 persist between sessions, so an imported or hand-built material is available

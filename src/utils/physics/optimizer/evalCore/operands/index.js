@@ -3,9 +3,9 @@
  * and the resolver that lets a math row reference other rows.
  */
 
-import { isConstraint, isDmfs, isBlank, isTotalThickness, isRangeTarget, isMeasuredCurve, isIntegral, isMinmax, isArgwave, isMath, isEllipsometry, isPhaseShift, isGroupDelay, isGroupDelayFlat, isEField } from '../../operandModel.js';
+import { isConstraint, isDmfs, isBlank, isStress, isTotalThickness, isRangeTarget, isMeasuredCurve, isIntegral, isMinmax, isArgwave, isMath, isEllipsometry, isPhaseShift, isGroupDelay, isGroupDelayFlat, isEField } from '../../operandModel.js';
 import { computeMathValue } from '../mathOperands.js';
-import { _evalTotalThickness, _evalConstraint, _evalArgwave, _evalIntegral, _evalMinmax, _evalRangeTarget, _evalBandAvgOrSingle } from './basic.js';
+import { _evalTotalThickness, _evalStressForce, _evalConstraint, _evalArgwave, _evalIntegral, _evalMinmax, _evalRangeTarget, _evalBandAvgOrSingle } from './basic.js';
 import { _evalMeasuredCurve } from './measured.js';
 import { _evalEllipsometry, resetEllipsometryCaches } from './ellipsometry.js';
 import { _evalPhaseDispersionPoint, _evalGroupDelayFlat, resetPhaseDispersionCache } from './phase.js';
@@ -66,6 +66,7 @@ function _evalMath(op, ctx) {
 // GDDFLAT precede isGroupDelay because they also satisfy isGroupDelay.
 const _EVAL_DISPATCH = [
     [isTotalThickness, _evalTotalThickness],
+    [isStress,         _evalStressForce],
     [isConstraint,     _evalConstraint],
     [isMath,           _evalMath],
     [isArgwave,        _evalArgwave],

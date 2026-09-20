@@ -18,8 +18,10 @@ import {
 import { fitActions, renderFitPanel } from './fitPanel.js';
 import { parseNumber, parseNumberStrict } from '../../../../utils/misc/numberParsing.js';
 import { INTERPOLATION_RULES, interpolationRuleOf } from '../../../../utils/materials/pchip.js';
-import { KaTeXSpan, NkProbe, dotStyle, catTabStyle, smallBtn } from './materialEditorUI.js';
+import { renderMechanicalTab } from './mechanicalTab.js';
+import { KaTeXSpan, NkProbe, detailTabStrip, dotStyle, catTabStyle, smallBtn } from './materialEditorUI.js';
 import { readOnlyNkTable } from './materialEditorReadOnly.js';
+import { useChartTeardown } from '../../../ui/plotSurface.js';
 import { evaluateDispersionFit } from '../../../../utils/materials/dispersionFits.js';
 
 const { createElement: h, useRef, useEffect, useState, useMemo } = React;
@@ -35,6 +37,17 @@ function numberText(value, fallback = '') {
 }
 
 // ── Live preview chart ────────────────────────────────────────────────────────
+
+// Redraws on every render, the house convention for charts, and disposes its
+// renderer when the node goes away, which switching to another page of the
+// form does.
+function DraftChart({ height, draw }) {
+    const ref = useRef(null);
+    const chartRef = useRef(null);
+    useEffect(() => { draw(ref.current); });
+    useChartTeardown(ref, chartRef);
+    return h('div', { ref, style: { height } });
+}
 
 // Draw the draft's n (and optional k) over its wavelength range. Follows the
 // material's actual range in nm — no fixed visible/NIR clamp — so EUV (<200 nm)
@@ -174,7 +187,7 @@ function renderColorField({ draft, set, me, c, colorIsAuto, autoColor, labelStyl
 
 function renderPropertiesGrid(ctx) {
     const { draft, set, setId, me, c, inputStyle, labelStyle } = ctx;
-    return h('div', { style: { display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '4px 8px', paddingTop: 8 } },
+    return h('div', { style: { display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '4px 8px', padding: '8px 0', flexShrink: 0 } },
         // ID
         h('div', { style: { display: 'flex', flexDirection: 'column', gap: 2 } },
             h('span', { style: labelStyle }, me.materialId),
@@ -348,12 +361,28 @@ function renderFormulaEditor(ctx) {
     );
 }
 
-function renderPreviewChart({ chartRef, residualChartRef, showResidual, preview, me, c, sectionLabel }) {
+// The n and k page: what the material is made of optically, from the data type
+// down to the curve it produces.
+function renderNkTab(ctx) {
+    const { draft, me, c, sectionLabel } = ctx;
+    return h('div', { style: { display: 'flex', flexDirection: 'column' } },
+        !draft.isRii && renderTypeToggle(ctx),
+        draft.type === 'tabular' && renderTabularEditor(ctx),
+        draft.type === 'tabular' && renderInterpolationField(ctx),
+        draft.type === 'tabular' && renderFitPanel(ctx),
+        draft.type === 'formula' && renderFormulaEditor(ctx),
+        renderPreviewChart({
+            draft, showResidual: !!draft.dispersionFit, preview: ctx.preview, me, c, sectionLabel,
+        })
+    );
+}
+
+function renderPreviewChart({ draft, showResidual, preview, me, c, sectionLabel }) {
     return h('div', { style: { flexShrink: 0, marginTop: 8, borderTop: `1px solid ${c.border}` } },
         sectionLabel(me.chartTitle),
-        h('div', { ref: chartRef, style: { height: 160 } }),
+        h(DraftChart, { height: 160, draw: el => drawDraftChart(el, draft, c, me) }),
         showResidual && sectionLabel(me.fitResidual),
-        showResidual && h('div', { ref: residualChartRef, style: { height: 130 } }),
+        showResidual && h(DraftChart, { height: 130, draw: el => drawFitResidualChart(el, draft, c, me) }),
         preview.getNK && h('div', { style: { padding: '6px 0 2px' } },
             h(NkProbe, { getNK: preview.getNK, rangeNm: preview.rangeNm, c, me })),
         preview.rows.length > 0 && readOnlyNkTable(`${me.nkTableSampled} (${preview.rows.length})`, preview.rows, c,
@@ -395,22 +424,15 @@ function renderFormFooter({ onSave, onRevert, dirty, me, c }) {
 
 // ── Component ─────────────────────────────────────────────────────────────────
 
-export function UserMaterialForm({ draft, onChange, onSave, onRevert, onDelete, onCopy, dirty, catalogs, workingNm, c, t }) {
+export function UserMaterialForm({
+    draft, onChange, onSave, onRevert, onDelete, onCopy, dirty, catalogs, workingNm,
+    detailTab, setDetailTab, c, t,
+}) {
     const me = t.materialEditor;
-    const chartRef = useRef(null);
-    const residualChartRef = useRef(null);
     const seqRef = useRef(draft._rowSeq || (draft.rows.length + draft.kRows.length + 100));
     const nextKey = () => ++seqRef.current;
     const [fitError, setFitError] = useState('');
     const [suggestion, setSuggestion] = useState(null);
-
-    // Live n/k chart. No dependency list: see plotSurface.js for why every
-    // render redraws.
-    useEffect(() => {
-        if (!chartRef.current) return;
-        drawDraftChart(chartRef.current, draft, c, me);
-        if (residualChartRef.current) drawFitResidualChart(residualChartRef.current, draft, c, me);
-    });
 
     // Field / draft update helpers
     const set = (field, value) => onChange({ ...draft, [field]: value });
@@ -474,7 +496,7 @@ export function UserMaterialForm({ draft, onChange, onSave, onRevert, onDelete, 
     }, text);
 
     const ctx = {
-        draft, set, setId, me, c, inputStyle, labelStyle, sectionLabel,
+        draft, set, setId, me, c, inputStyle, labelStyle, sectionLabel, preview,
         lambdaAxis: t.spectralAxis.lambdaShort,
         formulaInfo, coeffCount, colorIsAuto, autoColor,
         addRow, delRow, editRow, sortRows, pasteRows,
@@ -482,19 +504,15 @@ export function UserMaterialForm({ draft, onChange, onSave, onRevert, onDelete, 
         addKRow, delKRow, editKRow, pasteKRows, addTerm, changeFormula,
     };
 
+    // What identifies the material stays above the tab strip, and Save stays
+    // below it, so both are reachable from either page.
+    const tab = detailTab || 'nk';
     return h('div', { style: { display: 'flex', flexDirection: 'column', height: '100%', overflow: 'hidden', padding: '0 12px' } },
         renderFormHeader({ draft, shownColor, set, setName, onCopy, onDelete, me, c, inputStyle }),
+        renderPropertiesGrid(ctx),
+        detailTabStrip({ tab, setTab: setDetailTab, me, c, wrapStyle: { margin: '0 -12px', padding: '0 12px' } }),
         h('div', { style: { flex: 1, overflowY: 'auto', display: 'flex', flexDirection: 'column' } },
-            renderPropertiesGrid(ctx),
-            !draft.isRii && renderTypeToggle(ctx),
-            draft.type === 'tabular' && renderTabularEditor(ctx),
-            draft.type === 'tabular' && renderInterpolationField(ctx),
-            draft.type === 'tabular' && renderFitPanel(ctx),
-            draft.type === 'formula' && renderFormulaEditor(ctx),
-            renderPreviewChart({
-                chartRef, residualChartRef, showResidual: !!draft.dispersionFit,
-                preview, me, c, sectionLabel,
-            })
+            tab === 'mechanical' ? renderMechanicalTab(ctx) : renderNkTab(ctx)
         ),
         renderFormFooter({ onSave, onRevert, dirty, me, c })
     );

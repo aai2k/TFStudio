@@ -29,7 +29,8 @@ export {
 } from './evalCore/operands/index.js';
 
 export {
-    buildEvalContext, evaluateOperands, operandEvaluationErrors, operandBandLevels,
+    buildEvalContext, effectiveBackLayers, evaluateOperands, operandEvaluationErrors,
+    operandBandLevels,
 } from './evalCore/evalContext.js';
 
 export { ARGWAVE_RESIDUAL_SCALE_NM, operandResidualScale, _operandResidual } from './evalCore/residualScale.js';

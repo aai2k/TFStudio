@@ -37,7 +37,7 @@ arguments, its output value and unit, and how it forms a residual) is on the
 | Phase / field        | `PSI` `DEL` `TANPSI` `COSDEL` `PR` `PT` `DPR` `DPT` `GD*` `GDD*` `TOD*` `EFMX` | phase, ellipsometry, dispersion, peak \|E\|² |
 | Argmax/min λ         | `MXWT` `MXWR` `MXWA` `MNWT` `MNWR` `MNWA` | wavelength of the extremum |
 | Math (reference rows)| `OPGT` `OPLT` `OPVA` `ABSO` `ABGT` `ABLT` `DIFF` `SUMM` `PROD` | derived from other rows |
-| Thickness            | `TT` `MNT` `MXT`               | total / per-layer thickness  |
+| Thickness and stress | `TT` `STR` `MNT` `MXT`         | total / per-layer thickness, film force on the substrate |
 | Comment              | `BLNK` `DMFS`                  | inert                        |
 
 Reflection and transmission targets are typically generated in **paired** rows
@@ -101,17 +101,17 @@ will add later.
 
 The header shows **two** numbers:
 
-- **MF**: the full merit function, including the manufacturing and thickness
-  constraints (`MNT`, `MXT`, `TT`).
+- **MF**: the full merit function, including the manufacturability rows
+  (`MNT`, `MXT`, `TT`, `STR`).
 - **OMF**: the **optical merit function**: the same RMS but counting *only the
-  optical operands* (T/R/A targets, bands, and so on), with the thickness
-  constraints dropped.
+  optical operands* (T/R/A targets, bands, and so on), with the
+  manufacturability rows dropped.
 
 They separate two questions the plain MF blurs together: *how good is the
-spectrum?* (OMF) versus *how good is the spectrum while honoring my thickness
-limits?* (MF). When MF is high but OMF is low, the optical performance is fine
-and it is a constraint (a too-thin or too-thick layer) costing you, not the
-optics.
+spectrum?* (OMF) versus *how good is the spectrum while honoring what I can
+build?* (MF). When MF is high but OMF is low, the optical performance is fine
+and it is a constraint costing you, not the optics: a too-thin or too-thick
+layer, a thickness budget, or a coating that bends its substrate too far.
 
 ## How to read it
 

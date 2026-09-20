@@ -196,7 +196,16 @@ function handleLoadFolders(ctx) {
 // Format of the .tfs files this build writes.
 //   1.0 — material ids only; a design is readable only where its catalogs exist
 //   1.1 — adds the `materials` block defining the non-built-in materials used
-const TFS_VERSION = '1.1';
+//   1.2 — adds `materials[id].mechanical` (the elastic, thermal and surface
+//         constants the stress analysis reads), `stress` (the evaluation and
+//         deposition temperatures) and `substrate.diameterMm`
+//
+// Nothing is migrated in either direction. The reader checks the substrate and
+// the layer lists and passes every other key through, so a 1.0 or 1.1 file
+// reads as before and a 1.2 file opens in an older build too. The one loss:
+// an older build re-saving a 1.2 design rebuilds the embedded materials from
+// its own catalogs and drops the mechanical block where its copy lacks it.
+const TFS_VERSION = '1.2';
 
 // Stamp the current format version and serialize. A design loaded from disk
 // carries the version it was read with, so the stamp has to replace it rather

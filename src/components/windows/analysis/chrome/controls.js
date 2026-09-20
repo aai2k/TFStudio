@@ -46,27 +46,42 @@ export function Divider({ c }) {
  * TFStudio writes a dot everywhere and takes either separator on the way in.
  * Arrow keys still step by `step`, which is the part of the native control
  * worth keeping.
+ *
+ * `nullable` is for a quantity that can genuinely be unknown, such as a
+ * substrate diameter nobody has measured: the field shows `placeholder`, an
+ * emptied field commits null rather than reverting, and stepping from nothing
+ * starts at `emptyStep`.
  */
-export function NumInput({ value, onChange, min, max, step = 1, c, width = 60, title, disabled }) {
-    const [raw, setRaw] = useState(String(value));
-    useEffect(() => { setRaw(String(value)); }, [value]);
+const textOf = value => (value == null ? '' : String(value));
+
+export function NumInput({
+    value, onChange, min, max, step = 1, c, width = 60, title, disabled,
+    nullable = false, placeholder, emptyStep = 0,
+}) {
+    const [raw, setRaw] = useState(textOf(value));
+    useEffect(() => { setRaw(textOf(value)); }, [value]);
     const clamp = number => Math.min(Math.max(number, min ?? -Infinity), max ?? Infinity);
     const commit = () => {
-        if (raw === String(value)) return;
+        if (raw === textOf(value)) return;
         const parsed = parseNumberStrict(raw);
         if (Number.isFinite(parsed)) onChange(clamp(parsed));
-        else setRaw(String(value));
+        else if (nullable && raw.trim() === '') onChange(null);
+        else setRaw(textOf(value));
     };
     const nudge = (direction) => {
         const parsed = parseNumberStrict(raw);
         const from = Number.isFinite(parsed) ? parsed : value;
+        // Nothing to step from: the first press lands ON emptyStep, which is
+        // where the caller wants an empty field to start, not a step past it.
         // Stepping in binary leaves 0.30000000000000004 in the field.
-        const next = clamp(Number((from + direction * step).toPrecision(12)));
+        const next = from == null
+            ? clamp(emptyStep)
+            : clamp(Number((from + direction * step).toPrecision(12)));
         setRaw(String(next));
         onChange(next);
     };
     return h('input', {
-        type: 'text', inputMode: 'decimal', value: raw, title, disabled,
+        type: 'text', inputMode: 'decimal', value: raw, title, disabled, placeholder,
         // See `.tfs-number` in styles.css.
         className: 'tfs-number',
         onChange: event => setRaw(event.target.value),

@@ -9,7 +9,7 @@
  */
 
 import {
-    isDmfs, isBlank, isConstraint, isTotalThickness, isMath, isRangeTarget,
+    isDmfs, isBlank, isManufacturability, isMath, isRangeTarget,
     isIntegral, isArgwave, isMinmax, isGroupDelayFlat, isMeasuredCurve,
     bandSampleCount, ARGWAVE_DEFAULT_POINTS,
 } from './operandModel.js';
@@ -99,8 +99,9 @@ function mathSampleLambdas(op) {
 }
 
 export function operandSampleLambdas(op) {
-    // DMFS / BLNK are inert; constraints & TT act on layer thicknesses, not λ.
-    if (isDmfs(op.type) || isBlank(op.type) || isConstraint(op.type) || isTotalThickness(op.type)) return [];
+    // DMFS / BLNK are inert; the manufacturability rows act on layer
+    // thicknesses, not λ.
+    if (isDmfs(op.type) || isBlank(op.type) || isManufacturability(op.type)) return [];
     // Math operands reference other rows by id; the referenced operands carry
     // their own λ grid, so math operands contribute zero λs themselves and
     // requiredLambdas() picks up the referenced operands' λs naturally.
@@ -154,6 +155,11 @@ export function operandWavelengthSpan(operands) {
 // [n,k] on the exact λ grid. Shared by Refinement (DLS) and the synthesis
 // worker (needle/GE — must also pre-sample the candidate pool).
 // `pairs` = [{ id, mat }]; later duplicates of an id are ignored.
+//
+// The mechanical block rides along unsampled: it holds constants, not a
+// dispersion, and the STR operand reads it in the worker exactly as the main
+// thread reads it off the material record. Without it a worker run would score
+// a merit function containing STR as though every film were unstressed.
 export function buildPresampledTable(lambdas, pairs, { includeOmegaResponses = true } = {}) {
     const materials = {};
     for (const { id, mat } of pairs) {
@@ -166,9 +172,11 @@ export function buildPresampledTable(lambdas, pairs, { includeOmegaResponses = t
             n[i] = nk[0]; k[i] = nk[1];
             if (omegaResponses) omegaResponses[i] = materialOmegaResponse(mat, lambdas[i]);
         }
-        materials[id] = omegaResponses
-            ? { lambdas, n, k, omegaResponses }
-            : { lambdas, n, k };
+        materials[id] = {
+            lambdas, n, k,
+            ...(omegaResponses ? { omegaResponses } : {}),
+            ...(mat.mechanical ? { mechanical: mat.mechanical } : {}),
+        };
     }
     return materials;
 }

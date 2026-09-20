@@ -21,7 +21,7 @@ export {
 } from './catalogPool.js';
 export { loadSavedCatSelection, saveCatSelection, useCatSelection } from './catSelection.js';
 export {
-    sideKeyFor, activeSide, densifyForRun, minOmfOf, chunkArray,
+    sideKeyFor, activeSide, serializableMedia, densifyForRun, minOmfOf, chunkArray,
     poolSize, buildARSeedCandidates, computePareto,
 } from './synthesisMath.js';
 export { MaterialPoolPanel } from './MaterialPoolPanel.js';

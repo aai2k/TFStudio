@@ -1,4 +1,4 @@
-import { isConstraint, isTotalThickness, isValidMeritWeight } from '../operandModel.js';
+import { isManufacturability, isValidMeritWeight } from '../operandModel.js';
 import { _meritDiff } from './residualScale.js';
 import { operandEvaluationErrors } from './evalContext.js';
 
@@ -6,8 +6,8 @@ import { operandEvaluationErrors } from './evalContext.js';
 // Returns { sumWRes2, sumWopt, sumWcon, n, sawNonFinite }.
 //
 // Two weight accumulators: `sumWopt` (the optical/spec operands that define the
-// merit's normalization) and `sumWcon` (manufacturability constraints — MNT/MXT
-// layer bounds and the TT/TOT total-thickness budget). The RMS is normalized by
+// merit's normalization) and `sumWcon` (manufacturability rows — MNT/MXT layer
+// bounds, the TT total-thickness budget, the STR film force). The RMS is normalized by
 // the OPTICAL weight only; constraints add their one-sided penalty to the
 // NUMERATOR but never enter the denominator (keeps MF == OMF when satisfied).
 function _accumMerit(operands, computed, skipConstraints) {
@@ -26,8 +26,8 @@ function _accumMerit(operands, computed, skipConstraints) {
         if (!Number.isFinite(diff)) { sawNonFinite = true; continue; }
         const w = op.weight;
         sumWRes2 += w * diff * diff;
-        // Denominator policy. Manufacturability CONSTRAINTS (MNT/MXT layer bounds
-        // and the TT/TOT total-thickness budget) add their one-sided penalty to
+        // Denominator policy. Manufacturability rows (MNT/MXT layer bounds, the
+        // TT total-thickness budget, the STR film force) add their penalty to
         // the numerator above, but their weight is kept OUT of the normalization
         // denominator (sumWopt). Everything else — optical T/R/A targets, ramps,
         // min/max spec operands and math operands (all of which express OPTICAL
@@ -41,7 +41,7 @@ function _accumMerit(operands, computed, skipConstraints) {
         // is what gives both: continuity AND MF ≥ OMF. The needle scanner already
         // normalizes by optical weight only (scanners.js), so this also aligns
         // the reported MF with the scan.
-        if (isConstraint(op.type) || isTotalThickness(op.type)) sumWcon += w;
+        if (isManufacturability(op.type)) sumWcon += w;
         else sumWopt += w;
         n++;
     }
@@ -52,7 +52,7 @@ function hasInvalidContributingWeight(operands, computed, skipConstraints) {
     for (let i = 0; i < operands.length; i++) {
         const op = operands[i];
         if (!op.enabled || computed[i] == null) continue;
-        if (skipConstraints && (isConstraint(op.type) || isTotalThickness(op.type))) continue;
+        if (skipConstraints && isManufacturability(op.type)) continue;
         if (!isValidMeritWeight(op.weight)) return true;
     }
     return false;
@@ -85,8 +85,8 @@ export function calcMF(operands, computed, opts = {}) {
 }
 
 // Optical merit function (OMF) — the SAME RMS as calcMF but excluding the
-// non-optical manufacturability penalties (MNT/MXT per-layer bounds and the
-// TT/TOT total-thickness budget). This is the canonical "optical MF" used by
+// non-optical manufacturability penalties (MNT/MXT per-layer bounds, the TT
+// total-thickness budget, the STR film force). This is the canonical "optical MF" used by
 // the needle/GE scanners, error analysis and the yield simulators, surfaced to
 // the user alongside the full MF. Min/max spec operands and math operands stay
 // IN the OMF because they express optical performance, not manufacturability.

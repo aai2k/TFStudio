@@ -18,13 +18,13 @@
 
 
 import {
-    isFullSystemEval,
+    isFullSystemEval, effectiveBackLayers,
     evaluateOperands, phaseDispersionThicknessPoint, ellipsometryThicknessPoint,
     operandResidualScale, calcMF, mfWeightDenominator, _operandResidual,
     operandEvaluationErrors, OperandEvaluationError,
 } from './evalCore.js';
 import {
-    isConstraint, isTotalThickness, isRangeTarget, isIntegral,
+    isManufacturability, isRangeTarget, isIntegral,
     isMinmax, isArgwave, isMath, isEField, isMeasuredCurve,
     polFromType,
 } from './operandModel.js';
@@ -39,7 +39,7 @@ import { _jtjUpper, _mirrorUpper, makeHessianSampler, _addS, _curvRangeTarget, _
 // Operand kinds whose analytic chain rule is not worked out. One of them in
 // the merit function puts the whole Jacobian onto finite differences.
 const DECLINES_ANALYTIC_JACOBIAN = [
-    isArgwave, isMath, isTotalThickness, isMeasuredCurve, isEField,
+    isArgwave, isMath, isMeasuredCurve, isEField,
 ];
 
 // ── DLS Optimizer (Levenberg-Marquardt) ───────────────────────────────────────
@@ -67,15 +67,14 @@ export class LSQEngine {
         // falls back to FD, which differences the cone-averaged residuals and
         // therefore stays exactly consistent with the MF.
         this.cone        = makeConeSpec(design?.cone || {});
+        // Stress run temperatures, read by the STR operand through the context.
+        this.stress      = design?.stress || null;
         this.layerSide   = 'frontLayers';   // legacy field; callers may inspect
 
         const front = design.frontLayers || [];
-        const backRaw = design.backLayers || [];
-        // In symmetric mode the back stack is a mirror of the front: the
-        // physical sequence outward from the substrate is identical on both
-        // sides, so back = reverse(front) (not a plain copy). No independent
-        // back variables — just a sync rule.
-        const back  = this.surfaceMode === 'symmetric' ? [...front].reverse() : backRaw;
+        // In symmetric mode the back stack is a mirror of the front, with no
+        // independent back variables; effectiveBackLayers holds that rule.
+        const back  = effectiveBackLayers(design);
 
         const inc  = typeof design.incidentMedium === 'string' ? design.incidentMedium : (design.incidentMedium?.material ?? 'Air');
         const exit = typeof design.exitMedium     === 'string' ? design.exitMedium     : (design.exitMedium?.material     ?? 'Air');
@@ -177,6 +176,7 @@ export class LSQEngine {
             mfEvalMode:           this.mfEvalMode,
             evalFullSystem:       this.evalFullSystem,
             cone:                 this.cone,
+            stress:               this.stress,
             n0mat:                this.n0mat,
             nsmat:                this.nsmat,
             neMat:                this.neMat,
@@ -325,15 +325,15 @@ export class LSQEngine {
     // Scope: front_only single-surface (the mode whose analytic Jacobian is a
     // direct read). Returns null — caller falls back to LM step() — for any
     // other surface/eval mode, or if the analytic Jacobian declines (math/
-    // argwave/TT operands), or if σ-normalization ≠ 1 (then Jacobian is FD).
+    // argwave operands), or if σ-normalization ≠ 1 (then Jacobian is FD).
     // Supported residual curvature: single-λ optical, range-avg (TAV/RAV/AAV),
     // weighted-integral (linear in comp ⇒ ∂²r = sw·Σα·∂²comp); range-target
-    // (TGT/RGT/AGT, the √-of-mean-square chain); constraint/minmax contribute
-    // zero curvature (piecewise-linear). Returns { H, Jtr } (nFree×nFree, nFree).
+    // (TGT/RGT/AGT, the √-of-mean-square chain); the manufacturability rows and
+    // minmax contribute zero curvature. Returns { H, Jtr } (nFree×nFree, nFree).
     // Gauss-Newton system { H = JᵀJ, Jtr = Jᵀr } for the cases the FULL analytic
     // Newton Hessian (below) does not cover: full-system MF scoring (evalFullSystem
     // = both_independent / symmetric, or a single side with "ignore the other side"
-    // off / mfEvalMode='total') and math/argwave/TT/σ≠1 operands. The Jacobian is the
+    // off / mfEvalMode='total') and math/argwave/σ≠1 operands. The Jacobian is the
     // EXACT analytic Jacobian (valid in every surface mode — single-surface direct
     // + Macleod §2.6.4 full-system chain rule), with the same central-FD fallback
     // the LM step() uses when _analyticJacobian declines a term. Dropping the
@@ -375,7 +375,7 @@ export class LSQEngine {
         // single side with "ignore the other side" off / mfEvalMode='total') the MF
         // is the composed two-sided system, whose full Hessian is a much larger
         // derivation — those fall through to the Gauss-Newton system (H=JᵀJ), as do
-        // unsupported operands (math/argwave/TT/σ≠1). Either way the second-order
+        // unsupported operands (math/argwave/σ≠1). Either way the second-order
         // engines run natively in EVERY mode (no silent LM fallback).
         const sm = this.surfaceMode || 'front_only';
         const isSingleBack = sm === 'back_only';
@@ -405,13 +405,15 @@ export class LSQEngine {
 
         // Second-order curvature term S, iterating operands in the SAME order as
         // _analyticJacobian/_residuals so row index `rp` aligns with r0/J.
-        // Constraint/minmax contribute zero curvature (piecewise-linear).
+        // The manufacturability rows and minmax contribute zero curvature: the
+        // layer bounds and worst-case extrema are piecewise-linear, and the
+        // total thickness and the film force are linear outright.
         const hc = { H, J, r0, nFree, sample, addS };
         let rp = 0;
         for (let i = 0; i < this.operands.length; i++) {
             const op = this.operands[i];
             if (!op.enabled || comp[i] == null) continue;
-            if (isConstraint(op.type) || isMinmax(op.type)) { rp++; continue; }
+            if (isManufacturability(op.type) || isMinmax(op.type)) { rp++; continue; }
             if (isRangeTarget(op.type))   _curvRangeTarget(op, rp, hc);
             else if (isIntegral(op.type)) _curvIntegral(op, rp, hc);
             else if (isRangeAvg(op.type)) _curvRangeAvg(op, rp, hc);
@@ -430,7 +432,7 @@ export class LSQEngine {
     // Stable, never-overridden handle to the Levenberg–Marquardt step. The
     // second-order engines (NewtonOptimizer / SQPOptimizer) override step() to
     // dispatch to newtonStep()/sqpStep(); those fall back to the LM step for any
-    // unsupported case (non-front_only surface mode, FD-only/argwave/TT operands).
+    // unsupported case (non-front_only surface mode, FD-only/argwave operands).
     // The fallback MUST call lmStep(), NOT this.step() — the latter re-dispatches
     // through the subclass override and recurses until the stack overflows
     // (real bug: Newton/SQP crashed on back_only/symmetric/both_independent and

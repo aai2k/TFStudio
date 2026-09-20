@@ -5,6 +5,7 @@ import { SavedMfMenu } from './SavedMfMenu.js';
 import { useMeritOperands } from './useMeritOperands.js';
 import { useMeritPresets } from './useMeritPresets.js';
 import { phaseOperandScopeNotice } from '../phaseOperandScope.js';
+import { stressOperandNotices } from '../stressOperandScope.js';
 import { useMeritRangeNotice } from '../../../materials/MaterialRangeNotice.js';
 
 const { createElement: h } = React;
@@ -19,6 +20,7 @@ export function MeritFunctionEditor({ c, t, setInputDialog }) {
     });
     const scopeNotice = phaseOperandScopeNotice(design, merit.operands, te);
     const rangeNotice = useMeritRangeNotice(design, t);
+    const stressNotices = stressOperandNotices(design, merit.operands, te);
 
     if (!design) {
         return h('div', { style: { padding: 24, color: c.textDim, fontSize: 13 } }, te.noDesign);
@@ -40,7 +42,7 @@ export function MeritFunctionEditor({ c, t, setInputDialog }) {
                 operands: merit.operands, computed: merit.computed,
                 evaluationErrors: merit.errors, bandLevels: merit.bandLevels,
                 selectedId: merit.selectedId,
-                notices: [scopeNotice && { label: scopeNotice }, rangeNotice].filter(Boolean),
+                notices: [scopeNotice && { label: scopeNotice }, rangeNotice, ...stressNotices].filter(Boolean),
                 noOperandsMsg: te.noOperands,
                 onSelect: merit.setSelectedId,
                 onEdit: merit.handleEdit,

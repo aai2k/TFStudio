@@ -42,6 +42,9 @@ const AUTHOR_CATALOG = {
         TiO2tab: {
             id: 'TiO2tab', name: 'Titania (measured)', formulaNum: -1,
             tabData: [[400, 2.55, 0.004], [550, 2.42, 0.001], [700, 2.36, 0.0004]],
+            // Thermo-mechanical constants live on the record, so a design that
+            // travels has to carry them the way it carries the dispersion.
+            mechanical: { youngsModulusGPa: 140, poissonsRatio: 0.27, intrinsicStressMPa: -320 },
         },
     },
 };
@@ -110,6 +113,9 @@ assert.ok(!('getNK' in embedded.materials['user_lab:SiO2fit']),
     'the lazily attached getNK closure must not reach the file');
 assert.equal(embedded.materials['user_lab:TiO2tab'].interp, 'pchip',
     'embedded tabular materials record their interpolation rule');
+assert.deepEqual(embedded.materials['user_lab:TiO2tab'].mechanical,
+    { youngsModulusGPa: 140, poissonsRatio: 0.27, intrinsicStressMPa: -320 },
+    'and the constants the stress model reads, so the recipient predicts the same part');
 assert.equal(embedded.materials['user_lab:SiO2lossy'].interp, 'pchip',
     'embedded formula materials record the rule for their k table');
 assert.deepEqual(

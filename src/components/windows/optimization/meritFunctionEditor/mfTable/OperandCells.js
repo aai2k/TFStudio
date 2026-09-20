@@ -78,12 +78,14 @@ export function typePickerCell(ctx, colKey, width) {
     }));
 }
 
-function totalThicknessComparisonCell(ctx, colKey, width) {
-    const { op, c, tdBase, cellClick, onEdit } = ctx;
+// The ≤ / ≥ / = cell the linear-thickness rows carry in place of a wavelength:
+// the total thickness in nm (TT) or the film force in N/m (STR) against the
+// row's target.
+function comparisonCell(ctx, colKey, width) {
+    const { op, c, t, tdBase, cellClick, onEdit } = ctx;
     const comparison = op.cmp || 'eq';
-    const title = comparison === 'le' ? 'Total thickness ≤ target (max)'
-        : comparison === 'ge' ? 'Total thickness ≥ target (min)'
-        : 'Total thickness = target';
+    const titles = t?.meritFunctionEditor?.comparisonTitles?.[op.type];
+    const title = titles ? (titles[comparison] || titles.eq) : undefined;
     return h('td', {
         key: colKey, onClick: event => cellClick(colKey, event),
         style: tdBase(colKey, width, { padding: '0 2px' }),
@@ -309,8 +311,8 @@ export function rowRenderers(op, meta) {
         contribution: contributionCell,
     };
     if (meta.isCon) { renderers.aoi = dashCell; renderers.pol = dashCell; }
-    if (meta.isTT) {
-        renderers.lambdaStart = totalThicknessComparisonCell;
+    if (meta.isTT || meta.isStr) {
+        renderers.lambdaStart = comparisonCell;
         renderers.lambdaEnd = dashCell;
         renderers.aoi = dashCell;
         renderers.pol = dashCell;

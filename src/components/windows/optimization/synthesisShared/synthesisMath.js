@@ -13,6 +13,32 @@ export const sideKeyFor = (d) =>
         ? 'backLayers' : 'frontLayers';
 export const activeSide = (d) => resolveScanSide(d?.surfaceMode || 'front_only', 'front');
 
+/**
+ * Everything but the layer stacks, as a structured-clonable object a synthesis
+ * worker can rebuild an evaluation context from.
+ *
+ * The cone spec and the stress run temperatures are included only when the
+ * design carries them, so a worker that has neither stays on the single-angle,
+ * intrinsic-stress-only path the main thread takes for the same design. A key
+ * missing here is a merit function the worker scores differently from the
+ * window that launched it, which is the one thing this object exists to
+ * prevent.
+ */
+export function serializableMedia(design) {
+    return {
+        surfaceMode:    design.surfaceMode || 'front_only',
+        mfEvalMode:     design.mfEvalMode ?? 'side',
+        incidentMedium: design.incidentMedium ?? 'Air',
+        exitMedium:     design.exitMedium ?? 'Air',
+        substrate: {
+            material:  design.substrate?.material ?? 'BK7',
+            thickness: design.substrate?.thickness ?? 1.0,
+        },
+        ...(design.cone ? { cone: design.cone } : {}),
+        ...(design.stress ? { stress: design.stress } : {}),
+    };
+}
+
 // ── Adaptive merit sampling ─────────────────────────────────────────────────────
 // Densify band-sampled operands whose bands hide a sub-grid spectral feature at
 // launch so the synthesis merit isn't blind to narrow resonances. Densified

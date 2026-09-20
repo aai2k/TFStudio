@@ -189,6 +189,15 @@ export const ICONS = {
                        ]),
 
     'roughness':      I([ P('M2 12q1-1 2 0t2 0t2 0t2 0t2 0t2 0t2 0t2 0',1.4), L(2,16,18,16), P('M3 13l-1 2M5 13l-1 2M7 13l-1 2M9 13l-1 2M11 13l-1 2M13 13l-1 2M15 13l-1 2',1) ]),
+
+    // Film stress — a coating pulling its two ends toward each other, over the
+    // substrate it bows convex.
+    'stress':         I([
+                          L(3,5,8,5,1.3), P('M8 5l-1.7-1.4M8 5l-1.7 1.4',1.1),
+                          L(17,5,12,5,1.3), P('M12 5l1.7-1.4M12 5l1.7 1.4',1.1),
+                          P('M2.5 13Q10 7.5 17.5 13',1.5),
+                          P('M2.5 16Q10 10.5 17.5 16',1.1),
+                      ]),
     'plot-engine':    I([ L(3,17,3,3,1.4), L(3,17,17,17,1.4), P('M3 13l4-4 3 2 3-6 4 5'), C(7,9,1.2,1.2), C(10,11,1.2,1.2), C(13,5,1.2,1.2) ]),
 
     // Wavelength vs angle — axes around a heatmap whose cells shade along the
@@ -385,6 +394,7 @@ const TOOL_GROUP = {
     'plot-engine': 'analysis', 'error-analysis': 'analysis', 'sensitivity': 'analysis',
     'wavelength-angle-map': 'analysis',
     'inhomogeneities': 'analysis', 'systematic-dev': 'analysis', 'roughness': 'analysis',
+    'stress': 'analysis',
     'merit-function': 'optimization', 'refinement': 'optimization', 'needle': 'optimization',
     'needle-manual': 'optimization', 'gradual': 'optimization', 'structural': 'optimization',
     'variator': 'optimization', 'design-cleaner': 'optimization', 'filter-design': 'optimization',
@@ -435,7 +445,7 @@ export function makeTabs(t) {
                 grp('general',   ['optical-eval', 'wavelength-angle-map', 'color-eval', 'integral-values',
                                   'admittance', 'efield', 'ri-profiler', 'layer-thicknesses', 'plot-engine']),
                 grp('phase',     ['gd-gdd', 'material-dispersion', 'ellipsometry']),
-                grp('tolerance', ['error-analysis', 'sensitivity', 'inhomogeneities', 'systematic-dev', 'roughness']),
+                grp('tolerance', ['error-analysis', 'sensitivity', 'inhomogeneities', 'systematic-dev', 'roughness', 'stress']),
             ]
         },
         {

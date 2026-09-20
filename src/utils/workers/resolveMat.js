@@ -12,7 +12,7 @@
  * are no longer bit-identical to the main thread, so it should never fire in
  * normal operation; it exists only as a guard.
  *
- * @param {Object} materials  id → { lambdas, n, k } pre-sampled table
+ * @param {Object} materials  id → { lambdas, n, k, mechanical? } pre-sampled table
  * @param {string} label      worker name, used in the fallback warning
  */
 // Index a pre-sampled table into an exact-hit map plus a λ-ascending parallel
@@ -48,9 +48,14 @@ export function makeResolveMat(materials, label = 'worker') {
     let omegaMissReported = false;
 
     function build(id) {
-        const { map, sortedL, sortedNK } = indexTable(materials[id] || materials['Air'] || null);
+        const entry = materials[id] || materials['Air'] || null;
+        const { map, sortedL, sortedNK } = indexTable(entry);
         return {
             _wkrMat: true,
+            // Mechanical and thermal constants, carried across as they stand:
+            // they are numbers, not a dispersion, and the stress operand reads
+            // them off the stub exactly as it reads them off a material record.
+            mechanical: entry?.mechanical,
             getNK(lam) {
                 const v = map.get(lam);
                 if (v !== undefined) return v.nk;

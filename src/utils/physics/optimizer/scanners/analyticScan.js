@@ -16,8 +16,8 @@
  * Reference: Sullivan & Dobrowolski / Tikhonravov, Appl. Opt. 35 (1996).
  */
 
-import { isFullSystemEval, buildEvalContext, evaluateOperands, calcMF } from '../evalCore.js';
-import { isConstraint, isDmfs, isBlank, isTotalThickness, isRangeTarget, isIntegral, isMinmax, isArgwave, isMath } from '../operandModel.js';
+import { isFullSystemEval, buildEvalContext, effectiveBackLayers, evaluateOperands, calcMF } from '../evalCore.js';
+import { isDmfs, isBlank, isManufacturability, isRangeTarget, isIntegral, isMinmax, isArgwave, isMath } from '../operandModel.js';
 import { charOf } from '../sampling.js';
 import { makeConeSpec, coneIsActive } from '../coneAngle.js';
 import { resolveScanSide } from './sides.js';
@@ -35,9 +35,10 @@ function _collectOptOps(operands) {
     const optOps = [];
     for (const op of operands) {
         if (!op.enabled) continue;
-        // Excluded from synthesis MF: DMFS/BLNK (inert), MNT/MXT (skipConstraints),
-        // TT (thickness-domain, not a spectral characteristic).
-        if (isDmfs(op.type) || isBlank(op.type) || isConstraint(op.type) || isTotalThickness(op.type)) continue;
+        // Excluded from synthesis MF: DMFS/BLNK (inert), and the
+        // manufacturability rows, which skipConstraints drops and which read
+        // the thickness vector rather than a spectral characteristic.
+        if (isDmfs(op.type) || isBlank(op.type) || isManufacturability(op.type)) continue;
         if (isIntegral(op.type) || isMinmax(op.type)) return null;
         if (isMath(op.type) || isArgwave(op.type)) return null;
         if (!'RTA'.includes(charOf(op.type))) return null;
@@ -81,8 +82,7 @@ function _prepareScan(args, surfaceMode, side) {
     // stored back layers. resolveScanSide forces side='front' in front_only and
     // symmetric and side='back' in back_only.
     const front = design.frontLayers || [];
-    const backRaw = design.backLayers || [];
-    const back = surfaceMode === 'symmetric' ? [...front].reverse() : backRaw;
+    const back = effectiveBackLayers(design);
     const Nf = front.length;
     const Nb = back.length;
     const targetLayers = side === 'back' ? back : front;

@@ -1,4 +1,4 @@
-import { isConstraint, isTotalThickness, isValidMeritWeight } from '../operandModel.js';
+import { isManufacturability, isValidMeritWeight } from '../operandModel.js';
 import { _meritDiff } from './residualScale.js';
 import { operandEvaluationErrors } from './evalContext.js';
 
@@ -49,7 +49,7 @@ export function operandContributions(operands, computed, { skipConstraints = fal
 }
 
 // The weighted-RMS NORMALIZATION denominator used by calcMF — the optical weight
-// sum (everything except MNT/MXT/TT manufacturability constraints), with a
+// sum (everything except the MNT/MXT/TT/STR manufacturability rows), with a
 // constraints-only fallback. Exported so the analytic-gradient path (gradMF in
 // dls.js) divides by the SAME quantity calcMF does: MF = √(SSR/denom) ⇒
 // ∇MF = (Jᵀr)/(‖r‖·√denom). Keep this byte-consistent with calcMF's denom logic.
@@ -57,7 +57,7 @@ export function mfWeightDenominator(operands, { skipConstraints = false } = {}) 
     let sumWopt = 0, sumWcon = 0;
     for (const op of operands) {
         if (!op.enabled) continue;
-        if (isConstraint(op.type) || isTotalThickness(op.type)) {
+        if (isManufacturability(op.type)) {
             if (skipConstraints) continue;
             sumWcon += op.weight;
         } else {

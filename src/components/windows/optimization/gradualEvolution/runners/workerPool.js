@@ -25,7 +25,7 @@ import {
 import { getTmmWasmBytesForWorker } from '../../../../../tmmcore.js';
 import { SYNTHESIS_WORKER_URL as SYNTH_WORKER_URL } from '../../../../../workerUrls.js';
 import {
-    activeSide, densifyForRun, chunkArray, poolSize, materialLookup,
+    activeSide, densifyForRun, chunkArray, poolSize, materialLookup, serializableMedia,
 } from '../../synthesisShared/synthesisHelpers.js';
 import { activeBaseline, openRunBlock } from '../../synthesisShared/runBlocks.js';
 import { runGeMainThread } from './mainThread.js';
@@ -172,19 +172,7 @@ export function runGeWorker(ctx) {
     }
     ctx.workerRef.current = workerPool;
 
-    const media = {
-        surfaceMode:    curDes.surfaceMode || 'front_only',
-        mfEvalMode:     curDes.mfEvalMode ?? 'side',
-        incidentMedium: curDes.incidentMedium ?? 'Air',
-        exitMedium:     curDes.exitMedium ?? 'Air',
-        substrate: {
-            material:  curDes.substrate?.material ?? 'BK7',
-            thickness: curDes.substrate?.thickness ?? 1.0,
-        },
-        // Cone-angle averaging: ship to the synthesis workers so the scan (FD
-        // fallback) + DLS refine are cone-averaged like the eval.
-        ...(curDes.cone ? { cone: curDes.cone } : {}),
-    };
+    const media = serializableMedia(curDes);
     const poolLite = pool.map(p => ({ id: p.id, name: p.name }));
 
     ctx.runningRef.current = true;

@@ -13,20 +13,8 @@ const { createElement: h, useCallback, useRef } = React;
 
 const FONT = 'system-ui, -apple-system, sans-serif';
 
-// Tabs are Data Exchange navigation rather than analysis settings, which is why
-// this one control lives here instead of in the shared analysis chrome.
-export function TabBtn({ active, onClick, c, children }) {
-    return h('button', {
-        type: 'button', onClick, 'aria-pressed': active,
-        style: {
-            height: 28, padding: '0 12px', border: 'none', borderRadius: 5,
-            borderBottom: `2px solid ${active ? c.accent : 'transparent'}`,
-            outline: 'none', cursor: 'pointer', background: active ? c.accent + '20' : 'transparent',
-            color: active ? c.text : c.textDim, fontSize: 11, fontWeight: active ? 600 : 500,
-            fontFamily: 'system-ui, -apple-system, sans-serif',
-        },
-    }, children);
-}
+// Tab strips are not Data Exchange's alone, so the button itself is shared.
+export { TabBtn } from '../../../ui/tabBtn.js';
 
 /** One titled band of a panel, separated from the next by a rule. */
 export function PanelSection({ c, title, children }) {

@@ -69,6 +69,9 @@ export function buildPayload(curDes) {
         backLayers:  mk(curDes.backLayers),
         // Cone-angle averaging for the cg/sa/de worker engines.
         ...(curDes.cone ? { cone: curDes.cone } : {}),
+        // Stress run temperatures, so a worker scores an STR row with the same
+        // thermal terms the main thread shows.
+        ...(curDes.stress ? { stress: curDes.stress } : {}),
     };
 }
 

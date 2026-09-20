@@ -28,6 +28,7 @@ export const DIRECT_MONITOR_META = {
     MNWR:     { mode: 'band', unit: 'nm', decimals: 2 },
     MNWA:     { mode: 'band', unit: 'nm', decimals: 2 },
     TT:       { mode: 'fact', unit: 'nm', decimals: 2, noGeometry: true },
+    STR:      { mode: 'fact', unit: 'newtonPerM', decimals: 2, noGeometry: true },
     MNT:      { mode: 'layers', unit: 'nm', decimals: 3, noGeometry: true },
     MXT:      { mode: 'layers', unit: 'nm', decimals: 3, noGeometry: true },
 };

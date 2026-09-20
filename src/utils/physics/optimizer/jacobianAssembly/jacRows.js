@@ -2,7 +2,8 @@
  * Per-operand analytic Jacobian-row dispatch.
  *
  * Routes one operand to the row builder for its type: band / pointwise value
- * rows (bandRows.js) or single-extremum rows (extremumRows.js).
+ * rows (bandRows.js), single-extremum rows (extremumRows.js), or the rows that
+ * read the thickness vector directly (linearRows.js).
  */
 
 import {
@@ -10,18 +11,21 @@ import {
     isEllipsometry,
     isGroupDelay,
     isIntegral,
+    isLinearThickness,
     isMinmax,
     isPhaseShift,
     isRangeTarget,
 } from '../operandModel.js';
 import { _jacRowRangeTarget, _jacRowIntegral, _jacRowMeanOrSingle } from './bandRows.js';
 import { _jacRowConstraint, _jacRowMinmax } from './extremumRows.js';
+import { _jacRowLinearThickness } from './linearRows.js';
 import { _jacRowEllipsometry, _jacRowPhase } from './phaseRows.js';
 
 // Operand kind → row builder, checked top-down; the band-average / single-λ
 // builder is the fall-through default.
 const ROW_BUILDERS = [
     [isConstraint,    _jacRowConstraint],
+    [isLinearThickness, _jacRowLinearThickness],
     [isRangeTarget,   _jacRowRangeTarget],
     [isIntegral,      _jacRowIntegral],
     [isMinmax,        _jacRowMinmax],

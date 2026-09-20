@@ -60,6 +60,7 @@ import { Variator } from '../windows/optimization/variator/Variator.js';
 import { SystematicDeviations } from '../windows/analysis/systematicDeviations/SystematicDeviations.js';
 import { Inhomogeneities } from '../windows/analysis/inhomogeneities/Inhomogeneities.js';
 import { RoughnessScattering } from '../windows/analysis/roughnessScattering/RoughnessScattering.js';
+import { StressAnalysis } from '../windows/analysis/stressAnalysis/StressAnalysis.js';
 import { PlotEngine } from '../windows/analysis/plotEngine/PlotEngine.js';
 import { WavelengthAngleMap } from '../windows/analysis/wavelengthAngleMap/WavelengthAngleMap.js';
 import { Specification } from '../windows/design/specification/Specification.js';
@@ -95,6 +96,7 @@ export const WINDOW_REGISTRY = {
   'systematic-dev':  { component: SystematicDeviations,      title: 'Systematic Deviations',       label: 'Systematic Deviations — global perturbation sweep',               help: 'analysis/systematic-deviations', theme: true, requiresResolvedMaterials: true },
   'inhomogeneities': { component: Inhomogeneities,           title: 'Inhomogeneities & Interlayers', label: 'Inhomogeneities & Interlayers — graded interface transitions',  help: 'analysis/inhomogeneities', theme: true, requiresResolvedMaterials: true },
   'roughness':       { component: RoughnessScattering,       title: 'Roughness / Scattering',      label: 'Interface Roughness / Scattering — TIS(λ)',                       help: 'analysis/roughness-scattering', theme: true, requiresResolvedMaterials: true },
+  'stress':          { component: StressAnalysis,             title: 'Stress',                      label: 'Stress — per-film stress, substrate bow, cracking and delamination margins', help: 'analysis/stress', theme: true, requiresResolvedMaterials: true },
   'plot-engine':     { component: PlotEngine,                title: 'Plot Engine',                 label: 'Plot Engine — custom XY plot builder',                            help: 'analysis/plot-engine', theme: true, requiresResolvedMaterials: true },
 
   // ── Synthesis ─────────────────────────────────────────────────────────────────

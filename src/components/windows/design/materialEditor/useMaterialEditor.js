@@ -24,6 +24,7 @@ import {
     copyUserMaterialDraft, copyToCatalog, openCopyPicker as openCopyPickerAction,
 } from './materialEditorMaterialActions.js';
 import { sampleReadOnlyChart } from './materialEditorReadOnly.js';
+import { clearMaterialChart } from './materialChart.js';
 import { draftFingerprint } from './materialDraft.js';
 import { materialEditorSession } from './sessionState.js';
 import { evalParamsSession } from '../../../../state/evalParamsSession.js';
@@ -50,12 +51,13 @@ function updateReadOnlySampledTable({ editDraft, chartRef, selectedMat, c, me, s
 export function useMaterialEditor({ c, t, setInputDialog }) {
     const [catalogs,         setCatalogs]        = useState([]);
     const [session, setField] = useWindowSession(materialEditorSession, null);
-    const { catFilter, query, selectedId, editDraft, pristineDraft } = session;
+    const { catFilter, query, selectedId, editDraft, pristineDraft, detailTab } = session;
     const setCatFilter     = value => setField('catFilter', value);
     const setQuery         = value => setField('query', value);
     const setSelectedId    = value => setField('selectedId', value);
     const updateDraft      = value => setField('editDraft', value);
     const setPristineDraft = value => setField('pristineDraft', value);
+    const setDetailTab     = value => setField('detailTab', value);
     const [importing,        setImporting]        = useState(false);
     const [showRii,          setShowRii]          = useState(false);
     const [notification,     setNotification]     = useState(null);
@@ -165,9 +167,14 @@ export function useMaterialEditor({ c, t, setInputDialog }) {
     // that carry no stored tabData (built-in functions, AGF/OptiLayer formulas) so the
     // user always gets numbers next to the curve, not just a picture.
     const [sampledTable, setSampledTable] = useState([]);
+    // The chart is on one page of the detail pane, so leaving that page takes
+    // its node away: the renderer is disposed with it and drawn again on the
+    // way back, which is also why the open page is a dependency here.
     useEffect(() => {
         updateReadOnlySampledTable({ editDraft, chartRef, selectedMat, c, me, setSampledTable });
-    }, [selectedMat, c, editDraft]);
+        const element = chartRef.current;
+        return () => clearMaterialChart(element);
+    }, [selectedMat, c, editDraft, detailTab]);
 
     const handleRiiAdded = useCallback((catId) => {
         loadCatalogs();
@@ -179,6 +186,7 @@ export function useMaterialEditor({ c, t, setInputDialog }) {
         selectedId, importing, showRii, setShowRii, notification,
         menuOpen, setMenuOpen,
         editDraft, setEditDraft, updateDraft, isDirty, handleRevertMaterial,
+        detailTab, setDetailTab,
         results, selectedMat, currentCatalog, isUserCatalog,
         browseCatalogs, designConflict, workingNm,
         handleImport, handleImportFiles, doImportFiles,

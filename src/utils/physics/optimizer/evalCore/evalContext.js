@@ -12,6 +12,24 @@ import {
     evalOperand, OperandEvaluationError, resetOperandCaches, groupDelayFlatBandLevel,
 } from './operands/index.js';
 
+/**
+ * The back stack a design is actually evaluated with.
+ *
+ * Mirror symmetry: the back coating is the front one repeated, so the physical
+ * sequence outward from the substrate is identical on both faces. The front is
+ * stored air→substrate and the back substrate→exit, which makes the mirror the
+ * REVERSED front rather than a copy, and leaves whatever `backLayers` holds
+ * unread. Every reader of a design's two stacks goes through this, so the
+ * merit function, the optimizer and the analysis windows cannot disagree about
+ * what is on the back.
+ */
+export function effectiveBackLayers(design) {
+    const front = design?.frontLayers || [];
+    return (design?.surfaceMode || 'front_only') === 'symmetric'
+        ? [...front].reverse()
+        : (design?.backLayers || []);
+}
+
 // Build an evaluation context from a design. Used by callers that already have
 // `design` and `resolveMat` (Refinement, GE, Needle, MeritFunctionEditor).
 //   surfaceMode = 'symmetric'        → backLayers auto-synced to frontLayers
@@ -24,8 +42,7 @@ export function buildEvalContext(design, resolveMat) {
     const inc   = typeof design.incidentMedium === 'string' ? design.incidentMedium : (design.incidentMedium?.material ?? 'Air');
     const exit  = typeof design.exitMedium === 'string' ? design.exitMedium : (design.exitMedium?.material ?? 'Air');
     const front = design.frontLayers || [];
-    const backRaw = design.backLayers || [];
-    const back  = surfaceMode === 'symmetric' ? [...front].reverse() : backRaw;
+    const back  = effectiveBackLayers(design);
 
     const frontThicks = front.map(l => l.thickness || 0);
     const frontMats   = front.map(l => resolveMat(l.material));
@@ -44,6 +61,9 @@ export function buildEvalContext(design, resolveMat) {
         mfEvalMode,
         evalFullSystem,
         cone,
+        // Stress run temperatures, read by the STR operand. Absent → every film
+        // carries its intrinsic stress and nothing thermal.
+        stress:               design?.stress || null,
         _coneNodeCache:       new Map(),
         n0mat:                resolveMat(inc),
         nsmat:                resolveMat(design.substrate?.material ?? 'BK7'),

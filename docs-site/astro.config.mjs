@@ -102,6 +102,7 @@ export default defineConfig({
                 { label: 'Inhomogeneities',        translations: { 'zh-CN': '非均匀性' },      slug: 'analysis/inhomogeneities' },
                 { label: 'Systematic Deviations',  translations: { 'zh-CN': '系统偏差' },      slug: 'analysis/systematic-deviations' },
                 { label: 'Roughness / Scattering', translations: { 'zh-CN': '粗糙度 / 散射' }, slug: 'analysis/roughness-scattering' },
+                { label: 'Stress',                 translations: { 'zh-CN': '应力' },         slug: 'analysis/stress' },
               ],
             },
             { label: 'Plot Engine', translations: { 'zh-CN': '绘图引擎' }, slug: 'analysis/plot-engine' },

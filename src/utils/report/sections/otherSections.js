@@ -13,8 +13,8 @@ import {
   componentOf, incidentAmplitudeVpm, plotValue, yAxisTitle,
 } from '../../../components/windows/analysis/eFieldEvaluation/yScale.js';
 import {
-  isBlank, isConstraint, isDmfs, isMath, isMathPairRef, isMathSingleRef,
-  isTotalThickness, readsWavelengthBand,
+  isBlank, isConstraint, isDmfs, isLinearThickness, isManufacturability,
+  isMath, isMathPairRef, isMathSingleRef, readsWavelengthBand,
 } from '../../physics/optimizer/operandModel.js';
 import {
   DASH, pct, num, deg, tt, blockTitle, errNote, wrap, table, note, plotHeight, subtitleOf,
@@ -114,7 +114,7 @@ export function buildQualifiers(ctx) {
     { subtitle: subtitleOf(ctx) });
 }
 
-const TT_COMPARISONS = { le: '≤', ge: '≥', eq: '=' };
+const COMPARISONS = { le: '≤', ge: '≥', eq: '=' };
 
 function layerRange(tr, first, last) {
   const a = Math.round(first), b = Math.round(last);
@@ -127,7 +127,7 @@ function referencedRow(rowNumber) { return rowNumber == null ? DASH : `#${rowNum
 /** What an operand that reads no wavelength puts in the λ / Layer cell, or null. */
 function nonSpectralRange(op) {
   if (isBlank(op.type) || isDmfs(op.type)) return escapeHtml(op.comment) || DASH;
-  if (isTotalThickness(op.type)) return TT_COMPARISONS[op.cmp] || TT_COMPARISONS.eq;
+  if (isLinearThickness(op.type)) return COMPARISONS[op.cmp] || COMPARISONS.eq;
   if (isMathPairRef(op.type)) return `${referencedRow(op.ref1)}, ${referencedRow(op.ref2)}`;
   if (isMathSingleRef(op.type)) return referencedRow(op.ref1);
   return null;
@@ -137,8 +137,8 @@ function nonSpectralRange(op) {
  * The λ / Layer cell. One column, but each operand family puts something else
  * in it, so the cell names its own unit rather than leaning on the header: a
  * wavelength or a band in nm, a layer range for a thickness constraint, the
- * comparison a total-thickness row applies, the rows a math operand reads, or
- * the text of a comment row.
+ * comparison a total-thickness or film-stress row applies, the rows a math
+ * operand reads, or the text of a comment row.
  */
 function operandRange(op, tr) {
   const nonSpectral = nonSpectralRange(op);
@@ -150,7 +150,7 @@ function operandRange(op, tr) {
   return `${num(op.lambdaStart, 0)}-${num(end, 0)} nm`;
 }
 
-const NO_INCIDENCE = [isConstraint, isTotalThickness, isMath, isBlank, isDmfs];
+const NO_INCIDENCE = [isManufacturability, isMath, isBlank, isDmfs];
 
 /** Angle and polarization are properties of a ray, so a row that scores no ray has neither. */
 function hasIncidence(type) {

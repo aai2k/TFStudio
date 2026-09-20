@@ -20,7 +20,7 @@ const MONITOR_TYPE_GROUPS = [
         'GDFLAT', 'GDTFLAT', 'GDDFLAT', 'GDDTFLAT', 'TODFLAT', 'TODTFLAT']],
     ['field', ['EFMX', 'PSI', 'DEL']],
     ['featureWavelength', ['MXWT', 'MXWR', 'MXWA', 'MNWT', 'MNWR', 'MNWA']],
-    ['designFacts', ['TT', 'MNT', 'MXT', ...Object.keys(FACT_MONITOR_META).map(key => `fact:${key}`)]],
+    ['designFacts', ['TT', 'STR', 'MNT', 'MXT', ...Object.keys(FACT_MONITOR_META).map(key => `fact:${key}`)]],
 ];
 
 function loadMonitors() {

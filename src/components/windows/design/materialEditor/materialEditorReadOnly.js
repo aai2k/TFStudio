@@ -9,7 +9,11 @@
 import { resolveColor } from '../../../../utils/materials/catalogManager.js';
 import { drawIndexChart } from './materialChart.js';
 import { FORMULA_LATEX, coefficientNames } from '../../../../utils/materials/dispersionFormulas.js';
-import { KaTeXSpan, NkProbe, dotStyle, statusBadge, propRow, formatCoeff, formatNm, formatK, smallBtn } from './materialEditorUI.js';
+import { MECHANICAL_FIELDS, MECHANICAL_UNITS, mechanicalToDisplay } from '../../../../utils/materials/mechanical.js';
+import {
+    KaTeXSpan, NkProbe, detailTabStrip, dotStyle, statusBadge, propRow,
+    formatCoeff, formatNm, formatK, smallBtn, unitLabel,
+} from './materialEditorUI.js';
 
 const { createElement: h } = React;
 
@@ -88,6 +92,26 @@ function readOnlyPropsBlock(selectedMat, me, c) {
     );
 }
 
+// The thermo-mechanical constants a catalog brought with it. Only the fields
+// the material actually states are listed, the way every row above behaves;
+// a material that states none says so rather than showing seven blanks.
+function readOnlyMechanicalBlock(selectedMat, me, c) {
+    const block = selectedMat.mechanical;
+    const stated = MECHANICAL_FIELDS.filter(field => Number.isFinite(block?.[field]));
+    if (!stated.length) {
+        return h('div', { style: { padding: '10px 12px', fontSize: 12, color: c.textDim, fontStyle: 'italic' } },
+            me.mechanicalNone);
+    }
+    return h('div', { style: { padding: '8px 12px', flexShrink: 0 } },
+        h('div', { style: { display: 'grid', gridTemplateColumns: 'auto 1fr', gap: '2px 12px', fontSize: 12 } },
+            stated.map(field => propRow(
+                unitLabel(me.mechanicalFields[field], MECHANICAL_UNITS[field]),
+                String(mechanicalToDisplay(field, block[field])),
+                c,
+            )))
+    );
+}
+
 export function readOnlyFormulaBlock(selectedMat, me, c) {
     if (!(selectedMat.formulaNum > 0)) return null;
     const info = FORMULA_LATEX[selectedMat.formulaNum];
@@ -137,8 +161,12 @@ export function readOnlyNkTable(title, rows, c, wrapStyle) {
     );
 }
 
-export function renderReadOnlyMaterial({ selectedMat, sampledTable, chartRef, openCopyPicker, designConflict, me, t, c }) {
+export function renderReadOnlyMaterial({
+    selectedMat, sampledTable, chartRef, openCopyPicker, designConflict,
+    detailTab, setDetailTab, me, t, c,
+}) {
     const hasStoredTab = selectedMat.formulaNum === -1 && selectedMat.tabData?.length > 0;
+    const tab = detailTab || 'nk';
     return h('div', { style: { display: 'flex', flexDirection: 'column', height: '100%', overflow: 'hidden' } },
         // Header
         h('div', { style: { padding: '8px 12px', borderBottom: `1px solid ${c.border}`, display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0, position: 'relative' } },
@@ -153,9 +181,17 @@ export function renderReadOnlyMaterial({ selectedMat, sampledTable, chartRef, op
                 }, me.copyToCatalog)
             )
         ),
-        h('div', { style: { flex: 1, overflowY: 'auto', display: 'flex', flexDirection: 'column' } },
+        // Where the material came from and what identifies it stay above the
+        // tabs. The cap is for a catalog comment long enough to push the strip
+        // out of the pane.
+        h('div', { style: { flexShrink: 0, maxHeight: 180, overflowY: 'auto' } },
             designOriginBlock(designConflict, me, c),
-            readOnlyPropsBlock(selectedMat, me, c),
+            readOnlyPropsBlock(selectedMat, me, c)
+        ),
+        detailTabStrip({ tab, setTab: setDetailTab, me, c, wrapStyle: { padding: '0 8px' } }),
+        tab === 'mechanical' && h('div', { style: { flex: 1, overflowY: 'auto' } },
+            readOnlyMechanicalBlock(selectedMat, me, c)),
+        tab === 'nk' && h('div', { style: { flex: 1, overflowY: 'auto', display: 'flex', flexDirection: 'column' } },
             readOnlyFormulaBlock(selectedMat, me, c),
             // n/k chart, then the numbers under it: a probe at one wavelength and
             // the table (stored rows for table materials, sampled from getNK for

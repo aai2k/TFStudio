@@ -1,4 +1,4 @@
-import { isConstraint, isTotalThickness, isMinmax, isMinType, isMeasuredCurve, isMath, isArgwave, isPhase, isRamp, isGroupDelayFlat, isWrappedAngle } from '../operandModel.js';
+import { isConstraint, isLinearThickness, isManufacturability, isMinmax, isMinType, isMeasuredCurve, isMath, isArgwave, isPhase, isRamp, isGroupDelayFlat, isWrappedAngle } from '../operandModel.js';
 import { mathResidual } from './mathOperands.js';
 import { _normalizeDegrees } from './angles.js';
 
@@ -22,9 +22,9 @@ import { _normalizeDegrees } from './angles.js';
 //     numerically UNCHANGED (no regression on existing designs).
 //   • Argwave (λ in nm): σ = ARGWAVE_RESIDUAL_SCALE_NM. With 500, a 5 nm peak/
 //     edge miss weighs the same as a 1 % optical miss.
-//   • Thickness operands (MNT/MXT/TT) DELIBERATELY stay σ = 1 (raw nm, "hard"):
-//     a violated manufacturing bound should dominate and be fixed first, not be
-//     softened to optical scale.
+//   • Manufacturability operands (MNT/MXT/TT in nm, STR in N/m) DELIBERATELY
+//     stay σ = 1 ("hard"): a violated manufacturing bound should dominate and
+//     be fixed first, not be softened to optical scale.
 //
 // Applied in exactly two chokepoints — calcMF (the reported MF) and
 // DLSOptimizer._residuals (the LM step). The analytic Jacobian stays consistent
@@ -73,9 +73,10 @@ export function operandResidualScale(op) {
     return 1;
 }
 
-// One-sided total-thickness residual: ≤/≥ give a penalty (0 when satisfied);
-// default (eq) is a two-sided equality residual (total − target, nm).
-function _ttResidual(op, val) {
+// Comparison residual for the linear-thickness rows (TT in nm, STR in N/m):
+// ≤/≥ give a penalty (0 when satisfied); default (eq) is a two-sided equality
+// residual (value − target).
+function _comparisonResidual(op, val) {
     if (op.cmp === 'le') return Math.max(0, val - op.target);
     if (op.cmp === 'ge') return Math.max(0, op.target - val);
     return val - op.target;
@@ -97,7 +98,7 @@ function _targetResidual(op, val) {
 // shared by calcMF (the reported/accepted merit) and the LSQ engine's residual
 // vector (the step direction), so the two can never disagree.
 export function _operandResidual(op, val) {
-    if (isTotalThickness(op.type)) return _ttResidual(op, val);
+    if (isLinearThickness(op.type)) return _comparisonResidual(op, val);
     if (isConstraint(op.type) || isMinmax(op.type)) {
         // Satisfied on the ≥target side for MNT / min-type, ≤target side otherwise.
         const lowerBound = op.type === 'MNT' || isMinType(op.type);
@@ -114,14 +115,14 @@ export function _operandResidual(op, val) {
 // the thickness bound is enforced by dMin insertion + post-insert DLS refine
 // (which keeps the penalty) + cleanupLayers pruning, not by the scan gradient.
 // Normalized per-operand merit residual, or null to skip (a constraint dropped
-// by skipConstraints). TT and MNT/MXT are manufacturability constraints —
+// by skipConstraints). MNT/MXT, TT and STR are manufacturability rows —
 // excluded from the synthesis-scan / OMF merit so they never distort needle
 // placement; active during DLS refinement only. Otherwise the raw residual is
 // normalized to dimensionless units (σ = 1 for optical → no change; argwave nm
 // residual ÷ σ_λ; see operandResidualScale). May return a non-finite value —
 // the caller guards it.
 export function _meritDiff(op, computedI, skipConstraints) {
-    if (skipConstraints && (isTotalThickness(op.type) || isConstraint(op.type))) return null;
+    if (skipConstraints && isManufacturability(op.type)) return null;
     let diff = _operandResidual(op, computedI);
     const sc = operandResidualScale(op);
     if (sc !== 1) diff /= sc;

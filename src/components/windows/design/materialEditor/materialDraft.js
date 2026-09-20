@@ -15,6 +15,9 @@
 import { anchoredFitRange } from '../../../../utils/materials/dispersionFitRange.js';
 import { interpolationRuleOf, TABULATED_INTERPOLATION } from '../../../../utils/materials/pchip.js';
 import { FORMULA_LATEX } from '../../../../utils/materials/dispersionFormulas.js';
+import {
+    emptyMechanicalDraft, mechanicalFromDraft, mechanicalToDraft, validateMechanical,
+} from './mechanicalDraft.js';
 import { parseNumber, parseNumberStrict } from '../../../../utils/misc/numberParsing.js';
 
 export { buildNKFromDraft } from './nkSamplers.js';
@@ -140,6 +143,7 @@ export function emptyDraft(catalogId) {
         fitTerms: 3,
         fitRangeMinNm: '',
         fitRangeMaxNm: '',
+        mechanical: emptyMechanicalDraft(),
         _rowSeq: 0,
     };
 }
@@ -269,46 +273,62 @@ export function materialToDraft(catalogId, mat) {
         // back as it was made rather than widening to the table on the next Refit.
         fitRangeMinNm: fitRange[0] == null ? '' : String(fitRange[0]),
         fitRangeMaxNm: fitRange[1] == null ? '' : String(fitRange[1]),
+        mechanical: mechanicalToDraft(mat.mechanical),
         _rowSeq: seq,
     };
 }
 
-export function draftToMaterial(draft) {
-    const id = draft.id.trim() || 'material';
+// The stated validity range in µm, the fallback for a material whose own data
+// does not say where it starts and ends.
+function draftRangeUm(draft) {
     const lambdaMin = Math.max(0.1, (parseNumber(draft.lambdaMinNm) || 300) / 1000);
-    const lambdaMax = Math.max(lambdaMin + 0.1, (parseNumber(draft.lambdaMaxNm) || 2500) / 1000);
+    return [lambdaMin, Math.max(lambdaMin + 0.1, (parseNumber(draft.lambdaMaxNm) || 2500) / 1000)];
+}
 
-    if (draft.type === 'tabular') {
-        const tabData = draft.rows
-            .map(r => [parseNumberStrict(r.lam), parseNumberStrict(r.n), parseNumber(r.k)])
-            .filter(r => isFinite(r[0]) && isFinite(r[1]) && r[0] > 0)
-            .sort((a, b) => a[0] - b[0]);
-        const lMin = tabData.length > 0 ? tabData[0][0] / 1000 : lambdaMin;
-        const lMax = tabData.length > 1 ? tabData[tabData.length - 1][0] / 1000 : lambdaMax;
-        return {
-            id, name: draft.name.trim() || id, formulaNum: -1,
-            interp: interpolationRuleOf(draft),
-            tabData, lambdaMin: lMin, lambdaMax: lMax,
-            coefficients: [], kTable: [],
-            ...(draft.dispersionFit ? { dispersionFit: draft.dispersionFit } : {}),
-            color: draft.color, group: 'User', comment: '',
-            nd: null, vd: null, density: null,
-            ...(draft.dataPath  ? { dataPath:  draft.dataPath  } : {}),
-            ...(draft.sourceUrl ? { sourceUrl: draft.sourceUrl } : {}),
-        };
-    }
-    const coefficients = trimSeriesCoefficients(draft.formulaNum, draft.coeffs.map(parseNumber));
+// A table material. Its range comes from the data rather than from the stated
+// one, since the table is the material.
+function tabularFromDraft(draft, [lambdaMin, lambdaMax]) {
+    const tabData = draft.rows
+        .map(r => [parseNumberStrict(r.lam), parseNumberStrict(r.n), parseNumber(r.k)])
+        .filter(r => isFinite(r[0]) && isFinite(r[1]) && r[0] > 0)
+        .sort((a, b) => a[0] - b[0]);
+    return {
+        formulaNum: -1,
+        interp: interpolationRuleOf(draft),
+        tabData, coefficients: [], kTable: [],
+        lambdaMin: tabData.length > 0 ? tabData[0][0] / 1000 : lambdaMin,
+        lambdaMax: tabData.length > 1 ? tabData[tabData.length - 1][0] / 1000 : lambdaMax,
+        ...(draft.dispersionFit ? { dispersionFit: draft.dispersionFit } : {}),
+        ...(draft.dataPath  ? { dataPath:  draft.dataPath  } : {}),
+        ...(draft.sourceUrl ? { sourceUrl: draft.sourceUrl } : {}),
+    };
+}
+
+// A dispersion-formula material, with the k table it may carry beside it.
+function formulaFromDraft(draft, [lambdaMin, lambdaMax]) {
     const kTable = draft.kRows
         .map(r => ({ lam_um: parseNumber(r.lam) / 1000, k: parseNumber(r.k) }))
         .filter(r => r.lam_um > 0)
         .sort((a, b) => a.lam_um - b.lam_um);
     return {
-        id, name: draft.name.trim() || id, formulaNum: draft.formulaNum,
-        coefficients, kTable, tabData: [],
+        formulaNum: draft.formulaNum,
+        coefficients: trimSeriesCoefficients(draft.formulaNum, draft.coeffs.map(parseNumber)),
+        kTable, tabData: [],
         ...(kTable.length ? { interp: interpolationRuleOf(draft) } : {}),
         lambdaMin, lambdaMax,
+    };
+}
+
+export function draftToMaterial(draft) {
+    const id = draft.id.trim() || 'material';
+    const range = draftRangeUm(draft);
+    const mechanical = mechanicalFromDraft(draft.mechanical);
+    return {
+        id, name: draft.name.trim() || id,
         color: draft.color, group: 'User', comment: '',
         nd: null, vd: null, density: null,
+        ...(mechanical ? { mechanical } : {}),
+        ...(draft.type === 'tabular' ? tabularFromDraft(draft, range) : formulaFromDraft(draft, range)),
     };
 }
 
@@ -320,5 +340,5 @@ export function validateDraft(draft, catalogs, me) {
         const cat = catalogs.find(c => c.id === draft.catalogId);
         if (cat?.materials?.[idTrimmed]) return me.validationDuplicateId(idTrimmed);
     }
-    return null;
+    return validateMechanical(draft.mechanical, me);
 }

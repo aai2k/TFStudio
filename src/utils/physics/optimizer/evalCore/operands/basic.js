@@ -6,6 +6,7 @@
  */
 
 import { resolveSourceSpec, resolveDetectorSpec } from '../../../spectralWeightings.js';
+import { stressForceNm } from '../../../stress/stackForce.js';
 import { isMinType, isArgwaveMin, argwaveOpticalChar, argwavePolCode, polFromType } from '../../operandModel.js';
 import { isRangeAvg, charOf, operandSampleLambdas } from '../../sampling.js';
 import { tmmProp } from '../tmmEval.js';
@@ -37,6 +38,15 @@ export function _evalTotalThickness(op, ctx) {
     let sum = 0;
     for (let i = 0; i < all.length; i++) sum += all[i] || 0;
     return sum;
+}
+
+// Film stress (STR): the net bending force per unit width the coatings put on
+// the substrate, Σ σ_l d_l in N/m, the back coating subtracting. Which sides
+// count follows the evaluation mode, so the number is the force the stress
+// analysis window bends the substrate with. Per-layer stress comes off the
+// material record; a material that states none contributes zero.
+export function _evalStressForce(op, ctx) {
+    return stressForceNm(ctx);
 }
 
 // MNT/MXT layer-thickness constraint: min (MNT) or max (MXT) thickness over a

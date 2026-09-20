@@ -4,7 +4,9 @@ import {
     getSynthesisInnerEngine, getSynthesisSmartSeed, getThreadCount,
 } from '../../../../../utils/synthesis/synthesisConfig.js';
 import { getTmmWasmBytesForWorker } from '../../../../../tmmcore.js';
-import { activeSide, densifyForRun, getPoolMaterials } from '../../synthesisShared/synthesisHelpers.js';
+import {
+    activeSide, densifyForRun, getPoolMaterials, serializableMedia,
+} from '../../synthesisShared/synthesisHelpers.js';
 import { activeBaseline, openRunBlock } from '../../synthesisShared/runBlocks.js';
 import { presampleAll } from './refine.js';
 import { createWorkers } from './workerLifecycle.js';
@@ -106,16 +108,7 @@ function finalizeRunState(state) {
         side, layerKey, otherKey, surfaceMode, pool,
         poolLite: pool.map(material => ({ id: material.id, name: material.name })),
         materials, workerCount, wasmBytes, runId, runT0,
-        media: {
-            surfaceMode, mfEvalMode: curDes.mfEvalMode ?? 'side',
-            incidentMedium: curDes.incidentMedium ?? 'Air',
-            exitMedium: curDes.exitMedium ?? 'Air',
-            substrate: {
-                material: curDes.substrate?.material ?? 'BK7',
-                thickness: curDes.substrate?.thickness ?? 1.0,
-            },
-            ...(curDes.cone ? { cone: curDes.cone } : {}),
-        },
+        media: serializableMedia(curDes),
         structEngine: getSynthesisInnerEngine('structural'),
         smartSeed: getSynthesisSmartSeed('structural'),
         rng: makeRng((Date.now() ^ (ctx.genCountRef.current * 2654435761)) >>> 0),
