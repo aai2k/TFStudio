@@ -2509,7 +2509,7 @@ export default {
     depositionTemperatureTip: 'The substrate temperature while the films grow, in °C. Not the temperature of the evaporant: a film takes the dimension of the substrate it condenses on. Leave both temperatures empty and every film carries its intrinsic stress alone.',
     substrateThickness:     'Substrate d',
     substrateThicknessTip:  'Substrate thickness in mm, the same value the Design Editor carries. The bow goes as one over its square.',
-    substrateDiameter:      'Substrate ⌀',
+    substrateDiameter:      'Substrate Ø',
     substrateDiameterTip:   'Substrate diameter in mm. Only the centre deflection needs it; leave it empty and that row stays blank.',
     unset:          'none',
     front:          'Front',

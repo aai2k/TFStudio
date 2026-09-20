@@ -1,17 +1,14 @@
 import { unresolvedMaterials } from './designMaterials.js';
+import { useCatalogRevision } from './useCatalogRevision.js';
 
-const { useEffect, useMemo, useState } = React;
+const { useMemo } = React;
 
 /**
- * Material ids that the design cannot resolve, refreshed when the asynchronous
- * catalog startup scan completes.
+ * Material ids that the design cannot resolve, refreshed when the catalogs
+ * change: the asynchronous startup scan completing, or a material being saved
+ * or deleted.
  */
 export function useUnresolvedMaterials(design) {
-    const [catalogRevision, setCatalogRevision] = useState(0);
-    useEffect(() => {
-        const refresh = () => setCatalogRevision(revision => revision + 1);
-        window.addEventListener('catalogs-loaded', refresh);
-        return () => window.removeEventListener('catalogs-loaded', refresh);
-    }, []);
+    const catalogRevision = useCatalogRevision();
     return useMemo(() => unresolvedMaterials(design), [design, catalogRevision]);
 }

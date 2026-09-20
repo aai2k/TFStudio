@@ -1,3 +1,4 @@
+import { useCatalogRevision } from '../../../../utils/materials/useCatalogRevision.js';
 import { useDesign } from '../../../../state/DesignContext.js';
 import { computeStress } from './model.js';
 import { stressViewSession } from './sessionState.js';
@@ -18,9 +19,12 @@ const { useMemo } = React;
 export function useStressAnalysis() {
     const { design, evalMode, updateDesign } = useDesign();
     const [view, setViewField] = useWindowSession(stressViewSession, design);
+    // Every number here comes off the materials rather than off the design, so
+    // an edited constant has to reach the table without the design moving.
+    const catalogRevision = useCatalogRevision();
     const result = useMemo(
         () => (design ? computeStress(design, evalMode) : null),
-        [design, evalMode],
+        [design, evalMode, catalogRevision],
     );
 
     // Setting either temperature creates the block, and from then on the other

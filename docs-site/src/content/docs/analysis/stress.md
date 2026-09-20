@@ -9,11 +9,10 @@ the part bends; if the film stores enough energy it cracks, or lets go of what
 is under it. Stress predicts all three from the constants on your materials and
 four numbers about the run.
 
-Say up front what the Essential Macleod manual says about its own version of
-this tool: **no stress model is as good as the optical one**. Film stress
-depends on the deposition process, not only on the material, so the constants
-are yours to measure and the numbers here compare one design against another
-rather than predicting a part in absolute terms.
+**No stress model is as good as the optical one.** Film stress depends on the
+deposition process, not only on the material, so the constants are yours to
+measure and the numbers here compare one design against another rather than
+predicting a part in absolute terms.
 
 ## What it needs
 

@@ -14,10 +14,22 @@ function serializeCatalog(cat) {
     return { ...cat, materials: mats };
 }
 
+/**
+ * Fired on `window` after any edit to a catalog: a material saved, deleted,
+ * copied or imported, a catalog renamed or duplicated.
+ *
+ * A window that read a material before the edit is now showing a stale number,
+ * and it has no other way to know. `useCatalogRevision` turns this into a
+ * dependency a memo can take.
+ */
+export const CATALOGS_CHANGED = 'catalogs-changed';
+
 // Persist one catalog to Documents\TFStudio\Materials\ via IPC (fire-and-forget).
+// Every catalog edit ends here, which is why the change notice goes here too.
 export function persistCatalog(cat) {
     if (!cat || cat.source === 'builtin') return;
     window.electronAPI?.saveCatalog(serializeCatalog(cat));
+    try { window.dispatchEvent(new CustomEvent(CATALOGS_CHANGED)); } catch (_) { /* no window */ }
 }
 
 // Delete a catalog file via IPC (fire-and-forget).

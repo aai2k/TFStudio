@@ -2913,7 +2913,7 @@ export default {
     depositionTemperatureTip: '薄膜生长时基底的温度，单位 °C。不是蒸发源的温度：薄膜取的是它所凝结的基底的尺寸。两个温度都留空，则每层膜只承担自身的本征应力。',
     substrateThickness: '基底 d',
     substrateThicknessTip: '基底厚度，单位 mm，与设计编辑器中的数值相同。弯曲量与其平方成反比。',
-    substrateDiameter: '基底 ⌀',
+    substrateDiameter: '基底 Ø',
     substrateDiameterTip: '基底直径，单位 mm。仅中心挠度需要它；留空则该行保持为空。',
     unset: '无',
     front: '正面',

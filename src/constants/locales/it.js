@@ -2921,7 +2921,7 @@ export default {
     depositionTemperatureTip: 'La temperatura del substrato mentre i film crescono, in °C. Non quella dell’evaporante: un film assume la dimensione del substrato su cui condensa. Lascia vuote entrambe le temperature e ogni film porta solo il proprio stress intrinseco.',
     substrateThickness: 'd substrato',
     substrateThicknessTip: 'Spessore del substrato in mm, lo stesso valore che porta l’editor del design. La curvatura va come uno sul suo quadrato.',
-    substrateDiameter: '⌀ substrato',
+    substrateDiameter: 'Ø substrato',
     substrateDiameterTip: 'Diametro del substrato in mm. Serve solo alla freccia al centro; lascialo vuoto e quella riga resta vuota.',
     unset: 'nessuna',
     front: 'Fronte',

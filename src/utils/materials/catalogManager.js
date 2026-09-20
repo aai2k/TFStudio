@@ -38,3 +38,4 @@ export {
     removeUserMaterial,
 } from './catalogManager/userCatalogs.js';
 export { ndColor, resolveColor, materialAutoColor } from './catalogManager/colors.js';
+export { CATALOGS_CHANGED } from './catalogManager/persistence.js';
