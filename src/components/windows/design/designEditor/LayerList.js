@@ -13,6 +13,7 @@ import {
     readLayerClipboard, writeLayerClipboard, writeStackTableClipboard,
 } from './layerClipboard.js';
 import { useLayerDrag } from './useLayerDrag.js';
+import { useLayerStep } from './useLayerStep.js';
 import { resolveDesignMaterial } from '../../../../utils/materials/designMaterials.js';
 import { expandHerpinLayer, isHerpinLayer } from './layerTools.js';
 import {
@@ -39,7 +40,7 @@ function scrollLayerIntoView(container, id) {
 export function LayerList({ layers, side, design, updateDesign, missingMaterialIds, c,
     addLayer, removeLayer, updateLayer,
     insertLayerAt, removeLayerAt, duplicateLayerAt,
-    pasteLayersAtDisplayIndex, removeLayers, reorderLayers,
+    pasteLayersAtDisplayIndex, removeLayers, reorderLayers, moveLayersByStep,
     invertActiveSide, setAllLocked, copyToOther, onOpenReplaceMaterials,
     refLambda, t }) {
 
@@ -234,6 +235,11 @@ export function LayerList({ layers, side, design, updateDesign, missingMaterialI
         setSelectedIds, setSelectedId, scrollRef, c,
     });
 
+    const onMoveStepRow = useLayerStep({
+        displayedLayers, selectedIds, selectOnly, moveLayersByStep,
+        reversed, side, containerRef, reveal: scrollLayerIntoView,
+    });
+
     const closeContextMenu = useCallback(() => setContextMenu(null), []);
     const openContextMenu = useCallback((event, targetId = null) => {
         event.preventDefault();
@@ -324,6 +330,9 @@ export function LayerList({ layers, side, design, updateDesign, missingMaterialI
             onThicknessChange: onThicknessChangeRow,
             onLockToggle: onLockToggleRow,
             onRemove: onRemoveRow,
+            onMoveStep: onMoveStepRow,
+            canMoveUp: di > 0,
+            canMoveDown: di < dl.length - 1,
             isMaterialMissing: missingMaterialIds.has(layer.material),
             activeUnit: layer.id === selectedId ? activeUnit : null,
             editRequestToken: editRequest.rowId === layer.id ? editRequest.token : 0,
@@ -340,7 +349,7 @@ export function LayerList({ layers, side, design, updateDesign, missingMaterialI
     }, [layers, reversed, selectedId, selectedIds, activeUnit, editRequest,
         dropIndicator, missingMaterialIds, refLambda, design.materials, c, t,
         selectAndFocus, onMaterialChangeRow, onThicknessChangeRow, onLockToggleRow,
-        onRemoveRow,
+        onRemoveRow, onMoveStepRow,
         activateCell, navigateCell, finishCellEditing, openContextMenu, onPointerDownDrag]);
 
     const menuText = de.layerContextMenu;
@@ -509,6 +518,7 @@ export function LayerList({ layers, side, design, updateDesign, missingMaterialI
                     }, text.label);
                 }),
                 h('div', { style: fixedLayerTrack(LAYER_TABLE.lockWidth) }),
+                h('div', { style: fixedLayerTrack(LAYER_TABLE.moveWidth) }),
                 h('div', { style: fixedLayerTrack(LAYER_TABLE.actionsWidth) })
             ),
 

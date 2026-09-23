@@ -30,10 +30,11 @@ export const LAYER_TABLE = Object.freeze({
     // for values the 1 mm entry guard exists to prevent.
     thicknessWidth: 60,
     lockWidth: 22,
+    moveWidth: 36, // up and down arrows side by side, 18 px each
     actionsWidth: 24,
 });
 
-const TRACK_COUNT = 8; // number, material, four thicknesses, lock, delete
+const TRACK_COUNT = 9; // number, material, four thicknesses, lock, move, delete
 const ROW_INSET = 10; // 4 px row padding and a 2 px selection border
 
 export const LAYER_TABLE_MIN_WIDTH = ROW_INSET
@@ -41,6 +42,7 @@ export const LAYER_TABLE_MIN_WIDTH = ROW_INSET
     + LAYER_TABLE.materialMinWidth
     + LAYER_THICKNESS_COLUMNS.length * LAYER_TABLE.thicknessWidth
     + LAYER_TABLE.lockWidth
+    + LAYER_TABLE.moveWidth
     + LAYER_TABLE.actionsWidth
     + (TRACK_COUNT - 1) * LAYER_TABLE.gap;
 

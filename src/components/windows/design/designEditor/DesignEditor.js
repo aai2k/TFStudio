@@ -8,6 +8,7 @@ import {
     copyToOther as copyToOtherAction, invertActiveSide as invertActiveSideAction,
     pasteLayersAtDisplayIndex as pasteLayersAtDisplayIndexAction,
     removeLayers as removeLayersAction, reorderLayers as reorderLayersAction,
+    moveLayersByStep as moveLayersByStepAction,
 } from './layerActions.js';
 import { LayerList } from './LayerList.js';
 import { StackGeometryPanel } from './StackGeometryPanel.js';
@@ -91,6 +92,8 @@ export function DesignEditor({ c, t }) {
     const removeLayers = (side, ids) => removeLayersAction(design, updateDesign, side, ids);
     const reorderLayers = (side, ids, targetId, position, reversed) =>
         reorderLayersAction(design, updateDesign, side, ids, targetId, position, reversed);
+    const moveLayersByStep = (side, ids, delta, reversed) =>
+        moveLayersByStepAction(design, updateDesign, side, ids, { delta, reversed });
 
     return h('div', {
         style: {
@@ -143,7 +146,7 @@ export function DesignEditor({ c, t }) {
                 layers, side: activeSide, design, updateDesign, missingMaterialIds: missingMaterialSet, c,
                 addLayer, removeLayer, updateLayer,
                 insertLayerAt, removeLayerAt, duplicateLayerAt,
-                pasteLayersAtDisplayIndex, removeLayers, reorderLayers,
+                pasteLayersAtDisplayIndex, removeLayers, reorderLayers, moveLayersByStep,
                 invertActiveSide, setAllLocked, copyToOther,
                 onOpenReplaceMaterials: () => setReplaceOpen(true),
                 refLambda, t

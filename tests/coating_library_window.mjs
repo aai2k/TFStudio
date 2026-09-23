@@ -143,6 +143,7 @@ html = renderToStaticMarkup(withDesign(React.createElement(LayerList, {
     addLayer: () => {}, removeLayer: () => {}, updateLayer: () => {},
     insertLayerAt: () => {}, removeLayerAt: () => {}, duplicateLayerAt: () => {},
     pasteLayersAtDisplayIndex: () => {}, removeLayers: () => {}, reorderLayers: () => {},
+    moveLayersByStep: () => {},
     invertActiveSide: () => {}, setAllLocked: () => {}, copyToOther: () => {},
     onOpenReplaceMaterials: () => {}, refLambda: 550,
 }), design));

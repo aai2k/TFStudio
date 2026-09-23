@@ -105,6 +105,47 @@ export function reorderLayers(design, updateDesign, side, movedIds, targetId, po
     return true;
 }
 
+/**
+ * The layers one click of a row's move arrows acts on, in display order: the
+ * ones the previous click moved, if it was in the same slot and the selection
+ * has not changed since; else the whole selection when the row is part of it,
+ * as dragging a selected row does; else null, meaning the row alone.
+ * `last` is `{ slot, ids }` from the previous click, or null.
+ */
+export function stepTargets(id, slot, last, selectedIds, displayedLayers) {
+    const unchanged = last && last.ids.length === selectedIds.size
+        && last.ids.every(movedId => selectedIds.has(movedId));
+    if (unchanged && last.slot === slot) return last.ids;
+    if (!selectedIds.has(id)) return null;
+    return displayedLayers.filter(layer => selectedIds.has(layer.id)).map(layer => layer.id);
+}
+
+/**
+ * Move one or more rows one place up (delta -1) or down (delta +1) in display
+ * order, committing exactly one update. Rows are visited from the edge they
+ * move toward, so a run of moved rows travels as one block, and a run already
+ * against that edge stays put instead of shuffling.
+ */
+export function moveLayersByStep(design, updateDesign, side, movedIds, { delta, reversed }) {
+    const key = keyOf(side);
+    const current = design[key] || [];
+    const display = reversed ? [...current].reverse() : [...current];
+    const movedSet = new Set(movedIds || []);
+    const step = delta < 0 ? -1 : 1;
+    let changed = false;
+    for (let n = 0; n < display.length; n++) {
+        const index = step < 0 ? n : display.length - 1 - n;
+        const neighbour = index + step;
+        if (neighbour < 0 || neighbour >= display.length) continue;
+        if (!movedSet.has(display[index].id) || movedSet.has(display[neighbour].id)) continue;
+        [display[index], display[neighbour]] = [display[neighbour], display[index]];
+        changed = true;
+    }
+    if (!changed) return false;
+    applyLayers(design, updateDesign, side, reversed ? display.reverse() : display);
+    return true;
+}
+
 // Lock / unlock every layer's thickness on a side in one shot. In symmetric
 // mode the back stack is re-mirrored so the two sides stay identical.
 export function setAllLocked(design, updateDesign, side, locked) {

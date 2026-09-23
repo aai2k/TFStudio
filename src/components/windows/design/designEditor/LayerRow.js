@@ -7,12 +7,37 @@ import {
     materialLayerTrack,
 } from './layerTableLayout.js';
 
-const { createElement: h } = React;
+const { createElement: h, useState } = React;
 
 // ── Layer row ─────────────────────────────────────────────────────────────────
 
 // Fixed, uniform row height (px). Inner controls are 22px + 2px×2 padding = 26.
 const LAYER_ROW_H = 26;
+
+// One of the two move buttons. They sit side by side rather than stacked so
+// each keeps the full row height as its click target.
+function StepArrow({ delta, enabled, title, onStep, c }) {
+    const [hover, setHover] = useState(false);
+    const lit = hover && enabled;
+    return h('button', {
+        type: 'button', title, 'aria-label': title, disabled: !enabled,
+        onClick: event => { event.stopPropagation(); onStep(delta); },
+        onMouseEnter: () => setHover(true),
+        onMouseLeave: () => setHover(false),
+        style: {
+            flex: 1, minWidth: 0, height: 22, padding: 0,
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            border: 'none', borderRadius: 3, outline: 'none',
+            backgroundColor: lit ? c.hover : 'transparent',
+            color: lit ? c.text : c.textDim,
+            cursor: enabled ? 'pointer' : 'default', opacity: enabled ? 1 : 0.35,
+        },
+    }, h('svg', { width: 10, height: 12, viewBox: '0 0 10 12', fill: 'none', style: { display: 'block' } },
+        h('path', {
+            d: delta < 0 ? 'M5 11V1.5M1.5 5L5 1.5 8.5 5' : 'M5 1v9.5M1.5 7L5 10.5 8.5 7',
+            stroke: 'currentColor', strokeWidth: 1.4, strokeLinecap: 'round', strokeLinejoin: 'round',
+        })));
+}
 
 // Memoized so that any parent re-render (e.g. window resize, or editing one row
 // in a 500-layer stack) only re-renders rows whose own props actually
@@ -23,6 +48,7 @@ const LAYER_ROW_H = 26;
 // itself for the same reason: it changes only when a definition does.
 export const LayerRow = React.memo(function LayerRow({ layer, index, isSelected, onSelect, c,
     onMaterialChange, onThicknessChange, onLockToggle, onRemove,
+    onMoveStep, canMoveUp, canMoveDown,
     isMaterialMissing, activeUnit, editRequestToken, editRequestUnit, editRequestSeed,
     onActivateCell, onNavigateCell, onFinishEditing, onContextMenu,
     onPointerDownDrag, dropPosition,
@@ -106,6 +132,18 @@ export const LayerRow = React.memo(function LayerRow({ layer, index, isSelected,
                 fontSize: 13, outline: 'none', flexShrink: 0
             }
         }, h(LockIcon, { locked: layer.locked, size: 13 })),
+        h('div', {
+            style: fixedLayerTrack(LAYER_TABLE.moveWidth, { height: 22, display: 'flex' }),
+        },
+            h(StepArrow, {
+                delta: -1, enabled: canMoveUp, title: de.moveUpRow, c,
+                onStep: delta => onMoveStep(layer.id, delta),
+            }),
+            h(StepArrow, {
+                delta: 1, enabled: canMoveDown, title: de.moveDownRow, c,
+                onStep: delta => onMoveStep(layer.id, delta),
+            }),
+        ),
         h('div', { style: fixedLayerTrack(LAYER_TABLE.actionsWidth) },
             h(IconBtn, {
                 onClick: event => { event.stopPropagation(); onRemove(layer.id); },
