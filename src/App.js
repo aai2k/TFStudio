@@ -35,6 +35,7 @@ export const App = () => {
         c, t, theme, locale, ribbonStyle, quickAccess, devAllowed,
         analysisSettings, settingsLoaded, appVersion,
         updateCheckEnabled, skippedVersion, setSkippedVersion,
+        gamesUnlocked, unlockGames,
     } = settings;
 
     const store     = useDesignStore();
@@ -54,7 +55,7 @@ export const App = () => {
     });
     const dialogs = useAppDialogs();
     const { handleMenuAction, handleToolAction } = useAppCommands({
-        store, project, workspace, dialogs, welcome, locale,
+        store, project, workspace, dialogs, welcome, locale, gamesUnlocked,
     });
 
     useEffect(() => { loadCatalogsFromDisk(); }, []);
@@ -115,7 +116,7 @@ export const App = () => {
             }
         },
             h(TitleBar,  { c, t, activeDesign, isDirty: isActiveDirty, onToolAction: handleToolAction, quickAccess }),
-            h(Toolbar,   { c, t, onToolAction: handleToolAction, onMenuAction: handleMenuAction, devAllowed, ribbonStyle }),
+            h(Toolbar,   { c, t, onToolAction: handleToolAction, onMenuAction: handleMenuAction, devAllowed, ribbonStyle, gamesUnlocked }),
             h('div', { style: { display: 'flex', flex: 1, overflow: 'hidden' } },
                 h(ProjectExplorer, {
                     c, t,

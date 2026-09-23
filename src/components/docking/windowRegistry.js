@@ -68,6 +68,7 @@ import { CoatingLibrary } from '../windows/design/coatingLibrary/CoatingLibrary.
 import { OptimizerBenchmark } from '../windows/optimization/optimizerBenchmark/OptimizerBenchmark.js';
 import { MonitorWorksheet } from '../windows/simulation/monitorWorksheet/MonitorWorksheet.js';
 import { ReportWindow } from '../windows/information/report/ReportWindow.js';
+import { Games } from '../windows/information/games/Games.js';
 
 export const WINDOW_REGISTRY = {
   // ── Design ──────────────────────────────────────────────────────────────────
@@ -121,6 +122,10 @@ export const WINDOW_REGISTRY = {
 
   // ── Dev / QA (opened from the dev-only View menu; not in the user ribbon) ───────
   'optimizer-benchmark': { component: OptimizerBenchmark, title: 'Optimizer Benchmark', label: 'Optimizer Benchmark — live cross-optimizer comparison (dev/QA)', help: 'index', theme: true, requiresResolvedMaterials: true },
+
+  // ── Not in any ribbon tab: offered in the application menu only after the
+  //    version number in About has been clicked seven times ────────────────────
+  'games':           { component: Games,            title: 'Games',              label: 'Games', help: 'index' },
 };
 
 // ── Derived tables (kept byte-equivalent to the old hand-maintained maps) ──────

@@ -479,7 +479,7 @@ export function makeTabs(t) {
 // Reload / DevTools / Optimizer Benchmark entries are offered in every build, so
 // a user who hits a broken window can see what happened and report it.
 
-function appMenuItems(t, devAllowed) {
+function appMenuItems(t, devAllowed, gamesUnlocked) {
     return [
         { label: t.menu.layoutFilterDesign, action: 'layout-filter-design', shortcut: 'Ctrl+1' },
         { label: t.menu.layoutFullAnalysis, action: 'layout-full-analysis' },
@@ -488,6 +488,10 @@ function appMenuItems(t, devAllowed) {
         { label: t.menu.restoreLayout,      action: 'layout-restore' },
         { type: 'sep' },
         { label: t.menu.toggleFullscreen, action: 'toggleFullscreen', shortcut: 'F11' },
+        // Offered only once it has been found. See AboutDialog.
+        ...(gamesUnlocked ? [
+            { label: t.menu.games, action: 'tool:games', shortcut: 'Ctrl+G' },
+        ] : []),
         ...(devAllowed ? [
             { label: t.menu.reload,         action: 'reload',          shortcut: 'Ctrl+R' },
             { label: t.menu.toggleDevTools, action: 'toggle-devtools', shortcut: 'Ctrl+Shift+I' },
@@ -841,7 +845,7 @@ const readCollapsed = () => {
     try { return localStorage.getItem(COLLAPSE_KEY) === '1'; } catch (_) { return false; }
 };
 
-export function Toolbar({ c, onToolAction, onMenuAction, t, devAllowed = true, ribbonStyle = 'colorful' }) {
+export function Toolbar({ c, onToolAction, onMenuAction, t, devAllowed = true, ribbonStyle = 'colorful', gamesUnlocked = false }) {
     const tabs = makeTabs(t);
     const colorful = ribbonStyle !== 'minimalist';
 
@@ -901,7 +905,7 @@ export function Toolbar({ c, onToolAction, onMenuAction, t, devAllowed = true, r
         },
             h(MenuButton, {
                 c, t,
-                items: appMenuItems(t, devAllowed),
+                items: appMenuItems(t, devAllowed, gamesUnlocked),
                 title: 'TFStudio',
                 onAction: runAction,
                 width: 240,

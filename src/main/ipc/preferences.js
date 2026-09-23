@@ -10,6 +10,7 @@ function register(ipcMain, ctx) {
   ipcMain.handle('prefs:load', async () => handleLoad(ctx));
   ipcMain.handle('prefs:save-analysis', async (event, block) => handleSave(ctx, 'analysis', block));
   ipcMain.handle('prefs:save-quick-access', async (event, block) => handleSave(ctx, 'quickAccess', block));
+  ipcMain.handle('prefs:save-tool-state', async (event, block) => handleSave(ctx, 'toolState', block));
 }
 
 function handleLoad(ctx) {

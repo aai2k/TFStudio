@@ -15,6 +15,7 @@ import {
     cachedAppearance, initialTheme, applyPaletteVariables, uniqueThemeName,
 } from '../utils/theme/appearance.js';
 import { readAppSettings, writeAppSettings, readPreferences } from '../utils/io/settingsFile.js';
+import { setToolState, toolState, patchToolState } from '../utils/misc/toolState.js';
 import { bootstrapTmmWasm } from '../utils/physics/tmmWasmBootstrap.js';
 import { initTmmWasmMainThread } from '../tmmcore.js';
 
@@ -69,6 +70,9 @@ export function useAppSettings(setMessageNotification) {
     // null until the preferences file is read, and again if the user has never
     // chosen: the title bar falls back to its own default list.
     const [quickAccess,    setQuickAccessState] = useState(null);
+    // The Games window is not in the ribbon and is not offered in the menu until
+    // it has been found once. See AboutDialog.
+    const [gamesUnlocked,  setGamesUnlocked]  = useState(false);
 
     const t = getLocale(locale);
     // Register imported themes into the palette module before resolving `c` so a
@@ -90,6 +94,8 @@ export function useAppSettings(setMessageNotification) {
         readPreferences().then(prefs => {
             setAnalysisSettings(prefs.analysis);
             setQuickAccessState(prefs.quickAccess);
+            setToolState(prefs.toolState);
+            setGamesUnlocked(!!toolState('games').unlocked);
         });
         bootstrapTmmWasm();
         window.electronAPI?.getDevAllowed?.().then(v => setDevAllowed(v !== false)).catch(() => {});
@@ -123,6 +129,11 @@ export function useAppSettings(setMessageNotification) {
     const setQuickAccess = useCallback((toolIds) => {
         setQuickAccessState(toolIds);
         window.electronAPI?.saveQuickAccess?.(toolIds);
+    }, []);
+
+    const unlockGames = useCallback(() => {
+        setGamesUnlocked(true);
+        patchToolState('games', { unlocked: true });
     }, []);
 
     // ── Import a VS Code colour theme ──────────────────────────────────────────
@@ -166,5 +177,6 @@ export function useAppSettings(setMessageNotification) {
         updateCheckEnabled, setUpdateCheckEnabled, skippedVersion, setSkippedVersion,
         appVersion, devAllowed, settingsLoaded,
         analysisSettings, quickAccess, setQuickAccess,
+        gamesUnlocked, unlockGames,
     };
 }

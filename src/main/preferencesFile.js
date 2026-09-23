@@ -5,13 +5,16 @@
 // therefore lives here instead, under the configurable Preferences folder in
 // Documents, where it survives a reinstall and can be copied to another machine.
 //
-// The file holds two blocks. `analysis` is every configured value an analysis
+// The file holds three blocks. `analysis` is every configured value an analysis
 // window starts from, keyed by window id and grouped by kind (colours, numbers,
 // enums, booleans, lists); Preferences → Analysis edits it field by field and a
 // window's Save button writes what the window is set to into the same block, so
 // the two screens cannot show different values for one setting. `quickAccess`
 // is the list of tool ids in the title bar, or null while the user has not
 // chosen, which is not the same as an empty list they cleared on purpose.
+// `toolState` is what a single window remembers between sessions, keyed by tool
+// id, for the few things that are neither a display default nor part of a
+// design.
 //
 // CommonJS, Electron-free (deps injected) so the logic is testable.
 
@@ -22,7 +25,7 @@ const FILE_NAME = 'window-defaults.json';
 // not destroy settings the older release cannot represent.
 const PREFERENCES_VERSION = 1;
 
-const EMPTY = { version: PREFERENCES_VERSION, analysis: {}, quickAccess: null };
+const EMPTY = { version: PREFERENCES_VERSION, analysis: {}, quickAccess: null, toolState: {} };
 
 function preferencesPath(ctx) {
   return ctx.path.join(ctx.userPaths.get('preferences'), FILE_NAME);
@@ -40,7 +43,7 @@ function stringList(value) {
 
 // How each block is read back off disk and written to it. A block missing from
 // here is dropped rather than passed through.
-const BLOCKS = { analysis: plainObject, quickAccess: stringList };
+const BLOCKS = { analysis: plainObject, quickAccess: stringList, toolState: plainObject };
 
 // Anything unrecognised is dropped rather than passed through. The renderer
 // validates each field against its registry entry on top of this, so a

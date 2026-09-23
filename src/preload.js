@@ -137,6 +137,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   loadPreferences:        () => ipcRenderer.invoke('prefs:load'),
   saveAnalysisSettings:   (block) => ipcRenderer.invoke('prefs:save-analysis', block),
   saveQuickAccess:        (toolIds) => ipcRenderer.invoke('prefs:save-quick-access', toolIds),
+  saveToolState:          (block) => ipcRenderer.invoke('prefs:save-tool-state', block),
   // Update check (notify only; downloading and installing stay manual)
   checkForUpdates:        () => ipcRenderer.invoke('updates:check'),
 });

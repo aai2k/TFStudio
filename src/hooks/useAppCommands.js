@@ -19,7 +19,7 @@ function toggleFullscreen() {
         : document.documentElement.requestFullscreen();
 }
 
-export function useAppCommands({ store, project, workspace, dialogs, welcome, locale }) {
+export function useAppCommands({ store, project, workspace, dialogs, welcome, locale, gamesUnlocked }) {
     const handleMenuAction = (action) => {
         const actions = {
             'about':         () => dialogs.setShowAbout(true),
@@ -71,6 +71,8 @@ export function useAppCommands({ store, project, workspace, dialogs, welcome, lo
         'layout-filter-design': () => workspace.applyPreset('filter-design'),
         'help':       () => openDocs(locale),
         'fullscreen': toggleFullscreen,
+        // Does nothing until the games have been found in About.
+        'games':      () => { if (gamesUnlocked) workspace.openTool('games'); },
     };
     const shortcutsRef = useRef(shortcuts);
     shortcutsRef.current = shortcuts;

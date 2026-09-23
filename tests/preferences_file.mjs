@@ -3,7 +3,7 @@
  *
  * These cover what has to hold for a file the user can open in an editor, copy
  * to another machine, and get wrong: a missing one, a corrupt one, the one-time
- * move out of settings.json, and two blocks written independently.
+ * move out of settings.json, and the blocks written independently of each other.
  *
  * Run: node tests/preferences_file.mjs
  */
@@ -47,7 +47,7 @@ const read = disk => JSON.parse(disk.get(PREFS_FILE));
 {
   const { ctx, disk } = makeCtx();
   const prefs = preferencesFile.load(ctx);
-  assert.deepEqual(prefs, { version: 1, analysis: {}, quickAccess: null });
+  assert.deepEqual(prefs, { version: 1, analysis: {}, quickAccess: null, toolState: {} });
   assert.equal(disk.has(PREFS_FILE), false,
     'nothing is written until there is something to save');
 }
@@ -83,7 +83,7 @@ const read = disk => JSON.parse(disk.get(PREFS_FILE));
 {
   const { ctx, disk, logs } = makeCtx({ [PREFS_FILE]: '{ "analysis": ' });
   const prefs = preferencesFile.load(ctx);
-  assert.deepEqual(prefs, { version: 1, analysis: {}, quickAccess: null },
+  assert.deepEqual(prefs, { version: 1, analysis: {}, quickAccess: null, toolState: {} },
     'a hand-edited file with a typo in it must not stop the app from starting');
   assert.equal(logs.some(line => line.includes('could not be parsed')), true,
     'and the reason is reported');
@@ -169,6 +169,39 @@ const read = disk => JSON.parse(disk.get(PREFS_FILE));
   });
   assert.equal(preferencesFile.load(ctx).quickAccess, null,
     'a value of the wrong shape falls back to the shipped list');
+}
+
+// ── What one window remembers between sessions ──────────────────────────────
+//
+// Keyed by tool id, so two windows storing something cannot collide. It is in
+// this file rather than settings.json because a reinstall takes settings.json
+// with it and these are the things nobody would think to write down first.
+{
+  const { ctx, disk } = makeCtx();
+  assert.deepEqual(preferencesFile.load(ctx).toolState, {});
+
+  preferencesFile.saveBlock(ctx, 'toolState', { games: { unlocked: true, best: { flappyPhoton: 12 } } });
+  assert.deepEqual(read(disk).toolState.games, { unlocked: true, best: { flappyPhoton: 12 } });
+
+  // One tool's entry replaced, another's left alone: the caller merges, so the
+  // block it hands over already carries both.
+  preferencesFile.saveBlock(ctx, 'toolState', {
+    games: { unlocked: true, best: { flappyPhoton: 30 } },
+    somethingElse: { seen: true },
+  });
+  assert.deepEqual(read(disk).toolState.games.best, { flappyPhoton: 30 });
+  assert.deepEqual(read(disk).toolState.somethingElse, { seen: true });
+
+  // Writing it leaves the other blocks where they were.
+  preferencesFile.saveBlock(ctx, 'quickAccess', ['save']);
+  assert.deepEqual(read(disk).toolState.games.best, { flappyPhoton: 30 });
+}
+{
+  const { ctx } = makeCtx({
+    [PREFS_FILE]: JSON.stringify({ version: 1, toolState: 'nonsense' }),
+  });
+  assert.deepEqual(preferencesFile.load(ctx).toolState, {},
+    'a value of the wrong shape is dropped rather than passed through');
 }
 
 // ── A block nobody knows about ──────────────────────────────────────────────

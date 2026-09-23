@@ -15,6 +15,7 @@ const ACTIONS = new Map([
     ['1', 'layout-filter-design'],
     ['z', 'undo'],
     ['y', 'redo'],
+    ['g', 'games'],
 ]);
 
 export function appShortcutFor(event) {

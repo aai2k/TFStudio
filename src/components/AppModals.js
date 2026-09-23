@@ -47,7 +47,12 @@ export function AppModals({
             onDeleteTheme: settings.deleteCustomTheme,
             onClose: () => dialogs.setShowSettings(false),
         }),
-        dialogs.showAbout && h(AboutDialog, { c, t, onClose: () => dialogs.setShowAbout(false) }),
+        dialogs.showAbout && h(AboutDialog, {
+            c, t,
+            gamesUnlocked: settings.gamesUnlocked,
+            onUnlockGames: settings.unlockGames,
+            onClose: () => dialogs.setShowAbout(false),
+        }),
         project.designImport && h(DesignImportDialog, {
             c, t,
             fileImport: project.designImport,

@@ -11,9 +11,38 @@ import APP_ICON from '../../constants/icon.js';
 // actual build date, NOT the runtime date (which was the old bug).
 const BUILD_DATE = (typeof __TFS_BUILD_DATE__ !== 'undefined') ? __TFS_BUILD_DATE__ : null;
 
-export function AboutDialog({ c, t, onClose }) {
+const UNLOCK_CLICKS = 7;
+
+// A link opened by the system (browser or mail client) rather than in the app.
+function externalLink(h, c, { url, label, marginBottom }) {
+  return h('a', {
+    href: '#',
+    onClick: (e) => {
+      e.preventDefault();
+      if (window.electronAPI && window.electronAPI.openExternal) {
+        window.electronAPI.openExternal(url);
+      }
+    },
+    style: {
+      color: c.accent,
+      fontSize: '14px',
+      textDecoration: 'none',
+      display: 'block',
+      marginBottom
+    },
+    onMouseEnter: (e) => {
+      e.target.style.textDecoration = 'underline';
+    },
+    onMouseLeave: (e) => {
+      e.target.style.textDecoration = 'none';
+    }
+  }, label);
+}
+
+export function AboutDialog({ c, t, onClose, gamesUnlocked = false, onUnlockGames }) {
   const { createElement: h, useState, useEffect } = React;
   const [version, setVersion] = useState('0.1.0');
+  const [versionClicks, setVersionClicks] = useState(0);
 
   useEffect(() => {
     // Get version from electron API
@@ -21,6 +50,15 @@ export function AboutDialog({ c, t, onClose }) {
       window.electronAPI.getAppVersion().then(v => setVersion(v));
     }
   }, []);
+
+  // Seven clicks on the version add the Games window to the application menu.
+  // The message shows on the click that does it, not on later visits.
+  const countVersionClick = () => {
+    if (gamesUnlocked) return;
+    const next = versionClicks + 1;
+    setVersionClicks(next);
+    if (next >= UNLOCK_CLICKS) onUnlockGames?.();
+  };
 
   return h('div', {
     style: {
@@ -75,12 +113,21 @@ export function AboutDialog({ c, t, onClose }) {
 
       // Version
       h('div', {
+        onClick: countVersionClick,
         style: {
           color: c.textDim,
           fontSize: '14px',
-          marginBottom: '24px'
+          marginBottom: versionClicks >= UNLOCK_CLICKS ? '6px' : '24px'
         }
       }, `${t.dialogs.about.version} ${version}`),
+
+      versionClicks >= UNLOCK_CLICKS && h('div', {
+        style: {
+          color: c.accent,
+          fontSize: '13px',
+          marginBottom: '18px'
+        }
+      }, t.dialogs.about.gamesFound),
 
       // Build date (baked at build time; hidden in dev where it's unknown).
       BUILD_DATE && h('div', {
@@ -114,28 +161,7 @@ export function AboutDialog({ c, t, onClose }) {
         }
       }, t.dialogs.about.website),
 
-      h('a', {
-        href: '#',
-        onClick: (e) => {
-          e.preventDefault();
-          if (window.electronAPI && window.electronAPI.openExternal) {
-            window.electronAPI.openExternal('https://github.com/aai2k/TFStudio');
-          }
-        },
-        style: {
-          color: c.accent,
-          fontSize: '14px',
-          textDecoration: 'none',
-          display: 'block',
-          marginBottom: '16px'
-        },
-        onMouseEnter: (e) => {
-          e.target.style.textDecoration = 'underline';
-        },
-        onMouseLeave: (e) => {
-          e.target.style.textDecoration = 'none';
-        }
-      }, 'GitHub'),
+      externalLink(h, c, { url: 'https://github.com/aai2k/TFStudio', label: 'GitHub', marginBottom: '16px' }),
 
       // Contact email
       h('div', {
@@ -146,28 +172,7 @@ export function AboutDialog({ c, t, onClose }) {
         }
       }, t.dialogs.about.contact),
 
-      h('a', {
-        href: '#',
-        onClick: (e) => {
-          e.preventDefault();
-          if (window.electronAPI && window.electronAPI.openExternal) {
-            window.electronAPI.openExternal('mailto:achapovskyai@gmail.com');
-          }
-        },
-        style: {
-          color: c.accent,
-          fontSize: '14px',
-          textDecoration: 'none',
-          display: 'block',
-          marginBottom: '24px'
-        },
-        onMouseEnter: (e) => {
-          e.target.style.textDecoration = 'underline';
-        },
-        onMouseLeave: (e) => {
-          e.target.style.textDecoration = 'none';
-        }
-      }, 'achapovskyai@gmail.com'),
+      externalLink(h, c, { url: 'mailto:achapovskyai@gmail.com', label: 'achapovskyai@gmail.com', marginBottom: '24px' }),
 
       // Divider
       h('div', {

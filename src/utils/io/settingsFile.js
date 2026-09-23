@@ -49,17 +49,25 @@ export async function writeAppSettings(values) {
     saveAppearance({ theme, ribbonStyle, customThemes });
 }
 
+const plainObject = (value) =>
+    value && typeof value === 'object' && !Array.isArray(value) ? value : {};
+
 /**
  * The analysis-window defaults live in the preferences file rather than in
  * settings.json, so they are in Documents and survive a reinstall. A missing or
  * unreadable file leaves every window on the values the release ships with.
+ *
+ * Every block the file holds must be returned: the caller seeds its in-memory
+ * copy from this and the next save writes that copy back, so a block dropped
+ * here is deleted from the file.
  */
 export async function readPreferences() {
     let prefs = null;
     try { prefs = (await window.electronAPI?.loadPreferences?.())?.prefs || null; }
     catch (_) { /* shipped defaults */ }
     return {
-        analysis: prefs?.analysis && typeof prefs.analysis === 'object' ? prefs.analysis : {},
+        analysis: plainObject(prefs?.analysis),
         quickAccess: Array.isArray(prefs?.quickAccess) ? prefs.quickAccess : null,
+        toolState: plainObject(prefs?.toolState),
     };
 }
