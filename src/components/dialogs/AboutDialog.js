@@ -114,6 +114,9 @@ export function AboutDialog({ c, t, onClose, gamesUnlocked = false, onUnlockGame
       // Version
       h('div', {
         onClick: countVersionClick,
+        // A double or triple click selects the text; the seven clicks should not.
+        // Dragging across it still selects it, so the version can be copied.
+        onMouseDown: (e) => { if (e.detail > 1) e.preventDefault(); },
         style: {
           color: c.textDim,
           fontSize: '14px',
