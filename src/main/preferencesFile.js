@@ -68,10 +68,33 @@ function readFile(ctx) {
   }
 }
 
+function parses(ctx, file) {
+  try {
+    JSON.parse(ctx.fs.readFileSync(file, 'utf-8'));
+    return true;
+  } catch (_) {
+    return false;
+  }
+}
+
+// A write replaces the whole file with what was loaded, and what was loaded from
+// a file that does not parse is the shipped values, so writing over it would
+// lose every setting the user had in it. It is copied aside first. A copy that
+// fails stops the write, rather than letting it replace the file with nothing
+// kept. The write that follows leaves a file that parses, so this happens once.
+function keepUnreadable(ctx, file) {
+  if (!ctx.fs.existsSync(file) || parses(ctx, file)) return;
+  const aside = `${file}.unreadable-${new Date().toISOString().replace(/[:.]/g, '-')}`;
+  ctx.fs.copyFileSync(file, aside);
+  ctx.log(`preferences: ${file} could not be parsed; kept a copy at ${aside} before writing a new one`);
+}
+
 function writeFile(ctx, prefs) {
   const dir = ctx.userPaths.get('preferences');
+  const file = ctx.path.join(dir, FILE_NAME);
   ctx.fs.mkdirSync(dir, { recursive: true });
-  ctx.writeFileAtomic(ctx.path.join(dir, FILE_NAME), JSON.stringify(prefs, null, 2), 'utf-8');
+  keepUnreadable(ctx, file);
+  ctx.writeFileAtomic(file, JSON.stringify(prefs, null, 2), 'utf-8');
 }
 
 /**

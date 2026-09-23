@@ -31,6 +31,7 @@ function makeCtx(files = {}) {
       existsSync: file => disk.has(file),
       readFileSync: file => disk.get(file),
       mkdirSync: () => {},
+      copyFileSync: (from, to) => disk.set(to, disk.get(from)),
     },
     writeFileAtomic: (file, contents) => disk.set(file, contents),
     readJsonSafe: file => {
@@ -89,6 +90,47 @@ const read = disk => JSON.parse(disk.get(PREFS_FILE));
     'and the reason is reported');
   assert.equal(disk.get(PREFS_FILE), '{ "analysis": ',
     'the unreadable file is left alone rather than overwritten unasked');
+}
+
+// ── A save over a file that cannot be parsed keeps the original ─────────────
+//
+// The next save writes the whole file from what was loaded, and what was loaded
+// from an unreadable file is nothing, so without a copy every setting in it is
+// lost to one saved score.
+{
+  const broken = '{ "quickAccess": ["save", "undo"], }';
+  const { ctx, disk, logs } = makeCtx({ [PREFS_FILE]: broken });
+  const setAside = () => [...disk.keys()].filter(file => file.startsWith(`${PREFS_FILE}.unreadable-`));
+
+  preferencesFile.saveBlock(ctx, 'toolState', { games: { unlocked: true } });
+  assert.deepEqual(read(disk).toolState, { games: { unlocked: true } }, 'the save still goes through');
+  assert.equal(setAside().length, 1, 'the unreadable file is copied aside once');
+  assert.equal(disk.get(setAside()[0]), broken, 'and the copy holds its original bytes');
+  assert.equal(logs.some(line => line.includes(setAside()[0])), true, 'and where it went is reported');
+
+  preferencesFile.saveBlock(ctx, 'quickAccess', ['save']);
+  assert.equal(setAside().length, 1, 'a file that parses again is not copied again');
+  assert.equal(disk.get(setAside()[0]), broken, 'and the copy still holds the original');
+}
+{
+  const broken = '{ "analysis": ';
+  const { ctx, disk } = makeCtx({ [PREFS_FILE]: broken });
+  ctx.fs.copyFileSync = () => { throw new Error('EACCES'); };
+  assert.throws(() => preferencesFile.saveBlock(ctx, 'quickAccess', ['save']), /EACCES/,
+    'a save that cannot keep a copy fails');
+  assert.equal(disk.get(PREFS_FILE), broken, 'and leaves the unreadable file where it was');
+}
+{
+  // The one-time move out of settings.json writes the file too.
+  const broken = '{ "analysis": ';
+  const { ctx, disk } = makeCtx({
+    [PREFS_FILE]: broken,
+    [SETTINGS]: JSON.stringify({ analysis: { opticalEvaluation: { colors: { T: '#123456' } } } }),
+  });
+  preferencesFile.load(ctx);
+  const kept = [...disk.keys()].filter(file => file.startsWith(`${PREFS_FILE}.unreadable-`));
+  assert.equal(kept.length, 1, 'the migration keeps a copy before writing over an unreadable file');
+  assert.equal(disk.get(kept[0]), broken);
 }
 
 // ── A block that is the wrong shape is dropped, not passed through ──────────
