@@ -437,6 +437,7 @@ export default {
   dialogs: {
     persistenceFailed: '项目更改无法保存。请重试。',
     openDesignFailed: (msg) => `无法打开设计：${msg}`,
+    savedElsewhere: (names) => `${names}：该文件在您于此处的未保存修改之后又被保存过，因此已载入该文件。按 Ctrl+Z 可恢复未保存的版本。`,
     contextMenu: {
       renameFolder: '重命名文件夹',
     },

@@ -112,7 +112,8 @@
       const out = Array.from(byId.values()).sort((a, b) => a.id.localeCompare(b.id));
       for (const f of out) f.items.sort((a, b) => a.name.localeCompare(b.name));
       if (out.length === 0) out.push({ id: DEFAULT_FOLDER, name: DEFAULT_FOLDER, expanded: true, items: [] });
-      return ok({ folders: out });
+      // The store is read whole or not at all, so nothing is ever left unread.
+      return ok({ folders: out, unreadable: 0 });
     } catch (e) {
       return fail(String((e && e.message) || e));
     }

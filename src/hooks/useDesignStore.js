@@ -13,7 +13,8 @@
 
 import { makeDefaultDesign } from '../state/DesignContext.js';
 import { updateDirtyDesigns } from '../utils/io/projectPersistence.js';
-import { saveSession, serializeHistory, MAX_HISTORY } from '../utils/io/appSession.js';
+import { sessionEntryFor } from '../utils/io/sessionMerge.js';
+import { writeSessionEntry, MAX_HISTORY } from '../utils/io/appSession.js';
 import { appendDistinctSnapshot } from '../utils/history.js';
 
 const { useState, useEffect, useRef, useCallback } = React;
@@ -38,7 +39,7 @@ function pushCheckpoint(s, id) {
     hist.past   = appendDistinctSnapshot(hist.past, cur, MAX_HISTORY);
     hist.future = [];
     s.bumpHistory();
-    s.scheduleSessionSave();
+    s.scheduleSessionSave(id);
 }
 
 /**
@@ -70,7 +71,7 @@ function applyDesignChange(s, id, newDesign, opts) {
     // runs on committed edits, undo, and redo.
     if (transient) s.setDirtyDesigns(d => (d[id] ? d : { ...d, [id]: true }));
     else           s.recomputeDirty(id, newDesign);
-    s.scheduleSessionSave();
+    s.scheduleSessionSave(id);
 }
 
 // Make `target` the present and leave the stacks as `stacks` describes them.
@@ -82,7 +83,7 @@ function moveHistory(s, id, target, stacks) {
     s.setDesigns(d => ({ ...d, [id]: target }));
     s.recomputeDirty(id, target);
     s.bumpHistory();
-    s.scheduleSessionSave();
+    s.scheduleSessionSave(id);
 }
 
 function undoStep(s, id) {
@@ -135,17 +136,45 @@ export function useDesignStore() {
     const historyRef      = useRef({});   // { [id]: { past: [...], future: [...] } }
     const diskDesignsRef  = useRef({});   // last-saved-to-disk snapshot per id (dirty baseline)
     const sessionTimerRef = useRef(null); // debounce for session save
+    const sessionDueRef   = useRef(new Set()); // designs changed since the last session save
 
     useEffect(() => { designsRef.current = designs; }, [designs]);
 
     // ── Session save (debounced 500 ms) ────────────────────────────────────────
-    // Persists both the working designs and a serializable copy of the per-design
-    // undo/redo history so Ctrl+Z / Ctrl+Y survive an app restart.
-    const scheduleSessionSave = useCallback(() => {
+    // Persists the working copy of each design that changed, with its undo/redo
+    // history, so unsaved edits and Ctrl+Z / Ctrl+Y survive an app restart. Only
+    // the designs named since the last save are written; the others' entries
+    // are already current. A design is named again when its file is saved or
+    // renamed, since its entry records which file it started from.
+    const scheduleSessionSave = useCallback((id) => {
+        if (id) sessionDueRef.current.add(id);
         clearTimeout(sessionTimerRef.current);
-        sessionTimerRef.current = setTimeout(
-            () => saveSession(designsRef.current, serializeHistory(historyRef.current)), 500);
+        sessionTimerRef.current = setTimeout(() => {
+            const due = [...sessionDueRef.current];
+            sessionDueRef.current.clear();
+            for (const dueId of due) {
+                writeSessionEntry(dueId, sessionEntryFor(
+                    designsRef.current[dueId], historyRef.current[dueId], diskDesignsRef.current[dueId]));
+            }
+        }, 500);
     }, []);
+
+    // Designs gone from the project tree leave the store, their history and the
+    // session with them; otherwise a deleted design would stay in the session
+    // for good.
+    const dropDesigns = useCallback((ids) => {
+        setDesigns(prev => {
+            const next = { ...prev };
+            ids.forEach(id => delete next[id]);
+            return next;
+        });
+        ids.forEach(id => {
+            delete historyRef.current[id];
+            sessionDueRef.current.delete(id);
+            writeSessionEntry(id, null);
+        });
+        bumpHistory();
+    }, [bumpHistory]);
 
     // Dirty = working design differs (canonically) from the last disk save.
     // Re-evaluated on every change so that undoing back to the saved state
@@ -212,5 +241,6 @@ export function useDesignStore() {
         historyRef, historyView,
         handleDesignChange, pushCheckpoint: pushCheckpointFor,
         undo, redo, jumpToHistory,
+        scheduleSessionSave, dropDesigns,
     };
 }

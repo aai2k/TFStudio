@@ -44,6 +44,7 @@ function saveToDisk(a, id, design) {
         () => writeDesignFile(folder.id, savedSnapshot),
         () => {
             a.diskDesignsRef.current[targetId] = savedSnapshot;
+            a.scheduleSessionSave(targetId);
             a.setFolders(current => updateExplorerItemMtime(current, targetId, Date.now()));
             a.setDirtyDesigns(d => updateDirtyDesigns(
                 d, targetId, a.designsRef.current[targetId], savedSnapshot));
@@ -152,6 +153,7 @@ function renameInStore(a, itemId, newName) {
             ...a.diskDesignsRef.current[itemId], name: newName,
         };
     }
+    a.scheduleSessionSave(itemId);
 }
 
 function renameDesign(a, folderId, itemId, newName) {

@@ -17,13 +17,54 @@ function canonicalize(value) {
   return value;
 }
 
+// A design's layer lists as a file read back gives them: load-folders fills a
+// missing or null list in as empty (validateDesign in the main process), so a
+// design built without one equals the file it was written to.
+function withLayerLists(design) {
+  return { ...design, frontLayers: design.frontLayers ?? [], backLayers: design.backLayers ?? [] };
+}
+
 export function designsEqual(a, b) {
   if (a === b) return true;
   if (!a || !b) return false;
   try {
-    return JSON.stringify(canonicalize(a)) === JSON.stringify(canonicalize(b));
+    return JSON.stringify(canonicalize(withLayerLists(a))) === JSON.stringify(canonicalize(withLayerLists(b)));
   } catch (_) {
     return false;
+  }
+}
+
+// 53-bit hash of a string (cyrb53), as a base-36 string.
+function hash53(text) {
+  let h1 = 0xdeadbeef;
+  let h2 = 0x41c6ce57;
+  for (let i = 0; i < text.length; i++) {
+    const ch = text.charCodeAt(i);
+    h1 = Math.imul(h1 ^ ch, 2654435761);
+    h2 = Math.imul(h2 ^ ch, 1597334677);
+  }
+  h1 = Math.imul(h1 ^ (h1 >>> 16), 2246822507);
+  h1 ^= Math.imul(h2 ^ (h2 >>> 13), 3266489909);
+  h2 = Math.imul(h2 ^ (h2 >>> 16), 2246822507);
+  h2 ^= Math.imul(h1 ^ (h1 >>> 13), 3266489909);
+  return (4294967296 * (2097151 & h2) + (h1 >>> 0)).toString(36);
+}
+
+/**
+ * A fingerprint of a design's content, name aside: equal for two designs that
+ * designsEqual would call equal once their names match. The session stores the
+ * fingerprint of the file a working copy started from, which is how a file
+ * changed since is told apart from one that was not. The name is left out
+ * because a rename changes nothing the copy was edited against, and the copy
+ * takes the file's name when it is restored.
+ */
+export function designFingerprint(design) {
+  if (!design) return null;
+  try {
+    const { name: _name, ...content } = withLayerLists(design);
+    return hash53(JSON.stringify(canonicalize(content)));
+  } catch (_) {
+    return null;
   }
 }
 
@@ -34,37 +75,6 @@ export function updateDirtyDesigns(dirtyDesigns, id, currentDesign, savedDesign)
   if (isDirty) next[id] = true;
   else delete next[id];
   return next;
-}
-
-/**
- * Restore unsaved working copies over disk snapshots while keeping the disk
- * filename authoritative. A migration can rename a saved design; an older
- * session must preserve its edits without resurrecting the obsolete title.
- */
-export function mergeSessionOverDisk(diskDesigns, sessionDesigns) {
-  const designs = {};
-  const dirty = {};
-
-  Object.entries(diskDesigns).forEach(([id, diskDesign]) => {
-    const sessionDesign = sessionDesigns?.[id];
-    if (!sessionDesign) {
-      designs[id] = diskDesign;
-      return;
-    }
-    const workingDesign = sessionDesign.name === diskDesign.name
-      ? sessionDesign
-      : { ...sessionDesign, name: diskDesign.name };
-    designs[id] = workingDesign;
-    if (!designsEqual(workingDesign, diskDesign)) dirty[id] = true;
-  });
-
-  Object.entries(sessionDesigns || {}).forEach(([id, design]) => {
-    if (!designs[id]) {
-      designs[id] = design;
-      dirty[id] = true;
-    }
-  });
-  return { initialDesigns: designs, initialDirty: dirty };
 }
 
 // Renderer-side guard against stale duplicate .tfs files sharing an id within a

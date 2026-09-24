@@ -440,6 +440,7 @@ export default {
   dialogs: {
     persistenceFailed: 'Не удалось сохранить изменение проекта. Повторите попытку.',
     openDesignFailed: (msg) => `Не удалось открыть проект: ${msg}`,
+    savedElsewhere: (names) => `${names}: файл сохранён позже ваших несохранённых изменений здесь, поэтому загружен файл. Ctrl+Z вернёт несохранённую версию.`,
     contextMenu: {
       renameFolder: 'Переименовать папку',
     },

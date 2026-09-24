@@ -121,6 +121,23 @@ const put = (name, obj) => { files.set(`/out/${name}.tfs`, JSON.stringify(obj));
         'the skipped file is logged with its reason rather than dropped silently');
     ok(folder.items.every(i => Array.isArray(i.design.frontLayers)),
         'every design that reaches the tree has layer arrays the renderer can map');
+    // The renderer removes the unsaved copy of a design missing from the tree
+    // only when nothing was left unread, since an unread file looks deleted.
+    ok(res.unreadable === 1, 'the refused file is counted as unread');
+
+    files.delete('/p/My Designs/stub.tfs');
+    dirs.set('/p/My Designs', ['good.tfs', 'nolayers.tfs']);
+    ok((await handlers.get('load-folders')()).unreadable === 0, 'a tree read in full has nothing unread');
+
+    dirs.set('/p', ['My Designs', 'Locked']);
+    dirs.set('/p/Locked', null);
+    const realReaddir = ctx.fs.readdirSync;
+    ctx.fs.readdirSync = (d, opts) => {
+        if (d === '/p/Locked') throw new Error('EPERM');
+        return realReaddir(d, opts);
+    };
+    ok((await handlers.get('load-folders')()).unreadable === 1, 'a folder that cannot be listed is counted too');
+    ctx.fs.readdirSync = realReaddir;
 }
 
 console.log(`design_shape_validation: ${passed} passed`);

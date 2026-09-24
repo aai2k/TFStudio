@@ -440,6 +440,7 @@ export default {
   dialogs: {
     persistenceFailed: 'The project change could not be saved. Please try again.',
     openDesignFailed: (msg) => `The design could not be opened: ${msg}`,
+    savedElsewhere: (names) => `${names}: the file was saved after your unsaved edits here, so the file is loaded. Ctrl+Z brings back the unsaved version.`,
     contextMenu: {
       renameFolder: 'Rename Folder',
     },

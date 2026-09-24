@@ -28,7 +28,7 @@ function removeOne(a, folderId, itemId) {
             a.setFolders(prev => prev.map(f => f.id === folderId
                 ? { ...f, items: f.items.filter(i => i.id !== itemId) }
                 : f));
-            a.evictDesigns(new Set([itemId]));
+            a.evictDesigns(new Set([itemId]), (f, i) => f.id === folderId && i.id === itemId);
         },
     );
 }
@@ -61,7 +61,7 @@ async function removeSelection(a, explicitList) {
     a.setFolders(prev => prev.map(f => ({
         ...f, items: f.items.filter(item => !removedIds.has(item.id)),
     })));
-    a.evictDesigns(removedIds);
+    a.evictDesigns(removedIds, (f, item) => removedIds.has(item.id));
 }
 
 // Deleting a folder deletes everything below it, subfolders included.
@@ -79,7 +79,7 @@ function removeFolderTree(a, folderId) {
             a.setSelectedFolder(prev => (prev && isFolderWithin(prev.id, folderId)
                 ? a.foldersRef.current.find(f => !isFolderWithin(f.id, folderId)) || null
                 : prev));
-            a.evictDesigns(removedIds);
+            a.evictDesigns(removedIds, f => isFolderWithin(f.id, folderId));
         },
     );
 }

@@ -1,10 +1,10 @@
 import assert from 'node:assert/strict';
 import {
   designsEqual,
-  mergeSessionOverDisk,
   persistThenCommit,
   updateDirtyDesigns,
 } from '../src/utils/io/projectPersistence.js';
+import { mergeSessionOverDisk } from '../src/utils/io/sessionMerge.js';
 
 function deferred() {
   let resolve;
@@ -108,7 +108,10 @@ ok(designsEqual({ ...v11OnDisk, materials: { 'user:X': {} } }, v11OnDisk),
 
 const renamedDisk = { id: 'demo-1', name: 'Canonical title', frontLayers: [{ d: 100 }] };
 const staleSession = { id: 'demo-1', name: 'Old — title', frontLayers: [{ d: 125 }] };
-const merged = mergeSessionOverDisk({ 'demo-1': renamedDisk }, { 'demo-1': staleSession });
+const merged = mergeSessionOverDisk(
+  { 'demo-1': renamedDisk },
+  { 'demo-1': { design: staleSession, history: { past: [], future: [] }, base: null } },
+);
 ok(merged.initialDesigns['demo-1'].name === 'Canonical title',
   'a disk migration stays authoritative over a stale session title');
 ok(merged.initialDesigns['demo-1'].frontLayers[0].d === 125,

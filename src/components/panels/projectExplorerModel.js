@@ -48,6 +48,18 @@ export function folderSubtree(folders, folderId) {
   return (folders || []).filter((folder) => isFolderWithin(folder.id, folderId));
 }
 
+/**
+ * The ids in `removedIds` that no row of the tree holds once the rows for which
+ * `isRemoved(folder, item)` is true are gone. A .tfs or a folder copied outside
+ * the app puts one id in two folders, and deleting one row must leave the
+ * design the other row shows.
+ */
+export function idsLeavingTree(folders, removedIds, isRemoved) {
+  const held = new Set(folders.flatMap((folder) =>
+    folder.items.filter((item) => !isRemoved(folder, item)).map((item) => item.id)));
+  return new Set([...removedIds].filter((id) => !held.has(id)));
+}
+
 /** Where `folderId` ends up once the folder at `fromId` has moved to `toId`. */
 export function rehomedFolderId(folderId, fromId, toId) {
   return isFolderWithin(folderId, fromId) ? toId + String(folderId).slice(fromId.length) : folderId;

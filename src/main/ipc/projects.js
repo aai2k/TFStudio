@@ -81,7 +81,8 @@ async function handleImportVscodeTheme(ctx) {
 
 // Load one .tfs file into `items`, de-duping by design.id against files already
 // seen in this folder. Mutates `items` and `seenIds` (design.id -> { file, mtime }
-// of the file currently kept) in place.
+// of the file currently kept) in place. A file left out because it could not be
+// read, parsed or validated is added to `ctx.unread`.
 function loadDesignFile(ctx, folderPath, tfsFile, items, seenIds) {
   const { fs, path, log } = ctx;
   try {
@@ -91,6 +92,7 @@ function loadDesignFile(ctx, folderPath, tfsFile, items, seenIds) {
     const design = JSON.parse(content);
     if (!design || !design.id) {
       log(`Skipping ${tfsFile}: missing design.id`);
+      ctx.unread.push(fullPath);
       return;
     }
     // A design the renderer cannot draw is left out of the tree, the same way a
@@ -99,6 +101,7 @@ function loadDesignFile(ctx, folderPath, tfsFile, items, seenIds) {
     const invalid = validateDesign(design);
     if (invalid) {
       log(`Skipping ${tfsFile}: ${invalid}`);
+      ctx.unread.push(fullPath);
       return;
     }
     // De-dupe by design.id: keep the most-recently-modified file, remove the rest.
@@ -128,7 +131,10 @@ function loadDesignFile(ctx, folderPath, tfsFile, items, seenIds) {
     }
     seenIds.set(design.id, { file: fullPath, mtime: stat.mtimeMs });
     items.push({ id: design.id, name: design.name, design, mtime: stat.mtimeMs });
-  } catch (err) { log(`Error loading ${tfsFile}: ${err.message}`); }
+  } catch (err) {
+    log(`Error loading ${tfsFile}: ${err.message}`);
+    ctx.unread.push(path.join(folderPath, tfsFile));
+  }
 }
 
 // Read one project directory and everything below it into `folders`, parent
@@ -139,11 +145,15 @@ function loadDesignFile(ctx, folderPath, tfsFile, items, seenIds) {
 //
 // A directory symlink reports as a link rather than a directory, so a link
 // pointing back up the tree is left alone instead of being walked forever.
+// Files and directories that could not be read are added to `ctx.unread`.
 function collectFolders(ctx, dirPath, folderId, folderName, folders) {
   const { fs, path, log } = ctx;
   let entries = [];
   try { entries = fs.readdirSync(dirPath, { withFileTypes: true }); }
-  catch (err) { log(`load-folders: ${dirPath}: ${err.message}`); }
+  catch (err) {
+    log(`load-folders: ${dirPath}: ${err.message}`);
+    ctx.unread.push(dirPath);
+  }
 
   const items = [];
   const seenIds = new Map(); // design.id -> { file, mtime } of file kept
@@ -168,7 +178,9 @@ function collectFolders(ctx, dirPath, folderId, folderName, folders) {
 // ── Load all projects / designs ────────────────────────────────────────────
 // Returns the whole tree as a flat list of folders, each with the designs it
 // holds directly; a folder's place in the tree is carried by its id. Items
-// include the full design object (from .tfs files).
+// include the full design object (from .tfs files). `unreadable` counts the
+// files and folders left out because they could not be read: a design missing
+// from the tree is only known to be gone when it is zero.
 function handleLoadFolders(ctx) {
   const { fs, path, log, projectsDir } = ctx;
   try {
@@ -178,15 +190,16 @@ function handleLoadFolders(ctx) {
     if (folderDirs.length === 0) {
       const defaultFolderPath = path.join(projectsDir, 'My Designs');
       fs.mkdirSync(defaultFolderPath, { recursive: true });
-      return { success: true, folders: [{ id: 'My Designs', name: 'My Designs', expanded: true, items: [] }] };
+      return { success: true, folders: [{ id: 'My Designs', name: 'My Designs', expanded: true, items: [] }], unreadable: 0 };
     }
 
     const folders = [];
+    const load = { ...ctx, unread: [] };
     for (const folderDir of folderDirs) {
-      collectFolders(ctx, path.join(projectsDir, folderDir.name), folderDir.name, folderDir.name, folders);
+      collectFolders(load, path.join(projectsDir, folderDir.name), folderDir.name, folderDir.name, folders);
     }
 
-    return { success: true, folders };
+    return { success: true, folders, unreadable: load.unread.length };
   } catch (error) {
     log(`load-folders error: ${error.message}`);
     return { success: false, error: error.message };

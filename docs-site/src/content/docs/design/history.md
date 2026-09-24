@@ -25,11 +25,14 @@ The Layers and MF columns let you spot where the design changed and how the
 merit moved: for example, the moment a synthesis run added layers and dropped
 the merit. A row with no operands defined shows a dash for MF.
 
-The timeline holds up to 50 states per design and is saved with the project, so
-your history is still there the next time you open the app. Refinement, Needle
-and Gradual Evolution each add a single checkpoint when they start and stream
-their iterations as previews, so one Ctrl+Z reverts a whole run rather than
-stepping back through every iteration.
+The timeline holds up to 50 states per design. This copy of TFStudio keeps it,
+with any edits you have not saved, so both are still there the next time you
+open the app; the design file holds only what you saved. If the file is saved
+from somewhere else in the meantime, such as another installed version, the
+saved file opens and your unsaved version becomes the last undo state.
+Refinement, Needle and Gradual Evolution each add a single checkpoint when they
+start and stream their iterations as previews, so one Ctrl+Z reverts a whole run
+rather than stepping back through every iteration.
 
 ## References
 

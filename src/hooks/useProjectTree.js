@@ -12,8 +12,10 @@
  */
 
 import { folderDesignNames } from '../utils/io/designNaming.js';
-import { loadSession, restoreSessionHistory } from '../utils/io/appSession.js';
-import { mergeSessionOverDisk, parseFoldersResult } from '../utils/io/projectPersistence.js';
+import { idsLeavingTree } from '../components/panels/projectExplorerModel.js';
+import { loadSession } from '../utils/io/appSession.js';
+import { parseFoldersResult } from '../utils/io/projectPersistence.js';
+import { mergeSessionOverDisk, storeMergedSession } from '../utils/io/sessionMerge.js';
 import { useProjectPersistence } from './useProjectPersistence.js';
 import { useDesignActions } from './useDesignActions.js';
 import { useProjectRemoval } from './useProjectRemoval.js';
@@ -40,18 +42,22 @@ function commitDesign(p, design, targetFolder) {
 
 // What a removed design leaves behind everywhere but the folder list, which
 // each caller filters its own way: the selection, the dirty flag, the disk
-// baseline, and the windows still showing it.
-function forgetDesigns(p, removedIds) {
+// baseline, and the windows still showing it. `isRemoved(folder, item)` names
+// the tree rows the caller takes out; a design another row still shows keeps
+// its working copy, history, dirty flag and disk baseline.
+function forgetDesigns(p, removedIds, isRemoved) {
+    const gone = idsLeavingTree(p.foldersRef.current, removedIds, isRemoved);
     p.setSelectedItem(prev => (removedIds.has(prev?.id) ? null : prev));
     p.setSelectedItems(prev => prev.filter(item => !removedIds.has(item.id)));
     p.setActiveDesignId(prev => (removedIds.has(prev) ? null : prev));
     p.setDirtyDesigns(prev => {
         const next = { ...prev };
-        removedIds.forEach(id => delete next[id]);
+        gone.forEach(id => delete next[id]);
         return next;
     });
+    p.dropDesigns(gone);
+    gone.forEach(id => { delete p.diskDesignsRef.current[id]; });
     removedIds.forEach(id => {
-        delete p.diskDesignsRef.current[id];
         window.dispatchEvent(new CustomEvent(
             'tfstudio:design-evict', { detail: { id } }));
     });
@@ -75,11 +81,15 @@ function selectDesign(p, designId) {
 async function loadFolders(p, { restoreSession = true, restoreLayout = true } = {}) {
     let diskDesigns   = {};
     let loadedFolders = [];
+    // Every file in the Projects folder was read, so a design missing from it
+    // is gone rather than unread.
+    let readWhole     = false;
 
     if (window.electronAPI?.loadFolders) {
         const result = await window.electronAPI.loadFolders();
         if (result.success) {
             ({ diskDesigns, loadedFolders } = parseFoldersResult(result));
+            readWhole = result.unreadable === 0;
         }
     }
 
@@ -96,16 +106,26 @@ async function loadFolders(p, { restoreSession = true, restoreLayout = true } = 
     // cause of every file showing ● on startup).
     p.diskDesignsRef.current = { ...diskDesigns };
 
-    // Merge session (unsaved working copies) over disk snapshots. Session wins
-    // — it has the latest edits even if the app was closed without saving — and
-    // restores undo/redo history so it survives a restart.
+    // Merge session (unsaved working copies) over disk snapshots. A working copy
+    // wins while its file is the one it was edited from, since it has the latest
+    // edits even if the app was closed without saving; the undo/redo history
+    // comes with it so it survives a restart. A file saved since wins over it.
+    // Entries for designs with no file are removed only after a complete read
+    // that found designs: an empty result is more likely a Projects folder that
+    // is not there than one whose every design was deleted.
     const session = restoreSession ? loadSession() : null;
-    const { initialDesigns, initialDirty } = mergeSessionOverDisk(diskDesigns, session?.designs || null);
-    p.historyRef.current = session?.history ? restoreSessionHistory(session.history) : {};
+    const dropMissing = readWhole && Object.keys(diskDesigns).length > 0;
+    const merged = mergeSessionOverDisk(diskDesigns, session?.entries || null, { dropMissing });
+    p.historyRef.current = merged.history;
 
-    p.setDesigns(initialDesigns);
-    p.setDirtyDesigns(initialDirty);
+    p.setDesigns(merged.initialDesigns);
+    p.setDirtyDesigns(merged.initialDirty);
     p.setFolders(loadedFolders);
+    if (session) storeMergedSession(session, merged, diskDesigns);
+    if (merged.replaced.length) {
+        const names = merged.replaced.map(id => merged.initialDesigns[id].name).join(', ');
+        p.setMessageNotification({ type: 'info', message: p.t.dialogs.savedElsewhere(names) });
+    }
 
     if (!restoreSession) {
         // A live Projects-root change is a workspace switch, not a startup
@@ -205,8 +225,9 @@ export function useProjectTree({
         foldersRef, setFolders, setSelectedFolder, setSelectedItem, setSelectedItems,
         setLastClickedItem, setFoldersLoaded, lastClickedItem, onRestoreLayout,
         setDesigns: store.setDesigns, setDirtyDesigns: store.setDirtyDesigns,
-        setActiveDesignId: store.setActiveDesignId,
+        setActiveDesignId: store.setActiveDesignId, dropDesigns: store.dropDesigns,
         diskDesignsRef: store.diskDesignsRef, historyRef: store.historyRef,
+        setMessageNotification, t,
     };
 
     const persistChange = useProjectPersistence(setMessageNotification, t);
@@ -227,7 +248,7 @@ export function useProjectTree({
         (folderId) => folderDesignNames(foldersRef.current, folderId), []);
 
     const commitNewDesign    = useCallback((design, folder) => commitDesign(p.current, design, folder), []);
-    const evictDesigns       = useCallback((removedIds) => forgetDesigns(p.current, removedIds), []);
+    const evictDesigns       = useCallback((removedIds, isRemoved) => forgetDesigns(p.current, removedIds, isRemoved), []);
     const selectDesignInTree = useCallback((designId) => selectDesign(p.current, designId), []);
     const loadFoldersFromDisk = useCallback((opts) => loadFolders(p.current, opts), []);
     const handleItemClick = useCallback((item, folder, event, orderedItems) =>
