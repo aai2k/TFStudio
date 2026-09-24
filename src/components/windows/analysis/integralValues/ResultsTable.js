@@ -30,6 +30,21 @@ function formatMinMax(value, wavelength) {
         : '—';
 }
 
+function valueText(result, available, iv) {
+    if (!result) return '—';
+    return available ? result.value.toFixed(5) : iv.notAvailable;
+}
+
+// The wavelengths the spectrum spans, shown beside a band it does not cover so
+// the missing value explains itself. Up to 3 decimals, trailing zeros dropped.
+function SpanNote(props) {
+    const { result, c, iv } = props;
+    const [from, to] = (result?.covered === false && result.spectrumSpan) || [];
+    if (!Number.isFinite(from) || !Number.isFinite(to)) return null;
+    const nm = value => String(Number(value.toFixed(3)));
+    return h('span', { style: { color: c.warning, marginLeft: 6 } }, iv.spectrumSpan(nm(from), nm(to)));
+}
+
 function EditableName(props) {
     const { custom, selected, styles, c, onPatch } = props;
     return h('input', {
@@ -102,6 +117,7 @@ function RemoveButton(props) {
 function ResultRow(props) {
     const { definition, result, index, selected, setSelected, onPatch, onRemove, styles, c, iv } = props;
     const custom = definition.builtin ? null : definition._custom;
+    const available = Number.isFinite(result?.value);
     const band = definition.weighting.lamMin === definition.weighting.lamMax
         ? '—'
         : `${definition.weighting.lamMin.toFixed(0)}–${definition.weighting.lamMax.toFixed(0)} nm`;
@@ -123,10 +139,10 @@ function ResultRow(props) {
         }, custom
             ? h(EditableName, { custom, selected, styles, c, onPatch })
             : definition.label),
-        h('td', { style: { ...styles.td, color: c.text } },
-            result ? result.value.toFixed(5) : '—'),
+        h('td', { style: { ...styles.td, color: available ? c.text : c.warning } },
+            valueText(result, available, iv)),
         h('td', { style: { ...styles.td, color: c.textDim } },
-            result ? (result.value * 100).toFixed(3) : '—'),
+            available ? (result.value * 100).toFixed(3) : '—'),
         h('td', { style: { ...styles.td, color: c.textDim } },
             result ? formatMinMax(result.min, result.lamAtMin) : '—'),
         h('td', { style: { ...styles.td, color: c.textDim } },
@@ -135,7 +151,8 @@ function ResultRow(props) {
             style: { ...styles.td, textAlign: 'left', color: c.textDim, padding: '2px 4px' },
         }, custom
             ? h(EditableBand, { custom, styles, c, onPatch })
-            : band),
+            : band,
+            h(SpanNote, { result, c, iv })),
         h('td', { style: { ...styles.td, textAlign: 'center', padding: '0 4px' } },
             custom ? h(RemoveButton, { definition, onRemove, c, iv }) : null),
     );

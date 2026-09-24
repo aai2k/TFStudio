@@ -1,9 +1,10 @@
-import { tableStyles, yieldColor } from './ui.js';
+import { formatYieldInterval, tableStyles, yieldColor } from './ui.js';
 
 const { createElement: h } = React;
 
-function StatRow({ c, label, value, color }) {
+function StatRow({ c, label, value, color, title }) {
     return h('div', {
+        title,
         style: { display: 'flex', justifyContent: 'space-between', gap: 16, padding: '3px 0', borderBottom: `1px solid ${c.border}55` }
     },
         h('span', { style: { color: c.textDim, fontSize: 12 } }, label),
@@ -73,6 +74,13 @@ function OverviewStatistics({ result, corridorSigma, blockLbl, c, ea }) {
             c, label: ea.specYield || 'Spec yield',
             value: sp.yield == null ? '—' : `${(sp.yield * 100).toFixed(1)}%  (${sp.passCount}/${sp.evaluated})`,
             color: yieldCol,
+        }),
+        sp?.yieldInterval && h(StatRow, {
+            c, label: ea.yieldInterval, title: ea.yieldIntervalTip,
+            value: formatYieldInterval(sp.yieldInterval, 1),
+        }),
+        result.seed != null && h(StatRow, {
+            c, label: ea.seed, title: ea.seedTip, value: String(result.seed),
         }),
     );
 }

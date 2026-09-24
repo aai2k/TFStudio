@@ -14,8 +14,8 @@ import { needleManualSession } from './sessionState.js';
 import { useWindowSession } from '../../windowSession.js';
 import {
     findOptimalNeedleThickness, mirrorLayers,
-    DLSOptimizer, resolveScanSide, isConstraint,
-    buildEvalContext, evaluateOperands, calcOMF,
+    resolveScanSide, isConstraint,
+    buildEvalContext, evaluateOperands, calcOMF, withDesignSampleCounts,
     makeConeSpec, coneIsActive,
 } from '../../../../utils/physics/optimizer.js';
 import {
@@ -24,7 +24,7 @@ import {
 } from '../synthesisShared/synthesisHelpers.js';
 import {
     candidateDepth, insertForSelection, runNeedleScan, buildPlotData,
-    resolveHostInfo, resolveDRange,
+    resolveHostInfo, resolveDRange, makeInsertionRefiner,
 } from './model.js';
 import { useAnalysisEvaluation } from '../../analysis/useAnalysisEvaluation.js';
 
@@ -213,31 +213,31 @@ function usePredictedOMF({ selected, scan, design, resolveMat, operands, dNew, r
     return { predictedOMF, omfNow, predictedOMFBusy: coneActive && workerResult.busy };
 }
 
-// ── Apply: single insertion, optionally followed by one DLS refinement pass ─────
+// ── Apply: single insertion, optionally followed by one refinement pass ─────────
 
 function commitInsertion(inserted, updateDesign) {
     updateDesign({ frontLayers: inserted.frontLayers, backLayers: inserted.backLayers });
 }
 
-// Async-ticked DLS refinement loop so the UI stays responsive; re-schedules
-// itself via refineTimerRef until converged or dlsIter is reached.
-function runDlsRefineTick(ctx) {
-    const { dls, inserted, dlsIter, surfaceMode, updateDesign, tn, selected,
+// Async-ticked refinement loop so the UI stays responsive; re-schedules itself
+// via refineTimerRef until converged or dlsIter is reached.
+function runRefineTick(ctx) {
+    const { refiner, inserted, dlsIter, surfaceMode, updateDesign, tn, selected,
              setRefining, setStatusMsg, setScan, setSelected, refineTimerRef } = ctx;
-    dls.step();
-    const done = dls.isConverged() || dls.iter >= dlsIter;
+    refiner.step();
+    const done = refiner.isConverged() || refiner.iter >= dlsIter;
     // Live preview of the refining stack.
-    const cur = dls.applyToDesign(inserted);
+    const cur = refiner.applyToDesign(inserted);
     updateDesign({ frontLayers: cur.frontLayers, backLayers: cur.backLayers }, { transient: true });
-    if (!done) { refineTimerRef.current = setTimeout(() => runDlsRefineTick(ctx), 0); return; }
+    if (!done) { refineTimerRef.current = setTimeout(() => runRefineTick(ctx), 0); return; }
 
-    let finalD = dls.applyToDesign(inserted);
+    let finalD = refiner.applyToDesign(inserted);
     if (surfaceMode === 'symmetric') {
         finalD = { ...finalD, backLayers: mirrorLayers(finalD.frontLayers) };
     }
     updateDesign({ frontLayers: finalD.frontLayers, backLayers: finalD.backLayers });
     setRefining(false);
-    setStatusMsg(tn.insertedRefined(matDisplayName(selected.materialId), dls.mf.toFixed(6)));
+    setStatusMsg(tn.insertedRefined(matDisplayName(selected.materialId), refiner.mf.toFixed(6)));
     setScan(null); setSelected(null);
 }
 
@@ -259,11 +259,11 @@ function runHandleApply(ctx) {
         return;
     }
 
-    let dls;
+    let refiner;
     try {
-        dls = new DLSOptimizer(operands, inserted, resolveMat, { dMin });
+        refiner = makeInsertionRefiner(operands, inserted, resolveMat, dMin);
     } catch (err) {
-        console.error('[NeedleManual] DLS init failed, committing un-refined:', err);
+        console.error('[NeedleManual] refiner init failed, committing un-refined:', err);
         commitInsertion(inserted, updateDesign);
         setStatusMsg(tn.inserted(matDisplayName(selected.materialId)));
         setScan(null); setSelected(null);
@@ -271,8 +271,8 @@ function runHandleApply(ctx) {
     }
     setRefining(true);
     setStatusMsg(tn.refining);
-    refineTimerRef.current = setTimeout(() => runDlsRefineTick({
-        dls, inserted, dlsIter, surfaceMode, updateDesign, tn, selected,
+    refineTimerRef.current = setTimeout(() => runRefineTick({
+        refiner, inserted, dlsIter, surfaceMode, updateDesign, tn, selected,
         setRefining, setStatusMsg, setScan, setSelected, refineTimerRef,
     }), 0);
 }
@@ -285,7 +285,7 @@ function useNeedleApply({
     const busy = scanning || refining;
     const refineTimerRef = useRef(null);
 
-    // Flip the global isOptimizing flag while a DLS refine runs (throttles live
+    // Flip the global isOptimizing flag while a refine runs (throttles live
     // previews in other windows, matches NeedleVariation).
     const { beginOptimization, endOptimization } = useDesign();
     useEffect(() => {
@@ -318,7 +318,11 @@ export function useNeedleManual(t) {
     const surfaceMode = design?.surfaceMode || 'front_only';
     const effSide = resolveScanSide(surfaceMode, settings.requestedSide);
     const showSideRadio = surfaceMode === 'both_independent';
-    const operands = useMemo(() => (design?.meritOperands || []).filter(op => op.enabled), [design]);
+    // Band operands sampled for the current design's fringes: the scan, the
+    // predicted merit and the refine after an insertion all score on this grid.
+    const operands = useMemo(() => withDesignSampleCounts(
+        (design?.meritOperands || []).filter(op => op.enabled), design, resolveMat,
+    ), [design, resolveMat]);
 
     const workflow = useNeedleWorkflow({
         design, resolveMat, effSide, operands, tn, t,

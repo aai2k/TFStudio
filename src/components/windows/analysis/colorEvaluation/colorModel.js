@@ -5,33 +5,30 @@
  * (Macleod §12.2 Eqs. 12.1–12.5 + CIE 15:2004 standard data).
  *
  * The spectral response R(λ)/T(λ) is taken from the same validated TMM used by
- * Optical Evaluation (evaluateSpectrum / …Back / …Total), sampled on the
- * 380–780 nm color grid and fed to the colorimetric integral.
+ * Optical Evaluation (evaluateSpectrum / …Back / …Total), computed on the
+ * 380–780 nm band at the window's Δλ, and the colorimetric integral runs over
+ * every point of that grid.
  */
 
 import { designMaterialLookup } from '../../../../utils/materials/designMaterials.js';
-import { colorReport } from '../../../../utils/physics/colorimetry.js';
+import { colorReport, COLOR_RANGE_NM } from '../../../../utils/physics/colorimetry.js';
 import { coneAverageResult, makeConeSpec } from '../../../../utils/physics/optimizer.js';
 import {
     evaluateSpectrum, evaluateSpectrumBack, evaluateSpectrumTotal,
 } from '../../../../utils/physics/thinFilmMath.js';
 
-// The visible band the colour-matching functions are defined over. Fixed: it is
-// a property of the CIE observer, not a user setting.
-export const COLOR_RANGE_NM = [380, 780];
-
 export const formatValue = (value, digits = 4) =>
     (value == null || !isFinite(value) ? '—' : value.toFixed(digits));
 
-// Build an interpolating R|T(λ) fraction-function from a TMM spectrum sweep.
-function responseFn(design, evalMode, characteristic, pol, theta) {
+// R|T(λ) as a fraction on the colour band, every `step` nm.
+function responseSpectrum(design, { evalMode, characteristic, pol, theta, step }) {
     const resolveMaterial = designMaterialLookup(design);
     const incMat = resolveMaterial(design.incidentMedium);
     const subMat = resolveMaterial(design.substrate?.material);
     const exitMat = resolveMaterial(design.exitMedium);
     const subThk = design.substrate?.thickness ?? 1.0;
     const params = {
-        lambdaStart: COLOR_RANGE_NM[0], lambdaEnd: COLOR_RANGE_NM[1], lambdaStep: 1,
+        lambdaStart: COLOR_RANGE_NM[0], lambdaEnd: COLOR_RANGE_NM[1], lambdaStep: step,
         theta, polarization: pol,
     };
 
@@ -55,18 +52,7 @@ function responseFn(design, evalMode, characteristic, pol, theta) {
     const res = coneAverageResult(coneSpec, theta, computeAt,
         ['T', 'R', 'A', 'Ts', 'Rs', 'Tp', 'Rp', 'As', 'Ap']);
 
-    const values = characteristic === 'T' ? res.T : res.R;
-    const lam0 = res.lambda[0];
-    const count = res.lambda.length;
-    const delta = count > 1 ? (res.lambda[count - 1] - lam0) / (count - 1) : 1;
-    return (lambda) => {
-        if (lambda <= lam0) return values[0] ?? 0;
-        if (lambda >= res.lambda[count - 1]) return values[count - 1] ?? 0;
-        const position = (lambda - lam0) / delta;
-        const index = Math.floor(position);
-        const fraction = position - index;
-        return (values[index] ?? 0) * (1 - fraction) + (values[index + 1] ?? 0) * fraction;
-    };
+    return { lambda: res.lambda, values: characteristic === 'T' ? res.T : res.R };
 }
 
 /**
@@ -74,15 +60,14 @@ function responseFn(design, evalMode, characteristic, pol, theta) {
  * show (no design, empty front stack). Failures are reported via `setError`.
  */
 export function computeColorReport(options) {
-    const { design, evalMode, characteristic, pol, theta,
-            observer, illuminant, step, setError } = options;
+    const { design, evalMode, observer, illuminant, setError } = options;
     if (!design) return null;
     const front = (design.frontLayers || []).filter(layer => layer.thickness > 0);
     if (evalMode === 'front' && front.length === 0) return null;
     try {
-        const response = responseFn(design, evalMode, characteristic, pol, theta);
+        const response = responseSpectrum(design, options);
         setError(null);
-        return colorReport(response, { observer, illuminant, step });
+        return colorReport(response, { observer, illuminant });
     } catch (error) {
         setError(error.message || 'Computation error');
         return null;

@@ -41,7 +41,7 @@ import { coefficientPhaseDispersion, tmmCoefficientJets }
     from '../src/utils/physics/phaseDispersion.js';
 import { jetConstant, wavelengthOmegaJet } from '../src/tmmcore.js';
 import { getMaterial, getNK } from '../src/utils/materials/materialDatabase.js';
-import { tisAtLambda, effectiveRoughness, applyScatteringLoss } from '../src/utils/physics/scattering.js';
+import { carnigliaJensenNK } from '../src/utils/physics/scattering.js';
 import { mixMaterials, buildGradedSlices, applyProfile } from '../src/utils/physics/inhomogeneity.js';
 
 // ── test harness ──────────────────────────────────────────────────────────────
@@ -437,32 +437,31 @@ head('§12  E-field profile (decay into absorber)');
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
-// §13  Interface roughness / scattering — Total Integrated Scatter
-//      Reference: Macleod §16 "Scattering" Eq. 16.30 (Debye–Waller form),
-//      TIS = R·(4π σ cosθ / λ)²; uncorrelated interfaces σ_eff²=Σσ_i²
-//      (Bousquet & Elson 1981). Independent closed form + physical scalings.
+// §13  Interface roughness as a transition layer
+//      Reference: Macleod §16, p. 626; Carniglia & Jensen, Appl. Opt. 41, 3167
+//      (2002). The long-range layer (d = 2σ, n² = (n_a²+n_s²)/2, Eq. 43 k) run
+//      through the engine must reproduce the scalar-scattering closed forms
+//      ΔR = -R0 (4π n_a σ/λ)² and ΔT = -T0 [2π (n_a - n_s) σ/λ]² (Eqs. 4, 6)
+//      to terms in (σ/λ)², from either side. The short-range graded layer loses
+//      no light.
 // ═══════════════════════════════════════════════════════════════════════════
-head('§13  Roughness / scattering — TIS (Macleod Eq. 16.30)');
+head('§13  Roughness: Carniglia-Jensen layer vs scalar scattering');
 {
-    const tisRef = (lam, sig, thDeg, R) => R * (4 * Math.PI * sig * Math.cos(thDeg * Math.PI / 180) / lam) ** 2;
-    for (const [lam, sig, th, R] of [[500, 2, 0, 1], [633, 1.5, 30, 0.9], [1064, 3, 60, 0.99]]) {
-        near(tisAtLambda(lam, sig, th, R), tisRef(lam, sig, th, R), 1e-15, `TIS(λ=${lam},σ=${sig},θ=${th}°,R=${R})`);
+    const lam = 633, sigma = 1.5;
+    for (const [na, ns] of [[1, 1.52], [1.52, 1], [1.46, 2.35]]) {
+        const [n, k] = carnigliaJensenNK(na, ns, sigma, lam);
+        const smooth = tmm(lam, 0, 's', [na, 0], [ns, 0], []);
+        const rough = tmm(lam, 0, 's', [na, 0], [ns, 0], [{ n: [n, k], d: 2 * sigma }]);
+        const dRs = -smooth.R * (4 * Math.PI * na * sigma / lam) ** 2;
+        const dTs = -smooth.T * (2 * Math.PI * (na - ns) * sigma / lam) ** 2;
+        near((rough.R - smooth.R) / dRs, 1, 2e-3, `n_a=${na}, n_s=${ns}: ΔR / Eq. 4`);
+        near((rough.T - smooth.T) / dTs, 1, 2e-3, `n_a=${na}, n_s=${ns}: ΔT / Eq. 6`);
     }
-    // datasheet sanity: σ=1nm, λ=500nm, R=1, normal ⇒ TIS ≈ 631.6 ppm
-    near(tisAtLambda(500, 1, 0, 1) * 1e6, 631.65, 0.5, 'σ=1nm,λ=500nm ⇒ TIS≈631.6 ppm');
-    // physical scaling laws
-    near(tisAtLambda(500, 2, 0, 1) / tisAtLambda(1000, 2, 0, 1), 4, 1e-12, 'λ⁻² scaling (½λ ⇒ ×4)');
-    near(tisAtLambda(500, 3, 0, 1) / tisAtLambda(500, 1, 0, 1), 9, 1e-12, 'σ² scaling (×3 ⇒ ×9)');
-    near(tisAtLambda(500, 2, 60, 1) / tisAtLambda(500, 2, 0, 1), 0.25, 1e-12, 'cos²θ scaling (60° ⇒ ×0.25)');
-    // uncorrelated effective roughness σ_eff²=Σσ²
-    near(effectiveRoughness([3, 4]), 5, 1e-12, 'σ_eff=√(3²+4²)=5 (uncorrelated)');
-    near(effectiveRoughness([1, 1, 1, 1]), 2, 1e-12, 'σ_eff of 4×1nm = 2nm');
-    // flux conservation — scattering removes specular flux, never invents it
-    {
-        const R = [0.5], T = [0.4], lam = [550];
-        const s = applyScatteringLoss(lam, R, T, 2, 0);
-        ok(s.R_spec[0] <= R[0] && s.T_spec[0] <= T[0], 'scattering only removes specular flux (R_spec≤R, T_spec≤T)');
-    }
+    // Short range: 20 graded slices between 2.35 and 1.46 on glass, lossless.
+    const slices = buildGradedSlices({ id: 'H', getNK: () => [2.35, 0] }, { id: 'L', getNK: () => [1.46, 0] }, 6, 'linear', 20);
+    const graded = tmm(lam, 30, 'p', [1, 0], [1.52, 0],
+        [{ n: [2.35, 0], d: 60 }, ...slices.map(s => ({ n: s.material.getNK(lam), d: s.thickness })), { n: [1.46, 0], d: 100 }]);
+    near(graded.R + graded.T, 1, 1e-12, 'short-range graded layer, lossless stack at 30° p: R + T = 1');
 }
 
 // ═══════════════════════════════════════════════════════════════════════════

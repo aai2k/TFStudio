@@ -26,7 +26,8 @@ async function migrateLegacyCatalogsFromLocalStorage(persistedCatalogs) {
 }
 
 // Auto-scan Documents\TFStudio\Materials\agf\ for .agf files and register any
-// not already present in the persisted catalog set.
+// not already present in the persisted catalog set. Nothing is on screen yet
+// to report a glass the parser left out, so the console names it.
 async function scanAndRegisterAgfCatalogs(persistedCatalogs) {
     if (!window.electronAPI?.scanAgfDir) return;
     try {
@@ -35,7 +36,11 @@ async function scanAndRegisterAgfCatalogs(persistedCatalogs) {
         for (const { name, text } of agfResult.files) {
             const catId = name.toLowerCase().replace(/[^a-z0-9]/g, '_');
             if (!persistedCatalogs[catId]) {
-                addCatalog(parseAGF(text, catId));
+                const { rejected, ...catalog } = parseAGF(text, catId);
+                for (const glass of rejected) {
+                    console.warn(`AGF ${name}: glass "${glass.name}" not imported, formula number "${glass.formula}" is not a Zemax formula.`);
+                }
+                addCatalog(catalog);
             }
         }
     } catch (_) {}

@@ -6,12 +6,14 @@
  */
 
 import {
-    scanNeedlesPFunction, findOptimalNeedleThickness, insertNeedle, insertNeedleIntra,
+    scanNeedlesPFunction, findOptimalNeedleThickness, insertNeedle, insertNeedleIntra, intraMinima,
 } from '../../../../../utils/physics/optimizer.js';
 import { materialLookup } from '../../synthesisShared/synthesisHelpers.js';
 import { makeEngine } from '../../../../../utils/optimizers/index.js';
-import { getNeedleSensFloor, cullMarginalNeedles } from '../../../../../utils/synthesis/synthesisConfig.js';
-import { deepCopy, mtRevertToBest, mtFinalize } from './mainThreadCore.js';
+import {
+    getNeedleSensFloor, cullMarginalNeedles, SYNTHESIS_INTRA_SAMPLES,
+} from '../../../../../utils/synthesis/synthesisConfig.js';
+import { deepCopy, mtRevertToBest, mtFinalize, mtRegridIfGrown } from './mainThreadCore.js';
 
 // Insert queue[idx] into the (reverted) best design at its optimal thickness
 // (findOptimalNeedleThickness — golden-section MF minimum, Sullivan §3), spin up
@@ -45,6 +47,7 @@ export function mtStartCandidate(run, idx) {
     try {
         ctx.dlsRef.current  = makeEngine(innerEngine, operands, newDesign, resolveMat, { dMin: ctx.dMinRef.current });
         ctx.lastBestRef.current = cand;
+        run.parkedTrial = null;
     } catch (err) {
         console.error('[Needle] DLS init failed:', err);
         ctx.dlsRef.current = null;
@@ -60,6 +63,7 @@ export function mtStartCandidate(run, idx) {
 // improving-needle queue (best ΔMF first, marginal tail culled), and start the
 // first candidate — or finalize if max-layers reached / no improving needle.
 export function mtScanStep(run) {
+    mtRegridIfGrown(run);
     const { ctx, operands, side, LK, best } = run;
     const layerCount = (ctx.baseDesignRef.current[LK] || []).length;
 
@@ -83,6 +87,7 @@ export function mtScanStep(run) {
     const { candidates, mf0 } = scanNeedlesPFunction({
         operands, design: ctx.baseDesignRef.current, resolveMat,
         candidateMats: run.pool, deltaNm: ctx.deltaNmRef.current, side,
+        dMin: ctx.dMinRef.current, nIntra: SYNTHESIS_INTRA_SAMPLES,
     });
 
     // First scan establishes the baseline best (current design).
@@ -92,10 +97,11 @@ export function mtScanStep(run) {
         ctx.setMfBest(mf0);
     }
 
-    // All improving needles, best (most negative ΔMF) first, then cull the
-    // marginal tail (H1 — needle sensitivity; no-op when 'off').
+    // All improving needles (intra ones at the minima along each layer), best
+    // (most negative ΔMF) first, then cull the marginal tail (H1, needle
+    // sensitivity; no-op when 'off').
     run.queue = cullMarginalNeedles(
-        candidates.filter(c => c.dMF < 0).sort((a, b) => a.dMF - b.dMF),
+        intraMinima(candidates).filter(c => c.dMF < 0).sort((a, b) => a.dMF - b.dMF),
         getNeedleSensFloor());
     run.qIdx = 0;
 

@@ -29,23 +29,33 @@ export function useRoughnessScattering() {
     const context = getRoughnessContext(design, evalMode);
     const labels = useMemo(() => buildInterfaceLabels(design), [design]);
     const result = useMemo(
-        () => calculateRoughness({ design, params, rough, evalMode, aoi, context }),
-        [design, params, rough, evalMode, aoi, context.frontN, context.backN, context.hasBack]
+        () => calculateRoughness({ design, params, rough, evalMode, context }),
+        [design, params, rough, evalMode, context.frontN, context.backN, context.hasBack]
     );
 
     const setMode = useCallback(mode => setRough(current => ({ ...current, mode })), []);
     const setUniformSigma = useCallback(value => {
         setRough(current => ({ ...current, sigma: Math.max(0, value) }));
     }, []);
-    const setInterfaceSigma = useCallback((side, index, value) => {
-        const key = side === 'back' ? 'backSigmas' : 'sigmas';
+    const setUniformRange = useCallback(range => {
+        setRough(current => ({ ...current, range }));
+    }, []);
+    // An interface edited for the first time starts the list at the uniform
+    // values, which is what the editor showed for every interface until then.
+    const setInterfaceValue = useCallback((key, fill, index, value) => {
         setRough(current => {
-            const sigmas = (current[key] || []).slice();
-            while (sigmas.length <= index) sigmas.push(current.sigma ?? 0);
-            sigmas[index] = Math.max(0, value);
-            return { ...current, mode: 'perInterface', [key]: sigmas };
+            const list = (current[key] || []).slice();
+            while (list.length <= index) list.push(current[fill]);
+            list[index] = value;
+            return { ...current, mode: 'perInterface', [key]: list };
         });
     }, []);
+    const setInterfaceSigma = useCallback((side, index, value) => {
+        setInterfaceValue(side === 'back' ? 'backSigmas' : 'sigmas', 'sigma', index, Math.max(0, value));
+    }, [setInterfaceValue]);
+    const setInterfaceRange = useCallback((side, index, range) => {
+        setInterfaceValue(side === 'back' ? 'backRanges' : 'ranges', 'range', index, range);
+    }, [setInterfaceValue]);
     const clearAll = useCallback(() => setRough(emptyRoughness()), []);
 
     return {
@@ -61,6 +71,6 @@ export function useRoughnessScattering() {
         units, setUnits: value => setViewField('units', value),
         showEditor, setShowEditor: value => setViewField('showEditor', value),
         showTable, setShowTable: value => setViewField('showTable', value),
-        setMode, setUniformSigma, setInterfaceSigma, clearAll,
+        setMode, setUniformSigma, setUniformRange, setInterfaceSigma, setInterfaceRange, clearAll,
     };
 }

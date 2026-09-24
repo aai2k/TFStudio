@@ -56,27 +56,35 @@ export function growingSignalSampler(lam, matsBelow, thicksBelow, sys) {
  * derive the turning-point / level-crossing cut targets. `model` bundles the
  * model-side stack: { matsBelow, thicksBelow, curMat }, where `matsBelow` are
  * the already-deposited layers beneath the growing one (storage order). The
- * growing layer leads the stack: it faces the incident medium.
+ * growing layer leads the stack: it faces the incident medium. `sample(ds)`
+ * returns the model signal at any thicknesses `ds` (nm).
  */
 export function analyzeModelCurve(monLam, model, dTarget, sys) {
     const { matsBelow, thicksBelow, curMat } = model;
     const dHi = Math.max(2 * dTarget, dTarget + 50);
     const NP = 81;
+    const h = dHi / (NP - 1);
     const ds = new Float64Array(NP);
     for (let s = 0; s < NP; s++) ds[s] = (s / (NP - 1)) * dHi;
-    const sample = growingSignalSampler(monLam, matsBelow, thicksBelow, sys);
-    const ys = sample(curMat, ds);
+    const sampler = growingSignalSampler(monLam, matsBelow, thicksBelow, sys);
+    const sample = (dArr) => sampler(curMat, dArr);
+    const ys = sample(ds);
     const extrema = [];
     for (let s = 1; s < NP - 1; s++) {
         const a = ys[s - 1], b = ys[s], cv = ys[s + 1];
         if ((b > a && b >= cv) || (b < a && b <= cv)) {
-            extrema.push({ d: ds[s], isMax: b > a });
+            // Vertex of the parabola through the sample and its two
+            // neighbours: a level cut arms on this position, so it has to be
+            // finer than the grid step.
+            const bend = a - 2 * b + cv;
+            const shift = bend !== 0 ? (a - cv) / (2 * bend) : 0;
+            extrema.push({ d: ds[s] + shift * h, isMax: b > a });
         }
     }
     // The level a 'level' cut is terminated on is the signal at the target
     // thickness itself, not at the nearest grid sample: on a layer thinner
     // than the grid can center, the sample sits up to a percent of the layer
     // away, and the cut would converge to that wrong level exactly.
-    const sAtTarget = sample(curMat, [dTarget])[0];
-    return { sAtTarget, sStart: ys[0], extrema, dHi };
+    const sAtTarget = sample([dTarget])[0];
+    return { sAtTarget, sStart: ys[0], extrema, dHi, sample };
 }

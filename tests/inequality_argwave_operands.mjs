@@ -10,9 +10,9 @@
  *   4. OPVA residual = ref − target (two-sided).
  *   5. ABSO returns |ref|; ABGT/ABLT one-sided on |ref|.
  *   6. DIFF/SUMM/PROD use op.refId1 and op.refId2.
- *   7. Math operands return NaN when refId points to a deleted/disabled row;
- *      invalid rows cannot dilute the merit normalization.
- *   8. Cycle detection: a → b → a returns NaN, doesn't loop.
+ *   7. A math operand whose refId points to a deleted/disabled row has no
+ *      value and carries an evaluation error, so the merit is Infinity.
+ *   8. Cycle detection: a → b → a gives both rows an evaluation error, doesn't loop.
  *   9. operandSampleLambdas returns [] for math operands (refs carry λs).
  *  10. requiredLambdas picks up the referenced operand's λs naturally.
  *  11. MXWT returns the λ of band-max T (parabolic-refined, 301-pt default).
@@ -25,7 +25,7 @@
  */
 
 import {
-    makeOperand, evaluateOperands, buildEvalContext, calcMF,
+    makeOperand, evaluateOperands, buildEvalContext, calcMF, operandEvaluationErrors,
     operandSampleLambdas, requiredLambdas,
     isInequality, isArgwave, isArgwaveMin, isMath,
     argwaveOpticalChar, argwavePolCode, polFromType,
@@ -166,28 +166,32 @@ console.log('— DIFF / SUMM / PROD two-ref arithmetic —');
     ok(near(comp[4], T * R, 1e-14), `PROD = T × R (got ${comp[4]} vs ${T*R})`);
 }
 
-// ── 7. Stale ref returns NaN, no crash ───────────────────────────────────────
-console.log('— stale refId returns NaN gracefully —');
+// ── 7. Stale ref: no value, an evaluation error, no merit ────────────────────
+console.log('stale refId leaves the row without a value');
 {
     const design = makeDesign(150);
     const ctx    = buildEvalContext(design, resolveMat);
     const gt = makeOperand({ type: 'OPGT', refId: 'nonexistent-id', target: 0.5 });
     const comp = evaluateOperands([gt], ctx);
-    ok(Number.isNaN(comp[0]),
-        `stale ref → NaN (got ${comp[0]})`);
+    ok(comp[0] === null && typeof operandEvaluationErrors(comp)[0] === 'string',
+        `stale ref → no value and an evaluation error (got ${comp[0]}, ${operandEvaluationErrors(comp)[0]})`);
     const mf = calcMF([gt], comp);
     ok(mf === Infinity,
         `stale ref alone → MF=Infinity (got ${mf})`);
 
-    const valid = makeOperand({ type: 'R', target: 1, weight: 1 });
-    const weightedBroken = { ...gt, weight: 100 };
-    const mixedMf = calcMF([valid, weightedBroken], [0, comp[0]]);
-    ok(near(mixedMf, 1, 1e-14),
-        `stale ref is excluded from normalization (got ${mixedMf})`);
+    // Next to a valid row the broken one does not drop out of the merit, which
+    // would hide it and report a lower MF than the table deserves.
+    const valid = makeOperand({ type: 'R', lambdaStart: 550, target: 1, weight: 1 });
+    const mixed = [valid, { ...gt, weight: 100 }];
+    const mixedMf = calcMF(mixed, evaluateOperands(mixed, ctx));
+    ok(mixedMf === Infinity,
+        `stale ref next to a valid row → MF=Infinity (got ${mixedMf})`);
+    ok(calcMF([valid, gt], [0, NaN]) === Infinity,
+        'a NaN value handed to calcMF directly is not skipped either');
 }
 
 // ── 8. Cycle detection ───────────────────────────────────────────────────────
-console.log('— cycle detection: a→b→a returns NaN —');
+console.log('cycle detection: a→b→a leaves both rows without a value');
 {
     const design = makeDesign(150);
     const ctx    = buildEvalContext(design, resolveMat);
@@ -195,8 +199,9 @@ console.log('— cycle detection: a→b→a returns NaN —');
     const a = { id: 'A', enabled: true, type: 'OPGT', refId: 'B', target: 0, weight: 1 };
     const b = { id: 'B', enabled: true, type: 'OPGT', refId: 'A', target: 0, weight: 1 };
     const comp = evaluateOperands([a, b], ctx);
-    ok(Number.isNaN(comp[0]) && Number.isNaN(comp[1]),
-        `cycle → NaN both rows (got ${comp[0]}, ${comp[1]})`);
+    const errors = operandEvaluationErrors(comp);
+    ok(comp.every(value => value === null), `cycle → no value on either row (got ${comp[0]}, ${comp[1]})`);
+    ok(errors.every(Boolean), 'cycle → an evaluation error on both rows');
 }
 
 // ── 9. operandSampleLambdas returns [] for math operands ─────────────────────

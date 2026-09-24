@@ -26,7 +26,10 @@
  *                           and ADDITIVELY (in physical nm, after unit
  *                           conversion) for the offset with the global values,
  *                           so users can express "everything ran 2 % thick, but
- *                           TiO2 also overshot by +3 nm".
+ *                           TiO2 also overshot by +3 nm". Its dn/dk also apply
+ *                           where the material is the incident medium,
+ *                           substrate or exit medium; the global dn/dk never
+ *                           reach a medium.
  *
  * Final thickness per layer:  d' = max(0, d·scale + offset_phys)
  *   scale      = globalThicknessScale · perMaterial.dScale

@@ -8,6 +8,16 @@
 import { tmm, tmmNeedleScan, tmmThicknessJacobian, tmmThicknessHessian } from '../../thinFilmMath.js';
 import { tmmWasmActive, getTmmWasm } from '../../../../tmmcore.js';
 
+// The polarization a kernel result is cached and computed under. At normal
+// incidence cos θ = 1 in every medium, so the tilted admittances y·n·cos θ (s)
+// and y·n / cos θ (p) coincide (Macleod, Thin-Film Optical Filters 5e, §9.2)
+// and both kernels return bit-identical s and p results, derivatives included.
+// Keying both on 's' there makes the second polarization of an average a cache
+// hit instead of a second identical evaluation.
+export function kernelPol(aoi, polCode) {
+    return Number(aoi) === 0 ? 's' : polCode;
+}
+
 // Single (λ,θ,pol) R/T/A — WASM kernel when the feature flag is on AND a module
 // is instantiated (in this thread), else the JS tmm(). pol: 's'|'p'. Behind the
 // flag (default off) so optimizer output is unchanged until the .wasm is built,

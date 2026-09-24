@@ -2,7 +2,7 @@
  * The small dense least-squares solver behind the dispersion and film fits.
  */
 import assert from 'node:assert/strict';
-import { levenbergMarquardt, sumSquares } from '../src/utils/math/leastSquares.js';
+import { levenbergMarquardt, parameterSpread, sumSquares } from '../src/utils/math/leastSquares.js';
 
 // ── A fit that has converged stops, instead of spending its iteration budget ──
 //
@@ -65,6 +65,43 @@ import { levenbergMarquardt, sumSquares } from '../src/utils/math/leastSquares.j
     assert.ok(Math.abs(solution[0]) < start, 'the fit still moves off the flat start');
     assert.equal(probesAtStart, 1,
         `the start point's Jacobian is built once, not per rejected step (${probesAtStart})`);
+}
+
+// ── Parameters in very different units ───────────────────────────────────────
+//
+// n(λ) = A + C/λ⁴ with λ in nm puts C near 3e9 nm⁴ and its Jacobian column near
+// 1e-11, next to a column of ones for A. JᵀJ then holds entries of order 1e-19
+// and, once A is eliminated, a pivot below any absolute threshold an unscaled
+// solve could use: the fit never takes a step and the spread comes back null.
+// Scaled to unit columns the two directions are plainly independent.
+{
+    const lambdas = Array.from({ length: 41 }, (_, i) => 400 + 10 * i);
+    const x = lambdas.map(lambda => 1 / lambda ** 4);
+    const truth = [1.45, 3e9];
+    // Deterministic scatter of about 1e-4 in the index.
+    const data = x.map((xi, i) => truth[0] + truth[1] * xi + 1e-4 * Math.sin(3.7 * i));
+    const residualAt = ([a, c]) => x.map((xi, i) => a + c * xi - data[i]);
+
+    const fit = levenbergMarquardt([1.4, 1e9], residualAt, 80);
+    // The model is linear, so the least-squares answer has a closed form.
+    const n = x.length;
+    const sx = x.reduce((s, v) => s + v, 0), sy = data.reduce((s, v) => s + v, 0);
+    const sxx = x.reduce((s, v) => s + v * v, 0), sxy = x.reduce((s, v, i) => s + v * data[i], 0);
+    const cExact = (n * sxy - sx * sy) / (n * sxx - sx * sx);
+    const aExact = (sy - cExact * sx) / n;
+    assert.ok(Math.abs(fit[0] - aExact) < 1e-9 * aExact && Math.abs(fit[1] - cExact) < 1e-6 * cExact,
+        `A and C fitted (${fit[0]}, ${fit[1]}; exact ${aExact}, ${cExact})`);
+
+    // corr(A, C) = −Σx / √(n·Σx²) for this model; the standard errors follow
+    // from s²(XᵀX)⁻¹ with s² = SSR/(n − 2).
+    const spread = parameterSpread(fit, residualAt);
+    assert.ok(spread, 'the spread is computed');
+    const rho = -sx / Math.sqrt(n * sxx);
+    assert.ok(Math.abs(spread.correlation[0][1] - rho) < 1e-9, `corr(A, C) ${spread.correlation[0][1]} vs ${rho}`);
+    const s2 = sumSquares(residualAt(fit)) / (n - 2);
+    const det = n * sxx - sx * sx;
+    const seC = Math.sqrt(s2 * n / det);
+    assert.ok(Math.abs(spread.standardErrors[1] - seC) < 1e-6 * seC, `σ(C) ${spread.standardErrors[1]} vs ${seC}`);
 }
 
 console.log('PASS: least_squares');

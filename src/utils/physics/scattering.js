@@ -1,206 +1,337 @@
 /**
- * Interface Roughness / Scattering — Total Integrated Scatter (TIS) and
- * effective specular reflectance for a multilayer coating with random
- * rms surface roughness at each interface.
+ * Interface roughness as a transition layer at each interface.
  *
- * Model: scalar uncorrelated roughness, Macleod Eq. 16.30 generalized to
- * oblique incidence and to multiple interfaces via the standard "effective
- * roughness" sum (Bousquet & Elson 1981; Macleod 5th ed. §16 "Scattering",
- * Eq. 16.30):
+ * Macleod, Thin-Film Optical Filters, 5th ed., §16, p. 626 (refs [18], [19]):
+ * roughness whose correlation length is short against the wavelength acts as an
+ * inhomogeneous transition layer between the two materials, 2σ thick with σ the
+ * rms roughness. It changes R and T through the graded index and loses no
+ * light. Roughness with a long correlation length is the same layer carrying an
+ * extinction coefficient that stands for the light scattered out of the
+ * specular beam: scatter goes with the square of the field, as absorption does,
+ * so for the specular beams an absorbing layer is the right representation.
  *
- *     TIS(λ) = R(λ) · (4π · σ_eff · cosθ / λ)²
- *     σ_eff² = Σ σ_i²                                 (uncorrelated case)
+ * Short range: a graded layer whose n and k vary linearly with depth from one
+ * material to the other, sliced into homogeneous sub-layers.
  *
- * The per-interface σ_i is an rms surface roughness in nm. Each interface
- * scatters independently (uncorrelated roughness assumption) so the σ_i²
- * add. TIS is the fraction of the *reflected* light that is scattered out
- * of the specular direction — multiplying by R(λ) gives the fraction of
- * *incident* light scattered (the more commonly-plotted quantity for
- * coating engineers comparing specular performance to scattering loss).
+ * Long range: the single homogeneous layer of C. K. Carniglia and D. G. Jensen,
+ * "Single-layer model for surface roughness", Appl. Opt. 41, 3167 (2002):
  *
-
-// ── Effective roughness ──────────────────────────────────────────────────────
-
-/**
- * Effective rms roughness for uncorrelated interfaces.
+ *     d  = 2σ                                        (Eq. 42)
+ *     n² = (n_a² + n_s²) / 2                         (Eq. 16, Drude equal mix)
+ *     k  = π (n_a - n_s)² (n_a + n_s) d / (4 n λ)    (Eq. 43)
  *
- *   σ_eff = sqrt(Σ σ_i²)
+ * Macleod gives the same layer as Eq. 16.32 (p. 628), written there with the
+ * rms roughness δ = d/2 in place of d.
  *
- * Non-finite or non-positive σ entries are skipped (they are treated as
- * "smooth" interfaces — no scattering contribution).
+ * With it one surface reproduces the scalar-scattering change in specular
+ * reflectance and transmittance, ΔR = -R0 (4π n_a σ / λ)² and
+ * ΔT = -T0 [2π (n_a - n_s) σ / λ]² (Eqs. 4 and 6), to terms in (σ/λ)², for
+ * light arriving from either side. The derivation assumes normal incidence,
+ * real indices on both sides, one surface and a correlation length long
+ * against λ. At an absorbing neighbour the real part of its index is used.
+ * Guo et al., Opt. Lett. 38, 40 (2013), Eq. 1, apply the same layer to an
+ * air/film surface.
  *
- * @param {number[]} sigmas  array of per-interface rms roughness in nm
- * @returns {number} σ_eff in nm
+ * Both layers take their thickness out of the layer beneath the interface (the
+ * one deposited first), as the Essential Macleod manual describes for its
+ * Scatter(s) and Scatter(l) layers, so adding roughness leaves the rest of the
+ * design where it was. The substrate is not thinned.
+ *
+ * Units: σ, thicknesses and λ in nm.
  */
-export function effectiveRoughness(sigmas) {
-    if (!Array.isArray(sigmas)) return 0;
-    let s2 = 0;
-    for (const s of sigmas) {
-        if (Number.isFinite(s) && s > 0) s2 += s * s;
-    }
-    return Math.sqrt(s2);
-}
 
-// ── TIS at a single λ ────────────────────────────────────────────────────────
+import { buildGradedSlices } from './inhomogeneity.js';
+
+// ── Roughness spec ───────────────────────────────────────────────────────────
 
 /**
- * Total Integrated Scatter at a single wavelength.
- *
- * @param {number} lambda_nm   wavelength in nm
- * @param {number} sigmaEff_nm effective rms roughness in nm
- * @param {number} theta_deg   angle of incidence in degrees (0 = normal)
- * @param {number} [R=1.0]     reflectance of the smooth-surface mirror
- *                             (use 1.0 for the bare-surface convention
- *                             matching Macleod 16.30; pass R(λ) from the
- *                             design to get the fraction of incident light
- *                             that is scattered out of specular)
- * @returns {number} TIS as a fractional intensity (0..1; will exceed 1 only
- *                   if σ is unphysical — the formula is a small-σ approx).
+ * The two kinds of interface roughness: 'short' (correlation length short
+ * against λ, graded layer, no loss) and 'long' (correlation length long against
+ * λ, Carniglia-Jensen absorbing layer).
  */
-export function tisAtLambda(lambda_nm, sigmaEff_nm, theta_deg, R = 1.0) {
-    if (!(lambda_nm > 0) || !(sigmaEff_nm > 0)) return 0;
-    const cosTheta = Math.cos(theta_deg * Math.PI / 180);
-    const phase = 4 * Math.PI * sigmaEff_nm * cosTheta / lambda_nm;
-    return Math.max(0, R) * phase * phase;
-}
+export const ROUGHNESS_RANGES = ['short', 'long'];
+const DEFAULT_RANGE = 'long';
 
-// ── TIS spectrum ─────────────────────────────────────────────────────────────
+const validRange = (range, fallback = DEFAULT_RANGE) =>
+    (ROUGHNESS_RANGES.includes(range) ? range : fallback);
 
 /**
- * TIS spectrum on a wavelength array. Per-element computation; pass R[λ] to
- * get TIS_inc(λ) (scattering loss as a fraction of incident light); pass
- * `null` for R to get TIS_surf(λ) (the bare surface property, normalized to
- * a smooth mirror).
- *
- * @param {number[]} lambda_nm
- * @param {number}   sigmaEff_nm
- * @param {number}   theta_deg
- * @param {number[]|null} Rspectrum
- * @returns {number[]} TIS(λ) (same length as lambda_nm)
- */
-export function tisSpectrum(lambda_nm, sigmaEff_nm, theta_deg, Rspectrum = null) {
-    if (!Array.isArray(lambda_nm)) return [];
-    const cosTheta = Math.cos(theta_deg * Math.PI / 180);
-    const out = new Array(lambda_nm.length);
-    for (let i = 0; i < lambda_nm.length; i++) {
-        const lam = lambda_nm[i];
-        if (!(lam > 0) || !(sigmaEff_nm > 0)) { out[i] = 0; continue; }
-        const phase = 4 * Math.PI * sigmaEff_nm * cosTheta / lam;
-        const R = Rspectrum ? (Rspectrum[i] ?? 1.0) : 1.0;
-        out[i] = Math.max(0, R) * phase * phase;
-    }
-    return out;
-}
-
-// ── Effective specular R, T after scattering loss ────────────────────────────
-
-/**
- * Apply scattering loss to a baseline (R, T) spectrum. The scattering loss
- * removes flux from BOTH the specularly-reflected beam AND the
- * specularly-transmitted beam (light scattered into other hemispheres or
- * absorbed at the rough interface no longer contributes to specular).
- *
- * The standard "small-roughness" approximation applies the same TIS factor
- * to R and T equally:
- *
- *   R_spec = R · (1 - TIS_per_R)
- *   T_spec = T · (1 - TIS_per_T)
- *
- * For the v1 uniform-σ model we use TIS_per_R = TIS_per_T = (4πσcosθ/λ)²
- * (the small-angle small-σ limit; Macleod 16.30 says "we can represent the
- * loss as an extinction coefficient", which for the bidirectional case gives
- * the same fractional reduction on both sides).
- *
- * @param {number[]} lambda_nm
- * @param {number[]} R           baseline reflectance spectrum
- * @param {number[]} T           baseline transmittance spectrum
- * @param {number}   sigmaEff_nm
- * @param {number}   theta_deg
- * @returns {{R_spec:number[], T_spec:number[], TIS_per_R:number[]}} where
- *          TIS_per_R[i] is the per-λ scatter fraction as in Macleod 16.30
- *          (i.e. NOT yet multiplied by R; that's the surface property).
- */
-export function applyScatteringLoss(lambda_nm, R, T, sigmaEff_nm, theta_deg) {
-    if (!Array.isArray(lambda_nm) || !Array.isArray(R) || !Array.isArray(T)) {
-        return { R_spec: R || [], T_spec: T || [], TIS_per_R: [] };
-    }
-    const cosTheta = Math.cos(theta_deg * Math.PI / 180);
-    const n = lambda_nm.length;
-    const R_spec = new Array(n);
-    const T_spec = new Array(n);
-    const TIS_per_R = new Array(n);
-    for (let i = 0; i < n; i++) {
-        const lam = lambda_nm[i];
-        let tis_pr = 0;
-        if (lam > 0 && sigmaEff_nm > 0) {
-            const phase = 4 * Math.PI * sigmaEff_nm * cosTheta / lam;
-            tis_pr = phase * phase;
-        }
-        TIS_per_R[i] = tis_pr;
-        // Clamp loss factor to [0, 1] — large σ would otherwise push it
-        // negative; that's outside the validity of the small-roughness
-        // approximation but we cap to keep curves physical.
-        const loss = Math.min(1, tis_pr);
-        R_spec[i] = R[i] * (1 - loss);
-        T_spec[i] = T[i] * (1 - loss);
-    }
-    return { R_spec, T_spec, TIS_per_R };
-}
-
-// ── Roughness spec & interface enumeration ───────────────────────────────────
-
-/**
- * A roughness spec is one of:
- *   - { mode: 'uniform', sigma: number }                    one value for all interfaces
- *   - { mode: 'perInterface', sigmas: number[] }            explicit array
- *
- * `enumerateInterfaces` returns the indexable interface labels. Length =
- * frontLayers.length + 1 (between every adjacent pair, plus the medium and
- * substrate boundaries — same convention as `inhomogeneity.enumerateInterfaces`).
+ * A roughness spec:
+ *   { mode: 'uniform',      sigma, range }                one σ and kind for every interface
+ *   { mode: 'perInterface', sigma, range,
+ *     sigmas, ranges, backSigmas, backRanges }            a value per interface; an interface
+ *                                                         without its own entry takes sigma/range
  */
 export function emptyRoughness() {
-    return { mode: 'uniform', sigma: 1.0, sigmas: [], backSigmas: [] };
+    return {
+        mode: 'uniform', sigma: 1.0, range: DEFAULT_RANGE,
+        sigmas: [], backSigmas: [], ranges: [], backRanges: [],
+    };
 }
 
 export function cloneRoughness(r) {
     if (!r) return emptyRoughness();
+    const list = value => (Array.isArray(value) ? value.slice() : []);
     return {
         mode:       r.mode || 'uniform',
         sigma:      Number.isFinite(r.sigma) ? r.sigma : 1.0,
-        sigmas:     Array.isArray(r.sigmas)     ? r.sigmas.slice()     : [],
-        // Per-interface roughness for the BACK stack (used in back/total modes).
-        // Uniform mode shares the single `sigma` across both stacks.
-        backSigmas: Array.isArray(r.backSigmas) ? r.backSigmas.slice() : [],
+        range:      validRange(r.range),
+        sigmas:     list(r.sigmas),
+        backSigmas: list(r.backSigmas),
+        ranges:     list(r.ranges),
+        backRanges: list(r.backRanges),
     };
 }
 
 /**
- * Resolve the spec to an array of σ_i for use by `effectiveRoughness`.
+ * σ for each of `nInterfaces` interfaces, in nm. In per-interface mode an
+ * interface with no finite entry of its own takes the spec's uniform σ, the
+ * same value the editor shows for it.
  *
- * @param {object} spec
- * @param {number} nInterfaces  number of interfaces in the stack
- * @returns {number[]} array of length nInterfaces
+ * @param {object} spec  { mode, sigma, sigmas } (the side's array as `sigmas`)
+ * @param {number} nInterfaces
+ * @returns {number[]}
  */
 export function resolveSigmas(spec, nInterfaces) {
     const N = Math.max(0, nInterfaces || 0);
-    if (!spec || spec.mode === 'uniform') {
-        const s = Number.isFinite(spec?.sigma) ? spec.sigma : 0;
-        return new Array(N).fill(s);
-    }
+    const uniform = Number.isFinite(spec?.sigma) ? spec.sigma : 0;
+    if (!spec || spec.mode === 'uniform') return new Array(N).fill(uniform);
     const out = new Array(N);
     for (let i = 0; i < N; i++) {
         const s = spec.sigmas?.[i];
-        out[i] = Number.isFinite(s) ? s : 0;
+        out[i] = Number.isFinite(s) ? s : uniform;
     }
     return out;
 }
 
 /**
- * Number of interfaces in a front stack: N layers ⇒ N+1 interfaces
- * (medium→L1, L1→L2, …, L_{N-1}→L_N, L_N→substrate). If the stack is empty,
- * there are no coating interfaces and the substrate has the medium→substrate
- * interface only (returns 1).
+ * Roughness kind for each of `nInterfaces` interfaces, following the same
+ * fallback rule as `resolveSigmas`.
+ *
+ * @param {object} spec  { mode, range, ranges } (the side's array as `ranges`)
+ * @param {number} nInterfaces
+ * @returns {string[]} 'short' | 'long' per interface
+ */
+export function resolveRanges(spec, nInterfaces) {
+    const N = Math.max(0, nInterfaces || 0);
+    const uniform = validRange(spec?.range);
+    if (!spec || spec.mode === 'uniform') return new Array(N).fill(uniform);
+    const out = new Array(N);
+    for (let i = 0; i < N; i++) out[i] = validRange(spec.ranges?.[i], uniform);
+    return out;
+}
+
+/**
+ * Number of interfaces in a stack: N layers make N+1 (medium to L1, L1 to L2,
+ * ..., L_N to substrate). A bare substrate still has its one surface.
  */
 export function countInterfaces(nLayers) {
     return Math.max(1, (nLayers || 0) + 1);
+}
+
+// ── The two transition layers ────────────────────────────────────────────────
+
+/**
+ * n and k of the Carniglia-Jensen layer for a surface between real indices
+ * nA and nB with rms roughness sigma_nm, at lambda_nm (Eqs. 16, 42, 43). k is
+ * the same whichever side the light comes from and falls as 1/λ.
+ *
+ * @returns {[number, number]} [n, k]
+ */
+export function carnigliaJensenNK(nA, nB, sigma_nm, lambda_nm) {
+    const n = Math.sqrt((nA * nA + nB * nB) / 2);
+    const d = 2 * sigma_nm;
+    const k = Math.PI * (nA - nB) ** 2 * (nA + nB) * d / (4 * n * lambda_nm);
+    return [n, k];
+}
+
+/**
+ * The long-range layer between two materials as a material object. Its index
+ * follows the neighbours' dispersion wavelength by wavelength, using the real
+ * part of each neighbour's index.
+ */
+export function longRangeMaterial(matA, matB, sigma_nm) {
+    const idA = matA.id || 'A';
+    const idB = matB.id || 'B';
+    return {
+        id:    `${idA}|${idB}@scatter(l)${sigma_nm}`,
+        name:  `${idA}/${idB} scatter layer`,
+        color: matA.color || matB.color,
+        getNK: (lam) => carnigliaJensenNK(matA.getNK(lam)[0], matB.getNK(lam)[0], sigma_nm, lam),
+    };
+}
+
+/**
+ * The layers that stand for one rough interface, listed from matBelow (the
+ * substrate side) to matAbove. Short range gives `slices` graded sub-layers
+ * with a linear n, k profile; long range gives the single absorbing layer.
+ * Both are 2σ thick in total.
+ *
+ * @returns {{material:Object, thickness:number}[]}
+ */
+export function transitionLayers(matBelow, matAbove, sigma_nm, range, slices) {
+    if (!(sigma_nm > 0)) return [];
+    const thickness = 2 * sigma_nm;
+    if (range === 'short') return buildGradedSlices(matBelow, matAbove, thickness, 'linear', slices);
+    return [{ material: longRangeMaterial(matBelow, matAbove, sigma_nm), thickness }];
+}
+
+// ── Rough stacks ─────────────────────────────────────────────────────────────
+
+/**
+ * A material whose getNK remembers each wavelength it was asked for. Every
+ * graded slice of an interface evaluates both neighbours at every wavelength,
+ * so the neighbours' dispersion is computed once per wavelength instead of once
+ * per slice.
+ */
+function memoizedMaterial(material) {
+    const cache = new Map();
+    return {
+        ...material,
+        getNK: (lam) => {
+            let nk = cache.get(lam);
+            if (!nk) {
+                nk = material.getNK(lam);
+                cache.set(lam, nk);
+            }
+            return nk;
+        },
+    };
+}
+
+/** One memoized copy per material, shared by every interface it borders. */
+function materialCache() {
+    const memo = new Map();
+    return (material) => {
+        if (!memo.has(material)) memo.set(material, memoizedMaterial(material));
+        return memo.get(material);
+    };
+}
+
+const present = layer => layer.thickness > 0;
+
+/**
+ * The material interface k meets above it: the first of layers[k..] that has a
+ * thickness, or `outer` past the last layer.
+ */
+function materialAbove(layers, k, outer) {
+    let above = k;
+    while (above < layers.length && !present(layers[above])) above++;
+    return above === layers.length ? outer : layers[above].material;
+}
+
+/**
+ * Take a transition layer 2σ thick out of `host`. Returns false when the host
+ * was thinner than that and is left at zero thickness.
+ */
+function thinHost(host, sigma) {
+    const left = host.thickness - 2 * sigma;
+    host.thickness = Math.max(0, left);
+    return left >= 0;
+}
+
+/**
+ * Insert the transition layers into a stack held in deposition order.
+ *
+ * `layers[0]` sits on the substrate. Interface k (0..N) is the top of
+ * k === 0 ? substrate : layers[k-1] and meets the next layer above it, or
+ * `outer` past the last one. Each transition layer's thickness comes out of
+ * layers[k-1]; a layer thinner than that is set to zero and its index is
+ * reported in `thinned`. A layer of zero thickness is not in the coating, as
+ * in the TMM: it has no top interface of its own, and the layer beneath it
+ * meets the next layer that is there.
+ *
+ * @param {{material:Object, thickness:number}[]} layers  deposition order
+ * @param {{substrate:Object, outer:Object}} media  outer: the medium beyond the last layer
+ * @param {{sigmas:number[], ranges:string[]}} roughness  σ (nm) and 'short' | 'long'
+ *                                                        per interface, index k as above
+ * @param {number} slices  graded sub-layers per short-range interface
+ * @returns {{layers:{material:Object, thickness:number}[], thinned:number[]}}
+ */
+function roughenDeposited(layers, { substrate, outer }, { sigmas, ranges }, slices) {
+    const cached = materialCache();
+    const N = layers.length;
+    const hosts = layers.map(layer => ({ ...layer }));
+    const transitions = [];
+    const thinned = [];
+    for (let k = 0; k <= N; k++) {
+        const sigma = sigmas[k];
+        const base = k === 0 ? null : layers[k - 1];
+        if (!(sigma > 0) || (base && !present(base))) { transitions.push([]); continue; }
+        transitions.push(transitionLayers(cached(base ? base.material : substrate),
+            cached(materialAbove(layers, k, outer)), sigma, ranges[k], slices));
+        if (base && !thinHost(hosts[k - 1], sigma)) thinned.push(k - 1);
+    }
+    const out = [...transitions[0]];
+    for (let k = 1; k <= N; k++) out.push(hosts[k - 1], ...transitions[k]);
+    return { layers: out, thinned };
+}
+
+/**
+ * Front coating with roughness. `layers` is air-first (layers[0] touches the
+ * incident medium), and interface i counts from the incident medium the way the
+ * roughness editor lists them: 0 is medium to layers[0], N is layers[N-1] to
+ * substrate. `thinned` holds air-first layer indices.
+ *
+ * @param {{material:Object, thickness:number}[]} layers  air-first
+ * @param {{incident:Object, substrate:Object}} media
+ * @param {{sigmas:number[], ranges:string[]}} roughness  per interface, editor order
+ * @param {number} slices  graded sub-layers per short-range interface
+ */
+export function roughenFrontStack(layers, { incident, substrate }, { sigmas, ranges }, slices) {
+    const N = layers.length;
+    const byDeposition = (list) => Array.from({ length: N + 1 }, (_, k) => list[N - k]);
+    const { layers: deposited, thinned } = roughenDeposited(
+        layers.slice().reverse(), { substrate, outer: incident },
+        { sigmas: byDeposition(sigmas), ranges: byDeposition(ranges) }, slices);
+    return { layers: deposited.reverse(), thinned: thinned.map(k => N - 1 - k) };
+}
+
+/**
+ * Back coating with roughness. `layers` is stored substrate-first, as
+ * design.backLayers is, and interface i counts from the substrate: 0 is
+ * substrate to layers[0], N is layers[N-1] to the exit medium. The result keeps
+ * that order.
+ *
+ * @param {{material:Object, thickness:number}[]} layers  substrate-first
+ * @param {{substrate:Object, exit:Object}} media
+ * @param {{sigmas:number[], ranges:string[]}} roughness  per interface, editor order
+ * @param {number} slices  graded sub-layers per short-range interface
+ */
+export function roughenBackStack(layers, { substrate, exit }, roughness, slices) {
+    return roughenDeposited(layers, { substrate, outer: exit }, roughness, slices);
+}
+
+// ── Slicing ──────────────────────────────────────────────────────────────────
+
+/**
+ * Graded sub-layers per short-range interface for the coarse evaluation; the
+ * fine one uses twice as many.
+ *
+ * Slicing a linear profile into N homogeneous layers sampled at their
+ * midpoints leaves an error that falls as 1/N². On a 31-layer TiO2/SiO2
+ * quarter-wave stack with σ = 5 nm at every interface it is 2.8e-3 in R and T
+ * at the steepest band edge with 16 slices. Combining 16 and 32 slices as in
+ * `extrapolateSlicing` brings it to 5e-6 for less work than 100 plain slices.
+ */
+export const GRADED_SLICES = 16;
+
+const SPECTRUM_KEYS = ['R', 'T', 'A', 'Rs', 'Ts', 'As', 'Rp', 'Tp', 'Ap'];
+
+/**
+ * Richardson extrapolation of two spectra of the same design computed with N
+ * and 2N graded slices: (4 S(2N) - S(N)) / 3 cancels the 1/N² term of the
+ * midpoint slicing error. Layers that do not depend on N, including every
+ * long-range layer, pass through unchanged, and since the weights sum to one
+ * R + T + A is kept.
+ */
+export function extrapolateSlicing(coarse, fine) {
+    const out = { ...fine };
+    for (const key of SPECTRUM_KEYS) {
+        const a = coarse[key];
+        const b = fine[key];
+        if (!Array.isArray(a) || !Array.isArray(b)) continue;
+        out[key] = b.map((value, i) => (4 * value - a[i]) / 3);
+    }
+    return out;
 }

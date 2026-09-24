@@ -5,12 +5,13 @@
  * polarization) coordinate reuse one TMM result.
  */
 
-import { isGroupDelayFlat } from '../operandModel.js';
+import { isGroupDelayFlat, isMath } from '../operandModel.js';
 import { makeConeSpec } from '../coneAngle.js';
 import { isFullSystemEval } from './tmmEval.js';
 import {
     evalOperand, OperandEvaluationError, resetOperandCaches, groupDelayFlatBandLevel,
 } from './operands/index.js';
+import { settleConeNodes } from './coneNodeCount.js';
 
 /**
  * The back stack a design is actually evaluated with.
@@ -102,15 +103,21 @@ function _legacyContext(n0mat, nsmat, thicknesses, mats) {
 }
 
 // Fresh per-call memoization. Thicknesses/materials are fixed for the
-// duration of this call, so (λ,aoi,polCode)→{R,T,A} and (mat,λ)→ñ are
-// invariant and shared across operands (notably paired R+T). Always
+// duration of this call, so (λ,aoi,polCode)→{R,T,A}, (mat,λ)→ñ and each
+// stack's distinct-material index are invariant and shared across operands
+// (paired R+T rows above all). Always
 // overwritten so a reused ctx object can never serve a stale result.
 // Operands are indexed by id so math operands can resolve op.refId / refId1/2
 // in O(1) and so makeRefResolver can do recursive eval with memoization and
-// cycle detection.
+// cycle detection. The range targets leave their per-sample deviations in
+// _sampleDeviations and the worst-case min/max rows the wavelength of their
+// extremum in _extremumLambdas, both keyed by operand.
 function _resetPerCallCaches(ctx, operands) {
     ctx._tmmCache = new Map();
     ctx._nkCache  = new Map();
+    ctx._stackIndex = new Map();
+    ctx._sampleDeviations = new Map();
+    ctx._extremumLambdas = new Map();
     resetOperandCaches(ctx);
     ctx._operandsById = new Map();
     for (const op of operands) ctx._operandsById.set(op.id, op);
@@ -118,10 +125,19 @@ function _resetPerCallCaches(ctx, operands) {
     ctx._refStack = new Set();
 }
 
-// Evaluate every enabled operand. A disabled row and a row whose evaluation
-// raised OperandEvaluationError both yield a null value; the error message is
-// kept alongside so the merit function can exclude the row and the table can
-// explain why. Any other exception propagates.
+// Why a row's value is not a finite number. A math row gets one when a row it
+// references is disabled, missing, in a reference cycle or without a value.
+function _nonFiniteMessage(op) {
+    return isMath(op.type)
+        ? 'A row it references is disabled, missing, in a reference cycle, or has no value.'
+        : 'Its value is not a finite number.';
+}
+
+// Evaluate every enabled operand. A disabled row, a row whose evaluation raised
+// OperandEvaluationError and a row whose value is not a finite number all yield
+// a null value; for the last two the reason is kept alongside, so the merit
+// function refuses to score the design and the table can explain why. Any
+// other exception propagates.
 function _evaluateValues(operands, ctx) {
     const values = new Array(operands.length);
     const errors = new Array(operands.length).fill(null);
@@ -132,7 +148,13 @@ function _evaluateValues(operands, ctx) {
             continue;
         }
         try {
-            values[index] = evalOperand(op, ctx);
+            const value = evalOperand(op, ctx);
+            if (typeof value === 'number' && !Number.isFinite(value)) {
+                values[index] = null;
+                errors[index] = _nonFiniteMessage(op);
+            } else {
+                values[index] = value;
+            }
         } catch (error) {
             if (!(error instanceof OperandEvaluationError)) throw error;
             values[index] = null;
@@ -169,16 +191,42 @@ export function evaluateOperands(operands, ctxOrN0, nsmatLegacy, thicknessesLega
         : _legacyContext(ctxOrN0, nsmatLegacy, thicknessesLegacy, matsLegacy);
 
     _resetPerCallCaches(ctx, operands);
+    settleConeNodes(operands, ctx);
     const { values, errors } = _evaluateValues(operands, ctx);
     const levels = _bandLevels(operands, values, ctx);
+    const deviations = ctx._sampleDeviations.size > 0
+        ? operands.map(op => ctx._sampleDeviations.get(op) || null)
+        : [];
+    const extremumLambdas = ctx._extremumLambdas.size > 0
+        ? operands.map(op => ctx._extremumLambdas.get(op) ?? null)
+        : [];
 
     Object.defineProperty(values, 'operandErrors', { value: errors });
     Object.defineProperty(values, 'operandBandLevels', { value: levels });
+    Object.defineProperty(values, 'operandSampleDeviations', { value: deviations });
+    Object.defineProperty(values, 'operandExtremumLambdas', { value: extremumLambdas });
     return values;
 }
 
 export function operandEvaluationErrors(computed) {
     return computed?.operandErrors || [];
+}
+
+/**
+ * Per-sample deviations from the target line, aligned with `computed`, for the
+ * range targets (TGT/RGT/AGT); null or absent for every other row. The least-
+ * squares engine takes one residual per sample from these.
+ */
+export function operandSampleDeviations(computed) {
+    return computed?.operandSampleDeviations || [];
+}
+
+/**
+ * Grid wavelength, nm, at which each worst-case min/max row (TMN..AMX) found
+ * its extremum, aligned with `computed`; null or absent for every other row.
+ */
+export function operandExtremumLambdas(computed) {
+    return computed?.operandExtremumLambdas || [];
 }
 
 /** Achieved band level per row, aligned with `computed`; null where not applicable. */

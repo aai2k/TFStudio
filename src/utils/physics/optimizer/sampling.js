@@ -26,6 +26,29 @@ function isBandSampled(type) {
 }
 export function charOf(type) { return type[0]; }
 
+// Band operands whose default grid is bandSampleCount: averages, integrals,
+// range targets and group-delay flatness. The extremum operands (argwave,
+// worst-case min/max) default to the fixed ARGWAVE_DEFAULT_POINTS grid instead.
+export function hasBandDensityGrid(type) {
+    return isBandSampled(type) && !isArgwave(type) && !isMinmax(type);
+}
+
+// The operand field that carries its own sample count: rampPoints for a range
+// target, bandPoints for every other band operand.
+export function sampleCountField(type) {
+    return isRangeTarget(type) ? 'rampPoints' : 'bandPoints';
+}
+
+// The sample count the operand carries in that field (≥2, rounded), or null
+// when it carries none and the default grid applies.
+export function sampleCountOverride(op) {
+    const v = op[sampleCountField(op.type)];
+    return Number.isFinite(v) && v >= 2 ? Math.round(v) : null;
+}
+
+// The weights every band operand sums its samples with.
+export { bandQuadratureWeights } from './bandQuadrature.js';
+
 // Continuous per-λ target line (TGT/RGT/AGT). Density-based default
 // (~AVG_STEP_NM, same grid as band averages) so a steep ramp / structured
 // spectral target is sampled finely enough that the RMS deviation is accurate —
@@ -33,9 +56,7 @@ export function charOf(type) { return type[0]; }
 // under-resolved steep edges. `op.rampPoints` (if ≥2) still overrides for a
 // hand-tuned density.
 function _rangeTargetLambdas(op, range) {
-    const userN = Number.isFinite(op.rampPoints) && op.rampPoints >= 2
-        ? Math.round(op.rampPoints)
-        : null;
+    const userN = sampleCountOverride(op);
     const n = userN ?? bandSampleCount(op);
     const out = new Array(n);
     for (let i = 0; i < n; i++) {
@@ -57,14 +78,13 @@ function _rangeTargetLambdas(op, range) {
 //     a smooth surrogate), so a dense grid is a pure accuracy win (the Jacobian
 //     only differentiates the single argmax sample, so cost stays ~O(nFree), not
 //     O(n·nFree)).
-//   • TAV/RAV/AAV + TIW/RIW/AIW: density-based (~AVG_STEP_NM) — fine for smooth
-//     averages and band integrals.
+//   • TAV/RAV/AAV + TIW/RIW/AIW: AVG_STEP_NM when no design is at hand; a run
+//     and the merit table set bandPoints from the design's fringe spacing
+//     (evalCore/fringeSampling.js).
 // User can override via op.bandPoints for a single operand (e.g. to sample a
 // structured weighting more finely).
 function _bandLambdas(op, range) {
-    const userN = Number.isFinite(op.bandPoints) && op.bandPoints >= 2
-        ? Math.round(op.bandPoints)
-        : null;
+    const userN = sampleCountOverride(op);
     // Extremum operators (argwave + minmax) get the dense fixed grid;
     // band-average/integral operands use the ~AVG_STEP_NM density. User
     // op.bandPoints wins for either.

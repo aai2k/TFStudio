@@ -3,7 +3,9 @@
 // live-preview throttling, cycle recording, and the main-thread fallback
 // trigger. See workerPool.js for the engine overview.
 
-import { minOmfOf } from '../../synthesisShared/synthesisHelpers.js';
+import {
+    minOmfOf, materialLookup, regridForDesign, meritOf, presampleSynthesisMaterials,
+} from '../../synthesisShared/synthesisHelpers.js';
 import { activeRunNum } from '../../synthesisShared/runBlocks.js';
 import { setCached } from '../sessionState.js';
 import { runGeMainThread } from './mainThread.js';
@@ -18,6 +20,25 @@ export const designSnap = (S, front, back) => ({ ...S.media, frontLayers: mkLaye
 
 // The run is live only while this exact pool is the window's current pool.
 export const alive = (ctx, S) => ctx.runningRef.current && ctx.workerRef.current === S.workerPool;
+
+// When `work` has outgrown the run's sampling grid (runGrid.js), move the run
+// onto a grid for it: new operands, material tables sampled on them, and
+// `work`, `best` and the ΔMF baseline re-scored so the next comparisons are
+// made on one grid.
+export function regridIfGrown(S) {
+    const resolveMat = materialLookup(S.curDes);
+    const work = designSnap(S, S.work.frontLayers, S.work.backLayers);
+    const operands = regridForDesign(S.operands, work, resolveMat);
+    if (!operands) return;
+    S.operands = operands;
+    S.materials = presampleSynthesisMaterials(S.curDes, operands, S.pool);
+    S.work.mf = meritOf(operands, work, resolveMat);
+    if (S.best.frontLayers || S.best.backLayers) {
+        S.best.mf = meritOf(operands, designSnap(S, S.best.frontLayers, S.best.backLayers), resolveMat);
+    }
+    S.prevBestMF = Math.min(S.work.mf, S.best.mf);
+    console.log(`[GE] Grid re-sampled for the grown design: workMF=${S.work.mf.toFixed(6)} bestMF=${S.best.mf.toFixed(6)}`);
+}
 
 // Throttled live-preview push of an in-worker tick (mf / omf / layers).
 export function onTick(ctx, S, _i, m) {

@@ -23,7 +23,7 @@
  *          incoherent sum) matches tmmTotalAvg, whose reverse pass runs the
  *          reversed stack explicitly rather than off the anti-transposed matrix.
  * Test 3 — simulateRun is deterministic at a fixed seed, no chip glass means
- *          the design substrate, and the monitor's estimates react to the glass.
+ *          the design substrate, and the monitor's cuts react to the glass.
  */
 
 import { tmmAvg, tmmTotalAvg, createMonitorTmmEvaluator } from '../src/utils/physics/thinFilmMath.js';
@@ -193,8 +193,10 @@ function test_evaluator_slab_mode() {
 }
 
 // The run reads the witness chip, and the chip's glass is selectable: the
-// monitor's thickness estimate must react to the glass under it, and no
-// chipMaterial must mean exactly the design substrate.
+// monitor's cuts, and so the as-built thicknesses, must react to the glass
+// under it, and no chipMaterial must mean exactly the design substrate. The
+// monitor's own estimate at a cut timed on schedule is the target, so the
+// cuts are where the glass shows.
 function test_simulateRun_chip_glass() {
     const design = fourLayer();
     const rates = new Map([['TiO2', { mean: 0.3, sigma: 0.02 }], ['SiO2', { mean: 0.5, sigma: 0.03 }]]);
@@ -209,12 +211,13 @@ function test_simulateRun_chip_glass() {
     const onSi = runOn('Si');
     let same = true;
     let differs = false;
-    for (let i = 0; i < onSub.estimatedFront.length; i++) {
+    for (let i = 0; i < onSub.asBuiltFront.length; i++) {
         if (onSub.estimatedFront[i] !== onBK7.estimatedFront[i]) same = false;
-        if (onSub.estimatedFront[i] !== onSi.estimatedFront[i]) differs = true;
+        if (onSub.asBuiltFront[i] !== onBK7.asBuiltFront[i]) same = false;
+        if (onSub.asBuiltFront[i] !== onSi.asBuiltFront[i]) differs = true;
     }
     ok(same, 'no chip glass means the design substrate');
-    ok(differs, "the monitor's thickness estimates react to the chip glass");
+    ok(differs, "the monitor's cuts react to the chip glass");
 }
 
 test_evaluator_bit_identical();

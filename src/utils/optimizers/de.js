@@ -41,8 +41,13 @@ export class DEOptimizer extends EngineBase {
     constructor(operands, design, resolveMat, opts = {}) {
         super(operands, design, resolveMat, opts);
 
+        // Population: 5·D members for D free layers, the low end of the 5·D to
+        // 10·D range Storn and Price recommend in the paper cited above, and at
+        // least 10. With fewer members than variables the difference vectors
+        // span only part of the thickness space, so the search cannot reach
+        // every direction.
         const nFree = this.freeIdx.length;
-        this.NP = Math.max(4, opts.popSize ?? Math.min(Math.max(10, 5 * nFree), 60));
+        this.NP = Math.max(4, opts.popSize ?? Math.max(10, 5 * nFree));
         this.F  = opts.F  ?? 0.7;       // differential weight
         this.CR = opts.CR ?? 0.9;       // crossover probability
         this.strategy = opts.strategy === 'best1' ? 'best1' : 'rand1';
@@ -58,10 +63,11 @@ export class DEOptimizer extends EngineBase {
         this.pop[0]   = this.x0.slice();
         this.popMF[0] = this.mf;
         let bestIdx = 0, bestMF = this.popMF[0];
+        const fallbackBase = this._meanFreeThickness();
         for (let p = 1; p < this.NP; p++) {
             const v = this.x0.slice();
             for (const j of this.freeIdx) {
-                const base = this.x0[j] > 0 ? this.x0[j] : 0.5 * (this.D_MIN + this.D_MAX);
+                const base = this.x0[j] > 0 ? this.x0[j] : fallbackBase;
                 v[j] = base * (1 + this._spread * (2 * this.rng() - 1));
             }
             const c = this.clampVec(v);
@@ -71,6 +77,15 @@ export class DEOptimizer extends EngineBase {
         }
         this._bestIdx = bestIdx;
         this._accept(this.pop[bestIdx].slice(), bestMF);
+    }
+
+    // Spread centre, nm, for a free layer that starts at zero thickness and so
+    // has no scale of its own: the mean of the design's nonzero free layers, or
+    // D_MIN when there are none.
+    _meanFreeThickness() {
+        let sum = 0, n = 0;
+        for (const j of this.freeIdx) if (this.x0[j] > 0) { sum += this.x0[j]; n++; }
+        return n > 0 ? sum / n : this.D_MIN;
     }
 
     _pickDistinct(count, exclude) {

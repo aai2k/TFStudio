@@ -2,7 +2,7 @@
  * Cone specification + intensity distribution.
  *
  * Normalizes a user/design cone object into a canonical spec and provides the
- * illumination intensity I(α) and azimuth-grid sizing used by the quadrature.
+ * illumination intensity I(α) the quadrature weights by.
  */
 
 import { RAD } from './constants.js';
@@ -63,11 +63,4 @@ export function intensityFn(spec) {
     if (spec.distribution === 'user' && spec.userTable && spec.userTable.length)
         return (alpha) => userIntensity(spec.userTable, alpha);
     return () => 1;
-}
-
-// How many azimuthal nodes for an oblique axis. φ integration is smooth and
-// symmetric about the plane of incidence, so we integrate [0, π] and the factor
-// of 2 cancels in normalization. Keep total node count bounded.
-export function azimuthPoints(gridPoints) {
-    return Math.max(2, Math.min(gridPoints, Math.ceil(gridPoints / 2) + 1));
 }

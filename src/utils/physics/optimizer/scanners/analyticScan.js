@@ -13,24 +13,39 @@
  *                   chain rule at p AND the back-insertion chain rule at the
  *                   mirror with the same material.
  *
+ * With a cone active, each R/T/A read is the weighted sum over the cone's rays,
+ * so its needle derivative is the same weighted sum of the per-ray derivatives.
+ *
  * Reference: Sullivan & Dobrowolski / Tikhonravov, Appl. Opt. 35 (1996).
  */
 
 import { isFullSystemEval, buildEvalContext, effectiveBackLayers, evaluateOperands, calcMF } from '../evalCore.js';
-import { isDmfs, isBlank, isManufacturability, isRangeTarget, isIntegral, isMinmax, isArgwave, isMath } from '../operandModel.js';
-import { charOf } from '../sampling.js';
-import { makeConeSpec, coneIsActive } from '../coneAngle.js';
+import {
+    isDmfs, isBlank, isManufacturability, isRangeTarget,
+    OPTICAL_OPERAND_TYPES, RANGE_TARGET_OPERAND_TYPES,
+} from '../operandModel.js';
+import { coneNodesAt } from '../evalCore/tmmEval.js';
+import { coneIsActive } from '../coneAngle.js';
 import { resolveScanSide } from './sides.js';
 import { _buildDescriptors, _buildCandidates } from './descriptors.js';
 import { _makeScanAt } from './needleScanPasses.js';
 import { _accumRangeTarget, _accumBandAvg } from './gradientAccum.js';
 
-// Applicable to plain optical operands (R/T/A, any pol) — single-λ, band-average
-// (TAV/RAV/AAV) AND continuous per-λ targets (TGT/RGT/AGT). Weighted-integral,
-// minmax, math and argwave operands have non-uniform per-sample weighting /
-// non-linear surrogates the analytic scan does not yet handle → the dispatcher
-// falls back to the FD scan. Returns the eligible optical operands, or null when
-// the analytic path does not apply.
+// Row types whose value is the R, T or A of the spectrum, the only quantities
+// the chain rule here differentiates: single-wavelength and band-average rows,
+// the per-wavelength targets, and the s/p-suffixed point types older designs
+// still carry. The accumulators take the channel from the first letter of the
+// type, so admission has to be by name: TANPSI and the TOD family also start
+// with T and are tanΨ and third-order dispersion, not transmittance.
+const PHOTOMETRIC_TYPES = new Set([
+    ...OPTICAL_OPERAND_TYPES, ...RANGE_TARGET_OPERAND_TYPES,
+    'TS', 'TP', 'RS', 'RP', 'AS', 'AP',
+]);
+
+// The enabled rows the analytic scan scores, or null when the analytic path does
+// not apply. Any other row that counts toward the synthesis merit (weighted
+// integrals, band extrema, math, argwave, ellipsometric, phase and field rows,
+// measured blocks) sends the whole scan to the FD path.
 function _collectOptOps(operands) {
     const optOps = [];
     for (const op of operands) {
@@ -39,20 +54,17 @@ function _collectOptOps(operands) {
         // manufacturability rows, which skipConstraints drops and which read
         // the thickness vector rather than a spectral characteristic.
         if (isDmfs(op.type) || isBlank(op.type) || isManufacturability(op.type)) continue;
-        if (isIntegral(op.type) || isMinmax(op.type)) return null;
-        if (isMath(op.type) || isArgwave(op.type)) return null;
-        if (!'RTA'.includes(charOf(op.type))) return null;
+        if (!PHOTOMETRIC_TYPES.has(op.type)) return null;
         optOps.push(op);
     }
     return optOps.length === 0 ? null : optOps;
 }
 
-// Whether the analytic path must decline (cone active, or a 'total' MF on a
-// single-side optimize mode this path doesn't compose a single-side full-system
-// gradient for). Both cases defer to scanNeedlesFD, which is cone-averaged /
-// total-aware by construction.
+// Whether the analytic path must decline: a 'total' MF on a single-side
+// optimize mode, which this path doesn't compose a single-side full-system
+// gradient for. That case defers to scanNeedlesFD, which is total-aware by
+// construction.
 function _analyticDeclines(surfaceMode, design) {
-    if (coneIsActive(makeConeSpec(design?.cone || {}))) return true;
     return isFullSystemEval(surfaceMode, design?.mfEvalMode || 'side')
         && (surfaceMode === 'front_only' || surfaceMode === 'back_only');
 }
@@ -74,7 +86,7 @@ function _resolveMedia(design, resolveMat) {
 // Validate eligibility and assemble everything the gradient loop needs:
 // { optOps, descs, cfg, mf0, sumW }, or null if the analytic scan can't run.
 function _prepareScan(args, surfaceMode, side) {
-    const { operands, design, resolveMat, candidateMats, nIntra = 4 } = args;
+    const { operands, design, resolveMat, candidateMats, nIntra = 4, dMin = 0 } = args;
     const optOps = _collectOptOps(operands);
     if (!optOps) return null;
 
@@ -94,6 +106,8 @@ function _prepareScan(args, surfaceMode, side) {
     const backMats  = back.map(l => resolveMat(l.material));
 
     // mf0 via the existing path → guaranteed consistent with calcMF / FD scan.
+    // The evaluation also settles the cone's rays on ctx0; the gradient below
+    // is summed over the same rays and weights (coneNodesAt).
     const ctx0 = buildEvalContext(design, resolveMat);
     const mf0  = calcMF(operands, evaluateOperands(operands, ctx0), { skipConstraints: true });
     if (!(mf0 > 1e-12)) return null;
@@ -103,18 +117,22 @@ function _prepareScan(args, surfaceMode, side) {
     if (!(sumW > 0)) return null;
 
     const fracs = Array.from({ length: nIntra }, (_, i) => (i + 1) / (nIntra + 1));
-    const descs = _buildDescriptors(N, candidateMats, targetLayers, fracs);
+    const descs = _buildDescriptors(N, candidateMats, targetLayers, fracs, dMin);
 
     const isSingleSurface = surfaceMode === 'front_only' || surfaceMode === 'back_only';
     const cfg = {
         surfaceMode, side, isFull: !isSingleSurface,
         front, back, Nf, Nb, nIntra,
         frontMats, backMats, n0mat, nsmat, neMat, candidateMats, fracs, subThickMm,
+        raysAt: (aoi, lam) => coneNodesAt(ctx0, aoi, lam),
+        coneActive: coneIsActive(ctx0.cone),
     };
     return { optOps, descs, cfg, mf0, sumW };
 }
 
 // Returns the same { candidates, mf0 } contract, or null if not applicable.
+// `args.dMin` (nm) leaves out intra positions whose split would put a half of
+// the host below the floor (descriptors.js, intraSplitFits).
 export function scanNeedlesAnalytic(args) {
     const { design, candidateMats, deltaNm = 0.5 } = args;
     const surfaceMode = design?.surfaceMode || 'front_only';

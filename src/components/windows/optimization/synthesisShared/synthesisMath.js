@@ -1,6 +1,6 @@
 import {
     resolveScanSide,
-    densifyOperandsForFeatures, ADAPTIVE_SAMPLING_DEFAULTS,
+    densifyOperandsForFeatures, ADAPTIVE_SAMPLING_DEFAULTS, withDesignSampleCounts,
 } from '../../../../utils/physics/optimizer.js';
 import { generateARSeeds } from '../../../../utils/synthesis/seedGenerator.js';
 import { getThreadCount } from '../../../../utils/synthesis/synthesisConfig.js';
@@ -39,13 +39,15 @@ export function serializableMedia(design) {
     };
 }
 
-// ── Adaptive merit sampling ─────────────────────────────────────────────────────
-// Densify band-sampled operands whose bands hide a sub-grid spectral feature at
-// launch so the synthesis merit isn't blind to narrow resonances. Densified
-// operands feed BOTH requiredLambdas and the worker scan/refine jobs →
-// byte-identical λ-grid contract preserved.
+// ── Run sampling grid ───────────────────────────────────────────────────────────
+// At launch, band averages, integrals and range targets get the sample count the
+// design's fringe spacing needs, then band-sampled operands whose bands hide a
+// sub-grid spectral feature are densified so the synthesis merit isn't blind to
+// narrow resonances. The result feeds BOTH requiredLambdas and the worker
+// scan/refine jobs → byte-identical λ-grid contract preserved.
 export function densifyForRun(ops, design) {
-    return densifyOperandsForFeatures(ops, design, designMaterialLookup(design), ADAPTIVE_SAMPLING_DEFAULTS, ({ bumped, capped }) =>
+    const lookup = designMaterialLookup(design);
+    return densifyOperandsForFeatures(withDesignSampleCounts(ops, design, lookup), design, lookup, ADAPTIVE_SAMPLING_DEFAULTS, ({ bumped, capped }) =>
         console.log(`[Adaptive] densified ${bumped} operand(s) for narrow features`
             + (capped ? ` (${capped} capped at ${ADAPTIVE_SAMPLING_DEFAULTS.maxPoints} pts)` : '')));
 }

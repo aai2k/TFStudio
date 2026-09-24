@@ -267,23 +267,33 @@ const OPTILAYER_FN = {
     106: olDrude,       // gated
 };
 
+function formulaEvaluator(formulaNum) {
+    if (!Number.isInteger(formulaNum)) return null;
+    return (formulaNum >= 100 ? OPTILAYER_FN[formulaNum] : FORMULA_FN[formulaNum]) || null;
+}
+
+/** Whether `formulaNum` is one of the Zemax AGF formulas, 1 to 13. */
+export function isZemaxFormula(formulaNum) {
+    return Number.isInteger(formulaNum) && formulaNum >= 1 && formulaNum < FORMULA_FN.length;
+}
+
+/** Whether evalN has an evaluator for `formulaNum`. */
+export function isSupportedFormula(formulaNum) {
+    return formulaEvaluator(formulaNum) !== null;
+}
+
 /**
  * Evaluate refractive index n for a given dispersion formula number.
  * @param {number} formulaNum  Zemax 1–13, or OptiLayer 101+
  * @param {number[]} coeffs    dispersion coefficients
  * @param {number} lambda_um   wavelength in micrometers
- * @returns {number} real refractive index n
+ * @returns {number} real refractive index n, or NaN for a formula number with
+ *          no evaluator: the material's dispersion is unknown, and no stand-in
+ *          value is given for it
  */
 export function evalN(formulaNum, coeffs, lambda_um) {
-    const fn = formulaNum >= 100 ? OPTILAYER_FN[formulaNum] : FORMULA_FN[formulaNum];
-    if (!fn) {
-        // Fail LOUD rather than silently substituting placeholder physics: an
-        // unknown formula number means the material's dispersion is unmodelled.
-        console.warn(`evalN: unsupported dispersion formula ${formulaNum} — ` +
-            `returning placeholder n=1.5; this material's index is NOT physical.`);
-        return 1.5;
-    }
-    return fn(coeffs, lambda_um);
+    const fn = formulaEvaluator(formulaNum);
+    return fn ? fn(coeffs, lambda_um) : NaN;
 }
 
 export { evalNJet } from './dispersionFormulaJet.js';

@@ -2,15 +2,15 @@
   "mainThread/single/front": {
     "applied": {
       "front": [
-        102.588132802,
-        182.414175067,
-        185.682256485
+        102.326361794,
+        182.02658351,
+        186.319242079
       ],
       "back": []
     },
-    "mf": 0.058053658,
-    "mfBest": 0.058053658,
-    "mfInitial": 0.397235701,
+    "mf": 0.055726303,
+    "mfBest": 0.055726303,
+    "mfInitial": 0.397695619,
     "iter": 40,
     "stopReason": null,
     "history": []
@@ -19,36 +19,36 @@
     "applied": {
       "front": [],
       "back": [
-        108.868954267,
-        95.976568697
+        108.920860204,
+        96.011455487
       ]
     },
-    "mf": 0.019860526,
-    "mfBest": 0.019860526,
-    "mfInitial": 0.021128187,
-    "iter": 40,
+    "mf": 0.019805499,
+    "mfBest": 0.019805499,
+    "mfInitial": 0.02109899,
+    "iter": 35,
     "stopReason": null,
     "history": []
   },
   "mainThread/multi/front": {
     "applied": {
       "front": [
-        102.051932836,
-        135.024742787,
-        100.866929163
+        107.297969912,
+        193.87755189,
+        279.283862479
       ],
       "back": []
     },
-    "mf": 0.059700847,
-    "mfBest": 0.059700847,
-    "mfInitial": 0.397235701,
+    "mf": 0.111571448,
+    "mfBest": 0.051089068,
+    "mfInitial": 0.397695619,
     "iter": 160,
     "stopReason": null,
     "history": [
       {
         "label": "Run 1 (×4)",
         "iter": 160,
-        "mf": 0.059700847,
+        "mf": 0.051089068,
         "layerCount": 3,
         "layerSide": "frontLayers"
       }
@@ -57,24 +57,24 @@
   "mainThread/multi/both": {
     "applied": {
       "front": [
-        107.652558391,
-        789.557003214
+        109.290369914,
+        380.127630803
       ],
       "back": [
-        109.249655618,
-        95.739856648
+        9.72857768,
+        128.509806146
       ]
     },
-    "mf": 0.128831849,
-    "mfBest": 0.128831849,
-    "mfInitial": 0.196654712,
+    "mf": 0.123986624,
+    "mfBest": 0.113236934,
+    "mfInitial": 0.196579637,
     "iter": 120,
     "stopReason": null,
     "history": [
       {
         "label": "Run 1 (×3)",
         "iter": 120,
-        "mf": 0.128831849,
+        "mf": 0.113236934,
         "layerCount": 2,
         "layerSide": "frontLayers"
       }
@@ -91,9 +91,9 @@
     },
     "mf": 0.05,
     "mfBest": 0.05,
-    "mfInitial": 0.397235701,
+    "mfInitial": 0.397695619,
     "iter": 10,
-    "stopReason": null,
+    "stopReason": "stalled",
     "history": [
       {
         "label": "Damped Least Squares",
@@ -107,15 +107,15 @@
   "dlsPool/multi/front": {
     "applied": {
       "front": [
-        120.664588588,
-        118.823359354,
-        49.92152972
+        113.834175111,
+        90.455476146,
+        70.653673839
       ],
       "back": []
     },
     "mf": 0.01,
     "mfBest": 0.01,
-    "mfInitial": 0.397235701,
+    "mfInitial": 0.397695619,
     "iter": 50,
     "stopReason": null,
     "history": [
@@ -132,13 +132,13 @@
     "applied": {
       "front": [],
       "back": [
-        80.451003312,
-        105.48305378
+        108.750803515,
+        95.314113709
       ]
     },
     "mf": 0.01,
     "mfBest": 0.01,
-    "mfInitial": 0.021128187,
+    "mfInitial": 0.02109899,
     "iter": 50,
     "stopReason": null,
     "history": [
@@ -162,7 +162,7 @@
     },
     "mf": 0.05,
     "mfBest": 0.05,
-    "mfInitial": 0.397235701,
+    "mfInitial": 0.397695619,
     "iter": 10,
     "stopReason": "stalled",
     "history": [
@@ -186,7 +186,7 @@
     },
     "mf": 0.05,
     "mfBest": 0.05,
-    "mfInitial": 0.397235701,
+    "mfInitial": 0.397695619,
     "iter": 60,
     "stopReason": "best:cg",
     "history": [
@@ -226,7 +226,7 @@
     },
     "mf": 0.05,
     "mfBest": 0.05,
-    "mfInitial": 0.196654712,
+    "mfInitial": 0.196579637,
     "iter": 20,
     "stopReason": "best:cg",
     "history": [
@@ -249,24 +249,24 @@
   "methodsFlow/de/both": {
     "applied": {
       "front": [
-        99.942840988,
-        100.572108882
+        100.642254686,
+        100.374266343
       ],
       "back": [
-        100.560527804,
-        100.392444229
+        99.837412368,
+        99.622627382
       ]
     },
-    "mf": 7.99e-7,
-    "mfBest": 7.99e-7,
-    "mfInitial": 0.196654712,
+    "mf": 7.21e-7,
+    "mfBest": 7.21e-7,
+    "mfInitial": 0.196579637,
     "iter": 40,
     "stopReason": "target",
     "history": [
       {
         "label": "Differential Evolution",
         "iter": 40,
-        "mf": 7.99e-7,
+        "mf": 7.21e-7,
         "layerCount": 2,
         "layerSide": "frontLayers"
       }

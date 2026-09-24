@@ -4,7 +4,8 @@
  * A Newton step with the layer-thickness bounds [MNT, MXT] (∩ [D_MIN, D_MAX])
  * as HARD constraints instead of the soft one-sided quadratic penalties the
  * other engines use. Each step solves the box-constrained QP
- *     min_Δ  ½ Δᵀ H Δ + (Jᵀr)·Δ   s.t.   loᵢ ≤ dᵢ + Δᵢ ≤ hiᵢ
+ *     min_Δ  ½ Δᵀ H Δ + (Jᵀr)·Δ   s.t.   loᵢ ≤ dᵢ + Δᵢ ≤ hiᵢ,  |Δᵢ| ≤ spanᵢ
+ * (spanᵢ: the per-layer step span, physics/optimizer/halfWaveSpan.js)
  * with H the analytic merit Hessian (diagonally damped to positive-definite) —
  * reusing LSQEngine._newtonSystem (Hessian/gradient) + the primal active-set
  * box-QP solver. Iterates stay feasible, so the MNT/MXT penalty residuals are
@@ -25,7 +26,19 @@
  * better MF than the penalty approach on a bounded design).
  */
 import { LSQEngine } from '../physics/optimizer.js';
-import { solveBoxQP } from '../physics/optimizer/linalg.js';
+import { solveBoxQP, boxCauchyPoint, boxQPValue } from '../physics/optimizer/linalg.js';
+
+// The box QP step, or null when the damped Hessian is not PD. A solve stopped
+// by its pass cap leaves a feasible point that lowers the model but carries no
+// guaranteed decrease; the Cauchy point along the projected gradient does
+// (Nocedal & Wright 2e, §16.7), so the lower of the two on the model is taken.
+function boxQPStep(A, g, lo, hi) {
+    const qp = solveBoxQP(A, g, lo, hi);
+    if (!qp) return null;
+    if (qp.converged) return qp.delta;
+    const cauchy = boxCauchyPoint(A, g, lo, hi);
+    return boxQPValue(A, g, cauchy) < boxQPValue(A, g, qp.delta) ? cauchy : qp.delta;
+}
 
 export class SQPOptimizer extends LSQEngine {
     constructor(operands, design, resolveMat, opts = {}) {
@@ -115,7 +128,7 @@ export class SQPOptimizer extends LSQEngine {
         let delta = null;
         for (let tries = 0; tries < 12 && !delta; tries++) {
             const A = H.map((rowv, a) => { const r = rowv.slice(); r[a] = r[a] + mu * Math.max(Math.abs(rowv[a]), 1e-12) + 1e-12; return r; });
-            delta = solveBoxQP(A, Jtr, loD, hiD);
+            delta = boxQPStep(A, Jtr, loD, hiD);
             if (!delta) mu *= 10;
         }
         return { delta, mu };
@@ -140,13 +153,18 @@ export class SQPOptimizer extends LSQEngine {
         this._projectBestToBox(freeIdx, boxLo, boxHi);
         const thk2 = this.thicknesses;
 
-        const sys = this._newtonSystem(thk2, freeIdx);
+        const sys = this._newtonSystemAt(thk2, freeIdx);
         if (!sys) { this.lmStep(); this._projectBestToBox(freeIdx, boxLo, boxHi); return; }     // unsupported → LM
         const { H, Jtr } = sys;
 
-        // Δ-space box: lo ≤ Δ ≤ hi, with 0 feasible (thk2 already in box).
+        // Δ-space box: lo ≤ Δ ≤ hi, with 0 feasible (thk2 already in box), and
+        // no layer moving by more than its step span in one step.
         const loD = new Array(nFree), hiD = new Array(nFree);
-        for (let a = 0; a < nFree; a++) { loD[a] = boxLo[a] - thk2[freeIdx[a]]; hiD[a] = boxHi[a] - thk2[freeIdx[a]]; }
+        for (let a = 0; a < nFree; a++) {
+            const span = this.stepSpans[freeIdx[a]];
+            loD[a] = Math.max(boxLo[a] - thk2[freeIdx[a]], -span);
+            hiD[a] = Math.min(boxHi[a] - thk2[freeIdx[a]], span);
+        }
 
         const { delta, mu } = this._solveDampedBoxQP({ H, Jtr, loD, hiD, mu: this.lamS ?? 1e-3 });
         if (!delta) { this.lamS = Math.min(mu, 1e8); this.lmStep(); this._projectBestToBox(freeIdx, boxLo, boxHi); return; }

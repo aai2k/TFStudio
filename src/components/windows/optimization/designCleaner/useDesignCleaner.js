@@ -5,7 +5,67 @@ import { applyCleanup, computeCleanupPreview, computeMeritValue } from './model.
 import { designCleanerSession } from './sessionState.js';
 import { useWindowSession } from '../../windowSession.js';
 
-const { useState, useMemo, useCallback } = React;
+const { useState, useMemo, useCallback, useEffect, useRef } = React;
+
+// Apply + the optional re-optimize pass, run in the optimizer worker so the
+// window stays responsive. `progress` is { step, iters, mf } while the pass
+// runs. Stop ends the pass and applies the cleanup with the best thicknesses
+// so far. Closing the window or switching to another design discards the
+// pass: its result belongs to the design it started on, and the update would
+// land on whichever design is active by then.
+function useCleanupRun({ dc, design, preview, settings, resolveMaterial, updateDesign, checkpoint }) {
+    const [applying,  setApplying]  = useState(false);
+    const [progress,  setProgress]  = useState(null);
+    const [resultMsg, setResultMsg] = useState(null);
+    const runRef = useRef(null);            // { designId, ctrl, closed } of the pass in flight
+    const designIdRef = useRef(design?.id);
+    designIdRef.current = design?.id;
+
+    useEffect(() => () => {
+        const run = runRef.current;
+        if (run) { run.closed = true; run.ctrl.abort(); }
+    }, []);
+    useEffect(() => {
+        if (runRef.current && runRef.current.designId !== design?.id) runRef.current.ctrl.abort();
+    }, [design?.id]);
+
+    const apply = useCallback(async () => {
+        if (runRef.current) return;
+        if (!preview || preview.ops.length === 0) {
+            setResultMsg(dc.nothingToDo);
+            return;
+        }
+        const run = { designId: design.id, ctrl: new AbortController(), closed: false };
+        const sameDesign = () => designIdRef.current === run.designId;
+        runRef.current = run;
+        setApplying(true);
+        setResultMsg(null);
+
+        try {
+            const { nextDesign, msg } = await applyCleanup(preview, design, dc, {
+                ...settings, inWorker: true, signal: run.ctrl.signal, onProgress: setProgress,
+            }, resolveMaterial);
+            if (run.closed) return;
+            if (sameDesign()) {
+                // Single undo checkpoint covers both the cleanup and any refinement
+                if (typeof checkpoint === 'function') checkpoint();
+                updateDesign({ frontLayers: nextDesign.frontLayers, backLayers: nextDesign.backLayers });
+                setResultMsg(msg);
+            } else {
+                setResultMsg(dc.discarded);
+            }
+        } catch (e) {
+            setResultMsg(`Error: ${e.message || e}`);
+        }
+        runRef.current = null;
+        setProgress(null);
+        setApplying(false);
+    }, [preview, dc, design, updateDesign, checkpoint, settings, resolveMaterial]);
+
+    const stop = useCallback(() => runRef.current?.ctrl.abort(), []);
+
+    return { applying, progress, resultMsg, apply, stop };
+}
 
 export function useDesignCleaner(dc) {
     const { design, updateDesign, checkpoint } = useDesign();
@@ -18,8 +78,6 @@ export function useDesignCleaner(dc) {
     const setReoptimize    = value => setField('reoptimize', value);
     const setReoptIters    = value => setField('reoptIters', value);
 
-    const [applying,  setApplying]  = useState(false);
-    const [resultMsg, setResultMsg] = useState(null);
     const resolveMaterial = useMemo(() => designMaterialLookup(design), [design]);
 
     const preview = useMemo(
@@ -37,31 +95,8 @@ export function useDesignCleaner(dc) {
         [preview, design, resolveMaterial]
     );
 
-    const apply = useCallback(() => {
-        if (!preview || preview.ops.length === 0) {
-            setResultMsg(dc.nothingToDo);
-            return;
-        }
-        setApplying(true);
-        setResultMsg(null);
-
-        // Single undo checkpoint covers both the cleanup and any refinement
-        if (typeof checkpoint === 'function') checkpoint();
-
-        try {
-            const { nextDesign, msg } = applyCleanup(
-                preview, design, dc, { reoptimize, reoptIters, dMin }, resolveMaterial
-            );
-            updateDesign({
-                frontLayers: nextDesign.frontLayers,
-                backLayers:  nextDesign.backLayers,
-            });
-            setResultMsg(msg);
-        } catch (e) {
-            setResultMsg(`Error: ${e.message || e}`);
-        }
-        setApplying(false);
-    }, [preview, dc, design, updateDesign, checkpoint, reoptimize, reoptIters, dMin, resolveMaterial]);
+    const settings = useMemo(() => ({ reoptimize, reoptIters, dMin }), [reoptimize, reoptIters, dMin]);
+    const run = useCleanupRun({ dc, design, preview, settings, resolveMaterial, updateDesign, checkpoint });
 
     const ops = preview?.ops || [];
     const removedOps = ops.filter(o => o.kind === 'remove');
@@ -74,8 +109,8 @@ export function useDesignCleaner(dc) {
     return {
         design, dMin, setDMin, mergeAdjacent, setMergeAdjacent,
         cleanBack, setCleanBack, reoptimize, setReoptimize,
-        reoptIters, setReoptIters, applying, resultMsg,
-        preview, mfBefore, mfAfter, apply,
+        reoptIters, setReoptIters, ...run,
+        preview, mfBefore, mfAfter,
         ops, removedOps, mergedOps, thinList,
     };
 }

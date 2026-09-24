@@ -1,10 +1,11 @@
 /**
  * Systematic Deviations tests — verifies that applying an identity deviation
  * is a no-op (bit-identical to baseline), global Δn/Δk + thickness-scale
- * propagate correctly into the TMM spectrum, per-material overrides combine
- * additively with global, sweeps produce well-shaped 2-D arrays, and the
- * unique-material enumerator covers front/back/substrate/media without
- * duplicates.
+ * propagate correctly into the TMM spectrum, the global Δn/Δk reach the
+ * coating layers and leave the incident medium, substrate and exit medium at
+ * their own index, per-material overrides combine additively with global,
+ * sweeps produce well-shaped 2-D arrays, and the unique-material enumerator
+ * covers front/back/substrate/media without duplicates.
  *
  * Run: node tests/systematic_deviations.mjs
  */
@@ -12,11 +13,13 @@
 import {
     emptyDeviation, cloneDeviation, isIdentityDeviation,
     enumerateUniqueMaterials,
-    perturbLayers, perturbMedium,
+    perturbLayers, perturbMedium, deviatedDesignForSpec,
     computeDeviatedSpectrum, runDeviationSweep,
     applyParamValue, paramLabel,
 } from '../src/utils/physics/systematicDeviations.js';
-import { evaluateSpectrum } from '../src/utils/physics/thinFilmMath.js';
+import { evaluateSpectrum, evaluateSpectrumBack, evaluateSpectrumTotal } from '../src/utils/physics/thinFilmMath.js';
+import { wrapMaterial } from '../src/utils/misc/variator.js';
+import { evaluateQualifiers } from '../src/utils/synthesis/qualifiers.js';
 
 let fails = 0;
 const ok    = (cond, msg) => { if (!cond) { console.error('FAIL:', msg); fails++; } };
@@ -89,6 +92,8 @@ const PARAMS = { lambdaStart: 400, lambdaEnd: 800, lambdaStep: 25, theta: 0, pol
 }
 
 // ── 3) Global Δn / Δk equals a manually-shifted material design ────────────
+// The global shift is a deposition-process offset: it reaches every coating
+// layer and leaves the incident medium and the substrate at their own index.
 {
     const dn = 0.05, dk = 0.002;
     const dev = { ...emptyDeviation(), globalDeltaN: dn, globalDeltaK: dk };
@@ -104,10 +109,10 @@ const PARAMS = { lambdaStart: 400, lambdaEnd: 800, lambdaStep: 25, theta: 0, pol
     const shifted = DESIGN.frontLayers.map(l => ({
         material: wrapBase(resolveMat(l.material)), thickness: l.thickness,
     }));
-    const expected = evaluateSpectrum(PARAMS, wrapBase(resolveMat('Air')), wrapBase(resolveMat('BK7')), shifted);
+    const expected = evaluateSpectrum(PARAMS, resolveMat('Air'), resolveMat('BK7'), shifted);
 
-    ok(nearV(deviated.T, expected.T, 1e-14), 'Δn/Δk: T matches manually-shifted material design');
-    ok(nearV(deviated.R, expected.R, 1e-14), 'Δn/Δk: R matches manually-shifted material design');
+    ok(nearV(deviated.T, expected.T, 1e-14), 'Δn/Δk: T matches manually-shifted layer design');
+    ok(nearV(deviated.R, expected.R, 1e-14), 'Δn/Δk: R matches manually-shifted layer design');
 }
 
 // ── 4) Per-material override combines additively with global ───────────────
@@ -118,13 +123,14 @@ const PARAMS = { lambdaStart: 400, lambdaEnd: 800, lambdaStep: 25, theta: 0, pol
         perMaterial: { TiO2: { dn: 0.03, dk: 0, dScale: 1 } },
     };
 
-    // Build the equivalent design by hand: TiO2 wrapped +0.05, SiO2 wrapped +0.02.
+    // Build the equivalent design by hand: TiO2 wrapped +0.05, SiO2 wrapped
+    // +0.02, air and substrate nominal.
     const wrap = (m, dn) => ({
         id: m.id + "'", getNK: (lam) => { const nk = m.getNK(lam); return [nk[0] + dn, nk[1]]; }
     });
     const expected = evaluateSpectrum(PARAMS,
-        wrap(resolveMat('Air'), 0.02),
-        wrap(resolveMat('BK7'), 0.02),
+        resolveMat('Air'),
+        resolveMat('BK7'),
         DESIGN.frontLayers.map(l => ({
             material: wrap(resolveMat(l.material), l.material === 'TiO2' ? 0.05 : 0.02),
             thickness: l.thickness,
@@ -343,6 +349,109 @@ const PARAMS = { lambdaStart: 400, lambdaEnd: 800, lambdaStep: 25, theta: 0, pol
     perturbMedium('BK7',  dev, resolveMat);
     const after = JSON.stringify(DESIGN);
     ok(before === after, 'perturbLayers/Medium do not mutate the source design');
+}
+
+// ── 12) Global Δn/Δk shift the coating, never the air or the substrate ─────
+// MgF2 quarter wave at 550 nm on BK7 in air, with the process running +0.02 in
+// index. The film index moves; air stays at 1 and the glass at 1.52. The
+// expected reflectance is the single-film admittance result at normal
+// incidence (Macleod, Thin-Film Optical Filters 5e, Eqs. 2.108 and 2.109):
+//   [B, C] = [[cos δ, i sin δ / n₁], [i n₁ sin δ, cos δ]] · [1, n_s],
+//   R = |(n₀B − C) / (n₀B + C)|²,   δ = 2π n₁ d / λ.
+{
+    const AR_MATS = { Air: mat('Air', 1.0), MgF2: mat('MgF2', 1.38), BK7: mat('BK7', 1.52) };
+    const arResolve = (id) => AR_MATS[id];
+    const dQW = 550 / (4 * 1.38);                     // nm, quarter wave at 550 nm
+    const AR = {
+        incidentMedium: 'Air', exitMedium: 'Air',
+        substrate: { material: 'BK7', thickness: 1.0 },
+        frontLayers: [{ material: 'MgF2', thickness: dQW }],
+        backLayers: [],
+    };
+    const arParams = { lambdaStart: 500, lambdaEnd: 650, lambdaStep: 10, theta: 0, polarization: 'avg' };
+    const singleFilmR = (lam, n0, n1, ns) => {
+        const delta = 2 * Math.PI * n1 * dQW / lam;
+        const c = Math.cos(delta), s = Math.sin(delta);
+        // n₀B − C and n₀B + C, each as (real, imaginary).
+        const numRe = (n0 - ns) * c, numIm = (n0 * ns / n1 - n1) * s;
+        const denRe = (n0 + ns) * c, denIm = (n0 * ns / n1 + n1) * s;
+        return (numRe * numRe + numIm * numIm) / (denRe * denRe + denIm * denIm);
+    };
+    const at550 = (sp) => sp.R[sp.lambda.findIndex(l => Math.abs(l - 550) < 1e-9)];
+
+    const pct = (r) => (100 * r).toFixed(3);
+
+    // At the design wavelength the film is a quarter wave: R = ((n₀n_s − n₁²)/(n₀n_s + n₁²))².
+    const nominal = computeDeviatedSpectrum(AR, arParams, emptyDeviation(), 'front', arResolve);
+    const qwR = ((1.52 - 1.38 ** 2) / (1.52 + 1.38 ** 2)) ** 2;
+    ok(near(at550(nominal), qwR, 1e-12) && pct(at550(nominal)) === '1.260',
+        `AR nominal: R(550) = 1.260 % (got ${pct(at550(nominal))} %)`);
+
+    const dev = { ...emptyDeviation(), globalDeltaN: 0.02 };
+    const shifted = computeDeviatedSpectrum(AR, arParams, dev, 'front', arResolve);
+    ok(pct(at550(shifted)) === '1.600', `AR global Δn=+0.02: R(550) = 1.600 % (got ${pct(at550(shifted))} %)`);
+    ok(nearV(shifted.R, shifted.lambda.map(l => singleFilmR(l, 1.0, 1.40, 1.52)), 1e-12),
+        'AR global Δn: R(λ) is the film-only shift at every wavelength');
+    ok(shifted.R.every((r, i) => r > nominal.R[i]),
+        'AR global Δn: a higher film index raises R across 500 to 650 nm');
+
+    // A global Δk must not make the air or the glass absorbing.
+    const lossy = { ...emptyDeviation(), globalDeltaN: 0.02, globalDeltaK: 0.001 };
+    ok(nearV(perturbMedium('Air', lossy, arResolve).getNK(550), [1.0, 0], 0), 'global Δn/Δk: air keeps n = 1, k = 0');
+    ok(nearV(perturbMedium('BK7', lossy, arResolve).getNK(550), [1.52, 0], 0), 'global Δn/Δk: substrate keeps its n and k');
+
+    // A per-material entry on the substrate is deliberate and applies, without
+    // the global part.
+    const subDev = { ...emptyDeviation(), globalDeltaN: 0.02, perMaterial: { BK7: { dn: 0.03, dk: 0, dScale: 1 } } };
+    const subShifted = computeDeviatedSpectrum(AR, arParams, subDev, 'front', arResolve);
+    ok(nearV(subShifted.R, subShifted.lambda.map(l => singleFilmR(l, 1.0, 1.40, 1.55)), 1e-12),
+        'per-material entry on the substrate: substrate +0.03, film +0.02 from the global');
+
+    // Back and total modes leave the exit medium and substrate nominal too.
+    const back = computeDeviatedSpectrum(DESIGN, PARAMS, dev, 'back', resolveMat);
+    const backExp = evaluateSpectrumBack(PARAMS, resolveMat('Air'), resolveMat('BK7'),
+        DESIGN.backLayers.map(l => ({ material: wrapMaterial(resolveMat(l.material), 0.02, 0), thickness: l.thickness })));
+    ok(nearV(back.R, backExp.R, 1e-14), 'back mode: global Δn reaches the back layers only');
+    const total = computeDeviatedSpectrum(DESIGN, PARAMS, dev, 'total', resolveMat);
+    const shiftLayers = (layers) => layers.map(l => ({ material: wrapMaterial(resolveMat(l.material), 0.02, 0), thickness: l.thickness }));
+    const totalExp = evaluateSpectrumTotal(PARAMS, resolveMat('Air'), resolveMat('BK7'), resolveMat('Air'),
+        shiftLayers(DESIGN.frontLayers), shiftLayers(DESIGN.backLayers), DESIGN.substrate.thickness);
+    ok(nearV(total.T, totalExp.T, 1e-14), 'total mode: global Δn reaches both coatings, media stay nominal');
+
+    // Specification verdict path: the same rule, same number.
+    const spec = deviatedDesignForSpec(AR, dev, arResolve);
+    const rAt550 = { enabled: true, kind: 'R_AT', lambda: 550, aoi: 0, pol: 'avg', cmp: 'le', target: 0.02 };
+    const specR = evaluateQualifiers([rAt550], spec.design, spec.resolve)[0].value;
+    ok(near(specR, singleFilmR(550, 1.0, 1.40, 1.52), 1e-12),
+        `spec path: R(550) under global Δn is the film-only shift (got ${pct(specR)} %)`);
+}
+
+// ── 13) A layer material that is also the substrate ───────────────────────
+// SiO2 film on an SiO2 substrate: the global Δn moves the film and not the
+// substrate, in the spectrum and in the specification verdict alike.
+{
+    const SHARED = {
+        incidentMedium: 'Air', exitMedium: 'Air',
+        substrate: { material: 'SiO2', thickness: 1.0 },
+        frontLayers: [
+            { material: 'TiO2', thickness: 57.3 },
+            { material: 'SiO2', thickness: 94.2 },
+        ],
+        backLayers: [],
+    };
+    const dev = { ...emptyDeviation(), globalDeltaN: 0.03 };
+    const got = computeDeviatedSpectrum(SHARED, PARAMS, dev, 'front', resolveMat);
+    const exp = evaluateSpectrum(PARAMS, resolveMat('Air'), resolveMat('SiO2'),
+        SHARED.frontLayers.map(l => ({ material: wrapMaterial(resolveMat(l.material), 0.03, 0), thickness: l.thickness })));
+    ok(nearV(got.R, exp.R, 1e-14), 'shared id: film SiO2 shifted, substrate SiO2 nominal');
+
+    const spec = deviatedDesignForSpec(SHARED, dev, resolveMat);
+    const i600 = got.lambda.findIndex(l => Math.abs(l - 600) < 1e-9);
+    const rAt600 = { enabled: true, kind: 'R_AT', lambda: 600, aoi: 0, pol: 'avg', cmp: 'le', target: 1 };
+    const specR = evaluateQualifiers([rAt600], spec.design, spec.resolve)[0].value;
+    ok(near(specR, got.R[i600], 1e-12), `shared id: spec path agrees with the spectrum (${specR} vs ${got.R[i600]})`);
+    ok(spec.design.substrate.material === 'SiO2' && SHARED.frontLayers[1].material === 'SiO2',
+        'shared id: the source design and its substrate id are untouched');
 }
 
 // ── Summary ────────────────────────────────────────────────────────────────

@@ -24,6 +24,7 @@ export {
     sideKeyFor, activeSide, serializableMedia, densifyForRun, minOmfOf, chunkArray,
     poolSize, buildARSeedCandidates, computePareto,
 } from './synthesisMath.js';
+export { regridForDesign, meritOf, presampleSynthesisMaterials } from './runGrid.js';
 export { MaterialPoolPanel } from './MaterialPoolPanel.js';
 export { MeritRangeBadge } from './MeritRangeBadge.js';
 export { TopDesignsPanel } from './TopDesignsPanel.js';

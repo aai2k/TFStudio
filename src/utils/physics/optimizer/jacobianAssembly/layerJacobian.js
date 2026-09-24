@@ -11,19 +11,37 @@
  */
 
 import { tmmJacEval } from '../evalCore.js';
+import { distinctMaterials } from '../evalCore/tmmEval.js';
+
+// Layers {n, d} of a stack at λ, reading each distinct material once. `stack`
+// is distinctMaterials() of the stack's materials array.
+function stackLayers(stack, thicks, lam) {
+    const nks = stack.materials.map(m => m.getNK(lam));
+    const layers = new Array(thicks.length);
+    for (let i = 0; i < thicks.length; i++) layers[i] = { n: nks[stack.index[i]], d: thicks[i] };
+    return layers;
+}
+
+// The distinct-material index of every stack computeLayerJacobian reads for
+// `cfg`, built once per Jacobian rather than once per wavelength.
+export function layerJacobianStacks(cfg) {
+    if (cfg.mode !== 'full') return { vector: distinctMaterials(cfg.mats) };
+    return { front: distinctMaterials(cfg.ctx.frontMats), back: distinctMaterials(cfg.ctx.backMats) };
+}
 
 // Per-point layer-thickness Jacobian at one (λ, polCode, aoi). Returns the
 // property values (R/T/A) and their per-layer thickness derivatives for the
 // active surface mode. `cfg` bundles the engine fields this needs so the routine
 // stays a pure function of its inputs:
-//   { mode, n0mat, nsmat, neMat, mats, thk, N, ctx, subThickMm }
-// where mode ∈ {'singleFront','singleBack','full'}.
+//   { mode, n0mat, nsmat, neMat, mats, thk, N, ctx, subThickMm, stacks }
+// where mode ∈ {'singleFront','singleBack','full'} and `stacks` is
+// layerJacobianStacks(cfg).
 export function computeLayerJacobian(lam, polCode, aoi, cfg) {
-    const { mode, n0mat, nsmat, neMat, mats, thk, N, ctx, subThickMm } = cfg;
+    const { mode, n0mat, nsmat, neMat, thk, N, ctx, subThickMm, stacks } = cfg;
     if (mode === 'singleFront') {
         const n0 = n0mat.getNK(lam);
         const ns = nsmat.getNK(lam);
-        const layers = thk.map((d, i) => ({ n: mats[i].getNK(lam), d }));
+        const layers = stackLayers(stacks.vector, thk, lam);
         const J = tmmJacEval(lam, aoi, polCode, n0, ns, layers);
         return { kind: 'singleFront', R: J.R, T: J.T, A: J.A,
                  dR: J.dRdd, dT: J.dTdd, dA: J.dAdd };
@@ -35,10 +53,7 @@ export function computeLayerJacobian(lam, polCode, aoi, cfg) {
         // positions; map back to storage indices on the way out.
         const n0 = neMat.getNK(lam);
         const ns = nsmat.getNK(lam);
-        const layersRev = [];
-        for (let i = N - 1; i >= 0; i--) {
-            layersRev.push({ n: mats[i].getNK(lam), d: thk[i] });
-        }
+        const layersRev = stackLayers(stacks.vector, thk, lam).reverse();
         const J = tmmJacEval(lam, aoi, polCode, n0, ns, layersRev);
         const dR = new Array(N), dT = new Array(N), dA = new Array(N);
         for (let i = 0; i < N; i++) {
@@ -63,14 +78,9 @@ export function computeLayerJacobian(lam, polCode, aoi, cfg) {
     const cosSub = Math.sqrt(1 - sinSub * sinSub);
     const aoiSub = Math.asin(sinSub) * 180 / Math.PI;
 
-    const frontMats   = ctx.frontMats;
-    const frontThicks = ctx.frontThicks;
-    const backMats    = ctx.backMats;
-    const backThicks  = ctx.backThicks;
-
-    const fLayers    = frontThicks.map((d, i) => ({ n: frontMats[i].getNK(lam), d }));
+    const fLayers    = stackLayers(stacks.front, ctx.frontThicks, lam);
     const fLayersRev = [...fLayers].reverse();
-    const bLayers    = backThicks.map((d, i)  => ({ n: backMats[i].getNK(lam),  d }));
+    const bLayers    = stackLayers(stacks.back, ctx.backThicks, lam);
 
     const Jfwd = tmmJacEval(lam, aoi,    polCode, n0, ns, fLayers);
     const Jrev = tmmJacEval(lam, aoiSub, polCode, ns, n0, fLayersRev);

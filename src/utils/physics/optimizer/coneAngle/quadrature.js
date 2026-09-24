@@ -1,11 +1,60 @@
 /**
- * Gauss–Legendre quadrature nodes/weights.
+ * Gauss–Legendre and Clenshaw–Curtis quadrature nodes/weights.
  *
- * Standard Newton iteration on the Legendre polynomial Pₙ; exact for polynomials
- * up to degree 2n−1. n ≤ ~64 is plenty (cone grids are 10–20). Cached by n.
+ * Gauss–Legendre: standard Newton iteration on the Legendre polynomial Pₙ;
+ * exact for polynomials up to degree 2n−1. Cached by n.
+ *
+ * Clenshaw–Curtis: the n + 1 Chebyshev points cos(kπ/n), exact to degree n.
+ * For an integrand analytic near the interval, which a resonance close to the
+ * real axis makes the usual case for a cone average, it converges at the same
+ * rate per point as Gauss–Legendre (L. N. Trefethen, "Is Gauss quadrature
+ * better than Clenshaw–Curtis?", SIAM Review 50, 67 (2008)), and its points for
+ * n are a subset of those for 2n, so comparing n with 2n costs only the new
+ * points. Cached by n.
  */
 
 const _glCache = new Map();
+const _ccCache = new Map();
+
+const _gcd = (a, b) => (b ? _gcd(b, a % b) : a);
+
+// cos(kπ/n) from k/n in lowest terms, so the same point is the same double
+// whichever n it is computed for.
+function _chebyshevPoint(k, n) {
+    if (k === 0) return 1;
+    const g = _gcd(k, n);
+    return Math.cos((k / g) * Math.PI / (n / g));
+}
+
+// The weight of interior point i (0 < i < n): 2/n times one minus the cosine
+// series of clencurt at θ = iπ/n, terms subtracted in the same order.
+function _ccInteriorWeight(n, i) {
+    const theta = Math.PI * i / n;
+    const even = n % 2 === 0;
+    const last = even ? n / 2 - 1 : (n - 1) / 2;
+    let v = 1;
+    for (let j = 1; j <= last; j++) v -= 2 * Math.cos(2 * j * theta) / (4 * j * j - 1);
+    if (even) v -= Math.cos(n * theta) / (n * n - 1);
+    return 2 * v / n;
+}
+
+/**
+ * Clenshaw–Curtis nodes/weights on [-1, 1], n ≥ 1: x[k] = cos(kπ/n), k = 0…n.
+ * Weights from Trefethen, Spectral Methods in MATLAB (SIAM, 2000), program
+ * clencurt.
+ */
+export function clenshawCurtis(n) {
+    const cached = _ccCache.get(n);
+    if (cached) return cached;
+    const x = new Array(n + 1);
+    const w = new Array(n + 1);
+    for (let k = 0; k <= n; k++) x[k] = _chebyshevPoint(k, n);
+    w[0] = w[n] = n % 2 === 0 ? 1 / (n * n - 1) : 1 / (n * n);
+    for (let i = 1; i < n; i++) w[i] = _ccInteriorWeight(n, i);
+    const res = { x, w };
+    _ccCache.set(n, res);
+    return res;
+}
 
 // Nodes/weights on [-1, 1].
 export function gaussLegendre(n) {

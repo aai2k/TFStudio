@@ -2,7 +2,9 @@
 // one side for improving needle insertions, then DLS-refine top candidates in
 // parallel batches until one beats the working design. See workerPool.js.
 
-import { getNeedleSensFloor, cullMarginalNeedles } from '../../../../../utils/synthesis/synthesisConfig.js';
+import {
+    getNeedleSensFloor, cullMarginalNeedles, SYNTHESIS_INTRA_SAMPLES,
+} from '../../../../../utils/synthesis/synthesisConfig.js';
 import { deep, designSnap, alive, onTick, applyDesignPatch, recordCycle } from './workerPoolCore.js';
 
 // Scan side `sd` on the current `work` and return the improving-needle queue
@@ -14,7 +16,8 @@ async function scanSideQueue(ctx, S, sd, timing) {
     const snap = designSnap(S, S.work.frontLayers, S.work.backLayers);
     const sideScanJobs = S.poolSlices.map(slice => ({
         type: 'scan', operands: S.operands, design: snap,
-        materials: S.materials, poolSlice: slice, deltaNm: 0.5, side: sd }));
+        materials: S.materials, poolSlice: slice, deltaNm: 0.5, side: sd,
+        dMin: S.dMin, nIntra: SYNTHESIS_INTRA_SAMPLES }));
     const sideScanRes = await S.workerPool.map(sideScanJobs);
     if (!alive(ctx, S)) return [];
     timing.scanMs = performance.now() - timing.genT0;

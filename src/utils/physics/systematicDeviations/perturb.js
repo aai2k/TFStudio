@@ -5,7 +5,7 @@
 
 import { wrapMaterial } from '../../misc/variator.js';
 import { emptyDeviation, needsRefIndex } from './deviationSpec.js';
-import { effectiveForMaterial, effectiveOffsetNm } from './materials.js';
+import { effectiveForMaterial, effectiveForMedium, effectiveOffsetNm } from './materials.js';
 
 /**
  * Return a perturbed copy of a layer list, suitable for handing to
@@ -47,52 +47,46 @@ export function perturbLayers(layers, dev, resolveMat, lamRef = 550) {
 }
 
 /**
- * Perturb a named medium (incident / substrate / exit). Δn,Δk applied;
- * physical substrate thickness is NOT scaled (it is not a coating layer).
+ * Perturb a named medium (incident / substrate / exit). Only a per-material
+ * Δn/Δk set on that material applies; the global Δn/Δk are a coating-process
+ * offset and leave the media alone. The substrate thickness is not scaled (it
+ * is not a coating layer).
  */
 export function perturbMedium(matId, dev, resolveMat) {
     const baseMat = resolveMat(matId);
-    const { dn, dk } = effectiveForMaterial(dev, matId);
+    const { dn, dk } = effectiveForMedium(dev, matId);
     return wrapMaterial(baseMat, dn, dk);
 }
 
 /**
  * Build a (design, resolveMat) pair that represents the design *with the
- * deviation applied*, suitable for `evaluateQualifiers`. Layer thicknesses are
- * scaled (global × per-material d-scale, keeping material id strings so the
- * qualifier pipeline still resolves them), and Δn/Δk are applied by wrapping the
- * resolver per material id (deviations are per-material, so this is exact).
+ * deviation applied*, suitable for `evaluateQualifiers`. Layers take the same
+ * thicknesses and materials as `perturbLayers`; media take `perturbMedium`.
+ *
+ * A layer and a medium can share a material id (an SiO2 film on an SiO2
+ * substrate) yet need different shifts, so each layer is relabelled with a
+ * local id that resolves to its own perturbed material, and every other id
+ * resolves as a medium.
  *
  * @returns {{ design: object, resolve: (id:string)=>object }}
  */
 export function deviatedDesignForSpec(design, dev, resolveMat) {
     const d = dev || emptyDeviation();
     const lamRef = design?.referenceWavelength || 550;
-    const wantRefIndex = needsRefIndex(d);
-    const scaleLayers = (layers) => (layers || []).map(l => {
-        const matId = (typeof l.material === 'string') ? l.material : l.material?.id;
-        const { dScale } = effectiveForMaterial(d, matId);
-        let offsetNm = 0;
-        const hasOffset = (d.globalThicknessOffset || 0) ||
-            (matId && d.perMaterial?.[matId]?.dOffset);
-        if (hasOffset) {
-            let nRef = 0;
-            if (wantRefIndex) {
-                const nk = resolveMat(matId)?.getNK ? resolveMat(matId).getNK(lamRef) : null;
-                nRef = Array.isArray(nk) ? nk[0] : 0;
-            }
-            offsetNm = effectiveOffsetNm(d, matId, nRef, lamRef);
-        }
-        return { ...l, thickness: Math.max(0, (l.thickness || 0) * dScale + offsetNm) };
-    });
+    const layerMats = new Map();
+    const relabel = (layers, side) => {
+        const perturbed = perturbLayers(layers, d, resolveMat, lamRef);
+        return perturbed.map((p, i) => {
+            const id = `__sdLayer:${side}:${i}`;
+            layerMats.set(id, p.material);
+            return { ...layers[i], material: id, thickness: p.thickness };
+        });
+    };
     const devDesign = {
         ...design,
-        frontLayers: scaleLayers(design?.frontLayers),
-        backLayers:  scaleLayers(design?.backLayers),
+        frontLayers: relabel(design?.frontLayers, 'front'),
+        backLayers:  relabel(design?.backLayers, 'back'),
     };
-    const resolve = (id) => {
-        const { dn, dk } = effectiveForMaterial(d, id);
-        return wrapMaterial(resolveMat(id), dn, dk);
-    };
+    const resolve = (id) => layerMats.get(id) || perturbMedium(id, d, resolveMat);
     return { design: devDesign, resolve };
 }

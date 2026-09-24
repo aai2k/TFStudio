@@ -54,7 +54,11 @@ export function processMonoLayer(i, layer, ctx, mut) {
 
     if (plan.strat === 'time') {
         const relPct = timeCutRelPct(i, plan, ctx.relThkErrByLayer);
-        ({ cut_d_actual, cut_time } = _timeCut(d_target, r, relPct, ctx.rng));
+        // A timed row runs the clock at the mean rate. An excluded layer is
+        // held to its own relative error by the monitor that replaces the
+        // optical one, the way the broadband simulator treats it.
+        const rPlan = plan.isExcluded ? null : rateSpec.mean;
+        ({ cut_d_actual, cut_time } = _timeCut(d_target, r, relPct, ctx.rng, rPlan));
         mut.t_global += cut_time;
     } else if (d_target > 0) {
         const scan = _scanCutMono({

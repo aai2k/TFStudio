@@ -8,7 +8,8 @@
  * D9: `calcMF` must not let a single non-finite operand residual poison the
  *     whole merit function. A NaN/Inf from one operand (dispersion pole, missing
  *     material, cyclic math operand) previously propagated to Math.sqrt(NaN) →
- *     the entire MF became NaN, silently breaking every optimizer.
+ *     the entire MF became NaN, silently breaking every optimizer. Such an
+ *     operand now makes the MF Infinity, which every accept test rejects.
  *
  * Run: node tests/defensive_guards_15_5.mjs
  */
@@ -60,6 +61,9 @@ const resolveMat = (id) => getMaterial(id) || getMaterial('Air');
 }
 
 // ── D9: a NaN operand value must not poison the MF ───────────────────────────
+// The MF is never NaN. A non-finite operand makes it Infinity, which every
+// accept test rejects, rather than being skipped: skipping it would also drop
+// its weight and report a merit better than the design.
 {
     const opGood = makeOperand({ type: 'RAV', lambdaStart: 450, lambdaEnd: 650, aoi: 0, pol: 'avg', target: 0, weight: 1 });
     const opBad  = makeOperand({ type: 'RAV', lambdaStart: 450, lambdaEnd: 650, aoi: 0, pol: 'avg', target: 0, weight: 1 });
@@ -67,10 +71,9 @@ const resolveMat = (id) => getMaterial(id) || getMaterial('Air');
     const mfClean = calcMF([opGood], [0.5]);
     const mfWithNaN = calcMF([opGood, opBad], [0.5, NaN]);
     const mfWithInf = calcMF([opGood, opBad], [0.5, Infinity]);
-    ok(Number.isFinite(mfWithNaN), `D9: MF stays finite when one operand is NaN (got ${mfWithNaN})`);
-    ok(Number.isFinite(mfWithInf), `D9: MF stays finite when one operand is Inf (got ${mfWithInf})`);
-    // The bad operand is skipped, so the MF equals the clean single-operand MF.
-    ok(Math.abs(mfWithNaN - mfClean) < 1e-12, `D9: NaN operand is skipped, MF == clean MF (${mfWithNaN} vs ${mfClean})`);
+    ok(mfWithNaN === Infinity, `D9: MF is Infinity, not NaN, when one operand is NaN (got ${mfWithNaN})`);
+    ok(mfWithInf === Infinity, `D9: MF is Infinity when one operand is Inf (got ${mfWithInf})`);
+    ok(mfWithNaN > mfClean, `D9: the NaN operand is not skipped (${mfWithNaN} vs clean ${mfClean})`);
 }
 
 if (fails === 0) { console.log('PASS — D7 zero-thickness + D9 NaN-guard regressions.'); process.exit(0); }

@@ -36,13 +36,17 @@ export function _realizedRate(rateSpec, prevR, dtc, rng) {
     return r <= 1e-6 ? Math.max(1e-6, rateSpec.mean) : r;
 }
 
-// Time/thickness cut (no optical feedback): dead-reckon to d_target on the
-// realized rate plus a relative-thickness error draw. `relPct` is the layer's
-// relative-thickness σ (%) — from relThkErrByLayer for excluded (quartz)
-// layers, else the monitor row's sigmaRelPct. Returns { cut_d_actual, cut_time }.
-export function _timeCut(d_target, r, relPct, rng) {
+// Time/thickness cut (no optical feedback) plus a relative-thickness error
+// draw. `relPct` is the layer's relative-thickness σ (%): relThkErrByLayer for
+// excluded (quartz) layers, else the monitor row's sigmaRelPct. With `rPlan`
+// (nm/s) the shutter runs on a clock set for
+// d_target at that planned rate while the layer grows at the realized rate
+// `r`, so the layer carries the rate error; without it the layer is held to
+// d_target by whatever monitors it instead. Returns { cut_d_actual, cut_time }.
+export function _timeCut(d_target, r, relPct, rng, rPlan = null) {
     const relErr = relPct > 0 ? gauss(rng) * relPct / 100 : 0;
-    const cut_d_actual = Math.max(0, d_target * (1 + relErr));
+    const d_clock = rPlan ? r * (d_target / Math.max(1e-6, rPlan)) : d_target;
+    const cut_d_actual = Math.max(0, d_clock * (1 + relErr));
     return { cut_d_actual, cut_time: cut_d_actual / r };
 }
 

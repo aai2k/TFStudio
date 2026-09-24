@@ -9,6 +9,7 @@
 import { ANALYSIS_DEFAULTS, paletteColors } from '../../../../constants/analysisDefaults.js';
 import { designMaterialLookup } from '../../../../utils/materials/designMaterials.js';
 import { tmmWithAdmittances } from '../../../../utils/physics/thinFilmMath.js';
+import { incidence } from '../../../../utils/physics/thinFilmMath/totalSystem.js';
 import { incidentCosTheta, snellCosTheta } from '../../../../tmmcore.js';
 
 function cadd([ar, ai], [br, bi]) { return [ar + br, ai + bi]; }
@@ -214,16 +215,15 @@ function buildOnePol(design, conditions, pol) {
     });
 
     const { Y, N } = tmmWithAdmittances(lambda_nm, theta_deg, pol, n0, ns, allLayers);
-    const sinTheta0 = Math.sin(theta_deg * Math.PI / 180);
-    const sinTheta0c = [sinTheta0, 0];
+    const { sinTheta0, cosTheta0 } = incidence(theta_deg);
     const valid = allLayers.filter(l => l.d > 0);
-    const eta0 = layerEta(n0, incidentCosTheta(n0, sinTheta0c), pol);
+    const eta0 = layerEta(n0, incidentCosTheta(n0, sinTheta0, cosTheta0), pol);
     const view = viewKind === 'reflection' ? reflectionView(eta0) : ADMITTANCE_VIEW;
     const arcs = [];
 
     for (let k = N - 1; k >= 0; k--) {
         const lyr = valid[k];
-        const cosThJ = snellCosTheta(n0, sinTheta0c, lyr.n);
+        const cosThJ = snellCosTheta(n0, sinTheta0, lyr.n, cosTheta0);
         const eta = layerEta(lyr.n, cosThJ, pol);
         const delta = layerDelta(lyr.n, lyr.d, lambda_nm, cosThJ);
         const Y_R = Y[k + 1];

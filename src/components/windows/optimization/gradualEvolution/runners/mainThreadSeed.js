@@ -8,7 +8,8 @@ export function phaseSeedDls(ctx, S) {
     const dls     = ctx.dlsRef.current;
     const maxIter = S.preserveBulk ? 0 : ctx.dlsIterRef.current;
     // preserve-bulk: don't step the bare seed at all (one layer can't lower a
-    // broadband merit; stepping only thins it). Just evaluate.
+    // broadband merit much, and stepping it moves the bulk; seedMode.js).
+    // Just evaluate.
     if (!S.preserveBulk) {
         dls.step();
         S.seedIter++;

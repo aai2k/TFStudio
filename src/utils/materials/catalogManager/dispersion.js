@@ -1,4 +1,4 @@
-import { evalN } from '../dispersionFormulas.js';
+import { evalN, isSupportedFormula } from '../dispersionFormulas.js';
 import {
     createKInterpolator,
     createTabulatedNKSampler,
@@ -39,23 +39,38 @@ export function negativeKPoints(material) {
     return points.filter(point => point[1] < 0);
 }
 
-/** Build a getNK(lambda_nm) function for a catalog material entry. */
+/**
+ * Build a getNK(lambda_nm) function for a catalog material entry.
+ *
+ * Returns null when the entry holds no optical constants this program can
+ * compute: a table with no finite row, or a dispersion formula number with no
+ * evaluator. Such a material does not resolve, and the missing-materials
+ * notice names it, rather than being computed from a stand-in index.
+ */
 export function makeGetNK(mat) {
     if (mat.getNK) return mat.getNK;
     const interp = interpolationRuleOf(mat);
     // formulaNum === -1 → user tabular: tabData = [[lam_nm, n, k], ...]
-    if (mat.formulaNum === -1) {
-        const base = createTabulatedNKSampler(mat.tabData, interp) || (() => [1.5, 0]);
-        if (!mat.dispersionFit?.active) return base;
-        const getNK = (lambdaNm) => {
-            const [low, high] = mat.dispersionFit.rangeNm;
-            return lambdaNm >= low && lambdaNm <= high
-                ? evaluateDispersionFit(mat.dispersionFit, lambdaNm)
-                : base(lambdaNm);
-        };
-        Object.assign(getNK, base, { dispersionFit: mat.dispersionFit });
-        return getNK;
-    }
+    if (mat.formulaNum === -1) return tabulatedGetNK(mat, interp);
+    return isSupportedFormula(mat.formulaNum) ? formulaGetNK(mat, interp) : null;
+}
+
+// A table, read through its active dispersion fit inside the fit's range.
+function tabulatedGetNK(mat, interp) {
+    const base = createTabulatedNKSampler(mat.tabData, interp);
+    if (!base || !mat.dispersionFit?.active) return base;
+    const getNK = (lambdaNm) => {
+        const [low, high] = mat.dispersionFit.rangeNm;
+        return lambdaNm >= low && lambdaNm <= high
+            ? evaluateDispersionFit(mat.dispersionFit, lambdaNm)
+            : base(lambdaNm);
+    };
+    Object.assign(getNK, base, { dispersionFit: mat.dispersionFit });
+    return getNK;
+}
+
+// A dispersion formula for n, with k from the material's k table when it has one.
+function formulaGetNK(mat, interp) {
     const kAt = makeKInterpolator(mat.kTable, interp);
     const getNK = (lambda_nm) => {
         const lum = lambda_nm / 1000;

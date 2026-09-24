@@ -6,7 +6,7 @@
 
 import { evaluateStackPhaseDispersion } from '../../../phaseDispersion.js';
 import { isGroupDelayFlat } from '../../operandModel.js';
-import { operandSampleLambdas } from '../../sampling.js';
+import { operandSampleLambdas, bandQuadratureWeights } from '../../sampling.js';
 import { _normalizeDegrees } from '../angles.js';
 import { OperandEvaluationError } from './errors.js';
 
@@ -163,14 +163,17 @@ export function _evalPhaseDispersionPoint(op, ctx) {
     return _phaseDispersionValue(op, ctx, op.lambdaStart);
 }
 
+// RMS deviation of GD / GDD / TOD from the target across the band, with the
+// trapezoid weights of the band grid (sampling.js bandQuadratureWeights).
 export function _evalGroupDelayFlat(op, ctx) {
     const wavelengths = operandSampleLambdas(op);
+    const q = bandQuadratureWeights(wavelengths.length);
     let sumSquared = 0;
-    for (const wavelength of wavelengths) {
-        const difference = _phaseDispersionValue(op, ctx, wavelength) - op.target;
-        sumSquared += difference * difference;
+    for (let i = 0; i < wavelengths.length; i++) {
+        const difference = _phaseDispersionValue(op, ctx, wavelengths[i]) - op.target;
+        sumSquared += q[i] * difference * difference;
     }
-    return wavelengths.length ? Math.sqrt(sumSquared / wavelengths.length) : 0;
+    return wavelengths.length ? Math.sqrt(sumSquared) : 0;
 }
 
 /**
@@ -184,7 +187,8 @@ export function groupDelayFlatBandLevel(op, ctx) {
     if (!isGroupDelayFlat(op.type)) return null;
     const wavelengths = operandSampleLambdas(op);
     if (!wavelengths.length) return null;
+    const q = bandQuadratureWeights(wavelengths.length);
     let sum = 0;
-    for (const wavelength of wavelengths) sum += _phaseDispersionValue(op, ctx, wavelength);
-    return sum / wavelengths.length;
+    for (let i = 0; i < wavelengths.length; i++) sum += q[i] * _phaseDispersionValue(op, ctx, wavelengths[i]);
+    return sum;
 }

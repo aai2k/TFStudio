@@ -1,5 +1,6 @@
 // Final application and Design History recording for the DLS worker pool.
 
+import { endReasonFor } from '../refinementUtils.js';
 
 export function finalizeDlsRun(ctx, S) {
     if (S.finished) return;
@@ -18,7 +19,11 @@ export function finalizeDlsRun(ctx, S) {
             iter: S.cumIter, omf: best.omf, mf: best.mfBest, layers,
             layerCount: (layers || []).length, layerSide: S.layerSide,
             mfHistory: [...S.mfHistory],
+            ...(S.seed != null ? { seed: S.seed } : {}),
         });
+        // A single run reports how it ended; a multi-start ends when its last
+        // restart does, which says nothing about the others.
+        if (!S.isMulti) ctx.setStopReason(endReasonFor(best.mfBest, S.lastReason));
         logCompletion(S, best.mfBest);
     }
     ctx.killWorker();
@@ -26,7 +31,7 @@ export function finalizeDlsRun(ctx, S) {
 
 function logCompletion(S, mf) {
     if (S.isMulti)
-        console.log(`[Multi-start pool] Done: ${S.N} restarts on ${S.K} workers, best MF=${mf.toFixed(6)} (mode=${S.surfMode})`);
+        console.log(`[Multi-start pool] Done: ${S.N} restarts on ${S.K} workers, best MF=${mf.toFixed(6)} (mode=${S.surfMode}, seed ${S.seed})`);
     else
-        console.log(`[DLS] done: best MF=${mf.toFixed(6)}`);
+        console.log(`[DLS] done: best MF=${mf.toFixed(6)} (${S.lastReason})`);
 }

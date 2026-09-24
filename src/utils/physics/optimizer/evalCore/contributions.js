@@ -1,9 +1,10 @@
-import { isManufacturability, isValidMeritWeight } from '../operandModel.js';
+import { isValidMeritWeight } from '../operandModel.js';
 import { _meritDiff } from './residualScale.js';
 import { operandEvaluationErrors } from './evalContext.js';
 
 // Weighted squared residual per row, aligned with `operands`, plus their sum.
-// A row that puts nothing into the sum is left null.
+// A row that puts nothing into the sum is left null. Null overall when a row's
+// residual is not finite: calcMF is then Infinity and there is no sum.
 function _contributionTerms(operands, computed, skipConstraints) {
     const terms = new Array(operands.length).fill(null);
     let total = 0;
@@ -12,7 +13,8 @@ function _contributionTerms(operands, computed, skipConstraints) {
         if (!op.enabled || computed[i] == null) continue;
         if (!isValidMeritWeight(op.weight)) continue;
         const diff = _meritDiff(op, computed[i], skipConstraints);
-        if (diff === null || !Number.isFinite(diff)) continue;
+        if (diff === null) continue;
+        if (!Number.isFinite(diff)) return null;
         const term = op.weight * diff * diff;
         terms[i] = term;
         total += term;
@@ -41,28 +43,11 @@ export function operandContributions(operands, computed, { skipConstraints = fal
     // the surviving rows as a tidy 100% would claim a complete table when one
     // row is missing entirely.
     if (operandEvaluationErrors(computed).some(Boolean)) return new Array(operands.length).fill(null);
-    const { terms, total } = _contributionTerms(operands, computed, skipConstraints);
+    const scored = _contributionTerms(operands, computed, skipConstraints);
+    if (!scored) return new Array(operands.length).fill(null);
+    const { terms, total } = scored;
     // Every contributing row is exactly on target: nothing is holding the merit
     // up, so every share is 0 rather than an arbitrary split of zero.
     if (!(total > 0)) return terms.map(term => (term == null ? null : 0));
     return terms.map(term => (term == null ? null : term / total));
-}
-
-// The weighted-RMS NORMALIZATION denominator used by calcMF — the optical weight
-// sum (everything except the MNT/MXT/TT/STR manufacturability rows), with a
-// constraints-only fallback. Exported so the analytic-gradient path (gradMF in
-// dls.js) divides by the SAME quantity calcMF does: MF = √(SSR/denom) ⇒
-// ∇MF = (Jᵀr)/(‖r‖·√denom). Keep this byte-consistent with calcMF's denom logic.
-export function mfWeightDenominator(operands, { skipConstraints = false } = {}) {
-    let sumWopt = 0, sumWcon = 0;
-    for (const op of operands) {
-        if (!op.enabled) continue;
-        if (isManufacturability(op.type)) {
-            if (skipConstraints) continue;
-            sumWcon += op.weight;
-        } else {
-            sumWopt += op.weight;
-        }
-    }
-    return sumWopt > 0 ? sumWopt : sumWcon;
 }

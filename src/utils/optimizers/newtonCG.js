@@ -21,10 +21,15 @@
  */
 import { LSQEngine } from '../physics/optimizer.js';
 import { steihaugCG, _vnorm } from '../physics/optimizer/linalg.js';
+import { limitStepToSpans } from '../physics/optimizer/halfWaveSpan.js';
+import { movablePositions, projectedTrial } from '../physics/optimizer/boundedStep.js';
 
 export class NewtonCGOptimizer extends LSQEngine {
     // Hessian-vector product via central-free forward FD of the analytic
     // gradient: H·v ≈ (∇MF(x+εv) − ∇MF(x))/ε, projected to the free coordinates.
+    // The probe x+εv is not clamped to the box. It moves no layer by more than
+    // 1.5e-8·(1 + ‖x‖∞) nm and the merit is smooth across a bound, whereas a
+    // clamped probe would no longer be εv away from x.
     _makeHvp({ thk, freeIdx, g, xinf, nFree }) {
         return (v) => {
             let vinf = 0; for (let a = 0; a < nFree; a++) vinf = Math.max(vinf, Math.abs(v[a]));
@@ -33,7 +38,7 @@ export class NewtonCGOptimizer extends LSQEngine {
             const xp = [...thk];
             for (let a = 0; a < nFree; a++) {
                 const k = freeIdx[a];
-                xp[k] = Math.min(this.D_MAX, Math.max(this.D_MIN, thk[k] + eps * v[a]));
+                xp[k] = thk[k] + eps * v[a];
             }
             const gp = this.gradMF(xp, freeIdx);
             const out = new Array(nFree);
@@ -42,19 +47,18 @@ export class NewtonCGOptimizer extends LSQEngine {
         };
     }
 
-    // Trial the trust-region step p: evaluate the actual vs model decrease,
-    // resize the trust radius, and accept when the step improves the merit.
-    _applyTrustStep({ thk, freeIdx, nFree, g, p, hvp, tr }) {
-        const Hp = hvp(p);
-        let pHp = 0, gp = 0;
-        for (let a = 0; a < nFree; a++) { pHp += p[a] * Hp[a]; gp += g[a] * p[a]; }
-        const pred = -(gp + 0.5 * pHp);          // model decrease of MF
+    // Trial the trust-region step p on the variables in moveIdx: evaluate the
+    // actual vs model decrease, resize the trust radius, and accept when the
+    // step improves the merit. The trial is projected onto the box, and the
+    // model is judged on the move s that projection leaves, not on p.
+    _applyTrustStep({ thk, freeIdx, moveIdx, g, p, hvp, tr }) {
+        const thkTry = projectedTrial(this, freeIdx, moveIdx, p);
+        const s = moveIdx.map((k, a) => (thkTry[k] === thk[k] + p[a] ? p[a] : thkTry[k] - thk[k]));
+        const Hs = hvp(s);
+        let sHs = 0, gs = 0;
+        for (let a = 0; a < s.length; a++) { sHs += s[a] * Hs[a]; gs += g[a] * s[a]; }
+        const pred = -(gs + 0.5 * sHs);          // model decrease of MF
 
-        const thkTry = [...thk];
-        for (let a = 0; a < nFree; a++) {
-            const k = freeIdx[a];
-            thkTry[k] = Math.min(this.D_MAX, Math.max(this.D_MIN, thk[k] + p[a]));
-        }
         const mfTry  = this.mfAt(thkTry);
         const actual = this.mf - mfTry;
         const ratio  = pred > 1e-18 ? actual / pred : (actual > 0 ? 1 : -1);
@@ -87,19 +91,23 @@ export class NewtonCGOptimizer extends LSQEngine {
         const nFree   = freeIdx.length;
         if (nFree === 0) return;
 
+        // Layers held at a bound by the gradient take no step; the CG solve,
+        // its Hessian-vector products and the trust ratio all live on the
+        // remaining layers (boundedStep.js).
         const gFull = this.gradMF(thk, freeIdx);
-        const g = freeIdx.map(k => gFull[k]);
+        const moveIdx = movablePositions(this, freeIdx, freeIdx.map(k => gFull[k])).map(a => freeIdx[a]);
+        const g = moveIdx.map(k => gFull[k]);
         const gnorm = _vnorm(g);
         if (gnorm < 1e-10) { this.tnStall = (this.tnStall || 0) + 1; this.iter++; return; }
 
         let xinf = 0; for (let a = 0; a < nFree; a++) xinf = Math.max(xinf, Math.abs(thk[freeIdx[a]]));
-        const hvp = this._makeHvp({ thk, freeIdx, g, xinf, nFree });
+        const hvp = this._makeHvp({ thk, freeIdx: moveIdx, g, xinf, nFree: moveIdx.length });
 
         const tr = this.tnTrust ?? Math.max(1, 0.1 * (1 + xinf));
-        const maxCG = Math.min(nFree, 25);
-        const p = steihaugCG(hvp, g, tr, maxCG);
+        const maxCG = Math.min(moveIdx.length, 25);
+        const p = limitStepToSpans(steihaugCG(hvp, g, tr, maxCG), moveIdx, this.stepSpans);
 
-        this._applyTrustStep({ thk, freeIdx, nFree, g, p, hvp, tr });
+        this._applyTrustStep({ thk, freeIdx, moveIdx, g, p, hvp, tr });
         this.iter++;
     }
 

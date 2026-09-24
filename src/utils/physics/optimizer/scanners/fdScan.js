@@ -9,8 +9,11 @@
 import { calcMF, evaluateOperands, buildEvalContext } from '../evalCore.js';
 import { resolveScanSide } from './sides.js';
 import { _perturbCtxGap, _perturbCtxIntra } from './perturbCtx.js';
+import { intraSplitFits } from './descriptors.js';
 
-export function scanNeedlesFD({ operands, design, resolveMat, candidateMats, deltaNm = 0.5, nIntra = 4, side = 'front' }) {
+// `dMin` (nm): intra positions whose split would leave a half of the host
+// thinner than this are not offered (descriptors.js, intraSplitFits).
+export function scanNeedlesFD({ operands, design, resolveMat, candidateMats, deltaNm = 0.5, nIntra = 4, side = 'front', dMin = 0 }) {
     const surfaceMode = design?.surfaceMode || 'front_only';
     side = resolveScanSide(surfaceMode, side);
     const cfg = { surfaceMode, side };
@@ -40,22 +43,28 @@ export function scanNeedlesFD({ operands, design, resolveMat, candidateMats, del
 
     // B. Intra-layer positions (nIntra fractions per layer)
     const fracs = Array.from({ length: nIntra }, (_, i) => (i + 1) / (nIntra + 1));
+    const meritOf = ctxNew => calcMF(operands, evaluateOperands(operands, ctxNew), MF_OPT);
+    const scan = { ctx0, cfg, mf0, meritOf, candidateMats, deltaNm, side };
     for (let k = 0; k < N; k++) {
-        const hostId = sourceLayers[k].material;
         for (const frac of fracs) {
-            for (const { id: matId, mat } of candidateMats) {
-                if (matId === hostId) continue;   // same material → zero net effect
-                const ctxNew = _perturbCtxIntra(ctx0, cfg, { k, frac }, mat, deltaNm);
-                const mfNew  = calcMF(operands, evaluateOperands(operands, ctxNew), MF_OPT);
-                const grad   = (mfNew - mf0) / deltaNm;
-                candidates.push({
-                    pos: k + frac, materialId: matId,
-                    dMF: grad * deltaNm, grad,
-                    intra: true, layerK: k, frac, side,
-                });
+            if (intraSplitFits(sourceLayers[k].thickness || 0, frac, dMin)) {
+                candidates.push(..._intraCandidatesFD(scan, sourceLayers[k].material, k, frac));
             }
         }
     }
 
     return { candidates, mf0 };
+}
+
+// FD candidates for a needle of every pool material other than the host's own
+// (that insertion has zero net effect) split into host layer k at `frac`.
+function _intraCandidatesFD(scan, hostId, k, frac) {
+    const { ctx0, cfg, mf0, meritOf, candidateMats, deltaNm, side } = scan;
+    const out = [];
+    for (const { id: matId, mat } of candidateMats) {
+        if (matId === hostId) continue;
+        const grad = (meritOf(_perturbCtxIntra(ctx0, cfg, { k, frac }, mat, deltaNm)) - mf0) / deltaNm;
+        out.push({ pos: k + frac, materialId: matId, dMF: grad * deltaNm, grad, intra: true, layerK: k, frac, side });
+    }
+    return out;
 }

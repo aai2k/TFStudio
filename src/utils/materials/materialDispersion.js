@@ -3,6 +3,7 @@
 import { evalNJet, FORMULA_NAMES } from './dispersionFormulas.js';
 import {
     dispersionFitModelName,
+    evaluateDispersionFit,
     evaluateDispersionFitJets,
 } from './dispersionFits.js';
 import {
@@ -119,22 +120,87 @@ export function materialTableExtentsNm(material) {
     return tables.map(at => [at.knots[0] * scale, at.knots[at.knots.length - 1] * scale]);
 }
 
+// The dispersion fit a material reads inside its range, or null.
+function activeFit(material) {
+    const fit = material?.dispersionFit || material?.getNK?.dispersionFit;
+    return fit?.active ? fit : null;
+}
+
+/**
+ * Where an active dispersion fit hands over to the table it was fitted to, and
+ * by how much n and k step there.
+ *
+ * Inside its range the fit is read and outside it the table, so at each end the
+ * material changes model and the value itself jumps, by the fit's residual at
+ * that wavelength. An end strictly inside the table is listed. One at or past
+ * the table's first or last row is not: the material's data ends there anyway,
+ * as it does at the table's own end knots.
+ *
+ * @returns {Array<{ wavelengthNm:number, dn:number, dk:number }>} in ascending
+ *          wavelength; dn and dk are the fit minus the table
+ */
+export function dispersionFitEdges(material) {
+    const fit = activeFit(material);
+    const nAt = material?.getNK?.nInterpolator;
+    const kAt = material?.getNK?.kInterpolator;
+    if (!fit || !nAt || !kAt) return [];
+    return fitEndsInsideTable(fit, nAt).map((wavelengthNm) => {
+        const [n, k] = evaluateDispersionFit(fit, wavelengthNm);
+        return { wavelengthNm, dn: n - nAt(wavelengthNm), dk: k - kAt(wavelengthNm) };
+    });
+}
+
+// The ends of the fit's range strictly inside the n table, ascending.
+function fitEndsInsideTable(fit, nAt) {
+    const first = nAt.knots[0];
+    const last = nAt.knots[nAt.knots.length - 1];
+    return [...new Set(fit.rangeNm)]
+        .filter(edge => edge > first && edge < last)
+        .sort((left, right) => left - right);
+}
+
 /**
  * Wavelengths in nm where a material's model changes piece, so a derivative of
- * high enough order jumps. Interior table knots only: the first and last are
- * the ends of the material's range, beyond which it supplies nothing. Empty for
- * a formula, and for the span an active dispersion fit covers, both being
- * smooth to every order.
+ * high enough order jumps, or the value itself at the end of a fit.
+ *
+ * Interior table knots: the first and last are the ends of the material's
+ * range, beyond which it supplies nothing. None for a formula, or inside the
+ * span an active dispersion fit covers, both being smooth to every order. The
+ * ends of that span are listed wherever `dispersionFitEdges` lists them.
  */
 export function materialKnotWavelengths(material) {
     const { tables, scale } = tableInterpolatorsNm(material);
     if (!tables.length) return [];
     let knots = tables.flatMap(at => at.knots.slice(1, -1).map(knot => knot * scale));
-    const fit = material?.dispersionFit || material?.getNK?.dispersionFit;
-    if (fit?.active) {
-        knots = knots.filter(knot => knot < fit.rangeNm[0] || knot > fit.rangeNm[1]);
+    const fit = activeFit(material);
+    if (fit) {
+        knots = knots.filter(knot => knot < fit.rangeNm[0] || knot > fit.rangeNm[1])
+            .concat(dispersionFitEdges(material).map(edge => edge.wavelengthNm));
     }
     return [...new Set(knots)].sort((left, right) => left - right);
+}
+
+/**
+ * Whether the fit supplies the value at this wavelength. Its range is closed,
+ * so an end reads the fit unless `knotSide` asks for the side the table is on:
+ * 'left' at the lower end, 'right' at the upper.
+ */
+function readsFit(fit, wavelengthNm, knotSide) {
+    if (!fit) return false;
+    const [low, high] = fit.rangeNm;
+    if (wavelengthNm === low && knotSide === 'left') return false;
+    if (wavelengthNm === high && knotSide === 'right') return false;
+    return wavelengthNm >= low && wavelengthNm <= high;
+}
+
+// At the end of a fit the value itself steps, so no derivative is continuous
+// there, the value included.
+const FIT_EDGE_ORDER = -1;
+
+// Whether the wavelength is one of the fit ends dispersionFitEdges lists.
+function onFitEdge(fit, material, wavelengthNm) {
+    const nAt = material?.getNK?.nInterpolator;
+    return Boolean(fit && nAt) && fitEndsInsideTable(fit, nAt).includes(wavelengthNm);
 }
 
 // A worker carries jets precomputed at the wavelengths it was given, averaged
@@ -151,6 +217,12 @@ function precomputedResponse(material, wavelengthNm, knotSide) {
  * local cubic for PCHIP, the secant for a linear table, whose second and
  * third derivatives are zero inside a piece. Exactly on a table knot the two
  * adjacent pieces are averaged unless `knotSide` names one of them.
+ *
+ * At an end of an active dispersion fit that `dispersionFitEdges` lists, the
+ * value itself steps. The wavelength is reported as a knot with continuity
+ * order −1, the fit is read there by default, as getNK reads it, and
+ * `knotSide` reads the table instead on the side it lies: 'left' at the lower
+ * end, 'right' at the upper.
  */
 export function materialOmegaResponse(material, wavelengthNm, knotSide) {
     const precomputed = precomputedResponse(material, wavelengthNm, knotSide);
@@ -160,10 +232,9 @@ export function materialOmegaResponse(material, wavelengthNm, knotSide) {
     const wavelengthMicrometersJet = jetScale(wavelengthJet, 1 / 1000);
     const formula = formulaDescriptor(material);
     const tables = tableInterpolators(material);
-    const fit = material?.dispersionFit || material?.getNK?.dispersionFit;
-    const useFit = fit?.active
-        && wavelengthNm >= fit.rangeNm[0]
-        && wavelengthNm <= fit.rangeNm[1];
+    const fit = activeFit(material);
+    const useFit = readsFit(fit, wavelengthNm, knotSide);
+    const fitEdge = onFitEdge(fit, material, wavelengthNm);
     const baseNK = material?.getNK?.(wavelengthNm) || [NaN, NaN];
 
     let nJet;
@@ -220,7 +291,7 @@ export function materialOmegaResponse(material, wavelengthNm, knotSide) {
         kModel = baseNK[1] ? 'Constant' : 'Zero';
     }
 
-    const onKnot = tableSamples.some(sample => sample.onKnot);
+    const onKnot = fitEdge || tableSamples.some(sample => sample.onKnot);
     if (!nJet || !kJet) {
         return {
             nk: [baseNK[0], baseNK[1]],
@@ -245,8 +316,8 @@ export function materialOmegaResponse(material, wavelengthNm, knotSide) {
         jet: nkJet,
         model: nModel === kModel ? nModel : `n: ${nModel}; k: ${kModel}`,
         phaseModel: nModel,
-        phaseContinuousOrder: continuousOrderOf(nModel),
-        continuousOrder: continuousOrderOf(nModel, kModel),
+        phaseContinuousOrder: fitEdge ? FIT_EDGE_ORDER : continuousOrderOf(nModel),
+        continuousOrder: fitEdge ? FIT_EDGE_ORDER : continuousOrderOf(nModel, kModel),
         maxOrder: 3,
         inRange,
         onKnot,

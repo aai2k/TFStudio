@@ -179,7 +179,9 @@ export const ANALYSIS_DEFAULTS = {
     colors: { whitePoint: '#bbbbbb', coating: '#ffffff' },
     numbers: {
       theta: AOI,
-      step: { def: 5, min: 1, max: 20, step: 1 },
+      // Step of the spectrum the colour is integrated on, nm. A feature
+      // narrower than the step is not seen, so it starts fine.
+      step: { def: 1, min: 1, max: 20, step: 1 },
     },
     enums: {
       characteristic: { def: 'R', options: ['R', 'T'] },

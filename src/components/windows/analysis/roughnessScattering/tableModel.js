@@ -1,10 +1,9 @@
 /**
- * The numbers behind the scattering plot: at each wavelength the ideal R and T,
- * the specular parts left after the scattered fraction is removed, and the total
- * integrated scatter itself.
+ * The numbers behind the scattering plot: at each wavelength R and T of the
+ * smooth design, the same with roughness, and the specular loss between them.
  */
 
-import { enabledScatterCurves } from './figure.js';
+import { enabledScatterCurves, lossTitle } from './figure.js';
 
 const PERCENT = value => (value == null ? '' : (value * 100).toFixed(4));
 
@@ -16,7 +15,7 @@ export function scatterColumns(t, units, showCurves, calc) {
         columns.push({ key, label: `${key} ${rs.traceSpecular} (%)`, fmt: PERCENT });
     }
     columns.push({
-        key: 'tis', label: units === 'ppm' ? 'TIS (ppm)' : 'TIS',
+        key: 'loss', label: lossTitle(rs.traceLoss, units),
         fmt: value => (units === 'ppm' ? (value * 1e6).toFixed(2) : value.toExponential(3)),
     });
     return columns;
@@ -26,7 +25,7 @@ export function scatterRows(calc, showCurves) {
     if (!calc?.lambda?.length) return [];
     const keys = enabledScatterCurves(showCurves, calc);
     return calc.lambda.map((lambda, index) => {
-        const row = { lambda, tis: calc.TIS_inc[index] };
+        const row = { lambda, loss: calc.loss[index] };
         for (const key of keys) {
             row[`${key}0`] = calc.ideal[key][index];
             row[key] = calc.specular[key][index];

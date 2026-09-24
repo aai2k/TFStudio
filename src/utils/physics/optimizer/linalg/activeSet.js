@@ -2,9 +2,11 @@
  * Primal active-set mechanics for the box-constrained QP (linalg/boxQP.js).
  *
  * Pure helpers that build the free-set sub-problem, take the largest feasible
- * step, pin blocking variables, and release variables whose KKT multiplier
- * points back into the feasible region.
+ * step, pin blocking variables, and release the variable whose KKT multiplier
+ * points furthest back into the feasible region.
  */
+
+import { choleskySolve } from './cholesky.js';
 
 // Assemble the equality-constrained sub-QP on the free set F:
 // H_FF·δ = −(g_F + H_FW·Δ_W). Returns { Hs, bs }.
@@ -54,18 +56,42 @@ export function _stepAndPin(Delta, fixed, F, dF, step) {
     return false;
 }
 
-// Release one pinned variable whose KKT multiplier λ_i = (H·Δ + g)_i points back
-// into the feasible region (λ<0 at lo, λ>0 at hi). Mutates `fixed`; returns
-// true if any variable was released.
+// One pass on the free set of the QP { H, g, lo, hi }: solve its sub-QP, move
+// Δ as far toward that solution as the box allows, and pin the variable that
+// blocks. Mutates Delta/fixed. Returns null when the sub-QP is not PD, else
+// the step taken: { t, block, pinned } (see _maxFeasibleStep); an empty free
+// set takes none.
+export function _freeSetStep(qp, Delta, fixed) {
+    const F = _freeSet(fixed, qp.g.length);
+    if (F.length === 0) return { t: 0, block: -1, pinned: false };
+    const { Hs, bs } = _freeSubQP(qp.H, qp.g, Delta, fixed, F);
+    const dF = choleskySolve(Hs, bs);
+    if (!dF) return null;
+    const step = _maxFeasibleStep(F, Delta, dF, qp.lo, qp.hi);
+    return { t: step.t, block: step.block, pinned: _stepAndPin(Delta, fixed, F, dF, step) };
+}
+
+// Release the one pinned variable whose KKT multiplier λ_i = (H·Δ + g)_i points
+// furthest back into the feasible region (λ<0 at lo, λ>0 at hi). Dropping a
+// single wrong-sign bound per pass makes the next step leave that bound and
+// lower q, which the method's finite termination rests on (Nocedal & Wright
+// 2e, §16.5). A multiplier within the rounding error of its own sum,
+// n·ε·(|g_i| + Σ_j |H_ij·Δ_j|) (Higham, Accuracy and Stability of Numerical
+// Algorithms 2e, §3.1), and never below 1e-12, counts as zero. Mutates
+// `fixed`; returns the released index, or −1 when every multiplier has the
+// KKT sign.
 export function _kktRelease(H, g, Delta, fixed, n) {
-    const HD = new Array(n).fill(0);
-    for (let i = 0; i < n; i++) { let s = 0; const Hi = H[i]; for (let j = 0; j < n; j++) s += Hi[j] * Delta[j]; HD[i] = s; }
-    let released = false;
+    const roundoff = n * Number.EPSILON;
+    let release = -1, most = 0;
     for (let i = 0; i < n; i++) {
         if (!fixed[i]) continue;
-        const lam = HD[i] + g[i];
-        if (fixed[i] < 0 && lam < -1e-12) { fixed[i] = 0; released = true; }
-        else if (fixed[i] > 0 && lam > 1e-12) { fixed[i] = 0; released = true; }
+        let s = 0, size = Math.abs(g[i]);
+        const Hi = H[i];
+        for (let j = 0; j < n; j++) { const t = Hi[j] * Delta[j]; s += t; size += Math.abs(t); }
+        const lam = s + g[i];
+        const inward = fixed[i] < 0 ? lam : -lam;     // < 0: q falls moving off the bound
+        if (inward < -Math.max(1e-12, roundoff * size) && inward < most) { most = inward; release = i; }
     }
-    return released;
+    if (release >= 0) fixed[release] = 0;
+    return release;
 }

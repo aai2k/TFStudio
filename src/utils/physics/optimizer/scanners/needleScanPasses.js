@@ -7,6 +7,7 @@
  */
 
 import { tmmNeedleScanEval } from '../evalCore.js';
+import { kernelPol } from '../evalCore/kernels.js';
 
 // Single-surface (front_only / back_only) needle scan at one (λ,pol,aoi).
 function _scanSingleSurface(cfg, lam, pol, aoi) {
@@ -76,10 +77,17 @@ function _scanFull(cfg, lam, pol, aoi) {
 }
 
 // Memoized (λ,pol,aoi) → scan-result factory; for full-system a result bundles
-// three tmmNeedleScan passes plus the composed R/T/A and P.
+// three tmmNeedleScan passes plus the composed R/T/A and P. A result holds a
+// derivative for every insertion position, and under a cone each wavelength
+// has up to a few hundred rays, so with cfg.coneActive only the current
+// wavelength's results are kept: the accumulators finish one wavelength before
+// the next, and a band of a 200-layer design would otherwise hold gigabytes.
 export function _makeScanAt(cfg) {
     const cache = new Map();
-    return (lam, pol, aoi) => {
+    let cachedLam;
+    return (lam, polIn, aoi) => {
+        if (cfg.coneActive && lam !== cachedLam) { cache.clear(); cachedLam = lam; }
+        const pol = kernelPol(aoi, polIn);
         const key = lam + '|' + pol + '|' + aoi;
         let v = cache.get(key);
         if (v) return v;

@@ -4,6 +4,7 @@ import {
 import { ControlRow, EditorBody, FieldGrid } from '../chrome/layout.js';
 import { NoticeBadge, SettingDivider, SettingRow, SettingsMenu } from '../chrome/popover.js';
 import { useAnalysisColors } from '../../../../state/AnalysisSettingsContext.js';
+import { MAX_SEED } from '../../../../utils/physics/errorAnalysis/mcConfig.js';
 
 const { createElement: h } = React;
 
@@ -136,6 +137,13 @@ export function ErrorEditor({ c, ea, state }) {
                 h(NumInput, {
                     value: state.nTrials, min: 1, max: 100000, step: 50, c, width: 72,
                     onChange: value => state.setNTrials(Math.max(1, Math.floor(value))),
+                }),
+            ),
+            h(SettingRow, { c, label: ea.seed },
+                h(NumInput, {
+                    value: state.seed, min: 1, max: MAX_SEED, step: 1, c, width: 96,
+                    nullable: true, placeholder: ea.seedRandom, title: ea.seedTip,
+                    onChange: value => state.setSeed(value == null ? null : Math.floor(value)),
                 }),
             ),
             h(SettingRow, { c, label: ea.distribution },

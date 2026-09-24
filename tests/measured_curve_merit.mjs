@@ -188,6 +188,7 @@ assert.equal(measuredFitSnapshot(
             'user:Limited': {
                 id: 'user:Limited',
                 name: 'Limited',
+                formulaNum: -1,
                 lambdaMin: 0.410,
                 lambdaMax: 0.430,
                 tabData: [[410, 2.4, 0], [420, 2.4, 0], [430, 2.4, 0]],

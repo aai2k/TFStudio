@@ -180,3 +180,7 @@ export const D65_RANGE_NM      = [SPD_D65[0][0], SPD_D65[SPD_D65.length - 1][0]]
 export const D50_RANGE_NM      = [SPD_D50[0][0], SPD_D50[SPD_D50.length - 1][0]];
 
 export const RANGE_MIN = 380, RANGE_MAX = 780;
+
+// The band a colour is integrated over (nm): where the observer tables are
+// defined. A property of the CIE observer, not a setting.
+export const COLOR_RANGE_NM = [RANGE_MIN, RANGE_MAX];

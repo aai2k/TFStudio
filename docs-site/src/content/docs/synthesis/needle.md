@@ -19,14 +19,20 @@ pool and the same underlying scan.
 ## Needle Automatic
 
 Runs the whole scan-insert-refine loop on its own until it reaches
-needle-optimality.
+needle-optimality. Inside each layer the scan tests 16 positions, and every
+point where the needle function has a minimum along the layer becomes a
+candidate. The wavelength grid the band targets are sampled on is sized from the
+design and grows with it during the run (see
+[Operand Reference](/design/operands/#optical-band-average-single-target)).
 
 ## Needle Manual
 
 Shows you the same P-function scan as a plot and lets you click the position
 and material to insert a single needle by hand. This is useful for testing a topology
 idea, seeding a layer where you know one belongs, or stepping through synthesis
-one insertion at a time.
+one insertion at a time. With **Refine after insert** on, each insertion is
+refined with SQP, the Refinement window's default method, for the number of
+**Refine iterations** set.
 
 ## Settings
 
@@ -48,7 +54,13 @@ positions.
 refinement (1 nm by default). Keep it at the synthesis default while
 synthesizing; raise it to your manufacturing minimum only in a later
 Refinement and [Design Cleaner](/synthesis/design-cleaner/) pass, so you don't
-hold synthesis back with a manufacturable floor too early.
+hold synthesis back with a manufacturable floor too early. Needle Automatic
+offers a needle inside a layer only where both parts of the split layer stay at
+or above this floor; the Needle Manual profile draws the needle function
+everywhere and leaves the choice to you. A layer that refinement drives down
+onto the floor stays only while it helps: after refining each candidate, Needle
+Automatic also refines the same design without its layers on the floor, with
+half the iterations, and keeps that version when its merit is no higher.
 
 **Refine iterations**: how many refinement steps run after each insertion.
 

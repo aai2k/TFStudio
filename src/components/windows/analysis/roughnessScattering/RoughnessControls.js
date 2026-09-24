@@ -1,5 +1,5 @@
 import {
-    ActionButton, ChoiceGroup, CurveToggleGroup, FieldLabel, NumInput, RangeField,
+    ActionButton, ChoiceGroup, CurveToggleGroup, FieldLabel, NumInput, RangeField, SelectField,
 } from '../chrome/controls.js';
 import { ControlRow, EditorBody, EditorGroupTitle, FieldGrid } from '../chrome/layout.js';
 import { NoticeBadge, SettingRow, SettingsMenu } from '../chrome/popover.js';
@@ -7,15 +7,16 @@ import { useAnalysisColors } from '../../../../state/AnalysisSettingsContext.js'
 
 const { createElement: h } = React;
 
-// Same shape as Optical Evaluation's. There is no A group: absorption is not
-// what scattering removes, and the window's second axis is TIS.
+// Same shape as Optical Evaluation's. There is no A group: the rough design
+// carries its scatter loss as absorption in the transition layers, so its A
+// would mix the two. The second axis shows the loss against the smooth design.
 const CURVE_GROUPS = [
     { q: 'T', members: [{ pol: 'avg', key: 'T' }, { pol: 's', key: 'Ts' }, { pol: 'p', key: 'Tp' }] },
     { q: 'R', members: [{ pol: 'avg', key: 'R' }, { pol: 's', key: 'Rs' }, { pol: 'p', key: 'Rp' }] },
 ];
 
 /**
- * Which curves are drawn and which scale the scattered fraction is read on. The
+ * Which curves are drawn and which scale the specular loss is read on. The
  * spectral range and the geometry are settings; the roughness itself is edited
  * in the strip below the plot, because there is one value per interface.
  */
@@ -95,47 +96,68 @@ export function RoughnessEditorActions({ c, rs, state }) {
     );
 }
 
+const rangeItems = rs => [
+    { id: 'short', label: rs.rangeShort },
+    { id: 'long', label: rs.rangeLong },
+];
+
 /**
- * The roughness itself: one figure applied to every interface, or a value per
- * interface. Which interfaces are listed follows the design's evaluation mode,
- * since only the sides being evaluated contribute to sigma_eff.
+ * The roughness itself: one σ and kind applied to every interface, or a pair
+ * per interface. Which interfaces are listed follows the design's evaluation
+ * mode, since only the sides being evaluated are roughened. The two kinds and
+ * the limits of the long-range model are stated under the fields, because the
+ * choice between them decides whether any light is lost at all.
  */
 export function RoughnessEditor({ c, rs, state }) {
     const { rough } = state;
     return h(EditorBody, { c },
         rough.mode === 'uniform'
-            ? h('div', null,
-                h(FieldGrid, null,
-                    h(SettingRow, { c, label: 'σ' },
-                        h(NumInput, {
-                            value: rough.sigma, min: 0, max: 100, step: 0.1, c, width: 68,
-                            onChange: state.setUniformSigma,
-                        }),
-                        h(FieldLabel, { c }, 'nm'),
-                    ),
+            ? h(FieldGrid, null,
+                h(SettingRow, { c, label: 'σ' },
+                    h(NumInput, {
+                        value: rough.sigma, min: 0, max: 100, step: 0.1, c, width: 68,
+                        onChange: state.setUniformSigma,
+                    }),
+                    h(FieldLabel, { c }, 'nm'),
                 ),
-                h('div', { style: { color: c.textDim, fontSize: 10, lineHeight: 1.5, padding: '2px 0' } },
-                    rs.uniformHelp),
+                h(SettingRow, { c, label: rs.rangeLabel },
+                    h(ChoiceGroup, {
+                        ariaLabel: rs.rangeLabel, activeId: rough.range,
+                        onSelect: state.setUniformRange, c, items: rangeItems(rs),
+                    }),
+                ),
             )
-            : h(InterfaceSigmas, { c, rs, state }),
+            : h(InterfaceRows, { c, rs, state }),
+        h(EditorNote, { c }, rs.rangeHelp),
+        h(EditorNote, { c }, rs.scopeHelp),
     );
 }
 
-function InterfaceSigmas({ c, rs, state }) {
+function EditorNote({ c, children }) {
+    return h('div', { style: { color: c.textDim, fontSize: 10, lineHeight: 1.5, padding: '2px 0' } },
+        children);
+}
+
+function InterfaceRows({ c, rs, state }) {
+    const { rough } = state;
     const sides = state.activeSides.filter(side => side === 'front' || state.hasBack);
     return sides.map(side => {
-        const key = side === 'back' ? 'backSigmas' : 'sigmas';
-        const sideLabels = side === 'back' ? state.labels.back : state.labels.front;
-        const heading = side === 'back'
+        const back = side === 'back';
+        const sigmas = back ? rough.backSigmas : rough.sigmas;
+        const ranges = back ? rough.backRanges : rough.ranges;
+        const sideLabels = back ? state.labels.back : state.labels.front;
+        const heading = back
             ? rs.backInterfaces
             : (sides.length > 1 ? rs.frontInterfaces : null);
         return h('div', { key: side },
             heading && h(EditorGroupTitle, { c }, heading),
-            h(FieldGrid, { minWidth: 260 },
-                sideLabels.map((label, index) => h(SigmaRow, {
-                    key: index, c, label: label.label,
-                    value: state.rough[key]?.[index] ?? state.rough.sigma ?? 0,
-                    onChange: value => state.setInterfaceSigma(side, index, value),
+            h(FieldGrid, { minWidth: 320 },
+                sideLabels.map((label, index) => h(InterfaceRow, {
+                    key: index, c, rs, label: label.label,
+                    sigma: sigmas?.[index] ?? rough.sigma ?? 0,
+                    range: ranges?.[index] ?? rough.range,
+                    onSigma: value => state.setInterfaceSigma(side, index, value),
+                    onRange: value => state.setInterfaceRange(side, index, value),
                 })),
             ),
         );
@@ -145,7 +167,7 @@ function InterfaceSigmas({ c, rs, state }) {
 // Interface names are the two materials meeting there, so they are far longer
 // than a settings label and take the width the row can spare instead of a
 // fixed column.
-function SigmaRow({ c, label, value, onChange }) {
+function InterfaceRow({ c, rs, label, sigma, range, onSigma, onRange }) {
     return h('div', {
         style: { display: 'flex', alignItems: 'center', gap: 8, padding: '2px 0', minHeight: 26 },
     },
@@ -156,7 +178,11 @@ function SigmaRow({ c, label, value, onChange }) {
             },
             title: label,
         }, label),
-        h(NumInput, { value, min: 0, max: 100, step: 0.1, c, width: 68, onChange }),
+        h(NumInput, { value: sigma, min: 0, max: 100, step: 0.1, c, width: 68, onChange: onSigma }),
         h(FieldLabel, { c }, 'nm'),
+        h(SelectField, {
+            c, value: range, onChange: onRange, width: 96, title: rs.rangeLabel,
+            options: rangeItems(rs),
+        }),
     );
 }

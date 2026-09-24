@@ -50,73 +50,111 @@ export function sampleChar({ lambdas, theta, pol, char, incMat, subMat, frontMat
 }
 
 /**
- * 1-D thickness fit by golden-section + parabolic refinement.
+ * Grid step (nm) for the thickness fit's scan over a growing layer of `mat`.
+ *
+ * The signal of a growing layer repeats when its phase thickness
+ * δ = 2πNd·cosθ/λ grows by π, a half-wave absentee layer (Macleod, Thin-Film
+ * Optical Filters, 5th ed., Ch. 2, "Quarter- and Half-Wave Optical Thicknesses"),
+ * so the fringe period in d is λ/(2N·cosθ). The shortest period over the scan
+ * band, λ/(2|N|) with cosθ ≤ 1 dropped, bounds how narrow a valley of the
+ * fit residual can be. |N| rather than n keeps an absorbing layer, whose
+ * signal changes over the decay length λ/(4πk), on a fine grid too. The step
+ * is an eighth of that period, so the grid point nearest any minimum is within
+ * a sixteenth of a fringe of it: every valley of the residual is sampled
+ * near its floor, and only minima of nearly equal depth can trade places.
+ */
+export function fitGridStep(mat, lambdas) {
+    let period = Infinity;
+    for (let li = 0; li < lambdas.length; li++) {
+        const [n, k] = mat.getNK(lambdas[li]);
+        const absN = Math.hypot(n, k);
+        if (absN > 0) period = Math.min(period, lambdas[li] / (2 * absN));
+    }
+    return period / 8;
+}
+
+// Resolution of the thickness fit (nm): the refinement stops when the
+// bracket is this narrow.
+export const FIT_TOL_NM = 0.01;
+
+function residualSS(Tm, T_meas) {
+    let ss = 0;
+    for (let i = 0; i < Tm.length; i++) {
+        const r = T_meas[i] - Tm[i];
+        ss += r * r;
+    }
+    return ss;
+}
+
+/**
+ * Variance (nm²) of a fitted thickness d, from the fit itself: the
+ * linearized least-squares estimate Var(d) = s² / Σ_λ J², with J = ∂T/∂d the
+ * model's slope at d (central difference over ±h) and s² = SSE/(Nλ − 1) the
+ * residual variance of the scan (Press et al., Numerical Recipes, 3rd ed.,
+ * Ch. 15). A layer that barely changes the signal has a small ΣJ² and a
+ * large variance. The floor is the fit's own resolution, a uniform error
+ * over FIT_TOL_NM.
+ */
+export function fitVariance({ sampleModel, T_meas, d, h }) {
+    const lo = Math.max(0, d - h);
+    const hi = d + h;
+    const T0 = sampleModel(d);
+    const Tlo = sampleModel(lo);
+    const Thi = sampleModel(hi);
+    let JJ = 0;
+    for (let i = 0; i < T0.length; i++) {
+        const J = (Thi[i] - Tlo[i]) / (hi - lo);
+        JJ += J * J;
+    }
+    const s2 = residualSS(T0, T_meas) / Math.max(1, T0.length - 1);
+    return Math.max(FIT_TOL_NM * FIT_TOL_NM / 12, JJ > 0 ? s2 / JJ : Infinity);
+}
+
+/**
+ * 1-D thickness fit: a scan of the residual over the whole allowed range,
+ * then golden-section refinement between the neighbours of the best grid
+ * point.
  *
  * Minimizes  f(d) = Σ_λ (T_meas[λ] − T_model(d, λ))²  over d ∈ [dLo, dHi].
  *
- * Bounded Brent-style search; ~20 evaluations typical, each evaluation is one
- * TMM sweep across the scan band. We don't need very high precision — sub-nm
- * is more than enough to drive a cut decision.
+ * f oscillates in d with the fringes of the growing layer and has a local
+ * minimum in nearly every fringe, so a search that starts from a guess ends in
+ * whichever fringe it starts in. Scanning the range at `step` (fitGridStep)
+ * finds the fringe of the global minimum without a guess; the refinement then
+ * runs to `tol` nm, well below the growth between two scans, which is what the
+ * cut prediction reads. Each evaluation is one O(Nλ) sample of the growing
+ * layer on the caller's cached evaluator.
  */
-export function fit1DThickness({
-    sampleModel,
-    T_meas,
-    dLo, dHi, dGuess,
-    maxIter = 14, tol = 0.05,    // 0.05 nm tolerance, ~14 golden steps for cut decision
-}) {
-    // Residual sum-of-squares at thickness d. `sampleModel(d)` returns the model
-    // characteristic over the scan grid with the growing layer at thickness d —
-    // an O(Nλ) incremental evaluation (the completed-stack matrix is cached by
-    // the caller's evaluator) instead of a full-stack TMM sweep. Bit-identical to
-    // the old sampleChar(... [completed…, currentMat], [prevThicks…, d]).
-    const f = (d) => {
-        const Tm = sampleModel(Math.max(0, d));
-        let ss = 0;
-        for (let i = 0; i < Tm.length; i++) {
-            const r = T_meas[i] - Tm[i];
-            ss += r * r;
-        }
-        return ss;
-    };
+export function fit1DThickness({ sampleModel, T_meas, dLo, dHi, step, tol = FIT_TOL_NM }) {
+    const f = (d) => residualSS(sampleModel(Math.max(0, d)), T_meas);
 
-    // Golden-section search, optionally seeded by dGuess.
-    // We bracket the minimum by stepping out from dGuess in both directions
-    // until f stops decreasing (or we hit the bounds), then golden-section
-    // within the bracket.
-    let a = dLo, b = dHi;
-    if (dGuess != null && dGuess > dLo && dGuess < dHi) {
-        // Try to tighten bracket around dGuess: step ±width
-        const width = Math.max(2.0, (dHi - dLo) * 0.05);   // initial step ~ 2 nm or 5% of band
-        let xL = Math.max(dLo, dGuess - width);
-        let xR = Math.min(dHi, dGuess + width);
-        let fL = f(xL), fM = f(dGuess), fR = f(xR);
-        // If guess is best, tight bracket
-        if (fM < fL && fM < fR) {
-            a = xL; b = xR;
-        } else if (fL < fM) {
-            // Minimum likely to the left → expand left
-            a = dLo; b = dGuess;
-        } else {
-            a = dGuess; b = dHi;
-        }
+    const nGrid = Math.max(2, Math.ceil((dHi - dLo) / step));
+    const h = (dHi - dLo) / nGrid;
+    let jBest = 0, fBest = Infinity;
+    for (let j = 0; j <= nGrid; j++) {
+        const v = f(dLo + j * h);
+        if (v < fBest) { fBest = v; jBest = j; }
     }
 
-    // Golden-section search on [a, b]
-    const phi = (Math.sqrt(5) - 1) / 2;          // ~0.618
-    let x1 = b - phi * (b - a);
-    let x2 = a + phi * (b - a);
-    let f1 = f(x1), f2 = f(x2);
-    for (let it = 0; it < maxIter; it++) {
-        if (b - a < tol) break;
-        if (f1 < f2) {
-            b = x2; x2 = x1; f2 = f1;
-            x1 = b - phi * (b - a);
-            f1 = f(x1);
+    // Golden-section search in the bracket form: [a, b] holds the minimum
+    // and x is the lowest point seen, starting from the best grid point. Each
+    // probe goes a fraction (3 − √5)/2 into the larger side of x, and the
+    // bracket shrinks to the side that keeps the lower point inside.
+    let a = dLo + Math.max(0, jBest - 1) * h;
+    let b = dLo + Math.min(nGrid, jBest + 1) * h;
+    let x = dLo + jBest * h, fx = fBest;
+    const g = (3 - Math.sqrt(5)) / 2;
+    while (b - a > tol) {
+        const u = x - a > b - x ? x - g * (x - a) : x + g * (b - x);
+        const fu = f(u);
+        if (fu < fx) {
+            if (u < x) b = x; else a = x;
+            x = u; fx = fu;
+        } else if (u < x) {
+            a = u;
         } else {
-            a = x1; x1 = x2; f1 = f2;
-            x2 = a + phi * (b - a);
-            f2 = f(x2);
+            b = u;
         }
     }
-    return 0.5 * (a + b);
+    return x;
 }

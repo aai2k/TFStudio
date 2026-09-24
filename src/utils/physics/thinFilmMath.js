@@ -72,18 +72,18 @@ export { tmm, tmmNeedleScan, tmmThicknessHessian, tmmThicknessJacobian };
  *   Y[0..N]: admittances at each insertion interface (N+1 values)
  */
 export function tmmWithAdmittances(lambda_nm, theta_deg, pol, n0, ns, layers) {
-    const sinTheta0 = [Math.sin(theta_deg * Math.PI / 180), 0];
-    const cosTheta0 = incidentCosTheta(n0, sinTheta0);
+    const { sinTheta0, cosTheta0 } = incidence(theta_deg);
+    const cosThetaIncident = incidentCosTheta(n0, sinTheta0, cosTheta0);
 
-    const eta0 = pol === 's' ? cmul(n0, cosTheta0) : cdiv(n0, cosTheta0);
-    const cosThetaS = snellCosTheta(n0, sinTheta0, ns);
+    const eta0 = pol === 's' ? cmul(n0, cosThetaIncident) : cdiv(n0, cosThetaIncident);
+    const cosThetaS = snellCosTheta(n0, sinTheta0, ns, cosTheta0);
     const etaS = pol === 's' ? cmul(ns, cosThetaS) : cdiv(ns, cosThetaS);
 
     // Build individual layer matrices (skip zero-thickness layers)
     const valid = layers.filter(l => l.d > 0);
     const N = valid.length;
     const Ms = valid.map(({ n, d }) => {
-        const cj = snellCosTheta(n0, sinTheta0, n);
+        const cj = snellCosTheta(n0, sinTheta0, n, cosTheta0);
         return layerMatrix(n, d, lambda_nm, cj, pol);
     });
 
@@ -142,7 +142,7 @@ export function tmmAvg(lambda_nm, theta_deg, n0, ns, layers) {
 // evaluation. The slab helpers are also imported for the spectrum builders
 // below.
 export { createMonitorTmmEvaluator, createGrowingLayerEvaluator } from './thinFilmMath/monitorEval.js';
-import { materialNkTable, substratePass, substrateRay, totalSample } from './thinFilmMath/totalSystem.js';
+import { incidence, materialNkTable, substratePass, substrateRay, totalSample } from './thinFilmMath/totalSystem.js';
 
 // Push one λ-sample of the s/p/avg spectrum into the result accumulator,
 // selecting the requested polarization. avg = (s+p)/2, identical to tmmAvg().
@@ -261,17 +261,29 @@ function fillTotalSpectrumWasm(result, lambdas, materials, validFront, validBack
  * Build the ascending wavelength sampling grid for a spectrum evaluation.
  *
  * H8 guard: a non-positive or non-finite `lambdaStep` (e.g. a UI field parsed
- * as `-1`, `0`, or NaN) would make `for (l += step)` never terminate, an OOM
- * hang that freezes the renderer. Fall back to a 5 nm grid in that case. The UI
+ * as `-1`, `0`, or NaN) would ask for an endless grid, an OOM hang that
+ * freezes the renderer. Fall back to a 5 nm grid in that case. The UI
  * inputs are also clamped at the source; this is the last line of defence for
  * every caller (errorAnalysis / systematicDeviations / plotQuantities included).
+ *
+ * Points are start + i·step, i = 0 … n, with n counted once from the span, so
+ * rounding does not build up along the grid. The division that counts the steps
+ * can land a hair under a whole number (2100 / 0.01 = 209999.99999999997); the
+ * 1e-9 relative allowance is far above that rounding and far below one step, so
+ * an end wavelength that lies on the grid is always kept. Each point is rounded
+ * to 1e-9 nm, which strips binary residue such as 0 + 3 × 0.1 =
+ * 0.30000000000000004 without merging the points of any usable step.
  */
 export function buildLambdaGrid(lambdaStart, lambdaEnd, lambdaStep) {
     let step = Number(lambdaStep);
     if (!(step > 0)) step = 5;
-    const lambdas = [];
-    for (let l = lambdaStart; l <= lambdaEnd + 1e-9; l += step) {
-        lambdas.push(Math.round(l * 1000) / 1000);
+    const start = Number(lambdaStart);
+    const span = (Number(lambdaEnd) - start) / step;
+    if (!(span >= 0)) return [];
+    const count = Math.floor(span + 1e-9 * Math.max(1, span)) + 1;
+    const lambdas = new Array(count);
+    for (let i = 0; i < count; i++) {
+        lambdas[i] = Math.round((start + i * step) * 1e9) / 1e9;
     }
     return lambdas;
 }
@@ -483,16 +495,16 @@ function sampleLayerEField(out, layer, ehBack, zBase, skipFront, ctx) {
 export function computeEFieldProfile(
     lambda_nm, theta_deg, pol, n0, ns, layers, nPtsPerLayer = 60, { components = true } = {},
 ) {
-    const sinTheta0  = [Math.sin(theta_deg * Math.PI / 180), 0];
-    const cosTheta0c = incidentCosTheta(n0, sinTheta0);
+    const { sinTheta0, cosTheta0 } = incidence(theta_deg);
+    const cosTheta0c = incidentCosTheta(n0, sinTheta0, cosTheta0);
 
-    const cosThetaS = snellCosTheta(n0, sinTheta0, ns);
+    const cosThetaS = snellCosTheta(n0, sinTheta0, ns, cosTheta0);
     const etaS = pol === 's' ? cmul(ns, cosThetaS) : cdiv(ns, cosThetaS);
     const eta0 = pol === 's' ? cmul(n0, cosTheta0c) : cdiv(n0, cosTheta0c);
 
     const valid = layers
         .filter(l => l.d > 0)
-        .map(({ n, d }) => ({ n, d, cosTheta: snellCosTheta(n0, sinTheta0, n) }));
+        .map(({ n, d }) => ({ n, d, cosTheta: snellCosTheta(n0, sinTheta0, n, cosTheta0) }));
     const N = valid.length;
 
     // Full transfer matrix → amplitude transmission t
@@ -1007,26 +1019,21 @@ function reflectionPhaseJacobians(grid, polCode) {
         const batch = wasm.tmmPhaseJacobianSpectrum(
             lambdas, n0List.map(constantJet), nsList.map(constantJet),
             layerNK.map(row => row.map(constantJet)), thick, theta_deg, polCode).r;
-        return lambdas.map((_, index) => {
-            const undefinedSample = Number.isNaN(batch.magnitudeSquared[index])
-                || (N > 0 && Number.isNaN(batch.dPhaseDeg[index * N]));
-            return undefinedSample ? null : {
-                phaseRad: batch.phaseRad[index],
-                magnitudeSquared: batch.magnitudeSquared[index],
-                dPhaseDeg: batch.dPhaseDeg.subarray(index * N, (index + 1) * N),
-                dLogMagnitudeSquared:
-                    batch.dLogMagnitudeSquared.subarray(index * N, (index + 1) * N),
-            };
-        });
+        return lambdas.map((_, index) => (Number.isNaN(batch.magnitudeSquared[index]) ? null : {
+            phaseRad: batch.phaseRad[index],
+            magnitudeSquared: batch.magnitudeSquared[index],
+            dPhaseDeg: batch.dPhaseDeg.subarray(index * N, (index + 1) * N),
+            dLogMagnitudeSquared:
+                batch.dLogMagnitudeSquared.subarray(index * N, (index + 1) * N),
+        }));
     }
     return lambdas.map((lambda, index) => {
         const layers = layerNK.map((row, k) => ({ nJet: constantJet(row[index]), d: thick[k] }));
         const n0Jet = constantJet(n0List[index]);
         const nsJet = constantJet(nsList[index]);
-        const r = wasm
+        return wasm
             ? wasm.tmmPhaseJacobian(lambda, theta_deg, polCode, n0Jet, nsJet, layers).r
             : tmmPhaseThicknessJacobian(lambda, theta_deg, polCode ? 'p' : 's', n0Jet, nsJet, layers).r;
-        return r && r.dPhaseDeg ? r : null;
     });
 }
 

@@ -1,7 +1,7 @@
 import { designMaterialLookup } from '../../../../utils/materials/designMaterials.js';
 import {
     evaluateOperands, calcMF, calcOMF, buildEvalContext, operandEvaluationErrors,
-    operandBandLevels,
+    operandBandLevels, withFringeSampleCounts, withDesignSampleCounts,
     makeConeSpec, coneIsActive,
 } from '../../../../utils/physics/optimizer.js';
 import {
@@ -16,15 +16,18 @@ import { useAnalysisEvaluation } from '../../analysis/useAnalysisEvaluation.js';
 const { useState, useEffect, useCallback, useMemo } = React;
 const EMPTY_OPERANDS = [];
 
+// Band operands are sampled for the displayed design's fringes, the grid a run
+// launched from that design would use, so the table shows the band's true value.
 function evaluateForDisplay(design, operands) {
     const ctx = buildEvalContext(design, designMaterialLookup(design));
-    const computed = evaluateOperands(operands, ctx);
+    const sampled = withFringeSampleCounts(operands, ctx);
+    const computed = evaluateOperands(sampled, ctx);
     const errors = operandEvaluationErrors(computed);
     const invalid = errors.some(Boolean);
     return {
         computed, errors, bandLevels: operandBandLevels(computed),
-        mf: invalid ? null : calcMF(operands, computed),
-        omf: invalid ? null : calcOMF(operands, computed),
+        mf: invalid ? null : calcMF(sampled, computed),
+        omf: invalid ? null : calcOMF(sampled, computed),
     };
 }
 
@@ -88,8 +91,13 @@ export function useMeritOperands({ design, updateDesign, checkpoint, setInputDia
     const coneActive = operands.length > 0
         && coneIsActive(makeConeSpec(liveDesign?.cone || {}));
     const workerPayload = useMemo(
-        () => ({ design: liveDesign, operands }),
-        [liveDesign, operands],
+        () => ({
+            design: liveDesign,
+            operands: coneActive
+                ? withDesignSampleCounts(operands, liveDesign, designMaterialLookup(liveDesign))
+                : operands,
+        }),
+        [liveDesign, operands, coneActive],
     );
     const workerResult = useAnalysisEvaluation(coneActive, 'meritDisplay', workerPayload);
 

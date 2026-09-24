@@ -237,18 +237,19 @@ assert.equal(layerColumnCount(5, false, 4), 4, 'an explicit column count wins ev
     lambda, theory: [0.02, 0.01, 0.005, 0.01, 0.02], mean: [0.022, 0.011, 0.006, 0.011, 0.021],
     stdev: [0.004, 0.003, 0.002, 0.003, 0.004], lower: [0.018, 0.008, 0.004, 0.008, 0.017], upper: [0.026, 0.014, 0.008, 0.014, 0.025],
     envLower: [0.015, 0.006, 0.003, 0.006, 0.014], envUpper: [0.03, 0.02, 0.01, 0.02, 0.03], nTrials: 200, char: 'R',
+    seed: 99, settings: { corridorSigma: 2, rmsRelPct: 1, rmsAbsNm: 0, rmsReN: 0, rmsImN: 0, distribution: 'gaussian', theta: 0, polarization: 'avg' },
     spec: { nTrials: 200, evaluated: 200, passCount: 190, yield: 0.95, perQualifier: [{ label: 'R avg 420-680', failRate: 0.05 }] },
   };
-  const external = { monteCarlo: () => ({ result, settings: { corridorSigma: 2, rmsRelPct: 1, rmsAbsNm: 0, rmsReN: 0, rmsImN: 0, distribution: 'gaussian', theta: 0, polarization: 'avg' } }) };
+  const external = { monteCarlo: () => ({ result }) };
   const items = [{ design: d, data: gatherDesignData(d, blocks, external) }];
   const withRun = composeReport({ tr, blocks, designs: items });
   const mc = section(withRun, 'monteCarlo');
   assert.ok(mc.includes('<svg') && mc.includes('<table'), 'a run gives a plot and a table');
-  assert.ok(mc.includes(tr.mcTrials(200)) && mc.includes('−2σ'), 'the run facts and the corridor width come from the window');
+  assert.ok(mc.includes(tr.mcTrials(200)) && mc.includes('−2σ'), 'the run facts and the corridor width come from the run');
   assert.ok(mc.includes(tr.mcYield(190, 200, '95.0')) && mc.includes('R avg 420-680'), 'the specification yield and the failing requirement are printed');
   assert.ok(mc.includes('tf-verdict tf-pass'), 'a yield at the window\'s pass threshold is marked as passing');
   const warnRun = { ...result, spec: { ...result.spec, passCount: 170, yield: 0.85 } };
-  const warnItems = [{ design: d, data: gatherDesignData(d, blocks, { monteCarlo: () => ({ result: warnRun, settings: external.monteCarlo().settings }) }) }];
+  const warnItems = [{ design: d, data: gatherDesignData(d, blocks, { monteCarlo: () => ({ result: warnRun }) }) }];
   assert.ok(section(composeReport({ tr, blocks, designs: warnItems }), 'monteCarlo').includes('tf-verdict tf-warn'),
     'a yield between the window\'s two thresholds is marked amber, as the window marks it');
 }

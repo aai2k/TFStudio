@@ -11,7 +11,7 @@
 
 import { DLSOptimizer } from '../../../../../utils/physics/optimizer.js';
 import { designMaterialLookup } from '../../../../../utils/materials/designMaterials.js';
-import { appendMfSample, densifyForRun } from '../refinementUtils.js';
+import { appendMfSample, densifyForRun, takeRunSeed } from '../refinementUtils.js';
 import { msRunOne } from './mainThreadMultiStart.js';
 
 // Steps run per animation tick before touching React state / live preview. The
@@ -63,6 +63,7 @@ function startMultiStart(ctx, curDes, ops, maxIter, surfMode) {
 
     const M = {
         curDes, ops, maxIter, N, pct, surfMode, baselineFront, baselineBack,
+        seed: takeRunSeed(ctx),
         runLabel: ctx.t.refinement.history.run(ctx.histRunCount.current),
         globalBestMF: mfInit ?? Infinity,
         globalBestOMF: baselineOmf,

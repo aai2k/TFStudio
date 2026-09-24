@@ -12,6 +12,10 @@
  *   • CSV parser tolerates blank lines, headers, comments, and separators.
  *   • User weighting integrates correctly (closed-form comparison).
  *   • Built-in weighting bands have the documented spans.
+ *   • A band the spectrum does not span has no value, never a partial average,
+ *     and the window's shipped grid spans every built-in band.
+ *   • The photopic value is read on the design grid, so a notch narrower than
+ *     the 5 nm CIE table spacing counts at its true width.
  */
 
 import {
@@ -32,7 +36,7 @@ import {
     resolveSourceSpec,
     resolveDetectorSpec,
 } from '../src/utils/physics/spectralWeightings.js';
-import { photopicV, illuminantSPD } from '../src/utils/physics/colorimetry.js';
+import { photopicV, illuminantSPD, tristimulus } from '../src/utils/physics/colorimetry.js';
 
 let fails = 0;
 const ok   = (cond, msg) => { if (!cond) { console.error('FAIL:', msg); fails++; } };
@@ -228,10 +232,9 @@ console.log('— min/max under photopic special case —');
 // ── 11. composeWeighting: D65 × V(λ) approximates Tvis ───────────────────────
 console.log('— composed D65 × V(λ) ≈ Tvis —');
 {
-    // The built-in photopic uses tristimulus exactly; the composed (D65×V(λ))
-    // weighting trapezoidal-integrates the same product on the design grid.
-    // For a constant T(λ) ≡ 0.7 both should equal 0.7. For a sloped T(λ) they
-    // should agree to better than 1e-3 on a 5-nm grid.
+    // The built-in photopic weighting and the composed D65 × V(λ) one are the
+    // same product, both integrated on the design grid. For a constant
+    // T(λ) ≡ 0.7 both equal 0.7; for a sloped T(λ) they agree.
     const wc = composeWeighting({
         source:   { id: 'D65' },
         detector: { id: 'photopic' },
@@ -246,7 +249,7 @@ console.log('— composed D65 × V(λ) ≈ Tvis —');
     const rA = computeIntegralValue(specSlope, 'T', wc);
     const rB = computeIntegralValue(specSlope, 'T', BUILTIN_WEIGHTINGS.photopic);
     ok(Math.abs(rA.value - rB.value) < 2e-3,
-       `composed Tvis ≈ tristimulus Tvis (|Δ| ${Math.abs(rA.value - rB.value).toExponential(2)})`);
+       `composed Tvis ≈ built-in Tvis (|Δ| ${Math.abs(rA.value - rB.value).toExponential(2)})`);
 }
 
 // ── 12. Planck SPD: peak at Wien's law λ_peak·T ≈ 2.898e6 nm·K ───────────────
@@ -317,6 +320,84 @@ console.log('— parseSpectrumCSV mirrors parseWeightingCSV —');
     for (let i = 0; i < a.length; i++) {
         ok(a[i][0] === b[i][0] && a[i][1] === b[i][1], `row ${i} matches`);
     }
+}
+
+// ── 16. A band the spectrum does not span is not available ───────────────────
+console.log('band coverage');
+{
+    // Evaluated over 450-650 nm only. The solar, NIR, UV and photopic bands all
+    // reach outside it, so none of them has a value, whatever the weighting.
+    const spec = makeSpectrum(450, 650, 5, l => 0.9 - 0.2 * (l - 450) / 200);
+    const r = computeIntegralValueBatch(spec, DEFAULT_INTEGRALS);
+    for (const key of ['Rsol', 'Tsol', 'RNIR', 'TUV', 'Tvis', 'Rvis']) {
+        ok(r[key].covered === false, `${key} on 450-650 nm is marked as not covered (got ${r[key].covered})`);
+        ok(Number.isNaN(r[key].value), `${key} on 450-650 nm has no value (got ${r[key].value})`);
+        ok(r[key].spectrumSpan?.[0] === 450 && r[key].spectrumSpan?.[1] === 650,
+           `${key} reports the evaluated span 450-650 nm (got ${r[key].spectrumSpan})`);
+    }
+
+    // A band inside the spectrum is covered and integrates over the band itself.
+    const w = { id: 'inside', kind: 'flat', lamMin: 500, lamMax: 600, sampler: () => 1 };
+    const inside = computeIntegralValue(spec, 'T', w);
+    ok(inside.covered === true, 'a band inside the spectrum is covered');
+    ok(near(inside.value, 0.8, 1e-12), `linear T over 500-600 averages 0.8 (got ${inside.value})`);
+
+    // A band that sticks out by one nanometre is not covered either.
+    const edge = computeIntegralValue(spec, 'T', { ...w, lamMin: 449, lamMax: 600 });
+    ok(edge.covered === false && Number.isNaN(edge.value), 'a band 1 nm past the spectrum is not covered');
+
+    // A weighting that is zero across its band has no average to give.
+    const zero = computeIntegralValue(spec, 'T', { ...w, sampler: () => 0 });
+    ok(zero.covered === true && Number.isNaN(zero.value), 'a zero weighting gives no value rather than 0');
+
+    const empty = computeIntegralValue({ lambda: [], T: [] }, 'T', w);
+    ok(empty.covered === false && Number.isNaN(empty.value), 'an empty spectrum gives no value rather than 0');
+}
+
+// ── 17. The window's shipped grid covers every built-in band ─────────────────
+console.log('window default grid');
+{
+    const { sessionDefaults } = await import('../src/constants/analysisDefaults.js');
+    const { buildLambdaGrid } = await import('../src/utils/physics/thinFilmMath.js');
+    const { lambdaStart, lambdaEnd, lambdaStep } = sessionDefaults('integralValues');
+    const lambda = buildLambdaGrid(lambdaStart, lambdaEnd, lambdaStep);
+    const T = lambda.map(() => 0.6);
+    const r = computeIntegralValueBatch({ lambda, T, R: T.map(v => 1 - v), A: T.map(() => 0) }, DEFAULT_INTEGRALS);
+    for (const def of DEFAULT_INTEGRALS) {
+        ok(r[def.key].covered === true && Number.isFinite(r[def.key].value),
+           `${def.key} has a value on the window's default ${lambdaStart}-${lambdaEnd} nm grid`);
+    }
+}
+
+// ── 18. Photopic value follows the design grid, not a fixed 5 nm read ────────
+console.log('photopic notch on a fine grid');
+{
+    // A 3 nm wide notch (T = 0) on a 0.1 nm design grid. The reference is the
+    // CIE summation of Macleod Eq. (12.2) taken at every design-grid node:
+    // Y/100 = Σ S(λ)·ȳ(λ)·T(λ) / Σ S(λ)·ȳ(λ), with S = D65 and ȳ = V(λ).
+    const { buildLambdaGrid } = await import('../src/utils/physics/thinFilmMath.js');
+    const lambda = buildLambdaGrid(380, 780, 0.1);
+    for (const centre of [532, 535]) {
+        // Node i sits at 380 + i/10 nm; the notch holds the nodes within 1.5 nm.
+        const T = lambda.map((_, i) => Math.abs(3800 + i - 10 * centre) <= 15 ? 0 : 1);
+        let num = 0, den = 0;
+        lambda.forEach((l, i) => {
+            const weight = illuminantSPD('D65', l) * photopicV(l);
+            num += weight * T[i];
+            den += weight;
+        });
+        const r = computeIntegralValue({ lambda, T }, 'T', BUILTIN_WEIGHTINGS.photopic);
+        ok(Math.abs(r.value - num / den) < 1e-4,
+           `Tvis of a 3 nm notch at ${centre} nm within 0.01 points of the 0.1 nm CIE sum ` +
+           `(got ${(r.value * 100).toFixed(3)}%, sum ${(100 * num / den).toFixed(3)}%)`);
+    }
+
+    // On any grid the photopic value is the tristimulus Y/100 of the colour
+    // module: the same integral on the same nodes.
+    const spec = makeSpectrum(380, 780, 5, l => 0.5 + 0.3 * Math.sin(l / 37));
+    const r = computeIntegralValue(spec, 'T', BUILTIN_WEIGHTINGS.photopic);
+    const Y = tristimulus({ lambda: spec.lambda, values: spec.T }, '2', 'D65').Y / 100;
+    ok(Math.abs(r.value - Y) < 1e-12, `5 nm Tvis matches tristimulus Y/100 (Δ ${Math.abs(r.value - Y).toExponential(2)})`);
 }
 
 console.log(fails === 0 ? 'PASS: integral_values' : `${fails} assertion(s) failed`);

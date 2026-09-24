@@ -6,9 +6,9 @@
  *
  *  - Tristimulus integral:  H. A. Macleod, *Thin-Film Optical Filters* 5th ed.,
  *    §12.2 "Color Definition", Eqs. (12.1)–(12.3):
- *        X = 100 · Σ S(λ)R(λ)x̄(λ) / Σ S(λ)ȳ(λ)
- *        Y = 100 · Σ S(λ)R(λ)ȳ(λ) / Σ S(λ)ȳ(λ)
- *        Z = 100 · Σ S(λ)R(λ)z̄(λ) / Σ S(λ)ȳ(λ)
+ *        X = 100 · ∫S(λ)R(λ)x̄(λ)dλ / ∫S(λ)ȳ(λ)dλ
+ *        Y = 100 · ∫S(λ)R(λ)ȳ(λ)dλ / ∫S(λ)ȳ(λ)dλ
+ *        Z = 100 · ∫S(λ)R(λ)z̄(λ)dλ / ∫S(λ)ȳ(λ)dλ
  *    (Y = luminous reflectance/transmittance in %, the "luminance factor").
  *    Chromaticity x,y — Macleod Eqs. (12.4)–(12.5).
  *  - CIE 1931 2° and CIE 1964 10° colour-matching functions: CIE 15:2004
@@ -29,14 +29,15 @@
  *    adaptation (illuminant white → D65) so the patch shows the perceived
  *    colour under the selected source.
  *
- * The integral is evaluated by simple Riemann summation on the chosen
- * integration grid (Macleod's discrete form 12.1–12.3); the constant Δλ
- * cancels between numerator and denominator.
+ * The integrals 12.1–12.3 are evaluated by the trapezoidal rule on the
+ * wavelength grid the response was computed on, with the 5 nm illuminant and
+ * colour-matching tables linearly interpolated to that grid. The reference
+ * white is integrated on the same grid.
  */
 
 export {
   OBSERVERS, ILLUMINANTS, illuminantSPD, photopicV,
-  PHOTOPIC_RANGE_NM, D65_RANGE_NM, D50_RANGE_NM,
+  PHOTOPIC_RANGE_NM, D65_RANGE_NM, D50_RANGE_NM, COLOR_RANGE_NM,
 } from './colorimetry/tables.js';
 export {
   tristimulus, whitePoint, chromaticityXy, uvPrime, uv1960, lab, luv, hunterLab,

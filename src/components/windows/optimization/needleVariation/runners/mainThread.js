@@ -22,8 +22,14 @@
  *                 job), "no improving needle" is the correct stop condition.
  */
 
-import { cleanupLayers, isConstraint } from '../../../../../utils/physics/optimizer.js';
-import { densifyForRun, activeSide, computePareto, minOmfOf } from '../../synthesisShared/synthesisHelpers.js';
+import { isConstraint } from '../../../../../utils/physics/optimizer.js';
+import {
+    withoutParkedLayers, withoutWins, mergeSameMaterial,
+} from '../../../../../utils/physics/optimizer/parkedLayers.js';
+import { makeEngine } from '../../../../../utils/optimizers/index.js';
+import {
+    densifyForRun, activeSide, computePareto, minOmfOf, materialLookup,
+} from '../../synthesisShared/synthesisHelpers.js';
 import { activeBaseline, activeRunNum, openRunBlock } from '../../synthesisShared/runBlocks.js';
 import { getSynthesisInnerEngine } from '../../../../../utils/synthesis/synthesisConfig.js';
 import { deepCopy, mtFinalize } from './mainThreadCore.js';
@@ -68,9 +74,32 @@ function mtRecordGeneration(run, dls, prunedLayers, mfAfter) {
     });
 }
 
-// Refining phase: one DLS step, then on convergence prune thin layers and
-// accept (new global best → record generation) or reject (try next candidate,
-// else needle-optimal).
+// A finished refine. When it parked layers on the floor, the design without
+// them is refined with half the iterations and the lower merit wins, a tie
+// going to the design without them (parkedLayers.js), as in the worker.
+// Returns null while that trial refine runs; otherwise { prunedDesign, scored },
+// `scored` being the engine whose merit is the merit of prunedDesign.
+function mtSettleRefine(run, dls) {
+    const { ctx, LK } = run;
+    const applied = dls.applyToDesign(ctx.baseDesignRef.current);
+    const settled = { prunedDesign: mergeSameMaterial(applied), scored: dls };
+    if (run.parkedTrial) {
+        const kept = run.parkedTrial;
+        run.parkedTrial = null;
+        return withoutWins(kept.scored.mf, dls.mf) ? settled : kept;
+    }
+    const { design: without, removed } = withoutParkedLayers(dls, applied);
+    if (!removed || !(without[LK] || []).length) return settled;
+    run.parkedTrial = settled;
+    ctx.baseDesignRef.current = without;
+    ctx.dlsRef.current = makeEngine(run.innerEngine, run.operands, without, materialLookup(without), { dMin: ctx.dMinRef.current });
+    ctx.timerRef.current = setTimeout(run.tick, 0);
+    return null;
+}
+
+// Refining phase: one DLS step, then on convergence settle the parked layers
+// (mtSettleRefine) and accept (new global best → record generation) or reject
+// (try next candidate, else needle-optimal).
 function mtRefineStep(run) {
     const { ctx, LK, best } = run;
     const dls = ctx.dlsRef.current;
@@ -81,14 +110,17 @@ function mtRefineStep(run) {
     ctx.setOmf(dls.mfOpticalAt(dls.thicknesses));
     ctx.setLayerCount(dls.thicknesses.length);
 
-    const converged = dls.isConverged() || dls.iter >= ctx.dlsIterRef.current;
-    if (!converged) { ctx.timerRef.current = setTimeout(run.tick, 0); return; }
-
-    // DLS done — prune thin layers (on the active side).
-    const preDesign    = dls.applyToDesign(ctx.baseDesignRef.current);
-    const prunedLayers = cleanupLayers(preDesign[LK] || [], ctx.dMinRef.current);
-    const prunedDesign = { ...preDesign, [LK]: prunedLayers };
-    const mfAfter      = dls.mf;
+    const iterCap = run.parkedTrial ? Math.max(1, Math.floor(ctx.dlsIterRef.current / 2)) : ctx.dlsIterRef.current;
+    const converged = dls.isConverged() || dls.iter >= iterCap;
+    // Still refining, or the trial without the parked layers has just started.
+    const settled = converged && mtSettleRefine(run, dls);
+    if (!settled) {
+        if (!converged) ctx.timerRef.current = setTimeout(run.tick, 0);
+        return;
+    }
+    const { prunedDesign, scored } = settled;
+    const prunedLayers = prunedDesign[LK] || [];
+    const mfAfter      = scored.mf;
     console.log(`[Needle DLS] ${dls.iter} iters, MF=${mfAfter.toFixed(6)} layers=${prunedLayers.length}`);
 
     if (!(mfAfter < best.mf - 1e-9)) {
@@ -107,12 +139,12 @@ function mtRefineStep(run) {
 
     // Accept: new global best.
     best.mf    = mfAfter;
-    best.omf   = dls.mfOpticalAt(dls.thicknesses);
+    best.omf   = scored.mfOpticalAt(scored.thicknesses);
     best.front = deepCopy(prunedLayers);
     ctx.baseDesignRef.current = prunedDesign;
     ctx.updateDesignRef.current({ [LK]: prunedLayers }, { transient: true });
 
-    mtRecordGeneration(run, dls, prunedLayers, mfAfter);
+    mtRecordGeneration(run, scored, prunedLayers, mfAfter);
 
     if (best.mf < ctx.targetMFRef.current) {
         console.log(`[Needle] Converged: MF=${best.mf.toFixed(6)} < target=${ctx.targetMFRef.current}`);
@@ -177,6 +209,9 @@ export function runNeedleMainThread(ctx) {
         ctx, operands, innerEngine, side, LK,
         best: { mf: Infinity, omf: null, front: null },
         queue: [], qIdx: 0, pool: [],
+        // While the current candidate's design without its parked layers is
+        // being refined: the refined design that keeps them, with its engine.
+        parkedTrial: null,
         runT0: performance.now() - prevElapsed,
         tick: null,
     };

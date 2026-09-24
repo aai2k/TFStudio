@@ -5,11 +5,40 @@
  */
 
 import { evaluateChar } from './spectrumEval.js';
+import { mulberry32 } from '../../monitoring/monitoringSim/rng.js';
+
+// Seeds are positive 32-bit integers. Mulberry32 maps 0 onto the stream of 1,
+// so 0 is left out and every seed names a stream of its own.
+export const MAX_SEED = 0xFFFFFFFF;
+
+/** A seed for a run that was not given one: uniform on 1 … 2³² − 1. */
+export function randomSeed() {
+    return 1 + Math.floor(Math.random() * MAX_SEED);
+}
+
+/** `seed` as a run uses it, or null when it is not a usable seed. */
+export function normalizeSeed(seed) {
+    const value = Math.floor(Number(seed));
+    return value >= 1 && value <= MAX_SEED ? value : null;
+}
+
+/**
+ * The run's random stream. A caller-supplied `rng` is used as given and the run
+ * reports no seed, since none describes it. Otherwise the run draws from
+ * Mulberry32 seeded with `seed`, or with a fresh random seed, and reports that
+ * seed so the run can be replayed.
+ */
+function makeRandomStream(opts) {
+    if (typeof opts.rng === 'function') return { rng: opts.rng, seed: null };
+    const seed = normalizeSeed(opts.seed) ?? randomSeed();
+    return { rng: mulberry32(seed), seed };
+}
 
 export function makeMCConfig(design, params, resolveMat, opts) {
     const evalMode = opts.evalMode ?? 'front';
     const rmsReN = opts.rmsReN ?? 0;
     const rmsImN = opts.rmsImN ?? 0;
+    const { rng, seed } = makeRandomStream(opts);
     return {
         design,
         params,
@@ -25,7 +54,8 @@ export function makeMCConfig(design, params, resolveMat, opts) {
         distribution: opts.distribution ?? 'gaussian',
         keepOpticalThickness: !!opts.keepOpticalThickness,
         perMaterialErrors: !!opts.perMaterialErrors,
-        rng: opts.rng || Math.random,
+        rng,
+        seed,
         onTrial: opts.onTrial || null,
         evaluateSpec: !!opts.evaluateSpec,
         qualifiers: opts.qualifiers || design.qualifiers || [],
@@ -38,7 +68,10 @@ export function makeMCConfig(design, params, resolveMat, opts) {
         usesFront: evalMode === 'front' || evalMode === 'total',
         usesBack: evalMode === 'back' || evalMode === 'total',
         hasIndexErrors: !!(rmsReN || rmsImN),
-        lambdaReference: 0.5 * (params.lambdaStart + params.lambdaEnd),
+        // "Keep n·d" holds each layer's optical thickness at the design's
+        // reference wavelength (nm), a property of the design rather than of
+        // the plotted range, so widening the plot leaves the draws unchanged.
+        lambdaReference: design.referenceWavelength || 550,
     };
 }
 

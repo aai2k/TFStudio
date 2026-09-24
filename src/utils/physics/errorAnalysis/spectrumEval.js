@@ -70,9 +70,13 @@ export function evaluateChar({ design, params, evalMode, resolveMat,
  * `getNK(λ)` so dispersion is preserved; the perturbation is a constant
  * additive offset (a per-layer absolute σ on Re(n) / Im(n)).
  *
- * `dn` adds to n; `dk` adds to k (k ≥ 0 absorbing convention). All other
- * material fields are kept; this proxy is intended for one Monte-Carlo trial
- * only.
+ * `dn` adds to n; `dk` adds to k, and k + dk is clamped at 0 (k ≥ 0 absorbing
+ * convention) because a passive film cannot have gain. The k error is
+ * therefore one-sided where k is near 0: on a transparent layer the negative
+ * draws leave it transparent and the positive draws add absorption, so the
+ * mean k over the trials rises by E[max(0, Δk)], which is 0.40·σ for a
+ * Gaussian draw and B/4 for a uniform one. All other material fields are kept;
+ * this proxy is intended for one Monte-Carlo trial only.
  */
 export function makeShiftedMaterial(baseMat, dn, dk) {
     if (!dn && !dk) return baseMat;

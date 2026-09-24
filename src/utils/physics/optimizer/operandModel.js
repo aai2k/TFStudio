@@ -260,23 +260,47 @@ export function polFromType(type) {
     return null;
 }
 
-// Minimum band-sample count (floor). The actual default is density-based —
-// see AVG_STEP_NM / bandSampleCount — so a band average / integral / worst-case
-// is computed PRECISELY (fine grid) rather than from a sparse 13-point estimate.
+// Minimum band-sample count (floor) for band averages, integrals and range
+// targets, whichever rule below sets their grid.
 export const AVG_POINTS = 13;
-// Target spacing (nm) for band-sampled operands (TAV/RAV/AAV, TGT/RGT/AGT,
-// TIW/RIW/AIW, TMN…AMX). ~1 nm matches a coating designer's spectral grid; the
-// count is clamped to [AVG_POINTS, AVG_POINTS_MAX] so a 300 nm band → 301 pts
-// and the DLS analytic-Jacobian cost per step stays bounded.
-export const AVG_STEP_NM    = 2;
-export const AVG_POINTS_MAX = 201;
-// Density-based default sample count for a band-sampled operand: ⌈width/step⌉+1,
-// clamped. `op.bandPoints` (if ≥2) overrides it. Argwave has its own dense
-// default (ARGWAVE_DEFAULT_POINTS) and does not use this.
+// Nominal spacing (nm) for band averages, integrals and range targets when no
+// design is at hand to set it: a 300 nm band gets 151 points. A run and the
+// merit table replace it with fringeSampleCount for the design they evaluate
+// (evalCore/fringeSampling.js).
+export const AVG_STEP_NM = 2;
+// Design-free default sample count: round(width / AVG_STEP_NM) + 1, never below
+// AVG_POINTS. `op.bandPoints` / `op.rampPoints` (if ≥2) override it. Argwave
+// and worst-case min/max operands have their own dense default
+// (ARGWAVE_DEFAULT_POINTS) and do not use this.
 export function bandSampleCount(op) {
     const w = Math.abs((op.lambdaEnd ?? op.lambdaStart) - op.lambdaStart);
     const n = Math.round(w / AVG_STEP_NM) + 1;
-    return Math.min(AVG_POINTS_MAX, Math.max(AVG_POINTS, n));
+    return Math.max(AVG_POINTS, n);
+}
+// Samples per fringe period on a design-set band grid. Measured on fifteen
+// random 80-layer TiO2/SiO2 stacks (about 9.4 µm) refined for 60 LM steps
+// against TAV(400-1600): with 4 samples per period the band average on the
+// grid ended up to 0.22 points away from the true one, with 6 up to 0.15, with
+// 8 at most 0.09 and typically 0.01 (tests/band_sampling_fringe.mjs checks the
+// first stack). Stacks this reflective have transmission resonances much
+// narrower than the period, and those are what an optimizer parks between
+// samples.
+export const SAMPLES_PER_FRINGE = 8;
+// Band-sample count that resolves the fringes of a coating whose group optical
+// thickness at the band's short end is `groupThicknessNm` (nm). The fringe
+// period there is Δλ = λ²/(2G) and the step is Δλ / SAMPLES_PER_FRINGE, so the
+// count grows with the coating and has no upper limit: a merit sampled coarser
+// than its fringes can be lowered by moving fringes between samples (Macleod,
+// Thin-Film Optical Filters 5e, §3 automatic design, p. 94). Never below
+// AVG_POINTS.
+export function fringeSampleCount(op, groupThicknessNm) {
+    const a = op.lambdaStart;
+    const b = op.lambdaEnd ?? op.lambdaStart;
+    const shortEnd = Math.min(a, b);
+    const width = Math.abs(b - a);
+    if (!(groupThicknessNm > 0) || !(shortEnd > 0) || !(width > 0)) return AVG_POINTS;
+    const step = (shortEnd * shortEnd) / (2 * groupThicknessNm * SAMPLES_PER_FRINGE);
+    return Math.max(AVG_POINTS, Math.ceil(width / step) + 1);
 }
 // Default band-sample count for argwave (argmax/argmin-λ) operands.  Used by
 // makeOperand AND by qualifiers.js so the two paths agree by construction.

@@ -10,6 +10,7 @@
  */
 
 import { tmmHessEval } from '../evalCore.js';
+import { kernelPol } from '../evalCore/kernels.js';
 
 // Merit-Hessian curvature-picker helpers: value / first / second thickness
 // derivative of one characteristic from a tmmHessEval package.
@@ -40,7 +41,8 @@ function _remapHessianRev(Hr, N) {
 export function makeHessianSampler(cfg) {
     const { n0mat, nsmat, neMat, mats, thk, N, isSingleBack, freeIdx, nFree } = cfg;
     const hcache = new Map();
-    const getH = (lam, polCode, aoi) => {
+    const getH = (lam, pol, aoi) => {
+        const polCode = kernelPol(aoi, pol);
         const key = lam + '|' + polCode + '|' + aoi;
         let v = hcache.get(key);
         if (v !== undefined) return v;

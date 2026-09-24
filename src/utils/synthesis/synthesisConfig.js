@@ -21,6 +21,7 @@
  *                        PRESERVE_BULK_GENTLE_ITER
  *   consolidate       → getSynthesisConsolidate(Tol) / setSynthesisConsolidate(Tol)
  *   smartSeed         → getSynthesisSmartSeed / setSynthesisSmartSeed
+ *   intraSamples      → SYNTHESIS_INTRA_SAMPLES (needle positions per layer)
  * This file re-exports their full surface so every existing importer
  * (components, workers, tests) is unchanged.
  *
@@ -38,3 +39,4 @@ export * from './synthesisConfig/needleSensitivity.js';
 export * from './synthesisConfig/seedMode.js';
 export * from './synthesisConfig/consolidate.js';
 export * from './synthesisConfig/smartSeed.js';
+export * from './synthesisConfig/intraSamples.js';

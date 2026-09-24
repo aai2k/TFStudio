@@ -48,6 +48,9 @@ export const METHOD_LABELS = {
 // on a fixed stack with exact MNT/MXT bound satisfaction. It is omitted from
 // ALL_METHODS above only because that array drives the headless "try-all"
 // benchmark ordering, not the UI; the window builds its own dropdown list.
+// The windows that polish a stack without offering a method choice (the Design
+// Cleaner re-optimize, the manual Needle refine) use the same default.
+export const DEFAULT_REFINE_METHOD = 'sqp';
 const ENGINES = {
     dls:         DLSOptimizer,
     newton:      NewtonOptimizer,

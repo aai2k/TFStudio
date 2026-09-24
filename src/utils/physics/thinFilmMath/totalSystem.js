@@ -19,6 +19,18 @@ export function substratePass(k_sub, subThickness_mm, lam, cosThetaSub) {
 }
 
 /**
+ * sin θ0 and cos θ0 of the angle of incidence (degrees), each as [value, 0],
+ * the pair tmmcore's snellCosTheta and incidentCosTheta take and tmm() uses.
+ * The cosine is taken directly: near grazing incidence √(1 − sin²θ0) keeps
+ * three digits of it at 89.99999° and none past 89.9999999°, and 1 − R goes as
+ * cos θ0 there.
+ */
+export function incidence(theta_deg) {
+    const rad = theta_deg * Math.PI / 180;
+    return { sinTheta0: [Math.sin(rad), 0], cosTheta0: [Math.cos(rad), 0] };
+}
+
+/**
  * Geometry of the ray inside the substrate, by real-part Snell's law.
  *
  * M1: at or beyond the critical angle (n0·sinθ₀ ≥ ns, possible in immersed or
@@ -42,6 +54,15 @@ export function substrateRay(n0, ns, sinTheta0) {
 // result, from the three coherent passes and the substrate's single-pass
 // transmittance. Shared by the JS loop and the WASM batched path so both
 // assemble results byte-for-byte the same way.
+//
+// A here is 1 − R − T of the whole plate: what the front coating, the
+// substrate bulk and the back coating absorb together, by energy balance over
+// a transparent incident medium. It is a different quantity from the A of one
+// coherent pass, which tmmcore reports as the absorptance of that pass's layers
+// alone, so the passes' own A values are not used. Over an absorbing incident
+// medium the incident and reflected waves interfere in its irradiance and R is
+// not a defined quantity there (Macleod 5th ed., §2.3.4, Eqs. 2.79 to 2.81);
+// the incoherent sum carries no term for that and A keeps the plain balance.
 export function totalSample(fwd, rev, back, P) {
     const P2 = P * P;
     const combine = (Rf, Tf, Rf_r, Tf_r, Rb, Tb) => {
@@ -63,14 +84,15 @@ export function totalSample(fwd, rev, back, P) {
  * uncoated back face in the slab combination, and the admittances double as
  * the tail constants of the coated front pass. The incident medium's cosθ0
  * follows the kernel's rule, so an absorbing incident medium is tilted the
- * way the coated pass tilts it.
+ * way the coated pass tilts it. `sinTheta0` and `cosTheta0` are the pair
+ * incidence() returns.
  */
-export function bareInterface(n0, ns, sinTheta0) {
-    const cosTheta0 = incidentCosTheta(n0, sinTheta0);
+export function bareInterface(n0, ns, sinTheta0, cosTheta0) {
+    const cosThetaIncident = incidentCosTheta(n0, sinTheta0, cosTheta0);
     const out = {};
     for (const pol of ['s', 'p']) {
-        const eta0 = pol === 's' ? cmul(n0, cosTheta0) : cdiv(n0, cosTheta0);
-        const cosThetaS = snellCosTheta(n0, sinTheta0, ns);
+        const eta0 = pol === 's' ? cmul(n0, cosThetaIncident) : cdiv(n0, cosThetaIncident);
+        const cosThetaS = snellCosTheta(n0, sinTheta0, ns, cosTheta0);
         const etaS = pol === 's' ? cmul(ns, cosThetaS) : cdiv(ns, cosThetaS);
         const den = cadd(etaS, eta0);
         out[pol] = {
@@ -89,6 +111,14 @@ export function bareInterface(n0, ns, sinTheta0) {
  * (`back` set) or closed with A = 1 − R − T on a semi-infinite substrate
  * (`back` null). The reverse transmittance equals the forward one by
  * reciprocity. Returns { s, p } with R/T/A each.
+ *
+ * The growing kernels report intensities and not r, so the semi-infinite A is
+ * 1 − R − T. tmmcore's A for the same stack adds 2 (Im η0 / Re η0) Im r, the
+ * interference of the incident and reflected waves inside an absorbing
+ * incident medium (Macleod 5th ed., Eq. 2.81, in this module's sign
+ * convention), which is exactly zero over a transparent one. Every monitor
+ * evaluator reads the growing coating under the chamber air
+ * (monitoring/chamberMedium.js), where the two definitions coincide.
  */
 export function combineGrowingSample(curves, i, back, P) {
     const Rs = curves.Rs[i], Ts = curves.Ts[i], Rp = curves.Rp[i], Tp = curves.Tp[i];

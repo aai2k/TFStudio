@@ -4,7 +4,7 @@ import {
 import { computePareto, minOmfOf } from '../../synthesisShared/synthesisHelpers.js';
 import { activeRunNum } from '../../synthesisShared/runBlocks.js';
 import { alive, deep, sumD } from './runUtils.js';
-import { refineScore } from './refine.js';
+import { refineScore, regridIfGrown } from './refine.js';
 import { generateProposals, refineProposals, acceptProposal } from './proposals.js';
 import { establishBaseline } from './baseline.js';
 
@@ -60,7 +60,7 @@ function recordBest(ctx, S, candidate, mutation) {
     const generation = {
         id: Math.random().toString(36).slice(2),
         genNum: ctx.genCountRef.current,
-        runNum: activeRunNum(ctx.runsRef.current),
+        runNum: activeRunNum(ctx.runsRef.current), seed: S.seed,
         mf: candidate.mf, omf: candidate.omf, dMF, side: S.side,
         kind: mutation.kind,
         layerCount: (S.best[S.layerKey] || []).length,
@@ -175,6 +175,7 @@ async function evaluateIterationStep(ctx, S, iteration, temperature) {
 
 async function runIteration(ctx, S, iteration) {
     ctx.setIter(iteration);
+    regridIfGrown(S);
     const temperature = S.cfg.deepMode
         ? deepTemperature(iteration - S.cycleStart, S.coolPeriod, S.cfg.T0, S.endTemperature)
         : temperatureAt(iteration / S.cfg.maxIter, S.cfg.T0, S.endTemperature);

@@ -2,10 +2,40 @@ import { Checkbox } from '../../../ui/Checkbox.js';
 
 const { createElement: h } = React;
 
+// Apply, and while the re-optimize pass runs, its step count and best merit
+// with a Stop button. Stop keeps the cleanup and the best point reached.
+function ApplyGroup({ c, dc, applying, progress, ops, apply, stop }) {
+    return h('div', { style: { marginLeft: 'auto', display: 'flex', gap: 6, alignItems: 'center' } },
+        progress && h('span', {
+            style: { fontSize: 11, color: c.accent || '#ffa726', fontStyle: 'italic' }
+        }, dc.refining(progress.step, progress.iters, progress.mf)),
+        progress && h('button', {
+            onClick: stop,
+            style: {
+                padding: '3px 14px', fontSize: 12, cursor: 'pointer',
+                border: `1px solid ${c.error}`, borderRadius: 3,
+                background: c.error + '33', color: c.error,
+                outline: 'none', fontWeight: 600,
+            }
+        }, dc.stop),
+        h('button', {
+            onClick: apply, disabled: applying || ops.length === 0,
+            style: {
+                padding: '3px 14px', fontSize: 12, cursor: ops.length ? 'pointer' : 'not-allowed',
+                border: `1px solid ${ops.length ? c.accent : c.border}`, borderRadius: 3,
+                background: ops.length ? c.accent + '33' : 'transparent',
+                color: ops.length ? c.accent : c.textDim,
+                outline: 'none', fontWeight: 600,
+                opacity: applying ? 0.5 : 1,
+            }
+        }, applying ? dc.applying : `${dc.apply} (${ops.length})`)
+    );
+}
+
 export function CleanerControls({
     c, dc, design, dMin, setDMin, mergeAdjacent, setMergeAdjacent,
     cleanBack, setCleanBack, reoptimize, setReoptimize,
-    reoptIters, setReoptIters, applying, ops, apply,
+    reoptIters, setReoptIters, applying, progress, ops, apply, stop,
 }) {
     const labelStyle = {
         color: c.textDim, fontSize: 11,
@@ -31,7 +61,7 @@ export function CleanerControls({
     },
         h('label', { style: labelStyle }, dc.minThickness,
             h('input', {
-                type: 'number', min: 0, max: 200, step: 0.5, value: dMin,
+                type: 'number', min: 0, max: 200, step: 0.5, value: dMin, disabled: applying,
                 onChange: e => setDMin(parseFloat(e.target.value) || 0),
                 style: { ...inputStyle, marginLeft: 6, width: 60 }
             }),
@@ -39,14 +69,14 @@ export function CleanerControls({
         ),
         h('label', { style: checkboxLabel },
             h(Checkbox, {
-                c, checked: mergeAdjacent,
+                c, checked: mergeAdjacent, disabled: applying,
                 onChange: e => setMergeAdjacent(e.target.checked),
             }),
             dc.mergeAdjacent
         ),
         h('label', { style: checkboxLabel },
             h(Checkbox, {
-                c, checked: cleanBack,
+                c, checked: cleanBack, disabled: applying,
                 onChange: e => setCleanBack(e.target.checked),
             }),
             dc.cleanBack
@@ -56,30 +86,18 @@ export function CleanerControls({
         },
             h(Checkbox, {
                 c, checked: reoptimize && design.meritOperands?.length > 0,
-                disabled: !design.meritOperands?.length,
+                disabled: applying || !design.meritOperands?.length,
                 onChange: e => setReoptimize(e.target.checked),
             }),
             dc.reoptimize
         ),
         reoptimize && design.meritOperands?.length > 0 && h('label', { style: labelStyle }, dc.reoptIters,
             h('input', {
-                type: 'number', min: 1, max: 500, step: 10, value: reoptIters,
+                type: 'number', min: 1, max: 500, step: 10, value: reoptIters, disabled: applying,
                 onChange: e => setReoptIters(parseInt(e.target.value) || 80),
                 style: { ...inputStyle, marginLeft: 6, width: 55 }
             })
         ),
-        h('div', { style: { marginLeft: 'auto', display: 'flex', gap: 6, alignItems: 'center' } },
-            h('button', {
-                onClick: apply, disabled: applying || ops.length === 0,
-                style: {
-                    padding: '3px 14px', fontSize: 12, cursor: ops.length ? 'pointer' : 'not-allowed',
-                    border: `1px solid ${ops.length ? c.accent : c.border}`, borderRadius: 3,
-                    background: ops.length ? c.accent + '33' : 'transparent',
-                    color: ops.length ? c.accent : c.textDim,
-                    outline: 'none', fontWeight: 600,
-                    opacity: applying ? 0.5 : 1,
-                }
-            }, applying ? dc.applying : `${dc.apply} (${ops.length})`)
-        )
+        h(ApplyGroup, { c, dc, applying, progress, ops, apply, stop })
     );
 }

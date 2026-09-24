@@ -41,11 +41,27 @@ absorptance result is averaged over a cone of incidence angles instead of a
 single collimated ray, and a live readout shows the numerical aperture,
 f-number and full aperture for the half-angle you enter. You choose the
 intensity distribution across the cone (uniform, Lambertian, or a table you
-enter) and the number of angular sample points. Because the averaging happens
-in one place, every operand and every window that evaluates the design is
+enter) and the number of grid points. Because the averaging happens in one
+place, every operand and every window that evaluates the design is
 cone-averaged automatically while it is on. With a cone active, s and p
 polarization are still computed but are formal: a cone is physically rigorous
 only for averaged polarization, since each ray has its own plane of incidence.
+
+**Grid points** is where the averaging starts, not a fixed count. TFStudio
+averages with that many angles and with twice as many, and keeps doubling
+until the two results differ by less than 0.01 % in R, T or A, then uses the
+finer of the two. The doubling stops before it would pass 200. A smooth
+coating such as a broadband AR settles at twice your grid points. A narrowband
+filter needs more near its passband, because the passband moves across the
+cone and a sharp peak has to be caught by enough angles. In the merit function
+the count is settled at each wavelength a row samples, so only the wavelengths
+near a sharp resonance get the extra angles; the plot windows use one count for
+the whole curve. A higher value starts finer and takes longer.
+
+Rays past 90° never reach the coating. When a row's angle of incidence plus
+the half-angle is more than 90°, the part of the cone beyond grazing is left
+out and the average covers only the rays that meet the surface. The cone
+settings show a warning when a merit function row is at such an angle.
 
 ## The layer table
 
@@ -96,4 +112,4 @@ single-surface evaluation the substrate is simply a semi-infinite exit medium.
 ## References
 
 - H. A. Macleod, *Thin-Film Optical Filters*, 5th ed., Ch. 2 (transfer matrix), §2.6.4 (two-sided combination).
-- H. A. Macleod, *Thin-Film Optical Filters*, 5th ed., §3.1 (optical thickness units), §16 (cone response at oblique incidence).
+- H. A. Macleod, *Thin-Film Optical Filters*, 5th ed., §3.1 (optical thickness units), §8.2.5.4 (a filter in an incident cone of light), §16 (cone response at oblique incidence).

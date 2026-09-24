@@ -17,8 +17,13 @@ import { CHAMBER_MEDIUM_ID } from '../chamberMedium.js';
  * @param {object} design        TFStudio design object
  * @param {Function} resolveMat  id → material object (with `.getNK(λ)`)
  * @param {object} cfg
- *   - rates:            Map<materialId, { mean: nm/s, sigma: nm/s }>
- *                       per-material deposition-rate stats. Missing materials
+ *   - rates:            Map<materialId, { mean: nm/s, sigma: nm/s, corrTime: s }>
+ *                       per-material deposition-rate stats: the rate is an
+ *                       OU process of stationary mean/sigma and correlation
+ *                       time corrTime, stepped at the scan interval inside a
+ *                       layer and carried between layers of the material.
+ *                       The monitor knows these statistics, never the
+ *                       realized rate. Missing materials
  *                       default to { mean: 0.5, sigma: 0 }.
  *   - sigmaReN:         absolute σ on Re(n) per-material (default 0)
  *   - sigmaImN:         absolute σ on Im(n) per-material (default 0)
@@ -36,9 +41,10 @@ import { CHAMBER_MEDIUM_ID } from '../chamberMedium.js';
  *       - lambdaStart, lambdaEnd: nm        (default 400, 1000)
  *       - nPoints:     samples per scan     (default 41)
  *       - scanIntervalSec: time between scans (default 0.5)
- *       - confirmScans: # consecutive scans with d_hat ≥ d_target needed to
- *                       trigger cut (default 2). Suppresses single-scan
- *                       outliers from noisy spectra.
+ *       - confirmScans: noise guard of the cut (default 2): the monitor's
+ *                       tracked thickness must put the target within this
+ *                       many scans on this many consecutive scans before the
+ *                       cut is timed.
  *   - sig: signal-error config
  *       - randomPct:   per-point Gaussian random noise (% of signal). Default 1.
  *       - driftPctPer1000s: linear drift (additive percentage points per 1000 s)
@@ -51,7 +57,7 @@ import { CHAMBER_MEDIUM_ID } from '../chamberMedium.js';
  *   targetFront:  number[],     // theoretical target thickness per layer
  *   matDeltas:    {dn:number,dk:number}[],   // per-layer Δn, Δk applied
  *   cutTimes:     number[],     // cut time per layer (s)
- *   rates:        number[],     // realized rate per layer (nm/s)
+ *   rates:        number[],     // mean realized rate per layer (nm/s)
  * }}
  */
 export function simulateRun(design, resolveMat, cfg) {
@@ -99,13 +105,13 @@ export function simulateRun(design, resolveMat, cfg) {
     };
 
     // Mutable state threaded across layers: `t_global` is cumulative time
-    // across ALL layers (for drift); the OU maps + `tElapsed` give the
-    // realized per-layer rate temporal correlation across layers of the same
-    // material at the user's correlation time. `truthThicks` / `modelThicks`
-    // are the truth/model as-built history the monitor fits against (v1
-    // assumes the monitor tracks its own as-built), stored index-aligned to
-    // `front` so the layers beneath a growing layer are simply the higher
-    // indices; not-yet-deposited entries stay 0.
+    // across ALL layers (for drift); the OU maps + `tElapsed` carry each
+    // material's rate process across its layers at the user's correlation
+    // time. `truthThicks` is what the chamber deposited; `modelThicks` is
+    // the monitor's own estimate of each layer, the stack it fits the next
+    // layer over. Both are stored index-aligned to `front` so the layers
+    // beneath a growing layer are simply the higher indices; not-yet-
+    // deposited entries stay 0.
     const mut = {
         acc,
         truthThicks: new Array(N).fill(0),

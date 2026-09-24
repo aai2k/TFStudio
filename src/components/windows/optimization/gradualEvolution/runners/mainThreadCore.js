@@ -4,7 +4,7 @@
 // overview.
 
 import { PRESERVE_BULK_GENTLE_ITER } from '../../../../../utils/synthesis/synthesisConfig.js';
-import { minOmfOf } from '../../synthesisShared/synthesisHelpers.js';
+import { minOmfOf, regridForDesign, meritOf } from '../../synthesisShared/synthesisHelpers.js';
 import { activeRunNum } from '../../synthesisShared/runBlocks.js';
 import { setCached } from '../sessionState.js';
 
@@ -12,6 +12,17 @@ import { setCached } from '../sessionState.js';
 export const gentleIter = (ctx) => Math.min(ctx.dlsIterRef.current, PRESERVE_BULK_GENTLE_ITER);
 export const scheduleTick = (ctx, S) => { ctx.timerRef.current = setTimeout(S.tick, 0); };
 export const deepActive = (S, d) => JSON.parse(JSON.stringify(d[S.LK] || []));
+
+// When the work design has outgrown the run's sampling grid (runGrid.js), move
+// the run onto a grid for it and re-score `work` and `best` on that grid.
+export function regridIfGrown(S, design, resolveMat) {
+    const operands = regridForDesign(S.operands, design, resolveMat);
+    if (!operands) return;
+    S.operands = operands;
+    S.work.mf = meritOf(operands, design, resolveMat);
+    if (S.best.front) S.best.mf = meritOf(operands, { ...design, [S.LK]: S.best.front }, resolveMat);
+    console.log(`[GE] Grid re-sampled for the grown design: workMF=${S.work.mf.toFixed(6)} bestMF=${S.best.mf.toFixed(6)}`);
+}
 
 // Write `front` into both the base-design ref and the live (transient) design.
 export function setBase(ctx, S, front) {

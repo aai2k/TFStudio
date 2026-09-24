@@ -46,7 +46,7 @@ export function PreviewPanel({ selected, hostInfo, dNew, dRange, predictedOMF, o
         // dropped), and a freshly inserted thin needle always starts below MNT, so
         // the preview reports OMF (constraint-free) — the full MF's transient
         // penalty would swamp the optical gain the insertion actually delivers.
-        // Constraints are re-imposed by the DLS refine after Apply.
+        // Constraints are re-imposed by the refine after Apply.
         evaluationBusy
             ? h('div', { style: { fontSize: 11, color: c.textDim } }, t.analysisEvaluation.computing)
             : h('div', { style: { display: 'flex', gap: 16, fontSize: 11, color: c.textDim } },

@@ -62,6 +62,7 @@ class MockWorker {
     constructor(url) { this.url = url; this.onmessage = null; this.onerror = null; this.terminated = false; }
     postMessage(job) {
         if (this.terminated) return;
+        if (job?.type === 'start') MockWorker.startJobs.push(job);
         setTimeout(() => { if (!this.terminated) this._run(job); }, 0);
     }
     terminate() { this.terminated = true; }
@@ -95,6 +96,7 @@ class MockWorker {
 }
 MockWorker.hangOn = null;    // method name to stall after its progress message
 MockWorker.onHang = null;    // called once when that method stalls
+MockWorker.startJobs = [];   // every 'start' job posted, in order
 globalThis.Worker = MockWorker;
 
 // Pin the detected core count. Pool sizes (dls multi-start) and the serial-vs-
@@ -110,23 +112,25 @@ Object.defineProperty(globalThis, 'navigator', {
 const { runOptMainThread } = await import('../src/components/windows/optimization/refinement/runners/mainThread.js');
 const { runDlsEvent }      = await import('../src/components/windows/optimization/refinement/runners/dlsPool.js');
 const { runMethodsFlow }   = await import('../src/components/windows/optimization/refinement/runners/methodsFlow.js');
+const { designForRestart } = await import('../src/components/windows/optimization/refinement/runners/dlsPoolJobs.js');
 
 const ref = v => ({ current: v });
 const sleep = ms => new Promise(r => setTimeout(r, ms));
 
 // Build a fake Refinement ctx + a snapshot recorder.
-function makeCtx(design, ops, { multi = false, nRestarts = 1, perturbPct = 30, maxIter = 40 } = {}) {
-    const snap = { applied: null, mf: null, mfBest: null, mfInitial: null, iter: 0, stopReason: null, history: [], mfHistory: [] };
+function makeCtx(design, ops, { multi = false, nRestarts = 1, perturbPct = 30, maxIter = 40, seed = null } = {}) {
+    const snap = { applied: null, mf: null, mfBest: null, mfInitial: null, iter: 0, stopReason: null, history: [], mfHistory: [], seed: null };
     const ctx = {
         runningRef: ref(false), designRef: ref(design), operandsRef: ref(ops),
         maxIterRef: ref(maxIter), multiStartRef: ref(multi), nRestartsRef: ref(nRestarts),
         perturbPctRef: ref(perturbPct), checkpointRef: ref(() => {}),
         optimizerRef: ref(null), timerRef: ref(null), baselineRef: ref(false),
         lastBestRef: ref(null), poolRef: ref([]), dePoolRef: ref(null),
-        flowWorkersRef: ref(new Set()), runIdRef: ref(0), histRunCount: ref(0),
+        flowWorkersRef: ref(new Set()), runIdRef: ref(0), histRunCount: ref(0), seedRef: ref(seed),
         commitBaseline: () => {},
         bumpRunCount: () => { ctx.histRunCount.current += 1; },
-        addHistEntry: (e) => { snap.history.push({ label: e.label, iter: e.iter, mf: e.mf, layerCount: e.layerCount, layerSide: e.layerSide ?? null, mfHistory: e.mfHistory }); },
+        addHistEntry: (e) => { snap.history.push({ label: e.label, iter: e.iter, mf: e.mf, layerCount: e.layerCount, layerSide: e.layerSide ?? null, mfHistory: e.mfHistory, seed: e.seed }); },
+        setSeed: v => { snap.seed = v; ctx.seedRef.current = v; },
         killWorker: () => {
             for (const w of ctx.poolRef.current) { try { w.terminate && w.terminate(); } catch (_) {} }
             ctx.poolRef.current = [];
@@ -286,8 +290,45 @@ async function verifyStopDuringRun() {
         'a stopped run does not rewrite the design on the way out');
 }
 
+// A stochastic run draws from one seed: the one in the seed field, or a fresh
+// one the field then shows. The same seed replays the run; the Design History
+// row keeps it. Math.random is left unseeded here, so anything still drawing
+// from it shows up as a run that does not replay.
+async function verifySeededRuns() {
+    const S = {
+        media: { surfaceMode: 'front_only' }, baseFront: frontDesign().frontLayers, baseBack: [],
+        surfMode: 'front_only', pct: 0.3,
+    };
+    const thicknesses = seed => designForRestart({ ...S, seed }, 3).frontLayers.map(l => l.thickness);
+    assert.deepEqual(thicknesses(77), thicknesses(77), 'a multi-start restart perturbs the same way from the same seed');
+    assert.notDeepEqual(thicknesses(77), thicknesses(78), 'and differently from another seed');
+
+    const deRun = async (seed) => {
+        const { ctx, snap } = makeCtx(bothDesign(), OPS(), { seed });
+        await runMethodsFlow(ctx, ['de']);
+        await waitIdle(ctx);
+        return snap;
+    };
+    const a = await deRun(4242), b = await deRun(4242);
+    assert.deepEqual(a.applied, b.applied, 'parallel DE with the same seed applies the same design');
+    assert.equal(a.history[0].seed, 4242, 'the DE history row keeps its seed');
+
+    const fresh = await deRun(null);
+    assert.ok(Number.isInteger(fresh.seed) && fresh.seed >= 1, `an empty seed field draws a seed and shows it (${fresh.seed})`);
+    assert.equal(fresh.history[0].seed, fresh.seed, 'and the row keeps the seed the run drew');
+
+    MockWorker.startJobs = [];
+    const { ctx } = makeCtx(frontDesign(), OPS(), { seed: 99 });
+    await runMethodsFlow(ctx, ['sa', 'cg']);
+    await waitIdle(ctx);
+    const [saJob, cgJob] = MockWorker.startJobs;
+    assert.equal(saJob.engineOpts?.seed, 99, 'the SA worker job carries the run seed');
+    assert.equal(cgJob.engineOpts?.halfWaveProbe, true, 'Refinement CG takes the half-wave first probe');
+}
+
 await verifyIterationHistories();
 await verifyStopDuringRun();
+await verifySeededRuns();
 
 const results = {};
 for (const name of SCENARIOS) results[name] = await runScenario(name);

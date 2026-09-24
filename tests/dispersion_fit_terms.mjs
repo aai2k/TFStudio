@@ -9,6 +9,7 @@
  * unusual. A model is only worth its terms if it behaves between the points too.
  */
 import assert from 'node:assert/strict';
+import { isDeepStrictEqual } from 'node:util';
 import {
     fitTabulatedMaterial,
     fitMetalLadder,
@@ -93,11 +94,17 @@ assert.ok(metalFit.complex.oscillators.length >= 1,
 //
 // Film characterization judges each count on the measured spectrum rather than
 // on the table, so it takes every rung. The rungs are the same fits the table
-// fitter chose from: the one it picked is in the ladder, unchanged.
+// fitter chose from: the one it picked is in the ladder, unchanged apart from
+// the oscillators that rung drove to the strength floor, which the table fitter
+// drops (e^-18 eV², PARAMETER_FLOOR in dispersionFits.js).
 const ladder = fitMetalLadder(metalRows, { nModel: 'drude-lorentz' });
 assert.deepEqual(ladder.map(rung => rung.complex.oscillators.length), [0, 1, 2, 3, 4, 5],
     'one fit per oscillator count, Drude first');
-assert.deepEqual(ladder[metalFit.complex.oscillators.length].complex, metalFit.complex,
+const strengthFloor = Math.exp(-18);
+const withoutSilent = model => ({
+    ...model, oscillators: model.oscillators.filter(o => o.strengthEv2 > strengthFloor * (1 + 1e-9)),
+});
+assert.ok(ladder.some(rung => isDeepStrictEqual(withoutSilent(rung.complex), metalFit.complex)),
     'the table fitter\'s own choice is one of the rungs');
 assert.ok(ladder[0].residuals.n.rms > ladder[2].residuals.n.rms,
     'a Drude-only rung leaves a residual the two-oscillator rung removes');

@@ -46,7 +46,9 @@ export function parseSignalConfig(cfg) {
 
 // Extra thickness deviations independent of monitoring (shutter jitter +
 // close-delay) and per-layer overrides (excluded/quartz-monitored layers,
-// trajectory recording, and the two cut-search performance knobs).
+// trajectory recording, and the cut search's performance knob).
+// fitStartFrac: the monitor starts fitting scans once its nominal-rate clock
+// reaches this fraction of the layer's target; earlier scans are not fitted.
 export function parseLayerConfig(cfg) {
     return {
         sigmaThkAbsNm:      cfg.sigmaThkAbsNm ?? 0,
@@ -57,6 +59,5 @@ export function parseLayerConfig(cfg) {
         relThkErrByLayer:   cfg.relThkErrByLayer || null,
         recordTrajectory:   !!cfg.recordTrajectory,
         fitStartFrac:       cfg.fitStartFrac ?? 0.6,
-        fitMaxIter:         cfg.fitMaxIter ?? 14,
     };
 }

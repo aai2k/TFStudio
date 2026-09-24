@@ -84,33 +84,3 @@ export function buildSpectrum(design, opts = {}) {
   }
   return { lambda: lambda || [], series, evalMode };
 }
-
-// Interpolating R|T(λ) fraction function from a fine TMM sweep — used for
-// colorimetry (which samples on its own 5 nm CMF/SPD grid).
-export function buildResponseFn(design, characteristic = 'R', pol = 'avg', theta = 0) {
-  const evalMode = designEvalMode(design);
-  const resolve = designMaterialLookup(design);
-  const incMat  = resolve(mediumId(design.incidentMedium));
-  const subMat  = resolve(design.substrate?.material);
-  const exitMat = resolve(mediumId(design.exitMedium));
-  const subThk  = design.substrate?.thickness ?? 1.0;
-  const front   = frontLayersWithMat(design, resolve);
-  const back    = backLayersWithMat(design, resolve);
-  const params  = { lambdaStart: 380, lambdaEnd: 780, lambdaStep: 1, theta, polarization: pol };
-
-  let res;
-  if (evalMode === 'back')       res = evaluateSpectrumBack(params, exitMat, subMat, back);
-  else if (evalMode === 'total') res = evaluateSpectrumTotal(params, incMat, subMat, exitMat, front, back, subThk);
-  else                           res = evaluateSpectrum(params, incMat, subMat, front);
-
-  const arr = characteristic === 'T' ? res.T : res.R;
-  const lam0 = res.lambda[0], n = res.lambda.length;
-  const dl = n > 1 ? (res.lambda[n - 1] - lam0) / (n - 1) : 1;
-  return (lam) => {
-    if (n === 0) return 0;
-    if (lam <= lam0) return arr[0] ?? 0;
-    if (lam >= res.lambda[n - 1]) return arr[n - 1] ?? 0;
-    const f = (lam - lam0) / dl, i = Math.floor(f), t = f - i;
-    return (arr[i] ?? 0) * (1 - t) + (arr[i + 1] ?? 0) * t;
-  };
-}

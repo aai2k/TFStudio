@@ -72,8 +72,9 @@ function seedWizardState(prev, { materialIds, layers, simDesign, resolveMat, ds,
     let monTable = prev.monTable;
     if (!monTable || monTable.length !== layers.length) {
         // Default to the design reference wavelength + turning where the
-        // layer is ~quarter-wave (classic single-λ monitoring). The
-        // "Auto λ" button re-picks the most-sensitive λ per layer.
+        // layer is ~quarter-wave and its signal really turns at the cut
+        // (classic single-λ monitoring). The "Auto λ" button re-picks the
+        // most-sensitive λ per layer.
         monTable = defaultMonoTable(simDesign, resolveMat, {
             autoPickLambda: false, theta: prev.aoi, pol: prev.pol, char: prev.quantity,
         });

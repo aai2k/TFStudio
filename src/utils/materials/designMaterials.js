@@ -40,16 +40,17 @@ export class UnresolvedDesignMaterialError extends Error {
     }
 }
 
+// The material an embedded record describes, or null when its optical constants
+// cannot be computed here (see makeGetNK).
 function embeddedMaterial(record) {
-    let material = embeddedCache.get(record);
-    if (!material) {
-        material = {
-            ...record,
-            ...(hasTabulatedComponent(record) ? { interp: interpolationRuleOf(record) } : {}),
-            getNK: makeGetNK(record),
-        };
-        embeddedCache.set(record, material);
-    }
+    if (embeddedCache.has(record)) return embeddedCache.get(record);
+    const getNK = makeGetNK(record);
+    const material = getNK && {
+        ...record,
+        ...(hasTabulatedComponent(record) ? { interp: interpolationRuleOf(record) } : {}),
+        getNK,
+    };
+    embeddedCache.set(record, material);
     return material;
 }
 
@@ -66,7 +67,10 @@ export function isBuiltinId(id) {
  *
  * `missing` still carries Air as its material so callers can render a layer
  * list without crashing, but it must not be treated as a result — see
- * `unresolvedMaterials`.
+ * `unresolvedMaterials`. A definition the design carries but this program
+ * cannot compute is `missing` too, and is not replaced by a catalog entry of
+ * the same id: that would be a different material from the one the design was
+ * made with.
  *
  * @returns {{ material: Object, status: 'embedded'|'catalog'|'missing'|'unset' }}
  */
@@ -74,7 +78,12 @@ export function resolveDesignMaterial(design, id) {
     if (!id) return { material: getMaterial('Air'), status: 'unset' };
 
     const record = design?.materials?.[id];
-    if (record) return { material: embeddedMaterial(record), status: 'embedded' };
+    if (record) {
+        const material = embeddedMaterial(record);
+        return material
+            ? { material, status: 'embedded' }
+            : { material: getMaterial('Air'), status: 'missing' };
+    }
 
     const registered = getMaterialById(id);
     if (registered) return { material: registered, status: 'catalog' };
@@ -129,7 +138,9 @@ export function unresolvedMaterials(design) {
  * The block is rebuilt from the design's current ids, so materials no longer
  * referenced drop out, and a design that uses only built-ins carries no block at
  * all. Materials that cannot be resolved have no definition to embed and are
- * left for `unresolvedMaterials` to report.
+ * left for `unresolvedMaterials` to report. A definition the design already
+ * carries is written back as it came even when it cannot be computed here: it
+ * is still the author's data, for a program that can read it.
  */
 export function embedDesignMaterials(design) {
     if (!design) return design;
@@ -139,6 +150,7 @@ export function embedDesignMaterials(design) {
         if (isBuiltinId(id)) continue;
         const { material, status } = resolveDesignMaterial(design, id);
         if (status !== 'missing') materials[id] = stripGetNK(material);
+        else if (design.materials?.[id]) materials[id] = design.materials[id];
     }
 
     // eslint-disable-next-line no-unused-vars

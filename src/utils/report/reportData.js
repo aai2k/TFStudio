@@ -32,7 +32,7 @@ import { computeWorksheet } from './reportData/worksheet.js';
 import { withDefaults } from './blocks.js';
 
 export {
-  resolveMaterial, materialName, designEvalMode, buildSpectrum, buildResponseFn,
+  resolveMaterial, materialName, designEvalMode, buildSpectrum,
 } from './reportData/engines.js';
 export {
   computeColor, computeIntegrals, computeQualifiers, designSummary, meritOperandsSummary,
@@ -72,7 +72,8 @@ const COMPUTE = {
  * @param {object} design
  * @param {object[]} blocks
  * @param {object} [external]  what other windows hold: `monteCarlo(design)` returns
- *                             `{ result, settings }` from the window's last run, or null;
+ *                             `{ result }`, the window's last run with the settings it
+ *                             ran with, or null;
  *                             `worksheet(design)` returns the Monitor Worksheet window's values
  * @returns {{ summary: object, evalMode: string, blocks: Object<string, object> }}
  */

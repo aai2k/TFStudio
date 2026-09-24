@@ -11,10 +11,12 @@
  *   mathOperands     value and residual tables for the math operand kinds
  *   operands/        the per-kind operand evaluators and their dispatch
  *   evalContext      evaluation context construction and the evaluation pass
+ *   coneNodeCount    the cone node count each wavelength is averaged with
  *   residualScale    per-type σ that puts mixed-unit residuals on one scale
- *   meritFunction    calcMF and calcOMF
- *   contributions    each row's share of the merit, and the weight denominator
+ *   meritFunction    calcMF, calcOMF and the weight denominator
+ *   contributions    each row's share of the merit
  *   adaptiveSampling operand densification for sub-grid spectral features
+ *   fringeSampling   band sample counts from the coating's fringe spacing
  */
 
 export { tmmJacEval, tmmHessEval, tmmNeedleScanEval } from './evalCore/kernels.js';
@@ -30,15 +32,19 @@ export {
 
 export {
     buildEvalContext, effectiveBackLayers, evaluateOperands, operandEvaluationErrors,
-    operandBandLevels,
+    operandBandLevels, operandSampleDeviations, operandExtremumLambdas,
 } from './evalCore/evalContext.js';
 
 export { ARGWAVE_RESIDUAL_SCALE_NM, operandResidualScale, _operandResidual } from './evalCore/residualScale.js';
 
-export { calcMF, calcOMF } from './evalCore/meritFunction.js';
+export { calcMF, calcOMF, mfWeightDenominator } from './evalCore/meritFunction.js';
 
-export { operandContributions, mfWeightDenominator } from './evalCore/contributions.js';
+export { operandContributions } from './evalCore/contributions.js';
 
 export {
     ADAPTIVE_SAMPLING_DEFAULTS, densifyOperandsForFeatures, collectDesignMaterialIds,
 } from './evalCore/adaptiveSampling.js';
+
+export {
+    groupThicknessAt, withFringeSampleCounts, withDesignSampleCounts,
+} from './evalCore/fringeSampling.js';

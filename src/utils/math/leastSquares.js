@@ -9,48 +9,19 @@
  * The Levenberg-Marquardt step follows Marquardt, J. Soc. Indust. Appl. Math.
  * 11, 431 (1963); the damping scales each diagonal entry of JᵀJ rather than
  * adding a constant, so a parameter's step size follows its own curvature.
+ *
+ * Every linear solve here is the Householder QR of qrLeastSquares.js on the
+ * column-scaled Jacobian, never the normal equations. The parameters of one
+ * fit come in unrelated units (an index next to a thickness in nm, a Cauchy
+ * term in nm⁴), so JᵀJ can hold entries apart by twenty orders of magnitude,
+ * squares the condition number of J, and has no absolute pivot threshold that
+ * suits every fit.
  */
 
-/** Gauss-Jordan solve with partial pivoting. Returns null when singular. */
-export function solveLinear(matrix, vector) {
-    const size = vector.length;
-    const augmented = matrix.map((row, index) => [...row, vector[index]]);
-    for (let column = 0; column < size; column++) {
-        let pivot = column;
-        for (let row = column + 1; row < size; row++) {
-            if (Math.abs(augmented[row][column]) > Math.abs(augmented[pivot][column])) pivot = row;
-        }
-        if (Math.abs(augmented[pivot][column]) < 1e-20) return null;
-        [augmented[column], augmented[pivot]] = [augmented[pivot], augmented[column]];
-        const divisor = augmented[column][column];
-        for (let item = column; item <= size; item++) augmented[column][item] /= divisor;
-        for (let row = 0; row < size; row++) {
-            if (row === column) continue;
-            const factor = augmented[row][column];
-            for (let item = column; item <= size; item++) {
-                augmented[row][item] -= factor * augmented[column][item];
-            }
-        }
-    }
-    return augmented.map(row => row[size]);
-}
+import { solveLeastSquaresQR } from './qrLeastSquares.js';
 
 export function sumSquares(values) {
     return values.reduce((sum, value) => sum + value * value, 0);
-}
-
-/** Solve `matrix · x = vector` for the columns of the identity, giving the inverse. */
-function invertSymmetric(matrix) {
-    const size = matrix.length;
-    const columns = [];
-    for (let index = 0; index < size; index++) {
-        const unit = Array(size).fill(0);
-        unit[index] = 1;
-        const column = solveLinear(matrix, unit);
-        if (!column) return null;
-        columns.push(column);
-    }
-    return columns[0].map((_, row) => columns.map(column => column[row]));
 }
 
 /**
@@ -74,26 +45,24 @@ export function residualJacobian(parameters, residualAt, residual = residualAt(p
 }
 
 /**
- * JᵀJ and −Jᵀr. The matrix is symmetric, so only the lower triangle is summed
- * and the upper is its mirror: the same products in the same order, so the
- * mirrored entry is the same number to the last bit.
+ * The damped step Δ, the least-squares solution of [J; √λ·D] Δ ≈ [−r; 0] with
+ * D = diag(‖J_i‖), whose normal equations are (JᵀJ + λ·diag(JᵀJ))Δ = −Jᵀr.
+ * A parameter the residual does not depend on gets a unit damping row and so
+ * no step. Null when the system cannot be solved.
  */
-function normalEquations(jacobian, residual, parameterCount) {
-    const normal = Array.from({ length: parameterCount }, () => Array(parameterCount).fill(0));
-    const rhs = Array(parameterCount).fill(0);
-    for (let row = 0; row < residual.length; row++) {
-        const entries = jacobian[row];
-        for (let i = 0; i < parameterCount; i++) {
-            rhs[i] -= entries[i] * residual[row];
-            for (let j = 0; j <= i; j++) {
-                normal[i][j] += entries[i] * entries[j];
-            }
-        }
-    }
+function dampedStep(jacobian, residual, damping) {
+    const parameterCount = jacobian[0].length;
+    const rows = jacobian.map(row => row.slice());
+    const rhs = residual.map(value => -value);
     for (let i = 0; i < parameterCount; i++) {
-        for (let j = 0; j < i; j++) normal[j][i] = normal[i][j];
+        let norm2 = 0;
+        for (const row of jacobian) norm2 += row[i] * row[i];
+        const dampingRow = new Array(parameterCount).fill(0);
+        dampingRow[i] = norm2 > 0 ? Math.sqrt(damping * norm2) : 1;
+        rows.push(dampingRow);
+        rhs.push(0);
     }
-    return { normal, rhs };
+    return solveLeastSquaresQR(rows, rhs)?.solution ?? null;
 }
 
 // Largest damping a step is tried at. Beyond it the step is shorter than the
@@ -120,11 +89,7 @@ export function levenbergMarquardt(initial, residualAt, iterations = 80, jacobia
     let jacobian = null;
     for (let iteration = 0; iteration < iterations; iteration++) {
         if (!jacobian) jacobian = jacobianAt(parameters, residualAt, residual);
-        const { normal, rhs } = normalEquations(jacobian, residual, parameters.length);
-        for (let index = 0; index < parameters.length; index++) {
-            normal[index][index] += damping * Math.max(1e-12, normal[index][index]);
-        }
-        const step = solveLinear(normal, rhs);
+        const step = dampedStep(jacobian, residual, damping);
         if (!step) break;
         const candidate = parameters.map((value, index) => value + step[index]);
         const candidateResidual = residualAt(candidate);
@@ -157,7 +122,9 @@ export function levenbergMarquardt(initial, residualAt, iterations = 80, jacobia
  * s² = SSR/(m − p), the standard linearisation about the solution (Bard,
  * Nonlinear Parameter Estimation, ch. 7). It is exact only for a locally linear
  * model and Gaussian errors, which is why it is reported as a spread rather
- * than a confidence interval.
+ * than a confidence interval. (JᵀJ)⁻¹ comes from R of the QR factorization of
+ * the column-scaled J (qrLeastSquares.js), and SSR is that of the linearised
+ * problem at the solution, the fit's own SSR once the fit has converged.
  *
  * `maxCorrelation` is the point of it for a film fit. Thickness and refractive
  * index enter the spectrum almost entirely as the product n·d; when the
@@ -167,23 +134,22 @@ export function levenbergMarquardt(initial, residualAt, iterations = 80, jacobia
  * @returns {null|{ standardErrors:number[], correlation:number[][],
  *                  maxCorrelation:number, maxCorrelationPair:[number,number],
  *                  degreesOfFreedom:number }}
- *          null when the parameters are not identifiable at all (singular JᵀJ)
- *          or there are no more residuals than parameters.
+ *          null when the parameters are not identifiable at all (the columns
+ *          of J dependent to within rounding) or there are no more residuals
+ *          than parameters.
  */
 export function parameterSpread(parameters, residualAt) {
     const residual = residualAt(parameters);
     const degreesOfFreedom = residual.length - parameters.length;
     if (degreesOfFreedom <= 0) return null;
     const jacobian = residualJacobian(parameters, residualAt, residual);
-    const { normal } = normalEquations(jacobian, residual, parameters.length);
-    const inverse = invertSymmetric(normal);
-    if (!inverse) return null;
-    const variance = sumSquares(residual) / degreesOfFreedom;
-    const standardErrors = inverse.map((row, index) => Math.sqrt(Math.max(0, variance * row[index])));
+    const covariance = solveLeastSquaresQR(jacobian, residual)?.covariance;
+    if (!covariance) return null;
+    const standardErrors = covariance.map((row, index) => Math.sqrt(Math.max(0, row[index])));
     let maxCorrelation = 0;
     let maxCorrelationPair = [0, 0];
-    const correlation = inverse.map((row, i) => row.map((value, j) => {
-        const scale = Math.sqrt(Math.max(0, inverse[i][i]) * Math.max(0, inverse[j][j]));
+    const correlation = covariance.map((row, i) => row.map((value, j) => {
+        const scale = Math.sqrt(Math.max(0, covariance[i][i]) * Math.max(0, covariance[j][j]));
         const rho = scale > 0 ? value / scale : 0;
         if (i !== j && Math.abs(rho) > maxCorrelation) {
             maxCorrelation = Math.abs(rho);

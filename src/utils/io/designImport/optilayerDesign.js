@@ -110,7 +110,9 @@ function readSiblings(siblings) {
         if (ext !== 'lm' && ext !== 'sub') continue;
         try {
             const entry = parseOptiLayerFile(file.text, `${file.name}.${ext}`);
-            out.push({ name: file.name, ext, entry, getNK: makeGetNK(entry) });
+            const getNK = makeGetNK(entry);
+            // A file whose n,k cannot be computed is not offered either.
+            if (getNK) out.push({ name: file.name, ext, entry, getNK });
         } catch (_) { /* a file the material reader refuses is not offered */ }
     }
     return out;

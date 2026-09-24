@@ -67,4 +67,34 @@ trialModel.loadTrialThicknesses({
 assert.equal(events[0], 'checkpoint');
 assert.deepEqual(events[1].frontLayers.map((layer) => layer.thickness), [0, 95]);
 
+// The statistics panel shows the yield's 95 % interval and the seed the run was
+// drawn from; the error strip holds the seed, empty meaning a fresh one.
+{
+    const { renderToStaticMarkup } = await import('react-dom/server');
+    const [{ TrialStatisticsPanel }, { ErrorEditor }] = await Promise.all([
+        import('../src/components/windows/analysis/errorAnalysis/TrialStatisticsPanel.js'),
+        import('../src/components/windows/analysis/errorAnalysis/ErrorControls.js'),
+    ]);
+    const run = {
+        ...result, nTrials: 200, char: 'R', seed: 123456789,
+        spec: { yield: 0.95, passCount: 190, evaluated: 200, yieldInterval: [0.91042, 0.97262], perQualifier: [] },
+    };
+    const panel = renderToStaticMarkup(React.createElement(TrialStatisticsPanel, {
+        result: run, stats: { byOffender: [], byRms: [], nFailTrials: 0 },
+        spread: { meanSig: 0, maxSig: 0, maxLam: null, meanWidth: 0 },
+        corridorSigma: 1, c, ea: EA,
+    }));
+    assert.ok(panel.includes(EA.yieldInterval) && panel.includes('91.0–97.3%'), 'the yield interval is shown');
+    assert.ok(panel.includes('123456789'), 'the seed of the run is shown');
+
+    const editorState = {
+        nTrials: 200, distribution: 'gaussian', rmsAbsNm: 0, rmsRelPct: 1, rmsReN: 0, rmsImN: 0,
+        perMaterial: false, keepOPT: false, seed: null,
+    };
+    const empty = renderToStaticMarkup(React.createElement(ErrorEditor, { c, ea: EA, state: editorState }));
+    assert.ok(empty.includes(`placeholder="${EA.seedRandom}"`), 'an empty seed reads as random');
+    const seeded = renderToStaticMarkup(React.createElement(ErrorEditor, { c, ea: EA, state: { ...editorState, seed: 4242 } }));
+    assert.ok(seeded.includes('value="4242"'), 'a set seed is shown in its field');
+}
+
 console.log('PASS: error_analysis_feature_refactor');

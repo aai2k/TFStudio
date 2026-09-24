@@ -6,19 +6,37 @@
  * scanNeedlesPFunction contract.
  */
 
-// Candidate descriptors (gaps then intra) on the chosen side.
-export function _buildDescriptors(N, candidateMats, targetLayers, fracs) {
+// Whether splitting a host of thickness `dk` (nm) at `frac` leaves both halves
+// at least `dMin` thick. A split that leaves a half below the floor is not a
+// position the synthesis can use: the refiner would lift that half to dMin
+// before it could score the needle. The relative 1e-12 absorbs the rounding in
+// frac·dk, so a split landing exactly on the floor is kept.
+export function intraSplitFits(dk, frac, dMin) {
+    if (!(dMin > 0)) return true;
+    const floor = dMin * (1 - 1e-12);
+    return frac * dk >= floor && (1 - frac) * dk >= floor;
+}
+
+// Candidate descriptors (gaps then intra) on the chosen side. Intra positions
+// whose split would leave a half thinner than `dMin` (nm) are left out.
+export function _buildDescriptors(N, candidateMats, targetLayers, fracs, dMin = 0) {
     const descs = [];
     for (let pos = 0; pos <= N; pos++)
         for (let ci = 0; ci < candidateMats.length; ci++)
             descs.push({ kind: 'gap', pos, ci, num: 0 });
-    for (let k = 0; k < N; k++)
-        for (let fi = 0; fi < fracs.length; fi++)
-            for (let ci = 0; ci < candidateMats.length; ci++) {
-                if (candidateMats[ci].id === targetLayers[k].material) continue;  // host → ~0
-                descs.push({ kind: 'intra', k, fi, frac: fracs[fi], ci, num: 0 });
-            }
+    for (let k = 0; k < N; k++) _pushIntra(descs, { k, host: targetLayers[k], candidateMats, fracs, dMin });
     return descs;
+}
+
+// Intra descriptors of host layer k: every split that fits, with every
+// candidate material other than the host's own (that insertion changes ~0).
+function _pushIntra(descs, { k, host, candidateMats, fracs, dMin }) {
+    fracs.forEach((frac, fi) => {
+        if (!intraSplitFits(host.thickness || 0, frac, dMin)) return;
+        candidateMats.forEach((m, ci) => {
+            if (m.id !== host.material) descs.push({ kind: 'intra', k, fi, frac, ci, num: 0 });
+        });
+    });
 }
 
 // Turn the accumulated per-descriptor numerators into the candidate contract.

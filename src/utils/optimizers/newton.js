@@ -28,6 +28,8 @@
  */
 import { LSQEngine } from '../physics/optimizer.js';
 import { choleskySolve } from '../physics/optimizer/linalg.js';
+import { limitStepToSpans } from '../physics/optimizer/halfWaveSpan.js';
+import { movablePositions, restrictSystem, projectedTrial } from '../physics/optimizer/boundedStep.js';
 
 export class NewtonOptimizer extends LSQEngine {
     // Modified-Newton ("Hyper Newton") step: solve (H + μ·diag(H))Δ = −Jᵀr via
@@ -38,12 +40,18 @@ export class NewtonOptimizer extends LSQEngine {
     step() {
         const thk     = this.thicknesses;
         const freeIdx = thk.map((_, i) => i).filter(i => !this.lockedMask[i]);
-        const nFree   = freeIdx.length;
-        if (nFree === 0) return;
+        if (freeIdx.length === 0) return;
 
-        const sys = this._newtonSystem(thk, freeIdx);
+        const sys = this._newtonSystemAt(thk, freeIdx);
         if (!sys) { this.lmStep(); return; }     // unsupported → LM
-        const { H, Jtr } = sys;
+
+        // Layers held at a bound by the gradient take no step: the system is
+        // solved on the rest (boundedStep.js). With none left to move the point
+        // is stationary for the bounded problem.
+        const cols = movablePositions(this, freeIdx, sys.Jtr);
+        if (cols.length === 0) { this.lamN = 1e8; this.iter++; return; }
+        const moveIdx = cols.map(c => freeIdx[c]);
+        const { H, Jtr } = restrictSystem(sys, cols);
 
         let mu = this.lamN ?? 1e-3;
         const rhs = Jtr.map(x => -x);
@@ -59,12 +67,9 @@ export class NewtonOptimizer extends LSQEngine {
             if (!delta) mu *= 10;
         }
         if (!delta) { this.lamN = Math.min(mu, 1e8); this.lmStep(); return; }  // give up → LM
+        limitStepToSpans(delta, moveIdx, this.stepSpans);
 
-        const thkTry = [...thk];
-        for (let a = 0; a < nFree; a++) {
-            const k = freeIdx[a];
-            thkTry[k] = Math.max(this.D_MIN, Math.min(this.D_MAX, thk[k] + delta[a]));
-        }
+        const thkTry = projectedTrial(this, freeIdx, moveIdx, delta);
         const mfTry = this.mfAt(thkTry);
         if (mfTry < this.mf) {
             this.thicknesses = thkTry;

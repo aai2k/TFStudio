@@ -63,6 +63,7 @@ const ALLOWED_UNDECLARED = [
     'axisRefLambda',         // E-field depth axis λ₀, reseeded from the design
     'side',                  // reseeded from whichever side carries the coating
     'yMin', 'yMax',          // GD/GDD clears these whenever the quantity changes
+    'seed',                  // Monte-Carlo seed, per design, so a run can be replayed
 ];
 
 const design = { id: 'test-design', referenceWavelength: 550, frontLayers: [], backLayers: [] };

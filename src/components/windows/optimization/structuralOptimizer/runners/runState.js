@@ -1,5 +1,6 @@
 import { isConstraint } from '../../../../../utils/physics/optimizer.js';
 import { makeRng, MUTATION_KINDS } from '../../../../../utils/synthesis/structuralOptimizer.js';
+import { normalizeSeed, randomSeed } from '../../../../../utils/physics/errorAnalysis/mcConfig.js';
 import {
     getSynthesisInnerEngine, getSynthesisSmartSeed, getThreadCount,
 } from '../../../../../utils/synthesis/synthesisConfig.js';
@@ -17,7 +18,7 @@ function applyConstraintBounds(cfg, enabled) {
     const minNm = minimums.length ? Math.max(...minimums.map(op => op.target)) : 0;
     const maxNm = maximums.length ? Math.min(...maximums.map(op => op.target)) : Infinity;
     cfg.dMin = Math.max(cfg.dMin, minNm);
-    cfg.dMax = Math.max(cfg.dMin + 1, Math.min(2000, maxNm));
+    cfg.dMax = Math.max(cfg.dMin + 1, maxNm);
     if (minNm > 0 || Number.isFinite(maxNm)) {
         console.log(`[Structural] constraint-bound synthesis: dMin=${cfg.dMin} dMax=${cfg.dMax} (MNT=${minNm || '—'}, MXT=${Number.isFinite(maxNm) ? maxNm : '—'})`);
     }
@@ -94,8 +95,26 @@ function checkWorkers(state) {
     return createWorkers(ctx, state.workerCount);
 }
 
+// Every enabled operand, constraints included, for scoring results; band rows
+// carry the run's sample counts so the score and the refine share one grid.
+function scoringOperands(enabled, operands) {
+    const byId = new Map(operands.map(op => [op.id, op]));
+    return enabled.map(op => byId.get(op.id) || op);
+}
+
+// The seed this press draws from: the one in the seed field, or a fresh one,
+// which the field then shows so the press can be replayed. Proposals, accept
+// rolls and basin kicks all draw from it; with the same design, settings and
+// thread count the run repeats.
+function takeRunSeed(ctx, cfg) {
+    const seed = normalizeSeed(cfg.seed) ?? randomSeed();
+    ctx.setSeed?.(seed);
+    return seed;
+}
+
 function finalizeRunState(state) {
     const { ctx, cfg, curDes, operands, side, layerKey, otherKey, pool, materials, workerCount, wasmBytes } = state;
+    const seed = takeRunSeed(ctx, cfg);
     const previousElapsed = ctx.gensRef.current.length
         ? (ctx.gensRef.current[ctx.gensRef.current.length - 1].tMs || 0)
         : 0;
@@ -104,14 +123,14 @@ function finalizeRunState(state) {
     const best = { mf: Infinity, omf: null, frontLayers: null, backLayers: null };
     const surfaceMode = curDes.surfaceMode || 'front_only';
     return {
-        cfg, curDes, operands, fullOps: ctx.operandsRef.current.filter(op => op.enabled),
+        cfg, curDes, operands, fullOps: scoringOperands(ctx.operandsRef.current.filter(op => op.enabled), operands),
         side, layerKey, otherKey, surfaceMode, pool,
         poolLite: pool.map(material => ({ id: material.id, name: material.name })),
         materials, workerCount, wasmBytes, runId, runT0,
         media: serializableMedia(curDes),
         structEngine: getSynthesisInnerEngine('structural'),
         smartSeed: getSynthesisSmartSeed('structural'),
-        rng: makeRng((Date.now() ^ (ctx.genCountRef.current * 2654435761)) >>> 0),
+        seed, rng: makeRng(seed),
         ts: ctx.ts, best, current: { ...best }, lastTick: 0,
         trendX: 0, accepts: 0, attempts: 0, prevBestMF: Infinity, noImprove: 0,
         patience: Math.max(15, Math.round(cfg.maxIter / 3)),

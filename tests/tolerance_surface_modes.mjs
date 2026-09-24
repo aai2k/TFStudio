@@ -5,14 +5,17 @@
  * windows rely on:
  *   1. Back-stack interlayers expand with substrate→exit media (back layers are
  *      stored substrate→exit; interlayer afterIndex=-1 sits at Sub→firstLayer).
- *   2. Uncorrelated system roughness σ_eff² = Σσ² combines front + back
- *      interfaces in total mode (Macleod Eq. 16.30 summed over the system).
+ *   2. Roughness puts a transition layer at every interface of the front stack
+ *      (air-first) and of the back stack (substrate-first), which total mode
+ *      evaluates together.
  *   3. Per-interface back σ array is independent of the front array.
  *
  * Pure-function level (no WASM / materials DB needed) — run:  node tests/tolerance_surface_modes.mjs
  */
 import { expandLayersWithInterlayers, enumerateInterfaces } from '../src/utils/physics/inhomogeneity.js';
-import { effectiveRoughness, resolveSigmas, countInterfaces } from '../src/utils/physics/scattering.js';
+import {
+    resolveSigmas, countInterfaces, roughenFrontStack, roughenBackStack,
+} from '../src/utils/physics/scattering.js';
 
 let fail = 0;
 const approx = (a, b, e = 1e-4) => Math.abs(a - b) < e;
@@ -39,20 +42,26 @@ const exp2 = expandLayersWithInterlayers(backRaw, sub, exit, il2);
 const lastSliceN = exp2[exp2.length - 1].material.getNK(550)[0];
 ok(lastSliceN > 1.0 && lastSliceN < 1.46, `last slice grades L→Exit: 1.0 < ${lastSliceN.toFixed(3)} < 1.46`);
 
-// ── 2. Total-mode roughness combines front + back interfaces ─────────────────
-const frontN = countInterfaces(3);  // 3 layers → 4 interfaces
-const backN  = countInterfaces(2);  // 2 layers → 3 interfaces
-const fr = resolveSigmas({ mode: 'uniform', sigma: 1.0 }, frontN);
-const bk = resolveSigmas({ mode: 'uniform', sigma: 1.0 }, backN);
-const effFront = effectiveRoughness(fr);
-const effTotal = effectiveRoughness([...fr, ...bk]);
-ok(approx(effFront, 2.0),        `front-only σ_eff = √4 = 2.0 (got ${effFront.toFixed(4)})`);
-ok(approx(effTotal, Math.sqrt(7)), `total σ_eff = √7 = 2.6458 (got ${effTotal.toFixed(4)})`);
-ok(effTotal > effFront,          'back interfaces add scatter (total > front-only)');
+// ── 2. Front and back stacks each get a transition layer per interface ───────
+const inc = mk(1.0, 0, 'Air');
+const frontRaw = [{ material: H, thickness: 100 }, { material: L, thickness: 80 }, { material: H, thickness: 60 }];
+const frontN = countInterfaces(frontRaw.length);  // 3 layers → 4 interfaces
+const backN  = countInterfaces(backRaw.length);   // 2 layers → 3 interfaces
+const long = n => new Array(n).fill('long');
+const front = roughenFrontStack(frontRaw, { incident: inc, substrate: sub },
+    { sigmas: resolveSigmas({ mode: 'uniform', sigma: 1.0 }, frontN), ranges: long(frontN) }, 16).layers;
+const back = roughenBackStack(backRaw, { substrate: sub, exit },
+    { sigmas: resolveSigmas({ mode: 'uniform', sigma: 1.0 }, backN), ranges: long(backN) }, 16).layers;
+ok(front.length === 3 + 4, `front: 3 layers + 4 transition layers (got ${front.length})`);
+ok(back.length === 2 + 3, `back: 2 layers + 3 transition layers (got ${back.length})`);
+ok(approx(back[1].thickness, 98) && approx(back[3].thickness, 78),
+    `back: each layer gives 2σ to the interface on its exit side (got ${back[1].thickness}, ${back[3].thickness})`);
 
 // ── 3. Per-interface back array independent of front ────────────────────────
 const bkPI = resolveSigmas({ mode: 'perInterface', sigma: 0, sigmas: [2, 0, 3] }, 3);
-ok(approx(effectiveRoughness(bkPI), Math.sqrt(13)), `back perInterface σ_eff = √13 = 3.6056 (got ${effectiveRoughness(bkPI).toFixed(4)})`);
+const backPI = roughenBackStack(backRaw, { substrate: sub, exit }, { sigmas: bkPI, ranges: long(3) }, 16).layers;
+ok(backPI.length === 4 && approx(backPI[0].thickness, 4) && approx(backPI[3].thickness, 6),
+    `back perInterface: transitions only where σ > 0, 2σ thick (got ${backPI.map(l => l.thickness).join(', ')})`);
 
 console.log(fail === 0 ? '\nALL PASS' : `\n${fail} FAILED`);
 process.exit(fail === 0 ? 0 : 1);

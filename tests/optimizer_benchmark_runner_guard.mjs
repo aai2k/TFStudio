@@ -1,8 +1,9 @@
 /**
  * Characterization guard for optimizerBenchmark.js orchestration.
  *
- * The expected hashes were captured from the known-good pre-refactor
- * implementation.
+ * The expected hashes were captured from a known-good implementation. The
+ * needle scenario starts from a 6000 nm seed, so its hash also pins how the
+ * refiner treats a layer thicker than 2 µm.
  */
 import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';
@@ -126,10 +127,10 @@ const expected = {
     explicitSweep: 'a3d955d4acb20e214ba36d5aa34a6d8a4f1eda9869e8c8fe4193ee93ad7e304a',
     emptyDefaults: '052521ec864608e9fb75ef94a65d424974c735450215e0f0980ae7e4061df392',
     emptySweep: '4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945',
-    needle: '679aa1b60001bb72e481b1f0a08ac0e1f5a74ffd0a03ab6de400fbe74074cc29',
-    gradualEvolution: '6f590e46e15258bfabbd6a7084d77c4afebd8e03f9ad7d9f4ce1f673f051ce27',
-    structural: '17cca1a1c93b082e388c1ce525aae20274a54eed033fea08e6f9d3cfe57fe8cf',
-    structuralDeepBudget: '05dd9d628870036c9ed78484d4fd0f6909bbaf88e1a912275ee883ef33670f08',
+    needle: '18f1d2ca96d633ea63557c2a7eb19a67d6f38932eca26386a59fed5d058a0721',
+    gradualEvolution: '60b9d78c4dd8efe756719ec34975f6262edf8849b83ad5e2a08b17ce1a984bb9',
+    structural: '744d995f53e4e6f936894f96d01a92354d8d385440d75b21903b3e45a7959e63',
+    structuralDeepBudget: '7f05c1dbd8e282af2d1c70afd6ba341945a1f02609591e051869bfaea00d49e0',
 };
 assert.deepEqual(actual, expected);
 

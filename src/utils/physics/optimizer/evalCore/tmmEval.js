@@ -7,7 +7,7 @@
  * uniformly. Reference: Macleod, Thin-Film Optical Filters 5e §2.6.4.
  */
 
-import { tmmOne } from './kernels.js';
+import { tmmOne, kernelPol } from './kernels.js';
 import { coneIsActive, coneNodes } from '../coneAngle.js';
 
 // ── Per-evaluateOperands memoization ──────────────────────────────────────────
@@ -28,15 +28,51 @@ export function nkOf(ctx, mat, lam) {
     return v;
 }
 
-// Cached single-polarization TMM. Key spans (λ, aoi, polCode) plus a `tag`
-// distinguishing independent stacks/passes that share those coordinates
-// (front forward vs. reverse vs. back in the full-system model).
+// The distinct materials of a stack and, per layer, its position among them,
+// so the stack's indices at one λ take one lookup per material rather than one
+// per layer (an H/L stack has two materials however many layers it has).
+export function distinctMaterials(mats) {
+    const materials = [];
+    const index = new Array(mats.length);
+    const at = new Map();
+    for (let i = 0; i < mats.length; i++) {
+        let k = at.get(mats[i]);
+        if (k === undefined) { k = materials.length; materials.push(mats[i]); at.set(mats[i], k); }
+        index[i] = k;
+    }
+    return { materials, index };
+}
+
+// Layers {n, d} of one stack at λ. The stack is fixed for one evaluateOperands
+// call, so its distinct-material index is built once per call.
+function layersAt(ctx, mats, thicknesses, lam) {
+    const c = ctx && ctx._stackIndex;
+    let di = c && c.get(mats);
+    if (!di) {
+        di = distinctMaterials(mats);
+        if (c) c.set(mats, di);
+    }
+    const nks = di.materials.map(m => nkOf(ctx, m, lam));
+    const layers = new Array(mats.length);
+    for (let i = 0; i < mats.length; i++) layers[i] = { n: nks[di.index[i]], d: thicknesses[i] };
+    return layers;
+}
+
+// Cached single-polarization TMM. Keyed on (pass, aoi, λ), where the pass is a
+// `tag` distinguishing independent stacks/passes that share those coordinates
+// (front forward vs. reverse vs. back in the full-system model) plus the
+// polarization. Nested maps keep λ and aoi as numeric keys.
 function tmmC(ctx, tag, lam, aoi, polCode, n0, ns, layers) {
     const c = ctx && ctx._tmmCache;
     if (!c) return tmmOne(lam, aoi, polCode, n0, ns, layers);
-    const key = tag + '|' + lam + '|' + aoi + '|' + polCode;
-    let v = c.get(key);
-    if (v === undefined) { v = tmmOne(lam, aoi, polCode, n0, ns, layers); c.set(key, v); }
+    const pc = kernelPol(aoi, polCode);
+    const pass = tag + pc;
+    let byAoi = c.get(pass);
+    if (!byAoi) { byAoi = new Map(); c.set(pass, byAoi); }
+    let byLam = byAoi.get(aoi);
+    if (!byLam) { byLam = new Map(); byAoi.set(aoi, byLam); }
+    let v = byLam.get(lam);
+    if (v === undefined) { v = tmmOne(lam, aoi, pc, n0, ns, layers); byLam.set(lam, v); }
     return v;
 }
 
@@ -49,7 +85,7 @@ const _rtaChar = (r, char) => (char === 'T' ? r.T : char === 'R' ? r.R : r.A);
 function tmmFrontOnly(lam, aoi, pol, char, ctx, thicknesses, mats) {
     const n0     = nkOf(ctx, ctx.n0mat, lam);
     const ns     = nkOf(ctx, ctx.nsmat, lam);
-    const layers = mats.map((m, i) => ({ n: nkOf(ctx, m, lam), d: thicknesses[i] }));
+    const layers = layersAt(ctx, mats, thicknesses, lam);
 
     if (pol === 'avg') {
         const s = tmmC(ctx, 'f', lam, aoi, 's', n0, ns, layers);
@@ -69,7 +105,7 @@ function tmmFrontOnly(lam, aoi, pol, char, ctx, thicknesses, mats) {
 function tmmBackOnly(lam, aoi, pol, char, ctx, thicknesses, mats) {
     const n0     = nkOf(ctx, ctx.neMat || ctx.n0mat, lam);
     const ns     = nkOf(ctx, ctx.nsmat, lam);
-    const layers = mats.map((m, i) => ({ n: nkOf(ctx, m, lam), d: thicknesses[i] })).reverse();
+    const layers = layersAt(ctx, mats, thicknesses, lam).reverse();
 
     if (pol === 'avg') {
         const s = tmmC(ctx, 'b', lam, aoi, 's', n0, ns, layers);
@@ -116,8 +152,8 @@ export function tmmFullSystem(lam, aoi, pol, char, ctx, frontThicks, frontMats, 
     const ns = nkOf(ctx, ctx.nsmat, lam);
     const ne = nkOf(ctx, (ctx.neMat || ctx.n0mat), lam);
 
-    const fLayers = frontMats.map((m, i) => ({ n: nkOf(ctx, m, lam), d: frontThicks[i] })).filter(l => l.d > 0);
-    const bLayers = backMats.map((m, i)  => ({ n: nkOf(ctx, m, lam), d: backThicks[i]  })).filter(l => l.d > 0);
+    const fLayers = layersAt(ctx, frontMats, frontThicks, lam).filter(l => l.d > 0);
+    const bLayers = layersAt(ctx, backMats,  backThicks,  lam).filter(l => l.d > 0);
 
     // Angle inside substrate via real-part Snell's law
     const sinT0  = Math.sin(aoi * Math.PI / 180);
@@ -164,19 +200,49 @@ export function resolveEvalMode(design) {
     return sm === 'back_only' ? 'back' : 'front';
 }
 
-// Angular quadrature nodes for the cone whose axis is `aoi`, cached on the
-// evaluation context. A band operand calls tmmProp once per wavelength but the
-// quadrature depends only on the cone spec and the axis angle, so rebuilding the
-// same 1-D/2-D grid per λ made merely enabling a cone appear to freeze the UI.
-function coneNodesFor(ctx, cone, aoi) {
+// Key a cone axis is cached under on the evaluation context.
+export const coneAxisKey = aoi => Number(aoi) || 0;
+
+/**
+ * The cone rays the context holds for one axis: `byLambda` maps a wavelength
+ * (nm) to the node set settled for it and `countByLambda` to that set's node
+ * count (evalCore/coneNodeCount.js), and `nodesFor(count)` returns the node set
+ * for a node count, built once per count so wavelengths that settle on the
+ * same count share it.
+ */
+export function coneAxisRays(ctx, aoi) {
     if (!ctx._coneNodeCache) ctx._coneNodeCache = new Map();
-    const axis = Number(aoi) || 0;
-    let nodes = ctx._coneNodeCache.get(axis);
-    if (!nodes) {
-        nodes = coneNodes(cone, axis);
-        ctx._coneNodeCache.set(axis, nodes);
+    const axis = coneAxisKey(aoi);
+    let rays = ctx._coneNodeCache.get(axis);
+    if (!rays) {
+        const byCount = new Map();
+        rays = {
+            byLambda: new Map(),
+            countByLambda: new Map(),
+            nodesFor(count) {
+                let nodes = byCount.get(count);
+                if (!nodes) { nodes = coneNodes(ctx.cone, axis, count); byCount.set(count, nodes); }
+                return nodes;
+            },
+        };
+        ctx._coneNodeCache.set(axis, rays);
     }
-    return nodes;
+    return rays;
+}
+
+/**
+ * The { aoiDeg, weight } nodes the context averages over at wavelength `lam`
+ * (nm) for a cone whose axis is at `aoi`. evaluateOperands settles them per
+ * axis and wavelength before it evaluates, and every value, derivative and
+ * needle function read on the same context then uses the same set. A
+ * wavelength nothing settled gets the spec's own grid points. No active cone:
+ * the single node at `aoi`.
+ */
+export function coneNodesAt(ctx, aoi, lam) {
+    const cone = ctx && ctx.cone;
+    if (!(cone && coneIsActive(cone))) return [{ aoiDeg: aoi, weight: 1 }];
+    const rays = coneAxisRays(ctx, aoi);
+    return rays.byLambda.get(lam) || rays.nodesFor(cone.gridPoints);
 }
 
 // Resolve a single-λ optical property through whichever model the surface mode
@@ -184,7 +250,7 @@ function coneNodesFor(ctx, cone, aoi) {
 //
 // Cone-angle averaging wraps the single-angle evaluation: when
 // ctx.cone is active, `aoi` is treated as the cone AXIS and the property is the
-// weighted sum over the cone's quadrature nodes (coneNodes). With no cone (the
+// weighted sum over the cone's quadrature nodes (coneNodesAt). With no cone (the
 // default) this is a single call to tmmPropSingle → bit-identical to before.
 // Because EVERY optical operand (TGT/TAV/TMN/integral/argwave/…) funnels through
 // here, cone averaging applies uniformly to the merit function, every viewer,
@@ -192,7 +258,7 @@ function coneNodesFor(ctx, cone, aoi) {
 export function tmmProp(lam, aoi, pol, char, ctx, thicknesses, mats) {
     const cone = ctx.cone;
     if (cone && coneIsActive(cone)) {
-        const nodes = coneNodesFor(ctx, cone, aoi);
+        const nodes = coneNodesAt(ctx, aoi, lam);
         if (nodes.length > 1) {
             let acc = 0;
             for (let i = 0; i < nodes.length; i++) {
@@ -205,8 +271,11 @@ export function tmmProp(lam, aoi, pol, char, ctx, thicknesses, mats) {
     return tmmPropSingle(lam, aoi, pol, char, ctx, thicknesses, mats);
 }
 
-// Single-angle property evaluation (the pre-cone tmmProp body).
-function tmmPropSingle(lam, aoi, pol, char, ctx, thicknesses, mats) {
+/**
+ * The property at one angle of incidence `aoi` exactly, never cone-averaged,
+ * through the same surface model and caches as tmmProp.
+ */
+export function tmmPropSingle(lam, aoi, pol, char, ctx, thicknesses, mats) {
     const sm = ctx.surfaceMode || 'front_only';
     const fullSystem = ctx.evalFullSystem
         || sm === 'symmetric' || sm === 'both_independent';

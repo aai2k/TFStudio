@@ -3,7 +3,7 @@ import {
     buildEvalContext, evaluateOperands, calcMF, calcOMF,
 } from '../../../../../utils/physics/optimizer.js';
 import { tidyLayers } from '../../../../../utils/synthesis/structuralOptimizer.js';
-import { materialLookup } from '../../synthesisShared/synthesisHelpers.js';
+import { materialLookup, regridForDesign } from '../../synthesisShared/synthesisHelpers.js';
 import { deep, mkLayers } from './runUtils.js';
 import { refineGuarded } from './workerLifecycle.js';
 
@@ -51,6 +51,26 @@ export function trueEval(S, frontLayers, backLayers, fallbackMf, fallbackOmf) {
         }
     } catch (_) {}
     return { mf: fallbackMf, omf: fallbackOmf ?? null };
+}
+
+// When the current design has outgrown the run's sampling grid (runGrid.js),
+// move both operand lists onto a grid for it, re-sample the worker material
+// tables, and re-score `current` and `best` so the Metropolis comparisons stay
+// on one grid.
+export function regridIfGrown(S) {
+    const resolveMat = materialLookup(S.curDes);
+    const design = { ...S.media, frontLayers: S.current.frontLayers || [], backLayers: S.current.backLayers || [] };
+    const operands = regridForDesign(S.operands, design, resolveMat);
+    if (!operands) return;
+    S.operands = operands;
+    S.fullOps = regridForDesign(S.fullOps, design, resolveMat) || S.fullOps;
+    S.materials = presampleAll(S.curDes, operands, S.pool);
+    for (const held of [S.current, S.best]) {
+        if (!held.frontLayers && !held.backLayers) continue;
+        Object.assign(held, trueEval(S, held.frontLayers, held.backLayers, held.mf, held.omf));
+    }
+    S.prevBestMF = S.best.mf;
+    console.log(`[Structural] Grid re-sampled for the grown design: bestMF=${S.best.mf.toFixed(6)}`);
 }
 
 export function refineJob(S, design) {

@@ -1,6 +1,13 @@
 import { NTYPE_TO_FORMULA, D_LINE_NM } from './constants.js';
 import { buildKTable } from './kTable.js';
-import { TABULATED_INTERPOLATION } from '../pchip.js';
+import { createTabulatedNKSampler, TABULATED_INTERPOLATION } from '../pchip.js';
+
+// A table in which no row holds a number for both the wavelength and n gives
+// no index to compute with, so the file is refused as one with no n column is.
+function requireIndex(base) {
+    if (!createTabulatedNKSampler(base.tabData)) throw new Error(`OptiLayer table "${base.name}" has no n data`);
+    return base;
+}
 
 // Pure tabulated material → TFStudio tabular form (formulaNum -1).
 function buildTabulatedEntry(base, { name, wl, nArr, kArr }) {
@@ -13,7 +20,7 @@ function buildTabulatedEntry(base, { name, wl, nArr, kArr }) {
     }
     base.formulaNum = -1;
     base.interp = TABULATED_INTERPOLATION;
-    return base;
+    return requireIndex(base);
 }
 
 /** Embed the OptiLayer sampled table verbatim (unknown/unrouted dispersion family). */
@@ -23,7 +30,7 @@ export function tableFallback(base, wl, nArr, kArr) {
     base.kTable = [];
     base.tabData = wl.map((w, i) => [w, nArr[i], kArr ? (kArr[i] || 0) : 0]);
     base.interp = TABULATED_INTERPOLATION;
-    return base;
+    return requireIndex(base);
 }
 
 // Analytic dispersion family. n comes from the formula; k (which has no
@@ -44,7 +51,8 @@ function buildFormulaEntry(base, formulaNum, { d, nType, name, wl, nArr, kArr, h
 /**
  * Route an OptiLayer document to its dispersion representation and fill in
  * `base` accordingly (tabulated / analytic-formula / embedded-table fallback).
- * @throws {Error} when the dispersion model is unsupported and no table is present
+ * @throws {Error} when the dispersion model is unsupported and no table is present,
+ *   or the table it would use holds no n
  */
 export function buildDispersionEntry(base, ctx) {
     const { nType, name, wl, nArr, kArr, hasTable } = ctx;

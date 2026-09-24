@@ -1,6 +1,7 @@
 import { DebouncedInput } from '../../../ui/DebouncedInput.js';
 import { Checkbox } from '../../../ui/Checkbox.js';
 import { parseNumberStrict } from '../../../../utils/misc/numberParsing.js';
+import { operandSpectrumReads } from '../../../../utils/physics/optimizer/evalCore/operands/index.js';
 
 const { createElement: h } = React;
 
@@ -61,6 +62,33 @@ function ConeDistributionRow({ cone, cc, dim, inStyle, patch, Th }) {
             onChange: (s) => { const v = parseInt(s, 10); if (!isNaN(v) && v >= 2) patch({ gridPoints: Math.min(200, v) }); },
             style: { ...inStyle, width: 48 },
         }),
+    );
+}
+
+// Largest angle of incidence (deg) at which an enabled merit function row reads
+// the cone-averaged R, T or A, or null when no row does. Phase, ellipsometry
+// and field rows are not cone-averaged and do not count.
+function steepestRowIncidence(operands) {
+    let steepest = null;
+    for (const op of operands || []) {
+        if (!op || !op.enabled) continue;
+        const reads = operandSpectrumReads(op);
+        if (!reads) continue;
+        const aoi = Number(reads.aoi) || 0;
+        if (steepest == null || aoi > steepest) steepest = aoi;
+    }
+    return steepest;
+}
+
+// Shown when a row's axis plus the half-angle passes 90°: the rays beyond
+// grazing are dropped from the average (optimizer/coneAngle/nodes.js).
+function ConePastGrazingNote({ cc, c, Th }) {
+    const limit = +(90 - Th).toFixed(1);
+    return h('div', {
+        style: { display: 'flex', alignItems: 'flex-start', gap: 5, padding: '2px 0', fontSize: 10, color: c.warning || '#ef9800' },
+    },
+        h('span', null, '⚠'),
+        h('span', null, cc.pastGrazing ? cc.pastGrazing(limit) : ''),
     );
 }
 
@@ -132,6 +160,10 @@ export function ConeAngleControl({ design, updateDesign, c, t }) {
 
     if (cone.enabled) {
         rows.push(h(ConeHalfAngleRow, { key: 'ha', cone, cc, dim, inStyle, patch }));
+        const steepest = steepestRowIncidence(design.meritOperands);
+        if (Th > 0 && steepest != null && steepest + Th > 90) {
+            rows.push(h(ConePastGrazingNote, { key: 'pg', cc, c, Th }));
+        }
         rows.push(h(ConeDistributionRow, { key: 'di', cone, cc, dim, inStyle, patch, Th }));
         if (cone.distribution === 'user') {
             rows.push(h(ConeUserTable, { key: 'ut', cone, cc, dim, inStyle, patch, Th, c }));

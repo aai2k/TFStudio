@@ -4,11 +4,13 @@
  * Simulates a deposition process in a vacuum chamber equipped with a broadband
  * spectrophotometric monitoring device. At each scan, the simulator generates a
  * "true" noisy spectrum from the actual current stack, then fits the
- * current-layer thickness using the *nominal* model (the monitor doesn't know
- * the per-run material perturbations); the cut decision is made when the fitted
- * thickness reaches the target. The resulting as-built thickness is the actual
- * thickness at cut time, so monitoring imprecision propagates to the final
- * spectral performance.
+ * current-layer thickness using the monitor's own model: nominal materials (the
+ * monitor doesn't know the per-run material perturbations) over its own
+ * estimates of the layers already deposited. The cut is timed where the
+ * thickness tracked from those fits reaches the target. The resulting
+ * as-built thickness is the actual thickness at cut time, so monitoring
+ * imprecision propagates to the final spectral performance and accumulates
+ * from layer to layer.
  *
  * Implementation is split across sibling modules in ./monitoringSim/ :
  *   - rng.js                 seedable RNG, Gaussian draw, OU rate process

@@ -1,7 +1,7 @@
 /** Analytic DLS rows for phase, GD, GDD, and TOD operands. */
 
 import { isGroupDelayFlat } from '../operandModel.js';
-import { operandSampleLambdas } from '../sampling.js';
+import { operandSampleLambdas, bandQuadratureWeights } from '../sampling.js';
 
 function emptyRow(nFree) {
     return new Array(nFree).fill(0);
@@ -32,19 +32,22 @@ export function _jacRowPhase(op, operandIndex, jc) {
         return point ? copyFreeDerivatives(point.derivative, freeIdx, scale) : null;
     }
 
+    // RMS = √(Σ qₛ devₛ²) over the band grid's trapezoid weights qₛ, so
+    // ∂RMS/∂d = Σ qₛ devₛ ∂devₛ/∂d / RMS.
     const computed = comp[operandIndex];
     if (!(computed > 1e-12)) return emptyRow(nFree);
     const wavelengths = operandSampleLambdas(op);
+    const q = bandQuadratureWeights(wavelengths.length);
     const row = emptyRow(nFree);
-    for (const wavelength of wavelengths) {
-        const point = phasePoint(op, wavelength);
+    for (let s = 0; s < wavelengths.length; s++) {
+        const point = phasePoint(op, wavelengths[s]);
         if (!point) return null;
-        const difference = point.value - op.target;
+        const weighted = q[s] * (point.value - op.target);
         for (let column = 0; column < nFree; column++) {
-            row[column] += difference * point.derivative[freeIdx[column]];
+            row[column] += weighted * point.derivative[freeIdx[column]];
         }
     }
-    const rmsScale = scale / (computed * wavelengths.length);
+    const rmsScale = scale / computed;
     for (let column = 0; column < nFree; column++) row[column] *= rmsScale;
     return row;
 }

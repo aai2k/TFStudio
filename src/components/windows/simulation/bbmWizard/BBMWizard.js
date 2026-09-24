@@ -90,8 +90,6 @@ function buildRunCfg({ p, materialIds, recordTrajectory }) {
         mon: { char: p.quantity, theta: p.aoi, polarization: p.pol, chipMaterial: p.chipMaterial || null,
                lambdaStart: p.lamMin, lambdaEnd: p.lamMax, nPoints: p.points, scanIntervalSec: p.scanInterval, confirmScans: 2 },
         sig: { randomPct: p.randomPct, driftPctPer1000s: p.drift },
-        // Cheaper fit for the live single run (Monte-Carlo path is untouched).
-        fitStartFrac: 0.82, fitMaxIter: 8,
         recordTrajectory,
     };
 }

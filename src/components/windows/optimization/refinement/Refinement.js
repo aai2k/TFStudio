@@ -32,11 +32,12 @@ export function Refinement({ c, theme, t }) {
             running: r.running, iter: r.iter, mf: r.mf, mfBest: r.mfBest, mfInitial: r.mfInitial,
             omf: r.omf, omfBest: r.omfBest, canReset: r.canReset,
             method: r.method, nRestarts: r.nRestarts, perturbPct: r.perturbPct, restartIdx: r.restartIdx,
-            maxIter: r.maxIter, stopReason: r.stopReason,
+            maxIter: r.maxIter, stopReason: r.stopReason, seed: r.seed,
             surfaceMode: r.design?.surfaceMode || 'front_only',
             mfEvalMode:  r.design?.mfEvalMode  || 'side',
             onRun: r.onRun, onStop: r.onStop, onReset: r.onReset, onBest: r.onBest,
             onMethod: r.onMethod, onNRestarts: r.onNRestarts, onPerturbPct: r.onPerturbPct, onMaxIter: r.onMaxIter,
+            onSeed: r.onSeed,
             t, c,
         }),
 

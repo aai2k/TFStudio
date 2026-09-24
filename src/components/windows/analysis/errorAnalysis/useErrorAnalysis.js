@@ -1,21 +1,30 @@
 import { designMaterialLookup } from '../../../../utils/materials/designMaterials.js';
 import { runErrorAnalysisMC } from '../../../../utils/physics/errorAnalysis.js';
+import { normalizeSeed, randomSeed } from '../../../../utils/physics/errorAnalysis/mcConfig.js';
 import { hasPerturbableLayers } from './trialModel.js';
 import { errorAnalysisSession } from './sessionState.js';
 import { useWindowSession } from '../../windowSession.js';
 
 const { useCallback, useEffect, useMemo, useRef, useState } = React;
 
-async function executeRun(options) {
+/**
+ * One Monte-Carlo run with the window's settings. The corridor width goes to
+ * the run too, so the run records the k its corridor was drawn with.
+ */
+export async function executeRun(options) {
     const {
-        design, params, evalMode, char, nTrials, rmsAbsNm, rmsRelPct,
-        rmsReN, rmsImN, distribution, perMaterial, keepOPT, cancelledRef,
-        setError, setRunning, setProgress, setResult,
+        design, params, evalMode, char, nTrials, corridorSigma, rmsAbsNm, rmsRelPct,
+        rmsReN, rmsImN, distribution, perMaterial, keepOPT, seed, cancelledRef,
+        setError, setRunning, setProgress, setResult, setSeed,
     } = options;
     if (!hasPerturbableLayers(design, evalMode)) {
         setError('No layers to perturb.');
         return;
     }
+    // The seed field keeps the seed this run is drawn from, so running again
+    // with the same settings replays it. An empty field draws a fresh seed.
+    const runSeed = normalizeSeed(seed) ?? randomSeed();
+    if (runSeed !== seed) setSeed(runSeed);
     setError(null);
     setRunning(true);
     setProgress({ i: 0, total: nTrials });
@@ -27,6 +36,8 @@ async function executeRun(options) {
             char,
             evalMode,
             nTrials,
+            corridorSigma,
+            seed: runSeed,
             yieldEvery: 4,
             onYield: () => new Promise((resolve) => setTimeout(resolve, 0)),
             shouldCancel: () => cancelledRef.current,
@@ -53,7 +64,7 @@ export function useErrorAnalysis({ design, evalMode }) {
     const [session, setField, patchSession] = useWindowSession(errorAnalysisSession, design);
     const {
         char, nTrials, corridorSigma, rmsAbsNm, rmsRelPct, rmsReN, rmsImN,
-        distribution, perMaterial, keepOPT, showEnvelope, result,
+        distribution, perMaterial, keepOPT, showEnvelope, seed, result,
     } = session;
     // The evaluation grid is held as flat keys so Settings can edit each of them,
     // and gathered back into the shape the spectrum functions take.
@@ -75,6 +86,7 @@ export function useErrorAnalysis({ design, evalMode }) {
     const setPerMaterial = value => setField('perMaterial', value);
     const setKeepOPT = value => setField('keepOPT', value);
     const setShowEnvelope = value => setField('showEnvelope', value);
+    const setSeed = value => setField('seed', value);
     const setResult = value => setField('result', value);
 
     // Run status is deliberately not stored: a window that reopens mid-run shows
@@ -86,11 +98,11 @@ export function useErrorAnalysis({ design, evalMode }) {
     const cancelledRef = useRef(false);
 
     const run = useCallback(() => executeRun({
-        design, params, evalMode, char, nTrials, rmsAbsNm, rmsRelPct,
-        rmsReN, rmsImN, distribution, perMaterial, keepOPT, cancelledRef,
-        setError, setRunning, setProgress, setResult,
-    }), [design, params, evalMode, char, nTrials,
-        rmsAbsNm, rmsRelPct, rmsReN, rmsImN, distribution, perMaterial, keepOPT]);
+        design, params, evalMode, char, nTrials, corridorSigma, rmsAbsNm, rmsRelPct,
+        rmsReN, rmsImN, distribution, perMaterial, keepOPT, seed, cancelledRef,
+        setError, setRunning, setProgress, setResult, setSeed,
+    }), [design, params, evalMode, char, nTrials, corridorSigma,
+        rmsAbsNm, rmsRelPct, rmsReN, rmsImN, distribution, perMaterial, keepOPT, seed]);
 
     const stop = useCallback(() => {
         cancelledRef.current = true;
@@ -118,7 +130,7 @@ export function useErrorAnalysis({ design, evalMode }) {
         corridorSigma, setCorridorSigma, rmsAbsNm, setRmsAbsNm,
         rmsRelPct, setRmsRelPct, rmsReN, setRmsReN, rmsImN, setRmsImN,
         distribution, setDistribution, perMaterial, setPerMaterial, keepOPT, setKeepOPT,
-        result, running, progress, error, showTrials, setShowTrials,
+        seed, setSeed, result, running, progress, error, showTrials, setShowTrials,
         showEnvelope, setShowEnvelope, stop, handleRun,
         showEditor: session.showEditor, setShowEditor: value => setField('showEditor', value),
         showTable: session.showTable, setShowTable: value => setField('showTable', value),

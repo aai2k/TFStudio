@@ -21,7 +21,8 @@ import {
     jetSqrt,
     jetSubtract,
 } from '../../tmmcore.js';
-import { levenbergMarquardt, solveLinear, sumSquares } from '../math/leastSquares.js';
+import { levenbergMarquardt, sumSquares } from '../math/leastSquares.js';
+import { solveLeastSquaresQR } from '../math/qrLeastSquares.js';
 
 const HC_EV_UM = 1.239841984;
 
@@ -101,18 +102,32 @@ function evaluateComplexDispersionModelJets(model, wavelengthMicrometersJet) {
     };
 }
 
-function linearLeastSquares(rows, featureAt, valueAt, parameterCount) {
-    const normal = Array.from({ length: parameterCount }, () => Array(parameterCount).fill(0));
-    const rhs = Array(parameterCount).fill(0);
-    for (const row of rows) {
-        const features = featureAt(row);
-        const value = valueAt(row);
-        for (let i = 0; i < parameterCount; i++) {
-            rhs[i] += features[i] * value;
-            for (let j = 0; j < parameterCount; j++) normal[i][j] += features[i] * features[j];
-        }
-    }
-    return solveLinear(normal, rhs);
+/**
+ * A model linear in its coefficients, fitted to the rows by QR.
+ *
+ * @returns {null|{ solution:number[], covariance:number[][]|null }} see
+ *          solveLeastSquaresQR; null when the rows cannot determine the model
+ */
+function linearLeastSquares(rows, featureAt, valueAt) {
+    return solveLeastSquaresQR(rows.map(featureAt), rows.map(valueAt));
+}
+
+// The covariance a linear fit reports, kept on the component it describes.
+// Absent when the rows leave no degrees of freedom to estimate it from.
+const withCovariance = (component, solved) =>
+    (solved.covariance ? { ...component, covariance: solved.covariance } : component);
+
+function withoutCovariance(component) {
+    const copy = { ...component };
+    delete copy.covariance;
+    return copy;
+}
+
+// { standardError } for one coefficient of a component with a covariance, or
+// nothing when the component has none.
+function standardErrorOf(component, index) {
+    const variance = component.covariance?.[index]?.[index];
+    return Number.isFinite(variance) ? { standardError: Math.sqrt(Math.max(0, variance)) } : {};
 }
 
 function residualSummary(rows, evaluator, valueIndex) {
@@ -180,14 +195,13 @@ function validRows(rows, rangeNm) {
 }
 
 function fitCauchy(rows, termCount) {
-    const coefficients = linearLeastSquares(
+    const solved = linearLeastSquares(
         rows,
         row => Array.from({ length: termCount }, (_, order) => (row[0] / 1000) ** (-2 * order)),
         row => row[1],
-        termCount,
     );
-    if (!coefficients) throw new Error('Cauchy fit is singular for the selected data range.');
-    return { kind: 'cauchy', coefficients };
+    if (!solved) throw new Error('Cauchy fit is singular for the selected data range.');
+    return withCovariance({ kind: 'cauchy', coefficients: solved.solution }, solved);
 }
 
 function sellmeierValue(parameters, wavelengthMicrometers, terms, rangeSquared) {
@@ -212,7 +226,7 @@ function initialSellmeier(rows, terms) {
         const squared = (row[0] / 1000) ** 2;
         return [1, ...poles.slice(0, terms).map(pole => squared / (squared - pole))];
     };
-    const linear = linearLeastSquares(rows, features, row => row[1] * row[1], terms + 1);
+    const linear = linearLeastSquares(rows, features, row => row[1] * row[1])?.solution;
     const parameters = [linear?.[0] ?? 1];
     for (let term = 0; term < terms; term++) {
         parameters.push(linear?.[term + 1] ?? 0.1, poles[term]);
@@ -248,8 +262,7 @@ function oneTermAtPole(rows, pole) {
             return [1, squared / (squared - pole)];
         },
         row => row[1] * row[1],
-        2,
-    );
+    )?.solution;
     if (!coefficients) return { cost: Infinity, coefficients: null };
     const cost = rows.reduce((sum, row) => {
         const predicted = sellmeierValue(
@@ -316,17 +329,18 @@ function fitOneTermSellmeier(rows, rangeNm) {
 function fitUrbach(rows) {
     const positive = rows.filter(row => row[2] > 0);
     if (positive.length < 3) return { kind: 'zero', coefficients: [] };
-    const logCoefficients = linearLeastSquares(
+    const solved = linearLeastSquares(
         positive,
         row => [1, 1 / (row[0] / 1000), row[0] / 1000],
         row => Math.log(Math.max(row[2], 1e-15)),
-        3,
     );
-    if (!logCoefficients) throw new Error('Urbach fit is singular for the selected data range.');
-    return {
+    if (!solved) throw new Error('Urbach fit is singular for the selected data range.');
+    const [logAmplitude, inverseTerm, linearTerm] = solved.solution;
+    // The fit is linear in ln k0, kb and kc, so that is what the covariance is of.
+    return withCovariance({
         kind: 'urbach',
-        coefficients: [Math.exp(logCoefficients[0]), logCoefficients[1], logCoefficients[2]],
-    };
+        coefficients: [Math.exp(logAmplitude), inverseTerm, linearTerm],
+    }, solved);
 }
 
 // The metal parameters travel as logarithms, an encoding that cannot reach zero.
@@ -910,7 +924,13 @@ export function metalFitDiagnostics(fit) {
  * is computed from and what a user has to be able to read. Wavelength is in
  * micrometres throughout; the metal model is written in electronvolts.
  *
- * @returns {{ formula: string, parameters: Array<{ label: string, value: number }> }}
+ * A coefficient of a fit that is linear in its coefficients, Cauchy n and the
+ * Urbach k, also carries `standardError`, the square root of its variance in
+ * the fit's covariance. k0 is fitted as ln k0, so its spread is k0·σ(ln k0),
+ * the first-order propagation through the exponential.
+ *
+ * @returns {{ formula: string,
+ *             parameters: Array<{ label: string, value: number, standardError?: number }> }}
  */
 export function dispersionFitParameters(fit) {
     if (!fit) return { formula: '', parameters: [] };
@@ -924,7 +944,10 @@ export function dispersionFitParameters(fit) {
     const parameters = [];
     if (fit.n.kind === 'cauchy') {
         fit.n.coefficients.forEach((value, order) => {
-            parameters.push({ label: order === 0 ? 'A0' : `A${order} (µm^${2 * order})`, value });
+            parameters.push({
+                label: order === 0 ? 'A0' : `A${order} (µm^${2 * order})`, value,
+                ...standardErrorOf(fit.n, order),
+            });
         });
     } else if (fit.n.kind === 'sellmeier') {
         parameters.push({ label: 'A', value: fit.n.coefficients[0] });
@@ -937,10 +960,14 @@ export function dispersionFitParameters(fit) {
     }
     if (fit.k.kind === 'urbach') {
         const [amplitude, inverseTerm, linearTerm] = fit.k.coefficients;
+        const logSpread = standardErrorOf(fit.k, 0).standardError;
         parameters.push(
-            { label: 'k0', value: amplitude },
-            { label: 'kb (µm)', value: inverseTerm },
-            { label: 'kc (1/µm)', value: linearTerm },
+            {
+                label: 'k0', value: amplitude,
+                ...(logSpread === undefined ? {} : { standardError: amplitude * logSpread }),
+            },
+            { label: 'kb (µm)', value: inverseTerm, ...standardErrorOf(fit.k, 1) },
+            { label: 'kc (1/µm)', value: linearTerm, ...standardErrorOf(fit.k, 2) },
         );
     }
     const nFormula = fit.n.kind === 'cauchy'
@@ -1004,12 +1031,14 @@ export function dispersionFitCodec(fit) {
                     fit.k.coefficients[1], fit.k.coefficients[2]]
                 : []),
         ],
+        // The covariance of a table fit describes the coefficients that fit
+        // found. Moved coefficients are a different fit, so it is not carried.
         decode: values => ({
             ...fit,
-            n: { ...fit.n, coefficients: values.slice(0, indexCount) },
+            n: { ...withoutCovariance(fit.n), coefficients: values.slice(0, indexCount) },
             k: hasExtinction
                 ? {
-                    ...fit.k,
+                    ...withoutCovariance(fit.k),
                     coefficients: [
                         Math.exp(values[indexCount]),
                         values[indexCount + 1],

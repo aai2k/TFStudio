@@ -6,27 +6,13 @@
 
 import { DLSOptimizer, mirrorLayers } from '../../../../../utils/physics/optimizer.js';
 import { designMaterialLookup } from '../../../../../utils/materials/designMaterials.js';
-import { appendMfSample } from '../refinementUtils.js';
+import { appendMfSample, jitterLayers, restartRng } from '../refinementUtils.js';
 
-const D_MIN = 1.0, D_MAX = 2000.0;
 // Steps run per animation tick before touching React state / live preview. The
 // DLS step itself is cheap; the per-iteration cost is the panel re-render +
 // global-design update (which replots the whole spectrum). Batching amortizes
 // that ~UI_BATCH×. Pure UI throttle — the optimizer math is untouched.
 const UI_BATCH = 25;
-
-// Unlocked-layer perturbation for a multi-start restart (locked layers kept).
-function perturbLayers(layers, pct) {
-    return layers.map(l => {
-        if (l.locked) return { ...l };
-        const base = l.thickness || 0;
-        const factor = 1 + pct * (Math.random() * 2 - 1);
-        let tt = base * factor;
-        if (tt < D_MIN) tt = D_MIN;
-        if (tt > D_MAX) tt = D_MAX;
-        return { ...l, thickness: tt };
-    });
-}
 
 // Map an optimization vector back to design.frontLayers / backLayers given the
 // surfaceMode and baselines (M.surfMode / M.baselineFront / M.baselineBack).
@@ -53,18 +39,20 @@ function applyVecToDesign(M, d, vec) {
 }
 
 // Perturbed design for the next restart, perturbing only the stack(s) the
-// surface mode marks as optimization variables.
+// surface mode marks as optimization variables, from the run seed's stream for
+// that restart.
 function perturbedDesignFor(M) {
     const { surfMode, baselineFront, baselineBack, pct, curDes } = M;
+    const rng = restartRng(M.seed, M.restart);
     if (surfMode === 'both_independent')
-        return { ...curDes, frontLayers: perturbLayers(baselineFront, pct), backLayers: perturbLayers(baselineBack, pct) };
+        return { ...curDes, frontLayers: jitterLayers(baselineFront, pct, rng), backLayers: jitterLayers(baselineBack, pct, rng) };
     if (surfMode === 'back_only')
-        return { ...curDes, frontLayers: baselineFront, backLayers: perturbLayers(baselineBack, pct) };
+        return { ...curDes, frontLayers: baselineFront, backLayers: jitterLayers(baselineBack, pct, rng) };
     if (surfMode === 'symmetric') {
-        const front = perturbLayers(baselineFront, pct);
+        const front = jitterLayers(baselineFront, pct, rng);
         return { ...curDes, frontLayers: front, backLayers: mirrorLayers(front) };
     }
-    return { ...curDes, frontLayers: perturbLayers(baselineFront, pct) };
+    return { ...curDes, frontLayers: jitterLayers(baselineFront, pct, rng) };
 }
 
 function msFinish(ctx, M) {
@@ -97,6 +85,7 @@ function msFinish(ctx, M) {
             layerCount: histLayers.length,
             layerSide,
             mfHistory: [...M.mfHistory],
+            seed: M.seed,
         });
     }
     console.log(`[Multi-start] Done: ${M.N} restarts, best MF=${M.globalBestMF.toFixed(6)} (mode=${M.surfMode})`);

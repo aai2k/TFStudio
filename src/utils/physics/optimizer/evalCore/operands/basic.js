@@ -8,7 +8,7 @@
 import { resolveSourceSpec, resolveDetectorSpec } from '../../../spectralWeightings.js';
 import { stressForceNm } from '../../../stress/stackForce.js';
 import { isMinType, isArgwaveMin, argwaveOpticalChar, argwavePolCode, polFromType } from '../../operandModel.js';
-import { isRangeAvg, charOf, operandSampleLambdas } from '../../sampling.js';
+import { isRangeAvg, charOf, operandSampleLambdas, bandQuadratureWeights } from '../../sampling.js';
 import { tmmProp } from '../tmmEval.js';
 import { _assertMeasurementSide } from './errors.js';
 
@@ -92,20 +92,22 @@ export function _evalArgwave(op, ctx) {
 }
 
 // Weighted-integral operand (TIW/RIW/AIW):
-//   C̄ = Σ w_i · C_i  /  Σ w_i      with w_i = S(λ_i) · D(λ_i)
+//   C̄ = Σ w_i · C_i  /  Σ w_i      with w_i = q_i · S(λ_i) · D(λ_i)
 // S(λ) and D(λ) come from the operand's source/detector specs (or default to
-// E × flat = unity, i.e. an unweighted band average).
+// E × flat = unity, i.e. a plain band average); q_i are the trapezoid weights
+// of the band grid (bandQuadratureWeights), so the sums are ∫S·D·C dλ / ∫S·D dλ.
 export function _evalIntegral(op, ctx) {
     const char = charOf(op.type);
     const pol  = polFromType(op.type) ?? op.pol;
     const lams = operandSampleLambdas(op);
     const n    = lams.length;
+    const q    = bandQuadratureWeights(n);
     const S = resolveSourceSpec(op.source   || { id: 'E' });
     const D = resolveDetectorSpec(op.detector || { id: 'flat' });
     let num = 0, den = 0;
     for (let i = 0; i < n; i++) {
         const lam = lams[i];
-        const w   = S.sampler(lam) * D.sampler(lam);
+        const w   = q[i] * S.sampler(lam) * D.sampler(lam);
         const v   = tmmProp(lam, op.aoi, pol, char, ctx, ctx.frontThicks, ctx.frontMats);
         num += w * v;
         den += w;
@@ -121,7 +123,9 @@ export function _evalIntegral(op, ctx) {
 // MFE "Current" cell and the Specification window agree exactly) and give the
 // optimizer a single-argmax SUBGRADIENT in _analyticJacobian — the same
 // hard-extremum approach used for MNT/MXT. Sampled on the dense argwave grid
-// (≈1 nm) so a narrow peak / dip can't slip between samples.
+// (≈1 nm) so a narrow peak / dip can't slip between samples. The grid
+// wavelength of the extremum, nm, is kept on the context: the Jacobian and the
+// Newton curvature differentiate C there and nowhere else.
 export function _evalMinmax(op, ctx) {
     const char = charOf(op.type);
     const pol  = polFromType(op.type) ?? op.pol;
@@ -129,38 +133,46 @@ export function _evalMinmax(op, ctx) {
     const n       = lams.length;
     const minMode = isMinType(op.type);
     let ext = minMode ? Infinity : -Infinity;
+    let at = null;
     for (let i = 0; i < n; i++) {
         const v = tmmProp(lams[i], op.aoi, pol, char, ctx, ctx.frontThicks, ctx.frontMats);
-        if (minMode) { if (v < ext) ext = v; }
-        else         { if (v > ext) ext = v; }
+        if (minMode ? v < ext : v > ext) { ext = v; at = lams[i]; }
     }
+    ctx._extremumLambdas?.set(op, at);
     return Number.isFinite(ext) ? ext : 0;
 }
 
 // Continuous per-λ target (TGT/RGT/AGT): RMS deviation of the spectrum from the
-// (flat or linearly ramped) target line, sampled across the band. calcMF squares
-// this directly (the per-sample residuals are already folded into the RMS).
+// (flat or linearly ramped) target line across the band, √(Σ qᵢ devᵢ²) with the
+// trapezoid weights qᵢ of the band grid. calcMF squares this directly (the
+// per-sample residuals are already folded into the RMS). The per-sample
+// deviations are kept on the context for the least-squares engine, which takes
+// one residual per sample.
 export function _evalRangeTarget(op, ctx) {
     const char = charOf(op.type);
     const pol  = polFromType(op.type) ?? op.pol;
     const lams = operandSampleLambdas(op);
     const n    = lams.length;
+    const q    = bandQuadratureWeights(n);
     const t0   = op.target;
     const t1   = op.targetEnd != null ? op.targetEnd : op.target;
+    const deviations = new Array(n);
     let sumSq = 0;
     for (let i = 0; i < n; i++) {
         const f   = i / (n - 1);
         const ti  = t0 + (t1 - t0) * f;
         const d   = tmmProp(lams[i], op.aoi, pol, char, ctx, ctx.frontThicks, ctx.frontMats) - ti;
-        sumSq += d * d;
+        deviations[i] = d;
+        sumSq += q[i] * d * d;
     }
-    return Math.sqrt(sumSq / n);
+    ctx._sampleDeviations?.set(op, deviations);
+    return Math.sqrt(sumSq);
 }
 
-// Band average (TAV/RAV/AAV = mean of C(λ) over the band) or, for a plain
-// single-wavelength operand, C at op.lambdaStart. The λ grid comes from the
-// centralized helper so the worker pre-sampler cannot diverge from what we
-// evaluate here → bit-identical.
+// Band average (TAV/RAV/AAV = (1/Δλ)∫C dλ over the band, trapezoid rule on the
+// band grid) or, for a plain single-wavelength operand, C at op.lambdaStart.
+// The λ grid comes from the centralized helper so the worker pre-sampler
+// cannot diverge from what we evaluate here → bit-identical.
 export function _evalBandAvgOrSingle(op, ctx) {
     _assertMeasurementSide(op, ctx);
     const char = charOf(op.type);
@@ -169,10 +181,10 @@ export function _evalBandAvgOrSingle(op, ctx) {
         return tmmProp(op.lambdaStart, op.aoi, pol, char, ctx, ctx.frontThicks, ctx.frontMats);
     }
     const lams = operandSampleLambdas(op);
-    const n    = lams.length;
+    const q    = bandQuadratureWeights(lams.length);
     let sum = 0;
-    for (let i = 0; i < n; i++) {
-        sum += tmmProp(lams[i], op.aoi, pol, char, ctx, ctx.frontThicks, ctx.frontMats);
+    for (let i = 0; i < lams.length; i++) {
+        sum += q[i] * tmmProp(lams[i], op.aoi, pol, char, ctx, ctx.frontThicks, ctx.frontMats);
     }
-    return sum / n;
+    return sum;
 }

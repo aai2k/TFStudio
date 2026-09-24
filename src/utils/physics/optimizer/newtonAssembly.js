@@ -18,8 +18,6 @@
 export { _jtjUpper, _mirrorUpper, _addS } from './newtonAssembly/gaussNewton.js';
 export { makeHessianSampler } from './newtonAssembly/hessianSampler.js';
 export {
-    _curvRangeTarget,
-    _curvIntegral,
-    _curvRangeAvg,
+    _curvOperand,
     _operandSupportsFullNewton,
 } from './newtonAssembly/curvature.js';

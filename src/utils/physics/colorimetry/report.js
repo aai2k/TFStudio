@@ -9,12 +9,13 @@ import { dominantWavelength, correlatedColorTemperature } from './locus.js';
 import { xyzToSRGB } from './srgb.js';
 
 /**
- * Full colour report for one spectral response.
- * @param {(lam:number)=>number} Rfn  R|T as a fraction (0–1)
+ * Full colour report for one spectral response. The reference white is
+ * integrated on the response's own grid, so a response of 1 is the white.
+ * @param {{lambda:number[], values:number[]}} spectrum  λ in nm; R|T as a fraction (0–1)
  */
-export function colorReport(Rfn, { observer = '2', illuminant = 'D65', step = 5 } = {}) {
-  const XYZ   = tristimulus(Rfn, observer, illuminant, step);
-  const white = whitePoint(observer, illuminant, step);
+export function colorReport(spectrum, { observer = '2', illuminant = 'D65' } = {}) {
+  const XYZ   = tristimulus(spectrum, observer, illuminant);
+  const white = whitePoint(spectrum.lambda, observer, illuminant);
   const xy    = chromaticityXy(XYZ);
   const wxy   = chromaticityXy(white);
   return {

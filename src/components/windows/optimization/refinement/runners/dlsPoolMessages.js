@@ -81,6 +81,7 @@ function onProgressMsg(ctx, S, m, wid) {
 
 function onDoneMsg(ctx, S, w, m, wid) {
     S.gotProgress = true;
+    S.lastReason = m.reason;
     const ci = bumpCum(S, wid, m.iter);
     const mfB = m.mfBest ?? m.mf;
     const omfB = m.omfBest ?? m.omf;

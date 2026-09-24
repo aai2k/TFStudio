@@ -6,16 +6,20 @@
  * thread (NeedleVariation/GradualEvolution), fanning these primitives across a
  * WorkerPool so synthesis uses many cores:
  *
- *   scan      — partial needle scan over an assigned candidate-material slice
+ *   scan:       partial needle scan over an assigned candidate-material slice
  *               (per-candidate gradient is computed in the exact op→λ→pol order
  *               as a single scan ⇒ that part is bit-identical).
- *   candidate — findOptimalNeedleThickness + insert + DLS (+prune; GE adds a
- *               second DLS) for ONE candidate. A BATCH of these runs in
- *               parallel and the best post-refinement is kept (rather than
- *               accepting the first improving one in ΔMF order); this is NOT
- *               bit-identical, but uses many threads.
- *   seedDls   — GE seed refinement.
- *   geStep    — forced total-optical-thickness insertion (GE).
+ *   candidate:  findOptimalNeedleThickness + insert + refine for ONE
+ *               candidate (GE in two passes; Needle keeps or takes out the
+ *               layers the refine parked on the floor, on merit). A BATCH of
+ *               these runs in parallel and the best post-refinement is kept
+ *               (rather than accepting the first improving one in ΔMF order);
+ *               this is NOT bit-identical, but uses many threads.
+ *   seedDls:    GE seed refinement.
+ *   geStep:     forced total-optical-thickness insertion (GE), reported with
+ *               the full merit of the design it returns.
+ *   dropParked: the design without the layers parked on its floor, refined
+ *               (GE, when needle optimization has stalled).
  *
  * Materials cross via Approach A pre-sampling (design + candidate pool); the
  * worker rebuilds an exact-λ table-lookup getNK off the same
@@ -23,10 +27,11 @@
  */
 
 import {
-    scanNeedlesPFunction, scanGEInsertions,
+    scanNeedlesPFunction, scanGEInsertions, intraMinima,
     findOptimalNeedleThickness, insertNeedle, insertNeedleIntra, cleanupLayers,
     removeRedundantLayers,
 } from '../physics/optimizer.js';
+import { refineWithParkedTrial, refineWithoutParked } from '../physics/optimizer/parkedLayers.js';
 import { makeEngine } from '../optimizers/index.js';
 import { noteTmmWasmBytes, awaitTmmWasmReady } from '../../tmmcore.js';
 import { makeResolveMat } from './resolveMat.js';
@@ -94,29 +99,40 @@ function runDls(operands, design, resolveMat, dMin, maxIter, jobId, side, engine
     return dls;
 }
 
+// Needle scan over the job's material slice. Intra-layer candidates come back
+// reduced to the minima of the needle function along each layer (intraMinima).
 function handleScan(job, resolveMat, post) {
     const side = effectiveSide(job.design, job.side);
     const candidateMats = job.poolSlice.map(p => ({ id: p.id, name: p.name, mat: resolveMat(p.id) }));
     const { candidates, mf0 } = scanNeedlesPFunction({
         operands: job.operands, design: job.design, resolveMat,
         candidateMats, deltaNm: job.deltaNm, side,
+        dMin: job.dMin, nIntra: job.nIntra,
     });
-    post({ type: 'result', kind: 'scan', candidates, mf0 });
+    post({ type: 'result', kind: 'scan', candidates: intraMinima(candidates), mf0 });
 }
 
-// Prune both sides after DLS so the orchestrator can apply the full design
-// uniformly. The inactive side typically has no needle inserted, but DLS in
-// both_independent may still drive its thicknesses below dMin → prune anyway.
-function pruneBothSides(design, dMin) {
-    return {
-        ...design,
-        frontLayers: cleanupLayers(design.frontLayers || [], dMin),
-        backLayers:  cleanupLayers(design.backLayers  || [], dMin),
-    };
+// The job's refiner for parkedLayers.js: refine `d` with `maxIter` iterations
+// on the job's engine, streaming ticks for `side`, and return the engine.
+const refinerFor = (job, resolveMat, side, post) => (d, maxIter) =>
+    runDls(job.operands, d, resolveMat, job.dMin, maxIter, job.jobId, side, job.engine || 'dls', post);
+
+// { design, mf, omf } of a parkedLayers.js result: the merit is the engine's.
+const scored = ({ design, eng }) => ({ design, mf: eng.mf, omf: eng.mfOpticalAt(eng.thicknesses) });
+
+// Iteration budgets of one synthesis refine. Needle: `dlsIter`, then half as
+// many for the trial without the parked layers. GE: `dlsIter`, then a second
+// pass of half as many, and no trial: a forced step puts its layer on the
+// floor on purpose, and trying it out again would take the step back.
+function refineIters(dlsIter, pipeline) {
+    const half = Math.max(1, Math.floor(dlsIter / 2));
+    return pipeline === 'ge'
+        ? { maxIter: dlsIter, extraIter: half, trialIter: 0 }
+        : { maxIter: dlsIter, extraIter: 0, trialIter: half };
 }
 
 function handleCandidate(job, resolveMat, post) {
-    const { operands, design, cand, dMin, dlsIter, pipeline, jobId, engine = 'dls' } = job;
+    const { design, cand, dMin, dlsIter, pipeline, operands } = job;
     // For both_independent the candidate carries its own side (front or back)
     // — scans on each side were merged main-side. Forced-side modes
     // (front_only / symmetric / back_only) fall through to effectiveSide.
@@ -137,40 +153,35 @@ function handleCandidate(job, resolveMat, post) {
         ? insertNeedleIntra(design, cand, dOpt, side)
         : insertNeedle(design,     cand.pos,   cand.materialId, dOpt, side);
 
+    // Accept-or-revert is decided main-side.
+    const res = scored(refineWithParkedTrial(refinerFor(job, resolveMat, side, post), inserted, key, refineIters(dlsIter, pipeline)));
+    const finalDesign = res.design;
+    const active = finalDesign[key] || [];
+    const common = {
+        type: 'result', kind: 'candidate', candId: cand._cid, omf: res.omf, side,
+        frontLayers: finalDesign.frontLayers,         // full design after the refine
+        backLayers:  finalDesign.backLayers, dOpt,
+    };
     if (pipeline === 'ge') {
-        // DLS1 (full) → prune → DLS2 (half), accept-or-revert decided main-side.
-        const d1 = runDls(operands, inserted, resolveMat, dMin, dlsIter, jobId, side, engine, post);
-        const postDls1 = d1.applyToDesign(inserted);
-        const prePrune = (postDls1[key] || []).length;
-        const prunedAct = cleanupLayers(postDls1[key] || [], dMin);
-        if (prunedAct.length === 0) {
-            post({ type: 'result', kind: 'candidate', candId: cand._cid,
-                allPruned: true, dOpt }); return;
-        }
-        const prunedDesign = pruneBothSides({ ...postDls1, [key]: prunedAct }, dMin);
-        const maxIter2 = Math.max(1, Math.floor(dlsIter / 2));
-        const d2 = runDls(operands, prunedDesign, resolveMat, dMin, maxIter2, jobId, side, engine, post);
-        const finalDesign = pruneBothSides(d2.applyToDesign(prunedDesign), dMin);
-        post({ type: 'result', kind: 'candidate', candId: cand._cid,
-            mfNow: d2.mf, omf: d2.mfOpticalAt(d2.thicknesses), side,
-            finalLayers: finalDesign[key],            // active side (back-compat)
-            frontLayers: finalDesign.frontLayers,     // full design post-DLS+prune
-            backLayers:  finalDesign.backLayers,
-            nLayers: (finalDesign[key] || []).length,
-            prePrune, prunedLen: prunedAct.length, dOpt });
+        post({ ...common, mfNow: res.mf, finalLayers: active, nLayers: active.length });
         return;
     }
+    post({ ...common, mfAfter: res.mf, prunedLayers: active, layerCount: active.length });
+}
 
-    // needle pipeline: refine(dlsIter) → prune
-    const dls = runDls(operands, inserted, resolveMat, dMin, dlsIter, jobId, side, engine, post);
-    const finalDesign  = pruneBothSides(dls.applyToDesign(inserted), dMin);
-    const prunedLayers = finalDesign[key] || [];
-    post({ type: 'result', kind: 'candidate', candId: cand._cid,
-        mfAfter: dls.mf, omf: dls.mfOpticalAt(dls.thicknesses), side,
-        prunedLayers,                                 // active side (back-compat)
-        frontLayers: finalDesign.frontLayers,         // full design post-DLS+prune
-        backLayers:  finalDesign.backLayers,
-        layerCount: prunedLayers.length, dOpt });
+// The design with the layers parked on its floor taken out (parkedLayers.js)
+// and refined with `dlsIter` iterations. GE asks for it when needle
+// optimization has stalled. removed = 0 when no layer is parked, or when taking
+// them out would leave the active side empty.
+function handleDropParked(job, resolveMat, post) {
+    const side = effectiveSide(job.design, job.side);
+    const key  = sideKey(side);
+    const r = refineWithoutParked(refinerFor(job, resolveMat, side, post), job.design, key, job.dlsIter);
+    if (!r) { post({ type: 'result', kind: 'dropParked', removed: 0 }); return; }
+    const { design, mf, omf } = scored(r);
+    post({ type: 'result', kind: 'dropParked', side, removed: r.removed, mf, omf,
+        frontLayers: design.frontLayers, backLayers: design.backLayers,
+        nLayers: (design[key] || []).length });
 }
 
 function handleSeedDls(job, resolveMat, post) {
@@ -206,10 +217,15 @@ function handleGeStep(job, resolveMat, post) {
         frontLayers: cleanupLayers(inserted.frontLayers || [], dMin),
         backLayers:  cleanupLayers(inserted.backLayers  || [], dMin),
     };
+    // The scan above ranks insertions on the optical merit; the run compares
+    // every later needle against the full merit the refiners minimize (with
+    // the TT, STR and MNT/MXT rows), so the step reports that merit as `mf`.
+    const ev = makeEngine('dls', operands, geDesign, resolveMat, { dMin });
     post({ type: 'result', kind: 'geStep', side,
         layers: geDesign[key],
         frontLayers: geDesign.frontLayers,            // full design (symmetric mode also mirrors back)
         backLayers:  geDesign.backLayers,
+        mf: ev.mf, omf: ev.mfOpticalAt(ev.thicknesses),
         mfNew: bestGe.mfNew,
         materialId: bestGe.materialId, pos: bestGe.pos, mf0,
         nLayers: (geDesign[key] || []).length });
@@ -220,7 +236,7 @@ function handleGeStep(job, resolveMat, post) {
 // deleting each non-locked layer, re-refines, keeps it iff the merit does not
 // worsen beyond `tol`. Streams progress; returns the consolidated full design.
 function handleRemovePass(job, resolveMat, post) {
-    const { operands, design, dMin, jobId, engine = 'dls' } = job;
+    const { design, dMin, jobId } = job;
     const tol      = Number.isFinite(job.tol)      ? job.tol      : 0.02;
     const minLayers= Number.isFinite(job.minLayers)? job.minLayers: 1;
     const maxIter  = Number.isFinite(job.maxIter)  ? job.maxIter  : 40;
@@ -228,11 +244,10 @@ function handleRemovePass(job, resolveMat, post) {
     const key  = sideKey(side);
     let last = now();
 
-    const refineFn = (d, mi) => {
-        const dls = runDls(operands, d, resolveMat, dMin, mi, jobId, side, engine, post);
-        const applied = pruneBothSides(dls.applyToDesign(d), dMin);
-        return { mf: dls.mf, omf: dls.mfOpticalAt(dls.thicknesses), design: applied };
-    };
+    // Consolidation judges every layer, parked or not, by deleting it and
+    // refining, so its refines skip the parked-layer trial.
+    const refine = refinerFor(job, resolveMat, side, post);
+    const refineFn = (d, mi) => scored(refineWithParkedTrial(refine, d, key, { maxIter: mi, extraIter: 0, trialIter: 0 }));
 
     const res = removeRedundantLayers({
         design, side, dMin, tol, minLayers, maxIter, refineFn,
@@ -263,6 +278,7 @@ export function dispatchSynthesisJob(job, resolveMat, post) {
         case 'seedDls':    handleSeedDls(job, resolveMat, post);    break;
         case 'geStep':     handleGeStep(job, resolveMat, post);     break;
         case 'removePass': handleRemovePass(job, resolveMat, post); break;
+        case 'dropParked': handleDropParked(job, resolveMat, post); break;
         default: post({ type: 'error', message: `unknown job ${job.type}` });
     }
 }

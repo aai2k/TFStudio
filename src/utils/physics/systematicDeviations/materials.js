@@ -36,6 +36,7 @@ export function enumerateUniqueMaterials(design) {
 
 // ── Effective (combined) per-material perturbation ───────────────────────────
 
+/** Combined Δn, Δk and thickness scale for a coating layer of material `matId`. */
 export function effectiveForMaterial(dev, matId) {
     const pm = (dev?.perMaterial && matId && dev.perMaterial[matId]) || null;
     return {
@@ -43,6 +44,17 @@ export function effectiveForMaterial(dev, matId) {
         dk:     (dev?.globalDeltaK || 0)            + (pm?.dk || 0),
         dScale: (dev?.globalThicknessScale ?? 1)    * (pm?.dScale ?? 1),
     };
+}
+
+/**
+ * Δn and Δk for a medium (incident, substrate or exit) of material `matId`.
+ * The global shift models a deposition process running off nominal, which
+ * cannot change the air or the substrate glass, so only a per-material entry
+ * set on that material reaches a medium.
+ */
+export function effectiveForMedium(dev, matId) {
+    const pm = (dev?.perMaterial && matId && dev.perMaterial[matId]) || null;
+    return { dn: pm?.dn || 0, dk: pm?.dk || 0 };
 }
 
 /**

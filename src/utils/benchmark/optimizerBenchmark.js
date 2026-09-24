@@ -467,7 +467,7 @@ function structuralProposals(state, it) {
     }
     for (let j = proposals.length; j < state.structK; j++) {
         const proposal = proposeMutation(currentLayers, {
-            rng: state.rng, pool: state.poolLite, dMin: state.dMin, dMax: 2000,
+            rng: state.rng, pool: state.poolLite, dMin: state.dMin,
             addMaxNm: 120, jitterPct: 0.15, kinds,
         });
         if (proposal) proposals.push(proposal);
@@ -516,7 +516,7 @@ function acceptStructuralResult(state, result, temperature, it) {
 function reheatStructuralState(state, it) {
     state.reheats++;
     const kicked = basinKick(deep(state.best.design.frontLayers || []), {
-        rng: state.rng, pool: state.poolLite, dMin: state.dMin, dMax: 2000,
+        rng: state.rng, pool: state.poolLite, dMin: state.dMin,
         addMaxNm: 120, jitterPct: 0.15, kinds: MUTATION_KINDS, maxKick: 3,
     });
     const result = refinePrune(

@@ -61,6 +61,8 @@ const pick = (values, keys) => Object.fromEntries(keys.map(key => [key, values[k
 // curve map is the one that window opens with.
 const OPTICAL_EVALUATION_KEYS = ['lambdaStart', 'lambdaEnd', 'lambdaStep', 'thetas', 'spectralUnit', 'yScale', 'yAuto', 'yMin', 'yMax'];
 const ALL_CURVES_OFF = { T: false, R: false, A: false, Ts: false, Rs: false, Tp: false, Rp: false };
+// The color block starts from the Color Evaluation window's shipped settings the same way.
+const COLOR_EVALUATION_KEYS = ['characteristic', 'pol', 'theta', 'observer', 'illuminant', 'step'];
 
 // The settings a block of each type starts from. Everything a section builder
 // reads appears here, so a block saved by an older release still carries every
@@ -74,9 +76,7 @@ const SETTINGS_DEFAULTS = {
     ...pick(sessionDefaults('opticalEvaluation'), OPTICAL_EVALUATION_KEYS),
     curves: { ...ALL_CURVES_OFF, T: true, R: true }, plot: 'm', tableStep: 10,
   }),
-  color:        () => ({
-    characteristic: 'R', pol: 'avg', theta: 0, observer: '2', illuminant: 'D65', step: 5,
-  }),
+  color:        () => pick(sessionDefaults('colorEvaluation'), COLOR_EVALUATION_KEYS),
   integrals:    () => ({ theta: 0, polarization: 'avg' }),
   gdGdd:        () => ({
     lambdaStart: 400, lambdaEnd: 800, lambdaStep: 1, theta: 0, target: 'R', pol: 'avg', side: 'front',

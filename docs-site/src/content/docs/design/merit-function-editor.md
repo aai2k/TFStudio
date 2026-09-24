@@ -95,7 +95,8 @@ a named merit function you can reuse in another design.
 
 **Constraints**: minimum and maximum layer-thickness bounds (`MNT`/`MXT`) per
 layer or per material. A bound can be written to cover layers that synthesis
-will add later.
+will add later. An `MXT` row is the only upper limit on a layer's thickness;
+without one the optimizers let a layer grow as thick as the merit asks.
 
 ## MF vs OMF
 

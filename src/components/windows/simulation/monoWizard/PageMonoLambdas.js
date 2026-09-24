@@ -102,7 +102,9 @@ export function PageMonoLambdas({ p, set, layers, c, B, ctx, design }) {
                             h('td', { style: td },
                                 h('select', { value: m.strategy || 'turning', onChange: (e) => setMon(i, 'strategy', e.target.value), style: { ...inputStyle(c, 120), padding: '3px 5px', fontSize: 12 } },
                                     stratOpts.map(([v, lbl]) => h('option', { key: v, value: v }, lbl)))),
-                            h('td', { style: td }, m.strategy === 'turning'
+                            // Turning: which extremum. Level: which branch,
+                            // counted the same way. 1 lets the model decide.
+                            h('td', { style: td }, m.strategy !== 'time'
                                 ? cellNum({ value: m.order ?? 1, step: 1, min: 1, max: 12, c, width: 54, onChange: (v) => setMon(i, 'order', Math.max(1, Math.round(v))) })
                                 : h('span', { style: { color: c.textDim } }, '—')));
                     })))),

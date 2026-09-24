@@ -32,7 +32,7 @@
  */
 import assert from 'node:assert/strict';
 import { tmm, tmmWithAdmittances } from '../src/utils/physics/thinFilmMath.js';
-import { bareInterface } from '../src/utils/physics/thinFilmMath/totalSystem.js';
+import { bareInterface, incidence } from '../src/utils/physics/thinFilmMath/totalSystem.js';
 
 const near = (actual, expected, tolerance, message) => assert.ok(
     Math.abs(actual - expected) <= tolerance,
@@ -103,8 +103,8 @@ for (const [n, k] of [[1.5, 0.01], [1.5, 0.1], [2, 0.3]]) {
 
 {
     const n0 = [1.5, 0.02];
-    const sin0 = [Math.sin(Math.PI / 3), 0];
-    const face = bareInterface(n0, GLASS, sin0);
+    const { sinTheta0, cosTheta0 } = incidence(60);
+    const face = bareInterface(n0, GLASS, sinTheta0, cosTheta0);
     for (const pol of ['s', 'p']) {
         const { eta0 } = tmmWithAdmittances(550, 60, pol, n0, GLASS, []);
         assert.deepEqual(face[pol].eta0, eta0, `the slab model's bare face uses the coated pass's incident admittance (${pol})`);

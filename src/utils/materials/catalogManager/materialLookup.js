@@ -10,7 +10,9 @@ import { getCatalogs } from './lifecycle.js';
  *   'builtin:BK7'  → builtin catalog
  *   'schott:N-BK7' → schott catalog
  *
- * Returns null if not found.
+ * Returns null if not found, and for an entry whose optical constants cannot
+ * be computed (see makeGetNK): it is listed in its catalog but resolves as
+ * unavailable wherever a design uses it.
  */
 export function getMaterialById(id) {
     const catalogs = getRegistry();
@@ -35,7 +37,9 @@ export function getMaterialById(id) {
     if (!mat) return null;
 
     if (!mat.getNK) {
-        mat.getNK = makeGetNK(mat);
+        const getNK = makeGetNK(mat);
+        if (!getNK) return null;
+        mat.getNK = getNK;
         // NOTE: color is intentionally NOT baked here. A material's stored color
         // stays null/'auto' (= automatic) so the Material Editor can show it as
         // automatic and renames/edits stay live; resolveColor(mat) derives the

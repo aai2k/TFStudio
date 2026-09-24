@@ -25,7 +25,8 @@ single layer.
 **Clean back**: apply the same cleanup to the back-surface stack.
 
 **Re-optimize after**: run a Refinement pass on the cleaned design to recover
-any merit lost to the structural change (on by default).
+any merit lost to the structural change (on by default). It refines with SQP,
+the Refinement window's default method.
 
 **Refine iterations**: how many refinement steps the post-clean pass runs
 (default 80).
@@ -37,7 +38,10 @@ The **operations preview** lists exactly what will change before you commit
 along with the merit function before and after. A separate **thin layers**
 panel shows which layers are currently below the threshold, as a diagnostic
 view. **Apply** performs the cleanup (and the optional refine) as a single
-undoable step.
+undoable step. The refine runs in the background, so the app keeps responding
+on a large design: the window shows the step and the merit reached, with a **Stop**
+button that applies the cleanup with the best thicknesses found so far. Switch
+to another design while it runs and nothing is applied.
 
 A good habit is two-stage cleanup: a first pass at the synthesis floor to drop
 noise layers, then a second pass at your real manufacturing floor for the final

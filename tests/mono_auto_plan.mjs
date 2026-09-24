@@ -4,10 +4,10 @@
  *
  *   1. a quarter-wave stack keeps the reference wavelength and its turning
  *      cut on every layer (the incumbent rule preserving self-compensation);
- *   2. every choice is executable: a level pick has no earlier same-direction
- *      crossing of its target level, a turning pick has an extremum at the
- *      target; degenerate layers get 'time';
- *   3. a low-noise simulated run under the picked plan cuts near target.
+ *   2. every choice is executable: a level pick crosses its target level once
+ *      on the branch after the last turning point before the cut, a turning
+ *      pick has an extremum at the target; degenerate layers get 'time';
+ *   3. a noiseless simulated run under the picked plan cuts on target.
  *
  * Run: node tests/mono_auto_plan.mjs
  */
@@ -60,6 +60,27 @@ const mixedDesign = makeDesign(mixedFront);
 const plan = pickMonitoringPlan({ design: mixedDesign, ...PICK });
 ok(plan[3].strategy === 'time' && plan[3].lambda === REF, 'a zero-thickness layer is cut on time at the reference');
 
+// Whether a turning pick has no extremum at its cut.
+function turningMissesCut(curve, d, dQW) {
+    const ext = nearestExtremum(findExtrema(curve), d);
+    return !ext || Math.abs(ext.d - d) > dQW / 4;
+}
+
+// Where a level pick would fire before its own cut, or null. A level cut arms
+// at the last turning point before the cut and follows the branch after it,
+// which must reach the level only once.
+function earlyLevelCrossing(curve, sCut, d) {
+    const opened = findExtrema(curve).filter(e => e.d < d);
+    const arm = opened[opened.length - 1] || { d: 0, s: curve.s[0] };
+    const startDir = Math.sign(sCut - arm.s) || 1;
+    for (let k = 1; k < curve.s.length && curve.d[k] < d - curve.h; k++) {
+        const before = startDir * (curve.s[k - 1] - sCut) < 0;
+        const after = startDir * (curve.s[k] - sCut) >= 0;
+        if (curve.d[k - 1] >= arm.d && before && after) return curve.d[k];
+    }
+    return null;
+}
+
 let executable = true;
 for (let i = 0; i < mixedFront.length; i++) {
     const d = mixedFront[i].thickness;
@@ -73,24 +94,17 @@ for (let i = 0; i < mixedFront.length; i++) {
     };
     const dQW = plan[i].lambda / (4 * ctx.curMat.getNK(plan[i].lambda)[0]);
     const curve = sampleLayerCurve(ctx, d, dQW, true);
-    const sCut = signalAt(ctx, d);
     if (plan[i].strategy === 'turning') {
-        const ext = nearestExtremum(findExtrema(curve), d);
-        if (!ext || Math.abs(ext.d - d) > dQW / 4) {
+        if (turningMissesCut(curve, d, dQW)) {
             executable = false;
             console.log(`     layer ${i}: turning pick with no extremum at the cut (λ ${plan[i].lambda})`);
         }
-    } else {
-        const startDir = Math.sign(sCut - curve.s[0]) || 1;
-        for (let k = 1; k < curve.s.length && curve.d[k] < d - curve.h; k++) {
-            const up = curve.s[k - 1] < sCut && curve.s[k] >= sCut;
-            const dn = curve.s[k - 1] > sCut && curve.s[k] <= sCut;
-            if (startDir > 0 ? up : dn) {
-                executable = false;
-                console.log(`     layer ${i}: level pick with an earlier crossing at ${curve.d[k].toFixed(1)} nm (λ ${plan[i].lambda})`);
-                break;
-            }
-        }
+        continue;
+    }
+    const early = earlyLevelCrossing(curve, signalAt(ctx, d), d);
+    if (early !== null) {
+        executable = false;
+        console.log(`     layer ${i}: level pick with an earlier crossing at ${early.toFixed(1)} nm (λ ${plan[i].lambda})`);
     }
 }
 ok(executable, 'every picked (λ, strategy) is executable by the cut rules');
@@ -111,7 +125,7 @@ for (let i = 0; i < mixedFront.length; i++) {
     worst = Math.max(worst, Math.abs(run.asBuiltFront[i] - run.targetFront[i]) / run.targetFront[i]);
 }
 console.log(`     zero-noise run under the plan: worst |Δd|/d = ${(worst * 100).toFixed(2)} %`);
-ok(worst < 0.12, 'zero-noise cuts land within 12% under the picked plan');
+ok(worst < 0.005, 'zero-noise cuts land on target under the picked plan');
 
 // ── 4. A deep mirror moves off-band once its stopband saturates ───────────────
 // The classical practice: quarter-wave layers keep λref turning cuts while

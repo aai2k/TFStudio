@@ -14,12 +14,13 @@ export { resolveScanSide } from './scanners/sides.js';
 export { scanNeedlesAnalytic } from './scanners/analyticScan.js';
 export { scanNeedlesFD } from './scanners/fdScan.js';
 export { findOptimalNeedleThickness } from './scanners/thickness.js';
+export { intraMinima } from './scanners/intraMinima.js';
 export { scanGEInsertions } from './scanners/geScan.js';
 
 // Dispatcher: prefer the exact analytic Tikhonravov/Sullivan P-function; fall
 // back to the validated finite-difference scan when the merit function contains
 // terms whose ∂Q/∂(B,C) is not analytically defined here (ramp / constraint-only
-// / integral / minmax / math / argwave / cone). Sullivan & Dobrowolski (1996)
+// / integral / minmax / math / argwave). Sullivan & Dobrowolski (1996)
 // give exactly this rationale for keeping a numerical variant available.
 //
 // Surface-mode awareness: both scanners route through buildEvalContext /

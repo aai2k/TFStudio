@@ -54,8 +54,9 @@ function useStoreTick(store) {
 
 // The keys of the Monte-Carlo and Monitor Worksheet state the report prints. A
 // write to any other key of those windows (a divider position, a field being
-// typed) leaves the page alone.
-const MONTE_CARLO_KEYS = ['result', 'char', 'corridorSigma', 'rmsAbsNm', 'rmsRelPct', 'rmsReN', 'rmsImN', 'distribution', 'theta', 'polarization'];
+// typed) leaves the page alone. A Monte-Carlo run carries the settings it was
+// made with, so the run is all the report reads from that window.
+const MONTE_CARLO_KEYS = ['result'];
 const WORKSHEET_KEYS = ['char', 'theta', 'polarization', 'layersPerChip', 'witnessRatio', 'signalErrorPct', 'absSignalErrorPct', 'maxTerminationErrPct', 'chipMaterial', 'chipByStep', 'lambdaByStep'];
 
 const pick = (values, keys) => Object.fromEntries(keys.map(key => [key, values[key]]));
@@ -77,9 +78,9 @@ function sameExternal(a, b) {
 }
 
 // What other windows hold and the report prints as is: the Monte-Carlo
-// window's last run for a design, with the error settings it ran with, and the
-// Monitor Worksheet window's chip plan and monitor settings. The page follows a
-// change to those values and nothing else those windows write.
+// window's last run for a design, which carries the error settings it ran with,
+// and the Monitor Worksheet window's chip plan and monitor settings. The page
+// follows a change to those values and nothing else those windows write.
 function useExternalResults(designs) {
     const runTick = useStoreTick(errorAnalysisSession);
     const planTick = useStoreTick(monitorWorksheetSession);
@@ -91,8 +92,8 @@ function useExternalResults(designs) {
         const byId = new Map(current.map(entry => [entry.id, entry]));
         return {
             monteCarlo: design => {
-                const { result, ...settings } = byId.get(design.id)?.monteCarlo || {};
-                return result ? { result, settings } : null;
+                const result = byId.get(design.id)?.monteCarlo?.result;
+                return result ? { result } : null;
             },
             worksheet: design => byId.get(design.id)?.worksheet || null,
         };

@@ -18,8 +18,14 @@ transmittance, evaluate the design as the total system.
 ## Settings
 
 **λ range / step**: the wavelength grid the spectrum is sampled on, in
-nanometres. It should be wide enough to cover the bands of every integral you
-want to read.
+nanometres. Every row is integrated over its own whole band, so the grid has to
+span the band of each integral you want to read. A row whose band the spectrum
+does not span reads **n/a**, with the span the spectrum does cover shown beside
+its band, and the CSV export leaves its cells empty; it is never averaged over
+the part of the band that happens to be covered. The grid has to reach both ends
+of the band, so pick a step that divides the range evenly. The default grid,
+300-2500 nm, covers every built-in row: photopic 380-780 nm, solar 300-2500 nm,
+UV 300-380 nm and NIR 780-2500 nm.
 
 **AOI / pol**: angle of incidence and polarization (s, p, or averaged).
 
@@ -57,7 +63,10 @@ marked on the chart.
 
 A note on the visible figures: Tvis matches the photopic luminance only when the
 source is D65 and the detector is the CIE 1931 2° observer; a perfect white reads
-100 %.
+100 %. The photopic rows are integrated on the λ grid like every other row, with
+the CIE tables interpolated onto it, so a feature narrower than the 5 nm spacing
+of those tables is counted once the step resolves it. For the Tvis of a narrow
+notch, set a step well below the notch width.
 
 ## References
 

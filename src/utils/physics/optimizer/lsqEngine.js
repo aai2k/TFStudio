@@ -20,27 +20,34 @@
 import {
     isFullSystemEval, effectiveBackLayers,
     evaluateOperands, phaseDispersionThicknessPoint, ellipsometryThicknessPoint,
-    operandResidualScale, calcMF, mfWeightDenominator, _operandResidual,
-    operandEvaluationErrors, OperandEvaluationError,
+    operandResidualScale, calcMF, mfWeightDenominator,
+    operandEvaluationErrors, OperandEvaluationError, operandSampleDeviations,
 } from './evalCore.js';
-import {
-    isManufacturability, isRangeTarget, isIntegral,
-    isMinmax, isArgwave, isMath, isEField, isMeasuredCurve,
-    polFromType,
-} from './operandModel.js';
+import { operandResidualRows } from './residualRows.js';
+import { isArgwave, isMath, isEField, isMeasuredCurve } from './operandModel.js';
 import { expandMeasuredCurveOperands } from './measuredCurveOperand.js';
-import { isRangeAvg, charOf } from './sampling.js';
 import { makeConeSpec, coneIsActive } from './coneAngle.js';
 import { mirrorLayers } from './layerOps.js';
 import { solveLeastSquaresQR } from './linalg.js';
-import { _surfaceLayout, makePointEvaluators, _jacRow } from './jacobianAssembly.js';
-import { _jtjUpper, _mirrorUpper, makeHessianSampler, _addS, _curvRangeTarget, _curvIntegral, _curvRangeAvg, _operandSupportsFullNewton } from './newtonAssembly.js';
+import { halfWaveSpans, limitStepToSpans } from './halfWaveSpan.js';
+import { LM_MAX_DAMPING, scaledStepRatio, predictedReduction, lmStopReason } from './lmStopping.js';
+import { boxedStart, movablePositions, residualGradient, restrictColumns, projectedTrial } from './boundedStep.js';
+import { _surfaceLayout, makePointEvaluators, _jacRows } from './jacobianAssembly.js';
+import { _jtjUpper, _mirrorUpper, makeHessianSampler, _addS, _curvOperand, _operandSupportsFullNewton } from './newtonAssembly.js';
 
 // Operand kinds whose analytic chain rule is not worked out. One of them in
 // the merit function puts the whole Jacobian onto finite differences.
 const DECLINES_ANALYTIC_JACOBIAN = [
     isArgwave, isMath, isMeasuredCurve, isEField,
 ];
+
+const sameValues = (a, b) => a.length === b.length && a.every((value, index) => value === b[index]);
+
+// Whether a cache entry { thicknesses, freeIdx } was built at exactly this
+// point with exactly these free variables.
+function cachedAt(entry, thk, freeIdx) {
+    return !!entry && sameValues(entry.thicknesses, thk) && sameValues(entry.freeIdx, freeIdx);
+}
 
 // ── DLS Optimizer (Levenberg-Marquardt) ───────────────────────────────────────
 //
@@ -62,11 +69,12 @@ export class LSQEngine {
         // one side carries optimization variables (front_only/back_only + total).
         this.evalFullSystem = isFullSystemEval(this.surfaceMode, this.mfEvalMode);
         // Cone-angle averaging. Normalized once; flows into every
-        // _ctxFor() so the merit/residuals are cone-averaged. When active the
-        // analytic Jacobian (a single-angle read) is declined so the gradient
-        // falls back to FD, which differences the cone-averaged residuals and
-        // therefore stays exactly consistent with the MF.
+        // _ctxFor() so the merit/residuals are cone-averaged. Every context
+        // shares one store of cone node sets, settled by the first evaluation
+        // (evalCore/coneNodeCount.js), so the merit function, its analytic
+        // Jacobian and every trial point of the run average over the same rays.
         this.cone        = makeConeSpec(design?.cone || {});
+        this._coneNodes  = new Map();
         // Stress run temperatures, read by the STR operand through the context.
         this.stress      = design?.stress || null;
         this.layerSide   = 'frontLayers';   // legacy field; callers may inspect
@@ -112,8 +120,15 @@ export class LSQEngine {
             this.lockedMask  = [...this.frontLockedMask];
         }
 
+        // Thickness box, nm. No upper bound unless the caller passes one: the
+        // user's own upper bound is the MXT operand, and LWIR half-wave layers
+        // and thick spacers are legitimately microns thick. What keeps a DLS,
+        // Newton, Newton-CG or SQP step local is the per-layer step span
+        // (halfWaveSpan.js), not a box.
         this.D_MIN  = opts.dMin   ?? 1.0;
-        this.D_MAX  = opts.dMax   ?? 2000.0;
+        this.D_MAX  = opts.dMax   ?? Infinity;
+        this.thicknesses = boxedStart(this);
+        this.stepSpans = halfWaveSpans(this.operands, this.mats);
         this.lamD   = opts.lamInit ?? 1e-2;
         this.lamN   = opts.lamNInit ?? 1e-3;   // modified-Newton damping state (newtonStep)
         this.lamS   = opts.lamSInit ?? 1e-3;   // bounded-SQP damping state (sqpStep)
@@ -133,6 +148,9 @@ export class LSQEngine {
         this.thickBest = [...this.thicknesses];
         this.iter      = 0;
         this._linearizationCache = null;
+        this._newtonSystemCache = null;
+        // The stopping test (lmStopping.js) the last LM step met, or null.
+        this.convergedBy = null;
     }
 
     // Build the eval-context for a candidate thickness vector, splitting it
@@ -176,6 +194,7 @@ export class LSQEngine {
             mfEvalMode:           this.mfEvalMode,
             evalFullSystem:       this.evalFullSystem,
             cone:                 this.cone,
+            _coneNodeCache:       this._coneNodes,
             stress:               this.stress,
             n0mat:                this.n0mat,
             nsmat:                this.nsmat,
@@ -205,27 +224,19 @@ export class LSQEngine {
                 `Row ${errorIndex + 1} ${op.type}: ${operandEvaluationErrors(comp)[errorIndex]}`,
             );
         }
+        // Same per-type unit normalization as calcMF (σ = 1 for optical, so
+        // pure-optical residuals are unchanged; argwave nm ÷ σ_λ). The FD
+        // Jacobian differences this vector, so it inherits σ automatically;
+        // every analytic row builder divides by the same
+        // operandResidualScale(op), which is what keeps the two consistent
+        // for the σ ≠ 1 operands that have an analytic chain rule (Ψ, Δ,
+        // phase and dispersion). A range target gives one row per sample.
+        const deviations = operandSampleDeviations(comp);
         const out = [];
         for (let i = 0; i < this.operands.length; i++) {
             const op = this.operands[i];
             if (!op.enabled || comp[i] == null) continue;
-            const res = _operandResidual(op, comp[i]);
-            // Same per-type unit normalization as calcMF (σ = 1 for optical, so
-            // pure-optical residuals are unchanged; argwave nm ÷ σ_λ). The FD
-            // Jacobian differences this vector, so it inherits σ automatically;
-            // every analytic row builder divides by the same
-            // operandResidualScale(op), which is what keeps the two consistent
-            // for the σ ≠ 1 operands that have an analytic chain rule (Ψ, Δ,
-            // phase and dispersion).
-            const scaled = Math.sqrt(op.weight) * res / operandResidualScale(op);
-            // Guard against a NaN/Inf residual poisoning the QR/LM solve. Unlike
-            // calcMF (a scalar reduction where skipping is safe), the residual
-            // vector MUST keep a fixed length aligned row-for-row with the
-            // analytic Jacobian and with the base/perturbed vectors the FD
-            // Jacobian differences — so substitute a finite 0 instead of
-            // skipping the entry. A degenerate (all-NaN) design is then rejected
-            // by the accept test, since calcMF returns Infinity for it.
-            out.push(Number.isFinite(scaled) ? scaled : 0);
+            out.push(...operandResidualRows(op, comp[i], deviations[i]));
         }
         return out;
     }
@@ -246,6 +257,9 @@ export class LSQEngine {
     //   both_independent → full-system chain rule; free-variable layout is
     //                      [front..., back...], front side reads from the
     //                      front sub-Jacobian, back side from the back.
+    // With a cone active every R/T/A derivative is the weighted sum of the
+    // per-ray derivatives over the rays the residuals were averaged over
+    // (makePointEvaluators), which is exact because the average is linear.
     //
     // Returns null for unsupported merit-function term types so step()
     // can fall back to FD where the analytic chain rule isn't worked out.
@@ -255,12 +269,6 @@ export class LSQEngine {
     // violated tests); the Jacobian's own TMM derivatives are computed separately
     // via tmmJacEval. Omitted ⇒ evaluate here as before. Bit-identical either way.
     _analyticJacobian(thk, freeIdx, compBase) {
-        // Cone-angle averaging: the analytic chain rule is derived
-        // for a single incidence angle. With a cone active the residuals are a
-        // weighted sum over many angles, so decline → callers use the FD path,
-        // which differences the cone-averaged _residuals and is consistent by
-        // construction. (Cone-summing the analytic Jacobian is a future speedup.)
-        if (coneIsActive(this.cone)) return null;
         // Variable layout (which free vars exist) is set by surfaceMode; whether
         // the MF is scored full-system is set by evalFullSystem. front_only/
         // back_only + 'total' reuse the validated full-system chain rule but with
@@ -284,7 +292,7 @@ export class LSQEngine {
             thk, N, ctx, subThickMm: this.substrateThicknessMm,
         };
         const sideMap = { N, varSide, nFront: this.nFront, nBack: this.nBack };
-        const { propDeriv, propVal } = makePointEvaluators(jacCfg, sideMap);
+        const { propDeriv } = makePointEvaluators(jacCfg, sideMap);
 
         // Operand kinds whose analytic chain rule is not worked out yet decline
         // the whole Jacobian so step() falls back to finite differences.
@@ -294,7 +302,6 @@ export class LSQEngine {
             nFree,
             ctx,
             propDeriv,
-            propVal,
             phasePoint: (op, wavelength) => phaseDispersionThicknessPoint(op, ctx, wavelength),
             ellipsometryPoint: op => ellipsometryThicknessPoint(op, ctx, this.operands),
             residualScale: operandResidualScale,
@@ -304,9 +311,9 @@ export class LSQEngine {
             const op = this.operands[i];
             if (!op.enabled || comp[i] == null) continue;
             if (DECLINES_ANALYTIC_JACOBIAN.some(test => test(op.type))) return null;
-            const row = _jacRow(op, i, jc);
-            if (!row) return null;
-            J.push(row);
+            const rows = _jacRows(op, i, jc);
+            if (!rows) return null;
+            J.push(...rows);
         }
         return J;
     }
@@ -328,8 +335,9 @@ export class LSQEngine {
     // argwave operands), or if σ-normalization ≠ 1 (then Jacobian is FD).
     // Supported residual curvature: single-λ optical, range-avg (TAV/RAV/AAV),
     // weighted-integral (linear in comp ⇒ ∂²r = sw·Σα·∂²comp); range-target
-    // (TGT/RGT/AGT, the √-of-mean-square chain); the manufacturability rows and
-    // minmax contribute zero curvature. Returns { H, Jtr } (nFree×nFree, nFree).
+    // (TGT/RGT/AGT, one single-λ residual per sample). The manufacturability rows
+    // and the worst-case min/max rows contribute zero curvature (curvature.js
+    // says why for min/max). Returns { H, Jtr } (nFree×nFree, nFree).
     // Gauss-Newton system { H = JᵀJ, Jtr = Jᵀr } for the cases the FULL analytic
     // Newton Hessian (below) does not cover: full-system MF scoring (evalFullSystem
     // = both_independent / symmetric, or a single side with "ignore the other side"
@@ -356,10 +364,13 @@ export class LSQEngine {
     // FULL Newton (JᵀJ + analytic curvature S) is assembled only when the MF is
     // scored on a SINGLE surface (front_only, or back_only with mfEvalMode='side')
     // and every operand supports the analytic curvature. Otherwise _newtonSystem
-    // falls back to the Gauss-Newton system.
+    // falls back to the Gauss-Newton system. The curvature sampler reads one
+    // angle of incidence, so a cone-averaged merit takes the Gauss-Newton system
+    // too, with the cone-averaged Jacobian.
     _fullNewtonSupported(sm, isSingleBack) {
         if (sm !== 'front_only' && !isSingleBack) return false;
         if (this.evalFullSystem) return false;
+        if (coneIsActive(this.cone)) return false;
         return this.operands.every(_operandSupportsFullNewton);
     }
 
@@ -405,24 +416,11 @@ export class LSQEngine {
 
         // Second-order curvature term S, iterating operands in the SAME order as
         // _analyticJacobian/_residuals so row index `rp` aligns with r0/J.
-        // The manufacturability rows and minmax contribute zero curvature: the
-        // layer bounds and worst-case extrema are piecewise-linear, and the
-        // total thickness and the film force are linear outright.
-        const hc = { H, J, r0, nFree, sample, addS };
+        const hc = { r0, nFree, sample, addS };
         let rp = 0;
         for (let i = 0; i < this.operands.length; i++) {
-            const op = this.operands[i];
-            if (!op.enabled || comp[i] == null) continue;
-            if (isManufacturability(op.type) || isMinmax(op.type)) { rp++; continue; }
-            if (isRangeTarget(op.type))   _curvRangeTarget(op, rp, hc);
-            else if (isIntegral(op.type)) _curvIntegral(op, rp, hc);
-            else if (isRangeAvg(op.type)) _curvRangeAvg(op, rp, hc);
-            else {  // single-λ optical: residual = sw·(val − target), ∂²r = sw·∂²comp.
-                const pol = polFromType(op.type) ?? op.pol;
-                const d2 = sample(op.lambdaStart, pol, charOf(op.type), op.aoi).d2;
-                addS(r0[rp] * Math.sqrt(op.weight), d2);
-            }
-            rp++;
+            if (!this.operands[i].enabled || comp[i] == null) continue;
+            rp += _curvOperand(this.operands[i], rp, hc);
         }
 
         _mirrorUpper(H, nFree);
@@ -466,13 +464,7 @@ export class LSQEngine {
 
     _linearizationAt(thk, freeIdx) {
         const cached = this._linearizationCache;
-        const sameThicknesses = cached
-            && cached.thicknesses.length === thk.length
-            && cached.thicknesses.every((value, index) => value === thk[index]);
-        const sameFreeVariables = sameThicknesses
-            && cached.freeIdx.length === freeIdx.length
-            && cached.freeIdx.every((value, index) => value === freeIdx[index]);
-        if (sameFreeVariables) return cached;
+        if (cachedAt(cached, thk, freeIdx)) return cached;
 
         const compBase = evaluateOperands(this.operands, this._ctxFor(thk));
         const r0 = this._residuals(thk, compBase);
@@ -487,16 +479,37 @@ export class LSQEngine {
         return this._linearizationCache;
     }
 
+    // The Newton / SQP system { H, Jtr } at thk, reused while the engine stays
+    // at the same point: a rejected trial changes only the damping, and the
+    // dense H costs O(N²) kernel work to assemble. Keyed by the thickness
+    // vector and the free set, so an accepted step or a restored best point
+    // builds a new one. Callers must not modify the returned H or Jtr.
+    _newtonSystemAt(thk, freeIdx) {
+        const cached = this._newtonSystemCache;
+        if (cachedAt(cached, thk, freeIdx)) return cached.system;
+        const system = this._newtonSystem(thk, freeIdx);
+        this._newtonSystemCache = { thicknesses: [...thk], freeIdx: [...freeIdx], system };
+        return system;
+    }
+
     step() {
         const thk     = this.thicknesses;
         const freeIdx = thk.map((_, i) => i).filter(i => !this.lockedMask[i]);
-        const nFree   = freeIdx.length;
-        if (nFree === 0) return;
+        if (freeIdx.length === 0) return;
 
         // Rejected trials change damping without changing this linearization.
-        const { r0, J } = this._linearizationAt(thk, freeIdx);
+        const { r0, J: Jfree } = this._linearizationAt(thk, freeIdx);
         const m  = r0.length;
         if (m === 0) return;
+
+        // Layers held at a bound by the gradient take no step (boundedStep.js).
+        // With none left to move the point is stationary for the bounded
+        // problem, which saturates the damping the same way rejected trials do.
+        const cols = movablePositions(this, freeIdx, residualGradient(Jfree, r0));
+        if (cols.length === 0) { this.lamD = LM_MAX_DAMPING; this.iter++; this.convergedBy = 'damping'; return; }
+        const moveIdx = cols.map(c => freeIdx[c]);
+        const nFree   = cols.length;
+        const J = restrictColumns(Jfree, cols);
 
         // Marquardt scaling: damp each parameter by the curvature it sees,
         // sᵢ = (JᵀJ)_ii + ε.  Only the *diagonal* of JᵀJ is needed (the
@@ -525,18 +538,20 @@ export class LSQEngine {
             aug[m + ci] = row;
             rhs[m + ci] = 0;
         }
-        const delta = solveLeastSquaresQR(aug, rhs);
-
-        const thkTry = [...thk];
-        for (let ci = 0; ci < nFree; ci++) {
-            const k = freeIdx[ci];
-            thkTry[k] = Math.max(this.D_MIN, Math.min(this.D_MAX, thk[k] + delta[ci]));
-        }
+        const delta = limitStepToSpans(solveLeastSquaresQR(aug, rhs), moveIdx, this.stepSpans);
+        const thkTry = projectedTrial(this, freeIdx, moveIdx, delta);
 
         const comp   = evaluateOperands(this.operands, this._ctxFor(thkTry));
         const mfTry  = calcMF(this.operands, comp);
 
+        let accepted = null;
         if (mfTry < this.mf) {
+            const move = moveIdx.map(k => thkTry[k] - thk[k]);
+            accepted = {
+                actual: 1 - (mfTry / this.mf) ** 2,
+                predicted: predictedReduction(J, r0, move),
+                ratio: scaledStepRatio(move, moveIdx.map(k => thk[k]), dampDiag),
+            };
             this.thicknesses = thkTry;
             this._linearizationCache = null;
             this.mf  = mfTry;
@@ -546,9 +561,10 @@ export class LSQEngine {
                 this.thickBest = [...thkTry];
             }
         } else {
-            this.lamD = Math.min(this.lamD * 5.0, 1e8);
+            this.lamD = Math.min(this.lamD * 5.0, LM_MAX_DAMPING);
         }
         this.iter++;
+        this.convergedBy = lmStopReason({ mf: this.mf, tol: this.tol, lamD: this.lamD, step: accepted });
     }
 
     // ── Pure evaluator helpers (no state mutation) ─────────────────────────────
@@ -598,12 +614,11 @@ export class LSQEngine {
         const J = this._analyticJacobian(thk, free, compBase);
         if (J) {
             // ∇MF = (Jᵀr) / (‖r‖ · √D)  where MF = √(SSR/D) and SSR = Σ(√w·r)².
-            // D is calcMF's normalization denominator (optical weight only — NOT
-            // the MNT/MXT/TT constraint weights, which sit in SSR's numerator but
-            // not the denominator). Use the shared helper so this stays identical
-            // to calcMF; a mismatch would make CG see a gradient inconsistent with
-            // the reported MF.
-            let sumW = mfWeightDenominator(this.operands);
+            // D is calcMF's normalization denominator over the rows it scored
+            // at this point (optical weight only, never the MNT/MXT/TT
+            // constraint weights, and never a comment row's), so the gradient
+            // is the gradient of the reported MF.
+            let sumW = mfWeightDenominator(this.operands, compBase);
             if (sumW <= 0) sumW = 1;
             const normR = Math.sqrt(SSR);           // = ‖r‖ = √D · MF
             const scale = 1 / (normR * Math.sqrt(sumW));   // = 1/(‖r‖·√ΣW) = ∇MF scale
@@ -640,8 +655,12 @@ export class LSQEngine {
         return this.lockedMask.some(locked => !locked);
     }
 
+    // Converged when nothing is free, or when the LM step's last iteration met a
+    // stopping test (convergedBy, lmStopping.js). The merit and damping tests
+    // are repeated here for an engine that has not stepped yet.
     isConverged() {
-        return !this._hasFreeParameters() || this.mf < this.tol || this.lamD >= 1e8;
+        return !this._hasFreeParameters() || this.mf < this.tol || this.lamD >= LM_MAX_DAMPING
+            || this.convergedBy != null;
     }
 
     restoreBest() {

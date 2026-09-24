@@ -1,8 +1,7 @@
 /**
  * Smoke + sanity test for the new monochromatic engine (utils/monoSim.js).
  *
- *   1. zero-noise turning-point monitoring of a QWOT stack stays near the target
- *      after the configured reversal-confirmation delay;
+ *   1. zero-noise turning-point monitoring of a QWOT stack cuts on the target;
  *   2. arrays are well-formed and index-aligned to the design;
  *   3. measurement noise increases the as-built thickness spread.
  *
@@ -65,11 +64,12 @@ for (let i = 0; i < front.length; i++) {
     maxRelErr = Math.max(maxRelErr, rel);
 }
 console.log(`     zero-noise turning max |Δd|/d = ${(maxRelErr * 100).toFixed(3)} %`);
-// The signal extremum sits a few percent off the geometric quarter-wave. The
-// scan grid, smoothing window, and two-scan reversal confirmation add physical
-// deposition time before the shutter can close. The result must remain near the
-// target, and the spread must grow with noise (checked below).
-ok(maxRelErr < 0.12, 'zero-noise turning remains within 12% after confirmation');
+// On a quarter-wave stack every cut is a turning point. A noiseless monitor
+// forecasts each vertex from the curvature of its smoothed signal and closes
+// the shutter there, between scans, so neither the smoothing window nor the
+// confirmation scans leave an overshoot. The spread must grow with noise
+// (checked below).
+ok(maxRelErr < 0.002, 'zero-noise turning cuts land on the target');
 
 // ── 3. Noise widens the as-built spread (Monte-Carlo over seeds) ──────────────
 function spread(randomPct) {
@@ -119,21 +119,22 @@ ok(maxTimeErr < 1e-6, "'time' strategy with 0 rel-error hits target exactly");
         .map(m => ({ ...m, strategy: 'level' }));
     const r = simulateRunMono(thin, resolveMat, { ...baseCfg, monTable: table, rng: mulberry32(3) });
     const d = r.asBuiltFront[0];
-    ok(d >= 17 - 0.01 && d <= 17 + 0.8,
-       `a zero-noise level cut crosses at the target, plus only the confirm delay (${d.toFixed(3)} nm)`);
+    ok(Math.abs(d - 17) < 0.05, `a zero-noise level cut lands on the target (${d.toFixed(3)} nm)`);
 }
 
 // ── 6. Chip glass ─────────────────────────────────────────────────────────────
 // The monitor watches the witness chip. A single L quarter wave on BK7 swings
-// weakly and turns broadly, so the reversal confirms late; the same layer
-// monitored on a high-index chip swings harder, turns sharper, and cuts closer
-// to the quarter wave.
+// weakly and turns broadly; the same layer monitored on a high-index chip
+// swings harder and turns sharper. With a little noise on the signal the
+// curvature is too faint to forecast the vertex from, so the reversal has to
+// be recognized, and the sharper turning point is recognized sooner.
 {
     const oneL = { ...design, frontLayers: [{ material: 'L', thickness: qwot('L') }] };
     const table = defaultMonoTable(oneL, resolveMat, { autoPickLambda: false });
     const runOn = (chipMaterial) => simulateRunMono(oneL, resolveMat, {
         ...baseCfg, monTable: table,
         mon: { ...baseCfg.mon, chipMaterial },
+        sig: { randomPct: 0.01, driftPctPer1000s: 0 },
         rng: mulberry32(7),
     }).asBuiltFront[0];
     const onSub = runOn(null);

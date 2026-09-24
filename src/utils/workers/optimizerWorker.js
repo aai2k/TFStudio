@@ -1,7 +1,10 @@
 /**
- * Optimizer Web Worker — runs ONE single-start DLS refinement off the UI
- * thread. Multi-start is a worker POOL: the main thread (Refinement.js)
- * spawns several of these, hands each a perturbed-design job, and aggregates
+ * Optimizer Web Worker: runs ONE single-start refinement off the UI thread,
+ * with any makeEngine method (DLS unless the job names another). The
+ * Refinement window, the Structural Optimizer's proposal refines and the
+ * Design Cleaner's post-clean pass use it. Multi-start is a worker POOL: the
+ * main thread (Refinement.js) spawns several of these, hands each a
+ * perturbed-design job, and aggregates
  * the global best. Perturbation + aggregation live on the main thread (one
  * place); each worker only ever does "optimize this design, stream progress,
  * report the best you found". This file is a pure single-start runner;
@@ -20,6 +23,7 @@
  */
 
 import { makeEngine } from '../optimizers/index.js';
+import { DLSOptimizer } from '../physics/optimizer.js';
 import { noteTmmWasmBytes, awaitTmmWasmReady } from '../../tmmcore.js';
 import { makeResolveMat } from './resolveMat.js';
 
@@ -45,6 +49,16 @@ function appliedAt(opt, thicks, design) {
     const d = opt.applyToDesign(design);
     opt.thicknesses = saved;
     return { frontLayers: d.frontLayers, backLayers: d.backLayers };
+}
+
+// Why a finished run stopped: 'maxiter' when the iteration cap cut it off,
+// otherwise the stopping test the DLS engine names ('target', 'damping',
+// 'reduction' or 'step', physics/optimizer/lmStopping.js), or 'converged' for
+// an engine that names none. The Newton and SQP engines carry the field too,
+// from their Levenberg-Marquardt fallback steps, but stop on tests of their own.
+function stopReasonOf(opt) {
+    if (!opt.isConverged()) return 'maxiter';
+    return (opt instanceof DLSOptimizer && opt.convergedBy) || 'converged';
 }
 
 // ── Single-start DLS run ──────────────────────────────────────────────────────
@@ -80,7 +94,7 @@ function runSingle(job, resolveMat) {
         const best = appliedAt(opt, opt.thickBest, design);
         postMessage({
             type: final ? 'done' : 'progress',
-            reason: final ? (opt.isConverged() ? 'converged' : 'maxiter') : undefined,
+            reason: final ? stopReasonOf(opt) : undefined,
             iter: opt.iter, mf: opt.mf, mfBest: opt.mfBest,
             omf: opt.mfOpticalAt(opt.thicknesses), omfBest: opt.mfOpticalAt(opt.thickBest),
             restartIdx: rIdx, nRestarts: nR,

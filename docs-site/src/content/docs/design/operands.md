@@ -107,8 +107,22 @@ the *Pol* column instead.
 
 ## Optical: band average (single target)
 
-Sampled on a uniform grid across `[λStart, λEnd]` (~2 nm spacing, clamped to
-13…201 points), then **averaged to one number**.
+Sampled on a uniform grid across `[λStart, λEnd]`, then **averaged to one
+number** by the trapezoid rule, so the two end samples count half, as in an
+integral over the band.
+
+The grid follows the coating. Its step is an eighth of the fringe spacing
+λ²/(2G) at the short end of the band, where G is the coating's optical
+thickness taken with the group index n − λ·dn/dλ (or n, where n is the larger);
+with both faces coated the two coatings' thicknesses add. A thin coating gets a small grid, a thick one a large
+grid, with no upper limit, so the optimizer cannot lower the merit by moving
+fringes into the gaps between samples. The floor is 13 points. The grid is sized
+from the design in the merit tables of the Merit Function Editor and Refinement
+window, in the Design Cleaner and Needle Manual, and at the start of every
+optimizer run. A refinement keeps that grid for the whole run; a synthesis run
+enlarges it as the design grows. Other views that report a band average, such
+as the Specification window, keep a 2 nm step, so on a thick coating their
+figure can differ slightly from the merit table's.
 
 | Type  | Computes                    | Target unit | Output         |
 | ----- | --------------------------- | ----------- | -------------- |
@@ -124,8 +138,8 @@ line use the spectral-target operands below.
 
 A per-wavelength **target line** across the band. `Target` holds two values
 entered as `start→end` (e.g. `50→50` for a flat 50 % line, `0→100` for a
-ramp). Sampled on a density-based grid (~2 nm, the same density as band
-averages); set `rampPoints` to override.
+ramp). Sampled on the same grid as band averages, with the same trapezoid
+weights.
 
 | Type  | Computes                        | Target unit | Output                        |
 | ----- | ------------------------------- | ----------- | ----------------------------- |
@@ -138,15 +152,16 @@ value (target is already folded in), so the optimizer drives it to zero. Use
 these for beamsplitters (flat 50 %) and gradient / ramp filters.
 
 :::note
-Spectral targets sample at ~2 nm (matching band averages), clamped to
-13…201 points. For an exceptionally steep edge, raise `rampPoints` for an even
-finer fit.
+When a run starts it also looks for features narrower than the grid, such as a
+steep edge or a sharp resonance, in the band of every spectral-target and
+worst-case row, and samples a row more finely where it finds one.
 :::
 
 ## Weighted integral (source × detector)
 
 A band average weighted by `w(λ) = Source(λ) · Detector(λ)`:
-`C̄ = Σ wᵢ·Cᵢ / Σ wᵢ`. The *λ / Start* cell is a **preset picker** (e.g.
+`C̄ = Σ wᵢ·Cᵢ / Σ wᵢ`, summed on the band-average grid with its trapezoid
+weights. The *λ / Start* cell is a **preset picker** (e.g.
 photopic-weighted Tvis, solar-weighted Tsol); the band end is read-only and
 driven by the preset.
 
@@ -311,9 +326,12 @@ Act on **layer thicknesses**, not the spectrum.
 `MNT`/`MXT` layer ranges are **1-based layer indices**, clamped to the current
 stack. A new constraint therefore covers layers 1 to 1000 by default: the end is
 deliberately past any stack you start from, so the constraint keeps covering the
-layers synthesis adds. During Needle / Gradual Evolution synthesis the thickness penalties are
-suppressed (the dMin floor + post-refine + Cleaner enforce bounds instead);
-they are active during Refinement.
+layers synthesis adds. An `MXT` row is the only upper limit on a layer's
+thickness: without one, the optimizers let a layer grow as thick as the merit
+asks. Needle synthesis, automatic and manual, leaves the thickness penalties
+out (the dMin floor + post-refine + Cleaner enforce bounds instead). Gradual
+Evolution and Refinement keep them in the merit function, and the Structural
+Optimizer holds the strictest `MNT` and `MXT` targets as limits on every layer.
 
 ### Film stress (`STR`)
 

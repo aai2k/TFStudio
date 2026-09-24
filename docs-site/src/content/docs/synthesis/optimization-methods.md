@@ -31,11 +31,13 @@ from your current design) and **global** (search broadly, gradient-free).
 
 | Method | What it is | Best for |
 | ------ | ---------- | -------- |
-| **Sequential QP (SQP)** ⭐ default | Bounded Newton step with the layer bounds [MNT/MXT] ∩ [Dmin,Dmax] as **hard constraints** (box-QP, exact bound satisfaction, no penalty tuning). | **The default.** Best / tied-best MF across every benchmark case, decisively so on *constrained* problems (it handles a min-thickness natively). Slower on hard problems, so switch to DLS if you want speed first. |
+| **Sequential QP (SQP)** ⭐ default | Bounded Newton step with the thickness limits (see below) as **hard constraints** (box-QP, exact bound satisfaction, no penalty tuning). | **The default.** Best / tied-best MF across every benchmark case, decisively so on *constrained* problems (it handles a min-thickness natively). Slower on hard problems, so switch to DLS if you want speed first. |
 | **Damped Least Squares (DLS)** | Levenberg–Marquardt, the classic thin-film least-squares refiner. QR-solved damped step, exact analytic Jacobian. | The fast, robust classic; called after every synthesis step. Pick it when you want speed over the last fraction of MF. |
 | **Conjugate Gradient (CG)** | Polak–Ribière⁺ gradient-only method (Nocedal & Wright §5.2), exact analytic ∇MF, projected backtracking line search. | **Very large stacks** and polishing a decent design. Won the 30-layer detuned-HR benchmark; the preferred inner refiner for Needle. |
 | **Newton** | Second-order. Exact analytic Hessian (JᵀJ + curvature) when scoring a single side; Gauss-Newton (JᵀJ) for full-filter (Both / symmetric). | A quadratic endgame in the fewest iterations: small stacks, near the minimum, when you want the last digits. |
 | **Newton-CG** | Truncated Newton, matrix-free; solves the Newton step with inner CG using Hessian-vector products (no dense Hessian). | **Second-order quality without the cost.** Scales to large stacks where dense Newton is too slow (see the 75.9 s → 2.8 s figure below). |
+
+**Thickness limits.** No method has a built-in maximum layer thickness: a layer can grow as thick as the merit function asks, which is what half-wave layers in the infrared and thick cavity spacers need. For an upper limit, add an `MXT` row in the [Merit Function Editor](/design/merit-function-editor/); for a manufacturing floor, an `MNT` row. SQP holds `MNT` and `MXT` as hard limits, so no step leaves them. The other methods carry them as penalty terms in the merit function, which stay at zero while the limit holds. Every method also keeps each layer at or above a minimum thickness: 1 nm in Refinement, the **Min thickness** setting in the synthesis windows. DLS, Newton and Newton-CG hold a layer on that floor for as long as the merit pushes it thinner and release it as soon as the merit pulls it back, so the step is spent on the layers that can move.
 
 ### Global refiners
 

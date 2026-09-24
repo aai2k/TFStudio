@@ -9,7 +9,10 @@
 
 import { DLSOptimizer } from '../../../../../utils/physics/optimizer.js';
 import { designMaterialLookup } from '../../../../../utils/materials/designMaterials.js';
-import { appendMfSample, densifyForRun, presampleMaterials, buildPayload } from '../refinementUtils.js';
+import {
+    appendMfSample, densifyForRun, presampleMaterials, buildPayload,
+    STOCHASTIC_METHODS, takeRunSeed, endReasonFor,
+} from '../refinementUtils.js';
 import { countFreeVars } from '../refinementConfig.js';
 import { runOptMainThread } from './mainThread.js';
 import { runEngineP } from './engineRun.js';
@@ -18,11 +21,12 @@ import { runParallelDEP, runMultiP } from './deEngine.js';
 // Pick + run the engine for method m (F bundles the shared run config).
 function runMethodOnce(ctx, m, F) {
     const mi = F.singleMethod ? ctx.maxIterRef.current : undefined;
+    const seed = F.seed;
     if (m === 'de' && F.HW > 2 && countFreeVars(F.curDes) >= 4)
-        return runParallelDEP(ctx, { ops: F.ops, payload: F.payload, materials: F.materials, alive: F.alive, onProg: F.onProg, maxIterOverride: mi });
+        return runParallelDEP(ctx, { ops: F.ops, payload: F.payload, materials: F.materials, alive: F.alive, onProg: F.onProg, maxIterOverride: mi, seed });
     if (m === 'dls-multi')
-        return runMultiP(ctx, { ops: F.ops, payload: F.payload, materials: F.materials, N: ctx.nRestartsRef.current, pct: ctx.perturbPctRef.current, alive: F.alive, onProg: F.onProg });
-    return runEngineP(ctx, m, { ops: F.ops, payload: F.payload, materials: F.materials, alive: F.alive, onProg: F.onProg, preview: true, maxIterOverride: mi });
+        return runMultiP(ctx, { ops: F.ops, payload: F.payload, materials: F.materials, N: ctx.nRestartsRef.current, pct: ctx.perturbPctRef.current, alive: F.alive, onProg: F.onProg, seed });
+    return runEngineP(ctx, m, { ops: F.ops, payload: F.payload, materials: F.materials, alive: F.alive, onProg: F.onProg, preview: true, maxIterOverride: mi, seed });
 }
 
 // Track the global best across methods. Arms Best as soon as one method beats
@@ -40,7 +44,8 @@ function trackGlobalBest(ctx, m, res, best) {
 
 // Append one Design History row. Only a method that ran to its own stopping
 // point gets one: the strip is a record of completed runs, and a row cut short
-// by Stop would read as a result the method actually reached.
+// by Stop would read as a result the method actually reached. A stochastic
+// method's row keeps the seed it drew from.
 function recordMethodResult(ctx, F, m, res) {
     const layers = (F.layerSide === 'backLayers' ? res.backLayers : res.frontLayers) || [];
     ctx.addHistEntry({
@@ -49,7 +54,16 @@ function recordMethodResult(ctx, F, m, res) {
         iter: F.completedMethodIters, mf: res.mf, omf: res.omf, layers, layerCount: layers.length,
         layerSide: F.layerSide,
         mfHistory: [...F.methodHistory],
+        ...(STOCHASTIC_METHODS.has(m) ? { seed: F.seed } : {}),
     });
+}
+
+// The end-of-run pill: a single method reports how it ended (endReasonFor); a
+// Try-all run names the method whose result it kept.
+function flowStopReason(gb, methods, lastReason) {
+    if (methods.length === 1) return endReasonFor(gb.mf, lastReason);
+    if (gb.mf < 1e-6) return 'target';
+    return gb.method ? `best:${gb.method}` : 'stalled';
 }
 
 // Apply the global best; set a synthetic optimizerRef so Best/Reset work. A run
@@ -69,7 +83,7 @@ function finalizeMethodsFlow(ctx, F, gb, methods) {
     };
     ctx.setIter(F.iterationOffset);
     ctx.setMf(gb.mf); ctx.setMfBest(gb.mf); ctx.setOmf(gb.omf); ctx.setOmfBest(gb.omf);
-    ctx.setStopReason(gb.mf < 1e-6 ? 'target' : (gb.method && methods.length > 1 ? `best:${gb.method}` : 'stalled'));
+    ctx.setStopReason(flowStopReason(gb, methods, F.lastReason));
     if (methods.length > 1) console.log(`[Refine] Try-all done: best = ${gb.method} (MF=${gb.mf.toFixed(6)})`);
 }
 
@@ -121,6 +135,7 @@ function completeMethod(F, method, result) {
     const reportedIter = Number(result?.iters);
     const resultIters = Number.isFinite(reportedIter) ? Math.max(0, reportedIter) : 0;
     F.completedMethodIters = Math.max(F.lastMethodIter, resultIters);
+    F.lastReason = result?.reason;
     if (result) {
         F.methodHistory = appendMfSample(F.methodHistory, F.completedMethodIters, result.mf);
         trackGlobalBest(ctx, method, result, best);
@@ -176,6 +191,7 @@ export async function runMethodsFlow(ctx, methods) {
     const F = {
         ctx, best, baseMF, methodCount: methods.length,
         ops, payload, materials, layerSide, curDes, alive,
+        seed: methods.some(m => STOCHASTIC_METHODS.has(m)) ? takeRunSeed(ctx) : null,
         singleMethod: methods.length === 1,
         HW: (typeof navigator !== 'undefined' && navigator.hardwareConcurrency) || 4,
         iterationOffset: 0, lastMethodIter: 0, completedMethodIters: 0,

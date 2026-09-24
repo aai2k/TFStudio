@@ -13,7 +13,7 @@ import { DLSOptimizer } from '../../../../../utils/physics/optimizer.js';
 import { getThreadCount } from '../../../../../utils/synthesis/synthesisConfig.js';
 import { OPTIMIZER_WORKER_URL as WORKER_URL } from '../../../../../workerUrls.js';
 import { designMaterialLookup } from '../../../../../utils/materials/designMaterials.js';
-import { densifyForRun, presampleMaterials } from '../refinementUtils.js';
+import { densifyForRun, presampleMaterials, takeRunSeed } from '../refinementUtils.js';
 import { runOptMainThread } from './mainThread.js';
 import { designForRestart, makeJob } from './dlsPoolJobs.js';
 import { handleMsg, doFallback } from './dlsPoolMessages.js';
@@ -155,6 +155,7 @@ export function runDlsEvent(ctx) {
     // module-scope message handlers.
     const S = {
         surfMode, layerSide, isMulti, N,
+        seed: isMulti ? takeRunSeed(ctx) : null,
         pct: Math.max(0, perturbPctRef.current) / 100,
         ops, materials, media, baseFront, baseBack, runLabel,
         maxIter: maxIterRef.current || 500,

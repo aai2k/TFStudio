@@ -38,6 +38,12 @@ surface).
 **Perturbation**: for DLS multi-start only: how much to jitter each layer's
 thickness (as a percentage) at the start of every restart.
 
+**Seed**: for Differential Evolution, Simulated Annealing, DLS multi-start and
+**Try all**: the number their random draws start from. Leave it empty and
+**Run** fills it with a new seed and keeps it there, so running again with the
+same seed, design and settings gives the same run. Clear the field to draw
+afresh. The History row of such a run shows its seed.
+
 The surface mode and merit-evaluation mode in effect are shown as badges on
 the window.
 
@@ -56,8 +62,10 @@ can jump back to any earlier result.
 A single-start run (N = 1) is usually enough to re-settle a hand-edited stack.
 After a synthesis pass, a multi-start run helps confirm you have reached the
 true local minimum rather than an improved-but-not-bottom point. Minimum and
-maximum thickness limits are honoured here (they are deliberately relaxed
-during Needle and Gradual Evolution synthesis).
+maximum thickness limits are honoured here (Needle synthesis deliberately
+leaves them out). They are the `MNT` and `MXT` rows of the merit function; no
+layer goes below 1 nm, and nothing else caps how thick a layer may grow, so add
+an `MXT` row where you need an upper limit.
 
 ## References
 

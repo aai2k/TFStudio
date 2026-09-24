@@ -15,7 +15,9 @@ can review the whole series of designs it passed through.
 Each outer cycle runs an inner needle pass to needle-optimality, forces in the
 best available needle regardless of whether the merit goes up, refines, then
 prunes sub-threshold layers and merges adjacent same-material layers. This
-repeats for the number of cycles you set.
+repeats for the number of cycles you set. The wavelength grid the band targets
+are sampled on is sized from the design and grows with it during the run (see
+[Operand Reference](/design/operands/#optical-band-average-single-target)).
 
 ## Settings
 
@@ -34,7 +36,13 @@ insertion.
 
 **dMin (nm)**: the insertion floor and prune threshold. Gradual Evolution can
 push below the minimum thickness limit during its forced step, which is part of
-how it escapes a tight minimum.
+how it escapes a tight minimum. A needle inside a layer is offered only where
+both parts of the split layer stay at or above the floor, and each layer is
+scanned at 16 positions. A layer that refinement drives down onto the floor is
+kept while needle insertions still improve the design. When they stop, before
+the forced step, Gradual Evolution refines the design without its layers on the
+floor and keeps that version only if it beats the best design so far; it shows
+as a **Clean** row in the series.
 
 **GE cycles**: the number of outer cycles (needle-opt plus a forced step);
 typically 20–60.

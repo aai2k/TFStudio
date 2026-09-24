@@ -19,7 +19,9 @@ each one, and takes the best of the batch. A worse design may still be accepted
 with a probability set by a temperature that cools as the run progresses, and this
 is what lets the search climb out of a local minimum. The live design always
 tracks the best result found, so stopping, resetting, or switching tabs always
-leaves you on the best design.
+leaves you on the best design. The wavelength grid the band targets are sampled
+on is sized from the design and grows with it during the run (see
+[Operand Reference](/design/operands/#optical-band-average-single-target)).
 
 | Mutation | Effect |
 | -------- | ------ |
@@ -59,9 +61,19 @@ design.
 **Inner refiner**: which method refines each proposal. See
 [Optimization Methods](/synthesis/optimization-methods/) for the choices.
 
-Minimum and maximum thickness limits are relaxed during the search; re-enable
-them with a [Refinement](/synthesis/refinement/) and
-[Design Cleaner](/synthesis/design-cleaner/) pass afterwards.
+**Random seed**: the number the mutations, the accept rolls and the reheat
+kicks draw from. Leave it empty and **Run** fills it with a new seed and keeps
+it there, so running again with the same seed, design, settings and
+**Parallel K** repeats the run. Clear the field to draw afresh. The history
+marks each run with its seed.
+
+The merit function's `MNT` and `MXT` rows hold during the search: the largest
+`MNT` target raises **dMin**, and the smallest `MXT` target caps every layer,
+both for the proposals and for their refinement. A limit written for a few
+layers therefore applies to the whole stack here; finish with a
+[Refinement](/synthesis/refinement/) and
+[Design Cleaner](/synthesis/design-cleaner/) pass to hold each limit on its own
+layers.
 
 ## How to read it
 

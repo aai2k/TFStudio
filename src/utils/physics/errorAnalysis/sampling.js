@@ -5,8 +5,8 @@
 
 /**
  * Box–Muller transform: two independent Gaussian samples (mean 0, σ = 1) from
- * two uniforms in (0, 1]. We use Math.random() so trials are not reproducible
- * by default; callers wanting determinism should inject a seeded RNG.
+ * two uniforms in (0, 1] drawn from `rng`. A Monte-Carlo run passes its seeded
+ * stream here, so the same seed reproduces every draw.
  */
 export function gauss2(rng) {
     // Avoid u1 == 0 (log(0) = −∞)
@@ -25,21 +25,23 @@ export function gauss2(rng) {
  * (RMS_abs + RMS_rel·d for thickness; the absolute σ for n/k). Its
  * interpretation depends on the distribution:
  *
- *   'gaussian'  (default) — `level` is the RMS / standard
+ *   'gaussian' (default): `level` is the RMS / standard
  *               deviation σ. Draw N(0, σ); deviations are UNBOUNDED (a true
  *               Gaussian tail), so |Δ| > level occurs ~32 % of the time
  *               (resulting RMS error = RMS_abs + RMS_rel·d, corridor = one
  *               standard deviation).
  *
- *   'uniform'   — `level` is a HARD bound B. Draw uniformly on [−B, +B]; every
+ *   'uniform': `level` is a HARD bound B. Draw uniformly on [−B, +B]; every
  *               deviation inside the band is equally likely and |Δ| never
  *               exceeds B. This is the worst-case ±tolerance-band model
  *               (Abs.Dev sets upper limits). The
  *               realized RMS is B/√3 ≈ 0.577·B.
  *
- *   'truncated' — `level` is a HARD bound B interpreted as 3σ (σ = B/3). Draw
+ *   'truncated': `level` is a HARD bound B interpreted as 3σ (σ = B/3). Draw
  *               N(0, σ) but reject/redraw any |g| > 3σ, giving a bell shape
- *               that never exceeds ±B. Realized RMS ≈ 0.97·(B/3).
+ *               that never exceeds ±B. A normal truncated at ±a·σ has
+ *               variance σ²·[1 − 2a·φ(a) / (2Φ(a) − 1)], which at a = 3 is
+ *               0.973·σ², so the realized RMS is 0.987·(B/3).
  *
  * All three measure the spectral corridor from the *realized* trial spectra,
  * so corridorSigma still multiplies the empirical σ regardless of which draw

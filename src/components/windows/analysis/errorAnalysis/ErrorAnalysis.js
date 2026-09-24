@@ -17,7 +17,7 @@ import { ErrorControls, ErrorEditor, errorEditorSummary } from './ErrorControls.
 import { statisticsColumns, statisticsRows } from './resultTable.js';
 import { TrialsModal } from './TrialsModal.js';
 import { hasPerturbableLayers } from './trialModel.js';
-import { chip, yieldColor } from './ui.js';
+import { chip, formatYieldInterval, yieldColor } from './ui.js';
 import { useErrorAnalysis } from './useErrorAnalysis.js';
 
 const { createElement: h } = React;
@@ -30,11 +30,13 @@ function SpecStatus({ spec, c, ea }) {
     const failures = (spec.perQualifier || [])
         .filter(qualifier => qualifier.failRate > 0)
         .sort((a, b) => b.failRate - a.failRate);
+    // The interval says whether two runs' yields differ by more than sampling.
+    const interval = spec.yieldInterval ? ` (${formatYieldInterval(spec.yieldInterval, 0)})` : '';
     return h('span', {
         style: { display: 'inline-flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' },
     },
-        h('span', { style: { color, fontWeight: 600, fontSize: 11 } },
-            `${ea.specYield}: ${yieldValue == null ? '—' : `${(yieldValue * 100).toFixed(0)}%`}`),
+        h('span', { style: { color, fontWeight: 600, fontSize: 11 }, title: ea.yieldIntervalTip },
+            `${ea.specYield}: ${yieldValue == null ? '—' : `${(yieldValue * 100).toFixed(0)}%`}${interval}`),
         ...failures.map((failure, index) => chip(
             `✗ ${failure.label} ${(failure.failRate * 100).toFixed(0)}%`, '#ef5350',
             `${failure.label}: ${(failure.failRate * 100).toFixed(0)}%`, index)),

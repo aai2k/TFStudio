@@ -3,7 +3,8 @@
  * and the resolver that lets a math row reference other rows.
  */
 
-import { isConstraint, isDmfs, isBlank, isStress, isTotalThickness, isRangeTarget, isMeasuredCurve, isIntegral, isMinmax, isArgwave, isMath, isEllipsometry, isPhaseShift, isGroupDelay, isGroupDelayFlat, isEField } from '../../operandModel.js';
+import { isConstraint, isDmfs, isBlank, isStress, isTotalThickness, isRangeTarget, isMeasuredCurve, isIntegral, isMinmax, isArgwave, isMath, isEllipsometry, isPhaseShift, isGroupDelay, isGroupDelayFlat, isEField, isEllipsometricMeasuredCurve, argwaveOpticalChar, argwavePolCode, polFromType } from '../../operandModel.js';
+import { charOf, operandSampleLambdas } from '../../sampling.js';
 import { computeMathValue } from '../mathOperands.js';
 import { _evalTotalThickness, _evalStressForce, _evalConstraint, _evalArgwave, _evalIntegral, _evalMinmax, _evalRangeTarget, _evalBandAvgOrSingle } from './basic.js';
 import { _evalMeasuredCurve } from './measured.js';
@@ -26,6 +27,8 @@ export function resetOperandCaches(ctx) {
 // Look-up referenced operand row(s) by id and recursively evaluate.  Cycle
 // detection: an operand on a cycle returns NaN.  ctx._refStack is the call
 // stack of in-flight ref evaluations; ctx._refCache memoizes finished values.
+// A referenced row with no value of its own (a comment row) also gives NaN, so
+// the math row has no value rather than computing from null.
 export function makeRefResolver(ctx) {
     const operands = ctx?._operandsById;
     return (refId) => {
@@ -38,7 +41,8 @@ export function makeRefResolver(ctx) {
         if (ctx._refStack.has(refId)) return NaN;  // cycle
         ctx._refStack.add(refId);
         try {
-            const v = evalOperand(op, ctx);
+            const value = evalOperand(op, ctx);
+            const v = value == null ? NaN : value;
             ctx._refCache.set(refId, v);
             return v;
         } finally {
@@ -87,4 +91,43 @@ export function evalOperand(op, ctx) {
         if (test(op.type)) return evalFn(op, ctx);
     }
     return _evalBandAvgOrSingle(op, ctx);
+}
+
+// Rows whose evaluator reads nothing through tmmProp.
+const _READS_NO_SPECTRUM = [
+    isDmfs, isBlank, isTotalThickness, isStress, isConstraint, isMath,
+    isEllipsometry, isGroupDelayFlat, isPhaseShift, isGroupDelay, isEField,
+];
+
+// The finite wavelengths of a measured block's snapshot.
+const _snapshotLambdas = op => (Array.isArray(op.sampleLambdas) ? op.sampleLambdas : [])
+    .filter(lambda => Number.isFinite(lambda) && lambda > 0);
+
+/**
+ * What a row reads through tmmProp, the cone-averaged R/T/A: its cone axis
+ * `aoi` (deg), polarization, channel ('T' | 'R' | 'A') and wavelengths (nm),
+ * the same values its evaluator in this dispatch passes. Null for a row that
+ * reads no R, T or A (phase, ellipsometry, fields, thickness rows, math,
+ * comments).
+ */
+export function operandSpectrumReads(op) {
+    if (_READS_NO_SPECTRUM.some(test => test(op.type))) return null;
+    if (isArgwave(op.type)) {
+        return {
+            aoi: op.aoi, pol: argwavePolCode(op.type) ?? op.pol ?? 'avg',
+            char: argwaveOpticalChar(op.type), lambdas: operandSampleLambdas(op),
+        };
+    }
+    if (isMeasuredCurve(op.type)) {
+        if (isEllipsometricMeasuredCurve(op)) return null;
+        return {
+            aoi: op.aoi ?? 0, pol: op.pol || 'avg',
+            char: ['T', 'R', 'A'].includes(op.quantity) ? op.quantity : 'R',
+            lambdas: _snapshotLambdas(op),
+        };
+    }
+    return {
+        aoi: op.aoi, pol: polFromType(op.type) ?? op.pol,
+        char: charOf(op.type), lambdas: operandSampleLambdas(op),
+    };
 }

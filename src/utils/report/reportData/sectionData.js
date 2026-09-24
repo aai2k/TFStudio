@@ -3,20 +3,25 @@
  * values, qualifiers verdict, design summary, and the merit-operand list.
  */
 
-import { colorReport } from '../../physics/colorimetry.js';
+import { colorReport, COLOR_RANGE_NM } from '../../physics/colorimetry.js';
 import { computeIntegralValueBatch, DEFAULT_INTEGRALS } from '../../physics/integralValues.js';
 import { evaluateQualifiers, aggregateVerdict } from '../../synthesis/qualifiers.js';
 import { designMaterialLookup } from '../../materials/designMaterials.js';
 import { resolveColor } from '../../materials/catalogManager.js';
-import { materialName, buildSpectrum, buildResponseFn } from './engines.js';
+import { materialName, buildSpectrum } from './engines.js';
 
 // ── Color ───────────────────────────────────────────────────────────────────
+// The spectrum is computed on the colour band every `step` nm and the colour is
+// integrated over every point of it, as the Color Evaluation window does.
 export function computeColor(design, opts = {}) {
   const { characteristic = 'R', pol = 'avg', theta = 0,
-          observer = '2', illuminant = 'D65', step = 5 } = opts;
-  const Rfn = buildResponseFn(design, characteristic, pol, theta);
+          observer = '2', illuminant = 'D65', step = 1 } = opts;
+  const spec = buildSpectrum(design, {
+    lambdaStart: COLOR_RANGE_NM[0], lambdaEnd: COLOR_RANGE_NM[1], lambdaStep: step, thetas: [theta], pol,
+  });
+  const response = { lambda: spec.lambda, values: spec.series[0][characteristic === 'T' ? 'T' : 'R'] };
   return { characteristic, pol, theta, observer, illuminant,
-           report: colorReport(Rfn, { observer, illuminant, step }) };
+           report: colorReport(response, { observer, illuminant }) };
 }
 
 // ── Integral values (Tvis / Tsol / TUV / TNIR …) ────────────────────────────

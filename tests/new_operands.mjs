@@ -7,7 +7,8 @@
  *   • TMX / RMX / AMX — worst-case soft-max   ("R ≤ target")
  *
  * Properties asserted:
- *   1. TIW evaluates to Σ w·T / Σ w on its sample grid (hand-computed match).
+ *   1. TIW evaluates to Σ w·T / Σ w on its sample grid, w = q·S·D with q the
+ *      grid's trapezoid weights (hand-computed match).
  *   2. TIW analytic Jacobian == central-difference Jacobian (≤ 1e-6 rel).
  *   3. Soft-min / soft-max approach the true min/max as p increases,
  *      with a bounded gap ≤ log(N)/p (the log-sum-exp slack).
@@ -26,7 +27,7 @@ import {
     makeOperand, evaluateOperands, buildEvalContext, calcMF,
     operandSampleLambdas, bandSampleCount, OPERAND_TYPES,
     isIntegral, isMinmax, isMinType, ARGWAVE_DEFAULT_POINTS,
-    DLSOptimizer,
+    DLSOptimizer, bandQuadratureWeights,
 } from '../src/utils/physics/optimizer.js';
 import { resolveSourceSpec, resolveDetectorSpec, composeWeighting } from '../src/utils/physics/spectralWeightings.js';
 import { getMaterial } from '../src/utils/materials/materialDatabase.js';
@@ -68,8 +69,9 @@ console.log('— TIW evaluates as weighted band integral —');
     // Single-operand T at each λ, avg pol: easiest way to harvest those is to
     // make a parallel TAV operand on the same grid and average — but we want
     // the *weighted* mean. Sample directly via small helper operands.
+    const q = bandQuadratureWeights(lams.length);
     let num = 0, den = 0;
-    for (const lam of lams) {
+    for (const [i, lam] of lams.entries()) {
         const probe = makeOperand({
             type: 'TAV', lambdaStart: lam, lambdaEnd: lam, aoi: 0, pol: 'avg',
             target: 0, weight: 1, bandPoints: 2,
@@ -78,7 +80,7 @@ console.log('— TIW evaluates as weighted band integral —');
         // evaluateOperands averages all 13 samples (which are the same λ), so we
         // get T(lam). Use it.
         const v = evaluateOperands([probe], ctx)[0];
-        const w = S.sampler(lam) * D.sampler(lam);
+        const w = q[i] * S.sampler(lam) * D.sampler(lam);
         num += w * v;
         den += w;
     }

@@ -76,6 +76,44 @@ export function ouStep(prev, mean, sigma, a, rng) {
 }
 
 /**
+ * One exact OU step over `dt` together with the time integral of the process
+ * over that step, drawn jointly. With x = r − mean, h = dt/τ and μ = e^{−h},
+ * conditional on the value x₀ at the start of the step:
+ *
+ *     x(dt)        = μ·x₀ + N,            Var = σ²(1 − μ²)
+ *     ∫₀^dt x dt'  = x₀·τ(1 − μ) + M,     Var = σ²τ[2dt − 3τ + 4τμ − τμ²]
+ *     Cov(N, M)    = σ²τ(1 − μ)²
+ *
+ * (Gillespie, Phys. Rev. E 54, 2084 (1996), the OU process and its integral;
+ * the moments follow from the Itô isometry.) The integral is what a growing
+ * layer accumulates, so its thickness noise does not depend on how often the
+ * process is sampled. As τ→0 the integral of the fluctuation vanishes and the
+ * layer grows at the mean rate, while the sampled rate stays a white draw.
+ *
+ * `spec` = { mean, sigma, corrTime: τ }, in the same time unit as dt.
+ *
+ * @returns {{ r: number, area: number }} the rate at the end of the step and
+ *          ∫ r dt over it (rate unit × time unit).
+ */
+export function ouStepIntegral(prev, spec, dt, rng) {
+    const { mean, sigma, corrTime: tau } = spec;
+    if (sigma <= 0 || !(dt > 0)) return { r: sigma <= 0 ? mean : prev, area: mean * Math.max(0, dt) };
+    if (!(tau > 0)) return { r: mean + gauss(rng) * sigma, area: mean * dt };
+    const x0 = prev - mean;
+    const oneMinusMu = -Math.expm1(-dt / tau);
+    const mu = 1 - oneMinusMu;
+    const sx = sigma * Math.sqrt(-Math.expm1(-2 * dt / tau));
+    const varY = sigma * sigma * tau * (2 * dt - 3 * tau + 4 * tau * mu - tau * mu * mu);
+    const sy = Math.sqrt(Math.max(0, varY));
+    const cov = sigma * sigma * tau * oneMinusMu * oneMinusMu;
+    const rho = sx > 0 && sy > 0 ? Math.min(1, cov / (sx * sy)) : 0;
+    const [n1, n2] = gauss2(rng);
+    const x = mu * x0 + sx * n1;
+    const y = x0 * tau * oneMinusMu + sy * (rho * n1 + Math.sqrt(1 - rho * rho) * n2);
+    return { r: mean + x, area: mean * dt + y };
+}
+
+/**
  * Sample a stationary OU rate path r(t) on a uniform time grid — used to
  * preview the simulated deposition-rate fluctuations (page 1 of the wizard).
  *

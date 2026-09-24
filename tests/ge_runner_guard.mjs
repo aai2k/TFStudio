@@ -86,7 +86,8 @@ class MockWorker {
             const nf = job.side === 'back' ? front : grown;
             const nb = job.side === 'back' ? grown : back;
             const total = nf.length + nb.length;
-            this._post({ type: 'result', empty: false, mfNew: 0.5 - 0.01 * total, mf0: 0.5, frontLayers: nf, backLayers: nb, materialId: 'SiO2', pos: (job.side === 'back' ? back : front).length, side: job.side, nLayers: total });
+            const mf = 0.5 - 0.01 * total;
+            this._post({ type: 'result', empty: false, mf, omf: mf, mfNew: mf, mf0: 0.5, frontLayers: nf, backLayers: nb, materialId: 'SiO2', pos: (job.side === 'back' ? back : front).length, side: job.side, nLayers: total });
         } else if (job.type === 'removePass') {
             const dropFront = front.length >= back.length && front.length > 0;
             const nf = dropFront ? front.slice(0, -1) : front;

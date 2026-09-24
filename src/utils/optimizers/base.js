@@ -28,8 +28,9 @@
 
 import { DLSOptimizer } from '../physics/optimizer.js';
 
-// Small deterministic PRNG (mulberry32) — used by DE/SA when a seed is given
-// (tests need reproducibility). App/worker code passes no seed → Math.random.
+// Small deterministic PRNG (mulberry32), used by DE/SA and the Refinement
+// multi-start perturbations when a seed is given, so a run can be replayed
+// from the seed the Refinement window shows. No seed: Math.random.
 export function makeRng(seed) {
     if (seed == null) return Math.random;
     let a = seed >>> 0;

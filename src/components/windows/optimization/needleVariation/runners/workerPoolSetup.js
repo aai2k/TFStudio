@@ -5,12 +5,10 @@
  * helpers (see workerPool.js for the top-level orchestrator).
  */
 
-import {
-    isConstraint, isPhaseDispersion, requiredLambdas,
-    collectDesignMaterialIds, buildPresampledTable,
-} from '../../../../../utils/physics/optimizer.js';
+import { isConstraint } from '../../../../../utils/physics/optimizer.js';
 import {
     densifyForRun, activeSide, materialLookup, serializableMedia,
+    regridForDesign, meritOf, presampleSynthesisMaterials,
 } from '../../synthesisShared/synthesisHelpers.js';
 
 // Reconcile edits, drop synthesis-incompatible thickness constraints, resolve
@@ -46,17 +44,31 @@ export function wpPrepare(ctx) {
 // the table or null (caller falls back to the main-thread loop).
 export function wpPresample(curDes, operands, pool) {
     try {
-        const resolveMat = materialLookup(curDes);
-        const lambdas = requiredLambdas(operands);
-        const pairs = collectDesignMaterialIds(curDes).map(id => ({ id, mat: resolveMat(id) }))
-            .concat(pool.map(p => ({ id: p.id, mat: p.mat })));
-        return buildPresampledTable(lambdas, pairs, {
-            includeOmegaResponses: operands.some(op => op.enabled && isPhaseDispersion(op.type)),
-        });
+        return presampleSynthesisMaterials(curDes, operands, pool);
     } catch (err) {
         console.error('[Needle] Pre-sampling failed, main-thread fallback:', err);
         return null;
     }
+}
+
+// When the design about to be worked on (`front`/`back`) has outgrown the run's
+// sampling grid (runGrid.js), move the run onto a grid for it: new operands,
+// material tables sampled on them, and `best`, the pre-rescue design and the
+// ΔMF baseline re-scored so the next comparisons are made on one grid.
+export function wpRegridIfGrown(run, front, back) {
+    const resolveMat = materialLookup(run.curDes);
+    const operands = regridForDesign(run.operands, run.designSnap(front, back), resolveMat);
+    if (!operands) return;
+    run.operands = operands;
+    run.materials = presampleSynthesisMaterials(run.curDes, operands, run.pool);
+    const rescore = d => meritOf(operands, run.designSnap(d.frontLayers, d.backLayers), resolveMat);
+    const { best } = run;
+    if (best.frontLayers || best.backLayers) {
+        best.mf = rescore(best);
+        run.prevBestMF = best.mf;
+    }
+    if (run.preRescueBest) run.preRescueBest.mf = rescore(run.preRescueBest);
+    console.log(`[Needle] Grid re-sampled for the grown design: bestMF=${best.mf.toFixed(6)}`);
 }
 
 // Per-run design snapshot + layer helpers. designSnap builds a full design from

@@ -1,5 +1,6 @@
 // Design history strip at the bottom of the Refinement window: one row per
-// completed run, each restorable back into the design.
+// completed run, each restorable back into the design. A stochastic run's row
+// shows the seed it drew from.
 
 const { createElement: h } = React;   // React is a window global
 
@@ -37,6 +38,7 @@ export function HistoryPanel({ entries, selectedId, onSelect, onRestore, c, t })
                         h('span', { style: { color: c.textDim } }, `${tr.iterLabel} ${entry.iter}`),
                         h('span', { style: { color: c.text, marginLeft: 4 } }, `${tr.mfLabel} ${entry.mf.toFixed(6)}`),
                         h('span', { style: { color: c.textDim, marginLeft: 4 } }, th.layers(entry.layerCount)),
+                        entry.seed != null && h('span', { style: { color: c.textDim, marginLeft: 4 }, title: tr.seedTip }, th.seed(entry.seed)),
                         h('div', { style: { flex: 1 } }),
                         hasPlot && h('button', {
                             onClick: () => onSelect(entry),

@@ -3,10 +3,12 @@
 // arguments, so it is safe to import from both the UI and the runner modules.
 
 import { designMaterialLookup } from '../../../../utils/materials/designMaterials.js';
+import { makeRng } from '../../../../utils/optimizers/base.js';
+import { normalizeSeed, randomSeed } from '../../../../utils/physics/errorAnalysis/mcConfig.js';
 import {
     requiredLambdas, collectDesignMaterialIds, mirrorLayers,
-    densifyOperandsForFeatures, ADAPTIVE_SAMPLING_DEFAULTS,
-    buildEvalContext, evaluateOperands, calcMF, calcOMF,
+    densifyOperandsForFeatures, ADAPTIVE_SAMPLING_DEFAULTS, withDesignSampleCounts,
+    withFringeSampleCounts, buildEvalContext, evaluateOperands, calcMF, calcOMF,
     buildPresampledTable, isPhaseDispersion, operandEvaluationErrors,
 } from '../../../../utils/physics/optimizer.js';
 
@@ -28,14 +30,15 @@ export function appendMfSample(history, iter, mf) {
     return [...history, point];
 }
 
-// Adaptive merit sampling: at run launch, densify the band-sampled
-// operands whose bands hide a sub-grid spectral feature so the merit isn't blind
-// to narrow resonances. Always on — it's a no-op on smooth designs (no feature →
-// operands returned unchanged → bit-identical), so there's nothing to toggle. The
-// densified operands feed BOTH presampleMaterials (requiredLambdas) and the
+// Run sampling grid: at launch, band averages, integrals and range targets get
+// the sample count the design's fringe spacing needs, then the band-sampled
+// operands whose bands hide a sub-grid spectral feature are densified so the
+// merit isn't blind to narrow resonances. Always on, so there's nothing to
+// toggle. The result feeds BOTH presampleMaterials (requiredLambdas) and the
 // worker job, so the byte-identical λ-grid contract is preserved.
 export function densifyForRun(ops, design) {
-    return densifyOperandsForFeatures(ops, design, designMaterialLookup(design), ADAPTIVE_SAMPLING_DEFAULTS, ({ bumped, capped }) =>
+    const lookup = designMaterialLookup(design);
+    return densifyOperandsForFeatures(withDesignSampleCounts(ops, design, lookup), design, lookup, ADAPTIVE_SAMPLING_DEFAULTS, ({ bumped, capped }) =>
         console.log(`[Adaptive] densified ${bumped} operand(s) for narrow features`
             + (capped ? ` (${capped} capped at ${ADAPTIVE_SAMPLING_DEFAULTS.maxPoints} pts — feature finer than the cap can resolve)` : '')));
 }
@@ -75,44 +78,80 @@ export function buildPayload(curDes) {
     };
 }
 
-// Randomly perturb one layer array's unlocked thicknesses by ±(pct%), clamped
-// to the optimizer's absolute thickness bounds.
-function jitterLayers(arr, f) {
-    const D_MIN = 1.0, D_MAX = 2000.0;
+/**
+ * The end-of-run pill of a finished run: 'target' when the merit reached zero
+ * to the six decimals shown, 'maxiter' when the optimizer worker reports that
+ * the iteration cap cut the run off, otherwise 'stalled', the merit no longer
+ * falling.
+ */
+export function endReasonFor(mf, workerReason) {
+    if (mf < 1e-6) return 'target';
+    return workerReason === 'maxiter' ? 'maxiter' : 'stalled';
+}
+
+// Methods whose runs draw random numbers. Their runs take a seed (takeRunSeed),
+// which the Design History row keeps.
+export const STOCHASTIC_METHODS = new Set(['de', 'sa', 'dls-multi']);
+
+/**
+ * The seed a stochastic run draws from: the one in the seed field, or a fresh
+ * one when the field is empty. The field then shows it, so running again with
+ * the same design and settings replays the run.
+ */
+export function takeRunSeed(ctx) {
+    const seed = normalizeSeed(ctx.seedRef?.current) ?? randomSeed();
+    ctx.setSeed?.(seed);
+    return seed;
+}
+
+// The random stream of multi-start restart `restart` in a run seeded with
+// `seed`. Each restart has a stream of its own, so it draws the same
+// perturbation whichever worker takes it and in whatever order.
+export function restartRng(seed, restart) {
+    return makeRng((seed + Math.imul(restart, 0x9E3779B9)) >>> 0);
+}
+
+// Randomly scale each unlocked thickness by a factor in [1 − f, 1 + f], f a
+// fraction, for a multi-start restart, drawing from `rng`. The range is
+// relative to each layer, so a thick layer stays thick; only the optimizer's
+// 1 nm floor applies.
+export function jitterLayers(arr, f, rng) {
+    const D_MIN = 1.0;
     return (arr || []).map(l => {
         if (l.locked) return { ...l };
-        let tt = (l.thickness || 0) * (1 + f * (Math.random() * 2 - 1));
-        if (tt < D_MIN) tt = D_MIN; if (tt > D_MAX) tt = D_MAX;
-        return { ...l, thickness: tt };
+        const tt = (l.thickness || 0) * (1 + f * (rng() * 2 - 1));
+        return { ...l, thickness: Math.max(D_MIN, tt) };
     });
 }
 
 // Perturb a payload's optimization-variable thicknesses (surface-mode aware),
-// for multi-start restarts. restart 0 = unperturbed.
-export function perturbPayload(payload, pct, restart) {
+// for multi-start restarts, drawing from `rng`. restart 0 = unperturbed.
+export function perturbPayload(payload, pct, restart, rng) {
     if (restart === 0) return payload;
     const f = Math.max(0, pct) / 100;
     const sm = payload.surfaceMode;
-    if (sm === 'both_independent') return { ...payload, frontLayers: jitterLayers(payload.frontLayers, f), backLayers: jitterLayers(payload.backLayers, f) };
-    if (sm === 'back_only')        return { ...payload, backLayers: jitterLayers(payload.backLayers, f) };
-    if (sm === 'symmetric')        { const fr = jitterLayers(payload.frontLayers, f); return { ...payload, frontLayers: fr, backLayers: mirrorLayers(fr) }; }
-    return { ...payload, frontLayers: jitterLayers(payload.frontLayers, f) };
+    if (sm === 'both_independent') return { ...payload, frontLayers: jitterLayers(payload.frontLayers, f, rng), backLayers: jitterLayers(payload.backLayers, f, rng) };
+    if (sm === 'back_only')        return { ...payload, backLayers: jitterLayers(payload.backLayers, f, rng) };
+    if (sm === 'symmetric')        { const fr = jitterLayers(payload.frontLayers, f, rng); return { ...payload, frontLayers: fr, backLayers: mirrorLayers(fr) }; }
+    return { ...payload, frontLayers: jitterLayers(payload.frontLayers, f, rng) };
 }
 
 // Merit-table display evaluation (used only when NOT optimizing). Returns
 // { computed, mf, omf }, or null if evaluation throws (leaves prior display
-// untouched). Empty/absent design → cleared display.
+// untouched). Empty/absent design → cleared display. Band operands are sampled
+// for this design's fringes, the grid a run launched from it would use.
 export function computeOperandDisplay(design, operands) {
     if (!design || operands.length === 0) return { computed: [], mf: null, omf: null };
     try {
         const ctx  = buildEvalContext(design, designMaterialLookup(design));
-        const comp = evaluateOperands(operands, ctx);
+        const sampled = withFringeSampleCounts(operands, ctx);
+        const comp = evaluateOperands(sampled, ctx);
         const errors = operandEvaluationErrors(comp);
         const invalid = errors.some(Boolean);
         return {
             computed: comp, errors,
-            mf: invalid ? null : calcMF(operands, comp),
-            omf: invalid ? null : calcOMF(operands, comp),
+            mf: invalid ? null : calcMF(sampled, comp),
+            omf: invalid ? null : calcOMF(sampled, comp),
         };
     } catch (_) {
         return null;

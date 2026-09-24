@@ -6,7 +6,7 @@
  * Validates the new single-experiment math that backs the 6-page wizard:
  *   • OU correlated-rate path: τ→0 ⇒ white (variance), finite-τ ⇒ positive
  *     lag-1 autocorrelation, stationary mean/σ preserved.
- *   • Shutter delay: mean delay biases as-built by ≈ rate·meanDelay; rms adds spread.
+ *   • Shutter delay: mean delay adds rate·meanDelay after the cut, unseen by the monitor.
  *   • Exclude-from-monitoring: excluded layer ignores signal noise; deviation
  *     driven only by its relative-thickness-error spec.
  *   • Per-material deviations (matDev): systematic Re(n) offset applied per material.
@@ -75,13 +75,16 @@ function test_ou_path() {
 function test_shutter_delay() {
     const design = fourLayer();
     const rates = new Map([['TiO2', { mean: 0.3, sigma: 0 }], ['SiO2', { mean: 0.5, sigma: 0 }]]);
-    const base = simulateRun(design, resolveMat, { rates, mon: baseMon, sig: { randomPct: 0 }, rng: makeRng(1) });
-    const delayed = simulateRun(design, resolveMat, { rates, mon: baseMon, sig: { randomPct: 0 }, shutterDelayMeanS: 2, rng: makeRng(1) });
-    // L1 = TiO2 @ 0.3 nm/s, 2 s delay ⇒ +0.6 nm
-    const bias = delayed.asBuiltFront[0] - base.asBuiltFront[0];
-    ok(Math.abs(bias - 0.6) < 1e-6, `shutter mean delay biases L1 by rate·delay = 0.6 nm (got ${bias.toFixed(4)})`);
-    // every layer is biased upward
-    ok(delayed.asBuiltFront.every((d, i) => d >= base.asBuiltFront[i] - 1e-9), `all layers biased upward by shutter delay`);
+    const base = simulateRun(design, resolveMat, { rates, mon: baseMon, sig: { randomPct: 0 }, recordTrajectory: true, rng: makeRng(1) });
+    const delayed = simulateRun(design, resolveMat, { rates, mon: baseMon, sig: { randomPct: 0 }, shutterDelayMeanS: 2, recordTrajectory: true, rng: makeRng(1) });
+    // L4 = SiO2 @ 0.5 nm/s grows first, so both runs are the same up to its
+    // cut; the 2 s delay then adds 0.5 · 2 = 1.0 nm.
+    const bias = delayed.asBuiltFront[3] - base.asBuiltFront[3];
+    ok(Math.abs(bias - 1.0) < 1e-9, `shutter mean delay biases the first layer by rate·delay = 1.0 nm (got ${bias.toFixed(4)})`);
+    // The shutter adds material after the cut decision, which the monitor does
+    // not see: its own estimate of that layer is the same in both runs.
+    ok(delayed.estimatedFront[3] === base.estimatedFront[3],
+       `the monitor's estimate of the first layer ignores the shutter delay (${delayed.estimatedFront[3].toFixed(3)} nm)`);
 }
 
 // ── Exclude from monitoring ─────────────────────────────────────────────────

@@ -1,5 +1,6 @@
 // Top control bar of the Refinement window: Run/Stop/Reset/Best buttons, method
-// selector, iteration budget, multi-start params, and the live MF/iter readout.
+// selector, iteration budget, multi-start params, the seed of the stochastic
+// methods, and the live MF/iter readout.
 //
 // The bar is composed from module-scope button/control/readout builders so the
 // ControlBar component itself stays a flat assembly with no branching logic.
@@ -8,6 +9,8 @@ import { OptimizeBadge, EvalModeBadge } from '../../../SurfaceModeBar.js';
 import { WARN_BADGE_STYLE } from '../synthesisShared/synthesisHelpers.js';
 import { LiveUpdateSwitch } from '../../../ui/LiveUpdateSwitch.js';
 import { REFINE_METHODS, ALL_ORDER } from './refinementConfig.js';
+import { STOCHASTIC_METHODS } from './refinementUtils.js';
+import { MAX_SEED, normalizeSeed } from '../../../../utils/physics/errorAnalysis/mcConfig.js';
 
 const { createElement: h } = React;   // React is a window global
 
@@ -55,6 +58,21 @@ function runButtons({ running, canReset, onRun, onStop, onReset, onBest, surface
             h(EvalModeBadge, { design: { surfaceMode, mfEvalMode }, c, t }),
         ),
     ];
+}
+
+// Seed of the stochastic methods: empty draws a fresh one, and a run leaves the
+// seed it drew in the field, so pressing Run again replays it.
+function seedControl({ running, method, seed, onSeed, t, c }) {
+    const tr = t.refinement;
+    if (!(STOCHASTIC_METHODS.has(method) || method === 'all')) return null;
+    return h('label', { style: { display: 'flex', alignItems: 'center', gap: 4, fontSize: 11, color: c.textDim },
+        title: tr.seedTip },
+        tr.seed,
+        h('input', { type: 'number', min: 1, max: MAX_SEED, step: 1, value: seed ?? '', disabled: running,
+            placeholder: tr.seedRandom,
+            onChange: e => { const v = e.target.value.trim(); onSeed(v === '' ? null : normalizeSeed(v)); },
+            style: { ...numInputStyle(c, running), width: 96 } }),
+    );
 }
 
 // Method selector + max-iter + multi-start (nRestarts / perturbPct) inputs.
@@ -145,6 +163,7 @@ export function ControlBar(props) {
     },
         ...runButtons(props),
         ...runControls(props),
+        seedControl(props),
         // The readout and the Live update switch are one unit anchored to the
         // right, so the numbers stay beside the switch and the group moves to
         // the next toolbar line together when the bar is narrow, instead of

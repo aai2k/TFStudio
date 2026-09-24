@@ -51,6 +51,7 @@ export function StructuralOptimizer({ c, theme, t }) {
             onToggleKind: s.onToggleKind,
             onMaxIter: s.setMaxIter, onTargetMF: s.setTargetMF, onT0: s.setT0, onJitter: s.setJitterPct,
             onRefineIter: s.setRefineIter, onDMin: s.setDMin, onAddMax: s.setAddMax, onMaxLayers: s.setMaxLayers,
+            seed: s.seed, onSeed: s.setSeed,
             running: s.running, c, t,
         }),
         trend: h(TrendPlot, { trend: s.trend, c, theme, t }),

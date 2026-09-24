@@ -18,7 +18,12 @@
  * two adjacent pieces: the limit of the symmetric difference quotient, and the
  * definition Essential Macleod's tabulated materials follow. Pass `side` as
  * 'left' or 'right' for one of the two one-sided values instead.
+ *
+ * A table cell with no number in it (null, empty, text that is not a number)
+ * is missing, and its point is left out; it is never read as zero.
  */
+
+import { parseNumberStrict } from '../misc/numberParsing.js';
 
 export const TABULATED_INTERPOLATION = 'pchip';
 export const LINEAR_INTERPOLATION = 'linear';
@@ -42,9 +47,16 @@ function endpointSlope(h0, h1, delta0, delta1) {
     return slope;
 }
 
+// A table cell as a number: a number as it is, text read as the Material
+// Editor's grid reads it, and anything else NaN.
+function cellNumber(cell) {
+    if (typeof cell === 'number') return cell;
+    return typeof cell === 'string' ? parseNumberStrict(cell) : NaN;
+}
+
 function normalizePoints(points) {
     const sorted = (points || [])
-        .map(point => [Number(point?.[0]), Number(point?.[1])])
+        .map(point => [cellNumber(point?.[0]), cellNumber(point?.[1])])
         .filter(point => Number.isFinite(point[0]) && Number.isFinite(point[1]))
         .sort((a, b) => a[0] - b[0]);
 
@@ -234,14 +246,16 @@ export function createKInterpolator(points, interp) {
 
 /**
  * Build getNK(lambda_nm) from [[lambda_nm, n, k], ...] under the named rule,
- * PCHIP when none is given. `tabData` on the result is the table as given,
- * sorted and made finite; the sampled k never goes below zero.
+ * PCHIP when none is given. A row whose wavelength or n holds no number is
+ * left out; a k that holds none is 0, as in the Material Editor's grid.
+ * Returns null when no row is left. `tabData` on the result is the rows kept,
+ * as numbers; the sampled k never goes below zero.
  */
 export function createTabulatedNKSampler(rows, interp = TABULATED_INTERPOLATION) {
     const data = (rows || [])
         .map(row => {
-            const k = Number(row?.[2]);
-            return [Number(row?.[0]), Number(row?.[1]), Number.isFinite(k) ? k : 0];
+            const k = cellNumber(row?.[2]);
+            return [cellNumber(row?.[0]), cellNumber(row?.[1]), Number.isFinite(k) ? k : 0];
         })
         .filter(row => Number.isFinite(row[0]) && Number.isFinite(row[1]));
     if (data.length === 0) return null;

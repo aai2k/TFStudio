@@ -5,11 +5,12 @@
  * These are active-only subgradients: when the constraint/target is violated the
  * extremum is attained at one index (layer or wavelength), so the row is the
  * signed derivative at that single point; otherwise the row is zero. `jc` bundles
- * the shared context: { comp, freeIdx, nFree, ctx, propVal, propDeriv }.
+ * the shared context: { comp, freeIdx, nFree, ctx, propDeriv }.
  */
 
 import { isMinType, polFromType } from '../operandModel.js';
-import { charOf, operandSampleLambdas } from '../sampling.js';
+import { charOf } from '../sampling.js';
+import { operandExtremumLambdas } from '../evalCore/evalContext.js';
 
 // Index of the min (isMin) or max thickness over all[lo..hi].
 function _constraintArgExtremum(all, lo, hi, isMin) {
@@ -39,27 +40,19 @@ export function _jacRowConstraint(op, i, jc) {
 }
 
 // Worst-case min/max: residual = sw·max(0, ±(target−comp)); when active the
-// extremum is attained at one wavelength λ* (the argmin/argmax on the SAME grid
-// evalOperand used), so the subgradient is sw·(±1)·∂C(λ*)/∂d_j.
+// extremum is attained at one wavelength λ*, the grid sample the evaluation
+// picked (operandExtremumLambdas), so the subgradient is sw·(±1)·∂C(λ*)/∂d_j
+// and the derivative kernel runs at λ* alone.
 export function _jacRowMinmax(op, i, jc) {
-    const { comp, freeIdx, nFree, propVal, propDeriv } = jc;
-    const sw = Math.sqrt(op.weight);
+    const { comp, freeIdx, nFree, propDeriv } = jc;
     const row = new Array(nFree).fill(0);
     const isMin = isMinType(op.type);
     const violated = isMin ? (op.target - comp[i] > 0) : (comp[i] - op.target > 0);
     if (!violated) return row;
-    const char = charOf(op.type);
-    const pol  = polFromType(op.type) ?? op.pol;
-    const lams = operandSampleLambdas(op);
-    const n    = lams.length;
-    let argS = 0, bestV = isMin ? Infinity : -Infinity;
-    for (let s = 0; s < n; s++) {
-        const v = propVal(lams[s], pol, char, op.aoi);
-        if (isMin ? v < bestV : v > bestV) { bestV = v; argS = s; }
-    }
-    // ∂residual/∂comp under the violated branch: +1 for max, −1 for min.
-    const dResSign = isMin ? -1 : +1;
-    const d = propDeriv(lams[argS], pol, char, op.aoi);
-    for (let ci = 0; ci < nFree; ci++) row[ci] = sw * dResSign * d[freeIdx[ci]];
+    const pol = polFromType(op.type) ?? op.pol;
+    const d = propDeriv(operandExtremumLambdas(comp)[i], pol, charOf(op.type), op.aoi);
+    // ∂residual/∂C under the violated branch: +1 for max, −1 for min.
+    const scale = (isMin ? -1 : 1) * Math.sqrt(op.weight);
+    for (let ci = 0; ci < nFree; ci++) row[ci] = scale * d[freeIdx[ci]];
     return row;
 }

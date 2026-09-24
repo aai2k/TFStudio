@@ -16,11 +16,14 @@ function ok(condition, message) {
   passed++;
 }
 
+// A record resolves only when it holds optical constants, so each carries the
+// simplest there is: a one-term Cauchy series, n = 1.5 at every wavelength.
+const CONSTANT_INDEX = { formulaNum: 102, coefficients: [1.5] };
 const declared = (id, minUm, maxUm) => ({
-  id, name: id, lambdaMin: minUm, lambdaMax: maxUm, rangeDeclared: true,
+  id, name: id, ...CONSTANT_INDEX, lambdaMin: minUm, lambdaMax: maxUm, rangeDeclared: true,
 });
-const defaulted = (id) => ({ id, name: id, lambdaMin: 0.3, lambdaMax: 2.5, rangeDeclared: false });
-const untagged = (id) => ({ id, name: id, lambdaMin: 0.3, lambdaMax: 2.5 });
+const defaulted = (id) => ({ id, name: id, ...CONSTANT_INDEX, lambdaMin: 0.3, lambdaMax: 2.5, rangeDeclared: false });
+const untagged = (id) => ({ id, name: id, ...CONSTANT_INDEX, lambdaMin: 0.3, lambdaMax: 2.5 });
 
 // ── materialRangeNm: µm in, nm out, null when nothing is declared ───────────
 {

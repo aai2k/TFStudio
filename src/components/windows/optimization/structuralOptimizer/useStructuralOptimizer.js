@@ -130,6 +130,8 @@ export function useStructuralOptimizer({
     const [deepMode,   setDeepMode]   = usePersistentNumber('tfstudio_struct_deepMode', 0);
     const [deepMaxMin, setDeepMaxMin] = usePersistentNumber('tfstudio_struct_deepMaxMin', 0);
     const [reheats,    setReheats]    = useState(0);
+    // Seed of the run's random stream, null to draw a fresh one (runState.js).
+    const [seed,       setSeed]       = useState(null);
     const [kinds,      setKinds]      = useState(loadKinds);
     const {
         selectedCats, selectedCatsRef, handleToggleCat, handleSelectAllCats, handleClearCats,
@@ -171,9 +173,9 @@ export function useStructuralOptimizer({
     useEffect(() => {
         cfgRef.current = {
             maxIter, targetMF, T0, jitterPct, refineIter, dMin, addMaxNm, maxLayers, kinds,
-            deepMode: !!deepMode, deepMaxMin,
+            deepMode: !!deepMode, deepMaxMin, seed,
         };
-    }, [maxIter, targetMF, T0, jitterPct, refineIter, dMin, addMaxNm, maxLayers, kinds, deepMode, deepMaxMin]);
+    }, [maxIter, targetMF, T0, jitterPct, refineIter, dMin, addMaxNm, maxLayers, kinds, deepMode, deepMaxMin, seed]);
 
     useEffect(() => { updateDesignRef.current = updateDesign; }, [updateDesign]);
     useEffect(() => { checkpointRef.current = checkpoint; }, [checkpoint]);
@@ -240,7 +242,7 @@ export function useStructuralOptimizer({
             killWorkers, saveCache, stopOpt, reconcileBaseWithEdits, ts,
             setRunning, setIter, setTemp, setAccRate, setMf, setMfBest,
             setOmf, setOmfBest, setLayerCount, setGenerations, setTopDesigns,
-            setTrend, setCanReset, setStatusMsg, setReheats,
+            setTrend, setCanReset, setStatusMsg, setReheats, setSeed,
         });
     }, [stopOpt, reconcileBaseWithEdits, t]);
 
@@ -343,7 +345,7 @@ export function useStructuralOptimizer({
         ts,
         maxIter, setMaxIter, targetMF, setTargetMF, T0, setT0, jitterPct, setJitterPct,
         refineIter, setRefineIter, dMin, setDMin, addMaxNm, setAddMax, maxLayers, setMaxLayers,
-        deepMode, setDeepMode, deepMaxMin, setDeepMaxMin, reheats, kinds, onToggleKind,
+        deepMode, setDeepMode, deepMaxMin, setDeepMaxMin, reheats, kinds, onToggleKind, seed, setSeed,
         selectedCats, handleToggleCat, handleSelectAllCats, handleClearCats,
         excludedMats, handleToggleMat,
         running, iter, temp, accRate, mf, mfBest, omf, omfBest, layerCount,

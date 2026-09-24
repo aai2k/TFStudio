@@ -11,7 +11,8 @@
  * Held here: each operand type against a central-difference Jacobian on
  * dielectric and absorbing stacks at two angles; the same for the points a
  * measured Ψ/Δ pair expands into; the surface modes; kernel against JavaScript;
- * and that a Ψ target no longer drags an R target onto finite differences.
+ * opaque stacks whose matrix product leaves the range of a double; and that a
+ * Ψ target no longer drags an R target onto finite differences.
  *
  * Run: node tests/ellipsometry_analytic_jacobian.mjs
  */
@@ -169,17 +170,20 @@ for (const [name, spec] of Object.entries(STACKS)) {
 }
 
 // ── The kernel and the JavaScript reference agree, and both match the values ─
-{
-    const spec = STACKS['QW 9L'];
-    const lambdas = [450, 500, 550, 600];
+//
+// Every sample must carry its Jacobian, the two paths must agree on it, and Ψ
+// and Δ must be those of the point evaluator.
+function assertKernelMatchesJavaScript(tag, spec, lambdas, aoi) {
     const materials = spec.map(([id]) => getMaterial(id));
     const thick = spec.map(([, d]) => d);
     const substrate = getMaterial('BK7');
-    const n0List = lambdas.map(() => [1, 0]);
-    const nsList = lambdas.map(lam => substrate.getNK(lam));
-    const layerNK = materials.map(material => lambdas.map(lam => material.getNK(lam)));
     const evaluate = () => evaluateEllipsometryThicknessJacobian({
-        lambdas, theta_deg: 65, n0List, nsList, layerNK, thick,
+        lambdas,
+        theta_deg: aoi,
+        n0List: lambdas.map(() => [1, 0]),
+        nsList: lambdas.map(lam => substrate.getNK(lam)),
+        layerNK: materials.map(material => lambdas.map(lam => material.getNK(lam))),
+        thick,
     });
 
     setTmmWasmEnabled(false);
@@ -187,58 +191,59 @@ for (const [name, spec] of Object.entries(STACKS)) {
     setTmmWasmEnabled(kernel);
     const accelerated = evaluate();
     for (let i = 0; i < lambdas.length; i++) {
+        const at = `${tag}, λ ${lambdas[i]}`;
         const layers = materials.map((material, k) => ({ n: material.getNK(lambdas[i]), d: thick[k] }));
-        const point = computeEllipsometry(lambdas[i], 65, [1, 0], substrate.getNK(lambdas[i]), layers);
+        const point = computeEllipsometry(lambdas[i], aoi, [1, 0], substrate.getNK(lambdas[i]), layers);
         for (const [label, sample] of [['javascript', javascript[i]], ['kernel', accelerated[i]]]) {
-            assert.ok(sample, `${label} sample ${i} is defined`);
-            assert.ok(Math.abs(sample.psi - point.psi) < 1e-8, `${label}: Ψ matches the point evaluator`);
+            assert.ok(sample, `${at}: the ${label} sample carries its Jacobian`);
+            assert.ok([...sample.dPsi, ...sample.dDelta].every(Number.isFinite), `${at}: ${label} derivatives are finite`);
+            assert.ok(Math.abs(sample.psi - point.psi) < 1e-8, `${at}: ${label} Ψ matches the point evaluator`);
             const deltaGap = Math.abs(sample.delta - point.delta) % 360;
-            assert.ok(Math.min(deltaGap, 360 - deltaGap) < 1e-7, `${label}: Δ matches the point evaluator`);
+            assert.ok(Math.min(deltaGap, 360 - deltaGap) < 1e-7, `${at}: ${label} Δ matches the point evaluator`);
         }
         for (let k = 0; k < thick.length; k++) {
             const scale = Math.max(1e-6, Math.abs(javascript[i].dPsi[k]), Math.abs(javascript[i].dDelta[k]));
             assert.ok(Math.abs(javascript[i].dPsi[k] - accelerated[i].dPsi[k]) < 1e-7 * scale,
-                `dΨ/dd agrees between kernel and JavaScript at λ ${lambdas[i]}, layer ${k}`);
+                `${at}: dΨ/dd agrees between kernel and JavaScript, layer ${k}`);
             assert.ok(Math.abs(javascript[i].dDelta[k] - accelerated[i].dDelta[k]) < 1e-7 * scale,
-                `dΔ/dd agrees between kernel and JavaScript at λ ${lambdas[i]}, layer ${k}`);
+                `${at}: dΔ/dd agrees between kernel and JavaScript, layer ${k}`);
         }
-    }
-    if (kernel) {
-        console.log(`kernel path: ${getTmmWasm().hasPhaseJacobianSpectrum?.() ? 'batched' : 'per-wavelength'} phase Jacobian`);
     }
 }
 
-// ── An opaque stack declines rather than returning garbage ────────────────
-//
-// The phase Jacobian's prefix/suffix decomposition cannot carry a rescaling, so
-// on a stack whose matrix product runs past the threshold it gives up and fills
-// the derivative block with NaN while still reporting the coefficient. Enough
-// microns of chromium to saturate the imaginary-phase clamp six times over gets
-// there. Every sample must come back null, which is what routes the engine to
-// finite differences instead of a NaN Jacobian row.
-{
-    const lambdas = [500, 550, 600];
-    const chromium = getMaterial('Cr');
-    const substrate = getMaterial('BK7');
-    const thick = Array.from({ length: 6 }, () => 3000);
-    const samples = evaluateEllipsometryThicknessJacobian({
-        lambdas,
-        theta_deg: 65,
-        n0List: lambdas.map(() => [1, 0]),
-        nsList: lambdas.map(lam => substrate.getNK(lam)),
-        layerNK: thick.map(() => lambdas.map(lam => chromium.getNK(lam))),
-        thick,
-    });
-    assert.ok(samples.every(sample => sample === null),
-        'an overflowing stack must decline every sample rather than report NaN');
+assertKernelMatchesJavaScript('QW 9L', STACKS['QW 9L'], [450, 500, 550, 600], 65);
+if (kernel) {
+    console.log(`kernel path: ${getTmmWasm().hasPhaseJacobianSpectrum?.() ? 'batched' : 'per-wavelength'} phase Jacobian`);
+}
 
-    // And the engine takes the finite-difference path rather than a null row.
-    const opaque = designOf(thick.map(() => ['Cr', 3000]));
-    const ops = [makeOperand({ id: 'psi', type: 'PSI', lambdaStart: 550, aoi: 65, target: 30 })];
-    const opt = new DLSOptimizer(ops, opaque, resolveMat);
-    const freeIdx = opt.thicknesses.map((_, i) => i).filter(i => !opt.lockedMask[i]);
-    assert.equal(opt._analyticJacobian(opt.thicknesses.slice(), freeIdx), null,
-        'the analytic Jacobian must decline so the engine falls back to differences');
+// ── Opaque stacks keep their analytic Jacobian ──────────────────────────────
+//
+// Six layers of 3000 nm chromium hold every layer's imaginary phase at the
+// opaque-layer clamp, and the characteristic-matrix product through them runs
+// to about 1e128. The phase Jacobian's prefix and suffix products carry binary
+// exponents that cancel from every derivative, so each sample comes back with
+// its Jacobian and the engine keeps the analytic rows. Held to central
+// differences on that stack, where the chromium moves only through the real
+// part of its phase and its derivatives are of order e^−100, and on a
+// dielectric pair over the same chromium, whose rows are of order one and come
+// through the same scaled product.
+{
+    const chromium = Array.from({ length: 6 }, () => ['Cr', 3000]);
+    const OPAQUE = {
+        'six 3000 nm Cr layers': chromium,
+        'SiO2/TiO2 over the Cr': [['SiO2', 120], ['TiO2', 60], ...chromium],
+    };
+    for (const [name, spec] of Object.entries(OPAQUE)) {
+        assertKernelMatchesJavaScript(name, spec, [500, 550, 600], 65);
+        const ops = [550, 600].flatMap((lambda, i) => ['PSI', 'DEL'].map(type => makeOperand({
+            id: `${type}-${i}`, type, lambdaStart: lambda, aoi: 65, target: 0, weight: 1,
+        })));
+        for (const backend of kernel ? [false, true] : [false]) {
+            setTmmWasmEnabled(backend);
+            assertAnalyticMatchesFd(`${name}, ${backend ? 'kernel' : 'JavaScript'}`, ops, designOf(spec));
+        }
+    }
+    setTmmWasmEnabled(kernel);
 }
 
 // ── Newton keeps its hands off rows it has no curvature for ─────────────────

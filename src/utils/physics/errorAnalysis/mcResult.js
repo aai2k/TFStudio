@@ -116,6 +116,33 @@ export function yieldBand(value) {
     return value >= YIELD_WARN ? 'warn' : 'fail';
 }
 
+// Two-sided 95 % normal quantile, Φ⁻¹(0.975).
+const Z_95 = 1.959963984540054;
+
+/**
+ * Wilson score interval for a binomial proportion: `pass` successes in `n`
+ * trials, at 95 % confidence.
+ *
+ *     centre    = (p + z²/2n) / (1 + z²/n)
+ *     halfwidth = z / (1 + z²/n) · √( p(1 − p)/n + z²/4n² )
+ *
+ * with p = pass/n. Unlike p ± z·√(p(1 − p)/n) it stays inside [0, 1] and keeps a
+ * nonzero width at 0 or n passes, which is where a yield usually sits.
+ * E. B. Wilson, J. Am. Stat. Assoc. 22, 209 (1927); R. G. Newcombe, Stat. Med.
+ * 17, 857 (1998), method 3.
+ *
+ * @returns {[number, number]|null}  [low, high] as fractions, null when n = 0
+ */
+export function wilsonInterval(pass, n) {
+    if (!(n > 0)) return null;
+    const p = pass / n;
+    const z2 = Z_95 * Z_95;
+    const denominator = 1 + z2 / n;
+    const centre = (p + z2 / (2 * n)) / denominator;
+    const half = (Z_95 / denominator) * Math.sqrt(p * (1 - p) / n + z2 / (4 * n * n));
+    return [Math.max(0, centre - half), Math.min(1, centre + half)];
+}
+
 function makeMCSpecSummary(config, state) {
     if (!(config.evaluateSpec && config.qualifiers.length)) return null;
     return {
@@ -123,6 +150,7 @@ function makeMCSpecSummary(config, state) {
         evaluated: state.specEvaluated,
         passCount: state.specPass,
         yield: state.specEvaluated > 0 ? state.specPass / state.specEvaluated : null,
+        yieldInterval: wilsonInterval(state.specPass, state.specEvaluated),
         perQualifier: config.qualifiers.map((qualifier, index) => ({
             label: qualifier.label || qualifier.kind || ('#' + (index + 1)),
             failRate: state.runningN > 0 ? state.qualifierFailures[index] / state.runningN : 0,
@@ -131,9 +159,11 @@ function makeMCSpecSummary(config, state) {
 }
 
 export function finalizeMCResult(config, state) {
+    // Sample standard deviation: the mean is estimated from the same trials, so
+    // the sum of squares is divided by N − 1. One trial gives no spread.
     const stdev = new Float64Array(state.nLambda);
     for (let i = 0; i < state.nLambda; i++) {
-        stdev[i] = state.runningN > 0 ? Math.sqrt(state.m2[i] / state.runningN) : 0;
+        stdev[i] = state.runningN > 1 ? Math.sqrt(state.m2[i] / (state.runningN - 1)) : 0;
     }
 
     const lower = new Array(state.nLambda);
@@ -158,6 +188,20 @@ export function finalizeMCResult(config, state) {
         envUpper,
         nTrials: state.runningN,
         char: config.char,
+        seed: config.seed,
+        // What the run was made with, so a record of it never borrows settings
+        // changed afterwards. Thickness σ in % of d and in nm, index σ absolute,
+        // the corridor as k in mean ± kσ, the angle of incidence in degrees.
+        settings: {
+            corridorSigma: config.corridorSigma,
+            rmsAbsNm: config.rmsAbsNm,
+            rmsRelPct: config.rmsRelPct,
+            rmsReN: config.rmsReN,
+            rmsImN: config.rmsImN,
+            distribution: config.distribution,
+            theta: config.params?.theta ?? 0,
+            polarization: config.params?.polarization ?? 'avg',
+        },
         spec: makeMCSpecSummary(config, state),
         trials: config.recordTrials ? state.trials : null,
     };

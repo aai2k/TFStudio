@@ -21,6 +21,7 @@
  * Unknown mnemonics are silently skipped.
  */
 
+import { isZemaxFormula } from './dispersionFormulas.js';
 import { normalizeMechanical } from './mechanical.js';
 import { TABULATED_INTERPOLATION } from './pchip.js';
 
@@ -43,11 +44,14 @@ function kFromIT(T, lambda_um, thick_mm) {
 
 // Build a fresh glass record from an NM line.
 // NM <name> <formula> <MIL> <Nd> <Vd> <ExcludeSub> <status> <meltFreq>
+// The formula number is kept as written; commitGlass refuses a glass whose
+// number is not one of the Zemax formulas this program evaluates.
 function parseNM(tokens) {
     return {
         id: tokens[1] || 'UNKNOWN',
         name: tokens[1] || 'UNKNOWN',
-        formulaNum: parseInt(tokens[2], 10) || 1,
+        formulaNum: Number(tokens[2]),
+        formulaToken: tokens[2] ?? '',
         nd: parseFloat(tokens[4]) || 0,       // tokens[3] = MIL# (ignore)
         vd: parseFloat(tokens[5]) || 0,
         excludeSub: (parseInt(tokens[6], 10) || 0) === 1,
@@ -122,7 +126,17 @@ function accumulateIT(itData, tokens) {
 
 // Finalize an open glass: derive its Beer–Lambert k-table from the accumulated
 // IT rows (sorted by wavelength) and register it in the materials map.
-function commitGlass(cur, itData, materials) {
+//
+// A glass whose formula number is missing, unparsable or not one of the Zemax
+// formulas is not registered but listed in `rejected` with the number as
+// written. Registering it would give it an index from some other formula, or
+// none at all.
+function commitGlass(open, itData, materials, rejected) {
+    const { formulaToken, ...cur } = open;
+    if (!isZemaxFormula(cur.formulaNum)) {
+        rejected.push({ name: cur.name, formula: formulaToken });
+        return;
+    }
     cur.kTable = itData
         .map(pt => ({ lam_um: pt.lam_um, k: kFromIT(pt.T, pt.lam_um, pt.thick_mm) }))
         .sort((a, b) => a.lam_um - b.lam_um);
@@ -149,7 +163,7 @@ function consumeLine(state, tokens, keepCatalogName) {
         return;
     }
     if (mnem === 'NM') {
-        if (state.cur) commitGlass(state.cur, state.itData, state.materials);
+        if (state.cur) commitGlass(state.cur, state.itData, state.materials, state.rejected);
         state.cur = parseNM(tokens);
         state.itData = [];
         state.itDone = false;
@@ -166,9 +180,14 @@ function consumeLine(state, tokens, keepCatalogName) {
 /**
  * Parse an AGF text string into a catalog object.
  *
+ * `rejected` lists the glasses left out because their formula number is not a
+ * Zemax formula this program evaluates, each with the number as the file
+ * writes it. It is a report for the import, not part of the catalog.
+ *
  * @param {string} text         raw AGF file contents
  * @param {string} [catalogId]  suggested catalog id (falls back to CC comment or 'imported')
- * @returns {{ id: string, name: string, materials: Object.<string, AGFMaterial> }}
+ * @returns {{ id: string, name: string, materials: Object.<string, AGFMaterial>,
+ *             rejected: Array<{ name: string, formula: string }> }}
  */
 export function parseAGF(text, catalogId) {
     const lines = text.replace(/\r\n/g, '\n').replace(/\r/g, '\n').split('\n');
@@ -176,6 +195,7 @@ export function parseAGF(text, catalogId) {
     const state = {
         catalogName: catalogId || 'imported',
         materials: {},
+        rejected: [],
         cur: null,
         itData: [],       // [{lam_um, T, thick_mm}]
         itDone: false,
@@ -187,12 +207,13 @@ export function parseAGF(text, catalogId) {
         consumeLine(state, line.split(/\s+/), !!catalogId);
     }
 
-    if (state.cur) commitGlass(state.cur, state.itData, state.materials);
+    if (state.cur) commitGlass(state.cur, state.itData, state.materials, state.rejected);
 
     return {
         id: catalogId || slugify(state.catalogName),
         name: state.catalogName,
         materials: state.materials,
+        rejected: state.rejected,
     };
 }
 
@@ -207,7 +228,7 @@ function slugify(s) {
 export function validateAGFMaterial(mat) {
     const warnings = [];
     if (!mat.id) warnings.push('Missing glass name');
-    if (mat.formulaNum < 1 || mat.formulaNum > 13) warnings.push(`Unknown formula number ${mat.formulaNum}`);
+    if (!isZemaxFormula(mat.formulaNum)) warnings.push(`Unknown formula number ${mat.formulaNum}`);
     if (!mat.coefficients || mat.coefficients.length === 0) warnings.push('No dispersion coefficients');
     return warnings;
 }

@@ -3,13 +3,17 @@
 // convergence/cap, DLS-2 accept-or-try-next). See mainThread.js.
 
 import {
-    scanNeedlesPFunction, findOptimalNeedleThickness,
+    scanNeedlesPFunction, findOptimalNeedleThickness, intraMinima,
     insertNeedle, insertNeedleIntra, cleanupLayers,
 } from '../../../../../utils/physics/optimizer.js';
 import { makeEngine } from '../../../../../utils/optimizers/index.js';
-import { getNeedleSensFloor, cullMarginalNeedles } from '../../../../../utils/synthesis/synthesisConfig.js';
+import {
+    getNeedleSensFloor, cullMarginalNeedles, SYNTHESIS_INTRA_SAMPLES,
+} from '../../../../../utils/synthesis/synthesisConfig.js';
 import { materialLookup } from '../../synthesisShared/synthesisHelpers.js';
-import { gentleIter, scheduleTick, deepActive, setBase, recordCycle, finalize } from './mainThreadCore.js';
+import {
+    gentleIter, scheduleTick, deepActive, setBase, recordCycle, finalize, regridIfGrown,
+} from './mainThreadCore.js';
 
 // Insert queue[idx] into `work` at its optimal thickness, spin up DLS1.
 function startNeedleCandidate(ctx, S, idx) {
@@ -64,6 +68,7 @@ export function phaseNeedleScan(ctx, S) {
         finalize(ctx, S, 'Max layers reached'); return;
     }
 
+    regridIfGrown(S, design, resolveMat);
     const thickStr = layers.map(l => `${(l.thickness||0).toFixed(1)}nm ${l.material}`).join(', ');
     console.log(`[GE NeedleScan] geStep=${ctx.geStepsRef.current} workMF=${S.work.mf.toFixed(6)} bestMF=${S.best.mf.toFixed(6)} layers=${layers.length} [${thickStr}]`);
 
@@ -74,11 +79,13 @@ export function phaseNeedleScan(ctx, S) {
 
     const { candidates } = scanNeedlesPFunction({
         operands: S.operands, design, resolveMat, candidateMats: S.pool, deltaNm: 0.5, side: S.side,
+        dMin: ctx.dMinRef.current, nIntra: SYNTHESIS_INTRA_SAMPLES,
     });
-    // All improving needles, best (most negative ΔMF) first, then cull the
-    // marginal tail (H1 — needle sensitivity; no-op when 'off').
+    // All improving needles (intra ones at the minima along each layer), best
+    // (most negative ΔMF) first, then cull the marginal tail (H1, needle
+    // sensitivity; no-op when 'off').
     S.queue = cullMarginalNeedles(
-        candidates.filter(c => c.dMF < 0).sort((a, b) => a.dMF - b.dMF),
+        intraMinima(candidates).filter(c => c.dMF < 0).sort((a, b) => a.dMF - b.dMF),
         getNeedleSensFloor());
     S.qIdx  = 0;
 

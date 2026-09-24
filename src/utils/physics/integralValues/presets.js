@@ -1,6 +1,5 @@
 // ── Standard integral presets ─────────────────────────────────────────────────
 
-import { SOLAR_RANGE_NM } from '../solarSpectrum.js';
 import { BUILTIN_WEIGHTINGS } from './builtinWeightings.js';
 
 /** Default integral set (T+R+A for each weighting). Keys use the standard
@@ -32,7 +31,7 @@ export const DEFAULT_INTEGRALS = [
 //   uv/nir   = flat band   → source E (equal-energy), detector flat
 const _WEIGHTING_TO_MFE = {
     photopic: { sourceSpec: { id: 'D65'    }, detectorSpec: { id: 'photopic' }, band: [380, 780]  },
-    solar:    { sourceSpec: { id: 'AM1.5G' }, detectorSpec: { id: 'flat'     }, band: [SOLAR_RANGE_NM[0], SOLAR_RANGE_NM[1]] },
+    solar:    { sourceSpec: { id: 'AM1.5G' }, detectorSpec: { id: 'flat'     }, band: [BUILTIN_WEIGHTINGS.solar.lamMin, BUILTIN_WEIGHTINGS.solar.lamMax] },
     uv:       { sourceSpec: { id: 'E'      }, detectorSpec: { id: 'flat'     }, band: [300, 380]  },
     nir:      { sourceSpec: { id: 'E'      }, detectorSpec: { id: 'flat'     }, band: [780, 2500] },
 };

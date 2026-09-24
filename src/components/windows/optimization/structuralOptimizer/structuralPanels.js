@@ -19,6 +19,8 @@ import {
     getThreadCount, setThreadCount, threadSelectOptions,
 } from '../../../../utils/synthesis/synthesisConfig.js';
 import { Checkbox } from '../../../ui/Checkbox.js';
+import { DebouncedInput } from '../../../ui/DebouncedInput.js';
+import { normalizeSeed } from '../../../../utils/physics/errorAnalysis/mcConfig.js';
 
 const { createElement: h, useState } = React;
 
@@ -101,11 +103,30 @@ export function ControlBar({ running, iter, maxIter, deepMode, reheats, temp, la
 }
 
 // ── Left sidebar: material pool + settings ──────────────────────────────────────
+// Seed of the run's random stream: empty draws a fresh one, and a run leaves the
+// seed it drew in the field, so pressing Run again replays it.
+function seedRow({ ts, seed, onSeed, running, c }) {
+    return h('div', {
+        title: ts.seedTip,
+        style: { display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 3 },
+    },
+        h('span', { style: { fontSize: 11, color: c.textDim } }, ts.seed),
+        h(DebouncedInput, {
+            value: seed ?? '', disabled: running, placeholder: ts.seedRandom,
+            onChange: (str) => { const v = String(str).trim(); onSeed(v === '' ? null : normalizeSeed(v)); },
+            style: {
+                width: 96, padding: '1px 4px', fontSize: 11, textAlign: 'right',
+                background: c.bg, color: c.text, border: `1px solid ${c.border}`, borderRadius: 2,
+                opacity: running ? 0.5 : 1,
+            },
+        }));
+}
+
 export function LeftSidebar({ catalogs, selectedCats, onToggleCat, onSelectAllCats, onClearCats,
                        excludedMats, onToggleMat,
                        maxIter, targetMF, T0, jitterPct, refineIter, dMin, addMaxNm, maxLayers,
                        deepMode, onDeepMode, deepMaxMin, onDeepMaxMin,
-                       kinds, onToggleKind,
+                       kinds, onToggleKind, seed, onSeed,
                        onMaxIter, onTargetMF, onT0, onJitter, onRefineIter, onDMin, onAddMax, onMaxLayers,
                        running, c, t }) {
     const ts = t.structural;
@@ -185,6 +206,7 @@ export function LeftSidebar({ catalogs, selectedCats, onToggleCat, onSelectAllCa
             (v) => { const n = parseInt(v, 10); setThreadCount(n); setThreads(n); },
             threadSelectOptions(t)),
         numRow(ts.deepMaxMin, deepMaxMin, v => onDeepMaxMin(Math.max(0, Math.round(v))), ts.deepMaxMinHelp),
+        seedRow({ ts, seed, onSeed, running, c }),
     ];
 
     return h(SynthesisSidebarFrame, {
@@ -203,14 +225,24 @@ export function LeftSidebar({ catalogs, selectedCats, onToggleCat, onSelectAllCa
 
 // ── History table ───────────────────────────────────────────────────────────────
 const KIND_COLORS = { add: '#43a047', split: '#26a69a', remove: '#ef5350', merge: '#ab47bc', perturb: '#5c6bc0', seed: '#ffb300', baseline: '#78909c' };
+// The seed each run block drew from, taken from its first row that records one.
+function seedsByRun(generations) {
+    const seeds = new Map();
+    for (const g of generations) {
+        if (g.runNum != null && g.seed != null && !seeds.has(g.runNum)) seeds.set(g.runNum, g.seed);
+    }
+    return seeds;
+}
+
 export function HistoryTable({ generations, bestMF, onRestore, showSide, c, t }) {
     const ts = t.structural;
+    const seeds = seedsByRun(generations);
     return h(SynthesisHistoryTable, {
         rows: generations, bestMF, onRestore, showSide, c,
         labels: {
             noGens: ts.noGens, genCol: ts.genCol, layersCol: ts.layersCol, mfCol: ts.mfCol, omfCol: ts.omfCol,
             totCol: ts.totCol, timeCol: ts.timeCol, dMFCol: ts.dMFCol, matCol: ts.matCol, restore: ts.restore,
-            runSeparator: ts.runSeparator,
+            runSeparator: (n) => (seeds.has(n) ? ts.runSeparatorSeed(n, seeds.get(n)) : ts.runSeparator(n)),
         },
         typeColumn: {
             header: ts.opCol,

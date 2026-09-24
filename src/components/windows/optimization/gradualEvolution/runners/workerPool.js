@@ -14,9 +14,6 @@
 // workerPoolFinalize.js (one phase group per file), driven off a single
 // run-state object `S`, so no giant nested closure builds up.
 
-import {
-    requiredLambdas, collectDesignMaterialIds, buildPresampledTable, isPhaseDispersion,
-} from '../../../../../utils/physics/optimizer.js';
 import { WorkerPool } from '../../../../../utils/workers/workerPool.js';
 import {
     getSynthesisInnerEngine, getSynthesisMaxBatches,
@@ -25,14 +22,14 @@ import {
 import { getTmmWasmBytesForWorker } from '../../../../../tmmcore.js';
 import { SYNTHESIS_WORKER_URL as SYNTH_WORKER_URL } from '../../../../../workerUrls.js';
 import {
-    activeSide, densifyForRun, chunkArray, poolSize, materialLookup, serializableMedia,
+    activeSide, densifyForRun, chunkArray, poolSize, serializableMedia, presampleSynthesisMaterials,
 } from '../../synthesisShared/synthesisHelpers.js';
 import { activeBaseline, openRunBlock } from '../../synthesisShared/runBlocks.js';
 import { runGeMainThread } from './mainThread.js';
-import { alive, fallback } from './workerPoolCore.js';
+import { alive, fallback, regridIfGrown } from './workerPoolCore.js';
 import { seedPhase } from './workerPoolSeed.js';
 import { tryAcceptOnSide } from './workerPoolNeedle.js';
-import { forcedGeStep } from './workerPoolGeStep.js';
+import { stallStep } from './workerPoolGeStep.js';
 import { finalize } from './workerPoolFinalize.js';
 
 // Try every eligible side (smaller side first, so growth stays balanced) for
@@ -76,12 +73,13 @@ async function runGeCycle(ctx, S) {
         return (la - lb) || (a === 'front' ? -1 : 1);
     });
 
+    regridIfGrown(S);
     const sideOutcome = await tryEachSide(ctx, S, orderedSides);
     if (sideOutcome !== 'none') return sideOutcome;
 
-    // ── Forced total-optical-thickness step ──────────────────
-    console.log('[GE] Needle-optimal on all eligible sides → forced GE step');
-    return (await forcedGeStep(ctx, S)) ? 'continue' : 'stop';
+    // ── Needle-optimal: drop parked layers or take a forced step ──
+    console.log('[GE] Needle-optimal on all eligible sides');
+    return stallStep(ctx, S);
 }
 
 // The async orchestration: seed, then the outer per-side GE loop (Option 1,
@@ -138,13 +136,7 @@ export function runGeWorker(ctx) {
 
     let materials;
     try {
-        const resolveMat = materialLookup(curDes);
-        const lambdas = requiredLambdas(operands);
-        const pairs = collectDesignMaterialIds(curDes).map(id => ({ id, mat: resolveMat(id) }))
-            .concat(pool.map(p => ({ id: p.id, mat: p.mat })));
-        materials = buildPresampledTable(lambdas, pairs, {
-            includeOmegaResponses: operands.some(op => op.enabled && isPhaseDispersion(op.type)),
-        });
+        materials = presampleSynthesisMaterials(curDes, operands, pool);
     } catch (err) {
         console.error('[GE] Pre-sampling failed, main-thread fallback:', err);
         runGeMainThread(ctx);
@@ -152,10 +144,10 @@ export function runGeWorker(ctx) {
     }
 
     const innerEngine = getSynthesisInnerEngine('ge');   // GE default 'cg' (user-selectable)
-    // Preserve-bulk + gentle refine (gated; default 'refine'). 'preserve-bulk':
-    // skip the bare-seed refine (else a lone thick seed collapses 7k→2k nm for
-    // zero MF gain) and refine each step GENTLY so the bulk persists and TOT
-    // grows organically.
+    // Preserve-bulk + gentle refine (seedMode.js; the default). 'preserve-bulk':
+    // skip the bare-seed refine, which moves a lone thick seed a long way for
+    // almost no merit gain, and refine each step GENTLY so the bulk persists
+    // and TOT grows organically.
     const preserveBulk = getSynthesisSeedMode() === 'preserve-bulk';
     const dlsIter = ctx.dlsIterRef.current;
     const K = poolSize();

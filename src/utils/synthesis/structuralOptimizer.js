@@ -42,7 +42,8 @@ import { cleanupLayers } from '../physics/optimizer/layerOps.js';
 
 // ── Seedable RNG (mulberry32) ───────────────────────────────────────────────────
 // Small, fast, well-distributed 32-bit PRNG. Deterministic for a given seed so
-// tests are reproducible; the window seeds it from Date.now() at run start.
+// tests are reproducible; the window seeds it with the run's seed, the one in
+// its seed field or a fresh one, and records it with the run's generations.
 export function makeRng(seed) {
     let a = (seed >>> 0) || 1;
     return function rng() {
@@ -189,7 +190,7 @@ const OPS = { add: opAdd, remove: opRemove, split: opSplit, merge: opMerge, pert
  * @param {object} ctx
  *   - rng        : () => [0,1)         injected PRNG (required)
  *   - pool       : [{ id, name }]      candidate materials for add/split (required for those)
- *   - dMin,dMax  : thickness bounds, nm (default 1, 2000)
+ *   - dMin,dMax  : thickness bounds, nm (default 1, no upper bound)
  *   - addMaxNm   : max thickness of an added/inserted layer, nm (default 120)
  *   - jitterPct  : perturb fraction (default 0.15)
  *   - kinds      : enabled mutation kinds (default all five)
@@ -198,7 +199,7 @@ const OPS = { add: opAdd, remove: opRemove, split: opSplit, merge: opMerge, pert
  */
 export function proposeMutation(layers, ctx) {
     const cfg = {
-        dMin: 1, dMax: 2000, addMaxNm: 120, jitterPct: 0.15,
+        dMin: 1, dMax: Infinity, addMaxNm: 120, jitterPct: 0.15,
         kinds: MUTATION_KINDS, weights: DEFAULT_MUTATION_WEIGHTS,
         ...ctx,
     };

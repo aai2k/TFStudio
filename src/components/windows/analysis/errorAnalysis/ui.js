@@ -10,6 +10,12 @@ export function yieldColor(c, value) {
     return band === 'fail' ? c.error : c.textDim;
 }
 
+/** A yield interval [low, high] (fractions) as a percent range. */
+export function formatYieldInterval(interval, digits) {
+    const [low, high] = interval;
+    return `${(low * 100).toFixed(digits)}–${(high * 100).toFixed(digits)}%`;
+}
+
 export function chip(txt, color, tip, key) {
     return h('span', {
         key, title: tip,

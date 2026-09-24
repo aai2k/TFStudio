@@ -77,8 +77,7 @@ function phaseQuantities(options, target, withThicknessJacobian) {
         return {
             dispersion: inFemtoseconds(dispersion),
             thicknessJacobian: withThicknessJacobian
-                ? inFemtoseconds(
-                    dGd && { phaseDeg: dPhaseDeg, gd: dGd, gdd: dGdd, tod: dTod })
+                ? inFemtoseconds({ phaseDeg: dPhaseDeg, gd: dGd, gdd: dGdd, tod: dTod })
                 : undefined,
         };
     }

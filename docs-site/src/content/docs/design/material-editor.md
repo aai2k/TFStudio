@@ -38,7 +38,11 @@ the catalog you have selected.
 **Import AGF**: load a Zemax `.agf` glass file as a new catalog. AGF files
 store internal transmittance versus wavelength; TFStudio converts that to
 `k(λ)` automatically. AGF files you place in your TFStudio data folder's `Materials`
-subfolder are also picked up automatically when the app starts.
+subfolder are also picked up automatically when the app starts. A glass whose
+dispersion formula number is not one TFStudio evaluates is left out of the
+catalog, and the import message names it. A file picked up at startup has no
+window to report in, so import it with **Import AGF** to see which glasses were
+left out.
 
 **Import material files**: load materials written by other coating programs,
 any mix of them in one pick:
@@ -105,7 +109,14 @@ A live n/k chart updates as you edit, and the wavelength range you set bounds
 where the material is valid and the span the chart shows. Under the chart,
 type a wavelength to read `n` and `k` there, and a sampled table lists the
 curve's numbers. The same probe and table sit under the chart of a read-only
-material.
+material. Where a formula has no finite value, the preview gives no `n`.
+
+A material TFStudio cannot compute is never given a stand-in index. A formula
+it has no evaluator for, or a table with no row that holds both a wavelength
+and an `n`, makes the material unavailable: a design that uses it lists it
+among its unavailable materials, and calculations are blocked until you replace
+it. Saving the design keeps such a definition as it was written, so nothing in
+it is lost.
 
 ### Between the table points
 
@@ -144,9 +155,13 @@ can use a coupled Drude or Drude-Lorentz dielectric model, which fits `n` and
 The fit covers its own wavelength range, set in **Fit from** and **Fit to** and
 separate from the validity range at the top of the form. It starts at the range
 the design is evaluated over, where the table reaches that far, because that is
-where the fit has to be right; outside the fit range the table itself is read,
-so a fit narrower than the table costs nothing. The range is stored with the
-fit and comes back the next time the material is opened.
+where the fit has to be right; outside the fit range the table itself is read.
+Where the fit ends inside the table, `n` and `k` step from the fit to the table
+by the fit's own residual there. The fit panel names that step at each end, and
+the GD/GDD and Material Dispersion windows break their curves at it rather than
+draw through it. A fit that ends at the table's first or last row has no step.
+The range is stored with the fit and comes back the next time the material is
+opened.
 
 A range covering more than a decade of photon energy is reported as such. No
 single model holds free-electron behaviour, an interband edge and the
@@ -156,7 +171,9 @@ reaches.
 
 Choose **Fit** or **Refit** to calculate it. TFStudio shows RMS and maximum
 residuals for both `n` and `k`, plus a residual plot. Inspect those errors before
-using the model. For the metal models it also reports a parameter left on one of
+using the model. A Cauchy or Urbach fit to the table also shows each
+coefficient with its standard error. For the metal models it also reports a
+parameter left on one of
 the model's own limits, and an oscillator that changes `n` across the range by
 less than the residual: neither is a measurement of the material, and the
 residual alone does not say so. The fit is not created silently. It is stored

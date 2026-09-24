@@ -50,7 +50,7 @@ export function recordBaseline(ctx, S, score) {
     const generation = {
         id: Math.random().toString(36).slice(2),
         genNum: 0, mf: score.mf, omf: score.omf, dMF: null, side: S.side,
-        runNum: activeRunNum(ctx.runsRef.current),
+        runNum: activeRunNum(ctx.runsRef.current), seed: S.seed,
         kind: (S.smartSeed && S.pool.length) ? 'seed' : 'baseline',
         layerCount: (S.current[S.layerKey] || []).length,
         tot: sumD(S.current.frontLayers) + sumD(S.current.backLayers),

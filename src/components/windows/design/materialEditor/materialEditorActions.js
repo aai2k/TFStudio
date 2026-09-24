@@ -14,17 +14,26 @@ import {
 import { parseAGF } from '../../../../utils/materials/agfParser.js';
 import { DEFAULT_IMPORT_UNITS } from '../../../../utils/materials/materialFileImport.js';
 
+/** The glasses an AGF import left out, as "NAME (formula number)" items. */
+export function rejectedGlassList(rejected) {
+    return rejected.map(glass => `${glass.name} (${glass.formula || '?'})`).join(', ');
+}
+
 export async function importAgfCatalog(ctx) {
     const { me, notify, loadCatalogs, setCatFilter } = ctx;
     try {
         const result = await window.electronAPI.importCatalogAgf();
         if (result.canceled) return;
         if (!result.success) { notify('error', me.importError(result.error || 'Unknown error')); return; }
-        const catalog = parseAGF(result.text, result.fileName.toLowerCase().replace(/[^a-z0-9]/g, '_'));
+        const { rejected, ...catalog } = parseAGF(result.text, result.fileName.toLowerCase().replace(/[^a-z0-9]/g, '_'));
         addCatalog(catalog);
         loadCatalogs();
         setCatFilter(catalog.id);
-        notify('ok', me.importSuccess(catalog.name) + ` (${Object.keys(catalog.materials).length} materials)`);
+        const imported = me.importSuccess(catalog.name) + ` (${Object.keys(catalog.materials).length} materials)`;
+        // Glasses whose formula number is not a Zemax formula are left out of
+        // the catalog; the message names them with the number the file gives.
+        if (rejected.length === 0) notify('ok', imported);
+        else notify('error', `${imported}. ${me.agfRejected(rejectedGlassList(rejected))}`);
     } catch (err) {
         notify('error', me.importError(err.message));
     }

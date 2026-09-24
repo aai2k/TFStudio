@@ -12,7 +12,11 @@ import {
     dispersionFitModelName, dispersionFitParameters, fitTabulatedMaterial, metalFitDiagnostics,
 } from '../../../../utils/materials/dispersionFits.js';
 import { anchoredFitRange, photonEnergyDecades, WIDE_BAND_DECADES } from '../../../../utils/materials/dispersionFitRange.js';
-import { effectiveFitModel, fitModelsForRows, fitRangeNm, fitRows, tableRangeNm } from './materialDraft.js';
+import { makeGetNK } from '../../../../utils/materials/catalogManager/dispersion.js';
+import { dispersionFitEdges } from '../../../../utils/materials/materialDispersion.js';
+import {
+    draftToMaterial, effectiveFitModel, fitModelsForRows, fitRangeNm, fitRows, tableRangeNm,
+} from './materialDraft.js';
 import { smallBtn } from './materialEditorUI.js';
 
 const { createElement: h } = React;
@@ -97,15 +101,25 @@ export function fitActions({ draft, onChange, workingNm, suggestion, setFitError
 // that steps that finely, with no trailing zeros on one that does not.
 const rangeText = value => String(Number(value.toFixed(3)));
 
+// A coefficient as the panel writes it, with its standard error where the fit
+// has one.
+function coefficientText(parameter) {
+    const value = parameter.value.toPrecision(7);
+    return parameter.standardError === undefined
+        ? value
+        : `${value} ± ${parameter.standardError.toPrecision(2)}`;
+}
+
 // The coefficients the material is computed from, with the formula they sit in.
 function renderFitCoefficients(fit, c) {
     const { formula, parameters } = dispersionFitParameters(fit);
     if (parameters.length === 0) return null;
+    const columnWidth = parameters.some(parameter => parameter.standardError !== undefined) ? 230 : 150;
     return h('div', { style: { display: 'flex', flexDirection: 'column', gap: 4 } },
         h('div', { style: { color: c.textDim, fontSize: 10 } }, formula),
         h('div', {
             style: {
-                display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(150px, 1fr))',
+                display: 'grid', gridTemplateColumns: `repeat(auto-fill, minmax(${columnWidth}px, 1fr))`,
                 gap: '2px 12px', fontSize: 11, fontFamily: 'ui-monospace, Consolas, monospace',
             },
         },
@@ -114,10 +128,29 @@ function renderFitCoefficients(fit, c) {
                 style: { display: 'flex', justifyContent: 'space-between', gap: 6 },
             },
                 h('span', { style: { color: c.textDim } }, parameter.label),
-                h('span', { style: { color: c.text } }, parameter.value.toPrecision(7)),
+                h('span', { style: { color: c.text } }, coefficientText(parameter)),
             )),
         ),
     );
+}
+
+/**
+ * Where the fit hands over to the table, with the step in n and k there.
+ *
+ * Inside the fit range the fit is read and outside it the table, so the
+ * material jumps at each end by the fit's residual at that wavelength. The
+ * residual chart shows the same difference at the rows; this names the two
+ * wavelengths where a calculation actually crosses it.
+ */
+function renderFitEdges(draft, me, c) {
+    if (draft.type !== 'tabular') return null;
+    const getNK = makeGetNK(draftToMaterial(draft));
+    const edges = getNK ? dispersionFitEdges({ getNK }) : [];
+    if (edges.length === 0) return null;
+    const step = value => value.toExponential(2);
+    const text = edges.map(edge => `${rangeText(edge.wavelengthNm)} nm: Δn ${step(edge.dn)}`
+        + (edge.dk === 0 ? '' : `, Δk ${step(edge.dk)}`)).join('; ');
+    return h('div', { style: { fontSize: 11, color: c.text, lineHeight: 1.4 } }, me.fitEdgeSteps(text));
 }
 
 /**
@@ -269,6 +302,7 @@ export function renderFitPanel(ctx) {
                 ...fitResidualText(fit, me),
             ),
             fit && renderFitDiagnostics(fit, me),
+            fit && renderFitEdges(draft, me, c),
             fit && renderFitCoefficients(fit, c),
             fitError && h('div', { style: { color: '#ef5350', fontSize: 11 } }, fitError),
         ),

@@ -1,8 +1,10 @@
 /**
- * Interface Roughness / Scattering window for uncorrelated interface roughness.
- *
- * TIS(λ) = R(λ) · (4π · σ_eff · cosθ / λ)² and σ_eff² = Σ σ_i².
- * Reference: Macleod, Thin-Film Optical Filters, 5th ed., Eq. 16.30.
+ * Interface Roughness / Scattering window: specular R and T of the design with
+ * a transition layer 2σ thick at each rough interface, against the smooth
+ * design, and the specular loss between them. Short-range roughness is a
+ * graded layer, long-range roughness the Carniglia-Jensen absorbing layer.
+ * Reference: Macleod, Thin-Film Optical Filters, 5th ed., §16, p. 626; the
+ * model itself is in utils/physics/scattering.js.
  */
 
 import { EvalModeBadge } from '../../../SurfaceModeBar.js';
@@ -23,6 +25,10 @@ function buildNotices({ state, rs, rangeNotice }) {
     if (state.activeSides.includes('back') && !state.hasBack) {
         notices.push({ label: rs.noBackLayers });
     }
+    const { calc } = state;
+    const thinned = (calc?.thinned?.front.length || 0) + (calc?.thinned?.back.length || 0);
+    if (thinned > 0) notices.push({ label: rs.noticeThinned(thinned) });
+    if (calc?.hasLongRange && state.aoi > 0) notices.push({ label: rs.noticeOblique });
     if (rangeNotice) notices.push(rangeNotice);
     return notices;
 }
@@ -67,8 +73,6 @@ export function RoughnessScattering({ c, theme, t }) {
             c, label: dt.results, count: rows.length, countLabel: dt.rowCount,
             open: state.showTable, setOpen: state.setShowTable,
             actions: h('div', { style: { display: 'flex', alignItems: 'center', gap: 8 } },
-                calc && h('span', { style: { color: c.textDim, fontSize: 11, whiteSpace: 'nowrap' } },
-                    `σ_eff = ${calc.sigmaEff.toFixed(2)} nm · ${state.nIfaces} ${rs.interfaces}`),
                 h(EvalModeBadge, { design, c, t }),
                 h(ExportMenu, {
                     c, enabled: rows.length > 0, ...csv,

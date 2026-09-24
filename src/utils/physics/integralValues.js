@@ -14,12 +14,12 @@
  * evaluated by trapezoidal integration on the *design's* spectrum λ grid
  * (so the result respects the same spectral resolution as the rest of the
  * Optical Evaluation tool). The weighting w(λ) is sampled by linear
- * interpolation on its own table.
+ * interpolation on its own table. The integral runs over the weighting's whole
+ * band; a spectrum that does not span the band gives no value.
  *
- * Photopic Tvis/Rvis are computed by routing T (or R) through
- * `tristimulus(..., '2', 'D65')` in `colorimetry.js` — `Y` is exactly
- * the V(λ)·D65-weighted average (Macleod Eq. (12.2), Y = luminance factor).
- * That avoids duplicating the CIE tables here.
+ * Photopic Tvis/Rvis use w(λ) = D65(λ)·ȳ(λ) with the CIE tables from
+ * `colorimetry.js`, so the average is the luminance factor Y/100 of Macleod
+ * Eq. (12.2), integrated on the design grid like the other weightings.
  *
  * Provenance:
  *   - Photopic V(λ): CIE 1924 photopic standard observer (= y-CMF of CIE

@@ -73,7 +73,8 @@ function applySeedResult(ctx, S, sres, seedSide) {
 export async function seedPhase(ctx, S) {
     const seedSide = S.scanSides[0];
     // preserve-bulk: dlsIter:0 → evaluate the seed MF only, leave the thick bulk
-    // intact (refining the bare seed collapses it).
+    // intact (refining the bare seed moves it for almost no merit gain;
+    // seedMode.js).
     const seedIter = S.preserveBulk ? 0 : S.dlsIter;
     ctx.setPhase('refining');
     let sres;

@@ -10,6 +10,7 @@
  *   node tests/structural_runner_guard.mjs --update
  */
 import { readFileSync, writeFileSync, existsSync } from 'node:fs';
+import assert from 'node:assert/strict';
 import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
 import { shimBrowserGlobals } from './_uiShim.mjs';
@@ -21,6 +22,7 @@ Object.defineProperty(globalThis, 'navigator', {
 
 const realDateNow = Date.now;
 Date.now = () => 1700000000000;
+const GOLDEN_SEED = (1700000000000 ^ 0) >>> 0;
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const GOLDEN = join(HERE, 'structural_runner_guard.golden.json');
@@ -134,6 +136,9 @@ function makeCtx(surfaceMode, options) {
             jitterPct: 0.15, refineIter: 5, dMin: 1, addMaxNm: 120,
             maxLayers: 20, kinds: new Set(['perturb']),
             deepMode: options.deepMode, deepMaxMin: 0,
+            // The pinned clock above folded to 32 bits, the seed the golden
+            // scenarios were recorded with.
+            seed: options.seed === undefined ? GOLDEN_SEED : options.seed,
         }),
         runningRef, workersRef, runIdRef: ref(0), designRef,
         operandsRef: ref(copy(OPERANDS)), savedDesignRef: ref(null), baseDesignRef: ref(null),
@@ -191,6 +196,7 @@ function makeCtx(surfaceMode, options) {
             else if (value === 'baseline') activeScript.phase = 'baseline';
         },
         setReheats: value => { snapshots.reheats = value; },
+        setSeed: value => { snapshots.seed = value; },
     };
     return { ctx, snapshots };
 }
@@ -267,6 +273,35 @@ const scenarios = {
 const results = {};
 for (const [name, [surfaceMode, options]] of Object.entries(scenarios)) {
     results[name] = await runScenario(name, surfaceMode, options);
+}
+
+// A run draws from the seed in its seed field, or from a fresh one the field
+// then shows, and every generation row keeps it. The same seed replays the
+// run; another seed runs differently.
+async function seededRun(seed) {
+    const [surfaceMode, options] = scenarios['front-normal'];
+    activeScript = {
+        name: 'seeded', phase: 'baseline', normalMf: options.normalMf,
+        phaseCalls: {}, constructed: 0, terminated: 0, jobs: 0,
+        startJobs: 0, progress: 0, failedSeed: false,
+    };
+    const { ctx, snapshots } = makeCtx(surfaceMode, { ...options, seed });
+    await runStructuralWorker(ctx);
+    return {
+        shown: snapshots.seed,
+        seeds: ctx.gensRef.current.map(g => g.seed),
+        layers: ctx.gensRef.current.map(g => layers(g.layers)),
+    };
+}
+{
+    const first = await seededRun(11), again = await seededRun(11), other = await seededRun(12);
+    assert.deepEqual(again, first, 'the same seed replays the run');
+    assert.notDeepEqual(other.layers, first.layers, 'another seed runs different proposals');
+    assert.equal(first.shown, 11, 'the run shows its seed');
+    assert.ok(first.seeds.every(seed => seed === 11), 'every row records it');
+    const fresh = await seededRun(null);
+    assert.ok(Number.isInteger(fresh.shown) && fresh.shown >= 1, `an empty seed field draws a seed (${fresh.shown})`);
+    assert.ok(fresh.seeds.every(seed => seed === fresh.shown), 'and the rows record the seed drawn');
 }
 Date.now = realDateNow;
 

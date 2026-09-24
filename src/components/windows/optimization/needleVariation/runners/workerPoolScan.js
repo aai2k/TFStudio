@@ -5,7 +5,9 @@
  */
 
 import { buildARSeedCandidates } from '../../synthesisShared/synthesisHelpers.js';
-import { getNeedleSensFloor, cullMarginalNeedles } from '../../../../../utils/synthesis/synthesisConfig.js';
+import {
+    getNeedleSensFloor, cullMarginalNeedles, SYNTHESIS_INTRA_SAMPLES,
+} from '../../../../../utils/synthesis/synthesisConfig.js';
 import { wpOnTick, wpAlive } from './workerPoolLifecycle.js';
 
 // Smart seed: refine the canonical QW/HW AR starting designs (plus the current
@@ -64,7 +66,8 @@ export async function wpScanCycle(run) {
     for (const sd of remainingSides) {
         for (const slice of run.poolSlices) {
             scanJobs.push({ type: 'scan', operands: run.operands, design: snap,
-                materials: run.materials, poolSlice: slice, deltaNm: run.deltaNm, side: sd });
+                materials: run.materials, poolSlice: slice, deltaNm: run.deltaNm, side: sd,
+                dMin: run.dMin, nIntra: SYNTHESIS_INTRA_SAMPLES });
         }
     }
     const scanRes = await run.workerPool.map(scanJobs);

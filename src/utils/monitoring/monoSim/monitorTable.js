@@ -5,7 +5,7 @@
  */
 
 import {
-    findExtrema, nearestExtremum, sampleLayerCurve, signalAt, signalErrorOf, slopeAtCut,
+    findExtrema, isFlatCurve, nearestExtremum, sampleLayerCurve, signalAt, signalErrorOf, slopeAtCut,
     terminationError,
 } from './worksheetSignal.js';
 import { CHAMBER_MEDIUM_ID } from '../chamberMedium.js';
@@ -32,10 +32,11 @@ function quarterWave(curMat, lam) {
 //   turning  cuts at the model extremum nearest the target, so the error is
 //            that extremum's displacement from the target plus the
 //            curvature-limited detection error;
-//   level    cuts at the FIRST crossing of the target level in the
-//            start-to-target direction, so an earlier same-direction crossing
-//            IS the cut and scores as that miss; a clean crossing scores as
-//            signal noise over slope.
+//   level    arms at the last turning point before the target and cuts where
+//            the branch after it crosses the target level, so a level within
+//            noise of that turning value is crossed the moment the rule arms
+//            and scores as the full miss; a clean crossing scores as signal
+//            noise over slope.
 //
 // Returns the better rule and its error, which is what makes maximum raw
 // sensitivity the wrong criterion: a band-edge wavelength has the steepest
@@ -54,10 +55,11 @@ function scoreLayerAt(ctx, dTarget, noise) {
 
     // The engine recomputes its level from the monitor's accumulated as-built
     // stack, so the level VALUE tracks deposition errors; what has to survive
-    // them is the crossing's uniqueness. The pick therefore counts only if the
-    // crossing stays clean with the layers beneath a couple of percent thick
-    // AND thin, the scale of realized cut errors; otherwise it is scored as
-    // the full miss an early crossing produces.
+    // them is the crossing's clearance from the branch start. The pick
+    // therefore counts only if the crossing stays clean with the layers
+    // beneath a couple of percent thick AND thin, the scale of realized cut
+    // errors; otherwise it is scored as the full miss of a cut that fires on
+    // arming.
     const level = [1, 1.02, 0.98].every(s => levelCutIsClean(ctx, s, dTarget, noise))
         ? terminationError({
             strategy: 'level', signalError, slope: slopeAtCut(ctx, dTarget),
@@ -69,24 +71,44 @@ function scoreLayerAt(ctx, dTarget, noise) {
 }
 
 // Whether a level cut on this layer terminates where it should, with the
-// layers beneath scaled by `belowScale`: the level must sit several noise
-// widths away from the layer's starting signal (the engine cuts on the FIRST
-// crossing, and a level within noise of the start is crossed the moment the
-// shutter opens), and no earlier same-direction crossing may exist.
+// layers beneath scaled by `belowScale`. The engine arms a level cut at the
+// last turning point before the target and follows the branch after it,
+// which is monotonic up to the target, so the one condition is clearance: the
+// level must sit several noise widths away from where that branch starts
+// (the turning value, or the layer's starting signal when no turning point
+// comes first), or it is crossed the moment the rule arms.
 function levelCutIsClean(ctx, belowScale, dTarget, noise) {
     const p = belowScale === 1 ? ctx
         : { ...ctx, belowThicks: ctx.belowThicks.map(t => t * belowScale) };
     const curve = sampleLayerCurve(p, dTarget, quarterWave(p.curMat, p.lam), true);
     const sCut = signalAt(p, dTarget);
-    const signalError = signalErrorOf(noise, sCut);
-    if (Math.abs(sCut - curve.s[0]) < 5 * signalError) return false;
-    const startDir = Math.sign(sCut - curve.s[0]) || 1;
-    for (let k = 1; k < curve.s.length && curve.d[k] < dTarget - curve.h; k++) {
-        const up = curve.s[k - 1] < sCut && curve.s[k] >= sCut;
-        const dn = curve.s[k - 1] > sCut && curve.s[k] <= sCut;
-        if (startDir > 0 ? up : dn) return false;
+    const opened = findExtrema(curve).filter(e => e.d < dTarget);
+    const sBranch = opened.length ? opened[opened.length - 1].s : curve.s[0];
+    return Math.abs(sCut - sBranch) >= 5 * signalErrorOf(noise, sCut);
+}
+
+// The growing layer's material and the layers beneath it: higher storage
+// indices, already in outermost-first order as the signal model wants.
+function layerStack(front, i, resolveMat) {
+    const belowMats = [];
+    const belowThicks = [];
+    for (let k = i + 1; k < front.length; k++) {
+        belowMats.push(resolveMat(front[k].material));
+        belowThicks.push(front[k].thickness || 0);
     }
-    return true;
+    return { curMat: resolveMat(front[i].material), belowMats, belowThicks };
+}
+
+// The monitor watches the witness chip: in air, since the chip hangs in the
+// chamber whatever the design is embedded in, and on the design substrate's
+// glass unless `chipMaterial` names another material.
+function chipSystem({ design, resolveMat, theta, pol, char, chipMaterial }) {
+    const subId = chipMaterial || (design.substrate?.material ?? 'BK7');
+    return {
+        theta, pol, char,
+        incMat: resolveMat(CHAMBER_MEDIUM_ID), subMat: resolveMat(subId),
+        subThickMM: design.substrate?.thickness ?? 1,
+    };
 }
 
 // The plan for one layer of the run. A layer whose cut sits on an extremum
@@ -99,15 +121,7 @@ function levelCutIsClean(ctx, belowScale, dTarget, noise) {
 function planForLayer({ front, i, resolveMat, sys, ref, candidates, noise }) {
     const d = Math.max(0, front[i].thickness || 0);
     if (d <= 0) return { lambda: ref, strategy: 'time' };
-    const curMat = resolveMat(front[i].material);
-    // The layers beneath the growing one: higher storage indices, already
-    // in outermost-first order as the signal model wants.
-    const belowMats = [];
-    const belowThicks = [];
-    for (let k = i + 1; k < front.length; k++) {
-        belowMats.push(resolveMat(front[k].material));
-        belowThicks.push(front[k].thickness || 0);
-    }
+    const { curMat, belowMats, belowThicks } = layerStack(front, i, resolveMat);
     // Turning at the reference is kept when the cut sits on an extremum there
     // AND the reversal is still strong enough to detect within the engine's
     // own tracking window (about a quarter of a quarter-wave for a
@@ -163,15 +177,7 @@ export function pickMonitoringPlan({
     const N = front.length;
     if (!N) return [];
     const ref = design.referenceWavelength || 550;
-    // The monitor watches the witness chip: in air, since the chip hangs in
-    // the chamber whatever the design is embedded in, and on the design
-    // substrate's glass unless `chipMaterial` names another material.
-    const subId = chipMaterial || (design.substrate?.material ?? 'BK7');
-    const sys = {
-        theta, pol, char,
-        incMat: resolveMat(CHAMBER_MEDIUM_ID), subMat: resolveMat(subId),
-        subThickMM: design.substrate?.thickness ?? 1,
-    };
+    const sys = chipSystem({ design, resolveMat, theta, pol, char, chipMaterial });
     const noise = { relFrac: Math.max(0, noisePct) / 100, absFrac: Math.max(0, absNoisePct) / 100 };
 
     const candidates = [ref];
@@ -187,8 +193,9 @@ export function pickMonitoringPlan({
 }
 
 /**
- * Default strategy: 'turning' if d_target is within 6% of an integer number of
- * quarter-waves at λ_mon, else 'level'. Zero-thickness → 'time'.
+ * Strategy from the layer's own quarter-wave count: 'turning' if d_target is
+ * within 6% of an integer number of quarter-waves at λ_mon, else 'level'.
+ * Zero-thickness → 'time'.
  */
 export function autoMonoStrategy(layer, mat, monLambda) {
     const dt = Math.max(0, layer.thickness || 0);
@@ -203,6 +210,28 @@ export function autoMonoStrategy(layer, mat, monLambda) {
 }
 
 /**
+ * Strategy for one layer at the reference wavelength when no plan is picked.
+ * A layer within 6% of a whole number of quarter waves (autoMonoStrategy) is
+ * cut on its turning point only if its signal on the chip, with the design
+ * layers beneath it, really turns within 6% of a quarter wave of the cut: a
+ * stack beneath that is not a quarter-wave stack moves the turning point, and
+ * a quarter-wave layer on such a stack can turn several nanometres short of
+ * its target, where a turning cut would stop it. Such a layer, like every
+ * other one, gets a level cut. A layer that leaves no trace on the signal is
+ * cut on time, and so is a zero-thickness one.
+ */
+function defaultStrategyAt(ctx, layer) {
+    const d = Math.max(0, layer.thickness || 0);
+    if (d <= 0) return 'time';
+    const dQW = quarterWave(ctx.curMat, ctx.lam);
+    const curve = sampleLayerCurve(ctx, d, dQW);
+    if (isFlatCurve(curve)) return 'time';
+    if (autoMonoStrategy(layer, ctx.curMat, ctx.lam) !== 'turning') return 'level';
+    const ext = nearestExtremum(findExtrema(curve), d);
+    return ext && Math.abs(ext.d - d) < 0.06 * dQW ? 'turning' : 'level';
+}
+
+/**
  * Build the per-layer monitor table aligned to design.frontLayers (storage
  * order). Row: { lambda, strategy, order, sigmaRelPct }.
  */
@@ -214,16 +243,14 @@ export function defaultMonoTable(design, resolveMat, opts = {}) {
     const theta = opts.theta ?? 0;
     const pol = opts.pol || 'avg';
     const char = opts.char || 'T';
-    const plan = opts.autoPickLambda
-        ? pickMonitoringPlan({
-            design, resolveMat, lamA, lamB, theta, pol, char,
-            chipMaterial: opts.chipMaterial,
-        })
-        : null;
+    const chipMaterial = opts.chipMaterial;
+    if (opts.autoPickLambda) {
+        const plan = pickMonitoringPlan({ design, resolveMat, lamA, lamB, theta, pol, char, chipMaterial });
+        return plan.map(row => ({ lambda: row.lambda, strategy: row.strategy, order: 1, sigmaRelPct: 0 }));
+    }
+    const sys = chipSystem({ design, resolveMat, theta, pol, char, chipMaterial });
     return front.map((l, i) => {
-        const mat = resolveMat(l.material);
-        const lambda = plan ? plan[i].lambda : ref;
-        const strategy = plan ? plan[i].strategy : autoMonoStrategy(l, mat, lambda);
-        return { lambda, strategy, order: 1, sigmaRelPct: 0 };
+        const ctx = { lam: ref, ...layerStack(front, i, resolveMat), sys };
+        return { lambda: ref, strategy: defaultStrategyAt(ctx, l), order: 1, sigmaRelPct: 0 };
     });
 }

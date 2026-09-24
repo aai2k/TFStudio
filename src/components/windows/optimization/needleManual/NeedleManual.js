@@ -11,8 +11,8 @@
  *   2. Click a point on a curve to pick a position (z) + material.
  *   3. Preview the resulting split-layer geometry and the predicted ΔMF, and
  *      tune the inserted thickness d_new with a slider.
- *   4. Apply — a single insertion (optionally followed by one DLS refinement
- *      pass), recorded as a normal history entry.
+ *   4. Apply: a single insertion (optionally followed by one refinement pass
+ *      with the default refiner), recorded as a normal history entry.
  */
 
 import { OptimizeBadge, EvalModeBadge } from '../../../SurfaceModeBar.js';

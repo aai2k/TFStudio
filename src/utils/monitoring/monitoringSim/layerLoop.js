@@ -5,14 +5,15 @@
  * rate-process maps, and the running deposition clock).
  */
 
-import { drawRealizedRate, computeExcludedCut, applyExtraThicknessAndShutter } from './layerDeposition.js';
+import {
+    drawRealizedRate, startLayerGrowth, growLayer, excludedLayerCut, drawExtraThickness, drawShutterDelay,
+} from './layerDeposition.js';
 import { runBroadbandLayerCut } from './broadbandCutSearch.js';
 import { recordZeroThicknessLayer } from '../zeroThicknessLayer.js';
 
-// Optical-feedback cut search bounds + call for one non-excluded layer.
-// `layer` bundles the per-layer scalars (index, target, realized rate, and
-// the theoretical time-to-target) so this stays under the param-count limit.
-function runLayerCutSearch({ i, d_target, r, t_target }, ctx, mut) {
+// Optical-feedback cut search bounds + call for one non-excluded layer. The
+// fit's allowed range runs to three times the target (at least 50 nm past it).
+function runLayerCutSearch({ i, d_target, chamber, rateSpec }, ctx, mut) {
     const dHiCap = Math.max(d_target * 3, d_target + 50);
     const scan = runBroadbandLayerCut({
         theta: ctx.theta, incMat: ctx.incMat, subMat: ctx.subMat, subThickMM: ctx.subThickMM,
@@ -20,9 +21,9 @@ function runLayerCutSearch({ i, d_target, r, t_target }, ctx, mut) {
         truthThicksBelow: mut.truthThicks.slice(i + 1),
         modelThicksBelow: mut.modelThicks.slice(i + 1),
         lambdas: ctx.lambdas, char: ctx.char, pol: ctx.pol,
-        r, dt: ctx.dt, d_target, t_target, dHiCap, confirmScans: ctx.confirmScans,
+        chamber, rateSpec, dt: ctx.dt, d_target, dHiCap, confirmScans: ctx.confirmScans,
         randomPct: ctx.randomPct, absNoisePct: ctx.absNoisePct || 0, driftSlope: ctx.driftSlope,
-        fitStartFrac: ctx.fitStartFrac, fitMaxIter: ctx.fitMaxIter, rng: ctx.rng,
+        fitStartFrac: ctx.fitStartFrac, rng: ctx.rng,
         t_global: mut.t_global,
     });
     mut.t_global = scan.t_global;
@@ -39,18 +40,12 @@ export function processLayer(i, layer, ctx, mut) {
         return;
     }
 
-    // Realized rate for this layer (clipped to > 0). Correlated in time via
-    // an OU process at the material's correlation time τ; with τ≤0 the first
-    // rng draw reduces EXACTLY to the v1 white draw  mean + σ·N(0,1)  so
-    // existing Monte-Carlo runs (which pass no corrTime) stay bit-identical.
+    // The rate at the start of the layer continues this material's OU
+    // process from where its last layer left it; inside the layer the
+    // chamber steps the same process at the scan interval.
     const rateSpec = ctx.rates.get(matId) || { mean: 0.5, sigma: 0 };
     const dtc = Math.max(0, mut.tElapsed - (mut.ouLastT.get(matId) ?? 0));
-    const r = drawRealizedRate(rateSpec, mut.ouRate.get(matId), dtc, ctx.rng);
-    mut.ouRate.set(matId, r);
-    mut.acc.realizedRates[i] = r;
-
-    // Time to reach the target at the actual rate (purely theoretical reference)
-    const t_target = d_target / r;
+    const chamber = startLayerGrowth(drawRealizedRate(rateSpec, mut.ouRate.get(matId), dtc, ctx.rng));
 
     // Layers monitored by other means (time / quartz crystal) are excluded
     // from the broadband fit. Their as-built thickness deviates from target
@@ -60,28 +55,30 @@ export function processLayer(i, layer, ctx, mut) {
     let cut;
     if (isExcluded) {
         const relPct = ctx.relThkErrByLayer ? (ctx.relThkErrByLayer[i] || 0) : 0;
-        cut = computeExcludedCut(d_target, r, relPct, ctx.rng);
+        cut = excludedLayerCut(chamber, d_target, relPct, rateSpec, ctx.rng);
     } else {
-        cut = runLayerCutSearch({ i, d_target, r, t_target }, ctx, mut);
+        cut = runLayerCutSearch({ i, d_target, chamber, rateSpec }, ctx, mut);
     }
 
-    // Apply extra thickness deviation + shutter delay (independent of
-    // monitoring); the cut time itself is unaffected.
-    const { thickness: d_built, shutterDelay } = applyExtraThicknessAndShutter({
-        cut_d_actual: cut.cut_d_actual, r, d_target,
-        sigmaThkAbsNm: ctx.sigmaThkAbsNm, sigmaThkRelPct: ctx.sigmaThkRelPct,
-        shutterMeanS: ctx.shutterMeanS, shutterRmsS: ctx.shutterRmsS, rng: ctx.rng,
-    });
+    // Extra thickness deviation + shutter delay (independent of monitoring);
+    // the layer keeps growing at its own rate while the shutter closes, and
+    // the cut time itself is unaffected.
+    const extra = drawExtraThickness(d_target, ctx.sigmaThkAbsNm, ctx.sigmaThkRelPct, ctx.rng);
+    const shutterDelay = drawShutterDelay(ctx.shutterMeanS, ctx.shutterRmsS, ctx.rng);
+    growLayer(chamber, shutterDelay, rateSpec, ctx.rng);
+    const d_built = Math.max(0, chamber.d + extra);
 
     mut.acc.asBuilt[i] = d_built;
     mut.acc.cutTimes[i] = cut.cut_time;
+    mut.acc.realizedRates[i] = chamber.t > 0 ? chamber.d / chamber.t : chamber.r;
     if (mut.acc.estimated) mut.acc.estimated[i] = cut.cut_d_hat;
 
-    // Advance the OU clock: record when this material was last deposited so
-    // the next layer of the same material decorrelates over the elapsed time.
+    // Advance the OU clock: record the material's rate and the time its
+    // layer ended, so its next layer continues the process over the gap.
     if (isExcluded) mut.t_global += cut.cut_time;
     mut.t_global += shutterDelay;
     mut.tElapsed += cut.cut_time + shutterDelay;
+    mut.ouRate.set(matId, chamber.r);
     mut.ouLastT.set(matId, mut.tElapsed);
 
     // Optional per-layer progress hook (used by the wizard's run worker to
@@ -89,11 +86,10 @@ export function processLayer(i, layer, ctx, mut) {
     // index i maps to step N-i. MC path passes none.
     if (ctx.onLayer) ctx.onLayer(ctx.N - i, ctx.N);
 
-    // Update truth and model histories. The monitor's model history is the
-    // monitor's BEST ESTIMATE of what it just deposited, which (in our
-    // simplification) equals the as-built thickness. This is realistic for
-    // BBM: the monitor's fit at cut time gives the estimated thickness,
-    // and the monitor uses that estimate going forward.
+    // The chamber holds what was really deposited; the monitor's model of
+    // the stack holds what the monitor believes it deposited, its estimate
+    // at the cut. The next layer is fitted over that model, so the monitor's
+    // errors carry into the layers above.
     mut.truthThicks[i] = d_built;
-    mut.modelThicks[i] = d_built;
+    mut.modelThicks[i] = cut.cut_d_hat;
 }

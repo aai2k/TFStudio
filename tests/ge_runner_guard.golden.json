@@ -4,8 +4,8 @@
       {
         "genNum": 1,
         "type": "needle",
-        "mf": 0.052606492,
-        "omf": 0.052606492,
+        "mf": 0.050561148,
+        "omf": 0.050561148,
         "dMF": null,
         "layerCount": 3,
         "insertMat": "SiO2",
@@ -13,15 +13,15 @@
         "layers": [
           {
             "material": "TiO2",
-            "thickness": 12.836076196
+            "thickness": 12.344085292
           },
           {
             "material": "SiO2",
-            "thickness": 28.714282523
+            "thickness": 29.609706177
           },
           {
             "material": "TiO2",
-            "thickness": 84.310536311
+            "thickness": 86.372976264
           }
         ],
         "frontSnap": null,
@@ -30,32 +30,32 @@
       {
         "genNum": 2,
         "type": "needle",
-        "mf": 0.020816558,
-        "omf": 0.020816558,
-        "dMF": -0.031789933,
+        "mf": 0.003642812,
+        "omf": 0.003642812,
+        "dMF": -0.046918336,
         "layerCount": 5,
         "insertMat": "SiO2",
         "side": null,
         "layers": [
           {
             "material": "TiO2",
-            "thickness": 10
+            "thickness": 10.951698153
           },
           {
             "material": "SiO2",
-            "thickness": 74.535981079
+            "thickness": 51.555143341
           },
           {
             "material": "TiO2",
-            "thickness": 10
+            "thickness": 64.753984144
           },
           {
             "material": "SiO2",
-            "thickness": 12.86597212
+            "thickness": 23.54213259
           },
           {
             "material": "TiO2",
-            "thickness": 10
+            "thickness": 21.454364482
           }
         ],
         "frontSnap": null,
@@ -64,9 +64,9 @@
       {
         "genNum": 3,
         "type": "needle",
-        "mf": 0.020582308,
-        "omf": 0.020582308,
-        "dMF": -0.000234251,
+        "mf": 0.001263074,
+        "omf": 0.001263074,
+        "dMF": -0.002379738,
         "layerCount": 5,
         "insertMat": "SiO2",
         "side": null,
@@ -77,19 +77,19 @@
           },
           {
             "material": "SiO2",
-            "thickness": 71.088841238
+            "thickness": 58.692190232
           },
           {
             "material": "TiO2",
-            "thickness": 11.374856449
+            "thickness": 63.68279475
           },
           {
             "material": "SiO2",
-            "thickness": 20.812765955
+            "thickness": 22.695898342
           },
           {
             "material": "TiO2",
-            "thickness": 10
+            "thickness": 23.788417747
           }
         ],
         "frontSnap": null,
@@ -98,213 +98,9 @@
       {
         "genNum": 4,
         "type": "needle",
-        "mf": 0.013173363,
-        "omf": 0.013173363,
-        "dMF": -0.007408944,
-        "layerCount": 5,
-        "insertMat": "SiO2",
-        "side": null,
-        "layers": [
-          {
-            "material": "TiO2",
-            "thickness": 10
-          },
-          {
-            "material": "SiO2",
-            "thickness": 69.606088821
-          },
-          {
-            "material": "TiO2",
-            "thickness": 26.495832648
-          },
-          {
-            "material": "SiO2",
-            "thickness": 41.4591219
-          },
-          {
-            "material": "TiO2",
-            "thickness": 12.448290374
-          }
-        ],
-        "frontSnap": null,
-        "backSnap": null
-      },
-      {
-        "genNum": 5,
-        "type": "needle",
-        "mf": 0.002966265,
-        "omf": 0.002966265,
-        "dMF": -0.010207098,
-        "layerCount": 5,
-        "insertMat": "TiO2",
-        "side": null,
-        "layers": [
-          {
-            "material": "TiO2",
-            "thickness": 10
-          },
-          {
-            "material": "SiO2",
-            "thickness": 71.330808565
-          },
-          {
-            "material": "TiO2",
-            "thickness": 39.261728651
-          },
-          {
-            "material": "SiO2",
-            "thickness": 40.990472865
-          },
-          {
-            "material": "TiO2",
-            "thickness": 19.806594955
-          }
-        ],
-        "frontSnap": null,
-        "backSnap": null
-      },
-      {
-        "genNum": 6,
-        "type": "needle",
-        "mf": 0.002083841,
-        "omf": 0.002083841,
-        "dMF": -0.000882425,
-        "layerCount": 5,
-        "insertMat": "TiO2",
-        "side": null,
-        "layers": [
-          {
-            "material": "TiO2",
-            "thickness": 10
-          },
-          {
-            "material": "SiO2",
-            "thickness": 68.137903113
-          },
-          {
-            "material": "TiO2",
-            "thickness": 44.037801045
-          },
-          {
-            "material": "SiO2",
-            "thickness": 35.620986907
-          },
-          {
-            "material": "TiO2",
-            "thickness": 21.787141101
-          }
-        ],
-        "frontSnap": null,
-        "backSnap": null
-      },
-      {
-        "genNum": 7,
-        "type": "needle",
-        "mf": 0.001597106,
-        "omf": 0.001597106,
-        "dMF": -0.000486735,
-        "layerCount": 5,
-        "insertMat": "TiO2",
-        "side": null,
-        "layers": [
-          {
-            "material": "TiO2",
-            "thickness": 10
-          },
-          {
-            "material": "SiO2",
-            "thickness": 64.522192755
-          },
-          {
-            "material": "TiO2",
-            "thickness": 49.819604164
-          },
-          {
-            "material": "SiO2",
-            "thickness": 30.567420496
-          },
-          {
-            "material": "TiO2",
-            "thickness": 23.090180377
-          }
-        ],
-        "frontSnap": null,
-        "backSnap": null
-      },
-      {
-        "genNum": 8,
-        "type": "needle",
-        "mf": 0.001532978,
-        "omf": 0.001532978,
-        "dMF": -0.000064128,
-        "layerCount": 5,
-        "insertMat": "TiO2",
-        "side": null,
-        "layers": [
-          {
-            "material": "TiO2",
-            "thickness": 10
-          },
-          {
-            "material": "SiO2",
-            "thickness": 64.397324896
-          },
-          {
-            "material": "TiO2",
-            "thickness": 51.5073527
-          },
-          {
-            "material": "SiO2",
-            "thickness": 28.957779783
-          },
-          {
-            "material": "TiO2",
-            "thickness": 24.020806347
-          }
-        ],
-        "frontSnap": null,
-        "backSnap": null
-      },
-      {
-        "genNum": 9,
-        "type": "needle",
-        "mf": 0.001349948,
-        "omf": 0.001349948,
-        "dMF": -0.00018303,
-        "layerCount": 5,
-        "insertMat": "TiO2",
-        "side": null,
-        "layers": [
-          {
-            "material": "TiO2",
-            "thickness": 10
-          },
-          {
-            "material": "SiO2",
-            "thickness": 60.659430954
-          },
-          {
-            "material": "TiO2",
-            "thickness": 58.370384968
-          },
-          {
-            "material": "SiO2",
-            "thickness": 24.896549462
-          },
-          {
-            "material": "TiO2",
-            "thickness": 24.183713719
-          }
-        ],
-        "frontSnap": null,
-        "backSnap": null
-      },
-      {
-        "genNum": 10,
-        "type": "ge",
-        "mf": 0.00139705,
-        "omf": 0.00139705,
-        "dMF": 0.000047102,
+        "mf": 0.001255587,
+        "omf": 0.001255587,
+        "dMF": -0.000007487,
         "layerCount": 6,
         "insertMat": "SiO2",
         "side": null,
@@ -315,23 +111,23 @@
           },
           {
             "material": "SiO2",
-            "thickness": 60.659430954
+            "thickness": 58.704469154
           },
           {
             "material": "TiO2",
-            "thickness": 58.370384968
+            "thickness": 63.715036341
           },
           {
             "material": "SiO2",
-            "thickness": 24.896549462
+            "thickness": 22.768665703
           },
           {
             "material": "TiO2",
-            "thickness": 24.183713719
+            "thickness": 24.159912926
           },
           {
             "material": "SiO2",
-            "thickness": 10
+            "thickness": 10.014681415
           }
         ],
         "frontSnap": null,
@@ -341,19 +137,20 @@
     "applied": {
       "front": [
         10,
-        60.659430954,
-        58.370384968,
-        24.896549462,
-        24.183713719
+        58.704469154,
+        63.715036341,
+        22.768665703,
+        24.159912926,
+        10.014681415
       ],
       "back": []
     },
-    "mf": 0.001491687,
-    "mfBest": 0.001349948,
-    "omf": 0.00139705,
-    "omfBest": 0.001349948,
-    "layerCount": 5,
-    "geSteps": 1,
+    "mf": 0.001255587,
+    "mfBest": 0.001255587,
+    "omf": 0.001255587,
+    "omfBest": 0.001255587,
+    "layerCount": 6,
+    "geSteps": null,
     "status": "Max layers reached"
   },
   "mainThread/back": {
@@ -361,8 +158,8 @@
       {
         "genNum": 1,
         "type": "needle",
-        "mf": 0.052606492,
-        "omf": 0.052606492,
+        "mf": 0.050561148,
+        "omf": 0.050561148,
         "dMF": null,
         "layerCount": 3,
         "insertMat": "SiO2",
@@ -370,15 +167,15 @@
         "layers": [
           {
             "material": "TiO2",
-            "thickness": 84.310536311
+            "thickness": 86.372976264
           },
           {
             "material": "SiO2",
-            "thickness": 28.714282523
+            "thickness": 29.609706177
           },
           {
             "material": "TiO2",
-            "thickness": 12.836076196
+            "thickness": 12.344085292
           }
         ],
         "frontSnap": null,
@@ -387,32 +184,32 @@
       {
         "genNum": 2,
         "type": "needle",
-        "mf": 0.020816558,
-        "omf": 0.020816558,
-        "dMF": -0.031789933,
+        "mf": 0.003642812,
+        "omf": 0.003642812,
+        "dMF": -0.046918336,
         "layerCount": 5,
         "insertMat": "SiO2",
         "side": null,
         "layers": [
           {
             "material": "TiO2",
-            "thickness": 10
+            "thickness": 21.454364482
           },
           {
             "material": "SiO2",
-            "thickness": 12.86597212
+            "thickness": 23.54213259
           },
           {
             "material": "TiO2",
-            "thickness": 10
+            "thickness": 64.753984144
           },
           {
             "material": "SiO2",
-            "thickness": 74.535981079
+            "thickness": 51.555143341
           },
           {
             "material": "TiO2",
-            "thickness": 10
+            "thickness": 10.951698153
           }
         ],
         "frontSnap": null,
@@ -421,28 +218,28 @@
       {
         "genNum": 3,
         "type": "needle",
-        "mf": 0.020582308,
-        "omf": 0.020582308,
-        "dMF": -0.000234251,
+        "mf": 0.001263074,
+        "omf": 0.001263074,
+        "dMF": -0.002379738,
         "layerCount": 5,
         "insertMat": "SiO2",
         "side": null,
         "layers": [
           {
             "material": "TiO2",
-            "thickness": 10
+            "thickness": 23.788417747
           },
           {
             "material": "SiO2",
-            "thickness": 20.812765955
+            "thickness": 22.695898342
           },
           {
             "material": "TiO2",
-            "thickness": 11.374856449
+            "thickness": 63.68279475
           },
           {
             "material": "SiO2",
-            "thickness": 71.088841238
+            "thickness": 58.692190232
           },
           {
             "material": "TiO2",
@@ -455,236 +252,32 @@
       {
         "genNum": 4,
         "type": "needle",
-        "mf": 0.013173363,
-        "omf": 0.013173363,
-        "dMF": -0.007408944,
-        "layerCount": 5,
-        "insertMat": "SiO2",
-        "side": null,
-        "layers": [
-          {
-            "material": "TiO2",
-            "thickness": 12.448290374
-          },
-          {
-            "material": "SiO2",
-            "thickness": 41.4591219
-          },
-          {
-            "material": "TiO2",
-            "thickness": 26.495832647
-          },
-          {
-            "material": "SiO2",
-            "thickness": 69.60608882
-          },
-          {
-            "material": "TiO2",
-            "thickness": 10
-          }
-        ],
-        "frontSnap": null,
-        "backSnap": null
-      },
-      {
-        "genNum": 5,
-        "type": "needle",
-        "mf": 0.002966265,
-        "omf": 0.002966265,
-        "dMF": -0.010207098,
-        "layerCount": 5,
-        "insertMat": "TiO2",
-        "side": null,
-        "layers": [
-          {
-            "material": "TiO2",
-            "thickness": 19.806594957
-          },
-          {
-            "material": "SiO2",
-            "thickness": 40.990472864
-          },
-          {
-            "material": "TiO2",
-            "thickness": 39.261728652
-          },
-          {
-            "material": "SiO2",
-            "thickness": 71.330808566
-          },
-          {
-            "material": "TiO2",
-            "thickness": 10
-          }
-        ],
-        "frontSnap": null,
-        "backSnap": null
-      },
-      {
-        "genNum": 6,
-        "type": "needle",
-        "mf": 0.002083841,
-        "omf": 0.002083841,
-        "dMF": -0.000882425,
-        "layerCount": 5,
-        "insertMat": "TiO2",
-        "side": null,
-        "layers": [
-          {
-            "material": "TiO2",
-            "thickness": 21.787141101
-          },
-          {
-            "material": "SiO2",
-            "thickness": 35.620986906
-          },
-          {
-            "material": "TiO2",
-            "thickness": 44.037801045
-          },
-          {
-            "material": "SiO2",
-            "thickness": 68.137903113
-          },
-          {
-            "material": "TiO2",
-            "thickness": 10
-          }
-        ],
-        "frontSnap": null,
-        "backSnap": null
-      },
-      {
-        "genNum": 7,
-        "type": "needle",
-        "mf": 0.001597106,
-        "omf": 0.001597106,
-        "dMF": -0.000486735,
-        "layerCount": 5,
-        "insertMat": "TiO2",
-        "side": null,
-        "layers": [
-          {
-            "material": "TiO2",
-            "thickness": 23.090180378
-          },
-          {
-            "material": "SiO2",
-            "thickness": 30.567420495
-          },
-          {
-            "material": "TiO2",
-            "thickness": 49.819604165
-          },
-          {
-            "material": "SiO2",
-            "thickness": 64.522192756
-          },
-          {
-            "material": "TiO2",
-            "thickness": 10
-          }
-        ],
-        "frontSnap": null,
-        "backSnap": null
-      },
-      {
-        "genNum": 8,
-        "type": "needle",
-        "mf": 0.001532978,
-        "omf": 0.001532978,
-        "dMF": -0.000064128,
-        "layerCount": 5,
-        "insertMat": "TiO2",
-        "side": null,
-        "layers": [
-          {
-            "material": "TiO2",
-            "thickness": 24.020806346
-          },
-          {
-            "material": "SiO2",
-            "thickness": 28.957779783
-          },
-          {
-            "material": "TiO2",
-            "thickness": 51.507352701
-          },
-          {
-            "material": "SiO2",
-            "thickness": 64.397324896
-          },
-          {
-            "material": "TiO2",
-            "thickness": 10
-          }
-        ],
-        "frontSnap": null,
-        "backSnap": null
-      },
-      {
-        "genNum": 9,
-        "type": "needle",
-        "mf": 0.001349948,
-        "omf": 0.001349948,
-        "dMF": -0.00018303,
-        "layerCount": 5,
-        "insertMat": "TiO2",
-        "side": null,
-        "layers": [
-          {
-            "material": "TiO2",
-            "thickness": 24.183713726
-          },
-          {
-            "material": "SiO2",
-            "thickness": 24.896549458
-          },
-          {
-            "material": "TiO2",
-            "thickness": 58.370384969
-          },
-          {
-            "material": "SiO2",
-            "thickness": 60.659430956
-          },
-          {
-            "material": "TiO2",
-            "thickness": 10
-          }
-        ],
-        "frontSnap": null,
-        "backSnap": null
-      },
-      {
-        "genNum": 10,
-        "type": "ge",
-        "mf": 0.00139705,
-        "omf": 0.00139705,
-        "dMF": 0.000047102,
+        "mf": 0.001255587,
+        "omf": 0.001255587,
+        "dMF": -0.000007487,
         "layerCount": 6,
         "insertMat": "SiO2",
         "side": null,
         "layers": [
           {
             "material": "SiO2",
-            "thickness": 10
+            "thickness": 10.014681415
           },
           {
             "material": "TiO2",
-            "thickness": 24.183713726
+            "thickness": 24.159912926
           },
           {
             "material": "SiO2",
-            "thickness": 24.896549458
+            "thickness": 22.768665703
           },
           {
             "material": "TiO2",
-            "thickness": 58.370384969
+            "thickness": 63.715036341
           },
           {
             "material": "SiO2",
-            "thickness": 60.659430956
+            "thickness": 58.704469154
           },
           {
             "material": "TiO2",
@@ -698,19 +291,20 @@
     "applied": {
       "front": [],
       "back": [
-        24.183713726,
-        24.896549458,
-        58.370384969,
-        60.659430956,
+        10.014681415,
+        24.159912926,
+        22.768665703,
+        63.715036341,
+        58.704469154,
         10
       ]
     },
-    "mf": 0.001491687,
-    "mfBest": 0.001349948,
-    "omf": 0.00139705,
-    "omfBest": 0.001349948,
-    "layerCount": 5,
-    "geSteps": 1,
+    "mf": 0.001255587,
+    "mfBest": 0.001255587,
+    "omf": 0.001255587,
+    "omfBest": 0.001255587,
+    "layerCount": 6,
+    "geSteps": null,
     "status": "Max layers reached"
   },
   "worker/front": {

@@ -7,7 +7,7 @@
  */
 
 import { useDesign } from '../../../../state/DesignContext.js';
-import { xyzToSRGB } from '../../../../utils/physics/colorimetry.js';
+import { COLOR_RANGE_NM, xyzToSRGB } from '../../../../utils/physics/colorimetry.js';
 import { makeConeSpec, coneIsActive } from '../../../../utils/physics/optimizer.js';
 import { useMaterialRangeNotice } from '../../../materials/MaterialRangeNotice.js';
 import { ConeBadge, EvalModeBadge } from '../../../SurfaceModeBar.js';
@@ -17,7 +17,7 @@ import { AnalysisWindow, CenteredMessage, PlotArea } from '../chrome/layout.js';
 import { ChromaticityChart } from './chartFigure.js';
 import { ColorControls } from './ColorControls.js';
 import {
-    COLOR_RANGE_NM, computeColorReport, formatValue, readoutColumns, readoutTableRows,
+    computeColorReport, formatValue, readoutColumns, readoutTableRows,
 } from './colorModel.js';
 import { colorEvaluationSession } from './sessionState.js';
 import { useWindowSession } from '../../windowSession.js';

@@ -132,7 +132,10 @@ for (const g of A.gens) console.log(`  gen ${g.genNum}: ${g.layerCount} layers, 
 
 ok('worker path actually ran (dispatched pool jobs, no fallback)', A.jobsRun > 0);
 ok('grew the stack (≥1 accepted generation)', A.gens.length >= 1);
-ok('every generation has ≥2 layers (grew past the seed)', A.gens.every(g => g.layerCount >= 2));
+// A generation may hold fewer layers than it inserted: a needle the refine
+// parks on the floor is taken out when the stack is better without it, and the
+// first generation can then be the refined seed alone.
+ok('grew past the seed (the last generation has ≥2 layers)', A.gens.at(-1).layerCount >= 2);
 ok('merit finite', A.gens.every(g => Number.isFinite(g.mf)));
 // The accept rule guarantees each recorded generation strictly improves on the
 // one before it, EXCEPT across a thin-start rescue: that restarts the loop from

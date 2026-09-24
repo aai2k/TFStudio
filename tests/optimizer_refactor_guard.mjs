@@ -9,7 +9,7 @@
  *
  * How: every deterministic per-step method (dls, newton, newton-cg, sqp, cg) is
  * driven a FIXED number of steps from a FIXED start across cases that exercise
- * each _jacRow branch (single-λ, range-avg, range-target, weighted-integral,
+ * each _jacRows branch (single-λ, range-avg, range-target, weighted-integral,
  * min/max, thickness constraint) and every surface mode (front_only, back_only,
  * symmetric, both_independent). The final MF and layer thicknesses are captured
  * to full precision and compared against a committed golden snapshot
@@ -103,7 +103,7 @@ const bothDesign = () => ({
 
 const AR = makeOperand({ type: 'RAV', lambdaStart: 450, lambdaEnd: 650, aoi: 0, pol: 'avg', target: 0, weight: 1 });
 
-// Each case: a design + operand set exercising a specific _jacRow branch / mode.
+// Each case: a design + operand set exercising a specific _jacRows branch / mode.
 const CASES = {
     'single-λ/front': {
         design: arDesign('front_only'),

@@ -11,7 +11,7 @@ export function ScatterChart({ calc, showCurves, units, c, t }) {
     const colors = useAnalysisColors('roughnessScattering');
     useEffect(() => { drawChart(divRef.current, chartRef, buildScatterOption({
         calc, showCurves, units, colors, c, lambdaAxis: t.spectralAxis.lambdaShort,
-        names: { ideal: rs.traceIdeal, specular: rs.traceSpecular },
+        names: { ideal: rs.traceIdeal, specular: rs.traceSpecular, loss: rs.traceLoss },
         specularTitle: rs.axisSpecular,
     })); });
     useChartTeardown(divRef, chartRef);

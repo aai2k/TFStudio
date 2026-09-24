@@ -378,7 +378,10 @@ for (const mode of ['front_only', 'back_only', 'symmetric', 'both_independent'])
         `and it leaves a real bending force (${forceOf(free).toFixed(2)} N/m)`);
     assert.ok(Math.abs(forceOf(held)) < 1,
         `the same AR under a stress target comes back nulled (${forceOf(held).toFixed(3)} N/m)`);
-    assert.ok(opticalOf(held) < opticalOf(free) * 3.5,
+    // The force condition alone sets the held design's reflectance, RMS 0.0075
+    // with every engine. The free design has two converged minima here, RMS
+    // 0.00145 and 0.00178, so the held one costs 4.2 to 5.2 times as much.
+    assert.ok(opticalOf(held) < opticalOf(free) * 6,
         `at a cost in reflectance, but a bounded one (${opticalOf(free).toFixed(5)} free, ${opticalOf(held).toFixed(5)} held)`);
 }
 

@@ -164,12 +164,15 @@ const actual = {
 };
 // The sensitivity baseline pins the mean ±Δd merit-change metric described in
 // errorAnalysis/layerSensitivity.js. The Monte Carlo baselines are independent
-// of it and must not move when that metric is revised.
+// of it and must not move when that metric is revised. They pin the sample
+// standard deviation (N − 1), the reported seed (null for an injected rng),
+// the yield's Wilson interval and the settings the run records, along with the
+// draws themselves.
 const expected = {
-    front: '3ea4c67a0669bec4cade60e2c11dca970a32f58ff865a4b7f7c975e9b27fd929',
-    back: 'fb3ba080a11efaa9d993ee9434f1c1cf52c083570e5567dd8417a415691442fb',
-    total: '727f70c1538da49f74fc59b3fd0e45fad9194a5be0664d24e4b96431c0116851',
-    sensitivity: '57a0fdc103205c6bff767629d1fb6444295c8967416b574ba62e840c39f9dfa1',
+    front: 'cd2851a7e92e5cc09ff9e5d87acf1b6086bc5ef0a83f94ee2fbd0b14d98a31d6',
+    back: '13e9f9586a5eea2234f7093b5e9a21623beb077e029f99f91ae5857a0ae7b963',
+    total: '542f0a62fe81d8943e4111d76a71e7420a9fa7b3ca4bc8ad01f6f0f15a4caf27',
+    sensitivity: '0595f33f1bb4270d0ecaa0608f7ccfa8df95fe8c4c1232612c7cb4347f1d08b1',
 };
 
 if (Object.values(expected).some((value) => !value)) {

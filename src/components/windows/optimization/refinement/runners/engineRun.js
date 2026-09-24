@@ -23,7 +23,10 @@ function engineOnMessage(ctx, st, m, opts) {
     if (!opts.alive()) { opts.cleanup(); opts.resolve(st.best); }
 }
 
-// run: { ops, payload, materials, alive, onProg, preview, maxIterOverride }
+// run: { ops, payload, materials, alive, onProg, preview, maxIterOverride, seed }
+// `seed` seeds a stochastic engine (DE, SA); the others ignore it. CG takes the
+// half-wave first probe of its line search (optimizers/cg/lineSearch.js), which
+// refines a fixed stack better than the long scan synthesis keeps.
 //
 // The live worker is registered as a { worker, settle } handle rather than a bare
 // Worker. A terminated worker posts nothing, so a Stop that only called
@@ -32,7 +35,7 @@ function engineOnMessage(ctx, st, m, opts) {
 // pre-sampled material tables for the rest of the session. `settle` resolves with
 // the best seen so far, which is what the flow needs to finish unwinding.
 export function runEngineP(ctx, engine, run) {
-    const { ops, payload, materials, alive, onProg, preview, maxIterOverride } = run;
+    const { ops, payload, materials, alive, onProg, preview, maxIterOverride, seed } = run;
     return new Promise((resolve) => {
         let w;
         try { w = new Worker(WORKER_URL, { type: 'module' }); }
@@ -45,6 +48,11 @@ export function runEngineP(ctx, engine, run) {
         const opts = { onProg, preview, alive, cleanup, resolve };
         w.onmessage = (e) => engineOnMessage(ctx, st, e.data, opts);
         w.onerror = () => { cleanup(); resolve(st.best); };
-        w.postMessage({ type: 'start', method: engine, operands: ops, design: payload, materials, opts: { maxIter: maxIterOverride || MAXITER_FOR[engine] || 500 }, wasmBytes: getTmmWasmBytesForWorker() });
+        w.postMessage({
+            type: 'start', method: engine, operands: ops, design: payload, materials,
+            opts: { maxIter: maxIterOverride || MAXITER_FOR[engine] || 500 },
+            engineOpts: { halfWaveProbe: true, ...(seed != null ? { seed } : {}) },
+            wasmBytes: getTmmWasmBytesForWorker(),
+        });
     });
 }

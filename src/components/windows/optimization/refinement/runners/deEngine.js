@@ -9,7 +9,7 @@ import { getThreadCount } from '../../../../../utils/synthesis/synthesisConfig.j
 import { getTmmWasmBytesForWorker } from '../../../../../tmmcore.js';
 import { MFEVAL_WORKER_URL as MFEVAL_URL } from '../../../../../workerUrls.js';
 import { designMaterialLookup } from '../../../../../utils/materials/designMaterials.js';
-import { nowMs, perturbPayload } from '../refinementUtils.js';
+import { nowMs, perturbPayload, restartRng } from '../refinementUtils.js';
 import { MAXITER_FOR } from '../refinementConfig.js';
 import { runEngineP } from './engineRun.js';
 
@@ -49,12 +49,14 @@ async function runDeLoop(ctx, de, pool, run) {
     }
 }
 
-// run: { ops, payload, materials, alive, onProg, maxIterOverride }
+// run: { ops, payload, materials, alive, onProg, maxIterOverride, seed }. The
+// population and every trial are drawn from `seed` on this thread, so the run
+// replays whatever the pool size.
 export async function runParallelDEP(ctx, run) {
-    const { ops, payload, materials, alive, onProg, maxIterOverride } = run;
+    const { ops, payload, materials, alive, onProg, maxIterOverride, seed } = run;
     const K  = getThreadCount();   // global Threads setting
     const deMax = maxIterOverride || MAXITER_FOR.de;
-    const serialFallback = () => runEngineP(ctx, 'de', { ops, payload, materials, alive, onProg, preview: true, maxIterOverride });
+    const serialFallback = () => runEngineP(ctx, 'de', { ops, payload, materials, alive, onProg, preview: true, maxIterOverride, seed });
     const wasmBytes = getTmmWasmBytesForWorker();
     let pool;
     try { pool = new WorkerPool(MFEVAL_URL, K, wasmBytes ? { type: 'wasmInit', wasmBytes } : null); } catch (_) { return serialFallback(); }
@@ -62,7 +64,7 @@ export async function runParallelDEP(ctx, run) {
     let de;
     try {
         de = new DEOptimizer(
-            ops, payload, designMaterialLookup(ctx.designRef.current), { maxIter: deMax });
+            ops, payload, designMaterialLookup(ctx.designRef.current), { maxIter: deMax, seed });
     }
     catch (_) { try { pool.terminate(); } catch (e) {} ctx.dePoolRef.current = null; return serialFallback(); }
 
@@ -75,18 +77,22 @@ export async function runParallelDEP(ctx, run) {
     const deOmf = de.mfOpticalAt(de.thickBest);
     if (onProg) onProg(de.mfBest, de.iter, deOmf);
     try { pool.terminate(); } catch (_) {} ctx.dePoolRef.current = null;
-    return { mf: de.mfBest, omf: deOmf, frontLayers: upd.frontLayers, backLayers: upd.backLayers, iters: de.iter };
+    return {
+        mf: de.mfBest, omf: deOmf, frontLayers: upd.frontLayers, backLayers: upd.backLayers, iters: de.iter,
+        reason: de.isConverged() ? 'converged' : 'maxiter',
+    };
 }
 
 // DLS multi-start as a promise (used inside the 'all' flow). N perturbed
 // single-DLS runs in batches of K; keep the best. (Single-method 'dls-multi'
 // selection still uses the faster validated event pool, runDlsEvent.) run:
-// { ops, payload, materials, N, pct, alive, onProg }.
+// { ops, payload, materials, N, pct, alive, onProg, seed }.
 function makeMultiBatch(ctx, run, start, count) {
     const batch = [];
     for (let i = 0; i < count && start + i < run.N; i++) {
+        const restart = start + i;
         batch.push(runEngineP(ctx, 'dls', {
-            ops: run.ops, payload: perturbPayload(run.payload, run.pct, start + i),
+            ops: run.ops, payload: perturbPayload(run.payload, run.pct, restart, restartRng(run.seed, restart)),
             materials: run.materials, alive: run.alive, onProg: null, preview: false,
         }));
     }

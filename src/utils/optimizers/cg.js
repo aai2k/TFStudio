@@ -14,8 +14,8 @@
  * The gradient is the EXACT analytic ∇MF from DLSOptimizer.gradMF (Macleod
  * Eq.2.111/2.113 chain rule), or central differences where the analytic path
  * declines a merit term — same fallback policy as DLS. Box bounds [D_MIN,D_MAX]
- * and locked layers are enforced by projecting the trial point every line-search
- * probe (projected-gradient CG).
+ * (no upper bound unless the caller sets dMax) and locked layers are enforced by
+ * projecting the trial point every line-search probe (projected-gradient CG).
  */
 
 import { EngineBase } from './base.js';
@@ -32,17 +32,20 @@ export class CGOptimizer extends EngineBase {
         this._stall = 0;
         this._restartEvery = opts.restartEvery ?? Math.max(2, this.freeIdx.length);
         // PERSISTENCE (opt-in). When true, CG won't quit at the first trapped
-        // line search: it auto-restarts (steepest descent, full-box step) and,
+        // line search: it auto-restarts (steepest descent, no warm start) and,
         // on a plateau, auto-relaunches from the best point — emulating a
         // manual "re-run CG ~5×" workflow. DEFAULT OFF so the validated
         // SYNTHESIS inner-refiner (synthesisWorker → makeEngine('cg')) is byte-
         // identical to before; only the standalone Refinement window opts in
         // (optimizerWorker passes persistent:true).
         this._persistent = opts.persistent ?? false;
+        // Half-wave first probe of the line search (cg/lineSearch.js), opt-in:
+        // the Refinement window sets it; synthesis keeps the long scan.
+        this._probeSpans = opts.halfWaveProbe ? this._ev.stepSpans : null;
         // Diminishing-returns detector + AUTO-RELAUNCH. On a
         // 50-layer design a manual relaunch of CG ~5× was needed to keep improving:
-        // each manual relaunch starts a fresh full-box steepest-descent step from
-        // the best point so far, which can jump to a better basin — something the
+        // each manual relaunch starts a fresh steepest-descent step, no warm start,
+        // from the best point so far, which can jump to a better basin, something the
         // in-step auto-restart can't do once the line search keeps finding tiny
         // grinding gains (so it never "fails"). We emulate that workflow: when
         // many consecutive accepted steps each gain < a tol-level RELATIVE amount
@@ -59,8 +62,8 @@ export class CGOptimizer extends EngineBase {
 
     // Plateau reached (many tiny consecutive gains): emulate the user's manual
     // relaunch — restore the best point and discard the conjugate state +
-    // collapsed warm-start step so the next step is a fresh full-box steepest-
-    // descent move that can escape the current basin. Converge only when a whole
+    // collapsed warm-start step so the next step is a fresh steepest-descent
+    // move that can escape the current basin. Converge only when a whole
     // relaunch cycle yielded no meaningful gain, or the budget is spent.
     // (persistent mode only). Returns true when the step is fully consumed (the
     // engine has converged), false to continue the current step.
@@ -107,27 +110,28 @@ export class CGOptimizer extends EngineBase {
         });
 
         let searchDir = dir;
-        let ls = projectedLineSearch(this, x, searchDir, this.mf);
+        let ls = projectedLineSearch(this, x, searchDir, this.mf, g);
 
         // AUTO-RESTART before declaring a stall. A failed line search is usually
         // NOT a true minimum but a TRAPPED search: either the conjugate direction
         // is poor, or the warm-start step `_alpha` has collapsed so every probe
         // is too small to register improvement (the line search only ever shrinks
         // from its starting α, never expands). Retry once as pure steepest descent
-        // with α reset to the box span. Only if THIS also fails is the design
-        // genuinely at a numerical minimum.
+        // without the warm start, so the first probe scans the full range
+        // again. Only if THIS also fails is the design genuinely at a
+        // numerical minimum.
         if (this._persistent && !ls && (beta !== 0 || this._alpha != null)) {
             const sd = new Array(g.length);
             for (let i = 0; i < g.length; i++) sd[i] = -g[i];
             const savedAlpha = this._alpha;
-            this._alpha = null;                      // first probe spans the full box
-            const ls2 = projectedLineSearch(this, x, sd, this.mf);
+            this._alpha = null;
+            const ls2 = projectedLineSearch(this, x, sd, this.mf, g);
             if (ls2) { ls = ls2; searchDir = sd; }
             else this._alpha = savedAlpha;
         }
 
         if (!ls) {
-            // Even a full-box steepest-descent restart could not improve → at a
+            // Even a steepest-descent restart could not improve → at a
             // local minimum within numerical reach. Count toward convergence.
             this._stall++;
             this._g = g; this._dir = null;
@@ -155,8 +159,8 @@ export class CGOptimizer extends EngineBase {
         }
         // Persistent (standalone Refinement): `_done` is set by step() once
         // auto-relaunch can no longer make progress. `_stall>=4` is a genuine
-        // numerical minimum (even a full-box steepest-descent restart found no
-        // improving probe). `_softStall` is NOT a convergence signal — it
+        // numerical minimum (even a steepest-descent restart found no probe
+        // passing the Armijo test). `_softStall` is NOT a convergence signal; it
         // triggers a relaunch inside step().
         return this._done || this.mfBest < this.tol || this._stall >= 4;
     }

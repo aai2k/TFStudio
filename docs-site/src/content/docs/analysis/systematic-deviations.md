@@ -50,13 +50,20 @@ selector beside it.
 
 **Δn / Δk**: additive shifts to the real and imaginary index (k stays ≥ 0).
 
-These appear once as a **Global** deviation applied to the whole stack, and again
-per material under **Per-material**. Per-material values combine with the global
-ones (additively for Δn and Δk, multiplicatively for the scale), so you can say
-"everything +2 %, but TiO₂ also overshot by +3 nm". Each per-material row lists
-every place that material appears, including the incident and exit media; a
-material in more than one role is shown once with all of them (for example,
-`Air (incident, exit)`), and editing it governs that material everywhere.
+These appear once as a **Global** deviation and again per material under
+**Per-material**. The global deviation acts on the coating layers only: its
+scale and offset change every layer's thickness, and its Δn and Δk shift every
+layer's index, while the incident medium, the substrate and the exit medium keep
+their own index. A deposition process running off nominal changes the films it
+grows, not the glass underneath or the air in front. Per-material values combine
+with the global ones (additively for Δn and Δk, multiplicatively for the scale),
+so you can say "everything +2 %, but TiO₂ also overshot by +3 nm". Each
+per-material row lists every place that material appears, including the incident
+and exit media; a material in more than one role is shown once with all of them
+(for example, `Air (incident, exit)`), and editing it governs that material
+everywhere. A per-material Δn or Δk is therefore the way to shift a medium on
+purpose, such as a substrate glass whose index is off; it also shifts any layer
+made of the same material.
 
 **Reset deviations**: return every control to its no-op value.
 

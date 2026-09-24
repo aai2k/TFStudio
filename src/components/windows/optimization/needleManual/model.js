@@ -1,12 +1,13 @@
 /**
  * Pure (non-React) helpers for the Needle Manual insertion window: stack-depth
- * geometry, the shared insert-for-selection dispatch, and the P-function plot
- * data builder.
+ * geometry, the shared insert-for-selection dispatch, the P-function plot data
+ * builder, and the refiner that polishes the stack after an insertion.
  */
 
 import {
     scanNeedlesPFunction, insertNeedle, insertNeedleIntra,
 } from '../../../../utils/physics/optimizer.js';
+import { makeEngine, DEFAULT_REFINE_METHOD } from '../../../../utils/optimizers/index.js';
 import { matDisplayName, matColor } from '../synthesisShared/synthesisHelpers.js';
 
 // Which layer array a side maps to.
@@ -37,6 +38,12 @@ export function insertForSelection(selected, design, dNew, side) {
     return selected.intra
         ? insertNeedleIntra(design, selected, dNew, side)
         : insertNeedle(design, selected.pos, selected.materialId, dNew, side);
+}
+
+// Refiner for the optional pass after Apply: the app's default refinement
+// method, stepped by the caller. Throws if the merit cannot be evaluated.
+export function makeInsertionRefiner(operands, design, resolveMat, dMin) {
+    return makeEngine(DEFAULT_REFINE_METHOD, operands, design, resolveMat, { dMin });
 }
 
 // Run the P-function profile scan and package the result (or the "already

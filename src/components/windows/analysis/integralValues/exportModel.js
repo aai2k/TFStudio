@@ -24,18 +24,23 @@ export function exportColumns(t) {
     ];
 }
 
+// A number the integral could not give, such as the value of a band the
+// spectrum does not cover, is an empty cell rather than NaN.
+const finiteOrNull = value => (Number.isFinite(value) ? value : null);
+
 export function exportRows(integrals, results) {
     if (!results) return [];
     return (integrals || []).map(definition => {
-        const result = results[definition.key];
+        const result = results[definition.key] || {};
+        const value = finiteOrNull(result.value);
         return {
             label: definition.label,
-            value: result ? result.value : null,
-            percent: result ? result.value * 100 : null,
-            min: result ? result.min : null,
-            lamAtMin: result ? result.lamAtMin : null,
-            max: result ? result.max : null,
-            lamAtMax: result ? result.lamAtMax : null,
+            value,
+            percent: value === null ? null : value * 100,
+            min: finiteOrNull(result.min),
+            lamAtMin: finiteOrNull(result.lamAtMin),
+            max: finiteOrNull(result.max),
+            lamAtMax: finiteOrNull(result.lamAtMax),
             band: band(definition.weighting),
         };
     });

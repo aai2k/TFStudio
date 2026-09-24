@@ -3,12 +3,14 @@
  * evaluators.
  *
  *  - `_surfaceLayout` — surface mode → { mode, varSide } resolution.
- *  - `makePointEvaluators` — memoized propDeriv/propVal over free variables,
+ *  - `makePointEvaluators`: memoized propDeriv over free variables,
  *    mapping a `computeLayerJacobian` package's per-side per-layer derivatives
  *    onto the free-variable vector per the surface mode's layout.
  */
 
-import { computeLayerJacobian } from './layerJacobian.js';
+import { computeLayerJacobian, layerJacobianStacks } from './layerJacobian.js';
+import { kernelPol } from '../evalCore/kernels.js';
+import { coneNodesAt } from '../evalCore/tmmEval.js';
 
 // Per-layer thickness-derivative array of one characteristic (T/R/A) from a
 // computeLayerJacobian package. `side` selects '' (single-surface), 'front', or
@@ -57,9 +59,6 @@ function accumulateJacInto(out, J, char, weight, map) {
     VAR_SIDE_ACCUM[map.varSide](out, _pickDeriv(J, char, 'front'), _pickDeriv(J, char, 'back'), weight, map);
 }
 
-// Value of one characteristic (T/R/A) from a computeLayerJacobian package.
-function _pickVal(Jc, char) { return char === 'T' ? Jc.T : char === 'R' ? Jc.R : Jc.A; }
-
 // Resolve the analytic-Jacobian surface layout from the design's surface mode.
 // `mode` selects the computeLayerJacobian path (singleFront / singleBack / full,
 // where full covers symmetric, both_independent, and any full-system scoring);
@@ -77,34 +76,37 @@ export function _surfaceLayout(surfaceMode, evalFull) {
     return { mode, varSide };
 }
 
-// Build the memoized point evaluators used to assemble the analytic Jacobian:
-//   propDeriv(λ,pol,char,aoi) → ∂(property)/∂d for every free variable
-//   propVal(λ,pol,char,aoi)   → the property value
-// both honoring pol='avg' as ½(s+p). `jacCfg` is the computeLayerJacobian config;
+// Build the memoized point evaluator used to assemble the analytic Jacobian:
+//   propDeriv(λ,pol,char,aoi) → ∂(property)/∂d for every free variable,
+// honoring pol='avg' as ½(s+p). `jacCfg` is the computeLayerJacobian config;
 // `sideMap` is the free-variable layout { N, varSide, nFront, nBack }. One
 // Jacobian package is cached per (λ, polCode, aoi) and reused across operands.
+//
+// With a cone on jacCfg.ctx, `aoi` is the cone axis. The cone average is a
+// fixed weighted sum over the rays in coneNodesAt, so its derivative is the
+// same weighted sum of the per-ray derivatives, taken over the same rays and
+// weights tmmProp averaged the values with. No cone: the one ray at `aoi`.
 export function makePointEvaluators(jacCfg, sideMap) {
+    const cfg = { ...jacCfg, stacks: layerJacobianStacks(jacCfg) };
     const jacCache = new Map();
     const getJac = (lam, polCode, aoi) => {
-        const key = lam + '|' + polCode + '|' + aoi;
+        const pc = kernelPol(aoi, polCode);
+        const key = lam + '|' + pc + '|' + aoi;
         let v = jacCache.get(key);
-        if (v === undefined) { v = computeLayerJacobian(lam, polCode, aoi, jacCfg); jacCache.set(key, v); }
+        if (v === undefined) { v = computeLayerJacobian(lam, pc, aoi, cfg); jacCache.set(key, v); }
         return v;
     };
     const propDeriv = (lam, pol, char, aoi) => {
         const out = new Array(sideMap.N).fill(0);
-        if (pol === 'avg') {
-            accumulateJacInto(out, getJac(lam, 's', aoi), char, 0.5, sideMap);
-            accumulateJacInto(out, getJac(lam, 'p', aoi), char, 0.5, sideMap);
-        } else {
-            accumulateJacInto(out, getJac(lam, pol, aoi), char, 1.0, sideMap);
+        for (const { aoiDeg, weight } of coneNodesAt(jacCfg.ctx, aoi, lam)) {
+            if (pol === 'avg') {
+                accumulateJacInto(out, getJac(lam, 's', aoiDeg), char, 0.5 * weight, sideMap);
+                accumulateJacInto(out, getJac(lam, 'p', aoiDeg), char, 0.5 * weight, sideMap);
+            } else {
+                accumulateJacInto(out, getJac(lam, pol, aoiDeg), char, weight, sideMap);
+            }
         }
         return out;
     };
-    const propVal = (lam, pol, char, aoi) => {
-        if (pol === 'avg')
-            return 0.5 * (_pickVal(getJac(lam, 's', aoi), char) + _pickVal(getJac(lam, 'p', aoi), char));
-        return _pickVal(getJac(lam, pol, aoi), char);
-    };
-    return { propDeriv, propVal };
+    return { propDeriv };
 }

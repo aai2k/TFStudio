@@ -12,9 +12,9 @@
  *      `[A 100 nm, B 0.3 nm, C 80 nm]` → `[A 100 nm, C 80 nm]`
  *      Useful for the *Thin Layer Removal* use case — list of
  *      sub-N nm layers and a one-click drop. The merit function typically
- *      degrades slightly after removal, so the *Re-optimize* option does a
- *      DLS pass on the cleaned design (the caller handles the optimizer
- *      invocation since it is async).
+ *      degrades slightly after removal, so the *Re-optimize* option runs a
+ *      short pass of the default refiner on the cleaned design (the caller
+ *      runs it, in the optimizer worker).
  *
  * Locked layers are always preserved:
  *   - never merged into a neighbor

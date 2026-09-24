@@ -79,7 +79,7 @@ assert.deepEqual(operands.map(op => op.type),
     const computed = evaluate(operands);
     const shares = operandContributions(operands, computed);
     const mf = calcMF(operands, computed);
-    const denom = mfWeightDenominator(operands);
+    const denom = mfWeightDenominator(operands, computed);
     const total = mf * mf * denom;
 
     // Rebuild each term the only other way available: remove the row and see how
@@ -89,7 +89,7 @@ assert.deepEqual(operands.map(op => op.type),
         const without = operands.map((op, index) => (index === i ? { ...op, enabled: false } : op));
         const withoutComputed = evaluate(without);
         const withoutTotal = calcMF(without, withoutComputed) ** 2
-            * mfWeightDenominator(without);
+            * mfWeightDenominator(without, withoutComputed);
         const term = total - withoutTotal;
         close(shares[i], term / total, 1e-9,
             `row ${i} (${operands[i].type}) share matches what removing it removes`);

@@ -27,7 +27,7 @@ import {
 import { getTmmWasmBytesForWorker } from '../../../../../tmmcore.js';
 
 import { runNeedleMainThread } from './mainThread.js';
-import { wpPrepare, wpPresample, wpDesignHelpers } from './workerPoolSetup.js';
+import { wpPrepare, wpPresample, wpDesignHelpers, wpRegridIfGrown } from './workerPoolSetup.js';
 import { wpSmartSeed, wpScanCycle } from './workerPoolScan.js';
 import { wpRefineBatches } from './workerPoolRefine.js';
 import { wpAlive, wpFinalize, wpHandleLoopError } from './workerPoolLifecycle.js';
@@ -36,6 +36,10 @@ import { isStallReason, wpThinStartRescue } from './workerPoolRescue.js';
 // One scan+refine cycle. Returns 'abort' (a Stop tore the run down, already
 // unwound), a finalize reason string (stop the loop), or null (keep cycling).
 async function wpRunCycle(run) {
+    const { best, curDes } = run;
+    wpRegridIfGrown(run,
+        best.frontLayers || run.mkLayers(curDes.frontLayers),
+        best.backLayers  || run.mkLayers(curDes.backLayers));
     const scan = await wpScanCycle(run);
     if (scan.aborted) return 'abort';
     if (scan.done) return scan.reason;

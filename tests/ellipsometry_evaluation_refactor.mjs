@@ -108,7 +108,7 @@ assert.deepEqual(spectral, legacySpectral(design, spectralOptions), 'spectral ar
 assert.deepEqual(angular, legacyAngular(design, angularOptions), 'angular arithmetic or back-side order changed');
 assert.deepEqual(spectral, {
     x: [501.234, 503.934, 506.634, 509.334],
-    psi: [13.344157239812686, 13.341301740705479, 13.34483155249724, 13.354897066268977],
+    psi: [13.344157239812693, 13.341301740705479, 13.34483155249725, 13.354897066268986],
     delta: [314.31044504438694, 308.9402312535299, 303.9407434435898, 299.29200724757584],
 });
 assert.deepEqual(angular, {

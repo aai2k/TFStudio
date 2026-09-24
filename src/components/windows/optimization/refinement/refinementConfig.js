@@ -1,3 +1,5 @@
+import { DEFAULT_REFINE_METHOD } from '../../../../utils/optimizers/index.js';
+
 // Refinement method catalog and per-method configuration.
 //
 //   sqp       — Bounded Sequential QP (second-order; hard MNT/MXT box)      DEFAULT
@@ -34,7 +36,7 @@ export function loadMethod() {
     // solutions that satisfy the constraint for free. Slower on hard problems
     // than DLS/Newton-CG, but the quality margin is large; speed-first users can
     // switch to DLS.
-    return 'sqp';
+    return DEFAULT_REFINE_METHOD;
 }
 
 export function saveMethod(m) { try { localStorage.setItem(METHOD_KEY, m); } catch (_) {} }

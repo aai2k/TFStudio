@@ -18,7 +18,7 @@ import { activeBaseline, openRunBlock } from '../../synthesisShared/runBlocks.js
 import { scheduleTick } from './mainThreadCore.js';
 import { phaseSeedDls } from './mainThreadSeed.js';
 import { phaseNeedleScan, phaseDls1, phaseDls2 } from './mainThreadNeedle.js';
-import { phaseGeStep } from './mainThreadGeStep.js';
+import { phaseStall } from './mainThreadGeStep.js';
 
 // Dispatch one tick to the current phase handler.
 function tickMain(ctx, S) {
@@ -27,7 +27,7 @@ function tickMain(ctx, S) {
     if (S.phase === 'needle_scan') { phaseNeedleScan(ctx, S); return; }
     if (S.phase === 'dls1')        { phaseDls1(ctx, S); return; }
     if (S.phase === 'dls2')        { phaseDls2(ctx, S); return; }
-    if (S.phase === 'ge_step')     { phaseGeStep(ctx, S); }
+    if (S.phase === 'ge_step')     { phaseStall(ctx, S); }
 }
 
 export function runGeMainThread(ctx) {

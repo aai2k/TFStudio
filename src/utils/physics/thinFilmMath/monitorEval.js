@@ -12,7 +12,7 @@ import {
     layerMatrix, matmul, rescaleMatrix, snellCosTheta,
 } from '../../../tmmcore.js';
 import {
-    bareInterface, combineGrowingSample, materialNkTable, pickCharPol,
+    bareInterface, combineGrowingSample, incidence, materialNkTable, pickCharPol,
     substratePass, substrateRay,
 } from './totalSystem.js';
 
@@ -21,7 +21,7 @@ import {
 // Slab mode adds the bare back face's R/T per polarization and the bulk
 // pass P per wavelength, all fixed for the life of the evaluator.
 function buildMonitorCache({
-    incMat, subMat, completedMats, completedThicks, lambdas, subThickMM, sinTheta0,
+    incMat, subMat, completedMats, completedThicks, lambdas, subThickMM, sinTheta0, cosTheta0,
 }) {
     const I = [[[1, 0], [0, 0]], [[0, 0], [1, 0]]];
     const cache = new Array(lambdas.length);
@@ -29,7 +29,7 @@ function buildMonitorCache({
         const lam = lambdas[li];
         const n0 = incMat.getNK(lam);
         const ns = subMat.getNK(lam);
-        const face = bareInterface(n0, ns, sinTheta0);
+        const face = bareInterface(n0, ns, sinTheta0, cosTheta0);
         const per = {};
         for (const pol of ['s', 'p']) {
             let M = I;
@@ -38,7 +38,7 @@ function buildMonitorCache({
                 const d = completedThicks[k];
                 if (d <= 0) continue;
                 const n = completedMats[k].getNK(lam);
-                const cosThetaJ = snellCosTheta(n0, sinTheta0, n);
+                const cosThetaJ = snellCosTheta(n0, sinTheta0, n, cosTheta0);
                 M = matmul(M, layerMatrix(n, d, lam, cosThetaJ, pol));
                 logScale += rescaleMatrix(M);
             }
@@ -57,7 +57,11 @@ function buildMonitorCache({
     return cache;
 }
 
-// [B,C]→r,t→R,T,A tail, byte-identical to tmm()'s final block.
+// [B,C]→r,t→R,T,A tail, byte-identical to tmm()'s final block over a
+// transparent incident medium. A is 1 − R − T, as in combineGrowingSample, so
+// the JavaScript and kernel evaluators share one definition; tmm() adds the
+// incident-side interference term, zero under the chamber air every monitor
+// reads through (see combineGrowingSample).
 function tail(M, eta0, etaS, logScale) {
     const B = cadd(M[0][0], cmul(M[0][1], etaS));
     const C = cadd(M[1][0], cmul(M[1][1], etaS));
@@ -146,11 +150,11 @@ export function createMonitorTmmEvaluator(theta_deg, incMat, subMat, completedMa
             theta_deg, incMat, subMat, completedMats, completedThicks, lambdas, subThickMM,
         });
     }
-    const sinTheta0 = [Math.sin(theta_deg * Math.PI / 180), 0];
+    const { sinTheta0, cosTheta0 } = incidence(theta_deg);
     const ctx = {
-        lambdas, sinTheta0, subThickMM,
+        lambdas, sinTheta0, cosTheta0, subThickMM,
         cache: buildMonitorCache({
-            incMat, subMat, completedMats, completedThicks, lambdas, subThickMM, sinTheta0,
+            incMat, subMat, completedMats, completedThicks, lambdas, subThickMM, sinTheta0, cosTheta0,
         }),
     };
     return {
@@ -169,7 +173,7 @@ function jsEvalPol(ctx, li, pol, topMat, dTop) {
     let logScale = c.logScale;
     if (dTop > 0) {
         const n = topMat.getNK(lam);
-        const cosThetaJ = snellCosTheta(c.n0, ctx.sinTheta0, n);
+        const cosThetaJ = snellCosTheta(c.n0, ctx.sinTheta0, n, ctx.cosTheta0);
         M = matmul(layerMatrix(n, dTop, lam, cosThetaJ, pol), M);
         logScale += rescaleMatrix(M);
     }
@@ -212,13 +216,13 @@ function wasmMonitorEvaluator(wasm, {
     let backs = null;
     let bulkP = null;
     if (subThickMM != null) {
-        const sinTheta0 = [Math.sin(theta_deg * Math.PI / 180), 0];
+        const { sinTheta0, cosTheta0 } = incidence(theta_deg);
         backs = new Array(NL);
         bulkP = new Array(NL);
         for (let li = 0; li < NL; li++) {
             const n0 = n0List[li];
             const ns = nsList[li];
-            const face = bareInterface(n0, ns, sinTheta0);
+            const face = bareInterface(n0, ns, sinTheta0, cosTheta0);
             backs[li] = { Rs: face.s.R, Ts: face.s.T, Rp: face.p.R, Tp: face.p.T };
             bulkP[li] = substratePass(ns[1], subThickMM, lambdas[li],
                 substrateRay(n0, ns, sinTheta0[0]).cosThetaSub);
@@ -292,8 +296,8 @@ export function createGrowingLayerEvaluator(theta_deg, incMat, subMat,
     let back = null;
     let P = 1;
     if (subThickMM != null) {
-        const sinTheta0 = [Math.sin(theta_deg * Math.PI / 180), 0];
-        const face = bareInterface(n0, ns, sinTheta0);
+        const { sinTheta0, cosTheta0 } = incidence(theta_deg);
+        const face = bareInterface(n0, ns, sinTheta0, cosTheta0);
         back = { Rs: face.s.R, Ts: face.s.T, Rp: face.p.R, Tp: face.p.T };
         P = substratePass(ns[1], subThickMM, lam,
             substrateRay(n0, ns, sinTheta0[0]).cosThetaSub);

@@ -10,8 +10,11 @@
  * Flow:
  *   1. User picks threshold + toggles (merge / re-optimize / clean back)
  *   2. Window previews the operations (remove/merge) and shows MF before
- *   3. User clicks Apply — one undo-checkpoint is created, the cleaned
- *      design is committed, and (if enabled) a short DLS pass refines it.
+ *   3. User clicks Apply: if enabled, a short pass of the default refiner
+ *      (the Refinement window's default method) polishes the cleaned stack
+ *      in the optimizer worker, so the window stays responsive, with a step
+ *      count and a Stop button. The cleaned (and refined) design is then
+ *      committed behind one undo checkpoint.
  *
  * The previous design is reachable via Ctrl+Z (single checkpoint covers
  * both the cleanup and the optional refinement).

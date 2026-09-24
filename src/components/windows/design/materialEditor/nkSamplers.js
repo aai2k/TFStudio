@@ -45,10 +45,12 @@ function makeFormulaSampler(draft) {
         const testN = evalN(draft.formulaNum, coefficients, 0.55);
         if (!isFinite(testN) || testN <= 0) return null;
     } catch (_) { return null; }
+    // A wavelength where the formula has no finite value is left without one,
+    // so the chart and the preview table leave it out.
     return (lam_nm) => {
         const lum = lam_nm / 1000;
         const n = evalN(draft.formulaNum, coefficients, lum);
-        return [isFinite(n) ? Math.max(0, n) : 1.5, interpK(lum)];
+        return [isFinite(n) ? Math.max(0, n) : NaN, interpK(lum)];
     };
 }
 

@@ -23,7 +23,10 @@ The wizard walks through one topic per page.
 **Page 1: Deposition Rates.** For each material, set the **mean rate**
 (nm/s), the **RMS** rate fluctuation, and the **correlation time** that
 controls how slowly the rate drifts. The preview shows a sample rate-vs-time
-trace; press **Randomize** to draw a new one.
+trace; press **Randomize** to draw a new one. The rate wanders within each
+layer at the scan interval, as the preview shows, and carries on into the next
+layer of the same material. With a correlation time of 0 the rate noise
+averages out of the thickness completely.
 
 **Page 2: Parameters Deviation.** Per material, add a **systematic** and
 **random** shift to the real refractive index, plus a **systematic
@@ -50,11 +53,27 @@ manufacturing experiment. The coating then plays back layer by layer on an
 interactive timeline (play/pause, speed, scrub, layer ticks). The bar chart
 compares the **estimated**, **actual**, and **target** thickness of the
 current layer; the spectrum shows the theoretical guide curves (end, 80 %,
-90 %) against the as-built curve.
+90 %) against the as-built curve. Once a layer is cut, its estimated bar is
+what the monitor believes it deposited, which is the target unless the cut ran
+late.
 
 **Page 6: Resulting Performance.** Tabs show the **manufactured vs.
 theoretical** spectrum, **relative** and **absolute** thickness-error bars per
 layer, and tables of as-built **thicknesses** and **refractive indices**.
+
+**How the monitor cuts a layer.** From 60 % of a layer's planned time on, the
+monitor fits the thickness of the growing layer to every scan. Each fit scans
+the whole range from zero to three times the target at a step finer than the
+fringes of the monitoring band before it refines, so it needs no starting guess
+and settles in the best-fitting fringe rather than the nearest one. A
+tracker follows the layer's thickness and rate from these fits, weighting each
+fit by how well its scan pins the thickness, and the shutter closes where the
+tracked thickness reaches the target, between scans if need be. Without noise
+every layer ends on target at any scan interval. Each fit is made over the
+monitor's own estimate of the layers below, not over what the chamber really
+deposited, so an error in one layer carries into the fits of the next ones the
+way it does in a real chamber. An excluded layer enters that model at its
+target.
 
 The coating side that is deposited, and the way the resulting spectrum is
 scored, follow the surface mode set in the

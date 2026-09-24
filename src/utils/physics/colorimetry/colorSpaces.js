@@ -4,39 +4,40 @@
  */
 
 import { RANGE_MIN, RANGE_MAX, cmfTable, interp, illumValue } from './tables.js';
+import { trapezoidalWeighted } from '../integralValues/weightedIntegral.js';
 
 /**
- * Tristimulus X,Y,Z of a spectral response — Macleod Eqs. (12.1)–(12.3).
+ * Tristimulus X,Y,Z of a sampled spectral response, Macleod Eqs. (12.1)–(12.3):
  *
- * @param {(lam:number)=>number} Rfn  response R(λ)|T(λ) as a *fraction* (0–1)
+ *     X = 100 · ∫S(λ)R(λ)x̄(λ)dλ / ∫S(λ)ȳ(λ)dλ,  Y and Z alike with ȳ and z̄.
+ *
+ * The integrals are taken by the trapezoidal rule on the response's own
+ * wavelength grid over 380–780 nm, with S and x̄, ȳ, z̄ linearly interpolated
+ * from their 5 nm CIE tables to the grid nodes. A feature narrower than the
+ * table spacing therefore counts at the width the grid resolves; nothing
+ * between two grid nodes is seen.
+ *
+ * @param {{lambda:number[], values:number[]}} spectrum
+ *        `lambda` ascending in nm; `values` R(λ)|T(λ) as a *fraction* (0–1)
  * @param {string} observer    '2' | '10'
  * @param {string} illuminant  'D65' | 'D50' | 'A' | 'E'
- * @param {number} step        integration step (nm)
  * @returns {{X,Y,Z}}  with Y in percent (luminance factor)
  */
-export function tristimulus(Rfn, observer, illuminant, step = 5) {
+export function tristimulus(spectrum, observer, illuminant) {
   const cmf = cmfTable(observer);
-  let sumX = 0, sumY = 0, sumZ = 0, norm = 0;
-  for (let lam = RANGE_MIN; lam <= RANGE_MAX + 1e-9; lam += step) {
-    const S  = illumValue(illuminant, lam);
-    const xb = interp(cmf, lam, 1);
-    const yb = interp(cmf, lam, 2);
-    const zb = interp(cmf, lam, 3);
-    const Sy = S * yb;
-    norm += Sy;
-    const SR = S * Rfn(lam);
-    sumX += SR * xb;
-    sumY += SR * yb;
-    sumZ += SR * zb;
-  }
-  if (norm <= 0) return { X: 0, Y: 0, Z: 0 };
+  const integrate = (col) => trapezoidalWeighted(spectrum.lambda, spectrum.values,
+    (lam) => illumValue(illuminant, lam) * interp(cmf, lam, col), RANGE_MIN, RANGE_MAX);
+  const x = integrate(1), y = integrate(2), z = integrate(3);
+  // ∫S·ȳ·dλ, the denominator of all three.
+  const norm = y.den;
+  if (!(norm > 0)) return { X: 0, Y: 0, Z: 0 };
   const k = 100 / norm;
-  return { X: k * sumX, Y: k * sumY, Z: k * sumZ };
+  return { X: k * x.num, Y: k * y.num, Z: k * z.num };
 }
 
-/** Reference-white XYZ for an illuminant/observer (R≡1). */
-export function whitePoint(observer, illuminant, step = 5) {
-  return tristimulus(() => 1, observer, illuminant, step);
+/** Reference-white XYZ (R ≡ 1) on the wavelength grid `lambda` (nm). */
+export function whitePoint(lambda, observer, illuminant) {
+  return tristimulus({ lambda, values: Array.from(lambda, () => 1) }, observer, illuminant);
 }
 
 export function chromaticityXy({ X, Y, Z }) {

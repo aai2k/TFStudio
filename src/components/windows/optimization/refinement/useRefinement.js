@@ -112,6 +112,7 @@ function buildRunCtx(env, killWorker, stopOpt, t) {
         setOmf: setters.setOmf, setOmfBest: setters.setOmfBest, setOmfInitial: setters.setOmfInitial,
         setIter: setters.setIter, setMfHistory: setters.setMfHistory, setRunning: setters.setRunning,
         setCanReset: setters.setCanReset, setRestartIdx: setters.setRestartIdx, setStopReason: setters.setStopReason,
+        setSeed: setters.setSeed,
         t,
     };
 }
@@ -388,6 +389,8 @@ export function useRefinement({ t }) {
     // run still stops early at convergence, this is just the cap. Resets to the
     // method default when the method changes; the user can override per run.
     const [maxIter,     setMaxIter]     = useState(() => MAXITER_FOR[loadMethod()] || 500);
+    // Seed of the stochastic methods, null to draw a fresh one (takeRunSeed).
+    const [seed,        setSeed]        = useState(null);
 
     const optimizerRef    = useRef(null);
     const runningRef      = useRef(false);
@@ -409,6 +412,8 @@ export function useRefinement({ t }) {
     const nRestartsRef   = useRef(20);
     const perturbPctRef  = useRef(30);
     const maxIterRef     = useRef(maxIter);
+    const seedRef        = useRef(seed);
+    useEffect(() => { seedRef.current = seed; }, [seed]);
     useEffect(() => { methodRef.current = method; multiStartRef.current = (method === 'dls-multi'); saveMethod(method); }, [method]);
     useEffect(() => { nRestartsRef.current  = nRestarts;  }, [nRestarts]);
     useEffect(() => { perturbPctRef.current = perturbPct; }, [perturbPct]);
@@ -433,12 +438,12 @@ export function useRefinement({ t }) {
         runningRef, designRef, operandsRef, maxIterRef, multiStartRef,
         nRestartsRef, perturbPctRef, checkpointRef, updateDesignRef, optimizerRef,
         timerRef, baselineRef, lastBestRef, poolRef, runIdRef, flowWorkersRef,
-        dePoolRef, histRunCount,
+        dePoolRef, histRunCount, seedRef,
     };
     const setters = {
         setMf, setMfBest, setMfInitial, setOmf, setOmfBest, setOmfInitial,
         setIter, setMfHistory, setRunning, setCanReset, setRestartIdx, setStopReason,
-        setSelectedId, setSavedDesign, setHistEntries, setComputed, setEvaluationErrors,
+        setSelectedId, setSavedDesign, setHistEntries, setComputed, setEvaluationErrors, setSeed,
     };
     const env = { refs, setters, methodRef };
 
@@ -472,10 +477,11 @@ export function useRefinement({ t }) {
     return {
         design, operands, selectedId, setSelectedId, computed, evaluationErrors,
         running, iter, mf, mfBest, mfInitial, omf, omfBest, canReset,
-        method, nRestarts, perturbPct, restartIdx, maxIter, stopReason,
+        method, nRestarts, perturbPct, restartIdx, maxIter, stopReason, seed,
         mfHistory, plotHistory, histEntries, selectedHistoryId,
         onRun: runOpt, onStop: stopOpt, onReset: resetOpt, onBest: bestOpt,
         onMethod: setMethod, onNRestarts: setNRestarts, onPerturbPct: setPerturbPct, onMaxIter: setMaxIter,
+        onSeed: setSeed,
         onEdit: handleEdit, onAdd: handleAdd, onInsertAt: handleInsertAt, onDuplicate: handleDuplicate,
         onDelete: handleDelete, onMoveUp: handleMoveUp, onMoveDown: handleMoveDown,
         onSelectHistory: handleHistorySelect, onRestore: handleHistoryRestore,

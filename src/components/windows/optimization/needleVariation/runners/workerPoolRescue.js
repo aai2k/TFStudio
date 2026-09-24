@@ -23,6 +23,7 @@
  */
 
 import { wpOnTick, wpAlive } from './workerPoolLifecycle.js';
+import { wpRegridIfGrown } from './workerPoolSetup.js';
 
 // Thickness multipliers tried in one pool round. Geometric so a few candidates
 // span a wide range: on a 130 nm stack this reaches about 2 µm, which covers
@@ -84,6 +85,10 @@ export async function wpThinStartRescue(run) {
     const back  = best.backLayers  || run.mkLayers(run.curDes.backLayers);
     if (!hasGrowableFilm(front, back)) return false;
 
+    // Every rung is scored on a grid fine enough for the thickest one, so a
+    // thick rung cannot win on fringes that fall between samples.
+    const thickest = SCALE_LADDER[SCALE_LADDER.length - 1];
+    wpRegridIfGrown(run, scaleLayers(front, thickest), scaleLayers(back, thickest));
     const picked = await refineLadder(run, front, back);
     if (!picked) return false;
 

@@ -1,8 +1,12 @@
 /**
  * Monte-Carlo block: the last run the Monte-Carlo window made for the design.
  * The design curve, the mean over the trials and the ±kσ corridor as a plot,
- * the statistics per wavelength as a table, and the specification yield when
- * the run evaluated one.
+ * the statistics per wavelength as a table, and the specification yield with
+ * its 95 % interval when the run evaluated one.
+ *
+ * Every figure comes from the run itself: its trials, seed, error settings,
+ * corridor width and geometry. What the window is set to now can differ and is
+ * never read.
  */
 
 import { lineChartSVG, escapeHtml } from '../svgChart.js';
@@ -15,23 +19,28 @@ import { yieldBand } from '../../physics/errorAnalysis/mcResult.js';
 
 const COLORS = { T: '#1565c0', R: '#c62828', A: '#2e7d32' };
 
-function runFacts(result, settings, tr) {
-  const dist = (tr?.mcDistribution || {})[settings.distribution] || settings.distribution || '';
+// The run's facts in one line: trials, error settings, geometry and seed.
+function runFacts(result, tr) {
+  const run = result.settings;
+  const dist = (tr?.mcDistribution || {})[run.distribution] || run.distribution || '';
   const parts = [
     typeof tr?.mcTrials === 'function' ? tr.mcTrials(result.nTrials) : `${result.nTrials} trials`,
-    typeof tr?.mcThickness === 'function' ? tr.mcThickness(num(settings.rmsRelPct, 2), num(settings.rmsAbsNm, 2))
-      : `thickness σ ${num(settings.rmsRelPct, 2)} % + ${num(settings.rmsAbsNm, 2)} nm`,
+    typeof tr?.mcThickness === 'function' ? tr.mcThickness(num(run.rmsRelPct, 2), num(run.rmsAbsNm, 2))
+      : `thickness σ ${num(run.rmsRelPct, 2)} % + ${num(run.rmsAbsNm, 2)} nm`,
   ];
-  if (settings.rmsReN > 0 || settings.rmsImN > 0) {
-    parts.push(typeof tr?.mcIndex === 'function' ? tr.mcIndex(num(settings.rmsReN, 4), num(settings.rmsImN, 4))
-      : `index σ ${num(settings.rmsReN, 4)} (n), ${num(settings.rmsImN, 4)} (k)`);
+  if (run.rmsReN > 0 || run.rmsImN > 0) {
+    parts.push(typeof tr?.mcIndex === 'function' ? tr.mcIndex(num(run.rmsReN, 4), num(run.rmsImN, 4))
+      : `index σ ${num(run.rmsReN, 4)} (n), ${num(run.rmsImN, 4)} (k)`);
   }
   if (dist) parts.push(dist);
-  parts.push(`${tt(tr, 'aoi', 'AOI')} ${deg(settings.theta ?? 0)}°`, settings.polarization || 'avg');
+  parts.push(`${tt(tr, 'aoi', 'AOI')} ${deg(run.theta ?? 0)}°`, run.polarization || 'avg');
+  if (result.seed != null) {
+    parts.push(typeof tr?.mcSeed === 'function' ? tr.mcSeed(result.seed) : `seed ${result.seed}`);
+  }
   return parts.map(escapeHtml).join(' · ');
 }
 
-function plot(result, settings, tr) {
+function plot(result, settings, k, tr) {
   const height = plotHeight(settings.plot);
   if (height <= 0) return '';
   const color = COLORS[result.char] || '#1565c0';
@@ -39,8 +48,8 @@ function plot(result, settings, tr) {
   const series = [
     { x: result.lambda, y: toPct(result.theory), color, label: `${result.char} ${tt(tr, 'mcNominal', 'design')}` },
     { x: result.lambda, y: toPct(result.mean), color: '#555555', label: tt(tr, 'mcMean', 'mean'), dash: '4 3' },
-    { x: result.lambda, y: toPct(result.lower), color: '#888888', label: `−${settings.corridorSigma ?? 1}σ`, dash: '1 3' },
-    { x: result.lambda, y: toPct(result.upper), color: '#888888', label: `+${settings.corridorSigma ?? 1}σ`, dash: '1 3' },
+    { x: result.lambda, y: toPct(result.lower), color: '#888888', label: `−${k}σ`, dash: '1 3' },
+    { x: result.lambda, y: toPct(result.upper), color: '#888888', label: `+${k}σ`, dash: '1 3' },
   ];
   if (settings.envelope) {
     series.push({ x: result.lambda, y: toPct(result.envLower), color: '#bbbbbb', label: tt(tr, 'mcMin', 'min') },
@@ -51,9 +60,8 @@ function plot(result, settings, tr) {
   })}</div>`;
 }
 
-function statsTable(result, settings, tr) {
+function statsTable(result, settings, k, tr) {
   if (!(settings.tableStep > 0)) return '';
-  const k = settings.corridorSigma ?? 1;
   const c = result.char;
   const headers = ['λ, nm', `${c} ${tt(tr, 'mcNominal', 'design')}, %`, `${c} ${tt(tr, 'mcMean', 'mean')}, %`, `σ, %`, `−${k}σ, %`, `+${k}σ, %`];
   if (settings.envelope) headers.push(`${tt(tr, 'mcMin', 'min')}, %`, `${tt(tr, 'mcMax', 'max')}, %`);
@@ -73,8 +81,13 @@ function specSummary(spec, tr) {
   const line = typeof tr?.mcYield === 'function'
     ? tr.mcYield(spec.passCount, spec.evaluated, num(spec.yield * 100, 1))
     : `Specification met in ${spec.passCount} of ${spec.evaluated} trials (${num(spec.yield * 100, 1)} %)`;
+  const parts = [line];
+  if (spec.yieldInterval) {
+    const [low, high] = spec.yieldInterval.map(v => num(v * 100, 1));
+    parts.push(typeof tr?.mcYieldInterval === 'function' ? tr.mcYieldInterval(low, high) : `95 % interval ${low}–${high} %`);
+  }
   const cls = { pass: 'tf-pass', warn: 'tf-warn', fail: 'tf-fail' }[yieldBand(spec.yield)] || '';
-  let html = `<p class="tf-verdict ${cls}">${escapeHtml(line)}</p>`;
+  let html = `<p class="tf-verdict ${cls}">${parts.map(escapeHtml).join(' · ')}</p>`;
   const perQualifier = (spec.perQualifier || []).filter(q => q.failRate > 0);
   if (perQualifier.length) {
     html += table([escapeHtml(tt(tr, 'requirement', 'Requirement')), escapeHtml(tt(tr, 'mcFailRate', 'Fail rate'))],
@@ -93,10 +106,11 @@ export function buildMonteCarlo(ctx) {
       'No Monte-Carlo run for this design yet. Run it in the Monte-Carlo window; the block prints the last run.'))),
       { subtitle: subtitleOf(ctx) });
   }
-  const run = { ...(d.settings || {}), corridorSigma: d.settings?.corridorSigma ?? 1 };
-  const inner = plot(d.result, { ...settings, ...run }, tr)
-    + note(runFacts(d.result, run, tr))
+  // The corridor is drawn as the run computed it, at the run's k.
+  const k = d.result.settings.corridorSigma;
+  const inner = plot(d.result, settings, k, tr)
+    + note(runFacts(d.result, tr))
     + specSummary(d.result.spec, tr)
-    + statsTable(d.result, { ...settings, corridorSigma: run.corridorSigma }, tr);
+    + statsTable(d.result, settings, k, tr);
   return wrap('monteCarlo', title, inner, { subtitle: subtitleOf(ctx), breakable: settings.tableStep > 0 });
 }
