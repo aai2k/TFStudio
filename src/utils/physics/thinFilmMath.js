@@ -41,6 +41,7 @@ import {
     creal,
     csub,
     incidentCosTheta,
+    layerLogScale,
     layerMatrix,
     matmul,
     rescaleMatrix,
@@ -82,14 +83,14 @@ export function tmmWithAdmittances(lambda_nm, theta_deg, pol, n0, ns, layers) {
     // Build individual layer matrices (skip zero-thickness layers)
     const valid = layers.filter(l => l.d > 0);
     const N = valid.length;
-    const Ms = valid.map(({ n, d }) => {
-        const cj = snellCosTheta(n0, sinTheta0, n, cosTheta0);
-        return layerMatrix(n, d, lambda_nm, cj, pol);
-    });
+    const cosThetas = valid.map(({ n }) => snellCosTheta(n0, sinTheta0, n, cosTheta0));
+    const Ms = valid.map(({ n, d }, k) => layerMatrix(n, d, lambda_nm, cosThetas[k], pol));
 
     // Build right-partial matrices right→left:
     //   B[N]   = I
     //   B[pos] = Ms[pos] · B[pos+1]
+    // with the log scale t needs: the rescaling, and what layerMatrix holds
+    // back from a layer past the opaque-layer bound.
     const I = [[[1,0],[0,0]], [[0,0],[1,0]]];
     const B = new Array(N + 1);
     const logScales = new Array(N + 1);
@@ -97,7 +98,9 @@ export function tmmWithAdmittances(lambda_nm, theta_deg, pol, n0, ns, layers) {
     logScales[N] = 0;
     for (let k = N - 1; k >= 0; k--) {
         B[k] = matmul(Ms[k], B[k + 1]);
-        logScales[k] = logScales[k + 1] + rescaleMatrix(B[k]);
+        logScales[k] = logScales[k + 1]
+            + layerLogScale(valid[k].n, valid[k].d, lambda_nm, cosThetas[k])
+            + rescaleMatrix(B[k]);
     }
 
     // Admittance at each interface
@@ -455,23 +458,35 @@ const NO_NORMAL_FIELD = [0, 0];
  * `ctx.components` decides whether the two components are kept alongside the
  * resultant. A caller that reads only the resultant, such as a field target in
  * the merit function, leaves them out and their arrays stay empty.
+ *
+ * `logScale` is the natural log of a factor the sample takes on top of
+ * `ctx.scale`: what layerMatrix holds back from layers past the opaque-layer
+ * bound, where it does not cancel between `eh` and t. It is zero for every
+ * stack without such a layer, and e^0 is exactly 1.
  */
-function pushEFieldSample(out, eh, n, zAt, ctx) {
+function pushEFieldSample(out, { eh, n, z, logScale }, ctx) {
     const eNormal = ctx.pol === 'p' ? normalEField(eh, n, ctx.invariant) : NO_NORMAL_FIELD;
-    out.z.push(zAt);
-    out.e2.push(resultantESquared(eh[0], eNormal) * ctx.scale);
+    const scale = ctx.scale * Math.exp(2 * logScale);
+    out.z.push(z);
+    out.e2.push(resultantESquared(eh[0], eNormal) * scale);
     if (!ctx.components) return;
-    out.e2Tangential.push(cabs2(eh[0]) * ctx.scale);
-    out.e2Normal.push(cabs2(eNormal) * ctx.scale);
+    out.e2Tangential.push(cabs2(eh[0]) * scale);
+    out.e2Normal.push(cabs2(eNormal) * scale);
 }
 
 // Sample one layer's thickness into `out`, in increasing depth. `ehBack` =
-// [E, H] at the layer's back interface; `zBase` is the layer's front-boundary
-// depth. `skipFront` drops the p=0 point that coincides with the previous
-// layer's back boundary. `ctx` carries what every layer shares: wavelength,
+// [E, H] at the layer's back interface and `backLogScale` its log scale as
+// pushEFieldSample takes it; `zBase` is the layer's front-boundary depth.
+// `skipFront` drops the p=0 point that coincides with the previous layer's
+// back boundary. `ctx` carries what every layer shares: wavelength,
 // polarization, sample count, the Snell invariant, and the scale onto
 // "incident field = 1".
-function sampleLayerEField(out, layer, ehBack, zBase, skipFront, ctx) {
+//
+// Past the opaque-layer bound layerMatrix holds back a factor e^{layerLogScale}
+// from the remaining thickness too, and it goes into the sample's log scale;
+// without it every sample from the front face down to the depth where the
+// remaining thickness falls to the bound would take the value at that depth.
+function sampleLayerEField(out, { layer, ehBack, backLogScale, zBase, skipFront }, ctx) {
     const { n, d, cosTheta } = layer;
     const pts = Math.max(2, ctx.nPtsPerLayer);
     for (let p = 0; p <= pts; p++) {
@@ -488,7 +503,9 @@ function sampleLayerEField(out, layer, ehBack, zBase, skipFront, ctx) {
                 cadd(cmul(Mrem[1][0], ehBack[0]), cmul(Mrem[1][1], ehBack[1])),
             ];
         }
-        pushEFieldSample(out, eh, n, zBase + zInK, ctx);
+        // Zero at the back interface, where no thickness remains.
+        const logScale = backLogScale + layerLogScale(n, remaining, ctx.lambda_nm, cosTheta);
+        pushEFieldSample(out, { eh, n, z: zBase + zInK, logScale }, ctx);
     }
 }
 
@@ -527,8 +544,13 @@ export function computeEFieldProfile(
 
     // Right-partial field vectors EH[k] = [E, H] at the END of layer k (substrate-normalized)
     // EH[N] = [1, η_s];  EH[k] = M_{k+1} · EH[k+1]
+    // A layer past the opaque-layer bound enters its matrix short by
+    // e^{layerLogScale}; `heldFrom[k]` sums that over layers k..N−1, so EH[k] is
+    // short by e^{heldFrom[k]} and t, from Mfull, too large by e^{heldFrom[0]}.
     const EH = new Array(N + 1);
+    const heldFrom = new Array(N + 1);
     EH[N] = [[1, 0], etaS];
+    heldFrom[N] = 0;
     for (let k = N - 1; k >= 0; k--) {
         const Mk = Ms[k];
         const Ek = EH[k + 1][0];
@@ -537,6 +559,7 @@ export function computeEFieldProfile(
             cadd(cmul(Mk[0][0], Ek), cmul(Mk[0][1], Hk)),
             cadd(cmul(Mk[1][0], Ek), cmul(Mk[1][1], Hk))
         ];
+        heldFrom[k] = heldFrom[k + 1] + layerLogScale(valid[k].n, valid[k].d, lambda_nm, valid[k].cosTheta);
     }
 
     // Cumulative depth boundaries
@@ -547,11 +570,15 @@ export function computeEFieldProfile(
 
     for (let k = 0; k < N; k++) {
         // k>0 skips the p=0 sample that coincides with the previous layer's back boundary.
-        sampleLayerEField(profile, valid[k], EH[k + 1], bounds[k], k > 0, ctx);
+        // [E, H] at the back of layer k times t is too large by e^{heldFrom[0] − heldFrom[k+1]}.
+        sampleLayerEField(profile, {
+            layer: valid[k], ehBack: EH[k + 1], backLogScale: heldFrom[k + 1] - heldFrom[0],
+            zBase: bounds[k], skipFront: k > 0,
+        }, ctx);
     }
 
     // No layers above zero thickness: one sample on the bare substrate surface.
-    if (N === 0) pushEFieldSample(profile, EH[0], ns, 0, ctx);
+    if (N === 0) pushEFieldSample(profile, { eh: EH[0], n: ns, z: 0, logScale: 0 }, ctx);
 
     return { ...profile, layerBounds: bounds, nLayers: N };
 }

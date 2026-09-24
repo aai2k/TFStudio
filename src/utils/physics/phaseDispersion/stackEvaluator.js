@@ -84,19 +84,30 @@ function phaseQuantities(options, target, withThicknessJacobian) {
     const coefficients = withThicknessJacobian
         ? tmmCoefficientThicknessJets(options)
         : tmmCoefficientJets(options);
-    const coefficientJet = target === 'T' ? coefficients.transmission : coefficients.reflection;
-    const dispersion = inFemtoseconds(coefficientPhaseDispersion(coefficientJet));
+    const side = coefficientSide(coefficients, target);
+    const dispersion = inFemtoseconds(coefficientPhaseDispersion(side.jet, side.logScale));
     if (!dispersion) return null;
-    const thicknessJets = target === 'T'
-        ? coefficients.transmissionThickness
-        : coefficients.reflectionThickness;
     return {
         dispersion,
         thicknessJacobian: withThicknessJacobian
             ? inFemtoseconds(
-                coefficientPhaseThicknessDerivatives(coefficientJet, thicknessJets))
+                coefficientPhaseThicknessDerivatives(side.jet, side.thicknessJets))
             : undefined,
     };
+}
+
+// The coefficient a target reads, its thickness jets, and the log of the
+// factor its magnitude is too large by. Past the opaque-layer bound the jets'
+// |t| exceeds the true one by e^{logScale}, which they report alongside rather
+// than apply; the kernel path applies it itself. r is never off.
+function coefficientSide(coefficients, target) {
+    return target === 'T'
+        ? {
+            jet: coefficients.transmission,
+            thicknessJets: coefficients.transmissionThickness,
+            logScale: coefficients.transmissionLogScale,
+        }
+        : { jet: coefficients.reflection, thicknessJets: coefficients.reflectionThickness, logScale: 0 };
 }
 
 export function continuityMetadata(materials) {

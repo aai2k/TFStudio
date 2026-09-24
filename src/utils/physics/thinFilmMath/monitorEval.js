@@ -9,7 +9,7 @@
 import {
     getTmmWasm, tmmWasmActive,
     cadd, cabs2, cdiv, cmul, creal, csub,
-    layerMatrix, matmul, rescaleMatrix, snellCosTheta,
+    layerLogScale, layerMatrix, matmul, rescaleMatrix, snellCosTheta,
 } from '../../../tmmcore.js';
 import {
     bareInterface, combineGrowingSample, incidence, materialNkTable, pickCharPol,
@@ -40,7 +40,7 @@ function buildMonitorCache({
                 const n = completedMats[k].getNK(lam);
                 const cosThetaJ = snellCosTheta(n0, sinTheta0, n, cosTheta0);
                 M = matmul(M, layerMatrix(n, d, lam, cosThetaJ, pol));
-                logScale += rescaleMatrix(M);
+                logScale += layerLogScale(n, d, lam, cosThetaJ) + rescaleMatrix(M);
             }
             per[pol] = { n0, eta0: face[pol].eta0, etaS: face[pol].etaS, M, logScale };
             if (subThickMM != null) {
@@ -175,7 +175,7 @@ function jsEvalPol(ctx, li, pol, topMat, dTop) {
         const n = topMat.getNK(lam);
         const cosThetaJ = snellCosTheta(c.n0, ctx.sinTheta0, n, ctx.cosTheta0);
         M = matmul(layerMatrix(n, dTop, lam, cosThetaJ, pol), M);
-        logScale += rescaleMatrix(M);
+        logScale += layerLogScale(n, dTop, lam, cosThetaJ) + rescaleMatrix(M);
     }
     const fwd = tail(M, c.eta0, c.etaS, logScale);
     return ctx.subThickMM != null ? slabTail(fwd, M, c, ctx.cache[li].P) : fwd;
