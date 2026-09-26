@@ -4052,6 +4052,7 @@ export default {
     typeClean: '清理',
     typeSeed: '种子',
     typeBaseline: '起始',
+    typeRefine: '精炼',
     consolidate: '完成后合并',
     consolidateOn: '开',
     consolidateOff: '关',

@@ -1,28 +1,40 @@
-// Forced GE-step phase of the main-thread Gradual-Evolution engine: deliberately
-// increases total optical thickness (Tikhonravov 2007 §2: forced TOT increase
-// between needle optimizations; MF typically rises and is then recovered by the
-// subsequent needle optimization). Before a forced step, the design without the
-// layers parked on the floor is tried (phaseStall). See mainThread.js.
+// Structural steps of the main-thread Gradual-Evolution engine, taken when
+// needle optimization has stalled: the forced step deliberately increases total
+// optical thickness (Tikhonravov 2007 §2: forced TOT increase between needle
+// optimizations; MF typically rises and is then recovered by the subsequent
+// needle optimization), and at the layer limit a swap takes out the layer that
+// costs least. Before either, the design without the layers parked on the
+// floor is tried (phaseStall), and a step that led nowhere is not taken again
+// from the same stack (undoneSteps.js). As in the worker path
+// (workerPoolGeStep.js). See mainThread.js.
 
-import { scanGEInsertions, insertNeedle, cleanupLayers } from '../../../../../utils/physics/optimizer.js';
+import { scanGEInsertions, insertNeedle, cleanupLayers, removeWeakestLayer } from '../../../../../utils/physics/optimizer.js';
 import { refineWithoutParked } from '../../../../../utils/physics/optimizer/parkedLayers.js';
 import { makeEngine } from '../../../../../utils/optimizers/index.js';
 import { materialLookup } from '../../synthesisShared/synthesisHelpers.js';
 import { setBase, recordCycle, finalize, scheduleTick, deepActive, gentleIter } from './mainThreadCore.js';
+import {
+    noteStructuralStep, settleStructuralStep, forgetUndone, undoneForcedSteps, isUndoneForcedStep,
+    takenSwapStructures, structureOf,
+} from './undoneSteps.js';
+
+// The run's per-step refine: `n` iterations of the inner engine on `d`.
+function refineOnMain(ctx, S) {
+    const dMin = ctx.dMinRef.current;
+    return (d, n) => {
+        const eng = makeEngine(S.innerEngine, S.operands, d, materialLookup(d), { dMin });
+        for (let i = 0; i < n && !eng.isConverged(); i++) eng.step();
+        return eng;
+    };
+}
+const stepIter = (ctx, S) => (S.preserveBulk ? gentleIter(ctx) : ctx.dlsIterRef.current);
 
 // Needle optimization has stalled: take the layers parked on the floor out of
 // `work` and refine what is left, kept only as a new global best, as in the
 // worker path (workerPoolGeStep.js, dropParkedOnStall). Returns true when it
 // was kept.
 function dropParkedOnStall(ctx, S) {
-    const dMin = ctx.dMinRef.current;
-    const maxIter = S.preserveBulk ? gentleIter(ctx) : ctx.dlsIterRef.current;
-    const refine = (d, n) => {
-        const eng = makeEngine(S.innerEngine, S.operands, d, materialLookup(d), { dMin });
-        for (let i = 0; i < n && !eng.isConverged(); i++) eng.step();
-        return eng;
-    };
-    const r = refineWithoutParked(refine, ctx.baseDesignRef.current, S.LK, maxIter);
+    const r = refineWithoutParked(refineOnMain(ctx, S), ctx.baseDesignRef.current, S.LK, stepIter(ctx, S));
     if (!r || !(r.eng.mf < S.best.mf - 1e-9)) return false;
 
     const mf = r.eng.mf;
@@ -31,7 +43,6 @@ function dropParkedOnStall(ctx, S) {
     S.best.mf    = mf;
     S.best.front = deepActive(S, r.design);
     S.curMF.v    = mf;
-    S.geStagn.n  = 0;
     ctx.baseDesignRef.current = r.design;
     ctx.updateDesignRef.current({ [S.LK]: r.design[S.LK] }, { transient: true });
     const nLayers = r.design[S.LK].length;
@@ -40,43 +51,41 @@ function dropParkedOnStall(ctx, S) {
     return true;
 }
 
-// Needle optimization has stalled: the design without its parked layers when
-// that is a new best, otherwise the forced step.
-export function phaseStall(ctx, S) {
-    setBase(ctx, S, S.work.front);
-    if (!dropParkedOnStall(ctx, S)) { phaseGeStep(ctx, S); return; }
-    if (S.best.mf < ctx.targetMFRef.current) {
-        finalize(ctx, S, `Converged MF=${S.best.mf.toFixed(6)}`); return;
+// Take `design` (merit `mf`, optical merit `omf`) from a structural step as
+// `work`, and as `best` when it is a new best; count the step and record it.
+// Returns whether it set a new best.
+function applyStructuralResult(ctx, S, { design, mf, omf }, row) {
+    S.work.mf    = mf;
+    S.work.front = deepActive(S, design);
+    S.curMF.v    = mf;
+    ctx.baseDesignRef.current = design;
+    ctx.updateDesignRef.current({ [S.LK]: design[S.LK] }, { transient: true });
+    ctx.geStepsRef.current += 1;
+    ctx.setGeSteps(ctx.geStepsRef.current);
+    const newBest = mf < S.best.mf - 1e-9;
+    if (newBest) {
+        S.best.mf = mf;
+        S.best.front = deepActive(S, design);
     }
-    S.phase = 'needle_scan';
-    ctx.setPhase('scanning');
-    scheduleTick(ctx, S);
+    recordCycle(ctx, S, { ...row, mf, layerCount: (design[S.LK] || []).length, omf });
+    return newBest;
 }
 
-export function phaseGeStep(ctx, S) {
-    // Forced TOT increase applied to `work` (NOT the global best): work
-    // accumulates, so consecutive GE steps act on ever-larger designs
-    // (Tikhonravov 2007 §2) — no identical-loop.
-    setBase(ctx, S, S.work.front);
+// One forced total-optical-thickness step that fits the layer limit, leaving
+// out the insertions undone on this structure, from the candidate materials in
+// S.pool. Returns false when none is left.
+export function forcedStep(ctx, S) {
     const design = ctx.baseDesignRef.current;
     const resolveMat = materialLookup(design);
     const layers = design[S.LK] || [];
-
-    if (ctx.geStepsRef.current >= ctx.maxGeCyclesRef.current) {
-        console.log(`[GE] Max GE steps reached (${ctx.geStepsRef.current}) — restoring best MF=${S.best.mf.toFixed(6)}`);
-        finalize(ctx, S, 'Max GE steps reached'); return;
-    }
-    if (layers.length >= ctx.maxLayersRef.current) {
-        finalize(ctx, S, 'Max layers reached'); return;
-    }
-
-    S.pool = ctx.getPoolMaterials(ctx.selectedCatsRef.current, ctx.excludedMatsRef.current);
-    if (!S.pool.length) { finalize(ctx, S, 'No candidate materials'); return; }
-
-    const { candidates: geC, mf0: geMf0 } = scanGEInsertions({
+    const maxLayers = ctx.maxLayersRef.current;
+    const merges = c => [layers[c.pos - 1], layers[c.pos]].some(l => l && !l.locked && l.material === c.materialId);
+    const { candidates: scanned, mf0: geMf0 } = scanGEInsertions({
         operands: S.operands, design, resolveMat, candidateMats: S.pool, thickNm: ctx.dMinRef.current, side: S.side,
     });
-    if (!geC.length) { finalize(ctx, S, 'Converged (stuck)'); return; }
+    const undone = undoneForcedSteps(S, S.side, layers);
+    const geC = scanned.filter(c => !isUndoneForcedStep(undone, c) && (merges(c) || layers.length + 1 <= maxLayers));
+    if (!geC.length) return false;
     const bestGe = geC.reduce((b, x) => (x.mfNew < b.mfNew ? x : b), geC[0]);
 
     const _geIns = insertNeedle(design, bestGe.pos, bestGe.materialId, ctx.dMinRef.current, S.side);
@@ -92,26 +101,60 @@ export function phaseGeStep(ctx, S) {
     // Read off a DLS engine, as the worker's geStep does: an SQP engine would
     // score the design with its forced layer lifted to an MNT above dMin.
     const ev = makeEngine('dls', S.operands, geDesign, resolveMat, { dMin: ctx.dMinRef.current });
-    const geMf = ev.mf;
-    S.work.mf    = geMf;
-    S.work.front = deepActive(S, geDesign);
-    ctx.baseDesignRef.current = geDesign;
-    ctx.updateDesignRef.current({ [S.LK]: geDesign[S.LK] }, { transient: true });
+    console.log(`[GE Insert] GE → forced ${bestGe.materialId} at boundary pos ${bestGe.pos}  (MF ${geMf0.toFixed(5)} → ${bestGe.mfNew.toFixed(5)}, +TOT) layers=${(geDesign[S.LK] || []).length}`);
+    const newBest = applyStructuralResult(ctx, S, { design: geDesign, mf: ev.mf, omf: ev.mfOpticalAt(ev.thicknesses) },
+        { type: 'ge', insertMat: bestGe.materialId });
+    noteStructuralStep(S, 'forced', {
+        side: bestGe.side, pos: bestGe.pos, materialId: bestGe.materialId,
+        structure: structureOf(layers), merged: (geDesign[S.LK] || []).length === layers.length,
+    }, newBest);
+    return true;
+}
 
-    ctx.geStepsRef.current += 1;
-    S.geStagn.n += 1;
-    ctx.setGeSteps(ctx.geStepsRef.current);
-    S.curMF.v = geMf;
-    const nLayers = (geDesign[S.LK] || []).length;
-    console.log(`[GE Insert] GE → forced ${bestGe.materialId} at boundary pos ${bestGe.pos}  (MF ${geMf0.toFixed(5)} → ${bestGe.mfNew.toFixed(5)}, +TOT) layers=${nLayers}`);
-    recordCycle(ctx, S, { type: 'ge', mf: geMf, layerCount: nLayers, insertMat: bestGe.materialId, omf: ev.mfOpticalAt(ev.thicknesses) });
+// At the layer limit: take out the layer whose removal costs least, leaving
+// out removals to a structure a swap has already left this run. Returns false
+// when no layer may be taken out.
+function swapStep(ctx, S) {
+    const refine = refineOnMain(ctx, S);
+    const refineFn = (d, n) => {
+        const eng = refine(d, n);
+        return { design: eng.applyToDesign(d), mf: eng.mf, omf: eng.mfOpticalAt(eng.thicknesses) };
+    };
+    const design = ctx.baseDesignRef.current;
+    const r = removeWeakestLayer({
+        design, side: S.side, dMin: ctx.dMinRef.current, maxIter: stepIter(ctx, S), refineFn,
+        skip: takenSwapStructures(S, S.side),
+    });
+    if (!r) return false;
+    console.log(`[GE] Freed a layer: took out layer ${r.i + 1}, MF ${r.baseMf.toFixed(6)} → ${r.mf.toFixed(6)}`);
+    const newBest = applyStructuralResult(ctx, S, r, { type: 'clean', insertMat: null });
+    noteStructuralStep(S, 'swap', { side: S.side, structure: r.structure }, newBest);
+    return true;
+}
 
-    // Stagnation guard: many GE steps with no new GLOBAL best.
-    if (S.geStagn.n > 6) {
-        console.log('[GE] No new best after repeated GE steps — restoring best, stopping');
-        finalize(ctx, S, 'Converged (stuck)'); return;
+// Needle optimization has stalled: the design without its parked layers when
+// that is a new best; otherwise a structural step, a swap first at the layer
+// limit and a forced step first below it, each leaving out what led nowhere
+// from this stack.
+export function phaseStall(ctx, S) {
+    setBase(ctx, S, S.work.front);
+    settleStructuralStep(S);
+    if (dropParkedOnStall(ctx, S)) {
+        forgetUndone(S);
+    } else {
+        if (ctx.geStepsRef.current >= ctx.maxGeCyclesRef.current) {
+            console.log(`[GE] Max GE steps reached (${ctx.geStepsRef.current}) — restoring best MF=${S.best.mf.toFixed(6)}`);
+            finalize(ctx, S, 'Max GE steps reached'); return;
+        }
+        S.pool = ctx.getPoolMaterials(ctx.selectedCatsRef.current, ctx.excludedMatsRef.current);
+        if (!S.pool.length) { finalize(ctx, S, 'No candidate materials'); return; }
+        const atLimit = (ctx.baseDesignRef.current[S.LK] || []).length >= ctx.maxLayersRef.current;
+        const steps = atLimit ? [swapStep, forcedStep] : [forcedStep, swapStep];
+        if (!steps.some(step => step(ctx, S))) { finalize(ctx, S, 'Converged (stuck)'); return; }
     }
-
+    if (S.best.mf < ctx.targetMFRef.current) {
+        finalize(ctx, S, `Converged MF=${S.best.mf.toFixed(6)}`); return;
+    }
     S.phase = 'needle_scan';
     ctx.dlsRef.current = null;
     ctx.setPhase('scanning');

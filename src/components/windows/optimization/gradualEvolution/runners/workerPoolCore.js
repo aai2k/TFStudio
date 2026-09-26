@@ -37,6 +37,7 @@ export function regridIfGrown(S) {
         S.best.mf = meritOf(operands, designSnap(S, S.best.frontLayers, S.best.backLayers), resolveMat);
     }
     S.prevBestMF = Math.min(S.work.mf, S.best.mf);
+    S.foldRowId = null;             // earlier rows keep the merit of the old grid
     console.log(`[GE] Grid re-sampled for the grown design: workMF=${S.work.mf.toFixed(6)} bestMF=${S.best.mf.toFixed(6)}`);
 }
 
@@ -65,31 +66,27 @@ export function applyDesignPatch(ctx, S, frontLayers, backLayers) {
     ctx.baseDesignRef.current = { ...(ctx.baseDesignRef.current || ctx.designRef.current), ...patch };
 }
 
-export function recordCycle(ctx, S, { type, mf, layerCount, insertMat, side, activeLayers, omf }) {
-    S.genNum += 1;
-    const dMF = S.prevBestMF === Infinity ? null : mf - S.prevBestMF;
-    S.prevBestMF = Math.min(S.prevBestMF, mf);
+// The fields of a history row that describe `work` as it stands: merit, elapsed
+// time and snapshots, and the total physical thickness (nm) of the whole
+// design, the "TOT" column (cf. OTF needle history): the thick seed holds the
+// bulk budget and needles redistribute it, so TOT should stay roughly flat
+// (≈ seed), not balloon. A runaway TOT signals over-forcing.
+function workRowFields(S, { mf, omf, activeLayers }) {
     const fSnap = deep(S.work.frontLayers);
     const bSnap = deep(S.work.backLayers);
-    // Total physical thickness (nm) of the whole design — the "TOT" column
-    // (cf. OTF needle history): the thick seed holds the bulk budget and needles
-    // redistribute it, so TOT should stay roughly flat (≈ seed), not balloon. A
-    // runaway TOT signals over-forcing.
     const sumD = arr => (arr || []).reduce((s, L) => s + (Number(L.thickness) || 0), 0);
-    const tot = sumD(fSnap) + sumD(bSnap);
-    const cy = {
-        id: Math.random().toString(36).slice(2),
-        genNum: S.genNum, type, mf, omf, dMF, layerCount, insertMat, side, tot,
-        runNum: activeRunNum(ctx.runsRef.current),
+    return {
+        mf, omf, tot: sumD(fSnap) + sumD(bSnap),
         tMs: performance.now() - S.runT0,
         layers:    deep(activeLayers),                 // active-side snapshot
         frontSnap: fSnap,
         backSnap:  bSnap,
     };
-    ctx.cyclesRef.current   = [...ctx.cyclesRef.current, cy];
-    ctx.genCountRef.current = S.genNum;
+}
+
+// Show the history in the window and keep it in the design's run cache.
+function publishCycles(ctx, S, { layerCount, omf }) {
     ctx.setCycles(ctx.cyclesRef.current.slice());
-    ctx.setGeneration(S.genNum);
     ctx.setLayerCount(layerCount);
     ctx.setMfBest(Math.min(S.best.mf, S.prevBestMF));
     if (omf != null) ctx.setOmf(omf);
@@ -100,6 +97,49 @@ export function recordCycle(ctx, S, { type, mf, layerCount, insertMat, side, act
         savedDesign: ctx.savedDesignRef.current, baseDesign: ctx.baseDesignRef.current,
         baseRev: ctx.baseRevRef?.current,
     });
+}
+
+export function recordCycle(ctx, S, { type, mf, layerCount, insertMat, side, activeLayers, omf }) {
+    S.genNum += 1;
+    const dMF = S.prevBestMF === Infinity ? null : mf - S.prevBestMF;
+    S.prevBestMF = Math.min(S.prevBestMF, mf);
+    const cy = {
+        id: Math.random().toString(36).slice(2),
+        genNum: S.genNum, type, dMF, layerCount, insertMat, side,
+        runNum: activeRunNum(ctx.runsRef.current),
+        ...workRowFields(S, { mf, omf, activeLayers }),
+    };
+    ctx.cyclesRef.current   = [...ctx.cyclesRef.current, cy];
+    ctx.genCountRef.current = S.genNum;
+    ctx.setGeneration(S.genNum);
+    // A refine step may fold only into a Needle or Refine row this run
+    // recorded (recordRefine).
+    S.foldRowId = (type === 'needle' || type === 'refine') ? cy.id : null;
+    publishCycles(ctx, S, { layerCount, omf });
+}
+
+// An accepted step that only changed the thicknesses of the existing layers
+// (its needle merged into a neighbour of the same material) is not a Needle
+// row. It folds into the last row when that is the Needle or Refine row this
+// engine run (since the last Run press or resume) recorded just before it, on
+// the current wavelength grid: the row then shows its design refined further.
+// Otherwise it is a Refine row when it is a new best, so the lowest merit
+// reached is always a row the window can restore, and no row when it is not.
+// A GE row keeps the design the forced step made.
+export function recordRefine(ctx, S, { mf, layerCount, side, activeLayers, omf, newBest }) {
+    const cycles = ctx.cyclesRef.current;
+    const last = cycles[cycles.length - 1];
+    if (!last || last.id !== S.foldRowId) {
+        if (newBest) recordCycle(ctx, S, { type: 'refine', mf, layerCount, insertMat: null, side, activeLayers, omf });
+        return;
+    }
+    S.prevBestMF = Math.min(S.prevBestMF, mf);
+    ctx.cyclesRef.current = [...cycles.slice(0, -1), {
+        ...last,
+        dMF: last.dMF == null ? null : last.dMF + (mf - last.mf),
+        ...workRowFields(S, { mf, omf, activeLayers: last.side === 'back' ? S.work.backLayers : S.work.frontLayers }),
+    }];
+    publishCycles(ctx, S, { layerCount: last.layerCount, omf });
 }
 
 export function fallback(ctx, S, why, err) {

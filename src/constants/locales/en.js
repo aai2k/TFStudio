@@ -3674,6 +3674,7 @@ export default {
     typeClean:     'Clean',
     typeSeed:      'Seed',
     typeBaseline:  'Start',
+    typeRefine:    'Refine',
     consolidate:    'Consolidate on finish',
     consolidateOn:  'On',
     consolidateOff: 'Off',

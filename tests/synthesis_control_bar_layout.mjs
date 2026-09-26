@@ -100,6 +100,12 @@ for (const [name, active, idle] of panelCases) {
     assert.equal(activeBest.props.style.width, idleBest.props.style.width, `${name}: Best slot width is stable`);
     assert.equal(activeBest.props.style.visibility, 'visible', `${name}: Best stays visible when current equals best`);
     assert.equal(idleBest.props.style.visibility, 'hidden', `${name}: empty slot is reserved before a best exists`);
+    // A space at the start of an inline-block is not rendered, so the gap
+    // between the MF value and "Best:" has to come before the slot.
+    const metrics = active.props.metrics;
+    const before = metrics[metrics.indexOf(activeBest) - 1];
+    assert.ok(typeof before === 'string' && /^\s+$/.test(before), `${name}: a space separates the MF value from the Best slot`);
+    assert.ok(!/^\s/.test(activeBest.props.children[0]), `${name}: the Best slot does not rely on a leading space`);
 }
 
 console.log('Synthesis control-bar layout passed.');

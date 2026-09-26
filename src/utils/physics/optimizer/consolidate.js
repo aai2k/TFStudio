@@ -47,6 +47,43 @@ function _bestTrialDeletion(design, layers, idxs, cfg) {
     return best;
 }
 
+// The stack left after taking layer `i` out of `layers`: its material
+// sequence, same-material neighbours merged. Two removals that leave the same
+// sequence lead the refine to the same stack.
+export function structureWithout(layers, i, dMin) {
+    return cleanupLayers(layers.filter((_, j) => j !== i), dMin).map(l => l.material).join('|');
+}
+
+/**
+ * Take out the one layer whose removal costs the merit least: trial-delete
+ * each removable layer on `side` (merging same-material neighbours via
+ * cleanupLayers), re-refine each remainder, and return the best as
+ * { design, mf, omf, i, structure, baseMf }, `i` naming the layer taken out
+ * and `structure` the material sequence left (structureWithout), or null when
+ * no layer may be taken out. A removal that leaves a structure listed in
+ * `skip` is not tried, and of several removals leaving the same structure only
+ * the first is. The design is refined first, so `baseMf` is the merit the
+ * removal is measured against. Gradual Evolution uses it to free a layer when
+ * the stack is at its layer limit.
+ */
+export function removeWeakestLayer({ design, side = 'front', dMin = 1e-3, maxIter = 40, refineFn, skip = [], alive }) {
+    if (typeof refineFn !== 'function') throw new Error('removeWeakestLayer: refineFn required');
+    const key = sideKey(side);
+    const cur = refineFn(deep(design), maxIter);
+    const layers = cur.design[key] || [];
+    if (layers.length <= 1) return null;
+    const seen = new Set(skip);
+    const idxs = _removableIndices(layers).filter(i => {
+        const structure = structureWithout(layers, i, dMin);
+        if (seen.has(structure)) return false;
+        seen.add(structure);
+        return true;
+    });
+    if (idxs.length === 0) return null;
+    const best = _bestTrialDeletion(cur.design, layers, idxs, { key, dMin, maxIter, refineFn, alive });
+    return best && { ...best, structure: structureWithout(layers, best.i, dMin), baseMf: cur.mf };
+}
+
 /**
  * Greedily remove redundant layers from one side of a design.
  *

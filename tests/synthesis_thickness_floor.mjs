@@ -191,7 +191,7 @@ async function runGeMock(answer, maxGeCycles = 1) {
 const mnt40 = O.makeConstraintOperand({ type: 'MNT', lambdaStart: 1, lambdaEnd: O.DEFAULT_CONSTRAINT_LAST_LAYER, target: 40, weight: 1 });
 const MGF2_POOL = [{ id: 'MgF2', name: 'MgF2', mat: rm('MgF2') }];
 for (const [innerEngine, stepOps, pool] of [['cg', geOps, POOL], ['sqp', [...geOps, mnt40], MGF2_POOL]]) {
-    const { phaseGeStep } = await import('../src/components/windows/optimization/gradualEvolution/runners/mainThreadGeStep.js');
+    const { forcedStep } = await import('../src/components/windows/optimization/gradualEvolution/runners/mainThreadGeStep.js');
     const ref = v => ({ current: v });
     const noop = () => {};
     const seed = geSeed();
@@ -207,10 +207,10 @@ for (const [innerEngine, stepOps, pool] of [['cg', geOps, POOL], ['sqp', [...geO
     const S = {
         side: 'front', LK: 'frontLayers', operands: stepOps, innerEngine, runT0: 0,
         work: { mf: 1, front: seed.frontLayers }, best: { mf: 1, front: seed.frontLayers },
-        curMF: { v: null }, geStagn: { n: 0 }, tick: noop,
+        curMF: { v: null }, tick: noop, pool,
     };
     quiet();
-    phaseGeStep(ctx, S);
+    forcedStep(ctx, S);
     loud();
     const stepped = { ...seed, frontLayers: S.work.front };
     if (pool === MGF2_POOL) {
@@ -229,7 +229,7 @@ for (const [innerEngine, stepOps, pool] of [['cg', geOps, POOL], ['sqp', [...geO
         switch (job.type) {
             case 'scan': scans++; return { mf0: 0.2, candidates: scans === 2 ? [{ dMF: -0.01, pos: 0, materialId: 'TiO2', side: 'front' }] : [] };
             case 'geStep': return { mf: 0.40, omf: 0.25, mfNew: 0.25, mf0: 0.2, frontLayers: grow('SiO2'), backLayers: [], materialId: 'SiO2', pos: front.length, side: 'front', nLayers: front.length + 1 };
-            case 'candidate': return { mfNow: 0.35, omf: 0.24, frontLayers: grow('TiO2'), backLayers: [], nLayers: front.length + 1 };
+            case 'candidate': return { mfNow: 0.35, omf: 0.24, frontLayers: grow('TiO2'), backLayers: [], nLayers: front.length + 1, needleKept: true };
             default: return null;
         }
     });

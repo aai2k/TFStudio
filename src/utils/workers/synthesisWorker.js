@@ -20,6 +20,8 @@
  *   dropParked: the design without the layers parked on its floor, refined
  *               (Needle, on the candidate a generation accepts; GE, when
  *               needle optimization has stalled).
+ *   dropWeakest: the design without the one layer whose removal costs least,
+ *               refined (GE, at its layer limit).
  *
  * Materials cross via Approach A pre-sampling (design + candidate pool); the
  * worker rebuilds an exact-λ table-lookup getNK off the same
@@ -29,7 +31,7 @@
 import {
     scanNeedlesPFunction, scanGEInsertions, intraMinima,
     findOptimalNeedleThickness, insertNeedle, insertNeedleIntra, cleanupLayers,
-    removeRedundantLayers,
+    removeRedundantLayers, removeWeakestLayer,
 } from '../physics/optimizer.js';
 import { refineWithoutParked, mergeSameMaterial } from '../physics/optimizer/parkedLayers.js';
 import { makeEngine } from '../optimizers/index.js';
@@ -162,10 +164,17 @@ function handleCandidate(job, resolveMat, post) {
     const res = scored(refinePasses(refinerFor(job, resolveMat, side, post), inserted, dlsIter, extraIters(dlsIter, pipeline)));
     const finalDesign = res.design;
     const active = finalDesign[key] || [];
+    // needleKept: the refined stack has more layers than the one the needle went
+    // into, counted with its same-material neighbours merged as the refine
+    // merges them. A needle of a neighbour's material merges into that
+    // neighbour, and the candidate is then a change of the existing
+    // thicknesses, not a new layer (Sullivan & Dobrowolski, Appl. Opt. 35, 5484
+    // (1996), p. 5485).
     const common = {
         type: 'result', kind: 'candidate', candId: cand._cid, omf: res.omf, side,
         frontLayers: finalDesign.frontLayers,         // full design after the refine
         backLayers:  finalDesign.backLayers, dOpt,
+        needleKept: active.length > cleanupLayers(design[key] || [], 0).length,
     };
     if (pipeline === 'ge') {
         post({ ...common, mfNow: res.mf, finalLayers: active, nLayers: active.length });
@@ -189,6 +198,25 @@ function handleDropParked(job, resolveMat, post) {
         nLayers: (design[key] || []).length });
 }
 
+// The design without the one layer whose removal costs the merit least, each
+// trial refined with `dlsIter` iterations; `skip` lists structures (material
+// sequences) a removal may not leave. removed = 0 when no layer may be taken
+// out.
+function handleDropWeakest(job, resolveMat, post) {
+    const side = effectiveSide(job.design, job.side);
+    const key  = sideKey(side);
+    const refine = refinerFor(job, resolveMat, side, post);
+    const r = removeWeakestLayer({
+        design: job.design, side, dMin: job.dMin, maxIter: job.dlsIter, skip: job.skip || [],
+        refineFn: (d, maxIter) => scored(refinePasses(refine, d, maxIter, 0)),
+    });
+    if (!r) { post({ type: 'result', kind: 'dropWeakest', removed: 0 }); return; }
+    post({ type: 'result', kind: 'dropWeakest', side, removed: 1, i: r.i, structure: r.structure,
+        mf: r.mf, omf: r.omf, baseMf: r.baseMf,
+        frontLayers: r.design.frontLayers, backLayers: r.design.backLayers,
+        nLayers: (r.design[key] || []).length });
+}
+
 function handleSeedDls(job, resolveMat, post) {
     const { operands, design, dMin, dlsIter, jobId, engine = 'dls' } = job;
     const side = effectiveSide(design, job.side);
@@ -202,14 +230,26 @@ function handleSeedDls(job, resolveMat, post) {
         mf: dls.mf, omf: dls.mfOpticalAt(dls.thicknesses), iters: dls.iter });
 }
 
+// Forced step. `job.exclude` lists insertions ({ side, pos, materialId }) the
+// run has seen undone from this stack; they are not taken again. With
+// `job.maxLayers`, an insertion that would add a layer past it is not offered;
+// one that merges into an outer layer of its own material still is. With no
+// insertion left the step reports `empty`.
 function handleGeStep(job, resolveMat, post) {
     const { operands, design, pool, dMin } = job;
     const side = effectiveSide(design, job.side);
     const key  = sideKey(side);
     const candidateMats = pool.map(p => ({ id: p.id, name: p.name, mat: resolveMat(p.id) }));
-    const { candidates, mf0 } = scanGEInsertions({
+    const scanned = scanGEInsertions({
         operands, design, resolveMat, candidateMats, thickNm: dMin, side,
     });
+    const mf0 = scanned.mf0;
+    const exclude = job.exclude || [];
+    const layers = design[key] || [];
+    const merges = c => [layers[c.pos - 1], layers[c.pos]].some(l => l && !l.locked && l.material === c.materialId);
+    const fits = c => !(job.maxLayers > 0) || merges(c) || layers.length + 1 <= job.maxLayers;
+    const candidates = scanned.candidates.filter(c => fits(c) &&
+        !exclude.some(e => e.side === c.side && e.pos === c.pos && e.materialId === c.materialId));
     if (!candidates.length) { post({ type: 'result', kind: 'geStep', empty: true }); return; }
     const bestGe = candidates.reduce((b, x) => (x.mfNew < b.mfNew ? x : b), candidates[0]);
     const inserted = insertNeedle(design, bestGe.pos, bestGe.materialId, dMin, side);
@@ -282,6 +322,7 @@ export function dispatchSynthesisJob(job, resolveMat, post) {
         case 'geStep':     handleGeStep(job, resolveMat, post);     break;
         case 'removePass': handleRemovePass(job, resolveMat, post); break;
         case 'dropParked': handleDropParked(job, resolveMat, post); break;
+        case 'dropWeakest': handleDropWeakest(job, resolveMat, post); break;
         default: post({ type: 'error', message: `unknown job ${job.type}` });
     }
 }

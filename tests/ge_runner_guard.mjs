@@ -17,7 +17,9 @@
  *    snapshot.
  *  - runGeWorker consumes WorkerPool messages. A deterministic mock `Worker`
  *    answers each synthesis job (seedDls / scan / candidate / geStep /
- *    removePass) with a scripted result keyed off the current layer count, so
+ *    dropWeakest / removePass) with a scripted result keyed off the current
+ *    layer count, honouring the layer limit and the skip list as the real
+ *    worker does, so
  *    the runner's aggregation (global-best, cycle history, forced-TOT step,
  *    consolidation, finalize) is exercised identically for the golden and the
  *    current run. The mock stands in for the worker physics — this guard checks
@@ -54,6 +56,52 @@ const UPDATE = process.argv.includes('--update');
 // Answers each GE job type with a fixed result derived from the current design
 // so the run trajectory (seed → needle accepts → forced-TOT → consolidate) is
 // reproducible. MF strictly decreases with total layer count so needles accept.
+const mk = (n, mat) => ({ id: `${mat}_${n}`, material: mat, thickness: 10 + n, locked: false });
+
+// The job's two stacks, the stack on its side, and `withSide(layers)`, the two
+// stacks with that side replaced.
+function jobStacks(job) {
+    const front = (job.design && job.design.frontLayers) || [];
+    const back  = (job.design && job.design.backLayers)  || [];
+    const onBack = job.side === 'back';
+    return { front, back, arr: onBack ? back : front,
+        withSide: layers => (onBack ? { nf: front, nb: layers } : { nf: layers, nb: back }) };
+}
+
+const MOCK_ANSWERS = {
+    seedDls: ({ front, back }) => ({ mf: 0.5, frontLayers: front, backLayers: back, omf: 0.5, iters: 0 }),
+    // Improving needle available on odd layer counts, needle-optimal on even.
+    scan: ({ arr }, job) => ({ candidates: arr.length % 2 === 1 ? [{ dMF: -0.1, pos: 0, materialId: 'TiO2', side: job.side }] : [] }),
+    candidate: ({ arr, withSide }) => {
+        const { nf, nb } = withSide([...arr, mk(arr.length, 'TiO2')]);
+        const total = nf.length + nb.length;
+        return { mfNow: 0.5 - 0.02 * total, frontLayers: nf, backLayers: nb, nLayers: total, omf: 0.5 - 0.02 * total, needleKept: true };
+    },
+    // At the layer limit the forced step adds no layer; this mock then offers none.
+    geStep: ({ arr, withSide }, job) => {
+        if (job.maxLayers > 0 && arr.length >= job.maxLayers) return { empty: true };
+        const { nf, nb } = withSide([...arr, mk(arr.length, 'SiO2')]);
+        const total = nf.length + nb.length;
+        const mf = 0.5 - 0.01 * total;
+        return { empty: false, mf, omf: mf, mfNew: mf, mf0: 0.5, frontLayers: nf, backLayers: nb, materialId: 'SiO2', pos: arr.length, side: job.side, nLayers: total };
+    },
+    // Frees the outermost layer on the job's side, unless the structure that
+    // leaves is one the job says to leave out.
+    dropWeakest: ({ arr, withSide }, job) => {
+        const kept = arr.slice(0, -1);
+        const structure = kept.map(l => l.material).join('|');
+        if ((job.skip || []).includes(structure)) return { removed: 0 };
+        const { nf, nb } = withSide(kept);
+        return { removed: 1, i: arr.length - 1, structure, mf: 0.48, omf: 0.48, baseMf: 0.42, side: job.side, frontLayers: nf, backLayers: nb, nLayers: nf.length + nb.length };
+    },
+    removePass: ({ front, back }) => {
+        const dropFront = front.length >= back.length && front.length > 0;
+        const nf = dropFront ? front.slice(0, -1) : front;
+        const nb = dropFront ? back : back.slice(0, -1);
+        return { removed: 1, mf: 0.2, frontLayers: nf, backLayers: nb, nLayers: nf.length + nb.length, baseLayers: front.length + back.length, baseMf: 0.25, omf: 0.2 };
+    },
+};
+
 class MockWorker {
     constructor() { this.onmessage = null; this.onerror = null; this.onmessageerror = null; this.dead = false; }
     postMessage(job) {
@@ -64,39 +112,8 @@ class MockWorker {
     terminate() { this.dead = true; }
     _post(data) { if (!this.dead && this.onmessage) this.onmessage({ data }); }
     _run(job) {
-        const front = (job.design && job.design.frontLayers) || [];
-        const back  = (job.design && job.design.backLayers)  || [];
-        const mk = (n, mat) => ({ id: `${mat}_${n}`, material: mat, thickness: 10 + n, locked: false });
-        if (job.type === 'seedDls') {
-            this._post({ type: 'result', mf: 0.5, frontLayers: front, backLayers: back, omf: 0.5, iters: 0 });
-        } else if (job.type === 'scan') {
-            const arr = job.side === 'back' ? back : front;
-            // Improving needle available on odd layer counts, needle-optimal on even.
-            const candidates = (arr.length % 2 === 1)
-                ? [{ dMF: -0.1, pos: 0, materialId: 'TiO2', side: job.side }] : [];
-            this._post({ type: 'result', candidates });
-        } else if (job.type === 'candidate') {
-            const grown = [...(job.side === 'back' ? back : front), mk((job.side === 'back' ? back : front).length, 'TiO2')];
-            const nf = job.side === 'back' ? front : grown;
-            const nb = job.side === 'back' ? grown : back;
-            const total = nf.length + nb.length;
-            this._post({ type: 'result', mfNow: 0.5 - 0.02 * total, frontLayers: nf, backLayers: nb, nLayers: total, omf: 0.5 - 0.02 * total });
-        } else if (job.type === 'geStep') {
-            const grown = [...(job.side === 'back' ? back : front), mk((job.side === 'back' ? back : front).length, 'SiO2')];
-            const nf = job.side === 'back' ? front : grown;
-            const nb = job.side === 'back' ? grown : back;
-            const total = nf.length + nb.length;
-            const mf = 0.5 - 0.01 * total;
-            this._post({ type: 'result', empty: false, mf, omf: mf, mfNew: mf, mf0: 0.5, frontLayers: nf, backLayers: nb, materialId: 'SiO2', pos: (job.side === 'back' ? back : front).length, side: job.side, nLayers: total });
-        } else if (job.type === 'removePass') {
-            const dropFront = front.length >= back.length && front.length > 0;
-            const nf = dropFront ? front.slice(0, -1) : front;
-            const nb = dropFront ? back : back.slice(0, -1);
-            const total = nf.length + nb.length;
-            this._post({ type: 'result', removed: 1, mf: 0.2, frontLayers: nf, backLayers: nb, nLayers: total, baseLayers: front.length + back.length, baseMf: 0.25, omf: 0.2 });
-        } else {
-            this._post({ type: 'result' });
-        }
+        const answer = MOCK_ANSWERS[job.type];
+        this._post({ type: 'result', ...(answer ? answer(jobStacks(job), job) : {}) });
     }
 }
 globalThis.Worker = MockWorker;

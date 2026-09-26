@@ -4097,6 +4097,7 @@ export default {
     typeClean: 'Pulizia',
     typeSeed: 'Partenza',
     typeBaseline: 'Inizio',
+    typeRefine: 'Affinamento',
     consolidate: 'Consolida alla fine',
     consolidateOn: 'Sì',
     consolidateOff: 'No',

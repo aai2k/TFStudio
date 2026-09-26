@@ -3636,6 +3636,7 @@ export default {
     typeClean:     'Очистка',
     typeSeed:      'Сид',
     typeBaseline:  'Старт',
+    typeRefine:    'Оптимизация',
     consolidate:    'Уплотнять в конце',
     consolidateOn:  'Вкл',
     consolidateOff: 'Выкл',

@@ -66,13 +66,16 @@ export function ControlBar({ running, phase, generation, layerCount, mf, mfBest,
         h('b', { style: { color: c.text } }, layerCount),
         mf != null && `  ${tn.mfLabel} `,
         mf != null && h('b', { style: { color: c.text } }, mf.toFixed(6)),
+        // The separator sits outside the fixed-width Best slot: a space at the
+        // start of an inline-block is not rendered.
+        '  ',
         h('span', {
             'data-synthesis-best': true,
             style: {
                 display: 'inline-block', width: 94, whiteSpace: 'nowrap',
                 visibility: showBest ? 'visible' : 'hidden',
             },
-        }, showBest ? ` ${tn.bestLabel} ` : '\u00a0',
+        }, showBest ? `${tn.bestLabel} ` : '\u00a0',
         showBest && h('span', { style: { color: c.success } }, mfBest.toFixed(6))),
     ];
     return h(SynthesisControlBar, {

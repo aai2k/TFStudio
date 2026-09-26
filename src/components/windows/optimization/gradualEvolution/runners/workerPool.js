@@ -53,21 +53,13 @@ async function tryEachSide(ctx, S, orderedSides) {
     return needleAccepted ? 'continue' : 'none';
 }
 
-// One outer-loop iteration: try every eligible scan side for an improving
-// needle; if none improve, take a forced total-optical-thickness step.
+// One outer-loop iteration: try every scan side for an improving needle that
+// fits the layer limit; if none improve, take a structural step (stallStep).
 // Returns 'stop' once the run should end (finalize already called) or
 // 'continue' to run another iteration.
 async function runGeCycle(ctx, S) {
-    // Max-layers stop: each scan-side caps independently.
-    const remainingSides = S.scanSides.filter(sd =>
-        (sd === 'front' ? S.work.frontLayers : S.work.backLayers).length < S.maxLayers);
-    if (remainingSides.length === 0) {
-        console.log(`[GE] Max layers reached on all scan sides`);
-        await finalize(ctx, S, 'Max layers reached');
-        return 'stop';
-    }
     // Smaller side first (tiebreak: front).
-    const orderedSides = [...remainingSides].sort((a, b) => {
+    const orderedSides = [...S.scanSides].sort((a, b) => {
         const la = (a === 'front' ? S.work.frontLayers : S.work.backLayers).length;
         const lb = (b === 'front' ? S.work.frontLayers : S.work.backLayers).length;
         return (la - lb) || (a === 'front' ? -1 : 1);
@@ -77,8 +69,8 @@ async function runGeCycle(ctx, S) {
     const sideOutcome = await tryEachSide(ctx, S, orderedSides);
     if (sideOutcome !== 'none') return sideOutcome;
 
-    // ── Needle-optimal: drop parked layers or take a forced step ──
-    console.log('[GE] Needle-optimal on all eligible sides');
+    // ── Needle-optimal: drop parked layers, or take a structural step ──
+    console.log('[GE] Needle-optimal on all sides');
     return stallStep(ctx, S);
 }
 
@@ -191,7 +183,6 @@ export function runGeWorker(ctx) {
         tg: ctx.t.gradualEvolution,
         best: { mf: Infinity, frontLayers: null, backLayers: null },
         work: { mf: Infinity, frontLayers: null, backLayers: null },
-        geStagn: { n: 0 },
         genNum: ctx.genCountRef.current, geSteps: ctx.geStepsRef.current,
         prevBestMF: ctx.cyclesRef.current.length ? Math.min(...ctx.cyclesRef.current.map(c => c.mf)) : Infinity,
         runT0: performance.now() - (ctx.cyclesRef.current.length

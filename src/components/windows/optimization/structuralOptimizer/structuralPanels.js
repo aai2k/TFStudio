@@ -76,13 +76,16 @@ function controlBarMetrics({ ts, c, running, deepMode, iter, maxIter, reheats, t
         running && accRate != null ? strong(`${(accRate * 100).toFixed(0)}%`) : '',
         `  ${ts.layersLabel} `, strong(layerCount),
         mf != null && `  ${ts.mfLabel} `, mf != null && strong(mf.toFixed(6)),
+        // The separator sits outside the fixed-width Best slot: a space at the
+        // start of an inline-block is not rendered.
+        '  ',
         h('span', {
             'data-synthesis-best': true,
             style: {
                 display: 'inline-block', width: 94, whiteSpace: 'nowrap',
                 visibility: showBest ? 'visible' : 'hidden',
             },
-        }, showBest ? ` ${ts.bestLabel} ` : '\u00a0',
+        }, showBest ? `${ts.bestLabel} ` : '\u00a0',
         showBest && h('span', { style: { color: c.success } }, mfBest.toFixed(6))),
     ];
 }

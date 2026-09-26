@@ -75,13 +75,16 @@ export function ControlBar({ running, generation, layerCount, mf, mfBest, geStep
         h('b', { style: { color: '#ff7043' } }, geSteps),
         mf != null && `  ${tg.mfLabel} `,
         mf != null && h('b', { style: { color: c.text } }, mf.toFixed(6)),
+        // The separator sits outside the fixed-width Best slot: a space at the
+        // start of an inline-block is not rendered.
+        '  ',
         h('span', {
             'data-synthesis-best': true,
             style: {
                 display: 'inline-block', width: 94, whiteSpace: 'nowrap',
                 visibility: showBest ? 'visible' : 'hidden',
             },
-        }, showBest ? ` ${tg.bestLabel} ` : '\u00a0',
+        }, showBest ? `${tg.bestLabel} ` : '\u00a0',
         showBest && h('span', { style: { color: c.success } }, mfBest.toFixed(6))),
     ];
     return h(SynthesisControlBar, {
@@ -155,27 +158,24 @@ export function LeftSidebar({ catalogs, selectedCats, onToggleCat, onSelectAllCa
     });
 }
 
-// GE's extra Needle/GE "type" badge, rendered in the CyclesTable's type column.
+// GE's row types in the CyclesTable's type column: badge colour and label. A
+// Needle row, the type missing here, takes the theme accent.
+const TYPE_BADGES = {
+    ge:       { color: '#ff7043', label: tg => tg.typeGE },
+    clean:    { color: '#66bb6a', label: tg => tg.typeClean },
+    seed:     { color: '#ffb300', label: tg => tg.typeSeed },
+    baseline: { color: '#78909c', label: tg => tg.typeBaseline },
+    refine:   { color: '#7e57c2', label: tg => tg.typeRefine },
+};
 function badgeBg(cy, c) {
-    const isGE = cy.type === 'ge';
-    const isClean = cy.type === 'clean';
-    const isSeed = cy.type === 'seed' || cy.type === 'baseline';
-    return isSeed ? (cy.type === 'seed' ? '#ffb30044' : '#78909c44')
-        : isClean ? '#66bb6a44' : isGE ? '#ff704344' : `${c.accent || '#1e88e5'}33`;
+    const badge = TYPE_BADGES[cy.type];
+    return badge ? `${badge.color}44` : `${c.accent || '#1e88e5'}33`;
 }
 function badgeColor(cy, c) {
-    const isGE = cy.type === 'ge';
-    const isClean = cy.type === 'clean';
-    const isSeed = cy.type === 'seed' || cy.type === 'baseline';
-    return isSeed ? (cy.type === 'seed' ? '#ffb300' : '#78909c')
-        : isClean ? '#66bb6a' : isGE ? '#ff7043' : (c.accent || '#42a5f5');
+    return TYPE_BADGES[cy.type]?.color || c.accent || '#42a5f5';
 }
 function badgeLabel(cy, tg) {
-    const isGE = cy.type === 'ge';
-    const isClean = cy.type === 'clean';
-    const isSeed = cy.type === 'seed' || cy.type === 'baseline';
-    return isSeed ? (cy.type === 'seed' ? tg.typeSeed : tg.typeBaseline)
-        : isClean ? tg.typeClean : isGE ? tg.typeGE : tg.typeNeedle;
+    return TYPE_BADGES[cy.type]?.label(tg) || tg.typeNeedle;
 }
 function renderTypeBadge(cy, tg, c) {
     return h('span', {

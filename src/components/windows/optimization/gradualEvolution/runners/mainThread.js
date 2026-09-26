@@ -87,7 +87,7 @@ export function runGeMainThread(ctx) {
         runT0: performance.now() - _prevElapsed,
         phase: 'seed_dls', seedIter: 0, dlsIter1: 0, dlsIter2: 0,
         best: { mf: Infinity, front: null }, work: { mf: Infinity, front: null },
-        curMF: { v: null }, lastInsert: { mat: null }, geStagn: { n: 0 },
+        curMF: { v: null }, lastInsert: { mat: null },
         queue: [], qIdx: 0, pool: [],
         tick: null,
     };

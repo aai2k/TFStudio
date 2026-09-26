@@ -12,8 +12,9 @@ import {
 } from '../../../../../utils/synthesis/synthesisConfig.js';
 import { materialLookup } from '../../synthesisShared/synthesisHelpers.js';
 import {
-    gentleIter, scheduleTick, deepActive, setBase, recordCycle, finalize, regridIfGrown,
+    gentleIter, scheduleTick, deepActive, setBase, recordCycle, recordRefine, finalize, regridIfGrown,
 } from './mainThreadCore.js';
+import { noteNeedleStep, fitsLayerLimit } from './undoneSteps.js';
 
 // Insert queue[idx] into `work` at its optimal thickness, spin up DLS1.
 function startNeedleCandidate(ctx, S, idx) {
@@ -63,11 +64,6 @@ export function phaseNeedleScan(ctx, S) {
     const resolveMat = materialLookup(design);
     const layers = design[S.LK] || [];
 
-    if (layers.length >= ctx.maxLayersRef.current) {
-        console.log(`[GE] Max layers reached (${layers.length}) — restoring best MF=${S.best.mf.toFixed(6)}`);
-        finalize(ctx, S, 'Max layers reached'); return;
-    }
-
     regridIfGrown(S, design, resolveMat);
     const thickStr = layers.map(l => `${(l.thickness||0).toFixed(1)}nm ${l.material}`).join(', ');
     console.log(`[GE NeedleScan] geStep=${ctx.geStepsRef.current} workMF=${S.work.mf.toFixed(6)} bestMF=${S.best.mf.toFixed(6)} layers=${layers.length} [${thickStr}]`);
@@ -81,16 +77,17 @@ export function phaseNeedleScan(ctx, S) {
         operands: S.operands, design, resolveMat, candidateMats: S.pool, deltaNm: 0.5, side: S.side,
         dMin: ctx.dMinRef.current, nIntra: SYNTHESIS_INTRA_SAMPLES,
     });
-    // All improving needles (intra ones at the minima along each layer), best
-    // (most negative ΔMF) first, then cull the marginal tail (H1, needle
-    // sensitivity; no-op when 'off').
+    // All improving needles that fit the layer limit (intra ones at the minima
+    // along each layer), best (most negative ΔMF) first, then cull the marginal
+    // tail (H1, needle sensitivity; no-op when 'off').
+    const maxLayers = ctx.maxLayersRef.current;
     S.queue = cullMarginalNeedles(
-        intraMinima(candidates).filter(c => c.dMF < 0).sort((a, b) => a.dMF - b.dMF),
+        intraMinima(candidates).filter(c => c.dMF < 0 && fitsLayerLimit(c, layers, maxLayers)).sort((a, b) => a.dMF - b.dMF),
         getNeedleSensFloor());
     S.qIdx  = 0;
 
     if (S.queue.length === 0) {
-        console.log('[GE] Needle-optimal (no improving needle) → forced GE step');
+        console.log('[GE] Needle-optimal (no improving needle) → structural step');
         S.phase = 'ge_step';
         scheduleTick(ctx, S);
         return;
@@ -162,47 +159,57 @@ export function phaseDls2(ctx, S) {
     // Accept if this needle improves the CURRENT working design (needle-opt
     // progresses even when work is above the global best — e.g. just after a
     // forced TOT step).
-    if (mfNow < S.work.mf - 1e-9) {
-        S.work.mf    = mfNow;
-        S.work.front = deepActive(S, finalDesign);
-        S.curMF.v    = mfNow;
-        ctx.baseDesignRef.current = finalDesign;
-        ctx.updateDesignRef.current({ [S.LK]: finalDesign[S.LK] }, { transient: true });
+    if (mfNow < S.work.mf - 1e-9) acceptCandidate(ctx, S, { mfNow, mfNowOmf, finalDesign, nLayers });
+    else rejectCandidate(ctx, S, mfNow);
+}
 
-        const newGlobalBest = mfNow < S.best.mf - 1e-9;
-        if (newGlobalBest) {
-            S.best.mf = mfNow;
-            S.best.front = deepActive(S, finalDesign);
-            S.geStagn.n = 0;
-        }
-        recordCycle(ctx, S, { type: 'needle', mf: mfNow, layerCount: nLayers, insertMat: S.lastInsert.mat, omf: mfNowOmf });
-        console.log(`[GE] ACCEPT needle: workMF=${mfNow.toFixed(6)} ${newGlobalBest ? '(new global best)' : `(best=${S.best.mf.toFixed(6)})`} layers=${nLayers}`);
-        console.log('');
+// Take the refined candidate as `work` (and `best` when it is a new global
+// best) and record it. A needle that merged into a neighbour leaves the layer
+// count as it was, counted with same-material neighbours merged: the step
+// refined the existing layers and is not a Needle row (recordRefine).
+function acceptCandidate(ctx, S, { mfNow, mfNowOmf, finalDesign, nLayers }) {
+    const needleKept = nLayers > cleanupLayers(S.work.front, 0).length;
+    S.work.mf    = mfNow;
+    S.work.front = deepActive(S, finalDesign);
+    S.curMF.v    = mfNow;
+    ctx.baseDesignRef.current = finalDesign;
+    ctx.updateDesignRef.current({ [S.LK]: finalDesign[S.LK] }, { transient: true });
 
-        if (S.best.mf < ctx.targetMFRef.current) {
-            console.log(`[GE] Converged: best MF=${S.best.mf.toFixed(6)} < tol=${ctx.targetMFRef.current}`);
-            finalize(ctx, S, `Converged MF=${S.best.mf.toFixed(6)}`); return;
-        }
-        S.phase = 'needle_scan';
-        ctx.setPhase('scanning');
-        ctx.setStatusMsg('');
-        scheduleTick(ctx, S);
-    } else {
-        // This needle didn't help the working design → try the next-best
-        // candidate; only when all fail is `work` needle-optimal and we do the
-        // forced TOT step.
-        S.qIdx += 1;
-        if (S.qIdx < S.queue.length) {
-            console.log(`[GE] REJECT needle: MF=${mfNow.toFixed(6)} ≥ workMF=${S.work.mf.toFixed(6)} → try next (${S.qIdx + 1}/${S.queue.length})`);
-            startNeedleCandidate(ctx, S, S.qIdx);
-            return;
-        }
-        console.log(`[GE] All ${S.queue.length} needles failed → needle-optimal → forced GE step`);
-        console.log('');
-        setBase(ctx, S, S.work.front);
-        S.curMF.v = S.work.mf;
-        S.phase = 'ge_step';
-        ctx.setPhase('scanning');
-        scheduleTick(ctx, S);
+    const newGlobalBest = mfNow < S.best.mf - 1e-9;
+    if (newGlobalBest) {
+        S.best.mf = mfNow;
+        S.best.front = deepActive(S, finalDesign);
     }
+    noteNeedleStep(S, needleKept, newGlobalBest);
+    if (needleKept) recordCycle(ctx, S, { type: 'needle', mf: mfNow, layerCount: nLayers, insertMat: S.lastInsert.mat, omf: mfNowOmf });
+    else recordRefine(ctx, S, { mf: mfNow, layerCount: nLayers, omf: mfNowOmf, newBest: newGlobalBest });
+    console.log(`[GE] ACCEPT ${needleKept ? 'needle' : 'refine (needle merged into a neighbour)'}: workMF=${mfNow.toFixed(6)} ${newGlobalBest ? '(new global best)' : `(best=${S.best.mf.toFixed(6)})`} layers=${nLayers}`);
+    console.log('');
+
+    if (S.best.mf < ctx.targetMFRef.current) {
+        console.log(`[GE] Converged: best MF=${S.best.mf.toFixed(6)} < tol=${ctx.targetMFRef.current}`);
+        finalize(ctx, S, `Converged MF=${S.best.mf.toFixed(6)}`); return;
+    }
+    S.phase = 'needle_scan';
+    ctx.setPhase('scanning');
+    ctx.setStatusMsg('');
+    scheduleTick(ctx, S);
+}
+
+// This needle didn't help the working design → try the next-best candidate;
+// only when all fail is `work` needle-optimal and we do the forced TOT step.
+function rejectCandidate(ctx, S, mfNow) {
+    S.qIdx += 1;
+    if (S.qIdx < S.queue.length) {
+        console.log(`[GE] REJECT needle: MF=${mfNow.toFixed(6)} ≥ workMF=${S.work.mf.toFixed(6)} → try next (${S.qIdx + 1}/${S.queue.length})`);
+        startNeedleCandidate(ctx, S, S.qIdx);
+        return;
+    }
+    console.log(`[GE] All ${S.queue.length} needles failed → needle-optimal → forced GE step`);
+    console.log('');
+    setBase(ctx, S, S.work.front);
+    S.curMF.v = S.work.mf;
+    S.phase = 'ge_step';
+    ctx.setPhase('scanning');
+    scheduleTick(ctx, S);
 }

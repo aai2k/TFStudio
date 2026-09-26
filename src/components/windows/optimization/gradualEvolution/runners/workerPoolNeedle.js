@@ -5,13 +5,14 @@
 import {
     getNeedleSensFloor, cullMarginalNeedles, SYNTHESIS_INTRA_SAMPLES,
 } from '../../../../../utils/synthesis/synthesisConfig.js';
-import { deep, designSnap, alive, onTick, applyDesignPatch, recordCycle } from './workerPoolCore.js';
+import { deep, designSnap, alive, onTick, applyDesignPatch, recordCycle, recordRefine } from './workerPoolCore.js';
+import { noteNeedleStep, fitsLayerLimit } from './undoneSteps.js';
 
 // Scan side `sd` on the current `work` and return the improving-needle queue
-// (best ΔMF first, marginal tail culled per H1 — needle sensitivity). Returns
-// [] both when the pool died mid-scan and when nothing improves — both cases
-// leave the caller with nothing to refine, and neither logs a distinguishing
-// message in the original engine.
+// of needles that fit the layer limit (best ΔMF first, marginal tail culled
+// per H1 — needle sensitivity). Returns [] both when the pool died mid-scan
+// and when nothing improves — both cases leave the caller with nothing to
+// refine, and neither logs a distinguishing message in the original engine.
 async function scanSideQueue(ctx, S, sd, timing) {
     const snap = designSnap(S, S.work.frontLayers, S.work.backLayers);
     const sideScanJobs = S.poolSlices.map(slice => ({
@@ -23,17 +24,20 @@ async function scanSideQueue(ctx, S, sd, timing) {
     timing.scanMs = performance.now() - timing.genT0;
     let candidates = [];
     for (const r of sideScanRes) candidates = candidates.concat(r.candidates || []);
-    // Improving needles best-first, then cull the marginal tail (H1 — needle
-    // sensitivity; no-op when 'off' ⇒ bit-identical).
+    const layers = sd === 'back' ? S.work.backLayers : S.work.frontLayers;
+    // Improving needles that fit best-first, then cull the marginal tail (H1 —
+    // needle sensitivity; no-op when 'off' ⇒ bit-identical).
     return cullMarginalNeedles(
-        candidates.filter(c => c.dMF < 0).sort((a, b) =>
+        candidates.filter(c => c.dMF < 0 && fitsLayerLimit(c, layers, S.maxLayers)).sort((a, b) =>
             (a.dMF - b.dMF) || ((a.pos ?? 0) - (b.pos ?? 0)) ||
             (a.materialId < b.materialId ? -1 : a.materialId > b.materialId ? 1 : 0)),
         getNeedleSensFloor());
 }
 
 // Commit the batch's winning candidate: accept it into `work` (and `best` if
-// it's a new global best), apply the design patch, and record the cycle.
+// it's a new global best), apply the design patch, and record the cycle. A
+// winner whose needle merged into a neighbour only refined the existing layers:
+// it is taken the same way but is not a Needle row (recordRefine).
 function acceptBatchWinner(ctx, S, win, timing) {
     const { sd, cand, res, batchSize, bMf } = win;
     const candSide = cand.side || sd;
@@ -48,11 +52,13 @@ function acceptBatchWinner(ctx, S, win, timing) {
         S.best.mf = bMf;
         S.best.frontLayers = deep(S.work.frontLayers);
         S.best.backLayers  = deep(S.work.backLayers);
-        S.geStagn.n = 0;
     }
     const activeLayers = candSide === 'back' ? S.work.backLayers : S.work.frontLayers;
-    recordCycle(ctx, S, { type: 'needle', mf: bMf, layerCount: res.nLayers, insertMat: cand.materialId, side: candSide, activeLayers, omf: res.omf });
-    console.log(`[GE] ACCEPT needle (best of ${batchSize}, side=${candSide}): workMF=${bMf.toFixed(6)} ${newGlobalBest ? '(new global best)' : `(best=${S.best.mf.toFixed(6)})`} layers=${res.nLayers}`);
+    noteNeedleStep(S, res.needleKept, newGlobalBest);
+    const row = { mf: bMf, layerCount: res.nLayers, side: candSide, activeLayers, omf: res.omf };
+    if (res.needleKept) recordCycle(ctx, S, { ...row, type: 'needle', insertMat: cand.materialId });
+    else recordRefine(ctx, S, { ...row, newBest: newGlobalBest });
+    console.log(`[GE] ACCEPT ${res.needleKept ? 'needle' : 'refine (needle merged into a neighbour)'} (best of ${batchSize}, side=${candSide}): workMF=${bMf.toFixed(6)} ${newGlobalBest ? '(new global best)' : `(best=${S.best.mf.toFixed(6)})`} layers=${res.nLayers}`);
     console.log(`[GE timing] engine=${S.innerEngine} ACCEPT layers=${res.nLayers} scan=${timing.scanMs.toFixed(0)}ms refine=${timing.refMs.toFixed(0)}ms cands=${timing.nCand} gen=${(performance.now() - timing.genT0).toFixed(0)}ms (scan ${(100*timing.scanMs/Math.max(1,timing.scanMs+timing.refMs)).toFixed(0)}% / refine ${(100*timing.refMs/Math.max(1,timing.scanMs+timing.refMs)).toFixed(0)}%)`);
 }
 
@@ -92,13 +98,13 @@ async function refineOneBatch(ctx, S, req, timing) {
 }
 
 // Per-side accept helper. Scans ONE side on the current `work`, top-K DLS-refines
-// improving candidates until one beats work.mf or the queue is exhausted. Returns
-// true if a needle was accepted (work + best updated, cycle recorded). For
-// both_independent this is called once per side per outer iteration so both
-// stacks grow; for single-side modes it is called once with the forced side.
+// improving candidates that fit the layer limit until one beats work.mf or the
+// queue is exhausted. At the limit only needles that merge into a neighbour
+// fit, so the stack is still refined there. Returns true if a needle was
+// accepted (work + best updated, cycle recorded). For both_independent this is
+// called once per side per outer iteration so both stacks grow; for
+// single-side modes it is called once with the forced side.
 export async function tryAcceptOnSide(ctx, S, sd) {
-    const sideLen = (sd === 'front' ? S.work.frontLayers : S.work.backLayers).length;
-    if (sideLen >= S.maxLayers) return false;
     ctx.setPhase('scanning');
     ctx.setStatusMsg(S.scanSides.length > 1 ? `Needle scan side=${sd}…` : 'Needle scan…');
     // ── timing (per-generation cost breakdown) ──

@@ -21,6 +21,7 @@ export function regridIfGrown(S, design, resolveMat) {
     S.operands = operands;
     S.work.mf = meritOf(operands, design, resolveMat);
     if (S.best.front) S.best.mf = meritOf(operands, { ...design, [S.LK]: S.best.front }, resolveMat);
+    S.foldRowId = null;             // earlier rows keep the merit of the old grid
     console.log(`[GE] Grid re-sampled for the grown design: workMF=${S.work.mf.toFixed(6)} bestMF=${S.best.mf.toFixed(6)}`);
 }
 
@@ -30,21 +31,9 @@ export function setBase(ctx, S, front) {
     ctx.updateDesignRef.current({ [S.LK]: JSON.parse(JSON.stringify(front)) }, { transient: true });
 }
 
-export function recordCycle(ctx, S, { type, mf, layerCount, insertMat, omf }) {
-    ctx.genCountRef.current += 1;
-    const genNum = ctx.genCountRef.current;
-    const prevBest = ctx.cyclesRef.current.length ? Math.min(...ctx.cyclesRef.current.map(c => c.mf)) : Infinity;
-    ctx.cyclesRef.current = [...ctx.cyclesRef.current, {
-        id: Math.random().toString(36).slice(2),
-        genNum, type, mf, omf,
-        runNum: activeRunNum(ctx.runsRef.current),
-        dMF: prevBest === Infinity ? null : mf - prevBest,
-        layerCount, insertMat,
-        tMs: performance.now() - S.runT0,
-        layers: JSON.parse(JSON.stringify(ctx.baseDesignRef.current[S.LK] || [])),
-    }];
+// Show the history in the window and keep it in the design's run cache.
+function publishCycles(ctx, S, { layerCount, omf }) {
     ctx.setCycles(ctx.cyclesRef.current.slice());
-    ctx.setGeneration(genNum);
     ctx.setLayerCount(layerCount);
     ctx.setMfBest(Math.min(S.best.mf, ...ctx.cyclesRef.current.map(c => c.mf)));
     if (omf != null) ctx.setOmf(omf);
@@ -55,6 +44,49 @@ export function recordCycle(ctx, S, { type, mf, layerCount, insertMat, omf }) {
         savedDesign: ctx.savedDesignRef.current, baseDesign: ctx.baseDesignRef.current,
         baseRev: ctx.baseRevRef?.current,
     });
+}
+
+export function recordCycle(ctx, S, { type, mf, layerCount, insertMat, omf }) {
+    ctx.genCountRef.current += 1;
+    const genNum = ctx.genCountRef.current;
+    const prevBest = ctx.cyclesRef.current.length ? Math.min(...ctx.cyclesRef.current.map(c => c.mf)) : Infinity;
+    const id = Math.random().toString(36).slice(2);
+    ctx.cyclesRef.current = [...ctx.cyclesRef.current, {
+        id,
+        genNum, type, mf, omf,
+        runNum: activeRunNum(ctx.runsRef.current),
+        dMF: prevBest === Infinity ? null : mf - prevBest,
+        layerCount, insertMat,
+        tMs: performance.now() - S.runT0,
+        layers: JSON.parse(JSON.stringify(ctx.baseDesignRef.current[S.LK] || [])),
+    }];
+    ctx.setGeneration(genNum);
+    // A refine step may fold only into a Needle or Refine row this run
+    // recorded (recordRefine).
+    S.foldRowId = (type === 'needle' || type === 'refine') ? id : null;
+    publishCycles(ctx, S, { layerCount, omf });
+}
+
+// An accepted step whose needle merged into a neighbour only changed the
+// thicknesses of the existing layers, and is not a Needle row. As in the
+// worker path (workerPoolCore.js, recordRefine): it folds into the last row
+// when that is the Needle or Refine row this engine run recorded just before
+// it on the current wavelength grid, is a Refine row when it is a new best,
+// and leaves no row otherwise.
+export function recordRefine(ctx, S, { mf, layerCount, omf, newBest }) {
+    const cycles = ctx.cyclesRef.current;
+    const last = cycles[cycles.length - 1];
+    if (!last || last.id !== S.foldRowId) {
+        if (newBest) recordCycle(ctx, S, { type: 'refine', mf, layerCount, insertMat: null, omf });
+        return;
+    }
+    ctx.cyclesRef.current = [...cycles.slice(0, -1), {
+        ...last, mf, omf,
+        dMF: last.dMF == null ? null : last.dMF + (mf - last.mf),
+        tMs: performance.now() - S.runT0,
+        layers: JSON.parse(JSON.stringify(ctx.baseDesignRef.current[S.LK] || [])),
+    }];
+    publishCycles(ctx, S, { layerCount: last.layerCount, omf });
 }
 
 // Restore the global best design and finish.
