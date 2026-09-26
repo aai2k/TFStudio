@@ -137,14 +137,14 @@ async function checkProposals(state) {
         finalize(ctx, S, batch.reason);
         return 'stop';
     }
-    state.bestResult = await refineProposals(ctx, S, batch.proposals);
+    state.refined = await refineProposals(ctx, S, batch.proposals);
     if (!alive(ctx, S)) return 'stop';
     return null;
 }
 
 function checkAcceptance(state) {
     const { ctx, S, temperature } = state;
-    if (!acceptProposal(ctx, S, state.bestResult, temperature, recordBest)) return null;
+    if (!acceptProposal(ctx, S, state.refined, temperature, recordBest)) return null;
     finalize(ctx, S, S.ts.statusConverged(S.best.mf));
     return 'stop';
 }

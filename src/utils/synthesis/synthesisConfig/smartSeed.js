@@ -6,13 +6,17 @@
 // only match or improve the starting point — it never replaces a better design
 // with a worse generated one. Default OFF (opt-in; an explicit user choice).
 // Per-window setting (scope = 'needle' | 'ge' | 'structural'). Defaults differ by
-// window: GE and Structural GROW a stack, so a smart QW/HW AR seed is a good head
-// start → default ON. Needle CARVES from a (often thick) seed, where replacing the
-// start with a generated AR design is usually NOT wanted → default OFF. An explicit
+// window: GE GROWS a stack, so a smart QW/HW AR seed is a good head start →
+// default ON. Needle CARVES from a (often thick) seed, where replacing the start
+// with a generated AR design is usually NOT wanted → default OFF. Structural
+// restructures whatever it starts from; on a target that is not an
+// antireflection band, starting from the refined AR seed ends a run at a
+// higher merit than starting from the design itself (a bandpass and a
+// four-line filter finish 2-4 times higher) → default OFF. An explicit
 // user toggle (stored '1'/'0') always wins over the default. A bare key (no scope)
 // keeps the legacy global behaviour, default OFF.
 const SMART_SEED_KEY = 'tfstudio-synth-smart-seed';
-const SMART_SEED_DEFAULTS = { needle: false, ge: true, structural: true };
+const SMART_SEED_DEFAULTS = { needle: false, ge: true, structural: false };
 export function getSynthesisSmartSeed(scope = '') {
     const key = SMART_SEED_KEY + (scope ? `-${scope}` : '');
     try {

@@ -62,7 +62,7 @@ ok(getSynthesisConsolidateTol() === DEFAULT_CONSOLIDATE_TOL, `default tol = ${DE
 console.log('— smart seed per-scope defaults —');
 ok(getSynthesisSmartSeed('needle') === false, 'needle default OFF');
 ok(getSynthesisSmartSeed('ge') === true, 'ge default ON');
-ok(getSynthesisSmartSeed('structural') === true, 'structural default ON');
+ok(getSynthesisSmartSeed('structural') === false, 'structural default OFF');
 ok(getSynthesisSmartSeed() === false, 'bare (no scope) default OFF');
 
 if (fails === 0) console.log('\nAll synthesisConfig default tests passed.');

@@ -144,7 +144,7 @@ function opSplit(layers, ctx) {
     const d1 = clampThickness(frac * dk, dMin, dMax);
     const d2 = clampThickness((1 - frac) * dk, dMin, dMax);
     const mat = pickMaterial(rng, pool, [host.material]);
-    const insThk = clampThickness(dMin + rng() * Math.min(addMaxNm, dk * 0.5), dMin, dMax);
+    const insThk = clampThickness(dMin + rng() * Math.max(0, Math.min(addMaxNm, dk * 0.5) - dMin), dMin, dMax);
     const part1  = { ...host, id: mkId(rng), thickness: d1 };
     const needle = { id: mkId(rng), material: mat.id, thickness: insThk, locked: false };
     const part2  = { ...host, id: mkId(rng), thickness: d2 };
@@ -301,8 +301,9 @@ export function stagnationAction({ deepMode, noImprove, patience }) {
  * jump out of the current local basin, used on reheat in deep mode. Growth/shape
  * ops come from the enabled `kinds`; the thickness jitter is amplified (×3, capped
  * at 60 %) so the kick is a genuine escape, not a nudge. Pure given `rng`; locked
- * layers are preserved by the underlying operators. Returns a NEW layer array
- * (falls back to a shallow copy if no mutation applied).
+ * layers are preserved by the underlying operators. A mutation that would leave
+ * no free layer is skipped, since there is nothing left to refine. Returns a NEW
+ * layer array (falls back to a shallow copy if no mutation applied).
  *
  * @param {Array}  layers
  * @param {object} ctx  same fields as proposeMutation, plus optional
@@ -317,7 +318,7 @@ export function basinKick(layers, ctx) {
     let applied = 0;
     for (let i = 0; i < n; i++) {
         const res = proposeMutation(work, { ...ctx, jitterPct: jitter });
-        if (res) { work = res.layers; applied++; }
+        if (res && res.layers.some(l => !l.locked)) { work = res.layers; applied++; }
     }
     return applied ? work : layers.map(l => ({ ...l }));
 }

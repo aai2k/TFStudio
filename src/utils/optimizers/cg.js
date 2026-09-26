@@ -151,6 +151,7 @@ export class CGOptimizer extends EngineBase {
     }
 
     isConverged() {
+        if (this.freeIdx.length === 0) return true;
         if (!this._persistent) {
             // Classic behavior (synthesis inner-refiner, validated): a few
             // trapped line searches → converged. UNCHANGED from before the

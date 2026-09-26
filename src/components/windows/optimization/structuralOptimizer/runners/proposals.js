@@ -6,6 +6,7 @@ import { materialLookup } from '../../synthesisShared/synthesisHelpers.js';
 import { alive } from './runUtils.js';
 import { designFor, refineJob, onTick, normalizeResult } from './refine.js';
 import { refineGuarded } from './workerLifecycle.js';
+import { splitRefined, adoptPolish } from './sameDesign.js';
 
 const SCAN_DELTA = 0.5;
 
@@ -21,7 +22,7 @@ export function needleProposals(S, current, count) {
     try {
         ({ candidates } = scanNeedlesPFunction({
             operands: S.operands, design, resolveMat, candidateMats: S.pool,
-            deltaNm: SCAN_DELTA, side: S.side,
+            deltaNm: SCAN_DELTA, side: S.side, dMin: S.cfg.dMin,
         }));
     } catch (err) {
         console.warn('[Structural] needle scan failed:', err);
@@ -71,12 +72,13 @@ export function generateProposals(S) {
     if (enabledKinds.includes('add') || enabledKinds.includes('split')) {
         proposals.push(...needleProposals(S, S.current, Math.ceil(S.workerCount / 2)));
     }
-    const randomKinds = enabledKinds.filter(kind => kind !== 'add' && kind !== 'split');
-    const fillKinds = randomKinds.length ? randomKinds : enabledKinds;
+    // The needles are the insertions that improve the merit to first order; the
+    // remaining slots take random mutations of every enabled kind, so layers too
+    // thick for a needle (at a high Min thickness) still get proposed.
     for (let index = proposals.length; index < S.workerCount; index++) {
         const proposal = proposeMutation(currentLayers, {
             rng: S.rng, pool: S.poolLite, dMin: S.cfg.dMin, dMax: S.cfg.dMax,
-            addMaxNm: S.cfg.addMaxNm, jitterPct: S.cfg.jitterPct, kinds: fillKinds,
+            addMaxNm: S.cfg.addMaxNm, jitterPct: S.cfg.jitterPct, kinds: enabledKinds,
         });
         if (proposal) proposals.push(proposal);
     }
@@ -91,17 +93,15 @@ export async function refineProposals(ctx, S, proposals) {
         index === 0 ? message => onTick(ctx, S, message) : null)
         .then(result => (result ? { result, proposal } : null))));
     if (!alive(ctx, S)) return null;
-    let best = null;
-    for (const item of results) {
-        if (!item || item.result.mf == null) continue;
-        if (!best || item.result.mf < best.result.mf) best = item;
-    }
-    return best;
+    return splitRefined(S, results);
 }
 
-/** Applies the metropolis test to the best refined proposal and, on a new best, hands
- * it to `recordBest` (injected by the caller to avoid a dependency on the iteration loop). */
-export function acceptProposal(ctx, S, bestResult, temperature, recordBest) {
+/** Applies the metropolis test to the best refined proposal of a batch and, on a
+ * new best, hands it to `recordBest` (injected by the caller to avoid a
+ * dependency on the iteration loop). Returns true when the target merit is reached. */
+export function acceptProposal(ctx, S, batch, temperature, recordBest) {
+    if (batch?.polish && adoptPolish(ctx, S, batch.polish, recordBest)) return true;
+    const bestResult = batch?.best;
     if (!bestResult) {
         S.noImprove += 1;
         return false;

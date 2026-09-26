@@ -14,9 +14,13 @@ layers, it reaches designs that fixed-structure
 [Needle](/synthesis/needle/) and [Gradual Evolution](/synthesis/gradual-evolution/)
 tools cannot.
 
-Each generation it proposes several mutations of the current design, refines
-each one, and takes the best of the batch. A worse design may still be accepted
-with a probability set by a temperature that cools as the run progresses, and this
+Each generation it proposes several changes to the current design, refines
+each one, and takes the best of the batch. Up to half of them are the
+insertions the [Needle](/synthesis/needle/) scan rates most useful; the rest
+are random mutations of the enabled kinds. A proposal that refines back to the
+current design is left out, so every generation tests a real change. A worse
+design may still be accepted with a probability set by a temperature that cools
+as the run progresses, and this
 is what lets the search climb out of a local minimum. The live design always
 tracks the best result found, so stopping, resetting, or switching tabs always
 leaves you on the best design. The wavelength grid the band targets are sampled
@@ -54,7 +58,25 @@ design.
 
 **dMin**: the minimum thickness for layers that are added or split.
 
-**Max add / Max layers**: caps on how far the design may grow.
+**Max added**: the largest thickness a randomly added or inserted layer starts
+at. The needle insertions choose their own thickness.
+
+**Max layers**: the most layers the design may grow to.
+
+**Smart starting design**: before the search, refine the quarter- and
+half-wave antireflection designs built from the pool, and start from the best
+of them and your design. It helps on an antireflection target; on other
+targets it starts the search in an antireflection design's basin, so it is off
+by default.
+
+**Deep search**: keep searching until **Stop** or the time budget. When no
+better design has turned up for a third of **Max iter** generations (at least
+15), the search restarts from the best design: one to three random mutations
+with three times the jitter, a refine, and the temperature back at **T₀**. The
+control bar counts these restarts under **Reheat**.
+
+**Time budget (min)**: with Deep search on, end the search after this many
+minutes; 0 runs until **Stop**.
 
 **Parallel K**: how many proposals are refined together each generation.
 

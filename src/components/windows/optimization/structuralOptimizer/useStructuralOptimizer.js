@@ -130,7 +130,7 @@ export function useStructuralOptimizer({
     const [jitterPct,  setJitterPct]  = usePersistentNumber('tfstudio_struct_jitter', 0.15);
     const [refineIter, setRefineIter] = usePersistentNumber('tfstudio_struct_refineIter', 60);
     const [dMin,       setDMin]       = usePersistentNumber('tfstudio_struct_dMin', 1.0);
-    const [addMaxNm,   setAddMax]     = usePersistentNumber('tfstudio_struct_addMax', 120);
+    const [addMaxNm,   setAddMax]     = usePersistentNumber('tfstudio_struct_addMax', 500);
     const [maxLayers,  setMaxLayers]  = usePersistentNumber('tfstudio_struct_maxLayers', 80);
     const [deepMode,   setDeepMode]   = usePersistentNumber('tfstudio_struct_deepMode', 0);
     const [deepMaxMin, setDeepMaxMin] = usePersistentNumber('tfstudio_struct_deepMaxMin', 0);

@@ -2072,7 +2072,7 @@ export default {
     runSeparatorSeed: (n, seed) => `Run ${n} · seed ${seed}`,
     best:         'Best',
     smartSeed:     'Smart starting design',
-    smartSeedHelp: 'Before optimizing, generate the canonical antireflection starting designs from the material pool, refine them all on the worker pool (off the UI thread, in parallel), and begin from the best. Your current design is always one of the candidates, so this can only match or improve the starting point, and it never blocks the interface.',
+    smartSeedHelp: 'Before optimizing, generate the canonical antireflection starting designs from the material pool, refine them all on the worker pool (off the UI thread, in parallel), and begin from the best. Your current design is always one of the candidates, so this can only match or improve the starting point, and it never blocks the interface. It suits antireflection targets; on other targets it can hold the search in the basin of an antireflection design, so it is off by default.',
     smartSeeding:  (n) => `Smart seed: refining ${n} starting designs…`,
     seed:          'Random seed',
     seedRandom:    'random',
