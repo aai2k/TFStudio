@@ -7,6 +7,7 @@
 
 import { computePareto, minOmfOf } from '../../synthesisShared/synthesisHelpers.js';
 import { activeRunNum } from '../../synthesisShared/runBlocks.js';
+import { withoutWins } from '../../../../../utils/physics/optimizer/parkedLayers.js';
 import { wpOnTick, wpAlive } from './workerPoolLifecycle.js';
 
 // Index of the lowest post-refine MF in a candidate batch (−1 if none valid).
@@ -86,12 +87,42 @@ export function wpAcceptCandidate(run, batch, results, pick) {
     return null;
 }
 
+// The candidate a generation accepts, refined again without the layers its
+// refine parked on the floor, with half the iterations (parkedLayers.js). One
+// job per generation, not one per candidate: the batch waits for its slowest
+// candidate, and a trial in any of them held the whole batch. Returns the
+// result to accept in place of `res` when the stack without them has a merit
+// no higher, else null.
+async function wpWithoutParked(run, res, cand) {
+    const [r] = await run.workerPool.map([{
+        type: 'dropParked', operands: run.operands, materials: run.materials,
+        design: run.designSnap(res.frontLayers, res.backLayers),
+        dMin: run.dMin, dlsIter: Math.max(1, Math.floor(run.stepIter / 2)),
+        jobId: 'parked', side: cand.side || run.scanSides[0], engine: run.innerEngine,
+    }], (idx, m) => wpOnTick(run, idx, m));
+    if (!r || !r.removed || !withoutWins(res.mfAfter, r.mf)) return null;
+    return { ...res, mfAfter: r.mf, omf: r.omf, frontLayers: r.frontLayers, backLayers: r.backLayers };
+}
+
+// The batch's best candidate, when it beats the best so far: tried without its
+// parked layers, then accepted. Returns wpRefineBatches' signal, or null when
+// the batch has nothing to accept.
+async function wpAcceptBest(run, batch, results) {
+    const pick = wpBestOfBatch(results);
+    if (pick.idx < 0 || !(pick.mf < run.best.mf - 1e-9)) return null;
+    const trimmed = await wpWithoutParked(run, results[pick.idx], batch[pick.idx]);
+    if (!wpAlive(run)) return { aborted: true };
+    if (trimmed) { results[pick.idx] = trimmed; pick.mf = trimmed.mfAfter; }
+    const conv = wpAcceptCandidate(run, batch, results, pick);
+    return conv ? { done: true, reason: conv } : { accepted: true };
+}
+
 // Refine up to maxBatches batches of the top-K improving candidates in
 // parallel, accepting the first batch that beats the best. Returns a signal for
 // wpRun ({done+reason} on convergence, {accepted} otherwise).
 export async function wpRefineBatches(run, queue) {
     const { ctx, best } = run;
-    let accepted = false, batchN = 0;
+    let batchN = 0;
     for (let i = 0; i < queue.length && batchN < run.maxBatches && wpAlive(run); i += run.K, batchN++) {
         const batch = queue.slice(i, i + run.K);
         ctx.setPhase('refining');
@@ -108,14 +139,9 @@ export async function wpRefineBatches(run, queue) {
         })), (idx, m) => wpOnTick(run, idx, m));
         if (!wpAlive(run)) return { aborted: true };
 
-        const pick = wpBestOfBatch(results);
-        if (pick.idx >= 0 && pick.mf < best.mf - 1e-9) {
-            const conv = wpAcceptCandidate(run, batch, results, pick);
-            accepted = true;
-            if (conv) return { done: true, reason: conv };
-            break;
-        }
+        const outcome = await wpAcceptBest(run, batch, results);
+        if (outcome) return outcome;
         console.log(`[Needle] batch ${i}-${i + batch.length - 1}: none beat best=${best.mf.toFixed(6)} → next batch`);
     }
-    return { accepted };
+    return { accepted: false };
 }

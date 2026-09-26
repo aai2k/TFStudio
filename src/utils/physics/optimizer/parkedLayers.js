@@ -87,40 +87,16 @@ export function withoutWins(mfWith, mfWithout) {
     return mfWithout <= mfWith;
 }
 
-// The two helpers below leave the refining to the caller: `refine(design,
-// maxIter)` refines a design with the caller's engine and returns that engine,
-// so they run the same on the main thread and in a worker. `key` names the
-// layer stack the synthesis works on, which must not end up empty.
-
-/**
- * One synthesis refine: `iters.maxIter` iterations, then `iters.extraIter`
- * more on a fresh engine when above zero (GE's second pass). With
- * `iters.trialIter` above zero, the layers the first refine parked on the
- * floor are tried out: the design without them gets its own refine of that
- * many iterations and replaces the design when withoutWins. Returns
- * { design, eng }, the engine's merit being the merit of the design.
- */
-export function refineWithParkedTrial(refine, design, key, iters) {
-    const run = (d, maxIter) => {
-        const eng = refine(d, maxIter);
-        const applied = eng.applyToDesign(d);
-        return { eng, applied, design: mergeSameMaterial(applied) };
-    };
-    let best = run(design, iters.maxIter);
-    const trial = iters.trialIter > 0 ? withoutParkedLayers(best.eng, best.applied) : { removed: 0 };
-    if (iters.extraIter > 0) best = run(best.design, iters.extraIter);
-    if (trial.removed && (trial.design[key] || []).length) {
-        const alt = run(trial.design, iters.trialIter);
-        if (withoutWins(best.eng.mf, alt.eng.mf)) best = alt;
-    }
-    return { design: best.design, eng: best.eng };
-}
-
 /**
  * The design without the layers parked on its floor, refined with `maxIter`
  * iterations: { design, eng, removed }, or null when no layer is parked or
  * taking them out would leave the stack empty. The parked layers are found
  * with an engine at the design itself (refine with 0 iterations).
+ *
+ * The refining is left to the caller: `refine(design, maxIter)` refines a
+ * design with the caller's engine and returns that engine, so this runs the
+ * same on the main thread and in a worker. `key` names the layer stack the
+ * synthesis works on, which must not end up empty.
  */
 export function refineWithoutParked(refine, design, key, maxIter) {
     const at = refine(design, 0);

@@ -15,6 +15,9 @@
  *      forced step was ranked on (a TT row off target makes the two differ).
  *   5. Automatic synthesis scans SYNTHESIS_INTRA_SAMPLES positions per layer
  *      and sends the floor with every scan job.
+ *   6. Needle tries the candidate a generation accepts without the layers its
+ *      refine parked on the floor, once per generation, and keeps whichever
+ *      merit is lower.
  *
  * Run: node tests/synthesis_thickness_floor.mjs
  */
@@ -276,10 +279,10 @@ ok('automatic synthesis samples as many positions per layer as the Needle window
         kept.map(k => k.intra ? k.frac : `g${k.pos}`).sort().join(',') === '0.4,0.8,g1');
 }
 
-// ── 6. Parked layers in a Needle candidate ──────────────────────────────────
-// MgF2 / TiO2 / SiO2 on BK7, RAV 500-600 nm = 0, floor 15 nm. A layer the
-// refine holds on the floor is taken out when the stack refined without it
-// has a merit no higher, and kept when the merit needs it.
+// ── 6. Parked layers in a Needle generation ─────────────────────────────────
+// MgF2 / TiO2 / SiO2 on BK7, RAV 500-600 nm = 0, floor 15 nm. The candidate job
+// refines once; the dropParked job then takes the parked layers out and
+// refines what is left, and the runner keeps it when its merit is no higher.
 {
     const rav = [O.makeOperand({ type: 'RAV', lambdaStart: 500, lambdaEnd: 600, aoi: 0, pol: 'avg', target: 0, weight: 1 })];
     const parkedIn = (d) => {
@@ -292,40 +295,97 @@ ok('automatic synthesis samples as many positions per layer as the Needle window
             cand: { ...cand, dMF: -1, side: 'front', _cid: 0 } });
         return { ...design, frontLayers: r.frontLayers, mfAfter: r.mfAfter };
     };
+    const withoutParked = (design, engine) => {
+        const r = run({ type: 'dropParked', operands: rav, design, dMin: 15, dlsIter: 30, jobId: 'd', side: 'front', engine });
+        return { ...r, design: { ...design, frontLayers: r.frontLayers || [] } };
+    };
+    const describe = d => d.frontLayers.map(l => `${l.material} ${l.thickness.toFixed(2)}`).join(' / ');
     // A TiO2 needle on top of the refined three-layer stack only hurts.
     const useless = candidate(media([['MgF2', 73.838], ['TiO2', 99.660], ['SiO2', 183.640]]), { pos: 0, materialId: 'TiO2' }, 'dls');
-    ok('needle: a parked layer the merit does not need is taken out', parkedIn(useless) === 0,
-        useless.frontLayers.map(l => `${l.material} ${l.thickness.toFixed(2)}`).join(' / '));
-    ok('needle: and the stack is refined without it', relClose(useless.mfAfter, fullMF(rav, useless)));
+    ok('needle candidate: refines once and leaves the parked layers for the runner', parkedIn(useless) >= 1, describe(useless));
+    ok('needle candidate: reports the merit of the design it returns', relClose(useless.mfAfter, fullMF(rav, useless)));
+    const trimmed = withoutParked(useless, 'dls');
+    ok('dropParked: takes out the parked layers the merit does not need', trimmed.removed === parkedIn(useless) && parkedIn(trimmed.design) === 0,
+        describe(trimmed.design));
+    ok('dropParked: the stack without it is no worse, so the runner takes it', trimmed.mf <= useless.mfAfter,
+        `${trimmed.mf} vs ${useless.mfAfter}`);
+    ok('dropParked: reports the merit of the design it returns', relClose(trimmed.mf, fullMF(rav, trimmed.design)));
     // The three-layer optimum under the floor has its TiO2 parked at 15 nm;
     // without it the MgF2 / SiO2 pair is a much worse AR.
     const needed = candidate(media([['MgF2', 129], ['SiO2', 219]]), { pos: 1, materialId: 'TiO2' }, 'cg');
     const tio2 = needed.frontLayers.find(l => l.material === 'TiO2');
-    ok('needle: a parked layer the merit needs stays', needed.frontLayers.length === 3 && tio2 && tio2.thickness === 15,
-        needed.frontLayers.map(l => `${l.material} ${l.thickness.toFixed(2)}`).join(' / '));
+    ok('setup: the TiO2 needle ends on the floor', needed.frontLayers.length === 3 && tio2 && tio2.thickness === 15, describe(needed));
     ok('setup: that layer is on the floor with the merit pushing it down', parkedIn(needed) === 1);
     ok('setup: the old thickness rule would keep it', O.cleanupLayers(needed.frontLayers, 15).length === 3);
+    const without = withoutParked(needed, 'cg');
+    ok('dropParked: without the layer the merit needs, the stack is worse, so the runner keeps it',
+        without.removed === 1 && without.mf > needed.mfAfter, `${without.mf} vs ${needed.mfAfter}`);
 }
 {
-    // The parked layer is found on the refined stack as the engine sees it,
-    // before same-material neighbours are merged: with SiO2 50 / SiO2 30 in
-    // front of it, the TiO2 at 15 nm is the engine's third variable but the
-    // merged stack's second layer.
-    const { refineWithParkedTrial = () => ({ design: { frontLayers: [] } }) } =
-        await import('../src/utils/physics/optimizer/parkedLayers.js').catch(() => ({}));
-    const layers = t => [['SiO2', t[0]], ['SiO2', t[1]], ['TiO2', t[2]], ['SiO2', t[3]]].slice(0, t.length);
-    const fakeEngine = (design, mf) => ({
-        thicknesses: design.frontLayers.map(l => l.thickness),
-        lockedMask: design.frontLayers.map(() => false),
-        D_MIN: 15, surfaceMode: 'front_only', mf,
-        gradMF: thk => thk.map((d, i) => (design.frontLayers[i].material === 'TiO2' ? 1 : 0)),
-        applyToDesign: d => d,
-    });
-    const refine = d => fakeEngine(d, d.frontLayers.some(l => l.material === 'TiO2') ? 0.2 : 0.1);
-    const out = refineWithParkedTrial(refine, media(layers([50, 30, 15, 80])), 'frontLayers', { maxIter: 10, extraIter: 0, trialIter: 5 });
-    ok('the layer taken out is the parked one, not the one at its index after merging',
-        out.design.frontLayers.length === 1 && out.design.frontLayers[0].material === 'SiO2' && out.design.frontLayers[0].thickness === 160,
-        out.design.frontLayers.map(l => `${l.material} ${l.thickness}`).join(' / '));
+    // Runner: one dropParked job per accepted generation, on the accepted
+    // candidate's design, none for a batch that does not beat the best.
+    const rav = [O.makeOperand({ type: 'RAV', lambdaStart: 500, lambdaEnd: 600, aoi: 0, pol: 'avg', target: 0, weight: 1 })];
+    const seed = media([['TiO2', 60], ['SiO2', 90]]);
+    const { runNeedleWorkerPool } = await import('../src/components/windows/optimization/needleVariation/runners/workerPool.js');
+    async function runNeedleMock(answer) {
+        const jobs = [];
+        let scans = 0;
+        const pool = {
+            map: (batch, onProgress) => Promise.all(batch.map(job => new Promise(resolve => setTimeout(() => {
+                jobs.push(job);
+                const front = job.design.frontLayers;
+                const grow = mat => [...front, { id: `${mat}${front.length}`, material: mat, thickness: 20, locked: false }];
+                if (job.type === 'scan') {
+                    scans++;
+                    resolve({ type: 'result', mf0: 0.3, candidates: scans === 1 ? [{ dMF: -0.01, pos: 0, materialId: 'TiO2', side: 'front' }] : [] });
+                    return;
+                }
+                if (job.type === 'seedDls') { resolve({ type: 'result', mf: 0.9, omf: 0.9, frontLayers: front, backLayers: [] }); return; }
+                resolve({ type: 'result', ...answer(job, front, grow) });
+            }, 0)))),
+            terminate() {},
+        };
+        const ref = v => ({ current: v });
+        const noop = () => {};
+        const ctx = {
+            runningRef: ref(false), timerRef: ref(null), workerRef: ref(null), dlsRef: ref(null),
+            baseDesignRef: ref(null), savedDesignRef: ref(null), designRef: ref({ ...seed, id: 'needle-parked' }),
+            operandsRef: ref(rav), gensRef: ref([]), genCountRef: ref(0), lastBestRef: ref(null),
+            runsRef: ref([]), runOpenRef: ref(false), updateDesignRef: ref(noop), checkpointRef: ref(noop),
+            maxLayersRef: ref(10), deltaNmRef: ref(0.5), dMinRef: ref(15), dlsIterRef: ref(10), targetMFRef: ref(1e-9),
+            selectedCatsRef: ref([]), excludedMatsRef: ref(new Set()),
+            setPhase: noop, setStatusMsg: noop, setMf: noop, setMfBest: noop, setOmf: noop, setOmfBest: noop,
+            setLayerCount: noop, setCanReset: noop, setGeneration: noop, setGenerations: noop, setTopDesigns: noop,
+            reconcileBaseWithEdits: noop, setCachedOptState: noop, stopOpt: () => { ctx.runningRef.current = false; },
+            getPoolMaterials: () => POOL, makeWorkerPool: () => pool,
+            t: { needle: { noOperands: 'no operands', smartSeeding: n => `seeding ${n}`, rescueTrying: n => `rescue ${n}`, rescueApplied: f => `rescue x${f}` } },
+        };
+        quiet();
+        runNeedleWorkerPool(ctx);
+        const t0 = Date.now();
+        while (ctx.runningRef.current && Date.now() - t0 < 30000) await new Promise(r => setTimeout(r, 1));
+        loud();
+        return { first: ctx.gensRef.current[0], parkedJobs: jobs.filter(j => j.type === 'dropParked') };
+    }
+    const accepted = (mfAfter) => (job, front, grow) => (job.type === 'candidate'
+        ? { mfAfter, omf: mfAfter, frontLayers: grow('TiO2'), backLayers: [], layerCount: front.length + 1 } : {});
+    const better = await runNeedleMock((job, front, grow) => (job.type === 'dropParked'
+        ? { removed: 1, mf: 0.15, omf: 0.15, frontLayers: front.slice(1), backLayers: [], nLayers: front.length - 1, side: 'front' }
+        : accepted(0.2)(job, front, grow)));
+    ok('Needle runner: one dropParked job for the accepted generation, with half the iterations',
+        better.parkedJobs.length === 1 && better.parkedJobs[0].dlsIter === 5, `${better.parkedJobs.length} jobs`);
+    ok('Needle runner: the dropParked job gets the accepted candidate\'s design',
+        better.parkedJobs[0]?.design.frontLayers.length === seed.frontLayers.length + 1);
+    ok('Needle runner: a better stack without the parked layers is what the generation records',
+        better.first?.mf === 0.15 && better.first?.layerCount === seed.frontLayers.length, JSON.stringify(better.first?.mf));
+    const worse = await runNeedleMock((job, front, grow) => (job.type === 'dropParked'
+        ? { removed: 1, mf: 0.25, omf: 0.25, frontLayers: front.slice(1), backLayers: [], nLayers: front.length - 1, side: 'front' }
+        : accepted(0.2)(job, front, grow)));
+    ok('Needle runner: a worse one is left and the candidate is recorded',
+        worse.first?.mf === 0.2 && worse.first?.layerCount === seed.frontLayers.length + 1, JSON.stringify(worse.first?.mf));
+    const rejected = await runNeedleMock(accepted(0.35));
+    ok('Needle runner: no dropParked job when no candidate beats the best', rejected.parkedJobs.length === 0 && rejected.first?.mf !== 0.35,
+        `${rejected.parkedJobs.length} jobs`);
 }
 
 console.log(`=== Synthesis at the thickness floor · WASM ${tmmWasmActive() ? 'ON' : 'off'} ===`);

@@ -10,16 +10,16 @@
  *               (per-candidate gradient is computed in the exact op→λ→pol order
  *               as a single scan ⇒ that part is bit-identical).
  *   candidate:  findOptimalNeedleThickness + insert + refine for ONE
- *               candidate (GE in two passes; Needle keeps or takes out the
- *               layers the refine parked on the floor, on merit). A BATCH of
- *               these runs in parallel and the best post-refinement is kept
- *               (rather than accepting the first improving one in ΔMF order);
- *               this is NOT bit-identical, but uses many threads.
+ *               candidate (GE in two passes). A BATCH of these runs in
+ *               parallel and the best post-refinement is kept (rather than
+ *               accepting the first improving one in ΔMF order); this is NOT
+ *               bit-identical, but uses many threads.
  *   seedDls:    GE seed refinement.
  *   geStep:     forced total-optical-thickness insertion (GE), reported with
  *               the full merit of the design it returns.
  *   dropParked: the design without the layers parked on its floor, refined
- *               (GE, when needle optimization has stalled).
+ *               (Needle, on the candidate a generation accepts; GE, when
+ *               needle optimization has stalled).
  *
  * Materials cross via Approach A pre-sampling (design + candidate pool); the
  * worker rebuilds an exact-λ table-lookup getNK off the same
@@ -31,7 +31,7 @@ import {
     findOptimalNeedleThickness, insertNeedle, insertNeedleIntra, cleanupLayers,
     removeRedundantLayers,
 } from '../physics/optimizer.js';
-import { refineWithParkedTrial, refineWithoutParked } from '../physics/optimizer/parkedLayers.js';
+import { refineWithoutParked, mergeSameMaterial } from '../physics/optimizer/parkedLayers.js';
 import { makeEngine } from '../optimizers/index.js';
 import { noteTmmWasmBytes, awaitTmmWasmReady } from '../../tmmcore.js';
 import { makeResolveMat } from './resolveMat.js';
@@ -117,19 +117,24 @@ function handleScan(job, resolveMat, post) {
 const refinerFor = (job, resolveMat, side, post) => (d, maxIter) =>
     runDls(job.operands, d, resolveMat, job.dMin, maxIter, job.jobId, side, job.engine || 'dls', post);
 
-// { design, mf, omf } of a parkedLayers.js result: the merit is the engine's.
+// { design, mf, omf } of a refined design and its engine: the merit is the engine's.
 const scored = ({ design, eng }) => ({ design, mf: eng.mf, omf: eng.mfOpticalAt(eng.thicknesses) });
 
-// Iteration budgets of one synthesis refine. Needle: `dlsIter`, then half as
-// many for the trial without the parked layers. GE: `dlsIter`, then a second
-// pass of half as many, and no trial: a forced step puts its layer on the
-// floor on purpose, and trying it out again would take the step back.
-function refineIters(dlsIter, pipeline) {
-    const half = Math.max(1, Math.floor(dlsIter / 2));
-    return pipeline === 'ge'
-        ? { maxIter: dlsIter, extraIter: half, trialIter: 0 }
-        : { maxIter: dlsIter, extraIter: 0, trialIter: half };
+// One synthesis refine: `maxIter` iterations, then `extraIter` more on a fresh
+// engine when above zero, with same-material neighbours merged after each
+// pass. Returns { design, eng }, the engine's merit being the design's.
+function refinePasses(refine, design, maxIter, extraIter) {
+    const pass = (d, iters) => {
+        const eng = refine(d, iters);
+        return { design: mergeSameMaterial(eng.applyToDesign(d)), eng };
+    };
+    const first = pass(design, maxIter);
+    return extraIter > 0 ? pass(first.design, extraIter) : first;
 }
+
+// Second-pass iterations of one synthesis refine: GE refines twice, the second
+// time with half the iterations; Needle once.
+const extraIters = (dlsIter, pipeline) => (pipeline === 'ge' ? Math.max(1, Math.floor(dlsIter / 2)) : 0);
 
 function handleCandidate(job, resolveMat, post) {
     const { design, cand, dMin, dlsIter, pipeline, operands } = job;
@@ -154,7 +159,7 @@ function handleCandidate(job, resolveMat, post) {
         : insertNeedle(design,     cand.pos,   cand.materialId, dOpt, side);
 
     // Accept-or-revert is decided main-side.
-    const res = scored(refineWithParkedTrial(refinerFor(job, resolveMat, side, post), inserted, key, refineIters(dlsIter, pipeline)));
+    const res = scored(refinePasses(refinerFor(job, resolveMat, side, post), inserted, dlsIter, extraIters(dlsIter, pipeline)));
     const finalDesign = res.design;
     const active = finalDesign[key] || [];
     const common = {
@@ -170,9 +175,9 @@ function handleCandidate(job, resolveMat, post) {
 }
 
 // The design with the layers parked on its floor taken out (parkedLayers.js)
-// and refined with `dlsIter` iterations. GE asks for it when needle
-// optimization has stalled. removed = 0 when no layer is parked, or when taking
-// them out would leave the active side empty.
+// and refined with `dlsIter` iterations. Needle asks for it on the candidate a
+// generation accepts, GE when needle optimization has stalled. removed = 0 when
+// no layer is parked, or when taking them out would leave the active side empty.
 function handleDropParked(job, resolveMat, post) {
     const side = effectiveSide(job.design, job.side);
     const key  = sideKey(side);
@@ -244,10 +249,8 @@ function handleRemovePass(job, resolveMat, post) {
     const key  = sideKey(side);
     let last = now();
 
-    // Consolidation judges every layer, parked or not, by deleting it and
-    // refining, so its refines skip the parked-layer trial.
     const refine = refinerFor(job, resolveMat, side, post);
-    const refineFn = (d, mi) => scored(refineWithParkedTrial(refine, d, key, { maxIter: mi, extraIter: 0, trialIter: 0 }));
+    const refineFn = (d, mi) => scored(refinePasses(refine, d, mi, 0));
 
     const res = removeRedundantLayers({
         design, side, dMin, tol, minLayers, maxIter, refineFn,

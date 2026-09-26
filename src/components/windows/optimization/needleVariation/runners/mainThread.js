@@ -74,13 +74,14 @@ function mtRecordGeneration(run, dls, prunedLayers, mfAfter) {
     });
 }
 
-// A finished refine. When it parked layers on the floor, the design without
-// them is refined with half the iterations and the lower merit wins, a tie
-// going to the design without them (parkedLayers.js), as in the worker.
-// Returns null while that trial refine runs; otherwise { prunedDesign, scored },
-// `scored` being the engine whose merit is the merit of prunedDesign.
+// A finished refine. When it beats the best, so the generation accepts it, and
+// it parked layers on the floor, the design without them is refined with half
+// the iterations and the lower merit wins, a tie going to the design without
+// them (parkedLayers.js), as in the worker. Returns null while that trial
+// refine runs; otherwise { prunedDesign, scored }, `scored` being the engine
+// whose merit is the merit of prunedDesign.
 function mtSettleRefine(run, dls) {
-    const { ctx, LK } = run;
+    const { ctx, LK, best } = run;
     const applied = dls.applyToDesign(ctx.baseDesignRef.current);
     const settled = { prunedDesign: mergeSameMaterial(applied), scored: dls };
     if (run.parkedTrial) {
@@ -88,6 +89,7 @@ function mtSettleRefine(run, dls) {
         run.parkedTrial = null;
         return withoutWins(kept.scored.mf, dls.mf) ? settled : kept;
     }
+    if (!(dls.mf < best.mf - 1e-9)) return settled;
     const { design: without, removed } = withoutParkedLayers(dls, applied);
     if (!removed || !(without[LK] || []).length) return settled;
     run.parkedTrial = settled;
