@@ -1,6 +1,6 @@
 import { buildTargetGeometry } from '../../../../utils/physics/spectrumTargets.js';
 import { drawChart, useChartTeardown } from '../../../ui/plotSurface.js';
-import { axisTooltip, cartesianOption, horizontalLegend, lineSeries, valueAxis } from '../../../ui/chartOptions.js';
+import { axisTooltip, cartesianOption, lineSeries, valueAxis } from '../../../ui/chartOptions.js';
 import { targetSeries } from '../../../ui/targetSeries.js';
 
 const { createElement: h, useEffect, useRef } = React;
@@ -31,7 +31,6 @@ export function SpectrumPlot({ data, c, targets, showTargets, xLabel }) {
         colors: c,
         grid: { left: 52, right: 16, top: 16, bottom: 44 },
         fileName: 'variator_spectrum',
-        legend: horizontalLegend({ color: text, top: 0 }),
         tooltip: axisTooltip({ colors: c, valueSuffix: '%' }),
         xAxis: valueAxis({ name: xLabel, color: text, gridColor: grid }),
         yAxis: valueAxis({ name: '%', color: text, gridColor: grid, min: 0, max: 100, interval: 10 }),

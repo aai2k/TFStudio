@@ -3,7 +3,6 @@ import {
     evaluateSpectrum, evaluateSpectrumBack, evaluateSpectrumTotal,
 } from '../../../../utils/physics/thinFilmMath.js';
 import { wrapMaterial } from '../../../../utils/misc/variator.js';
-import { createWindowSession } from '../../windowSession.js';
 
 export function resolveMat(design, id) {
     return designMaterialLookup(design)(id);
@@ -14,30 +13,19 @@ export function matLabel(mat) {
     return mat.name || mat.id || '?';
 }
 
-// Per-design baseline shared by the Variator's slider and spectrum helpers.
-// Callers mutate the object they get back, so this hands out the stored object
-// itself rather than a copy.
-const variatorSession = createWindowSession({ baseline: null }, { scope: 'design' });
-
-export function getVariatorCache(id) {
-    if (!id) return null;
-    const stored = variatorSession.read({ id }).baseline;
-    if (stored) return stored;
-    const baseline = { baseFront: null, baseBack: null, baseSubstrateMm: null };
-    variatorSession.write({ id }, { baseline });
-    return baseline;
+/** The thicknesses a Variator session measures its sliders from, by layer id. */
+export function captureVariatorBaseline(design) {
+    return {
+        baseFront: (design.frontLayers || []).map(l => ({ id: l.id, thickness: l.thickness })),
+        baseBack: (design.backLayers || []).map(l => ({ id: l.id, thickness: l.thickness })),
+        baseSubstrateMm: design.substrate?.thickness ?? 1.0,
+    };
 }
 
-export function captureVariatorBaseline(cache, design) {
-    cache.baseFront = (design.frontLayers || []).map(l => ({ id: l.id, thickness: l.thickness }));
-    cache.baseBack = (design.backLayers || []).map(l => ({ id: l.id, thickness: l.thickness }));
-    cache.baseSubstrateMm = design.substrate?.thickness ?? 1.0;
-}
-
-export function buildBaseMaps(cache, design) {
-    const baseFrontById = new Map((cache?.baseFront || []).map(l => [l.id, l.thickness]));
-    const baseBackById  = new Map((cache?.baseBack  || []).map(l => [l.id, l.thickness]));
-    const baseSubMm = cache?.baseSubstrateMm ?? (design.substrate?.thickness ?? 1.0);
+export function buildBaseMaps(baseline, design) {
+    const baseFrontById = new Map((baseline?.baseFront || []).map(l => [l.id, l.thickness]));
+    const baseBackById  = new Map((baseline?.baseBack  || []).map(l => [l.id, l.thickness]));
+    const baseSubMm = baseline?.baseSubstrateMm ?? (design.substrate?.thickness ?? 1.0);
     return { baseFrontById, baseBackById, baseSubMm };
 }
 
@@ -69,46 +57,80 @@ export function collectUniqueMaterials(design) {
     return out;
 }
 
-// Applies slider deltas to the design's thicknesses; returns a design patch
-// for updateDesign(), or null if the baseline snapshot isn't ready yet.
-export function buildThicknessPatch(design, cache, nextDF, nextDB, nextDSubMm) {
-    if (!cache?.baseFront) return null;
-    const baseFrontById = new Map(cache.baseFront.map(l => [l.id, l.thickness]));
-    const baseBackById  = new Map(cache.baseBack.map(l => [l.id, l.thickness]));
-
-    const front = (design.frontLayers || []).map(l => {
-        const base = baseFrontById.has(l.id) ? baseFrontById.get(l.id) : l.thickness;
-        const d = nextDF[l.id] || 0;
-        const next = Math.max(0, base + d);
-        return next === l.thickness ? l : { ...l, thickness: next };
+// One side's layers with each at its baseline thickness plus its slider,
+// stopping at zero. A layer the baseline does not know keeps its thickness.
+// `changed` is false when every layer already stands there.
+function variedLayers(layers, base, deltas) {
+    const baseById = new Map(base.map(l => [l.id, l.thickness]));
+    let changed = false;
+    const next = layers.map(l => {
+        const from = baseById.has(l.id) ? baseById.get(l.id) : l.thickness;
+        const thickness = Math.max(0, from + (deltas[l.id] || 0));
+        if (thickness === l.thickness) return l;
+        changed = true;
+        return { ...l, thickness };
     });
-    const back = (design.backLayers || []).map(l => {
-        const base = baseBackById.has(l.id) ? baseBackById.get(l.id) : l.thickness;
-        const d = nextDB[l.id] || 0;
-        const next = Math.max(0, base + d);
-        return next === l.thickness ? l : { ...l, thickness: next };
-    });
-    const subBase = cache.baseSubstrateMm ?? 1.0;
-    const nextSubMm = Math.max(0, subBase + (nextDSubMm || 0));
-    const subPatch = (design.substrate?.thickness !== nextSubMm)
-        ? { substrate: { ...design.substrate, thickness: nextSubMm } }
-        : null;
+    return { next, changed };
+}
 
-    return { frontLayers: front, backLayers: back, ...(subPatch || {}) };
+/**
+ * Whether the back coating has sliders of its own. In symmetric mode it is the
+ * front's mirror, rebuilt from the front on every write, so it follows the
+ * front sliders and cannot be moved on its own.
+ */
+export function backIsVaried(design) {
+    return design.surfaceMode !== 'symmetric';
+}
+
+/**
+ * The design patch that puts the sliders' thicknesses on `design`, or null when
+ * the design already has them or there is no baseline yet.
+ */
+export function buildThicknessPatch(design, baseline, nextDF, nextDB, nextDSubMm) {
+    if (!baseline?.baseFront) return null;
+    const front = variedLayers(design.frontLayers || [], baseline.baseFront, nextDF);
+    const back = backIsVaried(design)
+        ? variedLayers(design.backLayers || [], baseline.baseBack, nextDB)
+        : { changed: false };
+    const nextSubMm = Math.max(0, (baseline.baseSubstrateMm ?? 1.0) + (nextDSubMm || 0));
+    const patch = {};
+    if (front.changed) patch.frontLayers = front.next;
+    if (back.changed) patch.backLayers = back.next;
+    if (design.substrate?.thickness !== nextSubMm) {
+        patch.substrate = { ...design.substrate, thickness: nextSubMm };
+    }
+    return Object.keys(patch).length ? patch : null;
+}
+
+function sameLayerIds(layers, base) {
+    const ids = new Set(base.map(l => l.id));
+    return layers.length === base.length && layers.every(l => ids.has(l.id));
+}
+
+/**
+ * Whether `design` holds the thicknesses the session's sliders put there: the
+ * same layers as its baseline, each at its baseline plus its slider. An undo,
+ * an edit in another window or a design loaded over this one makes it false,
+ * and the session then starts again from the design as it is.
+ */
+export function designFollowsSession(design, session) {
+    const baseline = session?.baseline;
+    if (!baseline?.baseFront) return false;
+    const backMatches = !backIsVaried(design) || sameLayerIds(design.backLayers || [], baseline.baseBack);
+    return backMatches && sameLayerIds(design.frontLayers || [], baseline.baseFront)
+        && !buildThicknessPatch(design, baseline, session.dThkFront, session.dThkBack, session.dSubMm);
 }
 
 // Computes the Variator preview spectrum.
 // Perturbed arm = current design thicknesses + materials wrapped with local
 //                 Δn,Δk offsets.
-// Baseline arm  = original thicknesses from `cache` + raw materials (no
+// Baseline arm  = original thicknesses from `baseline` + raw materials (no
 //                 Δn,Δk) — this is what Revert restores to, so the dotted
 //                 curve stays put regardless of which slider the user
 //                 touches (thickness AND n/k).
-export function computeVariatorSpectrum({ design, params, evalMode, dN, dK, cache }) {
+export function computeVariatorSpectrum({ design, params, evalMode, dN, dK, baseline }) {
     const resolveMaterial = designMaterialLookup(design);
-    const baseFrontById = new Map((cache.baseFront || []).map(l => [l.id, l.thickness]));
-    const baseBackById  = new Map((cache.baseBack  || []).map(l => [l.id, l.thickness]));
-    const baseSubMm     = cache.baseSubstrateMm ?? (design.substrate?.thickness ?? 1.0);
+    const { baseFrontById, baseBackById, baseSubMm } = buildBaseMaps(baseline, design);
 
     const wrap = (id) => {
         const base = resolveMaterial(id);
@@ -140,18 +162,18 @@ export function computeVariatorSpectrum({ design, params, evalMode, dN, dK, cach
     }).filter(l => l.thickness > 0);
     const subThickB = baseSubMm;
 
-    let result, baseline;
+    let result, unvaried;
     if (evalMode === 'back') {
         result   = evaluateSpectrumBack({ ...params }, exitMat,  subMat,  back);
-        baseline = evaluateSpectrumBack({ ...params }, exitMatB, subMatB, backB);
+        unvaried = evaluateSpectrumBack({ ...params }, exitMatB, subMatB, backB);
     } else if (evalMode === 'total') {
         result   = evaluateSpectrumTotal({ ...params }, incMat,  subMat,  exitMat,  front,  back,  subThick);
-        baseline = evaluateSpectrumTotal({ ...params }, incMatB, subMatB, exitMatB, frontB, backB, subThickB);
+        unvaried = evaluateSpectrumTotal({ ...params }, incMatB, subMatB, exitMatB, frontB, backB, subThickB);
     } else {
         result   = evaluateSpectrum({ ...params }, incMat,  subMat,  front);
-        baseline = evaluateSpectrum({ ...params }, incMatB, subMatB, frontB);
+        unvaried = evaluateSpectrum({ ...params }, incMatB, subMatB, frontB);
     }
-    result.Tbase = baseline.T;
-    result.Rbase = baseline.R;
+    result.Tbase = unvaried.T;
+    result.Rbase = unvaried.R;
     return result;
 }

@@ -63,14 +63,18 @@ const base = {
        'malformed base (no getNK) passes through unchanged');
 }
 
-// 6) thicknessRangeNm — floor at ±20 nm for thin layers, scales with base
+// 6) thicknessRangeNm — zero to double the layer, 20 nm of room on thin layers
 {
     const r1 = thicknessRangeNm(10);    // thin
-    ok(near(r1.min, -20) && near(r1.max, 20), `thin layer range = ±20 (got ${r1.min}..${r1.max})`);
-    const r2 = thicknessRangeNm(500);   // thick
-    ok(near(r2.min, -100) && near(r2.max, 100), `thick layer range = ±20 % (got ${r2.min}..${r2.max})`);
-    const r3 = thicknessRangeNm(100);   // boundary
-    ok(near(r3.min, -20) && near(r3.max, 20), `100-nm base hits ±20 floor (got ${r3.min}..${r3.max})`);
+    ok(near(r1.min, -10) && near(r1.max, 20), `thin layer runs 0..30 nm (got ${r1.min}..${r1.max})`);
+    const r2 = thicknessRangeNm(600);   // thick
+    ok(near(r2.min, -600) && near(r2.max, 600), `thick layer runs 0..1200 nm (got ${r2.min}..${r2.max})`);
+    const r3 = thicknessRangeNm(94.2);  // SiO2 quarter wave at 550 nm
+    ok(near(r3.min, -94.2) && near(r3.max, 94.2), `a quarter wave can go to zero or double (got ${r3.min}..${r3.max})`);
+    const r4 = thicknessRangeNm(20);    // boundary
+    ok(near(r4.min, -20) && near(r4.max, 20), `20 nm layer runs 0..40 nm (got ${r4.min}..${r4.max})`);
+    const r5 = thicknessRangeNm(0);     // empty layer
+    ok(near(r5.min, 0) && near(r5.max, 20), `a zero layer can only grow (got ${r5.min}..${r5.max})`);
 }
 
 if (fails === 0) {

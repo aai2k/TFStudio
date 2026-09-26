@@ -14,9 +14,7 @@ anything.
 
 ## Settings
 
-**Per-layer thickness**: one slider per front and back layer, ranging roughly
-±20 nm (or ±20 % of the layer, whichever is larger) around its baseline value.
-The slider label shows the layer's material and baseline thickness.
+**Per-layer thickness**: one slider per front and back layer, running from zero to twice the layer's baseline thickness, with at least 20 nm of room upward on a thin layer. In Symmetric mode the back coating mirrors the front and has no sliders of its own. The slider label shows the layer's material and baseline thickness.
 
 **Substrate thickness**: nudges the substrate thickness in millimetres around
 its baseline.
@@ -43,11 +41,7 @@ sliders you moved. The quickest use is a tolerance gut-check: jiggle one layer
 and watch a stopband edge walk. If a small move shifts the spectrum a lot,
 that layer needs tight process control.
 
-Because the thickness and substrate sliders feed the shared design, the change
-is live everywhere, but it is non-destructive: the first slider move sets one
-undo checkpoint, so a single Ctrl+Z (or **Revert**) returns the design to where
-it started. The baseline is remembered while you re-arrange the workspace, so
-your reference point survives moving the window around.
+Because the thickness and substrate sliders feed the shared design, the change is live everywhere, but it is non-destructive: the first thickness move sets one undo checkpoint, so a single Ctrl+Z (or **Revert**) returns the design to where it started. The sliders stay where you left them when you switch to another window and back. If the design changes some other way, by Ctrl+Z or an edit in another window, the Variator takes the design as it now is for its baseline and sets the thickness sliders back to zero.
 
 ## References
 

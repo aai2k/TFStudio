@@ -1,5 +1,6 @@
 import { EvalModeBadge } from '../../../SurfaceModeBar.js';
 import { Checkbox } from '../../../ui/Checkbox.js';
+import { ToggleButton } from '../../analysis/chrome/controls.js';
 
 const { createElement: h } = React;
 
@@ -8,6 +9,7 @@ export function PreviewToolbar(props) {
         c, t, v, design, params, setParams,
         showTargets, setShowTargets, showBaseline, setShowBaseline,
     } = props;
+    const hasTargets = !!design.meritOperands?.length;
     return h('div', {
         style: {
             display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap',
@@ -46,31 +48,19 @@ export function PreviewToolbar(props) {
             }),
             '°'
         ),
-        // Targets toggle — disabled when the design has no operands.
-        // Same yellow accent + dotted swatch as Optical Evaluation so
-        // the two windows read the same.
-        h('button', {
-            onClick: () => setShowTargets(p => !p),
-            disabled: !(design.meritOperands?.length),
-            title: design.meritOperands?.length
-                ? (v.targetsOn || 'Show merit function targets')
-                : (v.targetsNone || 'No merit function targets defined'),
-            style: {
-                display: 'flex', alignItems: 'center', gap: 4,
-                padding: '2px 7px',
-                cursor: design.meritOperands?.length ? 'pointer' : 'default',
-                outline: 'none', marginLeft: 'auto',
-                border: `1px solid ${showTargets ? '#ffd54f' : c.border}`,
-                borderRadius: 3,
-                backgroundColor: showTargets ? '#ffd54f22' : 'transparent',
-                color: showTargets ? c.text : c.textDim,
-                fontSize: 11, fontFamily: 'system-ui, -apple-system, sans-serif',
-                fontWeight: showTargets ? 600 : 400,
-                opacity: design.meritOperands?.length ? 1 : 0.4
-            }
-        },
-            h('div', { style: { width: 14, height: 0, borderTop: `2px dotted ${showTargets ? '#ffd54f' : c.textDim}` } }),
-            v.targets || 'Targets'
+        // Targets toggle, drawn as Optical Evaluation draws its own so the two
+        // windows read the same. Disabled when the design has no operands.
+        h('div', { style: { marginLeft: 'auto' } },
+            h(ToggleButton, {
+                c, label: v.targets, active: showTargets && hasTargets, disabled: !hasTargets,
+                title: hasTargets ? v.targetsOn : v.targetsNone,
+                onClick: () => setShowTargets(p => !p),
+            }, h('div', {
+                style: {
+                    width: 14, height: 0,
+                    borderTop: `2px dotted ${showTargets && hasTargets ? c.accent : c.textDim}`,
+                },
+            })),
         ),
         h('label', { style: { display: 'flex', alignItems: 'center', gap: 4, fontSize: 11,
                                color: c.text, cursor: 'pointer' } },

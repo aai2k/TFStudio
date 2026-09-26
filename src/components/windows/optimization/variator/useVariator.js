@@ -1,103 +1,131 @@
 import { useDesign } from '../../../../state/DesignContext.js';
 import {
-    getVariatorCache, captureVariatorBaseline, buildBaseMaps, computeAnyVaried,
-    collectUniqueMaterials, buildThicknessPatch, computeVariatorSpectrum,
+    captureVariatorBaseline, buildBaseMaps, computeAnyVaried, collectUniqueMaterials,
+    buildThicknessPatch, computeVariatorSpectrum, designFollowsSession,
 } from './model.js';
-import { variatorViewSession } from './sessionState.js';
-import { useWindowSession } from '../../windowSession.js';
+import { variatorSliderSession, variatorViewSession } from './sessionState.js';
+import { useWindowCopy, useWindowSession } from '../../windowSession.js';
 
 const { useState, useEffect, useRef, useMemo, useCallback } = React;
 
-// Slider state — all relative to the baseline captured for the current mount.
-// Layer thickness deltas are stored by layer ID so reordering does not
-// shift values around. Material n/k offsets are keyed by material id.
-// One-shot checkpoint guard fires the FIRST time any slider moves so a
-// single Ctrl+Z reverts the whole Variator session; reset on Revert and on
-// design switch.
-function useSliderState(design, checkpoint) {
-    const [dThkFront, setDThkFront] = useState({});  // { [layerId]: Δnm }
-    const [dThkBack,  setDThkBack]  = useState({});
-    const [dSubMm,    setDSubMm]    = useState(0);
-    const [dN,        setDN]        = useState({});  // { [matId]: Δn }
-    const [dK,        setDK]        = useState({});  // { [matId]: Δk }
-    const checkpointedRef = useRef(false);
+// Sliders that move the design. Only these put the session's undo step down;
+// the n/k offsets act on the preview alone.
+const THICKNESS_KEYS = ['dThkFront', 'dThkBack', 'dSubMm'];
+const THICKNESSES_AT_ZERO = { dThkFront: {}, dThkBack: {}, dSubMm: 0 };
 
+// A design's thicknesses as one comparable value.
+function thicknessKey(design) {
+    const layers = list => (list || []).map(l => `${l.id}:${l.thickness}`).join(',');
+    return `${layers(design.frontLayers)}|${layers(design.backLayers)}|${design.substrate?.thickness}`;
+}
+
+// Starts the session again from the design as it is whenever the design stops
+// holding what the sliders put there: on first open, after an undo, or after an
+// edit in another window. The n/k offsets are kept; they are not in the design.
+//
+// It compares against the session rendered with the design. On a switch of
+// design the store is read instead, since the rendered session still belongs
+// to the old one. A design the sliders wrote themselves can arrive after they
+// have moved on, and would then look like an edit from outside; `written`
+// holds what they wrote since the design last matched them, so that one is let
+// through and the next write brings the design up to date.
+function useSessionReconcile({ design, session, patchSession, copyId, written }) {
+    const seenIdRef = useRef(null);
     useEffect(() => {
-        setDThkFront({}); setDThkBack({}); setDSubMm(0);
-        setDN({}); setDK({});
-        checkpointedRef.current = false;
-    }, [design?.id]);
+        if (!design) return;
+        const switched = seenIdRef.current !== design.id;
+        seenIdRef.current = design.id;
+        const current = switched ? variatorSliderSession.read(design, copyId) : session;
+        const follows = designFollowsSession(design, current);
+        const ownWrite = !switched && written.has(thicknessKey(design));
+        if (follows || !ownWrite) written.clear();
+        if (follows || ownWrite) return;
+        patchSession({ ...THICKNESSES_AT_ZERO, baseline: captureVariatorBaseline(design), checkpointed: false });
+    }, [design]); // eslint-disable-line react-hooks/exhaustive-deps
+}
 
-    const ensureCheckpoint = useCallback(() => {
-        if (checkpointedRef.current) return;
-        checkpointedRef.current = true;
-        try { checkpoint(); } catch (_) {}
-    }, [checkpoint]);
+// Pushes the thickness sliders onto the design as transient updates, once per
+// move. Keyed on the sliders alone: a write keyed on the design as well would
+// run again after every render and write the sliders back over an undo. A
+// baseline the store has already replaced is not written; the render with the
+// new one writes instead.
+function useThicknessSync({ design, updateDesign, session, copyId, written }) {
+    const designRef = useRef(design);
+    designRef.current = design;
+    const updateRef = useRef(updateDesign);
+    updateRef.current = updateDesign;
+    const { baseline, dThkFront, dThkBack, dSubMm } = session;
+    useEffect(() => {
+        const current = designRef.current;
+        if (!current || variatorSliderSession.read(current, copyId).baseline !== baseline) return;
+        const patch = buildThicknessPatch(current, baseline, dThkFront, dThkBack, dSubMm);
+        if (!patch) return;
+        written.add(thicknessKey({ ...current, ...patch }));
+        updateRef.current(patch, { transient: true });
+    }, [baseline, dThkFront, dThkBack, dSubMm]); // eslint-disable-line react-hooks/exhaustive-deps
+}
 
-    const setLayerFront = (lid, val) => { ensureCheckpoint(); setDThkFront(prev => ({ ...prev, [lid]: val })); };
-    const setLayerBack  = (lid, val) => { ensureCheckpoint(); setDThkBack(prev => ({ ...prev, [lid]: val })); };
-    const setSub   = (val) => { ensureCheckpoint(); setDSubMm(val); };
-    const setMatDN = (id, val) => { ensureCheckpoint(); setDN(prev => ({ ...prev, [id]: val })); };
-    const setMatDK = (id, val) => { ensureCheckpoint(); setDK(prev => ({ ...prev, [id]: val })); };
+// Slider state, relative to the session's baseline. Layer thickness deltas are
+// keyed by layer id so reordering does not shift values around; material n/k
+// offsets are keyed by material id. The first thickness move of a session
+// pushes one undo checkpoint, so a single Ctrl+Z reverts the whole session.
+function useSliderSession(design, updateDesign, checkpoint) {
+    const copyId = useWindowCopy();
+    const [session, , patchSession] = useWindowSession(variatorSliderSession, design);
+    const written = useRef(null);
+    if (!written.current) written.current = new Set();
+    useSessionReconcile({ design, session, patchSession, copyId, written: written.current });
+    useThicknessSync({ design, updateDesign, session, copyId, written: written.current });
 
+    // Reads the store rather than the rendered session, so two moves between
+    // renders both land and only the first puts the undo step down.
+    const move = useCallback((key, update) => {
+        const current = variatorSliderSession.read(design, copyId);
+        const next = { [key]: update(current[key]) };
+        if (THICKNESS_KEYS.includes(key) && !current.checkpointed) {
+            try { checkpoint(); } catch (_) {}
+            next.checkpointed = true;
+        }
+        patchSession(next);
+    }, [design, copyId, checkpoint, patchSession]);
+
+    const byId = (key, id, val) => move(key, map => ({ ...map, [id]: val }));
+
+    // Zeros every slider. The thickness write then restores the baseline on
+    // this and every other open window.
     const revert = useCallback(() => {
-        setDThkFront({}); setDThkBack({}); setDSubMm(0);
-        setDN({}); setDK({});
-        // The thickness-patch effect (useThicknessSync) fires with zeros,
-        // restoring baseline thicknesses on this and every other open window.
-    }, []);
+        patchSession({ ...THICKNESSES_AT_ZERO, dN: {}, dK: {} });
+    }, [patchSession]);
 
     return {
-        dThkFront, dThkBack, dSubMm, dN, dK,
-        setLayerFront, setLayerBack, setSub, setMatDN, setMatDK, revert,
+        ...session,
+        setLayerFront: (lid, val) => byId('dThkFront', lid, val),
+        setLayerBack: (lid, val) => byId('dThkBack', lid, val),
+        setSub: val => move('dSubMm', () => val),
+        setMatDN: (id, val) => byId('dN', id, val),
+        setMatDK: (id, val) => byId('dK', id, val),
+        revert,
     };
 }
 
-// Captures the baseline thickness snapshot for this mount and pushes
-// slider deltas back onto the design as transient thickness updates.
-function useThicknessSync({ design, updateDesign, dThkFront, dThkBack, dSubMm }) {
-    // Fresh slider state starts at zero on every mount, so its baseline must
-    // match the design values that are current at that time.
-    useEffect(() => {
-        if (!design) return;
-        const cache = getVariatorCache(design.id);
-        captureVariatorBaseline(cache, design);
-    }, [design?.id]);
-
-    // Apply slider state -> design (thicknesses only). Material n/k offsets
-    // stay local; see model.js.
-    const applyThicknessesToDesign = useCallback((nextDF, nextDB, nextDSubMm) => {
-        if (!design) return;
-        const cache = getVariatorCache(design.id);
-        const patch = buildThicknessPatch(design, cache, nextDF, nextDB, nextDSubMm);
-        if (patch) updateDesign(patch, { transient: true });
-    }, [design, updateDesign]);
-
-    // Push transient updates whenever a thickness slider changes.
-    useEffect(() => {
-        if (!design) return;
-        applyThicknessesToDesign(dThkFront, dThkBack, dSubMm);
-    }, [dThkFront, dThkBack, dSubMm, applyThicknessesToDesign, design?.id]);
-}
-
 // Computes the Variator preview spectrum (perturbed + baseline arms) and
-// recomputes whenever the design, view params, eval mode, or n/k offsets change.
-function useSpectrumCompute({ design, params, evalMode, dN, dK }) {
+// recomputes whenever the design, view params, eval mode, baseline, or n/k
+// offsets change.
+function useSpectrumCompute({ design, params, evalMode, dN, dK, baseline }) {
     const [data, setData] = useState(null);
     const [error, setError] = useState(null);
 
     const compute = useCallback(() => {
         if (!design) return;
         try {
-            const cache = getVariatorCache(design.id);
-            const result = computeVariatorSpectrum({ design, params, evalMode, dN, dK, cache });
+            const result = computeVariatorSpectrum({ design, params, evalMode, dN, dK, baseline });
             setData(result);
             setError(null);
         } catch (e) {
             console.error('[Variator] compute error:', e);
             setError(e.message || 'Computation error');
         }
-    }, [design, params, evalMode, dN, dK]);
+    }, [design, params, evalMode, dN, dK, baseline]);
 
     useEffect(() => { compute(); }, [compute]);
 
@@ -114,20 +142,17 @@ export function useVariator() {
     const setShowBaseline = value => setViewField('showBaseline', value);
     const setShowTargets  = value => setViewField('showTargets', value);
 
-    const slider = useSliderState(design, checkpoint);
-    useThicknessSync({
-        design, updateDesign,
-        dThkFront: slider.dThkFront, dThkBack: slider.dThkBack, dSubMm: slider.dSubMm,
-    });
+    const slider = useSliderSession(design, updateDesign, checkpoint);
     const uniqueMats = useMemo(() => (design ? collectUniqueMaterials(design) : []), [design]);
-    const spectrum = useSpectrumCompute({ design, params, evalMode, dN: slider.dN, dK: slider.dK });
+    const spectrum = useSpectrumCompute({
+        design, params, evalMode, dN: slider.dN, dK: slider.dK, baseline: slider.baseline,
+    });
 
     if (!design) {
         return { design: null };
     }
 
-    const cache = getVariatorCache(design.id);
-    const { baseFrontById, baseBackById, baseSubMm } = buildBaseMaps(cache, design);
+    const { baseFrontById, baseBackById, baseSubMm } = buildBaseMaps(slider.baseline, design);
     const anyVaried = computeAnyVaried(slider.dThkFront, slider.dThkBack, slider.dSubMm, slider.dN, slider.dK);
 
     return {

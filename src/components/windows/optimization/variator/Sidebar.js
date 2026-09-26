@@ -2,7 +2,7 @@ import { SectionHeader } from './SectionHeader.js';
 import { SliderRow } from './SliderRow.js';
 import { LayerSliderList } from './LayerSliderList.js';
 import { MaterialSliders } from './MaterialSliders.js';
-import { resolveMat, matLabel } from './model.js';
+import { backIsVaried, resolveMat, matLabel } from './model.js';
 import { resolveColor } from '../../../../utils/materials/catalogManager.js';
 
 const { createElement: h } = React;
@@ -34,7 +34,7 @@ export function Sidebar(props) {
             }
         },
             h('span', { style: { fontWeight: 600 } }, v.title || 'Variator'),
-            h('span', { style: { color: c.textDim, fontSize: 11 } },
+            h('span', { title: anyVaried ? v.modifiedTip : undefined, style: { color: c.textDim, fontSize: 11 } },
                 anyVaried ? (v.varied || 'modified') : (v.atBaseline || 'baseline')),
             h('button', {
                 onClick: revert,
@@ -66,8 +66,8 @@ export function Sidebar(props) {
                 })
             ),
 
-            // Back layers
-            (design.backLayers || []).length > 0 && h('div', null,
+            // Back layers, unless they mirror the front
+            backIsVaried(design) && (design.backLayers || []).length > 0 && h('div', null,
                 h(SectionHeader, { label: v.backLayers || 'Back layers', count: design.backLayers.length, c }),
                 h(LayerSliderList, {
                     design, layers: design.backLayers, side: 'back', c, v,

@@ -33,11 +33,12 @@ export function wrapMaterial(base, dn, dk) {
 }
 
 /**
- * Slider half-range for a layer thickness, in nm. Picks ≥ ±20 nm to keep the
- * range usable on very thin layers, otherwise scales with the layer so thick
- * layers have proportionally more room.
+ * Slider range for a layer thickness, as offsets in nm from `baseNm`. A layer
+ * can be taken to zero or doubled, both ordinary moves when looking for a
+ * better structure. A layer thinner than 20 nm still gets 20 nm of room upward,
+ * so a thin layer has a usable slider; the low end stops at zero thickness.
  */
 export function thicknessRangeNm(baseNm) {
-    const half = Math.max(20, baseNm * 0.2);
-    return { min: -half, max: half };
+    const half = Math.max(20, baseNm);
+    return { min: -Math.min(half, Math.max(0, baseNm)), max: half };
 }

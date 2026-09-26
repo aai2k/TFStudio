@@ -16,10 +16,14 @@
  *     resolver chain.)
  *
  * Baseline handling:
- *   - On first slider move we push ONE undo checkpoint so a single Ctrl+Z
- *     reverts the entire Variator session.
- *   - Baseline thicknesses are captured in a module-scoped cache keyed by
- *     design.id, so docking switches preserve the reference for Revert.
+ *   - The first thickness move of a session pushes ONE undo checkpoint so a
+ *     single Ctrl+Z reverts the entire Variator session.
+ *   - The baseline and the slider positions are kept per design across a
+ *     remount (sessionState.js), so switching to another tab and back finds
+ *     the sliders where they were.
+ *   - When the design stops holding what the sliders put there (an undo, an
+ *     edit in another window), its current thicknesses become the baseline
+ *     and the thickness sliders return to zero.
  *   - The Revert button zeros every slider and restores the baseline
  *     (transient update — no extra checkpoint pushed).
  */
@@ -28,7 +32,6 @@ import { useVariator } from './useVariator.js';
 import { Sidebar } from './Sidebar.js';
 import { PreviewToolbar } from './PreviewToolbar.js';
 import { SpectrumPlot } from './SpectrumPlot.js';
-import { Footer } from './Footer.js';
 
 const { createElement: h } = React;
 
@@ -78,8 +81,6 @@ export function Variator({ c, theme, t }) {
                         xLabel: t.spectralAxis.nm,
                     })
             ),
-
-            h(Footer, props)
         )
     );
 }
