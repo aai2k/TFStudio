@@ -51,14 +51,10 @@ export function wpPresample(curDes, operands, pool) {
     }
 }
 
-// When the design about to be worked on (`front`/`back`) has outgrown the run's
-// sampling grid (runGrid.js), move the run onto a grid for it: new operands,
-// material tables sampled on them, and `best`, the pre-rescue design and the
-// ΔMF baseline re-scored so the next comparisons are made on one grid.
-export function wpRegridIfGrown(run, front, back) {
-    const resolveMat = materialLookup(run.curDes);
-    const operands = regridForDesign(run.operands, run.designSnap(front, back), resolveMat);
-    if (!operands) return;
+// Move the run onto `operands`: material tables sampled on them, and `best`,
+// the pre-rescue design and the ΔMF baseline re-scored so the next comparisons
+// are made on one grid.
+function wpUseGrid(run, operands, resolveMat) {
     run.operands = operands;
     run.materials = presampleSynthesisMaterials(run.curDes, operands, run.pool);
     const rescore = d => meritOf(operands, run.designSnap(d.frontLayers, d.backLayers), resolveMat);
@@ -68,7 +64,24 @@ export function wpRegridIfGrown(run, front, back) {
         run.prevBestMF = best.mf;
     }
     if (run.preRescueBest) run.preRescueBest.mf = rescore(run.preRescueBest);
-    console.log(`[Needle] Grid re-sampled for the grown design: bestMF=${best.mf.toFixed(6)}`);
+    console.log(`[Needle] Grid re-sampled for the design: bestMF=${best.mf.toFixed(6)}`);
+}
+
+// When the design about to be worked on (`front`/`back`) has outgrown the run's
+// sampling grid (runGrid.js), move the run onto a grid for it.
+export function wpRegridIfGrown(run, front, back) {
+    const resolveMat = materialLookup(run.curDes);
+    const operands = regridForDesign(run.operands, run.designSnap(front, back), resolveMat);
+    if (operands) wpUseGrid(run, operands, resolveMat);
+}
+
+// Move the run onto the grid `front`/`back` needs, grown from `base`: a grid
+// the run held before it sampled for a thicker design than the one it goes on
+// with. Unlike wpRegridIfGrown, this can lower the sample counts.
+export function wpRegridFrom(run, base, front, back) {
+    const resolveMat = materialLookup(run.curDes);
+    const operands = regridForDesign(base, run.designSnap(front, back), resolveMat) || base;
+    if (operands !== run.operands) wpUseGrid(run, operands, resolveMat);
 }
 
 // Per-run design snapshot + layer helpers. designSnap builds a full design from

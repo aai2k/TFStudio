@@ -23,7 +23,7 @@
  */
 
 import { wpOnTick, wpAlive } from './workerPoolLifecycle.js';
-import { wpRegridIfGrown } from './workerPoolSetup.js';
+import { wpRegridIfGrown, wpRegridFrom } from './workerPoolSetup.js';
 
 // Thickness multipliers tried in one pool round. Geometric so a few candidates
 // span a wide range: on a 130 nm stack this reaches about 2 µm, which covers
@@ -86,11 +86,17 @@ export async function wpThinStartRescue(run) {
     if (!hasGrowableFilm(front, back)) return false;
 
     // Every rung is scored on a grid fine enough for the thickest one, so a
-    // thick rung cannot win on fringes that fall between samples.
+    // thick rung cannot win on fringes that fall between samples. The run then
+    // goes on with the grid the design it keeps needs: the thickest rung's grid
+    // would score every later generation on up to 16 times the samples.
+    const gridBefore = run.operands;
     const thickest = SCALE_LADDER[SCALE_LADDER.length - 1];
     wpRegridIfGrown(run, scaleLayers(front, thickest), scaleLayers(back, thickest));
     const picked = await refineLadder(run, front, back);
-    if (!picked) return false;
+    if (!picked) {
+        if (wpAlive(run)) wpRegridFrom(run, gridBefore, front, back);
+        return false;
+    }
 
     run.preRescueBest = {
         mf: best.mf,
@@ -103,6 +109,7 @@ export async function wpThinStartRescue(run) {
     best.omf = result.omf ?? null;
     best.frontLayers = run.deep(result.frontLayers || []);
     best.backLayers  = run.deep(result.backLayers  || []);
+    wpRegridFrom(run, gridBefore, best.frontLayers, best.backLayers);
     // The accept rule compares against `best`, so the ΔMF baseline has to follow
     // it down (or up) to the design the run now continues from.
     run.prevBestMF = best.mf;

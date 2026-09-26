@@ -12,9 +12,15 @@
  *   2. A Needle worker-pool run from a single 100 nm layer towards a reflector,
  *      driven in-process through the real worker job handlers: the jobs sent after the design grew
  *      carry more band samples than the launch grid, and every job's material
- *      tables hold every wavelength its operands sample.
+ *      tables hold every wavelength its operands sample. The run stalls and
+ *      takes the thin-start rescue; the jobs after it carry fewer samples than
+ *      the rescue's ladder.
  *   3. The run's reported best merit is the merit of its final design on the
  *      grid the run ended on.
+ *   4. The thin-start rescue scores every rung on the grid the thickest one
+ *      needs, and when a thinner rung wins, the run goes on with the grid that
+ *      rung needs, with the adopted and the stalled design re-scored on it.
+ *   5. When the thickest rung wins, the run keeps its grid.
  *
  * Run: node tests/synthesis_regrid.mjs
  */
@@ -72,7 +78,7 @@ function makeFakePool() {
                 const table = job.materials?.TiO2?.lambdas || [];
                 const have = new Set(table);
                 jobLog.push({
-                    operands: job.operands || [], samples: samplesOf(job.operands || []),
+                    type: job.type, operands: job.operands || [], samples: samplesOf(job.operands || []),
                     covered: lambdas.every(l => have.has(l)),
                 });
                 const post = (m) => {
@@ -133,13 +139,95 @@ ok(jobLog.length > 0, `the run dispatched ${jobLog.length} pool jobs`);
 ok(maxSamples > launchSamples, `later jobs carry more band samples than the launch grid (${launchSamples} → ${maxSamples})`);
 ok(jobLog.every(j => j.covered), 'every job\'s material tables hold every wavelength its operands sample');
 
+// The run stalls at a few layers and takes the thin-start rescue: its ladder is
+// scored on the grid for a copy 16 times thicker, and the run then goes on with
+// the grid its own design needs.
+const rescueAt = jobLog.map(j => j.type).lastIndexOf('seedDls');
+const ladderSamples = rescueAt >= 0 ? jobLog[rescueAt].samples : 0;
+const afterRescue = jobLog.slice(rescueAt + 1);
+ok(rescueAt >= 0 && afterRescue.length > 0, `the run took the rescue and went on (${afterRescue.length} jobs after it)`);
+ok(afterRescue.every(j => j.samples < ladderSamples),
+    `the jobs after the rescue carry fewer samples than its ladder (${Math.max(...afterRescue.map(j => j.samples))} vs ${ladderSamples})`);
+
+// The last cycle re-samples for the final design before it stops at the layer
+// limit, so the run's grid is the last jobs' grid grown for that design.
 const finalDesign = { ...seed(), ...ctx.baseDesignRef.current };
 const lastOps = jobLog.at(-1).operands;
-ok(regridForDesign(lastOps, finalDesign, resolveMat) === null,
-    `the last jobs ran on a grid fine enough for the final design (${samplesOf(lastOps)} samples)`);
-const rescored = meritOf(lastOps, finalDesign, resolveMat);
+const finalOps = regridForDesign(lastOps, finalDesign, resolveMat) || lastOps;
+const rescored = meritOf(finalOps, finalDesign, resolveMat);
 ok(Math.abs(bestShown - rescored) <= 1e-9 * Math.max(rescored, 1e-12),
     `the reported best merit ${bestShown} is the final design's merit on the run's last grid (${rescored})`);
+
+// ── 4-5. The thin-start rescue's grid ────────────────────────────────────────
+// The rescue refines copies of the stalled design 2, 4, 8 and 16 times thicker,
+// all scored on the grid the ×16 copy needs, then goes on from the best rung.
+// A fake pool refines nothing and hands back the rung it is told to prefer.
+{
+    const { wpThinStartRescue } = await import('../src/components/windows/optimization/needleVariation/runners/workerPoolRescue.js');
+    const { wpDesignHelpers } = await import('../src/components/windows/optimization/needleVariation/runners/workerPoolSetup.js');
+    const { presampleSynthesisMaterials } = await import('../src/components/windows/optimization/synthesisShared/runGrid.js');
+
+    // Five alternating layers, 500 nm of film: thick enough that the ×16 copy
+    // needs far more samples over 450-650 nm than the ×2 copy does.
+    const stalled = () => ({ ...seed(), frontLayers: Array.from({ length: 5 }, (_, i) => ({
+        id: 'r' + i, material: i % 2 ? 'SiO2' : 'TiO2', thickness: 100, locked: false })) });
+    const scaled = f => ({ ...stalled(), frontLayers: stalled().frontLayers.map(l => ({ ...l, thickness: l.thickness * f })) });
+    const launch = withDesignSampleCounts(ops, stalled(), resolveMat);
+
+    async function rescueWith(winner) {
+        const ladderJobs = [];
+        const pool = {
+            map: async (jobs) => jobs.map((job) => {
+                ladderJobs.push(job);
+                const factor = job.design.frontLayers[0].thickness / 100;
+                return { mf: factor === winner ? 0.1 : 0.2, omf: null,
+                    frontLayers: job.design.frontLayers, backLayers: job.design.backLayers };
+            }),
+        };
+        const curDes = stalled();
+        const run = {
+            ctx: {
+                runningRef: ref(true), workerRef: ref(pool), updateDesignRef: ref(noop),
+                setPhase: noop, setStatusMsg: noop, setMf: noop, setOmf: noop, setLayerCount: noop,
+                t: { needle: { rescueTrying: () => '', rescueApplied: () => '' } },
+            },
+            curDes, operands: launch, pool: POOL, materials: presampleSynthesisMaterials(curDes, launch, POOL),
+            workerPool: pool, ...wpDesignHelpers(curDes, []),
+            dMin: 1, dlsIter: 8, scanSides: ['front'], innerEngine: 'cg', lastTick: 0,
+            best: { mf: meritOf(launch, curDes, resolveMat), omf: null, frontLayers: curDes.frontLayers, backLayers: [] },
+            rescued: false, preRescueBest: null, prevBestMF: Infinity,
+        };
+        console.log = () => {};
+        const continued = await wpThinStartRescue(run);
+        console.log = _log;
+        return { run, continued, ladderJobs };
+    }
+
+    const ladderGrid = regridForDesign(launch, scaled(16), resolveMat);
+    const keptGrid = regridForDesign(launch, scaled(2), resolveMat) || launch;
+    ok(samplesOf(ladderGrid) > samplesOf(keptGrid),
+        `the ×16 copy needs more samples than the ×2 copy (${samplesOf(ladderGrid)} vs ${samplesOf(keptGrid)})`);
+
+    // 4. The ×2 rung wins: the ladder was scored on the ×16 grid, and the run
+    // goes on with the grid the ×2 design needs.
+    const two = await rescueWith(2);
+    ok(two.continued && two.run.best.frontLayers[0].thickness === 200, 'the run continues from the ×2 rung');
+    ok(two.ladderJobs.length === 4 && two.ladderJobs.every(j => samplesOf(j.operands) === samplesOf(ladderGrid)),
+        'every rung was scored on the ×16 grid');
+    ok(samplesOf(two.run.operands) === samplesOf(keptGrid),
+        `the run goes on with the ×2 design's grid (${samplesOf(two.run.operands)} samples, not ${samplesOf(ladderGrid)})`);
+    ok(requiredLambdas(two.run.operands).every(l => two.run.materials.TiO2.lambdas.includes(l)),
+        'the material tables were sampled on that grid');
+    const onKept = d => meritOf(two.run.operands, { ...seed(), frontLayers: d.frontLayers, backLayers: d.backLayers }, resolveMat);
+    ok(two.run.best.mf === onKept(two.run.best) && two.run.prevBestMF === two.run.best.mf,
+        'the adopted design and the ΔMF baseline are scored on it');
+    ok(two.run.preRescueBest.mf === onKept(two.run.preRescueBest),
+        'so is the design the run stalled on, which finalize compares against');
+
+    // 5. The ×16 rung wins: the run keeps the ×16 grid.
+    const sixteen = await rescueWith(16);
+    ok(samplesOf(sixteen.run.operands) === samplesOf(ladderGrid), 'with the ×16 rung the run keeps the ×16 grid');
+}
 
 if (fails === 0) console.log('\nAll synthesis regrid tests passed.');
 else { console.error(`\n${fails} test(s) failed.`); process.exit(1); }
