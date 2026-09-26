@@ -57,7 +57,7 @@ console.log(`  WASM kernel: ${wasm && tmmWasmActive() ? 'ACTIVE ✓' : 'INACTIVE
 console.log(`  Mode: ${QUICK ? 'quick' : LONG ? 'long' : 'default'} · cases: ${CASES.length}${MNT ? ` · MNT ≥ ${MNT} nm constraint ON` : ''}`);
 console.log(`  Synthesis pool: ${describePool(resolveMat)}`);
 if (ENGINES.length > 1) console.log(`  Inner-engine sweep: ${ENGINES.join(', ')}`);
-if (MNT) console.log('  NOTE: NEEDLE strips thickness constraints by design (its candidate scan is\n        optical-only) → expect "minT" violations (!) on Needle rows. GE, Structural\n        and Refinement HONOR MNT (penalty kept in the DLS refine).');
+if (MNT) console.log('  NOTE: NEEDLE strips thickness constraints by design (its candidate scan is\n        optical-only) → expect "minT" violations (!) on Needle rows. GE and Refinement\n        HONOR MNT (penalty kept in the DLS refine); Structural raises its Min\n        thickness to it.');
 console.log('═'.repeat(78));
 
 for (const C of CASES) {
@@ -113,7 +113,7 @@ for (const C of CASES) {
 
     console.log(`\n  ── Synthesis (grows layers; fewer layers better)${ENGINES.length > 1 ? ' · inner-engine sweep' : ''} ──`);
     console.log(`  ${pad('optimizer', 14)} ${pad('engine', 10)} ${padL('dMin', 5)} ${padL('MF', 11)} ${padL('layers', 7)} ${padL('minT', 6)} ${padL('time', 7)}`);
-    const synthRow = (label, seed, forced, isStruct) => {
+    const synthRow = async (label, seed, forced, isStruct) => {
         // Needle ignores MNT by design (strips constraints) → base ops; GE &
         // Structural respect it → constrained ops.
         const isNeedle = !isStruct && !forced;
@@ -124,7 +124,7 @@ for (const C of CASES) {
                 // GE couples its floor to MNT (mirrors GradualEvolution.js) so it honors it.
                 const effDmin = (isGE && MNT) ? Math.max(dMin, MNT) : dMin;
                 const cfg = { ...synthCfg, engine: eng };
-                const r = isStruct ? runStructural(seed(), synthOps, effDmin, resolveMat, cfg)
+                const r = isStruct ? await runStructural(seed(), synthOps, effDmin, resolveMat, cfg)
                                    : runSynth(forced, seed(), synthOps, effDmin, resolveMat, cfg);
                 const mf = mfRep(C, r);
                 const mt = minT(r);
@@ -135,9 +135,9 @@ for (const C of CASES) {
             }
         }
     };
-    synthRow('Needle', C.thick, false, false);
-    synthRow('Gradual Evol.', C.thin, true, false);
-    synthRow('Structural', C.thin, false, true);
+    await synthRow('Needle', C.thick, false, false);
+    await synthRow('Gradual Evol.', C.thin, true, false);
+    await synthRow('Structural', C.thin, false, true);
 }
 
 // ── inner-engine comparison: best engine per synthesis tool, per case ─────────────

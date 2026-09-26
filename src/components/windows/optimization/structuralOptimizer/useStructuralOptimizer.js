@@ -4,7 +4,7 @@ import {
 import { usePersistentNumber } from '../../../ui/usePersistentState.js';
 import { activeBaseline, undoRunBlock } from '../synthesisShared/runBlocks.js';
 import { getCached, setCached, clearCached } from './sessionState.js';
-import { STRUCT_CATS_KEY, loadKinds, saveKinds } from './structuralSettings.js';
+import { STRUCT_CATS_KEY, STRUCTURAL_DEFAULTS, loadKinds, saveKinds } from './structuralSettings.js';
 import { runStructuralWorker } from './runners/workerPool.js';
 
 const { useCallback, useEffect, useRef, useState } = React;
@@ -124,14 +124,15 @@ export function useStructuralOptimizer({
 }) {
     const ts = t.structural;
 
-    const [maxIter,    setMaxIter]    = usePersistentNumber('tfstudio_struct_maxIter', 80);
-    const [targetMF,   setTargetMF]   = usePersistentNumber('tfstudio_struct_targetMF', 5e-4);
-    const [T0,         setT0]         = usePersistentNumber('tfstudio_struct_T0', 0.08);
-    const [jitterPct,  setJitterPct]  = usePersistentNumber('tfstudio_struct_jitter', 0.15);
-    const [refineIter, setRefineIter] = usePersistentNumber('tfstudio_struct_refineIter', 60);
-    const [dMin,       setDMin]       = usePersistentNumber('tfstudio_struct_dMin', 1.0);
-    const [addMaxNm,   setAddMax]     = usePersistentNumber('tfstudio_struct_addMax', 500);
-    const [maxLayers,  setMaxLayers]  = usePersistentNumber('tfstudio_struct_maxLayers', 80);
+    const D = STRUCTURAL_DEFAULTS;
+    const [maxIter,    setMaxIter]    = usePersistentNumber('tfstudio_struct_maxIter', D.maxIter);
+    const [targetMF,   setTargetMF]   = usePersistentNumber('tfstudio_struct_targetMF', D.targetMF);
+    const [T0,         setT0]         = usePersistentNumber('tfstudio_struct_T0', D.T0);
+    const [jitterPct,  setJitterPct]  = usePersistentNumber('tfstudio_struct_jitter', D.jitterPct);
+    const [refineIter, setRefineIter] = usePersistentNumber('tfstudio_struct_refineIter', D.refineIter);
+    const [dMin,       setDMin]       = usePersistentNumber('tfstudio_struct_dMin', D.dMin);
+    const [addMaxNm,   setAddMax]     = usePersistentNumber('tfstudio_struct_addMax', D.addMaxNm);
+    const [maxLayers,  setMaxLayers]  = usePersistentNumber('tfstudio_struct_maxLayers', D.maxLayers);
     const [deepMode,   setDeepMode]   = usePersistentNumber('tfstudio_struct_deepMode', 0);
     const [deepMaxMin, setDeepMaxMin] = usePersistentNumber('tfstudio_struct_deepMaxMin', 0);
     const [reheats,    setReheats]    = useState(0);

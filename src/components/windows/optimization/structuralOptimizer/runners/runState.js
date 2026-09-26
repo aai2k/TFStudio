@@ -5,9 +5,8 @@ import {
     getSynthesisInnerEngine, getSynthesisSmartSeed, getThreadCount,
 } from '../../../../../utils/synthesis/synthesisConfig.js';
 import { getTmmWasmBytesForWorker } from '../../../../../tmmcore.js';
-import {
-    activeSide, densifyForRun, getPoolMaterials, serializableMedia,
-} from '../../synthesisShared/synthesisHelpers.js';
+import { activeSide, densifyForRun, serializableMedia } from '../../synthesisShared/synthesisMath.js';
+import { getPoolMaterials } from '../../synthesisShared/catalogPool.js';
 import { activeBaseline, openRunBlock } from '../../synthesisShared/runBlocks.js';
 import { presampleAll } from './refine.js';
 import { createWorkers } from './workerLifecycle.js';
@@ -90,7 +89,7 @@ function checkWorkers(state) {
         ctx.runOpenRef.current = true;
         ctx.setCanReset(true);
     }
-    state.workerCount = getThreadCount();
+    state.workerCount = state.cfg.threads ?? getThreadCount();
     state.wasmBytes = getTmmWasmBytesForWorker();
     return createWorkers(ctx, state.workerCount);
 }
@@ -112,6 +111,10 @@ function takeRunSeed(ctx, cfg) {
     return seed;
 }
 
+// Iterations without a new best after which a run stops, or Deep search
+// restarts.
+export const stallPatience = maxIter => Math.max(15, Math.round(maxIter / 3));
+
 function finalizeRunState(state) {
     const { ctx, cfg, curDes, operands, side, layerKey, otherKey, pool, materials, workerCount, wasmBytes } = state;
     const seed = takeRunSeed(ctx, cfg);
@@ -128,12 +131,15 @@ function finalizeRunState(state) {
         poolLite: pool.map(material => ({ id: material.id, name: material.name })),
         materials, workerCount, wasmBytes, runId, runT0,
         media: serializableMedia(curDes),
-        structEngine: getSynthesisInnerEngine('structural'),
-        smartSeed: getSynthesisSmartSeed('structural'),
+        // The window's settings leave the engine, the smart seed and the
+        // thread count (checkWorkers) to the stored choices; the benchmark
+        // names them per cell.
+        structEngine: cfg.engine ?? getSynthesisInnerEngine('structural'),
+        smartSeed: cfg.smartSeed ?? getSynthesisSmartSeed('structural'),
         seed, rng: makeRng(seed),
         ts: ctx.ts, best, current: { ...best }, lastTick: 0,
         trendX: 0, accepts: 0, attempts: 0, prevBestMF: Infinity, noImprove: 0,
-        patience: Math.max(15, Math.round(cfg.maxIter / 3)),
+        patience: stallPatience(cfg.maxIter),
         kinds: MUTATION_KINDS.filter(kind => cfg.kinds.has(kind)),
         endTemperature: cfg.T0 * 0.005,
         coolPeriod: Math.max(40, cfg.maxIter),

@@ -14,6 +14,9 @@
  *
  * @param {Object} materials  id → { lambdas, n, k, mechanical? } pre-sampled table
  * @param {string} label      worker name, used in the fallback warning
+ * @param {Function} post     where the warning goes: the worker's postMessage by
+ *                            default, the job's own channel for a job run on the
+ *                            calling thread (inThreadOptimizerWorker.js)
  */
 // Index a pre-sampled table into an exact-hit map plus a λ-ascending parallel
 // pair (sortedL / sortedNK) used by the nearest-λ fallback.
@@ -42,7 +45,9 @@ function nearestNK(sortedL, sortedNK, lam) {
     return (Math.abs(sortedL[lo] - lam) <= Math.abs(sortedL[hi] - lam)) ? sortedNK[lo] : sortedNK[hi];
 }
 
-export function makeResolveMat(materials, label = 'worker') {
+const workerPost = message => postMessage(message);
+
+export function makeResolveMat(materials, label = 'worker', post = workerPost) {
     const cache = new Map();
     let missReported = false;
     let omegaMissReported = false;
@@ -62,7 +67,7 @@ export function makeResolveMat(materials, label = 'worker') {
                 if (!sortedL || sortedL.length === 0) return [1, 0];
                 if (!missReported) {
                     missReported = true;
-                    postMessage({ type: 'warn', message:
+                    post({ type: 'warn', message:
                         `${label}: λ ${lam} not pre-sampled for "${id}" — nearest-λ fallback (not bit-identical)` });
                 }
                 return nearestNK(sortedL, sortedNK, lam).nk;
@@ -72,7 +77,7 @@ export function makeResolveMat(materials, label = 'worker') {
                 if (v !== undefined) return v.omegaResponse;
                 if (!omegaMissReported) {
                     omegaMissReported = true;
-                    postMessage({ type: 'warn', message:
+                    post({ type: 'warn', message:
                         `${label}: exact omega response unavailable at lambda ${lam} for "${id}"` });
                 }
                 return null;

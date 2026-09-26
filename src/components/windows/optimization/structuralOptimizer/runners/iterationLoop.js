@@ -1,7 +1,7 @@
 import {
     deepTemperature, temperatureAt, stagnationAction, basinKick,
 } from '../../../../../utils/synthesis/structuralOptimizer.js';
-import { computePareto, minOmfOf } from '../../synthesisShared/synthesisHelpers.js';
+import { computePareto, minOmfOf } from '../../synthesisShared/synthesisMath.js';
 import { activeRunNum } from '../../synthesisShared/runBlocks.js';
 import { alive, deep, sumD } from './runUtils.js';
 import { refineScore, regridIfGrown } from './refine.js';

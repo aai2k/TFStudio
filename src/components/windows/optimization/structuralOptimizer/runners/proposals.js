@@ -2,7 +2,7 @@ import {
     scanNeedlesPFunction, findOptimalNeedleThickness, insertNeedle, insertNeedleIntra,
 } from '../../../../../utils/physics/optimizer.js';
 import { proposeMutation, metropolisAccept } from '../../../../../utils/synthesis/structuralOptimizer.js';
-import { materialLookup } from '../../synthesisShared/synthesisHelpers.js';
+import { materialLookup } from '../../synthesisShared/materialNames.js';
 import { alive } from './runUtils.js';
 import { designFor, refineJob, onTick, normalizeResult } from './refine.js';
 import { refineGuarded } from './workerLifecycle.js';

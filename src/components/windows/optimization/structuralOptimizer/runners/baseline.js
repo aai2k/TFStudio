@@ -1,4 +1,4 @@
-import { buildARSeedCandidates, computePareto } from '../../synthesisShared/synthesisHelpers.js';
+import { buildARSeedCandidates, computePareto } from '../../synthesisShared/synthesisMath.js';
 import { activeRunNum } from '../../synthesisShared/runBlocks.js';
 import { alive, deep, sumD } from './runUtils.js';
 import { designFor, refineJob, onTick, trueEval } from './refine.js';

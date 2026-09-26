@@ -9,8 +9,8 @@
  *   • UNCONSTRAINED : dMin = 1 nm, no MNT  → free synthesis (lowest MF, more,
  *                     possibly very thin layers).
  *   • CONSTRAINED   : dMin = 40 nm + MNT ≥ 40 nm  → manufacturable floor; GE
- *                     couples its insertion floor to MNT and Structural prunes
- *                     sub-floor layers, so every layer ends ≥ 40 nm (higher MF,
+ *                     couples its insertion floor to MNT and Structural raises
+ *                     its Min thickness to it, so every layer ends ≥ 40 nm (higher MF,
  *                     the price of manufacturability).
  *
  * Runs GE and Structural from both a high-index (TiO2) and a low-index (SiO2)
@@ -44,7 +44,7 @@ const seed = (material) => ({
 
 // One scenario = (constrained?) → the ops + dMin each tool actually runs with.
 //   GE respects MNT (keep the operand + couple its floor to MNT).
-//   Structural respects MNT (keep the operand; prune to the dMin floor).
+//   Structural respects MNT (the window raises its Min thickness to it).
 const SCENARIOS = [
     { label: 'unconstrained', constrained: false, ops: bbar,                       dMin: 1,   mfMax: 0.05 },
     { label: 'MNT≥40 nm',     constrained: true,  ops: [...bbar, mntOperand(MNT)], dMin: MNT, mfMax: 0.10 },
@@ -57,7 +57,7 @@ for (const material of ['TiO2', 'SiO2']) {
     const mf0 = opticalMF(seed(material), bbar, resolveMat);
     for (const sc of SCENARIOS) {
         const ge = runSynth(true, seed(material), sc.ops, sc.dMin, resolveMat, { budgetMs: BUDGET });
-        const st = runStructural(seed(material), sc.ops, sc.dMin, resolveMat, { budgetMs: BUDGET });
+        const st = await runStructural(seed(material), sc.ops, sc.dMin, resolveMat, { budgetMs: BUDGET });
         for (const [tool, r] of [['Gradual Evol.', ge], ['Structural', st]]) {
             const mf = opticalMF(r.design, bbar, resolveMat);   // optical-only, comparable
             const mt = minFrontThk(r.design);

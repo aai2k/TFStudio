@@ -2,6 +2,13 @@ import { OPTIMIZER_WORKER_URL as WORKER_URL } from '../../../../../workerUrls.js
 
 const REFINE_TIMEOUT_MS = 45000;
 
+// An optimizer Web Worker, unless the caller brings its own: the benchmark,
+// which already runs off the UI thread, refines on its own thread
+// (utils/workers/inThreadOptimizerWorker.js).
+function newWorker(ctx) {
+    return ctx.makeWorker ? ctx.makeWorker() : new Worker(WORKER_URL, { type: 'module' });
+}
+
 function refineOnce(worker, job, onTick) {
     return new Promise((resolve, reject) => {
         worker.onmessage = event => {
@@ -40,7 +47,7 @@ function replaceTimedOutWorker(ctx, S, workerIndex) {
     console.warn(`[Structural] refine worker ${workerIndex} timed out — replacing`);
     try { ctx.workersRef.current[workerIndex]?.terminate(); } catch (_) {}
     try {
-        const worker = new Worker(WORKER_URL, { type: 'module' });
+        const worker = newWorker(ctx);
         if (S.wasmBytes) worker.postMessage({ type: 'wasmInit', wasmBytes: S.wasmBytes });
         ctx.workersRef.current[workerIndex] = worker;
     } catch (_) {}
@@ -71,7 +78,7 @@ export function createWorkers(ctx, count) {
     try {
         ctx.killWorkers();
         for (let i = 0; i < count; i++) {
-            ctx.workersRef.current.push(new Worker(WORKER_URL, { type: 'module' }));
+            ctx.workersRef.current.push(newWorker(ctx));
         }
         return true;
     } catch (err) {

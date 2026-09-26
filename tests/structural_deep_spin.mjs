@@ -1,10 +1,9 @@
 /**
  * DEEP-MODE SPIN — reporting tool, not pass/fail.
  *
- * Drives the headless structural optimizer (`runStructural`, the faithful port of
- * StructuralOptimizer.js) on the HARD constrained-min-thickness cases — exactly
- * the regime where GE/Structural were bailing to the trivial low-layer seed —
- * comparing single-shot vs the new open-ended Deep mode (#1 + #2: drop maxIter +
+ * Drives the Structural Optimizer window's own runner headless (`runStructural`)
+ * on the HARD constrained-min-thickness cases, the regime where GE/Structural
+ * were bailing to the trivial low-layer seed, comparing single-shot vs the new open-ended Deep mode (#1 + #2: drop maxIter +
  * patience, reheat + basin-kick on stagnation). Run across a SMALL pool
  * (TiO2/SiO2) and a BIG pool (7 dielectrics) so we see whether extra materials
  * help or just enlarge the search space.
@@ -60,8 +59,8 @@ for (const caseId of CASES) {
     for (const [poolName, poolIds] of [['small', SMALL], ['big', BIG]]) {
         const baseCfg = { poolIds, budgetMs: BUDGET_MS, engine: 'cg', seed: 777, ...TUNE };
         const start = C.thin();   // thin start = where the bail-to-trivial happened
-        const single = runStructural(start, C.ops, DMIN, resolveMat, { ...baseCfg, deepMode: false });
-        const deep   = runStructural(C.thin(), C.ops, DMIN, resolveMat, { ...baseCfg, deepMode: true });
+        const single = await runStructural(start, C.ops, DMIN, resolveMat, { ...baseCfg, deepMode: false });
+        const deep   = await runStructural(C.thin(), C.ops, DMIN, resolveMat, { ...baseCfg, deepMode: true });
         for (const [mode, r] of [['single', single], ['deep', deep]]) {
             const mfOpt = opticalMF(r.design, C.ops, resolveMat);
             const row = { caseId, poolName, mode, mf: mfOpt, layers: r.layers, minThk: minFrontThk(r.design),

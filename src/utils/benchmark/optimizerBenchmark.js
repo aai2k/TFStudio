@@ -6,12 +6,13 @@
  *   • the in-app window's worker (src/utils/workers/benchmarkWorker.js → the
  *     OptimizerBenchmark dev/QA window).
  *
- * No DOM, no workers, no material database import — every driver takes the
- * `resolveMat(id) → material` resolver as a parameter, so it runs identically
- * in Node, in a Web Worker, or on the main thread. The synthesis drivers are
- * faithful ports of the canonical loops (NeedleVariation / GradualEvolution /
- * StructuralOptimizer components) using the SAME validated primitives from
- * optimizer.js — see those components and [[project_optimizer_worker]].
+ * No DOM and no Web Workers, so it runs identically in Node, in a Web Worker,
+ * or on the main thread. The Needle and GE drivers take the
+ * `resolveMat(id) → material` resolver as a parameter and are ports of the
+ * canonical loops (NeedleVariation / GradualEvolution components) using the
+ * SAME validated primitives from optimizer.js. The Structural driver runs the
+ * Structural Optimizer window's own runner (structuralRun.js), refining on the
+ * calling thread.
  *
  * Metrics returned per run: final merit function (lower better), wall time
  * (ms), and layer count (fewer better for synthesis; fixed for refinement).
@@ -23,12 +24,11 @@ import {
     buildEvalContext, evaluateOperands, removeRedundantLayers,
 } from '../physics/optimizer.js';
 import { makeEngine } from '../optimizers/index.js';
-import {
-    makeRng, proposeMutation, metropolisAccept, temperatureAt, tidyLayers, MUTATION_KINDS,
-    deepTemperature, stagnationAction, basinKick,
-} from '../synthesis/structuralOptimizer.js';
+import { MUTATION_KINDS } from '../synthesis/structuralOptimizer.js';
 import { generateARSeeds, rankSeeds } from '../synthesis/seedGenerator.js';
 import { cullMarginalNeedles } from '../synthesis/synthesisConfig.js';
+import { STRUCTURAL_DEFAULTS } from '../../components/windows/optimization/structuralOptimizer/structuralSettings.js';
+import { runWindowStructural } from './structuralRun.js';
 
 // ── timing (works in Node and the browser/worker) ────────────────────────────────
 const now = (typeof performance !== 'undefined' && performance.now)
@@ -409,172 +409,44 @@ export function runSeed(C, ops, dMin, resolveMat, cfg = {}) {
     return { mf: best.mf, layers: frontCount(best.refinedDesign), ms: now() - t0, design: best.refinedDesign };
 }
 
-function makeStructuralState(args) {
-    const { start, ops, dMin, resolveMat, cfg, onTick } = args;
-    const pool = (cfg.poolIds && cfg.poolIds.length)
-        ? cfg.poolIds.map((id) => ({ id, name: id, mat: resolveMat(id) }))
-        : makePool(resolveMat);
-    const innerIter = cfg.innerIter ?? SYNTH_DEFAULTS.innerIter;
-    const engine = cfg.engine || 'dls';
-    const structMaxIter = cfg.structMaxIter ?? SYNTH_DEFAULTS.structMaxIter;
-    const current = refinePrune(deep(start), ops, dMin, resolveMat, innerIter, engine);
-    return {
-        ops, dMin, resolveMat, cfg, onTick, pool, innerIter, engine, structMaxIter,
-        poolLite: pool.map((p) => ({ id: p.id, name: p.name })),
-        budgetMs: cfg.budgetMs ?? SYNTH_DEFAULTS.budgetMs,
-        maxLayers: cfg.maxLayers ?? SYNTH_DEFAULTS.maxLayers,
-        structK: cfg.structK ?? SYNTH_DEFAULTS.structK,
-        deepMode: !!cfg.deepMode,
-        rng: makeRng(cfg.seed ?? 777),
-        T0: 0.2,
-        Tend: 0.2 * 0.005,
-        current,
-        best: { ...current },
-        t0: now(),
-        noImprove: 0,
-        reheats: 0,
-        cycleStart: 1,
-        patience: Math.max(15, Math.round(structMaxIter / 3)),
-        coolPeriod: Math.max(40, structMaxIter),
-        itDone: 0,
-        stopReason: 'maxIter',
-    };
-}
-
-function structuralTemperature(state, it) {
-    return state.deepMode
-        ? deepTemperature(it - state.cycleStart, state.coolPeriod, state.T0, state.Tend)
-        : temperatureAt(it / state.structMaxIter, state.T0, state.Tend);
-}
-
-function structuralProposals(state, it) {
-    const currentLayers = state.current.design.frontLayers || [];
-    const atCap = currentLayers.filter((layer) => !layer.locked).length >= state.maxLayers;
-    const kinds = atCap ? ['remove', 'merge', 'perturb'] : MUTATION_KINDS;
-    const proposals = [];
-    if (!atCap) {
-        const { candidates } = scanNeedlesPFunction({
-            operands: state.ops, design: state.current.design, resolveMat: state.resolveMat,
-            candidateMats: state.pool, deltaNm: 0.5, side: 'front',
-        });
-        const candidate = candidates.filter((x) => x.dMF < 0).sort((a, b) => a.dMF - b.dMF)[0];
-        if (candidate) proposals.push({
-            layers: insertOptimal(
-                state.current.design, candidate, state.ops, state.dMin, state.resolveMat,
-            ).frontLayers,
-            mutation: { kind: 'add' },
-        });
-    }
-    for (let j = proposals.length; j < state.structK; j++) {
-        const proposal = proposeMutation(currentLayers, {
-            rng: state.rng, pool: state.poolLite, dMin: state.dMin,
-            addMaxNm: 120, jitterPct: 0.15, kinds,
-        });
-        if (proposal) proposals.push(proposal);
-    }
-    return { proposals, temperature: structuralTemperature(state, it) };
-}
-
-function evaluateStructuralProposals(state, proposals) {
-    let bestResult = null;
-    for (const proposal of proposals) {
-        if (now() - state.t0 >= state.budgetMs) break;
-        const result = refinePrune(
-            { ...state.current.design, frontLayers: proposal.layers },
-            state.ops, state.dMin, state.resolveMat, state.innerIter, state.engine,
-        );
-        if (!bestResult || result.mf < bestResult.mf) bestResult = result;
-    }
-    return bestResult;
-}
-
-function acceptStructuralResult(state, result, temperature, it) {
-    if (metropolisAccept(state.current.mf, result.mf, temperature, state.rng)) {
-        state.current = {
-            design: {
-                ...result.design,
-                frontLayers: tidyLayers(result.design.frontLayers || [], state.dMin),
-            },
-            mf: result.mf,
-        };
-    }
-    if (result.mf < state.best.mf - 1e-12) {
-        state.best = { ...result };
-        state.noImprove = 0;
-        if (state.onTick) state.onTick({
-            phase: 'structural', mf: state.best.mf, layers: frontCount(state.best.design),
-            steps: it, elapsed: now() - state.t0,
-        });
-    } else {
-        state.noImprove++;
-    }
-    if (state.current.mf > state.best.mf * 1.3) {
-        state.current = { design: deep(state.best.design), mf: state.best.mf };
-    }
-}
-
-function reheatStructuralState(state, it) {
-    state.reheats++;
-    const kicked = basinKick(deep(state.best.design.frontLayers || []), {
-        rng: state.rng, pool: state.poolLite, dMin: state.dMin,
-        addMaxNm: 120, jitterPct: 0.15, kinds: MUTATION_KINDS, maxKick: 3,
-    });
-    const result = refinePrune(
-        { ...state.best.design, frontLayers: kicked },
-        state.ops, state.dMin, state.resolveMat, state.innerIter, state.engine,
-    );
-    state.current = {
-        design: { ...result.design, frontLayers: tidyLayers(result.design.frontLayers || [], state.dMin) },
-        mf: result.mf,
-    };
-    if (result.mf < state.best.mf - 1e-12) {
-        state.best = { ...result };
-        if (state.onTick) state.onTick({
-            phase: 'reheat', mf: state.best.mf, layers: frontCount(state.best.design),
-            steps: it, elapsed: now() - state.t0,
-        });
-    }
-    state.cycleStart = it + 1;
-    state.noImprove = 0;
-}
-
-function structuralStagnationPhase(state, it) {
-    const action = stagnationAction({
-        deepMode: state.deepMode, noImprove: state.noImprove, patience: state.patience,
-    });
-    if (action === 'stop') state.stopReason = 'patience';
-    if (action === 'reheat') reheatStructuralState(state, it);
-    return action;
-}
-
-/** Structural optimizer driver — faithful to StructuralOptimizer.js.
- *  cfg.deepMode: drop the STRUCT_MAXIT cap + patience early-stop, and
- *  REHEAT + basin-kick on stagnation instead of stopping — runs until `budgetMs`.
- *  cfg.poolIds: override the candidate material pool (default POOL_IDS). */
+/** Structural Optimizer driver: the window's own runner (structuralRun.js).
+ *  T0, the jitter and Max added default to the window's (STRUCTURAL_DEFAULTS);
+ *  iterations, proposals, Refine iter, Max layers and the budget to the
+ *  benchmark's SYNTH_DEFAULTS. Materials resolve through the built-in catalog
+ *  and are sampled onto the run's grid, as in the window, so `resolveMat` is
+ *  not used. An MNT operand raises Min thickness to its value, as in the
+ *  window. Resolves to the run's result, whose stopReason is 'maxIter',
+ *  'patience', 'budget', 'noProposals' or 'target'; rejects if the run fails.
+ *  cfg.budgetMs:      wall-clock limit, through the runner's own time check
+ *  cfg.structMaxIter: Max iterations;  cfg.structK: proposals per iteration
+ *                     (the window's thread count);  cfg.innerIter: Refine iter
+ *  cfg.deepMode:      Deep search (reheat on stagnation) until the budget
+ *  cfg.poolIds:       candidate pool, built-in ids (default POOL_IDS)
+ *  cfg.engine, cfg.seed, cfg.maxLayers, cfg.T0, cfg.addMaxNm, cfg.smartSeed
+ *  cfg.targetMF:      stop at this merit (default 0: run to the end). */
 export function runStructural(start, ops, dMin, resolveMat, cfg = {}, onTick) {
-    const state = makeStructuralState({ start, ops, dMin, resolveMat, cfg, onTick });
-    const HARD_CAP = 2_000_000;
-    for (let it = 1;
-        (state.deepMode ? it <= HARD_CAP : it <= state.structMaxIter) && now() - state.t0 < state.budgetMs;
-        it++) {
-        state.itDone = it;
-        const { proposals, temperature } = structuralProposals(state, it);
-        if (!proposals.length) { state.stopReason = 'noProposals'; break; }
-        const bestResult = evaluateStructuralProposals(state, proposals);
-        if (!bestResult) { state.noImprove++; continue; }
-        acceptStructuralResult(state, bestResult, temperature, it);
-        if (structuralStagnationPhase(state, it) === 'stop') break;
-    }
-    if (now() - state.t0 >= state.budgetMs) state.stopReason = 'budget';
-    return {
-        mf: state.best.mf,
-        layers: frontCount(state.best.design),
-        ms: now() - state.t0,
-        design: state.best.design,
-        reheats: state.reheats,
-        iters: state.itDone,
-        stopReason: state.stopReason,
-    };
+    const D = STRUCTURAL_DEFAULTS;
+    return runWindowStructural({
+        start, ops, onTick,
+        poolIds: cfg.poolIds && cfg.poolIds.length ? cfg.poolIds : POOL_IDS,
+        cfg: {
+            maxIter: cfg.structMaxIter ?? SYNTH_DEFAULTS.structMaxIter,
+            targetMF: cfg.targetMF ?? 0,
+            T0: cfg.T0 ?? D.T0,
+            jitterPct: D.jitterPct,
+            refineIter: cfg.innerIter ?? SYNTH_DEFAULTS.innerIter,
+            dMin,
+            addMaxNm: cfg.addMaxNm ?? D.addMaxNm,
+            maxLayers: cfg.maxLayers ?? SYNTH_DEFAULTS.maxLayers,
+            kinds: new Set(MUTATION_KINDS),
+            deepMode: !!cfg.deepMode,
+            deepMaxMin: (cfg.budgetMs ?? SYNTH_DEFAULTS.budgetMs) / 60000,
+            seed: cfg.seed ?? 777,
+            engine: cfg.engine || 'dls',
+            threads: cfg.structK ?? SYNTH_DEFAULTS.structK,
+            smartSeed: !!cfg.smartSeed,
+        },
+    });
 }
 
 // ── job model: one (case × optimizer × setting) cell ──────────────────────────────
@@ -834,8 +706,9 @@ function reportJobResult(result, state) {
     };
 }
 
-/** Run ONE job. `resolveMat` resolves material ids; `onTick` streams synth progress. */
-export function runJob(job, resolveMat, { onTick } = {}) {
+/** Run ONE job; resolves to its result. `resolveMat` resolves material ids;
+ *  `onTick` streams synth progress. */
+export async function runJob(job, resolveMat, { onTick } = {}) {
     const C = caseById(job.caseId);
     // Optimize WITH the MNT constraint (penalty in the DLS residual / SQP box)
     // when job.mnt is set; ALWAYS report the OPTICAL-only MF on the base operands
@@ -843,13 +716,14 @@ export function runJob(job, resolveMat, { onTick } = {}) {
     // whether the d ≥ mnt constraint was actually honored.
     //
     // FIDELITY to the real tools: Needle STRIPS thickness constraints by design
-    // (NeedleVariation.js: densifyForRun(enabled.filter(op => !isConstraint(...))))
-    // — an active MNT penalty wipes out every improving needle candidate, so
+    // (NeedleVariation.js: densifyForRun(enabled.filter(op => !isConstraint(...)))),
+    // since an active MNT penalty wipes out every improving needle candidate, so
     // Needle always runs optical-only and IGNORES MNT. GE keeps the constraint
     // (GradualEvolution.js does NOT filter constraints; its DLS refine applies the
-    // penalty, even though the needle SCAN sub-step is optical) and so do
-    // Refinement and Structural. Hence Needle shows MNT violations; GE/Structural/
-    // Refinement honor it.
+    // penalty, even though the needle SCAN sub-step is optical) and so does
+    // Refinement. Structural (the window's runner) raises its Min thickness to
+    // the MNT value and refines without the constraint rows. Hence Needle shows
+    // MNT violations; GE/Structural/Refinement honor it.
     let output;
     if (!C) {
         output = { err: `unknown case ${job.caseId}` };
@@ -861,7 +735,7 @@ export function runJob(job, resolveMat, { onTick } = {}) {
         };
         const runner = JOB_RUNNERS.get(job.kind);
         output = runner
-            ? reportJobResult(runner(state), state)
+            ? reportJobResult(await runner(state), state)
             : { err: `unknown kind ${job.kind}` };
     }
     return output;

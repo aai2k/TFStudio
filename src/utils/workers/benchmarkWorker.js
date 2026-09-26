@@ -8,9 +8,11 @@
  *
  * Materials: unlike the optimizer/synthesis workers (which pre-sample via
  * Approach A), the benchmark uses ONLY the built-in material database, which is
- * a pure-JS module importable straight into the worker — so `resolveMat` is just
+ * a pure-JS module importable straight into the worker, so `resolveMat` is just
  * `getMaterial`, no cross-thread sampling needed and the math is identical to
- * the main thread / CLI by construction.
+ * the main thread / CLI by construction. The Structural cell runs the window's
+ * runner, which draws the same built-in materials from the built-in catalog and
+ * samples them onto the run's grid, as the window does.
  *
  * WASM: the pool broadcasts `{type:'wasmInit', wasmBytes}` once at construction
  * (when the kernel is enabled); we instantiate it so the optimizer hot paths run
@@ -40,7 +42,7 @@ onmessage = async (e) => {
             lastPost = t;
             postMessage({ type: 'tick', jobId: job.id, ...info });
         };
-        const res = runJob(job, resolveMat, { onTick });
+        const res = await runJob(job, resolveMat, { onTick });
         postMessage({ type: 'result', jobId: job.id, wasm: tmmWasmActive(), ...res });
     } catch (err) {
         postMessage({ type: 'result', jobId: job && job.id, err: (err && err.message) || String(err) });

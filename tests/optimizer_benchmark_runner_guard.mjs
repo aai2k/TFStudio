@@ -3,7 +3,9 @@
  *
  * The expected hashes were captured from a known-good implementation. The
  * needle scenario starts from a 6000 nm seed, so its hash also pins how the
- * refiner treats a layer thicker than 2 µm.
+ * refiner treats a layer thicker than 2 µm. The Structural scenarios run the
+ * Structural Optimizer window's own runner, so a change to its search moves
+ * their hashes.
  */
 import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';
@@ -18,7 +20,9 @@ function digest(value) {
     return createHash('sha256').update(JSON.stringify(value)).digest('hex');
 }
 
-function withDeterminism(run, timeStep = 0.25) {
+// The Structural runner is async, so the clock and random stubs stay in place
+// until its promise settles; one scenario runs at a time.
+async function withDeterminism(run, timeStep = 0.25) {
     const savedRandom = Math.random;
     const savedNow = Object.getOwnPropertyDescriptor(performance, 'now');
     let randomState = 0x12345678;
@@ -32,7 +36,7 @@ function withDeterminism(run, timeStep = 0.25) {
         value: () => { const value = clock; clock += timeStep; return value; },
     });
     try {
-        return run();
+        return await run();
     } finally {
         Math.random = savedRandom;
         if (savedNow) Object.defineProperty(performance, 'now', savedNow);
@@ -40,9 +44,9 @@ function withDeterminism(run, timeStep = 0.25) {
     }
 }
 
-function runnerSnapshot(run, timeStep) {
+async function runnerSnapshot(run, timeStep) {
     const ticks = [];
-    const result = withDeterminism(() => run((tick) => ticks.push(tick)), timeStep);
+    const result = await withDeterminism(() => run((tick) => ticks.push(tick)), timeStep);
     return { result, ticks };
 }
 
@@ -94,19 +98,19 @@ const jobs = {
 
 const C = caseById('bbar');
 const runners = {
-    needle: runnerSnapshot((onTick) => runSynth(
+    needle: await runnerSnapshot((onTick) => runSynth(
         false, C.thick(), C.ops, 40, resolveMat,
         { budgetMs: 10000, maxLayers: 8, maxSteps: 4, innerIter: 3 }, onTick,
     )),
-    gradualEvolution: runnerSnapshot((onTick) => runSynth(
+    gradualEvolution: await runnerSnapshot((onTick) => runSynth(
         true, C.thin(), C.ops, 40, resolveMat,
         { budgetMs: 10000, maxLayers: 8, maxSteps: 8, innerIter: 3 }, onTick,
     )),
-    structural: runnerSnapshot((onTick) => runStructural(
+    structural: await runnerSnapshot((onTick) => runStructural(
         C.thin(), C.ops, 40, resolveMat,
         { budgetMs: 10000, maxLayers: 8, innerIter: 2, structK: 2, structMaxIter: 8, seed: 2468 }, onTick,
     )),
-    structuralDeepBudget: runnerSnapshot((onTick) => runStructural(
+    structuralDeepBudget: await runnerSnapshot((onTick) => runStructural(
         C.thin(), C.ops, 40, resolveMat,
         { budgetMs: 80, maxLayers: 2, innerIter: 0, structK: 1, structMaxIter: 6, seed: 97531, deepMode: true }, onTick,
     ), 1),
@@ -129,14 +133,14 @@ const expected = {
     emptySweep: '4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945',
     needle: '18f1d2ca96d633ea63557c2a7eb19a67d6f38932eca26386a59fed5d058a0721',
     gradualEvolution: '60b9d78c4dd8efe756719ec34975f6262edf8849b83ad5e2a08b17ce1a984bb9',
-    structural: '744d995f53e4e6f936894f96d01a92354d8d385440d75b21903b3e45a7959e63',
-    structuralDeepBudget: '7f05c1dbd8e282af2d1c70afd6ba341945a1f02609591e051869bfaea00d49e0',
+    structural: '47636b87b736b10ad89cf26d792bd5fb077c60be186163f01872ef64e82ec8f2',
+    structuralDeepBudget: '275e6229699bbf304c467207d2d3d3eb4a13a5f243055e50875dfb5fbb542067',
 };
 assert.deepEqual(actual, expected);
 
 for (const kind of ['missing', 'toString', 'constructor', '__proto__']) {
     assert.deepEqual(
-        runJob({ caseId: 'bbar', kind }, resolveMat),
+        await runJob({ caseId: 'bbar', kind }, resolveMat),
         { err: `unknown kind ${kind}` },
     );
 }

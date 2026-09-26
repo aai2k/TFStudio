@@ -3,7 +3,8 @@ import {
     buildEvalContext, evaluateOperands, calcMF, calcOMF,
 } from '../../../../../utils/physics/optimizer.js';
 import { tidyLayers } from '../../../../../utils/synthesis/structuralOptimizer.js';
-import { materialLookup, regridForDesign } from '../../synthesisShared/synthesisHelpers.js';
+import { materialLookup } from '../../synthesisShared/materialNames.js';
+import { regridForDesign } from '../../synthesisShared/runGrid.js';
 import { deep, mkLayers } from './runUtils.js';
 import { refineGuarded } from './workerLifecycle.js';
 
