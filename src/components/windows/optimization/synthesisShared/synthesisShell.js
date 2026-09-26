@@ -80,8 +80,8 @@ export function SynthesisControlBar({
         btn(labels.reset, '#5c6bc0', onReset, !canReset),
         // Per-side resets in both_independent (Needle / GE): restore one side
         // from the saved snapshot, keep the other side's timeline untouched.
-        onResetSide && isBothInd && smallBtn('↺ Front', () => onResetSide('front'), !canReset),
-        onResetSide && isBothInd && smallBtn('↺ Back',  () => onResetSide('back'),  !canReset),
+        onResetSide && isBothInd && smallBtn(t.synthesisShell.resetFront, () => onResetSide('front'), !canReset),
+        onResetSide && isBothInd && smallBtn(t.synthesisShell.resetBack,  () => onResetSide('back'),  !canReset),
         btn(labels.best, '#0288d1', onBest, !canReset),
         // Keep the design the run produced and start a clean history. Reset
         // undoes one run; this forgets all of them and touches nothing.

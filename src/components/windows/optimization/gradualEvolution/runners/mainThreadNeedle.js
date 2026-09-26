@@ -49,11 +49,11 @@ function startNeedleCandidate(ctx, S, idx) {
         S.dlsIter1 = 0;
     } catch (err) {
         console.error('[GE] DLS1 init failed:', err);
-        finalize(ctx, S, 'DLS init failed'); return;
+        finalize(ctx, S, S.tg.status.refinerFailed); return;
     }
     S.phase = 'dls1';
     ctx.setPhase('refining');
-    ctx.setStatusMsg('DLS refine 1…');
+    ctx.setStatusMsg(S.tg.status.refinePass(1));
     scheduleTick(ctx, S);
 }
 
@@ -70,8 +70,8 @@ export function phaseNeedleScan(ctx, S) {
 
     S.pool = ctx.getPoolMaterials(ctx.selectedCatsRef.current, ctx.excludedMatsRef.current);
     console.log(`[GE NeedleScan] pool=[${S.pool.map(p => p.name).join(', ')}]`);
-    ctx.setStatusMsg('Needle scan…');
-    if (!S.pool.length) { finalize(ctx, S, 'No candidate materials'); return; }
+    ctx.setStatusMsg(S.tg.status.scanning);
+    if (!S.pool.length) { finalize(ctx, S, S.tg.noMaterials); return; }
 
     const { candidates } = scanNeedlesPFunction({
         operands: S.operands, design, resolveMat, candidateMats: S.pool, deltaNm: 0.5, side: S.side,
@@ -116,7 +116,7 @@ export function phaseDls1(ctx, S) {
     if (pruned.length < prePruneCount) {
         console.log(`[GE Prune] ${prePruneCount}→${pruned.length} layers (removed ${prePruneCount - pruned.length})`);
     }
-    if (pruned.length === 0) { finalize(ctx, S, 'All layers pruned'); return; }
+    if (pruned.length === 0) { finalize(ctx, S, S.tg.status.allPruned); return; }
 
     const prunedDesign = { ...postDls1, [S.LK]: pruned };
     ctx.baseDesignRef.current = prunedDesign;
@@ -129,10 +129,10 @@ export function phaseDls1(ctx, S) {
         S.dlsIter2 = 0;
     } catch (err) {
         console.error('[GE] DLS2 init failed:', err);
-        finalize(ctx, S, 'DLS init failed'); return;
+        finalize(ctx, S, S.tg.status.refinerFailed); return;
     }
     S.phase = 'dls2';
-    ctx.setStatusMsg('DLS refine 2…');
+    ctx.setStatusMsg(S.tg.status.refinePass(2));
     scheduleTick(ctx, S);
 }
 
@@ -188,7 +188,7 @@ function acceptCandidate(ctx, S, { mfNow, mfNowOmf, finalDesign, nLayers }) {
 
     if (S.best.mf < ctx.targetMFRef.current) {
         console.log(`[GE] Converged: best MF=${S.best.mf.toFixed(6)} < tol=${ctx.targetMFRef.current}`);
-        finalize(ctx, S, `Converged MF=${S.best.mf.toFixed(6)}`); return;
+        finalize(ctx, S, S.tg.status.targetMet(S.best.mf)); return;
     }
     S.phase = 'needle_scan';
     ctx.setPhase('scanning');

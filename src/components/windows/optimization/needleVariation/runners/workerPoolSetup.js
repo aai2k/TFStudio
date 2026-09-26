@@ -35,7 +35,7 @@ export function wpPrepare(ctx) {
     const scanSides = (curDes.surfaceMode || 'front_only') === 'both_independent'
         ? ['front', 'back'] : [activeSide(curDes)];
     const pool = ctx.getPoolMaterials(ctx.selectedCatsRef.current, ctx.excludedMatsRef.current);
-    if (!pool.length) { ctx.setStatusMsg('No candidate materials'); return null; }
+    if (!pool.length) { ctx.setStatusMsg(ctx.t.needle.noMaterials); return null; }
     return { curDes, operands, scanSides, pool };
 }
 

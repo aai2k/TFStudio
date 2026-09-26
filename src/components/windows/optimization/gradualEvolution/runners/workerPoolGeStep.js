@@ -6,14 +6,17 @@
 // costs least, so the needles can place one somewhere better. Before either,
 // the design without the layers parked on the floor is tried, and a step that
 // led nowhere is not taken again from the same stack (undoneSteps.js). The run
-// ends on the GE-step budget, the target merit, or when no step is left. See
-// workerPool.js.
+// ends on the GE-step budget, the target merit, or when no step is left; with
+// Deep search it perturbs the best design instead and ends only on Stop or the
+// target (deepSearch.js). See workerPool.js.
 
 import { deep, designSnap, alive, onTick, applyDesignPatch, recordCycle } from './workerPoolCore.js';
 import { finalize } from './workerPoolFinalize.js';
 import {
-    noteStructuralStep, settleStructuralStep, forgetUndone, undoneForcedSteps, takenSwapStructures, structureOf,
+    noteStructuralStep, settleStructuralStep, forgetUndone, forgetTried, undoneForcedSteps, takenSwapStructures,
+    structureOf,
 } from './undoneSteps.js';
+import { perturbBest } from './deepSearch.js';
 
 const sideLayers = (S, sd) => (sd === 'back' ? S.work.backLayers : S.work.frontLayers);
 
@@ -83,7 +86,7 @@ async function dropParkedOnStall(ctx, S) {
 // after the step, or 'none' when no insertion is left.
 async function forcedStepOnSide(ctx, S, side) {
     const before = sideLayers(S, side);
-    ctx.setPhase('scanning'); ctx.setStatusMsg('Forced GE step…');
+    ctx.setPhase('scanning'); ctx.setStatusMsg(S.tg.status.geScanning);
     const _geT0 = performance.now();
     const gres = await S.workerPool.run({
         type: 'geStep', operands: S.operands,
@@ -111,7 +114,7 @@ async function forcedStepOnSide(ctx, S, side) {
 // needle optimization that follows can place a layer somewhere better.
 // Returns 'continue' after the step, or 'none' when no layer may be taken out.
 async function swapOnSide(ctx, S, side) {
-    ctx.setPhase('refining'); ctx.setStatusMsg('Freeing a layer…');
+    ctx.setPhase('refining'); ctx.setStatusMsg(S.tg.status.freeing);
     const res = await S.workerPool.run({
         type: 'dropWeakest', operands: S.operands,
         design: designSnap(S, S.work.frontLayers, S.work.backLayers),
@@ -123,6 +126,26 @@ async function swapOnSide(ctx, S, side) {
     console.log(`[GE] Freed a layer: took out layer ${res.i + 1}, MF ${res.baseMf.toFixed(6)} → ${res.mf.toFixed(6)}, layers=${res.nLayers}`);
     const newBest = applyStructuralResult(ctx, S, res, { type: 'clean', insertMat: null });
     noteStructuralStep(S, 'swap', { side: res.side, structure: res.structure }, newBest);
+    return 'continue';
+}
+
+// Deep search, with no forced step or swap left: the best design perturbed on
+// the scanned sides and refined in full becomes `work` (deepSearch.js), and
+// every forced insertion and swap is open again. Returns 'continue', or 'stop'
+// when the run was stopped meanwhile.
+async function perturbStep(ctx, S) {
+    ctx.setPhase('refining'); ctx.setStatusMsg(S.tg.status.perturbing);
+    const { frontLayers, backLayers, scale } = perturbBest(S, S.best, S.scanSides, S.dMin);
+    const res = await S.workerPool.run({
+        type: 'seedDls', operands: S.operands,
+        design: designSnap(S, frontLayers, backLayers),
+        materials: S.materials, dMin: S.dMin, dlsIter: S.dlsIter,
+        jobId: 'perturb', side: S.scanSides[0], engine: S.innerEngine,
+    }, (m) => onTick(ctx, S, 0, m));
+    if (!alive(ctx, S)) return 'stop';
+    console.log(`[GE] Deep search: best design perturbed by ±${Math.round(scale * 100)}%, refined to MF ${res.mf.toFixed(6)}`);
+    applyStructuralResult(ctx, S, { ...res, nLayers: res.layers.length }, { type: 'perturb', insertMat: null });
+    forgetTried(S);
     return 'continue';
 }
 
@@ -158,26 +181,28 @@ export async function stallStep(ctx, S) {
     if (await dropParkedOnStall(ctx, S)) forgetUndone(S);
     else outcome = await structuralStep(ctx, S);
     if (outcome === 'continue' && S.best.mf < S.targetMF) {
-        await finalize(ctx, S, `Converged MF=${S.best.mf.toFixed(6)}`);
+        await finalize(ctx, S, S.tg.status.targetMet(S.best.mf));
         return 'stop';
     }
     return outcome;
 }
 
 // One structural step within the GE-step budget: a swap first at the layer
-// limit and a forced step first below it. Returns 'continue' after a step, or
+// limit and a forced step first below it, then with Deep search a perturbation
+// of the best design, which has no budget. Returns 'continue' after a step, or
 // 'stop' once the run has finalized on the budget or with no step left.
 async function structuralStep(ctx, S) {
-    if (S.geSteps >= S.maxGeCycles) {
+    if (!S.deepSearch && S.geSteps >= S.maxGeCycles) {
         console.log(`[GE] Max GE steps reached (${S.geSteps})`);
-        await finalize(ctx, S, 'Max GE steps reached');
+        await finalize(ctx, S, S.tg.status.maxGeCycles(S.maxGeCycles));
         return 'stop';
     }
     const steps = atLayerLimit(S) ? [swapStep, forcedGeStep] : [forcedGeStep, swapStep];
+    if (S.deepSearch) steps.push(perturbStep);
     for (const step of steps) {
         const outcome = await step(ctx, S);
         if (outcome !== 'none') return outcome;
     }
-    await finalize(ctx, S, 'Converged (stuck)');
+    await finalize(ctx, S, S.tg.status.stuck);
     return 'stop';
 }

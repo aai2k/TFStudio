@@ -5,8 +5,9 @@
 // needle optimization), and at the layer limit a swap takes out the layer that
 // costs least. Before either, the design without the layers parked on the
 // floor is tried (phaseStall), and a step that led nowhere is not taken again
-// from the same stack (undoneSteps.js). As in the worker path
-// (workerPoolGeStep.js). See mainThread.js.
+// from the same stack (undoneSteps.js). With Deep search a perturbation of the
+// best design takes over when no step is left (deepSearch.js). As in the
+// worker path (workerPoolGeStep.js). See mainThread.js.
 
 import { scanGEInsertions, insertNeedle, cleanupLayers, removeWeakestLayer } from '../../../../../utils/physics/optimizer.js';
 import { refineWithoutParked } from '../../../../../utils/physics/optimizer/parkedLayers.js';
@@ -14,9 +15,10 @@ import { makeEngine } from '../../../../../utils/optimizers/index.js';
 import { materialLookup } from '../../synthesisShared/synthesisHelpers.js';
 import { setBase, recordCycle, finalize, scheduleTick, deepActive, gentleIter } from './mainThreadCore.js';
 import {
-    noteStructuralStep, settleStructuralStep, forgetUndone, undoneForcedSteps, isUndoneForcedStep,
+    noteStructuralStep, settleStructuralStep, forgetUndone, forgetTried, undoneForcedSteps, isUndoneForcedStep,
     takenSwapStructures, structureOf,
 } from './undoneSteps.js';
+import { perturbBest } from './deepSearch.js';
 
 // The run's per-step refine: `n` iterations of the inner engine on `d`.
 function refineOnMain(ctx, S) {
@@ -132,28 +134,46 @@ function swapStep(ctx, S) {
     return true;
 }
 
+// Deep search, with no forced step or swap left: the best design perturbed and
+// refined in full becomes `work`, and every forced insertion and swap is open
+// again, as in the worker path (workerPoolGeStep.js, perturbStep).
+function perturbStep(ctx, S) {
+    const base = ctx.baseDesignRef.current;
+    const p = perturbBest(S, { ...base, [S.LK]: S.best.front }, [S.side], ctx.dMinRef.current);
+    const start = { ...base, frontLayers: p.frontLayers, backLayers: p.backLayers };
+    const eng = refineOnMain(ctx, S)(start, ctx.dlsIterRef.current);
+    console.log(`[GE] Deep search: best design perturbed by ±${Math.round(p.scale * 100)}%, refined to MF ${eng.mf.toFixed(6)}`);
+    applyStructuralResult(ctx, S, { design: eng.applyToDesign(start), mf: eng.mf, omf: eng.mfOpticalAt(eng.thicknesses) },
+        { type: 'perturb', insertMat: null });
+    forgetTried(S);
+    return true;
+}
+
 // Needle optimization has stalled: the design without its parked layers when
 // that is a new best; otherwise a structural step, a swap first at the layer
 // limit and a forced step first below it, each leaving out what led nowhere
-// from this stack.
+// from this stack, then with Deep search a perturbation of the best design,
+// which has no GE-step budget.
 export function phaseStall(ctx, S) {
     setBase(ctx, S, S.work.front);
     settleStructuralStep(S);
     if (dropParkedOnStall(ctx, S)) {
         forgetUndone(S);
     } else {
-        if (ctx.geStepsRef.current >= ctx.maxGeCyclesRef.current) {
+        const deepSearch = !!ctx.deepSearchRef?.current;
+        if (!deepSearch && ctx.geStepsRef.current >= ctx.maxGeCyclesRef.current) {
             console.log(`[GE] Max GE steps reached (${ctx.geStepsRef.current}) — restoring best MF=${S.best.mf.toFixed(6)}`);
-            finalize(ctx, S, 'Max GE steps reached'); return;
+            finalize(ctx, S, S.tg.status.maxGeCycles(ctx.maxGeCyclesRef.current)); return;
         }
         S.pool = ctx.getPoolMaterials(ctx.selectedCatsRef.current, ctx.excludedMatsRef.current);
-        if (!S.pool.length) { finalize(ctx, S, 'No candidate materials'); return; }
+        if (!S.pool.length) { finalize(ctx, S, S.tg.noMaterials); return; }
         const atLimit = (ctx.baseDesignRef.current[S.LK] || []).length >= ctx.maxLayersRef.current;
         const steps = atLimit ? [swapStep, forcedStep] : [forcedStep, swapStep];
-        if (!steps.some(step => step(ctx, S))) { finalize(ctx, S, 'Converged (stuck)'); return; }
+        if (deepSearch) steps.push(perturbStep);
+        if (!steps.some(step => step(ctx, S))) { finalize(ctx, S, S.tg.status.stuck); return; }
     }
     if (S.best.mf < ctx.targetMFRef.current) {
-        finalize(ctx, S, `Converged MF=${S.best.mf.toFixed(6)}`); return;
+        finalize(ctx, S, S.tg.status.targetMet(S.best.mf)); return;
     }
     S.phase = 'needle_scan';
     ctx.dlsRef.current = null;

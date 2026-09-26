@@ -135,7 +135,7 @@ function mtRefineStep(run) {
             return;
         }
         console.log(`[Needle] All ${run.queue.length} improving candidates failed → needle-optimal, restoring best`);
-        mtFinalize(run, 'Needle-optimal (all candidates exhausted)');
+        mtFinalize(run, ctx.t.needle.status.noImprove);
         return;
     }
 
@@ -150,7 +150,7 @@ function mtRefineStep(run) {
 
     if (best.mf < ctx.targetMFRef.current) {
         console.log(`[Needle] Converged: MF=${best.mf.toFixed(6)} < target=${ctx.targetMFRef.current}`);
-        mtFinalize(run, `Converged MF=${best.mf.toFixed(6)}`);
+        mtFinalize(run, ctx.t.needle.status.targetMet(best.mf));
         return;
     }
 

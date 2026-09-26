@@ -4,9 +4,10 @@ const { createElement: h } = React;   // React is a window global (never importe
 
 // ── Shared Top-Designs (Pareto front) panel ─────────────────────────────────────
 // Lists the Pareto-optimal generations (best MF at each layer count). `genPrefix`
-// labels the generation number ("Gen N" for needle/GE, "#N" for structural). The
-// insert-material column renders per row only for generations that carry one.
-export function TopDesignsPanel({ topDesigns, bestMF, onRestore, c, labels, genPrefix = 'Gen ' }) {
+// labels the generation number ("Gen N" for needle/GE, "#N" for structural), and
+// `labels.layers(n)` the layer count. The insert-material column renders per
+// row only for generations that carry one.
+export function TopDesignsPanel({ topDesigns, bestMF, onRestore, c, labels, genPrefix }) {
     if (!topDesigns.length) return null;
     // Generations are numbered within their run, so the number alone stops being
     // unique once a second run has produced Pareto entries. Qualify it with the
@@ -33,7 +34,7 @@ export function TopDesignsPanel({ topDesigns, bestMF, onRestore, c, labels, genP
                             h('td', { style: { padding: '2px 8px', fontSize: 11, color: c.textDim, width: 56 } },
                                 genLabel(gen)),
                             h('td', { style: { padding: '2px 8px', fontSize: 11, color: c.text, width: 60 } },
-                                `${gen.layerCount} lyr`),
+                                labels.layers(gen.layerCount)),
                             h('td', { style: { padding: '2px 8px', fontSize: 11, fontWeight: isBest ? 700 : 400, color: isBest ? c.success : c.text } },
                                 gen.mf.toFixed(6)),
                             gen.insertMat && h('td', {

@@ -46,12 +46,7 @@ const seedDesign = () => ({
     backLayers: [], surfaceMode: 'front_only', mfEvalMode: 'side',
 });
 
-const tStub = { needle: {
-    noOperands: 'no operands',
-    smartSeeding:  (n) => `smart-seeding ${n}`,
-    rescueTrying:  (n) => `rescue: ${n} thicker starts`,
-    rescueApplied: (f, tot) => `rescue x${f} (${tot} nm)`,
-} };
+const { default: EN } = await import('../src/constants/locales/en.js');
 
 // In-process fake pool: exactly mirrors the Web Worker's onmessage — per job it
 // rebuilds resolveMat from job.materials and runs dispatchSynthesisJob, routing
@@ -100,7 +95,7 @@ function makeRun(counter) {
         reconcileBaseWithEdits: noop,
         getPoolMaterials: () => POOL,
         setCachedOptState: noop,
-        t: tStub, stopOpt: noop,
+        t: EN, stopOpt: noop,
         makeWorkerPool: () => makeFakePool(counter),
         _started: false,
     };

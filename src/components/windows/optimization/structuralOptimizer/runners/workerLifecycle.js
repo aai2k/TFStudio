@@ -76,7 +76,7 @@ export function createWorkers(ctx, count) {
         return true;
     } catch (err) {
         console.error('[Structural] worker construction failed:', err);
-        ctx.setStatusMsg('Worker init failed');
+        ctx.setStatusMsg(ctx.ts.statusWorkerFailed);
         ctx.killWorkers();
         return false;
     }

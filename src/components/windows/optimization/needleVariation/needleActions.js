@@ -92,7 +92,7 @@ function resetSide(ctx, updateDesign, side) {
     }
     ctx.gensRef.current = ctx.gensRef.current.filter(g => g.side !== side);
     syncFromGens(ctx);
-    ctx.setStatusMsg(`${side === 'front' ? 'Front' : 'Back'} side reset`);
+    ctx.setStatusMsg(ctx.t.needle.status.sideReset(side));
     cacheRun(ctx);
 }
 

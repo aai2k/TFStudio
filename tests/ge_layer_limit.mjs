@@ -34,6 +34,8 @@ const { getMaterial } = await import('../src/utils/materials/materialDatabase.js
 const { dispatchSynthesisJob } = await import('../src/utils/workers/synthesisWorker.js');
 const { makeResolveMat } = await import('../src/utils/workers/resolveMat.js');
 const { fitsLayerLimit } = await import('../src/components/windows/optimization/gradualEvolution/runners/undoneSteps.js');
+const { default: EN } = await import('../src/constants/locales/en.js');
+const ST = EN.gradualEvolution.status;
 
 let pass = 0, fail = 0;
 const ok = (name, cond, detail = '') => {
@@ -131,7 +133,7 @@ function geCtx(design, operands, settings) {
         setCycles: noop, setGeneration: noop, setLayerCount: noop, setGeSteps: noop, reconcileBaseWithEdits: noop,
         stopOpt: () => { ctx.runningRef.current = false; },
         getPoolMaterials: () => POOL,
-        t: { gradualEvolution: { noOperands: 'no operands', smartSeeding: n => `seeding ${n}` } },
+        t: EN,
     };
     return ctx;
 }
@@ -188,7 +190,7 @@ const { runGeWorker } = await import('../src/components/windows/optimization/gra
     ok('runner at the limit: frees a layer instead of finishing', kinds.includes('dropWeakest') && ctx.cyclesRef.current.some(r => r.type === 'clean' && r.layerCount === 2),
         ctx.cyclesRef.current.map(r => `${r.type}:${r.layerCount}`).join(','));
     ok('runner at the limit: the first freeing leaves nothing out', jobs.find(j => j.type === 'dropWeakest')?.skip?.length === 0);
-    ok('runner at the limit: ends on the GE-step budget, not on the layer limit', ctx.status === 'Max GE steps reached', ctx.status);
+    ok('runner at the limit: ends on the GE-step budget, not on the layer limit', ctx.status === ST.maxGeCycles(3), ctx.status);
 }
 
 // ── 5. Broadband AR at most 7 layers, real synthesis jobs ────────────────────
@@ -220,7 +222,7 @@ function afterLimit(rows) {
     const rows = ctx.cyclesRef.current;
     const { first, atLimit, later } = afterLimit(rows);
     ok('worker path: the run reaches 7 layers', first >= 0);
-    ok('worker path: it keeps searching after that', types.includes('dropWeakest') && later.length > 0 && ctx.status !== 'Max layers reached', ctx.status);
+    ok('worker path: it keeps searching after that', types.includes('dropWeakest') && later.length > 0 && ctx.status !== ST.maxLayers(7), ctx.status);
     ok('worker path: it ends better than it was at the limit', Math.min(...rows.map(r => r.mf)) < atLimit - 1e-9,
         `${Math.min(...rows.map(r => r.mf))} vs ${atLimit}`);
     ok('worker path: no row and no final design holds more than 7 layers',
@@ -233,7 +235,7 @@ function afterLimit(rows) {
     const rows = ctx.cyclesRef.current;
     const { first, atLimit, later } = afterLimit(rows);
     ok('main thread: the run reaches 7 layers', first >= 0);
-    ok('main thread: it keeps searching after that', later.length > 0 && logged.some(l => l.includes('Freed a layer')) && ctx.status !== 'Max layers reached', ctx.status);
+    ok('main thread: it keeps searching after that', later.length > 0 && logged.some(l => l.includes('Freed a layer')) && ctx.status !== ST.maxLayers(7), ctx.status);
     ok('main thread: it ends better than it was at the limit', Math.min(...rows.map(r => r.mf)) < atLimit - 1e-9,
         `${Math.min(...rows.map(r => r.mf))} vs ${atLimit}`);
     ok('main thread: no row and no final design holds more than 7 layers',

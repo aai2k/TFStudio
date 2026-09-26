@@ -9,8 +9,11 @@
  *   3. Run DLS refinement until convergence.
  *   4. Repeat (1)–(3) until a termination criterion is met:
  *        • MF < targetMF
- *        • Layer count ≥ maxLayers
  *        • GE steps ≥ maxGeCycles
+ *        • no forced step or layer swap is left
+ *      maxLayers limits the design and does not end the run. With Deep search
+ *      only the first applies: when no step is left the best design is
+ *      perturbed and the run goes on (runners/deepSearch.js).
  *
  * References:
  *   - H.A. Macleod, Thin-Film Optical Filters 5th ed., §"Automatic Design" (Ch.13,
@@ -41,8 +44,8 @@ export function GradualEvolution({ c, theme, t }) {
         layerCount, canReset, statusMsg,
         catalogs, selectedCats, handleToggleCat, handleSelectAllCats, handleClearCats,
         excludedMats, handleToggleMat,
-        maxLayers, maxGeCycles, targetMF, dlsIter, dMin, maxMNT,
-        setMaxLayers, setMaxGeCycles, setTargetMF, setDlsIter, handleDMin,
+        maxLayers, maxGeCycles, targetMF, dlsIter, dMin, maxMNT, deepSearch,
+        setMaxLayers, setMaxGeCycles, setTargetMF, setDlsIter, handleDMin, setDeepSearch,
         runOpt, stopOpt, resetOpt, bestOpt, handleRestore,
         clearHistoryOpt, hasHistory,
     } = useGradualEvolution({ design, updateDesign, checkpoint, beginOptimization, endOptimization, getDesignRevision, t });
@@ -79,10 +82,10 @@ export function GradualEvolution({ c, theme, t }) {
             onSelectAllCats: handleSelectAllCats, onClearCats: handleClearCats,
             excludedMats, onToggleMat: handleToggleMat,
             maxLayers, maxGeCycles, targetMF,
-            dlsIter, dMin, maxMNT,
+            dlsIter, dMin, maxMNT, deepSearch,
             onMaxLayers: setMaxLayers, onMaxGeCycles: setMaxGeCycles,
             onTargetMF: setTargetMF,
-            onDlsIter: setDlsIter, onDMin: handleDMin,
+            onDlsIter: setDlsIter, onDMin: handleDMin, onDeepSearch: setDeepSearch,
             running, c, t,
         }),
         trend: h(MFTrendChart, { cycles, c, theme, emptyMsg: tg.noTrendYet, t }),
@@ -92,8 +95,8 @@ export function GradualEvolution({ c, theme, t }) {
             showSide: showSideCol, c, t,
         }),
         topDesigns: h(SharedTopDesignsPanel, {
-            topDesigns, bestMF: bestMFVal, onRestore: handleRestore, c, genPrefix: 'Gen ',
-            labels: { topDesigns: tg.topDesigns, restore: tg.restore, runSeparator: tg.runSeparator },
+            topDesigns, bestMF: bestMFVal, onRestore: handleRestore, c, genPrefix: `${tg.genCol} `,
+            labels: { topDesigns: tg.topDesigns, restore: tg.restore, runSeparator: tg.runSeparator, layers: t.synthesisShell.layers },
         }),
     });
 }

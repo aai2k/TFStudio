@@ -69,7 +69,7 @@ function acceptBatchWinner(ctx, S, win, timing) {
 async function refineOneBatch(ctx, S, req, timing) {
     const { sd, batch, i } = req;
     ctx.setPhase('refining');
-    ctx.setStatusMsg(`${S.innerEngine.toUpperCase()} refine ${batch.length} candidate${batch.length > 1 ? 's' : ''}${S.scanSides.length > 1 ? ` (side=${sd})` : ''}…`);
+    ctx.setStatusMsg(S.tg.status.refiningCandidates(batch.length, S.scanSides.length > 1 ? sd : null));
     const bsnap = designSnap(S, deep(S.work.frontLayers), deep(S.work.backLayers));
     const _rT0 = performance.now();
     const results = await S.workerPool.map(batch.map((cand, bi) => ({
@@ -106,7 +106,7 @@ async function refineOneBatch(ctx, S, req, timing) {
 // single-side modes it is called once with the forced side.
 export async function tryAcceptOnSide(ctx, S, sd) {
     ctx.setPhase('scanning');
-    ctx.setStatusMsg(S.scanSides.length > 1 ? `Needle scan side=${sd}…` : 'Needle scan…');
+    ctx.setStatusMsg(S.scanSides.length > 1 ? S.tg.status.scanningSide(sd) : S.tg.status.scanning);
     // ── timing (per-generation cost breakdown) ──
     const genT0 = performance.now();
     const timing = { genT0, scanMs: 0, refMs: 0, nCand: 0 };

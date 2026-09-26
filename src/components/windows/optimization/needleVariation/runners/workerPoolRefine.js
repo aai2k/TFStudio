@@ -82,7 +82,7 @@ export function wpAcceptCandidate(run, batch, results, pick) {
     console.log(`[Needle] ACCEPT (best of ${batch.length}, side=${candSide}): MF=${best.mf.toFixed(6)} layers=${best[candLK].length} mat=${cand.materialId}`);
     if (best.mf < ctx.targetMFRef.current) {
         console.log(`[Needle] Converged: MF=${best.mf.toFixed(6)} < target=${ctx.targetMFRef.current}`);
-        return `Converged MF=${best.mf.toFixed(6)}`;
+        return ctx.t.needle.status.targetMet(best.mf);
     }
     return null;
 }
@@ -126,7 +126,7 @@ export async function wpRefineBatches(run, queue) {
     for (let i = 0; i < queue.length && batchN < run.maxBatches && wpAlive(run); i += run.K, batchN++) {
         const batch = queue.slice(i, i + run.K);
         ctx.setPhase('refining');
-        ctx.setStatusMsg(`Refining ${batch.length} candidate${batch.length > 1 ? 's' : ''} (parallel)…`);
+        ctx.setStatusMsg(ctx.t.needle.status.refiningCandidates(batch.length));
         const bsnap = run.designSnap(run.deep(best.frontLayers), run.deep(best.backLayers));
         const results = await run.workerPool.map(batch.map((cand, bi) => ({
             type: 'candidate', pipeline: 'needle',

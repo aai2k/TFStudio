@@ -43,6 +43,7 @@ const O = await import('../src/utils/physics/optimizer.js');
 const { getMaterial } = await import('../src/utils/materials/materialDatabase.js');
 const { dispatchSynthesisJob } = await import('../src/utils/workers/synthesisWorker.js');
 const { makeResolveMat } = await import('../src/utils/workers/resolveMat.js');
+const { default: EN } = await import('../src/constants/locales/en.js');
 
 let pass = 0, fail = 0;
 const ok = (name, cond, detail = '') => {
@@ -157,7 +158,7 @@ function geCtx(design, operands, settings) {
         setCycles: noop, setGeneration: noop, setLayerCount: noop, setGeSteps: noop, reconcileBaseWithEdits: noop,
         stopOpt: () => { ctx.runningRef.current = false; },
         getPoolMaterials: () => POOL,
-        t: { gradualEvolution: { noOperands: 'no operands', smartSeeding: n => `seeding ${n}` } },
+        t: EN,
     };
     return ctx;
 }

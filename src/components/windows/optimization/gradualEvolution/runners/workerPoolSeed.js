@@ -84,7 +84,7 @@ export async function seedPhase(ctx, S) {
         sres = smart.result;
     }
     if (!sres) {
-        ctx.setStatusMsg(S.preserveBulk ? 'Seed (bulk preserved)…' : 'Seed refinement…');
+        ctx.setStatusMsg(S.preserveBulk ? S.tg.status.seedKeptBulk : S.tg.status.seedRefining);
         sres = await S.workerPool.run({
             type: 'seedDls', operands: S.operands,
             design: designSnap(S, mkLayers(S.curDes.frontLayers), mkLayers(S.curDes.backLayers)),

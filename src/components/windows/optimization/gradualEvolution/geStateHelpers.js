@@ -197,7 +197,7 @@ export function performReset(side, ctx) {
         }
         cyclesRef.current = cyclesRef.current.filter(cy => cy.side !== side);
         syncFromCycles(ctx);
-        setStatusMsg(`${side === 'front' ? 'Front' : 'Back'} side reset`);
+        setStatusMsg(ctx.t.gradualEvolution.status.sideReset(side));
         cacheRun(ctx);
         return;
     }

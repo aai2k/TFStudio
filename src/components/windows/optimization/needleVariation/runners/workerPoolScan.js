@@ -58,9 +58,9 @@ export async function wpScanCycle(run) {
     // EITHER still has room we continue.
     const remainingSides = run.scanSides.filter(sd =>
         (sd === 'front' ? baseFront.length : baseBack.length) < run.maxLayers);
-    if (remainingSides.length === 0) return { done: true, reason: 'Max layers reached' };
+    if (remainingSides.length === 0) return { done: true, reason: ctx.t.needle.status.maxLayers(run.maxLayers) };
 
-    ctx.setPhase('scanning'); ctx.setStatusMsg('Scanning needles…');
+    ctx.setPhase('scanning'); ctx.setStatusMsg(ctx.t.needle.status.scanning);
     const snap = run.designSnap(baseFront, baseBack);
     const scanJobs = [];
     for (const sd of remainingSides) {
@@ -88,6 +88,6 @@ export async function wpScanCycle(run) {
             (a.dMF - b.dMF) || ((a.pos ?? 0) - (b.pos ?? 0)) ||
             (a.materialId < b.materialId ? -1 : a.materialId > b.materialId ? 1 : 0)),
         getNeedleSensFloor());
-    if (queue.length === 0) return { done: true, reason: 'Needle-optimal (no improving needle)' };
+    if (queue.length === 0) return { done: true, reason: ctx.t.needle.status.noImprove };
     return { queue };
 }

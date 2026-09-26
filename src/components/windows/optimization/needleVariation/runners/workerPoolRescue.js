@@ -30,11 +30,10 @@ import { wpRegridIfGrown, wpRegridFrom } from './workerPoolSetup.js';
 // the visible and near-infrared designs a stall is normally hiding behind.
 const SCALE_LADDER = [2, 4, 8, 16];
 
-// Stop reasons that mean "no improving needle survived refinement" rather than a
-// budget being spent. Only these are worth another start; max-layers and a
-// reached target are real endings.
-export const isStallReason = (reason) =>
-    typeof reason === 'string' && reason.startsWith('Needle-optimal');
+// The stop reason that means "no improving needle survived refinement" rather
+// than a budget being spent, the run's needle-optimal status. Only that one is
+// worth another start; max-layers and a reached target are real endings.
+export const isStallReason = (reason, t) => reason === t.needle.status.noImprove;
 
 const scaleLayers = (layers, factor) =>
     (layers || []).map(l => (l.locked ? { ...l } : { ...l, thickness: (l.thickness || 0) * factor }));

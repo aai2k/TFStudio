@@ -38,6 +38,7 @@ const { regridForDesign, meritOf } = await import('../src/components/windows/opt
 const { runNeedleWorkerPool } = await import('../src/components/windows/optimization/needleVariation/runners/workerPool.js');
 const { dispatchSynthesisJob } = await import('../src/utils/workers/synthesisWorker.js');
 const { makeResolveMat } = await import('../src/utils/workers/resolveMat.js');
+const { default: EN } = await import('../src/constants/locales/en.js');
 
 let fails = 0;
 const ok = (cond, msg) => { if (!cond) { console.error('FAIL:', msg); fails++; } else console.log('ok:', msg); };
@@ -118,12 +119,7 @@ const ctx = {
     reconcileBaseWithEdits: noop,
     getPoolMaterials: () => POOL,
     setCachedOptState: noop,
-    t: { needle: {
-        noOperands: 'no operands',
-        smartSeeding: (n) => `smart-seeding ${n}`,
-        rescueTrying: (n) => `rescue: ${n} thicker starts`,
-        rescueApplied: (f, tot) => `rescue x${f} (${tot} nm)`,
-    } },
+    t: EN,
     stopOpt: noop,
     makeWorkerPool: () => makeFakePool(),
 };

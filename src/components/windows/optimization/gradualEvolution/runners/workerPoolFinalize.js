@@ -16,7 +16,7 @@ export async function consolidateBest(ctx, S) {
     const total = (S.best.frontLayers?.length || 0) + (S.best.backLayers?.length || 0);
     if (!getSynthesisConsolidate() || ctx.workerRef.current !== S.workerPool || total <= 1) return;
     ctx.setPhase('refining');
-    ctx.setStatusMsg('Consolidating layers…');
+    ctx.setStatusMsg(S.tg.status.consolidating);
     let res;
     try {
         res = await S.workerPool.run({

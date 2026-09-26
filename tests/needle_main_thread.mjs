@@ -22,6 +22,7 @@ await initWasmForTest();
 const { caseById } = await import('../src/utils/benchmark/optimizerBenchmark.js');
 const { getMaterial } = await import('../src/utils/materials/materialDatabase.js');
 const { runNeedleMainThread } = await import('../src/components/windows/optimization/needleVariation/runners/mainThread.js');
+const { default: EN } = await import('../src/constants/locales/en.js');
 
 let pass = 0, fail = 0;
 const ok = (name, cond) => { if (cond) pass++; else { fail++; console.error('FAIL:', name); } };
@@ -66,6 +67,7 @@ function makeRun() {
         reconcileBaseWithEdits: noop,
         getPoolMaterials: () => POOL,
         setCachedOptState: (_id, state) => { ctx.cached = state; },
+        t: EN,
         _started: false,
     };
     return { ctx, done };

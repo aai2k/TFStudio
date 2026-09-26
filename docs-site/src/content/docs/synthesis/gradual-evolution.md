@@ -12,6 +12,8 @@ A forced layer of the same material as the outer layer it lands on only thickens
 
 **Max layers** limits how many layers the design may hold; reaching it does not end the run. At the limit Gradual Evolution takes only needles that fit, and when none of them improves the design it frees a layer: it takes out the layer whose removal costs least, refines, and lets the needles place a layer somewhere better. Each freeing shows as a **Clean** row and is tried once per run for the structure it leaves. The run ends when it has used its **GE cycles**, reaches the **Target MF**, or has no forced step or freeing left to try. **Stop** ends it at any time and keeps the best design found.
 
+**Deep search** keeps a run going when it has nothing left to try. Instead of ending, Gradual Evolution starts again from the best design with every unlocked thickness perturbed, refines it, and goes on from there with needles, forced steps and freeings. The first perturbation after a new best is small, within 10 % of each thickness; each one that finds nothing better is twice as large, up to 80 %, and then they start small again. Each shows as a **Perturb** row. With Deep search on, **GE cycles** does not apply: the run ends only when it reaches the **Target MF** or you press **Stop**, and the best design found is kept.
+
 ## Settings
 
 **Candidate materials**: the pool of materials Gradual Evolution may insert. **All / Clear** select or empty the pool in one click.
@@ -20,13 +22,15 @@ A forced layer of the same material as the outer layer it lands on only thickens
 
 **Target MF**: stop once the merit function reaches this value (0 means run all cycles).
 
+**Deep search**: keep searching until **Stop** or the **Target MF** (see above).
+
 The advanced section exposes the synthesis tuning:
 
 **Refine iterations**: the refinement each candidate insertion gets, in two passes, the second with half the steps. While the bulk of a thick seed is kept (**Seed mode**), a pass is at most 15 steps.
 
 **dMin (nm)**: the insertion floor and prune threshold. Gradual Evolution can push below the minimum thickness limit during its forced step, which is part of how it escapes a tight minimum. A needle inside a layer is offered only where both parts of the split layer stay at or above the floor, and each layer is scanned at 16 positions. A layer that refinement drives down onto the floor is kept while needle insertions still improve the design. When they stop, before the forced step, Gradual Evolution refines the design without its layers on the floor and keeps that version only if it beats the best design so far; it shows as a **Clean** row in the series.
 
-**GE cycles**: how many forced steps and freed layers the run may take in all; this is what ends a long run. Typically 20–60.
+**GE cycles**: how many forced steps and freed layers the run may take in all; this is what ends a long run unless Deep search is on. Typically 20–60.
 
 **Inner refiner**: which method refines the stack between steps. See [Optimization Methods](/synthesis/optimization-methods/) for the choices.
 
@@ -48,3 +52,4 @@ A larger candidate pool (three to six materials) often beats simply allowing mor
 
 - Tikhonravov, Trubetskov & DeBell, *Appl. Opt.* **46**, 704 (2007).
 - Sullivan & Dobrowolski, *Appl. Opt.* **35**, 5484 (1996).
+- Wales & Doye, *J. Phys. Chem. A* **101**, 5111 (1997).

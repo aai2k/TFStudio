@@ -47,7 +47,7 @@ async function wpRunCycle(run) {
     const ref = await wpRefineBatches(run, scan.queue);
     if (ref.aborted) return 'abort';
     if (ref.done) return ref.reason;
-    return ref.accepted ? null : 'Needle-optimal (all candidates exhausted)';
+    return ref.accepted ? null : run.ctx.t.needle.status.noImprove;
 }
 
 // Async driver: optional smart-seed, then scan → refine cycles until a stop
@@ -61,7 +61,7 @@ async function wpRun(run) {
             const reason = await wpRunCycle(run);
             if (reason === 'abort') return;
             if (reason === null) continue;
-            if (isStallReason(reason) && await wpThinStartRescue(run)) continue;
+            if (isStallReason(reason, run.ctx.t) && await wpThinStartRescue(run)) continue;
             if (!wpAlive(run)) return;
             wpFinalize(run, reason);
             return;

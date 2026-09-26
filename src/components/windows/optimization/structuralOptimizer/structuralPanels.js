@@ -246,6 +246,7 @@ export function HistoryTable({ generations, bestMF, onRestore, showSide, c, t })
             noGens: ts.noGens, genCol: ts.genCol, layersCol: ts.layersCol, mfCol: ts.mfCol, omfCol: ts.omfCol,
             totCol: ts.totCol, timeCol: ts.timeCol, dMFCol: ts.dMFCol, matCol: ts.matCol, restore: ts.restore,
             runSeparator: (n) => (seeds.has(n) ? ts.runSeparatorSeed(n, seeds.get(n)) : ts.runSeparator(n)),
+            sideCol: t.synthesisShell.sideCol, sideFront: t.synthesisShell.sideFront, sideBack: t.synthesisShell.sideBack,
         },
         typeColumn: {
             header: ts.opCol,
@@ -263,6 +264,9 @@ export function HistoryTable({ generations, bestMF, onRestore, showSide, c, t })
 export function TopDesignsPanel({ topDesigns, bestMF, onRestore, c, t }) {
     return h(SharedTopDesignsPanel, {
         topDesigns, bestMF, onRestore, c, genPrefix: '#',
-        labels: { topDesigns: t.structural.topDesigns, restore: t.structural.restore, runSeparator: t.structural.runSeparator },
+        labels: {
+            topDesigns: t.structural.topDesigns, restore: t.structural.restore, runSeparator: t.structural.runSeparator,
+            layers: t.synthesisShell.layers,
+        },
     });
 }

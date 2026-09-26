@@ -71,6 +71,14 @@ export function forgetUndone(S) {
     S.afterStep = null;
 }
 
+// Deep search moved the design to a new start (deepSearch.js): the refine can
+// take a structure somewhere else from there, so every forced insertion and
+// every swap is open again.
+export function forgetTried(S) {
+    forgetUndone(S);
+    S.swapsTaken = [];
+}
+
 // The forced insertions the next forced step on `layers` may not use, as
 // { side, pos, materialId }: those undone on this same structure.
 export const undoneForcedSteps = (S, side, layers) => {

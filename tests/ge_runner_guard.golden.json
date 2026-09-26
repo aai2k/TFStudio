@@ -261,7 +261,7 @@
     "omfBest": 0.001202981,
     "layerCount": 6,
     "geSteps": 2,
-    "status": "Max GE steps reached"
+    "status": "Max GE cycles (2) reached."
   },
   "mainThread/back": {
     "cycles": [
@@ -525,7 +525,7 @@
     "omfBest": 0.001202981,
     "layerCount": 6,
     "geSteps": 2,
-    "status": "Max GE steps reached"
+    "status": "Max GE cycles (2) reached."
   },
   "worker/front": {
     "cycles": [
@@ -816,7 +816,7 @@
     "omfBest": 0.2,
     "layerCount": 3,
     "geSteps": 2,
-    "status": "Converged (stuck)"
+    "status": "Nothing left to try. Deep search keeps a run going."
   },
   "worker/back": {
     "cycles": [
@@ -1107,6 +1107,6 @@
     "omfBest": 0.2,
     "layerCount": 3,
     "geSteps": 2,
-    "status": "Converged (stuck)"
+    "status": "Nothing left to try. Deep search keeps a run going."
   }
 }

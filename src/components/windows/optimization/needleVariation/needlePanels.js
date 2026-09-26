@@ -150,6 +150,7 @@ export function GenerationsTable({ generations, bestMF, onRestore, showSide, c, 
             mfCol: tn.mfCol, omfCol: tn.omfCol, totCol: tn.totCol, timeCol: tn.timeCol,
             dMFCol: tn.dMFCol, matCol: tn.matCol, restore: tn.restore,
             runSeparator: tn.runSeparator, rescueRow: tn.rescueRow,
+            sideCol: t.synthesisShell.sideCol, sideFront: t.synthesisShell.sideFront, sideBack: t.synthesisShell.sideBack,
         },
     });
 }
@@ -157,7 +158,10 @@ export function GenerationsTable({ generations, bestMF, onRestore, showSide, c, 
 // ── Top designs (Pareto front) panel ─────────────────────────────────────────
 export function TopDesignsPanel({ topDesigns, bestMF, onRestore, c, t }) {
     return h(SharedTopDesignsPanel, {
-        topDesigns, bestMF, onRestore, c, genPrefix: 'Gen ',
-        labels: { topDesigns: t.needle.topDesigns, restore: t.needle.restore, runSeparator: t.needle.runSeparator },
+        topDesigns, bestMF, onRestore, c, genPrefix: `${t.needle.genCol} `,
+        labels: {
+            topDesigns: t.needle.topDesigns, restore: t.needle.restore, runSeparator: t.needle.runSeparator,
+            layers: t.synthesisShell.layers,
+        },
     });
 }

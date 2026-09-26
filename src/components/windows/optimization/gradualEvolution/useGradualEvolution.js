@@ -46,6 +46,9 @@ function useGeSettings(design) {
     const [targetMF,      setTargetMF]      = usePersistentNumber('tfstudio_ge_targetMF', 5e-4);
     const [dlsIter,       setDlsIter]       = usePersistentNumber('tfstudio_ge_dlsIter', 30);
     const [dMin,          setDMin, dMinFromStorage] = usePersistentNumber('tfstudio_ge_dMin', 15.0);
+    // Deep search (runners/deepSearch.js): 1 = perturb the best design when
+    // nothing is left to try, and run until Stop or the target.
+    const [deepSearch,    setDeepSearch]    = usePersistentNumber('tfstudio_ge_deepSearch', 0);
     // M19: the "preemptive trigger" knobs (preemptiveN / preemptiveRel) were
     // declared, persisted and UI-exposed but never consumed by the tick loop —
     // removed rather than shipping dead controls that mislead the user.
@@ -60,11 +63,13 @@ function useGeSettings(design) {
     const targetMFRef    = useRef(5e-4);
     const dlsIterRef     = useRef(80);
     const dMinRef        = useRef(15.0);
+    const deepSearchRef  = useRef(false);
     useEffect(() => { maxLayersRef.current   = maxLayers;   }, [maxLayers]);
     useEffect(() => { maxGeCyclesRef.current = maxGeCycles; }, [maxGeCycles]);
     useEffect(() => { targetMFRef.current    = targetMF;    }, [targetMF]);
     useEffect(() => { dlsIterRef.current     = dlsIter;     }, [dlsIter]);
     useEffect(() => { dMinRef.current        = dMin;        }, [dMin]);
+    useEffect(() => { deepSearchRef.current  = !!deepSearch; }, [deepSearch]);
 
     const operands = design?.meritOperands || [];
     const maxMNT = operands.reduce(
@@ -75,9 +80,9 @@ function useGeSettings(design) {
     const handleDMin = useCallback((v) => { dMinTouchedRef.current = true; setDMin(v); }, []);
 
     return {
-        maxLayers, maxGeCycles, targetMF, dlsIter, dMin, setDMin, maxMNT,
-        setMaxLayers, setMaxGeCycles, setTargetMF, setDlsIter, handleDMin,
-        maxLayersRef, maxGeCyclesRef, targetMFRef, dlsIterRef, dMinRef,
+        maxLayers, maxGeCycles, targetMF, dlsIter, dMin, setDMin, maxMNT, deepSearch,
+        setMaxLayers, setMaxGeCycles, setTargetMF, setDlsIter, handleDMin, setDeepSearch,
+        maxLayersRef, maxGeCyclesRef, targetMFRef, dlsIterRef, dMinRef, deepSearchRef,
         dMinTouchedRef, lastIdForDMin,
         selectedCats, selectedCatsRef, handleToggleCat, handleSelectAllCats, handleClearCats,
         excludedMats, excludedMatsRef, handleToggleMat,
@@ -224,6 +229,7 @@ export function useGradualEvolution({ design, updateDesign, checkpoint, beginOpt
             updateDesignRef, checkpointRef,
             maxLayersRef: settings.maxLayersRef, maxGeCyclesRef: settings.maxGeCyclesRef,
             targetMFRef: settings.targetMFRef, dlsIterRef: settings.dlsIterRef, dMinRef: settings.dMinRef,
+            deepSearchRef: settings.deepSearchRef,
             selectedCatsRef: settings.selectedCatsRef, excludedMatsRef: settings.excludedMatsRef,
             setPhase: run.setPhase, setStatusMsg: run.setStatusMsg, setCanReset: run.setCanReset,
             setMf: run.setMf, setOmf: run.setOmf, setMfBest: run.setMfBest, setOmfBest: run.setOmfBest,
@@ -293,6 +299,7 @@ export function useGradualEvolution({ design, updateDesign, checkpoint, beginOpt
         excludedMats: settings.excludedMats, handleToggleMat: settings.handleToggleMat,
         maxLayers: settings.maxLayers, maxGeCycles: settings.maxGeCycles, targetMF: settings.targetMF,
         dlsIter: settings.dlsIter, dMin: settings.dMin, maxMNT: settings.maxMNT,
+        deepSearch: settings.deepSearch, setDeepSearch: settings.setDeepSearch,
         setMaxLayers: settings.setMaxLayers, setMaxGeCycles: settings.setMaxGeCycles,
         setTargetMF: settings.setTargetMF, setDlsIter: settings.setDlsIter, handleDMin: settings.handleDMin,
         runOpt, stopOpt, resetOpt, bestOpt, handleRestore,

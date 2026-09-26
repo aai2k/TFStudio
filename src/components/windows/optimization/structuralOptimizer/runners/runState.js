@@ -70,7 +70,7 @@ function checkMaterials(state) {
         return true;
     } catch (err) {
         console.error('[Structural] pre-sampling failed:', err);
-        ctx.setStatusMsg('Pre-sampling failed');
+        ctx.setStatusMsg(ctx.ts.statusPresampleFailed);
         return false;
     }
 }

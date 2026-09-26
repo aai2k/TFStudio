@@ -35,6 +35,7 @@ const { getMaterial } = await import('../src/utils/materials/materialDatabase.js
 const { dispatchSynthesisJob } = await import('../src/utils/workers/synthesisWorker.js');
 const { SYNTHESIS_INTRA_SAMPLES } = await import('../src/utils/synthesis/synthesisConfig.js');
 const { needleManualSession } = await import('../src/components/windows/optimization/needleManual/sessionState.js');
+const { default: EN } = await import('../src/constants/locales/en.js');
 
 let pass = 0, fail = 0;
 const ok = (name, cond, detail = '') => {
@@ -165,7 +166,7 @@ async function runGeMock(answer, maxGeCycles = 1) {
         setCycles: noop, setGeneration: noop, setLayerCount: noop, setGeSteps: noop, reconcileBaseWithEdits: noop,
         stopOpt: () => { ctx.runningRef.current = false; },
         getPoolMaterials: () => POOL,
-        t: { gradualEvolution: { noOperands: 'no operands', smartSeeding: n => `seeding ${n}` } },
+        t: EN,
     };
     quiet();
     runGeWorker(ctx);
@@ -358,7 +359,7 @@ ok('automatic synthesis samples as many positions per layer as the Needle window
             setLayerCount: noop, setCanReset: noop, setGeneration: noop, setGenerations: noop, setTopDesigns: noop,
             reconcileBaseWithEdits: noop, setCachedOptState: noop, stopOpt: () => { ctx.runningRef.current = false; },
             getPoolMaterials: () => POOL, makeWorkerPool: () => pool,
-            t: { needle: { noOperands: 'no operands', smartSeeding: n => `seeding ${n}`, rescueTrying: n => `rescue ${n}`, rescueApplied: f => `rescue x${f}` } },
+            t: EN,
         };
         quiet();
         runNeedleWorkerPool(ctx);

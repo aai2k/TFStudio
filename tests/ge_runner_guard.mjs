@@ -123,6 +123,7 @@ const { runGeMainThread } = await import('../src/components/windows/optimization
 const { runGeWorker }     = await import('../src/components/windows/optimization/gradualEvolution/runners/workerPool.js');
 const { makeOperand }     = await import('../src/utils/physics/optimizer.js');
 const { materialLookup }  = await import('../src/components/windows/optimization/synthesisShared/synthesisHelpers.js');
+const { default: EN }     = await import('../src/constants/locales/en.js');
 
 const ref = v => ({ current: v });
 const sleep = ms => new Promise(r => setTimeout(r, ms));
@@ -157,7 +158,7 @@ function makeCtx(design, ops, settings) {
             { id: 'TiO2', name: 'TiO2', mat: resolveMaterial('TiO2') },
             { id: 'SiO2', name: 'SiO2', mat: resolveMaterial('SiO2') },
         ],
-        t: { gradualEvolution: { noOperands: 'no-ops', smartSeeding: (n) => `seeding ${n}` } },
+        t: EN,
     };
     return { ctx, snap };
 }

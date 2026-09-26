@@ -51,11 +51,11 @@ export function mtStartCandidate(run, idx) {
     } catch (err) {
         console.error('[Needle] DLS init failed:', err);
         ctx.dlsRef.current = null;
-        mtFinalize(run, 'DLS init failed');
+        mtFinalize(run, ctx.t.needle.status.refinerFailed);
         return;
     }
     ctx.setPhase('refining');
-    ctx.setStatusMsg('Refining…');
+    ctx.setStatusMsg(ctx.t.needle.status.refiningCandidate);
     ctx.timerRef.current = setTimeout(() => run.tick(), 0);
 }
 
@@ -69,19 +69,19 @@ export function mtScanStep(run) {
 
     if (layerCount >= ctx.maxLayersRef.current) {
         console.log(`[Needle] Max layers reached (${layerCount}) — restoring best`);
-        mtFinalize(run, 'Max layers reached');
+        mtFinalize(run, ctx.t.needle.status.maxLayers(ctx.maxLayersRef.current));
         return;
     }
 
     run.pool = ctx.getPoolMaterials(ctx.selectedCatsRef.current, ctx.excludedMatsRef.current);
     if (!run.pool.length) {
-        mtFinalize(run, 'No candidate materials');
+        mtFinalize(run, ctx.t.needle.noMaterials);
         return;
     }
 
     console.log(`[Needle Scan] layers=${layerCount} pool=[${run.pool.map(p => p.name).join(', ')}]`);
     ctx.setPhase('scanning');
-    ctx.setStatusMsg('Scanning needles…');
+    ctx.setStatusMsg(ctx.t.needle.status.scanning);
     const resolveMat = materialLookup(ctx.baseDesignRef.current);
 
     const { candidates, mf0 } = scanNeedlesPFunction({
@@ -107,7 +107,7 @@ export function mtScanStep(run) {
 
     if (run.queue.length === 0) {
         console.log('[Needle Scan] No improving needle — needle-optimal, restoring best');
-        mtFinalize(run, 'Needle-optimal (no improving needle)');
+        mtFinalize(run, ctx.t.needle.status.noImprove);
         return;
     }
     mtStartCandidate(run, 0);

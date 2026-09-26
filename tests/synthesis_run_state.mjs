@@ -28,6 +28,7 @@ const geSession = await import('../src/components/windows/optimization/gradualEv
 const { syncOnDesignSwitch } = await import('../src/components/windows/optimization/needleVariation/needleLifecycle.js');
 const { performReset: needleReset } = await import('../src/components/windows/optimization/needleVariation/needleActions.js');
 const needleSession = await import('../src/components/windows/optimization/needleVariation/sessionState.js');
+const { default: EN } = await import('../src/constants/locales/en.js');
 
 let pass = 0, fail = 0;
 const ok = (name, cond, detail = '') => {
@@ -96,7 +97,7 @@ async function runGeAfterFinishedRun({ geSteps, maxGeCycles, designId }) {
         setCycles: noop, setGeneration: noop, setLayerCount: noop, setGeSteps: v => shown.push(v), reconcileBaseWithEdits: noop,
         stopOpt: () => { ctx.runningRef.current = false; },
         getPoolMaterials: () => POOL,
-        t: { gradualEvolution: { noOperands: 'no operands', smartSeeding: n => `seeding ${n}` } },
+        t: EN,
     };
     quiet();
     runGeWorker(ctx);
@@ -178,7 +179,7 @@ for (const [label, revNow, kept] of [['edited while closed', 7, false], ['not ed
     Object.assign(ctx, {
         stopOpt: noop, dlsRef: ref(null), designRef: ref(media(cachedStack, 'needle-cache')), baseRevRef: ref(9),
         runsRef: ref([run1]), gensRef: ref([{ runNum: 1, genNum: 1, mf: 0.1, side: 'front' }]),
-        t: { needle: { runSeparator: n => `Run ${n}` } },
+        t: EN,
     });
     needleReset(ctx, noop, 'front');
     ok('Needle: the cache written on a side reset carries the edit revision',

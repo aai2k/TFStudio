@@ -45,7 +45,7 @@ async function tryEachSide(ctx, S, orderedSides) {
             needleAccepted = true;
             if (S.best.mf < S.targetMF) {
                 console.log(`[GE] Converged: best MF=${S.best.mf.toFixed(6)} < tol=${S.targetMF}`);
-                await finalize(ctx, S, `Converged MF=${S.best.mf.toFixed(6)}`);
+                await finalize(ctx, S, S.tg.status.targetMet(S.best.mf));
                 return 'stop';
             }
         }
@@ -110,7 +110,7 @@ export function runGeWorker(ctx) {
     const scanSides = surfaceMode === 'both_independent' ? ['front', 'back'] : [activeSide(curDes)];
 
     const pool = ctx.getPoolMaterials(ctx.selectedCatsRef.current, ctx.excludedMatsRef.current);
-    if (!pool.length) { ctx.setStatusMsg('No candidate materials'); return; }
+    if (!pool.length) { ctx.setStatusMsg(ctx.t.gradualEvolution.noMaterials); return; }
 
     // Open a run block for this press unless one is still open from a Stop.
     // The block records the design the press started from, which is what Reset
@@ -178,6 +178,7 @@ export function runGeWorker(ctx) {
         scanSides, innerEngine, preserveBulk, dlsIter,
         stepIter: preserveBulk ? Math.min(dlsIter, PRESERVE_BULK_GENTLE_ITER) : dlsIter,
         maxLayers: ctx.maxLayersRef.current, maxGeCycles: ctx.maxGeCyclesRef.current,
+        deepSearch: !!ctx.deepSearchRef?.current,
         targetMF: ctx.targetMFRef.current, dMin: ctx.dMinRef.current,
         maxBatches: getSynthesisMaxBatches(),      // cap candidate escalation
         tg: ctx.t.gradualEvolution,

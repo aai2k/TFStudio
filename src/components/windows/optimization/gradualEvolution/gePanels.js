@@ -101,9 +101,9 @@ export function ControlBar({ running, generation, layerCount, mf, mfBest, geStep
 export function LeftSidebar({ catalogs, selectedCats, onToggleCat, onSelectAllCats, onClearCats,
                        excludedMats, onToggleMat,
                        maxLayers, maxGeCycles, targetMF,
-                       dlsIter, dMin, maxMNT,
+                       dlsIter, dMin, maxMNT, deepSearch,
                        onMaxLayers, onMaxGeCycles, onTargetMF,
-                       onDlsIter, onDMin,
+                       onDlsIter, onDMin, onDeepSearch,
                        running, c, t }) {
     const tg = t.gradualEvolution;
     const { numRow, selRow, chkRow } = makeRowHelpers({ c, running });
@@ -122,6 +122,7 @@ export function LeftSidebar({ catalogs, selectedCats, onToggleCat, onSelectAllCa
         // Smart starting design: generate + refine canonical AR seeds on the
         // worker pool at run start, begin from the best (incl. current design).
         chkRow(tg.smartSeed, () => getSynthesisSmartSeed('ge'), (v) => setSynthesisSmartSeed(v, 'ge'), tg.smartSeedHelp),
+        chkRow(tg.deepSearch, () => !!deepSearch, (v) => onDeepSearch(v ? 1 : 0), tg.deepSearchHelp),
     ];
 
     const advanced = [
@@ -166,6 +167,7 @@ const TYPE_BADGES = {
     seed:     { color: '#ffb300', label: tg => tg.typeSeed },
     baseline: { color: '#78909c', label: tg => tg.typeBaseline },
     refine:   { color: '#7e57c2', label: tg => tg.typeRefine },
+    perturb:  { color: '#26a69a', label: tg => tg.typePerturb },
 };
 function badgeBg(cy, c) {
     const badge = TYPE_BADGES[cy.type];
@@ -196,6 +198,7 @@ export function CyclesTable({ cycles, bestMF, onRestore, showSide, c, t }) {
             mfCol: tg.mfCol, omfCol: tg.omfCol, totCol: tg.totCol, timeCol: tg.timeCol,
             dMFCol: tg.dMFCol, matCol: tg.matCol, restore: tg.restore,
             runSeparator: tg.runSeparator,
+            sideCol: t.synthesisShell.sideCol, sideFront: t.synthesisShell.sideFront, sideBack: t.synthesisShell.sideBack,
         },
         // GE's extra Needle/GE "type" badge column (inserted after Side).
         typeColumn: {

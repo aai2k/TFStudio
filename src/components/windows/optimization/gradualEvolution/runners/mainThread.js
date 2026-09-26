@@ -83,7 +83,7 @@ export function runGeMainThread(ctx) {
     // state machine: 'seed_dls' | 'needle_scan' | 'dls1' | 'dls2' | 'ge_step'
     // ('seed_dls' refines the current design before any needle scanning).
     const S = {
-        side, LK, operands, innerEngine, preserveBulk,
+        side, LK, operands, innerEngine, preserveBulk, tg: ctx.t.gradualEvolution,
         runT0: performance.now() - _prevElapsed,
         phase: 'seed_dls', seedIter: 0, dlsIter1: 0, dlsIter2: 0,
         best: { mf: Infinity, front: null }, work: { mf: Infinity, front: null },
@@ -98,7 +98,7 @@ export function runGeMainThread(ctx) {
         ctx.dlsRef.current = makeEngine(
             innerEngine, operands, ctx.baseDesignRef.current, materialLookup(curDes),
             { dMin: ctx.dMinRef.current });
-        ctx.setStatusMsg('Seed refinement…');
+        ctx.setStatusMsg(S.tg.status.seedRefining);
     } catch (err) {
         console.error('[GE] Seed DLS init failed:', err);
         ctx.runningRef.current = false; ctx.setPhase('idle'); return;
