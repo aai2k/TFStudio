@@ -12,14 +12,18 @@ const { useState, useMemo, useCallback, useEffect, useRef } = React;
 // runs. Stop ends the pass and applies the cleanup with the best thicknesses
 // so far. Closing the window or switching to another design discards the
 // pass: its result belongs to the design it started on, and the update would
-// land on whichever design is active by then.
-function useCleanupRun({ dc, design, preview, settings, resolveMaterial, updateDesign, checkpoint }) {
+// land on whichever design is active by then. The result is written with the
+// latest updateDesign: the one from the click applies its patch to the design
+// as it was then, and would put back anything edited while the pass ran.
+export function useCleanupRun({ dc, design, preview, settings, resolveMaterial, updateDesign, checkpoint }) {
     const [applying,  setApplying]  = useState(false);
     const [progress,  setProgress]  = useState(null);
     const [resultMsg, setResultMsg] = useState(null);
     const runRef = useRef(null);            // { designId, ctrl, closed } of the pass in flight
     const designIdRef = useRef(design?.id);
     designIdRef.current = design?.id;
+    const updateDesignRef = useRef(updateDesign);
+    updateDesignRef.current = updateDesign;
 
     useEffect(() => () => {
         const run = runRef.current;
@@ -49,7 +53,7 @@ function useCleanupRun({ dc, design, preview, settings, resolveMaterial, updateD
             if (sameDesign()) {
                 // Single undo checkpoint covers both the cleanup and any refinement
                 if (typeof checkpoint === 'function') checkpoint();
-                updateDesign({ frontLayers: nextDesign.frontLayers, backLayers: nextDesign.backLayers });
+                updateDesignRef.current({ frontLayers: nextDesign.frontLayers, backLayers: nextDesign.backLayers });
                 setResultMsg(msg);
             } else {
                 setResultMsg(dc.discarded);
@@ -60,7 +64,7 @@ function useCleanupRun({ dc, design, preview, settings, resolveMaterial, updateD
         runRef.current = null;
         setProgress(null);
         setApplying(false);
-    }, [preview, dc, design, updateDesign, checkpoint, settings, resolveMaterial]);
+    }, [preview, dc, design, checkpoint, settings, resolveMaterial]);
 
     const stop = useCallback(() => runRef.current?.ctrl.abort(), []);
 
