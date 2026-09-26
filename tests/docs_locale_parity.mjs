@@ -4,7 +4,7 @@
  * and not the other still builds, so the drift is invisible until a reader
  * hits it.
  *
- * Two things are checked, both language-neutral so translation is free to
+ * Three things are checked, all language-neutral so the wording is free to
  * differ:
  *
  *   1. Every English page has a Chinese counterpart at the same slug, and no
@@ -16,6 +16,8 @@
  *      deliberately not compared, because some fences carry a commentary
  *      column that is translated. This is what would have caught the CDC
  *      definition being added to the English Group Delay page alone.
+ *   3. Outside the fences, the pages have the same headings, paragraphs, list
+ *      items and table rows (blockShape).
  *
  * Run: node tests/docs_locale_parity.mjs
  */
@@ -68,5 +70,54 @@ for (const slug of english) {
 }
 assert.deepEqual(drifted, [],
     `every fenced block is the same size in an English page and its ${MIRROR} counterpart`);
+
+/**
+ * The block shape of a page outside its fences: the level of each heading,
+ * and how many paragraphs, list items and table rows it has. A block is a run
+ * of non-blank lines; a line that continues a wrapped paragraph or list item
+ * belongs to the block above it. Translation keeps every one of these, so a
+ * paragraph, bullet or row added to one language and not the other shows up
+ * here. This is what would have caught eighteen Chinese pages falling behind
+ * their English pages in September 2026.
+ */
+function blockShape(text) {
+    const shape = { headings: [], paragraphs: 0, listItems: 0, tableRows: 0 };
+    let inFence = false, inBlock = false;
+    for (const raw of text.replace(/^---[\s\S]*?---/, '').split(/\r?\n/)) {
+        const line = raw.trim();
+        const fence = line.startsWith('```');
+        if (fence) inFence = !inFence;
+        if (fence || inFence || !line) { inBlock = false; continue; }
+        const kind = lineKind(line);
+        if (kind === 'heading') shape.headings.push(line.match(/^#+/)[0].length);
+        else if (kind === 'row') shape.tableRows++;
+        else if (kind === 'item') shape.listItems++;
+        else if (kind === 'text' && !inBlock) shape.paragraphs++;
+        inBlock = kind !== 'heading';
+    }
+    return shape;
+}
+
+// What a line outside a fence is: a heading, a table row, a table's separator
+// rule, a list item, markup (HTML, an MDX import, a quote), or text.
+function lineKind(line) {
+    if (/^#{1,6}\s/.test(line)) return 'heading';
+    if (line.startsWith('|')) return /^\|[\s:|-]+\|$/.test(line) ? 'rule' : 'row';
+    if (/^([-*+]|\d+\.)\s/.test(line)) return 'item';
+    return /^(<|import |>)/.test(line) ? 'markup' : 'text';
+}
+
+const reshaped = [];
+for (const slug of english) {
+    const source = blockShape(fs.readFileSync(path.join(DOCS, slug), 'utf8'));
+    const mirror = blockShape(fs.readFileSync(path.join(DOCS, MIRROR, slug), 'utf8'));
+    const differs = ['paragraphs', 'listItems', 'tableRows']
+        .filter(key => source[key] !== mirror[key])
+        .map(key => `${key} ${source[key]}/${mirror[key]}`);
+    if (source.headings.join() !== mirror.headings.join()) differs.unshift(`headings ${source.headings.join('')}/${mirror.headings.join('')}`);
+    if (differs.length) reshaped.push(`${slug}: ${differs.join(', ')} (English/${MIRROR})`);
+}
+assert.deepEqual(reshaped, [],
+    `every English page and its ${MIRROR} counterpart have the same headings, paragraphs, list items and table rows`);
 
 console.log(`PASS: docs_locale_parity (${english.length} pages mirrored)`);
