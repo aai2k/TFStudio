@@ -51,6 +51,8 @@ const BENCH = new Set([
     'cone_angle_offload_perf.mjs',    // worker responsiveness under a heavy cone display job
     'nk_characterization.mjs',        // n,k extraction checked against known films, a full fit per case
     'nk_characterization_synthetic.mjs', // the same over synthetic measurements and the model set
+    'filter_design_angle.mjs',        // Filter Design integer search at angles, several full searches
+    'filter_design_working_angle.mjs', // Filter Design working angle, several full searches checked by TMM
 ]);
 
 // ── Arg parsing ──────────────────────────────────────────────────────────────
