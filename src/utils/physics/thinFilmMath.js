@@ -276,18 +276,28 @@ function fillTotalSpectrumWasm(result, lambdas, materials, validFront, validBack
  * an end wavelength that lies on the grid is always kept. Each point is rounded
  * to 1e-9 nm, which strips binary residue such as 0 + 3 × 0.1 =
  * 0.30000000000000004 without merging the points of any usable step.
+ *
+ * The end wavelength is always the last point. A step that does not divide the
+ * span stops short of it (300-2500 nm at 3 nm reaches 2499), so it is added
+ * after one shorter interval. A gap under a millionth of a step is float
+ * residue, as from a step worked out as span/(n − 1): the last point is moved
+ * onto the end instead of leaving a sliver interval before it.
  */
 export function buildLambdaGrid(lambdaStart, lambdaEnd, lambdaStep) {
     let step = Number(lambdaStep);
     if (!(step > 0)) step = 5;
     const start = Number(lambdaStart);
-    const span = (Number(lambdaEnd) - start) / step;
+    const end = Number(lambdaEnd);
+    const span = (end - start) / step;
     if (!(span >= 0)) return [];
     const count = Math.floor(span + 1e-9 * Math.max(1, span)) + 1;
     const lambdas = new Array(count);
     for (let i = 0; i < count; i++) {
         lambdas[i] = Math.round((start + i * step) * 1e9) / 1e9;
     }
+    const last = Math.round(end * 1e9) / 1e9;
+    if (last - lambdas[count - 1] > 1e-6 * step) lambdas.push(last);
+    else if (count > 1) lambdas[count - 1] = last;
     return lambdas;
 }
 

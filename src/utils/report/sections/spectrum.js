@@ -77,17 +77,21 @@ export function spectrumAxes(settings, tr) {
   };
 }
 
-/** Sample indices at every `step` nm from the start of the grid. */
+/**
+ * Sample indices at every `step` nm from the start of the grid: for each
+ * wavelength, the grid point nearest it. The grid's own wavelengths are
+ * searched, since its last interval can be shorter than the rest.
+ */
 export function stepIndices(lambda, step) {
   if (!lambda.length) return [];
   if (!(step > 0) || lambda.length < 2) return lambda.map((_, i) => i);
-  const dl = (lambda[lambda.length - 1] - lambda[0]) / (lambda.length - 1);
+  const end = lambda[lambda.length - 1];
   const out = [];
-  let last = -1;
-  for (let lam = lambda[0]; lam <= lambda[lambda.length - 1] + 1e-9; lam += step) {
-    const i = Math.min(lambda.length - 1, Math.round((lam - lambda[0]) / dl));
-    if (i !== last) out.push(i);
-    last = i;
+  let j = 0;
+  for (let k = 0; lambda[0] + k * step <= end + 1e-9; k++) {
+    const lam = lambda[0] + k * step;
+    while (j + 1 < lambda.length && Math.abs(lambda[j + 1] - lam) <= Math.abs(lambda[j] - lam)) j++;
+    if (out[out.length - 1] !== j) out.push(j);
   }
   return out;
 }

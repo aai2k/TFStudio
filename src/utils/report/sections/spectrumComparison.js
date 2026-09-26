@@ -12,13 +12,24 @@ import { enabledCurves, stepIndices, stepTable, spectrumAxes, spectrumPlot } fro
 // One line style per quantity; the design is told by its color.
 const CURVE_DASH = { T: null, R: '4 3', A: '1 3', Ts: '2 2', Rs: '6 2', Tp: '8 3 2 3', Rp: '8 3 2 3 2 3' };
 
-/** Index of the grid point at `lam`, or -1 when the grid does not carry it. */
+/**
+ * Index of the grid point nearest `lam`, or -1 when the grid does not carry
+ * it: `lam` lies more than half an interval past either end. The grid's own
+ * wavelengths are searched, since its last interval can be shorter than the
+ * rest.
+ */
 export function nearestIndex(lambda, lam) {
-  if (!lambda.length) return -1;
-  const dl = lambda.length > 1 ? (lambda[lambda.length - 1] - lambda[0]) / (lambda.length - 1) : 1;
-  const i = Math.round((lam - lambda[0]) / dl);
-  const inside = i >= 0 && i < lambda.length && Math.abs(lambda[i] - lam) <= dl / 2 + 1e-9;
-  return inside ? i : -1;
+  const n = lambda.length;
+  if (!n) return -1;
+  if (n === 1) return Math.abs(lambda[0] - lam) <= 0.5 + 1e-9 ? 0 : -1;
+  if (lam <= lambda[0]) return lambda[0] - lam <= (lambda[1] - lambda[0]) / 2 + 1e-9 ? 0 : -1;
+  if (lam >= lambda[n - 1]) return lam - lambda[n - 1] <= (lambda[n - 1] - lambda[n - 2]) / 2 + 1e-9 ? n - 1 : -1;
+  let lo = 0, hi = n - 1;
+  while (hi - lo > 1) {
+    const mid = (lo + hi) >> 1;
+    if (lambda[mid] <= lam) lo = mid; else hi = mid;
+  }
+  return lam - lambda[lo] < lambda[hi] - lam ? lo : hi;
 }
 
 function comparisonSeries(ready, curves, axes) {

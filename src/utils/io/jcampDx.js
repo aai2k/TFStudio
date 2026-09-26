@@ -12,8 +12,10 @@
  *   - `##XYPOINTS= (XY..XY)` (explicit x,y pairs, any spacing).
  *   - Compound LINK files: every XYDATA/XYPOINTS record becomes one spectrum.
  * Supported on EXPORT:
- *   - AFFN `##XYDATA= (X++(Y..Y))` for a uniform grid (design spectra always are),
- *     else AFFN `##XYPOINTS= (XY..XY)`. Single block, or a `LINK` of N blocks.
+ *   - AFFN `##XYDATA= (X++(Y..Y))` for a uniform grid, else AFFN
+ *     `##XYPOINTS= (XY..XY)`. A design spectrum is uniform unless its step does
+ *     not divide its range, which leaves a shorter last interval. Single block,
+ *     or a `LINK` of N blocks.
  *
  * X is carried in the file's XUNITS (nm / cm⁻¹ / µm); the caller converts to nm
  * via makeMeasuredCurve. Pure module (no DOM/Node) — unit-tested in

@@ -24,6 +24,8 @@ const { composeReport, pdfHeaderTemplate, pdfFooterTemplate, reportFileBase } =
 const { layerColumnCount } = await import('../src/utils/report/sections/layers.js');
 const { groupPeriods } = await import('../src/utils/report/sections/layerGroups.js');
 const { stepIndices } = await import('../src/utils/report/sections/spectrum.js');
+const { nearestIndex } = await import('../src/utils/report/sections/spectrumComparison.js');
+const { buildLambdaGrid } = await import('../src/utils/physics/thinFilmMath.js');
 
 const tr = makeLocale('en').report;
 
@@ -278,6 +280,24 @@ assert.equal(layerColumnCount(5, false, 4), 4, 'an explicit column count wins ev
   assert.equal(stepIndices(lambda, 10).length, 41, 'every 10 nm over 400-800 nm is 41 rows');
   assert.equal(stepIndices(lambda, 0).length, lambda.length, 'a zero step keeps every sample');
   assert.equal(stepIndices([550], 10).length, 1);
+
+  // A step that does not divide the range leaves a shorter last interval
+  // (300-2500 nm at 3 nm ends 2499, 2500). Every 50 nm row is still the grid
+  // point nearest the wavelength asked for, and in a comparison table every
+  // design carries it.
+  const uneven = buildLambdaGrid(300, 2500, 3);
+  const rows = stepIndices(uneven, 50);
+  assert.equal(rows.length, 45, 'every 50 nm over 300-2500 nm is 45 rows');
+  rows.forEach((i, k) => {
+    const want = 300 + 50 * k;
+    const best = Math.min(...uneven.map(l => Math.abs(l - want)));
+    assert.equal(Math.abs(uneven[i] - want), best, `row ${k} is the grid point nearest ${want} nm, got ${uneven[i]}`);
+  });
+  assert.equal(uneven[rows[42]], 2400, 'a wavelength on the grid is printed as itself');
+  assert.equal(rows[44], uneven.length - 1, 'the last row is the end wavelength');
+  for (const i of rows) assert.equal(nearestIndex(uneven, uneven[i]), i, `the comparison table finds ${uneven[i]} nm`);
+  assert.equal(nearestIndex(uneven, 2501), -1, 'a wavelength past the last half interval is not on the grid');
+  assert.equal(nearestIndex(uneven, 298), -1, 'nor one before the first');
 }
 
 // ── Several designs ──────────────────────────────────────────────────────────

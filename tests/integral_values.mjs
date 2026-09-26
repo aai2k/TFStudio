@@ -16,6 +16,8 @@
  *     and the window's shipped grid spans every built-in band.
  *   • The photopic value is read on the design grid, so a notch narrower than
  *     the 5 nm CIE table spacing counts at its true width.
+ * 19. 300-2500 nm at a 3 nm step, which ends on 2500 after a shorter last
+ *     interval, gives every built-in row a value.
  */
 
 import {
@@ -398,6 +400,29 @@ console.log('photopic notch on a fine grid');
     const r = computeIntegralValue(spec, 'T', BUILTIN_WEIGHTINGS.photopic);
     const Y = tristimulus({ lambda: spec.lambda, values: spec.T }, '2', 'D65').Y / 100;
     ok(Math.abs(r.value - Y) < 1e-12, `5 nm Tvis matches tristimulus Y/100 (Δ ${Math.abs(r.value - Y).toExponential(2)})`);
+}
+
+// ── 19. A step that does not divide the range still covers the bands ────────
+console.log('3 nm window grid');
+{
+    // 300-2500 nm at 3 nm reaches 2499 by whole steps; the grid ends on 2500
+    // after one 1 nm interval, so the solar and NIR bands are spanned. On a
+    // smooth curve each value lies within the trapezoid error of a 0.1 nm grid:
+    // 3.1e-5 at most when measured, bounded here at 1e-4 (0.01 points).
+    const { buildLambdaGrid } = await import('../src/utils/physics/thinFilmMath.js');
+    const curve = step => {
+        const lambda = buildLambdaGrid(300, 2500, step);
+        const T = lambda.map(l => 0.5 + 0.3 * Math.sin(l / 37));
+        return { lambda, T, R: T.map(v => 1 - v), A: T.map(() => 0) };
+    };
+    const coarse = computeIntegralValueBatch(curve(3), DEFAULT_INTEGRALS);
+    const fine = computeIntegralValueBatch(curve(0.1), DEFAULT_INTEGRALS);
+    for (const def of DEFAULT_INTEGRALS) {
+        const got = coarse[def.key], ref = fine[def.key].value;
+        ok(got.covered === true && Number.isFinite(got.value), `${def.key} has a value on 300-2500 nm at 3 nm`);
+        ok(Math.abs(got.value - ref) < 1e-4,
+           `${def.key} at 3 nm within 0.01 points of the 0.1 nm grid (${got.value} vs ${ref})`);
+    }
 }
 
 console.log(fails === 0 ? 'PASS: integral_values' : `${fails} assertion(s) failed`);
