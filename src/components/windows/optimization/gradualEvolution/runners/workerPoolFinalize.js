@@ -55,6 +55,7 @@ export async function finalize(ctx, S, reason) {
         cycles: ctx.cyclesRef.current, geSteps: S.geSteps,
         runs: ctx.runsRef.current,
         savedDesign: ctx.savedDesignRef.current, baseDesign: ctx.baseDesignRef.current,
+        baseRev: ctx.baseRevRef?.current,
     });
     ctx.runningRef.current = false;
     // The engine stopped on its own, so this run block is finished and the next

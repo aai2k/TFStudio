@@ -16,12 +16,15 @@ function terminateWorkers(workersRef) {
     workersRef.current = [];
 }
 
+// The run cache carries the edit revision its base design belongs to, which
+// loadDesignSwitch restores.
 function persistCache(refs) {
     setCached(refs.designRef.current?.id, {
         generations: refs.gensRef.current,
         runs: refs.runsRef.current,
         savedDesign: refs.savedDesignRef.current,
         baseDesign: refs.baseDesignRef.current,
+        baseRev: refs.baseRevRef.current,
         trend: refs.trendRef.current,
     });
 }
@@ -98,7 +101,9 @@ function loadDesignSwitch(ctx) {
     const cached = getCached(newId);
     if (cached) applyCachedRun(ctx, cached);
     else applyFreshRun(ctx);
-    baseRevRef.current = getDesignRevision?.(newId) ?? 0;
+    // An edit made while the window was closed reads as an edit on the next
+    // Run; a cache without a revision matches nothing.
+    baseRevRef.current = cached ? (cached.baseRev ?? -1) : (getDesignRevision?.(newId) ?? 0);
     ctx.setStatusMsg('');
 }
 
@@ -217,7 +222,7 @@ export function useStructuralOptimizer({
     }
 
     function saveCache() {
-        persistCache({ designRef, gensRef, savedDesignRef, baseDesignRef, trendRef, runsRef });
+        persistCache({ designRef, gensRef, savedDesignRef, baseDesignRef, baseRevRef, trendRef, runsRef });
     }
 
     const stopOpt = useCallback((message) => {

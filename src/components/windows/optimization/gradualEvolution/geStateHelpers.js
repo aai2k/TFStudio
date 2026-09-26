@@ -93,17 +93,22 @@ export function restoreOrClearForDesign(design, ctx) {
         setLayerCount((design?.[sideKeyFor(design)] || []).length);
         setCanReset(false);
     }
-    // Sync the M12 edit-revision baseline to the switched-to design so the
-    // switch itself doesn't read as a manual edit on the next Run.
-    baseRevRef.current = getDesignRevision?.(newId) ?? 0;
+    // The M12 edit-revision baseline. A cached run brings back the revision its
+    // base design belongs to, so an edit made while the window was closed reads
+    // as an edit on the next Run; a design with no cached run takes its current
+    // revision, so the switch itself is not one. A cache without a revision
+    // matches nothing.
+    baseRevRef.current = cached ? (cached.baseRev ?? -1) : (getDesignRevision?.(newId) ?? 0);
 }
 
-// Push the current cycles + run blocks into the per-design cache.
+// Push the current cycles + run blocks into the per-design cache, with the
+// edit revision the cached base design belongs to.
 function cacheRun(ctx) {
     setCached(ctx.designRef.current?.id, {
         cycles: ctx.cyclesRef.current, geSteps: ctx.geStepsRef.current,
         runs: ctx.runsRef.current,
         savedDesign: ctx.savedDesignRef.current, baseDesign: ctx.baseDesignRef.current,
+        baseRev: ctx.baseRevRef?.current,
     });
 }
 
@@ -120,8 +125,8 @@ function syncFromCycles(ctx) {
 function undoCurrentRun(ctx, undone) {
     const {
         savedDesignRef, baseDesignRef, updateDesign, designRef,
-        cyclesRef, genCountRef, runsRef, runOpenRef,
-        setMf, setOmf, setGeneration, setLayerCount, setCanReset, setStatusMsg,
+        cyclesRef, genCountRef, geStepsRef, runsRef, runOpenRef,
+        setMf, setOmf, setGeneration, setGeSteps, setLayerCount, setCanReset, setStatusMsg,
     } = ctx;
     runsRef.current   = undone.runs;
     cyclesRef.current = undone.gens;
@@ -135,10 +140,13 @@ function undoCurrentRun(ctx, undone) {
     runOpenRef.current     = false;
     const last = cyclesRef.current[cyclesRef.current.length - 1] || null;
     genCountRef.current = last?.genNum ?? 0;
+    // The next Run opens a new block with its own GE-step budget.
+    geStepsRef.current = 0;
     syncFromCycles(ctx);
     setMf(last?.mf ?? null);
     setOmf(last?.omf ?? null);
     setGeneration(last?.genNum ?? 0);
+    setGeSteps(0);
     setLayerCount(last?.layerCount
         ?? (undone.baseline.frontLayers.length + undone.baseline.backLayers.length));
     setCanReset(!!prev);

@@ -98,6 +98,7 @@ export function recordCycle(ctx, S, { type, mf, layerCount, insertMat, side, act
         cycles: ctx.cyclesRef.current, geSteps: S.geSteps,
         runs: ctx.runsRef.current,
         savedDesign: ctx.savedDesignRef.current, baseDesign: ctx.baseDesignRef.current,
+        baseRev: ctx.baseRevRef?.current,
     });
 }
 

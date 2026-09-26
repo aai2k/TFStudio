@@ -217,6 +217,7 @@ export function useGradualEvolution({ design, updateDesign, checkpoint, beginOpt
         runGeWorker({
             runningRef: run.runningRef, timerRef: run.timerRef, workerRef: run.workerRef,
             dlsRef: run.dlsRef, baseDesignRef: run.baseDesignRef, savedDesignRef: run.savedDesignRef,
+            baseRevRef: run.baseRevRef,
             designRef: run.designRef, operandsRef: run.operandsRef, cyclesRef: run.cyclesRef,
             genCountRef: run.genCountRef, geStepsRef: run.geStepsRef,
             runsRef: run.runsRef, runOpenRef: run.runOpenRef,
@@ -238,6 +239,7 @@ export function useGradualEvolution({ design, updateDesign, checkpoint, beginOpt
     // design where it is (synthesisShared/runBlocks.js).
     const stateCtx = () => ({
         dlsRef: run.dlsRef, savedDesignRef: run.savedDesignRef, baseDesignRef: run.baseDesignRef,
+        baseRevRef: run.baseRevRef,
         updateDesign, designRef: run.designRef, cyclesRef: run.cyclesRef,
         genCountRef: run.genCountRef, geStepsRef: run.geStepsRef,
         runsRef: run.runsRef, runOpenRef: run.runOpenRef,

@@ -205,7 +205,10 @@ export function useNeedleVariation(t) {
         selectedCatsRef, excludedMatsRef, updateDesignRef, checkpointRef,
         setPhase, setStatusMsg, setMf, setMfBest, setOmf, setOmfBest,
         setLayerCount, setCanReset, setGeneration, setGenerations, setTopDesigns,
-        reconcileBaseWithEdits, setCachedOptState, t, stopOpt,
+        reconcileBaseWithEdits, t, stopOpt,
+        // Every cached run carries the edit revision its base design belongs to
+        // (needleLifecycle.js restores it).
+        setCachedOptState: (id, cached) => setCachedOptState(id, { ...cached, baseRev: baseRevRef.current }),
         getPoolMaterials: makeGetPoolMaterials(designRef),
         // Pool factory: the component wires the real WorkerPool + worker URL; a
         // test can inject an in-process fake pool (tests/needle_worker_pool.mjs).
@@ -228,7 +231,7 @@ export function useNeedleVariation(t) {
     // started over. The ControlBar also exposes Front / Back side resets in
     // both_independent mode, which restore one side of the current run only.
     const actionCtx = () => ({
-        stopOpt, dlsRef, savedDesignRef, baseDesignRef, designRef,
+        stopOpt, dlsRef, savedDesignRef, baseDesignRef, baseRevRef, designRef,
         gensRef, genCountRef, lastBestRef, runsRef, runOpenRef,
         setGenerations, setTopDesigns, setMf, setMfBest, setOmf, setOmfBest,
         setGeneration, setLayerCount, setCanReset, setStatusMsg, t,

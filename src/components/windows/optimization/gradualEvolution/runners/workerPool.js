@@ -128,8 +128,11 @@ export function runGeWorker(ctx) {
         ctx.runsRef.current = openRunBlock(ctx.runsRef.current, ctx.designRef.current);
         ctx.savedDesignRef.current = activeBaseline(ctx.runsRef.current);
         ctx.baseDesignRef.current  = curDes;
-        // Generations are numbered within their run, so a new block starts at 1.
+        // Generations are numbered within their run, so a new block starts at 1,
+        // and the GE-step budget is the new run's own.
         ctx.genCountRef.current = 0;
+        ctx.geStepsRef.current  = 0;
+        ctx.setGeSteps(0);
         ctx.runOpenRef.current     = true;
         ctx.setCanReset(true);
     }

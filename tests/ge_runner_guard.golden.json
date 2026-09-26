@@ -150,7 +150,7 @@
     "omf": 0.001255587,
     "omfBest": 0.001255587,
     "layerCount": 6,
-    "geSteps": null,
+    "geSteps": 0,
     "status": "Max layers reached"
   },
   "mainThread/back": {
@@ -304,7 +304,7 @@
     "omf": 0.001255587,
     "omfBest": 0.001255587,
     "layerCount": 6,
-    "geSteps": null,
+    "geSteps": 0,
     "status": "Max layers reached"
   },
   "worker/front": {

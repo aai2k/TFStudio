@@ -8,13 +8,15 @@ import { activeBaseline, undoRunBlock } from '../synthesisShared/runBlocks.js';
 import { clearCachedOptState, setCachedOptState } from './sessionState.js';
 
 // Push the current generations + run blocks into the per-design cache so they
-// survive a dock, a tab switch or a reopen.
+// survive a dock, a tab switch or a reopen, with the edit revision the cached
+// base design belongs to.
 function cacheRun(ctx) {
     setCachedOptState(ctx.designRef.current?.id, {
         generations: ctx.gensRef.current,
         runs:        ctx.runsRef.current,
         savedDesign: ctx.savedDesignRef.current,
         baseDesign:  ctx.baseDesignRef.current,
+        baseRev:     ctx.baseRevRef?.current,
     });
 }
 
