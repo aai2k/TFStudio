@@ -1,12 +1,10 @@
-import { matFriendlyName } from './materialNames.js';
-
 const { createElement: h } = React;   // React is a window global (never imported)
 
 // ── Shared Top-Designs (Pareto front) panel ─────────────────────────────────────
 // Lists the Pareto-optimal generations (best MF at each layer count). `genPrefix`
 // labels the generation number ("Gen N" for needle/GE, "#N" for structural), and
-// `labels.layers(n)` the layer count. The insert-material column renders per
-// row only for generations that carry one.
+// `labels.layers(n)` the layer count. Every row has the same cells, so the
+// Restore buttons line up; the material a step inserted is in the history table.
 export function TopDesignsPanel({ topDesigns, bestMF, onRestore, c, labels, genPrefix }) {
     if (!topDesigns.length) return null;
     // Generations are numbered within their run, so the number alone stops being
@@ -37,13 +35,6 @@ export function TopDesignsPanel({ topDesigns, bestMF, onRestore, c, labels, genP
                                 labels.layers(gen.layerCount)),
                             h('td', { style: { padding: '2px 8px', fontSize: 11, fontWeight: isBest ? 700 : 400, color: isBest ? c.success : c.text } },
                                 gen.mf.toFixed(6)),
-                            gen.insertMat && h('td', {
-                                style: {
-                                    padding: '2px 8px', fontSize: 10, color: c.textDim,
-                                    maxWidth: 92, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
-                                },
-                                title: matFriendlyName(gen.insertMat),
-                            }, matFriendlyName(gen.insertMat)),
                             h('td', { style: { padding: '2px 8px' } },
                                 h('button', {
                                     onClick: () => onRestore(gen),

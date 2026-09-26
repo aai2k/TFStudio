@@ -23,6 +23,10 @@ import { parseNumber } from '../../../../utils/misc/numberParsing.js';
 
 const { createElement: h } = React;
 
+// Flex of the phase-message slot in the control bar: 220 px wide, and first to
+// give way on a short line (see SynthesisControlBar).
+const STATUS_FLEX = '0 100 220px';
+
 // Section header above the trend chart and the history table.
 const sectionHeaderStyle = (c) => ({
     padding: '3px 8px', fontSize: 10, fontWeight: 700, color: c.textDim,
@@ -113,18 +117,21 @@ export function SynthesisControlBar({
                 },
             }, ...metrics),
             // The phase message keeps a fixed slot, also while empty, so its
-            // coming and going never moves the switch.
+            // coming and going never moves the switch. On a short line the slot
+            // gives up its width before the numbers do: its shrink factor is
+            // large next to theirs, so it takes nearly all of the shortfall
+            // until it is gone.
             h('span', {
                 'data-synthesis-status': true,
                 title: statusMsg || undefined,
                 style: statusMsg === noOperandsLabel
                     ? {
-                        ...WARN_BADGE_STYLE, marginLeft: 10, width: 220, flex: '0 0 220px',
+                        ...WARN_BADGE_STYLE, marginLeft: 10, width: 220, flex: STATUS_FLEX, minWidth: 0,
                         boxSizing: 'border-box', whiteSpace: 'nowrap', overflow: 'hidden',
                         textOverflow: 'ellipsis', visibility: statusMsg ? 'visible' : 'hidden',
                     }
                     : {
-                        fontSize: 11, marginLeft: 10, width: 220, flex: '0 0 220px',
+                        fontSize: 11, marginLeft: 10, width: 220, flex: STATUS_FLEX, minWidth: 0,
                         boxSizing: 'border-box', color: statusColor, fontStyle: 'italic',
                         whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
                         visibility: statusMsg ? 'visible' : 'hidden',

@@ -66,6 +66,48 @@ assert.equal(longStatus.props.style.width, 220, 'phase text cannot resize its sl
 assert.equal(emptyStatus.props.style.visibility, 'hidden');
 assert.equal(longStatus.props.style.visibility, 'visible');
 
+// On a short line the phase message gives up its width before the numbers do.
+// Flex items shrink in proportion to shrink factor times basis, so the 220 px
+// slot takes nearly all of the shortfall while its factor dwarfs the numbers'.
+{
+    const bar = SynthesisControlBar({
+        ...shared, labels: common, metrics: ['Iter: 455'], statusMsg: 'Refining 15 proposals (parallel)…',
+        noOperandsLabel: 'No operands',
+    });
+    const readout = bar.props.children.find(child => child?.props?.['data-synthesis-readout']);
+    const [numbers, status] = readout.props.children;
+    const shrink = flex => Number(String(flex).split(' ')[1]);
+    assert.equal(status.props.style.minWidth, 0, 'the phase message can shrink away entirely');
+    assert.ok(shrink(status.props.style.flex) >= 50 * shrink(numbers.props.style.flex),
+        'the phase message shrinks well before the numbers');
+}
+
+// Top Designs: every row has the same cells, whether or not its step inserted a
+// material, so the Restore buttons stay in one column.
+{
+    const { TopDesignsPanel } = await import(
+        '../src/components/windows/optimization/synthesisShared/TopDesignsPanel.js');
+    const panel = TopDesignsPanel({
+        topDesigns: [
+            { id: 'a', genNum: 0, layerCount: 1, mf: 0.029, insertMat: null },
+            { id: 'b', genNum: 6, layerCount: 6, mf: 0.0086, insertMat: 'SiO2' },
+        ],
+        bestMF: 0.0086, onRestore: noop, c, genPrefix: '#',
+        labels: { topDesigns: 'Top designs', restore: 'Restore', layers: n => `${n} lyr` },
+    });
+    const rows = [];
+    const walk = node => {
+        if (Array.isArray(node)) { node.forEach(walk); return; }
+        if (!node || typeof node !== 'object') return;
+        if (node.type === 'tr') rows.push(node);
+        walk(node.props?.children);
+    };
+    walk(panel);
+    const cells = row => [].concat(row.props.children).filter(Boolean).length;
+    assert.equal(rows.length, 2);
+    assert.equal(cells(rows[0]), cells(rows[1]), 'a row with an inserted material has no extra cell');
+}
+
 function bestSlot(element) {
     return element.props.metrics.find(metric => metric?.props?.['data-synthesis-best']);
 }
