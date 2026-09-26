@@ -1065,6 +1065,8 @@ export default {
     stackFormulaTip: 'Построить покрытие из символьной формулы (напр. Air | (HL)^4 H | BK7)',
     moveUpRow: 'Вверх',
     moveDownRow: 'Вниз',
+    thicknessStepUp: 'Увеличить толщину (Shift ×10, Ctrl ×0,1). Колесо мыши над ячейкой тоже меняет толщину.',
+    thicknessStepDown: 'Уменьшить толщину (Shift ×10, Ctrl ×0,1). Колесо мыши над ячейкой тоже меняет толщину.',
     duplicate: 'Дублировать',
     remove: 'Удалить',
     dragLayer: 'Перетащить для изменения порядка слоёв',

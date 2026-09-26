@@ -47,7 +47,7 @@ function StepArrow({ delta, enabled, title, onStep, c }) {
 // `designMaterials` is the design's `materials` block rather than the design
 // itself for the same reason: it changes only when a definition does.
 export const LayerRow = React.memo(function LayerRow({ layer, index, isSelected, onSelect, c,
-    onMaterialChange, onThicknessChange, onLockToggle, onRemove,
+    onMaterialChange, onThicknessChange, onThicknessStep, onLockToggle, onRemove,
     onMoveStep, canMoveUp, canMoveDown,
     isMaterialMissing, activeUnit, editRequestToken, editRequestUnit, editRequestSeed,
     onActivateCell, onNavigateCell, onFinishEditing, onContextMenu,
@@ -56,6 +56,7 @@ export const LayerRow = React.memo(function LayerRow({ layer, index, isSelected,
 
     const de = t.designEditor;
     const missingTitle = isMaterialMissing ? t.materialResolution.rowMissing(layer.material) : undefined;
+    const stepTitles = { up: de.thicknessStepUp, down: de.thicknessStepDown };
 
     return h('div', {
         onClick: event => onSelect(layer.id, event),
@@ -119,6 +120,8 @@ export const LayerRow = React.memo(function LayerRow({ layer, index, isSelected,
                 },
                 onNavigate: direction => onNavigateCell(layer.id, column.unit, direction),
                 onExit: onFinishEditing,
+                onStep: (ticks, modifiers) => onThicknessStep(layer.id, column.unit, ticks, modifiers),
+                stepTitles,
             }),
         )),
         h('button', {

@@ -1075,6 +1075,8 @@ export default {
     stackFormulaTip: 'Generate a layer stack from a symbolic formula (e.g. Air | (HL)^4 H | BK7)',
     moveUpRow: 'Move up',
     moveDownRow: 'Move down',
+    thicknessStepUp: 'Increase thickness (Shift ×10, Ctrl ×0.1). The mouse wheel over the cell steps it too.',
+    thicknessStepDown: 'Decrease thickness (Shift ×10, Ctrl ×0.1). The mouse wheel over the cell steps it too.',
     duplicate: 'Duplicate',
     remove: 'Remove',
     dragLayer: 'Drag to reorder layers',

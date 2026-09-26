@@ -14,6 +14,7 @@ import {
 } from './layerClipboard.js';
 import { useLayerDrag } from './useLayerDrag.js';
 import { useLayerStep } from './useLayerStep.js';
+import { useThicknessStep } from './useThicknessStep.js';
 import { resolveDesignMaterial } from '../../../../utils/materials/designMaterials.js';
 import { expandHerpinLayer, isHerpinLayer } from './layerTools.js';
 import {
@@ -240,6 +241,10 @@ export function LayerList({ layers, side, design, updateDesign, missingMaterialI
         reversed, side, containerRef, reveal: scrollLayerIntoView,
     });
 
+    const onThicknessStepRow = useThicknessStep({
+        layers, side, design, updateDesign, selectedIds, refLambda,
+    });
+
     const closeContextMenu = useCallback(() => setContextMenu(null), []);
     const openContextMenu = useCallback((event, targetId = null) => {
         event.preventDefault();
@@ -328,6 +333,7 @@ export function LayerList({ layers, side, design, updateDesign, missingMaterialI
             c,
             onMaterialChange: onMaterialChangeRow,
             onThicknessChange: onThicknessChangeRow,
+            onThicknessStep: onThicknessStepRow,
             onLockToggle: onLockToggleRow,
             onRemove: onRemoveRow,
             onMoveStep: onMoveStepRow,
@@ -348,8 +354,8 @@ export function LayerList({ layers, side, design, updateDesign, missingMaterialI
         }));
     }, [layers, reversed, selectedId, selectedIds, activeUnit, editRequest,
         dropIndicator, missingMaterialIds, refLambda, design.materials, c, t,
-        selectAndFocus, onMaterialChangeRow, onThicknessChangeRow, onLockToggleRow,
-        onRemoveRow, onMoveStepRow,
+        selectAndFocus, onMaterialChangeRow, onThicknessChangeRow, onThicknessStepRow,
+        onLockToggleRow, onRemoveRow, onMoveStepRow,
         activateCell, navigateCell, finishCellEditing, openContextMenu, onPointerDownDrag]);
 
     const menuText = de.layerContextMenu;

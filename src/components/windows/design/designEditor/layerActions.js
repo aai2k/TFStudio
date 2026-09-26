@@ -43,13 +43,14 @@ export function duplicateLayerAt(design, updateDesign, side, splicePos) {
     return id;
 }
 
-function applyLayers(design, updateDesign, side, next) {
+/** Write one side's layers as a single design update; `opts` goes to updateDesign. */
+export function applyLayers(design, updateDesign, side, next, opts) {
     const key = keyOf(side);
     const patch = { [key]: next };
     if (design.surfaceMode === 'symmetric' && side === 'front') {
         patch.backLayers = mirrorLayers(next);
     }
-    updateDesign(patch);
+    updateDesign(patch, opts);
 }
 
 /** Remove an explicit selection in one undoable design update. */

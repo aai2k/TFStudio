@@ -48,7 +48,9 @@ function pushCheckpoint(s, id) {
  *
  * `opts.transient` updates the working state only and creates no history entry;
  * that is what a live optimization preview is, and it pairs with a checkpoint
- * pushed before the run.
+ * pushed before the run. `opts.compareDirty` compares a transient change with
+ * the disk copy all the same, for an edit that can end where it began, such as
+ * a thickness stepped up and back down.
  */
 function applyDesignChange(s, id, newDesign, opts) {
     const hist = historyFor(s, id);
@@ -69,8 +71,8 @@ function applyDesignChange(s, id, newDesign, opts) {
     // A live optimization preview is always dirty vs the last disk save — skip
     // the per-iteration canonical compare and just flag it. The exact compare
     // runs on committed edits, undo, and redo.
-    if (transient) s.setDirtyDesigns(d => (d[id] ? d : { ...d, [id]: true }));
-    else           s.recomputeDirty(id, newDesign);
+    if (transient && !opts.compareDirty) s.setDirtyDesigns(d => (d[id] ? d : { ...d, [id]: true }));
+    else s.recomputeDirty(id, newDesign);
     s.scheduleSessionSave(id);
 }
 

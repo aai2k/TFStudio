@@ -78,6 +78,8 @@ value.**
 | QW     | quarter-waves at λ₀   | 4 · n(λ₀) · d / λ₀  |
 | FW     | full-waves at λ₀      | n(λ₀) · d / λ₀      |
 
+To nudge a layer and watch the other windows follow, hover a thickness cell: up and down arrows appear at its right edge. Each click, or each turn of the mouse wheel over the cell, steps the value by 1 nm in the nm and OT columns, 0.1 in QW and 0.025 in FW, so the QW and FW arrows move a layer by the same optical thickness. Hold Shift for ten times the step and Ctrl for a tenth. Holding an arrow down keeps stepping until you let go. With several rows selected, stepping one of them steps them all, and in OT, QW and FW each moves by the step in its own optical thickness. One Ctrl+Z takes back a whole run of steps.
+
 The lock toggle freezes a layer's thickness: locked layers are excluded from
 optimization and synthesis, which is useful for protecting an adhesion or
 substrate-adjacent layer. The toolbar above the table adds and removes layers,

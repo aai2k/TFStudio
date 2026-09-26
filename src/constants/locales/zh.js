@@ -1161,6 +1161,8 @@ export default {
     stackFormulaTip: '从符号公式生成膜层堆栈（例如 Air | (HL)^4 H | BK7）',
     moveUpRow: '上移',
     moveDownRow: '下移',
+    thicknessStepUp: '增加厚度（Shift ×10，Ctrl ×0.1）。在单元格上滚动鼠标滚轮也可调整厚度。',
+    thicknessStepDown: '减小厚度（Shift ×10，Ctrl ×0.1）。在单元格上滚动鼠标滚轮也可调整厚度。',
     duplicate: '复制',
     remove: '移除',
     dragLayer: '拖动以重排膜层',

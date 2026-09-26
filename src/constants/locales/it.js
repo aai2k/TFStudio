@@ -1162,6 +1162,8 @@ export default {
     stackFormulaTip: 'Genera uno stack di strati da una formula simbolica (per esempio Aria | (HL)^4 H | BK7)',
     moveUpRow: 'Sposta su',
     moveDownRow: 'Sposta giù',
+    thicknessStepUp: 'Aumenta lo spessore (Shift ×10, Ctrl ×0,1). Anche la rotella del mouse sulla cella cambia lo spessore.',
+    thicknessStepDown: 'Riduci lo spessore (Shift ×10, Ctrl ×0,1). Anche la rotella del mouse sulla cella cambia lo spessore.',
     duplicate: 'Duplica',
     remove: 'Rimuovi',
     dragLayer: 'Trascina per riordinare gli strati',

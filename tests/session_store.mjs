@@ -373,4 +373,27 @@ const v3Session = (designs, history = {}) => JSON.stringify({ version: 3, design
         'an undo back to the saved state keeps the redo step');
 }
 
+// ── 10. A transient edit that ends where it began is not left unsaved ────────
+// A thickness stepped up and back down in one burst: the first step is a
+// committed edit, the rest are transient.
+{
+    let store;
+    const render = () => { fakeR.begin(); store = useDesignStore(); fakeR.runEffects(); };
+    render();
+    const diskC = design('C', [100]);
+    store.diskDesignsRef.current = { C: diskC };
+    store.setDesigns({ C: diskC });
+    render();
+
+    store.handleDesignChange('C', design('C', [101]));
+    render();
+    ok(store.dirtyDesigns.C, 'a step up marks the design unsaved');
+    store.handleDesignChange('C', design('C', [100]), { transient: true });
+    render();
+    ok(store.dirtyDesigns.C, 'a plain transient change is flagged without comparing');
+    store.handleDesignChange('C', design('C', [100]), { transient: true, compareDirty: true });
+    render();
+    ok(!store.dirtyDesigns.C, 'a transient step back to the saved thickness is compared, and is saved');
+}
+
 console.log(`session_store: ${passed} passed`);
