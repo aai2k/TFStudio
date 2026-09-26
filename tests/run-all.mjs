@@ -44,6 +44,7 @@ const BENCH = new Set([
     'wasm_bench.mjs',                 // WASM vs JS micro-benchmark
     'structural_deep_spin.mjs',       // deep-mode spin (reporting tool, minutes)
     'sqp_benchmark.mjs',              // optimizer method × mode benchmark (reporting tool)
+    'sa_benchmark.mjs',               // Simulated Annealing from 8 to 120 layers, many seeds (reporting tool, minutes)
     'optimizer_grand_benchmark.mjs',  // grand cross-optimizer benchmark (reporting tool, minutes)
     'synthesis_single_seed_bbar.mjs', // single-layer-seed → BBAR GE/Structural (time-budgeted)
     'cone_angle_perf.mjs',            // cone evaluation timing report, first vs settled rays
