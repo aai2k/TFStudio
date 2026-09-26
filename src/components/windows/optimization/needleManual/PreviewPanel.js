@@ -1,20 +1,17 @@
 // Insertion preview panel: picked geometry, predicted optical merit, and the
-// Apply button.
+// Apply button, with Stop beside it while the refine after Apply runs.
 
 import { matDisplayName, matColor } from '../synthesisShared/synthesisHelpers.js';
 
 const { createElement: h } = React;
 
-export function PreviewPanel({ selected, hostInfo, dNew, dRange, predictedOMF, omf0, evaluationBusy, onDNew, onApply, busy, c, t }) {
+export function PreviewPanel({ selected, hostInfo, dNew, dRange, predictedOMF, omf0, evaluationBusy, onDNew, onApply, onStop, busy, refining, c, t }) {
     const tn = t.needleManual;
     if (!selected) {
         return h('div', { style: { padding: '12px 12px', color: c.textDim, fontSize: 12, fontStyle: 'italic' } }, tn.clickHint);
     }
 
     const name  = matDisplayName(selected.materialId);
-    const dMF   = (predictedOMF != null && omf0 != null) ? (predictedOMF - omf0) : null;
-    const dMFColor = dMF == null ? c.text : (dMF < 0 ? c.success : c.error);
-
     const geom = selected.intra
         ? tn.geomIntra(name, selected.layerK + 1, matDisplayName(hostInfo.hostMat),
             hostInfo.d1.toFixed(1), dNew.toFixed(1), hostInfo.d2.toFixed(1))
@@ -42,27 +39,48 @@ export function PreviewPanel({ selected, hostInfo, dNew, dRange, predictedOMF, o
             }),
             h('span', { style: { fontSize: 11, color: c.textDim } }, 'nm'),
         ),
-        // Optical merit block. The needle scan is optical-only (constraints are
-        // dropped), and a freshly inserted thin needle always starts below MNT, so
-        // the preview reports OMF (constraint-free) — the full MF's transient
-        // penalty would swamp the optical gain the insertion actually delivers.
-        // Constraints are re-imposed by the refine after Apply.
-        evaluationBusy
-            ? h('div', { style: { fontSize: 11, color: c.textDim } }, t.analysisEvaluation.computing)
-            : h('div', { style: { display: 'flex', gap: 16, fontSize: 11, color: c.textDim } },
-                h('span', null, tn.omf0, ' ', h('b', { style: { color: c.text } }, omf0 == null ? '—' : omf0.toFixed(6))),
-                h('span', null, tn.omfPred, ' ', h('b', { style: { color: c.text } }, predictedOMF == null ? '—' : predictedOMF.toFixed(6))),
-                h('span', null, tn.dMF, ' ', h('b', { style: { color: dMFColor } }, dMF == null ? '—' : (dMF < 0 ? '' : '+') + dMF.toFixed(6))),
-            ),
-        h('div', null,
-            h('button', {
-                onClick: onApply, disabled: busy,
-                style: {
-                    padding: '4px 16px', fontSize: 12, border: 'none', borderRadius: 3,
-                    background: busy ? c.border : c.success, color: '#fff',
-                    cursor: busy ? 'default' : 'pointer', fontWeight: 600, fontFamily: 'inherit', opacity: busy ? 0.6 : 1,
-                }
-            }, tn.apply)
-        )
+        h(MeritLine, { predictedOMF, omf0, evaluationBusy, c, t }),
+        h(ApplyRow, { onApply, onStop, busy, refining, c, tn })
+    );
+}
+
+// Optical merit block. The needle scan is optical-only (constraints are
+// dropped), and a freshly inserted thin needle always starts below MNT, so
+// the preview reports OMF (constraint-free): the full MF's transient
+// penalty would swamp the optical gain the insertion actually delivers.
+// Constraints are re-imposed by the refine after Apply.
+function MeritLine({ predictedOMF, omf0, evaluationBusy, c, t }) {
+    const tn = t.needleManual;
+    if (evaluationBusy) {
+        return h('div', { style: { fontSize: 11, color: c.textDim } }, t.analysisEvaluation.computing);
+    }
+    const dMF   = (predictedOMF != null && omf0 != null) ? (predictedOMF - omf0) : null;
+    const dMFColor = dMF == null ? c.text : (dMF < 0 ? c.success : c.error);
+    return h('div', { style: { display: 'flex', gap: 16, fontSize: 11, color: c.textDim } },
+        h('span', null, tn.omf0, ' ', h('b', { style: { color: c.text } }, omf0 == null ? '—' : omf0.toFixed(6))),
+        h('span', null, tn.omfPred, ' ', h('b', { style: { color: c.text } }, predictedOMF == null ? '—' : predictedOMF.toFixed(6))),
+        h('span', null, tn.dMF, ' ', h('b', { style: { color: dMFColor } }, dMF == null ? '—' : (dMF < 0 ? '' : '+') + dMF.toFixed(6))),
+    );
+}
+
+function ApplyRow({ onApply, onStop, busy, refining, c, tn }) {
+    return h('div', { style: { display: 'flex', gap: 6 } },
+        h('button', {
+            onClick: onApply, disabled: busy,
+            style: {
+                padding: '4px 16px', fontSize: 12, border: 'none', borderRadius: 3,
+                background: busy ? c.border : c.success, color: '#fff',
+                cursor: busy ? 'default' : 'pointer', fontWeight: 600, fontFamily: 'inherit', opacity: busy ? 0.6 : 1,
+            }
+        }, tn.apply),
+        refining && h('button', {
+            onClick: onStop,
+            style: {
+                padding: '4px 16px', fontSize: 12, cursor: 'pointer',
+                border: `1px solid ${c.error}`, borderRadius: 3,
+                background: c.error + '33', color: c.error,
+                fontWeight: 600, fontFamily: 'inherit',
+            }
+        }, tn.stop)
     );
 }

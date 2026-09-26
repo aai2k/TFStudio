@@ -1,14 +1,15 @@
 /**
  * Pure (non-React) helpers for the Needle Manual insertion window: stack-depth
  * geometry, the shared insert-for-selection dispatch, the P-function plot data
- * builder, and the refiner that polishes the stack after an insertion.
+ * builder, and the refine that polishes the stack after an insertion.
  */
 
 import {
-    scanNeedlesPFunction, insertNeedle, insertNeedleIntra,
+    scanNeedlesPFunction, insertNeedle, insertNeedleIntra, mirrorLayers,
 } from '../../../../utils/physics/optimizer.js';
-import { makeEngine, DEFAULT_REFINE_METHOD } from '../../../../utils/optimizers/index.js';
+import { DEFAULT_REFINE_METHOD } from '../../../../utils/optimizers/index.js';
 import { matDisplayName, matColor } from '../synthesisShared/synthesisHelpers.js';
+import { refineOffThread } from '../synthesisShared/workerRefine.js';
 
 // Which layer array a side maps to.
 export const sideKey = (side) => (side === 'back' ? 'backLayers' : 'frontLayers');
@@ -40,10 +41,48 @@ export function insertForSelection(selected, design, dNew, side) {
         : insertNeedle(design, selected.pos, selected.materialId, dNew, side);
 }
 
-// Refiner for the optional pass after Apply: the app's default refinement
-// method, stepped by the caller. Throws if the merit cannot be evaluated.
-export function makeInsertionRefiner(operands, design, resolveMat, dMin) {
-    return makeEngine(DEFAULT_REFINE_METHOD, operands, design, resolveMat, { dMin });
+// The optional pass after Apply: the app's default refinement method on the
+// inserted stack, at most `iters` steps, no layer below `dMin` (nm).
+export function insertionRefineJob(operands, design, dMin, iters) {
+    return { method: DEFAULT_REFINE_METHOD, operands, design, iters, dMin };
+}
+
+// A symmetric design keeps its back stack the mirror of the front.
+export function withMirroredBack(design) {
+    return design.surfaceMode === 'symmetric'
+        ? { ...design, backLayers: mirrorLayers(design.frontLayers) }
+        : design;
+}
+
+// Commits the inserted stack, then runs `job` on it off the UI thread. The
+// insertion is the edit: undo steps back over it, and the synthesis windows
+// see it. The refine only moves thicknesses on top of it, as transient writes,
+// the way a Refinement run does: one per progress report with the best point
+// so far, then the result, or the inserted stack again when there is none.
+// `write(patch, opts)` writes to the design the pass started on; once
+// `isCurrent()` says that design is no longer the active one, nothing more is
+// written and this resolves null. Aborting `signal` ends the pass on the best
+// point so far. Resolves with { mfBest }, the refined stack's merit, or
+// { mfBest: null } when the insertion stays unrefined: stopped before the
+// first point, or the refine threw. `onProgress` gets { step, iters, mf } for
+// each preview written.
+export async function refineAndCommit({ inserted, job, resolveMat, signal, isCurrent, write, onProgress }) {
+    write({ frontLayers: inserted.frontLayers, backLayers: inserted.backLayers });
+    const preview = (p) => {
+        if (!isCurrent()) return;
+        write({ frontLayers: p.frontLayers, backLayers: p.backLayers }, { transient: true });
+        if (onProgress) onProgress(p);
+    };
+    let res = null;
+    try {
+        res = await refineOffThread(job, resolveMat, { signal, onProgress: preview });
+    } catch (err) {
+        console.error('[NeedleManual] refine failed, the insertion is kept unrefined:', err);
+    }
+    if (!isCurrent()) return null;
+    const result = res ? withMirroredBack(res.design) : inserted;
+    write({ frontLayers: result.frontLayers, backLayers: result.backLayers }, { transient: true });
+    return { mfBest: res ? res.mfBest : null };
 }
 
 // Run the P-function profile scan and package the result (or the "already

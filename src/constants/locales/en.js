@@ -2176,6 +2176,8 @@ export default {
     omfTip:       'Optical merit, excluding thickness constraints (MNT/MXT/TT)',
     apply:        'Apply insertion',
     refining:     'Refining…',
+    refiningStep: (step, iters, mf) => `Refining: step ${step} / ${iters}, MF ${mf.toFixed(6)}`,
+    stop:         'Stop',
     inserted:        (m) => `Inserted ${m}.`,
     insertedRefined: (m, mf) => `Inserted ${m} + refined → MF ${mf}.`,
     geomGap:   (mat, z, label) => `Insert ${mat} at z = ${z} nm, ${label}.`,

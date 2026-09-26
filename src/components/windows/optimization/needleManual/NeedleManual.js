@@ -12,7 +12,8 @@
  *   3. Preview the resulting split-layer geometry and the predicted ΔMF, and
  *      tune the inserted thickness d_new with a slider.
  *   4. Apply: a single insertion (optionally followed by one refinement pass
- *      with the default refiner), recorded as a normal history entry.
+ *      with the default refiner, run in the optimizer worker and stoppable),
+ *      recorded as a normal history entry.
  */
 
 import { OptimizeBadge, EvalModeBadge } from '../../../SurfaceModeBar.js';
@@ -111,7 +112,8 @@ export function NeedleManual({ c, theme, t }) {
                         selected: s.selected, hostInfo: s.hostInfo || {}, dNew: s.dNew, dRange: s.dRange,
                         predictedOMF: s.predictedOMF, omf0: s.omfNow,
                         evaluationBusy: s.predictedOMFBusy,
-                        onDNew: s.setDNew, onApply: s.handleApply, busy: s.busy, c, t,
+                        onDNew: s.setDNew, onApply: s.handleApply, onStop: s.stop,
+                        busy: s.busy, refining: s.refining, c, t,
                     })
                 )
             )

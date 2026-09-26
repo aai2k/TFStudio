@@ -1,8 +1,9 @@
 /**
  * Optimizer Web Worker: runs ONE single-start refinement off the UI thread,
  * with any makeEngine method (DLS unless the job names another). The
- * Refinement window, the Structural Optimizer's proposal refines and the
- * Design Cleaner's post-clean pass use it. Multi-start is a worker POOL: the
+ * Refinement window, the Structural Optimizer's proposal refines, the Design
+ * Cleaner's post-clean pass and the Needle Manual refine after an insertion
+ * use it. Multi-start is a worker POOL: the
  * main thread (Refinement.js) spawns several of these, hands each a
  * perturbed-design job, and aggregates
  * the global best. Perturbation + aggregation live on the main thread (one

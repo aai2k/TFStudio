@@ -2587,6 +2587,8 @@ export default {
     omfTip: '光学评价 — 排除厚度约束 (MNT/MXT/TT)',
     apply: '应用插入',
     refining: '正在精炼…',
+    refiningStep: (step, iters, mf) => `正在精炼：第 ${step} / ${iters} 步，MF ${mf.toFixed(6)}`,
+    stop: '停止',
     inserted: (m) => `已插入 ${m}。`,
     insertedRefined: (m, mf) => `已插入 ${m} 并精炼 → MF ${mf}。`,
     geomGap: (mat, z, label) => `在 z = ${z} nm 处插入 ${mat} — ${label}。`,

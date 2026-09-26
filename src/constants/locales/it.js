@@ -2595,6 +2595,8 @@ export default {
     omfTip: 'Merito ottico, esclusi i vincoli di spessore (MNT/MXT/TT)',
     apply: "Applica l'inserimento",
     refining: 'Affinamento…',
+    refiningStep: (step, iters, mf) => `Affinamento: passo ${step} / ${iters}, MF ${mf.toFixed(6)}`,
+    stop: 'Ferma',
     inserted: (m) => `Inserito ${m}.`,
     insertedRefined: (m, mf) => `Inserito ${m} e affinato → MF ${mf}.`,
     geomGap: (mat, z, label) => `Inserisci ${mat} a z = ${z} nm, ${label}.`,

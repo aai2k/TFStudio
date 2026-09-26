@@ -21,37 +21,16 @@
  *      firing while the worker steps.
  *   6. The pass ends on exactly the thicknesses of a direct run.
  *   7. Stop at a progress report keeps the best point of the steps reported,
- *      the same thicknesses a direct run of that many steps restores.
+ *      the same thicknesses a direct run of that many steps restores. Stop
+ *      before the first report applies the cleanup unrefined.
  *   8. A worker that cannot be constructed falls back to the main-thread loop,
  *      with the same result.
  *
  * Run: node tests/design_cleaner_reoptimize_offthread.mjs
  */
-import { Worker as NodeWorker, isMainThread, parentPort, workerData } from 'node:worker_threads';
+import { NodeModuleWorker } from './_moduleWorker.mjs';
 
-// `new Worker(url, { type: 'module' })` over node:worker_threads: this file,
-// in adapter mode, loads the worker module at `url`.
-class NodeModuleWorker {
-    constructor(url) {
-        this.onmessage = null;
-        this.onerror = null;
-        this.thread = new NodeWorker(new URL(import.meta.url), { workerData: { moduleWorkerAdapter: true, url: String(url) } });
-        this.thread.on('message', (data) => this.onmessage && this.onmessage({ data }));
-        this.thread.on('error', (err) => this.onerror && this.onerror(err));
-    }
-    postMessage(message) { this.thread.postMessage(message); }
-    terminate() { this.thread.terminate(); }
-}
-
-if (!isMainThread && workerData?.moduleWorkerAdapter) {
-    // The browser module-worker globals the optimizer worker uses.
-    globalThis.postMessage = (message) => parentPort.postMessage(message);
-    globalThis.onmessage = null;
-    await import(workerData.url);
-    parentPort.on('message', (data) => globalThis.onmessage({ data }));
-} else {
-    await runTests();
-}
+await runTests();
 
 async function runTests() {
     const { makeOperand, withDesignSampleCounts } = await import('../src/utils/physics/optimizer.js');
@@ -192,6 +171,17 @@ async function runTests() {
         const direct = large.directRun(stoppedAt ?? settings.reoptIters);
         ok(sameThicknesses(res.nextDesign.frontLayers, direct.thicknesses),
             `a stopped worker pass keeps the best point of its ${stoppedAt} steps`);
+    }
+
+    // ── 7b. Stop before the worker's first report ────────────────────────────
+    {
+        const ctrl = new AbortController();
+        const pending = large.apply({ inWorker: true, signal: ctrl.signal });
+        ctrl.abort();
+        const res = await pending;
+        ok(sameThicknesses(res.nextDesign.frontLayers, large.preview.design.frontLayers.map(l => l.thickness)),
+            'Stop before the first report applies the cleanup unrefined');
+        ok(res.msg === 'applied 1/0', `with no refine in the message (${res.msg})`);
     }
 
     // ── 8. No worker: the main-thread loop runs instead ───────────────────────

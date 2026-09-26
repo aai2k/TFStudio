@@ -2160,6 +2160,8 @@ export default {
     omfTip:       'Оптическая MF — без ограничений по толщине (MNT/MXT/TT)',
     apply:        'Применить вставку',
     refining:     'Оптимизация…',
+    refiningStep: (step, iters, mf) => `Оптимизация: шаг ${step} / ${iters}, MF ${mf.toFixed(6)}`,
+    stop:         'Стоп',
     inserted:        (m) => `Вставлен ${m}.`,
     insertedRefined: (m, mf) => `Вставлен ${m} + оптимизация → MF ${mf}.`,
     geomGap:   (mat, z, label) => `Вставить ${mat} на z = ${z} нм — ${label}.`,

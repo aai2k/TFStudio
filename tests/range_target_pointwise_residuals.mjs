@@ -138,7 +138,7 @@ checkJacobian('front surface', stack(6, [25, 40, 110, 20]), [reflectNothing, ram
     shimBrowserGlobals();
     const { applyCleanup, computeCleanupPreview } =
         await import('../src/components/windows/optimization/designCleaner/model.js');
-    const { makeInsertionRefiner } =
+    const { insertionRefineJob } =
         await import('../src/components/windows/optimization/needleManual/model.js');
     const { loadMethod } =
         await import('../src/components/windows/optimization/refinement/refinementConfig.js');
@@ -164,9 +164,8 @@ checkJacobian('front surface', stack(6, [25, 40, 110, 20]), [reflectNothing, ram
         && nextDesign.frontLayers.every((l, i) => l.thickness === expected[i]),
         'Design Cleaner re-optimize runs the default refiner');
 
-    const refiner = makeInsertionRefiner([bandAverage], deep(design), resolveMat, settings.dMin);
-    const reference = makeEngine(DEFAULT_REFINE_METHOD, [bandAverage], deep(design), resolveMat);
-    ok(refiner.constructor === reference.constructor, `manual Needle refines with the default refiner (${refiner.constructor.name})`);
+    const job = insertionRefineJob([bandAverage], deep(design), settings.dMin, 80);
+    ok(job.method === DEFAULT_REFINE_METHOD, `manual Needle refines with the default refiner (${job.method})`);
 }
 
 if (fails === 0) { console.log('PASS: range targets reach least squares one residual per sample'); process.exit(0); }

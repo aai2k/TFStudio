@@ -13,7 +13,7 @@ import { poolCatalogs } from '../synthesisShared/synthesisHelpers.js';
 import { needleManualSession } from './sessionState.js';
 import { useWindowSession } from '../../windowSession.js';
 import {
-    findOptimalNeedleThickness, mirrorLayers,
+    findOptimalNeedleThickness,
     resolveScanSide, isConstraint,
     buildEvalContext, evaluateOperands, calcOMF, withDesignSampleCounts,
     makeConeSpec, coneIsActive,
@@ -24,7 +24,7 @@ import {
 } from '../synthesisShared/synthesisHelpers.js';
 import {
     candidateDepth, insertForSelection, runNeedleScan, buildPlotData,
-    resolveHostInfo, resolveDRange, makeInsertionRefiner,
+    resolveHostInfo, resolveDRange, insertionRefineJob, refineAndCommit,
 } from './model.js';
 import { useAnalysisEvaluation } from '../../analysis/useAnalysisEvaluation.js';
 
@@ -219,71 +219,67 @@ function commitInsertion(inserted, updateDesign) {
     updateDesign({ frontLayers: inserted.frontLayers, backLayers: inserted.backLayers });
 }
 
-// Async-ticked refinement loop so the UI stays responsive; re-schedules itself
-// via refineTimerRef until converged or dlsIter is reached.
-function runRefineTick(ctx) {
-    const { refiner, inserted, dlsIter, surfaceMode, updateDesign, tn, selected,
-             setRefining, setStatusMsg, setScan, setSelected, refineTimerRef } = ctx;
-    refiner.step();
-    const done = refiner.isConverged() || refiner.iter >= dlsIter;
-    // Live preview of the refining stack.
-    const cur = refiner.applyToDesign(inserted);
-    updateDesign({ frontLayers: cur.frontLayers, backLayers: cur.backLayers }, { transient: true });
-    if (!done) { refineTimerRef.current = setTimeout(() => runRefineTick(ctx), 0); return; }
-
-    let finalD = refiner.applyToDesign(inserted);
-    if (surfaceMode === 'symmetric') {
-        finalD = { ...finalD, backLayers: mirrorLayers(finalD.frontLayers) };
-    }
-    updateDesign({ frontLayers: finalD.frontLayers, backLayers: finalD.backLayers });
-    setRefining(false);
-    setStatusMsg(tn.insertedRefined(matDisplayName(selected.materialId), refiner.mf.toFixed(6)));
-    setScan(null); setSelected(null);
+// The refine after Apply, off the UI thread, on the design active at Apply.
+// Writes go through the latest updateDesign, so an edit made to that design
+// while the refine runs (an operand, the angle) is not overwritten.
+function startRefine(ctx, inserted, finish) {
+    const {
+        operands, resolveMat, dMin, dlsIter, selected, tn, design,
+        setRefining, setStatusMsg, runRef, designIdRef, updateDesignRef,
+    } = ctx;
+    const run = { designId: design.id, ctrl: new AbortController() };
+    runRef.current = run;
+    setRefining(true);
+    setStatusMsg(tn.refining);
+    refineAndCommit({
+        inserted, job: insertionRefineJob(operands, inserted, dMin, dlsIter), resolveMat,
+        signal: run.ctrl.signal,
+        isCurrent: () => designIdRef.current === run.designId,
+        write: (patch, opts) => updateDesignRef.current(patch, opts),
+        onProgress: p => setStatusMsg(tn.refiningStep(p.step, p.iters, p.mf)),
+    }).then((out) => {
+        runRef.current = null;
+        setRefining(false);
+        if (!out) return;
+        const name = matDisplayName(selected.materialId);
+        finish(out.mfBest == null ? tn.inserted(name) : tn.insertedRefined(name, out.mfBest.toFixed(6)));
+    });
 }
 
 function runHandleApply(ctx) {
     const {
-        selected, design, resolveMat, busy, dNew, refineAfter, requestedSide, operands, dMin, dlsIter,
-        surfaceMode, checkpoint, updateDesign, tn,
-        setRefining, setStatusMsg, setScan, setSelected, refineTimerRef,
+        selected, design, busy, dNew, refineAfter, requestedSide, checkpoint, updateDesign, tn,
+        setStatusMsg, setScan, setSelected,
     } = ctx;
     if (!selected || !design || busy) return;
     checkpoint && checkpoint();   // one undo step covers insert (+ refine)
 
     const inserted = insertForSelection(selected, design, dNew, requestedSide);
+    const finish = (msg) => { setStatusMsg(msg); setScan(null); setSelected(null); };
 
     if (!refineAfter) {
         commitInsertion(inserted, updateDesign);
-        setStatusMsg(tn.inserted(matDisplayName(selected.materialId)));
-        setScan(null); setSelected(null);
+        finish(tn.inserted(matDisplayName(selected.materialId)));
         return;
     }
-
-    let refiner;
-    try {
-        refiner = makeInsertionRefiner(operands, inserted, resolveMat, dMin);
-    } catch (err) {
-        console.error('[NeedleManual] refiner init failed, committing un-refined:', err);
-        commitInsertion(inserted, updateDesign);
-        setStatusMsg(tn.inserted(matDisplayName(selected.materialId)));
-        setScan(null); setSelected(null);
-        return;
-    }
-    setRefining(true);
-    setStatusMsg(tn.refining);
-    refineTimerRef.current = setTimeout(() => runRefineTick({
-        refiner, inserted, dlsIter, surfaceMode, updateDesign, tn, selected,
-        setRefining, setStatusMsg, setScan, setSelected, refineTimerRef,
-    }), 0);
+    startRefine(ctx, inserted, finish);
 }
 
+// Apply, and the refine after it. Stop, or closing the window, ends the refine
+// early and keeps the insertion with the best thicknesses so far; Stop before
+// the first step keeps it unrefined. Switching to another design ends it and
+// writes nothing more to either design.
 function useNeedleApply({
     scanning, selected, design, resolveMat, dNew, refineAfter, requestedSide, operands, dMin, dlsIter,
-    surfaceMode, checkpoint, updateDesign, tn, setStatusMsg, setScan, setSelected,
+    checkpoint, updateDesign, tn, setStatusMsg, setScan, setSelected,
 }) {
     const [refining, setRefining] = useState(false);
     const busy = scanning || refining;
-    const refineTimerRef = useRef(null);
+    const runRef = useRef(null);             // { designId, ctrl } of the refine in flight
+    const designIdRef = useRef(design?.id);
+    designIdRef.current = design?.id;
+    const updateDesignRef = useRef(updateDesign);
+    updateDesignRef.current = updateDesign;
 
     // Flip the global isOptimizing flag while a refine runs (throttles live
     // previews in other windows, matches NeedleVariation).
@@ -294,17 +290,22 @@ function useNeedleApply({
         return () => endOptimization();
     }, [refining, beginOptimization, endOptimization]);
 
-    useEffect(() => () => clearTimeout(refineTimerRef.current), []);
+    useEffect(() => () => runRef.current?.ctrl.abort(), []);
+    useEffect(() => {
+        if (runRef.current && runRef.current.designId !== design?.id) runRef.current.ctrl.abort();
+    }, [design?.id]);
 
     const handleApply = useCallback(() => {
         runHandleApply({
             selected, design, resolveMat, busy, dNew, refineAfter, requestedSide, operands, dMin, dlsIter,
-            surfaceMode, checkpoint, updateDesign, tn,
-            setRefining, setStatusMsg, setScan, setSelected, refineTimerRef,
+            checkpoint, updateDesign, tn,
+            setRefining, setStatusMsg, setScan, setSelected, runRef, designIdRef, updateDesignRef,
         });
-    }, [selected, design, resolveMat, busy, dNew, refineAfter, requestedSide, operands, dMin, dlsIter, surfaceMode, checkpoint, updateDesign, tn]);
+    }, [selected, design, resolveMat, busy, dNew, refineAfter, requestedSide, operands, dMin, dlsIter, checkpoint, updateDesign, tn]);
 
-    return { refining, busy, handleApply };
+    const stop = useCallback(() => runRef.current?.ctrl.abort(), []);
+
+    return { refining, busy, handleApply, stop };
 }
 
 // ── Top-level combinator ─────────────────────────────────────────────────────────
@@ -339,7 +340,7 @@ export function useNeedleManual(t) {
     const apply = useNeedleApply({
         scanning: workflow.scanning, selected: workflow.selected, design, resolveMat,
         dNew: workflow.dNew, refineAfter: settings.refineAfter, requestedSide: settings.requestedSide,
-        operands, dMin: settings.dMin, dlsIter: settings.dlsIter, surfaceMode,
+        operands, dMin: settings.dMin, dlsIter: settings.dlsIter,
         checkpoint, updateDesign, tn,
         setStatusMsg: workflow.setStatusMsg, setScan: workflow.setScan, setSelected: workflow.setSelected,
     });
