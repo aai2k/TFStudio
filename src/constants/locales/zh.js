@@ -2511,6 +2511,8 @@ export default {
     jitterHelp: '"扰动"变异的厚度扰动幅度（每层的 ± 比例）。',
     refineIter: '精炼迭代/步',
     dMin: '最小厚度 (nm)',
+    mntHintAbove: (mnt) => `高于 MNT 行（${mnt} nm）：膜层不会比此值更薄`,
+    mntHintBelow: (mnt) => `低于 MNT 行：运行时采用 ${mnt} nm`,
     addMaxNm: '最大新增 (nm)',
     addMaxHelp: '新添加或插入膜层的最大厚度。',
     maxLayers: '最大膜层数',

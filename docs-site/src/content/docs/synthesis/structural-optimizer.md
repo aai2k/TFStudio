@@ -56,7 +56,11 @@ more uphill moves early on, which widens the search.
 **Refine iterations**: how many refinement steps are applied to each proposed
 design.
 
-**dMin**: the minimum thickness for layers that are added or split.
+**Min thickness**: the thinnest a layer may be, for the layers the search
+adds, splits and refines. It starts from the strictest `MNT` row of the merit
+function (1 nm without one) and is taken from it again when you switch
+designs; a value you type stays until then. A note under the field shows when
+the two differ.
 
 **Max added**: the largest thickness a randomly added or inserted layer starts
 at. The needle insertions choose their own thickness.
@@ -90,7 +94,7 @@ it there, so running again with the same seed, design, settings and
 marks each run with its seed.
 
 The merit function's `MNT` and `MXT` rows hold during the search: the largest
-`MNT` target raises **dMin**, and the smallest `MXT` target caps every layer,
+`MNT` target raises a lower **Min thickness** at Run, and the smallest `MXT` target caps every layer,
 both for the proposals and for their refinement. A limit written for a few
 layers therefore applies to the whole stack here; finish with a
 [Refinement](/synthesis/refinement/) and

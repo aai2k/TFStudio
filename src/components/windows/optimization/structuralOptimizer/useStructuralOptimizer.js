@@ -6,6 +6,7 @@ import { activeBaseline, undoRunBlock } from '../synthesisShared/runBlocks.js';
 import { getCached, setCached, clearCached } from './sessionState.js';
 import { STRUCT_CATS_KEY, STRUCTURAL_DEFAULTS, loadKinds, saveKinds } from './structuralSettings.js';
 import { runStructuralWorker } from './runners/workerPool.js';
+import { useMinThickness } from './useMinThickness.js';
 
 const { useCallback, useEffect, useRef, useState } = React;
 
@@ -130,7 +131,6 @@ export function useStructuralOptimizer({
     const [T0,         setT0]         = usePersistentNumber('tfstudio_struct_T0', D.T0);
     const [jitterPct,  setJitterPct]  = usePersistentNumber('tfstudio_struct_jitter', D.jitterPct);
     const [refineIter, setRefineIter] = usePersistentNumber('tfstudio_struct_refineIter', D.refineIter);
-    const [dMin,       setDMin]       = usePersistentNumber('tfstudio_struct_dMin', D.dMin);
     const [addMaxNm,   setAddMax]     = usePersistentNumber('tfstudio_struct_addMax', D.addMaxNm);
     const [maxLayers,  setMaxLayers]  = usePersistentNumber('tfstudio_struct_maxLayers', D.maxLayers);
     const [deepMode,   setDeepMode]   = usePersistentNumber('tfstudio_struct_deepMode', 0);
@@ -160,6 +160,7 @@ export function useStructuralOptimizer({
     const [statusMsg,  setStatusMsg]  = useState('');
 
     const runningRef   = useRef(false);
+    const { dMin, setDMin, maxMNT } = useMinThickness(design, runningRef);
     const workersRef   = useRef([]);
     const runIdRef     = useRef(0);
     const designRef    = useRef(design);
@@ -350,7 +351,7 @@ export function useStructuralOptimizer({
     return {
         ts,
         maxIter, setMaxIter, targetMF, setTargetMF, T0, setT0, jitterPct, setJitterPct,
-        refineIter, setRefineIter, dMin, setDMin, addMaxNm, setAddMax, maxLayers, setMaxLayers,
+        refineIter, setRefineIter, dMin, setDMin, maxMNT, addMaxNm, setAddMax, maxLayers, setMaxLayers,
         deepMode, setDeepMode, deepMaxMin, setDeepMaxMin, reheats, kinds, onToggleKind, seed, setSeed,
         selectedCats, handleToggleCat, handleSelectAllCats, handleClearCats,
         excludedMats, handleToggleMat,

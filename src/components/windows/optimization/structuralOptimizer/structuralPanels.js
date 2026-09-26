@@ -125,9 +125,21 @@ function seedRow({ ts, seed, onSeed, running, c }) {
         }));
 }
 
+// A note under Min thickness when the merit function's MNT row asks for
+// another floor: a stricter one here holds every layer above what the merit
+// function needs, and a looser one is raised to the MNT value at Run.
+function mntHint({ dMin, maxMNT, ts }) {
+    if (!(maxMNT > 0) || Math.abs(dMin - maxMNT) <= 1e-6) return null;
+    const mnt = +maxMNT.toFixed(3);
+    return h('div', {
+        'data-structural-mnt-hint': true,
+        style: { fontSize: 10, color: '#ffa726', marginTop: -1, marginBottom: 4, lineHeight: 1.3 },
+    }, dMin > maxMNT ? ts.mntHintAbove(mnt) : ts.mntHintBelow(mnt));
+}
+
 export function LeftSidebar({ catalogs, selectedCats, onToggleCat, onSelectAllCats, onClearCats,
                        excludedMats, onToggleMat,
-                       maxIter, targetMF, T0, jitterPct, refineIter, dMin, addMaxNm, maxLayers,
+                       maxIter, targetMF, T0, jitterPct, refineIter, dMin, maxMNT, addMaxNm, maxLayers,
                        deepMode, onDeepMode, deepMaxMin, onDeepMaxMin,
                        kinds, onToggleKind, seed, onSeed,
                        onMaxIter, onTargetMF, onT0, onJitter, onRefineIter, onDMin, onAddMax, onMaxLayers,
@@ -156,6 +168,7 @@ export function LeftSidebar({ catalogs, selectedCats, onToggleCat, onSelectAllCa
         numRow(ts.temp0,    T0,       v => onT0(Math.max(0, v)), ts.temp0Help),
         // Min thickness is an everyday knob (mutation/prune floor + MNT coupling).
         numRow(ts.dMin,     dMin,     v => onDMin(Math.max(0.1, v))),
+        mntHint({ dMin, maxMNT, ts }),
         // Smart starting design: refine canonical AR seeds on the worker pool
         // at run start, begin from the best (incl. current design).
         chkRow(ts.smartSeed, () => getSynthesisSmartSeed('structural'), (v) => setSynthesisSmartSeed(v, 'structural'), ts.smartSeedHelp),

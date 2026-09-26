@@ -29,7 +29,8 @@ import { runNeedleWorkerPool } from './runners/workerPool.js';
 import { setCachedOptState } from './sessionState.js';
 import { teardownRun, syncOnDesignSwitch } from './needleLifecycle.js';
 import { performReset, clearRunHistory, findBestGeneration, jumpToGeneration } from './needleActions.js';
-import { deriveDMinDefault } from './needleSettings.js';
+import { NEEDLE_DMIN_DEFAULT } from './needleSettings.js';
+import { strictestMnt, deriveDMinDefault } from '../synthesisShared/minThickness.js';
 
 const { useState, useEffect, useRef, useCallback } = React;
 
@@ -136,12 +137,11 @@ export function useNeedleVariation(t) {
     // dMin's smart default (see needleSettings.js) is a fixed synthesis floor
     // for standalone Needle, unlike GE's MNT-coupled default. `maxMNT` is still
     // computed here for the UI hint.
-    const maxMNT = operands.reduce(
-        (m, o) => (o.enabled && o.type === 'MNT' ? Math.max(m, o.target || 0) : m), 0);
+    const maxMNT = strictestMnt(operands);
     const dMinTouchedRef = useRef(dMinFromStorage);
     const lastIdForDMin  = useRef(null);
     useEffect(() => {
-        deriveDMinDefault({ design, lastIdForDMin, dMinTouchedRef, runningRef, dMinRef, setDMin });
+        deriveDMinDefault(design, NEEDLE_DMIN_DEFAULT, { lastIdForDMin, dMinTouchedRef, runningRef, dMinRef, setDMin });
     }, [design?.id]);
     const handleDMin = useCallback((v) => { dMinTouchedRef.current = true; setDMin(v); }, []);
 

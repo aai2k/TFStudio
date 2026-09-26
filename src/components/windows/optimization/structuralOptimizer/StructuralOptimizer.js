@@ -46,7 +46,7 @@ export function StructuralOptimizer({ c, theme, t }) {
             onSelectAllCats: s.handleSelectAllCats, onClearCats: s.handleClearCats,
             excludedMats: s.excludedMats, onToggleMat: s.handleToggleMat,
             maxIter: s.maxIter, targetMF: s.targetMF, T0: s.T0, jitterPct: s.jitterPct,
-            refineIter: s.refineIter, dMin: s.dMin, addMaxNm: s.addMaxNm, maxLayers: s.maxLayers, kinds: s.kinds,
+            refineIter: s.refineIter, dMin: s.dMin, maxMNT: s.maxMNT, addMaxNm: s.addMaxNm, maxLayers: s.maxLayers, kinds: s.kinds,
             deepMode: s.deepMode, onDeepMode: s.setDeepMode, deepMaxMin: s.deepMaxMin, onDeepMaxMin: s.setDeepMaxMin,
             onToggleKind: s.onToggleKind,
             onMaxIter: s.setMaxIter, onTargetMF: s.setTargetMF, onT0: s.setT0, onJitter: s.setJitterPct,

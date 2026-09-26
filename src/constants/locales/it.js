@@ -2519,6 +2519,8 @@ export default {
     jitterHelp: 'Ampiezza della perturbazione di spessore per la mutazione "perturba" (± frazione di ogni strato).',
     refineIter: 'Iteraz. di affinamento per passo',
     dMin: 'Spessore minimo (nm)',
+    mntHintAbove: (mnt) => `Sopra la riga MNT (${mnt} nm): nessuno strato sarà più sottile di così`,
+    mntHintBelow: (mnt) => `Sotto la riga MNT: l'esecuzione usa ${mnt} nm`,
     addMaxNm: 'Aggiunta max (nm)',
     addMaxHelp: 'Spessore massimo di uno strato appena aggiunto o inserito.',
     maxLayers: 'Strati max',

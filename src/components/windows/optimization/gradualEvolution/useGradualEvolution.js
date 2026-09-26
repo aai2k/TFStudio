@@ -24,7 +24,8 @@ import { usePersistentNumber } from '../../../ui/usePersistentState.js';
 
 // Run engine (worker-pool default; falls back to a main-thread engine).
 import { runGeWorker } from './runners/workerPool.js';
-import { deriveDMinDefault, restoreOrClearForDesign, performReset, clearRunHistory, applyCycleSnapshot } from './geStateHelpers.js';
+import { restoreOrClearForDesign, performReset, clearRunHistory, applyCycleSnapshot } from './geStateHelpers.js';
+import { strictestMnt, deriveDMinDefault } from '../synthesisShared/minThickness.js';
 
 const { useState, useEffect, useRef, useCallback } = React;
 
@@ -71,9 +72,7 @@ function useGeSettings(design) {
     useEffect(() => { dMinRef.current        = dMin;        }, [dMin]);
     useEffect(() => { deepSearchRef.current  = !!deepSearch; }, [deepSearch]);
 
-    const operands = design?.meritOperands || [];
-    const maxMNT = operands.reduce(
-        (m, o) => (o.enabled && o.type === 'MNT' ? Math.max(m, o.target || 0) : m), 0);
+    const maxMNT = strictestMnt(design?.meritOperands);
 
     const dMinTouchedRef = useRef(dMinFromStorage);
     const lastIdForDMin  = useRef(null);
@@ -176,8 +175,10 @@ export function useGradualEvolution({ design, updateDesign, checkpoint, beginOpt
     const settings = useGeSettings(design);
     const run = useGeRunState({ design, beginOptimization, endOptimization, getDesignRevision });
 
+    // Min thickness follows the strictest MNT row, so GE keeps the floor the
+    // MNT penalty enforces; 15 nm without one (synthesisShared/minThickness.js).
     useEffect(() => {
-        deriveDMinDefault(design, settings.maxMNT, {
+        deriveDMinDefault(design, settings.maxMNT > 0 ? settings.maxMNT : 15.0, {
             dMinTouchedRef: settings.dMinTouchedRef, lastIdForDMin: settings.lastIdForDMin,
             runningRef: run.runningRef, dMinRef: settings.dMinRef, setDMin: settings.setDMin,
         });

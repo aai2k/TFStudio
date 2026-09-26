@@ -2108,6 +2108,8 @@ export default {
     jitterHelp:   'Thickness perturbation magnitude for the "perturb" mutation (± fraction of each layer).',
     refineIter:   'Refine iter / step',
     dMin:         'Min thickness (nm)',
+    mntHintAbove: (mnt) => `Above the MNT row (${mnt} nm): no layer goes thinner than this`,
+    mntHintBelow: (mnt) => `Below the MNT row: Run uses ${mnt} nm`,
     addMaxNm:     'Max added (nm)',
     addMaxHelp:   'Largest thickness of a newly added or inserted layer.',
     maxLayers:    'Max layers',

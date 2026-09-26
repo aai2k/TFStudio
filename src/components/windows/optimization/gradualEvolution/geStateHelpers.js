@@ -9,23 +9,6 @@ import { sideKeyFor, minOmfOf } from '../synthesisShared/synthesisHelpers.js';
 import { activeBaseline, undoRunBlock } from '../synthesisShared/runBlocks.js';
 import { getCached, setCached, clearCached } from './sessionState.js';
 
-// Smart default: initialize "Min thickness" from the strictest enabled MNT
-// constraint so GE respects the same manufacturability floor the MNT penalty
-// enforces. Re-derived on design switch; a manual edit sticks. A persisted
-// dMin counts as user-set, so the smart default doesn't clobber it on remount.
-export function deriveDMinDefault(design, maxMNT, ctx) {
-    const { dMinTouchedRef, lastIdForDMin, runningRef, dMinRef, setDMin } = ctx;
-    const id = design?.id ?? null;
-    if (lastIdForDMin.current !== id) {
-        const firstMount = lastIdForDMin.current === null;
-        lastIdForDMin.current = id;
-        if (!firstMount) dMinTouchedRef.current = false;   // real design switch → re-derive
-    }
-    if (runningRef.current || dMinTouchedRef.current) return;
-    const def = maxMNT > 0 ? maxMNT : 15.0;
-    if (Math.abs((dMinRef.current || 0) - def) > 1e-9) { setDMin(def); dMinRef.current = def; }
-}
-
 // Restore a switched-to design's cached run (cycles/best) or clear the
 // timeline for a design with none. Also tears down any in-flight run for the
 // design being switched away from.
