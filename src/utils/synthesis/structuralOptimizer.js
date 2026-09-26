@@ -245,6 +245,38 @@ export function metropolisAccept(mfOld, mfNew, T, rng) {
 }
 
 /**
+ * Chooses which of several moves, refined side by side from one current design,
+ * the annealing chain takes. Each move gets its own Metropolis test, the moves
+ * are tested in a random order, and the chain takes the first one accepted, so
+ * the move taken is one of the accepted moves picked at random, whatever its
+ * merit. This is the synchronous-by-trial rule of parallel annealing
+ * (Roussel-Ragot and Dreyfus's high-temperature mode, as given by D. Delamarre
+ * and B. Virot, RAIRO Rech. Oper. 32, 43 (1998), sec. 4.4.2). Taking the first
+ * accepted move in an order drawn before the results are known is equivalent to
+ * the serial chain: E. E. Ferrero, A. B. Kolton and M. Palassini, AIP Conf.
+ * Proc. 1610, 71 (2014). Testing only the lowest move of the batch instead
+ * would make the search greedy: a batch holding any downhill move, such as the
+ * step back to the previous design, would always take it.
+ *
+ * @param {number}   mfOld   current merit
+ * @param {number[]} mfNews  merit of each refined move
+ * @param {number}   T       dimensionless temperature, as in metropolisAccept
+ * @param {function} rng     () => [0,1)
+ * @returns {number} index of the move taken, or -1 when none is accepted
+ */
+export function pickAcceptedMove(mfOld, mfNews, T, rng) {
+    const order = mfNews.map((_, i) => i);
+    for (let i = order.length - 1; i > 0; i--) {
+        const j = Math.floor(rng() * (i + 1));
+        [order[i], order[j]] = [order[j], order[i]];
+    }
+    for (const i of order) {
+        if (metropolisAccept(mfOld, mfNews[i], T, rng)) return i;
+    }
+    return -1;
+}
+
+/**
  * Geometric cooling schedule: T0 at frac=0 → Tend at frac=1.
  * @param {number} frac  progress in [0,1] (iteration / maxIterations)
  */

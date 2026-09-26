@@ -16,11 +16,13 @@
  *   • proposeMutation falls through inapplicable kinds and respects `kinds`.
  *   • metropolisAccept: improvements always accepted; uphill accepted with the
  *     right scale-invariant probability; frozen (T=0) rejects all uphill.
+ *   • pickAcceptedMove: from a batch, one of the accepted moves at random, not
+ *     the lowest.
  *   • temperatureAt: monotone T0→Tend geometric schedule.
  */
 
 import {
-    makeRng, proposeMutation, metropolisAccept, temperatureAt,
+    makeRng, proposeMutation, metropolisAccept, pickAcceptedMove, temperatureAt,
     clampThickness, MUTATION_KINDS, DEFAULT_MUTATION_WEIGHTS,
 } from '../src/utils/synthesis/structuralOptimizer.js';
 
@@ -187,6 +189,28 @@ console.log('— metropolis —');
     ok(Math.abs(r1 - pExpected) < 0.02, `accept rate @1e-3 ≈ exp(-relΔ/T) (got ${r1.toFixed(3)} vs ${pExpected.toFixed(3)})`);
     ok(Math.abs(r2 - pExpected) < 0.02, `accept rate @40 ≈ exp(-relΔ/T)  (got ${r2.toFixed(3)} vs ${pExpected.toFixed(3)})`);
     ok(Math.abs(r1 - r2) < 0.02, 'accept rate is scale-invariant across 40000× MF range');
+}
+
+// ── 6b. One move from a batch refined side by side ───────────────────────────
+console.log('— batch pick —');
+{
+    ok(pickAcceptedMove(1.0, [1.1, 0.95, 1.03], 0, makeRng(1)) === 1, 'frozen: the only downhill move is taken');
+    ok(pickAcceptedMove(1.0, [1.1, 1.2], 0, makeRng(1)) === -1, 'frozen: no move when all are uphill');
+    ok(pickAcceptedMove(1.0, [], 0.1, makeRng(1)) === -1, 'no move from an empty batch');
+    ok(pickAcceptedMove(1.0, [0.9, 1.01, 0.8], 0.1, makeRng(5)) === pickAcceptedMove(1.0, [0.9, 1.01, 0.8], 0.1, makeRng(5)),
+        'the same seed picks the same move');
+
+    // The lowest move is not favoured: two downhill moves are taken about
+    // equally often, and an uphill move the test accepts is taken even when
+    // the batch also holds a downhill one.
+    const N = 4000;
+    const counts = [0, 0, 0];
+    const rng = makeRng(77);
+    for (let i = 0; i < N; i++) counts[pickAcceptedMove(1.0, [0.98, 0.7, 1.01], 0.05, rng)]++;
+    ok(Math.abs(counts[0] - counts[1]) / N < 0.05, `two downhill moves are taken equally often (${counts[0]} / ${counts[1]})`);
+    // P(uphill taken) = P(tested first) × exp(-0.01 / 0.05) = (1/3) × 0.819
+    const pUp = Math.exp(-0.01 / 0.05) / 3;
+    ok(Math.abs(counts[2] / N - pUp) < 0.02, `an accepted uphill move is taken next to downhill ones (${(counts[2] / N).toFixed(3)} vs ${pUp.toFixed(3)})`);
 }
 
 // ── 7. Temperature schedule ──────────────────────────────────────────────────

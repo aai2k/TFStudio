@@ -14,14 +14,17 @@ layers, it reaches designs that fixed-structure
 [Needle](/synthesis/needle/) and [Gradual Evolution](/synthesis/gradual-evolution/)
 tools cannot.
 
-Each generation it proposes several changes to the current design, refines
-each one, and takes the best of the batch. Up to half of them are the
-insertions the [Needle](/synthesis/needle/) scan rates most useful; the rest
-are random mutations of the enabled kinds. A proposal that refines back to the
-current design is left out, so every generation tests a real change. A worse
-design may still be accepted with a probability set by a temperature that cools
-as the run progresses, and this
-is what lets the search climb out of a local minimum. The live design always
+Each generation it proposes several changes to the current design and refines
+each one. Up to half of them are the insertions the [Needle](/synthesis/needle/)
+scan rates most useful; the rest are random mutations of the enabled kinds. A
+proposal that refines back to the current design is left out, so every
+generation tests a real change. When one of the refined designs is better than
+any found so far, the search moves to it. Otherwise each one gets its own
+accept test and the search moves to one of those that pass, picked at random.
+A worse design passes with a probability set by a temperature that cools as
+the run progresses, and this is what lets the search climb out of a local
+minimum. Picking at random, rather than taking the best of the batch, keeps a
+step back to a design already found from winning every generation. The live design always
 tracks the best result found, so stopping, resetting, or switching tabs always
 leaves you on the best design. The wavelength grid the band targets are sampled
 on is sized from the design and grows with it during the run (see

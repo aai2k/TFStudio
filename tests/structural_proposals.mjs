@@ -5,7 +5,10 @@
  *      in order, every thickness within 0.5 nm) is not a candidate, and a batch
  *      of only such proposals gives none, which is not an accepted move. When
  *      one comes back lower, the current design takes it without counting a
- *      move.
+ *      move. A batch holding a design better than the best so far moves the
+ *      chain to it; otherwise the chain takes one of the accepted moves at
+ *      random, not the lowest, and the lowest is still recorded when it is a
+ *      new best.
  *   2. The slots after the needles take random mutations of every enabled kind,
  *      add and split included.
  *   3. At a Min thickness the needle scan offers no split whose halves are
@@ -89,15 +92,15 @@ function scriptedRun(results) {
     const back = { mf: 0.0299, frontLayers: [layer('SiO2', 90.2)] };
     const moved = { mf: 0.04, frontLayers: [layer('SiO2', 90), layer('TiO2', 40)] };
     const mixed = scriptedRun([back, moved, back]);
-    const { best, polish } = await refineProposals(mixed.ctx, mixed.S, mixed.proposals);
-    assert.equal(best.result.frontLayers.length, 2,
+    const { moves, polish } = await refineProposals(mixed.ctx, mixed.S, mixed.proposals);
+    assert.deepEqual(moves.map(move => move.result.frontLayers.length), [2],
         'the real change goes to the accept test, even when a proposal that came back scores lower');
     assert.equal(polish.result.mf, 0.0299, 'and the one that came back is kept apart');
 
     const same = { mf: 0.03, frontLayers: [layer('SiO2', 90.1)] };
     const stuck = scriptedRun([same, same, same]);
     const batch = await refineProposals(stuck.ctx, stuck.S, stuck.proposals);
-    assert.equal(batch.best, null, 'a batch that only came back to the current design gives no candidate');
+    assert.equal(batch.moves.length, 0, 'a batch that only came back to the current design gives no candidate');
     acceptProposal(stuck.ctx, stuck.S, batch, 0.1, () => { throw new Error('not a new best'); });
     assert.deepEqual([stuck.S.attempts, stuck.S.accepts, stuck.S.noImprove], [0, 0, 1],
         'and counts as an iteration without improvement, not as an accepted move');
@@ -115,6 +118,63 @@ function scriptedRun(results) {
     assert.deepEqual(rows, [0.0299], 'and the new best');
     assert.deepEqual([polished.S.attempts, polished.S.noImprove], [0, 6],
         'without counting a move or restarting the count of iterations without improvement');
+}
+
+// ── 1b. Which move of a batch the chain takes ──────────────────────────────────
+// At a 40 nm floor the BBAR's way down from one SiO2 layer (the best design so
+// far) passes a 2-layer design 1.4 % worse and a 3-layer design 1 % worse
+// again. From the 2-layer design a batch holds both the step back to one layer
+// and the step on to three; taking the lowest of the batch stepped back every
+// time.
+{
+    const one = [layer('SiO2', 90)];
+    const two = [layer('SiO2', 87), layer('TiO2', 99)];
+    const three = [layer('SiO2', 87), layer('TiO2', 99), layer('SiO2', 175)];
+    const fromTwo = async (seed, results, recordBest) => {
+        const run = scriptedRun(results);
+        Object.assign(run.S, {
+            current: { mf: 0.0294, frontLayers: two, backLayers: [] },
+            best: { mf: 0.0290, frontLayers: one, backLayers: [] }, rng: makeRng(seed),
+        });
+        const refined = await refineProposals(run.ctx, run.S, run.proposals);
+        acceptProposal(run.ctx, run.S, refined, 0.05, recordBest);
+        return run.S.current;
+    };
+    const onToThree = { mf: 0.0297, frontLayers: three };
+    const seeds = 40;
+    const onward = async (backToOne, recordBest) => {
+        let count = 0;
+        for (let seed = 1; seed <= seeds; seed++) {
+            if ((await fromTwo(seed, [backToOne, onToThree], recordBest)).frontLayers.length === 3) count++;
+        }
+        return count;
+    };
+
+    const toBest = await onward({ mf: 0.0290, frontLayers: [layer('SiO2', 90.2)] },
+        () => { throw new Error('not a new best'); });
+    assert.ok(toBest >= 8 && toBest <= 28,
+        `from 2 layers the chain steps on to 3 on some seeds and back to 1 on the others (${toBest} of ${seeds} on)`);
+
+    const recorded = [];
+    const toBestLower = await onward({ mf: 0.0290 - 1e-9, frontLayers: [layer('SiO2', 90.2)] },
+        (ctx, S, candidate) => { recorded.push(candidate.mf); return false; });
+    assert.ok(toBestLower >= 8 && toBestLower <= 28,
+        `the best design come back a little lower is no reason to step back to it (${toBestLower} of ${seeds} on)`);
+    assert.ok(recorded.length === seeds && recorded.every(mf => mf === 0.0290 - 1e-9),
+        'but it is recorded as the new best on every seed');
+
+    let taken = 0;
+    for (let seed = 1; seed <= seeds; seed++) {
+        const current = await fromTwo(seed, [{ mf: 0.0280, frontLayers: [layer('TiO2', 30), layer('SiO2', 90)] }, onToThree],
+            () => false);
+        if (current.mf === 0.0280) taken++;
+    }
+    assert.equal(taken, seeds, 'a batch holding a design better than the best so far moves the chain to it on every seed');
+
+    const bests = [];
+    const current = await fromTwo(1, [{ mf: NaN, frontLayers: three }, { mf: 0.0280, frontLayers: [layer('TiO2', 30), layer('SiO2', 90)] }],
+        (ctx, S, candidate) => { bests.push(candidate.mf); return false; });
+    assert.deepEqual([current.mf, bests], [0.0280, [0.0280]], 'a move whose merit came back NaN does not hide a new best behind it');
 }
 
 // ── 2 and 3. Proposals from a real design at a 40 nm floor ─────────────────────

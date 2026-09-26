@@ -5,33 +5,36 @@
 import { tidyLayers } from '../../../../../utils/synthesis/structuralOptimizer.js';
 import { normalizeResult } from './refine.js';
 
-// A refined proposal whose layers all sit within this distance of the current
-// design's, in the same material order, is the current design again (nm).
+// A refined proposal whose layers all sit within this distance of a held
+// design's, in the same material order, is that design again (nm).
 const SAME_DESIGN_NM = 0.5;
 
-export function isCurrentDesign(S, result) {
+export function isSameDesign(S, result, held) {
     const raw = S.layerKey === 'frontLayers' ? result.frontLayers : result.backLayers;
     const next = tidyLayers(raw || [], S.cfg.dMin);
-    const cur = tidyLayers(S.current[S.layerKey] || [], S.cfg.dMin);
+    const cur = tidyLayers(held[S.layerKey] || [], S.cfg.dMin);
     return next.length === cur.length && next.every((layer, i) =>
         layer.material === cur[i].material
         && Math.abs(layer.thickness - cur[i].thickness) <= SAME_DESIGN_NM);
 }
 
-// Splits a batch of refined results into `best`, the lowest that changed the
-// design, and `polish`, the lowest that came back to it.
+export const isCurrentDesign = (S, result) => isSameDesign(S, result, S.current);
+
+// Splits a batch of refined results into `moves`, those that changed the
+// design, in the order they were proposed, and `polish`, the lowest that came
+// back to it.
 export function splitRefined(S, results) {
-    let best = null;
+    const moves = [];
     let polish = null;
     for (const item of results) {
         if (!item || item.result.mf == null) continue;
         if (isCurrentDesign(S, item.result)) {
             if (!polish || item.result.mf < polish.result.mf) polish = item;
-        } else if (!best || item.result.mf < best.result.mf) {
-            best = item;
+        } else {
+            moves.push(item);
         }
     }
-    return { best, polish };
+    return { moves, polish };
 }
 
 // The current design takes a result that came back lower. It is not a move: it

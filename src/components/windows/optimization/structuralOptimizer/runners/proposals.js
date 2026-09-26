@@ -1,12 +1,12 @@
 import {
     scanNeedlesPFunction, findOptimalNeedleThickness, insertNeedle, insertNeedleIntra,
 } from '../../../../../utils/physics/optimizer.js';
-import { proposeMutation, metropolisAccept } from '../../../../../utils/synthesis/structuralOptimizer.js';
+import { proposeMutation, pickAcceptedMove } from '../../../../../utils/synthesis/structuralOptimizer.js';
 import { materialLookup } from '../../synthesisShared/materialNames.js';
 import { alive } from './runUtils.js';
 import { designFor, refineJob, onTick, normalizeResult } from './refine.js';
 import { refineGuarded } from './workerLifecycle.js';
-import { splitRefined, adoptPolish } from './sameDesign.js';
+import { splitRefined, adoptPolish, isSameDesign } from './sameDesign.js';
 
 const SCAN_DELTA = 0.5;
 
@@ -96,24 +96,41 @@ export async function refineProposals(ctx, S, proposals) {
     return splitRefined(S, results);
 }
 
-/** Applies the metropolis test to the best refined proposal of a batch and, on a
- * new best, hands it to `recordBest` (injected by the caller to avoid a
- * dependency on the iteration loop). Returns true when the target merit is reached. */
+// The move the chain takes from a batch. When the lowest move beats the best
+// design so far, and is not that same design refined a little further, the
+// chain takes it: while the search is still descending most moves pass the
+// test, and a random pick would throw away the lower designs the batch found.
+// Otherwise the chain takes one of the accepted moves at random
+// (pickAcceptedMove), so a downhill step back to a design already found cannot
+// win every batch over an uphill step that leads on.
+function takenMove(S, moves, lowest, temperature) {
+    if (lowest.candidate.mf < S.best.mf - 1e-12 && !isSameDesign(S, lowest.item.result, S.best)) return lowest;
+    const index = pickAcceptedMove(S.current.mf, moves.map(move => move.candidate.mf), temperature, S.rng);
+    return index >= 0 ? moves[index] : null;
+}
+
+/** Takes a refined batch into the annealing chain (takenMove). The lowest move
+ * of the batch, when it is a new best, goes to `recordBest` (injected by the
+ * caller to avoid a dependency on the iteration loop) whether or not the chain
+ * took it. Returns true when the target merit is reached. */
 export function acceptProposal(ctx, S, batch, temperature, recordBest) {
     if (batch?.polish && adoptPolish(ctx, S, batch.polish, recordBest)) return true;
-    const bestResult = batch?.best;
-    if (!bestResult) {
+    const moves = (batch?.moves || []).map(item => ({ item, candidate: normalizeResult(S, item.result) }))
+        .filter(move => Number.isFinite(move.candidate.mf));
+    if (!moves.length) {
         S.noImprove += 1;
         return false;
     }
     S.attempts += 1;
-    const candidate = normalizeResult(S, bestResult.result);
-    const isNewBest = candidate.mf < S.best.mf - 1e-12;
-    if (metropolisAccept(S.current.mf, candidate.mf, temperature, S.rng)) {
+    const lowest = moves.reduce((low, move) => (move.candidate.mf < low.candidate.mf ? move : low));
+    const taken = takenMove(S, moves, lowest, temperature);
+    if (taken) {
         S.accepts += 1;
-        S.current = candidate;
+        S.current = taken.candidate;
     }
-    if (isNewBest) return recordBest(ctx, S, candidate, bestResult.proposal.mutation);
+    if (lowest.candidate.mf < S.best.mf - 1e-12) {
+        return recordBest(ctx, S, lowest.candidate, lowest.item.proposal.mutation);
+    }
     S.noImprove += 1;
     return false;
 }
