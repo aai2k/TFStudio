@@ -7,7 +7,7 @@ const STRUCT_KINDS_KEY = 'tfstudio_struct_kinds';
 // jitter and Max added from here; its own synthesis settings give the rest.
 // Thicknesses in nm, jitter as a fraction.
 export const STRUCTURAL_DEFAULTS = {
-    maxIter: 80, targetMF: 5e-4, T0: 0.08, jitterPct: 0.15, refineIter: 60,
+    maxIter: 80, targetMF: 5e-4, T0: 0.3, jitterPct: 0.15, refineIter: 60,
     dMin: 1, addMaxNm: 500, maxLayers: 80,
 };
 
