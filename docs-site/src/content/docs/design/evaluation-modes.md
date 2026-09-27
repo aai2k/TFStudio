@@ -59,7 +59,7 @@ Because the two controls live only in the Design Editor, every other window
 shows what it is doing as a read-only badge:
 
 - **`Eval: FRONT / BACK / TOTAL`**: appears in Optical Evaluation, Integral
-  Values, the Specification, Color, Monte-Carlo, Systematic Deviations, Layer
+  Values, the Specification, Color, Monte Carlo, Systematic Deviations, Layer
   Sensitivity, the Variator, Inhomogeneities and Roughness/Scattering. It is the
   *same* value in all of them.
 - **`Optimize: FRONT / BACK / BOTH / BOTH (sym)`**: appears additionally in

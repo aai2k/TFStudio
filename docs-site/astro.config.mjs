@@ -97,7 +97,7 @@ export default defineConfig({
               translations: { 'zh-CN': '公差分析' },
               collapsed: true,
               items: [
-                { label: 'Monte-Carlo',            translations: { 'zh-CN': '蒙特卡洛' },      slug: 'analysis/error-analysis' },
+                { label: 'Monte Carlo',            translations: { 'zh-CN': '蒙特卡洛' },      slug: 'analysis/error-analysis' },
                 { label: 'Layer Sensitivity',      translations: { 'zh-CN': '层灵敏度' },      slug: 'analysis/layer-sensitivity' },
                 { label: 'Inhomogeneities',        translations: { 'zh-CN': '非均匀性' },      slug: 'analysis/inhomogeneities' },
                 { label: 'Systematic Deviations',  translations: { 'zh-CN': '系统偏差' },      slug: 'analysis/systematic-deviations' },

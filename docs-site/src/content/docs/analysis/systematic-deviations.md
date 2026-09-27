@@ -7,7 +7,7 @@ ribbonIcon: systematic-dev
 Systematic Deviations answers "what-if" questions where every layer drifts the
 same way at once: what if all layers ran 2 % thick, what if the coater is +5 nm
 long on every layer, or what if a material's index shifted by Δn = +0.05? Unlike
-[Monte-Carlo](/analysis/error-analysis/), the error here is correlated: one
+[Monte Carlo](/analysis/error-analysis/), the error here is correlated: one
 deliberate offset applied across the design rather than an independent random draw
 per layer. Your design is never modified; the deviation is applied to a working
 copy and the result is overlaid against the unperturbed spectrum.

@@ -41,7 +41,7 @@ Design Editor from the substrate outwards.
 - [Material Dispersion](https://docs.tfstudio.xyz/analysis/material-dispersion/): phase and dispersion from propagation through a bulk material.
 - [Refractive Index Profile](https://docs.tfstudio.xyz/analysis/refractive-index-profile/): index as a function of depth through the coating.
 - [Layer Sensitivity](https://docs.tfstudio.xyz/analysis/layer-sensitivity/): how strongly each layer's thickness affects the merit function.
-- [Monte-Carlo](https://docs.tfstudio.xyz/analysis/error-analysis/): statistical yield prediction from random thickness and index errors.
+- [Monte Carlo](https://docs.tfstudio.xyz/analysis/error-analysis/): statistical yield prediction from random thickness and index errors.
 - [Integral Values](https://docs.tfstudio.xyz/analysis/integral-values/): weighted averages of spectral quantities over a band.
 - [Roughness and Scattering](https://docs.tfstudio.xyz/analysis/roughness-scattering/): scattering losses from interface roughness.
 - [Inhomogeneities](https://docs.tfstudio.xyz/analysis/inhomogeneities/): the effect of index gradients within a layer.

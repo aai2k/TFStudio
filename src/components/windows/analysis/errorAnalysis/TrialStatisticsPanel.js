@@ -87,7 +87,7 @@ function OverviewStatistics({ result, corridorSigma, blockLbl, c, ea }) {
 
 function SpreadStatistics({ spread, corridorSigma, blockLbl, c, ea }) {
     return h(React.Fragment, null,
-        h('div', { style: blockLbl }, ea.statsSpread || 'Spectral spread (Monte-Carlo σ)'),
+        h('div', { style: blockLbl }, ea.statsSpread || 'Spectral spread (Monte Carlo σ)'),
         h(StatRow, { c, label: ea.statMeanSigma || 'Mean σ', value: formatPercent(spread.meanSig) }),
         h(StatRow, {
             c, label: ea.statPeakSigma || 'Peak σ',

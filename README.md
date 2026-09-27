@@ -53,7 +53,7 @@ TFStudio is a desktop application for designing and analyzing **optical thin-fil
 
 **Analysis windows**
 - Optical evaluation, admittance diagrams, electric-field profiles, group delay / GDD, ellipsometric parameters, color evaluation, refractive-index profile, layer thickness diagram
-- Tolerance & manufacturing analysis: Monte-Carlo error analysis, layer sensitivity, inhomogeneity, roughness/scattering, systematic deviations
+- Tolerance & manufacturing analysis: Monte Carlo error analysis, layer sensitivity, inhomogeneity, roughness/scattering, systematic deviations
 
 **Materials**
 - Built-in library generated from the [refractiveindex.info](https://refractiveindex.info) database (CC0)

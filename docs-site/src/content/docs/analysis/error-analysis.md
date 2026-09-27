@@ -1,10 +1,10 @@
 ---
-title: Monte-Carlo
+title: Monte Carlo
 description: See how random manufacturing errors blur your spectrum and what yield you can expect against the design Specification.
 ribbonIcon: error-analysis
 ---
 
-Monte-Carlo answers a practical question: if your coater deposits every layer
+Monte Carlo answers a practical question: if your coater deposits every layer
 with a realistic random error, how much does the spectrum move, and how often
 does the result still pass your Specification? You set the size and shape of the
 per-layer thickness and index errors, choose how many trials to run, and the

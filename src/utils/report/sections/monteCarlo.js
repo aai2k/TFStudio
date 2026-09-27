@@ -98,12 +98,12 @@ function specSummary(spec, tr) {
 
 export function buildMonteCarlo(ctx) {
   const { tr, settings } = ctx;
-  const title = blockTitle(tr, 'monteCarlo', 'Monte-Carlo');
+  const title = blockTitle(tr, 'monteCarlo', 'Monte Carlo');
   const { d, fail } = blockData(ctx, 'monteCarlo', title);
   if (fail) return fail;
   if (d.missing || !d.result?.lambda?.length) {
     return wrap('monteCarlo', title, note(escapeHtml(tt(tr, 'mcNoRun',
-      'No Monte-Carlo run for this design yet. Run it in the Monte-Carlo window; the block prints the last run.'))),
+      'No Monte Carlo run for this design yet. Run it in the Monte Carlo window; the block prints the last run.'))),
       { subtitle: subtitleOf(ctx) });
   }
   // The corridor is drawn as the run computed it, at the run's k.
