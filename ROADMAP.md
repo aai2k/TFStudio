@@ -8,21 +8,19 @@ If something here matters to your work, or something you need is missing, open a
 
 ## Next
 
-- **Pulse Analysis.** Propagate Gaussian, sech-squared or measured pulses through a coating and show temporal broadening, spectral phase and residual chirp.
 - **More convenient ways to define a curve target, e.g. for gain flattening (GF) filters.** 
-
+- **Pulse Analysis.** Propagate Gaussian, sech-squared or measured pulses through a coating and show temporal broadening, spectral phase and residual chirp.
+- 
 ## After that
 
-- **Merit-aware design cleanup.** Design Cleaner currently decides what to remove from layer thickness, which is a weak proxy for optical importance. Ranking candidates by the merit cost of removing and re-optimizing targets the layers that genuinely contribute least.
-- **Sensitivity-directed refinement.** Penalize the thickness-sensitivity predicted by the optimizer Jacobian so designs move toward robust minima.
-- **Interface-resolved roughness.** Replace the current lumped scattering loss with an interface-by-interface Névot–Croce treatment.
-- **Robust refinement.** Optimize against a sampled cloud of manufacturing perturbations when the cheaper sensitivity penalty is not enough.
+rugate and graded-index synthesis, laser damage threshold estimation, optimizing across multiple environments at once, glazing U and g values, and CODE V sequence export
 
 ## Under consideration
 
 Real candidates, not yet scheduled, listed so you can say if one of them matters to you:
 
-crystal (QCM) deposition monitoring, rugate and graded-index synthesis, laser damage threshold estimation, optimizing across multiple environments at once, glazing U and g values, and CODE V sequence export.
+crystal (QCM) deposition monitoring, sensitivity-directed refinement 
+
 
 ## Not planned
 
