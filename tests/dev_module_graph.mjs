@@ -29,6 +29,7 @@ const ENTRIES = [
     'src/utils/workers/plotSurfaceWorker.js',
     'src/utils/workers/benchmarkWorker.js',
     'src/utils/workers/analysisEvaluationWorker.js',
+    'src/utils/workers/deepSynthesisWorker.js',
 ];
 
 const STATIC = /(?:^|\n)\s*(?:import|export)\s+(?:[\s\S]*?\s+from\s+)?['"]([^'"]+)['"]/g;
@@ -80,4 +81,4 @@ assert.equal(missing.length, 0, 'relative import target does not exist');
 // A graph this small would mean the walker stopped early and proved nothing.
 assert.ok(seen.size > 400, `only ${seen.size} modules reached; the walk terminated early`);
 
-console.log(`PASS dev_module_graph — ${seen.size} modules, 0 bare specifiers, 0 broken paths`);
+console.log(`PASS dev_module_graph: ${seen.size} modules, 0 bare specifiers, 0 broken paths`);

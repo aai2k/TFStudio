@@ -16,4 +16,4 @@ export { choleskySolve } from './linalg/cholesky.js';
 export { steihaugCG } from './linalg/steihaugCG.js';
 export { solveBoxQP, boxQPValue } from './linalg/boxQP.js';
 export { boxCauchyPoint } from './linalg/cauchyPoint.js';
-export { _vdot, _vnorm } from './linalg/vector.js';
+export { _vdot, _vnorm, _matVec } from './linalg/vector.js';

@@ -2,7 +2,7 @@
  * Shared visual shell for the synthesis windows (Needle Variation, Gradual
  * Evolution, Structural Optimizer).
  *
- * All three present the same layout — a control bar, a material-pool + settings
+ * All three present the same layout: a control bar, a material-pool + settings
  * sidebar, a merit-trend chart (upper 40 %), a history table (lower 60 %), and a
  * Pareto "top designs" panel at the bottom. Only the metrics readout, the
  * settings rows, and the underlying optimization engine differ between them.
@@ -148,7 +148,8 @@ export function SynthesisControlBar({
 
 // ── Sidebar frame ───────────────────────────────────────────────────────────
 // Material-pool panel + a settings block with a collapsible Advanced section.
-// `everyday` and `advanced` are arrays of already-built setting rows.
+// `everyday` and `advanced` are arrays of already-built setting rows; with no
+// advanced rows the Advanced toggle is not shown.
 export function SynthesisSidebarFrame({ sessionKey, poolProps, settingsLabel, advancedLabel, everyday, advanced, c }) {
     const [session, setField] = useWindowSession(synthesisSidebarSession, null);
     const advOpen = !!session.advOpen[sessionKey];
@@ -168,7 +169,7 @@ export function SynthesisSidebarFrame({ sessionKey, poolProps, settingsLabel, ad
                 style: { fontSize: 10, fontWeight: 700, color: c.textDim, textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 6 }
             }, settingsLabel),
             ...everyday,
-            h('button', {
+            advanced.length > 0 && h('button', {
                 onClick: () => setAdvOpen(o => !o),
                 style: {
                     marginTop: 8, width: '100%', textAlign: 'left',
@@ -205,7 +206,7 @@ export function makeRowHelpers({ c, running, numWidth = 58 }) {
         );
 
     // Stacked select row (label above, full-width select). Uncontrolled
-    // (defaultValue) — reads the persisted value on mount, writes on change.
+    // (defaultValue): reads the persisted value on mount, writes on change.
     const selRow = (label, getVal, setVal, options) =>
         h('div', { style: { marginBottom: 6 } },
             h('div', { style: { fontSize: 11, color: c.textDim, marginBottom: 2 } }, label),

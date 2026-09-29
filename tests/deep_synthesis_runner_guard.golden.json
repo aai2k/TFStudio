@@ -1,0 +1,501 @@
+{
+  "pool": {
+    "rows": [
+      {
+        "genNum": 1,
+        "runNum": 1,
+        "seed": 7,
+        "kind": "ge",
+        "move": null,
+        "mf": 0.028957049,
+        "dMF": null,
+        "layerCount": 1,
+        "tot": 90.1238167,
+        "layers": [
+          {
+            "material": "SiO2",
+            "thickness": 90.1238167
+          }
+        ]
+      },
+      {
+        "genNum": 2,
+        "runNum": 1,
+        "seed": 7,
+        "kind": "ge",
+        "move": null,
+        "mf": 0.00711352978,
+        "dMF": -0.0218435193,
+        "layerCount": 5,
+        "tot": 207.894239,
+        "layers": [
+          {
+            "material": "SiO2",
+            "thickness": 103.770178
+          },
+          {
+            "material": "TiO2",
+            "thickness": 26.0242042
+          },
+          {
+            "material": "SiO2",
+            "thickness": 38.0998565
+          },
+          {
+            "material": "TiO2",
+            "thickness": 20
+          },
+          {
+            "material": "SiO2",
+            "thickness": 20
+          }
+        ]
+      },
+      {
+        "genNum": 3,
+        "runNum": 1,
+        "seed": 7,
+        "kind": "ge",
+        "move": null,
+        "mf": 0.00597352254,
+        "dMF": -0.00114000723,
+        "layerCount": 5,
+        "tot": 377.89355,
+        "layers": [
+          {
+            "material": "SiO2",
+            "thickness": 102.66759
+          },
+          {
+            "material": "TiO2",
+            "thickness": 26.9204671
+          },
+          {
+            "material": "SiO2",
+            "thickness": 37.406818
+          },
+          {
+            "material": "TiO2",
+            "thickness": 20
+          },
+          {
+            "material": "SiO2",
+            "thickness": 190.898675
+          }
+        ]
+      },
+      {
+        "genNum": 4,
+        "runNum": 1,
+        "seed": 7,
+        "kind": "search",
+        "move": {
+          "destroy": "floor",
+          "repair": "carve"
+        },
+        "mf": 0.00534939094,
+        "dMF": -0.000120566656,
+        "layerCount": 5,
+        "tot": 379.785427,
+        "layers": [
+          {
+            "material": "SiO2",
+            "thickness": 103.068338
+          },
+          {
+            "material": "TiO2",
+            "thickness": 27.3050941
+          },
+          {
+            "material": "SiO2",
+            "thickness": 37.714121
+          },
+          {
+            "material": "TiO2",
+            "thickness": 20
+          },
+          {
+            "material": "SiO2",
+            "thickness": 191.697874
+          }
+        ]
+      }
+    ],
+    "trend": [
+      {
+        "iter": 1,
+        "cur": 0.028957049,
+        "best": 0.028957049,
+        "runNum": 1
+      },
+      {
+        "iter": 2,
+        "cur": 0.00711352978,
+        "best": 0.00711352978,
+        "runNum": 1
+      },
+      {
+        "iter": 3,
+        "cur": 0.00597352254,
+        "best": 0.00597352254,
+        "runNum": 1
+      },
+      {
+        "iter": 4,
+        "cur": 0.00735792634,
+        "best": 0.00571250583,
+        "runNum": 1
+      },
+      {
+        "iter": 5,
+        "cur": 0.00851768167,
+        "best": 0.00556911619,
+        "runNum": 1
+      },
+      {
+        "iter": 6,
+        "cur": 0.00739661946,
+        "best": 0.00551729682,
+        "runNum": 1
+      },
+      {
+        "iter": 7,
+        "cur": 0.00732522389,
+        "best": 0.0054699576,
+        "runNum": 1
+      },
+      {
+        "iter": 8,
+        "cur": 0.00534939094,
+        "best": 0.00534939094,
+        "runNum": 1
+      },
+      {
+        "iter": 9,
+        "cur": 0.00534939094,
+        "best": 0.00534939094,
+        "runNum": 1
+      }
+    ],
+    "design": [
+      {
+        "material": "SiO2",
+        "thickness": 103.068338
+      },
+      {
+        "material": "TiO2",
+        "thickness": 27.3050941
+      },
+      {
+        "material": "SiO2",
+        "thickness": 37.714121
+      },
+      {
+        "material": "TiO2",
+        "thickness": 20
+      },
+      {
+        "material": "SiO2",
+        "thickness": 191.697874
+      }
+    ],
+    "view": {
+      "running": false,
+      "status": "done:5",
+      "mfBest": 0.00534939094,
+      "layerCount": 5,
+      "parts": {
+        "refine": {
+          "engine": "trust-region",
+          "model": "newton",
+          "why": null
+        },
+        "halfWave": {
+          "on": true,
+          "why": null,
+          "passPoints": 13
+        },
+        "comb": {
+          "on": false,
+          "why": "passRuns",
+          "passRuns": 1
+        },
+        "pairs": {
+          "on": true,
+          "why": null
+        }
+      },
+      "startInfo": {
+        "kind": "ge",
+        "mf": 0.0054699576,
+        "n": 5,
+        "steps": 7,
+        "reason": "kept",
+        "comb": null,
+        "trimmedFrom": null
+      },
+      "statuses": [
+        "phase:ge",
+        "phase:search",
+        "done:5"
+      ]
+    },
+    "hist": {
+      "runOpen": false,
+      "runs": 1,
+      "applied": 4,
+      "checkpoints": 1
+    },
+    "workers": {
+      "constructed": 2,
+      "jobs": {
+        "wasmInit": 2,
+        "deepSynthesisRaceRung": 133,
+        "deepSynthesisChild": 6
+      }
+    }
+  },
+  "stop": {
+    "rows": [
+      {
+        "genNum": 1,
+        "runNum": 1,
+        "seed": 7,
+        "kind": "ge",
+        "move": null,
+        "mf": 0.028957049,
+        "dMF": null,
+        "layerCount": 1,
+        "tot": 90.1238167,
+        "layers": [
+          {
+            "material": "SiO2",
+            "thickness": 90.1238167
+          }
+        ]
+      },
+      {
+        "genNum": 2,
+        "runNum": 1,
+        "seed": 7,
+        "kind": "ge",
+        "move": null,
+        "mf": 0.00711352978,
+        "dMF": -0.0218435193,
+        "layerCount": 5,
+        "tot": 207.894239,
+        "layers": [
+          {
+            "material": "SiO2",
+            "thickness": 103.770178
+          },
+          {
+            "material": "TiO2",
+            "thickness": 26.0242042
+          },
+          {
+            "material": "SiO2",
+            "thickness": 38.0998565
+          },
+          {
+            "material": "TiO2",
+            "thickness": 20
+          },
+          {
+            "material": "SiO2",
+            "thickness": 20
+          }
+        ]
+      },
+      {
+        "genNum": 3,
+        "runNum": 1,
+        "seed": 7,
+        "kind": "ge",
+        "move": null,
+        "mf": 0.00597352254,
+        "dMF": -0.00114000723,
+        "layerCount": 5,
+        "tot": 377.89355,
+        "layers": [
+          {
+            "material": "SiO2",
+            "thickness": 102.66759
+          },
+          {
+            "material": "TiO2",
+            "thickness": 26.9204671
+          },
+          {
+            "material": "SiO2",
+            "thickness": 37.406818
+          },
+          {
+            "material": "TiO2",
+            "thickness": 20
+          },
+          {
+            "material": "SiO2",
+            "thickness": 190.898675
+          }
+        ]
+      },
+      {
+        "genNum": 4,
+        "runNum": 1,
+        "seed": 7,
+        "kind": "search",
+        "move": {
+          "destroy": "floor",
+          "repair": "carve"
+        },
+        "mf": 0.00534939094,
+        "dMF": -0.000120566656,
+        "layerCount": 5,
+        "tot": 379.785427,
+        "layers": [
+          {
+            "material": "SiO2",
+            "thickness": 103.068338
+          },
+          {
+            "material": "TiO2",
+            "thickness": 27.3050941
+          },
+          {
+            "material": "SiO2",
+            "thickness": 37.714121
+          },
+          {
+            "material": "TiO2",
+            "thickness": 20
+          },
+          {
+            "material": "SiO2",
+            "thickness": 191.697874
+          }
+        ]
+      }
+    ],
+    "trend": [
+      {
+        "iter": 1,
+        "cur": 0.028957049,
+        "best": 0.028957049,
+        "runNum": 1
+      },
+      {
+        "iter": 2,
+        "cur": 0.00711352978,
+        "best": 0.00711352978,
+        "runNum": 1
+      },
+      {
+        "iter": 3,
+        "cur": 0.00597352254,
+        "best": 0.00597352254,
+        "runNum": 1
+      },
+      {
+        "iter": 4,
+        "cur": 0.00735792634,
+        "best": 0.00571250583,
+        "runNum": 1
+      },
+      {
+        "iter": 5,
+        "cur": 0.00851768167,
+        "best": 0.00556911619,
+        "runNum": 1
+      },
+      {
+        "iter": 6,
+        "cur": 0.00739661946,
+        "best": 0.00551729682,
+        "runNum": 1
+      },
+      {
+        "iter": 7,
+        "cur": 0.00732522389,
+        "best": 0.0054699576,
+        "runNum": 1
+      },
+      {
+        "iter": 8,
+        "cur": 0.00534939094,
+        "best": 0.00534939094,
+        "runNum": 1
+      }
+    ],
+    "design": [
+      {
+        "material": "SiO2",
+        "thickness": 103.068338
+      },
+      {
+        "material": "TiO2",
+        "thickness": 27.3050941
+      },
+      {
+        "material": "SiO2",
+        "thickness": 37.714121
+      },
+      {
+        "material": "TiO2",
+        "thickness": 20
+      },
+      {
+        "material": "SiO2",
+        "thickness": 191.697874
+      }
+    ],
+    "view": {
+      "running": false,
+      "status": "stopped",
+      "mfBest": 0.00534939094,
+      "layerCount": 5,
+      "parts": {
+        "refine": {
+          "engine": "trust-region",
+          "model": "newton",
+          "why": null
+        },
+        "halfWave": {
+          "on": true,
+          "why": null,
+          "passPoints": 13
+        },
+        "comb": {
+          "on": false,
+          "why": "passRuns",
+          "passRuns": 1
+        },
+        "pairs": {
+          "on": true,
+          "why": null
+        }
+      },
+      "startInfo": {
+        "kind": "ge",
+        "mf": 0.0054699576,
+        "n": 5,
+        "steps": 7,
+        "reason": "kept",
+        "comb": null,
+        "trimmedFrom": null
+      },
+      "statuses": [
+        "phase:ge",
+        "phase:search",
+        "stopping",
+        "stopped"
+      ]
+    },
+    "hist": {
+      "runOpen": true,
+      "runs": 1,
+      "applied": 4,
+      "checkpoints": 1
+    }
+  }
+}

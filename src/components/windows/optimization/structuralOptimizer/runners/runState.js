@@ -11,7 +11,7 @@ import { activeBaseline, openRunBlock } from '../../synthesisShared/runBlocks.js
 import { presampleAll } from './refine.js';
 import { createWorkers } from './workerLifecycle.js';
 
-function applyConstraintBounds(cfg, enabled) {
+export function applyConstraintBounds(cfg, enabled) {
     const minimums = enabled.filter(op => op.type === 'MNT' && Number.isFinite(op.target));
     const maximums = enabled.filter(op => op.type === 'MXT' && Number.isFinite(op.target));
     const minNm = minimums.length ? Math.max(...minimums.map(op => op.target)) : 0;

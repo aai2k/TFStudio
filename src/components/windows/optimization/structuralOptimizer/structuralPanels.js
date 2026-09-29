@@ -213,7 +213,7 @@ export function LeftSidebar({ catalogs, selectedCats, onToggleCat, onSelectAllCa
             (v) => { setSynthesisInnerEngine('structural', v); setEngine(v); },
             [['cg', t.settings.synthEngineCG], ['dls', t.settings.synthEngineDLS],
              ['newton', t.settings.synthEngineNewton], ['newton-cg', t.settings.synthEngineNewtonCG],
-             ['sqp', t.settings.synthEngineSQP]]),
+             ['sqp', t.settings.synthEngineSQP], ['trust-region', t.settings.synthEngineTrustRegion]]),
         numRow(ts.jitterPct,  (jitterPct * 100), v => onJitter(Math.max(0, v) / 100), ts.jitterHelp),
         numRow(ts.refineIter, refineIter, v => onRefineIter(Math.max(1, Math.round(v)))),
         numRow(ts.addMaxNm,   addMaxNm,   v => onAddMax(Math.max(2, v)), ts.addMaxHelp),

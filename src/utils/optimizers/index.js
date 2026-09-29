@@ -4,10 +4,10 @@
  * All engines share the DLSOptimizer-compatible interface (step / isConverged /
  * restoreBest / applyToDesign / .mf / .mfBest / .thickBest / .thicknesses /
  * .iter / .layerSide), so the Refinement orchestrator and the optimizer worker
- * stay method-agnostic — they just `makeEngine(method, …)` and drive `step()`.
+ * stay method-agnostic: they just call `makeEngine(method, …)` and drive `step()`.
  *
  * These are all REFINEMENT methods (Macleod's sense): they optimize the
- * thickness vector of a fixed stack. They never change the layer count — that
+ * thickness vector of a fixed stack. They never change the layer count; that
  * is synthesis (Needle / Gradual Evolution).
  *
  *   'dls' → Damped Least Squares / Levenberg–Marquardt  (the LOCAL engine,
@@ -24,12 +24,13 @@ import { CGOptimizer } from './cg.js';
 import { NewtonOptimizer } from './newton.js';
 import { NewtonCGOptimizer } from './newtonCG.js';
 import { SQPOptimizer } from './sqp.js';
+import { TrustRegionNewtonOptimizer } from './trustRegionNewton.js';
 
 // CG first / default: empirically it polishes already-decent designs best
-// (the common workflow). DE/SA are the global explorers — they shine from a
+// (the common workflow). DE/SA are the global explorers: they shine from a
 // poor start or a multimodal landscape, not when refining a good local optimum.
 // 'newton' is the second-order LOCAL engine (analytic Hessian, quadratic
-// endgame) — fastest convergence on stiff/large designs (front_only).
+// endgame), fastest convergence on stiff/large designs (front_only).
 export const GLOBAL_METHODS = ['cg', 'de', 'sa'];
 export const ALL_METHODS    = ['dls', 'newton', 'newton-cg', 'cg', 'de', 'sa'];
 export const DEFAULT_GLOBAL_METHOD = 'cg';
@@ -41,10 +42,11 @@ export const METHOD_LABELS = {
     de:          'Differential Evolution',
     sa:          'Simulated Annealing',
     cg:          'Conjugate Gradient',
+    'trust-region': 'Trust-Region Newton (projected search)',
 };
 
 // 'sqp' (Bounded Sequential QP, tests/sqp_validation.mjs) is the DEFAULT method
-// of the Refinement window (REFINE_METHODS in Refinement.js) — fewest iterations
+// of the Refinement window (REFINE_METHODS in Refinement.js): fewest iterations
 // on a fixed stack with exact MNT/MXT bound satisfaction. It is omitted from
 // ALL_METHODS above only because that array drives the headless "try-all"
 // benchmark ordering, not the UI; the window builds its own dropdown list.
@@ -59,6 +61,10 @@ const ENGINES = {
     sa:          SAOptimizer,
     cg:          CGOptimizer,
     sqp:         SQPOptimizer,
+    // The synthesis lab's refinement (trustRegionNewton.js). Offered as a
+    // synthesis inner engine only; the Refinement window and the benchmark
+    // lists do not include it.
+    'trust-region': TrustRegionNewtonOptimizer,
 };
 
 export function makeEngine(method, operands, design, resolveMat, opts = {}) {

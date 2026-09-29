@@ -4,7 +4,7 @@
 // Dev (`npm start`) loads raw ES modules from src/ unchanged. This script is ONLY
 // run for packaged builds (wired into `npm run build` before electron-builder). It
 // esbuild-bundles + minifies the renderer entry and the web workers (see WORKERS) into
-// build/app/, vendors the UMD libraries, and emits a production index.html — so the
+// build/app/, vendors the UMD libraries, and emits a production index.html, so the
 // shipped app.asar contains a mangled blob instead of authored source, and DevTools
 // (disabled in packaged builds, see main.js) can't read it live.
 //
@@ -17,7 +17,7 @@
 //   build/icons/                       <- copied; renderer uses ../icons/ from the doc
 //   build/splash.bmp                   <- portable-launch splash (tools/gen-splash.mjs)
 //
-// NOTE: sourcemap is intentionally OFF — a shipped .map would undo the obfuscation.
+// NOTE: sourcemap is intentionally OFF: a shipped .map would undo the obfuscation.
 
 import esbuild from 'esbuild';
 import fs from 'node:fs';
@@ -44,6 +44,7 @@ const WORKERS = [
   'bbmRunWorker.js', 'filterDesignWorker.js',
   'plotSurfaceWorker.js', 'benchmarkWorker.js',
   'analysisEvaluationWorker.js', 'characterizationWorker.js',
+  'deepSynthesisWorker.js',
 ];
 
 function clean(dir) {
@@ -140,7 +141,7 @@ async function main() {
     ...WORKERS.map((w) => path.join(src, 'utils', 'workers', w)),
   ];
   // Stamp the BUILD date (YYYY-MM-DD, local) into the bundle so the About dialog
-  // shows when the build was made — not the runtime date. Read in AboutDialog via
+  // shows when the build was made, not the runtime date. Read in AboutDialog via
   // `typeof __TFS_BUILD_DATE__` so the dev path (raw ES modules, no define) is safe.
   const buildDate = new Date().toLocaleDateString('en-CA');   // 'YYYY-MM-DD'
   console.log(`[build-renderer] esbuild bundling ${entryPoints.length} entry points … (build date ${buildDate})`);

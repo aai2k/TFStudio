@@ -131,7 +131,7 @@ export function LeftSidebar({ catalogs, selectedCats, onToggleCat, onSelectAllCa
         selRow(t.settings.synthesisEngine, () => getSynthesisInnerEngine('ge'), (v) => setSynthesisInnerEngine('ge', v),
             [['dls', t.settings.synthEngineDLS], ['cg', t.settings.synthEngineCG],
              ['newton', t.settings.synthEngineNewton], ['newton-cg', t.settings.synthEngineNewtonCG],
-             ['sqp', t.settings.synthEngineSQP]]),
+             ['sqp', t.settings.synthEngineSQP], ['trust-region', t.settings.synthEngineTrustRegion]]),
         selRow(t.settings.synthCandSearch, getSynthesisCandMode, setSynthesisCandMode,
             [['fast', t.settings.synthCandFast], ['balanced', t.settings.synthCandBalanced], ['thorough', t.settings.synthCandThorough]]),
         selRow(t.settings.needleSens, getNeedleSensMode, setNeedleSensMode,

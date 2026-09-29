@@ -1,7 +1,7 @@
 /**
  * Synthesis primitive Web Worker.
  *
- * STATELESS RPC runner — one request → one `{type:'result'}` (plus throttled
+ * STATELESS RPC runner: one request → one `{type:'result'}` (plus throttled
  * `{type:'tick'}` progress). The needle/GE state machine lives on the MAIN
  * thread (NeedleVariation/GradualEvolution), fanning these primitives across a
  * WorkerPool so synthesis uses many cores:
@@ -22,6 +22,11 @@
  *               needle optimization has stalled).
  *   dropWeakest: the design without the one layer whose removal costs least,
  *               refined (GE, at its layer limit).
+ *   deepSynthesisRaceRung: Deep Synthesis refinements up to an iteration cap,
+ *               each item prepared on its first rung (a forced step, a needle,
+ *               a pair or a deletion; deepSynthesis/jobs.js).
+ *   deepSynthesisChild: a Deep Synthesis search child (a destroyed design
+ *               refined and repaired) or a comb seed grown by the probe needle.
  *
  * Materials cross via Approach A pre-sampling (design + candidate pool); the
  * worker rebuilds an exact-λ table-lookup getNK off the same
@@ -37,6 +42,7 @@ import { refineWithoutParked, mergeSameMaterial } from '../physics/optimizer/par
 import { makeEngine } from '../optimizers/index.js';
 import { noteTmmWasmBytes, awaitTmmWasmReady } from '../../tmmcore.js';
 import { makeResolveMat } from './resolveMat.js';
+import { runDeepSynthesisJob } from '../synthesis/deepSynthesis/jobs.js';
 
 const POST_MS = 80;
 const now = (typeof performance !== 'undefined' && performance.now)
@@ -54,15 +60,15 @@ function effectiveSide(design, requestedSide) {
 const sideKey = (side) => side === 'back' ? 'backLayers' : 'frontLayers';
 
 // Run the inner refinement loop with throttled tick progress; returns the
-// optimizer. `side` selects which layer array the tick previews stream — the
+// optimizer. `side` selects which layer array the tick previews stream; the
 // optimizer itself is already surface-mode-aware via design.surfaceMode.
 // `engine` selects the refiner: 'dls' (Levenberg–Marquardt, the bit-identical
-// legacy path) or 'cg' (Conjugate Gradient — the synthesis DEFAULT: better
+// legacy path) or 'cg' (Conjugate Gradient, the synthesis DEFAULT: better
 // merit + fewer layers on hard multi-band designs, ties on easy ones). Any
 // makeEngine id is accepted.
 // Adaptive convergence stop: GUI profiling showed the candidate
 // refine is the entire per-generation cost (≈99%) and total synthesis is ~O(N²)
-// because the whole design is re-refined every generation — running the FULL
+// because the whole design is re-refined every generation, running the FULL
 // `maxIter` (dlsIter) even when a thin-needle insert leaves a warm-started,
 // near-optimal design that converges in a fraction of the iterations. Stopping
 // when the relative MF gain over a window plateaus captures the ~2.5× headroom
@@ -140,8 +146,8 @@ const extraIters = (dlsIter, pipeline) => (pipeline === 'ge' ? Math.max(1, Math.
 
 function handleCandidate(job, resolveMat, post) {
     const { design, cand, dMin, dlsIter, pipeline, operands } = job;
-    // For both_independent the candidate carries its own side (front or back)
-    // — scans on each side were merged main-side. Forced-side modes
+    // For both_independent the candidate carries its own side (front or back):
+    // scans on each side were merged main-side. Forced-side modes
     // (front_only / symmetric / back_only) fall through to effectiveSide.
     const side = effectiveSide(design, cand.side || job.side);
     const key  = sideKey(side);
@@ -323,6 +329,10 @@ export function dispatchSynthesisJob(job, resolveMat, post) {
         case 'removePass': handleRemovePass(job, resolveMat, post); break;
         case 'dropParked': handleDropParked(job, resolveMat, post); break;
         case 'dropWeakest': handleDropWeakest(job, resolveMat, post); break;
+        case 'deepSynthesisRaceRung':
+        case 'deepSynthesisChild':
+            post({ type: 'result', kind: job.type, ...runDeepSynthesisJob(job, resolveMat) });
+            break;
         default: post({ type: 'error', message: `unknown job ${job.type}` });
     }
 }

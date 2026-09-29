@@ -1,4 +1,4 @@
-// workerUrls.js — central registry of Web Worker URLs.
+// workerUrls.js: central registry of Web Worker URLs.
 //
 // Lives at the `src/` ROOT (same depth as renderer.js) on purpose: every
 // URL is resolved relative to THIS file via import.meta.url, so it works in both
@@ -7,14 +7,14 @@
 //     resolves to src/utils/x.js.
 //   - packaged (esbuild bundle): this module is inlined into the renderer bundle
 //     at the output root (build/app/renderer.js), so './utils/x.js'
-//     resolves to build/app/utils/x.js — exactly where esbuild emits the worker
+//     resolves to build/app/utils/x.js, exactly where esbuild emits the worker
 //     bundles.
 //
 // Component code must import these instead of computing
 // `new URL('../../utils/xWorker.js', import.meta.url)` from components/windows/,
 // which would resolve wrong once inlined into the single renderer bundle.
 //
-// IMPORTANT — esbuild interop: esbuild statically rewrites the LITERAL pattern
+// IMPORTANT (esbuild interop): esbuild statically rewrites the LITERAL pattern
 // `new URL("./literal", import.meta.url)` at bundle time, and that rewrite mangled
 // the packaged path (dropped the build/app/ prefix → file:///…/app.asar/utils/x.js
 // instead of …/build/app/utils/x.js), so `new Worker()` 404'd and every worker pool
@@ -34,3 +34,4 @@ export const PLOT_SURFACE_WORKER_URL = u('./utils/workers/plotSurfaceWorker.js')
 export const BENCHMARK_WORKER_URL = u('./utils/workers/benchmarkWorker.js');
 export const ANALYSIS_EVALUATION_WORKER_URL = u('./utils/workers/analysisEvaluationWorker.js');
 export const CHARACTERIZATION_WORKER_URL = u('./utils/workers/characterizationWorker.js');
+export const DEEP_SYNTHESIS_WORKER_URL = u('./utils/workers/deepSynthesisWorker.js');

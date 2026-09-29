@@ -29,7 +29,7 @@ export const ICONS = {
     // Import designs: the open folder with an arrow coming in from the top right.
     'import-designs': I([ P('M3 8h14l-1.5 8H4.5L3 8z'), P('M3 8V6a1 1 0 011-1h4l2 2h5a1 1 0 011 1v0'), P('M16 1v5'), P('M14 4l2 2 2-2') ]),
     'save':           I([ R(2,2,16,16,2), P('M6 2v5h8V2'), P('M5 11h10v5H5z'), Rf(7,3,4,3,0,'currentColor') ]),
-    // Save As — full floppy disk (matching `save`) with a bold "+" on the label
+    // Save As: full floppy disk (matching `save`) with a bold "+" on the label
     // = "save as a new one".
     'save-as':        I([
                           R(2,2,16,16,2),
@@ -44,7 +44,7 @@ export const ICONS = {
     'design-editor':  I([ R(2,2,16,16,1), L(2,7,18,7), L(7,7,7,18), L(2,12,18,12) ]),
     'material-editor':I([ R(3,2,10,14,1), P('M7 6h4M7 9h4M7 12h2'), Rf(13,11,4,5,1,'currentColor'), L(13,9,17,9,1.4) ]),
 
-    // Coating Library — a shelf of layer stacks: a bookcase frame with a
+    // Coating Library (a shelf of layer stacks): a bookcase frame with a
     // three-layer stack on the shelf and a bookmark tab on the top edge.
     'coating-library': I([
                           R(2.5,3,15,14,1),
@@ -52,7 +52,7 @@ export const ICONS = {
                           Rf(12.5,1.5,3,4,0.5,'currentColor'),
                       ]),
 
-    // n,k Characterization — the measurement it works from: a beam onto an
+    // n,k Characterization (the measurement it works from): a beam onto an
     // unknown film (solid) on a substrate (outline), reflected back out.
     'nk-characterization': I([
                           Rf(2.5,9,15,2,0.5,'currentColor'),
@@ -62,7 +62,7 @@ export const ICONS = {
                           P('M14.5 3L12.9 3.5M14.5 3L14.1 4.7'),
                       ]),
 
-    // Specification — clipboard with checkmark + check rows (PASS/FAIL spec sheet)
+    // Specification: clipboard with checkmark + check rows (PASS/FAIL spec sheet)
     'specification':  I([
                           R(4,3,12,14,1),
                           Rf(7,2,6,2,1,'currentColor'),
@@ -74,7 +74,7 @@ export const ICONS = {
                           L(10,14.4,12,15.6,1.4),
                           L(10,15.6,12,14.4,1.4),
                       ]),
-    // Stack formula — the layer-stack repeat formula "(HL)ⁿ" on a WIDE (28×20)
+    // Stack formula: the layer-stack repeat formula "(HL)ⁿ" on a WIDE (28×20)
     // canvas so the parens, H, L and exponent each get real gaps (H↔L ~3.5px).
     'stack-formula':  IW([
                           P('M4 3 Q1.8 5.5 1.8 10 Q1.8 14.5 4 17',1.6),
@@ -86,13 +86,13 @@ export const ICONS = {
                       ], 28),
     'help-docs':      I([ C(10,10,8), P('M7.5 7.8q0-2 2.5-2t2.5 2q0 1.5-2.5 2.5v1', 1.5), Cf(10,14.7,0.7) ]),
 
-    // Welcome — a flag planted at the start of the route the tour walks.
+    // Welcome: a flag planted at the start of the route the tour walks.
     'welcome':        I([
                           L(5,2.5,5,17.5,1.7),
                           P('M5 3.5h9.5l-2.4 2.8 2.4 2.8H5z'),
                       ]),
 
-    // Tutorials — a graduation cap over its tassel.
+    // Tutorials: a graduation cap over its tassel.
     'tutorials':      I([
                           P('M2 7.6L10 4l8 3.6L10 11.2z'),
                           P('M5.6 9.2v4.1c0 1.2 2 2.2 4.4 2.2s4.4-1 4.4-2.2V9.2'),
@@ -100,10 +100,10 @@ export const ICONS = {
                           Cf(17.4,13.2,0.8),
                       ]),
 
-    // About — the information mark.
+    // About: the information mark.
     'about':          I([ C(10,10,8), Cf(10,6.1,1), L(10,9,10,14.2,1.8) ]),
 
-    // Check for updates — a download arrow inside a re-check arc.
+    // Check for updates: a download arrow inside a re-check arc.
     'check-updates':  I([
                           P('M16.4 10a6.4 6.4 0 1 1-1.9-4.5'),
                           P('M16.9 3v3.4h-3.4'),
@@ -111,7 +111,7 @@ export const ICONS = {
                           P('M7.7 10L10 12.4L12.3 10',1.6),
                       ]),
 
-    // Preferences — a cogwheel with square teeth. Deliberately heavier than the
+    // Preferences: a cogwheel with square teeth. Deliberately heavier than the
     // thin sun-gear the Refinement icon uses, so the two never read as the same
     // button at 20px.
     'preferences':    I([
@@ -119,7 +119,7 @@ export const ICONS = {
                           C(10,10,2.5),
                       ]),
 
-    // Optical Evaluation — axes with complementary R (descending) and T (ascending)
+    // Optical Evaluation: axes with complementary R (descending) and T (ascending)
     // spectral sigmoids crossing in the middle (T/R vs λ).
     'optical-eval':   I([
                           L(3.2,2.5,3.2,17,1), L(3.2,17,17.5,17,1),
@@ -128,7 +128,7 @@ export const ICONS = {
                       ]),
     'color-eval':     I([ F('M10 2a8 8 0 100 16A8 8 0 0010 2z','none'), P('M10 2a8 8 0 100 16A8 8 0 0010 2z'), P('M10 10L4.5 6.5'), P('M10 10L10 3'), P('M10 10L15.5 6.5') ]),
 
-    // Admittance — Re/Im axes with a spiralling admittance locus (the trajectory
+    // Admittance: Re/Im axes with a spiralling admittance locus (the trajectory
     // the optical admittance traces through the layer stack) + start-point dot.
     'admittance':     I([
                           L(2,10,18,10,0.8),
@@ -143,14 +143,14 @@ export const ICONS = {
     'material-dispersion': I([ P('M2 15l4-7 4 4 4-8 4 5'), L(2,17,18,17), Cf(14,4,1) ]),
     'ri-profiler':    I([ R(2,4,4,12), R(6,4,4,12), R(10,4,4,12), R(14,4,4,12) ]),
 
-    // Layer Thicknesses — bar chart of uneven heights on a baseline, unlike the
+    // Layer Thicknesses: bar chart of uneven heights on a baseline, unlike the
     // equal-height stack the RI Profiler icon draws.
     'layer-thicknesses': I([
                           R(2.5,9,3,8), R(6.5,4,3,13), R(10.5,12,3,5), R(14.5,7,3,10),
                           L(2,17,18,17,1),
                       ]),
 
-    // Sensitivity — layer stack with middle layer highlighted + bidirectional thickness arrows
+    // Sensitivity: layer stack with middle layer highlighted + bidirectional thickness arrows
     'sensitivity':    I([
                           R(2,3,11,3),
                           Rf(2,8,11,3,0,'currentColor'),
@@ -160,14 +160,14 @@ export const ICONS = {
                           P('M15.4 13.4L17 15.4L18.6 13.4',1.4),
                       ]),
 
-    // Error analysis — central solid curve flanked by dashed corridor bands (Monte-Carlo envelope)
+    // Error analysis: central solid curve flanked by dashed corridor bands (Monte-Carlo envelope)
     'error-analysis': I([
                           Pd('M2 6Q6 2 10 6T18 6'),
                           P('M2 10Q6 6 10 10T18 10',1.6),
                           Pd('M2 14Q6 10 10 14T18 14'),
                       ]),
 
-    // Integral values — area under a curve (∫ shading) with axes
+    // Integral values: area under a curve (∫ shading) with axes
     'integral-values': I([
                            Fop('M3 17L3 11Q6 3 10 3Q14 3 17 11L17 17Z'),
                            P('M3 11Q6 3 10 3Q14 3 17 11',1.7),
@@ -177,7 +177,7 @@ export const ICONS = {
 
     'systematic-dev': I([ L(2,16,18,16), P('M3 14q3-4 5-4t4 4 5-4',1.4), P('M3 11q3-4 5-4t4 4 5-4',1.4,0.5), L(10,2,10,4,1), L(10,17,10,19,1) ]),
 
-    // Inhomogeneities — solid block → fading horizontal lines (graded interface) → outlined block
+    // Inhomogeneities: solid block → fading horizontal lines (graded interface) → outlined block
     'inhomogeneities': I([
                            Rf(3,3,14,3,0,'currentColor'),
                            L(3,7,17,7,1.5),
@@ -190,7 +190,7 @@ export const ICONS = {
 
     'roughness':      I([ P('M2 12q1-1 2 0t2 0t2 0t2 0t2 0t2 0t2 0t2 0',1.4), L(2,16,18,16), P('M3 13l-1 2M5 13l-1 2M7 13l-1 2M9 13l-1 2M11 13l-1 2M13 13l-1 2M15 13l-1 2',1) ]),
 
-    // Film stress — a coating pulling its two ends toward each other, over the
+    // Film stress: a coating pulling its two ends toward each other, over the
     // substrate it bows convex.
     'stress':         I([
                           L(3,5,8,5,1.3), P('M8 5l-1.7-1.4M8 5l-1.7 1.4',1.1),
@@ -200,7 +200,7 @@ export const ICONS = {
                       ]),
     'plot-engine':    I([ L(3,17,3,3,1.4), L(3,17,17,17,1.4), P('M3 13l4-4 3 2 3-6 4 5'), C(7,9,1.2,1.2), C(10,11,1.2,1.2), C(13,5,1.2,1.2) ]),
 
-    // Wavelength vs angle — axes around a heatmap whose cells shade along the
+    // Wavelength vs angle: axes around a heatmap whose cells shade along the
     // diagonal, the shape the window draws.
     'wavelength-angle-map': I([
                           L(3,17,3,3,1.4),
@@ -219,7 +219,7 @@ export const ICONS = {
     'merit-function': I([ R(2,2,16,16,1), L(2,7,18,7,1.8), L(2,11,18,11), L(2,15,18,15), L(8,7,8,18), L(13,7,13,18), P('M4 4h3',1.4), P('M10 4.5h4',0.8) ]),
     'refinement':     I([ C(10,10,3), P('M10 2v3M10 15v3M2 10h3M15 10h3'), P('M4.9 4.9l2.1 2.1M12.9 12.9l2.1 2.1M4.9 15.1l2.1-2.1M12.9 7.1l2.1-2.1') ]),
 
-    // Needle — clear sewing-needle silhouette: circular eye, thick shaft, sharp triangular tip
+    // Needle: clear sewing-needle silhouette (circular eye, thick shaft, sharp triangular tip)
     'needle':         I([
                           C(10,3,1.5),
                           L(10,4.5,10,14,2.6),
@@ -227,7 +227,7 @@ export const ICONS = {
                           L(3,19,17,19,0.8),
                       ]),
 
-    // Needle Manual — needle silhouette with a click/cursor target (hand-picked insertion)
+    // Needle Manual: needle silhouette with a click/cursor target (hand-picked insertion)
     'needle-manual':  I([
                           C(7,3,1.4),
                           L(7,4.4,7,12,2.4),
@@ -241,7 +241,7 @@ export const ICONS = {
 
     'gradual':        I([ Rf(2,14,3,4), Rf(6,10,3,8), Rf(10,6,3,12), Rf(14,2,3,16) ]),
 
-    // Structural Optimizer — a stack of layers with up/down arrows = randomly
+    // Structural Optimizer: a stack of layers with up/down arrows = randomly
     // ADD / REMOVE layers (structural mutation, distinct from gradual's ramp).
     'structural':     I([
                           Rf(2,5,9,2,0.6,'currentColor'),
@@ -251,7 +251,7 @@ export const ICONS = {
                           P('M15.5 10.5L15.5 16M13.5 14L15.5 16L17.5 14',1.3),
                       ]),
 
-    // Design cleaner — broom with bristles + small debris dots
+    // Design cleaner: broom with bristles + small debris dots
     'design-cleaner': I([
                           L(10,2,10,9,1.8),
                           P('M6 9L14 9L13 14L7 14Z',1.4),
@@ -263,14 +263,14 @@ export const ICONS = {
                           Cf(4.4,18.6,0.4),
                       ]),
 
-    // Filter Design wizard — bandpass filter transmission curve T(λ)
+    // Filter Design wizard: bandpass filter transmission curve T(λ)
     'filter-design':  I([
                           L(2,17,18,17,1),
                           L(2,2,2,17,1),
                           P('M3 15L7 15L9 4L11 4L13 15L17 15',1.8),
                       ]),
 
-    // BBM — broadband optical monitoring: a monitor screen showing a full
+    // BBM (broadband optical monitoring): a monitor screen showing a full
     // spectrum (many wavelengths) as a bar spectrum.
     'bbm-simulator':  I([
                           R(2,3.5,16,12,1.5),
@@ -278,7 +278,7 @@ export const ICONS = {
                           L(5,13,5,9,1.2), L(7,13,7,6.5,1.2), L(9,13,9,10,1.2),
                           L(11,13,11,5.5,1.2), L(13,13,13,8,1.2), L(15,13,15,10.5,1.2),
                       ]),
-    // Mono — monochromatic monitoring: a monitor screen with the single-wavelength
+    // Mono (monochromatic monitoring): a monitor screen with the single-wavelength
     // oscillating signal (turning-point monitoring). Pairs with BBM.
     'mono-simulator': I([
                           R(2,3.5,16,12,1.5),
@@ -286,7 +286,7 @@ export const ICONS = {
                           P('M3.8 10.5 C5.2 6.5 6.6 6.5 8 10.5 C9.4 14.5 10.8 14.5 12.2 10.5 C13.1 7.9 14 7.2 16.2 7.2',1.4),
                       ]),
 
-    // Monitor Worksheet — the worksheet itself: a sheet with a header row and a
+    // Monitor Worksheet (the worksheet itself): a sheet with a header row and a
     // first column, carrying the monitoring signal and the cut it stops at.
     'monitor-worksheet': I([
                           R(2,3,16,14,1),
@@ -296,7 +296,7 @@ export const ICONS = {
                           L(10,9.1,10,16.6,0.9),
                       ]),
 
-    // Process Simulator — chamber with substrate, descending vapor stream and
+    // Process Simulator: chamber with substrate, descending vapor stream and
     // a building stack of layers on top (deposition in progress).
     'process-sim':    I([
                           R(3, 3, 14, 14, 1),
@@ -310,7 +310,7 @@ export const ICONS = {
                           Cf(13, 5, 0.6),
                       ]),
 
-    // Variator — three horizontal slider tracks with knobs at different positions
+    // Variator: three horizontal slider tracks with knobs at different positions
     'variator':       I([
                           L(3,5,17,5,1.2),
                           Cf(6,5,1.8),
@@ -322,7 +322,7 @@ export const ICONS = {
 
     'history':        I([ C(10,10,7), P('M10 6v4l3 3'), P('M4 10a6 6 0 001 3') ]),
 
-    // Report Generator — document page with a heading bar, text lines and a
+    // Report Generator: document page with a heading bar, text lines and a
     // small chart (the multi-section report deliverable).
     'report-gen':     I([
                           P('M4 2.5 L12 2.5 L16 6.5 L16 17.5 L4 17.5 Z', 1.4),
@@ -332,7 +332,7 @@ export const ICONS = {
                           P('M6 14.5 L8 12.5 L10 13.8 L13 10.8', 1.2),
                       ]),
 
-    // Measured Spectra — plot axes with a spectral curve and measured data
+    // Measured Spectra: plot axes with a spectral curve and measured data
     // points (import/export measured R/T/A).
     'spectrum-exchange': I([
                           L(2,17,18,17,1),
@@ -343,7 +343,7 @@ export const ICONS = {
                           Cf(15,6.2,0.9),
                       ]),
 
-    // Measured Ellipsometry — the polarization ellipse of the Ellipsometry icon
+    // Measured Ellipsometry: the polarization ellipse of the Ellipsometry icon
     // carrying measured points, matching how Measured Spectra marks its own.
     'measured-ellipsometry': I([
                           P('M3 10q2-5 7 0t7 0'),
@@ -353,7 +353,7 @@ export const ICONS = {
                           Cf(14.6, 12.4, 0.9),
                       ]),
 
-    // Zemax coatings — a data file (page with stacked coating-layer lines) and a
+    // Zemax coatings: a data file (page with stacked coating-layer lines) and a
     // bidirectional exchange arrow (import/export COATING.DAT).
     'zemax-coatings': I([
                           R(2.5, 3, 8, 14, 1.2),
@@ -477,7 +477,9 @@ export function makeTabs(t) {
 // button or a quick-access button. What is left needs a menu, and sits behind
 // the logo button (application) and the ? button (help) on the tab strip. The
 // Reload / DevTools / Optimizer Benchmark entries are offered in every build, so
-// a user who hits a broken window can see what happened and report it.
+// a user who hits a broken window can see what happened and report it. The
+// experimental Deep Synthesis window opens from here until it moves to the
+// ribbon.
 
 function appMenuItems(t, devAllowed, gamesUnlocked) {
     return [
@@ -496,6 +498,7 @@ function appMenuItems(t, devAllowed, gamesUnlocked) {
             { label: t.menu.reload,         action: 'reload',          shortcut: 'Ctrl+R' },
             { label: t.menu.toggleDevTools, action: 'toggle-devtools', shortcut: 'Ctrl+Shift+I' },
             { label: t.menu.optimizerBenchmark || 'Optimizer Benchmark…', action: 'tool:optimizer-benchmark' },
+            { label: t.menu.deepSynthesis, action: 'tool:deep-synthesis' },
         ] : []),
     ];
 }

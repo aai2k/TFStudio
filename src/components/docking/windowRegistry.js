@@ -1,5 +1,5 @@
 /**
- * Window registry — the single source of truth for dockable tool windows.
+ * Window registry: the single source of truth for dockable tool windows.
  *
  * Adding a tool window used to mean editing five places in DockingLayout.js (the
  * import block, the `ToolContent` if-chain, `TOOL_CONFIGS`, `TOOL_LABELS`, and
@@ -8,7 +8,7 @@
  *
  * Each entry (all fields optional except as noted):
  *   component  React window component. Omit (or null) for a tool that is NOT a
- *              docked window — a modal/wizard handled elsewhere, or a stub. Such
+ *              docked window: a modal/wizard handled elsewhere, or a stub. Such
  *              ids may still carry a title/label/help; ToolContent falls through
  *              to the placeholder for them (unchanged behavior).
  *   title      Tab title (→ TOOL_CONFIGS[id].title). Omit → id is used.
@@ -66,62 +66,65 @@ import { WavelengthAngleMap } from '../windows/analysis/wavelengthAngleMap/Wavel
 import { Specification } from '../windows/design/specification/Specification.js';
 import { CoatingLibrary } from '../windows/design/coatingLibrary/CoatingLibrary.js';
 import { OptimizerBenchmark } from '../windows/optimization/optimizerBenchmark/OptimizerBenchmark.js';
+import { DeepSynthesis } from '../windows/optimization/deepSynthesis/DeepSynthesis.js';
 import { MonitorWorksheet } from '../windows/simulation/monitorWorksheet/MonitorWorksheet.js';
 import { ReportWindow } from '../windows/information/report/ReportWindow.js';
 import { Games } from '../windows/information/games/Games.js';
 
 export const WINDOW_REGISTRY = {
   // ── Design ──────────────────────────────────────────────────────────────────
-  'design-editor':   { component: DesignEditor,        title: 'Design Editor',        label: 'Design Editor — layer stack table',                                   help: 'design/design-editor' },
-  'material-editor': { component: MaterialEditor,       title: 'Material Editor',       label: 'Material Editor — n,k database',                                       help: 'design/material-editor', dialog: true },
+  'design-editor':   { component: DesignEditor,        title: 'Design Editor',        label: 'Design Editor: layer stack table',                                    help: 'design/design-editor' },
+  'material-editor': { component: MaterialEditor,       title: 'Material Editor',       label: 'Material Editor: n,k database',                                        help: 'design/material-editor', dialog: true },
   'coating-library': { component: CoatingLibrary,       title: 'Coating Library',       label: 'Coating Library: reusable coating stacks, yours and the built-in starting designs', help: 'design/coating-library' },
-  'specification':   { component: Specification,        title: 'Specification',         label: 'Specification — design requirements (PASS/FAIL qualifiers)',            help: 'design/specification', theme: true, dialog: true, requiresResolvedMaterials: true },
-  'merit-function':  { component: MeritFunctionEditor,  title: 'Merit Function Editor', label: 'Merit Function Editor — operand table',                                help: 'design/merit-function-editor', dialog: true, requiresResolvedMaterials: true },
-  'variator':        { component: Variator,             title: 'Variator',              label: 'Variator — live parameter slider',                                     help: 'design/variator', theme: true, requiresResolvedMaterials: true },
-  'history':         { component: HistoryWindow,        title: 'History',               label: 'History — design undo/redo tree',                                      help: 'design/history', theme: true },
+  'specification':   { component: Specification,        title: 'Specification',         label: 'Specification: design requirements (PASS/FAIL qualifiers)',             help: 'design/specification', theme: true, dialog: true, requiresResolvedMaterials: true },
+  'merit-function':  { component: MeritFunctionEditor,  title: 'Merit Function Editor', label: 'Merit Function Editor: operand table',                                 help: 'design/merit-function-editor', dialog: true, requiresResolvedMaterials: true },
+  'variator':        { component: Variator,             title: 'Variator',              label: 'Variator: live parameter slider',                                      help: 'design/variator', theme: true, requiresResolvedMaterials: true },
+  'history':         { component: HistoryWindow,        title: 'History',               label: 'History: design undo/redo tree',                                       help: 'design/history', theme: true },
 
   // ── Analysis ────────────────────────────────────────────────────────────────
-  'optical-eval':    { component: OpticalEvaluation,         title: 'Optical Evaluation',          label: 'Optical Evaluation — T/R/A plots',                                help: 'analysis/optical-evaluation', theme: true, requiresResolvedMaterials: true },
-  'wavelength-angle-map': { component: WavelengthAngleMap,   title: 'Wavelength vs Angle',         label: 'Wavelength vs Angle — T, R or A mapped over wavelength and angle of incidence', help: 'analysis/wavelength-angle-map', theme: true, requiresResolvedMaterials: true },
-  'color-eval':      { component: ColorEvaluation,           title: 'Color Evaluation',            label: 'Color Evaluation — CIE diagram',                                  help: 'analysis/color-evaluation', theme: true, requiresResolvedMaterials: true },
-  'admittance':      { component: AdmittanceDiagram,         title: 'Admittance Diagram',          label: 'Admittance Diagram — locus plot',                                 help: 'analysis/admittance', theme: true, requiresResolvedMaterials: true },
-  'efield':          { component: EFieldEvaluation,          title: 'Electric Field',              label: 'Electric Field — |E(z)|² vs depth',                               help: 'analysis/efield', theme: true, requiresResolvedMaterials: true },
-  'ellipsometry':    { component: EllipsometryEvaluation,    title: 'Ellipsometry',                label: 'Ellipsometry — Ψ(λ) and Δ(λ)',                                    help: 'analysis/ellipsometry', theme: true, requiresResolvedMaterials: true },
-  'gd-gdd':          { component: GDGDDEvaluation,           title: 'Group Delay / GDD',           label: 'Group Delay / GDD — dispersion',                                  help: 'analysis/gd-gdd', theme: true, requiresResolvedMaterials: true },
+  'optical-eval':    { component: OpticalEvaluation,         title: 'Optical Evaluation',          label: 'Optical Evaluation: T/R/A plots',                                 help: 'analysis/optical-evaluation', theme: true, requiresResolvedMaterials: true },
+  'wavelength-angle-map': { component: WavelengthAngleMap,   title: 'Wavelength vs Angle',         label: 'Wavelength vs Angle: T, R or A mapped over wavelength and angle of incidence', help: 'analysis/wavelength-angle-map', theme: true, requiresResolvedMaterials: true },
+  'color-eval':      { component: ColorEvaluation,           title: 'Color Evaluation',            label: 'Color Evaluation: CIE diagram',                                   help: 'analysis/color-evaluation', theme: true, requiresResolvedMaterials: true },
+  'admittance':      { component: AdmittanceDiagram,         title: 'Admittance Diagram',          label: 'Admittance Diagram: locus plot',                                  help: 'analysis/admittance', theme: true, requiresResolvedMaterials: true },
+  'efield':          { component: EFieldEvaluation,          title: 'Electric Field',              label: 'Electric Field: |E(z)|² vs depth',                                help: 'analysis/efield', theme: true, requiresResolvedMaterials: true },
+  'ellipsometry':    { component: EllipsometryEvaluation,    title: 'Ellipsometry',                label: 'Ellipsometry: Ψ(λ) and Δ(λ)',                                     help: 'analysis/ellipsometry', theme: true, requiresResolvedMaterials: true },
+  'gd-gdd':          { component: GDGDDEvaluation,           title: 'Group Delay / GDD',           label: 'Group Delay / GDD: dispersion',                                   help: 'analysis/gd-gdd', theme: true, requiresResolvedMaterials: true },
   'material-dispersion': { component: MaterialDispersionEvaluation, title: 'Material Dispersion', label: 'Material Dispersion: bulk phase, GD, GDD, and TOD', help: 'analysis/material-dispersion', theme: true },
-  'ri-profiler':     { component: RefractiveIndexProfiler,   title: 'RI Profiler',                 label: 'RI Profiler — n(z) and k(z)',                                     help: 'analysis/refractive-index-profile', theme: true, requiresResolvedMaterials: true },
-  'layer-thicknesses': { component: LayerThicknesses,        title: 'Layer Thicknesses',           label: 'Layer Thicknesses — per-layer bar diagram',                       help: 'analysis/layer-thicknesses', theme: true, requiresResolvedMaterials: true },
-  'sensitivity':     { component: LayerSensitivity,          title: 'Layer Sensitivity',           label: 'Layer Sensitivity — ∂MF/∂dᵢ',                                     help: 'analysis/layer-sensitivity', theme: true, requiresResolvedMaterials: true },
-  'error-analysis':  { component: ErrorAnalysis,             title: 'Monte Carlo',                 label: 'Monte Carlo — manufacturing-error yield simulation',              help: 'analysis/error-analysis', theme: true, requiresResolvedMaterials: true },
-  'integral-values': { component: IntegralValues,            title: 'Integral Values',             label: 'Integral Values — Tvis/Tsol/TUV/TNIR',                            help: 'analysis/integral-values', theme: true, requiresResolvedMaterials: true },
-  'systematic-dev':  { component: SystematicDeviations,      title: 'Systematic Deviations',       label: 'Systematic Deviations — global perturbation sweep',               help: 'analysis/systematic-deviations', theme: true, requiresResolvedMaterials: true },
-  'inhomogeneities': { component: Inhomogeneities,           title: 'Inhomogeneities & Interlayers', label: 'Inhomogeneities & Interlayers — graded interface transitions',  help: 'analysis/inhomogeneities', theme: true, requiresResolvedMaterials: true },
-  'roughness':       { component: RoughnessScattering,       title: 'Roughness / Scattering',      label: 'Interface Roughness / Scattering — TIS(λ)',                       help: 'analysis/roughness-scattering', theme: true, requiresResolvedMaterials: true },
-  'stress':          { component: StressAnalysis,             title: 'Stress',                      label: 'Stress — per-film stress, substrate bow, cracking and delamination margins', help: 'analysis/stress', theme: true, requiresResolvedMaterials: true },
-  'plot-engine':     { component: PlotEngine,                title: 'Plot Engine',                 label: 'Plot Engine — custom XY plot builder',                            help: 'analysis/plot-engine', theme: true, requiresResolvedMaterials: true },
+  'ri-profiler':     { component: RefractiveIndexProfiler,   title: 'RI Profiler',                 label: 'RI Profiler: n(z) and k(z)',                                      help: 'analysis/refractive-index-profile', theme: true, requiresResolvedMaterials: true },
+  'layer-thicknesses': { component: LayerThicknesses,        title: 'Layer Thicknesses',           label: 'Layer Thicknesses: per-layer bar diagram',                        help: 'analysis/layer-thicknesses', theme: true, requiresResolvedMaterials: true },
+  'sensitivity':     { component: LayerSensitivity,          title: 'Layer Sensitivity',           label: 'Layer Sensitivity: ∂MF/∂dᵢ',                                      help: 'analysis/layer-sensitivity', theme: true, requiresResolvedMaterials: true },
+  'error-analysis':  { component: ErrorAnalysis,             title: 'Monte Carlo',                 label: 'Monte Carlo: manufacturing-error yield simulation',               help: 'analysis/error-analysis', theme: true, requiresResolvedMaterials: true },
+  'integral-values': { component: IntegralValues,            title: 'Integral Values',             label: 'Integral Values: Tvis/Tsol/TUV/TNIR',                             help: 'analysis/integral-values', theme: true, requiresResolvedMaterials: true },
+  'systematic-dev':  { component: SystematicDeviations,      title: 'Systematic Deviations',       label: 'Systematic Deviations: global perturbation sweep',                help: 'analysis/systematic-deviations', theme: true, requiresResolvedMaterials: true },
+  'inhomogeneities': { component: Inhomogeneities,           title: 'Inhomogeneities & Interlayers', label: 'Inhomogeneities & Interlayers: graded interface transitions',   help: 'analysis/inhomogeneities', theme: true, requiresResolvedMaterials: true },
+  'roughness':       { component: RoughnessScattering,       title: 'Roughness / Scattering',      label: 'Interface Roughness / Scattering: TIS(λ)',                        help: 'analysis/roughness-scattering', theme: true, requiresResolvedMaterials: true },
+  'stress':          { component: StressAnalysis,             title: 'Stress',                      label: 'Stress: per-film stress, substrate bow, cracking and delamination margins', help: 'analysis/stress', theme: true, requiresResolvedMaterials: true },
+  'plot-engine':     { component: PlotEngine,                title: 'Plot Engine',                 label: 'Plot Engine: custom XY plot builder',                             help: 'analysis/plot-engine', theme: true, requiresResolvedMaterials: true },
 
   // ── Synthesis ─────────────────────────────────────────────────────────────────
-  'refinement':      { component: Refinement,        title: 'Refinement',        label: 'Refinement — SQP (default) / DLS / CG / Newton / Newton-CG / DLS multi-start / DE / Simulated Annealing (pick method, or Try-all)', help: 'synthesis/refinement', theme: true, requiresResolvedMaterials: true },
-  'needle':          { component: NeedleVariation,   title: 'Needle Automatic',  label: 'Needle Automatic — automatic layer insertion loop',                                            help: 'synthesis/needle', theme: true, requiresResolvedMaterials: true },
-  'needle-manual':   { component: NeedleManual,      title: 'Needle Manual',     label: 'Needle Manual — pick position + material by hand',                                              help: 'synthesis/needle', theme: true, requiresResolvedMaterials: true },
-  'gradual':         { component: GradualEvolution,  title: 'Gradual Evolution', label: 'Gradual Evolution — layer count ramp',                                                          help: 'synthesis/gradual-evolution', theme: true, requiresResolvedMaterials: true },
-  'structural':      { component: StructuralOptimizer, title: 'Structural Optimizer', label: 'Structural Optimizer — random add/remove/split/merge layer mutations + simulated-annealing accept', help: 'synthesis/structural-optimizer', theme: true, requiresResolvedMaterials: true },
-  'design-cleaner':  { component: DesignCleaner,     title: 'Design Cleaner',    label: 'Design Cleaner — merge thin layers',                                                            help: 'synthesis/design-cleaner', theme: true, requiresResolvedMaterials: true },
+  'refinement':      { component: Refinement,        title: 'Refinement',        label: 'Refinement: SQP (default) / DLS / CG / Newton / Newton-CG / DLS multi-start / DE / Simulated Annealing (pick method, or Try-all)', help: 'synthesis/refinement', theme: true, requiresResolvedMaterials: true },
+  'needle':          { component: NeedleVariation,   title: 'Needle Automatic',  label: 'Needle Automatic: automatic layer insertion loop',                                             help: 'synthesis/needle', theme: true, requiresResolvedMaterials: true },
+  'needle-manual':   { component: NeedleManual,      title: 'Needle Manual',     label: 'Needle Manual: pick position + material by hand',                                               help: 'synthesis/needle', theme: true, requiresResolvedMaterials: true },
+  'gradual':         { component: GradualEvolution,  title: 'Gradual Evolution', label: 'Gradual Evolution: layer count ramp',                                                           help: 'synthesis/gradual-evolution', theme: true, requiresResolvedMaterials: true },
+  'structural':      { component: StructuralOptimizer, title: 'Structural Optimizer', label: 'Structural Optimizer: random add/remove/split/merge layer mutations + simulated-annealing accept', help: 'synthesis/structural-optimizer', theme: true, requiresResolvedMaterials: true },
+  'design-cleaner':  { component: DesignCleaner,     title: 'Design Cleaner',    label: 'Design Cleaner: merge thin layers',                                                             help: 'synthesis/design-cleaner', theme: true, requiresResolvedMaterials: true },
   'filter-design':   {                                                                                                                                                                    help: 'synthesis/wdm-wizard' },
 
   // ── Simulation ────────────────────────────────────────────────────────────────
   'monitor-worksheet': { component: MonitorWorksheet, title: 'Monitor Worksheet', label: 'Monitor Worksheet: per-layer signal, swing and termination error on the witness chips the run would be monitored on', help: 'simulation/monitor-worksheet', requiresResolvedMaterials: true },
 
   // ── Data Exchange ──────────────────────────────────────────────────────────────
-  'process-sim':     { component: ProcessSimulator,  title: 'Process Exporter',   label: 'Process Exporter — scrub through deposition + export .res files', help: 'simulation/process-simulator', theme: true, requiresResolvedMaterials: true },
-  'zemax-coatings':  { component: ZemaxCoatings,     title: 'Zemax Coatings',     label: 'Zemax Coatings — import / export COATING.DAT (materials + coatings)', help: 'data-exchange/zemax-coatings', theme: true, dialog: true },
-  'spectrum-exchange': { component: SpectrumExchange, title: 'Measured Spectra',   label: 'Measured Spectra — import measured R/T/A spectra (CSV/TXT/ASCII/JCAMP-DX) as overlays; export design or measured spectra to CSV/JCAMP-DX', help: 'data-exchange/measured-spectra', theme: true },
-  'measured-ellipsometry': { component: MeasuredEllipsometry, title: 'Measured Ellipsometry', label: 'Measured Ellipsometry — import measured Ψ/Δ from a spectroscopic ellipsometer; export measured or calculated Ψ/Δ to CSV', help: 'data-exchange/measured-ellipsometry', theme: true },
-  'nk-characterization': { component: NkCharacterization, title: 'n,k Characterization', label: 'n,k Characterization — derive the n, k and thickness of a film from a measured R/T spectrum or a measured Ψ/Δ pair', help: 'data-exchange/nk-characterization', theme: true, dialog: true, createDesign: true },
+  'process-sim':     { component: ProcessSimulator,  title: 'Process Exporter',   label: 'Process Exporter: scrub through deposition + export .res files', help: 'simulation/process-simulator', theme: true, requiresResolvedMaterials: true },
+  'zemax-coatings':  { component: ZemaxCoatings,     title: 'Zemax Coatings',     label: 'Zemax Coatings: import / export COATING.DAT (materials + coatings)', help: 'data-exchange/zemax-coatings', theme: true, dialog: true },
+  'spectrum-exchange': { component: SpectrumExchange, title: 'Measured Spectra',   label: 'Measured Spectra: import measured R/T/A spectra (CSV/TXT/ASCII/JCAMP-DX) as overlays; export design or measured spectra to CSV/JCAMP-DX', help: 'data-exchange/measured-spectra', theme: true },
+  'measured-ellipsometry': { component: MeasuredEllipsometry, title: 'Measured Ellipsometry', label: 'Measured Ellipsometry: import measured Ψ/Δ from a spectroscopic ellipsometer; export measured or calculated Ψ/Δ to CSV', help: 'data-exchange/measured-ellipsometry', theme: true },
+  'nk-characterization': { component: NkCharacterization, title: 'n,k Characterization', label: 'n,k Characterization: derive the n, k and thickness of a film from a measured R/T spectrum or a measured Ψ/Δ pair', help: 'data-exchange/nk-characterization', theme: true, dialog: true, createDesign: true },
   'report-gen':      { component: ReportWindow,     title: 'Report',             label: 'Report: a document built from blocks over one or several designs, saved as PDF or HTML', help: 'data-exchange/report-generator', theme: true, requiresResolvedMaterials: true },
 
   // ── Dev / QA (opened from the dev-only View menu; not in the user ribbon) ───────
-  'optimizer-benchmark': { component: OptimizerBenchmark, title: 'Optimizer Benchmark', label: 'Optimizer Benchmark — live cross-optimizer comparison (dev/QA)', help: 'index', theme: true, requiresResolvedMaterials: true },
+  'optimizer-benchmark': { component: OptimizerBenchmark, title: 'Optimizer Benchmark', label: 'Optimizer Benchmark: live cross-optimizer comparison (dev/QA)', help: 'index', theme: true, requiresResolvedMaterials: true },
+  // Experimental: opened from the application menu until it moves to the ribbon.
+  'deep-synthesis':      { component: DeepSynthesis,      title: 'Deep Synthesis',      label: 'Deep Synthesis: gradual evolution with the deep needle, then a search over the layer structure (experimental)', help: 'index', theme: true, requiresResolvedMaterials: true },
 
   // ── Not in any ribbon tab: offered in the application menu only after the
   //    version number in About has been clicked seven times ────────────────────
