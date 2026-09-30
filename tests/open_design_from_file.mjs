@@ -6,11 +6,12 @@
  * must come back with the folder holding it, because that design is the file
  * and copying it would leave the user editing a duplicate; anything outside
  * the tree comes back with no folder, to be imported as a copy. The build
- * config has to register the extension, the Linux desktop entry has to carry
- * %f without costing the AppImage its --no-sandbox, and the document icon has
- * to hold every size Explorer asks for. Linux draws that icon from the theme
- * rather than from the package, so the mime entry, the icon name it points at
- * and the files the deb installs under that name are checked to agree.
+ * config has to register the extension, the Debian desktop entry has to carry
+ * %f without giving the AppImage's entry a second file field code, and the
+ * document icon has to hold every size Explorer asks for. Linux draws that
+ * icon from the theme rather than from the package, so the mime entry, the
+ * icon name it points at and the files the deb installs under that name are
+ * checked to agree.
  *
  * Run: node tests/open_design_from_file.mjs
  */
@@ -161,8 +162,8 @@ const openPath = (filePath) => handlers.get('open-tfs-path')(null, filePath);
     ok(JSON.stringify(pkg.build.linux.mimeTypes) === JSON.stringify(['application/x-tfstudio-design']),
         'the desktop entry still advertises the type');
     // The deb desktop entry needs %f so the file manager passes a local path.
-    // Setting it on `linux` instead would reach the AppImage too, where it
-    // replaces the default --no-sandbox argument that entry depends on.
+    // Setting it on `linux` instead would reach the AppImage too, whose entry
+    // always ends in %U, and a desktop entry may carry only one file field code.
     ok(JSON.stringify(pkg.build.deb.executableArgs) === JSON.stringify(['%f']),
         'the Debian desktop entry is passed the file it was opened with');
     ok(pkg.build.linux.executableArgs === undefined,

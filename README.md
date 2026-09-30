@@ -106,7 +106,7 @@ sudo apt install ./TFStudio-*-amd64.deb
 tfstudio
 ```
 
-Installing as root is what lets the Chromium sandbox stay enabled. The `.deb` is the only Linux package that keeps it on, and it is also the only one that adds TFStudio to the applications menu and makes `.tfs` designs open in it from the file manager. The AppImage and the `.tar.gz` are not installed by anything, so neither registers the file type.
+Installing as root is what lets the Chromium sandbox stay enabled. The `.deb` is the only Linux package that keeps it on, and it is also the only one that adds TFStudio to the applications menu and makes `.tfs` designs open in it from the file manager. The AppImage is not installed by anything, so it does not register the file type.
 
 `TFStudio-<ver>-x86_64.AppImage` is the portable alternative:
 
@@ -115,17 +115,7 @@ chmod +x TFStudio-*-x86_64.AppImage
 ./TFStudio-*-x86_64.AppImage
 ```
 
-AppImages need FUSE 2, which Ubuntu 22.04 and later no longer install by default. Either add it (`sudo apt install libfuse2`), run the AppImage with `--appimage-extract-and-run`, or use the `TFStudio-<ver>-x64.tar.gz` archive, which unpacks and runs with no such dependency.
-
-From the `.tar.gz`, start the app through the bundled launcher rather than the binary:
-
-```bash
-tar xzf TFStudio-*-x64.tar.gz
-cd TFStudio-*-x64
-./tfstudio.sh
-```
-
-`tfstudio.sh` works around a Chromium requirement that an unpacked archive cannot satisfy: the sandbox helper has to be owned by root, which an archive extracted as a normal user never is. Running the `tfstudio` binary directly instead aborts on startup with `The SUID sandbox helper binary was found, but is not configured correctly`. The launcher disables the sandbox only when there is no working alternative, so installing the `.deb` remains the more secure option.
+The AppImage does not need `libfuse2`. Where it cannot mount itself at all, as in a container without FUSE, run it with `--appimage-extract-and-run`.
 
 Want to try it first? Run the **[live web demo](https://tfstudio.xyz/demo/)** for example designs and live spectra in the browser, with no installation required.
 
@@ -165,7 +155,7 @@ to answer up front.
 ```powershell
 npm run dist                  # Windows 10/11 installer + portable
 npm run dist -- -Win7         # ...and the Windows 7/8.1 builds
-npm run dist -- -Linux        # Linux .deb + AppImage + tar.gz only
+npm run dist -- -Linux        # Linux .deb + AppImage only
 ```
 
 The Linux artifacts are produced by `build-release-linux.sh`, which the release

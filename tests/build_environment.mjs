@@ -55,6 +55,12 @@ const existsSync = value => value === `${powerShellDir}\\powershell.exe`;
     ok(pkg.scripts[name].includes('tools/run-electron-builder.mjs'), `${name} uses the repaired launcher`);
   }
   ok(!pkg.scripts.build.includes('emsdk'), 'the normal build has no emsdk dependency');
+  // electron-builder's default AppImage toolset, 0.0.0, embeds the legacy
+  // runtime, which does not start on a host without libfuse2. Ubuntu 22.04 and
+  // later no longer install it.
+  const appImageToolset = pkg.build.toolsets && pkg.build.toolsets.appimage;
+  ok(appImageToolset != null && appImageToolset !== '0.0.0',
+    'the AppImage embeds the static runtime, which needs no libfuse2');
 }
 
 {
@@ -93,8 +99,6 @@ const existsSync = value => value === `${powerShellDir}\\powershell.exe`;
     'the reusable WSL stage discards stale packaging output');
   ok(linuxScript.includes('-name "TFStudio-${VERSION}-*.AppImage"'),
     'only current-version AppImage artifacts are copied back');
-  ok(linuxScript.includes('-name "TFStudio-${VERSION}-*.tar.gz"'),
-    'only current-version tar archives are copied back');
   ok(linuxScript.includes('-name "TFStudio-${VERSION}-*.deb"'),
     'only current-version Debian packages are copied back');
   // The stage outlives a release, so its node_modules is exactly where a bumped

@@ -18,9 +18,6 @@
 #                                   this is the one target that keeps the Chromium
 #                                   sandbox enabled.
 #   TFStudio-<ver>-x86_64.AppImage  single-file portable application
-#   TFStudio-<ver>-x64.tar.gz       plain archive; needs no FUSE, so it works on
-#                                   distributions that no longer ship libfuse2.
-#                                   Launch it via tfstudio.sh, not the bare binary.
 #
 # Staging: when the source tree lives on a Windows drive (/mnt/...), the build
 # is copied into the Linux filesystem first and the artifacts are copied back at
@@ -246,12 +243,11 @@ if [ "$STAGE" != "$SRC" ]; then
     # dist/ is generated output. Remove stale Linux packages so a 1.5.0 build
     # cannot appear to have produced an old 1.4.3 artifact.
     find "$SRC/dist" -maxdepth 1 -type f \
-        \( -name 'TFStudio-*.AppImage' -o -name 'TFStudio-*.tar.gz' -o -name 'TFStudio-*.deb' \) \
+        \( -name 'TFStudio-*.AppImage' -o -name 'TFStudio-*.deb' \) \
         -delete
 
     find "$STAGE/dist" -maxdepth 1 -type f \
         \( -name "TFStudio-${VERSION}-*.AppImage" \
-           -o -name "TFStudio-${VERSION}-*.tar.gz" \
            -o -name "TFStudio-${VERSION}-*.deb" \) \
         -exec cp -f {} "$SRC/dist/" \;
 fi
@@ -259,7 +255,6 @@ fi
 section "Build complete - artifacts in dist/"
 find "$SRC/dist" -maxdepth 1 -type f \
     \( -name "TFStudio-${VERSION}-*.AppImage" \
-       -o -name "TFStudio-${VERSION}-*.tar.gz" \
        -o -name "TFStudio-${VERSION}-*.deb" \) \
     -printf '%f\t%s\n' 2>/dev/null \
     | awk -F'\t' '{ printf "%-44s %8.1f MB\n", $1, $2/1048576 }'

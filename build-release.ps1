@@ -28,7 +28,7 @@
 #   TFStudio-<ver>-Win7-Setup.exe     legacy installer (Win7 SP1/8/8.1, Electron 22)*
 #   TFStudio-<ver>-Win7-Portable.exe  legacy portable*
 #   TFStudio-<ver>-x86_64.AppImage    Linux single-file application**
-#   TFStudio-<ver>-x64.tar.gz         Linux archive, needs no FUSE**
+#   TFStudio-<ver>-amd64.deb          Debian/Ubuntu package**
 #     * only when -Win7 is passed or confirmed at the prompt
 #    ** only when -Linux is passed or confirmed at the prompt
 #
@@ -110,7 +110,7 @@ function Show-LinuxArtifacts {
         return
     }
     Get-ChildItem $dist -File |
-        Where-Object { $_.Extension -in @('.AppImage', '.deb') -or $_.Name -like '*.tar.gz' } |
+        Where-Object { $_.Extension -in @('.AppImage', '.deb') } |
         Sort-Object Length -Descending |
         Format-Table Name, @{N='Size (MB)'; E={ '{0:N1}' -f ($_.Length / 1MB) }} -AutoSize | Out-Host
 }
@@ -147,7 +147,7 @@ if ($linuxOnly) {
 # -----------------------------------------------------------------------------
 $doLinux = $linuxOnly
 if (-not $linuxOnly -and -not $NoPause) {
-    $ans = Read-Host 'Also build the Linux version (AppImage + tar.gz, via WSL)? [y/N]'
+    $ans = Read-Host 'Also build the Linux version (.deb + AppImage, via WSL)? [y/N]'
     if ($ans -match '^\s*(y|yes)\s*$') { $doLinux = $true }
 }
 if ($doLinux -and -not $linuxOnly) {
@@ -405,7 +405,7 @@ try {
         Section "Windows 7 legacy build - SKIPPED"
     }
 
-    # --- 5c. Linux artifacts (AppImage + tar.gz, via WSL) --------------------
+    # --- 5c. Linux artifacts (.deb + AppImage, via WSL) ----------------------
     # build-release-linux.sh stages the tree into the WSL filesystem, builds
     # there, smoke-tests the unpacked app under Xvfb, and copies the artifacts
     # back into dist\. See that script for why it does not build in place.
@@ -423,7 +423,7 @@ try {
     Section "Build complete - artifacts in dist\"
     if (Test-Path $dist) {
         Get-ChildItem $dist -File |
-            Where-Object { $_.Extension -in @('.exe', '.AppImage') -or $_.Name -like '*.tar.gz' } |
+            Where-Object { $_.Extension -in @('.exe', '.AppImage', '.deb') } |
             Sort-Object Length -Descending |
             Format-Table Name, @{N='Size (MB)'; E={ '{0:N1}' -f ($_.Length / 1MB) }} -AutoSize | Out-Host
     } else {

@@ -132,12 +132,6 @@
           ]
         },
         {
-          "target": "tar.gz",
-          "arch": [
-            "x64"
-          ]
-        },
-        {
           "target": "deb",
           "arch": [
             "x64"
@@ -218,11 +212,8 @@
         "xdg-utils"
       ]
     },
-    "extraFiles": [
-      {
-        "from": "build/tfstudio.sh",
-        "to": "tfstudio.sh"
-      }
-    ]
+    "toolsets": {
+      "appimage": "1.0.3"
+    }
   }
 }

@@ -103,7 +103,7 @@ sudo apt install ./TFStudio-*-amd64.deb
 tfstudio
 ```
 
-以 root 身份安装才能保持 Chromium 沙箱处于启用状态。`.deb` 是唯一保留沙箱的 Linux 安装包，也是唯一会将 TFStudio 添加到应用程序菜单、并让 `.tfs` 文件能从文件管理器中直接打开的安装包。AppImage 与 `.tar.gz` 都不经过安装，因此都不会注册该文件类型。
+以 root 身份安装才能保持 Chromium 沙箱处于启用状态。`.deb` 是唯一保留沙箱的 Linux 安装包，也是唯一会将 TFStudio 添加到应用程序菜单、并让 `.tfs` 文件能从文件管理器中直接打开的安装包。AppImage 不经过安装，因此不会注册该文件类型。
 
 `TFStudio-<ver>-x86_64.AppImage` 是便携式方案：
 
@@ -112,17 +112,7 @@ chmod +x TFStudio-*-x86_64.AppImage
 ./TFStudio-*-x86_64.AppImage
 ```
 
-AppImage 需要 FUSE 2，而 Ubuntu 22.04 及更高版本默认不再安装。可以自行安装（`sudo apt install libfuse2`）、以 `--appimage-extract-and-run` 方式运行，或改用 `TFStudio-<ver>-x64.tar.gz` 压缩包，后者解压后即可运行，无此依赖。
-
-使用 `.tar.gz` 时，请通过附带的启动脚本运行，而不要直接执行二进制文件：
-
-```bash
-tar xzf TFStudio-*-x64.tar.gz
-cd TFStudio-*-x64
-./tfstudio.sh
-```
-
-`tfstudio.sh` 用于规避 Chromium 的一项限制：沙箱辅助程序必须归 root 所有，而以普通用户解压的压缩包无法满足这一点。直接运行 `tfstudio` 二进制文件会在启动时报错 `The SUID sandbox helper binary was found, but is not configured correctly`。该脚本仅在确无其他可行方案时才关闭沙箱，因此安装 `.deb` 仍是更安全的选择。
+AppImage 不需要 `libfuse2`。若完全无法自行挂载（例如在没有 FUSE 的容器中），请以 `--appimage-extract-and-run` 方式运行。
 
 想先试用？可直接运行 **[在线演示](https://tfstudio.xyz/demo/)**，在浏览器中查看示例膜系与实时光谱，无需任何安装。
 
