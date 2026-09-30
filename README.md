@@ -50,10 +50,13 @@ TFStudio is a desktop application for designing and analyzing **optical thin-fil
 - Flexible merit function: spectral targets, ramps, band averages, worst-case operands, thickness constraints
 - Fitting to an imported measured spectrum, as one more row in the merit function
 - Multi-threaded via a Web Worker pool; hot kernels accelerated with **WebAssembly**
+<img width="2002" height="1310" alt="ge" src="https://github.com/user-attachments/assets/009e2e48-f11b-4aba-8e6c-3d4e53705b08" />
+
 
 **Analysis windows**
 - Optical evaluation, admittance diagrams, electric-field profiles, group delay / GDD, ellipsometric parameters, color evaluation, refractive-index profile, layer thickness diagram
 - Tolerance & manufacturing analysis: Monte Carlo error analysis, layer sensitivity, inhomogeneity, roughness/scattering, systematic deviations
+<img width="2002" height="1312" alt="analysiswindows" src="https://github.com/user-attachments/assets/ce082aa3-4f18-4908-9247-5d65083db5f4" />
 
 **Materials**
 - Built-in library generated from the [refractiveindex.info](https://refractiveindex.info) database (CC0)
