@@ -51,8 +51,8 @@ function runtime() {
 const appliedOptions = new WeakMap();
 
 // How many values a comparison may look at before giving up and redrawing.
-// Plot Engine permits a 700x700 surface, and comparing half a million points
-// costs more than the redraw would, so the check is capped. Past the cap the
+// A surface grid can run to hundreds of thousands of points, and comparing
+// them costs more than the redraw would, so the check is capped. Past the cap the
 // answer is "not equal", which only ever means an extra redraw: a chart that
 // large falls back to the behaviour it had before, never to a stale picture.
 const COMPARE_BUDGET = 40000;

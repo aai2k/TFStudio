@@ -10,14 +10,8 @@
  * app takes them, and converted here to the sample counts a surface spec wants.
  */
 
-import { MAX_AXIS_STEPS } from '../../../../utils/physics/plotQuantities.js';
-
 /**
  * Samples spanning [from, to] at `step`, inclusive of both ends.
- *
- * Capped at the surface grid limit: past it the endpoints are kept and the
- * spacing widens, so the readout in the settings panel reports the grid that
- * was actually computed rather than the one that was asked for.
  */
 export function axisSteps(from, to, step) {
     const span = Math.abs(to - from);
@@ -25,7 +19,7 @@ export function axisSteps(from, to, step) {
     // the fields and the settings registry bound it away from zero); a stored
     // value that reaches here anyway falls back to one sample per unit.
     const size = Math.abs(step) > 0 ? Math.abs(step) : 1;
-    return Math.max(2, Math.min(MAX_AXIS_STEPS, Math.round(span / size) + 1));
+    return Math.max(2, Math.round(span / size) + 1);
 }
 
 /**

@@ -13,6 +13,7 @@
  */
 
 import { anchoredFitRange } from '../../../../utils/materials/dispersionFitRange.js';
+import { builtinMaterialRows } from '../../../../utils/materials/catalogManager/builtinCatalog.js';
 import { interpolationRuleOf, TABULATED_INTERPOLATION } from '../../../../utils/materials/pchip.js';
 import { FORMULA_LATEX } from '../../../../utils/materials/dispersionFormulas.js';
 import {
@@ -21,6 +22,7 @@ import {
 import { parseNumber, parseNumberStrict } from '../../../../utils/misc/numberParsing.js';
 
 export { buildNKFromDraft } from './nkSamplers.js';
+import { parsedRows, readOnce } from './nkSamplers.js';
 
 /**
  * Fit models worth offering for a table.
@@ -42,11 +44,22 @@ export function effectiveFitModel(draft) {
     return models.includes(draft.fitModel) ? draft.fitModel : models[0];
 }
 
+// What the form reads off a table on every keystroke goes through readOnce, so
+// a long table is walked once per edit of it rather than once per keystroke.
+
 /** The table as the fitter reads it: [λ nm, n, k] rows, half-typed ones dropped. */
 export function fitRows(draft) {
-    return (draft.rows || [])
-        .map(row => [parseNumberStrict(row.lam), parseNumberStrict(row.n), parseNumber(row.k)])
-        .filter(row => row.every(Number.isFinite));
+    return readOnce(draft.rows, 'fitRows', rows => parsedRows(rows).filter(row => row.every(Number.isFinite)));
+}
+
+/** The wavelengths of `fitRows`, in nm. */
+export function fitWavelengths(draft) {
+    return readOnce(draft.rows, 'fitWavelengths', () => fitRows(draft).map(row => row[0]));
+}
+
+/** How many rows have k below zero. */
+export function negativeKRowCount(rows) {
+    return readOnce(rows, 'negativeK', table => table.filter(row => parseNumberStrict(row.k) < 0).length);
 }
 
 /**
@@ -57,15 +70,16 @@ export function fitRows(draft) {
  * already thousands of rows long.
  */
 export function tableRangeNm(rows) {
-    let low = Infinity;
-    let high = -Infinity;
-    for (const row of rows || []) {
-        const wavelength = parseNumberStrict(row.lam);
-        if (!Number.isFinite(wavelength)) continue;
-        low = Math.min(low, wavelength);
-        high = Math.max(high, wavelength);
-    }
-    return low <= high ? [low, high] : null;
+    return readOnce(rows, 'range', table => {
+        let low = Infinity;
+        let high = -Infinity;
+        for (const [wavelength] of parsedRows(table)) {
+            if (!Number.isFinite(wavelength)) continue;
+            low = Math.min(low, wavelength);
+            high = Math.max(high, wavelength);
+        }
+        return low <= high ? [low, high] : null;
+    });
 }
 
 /**
@@ -86,7 +100,7 @@ export function fitRangeNm(draft, workingNm) {
     const table = tableRangeNm(draft.rows);
     if (!table) return null;
     const offered = (workingNm
-        && anchoredFitRange(fitRows(draft).map(row => row[0]), workingNm)) || table;
+        && anchoredFitRange(fitWavelengths(draft), workingNm)) || table;
     const typed = [parseNumberStrict(draft.fitRangeMinNm), parseNumberStrict(draft.fitRangeMaxNm)];
     const low = Math.max(table[0], Number.isFinite(typed[0]) ? typed[0] : offered[0]);
     const high = Math.min(table[1], Number.isFinite(typed[1]) ? typed[1] : offered[1]);
@@ -115,9 +129,16 @@ export function nextPresetColor(current) {
  */
 export function draftFingerprint(draft) {
     if (!draft) return '';
-    return JSON.stringify(draft, (key, value) =>
-        (key === '_key' || key === '_rowSeq') ? undefined : value);
+    const { rows, kRows, ...rest } = draft;
+    return `${JSON.stringify(rest, withoutRowKeys)}|${tablePrint(rows)}|${tablePrint(kRows)}`;
 }
+
+const withoutRowKeys = (key, value) => ((key === '_key' || key === '_rowSeq') ? undefined : value);
+
+// A table's part of the fingerprint, written once per rows array: the draft is
+// compared with its saved copy on every keystroke, and writing out a table of
+// tens of thousands of rows takes tens of milliseconds.
+const tablePrint = rows => readOnce(rows, 'print', table => JSON.stringify(table, withoutRowKeys));
 
 // ── Draft ↔ material converters ───────────────────────────────────────────────
 
@@ -125,7 +146,6 @@ export function emptyDraft(catalogId) {
     return {
         catalogId,
         isNew: true,
-        idAuto: true,
         id: '',
         name: '',
         color: 'auto',
@@ -202,22 +222,15 @@ export function withAddedTerm(draft) {
     return { ...draft, coeffSlots, coeffs };
 }
 
-// Sample a built-in getNK function into draft rows over the material's range.
-// formulaNum === 0 means "built-in JS function" — no stored formula/tabular data,
-// so we must sample getNK to produce tabular data when copying to a user catalog.
+// A built-in as draft rows. formulaNum === 0 means "built-in JS function": no
+// stored formula or table, so a copy for a user catalog needs rows. A table
+// built-in brings its own rows as they are; a function's samples are shown to
+// 6 decimals in n and 8 in k.
 function sampleBuiltinRows(mat, startSeq) {
-    const rows = [];
     let seq = startSeq;
-    const smin = Math.max(100, Math.round((mat.lambdaMin || 0.2) * 1000));
-    const smax = Math.min(25000, Math.round((mat.lambdaMax || 2.5) * 1000));
-    const N = 200;
-    for (let i = 0; i < N; i++) {
-        const lam = Math.round(smin + (i / (N - 1)) * (smax - smin));
-        try {
-            const [n, k] = mat.getNK(lam);
-            if (isFinite(n)) rows.push({ _key: seq++, lam: String(lam), n: String(+n.toFixed(6)), k: String(+(k || 0).toFixed(8)) });
-        } catch (_) { /* skip invalid points */ }
-    }
+    const shown = mat.getNK.tabData ? value => value : (value, places) => +value.toFixed(places);
+    const rows = builtinMaterialRows(mat).map(([lam, n, k]) =>
+        ({ _key: seq++, lam: String(lam), n: String(shown(n, 6)), k: String(shown(k, 8)) }));
     return { rows, seq };
 }
 
@@ -247,7 +260,6 @@ export function materialToDraft(catalogId, mat) {
     return {
         catalogId,
         isNew: false,
-        idAuto: false,
         id: safeId,
         originalId: mat.id,         // actual key in catalog.materials (may differ from safeId)
         dataPath:  mat.dataPath  || null,
@@ -278,11 +290,24 @@ export function materialToDraft(catalogId, mat) {
     };
 }
 
-// The stated validity range in µm, the fallback for a material whose own data
-// does not say where it starts and ends.
+/**
+ * The stated validity range in nm, the fallback for a material whose own data
+ * does not say where it starts and ends, and the span the form's chart and
+ * sampled table cover. Any positive wavelength is taken; an entry that is not
+ * one gives the default, and an end not above the start is put 100 nm past it.
+ */
+export function draftRangeNm(draft) {
+    const nm = (text, fallback) => {
+        const value = parseNumber(text);
+        return value > 0 ? value : fallback;
+    };
+    const lambdaMin = nm(draft.lambdaMinNm, 300);
+    const lambdaMax = nm(draft.lambdaMaxNm, 2500);
+    return [lambdaMin, lambdaMax > lambdaMin ? lambdaMax : lambdaMin + 100];
+}
+
 function draftRangeUm(draft) {
-    const lambdaMin = Math.max(0.1, (parseNumber(draft.lambdaMinNm) || 300) / 1000);
-    return [lambdaMin, Math.max(lambdaMin + 0.1, (parseNumber(draft.lambdaMaxNm) || 2500) / 1000)];
+    return draftRangeNm(draft).map(nm => nm / 1000);
 }
 
 // A table material. Its range comes from the data rather than from the stated

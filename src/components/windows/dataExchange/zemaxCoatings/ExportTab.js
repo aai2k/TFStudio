@@ -31,9 +31,9 @@ function ExportOptions({ c, z, thMode, setThMode, scope, setScope, coatName, set
 function SampleGrid({ c, z, gStart, setGStart, gEnd, setGEnd, gStep, setGStep }) {
     return h('div', { style: { display: 'flex', alignItems: 'center', gap: 8 } },
         h(Label, { c }, z.sampleGrid),
-        h(Label, { c }, z.from), h(Num, { value: gStart, onChange: setGStart, min: 100, max: 30000, step: 10, c, width: 64 }),
-        h(Label, { c }, z.to), h(Num, { value: gEnd, onChange: setGEnd, min: 100, max: 30000, step: 10, c, width: 64 }),
-        h(Label, { c }, z.step), h(Num, { value: gStep, onChange: setGStep, min: 1, max: 1000, step: 5, c, width: 56 }),
+        h(Label, { c }, z.from), h(Num, { value: gStart, onChange: setGStart, positive: true, step: 10, c, width: 64 }),
+        h(Label, { c }, z.to), h(Num, { value: gEnd, onChange: setGEnd, positive: true, step: 10, c, width: 64 }),
+        h(Label, { c }, z.step), h(Num, { value: gStep, onChange: setGStep, positive: true, step: 5, c, width: 56 }),
     );
 }
 

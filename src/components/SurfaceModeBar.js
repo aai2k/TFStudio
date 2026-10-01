@@ -181,6 +181,7 @@ export function SurfaceModeControl({ design, updateDesign, c, t, onModeChange, s
         flexWrap: 'wrap', rowGap: 4,
         fontSize: 11, color: c.textDim,
         fontFamily: 'system-ui, -apple-system, sans-serif',
+        userSelect: 'none',
         ...(style || {}),
     };
 

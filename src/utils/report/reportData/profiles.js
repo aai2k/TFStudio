@@ -4,7 +4,7 @@
  */
 
 import {
-  computeRIProfile, computeEFieldProfile, evaluateEllipsometrySpectrum,
+  buildLambdaGrid, computeRIProfile, computeEFieldProfile, evaluateEllipsometrySpectrum,
 } from '../../physics/thinFilmMath.js';
 import { designMaterialLookup } from '../../materials/designMaterials.js';
 import { mediumId } from './engines.js';
@@ -20,8 +20,7 @@ export function computeEllipsometrySpectrum(design, opts = {}) {
   const nsmat = resolveMaterial(design.substrate?.material);
   const layerMats = (design.frontLayers || []).filter(l => l.material && l.thickness > 0);
 
-  const lambda = [];
-  for (let l = lambdaStart; l <= lambdaEnd + 1e-9; l += lambdaStep) lambda.push(Math.round(l * 1000) / 1000);
+  const lambda = buildLambdaGrid(lambdaStart, lambdaEnd, lambdaStep);
 
   const n0List = lambda.map(lam => n0mat.getNK(lam));
   const nsList = lambda.map(lam => nsmat.getNK(lam));

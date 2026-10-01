@@ -3,21 +3,27 @@
  */
 
 import { RII_RAW_BASE } from './fetch.js';
-import { sampleMaterial, RII_SAMPLE_RANGE_NM } from './sampling.js';
+import { sampleMaterial } from './sampling.js';
 import { TABULATED_INTERPOLATION } from '../pchip.js';
+
+/**
+ * The comment a material from a refractiveindex.info page carries: the page's
+ * comment and its reference, each in full, on separate lines.
+ */
+export function riiMaterialComment(mat) {
+    return [mat.comments, mat.references].filter(Boolean).join('\n');
+}
 
 /**
  * Convert a fetched RII material to a catalogManager-compatible entry.
  * The entry can be added to a catalog with source='refractiveindex'.
  *
- * Returns a material entry object (not a full catalog — caller adds it to a catalog).
+ * Returns a material entry object (not a full catalog — caller adds it to a
+ * catalog), or null for a page with no n,k samples.
  */
 export function riiToMaterialEntry(mat, pageName, bookName) {
-    // The material's own data still bounds the samples inside this window.
-    const samples = sampleMaterial(mat, ...RII_SAMPLE_RANGE_NM, 10);
-    if (samples.length === 0) {
-        throw new Error(`No data in wavelength range ${RII_SAMPLE_RANGE_NM[0]}-${RII_SAMPLE_RANGE_NM[1]} nm`);
-    }
+    const samples = sampleMaterial(mat);
+    if (samples.length === 0) return null;
 
     const lmin_um = samples[0][0] / 1000;
     const lmax_um = samples[samples.length - 1][0] / 1000;
@@ -35,7 +41,7 @@ export function riiToMaterialEntry(mat, pageName, bookName) {
         rangeDeclared: true,    // the extent of the fetched samples, not a fallback
         kTable: [],
         nd: null, vd: null, density: null,
-        comment: (mat.comments ? mat.comments + '\n' : '') + mat.references.slice(0, 200),
+        comment: riiMaterialComment(mat),
         color: null,
         group: null,
         tabData: samples,     // [[lam_nm, n, k], ...]

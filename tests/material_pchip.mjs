@@ -108,7 +108,7 @@ for (let i = 0; i < bk7.getNK.kTable.length - 1; i++) {
     }
 }
 auditedColumns++;
-assert.equal(auditedColumns, 25, 'all built-in tabulated n and k columns were audited');
+assert.equal(auditedColumns, 27, 'all built-in tabulated n and k columns were audited');
 assert.ok(auditedSamples > 36000, 'the built-in audit samples every segment densely');
 
 // Catalog and Material Editor previews must evaluate the same user table.
@@ -142,7 +142,7 @@ assert.equal(buildBuiltinCatalog().materials.TiO2.interp, TABULATED_INTERPOLATIO
 const riiKMerge = sampleMaterial({
     tableNK: [[650, 1.5, 0]],
     tableK: [[400, 1], [470, 2.4], [590, 2.1], [700, 4], [950, 3.7]],
-}, 400, 950, 1);
+});
 near(riiKMerge[0][2], 3.179188580015026, 2e-14,
     'RefractiveIndex.info separate k tables use PCHIP when merged');
 const riiEntry = riiToMaterialEntry({

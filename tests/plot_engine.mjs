@@ -176,10 +176,30 @@ const ctx = {
     ok(x.length === 5 && x[0] === 400 && x[4] === 800, 'reversed range auto-corrected');
 }
 
-// ── 10) Safety cap on huge ranges ──────────────────────────────────────────
+// ── 10) No point limit: a curve past 250,000 points keeps its end ──────────
+// The curve used to stop at 250,000 samples, which moved the end of a fine λ
+// sweep back without a word.
 {
-    const xs = xSamples({ rangeFrom: 0, rangeTo: 1e8, rangeStep: 1 });
-    ok(xs.length === 250000, `ECharts safety cap: 250000 points (got ${xs.length})`);
+    const xs = xSamples({ rangeFrom: 0, rangeTo: 300000, rangeStep: 1 });
+    ok(xs.length === 300001 && xs[300000] === 300000,
+        `xSamples: 300001 points ending at 300000 (got ${xs.length}, last ${xs[xs.length - 1]})`);
+    const { x } = computeCurve(makeDefaultCurve({
+        xAxis: 'wavelength', rangeFrom: 400, rangeTo: 700, rangeStep: 0.001,
+    }), ctx);
+    ok(x.length === 300001 && x[x.length - 1] === 700,
+        `λ-sweep past 250,000 points reaches 700 nm (got ${x.length}, last ${x[x.length - 1]})`);
+}
+
+// ── 11) Every count ends ────────────────────────────────────────────────────
+{
+    // 1e17 and 1e17 + 64 are exact doubles 16 apart in the last place, so a
+    // step of 1 cannot move an accumulated value off 1e17.
+    const xs = xSamples({ rangeFrom: 1e17, rangeTo: 1e17 + 64, rangeStep: 1 });
+    ok(xs.length === 65, `a step too small to move the value still ends (got ${xs.length})`);
+    const { x } = computeCurve(makeDefaultCurve({ rangeFrom: 400, rangeTo: Infinity }), ctx);
+    ok(x.length === 0, 'a range with no finite count draws nothing, not the default 400-800 nm');
+    ok(xSamples({ rangeFrom: 0, rangeTo: 0.3, rangeStep: 0.1 }).join() === '0,0.1,0.2,0.3',
+        'samples carry the typed step without binary noise');
 }
 
 // ── Summary ────────────────────────────────────────────────────────────────

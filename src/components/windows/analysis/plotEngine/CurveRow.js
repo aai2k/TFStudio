@@ -89,7 +89,7 @@ export function CurveRow({ curve, onUpdate, onDelete, c, t }) {
         ),
         h(SettingRow, { c, label: pe.step || 'Step' },
             h(NumInput, {
-                c, width: 58, value: curve.rangeStep, step: 1, min: 0.1,
+                c, width: 58, value: curve.rangeStep, step: 1, positive: true,
                 onChange: value => onUpdate({ rangeStep: value }),
             }),
         ),
@@ -102,7 +102,7 @@ export function CurveRow({ curve, onUpdate, onDelete, c, t }) {
         ),
         overAngle && h(SettingRow, { c, label: pe.fixedLambda || 'λ fixed' },
             h(NumInput, {
-                c, width: 58, value: curve.lambdaFixed_nm, step: 10, min: 100,
+                c, width: 58, value: curve.lambdaFixed_nm, step: 10, positive: true,
                 onChange: value => onUpdate({ lambdaFixed_nm: value }),
             }),
         ),

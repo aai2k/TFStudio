@@ -87,7 +87,7 @@ function readOnlyPropsBlock(selectedMat, me, c) {
             selectedMat.vd && propRow(me.vd, selectedMat.vd.toFixed(2), c),
             selectedMat.density && propRow(me.density, `${selectedMat.density.toFixed(3)} g/cm³`, c),
             selectedMat.lambdaMin && propRow(me.lambdaRange, `${formatNm(selectedMat.lambdaMin * 1000)} – ${formatNm(selectedMat.lambdaMax * 1000)} nm`, c),
-            selectedMat.comment && propRow('Comment', selectedMat.comment, c)
+            selectedMat.comment && propRow(me.comment, selectedMat.comment, c)
         )
     );
 }

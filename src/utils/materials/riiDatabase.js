@@ -14,13 +14,13 @@
  * (network/offline-mirror access), cache.js (session catalog/material cache),
  * catalog.js (catalog tree + status/update), materialParser.js (material YAML
  * decoding), formulas.js (dispersion formula evaluation), sampling.js (n,k
- * grid sampling), search.js (catalog search), catalogEntry.js (catalogManager
+ * samples), search.js (catalog search), catalogEntry.js (catalogManager
  * conversion).
  */
 
 export { loadCatalog, clearCatalogCache, getDatabaseStatus, updateDatabase } from './riiDatabase/catalog.js';
 export { fetchMaterial, parseMaterialDoc } from './riiDatabase/materialParser.js';
 export { evalFormulaN } from './riiDatabase/formulas.js';
-export { sampleMaterial, sampledRangeNm, RII_SAMPLE_RANGE_NM } from './riiDatabase/sampling.js';
-export { searchCatalog } from './riiDatabase/search.js';
-export { riiToMaterialEntry } from './riiDatabase/catalogEntry.js';
+export { sampleMaterial, sampledRangeNm } from './riiDatabase/sampling.js';
+export { searchCatalog, riiPageKey } from './riiDatabase/search.js';
+export { riiToMaterialEntry, riiMaterialComment } from './riiDatabase/catalogEntry.js';

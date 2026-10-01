@@ -12,4 +12,7 @@ export const materialEditorSession = createWindowSession({
     // Which page of the detail pane is open. How the window is arranged rather
     // than what it holds, so selecting another material leaves it where it is.
     detailTab: 'nk',
+    // How tall the n,k table may grow before it scrolls, in px, null until its
+    // resize bar has been dragged. Arrangement too, kept across materials.
+    tableHeight: null,
 });

@@ -4,17 +4,21 @@
  */
 
 import { sampledRangeNm } from '../../../../utils/materials/riiDatabase.js';
+import { ActionButton, FieldLabel, SelectField } from '../../analysis/chrome/controls.js';
+import { RiiChart } from './riiChart.js';
 
 const { createElement: h } = React;
 
 // The span that will be plotted beside this line and stored if the material is
-// added, not the range the database record declares. The two differ whenever a
-// record reaches past the sampling window, which infrared entries routinely do:
-// one declares 500 to 1000000 nm and delivers 500 to 19947.
+// added, not the range the database record declares: a table often declares a
+// wider range than its rows cover. Below 100 nm whole nanometres are too coarse,
+// so a page starting at 27.5 nm does not read as 28.
+const nmText = value => (value >= 100 ? Math.round(value) : Number(value.toPrecision(3)));
+
 export function wlRange(mat) {
     const range = sampledRangeNm(mat);
     if (!range) return '—';
-    return `${Math.round(range[0])}–${Math.round(range[1])} nm`;
+    return `${nmText(range[0])}–${nmText(range[1])} nm`;
 }
 
 export function typeLabel(type) {
@@ -44,37 +48,16 @@ function renderInfoGrid(s) {
 
 function renderCatalogPicker(s) {
     const { c, rii, userCatalogs, targetCatId, setTargetCatId, doAdd, setPhase } = s;
+    const options = [
+        ...userCatalogs.map(cat => ({ id: cat.id, label: cat.name })),
+        { id: '__new__', label: rii.newCatalogOption },
+    ];
     return [
-        h('span', { key: 'lbl', style: { fontSize: 12, color: c.textDim } }, rii.catalogLabel),
-        h('select', {
-            key: 'sel',
-            value: targetCatId, onChange: e => setTargetCatId(e.target.value),
-            style: {
-                flex: 1, height: 24, backgroundColor: c.panel, color: c.text,
-                border: `1px solid ${c.border}`, borderRadius: 3, fontSize: 12,
-            },
-        },
-            userCatalogs.map(cat => h('option', { key: cat.id, value: cat.id }, cat.name)),
-            h('option', { key: '__new__', value: '__new__' }, rii.newCatalogOption)
-        ),
-        h('button', {
-            key: 'add',
-            onClick: () => doAdd(targetCatId),
-            style: {
-                padding: '3px 12px', fontSize: 12,
-                backgroundColor: c.accent, color: '#fff',
-                border: 'none', borderRadius: 3, cursor: 'pointer',
-            },
-        }, rii.addButton),
-        h('button', {
-            key: 'cancel',
-            onClick: () => setPhase('idle'),
-            style: {
-                padding: '3px 10px', fontSize: 12, backgroundColor: c.panel,
-                color: c.text, border: `1px solid ${c.border}`,
-                borderRadius: 3, cursor: 'pointer',
-            },
-        }, rii.cancel),
+        h(FieldLabel, { key: 'lbl', c }, rii.catalogLabel),
+        h('div', { key: 'sel', style: { flex: 1, minWidth: 0 } },
+            h(SelectField, { c, width: '100%', value: targetCatId, onChange: setTargetCatId, options })),
+        h(ActionButton, { key: 'add', c, label: rii.addButton, onClick: () => doAdd(targetCatId) }),
+        h(ActionButton, { key: 'cancel', c, label: rii.cancel, onClick: () => setPhase('idle') }),
     ];
 }
 
@@ -89,19 +72,13 @@ function renderActionBar(s) {
         phase === 'ok'    && h('span', { style: { fontSize: 12, color: '#58d68d' } }, addMsg),
         phase === 'error' && h('span', { style: { fontSize: 12, color: '#ec7063' } }, addMsg),
         phase === 'picking' && renderCatalogPicker(s),
-        (phase === 'idle' || phase === 'ok') && h('button', {
-            onClick: handleAddClick,
-            style: {
-                marginLeft: 'auto', padding: '4px 16px', fontSize: 12,
-                backgroundColor: c.accent, color: '#fff',
-                border: 'none', borderRadius: 3, cursor: 'pointer',
-            },
-        }, rii.addToCatalog)
+        (phase === 'idle' || phase === 'ok') && h('div', { style: { marginLeft: 'auto' } },
+            h(ActionButton, { c, label: rii.addToCatalog, onClick: handleAddClick }))
     );
 }
 
 function renderMaterialDetails(s) {
-    const { c, mat, chartRef } = s;
+    const { c, mat, wavelengthLabel } = s;
     return h('div', { style: { flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden' } },
         renderInfoGrid(s),
         mat.references && h('div', {
@@ -111,7 +88,7 @@ function renderMaterialDetails(s) {
                 maxHeight: 52, overflow: 'hidden',
             },
         }, mat.references.length > 280 ? mat.references.slice(0, 280) + '…' : mat.references),
-        h('div', { ref: chartRef, style: { flex: 1, minHeight: 160 } }),
+        h(RiiChart, { material: mat, c, xLabel: wavelengthLabel }),
         renderActionBar(s)
     );
 }

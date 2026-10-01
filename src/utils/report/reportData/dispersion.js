@@ -6,7 +6,7 @@
  */
 
 import { createDesignPhaseDispersionEvaluator } from '../../physics/phaseDispersion.js';
-import { chromaticDispersionCoefficient, unwrapPhase } from '../../physics/thinFilmMath.js';
+import { buildLambdaGrid, chromaticDispersionCoefficient, unwrapPhase } from '../../physics/thinFilmMath.js';
 
 function normalizeRadians(value) {
   return ((value + Math.PI) % (2 * Math.PI) + 2 * Math.PI) % (2 * Math.PI) - Math.PI;
@@ -52,8 +52,7 @@ export function computeGdGdd(design, s) {
     ? (() => { const es = make('s'), ep = make('p'); return lam => averagePolarizations(es(lam), ep(lam)); })()
     : make(pol);
 
-  const lambda = [];
-  for (let l = lambdaStart; l <= lambdaEnd + 1e-9; l += lambdaStep) lambda.push(Math.round(l * 1000) / 1000);
+  const lambda = buildLambdaGrid(lambdaStart, lambdaEnd, lambdaStep);
   const values = lambda.map(evaluate);
   const pick = key => values.map(v => (v.valid ? v[key] : NaN));
   return {

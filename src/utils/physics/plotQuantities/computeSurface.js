@@ -1,7 +1,7 @@
 import { isLayerVar } from './axisVars.js';
 import { computeMeritSurface } from './meritSurface.js';
 import { computeOpticalSurface } from './opticalSurface.js';
-import { linspace, MAX_GRID_POINTS } from './surfaceSpec.js';
+import { linspace } from './surfaceSpec.js';
 
 /**
  * Compute a Z(x, y) surface grid.
@@ -12,7 +12,7 @@ import { linspace, MAX_GRID_POINTS } from './surfaceSpec.js';
  * @param {{rowFrom?:number, rowTo?:number}} [opts]  fill only rows [rowFrom,rowTo)
  *          (the rest of z stays empty) — used to fan the sweep across a worker
  *          pool by Y-row chunk. Defaults to the full grid.
- * @returns {{ ok:boolean, errorKey?:string, errorArgs?:any[], x:number[],
+ * @returns {{ ok:boolean, errorKey?:string, x:number[],
  *             y:number[], z:number[][], zKey:string, nPoints:number }}
  *          z[j][i] = Z at (x[i], y[j]) in row-major order. `errorKey` and
  *          `zKey` are resolved to display text by the window that draws them.
@@ -29,12 +29,6 @@ export function computeSurface(spec, design, resolveMat, opts = {}) {
     const x = linspace(spec.xFrom, spec.xTo, spec.xSteps);
     const y = linspace(spec.yFrom, spec.yTo, spec.ySteps);
     const nPoints = x.length * y.length;
-    if (nPoints > MAX_GRID_POINTS) {
-        return {
-            ok: false, errorKey: 'errGridTooLarge', errorArgs: [nPoints, MAX_GRID_POINTS],
-            x: [], y: [], z: [],
-        };
-    }
 
     const rowFrom = Math.max(0, opts.rowFrom ?? 0);
     const rowTo   = Math.min(y.length, opts.rowTo ?? y.length);

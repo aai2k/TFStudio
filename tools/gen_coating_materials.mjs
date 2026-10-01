@@ -10,12 +10,11 @@
  * design after another coating that shares a material computes with the same
  * data as its preview.
  *
- * Tabulated pages keep their own wavelength points, thinned to at most MAX_ROWS
- * with the last point always kept. Formula pages are evaluated on a 1%
- * logarithmic grid. Both are clipped to 200-20000 nm, the range the
- * RefractiveIndex.info importer uses, a tabulated page keeping the one point
- * beyond each end so its table covers the whole clip. n is written to 5
- * decimals and k to 6 significant figures.
+ * Tabulated pages keep their own wavelength points over the whole page, thinned
+ * to at most MAX_ROWS with the last point always kept. Formula pages are
+ * evaluated on a 1% logarithmic grid over the range they state, as the
+ * RefractiveIndex.info importer does. n is written to 5 decimals and k to 6
+ * significant figures.
  *
  * The database is looked up in this order: TFS_RII_SOURCE, the
  * refractiveindex-db submodule, ../../reference/refractiveindex-db.
@@ -31,8 +30,6 @@ import { createPchipInterpolator } from '../src/utils/materials/pchip.js';
 
 const ROOT = path.resolve(path.dirname(url.fileURLToPath(import.meta.url)), '..');
 const OUT = path.join(ROOT, 'src', 'utils', 'coatingLibrary', 'builtin', 'materialData.js');
-const LAMBDA_MIN = 200;
-const LAMBDA_MAX = 20000;
 const MAX_ROWS = 400;
 const LOG_STEP = 1.01;
 
@@ -110,19 +107,10 @@ function riiDataDir() {
 
 const ordinal = n => `${n}${['th', 'st', 'nd', 'rd'][(n % 100 > 10 && n % 100 < 14) ? 0 : Math.min(n % 10, 4) % 4] || 'th'}`;
 
-// The page's own points over the clip, thinned to MAX_ROWS. The first point
-// outside each end is kept too, so the table brackets the clip with measured
-// data instead of stopping just short of it.
-function sampleTable(mat, lo, hi) {
-    const table = mat.tableNK;
-    let first = table.findIndex(row => row[0] >= lo);
-    if (first < 0) throw new Error('no tabulated points inside the clip');
-    if (first > 0 && table[first][0] > lo) first--;
-    let last = table.length - 1;
-    while (last > 0 && table[last][0] > hi) last--;
-    if (last < table.length - 1 && table[last][0] < hi) last++;
-    const rows = table.slice(first, last + 1);
-    if (rows.length < 2) throw new Error('fewer than two tabulated points inside the clip');
+// The page's own points, thinned to MAX_ROWS.
+function sampleTable(mat) {
+    const rows = mat.tableNK;
+    if (rows.length < 2) throw new Error('fewer than two tabulated points');
     const kAt = mat.tableK?.length ? createPchipInterpolator(mat.tableK) : null;
     const every = Math.max(1, Math.ceil(rows.length / MAX_ROWS));
     const kept = rows.filter((_, i) => i % every === 0);
@@ -135,10 +123,8 @@ function sampleTable(mat, lo, hi) {
 // table may cover less than the formula; beyond its ends k holds the end
 // value, the reading the RefractiveIndex.info importer gives it too (a table
 // that ends at k = 0 says the material is transparent from there on).
-function sampleFormula(mat, lo, hi) {
-    const [formulaLo, formulaHi] = mat.wavelengthRange || [lo, hi];
-    lo = Math.max(lo, formulaLo);
-    hi = Math.min(hi, formulaHi);
+function sampleFormula(mat) {
+    const [lo, hi] = mat.wavelengthRange;
     const kAt = mat.tableK?.length ? createPchipInterpolator(mat.tableK) : null;
     const grid = [];
     for (let lambda = lo; lambda < hi; lambda *= LOG_STEP) grid.push(Math.round(lambda * 10) / 10);
@@ -147,7 +133,7 @@ function sampleFormula(mat, lo, hi) {
 }
 
 function sample(mat) {
-    const { rows, how } = mat.tableNK ? sampleTable(mat, LAMBDA_MIN, LAMBDA_MAX) : sampleFormula(mat, LAMBDA_MIN, LAMBDA_MAX);
+    const { rows, how } = mat.tableNK ? sampleTable(mat) : sampleFormula(mat);
     const data = rows.map(([lambda, n, k]) => {
         if (!(n > 0) || !Number.isFinite(k) || k < -1e-9) throw new Error(`bad point at ${lambda} nm: n=${n} k=${k}`);
         return [Number(lambda.toFixed(3)), Number(n.toFixed(5)), k <= 0 ? 0 : Number(k.toPrecision(6))];

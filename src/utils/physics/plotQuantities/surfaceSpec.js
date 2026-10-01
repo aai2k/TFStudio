@@ -10,15 +10,19 @@ export const Z_QUANTITIES = ['T', 'R', 'A', 'MF'];
 export const SURFACE_RENDERS = ['surface', 'heatmap'];
 export const COLORSCALES = ['Turbo', 'Jet', 'Viridis', 'Cividis', 'Hot', 'Portland', 'Electric', 'Greys'];
 
-// ECharts/echarts-gl can render materially denser sweeps than the retired
-// Keep one shared UI/compute limit so the displayed grid size can
-// never promise a surface that the worker later rejects.
-export const MAX_AXIS_STEPS = 700;
-export const MAX_GRID_POINTS = MAX_AXIS_STEPS * MAX_AXIS_STEPS;
+/**
+ * The samples an axis asked for `steps` gets: that many, rounded, and at least
+ * the two a grid axis needs. A count that is not finite gives two, so a step
+ * typed fine enough to overflow cannot reach an array length.
+ */
+export function axisSampleCount(steps) {
+    const count = Math.round(steps);
+    return Number.isFinite(count) ? Math.max(2, count) : 2;
+}
 
-/** Linearly spaced sample array (inclusive), clamped to [2, MAX_AXIS_STEPS]. */
+/** Linearly spaced sample array (inclusive), `axisSampleCount(steps)` long. */
 export function linspace(from, to, steps) {
-    const n = Math.max(2, Math.min(MAX_AXIS_STEPS, Math.round(steps || 2)));
+    const n = axisSampleCount(steps);
     const out = new Array(n);
     for (let i = 0; i < n; i++) out[i] = from + (to - from) * (i / (n - 1));
     return out;

@@ -24,7 +24,7 @@ export function StepParams({ p, set, c, t }) {
         h(StepHeader, { step: 2, title: T.step2.title, c }),
         h('div', { style: { display: 'flex', gap: 18 } },
             h('div', { style: { display: 'flex', flexDirection: 'column', gap: 12, minWidth: 200 } },
-                h(NumField, { label: T.step2.lambda0, value: p.lambda0_nm, min: 100, max: 5000, step: 0.1, suffix: 'nm', c, onChange: (v) => set('lambda0_nm', v) }),
+                h(NumField, { label: T.step2.lambda0, value: p.lambda0_nm, positive: true, step: 0.1, suffix: 'nm', c, onChange: (v) => set('lambda0_nm', v) }),
                 h(NumField, { label: `Δλ @ T=${p.passLevel}%`, value: p.passHalf_nm, min: 0.05, max: 250, step: 0.05, suffix: 'nm', c, onChange: (v) => set('passHalf_nm', v) }),
                 h(NumField, { label: `Δλ @ T=${p.stopLevel}%`, value: p.stopHalf_nm, min: 0.05, max: 1000, step: 0.05, suffix: 'nm', c, onChange: (v) => set('stopHalf_nm', v) }),
                 h(NumField, { label: T.step2.shapeFactor, value: sf, min: 1, max: 50, step: 0.1, c, onChange: (v) => { if (v > 0) set('stopHalf_nm', +(p.passHalf_nm * v).toFixed(4)); } }),

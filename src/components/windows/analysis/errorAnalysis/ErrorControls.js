@@ -58,18 +58,18 @@ function ErrorSetup({ c, t, ea, state }) {
             h(RangeField, {
                 c, unit: 'nm', width: 60,
                 from: {
-                    value: params.lambdaStart, min: 100, max: 30000, step: 10,
+                    value: params.lambdaStart, positive: true, step: 10,
                     onChange: value => patch({ lambdaStart: value }),
                 },
                 to: {
-                    value: params.lambdaEnd, min: 100, max: 30000, step: 10,
+                    value: params.lambdaEnd, positive: true, step: 10,
                     onChange: value => patch({ lambdaEnd: value }),
                 },
             }),
         ),
         h(SettingRow, { c, label: ea.step },
             h(NumInput, {
-                value: params.lambdaStep, min: 0.5, max: 50, step: 1, c, width: 60,
+                value: params.lambdaStep, positive: true, step: 1, c, width: 60,
                 onChange: value => patch({ lambdaStep: value > 0 ? value : 5 }),
             }),
         ),

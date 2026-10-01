@@ -68,7 +68,7 @@ export function PageMonoLambdas({ p, set, layers, c, B, ctx, design }) {
         h('div', { style: { display: 'flex', gap: 8, alignItems: 'center', flexShrink: 0 } },
             batchButton(c, B.autoLambda, B.autoLambdaHint, autoAll),
             h('span', { style: { fontSize: 12, color: c.textDim, marginLeft: 12 } }, B.bulkLambda),
-            cellNum({ value: bulk, step: 1, min: 100, max: 20000, c, width: 84, onChange: (v) => set('bulkLambda', v) }),
+            cellNum({ value: bulk, step: 1, positive: true, c, width: 84, onChange: (v) => set('bulkLambda', v) }),
             batchButton(c, B.setAllLambda, B.setAllLambdaHint, setAllLambda),
             // One strategy for the whole run, applied on selection; the blank
             // entry is the resting label, so the control carries no state.
@@ -98,7 +98,7 @@ export function PageMonoLambdas({ p, set, layers, c, B, ctx, design }) {
                             style: { cursor: 'pointer', background: active ? c.accent + '18' : 'transparent' } },
                             h('td', { style: td }, num),
                             h('td', { style: { ...td, maxWidth: 150, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }, title: matName(resolveMat, l.material) }, cullName(matName(resolveMat, l.material), 18)),
-                            h('td', { style: td }, cellNum({ value: m.lambda ?? 550, step: 1, min: 100, max: 20000, c, width: 78, onChange: (v) => setMon(i, 'lambda', v) })),
+                            h('td', { style: td }, cellNum({ value: m.lambda ?? 550, step: 1, positive: true, c, width: 78, onChange: (v) => setMon(i, 'lambda', v) })),
                             h('td', { style: td },
                                 h('select', { value: m.strategy || 'turning', onChange: (e) => setMon(i, 'strategy', e.target.value), style: { ...inputStyle(c, 120), padding: '3px 5px', fontSize: 12 } },
                                     stratOpts.map(([v, lbl]) => h('option', { key: v, value: v }, lbl)))),

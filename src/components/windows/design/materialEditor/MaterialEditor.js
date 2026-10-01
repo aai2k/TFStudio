@@ -53,6 +53,8 @@ export function MaterialEditor({ c, t, setInputDialog }) {
                 workingNm: s.workingNm,
                 detailTab: s.detailTab,
                 setDetailTab: s.setDetailTab,
+                tableHeight: s.tableHeight,
+                setTableHeight: s.setTableHeight,
                 c,
                 t
             })

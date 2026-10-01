@@ -5,6 +5,8 @@
  * alongside the tree node it renders.
  */
 
+import { riiPageKey } from '../../../../utils/materials/riiDatabase.js';
+
 const { createElement: h } = React;
 
 const rowBase = {
@@ -65,15 +67,15 @@ function bookRow(shelf, book, s) {
 
 function pageRow(shelf, book, page, s) {
     const { c, selected, handleSelectResult } = s;
-    const isActive = selected?.dataPath === page.dataPath;
     const result = {
         shelf: shelf.shelf, shelfName: shelf.name,
         book: book.book,   bookName: book.name,
         page: page.page,   pageName: page.name,
         dataPath: page.dataPath,
     };
+    const isActive = !!selected && riiPageKey(selected) === riiPageKey(result);
     return h('div', {
-        key: page.dataPath,
+        key: page.page,
         onClick: () => handleSelectResult(result),
         style: {
             ...rowBase, padding: '3px 10px 3px 36px',

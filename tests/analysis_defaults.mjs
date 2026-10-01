@@ -16,7 +16,7 @@ const src = join(here, '..', 'src');
 // The modules are ESM using browser-side React; import them directly.
 const {
   ANALYSIS_DEFAULTS, ANALYSIS_WINDOW_IDS, SPECTRAL_UNIT_IDS: SPECTRAL_UNITS,
-  registryKeys, sessionDefaults,
+  registryKeys, sessionDefaults, numberAllowed,
 } = await import(new URL('../src/constants/analysisDefaults.js', import.meta.url));
 const {
   resolveAnalysisSettings, resolveAnalysisColors, setAnalysisOverride,
@@ -75,7 +75,9 @@ function ok(condition, message) {
     }
     for (const [key, spec] of Object.entries(entry.numbers || {})) {
       ok(typeof spec.def === 'number' && Number.isFinite(spec.def), `${id}.${key} has a finite default`);
-      ok(spec.min <= spec.def && spec.def <= spec.max, `${id}.${key} default lies inside its own bounds`);
+      ok(numberAllowed(spec, spec.def), `${id}.${key} default lies inside its own bounds`);
+      ok(spec.positive || (Number.isFinite(spec.min) && Number.isFinite(spec.max)),
+        `${id}.${key} is bounded, or declared positive`);
     }
     for (const [key, spec] of Object.entries(entry.enums || {})) {
       ok(spec.options.includes(spec.def), `${id}.${key} default is one of its options`);
@@ -135,6 +137,16 @@ function ok(condition, message) {
   const badStep = resolveAnalysisSettings('opticalEvaluation',
     { opticalEvaluation: { numbers: { lambdaStep: 0 } } });
   ok(badStep.numbers.lambdaStep === 2, 'an out-of-range step falls back to the default, not the minimum');
+
+  // A wavelength and a step have no bound but zero.
+  const far = resolveAnalysisSettings('opticalEvaluation',
+    { opticalEvaluation: { numbers: { lambdaStart: 13.5, lambdaEnd: 125000, lambdaStep: 0.001 } } });
+  ok(far.numbers.lambdaStart === 13.5 && far.numbers.lambdaEnd === 125000 && far.numbers.lambdaStep === 0.001,
+    'a stored range from 13.5 nm to 125 µm at 0.001 nm is used as stored');
+  const negative = resolveAnalysisSettings('ellipsometryEvaluation',
+    { ellipsometryEvaluation: { numbers: { lambdaStart: -400, lambdaStep: -2 } } });
+  ok(negative.numbers.lambdaStart === 400 && negative.numbers.lambdaStep === 2,
+    'a negative wavelength or step falls back to the default');
 
   // A list is all-or-nothing: one unusable angle and the shipped list is kept.
   const badAngles = resolveAnalysisSettings('opticalEvaluation',

@@ -21,7 +21,7 @@ import { DISPERSION_QUANTITY_KEYS } from '../../../../utils/report/sections/disp
 const { createElement: h } = React;
 
 const FONT = 'system-ui, -apple-system, sans-serif';
-const LAMBDA = { min: 1, max: 100000 };
+const LAMBDA = { positive: true };
 
 function plotItems(W) {
     return ['none', 's', 'm', 'l'].map(id => ({ id, label: W.plotSizes[id] }));
@@ -37,7 +37,7 @@ function TableRow({ c, W, s, set }) {
     const on = s.tableStep > 0;
     return h(SettingRow, { c, label: W.tableEvery },
         h(CheckField, { c, label: '', checked: on, onChange: e => set('tableStep', e.target.checked ? 10 : 0) }),
-        h(NumInput, { c, value: on ? s.tableStep : 10, min: 0.1, max: 1000, step: 1, width: 56, disabled: !on, onChange: v => set('tableStep', v) }),
+        h(NumInput, { c, value: on ? s.tableStep : 10, positive: true, step: 1, width: 56, disabled: !on, onChange: v => set('tableStep', v) }),
         h('span', { style: { fontSize: 11, color: c.textDim } }, W.nm));
 }
 
@@ -46,7 +46,7 @@ function RangeRows({ c, W, s, set }) {
         h(SettingRow, { c, key: 'range', label: W.range },
             h(RangeField, { c, label: '', from: { value: s.lambdaStart, onChange: v => set('lambdaStart', v), ...LAMBDA }, to: { value: s.lambdaEnd, onChange: v => set('lambdaEnd', v), ...LAMBDA } })),
         h(SettingRow, { c, key: 'step', label: W.step },
-            h(NumInput, { c, value: s.lambdaStep, min: 0.01, max: 1000, step: 0.5, width: 56, onChange: v => set('lambdaStep', v) }),
+            h(NumInput, { c, value: s.lambdaStep, positive: true, step: 0.5, width: 56, onChange: v => set('lambdaStep', v) }),
             h('span', { style: { fontSize: 11, color: c.textDim } }, W.nm)),
         h(SettingRow, { c, key: 'angles', label: W.angles },
             h(AngleListField, { c, value: s.thetas, onChange: v => set('thetas', v) })),
@@ -136,7 +136,7 @@ const FORMS = {
         h(SettingRow, { c, key: 'illuminant', label: W.illuminant },
             h(SelectField, { c, value: s.illuminant, options: valueOptions(['D65', 'D50', 'A', 'E']), width: 80, onChange: v => set('illuminant', v) })),
         h(SettingRow, { c, key: 'step', label: W.step },
-            h(NumInput, { c, value: s.step, min: 1, max: 20, step: 1, width: 56, onChange: v => set('step', v) }),
+            h(NumInput, { c, value: s.step, positive: true, step: 1, width: 56, onChange: v => set('step', v) }),
             h('span', { style: { fontSize: 11, color: c.textDim } }, W.nm)),
     ],
     integrals: ({ c, W, s, set }) => [

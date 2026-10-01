@@ -62,7 +62,7 @@ export function MapControls({ c, t, wam, state, notices }) {
     );
 }
 
-/** Grid size as it will actually be computed, once the caps are applied. */
+/** Grid size as it will be computed. */
 function gridLabel(state, wam) {
     const nx = axisSteps(state.lambdaStart, state.lambdaEnd, state.lambdaStep);
     const ny = axisSteps(state.angleStart, state.angleEnd, state.angleStep);
@@ -78,18 +78,18 @@ function MapSetup({ c, t, wam, state }) {
             h(RangeField, {
                 c, unit: 'nm',
                 from: {
-                    value: state.lambdaStart, min: 100, max: 30000, step: 10,
+                    value: state.lambdaStart, positive: true, step: 10,
                     onChange: value => state.set('lambdaStart', value),
                 },
                 to: {
-                    value: state.lambdaEnd, min: 100, max: 30000, step: 10,
+                    value: state.lambdaEnd, positive: true, step: 10,
                     onChange: value => state.set('lambdaEnd', value),
                 },
             }),
         ),
         h(SettingRow, { c, label: wam.lambdaStep },
             h(NumInput, {
-                value: state.lambdaStep, min: 0.1, max: 1000, step: 1, c, width: 62,
+                value: state.lambdaStep, positive: true, step: 1, c, width: 62,
                 onChange: value => state.set('lambdaStep', value),
             }),
         ),

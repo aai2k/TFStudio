@@ -87,7 +87,7 @@ function ColorSetup({ c, t, ce, state }) {
         ),
         h(SettingRow, { c, label: ce.step },
             h(NumInput, {
-                value: state.step, min: 1, max: 20, step: 1, c, width: 60,
+                value: state.step, positive: true, step: 1, c, width: 60,
                 onChange: state.setStep,
             }),
         ),

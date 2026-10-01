@@ -41,7 +41,7 @@ function ProfilerSetup({ c, t, rp, state }) {
     },
         h(SettingRow, { c, label: rp.wavelength },
             h(NumInput, {
-                value: state.lambda, min: 100, max: 10000, step: 10, c, width: 72,
+                value: state.lambda, positive: true, step: 10, c, width: 72,
                 onChange: state.setLambda,
             }),
         ),

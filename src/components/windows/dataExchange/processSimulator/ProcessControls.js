@@ -49,13 +49,13 @@ function ProcessSettings({ c, t, sp, setup }) {
         h(SettingRow, { c, label: 'λ' },
             h(RangeField, {
                 c, unit: 'nm', width: 60,
-                from: { value: setup.lambdaStart, min: 100, max: 50000, step: 10, onChange: setup.setLambdaStart },
-                to: { value: setup.lambdaEnd, min: 100, max: 50000, step: 10, onChange: setup.setLambdaEnd },
+                from: { value: setup.lambdaStart, positive: true, step: 10, onChange: setup.setLambdaStart },
+                to: { value: setup.lambdaEnd, positive: true, step: 10, onChange: setup.setLambdaEnd },
             }),
         ),
         h(SettingRow, { c, label: sp.step },
             h(NumInput, {
-                c, width: 68, value: setup.lambdaStep, min: 0.1, max: 100, step: 0.5,
+                c, width: 68, value: setup.lambdaStep, positive: true, step: 0.5,
                 onChange: setup.setLambdaStep,
             }),
         ),
@@ -63,7 +63,7 @@ function ProcessSettings({ c, t, sp, setup }) {
         h(SettingRow, { c, label: sp.exportStep },
             h(NumInput, {
                 c, width: 68, title: sp.exportStepHint,
-                value: setup.exportStep, min: 0.01, max: 100, step: 0.1,
+                value: setup.exportStep, positive: true, step: 0.1,
                 onChange: setup.setExportStep,
             }),
         ),

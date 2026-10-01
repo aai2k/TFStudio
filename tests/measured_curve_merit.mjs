@@ -81,21 +81,26 @@ const clipped = sampleMeasuredCurve(curve, {
 assert.deepEqual(clipped.lambdas, [410, 420, 430]);
 assert.equal(clipped.clipped, true);
 
-// A step the user can type must come back as a reportable reason, never as an
-// exception: the caller runs inside a render.
-const tooFine = sampleMeasuredCurve(curve, {
+// A uniform grid takes every point its range and step ask for: 0.001 nm over
+// 400-440 nm is 40,001 points, which a 20,000-point limit used to refuse.
+const fine = sampleMeasuredCurve(curve, {
     mode: 'uniform', rangeMin: 400, rangeMax: 440, stepNm: 0.001,
 });
-assert.equal(tooFine.error, 'points');
-assert.deepEqual(tooFine.lambdas, []);
-assert.equal(sampleMeasuredCurve(curve, {
-    mode: 'uniform', rangeMin: 400, rangeMax: 440, stepNm: 0,
-}).error, 'step');
-assert.equal(
-    measuredFitSnapshot(designWithThickness(100), curve, { mode: 'uniform', stepNm: 0.001 }).error,
-    'points',
-    'the dialog must be told which limit was hit',
-);
+assert.equal(fine.error, null);
+assert.equal(fine.lambdas.length, 40001);
+assert.deepEqual([fine.lambdas[0], fine.lambdas.at(-1)], [400, 440]);
+const fineFit = measuredFitSnapshot(designWithThickness(100), curve, { mode: 'uniform', stepNm: 0.001 });
+assert.equal(fineFit.error, null, 'the dialog builds the 40,001-point target');
+assert.equal(fineFit.operand.sampleLambdas.length, 40001);
+
+// A step the user can type must come back as a reportable reason, never as an
+// exception: the caller runs inside a render. That includes one so fine that
+// no array can hold its grid.
+for (const stepNm of [0, -1, NaN, 5e-324, 1e-12]) {
+    assert.equal(sampleMeasuredCurve(curve, {
+        mode: 'uniform', rangeMin: 400, rangeMax: 440, stepNm,
+    }).error, 'step', `a step of ${stepNm} nm is reported, not thrown`);
+}
 
 // A compact snapshot owns cloned sample arrays and survives .tfs-style JSON
 // serialization without depending on the live imported curve.
@@ -129,6 +134,16 @@ assert.ok(points.every((point, index) => (
     && point.measurementSide === 'front'
 )));
 assert.deepEqual(requiredLambdas([snapshot]), snapshot.sampleLambdas);
+
+// A block of 200,001 points expands. Spread into push as arguments, a block
+// past about 120,000 points overflowed the call stack, and every run that
+// expands the merit function failed at launch.
+const big = makeMeasuredCurveOperand({
+    id: 'big', curveId: 'curve-big', curveName: 'Big', quantity: 'R', aoi: 0, pol: 's', side: 'front',
+    sampleLambdas: Array.from({ length: 200001 }, (_, i) => 400 + i * 0.001),
+    sampleTargets: new Array(200001).fill(0.1),
+});
+assert.equal(expandMeasuredCurveOperands([big]).length, 200001);
 assert.deepEqual(
     densifyOperandsForFeatures([snapshot], designWithThickness(100), resolveMat, { enabled: false }),
     points,

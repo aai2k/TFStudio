@@ -31,17 +31,22 @@ export function selectMaterial(compId, catalogId, mat, ctx) {
     }
 }
 
+/**
+ * The ID a draft is saved under. A new material takes one made from its name
+ * and unique in its catalog; a saved one keeps its own, since designs refer to
+ * the material by it.
+ */
+export function draftSaveId(draft) {
+    return draft.isNew ? generateMaterialId(draft.catalogId, draft.name) : draft.id;
+}
+
 export function saveMaterial(ctx) {
     const { editDraft, catalogs, me, notify, loadCatalogs, setEditDraft } = ctx;
     if (!editDraft) return;
-    const err = validateDraft(editDraft, catalogs, me);
+    const draft = { ...editDraft, id: draftSaveId(editDraft) };
+    const err = validateDraft(draft, catalogs, me);
     if (err) { notify('error', err); return; }
     try {
-        // Auto-generate ID from name if still empty
-        let draft = editDraft;
-        if (!draft.id.trim()) {
-            draft = { ...draft, id: generateMaterialId(draft.catalogId, draft.name) };
-        }
         const mat = draftToMaterial(draft);
         saveUserMaterial(draft.catalogId, mat);
         // If the ID was sanitized from a legacy colon ID, remove the old entry

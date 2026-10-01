@@ -57,18 +57,18 @@ function InhomogeneitySetup({ c, t, ih, state }) {
             h(RangeField, {
                 c, unit: 'nm', width: 56,
                 from: {
-                    value: state.lambdaStart, min: 100, max: 30000, step: 10,
+                    value: state.lambdaStart, positive: true, step: 10,
                     onChange: state.setLambdaStart,
                 },
                 to: {
-                    value: state.lambdaEnd, min: 100, max: 30000, step: 10,
+                    value: state.lambdaEnd, positive: true, step: 10,
                     onChange: state.setLambdaEnd,
                 },
             }),
         ),
         h(SettingRow, { c, label: ih.step },
             h(NumInput, {
-                value: state.lambdaStep, min: 0.1, max: 1000, step: 1, c, width: 60,
+                value: state.lambdaStep, positive: true, step: 1, c, width: 60,
                 onChange: value => state.setLambdaStep(value > 0 ? value : 1),
             }),
         ),

@@ -3,6 +3,8 @@
  * browse (shelf/book/page tree) or search (flat results) list.
  */
 
+import { riiPageKey } from '../../../../utils/materials/riiDatabase.js';
+import { ActionButton } from '../../analysis/chrome/controls.js';
 import { shelfRow } from './riiTree.js';
 
 const { createElement: h } = React;
@@ -23,25 +25,20 @@ export function renderStatusBar(s) {
                     : rii.dbOffline)
                 : rii.dbOnlineOnly),
         updateMsg && h('span', { style: { color: updating ? c.accent : '#ec7063' } }, updateMsg),
-        h('button', {
-            onClick: handleUpdate,
-            disabled: updating,
-            style: {
-                marginLeft: 'auto', padding: '3px 12px', fontSize: 11,
-                backgroundColor: updating ? c.panel : c.accent,
-                color: updating ? c.textDim : '#fff',
-                border: updating ? `1px solid ${c.border}` : 'none',
-                borderRadius: 3, cursor: updating ? 'default' : 'pointer',
-            },
-        }, updating ? rii.updating : rii.updateButton)
+        h('div', { style: { marginLeft: 'auto' } },
+            h(ActionButton, {
+                c, label: updating ? rii.updating : rii.updateButton,
+                onClick: handleUpdate, disabled: updating,
+            }))
     );
 }
 
 function renderSearchResultRow(r, s) {
     const { c, selected, handleSelectResult } = s;
-    const active = selected?.dataPath === r.dataPath;
+    const key = riiPageKey(r);
+    const active = !!selected && riiPageKey(selected) === key;
     return h('div', {
-        key: r.dataPath,
+        key,
         onClick: () => handleSelectResult(r),
         style: {
             padding: '5px 10px', cursor: 'pointer',

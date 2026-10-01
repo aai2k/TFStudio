@@ -39,7 +39,7 @@
  */
 
 export {
-    X_AXES, Y_CHANNELS, POLARIZATIONS, SURFACE_MODES, DASHES, MAX_CURVE_POINTS,
+    X_AXES, Y_CHANNELS, POLARIZATIONS, SURFACE_MODES, DASHES,
     makeDefaultCurve, xSamples, computeCurve,
     xAxisLabel, yAxisLabel, yFormatter,
 } from './plotQuantities/curves.js';
@@ -51,7 +51,7 @@ export {
 } from './plotQuantities/axisVars.js';
 
 export {
-    Z_QUANTITIES, SURFACE_RENDERS, COLORSCALES, MAX_AXIS_STEPS, MAX_GRID_POINTS,
+    Z_QUANTITIES, SURFACE_RENDERS, COLORSCALES, axisSampleCount,
     makeDefaultSurfaceSpec, requiredSurfaceLambdas, surfaceAxisLabel,
 } from './plotQuantities/surfaceSpec.js';
 

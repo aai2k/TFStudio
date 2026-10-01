@@ -12,7 +12,7 @@ import { clearMaterialChart, drawIndexChart, drawResidualChart } from './materia
 import { FORMULA_LATEX, coefficientNames } from '../../../../utils/materials/dispersionFormulas.js';
 import { NKDataGrid } from './nkDataGrid.js';
 import {
-    buildNKFromDraft, PRESET_COLORS, nextPresetColor,
+    buildNKFromDraft, PRESET_COLORS, nextPresetColor, draftRangeNm, negativeKRowCount,
     coefficientSlots, fitRows, withFormula, withAddedTerm,
 } from './materialDraft.js';
 import { fitActions, renderFitPanel } from './fitPanel.js';
@@ -22,6 +22,7 @@ import { renderMechanicalTab } from './mechanicalTab.js';
 import { KaTeXSpan, NkProbe, detailTabStrip, dotStyle, catTabStyle, smallBtn } from './materialEditorUI.js';
 import { readOnlyNkTable } from './materialEditorReadOnly.js';
 import { useChartTeardown } from '../../../ui/plotSurface.js';
+import { draftSaveId } from './materialEditorMaterialActions.js';
 import { evaluateDispersionFit } from '../../../../utils/materials/dispersionFits.js';
 
 const { createElement: h, useRef, useEffect, useState, useMemo } = React;
@@ -78,13 +79,6 @@ function drawDraftChart(chartEl, draft, c, me) {
         nLabel: me.chartN,
         kLabel: me.chartK,
     });
-}
-
-// The draft's wavelength range in nm, as the chart and the sampled table use it.
-function draftRangeNm(draft) {
-    const lMin = Math.max(1, parseNumber(draft.lambdaMinNm) || 300);
-    const lMax = Math.max(lMin + 1, parseNumber(draft.lambdaMaxNm) || 2500);
-    return [lMin, lMax];
 }
 
 // getNK plus an evenly spaced [λ, n, k] table over the draft's range, for the
@@ -186,24 +180,27 @@ function renderColorField({ draft, set, me, c, colorIsAuto, autoColor, labelStyl
 }
 
 function renderPropertiesGrid(ctx) {
-    const { draft, set, setId, me, c, inputStyle, labelStyle } = ctx;
+    const { draft, set, me, c, inputStyle, labelStyle } = ctx;
+    // The ID is shown, never typed: a new material's comes from its name, so
+    // it reads as blank until there is a name to make it from.
+    const shownId = draft.isNew && !draft.name.trim() ? '' : draftSaveId(draft);
     return h('div', { style: { display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '4px 8px', padding: '8px 0', flexShrink: 0 } },
-        // ID
         h('div', { style: { display: 'flex', flexDirection: 'column', gap: 2 } },
             h('span', { style: labelStyle }, me.materialId),
-            h('input', {
-                value: draft.id,
-                onChange: e => setId(e.target.value),
-                disabled: !draft.isNew,
-                style: { ...inputStyle, width: '100%', boxSizing: 'border-box', opacity: draft.isNew ? 1 : 0.5 }
-            })
+            h('span', {
+                title: me.materialIdTip,
+                style: {
+                    fontSize: 11, color: c.textDim, padding: '2px 0', minHeight: 15,
+                    overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+                },
+            }, shownId)
         ),
         renderColorField(ctx),
         // λ min
         h('div', { style: { display: 'flex', flexDirection: 'column', gap: 2 } },
             h('span', { style: labelStyle }, me.lambdaMinLabel),
             h('input', {
-                type: 'number', value: draft.lambdaMinNm, min: 100, max: 99999,
+                type: 'number', value: draft.lambdaMinNm,
                 onChange: e => set('lambdaMinNm', e.target.value),
                 style: { ...inputStyle, width: '100%', boxSizing: 'border-box' }
             })
@@ -212,7 +209,7 @@ function renderPropertiesGrid(ctx) {
         h('div', { style: { display: 'flex', flexDirection: 'column', gap: 2 } },
             h('span', { style: labelStyle }, me.lambdaMaxLabel),
             h('input', {
-                type: 'number', value: draft.lambdaMaxNm, min: 100, max: 99999,
+                type: 'number', value: draft.lambdaMaxNm,
                 onChange: e => set('lambdaMaxNm', e.target.value),
                 style: { ...inputStyle, width: '100%', boxSizing: 'border-box' }
             })
@@ -246,11 +243,13 @@ function renderTypeToggle({ draft, set, me, c, sectionLabel }) {
 const negativeKCell = (me) => (row, key) => (key === 'k' && parseNumberStrict(row.k) < 0 ? me.negativeKCell : null);
 
 function negativeKNote(rows, me) {
-    const count = rows.filter(row => parseNumberStrict(row.k) < 0).length;
+    const count = negativeKRowCount(rows);
     return count > 0 && h('div', { style: { fontSize: 10, color: '#e6a23c', marginTop: 3 } }, me.negativeKRows(count));
 }
 
-function renderTabularEditor({ draft, editRow, delRow, addRow, pasteRows, sortRows, me, c, sectionLabel, lambdaAxis }) {
+function renderTabularEditor({
+    draft, editRow, delRow, addRow, pasteRows, sortRows, me, c, sectionLabel, lambdaAxis, tableHeight, setTableHeight,
+}) {
     return h('div', null,
         sectionLabel(me.nkTable),
         h(NKDataGrid, {
@@ -267,6 +266,8 @@ function renderTabularEditor({ draft, editRow, delRow, addRow, pasteRows, sortRo
             cellWarning: negativeKCell(me),
             addLabel: me.addRow,
             emptyLabel: me.noRows,
+            height: tableHeight,
+            onHeightChange: setTableHeight,
             sortBtn: draft.rows.length > 1
                 ? h('button', { onClick: sortRows, style: { padding: '2px 8px', fontSize: 11, border: `1px solid ${c.border}`, borderRadius: 3, background: c.panel, color: c.text, cursor: 'pointer', fontFamily: 'inherit' } }, me.sortRows)
                 : null,
@@ -296,7 +297,7 @@ function renderInterpolationField({ draft, set, me, c, sectionLabel }) {
 
 function renderFormulaEditor(ctx) {
     const { draft, set, me, c, sectionLabel, formulaInfo, coeffCount, inputStyle, labelStyle, lambdaAxis,
-            addKRow, delKRow, editKRow, pasteKRows, addTerm, changeFormula } = ctx;
+            addKRow, delKRow, editKRow, pasteKRows, addTerm, changeFormula, tableHeight, setTableHeight } = ctx;
     const coeffLabels = coefficientNames(draft.formulaNum, coeffCount);
     return h('div', null,
         sectionLabel(me.formulaLabel),
@@ -354,6 +355,8 @@ function renderFormulaEditor(ctx) {
             cellWarning: negativeKCell(me),
             addLabel: me.addRow,
             emptyLabel: me.noRows,
+            height: tableHeight,
+            onHeightChange: setTableHeight,
             c,
         }),
         negativeKNote(draft.kRows, me),
@@ -426,7 +429,7 @@ function renderFormFooter({ onSave, onRevert, dirty, me, c }) {
 
 export function UserMaterialForm({
     draft, onChange, onSave, onRevert, onDelete, onCopy, dirty, catalogs, workingNm,
-    detailTab, setDetailTab, c, t,
+    detailTab, setDetailTab, tableHeight, setTableHeight, c, t,
 }) {
     const me = t.materialEditor;
     const seqRef = useRef(draft._rowSeq || (draft.rows.length + draft.kRows.length + 100));
@@ -436,12 +439,7 @@ export function UserMaterialForm({
 
     // Field / draft update helpers
     const set = (field, value) => onChange({ ...draft, [field]: value });
-    const setName = (name) => {
-        const update = { ...draft, name };
-        if (draft.idAuto) update.id = name.replace(/[^a-zA-Z0-9_-]/g, '_').replace(/^_+|_+$/g, '') || '';
-        onChange(update);
-    };
-    const setId = (id) => onChange({ ...draft, id, idAuto: false });
+    const setName = (name) => set('name', name);
 
     // Row helpers — tabular data
     const addRow = () => {
@@ -496,12 +494,13 @@ export function UserMaterialForm({
     }, text);
 
     const ctx = {
-        draft, set, setId, me, c, inputStyle, labelStyle, sectionLabel, preview,
+        draft, set, me, c, inputStyle, labelStyle, sectionLabel, preview,
         lambdaAxis: t.spectralAxis.lambdaShort,
         formulaInfo, coeffCount, colorIsAuto, autoColor,
         addRow, delRow, editRow, sortRows, pasteRows,
         ...fitHandlers, fitError, workingNm, suggestion,
         addKRow, delKRow, editKRow, pasteKRows, addTerm, changeFormula,
+        tableHeight, setTableHeight,
     };
 
     // What identifies the material stays above the tab strip, and Save stays

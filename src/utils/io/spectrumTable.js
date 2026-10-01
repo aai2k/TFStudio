@@ -36,7 +36,7 @@ export {
     makeMeasuredCurve, measuredCurveData, measuredCurveId, withUniqueCurveIds,
 } from './spectrumTable/measuredCurve.js';
 export {
-    MEASURED_GRID_MODES, MAX_MEASURED_TARGET_POINTS,
+    MEASURED_GRID_MODES,
     measuredCurveSpacing, sampleMeasuredCurve,
 } from './spectrumTable/measuredSampling.js';
 export { curvesToCsv, tableToCsv } from './spectrumTable/csvExport.js';

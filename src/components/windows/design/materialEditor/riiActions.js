@@ -39,6 +39,7 @@ export function addRiiMaterial(catId, ctx) {
     const { mat, selected, rii, onAdded, setPhase, setAddMsg } = ctx;
     try {
         const entry = riiToMaterialEntry(mat, selected.pageName, selected.bookName);
+        if (!entry) throw new Error(rii.noNkData);
         let resolvedId = catId;
         if (catId === '__new__') {
             resolvedId = createUserCatalog('RefractiveIndex.info').id;

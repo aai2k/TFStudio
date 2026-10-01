@@ -18,7 +18,7 @@
 
 import assert from 'node:assert/strict';
 import {
-    heatmapPixels, rasteriseHeatmap,
+    heatmapCellStrides, heatmapPixels, rasteriseHeatmap,
 } from '../src/components/windows/analysis/plotEngine/heatmapImage.js';
 
 // Black to white, so a value maps to a grey level that is trivial to read back.
@@ -112,6 +112,44 @@ const px = (pixels, width, imageRow, column) => {
     assert.equal(rasteriseHeatmap(null, GREYS, extent, 100), null, 'no grid, no image');
     assert.equal(rasteriseHeatmap({ ok: false }, GREYS, extent, 100), null,
         'a failed sweep is not rasterised');
+}
+
+// A grid has no limit on its size and a canvas does: past 32,767 cells a side,
+// or 268 million in all, the image is taken from every k-th cell so it still
+// fits, rather than failing to be made at all.
+{
+    assert.deepEqual(heatmapCellStrides(4001, 91), [1, 1], 'a grid that fits is drawn cell for cell');
+    assert.deepEqual(heatmapCellStrides(40001, 46), [2, 1], 'a 0.01 nm step over 400 nm keeps every row');
+    const [sx, sy] = heatmapCellStrides(30000, 30000);
+    assert.ok(Math.ceil(30000 / sx) * Math.ceil(30000 / sy) <= 268435456, 'and the area fits too');
+}
+
+// A row the sweep left empty stays empty in its place when the image is taken
+// from every other row, and the rows after it keep theirs.
+{
+    const images = [];
+    globalThis.document = {
+        createElement: () => ({
+            getContext: () => ({
+                createImageData(width, height) {
+                    const image = { width, height, data: new Uint8ClampedArray(width * height * 4) };
+                    images.push(image);
+                    return image;
+                },
+                putImageData() {},
+            }),
+        }),
+    };
+    const y = Array.from({ length: 40001 }, (_, i) => i * 0.002);
+    const z = new Array(y.length);
+    for (let row = 1; row < y.length; row++) z[row] = [0.5, 0.5, 0.5];
+    assert.ok(rasteriseHeatmap({ ok: true, x: [400, 401, 402], y, z }, GREYS, extent, 100), 'an image is made');
+    const [image] = images;
+    const alpha = row => image.data[(image.height - 1 - row) * image.width * 4 + 3];
+    assert.equal(image.height, 20001, 'from every other row');
+    assert.deepEqual([alpha(0), alpha(1), alpha(image.height - 1)], [0, 255, 255],
+        'the empty first row is left clear and every row after it is drawn');
+    delete globalThis.document;
 }
 
 console.log('heatmap_image: passed');

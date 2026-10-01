@@ -15,15 +15,40 @@ import {
 import { evaluateDispersionFit } from '../../../../utils/materials/dispersionFits.js';
 import { parseNumber, parseNumberStrict } from '../../../../utils/misc/numberParsing.js';
 
+// The form reads a draft's table on every keystroke anywhere in it, and a
+// table of tens of thousands of rows takes a tenth of a second to read, so what
+// is read off it is kept per rows array and read again only when the rows
+// change. A draft's rows are replaced, never edited in place.
+const tableReads = new WeakMap();
+
+/** `read(rows)`, computed once for each rows array and `key`. */
+export function readOnce(rows, key, read) {
+    if (!Array.isArray(rows)) return read([]);
+    if (!tableReads.has(rows)) tableReads.set(rows, new Map());
+    const kept = tableReads.get(rows);
+    if (!kept.has(key)) kept.set(key, read(rows));
+    return kept.get(key);
+}
+
+/** A table's cells as numbers, [λ nm, n, k] per row, NaN where a cell does not parse. */
+export function parsedRows(rows) {
+    return readOnce(rows, 'parsed', table =>
+        table.map(r => [parseNumberStrict(r.lam), parseNumberStrict(r.n), parseNumber(r.k)]));
+}
+
+function readTable(rows, rule) {
+    const data = parsedRows(rows)
+        .filter(r => isFinite(r[0]) && isFinite(r[1]) && r[0] > 0)
+        .sort((a, b) => a[0] - b[0]);
+    return createTabulatedNKSampler(data, rule);
+}
+
 // Interpolator over a [λ, n, k] table (λ in nm) under the draft's rule.
 // Clamps to the endpoints outside the range. Returns null when there is no
 // usable data.
 function makeTabularSampler(draft) {
-    const data = draft.rows
-        .map(r => [parseNumberStrict(r.lam), parseNumberStrict(r.n), parseNumber(r.k)])
-        .filter(r => isFinite(r[0]) && isFinite(r[1]) && r[0] > 0)
-        .sort((a, b) => a[0] - b[0]);
-    return createTabulatedNKSampler(data, interpolationRuleOf(draft));
+    const rule = interpolationRuleOf(draft);
+    return readOnce(draft.rows, `sampler:${rule}`, rows => readTable(rows, rule));
 }
 
 // Interpolator over a sorted {lam_um, k} table (λ in µm) under the draft's

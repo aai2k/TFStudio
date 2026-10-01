@@ -3,6 +3,15 @@
  */
 
 /**
+ * What tells one catalog page from another. The data path does not: the
+ * catalog can list one data file on several pages, such as a crystal under its
+ * own book and again under a mixed crystal's.
+ */
+export function riiPageKey(result) {
+    return `${result.shelf}/${result.book}/${result.page}`;
+}
+
+/**
  * Search catalog for books/pages matching query string.
  * Returns array of { shelf, shelfName, book, bookName, page, pageName, dataPath }.
  */

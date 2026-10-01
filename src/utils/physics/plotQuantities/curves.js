@@ -11,7 +11,6 @@ export const Y_CHANNELS = ['T', 'R', 'A'];
 export const POLARIZATIONS = ['avg', 's', 'p'];
 export const SURFACE_MODES = ['front', 'back', 'total'];
 export const DASHES = ['solid', 'dot', 'dash', 'dashdot'];
-export const MAX_CURVE_POINTS = 250000;
 
 const CURVE_COLORS = [
     '#4fc3f7', '#ef5350', '#66bb6a', '#ffb74d', '#ba68c8',
@@ -54,20 +53,27 @@ export function makeDefaultCurve(defaults = {}) {
     };
 }
 
-/**
- * Generate the x-axis sample points for a curve (clamped & validated).
- */
-export function xSamples(curve) {
+// A curve's samples as their first value, step and count: from the lower end of
+// its range to the upper in steps of `rangeStep`, every one of them. Counted
+// rather than accumulated, so a step too small to move a large value still
+// ends; null when the count is not finite.
+function sampling(curve) {
     const { rangeFrom, rangeTo, rangeStep } = curve;
-    const a = Math.min(rangeFrom, rangeTo);
-    const b = Math.max(rangeFrom, rangeTo);
-    const s = Math.max(1e-6, Math.abs(rangeStep || 1));
-    const out = [];
-    for (let v = a; v <= b + 1e-9; v += s) {
-        out.push(Math.round(v * 1000) / 1000);
-        if (out.length >= MAX_CURVE_POINTS) break;
-    }
-    return out;
+    const first = Math.min(rangeFrom, rangeTo);
+    const step = Math.abs(rangeStep) || 1;
+    const span = (Math.max(rangeFrom, rangeTo) - first) / step;
+    if (!Number.isFinite(span)) return null;
+    return { first, step, count: Math.floor(span + 1e-9 * Math.max(1, span)) + 1 };
+}
+
+// Twelve significant figures drop the binary noise of first + i·step and keep
+// any step the range is typed with.
+const sampleAt = ({ first, step }, i) => Number((first + i * step).toPrecision(12));
+
+/** The x-axis sample points for a curve, or none when its range has no finite count. */
+export function xSamples(curve) {
+    const grid = sampling(curve);
+    return grid ? Array.from({ length: grid.count }, (_, i) => sampleAt(grid, i)) : [];
 }
 
 /**
@@ -82,13 +88,15 @@ export function xSamples(curve) {
  */
 export function computeCurve(curve, ctx) {
     if (!curve || !ctx) return { x: [], y: [] };
-    const xs = xSamples(curve);
+    const grid = sampling(curve);
+    // Without a range the spectrum would fall back to its default one.
+    if (!grid) return { x: [], y: [] };
 
     if (curve.xAxis === 'wavelength') {
-        // Sweep λ; AOI fixed.
+        // Sweep λ; AOI fixed. The spectrum builds its own grid between the ends.
         const params = {
-            lambdaStart: xs[0],
-            lambdaEnd:   xs[xs.length - 1],
+            lambdaStart: sampleAt(grid, 0),
+            lambdaEnd:   sampleAt(grid, grid.count - 1),
             lambdaStep:  curve.rangeStep,
             theta:        curve.aoiFixed_deg,
             polarization: curve.polarization,
@@ -101,7 +109,7 @@ export function computeCurve(curve, ctx) {
     if (curve.xAxis === 'aoi') {
         // Sweep AOI at fixed λ. We have to call the TMM per-AOI.
         const lam = curve.lambdaFixed_nm;
-        const x = xs;
+        const x = xSamples(curve);
         const y = new Array(x.length);
         for (let i = 0; i < x.length; i++) {
             const params = {

@@ -13,7 +13,7 @@ Materials are grouped into catalogs by source:
 
 | Catalog          | Source                                                                  | Editable          |
 | ---------------- | ----------------------------------------------------------------------- | ----------------- |
-| **Built-in**     | A curated set of 16 common optical materials.                           | Read-only         |
+| **Built-in**     | A curated set of 17 common optical materials.                           | Read-only         |
 | **AGF**          | Zemax `.agf` files placed in your TFStudio data folder's `Materials` subfolder. | Via the file      |
 | **User**         | Materials and catalogs you create inside TFStudio.                      | Yes               |
 | **RefractiveIndex** | Materials you import from the refractiveindex.info database.          | Yes               |
@@ -82,7 +82,9 @@ n,k grid of the Material Editor marks the row.
 **Browse RII**: open the refractiveindex.info browser to pick from the online
 database (an internet connection is needed the first time you fetch a
 material). The material is added to your chosen user catalog and then lives
-locally.
+locally. A page given as a table arrives with every row it has; a page given
+as a dispersion formula is sampled over the range the page states, each
+wavelength 1% past the one before.
 
 **New Catalog**: create an empty user catalog to organize your own materials.
 
@@ -92,12 +94,16 @@ catalog, which is the way to make an editable variant of a read-only material.
 
 ## Creating a material
 
-Open a user catalog and choose **New material**. The **n & k** page holds the
-optical data; pick a data type there:
+Open a user catalog and choose **New material**, then type its name at the top
+of the form. The ID under the name is made from it when the material is first
+saved and stays the same after that, because designs refer to a material by
+its ID. The **n & k** page holds the optical data; pick a data type there:
 
 1. **Tabular**: paste or type a `λ, n, k` table. You can paste directly from a
    spreadsheet (Ctrl+V), and the grid supports keyboard navigation, sorting and
-   per-cell editing.
+   per-cell editing. A long table scrolls in a box of its own, so the chart and
+   the fit stay a short scroll down the page; drag the bar under the box to
+   make it taller or shorter.
 2. **Formula**: choose a dispersion formula (Sellmeier, Cauchy, Conrady,
    Schott, Herzberger and other standard forms), enter its coefficients, and
    optionally add a `λ, k` table for absorption. The formula is rendered in

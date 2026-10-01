@@ -5,7 +5,7 @@
  * on X and angle of incidence on Y, and hands the rest to the validated sweep.
  * What is worth testing is therefore the seam.
  *
- *   1. Step size to sample count, including the cap the surface grid enforces.
+ *   1. Step size to sample count, with no limit on it.
  *   2. The specification the controls build: λ on X, AOI on Y, the evaluation
  *      mode carried through, and no drawing fields in it — those must not send
  *      the window back through a sweep.
@@ -22,7 +22,7 @@ import assert from 'node:assert/strict';
 import { initWasmForTest } from './_wasmInit.mjs';
 import { axisSteps, buildMapSpec } from '../src/components/windows/analysis/wavelengthAngleMap/mapSpec.js';
 import { wavelengthAngleMapSession } from '../src/components/windows/analysis/wavelengthAngleMap/sessionState.js';
-import { computeSurface, MAX_AXIS_STEPS } from '../src/utils/physics/plotQuantities.js';
+import { computeSurface } from '../src/utils/physics/plotQuantities.js';
 import { evaluateSpectrum } from '../src/utils/physics/thinFilmMath.js';
 import { sessionDefaults } from '../src/constants/analysisDefaults.js';
 import { getMaterial } from '../src/utils/materials/materialDatabase.js';
@@ -66,8 +66,20 @@ const controls = {
         'a range with no span still has the two samples a grid axis needs');
     assert.equal(axisSteps(400, 800, 0), 401,
         'a zero step falls back to one sample per unit rather than an unbounded grid');
-    assert.equal(axisSteps(400, 800, 0.05), MAX_AXIS_STEPS,
-        'a step finer than the grid allows is capped, keeping the endpoints');
+    // A fine step used to be widened to keep 700 samples an axis.
+    assert.equal(axisSteps(400, 800, 0.05), 8001, 'a 0.05 nm step over 400-800 nm is 8001 samples');
+
+    // 1001 x 901 is past the 700 x 700 grid the surface used to refuse. Asking
+    // for no rows sizes the grid without evaluating it.
+    const big = computeSurface(buildMapSpec({ ...controls, lambdaStep: 0.4, angleStep: 0.05 }, 'front'),
+        design, resolveMat, { rowFrom: 0, rowTo: 0 });
+    assert.ok(big.ok, 'a grid past 490,000 points is computed');
+    assert.deepEqual([big.x.length, big.y.length, big.nPoints], [1001, 901, 1001 * 901]);
+
+    // A step fine enough to overflow the count still gives a grid, of two samples.
+    const overflow = computeSurface(buildMapSpec({ ...controls, lambdaStep: 5e-324 }, 'front'),
+        design, resolveMat, { rowFrom: 0, rowTo: 0 });
+    assert.equal(overflow.x.length, 2, 'a count that is not finite does not reach an array length');
 }
 
 // ── 2. The specification the controls build ──────────────────────────────────

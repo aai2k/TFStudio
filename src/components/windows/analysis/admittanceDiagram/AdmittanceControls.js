@@ -56,7 +56,7 @@ function AdmittanceSetup({ c, t, state }) {
     },
         h(SettingRow, { c, label: ad.wavelength },
             h(NumInput, {
-                value: state.lambda, min: 100, max: 30000, step: 1, c, width: 72,
+                value: state.lambda, positive: true, step: 1, c, width: 72,
                 onChange: state.setLambda,
             }),
         ),

@@ -80,7 +80,14 @@ async function runWorkerSweep(options, meta) {
 export async function runSurfaceSweep(options) {
     const { surfaceSpec, design, setSurfaceResult, setComputing } = options;
     const isCurrent = options.isCurrent || (() => true);
-    const meta = computeSurface(surfaceSpec, design, designMaterialLookup(design), { rowFrom: 0, rowTo: 0 });
+    let meta;
+    try {
+        meta = computeSurface(surfaceSpec, design, designMaterialLookup(design), { rowFrom: 0, rowTo: 0 });
+    } catch (err) {
+        // A grid too large to hold in an array, from a step typed fine enough,
+        // is reported like any failed sweep rather than leaving it computing.
+        meta = { ok: false, error: String(err?.message || err), x: [], y: [], z: [] };
+    }
     if (!meta.ok) {
         if (isCurrent()) {
             setSurfaceResult(meta);

@@ -28,16 +28,17 @@ export function toNm(value, unit) { return unitFor(unit).toNm(value); }
 /** The quantity symbol a unit is read in: λ, ν̃, f or E. */
 export function spectralSymbol(unit) { return RANGE_CONTROL[unitFor(unit).id].symbol; }
 
+/**
+ * A wavelength range as a pair of fields in `unit`. Any positive value is a
+ * wavelength in every unit, so the fields have no other bound.
+ */
 export function spectralRangeControl(unit, nmStart, nmEnd) {
     const id = SPECTRAL_UNITS[unit] ? unit : 'nm';
     const config = RANGE_CONTROL[id];
-    const boundaryA = fromNm(100, id), boundaryB = fromNm(20000, id);
     return {
         symbol: config.symbol,
         start: Number(fromNm(nmStart, id).toFixed(config.decimals)),
         end: Number(fromNm(nmEnd, id).toFixed(config.decimals)),
-        min: Math.min(boundaryA, boundaryB),
-        max: Math.max(boundaryA, boundaryB),
         step: config.step,
     };
 }

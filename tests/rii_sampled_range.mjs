@@ -1,114 +1,140 @@
 /**
- * The refractiveindex.info browser states the range it will actually import.
+ * The refractiveindex.info browser imports the whole page and states the range
+ * it imports.
  *
- * The detail panel used to print the range the database record declares, while
- * the chart beside it and the importer behind the button both sampled a fixed
- * 200 to 20000 nm window written out separately in each file. Infrared records
- * make the two disagree wildly: one declares 0.5 to 1000 µm and delivers 0.5 to
- * about 20, so the panel offered a material a thousand times wider than the one
- * that arrived.
+ * The importer used to keep 200 to 20000 nm of every page, with table rows
+ * thinned to 10 nm apart, a window nothing in the physics asked for: the SiO2
+ * page by Franta et al. runs from 27.5 nm to 125 µm and arrived as 986 of its
+ * 3659 rows. A table now comes in whole and a formula is evaluated over the
+ * range its page states, on a logarithmic grid.
  *
- * The window is now one constant and the displayed span is read back from the
- * samples themselves, so the panel, the plot and the stored entry cannot drift.
+ * The detail panel, the chart and the importer read the same samples, so the
+ * span on screen is the span that gets stored.
  *
  * Run: node tests/rii_sampled_range.mjs
  */
 
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
+import yaml from 'js-yaml';
 
-const { sampleMaterial, sampledRangeNm, RII_SAMPLE_RANGE_NM } =
-    await import('../src/utils/materials/riiDatabase/sampling.js');
+const { sampleMaterial, sampledRangeNm } = await import('../src/utils/materials/riiDatabase/sampling.js');
 const { riiToMaterialEntry } = await import('../src/utils/materials/riiDatabase/catalogEntry.js');
+const { parseMaterialDoc } = await import('../src/utils/materials/riiDatabase/materialParser.js');
+const { createTabulatedNKSampler } = await import('../src/utils/materials/pchip.js');
 
 const read = (path) => readFileSync(new URL(`../src/${path}`, import.meta.url), 'utf8');
+const spanOf = (entry) => [entry.lambdaMin * 1000, entry.lambdaMax * 1000];
 
-const [WINDOW_LO, WINDOW_HI] = RII_SAMPLE_RANGE_NM;
-assert.deepEqual(RII_SAMPLE_RANGE_NM, [200, 20000], 'the sampling window is the documented one');
-
-// ── A tabulated record that runs past the window ─────────────────────────────
+// ── A table from the far ultraviolet to the far infrared ────────────────────
 //
-// Shaped like Ta2O5 (Bright, amorphous): rows from 500 nm out to a millimetre,
-// declaring the full span. The rows are unevenly spaced so the last one inside
-// the window is not the window edge, which is what the panel used to round away.
+// Shaped like the Franta SiO2 page: 3659 rows, log-spaced from 27.5 nm to
+// 125 µm. Every row is imported, and the span reported is the rows' own.
 
 const rows = [];
-for (let lam = 500; lam <= 20000; lam += 347) rows.push([lam, 2.1, 0.01]);
-for (const lam of [50000, 200000, 1000000]) rows.push([lam, 2.6, 0.4]);
-
-const infrared = {
-    type: 'tabulated nk',
-    tableNK: rows,
-    wavelengthRange: [500, 1000000],
-    references: 'Bright et al. 2013',
-    comments: '',
-    dataPath: 'main/Ta2O5/nk/Bright-amorphous.yml',
+for (let i = 0; i < 3659; i++) {
+    const lam = 27.5 * Math.pow(125000 / 27.5, i / 3658);
+    rows.push([lam, 1.45 + 0.01 * Math.sin(i), i > 3000 ? 0.2 : 0]);
+}
+rows[rows.length - 1][0] = 125000;
+const wide = {
+    type: 'tabulated_nk', tableNK: rows,
+    references: 'Franta et al. 2016', comments: '', dataPath: 'main/SiO2/nk/Franta-25C.yml',
 };
 
-const lastInside = rows.filter(([lam]) => lam <= WINDOW_HI).at(-1)[0];
-assert.ok(lastInside < WINDOW_HI, 'the fixture ends short of the window edge, as a real table does');
+const entry = riiToMaterialEntry(wide, 'Franta-25C', 'SiO2');
+assert.equal(entry.tabData.length, 3659, 'every row of the page is imported');
+assert.deepEqual(entry.tabData, rows, 'as the page gives it');
+assert.deepEqual(sampledRangeNm(wide), [27.5, 125000], 'the panel states the whole page');
+assert.deepEqual(spanOf(entry), [27.5, 125000], 'and that is the span stored');
+const plotted = sampleMaterial(wide);
+assert.deepEqual([plotted[0][0], plotted.at(-1)[0]], [27.5, 125000], 'and the span plotted');
 
-const range = sampledRangeNm(infrared);
-assert.deepEqual(range, [500, lastInside],
-    'the reported span is the data inside the window, not the declared range');
-assert.notEqual(range[1], 1000000, 'the declared upper bound is never reported');
-
-// It agrees with what the chart plots, because it is read from the same samples.
-const samples = sampleMaterial(infrared, ...RII_SAMPLE_RANGE_NM, 10);
-assert.deepEqual([samples[0][0], samples.at(-1)[0]], range,
-    'the span and the plotted curve start and end together');
-
-// And with what the button stores. The entry keeps µm.
-const entry = riiToMaterialEntry(infrared, 'Bright-amorphous', 'Ta2O5');
-assert.deepEqual([entry.lambdaMin * 1000, entry.lambdaMax * 1000], range,
-    'the imported material covers exactly the span the panel offered');
-
-// ── A formula record that stops inside the window ────────────────────────────
+// ── A page that joins two datasets ───────────────────────────────────────────
 //
-// Malitson fused silica: declared 210 to 6700 nm, comfortably inside, so nothing
-// is clipped and the panel reports the record's own range.
+// Some pages stitch measurements that overlap or repeat a wavelength. The
+// import is in wavelength order, and a repeated wavelength keeps the row the
+// tabulated sampler computes with, so the stored table and the page give the
+// same n and k everywhere.
 
-const silica = {
-    type: 'formula',
-    riiFormulaNum: 1,
-    formulaCoeffs: [0, 0.6961663, 0.0684043, 0.4079426, 0.1162414, 0.8974794, 9.896161],
-    wavelengthRange: [210, 6700],
-    references: 'Malitson 1965',
-    comments: '',
-    dataPath: 'main/SiO2/nk/Malitson.yml',
+const stitched = {
+    type: 'tabulated_nk',
+    tableNK: [[3000, 1.6, 0.01], [2500, 1.62, 0], [2600, 1.61, 0], [3000, 1.59, 0.02], [3100, 1.58, 0.03]],
+    references: 'Querry 1987', comments: '', dataPath: 'main/X/nk/Querry.yml',
 };
+const joined = riiToMaterialEntry(stitched, 'Querry', 'X');
+assert.deepEqual(joined.tabData.map(row => row[0]), [2500, 2600, 3000, 3100], 'rows in wavelength order, one per wavelength');
+assert.deepEqual(spanOf(joined), [2500, 3100], 'so the stored span runs from the shortest wavelength to the longest');
+const fromPage = createTabulatedNKSampler(stitched.tableNK);
+const fromEntry = createTabulatedNKSampler(joined.tabData);
+for (const lam of [2500, 2550, 2800, 3000, 3050, 3100]) {
+    assert.deepEqual(fromEntry(lam), fromPage(lam), `the stored table computes what the page does at ${lam} nm`);
+}
 
-const silicaRange = sampledRangeNm(silica);
-assert.equal(silicaRange[0], 210, 'an unclipped record keeps its own lower bound');
-assert.ok(silicaRange[1] <= 6700 && silicaRange[1] > 6600,
-    `an unclipped record keeps its own upper bound, got ${silicaRange[1]}`);
+// ── A formula stated from 1 nm to 1 mm ───────────────────────────────────────
+//
+// Evaluated on a grid with each point 1% past the last, ending on the stated
+// upper end. A Sellmeier term with its resonance at 0.1 nm keeps n finite over
+// the whole span.
 
-// A sanity check that the fixture is a real dispersion rather than a flat line:
-// fused silica is about 1.4599 at 550 nm.
-const at550 = sampleMaterial(silica, 550, 550, 10)[0];
-assert.ok(Math.abs(at550[1] - 1.4599) < 2e-3, `fused silica n(550) = ${at550[1]}`);
+const broad = {
+    type: 'formula', riiFormulaNum: 1, formulaCoeffs: [0, 1.1, 0.0001],
+    wavelengthRange: [1, 1e6], references: 'test', comments: '', dataPath: 'test/formula.yml',
+};
+const grid = sampleMaterial(broad);
+assert.ok(grid.length < 1400, `a formula stated over six decades is ${grid.length} points`);
+assert.deepEqual([grid[0][0], grid.at(-1)[0]], [1, 1e6], 'from the stated lower end to the stated upper end');
+for (let i = 1; i < grid.length; i++) {
+    const ratio = grid[i][0] / grid[i - 1][0];
+    assert.ok(ratio > 1 && ratio < 1.0101, `point ${i} is at most 1% past the one before it (${ratio})`);
+}
+const sellmeier = nm => Math.sqrt(1 + 1.1 * (nm / 1000) ** 2 / ((nm / 1000) ** 2 - 1e-8));
+assert.ok(grid.every(([nm, n]) => Math.abs(n - sellmeier(nm)) < 1e-12), 'n is the formula at every grid point');
+assert.deepEqual(spanOf(riiToMaterialEntry(broad, 'p', 'b')), [1, 1e6], 'imported over the stated range');
 
-// ── No overlap at all ────────────────────────────────────────────────────────
+// Malitson fused silica, declared 210 to 6700 nm: the grid starts and ends on
+// the page's own range, and the values are the formula's.
+const silica = {
+    type: 'formula', riiFormulaNum: 1,
+    formulaCoeffs: [0, 0.6961663, 0.0684043, 0.4079426, 0.1162414, 0.8974794, 9.896161],
+    wavelengthRange: [210, 6700], references: 'Malitson 1965', comments: '', dataPath: 'main/SiO2/nk/Malitson.yml',
+};
+assert.deepEqual(sampledRangeNm(silica), [210, 6700], 'a formula page keeps its own range');
+const near550 = sampleMaterial(silica).reduce((best, row) => (Math.abs(row[0] - 550) < Math.abs(best[0] - 550) ? row : best));
+assert.ok(Math.abs(near550[1] - 1.4599) < 2e-3, `fused silica n near 550 nm = ${near550[1]} at ${near550[0]} nm`);
 
-assert.equal(sampledRangeNm({ type: 'tabulated nk', tableNK: [[50, 1.5, 0]] }), null,
-    'a record entirely below the window reports nothing rather than an empty span');
-assert.equal(sampledRangeNm({ type: 'formula' }), null,
-    'a record with neither table nor formula reports nothing');
+// ── Nothing to sample ────────────────────────────────────────────────────────
 
-// ── The three readers share one window ───────────────────────────────────────
+assert.equal(sampledRangeNm({ type: 'formula' }), null, 'a record with neither table nor formula reports nothing');
+assert.equal(riiToMaterialEntry({ type: 'formula', dataPath: 'x.yml' }, 'p', 'b'), null,
+    'and is refused rather than stored empty');
+// A logarithmic grid cannot start at zero, so a range that does gives nothing
+// rather than a grid that never reaches its end.
+assert.deepEqual(sampleMaterial({ ...silica, wavelengthRange: [0, 6700] }), [], 'a range from zero is not sampled');
+assert.deepEqual(sampleMaterial({ ...silica, wavelengthRange: [-5, 6700] }), [], 'nor one from below zero');
 
-assert.match(read('components/windows/design/materialEditor/riiRightPanel.js'),
-    /sampledRangeNm\(mat\)/,
-    'the panel reports the sampled span');
-assert.doesNotMatch(read('components/windows/design/materialEditor/riiRightPanel.js'),
-    /mat\.wavelengthRange/,
-    'and no longer prints the declared range');
+// ── The three readers share the samples ─────────────────────────────────────
 
+const panel = read('components/windows/design/materialEditor/riiRightPanel.js');
+assert.match(panel, /sampledRangeNm\(mat\)/, 'the panel reports the sampled span');
+assert.doesNotMatch(panel, /mat\.wavelengthRange/, 'not the range the record declares');
 for (const path of ['components/windows/design/materialEditor/riiChart.js',
                     'utils/materials/riiDatabase/catalogEntry.js']) {
-    assert.match(read(path), /RII_SAMPLE_RANGE_NM/, `${path} reads the shared window`);
-    assert.doesNotMatch(read(path), /sampleMaterial\([^)]*\b20000\b/,
-        `${path} must not write the window out again`);
+    assert.match(read(path), /sampleMaterial\((mat|material)\)/, `${path} reads the samples`);
+    assert.doesNotMatch(read(path), /sampleMaterial\([^)]*,/, `${path} passes no window of its own`);
+}
+
+// ── The page itself, when the database is checked out ───────────────────────
+
+const frantaPage = new URL('../refractiveindex-db/database/data/main/SiO2/nk/Franta-25C.yml', import.meta.url);
+if (existsSync(frantaPage)) {
+    const page = parseMaterialDoc(yaml.load(readFileSync(frantaPage, 'utf8')), 'main/SiO2/nk/Franta-25C.yml');
+    const franta = riiToMaterialEntry(page, 'Franta-25C', 'SiO2');
+    assert.equal(franta.tabData.length, 3659, 'the SiO2 Franta 25 °C page imports all 3659 rows');
+    assert.deepEqual(spanOf(franta).map(nm => Number(nm.toPrecision(3))), [27.5, 125000],
+        'from 27.5 nm to 125 µm');
+} else {
+    console.log('rii_sampled_range: refractiveindex-db is not checked out, so the Franta page itself was not read');
 }
 
 console.log('rii_sampled_range: passed');

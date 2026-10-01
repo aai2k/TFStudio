@@ -1,5 +1,5 @@
 import {
-    POLARIZATIONS, SURFACE_MODES, Z_QUANTITIES, SURFACE_RENDERS, COLORSCALES, MAX_AXIS_STEPS,
+    POLARIZATIONS, SURFACE_MODES, Z_QUANTITIES, SURFACE_RENDERS, COLORSCALES, axisSampleCount,
     buildAxisTargetOptions, parseAxisVar,
 } from '../../../../utils/physics/plotQuantities.js';
 import { ActionButton, NumInput, SelectField, valueOptions } from '../chrome/controls.js';
@@ -51,7 +51,7 @@ function FixedParameters({ spec, onUpdate, needFixedLambda, needFixedAOI, c, pe 
         h(SettingDivider, { c }),
         needFixedLambda && h(SettingRow, { c, label: pe.fixedLambda || 'λ (nm)' },
             h(NumInput, {
-                c, width: 72, value: spec.fixedLambda_nm, step: 10, min: 100,
+                c, width: 72, value: spec.fixedLambda_nm, step: 10, positive: true,
                 onChange: value => onUpdate({ fixedLambda_nm: value }),
             }),
         ),
@@ -93,8 +93,8 @@ function computeLabel(computing, progress, pe) {
 }
 
 function gridLabel(spec, pe) {
-    const nx = Math.max(2, Math.min(MAX_AXIS_STEPS, Math.round(spec.xSteps || 2)));
-    const ny = Math.max(2, Math.min(MAX_AXIS_STEPS, Math.round(spec.ySteps || 2)));
+    const nx = axisSampleCount(spec.xSteps);
+    const ny = axisSampleCount(spec.ySteps);
     return (pe.gridSize || 'Grid') + `: ${nx} × ${ny} = ${nx * ny} ${pe.points || 'points'}`;
 }
 

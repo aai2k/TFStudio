@@ -1,3 +1,5 @@
+import { useSteadyColumns, useVirtualRows, virtualBody } from './virtualRows.js';
+
 const { createElement: h } = React;
 
 /**
@@ -55,8 +57,12 @@ export function ResultsSection({ label, count, countLabel, summary, open, setOpe
     );
 }
 
+// Every results row is this tall, so only the rows in view need drawing.
+export const RESULT_ROW_HEIGHT = 18;
+
 /**
- * Scrolling table for a `ResultsSection` body.
+ * Scrolling table for a `ResultsSection` body. Only the rows in view are drawn
+ * (virtualRows.js), so a table of a fine sweep opens as quickly as a short one.
  *
  *   columns  [{ key, label, align?, color?, fmt? }] - `fmt` formats for display
  *            only; `csvFromRows` always writes the raw value
@@ -68,6 +74,8 @@ export function ResultsGrid({ columns, rows, c, height = 185, fill = false }) {
         ...col,
     }));
     const data = rows || [];
+    const view = useVirtualRows(data.length, RESULT_ROW_HEIGHT);
+    const widths = useSteadyColumns(cols.map(col => col.label));
     const thBase = {
         padding: '3px 8px', fontWeight: 600, fontSize: 11,
         borderBottom: `1px solid ${c.border}`,
@@ -83,27 +91,33 @@ export function ResultsGrid({ columns, rows, c, height = 185, fill = false }) {
         if (col.fmt) return col.fmt(value, row);
         return value == null ? '' : String(value);
     };
+    const body = virtualBody(data, view, RESULT_ROW_HEIGHT, cols.length, (row, index) => h('tr', {
+        key: index,
+        style: {
+            height: RESULT_ROW_HEIGHT,
+            backgroundColor: index % 2 === 0 ? 'transparent' : c.panel + '55',
+        },
+    }, cols.map((col, columnIndex) => h('td', {
+        key: columnIndex,
+        style: { ...tdBase, textAlign: col.align, color: c.text },
+    }, widths.fit(columnIndex, cell(col, row))))));
     // `fill` is for a window whose table is the point rather than a footnote to
     // a plot: it takes the space left over instead of a fixed strip.
     return h('div', {
+        ref: view.paneRef, onScroll: view.onScroll,
         style: fill
             ? { flex: 1, minHeight: 0, overflowY: 'auto', overflowX: 'auto', backgroundColor: c.bg }
             : { height, overflowY: 'auto', overflowX: 'auto', backgroundColor: c.bg, flexShrink: 0 },
     },
-        h('table', { style: { width: '100%', borderCollapse: 'collapse', tableLayout: 'auto' } },
+        h('table', { style: { width: '100%', borderCollapse: 'collapse', tableLayout: 'auto', fontSize: 11 } },
+            widths.colgroup(),
             h('thead', null,
                 h('tr', null, cols.map((col, index) => h('th', {
                     key: index,
                     style: { ...thBase, textAlign: col.align, color: col.color || c.textDim },
                 }, col.label))),
             ),
-            h('tbody', null, data.map((row, index) => h('tr', {
-                key: index,
-                style: { backgroundColor: index % 2 === 0 ? 'transparent' : c.panel + '55' },
-            }, cols.map((col, columnIndex) => h('td', {
-                key: columnIndex,
-                style: { ...tdBase, textAlign: col.align, color: c.text },
-            }, cell(col, row)))))),
+            h('tbody', null, body),
         ),
     );
 }

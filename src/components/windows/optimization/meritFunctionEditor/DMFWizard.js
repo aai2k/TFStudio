@@ -39,8 +39,8 @@ function styles(c) {
 // TFStudio: a dot is a dot whatever the machine's locale says, and the value is
 // taken on blur rather than after each digit typed.
 function numberInput(s, value, onChange, width, extra = {}) {
-    const { disabled, min, max, step, title } = extra;
-    return h(NumInput, { value, onChange, min, max, step, title, disabled, c: s.c, width });
+    const { disabled, min, max, positive, step, title } = extra;
+    return h(NumInput, { value, onChange, min, max, positive, step, title, disabled, c: s.c, width });
 }
 
 function select(s, value, onChange, options, width) {
@@ -90,7 +90,8 @@ function fieldControl(ctx, key, width) {
     if (!def) return null;
     const value = session.params[key] ?? def.default;
     if (def.kind === 'select') return select(s, value, v => updateParam(key, v), def.options, width || 'auto');
-    return numberInput(s, value, v => updateParam(key, v), width || 62, { min: def.min, max: def.max, step: def.step ?? 1 });
+    return numberInput(s, value, v => updateParam(key, v), width || 62,
+        { min: def.min, max: def.max, positive: def.positive, step: def.step ?? 1 });
 }
 
 function presetRow(ctx, row) {
@@ -172,7 +173,7 @@ function angleBox(ctx) {
                 { value: 'discrete', label: tw.targetDiscrete },
             ], 112),
             discrete && h('span', { style: s.label }, tw.stepNm + ':'),
-            discrete && numberInput(s, session.stepNm, v => setField('stepNm', v), 48, { min: 0.1, step: 0.5 }),
+            discrete && numberInput(s, session.stepNm, v => setField('stepNm', v), 48, { positive: true, step: 0.5 }),
         ) : h('span', { key: 'mode-c' }),
     ];
     return groupBox({ title: tw.angleBox, columns: '64px minmax(116px, 1fr)', minWidth: 204, c, rows: cells });

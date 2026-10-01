@@ -18,7 +18,7 @@ import { surfaceColumns, surfaceRows } from '../plotEngine/resultTable.js';
 import { MapControls } from './MapControls.js';
 import { useWavelengthAngleMap } from './useWavelengthAngleMap.js';
 
-const { createElement: h, useCallback } = React;
+const { createElement: h, useCallback, useMemo } = React;
 
 // The surface's own columns, with both axes named. Only the names differ: an
 // exported angle map is read away from the window that produced it, where a
@@ -35,7 +35,8 @@ export function WavelengthAngleMap({ c, t }) {
     const wam = t.wavelengthAngleMap;
     const dt = t.dataTable;
     const columns = mapColumns(t, state.result);
-    const rows = surfaceRows(state.result);
+    // One row per grid point, and nothing bounds the grid: built once per map.
+    const rows = useMemo(() => surfaceRows(state.result), [state.result]);
     const csv = useCsvExport(
         () => csvFromRows(columns, rows),
         () => `${(design?.name || 'design').replace(/[^\w.-]+/g, '_')}_angle_map.csv`,

@@ -101,13 +101,13 @@ export function SampleSettingsContent({ c, t, nk, state }) {
             })),
         h(SettingRow, { c, label: nk.range },
             h(NumInput, {
-                c, width: 68, min: 1, max: 100000, step: 10,
+                c, width: 68, positive: true, step: 10,
                 value: Number(settings.lambdaStart) || 0,
                 onChange: value => setField('lambdaStart', String(value)),
             }),
             h('span', { style: { color: c.textDim, margin: '0 5px' } }, '–'),
             h(NumInput, {
-                c, width: 68, min: 1, max: 100000, step: 10,
+                c, width: 68, positive: true, step: 10,
                 value: Number(settings.lambdaEnd) || 0,
                 onChange: value => setField('lambdaEnd', String(value)),
             })),

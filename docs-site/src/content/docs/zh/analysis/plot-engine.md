@@ -36,7 +36,7 @@ ribbonIcon: plot-engine
 
 **颜色（Colors）**：颜色刻度（Viridis、Cividis、Jet 等）。
 
-**计算曲面（Compute surface）**：运行网格。点计数显示在按钮下方，计数器报告进度；大网格在计算时保持响应。每轴步数与总网格大小有上限以保持运行可控。
+**计算曲面（Compute surface）**：运行网格。点计数显示在按钮下方，计数器报告进度；大网格在计算时保持响应。
 
 ## 如何解读
 

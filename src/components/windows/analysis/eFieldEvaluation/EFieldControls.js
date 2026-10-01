@@ -57,7 +57,7 @@ function AxisReferenceRow({ c, ef, state }) {
             onChange: event => state.setAxisRefFromDesign(event.target.checked),
         }),
         h(NumInput, {
-            value: state.axisRefLambda, min: 100, max: 10000, step: 10, c, width: 72,
+            value: state.axisRefLambda, positive: true, step: 10, c, width: 72,
             disabled: !optical || state.axisRefFromDesign,
             onChange: state.setAxisRefLambda,
         }),
@@ -70,7 +70,7 @@ function EFieldSetup({ c, t, ef, state }) {
     },
         h(SettingRow, { c, label: ef.wavelength },
             h(NumInput, {
-                value: state.lambda, min: 100, max: 10000, step: 10, c, width: 72,
+                value: state.lambda, positive: true, step: 10, c, width: 72,
                 onChange: state.setLambda,
             }),
         ),

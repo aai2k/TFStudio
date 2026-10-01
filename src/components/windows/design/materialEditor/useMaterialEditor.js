@@ -51,14 +51,15 @@ function updateReadOnlySampledTable({ editDraft, chartRef, selectedMat, c, me, s
 export function useMaterialEditor({ c, t, setInputDialog }) {
     const [catalogs,         setCatalogs]        = useState([]);
     const [session, setField] = useWindowSession(materialEditorSession, null);
-    const { catFilter, query, selectedId, editDraft, pristineDraft, detailTab } = session;
+    const { catFilter, query, selectedId, editDraft, pristineDraft, detailTab, tableHeight } = session;
     const setCatFilter     = value => setField('catFilter', value);
     const setQuery         = value => setField('query', value);
     const setSelectedId    = value => setField('selectedId', value);
     const updateDraft      = value => setField('editDraft', value);
     const setPristineDraft = value => setField('pristineDraft', value);
     const setDetailTab     = value => setField('detailTab', value);
-    const [importing,        setImporting]        = useState(false);
+    const setTableHeight   = value => setField('tableHeight', value);
+    const [importing,       setImporting]        = useState(false);
     const [showRii,          setShowRii]          = useState(false);
     const [notification,     setNotification]     = useState(null);
     const [menuOpen,         setMenuOpen]         = useState(false);
@@ -186,7 +187,7 @@ export function useMaterialEditor({ c, t, setInputDialog }) {
         selectedId, importing, showRii, setShowRii, notification,
         menuOpen, setMenuOpen,
         editDraft, setEditDraft, updateDraft, isDirty, handleRevertMaterial,
-        detailTab, setDetailTab,
+        detailTab, setDetailTab, tableHeight, setTableHeight,
         results, selectedMat, currentCatalog, isUserCatalog,
         browseCatalogs, designConflict, workingNm,
         handleImport, handleImportFiles, doImportFiles,

@@ -90,7 +90,7 @@ export function buildWizardBlock(options) {
         aoiSteps: Math.max(1, Math.round(options.aoiSteps)),
         pol,
         targetMode,
-        stepNm: Math.max(0.1, Number(options.stepNm) || 1),
+        stepNm: Number(options.stepNm) || 1,
     };
     const comment = buildDmfsComment({
         tw, typeId, params, common,

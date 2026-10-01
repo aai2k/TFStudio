@@ -33,7 +33,8 @@ const ok = (cond, msg) => { if (!cond) { console.error('FAIL:', msg); fails++; }
 ok(wlRange({ tableNK: [[300, 1.5, 0], [1000, 1.4, 0]] }) === '300–1000 nm', 'wlRange: a table reads its own span');
 ok(wlRange({ tableNK: [[200.4, 1.5, 0], [2500.6, 1.4, 0]] }) === '200–2501 nm', 'wlRange: rounds to nearest nm');
 ok(wlRange({ wavelengthRange: [200, 2500], tableNK: [[300, 1.5, 0]] }) === '300–300 nm', 'wlRange: the data wins over the declared range');
-ok(wlRange({ tableNK: [[500, 2.1, 0], [900000, 2.6, 0]] }) === '500–500 nm', 'wlRange: rows past the sampling window are not offered');
+ok(wlRange({ tableNK: [[500, 2.1, 0], [900000, 2.6, 0]] }) === '500–900000 nm', 'wlRange: a page running to 0.9 mm is offered whole');
+ok(wlRange({ tableNK: [[27.5043, 1.5, 0], [125141, 1.4, 0]] }) === '27.5–125141 nm', 'wlRange: below 100 nm it keeps a decimal');
 ok(wlRange({ wavelengthRange: [200.4, 2500.6] }) === '—', 'wlRange: a declared range with no data behind it is not a span');
 ok(wlRange({}) === '—', 'wlRange: no data → em dash placeholder');
 ok(wlRange({ tableNK: [] }) === '—', 'wlRange: empty tableNK → em dash placeholder');

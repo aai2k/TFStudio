@@ -54,7 +54,6 @@ axis.
 
 **Compute surface**: runs the grid. The point count is shown beneath the button,
 and a counter reports progress; large grids stay responsive while they compute.
-Per-axis steps and the total grid size are capped to keep runs manageable.
 
 ## How to read it
 

@@ -35,7 +35,7 @@ export function WorksheetControls({ c, t, state, trailing = [] }) {
         }),
         h(FieldLabel, { c }, mw.bulkLambda),
         h(NumInput, {
-            value: state.bulkLambda, min: 100, max: 30000, step: 10, c, width: 72,
+            value: state.bulkLambda, positive: true, step: 10, c, width: 72,
             title: mw.setAllLambdaTip, onChange: state.setBulkLambda,
         }),
         h(ActionButton, {

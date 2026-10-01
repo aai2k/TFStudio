@@ -2,18 +2,17 @@
  * RIIBrowser — state and action wiring.
  *
  * Owns catalog/search/selection state and the destination-catalog "add" flow.
- * Effect bodies live in riiEffects.js, user-triggered actions in riiActions.js,
- * and the n/k chart draw in riiChart.js — this hook just holds state and wires
- * them together through a shared `ctx` bundle.
+ * Effect bodies live in riiEffects.js and user-triggered actions in
+ * riiActions.js; this hook holds the state and wires them together through a
+ * shared `ctx` bundle. The n/k chart is its own component, in riiChart.js.
  */
 
 import { searchCatalog } from '../../../../utils/materials/riiDatabase.js';
 import { getCatalogs } from '../../../../utils/materials/catalogManager.js';
 import { updateRiiDatabase, addRiiMaterial, startAddFlow } from './riiActions.js';
 import { loadRiiCatalogTree, trackRiiDbStatus, fetchSelectedMaterial, toggleInSet } from './riiEffects.js';
-import { drawRiiChart } from './riiChart.js';
 
-const { useState, useEffect, useRef, useCallback } = React;
+const { useState, useEffect, useCallback } = React;
 
 export function useRIIBrowser({ c, t, onAdded }) {
     const rii = t.riiDatabase;
@@ -35,7 +34,6 @@ export function useRIIBrowser({ c, t, onAdded }) {
     const [dbStatus,       setDbStatus]       = useState(null);
     const [updating,       setUpdating]       = useState(false);
     const [updateMsg,      setUpdateMsg]      = useState('');
-    const chartRef = useRef(null);
 
     useEffect(() => loadRiiCatalogTree({ setCatalogTree, setLoadErr, setCatalogLoading }), []);
     useEffect(() => trackRiiDbStatus({ rii, setDbStatus, setUpdateMsg }), [rii]);
@@ -46,9 +44,6 @@ export function useRIIBrowser({ c, t, onAdded }) {
     }, [catalogTree, query]);
 
     useEffect(() => fetchSelectedMaterial(selected, { setMat, setMatLoading, setMatErr, setPhase }), [selected]);
-
-    // No dependency list: see plotSurface.js for why every render redraws.
-    useEffect(() => { drawRiiChart(chartRef.current, mat, c, t.spectralAxis.nm); });
 
     const toggleShelf = useCallback((shelfId) => {
         setExpandedShelves(prev => toggleInSet(prev, shelfId));
@@ -79,7 +74,7 @@ export function useRIIBrowser({ c, t, onAdded }) {
         expandedShelves, expandedBooks, toggleShelf, toggleBook,
         selected, mat, matLoading, matErr, phase, addMsg, targetCatId, setTargetCatId,
         dbStatus, updating, updateMsg, handleUpdate,
-        chartRef, handleSelectResult, handleAddClick, doAdd, setPhase,
+        wavelengthLabel: t.spectralAxis.nm, handleSelectResult, handleAddClick, doAdd, setPhase,
         userCatalogs, browsing, showNoResults,
     };
 }

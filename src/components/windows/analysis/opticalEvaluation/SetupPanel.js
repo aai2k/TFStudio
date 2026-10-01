@@ -14,14 +14,14 @@ export function SpectralRange({ c, oe, params, setParams, spectralUnit, setSpect
     return h(React.Fragment, null,
         h(SettingRow, { c, label: range.symbol },
             h(NumInput, {
-                value: range.start, min: range.min, max: range.max, step: range.step, c, width: 62,
+                value: range.start, positive: true, step: range.step, c, width: 62,
                 onChange: value => setParams(current => ({
                     ...current, lambdaStart: toNm(value, spectralUnit)
                 }))
             }),
             h('span', { style: { color: c.textDim, fontSize: 11 } }, '–'),
             h(NumInput, {
-                value: range.end, min: range.min, max: range.max, step: range.step, c, width: 62,
+                value: range.end, positive: true, step: range.step, c, width: 62,
                 onChange: value => setParams(current => ({
                     ...current, lambdaEnd: toNm(value, spectralUnit)
                 }))
@@ -33,7 +33,7 @@ export function SpectralRange({ c, oe, params, setParams, spectralUnit, setSpect
         ),
         h(SettingRow, { c, label: oe.stepNm },
             h(NumInput, {
-                value: params.lambdaStep, min: 0.1, max: 100, step: 0.5, c, width: 62,
+                value: params.lambdaStep, positive: true, step: 0.5, c, width: 62,
                 onChange: value => setParams(current => ({ ...current, lambdaStep: value }))
             }),
         ),

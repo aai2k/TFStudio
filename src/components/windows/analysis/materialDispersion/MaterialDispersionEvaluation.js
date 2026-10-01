@@ -184,8 +184,8 @@ function Setup({ state, c, t }) {
         h(SettingRow, { c, label: 'λ' },
             h(RangeField, {
                 c, unit: 'nm',
-                from: { value: state.start, onChange: state.setStart, min: 100, max: 30000, step: 10 },
-                to: { value: state.end, onChange: state.setEnd, min: 100, max: 30000, step: 10 },
+                from: { value: state.start, onChange: state.setStart, positive: true, step: 10 },
+                to: { value: state.end, onChange: state.setEnd, positive: true, step: 10 },
             }),
         ),
     );

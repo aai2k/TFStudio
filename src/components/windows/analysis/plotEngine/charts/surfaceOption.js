@@ -85,8 +85,8 @@ function widenToRow(bounds, row, scale) {
  * with one hole in it would then misreport every value it does have.
  *
  * Reads the grid itself rather than the [x, y, z] triples a cell series is
- * built from. At the 700 x 700 the Plot Engine permits, building half a million
- * triples to find two numbers is the most expensive part of a redraw.
+ * built from. On a large grid, building hundreds of thousands of triples to
+ * find two numbers is the most expensive part of a redraw.
  */
 function valueExtent(result, scale = 1) {
     const bounds = { min: Infinity, max: -Infinity };

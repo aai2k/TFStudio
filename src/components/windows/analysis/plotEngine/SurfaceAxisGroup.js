@@ -1,5 +1,5 @@
 import {
-    AXIS_PROPS, MAX_AXIS_STEPS, axisTarget, axisProp, composeAxisVar, defaultAxisRange,
+    AXIS_PROPS, axisTarget, axisProp, composeAxisVar, defaultAxisRange,
 } from '../../../../utils/physics/plotQuantities.js';
 import { FieldLabel, NumInput, RangeField, SelectField } from '../chrome/controls.js';
 import { SettingRow } from '../chrome/popover.js';
@@ -92,7 +92,7 @@ export function SurfaceAxisGroup({ which, spec, design, onUpdate, targetOptions,
             }),
             h(FieldLabel, { c }, pe.steps || 'steps'),
             h(NumInput, {
-                c, width: 52, value: values.steps, min: 2, max: MAX_AXIS_STEPS,
+                c, width: 52, value: values.steps, min: 2,
                 // A grid axis is sampled a whole number of times.
                 onChange: value => setRange({ steps: Math.round(value) }),
             }),

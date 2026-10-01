@@ -99,7 +99,9 @@ function expandMeasuredCurveOperands(operands) {
     for (const op of operands) {
         const expanded = expandMeasuredCurveOperand(op);
         if (expanded.length !== 1 || expanded[0] !== op) changed = true;
-        output.push(...expanded);
+        // Not push(...expanded): spread as arguments, a block of more than about
+        // 120,000 points overflows the call stack.
+        for (const point of expanded) output.push(point);
     }
     return changed ? output : operands;
 }

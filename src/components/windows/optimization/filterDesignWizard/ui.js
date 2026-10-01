@@ -1,17 +1,22 @@
 import { Checkbox } from '../../../ui/Checkbox.js';
+import { PositiveNumberInput } from '../../../ui/positiveNumberInput.js';
 
 const { createElement: h } = React;
 
 export function fieldLabel(c) { return { display: 'flex', flexDirection: 'column', gap: 4, fontSize: 12, color: c.textDim }; }
 export function inputStyle(c, w) { return { width: w, padding: '6px 8px', fontSize: 13, backgroundColor: c.bg, color: c.text, border: `1px solid ${c.border}`, borderRadius: 4, outline: 'none' }; }
 
-export function NumField({ label, value, min, max, step, onChange, c, suffix, width = 110, hint }) {
+// Takes every keystroke that parses. `positive` is for a quantity with no bound
+// but zero, such as a wavelength: only a positive number is taken.
+export function NumField({ label, value, min, max, positive, step, onChange, c, suffix, width = 110, hint }) {
     return h('label', { style: fieldLabel(c) },
         h('span', {}, label),
         h('div', { style: { display: 'flex', alignItems: 'center', gap: 6 } },
-            h('input', { type: 'number', value, min, max, step: step ?? 'any',
-                onChange: (e) => { const v = parseFloat(e.target.value); if (!Number.isNaN(v)) onChange(v); },
-                style: inputStyle(c, width) }),
+            positive
+                ? h(PositiveNumberInput, { value, step: step ?? 'any', onChange, style: inputStyle(c, width) })
+                : h('input', { type: 'number', value, min, max, step: step ?? 'any',
+                    onChange: (e) => { const v = parseFloat(e.target.value); if (!Number.isNaN(v)) onChange(v); },
+                    style: inputStyle(c, width) }),
             suffix && h('span', { style: { fontSize: 12, color: c.textDim } }, suffix)),
         hint && h('span', { style: { fontSize: 10.5, color: c.textDim, opacity: 0.85 } }, hint));
 }

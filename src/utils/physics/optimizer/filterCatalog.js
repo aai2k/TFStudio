@@ -82,7 +82,7 @@ function spectralTargetOps({ channel, pol, lamStart, lamEnd, t0, t1 = null, weig
     const end = (t1 == null) ? t0 : t1;
     if (mode === 'discrete') {
         const span  = Math.abs(lamEnd - lamStart);
-        const nPts  = Math.max(2, Math.round(span / Math.max(0.1, stepNm)) + 1);
+        const nPts  = Math.max(2, Math.round(span / stepNm) + 1);
         const ops   = [];
         for (let i = 0; i < nPts; i++) {
             const f   = i / (nPts - 1);
@@ -121,8 +121,8 @@ export const FILTER_TYPES = {
         category: 'AR',
         supportsTargetMode: true,
         fields: [
-            { key: 'lamStart', default: 400, min: 100, max: 3000 },
-            { key: 'lamEnd',   default: 700, min: 100, max: 3000 },
+            { key: 'lamStart', default: 400, positive: true },
+            { key: 'lamEnd',   default: 700, positive: true },
         ],
         // Paired R+T forces absorption to be penalized: a stack with R≈0 but T≪1
         // (i.e. absorbing) cannot satisfy both operands simultaneously.
@@ -130,14 +130,14 @@ export const FILTER_TYPES = {
     },
     V_COAT: {
         category: 'AR',
-        fields: [{ key: 'lam0', default: 550, min: 100, max: 3000 }],
+        fields: [{ key: 'lam0', default: 550, positive: true }],
         generate: (p, common) => singleRT({ lam: p.lam0, rTarget: 0.0, tTarget: 1.0, common }),
     },
     DUAL_AR: {
         category: 'AR',
         fields: [
-            { key: 'lam1', default: 450, min: 100, max: 3000 },
-            { key: 'lam2', default: 650, min: 100, max: 3000 },
+            { key: 'lam1', default: 450, positive: true },
+            { key: 'lam2', default: 650, positive: true },
         ],
         generate: (p, common) => [
             ...singleRT({ lam: p.lam1, rTarget: 0.0, tTarget: 1.0, common }),
@@ -147,9 +147,9 @@ export const FILTER_TYPES = {
     TRIPLE_AR: {
         category: 'AR',
         fields: [
-            { key: 'lam1', default: 450, min: 100, max: 3000 },
-            { key: 'lam2', default: 550, min: 100, max: 3000 },
-            { key: 'lam3', default: 650, min: 100, max: 3000 },
+            { key: 'lam1', default: 450, positive: true },
+            { key: 'lam2', default: 550, positive: true },
+            { key: 'lam3', default: 650, positive: true },
         ],
         generate: (p, common) => [
             ...singleRT({ lam: p.lam1, rTarget: 0.0, tTarget: 1.0, common }),
@@ -164,21 +164,21 @@ export const FILTER_TYPES = {
         category: 'HR',
         supportsTargetMode: true,
         fields: [
-            { key: 'lamStart', default: 400, min: 100, max: 3000 },
-            { key: 'lamEnd',   default: 700, min: 100, max: 3000 },
+            { key: 'lamStart', default: 400, positive: true },
+            { key: 'lamEnd',   default: 700, positive: true },
         ],
         generate: (p, common) => rangeRT({ lamStart: p.lamStart, lamEnd: p.lamEnd, rTarget: 1.0, tTarget: 0.0, rWeight: 1.0, tWeight: 0.5, common }),
     },
     SINGLE_HR: {
         category: 'HR',
-        fields: [{ key: 'lam0', default: 550, min: 100, max: 3000 }],
+        fields: [{ key: 'lam0', default: 550, positive: true }],
         generate: (p, common) => singleRT({ lam: p.lam0, rTarget: 1.0, tTarget: 0.0, rWeight: 1.0, tWeight: 0.5, common }),
     },
     DUAL_HR: {
         category: 'HR',
         fields: [
-            { key: 'lam1', default: 450, min: 100, max: 3000 },
-            { key: 'lam2', default: 650, min: 100, max: 3000 },
+            { key: 'lam1', default: 450, positive: true },
+            { key: 'lam2', default: 650, positive: true },
         ],
         generate: (p, common) => [
             ...singleRT({ lam: p.lam1, rTarget: 1.0, tTarget: 0.0, rWeight: 1.0, tWeight: 0.5, common }),
@@ -188,9 +188,9 @@ export const FILTER_TYPES = {
     TRIPLE_HR: {
         category: 'HR',
         fields: [
-            { key: 'lam1', default: 450, min: 100, max: 3000 },
-            { key: 'lam2', default: 550, min: 100, max: 3000 },
-            { key: 'lam3', default: 650, min: 100, max: 3000 },
+            { key: 'lam1', default: 450, positive: true },
+            { key: 'lam2', default: 550, positive: true },
+            { key: 'lam3', default: 650, positive: true },
         ],
         generate: (p, common) => [
             ...singleRT({ lam: p.lam1, rTarget: 1.0, tTarget: 0.0, rWeight: 1.0, tWeight: 0.5, common }),
@@ -207,8 +207,8 @@ export const FILTER_TYPES = {
         category: 'BS',
         supportsTargetMode: true,
         fields: [
-            { key: 'lamStart', default: 400, min: 100, max: 3000 },
-            { key: 'lamEnd',   default: 700, min: 100, max: 3000 },
+            { key: 'lamStart', default: 400, positive: true },
+            { key: 'lamEnd',   default: 700, positive: true },
             { key: 'rPct',     default: 50,  min: 0,   max: 100, step: 1 },
         ],
         // 50/50 (or user R%) on the chosen polarization (avg/s/p). R + paired T.
@@ -235,8 +235,8 @@ export const FILTER_TYPES = {
         // a balanced 50/50). T targets are auto-set to the complement (paired) so
         // the optimizer can't satisfy R by absorbing.
         fields: [
-            { key: 'lamStart', default: 400, min: 100, max: 3000 },
-            { key: 'lamEnd',   default: 700, min: 100, max: 3000 },
+            { key: 'lamStart', default: 400, positive: true },
+            { key: 'lamEnd',   default: 700, positive: true },
             { key: 'rsPct',    default: 50,  min: 0,   max: 100, step: 1 },
             { key: 'rpPct',    default: 50,  min: 0,   max: 100, step: 1 },
         ],
@@ -264,10 +264,10 @@ export const FILTER_TYPES = {
         category: 'EDGE',
         supportsTargetMode: true,
         fields: [
-            { key: 'stopStart', default: 400, min: 100, max: 3000 },
-            { key: 'stopEnd',   default: 600, min: 100, max: 3000 },
-            { key: 'passStart', default: 700, min: 100, max: 3000 },
-            { key: 'passEnd',   default: 1000, min: 100, max: 3000 },
+            { key: 'stopStart', default: 400, positive: true },
+            { key: 'stopEnd',   default: 600, positive: true },
+            { key: 'passStart', default: 700, positive: true },
+            { key: 'passEnd',   default: 1000, positive: true },
         ],
         generate: (p, common) => [
             ...rangeRT({ lamStart: p.stopStart, lamEnd: p.stopEnd, rTarget: 1.0, tTarget: 0.0, common }),
@@ -278,10 +278,10 @@ export const FILTER_TYPES = {
         category: 'EDGE',
         supportsTargetMode: true,
         fields: [
-            { key: 'passStart', default: 400, min: 100, max: 3000 },
-            { key: 'passEnd',   default: 600, min: 100, max: 3000 },
-            { key: 'stopStart', default: 700, min: 100, max: 3000 },
-            { key: 'stopEnd',   default: 1000, min: 100, max: 3000 },
+            { key: 'passStart', default: 400, positive: true },
+            { key: 'passEnd',   default: 600, positive: true },
+            { key: 'stopStart', default: 700, positive: true },
+            { key: 'stopEnd',   default: 1000, positive: true },
         ],
         generate: (p, common) => [
             ...rangeRT({ lamStart: p.passStart, lamEnd: p.passEnd, rTarget: 0.0, tTarget: 1.0, common }),
@@ -294,12 +294,12 @@ export const FILTER_TYPES = {
         category: 'BAND',
         supportsTargetMode: true,
         fields: [
-            { key: 'lowStopStart',  default: 300, min: 100, max: 3000 },
-            { key: 'lowStopEnd',    default: 450, min: 100, max: 3000 },
-            { key: 'passStart',     default: 500, min: 100, max: 3000 },
-            { key: 'passEnd',       default: 600, min: 100, max: 3000 },
-            { key: 'highStopStart', default: 650, min: 100, max: 3000 },
-            { key: 'highStopEnd',   default: 1000, min: 100, max: 3000 },
+            { key: 'lowStopStart',  default: 300, positive: true },
+            { key: 'lowStopEnd',    default: 450, positive: true },
+            { key: 'passStart',     default: 500, positive: true },
+            { key: 'passEnd',       default: 600, positive: true },
+            { key: 'highStopStart', default: 650, positive: true },
+            { key: 'highStopEnd',   default: 1000, positive: true },
         ],
         generate: (p, common) => [
             ...rangeRT({ lamStart: p.lowStopStart,  lamEnd: p.lowStopEnd,  rTarget: 1.0, tTarget: 0.0, common }),
@@ -311,12 +311,12 @@ export const FILTER_TYPES = {
         category: 'BAND',
         supportsTargetMode: true,
         fields: [
-            { key: 'lowPassStart',  default: 300, min: 100, max: 3000 },
-            { key: 'lowPassEnd',    default: 450, min: 100, max: 3000 },
-            { key: 'stopStart',     default: 500, min: 100, max: 3000 },
-            { key: 'stopEnd',       default: 600, min: 100, max: 3000 },
-            { key: 'highPassStart', default: 650, min: 100, max: 3000 },
-            { key: 'highPassEnd',   default: 1000, min: 100, max: 3000 },
+            { key: 'lowPassStart',  default: 300, positive: true },
+            { key: 'lowPassEnd',    default: 450, positive: true },
+            { key: 'stopStart',     default: 500, positive: true },
+            { key: 'stopEnd',       default: 600, positive: true },
+            { key: 'highPassStart', default: 650, positive: true },
+            { key: 'highPassEnd',   default: 1000, positive: true },
         ],
         generate: (p, common) => [
             ...rangeRT({ lamStart: p.lowPassStart,  lamEnd: p.lowPassEnd,  rTarget: 0.0, tTarget: 1.0, common }),
@@ -337,8 +337,8 @@ export const FILTER_TYPES = {
     VIS_AR: {
         category: 'INTEGRAL',
         fields: [
-            { key: 'lamStart', default: 380, min: 100, max: 3000 },
-            { key: 'lamEnd',   default: 780, min: 100, max: 3000 },
+            { key: 'lamStart', default: 380, positive: true },
+            { key: 'lamEnd',   default: 780, positive: true },
         ],
         generate: (p, common) => {
             const ops = [];
@@ -362,8 +362,8 @@ export const FILTER_TYPES = {
     SOLAR_BLOCK: {
         category: 'INTEGRAL',
         fields: [
-            { key: 'lamStart', default: 300, min: 100, max: 4000 },
-            { key: 'lamEnd',   default: 2500, min: 100, max: 4000 },
+            { key: 'lamStart', default: 300, positive: true },
+            { key: 'lamEnd',   default: 2500, positive: true },
             { key: 'tStart',   default: 0.0,  min: 0, max: 1, step: 0.01 },  // reused as target T̄
         ],
         generate: (p, common) => {
@@ -383,8 +383,8 @@ export const FILTER_TYPES = {
     SOLAR_PASS: {
         category: 'INTEGRAL',
         fields: [
-            { key: 'lamStart', default: 300, min: 100, max: 4000 },
-            { key: 'lamEnd',   default: 2500, min: 100, max: 4000 },
+            { key: 'lamStart', default: 300, positive: true },
+            { key: 'lamEnd',   default: 2500, positive: true },
             { key: 'tStart',   default: 1.0,  min: 0, max: 1, step: 0.01 },
         ],
         generate: (p, common) => {
@@ -405,8 +405,8 @@ export const FILTER_TYPES = {
     WORST_T_MIN: {
         category: 'INTEGRAL',
         fields: [
-            { key: 'lamStart', default: 400, min: 100, max: 3000 },
-            { key: 'lamEnd',   default: 700, min: 100, max: 3000 },
+            { key: 'lamStart', default: 400, positive: true },
+            { key: 'lamEnd',   default: 700, positive: true },
             { key: 'tStart',   default: 0.99, min: 0, max: 1, step: 0.001 }, // reused as target floor
         ],
         generate: (p, common) => {
@@ -427,8 +427,8 @@ export const FILTER_TYPES = {
     WORST_R_MAX: {
         category: 'INTEGRAL',
         fields: [
-            { key: 'lamStart', default: 400, min: 100, max: 3000 },
-            { key: 'lamEnd',   default: 700, min: 100, max: 3000 },
+            { key: 'lamStart', default: 400, positive: true },
+            { key: 'lamEnd',   default: 700, positive: true },
             { key: 'tStart',   default: 0.01, min: 0, max: 1, step: 0.001 }, // reused as target ceiling
         ],
         generate: (p, common) => {
@@ -453,8 +453,8 @@ export const FILTER_TYPES = {
         category: 'GRAD',
         supportsTargetMode: true,
         fields: [
-            { key: 'lamStart', default: 400, min: 100, max: 3000 },
-            { key: 'lamEnd',   default: 700, min: 100, max: 3000 },
+            { key: 'lamStart', default: 400, positive: true },
+            { key: 'lamEnd',   default: 700, positive: true },
             { key: 'tStart',   default: 0.0, min: 0, max: 1, step: 0.01 },
             { key: 'tEnd',     default: 1.0, min: 0, max: 1, step: 0.01 },
         ],
@@ -492,8 +492,8 @@ export const FILTER_TYPES = {
             { key: 'cmp', kind: 'select', default: 'eq',
               options: [{ value: 'eq', label: '=' }, { value: 'le', label: '≤' }, { value: 'ge', label: '≥' }] },
             { key: 'valuePct', default: 80, min: 0, max: 100, step: 1 },
-            { key: 'lamStart', default: 400, min: 100, max: 3000 },
-            { key: 'lamEnd',   default: 700, min: 100, max: 3000 },
+            { key: 'lamStart', default: 400, positive: true },
+            { key: 'lamEnd',   default: 700, positive: true },
         ],
         generate: (p, common) => {
             const channel = (p.channel === 'R' || p.channel === 'A') ? p.channel : 'T';

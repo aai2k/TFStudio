@@ -77,18 +77,18 @@ function EllipsometrySetup({ c, t, text, state }) {
                     h(RangeField, {
                         c, unit: 'nm',
                         from: {
-                            value: state.lambdaStart, min: 100, max: 30000, step: 10,
+                            value: state.lambdaStart, positive: true, step: 10,
                             onChange: state.setLambdaStart,
                         },
                         to: {
-                            value: state.lambdaEnd, min: 100, max: 30000, step: 10,
+                            value: state.lambdaEnd, positive: true, step: 10,
                             onChange: state.setLambdaEnd,
                         },
                     }),
                 ),
                 h(SettingRow, { c, label: text.lamStep },
                     h(NumInput, {
-                        value: state.lambdaStep, min: 0.1, max: 1000, step: 1, c, width: 60,
+                        value: state.lambdaStep, positive: true, step: 1, c, width: 60,
                         onChange: state.setLambdaStep,
                     }),
                 ),
@@ -121,7 +121,7 @@ function EllipsometrySetup({ c, t, text, state }) {
                 ),
                 h(SettingRow, { c, label: text.wavelength },
                     h(NumInput, {
-                        value: state.lambdaNm, min: 100, max: 30000, step: 10, c, width: 72,
+                        value: state.lambdaNm, positive: true, step: 10, c, width: 72,
                         onChange: state.setLambdaNm,
                     }),
                 ),

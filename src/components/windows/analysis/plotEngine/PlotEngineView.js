@@ -8,7 +8,7 @@ import { SurfacePanel } from './SurfacePanel.js';
 import { MultiCurveChart, SurfaceChart } from './charts.js';
 import { curveColumns, curveRows, surfaceColumns, surfaceRows } from './resultTable.js';
 
-const { createElement: h } = React;
+const { createElement: h, useMemo } = React;
 
 /** The curves drawn in 2D mode, each with the quantity and axis it plots. */
 function CurveList({ curvePlot, c, t, pe }) {
@@ -48,23 +48,17 @@ function SurfaceSettings({ surfacePlot, design, c, t, pe }) {
     );
 }
 
-function resultTable({ is2D, curvePlot, surfacePlot, t }) {
-    if (is2D) {
-        return {
-            columns: curveColumns(t),
-            rows: curveRows(curvePlot.curves, curvePlot.results),
-        };
-    }
-    return {
-        columns: surfaceColumns(t, surfacePlot.surfaceResult),
-        rows: surfaceRows(surfacePlot.surfaceResult),
-    };
-}
-
 export function PlotEngineView({ curvePlot, surfacePlot, design, c, t, pe, notices }) {
     const dt = t.dataTable;
     const is2D = surfacePlot.plotMode === '2d';
-    const { columns, rows } = resultTable({ is2D, curvePlot, surfacePlot, t });
+    const { curves, results } = curvePlot;
+    const { surfaceResult } = surfacePlot;
+    // A range and step set no bound on the points, so the rows are built once
+    // per result rather than on every render.
+    const rows = useMemo(
+        () => (is2D ? curveRows(curves, results) : surfaceRows(surfaceResult)),
+        [is2D, curves, results, surfaceResult]);
+    const columns = is2D ? curveColumns(t) : surfaceColumns(t, surfaceResult);
     const csv = useCsvExport(
         () => csvFromRows(columns, rows),
         () => `${(design?.name || 'design').replace(/[^\w.-]+/g, '_')}_plot.csv`,

@@ -31,8 +31,9 @@ export const ColorRow = ({ c, label, value, onChange }) =>
 
 // Commits on blur or Enter, never while the field is being typed into: a field
 // that rewrites itself on every keystroke cannot be cleared and retyped, and a
-// half-typed number is not the number meant. Out-of-range entries are clamped,
-// unparseable ones revert. `tfs-number` hides the native spinner.
+// half-typed number is not the number meant. Out-of-range entries are clamped;
+// unparseable ones revert, as does zero or less for a `positive` spec.
+// `tfs-number` hides the native spinner.
 export const NumberRow = ({ c, label, value, spec, onChange }) => {
   const { useState, useEffect } = React;
   const [raw, setRaw] = useState(String(value));
@@ -40,7 +41,7 @@ export const NumberRow = ({ c, label, value, spec, onChange }) => {
 
   const commit = () => {
     const parsed = parseFloat(raw);
-    if (!Number.isFinite(parsed)) {
+    if (!Number.isFinite(parsed) || (spec.positive && parsed <= 0)) {
       setRaw(String(value));
       return;
     }

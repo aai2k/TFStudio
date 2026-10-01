@@ -2,7 +2,8 @@ import { createPchipInterpolator } from '../../materials/pchip.js';
 import { measuredCurveData } from './measuredCurve.js';
 
 export const MEASURED_GRID_MODES = ['measured', 'thinned', 'uniform'];
-export const MAX_MEASURED_TARGET_POINTS = 20000;
+// The longest array JavaScript can make.
+const MAX_ARRAY_LENGTH = 2 ** 32 - 1;
 
 /** Median positive spacing of a normalized measured curve, in nm. */
 export function measuredCurveSpacing(curve) {
@@ -59,13 +60,14 @@ function thinPairs(pairs, every) {
 
 // Returns { pairs } or, for a step that cannot produce a usable grid,
 // { error }. A rejected step is something the user typed, so it is reported
-// through the dialog rather than raised: the caller runs during render.
+// through the dialog rather than raised: the caller runs during render. A step
+// so fine that no array can hold its grid is one of those.
 function uniformPairs(data, min, max, step) {
     const spacing = Number(step);
     if (!Number.isFinite(spacing) || spacing <= 0) return { error: 'step' };
     if (!(max >= min)) return { pairs: [] };
     const count = Math.floor((max - min) / spacing + 1e-10) + 1;
-    if (count > MAX_MEASURED_TARGET_POINTS) return { error: 'points' };
+    if (!(count <= MAX_ARRAY_LENGTH)) return { error: 'step' };
     const interpolate = createPchipInterpolator(data.x.map((x, index) => [x, data.y[index]]));
     if (!interpolate) return { pairs: [] };
     const pairs = new Array(Math.max(1, count));
@@ -86,7 +88,6 @@ export function sampleMeasuredCurve(curve, options = {}) {
     if (!data.x.length) {
         return {
             lambdas: [], targets: [], sourceCount: 0, spacingNm: null, error: null,
-            maxPoints: MAX_MEASURED_TARGET_POINTS,
             range: null, requestedRange: null, clipped: false, stepTooFine: false,
         };
     }
@@ -96,7 +97,6 @@ export function sampleMeasuredCurve(curve, options = {}) {
         return {
             lambdas: [], targets: [], sourceCount: data.x.length,
             spacingNm: measuredCurveSpacing(curve), range: null, error: null,
-            maxPoints: MAX_MEASURED_TARGET_POINTS,
             requestedRange: bounds.requested, clipped: true, stepTooFine: false,
         };
     }
@@ -117,7 +117,6 @@ export function sampleMeasuredCurve(curve, options = {}) {
         sourceCount: data.x.length,
         spacingNm,
         error,
-        maxPoints: MAX_MEASURED_TARGET_POINTS,
         range: pairs.length ? [pairs[0][0], pairs[pairs.length - 1][0]] : null,
         requestedRange: bounds.requested,
         clipped: bounds.clipped,

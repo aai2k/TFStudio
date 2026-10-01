@@ -40,9 +40,11 @@ export function Seg({ active, onClick, c, position, children }) {
     }, children);
 }
 
-function commitNumber({ raw, min, max, value, onChange, setRaw }) {
+// `positive` is for a quantity with no bound but zero, such as a wavelength:
+// zero or a negative entry reverts like unparseable text.
+function commitNumber({ raw, min, max, positive, value, onChange, setRaw }) {
     const parsed = parseFloat(raw);
-    if (!isNaN(parsed)) {
+    if (!isNaN(parsed) && (!positive || parsed > 0)) {
         const clamped = Math.min(Math.max(parsed, min ?? -Infinity), max ?? Infinity);
         onChange(clamped);
         setRaw(String(clamped));
@@ -51,10 +53,10 @@ function commitNumber({ raw, min, max, value, onChange, setRaw }) {
     }
 }
 
-export function Num({ value, onChange, min, max, step = 1, c, width = 72 }) {
+export function Num({ value, onChange, min, max, positive, step = 1, c, width = 72 }) {
     const [raw, setRaw] = useState(String(value));
     React.useEffect(() => { setRaw(String(value)); }, [value]);
-    const commit = () => commitNumber({ raw, min, max, value, onChange, setRaw });
+    const commit = () => commitNumber({ raw, min, max, positive, value, onChange, setRaw });
     return h('input', {
         type: 'number', value: raw, min, max, step,
         onChange: (event) => setRaw(event.target.value), onBlur: commit,

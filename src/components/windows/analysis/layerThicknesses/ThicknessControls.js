@@ -41,7 +41,7 @@ function ThicknessSetup({ c, t, lt, state }) {
     },
         h(SettingRow, { c, label: lt.wavelength },
             h(NumInput, {
-                value: state.lambda, min: 100, max: 10000, step: 10, c, width: 72,
+                value: state.lambda, positive: true, step: 10, c, width: 72,
                 onChange: state.setLambda,
             }),
         ),

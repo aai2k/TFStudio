@@ -58,18 +58,18 @@ function RoughnessSetup({ c, t, rs, state }) {
             h(RangeField, {
                 c, unit: 'nm',
                 from: {
-                    value: state.lambdaStart, min: 100, max: 30000, step: 10,
+                    value: state.lambdaStart, positive: true, step: 10,
                     onChange: state.setLambdaStart,
                 },
                 to: {
-                    value: state.lambdaEnd, min: 100, max: 30000, step: 10,
+                    value: state.lambdaEnd, positive: true, step: 10,
                     onChange: state.setLambdaEnd,
                 },
             }),
         ),
         h(SettingRow, { c, label: rs.step },
             h(NumInput, {
-                value: state.lambdaStep, min: 0.1, max: 1000, step: 1, c, width: 60,
+                value: state.lambdaStep, positive: true, step: 1, c, width: 60,
                 onChange: state.setLambdaStep,
             }),
         ),

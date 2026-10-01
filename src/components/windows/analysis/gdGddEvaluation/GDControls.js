@@ -122,11 +122,11 @@ function GDSetup({ c, t, text, state, raw, autoRange }) {
             h(RangeField, {
                 c, unit: 'nm',
                 from: {
-                    value: state.lamStart, min: 100, max: 30000, step: 10,
+                    value: state.lamStart, positive: true, step: 10,
                     onChange: state.setLamStart,
                 },
                 to: {
-                    value: state.lamEnd, min: 100, max: 30000, step: 10,
+                    value: state.lamEnd, positive: true, step: 10,
                     onChange: state.setLamEnd,
                 },
             }),
@@ -138,7 +138,7 @@ function GDSetup({ c, t, text, state, raw, autoRange }) {
                 onChange: event => state.setShowRef(event.target.checked),
             }),
             h(NumInput, {
-                value: state.refLam, min: 100, max: 30000, step: 1, c, width: 64,
+                value: state.refLam, positive: true, step: 1, c, width: 64,
                 onChange: state.setRefLam,
             }),
         ),

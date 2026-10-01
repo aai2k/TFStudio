@@ -6,7 +6,7 @@
  * dropped: a settings file written by a newer version, or hand-edited, must not
  * be able to push an unknown key or a malformed value into a plot.
  */
-import { ANALYSIS_DEFAULTS } from '../constants/analysisDefaults.js';
+import { ANALYSIS_DEFAULTS, numberAllowed } from '../constants/analysisDefaults.js';
 
 const HEX_COLOR = /^#[0-9a-fA-F]{6}$/;
 
@@ -26,9 +26,7 @@ function resolveNumbers(defaults, stored) {
   const out = {};
   for (const [key, spec] of Object.entries(defaults)) {
     const value = stored?.[key];
-    const usable = typeof value === 'number' && Number.isFinite(value)
-      && value >= spec.min && value <= spec.max;
-    out[key] = usable ? value : spec.def;
+    out[key] = numberAllowed(spec, value) ? value : spec.def;
   }
   return out;
 }

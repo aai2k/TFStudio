@@ -14,15 +14,18 @@ const rowStyle = { display: 'flex', alignItems: 'center', gap: '12px', padding: 
 
 const STEP_DECIMALS = { nm: 2, um: 4, cm1: 0, THz: 2, eV: 4 };
 
+// The unit's own decimals, or more for a small value so it keeps three
+// significant figures: 0.3 nm is not shown as 0.
 function displayValue(nm, unit) {
-    const decimals = SPECTRAL_UNITS[unit]?.decimals ?? 0;
-    return Number(fromNm(nm, unit).toFixed(decimals));
+    const value = fromNm(nm, unit);
+    const decimals = Math.max(SPECTRAL_UNITS[unit]?.decimals ?? 0, 2 - Math.floor(Math.log10(Math.abs(value))));
+    return Number(value.toFixed(Math.min(100, decimals)));
 }
 
 // Commits on blur or Enter. Committing per keystroke is worse here than
-// anywhere else: the two ends are written as a pair and clamped to the window's
-// bounds, so a half-typed 9 on its way to 900 would be taken as 9, clamped, and
-// swapped with the other end before the next digit arrived.
+// anywhere else: the two ends are written as a pair, so a half-typed 9 on its
+// way to 900 would be taken as 9 and swapped with the other end before the
+// next digit arrived. Zero or less reverts, like unparseable text.
 function ValueRow({ c, label, value, step, onCommit }) {
     const { useState, useEffect } = React;
     const [raw, setRaw] = useState(String(value));
@@ -31,7 +34,7 @@ function ValueRow({ c, label, value, step, onCommit }) {
     const commit = () => {
         const parsed = parseFloat(raw);
         // The prop is recomputed from what the commit stored, so reverting to it
-        // here shows the accepted value whether or not the entry was clamped.
+        // here shows the accepted value.
         setRaw(String(value));
         if (Number.isFinite(parsed) && parsed > 0) onCommit(parsed);
     };
@@ -50,8 +53,8 @@ function ValueRow({ c, label, value, step, onCommit }) {
         }));
 }
 
-// `registry` is the owning window's entry, so the bounds are the ones that
-// window declares rather than a set shared by every window.
+// `registry` is the owning window's entry, so the arrow-key steps are the ones
+// that window declares rather than a set shared by every window.
 export const SpectralRangeRows = ({ registry, resolved, onChange, c, t }) => {
     const unit = resolved.enums.spectralUnit;
     const meta = SPECTRAL_UNITS[unit] || SPECTRAL_UNITS.nm;
@@ -59,22 +62,18 @@ export const SpectralRangeRows = ({ registry, resolved, onChange, c, t }) => {
     const spec = registry.numbers;
 
     // Write both ends together so a reciprocal unit cannot leave start > end.
+    // Rounded to twelve significant figures, which drops float residue from the
+    // unit conversion and keeps a wavelength of any size.
     const commitEdge = (edge) => (entered) => {
         const asNm = toNm(entered, unit);
         const other = edge === 'start' ? lambdaEnd : lambdaStart;
-        const low = Math.min(asNm, other);
-        const high = Math.max(asNm, other);
-        const clamp = (v, s) => Math.min(Math.max(v, s.min), s.max);
-        onChange('numbers', 'lambdaStart', Number(clamp(low, spec.lambdaStart).toFixed(4)));
-        onChange('numbers', 'lambdaEnd', Number(clamp(high, spec.lambdaEnd).toFixed(4)));
+        onChange('numbers', 'lambdaStart', Number(Math.min(asNm, other).toPrecision(12)));
+        onChange('numbers', 'lambdaEnd', Number(Math.max(asNm, other).toPrecision(12)));
     };
 
     // The step is an interval, not a position, so it is a difference in nm and
     // has no meaningful reciprocal-unit form. It stays in nm and says so.
-    const commitStep = (entered) => {
-        const clamped = Math.min(Math.max(entered, spec.lambdaStep.min), spec.lambdaStep.max);
-        onChange('numbers', 'lambdaStep', clamped);
-    };
+    const commitStep = (entered) => onChange('numbers', 'lambdaStep', entered);
 
     const decimals = STEP_DECIMALS[unit] ?? 2;
     const edgeStep = Math.pow(10, -decimals) * 10;

@@ -1,6 +1,7 @@
 import { getRegistry, peekRegistry } from './state.js';
 import { persistCatalog } from './persistence.js';
 import { hasTabulatedComponent, interpolationRuleOf, TABULATED_INTERPOLATION } from '../pchip.js';
+import { builtinMaterialRows } from './builtinCatalog.js';
 
 /** Create a new empty user-defined catalog with a unique generated ID. */
 export function createUserCatalog(name) {
@@ -57,7 +58,7 @@ export function saveUserMaterial(catalogId, mat) {
 /**
  * Convert any catalog material into a self-contained, serializable form
  * suitable for storing in a USER catalog:
- *   • builtin function materials (formulaNum === 0) are sampled into a tabular
+ *   • builtin function materials (formulaNum === 0) become a tabular
  *     [λ_nm, n, k] table (the getNK function can't be persisted to JSON);
  *   • tabular / formula materials are copied as-is (minus the cached getNK).
  */
@@ -65,20 +66,11 @@ function materialToUserCopy(mat) {
     // eslint-disable-next-line no-unused-vars
     const { getNK, ...rest } = mat;
     if (mat.formulaNum === 0 && typeof getNK === 'function') {
-        const smin = Math.max(100, Math.round((mat.lambdaMin || 0.2) * 1000));
-        const smax = Math.min(25000, Math.round((mat.lambdaMax || 2.5) * 1000));
-        const N = 200;
-        const tabData = [];
-        for (let i = 0; i < N; i++) {
-            const lam = Math.round(smin + (i / (N - 1)) * (smax - smin));
-            try { const [n, k] = getNK(lam); if (isFinite(n)) tabData.push([lam, +n, +(k || 0)]); }
-            catch (_) { /* skip bad points */ }
-        }
         return {
             ...rest,
             formulaNum: -1,
             interp: TABULATED_INTERPOLATION,
-            tabData,
+            tabData: builtinMaterialRows(mat),
             coefficients: [],
             kTable: [],
             group: 'User',

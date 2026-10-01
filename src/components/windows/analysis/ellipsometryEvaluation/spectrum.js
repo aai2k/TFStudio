@@ -1,5 +1,5 @@
 import {
-    evaluateEllipsometryAngles, evaluateEllipsometrySpectrum, toDeltaConvention,
+    buildLambdaGrid, evaluateEllipsometryAngles, evaluateEllipsometrySpectrum, toDeltaConvention,
 } from '../../../../utils/physics/thinFilmMath.js';
 import { designMaterialLookup } from '../../../../utils/materials/designMaterials.js';
 import { nkAt, sideLayersAt, sideMedia, sideStack } from './model.js';
@@ -10,10 +10,7 @@ export function computeSpectral(design, options) {
     const resolveMaterial = designMaterialLookup(design);
     const n0mat = resolveMaterial(n0Id);
     const nsmat = resolveMaterial(nsId);
-    const x = [];
-    for (let lam = lambdaStart; lam <= lambdaEnd + 1e-9; lam += lambdaStep) {
-        x.push(Math.round(lam * 1000) / 1000);
-    }
+    const x = buildLambdaGrid(lambdaStart, lambdaEnd, lambdaStep);
     const stack = sideStack(resolveMaterial, design, side);
     const { psi, delta } = evaluateEllipsometrySpectrum(
         x, thetaDeg,
@@ -45,12 +42,11 @@ export function computeAngular(design, options) {
 export function computeEllipsometrySweep(design, options) {
     let raw;
     if (options.mode === 'spectral') {
-        const step = Math.max(1, Math.min(options.lambdaStep, Math.abs(options.lambdaEnd - options.lambdaStart) || 1));
         raw = computeSpectral(design, {
             side: options.side,
             lambdaStart: Math.min(options.lambdaStart, options.lambdaEnd),
             lambdaEnd: Math.max(options.lambdaStart, options.lambdaEnd),
-            lambdaStep: step,
+            lambdaStep: options.lambdaStep,
             thetaDeg: options.thetaDeg,
         });
     } else {

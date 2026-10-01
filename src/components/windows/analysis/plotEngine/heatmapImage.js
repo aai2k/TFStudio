@@ -99,25 +99,57 @@ export function heatmapPixels(result, colors, { extent, scale = 1, range = null,
 // cannot see into one. Without it a new image reads as no change at all.
 let imageSeq = 0;
 
+// The largest canvas Chromium draws: 32,767 px a side and 268,435,456 px in all.
+const CANVAS_SIDE = 32767;
+const CANVAS_AREA = 268435456;
+
+/**
+ * Every how many cells a column and a row of the image are taken from, so the
+ * image fits a canvas. 1 and 1 for any grid that fits. A grid past that is
+ * drawn from every k-th cell, which a chart a few thousand pixels across cannot
+ * tell from all of them; the grid itself is untouched.
+ */
+export function heatmapCellStrides(columns, rows) {
+    let sx = Math.ceil(columns / CANVAS_SIDE);
+    let sy = Math.ceil(rows / CANVAS_SIDE);
+    while (Math.ceil(columns / sx) * Math.ceil(rows / sy) > CANVAS_AREA) {
+        if (Math.ceil(columns / sx) >= Math.ceil(rows / sy)) sx++;
+        else sy++;
+    }
+    return [sx, sy];
+}
+
+// By position, so a row the sweep left empty stays empty in its place.
+const everyNth = (values, stride) => (stride === 1 ? values
+    : Array.from({ length: Math.ceil(values.length / stride) }, (_, i) => values[i * stride]));
+
 export function rasteriseHeatmap(result, colors, extent, scale = 1, range = null) {
     if (!result?.ok || !result.x?.length || !result.y?.length) return null;
-    const width = result.x.length;
-    const height = result.y.length;
+    const [sx, sy] = heatmapCellStrides(result.x.length, result.y.length);
+    const shown = sx === 1 && sy === 1 ? result : {
+        ...result,
+        x: everyNth(result.x, sx),
+        y: everyNth(result.y, sy),
+        z: everyNth(result.z, sy).map(row => (row ? everyNth(row, sx) : row)),
+    };
+    const width = shown.x.length;
+    const height = shown.y.length;
 
     let context;
     let canvas;
+    let image;
     try {
         canvas = document.createElement('canvas');
         canvas.width = width;
         canvas.height = height;
         context = canvas.getContext('2d');
+        if (!context || typeof context.createImageData !== 'function') return null;
+        image = context.createImageData(width, height);
     } catch (_) {
         return null;
     }
-    if (!context || typeof context.createImageData !== 'function') return null;
 
-    const image = context.createImageData(width, height);
-    heatmapPixels(result, colors, { extent, scale, range, into: image.data });
+    heatmapPixels(shown, colors, { extent, scale, range, into: image.data });
     context.putImageData(image, 0, 0);
     canvas.imageId = ++imageSeq;
     return canvas;

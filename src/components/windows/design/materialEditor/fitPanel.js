@@ -15,7 +15,7 @@ import { anchoredFitRange, photonEnergyDecades, WIDE_BAND_DECADES } from '../../
 import { makeGetNK } from '../../../../utils/materials/catalogManager/dispersion.js';
 import { dispersionFitEdges } from '../../../../utils/materials/materialDispersion.js';
 import {
-    draftToMaterial, effectiveFitModel, fitModelsForRows, fitRangeNm, fitRows, tableRangeNm,
+    draftToMaterial, effectiveFitModel, fitModelsForRows, fitRangeNm, fitRows, fitWavelengths, tableRangeNm,
 } from './materialDraft.js';
 import { smallBtn } from './materialEditorUI.js';
 
@@ -82,7 +82,7 @@ export function fitActions({ draft, onChange, workingNm, suggestion, setFitError
             });
         },
         onSuggest: () => {
-            const range = anchoredFitRange(fitRows(draft).map(row => row[0]), workingNm);
+            const range = anchoredFitRange(fitWavelengths(draft), workingNm);
             if (!range) return;
             fitOver(range, fit => setSuggestion({
                 rangeNm: range, fit, rows: draft.rows, model: effectiveFitModel(draft),
@@ -207,7 +207,7 @@ function renderFitDiagnostics(fit, me) {
 // The band the design is evaluated over, where the table reaches that far and
 // it covers less photon energy than the band being fitted.
 function narrowerBand(draft, workingNm, band) {
-    const anchored = workingNm && anchoredFitRange(fitRows(draft).map(row => row[0]), workingNm);
+    const anchored = workingNm && anchoredFitRange(fitWavelengths(draft), workingNm);
     return anchored && photonEnergyDecades(anchored) < photonEnergyDecades(band) ? anchored : null;
 }
 

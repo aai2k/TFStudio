@@ -15,7 +15,7 @@ function Header(props) {
             fileName ? h('span', { style: { fontSize: 11, color: c.textDim } }, z.loadedFile(fileName)) : null,
             h('div', { style: { flex: 1 } }),
             h(Label, { c }, z.refWavelength),
-            h(Num, { value: refNm, onChange: setRefNm, min: 100, max: 30000, step: 10, c, width: 70 }),
+            h(Num, { value: refNm, onChange: setRefNm, positive: true, step: 10, c, width: 70 }),
         ),
     );
 }

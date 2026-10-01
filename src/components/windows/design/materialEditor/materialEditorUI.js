@@ -100,10 +100,12 @@ export function statusBadge(status, t) {
     }, t.materialEditor.status(status));
 }
 
+// The value keeps its line breaks: a refractiveindex.info comment puts the
+// page's note and its reference on separate lines.
 export function propRow(label, value, c) {
     return [
         h('span', { key: label + 'L', style: { color: c.textDim, whiteSpace: 'nowrap', paddingBottom: 2 } }, label),
-        h('span', { key: label + 'V', style: { color: c.text, paddingBottom: 2 } }, value)
+        h('span', { key: label + 'V', style: { color: c.text, paddingBottom: 2, whiteSpace: 'pre-line' } }, value)
     ];
 }
 

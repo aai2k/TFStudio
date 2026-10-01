@@ -120,7 +120,7 @@ export function MeasuredFitDialog({ controller, c, sx }) {
         ),
         fitConfig.mode === 'uniform' && h(DialogRow, { c, label: sx.stepLabel },
             h(NumInput, {
-                c, value: fitConfig.stepNm, min: 0.001, max: 1000, step: 0.1, width: 72,
+                c, value: fitConfig.stepNm, positive: true, step: 0.1, width: 72,
                 onChange: value => setFitOption('stepNm', value),
             }),
             h('span', { style: { color: c.textDim } }, 'nm'),

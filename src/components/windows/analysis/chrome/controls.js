@@ -51,20 +51,25 @@ export function Divider({ c }) {
  * substrate diameter nobody has measured: the field shows `placeholder`, an
  * emptied field commits null rather than reverting, and stepping from nothing
  * starts at `emptyStep`.
+ *
+ * `positive` is for a quantity with no bound but zero, such as a wavelength or
+ * a step: zero or a negative entry reverts like unparseable text, and the
+ * arrow keys stop short of zero.
  */
 const textOf = value => (value == null ? '' : String(value));
 
 export function NumInput({
     value, onChange, min, max, step = 1, c, width = 60, title, disabled,
-    nullable = false, placeholder, emptyStep = 0,
+    nullable = false, placeholder, emptyStep = 0, positive = false,
 }) {
     const [raw, setRaw] = useState(textOf(value));
     useEffect(() => { setRaw(textOf(value)); }, [value]);
     const clamp = number => Math.min(Math.max(number, min ?? -Infinity), max ?? Infinity);
+    const accepts = number => Number.isFinite(number) && (!positive || number > 0);
     const commit = () => {
         if (raw === textOf(value)) return;
         const parsed = parseNumberStrict(raw);
-        if (Number.isFinite(parsed)) onChange(clamp(parsed));
+        if (accepts(parsed)) onChange(clamp(parsed));
         else if (nullable && raw.trim() === '') onChange(null);
         else setRaw(textOf(value));
     };
@@ -77,6 +82,7 @@ export function NumInput({
         const next = from == null
             ? clamp(emptyStep)
             : clamp(Number((from + direction * step).toPrecision(12)));
+        if (!accepts(next)) return;
         setRaw(String(next));
         onChange(next);
     };
