@@ -15,7 +15,7 @@ import { computeOperandDisplay, firstOperandErrorMessage } from './refinementUti
 import { runDlsEvent } from './runners/dlsPool.js';
 import { runMethodsFlow } from './runners/methodsFlow.js';
 
-const { useState, useEffect, useRef, useCallback } = React;
+const { useState, useEffect, useRef, useCallback, useMemo } = React;
 
 // ── Worker-pool teardown ─────────────────────────────────────────────────────
 // Hard-kill the whole optimizer worker pool. terminate() forcibly aborts a
@@ -68,8 +68,31 @@ function clearRefineCacheOf(env) {
     clearRefinement(env.refs.designRef.current?.id);
 }
 
-// Rehydrate Reset/Best/history for the current design id after a remount or a
-// design change.
+// What a run leaves on screen: iterations, end reason, merit trend, best and
+// initial merit, and the layers Best applies. It is kept per design, so a
+// design switch shows that design's own last run, or none, and Best acts on the
+// result of the design on screen.
+const NO_RUN = Object.freeze({
+    iter: 0, stopReason: null, mfHistory: [], mfBest: null, mfInitial: null,
+    omfBest: null, omfInitial: null, lastBest: null,
+});
+
+function showRun(env, designId, run) {
+    const { refs, setters } = env;
+    const shown = run || NO_RUN;
+    setters.setIter(shown.iter);
+    setters.setStopReason(shown.stopReason);
+    setters.setMfHistory(shown.mfHistory);
+    setters.setMfBest(shown.mfBest);
+    setters.setMfInitial(shown.mfInitial);
+    setters.setOmfBest(shown.omfBest);
+    setters.setOmfInitial(shown.omfInitial);
+    refs.lastBestRef.current = shown.lastBest;
+    setters.setRunOwner(designId);
+}
+
+// Rehydrate Reset/Best/history and the last run for the current design id
+// after a remount or a design change.
 function hydrateFromCache(env, designId) {
     const { refs, setters } = env;
     const stored = readRefinement(designId);
@@ -86,6 +109,7 @@ function hydrateFromCache(env, designId) {
         setters.setCanReset(false);
         refs.baselineRef.current = false;
     }
+    showRun(env, designId ?? null, stored?.lastRun);
 }
 
 // Merit-table display evaluation (only when not optimizing).
@@ -257,9 +281,10 @@ function applyMove(env, updateDesign, selectedId, dir) {
 // ── Sub-hooks (each a real top-level closure, so its guards/branches don't
 // roll up into the composing hook below) ────────────────────────────────────
 
-// Stop on a real design switch, then (re)hydrate Reset/Best/history from the
-// module cache. This also runs on first mount, so switching docking windows
-// and coming back restores the run baseline instead of greying out Reset.
+// Stop on a real design switch, then (re)hydrate Reset/Best/history and the
+// last run from the module cache. This also runs on first mount, so switching
+// docking windows and coming back restores the run baseline instead of greying
+// out Reset.
 function useDesignCacheSync({ design, env }) {
     const lastDesignId = useRef(null);
     useEffect(() => {
@@ -268,6 +293,15 @@ function useDesignCacheSync({ design, env }) {
         lastDesignId.current = design?.id ?? null;
         hydrateFromCache(env, design?.id);
     }, [design?.id]); // eslint-disable-line react-hooks/exhaustive-deps
+}
+
+// Store the run on screen as the last run of the design it belongs to. The
+// owner changes only when a design's own run is put on screen, so a readout
+// still showing the previous design is never stored under the next one.
+function useRunRecord({ runOwner, run, env }) {
+    useEffect(() => {
+        writeRefinement(runOwner, { lastRun: { ...run, lastBest: env.refs.lastBestRef.current } });
+    }, [runOwner, run]); // eslint-disable-line react-hooks/exhaustive-deps
 }
 
 // Evaluate operands for the merit table display.
@@ -378,6 +412,8 @@ export function useRefinement({ t }) {
     const [savedDesign, setSavedDesign] = useState(null);
     const [histEntries, setHistEntries] = useState([]);
     const [selectedHistoryId, setSelectedHistoryId] = useState(null);
+    // The design whose run the readout and trend show (useRunRecord).
+    const [runOwner,    setRunOwner]    = useState(null);
     const histRunCount  = useRef(0);
 
     // Method selector (persisted as a global app setting) + multi-start params.
@@ -444,10 +480,14 @@ export function useRefinement({ t }) {
         setMf, setMfBest, setMfInitial, setOmf, setOmfBest, setOmfInitial,
         setIter, setMfHistory, setRunning, setCanReset, setRestartIdx, setStopReason,
         setSelectedId, setSavedDesign, setHistEntries, setComputed, setEvaluationErrors, setSeed,
+        setRunOwner,
     };
     const env = { refs, setters, methodRef };
 
     useDesignCacheSync({ design, env });
+    const run = useMemo(() => ({ iter, stopReason, mfHistory, mfBest, mfInitial, omfBest, omfInitial }),
+        [iter, stopReason, mfHistory, mfBest, mfInitial, omfBest, omfInitial]);
+    useRunRecord({ runOwner, run, env });
     useOperandDisplaySync({ design, operands, running, env });
 
     const { killWorker, stopOpt } = useWorkerLifecycle({ env, running, beginOptimization, endOptimization });

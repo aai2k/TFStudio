@@ -132,6 +132,9 @@ function beginMethod(F, methodIndex) {
 
 function completeMethod(F, method, result) {
     const { ctx, best } = F;
+    // A design switch stops the run, and the result the stopped worker still
+    // hands back belongs to the design it ran on, not to the one now on screen.
+    if (ctx.designRef.current?.id !== F.curDes.id) return;
     const reportedIter = Number(result?.iters);
     const resultIters = Number.isFinite(reportedIter) ? Math.max(0, reportedIter) : 0;
     F.completedMethodIters = Math.max(F.lastMethodIter, resultIters);

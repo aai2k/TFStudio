@@ -59,6 +59,8 @@ minimum.
 covers the whole run. The **History** panel keeps a snapshot of each run so you
 can jump back to any earlier result.
 
+Each design keeps its own last run. Switching designs shows that design's readout and trend, and **Best** applies that design's result; a design not refined yet shows no run.
+
 A single-start run (N = 1) is usually enough to re-settle a hand-edited stack.
 After a synthesis pass, a multi-start run helps confirm you have reached the
 true local minimum rather than an improved-but-not-bottom point. Minimum and
