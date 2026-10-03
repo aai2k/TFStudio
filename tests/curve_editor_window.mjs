@@ -220,6 +220,8 @@ const draw = props => renderToStaticMarkup(withDesign(React.createElement(CurveE
 
     const smooth = draw('smooth', 'smooth', {});
     assert.ok(smooth.includes(ce.panels.selectFirst), 'with nothing selected a panel asks for cells');
+    assert.ok(smooth.includes('value="2"') && !smooth.includes('value="5"'),
+        'Smooth shows a five-point fit as two points on each side');
     assert.ok(new RegExp(`<span style="opacity:0.45"><button[^>]*>${ce.panels.smooth.run}</button>`).test(smooth),
         'and its button is dimmed');
     assert.ok(fill.includes(`<span style="opacity:1"><button`), 'a tool that can run is not');

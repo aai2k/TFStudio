@@ -9,6 +9,7 @@
  */
 import { ActionButton, NumInput } from '../../analysis/chrome/controls.js';
 import { panelStyle, triggerStyle } from '../../analysis/chrome/popover.js';
+import { smoothingSide, smoothingWindow } from './curveOps.js';
 import { selectedOf } from './editorActions.js';
 import { changeText, fillText, resampleText, smoothText } from './toolText.js';
 
@@ -100,7 +101,10 @@ function SmoothPanel({ editor, labels, c, ce, onRun }) {
     return h(PanelBody, { c, text, onRun },
         h('div', { style: { color: c.text } }, sentence(ce.panels.smooth.sentence, [
             h(NumInput, { c, width: 44, min: 0, step: 1, value: smooth.order, onChange: order => set({ order }) }),
-            h(NumInput, { c, width: 44, min: 3, step: 2, value: smooth.window, onChange: window => set({ window }) }),
+            h(NumInput, {
+                c, width: 44, min: 1, step: 1, value: smoothingSide(smooth.window),
+                onChange: side => set({ window: smoothingWindow(side) }),
+            }),
         ])));
 }
 

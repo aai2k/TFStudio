@@ -1088,7 +1088,7 @@ export default {
           ? `Smooth ${columns}, row ${first}`
           : `Smooth ${columns}, rows ${first}-${last}`),
         whole: (column) => `Smooth the whole ${column} column`,
-        sentence: ['Each value is replaced by a polynomial of order ', ' fitted over ', ' points around it (Savitzky-Golay).'],
+        sentence: ['Each value is replaced by a polynomial of order ', ' fitted to it and the ', ' points on each side (Savitzky-Golay).'],
         wavelength: 'The wavelength column is not smoothed. Select values in another column.',
         tooFew: (points) => `Select at least ${points} values in a column, or one cell to smooth its whole column.`,
         run: 'Smooth',
@@ -1135,8 +1135,8 @@ export default {
       rows: (max) => `That step makes more than ${max} rows.`,
     },
     smoothProblems: {
-      window: 'Points must be an odd number, 3 or more.',
-      order: 'The order must be below the number of points.',
+      window: 'Points on each side must be a whole number, 1 or more.',
+      order: 'The order must be at most twice the points on each side.',
       points: 'A column with fewer selected values than the points of one fit was left as it was.',
     },
     noPoints: 'No row has both a wavelength and a value.',

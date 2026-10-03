@@ -115,6 +115,11 @@ function smoothingSeries(table, cells) {
     });
 }
 
+// The Smooth panel asks for the points on each side of a value, which any whole
+// number answers; a Savitzky-Golay window is centred, so it holds 2n + 1.
+export const smoothingWindow = side => 2 * side + 1;
+export const smoothingSide = window => (window - 1) / 2;
+
 /**
  * Why smoothing these cells would change nothing, or null: 'window' or
  * 'order' as savitzkyGolayProblem has them, or 'points' when no value column

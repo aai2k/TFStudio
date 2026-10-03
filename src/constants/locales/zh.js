@@ -1167,7 +1167,7 @@ export default {
           ? `平滑 ${columns} 第 ${first} 行`
           : `平滑 ${columns} 第 ${first}-${last} 行`),
         whole: (column) => `平滑整列 ${column}`,
-        sentence: ['每个值替换为一个 ', ' 阶多项式在该点的值，该多项式在其周围 ', ' 个点上拟合（Savitzky-Golay）。'],
+        sentence: ['每个值替换为一个 ', ' 阶多项式在该点的值，该多项式在该点及其两侧各 ', ' 个点上拟合（Savitzky-Golay）。'],
         wavelength: '波长列不做平滑。请选择其他列中的值。',
         tooFew: (points) => `请在一列中至少选择 ${points} 个值，或只选一个单元格以平滑整列。`,
         run: '平滑',
@@ -1212,8 +1212,8 @@ export default {
       rows: (max) => `该步长会生成超过 ${max} 行。`,
     },
     smoothProblems: {
-      window: '点数必须是不小于 3 的奇数。',
-      order: '阶数必须小于点数。',
+      window: '每侧点数必须是不小于 1 的整数。',
+      order: '阶数不能超过每侧点数的两倍。',
       points: '所选值少于单次拟合点数的列保持不变。',
     },
     noPoints: '没有任何一行同时有波长和数值。',

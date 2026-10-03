@@ -72,7 +72,7 @@ removing it.
 - **Fill…**, **Change…**, **Smooth…** and **Resample…** each open a panel under the button. The panel says what the tool will do and to which cells, and follows the selection while it is open, so you can select cells with it showing. Running the tool, Escape or the button pressed again closes it.
 - **Fill…** writes down each selected column one value, an even step from a first value, or a run from a first to a last value spaced evenly in log or in wavenumber. The panel shows the values the first column will get.
 - **Change…** scales the selected values by a percentage or turns each value V into a·V + b, and shows what the first one becomes. Empty cells stay empty.
-- **Smooth…** replaces each selected value by a polynomial of the order you set, fitted over the number of points you set around it (Savitzky-Golay). With one cell selected it smooths that cell's whole column. The wavelength column is never smoothed.
+- **Smooth…** replaces each selected value by a polynomial of the order you set, fitted to it and the number of points you set on each side (Savitzky-Golay). With one cell selected it smooths that cell's whole column. The wavelength column is never smoothed.
 - **Resample…** puts every column onto a new wavelength grid at the step you set, with the interpolation Fit uses, and says how many rows the grid will have.
 - A value above 100 % or below 0 is marked in red. With **Drag points** on, a point dragged up or down on the plot takes the value it is dropped at.
 

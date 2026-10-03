@@ -15,7 +15,9 @@ import {
     pasteIntoTable, readPastedText, tableCsv, tableFromText,
 } from '../src/components/windows/dataExchange/curveEditor/tableText.js';
 import { changeCells, fillCells, fillProblem } from '../src/components/windows/dataExchange/curveEditor/cellOps.js';
-import { resamplePlan, resampleTable, smoothCells } from '../src/components/windows/dataExchange/curveEditor/curveOps.js';
+import {
+    resamplePlan, resampleTable, smoothCells, smoothingSide, smoothingWindow,
+} from '../src/components/windows/dataExchange/curveEditor/curveOps.js';
 import {
     applyProblem, curvesFromTable, editedCurve, pointsFromTable,
 } from '../src/components/windows/dataExchange/curveEditor/curveApply.js';
@@ -479,6 +481,16 @@ const table = (rows, columns = [{ quantity: 'T', unit: '%', name: '' }], kind = 
     const short = smoothText(ce, labels, base, vs(3, 5), smooth);
     assert.deepEqual([short.problem.text, short.ready], [ce.panels.smooth.tooFew(5), false],
         'three values cannot carry a five-point fit');
+    // The panel asks for the points on each side, so any whole number is a
+    // setting: ten on each side is a 21-point fit.
+    assert.equal(smoothingWindow(10), 21);
+    assert.equal(smoothingSide(smoothingWindow(10)), 10);
+    for (const side of [1, 2, 3, 4, 10]) {
+        assert.equal(smoothText(ce, labels, base, [cell(7, 'v0')], { window: smoothingWindow(side), order: 2 }).ready,
+            true, `${side} on each side`);
+    }
+    assert.equal(smoothText(ce, labels, base, [cell(7, 'v0')], { window: smoothingWindow(1), order: 3 }).problem.text,
+        ce.smoothProblems.order, 'a cubic needs two points on each side');
 
     // Nothing selected: Fill, Change and Smooth ask for cells and do nothing.
     for (const text of [

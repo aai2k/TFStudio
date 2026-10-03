@@ -1172,7 +1172,7 @@ export default {
           ? `Leviga ${columns}, riga ${first}`
           : `Leviga ${columns}, righe ${first}-${last}`),
         whole: (column) => `Leviga tutta la colonna ${column}`,
-        sentence: ['Ogni valore è sostituito da un polinomio di ordine ', ' adattato su ', ' punti attorno a esso (Savitzky-Golay).'],
+        sentence: ['Ogni valore è sostituito da un polinomio di ordine ', ' adattato su di esso e su ', ' punti per lato (Savitzky-Golay).'],
         wavelength: "La colonna delle lunghezze d'onda non si leviga. Seleziona valori in un'altra colonna.",
         tooFew: (points) => `Seleziona almeno ${points} valori in una colonna, o una sola cella per levigare tutta la colonna.`,
         run: 'Leviga',
@@ -1219,8 +1219,8 @@ export default {
       rows: (max) => `Quel passo produce più di ${max} righe.`,
     },
     smoothProblems: {
-      window: 'I punti devono essere un numero dispari, almeno 3.',
-      order: "L'ordine deve essere minore del numero di punti.",
+      window: 'I punti per lato devono essere un numero intero, almeno 1.',
+      order: "L'ordine non può superare il doppio dei punti per lato.",
       points: 'Una colonna con meno valori selezionati dei punti di un singolo fit è rimasta invariata.',
     },
     noPoints: "Nessuna riga ha sia una lunghezza d'onda sia un valore.",
