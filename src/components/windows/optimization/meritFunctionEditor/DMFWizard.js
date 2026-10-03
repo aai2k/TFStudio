@@ -290,8 +290,7 @@ function limitRow(ctx, { key, checked, onToggle, name, label, value, onChange, s
     ];
 }
 
-// The layer minimum and maximum each have a checkbox; the maximum's sits under
-// the minimum's, which names both.
+// Each limit has its own checkbox, named for what it limits.
 function limitsBox(ctx) {
     const { tw, c, session, setField } = ctx;
     const cells = [
@@ -301,7 +300,7 @@ function limitsBox(ctx) {
         }),
         ...limitRow(ctx, {
             key: 'max', checked: session.maxEnabled, onToggle: v => setField('maxEnabled', v),
-            name: '', label: tw.maxLabel, value: session.maxThick, onChange: v => setField('maxThick', v), step: 10,
+            name: tw.layersLabel, label: tw.maxLabel, value: session.maxThick, onChange: v => setField('maxThick', v), step: 10,
         }),
         ...limitRow(ctx, {
             key: 'total', checked: session.totalEnabled, onToggle: v => setField('totalEnabled', v),
