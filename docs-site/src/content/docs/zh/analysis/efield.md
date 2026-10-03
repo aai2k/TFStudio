@@ -1,6 +1,6 @@
 ---
 title: 电场评估
-description: 穿过堆栈的驻波场分布。
+description: 电场（Electric Field）窗口在选定波长下，将镀膜内部的场相对深度绘制成图。它显示场在堆栈内部的集中位置，这是激光损伤工作的关键信息。
 ribbonIcon: efield
 ---
 

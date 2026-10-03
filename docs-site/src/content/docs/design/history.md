@@ -1,6 +1,6 @@
 ---
 title: History
-description: Browse and jump to any previous state of the active design.
+description: Browse and jump to any previous state of the active design. It is the same per-design timeline that backs Ctrl+Z and Ctrl+Y, shown as a list.
 ribbonIcon: history
 ---
 

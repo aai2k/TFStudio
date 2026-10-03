@@ -1,6 +1,6 @@
 ---
 title: 层灵敏度
-description: 查看哪些层最需要精确制造。
+description: 层灵敏度（Layer Sensitivity）显示哪些层最需要精确制造。它把每层的厚度微调一个小量，测量光学性能变化多少，并按该变化对层排序。
 ribbonIcon: sensitivity
 ---
 

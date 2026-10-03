@@ -1,6 +1,6 @@
 ---
 title: 历史
-description: 浏览并跳转到活动设计的任意先前状态。
+description: 历史窗口列出了活动设计的每一个已记录状态，并允许你跳转到其中任意一个。它与支撑 Ctrl+Z 与 Ctrl+Y 的是同一条按设计划分的时间线。
 ribbonIcon: history
 ---
 

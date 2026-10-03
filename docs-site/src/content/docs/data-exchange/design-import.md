@@ -1,6 +1,6 @@
 ---
 title: Design Import
-description: Read TFCalc (.tfd), Essential Macleod (.dds) and OptiLayer (.dsg) design files into a project as TFStudio designs, with their materials matched to your catalogs.
+description: Read TFCalc (.tfd), Essential Macleod (.dds) and OptiLayer (.dsg) design files into a project as TFStudio designs, with materials matched to your catalogs.
 ---
 
 The **Import** button in the Project group of the Setup tab reads coating

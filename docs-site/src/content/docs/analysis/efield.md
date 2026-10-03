@@ -1,6 +1,6 @@
 ---
 title: Electric Field Evaluation
-description: The standing-wave field profile through the stack.
+description: The standing-wave field through the stack at a chosen wavelength, showing where the field concentrates and which layer is most at risk of laser damage.
 ribbonIcon: efield
 ---
 
