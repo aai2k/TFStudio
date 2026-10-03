@@ -2,110 +2,47 @@
  * Reusable SVG target editor.
  *
  * The editor knows nothing about ECharts options or optical operands. Its only
- * renderer contract is an instance that converts between data and pixel space.
- * The same layer can therefore be reused by GD/GDD once those target semantics
- * expose the same neutral line geometry.
+ * renderer contract is an instance that converts between data and pixel space,
+ * so every plot that edits targets on its curve shares it: spectral targets on
+ * Optical Evaluation, GD/GDD targets, and the points of a curve in the curve
+ * editor. What it draws and what a drag does are in targetEditorGeometry.js.
+ *
+ *   tool  'draw'    handles drag, and a drag on empty plot area draws a target
+ *         'move'    handles drag and nothing is drawn; the plot under the
+ *                   overlay keeps its own pointer, for zoom and readout
+ *         'delete'  a click on a target removes it
  */
 
 import { observeResize } from './observeResize.js';
+import {
+    dataPoint, dropOutcome, finitePoint, hasPointerTravelled, isPointItem, itemAxes, moveGeometry, projectGeometry,
+    projectItem,
+} from './targetEditorGeometry.js';
 
 const { createElement: h, useCallback, useEffect, useRef, useState } = React;
-const AXES = { xAxisIndex: 0, yAxisIndex: 0 };
-const PLOT = { gridIndex: 0 };
-
-function finitePoint(point) {
-    return Array.isArray(point) && point.length >= 2 && point.every(Number.isFinite);
-}
 
 function eventPixel(event, svg) {
     const rect = svg.getBoundingClientRect();
     return [event.clientX - rect.left, event.clientY - rect.top];
 }
 
-export function dataPoint(chart, pixel) {
-    // Axis models convert coordinates, but in ECharts 6 they do not own a
-    // coordinate system and therefore can never contain a pixel. The grid owns
-    // the Cartesian coordinate system, so containment and conversion need
-    // different finders.
-    if (chart?.containPixel && !chart.containPixel(PLOT, pixel)) return null;
-    const point = chart?.convertFromPixel(AXES, pixel);
-    return finitePoint(point) ? point : null;
-}
-
-/** `point` carried by a fixed pixel offset, converted through the chart's axes. */
-function shiftedPoint(chart, point, shift) {
-    const pixel = chart?.convertToPixel(AXES, point);
-    if (!finitePoint(pixel)) return null;
-    const moved = chart.convertFromPixel(AXES, [pixel[0] + shift[0], pixel[1] + shift[1]]);
-    return finitePoint(moved) ? moved : null;
-}
-
-// A handle drag places that end at the pointer. A drag on the line body moves
-// the whole line by the pointer's pixel travel, each end converted through the
-// axes on its own: on a logarithmic axis a constant pixel step is a constant
-// ratio, and adding one data-space difference to both ends would bend the line
-// and push its lower end below zero.
-function moveGeometry(chart, source, part, current, shift) {
-    if (part === 'start') return { ...source, x0: current[0], y0: current[1] };
-    if (part === 'end') return { ...source, x1: current[0], y1: current[1] };
-    const start = shiftedPoint(chart, [source.x0, source.y0], shift);
-    const end = shiftedPoint(chart, [source.x1, source.y1], shift);
-    return start && end
-        ? { ...source, x0: start[0], y0: start[1], x1: end[0], y1: end[1] }
-        : source;
-}
-
-export function hasPointerTravelled(start, end, minimum = 3) {
-    return finitePoint(start) && finitePoint(end)
-        && Math.hypot(end[0] - start[0], end[1] - start[1]) >= minimum;
-}
-
-export function targetGeometryChanged(source, result) {
-    return ['x0', 'y0', 'x1', 'y1'].some(key => Number(source?.[key]) !== Number(result?.[key]));
-}
+const DRAGGING_TOOLS = new Set(['draw', 'move']);
 
 /**
- * What a released pointer amounts to: `{ create }`, `{ edit }` or null.
- *
- * A pointer that never travelled is a click. A click on empty plot area is
- * ignored unless the host asked for `createOnClick`, in which case it creates
- * a target of zero length at the point pressed: the preview may have wandered
- * a pixel or two before release, so its far end is folded back onto the start.
+ * The items in pixels, kept in step with the chart: after every redraw and
+ * zoom of the chart and every resize of the overlay.
  */
-export function dropOutcome(drag, result, travelled, createOnClick = false) {
-    if (!result) return null;
-    if (drag.mode === 'create') {
-        if (travelled) return { create: result };
-        return createOnClick ? { create: { ...result, x1: result.x0, y1: result.y0 } } : null;
-    }
-    return travelled && targetGeometryChanged(drag.source, result) ? { edit: result } : null;
-}
-
-function ActiveTargetEditorOverlay({
-    chartRef, geometry = [], enabled = false, tool = 'draw', drawColor = '#ef5350',
-    handleFill = '#1e1e1e', createOnClick = false, onCreate, onEdit, onDelete,
-}) {
-    const svgRef = useRef(null);
-    const dragRef = useRef(null);
-    const previewRef = useRef(null);
+function useProjectedItems(chartRef, svgRef, geometry) {
     const frameRef = useRef(0);
-    const [view, setView] = useState({ width: 1, height: 1, lines: [] });
-    const [preview, setPreview] = useState(null);
-    const [focused, setFocused] = useState(null);
-    const showPreview = value => { previewRef.current = value; setPreview(value); };
-
+    const [view, setView] = useState({ width: 1, height: 1, items: [] });
     const refresh = useCallback(() => {
         const chart = chartRef.current;
         const element = svgRef.current;
         if (!chart || chart.isDisposed?.() || !element) return;
         const rect = element.getBoundingClientRect();
-        const lines = geometry.map(item => {
-            const start = chart.convertToPixel(AXES, [item.x0, item.y0]);
-            const end = chart.convertToPixel(AXES, [item.x1, item.y1]);
-            return finitePoint(start) && finitePoint(end) ? { ...item, start, end } : null;
-        }).filter(Boolean);
-        setView({ width: Math.max(1, rect.width), height: Math.max(1, rect.height), lines });
-    }, [chartRef, geometry]);
+        const items = projectGeometry(chart, geometry, rect.width);
+        setView({ width: Math.max(1, rect.width), height: Math.max(1, rect.height), items });
+    }, [chartRef, svgRef, geometry]);
 
     useEffect(() => {
         let chart = null;
@@ -138,132 +75,189 @@ function ActiveTargetEditorOverlay({
             }
         };
     }, [refresh]);
+    return view;
+}
 
-    const startHandleDrag = (event, item, part) => {
-        event.preventDefault();
-        event.stopPropagation();
-        if (tool === 'delete') {
-            onDelete?.(item.opId);
-            return;
-        }
-        if (tool !== 'draw') return;
-        const chart = chartRef.current;
-        const pixel = eventPixel(event, svgRef.current);
-        if (!dataPoint(chart, pixel)) return;
-        dragRef.current = {
-            mode: 'edit', source: item, part, startPixel: pixel,
-            pointerId: event.pointerId, captureTarget: event.currentTarget,
-        };
-        event.currentTarget.setPointerCapture?.(event.pointerId);
-        showPreview(item);
+function beginCapture(event, drag, dragRef) {
+    dragRef.current = { ...drag, pointerId: event.pointerId, captureTarget: event.currentTarget };
+    event.currentTarget.setPointerCapture?.(event.pointerId);
+}
+
+// The preview an in-progress drag shows, from the pointer's current pixel.
+function dragPreview(chart, drag, pixel, drawColor) {
+    const current = dataPoint(chart, pixel, drag.axes);
+    if (!current) return null;
+    if (drag.mode === 'create') {
+        return { x0: drag.startData[0], y0: drag.startData[1], x1: current[0], y1: current[1], color: drawColor };
+    }
+    const shift = [pixel[0] - drag.startPixel[0], pixel[1] - drag.startPixel[1]];
+    return moveGeometry(chart, drag.source, drag.part, current, shift);
+}
+
+// The pointer handlers below take the overlay's drag state as `ctx`: its
+// props, the chart and svg refs, the drag in progress and its preview.
+
+function startHandleDrag(ctx, event, item, part) {
+    event.preventDefault();
+    event.stopPropagation();
+    if (ctx.tool === 'delete') ctx.onDelete?.(item.opId);
+    if (!DRAGGING_TOOLS.has(ctx.tool)) return;
+    const pixel = eventPixel(event, ctx.svgRef.current);
+    const axes = itemAxes(item);
+    if (!dataPoint(ctx.chartRef.current, pixel, axes)) return;
+    beginCapture(event, { mode: 'edit', source: item, part, startPixel: pixel, axes }, ctx.dragRef);
+    ctx.showPreview(item);
+}
+
+function startDrawing(ctx, event) {
+    if (!ctx.enabled || ctx.tool !== 'draw' || event.target !== ctx.svgRef.current) return;
+    event.preventDefault();
+    const pixel = eventPixel(event, ctx.svgRef.current);
+    const point = dataPoint(ctx.chartRef.current, pixel);
+    if (!point) return;
+    beginCapture(event, { mode: 'create', startData: point, startPixel: pixel }, ctx.dragRef);
+    ctx.showPreview({ x0: point[0], y0: point[1], x1: point[0], y1: point[1], color: ctx.drawColor });
+}
+
+function updateDrag(ctx, event) {
+    const drag = ctx.dragRef.current;
+    const pixel = drag && eventPixel(event, ctx.svgRef.current);
+    const next = drag && dragPreview(ctx.chartRef.current, drag, pixel, ctx.drawColor);
+    if (next) ctx.showPreview(next);
+}
+
+function endDrag(ctx) {
+    const drag = ctx.dragRef.current;
+    ctx.dragRef.current = null;
+    ctx.showPreview(null);
+    drag?.captureTarget?.releasePointerCapture?.(drag.pointerId);
+    return drag;
+}
+
+function finishDrag(ctx, event) {
+    if (!ctx.dragRef.current) return;
+    const result = ctx.previewRef.current;
+    const drag = endDrag(ctx);
+    const travelled = hasPointerTravelled(drag.startPixel, eventPixel(event, ctx.svgRef.current));
+    const outcome = dropOutcome(drag, result, travelled, ctx.createOnClick);
+    if (outcome?.create) ctx.onCreate?.(outcome.create);
+    else if (outcome?.edit) {
+        ctx.onEdit?.({ opId: drag.source.opId, kind: drag.source.kind, type: drag.source.type }, outcome.edit);
+    }
+}
+
+/** The pointer handlers of the overlay, and the preview of the drag in progress. */
+function useTargetDrag(props, chartRef, svgRef) {
+    const dragRef = useRef(null);
+    const previewRef = useRef(null);
+    const [preview, setPreview] = useState(null);
+    const showPreview = value => { previewRef.current = value; setPreview(value); };
+    const ctx = { ...props, chartRef, svgRef, dragRef, previewRef, showPreview };
+    return {
+        preview,
+        startHandleDrag: (event, item, part) => startHandleDrag(ctx, event, item, part),
+        startDrawing: event => startDrawing(ctx, event),
+        updateDrag: event => updateDrag(ctx, event),
+        finishDrag: event => finishDrag(ctx, event),
+        cancelDrag: () => endDrag(ctx),
     };
+}
 
-    const startDrawing = event => {
-        if (!enabled || tool !== 'draw' || event.target !== svgRef.current) return;
-        event.preventDefault();
-        const pixel = eventPixel(event, svgRef.current);
-        const point = dataPoint(chartRef.current, pixel);
-        if (!point) return;
-        dragRef.current = { mode: 'create', startData: point, startPixel: pixel, pointerId: event.pointerId, captureTarget: event.currentTarget };
-        event.currentTarget.setPointerCapture?.(event.pointerId);
-        showPreview({ x0: point[0], y0: point[1], x1: point[0], y1: point[1], color: drawColor });
-    };
+const dashArray = dash => (dash === 'dotted' ? '2 4' : dash === 'dashed' ? '8 5' : undefined);
 
-    const updateDrag = event => {
-        const drag = dragRef.current;
-        if (!drag) return;
-        const pixel = eventPixel(event, svgRef.current);
-        const current = dataPoint(chartRef.current, pixel);
-        if (!current) return;
-        if (drag.mode === 'create') {
-            showPreview({ x0: drag.startData[0], y0: drag.startData[1], x1: current[0], y1: current[1], color: drawColor });
-        } else {
-            const shift = [pixel[0] - drag.startPixel[0], pixel[1] - drag.startPixel[1]];
-            showPreview(moveGeometry(chartRef.current, drag.source, drag.part, current, shift));
-        }
-    };
-
-    const finishDrag = event => {
-        const drag = dragRef.current;
-        if (!drag) return;
-        const result = previewRef.current;
-        dragRef.current = null;
-        showPreview(null);
-        drag.captureTarget?.releasePointerCapture?.(drag.pointerId);
-        const endPixel = eventPixel(event, svgRef.current);
-        const outcome = dropOutcome(
-            drag, result, hasPointerTravelled(drag.startPixel, endPixel), createOnClick);
-        if (outcome?.create) onCreate?.(outcome.create);
-        else if (outcome?.edit) {
-            onEdit?.({ opId: drag.source.opId, kind: drag.source.kind, type: drag.source.type }, outcome.edit);
-        }
-    };
-
-    const cancelDrag = () => {
-        const drag = dragRef.current;
-        dragRef.current = null;
-        showPreview(null);
-        drag?.captureTarget?.releasePointerCapture?.(drag.pointerId);
-    };
-
-    const previewPixels = (() => {
-        if (!preview || !chartRef.current) return null;
-        const start = chartRef.current.convertToPixel(AXES, [preview.x0, preview.y0]);
-        const end = chartRef.current.convertToPixel(AXES, [preview.x1, preview.y1]);
-        return finitePoint(start) && finitePoint(end) ? { start, end, color: preview.color || drawColor } : null;
-    })();
-
-    const lineElements = [];
-    for (const item of view.lines) {
-        const key = item.opId;
-        const active = focused === key;
-        const common = { x1: item.start[0], y1: item.start[1], x2: item.end[0], y2: item.end[1] };
-        lineElements.push(h('line', {
+function lineElements(item, context) {
+    const { enabled, tool, handleFill, focused, setFocused, onDelete, startHandleDrag } = context;
+    const key = item.opId;
+    const active = focused === key;
+    const common = { x1: item.start[0], y1: item.start[1], x2: item.end[0], y2: item.end[1] };
+    const handles = [['start', item.start], ['end', item.end]].map(([part, point]) => h('circle', {
+        key: `${key}-${part}`, cx: point[0], cy: point[1], r: active ? 6 : 5,
+        fill: handleFill, stroke: item.color, strokeWidth: 2,
+        pointerEvents: enabled ? 'all' : 'none',
+        style: { cursor: tool === 'delete' ? 'pointer' : 'crosshair' },
+        onPointerDown: event => startHandleDrag(event, item, part),
+    }));
+    return [
+        h('line', {
             key: `${key}-visible`, ...common,
-            stroke: item.color, strokeWidth: active ? 4 : 3, strokeDasharray: item.dash === 'dotted' ? '2 4' : item.dash === 'dashed' ? '8 5' : undefined,
+            stroke: item.color, strokeWidth: active ? 4 : 3, strokeDasharray: dashArray(item.dash),
             opacity: 0.95, pointerEvents: 'none',
-        }));
-        lineElements.push(h('line', {
+        }),
+        h('line', {
             key: `${key}-hit`, ...common,
             stroke: 'transparent', strokeWidth: 16, pointerEvents: enabled ? 'stroke' : 'none',
             tabIndex: 0, role: 'button', 'aria-label': `${item.type} target`,
             style: { cursor: tool === 'delete' ? 'pointer' : 'move', outline: 'none' },
             onFocus: () => setFocused(key), onBlur: () => setFocused(null),
             onKeyDown: event => {
-                if ((event.key === 'Delete' || event.key === 'Backspace' || event.key === 'Enter') && tool === 'delete') onDelete?.(item.opId);
+                if (['Delete', 'Backspace', 'Enter'].includes(event.key) && tool === 'delete') onDelete?.(item.opId);
             },
             onPointerDown: event => startHandleDrag(event, item, 'move'),
-        }));
-        for (const [part, point] of [['start', item.start], ['end', item.end]]) lineElements.push(h('circle', {
-            key: `${key}-${part}`, cx: point[0], cy: point[1], r: active ? 6 : 5,
-            fill: handleFill, stroke: item.color, strokeWidth: 2,
-            pointerEvents: enabled ? 'all' : 'none',
-            style: { cursor: tool === 'delete' ? 'pointer' : 'crosshair' },
-            onPointerDown: event => startHandleDrag(event, item, part),
-        }));
-    }
+        }),
+        ...handles,
+    ];
+}
 
+function pointElement(item, context) {
+    const { enabled, handleFill, startHandleDrag } = context;
+    return h('circle', {
+        key: `${item.opId}-point`, cx: item.start[0], cy: item.start[1], r: 4,
+        fill: handleFill, stroke: item.color, strokeWidth: 1.5,
+        pointerEvents: enabled ? 'all' : 'none',
+        style: { cursor: 'ns-resize' },
+        onPointerDown: event => startHandleDrag(event, item, 'point'),
+    });
+}
+
+// The drag in progress, drawn over everything else.
+function previewElement(chart, preview, drawColor) {
+    if (!preview || !chart) return null;
+    const projected = projectItem(chart, preview);
+    if (!projected) return null;
+    const color = preview.color || drawColor;
+    if (isPointItem(projected)) {
+        return h('circle', {
+            cx: projected.start[0], cy: projected.start[1], r: 5,
+            fill: color, stroke: color, pointerEvents: 'none',
+        });
+    }
+    return finitePoint(projected.end) && h('line', {
+        x1: projected.start[0], y1: projected.start[1], x2: projected.end[0], y2: projected.end[1],
+        stroke: color, strokeWidth: 3, strokeDasharray: '6 4', pointerEvents: 'none',
+    });
+}
+
+function ActiveTargetEditorOverlay(props) {
+    const {
+        chartRef, geometry = [], enabled = false, tool = 'draw', drawColor = '#ef5350', handleFill = '#1e1e1e',
+    } = props;
+    const svgRef = useRef(null);
+    const [focused, setFocused] = useState(null);
+    const view = useProjectedItems(chartRef, svgRef, geometry);
+    const drag = useTargetDrag({ ...props, enabled, tool, drawColor }, chartRef, svgRef);
+    const context = {
+        enabled, tool, handleFill, focused, setFocused, onDelete: props.onDelete,
+        startHandleDrag: drag.startHandleDrag,
+    };
+    const drawing = enabled && tool === 'draw';
+    const elementsOf = item => (isPointItem(item) ? [pointElement(item, context)] : lineElements(item, context));
     return h('svg', {
         ref: svgRef,
         viewBox: `0 0 ${view.width} ${view.height}`,
         preserveAspectRatio: 'none',
-        onPointerDown: startDrawing,
-        onPointerMove: updateDrag,
-        onPointerUp: finishDrag,
-        onPointerCancel: cancelDrag,
+        onPointerDown: drag.startDrawing,
+        onPointerMove: drag.updateDrag,
+        onPointerUp: drag.finishDrag,
+        onPointerCancel: drag.cancelDrag,
         style: {
             position: 'absolute', inset: 0, width: '100%', height: '100%',
-            zIndex: 4, pointerEvents: enabled && tool === 'draw' ? 'auto' : 'none',
-            touchAction: enabled && tool === 'draw' ? 'none' : 'auto',
-            cursor: enabled && tool === 'draw' ? 'crosshair' : 'default',
+            zIndex: 4, pointerEvents: drawing ? 'auto' : 'none',
+            touchAction: drawing ? 'none' : 'auto',
+            cursor: drawing ? 'crosshair' : 'default',
         },
     },
-        ...lineElements,
-        previewPixels && h('line', {
-            x1: previewPixels.start[0], y1: previewPixels.start[1],
-            x2: previewPixels.end[0], y2: previewPixels.end[1],
-            stroke: previewPixels.color, strokeWidth: 3, strokeDasharray: '6 4', pointerEvents: 'none',
-        }),
+        ...view.items.flatMap(elementsOf),
+        previewElement(chartRef.current, drag.preview, drawColor),
     );
 }
 

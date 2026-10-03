@@ -63,6 +63,18 @@ On Optical Evaluation the curves appear as dotted lines with open-circle
 markers, coloured by R / T / A. The checkbox on the card hides one without
 removing it.
 
+### Typing a curve, or changing its points
+
+**New curve**, beside **Import Spectrum**, opens the curve editor on an empty table, and **Edit** on a curve card opens it on that curve's points. The points are in a table on the left and plotted on the right, over the design's own spectrum at the curve's angle and polarization. Drag the divider between them to give either side more room.
+
+- **Columns.** Each value column has a quantity, T, R or A, and a unit: %, 0-1 or dB, and optical density for T. The unit says what the typed numbers are; changing it does not rescale them. The wavelength column takes nm, µm, cm⁻¹ or eV. Each value column becomes a curve of its own, so T and R, or s and p, can be typed side by side.
+- **Selecting and typing.** Click, Shift-click or drag to select cells, and Ctrl-click to add one. Type to replace a value; a decimal comma reads as a decimal point. Ctrl+C and Ctrl+V copy and paste, a pasted value or row repeats over the selection, and a block pasted from a spreadsheet or a text file is read the way a file is imported, the table growing to hold it. Ctrl+Z undoes.
+- **Fill** writes a constant, an even step, a logarithmic step or a step even in wavenumber down the selected cells. **Change** scales them by a percentage or by a·V + b.
+- **Smooth** applies Savitzky-Golay smoothing to the selected values. **Resample** puts every column onto an even step with the interpolation Fit uses, and warns when the step is finer than the points.
+- A value above 100 % or below 0 is marked in red. With **Drag points** on, a point dragged up or down on the plot takes the value it is dropped at.
+
+**Apply** sorts the rows by wavelength and adds the new curves, or changes the edited one, and from then on they are curves like any imported one. A new curve gets its angle and polarization on its card. If fit targets were made from the edited curve, Apply offers to rebuild them from the new points, keeping their grid, range, weight and scale.
+
 ## Fitting the design to a measurement
 
 **Fit…** on a curve card turns that measurement into a merit-function target,

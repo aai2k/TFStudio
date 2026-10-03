@@ -14,7 +14,9 @@ import { AnalysisWindow, CenteredMessage, PlotArea } from '../chrome/layout.js';
 import { IntegralControls } from './Controls.js';
 import { OverlayChart } from './OverlayChart.js';
 import { ResultsTable } from './ResultsTable.js';
-import { SpectrumTableEditor } from './SpectrumTableEditor.js';
+import { CurveEditor } from '../../dataExchange/curveEditor/CurveEditor.js';
+import { tableFromWeights } from '../../dataExchange/curveEditor/curveTable.js';
+import { weightsFromTable } from '../../dataExchange/curveEditor/curveApply.js';
 import { hasLayersForMode } from '../layersForMode.js';
 import { exportColumns, exportRows } from './exportModel.js';
 import { useIntegralValues } from './useIntegralValues.js';
@@ -22,7 +24,6 @@ import { useIntegralValues } from './useIntegralValues.js';
 const { createElement: h } = React;
 
 function editorTable(model) {
-    if (!model.editor.open) return null;
     if (model.editor.target === 'source') return model.builder.source.table;
     if (model.editor.target === 'detector') return model.builder.detector.table;
     return null;
@@ -32,6 +33,20 @@ function editorLabel(model, iv) {
     if (model.editor.target === 'source') return iv.source;
     if (model.editor.target === 'detector') return iv.detector;
     return '';
+}
+
+// A custom source or detector is typed or pasted in the shared curve editor,
+// as a weight against wavelength.
+function WeightingEditor({ model, c, t }) {
+    const close = () => model.setEditor({ open: false, target: null });
+    return h(CurveEditor, {
+        title: t.curveEditor.titleWeight(editorLabel(model, t.integralValues)),
+        table: tableFromWeights(editorTable(model)),
+        design: null,
+        onApply: table => model.applyTable(weightsFromTable(table)),
+        onCancel: close,
+        c, t,
+    });
 }
 
 // The weighting a value comes from is the caption the plot needs, and the title
@@ -95,13 +110,6 @@ export function IntegralValues({ c, theme, t }) {
             selectedKey: model.selKey, setSelectedKey: model.setSelKey,
             onPatch: model.onPatchCustom, onRemove: model.onRemoveCustom, c, t,
         })),
-        h(SpectrumTableEditor, {
-            open: model.editor.open,
-            initialTable: editorTable(model),
-            label: editorLabel(model, iv),
-            onApply: model.applyTable,
-            onCancel: () => model.setEditor({ open: false, target: null }),
-            c, t,
-        }),
+        model.editor.open && h(WeightingEditor, { model, c, t }),
     );
 }

@@ -93,7 +93,7 @@ function ConfigurePanel({ controller, c, sx }) {
     );
 }
 
-function CurveEditorCard({ curve, selected, onSelect, controller, c, sx }) {
+function CurveEditorCard({ curve, selected, onSelect, controller, c, sx, ce }) {
     const [draftName, setDraftName] = useState(curve.name);
     useEffect(() => setDraftName(curve.name), [curve.name]);
     const data = measuredCurveData(curve);
@@ -131,6 +131,10 @@ function CurveEditorCard({ curve, selected, onSelect, controller, c, sx }) {
                     else setDraftName(curve.name);
                 },
                 style: textInputStyle(c), title: sx.nameLabel,
+            }),
+            h(ActionButton, {
+                c, label: ce.edit, title: ce.editTip,
+                onClick: () => controller.curveEditor.openEdit(curve),
             }),
             h(ActionButton, {
                 c, label: sx.fitOpen, title: sx.fitCreateTip,
@@ -180,7 +184,7 @@ function CurveEditorCard({ curve, selected, onSelect, controller, c, sx }) {
     );
 }
 
-function ImportedCurves({ controller, c, sx }) {
+function ImportedCurves({ controller, c, sx, ce }) {
     const { curves, selectedCurve, setSelectedCurveId, orphanFits, onRestoreFitCurves } = controller;
     return h('div', { style: { paddingTop: 2 } },
         h('div', {
@@ -204,13 +208,14 @@ function ImportedCurves({ controller, c, sx }) {
             ? h('div', { style: { padding: '4px 10px 12px', color: c.textDim, fontSize: 11, fontStyle: 'italic' } }, sx.noOverlays)
             : curves.map(curve => h(CurveEditorCard, {
                 key: curve.id, curve, selected: selectedCurve?.id === curve.id,
-                onSelect: () => setSelectedCurveId(curve.id), controller, c, sx,
+                onSelect: () => setSelectedCurveId(curve.id), controller, c, sx, ce,
             })),
     );
 }
 
 export function ImportTab({ controller, c, sx, t }) {
     const { loading, onImport, fileName, hasActiveDesign } = controller;
+    const ce = t.curveEditor;
     // With no design selected there is nothing to import into.
     const noDesign = hasActiveDesign === false;
     return h('div', {
@@ -224,9 +229,13 @@ export function ImportTab({ controller, c, sx, t }) {
                         c, title: sx.importTitle, label: loading ? sx.importing : sx.import,
                         onImport, loading, disabled: noDesign, fileName: noDesign ? '' : fileName,
                         hint: noDesign ? sx.noDesign : sx.importHint,
+                        extra: h(ActionButton, {
+                            c, label: ce.newCurve, title: ce.newCurveTip, disabled: noDesign,
+                            onClick: controller.curveEditor.openNew,
+                        }),
                     }),
                     !noDesign && h(ConfigurePanel, { controller, c, sx }),
-                    !noDesign && h(ImportedCurves, { controller, c, sx }),
+                    !noDesign && h(ImportedCurves, { controller, c, sx, ce }),
                 ),
             ),
             h('div', { className: 'tfs-spectrum-import-preview' },

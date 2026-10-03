@@ -1,10 +1,13 @@
 import assert from 'node:assert/strict';
 import {
-    RANGE_COLUMNS, cellRange, pasteTargets, rangeColumnsForRow,
+    RANGE_COLUMNS, cellRange, pasteTargets,
 } from '../src/components/windows/optimization/meritFunctionEditor/mfTable/selectionModel.js';
+import { parseCellGrid, rangeColumnsForRow } from '../src/components/ui/grid/gridModel.js';
+import { runKeyAction } from '../src/components/windows/optimization/meritFunctionEditor/mfTable/tableKeyboard.js';
 import {
-    gridEdits, looksLikeOperandRows, parseCellGrid, pasteIntoCell, rangeText, runKeyAction,
-} from '../src/components/windows/optimization/meritFunctionEditor/mfTable/tableKeyboard.js';
+    gridEdits, pasteIntoCell, rangeText,
+} from '../src/components/windows/optimization/meritFunctionEditor/mfTable/cellClipboard.js';
+import { looksLikeOperandRows } from '../src/components/windows/optimization/meritFunctionEditor/mfTable/operandClipboard.js';
 import {
     cellEdit, polFromKey, startEdit,
 } from '../src/components/windows/optimization/meritFunctionEditor/mfTable/editModel.js';

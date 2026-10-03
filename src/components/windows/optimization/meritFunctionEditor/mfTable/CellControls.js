@@ -4,7 +4,7 @@ import { listenForDismiss, ownerWindow } from '../../../../ui/ownerWindow.js';
 import { polFromKey } from './editModel.js';
 import { ROW_H } from './rowWindow.js';
 
-const { createElement: h, useState, useEffect, useLayoutEffect, useRef, useCallback } = React;
+const { createElement: h, useState, useEffect, useLayoutEffect, useRef } = React;
 
 /**
  * The mouse handlers of a cell that is selected like a spreadsheet cell: the
@@ -16,33 +16,6 @@ export function selectable(ctx, colKey) {
         onMouseDown: event => ctx.cellDown(colKey, event),
         onMouseEnter: () => ctx.cellEnter(colKey),
     };
-}
-
-export function CellInput({ initValue, onCommit, onCancel, onNavigate, c }) {
-    const [draft, setDraft] = useState(initValue);
-    const ref = useRef(null);
-    useEffect(() => { ref.current?.select(); }, []);
-    const commit = useCallback(() => onCommit(draft), [draft, onCommit]);
-
-    return h('input', {
-        ref,
-        value: draft,
-        onChange: event => setDraft(event.target.value),
-        onBlur: commit,
-        onKeyDown: event => {
-            if (event.key === 'Enter') { event.preventDefault(); event.stopPropagation(); commit(); onNavigate('down'); }
-            if (event.key === 'Tab') { event.preventDefault(); event.stopPropagation(); commit(); onNavigate(event.shiftKey ? 'left' : 'right'); }
-            if (event.key === 'Escape') { event.preventDefault(); event.stopPropagation(); onCancel(); }
-            if (event.key === 'ArrowDown') { event.preventDefault(); event.stopPropagation(); commit(); onNavigate('down'); }
-            if (event.key === 'ArrowUp') { event.preventDefault(); event.stopPropagation(); commit(); onNavigate('up'); }
-        },
-        style: {
-            width: '100%', background: c.bg, color: c.text,
-            border: `1px solid ${c.accent}`, borderRadius: 2,
-            fontSize: 11, padding: '1px 3px', fontFamily: 'inherit',
-            outline: 'none', boxSizing: 'border-box',
-        },
-    });
 }
 
 export function TblBtn({ label, onClick, disabled, c, accent, title }) {

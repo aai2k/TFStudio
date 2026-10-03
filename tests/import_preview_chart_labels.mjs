@@ -92,8 +92,8 @@ const preview = ellipsometryModel.chartData([
     { quantity: 'DEL', name: 'Δ', x: lambdas, y: [150, 152, 154], aoi: 65 },
 ], t.spectralAxis.nm);
 const ellipsometryChart = findElement(ImportTab({
-    c, mx: t.measuredEllipsometry,
-    controller: { loading: false, onImport() {}, fileName: 'sample.dat', preview },
+    c, mx: t.measuredEllipsometry, ce: t.curveEditor,
+    controller: { loading: false, onImport() {}, fileName: 'sample.dat', preview, curveEditor: { openNew() {} } },
 }), EllipsometryChart);
 assert.ok(ellipsometryChart, 'an imported pair reaches the ellipsometry chart');
 

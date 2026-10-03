@@ -17,20 +17,21 @@ import { MeasuredFitDialog } from '../spectrumExchange/MeasuredFitDialog.js';
 import { AnalysisWindow, ControlRow } from '../../analysis/chrome/layout.js';
 import { NoticeBadge } from '../../analysis/chrome/popover.js';
 import { TabBtn } from '../chrome/panel.js';
+import { CurveEditor } from '../curveEditor/CurveEditor.js';
 
 const { createElement: h, useMemo } = React;
 
 export function MeasuredEllipsometry({ c, t }) {
     const mx = t.measuredEllipsometry;
     const fitText = useMemo(() => fitDialogText(t), [t]);
-    const controller = useMeasuredEllipsometry(mx, t.spectralAxis.nm, fitText);
+    const controller = useMeasuredEllipsometry(mx, t.spectralAxis.nm, fitText, t.curveEditor);
     const notices = [
         controller.status ? { label: controller.status.msg, tone: controller.status.type } : null,
         controller.cosDeltaCurve
             ? { label: mx.cosDeltaWarning(controller.cosDeltaCurve.name), tone: 'warning' }
             : null,
     ].filter(Boolean);
-    const tabProps = { controller, c, mx };
+    const tabProps = { controller, c, mx, ce: t.curveEditor };
 
     return h(AnalysisWindow, { c },
         h(ControlRow, {
@@ -48,5 +49,6 @@ export function MeasuredEllipsometry({ c, t }) {
         ),
         controller.tab === 'import' ? h(ImportTab, tabProps) : h(ExportTab, tabProps),
         controller.fitDialogCurve && h(MeasuredFitDialog, { controller, c, sx: fitText }),
+        controller.curveEditor.editorProps && h(CurveEditor, { ...controller.curveEditor.editorProps, c, t }),
     );
 }

@@ -37,7 +37,9 @@ import {
     resolveSourceSpec,
     resolveDetectorSpec,
 } from '../src/utils/physics/spectralWeightings.js';
-import { tableRowsFromText } from '../src/components/windows/analysis/integralValues/tableModel.js';
+import { tableFromWeights } from '../src/components/windows/dataExchange/curveEditor/curveTable.js';
+import { tableFromText } from '../src/components/windows/dataExchange/curveEditor/tableText.js';
+import { weightsFromTable } from '../src/components/windows/dataExchange/curveEditor/curveApply.js';
 import { photopicV, illuminantSPD, tristimulus } from '../src/utils/physics/colorimetry.js';
 
 let fails = 0;
@@ -312,12 +314,17 @@ console.log('— composeWeighting band intersection —');
     ok(w2.lamMax === 780, `lamMax = 780 (got ${w2.lamMax})`);
 }
 
-// ── 15. The table editor reads pasted and imported text ──────────────────────
-console.log('table editor text reading');
+// ── 15. A weighting table reads imported text ────────────────────────────────
+console.log('weighting table text reading');
 {
     // Cells copied from Excel in a comma-decimal locale, a CSV saved by the same
     // Excel, and a table separated by single spaces. Each used to lose its
-    // fractions or its rows.
+    // fractions or its rows. A source or detector table is read into the curve
+    // editor and applied as [λ, weight] rows in ascending wavelength.
+    const tableRowsFromText = (text) => {
+        const read = tableFromText(text, tableFromWeights([]));
+        return read.table ? weightsFromTable(read.table) : [];
+    };
     const cases = [
         ['400\t0,5\n500\t0,7', [[400, 0.5], [500, 0.7]]],
         ['400\t45,3\n500\t46,1', [[400, 45.3], [500, 46.1]]],

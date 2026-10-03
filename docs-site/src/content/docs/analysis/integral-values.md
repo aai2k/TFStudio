@@ -33,10 +33,7 @@ The **custom-integral builder** lets you add your own weighted average:
 
 **Channel**: whether to average T, R or A.
 
-**Source**: the illuminant: D65, D50, illuminant A, AM1.5G solar, equal-energy
-E, a blackbody at a temperature you set, or a custom table. A blackbody exposes a
-temperature field; a custom source opens a small table editor where you type or
-paste the source spectrum.
+**Source**: the illuminant: D65, D50, illuminant A, AM1.5G solar, equal-energy E, a blackbody at a temperature you set, or a custom table. A blackbody exposes a temperature field; a custom source offers **Edit table…**, which opens the [curve editor](/data-exchange/measured-spectra/#typing-a-curve-or-changing-its-points) on the source spectrum as a weight against wavelength.
 
 **Detector**: the observer or sensor response: the photopic curve V(λ), a flat
 response, or a custom table.
@@ -47,9 +44,7 @@ response, or a custom table.
 (you can rename them and adjust the channel and band directly in the table) and
 removable. Custom integrals are saved and restored automatically.
 
-The custom-table editor accepts pasted or imported CSV/TSV (two columns: λ in nm
-and the weighting value); header rows, blank lines and `#` comment lines are
-ignored.
+A custom table is typed, pasted or read from a file in the curve editor, which reads text the way the spectrum importer does: a decimal comma is kept, and header rows, blank lines and `#` comment lines are ignored. The wavelength column can be in nm, µm, cm⁻¹ or eV. **Apply** needs at least two rows with both a wavelength and a weight, and sorts them by wavelength.
 
 ## How to read it
 

@@ -1,10 +1,9 @@
 import { useDesign } from '../../../../state/DesignContext.js';
 import { useUnresolvedMaterials } from '../../../../utils/materials/useUnresolvedMaterials.js';
-import { computeDesignSpectrum } from '../../../../utils/io/designSpectrum.js';
-import { measuredCurveData, withUniqueCurveIds } from '../../../../utils/io/spectrumTable.js';
-import { resolveEvalMode } from '../../../../utils/physics/optimizer.js';
+import { withUniqueCurveIds } from '../../../../utils/io/spectrumTable.js';
 import { useDesignExport, useMeasuredExport } from './exportActions.js';
 import { useImportActions } from './importActions.js';
+import { designPreview, designSeriesKey } from './designPreview.js';
 import {
     clampedFitRange, defaultMeasuredFitOptions, measuredFitConstraintsInvalid,
     measuredFitMeritOperands, measuredFitSnapshot, orphanFitBlocks, restoredFitCurves,
@@ -12,46 +11,17 @@ import {
 import { spectrumExchangeSession, spectrumExchangeView } from './sessionState.js';
 import { evalParamsSession } from '../../../../state/evalParamsSession.js';
 import { useSplitWindowSession } from '../../windowSession.js';
+import { useCurveEditorHost } from '../curveEditor/useCurveEditorHost.js';
 
 const { useCallback, useEffect, useMemo, useState } = React;
 
 function previewCurveSwitches(curve) {
     const switches = { T: false, R: false, A: false, Ts: false, Rs: false, Tp: false, Rp: false };
-    if (!curve) return switches;
-    if (curve.quantity === 'A') switches.A = true;
-    else if (curve.pol === 's') switches[`${curve.quantity}s`] = true;
-    else if (curve.pol === 'p') switches[`${curve.quantity}p`] = true;
-    else switches[curve.quantity] = true;
+    if (curve) switches[designSeriesKey(curve)] = true;
     return switches;
 }
 
-function computePreview(design, curve, missingMaterialIds) {
-    if (!curve) return { data: null, range: null, error: null };
-    const visible = measuredCurveData(curve);
-    if (!visible.x.length) return { data: null, range: null, error: 'empty' };
-    const min = visible.x[0], max = visible.x[visible.x.length - 1];
-    const range = { min, max };
-    if (missingMaterialIds.length) return { data: null, range, error: 'materials' };
-    try {
-        const span = Math.max(0, max - min);
-        const step = span > 0 ? Math.max(0.1, span / 600) : 1;
-        // Draw what the merit function scores. In whole-sample mode that is the
-        // total spectrum, not the single front surface, and a measurement of a
-        // coated substrate is a whole-sample measurement.
-        const data = computeDesignSpectrum(design, {
-            lambdaStart: min,
-            lambdaEnd: max > min ? max : min + step,
-            lambdaStep: step,
-            thetas: [curve.aoi ?? 0],
-        }, resolveEvalMode(design));
-        return { data, range, error: null };
-    } catch (error) {
-        console.error('Measured spectrum preview error:', error);
-        return { data: null, range, error: 'evaluation' };
-    }
-}
-
-export function useSpectrumExchange(sx) {
+export function useSpectrumExchange(sx, ce) {
     const { design, updateDesign, checkpoint, evalMode, hasActiveDesign } = useDesign();
     // The grid Optical Evaluation was last set to, as the export defaults. Read
     // once: these seed the fields below, which the user then owns.
@@ -174,7 +144,7 @@ export function useSpectrumExchange(sx) {
     });
     const previewCurve = (selectedCurveId ? selectedCurve : null) || importActions.previewCurve || selectedCurve;
     const preview = useMemo(
-        () => computePreview(design, previewCurve, missingMaterialIds),
+        () => designPreview(design, previewCurve, missingMaterialIds),
         [design, previewCurve, missingMaterialIds],
     );
     const previewShowCurves = useMemo(() => previewCurveSwitches(previewCurve), [previewCurve]);
@@ -190,6 +160,10 @@ export function useSpectrumExchange(sx) {
     const [dSP, setDSP] = useState(false);
     const onExportDesign = useDesignExport({
         design, evalMode, dStart, dEnd, dStep, dAoi, dQ, dSP, expFormat, flash, sx,
+    });
+    const curveEditor = useCurveEditorHost({
+        kind: 'spectrum', listKey: 'measuredCurves', design, updateDesign, checkpoint, flash, ce,
+        onAdded: added => setSelectedCurveId(added[0].id),
     });
 
     return {
@@ -211,6 +185,6 @@ export function useSpectrumExchange(sx) {
         previewCurve, previewData: preview.data, previewRange: preview.range,
         previewError: preview.error, previewShowCurves,
         dStart, setDStart, dEnd, setDEnd, dStep, setDStep, dAoi, setDAoi,
-        dQ, setDQ, dSP, setDSP, onExportDesign, evalMode, missingMaterialIds,
+        dQ, setDQ, dSP, setDSP, onExportDesign, evalMode, missingMaterialIds, curveEditor,
     };
 }

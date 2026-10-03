@@ -1,8 +1,13 @@
 import assert from 'node:assert/strict';
 import {
-    cellText, clipboardScope, copySelectedOperands, doKeyDown, keyComboOf, parseOperandsTsv,
-    pasteIntoCell, pasteOperands, runKeyAction, serializeOperandsTsv,
+    doKeyDown, keyComboOf, runKeyAction,
 } from '../src/components/windows/optimization/meritFunctionEditor/mfTable/tableKeyboard.js';
+import {
+    cellText, clipboardScope, pasteIntoCell,
+} from '../src/components/windows/optimization/meritFunctionEditor/mfTable/cellClipboard.js';
+import {
+    copySelectedOperands, parseOperandsTsv, pasteOperands, serializeOperandsTsv,
+} from '../src/components/windows/optimization/meritFunctionEditor/mfTable/operandClipboard.js';
 import {
     navigationTarget, selectionAfterRowClick,
 } from '../src/components/windows/optimization/meritFunctionEditor/mfTable/selectionModel.js';

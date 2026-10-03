@@ -109,7 +109,7 @@ function OrphanFits({ controller, c, mx }) {
 }
 
 /** What is on the design, one card per curve. */
-function ImportedCurves({ controller, c, mx }) {
+function ImportedCurves({ controller, c, mx, ce }) {
     const { curves, selectedCurve, setSelectedCurveId } = controller;
     return h('div', { style: { paddingTop: 2 } },
         h('div', {
@@ -122,7 +122,7 @@ function ImportedCurves({ controller, c, mx }) {
         curves.length
             ? curves.map(curve => h(CurveCard, {
                 key: curve.id, curve, selected: selectedCurve?.id === curve.id,
-                onSelect: () => setSelectedCurveId(curve.id), controller, c, mx,
+                onSelect: () => setSelectedCurveId(curve.id), controller, c, mx, ce,
             }))
             : h('div', {
                 style: { padding: '0 10px 10px', color: c.textDim, fontSize: 11, fontStyle: 'italic' },
@@ -130,7 +130,7 @@ function ImportedCurves({ controller, c, mx }) {
     );
 }
 
-export function ImportTab({ controller, c, mx }) {
+export function ImportTab({ controller, c, mx, ce }) {
     const { loading, onImport, fileName, preview, hasActiveDesign, panelWidth, setPanelWidth } = controller;
     // With no design selected there is nothing to import into.
     const noDesign = hasActiveDesign === false;
@@ -140,9 +140,13 @@ export function ImportTab({ controller, c, mx }) {
                 c, title: mx.importTitle, label: loading ? mx.importing : mx.import,
                 onImport, loading, disabled: noDesign, fileName: noDesign ? '' : fileName,
                 hint: noDesign ? mx.noDesign : mx.importHint,
+                extra: h(ActionButton, {
+                    c, label: ce.newCurve, title: ce.newCurveTip, disabled: noDesign,
+                    onClick: controller.curveEditor.openNew,
+                }),
             }),
             !noDesign && h(ConfigurePanel, { controller, c, mx }),
-            !noDesign && h(ImportedCurves, { controller, c, mx }),
+            !noDesign && h(ImportedCurves, { controller, c, mx, ce }),
         ),
         h(PlotArea, null,
             preview && !noDesign

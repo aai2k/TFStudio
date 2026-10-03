@@ -118,6 +118,12 @@ tan Ψ and cos Δ under headings that say `PSI` and `DELTA`; read as degrees tho
 numbers are legal and the mistake is invisible, so the window says so instead of
 letting a fit run on them. Convert such a file to degrees before importing it.
 
+### Typing a curve, or changing its points
+
+**New curve**, beside **Open file…**, and **Edit** on a curve card open the curve editor described under [Measured Spectra](/data-exchange/measured-spectra/#typing-a-curve-or-changing-its-points). A new table holds a Ψ and a Δ column in degrees, and each column becomes a curve. The design's own Ψ or Δ is drawn behind each at the curve's angle, Δ in the curve's sign. A Ψ outside 0 to 90 degrees is marked in red, and Δ is smoothed and resampled as an unwrapped angle.
+
+A new curve arrives at normal incidence, where Ψ and Δ say nothing about the film, and the editor says so: set its angle, and for a Δ its convention, on its card after **Apply**.
+
 ## Fitting the design to a measurement
 
 **Fit…** on a curve turns it into a merit-function target, so

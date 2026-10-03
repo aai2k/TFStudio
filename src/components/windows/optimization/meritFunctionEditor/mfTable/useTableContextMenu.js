@@ -1,9 +1,10 @@
 import { COLS } from './operandViewModel.js';
 import { contextMenuItems, menuScope, menuTargetFromEvent } from './contextMenuModel.js';
+import { copySelectedOperands, pasteOperands } from './operandClipboard.js';
 import { selectedCells } from './selectionModel.js';
 import {
-    cellText, copyCellText, copySelectedOperands, pasteIntoCell, pasteOperands, rangeText, selectionText,
-} from './tableKeyboard.js';
+    cellText, copyCellText, pasteIntoCell, rangeText, selectionText,
+} from './cellClipboard.js';
 
 const { useState, useCallback } = React;
 

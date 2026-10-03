@@ -10,8 +10,9 @@ const { OpticalEvaluation } = await import(
     '../src/components/windows/analysis/opticalEvaluation/OpticalEvaluation.js');
 const { TargetToolbar } = await import(
     '../src/components/windows/analysis/opticalEvaluation/TargetToolbar.js');
-const { TargetEditorOverlay, dataPoint, hasPointerTravelled, targetGeometryChanged } = await import(
-    '../src/components/ui/TargetEditorOverlay.js');
+const { TargetEditorOverlay } = await import('../src/components/ui/TargetEditorOverlay.js');
+const { dataPoint, hasPointerTravelled, targetGeometryChanged } = await import(
+    '../src/components/ui/targetEditorGeometry.js');
 const markup = renderToStaticMarkup(withDesign(
     React.createElement(OpticalEvaluation, { c: makeTheme(), theme: makeTheme(), t: makeLocale() })));
 const c = makeTheme();

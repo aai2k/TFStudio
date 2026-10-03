@@ -36,12 +36,15 @@ export function PanelSection({ c, title, children }) {
 
 /**
  * The Open file button, the name of the file it opened, and a line saying
- * what the window loads. The same on every import tab.
+ * what the window loads. The same on every import tab. `extra` sits beside
+ * the button: a window that can also take a curve typed by hand puts its
+ * button for that there.
  */
-export function ImportFilePanel({ c, title, label, onImport, loading, disabled, fileName, hint }) {
+export function ImportFilePanel({ c, title, label, onImport, loading, disabled, fileName, hint, extra }) {
     return h(PanelSection, { c, title },
         h('div', { style: { display: 'flex', alignItems: 'center', gap: 8 } },
             h(ActionButton, { c, label, onClick: onImport, disabled: loading || disabled }),
+            extra,
             fileName && h('span', {
                 title: fileName,
                 style: {

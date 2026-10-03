@@ -40,8 +40,8 @@ function pointsText(curve, mx) {
 }
 
 // What the curve is drawn with, and what can be done with it.
-function CurveHeader({ curve, controller, c, mx }) {
-    const { updateCurve, toggleCurve, removeCurve, openFitDialog } = controller;
+function CurveHeader({ curve, controller, c, mx, ce }) {
+    const { updateCurve, toggleCurve, removeCurve, openFitDialog, curveEditor } = controller;
     return h('div', { style: { display: 'flex', alignItems: 'center', gap: 5 } },
         h(CheckField, {
             c, label: '', checked: curve.visible !== false,
@@ -58,6 +58,7 @@ function CurveHeader({ curve, controller, c, mx }) {
             onSelect: value => updateCurve(curve.id, { quantity: value }),
         }),
         h(NameField, { curve, c, mx, onRename: name => updateCurve(curve.id, { name }) }),
+        h(ActionButton, { c, label: ce.edit, title: ce.editTip, onClick: () => curveEditor.openEdit(curve) }),
         h(ActionButton, { c, label: mx.fit, title: mx.fitTip, onClick: () => openFitDialog(curve) }),
         h(ActionButton, { c, label: '×', title: mx.remove, onClick: () => removeCurve(curve.id) }),
     );
@@ -98,7 +99,7 @@ function CurveConditions({ curve, controller, c, mx }) {
 }
 
 /** One measured curve. Clicking the card puts it on the preview. */
-export function CurveCard({ curve, selected, onSelect, controller, c, mx }) {
+export function CurveCard({ curve, selected, onSelect, controller, c, mx, ce }) {
     return h('div', {
         onClick: onSelect,
         style: {
@@ -108,7 +109,7 @@ export function CurveCard({ curve, selected, onSelect, controller, c, mx }) {
             display: 'flex', flexDirection: 'column', gap: 4, cursor: 'default',
         },
     },
-        h(CurveHeader, { curve, controller, c, mx }),
+        h(CurveHeader, { curve, controller, c, mx, ce }),
         h(CurveConditions, { curve, controller, c, mx }),
     );
 }

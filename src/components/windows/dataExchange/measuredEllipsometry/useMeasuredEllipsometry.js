@@ -12,6 +12,7 @@ import {
 } from '../spectrumExchange/model.js';
 import { measuredEllipsometrySession, measuredEllipsometryView } from './sessionState.js';
 import { useSplitWindowSession } from '../../windowSession.js';
+import { useCurveEditorHost } from '../curveEditor/useCurveEditorHost.js';
 
 const { useCallback, useEffect, useMemo, useRef, useState } = React;
 
@@ -90,7 +91,7 @@ function useCurveEdits({ design, updateDesign, checkpoint }) {
     return { updateCurve, toggleCurve, removeCurve };
 }
 
-export function useMeasuredEllipsometry(mx, xLabel, fitText) {
+export function useMeasuredEllipsometry(mx, xLabel, fitText, ce) {
     const { design, updateDesign, checkpoint, hasActiveDesign } = useDesign();
     const missingMaterialIds = useUnresolvedMaterials(design);
     const [session, setField] = useSplitWindowSession(
@@ -127,6 +128,10 @@ export function useMeasuredEllipsometry(mx, xLabel, fitText) {
     const exportActions = useExportActions({ design, curves, session, missingMaterialIds, flash, mx });
     const fit = useFitDialog({
         design, curves, fitOptions, setField, updateDesign, checkpoint, flash, mx, fitText,
+    });
+    const curveEditor = useCurveEditorHost({
+        kind: 'ellipsometry', listKey: 'measuredEllipsometry', design, updateDesign, checkpoint, flash, ce,
+        onAdded: added => setField('selectedCurveId', added[0].id),
     });
 
     // A merit function loaded from a preset brings its fit targets but not the
@@ -177,7 +182,7 @@ export function useMeasuredEllipsometry(mx, xLabel, fitText) {
         cosDeltaCurve: curves.find(looksLikeCosDelta) || null,
         onAddSelected: () => addCurves([previewColumn]),
         onAddAll: () => addCurves(previewCurves.filter((_, index) => !!columnQuantity(index))),
-        ...edits, ...fit, orphanFits, onRestoreFitCurves,
+        ...edits, ...fit, orphanFits, onRestoreFitCurves, curveEditor,
         expSource, setExpSource: value => setField('expSource', value),
         expXUnit, setExpXUnit: value => setField('expXUnit', value),
         expSelected, setExpSelected: (id, on) => setField('expSelected', { ...expSelected, [id]: on }),

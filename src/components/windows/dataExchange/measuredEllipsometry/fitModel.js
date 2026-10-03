@@ -26,7 +26,7 @@ import { defaultMeasuredFitOptions, evaluatedMeasurementSide } from '../spectrum
 // wraps the result back, because interpolating raw degrees across the 360°
 // cut invents targets passing through 180°. The measured and thinned grids
 // keep the readings as written.
-function unwrappedDegrees(values) {
+export function unwrappedDegrees(values) {
     const out = values.slice();
     for (let index = 1; index < out.length; index++) {
         let step = out[index] - out[index - 1];

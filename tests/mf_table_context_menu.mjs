@@ -3,7 +3,8 @@ import {
     contextMenuItems, menuScope, menuTargetFromEvent,
 } from '../src/components/windows/optimization/meritFunctionEditor/mfTable/contextMenuModel.js';
 import { COLS } from '../src/components/windows/optimization/meritFunctionEditor/mfTable/operandViewModel.js';
-import { doKeyDown, isTextControl } from '../src/components/windows/optimization/meritFunctionEditor/mfTable/tableKeyboard.js';
+import { doKeyDown } from '../src/components/windows/optimization/meritFunctionEditor/mfTable/tableKeyboard.js';
+import { isTextControl } from '../src/components/ui/grid/gridKeys.js';
 
 // ── Where a right-click landed ────────────────────────────────────────────────
 

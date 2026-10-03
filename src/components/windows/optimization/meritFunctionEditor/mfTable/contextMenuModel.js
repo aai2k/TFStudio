@@ -1,5 +1,5 @@
 import { isBlank, isDmfs } from '../../../../../utils/physics/optimizer.js';
-import { clipboardScope } from './tableKeyboard.js';
+import { clipboardScope } from './cellClipboard.js';
 
 /**
  * Which row and column a right-click landed on, read from the table's own DOM:

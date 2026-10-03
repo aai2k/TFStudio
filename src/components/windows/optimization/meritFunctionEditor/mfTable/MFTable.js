@@ -155,7 +155,7 @@ export function MFTable(props) {
         selIds, setSelIds, focusCell, setFocusCell, editCell, setEditCell, tableRef,
         range, extraCells,
         isMathPct, selectRow: handleSelectRow, focusAt: handleFocusAt,
-        extendTo, toggleCell, beginDrag, dragOver,
+        pressCell, beginDrag, dragOver,
         startEdit: handleStartEdit, commitEdit: handleCommitEdit,
         navigate: handleNavigate, onEdit: handleEdit, onKeyDown,
     } = useMFTableSelection({
@@ -191,7 +191,7 @@ export function MFTable(props) {
         selIds, focusCell, editCell, range, extraCells,
         operands, integralPresets, isMathPct, c, t,
         onEdit: handleEdit, selectRow: handleSelectRow, focusAt: handleFocusAt,
-        extendTo, toggleCell, beginDrag, dragOver, startEdit: handleStartEdit,
+        pressCell, beginDrag, dragOver, startEdit: handleStartEdit,
         commitEdit: handleCommitEdit, navigate: handleNavigate, setEditCell, setFocusCell,
     };
     const scrollRef = useRef(null);

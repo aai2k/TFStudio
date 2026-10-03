@@ -4,6 +4,7 @@
  */
 
 import { TabBtn } from '../chrome/panel.js';
+import { CurveEditor } from '../curveEditor/CurveEditor.js';
 import { ExportTab } from './ExportTab.js';
 import { ImportTab } from './ImportTab.js';
 import { MeasuredFitDialog } from './MeasuredFitDialog.js';
@@ -16,7 +17,7 @@ const { createElement: h } = React;
 
 export function SpectrumExchange({ c, t }) {
     const sx = t.spectrumExchange;
-    const controller = useSpectrumExchange(sx);
+    const controller = useSpectrumExchange(sx, t.curveEditor);
     const range = controller.previewRange;
     const materialNotice = useMaterialRangeNotice(
         controller.design, range?.min ?? 0, range?.max ?? 0, t);
@@ -54,5 +55,6 @@ export function SpectrumExchange({ c, t }) {
             ? h(ImportTab, tabProps)
             : h(ExportTab, tabProps),
         controller.fitDialogCurve && h(MeasuredFitDialog, { controller, c, sx }),
+        controller.curveEditor.editorProps && h(CurveEditor, { ...controller.curveEditor.editorProps, c, t }),
     );
 }

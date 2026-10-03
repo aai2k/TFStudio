@@ -29,7 +29,7 @@ const { GDGDDEvaluation } =
     await import('../src/components/windows/analysis/gdGddEvaluation/GDGDDEvaluation.js');
 const { buildGDChartOption } =
     await import('../src/components/windows/analysis/gdGddEvaluation/chartModel.js');
-const { dropOutcome } = await import('../src/components/ui/TargetEditorOverlay.js');
+const { dropOutcome } = await import('../src/components/ui/targetEditorGeometry.js');
 
 const plot = (quantity, target, more = {}) => ({
     quantity, target, polarization: 'avg', thetaDeg: 0, side: 'front', surfaceMode: 'front_only',

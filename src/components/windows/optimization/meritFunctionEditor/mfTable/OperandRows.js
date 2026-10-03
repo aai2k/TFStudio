@@ -6,7 +6,7 @@ import {
 import { COLS, rowDisplayMeta, rowTintAlpha, typeRgba } from './operandViewModel.js';
 import { selectedColumnsForRow } from './selectionModel.js';
 import { ROW_H } from './rowWindow.js';
-import { isTextControl } from './tableKeyboard.js';
+import { isTextControl } from '../../../../ui/grid/gridKeys.js';
 
 const { createElement: h, memo, useState } = React;
 
@@ -130,7 +130,7 @@ function MFDataRowView(props) {
         op, rowIdx, rawCur, bandLevel, contribution, largestContribution,
         evaluationError, rowSel, focusColKey, selectedCols, rowEdit,
         operands, integralPresets,
-        isMathPct, c, t, onEdit, selectRow, focusAt, extendTo, toggleCell, beginDrag, dragOver,
+        isMathPct, c, t, onEdit, selectRow, focusAt, pressCell, beginDrag, dragOver,
         startEdit, commitEdit, navigate, setEditCell,
     } = props;
     const meta = rowDisplayMeta(op, rawCur, isMath(op.type) && isMathPct(op), bandLevel);
@@ -158,16 +158,8 @@ function MFDataRowView(props) {
     // dropdown, only focuses it.
     const cellClick = colKey => focusAt(rowIdx, colKey);
 
-    // Value cells select like spreadsheet cells: Shift stretches the rectangle
-    // to the cell, Ctrl adds or removes it, a plain press focuses it and starts
-    // a drag that grows the rectangle over the cells the pointer crosses.
-    const cellDown = (colKey, event) => {
-        if (event.button !== 0) return;
-        if (event.shiftKey) { event.preventDefault(); extendTo(rowIdx, colKey); return; }
-        if (event.ctrlKey || event.metaKey) { event.preventDefault(); toggleCell(rowIdx, colKey); return; }
-        focusAt(rowIdx, colKey);
-        beginDrag('cells');
-    };
+    // Value cells select like spreadsheet cells; see useGridSelection.js.
+    const cellDown = (colKey, event) => pressCell(rowIdx, colKey, event);
     const cellEnter = colKey => dragOver(rowIdx, colKey);
 
     const ctx = {
@@ -247,8 +239,7 @@ export function renderOperandRow(ctx, op, rowIdx) {
         onEdit,
         selectRow,
         focusAt: ctx.focusAt,
-        extendTo: ctx.extendTo,
-        toggleCell: ctx.toggleCell,
+        pressCell: ctx.pressCell,
         beginDrag,
         dragOver,
         startEdit: ctx.startEdit,

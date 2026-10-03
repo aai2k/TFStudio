@@ -1,5 +1,6 @@
 import { isIntegral, isMathPairRef, polFromType } from '../../../../../utils/physics/optimizer.js';
-import { CellInput, CellSelect, PolList, selectable } from './CellControls.js';
+import { CellInput } from '../../../../ui/grid/CellInput.js';
+import { CellSelect, PolList, selectable } from './CellControls.js';
 import { curveReferenceCell } from './curveReferenceCell.js';
 import { OperandTypePicker } from './OperandTypePicker.js';
 import { measuredSnapshotCell, measuredTypeCell } from './measuredCells.js';
