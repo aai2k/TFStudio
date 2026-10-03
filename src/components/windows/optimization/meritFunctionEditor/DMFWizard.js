@@ -3,6 +3,7 @@ import {
 } from '../../../../utils/physics/optimizer.js';
 import { Checkbox } from '../../../ui/Checkbox.js';
 import { NumInput, SelectField } from '../../analysis/chrome/controls.js';
+import { requestTool } from '../../../../utils/misc/toolRequest.js';
 import { useWindowSession } from '../../windowSession.js';
 import { CurveEditor } from '../../dataExchange/curveEditor/CurveEditor.js';
 import { pointsFromTable } from '../../dataExchange/curveEditor/curveApply.js';
@@ -338,6 +339,8 @@ function bottomLine(ctx, startRow, setStartRow, onGenerate) {
     return h('div', { style: { display: 'flex', alignItems: 'center', gap: 8, height: CONTROL_H } },
         h('span', { style: { ...s.label, color: blocked ? c.error : s.label.color } },
             blocked ? tw.curveErrors[result.error] : tw.preview(summary.count, summary.types.join(', '))),
+        result.error === 'noCurves'
+            && smallButton(c, tw.openMeasuredSpectra, () => requestTool('spectrum-exchange')),
         h('span', { style: { flex: 1 } }),
         h('span', { style: s.label, title: tw.startRowTip }, tw.startRow + ':'),
         numberInput(s, startRow, v => setStartRow(Math.max(1, Math.round(v) || 1)), 52, { min: 1, step: 1 }),

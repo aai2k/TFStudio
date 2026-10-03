@@ -2388,6 +2388,7 @@ export default {
       gainType: 'Digita…',
       gainTyped: 'Guadagno digitato',
       gainImportFailed: 'Nessuna tabella in quel file',
+      openMeasuredSpectra: 'Apri Spettri misurati',
       curveConditions: "Le righe prendono l'angolo e la polarizzazione della curva stessa.",
       flatteningName: (name) => `${name}: target di appiattimento`,
       curveErrors: {

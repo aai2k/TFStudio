@@ -2025,6 +2025,7 @@ export default {
       gainType:           'Type…',
       gainTyped:          'Typed gain',
       gainImportFailed:   'No table found in that file',
+      openMeasuredSpectra: 'Open Measured Spectra',
       curveConditions:    'The rows take the curve\'s own angle and polarization.',
       flatteningName:     (name) => `${name} flattening target`,
       curveErrors: {

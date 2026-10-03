@@ -8,6 +8,7 @@
  */
 
 import { hasSavedLayout } from '../components/docking/layoutStorage.js';
+import { OPEN_TOOL_EVENT } from '../utils/misc/toolRequest.js';
 
 const { useState, useEffect, useCallback } = React;
 
@@ -62,6 +63,16 @@ export function useWorkspaceLayout(activeDesignId, showTransientDesign) {
         window.addEventListener('tfstudio:load-design', onLoad);
         return () => window.removeEventListener('tfstudio:load-design', onLoad);
     }, [showTransientDesign, openTool]);
+
+    // A window pointing the user to another one, as the merit function wizard
+    // does to Measured Spectra when a design has no curve (utils/misc/toolRequest.js).
+    useEffect(() => {
+        const onRequest = (e) => {
+            if (e.detail?.toolId) openTool(e.detail.toolId, { focusExisting: true });
+        };
+        window.addEventListener(OPEN_TOOL_EVENT, onRequest);
+        return () => window.removeEventListener(OPEN_TOOL_EVENT, onRequest);
+    }, [openTool]);
 
     return {
         toolRequests, layoutRequest, setOpenWindowIds,

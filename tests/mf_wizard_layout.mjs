@@ -72,4 +72,31 @@ const html = renderToStaticMarkup(React.createElement(DMFWizard, {
     assert.ok(folded.includes(tw.title), 'the bar it folds into stays');
 }
 
+// ── A curve type on a design with no curve points to Measured Spectra ────────
+// The message says where curves are made, and a button beside it opens that
+// window through the workspace's tool request.
+{
+    const { meritWizardSession } = await import(
+        '../src/components/windows/optimization/meritFunctionEditor/sessionState.js');
+    const { OPEN_TOOL_EVENT, requestTool } = await import('../src/utils/misc/toolRequest.js');
+    const tw = t.meritFunctionEditor.wizard;
+    const draw = drawn => renderToStaticMarkup(React.createElement(DMFWizard, {
+        design: drawn, onGenerate: () => {}, operandCount: 0, mf: 0.5, omf: 0.5, busy: false, c, t,
+    }));
+    meritWizardSession.write(null, { open: true, catId: 'CURVE', typeId: 'GAIN_FLATTENING', params: { input: 'target' } });
+    const empty = draw(design);
+    assert.ok(empty.includes(tw.openMeasuredSpectra), 'no curve on the design: the button is there');
+    const curve = { id: 'loss', name: 'Loss', quantity: 'T', x: [1530, 1560], y: [0.5, 0.9] };
+    const withCurve = draw({ ...design, measuredCurves: [curve] });
+    assert.ok(!withCurve.includes(tw.openMeasuredSpectra), 'a curve to pick: no button, the message asks for the pick');
+    meritWizardSession.write(null, { open: true, catId: 'AR', typeId: 'BBAR', params: {} });
+
+    const asked = [];
+    const dispatch = window.dispatchEvent;
+    window.dispatchEvent = event => asked.push([event.type, event.detail.toolId]);
+    requestTool('spectrum-exchange');
+    window.dispatchEvent = dispatch;
+    assert.deepEqual(asked, [[OPEN_TOOL_EVENT, 'spectrum-exchange']], 'the request reaches the workspace as a window event');
+}
+
 console.log('mf_wizard_layout: passed');

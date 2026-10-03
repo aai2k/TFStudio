@@ -2368,6 +2368,7 @@ export default {
       gainType: '输入…',
       gainTyped: '输入的增益',
       gainImportFailed: '该文件中没有表格',
+      openMeasuredSpectra: '打开“实测光谱”',
       curveConditions: '这些行采用曲线自身的入射角与偏振。',
       flatteningName: (name) => `${name} 平坦目标`,
       curveErrors: {

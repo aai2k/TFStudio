@@ -1992,6 +1992,7 @@ export default {
       gainType:           'Ввести…',
       gainTyped:          'Введённое усиление',
       gainImportFailed:   'В файле нет таблицы',
+      openMeasuredSpectra: 'Открыть «Измеренные спектры»',
       curveConditions:    'Строки берут угол падения и поляризацию самой кривой.',
       flatteningName:     (name) => `${name}: цель выравнивания`,
       curveErrors: {
