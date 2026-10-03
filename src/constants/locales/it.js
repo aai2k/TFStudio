@@ -1131,7 +1131,7 @@ export default {
     insertRows: 'Inserisci righe',
     insertRowsTip: 'Inserisce sopra la selezione tante righe vuote quante ne sono selezionate (Insert).',
     deleteRows: 'Elimina righe',
-    deleteRowsTip: 'Elimina le righe delle celle selezionate (Ctrl+Delete).',
+    deleteRowsTip: 'Elimina le righe delle celle selezionate (Delete). Backspace svuota solo le celle.',
     dragPoints: 'Trascina i punti',
     dragPointsTip: "Trascina un punto del grafico in su o in giù per cambiarne il valore. La sua lunghezza d'onda resta quella digitata.",
     fill: 'Riempi',

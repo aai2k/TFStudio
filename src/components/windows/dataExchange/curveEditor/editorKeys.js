@@ -3,9 +3,9 @@
  * (ui/grid/gridKeys.js); the rest is a spreadsheet's:
  *
  *   Enter, F2         type into the focused cell; a typed character does too
- *   Delete            empty the selected cells
+ *   Delete            delete the rows of the selected cells
+ *   Backspace         empty the selected cells
  *   Insert            insert rows above the selection
- *   Ctrl+Delete       delete the selected rows
  *   Ctrl+C, X, V      copy, cut, paste
  *   Ctrl+Z, Ctrl+Y    undo, redo (Ctrl+Shift+Z redoes too)
  *   Ctrl+A            select every cell
@@ -22,7 +22,6 @@ import { X_KEY } from './curveTable.js';
 export function editorCombo(event) {
     const chord = ctrlChordChar(event);
     if (chord) return `${event.shiftKey ? 'Ctrl+Shift+' : 'Ctrl+'}${chord}`;
-    if ((event.ctrlKey || event.metaKey) && event.key === 'Delete') return 'Ctrl+Delete';
     return event.key === 'F2' ? 'Enter' : event.key;
 }
 
@@ -39,10 +38,9 @@ const EDITOR_KEYS = {
     Tab: moveTab,
     Enter: beginEdit,
     Escape: collapseRange,
-    Delete: run('clear'),
+    Delete: run('deleteRows'),
     Backspace: run('clear'),
     Insert: run('insertRows'),
-    'Ctrl+Delete': run('deleteRows'),
     'Ctrl+c': run('copy'),
     'Ctrl+x': run('cut'),
     'Ctrl+v': run('paste'),

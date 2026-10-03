@@ -112,11 +112,12 @@ const design = makeSampleDesign();
     editor = render();
     assert.deepEqual(editor.table.rows.slice(1, 3), [[7, 7], [7, 7]]);
 
-    // Delete empties the selected cells; Ctrl+Delete removes their rows.
-    editor.onKeyDown(key('Delete'));
+    // Backspace empties the selected cells; Delete removes their rows.
+    editor.onKeyDown(key('Backspace'));
     editor = render();
+    assert.equal(editor.table.rows.length, 13, 'Backspace keeps the rows');
     assert.ok(editor.table.rows.slice(1, 3).flat().every(Number.isNaN));
-    editor.onKeyDown(key('Delete', { ctrlKey: true }));
+    editor.onKeyDown(key('Delete'));
     editor = render();
     assert.equal(editor.table.rows.length, 11);
     assert.equal(editor.table.rows[1][0], 520);

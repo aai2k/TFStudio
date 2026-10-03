@@ -1044,7 +1044,7 @@ export default {
     insertRows: 'Insert rows',
     insertRowsTip: 'Insert as many empty rows as are selected, above them (Insert).',
     deleteRows: 'Delete rows',
-    deleteRowsTip: 'Delete the rows of the selected cells (Ctrl+Delete).',
+    deleteRowsTip: 'Delete the rows of the selected cells (Delete). Backspace empties the cells instead.',
     dragPoints: 'Drag points',
     dragPointsTip: 'Drag a point on the plot up or down to change its value. Its wavelength stays as typed.',
     fill: 'Fill',

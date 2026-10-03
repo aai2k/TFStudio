@@ -1130,7 +1130,7 @@ export default {
     insertRows: '插入行',
     insertRowsTip: '在所选行上方插入同样数量的空行（Insert）。',
     deleteRows: '删除行',
-    deleteRowsTip: '删除所选单元格所在的行（Ctrl+Delete）。',
+    deleteRowsTip: '删除所选单元格所在的行（Delete）。Backspace 只清空单元格。',
     dragPoints: '拖动点',
     dragPointsTip: '在图上上下拖动一个点即可改变其值。其波长保持输入值不变。',
     fill: '填充',
