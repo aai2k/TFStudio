@@ -37,7 +37,7 @@ const NEEDLE_MANUAL_CATS_KEY = 'tfstudio_needleManual_selectedCats';
 function useNeedleSettings(design) {
     const [session, setField] = useWindowSession(needleManualSession, design);
     const { deltaNm, dMin, nIntra, refineAfter, dlsIter, requestedSide } = session;
-    const catSelection = useCatSelection(NEEDLE_MANUAL_CATS_KEY);
+    const catSelection = useCatSelection(NEEDLE_MANUAL_CATS_KEY, design);
 
     return {
         deltaNm, setDeltaNm: value => setField('deltaNm', value),

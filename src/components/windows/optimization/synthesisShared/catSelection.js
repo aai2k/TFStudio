@@ -1,10 +1,42 @@
 import { getCatalogs } from '../../../../utils/materials/catalogManager.js';
-import { DESIGN_CATALOG_ID } from '../../../../utils/materials/designCatalog.js';
+import { DESIGN_CATALOG_ID, buildDesignCatalog } from '../../../../utils/materials/designCatalog.js';
+import { designMaterialIds } from '../../../../utils/materials/designMaterials.js';
+import { poolMatEntries } from './catalogPool.js';
 
 // Every catalog the pool can offer. The design catalog is not in the registry,
 // so it is named explicitly; selecting an id with no catalog behind it
 // contributes nothing, which is what happens for a design that has none.
 const allCatalogIds = () => new Set([DESIGN_CATALOG_ID, ...getCatalogs().map(cat => cat.id)]);
+
+// Materials the layers of both coatings are made of.
+function layerMaterialIds(design) {
+    const layers = [...(design?.frontLayers || []), ...(design?.backLayers || [])];
+    return new Set(layers.map(layer => layer.material).filter(Boolean));
+}
+
+/**
+ * The pool a design starts with: the design catalog, with every material that no
+ * layer uses left out. The substrate and the media stay listed there unticked and
+ * no other catalog is ticked, so a run inserts only what the stack is already
+ * made of until the user widens the pool. With no layer material to offer, as for
+ * a design with no layers, nothing is ticked.
+ *
+ * @returns {{cats: Set<string>, excl: Set<string>}}  selected catalog ids and
+ *          excluded material ids, in the form the pool panel stores.
+ */
+export function defaultPoolSelection(design) {
+    const catalog = design ? buildDesignCatalog(design, '') : null;
+    const listed = catalog ? poolMatEntries(catalog).map(entry => entry.fullId) : [];
+    const layerIds = layerMaterialIds(design);
+    const excl = new Set(listed.filter(id => !layerIds.has(id)));
+    return excl.size < listed.length
+        ? { cats: new Set([DESIGN_CATALOG_ID]), excl }
+        : { cats: new Set(), excl: new Set() };
+}
+
+// What the default pool is computed from, so it is rebuilt only when that changes.
+const defaultPoolKey = design =>
+    JSON.stringify([designMaterialIds(design), [...layerMaterialIds(design)]]);
 
 // ── Catalog-selection persistence (localStorage; key per window) ─────────────────
 export function loadSavedCatSelection(key) {
@@ -17,6 +49,15 @@ export function loadSavedCatSelection(key) {
 
 export function saveCatSelection(key, set) {
     try { localStorage.setItem(key, JSON.stringify([...set])); } catch (_) {}
+}
+
+// The pool the user last set in this window, limited to catalogs that still
+// exist, or null when they never changed it or none of its catalogs is left.
+function loadUserPool(storageKey, exclKey) {
+    const saved = loadSavedCatSelection(storageKey);
+    if (!saved) return null;
+    const cats = new Set([...allCatalogIds()].filter(id => saved.has(id)));
+    return cats.size > 0 ? { cats, excl: loadSavedCatSelection(exclKey) || new Set() } : null;
 }
 
 // Toggling a catalog is an "all or nothing" action for its materials, so it also
@@ -52,37 +93,33 @@ function computeToggleMat(curCats, curExcl, catId, fullId, catMatIds) {
 }
 
 // ── Catalog-selection state hook ────────────────────────────────────────────────
-// The selectedCats useState (initialized from localStorage, filtered to existing
-// catalogs), its mirror ref, and the toggle/all/clear handlers were identical in
-// Needle+GE apart from the localStorage key. Returns `selectedCatsRef` so the run
-// loop can read the latest selection synchronously (as both windows did).
-export function useCatSelection(storageKey) {
-    const { useState, useRef, useEffect, useCallback } = React;
-    const [selectedCats, setSelectedCats] = useState(() => {
-        const saved  = loadSavedCatSelection(storageKey);
-        const allIds = allCatalogIds();
-        if (!saved) return allIds;
-        const filtered = new Set([...allIds].filter(id => saved.has(id)));
-        return filtered.size > 0 ? filtered : allIds;
-    });
-    const selectedCatsRef = useRef(selectedCats);
-    useEffect(() => { selectedCatsRef.current = selectedCats; }, [selectedCats]);
-
-    // Per-material deselection within selected catalogs (pool drill-down).
-    // Stored as the set of EXCLUDED full material ids so the default (nothing
-    // excluded) means "all materials of every selected catalog" — backward
-    // compatible with the old catalog-only behavior. Separate localStorage key.
+// The pool of one synthesis window: the selected catalogs, and the materials left
+// out of them (stored as EXCLUDED full ids, so a selected catalog with nothing
+// excluded offers every material it holds). Until the user changes it the pool
+// follows `design` (defaultPoolSelection); a change is stored under `storageKey`
+// and kept from then on. Returns `selectedCatsRef` and `excludedMatsRef` so the
+// run loop can read the latest selection synchronously.
+export function useCatSelection(storageKey, design) {
+    const { useState, useRef, useEffect, useCallback, useMemo } = React;
     const exclKey = storageKey + '_excl';
-    const [excludedMats, setExcludedMats] = useState(() => loadSavedCatSelection(exclKey) || new Set());
+    const [userPool, setUserPool] = useState(() => loadUserPool(storageKey, exclKey));
+    const poolKey = defaultPoolKey(design);
+    const designPool = useMemo(() => defaultPoolSelection(design), [poolKey]); // eslint-disable-line react-hooks/exhaustive-deps
+    const { cats: selectedCats, excl: excludedMats } = userPool || designPool;
+
+    const selectedCatsRef = useRef(selectedCats);
     const excludedMatsRef = useRef(excludedMats);
-    useEffect(() => { excludedMatsRef.current = excludedMats; }, [excludedMats]);
+    useEffect(() => {
+        selectedCatsRef.current = selectedCats;
+        excludedMatsRef.current = excludedMats;
+    }, [selectedCats, excludedMats]);
 
     // Apply a new (cats, excl) selection: update the synchronous mirror refs,
     // persist both, and re-render.
     const commit = useCallback((nextCats, nextExcl) => {
         selectedCatsRef.current = nextCats; excludedMatsRef.current = nextExcl;
         saveCatSelection(storageKey, nextCats); saveCatSelection(exclKey, nextExcl);
-        setSelectedCats(nextCats); setExcludedMats(nextExcl);
+        setUserPool({ cats: nextCats, excl: nextExcl });
     }, [storageKey, exclKey]);
 
     const handleToggleCat = useCallback((catId, catMatIds = []) => {
@@ -102,7 +139,7 @@ export function useCatSelection(storageKey) {
         commit(nextCats, nextExcl);
     }, [commit]);
 
-    return { selectedCats, setSelectedCats, selectedCatsRef,
+    return { selectedCats, selectedCatsRef,
              handleToggleCat, handleSelectAllCats, handleClearCats,
              excludedMats, excludedMatsRef, handleToggleMat };
 }

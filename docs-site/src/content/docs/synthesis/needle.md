@@ -36,9 +36,7 @@ refined with SQP, the Refinement window's default method, for the number of
 
 ## Settings
 
-**Candidate materials**: the pool of materials Needle is allowed to insert.
-**All / Clear** select or empty the pool in one click. This pool is shared by
-Needle Automatic, Needle Manual, and Gradual Evolution.
+**Candidate materials**: the pool of materials Needle is allowed to insert. The pool starts with only the materials of the design's layers ticked, front and back; the substrate and the media are listed under **This design** but unticked, and no other catalog is ticked. **All / Clear** select or empty the pool in one click. Once you change the pool, the window keeps your choice for every design; a pool emptied with **Clear** starts again from the design's own materials the next time the window opens.
 
 **Max layers**: an upper limit on how many layers the design may grow to.
 

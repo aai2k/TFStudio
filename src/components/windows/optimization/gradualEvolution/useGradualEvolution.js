@@ -54,10 +54,10 @@ function useGeSettings(design) {
     // declared, persisted and UI-exposed but never consumed by the tick loop —
     // removed rather than shipping dead controls that mislead the user.
     const {
-        selectedCats, setSelectedCats, selectedCatsRef,
+        selectedCats, selectedCatsRef,
         handleToggleCat, handleSelectAllCats, handleClearCats,
         excludedMats, excludedMatsRef, handleToggleMat,
-    } = useCatSelection(GE_CATS_KEY);
+    } = useCatSelection(GE_CATS_KEY, design);
 
     const maxLayersRef   = useRef(60);
     const maxGeCyclesRef = useRef(16);

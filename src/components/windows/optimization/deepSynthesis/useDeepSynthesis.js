@@ -78,7 +78,7 @@ export function useDeepSynthesis(props) {
     const { ctx, view } = useRunContext();
     const { dMin, setDMin, maxMNT } = useMinThickness(props.design, ctx.runningRef);
     const [maxLayers, setMaxLayers] = usePersistentNumber(DEEP_MAX_LAYERS_KEY, DEEP_SYNTHESIS_WINDOW_DEFAULTS.maxLayers);
-    const pool = useCatSelection(DEEP_CATS_KEY);
+    const pool = useCatSelection(DEEP_CATS_KEY, props.design);
     const refs = { selectedCatsRef: pool.selectedCatsRef, excludedMatsRef: pool.excludedMatsRef };
     useSyncedContext(ctx, props, { dMin, maxLayers, refs });
     useDesignLifecycle(ctx, props.design?.id);

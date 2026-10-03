@@ -42,8 +42,7 @@ Locked layers are never touched, and thickness bounds are always respected.
 
 ## Settings
 
-**Candidate pool**: the materials the *add* and *split* operators may use
-(**All / Clear**).
+**Candidate pool**: the materials the *add* and *split* operators may use (**All / Clear**). The pool starts with only the materials of the design's layers ticked, front and back; the substrate and the media are listed under **This design** but unticked, and no other catalog is ticked. Once you change the pool, the window keeps your choice for every design; a pool emptied with **Clear** starts again from the design's own materials the next time the window opens.
 
 **Mutation kinds**: toggles for which operators the search is allowed to use.
 

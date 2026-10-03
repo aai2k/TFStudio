@@ -142,7 +142,7 @@ export function useStructuralOptimizer({
     const {
         selectedCats, selectedCatsRef, handleToggleCat, handleSelectAllCats, handleClearCats,
         excludedMats, excludedMatsRef, handleToggleMat,
-    } = useCatSelection(STRUCT_CATS_KEY);
+    } = useCatSelection(STRUCT_CATS_KEY, design);
 
     const [running,    setRunning]    = useState(false);
     const [iter,       setIter]       = useState(0);

@@ -16,7 +16,7 @@ A forced layer of the same material as the outer layer it lands on only thickens
 
 ## Settings
 
-**Candidate materials**: the pool of materials Gradual Evolution may insert. **All / Clear** select or empty the pool in one click.
+**Candidate materials**: the pool of materials Gradual Evolution may insert. The pool starts with only the materials of the design's layers ticked, front and back; the substrate and the media are listed under **This design** but unticked, and no other catalog is ticked. **All / Clear** select or empty the pool in one click. Once you change the pool, the window keeps your choice for every design; a pool emptied with **Clear** starts again from the design's own materials the next time the window opens.
 
 **Max layers**: the most layers the design may hold (see above).
 

@@ -70,10 +70,10 @@ export function useNeedleVariation(t) {
     const [dlsIter,      setDlsIter]      = usePersistentNumber('tfstudio_needle_dlsIter', 60);
     const [targetMF,     setTargetMF]     = usePersistentNumber('tfstudio_needle_targetMF', 5e-4);
     const {
-        selectedCats, setSelectedCats, selectedCatsRef,
+        selectedCats, selectedCatsRef,
         handleToggleCat, handleSelectAllCats, handleClearCats,
         excludedMats, excludedMatsRef, handleToggleMat,
-    } = useCatSelection(NEEDLE_CATS_KEY);
+    } = useCatSelection(NEEDLE_CATS_KEY, design);
 
     // ── Display state ─────────────────────────────────────────────────────────
     const [phase,       setPhase]       = useState('idle');   // 'idle'|'scanning'|'refining'
