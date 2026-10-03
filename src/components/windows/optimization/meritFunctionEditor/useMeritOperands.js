@@ -135,11 +135,20 @@ export function useMeritOperands({ design, updateDesign, checkpoint, setInputDia
         setOperands(prev => edits.reduce((list, edit) => editOperand(list, edit.id, edit.key, edit.value), prev));
     }, [setOperands]);
 
-    const handleGenerate = useCallback((block, startRow) => {
+    // A curve wizard type can add the curve its rows read, which goes on the
+    // design in the same change, so one undo takes both back.
+    const handleGenerate = useCallback((block, startRow, curves = []) => {
         const result = replaceOperandTail(operands, block, startRow);
-        setOperands(result.operands);
+        if (curves.length) {
+            updateDesign({
+                meritOperands: result.operands,
+                measuredCurves: [...(design?.measuredCurves || []), ...curves],
+            });
+        } else {
+            setOperands(result.operands);
+        }
         setSelectedId(result.selectedId);
-    }, [operands, setOperands]);
+    }, [operands, setOperands, updateDesign, design]);
 
     const handleAdd = useCallback((data, atIndex) => {
         applyAdd({ operands, setOperands, setSelectedId }, data, atIndex);

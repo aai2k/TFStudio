@@ -7,13 +7,16 @@ import { FILTER_TYPES } from '../src/utils/physics/optimizer/filterCatalog.js';
 import { FILTER_CATEGORIES, defaultFilterParams } from '../src/utils/physics/optimizer.js';
 
 // The Preset box has five rows: the two dropdowns and at most three field rows,
-// so switching type never changes the box's height. Every field of every type
-// must land on exactly one row, and the λ range always comes first.
+// so switching type never changes the box's height. Every field a type shows
+// for its default values must land on exactly one row, and the λ range always
+// comes first.
 for (const [typeId, def] of Object.entries(FILTER_TYPES)) {
     const rows = fieldRows(typeId);
     assert.ok(rows.length <= 3, `${typeId} needs ${rows.length} rows`);
     const keys = rows.flatMap(row => row.keys).sort();
-    assert.deepEqual(keys, def.fields.map(field => field.key).sort(), `${typeId} fields`);
+    const defaults = defaultFilterParams(typeId);
+    const shown = def.fields.filter(field => !field.visible || field.visible(defaults));
+    assert.deepEqual(keys, shown.map(field => field.key).sort(), `${typeId} fields`);
     if (keys.includes('lamStart')) assert.equal(rows[0].label, 'lam', `${typeId} λ first`);
     for (const key of keys) assert.ok(fieldDef(typeId, key), `${typeId}.${key}`);
 }

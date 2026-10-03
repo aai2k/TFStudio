@@ -30,6 +30,7 @@ export const FILTER_CATEGORIES = [
     { id: 'GRAD',     types: ['LINEAR_RAMP'] },
     { id: 'INTEGRAL', types: ['VIS_AR', 'SOLAR_BLOCK', 'SOLAR_PASS', 'WORST_T_MIN', 'WORST_R_MAX'] },
     { id: 'CUSTOM',   types: ['CUSTOM_TARGET'] },
+    { id: 'CURVE',    types: ['CURVE_TARGET', 'GAIN_FLATTENING'] },
 ];
 
 // Operand type codes are polarization-AGNOSTIC now — polarization rides on
@@ -101,6 +102,25 @@ function spectralTargetOps({ channel, pol, lamStart, lamEnd, t0, t1 = null, weig
         lambdaStart: lamStart, lambdaEnd: lamEnd, aoi, pol,
         target: t0, targetEnd: end, weight,
     })];
+}
+
+// A wizard type of three bands, each named by its field-key prefix and passing
+// (R → 0, T → 1) or blocking (R → 1, T → 0), on default edges of 300-450,
+// 500-600 and 650-1000 nm.
+const THREE_BAND_EDGES = [[300, 450], [500, 600], [650, 1000]];
+function threeBandType(bands) {
+    return {
+        category: 'BAND',
+        supportsTargetMode: true,
+        fields: bands.flatMap(([prefix], index) => [
+            { key: `${prefix}Start`, default: THREE_BAND_EDGES[index][0], positive: true },
+            { key: `${prefix}End`, default: THREE_BAND_EDGES[index][1], positive: true },
+        ]),
+        generate: (p, common) => bands.flatMap(([prefix, passes]) => rangeRT({
+            lamStart: p[`${prefix}Start`], lamEnd: p[`${prefix}End`],
+            rTarget: passes ? 0.0 : 1.0, tTarget: passes ? 1.0 : 0.0, common,
+        })),
+    };
 }
 
 // A wizard type writing one worst-case row per angle over a band; `tStart` is
@@ -307,40 +327,8 @@ export const FILTER_TYPES = {
     },
 
     // ── Bandpass / Notch ────────────────────────────────────────────────────
-    BANDPASS: {
-        category: 'BAND',
-        supportsTargetMode: true,
-        fields: [
-            { key: 'lowStopStart',  default: 300, positive: true },
-            { key: 'lowStopEnd',    default: 450, positive: true },
-            { key: 'passStart',     default: 500, positive: true },
-            { key: 'passEnd',       default: 600, positive: true },
-            { key: 'highStopStart', default: 650, positive: true },
-            { key: 'highStopEnd',   default: 1000, positive: true },
-        ],
-        generate: (p, common) => [
-            ...rangeRT({ lamStart: p.lowStopStart,  lamEnd: p.lowStopEnd,  rTarget: 1.0, tTarget: 0.0, common }),
-            ...rangeRT({ lamStart: p.passStart,     lamEnd: p.passEnd,     rTarget: 0.0, tTarget: 1.0, common }),
-            ...rangeRT({ lamStart: p.highStopStart, lamEnd: p.highStopEnd, rTarget: 1.0, tTarget: 0.0, common }),
-        ],
-    },
-    NOTCH: {
-        category: 'BAND',
-        supportsTargetMode: true,
-        fields: [
-            { key: 'lowPassStart',  default: 300, positive: true },
-            { key: 'lowPassEnd',    default: 450, positive: true },
-            { key: 'stopStart',     default: 500, positive: true },
-            { key: 'stopEnd',       default: 600, positive: true },
-            { key: 'highPassStart', default: 650, positive: true },
-            { key: 'highPassEnd',   default: 1000, positive: true },
-        ],
-        generate: (p, common) => [
-            ...rangeRT({ lamStart: p.lowPassStart,  lamEnd: p.lowPassEnd,  rTarget: 0.0, tTarget: 1.0, common }),
-            ...rangeRT({ lamStart: p.stopStart,     lamEnd: p.stopEnd,     rTarget: 1.0, tTarget: 0.0, common }),
-            ...rangeRT({ lamStart: p.highPassStart, lamEnd: p.highPassEnd, rTarget: 0.0, tTarget: 1.0, common }),
-        ],
-    },
+    BANDPASS: threeBandType([['lowStop', false], ['pass', true], ['highStop', false]]),
+    NOTCH: threeBandType([['lowPass', true], ['stop', false], ['highPass', true]]),
 
     // ── Integral / Worst-case ────────────────────────────────────────────────
     // These wizard types use the TIW (weighted integral) and TMN/RMX
@@ -510,6 +498,47 @@ export const FILTER_TYPES = {
             }
             return ops;
         },
+    },
+
+    // ── Curve targets ────────────────────────────────────────────────────────
+    // Types that take a curve rather than numbers. Their rows are a curve block
+    // built from one of the design's measured curves, so they are built where
+    // the design is at hand (the Merit Function Editor's curve wizard model),
+    // not by a `generate` of their own; `curve: true` marks them. A curve block
+    // reads the curve's own angle and polarization, so the wizard's angle
+    // settings do not apply. A field with `visible` shows only when that
+    // returns true for the current fields.
+    CURVE_TARGET: {
+        category: 'CURVE',
+        curve: true,
+        fields: [
+            { key: 'curveId', kind: 'curve', default: null, quantities: ['T', 'R', 'A'] },
+            { key: 'scale', kind: 'select', default: 'linear',
+              options: [{ value: 'linear', label: '%' }, { value: 'dB', label: 'dB' }] },
+        ],
+        generate: () => [],
+    },
+
+    // Gain flattening: the target is a filter loss profile already on the
+    // design, or an amplifier gain in dB, which is turned into the loss that
+    // brings every wavelength down to the lowest gain. The rows are the target
+    // as a curve block in dB with its level free, a PPEF row against it, and a
+    // TDBMN row holding the insertion loss at the target's peak.
+    GAIN_FLATTENING: {
+        category: 'CURVE',
+        curve: true,
+        fields: [
+            { key: 'input', kind: 'select', default: 'gain', options: [{ value: 'gain' }, { value: 'target' }] },
+            { key: 'curveId', kind: 'curve', default: null, quantities: ['T'], visible: p => p.input === 'target' },
+            { key: 'gain', kind: 'gainCurve', default: null, visible: p => p.input !== 'target' },
+            { key: 'curveAoi', default: 0, min: 0, max: 89, step: 1, visible: p => p.input !== 'target' },
+            { key: 'curvePol', kind: 'select', default: 'avg',
+              options: [{ value: 'avg', label: 'avg' }, { value: 's', label: 's' }, { value: 'p', label: 'p' }],
+              visible: p => p.input !== 'target' },
+            { key: 'insertionLossDb', default: 0, min: 0, step: 0.1 },
+            { key: 'ppefDb', default: 0, min: 0, step: 0.01 },
+        ],
+        generate: () => [],
     },
 };
 

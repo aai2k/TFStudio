@@ -2234,6 +2234,9 @@ export default {
         rsRp: 'Rs / Rp (%)',
         tRange: 'T iniziale / finale',
         statement: 'Target',
+        source: 'Ingresso',
+        conditions: 'AOI (°), pol',
+        spec: 'IL / PPEF (dB)',
       },
       typeLabel: 'Tipo',
       advanced: 'Avanzate (AOI, pol., vincoli)',
@@ -2251,6 +2254,21 @@ export default {
       targetContinuous: 'Continuo',
       targetDiscrete: 'Punti discreti',
       stepNm: 'Passo (nm)',
+      fieldOptions: {
+        input: { gain: 'Guadagno amplificatore (dB)', target: 'Curva di perdita target' },
+      },
+      pickCurve: '(scegli una curva…)',
+      gainNone: 'nessuno caricato',
+      gainImport: 'Importa…',
+      gainImportFailed: 'Nessuna tabella in quel file',
+      curveConditions: "Le righe prendono l'angolo e la polarizzazione della curva stessa.",
+      flatteningName: (name) => `${name}: target di appiattimento`,
+      curveErrors: {
+        noCurve: 'Scegli una curva',
+        noGain: 'Importa una curva di guadagno',
+        range: 'Nessun punto della curva cade dove tutti i materiali hanno dati',
+        dbEmpty: 'Nessun punto della curva supera lo 0 %, quindi nessuno ha un valore in dB',
+      },
       categories: {
         AR: 'Antiriflesso',
         HR: 'Specchio / alta riflettanza',
@@ -2260,6 +2278,7 @@ export default {
         GRAD: 'Gradiente',
         INTEGRAL: 'Integrale / caso peggiore',
         CUSTOM: 'Target personalizzato',
+        CURVE: 'Target da curva',
       },
       types: {
         BBAR: {
@@ -2346,11 +2365,21 @@ export default {
           label: 'Target personalizzato',
           tip: "Un canale (T/R/A) = / ≤ / ≥ un valore su una banda, alla polarizzazione e all'AOI scelti",
         },
+        CURVE_TARGET: {
+          label: 'Curva',
+          tip: 'Adatta una curva misurata del design, come Fit…: un blocco di curva, in % o in dB',
+        },
+        GAIN_FLATTENING: {
+          label: 'Appiattimento del guadagno',
+          tip: "Appiattisce il guadagno di un amplificatore, o segue una curva di perdita: la forma in dB con il livello libero, l'errore picco-picco e la perdita di inserzione al picco del target",
+        },
       },
       fields: {
         channel: 'Canale',
         cmp: 'Confronto',
         valuePct: 'Valore (%)',
+        curveId: 'Curva',
+        scale: 'Fit in',
         lamStart: 'λ iniziale',
         lamEnd: 'λ finale',
         lam0: 'λ₀',

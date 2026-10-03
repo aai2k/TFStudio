@@ -52,8 +52,8 @@ and the current MF and OMF; the chevron at the left folds the form away and
 brings it back. Under the bar are three boxes:
 
 - **Preset**: the coating category (AR, mirror, beamsplitter, edge filter,
-  bandpass or notch, gradient, integral or worst-case, custom target), the
-  type within it, and the type's own values, the wavelength range first. The
+  bandpass or notch, gradient, integral or worst-case, custom target, curve
+  target), the type within it, and the type's own values, the wavelength range first. The
   **Custom target** type generates a single target of your own: a channel
   (T/R/A), a unit (%, dB or OD), a comparison (`=`, `≤`, `≥`), a value and a range.
 - **Angle and target**: the angle of incidence, or a range of angles with the
@@ -64,6 +64,15 @@ brings it back. Under the bar are three boxes:
   total thickness cap, each behind a checkbox.
 
 A custom target in dB or OD writes one of the [dB and OD rows](/design/operands/#in-db-or-optical-density): T ≥ in dB a `TDBMN` row, T ≤ in dB a `TDBMX` row, R ≤ in dB an `RDBMX` row, T ≥ in OD an `ODMN` row, and T = in dB one `TDB` row per wavelength step, with a step field in place of the line-or-points choice. Combinations with no row behind them are not offered: A has only %, R in dB only ≤, OD only ≥. Switching the unit converts the typed value to the same level, so 80 % becomes −0.97 dB. A value in dB is held at or below 0 dB, a density at or above 0.
+
+### Curve targets
+
+The **Curve target** category takes a curve instead of numbers. Its rows read the curve's own angle and polarization, so the angle box has nothing to set.
+
+- **Curve** picks one of the design's curves from [Measured Spectra](/data-exchange/measured-spectra/) and writes the block **Fit…** writes for it, in % or in dB.
+- **Gain flattening** builds the merit function a gain-flattening filter is specified by. Its input is either a target loss curve already on the design, or an amplifier gain in dB imported from a text file. A gain is turned into the loss that brings every wavelength down to the lowest gain, `T(λ)[dB] = G_min − G(λ)`: 0 dB at the gain minimum and negative everywhere else, the least loss a passive filter can flatten with. That target goes on the design as a T curve named after the gain, at the angle and polarization you give, so it draws on the plot; the gain itself is not kept.
+
+Gain flattening writes three rows. The target as a curve block in dB with its **level free**: the constant the design sits away from it by is taken out, so the block scores the shape and not the level. A [`PPEF`](/design/operands/#peak-to-peak-error-against-a-curve) row against that block, at the peak-to-peak value you set: least squares brings the shape in, and this row works on the worst point, the number the filter is sold against. And a `TDBMN` row at the wavelength where the target is highest, held at minus the insertion loss you set: if T is that high there, the peak insertion loss meets it. Both values start at 0 dB, which asks for the flattest shape and the least loss the stack can reach.
 
 The line under the boxes says how many rows the wizard will add and of which
 types. **Start at row** is where the block goes; **Generate** adds it. The form

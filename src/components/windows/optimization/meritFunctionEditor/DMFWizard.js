@@ -4,17 +4,22 @@ import {
 import { Checkbox } from '../../../ui/Checkbox.js';
 import { NumInput, SelectField } from '../../analysis/chrome/controls.js';
 import { useWindowSession } from '../../windowSession.js';
-import { buildWizardBlock, wizardAppendRow, wizardGenerationRows } from './meritOperandModel.js';
+import { curveWizardRows, gainCurveFromText, wizardCurveOptions } from './curveWizardModel.js';
+import { buildWizardResult, wizardAppendRow, wizardGenerationRows } from './meritOperandModel.js';
 import { meritWizardSession } from './sessionState.js';
 import { WizardHeader } from './WizardHeader.js';
 import {
-    blockSummary, fieldRows, fieldView, hasTargetMode, paramsWithChange, polIsFixed, wizardSummary,
-    writesPointsOnly,
+    blockSummary, fieldRows, fieldView, hasTargetMode, paramsWithChange, polIsFixed, takesCurve,
+    wizardSummary, writesPointsOnly,
 } from './wizardModel.js';
 
 const { createElement: h, useState, useEffect } = React;
 
-const FIELD_UNITS = { rPct: '%', rsPct: '%', rpPct: '%', valuePct: '%', tStart: '', tEnd: '', points: '' };
+const FIELD_UNITS = {
+    rPct: '%', rsPct: '%', rpPct: '%', valuePct: '%', tStart: '', tEnd: '', points: '',
+    curveId: '', scale: '', input: '', gain: '', curvePol: '', curveAoi: '°',
+    insertionLossDb: 'dB', ppefDb: 'dB',
+};
 const fieldUnit = key => (Object.prototype.hasOwnProperty.call(FIELD_UNITS, key) ? FIELD_UNITS[key] : 'nm');
 
 // The Preset box holds a different set of fields for every filter type, up to
@@ -84,27 +89,68 @@ function padRows(cells, perRow, used) {
     return out;
 }
 
-// One field of a preset row: a select, or a number with its unit.
+// A curve field: the design's measured curves of the quantities it takes.
+function curveControl(ctx, key, view) {
+    const { s, tw, design, updateParam } = ctx;
+    const curves = wizardCurveOptions(design, view.def.quantities);
+    const known = curves.some(curve => curve.id === view.value);
+    const options = [
+        { value: '', label: tw.pickCurve },
+        ...curves.map(curve => ({ value: curve.id, label: `${curve.name} (${curve.quantity})` })),
+    ];
+    return select(s, known ? view.value : '', v => updateParam(key, v || null), options, 150);
+}
+
+// A gain read from a file, which the wizard holds until it is replaced; the
+// design keeps the target derived from it, not the gain.
+function gainControl(ctx, key, view) {
+    const { s, tw, c, importGain, gainError } = ctx;
+    const loaded = view.value?.x?.length ? `${view.value.name} (${view.value.x.length})` : tw.gainNone;
+    return h('div', { style: s.group },
+        h('span', { style: { ...s.label, color: gainError ? c.error : c.text, maxWidth: 110, overflow: 'hidden', textOverflow: 'ellipsis' }, title: gainError ? tw.gainImportFailed : loaded },
+            gainError ? tw.gainImportFailed : loaded),
+        h('button', {
+            onClick: () => importGain(key),
+            style: {
+                height: 20, padding: '0 8px', fontSize: 11, border: `1px solid ${c.border}`, borderRadius: 3,
+                background: c.panel, color: c.text, cursor: 'pointer', fontFamily: 'inherit',
+            },
+        }, tw.gainImport));
+}
+
+const FIELD_CONTROLS = { curve: curveControl, gainCurve: gainControl };
+
+// One field of a preset row: a select, a curve, a gain, or a number with its unit.
 function fieldControl(ctx, key, width) {
-    const { s, session, typeId, updateParam } = ctx;
+    const { s, tw, session, typeId, updateParam } = ctx;
     const view = fieldView(typeId, key, session.params);
     if (!view) return null;
     const { def } = view;
-    if (def.kind === 'select') return select(s, view.value, v => updateParam(key, v), view.options, width || 'auto');
+    if (FIELD_CONTROLS[def.kind]) return FIELD_CONTROLS[def.kind](ctx, key, view);
+    if (def.kind === 'select') {
+        const options = view.options.map(option => ({ ...option, label: tw.fieldOptions?.[key]?.[option.value] ?? option.label }));
+        return select(s, view.value, v => updateParam(key, v), options, width || 'auto');
+    }
     return numberInput(s, view.value, v => updateParam(key, v), width || 62,
         { min: view.min, max: view.max, positive: def.positive, step: view.step });
 }
+
+// What stands between the two fields of a pair row: a dash for a range.
+const PAIR_JOINERS = { rsRp: '/', source: '', conditions: '', spec: '/' };
 
 function presetRow(ctx, row) {
     const { s, tw } = ctx;
     const keyL = row.label + '-l';
     const keyC = row.label + '-c';
     if (row.kind === 'pair') {
-        const joiner = row.label === 'rsRp' ? '/' : '–';
+        const joiner = PAIR_JOINERS[row.label] ?? '–';
+        // The source row's select names its choice in words, so it takes the
+        // width it needs.
+        const width = row.label === 'source' ? null : 62;
         return [
             h('span', { key: keyL, style: s.label }, tw.pairs[row.label] + ':'),
             h('div', { key: keyC, style: s.group },
-                fieldControl(ctx, row.keys[0], 62), h('span', null, joiner), fieldControl(ctx, row.keys[1], 62)),
+                fieldControl(ctx, row.keys[0], width), h('span', null, joiner), fieldControl(ctx, row.keys[1], 62)),
         ];
     }
     if (row.kind === 'statement') {
@@ -133,7 +179,7 @@ function presetBox(ctx) {
         if (next) patch({ catId: id, typeId: next.types[0], params: defaultFilterParams(next.types[0]) });
     };
     const switchType = id => patch({ typeId: id, params: defaultFilterParams(id) });
-    const rows = fieldRows(session.typeId);
+    const rows = fieldRows(session.typeId, session.params);
     const cells = [
         h('span', { key: 'preset-l', style: s.label }, tw.presetLabel + ':'),
         h('span', { key: 'preset-c' }, select(s, session.catId, switchCategory, categories, '100%')),
@@ -175,6 +221,12 @@ function modeCells(ctx) {
 
 function angleBox(ctx) {
     const { s, tw, c, session, setField, typeId } = ctx;
+    if (takesCurve(typeId)) {
+        return groupBox({
+            title: tw.angleBox, columns: 'minmax(180px, 1fr)', minWidth: 204, c,
+            rows: [h('span', { key: 'curve-note', style: { ...s.label, whiteSpace: 'normal' } }, tw.curveConditions)],
+        });
+    }
     const showPol = !polIsFixed(typeId);
     const cells = [
         h('span', { key: 'aoi-l', style: s.label }, tw.aoiRange + ':'),
@@ -239,22 +291,50 @@ function useStartRow(design, operandCount) {
 // the block itself. Building it is what the whole form amounts to: an
 // angle-swept preset in discrete mode runs to thousands of operands, so it is
 // built here, inside the branch that only renders while the form is open.
+function wizardResult(ctx) {
+    const { tw, session, typeId, design } = ctx;
+    const curveRows = takesCurve(typeId)
+        ? curveWizardRows({ typeId, params: session.params, design, flatteningName: tw.flatteningName })
+        : null;
+    return buildWizardResult({ tw, ...session, typeId, curveRows });
+}
+
 function bottomLine(ctx, startRow, setStartRow, onGenerate) {
-    const { s, tw, c, session, typeId } = ctx;
-    const block = buildWizardBlock({ tw, ...session, typeId });
-    const summary = blockSummary(block);
+    const { s, tw, c } = ctx;
+    const result = wizardResult(ctx);
+    const summary = blockSummary(result.block);
+    const blocked = !!result.error;
     return h('div', { style: { display: 'flex', alignItems: 'center', gap: 8, height: CONTROL_H } },
-        h('span', { style: s.label }, tw.preview(summary.count, summary.types.join(', '))),
+        h('span', { style: { ...s.label, color: blocked ? c.error : s.label.color } },
+            blocked ? tw.curveErrors[result.error] : tw.preview(summary.count, summary.types.join(', '))),
         h('span', { style: { flex: 1 } }),
         h('span', { style: s.label, title: tw.startRowTip }, tw.startRow + ':'),
         numberInput(s, startRow, v => setStartRow(Math.max(1, Math.round(v) || 1)), 52, { min: 1, step: 1 }),
         h('button', {
-            onClick: () => onGenerate(block), title: tw.willReplace,
+            onClick: () => onGenerate(result.block, result.curves), title: tw.willReplace, disabled: blocked,
             style: {
                 marginLeft: 8, height: CONTROL_H, padding: '0 14px', fontSize: 11, border: 'none', borderRadius: 3,
-                background: c.accent, color: c.accentText, cursor: 'pointer', fontWeight: 600, fontFamily: 'inherit',
+                background: c.accent, color: c.accentText, cursor: blocked ? 'default' : 'pointer',
+                opacity: blocked ? 0.5 : 1, fontWeight: 600, fontFamily: 'inherit',
             },
         }, tw.generate));
+}
+
+// Reads a gain from a file the user picks into the wizard's fields. A file
+// that holds no table leaves the gain as it was and says so.
+function useGainImport(updateParam) {
+    const [gainError, setGainError] = useState(false);
+    const importGain = async (key) => {
+        const picked = await window.electronAPI?.spectrumPickFile?.();
+        if (!picked?.success) {
+            if (!picked?.canceled) setGainError(true);
+            return;
+        }
+        const gain = gainCurveFromText(picked.text, picked.fileName);
+        setGainError(!gain);
+        if (gain) updateParam(key, gain);
+    };
+    return { gainError, importGain };
 }
 
 export function DMFWizard({ design, onGenerate, operandCount, mf, omf, busy, c, t }) {
@@ -264,11 +344,12 @@ export function DMFWizard({ design, onGenerate, operandCount, mf, omf, busy, c, 
     const [startRow, setStartRow] = useStartRow(design, operandCount);
     const typeId = FILTER_TYPES[session.typeId] ? session.typeId : FILTER_CATEGORIES[0].types[0];
     const updateParam = (key, value) => setField('params', prev => paramsWithChange(typeId, prev, key, value));
-    const ctx = { s: styles(c), tw, c, session, setField, patch, typeId, updateParam };
+    const { gainError, importGain } = useGainImport(updateParam);
+    const ctx = { s: styles(c), tw, c, session, setField, patch, typeId, updateParam, design, gainError, importGain };
 
-    const generate = (block) => {
+    const generate = (block, curves) => {
         const rows = wizardGenerationRows(startRow, block.length);
-        onGenerate(block, rows.startRow);
+        onGenerate(block, rows.startRow, curves);
         setStartRow(rows.nextStartRow);
     };
     const summary = wizardSummary({

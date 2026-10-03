@@ -4,6 +4,7 @@ import {
     isConstraint, isFractionalUnit, isMath, isRangeTarget, mathTargetInPercent,
     removeOperandsAndDependents, rowRangeDomain, targetDomain,
 } from '../../../../utils/physics/optimizer.js';
+import { limitRows, limitsText } from './wizardLimits.js';
 
 function hasField(ctx, key) {
     return ctx.fieldKeys.has(key);
@@ -59,10 +60,7 @@ function formatDmfsFields(def, params) {
 }
 
 export function buildDmfsComment(options) {
-    const {
-        tw, typeId, params, common,
-        constraintsEnabled, minThick, maxThick, totalEnabled, maxTotal,
-    } = options;
+    const { tw, typeId, params, common } = options;
     const def = options.filterTypes?.[typeId] || FILTER_TYPES[typeId];
     const typeLabel = tw.types[typeId]?.label || typeId;
     const fieldText = formatDmfsFields(def, params);
@@ -78,12 +76,35 @@ export function buildDmfsComment(options) {
             ? `, discrete @${common.stepNm} nm`
             : `, continuous target`;
     }
-    if (constraintsEnabled) text += `; ≥${minThick} nm, ≤${maxThick} nm`;
-    if (totalEnabled) text += `; Σd ≤ ${maxTotal} nm`;
-    return text;
+    return text + limitsText(options);
+}
+
+// The header of a curve type's block names the curve it read; the angle and
+// polarization are the curve's own.
+function curveComment(options, curveName) {
+    const typeLabel = options.tw.types[options.typeId]?.label || options.typeId;
+    return `${typeLabel}, ${curveName}${limitsText(options)}`;
+}
+
+/**
+ * The block the wizard writes, and the curves it adds to the design. A curve
+ * type's rows come in `options.curveRows` (curveWizardModel.js), built where
+ * the design is at hand; when they name an error the block is empty.
+ */
+export function buildWizardResult(options) {
+    const { curveRows } = options;
+    if (curveRows?.error) return { block: [], curves: [], error: curveRows.error };
+    const block = curveRows
+        ? [makeDmfsOperand(curveComment(options, curveRows.curveName)), ...curveRows.rows]
+        : filterTypeBlock(options);
+    return { block: [...block, ...limitRows(options)], curves: curveRows?.curves || [], error: null };
 }
 
 export function buildWizardBlock(options) {
+    return buildWizardResult(options).block;
+}
+
+function filterTypeBlock(options) {
     const {
         tw, typeId, params, pol, targetMode,
         constraintsEnabled, minThick, maxThick, totalEnabled, maxTotal,
@@ -100,23 +121,7 @@ export function buildWizardBlock(options) {
         tw, typeId, params, common,
         constraintsEnabled, minThick, maxThick, totalEnabled, maxTotal,
     });
-    const block = [makeDmfsOperand(comment), ...generateFilterOperands(typeId, params, common)];
-    if (constraintsEnabled) {
-        block.push(
-            makeConstraintOperand({
-                type: 'MNT', lambdaStart: 1, lambdaEnd: DEFAULT_CONSTRAINT_LAST_LAYER,
-                target: Math.max(0.01, minThick),
-            }),
-            makeConstraintOperand({
-                type: 'MXT', lambdaStart: 1, lambdaEnd: DEFAULT_CONSTRAINT_LAST_LAYER,
-                target: Math.max(0.01, maxThick),
-            }),
-        );
-    }
-    if (totalEnabled) {
-        block.push(makeOperand({ type: 'TT', cmp: 'le', target: Math.max(1, maxTotal), weight: 1 }));
-    }
-    return block;
+    return [makeDmfsOperand(comment), ...generateFilterOperands(typeId, params, common)];
 }
 
 export function wizardAppendRow(operandCount) {

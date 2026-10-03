@@ -15,6 +15,12 @@ const PAIRS = [
     ['highPassStart', 'highPassEnd', 'highPass'],
     ['rsPct', 'rpPct', 'rsRp'],
     ['tStart', 'tEnd', 'tRange'],
+    // Gain flattening: what the target comes from and the curve or gain it
+    // is, the derived target's conditions, and the two specification values.
+    ['input', 'gain', 'source'],
+    ['input', 'curveId', 'source'],
+    ['curveAoi', 'curvePol', 'conditions'],
+    ['insertionLossDb', 'ppefDb', 'spec'],
 ];
 
 // The custom target's channel, unit, comparison and value read as one
@@ -33,12 +39,14 @@ function rowFor(key, keys) {
 /**
  * The rows the Preset box shows for a filter type. Each row is one label and
  * the fields it holds, in the type's own field order except that the λ range
- * always comes first, so every type reads the same way.
+ * always comes first, so every type reads the same way. A field whose
+ * `visible` rules it out for the current parameters is left out.
  */
-export function fieldRows(typeId) {
+export function fieldRows(typeId, params = {}) {
     const def = FILTER_TYPES[typeId];
     if (!def) return [];
-    const keys = def.fields.map(field => field.key);
+    const all = { ...defaultFilterParams(typeId), ...params };
+    const keys = def.fields.filter(field => !field.visible || field.visible(all)).map(field => field.key);
     const rows = [];
     const placed = new Set();
     for (const key of keys) {
@@ -94,6 +102,11 @@ export function paramsWithChange(typeId, params, key, value) {
 export function writesPointsOnly(typeId, params) {
     if (!fieldDef(typeId, 'unit')) return false;
     return customTargetWritesPoints({ ...defaultFilterParams(typeId), ...params });
+}
+
+/** Whether the type reads a curve, whose own angle and polarization its rows take. */
+export function takesCurve(typeId) {
+    return !!FILTER_TYPES[typeId]?.curve;
 }
 
 /** Whether the type sets polarization itself, so the Pol control is not shown. */

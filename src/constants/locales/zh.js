@@ -2226,6 +2226,9 @@ export default {
         rsRp: 'Rs / Rp (%)',
         tRange: 'T 起 / 止',
         statement: '目标',
+        source: '输入',
+        conditions: '入射角 (°)、偏振',
+        spec: 'IL / PPEF (dB)',
       },
       typeLabel: '类型',
       advanced: '高级（入射角、偏振、约束）',
@@ -2243,6 +2246,21 @@ export default {
       targetContinuous: '连续',
       targetDiscrete: '离散点',
       stepNm: '步长 (nm)',
+      fieldOptions: {
+        input: { gain: '放大器增益 (dB)', target: '目标损耗曲线' },
+      },
+      pickCurve: '（选择曲线…）',
+      gainNone: '未载入',
+      gainImport: '导入…',
+      gainImportFailed: '该文件中没有表格',
+      curveConditions: '这些行采用曲线自身的入射角与偏振。',
+      flatteningName: (name) => `${name} 平坦目标`,
+      curveErrors: {
+        noCurve: '请选择曲线',
+        noGain: '请导入增益曲线',
+        range: '曲线上没有点落在所有材料都有数据的范围内',
+        dbEmpty: '曲线上没有高于 0 % 的点，因此没有任何点在 dB 下有值',
+      },
       categories: {
         AR: '减反射',
         HR: '反射镜 / 高反',
@@ -2252,6 +2270,7 @@ export default {
         GRAD: '渐变',
         INTEGRAL: '积分 / 最坏情况',
         CUSTOM: '自定义目标',
+        CURVE: '曲线目标',
       },
       types: {
         BBAR: {
@@ -2338,11 +2357,21 @@ export default {
           label: '自定义目标',
           tip: '一个通道 (T/R/A) 在波段内 = / ≤ / ≥ 某个值，在所选偏振与入射角下',
         },
+        CURVE_TARGET: {
+          label: '曲线',
+          tip: '像“拟合…”一样拟合设计上的实测曲线：一个曲线块，以 % 或 dB 计',
+        },
+        GAIN_FLATTENING: {
+          label: '增益平坦',
+          tip: '平坦放大器增益，或匹配目标损耗曲线：以 dB 计、水平自由的形状，峰峰误差，以及目标峰值处的插入损耗',
+        },
       },
       fields: {
         channel: '通道',
         cmp: '比较',
         valuePct: '值 (%)',
+        curveId: '曲线',
+        scale: '拟合单位',
         lamStart: 'λ 起点',
         lamEnd: 'λ 终点',
         lam0: 'λ₀',
