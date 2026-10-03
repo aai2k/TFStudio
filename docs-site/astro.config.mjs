@@ -20,8 +20,13 @@ export default defineConfig({
       // identically by the offline help server (it serves docs-site/dist).
       favicon: '/favicon.ico',
       head: [
-        { tag: 'link', attrs: { rel: 'icon', type: 'image/png', href: '/favicon.png', sizes: '512x512' } },
+        { tag: 'link', attrs: { rel: 'icon', type: 'image/png', href: '/favicon.png', sizes: '180x180' } },
         { tag: 'link', attrs: { rel: 'apple-touch-icon', href: '/favicon.png' } },
+        // Link previews. Starlight sets a large-image Twitter card but no image.
+        // The URL is absolute on purpose: rebase-dist.mjs rewrites every
+        // content="/..." to a relative path, which link previews cannot fetch.
+        { tag: 'meta', attrs: { property: 'og:image', content: 'https://tfstudio.xyz/assets/shot-main-window.png?v=1.6.1' } },
+        { tag: 'meta', attrs: { name: 'twitter:image', content: 'https://tfstudio.xyz/assets/shot-main-window.png?v=1.6.1' } },
       ],
       // Header link back to the source repository.
       social: [
