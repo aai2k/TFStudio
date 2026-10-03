@@ -1153,7 +1153,6 @@ export default {
     resampleTip: 'Interpola ogni colonna su un passo uniforme con PCHIP, che conserva la forma, come fa il fit. La griglia cade su multipli interi del passo.',
     resampleStep: 'Passo',
     resampleStepTip: "Il passo della nuova griglia, nell'unità della colonna delle lunghezze d'onda.",
-    stepFine: (spacing, unit) => `Più fine della spaziatura dei punti, ${spacing} ${unit}: il ricampionamento non aggiunge informazione.`,
     wavelengthUnit: "Unità della colonna delle lunghezze d'onda",
     quantity: 'Grandezza',
     unitTip: 'Che cosa sono i numeri digitati. Cambiarla non li riscala.',

@@ -296,18 +296,12 @@ const table = (rows, columns = [{ quantity: 'T', unit: '%', name: '' }], kind = 
         [1554, 9.5], [1558, 10], [1562, 11], [1565, 12]]);
     const plan = resamplePlan(ten, 1);
     assert.equal(plan.rowCount, 36);
-    assert.equal(plan.spacing, 4, 'a 1 nm step is finer than the 4 nm the points were typed at');
-    assert.equal(resamplePlan(ten, 5).spacing, null, 'a coarser step is not warned about');
     const { table: grid } = resampleTable(ten, 1);
     assert.equal(grid.rows.length, 36);
     assert.equal(grid.rows[0][0], 1530);
     assert.equal(grid.rows[35][0], 1565);
     assert.equal(grid.rows[4][1], 12, 'a typed point is kept where the grid passes through it');
     assert.ok(grid.rows.every(row => row[1] >= 9.5 && row[1] <= 13), 'no overshoot past the typed extremes');
-    // The Fit dialog flags the same step on the same points.
-    const fit = measuredFitSnapshot({}, { x: column(ten, 0), y: column(ten, 1).map(v => v / 100), quantity: 'T' },
-        { mode: 'uniform', stepNm: 1, clipToCoverage: false });
-    assert.equal(fit.sampled.stepTooFine, true);
 
     const offGrid = resampleTable(table([[400.3, 1], [402.6, 2]]), 1).table;
     assert.deepEqual(offGrid.rows.map(row => row[0]), [401, 402], 'the grid lands on whole steps');

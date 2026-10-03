@@ -1066,7 +1066,6 @@ export default {
     resampleTip: 'Interpolate every column onto an even step with shape-preserving PCHIP, as Fit does. The grid falls on whole steps.',
     resampleStep: 'Step',
     resampleStepTip: 'The step of the new grid, in the unit of the wavelength column.',
-    stepFine: (spacing, unit) => `Finer than the ${spacing} ${unit} spacing of the points: resampling adds no information.`,
     wavelengthUnit: 'Unit of the wavelength column',
     quantity: 'Quantity',
     unitTip: 'What the typed numbers are. Changing it does not rescale them.',

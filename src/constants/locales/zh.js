@@ -1152,7 +1152,6 @@ export default {
     resampleTip: '用保形 PCHIP 将各列插值到均匀步长，与拟合时相同。网格点落在步长的整数倍上。',
     resampleStep: '步长',
     resampleStepTip: '新网格的步长，单位与波长列相同。',
-    stepFine: (spacing, unit) => `步长小于数据点间距 ${spacing} ${unit}：重采样不会增加信息。`,
     wavelengthUnit: '波长列的单位',
     quantity: '物理量',
     unitTip: '输入的数字是什么。更改它不会换算这些数字。',

@@ -5,11 +5,9 @@
  * Both work in the units the table is typed in. Resampling is the Fit
  * dialogs' own (measuredSampling.js, shape-preserving PCHIP), with Δ
  * interpolated as an unwrapped angle as its fit does (measuredEllipsometry/
- * fitModel.js); it adds no information, and a step finer than the points'
- * spacing is reported the way the Fit dialogs report it. Smoothing is
- * Savitzky-Golay (utils/math/savitzkyGolay.js).
+ * fitModel.js). Smoothing is Savitzky-Golay (utils/math/savitzkyGolay.js).
  */
-import { measuredCurveSpacing, sampleMeasuredCurve } from '../../../../utils/io/spectrumTable.js';
+import { sampleMeasuredCurve } from '../../../../utils/io/spectrumTable.js';
 import { savitzkyGolayProblem, smoothSavitzkyGolay } from '../../../../utils/math/savitzkyGolay.js';
 import { sampleDeltaCurve, unwrappedDegrees } from '../measuredEllipsometry/fitModel.js';
 import { X_KEY, columnIndex, columnSeries, setCells, tidy } from './curveTable.js';
@@ -35,16 +33,10 @@ function sortedSeries(table, index) {
 const firstMultiple = (value, step) => Math.ceil(value / step - 1e-9);
 const lastMultiple = (value, step) => Math.floor(value / step + 1e-9);
 
-function finerThan(step, spacings) {
-    const finer = spacings.filter(spacing => Number.isFinite(spacing) && step < spacing - 1e-9);
-    return finer.length ? Math.min(...finer) : null;
-}
-
 /**
- * What resampling onto `step` would make: the grid's rows, the spacing of the
- * points it is finer than (null when it is not), and why it cannot run, or
- * null. 'step' is a step that is not above zero, 'points' a table with no
- * column of two points, 'rows' a grid of more than MAX_RESAMPLED_ROWS.
+ * What resampling onto `step` would make: the grid's rows, and why it cannot
+ * run, or null. 'step' is a step that is not above zero, 'points' a table
+ * with no column of two points, 'rows' a grid of more than MAX_RESAMPLED_ROWS.
  */
 export function resamplePlan(table, step) {
     if (!(Number.isFinite(step) && step > 0)) return { problem: 'step' };
@@ -53,9 +45,8 @@ export function resamplePlan(table, step) {
     const first = firstMultiple(Math.min(...series.map(s => s.x[0])), step);
     const last = lastMultiple(Math.max(...series.map(s => s.x[s.x.length - 1])), step);
     const rowCount = last - first + 1;
-    const spacing = finerThan(step, series.map(s => measuredCurveSpacing({ x: s.x, y: s.y })));
     const problem = rowCount > MAX_RESAMPLED_ROWS ? 'rows' : (rowCount < 1 ? 'points' : null);
-    return { problem, first, rowCount, spacing };
+    return { problem, first, rowCount };
 }
 
 /** The table resampled onto `step`, every column on one grid; see resamplePlan. */

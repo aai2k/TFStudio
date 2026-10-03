@@ -5,7 +5,6 @@
 import {
     ActionButton, Divider, FieldLabel, NumInput, SelectField, ToggleButton,
 } from '../../analysis/chrome/controls.js';
-import { resamplePlan } from './curveOps.js';
 
 const { createElement: h } = React;
 
@@ -65,7 +64,6 @@ function ModeTool({ editor, c, ce, name, modes, fields, run }) {
 
 function ResampleTool({ editor, labels, c, ce }) {
     const { table, tools } = editor;
-    const plan = resamplePlan(table, tools.step);
     const unit = labels.xUnit(table.xUnit);
     return h('div', { style: { display: 'flex', alignItems: 'center', gap: 5, flexWrap: 'wrap' } },
         h(FieldLabel, { c }, ce.resampleStep),
@@ -75,9 +73,6 @@ function ResampleTool({ editor, labels, c, ce }) {
         }),
         h('span', { style: { color: c.textDim, fontSize: 11 } }, unit),
         h(ActionButton, { c, label: ce.resample, title: ce.resampleTip, onClick: editor.actions.resample }),
-        plan.spacing != null && h('span', {
-            role: 'status', style: { color: c.warning || '#d9a441', fontSize: 10.5 },
-        }, ce.stepFine(Number(plan.spacing.toPrecision(4)), unit)),
     );
 }
 
