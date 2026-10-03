@@ -35,7 +35,7 @@
         document.body.appendChild(el);
       }
       el.textContent =
-        'TFStudio demo — boot error\n(screenshot this and send it)\n\n' +
+        'TFStudio demo: boot error\n(screenshot this and send it)\n\n' +
         'UA: ' + navigator.userAgent + '\n\n' + logs.join('\n\n');
     } catch (_) { /* never throw from the reporter */ }
   }
@@ -107,7 +107,7 @@
         '<div style="width:34px;height:34px;border:3px solid #d0d0d0;border-top-color:#6c5ce7;' +
         'border-radius:50%;animation:tfsspin 0.9s linear infinite"></div>' +
         '<div>Loading TFStudio…</div>' +
-        '<div style="font-size:12px;color:#999">first load downloads a few MB — please wait</div>' +
+        '<div style="font-size:12px;color:#999">first load downloads a few MB, please wait</div>' +
         '<div style="font-size:11px;color:#bbb">build ' + build + '</div>' +
         '<style>@keyframes tfsspin{to{transform:rotate(360deg)}}</style>';
       document.body.appendChild(s);

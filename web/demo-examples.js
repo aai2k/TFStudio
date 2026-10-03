@@ -71,7 +71,7 @@
       id: 'demo-metal-ag',
       name: 'Metal mirror (Ag)',
       notes: 'A 120 nm opaque silver mirror on BK7 with a thin SiO₂ protective overcoat. '
-           + 'Evaluate reflectance across the visible — note silver uses tabulated complex n,k.',
+           + 'Evaluate reflectance across the visible. Silver uses tabulated complex n,k.',
       frontLayers: [
         layer(1, 'Ag', 120.0),
         layer(2, 'SiO2', 80.0),
