@@ -1,4 +1,3 @@
-import { parseSpectrumCSV } from '../../../../utils/physics/spectralWeightings.js';
 import {
     appendTableRow,
     cleanTableRows,
@@ -8,6 +7,7 @@ import {
     pasteTableRows,
     tableKeyAction,
     tableRowsCsv,
+    tableRowsFromText,
     tableRowsTsv,
     updateTableCell,
 } from './tableModel.js';
@@ -49,7 +49,7 @@ function readCsvFile(event, context) {
     const reader = new FileReader();
     reader.onload = () => {
         try {
-            const parsed = parseSpectrumCSV(String(reader.result || ''));
+            const parsed = tableRowsFromText(String(reader.result || ''));
             if (parsed.length < 2) {
                 context.setError(context.iv.tableNeedTwoRows);
             } else {
@@ -120,7 +120,7 @@ export function useSpectrumTableEditor(props) {
     const paste = (rowIndex, event) => {
         const text = event.clipboardData?.getData('text') || '';
         if (!/[\n;,\t]/.test(text)) return;
-        const parsed = parseSpectrumCSV(text);
+        const parsed = tableRowsFromText(text);
         if (parsed.length === 0) return;
         event.preventDefault();
         setRows(current => pasteTableRows(current, rowIndex, parsed));

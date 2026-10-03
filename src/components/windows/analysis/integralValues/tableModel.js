@@ -1,4 +1,5 @@
 import { isCtrlChord } from '../../../../utils/misc/keyChords.js';
+import { parseSpectrumTable } from '../../../../utils/io/spectrumTable.js';
 
 export const EMPTY_TABLE_ROWS = [[0, 0], [0, 0]];
 
@@ -38,6 +39,24 @@ export function pasteTableRows(rows, startRow, parsedRows) {
         else next.push(parsedRows[offset]);
     }
     return next;
+}
+
+/**
+ * [λ, value] rows read from pasted or imported text, sorted by λ.
+ *
+ * Read by the Measured Spectra importer's parser, which finds the delimiter and
+ * a decimal comma from the text itself, so cells copied from Excel in a
+ * comma-decimal locale keep their fractions. The first value column is taken
+ * and wavelengths are kept as written.
+ */
+export function tableRowsFromText(text) {
+    const table = parseSpectrumTable(text);
+    const column = table.ok ? table.columns[0] : null;
+    if (!column) return [];
+    return column.x
+        .map((lambda, index) => [lambda, column.values[index]])
+        .filter(row => Number.isFinite(row[0]) && Number.isFinite(row[1]))
+        .sort((a, b) => a[0] - b[0]);
 }
 
 export function cleanTableRows(rows) {

@@ -34,10 +34,10 @@ import {
     BUILTIN_DETECTORS,
     composeWeighting,
     planckSPD,
-    parseSpectrumCSV,
     resolveSourceSpec,
     resolveDetectorSpec,
 } from '../src/utils/physics/spectralWeightings.js';
+import { tableRowsFromText } from '../src/components/windows/analysis/integralValues/tableModel.js';
 import { photopicV, illuminantSPD, tristimulus } from '../src/utils/physics/colorimetry.js';
 
 let fails = 0;
@@ -312,16 +312,26 @@ console.log('— composeWeighting band intersection —');
     ok(w2.lamMax === 780, `lamMax = 780 (got ${w2.lamMax})`);
 }
 
-// ── 15. parseSpectrumCSV ≡ parseWeightingCSV (shared parser) ─────────────────
-console.log('— parseSpectrumCSV mirrors parseWeightingCSV —');
+// ── 15. The table editor reads pasted and imported text ──────────────────────
+console.log('— table editor text reading —');
 {
-    const csv = `400, 0.1\n500, 0.2\n600, 0.3\n`;
-    const a = parseSpectrumCSV(csv);
-    const b = parseWeightingCSV(csv);
-    ok(a.length === b.length && a.length === 3, 'both parsers return same row count');
-    for (let i = 0; i < a.length; i++) {
-        ok(a[i][0] === b[i][0] && a[i][1] === b[i][1], `row ${i} matches`);
+    // Cells copied from Excel in a comma-decimal locale, a CSV saved by the same
+    // Excel, and a table separated by single spaces. Each used to lose its
+    // fractions or its rows.
+    const cases = [
+        ['400\t0,5\n500\t0,7', [[400, 0.5], [500, 0.7]]],
+        ['400\t45,3\n500\t46,1', [[400, 45.3], [500, 46.1]]],
+        ['400,5\t0,5\n500,5\t0,7', [[400.5, 0.5], [500.5, 0.7]]],
+        ['400;0,5\n500;0,7', [[400, 0.5], [500, 0.7]]],
+        ['400 0.5\n500 0.7', [[400, 0.5], [500, 0.7]]],
+        ['lambda,weight\n600, 0.3\n400, 0.1\n500, 0.2\n', [[400, 0.1], [500, 0.2], [600, 0.3]]],
+    ];
+    for (const [text, expected] of cases) {
+        const rows = tableRowsFromText(text);
+        ok(JSON.stringify(rows) === JSON.stringify(expected),
+           `${JSON.stringify(text)} reads as ${JSON.stringify(expected)} (got ${JSON.stringify(rows)})`);
     }
+    ok(tableRowsFromText('').length === 0, 'empty text reads as no rows');
 }
 
 // ── 16. A band the spectrum does not span is not available ───────────────────

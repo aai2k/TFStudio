@@ -251,25 +251,3 @@ export function composeWeighting({ source, detector, band, label } = {}) {
         detector:  D,
     };
 }
-
-// ── CSV → table parser (shared with the old user-weighting path) ──────────────
-
-/**
- * Parse CSV/TSV/space-separated `λ, value` rows. Tolerant of headers, blank
- * lines, `#` and `//` comments. Returns sorted [[λ, v], …].
- */
-export function parseSpectrumCSV(text) {
-    if (!text) return [];
-    const rows = [];
-    for (const raw of text.split(/\r?\n/)) {
-        const line = raw.trim();
-        if (!line || line.startsWith('#') || line.startsWith('//')) continue;
-        const parts = line.split(/[,;\t]+|\s{2,}/).map(s => s.trim()).filter(Boolean);
-        if (parts.length < 2) continue;
-        const lam = parseFloat(parts[0]);
-        const v   = parseFloat(parts[1]);
-        if (Number.isFinite(lam) && Number.isFinite(v)) rows.push([lam, v]);
-    }
-    rows.sort((a, b) => a[0] - b[0]);
-    return rows;
-}
