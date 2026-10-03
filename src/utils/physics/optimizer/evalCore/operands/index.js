@@ -3,7 +3,7 @@
  * and the resolver that lets a math row reference other rows.
  */
 
-import { isConstraint, isDmfs, isBlank, isStress, isTotalThickness, isRangeTarget, isMeasuredCurve, isIntegral, isMinmax, isArgwave, isMath, isEllipsometry, isPhaseShift, isGroupDelay, isGroupDelayFlat, isEField, isEllipsometricMeasuredCurve, isKnownOperandType, isLogPoint, measuredCurveChannel, argwaveOpticalChar, argwavePolCode, polFromType } from '../../operandModel.js';
+import { isConstraint, isDmfs, isBlank, isStress, isTotalThickness, isRangeTarget, isMeasuredCurve, isIntegral, isMinmax, isArgwave, isMath, isEllipsometry, isPhaseShift, isGroupDelay, isGroupDelayFlat, isEField, isEllipsometricMeasuredCurve, isKnownOperandType, isLogPoint, isPPEF, measuredCurveChannel, argwaveOpticalChar, argwavePolCode, polFromType } from '../../operandModel.js';
 import { charOf, operandSampleLambdas } from '../../sampling.js';
 import { computeMathValue } from '../mathOperands.js';
 import { _evalTotalThickness, _evalStressForce, _evalConstraint, _evalArgwave, _evalIntegral, _evalMinmax, _evalLogPoint, _evalRangeTarget, _evalBandAvgOrSingle } from './basic.js';
@@ -11,6 +11,7 @@ import { _evalMeasuredCurve } from './measured.js';
 import { _evalEllipsometry, resetEllipsometryCaches } from './ellipsometry.js';
 import { _evalPhaseDispersionPoint, _evalGroupDelayFlat, resetPhaseDispersionCache } from './phase.js';
 import { _evalEField } from './efield.js';
+import { _evalPPEF } from './ppef.js';
 import { OperandEvaluationError } from './errors.js';
 
 export { OperandEvaluationError };
@@ -80,6 +81,7 @@ const _EVAL_DISPATCH = [
     [isLogPoint,       _evalLogPoint],
     [isRangeTarget,    _evalRangeTarget],
     [isMeasuredCurve,  _evalMeasuredCurve],
+    [isPPEF,           _evalPPEF],
     [isEllipsometry,   _evalEllipsometry],
     [isGroupDelayFlat, _evalGroupDelayFlat],
     [isPhaseShift,     _evalPhaseDispersionPoint],
@@ -103,10 +105,11 @@ export function evalOperand(op, ctx) {
     return _evalBandAvgOrSingle(op, ctx);
 }
 
-// Rows whose evaluator reads nothing through tmmProp.
+// Rows whose evaluator reads nothing through tmmProp, and the PPEF row, which
+// reads at its curve block's points, the reads of the block itself.
 const _READS_NO_SPECTRUM = [
     isDmfs, isBlank, isTotalThickness, isStress, isConstraint, isMath,
-    isEllipsometry, isGroupDelayFlat, isPhaseShift, isGroupDelay, isEField,
+    isEllipsometry, isGroupDelayFlat, isPhaseShift, isGroupDelay, isEField, isPPEF,
 ];
 
 // The finite wavelengths of a measured block's snapshot.

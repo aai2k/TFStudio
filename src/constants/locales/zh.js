@@ -1828,6 +1828,9 @@ export default {
     measuredPairOff: missing => `此测量的 ${missing} 已关闭。仅有 Ψ 或仅有 Δ 无法唯一确定层厚。`,
     measuredPairGone: missing => `此测量的 ${missing} 已不在表中。仅有 Ψ 或仅有 Δ 无法唯一确定层厚。`,
     measuredLevelFree: '水平自由：评价形状而非水平',
+    curveRefPick: '（选择曲线…）',
+    curveRefGone: '（曲线已删除）',
+    curveRefTip: '此行所对照的曲线块',
     totalPhaseScope: (side) => `整体评价模式：R/T 操作数对整个元件评分。相位、GD、GDD 和 TOD 操作数仅对 ${side} 镀膜评分。`,
     addComment: '注释',
     addOperand: '+ 添加',
@@ -1989,6 +1992,10 @@ export default {
       },
       ODMN: {
         label: 'ODMN: 波段内最小光密度（OD ≥ 目标，截止）',
+        group: 'log',
+      },
+      PPEF: {
+        label: 'PPEF: 相对曲线块的峰峰误差，dB（≤ 目标）',
         group: 'log',
       },
       PSI: {
@@ -2176,6 +2183,7 @@ export default {
       refOp: '操作数#',
       refOp1: '操作数#1',
       refOp2: '操作数#2',
+      curveRef: '曲线',
     },
     operandGroups: {
       optical: '光学，单一 λ',
@@ -4074,6 +4082,8 @@ export default {
     integralPreset: '预设',
     pickPreset: '选择已保存的积分预设',
     customPreset: '（自定义）',
+    curve: '曲线',
+    pickCurve: '（选择实测 T、R 或 A 曲线…）',
     cmp: '比较',
     target: '目标',
     tol: '容差',
@@ -4111,6 +4121,7 @@ export default {
       unknownKind: (kind) => `未知的要求类型：${kind}`,
       fwhmNotBracketed: (pct, lamStart, lamEnd) => `${pct}% 处的 FWHM 未落在 [${lamStart},${lamEnd}] nm 内`,
       edgeNotCrossed: (pct) => `波段内未穿过 ${pct}% 边缘电平`,
+      noCurve: '此设计中没有该实测曲线',
     },
     kinds: {
       T_AT: 'T at λ',
@@ -4126,6 +4137,7 @@ export default {
       EDGE_LAMBDA: '边缘 λ（长通/短通交叉）',
       THICKNESS_BUDGET: '总厚度 ≤ 预算',
       LAYER_COUNT: '膜层数量',
+      PPEF: '相对曲线的峰峰误差 (dB)',
     },
   },
   historyWin: {

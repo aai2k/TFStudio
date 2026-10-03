@@ -14,12 +14,13 @@
  */
 import {
     isArgwave, isBlank, isConstraint, isDmfs, isIntegral, isLinearThickness,
-    isMath, isPhase, isStress, isTotalThickness, logUnit,
+    isMath, isPPEF, isPhase, isStress, isTotalThickness, logUnit,
 } from './operandModel.js';
 
 const ROW_RANGE_DOMAINS = [
     [isConstraint, 'layer'],
     [isMath, 'operandRef'],
+    [isPPEF, 'curveRef'],
     [isIntegral, 'preset'],
     [isLinearThickness, 'comparison'],
     [type => isBlank(type) || isDmfs(type), 'comment'],
@@ -40,6 +41,7 @@ const TARGET_DOMAINS = [
     [type => isConstraint(type) || isTotalThickness(type), 'nm'],
     [isArgwave, 'wavelength'],
     [isPhase, 'phase'],
+    [isPPEF, 'dB'],
     [isMath, 'raw'],
     [type => isBlank(type) || isDmfs(type), 'none'],
 ];

@@ -17,13 +17,14 @@ export const QUALIFIER_KINDS = [
     'INTEGRAL',          // weighted integral (Tvis, Tsol, Tuser, …)
     'THICKNESS_BUDGET',  // total physical thickness, nm
     'LAYER_COUNT',       // number of layers
+    'PPEF',              // peak-to-peak error against a measured curve, dB
 ];
 
 export const QUALIFIER_CMPS = ['ge', 'le', 'eq', 'between'];
 
 // Sensible `eq` tolerance default per kind, expressed in the kind's NATIVE unit
 // (fraction for T/R/A specs, nm for wavelength/thickness, count for layer
-// count). A single 0.01 default is right for optical specs (= 1 %) but is
+// count, dB for a peak-to-peak error). A single 0.01 default is right for optical specs (= 1 %) but is
 // nonsensically tight for nm kinds (0.01 nm on a central-wavelength spec), so
 // the tolerance follows the kind.
 const TOL_BY_KIND = {
@@ -32,6 +33,7 @@ const TOL_BY_KIND = {
     EDGE_LAMBDA:      1.0,   // nm
     THICKNESS_BUDGET: 10.0,  // nm
     LAYER_COUNT:      0,     // exact integer count
+    PPEF:             0.05,  // dB
 };
 
 export function defaultTolForKind(kind) {

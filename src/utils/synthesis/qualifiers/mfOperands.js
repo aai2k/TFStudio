@@ -23,6 +23,7 @@
 
 import { makeOperand } from '../../physics/optimizer.js';
 import { channelFromKind, singleType, avgType, minmaxType, argwaveType } from './channelTypes.js';
+import { ppefRows } from './ppefRows.js';
 
 // ── Base physical-measurement operand, one builder per kind ─────────────────
 
@@ -79,6 +80,16 @@ function buildCentralLambdaBaseOp(q, ch, pol, weight) {
     });
 }
 
+// PPEF: the curve block it is measured against goes in ahead of it, at weight
+// 0, so the table holds the curve and the row reads it. Null when the curve it
+// names is not on the design.
+function buildPPEFBaseOp(q, ch, pol, weight, { design, out }) {
+    const rows = ppefRows(q, design, { rowWeight: weight });
+    if (!rows) return null;
+    out.push(rows.block);
+    return rows.row;
+}
+
 // FWHM / EDGE_LAMBDA: no direct MF operand — needs a derived FWHM operand
 // with its own gradient (open follow-up). LAYER_COUNT / THICKNESS_BUDGET are
 // filtered out by the caller before reaching this table (discrete /
@@ -89,6 +100,7 @@ const BASE_OP_BUILDERS = {
     MIN_MAX:        buildMinMaxBaseOp,
     INTEGRAL:       buildIntegralBaseOp,
     CENTRAL_LAMBDA: buildCentralLambdaBaseOp,
+    PPEF:           buildPPEFBaseOp,
 };
 
 // ── Spec rows, one emitter per comparator ────────────────────────────────────
@@ -131,6 +143,7 @@ function emitEq(baseOp, q, weight, k, out) {
 
 const CMP_EMITTERS = { ge: emitGe, le: emitLe, between: emitBetween };
 
+// `opts.design` is the design whose measured curves a PPEF qualifier names.
 export function qualifiersToMFOperands(qualifiers, opts = {}) {
     const out = [];
     const weight = opts.weight || 1.0;
@@ -147,7 +160,8 @@ export function qualifiersToMFOperands(qualifiers, opts = {}) {
 
         const ch  = channelFromKind(k) || q.channel || 'T';
         const pol = q.pol || 'avg';
-        const baseOp = buildBaseOp(q, ch, pol, weight);
+        const baseOp = buildBaseOp(q, ch, pol, weight, { design: opts.design, out });
+        if (!baseOp) continue;
 
         const emit = CMP_EMITTERS[q.cmp] || emitEq;
         emit(baseOp, q, weight, k, out);

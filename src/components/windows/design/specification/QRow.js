@@ -1,12 +1,12 @@
 import { QUALIFIER_KINDS, defaultTolForKind, qualifierSummary } from '../../../../utils/synthesis/qualifiers.js';
 import { OPERAND_POLS } from '../../../../utils/physics/optimizer.js';
 import { Checkbox } from '../../../ui/Checkbox.js';
-import { KIND_META } from './model.js';
+import { KIND_META, hasOpticalConditions } from './model.js';
 import { Field, numInp, numInpTarget, inpStyle, selStyle, btnStyle } from './fields.js';
 
 const { createElement: h } = React;
 
-export function QRow({ q, r, c, ts, updateQualifier, removeQualifier, integralPresets, isSelected, onSelect }) {
+export function QRow({ q, r, c, ts, updateQualifier, removeQualifier, integralPresets, measuredCurves, isSelected, onSelect }) {
     const meta = KIND_META[q.kind] || {};
     const onF     = (k, v) => updateQualifier(q.id, { [k]: v });
     const onPatch = (patch) => updateQualifier(q.id, patch);
@@ -46,6 +46,7 @@ export function QRow({ q, r, c, ts, updateQualifier, removeQualifier, integralPr
             renderLevel(meta, q, onF, c, ts),
             renderEdgeSide(meta, q, onF, c, ts),
             meta.integral && renderIntegral(q, onPatch, c, ts, integralPresets),
+            meta.curve && renderCurvePick(q, onF, c, ts, measuredCurves),
             renderCmp(q, onF, c, ts),
             renderTargets(q, meta, onF, c, ts),
         ),
@@ -130,7 +131,7 @@ function renderWavelength(meta, q, onF, c, ts) {
     return meta.single
         ? h(Field, { label: 'λ', c },
             numInp(q.lambda, v => onF('lambda', v), c))
-        : !meta.geomOnly
+        : hasOpticalConditions(meta)
             ? [
                 h(Field, { label: ts.lamStart, c, key: 'ls' },
                     numInp(q.lambdaStart, v => onF('lambdaStart', v), c)),
@@ -142,12 +143,12 @@ function renderWavelength(meta, q, onF, c, ts) {
 
 // AOI, pol — only for optical kinds
 function renderAoi(meta, q, onF, c, ts) {
-    return !meta.geomOnly && h(Field, { label: ts.aoi, c },
+    return hasOpticalConditions(meta) && h(Field, { label: ts.aoi, c },
         numInp(q.aoi, v => onF('aoi', v), c));
 }
 
 function renderPol(meta, q, onF, c, ts) {
-    return !meta.geomOnly && h(Field, { label: ts.pol || 'pol', c },
+    return hasOpticalConditions(meta) && h(Field, { label: ts.pol || 'pol', c },
         h('select', {
             value: q.pol || 'avg', onChange: e => onF('pol', e.target.value),
             style: { ...selStyle(c), width: 54 },
@@ -228,6 +229,23 @@ function renderIntegral(q, onPatch, c, ts, integralPresets) {
         h('div', { key: 'band', style: { fontSize: 10, color: c.textDim, fontVariantNumeric: 'tabular-nums' } },
             `${q.lambdaStart}–${q.lambdaEnd} nm`),
     ];
+}
+
+// PPEF: one of the design's measured T, R or A curves, which supplies the
+// wavelengths, the angle and the polarization the error is taken at.
+function renderCurvePick(q, onF, c, ts, measuredCurves) {
+    const curves = measuredCurves || [];
+    const known = curves.some(curve => curve.id === q.curveId);
+    return h(Field, { label: ts.curve, c, key: 'curve' },
+        h('select', {
+            value: known ? q.curveId : '',
+            onChange: e => onF('curveId', e.target.value || null),
+            style: { ...selStyle(c), width: 180 },
+        },
+            h('option', { value: '', style: { background: c.panel, color: c.textDim } }, ts.pickCurve),
+            curves.map(curve => h('option', { key: curve.id, value: curve.id, style: { background: c.panel } },
+                `${curve.name} (${curve.quantity})`)),
+        ));
 }
 
 // Comparison cmp + target(s)

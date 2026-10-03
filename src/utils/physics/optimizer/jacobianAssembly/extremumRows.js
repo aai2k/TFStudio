@@ -1,7 +1,8 @@
 /**
  * Analytic Jacobian rows for single-extremum operands: thickness constraints
- * (MNT/MXT) and worst-case min/max R/T/A, linear or in dB or density, and the
- * one-wavelength TDB row, which shares the dB slope.
+ * (MNT/MXT) and worst-case min/max R/T/A, linear or in dB or density, the
+ * two-extremum PPEF row, and the one-wavelength TDB row, which shares the dB
+ * slope.
  *
  * These are active-only subgradients: when the constraint/target is violated the
  * extremum is attained at one index (layer or wavelength), so the row is the
@@ -9,7 +10,9 @@
  * the shared context: { comp, freeIdx, nFree, ctx, propDeriv }.
  */
 
-import { isLogOperand, isMinType, polFromType, rowReadingSlopeOverSigma } from '../operandModel.js';
+import {
+    isLogOperand, isMinType, logSlopeOverSigma, polFromType, rowReadingSlopeOverSigma,
+} from '../operandModel.js';
 import { charOf } from '../sampling.js';
 import { operandExtremumLambdas } from '../evalCore/evalContext.js';
 
@@ -61,6 +64,29 @@ export function _jacRowMinmax(op, i, jc) {
     // ∂residual/∂comp under the violated branch: +1 for max, −1 for min.
     const scale = (isMin ? -1 : 1) * Math.sqrt(op.weight) * slope;
     for (let ci = 0; ci < nFree; ci++) row[ci] = scale * d[freeIdx[ci]];
+    return row;
+}
+
+// PPEF: residual = sw·max(0, comp − target)/σ with comp = EF(λ_high) − EF(λ_low)
+// and EF = target dB − design dB. When active only the two extreme points
+// move it: ∂comp/∂d ÷ σ = ∂C(λ_low)/∂d / C(λ_low) − ∂C(λ_high)/∂d / C(λ_high),
+// with the wavelengths the evaluation found (evalCore/operands/ppef.js).
+export function _jacRowPPEF(op, i, jc) {
+    const { comp, freeIdx, nFree, propDeriv, propValue } = jc;
+    const row = new Array(nFree).fill(0);
+    if (!(comp[i] - op.target > 0)) return row;
+    const extremes = operandExtremumLambdas(comp)[i];
+    if (!extremes) return row;
+    const { char, aoi, pol } = extremes;
+    const relative = lambda => {
+        const d = propDeriv(lambda, pol, char, aoi);
+        const slope = logSlopeOverSigma('dB', propValue(lambda, pol, char, aoi));
+        return freeIdx.map(index => slope * d[index]);
+    };
+    const low = relative(extremes.low);
+    const high = relative(extremes.high);
+    const sw = Math.sqrt(op.weight);
+    for (let ci = 0; ci < nFree; ci++) row[ci] = sw * (low[ci] - high[ci]);
     return row;
 }
 

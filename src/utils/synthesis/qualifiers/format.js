@@ -3,11 +3,12 @@
  */
 
 // Format a scalar in its native unit: fraction → percent (3 dp), nm (2 dp),
-// otherwise plain string. Non-finite values render as an em dash.
+// dB (3 dp), otherwise plain string. Non-finite values render as a dash.
 function formatQualifierValue(v, unit) {
     if (v == null || !Number.isFinite(v)) return '—';
     if (unit === '%')  return (v * 100).toFixed(3) + ' %';
     if (unit === 'nm') return v.toFixed(2) + ' nm';
+    if (unit === 'dB') return v.toFixed(3) + ' dB';
     return String(v);
 }
 

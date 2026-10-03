@@ -1835,6 +1835,9 @@ export default {
     measuredPairOff: missing => `${missing} di questa misura è disattivato. Ψ o Δ da soli lasciano gli spessori indeterminati.`,
     measuredPairGone: missing => `${missing} di questa misura non è più in tabella. Ψ o Δ da soli lasciano gli spessori indeterminati.`,
     measuredLevelFree: 'livello libero: conta la forma, non il livello',
+    curveRefPick: '(scegli una curva…)',
+    curveRefGone: '(curva eliminata)',
+    curveRefTip: 'Il blocco di curva rispetto a cui si misura questa riga',
     totalPhaseScope: (side) => `Modalità di merito totale: gli operandi R/T valutano l'intero elemento. Gli operandi di fase, GD, GDD e TOD valutano solo il rivestimento ${side}.`,
     addComment: 'Commento',
     addOperand: '+ Aggiungi',
@@ -1996,6 +1999,10 @@ export default {
       },
       ODMN: {
         label: 'ODMN: densità ottica minima sulla banda (OD ≥ target, blocco)',
+        group: 'log',
+      },
+      PPEF: {
+        label: 'PPEF: errore picco-picco rispetto a un blocco di curva, dB (≤ target)',
         group: 'log',
       },
       PSI: {
@@ -2183,6 +2190,7 @@ export default {
       refOp: 'Op. n.',
       refOp1: 'Op. n.1',
       refOp2: 'Op. n.2',
+      curveRef: 'Curva',
     },
     operandGroups: {
       optical: 'Ottici, singola λ',
@@ -4119,6 +4127,8 @@ export default {
     integralPreset: 'preimpostazione',
     pickPreset: 'Scegli una preimpostazione di integrale salvata',
     customPreset: '(personalizzata)',
+    curve: 'curva',
+    pickCurve: '(scegli una curva misurata T, R o A…)',
     cmp: 'confr.',
     target: 'target',
     tol: 'toll.',
@@ -4156,6 +4166,7 @@ export default {
       unknownKind: (kind) => `Tipo di requisito sconosciuto: ${kind}`,
       fwhmNotBracketed: (pct, lamStart, lamEnd) => `FWHM al ${pct}% non compresa in [${lamStart},${lamEnd}] nm`,
       edgeNotCrossed: (pct) => `Livello di bordo ${pct}% non attraversato nella banda`,
+      noCurve: 'la curva misurata non è in questo design',
     },
     kinds: {
       T_AT: 'T a λ',
@@ -4171,6 +4182,7 @@ export default {
       EDGE_LAMBDA: 'λ del fronte (attraversamento LP / SP)',
       THICKNESS_BUDGET: 'Spessore totale ≤ limite',
       LAYER_COUNT: 'Numero di strati',
+      PPEF: 'Errore picco-picco rispetto alla curva (dB)',
     },
   },
   historyWin: {

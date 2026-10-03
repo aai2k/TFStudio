@@ -18,6 +18,7 @@ import { makeOperand, evaluateOperands, buildEvalContext, ARGWAVE_DEFAULT_POINTS
 import { channelFromKind, singleType, avgType, minmaxType, argwaveType } from './channelTypes.js';
 import { finishCompare } from './format.js';
 import { evalBandDerived } from './bandScan.js';
+import { ppefRows } from './ppefRows.js';
 
 // ── Static (geometry-only) qualifiers ───────────────────────────────────────
 
@@ -109,6 +110,18 @@ function evalCentralLambda(qual, design, ctx) {
     return finishCompare(qual, lam, 'nm');
 }
 
+// PPEF: peak-to-peak error against one of the design's measured T, R or A
+// curves, read through the PPEF row the merit table uses, so a Specification
+// verdict and the merit row cannot disagree.
+function evalPPEF(qual, design, ctx) {
+    const rows = ppefRows(qual, design);
+    if (!rows) {
+        return { value: null, pass: false, deviation: null, displayValue: '—', unit: 'dB', summaryKey: 'noCurve' };
+    }
+    const values = evaluateOperands([rows.block, rows.row], ctx);
+    return finishCompare(qual, values[1], 'dB');
+}
+
 const KIND_EVALUATORS = {
     THICKNESS_BUDGET: evalThicknessBudget,
     LAYER_COUNT:      evalLayerCount,
@@ -119,6 +132,7 @@ const KIND_EVALUATORS = {
     CENTRAL_LAMBDA:   evalCentralLambda,
     FWHM:             evalBandDerived,
     EDGE_LAMBDA:      evalBandDerived,
+    PPEF:             evalPPEF,
 };
 
 // Evaluate one qualifier against a design. Returns:

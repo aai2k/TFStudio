@@ -1662,6 +1662,9 @@ export default {
     measuredPairOff:  missing => `Кривая ${missing} этого измерения выключена. Одна Ψ или одна Δ не определяет толщины однозначно.`,
     measuredPairGone: missing => `Кривой ${missing} этого измерения больше нет в таблице. Одна Ψ или одна Δ не определяет толщины однозначно.`,
     measuredLevelFree: 'уровень свободен: оценивается форма, а не уровень',
+    curveRefPick: '(выбрать кривую…)',
+    curveRefGone: '(кривая удалена)',
+    curveRefTip: 'Блок кривой, относительно которого считается эта строка',
     totalPhaseScope: (side) => `Режим Total: операнды R/T оценивают всю систему. Операнды фазы, GD, GDD и TOD оценивают только ${side === 'back' ? 'заднее' : 'переднее'} покрытие.`,
     addComment:    'Коммент.',
     addOperand:    '+ Добавить',
@@ -1737,6 +1740,7 @@ export default {
       TDBMX: { label: 'TDBMX: Max T в полосе в dB (T ≤ цель, подавление)',          group: 'log' },
       RDBMX: { label: 'RDBMX: Max R в полосе в dB (R ≤ цель, возвратные потери)',   group: 'log' },
       ODMN:  { label: 'ODMN: Min оптической плотности в полосе (OD ≥ цель, блокировка)', group: 'log' },
+      PPEF:  { label: 'PPEF: Размах ошибки относительно блока кривой, dB (≤ цель)', group: 'log' },
       // ── Фаза / поле (градусы, фс, фс², |E|²) ──────────────────────────────
       PSI:    { label: 'PSI: Эллипсометрический Ψ при λ (град)',       group: 'phase' },
       DEL:    { label: 'DEL: Эллипсометрический Δ при λ (град)',       group: 'phase' },
@@ -1802,6 +1806,7 @@ export default {
       refOp:        'Оп. №',
       refOp1:       'Оп. №1',
       refOp2:       'Оп. №2',
+      curveRef:     'Кривая',
     },
     operandGroups: {
       optical:     'Оптические, одна λ',
@@ -3643,6 +3648,8 @@ export default {
     integralPreset: 'интеграл',
     pickPreset:     'Выберите сохранённый интеграл',
     customPreset:   '(вручную)',
+    curve:          'кривая',
+    pickCurve:      '(выбрать измеренную кривую T, R или A…)',
     cmp:            'усл',
     target:         'цель',
     tol:            'доп',
@@ -3680,6 +3687,7 @@ export default {
       unknownKind:       (kind) => `Неизвестный тип требования: ${kind}`,
       fwhmNotBracketed:  (pct, lamStart, lamEnd) => `FWHM на уровне ${pct}% не охвачена в [${lamStart},${lamEnd}] нм`,
       edgeNotCrossed:    (pct) => `Уровень края ${pct}% не пересечён в полосе`,
+      noCurve:           'измеренной кривой нет в этом покрытии',
     },
     kinds: {
       T_AT:             'T на λ',
@@ -3695,6 +3703,7 @@ export default {
       EDGE_LAMBDA:      'Краевая λ (LP / SP)',
       THICKNESS_BUDGET: 'Полная толщина ≤ предел',
       LAYER_COUNT:      'Число слоёв',
+      PPEF:             'Размах ошибки относительно кривой (dB)',
     },
   },
 

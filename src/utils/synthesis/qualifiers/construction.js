@@ -40,6 +40,9 @@ export function makeQualifier(overrides = {}) {
         presetLabel: '',
         source:      { id: 'D65' },
         detector:    { id: 'photopic' },
+        // PPEF specs: the id of the measured curve in design.measuredCurves the
+        // error is taken against.
+        curveId:     null,
         // bandPoints (sampling density for argmax / FWHM scans) is NOT stamped
         // on the qualifier — it's an implementation hyperparameter that
         // defaults at evaluation time (ARGWAVE_DEFAULT_POINTS in optimizer.js).

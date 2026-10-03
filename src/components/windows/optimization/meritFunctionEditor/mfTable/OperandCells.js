@@ -1,5 +1,6 @@
 import { isIntegral, isMathPairRef, polFromType } from '../../../../../utils/physics/optimizer.js';
 import { CellInput, CellSelect, PolList, selectable } from './CellControls.js';
+import { curveReferenceCell } from './curveReferenceCell.js';
 import { OperandTypePicker } from './OperandTypePicker.js';
 import { measuredSnapshotCell, measuredTypeCell } from './measuredCells.js';
 import {
@@ -324,6 +325,13 @@ export function rowRenderers(op, meta) {
     if (meta.isMth) {
         renderers.lambdaStart = mathReferenceCell;
         renderers.lambdaEnd = mathReferenceCell;
+        renderers.aoi = dashCell;
+        renderers.pol = dashCell;
+    }
+    // A PPEF row reads its curve block at the block's own angle and polarization.
+    if (meta.isPpef) {
+        renderers.lambdaStart = curveReferenceCell;
+        renderers.lambdaEnd = dashCell;
         renderers.aoi = dashCell;
         renderers.pol = dashCell;
     }

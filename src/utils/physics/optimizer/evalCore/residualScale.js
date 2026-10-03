@@ -1,4 +1,4 @@
-import { isConstraint, isLinearThickness, isManufacturability, isMinmax, isMinType, isMeasuredCurve, isMath, isArgwave, isRamp, isGroupDelayFlat, isWrappedAngle, logSigma, logUnit } from '../operandModel.js';
+import { isConstraint, isLinearThickness, isManufacturability, isMinmax, isMinType, isMeasuredCurve, isMath, isArgwave, isPPEF, isRamp, isGroupDelayFlat, isWrappedAngle, logSigma, logUnit } from '../operandModel.js';
 import { mathResidual } from './mathOperands.js';
 import { _normalizeDegrees } from './angles.js';
 
@@ -75,6 +75,8 @@ function _channelScale(channel) {
 
 export function operandResidualScale(op) {
     if (isArgwave(op.type)) return ARGWAVE_RESIDUAL_SCALE_NM;
+    // A peak-to-peak error is in dB and takes the dB rows' scale.
+    if (isPPEF(op.type)) return logSigma('dB');
     // A measured block scores in its channel's unit: degrees for a Ψ or Δ
     // snapshot, dB for a T-in-dB one, a fraction for a photometric one. Its
     // expansion carries the same scale per point, so the two forms stay equal.
@@ -98,6 +100,25 @@ function _targetResidual(op, val) {
     return val - op.target;
 }
 
+// Constraints and worst-case min/max: satisfied on the ≥ target side for MNT
+// and a min type, on the ≤ target side otherwise.
+function _boundResidual(op, val) {
+    const lowerBound = op.type === 'MNT' || isMinType(op.type);
+    return lowerBound ? Math.max(0, op.target - val) : Math.max(0, val - op.target);
+}
+
+// Per-kind residual, first match wins; anything else is _targetResidual.
+const RESIDUAL_KINDS = [
+    [op => isLinearThickness(op.type), _comparisonResidual],
+    // A peak-to-peak error is a specification ceiling.
+    [op => isPPEF(op.type), (op, val) => Math.max(0, val - op.target)],
+    [op => isConstraint(op.type) || isMinmax(op.type), _boundResidual],
+    [op => isMath(op.type), mathResidual],
+    // Ramp (TGT/RGT/AGT), measured blocks and GD/GDD flatness already carry
+    // their RMS deviation.
+    [op => isRamp(op) || isMeasuredCurve(op.type) || isGroupDelayFlat(op.type), (op, val) => val],
+];
+
 // Per-operand merit residual (before unit normalization). Constraints (MNT/MXT)
 // and worst-case min/max are one-sided penalties (0 when satisfied); math
 // operands defer to mathResidual (one- or two-sided by kind); ramp AND group-
@@ -107,16 +128,8 @@ function _targetResidual(op, val) {
 // shared by calcMF (the reported/accepted merit) and the LSQ engine's residual
 // vector (the step direction), so the two can never disagree.
 export function _operandResidual(op, val) {
-    if (isLinearThickness(op.type)) return _comparisonResidual(op, val);
-    if (isConstraint(op.type) || isMinmax(op.type)) {
-        // Satisfied on the ≥target side for MNT / min-type, ≤target side otherwise.
-        const lowerBound = op.type === 'MNT' || isMinType(op.type);
-        return lowerBound ? Math.max(0, op.target - val) : Math.max(0, val - op.target);
-    }
-    if (isMath(op.type)) return mathResidual(op, val);
-    // Ramp (TGT/RGT/AGT) and GD/GDD flatness already carry their RMS deviation.
-    if (isRamp(op) || isMeasuredCurve(op.type) || isGroupDelayFlat(op.type)) return val;
-    return _targetResidual(op, val);
+    const hit = RESIDUAL_KINDS.find(([test]) => test(op));
+    return hit ? hit[1](op, val) : _targetResidual(op, val);
 }
 
 // opts.skipConstraints — exclude MNT/MXT penalties. Used by the needle/GE

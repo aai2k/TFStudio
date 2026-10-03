@@ -26,7 +26,7 @@ The **residual** depends on the operand class:
 | ------------------------------------------------- | -------------------------------- | --------------------- |
 | Equality (most optical operands)                  | `value − target`                 | no (two-sided)        |
 | One-sided ≥ (OPGT, ABGT, MNT, TMN, TDBMN, ODMN…)  | `max(0, target − value)`         | yes                   |
-| One-sided ≤ (OPLT, ABLT, MXT, TMX, TDBMX, RDBMX…) | `max(0, value − target)`         | yes                   |
+| One-sided ≤ (OPLT, ABLT, MXT, TMX, TDBMX, RDBMX, PPEF…) | `max(0, value − target)`   | yes                   |
 | Spectral target (TGT/RGT/AGT)                     | the RMS deviation itself         | no                    |
 
 "Inert when satisfied" means the operand drops out of the MF entirely once its
@@ -213,6 +213,16 @@ Target and Current are in dB or OD, not percent. A new row starts at 0 dB for `T
 These rows take exact analytic derivatives, with no finite differences. Like the other rows whose σ is not 1, they do not take the full Newton curvature: for a merit function that contains them, Newton and SQP solve the Gauss-Newton system.
 
 On [Optical Evaluation](/analysis/optical-evaluation/) the targets are drawn at the level they stand for, −30 dB at 0.1 %, on any y unit: `TDB` as a point marker, a band row as a level line over its band. They drag like other targets, and a dragged level is written back in dB or OD. An `ODMN` target is a T target, so it shows on the OD axis.
+
+## Peak-to-peak error against a curve
+
+A gain-flattening filter is specified by its error against a target loss curve, not by its own transmittance. At each point of a measured-curve block, `EF(λ) = T_target(λ)[dB] − T_design(λ)[dB]`, and the row's value is the spread `max EF − min EF`. A design that differs from the target by the same number of dB everywhere scores zero: that constant is insertion loss, which a datasheet states on a line of its own, and only the shape error counts here.
+
+| Type   | λ / Start          | Computes                                  | Target unit | Residual                 |
+| ------ | ------------------ | ----------------------------------------- | ----------- | ------------------------ |
+| `PPEF` | the curve block    | `max EF − min EF` over the block's points | dB          | `max(0, value − target)` |
+
+Pick the block in the λ / Start cell; the row reads the block's own wavelengths, angle and polarization, so AOI and Pol show a dash. The block can be a T curve in percent or one fitted in dB, and can sit at weight 0 when it is there only to be measured against. Deleting the block deletes the row; a row whose block is missing or switched off shows **Error**. A new row starts at a target of 0 dB, so it keeps flattening until you type a specification in. σ is the dB rows' 4.343 dB. The optimizer moves the two points where EF is highest and lowest, with exact derivatives. The [Specification](/design/specification/) window has the same number as a qualifier, read through this row.
 
 ## Argmax / argmin wavelength
 

@@ -23,7 +23,7 @@ MF = √( Σ_i  w_i · residual_i²  /  Σ_i w_i )
 | 光谱目标           | `TGT` `RGT` `AGT`                          | 与一条平坦/斜坡线的偏差      |
 | 加权积分           | `TIW` `RIW` `AIW`                          | 源 × 探测器加权均值          |
 | 最坏情况           | `TMN` `RMN` `AMN` `TMX` `RMX` `AMX`        | T/R/A 的带极值               |
-| 以 dB 或光密度计   | `TDB` `TDBMN` `TDBMX` `RDBMX` `ODMN`       | 以 dB 表示的 T 或 R、光密度  |
+| 以 dB 或光密度计   | `TDB` `TDBMN` `TDBMX` `RDBMX` `ODMN` `PPEF` | 以 dB 表示的 T 或 R、光密度、相对曲线的峰峰误差 |
 | 相位 / 场          | `PSI` `DEL` `TANPSI` `COSDEL` `PR` `PT` `DPR` `DPT` `GD*` `GDD*` `TOD*` `EFMX` | 相位、椭偏、色散、峰值 \|E\|² |
 | 极值波长           | `MXWT` `MXWR` `MXWA` `MNWT` `MNWR` `MNWA`  | 极值所在的波长               |
 | 数学（引用行）     | `OPGT` `OPLT` `OPVA` `ABSO` `ABGT` `ABLT` `DIFF` `SUMM` `PROD` | 由其他行派生 |

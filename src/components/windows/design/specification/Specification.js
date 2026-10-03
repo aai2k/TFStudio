@@ -62,7 +62,8 @@ export function Specification({ c, theme, t, setInputDialog }) {
             qualifiers.length === 0
                 ? h(EmptyState, { c, ts, addQualifier })
                 : h(QTable, { qualifiers, results, c, ts, updateQualifier, removeQualifier,
-                              integralPresets, selectedId, onSelect: selectAndFocus })
+                              integralPresets, measuredCurves: design.measuredCurves || [],
+                              selectedId, onSelect: selectAndFocus })
         )
     );
 }

@@ -10,7 +10,7 @@
 
 import {
     isDmfs, isBlank, isManufacturability, isMath, isRangeTarget,
-    isIntegral, isArgwave, isMinmax, isGroupDelayFlat, isMeasuredCurve,
+    isIntegral, isArgwave, isMinmax, isGroupDelayFlat, isMeasuredCurve, isPPEF,
     bandSampleCount, logOperand, ARGWAVE_DEFAULT_POINTS,
 } from './operandModel.js';
 import { materialOmegaResponse } from '../../materials/materialDispersion.js';
@@ -20,9 +20,9 @@ export function isRangeAvg(type) { return type === 'TAV' || type === 'RAV' || ty
 // Integral, minmax, and argwave operands share the same sampler so the worker
 // pre-sampler (Approach A) can pre-compute materials' n,k on a single union
 // grid. Inequality operands defer to their baseType (see operandSampleLambdas).
+const BAND_SAMPLED = [isRangeAvg, isRangeTarget, isIntegral, isMinmax, isArgwave, isGroupDelayFlat];
 function isBandSampled(type) {
-    return isRangeAvg(type) || isRangeTarget(type) || isIntegral(type)
-        || isMinmax(type) || isArgwave(type) || isGroupDelayFlat(type);
+    return BAND_SAMPLED.some(test => test(type));
 }
 // The channel ('T' | 'R' | 'A') a spectral row reads: its first letter, except
 // for the dB and density rows, which name it in their type list (ODMN reads T).
@@ -120,10 +120,13 @@ function mathSampleLambdas(op) {
     return [];
 }
 
+// Rows that sample no wavelength of their own: DMFS / BLNK are inert, the
+// manufacturability rows act on layer thicknesses, and a PPEF row reads at its
+// curve block's points, which the block brings.
+const NO_OWN_LAMBDAS = [isDmfs, isBlank, isManufacturability, isPPEF];
+
 export function operandSampleLambdas(op) {
-    // DMFS / BLNK are inert; the manufacturability rows act on layer
-    // thicknesses, not λ.
-    if (isDmfs(op.type) || isBlank(op.type) || isManufacturability(op.type)) return [];
+    if (NO_OWN_LAMBDAS.some(test => test(op.type))) return [];
     // Math operands reference other rows by id; the referenced operands carry
     // their own λ grid, so math operands contribute zero λs themselves and
     // requiredLambdas() picks up the referenced operands' λs naturally.

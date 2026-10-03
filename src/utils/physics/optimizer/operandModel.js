@@ -69,6 +69,12 @@ export const MINMAX_OPERAND_TYPES     = ['TMN', 'RMN', 'AMN', 'TMX', 'RMX', 'AMX
 // T or R in dB and T as optical density (logReadings.js): TDB at one
 // wavelength, and TDBMN, TDBMX, RDBMX and ODMN, which are worst-case rows like
 // the ones above read on a logarithmic scale.
+// Peak-to-peak error function against a measured-curve block, in dB: the
+// spread of target dB − design dB over the block's points
+// (evalCore/operands/ppef.js). It names its block by id in `refId` and is held
+// at or below its target.
+export const PPEF_OPERAND_TYPES = ['PPEF'];
+export function isPPEF(type) { return type === 'PPEF'; }
 // ── Phase / field operands ────────────────────────────────────────────────────
 // Quantities derived from the complex amplitude coefficients or the internal
 // field values are not fractions in [0,1]. They get a per-type residual scale
@@ -144,6 +150,7 @@ export const OPERAND_TYPES = [
     ...INTEGRAL_OPERAND_TYPES,
     ...MINMAX_OPERAND_TYPES,
     ...LOG_OPERAND_TYPES,
+    ...PPEF_OPERAND_TYPES,
     ...PHASE_OPERAND_TYPES,
     ...INEQUALITY_OPERAND_TYPES,
     ...MATH_OPERAND_TYPES,
@@ -245,7 +252,7 @@ export function isMathPairRef(type) {
 const NON_FRACTIONAL_TYPES = [
     isManufacturability,   // MNT/MXT/TT in nm, STR in N/m
     isArgwave, isPhase,    // MXWT/MNWT (nm), Ψ/Δ (deg), GD (fs), |E|²
-    isLogOperand,          // dB, optical density
+    isLogOperand, isPPEF,  // dB, optical density
     isMath,                // math = inherit (resolved separately)
     isDmfs, isBlank,       // placeholders
 ];
@@ -277,7 +284,7 @@ export function argwavePolCode(type) {
 }
 
 const TYPES_WITHOUT_POL_SUFFIX = [
-    isManufacturability, isDmfs, isBlank, isIntegral, isMinmax, isMath, isLogOperand,
+    isManufacturability, isDmfs, isBlank, isIntegral, isMinmax, isMath, isLogOperand, isPPEF,
 ];
 
 export function polFromType(type) {
@@ -360,15 +367,17 @@ export function isValidMeritWeight(weight) {
     return Number.isFinite(weight) && weight >= 0;
 }
 
-// A math row without all of its source rows has no defined value. Removing a
-// source therefore removes every directly or transitively dependent math row.
+// A math row without all of its source rows has no defined value, and neither
+// has a PPEF row without its curve block. Removing a source therefore removes
+// every directly or transitively dependent row.
 export function removeOperandsAndDependents(operands, ids) {
     const removedIds = new Set(Array.isArray(ids) ? ids : [ids]);
+    const referencesRows = type => isMath(type) || isPPEF(type);
     let previousSize;
     do {
         previousSize = removedIds.size;
         for (const op of operands) {
-            if (!isMath(op.type) || removedIds.has(op.id)) continue;
+            if (!referencesRows(op.type) || removedIds.has(op.id)) continue;
             const references = [op.refId, op.refId1, op.refId2];
             if (references.some(id => removedIds.has(id))) removedIds.add(op.id);
         }
@@ -441,8 +450,10 @@ function seedStressTarget(base) {
 
 // A dB or density target means nothing as the fractional default. Each type
 // starts at a level that reads as a specification: 0 dB at a point, a 0.5 dB
-// insertion-loss floor, a 30 dB isolation or return-loss ceiling, a density of 3.
-const LOG_DEFAULT_TARGETS = { TDB: 0, TDBMN: -0.5, TDBMX: -30, RDBMX: -30, ODMN: 3 };
+// insertion-loss floor, a 30 dB isolation or return-loss ceiling, a density of
+// 3. A PPEF row starts at 0 dB, so until a specification is typed in it keeps
+// flattening.
+const LOG_DEFAULT_TARGETS = { TDB: 0, TDBMN: -0.5, TDBMX: -30, RDBMX: -30, ODMN: 3, PPEF: 0 };
 function seedLogTarget(base) {
     if (targetUnset(base)) base.target = LOG_DEFAULT_TARGETS[base.type];
 }
@@ -462,7 +473,7 @@ const TYPE_SEEDS = [
     [isRangeTarget,    seedRangeTargetEnd],
     [isTotalThickness, seedTotalThicknessTarget],
     [isStress,         seedStressTarget],
-    [isLogOperand,     seedLogTarget],
+    [type => isLogOperand(type) || isPPEF(type), seedLogTarget],
     [isBlank,          seedComment],
 ];
 

@@ -91,9 +91,9 @@ function buildShortcutHandlers({ qualifiers, insertQualifierAt, removeQualifier,
     };
 }
 
-function generateMFFrom(qualifiers, updateDesign, checkpoint) {
+function generateMFFrom(qualifiers, design, updateDesign, checkpoint) {
     if (typeof checkpoint === 'function') checkpoint();
-    const ops = qualifiersToMFOperands(qualifiers);
+    const ops = qualifiersToMFOperands(qualifiers, { design });
     updateDesign({ meritOperands: ops });
 }
 
@@ -163,8 +163,8 @@ export function useSpecificationState({ design, updateDesign, checkpoint }) {
     });
 
     const generateMF = useCallback(() =>
-        generateMFFrom(qualifiers, updateDesign, checkpoint),
-    [qualifiers, updateDesign, checkpoint]);
+        generateMFFrom(qualifiers, design, updateDesign, checkpoint),
+    [qualifiers, design, updateDesign, checkpoint]);
 
     // ── Built-in preset library ──────────────────────────────────────────────
     const onApplyBuiltinPreset = useCallback((presetId, mode) =>

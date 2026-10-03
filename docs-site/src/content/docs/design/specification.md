@@ -29,6 +29,7 @@ showing a per-row verdict and an overall PASS/FAIL badge at the top.
 | **Edge λ**          | Wavelength where a channel crosses a level (a filter edge).    | nm    |
 | **Thickness budget**| Total physical stack thickness.                                | nm    |
 | **Layer count**     | Number of layers in the stack.                                 | count |
+| **Peak-to-peak error vs curve** | Spread of the design's error against a measured T, R or A curve, in dB. | dB |
 
 ## Settings
 
@@ -41,7 +42,10 @@ and polarization for optical kinds.
 
 **Comparison and target**: the actual test. You can require `≥`, `≤`, an
 equality `= ± tol`, or a range `∈ [lo, hi]`, against the target value you enter
-(percentages for T/R/A; nanometres or a count for the geometric kinds).
+(percentages for T/R/A; nanometres or a count for the geometric kinds; dB for
+the peak-to-peak error).
+
+**Curve**: the peak-to-peak error kind takes one of the design's curves from [Measured Spectra](/data-exchange/measured-spectra/) in place of a band, an angle and a polarization; it is read at the curve's own points and conditions. It is the number a gain-flattening filter is specified by, the `PPEF` operand of the [Operand Reference](/design/operands/#peak-to-peak-error-against-a-curve). **Generate MF** writes the curve into the merit function as a block at weight 0, a `PPEF` row measured against it, and the comparison row.
 
 **Presets**: drop in a ready-made requirement set for a common coating type,
 either replacing or appending to the current list. You can also save the

@@ -1672,6 +1672,9 @@ export default {
     measuredPairOff:  missing => `${missing} of this measurement is switched off. Ψ or Δ alone leaves the thicknesses under-determined.`,
     measuredPairGone: missing => `${missing} of this measurement is no longer in the table. Ψ or Δ alone leaves the thicknesses under-determined.`,
     measuredLevelFree: 'level free: scores the shape, not the level',
+    curveRefPick: '(pick a curve…)',
+    curveRefGone: '(curve deleted)',
+    curveRefTip: 'The curve block this row is measured against',
     totalPhaseScope: (side) => `Total merit mode: R/T operands score the whole element. Phase, GD, GDD, and TOD operands score the ${side} coating only.`,
     addComment:    'Comment',
     addOperand:    '+ Add',
@@ -1752,6 +1755,7 @@ export default {
       TDBMX: { label: 'TDBMX: Max T over band in dB (T ≤ target, isolation)',       group: 'log' },
       RDBMX: { label: 'RDBMX: Max R over band in dB (R ≤ target, return loss)',     group: 'log' },
       ODMN:  { label: 'ODMN: Min optical density over band (OD ≥ target, blocking)', group: 'log' },
+      PPEF:  { label: 'PPEF: Peak-to-peak error against a curve block, dB (≤ target)', group: 'log' },
       // ── Phase / field (degrees, fs, fs², |E|²) ───────────────────────────
       PSI:    { label: 'PSI: Ellipsometric Ψ at λ (deg)',            group: 'phase' },
       DEL:    { label: 'DEL: Ellipsometric Δ at λ (deg)',            group: 'phase' },
@@ -1819,6 +1823,7 @@ export default {
       refOp:        'Ref Op#',
       refOp1:       'Ref Op#1',
       refOp2:       'Ref Op#2',
+      curveRef:     'Curve',
     },
     operandGroups: {
       optical:     'Optical, single λ',
@@ -3680,6 +3685,8 @@ export default {
     integralPreset: 'preset',
     pickPreset:     'Pick a saved integral preset',
     customPreset:   '(custom)',
+    curve:          'curve',
+    pickCurve:      '(pick a measured T, R or A curve…)',
     cmp:            'cmp',
     target:         'target',
     tol:            'tol',
@@ -3717,6 +3724,7 @@ export default {
       unknownKind:       (kind) => `Unknown qualifier kind: ${kind}`,
       fwhmNotBracketed:  (pct, lamStart, lamEnd) => `FWHM @ ${pct}% not bracketed in [${lamStart},${lamEnd}] nm`,
       edgeNotCrossed:    (pct) => `Edge level ${pct}% not crossed in band`,
+      noCurve:           'the measured curve is not on this design',
     },
     kinds: {
       T_AT:             'T at λ',
@@ -3732,6 +3740,7 @@ export default {
       EDGE_LAMBDA:      'Edge λ (LP / SP crossing)',
       THICKNESS_BUDGET: 'Total thickness ≤ budget',
       LAYER_COUNT:      'Layer count',
+      PPEF:             'Peak-to-peak error vs curve (dB)',
     },
   },
 

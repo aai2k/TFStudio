@@ -2,7 +2,7 @@ import {
     isArgwave, isBlank, isConstraint, isDmfs, isInequality, isIntegral,
     isLinearThickness, isMath, isMathPairRef, isMathSingleRef, isMinmax,
     isRangeTarget, isStress, isTotalThickness, isPhase, isWrappedAngle,
-    isGroupDelayFlat, isFractionalUnit, isMeasuredCurve, logUnit,
+    isGroupDelayFlat, isFractionalUnit, isMeasuredCurve, isPPEF, logUnit,
     _operandResidual,
 } from '../../../../../utils/physics/optimizer.js';
 
@@ -23,7 +23,7 @@ const TYPE_COLORS = {
     TDB: [80, 150, 255], TDBMN: [80, 150, 255], TDBMX: [80, 150, 255], ODMN: [80, 150, 255],
     R: [50, 200, 100], RS: [50, 200, 100], RP: [50, 200, 100], RAV: [50, 200, 100],
     RIW: [50, 200, 100], RMN: [50, 200, 100], RMX: [50, 200, 100], RGT: [50, 200, 100],
-    RDBMX: [50, 200, 100],
+    RDBMX: [50, 200, 100], PPEF: [80, 150, 255],
     A: [255, 130, 30], AS: [255, 130, 30], AP: [255, 130, 30], AAV: [255, 130, 30],
     AIW: [255, 130, 30], AMN: [255, 130, 30], AMX: [255, 130, 30], AGT: [255, 130, 30],
     TT: [180, 100, 255],
@@ -101,6 +101,7 @@ const HEADER_LABELS = [
     [op => isPhase(op.type), { lambdaStart: LAMBDA, lambdaEnd: DASH }],
     [op => isMathSingleRef(op.type), { lambdaStart: 'refOp', lambdaEnd: DASH }],
     [op => isMathPairRef(op.type), { lambdaStart: 'refOp1', lambdaEnd: 'refOp2' }],
+    [op => isPPEF(op.type), { lambdaStart: 'curveRef', lambdaEnd: DASH }],
     [op => isMinmax(op.type) || RANGE_AVG_TYPES.has(op.type) || RANGE_TARGET_TYPES.has(op.type),
         { lambdaStart: 'lamStart', lambdaEnd: 'lamEnd' }],
 ];
@@ -116,6 +117,7 @@ const EDITABLE_COLS = [
     [op => isPhase(op.type), ['enabled', 'type', 'lambdaStart', 'aoi', 'pol', 'target', 'weight']],
     [op => isMathSingleRef(op.type), ['enabled', 'type', 'lambdaStart', 'target', 'weight']],
     [op => isMathPairRef(op.type), ['enabled', 'type', 'lambdaStart', 'lambdaEnd', 'target', 'weight']],
+    [op => isPPEF(op.type), ['enabled', 'type', 'lambdaStart', 'target', 'weight']],
 ];
 
 export function typeRgba(type, alpha) {
@@ -158,45 +160,54 @@ export function isRangeType(type) {
         || isGroupDelayFlat(type);
 }
 
+// The unit a row's numbers are in. A measured block scores in its channel's
+// unit, degrees for Ψ/Δ, dB for T in dB and a fraction otherwise, which its
+// type code does not name; a PPEF row is in dB.
+function rowUnits(op, isMeasured) {
+    const unitType = isMeasured ? (op.quantity || 'R') : op.type;
+    const isPhs = isPhase(unitType);
+    return {
+        unitType, isPhs,
+        logUnit: isPPEF(op.type) ? 'dB' : logUnit(unitType),
+        phaseUnit: isPhs ? phaseUnit(unitType) : '',
+    };
+}
+
+// A wrapped angle's residual is the shortest signed difference in
+// -180°..180°, so it is taken from the merit function's own residual rather
+// than recomputed here: the tooltip and the contribution share sit in the
+// same cell and must not disagree at a wrap boundary. Spectral-target and
+// phase-flatness rows carry an RMS deviation as their evaluated value, rather
+// than a signed current-minus-target difference.
+function displayResidual(op, value, rawCur, tgt, isRampRow) {
+    if (value == null) return null;
+    if (isRampRow) return value;
+    return isWrappedAngle(op.type) ? _operandResidual(op, rawCur) : value - tgt;
+}
+
 export function rowDisplayMeta(op, rawCur, mathPercent, bandLevel = null) {
-    const isCon = isConstraint(op.type);
-    const isTT = isTotalThickness(op.type);
-    const isStr = isStress(op.type);
-    const isArg = isArgwave(op.type);
     const isMth = isMath(op.type);
     const isFlat = isGroupDelayFlat(op.type);
     const isMeasured = isMeasuredCurve(op.type);
-    // A measured block scores in its channel's unit, degrees for Ψ/Δ, dB for T
-    // in dB and a fraction otherwise, which its type code does not name.
-    const unitType = isMeasured ? (op.quantity || 'R') : op.type;
-    const isPhs = isPhase(unitType);
+    const units = rowUnits(op, isMeasured);
     // Fraction-unit rows display value ×100 as a percent. Optical T/R/A carry a
     // fractional unit; a math row inherits percent only when its refs are optical.
-    const useFraction = isFractionalUnit(unitType) || (isMth && mathPercent);
+    const useFraction = isFractionalUnit(units.unitType) || (isMth && mathPercent);
     const value = rawCur != null ? (useFraction ? rawCur * 100 : rawCur) : null;
-    // Spectral-target and phase-flatness rows carry an RMS deviation as their
-    // evaluated value, rather than a signed current-minus-target difference.
     const isRampRow = isRangeTarget(op.type) || isMeasured || isFlat;
     const tgt = useFraction ? op.target * 100 : op.target;
-    // A wrapped angle's residual is the shortest signed difference in
-    // -180°..180°, so it is taken from the merit function's own residual rather
-    // than recomputed here: the tooltip and the contribution share sit in the
-    // same cell and must not disagree at a wrap boundary.
-    const rawResidual = value == null ? null
-        : isRampRow ? value
-        : isWrappedAngle(op.type) ? _operandResidual(op, rawCur)
-        : value - tgt;
     // A flatness operand's own value is an RMS deviation, which shares the
     // target's unit but not its meaning and goes to zero as the row is met.
     // Current shows the level the band actually reaches, so it can be read
     // against Target directly; the RMS remains available in the tooltip.
     const cur = isFlat && bandLevel != null ? bandLevel : value;
     return {
-        isCon, isTT, isStr, isArg, isMth, isPhs, isMeasured,
-        logUnit: logUnit(unitType),
-        phaseUnit: isPhs ? phaseUnit(unitType) : '',
+        isCon: isConstraint(op.type), isTT: isTotalThickness(op.type), isStr: isStress(op.type),
+        isArg: isArgwave(op.type), isMth, isPhs: units.isPhs, isMeasured, isPpef: isPPEF(op.type),
+        logUnit: units.logUnit, phaseUnit: units.phaseUnit,
         mthPct: mathPercent, useFraction, cur, tgt,
-        rawResidual, isRampRow, isRange: isRangeType(op.type),
+        rawResidual: displayResidual(op, value, rawCur, tgt, isRampRow),
+        isRampRow, isRange: isRangeType(op.type),
     };
 }
 

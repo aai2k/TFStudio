@@ -34,7 +34,7 @@ arguments, its output value and unit, and how it forms a residual) is on the
 | Spectral target      | `TGT` `RGT` `AGT`              | deviation from a flat/ramp line |
 | Weighted integral    | `TIW` `RIW` `AIW`              | source × detector weighted mean |
 | Worst-case           | `TMN` `RMN` `AMN` `TMX` `RMX` `AMX` | band extremum of T/R/A   |
-| In dB or optical density | `TDB` `TDBMN` `TDBMX` `RDBMX` `ODMN` | T or R in dB, optical density |
+| In dB or optical density | `TDB` `TDBMN` `TDBMX` `RDBMX` `ODMN` `PPEF` | T or R in dB, optical density, peak-to-peak error against a curve |
 | Phase / field        | `PSI` `DEL` `TANPSI` `COSDEL` `PR` `PT` `DPR` `DPT` `GD*` `GDD*` `TOD*` `EFMX` | phase, ellipsometry, dispersion, peak \|E\|² |
 | Argmax/min λ         | `MXWT` `MXWR` `MXWA` `MNWT` `MNWR` `MNWA` | wavelength of the extremum |
 | Math (reference rows)| `OPGT` `OPLT` `OPVA` `ABSO` `ABGT` `ABLT` `DIFF` `SUMM` `PROD` | derived from other rows |

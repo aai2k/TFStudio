@@ -15,6 +15,14 @@ export const KIND_META = {
     EDGE_LAMBDA:      { channelPick: true,                  level: true, edgeSide: true, fmt: 'nm' },
     THICKNESS_BUDGET: { geomOnly: true,                                                  fmt: 'nm' },
     LAYER_COUNT:      { geomOnly: true,                                                  fmt: 'int' },
+    // Read at the measured curve's own points, angle and polarization.
+    PPEF:             { curve: true,                                                     fmt: 'dB' },
 };
+
+// Kinds that read the spectrum on a wavelength, angle and polarization of
+// their own, as opposed to a layer count, a thickness or a measured curve.
+export function hasOpticalConditions(meta) {
+    return !meta.geomOnly && !meta.curve;
+}
 
 export function isPct(meta) { return meta?.fmt === 'pct'; }
