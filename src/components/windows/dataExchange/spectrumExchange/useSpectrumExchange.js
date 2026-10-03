@@ -12,6 +12,7 @@ import { spectrumExchangeSession, spectrumExchangeView } from './sessionState.js
 import { evalParamsSession } from '../../../../state/evalParamsSession.js';
 import { useSplitWindowSession } from '../../windowSession.js';
 import { useCurveEditorHost } from '../curveEditor/useCurveEditorHost.js';
+import { useActionStatus } from '../chrome/actionStatus.js';
 
 const { useCallback, useEffect, useMemo, useState } = React;
 
@@ -51,9 +52,8 @@ export function useSpectrumExchange(sx, ce) {
     const setPol = value => setField('pol', value);
     const setOv = value => setField('ov', value);
     const [loading, setLoading] = useState(false);
-    const [status, setStatus] = useState(null);
+    const { status, flash, clear: clearStatus } = useActionStatus();
     const [fitDialogCurveId, setFitDialogCurveId] = useState(null);
-    const flash = (type, msg) => setStatus({ type, msg });
     const curves = design.measuredCurves || [];
     // A design saved while two curves shared an id keeps them, and a shared id
     // makes both answer to one card. Repair it the first time the window sees it.
@@ -139,7 +139,7 @@ export function useSpectrumExchange(sx, ce) {
     const importActions = useImportActions({
         sx, design, updateDesign, checkpoint, flash, parsed, col, name, xUnit,
         quantity, yscale, fileName, colIdx, ov, aoi, pol,
-        setLoading, setStatus, setParsed, setFileName, setColIdx, setOv, setXUnit,
+        setLoading, clearStatus, setParsed, setFileName, setColIdx, setOv, setXUnit,
         setSelectedCurveId, setAoi, setPol,
     });
     const previewCurve = (selectedCurveId ? selectedCurve : null) || importActions.previewCurve || selectedCurve;

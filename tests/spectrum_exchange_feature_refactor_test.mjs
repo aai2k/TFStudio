@@ -149,7 +149,7 @@ function ActionProbe() {
         col: { name: 'Imported', values: [25] },
         name: 'Guard', xUnit: 'nm', quantity: 'R', yscale: 'percent', fileName: 'guard.csv',
         setLoading: (value) => actionEvents.push(['loading', value]),
-        setStatus: (value) => actionEvents.push(['status', value]),
+        clearStatus: () => actionEvents.push(['status', null]),
         setParsed: (value) => actionEvents.push(['parsed', value]),
         setFileName: (value) => actionEvents.push(['file', value]),
         setColIdx: (value) => actionEvents.push(['column', value]),
@@ -222,7 +222,7 @@ function MultiColumnProbe() {
         ov: { 1: { name: 'Rear R' } },
         aoi: 8,
         pol: 'p',
-        setLoading() {}, setStatus() {}, setParsed() {}, setFileName() {},
+        setLoading() {}, clearStatus() {}, setParsed() {}, setFileName() {},
         setColIdx() {}, setOv() {}, setXUnit() {},
     });
     return React.createElement('span');

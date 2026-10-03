@@ -13,8 +13,9 @@ import {
 import { measuredEllipsometrySession, measuredEllipsometryView } from './sessionState.js';
 import { useSplitWindowSession } from '../../windowSession.js';
 import { useCurveEditorHost } from '../curveEditor/useCurveEditorHost.js';
+import { useActionStatus } from '../chrome/actionStatus.js';
 
-const { useCallback, useEffect, useMemo, useRef, useState } = React;
+const { useCallback, useMemo, useState } = React;
 
 /**
  * Turning one measured Ψ or Δ into a merit target, through the dialog
@@ -102,18 +103,8 @@ export function useMeasuredEllipsometry(mx, xLabel, fitText, ce) {
         expDeltaConvention, ov = {},
         fitOptions = {}, panelWidth,
     } = session;
-    const [status, setStatus] = useState(null);
+    const { status, flash, clear: clearStatus } = useActionStatus();
     const [loading, setLoading] = useState(false);
-
-    // One timer for the status line, so an earlier message's expiry cannot
-    // clear a later one, and nothing fires after the window is gone.
-    const statusTimer = useRef(null);
-    const flash = useCallback((type, msg) => {
-        setStatus({ type, msg });
-        clearTimeout(statusTimer.current);
-        statusTimer.current = setTimeout(() => setStatus(null), 4000);
-    }, []);
-    useEffect(() => () => clearTimeout(statusTimer.current), []);
 
     const curves = ellipsometryCurves(design);
     const selectedCurve = curves.find(curve => curve.id === selectedCurveId) || null;
@@ -121,7 +112,7 @@ export function useMeasuredEllipsometry(mx, xLabel, fitText, ce) {
     const override = ov[colIdx] || {};
 
     const importActions = useImportActions({
-        design, updateDesign, checkpoint, flash, mx, setField, setLoading, setStatus, session,
+        design, updateDesign, checkpoint, flash, mx, setField, setLoading, clearStatus, session,
     });
     const { columnQuantity, previewCurves, previewColumn, addCurves } = importActions;
     const edits = useCurveEdits({ design, updateDesign, checkpoint });

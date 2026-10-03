@@ -16,10 +16,10 @@ export function defaultCurveName(fileName, parsed, column) {
 
 // Opening a file and putting what it says into the session: its columns, its
 // wavelength unit, and the conditions its header states.
-function useImportFile({ flash, mx, setField, setLoading, setStatus }) {
+function useImportFile({ flash, mx, setField, setLoading, clearStatus }) {
     return useCallback(async () => {
         setLoading(true);
-        setStatus(null);
+        clearStatus();
         try {
             const result = await window.electronAPI.spectrumPickFile();
             if (!result?.success) {
@@ -52,7 +52,7 @@ function useImportFile({ flash, mx, setField, setLoading, setStatus }) {
             flash('error', mx.errLoad(err.message));
         }
         setLoading(false);
-    }, [flash, mx, setField, setLoading, setStatus]);
+    }, [flash, mx, setField, setLoading, clearStatus]);
 }
 
 export function useImportActions(options) {

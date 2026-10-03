@@ -32,13 +32,13 @@ function importedJcampCurves(jcamp, result, conditions) {
 
 function useImportFile(options) {
     const {
-        sx, design, updateDesign, checkpoint, flash, setLoading, setStatus,
+        sx, design, updateDesign, checkpoint, flash, setLoading, clearStatus,
         setParsed, setFileName, setColIdx, setOv, setXUnit, setSelectedCurveId,
         setAoi, setPol,
         aoi, pol,
     } = options;
     return useCallback(async () => {
-        setLoading(true); setStatus(null);
+        setLoading(true); clearStatus();
         try {
             const result = await window.electronAPI.spectrumPickFile();
             if (!result?.success) {
@@ -78,9 +78,9 @@ function useImportFile(options) {
             if (Number.isFinite(detectedAoi)) setAoi?.(detectedAoi);
             if (nextParsed.pol) setPol?.(nextParsed.pol);
             const loadedMessage = sx.loaded(result.fileName || '', nextParsed.nRows, nextParsed.columns.length);
-            flash('success', nextParsed.skippedRows > 0
-                ? `${loadedMessage}. ${sx.skippedRows(nextParsed.skippedRows)}`
-                : loadedMessage);
+            // Rows of the file were dropped: a warning, so the report stays up.
+            if (nextParsed.skippedRows > 0) flash('warning', `${loadedMessage}. ${sx.skippedRows(nextParsed.skippedRows)}`);
+            else flash('success', loadedMessage);
         } catch (err) {
             flash('error', sx.errLoad(err.message));
         }

@@ -15,7 +15,7 @@ import { fitDialogText } from './fitModel.js';
 import { useMeasuredEllipsometry } from './useMeasuredEllipsometry.js';
 import { MeasuredFitDialog } from '../spectrumExchange/MeasuredFitDialog.js';
 import { AnalysisWindow, ControlRow } from '../../analysis/chrome/layout.js';
-import { NoticeBadge } from '../../analysis/chrome/popover.js';
+import { ReportAndNotices } from '../chrome/actionStatus.js';
 import { TabBtn } from '../chrome/panel.js';
 import { CurveEditor } from '../curveEditor/CurveEditor.js';
 
@@ -25,19 +25,13 @@ export function MeasuredEllipsometry({ c, t }) {
     const mx = t.measuredEllipsometry;
     const fitText = useMemo(() => fitDialogText(t), [t]);
     const controller = useMeasuredEllipsometry(mx, t.spectralAxis.nm, fitText, t.curveEditor);
-    const notices = [
-        controller.status ? { label: controller.status.msg, tone: controller.status.type } : null,
-        controller.cosDeltaCurve
-            ? { label: mx.cosDeltaWarning(controller.cosDeltaCurve.name), tone: 'warning' }
-            : null,
-    ].filter(Boolean);
+    const notices = controller.cosDeltaCurve
+        ? [{ label: mx.cosDeltaWarning(controller.cosDeltaCurve.name), tone: 'warning' }]
+        : [];
     const tabProps = { controller, c, mx, ce: t.curveEditor };
 
     return h(AnalysisWindow, { c },
-        h(ControlRow, {
-            c,
-            trailing: h(NoticeBadge, { c, notices, label: t.analysisChrome.notices }),
-        },
+        h(ControlRow, { c },
             h(TabBtn, {
                 active: controller.tab === 'import', c,
                 onClick: () => controller.setTab('import'),
@@ -46,6 +40,7 @@ export function MeasuredEllipsometry({ c, t }) {
                 active: controller.tab === 'export', c,
                 onClick: () => controller.setTab('export'),
             }, mx.tabExport),
+            h(ReportAndNotices, { c, t, status: controller.status, notices }),
         ),
         controller.tab === 'import' ? h(ImportTab, tabProps) : h(ExportTab, tabProps),
         controller.fitDialogCurve && h(MeasuredFitDialog, { controller, c, sx: fitText }),
