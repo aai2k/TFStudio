@@ -104,6 +104,24 @@ function spectralTargetOps({ channel, pol, lamStart, lamEnd, t0, t1 = null, weig
     })];
 }
 
+// A wizard type writing one worst-case row per angle over a band; `tStart` is
+// reused as the target, a floor for a TMN row and a ceiling for an RMX one.
+function worstCaseType(type, defaultTarget) {
+    return {
+        category: 'INTEGRAL',
+        fields: [
+            { key: 'lamStart', default: 400, positive: true },
+            { key: 'lamEnd',   default: 700, positive: true },
+            { key: 'tStart',   default: defaultTarget, min: 0, max: 1, step: 0.001 },
+        ],
+        generate: (p, common) => aoiArray(common).map(aoi => makeOperand({
+            type, lambdaStart: p.lamStart, lambdaEnd: p.lamEnd, aoi,
+            pol: common.pol || 'avg',
+            target: Math.max(0, Math.min(1, p.tStart)), weight: 1.0,
+        })),
+    };
+}
+
 // Build paired R+T operands at a single wavelength (V-coat, single-HR, multi-wave AR/HR).
 function singleRT({ lam, rTarget, tTarget, rWeight = 1.0, tWeight = 1.0, common }) {
     const pol = common.pol || 'avg';
@@ -326,8 +344,8 @@ export const FILTER_TYPES = {
     },
 
     // ── Integral / Worst-case ────────────────────────────────────────────────
-    // These wizard types use the new TIW (weighted integral) and TMN/RMX
-    // (worst-case soft-min / soft-max) operands. Source/detector specs are
+    // These wizard types use the TIW (weighted integral) and TMN/RMX
+    // (worst-case minimum / maximum over the band) operands. Source/detector specs are
     // resolved at evaluation time from `op.source` / `op.detector` against
     // the spectralWeightings catalog (D65, V(λ), AM1.5G, etc.).
 
@@ -400,50 +418,12 @@ export const FILTER_TYPES = {
         },
     },
 
-    // Worst-case T ≥ target: TMN operand reports the soft-min over the band;
+    // Worst-case T ≥ target: TMN operand reports the lowest T over the band;
     // any point in the band drifting below `target` triggers a violation.
-    WORST_T_MIN: {
-        category: 'INTEGRAL',
-        fields: [
-            { key: 'lamStart', default: 400, positive: true },
-            { key: 'lamEnd',   default: 700, positive: true },
-            { key: 'tStart',   default: 0.99, min: 0, max: 1, step: 0.001 }, // reused as target floor
-        ],
-        generate: (p, common) => {
-            const ops = [];
-            for (const aoi of aoiArray(common)) {
-                ops.push(makeOperand({
-                    type: 'TMN', lambdaStart: p.lamStart, lambdaEnd: p.lamEnd, aoi,
-                    pol: common.pol || 'avg',
-                    target: Math.max(0, Math.min(1, p.tStart)), weight: 1.0,
-                    pNorm: 50, bandPoints: 21,
-                }));
-            }
-            return ops;
-        },
-    },
+    WORST_T_MIN: worstCaseType('TMN', 0.99),
 
-    // Worst-case R ≤ target: RMX operand reports the soft-max over the band.
-    WORST_R_MAX: {
-        category: 'INTEGRAL',
-        fields: [
-            { key: 'lamStart', default: 400, positive: true },
-            { key: 'lamEnd',   default: 700, positive: true },
-            { key: 'tStart',   default: 0.01, min: 0, max: 1, step: 0.001 }, // reused as target ceiling
-        ],
-        generate: (p, common) => {
-            const ops = [];
-            for (const aoi of aoiArray(common)) {
-                ops.push(makeOperand({
-                    type: 'RMX', lambdaStart: p.lamStart, lambdaEnd: p.lamEnd, aoi,
-                    pol: common.pol || 'avg',
-                    target: Math.max(0, Math.min(1, p.tStart)), weight: 1.0,
-                    pNorm: 50, bandPoints: 21,
-                }));
-            }
-            return ops;
-        },
-    },
+    // Worst-case R ≤ target: RMX operand reports the highest R over the band.
+    WORST_R_MAX: worstCaseType('RMX', 0.01),
 
     // ── Gradient ─────────────────────────────────────────────────────────────
     // Linear T target from tStart (at λStart) to tEnd (at λEnd), with the

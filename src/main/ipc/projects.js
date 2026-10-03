@@ -104,6 +104,7 @@ function loadDesignFile(ctx, folderPath, tfsFile, items, seenIds) {
       ctx.unread.push(fullPath);
       return;
     }
+    dropWizardWorstCaseSampling(design);
     // De-dupe by design.id: keep the most-recently-modified file, remove the rest.
     // This recovers from prior rename bugs where save-design left stale .tfs files behind.
     const prev = seenIds.get(design.id);
@@ -325,6 +326,21 @@ function validateDesign(design) {
   return null;
 }
 
+// The worst-case TMN and RMX rows the merit function wizard wrote up to 1.8.2
+// carry bandPoints 21 and pNorm 50. Left in, the 21 has the row check its band
+// at 21 wavelengths instead of the 301 every other worst-case row gets, and
+// pNorm is read by nothing, so both go. pNorm is what tells these rows apart
+// from a TMN or RMX row given its own sample count: nothing else wrote it.
+function dropWizardWorstCaseSampling(design) {
+  const operands = Array.isArray(design.meritOperands) ? design.meritOperands : [];
+  for (const op of operands) {
+    if (!op || typeof op !== 'object' || !('pNorm' in op)) continue;
+    if (op.type !== 'TMN' && op.type !== 'RMX') continue;
+    delete op.pNorm;
+    delete op.bandPoints;
+  }
+}
+
 function readDesignFile(ctx, filePath) {
   const { fs, path } = ctx;
   let design;
@@ -335,6 +351,7 @@ function readDesignFile(ctx, filePath) {
   }
   const invalid = validateDesign(design);
   if (invalid) return { success: false, error: invalid };
+  dropWizardWorstCaseSampling(design);
   delete design.tfs_version;
   return { success: true, design, fileName: path.basename(filePath, path.extname(filePath)) };
 }

@@ -42,8 +42,8 @@ function buildAvgBaseOp(q, ch, pol, weight) {
     });
 }
 
-// Min/max measurement row — the optimizer's soft-min/soft-max over the band
-// (smooth surrogate for the true extremum). The ge/le/between/eq logic below
+// Min/max measurement row: the lowest or highest value over the band, taken on
+// the band's sample grid. The ge/le/between/eq logic below
 // references this row, so a "min T ≥ 90 %" spec becomes TMN(weight 0) +
 // OPGT(refId, 0.90).
 function buildMinMaxBaseOp(q, ch, pol, weight) {

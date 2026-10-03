@@ -1733,7 +1733,7 @@ export default {
       TIW:  { label: 'TIW: Weighted Integral T (source × detector)', group: 'integral' },
       RIW:  { label: 'RIW: Weighted Integral R (source × detector)', group: 'integral' },
       AIW:  { label: 'AIW: Weighted Integral A (source × detector)', group: 'integral' },
-      // ── Worst-case (soft min/max over band) ──────────────────────────────
+      // ── Worst-case (min/max over band) ───────────────────────────────────
       TMN:  { label: 'TMN: Worst-case Min T over band (T ≥ target)', group: 'worst' },
       RMN:  { label: 'RMN: Worst-case Min R over band',              group: 'worst' },
       AMN:  { label: 'AMN: Worst-case Min A over band',              group: 'worst' },
@@ -1895,8 +1895,8 @@ export default {
         VIS_AR:      { label: 'Visible AR (photopic)', tip: 'TIW with D65 × V(λ): minimize photopic R, maximize photopic T' },
         SOLAR_BLOCK: { label: 'Solar block',     tip: 'AM1.5G-weighted: minimize Tsol over the solar band (T_w ≤ target)' },
         SOLAR_PASS:  { label: 'Solar pass',      tip: 'AM1.5G-weighted: maximize Tsol over the solar band' },
-        WORST_T_MIN: { label: 'T ≥ target (worst-case)', tip: 'Soft-min: enforce T at every point in the band stays above target' },
-        WORST_R_MAX: { label: 'R ≤ target (worst-case)', tip: 'Soft-max: enforce R at every point in the band stays below target' },
+        WORST_T_MIN: { label: 'T ≥ target (worst-case)', tip: 'T at every point of the band stays at or above the target' },
+        WORST_R_MAX: { label: 'R ≤ target (worst-case)', tip: 'R at every point of the band stays at or below the target' },
         CUSTOM_TARGET: { label: 'Custom target', tip: 'One channel (T/R/A) = / ≤ / ≥ a value across a band, at the chosen pol & AOI' },
       },
       fields: {

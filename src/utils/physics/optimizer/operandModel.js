@@ -51,11 +51,10 @@ export const BLANK_OPERAND_TYPES = ['BLNK'];
 // w(λ) = Source(λ) · Detector(λ). Operand carries `source` and `detector` specs
 // (see spectralWeightings.js). Target is the spec value the average should hit.
 export const INTEGRAL_OPERAND_TYPES   = ['TIW', 'RIW', 'AIW'];
-// Worst-case (minmax) operands using a smooth surrogate (log-sum-exp p-norm).
-// TMN/RMN/AMN: soft-min over the band — for "T ≥ target" worst-case specs.
-// TMX/RMX/AMX: soft-max over the band — for "R ≤ target" worst-case specs.
-// `op.pNorm` (default 50) controls sharpness; higher = closer to the true
-// min/max but stiffer for DLS.
+// Worst-case (minmax) operands: the true extremum over the band's sample grid,
+// scored one-sided against the target.
+// TMN/RMN/AMN: lowest value over the band, for "T ≥ target" worst-case specs.
+// TMX/RMX/AMX: highest value over the band, for "R ≤ target" worst-case specs.
 export const MINMAX_OPERAND_TYPES     = ['TMN', 'RMN', 'AMN', 'TMX', 'RMX', 'AMX'];
 // ── Phase / field operands ────────────────────────────────────────────────────
 // Quantities derived from the complex amplitude coefficients or the internal
@@ -326,18 +325,15 @@ export const ARGWAVE_DEFAULT_POINTS = 301;
 // ── Operand factories ─────────────────────────────────────────────────────────
 //
 // Stamping policy: SEMANTIC fields (user intent) are persisted; implementation
-// hyperparameters (sampling density, softmax sharpness, …) are NOT. The latter
-// flow through runtime defaults at evaluation time — see operandSampleLambdas
-// for bandPoints / rampPoints and evalOperand for pNorm.  This means bumping
-// a default later upgrades every existing operand on disk automatically:
-// nothing to remake, nothing to migrate.
+// hyperparameters such as the sampling density are NOT. The latter flow through
+// runtime defaults at evaluation time; see operandSampleLambdas for bandPoints
+// / rampPoints. This means bumping a default later upgrades every existing
+// operand on disk automatically: nothing to remake, nothing to migrate.
 //
 // Persisted (semantic):  type, lambdaStart, lambdaEnd, aoi, pol, target,
 //                        targetEnd, weight, baseType (OPGT/OPLT),
 //                        source + detector (TIW/RIW/AIW).
-// Runtime-defaulted:     bandPoints, rampPoints, pNorm.
-
-export const PNORM_DEFAULT = 50;     // softmax sharpness for TMN/TMX-family
+// Runtime-defaulted:     bandPoints, rampPoints.
 
 export function isValidMeritWeight(weight) {
     return Number.isFinite(weight) && weight >= 0;
@@ -460,8 +456,8 @@ export function makeOperand(overrides = {}) {
     TYPE_SEEDS.find(([inFamily]) => inFamily(base.type))?.[1](base);
     seedPhaseTarget(base, overrides);
     // ── Implementation hyperparameters NOT stamped ───────────────────────────
-    // bandPoints, rampPoints, pNorm — runtime defaults via operandSampleLambdas
-    // / evalOperand. This way a default change later automatically upgrades
+    // bandPoints, rampPoints: runtime defaults via operandSampleLambdas. This
+    // way a default change later automatically upgrades
     // every existing operand on disk; users never have to remake anything.
     return base;
 }

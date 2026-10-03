@@ -10,7 +10,7 @@
 export function singleType(ch /*, pol */) { return ch; }
 export function avgType(ch /*, pol */) { return ch + 'AV'; }
 
-// Worst-case soft-min / soft-max operand type for a channel.
+// Worst-case minimum / maximum operand type for a channel.
 //   direction 'min' → T/R/A MN (worst-case minimum, e.g. "min T over band")
 //   direction 'max' → T/R/A MX (worst-case maximum, e.g. "max R over band")
 export function minmaxType(ch, direction) {

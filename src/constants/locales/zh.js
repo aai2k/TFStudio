@@ -2293,11 +2293,11 @@ export default {
         },
         WORST_T_MIN: {
           label: 'T ≥ 目标（最坏情况）',
-          tip: '软最小：强制波段内每一点的 T 保持在目标之上',
+          tip: '波段内每一点的 T 都不低于目标',
         },
         WORST_R_MAX: {
           label: 'R ≤ 目标（最坏情况）',
-          tip: '软最大：强制波段内每一点的 R 保持在目标之下',
+          tip: '波段内每一点的 R 都不高于目标',
         },
         CUSTOM_TARGET: {
           label: '自定义目标',

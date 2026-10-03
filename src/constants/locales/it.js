@@ -2301,11 +2301,11 @@ export default {
         },
         WORST_T_MIN: {
           label: 'T ≥ target (caso peggiore)',
-          tip: 'Minimo morbido: impone che la T resti sopra il target in ogni punto della banda',
+          tip: 'La T non scende sotto il target in nessun punto della banda',
         },
         WORST_R_MAX: {
           label: 'R ≤ target (caso peggiore)',
-          tip: 'Massimo morbido: impone che la R resti sotto il target in ogni punto della banda',
+          tip: 'La R non supera il target in nessun punto della banda',
         },
         CUSTOM_TARGET: {
           label: 'Target personalizzato',
