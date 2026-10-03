@@ -7,6 +7,9 @@
  *      progress is never changed.
  *   3. Structural shows a note under Min thickness when it differs from the
  *      MNT row, saying which way.
+ *   4. Needle Automatic keeps Min thickness and its MNT note in Advanced: its
+ *      1 nm floor is meant to differ from the MNT row, and among the everyday
+ *      settings the note reads as something to fix.
  *
  * Run: node tests/synthesis_min_thickness.mjs
  */
@@ -21,6 +24,10 @@ const { strictestMnt, deriveDMinDefault } = await import(
     '../src/components/windows/optimization/synthesisShared/minThickness.js');
 const { LeftSidebar } = await import(
     '../src/components/windows/optimization/structuralOptimizer/structuralPanels.js');
+const { LeftSidebar: NeedleSidebar } = await import(
+    '../src/components/windows/optimization/needleVariation/needlePanels.js');
+const { synthesisSidebarSession } = await import(
+    '../src/components/windows/optimization/synthesisShared/sessionState.js');
 
 // ── 1. The strictest enabled MNT row ─────────────────────────────────────────
 assert.equal(strictestMnt([
@@ -79,6 +86,37 @@ function field(stored, typed) {
     assert.equal(note(sidebar(1, 40)), t.structural.mntHintBelow(40), 'a looser floor says Run uses the MNT value');
     assert.equal(note(sidebar(15, 15)), null, 'no note when they agree');
     assert.equal(note(sidebar(40, 0)), null, 'no note without an MNT row');
+}
+
+// ── 4. Needle Automatic's Min thickness sits in Advanced ─────────────────────
+{
+    const t = makeLocale('en');
+    const tn = t.needle;
+    const c = makeTheme();
+    const noop = () => {};
+    const sidebar = () => renderToStaticMarkup(React.createElement(NeedleSidebar, {
+        catalogs: [], selectedCats: new Set(), excludedMats: new Set(),
+        onToggleCat: noop, onSelectAllCats: noop, onClearCats: noop, onToggleMat: noop,
+        maxLayers: 60, deltaNm: 0.5, dlsIter: 60, dMin: 1, targetMF: 5e-4, maxMNT: 40,
+        onMaxLayers: noop, onDeltaNm: noop, onDlsIter: noop, onDMin: noop, onTargetMF: noop,
+        running: false, c, t,
+    }));
+    const advanced = open => synthesisSidebarSession.write(
+        null, { advOpen: { 'needle-variation': open } }, null);
+
+    advanced(false);
+    const closed = sidebar();
+    assert.ok(closed.includes(tn.maxLayers), 'the everyday settings show');
+    assert.ok(!closed.includes(tn.dMin), 'Min thickness is not among the everyday settings');
+    assert.ok(!closed.includes(tn.mntHint(40)), 'nor is its MNT note');
+
+    advanced(true);
+    const open = sidebar();
+    const at = label => open.indexOf(label);
+    assert.ok(at(tn.dMin) > at(tn.deltaNm), 'Min thickness shows in Advanced, after the needle probe');
+    assert.ok(at(tn.dMin) < at(tn.dlsIter), 'and before the refine iterations');
+    assert.ok(open.includes(tn.mntHint(40)), 'its note comes with it');
+    advanced(false);
 }
 
 console.log('Synthesis Min thickness tests passed.');

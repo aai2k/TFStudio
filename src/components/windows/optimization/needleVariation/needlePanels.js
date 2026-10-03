@@ -99,13 +99,6 @@ export function LeftSidebar({ catalogs, selectedCats, onToggleCat, onSelectAllCa
     const everyday = [
         numRow(tn.maxLayers, maxLayers, v => onMaxLayers(Math.max(1, Math.round(v))), 1),
         numRow(tn.targetMF,  targetMF,  v => onTargetMF(Math.max(0, v)),               0),
-        // Min thickness is an everyday knob (needle/prune floor + MNT coupling).
-        numRow(tn.dMin,      dMin,      v => onDMin(Math.max(0.1, v)),     0.1),
-        (maxMNT > 0 && Math.abs(dMin - maxMNT) > 1e-6)
-            ? h('div', {
-                style: { fontSize: 10, color: '#ffa726', marginTop: -1, marginBottom: 4, lineHeight: 1.3 }
-              }, tn.mntHint(+maxMNT.toFixed(3)))
-            : null,
         // Smart starting design: refine canonical AR seeds on the worker pool
         // at run start, begin from the best (incl. current design).
         chkRow(tn.smartSeed, () => getSynthesisSmartSeed('needle'), (v) => setSynthesisSmartSeed(v, 'needle'), tn.smartSeedHelp),
@@ -113,6 +106,16 @@ export function LeftSidebar({ catalogs, selectedCats, onToggleCat, onSelectAllCa
 
     const advanced = [
         numRow(tn.deltaNm,   deltaNm,   v => onDeltaNm(Math.max(0.05, v)), 0.05),
+        // The needle and prune floor, 1 nm by default whatever the merit
+        // function's MNT says: needles go in thin and grow, so the MNT and MXT
+        // rows are left to a Refinement run afterwards. The note only says the
+        // two differ.
+        numRow(tn.dMin,      dMin,      v => onDMin(Math.max(0.1, v)),     0.1),
+        (maxMNT > 0 && Math.abs(dMin - maxMNT) > 1e-6)
+            ? h('div', {
+                style: { fontSize: 10, color: '#ffa726', marginTop: -1, marginBottom: 4, lineHeight: 1.3 }
+              }, tn.mntHint(+maxMNT.toFixed(3)))
+            : null,
         numRow(tn.dlsIter,   dlsIter,   v => onDlsIter(Math.max(1, Math.round(v))), 1),
         selRow(t.settings.synthesisEngine, () => getSynthesisInnerEngine('needle'), (v) => setSynthesisInnerEngine('needle', v),
             [['cg', t.settings.synthEngineCG], ['dls', t.settings.synthEngineDLS],
