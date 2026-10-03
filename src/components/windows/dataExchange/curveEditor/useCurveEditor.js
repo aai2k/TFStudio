@@ -1,17 +1,20 @@
 /**
  * The curve editor's state: the table and its undo history, the cell
- * selection (the shared grid's, ui/grid/useGridSelection.js), the cell being
- * typed into, the tool bar's numbers, and the line of notices under the table.
+ * selection (the shared grid's, ui/grid/useGridSelection.js) and the drag of
+ * its fill handle (ui/grid/useFillDrag.js), the cell being typed into, the
+ * tool bar's numbers, and the line of notices under the table.
  *
  * The editor opens as a modal over the window that asked for it, so all of it
  * is component state and goes when the editor closes.
  */
+import { fillSource } from '../../../ui/grid/gridFill.js';
 import { navigationTarget } from '../../../ui/grid/gridModel.js';
+import { useFillDrag } from '../../../ui/grid/useFillDrag.js';
 import { useGridSelection } from '../../../ui/grid/useGridSelection.js';
 import { columnKeys, gridFor } from './curveTable.js';
 import {
-    clearSelected, commitCellEdit, copyCells, cutCells, deleteSelectedRows, insertRowsAbove, navigateFrom,
-    pasteCells, selectAllCells, selectColumn, selectRow, startCellEdit,
+    clearSelected, commitCellEdit, copyCells, cutCells, deleteSelectedRows, fillDragLabel, fillDragged,
+    insertRowsAbove, navigateFrom, pasteCells, selectAllCells, selectColumn, selectRow, startCellEdit,
 } from './editorActions.js';
 import { editorKeyDown } from './editorKeys.js';
 import { commitTable, redoTable, startHistory, undoTable } from './history.js';
@@ -19,7 +22,7 @@ import {
     applyTable, changeSelected, dragPoint, fillSelected, importFile, resampleAll, smoothSelected,
 } from './toolActions.js';
 
-const { useState, useRef, useCallback } = React;
+const { useState, useRef, useCallback, useMemo } = React;
 
 // What the tool bar starts with: blank numbers to fill and change by, a step
 // of one unit of the wavelength column, and the 5-point quadratic smoothing of
@@ -70,6 +73,19 @@ function keyHandler(ed, actions, editCell) {
     }, event);
 }
 
+// The fill handle: the rectangle it sits on, its drag, and what the label by
+// the pointer shows while it is dragged.
+function useFillHandle(ed) {
+    const { table, sel } = ed;
+    const grid = gridFor(table);
+    const rowCount = table.rows.length;
+    const source = useMemo(
+        () => fillSource(grid, { range: sel.range, extraCells: sel.extraCells, focus: sel.focusCell }, rowCount),
+        [grid, sel.range, sel.extraCells, sel.focusCell, rowCount]);
+    const { drag, begin } = useFillDrag({ source, onFill: (from, reach, ctrl) => fillDragged(ed, from, reach, ctrl) });
+    return { source, drag, begin, label: fillDragLabel(ed, drag) };
+}
+
 /**
  * @param {object} props
  *   initialTable  the table the editor opens with (curveTable.js)
@@ -100,8 +116,9 @@ export function useCurveEditor({ initialTable, onApply, ce }) {
         table, edit, sel, setEditCell, notify, ce, tools, clipboard: globalThis.navigator?.clipboard,
     };
     const actions = tableActions(ed, setHistory, setEditCell);
+    const fill = useFillHandle(ed);
     return {
-        table, sel, editCell, status, tools, setTools, dragOn, setDragOn, sizes, setSizes, rebuild, setRebuild,
+        table, sel, fill, editCell, status, tools, setTools, dragOn, setDragOn, sizes, setSizes, rebuild, setRebuild,
         canUndo: history.past.length > 0, canRedo: history.future.length > 0,
         actions, edit, onKeyDown: keyHandler(ed, actions, editCell),
         apply: () => applyTable(ed, onApply, { rebuild }),

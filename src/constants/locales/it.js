@@ -1165,6 +1165,7 @@ export default {
     gain: 'Guadagno',
     designCurve: 'design',
     hint: 'Clic, Maiusc+clic o trascinamento per selezionare, Ctrl+clic per aggiungere celle. Digita per modificare. Ctrl+C, Ctrl+V e Ctrl+Z copiano, incollano e annullano.',
+    fillHandleTip: 'Trascina in basso o in alto per continuare i valori selezionati. Un solo numero viene copiato; tenendo premuto Ctrl invece aumenta o diminuisce di 1.',
     cancel: 'Annulla',
     apply: 'Applica',
     rebuild: (n) => (n === 1

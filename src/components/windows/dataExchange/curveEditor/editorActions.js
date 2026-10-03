@@ -12,9 +12,11 @@
  *   clipboard    the system clipboard
  */
 import { parseNumberStrict } from '../../../../utils/misc/numberParsing.js';
+import { continuedCells, filledRows } from '../../../ui/grid/gridFill.js';
 import { navigationTarget } from '../../../ui/grid/gridModel.js';
 import {
-    X_KEY, cellText, clearCells, columnIndex, columnKeys, deleteRows, gridFor, insertRows, setCells,
+    X_KEY, cellText, clearCells, columnIndex, columnKeys, deleteRows, gridFor, insertRows, setCells, tidy,
+    withRowCount,
 } from './curveTable.js';
 import { pasteIntoTable, readPastedText } from './tableText.js';
 
@@ -150,4 +152,40 @@ export function selectColumn(ed, colKey) {
 export function selectRow(ed, rowIdx, shift) {
     const from = shift && ed.sel.anchorCell ? ed.sel.anchorCell.rowIdx : rowIdx;
     ed.sel.selectRange({ rowIdx: from, colKey: X_KEY }, { ...lastCell(ed), rowIdx });
+}
+
+// The cells a fill handle dragged from `source` to `reach` writes, by the
+// shared grid's series rules (ui/grid/gridFill.js), each value tidied so the
+// binary rounding of a step of 0.1 does not show in the cells.
+function draggedCells(ed, source, reach, ctrl) {
+    const read = (rowIdx, colKey) => ed.table.rows[rowIdx]?.[columnIndex(colKey)];
+    return continuedCells(source, reach, read, ctrl).map(cell => ({ ...cell, value: tidy(cell.value) }));
+}
+
+/**
+ * The fill handle released: the values written as one edit, rows added below
+ * the last for a fill that runs past it, and the selection grown over the
+ * filled cells. A selection with no number in it fills nothing.
+ */
+export function fillDragged(ed, source, reach, ctrl) {
+    const cells = draggedCells(ed, source, reach, ctrl);
+    if (!cells.length) return;
+    const { first, last } = filledRows(source, reach);
+    ed.edit(table => setCells(withRowCount(table, last + 1), cells));
+    const columns = source.colKeys;
+    const [from, to] = reach.up ? [source.rowEnd, first] : [source.rowStart, last];
+    ed.sel.placeRange({ rowIdx: from, colKey: columns[0] }, { rowIdx: to, colKey: columns[columns.length - 1] });
+    // The handle's press kept focus where it was, perhaps on a tool button, and
+    // Ctrl+Z after a fill must reach the table.
+    ed.sel.tableRef.current?.focus();
+}
+
+/** What the farthest filled row will hold, in column order, for the label by the pointer. */
+export function fillDragLabel(ed, drag) {
+    if (!drag?.reach) return [];
+    const { first, last } = filledRows(drag.source, drag.reach);
+    const far = drag.reach.up ? first : last;
+    return draggedCells(ed, drag.source, drag.reach, drag.ctrl)
+        .filter(cell => cell.rowIdx === far)
+        .map(cell => cellText(cell.value));
 }

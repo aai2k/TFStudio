@@ -1164,6 +1164,7 @@ export default {
     gain: '增益',
     designCurve: '设计',
     hint: '单击、Shift+单击或拖动以选择，Ctrl+单击追加单元格。直接键入即可编辑。Ctrl+C、Ctrl+V、Ctrl+Z 分别复制、粘贴、撤销。',
+    fillHandleTip: '向下或向上拖动，延续所选数值。单个数值会被复制；按住 Ctrl 则改为逐个加 1 或减 1。',
     cancel: '取消',
     apply: '应用',
     rebuild: (n) => `重建由这条曲线生成的 ${n} 个评价函数目标`,

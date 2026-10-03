@@ -1078,6 +1078,7 @@ export default {
     gain: 'Gain',
     designCurve: 'design',
     hint: 'Click, Shift-click or drag to select, Ctrl-click to add cells. Type to edit. Ctrl+C, Ctrl+V and Ctrl+Z copy, paste and undo.',
+    fillHandleTip: 'Drag to continue the selected values down or up. One number is copied; hold Ctrl to count up or down by 1 instead.',
     cancel: 'Cancel',
     apply: 'Apply',
     rebuild: (n) => (n === 1

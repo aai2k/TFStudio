@@ -79,6 +79,34 @@ const draw = props => renderToStaticMarkup(withDesign(React.createElement(CurveE
     assert.ok(!html.includes(ce.addColumn), 'a weighting has one column');
 }
 
+// ── The fill handle drawn ────────────────────────────────────────────────────
+{
+    const { CurveGrid } = await import('../src/components/windows/dataExchange/curveEditor/CurveGrid.js');
+    const table = { ...emptyTable('spectrum'), rows: [[400, 50], [410, 50.1]] };
+    const source = { rowStart: 0, rowEnd: 1, colKeys: ['x', 'v0'] };
+    const sel = {
+        focusCell: { rowIdx: 1, colKey: 'v0' }, range: source, extraCells: new Set(), tableRef: null,
+        pressCell() {}, dragOver() {},
+    };
+    const editorWith = ({ drag = null, label = [], editCell = null }) => ({
+        table, sel, editCell, actions: {}, onKeyDown() {}, fill: { source, drag, label, begin() {} },
+    });
+    const grid = props => renderToStaticMarkup(React.createElement(CurveGrid, {
+        editor: editorWith(props), labels: { header: colKey => colKey }, c, ce,
+    }));
+    const tip = `title="${escaped(ce.fillHandleTip)}"`;
+    const still = grid({});
+    assert.ok(still.includes(tip) && still.includes('cursor:crosshair'), 'the handle sits on the selection');
+    assert.ok(!grid({ editCell: { rowIdx: 0, colKey: 'x', typed: false, initValue: '400' } }).includes(tip),
+        'and not while a cell is typed into');
+    const drag = { source, reach: { up: false, count: 4 }, ctrl: false, x: 10, y: 10, blankRows: 5 };
+    const dragged = grid({ drag, label: ['450', '50.5'] });
+    assert.equal((dragged.match(/<tr style="height:22px"/g) || []).length, 11,
+        'rows to the reach and a pane of blank room are drawn under the table');
+    assert.ok(dragged.includes('inset 0 -2px 0'), 'the cells to fill are outlined');
+    assert.ok(dragged.includes('<span>450</span><span>50.5</span>'), 'the label shows the farthest row');
+}
+
 // ── Where it opens ───────────────────────────────────────────────────────────
 {
     const curve = { ...makeMeasuredCurve({ name: 'R scan', x: [400, 500, 600], y: [0.1, 0.2, 0.3], quantity: 'R' }), id: 'r' };

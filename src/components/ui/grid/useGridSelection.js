@@ -69,12 +69,19 @@ function toggleCell(ctx, rowIdx, colKey) {
     picked(ctx, rowIdx);
 }
 
-// A whole rectangle at once, as a click on a row or column header picks it.
-function selectRange(ctx, anchor, focus) {
-    if (!exists(ctx, focus.rowIdx)) return;
+// A rectangle set as given, with no check that its rows exist and nothing
+// reported: a fill that adds rows selects them in the same step that adds them,
+// before the table holding them is drawn.
+function placeRange(ctx, anchor, focus) {
     ctx.set.anchorCell(anchor);
     ctx.set.focusCell(focus);
     ctx.set.extraCells(NO_CELLS);
+}
+
+// A whole rectangle at once, as a click on a row or column header picks it.
+function selectRange(ctx, anchor, focus) {
+    if (!exists(ctx, focus.rowIdx)) return;
+    placeRange(ctx, anchor, focus);
     picked(ctx, focus.rowIdx);
 }
 
@@ -102,6 +109,7 @@ function selectionHandlers(live, set, dragging) {
         focusAt: (rowIdx, colKey) => focusAt(ctx, rowIdx, colKey),
         extendTo: (rowIdx, colKey) => extendTo(ctx, rowIdx, colKey),
         toggleCell: (rowIdx, colKey) => toggleCell(ctx, rowIdx, colKey),
+        placeRange: (anchor, focus) => placeRange(ctx, anchor, focus),
         selectRange: (anchor, focus) => selectRange(ctx, anchor, focus),
         collapseRange: () => {
             set.anchorCell(live.current.focusCell);

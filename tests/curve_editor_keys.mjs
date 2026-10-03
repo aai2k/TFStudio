@@ -144,6 +144,137 @@ const design = makeSampleDesign();
     assert.equal(editor.status?.text, ce.smoothProblems.window);
 }
 
+// ── The fill handle, dragged ─────────────────────────────────────────────────
+{
+    // The editor's state carries on from above; this starts from a new curve's table.
+    const props = { initialTable: emptyTable('spectrum'), onApply() {}, ce };
+    const render = () => runtime.render(() => useCurveEditor(props));
+    let editor = render();
+    editor.edit(() => emptyTable('spectrum'));
+    for (const [rowIdx, colKey, text] of [[0, 'x', '400'], [1, 'x', '410'], [0, 'v0', '50'], [1, 'v0', '50.1']]) {
+        editor.actions.commitEdit(rowIdx, colKey, text);
+    }
+    editor = render();
+    const before = editor.table;
+
+    // The document the drag listens on, and a pane under a 20 px heading:
+    // row r lies at clientY 20 + 22 r + 11, less what the pane has scrolled.
+    const listeners = new Map();
+    const frames = [];
+    const doc = {
+        addEventListener: (type, listener) => listeners.set(type, listener),
+        removeEventListener: (type, listener) => { if (listeners.get(type) === listener) listeners.delete(type); },
+        defaultView: { requestAnimationFrame: callback => frames.push(callback), cancelAnimationFrame() {} },
+    };
+    const paneOf = height => ({
+        ownerDocument: doc, scrollTop: 0, clientHeight: height, getBoundingClientRect: () => ({ top: 0, bottom: height }),
+    });
+    const pane = paneOf(2000);
+    const geometry = { pane, header: 20, rowHeight: 22 };
+    const at = (rowIdx, extra = {}) => ({
+        button: 0, clientX: 80, clientY: 20 + 22 * rowIdx + 11 - pane.scrollTop, ctrlKey: false,
+        preventDefault() {}, stopPropagation() {}, ...extra,
+    });
+
+    editor.sel.selectRange({ rowIdx: 0, colKey: 'x' }, { rowIdx: 1, colKey: 'v0' });
+    editor = render();
+    assert.deepEqual(editor.fill.source, { rowStart: 0, rowEnd: 1, colKeys: ['x', 'v0'] }, 'the handle sits on the range');
+    editor.fill.begin(at(1), geometry);
+    editor = render();
+    assert.equal(editor.fill.drag.reach, null, 'pressed, the handle reaches nothing yet');
+    listeners.get('mousemove')(at(50));
+    editor = render();
+    assert.deepEqual(editor.fill.drag.reach, { up: false, count: 49 });
+    assert.deepEqual(editor.fill.label, ['900', '55'], 'the label shows what the farthest row will hold');
+    assert.equal(editor.table, before, 'nothing is written during the drag');
+    listeners.get('mouseup')(at(50));
+    editor = render();
+    assert.equal(listeners.size, 0, 'the release lets go of the document');
+    assert.equal(editor.fill.drag, null);
+    assert.equal(editor.table.rows.length, 51, 'rows are added past the last');
+    assert.deepEqual(editor.table.rows.map(row => row[0]), Array.from({ length: 51 }, (_, i) => 400 + 10 * i));
+    assert.equal(editor.table.rows[3][1], 50.3, 'a step of 0.1 is written without binary rounding');
+    assert.equal(editor.table.rows[50][1], 55);
+    assert.deepEqual(editor.sel.range, { rowStart: 0, rowEnd: 50, colKeys: ['x', 'v0'] },
+        'the selection grows over the filled cells');
+    editor.actions.undo();
+    editor = render();
+    assert.equal(editor.table, before, 'one undo takes the whole fill back');
+
+    // Ctrl held at the release counts a single number on.
+    editor.sel.focusAt(0, 'v0');
+    editor = render();
+    editor.fill.begin(at(0), geometry);
+    listeners.get('mousemove')(at(2));
+    listeners.get('mouseup')(at(2, { ctrlKey: true }));
+    editor = render();
+    assert.deepEqual(editor.table.rows.slice(0, 3).map(row => row[1]), [50, 51, 52]);
+    editor.actions.undo();
+    editor = render();
+
+    // Dragged back inside the selection, or dropped with Escape, it writes nothing.
+    editor.sel.selectRange({ rowIdx: 0, colKey: 'x' }, { rowIdx: 1, colKey: 'x' });
+    editor = render();
+    editor.fill.begin(at(1), geometry);
+    listeners.get('mousemove')(at(5));
+    listeners.get('mousemove')(at(0));
+    listeners.get('mouseup')(at(0));
+    editor = render();
+    assert.equal(editor.table, before);
+    editor.fill.begin(at(1), geometry);
+    listeners.get('mousemove')(at(5));
+    let kept = false;
+    listeners.get('keydown')({ key: 'Escape', type: 'keydown', preventDefault() {}, stopPropagation() { kept = true; } });
+    editor = render();
+    assert.ok(kept, 'Escape is kept from the table, where it would collapse the selection');
+    assert.equal(editor.fill.drag, null);
+    assert.equal(listeners.size, 0);
+    assert.equal(editor.table, before);
+
+    // Other keys wait for the drag to end, a second press does not start a
+    // second drag, and a move with no button down drops the drag: its release
+    // was lost outside the window, so nothing is filled.
+    editor.fill.begin(at(1), geometry);
+    let heldBack = false;
+    listeners.get('keydown')({ key: 'z', ctrlKey: true, type: 'keydown', preventDefault() {}, stopPropagation() { heldBack = true; } });
+    assert.ok(heldBack, 'Ctrl+Z under a drag does not reach the table');
+    const firstMove = listeners.get('mousemove');
+    editor.fill.begin(at(1), geometry);
+    assert.equal(listeners.get('mousemove'), firstMove, 'a second press while dragging is ignored');
+    listeners.get('mousemove')(at(5));
+    listeners.get('mousemove')(at(6, { buttons: 0 }));
+    editor = render();
+    assert.equal(editor.fill.drag, null, 'a move with the button up ends the drag');
+    assert.equal(listeners.size, 0);
+    assert.equal(editor.table, before, 'and fills nothing');
+
+    // A press on the last row in view does not scroll the pane by itself.
+    frames.length = 0;
+    const view = paneOf(108);
+    editor.fill.begin(at(3), { ...geometry, pane: view });
+    listeners.get('mousemove')({ clientX: 80, clientY: 100, ctrlKey: false });
+    if (frames.length) frames.shift()();
+    assert.equal(view.scrollTop, 0, 'inside the pane the rows stay where they are');
+    listeners.get('keydown')({ key: 'Escape', type: 'keydown', preventDefault() {}, stopPropagation() {} });
+
+    // Below a short pane, the pane scrolls on a frame at a time and the reach follows.
+    frames.length = 0;
+    const short = paneOf(108);
+    editor.fill.begin(at(1), { ...geometry, pane: short });
+    listeners.get('mousemove')({ clientX: 80, clientY: 300, ctrlKey: false });
+    editor = render();
+    assert.deepEqual(editor.fill.drag.reach, { up: false, count: 2 }, 'the pointer counts as on the last row in view');
+    assert.equal(frames.length, 1);
+    frames.shift()();
+    editor = render();
+    assert.ok(short.scrollTop > 0, 'the pane scrolled');
+    assert.ok(editor.fill.drag.reach.count > 2, 'and the fill reaches further');
+    assert.equal(frames.length, 1, 'and goes on scrolling');
+    listeners.get('keydown')({ key: 'Escape', type: 'keydown', preventDefault() {}, stopPropagation() {} });
+    editor = render();
+    assert.equal(editor.table, before);
+}
+
 // ── The plot's point handles keep their wavelength ───────────────────────────
 {
     const { moveGeometry, projectItem, targetGeometryChanged, dropOutcome } = await import(
