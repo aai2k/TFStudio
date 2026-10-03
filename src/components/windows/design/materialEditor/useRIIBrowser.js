@@ -34,6 +34,8 @@ export function useRIIBrowser({ c, t, onAdded }) {
     const [dbStatus,       setDbStatus]       = useState(null);
     const [updating,       setUpdating]       = useState(false);
     const [updateMsg,      setUpdateMsg]      = useState('');
+    // Plot or table; kept from page to page while the browser is open.
+    const [sampleTab,      setSampleTab]      = useState('plot');
 
     useEffect(() => loadRiiCatalogTree({ setCatalogTree, setLoadErr, setCatalogLoading }), []);
     useEffect(() => trackRiiDbStatus({ rii, setDbStatus, setUpdateMsg }), [rii]);
@@ -70,7 +72,8 @@ export function useRIIBrowser({ c, t, onAdded }) {
     const showNoResults = !catalogLoading && !loadErr && !browsing && results.length === 0;
 
     return {
-        c, rii, catalogTree, loadErr, catalogLoading, query, setQuery, results,
+        c, rii, me: t.materialEditor, sampleTab, setSampleTab,
+        catalogTree, loadErr, catalogLoading, query, setQuery, results,
         expandedShelves, expandedBooks, toggleShelf, toggleBook,
         selected, mat, matLoading, matErr, phase, addMsg, targetCatId, setTargetCatId,
         dbStatus, updating, updateMsg, handleUpdate,

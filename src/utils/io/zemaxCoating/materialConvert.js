@@ -44,16 +44,20 @@ function nIndexFromTab(tab, lamNm) {
 }
 
 /**
- * Sample a TFStudio material into a MATE record over a wavelength grid.
+ * Sample a TFStudio material into a MATE record over a wavelength grid. A grid
+ * wavelength where the material has no index (a formula at a pole) is left
+ * out, so the record holds no n the material does not have.
  * @param {string} name       Zemax material name (already sanitised by caller, or not)
  * @param {(lamNm:number)=>[number,number]} getNK  resolver → [n, k≥0]
  * @param {number[]} gridNm   ascending wavelengths in nm
  * @returns {{name:string, points:Array<[number,number,number]>}}
  */
 export function tfMaterialToMate(name, getNK, gridNm) {
-    const points = gridNm.map(lamNm => {
-        const [n, k] = getNK(lamNm);
-        return [lamNm / 1000, n, -Math.abs(k || 0)];   // nm → µm, k → −k (Zemax sign)
-    });
+    const points = gridNm
+        .map(lamNm => {
+            const [n, k] = getNK(lamNm);
+            return [lamNm / 1000, n, -Math.abs(k || 0)];   // nm → µm, k → −k (Zemax sign)
+        })
+        .filter(([, n]) => Number.isFinite(n));
     return { name: sanitizeZemaxName(name), points };
 }

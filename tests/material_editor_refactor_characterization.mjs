@@ -5,7 +5,7 @@
  * (MaterialEditor.js + RIIBrowser.js split into a hook + small render/action
  * modules; see useMaterialEditor.js, useRIIBrowser.js):
  *   - riiRightPanel.js: wlRange (the span that will be sampled, and the no-data
- *     fallback) and typeLabel (known RII material types + unknown passthrough).
+ *     fallback) and typeLabel (what the samples come from, unknown passthrough).
  *   - riiEffects.js: toggleInSet (immutable Set toggle used by the shelf/book
  *     tree expand/collapse state).
  *
@@ -40,11 +40,22 @@ ok(wlRange({}) === '—', 'wlRange: no data → em dash placeholder');
 ok(wlRange({ tableNK: [] }) === '—', 'wlRange: empty tableNK → em dash placeholder');
 
 // ── typeLabel ───────────────────────────────────────────────────────────────
-ok(typeLabel('tabulated_nk') === 'Tabulated n,k', 'typeLabel: tabulated_nk');
-ok(typeLabel('tabulated_n') === 'Tabulated n', 'typeLabel: tabulated_n');
-ok(typeLabel('formula') === 'Dispersion formula', 'typeLabel: formula');
-ok(typeLabel('mixed') === 'Formula + tabulated k', 'typeLabel: mixed');
-ok(typeLabel('something_else') === 'something_else', 'typeLabel: unknown type passes through verbatim');
+// Names what the samples come from: a formula page by its number and the
+// database's name for it, and the k table it carries beside it.
+const { getLocale } = await import('../src/constants/locales/index.js');
+const rii = getLocale('en').riiDatabase;
+const table = [[300, 1.5, 0]];
+ok(typeLabel({ type: 'tabulated_nk', tableNK: table }, rii) === 'Tabulated n,k', 'typeLabel: tabulated_nk');
+ok(typeLabel({ type: 'tabulated_n', tableNK: table }, rii) === 'Tabulated n', 'typeLabel: tabulated_n');
+ok(typeLabel({ type: 'tabulated_n', tableNK: table, tableK: [[300, 0.1]] }, rii) === 'Tabulated n,k',
+    'typeLabel: an n table with a separate k table samples both');
+ok(typeLabel({ type: 'formula', riiFormulaNum: 6 }, rii) === 'Formula 6, Gases', 'typeLabel: formula 6 by name');
+ok(typeLabel({ type: 'formula', riiFormulaNum: 2, tableK: [[500, 1e-4]] }, rii) === 'Formula 2, Sellmeier-2, tabulated k',
+    'typeLabel: a formula with a k table says so');
+ok(typeLabel({ type: 'formula', riiFormulaNum: 10 }, rii) === 'Formula 10', 'typeLabel: a formula number with no name');
+ok(typeLabel({ type: 'mixed', riiFormulaNum: 5, tableNK: table }, rii) === 'Tabulated n,k',
+    'typeLabel: a page with a table and a formula is sampled from the table, and says so');
+ok(typeLabel({ type: 'something_else' }, rii) === 'something_else', 'typeLabel: unknown type passes through verbatim');
 
 // ── toggleInSet ─────────────────────────────────────────────────────────────
 const empty = new Set();

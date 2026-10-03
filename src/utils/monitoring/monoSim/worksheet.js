@@ -36,6 +36,7 @@
  *     fall in previous layers.
  */
 
+import { indexAt, MaterialHasNoIndexError } from '../../materials/materialIndexAt.js';
 import { CHAMBER_MEDIUM_ID } from '../chamberMedium.js';
 import { buildChipRows } from './worksheetChip.js';
 
@@ -82,7 +83,7 @@ function runLayout(design, resolveMat, cfg, refLam) {
         const layer = front[layerIndex];
         const partThickness = Math.max(0, layer.thickness || 0);
         const thickness = partThickness * cfg.witnessRatio;
-        const nRef = Math.max(1e-6, resolveMat(layer.material).getNK(refLam)[0] || 1.6);
+        const nRef = indexAt(resolveMat(layer.material), refLam, layer.material);
         const xPerNm = 4 * nRef / refLam;
         layers.push({
             step: step + 1,
@@ -128,7 +129,7 @@ function opticalSystem(design, resolveMat, { char, theta, pol, chipMaterial }) {
     const subId = chipMaterial || (design.substrate?.material ?? 'BK7');
     return {
         theta, pol, char,
-        incMat: resolveMat(CHAMBER_MEDIUM_ID), subMat: resolveMat(subId),
+        incMat: resolveMat(CHAMBER_MEDIUM_ID), subMat: resolveMat(subId), subId,
         subThickMM: design.substrate?.thickness ?? 1,
     };
 }
@@ -140,11 +141,20 @@ function resolveChipByStep(cfg, stepCount) {
 }
 
 // Termination error of every layer on a chip at each candidate wavelength: a
-// row per wavelength, a column per layer, null for a layer cut on time.
+// row per wavelength, a column per layer, null for a layer cut on time. A
+// wavelength where a material on the chip has no index has no row at all: the
+// chip cannot be monitored there.
 function chipErrorTable({ group, sys, resolveMat, cfg, lams }) {
-    return lams.map(lam => buildChipRows({
-        chip: group.chip, layers: group.layers, lam, sys, resolveMat, opts: cfg,
-    }).rows.map(row => row.terminationErrPct));
+    return lams.map(lam => {
+        try {
+            return buildChipRows({
+                chip: group.chip, layers: group.layers, lam, sys, resolveMat, opts: cfg,
+            }).rows.map(row => row.terminationErrPct);
+        } catch (error) {
+            if (error instanceof MaterialHasNoIndexError) return null;
+            throw error;
+        }
+    });
 }
 
 // How badly a wavelength serves the chip: the worst of the layers the choice
@@ -152,8 +162,9 @@ function chipErrorTable({ group, sys, resolveMat, cfg, lams }) {
 // layer with no signal at any candidate, one of the chip's own index, is going
 // to the crystal whichever wavelength is picked, so it takes no part either. A
 // layer dead at this wavelength and alive at another does take part, and this
-// wavelength loses.
+// wavelength loses, as does a wavelength the chip cannot be monitored at.
 function wavelengthScore(errs, inPlay) {
+    if (!errs) return Infinity;
     return errs.reduce((worst, err, i) => (inPlay[i] ? Math.max(worst, err) : worst), 0);
 }
 
@@ -181,6 +192,9 @@ function wavelengthScore(errs, inPlay) {
  *   maxTerminationErrPct     a layer is flagged when the termination error
  *                            exceeds this percentage of its own thickness
  * @returns {{ rows, chips, xEnd }} rows in deposition order.
+ * @throws {MaterialHasNoIndexError} when a deposited material has no index at
+ *         the reference wavelength, which the run axis is counted in, or a
+ *         material on a chip has none at that chip's wavelength
  */
 export function buildMonitorWorksheet(design, resolveMat, opts = {}) {
     const cfg = { ...WORKSHEET_DEFAULTS, ...opts };
@@ -220,7 +234,7 @@ function bestLambdaForChip({ group, sys, resolveMat, band, cfg }) {
         lams.push(band.lamA + (g * (band.lamB - band.lamA)) / (band.steps - 1));
     }
     const table = chipErrorTable({ group, sys, resolveMat, cfg, lams });
-    const inPlay = group.layers.map((_, i) => table.some(errs => Number.isFinite(errs[i])));
+    const inPlay = group.layers.map((_, i) => table.some(errs => Number.isFinite(errs?.[i])));
     let bestLam = lams[0];
     let bestScore = wavelengthScore(table[0], inPlay);
     for (let k = 1; k < lams.length; k++) {

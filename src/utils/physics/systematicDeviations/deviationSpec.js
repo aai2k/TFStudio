@@ -52,14 +52,17 @@ export function emptyDeviation() {
 //   qw : value is in quarter-waves   (1 QW optical = λ₀/4)   → Δd = value·λ₀/(4n)
 //   fw : value is in full-waves      (1 FW optical = λ₀)     → Δd = value·λ₀/n
 // (QWOT convention matches the rest of the codebase: QWOT = 4·n·d / λ₀.)
+// Where the material has no index at λ₀ an optical offset has no physical
+// thickness either, and the result is NaN rather than 0 nm.
 export const THICKNESS_OFFSET_UNITS = ['nm', 'ot', 'qw', 'fw'];
 
 export function offsetToPhysicalNm(value, unit, nAtRef, lamRef) {
     if (!value) return 0;
+    const n = Number.isFinite(nAtRef) && nAtRef > 0 ? nAtRef : NaN;
     switch (unit) {
-        case 'ot': return nAtRef > 0 ? value / nAtRef : 0;
-        case 'qw': return nAtRef > 0 ? (value * lamRef) / (4 * nAtRef) : 0;
-        case 'fw': return nAtRef > 0 ? (value * lamRef) / nAtRef : 0;
+        case 'ot': return value / n;
+        case 'qw': return (value * lamRef) / (4 * n);
+        case 'fw': return (value * lamRef) / n;
         case 'nm':
         default:   return value;
     }

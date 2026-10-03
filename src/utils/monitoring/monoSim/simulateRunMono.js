@@ -49,6 +49,9 @@ import { CHAMBER_MEDIUM_ID } from '../chamberMedium.js';
  *                 confirmScans } — chipMaterial is the witness chip's glass,
  *                 the design substrate when not set
  * Return shape is identical to simulateRun (+ cutStrategies).
+ * Throws MaterialHasNoIndexError, with the layer's `layerIndex`, when a layer
+ * is cut on the monitor signal at a wavelength where a material that signal
+ * passes through has no index.
  */
 export function simulateRunMono(design, resolveMat, cfg) {
     const rateCfg  = parseMonoRateConfig(cfg);
@@ -98,8 +101,8 @@ export function simulateRunMono(design, resolveMat, cfg) {
     const ctx = {
         ...monCfg, ...sigCfg, ...layerCfg,
         rng, rates: rateCfg.rates,
-        incMat, subMat, subThickMM: design.substrate?.thickness ?? 1,
-        modelMats, truthMats, driftSlope, refLam,
+        incMat, subMat, subId, subThickMM: design.substrate?.thickness ?? 1,
+        modelMats, truthMats, materialIds: front.map(l => l.material), driftSlope, refLam,
         N, onLayer: cfg.onLayer,
     };
 

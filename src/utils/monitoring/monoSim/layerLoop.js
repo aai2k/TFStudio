@@ -5,6 +5,7 @@
  * rate-process maps, and the running deposition clock).
  */
 
+import { hasIndexAt, MaterialHasNoIndexError } from '../../materials/materialIndexAt.js';
 import { _realizedRate, _timeCut, _applyShutter } from './layerDeposition.js';
 import { _scanCutMono } from './scanCutMono.js';
 import { recordZeroThicknessLayer } from '../zeroThicknessLayer.js';
@@ -18,6 +19,23 @@ function resolveMonoLayerPlan(i, ctx) {
     const isExcluded = !!(ctx.excludeLayers && ctx.excludeLayers.has(i));
     const strat = isExcluded ? 'time' : (monRow.strategy || 'turning');
     return { monRow, monLam, order, isExcluded, strat };
+}
+
+// A cut on the monitor signal needs a signal: every material it passes through
+// (the growing layer, the layers beneath it, the chip glass) has an index at
+// the monitoring wavelength. Where one has none the signal has no value, the
+// scan never confirms a cut, and the layer would come out at exactly its
+// target as if dead-reckoned without error. The run stops instead, naming the
+// material, the wavelength and the layer (`layerIndex`, storage order).
+function assertSignalAt(i, monLam, ctx) {
+    const through = [];
+    for (let k = i; k < ctx.N; k++) through.push([ctx.modelMats[k], ctx.materialIds[k]]);
+    through.push([ctx.subMat, ctx.subId]);
+    const missing = through.find(([material]) => !hasIndexAt(material, monLam));
+    if (!missing) return;
+    const error = new MaterialHasNoIndexError(missing[1], monLam);
+    error.layerIndex = i;
+    throw error;
 }
 
 // Relative-thickness-error % for the 'time' strategy: the excluded-layer
@@ -61,6 +79,7 @@ export function processMonoLayer(i, layer, ctx, mut) {
         ({ cut_d_actual, cut_time } = _timeCut(d_target, r, relPct, ctx.rng, rPlan));
         mut.t_global += cut_time;
     } else if (d_target > 0) {
+        assertSignalAt(i, plan.monLam, ctx);
         const scan = _scanCutMono({
             monLam: plan.monLam, theta: ctx.theta, pol: ctx.pol, char: ctx.char,
             incMat: ctx.incMat, subMat: ctx.subMat, subThickMM: ctx.subThickMM,

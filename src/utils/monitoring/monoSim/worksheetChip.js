@@ -31,6 +31,7 @@
  *                 turning points that bracket it
  */
 
+import { hasIndexAt, indexAt, MaterialHasNoIndexError } from '../../materials/materialIndexAt.js';
 import { autoMonoStrategy } from './monitorTable.js';
 import {
     isFlatCurve, nearestExtremum, sampleLayerCurve, scanExtrema, signalAt, signalErrorOf,
@@ -50,8 +51,8 @@ function stackBelow(deposited) {
 
 // Quarter wave in this layer at the monitor wavelength, which sizes the search
 // for the turning point after the cut.
-function quarterWave(curMat, lam) {
-    return lam / (4 * Math.max(1e-6, curMat.getNK(lam)[0] || 1.6));
+function quarterWave(curMat, lam, materialId) {
+    return lam / (4 * indexAt(curMat, lam, materialId));
 }
 
 function referencePoint(inLayer, chipExtrema, chipStartLevel) {
@@ -156,8 +157,13 @@ function buildRow({ layer, chip, onChip, ctx, geom, cfg, noise, chipStartLevel, 
  * `layers` are `{ step, layerIndex, material, partThickness, thickness, xStart,
  * xPerNm }`, with `thickness` already scaled to the witness and the run-axis
  * placement already assigned.
+ *
+ * Every layer's signal passes through the chip glass and the layers beneath
+ * it, so a material on the chip with no index at `lam` leaves the chip with no
+ * signal there: MaterialHasNoIndexError names it.
  */
 export function buildChipRows({ chip, layers, lam, sys, resolveMat, opts }) {
+    if (!hasIndexAt(sys.subMat, lam)) throw new MaterialHasNoIndexError(sys.subId, lam);
     const deposited = [];
     const chipExtrema = [];
     const rows = [];
@@ -173,7 +179,7 @@ export function buildChipRows({ chip, layers, lam, sys, resolveMat, opts }) {
         const layer = layers[i];
         const curMat = resolveMat(layer.material);
         const ctx = { lam, curMat, ...stackBelow(deposited), sys };
-        const geom = { dQW: quarterWave(curMat, lam), xPerNm: layer.xPerNm };
+        const geom = { dQW: quarterWave(curMat, lam, layer.material), xPerNm: layer.xPerNm };
         const built = buildRow({
             layer, chip, onChip: i + 1, ctx, geom, cfg: opts, noise,
             chipStartLevel, chipExtrema, xStart: layer.xStart,

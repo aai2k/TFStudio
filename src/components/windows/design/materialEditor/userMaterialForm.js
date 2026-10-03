@@ -9,7 +9,9 @@
 
 import { ndColor } from '../../../../utils/materials/catalogManager.js';
 import { clearMaterialChart, drawIndexChart, drawResidualChart } from './materialChart.js';
-import { FORMULA_LATEX, coefficientNames } from '../../../../utils/materials/dispersionFormulas.js';
+import {
+    FORMULA_LATEX, coefficientNames, formulaLatex, formulasBySource,
+} from '../../../../utils/materials/dispersionFormulas.js';
 import { NKDataGrid } from './nkDataGrid.js';
 import {
     buildNKFromDraft, PRESET_COLORS, nextPresetColor, draftRangeNm, negativeKRowCount,
@@ -217,7 +219,7 @@ function renderPropertiesGrid(ctx) {
     );
 }
 
-// Type toggle — hidden for RII imports (always tabular; Zemax formula UI is irrelevant).
+// Type toggle, hidden for a refractiveindex.info import, whose type is the page's.
 // The two types are mutually exclusive: 'tabular' stores ONLY a λ/n/k table;
 // 'formula' stores ONLY a dispersion formula (n) + an optional λ/k table (absorption).
 function renderTypeToggle({ draft, set, me, c, sectionLabel }) {
@@ -301,20 +303,23 @@ function renderFormulaEditor(ctx) {
     const coeffLabels = coefficientNames(draft.formulaNum, coeffCount);
     return h('div', null,
         sectionLabel(me.formulaLabel),
+        // One list of every formula, a group per source, each formula under the
+        // number its source gives it.
         h('select', {
             value: draft.formulaNum,
             onChange: e => changeFormula(Number(e.target.value)),
             style: { ...inputStyle, padding: '3px 6px', cursor: 'pointer', marginBottom: 6 }
         },
-            Object.entries(FORMULA_LATEX).map(([num, info]) =>
-                h('option', { key: num, value: num }, `${num} — ${info.name}`)
-            )
+            formulasBySource().map(({ source, formulas }) =>
+                h('optgroup', { key: source, label: me.formulaSources[source] },
+                    formulas.map(({ formulaNum, number, name }) =>
+                        h('option', { key: formulaNum, value: formulaNum }, `${number}: ${name}`))))
         ),
 
         // Horizontal scrolling only: the rendered formula's sub-pixel height would
         // otherwise raise a vertical scrollbar with nothing to scroll.
         formulaInfo && h('div', { style: { marginBottom: 6, padding: '6px 6px 8px', backgroundColor: c.panel, borderRadius: 3, border: `1px solid ${c.border}`, fontSize: 12, overflowX: 'auto', overflowY: 'hidden' } },
-            h(KaTeXSpan, { latex: formulaInfo.template, displayMode: false })
+            h(KaTeXSpan, { latex: formulaLatex(draft.formulaNum, coeffCount), displayMode: false })
         ),
 
         sectionLabel(me.coefficients),

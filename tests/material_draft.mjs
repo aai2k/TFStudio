@@ -62,12 +62,12 @@ ok(typeof fs === 'function', 'valid formula draft → sampler function');
 { const [, k] = fs(300); ok(k === 0.0, 'formula k clamps below k-table range'); }
 { const [, k] = fs(1000); ok(k === 0.4, 'formula k clamps above k-table range'); }
 
-// A degenerate formula (all-zero coeffs → n=1 at 0.55µm is not >0 test path) still
-// returns a sampler for formula 1 (n=1 is finite & >0), so guard the null path via
-// a formula that cannot evaluate to a positive index: empty coeffs on Sellmeier
-// give n^2 = 1 → n = 1 (valid). Use formula 2 with coeffs forcing non-finite.
+// Schott (formula 1) with every coefficient 0 gives n² = 0 at every wavelength:
+// no index anywhere, so no sampler, rather than n = 1 read off a clamp.
 const badDraft = { type: 'formula', formulaNum: 1, coeffs: Array(10).fill('0'), kRows: [] };
-{ const s = buildNKFromDraft(badDraft); ok(typeof s === 'function', 'all-zero Sellmeier → n=1 sampler (finite, valid)'); const [n] = s(550); ok(close(n, 1.0), 'all-zero Sellmeier gives n=1'); }
+ok(buildNKFromDraft(badDraft) === null, 'all-zero Schott → no index anywhere → null sampler');
+// Sellmeier 1 (formula 2) with every coefficient 0 is n² = 1: air, a real index.
+{ const s = buildNKFromDraft({ ...badDraft, formulaNum: 2 }); ok(typeof s === 'function' && close(s(550)[0], 1.0), 'all-zero Sellmeier 1 gives n = 1'); }
 
 // ── 3. materialToDraft ↔ draftToMaterial roundtrip (tabular) ──────────────────
 const tabMat = {
@@ -189,6 +189,18 @@ ok(withAddedTerm(formD) === formD, 'withAddedTerm: no-op on a fixed formula');
 // k-table wavelengths keep their decimals through the draft.
 const finek = materialToDraft('user_cat', { ...cauchyMat, kTable: [{ lam_um: 0.1204, k: 0.001 }, { lam_um: 0.1208, k: 0.0009 }] });
 ok(finek.kRows[0].lam === '120.4' && finek.kRows[1].lam === '120.8', 'materialToDraft: sub-nanometre k rows stay distinct');
+
+// ── 8. Saving keeps the comment the form does not show ───────────────────────
+// Every save wrote an empty comment, so an imported material lost its page
+// reference the first time it was saved, whatever was edited.
+{
+    const reference = 'Malitson 1965.\nI. H. Malitson, J. Opt. Soc. Am. 55, 1205 (1965).';
+    const edited = { ...materialToDraft('user_cat', { ...tabMat, comment: reference }), name: 'Renamed' };
+    ok(draftToMaterial(edited).comment === reference, 'draftToMaterial: an edited table keeps its comment');
+    const formula = { ...materialToDraft('user_cat', { ...formMat, comment: reference }), lambdaMaxNm: '1800' };
+    ok(draftToMaterial(formula).comment === reference, 'draftToMaterial: an edited formula keeps its comment');
+    ok(draftToMaterial({ ...emptyDraft('c'), name: 'New', id: 'new' }).comment === '', 'draftToMaterial: a new material has none');
+}
 
 if (fails) { console.error(`\n${fails} test(s) FAILED`); process.exit(1); }
 console.log('\nAll tests passed.');

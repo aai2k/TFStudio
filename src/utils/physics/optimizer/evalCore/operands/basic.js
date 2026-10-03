@@ -72,7 +72,8 @@ export function _evalConstraint(op, ctx) {
 
 // Argmax/argmin-wavelength (MXW*/MNW*): sample C(λ) over [λStart,λEnd] on a
 // uniform grid, find the discrete extremum, refine with a 3-pt parabolic fit.
-// Returns λ in nm.
+// Returns λ in nm, or NaN when a sample has no value (a material with no index
+// there): the extremum of a band with a hole in it is not known.
 export function _evalArgwave(op, ctx) {
     const char = argwaveOpticalChar(op.type);                     // 'T' | 'R' | 'A'
     const pol  = argwavePolCode(op.type) ?? op.pol ?? 'avg';
@@ -83,6 +84,7 @@ export function _evalArgwave(op, ctx) {
     for (let i = 0; i < n; i++) {
         vals[i] = tmmProp(lams[i], op.aoi, pol, char, ctx, ctx.frontThicks, ctx.frontMats);
     }
+    if (!vals.every(Number.isFinite)) return NaN;
     const minMode = isArgwaveMin(op.type);
     let bestI = 0, bestV = vals[0];
     for (let i = 1; i < n; i++) {
@@ -125,7 +127,9 @@ export function _evalIntegral(op, ctx) {
 // hard-extremum approach used for MNT/MXT. Sampled on the dense argwave grid
 // (≈1 nm) so a narrow peak / dip can't slip between samples. The grid
 // wavelength of the extremum, nm, is kept on the context: the Jacobian and the
-// Newton curvature differentiate C there and nowhere else.
+// Newton curvature differentiate C there and nowhere else. A sample with no
+// value (a material with no index there) leaves the extremum unknown: NaN, which
+// the merit function refuses, as it refuses a band average with such a sample.
 export function _evalMinmax(op, ctx) {
     const char = charOf(op.type);
     const pol  = polFromType(op.type) ?? op.pol;
@@ -134,12 +138,13 @@ export function _evalMinmax(op, ctx) {
     const minMode = isMinType(op.type);
     let ext = minMode ? Infinity : -Infinity;
     let at = null;
-    for (let i = 0; i < n; i++) {
+    for (let i = 0; i < n && !Number.isNaN(ext); i++) {
         const v = tmmProp(lams[i], op.aoi, pol, char, ctx, ctx.frontThicks, ctx.frontMats);
-        if (minMode ? v < ext : v > ext) { ext = v; at = lams[i]; }
+        if (!Number.isFinite(v)) { ext = NaN; at = null; }
+        else if (minMode ? v < ext : v > ext) { ext = v; at = lams[i]; }
     }
     ctx._extremumLambdas?.set(op, at);
-    return Number.isFinite(ext) ? ext : 0;
+    return Math.abs(ext) === Infinity ? 0 : ext;
 }
 
 // Continuous per-λ target (TGT/RGT/AGT): RMS deviation of the spectrum from the

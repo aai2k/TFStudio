@@ -43,6 +43,15 @@ export function formatK(k) {
     return Math.abs(k) >= 1e-4 ? k.toFixed(5) : k.toExponential(3);
 }
 
+/**
+ * Refractive index for display, to eight decimals: the fewest that show the
+ * n − 1 of a gas, about 3e-4, to five significant figures. At five decimals
+ * air's dispersion from 230 to 1690 nm is 1.00031 to 1.00027.
+ */
+export function formatN(n) {
+    return n.toFixed(8);
+}
+
 // n and k at one typed wavelength, read from a getNK(lambda_nm) function. A
 // wavelength outside the material's stated range still evaluates the way the
 // material always does beyond its data (clamped or extrapolated) and is marked.
@@ -70,7 +79,7 @@ export function NkProbe({ getNK, rangeNm, c, me }) {
                      border: `1px solid ${c.border}`, borderRadius: 3, fontSize: 12, padding: '0 6px',
                      outline: 'none', fontFamily: 'monospace' },
         }),
-        h('span', { style: { fontFamily: 'monospace', color: c.text } }, n == null ? '–' : `n = ${n.toFixed(5)}`),
+        h('span', { style: { fontFamily: 'monospace', color: c.text } }, n == null ? '–' : `n = ${formatN(n)}`),
         n != null && h('span', { style: { fontFamily: 'monospace', color: c.textDim } }, `k = ${formatK(k)}`),
         outside && h('span', { style: { fontSize: 11, color: '#e6a23c' } }, me.nkAtOutOfRange)
     );
@@ -112,6 +121,30 @@ export function propRow(label, value, c) {
 export function formatCoeff(v) {
     if (Math.abs(v) >= 0.001 && Math.abs(v) < 10000) return v.toPrecision(7).replace(/\.?0+$/, '');
     return v.toExponential(4);
+}
+
+/**
+ * A coefficient with every digit it has, in formatCoeff's notation: plain from
+ * 0.001 to below 10000, exponent form outside, so one row of chips does not
+ * mix 0.00000126878 with -1.95104e-9.
+ */
+export function formatCoeffFull(v) {
+    if (Math.abs(v) >= 0.001 && Math.abs(v) < 10000) return String(v);
+    return v.toExponential();
+}
+
+/** A formula's coefficients as "name = value" chips; a zero is not listed. */
+export function coefficientChips(names, values, c, format = formatCoeff) {
+    return h('div', { style: { display: 'flex', flexWrap: 'wrap', gap: 4, fontSize: 11 } },
+        names.map((name, i) => {
+            const v = values[i];
+            if (v == null || v === 0) return null;
+            return h('div', { key: i, style: { padding: '2px 6px', backgroundColor: c.panel, borderRadius: 3, border: `1px solid ${c.border}` } },
+                h('span', { style: { color: c.textDim } }, name + ' = '),
+                h('span', { style: { color: c.text, fontFamily: 'monospace' } }, format(v))
+            );
+        }).filter(Boolean)
+    );
 }
 
 export function catTabStyle(active, c) {

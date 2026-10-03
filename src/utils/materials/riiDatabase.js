@@ -13,14 +13,15 @@
  * Implementation is split across src/utils/materials/riiDatabase/: fetch.js
  * (network/offline-mirror access), cache.js (session catalog/material cache),
  * catalog.js (catalog tree + status/update), materialParser.js (material YAML
- * decoding), formulas.js (dispersion formula evaluation), sampling.js (n,k
+ * decoding), formulas.js (a page's formula through the catalog's formula
+ * registry), sampling.js (n,k
  * samples), search.js (catalog search), catalogEntry.js (catalogManager
  * conversion).
  */
 
 export { loadCatalog, clearCatalogCache, getDatabaseStatus, updateDatabase } from './riiDatabase/catalog.js';
 export { fetchMaterial, parseMaterialDoc } from './riiDatabase/materialParser.js';
-export { evalFormulaN } from './riiDatabase/formulas.js';
-export { sampleMaterial, sampledRangeNm } from './riiDatabase/sampling.js';
+export { evalFormulaN, riiCatalogFormula } from './riiDatabase/formulas.js';
+export { sampleMaterial, sampledRangeNm, leftOutRanges } from './riiDatabase/sampling.js';
 export { searchCatalog, riiPageKey } from './riiDatabase/search.js';
 export { riiToMaterialEntry, riiMaterialComment } from './riiDatabase/catalogEntry.js';

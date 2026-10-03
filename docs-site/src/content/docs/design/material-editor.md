@@ -79,12 +79,7 @@ residue of the fit that produced the table. A negative extinction coefficient
 would be gain, so every calculation reads `k = 0` at such a point, and the
 n,k grid of the Material Editor marks the row.
 
-**Browse RII**: open the refractiveindex.info browser to pick from the online
-database (an internet connection is needed the first time you fetch a
-material). The material is added to your chosen user catalog and then lives
-locally. A page given as a table arrives with every row it has; a page given
-as a dispersion formula is sampled over the range the page states, each
-wavelength 1% past the one before.
+**Browse RII**: open the refractiveindex.info browser to pick from the online database (an internet connection is needed the first time you fetch a material). The material is added to your chosen user catalog and then lives locally. A page given as a table arrives with every row it has. A page given as a dispersion formula arrives as that formula, with the coefficients and the wavelength range the page states and the page's `k` table beside it; outside that range it is evaluated as the formula gives it, like any formula material. The browser shows a page as a plot or as a table, a formula page sampled with each wavelength 1% past the one before, reads `n` and `k` at a wavelength you type, and writes out the formula a formula page uses, with its coefficients. When a formula page has no real `n` somewhere inside the range it states, the browser says where.
 
 **New Catalog**: create an empty user catalog to organize your own materials.
 
@@ -104,12 +99,7 @@ its ID. The **n & k** page holds the optical data; pick a data type there:
    per-cell editing. A long table scrolls in a box of its own, so the chart and
    the fit stay a short scroll down the page; drag the bar under the box to
    make it taller or shorter.
-2. **Formula**: choose a dispersion formula (Sellmeier, Cauchy, Conrady,
-   Schott, Herzberger and other standard forms), enter its coefficients, and
-   optionally add a `λ, k` table for absorption. The formula is rendered in
-   full so you can confirm the convention. The Cauchy and general Sellmeier
-   forms take as many terms as you add; a term left at zero is dropped when
-   the material is saved.
+2. **Formula**: choose a dispersion formula, enter its coefficients, and optionally add a `λ, k` table for absorption. The list is grouped by source: the Zemax formulas (Schott, Sellmeier, Herzberger, Conrady and the other standard forms), the general series and OptiLayer forms, and the nine formulas of the refractiveindex.info database, each group under its source's own numbers. The formula is rendered in full so you can confirm the convention. The Cauchy and general Sellmeier forms, and the series among the refractiveindex.info formulas, take as many terms as you add; a term left at zero is dropped when the material is saved. Every formula is evaluated as written, with no floor under `n`: where it gives no real, positive `n`, at a pole or where `n²` turns negative, the material has no index, and a design using it gets no result at those wavelengths. A monitoring wavelength or a reference wavelength where a layer's material has no index is reported by the window that needs it.
 
 A live n/k chart updates as you edit, and the wavelength range you set bounds
 where the material is valid and the span the chart shows. Under the chart,

@@ -3,6 +3,7 @@
  * for the TMM spectrum evaluators or the qualifier-spec pipeline.
  */
 
+import { MaterialHasNoIndexError } from '../../materials/materialIndexAt.js';
 import { wrapMaterial } from '../../misc/variator.js';
 import { emptyDeviation, needsRefIndex } from './deviationSpec.js';
 import { effectiveForMaterial, effectiveForMedium, effectiveOffsetNm } from './materials.js';
@@ -17,6 +18,8 @@ import { effectiveForMaterial, effectiveForMedium, effectiveOffsetNm } from './m
  * @param {(id:string)=>object} resolveMat
  * @param {number} [lamRef=550]  reference λ₀ (nm) for optical-unit (ot/qw/fw) offsets
  * @returns {{material:object, thickness:number, locked:boolean}[]}
+ * @throws {MaterialHasNoIndexError} when a layer carries an optical-unit offset
+ *         and its material has no index at λ₀, so the offset has no thickness
  */
 export function perturbLayers(layers, dev, resolveMat, lamRef = 550) {
     if (!Array.isArray(layers)) return [];
@@ -37,6 +40,7 @@ export function perturbLayers(layers, dev, resolveMat, lamRef = 550) {
                 nRef = Array.isArray(nk) ? nk[0] : 0;
             }
             offsetNm = effectiveOffsetNm(dev, matId, nRef, lamRef);
+            if (Number.isNaN(offsetNm)) throw new MaterialHasNoIndexError(matId, lamRef);
         }
         return {
             material:  wrapMaterial(baseMat, dn, dk),

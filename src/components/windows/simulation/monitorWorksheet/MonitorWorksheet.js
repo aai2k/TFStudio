@@ -14,6 +14,7 @@ import { ExportMenu, useCsvExport } from '../../../ui/ExportMenu.js';
 import { csvFromRows, ResultsGrid } from '../../../ui/ResultsSection.js';
 import { NoticeBadge } from '../../analysis/chrome/popover.js';
 import { AnalysisWindow, CenteredMessage, PlotArea } from '../../analysis/chrome/layout.js';
+import { matName } from '../wizardShared.js';
 import { WorksheetChart } from './WorksheetChart.js';
 import { WorksheetControls } from './WorksheetControls.js';
 import { worksheetColumns, worksheetRows } from './tableModel.js';
@@ -23,10 +24,21 @@ const { createElement: h } = React;
 
 const SPLIT_CHILDREN = [{ id: 'worksheet-table' }, { id: 'worksheet-chart' }];
 
+// A material with no index at a wavelength the worksheet needs is named in the
+// user's language; any other failure shows its own message.
+function errorLabel(error, mw, resolveMat) {
+    if (!error) return null;
+    if (error.code === 'MATERIAL_HAS_NO_INDEX') {
+        return mw.noIndex(matName(resolveMat, error.materialId), error.lambdaNm);
+    }
+    return error.message || String(error);
+}
+
 export function MonitorWorksheet({ c, t }) {
     const state = useMonitorWorksheet();
-    const { design, rows, error, poorCount } = state;
+    const { design, rows, poorCount } = state;
     const mw = t.monitorWorksheet;
+    const error = errorLabel(state.error, mw, state.resolveMat);
     const dt = t.dataTable;
     const columns = worksheetColumns({
         t, c, matColorMap: state.matColorMap,

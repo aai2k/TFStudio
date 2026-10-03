@@ -1,5 +1,6 @@
 import { useDesign } from '../../../../state/DesignContext.js';
 import { designMaterialLookup } from '../../../../utils/materials/designMaterials.js';
+import { MaterialHasNoIndexError } from '../../../../utils/materials/materialIndexAt.js';
 import {
     cloneDeviation,
     computeDeviatedSpectrum,
@@ -21,7 +22,19 @@ function computeSpectrum(design, params, deviation, evalMode) {
         const resolveMaterial = designMaterialLookup(design);
         return { s: computeDeviatedSpectrum(design, params, deviation, evalMode, resolveMaterial), error: null };
     } catch (error) {
-        return { s: null, error: error.message };
+        return { s: null, error };
+    }
+}
+
+// The deviated design the specification verdict is judged on. An optical-unit
+// offset on a material with no index at λ₀ has no thickness; the spectrum
+// reports that, and the verdict has nothing to judge.
+function specDesign(design, dev) {
+    try {
+        return deviatedDesignForSpec(design, dev, designMaterialLookup(design));
+    } catch (error) {
+        if (error instanceof MaterialHasNoIndexError) return null;
+        throw error;
     }
 }
 
@@ -76,10 +89,7 @@ export function useSystematicDeviations() {
         lambdaStart, lambdaEnd, lambdaStep, theta: aoi, polarization: pol,
     }), [lambdaStart, lambdaEnd, lambdaStep, aoi, pol]);
     const uniqueMats = useMemo(() => enumerateUniqueMaterials(design), [design]);
-    const specDev = useMemo(
-        () => deviatedDesignForSpec(design, dev, designMaterialLookup(design)),
-        [design, dev]
-    );
+    const specDev = useMemo(() => specDesign(design, dev), [design, dev]);
     const baselineM = useMemo(
         () => computeSpectrum(design, params, emptyDeviation(), evalMode),
         [design, params, evalMode]
@@ -103,7 +113,7 @@ export function useSystematicDeviations() {
                 result.paramName = paramLabel(sweep.param) + unit;
                 setSweepResult(result);
             } catch (caught) {
-                setError(caught.message || String(caught));
+                setError(caught);
             }
             setSweepRunning(false);
         }, 0);

@@ -2,8 +2,8 @@
  * Material Editor — live n/k samplers built from a draft (for the preview chart).
  *
  * Pure functions, no React/DOM. A draft is either tabular (λ/n/k rows) or
- * formula-based (a Zemax dispersion formula + optional λ/k table); each type
- * gets its own sampler, unified behind buildNKFromDraft.
+ * formula-based (a dispersion formula + optional λ/k table); each type gets its
+ * own sampler, unified behind buildNKFromDraft.
  */
 
 import { evalN } from '../../../../utils/materials/dispersionFormulas.js';
@@ -28,6 +28,22 @@ export function readOnce(rows, key, read) {
     const kept = tableReads.get(rows);
     if (!kept.has(key)) kept.set(key, read(rows));
     return kept.get(key);
+}
+
+/**
+ * The stated validity range in nm, the fallback for a material whose own data
+ * does not say where it starts and ends, and the span the form's chart and
+ * sampled table cover. Any positive wavelength is taken; an entry that is not
+ * one gives the default, and an end not above the start is put 100 nm past it.
+ */
+export function draftRangeNm(draft) {
+    const nm = (text, fallback) => {
+        const value = parseNumber(text);
+        return value > 0 ? value : fallback;
+    };
+    const lambdaMin = nm(draft.lambdaMinNm, 300);
+    const lambdaMax = nm(draft.lambdaMaxNm, 2500);
+    return [lambdaMin, lambdaMax > lambdaMin ? lambdaMax : lambdaMin + 100];
 }
 
 /** A table's cells as numbers, [λ nm, n, k] per row, NaN where a cell does not parse. */
@@ -57,8 +73,20 @@ function makeKInterpolator(kTable, draft) {
     return createKInterpolator(kTable.map(row => [row.lam_um, row.k]), interpolationRuleOf(draft)) || (() => 0);
 }
 
+// Whether the formula gives a usable index at either end of the draft's range
+// or in its middle. One that gives none, as while its coefficients are still
+// empty, has nothing to preview. Checked inside the range rather than at one
+// fixed wavelength, which an infrared material's formula need not reach.
+function formulaHasIndex(draft, coefficients) {
+    const [low, high] = draftRangeNm(draft);
+    return [low, Math.sqrt(low * high), high].some((lambdaNm) => {
+        const n = evalN(draft.formulaNum, coefficients, lambdaNm / 1000);
+        return isFinite(n) && n > 0;
+    });
+}
+
 // Formula-mode sampler: dispersion formula for n + optional λ/k table for k.
-// Returns null when the formula does not evaluate to a usable index at 0.55 µm.
+// Returns null when the formula gives no usable index in the draft's range.
 function makeFormulaSampler(draft) {
     const coefficients = draft.coeffs.map(parseNumber);
     const kTable = draft.kRows
@@ -67,8 +95,7 @@ function makeFormulaSampler(draft) {
         .sort((a, b) => a.lam_um - b.lam_um);
     const interpK = makeKInterpolator(kTable, draft);
     try {
-        const testN = evalN(draft.formulaNum, coefficients, 0.55);
-        if (!isFinite(testN) || testN <= 0) return null;
+        if (!formulaHasIndex(draft, coefficients)) return null;
     } catch (_) { return null; }
     // A wavelength where the formula has no finite value is left without one,
     // so the chart and the preview table leave it out.

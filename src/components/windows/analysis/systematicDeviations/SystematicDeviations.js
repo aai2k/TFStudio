@@ -34,6 +34,14 @@ function resultTable(state, t) {
     };
 }
 
+// A material with no index at λ₀ is named in the user's language; any other
+// failure shows its own message.
+function errorLabel(error, sd) {
+    if (!error) return null;
+    if (error.code === 'MATERIAL_HAS_NO_INDEX') return sd.offsetNoIndex(error.materialId, error.lambdaNm);
+    return error.message || String(error);
+}
+
 function plotBody({ state, sd, c, lambdaAxis }) {
     if (state.mode === 'single') {
         return h(SpectrumPlot, {
@@ -56,7 +64,7 @@ export function SystematicDeviations({ c, theme, t }) {
     const { design } = state;
     const sd = t.systematicDeviations;
     const dt = t.dataTable;
-    const error = state.computeError || state.error;
+    const error = errorLabel(state.computeError || state.error, sd);
     const { columns, rows } = resultTable(state, t);
     const { setLambdaStart, setLambdaEnd } = state;
     const fixRange = ([from, to]) => {
@@ -94,7 +102,7 @@ export function SystematicDeviations({ c, theme, t }) {
             open: state.showTable, setOpen: state.setShowTable,
             actions: h('div', { style: { display: 'flex', alignItems: 'center', gap: 8 } },
                 h(EvalModeBadge, { design, c, t }),
-                (state.mode === 'single' && design?.qualifiers?.length > 0) && h(SpecVerdict, {
+                (state.mode === 'single' && state.specDev && design?.qualifiers?.length > 0) && h(SpecVerdict, {
                     design: state.specDev.design, resolveMat: state.specDev.resolve, c, t,
                     label: t.specification.specLabel,
                 }),

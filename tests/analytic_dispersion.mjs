@@ -77,6 +77,20 @@ const formulaCases = [
     [104, [1.5, .01, 2]],
     [105, [1.5, .01, 2]],
     [106, [3, .1]],
+    // The refractiveindex.info range, with coefficients of database pages.
+    [201, [0, .6961663, .0684043, .4079426, .1162414, .8974794, 9.896161]],                 // SiO2 Malitson
+    [202, [0, 1.03961212, .00600069867, .231792344, .0200179144, 1.01046945, 103.560653]],  // N-BK7 Schott
+    [203, [2.2707833, -.00772009861, 2, .0126286148, -2, -.0000460005382, -4,
+        .0000330622876, -6, -.00000137462973, -8]],                                          // HIKARI E-K3
+    [204, [2.525, .017123, 0, -.0060517, 1, 0, 0, 0, 1, -.0087838, 2]],                      // LiB3O5 Chen beta
+    [204, [5.913, .2441, 0, .0803, 1, 0, 0, 0, 1]],                                          // TiO2 Devore-o
+    [205, [1.5, .004, -2, .0001, -4]],
+    // A gas's third derivative is below what the stencil resolves on n ≈ 1.0003,
+    // so formula 6 is checked on a liquid crystal, which the database writes in it too.
+    [206, [.4552, 2.3250, 22.6757, 1.3970, 12.5748]],                                       // 5CB Wu-25.1C-e
+    [207, [3.41983, .159906, -.123109, 1.26878e-6, -1.95104e-9]],                            // Si Edwards
+    [208, [.452505, .09939, .070537, -.000150]],                                             // AgBr Schroter
+    [209, [2.51527, .0240, .0300, .020, 1.52, .8771]],                                       // urea Rosker-e
 ];
 
 function sevenPointDerivatives(values, step) {
@@ -115,6 +129,78 @@ function sevenPointDerivatives(values, step) {
         relativeClose(analytic[2], reference[2], 1e-5, `formula ${formulaNumber} second derivative`);
         relativeClose(analytic[3], reference[3], 1e-4, `formula ${formulaNumber} third derivative`);
     }
+}
+
+// A refractiveindex.info formula with no real n at a wavelength has no jet
+// there, so GD/GDD reports the point unavailable instead of differentiating a
+// clamped or imaginary index: CS2 Chemnitz inside its pole band, and TiO2
+// Devore-o past its pole below the range.
+{
+    const at = (formulaNumber, coefficients, wavelengthNm) => {
+        const omega = 2 * Math.PI * C_NM_PER_FS / wavelengthNm;
+        return evalNJet(formulaNumber, coefficients, jetScale(wavelengthOmegaJet(wavelengthNm, omega), 1 / 1000));
+    };
+    const cs2 = [0, 1.499426, .178763, .089531, 6.591946];
+    assert.equal(at(201, cs2, 6525), null, 'no jet where n² < 0');
+    assert.ok(Number.isNaN(evalN(201, cs2, 6.525)), 'and no index');
+    assert.ok(at(201, cs2, 6620)[0][0] > 3, 'a jet again past the band');
+    const tio2 = [5.913, .2441, 0, .0803, 1, 0, 0, 0, 1];
+    assert.equal(at(204, tio2, 270), null, 'no jet past the pole');
+    close(at(204, tio2, 300)[0][0], evalN(204, tio2, .3), 1e-12, 'the extrapolated value where the formula has one');
+    const cauchy = [.5, -.2, 2];
+    assert.equal(at(205, cauchy, 2000), null, 'no jet where a direct-n form goes negative');
+    assert.ok(Number.isNaN(evalN(205, cauchy, 2)), 'and no index');
+}
+
+// The Zemax and OptiLayer forms follow the same rule. They used to read n = 1
+// (n = 0.001 for 101, 103 and 106) wherever n² fell below that, and a large
+// finite n at a pole: a plausible spectrum for a layer that is not there.
+{
+    const at = (formulaNumber, coefficients, wavelengthNm) => {
+        const omega = 2 * Math.PI * C_NM_PER_FS / wavelengthNm;
+        return evalNJet(formulaNumber, coefficients, jetScale(wavelengthOmegaJet(wavelengthNm, omega), 1 / 1000));
+    };
+    // N-BK7, Schott, stated for 0.3 to 2.5 µm, with its UV-to-IR pole at 10.18 µm.
+    const nbk7 = [1.03961212, .00600069867, .231792344, .0200179144, 1.01046945, 103.560653];
+    close(evalN(2, nbk7, .5875618), 1.5168, 1e-4, 'N-BK7 at the d line');
+    close(evalN(2, nbk7, 8), .7980, 1e-4, 'N-BK7 at 8 µm: n below 1 is the formula value');
+    for (const lum of [8.5, 9, 10]) {
+        assert.ok(Number.isNaN(evalN(2, nbk7, lum)), `N-BK7 has no index at ${lum} µm`);
+    }
+    assert.equal(at(2, nbk7, 8500), null, 'and no jet there');
+    close(at(2, nbk7, 8000)[0][0], evalN(2, nbk7, 8), 1e-12, 'a jet where n below 1 is real');
+
+    // Every form: an exact pole (the jets are checked off the pole, where n² < 0
+    // or a direct n is negative).
+    const noIndex = [
+        [1, [-1], .55], [2, [1, .25], .5, 'pole'], [3, [-1], .55], [4, [0, 1, .5], .5, 'pole'],
+        [5, [-2], .55], [6, [1, .25], .5, 'pole'], [7, [2, .1, .25], .5, 'pole'],
+        [8, [2, .1, .25], .5, 'pole'], [9, [2, .1, .25], .5, 'pole'], [10, [-1], .55],
+        [11, [1, .25], .5, 'pole'], [12, [-1], .55], [13, [-1], .55],
+        [101, [1, 1, .25], .5, 'pole'], [101, [-1], .55], [102, [-1], .55], [103, [-1], .55],
+        [104, [1.5, .01, .55], .55, 'pole'], [105, [1.5, .01, .5], .55], [106, [1, 4], .55],
+    ];
+    for (const [formulaNumber, coefficients, lum, pole] of noIndex) {
+        assert.ok(Number.isNaN(evalN(formulaNumber, coefficients, lum)),
+            `formula ${formulaNumber} ${coefficients} has no index at ${lum} µm`);
+        if (!pole) {
+            assert.equal(at(formulaNumber, coefficients, lum * 1000), null,
+                `formula ${formulaNumber} ${coefficients} has no jet at ${lum} µm`);
+        }
+    }
+    close(evalN(105, [1.5, .01, .5], .45), 1.5 + .01 / .05 ** 1.2, 1e-12, 'Hartmann-2 before A₂');
+
+    // A catalog pads unused pairs with zeros; a zero pair adds nothing at its own pole.
+    close(evalN(6, [...nbk7, 0, .25], .5), evalN(2, nbk7, .5), 1e-15, 'zero pair at its pole');
+    close(at(6, [...nbk7, 0, .25], 500)[0][0], evalN(2, nbk7, .5), 1e-12, 'and in the jet');
+
+    // The built-in Sellmeier materials evaluate through formula 101.
+    const silica = getMaterial('SiO2');
+    const malitson = [0, .6961663, .0684043, .4079426, .1162414, .8974794, 9.896161];
+    close(silica.getNK(8000)[0], evalN(201, malitson, 8), 1e-12, 'built-in SiO2 past its range');
+    assert.ok(silica.getNK(8000)[0] < 1, 'below 1 there, not held at 1');
+    assert.ok(Number.isNaN(silica.getNK(8300)[0]), 'built-in SiO2 has no index at 8.3 µm');
+    assert.ok(Number.isNaN(getMaterial('BK7').getNK(9000)[0]), 'built-in BK7 has none at 9 µm');
 }
 
 // PCHIP derivatives reproduce the active local cubic exactly.

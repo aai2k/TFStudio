@@ -8,12 +8,13 @@
 
 import { resolveColor } from '../../../../utils/materials/catalogManager.js';
 import { drawIndexChart } from './materialChart.js';
-import { FORMULA_LATEX, coefficientNames } from '../../../../utils/materials/dispersionFormulas.js';
+import { FORMULA_LATEX, coefficientNames, formulaLatex } from '../../../../utils/materials/dispersionFormulas.js';
 import { MECHANICAL_FIELDS, MECHANICAL_UNITS, mechanicalToDisplay } from '../../../../utils/materials/mechanical.js';
 import {
     KaTeXSpan, NkProbe, detailTabStrip, dotStyle, statusBadge, propRow,
-    formatCoeff, formatNm, formatK, smallBtn, unitLabel,
+    coefficientChips, formatNm, formatK, formatN, smallBtn, unitLabel,
 } from './materialEditorUI.js';
+import { useVirtualRows, virtualBody } from '../../../ui/virtualRows.js';
 
 const { createElement: h } = React;
 
@@ -119,46 +120,57 @@ export function readOnlyFormulaBlock(selectedMat, me, c) {
         h('div', { style: { fontSize: 10, color: c.textDim, textTransform: 'uppercase', letterSpacing: 1, marginBottom: 6 } }, me.formula),
         info && h('div', { style: { padding: '6px 8px 8px', backgroundColor: c.panel, borderRadius: 4, border: `1px solid ${c.border}`, fontSize: 13, overflowX: 'auto', overflowY: 'hidden', color: c.text, fontStyle: 'italic', marginBottom: 6 } },
             h('div', { style: { marginBottom: 2, fontSize: 11, color: c.textDim } }, info.name),
-            h(KaTeXSpan, { latex: info.template, displayMode: true })
+            h(KaTeXSpan, { latex: formulaLatex(selectedMat.formulaNum, selectedMat.coefficients?.length ?? 0), displayMode: true })
         ),
         selectedMat.coefficients?.length > 0 && h('div', null,
             h('div', { style: { fontSize: 10, color: c.textDim, textTransform: 'uppercase', letterSpacing: 1, marginBottom: 4 } }, me.coefficients),
-            h('div', { style: { display: 'flex', flexWrap: 'wrap', gap: 4, fontSize: 11 } },
-                coefficientNames(selectedMat.formulaNum, selectedMat.coefficients.length).map((name, i) => {
-                    const v = selectedMat.coefficients[i];
-                    if (v == null || v === 0) return null;
-                    return h('div', { key: i, style: { padding: '2px 6px', backgroundColor: c.panel, borderRadius: 3, border: `1px solid ${c.border}` } },
-                        h('span', { style: { color: c.textDim } }, name + ' = '),
-                        h('span', { style: { color: c.text, fontFamily: 'monospace' } }, formatCoeff(v))
-                    );
-                }).filter(Boolean)
-            )
+            coefficientChips(coefficientNames(selectedMat.formulaNum, selectedMat.coefficients.length), selectedMat.coefficients, c)
         )
     );
 }
 
-// Scrollable table of [λ, n, k] rows — shared by the stored-tabData and the
-// sampled views (title + row source differ, structure is identical).
-// `wrapStyle` lets a host with its own gutter override the outer padding.
-export function readOnlyNkTable(title, rows, c, wrapStyle) {
-    return h('div', { style: { flexShrink: 0, borderTop: `1px solid ${c.border}`, padding: '8px 12px 4px', ...wrapStyle } },
+const NK_ROW_HEIGHT = 18;
+
+// Only the rows in view are drawn (ui/virtualRows.js): a refractiveindex.info
+// page can run to 60,000 rows.
+function NkTable({ title, rows, c, wrapStyle, fill }) {
+    const { paneRef, onScroll, first, end } = useVirtualRows(rows.length, NK_ROW_HEIGHT);
+    const cell = { padding: '0 8px', height: NK_ROW_HEIGHT, whiteSpace: 'nowrap' };
+    return h('div', {
+        style: {
+            flexShrink: 0, borderTop: `1px solid ${c.border}`, padding: '8px 12px 4px',
+            ...(fill && { flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column' }), ...wrapStyle,
+        },
+    },
         h('div', { style: { fontSize: 10, color: c.textDim, textTransform: 'uppercase', letterSpacing: 1, marginBottom: 4 } }, title),
-        h('div', { style: { maxHeight: 150, overflowY: 'auto', border: `1px solid ${c.border}`, borderRadius: 4 } },
-            h('table', { style: { width: '100%', borderCollapse: 'collapse', fontSize: 11, fontFamily: 'monospace' } },
+        h('div', {
+            ref: paneRef, onScroll,
+            style: { ...(fill ? { flex: 1, minHeight: 0 } : { maxHeight: 150 }), overflowY: 'auto', border: `1px solid ${c.border}`, borderRadius: 4 },
+        },
+            h('table', { style: { width: '100%', tableLayout: 'fixed', borderCollapse: 'collapse', fontSize: 11, fontFamily: 'monospace' } },
                 h('thead', null, h('tr', { style: { position: 'sticky', top: 0, backgroundColor: c.panel } },
                     ['λ (nm)', 'n', 'k'].map((hd, i) =>
                         h('th', { key: i, style: { textAlign: i === 0 ? 'left' : 'right', padding: '3px 8px', color: c.textDim, borderBottom: `1px solid ${c.border}`, fontWeight: 600 } }, hd))
                 )),
-                h('tbody', null, rows.map((row, i) =>
+                h('tbody', null, virtualBody(rows, { first, end }, NK_ROW_HEIGHT, 3, (row, i) =>
                     h('tr', { key: i },
-                        h('td', { style: { padding: '2px 8px', color: c.text } }, (+row[0]).toFixed(1)),
-                        h('td', { style: { padding: '2px 8px', textAlign: 'right', color: c.text } }, (+row[1]).toFixed(5)),
-                        h('td', { style: { padding: '2px 8px', textAlign: 'right', color: c.textDim } }, formatK(+(row[2] || 0)))
+                        h('td', { style: { ...cell, color: c.text } }, (+row[0]).toFixed(1)),
+                        h('td', { style: { ...cell, textAlign: 'right', color: c.text } }, formatN(+row[1])),
+                        h('td', { style: { ...cell, textAlign: 'right', color: c.textDim } }, formatK(+(row[2] || 0)))
                     )
                 ))
             )
         )
     );
+}
+
+// Scrollable table of [λ, n, k] rows, shared by the stored-tabData and the
+// sampled views (title and row source differ, structure is identical).
+// `wrapStyle` lets a host with its own gutter override the outer padding.
+// With `fill` the table takes the height its host gives it instead of a
+// 150 px box.
+export function readOnlyNkTable(title, rows, c, wrapStyle, fill) {
+    return h(NkTable, { title, rows, c, wrapStyle, fill });
 }
 
 export function renderReadOnlyMaterial({

@@ -1,6 +1,7 @@
 import { useDesign } from '../../../../state/DesignContext.js';
 import { resolveColor } from '../../../../utils/materials/catalogManager.js';
 import { designMaterialLookup } from '../../../../utils/materials/designMaterials.js';
+import { MaterialHasNoIndexError } from '../../../../utils/materials/materialIndexAt.js';
 import {
     assignChips, autoChipLambdas, buildMonitorWorksheet,
 } from '../../../../utils/monitoring/monoSim.js';
@@ -37,7 +38,7 @@ function computeWorksheet(design, resolveMat, options) {
     try {
         return buildMonitorWorksheet(design, resolveMat, options);
     } catch (error) {
-        return { ...EMPTY, error: error.message || String(error) };
+        return { ...EMPTY, error };
     }
 }
 
@@ -95,8 +96,14 @@ export function useMonitorWorksheet() {
         setField('lambdaByStep', next);
     }, [chipByStep, lambdaByStep, result.rows, setField]);
 
+    // With no index at the reference wavelength the run axis cannot be laid
+    // out, so there is nothing to pick from; the worksheet already says why.
     const autoLambda = useCallback(() => {
-        setField('lambdaByStep', autoChipLambdas(design, resolveMat, options));
+        try {
+            setField('lambdaByStep', autoChipLambdas(design, resolveMat, options));
+        } catch (error) {
+            if (!(error instanceof MaterialHasNoIndexError)) throw error;
+        }
     }, [design, resolveMat, options, setField]);
 
     const bulkLambda = session.bulkLambda ?? (design?.referenceWavelength || 550);

@@ -16,6 +16,7 @@ import {
     TABULATED_INTERPOLATION,
 } from './pchip.js';
 import { BUILTIN_RII_DATA } from './builtinRiiData.js';
+import { evalN } from './dispersionFormulas.js';
 
 // Attach the material's valid wavelength range [minNm, maxNm] to its getNK
 // function so the catalog/UI can report and plot the ACTUAL extent instead of a
@@ -23,22 +24,13 @@ import { BUILTIN_RII_DATA } from './builtinRiiData.js';
 // outside it, so TMM results are unaffected.
 function tagRange(fn, rangeNm) { if (rangeNm) fn.rangeNm = rangeNm; return fn; }
 
-// n^2(lam) = 1 + sum Bi*lam^2/(lam^2 - Ci)   lam in um
+// n^2(lam) = 1 + sum Bi*lam^2/(lam^2 - Ci)   lam in um, evaluated as formula 101
+// with a leading constant of 1, so n is NaN where n^2 has no real, positive root.
 // rangeNm: [minNm, maxNm] literature validity range of the Sellmeier fit (optional).
 function sellmeier(coeffs, rangeNm) {
-    const fn = (lambda_nm) => {
-        const lum = lambda_nm / 1000;
-        const lum2 = lum * lum;
-        let n2 = 1;
-        for (const [B, C] of coeffs) {
-            n2 += B * lum2 / (lum2 - C);
-        }
-        return [Math.sqrt(Math.max(n2, 1)), 0];
-    };
-    fn.dispersionFormula = {
-        formulaNum: 101,
-        coefficients: [1, ...coeffs.flat()],
-    };
+    const coefficients = [1, ...coeffs.flat()];
+    const fn = (lambda_nm) => [evalN(101, coefficients, lambda_nm / 1000), 0];
+    fn.dispersionFormula = { formulaNum: 101, coefficients };
     return tagRange(fn, rangeNm);
 }
 

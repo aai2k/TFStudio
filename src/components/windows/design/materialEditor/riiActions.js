@@ -9,6 +9,7 @@ import {
     loadCatalog, getDatabaseStatus, updateDatabase, clearCatalogCache, riiToMaterialEntry,
 } from '../../../../utils/materials/riiDatabase.js';
 import { getCatalogs, createUserCatalog, saveUserMaterial } from '../../../../utils/materials/catalogManager.js';
+import { sampleErrorText } from './riiRightPanel.js';
 
 export async function updateRiiDatabase(ctx) {
     const { rii, setUpdating, setUpdateMsg, setDbStatus, setCatalogLoading, setCatalogTree } = ctx;
@@ -51,7 +52,7 @@ export function addRiiMaterial(catId, ctx) {
         if (onAdded) onAdded(resolvedId, entry.name);
     } catch (err) {
         setPhase('error');
-        setAddMsg(rii.addError(err.message));
+        setAddMsg(rii.addError(sampleErrorText(err, rii)));
     }
 }
 

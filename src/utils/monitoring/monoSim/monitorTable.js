@@ -8,6 +8,7 @@ import {
     findExtrema, isFlatCurve, nearestExtremum, sampleLayerCurve, signalAt, signalErrorOf, slopeAtCut,
     terminationError,
 } from './worksheetSignal.js';
+import { hasIndexAt } from '../../materials/materialIndexAt.js';
 import { CHAMBER_MEDIUM_ID } from '../chamberMedium.js';
 
 // Candidate wavelengths tried per layer, matching the worksheet's search.
@@ -21,9 +22,17 @@ const LAM_STEPS = 25;
 const TIME_CUT_REL_ERR = 0.03;
 
 // Quarter wave in the growing layer at the monitor wavelength, which sizes
-// the curve sampling for the search.
+// the curve sampling for the search. Read only where monitorableAt holds.
 function quarterWave(curMat, lam) {
-    return lam / (4 * Math.max(1e-6, curMat.getNK(lam)[0] || 1.6));
+    return lam / (4 * curMat.getNK(lam)[0]);
+}
+
+// Whether the monitor has a signal at ctx.lam: every material it passes
+// through, the growing layer, the layers beneath it and the chip glass, has an
+// index there. Where one has none the signal has no value, and the layer
+// cannot be monitored at that wavelength.
+function monitorableAt({ lam, curMat, belowMats, sys }) {
+    return [curMat, ...belowMats, sys.subMat].every(material => hasIndexAt(material, lam));
 }
 
 // The cut error this layer would suffer at this wavelength, in nm, scored the
@@ -122,35 +131,42 @@ function planForLayer({ front, i, resolveMat, sys, ref, candidates, noise }) {
     const d = Math.max(0, front[i].thickness || 0);
     if (d <= 0) return { lambda: ref, strategy: 'time' };
     const { curMat, belowMats, belowThicks } = layerStack(front, i, resolveMat);
-    // Turning at the reference is kept when the cut sits on an extremum there
-    // AND the reversal is still strong enough to detect within the engine's
-    // own tracking window (about a quarter of a quarter-wave for a
-    // first-order cut): it carries the classical cumulative self-compensation
-    // that no per-layer score can see. Deep inside a forming stopband the
-    // signal saturates and the reversal amplitude dies; such a layer falls
-    // through to the search and is monitored outside the band, the way a deep
-    // quarter-wave mirror is monitored at a real coater.
     const refCtx = { lam: ref, curMat, belowMats, belowThicks, sys };
-    const dQWref = quarterWave(curMat, ref);
-    const refExt = nearestExtremum(
-        findExtrema(sampleLayerCurve(refCtx, d, dQWref, true)), d);
-    if (refExt && Math.abs(refExt.d - d) <= dQWref / 8) {
-        const sigErr = signalErrorOf(noise, signalAt(refCtx, d));
-        const detect = terminationError({
-            strategy: 'turning', signalError: sigErr, slope: 0, cutExtremum: refExt,
-        });
-        if (detect <= dQWref / 4) return { lambda: ref, strategy: 'turning' };
+    if (monitorableAt(refCtx) && turningHoldsAtReference(refCtx, d, noise)) {
+        return { lambda: ref, strategy: 'turning' };
     }
     let best = null;
     for (const lam of candidates) {
-        const score = scoreLayerAt({ lam, curMat, belowMats, belowThicks, sys }, d, noise);
+        const ctx = { lam, curMat, belowMats, belowThicks, sys };
+        if (!monitorableAt(ctx)) continue;
+        const score = scoreLayerAt(ctx, d, noise);
         if (!best || score.err < best.err) best = { ...score, lambda: lam };
     }
     // No optical rule better than dead reckoning exists for this layer at any
-    // candidate wavelength: cut it by time, the way an unmonitorable layer is
-    // handled at a real coater.
-    if (!(best.err < TIME_CUT_REL_ERR * d)) return { lambda: ref, strategy: 'time' };
+    // candidate wavelength, or no candidate has a signal: cut it by time, the
+    // way an unmonitorable layer is handled at a real coater.
+    if (!best || !(best.err < TIME_CUT_REL_ERR * d)) return { lambda: ref, strategy: 'time' };
     return { lambda: best.lambda, strategy: best.strategy };
+}
+
+// Turning at the reference is kept when the cut sits on an extremum there AND
+// the reversal is still strong enough to detect within the engine's own
+// tracking window (about a quarter of a quarter-wave for a first-order cut):
+// it carries the classical cumulative self-compensation that no per-layer
+// score can see. Deep inside a forming stopband the signal saturates and the
+// reversal amplitude dies; such a layer falls through to the search and is
+// monitored outside the band, the way a deep quarter-wave mirror is monitored
+// at a real coater.
+function turningHoldsAtReference(refCtx, d, noise) {
+    const dQWref = quarterWave(refCtx.curMat, refCtx.lam);
+    const refExt = nearestExtremum(
+        findExtrema(sampleLayerCurve(refCtx, d, dQWref, true)), d);
+    if (!refExt || Math.abs(refExt.d - d) > dQWref / 8) return false;
+    const sigErr = signalErrorOf(noise, signalAt(refCtx, d));
+    const detect = terminationError({
+        strategy: 'turning', signalError: sigErr, slope: 0, cutExtremum: refExt,
+    });
+    return detect <= dQWref / 4;
 }
 
 /**
@@ -195,14 +211,13 @@ export function pickMonitoringPlan({
 /**
  * Strategy from the layer's own quarter-wave count: 'turning' if d_target is
  * within 6% of an integer number of quarter-waves at λ_mon, else 'level'.
- * Zero-thickness → 'time'.
+ * Zero-thickness → 'time', and so is a layer whose material has no index at
+ * λ_mon: it has no quarter wave and no signal there.
  */
 export function autoMonoStrategy(layer, mat, monLambda) {
     const dt = Math.max(0, layer.thickness || 0);
-    if (dt <= 0) return 'time';
-    let nAt = 1.6;
-    try { const [nRe] = mat.getNK(monLambda); if (Number.isFinite(nRe) && nRe > 0) nAt = nRe; } catch (_) {}
-    const qw = monLambda / (4 * nAt);
+    if (dt <= 0 || !hasIndexAt(mat, monLambda)) return 'time';
+    const qw = quarterWave(mat, monLambda);
     const ratio = dt / qw;
     const nearest = Math.round(ratio);
     if (nearest >= 1 && Math.abs(ratio - nearest) < 0.06) return 'turning';
@@ -218,11 +233,12 @@ export function autoMonoStrategy(layer, mat, monLambda) {
  * a quarter-wave layer on such a stack can turn several nanometres short of
  * its target, where a turning cut would stop it. Such a layer, like every
  * other one, gets a level cut. A layer that leaves no trace on the signal is
- * cut on time, and so is a zero-thickness one.
+ * cut on time, and so is a zero-thickness one, and one with no signal at the
+ * reference because a material it is monitored through has no index there.
  */
 function defaultStrategyAt(ctx, layer) {
     const d = Math.max(0, layer.thickness || 0);
-    if (d <= 0) return 'time';
+    if (d <= 0 || !monitorableAt(ctx)) return 'time';
     const dQW = quarterWave(ctx.curMat, ctx.lam);
     const curve = sampleLayerCurve(ctx, d, dQW);
     if (isFlatCurve(curve)) return 'time';

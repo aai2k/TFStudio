@@ -9,7 +9,7 @@
  *
  * A user material is one of two mutually-exclusive types:
  *   tabular   — wavelength / n / k table (formulaNum === -1)
- *   formula   — one of the Zemax dispersion formulas + optional k table
+ *   formula   — a dispersion formula from dispersionFormulas.js + optional k table
  */
 
 import { anchoredFitRange } from '../../../../utils/materials/dispersionFitRange.js';
@@ -21,8 +21,8 @@ import {
 } from './mechanicalDraft.js';
 import { parseNumber, parseNumberStrict } from '../../../../utils/misc/numberParsing.js';
 
-export { buildNKFromDraft } from './nkSamplers.js';
-import { parsedRows, readOnce } from './nkSamplers.js';
+export { buildNKFromDraft, draftRangeNm } from './nkSamplers.js';
+import { draftRangeNm, parsedRows, readOnce } from './nkSamplers.js';
 
 /**
  * Fit models worth offering for a table.
@@ -264,6 +264,9 @@ export function materialToDraft(catalogId, mat) {
         originalId: mat.id,         // actual key in catalog.materials (may differ from safeId)
         dataPath:  mat.dataPath  || null,
         sourceUrl: mat.sourceUrl || null,
+        // Not shown in the form, so saving writes back what was stored.
+        comment: mat.comment || '',
+        rangeDeclared: mat.rangeDeclared === true,
         name: mat.name || mat.id,
         color: mat.color || 'auto',   // no stored color → automatic (index-derived)
         // Kept to the picometre so a stated 361.2 nm limit stays 361.2 in the form.
@@ -271,7 +274,7 @@ export function materialToDraft(catalogId, mat) {
         lambdaMaxNm: String(Number(((mat.lambdaMax || 2.5) * 1000).toFixed(3))),
         type: (isTab || isBuiltin) ? 'tabular' : 'formula',
         interp: interpolationRuleOf(mat),
-        isRii: !!mat.dataPath,   // true for refractiveindex.info imports — hides Zemax formula UI
+        isRii: !!mat.dataPath,   // a refractiveindex.info import keeps the data type of its page
         rows: tabRows,
         formulaNum,
         coeffs: (isTab || isBuiltin) ? Array(10).fill('') : padCoeffs(mat.coefficients || []),
@@ -290,25 +293,15 @@ export function materialToDraft(catalogId, mat) {
     };
 }
 
-/**
- * The stated validity range in nm, the fallback for a material whose own data
- * does not say where it starts and ends, and the span the form's chart and
- * sampled table cover. Any positive wavelength is taken; an entry that is not
- * one gives the default, and an end not above the start is put 100 nm past it.
- */
-export function draftRangeNm(draft) {
-    const nm = (text, fallback) => {
-        const value = parseNumber(text);
-        return value > 0 ? value : fallback;
-    };
-    const lambdaMin = nm(draft.lambdaMinNm, 300);
-    const lambdaMax = nm(draft.lambdaMaxNm, 2500);
-    return [lambdaMin, lambdaMax > lambdaMin ? lambdaMax : lambdaMin + 100];
-}
-
 function draftRangeUm(draft) {
     return draftRangeNm(draft).map(nm => nm / 1000);
 }
+
+// Where an imported material came from, and whether its source stated its
+// range, which the form does not edit: saving keeps them, so an edited import
+// keeps its link and the range notice still reads its range.
+const SOURCE_FIELDS = ['dataPath', 'sourceUrl', 'rangeDeclared'];
+const sourceOf = draft => Object.fromEntries(SOURCE_FIELDS.filter(key => draft[key]).map(key => [key, draft[key]]));
 
 // A table material. Its range comes from the data rather than from the stated
 // one, since the table is the material.
@@ -324,8 +317,7 @@ function tabularFromDraft(draft, [lambdaMin, lambdaMax]) {
         lambdaMin: tabData.length > 0 ? tabData[0][0] / 1000 : lambdaMin,
         lambdaMax: tabData.length > 1 ? tabData[tabData.length - 1][0] / 1000 : lambdaMax,
         ...(draft.dispersionFit ? { dispersionFit: draft.dispersionFit } : {}),
-        ...(draft.dataPath  ? { dataPath:  draft.dataPath  } : {}),
-        ...(draft.sourceUrl ? { sourceUrl: draft.sourceUrl } : {}),
+        ...sourceOf(draft),
     };
 }
 
@@ -341,6 +333,7 @@ function formulaFromDraft(draft, [lambdaMin, lambdaMax]) {
         kTable, tabData: [],
         ...(kTable.length ? { interp: interpolationRuleOf(draft) } : {}),
         lambdaMin, lambdaMax,
+        ...sourceOf(draft),
     };
 }
 
@@ -350,7 +343,7 @@ export function draftToMaterial(draft) {
     const mechanical = mechanicalFromDraft(draft.mechanical);
     return {
         id, name: draft.name.trim() || id,
-        color: draft.color, group: 'User', comment: '',
+        color: draft.color, group: 'User', comment: draft.comment || '',
         nd: null, vd: null, density: null,
         ...(mechanical ? { mechanical } : {}),
         ...(draft.type === 'tabular' ? tabularFromDraft(draft, range) : formulaFromDraft(draft, range)),

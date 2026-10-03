@@ -63,13 +63,14 @@ export function tfLayersToCoat(name, layers, opts) {
     for (const L of (layers || [])) {
         const mat = opts.zemaxName(L.material);
         const dNm = L.thickness;
-        if (mode === 'absolute') {
-            out.push({ material: mat, thickness: dNm / 1000, isAbsolute: 1 });   // nm → µm
-        } else {
-            const n0 = opts.realIndex(L.material, refNm);
+        // A material with no index at λ₀ has no optical thickness there, so its
+        // layer is written in µm, which the file allows layer by layer.
+        const n0 = mode === 'relative' ? opts.realIndex(L.material, refNm) : NaN;
+        if (n0 > 0) {
             // T = n₀ · d / λ₀   (inverse of d = T·λ₀/n₀)
-            const T = (n0 > 0) ? (n0 * (dNm / 1000)) / refUm : 0;
-            out.push({ material: mat, thickness: T, isAbsolute: 0 });
+            out.push({ material: mat, thickness: (n0 * (dNm / 1000)) / refUm, isAbsolute: 0 });
+        } else {
+            out.push({ material: mat, thickness: dNm / 1000, isAbsolute: 1 });   // nm → µm
         }
     }
     return { name: sanitizeZemaxName(name), layers: out };
