@@ -7,17 +7,19 @@
  */
 
 import {
+    hasFreeLevel,
     isConstraint,
     isEllipsometry,
     isGroupDelay,
     isIntegral,
     isLinearThickness,
     isLogPoint,
+    isMeasuredCurve,
     isMinmax,
     isPhaseShift,
     isRangeTarget,
 } from '../operandModel.js';
-import { _jacRowsRangeTarget, _jacRowIntegral, _jacRowMeanOrSingle } from './bandRows.js';
+import { _jacRowsLevelFree, _jacRowsRangeTarget, _jacRowIntegral, _jacRowMeanOrSingle } from './bandRows.js';
 import { _jacRowConstraint, _jacRowLogPoint, _jacRowMinmax } from './extremumRows.js';
 import { _jacRowLinearThickness } from './linearRows.js';
 import { _jacRowEllipsometry, _jacRowPhase } from './phaseRows.js';
@@ -39,6 +41,9 @@ const ROW_BUILDERS = [
 // for every other kind. Null when the analytic chain rule declines the operand.
 export function _jacRows(op, i, jc) {
     if (isRangeTarget(op.type)) return _jacRowsRangeTarget(op, jc);
+    // A curve block reaches the engine whole only with its level free; any
+    // other block is expanded into point rows first.
+    if (isMeasuredCurve(op.type)) return hasFreeLevel(op) ? _jacRowsLevelFree(op, jc) : null;
     const hit = ROW_BUILDERS.find(([test]) => test(op.type));
     const row = hit ? hit[1](op, i, jc) : _jacRowMeanOrSingle(op, jc);
     return row ? [row] : null;

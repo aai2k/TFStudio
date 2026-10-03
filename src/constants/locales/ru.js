@@ -1661,6 +1661,7 @@ export default {
     residualDifference: 'Текущее − цель',
     measuredPairOff:  missing => `Кривая ${missing} этого измерения выключена. Одна Ψ или одна Δ не определяет толщины однозначно.`,
     measuredPairGone: missing => `Кривой ${missing} этого измерения больше нет в таблице. Одна Ψ или одна Δ не определяет толщины однозначно.`,
+    measuredLevelFree: 'уровень свободен: оценивается форма, а не уровень',
     totalPhaseScope: (side) => `Режим Total: операнды R/T оценивают всю систему. Операнды фазы, GD, GDD и TOD оценивают только ${side === 'back' ? 'заднее' : 'переднее'} покрытие.`,
     addComment:    'Коммент.',
     addOperand:    '+ Добавить',

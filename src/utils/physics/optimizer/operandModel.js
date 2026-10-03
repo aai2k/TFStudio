@@ -11,8 +11,8 @@
 
 import {
     GENERATED_ONLY_OPERAND_TYPES, MEASURED_CURVE_OPERAND_TYPES, MEASURED_CURVE_QUANTITIES,
-    isEllipsometricMeasuredCurve, isEllipsometricQuantity, isMeasuredCurve, measuredCurveChannel,
-    seedMeasuredCurve,
+    hasFreeLevel, isEllipsometricMeasuredCurve, isEllipsometricQuantity, isMeasuredCurve,
+    measuredCurveChannel, seedMeasuredCurve,
 } from './measuredCurveType.js';
 
 import {
@@ -21,7 +21,8 @@ import {
 
 export {
     GENERATED_ONLY_OPERAND_TYPES, MEASURED_CURVE_OPERAND_TYPES, MEASURED_CURVE_QUANTITIES,
-    isEllipsometricMeasuredCurve, isEllipsometricQuantity, isMeasuredCurve, measuredCurveChannel,
+    hasFreeLevel, isEllipsometricMeasuredCurve, isEllipsometricQuantity, isMeasuredCurve,
+    measuredCurveChannel,
 };
 export {
     LOG_MINMAX_OPERAND_TYPES, LOG_OPERAND_TYPES, LOG_READING_FLOOR, fractionFromLog,

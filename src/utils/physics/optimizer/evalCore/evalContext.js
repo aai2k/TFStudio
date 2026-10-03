@@ -109,8 +109,9 @@ function _legacyContext(n0mat, nsmat, thicknesses, mats) {
 // overwritten so a reused ctx object can never serve a stale result.
 // Operands are indexed by id so math operands can resolve op.refId / refId1/2
 // in O(1) and so makeRefResolver can do recursive eval with memoization and
-// cycle detection. The range targets leave their per-sample deviations in
-// _sampleDeviations and the worst-case min/max rows the wavelength of their
+// cycle detection. The range targets and the curve blocks with their level free
+// leave their per-sample deviations in _sampleDeviations and the worst-case
+// min/max rows the wavelength of their
 // extremum in _extremumLambdas, both keyed by operand.
 function _resetPerCallCaches(ctx, operands) {
     ctx._tmmCache = new Map();
@@ -214,8 +215,9 @@ export function operandEvaluationErrors(computed) {
 
 /**
  * Per-sample deviations from the target line, aligned with `computed`, for the
- * range targets (TGT/RGT/AGT); null or absent for every other row. The least-
- * squares engine takes one residual per sample from these.
+ * range targets (TGT/RGT/AGT) and the curve blocks with their level free; null
+ * or absent for every other row. The least-squares engine takes one residual
+ * per sample from these.
  */
 export function operandSampleDeviations(computed) {
     return computed?.operandSampleDeviations || [];

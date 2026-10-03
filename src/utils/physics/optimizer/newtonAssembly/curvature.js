@@ -12,7 +12,7 @@
 import { operandResidualScale } from '../evalCore.js';
 import { resolveSourceSpec, resolveDetectorSpec } from '../../spectralWeightings.js';
 import {
-    isMath, isArgwave, isEField, isEllipsometry, polFromType,
+    isMath, isArgwave, isEField, isEllipsometry, isMeasuredCurve, polFromType,
     isManufacturability, isMinmax, isRangeTarget, isIntegral,
 } from '../operandModel.js';
 import { charOf, operandSampleLambdas, isRangeAvg, bandQuadratureWeights } from '../sampling.js';
@@ -113,7 +113,10 @@ function _curvRangeAvg(op, rp, hc) {
 // the Newton system simply skips them.
 export function _operandSupportsFullNewton(op) {
     if (!op.enabled) return true;
-    if (isMath(op.type) || isArgwave(op.type)) return false;
-    if (isEllipsometry(op.type) || isEField(op.type)) return false;
+    if (NO_ANALYTIC_CURVATURE.some(test => test(op.type))) return false;
     return operandResidualScale(op) === 1;
 }
+
+// A curve block reaching the engine whole has its level free, and the curvature
+// of its shared level is not worked out.
+const NO_ANALYTIC_CURVATURE = [isMath, isArgwave, isEllipsometry, isEField, isMeasuredCurve];

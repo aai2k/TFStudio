@@ -1,6 +1,7 @@
 /**
  * Analytic Jacobian rows for band / pointwise value operands (TGT/RGT/AGT,
- * weighted integrals, band means and single-λ targets).
+ * curve blocks with their level free, weighted integrals, band means and
+ * single-λ targets).
  *
  * Each builder returns the length-nFree Jacobian row for one operand; a range
  * target returns one row per sample. `jc` bundles the shared context:
@@ -8,7 +9,7 @@
  */
 
 import { resolveSourceSpec, resolveDetectorSpec } from '../../spectralWeightings.js';
-import { polFromType } from '../operandModel.js';
+import { measuredCurveChannel, polFromType, rowReadingSlopeOverSigma } from '../operandModel.js';
 import { charOf, operandSampleLambdas, isRangeAvg, bandQuadratureWeights } from '../sampling.js';
 
 // Continuous per-λ target (TGT/RGT/AGT), one residual per sample:
@@ -28,6 +29,30 @@ export function _jacRowsRangeTarget(op, jc) {
         for (let ci = 0; ci < nFree; ci++) row[ci] = sw * d[freeIdx[ci]];
         return row;
     });
+}
+
+// Curve block with its level free, one residual per point:
+// rₛ = √(w/n)·(gₛ − ḡ)/σ with gₛ the block's reading of the channel at λₛ less
+// its point, and ḡ their mean. The level ḡ moves with the thicknesses, so
+// ∂rₛ/∂d_k = √(w/n)·(uₛ − ū) with uₛ = (∂gₛ/∂C ÷ σ)·∂Cₛ/∂d_k and ū their mean:
+// every row has the block's mean derivative taken out.
+export function _jacRowsLevelFree(op, jc) {
+    const { freeIdx, nFree, propDeriv, propValue } = jc;
+    const channel = measuredCurveChannel(op);
+    const char = charOf(channel);
+    const pol = op.pol || 'avg';
+    const aoi = op.aoi ?? 0;
+    const lambdas = op.sampleLambdas;
+    const n = lambdas.length;
+    const u = lambdas.map((lambda) => {
+        const d = propDeriv(lambda, pol, char, aoi);
+        const slope = rowReadingSlopeOverSigma(channel, propValue(lambda, pol, char, aoi));
+        return freeIdx.map(index => slope * d[index]);
+    });
+    const mean = new Array(nFree).fill(0);
+    for (const row of u) for (let ci = 0; ci < nFree; ci++) mean[ci] += row[ci] / n;
+    const scale = Math.sqrt(op.weight / n);
+    return u.map(row => row.map((value, ci) => scale * (value - mean[ci])));
 }
 
 // Weighted-integral: residual = sw·(C̄_w − target),

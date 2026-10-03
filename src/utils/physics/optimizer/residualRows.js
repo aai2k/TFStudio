@@ -8,12 +8,14 @@
  * w·Σ qₛ devₛ², exactly the row's contribution to the merit, but each sample
  * keeps its own Jacobian row. As a single RMS residual the operand would add a rank-one
  * block to JᵀJ and Levenberg-Marquardt would see only its gradient direction. A
- * measured curve is expanded the same way (measuredCurveOperand.js). The analytic
+ * measured curve is expanded into point rows for the same reason
+ * (measuredCurveOperand.js), except one with its level free, which gives one
+ * residual per point itself. The analytic
  * Jacobian builders emit rows in the same order and number
  * (jacobianAssembly/jacRows.js).
  */
 
-import { isRangeTarget } from './operandModel.js';
+import { hasFreeLevel, isRangeTarget } from './operandModel.js';
 import { bandQuadratureWeights } from './sampling.js';
 import { operandResidualScale, _operandResidual } from './evalCore.js';
 
@@ -33,6 +35,12 @@ export function operandResidualRows(op, value, deviations) {
     if (isRangeTarget(op.type)) {
         const q = bandQuadratureWeights(deviations.length);
         return deviations.map((dev, s) => finiteOrZero(Math.sqrt(op.weight * q[s]) * dev));
+    }
+    // A curve block with its level free: one residual per point, √(w/n)·devₛ/σ,
+    // whose squares sum to w·RMS²/σ², the row's share of the merit.
+    if (hasFreeLevel(op)) {
+        const scale = Math.sqrt(op.weight / deviations.length) / operandResidualScale(op);
+        return deviations.map(dev => finiteOrZero(scale * dev));
     }
     return [finiteOrZero(Math.sqrt(op.weight) * _operandResidual(op, value) / operandResidualScale(op))];
 }

@@ -1834,6 +1834,7 @@ export default {
     residualDifference: 'Corrente − target',
     measuredPairOff: missing => `${missing} di questa misura è disattivato. Ψ o Δ da soli lasciano gli spessori indeterminati.`,
     measuredPairGone: missing => `${missing} di questa misura non è più in tabella. Ψ o Δ da soli lasciano gli spessori indeterminati.`,
+    measuredLevelFree: 'livello libero: conta la forma, non il livello',
     totalPhaseScope: (side) => `Modalità di merito totale: gli operandi R/T valutano l'intero elemento. Gli operandi di fase, GD, GDD e TOD valutano solo il rivestimento ${side}.`,
     addComment: 'Commento',
     addOperand: '+ Aggiungi',

@@ -8,7 +8,7 @@
  * a rectangle dragged through the row is not broken by it.
  */
 import {
-    isEllipsometricMeasuredCurve, isMeasuredCurve,
+    hasFreeLevel, isEllipsometricMeasuredCurve, isMeasuredCurve,
 } from '../../../../../utils/physics/optimizer.js';
 import { selectable } from './CellControls.js';
 
@@ -39,7 +39,8 @@ function measuredTypeCell(ctx, colKey, width) {
     const { op, c, t, tdBase, operands } = ctx;
     const points = op.sampleLambdas?.length || 0;
     const symbol = QUANTITY_SYMBOL[op.quantity];
-    const summary = `${op.curveName || 'Measured curve'} · ${op.quantity || 'R'} · ${points} points`;
+    const levelFree = hasFreeLevel(op) ? ` · ${t?.meritFunctionEditor?.measuredLevelFree}` : '';
+    const summary = `${op.curveName || 'Measured curve'} · ${op.quantity || 'R'} · ${points} points${levelFree}`;
     const fault = pairFault(op, operands);
     const missing = QUANTITY_SYMBOL[op.quantity === 'PSI' ? 'DEL' : 'PSI'];
     const faultText = fault && (t?.meritFunctionEditor?.[fault]?.(missing) || fault);

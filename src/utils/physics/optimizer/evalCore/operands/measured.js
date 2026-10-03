@@ -4,7 +4,7 @@
  * blocks alike.
  */
 
-import { isEllipsometricMeasuredCurve, measuredCurveChannel, rowReading } from '../../operandModel.js';
+import { hasFreeLevel, isEllipsometricMeasuredCurve, measuredCurveChannel, rowReading } from '../../operandModel.js';
 import { charOf } from '../../sampling.js';
 import { measuredCurveEngineTargets } from '../../measuredCurveOperand.js';
 import { tmmProp } from '../tmmEval.js';
@@ -32,7 +32,11 @@ function _measuredSnapshotLambdas(op) {
 // Persisted measured-curve block: its value is already the RMS residual, so
 // `_operandResidual` consumes it directly just like a continuous range target.
 // A block on the T-in-dB channel (TDB) holds its points in dB and is scored in
-// dB, as the TDB points it expands into are.
+// dB, as the TDB points it expands into are. A block with its level free
+// scores the deviations less their mean, the constant that fits them best,
+// and keeps those deviations on the context: such a block is not expanded for
+// a run, and the least-squares engine takes one residual per point from them,
+// as it does for a range target.
 export function _evalMeasuredCurve(op, ctx) {
     const channel = measuredCurveChannel(op);
     if (!channel) {
@@ -46,12 +50,15 @@ export function _evalMeasuredCurve(op, ctx) {
     const targets = op.sampleTargets;
     const pol = op.pol || 'avg';
     const char = charOf(channel);
-    let sumSq = 0;
-    for (let index = 0; index < lambdas.length; index++) {
-        const value = tmmProp(lambdas[index], op.aoi ?? 0, pol, char, ctx, ctx.frontThicks, ctx.frontMats);
-        const difference = rowReading(channel, value) - targets[index];
-        sumSq += difference * difference;
+    const deviations = lambdas.map((lambda, index) => rowReading(
+        channel, tmmProp(lambda, op.aoi ?? 0, pol, char, ctx, ctx.frontThicks, ctx.frontMats),
+    ) - targets[index]);
+    if (hasFreeLevel(op)) {
+        const level = deviations.reduce((sum, value) => sum + value, 0) / deviations.length;
+        for (let index = 0; index < deviations.length; index++) deviations[index] -= level;
+        ctx._sampleDeviations?.set(op, deviations);
     }
+    const sumSq = deviations.reduce((sum, value) => sum + value * value, 0);
     return Math.sqrt(sumSq / lambdas.length);
 }
 

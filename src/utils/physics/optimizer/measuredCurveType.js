@@ -38,6 +38,18 @@ export function isEllipsometricMeasuredCurve(op) {
     return isMeasuredCurve(op?.type) && isEllipsometricQuantity(op.quantity);
 }
 
+/**
+ * A block scored with its level free (`levelFree: true`): the constant, in the
+ * block's own unit, that best fits the design's departure from the points is
+ * taken out before the deviation is scored, so the block scores the shape of
+ * the curve and not where it sits. A gain-flattening target is written this
+ * way, its level left to an insertion-loss row. Ψ and Δ blocks have no free
+ * level.
+ */
+export function hasFreeLevel(op) {
+    return isMeasuredCurve(op?.type) && op.levelFree === true && !isEllipsometricQuantity(op.quantity);
+}
+
 // A measured block scores an RMS deviation from its stored points, so its target
 // is fixed at zero and its band is whatever the snapshot covers.
 export function seedMeasuredCurve(base) {

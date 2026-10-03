@@ -16,7 +16,7 @@
  */
 
 import {
-    isMeasuredCurve, makeOperand, measuredCurveChannel,
+    hasFreeLevel, isMeasuredCurve, makeOperand, measuredCurveChannel,
 } from './operandModel.js';
 import { CALCULATED_DELTA_CONVENTION, convertDeltaConvention } from '../thinFilmMath.js';
 
@@ -74,10 +74,13 @@ function hasPairedSnapshot(op) {
 /**
  * Expand one valid measured snapshot into pointwise single-wavelength operands.
  * A block that is not valid, or is on a channel this build does not know, is
- * left whole, so its own evaluator reports why it cannot be scored.
+ * left whole, so its own evaluator reports why it cannot be scored. A block
+ * with its level free is left whole too: its points share the level, so they
+ * are not independent rows, and the block gives one residual per point itself
+ * (residualRows.js).
  */
 function expandMeasuredCurveOperand(op) {
-    if (!isMeasuredCurve(op?.type)) return [op];
+    if (!isMeasuredCurve(op?.type) || hasFreeLevel(op)) return [op];
     const type = measuredCurveChannel(op);
     if (!type || !hasPairedSnapshot(op)) return [op];
     const lambdas = op.sampleLambdas;

@@ -1671,6 +1671,7 @@ export default {
     residualDifference: 'Current − target',
     measuredPairOff:  missing => `${missing} of this measurement is switched off. Ψ or Δ alone leaves the thicknesses under-determined.`,
     measuredPairGone: missing => `${missing} of this measurement is no longer in the table. Ψ or Δ alone leaves the thicknesses under-determined.`,
+    measuredLevelFree: 'level free: scores the shape, not the level',
     totalPhaseScope: (side) => `Total merit mode: R/T operands score the whole element. Phase, GD, GDD, and TOD operands score the ${side} coating only.`,
     addComment:    'Comment',
     addOperand:    '+ Add',

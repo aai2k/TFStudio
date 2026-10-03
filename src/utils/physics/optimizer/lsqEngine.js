@@ -24,7 +24,7 @@ import {
     operandEvaluationErrors, OperandEvaluationError, operandSampleDeviations,
 } from './evalCore.js';
 import { operandResidualRows } from './residualRows.js';
-import { isArgwave, isMath, isEField, isMeasuredCurve } from './operandModel.js';
+import { isArgwave, isMath, isEField } from './operandModel.js';
 import { expandMeasuredCurveOperands } from './measuredCurveOperand.js';
 import { makeConeSpec, coneIsActive } from './coneAngle.js';
 import { mirrorLayers } from './layerOps.js';
@@ -36,9 +36,11 @@ import { _surfaceLayout, makePointEvaluators, _jacRows } from './jacobianAssembl
 import { _jtjUpper, _mirrorUpper, makeHessianSampler, _addS, _curvOperand, _operandSupportsFullNewton } from './newtonAssembly.js';
 
 // Operand kinds whose analytic chain rule is not worked out. One of them in
-// the merit function puts the whole Jacobian onto finite differences.
+// the merit function puts the whole Jacobian onto finite differences. A curve
+// block is either expanded into point rows or, with its level free, has rows
+// of its own (jacobianAssembly/jacRows.js).
 const DECLINES_ANALYTIC_JACOBIAN = [
-    isArgwave, isMath, isMeasuredCurve, isEField,
+    isArgwave, isMath, isEField,
 ];
 
 const sameValues = (a, b) => a.length === b.length && a.every((value, index) => value === b[index]);

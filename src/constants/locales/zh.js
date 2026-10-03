@@ -1827,6 +1827,7 @@ export default {
     residualDifference: '当前 − 目标',
     measuredPairOff: missing => `此测量的 ${missing} 已关闭。仅有 Ψ 或仅有 Δ 无法唯一确定层厚。`,
     measuredPairGone: missing => `此测量的 ${missing} 已不在表中。仅有 Ψ 或仅有 Δ 无法唯一确定层厚。`,
+    measuredLevelFree: '水平自由：评价形状而非水平',
     totalPhaseScope: (side) => `整体评价模式：R/T 操作数对整个元件评分。相位、GD、GDD 和 TOD 操作数仅对 ${side} 镀膜评分。`,
     addComment: '注释',
     addOperand: '+ 添加',
