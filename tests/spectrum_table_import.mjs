@@ -392,6 +392,17 @@ ok('dsc → tableToCsv header', csvD.split('\r\n')[0] === 'Wavelength (nm),T %,R
     ok('a wavelength name past the last column does not stop the import', t?.ok === true && t.nRows === 2);
 }
 
+// The label column's name is dropped with the labels, so every other name
+// stays over its own numbers.
+{
+    const t = parseSpectrumTable('Sample,Wavelength (nm),%T\nA,400,90\nA,401,91\nA,402,92\n');
+    ok('a labelled file keeps its names over their own columns',
+        t.ok && t.columns.length === 1 && t.columns[0].name === '%T' && approx(t.x[0], 400));
+    const run = parseSpectrumTable('case,n,at_lambda_nm\nA run,500,710\nB run,500,700\n');
+    ok('and its named wavelength column is the axis', run.ok && run.x.join() === '710,700'
+        && run.columns.map(c => c.name).join('|') === 'n');
+}
+
 // A tagged file whose header names the tag column: the names still line up.
 {
     const text = [

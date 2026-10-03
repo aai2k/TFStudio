@@ -144,6 +144,21 @@ function collectDataRows(rawLines, firstData, delimiter, decimal, allowTag) {
 }
 
 /**
+ * The header without the name of the label column, when the rows start with a
+ * label the parser drops and the header names that column too: one name more
+ * than the columns read. Left in, every name sits over its left neighbour's
+ * numbers.
+ *
+ * A header split on spaces is left as it is. That line is as often a sentence,
+ * such as ADAP's "Measured data written by ADAP", as a row of names.
+ */
+function withoutLabelName(layout, allowTag, nCols, delimiter) {
+    if (!allowTag || delimiter === ' ' || layout.names.length !== nCols + 1) return layout;
+    const drop = list => (list.length === nCols + 1 ? list.slice(1) : list);
+    return { ...layout, names: drop(layout.names), units: drop(layout.units), sampleNames: drop(layout.sampleNames) };
+}
+
+/**
  * Parse a delimited spectrum table.
  *
  * @param {string} text  raw file text
@@ -186,7 +201,7 @@ export function parseSpectrumTable(text, opts = {}) {
 
     const { dataRows, skippedRows } = collectDataRows(rawLines, firstData, delimiter, decimal, allowTag);
     const nCols = modalFieldCount(dataRows);
-    const layout = detectHeaderLayout(headerLines, delimiter, decimal, nCols);
+    const layout = withoutLabelName(detectHeaderLayout(headerLines, delimiter, decimal, nCols), allowTag, nCols, delimiter);
     const { names: columnNames, units: columnUnits, sampleNames } = layout;
     const headerText = headerLines.join('\n');
 
