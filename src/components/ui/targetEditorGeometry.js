@@ -118,6 +118,25 @@ function spannedX(chart, width) {
 }
 
 /**
+ * The point among drawn `items` (in pixels) nearest `pixel`, or null. Points
+ * closer together than their press radius overlap, and a press goes to the one
+ * under it, not to whichever was drawn last.
+ */
+export function nearestPoint(items, pixel) {
+    let best = null;
+    let bestDistance = Infinity;
+    for (const item of items) {
+        if (!isPointItem(item)) continue;
+        const distance = Math.hypot(item.start[0] - pixel[0], item.start[1] - pixel[1]);
+        if (distance < bestDistance) {
+            best = item;
+            bestDistance = distance;
+        }
+    }
+    return best;
+}
+
+/**
  * Every item that is drawn, in pixels. Points are drawn only where the plot
  * shows them, and only while there are no more of them in view than the
  * overlay is pixels wide: past that the handles overlap beyond telling apart,

@@ -308,6 +308,14 @@ const design = makeSampleDesign();
     assert.deepEqual(clampToPlot(framed, [30, 400]), [50, 320], 'past a corner it is held at the corner');
     assert.deepEqual(clampToPlot(framed, [200, 100]), [200, 100], 'on the plot it is left alone');
     assert.deepEqual(clampToPlot(chart, aboveTop), aboveTop, 'a chart that gives no rectangle leaves it as it is');
+
+    // Points closer than their press radius overlap; a press takes the one
+    // nearest it, not the one drawn last.
+    const { nearestPoint } = await import('../src/components/ui/targetEditorGeometry.js');
+    const dense = [500, 502, 504].map(x => ({ opId: `${x}`, shape: 'point', start: [x, 100] }));
+    assert.equal(nearestPoint(dense, [500.5, 101]).opId, '500');
+    assert.equal(nearestPoint([{ start: [0, 0], end: [9, 9] }, ...dense], [503.4, 100]).opId, '504', 'lines are not points');
+    assert.equal(nearestPoint([], [0, 0]), null);
     const { pointGeometry, draggedCell, roundDragged } = await import(
         '../src/components/windows/dataExchange/curveEditor/chartModel.js');
     const geometry = pointGeometry({ ...emptyTable('ellipsometry'), rows: [[500, 30, 100], [400, 20, NaN]] });

@@ -16,7 +16,7 @@
 import { observeResize } from './observeResize.js';
 import {
     clampToPlot, dataPoint, dropOutcome, finitePoint, hasPointerTravelled, isPointItem, itemAxes, moveGeometry,
-    projectGeometry, projectItem,
+    nearestPoint, projectGeometry, projectItem,
 } from './targetEditorGeometry.js';
 
 const { createElement: h, useCallback, useEffect, useRef, useState } = React;
@@ -204,7 +204,7 @@ function lineElements(item, context) {
 const POINT_HIT_RADIUS = 9;
 
 function pointElements(item, context) {
-    const { enabled, handleFill, startHandleDrag } = context;
+    const { enabled, handleFill, pressPoint } = context;
     const center = { cx: item.start[0], cy: item.start[1] };
     return [
         h('circle', {
@@ -215,7 +215,7 @@ function pointElements(item, context) {
             key: `${item.opId}-hit`, ...center, r: POINT_HIT_RADIUS, fill: 'transparent',
             pointerEvents: enabled ? 'all' : 'none',
             style: { cursor: 'ns-resize' },
-            onPointerDown: event => startHandleDrag(event, item, 'point'),
+            onPointerDown: event => pressPoint(event, item),
         }),
     ];
 }
@@ -246,9 +246,13 @@ function ActiveTargetEditorOverlay(props) {
     const [focused, setFocused] = useState(null);
     const view = useProjectedItems(chartRef, svgRef, geometry);
     const drag = useTargetDrag({ ...props, enabled, tool, drawColor }, chartRef, svgRef);
+    const pressPoint = (event, item) => {
+        const nearest = nearestPoint(view.items, eventPixel(event, svgRef.current));
+        drag.startHandleDrag(event, nearest || item, 'point');
+    };
     const context = {
         enabled, tool, handleFill, focused, setFocused, onDelete: props.onDelete,
-        startHandleDrag: drag.startHandleDrag,
+        startHandleDrag: drag.startHandleDrag, pressPoint,
     };
     const drawing = enabled && tool === 'draw';
     const elementsOf = item => (isPointItem(item) ? pointElements(item, context) : lineElements(item, context));
