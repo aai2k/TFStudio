@@ -202,6 +202,14 @@ const SEEDS = {
     accentText: '#0d1017', selected: '#1e2a3d', hover: '#11161f',
     success: '#7fd962', warning: '#e6b450', error: '#f07171', info: '#59c2ff',
   },
+  // Dark Warm: the dark look of the Claude chat. Warm near-black surfaces only
+  // a few steps apart, so the borders separate them; fields take the panel's
+  // colour; a soft blue accent. Dim text is the chat's muted grey, which sits
+  // at the contrast the other dark themes give theirs.
+  'Dark Warm': {
+    bg: '#151515', panel: '#1a1a19', field: '#1a1a19', text: '#f0efec', textDim: '#898781',
+    accent: '#6aa9eb', error: '#ed7d7e',
+  },
   'High Contrast': {
     bg: '#000000', panel: '#0a0a0a', text: '#ffffff', textDim: '#cfcfcf', accent: '#ffd400',
     border: '#ffffff', borderStrong: '#ffffff', field: '#000000',
