@@ -101,6 +101,18 @@ export function paramsWithChange(typeId, params, key, value) {
     return next;
 }
 
+/**
+ * What the form changes to on a switch of type: the type's default values, and
+ * the layer maximum turned off on entering a type that starts without one (gain
+ * flattening, `noLayerMax`) and back on on leaving it. Between other types the
+ * limits stay as the user set them.
+ */
+export function typeSwitch(fromId, toId) {
+    const switched = { typeId: toId, params: defaultFilterParams(toId) };
+    const noMax = id => !!FILTER_TYPES[id]?.noLayerMax;
+    return noMax(fromId) === noMax(toId) ? switched : { ...switched, maxEnabled: !noMax(toId) };
+}
+
 /** Whether the type writes point rows on the wavelength step whatever the target mode. */
 export function writesPointsOnly(typeId, params) {
     if (!fieldDef(typeId, 'unit')) return false;

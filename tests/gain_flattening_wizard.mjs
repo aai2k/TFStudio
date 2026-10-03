@@ -25,7 +25,8 @@ import {
     curveWizardRows, gainCurveFromText, gainTargetCurve,
 } from '../src/components/windows/optimization/meritFunctionEditor/curveWizardModel.js';
 import { buildWizardResult } from '../src/components/windows/optimization/meritFunctionEditor/meritOperandModel.js';
-import { fieldRows } from '../src/components/windows/optimization/meritFunctionEditor/wizardModel.js';
+import { fieldRows, typeSwitch } from '../src/components/windows/optimization/meritFunctionEditor/wizardModel.js';
+import { FILTER_CATEGORIES, defaultFilterParams } from '../src/utils/physics/optimizer.js';
 import { measuredFitSnapshot } from '../src/components/windows/dataExchange/spectrumExchange/model.js';
 
 const resolve = id => getMaterial(id);
@@ -92,10 +93,17 @@ const flatteningName = name => `${name} flattening target`;
     const block2 = buildWizardResult({
         tw: { types: { GAIN_FLATTENING: { label: 'Gain flattening' } } },
         typeId: 'GAIN_FLATTENING', curveRows: result,
-        constraintsEnabled: true, minThick: 10, maxThick: 500,
+        minEnabled: true, maxEnabled: true, minThick: 10, maxThick: 500,
     }).block;
     assert.deepEqual(block2.map(op => op.type), ['DMFS', 'MCURVE', 'PPEF', 'TDBMN', 'MNT', 'MXT']);
     assert.match(block2[0].comment, /^Gain flattening, edfa flattening target; ≥10 nm, ≤500 nm$/);
+    const noMax = buildWizardResult({
+        tw: { types: { GAIN_FLATTENING: { label: 'Gain flattening' } } },
+        typeId: 'GAIN_FLATTENING', curveRows: result,
+        minEnabled: true, maxEnabled: false, minThick: 10, maxThick: 500,
+    }).block;
+    assert.deepEqual(noMax.map(op => op.type), ['DMFS', 'MCURVE', 'PPEF', 'TDBMN', 'MNT'], 'a minimum with no maximum');
+    assert.match(noMax[0].comment, /; ≥10 nm$/);
 
     // The rows evaluate, and a refinement lowers the peak-to-peak error.
     const operands = result.rows;
@@ -179,5 +187,13 @@ assert.deepEqual(keysOf(fieldRows('GAIN_FLATTENING', { input: 'target' })), [['i
 assert.deepEqual(keysOf(fieldRows('GAIN_FLATTENING', { input: 'target' }, 'angle')), [['insertionLossDb'], ['ppefDb']],
     'a target input shows a curve in place of the gain, and no conditions of its own');
 assert.deepEqual(keysOf(fieldRows('CURVE_TARGET', {}, 'angle')), []);
+
+// Gain flattening starts with no layer maximum, since its layers run to several
+// µm; leaving it turns the maximum back on, and other switches leave it alone.
+const firstType = FILTER_CATEGORIES[0].types[0];
+assert.equal(typeSwitch(firstType, 'GAIN_FLATTENING').maxEnabled, false, 'entering gain flattening turns MXT off');
+assert.equal(typeSwitch('GAIN_FLATTENING', 'CURVE_TARGET').maxEnabled, true, 'leaving it turns MXT back on');
+assert.ok(!('maxEnabled' in typeSwitch(firstType, 'CURVE_TARGET')), 'between other types the limits stay');
+assert.deepEqual(typeSwitch(firstType, 'GAIN_FLATTENING').params, defaultFilterParams('GAIN_FLATTENING'));
 
 console.log('PASS: gain_flattening_wizard');

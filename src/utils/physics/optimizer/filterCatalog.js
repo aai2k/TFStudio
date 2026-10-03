@@ -524,9 +524,15 @@ export const FILTER_TYPES = {
     // brings every wavelength down to the lowest gain. The rows are the target
     // as a curve block in dB with its level free, a PPEF row against it, and a
     // TDBMN row holding the insertion loss at the target's peak.
+    //
+    // The wizard starts this type with no layer maximum (`noLayerMax`). Gain
+    // ripple tens of nm wide takes layers several µm thick: the transmission
+    // fringes of a layer, at δ = 2πnd/λ = mπ (Macleod, Thin-Film Optical Filters
+    // 5th ed., Eq. 6.5), lie about λ²/2nd apart.
     GAIN_FLATTENING: {
         category: 'CURVE',
         curve: true,
+        noLayerMax: true,
         fields: [
             { key: 'input', kind: 'select', default: 'gain', options: [{ value: 'gain' }, { value: 'target' }] },
             { key: 'curveId', kind: 'curve', default: null, quantities: ['T'], visible: p => p.input === 'target' },

@@ -1,5 +1,5 @@
 import {
-    OPERAND_POLS, FILTER_CATEGORIES, FILTER_TYPES, defaultFilterParams,
+    OPERAND_POLS, FILTER_CATEGORIES, FILTER_TYPES,
 } from '../../../../utils/physics/optimizer.js';
 import { Checkbox } from '../../../ui/Checkbox.js';
 import { NumInput, SelectField } from '../../analysis/chrome/controls.js';
@@ -14,7 +14,7 @@ import { meritWizardSession } from './sessionState.js';
 import { WizardHeader } from './WizardHeader.js';
 import {
     blockSummary, fieldRows, fieldView, hasTargetMode, paramsWithChange, polIsFixed, takesCurve,
-    wizardSummary, writesPointsOnly,
+    typeSwitch, wizardSummary, writesPointsOnly,
 } from './wizardModel.js';
 
 const { createElement: h, useState, useEffect } = React;
@@ -195,9 +195,9 @@ function presetBox(ctx) {
     const types = cat.types.map(id => ({ value: id, label: tw.types[id]?.label || id }));
     const switchCategory = id => {
         const next = FILTER_CATEGORIES.find(entry => entry.id === id);
-        if (next) patch({ catId: id, typeId: next.types[0], params: defaultFilterParams(next.types[0]) });
+        if (next) patch({ catId: id, ...typeSwitch(session.typeId, next.types[0]) });
     };
-    const switchType = id => patch({ typeId: id, params: defaultFilterParams(id) });
+    const switchType = id => patch(typeSwitch(session.typeId, id));
     const rows = fieldRows(session.typeId, session.params);
     const cells = [
         h('span', { key: 'preset-l', style: s.label }, tw.presetLabel + ':'),
@@ -279,29 +279,30 @@ function angleBox(ctx) {
     return groupBox({ title: tw.angleBox, columns: '64px minmax(116px, 1fr)', minWidth: 204, c, rows: cells });
 }
 
-function limitRow(ctx, { key, checked, onToggle, name, label, value, onChange }) {
+function limitRow(ctx, { key, checked, onToggle, name, label, value, onChange, step }) {
     const { s, c } = ctx;
     return [
         h('label', { key: key + '-check', style: { ...s.group, gap: 5, cursor: 'pointer', userSelect: 'none' } },
             h(Checkbox, { c, checked, onChange: e => onToggle(e.target.checked) }),
             h('span', { style: { fontSize: 11, color: c.text } }, name)),
         h('span', { key: key + '-l', style: s.label }, label + ':'),
-        h('span', { key: key + '-c' }, numberInput(s, value, onChange, 64, { min: 0.01, disabled: !checked })),
+        h('span', { key: key + '-c' }, numberInput(s, value, onChange, 64, { min: 0.01, step, disabled: !checked })),
     ];
 }
 
+// The layer minimum and maximum each have a checkbox; the maximum's sits under
+// the minimum's, which names both.
 function limitsBox(ctx) {
-    const { s, tw, c, session, setField } = ctx;
+    const { tw, c, session, setField } = ctx;
     const cells = [
         ...limitRow(ctx, {
-            key: 'min', checked: session.constraintsEnabled, onToggle: v => setField('constraintsEnabled', v),
+            key: 'min', checked: session.minEnabled, onToggle: v => setField('minEnabled', v),
             name: tw.layersLabel, label: tw.minLabel, value: session.minThick, onChange: v => setField('minThick', v),
         }),
-        h('span', { key: 'max-pad' }),
-        h('span', { key: 'max-l', style: s.label }, tw.maxLabel + ':'),
-        h('span', { key: 'max-c' }, numberInput(s, session.maxThick, v => setField('maxThick', v), 64, {
-            min: 0.01, step: 10, disabled: !session.constraintsEnabled,
-        })),
+        ...limitRow(ctx, {
+            key: 'max', checked: session.maxEnabled, onToggle: v => setField('maxEnabled', v),
+            name: '', label: tw.maxLabel, value: session.maxThick, onChange: v => setField('maxThick', v), step: 10,
+        }),
         ...limitRow(ctx, {
             key: 'total', checked: session.totalEnabled, onToggle: v => setField('totalEnabled', v),
             name: tw.totalLabel, label: tw.maxTotalLabel, value: session.maxTotal, onChange: v => setField('maxTotal', v),

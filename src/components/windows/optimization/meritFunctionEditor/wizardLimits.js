@@ -8,27 +8,27 @@ import {
 } from '../../../../utils/physics/optimizer.js';
 
 /** The limits as the block header states them, after the type's own text. */
-export function limitsText({ constraintsEnabled, minThick, maxThick, totalEnabled, maxTotal }) {
-    let text = '';
-    if (constraintsEnabled) text += `; ≥${minThick} nm, ≤${maxThick} nm`;
+export function limitsText({ minEnabled, minThick, maxEnabled, maxThick, totalEnabled, maxTotal }) {
+    const layer = [minEnabled && `≥${minThick} nm`, maxEnabled && `≤${maxThick} nm`].filter(Boolean);
+    let text = layer.length ? `; ${layer.join(', ')}` : '';
     if (totalEnabled) text += `; Σd ≤ ${maxTotal} nm`;
     return text;
 }
 
 /** The limit rows, after the type's own rows. */
-export function limitRows({ constraintsEnabled, minThick, maxThick, totalEnabled, maxTotal }) {
+export function limitRows({ minEnabled, minThick, maxEnabled, maxThick, totalEnabled, maxTotal }) {
     const block = [];
-    if (constraintsEnabled) {
-        block.push(
-            makeConstraintOperand({
-                type: 'MNT', lambdaStart: 1, lambdaEnd: DEFAULT_CONSTRAINT_LAST_LAYER,
-                target: Math.max(0.01, minThick),
-            }),
-            makeConstraintOperand({
-                type: 'MXT', lambdaStart: 1, lambdaEnd: DEFAULT_CONSTRAINT_LAST_LAYER,
-                target: Math.max(0.01, maxThick),
-            }),
-        );
+    if (minEnabled) {
+        block.push(makeConstraintOperand({
+            type: 'MNT', lambdaStart: 1, lambdaEnd: DEFAULT_CONSTRAINT_LAST_LAYER,
+            target: Math.max(0.01, minThick),
+        }));
+    }
+    if (maxEnabled) {
+        block.push(makeConstraintOperand({
+            type: 'MXT', lambdaStart: 1, lambdaEnd: DEFAULT_CONSTRAINT_LAST_LAYER,
+            target: Math.max(0.01, maxThick),
+        }));
     }
     if (totalEnabled) {
         block.push(makeOperand({ type: 'TT', cmp: 'le', target: Math.max(1, maxTotal), weight: 1 }));

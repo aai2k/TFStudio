@@ -25,7 +25,7 @@ function comment(typeId, overrides = {}) {
     const params = { ...defaultFilterParams(typeId), ...(overrides.params || {}) };
     return buildDmfsComment({
         tw, typeId, params, common: { ...common, ...(overrides.common || {}) },
-        constraintsEnabled: false, minThick: 40, maxThick: 1000,
+        minEnabled: false, maxEnabled: false, minThick: 40, maxThick: 1000,
         totalEnabled: false, maxTotal: 3000,
         ...overrides,
         params,
@@ -61,7 +61,7 @@ test('DMFS comments cover every field shape', () => {
             lowStopStart: 300, lowStopEnd: 450, passStart: 500, passEnd: 600,
             highStopStart: 650, highStopEnd: 1000,
         },
-        common, constraintsEnabled: false, minThick: 40, maxThick: 1000,
+        common, minEnabled: false, maxEnabled: false, minThick: 40, maxThick: 1000,
         totalEnabled: false, maxTotal: 3000,
     }), 'Label LOW_STOP_SHAPE, stop 300–450 | pass 500–600 | stop 650–1000 nm, AOI 0°, avg pol');
 });
@@ -70,7 +70,7 @@ test('DMFS comments preserve AOI, target-mode, and constraint suffixes', () => {
     assert.equal(
         comment('BBAR', {
             common: { aoi: 5, aoiEnd: 25, aoiSteps: 7, pol: 'p', targetMode: 'discrete', stepNm: 2.5 },
-            constraintsEnabled: true, minThick: 12, maxThick: 345,
+            minEnabled: true, maxEnabled: true, minThick: 12, maxThick: 345,
             totalEnabled: true, maxTotal: 2345,
         }),
         'Label BBAR, λ 400–700 nm, AOI 5–25° (7 steps), p pol, discrete @2.5 nm; ≥12 nm, ≤345 nm; Σd ≤ 2345 nm',
@@ -83,7 +83,7 @@ test('wizard builds DMFS, optical operands, all-layer constraints, and TT cap', 
     const block = buildWizardBlock({
         tw, typeId: 'V_COAT', params: defaultFilterParams('V_COAT'),
         aoi: '15', aoiEnd: '15', aoiSteps: 3, pol: 's', targetMode: 'continuous', stepNm: 1,
-        constraintsEnabled: true, minThick: 0, maxThick: -2,
+        minEnabled: true, maxEnabled: true, minThick: 0, maxThick: -2,
         totalEnabled: true, maxTotal: 0,
     });
     assert.deepEqual(block.map(op => op.type), ['DMFS', 'R', 'T', 'MNT', 'MXT', 'TT']);
@@ -100,7 +100,7 @@ test('wizard can omit constraints while retaining optical generation', () => {
     const block = buildWizardBlock({
         tw, typeId: 'BBAR', params: defaultFilterParams('BBAR'),
         aoi: 0, aoiEnd: 0, aoiSteps: 3, pol: 'avg', targetMode: 'continuous', stepNm: 1,
-        constraintsEnabled: false, minThick: 40, maxThick: 1000,
+        minEnabled: false, maxEnabled: false, minThick: 40, maxThick: 1000,
         totalEnabled: false, maxTotal: 3000,
     });
     assert.deepEqual(block.map(op => op.type), ['DMFS', 'RGT', 'TGT']);

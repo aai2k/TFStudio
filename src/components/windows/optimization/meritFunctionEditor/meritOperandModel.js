@@ -107,7 +107,7 @@ export function buildWizardBlock(options) {
 function filterTypeBlock(options) {
     const {
         tw, typeId, params, pol, targetMode,
-        constraintsEnabled, minThick, maxThick, totalEnabled, maxTotal,
+        minEnabled, minThick, maxEnabled, maxThick, totalEnabled, maxTotal,
     } = options;
     const common = {
         aoi: Number(options.aoi) || 0,
@@ -119,7 +119,7 @@ function filterTypeBlock(options) {
     };
     const comment = buildDmfsComment({
         tw, typeId, params, common,
-        constraintsEnabled, minThick, maxThick, totalEnabled, maxTotal,
+        minEnabled, minThick, maxEnabled, maxThick, totalEnabled, maxTotal,
     });
     return [makeDmfsOperand(comment), ...generateFilterOperands(typeId, params, common)];
 }

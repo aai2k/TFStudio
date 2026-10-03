@@ -41,7 +41,7 @@ const tw = { types: {} };
 const pbs = buildWizardBlock({
     tw, typeId: 'CUSTOM_BS', params: { lamStart: 1565, lamEnd: 1630, rsPct: 100, rpPct: 0 },
     aoi: 44.5, aoiEnd: 45.5, aoiSteps: 3, pol: 'avg', targetMode: 'continuous', stepNm: 1,
-    constraintsEnabled: true, minThick: 40, maxThick: 1000, totalEnabled: false, maxTotal: 3000,
+    minEnabled: true, maxEnabled: true, minThick: 40, maxThick: 1000, totalEnabled: false, maxTotal: 3000,
 });
 assert.ok(!pbs[0].comment.includes('pol'), pbs[0].comment);
 assert.deepEqual(blockSummary(pbs), { count: 14, types: ['RGT', 'TGT', 'MNT', 'MXT'] });
@@ -49,7 +49,7 @@ assert.deepEqual(blockSummary(pbs), { count: 14, types: ['RGT', 'TGT', 'MNT', 'M
 const ar = buildWizardBlock({
     tw, typeId: 'BBAR', params: { lamStart: 400, lamEnd: 700 },
     aoi: 0, aoiEnd: 0, aoiSteps: 1, pol: 's', targetMode: 'continuous', stepNm: 1,
-    constraintsEnabled: false, totalEnabled: false,
+    minEnabled: false, maxEnabled: false, totalEnabled: false,
 });
 assert.ok(ar[0].comment.includes('s pol'), ar[0].comment);
 assert.deepEqual(blockSummary(ar), { count: 2, types: ['RGT', 'TGT'] });
@@ -68,14 +68,14 @@ for (const cat of FILTER_CATEGORIES) {
         const header = buildWizardBlock({
             tw, typeId: id, params: defaultFilterParams(id), aoi: 0, aoiEnd: 0, aoiSteps: 1,
             pol: 'avg', targetMode: 'continuous', stepNm: 1,
-            constraintsEnabled: false, totalEnabled: false,
+            minEnabled: false, maxEnabled: false, totalEnabled: false,
         })[0].comment;
         assert.ok(!/undefined|NaN/.test(header), `${id} header names a field it does not have: ${header}`);
     }
 }
 assert.match(buildWizardBlock({
     tw, typeId: 'BANDPASS', params: defaultFilterParams('BANDPASS'), aoi: 0, aoiEnd: 0, aoiSteps: 1,
-    pol: 'avg', targetMode: 'continuous', stepNm: 1, constraintsEnabled: false, totalEnabled: false,
+    pol: 'avg', targetMode: 'continuous', stepNm: 1, minEnabled: false, maxEnabled: false, totalEnabled: false,
 })[0].comment, /stop 300–450 \| pass 500–600 \| stop 650–1000 nm/,
 'a bandpass names its low stop, its pass and its high stop');
 

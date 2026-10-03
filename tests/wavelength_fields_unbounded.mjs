@@ -329,7 +329,7 @@ const tw = getLocale('en').meritFunctionEditor.wizard;
 const discrete = buildWizardBlock({
     tw, typeId: 'BBAR', params: { lamStart: 13, lamEnd: 14 }, pol: 'avg', targetMode: 'discrete',
     stepNm: 0.05, aoi: 0, aoiEnd: 0, aoiSteps: 1,
-    constraintsEnabled: false, totalEnabled: false,
+    minEnabled: false, maxEnabled: false, totalEnabled: false,
 });
 const points = [...new Set(discrete.filter(op => op.lambdaStart === op.lambdaEnd && op.lambdaStart > 0).map(op => op.lambdaStart))];
 assert.equal(points.length, 21, `a 0.05 nm step over 13-14 nm gives 21 points, not the 0.1 nm floor's 11 (got ${points.length})`);
