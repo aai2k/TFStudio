@@ -47,13 +47,19 @@ function cellsByColumn(cells) {
     return columns;
 }
 
+/** The values a fill writes down `count` cells of one column, top to bottom. */
+export function fillSeries(options, count) {
+    const valueAt = FILLS[options.mode](options.a, options.b, count);
+    return Array.from({ length: count }, (_, index) => tidy(valueAt(index)));
+}
+
 /** The table with each selected column filled by `mode`; see the top of the file. */
 export function fillCells(table, cells, options) {
     if (fillProblem(options)) return table;
     const edits = [];
     for (const [colKey, rows] of cellsByColumn(cells)) {
-        const valueAt = FILLS[options.mode](options.a, options.b, rows.length);
-        rows.forEach((rowIdx, index) => edits.push({ rowIdx, colKey, value: tidy(valueAt(index)) }));
+        const values = fillSeries(options, rows.length);
+        rows.forEach((rowIdx, index) => edits.push({ rowIdx, colKey, value: values[index] }));
     }
     return setCells(table, edits);
 }
@@ -70,14 +76,18 @@ export function changeProblem({ mode, a, b }) {
     return numbers.every(Number.isFinite) ? null : 'number';
 }
 
+/** What a change makes of one value. */
+export function changedValue(options, value) {
+    return tidy(CHANGES[options.mode](options.a, options.b)(value));
+}
+
 /** The table with the values in the selected cells changed; empty cells stay empty. */
 export function changeCells(table, cells, options) {
     if (changeProblem(options)) return table;
-    const change = CHANGES[options.mode](options.a, options.b);
     const edits = [];
     for (const { rowIdx, colKey } of cells) {
         const value = table.rows[rowIdx]?.[columnIndex(colKey)];
-        if (Number.isFinite(value)) edits.push({ rowIdx, colKey, value: tidy(change(value)) });
+        if (Number.isFinite(value)) edits.push({ rowIdx, colKey, value: changedValue(options, value) });
     }
     return setCells(table, edits);
 }

@@ -1,7 +1,7 @@
 /**
  * The curve editor's model: units, pasted and imported text, the spreadsheet
- * operations, undo, Apply, resampling, smoothing and the merit blocks rebuilt
- * from an edited curve.
+ * operations, undo, Apply, resampling, smoothing, what the tool panels say,
+ * and the merit blocks rebuilt from an edited curve.
  * Run: node tests/curve_editor_model.mjs
  */
 import assert from 'node:assert/strict';
@@ -30,6 +30,14 @@ import { makeMeasuredCurve, parseSpectrumTable } from '../src/utils/io/spectrumT
 import { fractionFromLog, logValue } from '../src/utils/physics/optimizer.js';
 import { measuredFitSnapshot } from '../src/components/windows/dataExchange/spectrumExchange/model.js';
 import { ellipsometryFitSnapshot } from '../src/components/windows/dataExchange/measuredEllipsometry/fitModel.js';
+import { editorLabels } from '../src/components/windows/dataExchange/curveEditor/editorLabels.js';
+import {
+    changeText, fillText, resampleText, seriesText, smoothText,
+} from '../src/components/windows/dataExchange/curveEditor/toolText.js';
+import en from '../src/constants/locales/en.js';
+import ru from '../src/constants/locales/ru.js';
+import zh from '../src/constants/locales/zh.js';
+import it from '../src/constants/locales/it.js';
 
 const close = (a, b, tolerance = 1e-12) => Math.abs(a - b) <= tolerance * Math.max(1, Math.abs(b));
 const cell = (rowIdx, colKey) => ({ rowIdx, colKey });
@@ -355,6 +363,111 @@ const table = (rows, columns = [{ quantity: 'T', unit: '%', name: '' }], kind = 
     assert.ok(whole.table.rows.slice(2, -2).every(row => Math.abs(row[1] - 50) < 0.5),
         'one cell smooths its whole column');
     assert.equal(smoothCells(base, selected.slice(0, 3), { window: 5, order: 2 }).problem, 'points');
+}
+
+// ── What the tool panels say ─────────────────────────────────────────────────
+{
+    const ce = en.curveEditor;
+    const rows = Array.from({ length: 30 }, (_, i) => [400 + 10 * i, 50 + (i % 2 ? 1 : -1)]);
+    rows[0] = [400, 99.95];
+    rows[2] = [420, NaN];
+    const base = table(rows);
+    const labels = editorLabels(en, base);
+    const xs = n => Array.from({ length: n }, (_, rowIdx) => cell(rowIdx, 'x'));
+    const vs = (from, to) => Array.from({ length: to - from + 1 }, (_, i) => cell(from + i, 'v0'));
+    const fill = { mode: 'step', value: null, first: 400, step: 10, last: null };
+
+    // Fill names the cells and their columns, and shows what the first column gets.
+    const six = fillText(ce, labels, base, xs(6), fill);
+    assert.equal(six.title, 'Fill the 6 selected cells of λ (nm)');
+    assert.equal(six.preview, '400, 410, 420 … 450');
+    assert.equal(six.run, 'Fill 6 cells');
+    assert.equal(six.ready, true);
+    assert.equal(fillText(ce, labels, base, xs(4), fill).preview, '400, 410, 420, 430', 'four values are all shown');
+    const one = fillText(ce, labels, base, xs(1), fill);
+    assert.deepEqual([one.title, one.preview, one.run], ['Fill the selected cell of λ (nm)', '400', 'Fill 1 cell']);
+    const block = [0, 1, 2].flatMap(rowIdx => [cell(rowIdx, 'x'), cell(rowIdx, 'v0')]);
+    assert.equal(fillText(ce, labels, base, block, fill).title, 'Fill the 6 selected cells of λ (nm), T 1');
+    const named = table(rows, [{ quantity: 'R', unit: '%', name: 'Rear R' }]);
+    assert.equal(fillText(ce, editorLabels(en, named), named, vs(0, 1), fill).title,
+        'Fill the 2 selected cells of Rear R', 'a named column goes by its name');
+    const log = fillText(ce, labels, base, xs(5), { ...fill, mode: 'log', first: 1, last: 10000 });
+    assert.equal(log.preview, '1, 10, 100 … 10000');
+    const constant = fillText(ce, labels, base, xs(3), { ...fill, mode: 'constant', value: 7 });
+    assert.equal(constant.preview, '7, 7, 7');
+    // A field left empty is a hint; a log step from zero cannot run at all.
+    assert.deepEqual(fillText(ce, labels, base, xs(6), { ...fill, step: null }).problem,
+        { text: ce.fillProblems.number, tone: 'hint' });
+    const fromZero = fillText(ce, labels, base, xs(6), { ...fill, mode: 'log', first: 0, last: 10 });
+    assert.deepEqual([fromZero.problem, fromZero.ready], [{ text: ce.fillProblems.positive, tone: 'error' }, false]);
+    assert.equal(fillText(ce, labels, base, xs(6), { ...fill, mode: 'log', first: null, last: 10 }).problem.tone, 'hint');
+
+    // Change counts the numbers it changes; an empty cell stays empty.
+    const change = { mode: 'percent', percent: 5, a: null, b: null };
+    const changed = changeText(ce, labels, base, vs(0, 5), change);
+    assert.equal(changed.title, 'Change the 5 selected values of T 1');
+    assert.equal(changed.preview, '99.95 becomes 104.9475');
+    assert.equal(changed.run, 'Change 5 values');
+    assert.equal(changeText(ce, labels, base, vs(0, 5), { mode: 'linear', percent: null, a: 2, b: -1 }).preview,
+        '99.95 becomes 198.9');
+    assert.equal(changeText(ce, labels, base, vs(0, 0), change).title, 'Change the selected value of T 1');
+    assert.deepEqual(changeText(ce, labels, base, vs(0, 5), { ...change, percent: null }).problem,
+        { text: ce.changeProblem, tone: 'hint' });
+    const empty = changeText(ce, labels, base, [cell(2, 'v0')], change);
+    assert.deepEqual([empty.title, empty.ready], [ce.panels.change.noValues, false]);
+
+    // Smooth: one cell stands for its column; the wavelength is never smoothed.
+    const smooth = { window: 5, order: 2 };
+    const whole = smoothText(ce, labels, base, [cell(7, 'v0')], smooth);
+    assert.deepEqual([whole.title, whole.ready, whole.run], ['Smooth the whole T 1 column', true, 'Smooth']);
+    const span = smoothText(ce, labels, base, [...vs(2, 19), cell(4, 'x')], smooth);
+    assert.equal(span.title, 'Smooth T 1, rows 3-20');
+    assert.equal(smoothText(ce, labels, base, xs(6), smooth).title, ce.panels.smooth.wavelength);
+    assert.equal(smoothText(ce, labels, base, xs(6), smooth).ready, false);
+    assert.deepEqual(smoothText(ce, labels, base, vs(2, 19), { window: 4, order: 2 }).problem,
+        { text: ce.smoothProblems.window, tone: 'error' });
+    assert.equal(smoothText(ce, labels, base, vs(2, 19), { window: 5, order: 5 }).problem.text, ce.smoothProblems.order);
+    const short = smoothText(ce, labels, base, vs(3, 5), smooth);
+    assert.deepEqual([short.problem.text, short.ready], [ce.panels.smooth.tooFew(5), false],
+        'three values cannot carry a five-point fit');
+
+    // Nothing selected: Fill, Change and Smooth ask for cells and do nothing.
+    for (const text of [
+        fillText(ce, labels, base, [], fill), changeText(ce, labels, base, [], change),
+        smoothText(ce, labels, base, [], smooth),
+    ]) {
+        assert.deepEqual([text.title, text.ready], [ce.panels.selectFirst, false]);
+    }
+
+    // Resample counts the rows of the new grid, in the wavelength column's unit.
+    const scan = table([[300, 1], [550, 2], [800, 3]]);
+    const grid = resampleText(ce, editorLabels(en, scan), scan, 1);
+    assert.deepEqual([grid.preview, grid.run, grid.ready], ['300 to 800 nm: 501 rows', 'Resample to 501 rows', true]);
+    const microns = { ...table([[0.3, 1], [0.8, 3]]), xUnit: 'um' };
+    assert.equal(resampleText(ce, editorLabels(en, microns), microns, 0.1).preview, '0.3 to 0.8 µm: 6 rows');
+    assert.equal(resampleText(ce, labels, scan, 0).problem.text, ce.resampleProblems.step);
+    assert.equal(resampleText(ce, labels, scan, 1e-6).problem.text, ce.resampleProblems.rows(1000000));
+    assert.equal(resampleText(ce, labels, table([[400, 1]]), 1).problem.text, ce.resampleProblems.points);
+    assert.equal(seriesText([1.5, 2]), '1.5, 2');
+
+    // Every language fills its sentences: no piece is missing or undefined.
+    for (const locale of [en, ru, zh, it]) {
+        const panels = locale.curveEditor.panels;
+        const lang = editorLabels(locale, base);
+        const texts = [
+            fillText(locale.curveEditor, lang, base, xs(6), fill), changeText(locale.curveEditor, lang, base, vs(0, 5), change),
+            smoothText(locale.curveEditor, lang, base, vs(2, 19), smooth), smoothText(locale.curveEditor, lang, base, [cell(7, 'v0')], smooth),
+            resampleText(locale.curveEditor, lang, scan, 1),
+        ];
+        for (const text of texts) {
+            assert.ok(text.ready && ![text.title, text.preview, text.run].some(part => String(part).includes('undefined')),
+                `${text.title} / ${text.preview} / ${text.run}`);
+        }
+        assert.deepEqual(Object.values(panels.fill.rows).map(parts => parts.length), [2, 3, 3, 3]);
+        assert.deepEqual(Object.values(panels.change.rows).map(parts => parts.length), [2, 3]);
+        assert.equal(panels.smooth.sentence.length, 3);
+        assert.equal(panels.resample.sentence('nm').length, 2);
+    }
 }
 
 // ── The table as CSV reads back ──────────────────────────────────────────────

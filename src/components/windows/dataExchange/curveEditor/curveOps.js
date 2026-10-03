@@ -98,6 +98,31 @@ function smoothingRows(table, cells) {
     return byColumn;
 }
 
+// The points of each value column that smoothing these cells fits, in
+// ascending wavelength, with the column's key and position.
+function smoothingSeries(table, cells) {
+    return [...smoothingRows(table, cells)].map(([colKey, rowSet]) => {
+        const index = columnIndex(colKey) - 1;
+        const all = sortedSeries(table, index);
+        const keep = all.rows.map(rowIdx => rowSet.has(rowIdx));
+        const kept = list => list.filter((_, at) => keep[at]);
+        return { colKey, index, series: { x: kept(all.x), y: kept(all.y), rows: kept(all.rows) } };
+    });
+}
+
+/**
+ * Why smoothing these cells would change nothing, or null: 'window' or
+ * 'order' as savitzkyGolayProblem has them, or 'points' when no value column
+ * holds as many selected values as one fit takes. A column that is too short
+ * beside one that is long enough is left as it is (smoothCells).
+ */
+export function smoothingProblem(table, cells, { window, order }) {
+    const settings = savitzkyGolayProblem(Infinity, window, order);
+    if (settings) return settings;
+    const fits = smoothingSeries(table, cells).some(({ series }) => series.x.length >= window);
+    return fits ? null : 'points';
+}
+
 /**
  * The selected values smoothed, each column fitted along its own wavelengths.
  * `problem` names the first reason a column was left as it was; see
@@ -106,14 +131,7 @@ function smoothingRows(table, cells) {
 export function smoothCells(table, cells, { window, order }) {
     let problem = null;
     const edits = [];
-    for (const [colKey, rowSet] of smoothingRows(table, cells)) {
-        const index = columnIndex(colKey) - 1;
-        const all = sortedSeries(table, index);
-        const keep = all.rows.map(rowIdx => rowSet.has(rowIdx));
-        const series = {
-            x: all.x.filter((_, at) => keep[at]), y: all.y.filter((_, at) => keep[at]),
-            rows: all.rows.filter((_, at) => keep[at]),
-        };
+    for (const { colKey, index, series } of smoothingSeries(table, cells)) {
         const reason = savitzkyGolayProblem(series.x.length, window, order);
         if (reason) { problem = problem || reason; continue; }
         const values = smoothedValues(series, table.columns[index].quantity, window, order);

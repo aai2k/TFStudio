@@ -54,10 +54,11 @@ const EDITOR_KEYS = {
  * A key pressed on the table. `ctx` carries the focused cell, the table's row
  * count and column keys, the selection's handlers and the editor's actions.
  * With no cell focused the keys act from the first cell. Keys typed into a
- * cell's editor or another field belong to it.
+ * cell's editor or another field belong to it, and so do keys on a button in
+ * the heading: Enter on + Column adds a column rather than opening a cell.
  */
 export function editorKeyDown(ctx, event) {
-    if (ctx.editCell || isTextControl(event.target)) return;
+    if (ctx.editCell || isTextControl(event.target) || event.target?.tagName === 'BUTTON') return;
     const rowIdx = ctx.focusCell?.rowIdx ?? 0;
     const colKey = ctx.focusCell?.colKey ?? X_KEY;
     const keyCtx = { ...ctx, event, rowIdx, colKey, stepTarget: direction => ctx.stepFrom(rowIdx, colKey, direction) };

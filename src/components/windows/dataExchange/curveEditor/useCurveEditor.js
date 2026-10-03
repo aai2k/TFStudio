@@ -2,7 +2,8 @@
  * The curve editor's state: the table and its undo history, the cell
  * selection (the shared grid's, ui/grid/useGridSelection.js) and the drag of
  * its fill handle (ui/grid/useFillDrag.js), the cell being typed into, the
- * tool bar's numbers, and the line of notices under the table.
+ * tool panels' numbers and which panel is open, and the line of notices under
+ * the table.
  *
  * The editor opens as a modal over the window that asked for it, so all of it
  * is component state and goes when the editor closes.
@@ -24,12 +25,13 @@ import {
 
 const { useState, useRef, useCallback, useMemo } = React;
 
-// What the tool bar starts with: blank numbers to fill and change by, a step
+// What the tool panels start with: blank numbers to fill and change by, a step
 // of one unit of the wavelength column, and the 5-point quadratic smoothing of
-// Savitzky and Golay's first table.
+// Savitzky and Golay's first table. A fill's first and last value are shared
+// by the modes that take them, so changing the mode keeps them.
 const INITIAL_TOOLS = {
-    fill: { mode: 'step', a: null, b: null },
-    change: { mode: 'percent', a: null, b: null },
+    fill: { mode: 'step', value: null, first: null, step: null, last: null },
+    change: { mode: 'percent', percent: null, a: null, b: null },
     step: 1,
     smooth: { window: 5, order: 2 },
 };
@@ -73,6 +75,21 @@ function keyHandler(ed, actions, editCell) {
     }, event);
 }
 
+// Escape on the table closes an open tool panel before it collapses the
+// selection: the panel is what was opened last. `close` is null with no panel
+// open, or while a cell is typed into, whose own editor takes the Escape.
+function withPanelEscape(onKey, close) {
+    if (!close) return onKey;
+    return event => {
+        if (event.key !== 'Escape') {
+            onKey(event);
+            return;
+        }
+        event.preventDefault();
+        close();
+    };
+}
+
 // The fill handle: the rectangle it sits on, its drag, and what the label by
 // the pointer shows while it is dragged.
 function useFillHandle(ed) {
@@ -97,6 +114,7 @@ export function useCurveEditor({ initialTable, onApply, ce }) {
     const [editCell, setEditCell] = useState(null);
     const [status, setStatus] = useState(null);
     const [tools, setTools] = useState(INITIAL_TOOLS);
+    const [panel, setPanel] = useState(null);
     const [dragOn, setDragOn] = useState(true);
     const [sizes, setSizes] = useState([45, 55]);
     const [rebuild, setRebuild] = useState(true);
@@ -117,10 +135,12 @@ export function useCurveEditor({ initialTable, onApply, ce }) {
     };
     const actions = tableActions(ed, setHistory, setEditCell);
     const fill = useFillHandle(ed);
+    const closePanel = panel && !editCell ? () => setPanel(null) : null;
     return {
-        table, sel, fill, editCell, status, tools, setTools, dragOn, setDragOn, sizes, setSizes, rebuild, setRebuild,
+        table, sel, fill, editCell, status, tools, setTools, panel, setPanel,
+        dragOn, setDragOn, sizes, setSizes, rebuild, setRebuild,
         canUndo: history.past.length > 0, canRedo: history.future.length > 0,
-        actions, edit, onKeyDown: keyHandler(ed, actions, editCell),
+        actions, edit, onKeyDown: withPanelEscape(keyHandler(ed, actions, editCell), closePanel),
         apply: () => applyTable(ed, onApply, { rebuild }),
     };
 }

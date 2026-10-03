@@ -1,7 +1,8 @@
 /**
  * The curve editor's state driven the way the table drives it: typing, the
- * keys, the clipboard, undo and Apply, the window host that applies an edited
- * curve with its merit targets, and the point handles of the plot.
+ * keys, the clipboard, undo and Apply, the fill handle, the tool panels, the
+ * window host that applies an edited curve with its merit targets, and the
+ * point handles of the plot.
  * Run: node tests/curve_editor_keys.mjs
  */
 import assert from 'node:assert/strict';
@@ -128,6 +129,12 @@ const design = makeSampleDesign();
     editor = render();
     assert.equal(editor.table.rows.length, 12);
     assert.deepEqual(editor.sel.focusCell, { rowIdx: last + 1, colKey: 'v0' });
+
+    // A key on a button in the heading is the button's: Enter on + Column
+    // must not open the focused cell for typing.
+    editor.onKeyDown(key('Enter', { target: { tagName: 'BUTTON' } }));
+    editor = render();
+    assert.equal(editor.editCell, null, 'Enter on a heading button leaves the cells alone');
 
     // Apply hands the table over with its rows by wavelength.
     editor.apply();
@@ -273,6 +280,50 @@ const design = makeSampleDesign();
     listeners.get('keydown')({ key: 'Escape', type: 'keydown', preventDefault() {}, stopPropagation() {} });
     editor = render();
     assert.equal(editor.table, before);
+}
+
+// ── The tool panels: Escape closes one first, and the tools run on its numbers ─
+{
+    const props = { initialTable: emptyTable('spectrum'), onApply() {}, ce };
+    const render = () => runtime.render(() => useCurveEditor(props));
+    const escape = () => ({
+        key: 'Escape', ctrlKey: false, shiftKey: false, altKey: false, metaKey: false,
+        target: { tagName: 'DIV' }, preventDefault() {},
+    });
+    let editor = render();
+    editor.edit(() => ({ ...emptyTable('spectrum'), rows: Array.from({ length: 6 }, (_, i) => [NaN, 50 + i]) }));
+    const lambdas = { rowStart: 0, rowEnd: 5, colKeys: ['x'] };
+    editor.sel.selectRange({ rowIdx: 0, colKey: 'x' }, { rowIdx: 5, colKey: 'x' });
+    editor.setPanel('fill');
+    editor = render();
+    assert.equal(editor.panel, 'fill');
+    editor.onKeyDown(escape());
+    editor = render();
+    assert.equal(editor.panel, null, 'Escape on the table closes the open panel');
+    assert.deepEqual(editor.sel.range, lambdas, 'and leaves the selection to fill');
+
+    editor.setTools(tools => ({ ...tools, fill: { ...tools.fill, mode: 'step', first: 400, step: 10 } }));
+    editor = render();
+    editor.actions.fill();
+    editor = render();
+    assert.deepEqual(editor.table.rows.map(row => row[0]), [400, 410, 420, 430, 440, 450]);
+
+    editor.sel.selectRange({ rowIdx: 0, colKey: 'v0' }, { rowIdx: 5, colKey: 'v0' });
+    editor.setTools(tools => ({ ...tools, change: { mode: 'linear', percent: null, a: 2, b: -1 } }));
+    editor = render();
+    editor.actions.change();
+    editor = render();
+    assert.deepEqual(editor.table.rows.map(row => row[1]), [99, 101, 103, 105, 107, 109]);
+
+    // A step the grid cannot be built on changes nothing and leaves the line
+    // under the table alone: the Resample panel says why.
+    const before = editor.table;
+    editor.setTools(tools => ({ ...tools, step: 0 }));
+    editor = render();
+    editor.actions.resample();
+    editor = render();
+    assert.equal(editor.table, before);
+    assert.equal(editor.status, null);
 }
 
 // ── The plot's point handles keep their wavelength ───────────────────────────

@@ -4,13 +4,16 @@
  * imported curve opens here. Cells select, copy and paste the way the merit
  * function table's do, through the shared grid model, and the selection's
  * fill handle carries its values on down or up, as a spreadsheet's does
- * (ui/grid/useFillDrag.js).
+ * (ui/grid/useFillDrag.js). The heading, where each column's unit and
+ * quantity are set, is TableHead.js; with more columns than the pane fits,
+ * the table scrolls sideways.
  */
 import { CellInput } from '../../../ui/grid/CellInput.js';
 import { fillHandle, fillLabel, fillOutlineStyle } from '../../../ui/grid/fillHandleView.js';
 import { filledRows } from '../../../ui/grid/gridFill.js';
 import { useVirtualRows, virtualBody } from '../../../ui/virtualRows.js';
 import { X_KEY, cellText, columnIndex, columnKeys, gridFor } from './curveTable.js';
+import { TableHead, columnLayout, columnSpan } from './TableHead.js';
 import { valueProblem, xProblem } from './units.js';
 
 const { createElement: h, useEffect, useRef } = React;
@@ -31,6 +34,20 @@ function useRowInView(paneRef, headRef, rowIdx) {
             pane.scrollTop = header + top + ROW_HEIGHT - pane.clientHeight;
         }
     }, [rowIdx]);
+}
+
+// With more columns than the pane fits the table scrolls sideways, and a cell
+// the keys move to is brought into view that way too. Column `at + 1` of the
+// layout is the cell's, the row numbers being column 0.
+function useColumnInView(paneRef, layout, keys, colKey) {
+    useEffect(() => {
+        const pane = paneRef.current;
+        const at = keys.indexOf(colKey);
+        if (!pane || at < 0) return;
+        const span = columnSpan(layout, at + 1, Math.max(pane.clientWidth, layout.minWidth));
+        if (span.left < pane.scrollLeft) pane.scrollLeft = span.left;
+        else if (span.right > pane.scrollLeft + pane.clientWidth) pane.scrollLeft = span.right - pane.clientWidth;
+    }, [colKey]);
 }
 
 function cellProblem(table, colKey, value) {
@@ -92,6 +109,9 @@ function valueCell(view, row, rowIdx, colKey, selectedColumns) {
     }, cellText(value), fill.handle);
 }
 
+// The empty cell each row has under the + Column heading.
+const addColumnCell = view => view.layout.adds && h('td', { key: 'add' });
+
 function tableRow(view, row, rowIdx) {
     const { editor, c, keys, grid } = view;
     const selectedColumns = grid.selectedColumnsForRow(
@@ -104,7 +124,8 @@ function tableRow(view, row, rowIdx) {
                 cursor: 'e-resize', borderBottom: `1px solid ${c.border}55`, background: c.bg,
             },
         }, rowIdx + 1),
-        keys.map(colKey => valueCell(view, row, rowIdx, colKey, selectedColumns)));
+        keys.map(colKey => valueCell(view, row, rowIdx, colKey, selectedColumns)),
+        addColumnCell(view));
 }
 
 // A row past the table's end, drawn while the fill handle is dragged; the
@@ -115,7 +136,8 @@ function blankRow(view, rowIdx) {
         h('td', { style: { background: c.bg } }),
         keys.map(colKey => h('td', {
             key: colKey, style: { height: ROW_HEIGHT, padding: 0, ...fillOutlineStyle(c, fill.outline, rowIdx, colKey) },
-        })));
+        })),
+        addColumnCell(view));
 }
 
 // While the fill handle is dragged, empty rows are drawn under the table down
@@ -139,37 +161,26 @@ function fillView(editor, begin) {
     return { handle, outline, begin };
 }
 
-function headerCell(c, key, label, onMouseDown) {
-    return h('th', {
-        key, title: label, onMouseDown,
-        style: {
-            position: 'sticky', top: 0, zIndex: 1, background: c.panel, color: c.textDim,
-            padding: '4px 6px', fontSize: 10.5, fontWeight: 600, textAlign: 'right',
-            borderBottom: `1px solid ${c.border}`, whiteSpace: 'nowrap', overflow: 'hidden',
-            textOverflow: 'ellipsis', cursor: 'pointer', userSelect: 'none',
-        },
-    }, label);
-}
-
 /**
  * A click on the # heading selects every cell, on a column's heading the
  * column, and on a row's number the row.
  *
  *   editor   useCurveEditor.js
- *   labels   { header(colKey) }, the column headings
+ *   labels   editorLabels.js
  */
 export function CurveGrid({ editor, labels, c, ce }) {
     const { table, sel, editCell, fill } = editor;
     const keys = columnKeys(table);
+    const layout = columnLayout(table, labels, ce);
     const items = drawnRows(table.rows, fill.drag);
     const virtual = useVirtualRows(items.length, ROW_HEIGHT);
     const headRef = useRef(null);
     useRowInView(virtual.paneRef, headRef, sel.focusCell?.rowIdx);
+    useColumnInView(virtual.paneRef, layout, keys, sel.focusCell?.colKey);
     const beginFill = event => fill.begin(event, {
         pane: virtual.paneRef.current, header: headRef.current?.offsetHeight || 0, rowHeight: ROW_HEIGHT,
     });
-    const view = { editor, c, ce, table, keys, grid: gridFor(table), fill: fillView(editor, beginFill) };
-    const pick = handler => event => { event.preventDefault(); handler(); };
+    const view = { editor, c, ce, table, keys, layout, grid: gridFor(table), fill: fillView(editor, beginFill) };
     return h('div', {
         ref: sel.tableRef, tabIndex: 0, onKeyDown: editor.onKeyDown,
         style: { flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column', outline: 'none' },
@@ -180,21 +191,16 @@ export function CurveGrid({ editor, labels, c, ce }) {
         },
             h('table', {
                 style: {
-                    width: '100%', borderCollapse: 'collapse', tableLayout: 'fixed', fontSize: 11.5,
-                    fontFamily: 'system-ui, -apple-system, sans-serif',
+                    width: '100%', minWidth: layout.minWidth, borderCollapse: 'collapse', tableLayout: 'fixed',
+                    fontSize: 11.5, fontFamily: 'system-ui, -apple-system, sans-serif',
                 },
             },
                 h('colgroup', null,
-                    h('col', { style: { width: 46 } }),
-                    keys.map(colKey => h('col', { key: colKey }))),
-                h('thead', { ref: headRef },
-                    h('tr', null,
-                        headerCell(c, 'all', '#', pick(editor.actions.selectAll)),
-                        keys.map(colKey => headerCell(c, colKey, labels.header(colKey),
-                            pick(() => editor.actions.selectColumn(colKey)))))),
+                    layout.widths.map((width, index) => h('col', { key: index, style: width ? { width } : undefined }))),
+                h(TableHead, { editor, labels, c, ce, headRef }),
                 h('tbody', null, virtualBody(items,
                     { first: virtual.first, end: virtual.end, keep: editCell?.rowIdx ?? -1 },
-                    ROW_HEIGHT, keys.length + 1,
+                    ROW_HEIGHT, layout.widths.length,
                     (row, rowIdx) => (row ? tableRow(view, row, rowIdx) : blankRow(view, rowIdx)))),
             ),
         ),

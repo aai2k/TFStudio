@@ -1047,25 +1047,58 @@ export default {
     deleteRowsTip: 'Delete the rows of the selected cells (Delete). Backspace empties the cells instead.',
     dragPoints: 'Drag points',
     dragPointsTip: 'Drag a point on the plot up or down to change its value. Its wavelength stays as typed.',
-    fill: 'Fill',
-    fillModes: { constant: 'Constant', step: 'Step', log: 'Log step', wavenumber: 'Wavenumber step' },
-    fillValue: 'Value',
-    fillFirst: 'First',
-    fillStep: 'Step',
-    fillLast: 'Last',
-    change: 'Change',
-    changeModes: { percent: 'By %', linear: 'a·V + b' },
-    changePercent: '%',
-    changeA: 'a',
-    changeB: 'b',
-    smooth: 'Smooth',
+    fill: 'Fill…',
+    change: 'Change…',
+    smooth: 'Smooth…',
     smoothTip: 'Savitzky-Golay smoothing of the selected values: each is replaced by a polynomial fitted to it and its neighbours. One selected cell smooths its whole column.',
-    smoothWindow: 'Points',
-    smoothOrder: 'Order',
-    resample: 'Resample',
+    resample: 'Resample…',
     resampleTip: 'Interpolate every column onto an even step with shape-preserving PCHIP, as Fit does. The grid falls on whole steps.',
-    resampleStep: 'Step',
-    resampleStepTip: 'The step of the new grid, in the unit of the wavelength column.',
+    // The panels under Fill…, Change…, Smooth… and Resample…. A `rows` or
+    // `sentence` entry is the text around the number fields of one line, one
+    // piece more than there are fields; its spaces sit beside the fields.
+    panels: {
+      selectFirst: 'Select cells in the table first.',
+      fill: {
+        title: (count, columns) => (count === 1
+          ? `Fill the selected cell of ${columns}`
+          : `Fill the ${count} selected cells of ${columns}`),
+        rows: {
+          constant: ['all with ', ''],
+          step: ['from ', ' in steps of ', ''],
+          log: ['from ', ' to ', ', even in log'],
+          wavenumber: ['from ', ' to ', ', even in wavenumber'],
+        },
+        run: (count) => (count === 1 ? 'Fill 1 cell' : `Fill ${count} cells`),
+      },
+      change: {
+        title: (count, columns) => (count === 1
+          ? `Change the selected value of ${columns}`
+          : `Change the ${count} selected values of ${columns}`),
+        rows: {
+          percent: ['by ', ' %'],
+          linear: ['to a·V + b with a = ', ' and b = ', ''],
+        },
+        preview: (from, to) => `${from} becomes ${to}`,
+        run: (count) => (count === 1 ? 'Change 1 value' : `Change ${count} values`),
+        noValues: 'The selected cells hold no numbers.',
+      },
+      smooth: {
+        title: (columns, first, last) => (first === last
+          ? `Smooth ${columns}, row ${first}`
+          : `Smooth ${columns}, rows ${first}-${last}`),
+        whole: (column) => `Smooth the whole ${column} column`,
+        sentence: ['Each value is replaced by a polynomial of order ', ' fitted over ', ' points around it (Savitzky-Golay).'],
+        wavelength: 'The wavelength column is not smoothed. Select values in another column.',
+        tooFew: (points) => `Select at least ${points} values in a column, or one cell to smooth its whole column.`,
+        run: 'Smooth',
+      },
+      resample: {
+        sentence: (unit) => ['Put every column on a new wavelength grid every ', ` ${unit}`],
+        plan: (first, last, unit, rows) => `${first} to ${last} ${unit}: ${rows === 1 ? '1 row' : `${rows} rows`}`,
+        run: (rows) => (rows === 1 ? 'Resample to 1 row' : `Resample to ${rows} rows`),
+        idle: 'Resample',
+      },
+    },
     wavelengthUnit: 'Unit of the wavelength column',
     quantity: 'Quantity',
     unitTip: 'What the typed numbers are. Changing it does not rescale them.',

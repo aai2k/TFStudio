@@ -7,23 +7,33 @@ import { X_KEY, columnIndex } from './curveTable.js';
 
 const QUANTITY_SYMBOL = { T: 'T', R: 'R', A: 'A', PSI: 'Ψ', DEL: 'Δ' };
 const UNIT_SYMBOL = { gain: 'dB', '%': '%', fraction: '0-1', dB: 'dB', OD: 'OD', deg: '°' };
-const X_HEADER = { nm: 'λ (nm)', um: 'λ (µm)', 'cm-1': 'ν (cm⁻¹)', eV: 'E (eV)' };
+const X_SYMBOL = { nm: 'λ', um: 'λ', 'cm-1': 'ν', eV: 'E' };
 const X_UNIT_SYMBOL = { nm: 'nm', um: 'µm', 'cm-1': 'cm⁻¹', eV: 'eV' };
 const X_AXIS_KEY = { nm: 'nm', um: 'um', 'cm-1': 'cm1', eV: 'eV' };
+
+const xHeader = id => `${X_SYMBOL[id]} (${X_UNIT_SYMBOL[id]})`;
+
+/**
+ * A value column's name on the plot's legend and in the tool panels: the name
+ * typed for it, or its quantity and its place among the value columns, T 1.
+ */
+export function valueColumnName(column, index, quantity) {
+    return column.name || `${quantity} ${index + 1}`;
+}
 
 export function editorLabels(t, table) {
     const ce = t.curveEditor;
     const quantityName = quantity => QUANTITY_SYMBOL[quantity] || (quantity === 'G' ? ce.gain : ce.weight);
     const unit = id => UNIT_SYMBOL[id] ?? (id === 'rel' ? ce.relative : '');
     const quantity = column => quantityName(column.quantity);
-    const columnHeader = column => `${column.name || quantity(column)} (${unit(column.unit)})`;
+    const valueTitle = index => valueColumnName(table.columns[index], index, quantity(table.columns[index]));
     return {
         quantity, quantityName, unit,
         xUnit: id => X_UNIT_SYMBOL[id] || id,
-        xAxis: t.spectralAxis[X_AXIS_KEY[table.xUnit]] || X_HEADER[table.xUnit],
+        xSymbol: X_SYMBOL[table.xUnit],
+        xAxis: t.spectralAxis[X_AXIS_KEY[table.xUnit]] || xHeader(table.xUnit),
         design: ce.designCurve,
-        header: colKey => (colKey === X_KEY
-            ? X_HEADER[table.xUnit]
-            : columnHeader(table.columns[columnIndex(colKey) - 1])),
+        // A column as the tool panels name it: λ (nm), or T 1 as on the legend.
+        columnTitle: colKey => (colKey === X_KEY ? xHeader(table.xUnit) : valueTitle(columnIndex(colKey) - 1)),
     };
 }

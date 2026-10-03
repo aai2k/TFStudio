@@ -11,6 +11,7 @@ import {
 } from '../../../ui/chartOptions.js';
 import { legendAbove, plotMargin } from '../../analysis/chrome/plot.js';
 import { columnSeries, tidy, valueKey } from './curveTable.js';
+import { valueColumnName } from './editorLabels.js';
 import { valueProblem } from './units.js';
 
 const QUANTITY_COLOR = { T: '#2196f3', R: '#ef5350', A: '#66bb6a', PSI: '#4fc3f7', DEL: '#ff8a65', W: '#ab47bc' };
@@ -54,7 +55,7 @@ function axisName(columns, axes, axis, labels) {
 }
 
 function columnLabel(column, index, labels) {
-    return column.name || `${labels.quantity(column)} ${index + 1}`;
+    return valueColumnName(column, index, labels.quantity(column));
 }
 
 function columnSeriesList(table, index, view) {

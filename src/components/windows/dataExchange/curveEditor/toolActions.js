@@ -2,46 +2,33 @@
  * The curve editor's tools: fill, change, resample and smooth the selection or
  * the table, read a file into it, drag a point, and apply. Each takes the
  * editor `ed` described in editorActions.js, with `ed.tools` holding the
- * numbers the tool bar shows.
+ * numbers the tool panels show. A panel says why its tool cannot run, and its
+ * button does nothing until it can (toolText.js), so a fill, change or
+ * resample with numbers it cannot use leaves the table as it was.
  */
-import { changeCells, changeProblem, fillCells, fillProblem } from './cellOps.js';
-import { MAX_RESAMPLED_ROWS, resampleTable, smoothCells } from './curveOps.js';
+import { changeCells, fillCells } from './cellOps.js';
+import { resampleTable, smoothCells } from './curveOps.js';
 import { applyProblem } from './curveApply.js';
 import { draggedCell, roundDragged } from './chartModel.js';
 import { columnIndex, setCells, sortedRows } from './curveTable.js';
 import { selectedOf } from './editorActions.js';
 import { tableFromText } from './tableText.js';
+import { changeOptions, fillOptions } from './toolText.js';
 
 export function fillSelected(ed) {
-    const problem = fillProblem(ed.tools.fill);
-    if (problem) {
-        ed.notify('error', ed.ce.fillProblems[problem]);
-        return;
-    }
     const cells = selectedOf(ed);
-    ed.edit(table => fillCells(table, cells, ed.tools.fill));
+    ed.edit(table => fillCells(table, cells, fillOptions(ed.tools.fill)));
 }
 
 export function changeSelected(ed) {
-    if (changeProblem(ed.tools.change)) {
-        ed.notify('error', ed.ce.changeProblem);
-        return;
-    }
     const cells = selectedOf(ed);
-    ed.edit(table => changeCells(table, cells, ed.tools.change));
+    ed.edit(table => changeCells(table, cells, changeOptions(ed.tools.change)));
 }
 
-function resampleMessage(ce, problem) {
-    return problem === 'rows' ? ce.resampleProblems.rows(MAX_RESAMPLED_ROWS) : ce.resampleProblems[problem];
-}
-
-/** Every column resampled onto the step in the tool bar. */
+/** Every column resampled onto the step in the Resample panel. */
 export function resampleAll(ed) {
     const result = resampleTable(ed.table, ed.tools.step);
-    if (result.problem) {
-        ed.notify('error', resampleMessage(ed.ce, result.problem));
-        return;
-    }
+    if (result.problem) return;
     ed.edit(() => result.table);
     ed.sel.clearCells();
 }

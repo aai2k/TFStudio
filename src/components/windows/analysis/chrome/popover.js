@@ -25,7 +25,8 @@ const { createElement: h, useContext, useState } = React;
 
 const FONT = 'system-ui, -apple-system, sans-serif';
 
-function panelStyle(c, width) {
+/** The look of a panel hung off a control row, anchored under its button's right-hand edge. */
+export function panelStyle(c, width) {
     return {
         position: 'absolute', right: 0, top: 32, zIndex: 50,
         minWidth: width, maxWidth: 420, maxHeight: 420, overflowY: 'auto',
@@ -36,7 +37,8 @@ function panelStyle(c, width) {
     };
 }
 
-function triggerStyle(c, { open, tone }) {
+/** The look of the button that opens such a panel, outlined in the accent while it is open. */
+export function triggerStyle(c, { open, tone }) {
     const accent = tone || c.accent;
     return {
         height: 28, padding: '0 9px', display: 'inline-flex', alignItems: 'center', gap: 5,

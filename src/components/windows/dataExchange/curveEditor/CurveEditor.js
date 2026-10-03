@@ -27,7 +27,6 @@ import { SplitPane } from '../../../docking/SplitPane.js';
 import { ExportMenu, useCsvExport } from '../../../ui/ExportMenu.js';
 import { useUnresolvedMaterials } from '../../../../utils/materials/useUnresolvedMaterials.js';
 import { ActionButton, CheckField } from '../../analysis/chrome/controls.js';
-import { ColumnBar } from './ColumnBar.js';
 import { CurveChart } from './CurveChart.js';
 import { CurveGrid } from './CurveGrid.js';
 import { backdropKey, designBackdrop } from './designBackdrop.js';
@@ -75,7 +74,6 @@ function Footer({ editor, props, notices, c, ce, dt }) {
 
 function TablePane({ editor, labels, c, ce }) {
     return h('div', { style: { display: 'flex', flexDirection: 'column', height: '100%', minHeight: 0 } },
-        h(ColumnBar, { editor, labels, c, ce }),
         h(CurveGrid, { editor, labels, c, ce }),
         h('div', { style: { padding: '4px 8px', color: c.textDim, fontSize: 10, flexShrink: 0 } }, ce.hint),
     );

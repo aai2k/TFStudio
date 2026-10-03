@@ -1,7 +1,7 @@
 /**
  * The curve editor drawn: on its own for a new curve, a long imported one, a
- * Ψ/Δ pair and a weighting, and the buttons that open it in Measured Spectra
- * and Measured Ellipsometry.
+ * Ψ/Δ pair and a weighting, its table heading and tool panels, and the
+ * buttons that open it in Measured Spectra and Measured Ellipsometry.
  * Run: node tests/curve_editor_window.mjs
  */
 import assert from 'node:assert/strict';
@@ -21,11 +21,35 @@ const { MeasuredEllipsometry } = await import(
     '../src/components/windows/dataExchange/measuredEllipsometry/MeasuredEllipsometry.js');
 const { makeMeasuredCurve } = await import('../src/utils/io/spectrumTable.js');
 
+const { editorLabels } = await import('../src/components/windows/dataExchange/curveEditor/editorLabels.js');
+
 const c = makeTheme();
 const t = makeLocale();
 const ce = t.curveEditor;
 // Text as the server renderer writes it into markup.
 const escaped = text => text.replace(/&/g, '&amp;').replace(/'/g, '&#x27;').replace(/"/g, '&quot;');
+const count = (html, text) => html.split(text).length - 1;
+const headOf = html => html.slice(html.indexOf('<thead'), html.indexOf('</thead>'));
+// A select drawn with `id` chosen.
+const chosen = id => new RegExp(`<option[^>]*value="${id}"[^>]*selected=""|<option[^>]*selected=""[^>]*value="${id}"`);
+// Every element of a tree a component returns, its child components left
+// closed unless named in `open`, which are drawn by calling them: none of
+// those holds state of its own.
+const elements = (node, open = [], found = []) => {
+    if (Array.isArray(node)) node.forEach(child => elements(child, open, found));
+    else if (node && typeof node === 'object' && node.props) {
+        found.push(node);
+        if (open.includes(node.type?.name)) elements(node.type(node.props), open, found);
+        else elements(node.props.children, open, found);
+    }
+    return found;
+};
+const press = () => {
+    const event = { prevented: false, stopped: false };
+    event.preventDefault = () => { event.prevented = true; };
+    event.stopPropagation = () => { event.stopped = true; };
+    return event;
+};
 
 // ── The editor drawn ─────────────────────────────────────────────────────────
 const design = makeSampleDesign();
@@ -39,8 +63,23 @@ const draw = props => renderToStaticMarkup(withDesign(React.createElement(CurveE
         ce.undo, ce.insertRows, ce.dragPoints, ce.addColumn, ce.apply, ce.cancel]) {
         assert.ok(html.includes(label), `the editor offers ${label}`);
     }
-    assert.ok(html.includes('λ (nm)') && html.includes('T (%)'), 'columns are headed with their units');
     assert.ok(!html.includes(ce.rebuild(1)), 'a new curve has no merit targets to rebuild');
+
+    // Each column's unit is set in its own heading, and nowhere else.
+    const head = headOf(html);
+    const unitTitles = [ce.wavelengthUnit, ce.quantity, ce.unitTip].map(text => `title="${escaped(text)}"`);
+    for (const title of unitTitles) {
+        assert.equal(count(head, title), 1, `the heading holds the select ${title}`);
+        assert.equal(count(html, title), 1, `and no bar outside the table holds it too: ${title}`);
+    }
+    assert.ok(head.includes('>λ<') && chosen('nm').test(head) && chosen('T').test(head) && chosen('%').test(head),
+        'the wavelength in nm and a T column in %');
+    assert.equal(count(head, `title="${escaped(ce.columnName)}"`), 1, 'a new curve names its column under its heading');
+    assert.ok(head.includes(ce.addColumn), '+ Column ends the heading');
+    assert.equal(count(head, `title="${escaped(ce.removeColumn)}"`), 0, 'the last value column cannot be removed');
+    for (const label of [ce.panels.selectFirst, ce.panels.fill.run(0)]) {
+        assert.ok(!html.includes(label), 'no tool panel is open');
+    }
 }
 
 // Only the rows over the pane are drawn.
@@ -67,7 +106,10 @@ const draw = props => renderToStaticMarkup(withDesign(React.createElement(CurveE
 {
     const html = draw({ title: 'x', table: emptyTable('ellipsometry') });
     assert.ok(html.includes(escaped(ce.aoiOnCard)));
-    assert.ok(html.includes('Ψ (°)') && html.includes('Δ (°)'), 'a new ellipsometric curve opens as a Ψ and Δ pair');
+    const head = headOf(html);
+    assert.ok(chosen('PSI').test(head) && chosen('DEL').test(head) && head.includes('>°<'),
+        'a new ellipsometric curve opens as a Ψ and Δ pair in degrees');
+    assert.equal(count(head, `title="${escaped(ce.removeColumn)}"`), 2, 'either of two columns can be removed');
     const atAngle = draw({ title: 'x', table: emptyTable('ellipsometry'), conditions: { ...NEW_CURVE_CONDITIONS, aoi: 70 } });
     assert.ok(!atAngle.includes(escaped(ce.aoiOnCard)));
 }
@@ -75,8 +117,41 @@ const draw = props => renderToStaticMarkup(withDesign(React.createElement(CurveE
 // An Integral Values weighting: one relative column, nothing to drag a design behind.
 {
     const html = draw({ title: ce.titleWeight('Source'), table: tableFromWeights([[400, 1], [500, 2]]), design: null });
-    assert.ok(html.includes(`${ce.weight} (${ce.relative})`));
+    const head = headOf(html);
+    assert.ok(head.includes(`>${ce.weight}<`) && head.includes(`>${ce.relative}<`), 'a relative weight');
     assert.ok(!html.includes(ce.addColumn), 'a weighting has one column');
+    assert.ok(!head.includes(escaped(ce.columnName)) && !head.includes(escaped(ce.removeColumn)),
+        'which has no name to type and cannot be removed');
+}
+
+// ── The heading: a press outside its controls selects the column ─────────────
+{
+    const { TableHead } = await import('../src/components/windows/dataExchange/curveEditor/TableHead.js');
+    const table = emptyTable('ellipsometry');
+    const picked = [];
+    const editor = {
+        table, edit() {},
+        actions: { selectAll: () => picked.push('all'), selectColumn: colKey => picked.push(colKey) },
+    };
+    const all = elements(TableHead({ editor, labels: editorLabels(t, table), c, ce, headRef: null }));
+    const heads = all.filter(node => node.type === 'th' && node.props.onMouseDown);
+    heads.forEach(th => th.props.onMouseDown(press()));
+    assert.deepEqual(picked, ['all', 'x', 'v0', 'v1', 'x', 'v0', 'v1'],
+        'the # heading selects every cell; a column heading and the name under it, the column');
+    const kept = all.filter(node => node.type !== 'th' && node.props.onMouseDown).map(node => {
+        const event = press();
+        node.props.onMouseDown(event);
+        return event.stopped;
+    });
+    assert.ok(kept.length >= 4 && kept.every(Boolean), 'a press on a select or a remove button stays with it');
+
+    // Where a column lies, for scrolling a cell the keys move to into view:
+    // value columns share what the fixed ones leave.
+    const { columnSpan } = await import('../src/components/windows/dataExchange/curveEditor/TableHead.js');
+    const layout = { widths: [46, 80, null, null, 90], minWidth: 500 };
+    assert.deepEqual(columnSpan(layout, 1, 600), { left: 46, right: 126 }, 'the wavelength column');
+    assert.deepEqual(columnSpan(layout, 3, 600), { left: 318, right: 510 }, 'the second value column');
+    assert.deepEqual(columnSpan(layout, 4, 600), { left: 510, right: 600 }, '+ Column');
 }
 
 // ── The fill handle drawn ────────────────────────────────────────────────────
@@ -89,10 +164,10 @@ const draw = props => renderToStaticMarkup(withDesign(React.createElement(CurveE
         pressCell() {}, dragOver() {},
     };
     const editorWith = ({ drag = null, label = [], editCell = null }) => ({
-        table, sel, editCell, actions: {}, onKeyDown() {}, fill: { source, drag, label, begin() {} },
+        table, sel, editCell, actions: {}, edit() {}, onKeyDown() {}, fill: { source, drag, label, begin() {} },
     });
     const grid = props => renderToStaticMarkup(React.createElement(CurveGrid, {
-        editor: editorWith(props), labels: { header: colKey => colKey }, c, ce,
+        editor: editorWith(props), labels: editorLabels(t, table), c, ce,
     }));
     const tip = `title="${escaped(ce.fillHandleTip)}"`;
     const still = grid({});
@@ -105,6 +180,70 @@ const draw = props => renderToStaticMarkup(withDesign(React.createElement(CurveE
         'rows to the reach and a pane of blank room are drawn under the table');
     assert.ok(dragged.includes('inset 0 -2px 0'), 'the cells to fill are outlined');
     assert.ok(dragged.includes('<span>450</span><span>50.5</span>'), 'the label shows the farthest row');
+    assert.ok(/min-width:\d+px/.test(still), 'columns past what the pane fits scroll it sideways');
+}
+
+// ── The tool panels ──────────────────────────────────────────────────────────
+{
+    const { PanelTool } = await import('../src/components/windows/dataExchange/curveEditor/ToolPanels.js');
+    const table = { ...emptyTable('spectrum'), rows: Array.from({ length: 8 }, (_, i) => [300 + 50 * i, 90 + i]) };
+    const tools = {
+        fill: { mode: 'step', value: null, first: 400, step: 10, last: null },
+        change: { mode: 'percent', percent: 5, a: null, b: null },
+        step: 1,
+        smooth: { window: 5, order: 2 },
+    };
+    const draw = (id, open, sel) => renderToStaticMarkup(React.createElement(PanelTool, {
+        editor: {
+            table, tools, panel: open, setPanel() {}, setTools() {}, actions: {},
+            sel: { range: null, extraCells: new Set(), focusCell: null, tableRef: { current: null }, ...sel },
+        },
+        labels: editorLabels(t, table), c, ce, id,
+    }));
+    const lambdas = { range: { rowStart: 1, rowEnd: 6, colKeys: ['x'] }, focusCell: { rowIdx: 6, colKey: 'x' } };
+
+    const closed = draw('fill', null, lambdas);
+    assert.ok(closed.includes('aria-expanded="false"') && closed.includes(`>${ce.fill}<`));
+    assert.ok(!closed.includes(ce.panels.fill.run(6)), 'a closed panel is not drawn');
+    assert.ok(!draw('fill', 'change', lambdas).includes(ce.panels.fill.run(6)), 'nor one while another is open');
+
+    const fill = draw('fill', 'fill', lambdas);
+    assert.ok(fill.includes('aria-expanded="true"'));
+    assert.ok(fill.includes(ce.panels.fill.title(6, 'λ (nm)')), 'Fill names the cells it fills');
+    assert.equal(count(fill, 'type="radio"'), 4, 'in one of four ways');
+    assert.ok(fill.includes('value="400"') && fill.includes('value="10"'), 'with its numbers in the sentence');
+    assert.ok(fill.includes('400, 410, 420 … 450'), 'and shows what they will be');
+    assert.ok(fill.includes(`>${ce.panels.fill.run(6)}</button>`));
+
+    const change = draw('change', 'change', { range: { rowStart: 0, rowEnd: 2, colKeys: ['v0'] } });
+    assert.ok(change.includes(ce.panels.change.title(3, 'T 1')) && change.includes(ce.panels.change.preview('90', '94.5')));
+
+    const smooth = draw('smooth', 'smooth', {});
+    assert.ok(smooth.includes(ce.panels.selectFirst), 'with nothing selected a panel asks for cells');
+    assert.ok(new RegExp(`<span style="opacity:0.45"><button[^>]*>${ce.panels.smooth.run}</button>`).test(smooth),
+        'and its button is dimmed');
+    assert.ok(fill.includes(`<span style="opacity:1"><button`), 'a tool that can run is not');
+
+    // The button runs the tool and closes the panel, and does nothing until the tool can run.
+    const pressRun = (id, sel) => {
+        const events = [];
+        const editor = {
+            table, tools, panel: id, setPanel: open => events.push(['panel', open]), setTools() {},
+            actions: { [id]: () => events.push(['run', id]) },
+            sel: { range: null, extraCells: new Set(), focusCell: null, tableRef: { current: null }, ...sel },
+        };
+        const tree = PanelTool({ editor, labels: editorLabels(t, table), c, ce, id });
+        const open = ['FillPanel', 'SmoothPanel', 'PanelBody', 'RunButton'];
+        const run = elements(tree, open).find(node => node.type?.name === 'ActionButton');
+        run.props.onClick();
+        return events;
+    };
+    assert.deepEqual(pressRun('fill', lambdas), [['run', 'fill'], ['panel', null]]);
+    assert.deepEqual(pressRun('smooth', {}), [], 'with nothing selected');
+
+    const resample = draw('resample', 'resample', {});
+    assert.ok(resample.includes(escaped(ce.panels.resample.plan('300', '650', 'nm', 351))));
+    assert.ok(resample.includes(`>${ce.panels.resample.run(351)}</button>`));
 }
 
 // ── Where it opens ───────────────────────────────────────────────────────────

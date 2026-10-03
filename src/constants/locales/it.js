@@ -1134,25 +1134,55 @@ export default {
     deleteRowsTip: 'Elimina le righe delle celle selezionate (Delete). Backspace svuota solo le celle.',
     dragPoints: 'Trascina i punti',
     dragPointsTip: "Trascina un punto del grafico in su o in giù per cambiarne il valore. La sua lunghezza d'onda resta quella digitata.",
-    fill: 'Riempi',
-    fillModes: { constant: 'Costante', step: 'Passo', log: 'Passo logaritmico', wavenumber: "Passo in numero d'onda" },
-    fillValue: 'Valore',
-    fillFirst: 'Primo',
-    fillStep: 'Passo',
-    fillLast: 'Ultimo',
-    change: 'Cambia',
-    changeModes: { percent: 'Del %', linear: 'a·V + b' },
-    changePercent: '%',
-    changeA: 'a',
-    changeB: 'b',
-    smooth: 'Leviga',
+    fill: 'Riempi…',
+    change: 'Cambia…',
+    smooth: 'Leviga…',
     smoothTip: 'Levigatura di Savitzky-Golay dei valori selezionati: ciascuno è sostituito da un polinomio adattato a esso e ai suoi vicini. Una sola cella selezionata leviga tutta la sua colonna.',
-    smoothWindow: 'Punti',
-    smoothOrder: 'Ordine',
-    resample: 'Ricampiona',
+    resample: 'Ricampiona…',
     resampleTip: 'Interpola ogni colonna su un passo uniforme con PCHIP, che conserva la forma, come fa il fit. La griglia cade su multipli interi del passo.',
-    resampleStep: 'Passo',
-    resampleStepTip: "Il passo della nuova griglia, nell'unità della colonna delle lunghezze d'onda.",
+    panels: {
+      selectFirst: 'Seleziona prima delle celle nella tabella.',
+      fill: {
+        title: (count, columns) => (count === 1
+          ? `Riempi la cella selezionata di ${columns}`
+          : `Riempi le ${count} celle selezionate di ${columns}`),
+        rows: {
+          constant: ['tutte con ', ''],
+          step: ['da ', ' a passi di ', ''],
+          log: ['da ', ' a ', ', uniformi in scala logaritmica'],
+          wavenumber: ['da ', ' a ', ", uniformi in numero d'onda"],
+        },
+        run: (count) => (count === 1 ? 'Riempi 1 cella' : `Riempi ${count} celle`),
+      },
+      change: {
+        title: (count, columns) => (count === 1
+          ? `Cambia il valore selezionato di ${columns}`
+          : `Cambia i ${count} valori selezionati di ${columns}`),
+        rows: {
+          percent: ['del ', ' %'],
+          linear: ['in a·V + b con a = ', ' e b = ', ''],
+        },
+        preview: (from, to) => `${from} diventa ${to}`,
+        run: (count) => (count === 1 ? 'Cambia 1 valore' : `Cambia ${count} valori`),
+        noValues: 'Le celle selezionate non contengono numeri.',
+      },
+      smooth: {
+        title: (columns, first, last) => (first === last
+          ? `Leviga ${columns}, riga ${first}`
+          : `Leviga ${columns}, righe ${first}-${last}`),
+        whole: (column) => `Leviga tutta la colonna ${column}`,
+        sentence: ['Ogni valore è sostituito da un polinomio di ordine ', ' adattato su ', ' punti attorno a esso (Savitzky-Golay).'],
+        wavelength: "La colonna delle lunghezze d'onda non si leviga. Seleziona valori in un'altra colonna.",
+        tooFew: (points) => `Seleziona almeno ${points} valori in una colonna, o una sola cella per levigare tutta la colonna.`,
+        run: 'Leviga',
+      },
+      resample: {
+        sentence: (unit) => ["Porta ogni colonna su una nuova griglia di lunghezze d'onda con passo ", ` ${unit}`],
+        plan: (first, last, unit, rows) => `da ${first} a ${last} ${unit}: ${rows === 1 ? '1 riga' : `${rows} righe`}`,
+        run: (rows) => (rows === 1 ? 'Ricampiona a 1 riga' : `Ricampiona a ${rows} righe`),
+        idle: 'Ricampiona',
+      },
+    },
     wavelengthUnit: "Unità della colonna delle lunghezze d'onda",
     quantity: 'Grandezza',
     unitTip: 'Che cosa sono i numeri digitati. Cambiarla non li riscala.',
