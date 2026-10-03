@@ -16,7 +16,7 @@
  */
 
 import {
-    MEASURED_CURVE_QUANTITIES, isMeasuredCurve, makeOperand,
+    isMeasuredCurve, makeOperand, measuredCurveChannel,
 } from './operandModel.js';
 import { CALCULATED_DELTA_CONVENTION, convertDeltaConvention } from '../thinFilmMath.js';
 
@@ -65,15 +65,24 @@ function measuredCurveEngineTargets(op) {
     return targets;
 }
 
-/** Expand one valid measured snapshot into pointwise single-wavelength operands. */
+function hasPairedSnapshot(op) {
+    const lambdas = op.sampleLambdas;
+    return Array.isArray(lambdas) && Array.isArray(op.sampleTargets)
+        && lambdas.length > 0 && lambdas.length === op.sampleTargets.length;
+}
+
+/**
+ * Expand one valid measured snapshot into pointwise single-wavelength operands.
+ * A block that is not valid, or is on a channel this build does not know, is
+ * left whole, so its own evaluator reports why it cannot be scored.
+ */
 function expandMeasuredCurveOperand(op) {
     if (!isMeasuredCurve(op?.type)) return [op];
+    const type = measuredCurveChannel(op);
+    if (!type || !hasPairedSnapshot(op)) return [op];
     const lambdas = op.sampleLambdas;
-    if (!Array.isArray(lambdas) || !Array.isArray(op.sampleTargets)
-        || lambdas.length === 0 || lambdas.length !== op.sampleTargets.length) return [op];
     const targets = measuredCurveEngineTargets(op);
     const pointWeight = op.weight / lambdas.length;
-    const type = MEASURED_CURVE_QUANTITIES.includes(op.quantity) ? op.quantity : 'R';
     return lambdas.map((lambda, index) => ({
         id: `${op.id}:${index}`,
         enabled: op.enabled !== false,

@@ -20,6 +20,14 @@ export const GENERATED_ONLY_OPERAND_TYPES = [...MEASURED_CURVE_OPERAND_TYPES];
 
 export function isMeasuredCurve(type) { return type === 'MCURVE'; }
 
+// The channel a block is scored on, or null for a channel this build does not
+// know, which a newer TFStudio may have written. A block with no channel
+// recorded is R.
+export function measuredCurveChannel(op) {
+    const quantity = op?.quantity ?? 'R';
+    return MEASURED_CURVE_QUANTITIES.includes(quantity) ? quantity : null;
+}
+
 export function isEllipsometricQuantity(quantity) {
     return quantity === 'PSI' || quantity === 'DEL';
 }
@@ -37,7 +45,9 @@ export function seedMeasuredCurve(base) {
     base.targetEnd = null;
     if (!Array.isArray(base.sampleLambdas)) base.sampleLambdas = [];
     if (!Array.isArray(base.sampleTargets)) base.sampleTargets = [];
-    if (!MEASURED_CURVE_QUANTITIES.includes(base.quantity)) base.quantity = 'R';
+    // A channel this build does not know is kept as written, so saving the
+    // design here does not turn the block into an R block for good.
+    if (base.quantity == null) base.quantity = 'R';
     // A measured Δ is in whichever sign its instrument wrote, and the block has
     // to say which. Azzam-Bashara is what measurement files carry.
     if (base.quantity === 'DEL' && !base.deltaConvention) base.deltaConvention = 'azzam';

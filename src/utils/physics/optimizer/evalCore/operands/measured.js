@@ -4,7 +4,7 @@
  * blocks alike.
  */
 
-import { isEllipsometricMeasuredCurve } from '../../operandModel.js';
+import { isEllipsometricMeasuredCurve, measuredCurveChannel } from '../../operandModel.js';
 import { measuredCurveEngineTargets } from '../../measuredCurveOperand.js';
 import { tmmProp } from '../tmmEval.js';
 import { _normalizeDegrees } from '../angles.js';
@@ -31,11 +31,16 @@ function _measuredSnapshotLambdas(op) {
 // Persisted measured-curve block: its value is already the RMS residual, so
 // `_operandResidual` consumes it directly just like a continuous range target.
 export function _evalMeasuredCurve(op, ctx) {
+    const char = measuredCurveChannel(op);
+    if (!char) {
+        throw new OperandEvaluationError(
+            `A measured curve on channel ${op.quantity} is of a kind this version of TFStudio does not know, so it cannot be evaluated.`,
+        );
+    }
     if (isEllipsometricMeasuredCurve(op)) return _evalMeasuredEllipsometry(op, ctx);
     _assertMeasurementSide(op, ctx);
     const lambdas = _measuredSnapshotLambdas(op);
     const targets = op.sampleTargets;
-    const char = ['T', 'R', 'A'].includes(op.quantity) ? op.quantity : 'R';
     const pol = op.pol || 'avg';
     let sumSq = 0;
     for (let index = 0; index < lambdas.length; index++) {

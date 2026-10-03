@@ -3,7 +3,7 @@
  * and the resolver that lets a math row reference other rows.
  */
 
-import { isConstraint, isDmfs, isBlank, isStress, isTotalThickness, isRangeTarget, isMeasuredCurve, isIntegral, isMinmax, isArgwave, isMath, isEllipsometry, isPhaseShift, isGroupDelay, isGroupDelayFlat, isEField, isEllipsometricMeasuredCurve, argwaveOpticalChar, argwavePolCode, polFromType } from '../../operandModel.js';
+import { isConstraint, isDmfs, isBlank, isStress, isTotalThickness, isRangeTarget, isMeasuredCurve, isIntegral, isMinmax, isArgwave, isMath, isEllipsometry, isPhaseShift, isGroupDelay, isGroupDelayFlat, isEField, isEllipsometricMeasuredCurve, isKnownOperandType, measuredCurveChannel, argwaveOpticalChar, argwavePolCode, polFromType } from '../../operandModel.js';
 import { charOf, operandSampleLambdas } from '../../sampling.js';
 import { computeMathValue } from '../mathOperands.js';
 import { _evalTotalThickness, _evalStressForce, _evalConstraint, _evalArgwave, _evalIntegral, _evalMinmax, _evalRangeTarget, _evalBandAvgOrSingle } from './basic.js';
@@ -11,8 +11,9 @@ import { _evalMeasuredCurve } from './measured.js';
 import { _evalEllipsometry, resetEllipsometryCaches } from './ellipsometry.js';
 import { _evalPhaseDispersionPoint, _evalGroupDelayFlat, resetPhaseDispersionCache } from './phase.js';
 import { _evalEField } from './efield.js';
+import { OperandEvaluationError } from './errors.js';
 
-export { OperandEvaluationError } from './errors.js';
+export { OperandEvaluationError };
 export { ellipsometryThicknessPoint } from './ellipsometry.js';
 export { phaseDispersionThicknessPoint, groupDelayFlatBandLevel } from './phase.js';
 
@@ -85,8 +86,16 @@ const _EVAL_DISPATCH = [
     [isEField,         _evalEField],
 ];
 
+// The fall-through evaluator above is a real one, for T, R, A and their band
+// averages, so a type that matches nothing in the dispatch cannot be told from
+// one of those by the dispatch itself; the list of known types does that.
 export function evalOperand(op, ctx) {
     if (isDmfs(op.type) || isBlank(op.type)) return null;   // inert / comment
+    if (!isKnownOperandType(op.type)) {
+        throw new OperandEvaluationError(
+            `A merit row of type ${op.type} is of a kind this version of TFStudio does not know, so it cannot be evaluated.`,
+        );
+    }
     for (const [test, evalFn] of _EVAL_DISPATCH) {
         if (test(op.type)) return evalFn(op, ctx);
     }
@@ -111,7 +120,7 @@ const _snapshotLambdas = op => (Array.isArray(op.sampleLambdas) ? op.sampleLambd
  * comments).
  */
 export function operandSpectrumReads(op) {
-    if (_READS_NO_SPECTRUM.some(test => test(op.type))) return null;
+    if (!isKnownOperandType(op.type) || _READS_NO_SPECTRUM.some(test => test(op.type))) return null;
     if (isArgwave(op.type)) {
         return {
             aoi: op.aoi, pol: argwavePolCode(op.type) ?? op.pol ?? 'avg',
@@ -119,10 +128,11 @@ export function operandSpectrumReads(op) {
         };
     }
     if (isMeasuredCurve(op.type)) {
-        if (isEllipsometricMeasuredCurve(op)) return null;
+        const channel = measuredCurveChannel(op);
+        if (!channel || isEllipsometricMeasuredCurve(op)) return null;
         return {
             aoi: op.aoi ?? 0, pol: op.pol || 'avg',
-            char: ['T', 'R', 'A'].includes(op.quantity) ? op.quantity : 'R',
+            char: channel,
             lambdas: _snapshotLambdas(op),
         };
     }

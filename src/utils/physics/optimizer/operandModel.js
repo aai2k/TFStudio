@@ -11,12 +11,13 @@
 
 import {
     GENERATED_ONLY_OPERAND_TYPES, MEASURED_CURVE_OPERAND_TYPES, MEASURED_CURVE_QUANTITIES,
-    isEllipsometricMeasuredCurve, isEllipsometricQuantity, isMeasuredCurve, seedMeasuredCurve,
+    isEllipsometricMeasuredCurve, isEllipsometricQuantity, isMeasuredCurve, measuredCurveChannel,
+    seedMeasuredCurve,
 } from './measuredCurveType.js';
 
 export {
     GENERATED_ONLY_OPERAND_TYPES, MEASURED_CURVE_OPERAND_TYPES, MEASURED_CURVE_QUANTITIES,
-    isEllipsometricMeasuredCurve, isEllipsometricQuantity, isMeasuredCurve,
+    isEllipsometricMeasuredCurve, isEllipsometricQuantity, isMeasuredCurve, measuredCurveChannel,
 };
 
 // ── Operand type lists ────────────────────────────────────────────────────────
@@ -140,6 +141,16 @@ export const OPERAND_TYPES = [
     ...BLANK_OPERAND_TYPES,
 ];
 export const OPERAND_POLS  = ['avg', 's', 'p'];
+
+// Every type this build evaluates: the offered ones, the inert DMFS marker, and
+// the s/p-suffixed TS to AP rows of older designs, which
+// are no longer offered but still read their polarization from the suffix. A
+// row of any other type, such as one saved by a newer TFStudio, is refused
+// rather than scored by the first letter of its type.
+const EVALUATED_OPERAND_TYPES = new Set([
+    ...OPERAND_TYPES, 'DMFS', 'TS', 'TP', 'RS', 'RP', 'AS', 'AP',
+]);
+export function isKnownOperandType(type) { return EVALUATED_OPERAND_TYPES.has(type); }
 
 export function isConstraint(type) { return type === 'MNT' || type === 'MXT'; }
 export function isDmfs(type)       { return type === 'DMFS'; }
