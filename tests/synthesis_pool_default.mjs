@@ -7,8 +7,10 @@
  *      This design unticked, every other catalog is unticked.
  *   2. A design with no layers starts with nothing ticked.
  *   3. Until the user changes it, the pool follows the design on screen; a pool
- *      the user changed is stored and kept, also across a remount. A pool with
- *      none of its catalogs left goes back to the design's own.
+ *      the user changed is stored and kept, also across a remount, except that
+ *      each design's substrate and media stay unticked until ticked on that
+ *      design. A pool with none of its catalogs left goes back to the design's
+ *      own.
  *
  * The hook runs under a small stand-in for React that keeps hook state between
  * renders and runs an effect when its dependencies change.
@@ -111,6 +113,8 @@ const ar = {
     frontLayers: [layer('a1', 'builtin:TiO2'), layer('a2', 'builtin:SiO2')], backLayers: [],
 };
 const bare = { ...gff, id: 'bare', frontLayers: [], backLayers: [] };
+const onFilm = { ...ar, id: 'onFilm', substrate: { material: 'house:Film', thickness: 1 } };
+const GFF_LISTED = ['builtin:Al2O3', 'builtin:BK7', 'builtin:MgF2', 'builtin:SiO2', 'builtin:Ta2O5'];
 
 const sorted = set => [...set].sort();
 const poolIds = (cats, excl, design) =>
@@ -159,7 +163,24 @@ const mount = design => R.run(() => useCatSelection(KEY, design));
     assert.deepEqual(sorted(pool.selectedCats), [DESIGN_CATALOG_ID, 'house']);
     pool = mount(gff);
     assert.deepEqual(sorted(pool.selectedCats), [DESIGN_CATALOG_ID, 'house'], 'a changed pool stays on a design switch');
-    assert.deepEqual(sorted(pool.excludedMats), ['builtin:BK7'], 'with the exclusions it was changed with');
+    assert.deepEqual(sorted(pool.excludedMats), ['builtin:Al2O3', 'builtin:BK7'],
+        'and the substrate and medium of the design on screen stay unticked');
+
+    // A substrate glass from a ticked catalog stays out on the design it is the
+    // substrate of.
+    pool = mount(onFilm);
+    assert.ok(!poolIds(pool.selectedCatsRef.current, pool.excludedMatsRef.current, onFilm).includes('house:Film'),
+        'a design on a glass from a ticked catalog does not get its own substrate in the pool');
+
+    // Ticking a medium on one design ticks it there only.
+    pool = mount(gff);
+    pool.handleToggleMat(DESIGN_CATALOG_ID, 'builtin:Al2O3', GFF_LISTED);
+    pool = mount(gff);
+    assert.deepEqual(sorted(pool.excludedMats), ['builtin:BK7'], 'the medium ticked on this design stays ticked');
+    const onAlumina = mount({ ...ar, id: 'ar2', exitMedium: 'builtin:Al2O3' });
+    assert.ok(onAlumina.excludedMats.has('builtin:Al2O3'), 'and is not ticked on another design');
+    R.unmount();
+    assert.deepEqual(sorted(mount(gff).excludedMats), ['builtin:BK7'], 'also when the window opens again');
 
     R.unmount();
     pool = mount(bare);

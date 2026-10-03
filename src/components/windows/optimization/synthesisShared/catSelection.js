@@ -14,6 +14,15 @@ function layerMaterialIds(design) {
     return new Set(layers.map(layer => layer.material).filter(Boolean));
 }
 
+// What the design catalog lists for the pool, and the part of it no layer is made
+// of: the substrate and the media.
+function designPoolIds(design) {
+    const catalog = design ? buildDesignCatalog(design, '') : null;
+    const listed = catalog ? poolMatEntries(catalog).map(entry => entry.fullId) : [];
+    const layerIds = layerMaterialIds(design);
+    return { listed, roles: listed.filter(id => !layerIds.has(id)) };
+}
+
 /**
  * The pool a design starts with: the design catalog, with every material that no
  * layer uses left out. The substrate and the media stay listed there unticked and
@@ -25,13 +34,21 @@ function layerMaterialIds(design) {
  *          excluded material ids, in the form the pool panel stores.
  */
 export function defaultPoolSelection(design) {
-    const catalog = design ? buildDesignCatalog(design, '') : null;
-    const listed = catalog ? poolMatEntries(catalog).map(entry => entry.fullId) : [];
-    const layerIds = layerMaterialIds(design);
-    const excl = new Set(listed.filter(id => !layerIds.has(id)));
-    return excl.size < listed.length
-        ? { cats: new Set([DESIGN_CATALOG_ID]), excl }
-        : { cats: new Set(), excl: new Set() };
+    return poolOf(designPoolIds(design));
+}
+
+const poolOf = ({ listed, roles }) => (roles.length < listed.length
+    ? { cats: new Set([DESIGN_CATALOG_ID]), excl: new Set(roles) }
+    : { cats: new Set(), excl: new Set() });
+
+// A changed pool shown on a design: its stored exclusions, with the design's
+// substrate and media left out unless they were ticked on this design.
+function shownExclusions(storedExcl, roles, ticked) {
+    const roleSet = new Set(roles);
+    return new Set([
+        ...[...storedExcl].filter(id => !roleSet.has(id)),
+        ...roles.filter(id => !ticked.includes(id)),
+    ]);
 }
 
 // What the default pool is computed from, so it is rebuilt only when that changes.
@@ -58,6 +75,19 @@ function loadUserPool(storageKey, exclKey) {
     if (!saved) return null;
     const cats = new Set([...allCatalogIds()].filter(id => saved.has(id)));
     return cats.size > 0 ? { cats, excl: loadSavedCatSelection(exclKey) || new Set() } : null;
+}
+
+// Substrate and media materials ticked in the pool, by design id.
+function loadTickedRoles(key) {
+    try {
+        const saved = JSON.parse(localStorage.getItem(key) || '{}');
+        if (saved && typeof saved === 'object' && !Array.isArray(saved)) return saved;
+    } catch (_) {}
+    return {};
+}
+
+function saveTickedRoles(key, ticked) {
+    try { localStorage.setItem(key, JSON.stringify(ticked)); } catch (_) {}
 }
 
 // Toggling a catalog is an "all or nothing" action for its materials, so it also
@@ -97,15 +127,27 @@ function computeToggleMat(curCats, curExcl, catId, fullId, catMatIds) {
 // out of them (stored as EXCLUDED full ids, so a selected catalog with nothing
 // excluded offers every material it holds). Until the user changes it the pool
 // follows `design` (defaultPoolSelection); a change is stored under `storageKey`
-// and kept from then on. Returns `selectedCatsRef` and `excludedMatsRef` so the
-// run loop can read the latest selection synchronously.
+// and kept from then on, for every design, except that a design's substrate and
+// media stay out until they are ticked on that design. Returns `selectedCatsRef`
+// and `excludedMatsRef` so the run loop can read the latest selection
+// synchronously.
 export function useCatSelection(storageKey, design) {
     const { useState, useRef, useEffect, useCallback, useMemo } = React;
     const exclKey = storageKey + '_excl';
+    const rolesKey = storageKey + '_roles';
     const [userPool, setUserPool] = useState(() => loadUserPool(storageKey, exclKey));
+    const [tickedRoles, setTickedRoles] = useState(() => loadTickedRoles(rolesKey));
     const poolKey = defaultPoolKey(design);
-    const designPool = useMemo(() => defaultPoolSelection(design), [poolKey]); // eslint-disable-line react-hooks/exhaustive-deps
-    const { cats: selectedCats, excl: excludedMats } = userPool || designPool;
+    const designIds = useMemo(() => designPoolIds(design), [poolKey]); // eslint-disable-line react-hooks/exhaustive-deps
+    const designId = design?.id ?? null;
+    const { cats: selectedCats, excl: excludedMats } = useMemo(() => (userPool
+        ? { cats: userPool.cats, excl: shownExclusions(userPool.excl, designIds.roles, tickedRoles[designId] || []) }
+        : poolOf(designIds)
+    ), [userPool, tickedRoles, designIds, designId]);
+
+    // What a change is stored against: the pool as stored and the design on screen.
+    const latest = useRef(null);
+    latest.current = { userPool, tickedRoles, roles: designIds.roles, designId };
 
     const selectedCatsRef = useRef(selectedCats);
     const excludedMatsRef = useRef(excludedMats);
@@ -115,12 +157,25 @@ export function useCatSelection(storageKey, design) {
     }, [selectedCats, excludedMats]);
 
     // Apply a new (cats, excl) selection: update the synchronous mirror refs,
-    // persist both, and re-render.
+    // persist it, and re-render. The design's substrate and media are stored as
+    // ticked or not on this design; what is stored for them as material
+    // exclusions, from a design whose layers use them, stays as it was.
     const commit = useCallback((nextCats, nextExcl) => {
+        const { userPool: stored, tickedRoles: ticked, roles, designId: id } = latest.current;
+        const roleSet = new Set(roles);
+        const nextStored = new Set([
+            ...[...nextExcl].filter(matId => !roleSet.has(matId)),
+            ...[...(stored?.excl || [])].filter(matId => roleSet.has(matId)),
+        ]);
+        const nextTicked = { ...ticked };
+        const on = roles.filter(matId => !nextExcl.has(matId));
+        if (on.length) nextTicked[id] = on; else delete nextTicked[id];
         selectedCatsRef.current = nextCats; excludedMatsRef.current = nextExcl;
-        saveCatSelection(storageKey, nextCats); saveCatSelection(exclKey, nextExcl);
-        setUserPool({ cats: nextCats, excl: nextExcl });
-    }, [storageKey, exclKey]);
+        saveCatSelection(storageKey, nextCats); saveCatSelection(exclKey, nextStored);
+        saveTickedRoles(rolesKey, nextTicked);
+        setUserPool({ cats: nextCats, excl: nextStored });
+        setTickedRoles(nextTicked);
+    }, [storageKey, exclKey, rolesKey]);
 
     const handleToggleCat = useCallback((catId, catMatIds = []) => {
         const { nextCats, nextExcl } = computeToggleCat(selectedCatsRef.current, excludedMatsRef.current, catId, catMatIds);
