@@ -331,27 +331,31 @@ function wizardResult(ctx) {
     return buildWizardResult({ tw, ...session, typeId, curveRows });
 }
 
+// The line wraps in a narrow pane: the message breaks over lines and Start at
+// row with Generate moves under it, rather than running out of the window.
 function bottomLine(ctx, startRow, setStartRow, onGenerate) {
     const { s, tw, c } = ctx;
     const result = wizardResult(ctx);
     const summary = blockSummary(result.block);
     const blocked = !!result.error;
-    return h('div', { style: { display: 'flex', alignItems: 'center', gap: 8, height: CONTROL_H } },
-        h('span', { style: { ...s.label, color: blocked ? c.error : s.label.color } },
+    return h('div', {
+        style: { display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: '4px 8px', minHeight: CONTROL_H },
+    },
+        h('span', { style: { ...s.label, color: blocked ? c.error : s.label.color, whiteSpace: 'normal', flex: '1 1 160px' } },
             blocked ? tw.curveErrors[result.error] : tw.preview(summary.count, summary.types.join(', '))),
         result.error === 'noCurves'
             && smallButton(c, tw.openMeasuredSpectra, () => requestTool('spectrum-exchange')),
-        h('span', { style: { flex: 1 } }),
-        h('span', { style: s.label, title: tw.startRowTip }, tw.startRow + ':'),
-        numberInput(s, startRow, v => setStartRow(Math.max(1, Math.round(v) || 1)), 52, { min: 1, step: 1 }),
-        h('button', {
-            onClick: () => onGenerate(result.block, result.curves), title: tw.willReplace, disabled: blocked,
-            style: {
-                marginLeft: 8, height: CONTROL_H, padding: '0 14px', fontSize: 11, border: 'none', borderRadius: 3,
-                background: c.accent, color: c.accentText, cursor: blocked ? 'default' : 'pointer',
-                opacity: blocked ? 0.5 : 1, fontWeight: 600, fontFamily: 'inherit',
-            },
-        }, tw.generate));
+        h('div', { style: { ...s.group, gap: 8, marginLeft: 'auto' } },
+            h('span', { style: s.label, title: tw.startRowTip }, tw.startRow + ':'),
+            numberInput(s, startRow, v => setStartRow(Math.max(1, Math.round(v) || 1)), 52, { min: 1, step: 1 }),
+            h('button', {
+                onClick: () => onGenerate(result.block, result.curves), title: tw.willReplace, disabled: blocked,
+                style: {
+                    height: CONTROL_H, padding: '0 14px', fontSize: 11, border: 'none', borderRadius: 3,
+                    background: c.accent, color: c.accentText, cursor: blocked ? 'default' : 'pointer',
+                    opacity: blocked ? 0.5 : 1, fontWeight: 600, fontFamily: 'inherit',
+                },
+            }, tw.generate)));
 }
 
 // Where the wizard's gain comes from: a file the user picks, read into the
