@@ -490,16 +490,6 @@ export function ProjectExplorer({
     () => rows.filter((row) => row.type === 'item').map((row) => row.item), [rows]);
 
   // ── Context-menu builders ───────────────────────────────────────────────────
-  const Icons = {
-    open:   h('svg', { width: 14, height: 14, viewBox: '0 0 16 16', fill: 'none' }, h('path', { d: 'M3 4h4l1 1h5v7H3V4z', stroke: 'currentColor', strokeWidth: 1.2, strokeLinejoin: 'round' })),
-    rename: h('svg', { width: 14, height: 14, viewBox: '0 0 16 16', fill: 'none' }, h('path', { d: 'M11 2l3 3-8 8H3v-3l8-8z', stroke: 'currentColor', strokeWidth: 1.2, strokeLinejoin: 'round' })),
-    dup:    h('svg', { width: 14, height: 14, viewBox: '0 0 16 16', fill: 'none' }, h('path', { d: 'M5 3h6.5L14 5.5V11H5V3z', stroke: 'currentColor', strokeWidth: 1.2 }), h('path', { d: 'M2 5h1M2 5v8h8v-1', stroke: 'currentColor', strokeWidth: 1.2, strokeLinecap: 'round' })),
-    del:    h('svg', { width: 14, height: 14, viewBox: '0 0 16 16', fill: 'none' }, h('path', { d: 'M4 5h8M6 5V3h4v2M6 7v5M10 7v5M5 5l1 8h4l1-8', stroke: 'currentColor', strokeWidth: 1.2, strokeLinecap: 'round' })),
-    newFile:h('svg', { width: 14, height: 14, viewBox: '0 0 16 16', fill: 'none' }, h('path', { d: 'M4 2h5.5L13 5.5V14H4V2z', stroke: 'currentColor', strokeWidth: 1.2 }), h('path', { d: 'M8 8v4M6 10h4', stroke: 'currentColor', strokeWidth: 1.2, strokeLinecap: 'round' })),
-    newFolder: h('svg', { width: 14, height: 14, viewBox: '0 0 16 16', fill: 'none' }, h('path', { d: 'M2 5a1 1 0 011-1h3.414l.793.793A1 1 0 007.914 5H13a1 1 0 011 1v5a1 1 0 01-1 1H3a1 1 0 01-1-1V5z', stroke: 'currentColor', strokeWidth: 1.2 }), h('path', { d: 'M8 7v4M6 9h4', stroke: 'currentColor', strokeWidth: 1.2, strokeLinecap: 'round' })),
-    move:   h('svg', { width: 14, height: 14, viewBox: '0 0 16 16', fill: 'none' }, h('path', { d: 'M2 5a1 1 0 011-1h3.4l.8.8H13a1 1 0 011 1v5a1 1 0 01-1 1H3a1 1 0 01-1-1V5z', stroke: 'currentColor', strokeWidth: 1.2 }), h('path', { d: 'M6 8.5h4M8.5 7l1.5 1.5-1.5 1.5', stroke: 'currentColor', strokeWidth: 1.2, strokeLinecap: 'round', strokeLinejoin: 'round' })),
-  };
-
   // "Move to <folder>" for every folder that would actually receive something.
   // ContextMenu is a flat list, so the folders sit in the menu itself. The list
   // is drawn from the folders on screen, so a search that hides a folder hides
@@ -512,7 +502,7 @@ export function ProjectExplorer({
       label: targets.length > 1
         ? t.explorer.moveSelectedTo(targets.length, folder.id)
         : t.explorer.moveTo(folder.id),
-      icon: Icons.move,
+      icon: 'folder-symlink',
       onClick: () => moveItemsToFolder(ids, folder.id),
     }));
   }, [filteredFolders, moveItemsToFolder, t]);
@@ -524,14 +514,14 @@ export function ProjectExplorer({
     const items = folderDropTargets(filteredFolders, folder.id).map(target => ({
       id: `move-${target.id}`,
       label: t.explorer.moveTo(target.id),
-      icon: Icons.move,
+      icon: 'folder-symlink',
       onClick: () => moveFolder(folder.id, target.id),
     }));
     if (parentFolderId(folder.id) !== null) {
       items.unshift({
         id: 'move-root',
         label: t.explorer.moveToTop,
-        icon: Icons.move,
+        icon: 'folder-symlink',
         onClick: () => moveFolder(folder.id, null),
       });
     }
@@ -543,15 +533,15 @@ export function ProjectExplorer({
     const items = [];
     const moves = moveMenuItems(targets);
     if (!many) {
-      items.push({ label: t.explorer.open, icon: Icons.open, onClick: () => onOpenDesign && onOpenDesign(item, folder) });
-      items.push({ label: t.explorer.duplicate, icon: Icons.dup, onClick: () => duplicateItem && duplicateItem(item, folder) });
-      items.push({ label: t.explorer.renameF2, icon: Icons.rename, onClick: () => startRename(`item-${item.id}`) });
+      items.push({ label: t.explorer.open, icon: 'folder-open', onClick: () => onOpenDesign && onOpenDesign(item, folder) });
+      items.push({ label: t.explorer.duplicate, icon: 'copy-plus', onClick: () => duplicateItem && duplicateItem(item, folder) });
+      items.push({ label: t.explorer.renameF2, icon: 'pencil', onClick: () => startRename(`item-${item.id}`) });
       if (moves.length > 0) items.push({ separator: true }, ...moves);
       items.push({ separator: true });
-      items.push({ label: t.explorer.delete, icon: Icons.del, danger: true, onClick: () => deleteItem(item, folder) });
+      items.push({ label: t.explorer.delete, icon: 'trash', danger: true, onClick: () => deleteItem(item, folder) });
     } else {
       if (moves.length > 0) items.push(...moves, { separator: true });
-      items.push({ label: t.explorer.deleteSelected(targets.length), icon: Icons.del, danger: true, onClick: () => deleteItems(targets) });
+      items.push({ label: t.explorer.deleteSelected(targets.length), icon: 'trash', danger: true, onClick: () => deleteItems(targets) });
     }
     setCtxMenu({ x: e.clientX, y: e.clientY, items });
   }, [t, onOpenDesign, duplicateItem, startRename, deleteItem, deleteItems, moveMenuItems]);
@@ -559,21 +549,21 @@ export function ProjectExplorer({
   const openFolderMenu = useCallback((e, folder) => {
     const moves = folderMoveMenuItems(folder);
     const items = [
-      { label: t.explorer.newDesignFile, icon: Icons.newFile, onClick: () => addItem(folder) },
-      { label: t.explorer.newSubfolder, icon: Icons.newFolder, onClick: () => addFolder(folder) },
+      { label: t.explorer.newDesignFile, icon: 'file-plus', onClick: () => addItem(folder) },
+      { label: t.explorer.newSubfolder, icon: 'folder-plus', onClick: () => addFolder(folder) },
       { separator: true },
-      { label: t.dialogs.contextMenu.renameFolder, icon: Icons.rename, onClick: () => startRename(`folder-${folder.id}`) },
+      { label: t.dialogs.contextMenu.renameFolder, icon: 'pencil', onClick: () => startRename(`folder-${folder.id}`) },
     ];
     if (moves.length > 0) items.push({ separator: true }, ...moves);
     items.push({ separator: true });
-    items.push({ label: t.explorer.deleteFolder, icon: Icons.del, danger: true, disabled: !folderDeletion(folder).canDelete, onClick: () => deleteFolder(folder) });
+    items.push({ label: t.explorer.deleteFolder, icon: 'trash', danger: true, disabled: !folderDeletion(folder).canDelete, onClick: () => deleteFolder(folder) });
     setCtxMenu({ x: e.clientX, y: e.clientY, items });
   }, [t, addItem, addFolder, startRename, deleteFolder, folderDeletion, folderMoveMenuItems]);
 
   const openEmptyMenu = useCallback((e) => {
     const items = [
-      { label: t.explorer.newDesignFile, icon: Icons.newFile, onClick: () => addItem() },
-      { label: t.explorer.newProjectFolder, icon: Icons.newFolder, onClick: () => addFolder() },
+      { label: t.explorer.newDesignFile, icon: 'file-plus', onClick: () => addItem() },
+      { label: t.explorer.newProjectFolder, icon: 'folder-plus', onClick: () => addFolder() },
     ];
     setCtxMenu({ x: e.clientX, y: e.clientY, items });
   }, [t, addItem, addFolder]);

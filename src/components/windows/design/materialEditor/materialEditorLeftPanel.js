@@ -1,9 +1,9 @@
 /**
- * Material Editor — left panel (catalog selector + search + material list).
+ * Material Editor: the left panel (catalog selector, search and material list).
  *
- * Four stacked rows: the catalog selector with its "⋯" action menu, a search
- * box, a result-count row carrying the "new material" action, and the material
- * list. Every catalog-scoped action lives in the menu (see catalogMenu.js).
+ * Four stacked rows: the catalog selector with its "⋯" menu of catalog
+ * actions, a search box, a result-count row carrying the Add menu, and the
+ * material list. Both menus are drawn by actionMenu.js.
  *
  * Each render* function takes the editor's flat state object `s` (from
  * useMaterialEditor) and reads only the fields it needs.
@@ -12,7 +12,7 @@
 import { resolveColor } from '../../../../utils/materials/catalogManager.js';
 import { DESIGN_CATALOG_ID } from '../../../../utils/materials/designCatalog.js';
 import { dotStyle, smallBtn, formatNm } from './materialEditorUI.js';
-import { CatalogMenu } from './catalogMenu.js';
+import { ActionMenu } from './actionMenu.js';
 
 const { createElement: h } = React;
 
@@ -26,36 +26,48 @@ const fieldStyle = (c) => ({
     fontFamily: 'inherit',
 });
 
-// Menu entries. Catalog actions first, then the importers; each is disabled
-// when it cannot apply to the current selection rather than being hidden, so
-// the menu keeps a stable shape.
-function menuItems(s) {
+// The ⋯ menu: what acts on the selected catalog, under its name, then the two
+// ways of making a catalog. An AGF file always becomes a catalog of its own,
+// which is why it sits here and not under Add. An action that cannot apply to
+// the selection is disabled rather than hidden, so the menu keeps its shape.
+function catalogMenuItems(s) {
     const { me, currentCatalog, isUserCatalog, importing,
             handleCreateCatalog, handleRenameCatalog, handleDuplicateCatalog, handleRemoveCatalog,
-            handleImport, handleImportFiles, setShowRii } = s;
+            handleImport } = s;
     // The design catalog lives on the design, not in the registry: it can be
     // browsed and its materials copied out, but not renamed, duplicated or
     // deleted as a catalog.
     const isDesignCatalog = currentCatalog?.id === DESIGN_CATALOG_ID;
     const canDelete = !!currentCatalog && currentCatalog.id !== 'builtin' && !isDesignCatalog;
     return [
-        { id: 'new',    glyph: '＋', label: me.newCatalog,       onClick: handleCreateCatalog },
-        { id: 'rename', glyph: '✎',  label: me.renameCatalog,    onClick: () => handleRenameCatalog(currentCatalog.id),
+        { id: 'head',   header: true, label: currentCatalog?.name || me.allCatalogs },
+        { id: 'rename', icon: 'pencil',      label: me.menuRenameCatalog,    onClick: () => handleRenameCatalog(currentCatalog.id),
           disabled: !isUserCatalog },
-        { id: 'dup',    glyph: '⎘',  label: me.duplicateCatalog, onClick: () => handleDuplicateCatalog(currentCatalog.id),
+        { id: 'dup',    icon: 'copy-plus',   label: me.menuDuplicateCatalog, onClick: () => handleDuplicateCatalog(currentCatalog.id),
           disabled: !currentCatalog || isDesignCatalog },
-        { id: 'del',    glyph: '✕',  label: me.removeCatalog,    onClick: () => handleRemoveCatalog(currentCatalog.id),
+        { id: 'del',    icon: 'trash',       label: me.menuDeleteCatalog,    onClick: () => handleRemoveCatalog(currentCatalog.id),
           disabled: !canDelete, danger: true },
         { id: 'sep',    separator: true },
-        { id: 'agf',    glyph: '↓',  label: me.importAgf,        onClick: handleImport,           disabled: importing },
-        { id: 'files',  glyph: '↓',  label: me.importFiles,      onClick: handleImportFiles,      disabled: importing },
-        { id: 'rii',    glyph: '↗',  label: me.browseRii,        onClick: () => setShowRii(true) },
+        { id: 'new',    icon: 'folder-plus', label: me.menuNewEmptyCatalog,  onClick: handleCreateCatalog },
+        { id: 'agf',    icon: 'folder-down', label: me.menuNewAgfCatalog,    onClick: handleImport, disabled: importing },
+    ];
+}
+
+// The Add menu: every way of getting a material in. Each asks for or picks
+// the catalog it adds to, so all of them work whichever catalog is selected.
+function addMenuItems(s) {
+    const { me, importing, handleNewMaterial, handleImportFiles, setShowRii } = s;
+    return [
+        { id: 'blank', icon: 'file-plus',   label: me.addBlankMaterial, onClick: handleNewMaterial },
+        { id: 'sep',   separator: true },
+        { id: 'rii',   icon: 'database',    label: me.addFromRii,       onClick: () => setShowRii(true) },
+        { id: 'files', icon: 'file-import', label: me.addFromFiles,     onClick: handleImportFiles, disabled: importing },
     ];
 }
 
 function renderCatalogRow(s) {
     const { c, me, catFilter, setCatFilter, setEditDraft, browseCatalogs, currentCatalog,
-            menuOpen, setMenuOpen, menuTriggerRef } = s;
+            menuOpen, setMenuOpen, menuTriggerRef, setAddMenuOpen } = s;
     const total = browseCatalogs.reduce((sum, cat) => sum + Object.keys(cat.materials || {}).length, 0);
     return h('div', { style: { position: 'relative', display: 'flex', alignItems: 'center', gap: 6, padding: '8px 8px 4px' } },
         h('span', { style: { fontSize: 11, color: c.textDim, flexShrink: 0 } }, me.catalogLabel),
@@ -72,7 +84,9 @@ function renderCatalogRow(s) {
         ),
         h('button', {
             ref: menuTriggerRef,
-            onClick: () => setMenuOpen(v => !v),
+            // Opening one menu shuts the other: a button pressed from the
+            // keyboard sends no mouse press for the open menu to close on.
+            onClick: () => { setAddMenuOpen(false); setMenuOpen(v => !v); },
             title: me.catalogMenuTip,
             style: smallBtn(c, {
                 flexShrink: 0, padding: '2px 6px', lineHeight: '16px',
@@ -81,7 +95,7 @@ function renderCatalogRow(s) {
                 borderColor: menuOpen ? c.accent + '88' : c.border,
             })
         }, '⋯'),
-        menuOpen && h(CatalogMenu, { items: menuItems(s), onClose: () => setMenuOpen(false), c, triggerRef: menuTriggerRef })
+        menuOpen && h(ActionMenu, { items: catalogMenuItems(s), onClose: () => setMenuOpen(false), c, triggerRef: menuTriggerRef })
     );
 }
 
@@ -97,17 +111,25 @@ function renderSearchRow(s) {
 }
 
 function renderCountRow(s) {
-    const { c, me, results, isUserCatalog, handleNewMaterial } = s;
+    const { c, me, results, addMenuOpen, setAddMenuOpen, addMenuTriggerRef, setMenuOpen } = s;
     return h('div', {
-        style: { display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+        style: { position: 'relative', display: 'flex', alignItems: 'center', justifyContent: 'space-between',
                  gap: 6, padding: '4px 8px 6px', borderBottom: `1px solid ${c.border}` }
     },
         h('span', { style: { fontSize: 11, color: c.textDim } }, me.materialCount(results.length)),
-        isUserCatalog && h('button', {
-            onClick: handleNewMaterial,
-            title: me.newMaterial,
-            style: smallBtn(c, { backgroundColor: c.accent + '22', color: c.accent, borderColor: c.accent + '66' })
-        }, me.newMaterialShort)
+        h('button', {
+            ref: addMenuTriggerRef,
+            onClick: () => { setMenuOpen(false); setAddMenuOpen(v => !v); },
+            title: me.addMaterialsTip,
+            style: smallBtn(c, {
+                display: 'inline-flex', alignItems: 'center', gap: 5,
+                backgroundColor: c.accent + (addMenuOpen ? '33' : '22'), color: c.accent, borderColor: c.accent + '66',
+            })
+        },
+            me.addMaterials,
+            h('span', { className: addMenuOpen ? 'tf-caret tf-caret-open' : 'tf-caret', style: { backgroundColor: c.accent } })
+        ),
+        addMenuOpen && h(ActionMenu, { items: addMenuItems(s), onClose: () => setAddMenuOpen(false), c, triggerRef: addMenuTriggerRef })
     );
 }
 

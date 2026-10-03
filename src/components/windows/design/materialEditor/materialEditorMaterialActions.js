@@ -9,13 +9,37 @@
 
 import {
     getCatalogs, saveUserMaterial, removeUserMaterial, generateMaterialId, copyMaterialToCatalog,
+    createUserCatalog,
 } from '../../../../utils/materials/catalogManager.js';
 import { emptyDraft, materialToDraft, draftToMaterial, validateDraft } from './materialDraft.js';
 
+// A blank material goes into the selected catalog when that is one of the
+// user's own. Otherwise it goes into one of theirs: the only one straight
+// away, the one picked when there are several, and a new one, under the
+// default name, when there is none.
 export function newMaterial(ctx) {
-    const { catFilter, setSelectedId, setEditDraft } = ctx;
+    const { catFilter, me, loadCatalogs, setNewMaterialPicker } = ctx;
+    // Decided from the registry rather than the editor's copy of it, which
+    // another window making a catalog leaves behind; the reload brings the
+    // copy, and so the picker's rows, up to date.
+    loadCatalogs();
+    const userCats = getCatalogs().filter(cat => cat.source === 'user');
+    if (userCats.some(cat => cat.id === catFilter)) { startBlankMaterial(catFilter, ctx); return; }
+    if (userCats.length === 1) { startBlankMaterial(userCats[0].id, ctx); return; }
+    if (userCats.length > 1) { setNewMaterialPicker(true); return; }
+    const created = createUserCatalog(me.newCatalogDefault);
+    loadCatalogs();
+    startBlankMaterial(created.id, ctx);
+}
+
+// Open an empty form for a material in `catalogId`, with that catalog selected
+// so the list shows where it will be saved.
+export function startBlankMaterial(catalogId, ctx) {
+    const { setNewMaterialPicker, setCatFilter, setSelectedId, setEditDraft } = ctx;
+    setNewMaterialPicker(false);
+    setCatFilter(catalogId);
     setSelectedId(null);
-    setEditDraft(emptyDraft(catFilter));
+    setEditDraft(emptyDraft(catalogId));
 }
 
 export function selectMaterial(compId, catalogId, mat, ctx) {

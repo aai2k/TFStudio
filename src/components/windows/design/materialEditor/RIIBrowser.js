@@ -1,6 +1,6 @@
 /**
  * RIIBrowser.js — Modal browser for refractiveindex.info database.
- * Opened from MaterialEditor via the "Browse RII…" button.
+ * Opened from the Material Editor's Add menu, "From refractiveindex.info…".
  *
  * Browse mode (no query): collapsible shelf → book → page tree.
  * Search mode (query typed): flat filtered results list.

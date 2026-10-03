@@ -25,16 +25,7 @@ not be computed. Below the stack is the materials table, and at the bottom
 the design's transmittance, reflectance and absorptance at normal incidence
 over the file's own plot range, once every material is assigned.
 
-**Materials.** A design names its materials the way the program's own
-database does. Each name is looked up in your catalogs by exact name, and the
-match is shown in the picker; a material imported from the same program is
-preferred over any other, a user catalog over the built-in library, and
-`Air` is always the built-in Air. Change any suggestion with the picker. A
-name is shared across the batch, so assigning it once covers every design
-that uses it. Import the program's material files first (Material Editor,
-**Import material files…**) so the names are found. A name left unassigned is
-imported as a missing material: the Design Editor flags it, and
-**Replace Materials** fixes it later.
+**Materials.** A design names its materials the way the program's own database does. Each name is looked up in your catalogs by exact name, and the match is shown in the picker; a material imported from the same program is preferred over any other, a user catalog over the built-in library, and `Air` is always the built-in Air. Change any suggestion with the picker. A name is shared across the batch, so assigning it once covers every design that uses it. Import the program's material files first (Material Editor, **Add → From TFCalc, Macleod or OptiLayer files…**) so the names are found. A name left unassigned is imported as a missing material: the Design Editor flags it, and **Replace Materials** fixes it later.
 
 An OptiLayer design names its materials only by abbreviation, so the reader
 looks in the design's folder: the project file's abbreviation map when it has

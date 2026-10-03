@@ -1,4 +1,5 @@
 import { ownerWindow, listenForDismiss } from './ownerWindow.js';
+import { tablerIcon } from './tablerIcons.js';
 
 const { createElement: h, useEffect, useRef, useState } = React;
 
@@ -16,9 +17,10 @@ export function clampToViewport(x, y, bounds, view) {
 /**
  * Theme-aware application context menu, clamped to the visible viewport.
  *
- * The icon column is drawn only when an item carries an icon; a menu of plain
- * labels would otherwise open with an empty gutter. `dense` is the tighter
- * spacing for menus over a table.
+ * An item's `icon` is a name from tablerIcons.js, drawn in the accent colour,
+ * or the error colour on a dangerous item. The icon column is drawn only when
+ * an item carries an icon; a menu of plain labels would otherwise open with an
+ * empty gutter. `dense` is the tighter spacing for menus over a table.
  */
 export function ContextMenu({ x, y, items, c, onClose, ariaLabel = 'Context menu', dense = false }) {
     const menuRef = useRef(null);
@@ -99,9 +101,9 @@ export function ContextMenu({ x, y, items, c, onClose, ariaLabel = 'Context menu
                         style: {
                             width: 16, display: 'flex', alignItems: 'center',
                             justifyContent: 'center', flexShrink: 0,
-                            color: item.danger ? c.error : c.textDim,
+                            color: item.danger ? c.error : c.accent,
                         },
-                    }, item.icon || null),
+                    }, item.icon ? tablerIcon(item.icon) : null),
                     h('span', { style: { flex: 1 } }, item.label),
                     item.shortcut && h('span', {
                         style: { marginLeft: 16, color: c.textDim, fontSize: 11 },

@@ -10,8 +10,8 @@
  * State and actions live in useMaterialEditor.js; supporting pieces live in
  * sibling modules: the draft model and converters (materialDraft.js), the
  * read-only material view (materialEditorReadOnly.js), the left panel
- * (materialEditorLeftPanel.js) and its catalog action menu (catalogMenu.js),
- * the copy-to-catalog modal (materialEditorModals.js), the material file
+ * (materialEditorLeftPanel.js) and its ⋯ and Add menus (actionMenu.js), the
+ * destination-catalog pickers (materialEditorModals.js), the material file
  * import dialog (materialImportDialog.js), the editable form
  * (userMaterialForm.js), the n/k grid (nkDataGrid.js), and shared
  * presentational atoms (materialEditorUI.js).
@@ -21,7 +21,7 @@ import { RIIBrowser } from './RIIBrowser.js';
 import { useMaterialEditor } from './useMaterialEditor.js';
 import { renderReadOnlyMaterial } from './materialEditorReadOnly.js';
 import { renderLeftPanel } from './materialEditorLeftPanel.js';
-import { renderCopyPickerModal } from './materialEditorModals.js';
+import { renderCopyPickerModal, renderNewMaterialPickerModal } from './materialEditorModals.js';
 import { MaterialImportDialog } from './materialImportDialog.js';
 import { UserMaterialForm } from './userMaterialForm.js';
 
@@ -34,6 +34,7 @@ export function MaterialEditor({ c, t, setInputDialog }) {
         handleSaveMaterial, handleDeleteMaterial, handleCopyUserMaterial,
         showRii, setShowRii, handleRiiAdded,
         copyPickerFor, setCopyPickerFor, doCopyToCatalog,
+        newMaterialPicker, setNewMaterialPicker, handleNewMaterialIn,
         fileImport, doImportFiles, setFileImport,
     } = s;
 
@@ -75,6 +76,9 @@ export function MaterialEditor({ c, t, setInputDialog }) {
         showRii && h(RIIBrowser, { c, t, onClose: () => setShowRii(false), onAdded: handleRiiAdded }),
         // Destination-catalog picker (shown when there are ≥2 user catalogs).
         copyPickerFor && renderCopyPickerModal({ copyPickerFor, catalogs, doCopyToCatalog, setCopyPickerFor, me, c }),
+        // Which of the user's catalogs a blank material goes into, when none of
+        // them is selected and there are several.
+        newMaterialPicker && renderNewMaterialPickerModal({ catalogs, handleNewMaterialIn, setNewMaterialPicker, me, c }),
         // Material file import: review the parsed batch, then pick the destination catalog.
         fileImport && h(MaterialImportDialog, { fileImport, setFileImport, catalogs, onCommit: doImportFiles, me, c })
     );

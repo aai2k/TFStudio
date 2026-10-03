@@ -1,5 +1,7 @@
 /**
- * Material Editor: copy-to-catalog picker modal (shown for ≥2 user catalogs).
+ * Material Editor: the destination-catalog pickers, one for a material being
+ * copied and one for a blank material. Each is shown only when there are two
+ * or more user catalogs to choose from.
  */
 
 const { createElement: h } = React;
@@ -40,5 +42,15 @@ export function renderCopyPickerModal({ copyPickerFor, catalogs, doCopyToCatalog
         c,
         children: catalogs.filter(cat => cat.source === 'user').map(cat =>
             catalogPickerRow(cat, () => doCopyToCatalog(copyPickerFor, cat.id), c)),
+    });
+}
+
+export function renderNewMaterialPickerModal({ catalogs, handleNewMaterialIn, setNewMaterialPicker, me, c }) {
+    return catalogPickerOverlay({
+        onDismiss: () => setNewMaterialPicker(false),
+        title: me.newMaterialPickTitle,
+        c,
+        children: catalogs.filter(cat => cat.source === 'user').map(cat =>
+            catalogPickerRow(cat, () => handleNewMaterialIn(cat.id), c)),
     });
 }

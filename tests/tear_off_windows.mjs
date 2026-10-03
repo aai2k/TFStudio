@@ -837,10 +837,10 @@ assert.deepEqual(listenerLog,
     ['-float:mousedown', '-float:keydown', '-main:mousedown', '-main:keydown'],
     'and leaves nothing mounted on either window behind it');
 
-const catalogMenuSource = readFileSync(new URL(
-    '../src/components/windows/design/materialEditor/catalogMenu.js', import.meta.url), 'utf8');
-assert.equal(/\bdocument\.(add|remove)EventListener/.test(catalogMenuSource), false,
-    'nor does the Material Editor catalog menu');
+const actionMenuSource = readFileSync(new URL(
+    '../src/components/windows/design/materialEditor/actionMenu.js', import.meta.url), 'utf8');
+assert.equal(/\bdocument\.(add|remove)EventListener/.test(actionMenuSource), false,
+    'nor do the Material Editor\'s ⋯ and Add menus');
 
 // ── A menu drawn from the stylesheet wears the theme in a float ───────────────
 //

@@ -362,33 +362,33 @@ export function LayerList({ layers, side, design, updateDesign, missingMaterialI
     const pasteCount = contextMenu?.pasteLayers?.length || 0;
     const menuItems = contextMenu && (contextMenu.targetId
         ? [
-            { id: 'insert-above', label: menuText.insertAbove, icon: '+', shortcut: 'Insert', onClick: () => insertFromContext(false) },
-            { id: 'insert-below', label: menuText.insertBelow, icon: '+', shortcut: 'Shift+Insert', onClick: () => insertFromContext(true) },
+            { id: 'insert-above', label: menuText.insertAbove, icon: 'row-insert-top', shortcut: 'Insert', onClick: () => insertFromContext(false) },
+            { id: 'insert-below', label: menuText.insertBelow, icon: 'row-insert-bottom', shortcut: 'Shift+Insert', onClick: () => insertFromContext(true) },
             { separator: true },
             {
-                id: 'copy', icon: '⎘', shortcut: 'Ctrl+C', onClick: copyFromContext,
+                id: 'copy', icon: 'copy', shortcut: 'Ctrl+C', onClick: copyFromContext,
                 label: contextMenu.targetIds.length > 1
                     ? menuText.copySelected(contextMenu.targetIds.length) : menuText.copy,
             },
             {
-                id: 'paste-above', label: menuText.pasteAbove(pasteCount), icon: '⇤',
+                id: 'paste-above', label: menuText.pasteAbove(pasteCount), icon: 'clipboard',
                 disabled: !pasteCount, onClick: () => pasteFromContext(true),
             },
             {
-                id: 'paste-below', label: menuText.pasteBelow(pasteCount), icon: '⇥', shortcut: 'Ctrl+V',
+                id: 'paste-below', label: menuText.pasteBelow(pasteCount), icon: 'clipboard', shortcut: 'Ctrl+V',
                 disabled: !pasteCount, onClick: () => pasteFromContext(false),
             },
             { separator: true },
             {
-                id: 'delete', icon: '×', danger: true, shortcut: 'Delete', onClick: deleteFromContext,
+                id: 'delete', icon: 'trash', danger: true, shortcut: 'Delete', onClick: deleteFromContext,
                 label: contextMenu.targetIds.length > 1
                     ? menuText.deleteSelected(contextMenu.targetIds.length) : menuText.delete,
             },
         ]
         : [
-            { id: 'insert', label: menuText.insert, icon: '+', shortcut: 'Insert', onClick: () => insertFromContext(true) },
+            { id: 'insert', label: menuText.insert, icon: 'row-insert-bottom', shortcut: 'Insert', onClick: () => insertFromContext(true) },
             {
-                id: 'paste', label: menuText.pasteCount(pasteCount), icon: '⇥', shortcut: 'Ctrl+V',
+                id: 'paste', label: menuText.pasteCount(pasteCount), icon: 'clipboard', shortcut: 'Ctrl+V',
                 disabled: !pasteCount, onClick: () => pasteFromContext(false),
             },
         ]);

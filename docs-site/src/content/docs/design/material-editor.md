@@ -28,24 +28,16 @@ open.
 
 ## Settings
 
-**Catalog selector**: choose a single catalog or **All**. The selector shows
-each catalog's material count, and beneath it sit the actions for managing the
-selected catalog.
+**Catalog selector**: choose a single catalog or **All catalogs**. The selector shows each catalog's material count. The **⋯** button beside it opens the actions for the selected catalog, under its name: **Rename**, **Duplicate** and **Delete**, then **New empty catalog** and **New catalog from Zemax AGF**.
 
 **Search**: filter the list by name (case-insensitive). The filter respects
 the catalog you have selected.
 
-**Import AGF**: load a Zemax `.agf` glass file as a new catalog. AGF files
-store internal transmittance versus wavelength; TFStudio converts that to
-`k(λ)` automatically. AGF files you place in your TFStudio data folder's `Materials`
-subfolder are also picked up automatically when the app starts. A glass whose
-dispersion formula number is not one TFStudio evaluates is left out of the
-catalog, and the import message names it. A file picked up at startup has no
-window to report in, so import it with **Import AGF** to see which glasses were
-left out.
+**Add**: the button above the material list holds every way of getting a material in: **Blank material**, **From refractiveindex.info** and **From TFCalc, Macleod or OptiLayer files**. It is there whichever catalog is selected, and each of them adds to one of your own catalogs.
 
-**Import material files**: load materials written by other coating programs,
-any mix of them in one pick:
+**New catalog from Zemax AGF** (under **⋯**): load a Zemax `.agf` glass file as a new catalog. AGF files store internal transmittance versus wavelength; TFStudio converts that to `k(λ)` automatically. AGF files you place in your TFStudio data folder's `Materials` subfolder are also picked up automatically when the app starts. A glass whose dispersion formula number is not one TFStudio evaluates is left out of the catalog, and the import message names it. A file picked up at startup has no window to report in, so import it with **New catalog from Zemax AGF** to see which glasses were left out.
+
+**From TFCalc, Macleod or OptiLayer files** (under **Add**): load materials written by other coating programs, any mix of them in one pick:
 
 | Program          | Files                                                                                   |
 | ---------------- | --------------------------------------------------------------------------------------- |
@@ -79,20 +71,15 @@ residue of the fit that produced the table. A negative extinction coefficient
 would be gain, so every calculation reads `k = 0` at such a point, and the
 n,k grid of the Material Editor marks the row.
 
-**Browse RII**: open the refractiveindex.info browser to pick from the online database (an internet connection is needed the first time you fetch a material). The material is added to your chosen user catalog and then lives locally. A page given as a table arrives with every row it has. A page given as a dispersion formula arrives as that formula, with the coefficients and the wavelength range the page states and the page's `k` table beside it; outside that range it is evaluated as the formula gives it, like any formula material. The browser shows a page as a plot or as a table, a formula page sampled with each wavelength 1% past the one before, reads `n` and `k` at a wavelength you type, and writes out the formula a formula page uses, with its coefficients. When a formula page has no real `n` somewhere inside the range it states, the browser says where.
+**From refractiveindex.info** (under **Add**): open the refractiveindex.info browser to pick from the online database (an internet connection is needed the first time you fetch a material). The material is added to your chosen user catalog and then lives locally. A page given as a table arrives with every row it has. A page given as a dispersion formula arrives as that formula, with the coefficients and the wavelength range the page states and the page's `k` table beside it; outside that range it is evaluated as the formula gives it, like any formula material. The browser shows a page as a plot or as a table, a formula page sampled with each wavelength 1% past the one before, reads `n` and `k` at a wavelength you type, and writes out the formula a formula page uses, with its coefficients. When a formula page has no real `n` somewhere inside the range it states, the browser says where.
 
-**New Catalog**: create an empty user catalog to organize your own materials.
+**New empty catalog** (under **⋯**): create an empty user catalog to organize your own materials.
 
-**Duplicate**: copy the selected catalog (from any source) into a new,
-editable user catalog. **Copy to catalog** copies a single material into a user
-catalog, which is the way to make an editable variant of a read-only material.
+**Duplicate**: copy the selected catalog (from any source) into a new, editable user catalog. **Copy to my catalog** copies a single material into a user catalog, which is the way to make an editable variant of a read-only material.
 
 ## Creating a material
 
-Open a user catalog and choose **New material**, then type its name at the top
-of the form. The ID under the name is made from it when the material is first
-saved and stays the same after that, because designs refer to a material by
-its ID. The **n & k** page holds the optical data; pick a data type there:
+Choose **Add → Blank material**, then type its name at the top of the form. The material goes into the selected catalog when that catalog is one of yours. Otherwise it goes into one of your catalogs: the only one you have, the one you pick when you have several, or a new one named **My catalog** when you have none. The ID under the name is made from it when the material is first saved and stays the same after that, because designs refer to a material by its ID. The **n & k** page holds the optical data; pick a data type there:
 
 1. **Tabular**: paste or type a `λ, n, k` table. You can paste directly from a
    spreadsheet (Ctrl+V), and the grid supports keyboard navigation, sorting and

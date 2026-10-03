@@ -20,7 +20,7 @@ import {
     duplicateCatalogWithPrompt,
 } from './materialEditorActions.js';
 import {
-    newMaterial, selectMaterial, saveMaterial, deleteMaterialWithConfirm,
+    newMaterial, startBlankMaterial, selectMaterial, saveMaterial, deleteMaterialWithConfirm,
     copyUserMaterialDraft, copyToCatalog, openCopyPicker as openCopyPickerAction,
 } from './materialEditorMaterialActions.js';
 import { sampleReadOnlyChart } from './materialEditorReadOnly.js';
@@ -64,7 +64,10 @@ export function useMaterialEditor({ c, t, setInputDialog }) {
     const [notification,     setNotification]     = useState(null);
     const [menuOpen,         setMenuOpen]         = useState(false);
     const menuTriggerRef = useRef(null);
+    const [addMenuOpen,      setAddMenuOpen]      = useState(false);
+    const addMenuTriggerRef = useRef(null);
     const [copyPickerFor,    setCopyPickerFor]    = useState(null);
+    const [newMaterialPicker, setNewMaterialPicker] = useState(false);
     const [fileImport,       setFileImport]       = useState(null);
 
     const me = t.materialEditor;
@@ -144,7 +147,7 @@ export function useMaterialEditor({ c, t, setInputDialog }) {
         c, t, me, notify, loadCatalogs, setInputDialog,
         catalogs, catFilter, setCatFilter,
         selectedId, setSelectedId, editDraft, setEditDraft,
-        copyPickerFor, setCopyPickerFor, setFileImport,
+        copyPickerFor, setCopyPickerFor, setFileImport, setNewMaterialPicker,
     };
 
     const handleImport = () => runImportGuarded(importAgfCatalog, ctx, importing, setImporting);
@@ -156,6 +159,7 @@ export function useMaterialEditor({ c, t, setInputDialog }) {
     const handleDuplicateCatalog = (srcId) => duplicateCatalogWithPrompt(srcId, ctx);
 
     const handleNewMaterial = () => newMaterial(ctx);
+    const handleNewMaterialIn = (catalogId) => startBlankMaterial(catalogId, ctx);
     const handleSelectMaterial = (compId, catalogId, mat) => selectMaterial(compId, catalogId, mat, ctx);
     const handleSaveMaterial = () => saveMaterial(ctx);
     const handleDeleteMaterial = () => deleteMaterialWithConfirm(ctx);
@@ -186,16 +190,16 @@ export function useMaterialEditor({ c, t, setInputDialog }) {
     return {
         c, me, catalogs, catFilter, setCatFilter, query, setQuery,
         selectedId, importing, showRii, setShowRii, notification,
-        menuOpen, setMenuOpen, menuTriggerRef,
+        menuOpen, setMenuOpen, menuTriggerRef, addMenuOpen, setAddMenuOpen, addMenuTriggerRef,
         editDraft, setEditDraft, updateDraft, isDirty, handleRevertMaterial,
         detailTab, setDetailTab, tableHeight, setTableHeight,
         results, selectedMat, currentCatalog, isUserCatalog,
         browseCatalogs, designConflict, workingNm,
         handleImport, handleImportFiles, doImportFiles,
         handleRemoveCatalog, handleCreateCatalog, handleRenameCatalog, handleDuplicateCatalog,
-        handleNewMaterial, handleSelectMaterial, handleSaveMaterial, handleDeleteMaterial,
+        handleNewMaterial, handleNewMaterialIn, handleSelectMaterial, handleSaveMaterial, handleDeleteMaterial,
         handleCopyUserMaterial, openCopyPicker, doCopyToCatalog,
-        copyPickerFor, setCopyPickerFor, fileImport, setFileImport,
+        copyPickerFor, setCopyPickerFor, newMaterialPicker, setNewMaterialPicker, fileImport, setFileImport,
         chartRef, sampledTable, handleRiiAdded,
     };
 }
