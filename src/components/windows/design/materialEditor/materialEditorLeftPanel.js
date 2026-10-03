@@ -55,7 +55,7 @@ function menuItems(s) {
 
 function renderCatalogRow(s) {
     const { c, me, catFilter, setCatFilter, setEditDraft, browseCatalogs, currentCatalog,
-            menuOpen, setMenuOpen } = s;
+            menuOpen, setMenuOpen, menuTriggerRef } = s;
     const total = browseCatalogs.reduce((sum, cat) => sum + Object.keys(cat.materials || {}).length, 0);
     return h('div', { style: { position: 'relative', display: 'flex', alignItems: 'center', gap: 6, padding: '8px 8px 4px' } },
         h('span', { style: { fontSize: 11, color: c.textDim, flexShrink: 0 } }, me.catalogLabel),
@@ -71,6 +71,7 @@ function renderCatalogRow(s) {
                     `${cat.name} (${Object.keys(cat.materials || {}).length})`))
         ),
         h('button', {
+            ref: menuTriggerRef,
             onClick: () => setMenuOpen(v => !v),
             title: me.catalogMenuTip,
             style: smallBtn(c, {
@@ -80,7 +81,7 @@ function renderCatalogRow(s) {
                 borderColor: menuOpen ? c.accent + '88' : c.border,
             })
         }, '⋯'),
-        menuOpen && h(CatalogMenu, { items: menuItems(s), onClose: () => setMenuOpen(false), c })
+        menuOpen && h(CatalogMenu, { items: menuItems(s), onClose: () => setMenuOpen(false), c, triggerRef: menuTriggerRef })
     );
 }
 

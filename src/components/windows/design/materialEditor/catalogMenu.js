@@ -10,9 +10,9 @@
  * entries; an entry of `{ id, separator: true }` draws a divider.
  */
 
-import { listenForDismiss } from '../../../ui/ownerWindow.js';
+import { useDismiss } from '../../../ui/PickerDropdown.js';
 
-const { createElement: h, useEffect, useRef } = React;
+const { createElement: h, useRef } = React;
 
 function menuItemStyle(item, c) {
     const color = item.disabled ? c.textDim : item.danger ? '#e6194b' : c.text;
@@ -40,18 +40,13 @@ function renderItem(item, onClose, c) {
     );
 }
 
-export function CatalogMenu({ items, onClose, c }) {
+export function CatalogMenu({ items, onClose, c, triggerRef }) {
     const ref = useRef(null);
 
-    // Dismiss on outside click or Escape. `mousedown` (not `click`) so the menu
-    // closes before the click lands on whatever is underneath it. The listeners
-    // cover the menu's own document, which is the torn-off window's when the
-    // Material Editor is torn off and not one the main document hears from.
-    useEffect(() => {
-        const onDown = (e) => { if (ref.current && !ref.current.contains(e.target)) onClose(); };
-        const onKey  = (e) => { if (e.key === 'Escape') onClose(); };
-        return listenForDismiss(ref.current, { mousedown: onDown, keydown: onKey });
-    }, [onClose]);
+    // A press outside the menu or Escape closes it. A press on the ⋯ button is
+    // left to the button, which toggles: closing here too would have the click
+    // that follows open the menu again.
+    useDismiss(true, onClose, ref, triggerRef);
 
     return h('div', {
         ref,

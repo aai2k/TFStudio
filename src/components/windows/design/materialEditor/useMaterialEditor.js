@@ -63,6 +63,7 @@ export function useMaterialEditor({ c, t, setInputDialog }) {
     const [showRii,          setShowRii]          = useState(false);
     const [notification,     setNotification]     = useState(null);
     const [menuOpen,         setMenuOpen]         = useState(false);
+    const menuTriggerRef = useRef(null);
     const [copyPickerFor,    setCopyPickerFor]    = useState(null);
     const [fileImport,       setFileImport]       = useState(null);
 
@@ -185,7 +186,7 @@ export function useMaterialEditor({ c, t, setInputDialog }) {
     return {
         c, me, catalogs, catFilter, setCatFilter, query, setQuery,
         selectedId, importing, showRii, setShowRii, notification,
-        menuOpen, setMenuOpen,
+        menuOpen, setMenuOpen, menuTriggerRef,
         editDraft, setEditDraft, updateDraft, isDirty, handleRevertMaterial,
         detailTab, setDetailTab, tableHeight, setTableHeight,
         results, selectedMat, currentCatalog, isUserCatalog,
