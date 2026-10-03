@@ -310,6 +310,8 @@ const table = (rows, columns = [{ quantity: 'T', unit: '%', name: '' }], kind = 
     assert.equal(grid.rows[35][0], 1565);
     assert.equal(grid.rows[4][1], 12, 'a typed point is kept where the grid passes through it');
     assert.ok(grid.rows.every(row => row[1] >= 9.5 && row[1] <= 13), 'no overshoot past the typed extremes');
+    assert.ok(grid.rows.every(row => row[1] === Number(row[1].toPrecision(6))),
+        'an interpolated value keeps six significant digits, not the seventeen the arithmetic leaves');
 
     const offGrid = resampleTable(table([[400.3, 1], [402.6, 2]]), 1).table;
     assert.deepEqual(offGrid.rows.map(row => row[0]), [401, 402], 'the grid lands on whole steps');

@@ -17,6 +17,11 @@ import { X_KEY, columnIndex, columnSeries, setCells, tidy } from './curveTable.j
 // grid over 200-10000 nm, finer than any spectrophotometer reads.
 export const MAX_RESAMPLED_ROWS = 1000000;
 
+// An interpolated or smoothed value holds no more than the points it came
+// from, and six significant digits is more than a spectrophotometer reports
+// (0.001 %T at 100 %T), so a resampled -1.4974030769230768 dB shows as -1.4974.
+const reading = value => Number(value.toPrecision(6));
+
 // A column's complete rows in ascending wavelength.
 function sortedSeries(table, index) {
     const series = columnSeries(table, index);
@@ -69,7 +74,7 @@ export function resampleTable(table, step) {
         });
         sampled.lambdas.forEach((lambda, at) => {
             const row = rows[Math.round(lambda / step) - plan.first];
-            if (row) row[index + 1] = sampled.targets[at];
+            if (row) row[index + 1] = reading(sampled.targets[at]);
         });
     });
     return { table: { ...table, rows }, problem: null };
@@ -135,7 +140,7 @@ export function smoothCells(table, cells, { window, order }) {
         const reason = savitzkyGolayProblem(series.x.length, window, order);
         if (reason) { problem = problem || reason; continue; }
         const values = smoothedValues(series, table.columns[index].quantity, window, order);
-        series.rows.forEach((rowIdx, at) => edits.push({ rowIdx, colKey, value: tidy(values[at]) }));
+        series.rows.forEach((rowIdx, at) => edits.push({ rowIdx, colKey, value: reading(values[at]) }));
     }
     return { table: setCells(table, edits), problem };
 }
