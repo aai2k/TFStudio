@@ -4,9 +4,9 @@
  * The row holds what defines the run and what is drawn: the side being
  * deposited, whether it goes on the part or on witness chips, the state of the
  * opposite surface, the quantity, and the layer curves. The monitor's geometry,
- * the spectral range and the export step are settings: they are set once per
- * instrument, and on the row they wrapped a docked window twice over and moved
- * every control on each resize.
+ * the spectral range, the export step and the output format are settings:
+ * they are set once per instrument, and on the row they wrapped a docked window
+ * twice over and moved every control on each resize.
  */
 
 import {
@@ -17,9 +17,14 @@ import {
     NoticeBadge, SettingDivider, SettingRow, SettingsMenu,
 } from '../../analysis/chrome/popover.js';
 
-const { createElement: h } = React;
+const { createElement: h, Fragment } = React;
 
 const SIDE_COLORS = { front: '#1e88e5', back: '#e53935' };
+const FORMATS = ['res', 'csv', 'txt'];
+const DELIMITERS = [
+    { id: ',', key: 'delimComma' }, { id: ';', key: 'delimSemicolon' },
+    { id: '\t', key: 'delimTab' }, { id: ' ', key: 'delimSpace' },
+];
 
 function StatusMessage({ c, status }) {
     const error = status.type === 'error';
@@ -67,24 +72,75 @@ function ProcessSettings({ c, t, sp, setup }) {
                 onChange: setup.setExportStep,
             }),
         ),
+        h(OutputSettings, { c, t, sp, setup }),
     );
 }
 
-function saveLabel(sp, save) {
-    if (!save.saving) return sp.saveBtn;
+// What a save writes. A .res file has one layout, so the rows under the format
+// show for CSV and text only.
+//
+// A decimal comma in a comma-delimited row has to be quoted, and most readers,
+// the spectrum importer among them, do not undo the quotes. The comma
+// delimiter is not offered beside a decimal comma, and choosing the comma mark
+// moves a comma delimiter to a semicolon.
+function OutputSettings({ c, t, sp, setup }) {
+    const { output, setOutputOption } = setup;
+    const sx = t.spectrumExchange;
+    const choice = (key, label, items, onSelect = id => setOutputOption(key, id)) => h(SettingRow, { c, label },
+        h(ChoiceGroup, { ariaLabel: label, activeId: output[key], c, items, onSelect }),
+    );
+    const delimiters = output.decimalMark === ',' ? DELIMITERS.filter(({ id }) => id !== ',') : DELIMITERS;
+    const pickDecimalMark = (id) => {
+        setOutputOption('decimalMark', id);
+        if (id === ',' && output.delimiter === ',') setOutputOption('delimiter', ';');
+    };
+    const format = choice('format', sp.fileFormat, FORMATS.map(id => ({ id, label: `.${id}` })));
+    if (output.format === 'res') return format;
+    return h(Fragment, null,
+        format,
+        choice('files', sp.filesLabel, [
+            { id: 'step', label: sp.filesPerStep },
+            { id: 'table', label: sp.filesTable, title: sp.filesTableHint },
+        ]),
+        choice('header', sp.headerLabel, [
+            { id: 'layers', label: sp.headerLayers, title: sp.headerLayersHint },
+            { id: 'conditions', label: sp.headerConditions, title: sp.headerConditionsHint },
+            { id: 'none', label: sp.headerNone, title: sp.headerNoneHint },
+        ]),
+        choice('delimiter', sp.delimiterLabel, delimiters.map(({ id, key }) => ({ id, label: sx[key] }))),
+        choice('scale', sx.exportScaleLabel, [
+            { id: 'percent', label: sx.percent },
+            { id: 'fraction', label: sx.fraction },
+        ]),
+        // Twelve, the decimals the shared writer keeps when no count is set:
+        // a percentage held in double precision has no more to give.
+        h(SettingRow, { c, label: sp.decimalsLabel },
+            h(NumInput, {
+                c, width: 68, value: output.decimals, min: 0, max: 12, step: 1,
+                onChange: value => setOutputOption('decimals', Math.round(value)),
+            }),
+        ),
+        // The marks are shown as the numbers they write.
+        choice('decimalMark', sp.decimalMarkLabel, [{ id: '.', label: '0.5' }, { id: ',', label: '0,5' }], pickDecimalMark),
+    );
+}
+
+function saveLabel(sp, save, ext) {
+    if (!save.saving) return sp.saveBtn(ext);
     return save.progress ? sp.savingStep(save.progress.i, save.progress.total) : sp.saving;
 }
 
 export function ProcessControls({ c, t, sp, setup, deposition, save, notices, chipMode }) {
     const hasActive = deposition.N > 0;
+    const ext = `.${setup.output.format}`;
     return h(ControlRow, {
         c,
         trailing: [
             h(NoticeBadge, { key: 'notices', c, notices, label: t.analysisChrome.notices }),
             save.statusMsg && h(StatusMessage, { key: 'status', c, status: save.statusMsg }),
             h(ActionButton, {
-                key: 'save', c, label: saveLabel(sp, save),
-                title: sp.saveBtn, disabled: !hasActive || save.saving,
+                key: 'save', c, label: saveLabel(sp, save, ext),
+                title: sp.saveBtn(ext), disabled: !hasActive || save.saving,
                 onClick: save.handleSave,
             }),
             h(ProcessSettings, { key: 'settings', c, t, sp, setup }),

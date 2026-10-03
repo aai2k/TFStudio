@@ -9,7 +9,7 @@ spectrum after layer 1 is finished, after layer 2, and so on to the complete
 design), so you can see exactly what the in-chamber spectrophotometer will
 measure as the stack grows. It also exports per-step **`.res` deposition
 files** that deposition-monitoring software can load directly, one file per
-layer.
+layer, or the same spectra as CSV or text tables.
 
 A timeline at the bottom scrubs through the deposition. The chart shows the
 bare-substrate baseline (dotted), the finished spectrum of the layer the
@@ -24,7 +24,7 @@ spectrometer would really see. The piece sits in the chamber, so it is read with
 The toolbar holds what defines the run: the side, the part or witness chips,
 the state of the opposite surface, the quantity, and Show all layers. The
 Settings button at its right-hand end holds the monitor's geometry, the
-spectral range and the export step. The left sidebar lists the deposition
+spectral range, the export step and the file format. The left sidebar lists the deposition
 sequence and per-material rates, and on witness chips the chip setup above
 them.
 
@@ -46,11 +46,18 @@ reaches past the measured data of a material in the chamber, a layer, the
 substrate or the chip glass, the notice badge on the toolbar names it and
 offers to pull the range back onto the data.
 
-**Export step**: the wavelength step written into the `.res` files. It does not
+**Export step**: the wavelength step written into the exported files. It does not
 affect the chart. The default is 0.5 nm; set it to match your
 spectrophotometer's grid, which for a fixed-array instrument is often an odd
 number such as 0.4375 nm. Type the decimal with either a dot or a comma. It is
 in Settings, under the spectral range.
+
+**File format**: `.res`, the default, CSV or text, in Settings under the export step. A `.res` file has one fixed layout. CSV and text write the same spectra as a table, and a text file is the CSV file under a `.txt` name. For those two, Settings also holds:
+
+- **Files**: one per step, numbered like the `.res` files, or one table with a column per step. On witness chips one table is written per chip.
+- **Header**: Layer table puts the `.res` header, with its layer table, above the column names. Conditions writes the design, the step, the angle, the side and the polarization on `#` lines; [Measured Spectra](/data-exchange/measured-spectra/) reads the angle and the polarization back when the file is imported. None writes the numbers alone, without column names. The side a Conditions header names is the one the light comes from, which is the front in every run. On the part the side being coated is named on the same line; a witness chip file names the design layers on the chip instead.
+- **Delimiter**: comma, semicolon, tab or space. A spreadsheet set to a decimal comma opens a semicolon file without its import wizard.
+- **Y scale**, **Decimal places** and **Decimal mark**: percent or fraction, how many decimals every value gets, and a point or a comma. The wavelength is always written in full.
 
 **Show all layers**: draw the finished curve for every layer. With it off, which
 is the default, the chart draws the baseline, the layer the timeline is on, and
@@ -70,18 +77,18 @@ walk the stack from there. Click a held layer again to release it, and pressing
 Play or moving the timeline releases it too. Your setup choices and rates are
 remembered between sessions.
 
-**Save**: pick an output folder; one `.res` file is written per completed
+**Save**: pick an output folder. In `.res`, one file is written per completed
 deposition step (`01.res`, `02.res`, …). Each file carries a header and a
 per-layer table of physical and optical thickness; layers are numbered in
 deposition order, with layer 1 being the first deposited (the one touching the
-substrate). On witness chips each chip gets a folder of its own, `chip-1`, `chip-2` and so on, with that chip's files numbered from 01 and the layer table listing the layers on the chip at the thickness the witness receives; the comment line of each file names the design layer it belongs to. A long run shows its progress under the toolbar while the files are being built.
+substrate). On witness chips each chip gets a folder of its own, `chip-1`, `chip-2` and so on, with that chip's files numbered from 01 and the layer table listing the layers on the chip at the thickness the witness receives; the comment line of each file names the design layer it belongs to. CSV and text files written one per step are named and placed the same way. One table goes in the chosen folder under the design's name, with `_chip-1`, `_chip-2` and so on added on witness chips. A long run shows its progress under the toolbar while the files are being built.
 
 ## How to read it
 
 Play or scrub the timeline to watch the spectrum evolve toward the final
 design. The step curves let you see at a glance how each layer moves the
 spectrum, which is useful for spotting a layer whose contribution is small (and
-therefore hard to monitor) or one that swings the spectrum sharply. The `.res`
+therefore hard to monitor) or one that swings the spectrum sharply. The exported
 files are the deliverable for your deposition controller: they describe the
 target spectrum at the end of every layer so the monitor can compare the live
 measurement against the intended one. The live spectrum uses the design's

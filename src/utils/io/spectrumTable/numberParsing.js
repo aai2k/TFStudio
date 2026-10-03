@@ -75,8 +75,9 @@ export function detectDecimal(text) {
     // If commas are clearly column delimiters (multiple per line with no
     // following space pattern), '.' is the radix. Heuristic: a number like
     // "1,5" with nothing else comma-ish on simple lines → decimal comma.
-    const hasDecimalComma = /(^|[\s;\t])[+-]?\d+,\d+([\s;\t]|$)/m.test(text);
-    const hasDotNumber    = /(^|[\s;,\t])[+-]?\d+\.\d+/m.test(text);
+    const body = text.replace(/^[ \t]*#.*$/gm, '');
+    const hasDecimalComma = /(^|[\s;\t])[+-]?\d+,\d+([\s;\t]|$)/m.test(body);
+    const hasDotNumber    = /(^|[\s;,\t])[+-]?\d+\.\d+/m.test(body);
     if (hasDecimalComma && !hasDotNumber) return ',';
     return '.';
 }

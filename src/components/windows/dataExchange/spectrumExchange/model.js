@@ -2,7 +2,7 @@ import { buildJcampDx } from '../../../../utils/io/jcampDx.js';
 import { designSpectrumColumns } from '../../../../utils/io/designSpectrum.js';
 import {
     curvesToCsv, measuredCurveData, measuredCurveSpacing, nmToX,
-    sampleMeasuredCurve, tableToCsv, X_UNITS,
+    sampleMeasuredCurve, spectrumConditionLines, tableToCsv, X_UNITS,
 } from '../../../../utils/io/spectrumTable.js';
 import { clampToCovered, designRangeCoverage } from '../../../../utils/materials/materialRange.js';
 import {
@@ -149,28 +149,6 @@ export function measuredFitMeritOperands(existing, measured, config = {}) {
     return config.outputMode === 'replace'
         ? generated
         : [...(existing || []), ...generated];
-}
-
-const POLARIZATION_LABEL = { avg: 'average', s: 's', p: 'p' };
-
-/**
- * The conditions a spectrum was taken under, as header lines above the column
- * names. Without them a file exported from TFStudio comes back carrying
- * whatever conditions the import panel happened to be set to, and a spectrum
- * read at the wrong angle does not lie on the design it came from.
- *
- * The shape matches the calculated Psi/Delta export. A condition the columns do
- * not agree on is left out rather than guessed: one header line cannot describe
- * columns taken at different angles or polarizations.
- */
-export function spectrumConditionLines({ name, aoi, pol, side }) {
-    const conditions = [];
-    if (Number.isFinite(aoi)) conditions.push(`AOI ${aoi} deg`);
-    if (side) conditions.push(`${side} side`);
-    const lines = [`# ${name || 'design'}`];
-    if (conditions.length) lines.push(`# ${conditions.join(', ')}`);
-    lines.push(`# Polarization: ${POLARIZATION_LABEL[pol] || 'per column'}`);
-    return lines;
 }
 
 /** The one value every curve shares, or null when they differ. */

@@ -684,8 +684,9 @@ for (const quantity of ['T', 'R', 'A']) {
 // loading it back stamped it with whatever the import panel was set to and drew
 // it against the design at the wrong angle.
 {
-    const { designExportDocument, measuredExportDocument, spectrumConditionLines } =
+    const { designExportDocument, measuredExportDocument } =
         await import('../src/components/windows/dataExchange/spectrumExchange/model.js');
+    const { spectrumConditionLines } = await import('../src/utils/io/spectrumTable.js');
 
     const design = { name: 'Formula Design (4)', surfaceMode: 'front_only', mfEvalMode: 'side' };
     const spec = { lambda: [400, 500], series: [{ theta: 0, T: [0.9, 0.92], R: [0.08, 0.06] }] };

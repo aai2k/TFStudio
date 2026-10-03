@@ -1,12 +1,14 @@
 /**
- * Process-file export (.res format) for in-chamber spectrophotometric
- * monitoring.
+ * Process-file export for in-chamber spectrophotometric monitoring.
  *
  * For an N-layer active coating, one .res file is written per deposition
  * step (01.res, 02.res, ...). Each file is the spectrum the spectrophotometer
  * would see at that intermediate state: layers 1..k deposited at full thickness,
  * layers k+1..N still at zero. The non-active surface of the substrate is fixed
  * (either bare or fully coated) for the entire sequence.
+ *
+ * The same spectra can be written as CSV or text tables instead, one file per
+ * step or one table with a column per step; see DEFAULT_OUTPUT.
  *
  * Layer-numbering convention (chamber deposition order):
  *   Layer 1 = first deposited = layer touching substrate.
@@ -21,14 +23,35 @@
  * Mapping (active = back):
  *   deposition index i (1..N) → backLayers[i - 1]
  *
- * File output is plain ASCII with CRLF line endings (matches reference files
+ * A .res file is plain ASCII with CRLF line endings (matches reference files
  * produced for Windows 8.18n).
  */
 
-import { evaluateDepositionSpectra, evaluateSpectrumTotal } from '../physics/thinFilmMath.js';
-import { designMaterialLookup } from '../materials/designMaterials.js';
-import { CHAMBER_MEDIUM_ID } from '../monitoring/chamberMedium.js';
-import { chipsInRunOrder } from '../monitoring/monoSim.js';
+import { runSteps, stepSpectrum } from './processRunSteps.js';
+import { spectrumConditionLines, tableToCsv } from './spectrumTable/csvExport.js';
+
+/**
+ * What a save writes.
+ *
+ *   format       'res' | 'csv' | 'txt'. A .res file has one fixed layout and
+ *                takes none of the options below. A text file is a CSV file
+ *                under a .txt name.
+ *   files        'step': one file per deposition step, like .res.
+ *                'table': one file with a column per step; one per chip on a
+ *                witness-chip run.
+ *   header       'layers': the .res header with its layer table.
+ *                'conditions': design, step, angle, side and polarization, the
+ *                shape the spectrum importer reads them back from.
+ *                'none': numbers only, without column names.
+ *   delimiter    ',' | ';' | '\t' | ' '
+ *   scale        'percent' | 'fraction'
+ *   decimals     decimals of every value; wavelengths are written exactly
+ *   decimalMark  '.' | ','
+ */
+export const DEFAULT_OUTPUT = Object.freeze({
+    format: 'res', files: 'step', header: 'layers',
+    delimiter: ',', scale: 'percent', decimals: 5, decimalMark: '.',
+});
 
 // ── Formatting helpers ────────────────────────────────────────────────────────
 
@@ -89,6 +112,12 @@ function tagForQuantity(q) {
     if (q === 'R') return 'Ra';
     if (q === 'A') return 'Aa';
     return 'Ta';
+}
+
+function seriesOf(spec, q) {
+    if (q === 'R') return spec.R;
+    if (q === 'A') return spec.A;
+    return spec.T;
 }
 
 // ── Build one .res file content for a given partial-deposition state ──────────
@@ -172,9 +201,31 @@ function buildLayerTable(allLayers, stepK, controlLambda) {
  * @returns {string} .res file content with CRLF line endings (ASCII-safe).
  */
 export function buildResFileContent(cfg) {
+    const { quantity } = cfg;
+
+    // Use spec.lambda as the authoritative wavelength array — building a
+    // parallel local grid risks a length mismatch (multiplication vs the
+    // engine's float-accumulation loop) that puts undefined in the last row.
+    const spec = cfg.spectrum || stepSpectrum(cfg);
+    const lambdas = spec.lambda;
+    const series = seriesOf(spec, quantity);
+
+    const lines = resHeaderLines(cfg, lambdas.length);
+    lines.push(` Wavelength      ${tagForQuantity(quantity)}    `);
+    for (let i = 0; i < lambdas.length; i++) {
+        const val_pct = series[i] * 100;
+        lines.push(`${fmtFixed(lambdas[i], 10, 4)}    ${val_pct.toFixed(5)}`);
+    }
+
+    return lines.join('\r\n') + '\r\n';
+}
+
+// The .res header, from the report block down to the page line above the
+// column names: report, design, layer table and target-file blocks. A CSV or
+// text table under the layer-table header carries the same lines.
+function resHeaderLines(cfg, nPoints) {
     const {
-        designName, controlLambda, aoi, polarization, quantity,
-        lambdaStart, lambdaEnd, lambdaStep,
+        designName, controlLambda, aoi, lambdaStart, lambdaEnd,
         allLayers, stepK,
         outputDir = '',
         appVersion = '',
@@ -182,21 +233,7 @@ export function buildResFileContent(cfg) {
     } = cfg;
 
     const N = allLayers.length;
-
-    // Use spec.lambda as the authoritative wavelength array — building a
-    // parallel local grid risks a length mismatch (multiplication vs the
-    // engine's float-accumulation loop) that puts undefined in the last row.
-    const spec = cfg.spectrum || stepSpectrum(cfg);
-    const lambdas = spec.lambda;
-    const nPoints = lambdas.length;
-
-    const series = (quantity === 'R') ? spec.R
-                 : (quantity === 'A') ? spec.A
-                 :                       spec.T;
-
-    // ── Assemble file ───────────────────────────────────────────────────────
     const lines = [];
-    const CRLF = '\r\n';
 
     // Header — line count matches the original .res 5-line block so
     // parsers that use fixed line offsets still locate the layer table and
@@ -227,60 +264,7 @@ export function buildResFileContent(cfg) {
     lines.push(`Spectral characteristics: ${nPoints} points`);
     lines.push('');
     lines.push(`Page # 1,  Angle of incidence = ${aoi.toFixed(2).padStart(5)}`);
-    lines.push(` Wavelength      ${tagForQuantity(quantity)}    `);
-
-    for (let i = 0; i < lambdas.length; i++) {
-        const val_pct = series[i] * 100;
-        lines.push(`${fmtFixed(lambdas[i], 10, 4)}    ${val_pct.toFixed(5)}`);
-    }
-
-    return lines.join(CRLF) + CRLF;
-}
-
-// The spectrum of one step evaluated from its own partial stack: layers 1..k
-// at full thickness, the rest at zero, over the whole system. A back-side run
-// takes this path for every step; a front-side run and a witness chip are
-// evaluated in one pass instead (see processFileSteps).
-function stepSpectrum(cfg) {
-    const {
-        aoi, polarization, lambdaStart, lambdaEnd, lambdaStep,
-        allLayers, stepK, substrateMat, substrateThk,
-        incidentMat, exitMat, otherSideLayers, activeSide,
-    } = cfg;
-
-    // ── 1. Build partial-deposition state in DEPOSITION ORDER ────────────────
-    const activeStateDep = allLayers.map((l, i) => ({
-        materialId: l.materialId,
-        matObj:     l.matObj,
-        thickness:  (i + 1) <= stepK ? l.thickness : 0,
-    }));
-
-    // ── 2. Convert to TFStudio storage order for evaluateSpectrumTotal ───────
-    // frontLayers storage: top→substrate (substrate-side LAST)
-    // backLayers  storage: substrate→exit (substrate-side FIRST)
-    // Our deposition-order array has substrate-side at index 0.
-    let frontStored, backStored;
-    if (activeSide === 'front') {
-        // active = front: deposition order → reverse for frontLayers storage
-        frontStored = [...activeStateDep].reverse();
-        // other side = back: otherSideLayers is in deposition order (sub-side first),
-        // which already matches backLayers storage convention.
-        backStored  = otherSideLayers.slice();
-    } else {
-        // active = back: deposition order is sub-side first → matches backLayers
-        backStored  = activeStateDep.slice();
-        // other side = front: otherSideLayers in deposition order → reverse for storage
-        frontStored = [...otherSideLayers].reverse();
-    }
-
-    // ── 3. Spectrum (engine builds the lambda grid internally) ──────────────
-    return evaluateSpectrumTotal(
-        { lambdaStart, lambdaEnd, lambdaStep, theta: aoi, polarization },
-        incidentMat, substrateMat, exitMat,
-        frontStored.map(l => ({ material: l.matObj, thickness: l.thickness })),
-        backStored .map(l => ({ material: l.matObj, thickness: l.thickness })),
-        substrateThk,
-    );
+    return lines;
 }
 
 // ── Public driver: build all step files for one save action ───────────────────
@@ -296,123 +280,144 @@ function stepSpectrum(cfg) {
 //   lambdaStart, lambdaEnd, lambdaStep    nm
 //   chips         { chipByStep, chipMaterial, witnessRatio } for a run read on
 //                 witness chips, null for the part
+//   output        what the files are, merged over DEFAULT_OUTPUT; .res when
+//                 absent
 //
-// Returns [{ filename, content }]: one entry per deposition step, with a
-// `subdir` per chip on a witness-chip run.
+// Returns [{ filename, content }]: one entry per file, with a `subdir` per
+// chip on a witness-chip run written one file per step.
 
 export function buildAllProcessFiles(design, opts) {
-    return Array.from(processFileSteps(design, opts), step => step.file);
+    return Array.from(processFileSteps(design, opts), step => step.file).filter(Boolean);
 }
 
 /**
- * The files of one save, one per step, produced in order as
+ * The files of one save, produced step by step in run order as
  * `{ file, index, total }` so a caller can write them, or hand the window a
- * turn, between steps.
+ * turn, between steps. One table per run carries its file on the run's last
+ * step and `file: null` on the steps before it.
  *
- * A front-side run is one growing stack on a fixed back, and a witness chip
- * is one on bare glass, so their spectra come from one pass over the run
- * before the first file: the work then grows with the layer count, not with
- * its square. A back-side run grows behind the substrate, where there is no
- * growing kernel, so each of its steps is evaluated as its file is built.
+ * The spectra are those of runSteps: a front-side run and a witness chip are
+ * evaluated in one pass before the first file, a back-side run step by step
+ * as its files are built.
  */
 export function* processFileSteps(design, opts) {
-    const {
-        activeSide, secondSurface, quantity, aoi, polarization,
-        lambdaStart, lambdaEnd, lambdaStep,
-        outputDir = '',
-        appVersion = '',
-        projectLabel = '',
-        chips = null,
-    } = opts;
-
-    const resolveMaterial = designMaterialLookup(design);
-    const controlLambda = design.referenceWavelength || 550;
-    // The part or the chip sits in the chamber: air on both sides of it,
-    // whatever media the design is embedded in. The header's match medium of
-    // 1.0 tells the monitoring software the same.
-    const air          = resolveMaterial(CHAMBER_MEDIUM_ID);
-    const substrateMat = resolveMaterial((chips && chips.chipMaterial) || design.substrate?.material);
-    const substrateThk = design.substrate?.thickness || 1.0;
-
-    // Deposition order, substrate side first, over every layer of the side so
-    // a chip plan indexed by step still applies once the empty layers are
-    // dropped. frontLayers storage is substrate-side last, backLayers storage
-    // substrate-side first.
-    const frontStored = design.frontLayers || [];
-    const backStored  = design.backLayers || [];
-    const activeAll   = activeSide === 'front' ? [...frontStored].reverse() : backStored.slice();
-    const otherDep    = (activeSide === 'front' ? backStored.slice() : [...frontStored].reverse())
-        .filter(l => l && l.thickness > 0);
-
-    const ratio = chips ? (chips.witnessRatio || 1) : 1;
-    const allLayers = activeAll
-        .map((l, step) => ({ l, chip: chips ? (chips.chipByStep?.[step] ?? 1) : null }))
-        .filter(({ l }) => l && l.thickness > 0)
-        .map(({ l, chip }) => ({
-            materialId: l.material,
-            thickness:  l.thickness * ratio,
-            matObj:     resolveMaterial(l.material),
-            chip,
-        }));
-
-    const N = allLayers.length;
-    if (N === 0) return;
-
-    const common = {
-        designName: design.name, controlLambda, aoi, polarization, quantity,
-        lambdaStart, lambdaEnd, lambdaStep, substrateMat, substrateThk,
-        incidentMat: air, exitMat: air, appVersion, projectLabel,
-    };
-    const params = { lambdaStart, lambdaEnd, lambdaStep, theta: aoi, polarization };
-    const asDeposition = l => ({ material: l.matObj, thickness: l.thickness });
-    const padK = (k) => k < 10 ? '0' + k : String(k);
-
-    if (chips) {
-        // Each chip is its own short run from bare glass, grown like a front
-        // coating whichever side of the part the run deposits, back face bare.
-        // Its files go in a folder of their own, numbered from 01 on the chip,
-        // and each one names the design layer it belongs to.
-        let index = 0;
-        for (const { chip, steps } of chipsInRunOrder(allLayers.map(l => l.chip))) {
-            const subdir = `chip-${chip}`;
-            const chipLayers = steps.map(i => allLayers[i]);
-            const spectra = evaluateDepositionSpectra(
-                params, air, substrateMat, air, chipLayers.map(asDeposition), [], substrateThk);
-            for (let k = 1; k <= chipLayers.length; k++) {
-                const content = buildResFileContent({
-                    ...common, allLayers: chipLayers, stepK: k, spectrum: spectra[k - 1],
-                    otherSideLayers: [], activeSide: 'front',
-                    outputDir: outputDir ? `${outputDir.replace(/[\\/]+$/, '')}\\${subdir}` : subdir,
-                    comment: `Witness chip ${chip}, layer ${k} of ${chipLayers.length} on the chip: `
-                        + `design layer ${steps[k - 1] + 1} of ${N}`,
-                });
-                index += 1;
-                yield { file: { subdir, filename: `${padK(k)}.res`, content }, index, total: N };
-            }
+    const output = { ...DEFAULT_OUTPUT, ...(opts.output || {}) };
+    if (output.format === 'res') {
+        for (const { cfg, run, index, total } of runSteps(design, opts)) {
+            yield { file: placed(run, `${padK(cfg.stepK)}.res`, buildResFileContent(cfg)), index, total };
         }
-        return;
+    } else if (output.files === 'table') {
+        yield* runTables(design, opts, output);
+    } else {
+        for (const { cfg, run, index, total } of runSteps(design, opts)) {
+            const columns = [{ name: valueLabel(cfg.quantity, output), values: seriesOf(cfg.spectrum, cfg.quantity) }];
+            const content = tableContent(cfg, columns, stepConditions(cfg, run), output);
+            yield { file: placed(run, `${padK(cfg.stepK)}.${output.format}`, content), index, total };
+        }
     }
+}
 
-    const otherSideLayers = (secondSurface === 'coated')
-        ? otherDep.map(l => ({
-            materialId: l.material,
-            thickness:  l.thickness,
-            matObj:     resolveMaterial(l.material),
-        }))
-        : [];
-
-    // The other side of a front-side run is the back coating, whose deposition
-    // order is its storage order.
-    const spectra = activeSide === 'front'
-        ? evaluateDepositionSpectra(params, air, substrateMat, air,
-            allLayers.map(asDeposition), otherSideLayers.map(asDeposition), substrateThk)
-        : null;
-
-    for (let k = 1; k <= N; k++) {
-        const content = buildResFileContent({
-            ...common, allLayers, stepK: k, otherSideLayers, activeSide, outputDir,
-            spectrum: spectra ? spectra[k - 1] : null,
+// One table per run: the part, or each chip. Its columns are the run's steps
+// in order, and its layer-table header shows the run complete.
+function* runTables(design, opts, output) {
+    let columns = [];
+    for (const { cfg, run, index, total } of runSteps(design, opts)) {
+        columns.push({
+            name: `Step ${cfg.stepK} ${valueLabel(cfg.quantity, output)}`,
+            values: seriesOf(cfg.spectrum, cfg.quantity),
         });
-        yield { file: { filename: `${padK(k)}.res`, content }, index: k, total: N };
+        if (cfg.stepK < run.size) {
+            yield { file: null, index, total };
+            continue;
+        }
+        const finished = run.chip == null ? cfg : {
+            ...cfg,
+            outputDir: opts.outputDir || '',
+            comment: `Witness chip ${run.chip}, ${counted(run.size, 'layer')} on the chip: `
+                + `${designLayers(run)} of ${cfg.runSize}`,
+        };
+        const chipPart = run.chip == null ? '' : `_chip-${run.chip}`;
+        const filename = `${fileBase(design)}${chipPart}.${output.format}`;
+        yield { file: { filename, content: tableContent(finished, columns, runConditions(cfg, run), output) }, index, total };
+        columns = [];
     }
+}
+
+function padK(k) {
+    return k < 10 ? '0' + k : String(k);
+}
+
+// A chip's step files go in the chip's own folder.
+function placed(run, filename, content) {
+    return run.subdir ? { subdir: run.subdir, filename, content } : { filename, content };
+}
+
+// The design name as a file name: the characters Windows refuses become '_'.
+function fileBase(design) {
+    return String(design.name || '').replace(/[<>:"/\\|?*\u0000-\u001f]+/g, '_').trim() || 'process';
+}
+
+// "%T" or "T": the quantity letter of the .res column tag.
+function valueLabel(quantity, output) {
+    const q = tagForQuantity(quantity)[0];
+    return output.scale === 'fraction' ? q : `%${q}`;
+}
+
+function plural(n, noun) {
+    return n === 1 ? noun : `${noun}s`;
+}
+
+function counted(n, noun) {
+    return `${n} ${plural(n, noun)}`;
+}
+
+// The design layers a chip carries: "design layer 3", "design layers 3, 6".
+function designLayers(run) {
+    return `design ${plural(run.size, 'layer')} ${run.designLayers.join(', ')}`;
+}
+
+// The conditions lines of a table. Every spectrum of a run is lit from the
+// front, whichever side is being coated, so the side the importer reads is
+// always the front; on the part the side being coated goes in the run
+// description, and a chip, grown on bare glass, names its design layers.
+function conditionsOf(cfg, run, description) {
+    const design = cfg.designName || 'design';
+    const name = run.chip == null ? design : `${design}, witness chip ${run.chip}`;
+    return { name, run: description, aoi: cfg.aoi, pol: cfg.polarization, side: 'front' };
+}
+
+function stepConditions(cfg, run) {
+    const k = cfg.stepK;
+    return conditionsOf(cfg, run, run.chip == null
+        ? `Step ${k} of ${run.size}, ${cfg.activeSide} coating`
+        : `Step ${k} of ${run.size} on the chip, design layer ${run.designLayers[k - 1]} of ${cfg.runSize}`);
+}
+
+function runConditions(cfg, run) {
+    return conditionsOf(cfg, run, run.chip == null
+        ? `${counted(run.size, 'step')}, ${cfg.activeSide} coating`
+        : `${counted(run.size, 'step')} on the chip, ${designLayers(run)} of ${cfg.runSize}`);
+}
+
+function tableHeaderLines(cfg, nPoints, conditions, output) {
+    if (output.header === 'layers') return resHeaderLines(cfg, nPoints);
+    if (output.header === 'conditions') {
+        return spectrumConditionLines({ ...conditions, decimalMark: output.decimalMark });
+    }
+    return [];
+}
+
+function tableContent(cfg, columns, conditions, output) {
+    const x = cfg.spectrum.lambda;
+    const factor = output.scale === 'fraction' ? 1 : 100;
+    return tableToCsv({
+        x,
+        columns: columns.map(column => ({ name: column.name, values: Array.from(column.values, v => v * factor) })),
+    }, {
+        delimiter: output.delimiter,
+        headerLines: tableHeaderLines(cfg, x.length, conditions, output),
+        columnNames: output.header !== 'none',
+        decimals: output.decimals,
+        decimalMark: output.decimalMark,
+    });
 }

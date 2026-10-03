@@ -1,9 +1,10 @@
-// IPC: process-file export (.res, chamber monitoring). Split
+// IPC: process-file export (.res, CSV or text; chamber monitoring). Split
 // into two IPCs so the file content can embed the REAL output path:
 //   1. process:pick-dir   — prompts the user and returns the chosen folder
 //   2. process:save-files — writes pre-built {filename, content} to that folder
-// Files are written as UTF-8 (content is pre-sanitized to ASCII + CRLF by the
-// renderer).
+// Files are written as UTF-8. A .res file's content is pre-sanitized to
+// ASCII + CRLF by the renderer; a CSV or text file under the conditions header
+// carries the design name as typed.
 //
 // CommonJS, Electron-free (deps via ctx).
 function register(ipcMain, ctx) {

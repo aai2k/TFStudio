@@ -17,11 +17,13 @@ function yieldToWindow() {
 
 // The files of the run, built with the window kept alive. The count so far
 // goes to the progress hairline each time the export hands the window a turn.
+// A step that completes no file, inside a table written once per run, still
+// counts.
 async function collectFiles(design, exportOptions, setProgress) {
     const files = [];
     let lastTurn = performance.now();
     for (const { file, index, total } of processFileSteps(design, exportOptions)) {
-        files.push(file);
+        if (file) files.push(file);
         if (performance.now() - lastTurn >= FRAME_MS) {
             setProgress({ i: index, total });
             await yieldToWindow();
@@ -37,9 +39,11 @@ function reportSaveError(options, message) {
     options.setSaving(false);
 }
 
-function successMessage(sp, files, dir) {
+function successMessage(sp, files, dir, ext) {
     const chips = new Set(files.map(file => file.subdir).filter(Boolean)).size;
-    return chips ? sp.successMsgChips(files.length, chips, dir) : sp.successMsg(files.length, dir);
+    return chips
+        ? sp.successMsgChips(files.length, ext, chips, dir)
+        : sp.successMsg(files.length, ext, dir);
 }
 
 async function continueProcessSave(options, pick) {
@@ -67,6 +71,7 @@ async function continueProcessSave(options, pick) {
             appVersion,
             projectLabel: options.design.name,
             chips: options.chipPlan,
+            output: options.setup.output,
         }, options.setProgress);
         options.setProgress(null);
         if (!files.length) {
@@ -80,7 +85,7 @@ async function continueProcessSave(options, pick) {
         }
         options.setStatusMsg({
             type: 'success',
-            message: successMessage(options.sp, files, result.dir),
+            message: successMessage(options.sp, files, result.dir, `.${options.setup.output.format}`),
         });
         options.setSaving(false);
     } catch (error) {
@@ -114,7 +119,7 @@ export function useProcessSave(design, setup, layerCount, sp, chipPlan = null) {
         design, setup, layerCount, sp, saving, setSaving, setStatusMsg, setProgress, chipPlan,
     }), [design, layerCount, saving, setup.activeSide, setup.secondSurface,
         setup.quantity, setup.aoi, setup.polarization, setup.lambdaStart,
-        setup.lambdaEnd, setup.exportStep, sp, chipPlan]);
+        setup.lambdaEnd, setup.exportStep, setup.output, sp, chipPlan]);
 
     useEffect(() => {
         if (!statusMsg) return;

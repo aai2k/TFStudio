@@ -1,6 +1,12 @@
+import { DEFAULT_OUTPUT } from '../../../../utils/io/processFileExport.js';
 import { loadPersist, savePersist } from './persistence.js';
 
 const { useState, useEffect, useRef } = React;
+
+function persistedOutput(persisted) {
+    const output = persisted.output;
+    return { ...DEFAULT_OUTPUT, ...(output && typeof output === 'object' ? output : {}) };
+}
 
 export function useSetupState() {
     const persisted = useRef(loadPersist()).current;
@@ -16,18 +22,21 @@ export function useSetupState() {
     const [lambdaEnd, setLambdaEnd] = useState(persisted.lambdaEnd || 1100);
     const [lambdaStep, setLambdaStep] = useState(persisted.lambdaStep || 2);
     const [exportStep, setExportStep] = useState(persisted.exportStep || 0.5);
+    // What a save writes: format, file layout, header and number options.
+    const [output, setOutput] = useState(() => persistedOutput(persisted));
     const [showAll, setShowAll] = useState(persisted.showAll === true);
     const [rates, setRates] = useState(persisted.rates || {});
     const [playSpeed, setPlaySpeed] = useState(persisted.playSpeed || 1);
+    const setOutputOption = (key, value) => setOutput(previous => ({ ...previous, [key]: value }));
 
     useEffect(() => {
         savePersist({
             activeSide, mode, secondSurface, quantity, aoi, polarization,
-            lambdaStart, lambdaEnd, lambdaStep, exportStep, showAll,
+            lambdaStart, lambdaEnd, lambdaStep, exportStep, output, showAll,
             rates, playSpeed,
         });
     }, [activeSide, mode, secondSurface, quantity, aoi, polarization, lambdaStart,
-        lambdaEnd, lambdaStep, exportStep, showAll, rates, playSpeed]);
+        lambdaEnd, lambdaStep, exportStep, output, showAll, rates, playSpeed]);
 
     return {
         activeSide, setActiveSide,
@@ -40,6 +49,7 @@ export function useSetupState() {
         lambdaEnd, setLambdaEnd,
         lambdaStep, setLambdaStep,
         exportStep, setExportStep,
+        output, setOutputOption,
         showAll, setShowAll,
         rates, setRates,
         playSpeed, setPlaySpeed,

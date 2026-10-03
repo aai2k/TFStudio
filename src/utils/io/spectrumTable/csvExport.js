@@ -110,13 +110,58 @@ function fmt(v) {
  * opts.headerLines are written above the column names, and are how the
  * measurement conditions travel with the file; the column-name row stays last
  * so the importer still reads the names from it.
+ *
+ * opts.decimals writes every Y value with that many decimals, trailing zeroes
+ * kept, as a file for a fixed-format reader wants; without it Y is written to
+ * twelve decimals with trailing zeroes trimmed, as X always is.
+ * opts.decimalMark ',' writes a decimal comma in X and Y. A field that then
+ * holds the delimiter is quoted, like any other.
+ * opts.columnNames false leaves out the column-name row.
  */
 export function tableToCsv({ x, columns, xLabel = 'Wavelength (nm)' }, opts = {}) {
     const d = opts.delimiter || ',';
     const cols = columns || [];
-    const lines = [...(opts.headerLines || []), csvRow([xLabel, ...cols.map(c => c.name)], d)];
+    const comma = opts.decimalMark === ',';
+    const mark = text => (comma ? text.replace('.', ',') : text);
+    const yText = Number.isInteger(opts.decimals)
+        ? v => (Number.isFinite(v) ? v.toFixed(opts.decimals) : '')
+        : fmt;
+    const lines = [...(opts.headerLines || [])];
+    if (opts.columnNames !== false) lines.push(csvRow([xLabel, ...cols.map(c => c.name)], d));
     for (let i = 0; i < x.length; i++) {
-        lines.push(csvRow([fmt(x[i]), ...cols.map(c => fmt(c.values[i]))], d));
+        lines.push(csvRow([mark(fmt(x[i])), ...cols.map(c => mark(yText(c.values[i])))], d));
     }
     return lines.join('\r\n') + '\r\n';
+}
+
+const POLARIZATION_LABEL = { avg: 'average', s: 's', p: 'p' };
+
+/**
+ * The conditions a spectrum was taken under, as header lines above the column
+ * names. Without them a file exported from TFStudio comes back carrying
+ * whatever conditions the import panel happened to be set to, and a spectrum
+ * read at the wrong angle does not lie on the design it came from.
+ *
+ * The shape matches the calculated Psi/Delta export. A condition the columns do
+ * not agree on is left out rather than guessed: one header line cannot describe
+ * columns taken at different angles or polarizations.
+ *
+ * `run` says which part of a run the file holds, such as a deposition step. It
+ * leads the conditions line, ahead of the angle and side the importer reads.
+ * `decimalMark` ',' writes the angle with the comma the numbers below it use:
+ * the importer takes the file's decimal mark from every number in it, the
+ * header's included.
+ */
+export function spectrumConditionLines({ name, aoi, pol, side, run, decimalMark }) {
+    const conditions = [];
+    if (run) conditions.push(run);
+    if (Number.isFinite(aoi)) {
+        const angle = String(aoi);
+        conditions.push(`AOI ${decimalMark === ',' ? angle.replace('.', ',') : angle} deg`);
+    }
+    if (side) conditions.push(`${side} side`);
+    const lines = [`# ${name || 'design'}`];
+    if (conditions.length) lines.push(`# ${conditions.join(', ')}`);
+    lines.push(`# Polarization: ${POLARIZATION_LABEL[pol] || 'per column'}`);
+    return lines;
 }
