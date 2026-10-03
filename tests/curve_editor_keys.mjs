@@ -292,6 +292,22 @@ const design = makeSampleDesign();
     assert.ok(projectItem(chart, point), 'a point on the plot is drawn');
     assert.equal(calls[0].yAxisIndex, 1, 'through the axis its column is drawn on');
     assert.equal(projectItem(chart, { ...point, x0: 700 }), null, 'a point zoomed off the plot is not');
+
+    // A point at an axis limit sits on the plot's edge, half of it outside. A
+    // press on that half, or a drag past the edge, reads the value at the edge.
+    const { clampToPlot, dataPoint } = await import('../src/components/ui/targetEditorGeometry.js');
+    const rect = { x: 50, y: 20, width: 400, height: 300 };
+    const framed = {
+        getModel: () => ({ getComponent: () => ({ coordinateSystem: { getRect: () => rect } }) }),
+        containPixel: (_finder, [x, y]) => x >= rect.x && x <= rect.x + rect.width && y >= rect.y && y <= rect.y + rect.height,
+        convertFromPixel: (_finder, pixel) => [...pixel],
+    };
+    const aboveTop = [120, 18];
+    assert.equal(dataPoint(framed, aboveTop), null, 'the pixel itself is off the plot');
+    assert.deepEqual(dataPoint(framed, clampToPlot(framed, aboveTop)), [120, 20], 'and reads as the top edge');
+    assert.deepEqual(clampToPlot(framed, [30, 400]), [50, 320], 'past a corner it is held at the corner');
+    assert.deepEqual(clampToPlot(framed, [200, 100]), [200, 100], 'on the plot it is left alone');
+    assert.deepEqual(clampToPlot(chart, aboveTop), aboveTop, 'a chart that gives no rectangle leaves it as it is');
     const { pointGeometry, draggedCell, roundDragged } = await import(
         '../src/components/windows/dataExchange/curveEditor/chartModel.js');
     const geometry = pointGeometry({ ...emptyTable('ellipsometry'), rows: [[500, 30, 100], [400, 20, NaN]] });

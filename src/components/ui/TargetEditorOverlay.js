@@ -15,8 +15,8 @@
 
 import { observeResize } from './observeResize.js';
 import {
-    dataPoint, dropOutcome, finitePoint, hasPointerTravelled, isPointItem, itemAxes, moveGeometry, projectGeometry,
-    projectItem,
+    clampToPlot, dataPoint, dropOutcome, finitePoint, hasPointerTravelled, isPointItem, itemAxes, moveGeometry,
+    projectGeometry, projectItem,
 } from './targetEditorGeometry.js';
 
 const { createElement: h, useCallback, useEffect, useRef, useState } = React;
@@ -83,9 +83,10 @@ function beginCapture(event, drag, dragRef) {
     event.currentTarget.setPointerCapture?.(event.pointerId);
 }
 
-// The preview an in-progress drag shows, from the pointer's current pixel.
+// The preview an in-progress drag shows, from the pointer's current pixel. A
+// pointer past the plot's edge holds the dragged end at the edge.
 function dragPreview(chart, drag, pixel, drawColor) {
-    const current = dataPoint(chart, pixel, drag.axes);
+    const current = dataPoint(chart, clampToPlot(chart, pixel), drag.axes);
     if (!current) return null;
     if (drag.mode === 'create') {
         return { x0: drag.startData[0], y0: drag.startData[1], x1: current[0], y1: current[1], color: drawColor };
@@ -104,7 +105,7 @@ function startHandleDrag(ctx, event, item, part) {
     if (!DRAGGING_TOOLS.has(ctx.tool)) return;
     const pixel = eventPixel(event, ctx.svgRef.current);
     const axes = itemAxes(item);
-    if (!dataPoint(ctx.chartRef.current, pixel, axes)) return;
+    if (!dataPoint(ctx.chartRef.current, clampToPlot(ctx.chartRef.current, pixel), axes)) return;
     beginCapture(event, { mode: 'edit', source: item, part, startPixel: pixel, axes }, ctx.dragRef);
     ctx.showPreview(item);
 }
@@ -198,15 +199,25 @@ function lineElements(item, context) {
     ];
 }
 
-function pointElement(item, context) {
+// The radius a point answers a press within, in pixels: the drawn circle is
+// 4 px, too small to catch reliably by hand.
+const POINT_HIT_RADIUS = 9;
+
+function pointElements(item, context) {
     const { enabled, handleFill, startHandleDrag } = context;
-    return h('circle', {
-        key: `${item.opId}-point`, cx: item.start[0], cy: item.start[1], r: 4,
-        fill: handleFill, stroke: item.color, strokeWidth: 1.5,
-        pointerEvents: enabled ? 'all' : 'none',
-        style: { cursor: 'ns-resize' },
-        onPointerDown: event => startHandleDrag(event, item, 'point'),
-    });
+    const center = { cx: item.start[0], cy: item.start[1] };
+    return [
+        h('circle', {
+            key: `${item.opId}-point`, ...center, r: 4,
+            fill: handleFill, stroke: item.color, strokeWidth: 1.5, pointerEvents: 'none',
+        }),
+        h('circle', {
+            key: `${item.opId}-hit`, ...center, r: POINT_HIT_RADIUS, fill: 'transparent',
+            pointerEvents: enabled ? 'all' : 'none',
+            style: { cursor: 'ns-resize' },
+            onPointerDown: event => startHandleDrag(event, item, 'point'),
+        }),
+    ];
 }
 
 // The drag in progress, drawn over everything else.
@@ -240,7 +251,7 @@ function ActiveTargetEditorOverlay(props) {
         startHandleDrag: drag.startHandleDrag,
     };
     const drawing = enabled && tool === 'draw';
-    const elementsOf = item => (isPointItem(item) ? [pointElement(item, context)] : lineElements(item, context));
+    const elementsOf = item => (isPointItem(item) ? pointElements(item, context) : lineElements(item, context));
     return h('svg', {
         ref: svgRef,
         viewBox: `0 0 ${view.width} ${view.height}`,

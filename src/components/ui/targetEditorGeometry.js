@@ -27,6 +27,26 @@ export function isPointItem(item) {
     return item?.shape === 'point';
 }
 
+// The plot area's rectangle in pixels, or null where the chart does not give it.
+function plotRect(chart) {
+    return chart?.getModel?.()?.getComponent?.('grid', 0)?.coordinateSystem?.getRect?.() || null;
+}
+
+/**
+ * A pixel moved onto the nearest edge of the plot area when it lies outside.
+ * A handle at an axis limit, a T of 100 % on the top edge, is half outside the
+ * plot, and a press on that half or a drag past the edge reads the value at the
+ * edge instead of nothing. Unchanged where the chart gives no rectangle.
+ */
+export function clampToPlot(chart, pixel) {
+    const rect = plotRect(chart);
+    if (!rect) return pixel;
+    return [
+        Math.min(Math.max(pixel[0], rect.x), rect.x + rect.width),
+        Math.min(Math.max(pixel[1], rect.y), rect.y + rect.height),
+    ];
+}
+
 export function dataPoint(chart, pixel, axes = AXES) {
     // Axis models convert coordinates, but in ECharts 6 they do not own a
     // coordinate system and therefore can never contain a pixel. The grid owns
