@@ -39,7 +39,7 @@ import {
 } from '../src/utils/physics/spectralWeightings.js';
 import { tableFromWeights } from '../src/components/windows/dataExchange/curveEditor/curveTable.js';
 import { tableFromText } from '../src/components/windows/dataExchange/curveEditor/tableText.js';
-import { weightsFromTable } from '../src/components/windows/dataExchange/curveEditor/curveApply.js';
+import { pointsFromTable } from '../src/components/windows/dataExchange/curveEditor/curveApply.js';
 import { photopicV, illuminantSPD, tristimulus } from '../src/utils/physics/colorimetry.js';
 
 let fails = 0;
@@ -323,7 +323,7 @@ console.log('weighting table text reading');
     // editor and applied as [λ, weight] rows in ascending wavelength.
     const tableRowsFromText = (text) => {
         const read = tableFromText(text, tableFromWeights([]));
-        return read.table ? weightsFromTable(read.table) : [];
+        return read.table ? pointsFromTable(read.table) : [];
     };
     const cases = [
         ['400\t0,5\n500\t0,7', [[400, 0.5], [500, 0.7]]],

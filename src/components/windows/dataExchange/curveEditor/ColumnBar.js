@@ -7,7 +7,7 @@
 import { ActionButton, SelectField } from '../../analysis/chrome/controls.js';
 import { textInputStyle } from '../chrome/panel.js';
 import { columnColors } from './chartModel.js';
-import { addColumn, removeColumn, setColumn, setXUnit } from './curveTable.js';
+import { addColumn, isValueTable, removeColumn, setColumn, setXUnit } from './curveTable.js';
 import { KIND_QUANTITIES, X_UNIT_IDS, unitsFor } from './units.js';
 
 const { createElement: h, useEffect, useState } = React;
@@ -46,7 +46,7 @@ function ValueColumn({ editor, labels, c, ce, column, index, color }) {
             options: unitsFor(column.quantity).map(id => ({ id, label: labels.unit(id) })),
             onChange: unit => update({ unit }),
         }),
-        table.kind !== 'weight' && !table.fixed && h(NameField, {
+        !isValueTable(table.kind) && !table.fixed && h(NameField, {
             c, value: column.name, placeholder: labels.quantity(column), title: ce.columnName,
             onCommit: name => update({ name }),
         }),

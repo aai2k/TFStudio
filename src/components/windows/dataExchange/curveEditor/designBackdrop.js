@@ -10,7 +10,7 @@ import { nmToX, xToNm } from '../../../../utils/io/spectrumTable.js';
 import { toDeltaConvention } from '../../../../utils/physics/thinFilmMath.js';
 import { computeSpectral } from '../../analysis/ellipsometryEvaluation/spectrum.js';
 import { designPreview, designSeriesKey, previewGrid } from '../spectrumExchange/designPreview.js';
-import { columnSeries } from './curveTable.js';
+import { columnSeries, isValueTable } from './curveTable.js';
 import { fromStored } from './units.js';
 
 /** The conditions a new curve gets until its card says otherwise. */
@@ -49,12 +49,12 @@ function columnNm(table, index) {
 
 /**
  * One backdrop per value column, { x, y } in the table's units, or null where
- * there is none to draw: a weighting, a column with no points, or a design that
+ * there is none to draw: a weighting or a gain, a column with no points, or a design that
  * cannot be evaluated.
  */
 export function designBackdrop(design, table, conditions, missing = []) {
     return table.columns.map((column, index) => {
-        if (!design || table.kind === 'weight') return null;
+        if (!design || isValueTable(table.kind)) return null;
         const nm = columnNm(table, index);
         if (!nm.length) return null;
         const build = table.kind === 'ellipsometry' ? ellipsometricCurve : photometricCurve;

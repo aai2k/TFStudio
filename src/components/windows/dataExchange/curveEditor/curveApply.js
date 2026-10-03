@@ -10,19 +10,19 @@
  * missing its wavelength or its value is left out of that column's curve.
  */
 import { makeMeasuredCurve, xToNm } from '../../../../utils/io/spectrumTable.js';
-import { columnSeries, sortedRows } from './curveTable.js';
+import { columnSeries, isValueTable, sortedRows } from './curveTable.js';
 import { toStored } from './units.js';
 
 const QUANTITY_SYMBOL = { T: 'T', R: 'R', A: 'A', PSI: 'Ψ', DEL: 'Δ' };
 
 /**
- * Why the table cannot be applied, or null. 'needTwoRows' is a weighting with
- * fewer than two complete rows, which have no span to weight over;
+ * Why the table cannot be applied, or null. 'needTwoRows' is a weighting or a
+ * gain with fewer than two complete rows, which have no span between them;
  * 'noPoints' a curve table in which no row has both a wavelength and a value.
  */
 export function applyProblem(table) {
     const counts = table.columns.map((_, index) => columnSeries(table, index).x.length);
-    if (table.kind === 'weight') return counts[0] >= 2 ? null : 'needTwoRows';
+    if (isValueTable(table.kind)) return counts[0] >= 2 ? null : 'needTwoRows';
     return counts.some(count => count > 0) ? null : 'noPoints';
 }
 
@@ -81,8 +81,11 @@ export function editedCurve(curve, table) {
     };
 }
 
-/** An Integral Values weighting as [[λ nm, weight]], in ascending wavelength. */
-export function weightsFromTable(table) {
+/**
+ * A value table, an Integral Values weighting or a gain, as [[λ nm, value]] in
+ * ascending wavelength.
+ */
+export function pointsFromTable(table) {
     const rows = sortedRows(table.rows.map(row => [xToNm(row[0], table.xUnit), row[1]]));
     return rows.filter(row => Number.isFinite(row[0]) && Number.isFinite(row[1]));
 }

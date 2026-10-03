@@ -3,12 +3,12 @@
  * columns, as typed.
  *
  *   {
- *     kind:    'spectrum' | 'ellipsometry' | 'weight'
+ *     kind:    'spectrum' | 'ellipsometry' | 'weight' | 'gain'
  *     xUnit:   the wavelength column's unit, an X_UNITS id
  *     columns: [{ quantity, unit, name }], one per value column
  *     rows:    [[x, v0, v1, ...]], numbers, NaN for an empty cell
  *     fixed:   true when the columns cannot be added, removed or retyped:
- *              an existing curve, or an Integral Values weighting
+ *              an existing curve, an Integral Values weighting or a gain
  *     source:  the file the table was read from, if it was
  *   }
  *
@@ -67,12 +67,21 @@ export function newColumn(kind, quantity = KIND_QUANTITIES[kind][0]) {
     return { quantity, unit: unitsFor(quantity)[0], name: '' };
 }
 
+/**
+ * A table of one plain value against wavelength that never becomes a curve on
+ * the design: an Integral Values weighting, or a gain for the gain flattening
+ * wizard. It has one fixed column and no design curve behind it.
+ */
+export function isValueTable(kind) {
+    return kind === 'weight' || kind === 'gain';
+}
+
 /** An empty table for a new curve of `kind`; Ψ and Δ come as a pair. */
 export function emptyTable(kind) {
     const quantities = kind === 'ellipsometry' ? KIND_QUANTITIES.ellipsometry : [KIND_QUANTITIES[kind][0]];
     const table = {
         kind, xUnit: X_UNITS.NM, columns: quantities.map(quantity => newColumn(kind, quantity)),
-        rows: [], fixed: kind === 'weight',
+        rows: [], fixed: isValueTable(kind),
     };
     return { ...table, rows: Array.from({ length: NEW_TABLE_ROWS }, () => emptyRow(table)) };
 }
@@ -100,11 +109,16 @@ export function tableFromCurve(curve, kind) {
     return { kind, xUnit: X_UNITS.NM, columns: [column], rows, fixed: true, source: curve.source };
 }
 
+/** Points [[λ nm, value]] as a value table of `kind` (isValueTable). */
+export function tableFromPoints(kind, points) {
+    const rows = (points || []).map(row => [Number(row[0]), Number(row[1])]);
+    const table = { kind, xUnit: X_UNITS.NM, columns: [newColumn(kind)], rows, fixed: true };
+    return rows.length ? table : emptyTable(kind);
+}
+
 /** An Integral Values source or detector table, [[λ nm, weight]], as an editor table. */
 export function tableFromWeights(weights) {
-    const rows = (weights || []).map(row => [Number(row[0]), Number(row[1])]);
-    const table = { kind: 'weight', xUnit: X_UNITS.NM, columns: [newColumn('weight')], rows, fixed: true };
-    return rows.length ? table : emptyTable('weight');
+    return tableFromPoints('weight', weights);
 }
 
 function withRows(table, rows) {

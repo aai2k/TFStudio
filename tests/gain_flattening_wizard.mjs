@@ -137,6 +137,23 @@ const flatteningName = name => `${name} flattening target`;
     assert.equal(failed.error, 'noCurve');
 }
 
+// -- A gain typed into the curve editor ---------------------------------------------
+{
+    const { tableFromPoints, isValueTable } = await import('../src/components/windows/dataExchange/curveEditor/curveTable.js');
+    const { applyProblem, pointsFromTable } = await import('../src/components/windows/dataExchange/curveEditor/curveApply.js');
+    const { valueProblem, toStored } = await import('../src/components/windows/dataExchange/curveEditor/units.js');
+    const { designBackdrop } = await import('../src/components/windows/dataExchange/curveEditor/designBackdrop.js');
+    const points = [[1550, 21], [1530, 20.5], [1540, 22.1]];
+    const table = tableFromPoints('gain', points);
+    assert.ok(isValueTable('gain') && table.fixed, 'a gain is one fixed column');
+    assert.equal(table.columns[0].unit, 'gain');
+    assert.equal(toStored(22.1, 'gain'), 22.1, 'a gain is kept in dB as typed, not turned into a fraction');
+    assert.equal(valueProblem('G', 'gain', 30), null, 'a gain above 0 dB is not out of range');
+    assert.deepEqual(pointsFromTable(table), [[1530, 20.5], [1540, 22.1], [1550, 21]], 'sorted on Apply');
+    assert.equal(applyProblem(tableFromPoints('gain', [[1530, 20]])), 'needTwoRows');
+    assert.deepEqual(designBackdrop(design, table, {}), [null], 'no design curve behind a gain');
+}
+
 // -- The form -------------------------------------------------------------------------
 assert.deepEqual(fieldRows('GAIN_FLATTENING', { input: 'gain' }).map(row => [row.label, row.keys]),
     [['source', ['input', 'gain']], ['conditions', ['curveAoi', 'curvePol']], ['spec', ['insertionLossDb', 'ppefDb']]]);

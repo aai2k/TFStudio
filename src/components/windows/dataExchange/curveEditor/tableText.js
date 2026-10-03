@@ -28,6 +28,7 @@ function spectrumColumn(column) {
 
 function parsedColumns(kind, columns) {
     if (kind === 'weight') return columns.map(() => ({ quantity: 'W', unit: 'rel' }));
+    if (kind === 'gain') return columns.map(() => ({ quantity: 'G', unit: 'gain' }));
     if (kind === 'ellipsometry') {
         return typeColumns(columns).map(quantity => ({ quantity: quantity || 'PSI', unit: 'deg' }));
     }
@@ -166,7 +167,7 @@ const CSV_X_LABEL = {
     [X_UNITS.CM1]: 'Wavenumber (cm-1)',
     [X_UNITS.EV]: 'Photon energy (eV)',
 };
-const CSV_QUANTITY = { T: 'T', R: 'R', A: 'A', PSI: 'Psi', DEL: 'Delta', W: 'weight' };
+const CSV_QUANTITY = { T: 'T', R: 'R', A: 'A', PSI: 'Psi', DEL: 'Delta', W: 'weight', G: 'gain_dB' };
 const CSV_UNIT = { '%': ' (%)', fraction: '', dB: ' (dB)', OD: ' (OD)', deg: ' (deg)', rel: '' };
 
 /**

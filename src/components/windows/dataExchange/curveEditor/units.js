@@ -14,6 +14,8 @@
  *             importers read it as absorbance
  *   deg       degrees, for Ψ and Δ
  *   rel       a relative weight, for an Integral Values source or detector
+ *   gain      an amplifier gain in dB, for the gain flattening wizard, kept
+ *             as typed: a gain is not a transmittance and has no fraction
  *
  * dB and density use the merit function's own readings (logReadings.js), so a
  * value typed here means what the same number means in a dB or OD merit row.
@@ -26,6 +28,7 @@ export const KIND_QUANTITIES = {
     spectrum: ['T', 'R', 'A'],
     ellipsometry: ['PSI', 'DEL'],
     weight: ['W'],
+    gain: ['G'],
 };
 
 /** The wavelength units, the ones the two importers read. */
@@ -38,6 +41,7 @@ const QUANTITY_UNITS = {
     PSI: ['deg'],
     DEL: ['deg'],
     W: ['rel'],
+    G: ['gain'],
 };
 
 /** The units a quantity can be typed in, the first being the default. */
@@ -60,6 +64,7 @@ const TO_STORED = {
     OD: value => fractionFromLog('OD', value),
     deg: identity,
     rel: identity,
+    gain: identity,
 };
 
 const FROM_STORED = {
@@ -69,6 +74,7 @@ const FROM_STORED = {
     OD: value => logValue('OD', value),
     deg: identity,
     rel: identity,
+    gain: identity,
 };
 
 /** A typed value as the design stores it. */

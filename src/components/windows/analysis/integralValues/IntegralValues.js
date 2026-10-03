@@ -16,7 +16,7 @@ import { OverlayChart } from './OverlayChart.js';
 import { ResultsTable } from './ResultsTable.js';
 import { CurveEditor } from '../../dataExchange/curveEditor/CurveEditor.js';
 import { tableFromWeights } from '../../dataExchange/curveEditor/curveTable.js';
-import { weightsFromTable } from '../../dataExchange/curveEditor/curveApply.js';
+import { pointsFromTable } from '../../dataExchange/curveEditor/curveApply.js';
 import { hasLayersForMode } from '../layersForMode.js';
 import { exportColumns, exportRows } from './exportModel.js';
 import { useIntegralValues } from './useIntegralValues.js';
@@ -43,7 +43,7 @@ function WeightingEditor({ model, c, t }) {
         title: t.curveEditor.titleWeight(editorLabel(model, t.integralValues)),
         table: tableFromWeights(editorTable(model)),
         design: null,
-        onApply: table => model.applyTable(weightsFromTable(table)),
+        onApply: table => model.applyTable(pointsFromTable(table)),
         onCancel: close,
         c, t,
     });

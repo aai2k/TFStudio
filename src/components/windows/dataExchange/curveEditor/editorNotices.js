@@ -3,6 +3,7 @@
  * outside their quantity's physical range, a Ψ or Δ curve with no angle, and a
  * design whose own curve cannot be drawn.
  */
+import { isValueTable } from './curveTable.js';
 import { valueProblem, xProblem } from './units.js';
 
 /** How many cells hold a value outside its quantity's physical range (units.js). */
@@ -34,7 +35,7 @@ export function editorNotices({ editor, conditions, missing, t }) {
         editor.status,
         outside > 0 && { tone: 'warning', text: ce.outOfRange(outside) },
         missingAngle(table, conditions) && { tone: 'error', text: ce.aoiOnCard },
-        missing.length > 0 && table.kind !== 'weight'
+        missing.length > 0 && !isValueTable(table.kind)
             && { tone: 'info', text: t.spectrumExchange.previewErrors.materials },
     ].filter(Boolean);
 }

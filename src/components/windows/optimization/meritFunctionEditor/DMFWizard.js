@@ -4,6 +4,9 @@ import {
 import { Checkbox } from '../../../ui/Checkbox.js';
 import { NumInput, SelectField } from '../../analysis/chrome/controls.js';
 import { useWindowSession } from '../../windowSession.js';
+import { CurveEditor } from '../../dataExchange/curveEditor/CurveEditor.js';
+import { pointsFromTable } from '../../dataExchange/curveEditor/curveApply.js';
+import { tableFromPoints } from '../../dataExchange/curveEditor/curveTable.js';
 import { curveWizardRows, gainCurveFromText, wizardCurveOptions } from './curveWizardModel.js';
 import { buildWizardResult, wizardAppendRow, wizardGenerationRows } from './meritOperandModel.js';
 import { meritWizardSession } from './sessionState.js';
@@ -101,21 +104,28 @@ function curveControl(ctx, key, view) {
     return select(s, known ? view.value : '', v => updateParam(key, v || null), options, 150);
 }
 
-// A gain read from a file, which the wizard holds until it is replaced; the
-// design keeps the target derived from it, not the gain.
+function smallButton(c, label, onClick) {
+    return h('button', {
+        onClick,
+        style: {
+            height: 20, padding: '0 8px', fontSize: 11, border: `1px solid ${c.border}`, borderRadius: 3,
+            background: c.panel, color: c.text, cursor: 'pointer', fontFamily: 'inherit',
+        },
+    }, label);
+}
+
+// A gain read from a file or typed into the curve editor, which the wizard
+// holds until it is replaced; the design keeps the target derived from it, not
+// the gain.
 function gainControl(ctx, key, view) {
-    const { s, tw, c, importGain, gainError } = ctx;
+    const { s, tw, c, gainSource } = ctx;
+    const { gainError, importGain, typeGain } = gainSource;
     const loaded = view.value?.x?.length ? `${view.value.name} (${view.value.x.length})` : tw.gainNone;
     return h('div', { style: s.group },
         h('span', { style: { ...s.label, color: gainError ? c.error : c.text, maxWidth: 110, overflow: 'hidden', textOverflow: 'ellipsis' }, title: gainError ? tw.gainImportFailed : loaded },
             gainError ? tw.gainImportFailed : loaded),
-        h('button', {
-            onClick: () => importGain(key),
-            style: {
-                height: 20, padding: '0 8px', fontSize: 11, border: `1px solid ${c.border}`, borderRadius: 3,
-                background: c.panel, color: c.text, cursor: 'pointer', fontFamily: 'inherit',
-            },
-        }, tw.gainImport));
+        smallButton(c, tw.gainImport, () => importGain(key)),
+        smallButton(c, tw.gainType, () => typeGain(key, view.value)));
 }
 
 const FIELD_CONTROLS = { curve: curveControl, gainCurve: gainControl };
@@ -320,10 +330,12 @@ function bottomLine(ctx, startRow, setStartRow, onGenerate) {
         }, tw.generate));
 }
 
-// Reads a gain from a file the user picks into the wizard's fields. A file
-// that holds no table leaves the gain as it was and says so.
-function useGainImport(updateParam) {
+// Where the wizard's gain comes from: a file the user picks, read into the
+// fields, or the curve editor, opened on the gain held now. A file that holds
+// no table leaves the gain as it was and says so.
+function useGainSource(updateParam, tw) {
     const [gainError, setGainError] = useState(false);
+    const [editing, setEditing] = useState(null);
     const importGain = async (key) => {
         const picked = await window.electronAPI?.spectrumPickFile?.();
         if (!picked?.success) {
@@ -334,7 +346,30 @@ function useGainImport(updateParam) {
         setGainError(!gain);
         if (gain) updateParam(key, gain);
     };
-    return { gainError, importGain };
+    const typeGain = (key, gain) => setEditing({ key, gain });
+    const applyTyped = (table) => {
+        const points = pointsFromTable(table);
+        const name = editing.gain?.name || tw.gainTyped;
+        updateParam(editing.key, { name, x: points.map(point => point[0]), y: points.map(point => point[1]) });
+        setGainError(false);
+        setEditing(null);
+    };
+    return { gainError, importGain, typeGain, editing, applyTyped, cancelTyped: () => setEditing(null) };
+}
+
+// The curve editor on the gain, while it is open.
+function gainEditor(gainSource, tw, c, t) {
+    const { editing } = gainSource;
+    if (!editing) return null;
+    const points = editing.gain?.x?.map((x, index) => [x, editing.gain.y[index]]) || [];
+    return h(CurveEditor, {
+        title: t.curveEditor.titleGain(editing.gain?.name || tw.gainTyped),
+        table: tableFromPoints('gain', points),
+        design: null,
+        onApply: gainSource.applyTyped,
+        onCancel: gainSource.cancelTyped,
+        c, t,
+    });
 }
 
 export function DMFWizard({ design, onGenerate, operandCount, mf, omf, busy, c, t }) {
@@ -344,8 +379,8 @@ export function DMFWizard({ design, onGenerate, operandCount, mf, omf, busy, c, 
     const [startRow, setStartRow] = useStartRow(design, operandCount);
     const typeId = FILTER_TYPES[session.typeId] ? session.typeId : FILTER_CATEGORIES[0].types[0];
     const updateParam = (key, value) => setField('params', prev => paramsWithChange(typeId, prev, key, value));
-    const { gainError, importGain } = useGainImport(updateParam);
-    const ctx = { s: styles(c), tw, c, session, setField, patch, typeId, updateParam, design, gainError, importGain };
+    const gainSource = useGainSource(updateParam, tw);
+    const ctx = { s: styles(c), tw, c, session, setField, patch, typeId, updateParam, design, gainSource };
 
     const generate = (block, curves) => {
         const rows = wizardGenerationRows(startRow, block.length);
@@ -371,5 +406,6 @@ export function DMFWizard({ design, onGenerate, operandCount, mf, omf, busy, c, 
                 presetBox(ctx), angleBox(ctx), limitsBox(ctx)),
             bottomLine(ctx, startRow, setStartRow, generate),
         ),
+        gainEditor(gainSource, tw, c, t),
     );
 }

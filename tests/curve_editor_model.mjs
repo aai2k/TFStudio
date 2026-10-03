@@ -17,7 +17,7 @@ import {
 import { changeCells, fillCells, fillProblem } from '../src/components/windows/dataExchange/curveEditor/cellOps.js';
 import { resamplePlan, resampleTable, smoothCells } from '../src/components/windows/dataExchange/curveEditor/curveOps.js';
 import {
-    applyProblem, curvesFromTable, editedCurve, weightsFromTable,
+    applyProblem, curvesFromTable, editedCurve, pointsFromTable,
 } from '../src/components/windows/dataExchange/curveEditor/curveApply.js';
 import {
     blockFitOptions, curveBlocks, rebuiltMeritOperands,
@@ -176,12 +176,12 @@ const table = (rows, columns = [{ quantity: 'T', unit: '%', name: '' }], kind = 
 // ── Integral Values weightings ───────────────────────────────────────────────
 {
     const weights = [[400, 0.1], [500, 0.2]];
-    assert.deepEqual(weightsFromTable(tableFromWeights(weights)), weights, 'a weighting opens and applies unchanged');
+    assert.deepEqual(pointsFromTable(tableFromWeights(weights)), weights, 'a weighting opens and applies unchanged');
     const unsorted = tableFromText('lambda,weight\n600, 0.3\n400, 0.1\n500, 0.2\n', tableFromWeights([])).table;
-    assert.deepEqual(weightsFromTable(unsorted), [[400, 0.1], [500, 0.2], [600, 0.3]], 'sorted on Apply');
+    assert.deepEqual(pointsFromTable(unsorted), [[400, 0.1], [500, 0.2], [600, 0.3]], 'sorted on Apply');
     assert.equal(applyProblem(table([[400, 1]], [{ quantity: 'W', unit: 'rel', name: '' }], 'weight')), 'needTwoRows');
     const micrometres = { ...tableFromWeights(weights), xUnit: 'um', rows: [[0.6, 3], [0.4, 1]] };
-    assert.deepEqual(weightsFromTable(micrometres), [[400, 1], [600, 3]], 'wavelengths converted to nm');
+    assert.deepEqual(pointsFromTable(micrometres), [[400, 1], [600, 3]], 'wavelengths converted to nm');
 }
 
 // ── Fill and change ──────────────────────────────────────────────────────────
