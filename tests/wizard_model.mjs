@@ -7,13 +7,16 @@ import { FILTER_TYPES } from '../src/utils/physics/optimizer/filterCatalog.js';
 import { FILTER_CATEGORIES, defaultFilterParams } from '../src/utils/physics/optimizer.js';
 
 // The Preset box has five rows: the two dropdowns and at most three field rows,
-// so switching type never changes the box's height. Every field a type shows
-// for its default values must land on exactly one row, and the λ range always
-// comes first.
+// so switching type never changes the box's height. A curve type's Angle and
+// target box holds its fields at most four to the box. Every field a type
+// shows for its default values must land on exactly one row of one box, and
+// the λ range always comes first.
 for (const [typeId, def] of Object.entries(FILTER_TYPES)) {
     const rows = fieldRows(typeId);
+    const angleRows = fieldRows(typeId, {}, 'angle');
     assert.ok(rows.length <= 3, `${typeId} needs ${rows.length} rows`);
-    const keys = rows.flatMap(row => row.keys).sort();
+    assert.ok(angleRows.length <= 4, `${typeId} needs ${angleRows.length} angle box rows`);
+    const keys = [...rows, ...angleRows].flatMap(row => row.keys).sort();
     const defaults = defaultFilterParams(typeId);
     const shown = def.fields.filter(field => !field.visible || field.visible(defaults));
     assert.deepEqual(keys, shown.map(field => field.key).sort(), `${typeId} fields`);

@@ -101,7 +101,7 @@ function curveControl(ctx, key, view) {
         { value: '', label: tw.pickCurve },
         ...curves.map(curve => ({ value: curve.id, label: `${curve.name} (${curve.quantity})` })),
     ];
-    return select(s, known ? view.value : '', v => updateParam(key, v || null), options, 150);
+    return select(s, known ? view.value : '', v => updateParam(key, v || null), options, '100%');
 }
 
 function smallButton(c, label, onClick) {
@@ -116,16 +116,23 @@ function smallButton(c, label, onClick) {
 
 // A gain read from a file or typed into the curve editor, which the wizard
 // holds until it is replaced; the design keeps the target derived from it, not
-// the gain.
+// the gain. The buttons come first and the gain's name shortens to fit after
+// them, so a narrow box never pushes a button out of sight.
 function gainControl(ctx, key, view) {
     const { s, tw, c, gainSource } = ctx;
     const { gainError, importGain, typeGain } = gainSource;
     const loaded = view.value?.x?.length ? `${view.value.name} (${view.value.x.length})` : tw.gainNone;
-    return h('div', { style: s.group },
-        h('span', { style: { ...s.label, color: gainError ? c.error : c.text, maxWidth: 110, overflow: 'hidden', textOverflow: 'ellipsis' }, title: gainError ? tw.gainImportFailed : loaded },
-            gainError ? tw.gainImportFailed : loaded),
+    const status = gainError ? tw.gainImportFailed : loaded;
+    return h('div', { style: { ...s.group, minWidth: 0 } },
         smallButton(c, tw.gainImport, () => importGain(key)),
-        smallButton(c, tw.gainType, () => typeGain(key, view.value)));
+        smallButton(c, tw.gainType, () => typeGain(key, view.value)),
+        h('span', {
+            title: status,
+            style: {
+                ...s.label, color: gainError ? c.error : c.text,
+                flex: '1 1 auto', minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis',
+            },
+        }, status));
 }
 
 const FIELD_CONTROLS = { curve: curveControl, gainCurve: gainControl };
@@ -142,11 +149,14 @@ function fieldControl(ctx, key, width) {
         return select(s, view.value, v => updateParam(key, v), options, width || 'auto');
     }
     return numberInput(s, view.value, v => updateParam(key, v), width || 62,
-        { min: view.min, max: view.max, positive: def.positive, step: view.step });
+        { min: view.min, max: view.max, positive: def.positive, step: view.step, title: tw.fieldTips?.[key] });
 }
 
 // What stands between the two fields of a pair row: a dash for a range.
-const PAIR_JOINERS = { rsRp: '/', source: '', conditions: '', spec: '/' };
+const PAIR_JOINERS = { rsRp: '/' };
+
+// Selects that name their choice in words, so they take the row's width.
+const WIDE_FIELDS = ['input'];
 
 function presetRow(ctx, row) {
     const { s, tw } = ctx;
@@ -154,13 +164,10 @@ function presetRow(ctx, row) {
     const keyC = row.label + '-c';
     if (row.kind === 'pair') {
         const joiner = PAIR_JOINERS[row.label] ?? '–';
-        // The source row's select names its choice in words, so it takes the
-        // width it needs.
-        const width = row.label === 'source' ? null : 62;
         return [
             h('span', { key: keyL, style: s.label }, tw.pairs[row.label] + ':'),
             h('div', { key: keyC, style: s.group },
-                fieldControl(ctx, row.keys[0], width), h('span', null, joiner), fieldControl(ctx, row.keys[1], 62)),
+                fieldControl(ctx, row.keys[0], 62), h('span', null, joiner), fieldControl(ctx, row.keys[1], 62)),
         ];
     }
     if (row.kind === 'statement') {
@@ -173,9 +180,10 @@ function presetRow(ctx, row) {
     }
     const key = row.keys[0];
     const unit = fieldUnit(key);
+    const width = WIDE_FIELDS.includes(key) ? '100%' : 62;
     return [
-        h('span', { key: keyL, style: s.label }, (tw.fields[key] || key) + ':'),
-        h('div', { key: keyC, style: s.group }, fieldControl(ctx, key, 62), unit && h('span', { style: s.unit }, unit)),
+        h('span', { key: keyL, style: s.label, title: tw.fieldTips?.[key] }, (tw.fields[key] || key) + ':'),
+        h('div', { key: keyC, style: s.group }, fieldControl(ctx, key, width), unit && h('span', { style: s.unit }, unit)),
     ];
 }
 
@@ -229,14 +237,27 @@ function modeCells(ctx) {
     ];
 }
 
+// A curve type's Angle and target box: the angle and polarization a target
+// derived from a gain is put at, and the values the filter is specified by. A
+// type that reads a curve already on the design says its rows take that
+// curve's conditions; the note goes last, where its wrapped second line has
+// the box's spare room below it.
+function curveAngleBox(ctx) {
+    const { s, tw, c, session, typeId } = ctx;
+    const rows = fieldRows(typeId, session.params, 'angle');
+    const setsConditions = rows.some(row => row.keys.includes('curveAoi'));
+    const cells = rows.flatMap(row => presetRow(ctx, row));
+    if (!setsConditions) {
+        cells.push(h('span', {
+            key: 'curve-note', style: { ...s.label, whiteSpace: 'normal', gridColumn: '1 / -1' },
+        }, tw.curveConditions));
+    }
+    return groupBox({ title: tw.angleBox, columns: 'auto minmax(62px, 1fr)', minWidth: 204, c, rows: cells });
+}
+
 function angleBox(ctx) {
     const { s, tw, c, session, setField, typeId } = ctx;
-    if (takesCurve(typeId)) {
-        return groupBox({
-            title: tw.angleBox, columns: 'minmax(180px, 1fr)', minWidth: 204, c,
-            rows: [h('span', { key: 'curve-note', style: { ...s.label, whiteSpace: 'normal' } }, tw.curveConditions)],
-        });
-    }
+    if (takesCurve(typeId)) return curveAngleBox(ctx);
     const showPol = !polIsFixed(typeId);
     const cells = [
         h('span', { key: 'aoi-l', style: s.label }, tw.aoiRange + ':'),

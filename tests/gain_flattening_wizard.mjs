@@ -129,9 +129,16 @@ const flatteningName = name => `${name} flattening target`;
     const { id: _b, ...expectedRest } = expected;
     assert.deepEqual(fitRest, expectedRest, 'Curve writes the block Fit… writes');
 
-    assert.equal(curveWizardRows({ typeId: 'CURVE_TARGET', design, params: {} }).error, 'noCurve');
+    // A design with no curve the type can take says so instead of asking for a
+    // pick from an empty list; one with a curve asks for the pick.
+    assert.equal(curveWizardRows({ typeId: 'CURVE_TARGET', design, params: {} }).error, 'noCurves');
+    assert.equal(curveWizardRows({ typeId: 'CURVE_TARGET', design: withCurve, params: {} }).error, 'noCurve');
     assert.equal(curveWizardRows({ typeId: 'GAIN_FLATTENING', design, params: { input: 'gain' } }).error, 'noGain');
-    assert.equal(curveWizardRows({ typeId: 'GAIN_FLATTENING', design, params: { input: 'target' } }).error, 'noCurve');
+    assert.equal(curveWizardRows({ typeId: 'GAIN_FLATTENING', design, params: { input: 'target' } }).error, 'noCurves');
+    assert.equal(curveWizardRows({ typeId: 'GAIN_FLATTENING', design: withCurve, params: { input: 'target' } }).error, 'noCurve');
+    const reflectanceOnly = { ...design, measuredCurves: [{ ...curve, id: 'r1', quantity: 'R' }] };
+    assert.equal(curveWizardRows({ typeId: 'GAIN_FLATTENING', design: reflectanceOnly, params: { input: 'target' } }).error,
+        'noCurves', 'a target loss curve is a T curve, so an R curve does not count');
     const failed = buildWizardResult({ tw: { types: {} }, typeId: 'CURVE_TARGET', curveRows: { error: 'noCurve' } });
     assert.deepEqual(failed.block, [], 'nothing is written');
     assert.equal(failed.error, 'noCurve');
@@ -155,10 +162,16 @@ const flatteningName = name => `${name} flattening target`;
 }
 
 // -- The form -------------------------------------------------------------------------
-assert.deepEqual(fieldRows('GAIN_FLATTENING', { input: 'gain' }).map(row => [row.label, row.keys]),
-    [['source', ['input', 'gain']], ['conditions', ['curveAoi', 'curvePol']], ['spec', ['insertionLossDb', 'ppefDb']]]);
-assert.deepEqual(fieldRows('GAIN_FLATTENING', { input: 'target' }).map(row => [row.label, row.keys]),
-    [['source', ['input', 'curveId']], ['spec', ['insertionLossDb', 'ppefDb']]],
-    'a target input shows a curve in place of the gain and its conditions');
+// The input and the gain or curve take a row each in the Preset box; the
+// derived target's conditions and the two specification values sit in the
+// Angle and target box, one field to a row.
+const keysOf = rows => rows.map(row => row.keys);
+assert.deepEqual(keysOf(fieldRows('GAIN_FLATTENING', { input: 'gain' })), [['input'], ['gain']]);
+assert.deepEqual(keysOf(fieldRows('GAIN_FLATTENING', { input: 'gain' }, 'angle')),
+    [['curveAoi'], ['curvePol'], ['insertionLossDb'], ['ppefDb']]);
+assert.deepEqual(keysOf(fieldRows('GAIN_FLATTENING', { input: 'target' })), [['input'], ['curveId']]);
+assert.deepEqual(keysOf(fieldRows('GAIN_FLATTENING', { input: 'target' }, 'angle')), [['insertionLossDb'], ['ppefDb']],
+    'a target input shows a curve in place of the gain, and no conditions of its own');
+assert.deepEqual(keysOf(fieldRows('CURVE_TARGET', {}, 'angle')), []);
 
 console.log('PASS: gain_flattening_wizard');

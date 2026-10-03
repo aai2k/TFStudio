@@ -15,13 +15,13 @@ const PAIRS = [
     ['highPassStart', 'highPassEnd', 'highPass'],
     ['rsPct', 'rpPct', 'rsRp'],
     ['tStart', 'tEnd', 'tRange'],
-    // Gain flattening: what the target comes from and the curve or gain it
-    // is, the derived target's conditions, and the two specification values.
-    ['input', 'gain', 'source'],
-    ['input', 'curveId', 'source'],
-    ['curveAoi', 'curvePol', 'conditions'],
-    ['insertionLossDb', 'ppefDb', 'spec'],
 ];
+
+// Fields a curve type shows in the Angle and target box instead of the Preset
+// box: the angle and polarization a target derived from a gain is put on the
+// design at, and the values the filter is specified by. A curve type has no
+// angle settings of its own, so that box has the room.
+const ANGLE_BOX_FIELDS = ['curveAoi', 'curvePol', 'insertionLossDb', 'ppefDb'];
 
 // The custom target's channel, unit, comparison and value read as one
 // statement: T in dB ≥ −0.5.
@@ -37,16 +37,19 @@ function rowFor(key, keys) {
 }
 
 /**
- * The rows the Preset box shows for a filter type. Each row is one label and
- * the fields it holds, in the type's own field order except that the λ range
+ * The rows a box shows for a filter type, the Preset box's by default and the
+ * Angle and target box's with `box` 'angle'. Each row is one label and the
+ * fields it holds, in the type's own field order except that the λ range
  * always comes first, so every type reads the same way. A field whose
  * `visible` rules it out for the current parameters is left out.
  */
-export function fieldRows(typeId, params = {}) {
+export function fieldRows(typeId, params = {}, box = 'preset') {
     const def = FILTER_TYPES[typeId];
     if (!def) return [];
     const all = { ...defaultFilterParams(typeId), ...params };
-    const keys = def.fields.filter(field => !field.visible || field.visible(all)).map(field => field.key);
+    const inBox = key => ANGLE_BOX_FIELDS.includes(key) === (box === 'angle');
+    const keys = def.fields.filter(field => !field.visible || field.visible(all))
+        .map(field => field.key).filter(inBox);
     const rows = [];
     const placed = new Set();
     for (const key of keys) {

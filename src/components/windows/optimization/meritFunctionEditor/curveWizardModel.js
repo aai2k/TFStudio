@@ -14,7 +14,7 @@ import {
     X_UNITS, makeMeasuredCurve, parseSpectrumTable, xToNm,
 } from '../../../../utils/io/spectrumTable.js';
 import { flatteningLossDb } from '../../../../utils/physics/gainFlattening.js';
-import { fractionFromLog, makeOperand } from '../../../../utils/physics/optimizer.js';
+import { FILTER_TYPES, fractionFromLog, makeOperand } from '../../../../utils/physics/optimizer.js';
 import { measuredFitSnapshot } from '../../dataExchange/spectrumExchange/model.js';
 
 /** The design's measured curves a curve field offers, by quantity. */
@@ -61,10 +61,20 @@ function sameCurve(a, b) {
     return sameConditions(a, b) && samePoints(a, b);
 }
 
+// The curve a type's curve field holds: 'noCurves' when the design has none it
+// could take, 'noCurve' when one is there to pick but none is picked.
+function pickedCurve(design, typeId, curveId) {
+    const { quantities } = FILTER_TYPES[typeId].fields.find(field => field.kind === 'curve');
+    const curves = wizardCurveOptions(design, quantities);
+    if (!curves.length) return { error: 'noCurves' };
+    const curve = curves.find(item => item.id === curveId);
+    return curve ? { curve } : { error: 'noCurve' };
+}
+
 function targetCurveOf(design, params, flatteningName) {
     if (params.input === 'target') {
-        const curve = (design?.measuredCurves || []).find(item => item.id === params.curveId);
-        return curve ? { curve, added: [] } : { error: 'noCurve' };
+        const picked = pickedCurve(design, 'GAIN_FLATTENING', params.curveId);
+        return picked.error ? picked : { curve: picked.curve, added: [] };
     }
     if (!params.gain?.x?.length) return { error: 'noGain' };
     const derived = gainTargetCurve(params.gain, { aoi: params.curveAoi, pol: params.curvePol },
@@ -87,8 +97,8 @@ function blockOf(design, curve, scale) {
 }
 
 function curveTargetRows(design, params) {
-    const curve = (design?.measuredCurves || []).find(item => item.id === params.curveId);
-    if (!curve) return { error: 'noCurve' };
+    const { curve, error: missing } = pickedCurve(design, 'CURVE_TARGET', params.curveId);
+    if (missing) return { error: missing };
     const { block, error } = blockOf(design, curve, params.scale);
     return error ? { error } : { rows: [block], curves: [], curveName: curve.name };
 }
@@ -110,7 +120,8 @@ function gainFlatteningRows(design, params, flatteningName) {
 
 /**
  * The rows a curve type writes, the curves it adds to the design, and the
- * name of the curve it read; or { error } naming what is missing: 'noCurve',
+ * name of the curve it read; or { error } naming what is missing: 'noCurves'
+ * (no curve on the design the type can take), 'noCurve' (none picked),
  * 'noGain', 'range' (no point inside the materials' data) or 'dbEmpty' (no
  * point above 0 %). `flatteningName` names a target derived from a gain.
  */
