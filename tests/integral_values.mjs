@@ -313,7 +313,7 @@ console.log('— composeWeighting band intersection —');
 }
 
 // ── 15. The table editor reads pasted and imported text ──────────────────────
-console.log('— table editor text reading —');
+console.log('table editor text reading');
 {
     // Cells copied from Excel in a comma-decimal locale, a CSV saved by the same
     // Excel, and a table separated by single spaces. Each used to lose its

@@ -41,7 +41,7 @@ export function isBandType(type) {
     return RANGE_AVG_TYPES.has(type) || RANGE_TARGET_TYPES.has(type) || LOG_BAND_TYPES.has(type);
 }
 
-// The R/T/A family of an operand type — used to pick the operand type for a
+// The R/T/A family of an operand type, used to pick the operand type for a
 // newly drawn target and to colour-code markers. ODMN is a T row.
 export function operandFamily(type) {
     const channel = logOperand(type)?.channel ?? type[0];
