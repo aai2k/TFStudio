@@ -130,6 +130,20 @@ const design = makeSampleDesign();
     assert.equal(editor.table.rows.length, 12);
     assert.deepEqual(editor.sel.focusCell, { rowIdx: last + 1, colKey: 'v0' });
 
+    // Tab out of a cell's editor hands the keys back to the table, as Enter
+    // does, so typing goes on in the next cell.
+    let tableFocused = 0;
+    const tableRef = editor.sel.tableRef;
+    const heldRef = tableRef.current;
+    tableRef.current = { focus: () => { tableFocused++; } };
+    editor.actions.navigate(0, 'x', 'right');
+    assert.ok(tableFocused >= 1, 'Tab from a cell gives the table the keys');
+    tableFocused = 0;
+    editor.actions.navigate(0, 'v0', 'down');
+    assert.ok(tableFocused >= 1, 'and so does Enter');
+    tableRef.current = heldRef;
+    editor = render();
+
     // A key on a button in the heading is the button's: Enter on + Column
     // must not open the focused cell for typing.
     editor.onKeyDown(key('Enter', { target: { tagName: 'BUTTON' } }));

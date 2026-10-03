@@ -57,7 +57,9 @@ export function commitCellEdit(ed, rowIdx, colKey, draft) {
 /**
  * The move an arrow, Tab or Enter makes from a cell. Enter or the down arrow
  * from a cell being typed into on the last row adds a row below it, so a
- * curve can be typed in one column without reaching for the mouse.
+ * curve can be typed in one column without reaching for the mouse. The cell's
+ * editor is gone by then, and the keys go back to the table: typing goes on in
+ * the next cell after Tab as after Enter.
  */
 export function navigateFrom(ed, rowIdx, colKey, direction) {
     const keys = columnKeys(ed.table);
@@ -69,6 +71,7 @@ export function navigateFrom(ed, rowIdx, colKey, direction) {
         ed.edit(table => insertRows(table, table.rows.length, 1));
         ed.sel.place(rowIdx + 1, colKey);
     }
+    ed.sel.tableRef.current?.focus();
 }
 
 const textOfCell = (row, colKey) => cellText(row[columnIndex(colKey)]);
