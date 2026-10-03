@@ -70,6 +70,9 @@ function applyCachedRun(ctx, cached) {
         ? cached.generations[cached.generations.length - 1].layerCount
         : (design?.[sideKeyFor(design)] || []).length);
     ctx.setCanReset(!!cached.savedDesign);
+    // The cache keeps no iteration count, and the one on screen belongs to the
+    // design switched away from.
+    ctx.setIter(0);
 }
 
 function applyFreshRun(ctx) {
@@ -93,7 +96,8 @@ function applyFreshRun(ctx) {
     ctx.setCanReset(false);
 }
 
-function loadDesignSwitch(ctx) {
+/** Stop on a design switch and show the new design's cached run, or none. */
+export function loadDesignSwitch(ctx) {
     const { design, lastDesignId, stopOpt, baseRevRef, getDesignRevision } = ctx;
     const prevId = lastDesignId.current;
     const newId = design?.id ?? null;
