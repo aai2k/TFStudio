@@ -14,7 +14,7 @@
  */
 import {
     isArgwave, isBlank, isConstraint, isDmfs, isIntegral, isLinearThickness,
-    isMath, isPhase, isStress, isTotalThickness,
+    isMath, isPhase, isStress, isTotalThickness, logUnit,
 } from './operandModel.js';
 
 const ROW_RANGE_DOMAINS = [
@@ -47,5 +47,5 @@ const TARGET_DOMAINS = [
 /** The unit an operand's target is expressed in. */
 export function targetDomain(type) {
     const hit = TARGET_DOMAINS.find(([test]) => test(type));
-    return hit ? hit[1] : 'fraction';
+    return hit ? hit[1] : (logUnit(type) ?? 'fraction');
 }

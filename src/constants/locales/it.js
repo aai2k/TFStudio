@@ -1016,6 +1016,10 @@ export default {
     fitUniform: 'Uniforme',
     fitUniformTip: 'Ricampiona con PCHIP su una griglia uniforme. Corregge un campionamento irregolare, non aggiunge informazione.',
     fitEveryLabel: 'Tieni uno ogni',
+    fitScaleLabel: 'Fit in',
+    fitScaleLinearTip: 'Adatta la trasmittanza stessa: uno scarto dell’1 % pesa uguale a ogni livello.',
+    fitScaleDbTip: 'Adatta la trasmittanza in dB: uno scarto di 0,1 dB pesa uguale a −20 dB e a 0 dB. Per una curva data in dB, come un target di appiattimento del guadagno.',
+    fitDbDropped: (n) => `${n} punt${n === 1 ? 'o' : 'i'} a 0 % o meno non ${n === 1 ? 'ha' : 'hanno'} un valore in dB e ${n === 1 ? 'viene escluso' : 'vengono esclusi'}.`,
     fitWeightLabel: 'Peso',
     fitOutputLabel: 'Funzione di merito',
     fitAppend: 'Aggiungi',
@@ -1043,6 +1047,7 @@ export default {
       empty: 'Seleziona una curva importata prima di creare un target misurato.',
       range: 'Non resta alcun punto misurato dentro gli intervalli richiesti e coperti dai dati dei materiali.',
       step: "Inserisci un passo in lunghezza d'onda maggiore di zero.",
+      dbEmpty: "Nessun punto misurato nell'intervallo supera lo 0 %, quindi nessuno ha un valore in dB.",
     },
     importedTitle: 'Curve importate',
     orphanFits: (n) => `${n} target di fit nella funzione di merito ${n === 1 ? 'proviene' : 'provengono'} da una curva che questo design non ha.`,
@@ -1972,6 +1977,26 @@ export default {
         label: 'AMX: A massima nel caso peggiore sulla banda (A ≤ target)',
         group: 'worst',
       },
+      TDB: {
+        label: 'TDB: T a λ in dB',
+        group: 'log',
+      },
+      TDBMN: {
+        label: 'TDBMN: T minima sulla banda in dB (T ≥ target, perdita di inserzione)',
+        group: 'log',
+      },
+      TDBMX: {
+        label: 'TDBMX: T massima sulla banda in dB (T ≤ target, isolamento)',
+        group: 'log',
+      },
+      RDBMX: {
+        label: 'RDBMX: R massima sulla banda in dB (R ≤ target, perdita di ritorno)',
+        group: 'log',
+      },
+      ODMN: {
+        label: 'ODMN: densità ottica minima sulla banda (OD ≥ target, blocco)',
+        group: 'log',
+      },
       PSI: {
         label: 'PSI: Ψ ellissometrico a λ (gradi)',
         group: 'phase',
@@ -2164,6 +2189,7 @@ export default {
       rangetarget: 'Target spettrale (continuo, inizio→fine)',
       integral: 'Integrale pesato',
       worst: 'Caso peggiore (banda)',
+      log: 'In dB o densità ottica',
       phase: 'Fase e campo (Ψ, Δ, GD, |E|²)',
       math: 'Matematici (riferiti ad altre righe)',
       argwave: "Lunghezza d'onda di massimo/minimo (nm)",

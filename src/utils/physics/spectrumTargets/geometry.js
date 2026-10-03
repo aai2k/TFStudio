@@ -4,12 +4,13 @@ import {
     targetColor, targetDash, POINT_TARGET_HOVER_LIMIT,
 } from './style.js';
 import { buildTargetBands } from './bands.js';
+import { PERCENT_LEVEL } from './levels.js';
 import { isEllipsometricMeasuredCurve } from '../optimizer/measuredCurveType.js';
 
 function bandGeometry(operand) {
     const rangeTarget = RANGE_TARGET_TYPES.has(operand.type);
-    const start = operand.target * 100;
-    const end = rangeTarget && operand.targetEnd != null ? operand.targetEnd * 100 : start;
+    const start = PERCENT_LEVEL.toAxis(operand.target, operand.type);
+    const end = rangeTarget && operand.targetEnd != null ? PERCENT_LEVEL.toAxis(operand.targetEnd, operand.type) : start;
     // A ramp is sampled along its length because a line straight in the data is
     // a curve once the axis is logarithmic. A flat target is horizontal on
     // either axis, so its two ends describe it exactly, and a merit function
@@ -49,13 +50,14 @@ function measuredGeometry(operand) {
     if (!Array.isArray(lambdas) || !Array.isArray(targets) || !lambdas.length) return null;
     const count = Math.min(lambdas.length, targets.length);
     const stride = Math.max(1, Math.ceil(count / MEASURED_LINE_POINTS));
+    const toAxis = target => PERCENT_LEVEL.toAxis(target, operand.quantity);
     const points = [];
     for (let index = 0; index < count; index += stride) {
-        points.push([lambdas[index], targets[index] * 100]);
+        points.push([lambdas[index], toAxis(targets[index])]);
     }
     const last = count - 1;
     if (points.length && points[points.length - 1][0] !== lambdas[last]) {
-        points.push([lambdas[last], targets[last] * 100]);
+        points.push([lambdas[last], toAxis(targets[last])]);
     }
     return {
         opId: null,
@@ -110,7 +112,7 @@ export function buildTargetGeometry(operands, { drawnCurveIds } = {}) {
         opId: operand.id,
         label: `${operand.type} target`,
         x: operand.lambdaStart,
-        y: operand.target * 100,
+        y: PERCENT_LEVEL.toAxis(operand.target, operand.type),
         color: targetColor(operand),
         size: pointTooltips ? 10 : 7,
         tooltip: pointTooltips,

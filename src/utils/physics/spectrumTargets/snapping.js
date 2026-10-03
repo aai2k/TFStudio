@@ -27,8 +27,8 @@ function targetAnchors(operands, { types, level, excludeId }) {
         if (op.id === excludeId || !types.has(op.type)) continue;
         if (op.lambdaStart != null) xs.push(op.lambdaStart);
         if (op.lambdaEnd   != null) xs.push(op.lambdaEnd);
-        if (op.target      != null) ys.push(level.toAxis(op.target));
-        if (op.targetEnd   != null) ys.push(level.toAxis(op.targetEnd));
+        if (op.target      != null) ys.push(level.toAxis(op.target, op.type));
+        if (op.targetEnd   != null) ys.push(level.toAxis(op.targetEnd, op.type));
     }
     return { xs, ys };
 }

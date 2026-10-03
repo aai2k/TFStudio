@@ -2,11 +2,11 @@
  * Filter type catalog (design wizard) — categories, per-type field specs, and
  * operand generators.
  *
- * Sole dependency is makeOperand from the operand data model. optimizer.js
- * re-exports this whole surface so existing importers are unchanged.
+ * Depends only on the operand data model. optimizer.js re-exports this whole
+ * surface so existing importers are unchanged.
  */
 
-import { makeOperand } from './operandModel.js';
+import { fractionFromLog, isLogPoint, logValue, makeOperand } from './operandModel.js';
 
 // ── Filter type catalog (wizard) ─────────────────────────────────────────────
 //
@@ -78,23 +78,22 @@ function rangeTargetCode(base) { return base + 'GT'; }
 //     each with the interpolated single target at its λ.
 // This is the shared engine for the beamsplitter and gradient wizards (item 5/7):
 // TAV/RAV are never used for spectral targets anymore — they are pure averages.
+// Wavelengths from lamStart to lamEnd on a step of about `stepNm`: both ends,
+// equally spaced, never fewer than two.
+function stepGrid(lamStart, lamEnd, stepNm) {
+    const nPts = Math.max(2, Math.round(Math.abs(lamEnd - lamStart) / stepNm) + 1);
+    return Array.from({ length: nPts }, (_, i) => lamStart + (lamEnd - lamStart) * (i / (nPts - 1)));
+}
+
 function spectralTargetOps({ channel, pol, lamStart, lamEnd, t0, t1 = null, weight = 1, mode = 'continuous', stepNm = 1, aoi }) {
     const end = (t1 == null) ? t0 : t1;
     if (mode === 'discrete') {
-        const span  = Math.abs(lamEnd - lamStart);
-        const nPts  = Math.max(2, Math.round(span / stepNm) + 1);
-        const ops   = [];
-        for (let i = 0; i < nPts; i++) {
-            const f   = i / (nPts - 1);
-            const lam = lamStart + (lamEnd - lamStart) * f;
-            const ti  = t0 + (end - t0) * f;
-            ops.push(makeOperand({
-                type: discTypeCode(channel, pol),
-                lambdaStart: lam, lambdaEnd: lam, aoi, pol,
-                target: ti, weight,
-            }));
-        }
-        return ops;
+        const lams = stepGrid(lamStart, lamEnd, stepNm);
+        return lams.map((lam, i) => makeOperand({
+            type: discTypeCode(channel, pol),
+            lambdaStart: lam, lambdaEnd: lam, aoi, pol,
+            target: t0 + (end - t0) * (i / (lams.length - 1)), weight,
+        }));
     }
     // continuous → one range-target operand
     return [makeOperand({
@@ -459,6 +458,8 @@ export const FILTER_TYPES = {
     //     range-target, or discrete point operands when targetMode='discrete').
     //   • cmp '≤' → worst-case max (TMX/RMX/AMX): every point in the band ≤ value.
     //   • cmp '≥' → worst-case min (TMN/RMN/AMN): every point in the band ≥ value.
+    // In dB or optical density the statement writes the matching row of
+    // CUSTOM_LOG_TYPES instead, and `valuePct` holds the value in that unit.
     // Unlike the canned filter types this is intentionally NOT paired with a
     // complementary channel — the user is specifying one exact target (e.g.
     // "Tp = 80 % at 45° over 500–600 nm"). Channel/comparison ride on `params`
@@ -469,24 +470,34 @@ export const FILTER_TYPES = {
         fields: [
             { key: 'channel', kind: 'select', default: 'T',
               options: [{ value: 'T', label: 'T' }, { value: 'R', label: 'R' }, { value: 'A', label: 'A' }] },
+            { key: 'unit', kind: 'select', default: 'pct',
+              options: [{ value: 'pct', label: '%' }, { value: 'dB', label: 'dB' }, { value: 'OD', label: 'OD' }],
+              available: p => customTargetUnits(customTargetStatement(p).channel) },
             { key: 'cmp', kind: 'select', default: 'eq',
-              options: [{ value: 'eq', label: '=' }, { value: 'le', label: '≤' }, { value: 'ge', label: '≥' }] },
-            { key: 'valuePct', default: 80, min: 0, max: 100, step: 1 },
+              options: [{ value: 'eq', label: '=' }, { value: 'le', label: '≤' }, { value: 'ge', label: '≥' }],
+              available: (p) => {
+                  const { channel, unit } = customTargetStatement(p);
+                  return customTargetComparisons(channel, unit);
+              } },
+            { key: 'valuePct', default: 80, min: 0, max: 100, step: 1,
+              boundsFor: p => CUSTOM_VALUE_BOUNDS[customTargetStatement(p).unit] },
             { key: 'lamStart', default: 400, positive: true },
             { key: 'lamEnd',   default: 700, positive: true },
         ],
         generate: (p, common) => {
-            const channel = (p.channel === 'R' || p.channel === 'A') ? p.channel : 'T';
+            const statement = customTargetStatement(p);
+            if (statement.logType) return customLogTargetOps(statement, p, common);
+            const { channel, cmp } = statement;
             const pol     = common.pol || 'avg';
             const mode    = common.targetMode || 'continuous';
             const step    = common.stepNm || 1;
             const val     = Math.max(0, Math.min(1, (p.valuePct ?? 0) / 100));
             const ops     = [];
             for (const aoi of aoiArray(common)) {
-                if (p.cmp === 'le' || p.cmp === 'ge') {
+                if (cmp === 'le' || cmp === 'ge') {
                     // Worst-case ceiling (≤ → *MX) or floor (≥ → *MN) over the band.
                     ops.push(makeOperand({
-                        type: channel + (p.cmp === 'le' ? 'MX' : 'MN'),
+                        type: channel + (cmp === 'le' ? 'MX' : 'MN'),
                         lambdaStart: p.lamStart, lambdaEnd: p.lamEnd, aoi, pol,
                         target: val, weight: 1.0,
                     }));
@@ -501,6 +512,87 @@ export const FILTER_TYPES = {
         },
     },
 };
+
+// Custom Target statements in dB or optical density, and the row each writes.
+// A combination not here has no row behind it and is not offered: R in dB is
+// written for return loss, a ceiling, and a density is a floor on T.
+const CUSTOM_LOG_TYPES = {
+    'T|dB|eq': 'TDB', 'T|dB|ge': 'TDBMN', 'T|dB|le': 'TDBMX',
+    'R|dB|le': 'RDBMX', 'T|OD|ge': 'ODMN',
+};
+const CUSTOM_COMPARISONS = ['eq', 'le', 'ge'];
+// What a value can be in each unit: a percentage of 0-100, a T or R in dB no
+// higher than 0 dB, a density no lower than 0.
+const CUSTOM_VALUE_BOUNDS = {
+    pct: { min: 0, max: 100, step: 1 },
+    dB:  { max: 0, step: 0.1 },
+    OD:  { min: 0, step: 0.1 },
+};
+
+/** The units a Custom Target on `channel` can be written in. */
+export function customTargetUnits(channel) {
+    const units = ['pct'];
+    for (const key of Object.keys(CUSTOM_LOG_TYPES)) {
+        const [rowChannel, unit] = key.split('|');
+        if (rowChannel === channel && !units.includes(unit)) units.push(unit);
+    }
+    return units;
+}
+
+/** The comparisons a Custom Target on `channel` in `unit` can make. */
+export function customTargetComparisons(channel, unit) {
+    if (unit === 'pct') return CUSTOM_COMPARISONS;
+    return CUSTOM_COMPARISONS.filter(cmp => CUSTOM_LOG_TYPES[`${channel}|${unit}|${cmp}`]);
+}
+
+/**
+ * The statement a Custom Target's fields make, with a unit or comparison its
+ * channel cannot take replaced by the first one it can, and the dB or density
+ * row it writes (null for a percentage).
+ */
+export function customTargetStatement(p) {
+    const channel = (p.channel === 'R' || p.channel === 'A') ? p.channel : 'T';
+    const unit = customTargetUnits(channel).includes(p.unit) ? p.unit : 'pct';
+    const comparisons = customTargetComparisons(channel, unit);
+    const cmp = comparisons.includes(p.cmp) ? p.cmp : comparisons[0];
+    return { channel, unit, cmp, logType: CUSTOM_LOG_TYPES[`${channel}|${unit}|${cmp}`] ?? null };
+}
+
+/** Whether a Custom Target writes one row per wavelength step whatever the target mode: T = a level in dB. */
+export function customTargetWritesPoints(p) {
+    const { logType } = customTargetStatement(p);
+    return !!logType && isLogPoint(logType);
+}
+
+/** A Custom Target value moved from one unit to another at the same level of T or R. */
+export function convertCustomTargetValue(value, fromUnit, toUnit) {
+    if (fromUnit === toUnit || !Number.isFinite(value)) return value;
+    const fraction = fromUnit === 'pct' ? value / 100 : fractionFromLog(fromUnit, value);
+    if (toUnit === 'pct') return Number((Math.min(1, Math.max(0, fraction)) * 100).toFixed(2));
+    return Number(logValue(toUnit, Math.min(1, fraction)).toFixed(toUnit === 'OD' ? 3 : 2));
+}
+
+// The rows of a dB or density statement: one band row, or TDB points on the
+// wizard's wavelength step. The value is held to its unit's bounds.
+function customLogTargetOps({ logType, unit }, p, common) {
+    const pol = common.pol || 'avg';
+    const bounds = CUSTOM_VALUE_BOUNDS[unit];
+    const target = Math.min(bounds.max ?? Infinity, Math.max(bounds.min ?? -Infinity, Number(p.valuePct) || 0));
+    const lambdas = isLogPoint(logType)
+        ? stepGrid(p.lamStart, p.lamEnd, common.stepNm || 1)
+        : [null];
+    const ops = [];
+    for (const aoi of aoiArray(common)) {
+        for (const lambda of lambdas) {
+            ops.push(makeOperand({
+                type: logType,
+                lambdaStart: lambda ?? p.lamStart, lambdaEnd: lambda ?? p.lamEnd,
+                aoi, pol, target, weight: 1.0,
+            }));
+        }
+    }
+    return ops;
+}
 
 // Default field values for a filter type (used to seed the wizard form).
 export function defaultFilterParams(typeId) {

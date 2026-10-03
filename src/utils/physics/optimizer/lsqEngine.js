@@ -292,7 +292,7 @@ export class LSQEngine {
             thk, N, ctx, subThickMm: this.substrateThicknessMm,
         };
         const sideMap = { N, varSide, nFront: this.nFront, nBack: this.nBack };
-        const { propDeriv } = makePointEvaluators(jacCfg, sideMap);
+        const { propDeriv, propValue } = makePointEvaluators(jacCfg, sideMap);
 
         // Operand kinds whose analytic chain rule is not worked out yet decline
         // the whole Jacobian so step() falls back to finite differences.
@@ -302,6 +302,7 @@ export class LSQEngine {
             nFree,
             ctx,
             propDeriv,
+            propValue,
             phasePoint: (op, wavelength) => phaseDispersionThicknessPoint(op, ctx, wavelength),
             ellipsometryPoint: op => ellipsometryThicknessPoint(op, ctx, this.operands),
             residualScale: operandResidualScale,

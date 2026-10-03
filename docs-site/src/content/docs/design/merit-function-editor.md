@@ -34,6 +34,7 @@ arguments, its output value and unit, and how it forms a residual) is on the
 | Spectral target      | `TGT` `RGT` `AGT`              | deviation from a flat/ramp line |
 | Weighted integral    | `TIW` `RIW` `AIW`              | source × detector weighted mean |
 | Worst-case           | `TMN` `RMN` `AMN` `TMX` `RMX` `AMX` | band extremum of T/R/A   |
+| In dB or optical density | `TDB` `TDBMN` `TDBMX` `RDBMX` `ODMN` | T or R in dB, optical density |
 | Phase / field        | `PSI` `DEL` `TANPSI` `COSDEL` `PR` `PT` `DPR` `DPT` `GD*` `GDD*` `TOD*` `EFMX` | phase, ellipsometry, dispersion, peak \|E\|² |
 | Argmax/min λ         | `MXWT` `MXWR` `MXWA` `MNWT` `MNWR` `MNWA` | wavelength of the extremum |
 | Math (reference rows)| `OPGT` `OPLT` `OPVA` `ABSO` `ABGT` `ABLT` `DIFF` `SUMM` `PROD` | derived from other rows |
@@ -54,13 +55,15 @@ brings it back. Under the bar are three boxes:
   bandpass or notch, gradient, integral or worst-case, custom target), the
   type within it, and the type's own values, the wavelength range first. The
   **Custom target** type generates a single target of your own: a channel
-  (T/R/A), a comparison (`=`, `≤`, `≥`), a value and a range.
+  (T/R/A), a unit (%, dB or OD), a comparison (`=`, `≤`, `≥`), a value and a range.
 - **Angle and target**: the angle of incidence, or a range of angles with the
   number of steps, the polarization, and whether the target is a continuous
   line or discrete points. A type that sets polarization itself, such as the
   polarizing beamsplitter, shows no polarization control.
 - **Thickness limits**: minimum and maximum layer thickness (`MNT`/`MXT`) and a
   total thickness cap, each behind a checkbox.
+
+A custom target in dB or OD writes one of the [dB and OD rows](/design/operands/#in-db-or-optical-density): T ≥ in dB a `TDBMN` row, T ≤ in dB a `TDBMX` row, R ≤ in dB an `RDBMX` row, T ≥ in OD an `ODMN` row, and T = in dB one `TDB` row per wavelength step, with a step field in place of the line-or-points choice. Combinations with no row behind them are not offered: A has only %, R in dB only ≤, OD only ≥. Switching the unit converts the typed value to the same level, so 80 % becomes −0.97 dB. A value in dB is held at or below 0 dB, a density at or above 0.
 
 The line under the boxes says how many rows the wizard will add and of which
 types. **Start at row** is where the block goes; **Generate** adds it. The form

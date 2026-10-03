@@ -26,16 +26,16 @@ export function buildEditableTargetGeometry(operands, xRange) {
         };
         if (isBandType(operand.type)) {
             if (operand.lambdaStart == null || operand.lambdaEnd == null) continue;
-            const start = PERCENT_LEVEL.toAxis(operand.target);
+            const start = PERCENT_LEVEL.toAxis(operand.target, operand.type);
             const end = RANGE_TARGET_TYPES.has(operand.type) && operand.targetEnd != null
-                ? PERCENT_LEVEL.toAxis(operand.targetEnd) : start;
+                ? PERCENT_LEVEL.toAxis(operand.targetEnd, operand.type) : start;
             geometry.push({
                 ...common, kind: 'band',
                 x0: operand.lambdaStart, x1: operand.lambdaEnd, y0: start, y1: end,
             });
         } else {
             const wavelength = operand.lambdaStart ?? 0;
-            const target = PERCENT_LEVEL.toAxis(operand.target);
+            const target = PERCENT_LEVEL.toAxis(operand.target, operand.type);
             geometry.push({
                 ...common, kind: 'point',
                 x0: wavelength - pointHalfWidth, x1: wavelength + pointHalfWidth,
@@ -53,7 +53,8 @@ export function buildEditableTargetGeometry(operands, xRange) {
  */
 export function applyHandleEdit(meta, operand, coords, level = PERCENT_LEVEL) {
     const { x0, x1, y0, y1 } = coords;
-    const mean = level.fromAxis((y0 + y1) / 2);
+    const fromAxis = value => level.fromAxis(value, operand.type);
+    const mean = fromAxis((y0 + y1) / 2);
     if (meta.kind === 'point') {
         const wavelength = Math.max(0.01, (x0 + x1) / 2);
         return { lambdaStart: wavelength, lambdaEnd: wavelength, target: mean };
@@ -62,8 +63,8 @@ export function applyHandleEdit(meta, operand, coords, level = PERCENT_LEVEL) {
     if (RANGE_TARGET_TYPES.has(operand.type)) return {
         lambdaStart: span.lambdaStart,
         lambdaEnd: span.lambdaEnd,
-        target: level.fromAxis(span.yStart),
-        targetEnd: level.fromAxis(span.yEnd),
+        target: fromAxis(span.yStart),
+        targetEnd: fromAxis(span.yEnd),
     };
     return { lambdaStart: span.lambdaStart, lambdaEnd: span.lambdaEnd, target: mean };
 }

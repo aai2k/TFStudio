@@ -22,12 +22,12 @@ least-squares solver each residual enters as `√wᵢ · residualᵢ`, whose squ
 
 The **residual** depends on the operand class:
 
-| Class                              | Residual                         | Inert when satisfied? |
-| ---------------------------------- | -------------------------------- | --------------------- |
-| Equality (most optical operands)   | `value − target`                 | no (two-sided)        |
-| One-sided ≥ (OPGT, ABGT, MNT, TMN…)| `max(0, target − value)`         | yes                   |
-| One-sided ≤ (OPLT, ABLT, MXT, TMX…)| `max(0, value − target)`         | yes                   |
-| Spectral target (TGT/RGT/AGT)      | the RMS deviation itself         | no                    |
+| Class                                             | Residual                         | Inert when satisfied? |
+| ------------------------------------------------- | -------------------------------- | --------------------- |
+| Equality (most optical operands)                  | `value − target`                 | no (two-sided)        |
+| One-sided ≥ (OPGT, ABGT, MNT, TMN, TDBMN, ODMN…)  | `max(0, target − value)`         | yes                   |
+| One-sided ≤ (OPLT, ABLT, MXT, TMX, TDBMX, RDBMX…) | `max(0, value − target)`         | yes                   |
+| Spectral target (TGT/RGT/AGT)                     | the RMS deviation itself         | no                    |
 
 "Inert when satisfied" means the operand drops out of the MF entirely once its
 inequality holds, so it never fights the equality targets.
@@ -49,6 +49,7 @@ MF = √( Σ wᵢ · (residualᵢ / σᵢ)²  /  Σ wᵢ )
 | ----------------------------------- | ---------- | ---------------------------------------- |
 | All fraction-unit (T/R/A, averages, integrals, worst-case, spectral-target RMS, math) | **1**      | unchanged, pure-optical MFs are identical to before |
 | Argwave (`MXW*` / `MNW*`, nm)       | **500 nm** | 5 nm wavelength miss ≈ 1 % optical miss  |
+| In dB (`TDB`, `TDBMN`, `TDBMX`, `RDBMX`) / in OD (`ODMN`) | **10/ln 10 ≈ 4.343 dB / 1/ln 10 ≈ 0.4343** | a miss by a factor of two scores 0.69 at −40 dB as at 0 dB; near T = 1 a 1 % miss scores 0.010, as on a `T` row |
 | Manufacturability (`TT`, `MNT`, `MXT` in nm; `STR` in N/m) | **1** (raw) | kept "hard": a violated manufacturing bound still dominates and is fixed first |
 | Ellipsometry `PSI` / `DEL` (deg)    | **10 / 20** | 0.1° in Ψ or 0.2° in Δ ≈ 1 % optical miss: ten times what a spectroscopic ellipsometer repeats to, as 1 % is for a spectrophotometer |
 | Group delay `GD*` / `GDD*` (fs, fs²)| **50**     | a ~0.5 fs / fs² miss ≈ 1 % optical miss   |
@@ -74,10 +75,7 @@ operand type** (the column header updates to match the focused row):
 | **Current**   | live computed value                    | computed λ (nm)     | min/max layer (nm)    | Σ thickness (nm)     | Σ σ·d (N/m)       | computed value   |
 | **% of MF²**  | row's share of the weighted squared residual | same | same | same | same | same |
 
-**Units:** T/R/A-valued operands store the target as a fraction in `[0,1]` and
-display it as a percentage. Wavelength, layer-index, and thickness operands use
-raw numbers (nm or count). Math operands inherit the unit of the row they
-reference.
+**Units:** T/R/A-valued operands store the target as a fraction in `[0,1]` and display it as a percentage. The [dB and OD rows](#in-db-or-optical-density) store and display it in dB or OD. Wavelength, layer-index, and thickness operands use raw numbers (nm or count). Math operands inherit the unit of the row they reference.
 
 The final column uses the same definition for every row. If the merit function is nonzero, its percentages sum to 100%. If every row is exactly met, every contribution is zero. Disabled and unevaluable rows show a dash. Hover the cell to see the row's residual in its own unit, labelled as a difference, constraint slack, or RMS deviation as appropriate.
 
@@ -191,6 +189,30 @@ spec.
 
 Output is a real T/R/A value (0…100 %), never exceeding physical bounds. The
 optimizer uses the single argmin/argmax wavelength as the subgradient.
+
+## In dB or optical density
+
+A blocking or loss specification is often written in decibels or optical density. These rows take the target in that unit and score the miss in it. `T(dB) = 10·log₁₀ T`, so a loss reads negative, and `D = −log₁₀ T`, so the lowest density over a band is where T is highest.
+
+| Type    | Computes                          | Spec it enforces                                    | Residual                 |
+| ------- | --------------------------------- | --------------------------------------------------- | ------------------------ |
+| `TDB`   | T at λ in dB                      | `T(dB) = target`                                    | `value − target`         |
+| `TDBMN` | Minimum T over band in dB         | `min T(dB) ≥ target` (insertion loss)               | `max(0, target − value)` |
+| `TDBMX` | Maximum T over band in dB         | `max T(dB) ≤ target` (isolation, blocking)          | `max(0, value − target)` |
+| `RDBMX` | Maximum R over band in dB         | `max R(dB) ≤ target` (return loss of an AR coating) | `max(0, value − target)` |
+| `ODMN`  | Minimum optical density over band | `min D ≥ target` (blocking)                         | `max(0, target − value)` |
+
+`TDB` takes the columns of a single-wavelength `T` row. The four band rows are worst-case rows like `TMN` and `TMX`: the true extremum on the same dense grid, sampled more finely at the start of a run where narrow features hide. They look for those features in dB, so a spike inside a blocking band is found.
+
+Target and Current are in dB or OD, not percent. A new row starts at 0 dB for `TDB`, −0.5 dB for `TDBMN`, −30 dB for `TDBMX` and `RDBMX`, and OD 3 for `ODMN`.
+
+**Why score in dB.** In linear T a stopband held at 0.1 % adds almost nothing to a least-squares merit, so missing −30 dB by a factor of ten is invisible beside the passband ripple. With the σ in the [normalization table](#mixed-unit-normalization), each row scores the natural log of the ratio its miss stands for in T or R. A miss by the same factor then costs the same at any level, near T = 1 a small miss costs what it would on a `T` row, and 20 dB and 30 dB are as far apart in the merit as in the specification.
+
+**Floor.** T or R below 10⁻¹⁵ reads as 10⁻¹⁵, which is −150 dB or OD 15. Below that a computed value can be rounding residue: past the critical angle, where T is zero, the arithmetic leaves about 10⁻¹⁷. No specification comes near the floor, and below it the row stops steering.
+
+These rows take exact analytic derivatives, with no finite differences. Like the other rows whose σ is not 1, they do not take the full Newton curvature: for a merit function that contains them, Newton and SQP solve the Gauss-Newton system.
+
+On [Optical Evaluation](/analysis/optical-evaluation/) the targets are drawn at the level they stand for, −30 dB at 0.1 %, on any y unit: `TDB` as a point marker, a band row as a level line over its band. They drag like other targets, and a dragged level is written back in dB or OD. An `ODMN` target is a T target, so it shows on the OD axis.
 
 ## Argmax / argmin wavelength
 

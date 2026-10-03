@@ -1,4 +1,4 @@
-import { isRangeTarget, isMinmax, polFromType } from '../operandModel.js';
+import { isLogOperand, isRangeTarget, isMinmax, logValue, polFromType } from '../operandModel.js';
 import { expandMeasuredCurveOperands } from '../measuredCurveOperand.js';
 import { charOf, operandSampleLambdas } from '../sampling.js';
 import { tmmProp } from './tmmEval.js';
@@ -85,6 +85,16 @@ function _featureWidthAt(v, i, probeStep, minProm) {
     return Math.max(probeStep, span * probeStep);
 }
 
+// The scale a band is probed on. A dB or density row is probed in dB: every
+// feature of a blocking band is a departure far below 2 % in linear T, so the
+// linear threshold would see none of them. The threshold there is what the
+// linear one amounts to at full transmittance, a 2 % departure, which is
+// 0.086 dB and is taken at any level.
+function _probeScale(type, cfg) {
+    if (!isLogOperand(type)) return { read: value => value, minProminence: cfg.minProminence };
+    return { read: value => logValue('dB', value), minProminence: logValue('dB', 1 + cfg.minProminence) };
+}
+
 // Probe ONE operand's band for the narrowest significant feature its current
 // uniform grid would alias. Returns the sample count needed to resolve it
 // (clamped to [curN, maxPoints]) plus diagnostics, or null when no aliasing
@@ -105,6 +115,7 @@ function adaptiveCountForOperand(op, ctx, cfg) {
     const char = charOf(op.type);
     const pol  = polFromType(op.type) ?? op.pol ?? 'avg';
     const lo   = Math.min(a, b);
+    const { read, minProminence } = _probeScale(op.type, cfg);
 
     // Fine probe grid over the band. It must be enough finer than the nominal
     // grid both to reveal what the grid steps over AND to MEASURE a feature's
@@ -119,14 +130,14 @@ function adaptiveCountForOperand(op, ctx, cfg) {
     const probeStep = width / (nProbe - 1);
     const v = new Array(nProbe);
     for (let i = 0; i < nProbe; i++) {
-        v[i] = tmmProp(lo + probeStep * i, op.aoi, pol, char, ctx, ctx.frontThicks, ctx.frontMats);
+        v[i] = read(tmmProp(lo + probeStep * i, op.aoi, pol, char, ctx, ctx.frontThicks, ctx.frontMats));
     }
 
     // Narrowest significant feature anywhere in the band (prominence-based, so
     // it is independent of where the nominal grid points happen to fall).
     let minFeatureWidth = Infinity;
     for (let i = 1; i < nProbe - 1; i++) {
-        const w = _featureWidthAt(v, i, probeStep, cfg.minProminence);
+        const w = _featureWidthAt(v, i, probeStep, minProminence);
         if (w != null && w < minFeatureWidth) minFeatureWidth = w;
     }
 

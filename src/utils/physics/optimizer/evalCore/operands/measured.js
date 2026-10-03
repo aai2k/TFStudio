@@ -4,7 +4,8 @@
  * blocks alike.
  */
 
-import { isEllipsometricMeasuredCurve, measuredCurveChannel } from '../../operandModel.js';
+import { isEllipsometricMeasuredCurve, measuredCurveChannel, rowReading } from '../../operandModel.js';
+import { charOf } from '../../sampling.js';
 import { measuredCurveEngineTargets } from '../../measuredCurveOperand.js';
 import { tmmProp } from '../tmmEval.js';
 import { _normalizeDegrees } from '../angles.js';
@@ -30,9 +31,11 @@ function _measuredSnapshotLambdas(op) {
 
 // Persisted measured-curve block: its value is already the RMS residual, so
 // `_operandResidual` consumes it directly just like a continuous range target.
+// A block on the T-in-dB channel (TDB) holds its points in dB and is scored in
+// dB, as the TDB points it expands into are.
 export function _evalMeasuredCurve(op, ctx) {
-    const char = measuredCurveChannel(op);
-    if (!char) {
+    const channel = measuredCurveChannel(op);
+    if (!channel) {
         throw new OperandEvaluationError(
             `A measured curve on channel ${op.quantity} is of a kind this version of TFStudio does not know, so it cannot be evaluated.`,
         );
@@ -42,11 +45,11 @@ export function _evalMeasuredCurve(op, ctx) {
     const lambdas = _measuredSnapshotLambdas(op);
     const targets = op.sampleTargets;
     const pol = op.pol || 'avg';
+    const char = charOf(channel);
     let sumSq = 0;
     for (let index = 0; index < lambdas.length; index++) {
-        const difference = tmmProp(
-            lambdas[index], op.aoi ?? 0, pol, char, ctx, ctx.frontThicks, ctx.frontMats,
-        ) - targets[index];
+        const value = tmmProp(lambdas[index], op.aoi ?? 0, pol, char, ctx, ctx.frontThicks, ctx.frontMats);
+        const difference = rowReading(channel, value) - targets[index];
         sumSq += difference * difference;
     }
     return Math.sqrt(sumSq / lambdas.length);

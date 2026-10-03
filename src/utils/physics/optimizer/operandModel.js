@@ -15,10 +15,19 @@ import {
     seedMeasuredCurve,
 } from './measuredCurveType.js';
 
+import {
+    LOG_MINMAX_OPERAND_TYPES, LOG_OPERAND_TYPES, isLogOperand, logOperand,
+} from './logReadings.js';
+
 export {
     GENERATED_ONLY_OPERAND_TYPES, MEASURED_CURVE_OPERAND_TYPES, MEASURED_CURVE_QUANTITIES,
     isEllipsometricMeasuredCurve, isEllipsometricQuantity, isMeasuredCurve, measuredCurveChannel,
 };
+export {
+    LOG_MINMAX_OPERAND_TYPES, LOG_OPERAND_TYPES, LOG_READING_FLOOR, fractionFromLog,
+    isLogOperand, isLogPoint, logOperand, logSigma, logSlopeOverSigma, logUnit, logValue,
+    rowReading, rowReadingSlopeOverSigma,
+} from './logReadings.js';
 
 // ── Operand type lists ────────────────────────────────────────────────────────
 
@@ -56,6 +65,9 @@ export const INTEGRAL_OPERAND_TYPES   = ['TIW', 'RIW', 'AIW'];
 // TMN/RMN/AMN: lowest value over the band, for "T ≥ target" worst-case specs.
 // TMX/RMX/AMX: highest value over the band, for "R ≤ target" worst-case specs.
 export const MINMAX_OPERAND_TYPES     = ['TMN', 'RMN', 'AMN', 'TMX', 'RMX', 'AMX'];
+// T or R in dB and T as optical density (logReadings.js): TDB at one
+// wavelength, and TDBMN, TDBMX, RDBMX and ODMN, which are worst-case rows like
+// the ones above read on a logarithmic scale.
 // ── Phase / field operands ────────────────────────────────────────────────────
 // Quantities derived from the complex amplitude coefficients or the internal
 // field values are not fractions in [0,1]. They get a per-type residual scale
@@ -130,6 +142,7 @@ export const OPERAND_TYPES = [
     ...MEASURED_CURVE_OPERAND_TYPES,
     ...INTEGRAL_OPERAND_TYPES,
     ...MINMAX_OPERAND_TYPES,
+    ...LOG_OPERAND_TYPES,
     ...PHASE_OPERAND_TYPES,
     ...INEQUALITY_OPERAND_TYPES,
     ...MATH_OPERAND_TYPES,
@@ -173,8 +186,15 @@ export function isLinearThickness(type) {
 export function isRangeTarget(type) { return RANGE_TARGET_OPERAND_TYPES.indexOf(type) >= 0; }
 export function isBandAverage(type) { return type === 'TAV' || type === 'RAV' || type === 'AAV'; }
 export function isIntegral(type)   { return type === 'TIW' || type === 'RIW' || type === 'AIW'; }
-export function isMinmax(type)     { return MINMAX_OPERAND_TYPES.indexOf(type) >= 0; }
-export function isMinType(type)    { return type === 'TMN' || type === 'RMN' || type === 'AMN'; }
+// A worst-case row over a band, read linearly or on a logarithmic scale.
+export function isMinmax(type) {
+    return MINMAX_OPERAND_TYPES.includes(type) || LOG_MINMAX_OPERAND_TYPES.includes(type);
+}
+// A worst-case row taking the lowest value of its own scale, held at or above
+// its target. For ODMN that is the lowest density, where T is highest.
+export function isMinType(type) {
+    return type === 'TMN' || type === 'RMN' || type === 'AMN' || logOperand(type)?.extremum === 'min';
+}
 export function isEllipsometry(type) { return ELLIPSOMETRY_OPERAND_TYPES.indexOf(type) >= 0; }
 export function isPhaseShift(type) { return PHASE_SHIFT_OPERAND_TYPES.indexOf(type) >= 0; }
 // Angles whose residual is taken the short way round the circle: a value of
@@ -207,10 +227,8 @@ export function readsWavelengthBand(type) {
 // PROD).  See MATH_REGISTRY below for per-operand semantics.
 export function isMath(type)       { return isInequality(type) || MATH_OPERAND_TYPES.indexOf(type) >= 0; }
 // Operands that take a SINGLE referenced row (op.refId).
-export function isMathSingleRef(type) {
-    return type === 'OPGT' || type === 'OPLT' || type === 'OPVA' ||
-           type === 'ABSO' || type === 'ABGT' || type === 'ABLT';
-}
+const SINGLE_REF_MATH_TYPES = new Set(['OPGT', 'OPLT', 'OPVA', 'ABSO', 'ABGT', 'ABLT']);
+export function isMathSingleRef(type) { return SINGLE_REF_MATH_TYPES.has(type); }
 // Operands that take TWO referenced rows (op.refId1, op.refId2).
 export function isMathPairRef(type) {
     return type === 'DIFF' || type === 'SUMM' || type === 'PROD';
@@ -221,17 +239,17 @@ export function isMathPairRef(type) {
 // unit of their referenced row — an OPGT pointing at TAV stores its target
 // as a fraction 0.99, but should READ "99 %" in the table to stay
 // consistent with the TAV row it references).
+// True for T/R/A optical, TAV/RAV/AAV, TGT/RGT/AGT, TMN…; false for the types
+// below, whose values are in other units, inherited, or absent.
+const NON_FRACTIONAL_TYPES = [
+    isManufacturability,   // MNT/MXT/TT in nm, STR in N/m
+    isArgwave, isPhase,    // MXWT/MNWT (nm), Ψ/Δ (deg), GD (fs), |E|²
+    isLogOperand,          // dB, optical density
+    isMath,                // math = inherit (resolved separately)
+    isDmfs, isBlank,       // placeholders
+];
 export function isFractionalUnit(type) {
-    if (!type) return false;
-    // False for the non-fractional (nm / deg / fs / placeholder / inherited)
-    // types; true for T/R/A optical, TAV/RAV/AAV, TGT/RGT/AGT, TMN…
-    return !(
-        isManufacturability(type)             // MNT/MXT/TT in nm, STR in N/m
-        || isArgwave(type) || isPhase(type)   // MXWT/MNWT (nm), Ψ/Δ (deg), GD (fs), |E|²
-        || isMath(type)                       // math = inherit (resolved separately)
-        || isDmfs(type)                       // DMFS = placeholder
-        || isBlank(type)                      // BLNK = comment placeholder
-    );
+    return !!type && !NON_FRACTIONAL_TYPES.some(test => test(type));
 }
 // Does a math operand's target display in percent? True iff every one of
 // its referenced rows has a fractional value. operandsById is a Map
@@ -257,13 +275,15 @@ export function argwavePolCode(type) {
     return null;
 }
 
+const TYPES_WITHOUT_POL_SUFFIX = [
+    isManufacturability, isDmfs, isBlank, isIntegral, isMinmax, isMath, isLogOperand,
+];
+
 export function polFromType(type) {
     // Skip the 'S'/'P' suffix interpretation for compound type codes whose
     // last letter is incidental (MNT/MXT/TMN/TMX/RMN/RMX/AMN/AMX/TIW/RIW/AIW
     // /math operands) or for argwave types (handled separately via argwavePolCode).
-    const hasNoPol = isManufacturability(type) || isDmfs(type) || isBlank(type) ||
-        isIntegral(type) || isMinmax(type) || isMath(type);
-    if (hasNoPol) return null;
+    if (TYPES_WITHOUT_POL_SUFFIX.some(test => test(type))) return null;
     if (isArgwave(type)) return argwavePolCode(type);
     if (type.endsWith('S')) return 's';
     if (type.endsWith('P')) return 'p';
@@ -418,6 +438,14 @@ function seedStressTarget(base) {
     if (base.cmp == null) base.cmp = 'eq';
 }
 
+// A dB or density target means nothing as the fractional default. Each type
+// starts at a level that reads as a specification: 0 dB at a point, a 0.5 dB
+// insertion-loss floor, a 30 dB isolation or return-loss ceiling, a density of 3.
+const LOG_DEFAULT_TARGETS = { TDB: 0, TDBMN: -0.5, TDBMX: -30, RDBMX: -30, ODMN: 3 };
+function seedLogTarget(base) {
+    if (targetUnset(base)) base.target = LOG_DEFAULT_TARGETS[base.type];
+}
+
 /** Blank/comment operand: keep a comment field, no numeric meaning. */
 function seedComment(base) {
     if (base.comment == null) base.comment = '';
@@ -433,6 +461,7 @@ const TYPE_SEEDS = [
     [isRangeTarget,    seedRangeTargetEnd],
     [isTotalThickness, seedTotalThicknessTarget],
     [isStress,         seedStressTarget],
+    [isLogOperand,     seedLogTarget],
     [isBlank,          seedComment],
 ];
 

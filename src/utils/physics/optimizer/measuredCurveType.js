@@ -10,10 +10,11 @@
 // retains one independent residual/Jacobian row per measured point.
 export const MEASURED_CURVE_OPERAND_TYPES = ['MCURVE'];
 
-// The channels a block can hold: a photometric R, T or A, or one half of an
-// ellipsometric Ψ/Δ pair. The channel is a field on the block rather than part
-// of its type code, so the table treats every block alike.
-export const MEASURED_CURVE_QUANTITIES = ['T', 'R', 'A', 'PSI', 'DEL'];
+// The channels a block can hold: a photometric R, T or A, T in dB (TDB, its
+// points in dB), or one half of an ellipsometric Ψ/Δ pair. The channel is a
+// field on the block rather than part of its type code, so the table treats
+// every block alike.
+export const MEASURED_CURVE_QUANTITIES = ['T', 'R', 'A', 'TDB', 'PSI', 'DEL'];
 
 // Types the merit table never offers: they carry data no hand-typed row can.
 export const GENERATED_ONLY_OPERAND_TYPES = [...MEASURED_CURVE_OPERAND_TYPES];

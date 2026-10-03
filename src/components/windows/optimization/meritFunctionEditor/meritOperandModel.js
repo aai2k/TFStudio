@@ -1,5 +1,5 @@
 import {
-    DEFAULT_CONSTRAINT_LAST_LAYER, FILTER_TYPES, generateFilterOperands,
+    DEFAULT_CONSTRAINT_LAST_LAYER, FILTER_TYPES, customTargetStatement, generateFilterOperands,
     makeOperand, makeConstraintOperand, makeDmfsOperand,
     isConstraint, isFractionalUnit, isMath, isRangeTarget, mathTargetInPercent,
     removeOperandsAndDependents, rowRangeDomain, targetDomain,
@@ -29,9 +29,13 @@ function formatPassStopFields(ctx) {
         : `pass ${p.passStart}–${p.passEnd} nm, stop ${p.stopStart}–${p.stopEnd} nm`;
 }
 
+// A density is written as itself, OD ≥ 3, not as a statement about T.
+const STATEMENT_UNITS = { pct: '%', dB: ' dB', OD: '' };
+const COMPARISON_SYMBOLS = { le: '≤', ge: '≥', eq: '=' };
 function formatCustomTarget({ params: p }) {
-    const cmp = p.cmp === 'le' ? '≤' : p.cmp === 'ge' ? '≥' : '=';
-    return `${p.channel} ${cmp} ${p.valuePct}%, λ ${p.lamStart}–${p.lamEnd} nm`;
+    const { channel, unit, cmp } = customTargetStatement(p);
+    const quantity = unit === 'OD' ? 'OD' : channel;
+    return `${quantity} ${COMPARISON_SYMBOLS[cmp]} ${p.valuePct}${STATEMENT_UNITS[unit]}, λ ${p.lamStart}–${p.lamEnd} nm`;
 }
 
 // The first entry whose key the type carries wins, so a three-band type has to

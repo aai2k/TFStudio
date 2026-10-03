@@ -86,6 +86,8 @@ instrument happened to take more readings. Interpolation is shape-preserving,
 so it will not overshoot at a steep band edge and ask the optimizer to chase a
 reflectance above 100 %.
 
+For a transmittance curve, **Fit in** picks % or dB. In dB the target holds the points in dB and scores the fit in dB, so a 0.1 dB miss counts the same at −20 dB as at 0 dB. Use it for a curve specified in dB, such as a gain-flattening target. A point at or below 0 % has no dB value and is left out; the dialog says how many.
+
 You can also narrow the wavelength range, set the weight the fit carries
 against the rest of the merit function, and add minimum and maximum layer
 thickness constraints in the same step. **Append** adds the target to the merit
@@ -108,6 +110,8 @@ Optical Evaluation draws the target whether or not the design still holds the
 curve behind it. Loading a saved merit function into another design therefore
 shows what it fits to; if you want the measurement back as a curve you can
 edit, the Import tab offers to restore it.
+
+A fit made in dB shows in the table as **MCURVE dB**, reports its RMS difference in dB, and is restored as a transmittance curve.
 
 ## Export
 

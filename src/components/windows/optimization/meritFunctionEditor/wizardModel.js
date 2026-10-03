@@ -1,4 +1,7 @@
-import { FILTER_TYPES, isDmfs } from '../../../../utils/physics/optimizer.js';
+import {
+    FILTER_TYPES, convertCustomTargetValue, customTargetStatement, customTargetWritesPoints,
+    defaultFilterParams, isDmfs,
+} from '../../../../utils/physics/optimizer.js';
 
 // Field keys the wizard shows side by side on one row, and the locale key of
 // that row's label.
@@ -14,8 +17,9 @@ const PAIRS = [
     ['tStart', 'tEnd', 'tRange'],
 ];
 
-// The custom target's channel, comparison and value read as one statement.
-const STATEMENT = ['channel', 'cmp', 'valuePct'];
+// The custom target's channel, unit, comparison and value read as one
+// statement: T in dB ≥ −0.5.
+const STATEMENT = ['channel', 'unit', 'cmp', 'valuePct'];
 
 function rowFor(key, keys) {
     if (key === STATEMENT[0] && STATEMENT.every(k => keys.includes(k))) {
@@ -51,6 +55,45 @@ export function fieldRows(typeId) {
 /** Field definition for `key` within a filter type. */
 export function fieldDef(typeId, key) {
     return FILTER_TYPES[typeId]?.fields.find(field => field.key === key) || null;
+}
+
+/**
+ * What one field shows for the current parameters: its value, the options a
+ * select offers and the bounds of a number. A select whose stored value the
+ * other fields rule out shows the first value it still offers, which is also
+ * what Generate writes.
+ */
+export function fieldView(typeId, key, params) {
+    const def = fieldDef(typeId, key);
+    if (!def) return null;
+    const all = { ...defaultFilterParams(typeId), ...params };
+    const allowed = def.available ? def.available(all) : null;
+    const options = allowed ? def.options.filter(option => allowed.includes(option.value)) : def.options;
+    const stored = all[key];
+    const value = allowed && !allowed.includes(stored) ? allowed[0] : stored;
+    const bounds = def.boundsFor ? def.boundsFor(all) : def;
+    return { def, value, options, min: bounds.min, max: bounds.max, step: bounds.step ?? 1 };
+}
+
+/**
+ * The parameters after one field changes. A Custom Target whose unit changes,
+ * by choice or because the channel no longer takes it, has its value moved to
+ * the new unit at the same level of T or R, so 80 % becomes −0.97 dB.
+ */
+export function paramsWithChange(typeId, params, key, value) {
+    const next = { ...params, [key]: value };
+    if (!fieldDef(typeId, 'unit')) return next;
+    const all = { ...defaultFilterParams(typeId), ...params };
+    const before = customTargetStatement(all).unit;
+    const after = customTargetStatement({ ...all, [key]: value }).unit;
+    if (before !== after) next.valuePct = convertCustomTargetValue(all.valuePct, before, after);
+    return next;
+}
+
+/** Whether the type writes point rows on the wavelength step whatever the target mode. */
+export function writesPointsOnly(typeId, params) {
+    if (!fieldDef(typeId, 'unit')) return false;
+    return customTargetWritesPoints({ ...defaultFilterParams(typeId), ...params });
 }
 
 /** Whether the type sets polarization itself, so the Pol control is not shown. */

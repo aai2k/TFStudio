@@ -1,7 +1,7 @@
 import {
     ActionButton, CheckField, ChoiceGroup, FieldLabel, NumInput, RangeField,
 } from '../../analysis/chrome/controls.js';
-import { measuredFitConstraintsInvalid } from './model.js';
+import { canFitInDb, measuredFitConstraintsInvalid } from './model.js';
 
 const { createElement: h } = React;
 
@@ -33,7 +33,7 @@ export function MeasuredFitDialog({ controller, c, sx }) {
     } = controller;
     if (!curve) return null;
 
-    const sampledCount = fitSnapshot.sampled?.lambdas?.length || 0;
+    const sampledCount = fitSnapshot.operand?.sampleLambdas?.length || 0;
     const constraintsInvalid = measuredFitConstraintsInvalid(fitConfig);
     const disabled = missingMaterialIds.length > 0 || !fitSnapshot.operand || constraintsInvalid;
     const clipToCoverage = fitConfig.clipToCoverage !== false;
@@ -88,6 +88,15 @@ export function MeasuredFitDialog({ controller, c, sx }) {
                     { id: 'measured', label: sx.fitMeasured, title: sx.fitMeasuredTip },
                     { id: 'thinned', label: sx.fitThinned, title: sx.fitThinnedTip },
                     { id: 'uniform', label: sx.fitUniform, title: sx.fitUniformTip },
+                ],
+            }),
+        ),
+        canFitInDb(curve) && h(DialogRow, { c, label: sx.fitScaleLabel },
+            h(ChoiceGroup, {
+                c, activeId: fitConfig.scale, onSelect: value => setFitOption('scale', value),
+                items: [
+                    { id: 'linear', label: '%', title: sx.fitScaleLinearTip },
+                    { id: 'dB', label: 'dB', title: sx.fitScaleDbTip },
                 ],
             }),
         ),
@@ -187,6 +196,8 @@ export function MeasuredFitDialog({ controller, c, sx }) {
         uncovered && h(Notice, { c }, sx.fitExtrapolated(uncovered[0], uncovered[1])),
         fitSnapshot.sampled?.stepTooFine && h(Notice, { c },
             sx.fitStepFine(fitSnapshot.sampled.spacingNm)),
+        fitSnapshot.operand && fitSnapshot.droppedNonPositive > 0 && h(Notice, { c },
+            sx.fitDbDropped(fitSnapshot.droppedNonPositive)),
 
         h('div', {
             style: { display: 'flex', justifyContent: 'flex-end', gap: 8, marginTop: 16 },

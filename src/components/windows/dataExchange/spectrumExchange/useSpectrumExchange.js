@@ -141,7 +141,7 @@ export function useSpectrumExchange(sx) {
         // The dialog's range fields already state the range being stored, so
         // the confirmation does not need to report a clip.
         const message = sx.fitAdded(
-            fitSnapshot.operand.curveName, fitSnapshot.sampled.lambdas.length);
+            fitSnapshot.operand.curveName, fitSnapshot.operand.sampleLambdas.length);
         flash('success', message);
         closeFitDialog();
     }, [fitSnapshot, fitConfig, design, updateDesign, checkpoint, sx]);

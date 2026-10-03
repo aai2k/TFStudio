@@ -19,7 +19,7 @@ const { createElement: h } = React;
 // shorter than the rows around it.
 const ROW_HEIGHT = 22;
 
-const QUANTITY_SYMBOL = { PSI: 'Ψ', DEL: 'Δ' };
+const QUANTITY_SYMBOL = { PSI: 'Ψ', DEL: 'Δ', TDB: 'dB' };
 
 // Ψ and Δ of one measurement are one fit: either alone leaves the thicknesses
 // under-determined. Returns the locale key naming what is wrong with the other

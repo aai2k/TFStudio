@@ -4,6 +4,8 @@
  * conventions this implements.
  */
 
+import { LOG_MINMAX_OPERAND_TYPES, LOG_OPERAND_TYPES, logOperand } from '../optimizer/logReadings.js';
+
 // Legacy per-curve palette (kept for any external importers). The overlay now
 // colours targets by R/T/A *family* and encodes polarization via dash instead,
 // so avg / s / p of the same quantity stay clearly distinguishable (they were
@@ -25,13 +27,25 @@ export const RANGE_AVG_TYPES    = new Set(['TAV', 'RAV', 'AAV']);
 // Continuous per-λ target operands (flat or linear ramp). Drawn as a dotted
 // target line (start→end) spanning the band — plus a shaded band zone.
 export const RANGE_TARGET_TYPES = new Set(['TGT', 'RGT', 'AGT']);
+// The worst-case rows read in dB or density, drawn as one level over their
+// band at the percentage it stands for (levels.js).
+const LOG_BAND_TYPES = new Set(LOG_MINMAX_OPERAND_TYPES);
 export const OPTICAL_TYPES   = new Set([
     'T','TS','TP','TAV','TGT', 'R','RS','RP','RAV','RGT', 'A','AS','AP','AAV','AGT',
+    ...LOG_OPERAND_TYPES,
 ]);
 
-// A band operand spans [λStart, λEnd] (either an average or a per-λ target).
+// A band operand spans [λStart, λEnd] (an average, a per-λ target, or a
+// worst-case level in dB or density).
 export function isBandType(type) {
-    return RANGE_AVG_TYPES.has(type) || RANGE_TARGET_TYPES.has(type);
+    return RANGE_AVG_TYPES.has(type) || RANGE_TARGET_TYPES.has(type) || LOG_BAND_TYPES.has(type);
+}
+
+// The R/T/A family of an operand type — used to pick the operand type for a
+// newly drawn target and to colour-code markers. ODMN is a T row.
+export function operandFamily(type) {
+    const channel = logOperand(type)?.channel ?? type[0];
+    return channel === 'T' || channel === 'R' ? channel : 'A';
 }
 
 export function operandCurveKey(op) {
@@ -39,17 +53,9 @@ export function operandCurveKey(op) {
     const polSuffix = (op.type.endsWith('S') && !RANGE_TARGET_TYPES.has(op.type)) ? 's'
                     : (op.type.endsWith('P') && !RANGE_TARGET_TYPES.has(op.type)) ? 'p'
                     : (op.pol ?? 'avg');
-    if (op.type.startsWith('T')) return polSuffix === 's' ? 'Ts' : polSuffix === 'p' ? 'Tp' : 'T';
-    if (op.type.startsWith('R')) return polSuffix === 's' ? 'Rs' : polSuffix === 'p' ? 'Rp' : 'R';
-    return 'A';
-}
-
-// The R/T/A family of an operand type — used to pick the operand type for a
-// newly drawn target and to colour-code markers.
-export function operandFamily(type) {
-    if (type.startsWith('T')) return 'T';
-    if (type.startsWith('R')) return 'R';
-    return 'A';
+    const family = operandFamily(op.type);
+    if (family === 'A') return 'A';
+    return polSuffix === 's' ? family + 's' : polSuffix === 'p' ? family + 'p' : family;
 }
 
 // Polarization of an operand: explicit S/P point types carry it in the suffix,
@@ -65,7 +71,8 @@ function operandPol(op) {
 export function targetColor(op) {
     // A measured block names its channel in a field rather than in its type
     // code, so the type says nothing about which family to colour it.
-    const family = op.type === 'MCURVE' ? (op.quantity || 'R') : operandFamily(op.type);
+    const quantity = op.quantity || 'R';
+    const family = op.type === 'MCURVE' ? (logOperand(quantity)?.channel ?? quantity) : operandFamily(op.type);
     return FAMILY_COLOR[family] || '#aaaaaa';
 }
 export function targetDash(op) {

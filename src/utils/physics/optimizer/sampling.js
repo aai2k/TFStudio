@@ -11,7 +11,7 @@
 import {
     isDmfs, isBlank, isManufacturability, isMath, isRangeTarget,
     isIntegral, isArgwave, isMinmax, isGroupDelayFlat, isMeasuredCurve,
-    bandSampleCount, ARGWAVE_DEFAULT_POINTS,
+    bandSampleCount, logOperand, ARGWAVE_DEFAULT_POINTS,
 } from './operandModel.js';
 import { materialOmegaResponse } from '../../materials/materialDispersion.js';
 
@@ -24,7 +24,9 @@ function isBandSampled(type) {
     return isRangeAvg(type) || isRangeTarget(type) || isIntegral(type)
         || isMinmax(type) || isArgwave(type) || isGroupDelayFlat(type);
 }
-export function charOf(type) { return type[0]; }
+// The channel ('T' | 'R' | 'A') a spectral row reads: its first letter, except
+// for the dB and density rows, which name it in their type list (ODMN reads T).
+export function charOf(type) { return logOperand(type)?.channel ?? type[0]; }
 
 // Band operands whose default grid is bandSampleCount: averages, integrals,
 // range targets and group-delay flatness. The extremum operands (argwave,

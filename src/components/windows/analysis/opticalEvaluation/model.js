@@ -2,7 +2,7 @@ import {
     RANGE_TARGET_TYPES, buildTargetGeometry, operandCurveKey, operandOverridesFromDrawnLine,
     applyHandleEdit, snapDrawnLine,
 } from '../../../../utils/physics/spectrumTargets.js';
-import { makeOperand } from '../../../../utils/physics/optimizer.js';
+import { logOperand, makeOperand } from '../../../../utils/physics/optimizer.js';
 import { spectralAxisOption } from '../../../../utils/physics/spectralAxis.js';
 import { ANALYSIS_DEFAULTS } from '../../../../constants/analysisDefaults.js';
 import {
@@ -39,9 +39,13 @@ export function readableCurves(showCurves, curveColors, yScale) {
         .filter(curve => showCurves[curve.key] && yScaleReadsQuantity(yScale, curve.key));
 }
 
-// A measured block names its channel in a field rather than in its type code.
-const targetQuantity = operand =>
-    (operand.type === 'MCURVE' ? (operand.quantity || 'R') : operandCurveKey(operand));
+// A measured block names its channel in a field rather than in its type code;
+// a block on the T-in-dB channel is a T curve.
+function targetQuantity(operand) {
+    if (operand.type !== 'MCURVE') return operandCurveKey(operand);
+    const quantity = operand.quantity || 'R';
+    return logOperand(quantity)?.channel ?? quantity;
+}
 
 /**
  * The merit targets the chosen unit can place. A target is drawn at its own

@@ -96,17 +96,25 @@ export function makePointEvaluators(jacCfg, sideMap) {
         if (v === undefined) { v = computeLayerJacobian(lam, pc, aoi, cfg); jacCache.set(key, v); }
         return v;
     };
+    // Every (ray, polarization) package the average at (λ, pol, aoi) is taken
+    // over, with its weight: 'avg' is ½(s+p).
+    const forEachPackage = (lam, pol, aoi, visit) => {
+        const pols = pol === 'avg' ? ['s', 'p'] : [pol];
+        for (const { aoiDeg, weight } of coneNodesAt(jacCfg.ctx, aoi, lam)) {
+            for (const p of pols) visit(getJac(lam, p, aoiDeg), weight / pols.length);
+        }
+    };
     const propDeriv = (lam, pol, char, aoi) => {
         const out = new Array(sideMap.N).fill(0);
-        for (const { aoiDeg, weight } of coneNodesAt(jacCfg.ctx, aoi, lam)) {
-            if (pol === 'avg') {
-                accumulateJacInto(out, getJac(lam, 's', aoiDeg), char, 0.5 * weight, sideMap);
-                accumulateJacInto(out, getJac(lam, 'p', aoiDeg), char, 0.5 * weight, sideMap);
-            } else {
-                accumulateJacInto(out, getJac(lam, pol, aoiDeg), char, weight, sideMap);
-            }
-        }
+        forEachPackage(lam, pol, aoi, (J, weight) => accumulateJacInto(out, J, char, weight, sideMap));
         return out;
     };
-    return { propDeriv };
+    // The property itself, averaged over the same rays and polarizations as
+    // propDeriv, for the rows whose residual is a function of it (dB, density).
+    const propValue = (lam, pol, char, aoi) => {
+        let value = 0;
+        forEachPackage(lam, pol, aoi, (J, weight) => { value += weight * J[char]; });
+        return value;
+    };
+    return { propDeriv, propValue };
 }

@@ -7,7 +7,7 @@
 
 import { resolveSourceSpec, resolveDetectorSpec } from '../../../spectralWeightings.js';
 import { stressForceNm } from '../../../stress/stackForce.js';
-import { isMinType, isArgwaveMin, argwaveOpticalChar, argwavePolCode, polFromType } from '../../operandModel.js';
+import { isMinType, isArgwaveMin, argwaveOpticalChar, argwavePolCode, polFromType, rowReading } from '../../operandModel.js';
 import { isRangeAvg, charOf, operandSampleLambdas, bandQuadratureWeights } from '../../sampling.js';
 import { tmmProp } from '../tmmEval.js';
 import { _assertMeasurementSide } from './errors.js';
@@ -130,6 +130,9 @@ export function _evalIntegral(op, ctx) {
 // Newton curvature differentiate C there and nowhere else. A sample with no
 // value (a material with no index there) leaves the extremum unknown: NaN, which
 // the merit function refuses, as it refuses a band average with such a sample.
+// A dB or density row (TDBMN, TDBMX, RDBMX, ODMN) takes the extremum of its own
+// reading; the conversion is monotone, so it sits at the same wavelength as the
+// extremum of T or R, at the opposite end for a density.
 export function _evalMinmax(op, ctx) {
     const char = charOf(op.type);
     const pol  = polFromType(op.type) ?? op.pol;
@@ -139,12 +142,19 @@ export function _evalMinmax(op, ctx) {
     let ext = minMode ? Infinity : -Infinity;
     let at = null;
     for (let i = 0; i < n && !Number.isNaN(ext); i++) {
-        const v = tmmProp(lams[i], op.aoi, pol, char, ctx, ctx.frontThicks, ctx.frontMats);
+        const v = rowReading(op.type, tmmProp(lams[i], op.aoi, pol, char, ctx, ctx.frontThicks, ctx.frontMats));
         if (!Number.isFinite(v)) { ext = NaN; at = null; }
         else if (minMode ? v < ext : v > ext) { ext = v; at = lams[i]; }
     }
     ctx._extremumLambdas?.set(op, at);
     return Math.abs(ext) === Infinity ? 0 : ext;
+}
+
+// TDB: T in dB at op.lambdaStart.
+export function _evalLogPoint(op, ctx) {
+    _assertMeasurementSide(op, ctx);
+    const pol = polFromType(op.type) ?? op.pol;
+    return rowReading(op.type, tmmProp(op.lambdaStart, op.aoi, pol, charOf(op.type), ctx, ctx.frontThicks, ctx.frontMats));
 }
 
 // Continuous per-λ target (TGT/RGT/AGT): RMS deviation of the spectrum from the

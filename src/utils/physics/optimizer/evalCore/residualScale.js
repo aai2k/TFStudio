@@ -1,4 +1,4 @@
-import { isConstraint, isLinearThickness, isManufacturability, isMinmax, isMinType, isMeasuredCurve, isMath, isArgwave, isPhase, isRamp, isGroupDelayFlat, isWrappedAngle } from '../operandModel.js';
+import { isConstraint, isLinearThickness, isManufacturability, isMinmax, isMinType, isMeasuredCurve, isMath, isArgwave, isRamp, isGroupDelayFlat, isWrappedAngle, logSigma, logUnit } from '../operandModel.js';
 import { mathResidual } from './mathOperands.js';
 import { _normalizeDegrees } from './angles.js';
 
@@ -22,6 +22,9 @@ import { _normalizeDegrees } from './angles.js';
 //     numerically UNCHANGED (no regression on existing designs).
 //   • Argwave (λ in nm): σ = ARGWAVE_RESIDUAL_SCALE_NM. With 500, a 5 nm peak/
 //     edge miss weighs the same as a 1 % optical miss.
+//   • dB and optical-density rows (TDB…ODMN): σ = 10/ln 10 dB and 1/ln 10, so
+//     a miss scores ln of the ratio it stands for in T or R, the same number a
+//     T row gives for a small miss near T = 1 (logReadings.js).
 //   • Manufacturability operands (MNT/MXT/TT in nm, STR in N/m) DELIBERATELY
 //     stay σ = 1 ("hard"): a violated manufacturing bound should dominate and
 //     be fixed first, not be softened to optical scale.
@@ -63,14 +66,20 @@ const PHASE_RESIDUAL_SCALE = {
     TOD: 500, TODT: 500, TODFLAT: 500, TODTFLAT: 500,
     EFMX: 1,
 };
+// The dB and density rows: σ = 10/ln 10 ≈ 4.343 dB and 1/ln 10 ≈ 0.4343, which
+// scores a miss as ln of the ratio it stands for in T or R (logReadings.js).
+function _channelScale(channel) {
+    const unit = logUnit(channel);
+    return unit ? logSigma(unit) : PHASE_RESIDUAL_SCALE[channel] ?? 1;
+}
+
 export function operandResidualScale(op) {
     if (isArgwave(op.type)) return ARGWAVE_RESIDUAL_SCALE_NM;
-    if (isPhase(op.type))   return PHASE_RESIDUAL_SCALE[op.type] ?? 1;
     // A measured block scores in its channel's unit: degrees for a Ψ or Δ
-    // snapshot, a fraction for a photometric one. Its expansion carries the
-    // same scale per point, so the two forms stay equal.
-    if (isMeasuredCurve(op.type)) return PHASE_RESIDUAL_SCALE[op.quantity] ?? 1;
-    return 1;
+    // snapshot, dB for a T-in-dB one, a fraction for a photometric one. Its
+    // expansion carries the same scale per point, so the two forms stay equal.
+    if (isMeasuredCurve(op.type)) return _channelScale(op.quantity);
+    return _channelScale(op.type);
 }
 
 // Comparison residual for the linear-thickness rows (TT in nm, STR in N/m):

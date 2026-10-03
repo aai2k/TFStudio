@@ -12,7 +12,7 @@
  * belong to it.
  */
 import { makeMeasuredCurve, X_UNITS } from '../../../utils/io/spectrumTable.js';
-import { isMeasuredCurve } from '../../../utils/physics/optimizer.js';
+import { fractionFromLog, isMeasuredCurve } from '../../../utils/physics/optimizer.js';
 
 /** Fit blocks that belong to `listKey` and whose curve is not in that list. */
 export function orphanFitBlocksIn(design, listKey, belongs) {
@@ -25,14 +25,18 @@ export function orphanFitBlocksIn(design, listKey, belongs) {
     );
 }
 
-/** The curve a fit block was generated from, rebuilt from its snapshot. */
+/**
+ * The curve a fit block was generated from, rebuilt from its snapshot. A block
+ * fitted in dB gives back the transmittance curve its points stand for.
+ */
 export function curveFromFitBlock(block) {
+    const inDb = block.quantity === 'TDB';
     return makeMeasuredCurve({
         name: block.curveName || 'Measured curve',
         x: block.sampleLambdas,
         xUnit: X_UNITS.NM,
-        y: block.sampleTargets,
-        quantity: block.quantity || 'R',
+        y: inDb ? block.sampleTargets.map(value => fractionFromLog('dB', value)) : block.sampleTargets,
+        quantity: inDb ? 'T' : (block.quantity || 'R'),
         aoi: block.aoi ?? 0,
         pol: block.pol || 'avg',
         // Whatever the block states, which is a face for an ellipsometric block

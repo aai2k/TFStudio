@@ -2,7 +2,7 @@ import {
     isArgwave, isBlank, isConstraint, isDmfs, isInequality, isIntegral,
     isLinearThickness, isMath, isMathPairRef, isMathSingleRef, isMinmax,
     isRangeTarget, isStress, isTotalThickness, isPhase, isWrappedAngle,
-    isGroupDelayFlat, isFractionalUnit, isMeasuredCurve,
+    isGroupDelayFlat, isFractionalUnit, isMeasuredCurve, logUnit,
     _operandResidual,
 } from '../../../../../utils/physics/optimizer.js';
 
@@ -20,8 +20,10 @@ function phaseUnit(type) { return PHASE_UNITS[type] || ''; }
 const TYPE_COLORS = {
     T: [80, 150, 255], TS: [80, 150, 255], TP: [80, 150, 255], TAV: [80, 150, 255],
     TIW: [80, 150, 255], TMN: [80, 150, 255], TMX: [80, 150, 255], TGT: [80, 150, 255],
+    TDB: [80, 150, 255], TDBMN: [80, 150, 255], TDBMX: [80, 150, 255], ODMN: [80, 150, 255],
     R: [50, 200, 100], RS: [50, 200, 100], RP: [50, 200, 100], RAV: [50, 200, 100],
     RIW: [50, 200, 100], RMN: [50, 200, 100], RMX: [50, 200, 100], RGT: [50, 200, 100],
+    RDBMX: [50, 200, 100],
     A: [255, 130, 30], AS: [255, 130, 30], AP: [255, 130, 30], AAV: [255, 130, 30],
     AIW: [255, 130, 30], AMN: [255, 130, 30], AMX: [255, 130, 30], AGT: [255, 130, 30],
     TT: [180, 100, 255],
@@ -164,8 +166,8 @@ export function rowDisplayMeta(op, rawCur, mathPercent, bandLevel = null) {
     const isMth = isMath(op.type);
     const isFlat = isGroupDelayFlat(op.type);
     const isMeasured = isMeasuredCurve(op.type);
-    // A measured block scores in its channel's unit, degrees for Ψ/Δ and a
-    // fraction otherwise, which its type code does not name.
+    // A measured block scores in its channel's unit, degrees for Ψ/Δ, dB for T
+    // in dB and a fraction otherwise, which its type code does not name.
     const unitType = isMeasured ? (op.quantity || 'R') : op.type;
     const isPhs = isPhase(unitType);
     // Fraction-unit rows display value ×100 as a percent. Optical T/R/A carry a
@@ -191,6 +193,7 @@ export function rowDisplayMeta(op, rawCur, mathPercent, bandLevel = null) {
     const cur = isFlat && bandLevel != null ? bandLevel : value;
     return {
         isCon, isTT, isStr, isArg, isMth, isPhs, isMeasured,
+        logUnit: logUnit(unitType),
         phaseUnit: isPhs ? phaseUnit(unitType) : '',
         mthPct: mathPercent, useFraction, cur, tgt,
         rawResidual, isRampRow, isRange: isRangeType(op.type),
@@ -231,11 +234,15 @@ export function residualTooltip(meta, text = {}) {
 // How a row's value prints: its unit and how many decimal places carry
 // meaning. A math row is not here because it inherits the unit of the row it
 // references, so it has no fixed scale of its own.
+const VALUE_FORMATS = [
+    [meta => meta.logUnit, meta => ({ decimals: 3, unit: meta.logUnit })],
+    [meta => meta.isPhs, meta => ({ decimals: 3, unit: meta.phaseUnit })],
+    [meta => meta.isStr, () => ({ decimals: 2, unit: 'N/m' })],
+    [meta => meta.isCon || meta.isTT || meta.isArg, () => ({ decimals: 2, unit: 'nm' })],
+];
 function valueFormat(meta) {
-    if (meta.isPhs) return { decimals: 3, unit: meta.phaseUnit };
-    if (meta.isStr) return { decimals: 2, unit: 'N/m' };
-    if (meta.isCon || meta.isTT || meta.isArg) return { decimals: 2, unit: 'nm' };
-    return { decimals: 3, unit: '%' };
+    const hit = VALUE_FORMATS.find(([test]) => test(meta));
+    return hit ? hit[1](meta) : { decimals: 3, unit: '%' };
 }
 
 export function fmtCurrent(cur, meta) {
@@ -253,13 +260,21 @@ export function fmtResidual(value, meta) {
     return withUnit(sign + value.toFixed(decimals), unit);
 }
 
+function rampTargetText(op) {
+    const end = op.targetEnd != null ? op.targetEnd : op.target;
+    return `${(op.target * 100).toFixed(1)}→${(end * 100).toFixed(1)}`;
+}
+
+// How a row's target prints, first match wins; a fraction prints in percent.
+const TARGET_FORMATS = [
+    [meta => meta.isMth, (op, meta) => (meta.mthPct ? (op.target * 100).toFixed(2) : (op.target?.toPrecision?.(4) ?? '0'))],
+    [meta => meta.logUnit && !meta.isRampRow, (op, meta) => withUnit(op.target.toFixed(2), meta.logUnit)],
+    [meta => meta.isPhs, (op, meta) => withUnit(op.target.toFixed(2), meta.phaseUnit)],
+    [meta => meta.isCon || meta.isTT || meta.isStr || meta.isArg, op => op.target.toFixed(2)],
+    [meta => meta.isRampRow, rampTargetText],
+];
+
 export function fmtTargetDisplay(op, meta) {
-    if (meta.isMth) return meta.mthPct ? (op.target * 100).toFixed(2) : (op.target?.toPrecision?.(4) ?? '0');
-    if (meta.isPhs) return withUnit(op.target.toFixed(2), meta.phaseUnit);
-    if (meta.isCon || meta.isTT || meta.isStr || meta.isArg) return op.target.toFixed(2);
-    if (meta.isRampRow) {
-        const end = op.targetEnd != null ? op.targetEnd : op.target;
-        return `${(op.target * 100).toFixed(1)}→${(end * 100).toFixed(1)}`;
-    }
-    return (op.target * 100).toFixed(2);
+    const hit = TARGET_FORMATS.find(([test]) => test(meta));
+    return hit ? hit[1](op, meta) : (op.target * 100).toFixed(2);
 }

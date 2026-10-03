@@ -8,7 +8,8 @@ import { buildWizardBlock, wizardAppendRow, wizardGenerationRows } from './merit
 import { meritWizardSession } from './sessionState.js';
 import { WizardHeader } from './WizardHeader.js';
 import {
-    blockSummary, fieldDef, fieldRows, hasTargetMode, polIsFixed, wizardSummary,
+    blockSummary, fieldRows, fieldView, hasTargetMode, paramsWithChange, polIsFixed, wizardSummary,
+    writesPointsOnly,
 } from './wizardModel.js';
 
 const { createElement: h, useState, useEffect } = React;
@@ -86,12 +87,12 @@ function padRows(cells, perRow, used) {
 // One field of a preset row: a select, or a number with its unit.
 function fieldControl(ctx, key, width) {
     const { s, session, typeId, updateParam } = ctx;
-    const def = fieldDef(typeId, key);
-    if (!def) return null;
-    const value = session.params[key] ?? def.default;
-    if (def.kind === 'select') return select(s, value, v => updateParam(key, v), def.options, width || 'auto');
-    return numberInput(s, value, v => updateParam(key, v), width || 62,
-        { min: def.min, max: def.max, positive: def.positive, step: def.step ?? 1 });
+    const view = fieldView(typeId, key, session.params);
+    if (!view) return null;
+    const { def } = view;
+    if (def.kind === 'select') return select(s, view.value, v => updateParam(key, v), view.options, width || 'auto');
+    return numberInput(s, view.value, v => updateParam(key, v), width || 62,
+        { min: view.min, max: view.max, positive: def.positive, step: view.step });
 }
 
 function presetRow(ctx, row) {
@@ -110,8 +111,8 @@ function presetRow(ctx, row) {
         return [
             h('span', { key: keyL, style: s.label }, tw.pairs.statement + ':'),
             h('div', { key: keyC, style: s.group },
-                fieldControl(ctx, 'channel', 44), fieldControl(ctx, 'cmp', 44), fieldControl(ctx, 'valuePct', 52),
-                h('span', { style: s.unit }, '%')),
+                fieldControl(ctx, 'channel', 40), fieldControl(ctx, 'unit', 48),
+                fieldControl(ctx, 'cmp', 40), fieldControl(ctx, 'valuePct', 52)),
         ];
     }
     const key = row.keys[0];
@@ -147,11 +148,34 @@ function presetBox(ctx) {
     });
 }
 
+// The target-mode row. A statement that writes point rows whatever the mode,
+// T = a level in dB, shows only the step those points are written on.
+function modeCells(ctx) {
+    const { s, tw, session, setField, typeId } = ctx;
+    const stepInput = () => numberInput(s, session.stepNm, v => setField('stepNm', v), 48, { positive: true, step: 0.5 });
+    if (writesPointsOnly(typeId, session.params)) {
+        return [
+            h('span', { key: 'mode-l', style: s.label }, tw.stepNm + ':'),
+            h('span', { key: 'mode-c' }, stepInput()),
+        ];
+    }
+    if (!hasTargetMode(typeId)) return [h('span', { key: 'mode-l' }), h('span', { key: 'mode-c' })];
+    const discrete = session.targetMode === 'discrete';
+    return [
+        h('span', { key: 'mode-l', style: s.label }, tw.targetMode + ':'),
+        h('div', { key: 'mode-c', style: s.group },
+            select(s, session.targetMode, v => setField('targetMode', v), [
+                { value: 'continuous', label: tw.targetContinuous },
+                { value: 'discrete', label: tw.targetDiscrete },
+            ], 112),
+            discrete && h('span', { style: s.label }, tw.stepNm + ':'),
+            discrete && stepInput()),
+    ];
+}
+
 function angleBox(ctx) {
     const { s, tw, c, session, setField, typeId } = ctx;
     const showPol = !polIsFixed(typeId);
-    const showMode = hasTargetMode(typeId);
-    const discrete = session.targetMode === 'discrete';
     const cells = [
         h('span', { key: 'aoi-l', style: s.label }, tw.aoiRange + ':'),
         h('div', { key: 'aoi-c', style: s.group },
@@ -166,15 +190,7 @@ function angleBox(ctx) {
         h('span', { key: 'pol-c' }, showPol
             ? select(s, session.pol, v => setField('pol', v), OPERAND_POLS.map(p => ({ value: p, label: p })), 64)
             : null),
-        h('span', { key: 'mode-l', style: s.label }, showMode ? tw.targetMode + ':' : ''),
-        showMode ? h('div', { key: 'mode-c', style: s.group },
-            select(s, session.targetMode, v => setField('targetMode', v), [
-                { value: 'continuous', label: tw.targetContinuous },
-                { value: 'discrete', label: tw.targetDiscrete },
-            ], 112),
-            discrete && h('span', { style: s.label }, tw.stepNm + ':'),
-            discrete && numberInput(s, session.stepNm, v => setField('stepNm', v), 48, { positive: true, step: 0.5 }),
-        ) : h('span', { key: 'mode-c' }),
+        ...modeCells(ctx),
     ];
     return groupBox({ title: tw.angleBox, columns: '64px minmax(116px, 1fr)', minWidth: 204, c, rows: cells });
 }
@@ -247,7 +263,7 @@ export function DMFWizard({ design, onGenerate, operandCount, mf, omf, busy, c, 
     const [session, setField, patch] = useWindowSession(meritWizardSession, null);
     const [startRow, setStartRow] = useStartRow(design, operandCount);
     const typeId = FILTER_TYPES[session.typeId] ? session.typeId : FILTER_CATEGORIES[0].types[0];
-    const updateParam = (key, value) => setField('params', prev => ({ ...prev, [key]: value }));
+    const updateParam = (key, value) => setField('params', prev => paramsWithChange(typeId, prev, key, value));
     const ctx = { s: styles(c), tw, c, session, setField, patch, typeId, updateParam };
 
     const generate = (block) => {

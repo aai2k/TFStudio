@@ -12,12 +12,13 @@ import {
     isGroupDelay,
     isIntegral,
     isLinearThickness,
+    isLogPoint,
     isMinmax,
     isPhaseShift,
     isRangeTarget,
 } from '../operandModel.js';
 import { _jacRowsRangeTarget, _jacRowIntegral, _jacRowMeanOrSingle } from './bandRows.js';
-import { _jacRowConstraint, _jacRowMinmax } from './extremumRows.js';
+import { _jacRowConstraint, _jacRowLogPoint, _jacRowMinmax } from './extremumRows.js';
 import { _jacRowLinearThickness } from './linearRows.js';
 import { _jacRowEllipsometry, _jacRowPhase } from './phaseRows.js';
 
@@ -28,6 +29,7 @@ const ROW_BUILDERS = [
     [isLinearThickness, _jacRowLinearThickness],
     [isIntegral,      _jacRowIntegral],
     [isMinmax,        _jacRowMinmax],
+    [isLogPoint,      (op, i, jc) => _jacRowLogPoint(op, jc)],
     [isEllipsometry,  (op, i, jc) => _jacRowEllipsometry(op, jc)],
     [type => isPhaseShift(type) || isGroupDelay(type), _jacRowPhase],
 ];

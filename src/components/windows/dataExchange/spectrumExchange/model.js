@@ -6,7 +6,7 @@ import {
 } from '../../../../utils/io/spectrumTable.js';
 import { clampToCovered, designRangeCoverage } from '../../../../utils/materials/materialRange.js';
 import {
-    DEFAULT_CONSTRAINT_LAST_LAYER, isEllipsometricMeasuredCurve, makeConstraintOperand,
+    DEFAULT_CONSTRAINT_LAST_LAYER, isEllipsometricMeasuredCurve, logValue, makeConstraintOperand,
     makeMeasuredCurveOperand, resolveEvalMode,
 } from '../../../../utils/physics/optimizer.js';
 import { orphanFitBlocksIn, restoredFitCurvesIn } from '../fitTargetCurves.js';
@@ -27,6 +27,7 @@ export function defaultMeasuredFitOptions(curve) {
     const spacing = measuredCurveSpacing(curve) || 1;
     return {
         mode: 'measured',
+        scale: 'linear',
         rangeMin: data.x[0] ?? 400,
         rangeMax: data.x[data.x.length - 1] ?? 800,
         thinEvery: 2,
@@ -83,19 +84,47 @@ export function measuredFitSnapshot(design, curve, options = {}) {
     if (sampled.error || !sampled.lambdas.length) {
         return { operand: null, error: sampled.error || 'range', sampled, coverage };
     }
+    const points = fitsInDb(curve, config) ? pointsInDb(sampled) : { ...sampled, quantity: curve.quantity || 'R', dropped: 0 };
+    if (!points.lambdas.length) {
+        return { operand: null, error: 'dbEmpty', sampled, coverage, droppedNonPositive: points.dropped };
+    }
     const operand = makeMeasuredCurveOperand({
         curveId: curve.id || null,
         curveName: curve.name || 'Measured curve',
-        quantity: curve.quantity || 'R',
+        quantity: points.quantity,
         aoi: curve.aoi ?? 0,
         pol: curve.pol || 'avg',
         gridMode: config.mode,
         sourceSpacingNm: sampled.spacingNm,
-        sampleLambdas: sampled.lambdas,
-        sampleTargets: sampled.targets,
+        sampleLambdas: points.lambdas,
+        sampleTargets: points.targets,
         weight: Number.isFinite(config.weight) && config.weight >= 0 ? config.weight : 1,
     });
-    return { operand, sampled, coverage, error: null };
+    return { operand, sampled, coverage, error: null, droppedNonPositive: points.dropped };
+}
+
+/** Whether a curve can be fitted in dB: a transmittance curve. */
+export function canFitInDb(curve) {
+    return (curve?.quantity || 'R') === 'T';
+}
+
+function fitsInDb(curve, config) {
+    return config.scale === 'dB' && canFitInDb(curve);
+}
+
+// A T curve fitted in dB is stored on the T-in-dB channel with its points in
+// dB, where a 0.1 dB miss counts the same at −20 dB as at 0 dB. A point at or
+// below 0 % has no reading in dB and is left out; `dropped` counts them.
+function pointsInDb(sampled) {
+    const lambdas = [];
+    const targets = [];
+    sampled.lambdas.forEach((lambda, index) => {
+        const value = sampled.targets[index];
+        if (!(value > 0)) return;
+        lambdas.push(lambda);
+        targets.push(logValue('dB', value));
+    });
+    return { quantity: 'TDB', lambdas, targets, dropped: sampled.lambdas.length - lambdas.length };
 }
 
 // The blocks this window owns: a Ψ/Δ block belongs to Measured Ellipsometry.

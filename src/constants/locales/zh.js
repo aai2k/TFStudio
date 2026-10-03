@@ -1015,6 +1015,10 @@ export default {
     fitUniform: '均匀',
     fitUniformTip: '使用 PCHIP 重采样到均匀网格。它可修正不均匀采样，但不会增加信息。',
     fitEveryLabel: '每第 N 个',
+    fitScaleLabel: '拟合单位',
+    fitScaleLinearTip: '直接拟合透射率：1 % 的偏差在任何水平上权重相同。',
+    fitScaleDbTip: '以 dB 拟合透射率：0.1 dB 的偏差在 −20 dB 和 0 dB 处权重相同。适用于以 dB 给出的曲线，例如增益平坦目标。',
+    fitDbDropped: (n) => `${n} 个点不高于 0 %，在 dB 下没有值，已被舍弃。`,
     fitWeightLabel: '权重',
     fitOutputLabel: '评价函数',
     fitAppend: '追加',
@@ -1042,6 +1046,7 @@ export default {
       empty: '创建实测目标前请选择一条已导入曲线。',
       range: '请求范围与材料安全范围内没有剩余实测点。',
       step: '请输入大于零的波长步长。',
+      dbEmpty: '范围内没有高于 0 % 的实测点，因此没有任何点在 dB 下有值。',
     },
     importedTitle: '导入的曲线',
     orphanFits: (n) => `评价函数中有 ${n} 个拟合目标，其来源曲线不在本设计中。`,
@@ -1965,6 +1970,26 @@ export default {
         label: 'AMX: 波段内最坏情况最大 A（A ≤ 目标）',
         group: 'worst',
       },
+      TDB: {
+        label: 'TDB: 波长 λ 处的 T（dB）',
+        group: 'log',
+      },
+      TDBMN: {
+        label: 'TDBMN: 波段内最小 T（dB，T ≥ 目标，插入损耗）',
+        group: 'log',
+      },
+      TDBMX: {
+        label: 'TDBMX: 波段内最大 T（dB，T ≤ 目标，隔离度）',
+        group: 'log',
+      },
+      RDBMX: {
+        label: 'RDBMX: 波段内最大 R（dB，R ≤ 目标，回波损耗）',
+        group: 'log',
+      },
+      ODMN: {
+        label: 'ODMN: 波段内最小光密度（OD ≥ 目标，截止）',
+        group: 'log',
+      },
       PSI: {
         label: 'PSI: 波长 λ 处椭偏 Ψ（度）',
         group: 'phase',
@@ -2157,6 +2182,7 @@ export default {
       rangetarget: '光谱目标（连续，起点→终点）',
       integral: '加权积分',
       worst: '最坏情况（波段）',
+      log: '以 dB 或光密度计',
       phase: '相位 / 场（Ψ, Δ, GD, |E|²）',
       math: '数学（引用其他行）',
       argwave: '极值波长 (nm)',

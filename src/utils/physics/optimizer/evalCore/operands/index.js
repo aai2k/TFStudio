@@ -3,10 +3,10 @@
  * and the resolver that lets a math row reference other rows.
  */
 
-import { isConstraint, isDmfs, isBlank, isStress, isTotalThickness, isRangeTarget, isMeasuredCurve, isIntegral, isMinmax, isArgwave, isMath, isEllipsometry, isPhaseShift, isGroupDelay, isGroupDelayFlat, isEField, isEllipsometricMeasuredCurve, isKnownOperandType, measuredCurveChannel, argwaveOpticalChar, argwavePolCode, polFromType } from '../../operandModel.js';
+import { isConstraint, isDmfs, isBlank, isStress, isTotalThickness, isRangeTarget, isMeasuredCurve, isIntegral, isMinmax, isArgwave, isMath, isEllipsometry, isPhaseShift, isGroupDelay, isGroupDelayFlat, isEField, isEllipsometricMeasuredCurve, isKnownOperandType, isLogPoint, measuredCurveChannel, argwaveOpticalChar, argwavePolCode, polFromType } from '../../operandModel.js';
 import { charOf, operandSampleLambdas } from '../../sampling.js';
 import { computeMathValue } from '../mathOperands.js';
-import { _evalTotalThickness, _evalStressForce, _evalConstraint, _evalArgwave, _evalIntegral, _evalMinmax, _evalRangeTarget, _evalBandAvgOrSingle } from './basic.js';
+import { _evalTotalThickness, _evalStressForce, _evalConstraint, _evalArgwave, _evalIntegral, _evalMinmax, _evalLogPoint, _evalRangeTarget, _evalBandAvgOrSingle } from './basic.js';
 import { _evalMeasuredCurve } from './measured.js';
 import { _evalEllipsometry, resetEllipsometryCaches } from './ellipsometry.js';
 import { _evalPhaseDispersionPoint, _evalGroupDelayFlat, resetPhaseDispersionCache } from './phase.js';
@@ -77,6 +77,7 @@ const _EVAL_DISPATCH = [
     [isArgwave,        _evalArgwave],
     [isIntegral,       _evalIntegral],
     [isMinmax,         _evalMinmax],
+    [isLogPoint,       _evalLogPoint],
     [isRangeTarget,    _evalRangeTarget],
     [isMeasuredCurve,  _evalMeasuredCurve],
     [isEllipsometry,   _evalEllipsometry],
@@ -132,7 +133,7 @@ export function operandSpectrumReads(op) {
         if (!channel || isEllipsometricMeasuredCurve(op)) return null;
         return {
             aoi: op.aoi ?? 0, pol: op.pol || 'avg',
-            char: channel,
+            char: charOf(channel),
             lambdas: _snapshotLambdas(op),
         };
     }
