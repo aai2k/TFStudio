@@ -45,10 +45,12 @@ function isRepeatedX(values, primaryX) {
  */
 const X_AXIS_LABEL = /wavelength|lambda|λ|\benergy\b|wavenumber/i;
 
+// A header can carry more names than the rows have columns, and a name past
+// the last column has no numbers to be an axis of.
 function primaryXIndex(columnNames, allValues = []) {
     if (isMonotonic(allValues[0] || [])) return 0;
     const named = (columnNames || []).findIndex(name => X_AXIS_LABEL.test(name || ''));
-    return named > 0 ? named : 0;
+    return named > 0 && named < allValues.length ? named : 0;
 }
 
 /**

@@ -383,6 +383,15 @@ ok('dsc → tableToCsv header', csvD.split('\r\n')[0] === 'Wavelength (nm),T %,R
     ok('row tag y value', approx(t.columns[1].values[0], 0.237728));
 }
 
+// A labelled file whose header names the label column too, with a
+// wavelength-like name last: that name points past the last column read, and
+// is no wavelength axis.
+{
+    let t = null;
+    try { t = parseSpectrumTable('case,n,at_lambda_nm\nA run,500,710\nB run,500,710\n'); } catch (_) { /* reported below */ }
+    ok('a wavelength name past the last column does not stop the import', t?.ok === true && t.nRows === 2);
+}
+
 // A tagged file whose header names the tag column: the names still line up.
 {
     const text = [
