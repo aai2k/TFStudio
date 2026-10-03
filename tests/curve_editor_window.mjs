@@ -261,4 +261,20 @@ const draw = props => renderToStaticMarkup(withDesign(React.createElement(CurveE
     assert.ok(ellipsometry.includes(`>${ce.edit}<`), 'and Edit on a curve card');
 }
 
+// ── A curve typed in dB says so on its card ──────────────────────────────────
+{
+    const sx = t.spectrumExchange;
+    const card = curve => renderToStaticMarkup(withDesign(
+        React.createElement(SpectrumExchange, { c, t }), { ...design, measuredCurves: [curve] }));
+    const gain = { ...makeMeasuredCurve({ name: 'Gain', x: [1530, 1540], y: [0.5, 0.6], quantity: 'T' }), id: 'g', yTypedUnit: 'dB' };
+    const typed = card(gain);
+    assert.ok(typed.includes(`>${sx.typedIn('dB')}<`), 'the card names the unit the curve was typed in');
+    assert.ok(!typed.includes(`>${sx.percent}<`) && !typed.includes(`>${sx.fraction}<`),
+        'and offers no Percent or Fraction correction, which would rescale it wrongly');
+    const scan = { ...makeMeasuredCurve({ name: 'Scan', x: [400, 500], y: [10, 20], quantity: 'R', isPercent: true }), id: 's' };
+    const read = card(scan);
+    assert.ok(read.includes(`>${sx.percent}<`) && read.includes(`>${sx.fraction}<`), 'a curve read from a file keeps it');
+    assert.ok(!read.includes(sx.typedIn('dB')));
+}
+
 console.log('PASS: curve_editor_window');

@@ -77,6 +77,28 @@ const FROM_STORED = {
     gain: identity,
 };
 
+// The units a curve keeps a note of after Apply. The design stores T, R and A
+// as a fraction, and a fraction converted from dB or OD carries no trace of
+// it, so the curve holds the unit as `yTypedUnit` and Edit opens it in that
+// unit again. Percent has `yWasPercent`, which the importers set too.
+const REMEMBERED_UNITS = ['dB', 'OD'];
+
+/** What a curve typed in `unit` carries to remember it: { yTypedUnit }, or nothing. */
+export function typedUnitField(unit) {
+    return REMEMBERED_UNITS.includes(unit) ? { yTypedUnit: unit } : {};
+}
+
+/**
+ * The unit a curve on the design was typed in, dB or OD, while its quantity
+ * still takes that unit; null for a curve typed in % or 0-1 or read by an
+ * importer. A T curve typed in OD and retyped R on its card has no density to
+ * open in, and opens as a fraction.
+ */
+export function curveTypedUnit(curve) {
+    const unit = curve?.yTypedUnit;
+    return REMEMBERED_UNITS.includes(unit) && unitsFor(curve.quantity).includes(unit) ? unit : null;
+}
+
 /** A typed value as the design stores it. */
 export function toStored(value, unit) {
     return Number.isFinite(value) ? (TO_STORED[unit] || identity)(value) : NaN;

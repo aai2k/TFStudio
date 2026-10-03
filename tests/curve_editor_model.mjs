@@ -176,7 +176,8 @@ const table = (rows, columns = [{ quantity: 'T', unit: '%', name: '' }], kind = 
         name: 'filter', x: odParsed.x, xUnit: odParsed.xUnit, y: odParsed.columns[0].values,
         quantity: 'T', isPercent: false, isAbsorbance: true, source: 'filter.txt', aoi: 0, pol: 'avg',
     });
-    assert.deepEqual(strip(curvesFromTable(od)[0]), strip(odImported));
+    assert.deepEqual(strip(curvesFromTable(od)[0]), { ...strip(odImported), yTypedUnit: 'OD' },
+        'the same curve, which also remembers the density it was entered in');
 
     assert.deepEqual(tableFromText('no numbers here', emptyTable('spectrum')), { error: 'parse' });
 }
@@ -296,6 +297,52 @@ const table = (rows, columns = [{ quantity: 'T', unit: '%', name: '' }], kind = 
     const moved = editedCurve(stored, setCells(opened, [{ rowIdx: 0, colKey: 'v0', value: 20 }]));
     assert.equal(moved.y[0], 0.2);
     assert.equal(moved.name, 'Scan');
+}
+
+// ── A curve typed in dB or OD remembers it ───────────────────────────────────
+{
+    const typed = [[1530, -2.8], [1540, -0.003], [1550, -1.2]];
+    const [gain] = curvesFromTable(table(typed, [{ quantity: 'T', unit: 'dB', name: 'Gain' }]));
+    assert.equal(gain.yTypedUnit, 'dB', 'the curve keeps the unit it was typed in');
+    assert.ok(close(gain.y[0], 10 ** -0.28), 'and stores a fraction, as every curve does');
+    const opened = tableFromCurve(gain, 'spectrum');
+    assert.equal(opened.columns[0].unit, 'dB', 'Edit opens it in dB');
+    assert.deepEqual(opened.rows, typed, 'with the values as typed, not their binary rounding');
+    const back = editedCurve(gain, opened);
+    assert.deepEqual(back.y, gain.y, 'Apply with no edit stores the same fractions');
+    assert.equal(back.yTypedUnit, 'dB', 'and keeps the unit');
+    const inPercent = editedCurve(gain, { ...opened, columns: [{ ...opened.columns[0], unit: '%' }], rows: [[1530, 50]] });
+    assert.equal(inPercent.yTypedUnit, undefined, 'a curve retyped in % forgets dB');
+    assert.equal(inPercent.yWasPercent, true);
+
+    const [density] = curvesFromTable(table([[1064, 3], [1100, 0.5]], [{ quantity: 'T', unit: 'OD', name: '' }]));
+    assert.equal(density.yTypedUnit, 'OD');
+    assert.deepEqual(tableFromCurve(density, 'spectrum').rows, [[1064, 3], [1100, 0.5]], 'OD opens in OD');
+    assert.equal(tableFromCurve({ ...density, quantity: 'R' }, 'spectrum').columns[0].unit, 'fraction',
+        'an OD curve retyped R on its card has no density to open in');
+
+    assert.equal('yTypedUnit' in curvesFromTable(table([[400, 50]]))[0], false, 'percent has yWasPercent instead');
+    const psi = table([[500, 30]], [{ quantity: 'PSI', unit: 'deg', name: '' }], 'ellipsometry');
+    assert.equal('yTypedUnit' in curvesFromTable(psi)[0], false, 'Ψ and Δ are stored as typed');
+
+    // A design file and the app session are JSON, the web demo's store a
+    // structured clone: the unit comes back from both.
+    const saved = JSON.parse(JSON.stringify({ measuredCurves: [gain] })).measuredCurves[0];
+    assert.equal(tableFromCurve(saved, 'spectrum').columns[0].unit, 'dB');
+    assert.equal(structuredClone(gain).yTypedUnit, 'dB');
+
+    // Fit… reads the stored fraction, so a block is the same with or without it.
+    const design = {
+        incidentMedium: 'Air', exitMedium: 'Air', substrate: { material: 'BK7', thickness: 1 },
+        frontLayers: [{ id: 'l1', material: 'TiO2', thickness: 100 }], backLayers: [],
+    };
+    const { yTypedUnit: _unit, ...unmarked } = gain;
+    for (const scale of ['linear', 'dB']) {
+        const options = { clipToCoverage: false, scale };
+        const marked = measuredFitSnapshot(design, gain, options).operand;
+        const plain = measuredFitSnapshot(design, unmarked, options).operand;
+        assert.deepEqual([marked.quantity, marked.sampleTargets], [plain.quantity, plain.sampleTargets], `fit in ${scale}`);
+    }
 }
 
 // ── Resampling ───────────────────────────────────────────────────────────────

@@ -993,6 +993,7 @@ export default {
     polarizationLabel: '偏振',
     polAverage: '平均',
     sourceScaleLabel: '源数据刻度',
+    typedIn: (unit) => `以 ${unit} 输入`,
     trimLabel: '裁剪范围',
     visibleLabel: '可见',
     colorLabel: '曲线颜色',

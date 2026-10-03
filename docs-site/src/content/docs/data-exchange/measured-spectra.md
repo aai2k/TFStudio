@@ -78,6 +78,8 @@ removing it.
 
 **Apply** sorts the rows by wavelength and adds the new curves, or changes the edited one, and from then on they are curves like any imported one. A new curve gets its angle and polarization on its card. If fit targets were made from the edited curve, Apply offers to rebuild them from the new points, keeping their grid, range, weight and scale.
 
+A curve typed in dB or optical density keeps that unit. **Edit** opens it in dB or OD again, and its card shows **Typed in dB** or **Typed in OD** under **Source scale** in place of the Percent and Fraction choice, which would rescale such a curve wrongly.
+
 ## Fitting the design to a measurement
 
 **Fit…** on a curve card turns that measurement into a merit-function target,

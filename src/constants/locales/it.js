@@ -994,6 +994,7 @@ export default {
     polarizationLabel: 'Polarizzazione',
     polAverage: 'Media',
     sourceScaleLabel: 'Scala della sorgente',
+    typedIn: (unit) => `Digitata in ${unit}`,
     trimLabel: 'Intervallo di taglio',
     visibleLabel: 'Visibile',
     colorLabel: 'Colore della curva',

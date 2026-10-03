@@ -895,6 +895,7 @@ export default {
     polarizationLabel: 'Поляризация',
     polAverage: 'Средняя',
     sourceScaleLabel: 'Исходная шкала',
+    typedIn: (unit) => `Введено в ${unit}`,
     trimLabel: 'Обрезка',
     visibleLabel: 'Показывать',
     colorLabel: 'Цвет кривой',

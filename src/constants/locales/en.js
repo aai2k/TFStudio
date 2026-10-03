@@ -903,6 +903,7 @@ export default {
     polarizationLabel: 'Polarization',
     polAverage: 'Average',
     sourceScaleLabel: 'Source scale',
+    typedIn: (unit) => `Typed in ${unit}`,
     trimLabel: 'Trim range',
     visibleLabel: 'Visible',
     colorLabel: 'Curve color',

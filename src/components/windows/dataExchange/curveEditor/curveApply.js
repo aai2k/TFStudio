@@ -11,7 +11,7 @@
  */
 import { makeMeasuredCurve, xToNm } from '../../../../utils/io/spectrumTable.js';
 import { columnSeries, isValueTable, sortedRows } from './curveTable.js';
-import { toStored } from './units.js';
+import { toStored, typedUnitField } from './units.js';
 
 const QUANTITY_SYMBOL = { T: 'T', R: 'R', A: 'A', PSI: 'Ψ', DEL: 'Δ' };
 
@@ -46,15 +46,17 @@ function curveInput(table, index) {
  * or, unnamed, after its quantity. Conditions are left at the importers'
  * defaults, normal incidence and average polarization, and are set on the
  * curve's card. A table read from a file names the file as the curves' source.
+ * A column in dB or OD is remembered on its curve (units.js).
  */
 export function curvesFromTable(table) {
     return table.columns.flatMap((column, index) => {
         const input = curveInput(table, index);
         if (!input.x.length) return [];
-        return [makeMeasuredCurve({
+        const curve = makeMeasuredCurve({
             ...input, name: column.name.trim() || QUANTITY_SYMBOL[column.quantity],
             source: table.source || 'typed', aoi: 0, pol: 'avg',
-        })];
+        });
+        return [{ ...curve, ...typedUnitField(column.unit) }];
     });
 }
 
@@ -68,15 +70,17 @@ function keptTrims(curve, x) {
 }
 
 /**
- * The curve with the table's points in place of its own. Everything else it
- * carries, its id, name, colour, conditions and trim, stays.
+ * The curve with the table's points in place of its own, and the unit they
+ * were typed in. Everything else it carries, its id, name, colour, conditions
+ * and trim, stays.
  */
 export function editedCurve(curve, table) {
     const built = makeMeasuredCurve({ ...curveInput(table, 0), quantity: curve.quantity });
-    const { trimMin: _min, trimMax: _max, ...rest } = curve;
+    const { trimMin: _min, trimMax: _max, yTypedUnit: _unit, ...rest } = curve;
     return {
         ...rest,
         x: built.x, y: built.y, xUnit: built.xUnit, yWasPercent: built.yWasPercent,
+        ...typedUnitField(table.columns[0].unit),
         ...keptTrims(curve, built.x),
     };
 }

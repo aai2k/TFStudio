@@ -20,7 +20,7 @@
  */
 import { X_UNITS } from '../../../../utils/io/spectrumTable.js';
 import { createGridModel } from '../../../ui/grid/gridModel.js';
-import { KIND_QUANTITIES, fromStored, unitForQuantity, unitsFor } from './units.js';
+import { KIND_QUANTITIES, curveTypedUnit, fromStored, unitForQuantity, unitsFor } from './units.js';
 
 // The rows a new table opens with, enough to type a short curve into without
 // first adding any.
@@ -86,22 +86,33 @@ export function emptyTable(kind) {
     return { ...table, rows: Array.from({ length: NEW_TABLE_ROWS }, () => emptyRow(table)) };
 }
 
-// A stored value in a unit that rescales it, cut to fifteen significant digits
-// so the binary rounding of the rescale does not show: a value read from a file
-// as 12.3 % is stored as 12.3/100 and comes back as 12.3.
+// A stored value in a unit that converts it, with the binary rounding of the
+// round trip taken off, so a value read as 12.3 % or typed as -2.8 dB comes
+// back as 12.3 or -2.8. Percent is a product and its error is relative,
+// hidden by fifteen significant digits. dB and OD are logarithms and their
+// error is absolute, under 1e-14 dB anywhere from 0 to -60 dB, so fifteen
+// significant digits of a small value such as -0.003 dB still show it;
+// twelve decimals hide it, and no reading carries more.
+const TIDY = {
+    '%': shown => Number(shown.toPrecision(15)),
+    dB: shown => Number(shown.toFixed(12)),
+    OD: shown => Number(shown.toFixed(12)),
+};
+
 function shownValue(value, unit) {
     const shown = fromStored(value, unit);
-    return unit === '%' && Number.isFinite(shown) ? Number(shown.toPrecision(15)) : shown;
+    return TIDY[unit] && Number.isFinite(shown) ? TIDY[unit](shown) : shown;
 }
 
 /**
  * The table an existing curve opens as: its wavelengths in nm, which is how
- * they are stored, and its values in the scale it was read in, percent for a
- * curve whose file held percent. Opening and applying with no edit gives the
- * curve back as it was.
+ * they are stored, and its values in the unit they were read or typed in:
+ * percent for a curve whose file held percent, dB or OD for a curve typed in
+ * one of those. Opening and applying with no edit gives the curve back as it
+ * was.
  */
 export function tableFromCurve(curve, kind) {
-    const unit = kind === 'ellipsometry' ? 'deg' : (curve.yWasPercent ? '%' : 'fraction');
+    const unit = kind === 'ellipsometry' ? 'deg' : curveTypedUnit(curve) || (curve.yWasPercent ? '%' : 'fraction');
     const column = { quantity: curve.quantity, unit, name: curve.name || '' };
     const count = Math.min(curve.x?.length || 0, curve.y?.length || 0);
     const rows = [];
