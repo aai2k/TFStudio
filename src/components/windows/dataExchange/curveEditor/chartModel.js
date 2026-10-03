@@ -137,14 +137,14 @@ export function draggedCell(opId) {
 }
 
 /**
- * A dragged value rounded to a ten-thousandth of the span its column covers:
- * finer than a pointer can place it, and coarse enough that the cell does not
- * fill with digits the drag never chose.
+ * A dragged value rounded to a thousandth of the span its column covers, about
+ * the pixel a pointer places it on in a plot a few hundred pixels tall, so the
+ * cell does not fill with digits the drag never chose.
  */
 export function roundDragged(value, values) {
     const finite = values.filter(Number.isFinite);
     const span = finite.length ? Math.max(...finite) - Math.min(...finite) : 0;
     const scale = span > 0 ? span : Math.max(Math.abs(value), 1);
-    const step = 10 ** (Math.floor(Math.log10(scale)) - 4);
+    const step = 10 ** (Math.floor(Math.log10(scale)) - 3);
     return tidy(Math.round(value / step) * step);
 }

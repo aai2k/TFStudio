@@ -387,7 +387,8 @@ const design = makeSampleDesign();
     assert.deepEqual(geometry.map(item => [item.opId, item.x0, item.y0, item.yAxisIndex]),
         [['0:v0', 500, 30, 0], ['1:v0', 400, 20, 0], ['0:v1', 500, 100, 1]], 'Δ is dragged on its own axis');
     assert.deepEqual(draggedCell('12:v1'), { rowIdx: 12, colKey: 'v1' });
-    assert.equal(roundDragged(45.123456789, [40, 60]), 45.123, 'kept to a ten-thousandth of the span');
+    assert.equal(roundDragged(45.123456789, [40, 60]), 45.12, 'kept to a thousandth of the span');
+    assert.equal(roundDragged(20.614389, [19.6, 22.4]), 20.614, 'a gain dragged over a 2.8 dB span keeps three decimals');
 }
 
 // ── An edit with merit targets, applied through the window's host ────────────
