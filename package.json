@@ -54,13 +54,13 @@
     "decimal.js": "^10.6.0",
     "echarts": "^6.1.0",
     "echarts-gl": "^2.1.0",
-    "electron": "^44.3.0",
+    "electron": "^44.5.1",
     "electron-builder": "^26.15.3",
     "esbuild": "^0.28.2",
-    "katex": "^0.18.7",
+    "katex": "^0.18.9",
     "react": "^18.2.0",
     "react-dom": "^18.2.0",
-    "sharp": "^0.35.4"
+    "sharp": "^0.35.5"
   },
   "dependencies": {
     "js-yaml": "^4.3.2",
