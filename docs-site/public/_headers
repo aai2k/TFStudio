@@ -10,3 +10,8 @@ https://:project.pages.dev/*
 
 https://:branch.:project.pages.dev/*
   X-Robots-Tag: noindex
+
+# Astro puts a content hash in every file name under /_astro/, so a changed file
+# always arrives under a new URL and the old one can be cached for good.
+/_astro/*
+  Cache-Control: public, max-age=31536000, immutable
