@@ -23,6 +23,15 @@ export function wizardCurveOptions(design, quantities) {
 }
 
 /**
+ * The curve a curve field holds among `curves`: the one picked, or, while none
+ * is, the only curve there is to pick, so a curve made for the job is taken
+ * without choosing it from a list of one. Null when there is a choice to make.
+ */
+export function heldCurve(curves, curveId) {
+    return curves.find(curve => curve.id === curveId) || (curves.length === 1 ? curves[0] : null);
+}
+
+/**
  * A gain read from text, as { name, x (nm), y (dB) }, or null when the text
  * holds no table. The first value column is taken as gain in dB, as written.
  */
@@ -61,13 +70,13 @@ function sameCurve(a, b) {
     return sameConditions(a, b) && samePoints(a, b);
 }
 
-// The curve a type's curve field holds: 'noCurves' when the design has none it
-// could take, 'noCurve' when one is there to pick but none is picked.
+// The curve a type's curve field holds (heldCurve): 'noCurves' when the design
+// has none it could take, 'noCurve' when there are several and none is picked.
 function pickedCurve(design, typeId, curveId) {
     const { quantities } = FILTER_TYPES[typeId].fields.find(field => field.kind === 'curve');
     const curves = wizardCurveOptions(design, quantities);
     if (!curves.length) return { error: 'noCurves' };
-    const curve = curves.find(item => item.id === curveId);
+    const curve = heldCurve(curves, curveId);
     return curve ? { curve } : { error: 'noCurve' };
 }
 

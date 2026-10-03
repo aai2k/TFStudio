@@ -130,12 +130,18 @@ const flatteningName = name => `${name} flattening target`;
     assert.deepEqual(fitRest, expectedRest, 'Curve writes the block Fit… writes');
 
     // A design with no curve the type can take says so instead of asking for a
-    // pick from an empty list; one with a curve asks for the pick.
+    // pick from an empty list. The only curve there is is taken without a pick;
+    // with two, the wizard asks which.
     assert.equal(curveWizardRows({ typeId: 'CURVE_TARGET', design, params: {} }).error, 'noCurves');
-    assert.equal(curveWizardRows({ typeId: 'CURVE_TARGET', design: withCurve, params: {} }).error, 'noCurve');
+    assert.equal(curveWizardRows({ typeId: 'CURVE_TARGET', design: withCurve, params: {} }).rows[0].curveId, curve.id,
+        'the one curve on the design is taken without a pick');
+    const twoCurves = { ...design, measuredCurves: [curve, { ...curve, id: 'second', name: 'Second' }] };
+    assert.equal(curveWizardRows({ typeId: 'CURVE_TARGET', design: twoCurves, params: {} }).error, 'noCurve');
+    assert.equal(curveWizardRows({ typeId: 'CURVE_TARGET', design: twoCurves, params: { curveId: 'second' } }).rows[0].curveId,
+        'second', 'a pick among several is kept');
     assert.equal(curveWizardRows({ typeId: 'GAIN_FLATTENING', design, params: { input: 'gain' } }).error, 'noGain');
     assert.equal(curveWizardRows({ typeId: 'GAIN_FLATTENING', design, params: { input: 'target' } }).error, 'noCurves');
-    assert.equal(curveWizardRows({ typeId: 'GAIN_FLATTENING', design: withCurve, params: { input: 'target' } }).error, 'noCurve');
+    assert.equal(curveWizardRows({ typeId: 'GAIN_FLATTENING', design: twoCurves, params: { input: 'target' } }).error, 'noCurve');
     const reflectanceOnly = { ...design, measuredCurves: [{ ...curve, id: 'r1', quantity: 'R' }] };
     assert.equal(curveWizardRows({ typeId: 'GAIN_FLATTENING', design: reflectanceOnly, params: { input: 'target' } }).error,
         'noCurves', 'a target loss curve is a T curve, so an R curve does not count');

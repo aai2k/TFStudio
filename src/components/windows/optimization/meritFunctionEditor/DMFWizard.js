@@ -8,7 +8,7 @@ import { useWindowSession } from '../../windowSession.js';
 import { CurveEditor } from '../../dataExchange/curveEditor/CurveEditor.js';
 import { pointsFromTable } from '../../dataExchange/curveEditor/curveApply.js';
 import { tableFromPoints } from '../../dataExchange/curveEditor/curveTable.js';
-import { curveWizardRows, gainCurveFromText, wizardCurveOptions } from './curveWizardModel.js';
+import { curveWizardRows, gainCurveFromText, heldCurve, wizardCurveOptions } from './curveWizardModel.js';
 import { buildWizardResult, wizardAppendRow, wizardGenerationRows } from './meritOperandModel.js';
 import { meritWizardSession } from './sessionState.js';
 import { WizardHeader } from './WizardHeader.js';
@@ -97,12 +97,12 @@ function padRows(cells, perRow, used) {
 function curveControl(ctx, key, view) {
     const { s, tw, design, updateParam } = ctx;
     const curves = wizardCurveOptions(design, view.def.quantities);
-    const known = curves.some(curve => curve.id === view.value);
+    const held = heldCurve(curves, view.value);
     const options = [
         { value: '', label: tw.pickCurve },
         ...curves.map(curve => ({ value: curve.id, label: `${curve.name} (${curve.quantity})` })),
     ];
-    return select(s, known ? view.value : '', v => updateParam(key, v || null), options, '100%');
+    return select(s, held ? held.id : '', v => updateParam(key, v || null), options, '100%');
 }
 
 function smallButton(c, label, onClick) {
