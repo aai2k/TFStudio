@@ -38,7 +38,9 @@ export function TblBtn({ label, onClick, disabled, c, accent, title }) {
  * its own, which is taller than a row. Left alone it stretches the row past
  * `ROW_H`, and since a row is placed from its index the whole table then drifts
  * out of step with its scrollbar. The minimum is cleared and the height given
- * outright.
+ * outright. Its text also wraps by default, and a long choice in a narrow
+ * column, a curve block's name, would spill over the rows below; it is kept to
+ * one line and cut short.
  */
 export function CellSelect({ value, onChange, title, color, children }) {
     return h('select', {
@@ -47,6 +49,7 @@ export function CellSelect({ value, onChange, title, color, children }) {
             width: '100%', background: 'transparent', color, border: 'none',
             fontSize: 11, padding: '1px 2px', fontFamily: 'inherit', outline: 'none', cursor: 'pointer',
             height: ROW_H - 2, minHeight: 0, boxSizing: 'border-box',
+            whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
         },
     }, children);
 }
