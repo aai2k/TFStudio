@@ -87,7 +87,8 @@ const pick = handler => event => {
 function headStyle(c, bottom) {
     return {
         background: c.panel, color: c.textDim, padding: PAD, fontSize: 10.5, fontWeight: 600,
-        textAlign: 'left', whiteSpace: 'nowrap', overflow: 'hidden', cursor: 'pointer', userSelect: 'none',
+        textAlign: 'left', verticalAlign: 'middle', whiteSpace: 'nowrap', overflow: 'hidden',
+        cursor: 'pointer', userSelect: 'none',
         borderBottom: bottom ? `1px solid ${c.border}` : 'none',
     };
 }
@@ -122,7 +123,7 @@ function xHead(view) {
         options: X_UNIT_IDS.map(id => ({ id, label: labels.xUnit(id) })),
         onChange: unit => editor.edit(current => setXUnit(current, unit)),
     });
-    return columnCell(view, X_KEY, headStyle(c, view.bottom), line([
+    return columnCell(view, X_KEY, headStyle(c, true), line([
         h('span', { style: { color: c.text, fontSize: 12 } }, labels.xSymbol),
         controls([unitSelect]),
     ]));
@@ -163,7 +164,7 @@ function valueHead(view, column, index) {
     const dot = h('span', {
         style: { width: DOT, height: DOT, borderRadius: '50%', backgroundColor: colors[index], flexShrink: 0 },
     });
-    return columnCell(view, valueKey(index), headStyle(c, view.bottom), line([
+    return columnCell(view, valueKey(index), headStyle(c, true), line([
         dot,
         valueSelects(view, column, index),
         removable(editor.table) && removeButton(editor, c, ce, index),
@@ -172,20 +173,24 @@ function valueHead(view, column, index) {
 
 function addHead(view) {
     const { editor, c, ce } = view;
-    return h('th', { key: 'add', rowSpan: view.rowSpan, style: { ...headStyle(c, true), cursor: 'default' } },
+    return h('th', { key: 'add', style: { ...headStyle(c, true), cursor: 'default' } },
         h(ActionButton, { c, label: ce.addColumn, title: ce.addColumnTip, onClick: () => editor.edit(addColumn) }));
 }
 
-// The row of names under a new curve's columns; the wavelength has none.
+// The row of names over a new curve's columns, above the row of quantities
+// and units, so every control a column has sits in the row next to its values.
+// The row number, the wavelength and + Column have no name.
 function nameRow(view) {
     const { editor, labels, c, ce } = view;
-    const style = { ...headStyle(c, true), padding: `0 ${PAD}px ${PAD}px` };
+    const style = { ...headStyle(c, false), padding: `${PAD}px ${PAD}px 0` };
     return h('tr', null,
+        h('th', { key: 'row', style: { ...style, cursor: 'default' } }),
         columnCell(view, X_KEY, style, null),
         editor.table.columns.map((column, index) => columnCell(view, valueKey(index), style, h(NameField, {
             c, value: column.name, placeholder: labels.quantity(column), title: ce.columnName,
             onCommit: name => editor.edit(current => setColumn(current, index, { name })),
-        }))));
+        }))),
+        !editor.table.fixed && h('th', { key: 'add', style: { ...style, cursor: 'default' } }));
 }
 
 /**
@@ -198,16 +203,15 @@ function nameRow(view) {
 export function TableHead({ editor, labels, c, ce, headRef }) {
     const { table } = editor;
     const named = !table.fixed && !isValueTable(table.kind);
-    const rowSpan = named ? 2 : 1;
-    const view = { editor, labels, c, ce, rowSpan, bottom: !named, colors: columnColors(table.columns) };
+    const view = { editor, labels, c, ce, colors: columnColors(table.columns) };
     return h('thead', { ref: headRef, style: { position: 'sticky', top: 0, zIndex: 1 } },
+        named && nameRow(view),
         h('tr', null,
             h('th', {
-                rowSpan, onMouseDown: pick(editor.actions.selectAll),
+                onMouseDown: pick(editor.actions.selectAll),
                 style: { ...headStyle(c, true), textAlign: 'right', padding: '0 6px' },
             }, '#'),
             xHead(view),
             table.columns.map((column, index) => valueHead(view, column, index)),
-            !table.fixed && addHead(view)),
-        named && nameRow(view));
+            !table.fixed && addHead(view)));
 }

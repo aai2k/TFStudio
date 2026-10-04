@@ -136,8 +136,17 @@ const draw = props => renderToStaticMarkup(withDesign(React.createElement(CurveE
     const all = elements(TableHead({ editor, labels: editorLabels(t, table), c, ce, headRef: null }));
     const heads = all.filter(node => node.type === 'th' && node.props.onMouseDown);
     heads.forEach(th => th.props.onMouseDown(press()));
-    assert.deepEqual(picked, ['all', 'x', 'v0', 'v1', 'x', 'v0', 'v1'],
-        'the # heading selects every cell; a column heading and the name under it, the column');
+    assert.deepEqual(picked, ['x', 'v0', 'v1', 'all', 'x', 'v0', 'v1'],
+        'a column\'s name and the heading under it select the column; the # heading selects every cell');
+
+    // The names sit in a row above the quantities and units, and every heading
+    // takes one row, so #, λ and + Column line up with the selects.
+    const rows = all.filter(node => node.type === 'tr');
+    assert.equal(rows.length, 2);
+    const inRow = row => elements(row.props.children);
+    assert.ok(inRow(rows[0]).some(node => node.props?.title === ce.columnName), 'the names are in the first row');
+    assert.ok(inRow(rows[1]).some(node => node.type === 'th' && node.props.children === '#'), '# is in the row of selects');
+    assert.ok(!all.some(node => node.type === 'th' && node.props.rowSpan > 1), 'no heading spans two rows');
     const kept = all.filter(node => node.type !== 'th' && node.props.onMouseDown).map(node => {
         const event = press();
         node.props.onMouseDown(event);
