@@ -42,4 +42,16 @@ const switchAt = unit.indexOf(t.liveUpdate.label);
 assert.ok(mfAt > 0 && iterAt > mfAt && switchAt > iterAt,
     'MF, then the iteration count, then the switch, all inside the one unit');
 
+// The end-of-run pill ("no further improvement") is written in the theme's own
+// text colour, so it reads on a light theme as on a dark one; a fixed pale tan
+// vanished on light themes.
+for (const theme of [{ text: '#1f2329', textDim: '#6b7280' }, { text: '#e6e7e9', textDim: '#9aa0a6' }]) {
+    const c = { ...makeTheme(), ...theme };
+    const pill = renderToStaticMarkup(withDesign(React.createElement(ControlBar, { ...props, c })));
+    const at = pill.indexOf(`>${t.refinement.stalled}<`);
+    assert.ok(at > 0, 'the stalled pill is drawn');
+    const style = pill.slice(pill.lastIndexOf('<span', at), at);
+    assert.match(style, new RegExp(`color:${theme.text}`, 'i'), `the pill text is the theme text ${theme.text}`);
+}
+
 console.log('refinement_control_bar_layout: passed');

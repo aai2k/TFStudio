@@ -125,8 +125,8 @@ function runReadout({ running, iter, mf, mfBest, mfInitial, restartIdx, method, 
     const reasonPillStyle = stopReason === 'noOperands' || stopReason?.startsWith('invalidOperand:')
         ? { ...WARN_BADGE_STYLE, marginLeft: 8, cursor: 'help' }
         : { fontSize: 10, marginLeft: 8, padding: '1px 7px', borderRadius: 9, cursor: 'help',
-            background: reason.good ? (c.success + '33') : '#8d6e6344', color: reason.good ? c.success : '#d7c4a8',
-            border: `1px solid ${reason.good ? (c.success + '66') : '#8d6e6388'}` };
+            background: reason.good ? (c.success + '33') : (c.textDim + '26'), color: reason.good ? c.success : c.text,
+            border: `1px solid ${reason.good ? (c.success + '66') : (c.textDim + '66')}` };
     return [
         restartIdx > 0 && h('span', { style: { fontSize: 11, color: c.accent || '#ffa726', fontStyle: 'italic', marginRight: 8 } },
             method === 'all'
@@ -146,8 +146,8 @@ function runReadout({ running, iter, mf, mfBest, mfInitial, restartIdx, method, 
         (!running && reason.label) && h('span', {
             title: stopReason === 'stalled' ? tr.stalledTip : '',
             // Empty merit function → the shared amber warning badge (identical in
-            // every optimizer window). Other end-states keep the pill, but with a
-            // lighter tan so it's readable (was brown-on-brown).
+            // every optimizer window). Other end-states keep the pill, in the
+            // theme's own text colour so it reads on a light theme and a dark one.
             style: reasonPillStyle }, reason.label),
     ];
 }
