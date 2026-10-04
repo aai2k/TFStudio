@@ -166,15 +166,15 @@ function main() {
   // SEO head: the desktop template ships a bare <title> with no description or
   // canonical, but /demo/ is a public landing page (and a common inbound link
   // target), so give it real metadata pointing at the canonical demo URL.
-  const demoTitle = 'TFStudio Web Demo — Free Thin-Film Coating Design in Your Browser';
+  const demoTitle = 'Free Thin-Film Coating Design in Your Browser | TFStudio Demo';
   html = html.replace(/<title>[^<]*<\/title>/,
     `<title>${demoTitle}</title>\n`
-    + '    <meta name="description" content="Try TFStudio in your browser: free, open-source optical thin-film coating design software. Explore example designs, live reflectance and transmittance spectra — no install required.">\n'
+    + '    <meta name="description" content="Try TFStudio, free open-source thin-film coating design software, in your browser. Example designs and live reflectance and transmittance spectra, no install.">\n'
     + '    <link rel="canonical" href="https://tfstudio.xyz/demo/">\n'
     + '    <meta property="og:type" content="website">\n'
     + '    <meta property="og:site_name" content="TFStudio">\n'
     + `    <meta property="og:title" content="${demoTitle}">\n`
-    + '    <meta property="og:description" content="Free, open-source optical coating design software running in your browser — example designs and live spectra, no install.">\n'
+    + '    <meta property="og:description" content="Free, open-source optical coating design software running in your browser: example designs and live spectra, no install.">\n'
     + '    <meta property="og:url" content="https://tfstudio.xyz/demo/">\n'
     + '    <meta property="og:image" content="https://tfstudio.xyz/assets/shot-main-window.png">');
 
