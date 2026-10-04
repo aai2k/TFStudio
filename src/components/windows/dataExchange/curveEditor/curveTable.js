@@ -89,13 +89,15 @@ export function emptyTable(kind) {
 // A stored value in a unit that converts it, with the binary rounding of the
 // round trip taken off, so a value read as 12.3 % or typed as -2.8 dB comes
 // back as 12.3 or -2.8. Percent is a product and its error is relative,
-// hidden by fifteen significant digits. dB and OD are logarithms and their
-// error is absolute, under 1e-14 dB anywhere from 0 to -60 dB, so fifteen
-// significant digits of a small value such as -0.003 dB still show it;
-// twelve decimals hide it, and no reading carries more.
+// hidden by fifteen significant digits. dB, a loss in dB and OD are
+// logarithms and their error is absolute, under 1e-14 dB anywhere from 0 to
+// -60 dB, so fifteen significant digits of a small value such as -0.003 dB
+// still show it; twelve decimals hide it, and no reading carries more.
 const TIDY = {
     '%': shown => Number(shown.toPrecision(15)),
     dB: shown => Number(shown.toFixed(12)),
+    // + 0 turns the −0 of a point with no loss into 0.
+    loss: shown => Number(shown.toFixed(12)) + 0,
     OD: shown => Number(shown.toFixed(12)),
 };
 

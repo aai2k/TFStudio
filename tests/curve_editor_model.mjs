@@ -49,8 +49,8 @@ const table = (rows, columns = [{ quantity: 'T', unit: '%', name: '' }], kind = 
 
 // ── Units, both ways ─────────────────────────────────────────────────────────
 {
-    assert.deepEqual(unitsFor('T'), ['%', 'fraction', 'dB', 'OD'], 'T reads as optical density too');
-    assert.deepEqual(unitsFor('R'), ['%', 'fraction', 'dB'], 'density is transmittance only');
+    assert.deepEqual(unitsFor('T'), ['%', 'fraction', 'dB', 'loss', 'OD'], 'T reads as a loss and optical density too');
+    assert.deepEqual(unitsFor('R'), ['%', 'fraction', 'dB', 'loss'], 'density is transmittance only');
     assert.deepEqual(unitsFor('PSI'), ['deg']);
     assert.deepEqual(unitsFor('W'), ['rel']);
 
@@ -345,6 +345,28 @@ const table = (rows, columns = [{ quantity: 'T', unit: '%', name: '' }], kind = 
         const plain = measuredFitSnapshot(design, unmarked, options).operand;
         assert.deepEqual([marked.quantity, marked.sampleTargets], [plain.quantity, plain.sampleTargets], `fit in ${scale}`);
     }
+}
+
+// ── A loss in dB, written positive ───────────────────────────────────────────
+// A customer's target loss curve or a return loss specification gives the loss
+// as a positive number of dB. In that unit it is in range as typed and stores
+// the same fraction as its negative in dB.
+{
+    const { valueProblem, toStored, unitsFor } = await import('../src/components/windows/dataExchange/curveEditor/units.js');
+    assert.ok(unitsFor('T').includes('loss') && unitsFor('R').includes('loss'), 'T and R take a loss');
+    assert.ok(!unitsFor('A').includes('loss'), 'A has no loss to speak of');
+    assert.ok(close(toStored(3.478, 'loss'), toStored(-3.478, 'dB')), 'a loss of 3.478 dB is T = −3.478 dB');
+    assert.equal(valueProblem('T', 'loss', 5.3), null, 'a positive loss is in range');
+    assert.equal(valueProblem('T', 'loss', -0.5), 'above', 'a negative loss would be gain');
+
+    const typed = [[1528, 3.478], [1545, 1.853], [1563, 0]];
+    const [target] = curvesFromTable(table(typed, [{ quantity: 'T', unit: 'loss', name: 'Target' }]));
+    assert.equal(target.yTypedUnit, 'loss', 'the curve keeps the unit');
+    assert.ok(close(target.y[2], 1), 'no loss is T = 1');
+    const opened = tableFromCurve(target, 'spectrum');
+    assert.equal(opened.columns[0].unit, 'loss', 'Edit opens it as a loss');
+    assert.deepEqual(opened.rows, typed, 'with the values as typed');
+    assert.ok(Object.is(opened.rows[2][1], 0), 'a point with no loss shows 0, not −0');
 }
 
 // ── Resampling ───────────────────────────────────────────────────────────────

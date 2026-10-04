@@ -4,6 +4,7 @@ import {
 import { CenteredMessage, SidePanel } from '../../analysis/chrome/layout.js';
 import { measuredCurveData, X_UNITS } from '../../../../utils/io/spectrumTable.js';
 import { curveTypedUnit } from '../curveEditor/units.js';
+import { unitName } from '../curveEditor/editorLabels.js';
 import { SpectrumPreview } from './SpectrumPreview.js';
 import { delimiterName } from './model.js';
 import { FieldRow, ImportFilePanel, PanelSection, textInputStyle } from '../chrome/panel.js';
@@ -100,9 +101,9 @@ function ConfigurePanel({ controller, c, sx }) {
  * or OD in the curve editor was converted from that unit, and either
  * correction would rescale it wrongly, so its card names the unit instead.
  */
-function SourceScale({ curve, setCurveScale, c, sx }) {
+function SourceScale({ curve, setCurveScale, c, sx, ce }) {
     const typedUnit = curveTypedUnit(curve);
-    if (typedUnit) return h('span', { style: { color: c.textDim, fontSize: 11 } }, sx.typedIn(typedUnit));
+    if (typedUnit) return h('span', { style: { color: c.textDim, fontSize: 11 } }, sx.typedIn(unitName(ce, typedUnit)));
     return h(ChoiceGroup, {
         c, activeId: curve.yWasPercent ? 'percent' : 'fraction',
         onSelect: value => setCurveScale(curve.id, value),
@@ -166,7 +167,7 @@ function CurveEditorCard({ curve, selected, onSelect, controller, c, sx, ce }) {
                 items: ['T', 'R', 'A'].map(id => ({ id, label: id })),
             }),
         ),
-        h(FieldRow, { c, label: sx.sourceScaleLabel }, h(SourceScale, { curve, setCurveScale, c, sx })),
+        h(FieldRow, { c, label: sx.sourceScaleLabel }, h(SourceScale, { curve, setCurveScale, c, sx, ce })),
         h(FieldRow, { c, label: sx.measurementAoiLabel },
             h(NumInput, {
                 c, value: curve.aoi ?? 0, min: 0, max: 90, step: 0.1, width: 60,

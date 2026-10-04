@@ -26,6 +26,10 @@ export function applyProblem(table) {
     return counts.some(count => count > 0) ? null : 'noPoints';
 }
 
+// Units makeMeasuredCurve has no flag for, converted to a fraction here; it
+// reads percent and optical density itself.
+const CONVERTED_HERE = new Set(['dB', 'loss']);
+
 // makeMeasuredCurve's inputs for value column `index`: the points as typed and
 // what the unit says they are.
 function curveInput(table, index) {
@@ -34,7 +38,7 @@ function curveInput(table, index) {
     return {
         x: series.x,
         xUnit: table.xUnit,
-        y: unit === 'dB' ? series.y.map(value => toStored(value, unit)) : series.y,
+        y: CONVERTED_HERE.has(unit) ? series.y.map(value => toStored(value, unit)) : series.y,
         quantity,
         isPercent: unit === '%',
         isAbsorbance: unit === 'OD',

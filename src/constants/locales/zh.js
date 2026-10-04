@@ -1188,6 +1188,7 @@ export default {
     removeColumn: '删除此列',
     weight: '权重',
     relative: '相对',
+    lossUnit: 'dB 损耗',
     gain: '增益',
     designCurve: '设计',
     hint: '单击、Shift+单击或拖动以选择，Ctrl+单击追加单元格。直接键入即可编辑。Ctrl+C、Ctrl+V、Ctrl+Z 分别复制、粘贴、撤销。',

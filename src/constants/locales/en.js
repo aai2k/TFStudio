@@ -1109,6 +1109,7 @@ export default {
     removeColumn: 'Remove this column',
     weight: 'Weight',
     relative: 'relative',
+    lossUnit: 'dB loss',
     gain: 'Gain',
     designCurve: 'design',
     hint: 'Click, Shift-click or drag to select, Ctrl-click to add cells. Type to edit. Ctrl+C, Ctrl+V and Ctrl+Z copy, paste and undo.',

@@ -7,6 +7,12 @@ import { X_KEY, columnIndex } from './curveTable.js';
 
 const QUANTITY_SYMBOL = { T: 'T', R: 'R', A: 'A', PSI: 'Ψ', DEL: 'Δ' };
 const UNIT_SYMBOL = { gain: 'dB', '%': '%', fraction: '0-1', dB: 'dB', OD: 'OD', deg: '°' };
+
+/** A unit as the editor names it: its symbol, or the locale's word for it. */
+export function unitName(ce, id) {
+    if (id === 'loss') return ce.lossUnit;
+    return UNIT_SYMBOL[id] ?? (id === 'rel' ? ce.relative : '');
+}
 const X_SYMBOL = { nm: 'λ', um: 'λ', 'cm-1': 'ν', eV: 'E' };
 const X_UNIT_SYMBOL = { nm: 'nm', um: 'µm', 'cm-1': 'cm⁻¹', eV: 'eV' };
 const X_AXIS_KEY = { nm: 'nm', um: 'um', 'cm-1': 'cm1', eV: 'eV' };
@@ -24,7 +30,7 @@ export function valueColumnName(column, index, quantity) {
 export function editorLabels(t, table) {
     const ce = t.curveEditor;
     const quantityName = quantity => QUANTITY_SYMBOL[quantity] || (quantity === 'G' ? ce.gain : ce.weight);
-    const unit = id => UNIT_SYMBOL[id] ?? (id === 'rel' ? ce.relative : '');
+    const unit = id => unitName(ce, id);
     const quantity = column => quantityName(column.quantity);
     const valueTitle = index => valueColumnName(table.columns[index], index, quantity(table.columns[index]));
     return {

@@ -10,6 +10,9 @@
  *   fraction  0-1
  *   dB        10·log10 C, a loss reading negative (Macleod, Thin-Film Optical
  *             Filters 5th ed., §8.2.1)
+ *   loss      the same dB as a loss, −10·log10 C, positive: an insertion loss
+ *             or attenuation for T and a return loss for R, the way a
+ *             specification or a customer's file writes them
  *   OD        optical density, -log10 T, for transmittance only (Ch. 5); the
  *             importers read it as absorbance
  *   deg       degrees, for Ψ and Δ
@@ -35,8 +38,8 @@ export const KIND_QUANTITIES = {
 export const X_UNIT_IDS = [X_UNITS.NM, X_UNITS.UM, X_UNITS.CM1, X_UNITS.EV];
 
 const QUANTITY_UNITS = {
-    T: ['%', 'fraction', 'dB', 'OD'],
-    R: ['%', 'fraction', 'dB'],
+    T: ['%', 'fraction', 'dB', 'loss', 'OD'],
+    R: ['%', 'fraction', 'dB', 'loss'],
     A: ['%', 'fraction', 'dB'],
     PSI: ['deg'],
     DEL: ['deg'],
@@ -61,6 +64,7 @@ const TO_STORED = {
     '%': value => value / 100,
     fraction: identity,
     dB: value => fractionFromLog('dB', value),
+    loss: value => fractionFromLog('dB', -value),
     OD: value => fractionFromLog('OD', value),
     deg: identity,
     rel: identity,
@@ -71,6 +75,7 @@ const FROM_STORED = {
     '%': value => value * 100,
     fraction: identity,
     dB: value => logValue('dB', value),
+    loss: value => -logValue('dB', value),
     OD: value => logValue('OD', value),
     deg: identity,
     rel: identity,
@@ -78,10 +83,10 @@ const FROM_STORED = {
 };
 
 // The units a curve keeps a note of after Apply. The design stores T, R and A
-// as a fraction, and a fraction converted from dB or OD carries no trace of
-// it, so the curve holds the unit as `yTypedUnit` and Edit opens it in that
-// unit again. Percent has `yWasPercent`, which the importers set too.
-const REMEMBERED_UNITS = ['dB', 'OD'];
+// as a fraction, and a fraction converted from dB, a loss or OD carries no
+// trace of it, so the curve holds the unit as `yTypedUnit` and Edit opens it
+// in that unit again. Percent has `yWasPercent`, which the importers set too.
+const REMEMBERED_UNITS = ['dB', 'loss', 'OD'];
 
 /** What a curve typed in `unit` carries to remember it: { yTypedUnit }, or nothing. */
 export function typedUnitField(unit) {
@@ -89,9 +94,9 @@ export function typedUnitField(unit) {
 }
 
 /**
- * The unit a curve on the design was typed in, dB or OD, while its quantity
- * still takes that unit; null for a curve typed in % or 0-1 or read by an
- * importer. A T curve typed in OD and retyped R on its card has no density to
+ * The unit a curve on the design was typed in, dB, a loss or OD, while its
+ * quantity still takes that unit; null for a curve typed in % or 0-1 or read
+ * by an importer. A T curve typed in OD and retyped R on its card has no density to
  * open in, and opens as a fraction.
  */
 export function curveTypedUnit(curve) {

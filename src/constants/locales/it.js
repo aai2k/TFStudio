@@ -1193,6 +1193,7 @@ export default {
     removeColumn: 'Rimuovi questa colonna',
     weight: 'Peso',
     relative: 'relativo',
+    lossUnit: 'dB di perdita',
     gain: 'Guadagno',
     designCurve: 'design',
     hint: 'Clic, Maiusc+clic o trascinamento per selezionare, Ctrl+clic per aggiungere celle. Digita per modificare. Ctrl+C, Ctrl+V e Ctrl+Z copiano, incollano e annullano.',
