@@ -116,13 +116,16 @@ export function valueOptions(values, label) {
 }
 
 /**
- * Dropdown for a list too long to spend a row on as buttons.
+ * Dropdown for a list too long to spend a row on as buttons. The chosen label
+ * stays on one line and is cut off when the box is narrower (styles.css), so
+ * with no `title` of its own the box shows the whole label on hover.
  *
  *   options  [{ id, label }]
  */
 export function SelectField({ value, onChange, options, c, width, title, disabled }) {
+    const chosen = options.find(option => String(option.id) === String(value))?.label;
     return h('select', {
-        value, title, disabled,
+        value, title: title ?? (typeof chosen === 'string' ? chosen : undefined), disabled,
         onChange: event => onChange(event.target.value),
         style: {
             height: 24, width, backgroundColor: c.field, color: c.text,

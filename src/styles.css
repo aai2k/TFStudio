@@ -67,40 +67,38 @@ select option:checked {
         appearance: base-select;
     }
 
+    /* The chosen label stays on one line, however long it is and however
+       narrow the box. base-select puts the label in an anonymous box that no
+       selector reaches, so a flex row cannot shrink it and a long label pushes
+       the chevron out. A grid can: the label's column has no minimum width,
+       the chevron keeps a fixed column on the right, and the text past it is
+       cut off under the chevron's patch of field colour. The chevron's column
+       is the right edge, so no right padding is left for the cut label to
+       show in, whatever padding a component sets inline. */
     select {
-        /* picker-icon now draws the chevron; drop the background SVG so it
-           isn't doubled, and reclaim the right padding it reserved. */
         background-image: none;
-        padding-right: 8px;
-        /* base-select renders the select as a flex button — center its
-           content against the component's fixed height instead of letting
-           it sit top-left. */
-        display: inline-flex;
+        padding-right: 0 !important;
+        display: inline-grid;
+        grid-template-columns: minmax(0, 1fr) 20px;
         align-items: center;
-        line-height: 1.4;
-    }
-
-    /* The auto-generated content holding the chosen option's label.
-       Only clip horizontally (ellipsis) — never vertically, or descenders
-       (g/p/y) get cut at the baseline. */
-    select::selectedcontent {
-        overflow-x: hidden;
-        overflow-y: visible;
-        text-overflow: ellipsis;
         white-space: nowrap;
+        overflow: hidden;
+        min-width: 0;
         line-height: 1.4;
     }
 
     select::picker-icon {
-        /* Replace Chromium's default solid triangle with the same thin
-           chevron as the closed control; mask lets it inherit theme colour. */
+        /* The same thin chevron as the closed control in older engines, on
+           the field's own colour so the clipped label does not show through. */
         content: '';
-        width: 10px;
-        height: 6px;
-        margin-left: auto;       /* push chevron to the right edge */
-        background-color: var(--tf-textdim, #999);
-        -webkit-mask: url("data:image/svg+xml,%3Csvg width='10' height='6' viewBox='0 0 10 6' fill='none' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M1 1L5 5L9 1' stroke='black' stroke-width='1.6' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E") no-repeat center / contain;
-                mask: url("data:image/svg+xml,%3Csvg width='10' height='6' viewBox='0 0 10 6' fill='none' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M1 1L5 5L9 1' stroke='black' stroke-width='1.6' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E") no-repeat center / contain;
+        width: 20px;
+        height: auto;
+        align-self: stretch;
+        margin: 0;
+        background-color: inherit;
+        background-image: url("data:image/svg+xml,%3Csvg width='10' height='6' viewBox='0 0 10 6' fill='none' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M1 1L5 5L9 1' stroke='%23999' stroke-width='1.6' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+        background-repeat: no-repeat;
+        background-position: center;
         transition: transform 0.18s ease;
     }
     select:open::picker-icon {
