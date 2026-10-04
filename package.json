@@ -145,7 +145,13 @@
       "category": "Science",
       "synopsis": "Optical thin-film coating design and analysis",
       "artifactName": "TFStudio-${version}-${arch}.${ext}",
-      "syncDesktopName": true
+      "syncDesktopName": true,
+      "extraFiles": [
+        {
+          "from": "build/xyz.tfstudio.TFStudio.appdata.xml",
+          "to": "usr/share/metainfo/xyz.tfstudio.TFStudio.appdata.xml"
+        }
+      ]
     },
     "extraResources": [
       {

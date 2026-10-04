@@ -1,5 +1,5 @@
 /** Build scripts tolerate a PATH rewritten by tools such as emsdk. */
-import { readFileSync } from 'node:fs';
+import { existsSync as fileExists, readFileSync } from 'node:fs';
 import path from 'node:path';
 import { prepareBuilderEnvironment } from '../tools/run-electron-builder.mjs';
 
@@ -61,6 +61,17 @@ const existsSync = value => value === `${powerShellDir}\\powershell.exe`;
   const appImageToolset = pkg.build.toolsets && pkg.build.toolsets.appimage;
   ok(appImageToolset != null && appImageToolset !== '0.0.0',
     'the AppImage embeds the static runtime, which needs no libfuse2');
+  // The AppImage catalog (appimage.github.io) shows the screenshot named in the
+  // AppStream file instead of the one its test takes of the first-run window,
+  // and it reads the description only from an .appdata.xml file.
+  const metainfo = (pkg.build.linux.extraFiles || []).find(f => f.to.startsWith('usr/share/metainfo/'));
+  ok(metainfo != null && metainfo.to.endsWith('.appdata.xml'), 'the AppImage carries an AppStream .appdata.xml file');
+  const xml = readFileSync(path.join(process.cwd(), metainfo.from), 'utf8');
+  ok(xml.includes(`<launchable type="desktop-id">${pkg.desktopName}</launchable>`),
+    'the AppStream file names the desktop file the build writes');
+  const image = xml.match(/<image>https:\/\/raw\.githubusercontent\.com\/aai2k\/TFStudio\/main\/([^<]+)<\/image>/);
+  ok(image != null && fileExists(path.join(process.cwd(), image[1])),
+    'the AppStream screenshot is a file in this repository');
 }
 
 {
