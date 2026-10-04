@@ -14,6 +14,7 @@
  */
 
 import { useDesign } from '../../../../state/DesignContext.js';
+import { tablerIcon } from '../../../ui/tablerIcons.js';
 import { useStackFormula } from './useStackFormula.js';
 import { FormulaPanel } from './FormulaPanel.js';
 import { ResultsPanel } from './ResultsPanel.js';
@@ -40,7 +41,8 @@ export function StackFormulaDialog({ onClose, onCreateNew, folderName, hasActive
                        paddingBottom: 12, borderBottom: `1px solid ${c.border}`, marginBottom: 12 } },
                 h('h2', { style: { margin: 0, fontSize: 16, fontWeight: 700, color: c.text } }, sf.title),
                 h('button', { onClick: onClose, style: { background: 'transparent', color: c.textDim,
-                              border: 'none', cursor: 'pointer', fontSize: 18, padding: '0 6px' } }, '×'),
+                              border: 'none', cursor: 'pointer', padding: '0 6px',
+                              display: 'flex', alignItems: 'center', justifyContent: 'center' } }, tablerIcon('x', 16)),
             ),
 
             h('div', { style: { flex: 1, overflowY: 'auto', display: 'flex', gap: 16, minHeight: 300 } },

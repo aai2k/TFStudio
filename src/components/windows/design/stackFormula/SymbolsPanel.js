@@ -1,3 +1,4 @@
+import { tablerIcon } from '../../../ui/tablerIcons.js';
 import { SymbolRow } from './SymbolRow.js';
 
 const { createElement: h } = React;
@@ -12,9 +13,10 @@ export function SymbolsPanel({ state, c, t, sf }) {
                 onClick: addRow,
                 title: sf.addSymbolTip,
                 style: { fontSize: 11, padding: '2px 8px', cursor: 'pointer',
+                         display: 'inline-flex', alignItems: 'center', gap: 4,
                          backgroundColor: c.bg, color: c.text,
                          border: `1px solid ${c.border}`, borderRadius: 3 }
-            }, sf.addSymbol),
+            }, tablerIcon('plus', 13), sf.addSymbol),
         ),
         h('div', { style: { display: 'flex', flexDirection: 'column', gap: 5 } },
             symRows.map((row, idx) => {

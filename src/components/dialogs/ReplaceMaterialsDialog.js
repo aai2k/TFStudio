@@ -117,7 +117,7 @@ export function ReplaceMaterialsDialog({ design, updateDesign, c, t, onClose }) 
         return mat ? resolveColor(mat) : '#888';
     };
 
-    return h('div', { style: overlay, onMouseDown: (e) => { if (e.target === e.currentTarget) onClose(); } },
+    return h('div', { style: overlay },
         h('div', { style: panel },
             h('h2', { style: { marginTop: 0, marginBottom: 6, fontSize: 17, fontWeight: 'bold', color: c.text } },
                 rm.title),

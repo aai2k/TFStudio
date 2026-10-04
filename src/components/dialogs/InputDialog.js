@@ -5,6 +5,8 @@
 
 const { createElement: h } = React;
 
+// A press on the backdrop does nothing: only Cancel closes the dialog, so a
+// text selection dragged past the panel's edge cannot cancel it.
 const BACKDROP = {
     position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
     backgroundColor: 'rgba(0,0,0,0.5)',
@@ -59,14 +61,8 @@ export const InputDialog = ({ inputDialog, c, t }) => {
     // ── Confirm mode (yes / no — no text input) ───────────────────────────────
     if (inputDialog.confirm) {
         const danger = inputDialog.danger !== false; // default to danger style for deletions
-        return h('div', {
-            style: BACKDROP,
-            onClick: () => inputDialog.onCancel()
-        },
-            h('div', {
-                style: MODAL_BASE(c),
-                onClick: (e) => e.stopPropagation()
-            },
+        return h('div', { style: BACKDROP },
+            h('div', { style: MODAL_BASE(c) },
                 h('h3', { style: TITLE_STYLE(c) }, inputDialog.title),
                 inputDialog.message && h('p', {
                     style: { margin: '0 0 20px 0', color: c.textDim, fontSize: 13, lineHeight: 1.5 }
@@ -96,14 +92,8 @@ export const InputDialog = ({ inputDialog, c, t }) => {
     // ── Text input mode (rename / new folder) ─────────────────────────────────
     const isValid = !error && value.trim().length > 0;
 
-    return h('div', {
-        style: BACKDROP,
-        onClick: () => inputDialog.onCancel()
-    },
-        h('div', {
-            style: MODAL_BASE(c),
-            onClick: (e) => e.stopPropagation()
-        },
+    return h('div', { style: BACKDROP },
+        h('div', { style: MODAL_BASE(c) },
             h('h3', { style: TITLE_STYLE(c) }, inputDialog.title),
             h('input', {
                 type: 'text', value, autoFocus: true,

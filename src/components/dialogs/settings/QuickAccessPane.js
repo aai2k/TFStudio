@@ -6,6 +6,7 @@
 
 import { ICONS, iconColorForTool, makeTabs } from '../../Toolbar.js';
 import { Row, buttonStyle, selectStyle } from './ui.js';
+import { tablerIcon } from '../../ui/tablerIcons.js';
 
 const { createElement: h, useMemo, useState } = React;
 
@@ -40,10 +41,13 @@ const iconOf = (id) => h('span', {
 }, ICONS[id] || null);
 
 function ChosenRow({ entry, index, count, c, t, onMove, onRemove }) {
+    // Stretched to the row, so the icon-only remove button is as tall as the
+    // arrow buttons beside it, whose height comes from their text line.
     const smallBtn = (label, title, disabled, onClick) => h('button', {
         onClick, title, disabled,
         style: {
             ...buttonStyle(c),
+            display: 'inline-flex', alignItems: 'center', justifyContent: 'center', alignSelf: 'stretch',
             padding: '2px 7px', fontWeight: '400',
             opacity: disabled ? 0.35 : 1,
             cursor: disabled ? 'default' : 'pointer',
@@ -63,7 +67,7 @@ function ChosenRow({ entry, index, count, c, t, onMove, onRemove }) {
         h('span', { style: { fontSize: '11px', color: c.textDim, flexShrink: 0 } }, entry.tabLabel),
         smallBtn('↑', t.settings.quickAccessMoveUp, index === 0, () => onMove(index, -1)),
         smallBtn('↓', t.settings.quickAccessMoveDown, index === count - 1, () => onMove(index, 1)),
-        smallBtn('×', t.settings.quickAccessRemove, false, () => onRemove(entry.id)),
+        smallBtn(tablerIcon('trash', 13), t.settings.quickAccessRemove, false, () => onRemove(entry.id)),
     );
 }
 

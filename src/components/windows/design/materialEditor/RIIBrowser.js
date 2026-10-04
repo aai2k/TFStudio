@@ -9,6 +9,7 @@
 import { useRIIBrowser } from './useRIIBrowser.js';
 import { renderRiiLeftPanel, renderStatusBar } from './riiLeftPanel.js';
 import { renderRiiRightPanel } from './riiRightPanel.js';
+import { tablerIcon } from '../../../ui/tablerIcons.js';
 
 const { createElement: h } = React;
 
@@ -42,8 +43,8 @@ export function RIIBrowser({ c, t, onClose, onAdded }) {
                 h('span', { style: { fontSize: 14, fontWeight: 600, color: c.text } }, s.rii.title),
                 h('button', {
                     onClick: onClose,
-                    style: { background: 'none', border: 'none', color: c.textDim, cursor: 'pointer', fontSize: 20, lineHeight: 1, padding: 0 },
-                }, '×')
+                    style: { display: 'flex', alignItems: 'center', background: 'none', border: 'none', color: c.textDim, cursor: 'pointer', padding: 0 },
+                }, tablerIcon('x', 16))
             ),
             renderStatusBar(s),
             h('div', { style: { flex: 1, display: 'flex', overflow: 'hidden' } },

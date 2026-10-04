@@ -6,6 +6,7 @@ import {
     buildTrialDetailRows,
     loadTrialThicknesses,
 } from './trialModel.js';
+import { tablerIcon } from '../../../ui/tablerIcons.js';
 
 const { createElement: h, useCallback, useMemo, useState } = React;
 
@@ -50,7 +51,6 @@ export function TrialsModal({ result, design, c, t, corridorSigma, updateDesign,
         });
 
     return h('div', {
-        onClick: onClose,
         style: {
             position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.55)', zIndex: 1000,
             display: 'flex', alignItems: 'center', justifyContent: 'center',
@@ -58,7 +58,6 @@ export function TrialsModal({ result, design, c, t, corridorSigma, updateDesign,
         }
     },
         h('div', {
-            onClick: (event) => event.stopPropagation(),
             style: {
                 width: 'min(860px, 94vw)', height: 'min(600px, 88vh)',
                 background: c.bg, color: c.text,
@@ -72,7 +71,7 @@ export function TrialsModal({ result, design, c, t, corridorSigma, updateDesign,
                 h('span', { style: { marginLeft: 10, color: c.textDim, fontSize: 11 } },
                     `${trials.length} ${ea.trialsDone || 'trials'}${result.spec ? ` · ${ea.specYield || 'yield'} ${result.spec.yield == null ? '—' : (result.spec.yield * 100).toFixed(0) + '%'}` : ''}`),
                 h('div', { style: { flex: 1 } }),
-                h('button', { onClick: onClose, title: ea.close || 'Close', style: { padding: '2px 10px', cursor: 'pointer', border: `1px solid ${c.border}`, borderRadius: 3, background: c.inputBg || c.hover, color: c.text } }, '✕'),
+                h('button', { onClick: onClose, title: ea.close || 'Close', style: { padding: '2px 10px', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', border: `1px solid ${c.border}`, borderRadius: 3, background: c.inputBg || c.hover, color: c.text } }, tablerIcon('x', 16)),
             ),
             h('div', { style: { display: 'flex', alignItems: 'center', borderBottom: `1px solid ${c.border}`, background: c.panel, flexShrink: 0 } },
                 h(TabButton, { id: 'stats', label: ea.tabStatistics || 'Statistics', tab, setTab, c }),

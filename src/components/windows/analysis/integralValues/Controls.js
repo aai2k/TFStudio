@@ -3,6 +3,7 @@ import {
     BUILTIN_DETECTORS,
     describedLabel,
 } from '../../../../utils/physics/spectralWeightings.js';
+import { tablerIcon } from '../../../ui/tablerIcons.js';
 import { ActionButton, ChoiceGroup, NumInput, RangeField, SelectField } from '../chrome/controls.js';
 import { ControlRow } from '../chrome/layout.js';
 import {
@@ -155,7 +156,7 @@ function CustomBuilder({ c, t, model }) {
         h(SettingRow, { c, label: '' },
             h(ActionButton, {
                 c, label: iv.addCustom, title: iv.addCustomTitle, onClick: model.onAddCustom,
-            }),
+            }, tablerIcon('plus', 13)),
         ),
     );
 }

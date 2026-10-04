@@ -1,5 +1,6 @@
 import { LockIcon } from '../../../ui/LockIcon.js';
 import { ContextMenu } from '../../../ui/ContextMenu.js';
+import { tablerIcon } from '../../../ui/tablerIcons.js';
 import { Btn } from './ui.js';
 import { LayerRow } from './LayerRow.js';
 import { useLayerKeyboard } from './useLayerKeyboard.js';
@@ -407,7 +408,7 @@ export function LayerList({ layers, side, design, updateDesign, missingMaterialI
                 backgroundColor: c.panel, flexShrink: 0, flexWrap: 'wrap'
             }
         },
-            h(Btn, { onClick: handleAdd, c }, de.addLayer),
+            h(Btn, { onClick: handleAdd, c }, tablerIcon('plus', 13), de.addLayer),
             h('div', { style: { width: 1, height: 20, background: c.border, margin: '0 2px' } }),
             h(Btn, {
                 onClick: () => invertActiveSide && invertActiveSide(),

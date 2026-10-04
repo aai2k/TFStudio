@@ -1,3 +1,4 @@
+import { tablerIcon } from '../../../ui/tablerIcons.js';
 import { AOI_MAX, formatTheta } from './model.js';
 
 const { createElement: h, useState } = React;
@@ -68,9 +69,10 @@ function AoiChip({ value, onRemove, onEdit, canRemove, c, oe }) {
             'aria-label': `Remove ${formatTheta(value)}°`,
             style: {
                 background: 'transparent', border: 'none', color: c.textDim, cursor: 'pointer',
-                padding: '0 3px', fontSize: 13, lineHeight: 1, outline: 'none'
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                padding: '0 3px', outline: 'none'
             }
-        }, '×')
+        }, tablerIcon('x', 12))
     );
 }
 
@@ -118,8 +120,8 @@ export function AoiChips({ values, onChange, c, oe }) {
             style: {
                 width: 24, height: 22, display: 'flex', alignItems: 'center', justifyContent: 'center',
                 border: 'none', borderRadius: 4, backgroundColor: 'transparent',
-                color: c.textDim, cursor: 'pointer', outline: 'none', fontSize: 15, lineHeight: 1
+                color: c.textDim, cursor: 'pointer', outline: 'none'
             }
-        }, '+')
+        }, tablerIcon('plus', 14))
     );
 }

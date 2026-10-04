@@ -18,6 +18,7 @@
  */
 
 import { getCurrentLocale } from '../../../../constants/locales/index.js';
+import { tablerIcon } from '../../../ui/tablerIcons.js';
 import { useFilterDesign } from './useFilterDesign.js';
 import { StepMaterials } from './StepMaterials.js';
 import { StepParams } from './StepParams.js';
@@ -42,7 +43,7 @@ export function FilterDesignWizard({ onClose, onGenerate, folderName, c, t }) {
         h('div', { style: { backgroundColor: c.panel, borderRadius: 8, padding: 22, width: 860, maxWidth: '96vw', maxHeight: '94vh', display: 'flex', flexDirection: 'column', boxShadow: '0 10px 40px rgba(0,0,0,0.4)', border: `1px solid ${c.border}` } },
             h('div', { style: { display: 'flex', alignItems: 'center', justifyContent: 'space-between', paddingBottom: 12, borderBottom: `1px solid ${c.border}`, marginBottom: 12 } },
                 h('h2', { style: { margin: 0, fontSize: 17, fontWeight: 700, color: c.text } }, T.title),
-                h('button', { onClick: onClose, style: { background: 'transparent', color: c.textDim, border: 'none', cursor: 'pointer', fontSize: 18 } }, '×')),
+                h('button', { onClick: onClose, style: { background: 'transparent', color: c.textDim, border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' } }, tablerIcon('x', 16))),
             h('div', { style: { flex: 1, overflowY: 'auto', minHeight: 400 } }, body),
             h('div', { style: { display: 'flex', alignItems: 'center', justifyContent: 'space-between', paddingTop: 12, borderTop: `1px solid ${c.border}`, marginTop: 12 } },
                 h('div', { style: { display: 'flex', alignItems: 'center', gap: 12 } },

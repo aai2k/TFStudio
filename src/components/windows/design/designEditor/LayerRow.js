@@ -1,5 +1,6 @@
 import { MaterialPicker } from '../../../ui/MaterialPicker.js';
 import { LockIcon } from '../../../ui/LockIcon.js';
+import { tablerIcon } from '../../../ui/tablerIcons.js';
 import { ThicknessCell } from './ThicknessCell.js';
 import { IconBtn } from './ui.js';
 import {
@@ -151,7 +152,7 @@ export const LayerRow = React.memo(function LayerRow({ layer, index, isSelected,
             h(IconBtn, {
                 onClick: event => { event.stopPropagation(); onRemove(layer.id); },
                 title: de.remove, c,
-            }, '×'),
+            }, tablerIcon('trash', 14)),
         )
     );
 });

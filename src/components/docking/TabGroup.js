@@ -3,6 +3,7 @@ import { HelpButton } from '../ui/HelpButton.js';
 import { ICONS, iconColorForTool } from '../Toolbar.js';
 import { attachTabWheelScroll } from './tabWheel.js';
 import { observeResize } from '../ui/observeResize.js';
+import { tablerIcon } from '../ui/tablerIcons.js';
 
 // Mini tool icon for a docking tab. Scaled to 14px to sit beside
 // the tab title. In colorful mode it wears the tool's group hue; otherwise it
@@ -255,8 +256,8 @@ export function TabGroup({ node, c, dragActive, dragSrcGroupId, dragInsertRef, d
               h('span', {
                 onClick: (e) => { e.stopPropagation(); onTabClose(tab.id); },
                 title: dk.close || 'Close',
-                style: { flexShrink: 0, color: c.textDim, fontSize: 14, lineHeight: '14px', padding: '0 2px' }
-              }, '×')
+                style: { flexShrink: 0, display: 'flex', alignItems: 'center', color: c.textDim, padding: '0 2px' }
+              }, tablerIcon('x', 12))
             )
           )
         )

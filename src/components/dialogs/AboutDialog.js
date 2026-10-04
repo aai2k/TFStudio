@@ -72,8 +72,7 @@ export function AboutDialog({ c, t, onClose, gamesUnlocked = false, onUnlockGame
       alignItems: 'center',
       justifyContent: 'center',
       zIndex: 10000
-    },
-    onClick: onClose
+    }
   },
     h('div', {
       style: {
@@ -85,8 +84,7 @@ export function AboutDialog({ c, t, onClose, gamesUnlocked = false, onUnlockGame
         maxWidth: '500px',
         boxShadow: '0 8px 32px rgba(0, 0, 0, 0.5)',
         textAlign: 'center'
-      },
-      onClick: (e) => e.stopPropagation()
+      }
     },
       // App icon
       h('img', {

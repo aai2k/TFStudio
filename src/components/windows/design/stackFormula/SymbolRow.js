@@ -1,4 +1,5 @@
 import { MaterialPicker } from '../../../ui/MaterialPicker.js';
+import { tablerIcon } from '../../../ui/tablerIcons.js';
 
 const { createElement: h } = React;
 
@@ -29,7 +30,8 @@ export function SymbolRow({ row, idx, unassigned, c, t, sf, setRowMat, setRowSym
             : h('button', {
                 onClick: () => removeRow(idx), title: sf.removeSymbol,
                 style: { width: 22, height: 22, flexShrink: 0, cursor: 'pointer',
+                    display: 'flex', alignItems: 'center', justifyContent: 'center',
                     background: 'transparent', color: c.textDim,
-                    border: 'none', fontSize: 15, lineHeight: 1, outline: 'none' } }, '×'),
+                    border: 'none', outline: 'none' } }, tablerIcon('trash', 14)),
     );
 }

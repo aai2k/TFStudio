@@ -1,5 +1,6 @@
 import { dropPositionFrom, useDismiss } from '../../../ui/PickerDropdown.js';
 import { ownerWindow } from '../../../ui/ownerWindow.js';
+import { tablerIcon } from '../../../ui/tablerIcons.js';
 import { useWindowSession } from '../../windowSession.js';
 import { meritPresetSession } from './sessionState.js';
 import { TblBtn } from './mfTable/CellControls.js';
@@ -23,8 +24,8 @@ function presetRow(preset, { c, te, onLoad, onDelete }) {
         h('span', {
             title: te.deleteTip, role: 'button',
             onClick: event => { event.stopPropagation(); onDelete(preset.name); },
-            style: { color: c.error, cursor: 'pointer', padding: '0 2px', flexShrink: 0 },
-        }, '✕'),
+            style: { display: 'flex', alignItems: 'center', color: c.error, cursor: 'pointer', padding: '0 2px', flexShrink: 0 },
+        }, tablerIcon('trash', 12)),
     );
 }
 

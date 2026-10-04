@@ -1,3 +1,5 @@
+import { tablerIcon } from '../../../ui/tablerIcons.js';
+
 const { createElement: h } = React;
 
 export function SliderRow({ label, value, min, max, step, unit, color, onChange, c, displayPrecision = 2, resetTip }) {
@@ -56,12 +58,11 @@ export function SliderRow({ label, value, min, max, step, unit, color, onChange,
                 borderRadius: 3,
                 color: dirty ? c.textDim : 'transparent',
                 cursor: dirty ? 'pointer' : 'default',
-                fontSize: 11, lineHeight: 1,
                 outline: 'none',
                 transition: 'color 0.1s, border-color 0.1s',
             },
             onMouseEnter: (e) => { if (dirty) { e.currentTarget.style.color = c.accent; e.currentTarget.style.borderColor = c.accent; } },
             onMouseLeave: (e) => { if (dirty) { e.currentTarget.style.color = c.textDim; e.currentTarget.style.borderColor = c.border; } },
-        }, '×')
+        }, tablerIcon('x', 12))
     );
 }

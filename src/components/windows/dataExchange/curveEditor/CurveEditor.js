@@ -25,6 +25,7 @@
  */
 import { SplitPane } from '../../../docking/SplitPane.js';
 import { ExportMenu, useCsvExport } from '../../../ui/ExportMenu.js';
+import { tablerIcon } from '../../../ui/tablerIcons.js';
 import { useUnresolvedMaterials } from '../../../../utils/materials/useUnresolvedMaterials.js';
 import { ActionButton, CheckField } from '../../analysis/chrome/controls.js';
 import { CurveChart } from './CurveChart.js';
@@ -114,7 +115,7 @@ export function CurveEditor(props) {
             },
         },
             h('h2', { style: { margin: 0, fontSize: 15, flex: 1, minWidth: 0 } }, title),
-            h(ActionButton, { c, label: '×', title: ce.cancel, onClick: onCancel }),
+            h(ActionButton, { c, title: ce.cancel, onClick: onCancel }, tablerIcon('x', 16)),
         ),
         h(EditorToolbar, { editor, labels, c, ce }),
         h('div', { style: { flex: 1, minHeight: 0, display: 'flex' } },

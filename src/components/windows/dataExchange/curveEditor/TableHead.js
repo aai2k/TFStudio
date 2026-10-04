@@ -8,6 +8,7 @@
  * A press on a heading outside its controls selects the column, and one on
  * the # heading every cell.
  */
+import { tablerIcon } from '../../../ui/tablerIcons.js';
 import { ActionButton, SelectField } from '../../analysis/chrome/controls.js';
 import { textInputStyle } from '../chrome/panel.js';
 import { columnColors } from './chartModel.js';
@@ -32,6 +33,9 @@ const PAD = 3;
 const GAP = 3;
 const DOT = 7;
 const REMOVE_WIDTH = 14;
+// The add button's icon, and the gap the button leaves between it and its label.
+const ADD_ICON = 13;
+const ICON_GAP = 4;
 
 const textWidth = label => Math.ceil(CHAR_WIDTH * String(label).length);
 const selectWidth = labels => SELECT_CHROME + Math.max(...labels.map(textWidth));
@@ -53,7 +57,7 @@ function valueMinWidth(table, column, labels) {
  */
 export function columnLayout(table, labels, ce) {
     const adds = !table.fixed;
-    const addWidth = adds ? 2 * PAD + BUTTON_CHROME + textWidth(ce.addColumn) : 0;
+    const addWidth = adds ? 2 * PAD + BUTTON_CHROME + ADD_ICON + ICON_GAP + textWidth(ce.addColumn) : 0;
     const values = table.columns.map(column => valueMinWidth(table, column, labels));
     return {
         adds,
@@ -135,9 +139,10 @@ function removeButton(editor, c, ce, index) {
         onClick: () => editor.edit(current => removeColumn(current, index)),
         style: {
             width: REMOVE_WIDTH, height: 22, padding: 0, marginLeft: 'auto', flexShrink: 0, cursor: 'pointer',
-            border: 'none', outline: 'none', background: 'transparent', color: c.textDim, fontSize: 14, lineHeight: 1,
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            border: 'none', outline: 'none', background: 'transparent', color: c.textDim,
         },
-    }, '×');
+    }, tablerIcon('trash', 13));
 }
 
 function valueSelects(view, column, index) {
@@ -174,7 +179,8 @@ function valueHead(view, column, index) {
 function addHead(view) {
     const { editor, c, ce } = view;
     return h('th', { key: 'add', style: { ...headStyle(c, true), cursor: 'default' } },
-        h(ActionButton, { c, label: ce.addColumn, title: ce.addColumnTip, onClick: () => editor.edit(addColumn) }));
+        h(ActionButton, { c, label: ce.addColumn, title: ce.addColumnTip, onClick: () => editor.edit(addColumn) },
+            tablerIcon('plus', ADD_ICON)));
 }
 
 // The row of names over a new curve's columns, above the row of quantities

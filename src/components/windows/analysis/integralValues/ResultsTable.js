@@ -1,4 +1,5 @@
 import { weightingText } from '../../../../utils/physics/integralValues/builtinWeightings.js';
+import { tablerIcon } from '../../../ui/tablerIcons.js';
 
 const { createElement: h } = React;
 
@@ -106,12 +107,13 @@ function RemoveButton(props) {
         onClick: event => { event.stopPropagation(); onRemove(definition.key); },
         title: iv.removeRow,
         style: {
-            padding: '0 6px', fontSize: 11, cursor: 'pointer',
+            padding: '0 6px', cursor: 'pointer',
+            display: 'inline-flex', alignItems: 'center', justifyContent: 'center', verticalAlign: 'middle',
             border: `1px solid ${c.border}`, borderRadius: 3,
             background: 'transparent', color: c.textDim,
             outline: 'none',
         },
-    }, '×');
+    }, tablerIcon('trash', 13));
 }
 
 function ResultRow(props) {

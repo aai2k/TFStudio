@@ -1,5 +1,6 @@
 import { PROFILE_IDS } from '../../../../utils/physics/inhomogeneity.js';
 import { Checkbox } from '../../../ui/Checkbox.js';
+import { tablerIcon } from '../../../ui/tablerIcons.js';
 import {
     ActionButton, CurveToggleGroup, NumInput, RangeField, SelectField,
 } from '../chrome/controls.js';
@@ -183,10 +184,11 @@ function InterfaceRow({ side, iface, c, ih, state }) {
             onClick: () => state.removeInterlayer(side, iface.afterIndex),
             style: {
                 width: 20, border: 'none', background: 'transparent',
-                color: c.textDim, fontSize: 14, lineHeight: 1,
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                color: c.textDim,
                 cursor: interlayer ? 'pointer' : 'default',
                 opacity: interlayer ? 1 : 0,
             },
-        }, '×'),
+        }, tablerIcon('trash', 14)),
     );
 }

@@ -1,6 +1,7 @@
 import {
     ActionButton, CheckField, ChoiceGroup, FieldLabel, NumInput, RangeField,
 } from '../../analysis/chrome/controls.js';
+import { tablerIcon } from '../../../ui/tablerIcons.js';
 import { canFitInDb, measuredFitConstraintsInvalid } from './model.js';
 
 const { createElement: h } = React;
@@ -53,7 +54,6 @@ export function MeasuredFitDialog({ controller, c, sx }) {
 
     return h('div', {
         role: 'dialog', 'aria-modal': true, 'aria-label': sx.fitTitle,
-        onMouseDown: event => { if (event.target === event.currentTarget) closeFitDialog(); },
         style: {
             position: 'fixed', inset: 0, zIndex: 1200, display: 'flex',
             alignItems: 'center', justifyContent: 'center', padding: 18,
@@ -70,7 +70,7 @@ export function MeasuredFitDialog({ controller, c, sx }) {
     },
         h('div', { style: { display: 'flex', alignItems: 'center', gap: 10, marginBottom: 14 } },
             h('h2', { style: { margin: 0, fontSize: 17, flex: 1 } }, sx.fitTitle),
-            h(ActionButton, { c, label: '×', onClick: closeFitDialog, title: sx.fitCancel }),
+            h(ActionButton, { c, onClick: closeFitDialog, title: sx.fitCancel }, tablerIcon('x', 16)),
         ),
         h('div', {
             title: curve.name,

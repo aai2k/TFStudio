@@ -2,6 +2,7 @@ import {
     ActionButton, CheckField, ChoiceGroup, NumInput, RangeField, SelectField,
 } from '../../analysis/chrome/controls.js';
 import { CenteredMessage, SidePanel } from '../../analysis/chrome/layout.js';
+import { tablerIcon } from '../../../ui/tablerIcons.js';
 import { measuredCurveData, X_UNITS } from '../../../../utils/io/spectrumTable.js';
 import { curveTypedUnit } from '../curveEditor/units.js';
 import { unitName } from '../curveEditor/editorLabels.js';
@@ -158,7 +159,7 @@ function CurveEditorCard({ curve, selected, onSelect, controller, c, sx, ce }) {
                 c, label: sx.fitOpen, title: sx.fitCreateTip,
                 onClick: () => openFitDialog(curve.id),
             }),
-            h(ActionButton, { c, label: '×', title: sx.remove, onClick: () => removeCurve(curve.id) }),
+            h(ActionButton, { c, title: sx.remove, onClick: () => removeCurve(curve.id) }, tablerIcon('trash', 14)),
         ),
         h(FieldRow, { c, label: sx.quantityLabel },
             h(ChoiceGroup, {

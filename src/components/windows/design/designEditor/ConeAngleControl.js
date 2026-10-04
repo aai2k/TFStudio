@@ -1,5 +1,6 @@
 import { DebouncedInput } from '../../../ui/DebouncedInput.js';
 import { Checkbox } from '../../../ui/Checkbox.js';
+import { tablerIcon } from '../../../ui/tablerIcons.js';
 import { parseNumberStrict } from '../../../../utils/misc/numberParsing.js';
 import { operandSpectrumReads } from '../../../../utils/physics/optimizer/evalCore/operands/index.js';
 
@@ -119,13 +120,13 @@ function ConeUserTable({ cone, cc, dim, inStyle, patch, Th, c }) {
                 onChange: (s) => setRow(i, 'intensity', parseNumberStrict(s) || 0), style: cellStyle }),
             h('button', {
                 onClick: () => delRow(i),
-                style: { width: 22, height: 22, cursor: 'pointer', background: 'transparent', color: c.textDim, border: `1px solid ${c.border}`, borderRadius: 3 },
-            }, '×'),
+                style: { width: 22, height: 22, padding: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', background: 'transparent', color: c.textDim, border: `1px solid ${c.border}`, borderRadius: 3 },
+            }, tablerIcon('trash', 13)),
         )),
         h('div', { style: { display: 'flex', gap: 6, marginTop: 2 } },
             h('button', { onClick: addRow,
-                style: { fontSize: 11, cursor: 'pointer', background: 'transparent', color: c.accent, border: `1px solid ${c.border}`, borderRadius: 3, padding: '2px 8px' } },
-                cc.addRow || '+ Row'),
+                style: { display: 'inline-flex', alignItems: 'center', gap: 4, fontSize: 11, cursor: 'pointer', background: 'transparent', color: c.accent, border: `1px solid ${c.border}`, borderRadius: 3, padding: '2px 8px' } },
+                tablerIcon('plus', 12), cc.addRow || 'Row'),
             h('button', { onClick: normalize, title: cc.normalizeTip,
                 style: { fontSize: 11, cursor: 'pointer', background: 'transparent', color: c.textDim, border: `1px solid ${c.border}`, borderRadius: 3, padding: '2px 8px' } },
                 cc.normalize || 'Normalize'),

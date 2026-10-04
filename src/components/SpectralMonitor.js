@@ -8,6 +8,7 @@ import {
 } from '../utils/physics/statusMonitorEvaluation.js';
 import { useIntegralPresets } from '../utils/physics/integralValues.js';
 import { DebouncedInput } from './ui/DebouncedInput.js';
+import { tablerIcon } from './ui/tablerIcons.js';
 import { useAnalysisEvaluation } from './windows/analysis/useAnalysisEvaluation.js';
 
 const { createElement: h, useState, useEffect, useMemo, Fragment } = React;
@@ -380,7 +381,7 @@ export function SpectralMonitor({ c, t }) {
         background: 'none', border: `1px solid ${adding ? c.accent : c.border}`,
         borderRadius: 3, cursor: 'pointer',
         color: adding ? c.accent : c.textDim,
-        fontSize: 14, lineHeight: '16px', width: 18, height: 18,
+        width: 18, height: 18,
         display: 'flex', alignItems: 'center', justifyContent: 'center',
         padding: 0, outline: 'none', flexShrink: 0
     };
@@ -439,7 +440,7 @@ export function SpectralMonitor({ c, t }) {
                     },
                     onDragEnd: () => setDragOverId(null),
                     onClick: (e) => {
-                        if (e.target.tagName === 'BUTTON') return;
+                        if (e.target.closest('button')) return;
                         setAdding(false);
                         setEditingId(prev => prev === m.id ? null : m.id);
                     },
@@ -479,11 +480,12 @@ export function SpectralMonitor({ c, t }) {
                         },
                         title: monitorStrings.remove,
                         style: {
+                            display: 'flex', alignItems: 'center',
                             marginLeft: 3, background: 'none', border: 'none',
-                            cursor: 'pointer', color: c.textDim, fontSize: 11,
-                            padding: '0 1px', lineHeight: 1, outline: 'none'
+                            cursor: 'pointer', color: c.textDim,
+                            padding: '0 1px', outline: 'none'
                         }
-                    }, '\xd7')
+                    }, tablerIcon('x', 11))
                 );
             }),
             monitors.length === 0 && !adding && h('span', { style: { fontSize: 11, color: c.textDim, fontStyle: 'italic' } }, monitorStrings.empty),
@@ -493,7 +495,7 @@ export function SpectralMonitor({ c, t }) {
                 },
                 title: adding ? monitorStrings.cancel : monitorStrings.addMonitor,
                 style: addBtn,
-            }, adding ? '\xd7' : '+')
+            }, tablerIcon(adding ? 'x' : 'plus', 12))
         ),
 
         // Inline form — Add OR Edit (mutually exclusive)

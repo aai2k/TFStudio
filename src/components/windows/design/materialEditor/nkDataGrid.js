@@ -23,6 +23,7 @@
 import { isCtrlChord } from '../../../../utils/misc/keyChords.js';
 import { ResizeBar } from '../../../ui/resizeBar.js';
 import { useVirtualRows, virtualBody } from '../../../ui/virtualRows.js';
+import { tablerIcon } from '../../../ui/tablerIcons.js';
 
 const { createElement: h, useState, useRef, useCallback, useEffect } = React;
 
@@ -147,8 +148,8 @@ function renderNkRow(row, ri, ctx) {
             h('button', {
                 onClick: () => onDelete(row._key),
                 tabIndex: -1,
-                style: { background: 'none', border: 'none', color: c.textDim, cursor: 'pointer', fontSize: 13, padding: '0 3px', lineHeight: 1 }
-            }, '×')
+                style: { display: 'inline-flex', alignItems: 'center', verticalAlign: 'middle', background: 'none', border: 'none', color: c.textDim, cursor: 'pointer', padding: '0 3px' }
+            }, tablerIcon('trash', 13))
         )
     );
 }
@@ -214,7 +215,7 @@ export function NKDataGrid({
 
     return h('div', { style: { display: 'flex', flexDirection: 'column', gap: 4 } },
         h('div', { style: { display: 'flex', gap: 4, alignItems: 'center' } },
-            h('button', { onClick: addRow, style: { padding: '2px 8px', fontSize: 11, border: `1px solid ${c.border}`, borderRadius: 3, background: c.panel, color: c.text, cursor: 'pointer', fontFamily: 'inherit' } }, addLabel || '+ Add'),
+            h('button', { onClick: addRow, style: { display: 'inline-flex', alignItems: 'center', gap: 4, padding: '2px 8px', fontSize: 11, border: `1px solid ${c.border}`, borderRadius: 3, background: c.panel, color: c.text, cursor: 'pointer', fontFamily: 'inherit' } }, tablerIcon('plus', 12), addLabel || 'Add'),
             sortBtn,
         ),
         rows.length === 0

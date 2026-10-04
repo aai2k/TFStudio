@@ -13,6 +13,7 @@ import { resolveColor } from '../../../../utils/materials/catalogManager.js';
 import { DESIGN_CATALOG_ID } from '../../../../utils/materials/designCatalog.js';
 import { dotStyle, smallBtn, formatNm } from './materialEditorUI.js';
 import { ActionMenu } from './actionMenu.js';
+import { tablerIcon } from '../../../ui/tablerIcons.js';
 
 const { createElement: h } = React;
 
@@ -126,6 +127,7 @@ function renderCountRow(s) {
                 backgroundColor: c.accent + (addMenuOpen ? '33' : '22'), color: c.accent, borderColor: c.accent + '66',
             })
         },
+            tablerIcon('plus', 12),
             me.addMaterials,
             h('span', { className: addMenuOpen ? 'tf-caret tf-caret-open' : 'tf-caret', style: { backgroundColor: c.accent } })
         ),

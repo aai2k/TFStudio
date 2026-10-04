@@ -67,8 +67,8 @@ assert.ok(html.includes('Referenced operand was deleted'));
 assert.ok(html.includes('>(deleted)</option>'));
 assert.ok(html.includes('opacity:0.45'));
 assert.ok(html.includes('<button'));
-assert.ok(html.includes(`>${t.meritFunctionEditor.addOperand}</button>`));
-assert.ok(html.includes(`>${t.meritFunctionEditor.deleteOperand}</button>`));
+assert.ok(html.includes(`</svg>${t.meritFunctionEditor.addOperand}</span></button>`));
+assert.ok(html.includes(`</svg>${t.meritFunctionEditor.deleteOperand}</span></button>`));
 // Type and Pol are text like every other value cell: no picker trigger or
 // dropdown sits in a row until the cell is being edited.
 assert.ok(!html.includes('▾'), 'no picker trigger in any row');

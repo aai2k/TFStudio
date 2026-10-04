@@ -1,6 +1,7 @@
 import { useDesign } from '../../state/DesignContext.js';
 import { useUnresolvedMaterials } from '../../utils/materials/useUnresolvedMaterials.js';
 import { ReplaceMaterialsDialog } from '../dialogs/ReplaceMaterialsDialog.js';
+import { tablerIcon } from '../ui/tablerIcons.js';
 import { MaterialCalculationBlocked } from './MissingMaterialsNotice.js';
 
 const { createElement: h, Fragment, useState } = React;
@@ -32,10 +33,11 @@ export function MaterialResolutionModalGuard({ children, c, t, onClose }) {
                     onClick: onClose, title: t.materialResolution.close,
                     style: {
                         position: 'absolute', right: 8, top: 6, zIndex: 1,
+                        display: 'flex', alignItems: 'center', justifyContent: 'center',
                         border: 'none', background: 'transparent', color: c.textDim,
-                        cursor: 'pointer', fontSize: 18,
+                        cursor: 'pointer',
                     },
-                }, '×'),
+                }, tablerIcon('x', 16)),
                 h(MaterialCalculationBlocked, {
                     ids: missingMaterialIds, c, t,
                     onRepair: () => setReplaceOpen(true),

@@ -4,6 +4,8 @@
  * Shows in the bottom-right corner with auto-dismiss
  */
 
+import { tablerIcon } from './tablerIcons.js';
+
 export function MessageNotification({ c, message, type = 'info', onClose, duration = 4000 }) {
   const { createElement: h, useState, useEffect, useRef } = React;
   const [isVisible, setIsVisible] = useState(false);
@@ -140,26 +142,27 @@ export function MessageNotification({ c, message, type = 'info', onClose, durati
       h('button', {
         onClick: handleClose,
         style: {
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
           background: 'none',
           border: 'none',
           color: c.textDim,
           cursor: 'pointer',
           padding: '0 4px',
-          fontSize: '18px',
-          lineHeight: '1',
           borderRadius: '4px',
           transition: 'background-color 0.15s, color 0.15s',
           minWidth: '20px'
         },
         onMouseEnter: (e) => {
-          e.target.style.backgroundColor = c.hover;
-          e.target.style.color = c.text;
+          e.currentTarget.style.backgroundColor = c.hover;
+          e.currentTarget.style.color = c.text;
         },
         onMouseLeave: (e) => {
-          e.target.style.backgroundColor = 'transparent';
-          e.target.style.color = c.textDim;
+          e.currentTarget.style.backgroundColor = 'transparent';
+          e.currentTarget.style.color = c.textDim;
         }
-      }, '×')
+      }, tablerIcon('x', 16))
     )
   );
 }

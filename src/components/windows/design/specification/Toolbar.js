@@ -1,5 +1,6 @@
 import { QUALIFIER_KINDS } from '../../../../utils/synthesis/qualifiers.js';
 import { QUALIFIER_PRESETS, presetText } from '../../../../utils/synthesis/qualifierPresets.js';
+import { tablerIcon } from '../../../ui/tablerIcons.js';
 import { btnStyle, selStyle } from './fields.js';
 
 const { createElement: h, useState } = React;
@@ -32,8 +33,10 @@ export function Toolbar({
             h('option', { key: k, value: k, style: { background: c.panel } },
               (ts.kinds && ts.kinds[k]) || k))
         ),
-        h('button', { onClick: () => addQualifier(kind), style: btnStyle(c) },
-          ts.add || '+ Add'),
+        h('button', {
+            onClick: () => addQualifier(kind),
+            style: { ...btnStyle(c), display: 'inline-flex', alignItems: 'center', gap: 4 },
+        }, tablerIcon('plus', 13), ts.add || 'Add'),
 
         // Divider
         h('span', { style: { width: 1, height: 18, background: c.border, marginLeft: 6, marginRight: 6 } }),
@@ -99,8 +102,11 @@ export function Toolbar({
             onClick: () => { if (diskSel) onDeleteDiskPreset(diskSel); },
             disabled: !diskSel || diskBusy,
             title: ts.deleteTip || 'Delete the selected saved preset',
-            style: { ...btnStyle(c), opacity: diskSel ? 1 : 0.4, color: diskSel ? c.error : c.textDim },
-        }, '✕'),
+            style: {
+                ...btnStyle(c), opacity: diskSel ? 1 : 0.4, color: diskSel ? c.error : c.textDim,
+                display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+            },
+        }, tablerIcon('trash', 14)),
         h('button', {
             onClick: onSavePreset, disabled: diskBusy,
             style: btnStyle(c),

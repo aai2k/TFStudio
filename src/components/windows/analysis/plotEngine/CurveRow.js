@@ -2,6 +2,7 @@ import {
     X_AXES, Y_CHANNELS, POLARIZATIONS, SURFACE_MODES, DASHES,
 } from '../../../../utils/physics/plotQuantities.js';
 import { Checkbox } from '../../../ui/Checkbox.js';
+import { tablerIcon } from '../../../ui/tablerIcons.js';
 import { FieldLabel, NumInput, RangeField, SelectField, valueOptions } from '../chrome/controls.js';
 import { SettingRow } from '../chrome/popover.js';
 
@@ -46,11 +47,11 @@ function CurveHeader({ curve, onUpdate, onDelete, c, pe }) {
             type: 'button', onClick: onDelete, title: pe.delete || 'Delete curve',
             style: {
                 width: 22, height: 22, padding: 0, flexShrink: 0,
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
                 background: 'transparent', color: c.textDim,
                 border: 'none', borderRadius: 4, cursor: 'pointer',
-                fontSize: 15, lineHeight: 1, fontFamily: FONT,
             },
-        }, '×'),
+        }, tablerIcon('trash', 14)),
     );
 }
 

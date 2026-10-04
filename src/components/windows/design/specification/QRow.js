@@ -1,6 +1,7 @@
 import { QUALIFIER_KINDS, defaultTolForKind, qualifierSummary } from '../../../../utils/synthesis/qualifiers.js';
 import { OPERAND_POLS } from '../../../../utils/physics/optimizer.js';
 import { Checkbox } from '../../../ui/Checkbox.js';
+import { tablerIcon } from '../../../ui/tablerIcons.js';
 import { KIND_META, hasOpticalConditions } from './model.js';
 import { Field, numInp, numInpTarget, inpStyle, selStyle, btnStyle } from './fields.js';
 
@@ -22,7 +23,7 @@ export function QRow({ q, r, c, ts, updateQualifier, removeQualifier, integralPr
         onMouseDown: (e) => {
             // Don't steal focus from inline inputs/selects the user is editing.
             const tag = e.target?.tagName;
-            if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT' || tag === 'BUTTON') return;
+            if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT' || e.target?.closest?.('button')) return;
             onSelect && onSelect(q.id);
         },
         style: {
@@ -98,8 +99,11 @@ function renderRowHeader({ q, r, c, ts, onF, updateQualifier, removeQualifier, p
         h('button', {
             onClick: () => removeQualifier(q.id),
             title: ts.remove || 'Remove',
-            style: { ...btnStyle(c), padding: '2px 8px', color: c.textDim },
-        }, '✕'),
+            style: {
+                ...btnStyle(c), padding: '2px 8px', color: c.textDim,
+                display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+            },
+        }, tablerIcon('trash', 14)),
     );
 }
 

@@ -1,5 +1,6 @@
 import { ExportMenu, useCsvExport } from '../../../ui/ExportMenu.js';
 import { csvFromRows, ResultsGrid, ResultsSection } from '../../../ui/ResultsSection.js';
+import { tablerIcon } from '../../../ui/tablerIcons.js';
 import { ActionButton, ChoiceGroup } from '../chrome/controls.js';
 import { AnalysisWindow, ControlRow, PlotArea } from '../chrome/layout.js';
 import { NoticeBadge, PopoverButton } from '../chrome/popover.js';
@@ -20,7 +21,7 @@ function CurveList({ curvePlot, c, t, pe }) {
                 paddingBottom: 6, borderBottom: `1px solid ${c.border}`,
             },
         },
-            h(ActionButton, { c, label: pe.addCurve, onClick: addCurve }),
+            h(ActionButton, { c, label: pe.addCurve, onClick: addCurve }, tablerIcon('plus', 13)),
         ),
         curves.map(curve => h(CurveRow, {
             key: curve.id,

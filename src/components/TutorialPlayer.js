@@ -14,6 +14,7 @@
 // supplies `onAction`; this component owns only step navigation + ring geometry.
 
 import { useTargetRect } from './useTargetRect.js';
+import { tablerIcon } from './ui/tablerIcons.js';
 
 const { createElement: h, useState, useEffect, useRef, useCallback } = React;
 
@@ -104,8 +105,8 @@ export function TutorialPlayer({ c, t, lesson, designSig = '', designLayers = 0,
                 h('button', {
                     onClick: () => onClose?.(false),
                     title: tt.exit,
-                    style: { background: 'transparent', border: 'none', color: c.textDim, fontSize: 18, lineHeight: 1, cursor: 'pointer', padding: '0 2px', flexShrink: 0 },
-                }, '×'),
+                    style: { display: 'flex', alignItems: 'center', background: 'transparent', border: 'none', color: c.textDim, cursor: 'pointer', padding: '0 2px', flexShrink: 0 },
+                }, tablerIcon('x', 16)),
             ),
 
             // Progress bar

@@ -1,6 +1,7 @@
 import { operandContributions } from '../../../../../utils/physics/optimizer.js';
 import { useIntegralPresets } from '../../../../../utils/physics/integralValues.js';
 import { ContextMenu } from '../../../../ui/ContextMenu.js';
+import { tablerIcon } from '../../../../ui/tablerIcons.js';
 import { TblBtn } from './CellControls.js';
 import { renderOperandRow } from './OperandRows.js';
 import { observeResize } from '../../../../ui/observeResize.js';
@@ -106,6 +107,12 @@ function rowsToDelete(operands, selIds, focusCell) {
     return focused ? [focused.id] : [];
 }
 
+// A toolbar button face: an icon, then its text. Block-level flex, so the
+// button lays it out without a line box and keeps the height of a text button.
+function iconLabel(icon, text) {
+    return h('span', { style: { display: 'flex', alignItems: 'center', gap: 4 } }, tablerIcon(icon, 12), text);
+}
+
 function tableToolbar(options) {
     const {
         operands, selIds, focusCell, primarySel, toolbarStart,
@@ -122,12 +129,12 @@ function tableToolbar(options) {
         toolbarStart,
         toolbarStart && h('span', { style: { width: 1, height: 16, background: c.border, margin: '0 4px' } }),
         h(TblBtn, {
-            label: te.addOperand || '+ Add',
+            label: iconLabel('plus', te.addOperand || 'Add'),
             onClick: () => onAdd(null, computeInsertIndex(operands, selIds, focusCell)),
             c,
         }),
         h(TblBtn, {
-            label: te.deleteOperand || 'Delete', onClick: () => onDelete(deletable),
+            label: iconLabel('trash', te.deleteOperand || 'Delete'), onClick: () => onDelete(deletable),
             disabled: deletable.length === 0, c,
         }),
         h(TblBtn, { label: '↑', onClick: onMoveUp, disabled: !primarySel, c }),

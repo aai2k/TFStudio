@@ -118,10 +118,8 @@ export function WelcomeScreen({ c, t, samples = [], theme, setTheme, locale, set
             position: 'fixed', inset: 0, backgroundColor: 'rgba(0,0,0,0.72)',
             display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 10001,
         },
-        onClick: onClose,
     },
         h('div', {
-            onClick: (e) => e.stopPropagation(),
             style: {
                 backgroundColor: c.panel, border: `1px solid ${c.border}`, borderRadius: 14,
                 boxShadow: '0 12px 48px rgba(0,0,0,0.55)', width: 720, maxWidth: '94vw',

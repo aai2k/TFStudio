@@ -26,6 +26,7 @@ import { readOnlyNkTable } from './materialEditorReadOnly.js';
 import { useChartTeardown } from '../../../ui/plotSurface.js';
 import { draftSaveId } from './materialEditorMaterialActions.js';
 import { evaluateDispersionFit } from '../../../../utils/materials/dispersionFits.js';
+import { tablerIcon } from '../../../ui/tablerIcons.js';
 
 const { createElement: h, useRef, useEffect, useState, useMemo } = React;
 
@@ -342,7 +343,10 @@ function renderFormulaEditor(ctx) {
             )
         ),
         formulaInfo?.termSize && h('div', { style: { marginTop: 4 } },
-            h('button', { onClick: addTerm, style: smallBtn(c) }, me.addTerm)
+            h('button', {
+                onClick: addTerm,
+                style: smallBtn(c, { display: 'inline-flex', alignItems: 'center', gap: 4 }),
+            }, tablerIcon('plus', 12), me.addTerm)
         ),
 
         // k table for formula mode

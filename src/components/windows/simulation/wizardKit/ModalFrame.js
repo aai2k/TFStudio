@@ -8,6 +8,7 @@
 
 import { getCurrentLocale } from '../../../../constants/locales/index.js';
 import { EvalModeBadge }    from '../../../SurfaceModeBar.js';
+import { tablerIcon }       from '../../../ui/tablerIcons.js';
 
 const { createElement: h } = React;
 
@@ -19,7 +20,7 @@ export function ModalFrame({ c, B, step, setStep, onClose, body, design, t, help
                 h('div', { style: { display: 'flex', alignItems: 'center', gap: 10 } },
                     h('div', { style: { fontSize: 13, color: c.textDim } }, `${B.title} — ${B.pageLabel(step)}`),
                     design && h(EvalModeBadge, { design, c, t })),
-                h('button', { onClick: onClose, style: { background: 'transparent', color: c.textDim, border: 'none', cursor: 'pointer', fontSize: 18 } }, '×')),
+                h('button', { onClick: onClose, style: { background: 'transparent', color: c.textDim, border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' } }, tablerIcon('x', 16))),
             // Body
             h('div', { style: { flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column' } }, body),
             // Footer

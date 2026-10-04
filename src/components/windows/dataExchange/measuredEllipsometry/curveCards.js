@@ -7,6 +7,7 @@
  * under on its second.
  */
 
+import { tablerIcon } from '../../../ui/tablerIcons.js';
 import { ActionButton, CheckField, ChoiceGroup, NumInput } from '../../analysis/chrome/controls.js';
 import { measuredCurveData } from '../../../../utils/io/spectrumTable.js';
 import { textInputStyle } from '../chrome/panel.js';
@@ -60,7 +61,7 @@ function CurveHeader({ curve, controller, c, mx, ce }) {
         h(NameField, { curve, c, mx, onRename: name => updateCurve(curve.id, { name }) }),
         h(ActionButton, { c, label: ce.edit, title: ce.editTip, onClick: () => curveEditor.openEdit(curve) }),
         h(ActionButton, { c, label: mx.fit, title: mx.fitTip, onClick: () => openFitDialog(curve) }),
-        h(ActionButton, { c, label: '×', title: mx.remove, onClick: () => removeCurve(curve.id) }),
+        h(ActionButton, { c, title: mx.remove, onClick: () => removeCurve(curve.id) }, tablerIcon('trash', 14)),
     );
 }
 

@@ -1,3 +1,4 @@
+import { tablerIcon } from '../../../ui/tablerIcons.js';
 import { btnStyle } from './fields.js';
 
 const { createElement: h } = React;
@@ -16,8 +17,8 @@ export function EmptyState({ c, ts, addQualifier }) {
         h('div', { style: { display: 'flex', gap: 6, flexWrap: 'wrap', justifyContent: 'center', marginTop: 8 } },
             suggested.map(k => h('button', {
                 key: k, onClick: () => addQualifier(k),
-                style: { ...btnStyle(c), background: c.bg },
-            }, '+ ' + ((ts.kinds && ts.kinds[k]) || k)))
+                style: { ...btnStyle(c), background: c.bg, display: 'inline-flex', alignItems: 'center', gap: 4 },
+            }, tablerIcon('plus', 13), (ts.kinds && ts.kinds[k]) || k))
         )
     );
 }
