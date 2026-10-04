@@ -8,7 +8,7 @@ import {
     SynthesisControlBar, SynthesisSidebarFrame, makeRowHelpers,
 } from '../synthesisShared/synthesisShell.js';
 import {
-    SynthesisHistoryTable, TopDesignsPanel as SharedTopDesignsPanel, ChartSurface,
+    SynthesisHistoryTable, TopDesignsPanel as SharedTopDesignsPanel, ChartSurface, PpefNote,
 } from '../synthesisShared/synthesisHelpers.js';
 import { groupRowsByRun, RUN_COLORS } from '../synthesisShared/runBlocks.js';
 import { cartesianOption, horizontalLegend, lineSeries, valueAxis } from '../../../ui/chartOptions.js';
@@ -134,10 +134,11 @@ function mntNote({ dMin, maxMNT, td }) {
     }, dMin > maxMNT ? td.mntHintAbove(mnt) : td.mntHintBelow(mnt));
 }
 
-export function LeftSidebar({ s, catalogs, running, c, t }) {
+export function LeftSidebar({ s, catalogs, operands, running, c, t }) {
     const td = t.deepSynthesis;
     const { numRow } = makeRowHelpers({ c, running });
     const everyday = [
+        h(PpefNote, { operands, c, t }),
         numRow(td.dMin, s.dMin, v => s.setDMin(Math.max(0, v)), td.dMinHelp),
         mntNote({ dMin: s.dMin, maxMNT: s.maxMNT, td }),
         numRow(td.maxLayers, s.maxLayers, v => s.setMaxLayers(Math.max(1, Math.round(v))), td.maxLayersHelp),

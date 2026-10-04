@@ -43,7 +43,7 @@ export function NeedleVariation({ c, theme, t }) {
             onSelectAllCats: s.handleSelectAllCats, onClearCats: s.handleClearCats,
             excludedMats: s.excludedMats, onToggleMat: s.handleToggleMat,
             maxLayers: s.maxLayers, deltaNm: s.deltaNm, dMin: s.dMin, dlsIter: s.dlsIter,
-            targetMF: s.targetMF, maxMNT: s.maxMNT,
+            targetMF: s.targetMF, maxMNT: s.maxMNT, operands: s.design.meritOperands,
             onMaxLayers: s.setMaxLayers, onDeltaNm: s.setDeltaNm, onDMin: s.handleDMin, onDlsIter: s.setDlsIter,
             onTargetMF: s.setTargetMF,
             running: s.running, c, t,

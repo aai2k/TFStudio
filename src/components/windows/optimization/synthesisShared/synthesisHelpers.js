@@ -21,12 +21,13 @@ export {
 } from './catalogPool.js';
 export { loadSavedCatSelection, saveCatSelection, useCatSelection } from './catSelection.js';
 export {
-    sideKeyFor, activeSide, serializableMedia, densifyForRun, minOmfOf, chunkArray,
+    sideKeyFor, activeSide, serializableMedia, withoutPPEF, densifyForRun, minOmfOf, chunkArray,
     poolSize, buildARSeedCandidates, computePareto,
 } from './synthesisMath.js';
 export { regridForDesign, meritOf, presampleSynthesisMaterials } from './runGrid.js';
 export { MaterialPoolPanel } from './MaterialPoolPanel.js';
 export { MeritRangeBadge } from './MeritRangeBadge.js';
+export { PpefNote } from './PpefNote.js';
 export { TopDesignsPanel } from './TopDesignsPanel.js';
 export { ChartSurface } from './ChartSurface.js';
 export { SynthesisHistoryTable } from './SynthesisHistoryTable.js';

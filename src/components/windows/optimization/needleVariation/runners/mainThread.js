@@ -28,7 +28,7 @@ import {
 } from '../../../../../utils/physics/optimizer/parkedLayers.js';
 import { makeEngine } from '../../../../../utils/optimizers/index.js';
 import {
-    densifyForRun, activeSide, computePareto, minOmfOf, materialLookup,
+    densifyForRun, withoutPPEF, activeSide, computePareto, minOmfOf, materialLookup,
 } from '../../synthesisShared/synthesisHelpers.js';
 import { activeBaseline, activeRunNum, openRunBlock } from '../../synthesisShared/runBlocks.js';
 import { getSynthesisInnerEngine } from '../../../../../utils/synthesis/synthesisConfig.js';
@@ -176,7 +176,7 @@ export function runNeedleMainThread(ctx) {
     ctx.reconcileBaseWithEdits();
 
     const curDes  = ctx.baseDesignRef.current || ctx.designRef.current;
-    const enabled = ctx.operandsRef.current.filter(op => op.enabled);
+    const enabled = withoutPPEF(ctx.operandsRef.current.filter(op => op.enabled));
     const operands = densifyForRun(enabled.filter(op => !isConstraint(op.type)), curDes);
     if (!curDes || operands.length === 0) return;
     const innerEngine = getSynthesisInnerEngine('needle');   // Needle default 'cg'

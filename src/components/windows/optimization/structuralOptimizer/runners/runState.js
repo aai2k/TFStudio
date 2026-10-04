@@ -5,7 +5,7 @@ import {
     getSynthesisInnerEngine, getSynthesisSmartSeed, getThreadCount,
 } from '../../../../../utils/synthesis/synthesisConfig.js';
 import { getTmmWasmBytesForWorker } from '../../../../../tmmcore.js';
-import { activeSide, densifyForRun, serializableMedia } from '../../synthesisShared/synthesisMath.js';
+import { activeSide, densifyForRun, serializableMedia, withoutPPEF } from '../../synthesisShared/synthesisMath.js';
 import { getPoolMaterials } from '../../synthesisShared/catalogPool.js';
 import { activeBaseline, openRunBlock } from '../../synthesisShared/runBlocks.js';
 import { presampleAll } from './refine.js';
@@ -30,13 +30,14 @@ function checkCurDes(state) {
 
 function checkOperands(state) {
     const { ctx, cfg, curDes } = state;
-    const enabled = ctx.operandsRef.current.filter(op => op.enabled);
+    const enabled = withoutPPEF(ctx.operandsRef.current.filter(op => op.enabled));
     const operands = densifyForRun(enabled.filter(op => !isConstraint(op.type)), curDes);
     if (!operands.length) {
         ctx.setStatusMsg(ctx.ts.noOperands);
         return false;
     }
     applyConstraintBounds(cfg, enabled);
+    state.enabled = enabled;
     state.operands = operands;
     return true;
 }
@@ -94,8 +95,9 @@ function checkWorkers(state) {
     return createWorkers(ctx, state.workerCount);
 }
 
-// Every enabled operand, constraints included, for scoring results; band rows
-// carry the run's sample counts so the score and the refine share one grid.
+// Every enabled operand the run keeps, constraints included, for scoring
+// results; band rows carry the run's sample counts so the score and the refine
+// share one grid.
 function scoringOperands(enabled, operands) {
     const byId = new Map(operands.map(op => [op.id, op]));
     return enabled.map(op => byId.get(op.id) || op);
@@ -116,7 +118,7 @@ function takeRunSeed(ctx, cfg) {
 export const stallPatience = maxIter => Math.max(15, Math.round(maxIter / 3));
 
 function finalizeRunState(state) {
-    const { ctx, cfg, curDes, operands, side, layerKey, otherKey, pool, materials, workerCount, wasmBytes } = state;
+    const { ctx, cfg, curDes, enabled, operands, side, layerKey, otherKey, pool, materials, workerCount, wasmBytes } = state;
     const seed = takeRunSeed(ctx, cfg);
     const previousElapsed = ctx.gensRef.current.length
         ? (ctx.gensRef.current[ctx.gensRef.current.length - 1].tMs || 0)
@@ -126,7 +128,7 @@ function finalizeRunState(state) {
     const best = { mf: Infinity, omf: null, frontLayers: null, backLayers: null };
     const surfaceMode = curDes.surfaceMode || 'front_only';
     return {
-        cfg, curDes, operands, fullOps: scoringOperands(ctx.operandsRef.current.filter(op => op.enabled), operands),
+        cfg, curDes, operands, fullOps: scoringOperands(enabled, operands),
         side, layerKey, otherKey, surfaceMode, pool,
         poolLite: pool.map(material => ({ id: material.id, name: material.name })),
         materials, workerCount, wasmBytes, runId, runT0,

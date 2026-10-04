@@ -103,6 +103,8 @@ layers therefore applies to the whole stack here; finish with a
 [Design Cleaner](/synthesis/design-cleaner/) pass to hold each limit on its own
 layers.
 
+A peak-to-peak (`PPEF`) row, with any math row that refers to it, is left out of the search and of each proposal's refinement, so the MF shown here does not count it: its gradient comes from only the two wavelengths where the error is highest and lowest, and the search stalls on that. The search fits the curve block instead, a note under **Settings** says so, and a [Refinement](/synthesis/refinement/) run afterwards brings the peak-to-peak error down.
+
 ## How to read it
 
 The **MF trend** chart plots both the best and the current merit against

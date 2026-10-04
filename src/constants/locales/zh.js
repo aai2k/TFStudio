@@ -2623,6 +2623,7 @@ export default {
     sideFront: '正',
     sideBack: '背',
     layers: (n) => `${n} 层`,
+    ppefNote: '峰峰误差 (PPEF) 行留给“精炼”窗口处理：搜索按曲线的形状进行。',
   },
   needle: {
     run: '运行',

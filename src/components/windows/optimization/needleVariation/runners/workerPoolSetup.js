@@ -7,7 +7,7 @@
 
 import { isConstraint } from '../../../../../utils/physics/optimizer.js';
 import {
-    densifyForRun, activeSide, materialLookup, serializableMedia,
+    densifyForRun, withoutPPEF, activeSide, materialLookup, serializableMedia,
     regridForDesign, meritOf, presampleSynthesisMaterials,
 } from '../../synthesisShared/synthesisHelpers.js';
 
@@ -22,7 +22,7 @@ export function wpPrepare(ctx) {
     // algorithm declare "needle-optimal" prematurely. Drop thickness constraints
     // here; the user re-enables them for the post-synthesis Refinement / Cleaner
     // loop (the canonical synthesis-then-manufacturability workflow).
-    const enabled = ctx.operandsRef.current.filter(op => op.enabled);
+    const enabled = withoutPPEF(ctx.operandsRef.current.filter(op => op.enabled));
     const operands = densifyForRun(enabled.filter(op => !isConstraint(op.type)), curDes);
     const dropped = enabled.length - operands.length;
     if (!curDes || operands.length === 0) { ctx.setStatusMsg(ctx.t.needle.noOperands); return null; }

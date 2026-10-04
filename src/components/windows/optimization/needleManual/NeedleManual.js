@@ -75,7 +75,7 @@ export function NeedleManual({ c, theme, t }) {
             h(LeftSidebar, {
                 catalogs, selectedCats: s.selectedCats, onToggleCat: s.handleToggleCat,
                 onSelectAllCats: s.handleSelectAllCats, onClearCats: s.handleClearCats,
-                excludedMats: s.excludedMats, onToggleMat: s.handleToggleMat,
+                excludedMats: s.excludedMats, onToggleMat: s.handleToggleMat, operands: s.design.meritOperands,
                 deltaNm: s.deltaNm, dMin: s.dMin, nIntra: s.nIntra, refineAfter: s.refineAfter, dlsIter: s.dlsIter,
                 onDeltaNm: s.setDeltaNm, onDMin: s.setDMin, onNIntra: s.setNIntra,
                 onRefineAfter: s.setRefineAfter, onDlsIter: s.setDlsIter,

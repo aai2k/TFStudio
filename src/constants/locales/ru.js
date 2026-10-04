@@ -2178,6 +2178,7 @@ export default {
     sideFront:  'П',
     sideBack:   'З',
     layers:     (n) => `${n} сл.`,
+    ppefNote:   'Строка размаха ошибки (PPEF) оставлена окну «Оптимизация»: поиск идёт по форме кривой.',
   },
   needle: {
     run:          'Запуск',

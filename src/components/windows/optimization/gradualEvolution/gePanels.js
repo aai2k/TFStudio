@@ -10,7 +10,7 @@
 import {
     SynthesisControlBar, SynthesisSidebarFrame, makeRowHelpers,
 } from '../synthesisShared/synthesisShell.js';
-import { SynthesisHistoryTable, ChartSurface } from '../synthesisShared/synthesisHelpers.js';
+import { SynthesisHistoryTable, ChartSurface, PpefNote } from '../synthesisShared/synthesisHelpers.js';
 import { groupRowsByRun, RUN_COLORS } from '../synthesisShared/runBlocks.js';
 import { cartesianOption, horizontalLegend, lineSeries, scatterSeries, valueAxis } from '../../../ui/chartOptions.js';
 import {
@@ -101,7 +101,7 @@ export function ControlBar({ running, generation, layerCount, mf, mfBest, geStep
 export function LeftSidebar({ catalogs, selectedCats, onToggleCat, onSelectAllCats, onClearCats,
                        excludedMats, onToggleMat,
                        maxLayers, maxGeCycles, targetMF,
-                       dlsIter, dMin, maxMNT, deepSearch,
+                       dlsIter, dMin, maxMNT, deepSearch, operands,
                        onMaxLayers, onMaxGeCycles, onTargetMF,
                        onDlsIter, onDMin, onDeepSearch,
                        running, c, t }) {
@@ -109,6 +109,7 @@ export function LeftSidebar({ catalogs, selectedCats, onToggleCat, onSelectAllCa
     const { numRow, selRow, chkRow } = makeRowHelpers({ c, running });
 
     const everyday = [
+        h(PpefNote, { operands, c, t }),
         numRow(tg.maxLayers, maxLayers, v => onMaxLayers(Math.max(1, Math.round(v))), 1),
         numRow(tg.targetMF,  targetMF,  v => onTargetMF(Math.max(0, v)),              0),
         // Min thickness is an everyday knob (it sets the needle/prune floor AND

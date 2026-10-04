@@ -2643,6 +2643,7 @@ export default {
     sideFront: 'A',
     sideBack: 'P',
     layers: (n) => `${n} str.`,
+    ppefNote: "La riga dell'errore picco-picco (PPEF) resta all'Affinamento: la ricerca segue la forma della curva.",
   },
   needle: {
     run: 'Avvia',

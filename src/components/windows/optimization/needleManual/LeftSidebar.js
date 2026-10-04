@@ -1,13 +1,13 @@
 // Left sidebar: material pool selection + scan/refine settings.
 
 import { Checkbox } from '../../../ui/Checkbox.js';
-import { MaterialPoolPanel } from '../synthesisShared/synthesisHelpers.js';
+import { MaterialPoolPanel, PpefNote } from '../synthesisShared/synthesisHelpers.js';
 
 const { createElement: h } = React;
 
 export function LeftSidebar({
     catalogs, selectedCats, onToggleCat, onSelectAllCats, onClearCats,
-    excludedMats, onToggleMat,
+    excludedMats, onToggleMat, operands,
     deltaNm, dMin, nIntra, refineAfter, dlsIter,
     onDeltaNm, onDMin, onNIntra, onRefineAfter, onDlsIter,
     showSideRadio, requestedSide, onRequestedSide,
@@ -45,6 +45,7 @@ export function LeftSidebar({
         // Settings
         h('div', { style: { padding: '6px 8px', flexShrink: 0 } },
             h('div', { style: { fontSize: 10, fontWeight: 700, color: c.textDim, textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 6 } }, tn.settings),
+            h(PpefNote, { operands, c, t }),
             showSideRadio && h('div', { style: { display: 'flex', alignItems: 'center', gap: 10, marginBottom: 5 } },
                 h('span', { style: { fontSize: 11, color: c.textDim } }, tn.side),
                 ['front', 'back'].map(sd => h('label', {

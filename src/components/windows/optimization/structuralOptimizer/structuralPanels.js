@@ -9,7 +9,7 @@ import {
     SynthesisControlBar, SynthesisSidebarFrame, makeRowHelpers,
 } from '../synthesisShared/synthesisShell.js';
 import {
-    SynthesisHistoryTable, TopDesignsPanel as SharedTopDesignsPanel, ChartSurface,
+    SynthesisHistoryTable, TopDesignsPanel as SharedTopDesignsPanel, ChartSurface, PpefNote,
 } from '../synthesisShared/synthesisHelpers.js';
 import { cartesianOption, horizontalLegend, lineSeries, valueAxis } from '../../../ui/chartOptions.js';
 import { MUTATION_KINDS } from '../../../../utils/synthesis/structuralOptimizer.js';
@@ -141,7 +141,7 @@ export function LeftSidebar({ catalogs, selectedCats, onToggleCat, onSelectAllCa
                        excludedMats, onToggleMat,
                        maxIter, targetMF, T0, jitterPct, refineIter, dMin, maxMNT, addMaxNm, maxLayers,
                        deepMode, onDeepMode, deepMaxMin, onDeepMaxMin,
-                       kinds, onToggleKind, seed, onSeed,
+                       kinds, onToggleKind, seed, onSeed, operands,
                        onMaxIter, onTargetMF, onT0, onJitter, onRefineIter, onDMin, onAddMax, onMaxLayers,
                        running, c, t }) {
     const ts = t.structural;
@@ -163,6 +163,7 @@ export function LeftSidebar({ catalogs, selectedCats, onToggleCat, onSelectAllCa
             }, options.map(([val, lab]) => h('option', { key: val, value: val }, lab))));
 
     const everyday = [
+        h(PpefNote, { operands, c, t }),
         numRow(ts.maxIter,  maxIter,  v => onMaxIter(Math.max(1, Math.round(v))), ts.maxIterHelp),
         numRow(ts.targetMF, targetMF, v => onTargetMF(Math.max(0, v))),
         numRow(ts.temp0,    T0,       v => onT0(Math.max(0, v)), ts.temp0Help),

@@ -1,5 +1,5 @@
 import {
-    resolveScanSide,
+    resolveScanSide, isPPEF, removeOperandsAndDependents,
     densifyOperandsForFeatures, ADAPTIVE_SAMPLING_DEFAULTS, withDesignSampleCounts,
 } from '../../../../utils/physics/optimizer.js';
 import { generateARSeeds } from '../../../../utils/synthesis/seedGenerator.js';
@@ -37,6 +37,35 @@ export function serializableMedia(design) {
         ...(design.cone ? { cone: design.cone } : {}),
         ...(design.stress ? { stress: design.stress } : {}),
     };
+}
+
+// ── Rows a synthesis run leaves out ─────────────────────────────────────────────
+// A peak-to-peak (PPEF) row scores the highest less the lowest error over its
+// curve block, so its gradient sits on the two worst wavelengths alone. The
+// needle function is the derivative of a smooth least-squares merit, and with
+// such a row in it the search stalls. Every synthesis run therefore takes the
+// PPEF rows out, with any math row that reads one, since that row has no value
+// without it. The curve block stays, so the search fits the curve; Refinement
+// keeps the PPEF rows.
+//
+// The block then carries the weight its peak-to-peak requirement had: the PPEF
+// row's own and that of any row reading it, never less than the block's own.
+// A Specification writes the block at weight 0 and puts the requirement on the
+// PPEF row or on a ceiling over it, so without this the run would have nothing
+// left to fit.
+export function withoutPPEF(operands) {
+    const ppefRows = operands.filter(op => isPPEF(op.type));
+    if (!ppefRows.length) return operands;
+    const carried = new Map();
+    for (const row of ppefRows) {
+        const kept = new Set(removeOperandsAndDependents(operands, [row.id]));
+        const weight = operands.filter(op => !kept.has(op)).reduce((sum, op) => sum + (Number(op.weight) || 0), 0);
+        carried.set(row.refId, Math.max(carried.get(row.refId) ?? 0, weight));
+    }
+    return removeOperandsAndDependents(operands, ppefRows.map(op => op.id)).map(op => {
+        const weight = carried.get(op.id);
+        return weight > (Number(op.weight) || 0) ? { ...op, weight } : op;
+    });
 }
 
 // ── Run sampling grid ───────────────────────────────────────────────────────────

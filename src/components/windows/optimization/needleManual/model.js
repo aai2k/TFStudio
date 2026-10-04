@@ -1,18 +1,27 @@
 /**
- * Pure (non-React) helpers for the Needle Manual insertion window: stack-depth
- * geometry, the shared insert-for-selection dispatch, the P-function plot data
- * builder, and the refine that polishes the stack after an insertion.
+ * Pure (non-React) helpers for the Needle Manual insertion window: the rows it
+ * scores on, stack-depth geometry, the shared insert-for-selection dispatch,
+ * the P-function plot data builder, and the refine that polishes the stack
+ * after an insertion.
  */
 
 import {
-    scanNeedlesPFunction, insertNeedle, insertNeedleIntra, mirrorLayers,
+    scanNeedlesPFunction, insertNeedle, insertNeedleIntra, mirrorLayers, withDesignSampleCounts,
 } from '../../../../utils/physics/optimizer.js';
 import { DEFAULT_REFINE_METHOD } from '../../../../utils/optimizers/index.js';
-import { matDisplayName, matColor } from '../synthesisShared/synthesisHelpers.js';
+import { matDisplayName, matColor, withoutPPEF } from '../synthesisShared/synthesisHelpers.js';
 import { refineOffThread } from '../synthesisShared/workerRefine.js';
 
 // Which layer array a side maps to.
 export const sideKey = (side) => (side === 'back' ? 'backLayers' : 'frontLayers');
+
+// The rows the profile scan, the predicted merit and the refine after an
+// insertion all score on: the design's enabled rows less the PPEF ones, with
+// band rows sampled for the design's fringes.
+export function runOperands(design, resolveMat) {
+    const enabled = withoutPPEF((design?.meritOperands || []).filter(op => op.enabled));
+    return withDesignSampleCounts(enabled, design, resolveMat);
+}
 
 // Cumulative depth boundaries for a layer array: returns z[0..N] with z[0]=0,
 // z[k+1]=z[k]+d_k. z is the physical depth (nm) into the stack in storage order.

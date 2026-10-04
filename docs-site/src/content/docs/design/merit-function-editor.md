@@ -74,6 +74,8 @@ The **Curve target** category takes a curve instead of numbers. Its rows read th
 
 Gain flattening writes three rows. The target as a curve block in dB with its **level free**: the constant the design sits away from it by is taken out, so the block scores the shape and not the level. A [`PPEF`](/design/operands/#peak-to-peak-error-against-a-curve) row against that block, at the peak-to-peak value you set: least squares brings the shape in, and this row works on the worst point, the number the filter is sold against. And a `TDBMN` row at the wavelength where the target is highest, held at minus the insertion loss you set: if T is that high there, the peak insertion loss meets it. Both values start at 0 dB, which asks for the flattest shape and the least loss the stack can reach. Choosing Gain flattening unticks the layer maximum in the Thickness limits box, since these filters often need layers several micrometres thick; tick it again if the coating process limits layer thickness.
 
+The synthesis tools leave the `PPEF` row out: its gradient comes from only the two worst wavelengths, and the needle search stalls on it. They bring the shape in with the block, and a [Refinement](/synthesis/refinement/) run afterwards works the peak-to-peak error down.
+
 The line under the boxes says how many rows the wizard will add and of which
 types. **Start at row** is where the block goes; **Generate** adds it. The form
 keeps its values while the window is closed and reopened.
@@ -133,13 +135,7 @@ glance which targets are met and which are dragging the merit up. Bigger
 weights make an operand count for more; bumping the stopband weight on an HR
 design is the most common tweak.
 
-The operand list is saved with the design and is read by every optimizer:
-[Refinement](/synthesis/refinement/), [Needle](/synthesis/needle/),
-[Gradual Evolution](/synthesis/gradual-evolution/) and the
-[Structural Optimizer](/synthesis/structural-optimizer/). The synthesis tools
-optimize against the optical operands only while they build the stack, then the
-thickness constraints are enforced during Refinement. A good final sequence is
-Refinement, then Cleaner, then Refinement again.
+The operand list is saved with the design and is read by every optimizer: [Refinement](/synthesis/refinement/), [Needle](/synthesis/needle/), [Gradual Evolution](/synthesis/gradual-evolution/) and the [Structural Optimizer](/synthesis/structural-optimizer/). The synthesis tools optimize against the optical operands only while they build the stack, less any `PPEF` row and the math rows that refer to it; the thickness constraints and the peak-to-peak error are then enforced during Refinement. A good final sequence is Refinement, then Cleaner, then Refinement again.
 
 ## References
 

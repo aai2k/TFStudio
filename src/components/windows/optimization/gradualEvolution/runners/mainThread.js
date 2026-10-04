@@ -13,7 +13,7 @@
 
 import { makeEngine } from '../../../../../utils/optimizers/index.js';
 import { getSynthesisInnerEngine, getSynthesisSeedMode } from '../../../../../utils/synthesis/synthesisConfig.js';
-import { activeSide, densifyForRun, materialLookup } from '../../synthesisShared/synthesisHelpers.js';
+import { activeSide, densifyForRun, materialLookup, withoutPPEF } from '../../synthesisShared/synthesisHelpers.js';
 import { activeBaseline, openRunBlock } from '../../synthesisShared/runBlocks.js';
 import { scheduleTick } from './mainThreadCore.js';
 import { phaseSeedDls } from './mainThreadSeed.js';
@@ -35,7 +35,7 @@ export function runGeMainThread(ctx) {
     ctx.reconcileBaseWithEdits();
 
     const curDes  = ctx.baseDesignRef.current || ctx.designRef.current;
-    const operands = densifyForRun(ctx.operandsRef.current.filter(op => op.enabled), curDes);
+    const operands = densifyForRun(withoutPPEF(ctx.operandsRef.current.filter(op => op.enabled)), curDes);
     if (!curDes || operands.length === 0) return;
 
     // Surface-mode-aware active side. insertNeedle / insertNeedleIntra and the

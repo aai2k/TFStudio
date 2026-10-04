@@ -11,7 +11,7 @@ import {
     SynthesisControlBar, SynthesisSidebarFrame, makeRowHelpers,
 } from '../synthesisShared/synthesisShell.js';
 import {
-    SynthesisHistoryTable, TopDesignsPanel as SharedTopDesignsPanel, ChartSurface,
+    SynthesisHistoryTable, TopDesignsPanel as SharedTopDesignsPanel, ChartSurface, PpefNote,
 } from '../synthesisShared/synthesisHelpers.js';
 import { cartesianOption, horizontalLegend, lineSeries, valueAxis } from '../../../ui/chartOptions.js';
 import { groupRowsByRun, RUN_COLORS } from '../synthesisShared/runBlocks.js';
@@ -91,12 +91,13 @@ export function ControlBar({ running, phase, generation, layerCount, mf, mfBest,
 // ── Material pool + settings left sidebar ─────────────────────────────────────
 export function LeftSidebar({ catalogs, selectedCats, onToggleCat, onSelectAllCats, onClearCats,
                        excludedMats, onToggleMat,
-                       maxLayers, deltaNm, dlsIter, dMin, targetMF,
+                       maxLayers, deltaNm, dlsIter, dMin, targetMF, operands,
                        maxMNT, onMaxLayers, onDeltaNm, onDlsIter, onDMin, onTargetMF, running, c, t }) {
     const tn = t.needle;
     const { numRow, selRow, chkRow } = makeRowHelpers({ c, running });
 
     const everyday = [
+        h(PpefNote, { operands, c, t }),
         numRow(tn.maxLayers, maxLayers, v => onMaxLayers(Math.max(1, Math.round(v))), 1),
         numRow(tn.targetMF,  targetMF,  v => onTargetMF(Math.max(0, v)),               0),
         // Smart starting design: refine canonical AR seeds on the worker pool

@@ -74,6 +74,8 @@ Minimum and maximum thickness limits are ignored during synthesis; re-enable
 them by running [Refinement](/synthesis/refinement/) afterwards. The surface
 mode set in the Design Editor is honoured for every mode, not just the front.
 
+A peak-to-peak (`PPEF`) row is left out of synthesis too, with any math row that refers to it, so the MF shown here does not count it: its gradient comes from only the two wavelengths where the error is highest and lowest, and the needle search stalls on that. Needle fits the curve block instead, a note under **Settings** says so, and a [Refinement](/synthesis/refinement/) run afterwards brings the peak-to-peak error down.
+
 ## How to read it
 
 The window shows a live preview of the design as needles go in, a **scan plot**

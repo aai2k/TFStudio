@@ -2212,6 +2212,7 @@ export default {
     sideFront:  'F',
     sideBack:   'B',
     layers:     (n) => `${n} lyr`,
+    ppefNote:   'The peak-to-peak (PPEF) row is left to Refinement: the search follows the curve\'s shape.',
   },
   needle: {
     run:          'Run',

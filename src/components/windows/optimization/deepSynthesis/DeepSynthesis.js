@@ -41,7 +41,8 @@ export function DeepSynthesis({ c, t }) {
         c, trendLabel: td.trendTitle, tableLabel: td.rowsTitle,
         controlBar: h(ControlBar, { view, actions, design, t, c }),
         sidebar: h(LeftSidebar, {
-            s, catalogs: poolCatalogs(design, t.pool.designCatalog), running: view.running, c, t,
+            s, catalogs: poolCatalogs(design, t.pool.designCatalog), operands: design.meritOperands,
+            running: view.running, c, t,
         }),
         trend: h(TrendPlot, { trend: view.trend, c, t }),
         table: h(HistoryTable, { rows: view.rows, bestMF, onRestore: actions.restore, showSide, c, t }),

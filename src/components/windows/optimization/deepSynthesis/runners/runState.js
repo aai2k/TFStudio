@@ -5,7 +5,7 @@ import { makeEvaluator, DEFAULT_ENGINE } from '../../../../../utils/synthesis/de
 import { DEFAULT_TARGET_MF } from '../../../../../utils/synthesis/deepSynthesis/trace.js';
 import { blockedReason, deepSynthesisParts } from '../../../../../utils/synthesis/deepSynthesis/capabilities.js';
 import { DEEP_SYNTHESIS_DEFAULTS } from '../../../../../utils/synthesis/deepSynthesis/index.js';
-import { activeSide, densifyForRun, serializableMedia } from '../../synthesisShared/synthesisMath.js';
+import { activeSide, densifyForRun, serializableMedia, withoutPPEF } from '../../synthesisShared/synthesisMath.js';
 import { getPoolMaterials } from '../../synthesisShared/catalogPool.js';
 import { presampleSynthesisMaterials } from '../../synthesisShared/runGrid.js';
 import { embedDesignMaterials, isBuiltinId } from '../../../../../utils/materials/designMaterials.js';
@@ -37,7 +37,7 @@ function checkDesign(state) {
 // the reason in the status line.
 function checkBlocked(state) {
     const { ctx, curDes } = state;
-    state.enabled = ctx.operandsRef.current.filter(op => op.enabled);
+    state.enabled = withoutPPEF(ctx.operandsRef.current.filter(op => op.enabled));
     state.pool = getPoolMaterials(ctx.selectedCatsRef.current, { excluded: ctx.excludedMatsRef.current, design: curDes });
     const reason = blockedReason(curDes, {
         pool: state.pool.map(material => material.id),

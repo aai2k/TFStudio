@@ -22,7 +22,7 @@ import {
 import { getTmmWasmBytesForWorker } from '../../../../../tmmcore.js';
 import { SYNTHESIS_WORKER_URL as SYNTH_WORKER_URL } from '../../../../../workerUrls.js';
 import {
-    activeSide, densifyForRun, chunkArray, poolSize, serializableMedia, presampleSynthesisMaterials,
+    activeSide, densifyForRun, withoutPPEF, chunkArray, poolSize, serializableMedia, presampleSynthesisMaterials,
 } from '../../synthesisShared/synthesisHelpers.js';
 import { activeBaseline, openRunBlock } from '../../synthesisShared/runBlocks.js';
 import { runGeMainThread } from './mainThread.js';
@@ -99,7 +99,7 @@ export function runGeWorker(ctx) {
     ctx.reconcileBaseWithEdits();   // M12: pick up manual edits made between runs
 
     const curDes   = ctx.baseDesignRef.current || ctx.designRef.current;
-    const operands  = densifyForRun(ctx.operandsRef.current.filter(op => op.enabled), curDes);
+    const operands  = densifyForRun(withoutPPEF(ctx.operandsRef.current.filter(op => op.enabled)), curDes);
     if (!curDes || operands.length === 0) { ctx.setStatusMsg(ctx.t.gradualEvolution.noOperands); return; }
 
     // Sides to scan per cycle. For both_independent we scan BOTH front and back

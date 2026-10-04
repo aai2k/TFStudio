@@ -82,7 +82,7 @@ export function GradualEvolution({ c, theme, t }) {
             onSelectAllCats: handleSelectAllCats, onClearCats: handleClearCats,
             excludedMats, onToggleMat: handleToggleMat,
             maxLayers, maxGeCycles, targetMF,
-            dlsIter, dMin, maxMNT, deepSearch,
+            dlsIter, dMin, maxMNT, deepSearch, operands: design.meritOperands,
             onMaxLayers: setMaxLayers, onMaxGeCycles: setMaxGeCycles,
             onTargetMF: setTargetMF,
             onDlsIter: setDlsIter, onDMin: handleDMin, onDeepSearch: setDeepSearch,

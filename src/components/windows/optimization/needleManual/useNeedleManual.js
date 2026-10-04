@@ -15,7 +15,7 @@ import { useWindowSession } from '../../windowSession.js';
 import {
     findOptimalNeedleThickness,
     resolveScanSide, isConstraint,
-    buildEvalContext, evaluateOperands, calcOMF, withDesignSampleCounts,
+    buildEvalContext, evaluateOperands, calcOMF,
     makeConeSpec, coneIsActive,
 } from '../../../../utils/physics/optimizer.js';
 import {
@@ -24,7 +24,7 @@ import {
 } from '../synthesisShared/synthesisHelpers.js';
 import {
     candidateDepth, insertForSelection, runNeedleScan, buildPlotData,
-    resolveHostInfo, resolveDRange, insertionRefineJob, refineAndCommit,
+    resolveHostInfo, resolveDRange, insertionRefineJob, refineAndCommit, runOperands,
 } from './model.js';
 import { useAnalysisEvaluation } from '../../analysis/useAnalysisEvaluation.js';
 
@@ -319,11 +319,7 @@ export function useNeedleManual(t) {
     const surfaceMode = design?.surfaceMode || 'front_only';
     const effSide = resolveScanSide(surfaceMode, settings.requestedSide);
     const showSideRadio = surfaceMode === 'both_independent';
-    // Band operands sampled for the current design's fringes: the scan, the
-    // predicted merit and the refine after an insertion all score on this grid.
-    const operands = useMemo(() => withDesignSampleCounts(
-        (design?.meritOperands || []).filter(op => op.enabled), design, resolveMat,
-    ), [design, resolveMat]);
+    const operands = useMemo(() => runOperands(design, resolveMat), [design, resolveMat]);
 
     const workflow = useNeedleWorkflow({
         design, resolveMat, effSide, operands, tn, t,
