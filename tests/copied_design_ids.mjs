@@ -98,7 +98,8 @@ try {
     assert.deepEqual(merged.replaced, [], 'no other copy displaces the saved edit');
 
     // Links: two links to one file are one design; a link to a different file
-    // gets an id in memory, and the link stays a link.
+    // gets an id in memory, and the link stays a link. Each sits in a folder of
+    // its own, since two files of one id in one folder are set aside instead.
     const target = path.join(root, 'shared', 'Shared AR.tfs');
     fs.mkdirSync(path.dirname(target), { recursive: true });
     fs.writeFileSync(target, JSON.stringify(design('design-S', 'Shared AR', 'MgF2', 98), null, 2));
@@ -108,9 +109,10 @@ try {
     try {
         fs.mkdirSync(path.join(projectsDir, 'Linked A'), { recursive: true });
         fs.mkdirSync(path.join(projectsDir, 'Linked B'), { recursive: true });
+        fs.mkdirSync(path.join(projectsDir, 'Linked C'), { recursive: true });
         fs.symlinkSync(target, path.join(projectsDir, 'Linked A', 'Shared AR.tfs'), 'file');
         fs.symlinkSync(target, path.join(projectsDir, 'Linked B', 'Shared AR.tfs'), 'file');
-        fs.symlinkSync(other, path.join(projectsDir, 'Linked B', 'Other AR.tfs'), 'file');
+        fs.symlinkSync(other, path.join(projectsDir, 'Linked C', 'Other AR.tfs'), 'file');
         linked = true;
     } catch (err) {
         console.log(`copied design ids: links not tested here (${err.code})`);
@@ -122,7 +124,7 @@ try {
         assert.ok(shared.every(r => r.id === 'design-S'), 'two links to one file stay one design');
         const otherRow = withLinks.find(r => r.name === 'Other AR');
         assert.notEqual(otherRow.id, 'design-S', 'a link to a different file with that id is a design of its own');
-        assert.ok(fs.lstatSync(path.join(projectsDir, 'Linked B', 'Other AR.tfs')).isSymbolicLink(), 'the link stays a link');
+        assert.ok(fs.lstatSync(path.join(projectsDir, 'Linked C', 'Other AR.tfs')).isSymbolicLink(), 'the link stays a link');
         assert.equal(JSON.parse(fs.readFileSync(other, 'utf8')).id, 'design-S', 'the file behind it is not rewritten');
     }
 } finally {
