@@ -57,7 +57,7 @@
     "electron": "^44.5.1",
     "electron-builder": "^26.15.3",
     "esbuild": "^0.28.2",
-    "katex": "^0.18.9",
+    "katex": "^0.19.0",
     "react": "^18.2.0",
     "react-dom": "^18.2.0",
     "sharp": "^0.35.5"
