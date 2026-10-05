@@ -1,9 +1,10 @@
 // Read/write the portable preferences file.
 //
-// settings.json lives in the app's AppData directory, which an uninstall
-// removes. Anything the user tuned by hand and would have to redo from scratch
-// therefore lives here instead, under the configurable Preferences folder in
-// Documents, where it survives a reinstall and can be copied to another machine.
+// settings.json lives in the app's own data folder, which belongs to one
+// installation on one machine. Anything the user tuned by hand and would have
+// to redo from scratch therefore lives here instead, under the configurable
+// Preferences folder in Documents, where it survives a reinstall and can be
+// copied to another machine.
 //
 // The file holds three blocks. `analysis` is every configured value an analysis
 // window starts from, keyed by window id and grouped by kind (colours, numbers,

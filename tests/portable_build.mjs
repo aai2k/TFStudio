@@ -32,7 +32,7 @@ assert.equal(
         execPath: '/opt/TFStudio/TFStudio.exe', appPath: '/opt/TFStudio/resources/app.asar',
     }),
     '/opt/TFStudio',
-    'an installed build keeps its data beside its executable');
+    'an installed build\'s exe directory is its install folder (its data is elsewhere: installed_data_folder.mjs)');
 assert.equal(
     resolveExeDir({
         portableDir: '', isPackaged: false,

@@ -4,6 +4,7 @@ const fs = require('fs');
 const logger = require('./main/logger');
 const { log, flushLog } = logger;
 const { safeName, safeSegments, safeFilePath, readJsonSafe, writeFileAtomic, readTextAuto, registryValue, resolveExeDir } = require('./main/paths');
+const { resolveUserDataDir } = require('./main/userDataDir');
 const seed = require('./main/seed');
 const helpServer = require('./main/helpServer');
 const { createUserPaths } = require('./main/userPaths');
@@ -29,7 +30,12 @@ const exeDir = resolveExeDir({
 });
 logger.init(exeDir);
 
-let portableDataDir = path.join(exeDir, 'AppData');
+let userDataDir = resolveUserDataDir({
+  portableDir: process.env.PORTABLE_EXECUTABLE_DIR,
+  isPackaged,
+  exeDir,
+  appDataDir: app.getPath('appData'),
+});
 
 
 log('=== App Startup ===');
@@ -40,34 +46,34 @@ log(`Window placement: ${nativeWindowDrag
   ? 'compositor (the app may not place its own windows; a torn-off tool is docked with its Dock button)'
   : 'app'}`);
 log(`Exe directory: ${exeDir}`);
-log(`Data directory: ${portableDataDir}`);
+log(`Data directory: ${userDataDir}`);
 
 try {
-  if (!fs.existsSync(portableDataDir)) {
-    fs.mkdirSync(portableDataDir, { recursive: true });
-    log(`Created data directory: ${portableDataDir}`);
+  if (!fs.existsSync(userDataDir)) {
+    fs.mkdirSync(userDataDir, { recursive: true });
+    log(`Created data directory: ${userDataDir}`);
   }
-  const testFile = path.join(portableDataDir, '.write-test');
+  const testFile = path.join(userDataDir, '.write-test');
   fs.writeFileSync(testFile, 'test', 'utf-8');
   fs.unlinkSync(testFile);
   log('Data directory is writable');
 } catch (err) {
   log(`Failed to set up data directory: ${err.message}`);
-  // MP7: the exe dir is read-only (Program Files, a locked USB, a network share),
-  // so the portable AppData beside it is unwritable. Using it for userData anyway
+  // MP7: the exe dir is read-only (a locked USB, a network share), so the
+  // portable AppData beside it is unwritable. Using it for userData anyway
   // would make settings / license / localStorage all fail silently. Fall back to
   // the OS per-user app-data directory instead of soldiering on with a dead dir.
   try {
     const fallback = path.join(app.getPath('appData'), 'TFStudio');
     fs.mkdirSync(fallback, { recursive: true });
-    portableDataDir = fallback;
+    userDataDir = fallback;
     log(`Falling back to per-user data directory: ${fallback}`);
   } catch (err2) {
     log(`Per-user fallback data directory also failed: ${err2.message}`);
   }
 }
 
-app.setPath('userData', portableDataDir);
+app.setPath('userData', userDataDir);
 flushLog();
 
 let mainWindow;
@@ -259,7 +265,7 @@ function prepareMaterialsDir(materialsDir) {
 function setupIpcHandlers() {
   const userDataPath = app.getPath('userData');
 
-  // Machine-local settings stay in the portable AppData folder.
+  // Machine-local settings stay in the app's own data folder (userData).
   const settingsPath = path.join(userDataPath, 'settings.json');
 
   // User-facing data lives in Documents\TFStudio by default so it persists
