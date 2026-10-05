@@ -5,16 +5,17 @@ const keyOf = (side) => side === 'back' ? 'backLayers' : 'frontLayers';
 const newLayerId = () => `l-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`;
 
 /**
- * Add one layer at table row `displayIndex`, made to carry on the stack (see
- * followingLayer), in one design update. Returns the new layer's id.
+ * Add one layer at table row `displayIndex`, made to carry on the stack from
+ * the rows on the `follows` side (see followingLayer), in one design update.
+ * Returns the new layer's id.
  */
-export function addLayerAtDisplayIndex(design, updateDesign, side, displayIndex, reversed) {
+export function addLayerAtDisplayIndex(design, updateDesign, side, displayIndex, { reversed, follows }) {
     const current = design[keyOf(side)] || [];
     const display = reversed ? [...current].reverse() : current;
     const index = Math.max(0, Math.min(displayIndex, display.length));
     const layer = {
         ...followingLayer(display, index, {
-            refLambda: design.referenceWavelength || 550, designMaterials: design.materials,
+            refLambda: design.referenceWavelength || 550, designMaterials: design.materials, follows,
         }),
         id: newLayerId(),
     };

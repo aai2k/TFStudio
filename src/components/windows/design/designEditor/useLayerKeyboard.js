@@ -10,9 +10,11 @@ function displayToUnderlying(reversed, layersLength, di) {
     return reversed ? layersLength - 1 - di : di;
 }
 
+// Insert goes in above the focused row and so follows the rows below it;
+// Shift+Insert goes in below and follows the rows above.
 function insertAtDisplayPos({ di, below, layers, addLayerAt }) {
     const focused = (di != null && di >= 0 && di < layers.length) ? di : 0;
-    addLayerAt(Math.min(below ? focused + 1 : focused, layers.length));
+    addLayerAt(Math.min(below ? focused + 1 : focused, layers.length), below ? 'above' : 'below');
 }
 
 function deleteAtDisplayPos({ di, layers, side, reversed, displayedLayers, setSelectedId, removeLayerAt }) {
@@ -42,7 +44,7 @@ const isLayerLocked = (row) => !!(row && row.locked);
 
 export function useLayerKeyboard({ layers, side, reversed, displayedLayers,
     selectedId, setSelectedId, containerRef,
-    addLayerAt, removeLayerAt, duplicateLayerAt,
+    addLayerAt, removeLayerAt, deleteSelection, duplicateLayerAt,
     activeUnit, setActiveUnit, focusDisplayIndex, requestCellEdit, onCopy, onPaste }) {
 
     const selectedDisplayIdx = selectedId
@@ -54,7 +56,8 @@ export function useLayerKeyboard({ layers, side, reversed, displayedLayers,
         isLocked: isLayerLocked,
         onInsertAbove: (i) => insertAtDisplayPos({ di: i, below: false, layers, addLayerAt }),
         onInsertBelow: (i) => insertAtDisplayPos({ di: i, below: true,  layers, addLayerAt }),
-        onDelete:      (i) => deleteAtDisplayPos({ di: i, layers, side, reversed, displayedLayers, setSelectedId, removeLayerAt }),
+        onDelete:      (i) => deleteSelection(i)
+            || deleteAtDisplayPos({ di: i, layers, side, reversed, displayedLayers, setSelectedId, removeLayerAt }),
         onDuplicate:   (i) => duplicateAtDisplayPos({ di: i, layers, side, reversed, setSelectedId, containerRef, duplicateLayerAt }),
         onMoveFocus: (delta, options) => {
             if (!displayedLayers.length) return;

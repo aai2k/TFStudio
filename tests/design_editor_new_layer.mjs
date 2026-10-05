@@ -2,8 +2,11 @@
  * A layer added in the Design Editor carries on the stack instead of being a
  * 100 nm SiO2 placeholder.
  *
- *   1. It copies the layer two rows before it, so H L H L goes on as H L H L H;
- *      at the top of the table it copies the layer two rows after it.
+ *   1. It copies the layer two rows away on the side it is added from: two rows
+ *      up when it goes in below a row (+ Layer, Shift+Insert), two rows down
+ *      when it goes in above one (Insert), so H L H L carries on and repeated
+ *      inserts alternate either way. At an end of the table it uses the side
+ *      that has rows.
  *   2. Next to a single layer, or two of one material, it is a quarter wave at
  *      λ₀ of L next to anything of higher index than L, of H otherwise. An empty
  *      side starts with an L quarter wave. H and L are the Stack Formula's.
@@ -14,6 +17,7 @@
  *      below the selected row or at the bottom, Insert above the focused row,
  *      Shift+Insert and the context menu's Insert below add below it, and the
  *      new row is selected, in the design that is open even after a switch.
+ *      Delete with several rows selected removes all of them but the locked.
  *
  * Run: node tests/design_editor_new_layer.mjs
  */
@@ -21,7 +25,9 @@ import assert from 'node:assert/strict';
 import { loadApp, makeLocale, makeTheme, shimBrowserGlobals } from './_uiShim.mjs';
 import { makeHookRuntime, importWithHookRuntime } from './_hookHarness.mjs';
 import { followingLayer } from '../src/components/windows/design/designEditor/followingLayer.js';
-import { addLayerAtDisplayIndex } from '../src/components/windows/design/designEditor/layerActions.js';
+import {
+    addLayerAtDisplayIndex, removeLayerAt, removeLayers,
+} from '../src/components/windows/design/designEditor/layerActions.js';
 import { unitToNm } from '../src/components/windows/design/designEditor/units.js';
 import { DEFAULT_SYMBOL_MAP } from '../src/utils/synthesis/stackFormula.js';
 
@@ -71,6 +77,11 @@ const near = (actual, expected, message) =>
         'in the middle it copies the layer two rows up too');
     assert.deepEqual(followingLayer(refined, 0, at550), { material: L, thickness: 90.2, locked: false },
         'at the top it copies the layer two rows down');
+    const below = { ...at550, follows: 'below' };
+    assert.deepEqual(followingLayer(refined, 2, below), { material: L, thickness: 97.4, locked: false },
+        'added above a row, it copies the layer two rows down');
+    assert.deepEqual(followingLayer(refined, 4, below), { material: H, thickness: 57.3, locked: false },
+        'and below the last row, with nothing under it, two rows up');
     assert.deepEqual(followingLayer([...refined, row('e', H, 50)], 5, at550),
         { material: L, thickness: 97.4, locked: false }, 'a copied layer is unlocked');
 
@@ -96,7 +107,7 @@ function editor(side) {
     const key = side === 'front' ? 'frontLayers' : 'backLayers';
     const table = () => (reversed ? [...state.design[key]].reverse() : state.design[key]);
     return {
-        add: index => addLayerAtDisplayIndex(state.design, updateDesign, side, index, reversed),
+        add: index => addLayerAtDisplayIndex(state.design, updateDesign, side, index, { reversed }),
         stored: () => state.design[key],
         table,
         materials: () => table().map(layer => layer.material),
@@ -143,7 +154,7 @@ for (const side of ['front', 'back']) {
         referenceWavelength: 550, surfaceMode: 'symmetric',
         frontLayers: [row('f1', L, 94)], backLayers: [row('b-f1', L, 94)],
     };
-    addLayerAtDisplayIndex(design, patch => { design = { ...design, ...patch }; }, 'front', 1, true);
+    addLayerAtDisplayIndex(design, patch => { design = { ...design, ...patch }; }, 'front', 1, { reversed: true });
     assert.deepEqual(design.backLayers.map(layer => layer.material), [L, H], 'the back mirrors the new front layer');
 }
 
@@ -188,10 +199,12 @@ function frontTable(first) {
             return runtime.render(() => LayerList({
                 layers: state.design.frontLayers, side: 'front', design: state.design, updateDesign,
                 missingMaterialIds: new Set(), c: makeTheme(), t, refLambda: 550,
-                addLayerAtDisplayIndex: (side, index, reversed) =>
-                    addLayerAtDisplayIndex(state.design, updateDesign, side, index, reversed),
-                removeLayer: noop, updateLayer: noop, removeLayerAt: noop, duplicateLayerAt: noop,
-                pasteLayersAtDisplayIndex: noop, removeLayers: noop, reorderLayers: noop,
+                addLayerAtDisplayIndex: (side, index, options) =>
+                    addLayerAtDisplayIndex(state.design, updateDesign, side, index, options),
+                removeLayerAt: (side, index) => removeLayerAt(state.design, updateDesign, side, index),
+                removeLayers: (side, ids) => removeLayers(state.design, updateDesign, side, ids),
+                removeLayer: noop, updateLayer: noop, duplicateLayerAt: noop,
+                pasteLayersAtDisplayIndex: noop, reorderLayers: noop,
                 moveLayersByStep: noop, invertActiveSide: noop, setAllLocked: noop, copyToOther: noop,
                 onOpenReplaceMaterials: noop,
             }));
@@ -199,15 +212,20 @@ function frontTable(first) {
             globalThis.React = real;
         }
     };
-    const table = () => [...state.design.frontLayers].reverse().map(layer => layer.id);
+    const rows = () => [...state.design.frontLayers].reverse();
+    const table = () => rows().map(layer => layer.id);
     return {
         state, table,
+        materials: () => rows().map(layer => layer.material),
+        lock: id => updateDesign({
+            frontLayers: state.design.frontLayers.map(layer => (layer.id === id ? { ...layer, locked: true } : layer)),
+        }),
         open: design => { state.design = design; },
         selected: () => designEditorSession.peek(state.design, null).selectedLayerId,
         clickAdd: () => find(render(), node => node.props.onClick
             && [].concat(node.props.children).includes(t.designEditor.addLayer)).props.onClick(),
-        clickRow: id => find(render(), node => node.props.layer?.id === id && node.props.onSelect)
-            .props.onSelect(id, {}),
+        clickRow: (id, event = {}) => find(render(), node => node.props.layer?.id === id && node.props.onSelect)
+            .props.onSelect(id, event),
         press: (name, shift) => render().props.onKeyDown(key(name, shift)),
         menuInsertBelow: id => {
             find(render(), node => node.props.layer?.id === id && node.props.onContextMenu)
@@ -259,6 +277,36 @@ function frontTable(first) {
         'after a switch the new row is selected in the design that is open');
     assert.equal(designEditorSession.peek({ id: 'A' }, null).selectedLayerId, lastInA,
         'and the design left behind keeps its own selection');
+
+    // Insert pressed again and again builds upward from the focused row, so
+    // each new layer follows the rows below it; Shift+Insert builds downward.
+    // One layer put into an alternating stack meets its own material on one
+    // side, so it takes pairs to keep H L alternating throughout.
+    const letters = () => ui.materials().map(m => (m === H ? 'H' : 'L')).join(' ');
+    ui.open({ ...base, id: 'C', frontLayers: [] });
+    ui.press('Insert');
+    ui.press('Insert');
+    assert.equal(letters(), 'H L', 'Insert on an empty side starts with L, and the next one goes above it');
+    ui.clickRow(ui.table()[1]);
+    for (let press = 0; press < 4; press++) ui.press('Insert');
+    assert.equal(letters(), 'H L H L H L', 'four Inserts above the bottom row keep H L alternating');
+    for (let press = 0; press < 2; press++) ui.press('Insert', true);
+    assert.equal(letters(), 'H L H L H L H L', 'and so do two Shift+Inserts');
+
+    // Delete with several rows selected removes them all, except a locked one.
+    const [, r1, r2, r3, r4] = ui.table();
+    ui.lock(r3);
+    ui.clickRow(r1);
+    ui.clickRow(r3, { ctrlKey: true });
+    ui.clickRow(r2, { ctrlKey: true });
+    ui.press('Delete');
+    assert.deepEqual(ui.table().filter(id => [r1, r2, r3].includes(id)), [r3],
+        'Delete removes every selected row but the locked one');
+    assert.equal(ui.table().length, 6);
+    assert.equal(newest(), r4, 'and selects the row that took the focused row\'s place');
+    ui.clickRow(r4);
+    ui.press('Delete');
+    assert.equal(ui.table().includes(r4), false, 'with one row selected Delete removes that row');
 }
 
 console.log('design_editor_new_layer: passed');

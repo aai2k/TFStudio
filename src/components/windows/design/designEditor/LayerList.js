@@ -15,6 +15,7 @@ import {
 } from './layerClipboard.js';
 import { useLayerDrag } from './useLayerDrag.js';
 import { useLayerStep } from './useLayerStep.js';
+import { useLayerRowEdits } from './useLayerRowEdits.js';
 import { useThicknessStep } from './useThicknessStep.js';
 import { resolveDesignMaterial } from '../../../../utils/materials/designMaterials.js';
 import { expandHerpinLayer, isHerpinLayer } from './layerTools.js';
@@ -101,19 +102,10 @@ export function LayerList({ layers, side, design, updateDesign, missingMaterialI
         setSelectedId(id || null);
     }, [design.id]); // eslint-disable-line react-hooks/exhaustive-deps
 
-    // The new layer is selected, so the next one goes in after it.
-    const addLayerAt = useCallback(displayIndex => {
-        const id = addLayerAtDisplayIndex(side, displayIndex, reversed);
-        selectOnly(id);
-        containerRef.current?.focus();
-        requestAnimationFrame(() => scrollLayerIntoView(containerRef.current, id));
-    }, [addLayerAtDisplayIndex, reversed, selectOnly, side]);
-
-    // + Layer adds below the selected row, or at the bottom of the table.
-    const handleAdd = () => {
-        const selected = displayedLayers.findIndex(layer => layer.id === selectedId);
-        addLayerAt(selected >= 0 ? selected + 1 : displayedLayers.length);
-    };
+    const { addLayerAt, addBelowSelection, deleteRows, deleteSelection } = useLayerRowEdits({
+        side, reversed, displayedLayers, selectedId, selectedIds, selectOnly,
+        addLayerAtDisplayIndex, removeLayers, containerRef, reveal: scrollLayerIntoView,
+    });
 
     const extendSelectionTo = useCallback(index => {
         const row = displayedLayers[index];
@@ -283,19 +275,12 @@ export function LayerList({ layers, side, design, updateDesign, missingMaterialI
         const displayIndex = contextMenu?.targetId
             ? Math.max(0, targetIndex + (below ? 1 : 0))
             : displayedLayers.length;
-        addLayerAt(displayIndex);
+        addLayerAt(displayIndex, below ? 'above' : 'below');
     }, [addLayerAt, contextMenu, displayedLayers]);
 
-    const deleteFromContext = useCallback(() => {
-        const ids = contextMenu?.targetIds || [];
-        if (!ids.length) return;
-        const removed = new Set(ids);
-        const targetIndex = displayedLayers.findIndex(layer => layer.id === contextMenu.targetId);
-        const remaining = displayedLayers.filter(layer => !removed.has(layer.id));
-        if (!removeLayers(side, ids)) return;
-        const next = remaining[Math.min(Math.max(targetIndex, 0), remaining.length - 1)];
-        selectOnly(next?.id || null);
-    }, [contextMenu, displayedLayers, removeLayers, selectOnly, side]);
+    const deleteFromContext = useCallback(
+        () => deleteRows(contextMenu?.targetIds || [], contextMenu?.targetId),
+        [contextMenu, deleteRows]);
 
     const copyFromContext = useCallback(() => {
         const ids = new Set(contextMenu?.targetIds || []);
@@ -313,7 +298,7 @@ export function LayerList({ layers, side, design, updateDesign, missingMaterialI
     // Keyboard row shortcuts (Ins / Shift+Ins / Del / Ctrl+D).
     const { onKeyDown: tableKeyDown } = useLayerKeyboard({
         layers, side, reversed, displayedLayers, selectedId, setSelectedId, containerRef,
-        addLayerAt, removeLayerAt, duplicateLayerAt,
+        addLayerAt, removeLayerAt, deleteSelection, duplicateLayerAt,
         activeUnit, setActiveUnit, focusDisplayIndex, requestCellEdit,
         onCopy: copySelectedLayers, onPaste: pasteAfterSelection,
     });
@@ -420,7 +405,7 @@ export function LayerList({ layers, side, design, updateDesign, missingMaterialI
                 backgroundColor: c.panel, flexShrink: 0, flexWrap: 'wrap'
             }
         },
-            h(Btn, { onClick: handleAdd, c }, tablerIcon('plus', 13), de.addLayer),
+            h(Btn, { onClick: addBelowSelection, c }, tablerIcon('plus', 13), de.addLayer),
             h('div', { style: { width: 1, height: 20, background: c.border, margin: '0 2px' } }),
             h(Btn, {
                 onClick: () => invertActiveSide && invertActiveSide(),

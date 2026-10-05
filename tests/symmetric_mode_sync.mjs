@@ -88,7 +88,7 @@ ok(mirrorMatches(), 'material change mirrors');
 api.updateLayer('front', 'f1', { locked: true });
 ok(mirrorMatches(), 'lock toggle mirrors');
 
-addLayerAtDisplayIndex(design(), api.updateDesign, 'front', front().length, true);
+addLayerAtDisplayIndex(design(), api.updateDesign, 'front', front().length, { reversed: true });
 ok(front().length === 3, 'add reaches the front stack');
 ok(mirrorMatches(), 'add mirrors');
 

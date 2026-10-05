@@ -18,19 +18,22 @@ function quarterWave(material, refLambda, designMaterials) {
  * table order (substrate first, the order they are deposited), chosen so the
  * stack carries on rather than gaining a placeholder.
  *
- * It is a copy of the layer two rows before it, so H L H L goes on as
- * H L H L H. At the top of the table it copies the layer two rows after it
- * instead. With no such layer, or one of the same material as the new layer's
- * neighbour, it is a quarter wave at λ₀ of L next to anything of higher index
- * than L, and of H otherwise. An empty side starts with an L quarter wave.
- * Where L has no index at λ₀ (the SiO2 formula has none near 9 µm) it is H.
+ * It follows the rows on the side it is added from: `follows: 'above'` for a
+ * layer added below a row, 'below' for one added above a row. It is a copy of
+ * the layer two rows away on that side, so H L H L goes on as H L H L H, and
+ * inserting again and again at the new row keeps alternating. At an end of the
+ * table, with no row on that side, it follows the other side. With no such
+ * layer, or one of the same material as the new layer's neighbour, it is a
+ * quarter wave at λ₀ of L next to anything of higher index than L, and of H
+ * otherwise. An empty side starts with an L quarter wave. Where L has no index
+ * at λ₀ (the SiO2 formula has none near 9 µm) it is H.
  *
  * The result has no id and is unlocked.
  */
-export function followingLayer(displayedLayers, index, { refLambda, designMaterials }) {
-    const after = index === 0;
-    const neighbour = displayedLayers[after ? index : index - 1];
-    const pattern = displayedLayers[after ? index + 1 : index - 2];
+export function followingLayer(displayedLayers, index, { refLambda, designMaterials, follows = 'above' }) {
+    const fromAbove = follows === 'below' ? index === displayedLayers.length : index > 0;
+    const neighbour = displayedLayers[fromAbove ? index - 1 : index];
+    const pattern = displayedLayers[fromAbove ? index - 2 : index + 1];
     if (neighbour && pattern && pattern.material !== neighbour.material) {
         const { id, ...copy } = pattern;
         return { ...copy, locked: false };

@@ -81,8 +81,8 @@ export function DesignEditor({ c, t }) {
     const [replaceOpen, setReplaceOpen] = useState(false);
     const missingMaterialSet = useMemo(() => new Set(missingMaterialIds), [missingMaterialIds]);
 
-    const addLayerAtDisplayIndex = (side, displayIndex, reversed) =>
-        addLayerAtDisplayIndexAction(design, updateDesign, side, displayIndex, reversed);
+    const addLayerAtDisplayIndex = (side, displayIndex, options) =>
+        addLayerAtDisplayIndexAction(design, updateDesign, side, displayIndex, options);
     const removeLayerAt = (side, splicePos) => removeLayerAtAction(design, updateDesign, side, splicePos);
     const duplicateLayerAt = (side, splicePos) => duplicateLayerAtAction(design, updateDesign, side, splicePos);
     const setAllLocked = (side, locked) => setAllLockedAction(design, updateDesign, side, locked);
