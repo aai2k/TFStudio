@@ -3,7 +3,7 @@ import { useUnresolvedMaterials } from '../../../../utils/materials/useUnresolve
 import { SurfaceModeControl } from '../../../SurfaceModeBar.js';
 import { ReplaceMaterialsDialog } from '../../../dialogs/ReplaceMaterialsDialog.js';
 import {
-    insertLayerAt as insertLayerAtAction, removeLayerAt as removeLayerAtAction,
+    addLayerAtDisplayIndex as addLayerAtDisplayIndexAction, removeLayerAt as removeLayerAtAction,
     duplicateLayerAt as duplicateLayerAtAction, setAllLocked as setAllLockedAction,
     copyToOther as copyToOtherAction, invertActiveSide as invertActiveSideAction,
     pasteLayersAtDisplayIndex as pasteLayersAtDisplayIndexAction,
@@ -49,7 +49,7 @@ function SideTabButton({ side, activeSide, disabledSide, disabledReason, design,
 // ── Design Editor ─────────────────────────────────────────────────────────────
 
 export function DesignEditor({ c, t }) {
-    const { design, updateDesign, addLayer, removeLayer, updateLayer } = useDesign();
+    const { design, updateDesign, removeLayer, updateLayer } = useDesign();
     const missingMaterialIds = useUnresolvedMaterials(design);
     const [session, setSessionField] = useWindowSession(designEditorSession, design);
     const activeSide = session.activeSide;
@@ -81,7 +81,8 @@ export function DesignEditor({ c, t }) {
     const [replaceOpen, setReplaceOpen] = useState(false);
     const missingMaterialSet = useMemo(() => new Set(missingMaterialIds), [missingMaterialIds]);
 
-    const insertLayerAt = (side, splicePos, source) => insertLayerAtAction(design, updateDesign, side, splicePos, source);
+    const addLayerAtDisplayIndex = (side, displayIndex, reversed) =>
+        addLayerAtDisplayIndexAction(design, updateDesign, side, displayIndex, reversed);
     const removeLayerAt = (side, splicePos) => removeLayerAtAction(design, updateDesign, side, splicePos);
     const duplicateLayerAt = (side, splicePos) => duplicateLayerAtAction(design, updateDesign, side, splicePos);
     const setAllLocked = (side, locked) => setAllLockedAction(design, updateDesign, side, locked);
@@ -144,8 +145,8 @@ export function DesignEditor({ c, t }) {
         h('div', { style: { flex: 1, overflow: 'hidden', display: 'flex', flexDirection: 'column' } },
             h(LayerList, {
                 layers, side: activeSide, design, updateDesign, missingMaterialIds: missingMaterialSet, c,
-                addLayer, removeLayer, updateLayer,
-                insertLayerAt, removeLayerAt, duplicateLayerAt,
+                removeLayer, updateLayer,
+                addLayerAtDisplayIndex, removeLayerAt, duplicateLayerAt,
                 pasteLayersAtDisplayIndex, removeLayers, reorderLayers, moveLayersByStep,
                 invertActiveSide, setAllLocked, copyToOther,
                 onOpenReplaceMaterials: () => setReplaceOpen(true),

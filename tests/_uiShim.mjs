@@ -202,7 +202,7 @@ export function makeDesignCtx(design = makeSampleDesign()) {
         hasActiveDesign: true,
         updateDesign: noop, checkpoint: noop,
         history: { entries: [], index: 0 }, jumpToHistory: noop,
-        addLayer: noop, removeLayer: noop, updateLayer: noop, moveLayer: noop, duplicateLayer: noop,
+        removeLayer: noop, updateLayer: noop, moveLayer: noop, duplicateLayer: noop,
         evalMode: 'front',
         isOptimizing: false, beginOptimization: noop, endOptimization: noop,
         liveUpdate: true, setLiveUpdate: noop,

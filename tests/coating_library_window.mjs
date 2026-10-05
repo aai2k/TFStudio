@@ -140,8 +140,8 @@ assert.ok(html.includes(esc(ts.layersShort(design.frontLayers.length))), 'the di
 // The Design Editor's tools menu offers the save action.
 html = renderToStaticMarkup(withDesign(React.createElement(LayerList, {
     layers: design.frontLayers, side: 'front', design, updateDesign: () => {}, missingMaterialIds: new Set(), c, t,
-    addLayer: () => {}, removeLayer: () => {}, updateLayer: () => {},
-    insertLayerAt: () => {}, removeLayerAt: () => {}, duplicateLayerAt: () => {},
+    removeLayer: () => {}, updateLayer: () => {},
+    addLayerAtDisplayIndex: () => {}, removeLayerAt: () => {}, duplicateLayerAt: () => {},
     pasteLayersAtDisplayIndex: () => {}, removeLayers: () => {}, reorderLayers: () => {},
     moveLayersByStep: () => {},
     invertActiveSide: () => {}, setAllLocked: () => {}, copyToOther: () => {},

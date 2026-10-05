@@ -20,6 +20,7 @@ shimBrowserGlobals();
 await loadApp();
 
 const { DesignProvider, useDesign } = await import('../src/state/DesignContext.js');
+const { addLayerAtDisplayIndex } = await import('../src/components/windows/design/designEditor/layerActions.js');
 
 let passed = 0;
 function ok(condition, message) {
@@ -87,7 +88,7 @@ ok(mirrorMatches(), 'material change mirrors');
 api.updateLayer('front', 'f1', { locked: true });
 ok(mirrorMatches(), 'lock toggle mirrors');
 
-api.addLayer('front');
+addLayerAtDisplayIndex(design(), api.updateDesign, 'front', front().length, true);
 ok(front().length === 3, 'add reaches the front stack');
 ok(mirrorMatches(), 'add mirrors');
 

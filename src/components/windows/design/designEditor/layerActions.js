@@ -1,25 +1,32 @@
 import { mirrorLayers } from '../../../../utils/physics/optimizer.js';
+import { followingLayer } from './followingLayer.js';
 
 const keyOf = (side) => side === 'back' ? 'backLayers' : 'frontLayers';
 const newLayerId = () => `l-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`;
 
+/**
+ * Add one layer at table row `displayIndex`, made to carry on the stack (see
+ * followingLayer), in one design update. Returns the new layer's id.
+ */
+export function addLayerAtDisplayIndex(design, updateDesign, side, displayIndex, reversed) {
+    const current = design[keyOf(side)] || [];
+    const display = reversed ? [...current].reverse() : current;
+    const index = Math.max(0, Math.min(displayIndex, display.length));
+    const layer = {
+        ...followingLayer(display, index, {
+            refLambda: design.referenceWavelength || 550, designMaterials: design.materials,
+        }),
+        id: newLayerId(),
+    };
+    const splicePos = reversed ? current.length - index : index;
+    applyLayers(design, updateDesign, side, [...current.slice(0, splicePos), layer, ...current.slice(splicePos)]);
+    return layer.id;
+}
+
 // ── Index-based layer helpers (used by keyboard shortcuts) ─────
 // These complement the id-based DesignContext API so that callers who
 // already know the underlying-array splice position don't pay an
-// id-lookup round-trip and can pass a source layer for material defaults.
-
-export function insertLayerAt(design, updateDesign, side, splicePos, source) {
-    const key = keyOf(side);
-    const cur = design[key] || [];
-    const id  = newLayerId();
-    const newLayer = source
-        ? { id, material: source.material, thickness: source.thickness, locked: false }
-        : { id, material: 'SiO2', thickness: 100, locked: false };
-    const pos = Math.max(0, Math.min(splicePos, cur.length));
-    const next = [...cur.slice(0, pos), newLayer, ...cur.slice(pos)];
-    applyLayers(design, updateDesign, side, next);
-    return id;
-}
+// id-lookup round-trip.
 
 export function removeLayerAt(design, updateDesign, side, splicePos) {
     const key = keyOf(side);

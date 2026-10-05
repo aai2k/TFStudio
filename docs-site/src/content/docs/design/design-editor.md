@@ -87,6 +87,8 @@ inverts the layer order, locks or unlocks the whole side at once, and copies
 the current side's stack onto the other surface. You can also insert, delete
 and duplicate rows from the keyboard.
 
+The **+ Layer** button adds a layer below the selected row, or at the bottom of the table when no row is selected, and selects it, so each click adds the next layer out from the substrate. Insert and Shift+Insert add one above or below the focused row. A new layer copies the material and thickness of the layer two rows above it, so alternating high and low layers stay alternating; at the top of the table it copies the layer two rows below. When there is no such layer, or it is the same material as the row next to the new one, the new layer is a quarter wave at λ₀: SiO2 next to a material of higher index than SiO2, TiO2 next to anything else. On an empty side the first layer is a SiO2 quarter wave.
+
 ## Stack geometry
 
 Below the table, a cross-section diagram shows the incident medium, the front

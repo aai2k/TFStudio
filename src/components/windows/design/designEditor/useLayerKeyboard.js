@@ -10,26 +10,9 @@ function displayToUnderlying(reversed, layersLength, di) {
     return reversed ? layersLength - 1 - di : di;
 }
 
-function insertAtDisplayPos({ di, below, layers, side, reversed, setSelectedId, containerRef, insertLayerAt }) {
-    if (layers.length === 0) {
-        const newId = insertLayerAt(side, 0, null);
-        if (newId) setSelectedId(newId);
-        containerRef.current?.focus();
-        return;
-    }
-    const clamped = (di != null && di >= 0 && di < layers.length) ? di : 0;
-    const underlyingIdx = displayToUnderlying(reversed, layers.length, clamped);
-    // "Above" in DISPLAY order maps to:
-    //   reversed     → splice AFTER focused in underlying (idx+1)
-    //   not reversed → splice BEFORE focused in underlying (idx)
-    // "Below" in display flips that.
-    let splicePos;
-    if (below) splicePos = reversed ? underlyingIdx : underlyingIdx + 1;
-    else       splicePos = reversed ? underlyingIdx + 1 : underlyingIdx;
-    const source = layers[underlyingIdx];
-    const newId = insertLayerAt(side, splicePos, source);
-    if (newId) setSelectedId(newId);
-    containerRef.current?.focus();
+function insertAtDisplayPos({ di, below, layers, addLayerAt }) {
+    const focused = (di != null && di >= 0 && di < layers.length) ? di : 0;
+    addLayerAt(Math.min(below ? focused + 1 : focused, layers.length));
 }
 
 function deleteAtDisplayPos({ di, layers, side, reversed, displayedLayers, setSelectedId, removeLayerAt }) {
@@ -59,7 +42,7 @@ const isLayerLocked = (row) => !!(row && row.locked);
 
 export function useLayerKeyboard({ layers, side, reversed, displayedLayers,
     selectedId, setSelectedId, containerRef,
-    insertLayerAt, removeLayerAt, duplicateLayerAt,
+    addLayerAt, removeLayerAt, duplicateLayerAt,
     activeUnit, setActiveUnit, focusDisplayIndex, requestCellEdit, onCopy, onPaste }) {
 
     const selectedDisplayIdx = selectedId
@@ -69,8 +52,8 @@ export function useLayerKeyboard({ layers, side, reversed, displayedLayers,
         focusIdx: selectedDisplayIdx,
         rows: displayedLayers,
         isLocked: isLayerLocked,
-        onInsertAbove: (i) => insertAtDisplayPos({ di: i, below: false, layers, side, reversed, setSelectedId, containerRef, insertLayerAt }),
-        onInsertBelow: (i) => insertAtDisplayPos({ di: i, below: true,  layers, side, reversed, setSelectedId, containerRef, insertLayerAt }),
+        onInsertAbove: (i) => insertAtDisplayPos({ di: i, below: false, layers, addLayerAt }),
+        onInsertBelow: (i) => insertAtDisplayPos({ di: i, below: true,  layers, addLayerAt }),
         onDelete:      (i) => deleteAtDisplayPos({ di: i, layers, side, reversed, displayedLayers, setSelectedId, removeLayerAt }),
         onDuplicate:   (i) => duplicateAtDisplayPos({ di: i, layers, side, reversed, setSelectedId, containerRef, duplicateLayerAt }),
         onMoveFocus: (delta, options) => {

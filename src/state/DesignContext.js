@@ -15,7 +15,7 @@ import { useAnalysisDefaults, useAnalysisSettings } from './AnalysisSettingsCont
 function uid() { return `${Date.now()}-${Math.random().toString(36).slice(2, 7)}`; }
 
 // Monotonic layer-id generator. `l-${Date.now()}` collided when two layers were
-// created in the same millisecond (rapid add / addLayer-in-a-loop / duplicate),
+// created in the same millisecond (rapid duplicate, or ids backfilled in a loop),
 // producing duplicate React keys and making updateLayer/removeLayer/moveLayer
 // target the wrong (or both) layers. The counter guarantees uniqueness.
 let _layerSeq = 0;
@@ -230,17 +230,6 @@ export function DesignProvider({ children, activeDesignId, designs, folders, onD
 
     const _layersKey = (side) => side === 'back' ? 'backLayers' : 'frontLayers';
 
-    const addLayer = useCallback((side = 'front', afterIndex) => {
-        const key = _layersKey(side);
-        _setDesign(prev => {
-            const newLayer = { id: newLayerId(), material: 'SiO2', thickness: 100, locked: false };
-            const layers = [...prev[key]];
-            const idx = afterIndex != null ? afterIndex + 1 : layers.length;
-            layers.splice(idx, 0, newLayer);
-            return { ...prev, [key]: layers };
-        });
-    }, [_setDesign]);
-
     const removeLayer = useCallback((side, layerId) => {
         const key = _layersKey(side);
         _setDesign(prev => ({
@@ -297,7 +286,7 @@ export function DesignProvider({ children, activeDesignId, designs, folders, onD
             updateDesign,
             checkpoint,
             history, jumpToHistory,
-            addLayer, removeLayer, updateLayer, moveLayer, duplicateLayer,
+            removeLayer, updateLayer, moveLayer, duplicateLayer,
             evalMode,
             isOptimizing, beginOptimization, endOptimization,
             liveUpdate, setLiveUpdate,

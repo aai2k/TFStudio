@@ -40,8 +40,8 @@ function scrollLayerIntoView(container, id) {
 }
 
 export function LayerList({ layers, side, design, updateDesign, missingMaterialIds, c,
-    addLayer, removeLayer, updateLayer,
-    insertLayerAt, removeLayerAt, duplicateLayerAt,
+    removeLayer, updateLayer,
+    addLayerAtDisplayIndex, removeLayerAt, duplicateLayerAt,
     pasteLayersAtDisplayIndex, removeLayers, reorderLayers, moveLayersByStep,
     invertActiveSide, setAllLocked, copyToOther, onOpenReplaceMaterials,
     refLambda, t }) {
@@ -49,7 +49,6 @@ export function LayerList({ layers, side, design, updateDesign, missingMaterialI
     const [session, setSessionField] = useWindowSession(designEditorSession, design);
     const selectedId = session.selectedLayerId;
     const setSelectedId = value => setSessionField('selectedLayerId', value);
-    const selectedIndex = layers.findIndex(l => l.id === selectedId);
     const de = t.designEditor;
     const layerToolText = de.layerTools;
     const containerRef = useRef(null);
@@ -89,19 +88,32 @@ export function LayerList({ layers, side, design, updateDesign, missingMaterialI
         });
     }, [layers, selectedId]);
 
-
-    const handleAdd = () => addLayer(side, selectedIndex >= 0 ? selectedIndex : undefined);
-
     // The row a range selection grows from. It stays put for a run of
     // Shift-clicks or Shift+Arrows, so extending twice covers both steps rather
     // than re-anchoring on the row reached last.
     const anchorRef = useRef(selectedId || null);
 
+    // Remade per design: the selection is stored per design, and the window
+    // stays mounted when another design is opened.
     const selectOnly = useCallback(id => {
         anchorRef.current = id || null;
         setSelectedIds(new Set(id ? [id] : []));
         setSelectedId(id || null);
-    }, []);
+    }, [design.id]); // eslint-disable-line react-hooks/exhaustive-deps
+
+    // The new layer is selected, so the next one goes in after it.
+    const addLayerAt = useCallback(displayIndex => {
+        const id = addLayerAtDisplayIndex(side, displayIndex, reversed);
+        selectOnly(id);
+        containerRef.current?.focus();
+        requestAnimationFrame(() => scrollLayerIntoView(containerRef.current, id));
+    }, [addLayerAtDisplayIndex, reversed, selectOnly, side]);
+
+    // + Layer adds below the selected row, or at the bottom of the table.
+    const handleAdd = () => {
+        const selected = displayedLayers.findIndex(layer => layer.id === selectedId);
+        addLayerAt(selected >= 0 ? selected + 1 : displayedLayers.length);
+    };
 
     const extendSelectionTo = useCallback(index => {
         const row = displayedLayers[index];
@@ -271,8 +283,8 @@ export function LayerList({ layers, side, design, updateDesign, missingMaterialI
         const displayIndex = contextMenu?.targetId
             ? Math.max(0, targetIndex + (below ? 1 : 0))
             : displayedLayers.length;
-        pasteAt(displayIndex, [{ material: 'SiO2', thickness: 100, locked: false }]);
-    }, [contextMenu, displayedLayers, pasteAt]);
+        addLayerAt(displayIndex);
+    }, [addLayerAt, contextMenu, displayedLayers]);
 
     const deleteFromContext = useCallback(() => {
         const ids = contextMenu?.targetIds || [];
@@ -301,7 +313,7 @@ export function LayerList({ layers, side, design, updateDesign, missingMaterialI
     // Keyboard row shortcuts (Ins / Shift+Ins / Del / Ctrl+D).
     const { onKeyDown: tableKeyDown } = useLayerKeyboard({
         layers, side, reversed, displayedLayers, selectedId, setSelectedId, containerRef,
-        insertLayerAt, removeLayerAt, duplicateLayerAt,
+        addLayerAt, removeLayerAt, duplicateLayerAt,
         activeUnit, setActiveUnit, focusDisplayIndex, requestCellEdit,
         onCopy: copySelectedLayers, onPaste: pasteAfterSelection,
     });
