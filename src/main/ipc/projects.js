@@ -9,6 +9,7 @@
 //
 // CommonJS, Electron-free (deps via ctx).
 const { writeRendererSettings } = require('../settingsFile');
+const { giveCopiesTheirOwnIds } = require('../copiedDesignIds');
 
 function register(ipcMain, ctx) {
   ipcMain.handle('load-settings', async () => handleLoadSettings(ctx));
@@ -166,6 +167,7 @@ function collectFolders(ctx, dirPath, folderId, folderName, folders) {
   for (const tfsFile of tfsFiles) {
     loadDesignFile(ctx, dirPath, tfsFile, items, seenIds);
   }
+  giveCopiesTheirOwnIds(ctx, items, seenIds);
   // The top level opens, the levels below it start closed: a deep tree would
   // otherwise fill the panel with every folder it holds on every launch.
   folders.push({ id: folderId, name: folderName, expanded: !folderId.includes('/'), items });
@@ -195,7 +197,7 @@ function handleLoadFolders(ctx) {
     }
 
     const folders = [];
-    const load = { ...ctx, unread: [] };
+    const load = { ...ctx, unread: [], treeIds: new Map() };
     for (const folderDir of folderDirs) {
       collectFolders(load, path.join(projectsDir, folderDir.name), folderDir.name, folderDir.name, folders);
     }
