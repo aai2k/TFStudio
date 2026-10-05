@@ -441,6 +441,7 @@ export default {
     persistenceFailed: 'Non è stato possibile salvare la modifica al progetto. Riprova.',
     openDesignFailed: (msg) => `Non è stato possibile aprire il design: ${msg}`,
     savedElsewhere: (names) => `${names}: il file è stato salvato dopo le modifiche non salvate fatte qui, quindi è stato caricato il file. Ctrl+Z riporta la versione non salvata.`,
+    sessionFull: 'Lo spazio per le modifiche non salvate è pieno, quindi le nuove modifiche non ci saranno dopo un riavvio. Salva i tuoi design (Ctrl+S) per conservarli.',
     contextMenu: {
       renameFolder: 'Rinomina cartella',
     },

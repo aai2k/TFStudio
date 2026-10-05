@@ -38,7 +38,9 @@ export const App = () => {
         gamesUnlocked, unlockGames,
     } = settings;
 
-    const store     = useDesignStore();
+    const store     = useDesignStore({
+        onSessionFull: () => setMessageNotification({ type: 'error', message: t.dialogs.sessionFull }),
+    });
     const workspace = useWorkspaceLayout(store.activeDesignId, store.showTransientDesign);
     const project   = useProjectTree({
         store,

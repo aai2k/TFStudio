@@ -396,4 +396,56 @@ const v3Session = (designs, history = {}) => JSON.stringify({ version: 3, design
     ok(!store.dirtyDesigns.C, 'a transient step back to the saved thickness is compared, and is saved');
 }
 
+// ── 11. A working copy the storage refuses is reported, once ─────────────────
+// Room for a small design's entry, not for one carrying a long measured curve.
+{
+    const longCurve = Array.from({ length: 4000 }, (_, i) => ({ lambda: 300 + i / 4, psi: 20, delta: 90 }));
+    let reported = 0;
+    let store;
+    const render = () => {
+        fakeR.begin();
+        store = useDesignStore({ onSessionFull: () => { reported++; } });
+        fakeR.runEffects();
+    };
+    const edit = async (id, thickness, extra) => {
+        store.handleDesignChange(id, design(id, [thickness], extra));
+        render();
+        await sleep(600);
+    };
+    useStorage(fakeStorage(60000));
+    render();
+    const diskA = design('A', [100]);
+    const diskB = design('B', [200], { measuredEllipsometry: longCurve });
+    store.diskDesignsRef.current = { A: diskA, B: diskB };
+    store.setDesigns({ A: diskA, B: diskB });
+    render();
+
+    await edit('A', 110);
+    ok(reported === 0 && loadSession().entries.A, 'a working copy that fits is stored without a word');
+    await edit('B', 210, { measuredEllipsometry: longCurve });
+    ok(reported === 1 && !loadSession().entries.B, 'one the storage refuses is reported');
+    await edit('B', 220, { measuredEllipsometry: longCurve });
+    ok(reported === 1, 'and not again while writes keep being refused');
+    await edit('A', 120);
+    await edit('B', 230, { measuredEllipsometry: longCurve });
+    ok(reported === 2, 'a refusal after a write that went through is reported again');
+    useStorage(fakeStorage());
+}
+{
+    // A 1.8.1 session moved to entries where they do not fit.
+    const disk = { A: design('A', [100]), B: design('B', [200]) };
+    storage.clear();
+    storage.setItem('tfstudio-session-v3', v3Session({ A: design('A', [110]), B: design('B', [210]) }));
+    const s = loadSession();
+    const merged = mergeSessionOverDisk(disk, s.entries);
+    useStorage(fakeStorage(100));
+    const refused = storeMergedSession(s, merged, disk);
+    ok(refused.sort().join() === 'A,B', `the move to entries names the entries it could not write (${refused})`);
+    useStorage(fakeStorage());
+    storage.setItem('tfstudio-session-v3', v3Session({ A: design('A', [110]) }));
+    const fits = loadSession();
+    ok(storeMergedSession(fits, mergeSessionOverDisk(disk, fits.entries), disk).length === 0,
+        'and none when every entry is written');
+}
+
 console.log(`session_store: ${passed} passed`);

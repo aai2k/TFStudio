@@ -124,7 +124,26 @@ function jumpTo(s, id, targetIndex) {
     });
 }
 
-export function useDesignStore() {
+// Write the working copy of each design named since the last session save. A
+// refused write is reported once, and again only after a write went through.
+function writeDueEntries(r) {
+    const due = [...r.sessionDueRef.current];
+    r.sessionDueRef.current.clear();
+    for (const id of due) {
+        const entry = sessionEntryFor(r.designsRef.current[id], r.historyRef.current[id], r.diskDesignsRef.current[id]);
+        const stored = writeSessionEntry(id, entry);
+        if (!entry) continue;
+        if (!stored && !r.sessionFullRef.current) r.onSessionFullRef.current?.();
+        r.sessionFullRef.current = !stored;
+    }
+}
+
+/**
+ * `onSessionFull` is called when the storage refuses a design's working copy,
+ * so its unsaved edits will not be there after a restart. It is called once,
+ * and again only if a write is refused after one went through.
+ */
+export function useDesignStore({ onSessionFull } = {}) {
     const [designs,        setDesigns]        = useState({});
     const [activeDesignId, setActiveDesignId] = useState(null);
     const [dirtyDesigns,   setDirtyDesigns]   = useState({});
@@ -139,6 +158,9 @@ export function useDesignStore() {
     const diskDesignsRef  = useRef({});   // last-saved-to-disk snapshot per id (dirty baseline)
     const sessionTimerRef = useRef(null); // debounce for session save
     const sessionDueRef   = useRef(new Set()); // designs changed since the last session save
+    const sessionFullRef  = useRef(false);     // the last working copy written was refused
+    const onSessionFullRef = useRef(onSessionFull);
+    onSessionFullRef.current = onSessionFull;
 
     useEffect(() => { designsRef.current = designs; }, [designs]);
 
@@ -151,14 +173,9 @@ export function useDesignStore() {
     const scheduleSessionSave = useCallback((id) => {
         if (id) sessionDueRef.current.add(id);
         clearTimeout(sessionTimerRef.current);
-        sessionTimerRef.current = setTimeout(() => {
-            const due = [...sessionDueRef.current];
-            sessionDueRef.current.clear();
-            for (const dueId of due) {
-                writeSessionEntry(dueId, sessionEntryFor(
-                    designsRef.current[dueId], historyRef.current[dueId], diskDesignsRef.current[dueId]));
-            }
-        }, 500);
+        sessionTimerRef.current = setTimeout(() => writeDueEntries({
+            sessionDueRef, designsRef, historyRef, diskDesignsRef, sessionFullRef, onSessionFullRef,
+        }), 500);
     }, []);
 
     // Designs gone from the project tree leave the store, their history and the

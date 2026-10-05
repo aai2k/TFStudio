@@ -121,11 +121,13 @@ async function loadFolders(p, { restoreSession = true, restoreLayout = true } = 
     p.setDesigns(merged.initialDesigns);
     p.setDirtyDesigns(merged.initialDirty);
     p.setFolders(loadedFolders);
-    if (session) storeMergedSession(session, merged, diskDesigns);
+    const refused = session ? storeMergedSession(session, merged, diskDesigns) : [];
     if (merged.replaced.length) {
         const names = merged.replaced.map(id => merged.initialDesigns[id].name).join(', ');
         p.setMessageNotification({ type: 'info', message: p.t.dialogs.savedElsewhere(names) });
     }
+    // Shown last, over the notice above: unsaved work is at risk.
+    if (refused.length) p.setMessageNotification({ type: 'error', message: p.t.dialogs.sessionFull });
 
     if (!restoreSession) {
         // A live Projects-root change is a workspace switch, not a startup

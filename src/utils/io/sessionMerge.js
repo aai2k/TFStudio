@@ -96,17 +96,23 @@ export function mergeSessionOverDisk(diskDesigns, entries, { dropMissing = false
  * earlier (`session.legacy`) is rewritten as entries, with the entries left out
  * of the merge kept as they were read. Its single value is removed first, so
  * the entries have its space; everything in it is in memory by then.
+ *
+ * Returns the ids whose entries the storage refused, which will not be there at
+ * the next start.
  */
 export function storeMergedSession(session, merged, diskDesigns) {
   const entryOf = (id) => sessionEntryFor(merged.initialDesigns[id], merged.history[id], diskDesigns[id]);
+  const refused = [];
+  const write = (id, entry) => { if (!writeSessionEntry(id, entry) && entry) refused.push(id); };
   merged.dropped.forEach(id => writeSessionEntry(id, null));
   if (!session.legacy) {
-    merged.rewrite.forEach(id => writeSessionEntry(id, entryOf(id)));
-    return;
+    merged.rewrite.forEach(id => write(id, entryOf(id)));
+    return refused;
   }
   clearLegacySession();
   const dropped = new Set(merged.dropped);
   for (const [id, entry] of Object.entries(session.entries)) {
-    if (!dropped.has(id)) writeSessionEntry(id, merged.initialDesigns[id] ? entryOf(id) : entry);
+    if (!dropped.has(id)) write(id, merged.initialDesigns[id] ? entryOf(id) : entry);
   }
+  return refused;
 }

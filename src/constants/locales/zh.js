@@ -440,6 +440,7 @@ export default {
     persistenceFailed: '项目更改无法保存。请重试。',
     openDesignFailed: (msg) => `无法打开设计：${msg}`,
     savedElsewhere: (names) => `${names}：该文件在您于此处的未保存修改之后又被保存过，因此已载入该文件。按 Ctrl+Z 可恢复未保存的版本。`,
+    sessionFull: '存放未保存修改的空间已满，新的修改在重启后将不会保留。请保存您的设计（Ctrl+S）以免丢失。',
     contextMenu: {
       renameFolder: '重命名文件夹',
     },
