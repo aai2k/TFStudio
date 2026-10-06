@@ -11,6 +11,7 @@ import {
     getCatalogs, saveUserMaterial, removeUserMaterial, generateMaterialId, copyMaterialToCatalog,
     createUserCatalog,
 } from '../../../../utils/materials/catalogManager.js';
+import { countDesignsUsing } from '../../../../utils/materials/designsUsing.js';
 import { emptyDraft, materialToDraft, draftToMaterial, validateDraft } from './materialDraft.js';
 
 // A blank material goes into the selected catalog when that is one of the
@@ -40,6 +41,23 @@ export function startBlankMaterial(catalogId, ctx) {
     setCatFilter(catalogId);
     setSelectedId(null);
     setEditDraft(emptyDraft(catalogId));
+}
+
+/**
+ * Run `action`, which replaces the open draft (another material, another
+ * catalog, a new one), after asking when the draft has unsaved changes, rather
+ * than throwing them away.
+ */
+export function confirmLeavingDraft({ isDirty, editDraft, setInputDialog, me }, action) {
+    if (!isDirty || !setInputDialog) { action(); return; }
+    setInputDialog({
+        confirm: true, danger: true,
+        title: me.unsavedChanges,
+        message: me.discardDraftConfirm(editDraft.name || editDraft.id),
+        confirmLabel: me.discardDraft,
+        onConfirm: () => { setInputDialog(null); action(); },
+        onCancel: () => setInputDialog(null),
+    });
 }
 
 export function selectMaterial(compId, catalogId, mat, ctx) {
@@ -73,10 +91,6 @@ export function saveMaterial(ctx) {
     try {
         const mat = draftToMaterial(draft);
         saveUserMaterial(draft.catalogId, mat);
-        // If the ID was sanitized from a legacy colon ID, remove the old entry
-        if (draft.originalId && draft.originalId !== mat.id) {
-            removeUserMaterial(draft.catalogId, draft.originalId);
-        }
         loadCatalogs();
         // Refresh draft with saved data (marks isNew=false)
         const cat = getCatalogs().find(cc => cc.id === draft.catalogId);
@@ -128,10 +142,13 @@ export function copyToCatalog(srcMat, targetCatId, ctx) {
 }
 
 export function deleteMaterialWithConfirm(ctx) {
-    const { editDraft, setInputDialog, me, loadCatalogs, setEditDraft } = ctx;
+    const { editDraft, setInputDialog, me, loadCatalogs, setEditDraft, designs } = ctx;
     if (!editDraft || editDraft.isNew) return;
+    // The designs that use it keep it as their own copy (see
+    // keepRemovedMaterials); the confirm says how many.
+    const used = countDesignsUsing(designs, [`${editDraft.catalogId}:${editDraft.originalId || editDraft.id}`]);
+    const message = [me.deleteConfirm(editDraft.name || editDraft.id), used ? me.usedByDesigns(used) : ''].join(' ').trim();
     const doDelete = () => {
-        // Use originalId if the ID was sanitized from a legacy colon ID
         removeUserMaterial(editDraft.catalogId, editDraft.originalId || editDraft.id);
         loadCatalogs();
         setEditDraft(null);
@@ -140,12 +157,12 @@ export function deleteMaterialWithConfirm(ctx) {
         setInputDialog({
             confirm: true, danger: true,
             title: me.deleteMaterial,
-            message: me.deleteConfirm(editDraft.name || editDraft.id),
+            message,
             confirmLabel: me.deleteMaterial,
             onConfirm: () => { doDelete(); setInputDialog(null); },
             onCancel:  () => setInputDialog(null),
         });
-    } else if (window.confirm(me.deleteConfirm(editDraft.name || editDraft.id))) {
+    } else if (window.confirm(message)) {
         doDelete();
     }
 }

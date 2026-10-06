@@ -8,10 +8,11 @@
  */
 
 import {
-    addCatalog, removeCatalog, createUserCatalog, renameUserCatalog, duplicateCatalog,
-    importMaterialsIntoCatalog,
+    removeCatalog, createUserCatalog, renameUserCatalog, duplicateCatalog,
+    importMaterialsIntoCatalog, catalogNameTaken, freeCatalogName,
 } from '../../../../utils/materials/catalogManager.js';
-import { parseAGF } from '../../../../utils/materials/agfParser.js';
+import { registerAgfFile } from '../../../../utils/materials/catalogStartup.js';
+import { countDesignsUsing } from '../../../../utils/materials/designsUsing.js';
 import { DEFAULT_IMPORT_UNITS } from '../../../../utils/materials/materialFileImport.js';
 
 /** The glasses an AGF import left out, as "NAME (formula number)" items. */
@@ -19,14 +20,18 @@ export function rejectedGlassList(rejected) {
     return rejected.map(glass => `${glass.name} (${glass.formula || '?'})`).join(', ');
 }
 
+// Import an AGF file picked by the user. A file imported before (or found in
+// the agf folder by the startup scan) refreshes its own catalog, keeping the
+// materials the file does not define; a new one gets a catalog of its own.
 export async function importAgfCatalog(ctx) {
     const { me, notify, loadCatalogs, setCatFilter } = ctx;
     try {
         const result = await window.electronAPI.importCatalogAgf();
         if (result.canceled) return;
         if (!result.success) { notify('error', me.importError(result.error || 'Unknown error')); return; }
-        const { rejected, ...catalog } = parseAGF(result.text, result.fileName.toLowerCase().replace(/[^a-z0-9]/g, '_'));
-        addCatalog(catalog);
+        const { catalog, rejected } = registerAgfFile({
+            fileName: result.sourceFile, text: result.text, size: result.size, mtimeMs: result.mtimeMs,
+        }, { force: true });
         loadCatalogs();
         setCatFilter(catalog.id);
         const imported = me.importSuccess(catalog.name) + ` (${Object.keys(catalog.materials).length} materials)`;
@@ -81,9 +86,13 @@ export function commitFileImport(targetCatId, entries, ctx, newCatalogName) {
 
 export function removeCatalogWithConfirm(catId, ctx) {
     const { catalogs, setInputDialog, me, loadCatalogs, catFilter, setCatFilter,
-            selectedId, setSelectedId, editDraft, setEditDraft } = ctx;
+            selectedId, setSelectedId, editDraft, setEditDraft, designs } = ctx;
     const cat = catalogs.find(cc => cc.id === catId);
     if (!cat) return;
+    // The designs that use its materials keep them as their own copies (see
+    // keepRemovedMaterials); the confirm says how many.
+    const used = countDesignsUsing(designs, Object.keys(cat.materials || {}).map(key => `${catId}:${key}`));
+    const message = [me.deleteCatalogConfirm(cat.name), used ? me.usedByDesigns(used) : ''].join(' ').trim();
     const doDelete = () => {
         removeCatalog(catId);
         loadCatalogs();
@@ -95,15 +104,19 @@ export function removeCatalogWithConfirm(catId, ctx) {
         setInputDialog({
             confirm: true, danger: true,
             title: me.removeCatalog,
-            message: me.deleteCatalogConfirm(cat.name),
+            message,
             confirmLabel: me.deleteMaterial,
             onConfirm: () => { doDelete(); setInputDialog(null); },
             onCancel:  () => setInputDialog(null),
         });
-    } else if (window.confirm(me.deleteCatalogConfirm(cat.name))) {
+    } else if (window.confirm(message)) {
         doDelete();
     }
 }
+
+// The name prompts refuse a name another catalog has: the selector lists
+// catalogs by name, and two that read the same cannot be told apart there.
+const uniqueName = (me, exceptId) => name => (catalogNameTaken(name, exceptId) ? me.catalogExists : '');
 
 // Create an empty user catalog (prompts for the name) and switch to it.
 export function createCatalogWithPrompt(ctx) {
@@ -114,11 +127,12 @@ export function createCatalogWithPrompt(ctx) {
         setCatFilter(cat.id);
         setEditDraft(null);
     };
-    const defName = me.newCatalogDefault;
+    const defName = freeCatalogName(me.newCatalogDefault);
     if (setInputDialog) {
         setInputDialog({
             title: me.newCatalogPrompt,
             defaultValue: defName,
+            validate: uniqueName(me),
             confirmLabel: me.newCatalog,
             onConfirm: (val) => { doCreate((val || '').trim() || defName); setInputDialog(null); },
             onCancel: () => setInputDialog(null),
@@ -143,6 +157,7 @@ export function renameCatalogWithPrompt(catId, ctx) {
         setInputDialog({
             title: me.renameCatalogPrompt(cat.name),
             defaultValue: cat.name,
+            validate: uniqueName(me, catId),
             confirmLabel: me.renameCatalog,
             onConfirm: (val) => {
                 const name = (val || '').trim();
@@ -167,11 +182,12 @@ export function duplicateCatalogWithPrompt(srcId, ctx) {
         setEditDraft(null);
         notify('ok', me.duplicateSuccess(cat.name, Object.keys(cat.materials).length));
     };
-    const defName = src.name + ' copy';
+    const defName = freeCatalogName(src.name + ' copy');
     if (setInputDialog) {
         setInputDialog({
             title: me.duplicateCatalogPrompt(src.name),
             defaultValue: defName,
+            validate: uniqueName(me),
             confirmLabel: me.duplicateCatalog,
             onConfirm: (val) => { doDup((val || '').trim() || defName); setInputDialog(null); },
             onCancel: () => setInputDialog(null),

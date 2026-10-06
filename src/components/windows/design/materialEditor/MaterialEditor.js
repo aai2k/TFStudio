@@ -63,7 +63,7 @@ export function MaterialEditor({ c, t, setInputDialog }) {
                 ? h('div', { style: { display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%', color: c.textDim, fontSize: 13, fontStyle: 'italic' } }, me.selectMaterial)
                 : renderReadOnlyMaterial({
                     selectedMat, sampledTable, chartRef, openCopyPicker,
-                    designConflict: s.designConflict,
+                    designOnly: s.designOnly,
                     detailTab: s.detailTab, setDetailTab: s.setDetailTab, me, t, c,
                 })
     );

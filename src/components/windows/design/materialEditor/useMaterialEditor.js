@@ -8,11 +8,13 @@
  * state and forwards calls to them through a shared `ctx` bundle.
  */
 
-import { getCatalogs, getMaterialById, searchMaterials } from '../../../../utils/materials/catalogManager.js';
+import { getCatalog, getCatalogs, getMaterialById, searchMaterials } from '../../../../utils/materials/catalogManager.js';
 import {
     DESIGN_CATALOG_ID, buildDesignCatalog, searchDesignCatalog,
-    designSelectionTarget, designMaterialConflict,
+    designSelectionTarget,
 } from '../../../../utils/materials/designCatalog.js';
+import { resolveDesignMaterial } from '../../../../utils/materials/designMaterials.js';
+import { useCatalogRevision } from '../../../../utils/materials/useCatalogRevision.js';
 import { useDesign } from '../../../../state/DesignContext.js';
 import {
     importAgfCatalog, importMaterialFiles, commitFileImport,
@@ -20,7 +22,7 @@ import {
     duplicateCatalogWithPrompt,
 } from './materialEditorActions.js';
 import {
-    newMaterial, startBlankMaterial, selectMaterial, saveMaterial, deleteMaterialWithConfirm,
+    newMaterial, startBlankMaterial, selectMaterial, saveMaterial, deleteMaterialWithConfirm, confirmLeavingDraft,
     copyUserMaterialDraft, copyToCatalog, openCopyPicker as openCopyPickerAction,
 } from './materialEditorMaterialActions.js';
 import { sampleReadOnlyChart } from './materialEditorReadOnly.js';
@@ -38,6 +40,12 @@ async function runImportGuarded(fn, ctx, importing, setImporting) {
     if (importing) return;
     setImporting(true);
     try { await fn(ctx); } finally { setImporting(false); }
+}
+
+// The name of the catalog a compound material id points into.
+function catalogNameOf(id) {
+    const cut = id.indexOf(':');
+    return cut > 0 ? (getCatalog(id.slice(0, cut))?.name ?? id.slice(0, cut)) : id;
 }
 
 // Redraw the read-only chart when the selection changes. No-op while a user
@@ -71,7 +79,7 @@ export function useMaterialEditor({ c, t, setInputDialog }) {
     const [fileImport,       setFileImport]       = useState(null);
 
     const me = t.materialEditor;
-    const { design } = useDesign();
+    const { design, designs } = useDesign();
     // The wavelengths the design is evaluated over, from whichever copy of
     // Optical Evaluation was changed last. A fit has to be right where the
     // coating is used, so this is the band the fit panel offers, and it follows
@@ -80,12 +88,12 @@ export function useMaterialEditor({ c, t, setInputDialog }) {
 
     const workingNm = [evalParams.lambdaStart, evalParams.lambdaEnd];
 
+    // The list follows every catalog change, the ones other windows make
+    // included (Zemax Coatings, n,k Characterization): a catalog missing from it
+    // would open its materials read-only.
+    const catalogRevision = useCatalogRevision();
     const loadCatalogs = useCallback(() => { setCatalogs(getCatalogs()); }, []);
-    useEffect(() => {
-        loadCatalogs();
-        window.addEventListener('catalogs-loaded', loadCatalogs);
-        return () => window.removeEventListener('catalogs-loaded', loadCatalogs);
-    }, [loadCatalogs]);
+    useEffect(() => { loadCatalogs(); }, [loadCatalogs, catalogRevision]);
 
     // Installing a draft (select / new / copy / post-save refresh) also records
     // it as the revert baseline. Edits from the form go through `updateDraft`,
@@ -99,11 +107,15 @@ export function useMaterialEditor({ c, t, setInputDialog }) {
     const isDirty = draftFingerprint(editDraft) !== draftFingerprint(pristineDraft);
     const handleRevertMaterial = () => updateDraft(pristineDraft);
 
-    // The design's embedded materials, browsable but not part of the registry.
+    const leavingDraft = (action) => confirmLeavingDraft({ isDirty, editDraft, setInputDialog, me }, action);
+
+    // The materials the design uses, browsable but not part of the registry.
     // `catalogs` stays the registry list every catalog action works against;
     // `browseCatalogs` is the merged list used only where materials are listed.
+    // Rebuilt on a catalog change too: an entry a catalog holds is that
+    // catalog's material, which a save here replaces.
     const designCatalog = useMemo(
-        () => buildDesignCatalog(design, me.designCatalog), [design, me.designCatalog]);
+        () => buildDesignCatalog(design, me.designCatalog), [design, me.designCatalog, catalogRevision]);
     // Listed first: what the open design is made of is the most likely reason to
     // be in this window.
     const browseCatalogs = designCatalog ? [designCatalog, ...catalogs] : catalogs;
@@ -125,7 +137,13 @@ export function useMaterialEditor({ c, t, setInputDialog }) {
     const selectedMat = (editDraft || !selectedId) ? null
         : designTarget ? designCatalog.materials[designTarget]
         : getMaterialById(selectedId);
-    const designConflict = designTarget ? designMaterialConflict(design, designTarget) : null;
+    // Carried by the design and computed from its own copy, which can be copied
+    // out but not edited: held by no catalog here, or by a catalog, named in
+    // `conflict`, with another material under the same id.
+    const designResolution = designTarget != null ? resolveDesignMaterial(design, designTarget) : null;
+    const designOnly = designResolution?.status === 'embedded'
+        ? { conflict: designResolution.conflict ? catalogNameOf(designTarget) : null }
+        : null;
 
     const currentCatalog = catFilter !== 'all' ? browseCatalogs.find(cat => cat.id === catFilter) : null;
     const isUserCatalog = currentCatalog?.source === 'user';
@@ -144,7 +162,7 @@ export function useMaterialEditor({ c, t, setInputDialog }) {
     // Context bundle passed to the plain action functions — every setter/value
     // an action might need, in one place, so handlers below stay one-liners.
     const ctx = {
-        c, t, me, notify, loadCatalogs, setInputDialog,
+        c, t, me, notify, loadCatalogs, setInputDialog, designs,
         catalogs, catFilter, setCatFilter,
         selectedId, setSelectedId, editDraft, setEditDraft,
         copyPickerFor, setCopyPickerFor, setFileImport, setNewMaterialPicker,
@@ -154,13 +172,14 @@ export function useMaterialEditor({ c, t, setInputDialog }) {
     const handleImportFiles = () => runImportGuarded(importMaterialFiles, ctx, importing, setImporting);
     const doImportFiles = (targetCatId, entries, newCatalogName) => commitFileImport(targetCatId, entries, ctx, newCatalogName);
     const handleRemoveCatalog = (catId) => removeCatalogWithConfirm(catId, ctx);
-    const handleCreateCatalog = () => createCatalogWithPrompt(ctx);
+    const handleCreateCatalog = () => leavingDraft(() => createCatalogWithPrompt(ctx));
     const handleRenameCatalog = (catId) => renameCatalogWithPrompt(catId, ctx);
-    const handleDuplicateCatalog = (srcId) => duplicateCatalogWithPrompt(srcId, ctx);
+    const handleDuplicateCatalog = (srcId) => leavingDraft(() => duplicateCatalogWithPrompt(srcId, ctx));
 
-    const handleNewMaterial = () => newMaterial(ctx);
-    const handleNewMaterialIn = (catalogId) => startBlankMaterial(catalogId, ctx);
-    const handleSelectMaterial = (compId, catalogId, mat) => selectMaterial(compId, catalogId, mat, ctx);
+    const handleNewMaterial = () => leavingDraft(() => newMaterial(ctx));
+    const handleNewMaterialIn = (catalogId) => leavingDraft(() => startBlankMaterial(catalogId, ctx));
+    const handleSelectMaterial = (compId, catalogId, mat) => leavingDraft(() => selectMaterial(compId, catalogId, mat, ctx));
+    const handleCatalogChange = (catalogId) => leavingDraft(() => { setCatFilter(catalogId); setEditDraft(null); });
     const handleSaveMaterial = () => saveMaterial(ctx);
     const handleDeleteMaterial = () => deleteMaterialWithConfirm(ctx);
     const handleCopyUserMaterial = () => copyUserMaterialDraft(ctx);
@@ -188,13 +207,13 @@ export function useMaterialEditor({ c, t, setInputDialog }) {
     }, [loadCatalogs]);
 
     return {
-        c, me, catalogs, catFilter, setCatFilter, query, setQuery,
+        c, me, catalogs, catFilter, setCatFilter, handleCatalogChange, query, setQuery,
         selectedId, importing, showRii, setShowRii, notification,
         menuOpen, setMenuOpen, menuTriggerRef, addMenuOpen, setAddMenuOpen, addMenuTriggerRef,
         editDraft, setEditDraft, updateDraft, isDirty, handleRevertMaterial,
         detailTab, setDetailTab, tableHeight, setTableHeight,
         results, selectedMat, currentCatalog, isUserCatalog,
-        browseCatalogs, designConflict, workingNm,
+        browseCatalogs, designOnly, workingNm,
         handleImport, handleImportFiles, doImportFiles,
         handleRemoveCatalog, handleCreateCatalog, handleRenameCatalog, handleDuplicateCatalog,
         handleNewMaterial, handleNewMaterialIn, handleSelectMaterial, handleSaveMaterial, handleDeleteMaterial,

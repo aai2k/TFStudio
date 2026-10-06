@@ -61,24 +61,18 @@ export function sampleReadOnlyChart(chartEl, selectedMat, c, me) {
     return sampleReadOnlyTable(curves.lambdas, selectedMat);
 }
 
-// Where a material selected from the design catalog stands relative to the
-// local catalogs. `differs` is highlighted: the spectrum came from the embedded
-// definition, so the local material of the same id is not the one that produced
-// it, and copying it out would give the user two materials under one name.
-function designOriginBlock(designConflict, me, c) {
-    if (!designConflict) return null;
-    const differs = designConflict === 'differs';
-    const text = differs ? me.designMaterialDiffers
-        : designConflict === 'same' ? me.designMaterialSame
-        : me.designMaterialAbsent;
+// Said of a material the design computes with its own copy, which can be
+// copied into a catalog but not edited: no catalog here holds it, or the
+// catalog named in `designOnly.conflict` holds another material under its id.
+function designOriginBlock(designOnly, me, c) {
+    if (!designOnly) return null;
     return h('div', {
         style: {
             margin: '8px 12px 0', padding: '6px 8px', fontSize: 11, lineHeight: 1.45,
-            borderRadius: 4, backgroundColor: c.panel,
-            color: differs ? '#e6a23c' : c.textDim,
-            border: `1px solid ${differs ? '#e6a23c66' : c.border}`,
+            borderRadius: 4, backgroundColor: c.panel, color: c.textDim,
+            border: `1px solid ${c.border}`,
         },
-    }, text);
+    }, designOnly.conflict ? me.designMaterialConflict(designOnly.conflict) : me.designMaterialAbsent);
 }
 
 function readOnlyPropsBlock(selectedMat, me, c) {
@@ -174,7 +168,7 @@ export function readOnlyNkTable(title, rows, c, wrapStyle, fill) {
 }
 
 export function renderReadOnlyMaterial({
-    selectedMat, sampledTable, chartRef, openCopyPicker, designConflict,
+    selectedMat, sampledTable, chartRef, openCopyPicker, designOnly,
     detailTab, setDetailTab, me, t, c,
 }) {
     const hasStoredTab = selectedMat.formulaNum === -1 && selectedMat.tabData?.length > 0;
@@ -197,7 +191,7 @@ export function renderReadOnlyMaterial({
         // tabs. The cap is for a catalog comment long enough to push the strip
         // out of the pane.
         h('div', { style: { flexShrink: 0, maxHeight: 180, overflowY: 'auto' } },
-            designOriginBlock(designConflict, me, c),
+            designOriginBlock(designOnly, me, c),
             readOnlyPropsBlock(selectedMat, me, c)
         ),
         detailTabStrip({ tab, setTab: setDetailTab, me, c, wrapStyle: { padding: '0 8px' } }),

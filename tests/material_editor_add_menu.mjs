@@ -14,6 +14,10 @@
  *      user's own; otherwise into theirs: the only one, the one picked from
  *      several, or a new one when there is none. It counts a catalog another
  *      window made after the editor last loaded its list.
+ *   4. A new catalog's id differs from one made under the same name on another
+ *      computer.
+ *   5. No two catalogs share a name: New, Rename and Duplicate refuse one in
+ *      use, and a catalog made without asking gets a number.
  *
  * Run: node tests/material_editor_add_menu.mjs
  */
@@ -223,6 +227,54 @@ for (const from of ['all', 'builtin', DESIGN_CATALOG_ID]) {
     assert.equal(state.picker, true, 'with one catalog in the editor\'s list and two in the registry, it asks which');
     assert.equal(state.draft, null);
     assert.ok(state.reloads >= 1, 'and the picker lists both, from the reloaded list');
+}
+
+// ── 4. A new catalog's id is its own on every computer ───────────────────────
+// Designs refer to materials by catalog id and material id. Two people who both
+// let the editor make "My catalog" and both add a TiO2 must not end up with the
+// same reference, or a design from one computes with the other's TiO2.
+{
+    initCatalogs({});
+    const mine = createUserCatalog(me.newCatalogDefault).id;
+    initCatalogs({});
+    const theirs = createUserCatalog(me.newCatalogDefault).id;
+    assert.notEqual(mine, theirs, 'the same catalog name on two computers gives two ids');
+    assert.match(mine, /^user_my_catalog_/, 'and the id still reads as the catalog it names');
+    assert.notEqual(createUserCatalog(me.newCatalogDefault).id, theirs, 'a second catalog of that name on one computer too');
+}
+
+// ── 5. No two catalogs share a name ──────────────────────────────────────────
+// The selector lists catalogs by name, so two called "test" cannot be told
+// apart there.
+{
+    const { createCatalogWithPrompt, renameCatalogWithPrompt, duplicateCatalogWithPrompt } = await import(
+        '../src/components/windows/design/materialEditor/materialEditorActions.js');
+    initCatalogs({});
+    const test = createUserCatalog('test');
+    const other = createUserCatalog('other');
+    let dialog = null;
+    const ctx = {
+        me, catalogs: getCatalogs(), setInputDialog: d => { dialog = d; },
+        loadCatalogs: noop, setCatFilter: noop, setEditDraft: noop, notify: noop,
+    };
+
+    createCatalogWithPrompt(ctx);
+    assert.equal(dialog.validate('test'), me.catalogExists, 'New catalog refuses a name another catalog has');
+    assert.equal(dialog.validate(' TEST '), me.catalogExists, 'whatever its case and spaces');
+    assert.equal(dialog.validate('fresh'), '');
+    assert.equal(dialog.validate(me.newCatalogDefault), '');
+
+    renameCatalogWithPrompt(other.id, ctx);
+    assert.equal(dialog.validate('test'), me.catalogExists, 'Rename refuses another catalog\'s name');
+    assert.equal(dialog.validate('other'), '', 'but not the catalog\'s own');
+
+    createUserCatalog('test copy');
+    duplicateCatalogWithPrompt(test.id, ctx);
+    assert.equal(dialog.defaultValue, 'test copy 2', 'Duplicate offers a name no catalog has');
+    assert.equal(dialog.validate('test copy'), me.catalogExists);
+
+    assert.equal(createUserCatalog('test').name, 'test 2',
+        'a catalog made without a prompt, under a name already in use, gets a number');
 }
 
 console.log('material_editor_add_menu: passed');

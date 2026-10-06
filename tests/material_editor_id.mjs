@@ -68,4 +68,23 @@ const lab = getCatalogs().find(cat => cat.id === 'user_lab');
 assert.equal(lab.materials.SiO2_film_2?.name, 'SiO2 film', 'under the unique ID');
 assert.equal(lab.materials.SiO2_film.tabData.length, 2, 'and the material that had the name is untouched');
 
+// ── A stored ID outside letters, digits, _ and - is kept ─────────────────────
+// Zemax imports keep a name like SIO2.HR, a duplicated Schott catalog keeps
+// REALVIEW_2.0, and old refractiveindex.info imports have colons. Designs refer
+// to those materials by that ID, so editing one must not move it.
+{
+    const odd = { ...film, id: 'sio2.hr', name: 'SIO2.HR' };
+    initCatalogs({ user_lab: { id: 'user_lab', name: 'Lab', source: 'user', materials: { 'sio2.hr': odd } } });
+    const edited = { ...materialToDraft('user_lab', odd), color: '#ff8800' };
+    const said = [];
+    saveMaterial({
+        editDraft: edited, catalogs: getCatalogs(), me,
+        notify: (kind, text) => said.push([kind, text]), loadCatalogs() {}, setEditDraft() {},
+    });
+    const keys = Object.keys(getCatalogs().find(cat => cat.id === 'user_lab').materials);
+    assert.equal(said[0]?.[0], 'ok', 'the edit saves');
+    assert.deepEqual(keys, ['sio2.hr'], 'under the ID it had, with nothing added or removed');
+    assert.equal(getCatalogs().find(cat => cat.id === 'user_lab').materials['sio2.hr'].color, '#ff8800');
+}
+
 console.log('material_editor_id: passed');

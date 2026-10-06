@@ -67,14 +67,14 @@ function addMenuItems(s) {
 }
 
 function renderCatalogRow(s) {
-    const { c, me, catFilter, setCatFilter, setEditDraft, browseCatalogs, currentCatalog,
+    const { c, me, catFilter, handleCatalogChange, browseCatalogs, currentCatalog,
             menuOpen, setMenuOpen, menuTriggerRef, setAddMenuOpen } = s;
     const total = browseCatalogs.reduce((sum, cat) => sum + Object.keys(cat.materials || {}).length, 0);
     return h('div', { style: { position: 'relative', display: 'flex', alignItems: 'center', gap: 6, padding: '8px 8px 4px' } },
         h('span', { style: { fontSize: 11, color: c.textDim, flexShrink: 0 } }, me.catalogLabel),
         h('select', {
             value: catFilter,
-            onChange: e => { setCatFilter(e.target.value); setEditDraft(null); },
+            onChange: e => handleCatalogChange(e.target.value),
             title: catFilter === 'all' ? me.allCatalogs : (currentCatalog?.name || ''),
             style: { ...fieldStyle(c), flex: 1, minWidth: 0, cursor: 'pointer' }
         },

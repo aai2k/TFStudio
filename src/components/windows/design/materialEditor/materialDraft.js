@@ -238,13 +238,12 @@ export function materialToDraft(catalogId, mat) {
     const isTab = mat.formulaNum === -1;
     const isBuiltin = mat.formulaNum === 0 && typeof mat.getNK === 'function';
 
-    // Sanitize legacy RII IDs that contain colons (old separator before the fix).
-    // originalId tracks the stored key so save/delete can find and remove the old entry.
-    // A catalog material's id should always be set (the registry backfills it
-    // from the map key), but guard anyway so a malformed entry can never crash
-    // the click handler — fall back to originalId / name / 'material'.
-    const rawId = mat.id || mat.originalId || mat.name || 'material';
-    const safeId = String(rawId).replace(/[^a-zA-Z0-9_-]/g, '_');
+    // The draft keeps the stored ID whatever characters it holds (a Zemax name
+    // with a dot, an old refractiveindex.info ID with colons): designs refer to
+    // the material by it, so saving must not move the material to another ID.
+    // A catalog material's id is always set (the registry backfills it from the
+    // map key); the fallbacks keep a malformed entry from crashing the click.
+    const storedId = String(mat.id || mat.originalId || mat.name || 'material');
 
     const sampled = isBuiltin ? sampleBuiltinRows(mat, 0) : { rows: [], seq: 0 };
     let seq = sampled.seq;
@@ -260,8 +259,8 @@ export function materialToDraft(catalogId, mat) {
     return {
         catalogId,
         isNew: false,
-        id: safeId,
-        originalId: mat.id,         // actual key in catalog.materials (may differ from safeId)
+        id: storedId,
+        originalId: mat.id,         // the key in catalog.materials
         dataPath:  mat.dataPath  || null,
         sourceUrl: mat.sourceUrl || null,
         // Not shown in the form, so saving writes back what was stored.
@@ -350,13 +349,17 @@ export function draftToMaterial(draft) {
     };
 }
 
+// What is wrong with the ID of a new material, or null. Only a new ID is made
+// here, from the name; a stored one is kept whatever characters it holds.
+function newIdProblem(id, draft, catalogs, me) {
+    if (!/^[a-zA-Z0-9_-]+$/.test(id)) return me.validationBadId;
+    const cat = catalogs.find(c => c.id === draft.catalogId);
+    return cat?.materials?.[id] ? me.validationDuplicateId(id) : null;
+}
+
 export function validateDraft(draft, catalogs, me) {
     if (!draft.name.trim()) return me.validationNoName;
     const idTrimmed = draft.id.trim();
-    if (!idTrimmed || !/^[a-zA-Z0-9_-]+$/.test(idTrimmed)) return me.validationBadId;
-    if (draft.isNew) {
-        const cat = catalogs.find(c => c.id === draft.catalogId);
-        if (cat?.materials?.[idTrimmed]) return me.validationDuplicateId(idTrimmed);
-    }
-    return validateMechanical(draft.mechanical, me);
+    if (!idTrimmed) return me.validationBadId;
+    return (draft.isNew && newIdProblem(idTrimmed, draft, catalogs, me)) || validateMechanical(draft.mechanical, me);
 }
