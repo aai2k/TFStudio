@@ -165,7 +165,6 @@ export const App = () => {
             h(SpectralMonitor, { c, t }),
             h(AppModals, {
                 c, t, settings, dialogs, welcome, project,
-                dirtyDesigns:   store.dirtyDesigns,
                 activeDesignId: store.activeDesignId,
                 designSig, designLayers,
                 onUserPathChanged: handleUserPathChanged,

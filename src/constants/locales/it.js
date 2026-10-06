@@ -401,7 +401,10 @@ export default {
       openFailed: 'Impossibile aprire la cartella',
       defaultLabel: 'Posizione predefinita',
       changeFailed: (reason) => `Impossibile usare quella cartella: ${reason}`,
-      projectsLocked: 'Salva o scarta i design non salvati prima di spostare la cartella dei dati.',
+      unsavedSavedFirst: (confirm, count) => (count === 1
+        ? `${confirm} Prima viene salvato il design con modifiche non salvate.`
+        : `${confirm} Prima vengono salvati i ${count} design con modifiche non salvate.`),
+      notSaved: (names) => `La cartella dei dati non è stata spostata: impossibile salvare ${names}.`,
       rejected: (configured, reason) => `La cartella configurata ${configured} non è utilizzabile${reason ? ` (${reason})` : ''}, quindi è in uso quella predefinita.`,
       subfolders: 'Sottocartelle',
       notCreated: 'non ancora creata',

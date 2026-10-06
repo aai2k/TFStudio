@@ -9,12 +9,12 @@
 //   9 read-only subfolder paths (derived from paths:list's folders.subfolders)
 //
 // Interaction flow:
-//   Browse: choose → cancel aborts → confirm dialog → setUserPath → Moving… → success/inline error
-//   Reset: confirm → resetUserPath → Moving… → success/inline error; disabled when already default
+//   Browse: choose → cancel aborts → confirm dialog → Moving… → save unsaved → setUserPath → success/inline error
+//   Reset: confirm → Moving… → save unsaved → resetUserPath → success/inline error; disabled when already default
 //   Open: revealUserPath()
-//   unsaved-designs guard: both Browse and Reset pass through it first
+//   unsaved designs: the confirm says they are saved first; one that cannot be saved stops the move
 //   inline states: rejected / error / warning / critical (no popup)
-//   Moving… busy state: all buttons disabled
+//   Moving… busy state (saving included): all buttons disabled
 import { FolderRow } from './FolderRow.js';
 import { SubfolderList } from './SubfolderList.js';
 import { hintStyle, buttonStyle } from './ui.js';
@@ -35,10 +35,11 @@ function getRootPath(listResult) {
  * @param {object} props.c - theme color object
  * @param {object} props.t - localized strings
  * @param {Function} props.onUserPathChanged - reload callback after a successful transaction
- * @param {Function} props.canChangeUserPath - unsaved-design guard
+ * @param {Function} props.countUnsavedDesigns - () => number of designs with unsaved changes, read when called
+ * @param {Function} props.saveUnsavedDesigns - saves them; () => Promise<string[]> of names not saved
  * @param {Function} props.showConfirm - app-level confirm dialog (message) => Promise<boolean>
  */
-export const FoldersPane = ({ c, t, onUserPathChanged, canChangeUserPath, showConfirm }) => {
+export const FoldersPane = ({ c, t, onUserPathChanged, countUnsavedDesigns, saveUnsavedDesigns, showConfirm }) => {
   const [folders, setFolders] = useState(null);     // full folders object returned by paths:list
   const [error, setError] = useState(null);          // move error / critical
   const [warning, setWarning] = useState(null);      // oldStillThere warning (yellow)
@@ -86,77 +87,56 @@ export const FoldersPane = ({ c, t, onUserPathChanged, canChangeUserPath, showCo
     await onUserPathChanged?.();
   }, [t, onUserPathChanged]);
 
-  // ── Browse: choose → confirm → setUserPath → Moving… ──────────────────
-  const onBrowse = useCallback(async () => {
-    // unsaved-design guard
-    if (canChangeUserPath && !canChangeUserPath()) {
-      setError(t.settings.folders.projectsLocked);
-      return;
-    }
-
+  // ── confirm → save the unsaved designs → move ─────────────────────────
+  // The moved folder is reloaded without the unsaved copies, so they are
+  // written to their files first. They are counted once the folder is chosen,
+  // because a running optimizer can change a design while the chooser is open,
+  // and the save runs whatever the count was. A design that cannot be saved
+  // stops the move. The buttons stay disabled from the confirm to the end.
+  const runMove = useCallback(async (message, move) => {
     try {
-      // 1. choose — returns the chosen path only
+      // app confirm dialog (prefer the injected showConfirm, fall back to window.confirm)
+      const confirmFn = showConfirm || ((msg) => Promise.resolve(window.confirm(msg)));
+      const unsaved = countUnsavedDesigns();
+      const confirmed = await confirmFn(unsaved
+        ? t.settings.folders.unsavedSavedFirst(message, unsaved)
+        : message);
+      if (!confirmed) return;
+      setMoving(true);
+      setError(null);
+      setWarning(null);
+      const failed = await saveUnsavedDesigns();
+      if (failed.length) {
+        setError(t.settings.folders.notSaved(failed.join(', ')));
+        return;
+      }
+      await handleMoveResult(await move());
+    } catch (err) {
+      setError(t.settings.folders.changeFailed(err?.message || ''));
+    } finally {
+      setMoving(false);
+    }
+  }, [showConfirm, countUnsavedDesigns, saveUnsavedDesigns, t, handleMoveResult]);
+
+  // ── Browse: choose → runMove(setUserPath) ─────────────────────────────
+  const onBrowse = useCallback(async () => {
+    try {
+      // choose — returns the chosen path only
       const chooseResult = await window.electronAPI?.chooseUserPath?.();
       if (!chooseResult || chooseResult.canceled || !chooseResult.path) return;
-
-      // 2. app confirm dialog (prefer the injected showConfirm, fall back to window.confirm)
-      const confirmFn = showConfirm || ((msg) => Promise.resolve(window.confirm(msg)));
-      const confirmed = await confirmFn(
-        t.settings.folders.confirmMove(chooseResult.path)
-      );
-      if (!confirmed) return;
-
-      // 3. setUserPath → Moving…
-      setMoving(true);
-      setError(null);
-      setWarning(null);
-      try {
-        const result = await window.electronAPI?.setUserPath?.(chooseResult.path);
-        await handleMoveResult(result);
-      } finally {
-        setMoving(false);
-      }
+      await runMove(t.settings.folders.confirmMove(chooseResult.path),
+        () => window.electronAPI?.setUserPath?.(chooseResult.path));
     } catch (err) {
       setError(t.settings.folders.changeFailed(err?.message || ''));
-      setMoving(false);
     }
-  }, [canChangeUserPath, showConfirm, t, handleMoveResult]);
+  }, [runMove, t]);
 
-  // ── Reset: confirm → resetUserPath → Moving… ──────────────────────────
+  // ── Reset: runMove(resetUserPath); no-op when already default ─────────
   const onReset = useCallback(async () => {
-    // unsaved-design guard
-    if (canChangeUserPath && !canChangeUserPath()) {
-      setError(t.settings.folders.projectsLocked);
-      return;
-    }
-
-    // no-op when already default
     if (isDefault) return;
-
-    try {
-      // confirm dialog
-      const confirmFn2 = showConfirm || ((msg) => Promise.resolve(window.confirm(msg)));
-      const defaultRoot = folders?.defaultRoot || '';
-      const confirmed = await confirmFn2(
-        t.settings.folders.confirmReset(defaultRoot)
-      );
-      if (!confirmed) return;
-
-      // resetUserPath → Moving…
-      setMoving(true);
-      setError(null);
-      setWarning(null);
-      try {
-        const result = await window.electronAPI?.resetUserPath?.();
-        await handleMoveResult(result);
-      } finally {
-        setMoving(false);
-      }
-    } catch (err) {
-      setError(t.settings.folders.changeFailed(err?.message || ''));
-      setMoving(false);
-    }
-  }, [isDefault, canChangeUserPath, showConfirm, folders, t, handleMoveResult]);
+    await runMove(t.settings.folders.confirmReset(folders?.defaultRoot || ''),
+      () => window.electronAPI?.resetUserPath?.());
+  }, [isDefault, runMove, folders, t]);
 
   // ── Open: revealUserPath() ────────────────────────────────────────────
   const onOpen = useCallback(async () => {

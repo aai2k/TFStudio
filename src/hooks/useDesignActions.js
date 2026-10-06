@@ -53,6 +53,24 @@ function saveToDisk(a, id, design) {
     );
 }
 
+// Designs with unsaved changes that have a file to be saved to. A design that
+// sits in no project folder, such as a preview a window shows, has none.
+function unsavedInFolders(a) {
+    const inTree = new Set(a.foldersRef.current.flatMap(folder => folder.items.map(item => item.id)));
+    return Object.keys(a.dirtyDesigns).filter(id => a.dirtyDesigns[id] && inTree.has(id));
+}
+
+// Each of them written to its own file as Save writes it, one after another.
+// Returns the names of those that could not be written; a failed write has
+// already been reported.
+async function saveUnsaved(a) {
+    const failed = [];
+    for (const id of unsavedInFolders(a)) {
+        if (!(await saveToDisk(a, id))) failed.push(a.designsRef.current[id]?.name || id);
+    }
+    return failed;
+}
+
 function addDesign(a, overrideFolder) {
     const targetFolder = overrideFolder || a.selectedFolder;
     if (!targetFolder) return;
@@ -202,6 +220,8 @@ export function useDesignActions({ store, tree, persistChange, setInputDialog, s
     return {
         addItemFromDesign, createDesignFromWindow,
         saveDesignToDisk: useCallback((id, design) => saveToDisk(a.current, id, design), []),
+        countUnsavedDesigns: useCallback(() => unsavedInFolders(a.current).length, []),
+        saveUnsavedDesigns: useCallback(() => saveUnsaved(a.current), []),
         addItem:          useCallback((folder) => addDesign(a.current, folder), []),
         duplicateItem:    useCallback((item, folder) => duplicateDesign(a.current, item, folder), []),
         saveDesignAs:     useCallback(() => askSaveAs(a.current), []),

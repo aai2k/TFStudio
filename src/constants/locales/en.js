@@ -403,7 +403,10 @@ export default {
       openFailed: 'Could not open the folder',
       defaultLabel: 'Default location',
       changeFailed: (reason) => `Could not use that folder: ${reason}`,
-      projectsLocked: 'Save or discard your unsaved designs before moving the data folder.',
+      unsavedSavedFirst: (confirm, count) => (count === 1
+        ? `${confirm} The design with unsaved changes is saved first.`
+        : `${confirm} The ${count} designs with unsaved changes are saved first.`),
+      notSaved: (names) => `The data folder was not moved: ${names} could not be saved.`,
       rejected: (configured, reason) => `The configured folder ${configured} could not be used${reason ? ` (${reason})` : ''}, so the default is in effect.`,
       subfolders: 'Subfolders',
       notCreated: 'not yet created',

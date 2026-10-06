@@ -25,7 +25,7 @@ import { MaterialResolutionModalGuard } from './materials/MaterialResolutionModa
 const { createElement: h, Fragment } = React;
 
 export function AppModals({
-    c, t, settings, dialogs, welcome, project, dirtyDesigns, activeDesignId,
+    c, t, settings, dialogs, welcome, project, activeDesignId,
     designSig, designLayers, onUserPathChanged,
     inputDialog, messageNotification, onDismissMessage,
 }) {
@@ -38,8 +38,10 @@ export function AppModals({
             updateCheckEnabled: settings.updateCheckEnabled,
             setUpdateCheckEnabled: settings.setUpdateCheckEnabled,
             onUserPathChanged,
-            // A move relocates every design on disk, so any unsaved design blocks it.
-            canChangeUserPath: () => !Object.values(dirtyDesigns).some(Boolean),
+            // A move reloads every design from the new folder without its
+            // unsaved copy, so the unsaved designs are saved before it.
+            countUnsavedDesigns: project.countUnsavedDesigns,
+            saveUnsavedDesigns: project.saveUnsavedDesigns,
             ribbonStyle: settings.ribbonStyle, setRibbonStyle: settings.setRibbonStyle,
             quickAccess: settings.quickAccess, setQuickAccess: settings.setQuickAccess,
             customThemes: settings.customThemes,
