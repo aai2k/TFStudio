@@ -23,6 +23,28 @@ export function designFileKey(name) {
         .toLowerCase();
 }
 
+// Device names Windows reserves, alone or with an extension: a file called
+// NUL.tfs or COM1.tfs is the device, not a file.
+const DEVICE_NAME = /^(con|prn|aux|nul|com[1-9]|lpt[1-9])(\..*)?$/i;
+
+/**
+ * True for a name Windows cannot use for a folder: a device name, or one ending
+ * in a dot or a space. Node creates such folders on request, but Explorer, other
+ * programs and sync clients then cannot open, rename or delete them.
+ */
+export function isUnusableFileName(name) {
+    const text = String(name ?? '');
+    return /[. ]$/.test(text) || isUnusableDesignName(text);
+}
+
+/**
+ * True for a design name whose file, `<name>.tfs`, Windows takes for a device.
+ * A trailing dot or space is fine here: the extension follows it.
+ */
+export function isUnusableDesignName(name) {
+    return DEVICE_NAME.test(String(name ?? '').trim());
+}
+
 /**
  * The design names one project folder holds.
  *

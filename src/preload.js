@@ -13,10 +13,13 @@ contextBridge.exposeInMainWorld('electronAPI', {
   loadWasmKernel:   () => ipcRenderer.invoke('wasm:load-kernel'),
   onMenuAction:     (cb) => ipcRenderer.on('menu-action', (event, action) => cb(action)),
   // A project folder is addressed by its path under Projects ('Archive/2026'),
-  // since project folders nest.
-  loadFolders:      () => ipcRenderer.invoke('load-folders'),
-  saveDesign:       (folderId, design) => ipcRenderer.invoke('save-design', folderId, design),
-  importTfs:        () => ipcRenderer.invoke('import-tfs'),
+  // since project folders nest. `lastSeen` and `rows` map a design id to the
+  // file its row was last seen at ('Archive/AR.tfs'); `expectedMtime` is the
+  // time the design's file had when it was read or last saved; `designId` is
+  // the design a row shows. All four may be left out.
+  loadFolders:      (lastSeen) => ipcRenderer.invoke('load-folders', lastSeen),
+  saveDesign:       (folderId, design, expectedMtime) => ipcRenderer.invoke('save-design', folderId, design, expectedMtime),
+  importTfs:        (rows) => ipcRenderer.invoke('import-tfs', rows),
   // A .tfs opened from the file manager. The path the launch carried is
   // collected once, after the project tree has been read; every later
   // double-click arrives on the channel, because the copy already running
@@ -27,12 +30,12 @@ contextBridge.exposeInMainWorld('electronAPI', {
     ipcRenderer.on('open-file', handler);
     return () => ipcRenderer.removeListener('open-file', handler);
   },
-  openTfsPath:      (filePath) => ipcRenderer.invoke('open-tfs-path', filePath),
+  openTfsPath:      (filePath, rows) => ipcRenderer.invoke('open-tfs-path', filePath, rows),
   importDesignFiles: () => ipcRenderer.invoke('import-design-files'),
   pickMacleodDatabase: () => ipcRenderer.invoke('pick-macleod-database'),
-  deleteItem:       (folderId, itemName) => ipcRenderer.invoke('delete-item', folderId, itemName),
-  renameItem:       (folderId, oldName, newName) => ipcRenderer.invoke('rename-item', folderId, oldName, newName),
-  moveItem:         (fromFolderId, toFolderId, itemName) => ipcRenderer.invoke('move-item', fromFolderId, toFolderId, itemName),
+  deleteItem:       (folderId, itemName, designId) => ipcRenderer.invoke('delete-item', folderId, itemName, designId),
+  renameItem:       (folderId, oldName, newName, designId, expectedMtime) => ipcRenderer.invoke('rename-item', folderId, oldName, newName, designId, expectedMtime),
+  moveItem:         (fromFolderId, toFolderId, itemName, designId) => ipcRenderer.invoke('move-item', fromFolderId, toFolderId, itemName, designId),
   createFolder:     (folderId) => ipcRenderer.invoke('create-folder', folderId),
   // Also moves a folder: a move is a rename whose target sits under a
   // different parent.

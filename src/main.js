@@ -79,11 +79,10 @@ flushLog();
 let mainWindow;
 let userPaths;
 
-// MP6: single-instance lock. Two instances would share the portable userData —
+// MP6: single-instance lock. Two instances would share the portable userData:
 // the same Chromium profile, settings.json (last-writer-wins), the log file, and
-// load-folders' duplicate cleanup could move aside a file the other instance just
-// wrote. Hand off to the already-running instance and exit before any further
-// init runs.
+// load-folders writing fresh ids into copies the other instance has open. Hand
+// off to the already-running instance and exit before any further init runs.
 if (!app.requestSingleInstanceLock()) {
   app.quit();
   process.exit(0);
@@ -107,9 +106,10 @@ function deliverOpenFile(file) {
 }
 
 // The second launch never becomes a process of its own: Electron hands its
-// command line over here, which is where the design it names is opened.
-app.on('second-instance', (event, argv) => {
-  deliverOpenFile(designFileFromArgv(argv));
+// command line over here, with the folder it ran in, which is where the design
+// it names is opened.
+app.on('second-instance', (event, argv, workingDirectory) => {
+  deliverOpenFile(designFileFromArgv(argv, workingDirectory));
   if (mainWindow) {
     if (mainWindow.isMinimized()) mainWindow.restore();
     mainWindow.focus();

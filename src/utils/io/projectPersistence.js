@@ -77,9 +77,9 @@ export function updateDirtyDesigns(dirtyDesigns, id, currentDesign, savedDesign)
   return next;
 }
 
-// Renderer-side guard against stale duplicate .tfs files sharing an id within a
-// folder; the main process cleans these on load, but never trust the input. The
-// design payload itself is dropped — the explorer tree only carries
+// Renderer-side guard against two rows sharing an id in one folder; the main
+// process gives every copy an id of its own on load, but never trust the input.
+// The design payload itself is dropped: the explorer tree only carries
 // id/name/mtime/etc.
 function dedupeFolderItems(folder) {
   const seen = new Set();

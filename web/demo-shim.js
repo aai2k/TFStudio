@@ -129,8 +129,13 @@
     }
   };
 
+  // A save or a rename answers with the time it stamped, as the desktop's does,
+  // so the row sorts by it. The demo does not check a save against that time:
+  // a save in a second demo tab writes over the first tab's without asking.
+  const stamped = (res) => (res.success ? Object.assign({}, res, { mtime: Date.now() }) : res);
+
   const saveDesign = async (folderName, design) => {
-    const res = await guard(() => S().putDesign(folderName, design));
+    const res = stamped(await guard(() => S().putDesign(folderName, design)));
     // The first save is when a visitor starts assuming their work is safe
     // somewhere; demo-notice.js says where it actually is.
     if (res.success) {
@@ -139,7 +144,8 @@
     return res;
   };
   const deleteItem = (folderName, itemName) => guard(() => S().deleteDesign(folderName, itemName));
-  const renameItem = (folderName, oldName, newName) => guard(() => S().renameDesign(folderName, oldName, newName));
+  const renameItem = async (folderName, oldName, newName) =>
+    stamped(await guard(() => S().renameDesign(folderName, oldName, newName)));
   const renameFolder = (oldName, newName) => guard(() => S().renameFolder(oldName, newName));
   const deleteFolder = (folderName) => guard(() => S().deleteFolder(folderName));
 

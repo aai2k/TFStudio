@@ -7,7 +7,7 @@
 import { createRequire } from 'node:module';
 import { readFileSync, readdirSync } from 'node:fs';
 import path from 'node:path';
-import { designFileKey, folderDesignNames, uniqueDesignName } from '../src/utils/io/designNaming.js';
+import { designFileKey, folderDesignNames, isUnusableDesignName, isUnusableFileName, uniqueDesignName } from '../src/utils/io/designNaming.js';
 
 const require = createRequire(import.meta.url);
 const projects = require('../src/main/ipc/projects.js');
@@ -24,6 +24,22 @@ ok(designFileKey('A/B') === designFileKey('A_B'), 'illegal characters sanitize t
 ok(designFileKey('Design 2.') === designFileKey('Design 2'), 'trailing dot is ignored');
 ok(designFileKey('Design 2 ') === designFileKey('Design 2'), 'trailing space is ignored');
 ok(designFileKey('AR VIS') !== designFileKey('AR NIR'), 'distinct names keep distinct keys');
+
+// Names Windows cannot use, though Node creates them on request: Explorer and
+// other programs then cannot open, rename or delete the file or folder. A
+// design's file ends in .tfs, so a trailing dot or space is refused only for
+// a folder.
+for (const name of ['NUL', 'con', 'COM1', 'lpt9', 'AUX.backup']) {
+  ok(isUnusableDesignName(name), `"${name}" is refused as a design name`);
+  ok(isUnusableFileName(name), `"${name}" is refused as a folder name`);
+}
+for (const name of ['Rev 2.', 'Rev 2 ']) {
+  ok(!isUnusableDesignName(name), `"${name}" is a usable design name`);
+  ok(isUnusableFileName(name), `"${name}" is refused as a folder name`);
+}
+for (const name of ['AR VIS', 'Console', 'COM10', 'Rev 2.1', 'nul design']) {
+  ok(!isUnusableDesignName(name) && !isUnusableFileName(name), `"${name}" is a usable name`);
+}
 
 // ── The names a new design is checked against ───────────────────────────────
 // One folder, not the whole tree: a folder is a directory, so the same name in

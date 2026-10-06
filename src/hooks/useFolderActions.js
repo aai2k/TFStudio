@@ -6,20 +6,24 @@
  * directory rename on disk and rewrites the ids of every folder below it.
  */
 
-import { designFileKey } from '../utils/io/designNaming.js';
+import { designFileKey, isUnusableFileName } from '../utils/io/designNaming.js';
 import { persistThenCommit } from '../utils/io/projectPersistence.js';
 import {
-    folderLeafName, isFolderWithin, joinFolderId, moveExplorerItems,
-    parentFolderId, rehomeExplorerFolder, rehomedFolderId,
+    folderLeafName, folderSegment, isFolderWithin, joinFolderId,
+    moveExplorerItems, parentFolderId, rehomeExplorerFolder, rehomedFolderId, rowFileFailure,
 } from '../components/panels/projectExplorerModel.js';
 
 const { useRef, useCallback } = React;
 
-// Windows caps the length of a directory path unless long paths are turned on,
-// and nesting is what gets a project tree there. The main process answers with
-// a code rather than a sentence, so the message is worded here.
+// The main process answers with a code rather than a sentence, so the message
+// is worded here. Windows caps the length of a directory path unless long
+// paths are turned on, and nesting is what gets a project tree there. A folder
+// name Windows cannot open is refused by the main process as well as by the
+// dialogs here.
 function folderWriteFailure(t, error) {
-    return error === 'path-too-long' ? t.dialogs.folder.pathTooLong : null;
+    if (error === 'path-too-long') return t.dialogs.folder.pathTooLong;
+    if (error === 'name-not-allowed') return t.dialogs.folder.nameNotAllowed;
+    return null;
 }
 
 // The designs a move would actually shift: an id in no folder at all, and an id
@@ -59,6 +63,7 @@ function askNewFolder(a, parentFolder) {
         defaultValue: fd.newFolderName,
         validate: (name) => {
             if (!name?.trim()) return fd.folderNameEmpty;
+            if (isUnusableFileName(folderSegment(name.trim()))) return fd.nameNotAllowed;
             const id = joinFolderId(parentId, name.trim());
             if (a.foldersRef.current.some(f => f.id.toLowerCase() === id.toLowerCase()))
                 return fd.folderExists;
@@ -118,13 +123,14 @@ async function moveDesignsTo(a, itemIds, targetFolderId) {
     // batch is still running resolves the design's folder from this ref, and
     // would otherwise write it back into the folder it left. The batch reports
     // its own failures, so persistThenCommit is used directly and every design
-    // that did not move is named.
+    // that did not move is named. The design id goes with the name, so the main
+    // process leaves alone a file that holds another design by now.
     const movedIds = new Set();
     const failed = [];
     for (const move of moves) {
         const result = await persistThenCommit(
             window.electronAPI?.moveItem
-                ? () => window.electronAPI.moveItem(move.sourceId, target.id, move.item.name)
+                ? () => window.electronAPI.moveItem(move.sourceId, target.id, move.item.name, move.item.id)
                 : null,
             () => {
                 movedIds.add(move.item.id);
@@ -132,7 +138,7 @@ async function moveDesignsTo(a, itemIds, targetFolderId) {
                 a.setFolders(prev => moveExplorerItems(prev, [move.item.id], targetFolderId));
             },
         );
-        if (!result.success) failed.push(move.item.name);
+        if (!result.success) failed.push({ name: move.item.name, error: result.error });
     }
     reportMoveFailures(a, movedIds, failed);
     if (movedIds.size === 0) return false;
@@ -145,7 +151,11 @@ async function moveDesignsTo(a, itemIds, targetFolderId) {
 
 function reportMoveFailures(a, movedIds, failed) {
     if (failed.length === 1 && movedIds.size === 0) {
-        a.setMessageNotification({ type: 'error', message: a.t.explorer.moveFailed(failed[0]) });
+        const [{ name, error }] = failed;
+        a.setMessageNotification({
+            type: 'error',
+            message: rowFileFailure(a.t, error, name) || a.t.explorer.moveFailed(name),
+        });
     } else if (failed.length > 0) {
         a.setMessageNotification({
             type: 'error',
@@ -160,6 +170,7 @@ function reportMoveFailures(a, movedIds, failed) {
 function applyRehome(a, folderId, newId) {
     const rehomed = rehomeExplorerFolder(a.foldersRef.current, folderId, newId);
     a.foldersRef.current = rehomed;
+    a.rehomeUnreadNames(folderId, newId);
     // Applied to whatever the tree is when React commits, not to the copy taken
     // above: a save committing in the same batch has its own update queued, and
     // replacing the list outright would drop it.
@@ -174,6 +185,13 @@ function applyRehome(a, folderId, newId) {
 function renameFolderTo(a, folderId, newName) {
     const folder = a.foldersRef.current.find(f => f.id === folderId);
     if (!folder) return;
+    const newLeaf = folderSegment(newName);
+    // A folder an older build made under such a name keeps working; only a new
+    // name is checked.
+    if (newLeaf !== folder.name && isUnusableFileName(newLeaf)) {
+        a.setMessageNotification({ type: 'error', message: a.t.dialogs.folder.nameNotAllowed });
+        return false;
+    }
     const newId = joinFolderId(parentFolderId(folderId), newName);
     // Compared without case on every platform, for the reason design names are
     // (see designNaming.js): Windows reaches one directory from either spelling,

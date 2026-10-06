@@ -1,53 +1,120 @@
-// A design copied outside the app keeps its id: a .tfs or a whole project
-// folder copied in the file manager. The app keys designs by id, so one id in
-// two folders would be one design behind two rows, and a save through one row
-// would write into the other folder's file. The loader therefore gives such a
-// copy an id of its own.
+// Which file keeps a design id when more than one file holds it, and an id
+// for a design file that holds none.
 //
-// Folders are read in tree order, and the first file to hold an id keeps it. A
-// later file in another folder gets a fresh id, written into it once, so the
-// copy is its own design at every start. Two copies in one folder never get
-// here: the loader sets the older one aside first (loadDesignFile).
+// A design copied outside the app keeps its id: a .tfs copied beside the
+// original or into another folder, or a whole project folder copied in the
+// file manager. The app keys designs by id, so one id in two files would be
+// one design behind two rows, and a save through one row would write into the
+// other row's file. Every copy therefore gets an id of its own, written into
+// it once, so the copy is its own design at every start.
 //
-// Two links to one file are one design and keep sharing the id. A link to a
-// different file gets its fresh id in memory only, because the atomic write
-// would replace the link with a plain file.
+// The original keeps the id, and with it the unsaved work and history the
+// session keeps under that id. The original is the file where the renderer
+// last saw the design, when it recorded one; else the file named after the
+// design, since a file-manager copy is named "D1 - Copy" or "AR (2)"; else the
+// first in tree order.
+//
+// Two links to one file are one design and keep sharing the id. A new id is
+// written through a link into the file it points at (writeFileAtomic).
+//
+// A design written by a script or by hand with no id gets one the same way.
 //
 // CommonJS, Electron-free (deps via ctx).
+const { decodeText } = require('./paths');
 
 // Same shape as the ids the renderer gives new designs (makeDefaultDesign).
 function freshDesignId() {
   return `design-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
 }
 
-// `items` are one folder's designs, `seenIds` maps each id to the file it was
-// read from, and `ctx.treeIds` maps every id taken so far in the tree to the
-// file holding it. Changes `items` in place.
-function giveCopiesTheirOwnIds(ctx, items, seenIds) {
-  const { fs, path, log } = ctx;
-  for (const item of items) {
-    const file = seenIds.get(item.id).file;
-    const holder = ctx.treeIds.get(item.id);
-    if (holder === undefined) { ctx.treeIds.set(item.id, file); continue; }
-    if (fs.realpathSync(holder) === fs.realpathSync(file)) continue;
-    const id = freshDesignId();
-    log(`${path.basename(file)} holds design id ${item.id}, which another folder already has; it now has ${id}`);
-    item.id = id;
-    item.design.id = id;
-    ctx.treeIds.set(id, file);
-    if (!fs.lstatSync(file).isSymbolicLink()) writeId(ctx, file, id);
+function isDesignId(id) {
+  return typeof id === 'string' && id !== '';
+}
+
+// Two places under Projects ('Archive/AR.tfs') naming one file. Windows
+// matches names without case, so a path typed in another case is the same
+// file there.
+function sameLocation(a, b) {
+  return process.platform === 'win32' ? a.toLowerCase() === b.toLowerCase() : a === b;
+}
+
+function sameFile(ctx, a, b) {
+  try {
+    return ctx.fs.realpathSync(a) === ctx.fs.realpathSync(b);
+  } catch (_) {
+    return false;
   }
 }
 
 // The file as it is on disk with only its id changed: the design read for the
 // tree has had load-time cleanups applied that are not this write's to keep.
-function writeId(ctx, file, id) {
+// The record's time is read again, since the write changed it.
+function writeId(ctx, record, id) {
   try {
-    const onDisk = JSON.parse(ctx.fs.readFileSync(file, 'utf-8'));
-    ctx.writeFileAtomic(file, JSON.stringify({ ...onDisk, id }, null, 2), 'utf-8');
+    const onDisk = JSON.parse(decodeText(ctx.fs.readFileSync(record.file)));
+    ctx.writeFileAtomic(record.file, JSON.stringify({ ...onDisk, id }, null, 2), 'utf-8');
+    record.mtime = ctx.fs.statSync(record.file).mtimeMs;
   } catch (err) {
-    ctx.log(`Could not write the new id into ${file}: ${err.message}`);
+    ctx.log(`Could not write the new id into ${record.file}: ${err.message}`);
   }
 }
 
-module.exports = { giveCopiesTheirOwnIds };
+function giveFreshId(ctx, record, why) {
+  const id = freshDesignId();
+  ctx.log(`${record.location} ${why}; it now has ${id}`);
+  record.design.id = id;
+  writeId(ctx, record, id);
+}
+
+function originalOf(holders, seenAt) {
+  return (typeof seenAt === 'string' && holders.find(record => sameLocation(record.location, seenAt)))
+    || holders.find(record => record.named)
+    || holders[0];
+}
+
+function groupById(records) {
+  const groups = new Map();
+  for (const record of records) {
+    if (!groups.has(record.design.id)) groups.set(record.design.id, []);
+    groups.get(record.design.id).push(record);
+  }
+  return groups;
+}
+
+// `records` are every design file read in the tree, in tree order, each as
+// { file, location, named, mtime, design }: the full path, the path under
+// Projects ('Archive/AR.tfs'), whether the file is named after the design, the
+// file's modification time and the parsed design. Ids and times are changed in
+// place. `lastSeen` maps a design id to the location the renderer last saw it
+// at, and may be absent.
+function settleDesignIds(ctx, records, lastSeen) {
+  for (const record of records) {
+    if (!isDesignId(record.design.id)) giveFreshId(ctx, record, 'holds no design id');
+  }
+  for (const [id, holders] of groupById(records)) {
+    if (holders.length < 2) continue;
+    const original = originalOf(holders, lastSeen?.[id]);
+    for (const record of holders) {
+      if (record === original || sameFile(ctx, record.file, original.file)) continue;
+      giveFreshId(ctx, record, `holds design id ${id}, which ${original.location} keeps`);
+    }
+  }
+}
+
+// A design opened by path from inside the tree, checked against the rows the
+// renderer shows: `rows` maps each design id to the location of its row's
+// file. A file holding no id, or the id of a row whose file is another one, is
+// a design of its own and gets an id the way the loader gives one.
+function settleOpenedDesign(ctx, record, rows) {
+  const { id } = record.design;
+  if (!isDesignId(id)) {
+    giveFreshId(ctx, record, 'holds no design id');
+    return;
+  }
+  const rowAt = rows?.[id];
+  if (typeof rowAt !== 'string' || sameLocation(rowAt, record.location)) return;
+  if (sameFile(ctx, ctx.path.join(ctx.projectsDir, ...rowAt.split('/')), record.file)) return;
+  giveFreshId(ctx, record, `holds design id ${id}, which ${rowAt} keeps`);
+}
+
+module.exports = { settleDesignIds, settleOpenedDesign };

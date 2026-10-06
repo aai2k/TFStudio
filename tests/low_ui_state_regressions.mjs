@@ -13,13 +13,18 @@ const projects = require('../src/main/ipc/projects.js');
 const appWindow = require('../src/main/ipc/appWindow.js');
 
 // BH-04: a case-insensitive filesystem reports both casings as the same path,
-// so the handler must rename through a temporary sibling.
+// and lists only the spelling it holds. A case-only folder rename is not
+// refused as a clash and is one plain rename, which such a file system carries
+// out as a change of case.
 {
     let storedPath = '/projects/Foo';
     const renameCalls = [];
     const fs = {
         existsSync(candidate) {
             return candidate.toLowerCase() === storedPath.toLowerCase();
+        },
+        readdirSync() {
+            return [path.posix.basename(storedPath)];
         },
         renameSync(from, to) {
             assert.equal(from.toLowerCase(), storedPath.toLowerCase());
@@ -38,8 +43,7 @@ const appWindow = require('../src/main/ipc/appWindow.js');
     });
     const result = await handlers.get('rename-folder')(null, 'Foo', 'foo');
     assert.equal(result.success, true);
-    assert.equal(renameCalls.length, 2);
-    assert.match(renameCalls[0][1], /Foo\.tmp_rename_\d+$/);
+    assert.deepEqual(renameCalls, [['/projects/Foo', '/projects/foo']]);
     assert.equal(storedPath, '/projects/foo');
 }
 

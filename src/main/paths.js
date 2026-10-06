@@ -37,8 +37,41 @@ function safeFilePath(base, ...parts) {
   return resolved;
 }
 
+// Windows keeps these names for devices: a file or folder called CON, or
+// CON.txt, opens the device instead, whatever the case. Node writes them
+// anyway, through the \\?\ prefix, and leaves something Explorer, cmd and
+// PowerShell cannot open or delete.
+const WINDOWS_DEVICE_NAME = /^(con|prn|aux|nul|com[1-9]|lpt[1-9])(\.|$)/i;
+
+// A device name, or a name ending in a dot or a space, which Windows strips
+// when the path is used and OneDrive will not sync.
+const WINDOWS_REFUSED_FOLDER_NAME = new RegExp(`${WINDOWS_DEVICE_NAME.source}|[. ]$`, 'i');
+
+function isWindowsDeviceName(name) {
+  return WINDOWS_DEVICE_NAME.test(name);
+}
+
+// Checked only on a name being given to a folder, never on folders already on
+// disk, which stay reachable under the names they have.
+function windowsRefusesFolderName(name) {
+  return WINDOWS_REFUSED_FOLDER_NAME.test(name);
+}
+
 function readJsonSafe(p) {
   try { return JSON.parse(fs.readFileSync(p, 'utf-8')); } catch (_) { return null; }
+}
+
+// The path a write to `filePath` lands on. A link is written through: the file
+// it points at takes the new content and the link stays a link, where renaming
+// the temp file over the link would replace it with a plain file and leave the
+// original unchanged. A path with nothing there yet, or a link to nothing, is
+// written as it is.
+function writeTarget(filePath) {
+  try {
+    return fs.realpathSync(filePath);
+  } catch (_) {
+    return filePath;
+  }
 }
 
 // Atomic write: serialize to a sibling temp file, then rename into place. Rename
@@ -47,10 +80,11 @@ function readJsonSafe(p) {
 // silently skipped at load, which reads to the user as a "vanished" design or
 // lost settings (MP4). The temp is cleaned up if anything throws.
 function writeFileAtomic(filePath, data, encoding) {
-  const tmp = `${filePath}.tmp-${process.pid}-${Date.now()}`;
+  const target = writeTarget(filePath);
+  const tmp = `${target}.tmp-${process.pid}-${Date.now()}`;
   try {
     fs.writeFileSync(tmp, data, encoding);
-    fs.renameSync(tmp, filePath);
+    fs.renameSync(tmp, target);
   } catch (err) {
     try { fs.unlinkSync(tmp); } catch (_) {}
     throw err;
@@ -164,7 +198,13 @@ function decodeAnsi(buf, label = ansiCodePage() || 'windows-1252') {
 // whether NULs cluster at odd offsets (little-endian) or even (big-endian).
 // Bytes that are not valid UTF-8 are read as an ANSI code page.
 function readTextAuto(filePath) {
-  const buf = fs.readFileSync(filePath);
+  return decodeText(fs.readFileSync(filePath));
+}
+
+// The text of a file's bytes, by the rules readTextAuto reads a file with. Text
+// that is already a string is returned as it is.
+function decodeText(buf) {
+  if (typeof buf === 'string') return buf;
   const byBom = decodeByBom(buf);
   if (byBom !== null) return byBom;
   const bomless = decodeBomlessUtf16(buf);
@@ -191,4 +231,7 @@ function resolveExeDir({ portableDir, isPackaged, execPath, appPath }) {
   return isPackaged ? path.dirname(execPath) : appPath;
 }
 
-module.exports = { safeName, safeSegments, safeFilePath, readJsonSafe, writeFileAtomic, readTextAuto, decodeAnsi, ansiCodePage, registryValue, resolveExeDir };
+module.exports = {
+  safeName, safeSegments, safeFilePath, readJsonSafe, writeFileAtomic, readTextAuto, decodeText,
+  decodeAnsi, ansiCodePage, registryValue, resolveExeDir, isWindowsDeviceName, windowsRefusesFolderName,
+};

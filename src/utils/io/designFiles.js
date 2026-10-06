@@ -8,9 +8,11 @@ import { embedDesignMaterials } from '../materials/designMaterials.js';
 // Single write path for .tfs files. Material definitions are attached here, at
 // the boundary, because the catalogs they come from live in the renderer and the
 // main process cannot see them. The folder is named by its id, which is its path
-// under Projects.
-export function writeDesignFile(folderId, design) {
-    return window.electronAPI.saveDesign(folderId, embedDesignMaterials(design));
+// under Projects. `expectedMtime` is the file's modification time when it was
+// last read or written here; the main process refuses with 'changed-on-disk'
+// when the file has changed since. Without it the file is written regardless.
+export function writeDesignFile(folderId, design, expectedMtime) {
+    return window.electronAPI.saveDesign(folderId, embedDesignMaterials(design), expectedMtime);
 }
 
 // Fresh, collision-free layer ids under a new design id/timestamp (`ts`).

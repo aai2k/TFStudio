@@ -115,8 +115,8 @@ const put = (name, obj) => { files.set(`/out/${name}.tfs`, JSON.stringify(obj));
     ok(res.success === true, 'the tree still loads');
     const folder = res.folders.find(f => f.id === 'My Designs');
     const names = folder.items.map(i => i.name).sort();
-    ok(names.join() === 'AR,Bare',
-        'the good design and the bare substrate are in the tree, the stub is not');
+    ok(names.join() === 'good,nolayers',
+        'the good design and the bare substrate are in the tree, each under its file name, the stub is not');
     ok(logs.some(m => /stub\.tfs/.test(m) && /substrate/i.test(m)),
         'the skipped file is logged with its reason rather than dropped silently');
     ok(folder.items.every(i => Array.isArray(i.design.frontLayers)),

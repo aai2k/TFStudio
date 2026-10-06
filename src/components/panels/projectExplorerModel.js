@@ -29,12 +29,13 @@ export function joinFolderId(parentId, name) {
 }
 
 /**
- * A folder name as a single path component. A separator inside a name would
- * read as a level of nesting, so it is replaced the same way the main process
- * replaces the characters a filename cannot hold.
+ * A folder name as a single path component, spelled as the main process writes
+ * it to disk: each character a filename cannot hold, separators included, is
+ * replaced as safeName() in src/main/paths.js replaces it. The id then names
+ * the same folder now and after a restart, when it is read back from disk.
  */
 export function folderSegment(name) {
-  return String(name ?? '').replace(/[/\\]+/g, '_');
+  return String(name ?? '').replace(/[<>:"/\\|?*]/g, '_');
 }
 
 /** Whether `folderId` is `ancestorId` itself or a folder below it. */
@@ -96,10 +97,40 @@ export function folderDropTargets(folders, folderId) {
     !isFolderWithin(folder.id, folderId) && folder.id !== parent);
 }
 
+// Characters a file name cannot hold; mirrors safeName() in src/main/paths.js.
+const ILLEGAL_FILENAME_CHARS = /[<>:"/\\|?*]/g;
+
+/**
+ * Where each design in the tree lives on disk, as the main process names it:
+ * { [designId]: 'Archive/2026/AR.tfs' }. A row's file is its name with the
+ * characters a file cannot hold replaced, so the map is built from the tree
+ * rather than kept beside it. The main process uses it to tell a design's own
+ * file from a copy that holds the same id.
+ */
+export function designFileLocations(folders) {
+  return Object.fromEntries(folders.flatMap((folder) => folder.items.map((item) => [
+    item.id,
+    `${folder.id}${FOLDER_SEPARATOR}${String(item.name).replace(ILLEGAL_FILENAME_CHARS, '_')}.tfs`,
+  ])));
+}
+
+// The main process answers with a code when the file a row names now holds
+// another design, and with 'File not found' when it is gone from its folder,
+// which a save writes again.
+const ROW_FILE_FAILURES = { 'not-this-design': 'notThisDesign', 'File not found': 'fileGone' };
+
+/**
+ * What the user is told when the file a row names could not be changed, or
+ * undefined for the general message.
+ */
+export function rowFileFailure(t, error, name) {
+  return t.explorer[ROW_FILE_FAILURES[error]]?.(name);
+}
+
 export function sortExplorerItems(items, mode) {
   const sorted = (items || []).slice();
-  const byName = (a, b) => (a.name || '').localeCompare(
-    b.name || '', undefined, { numeric: true, sensitivity: 'base' });
+  const byName = (a, b) => String(a.name ?? '').localeCompare(
+    String(b.name ?? ''), undefined, { numeric: true, sensitivity: 'base' });
   const byDateOldest = (a, b) => ((a.mtime || 0) - (b.mtime || 0)) || byName(a, b);
   const byDateNewest = (a, b) => ((b.mtime || 0) - (a.mtime || 0)) || byName(a, b);
 

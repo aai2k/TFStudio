@@ -98,8 +98,8 @@ try {
     assert.deepEqual(merged.replaced, [], 'no other copy displaces the saved edit');
 
     // Links: two links to one file are one design; a link to a different file
-    // gets an id in memory, and the link stays a link. Each sits in a folder of
-    // its own, since two files of one id in one folder are set aside instead.
+    // gets an id of its own, written into the file behind it, and the link
+    // stays a link. Each link sits in a folder of its own.
     const target = path.join(root, 'shared', 'Shared AR.tfs');
     fs.mkdirSync(path.dirname(target), { recursive: true });
     fs.writeFileSync(target, JSON.stringify(design('design-S', 'Shared AR', 'MgF2', 98), null, 2));
@@ -125,47 +125,45 @@ try {
         const otherRow = withLinks.find(r => r.name === 'Other AR');
         assert.notEqual(otherRow.id, 'design-S', 'a link to a different file with that id is a design of its own');
         assert.ok(fs.lstatSync(path.join(projectsDir, 'Linked C', 'Other AR.tfs')).isSymbolicLink(), 'the link stays a link');
-        assert.equal(JSON.parse(fs.readFileSync(other, 'utf8')).id, 'design-S', 'the file behind it is not rewritten');
+        assert.equal(JSON.parse(fs.readFileSync(other, 'utf8')).id, otherRow.id, 'and the file behind it holds the new id');
     }
 } finally {
     fs.rmSync(root, { recursive: true, force: true });
 }
 
 // The same rules for links, run on a stand-in file system so they hold where
-// the machine refuses to make a link.
+// the machine refuses to make a link. The write goes through the link in
+// writeFileAtomic, so here it is enough that it is asked for.
 {
-    const { giveCopiesTheirOwnIds } = require('../src/main/copiedDesignIds.js');
-    const files = {
-        '/P/A/Shared.tfs': { real: '/shared/Shared.tfs', link: true },
-        '/P/B/Shared.tfs': { real: '/shared/Shared.tfs', link: true },
-        '/P/B/Other.tfs': { real: '/shared/Other.tfs', link: true },
-        '/P/C/Copy.tfs': { real: '/P/C/Copy.tfs', link: false },
+    const { settleDesignIds } = require('../src/main/copiedDesignIds.js');
+    const realFile = {
+        '/P/A/Shared.tfs': '/shared/Shared.tfs',
+        '/P/B/Shared.tfs': '/shared/Shared.tfs',
+        '/P/B/Other.tfs': '/shared/Other.tfs',
+        '/P/C/Copy.tfs': '/P/C/Copy.tfs',
     };
     const written = [];
     const ctx = {
-        path,
         log: () => {},
-        treeIds: new Map(),
         fs: {
-            realpathSync: file => files[file].real,
-            lstatSync: file => ({ isSymbolicLink: () => files[file].link }),
+            realpathSync: file => realFile[file],
             readFileSync: () => JSON.stringify({ id: 'design-S', name: 'x' }),
+            statSync: () => ({ mtimeMs: 2 }),
         },
         writeFileAtomic: (file, text) => written.push({ file, id: JSON.parse(text).id }),
     };
-    const folder = (file, name) => {
-        const items = [{ id: 'design-S', name, design: { id: 'design-S', name } }];
-        giveCopiesTheirOwnIds(ctx, items, new Map([['design-S', { file }]]));
-        return items[0].id;
-    };
-    assert.equal(folder('/P/A/Shared.tfs', 'Shared'), 'design-S', 'the first holder keeps the id');
-    assert.equal(folder('/P/B/Shared.tfs', 'Shared'), 'design-S', 'a second link to the same file stays the same design');
-    const linkedCopy = folder('/P/B/Other.tfs', 'Other');
+    const records = Object.keys(realFile).map(file => ({
+        file, location: file.slice('/P/'.length), named: true, mtime: 1, design: { id: 'design-S', name: 'x' },
+    }));
+    settleDesignIds(ctx, records);
+    const [first, secondLink, linkedCopy, plainCopy] = records.map(record => record.design.id);
+    assert.equal(first, 'design-S', 'the first holder keeps the id');
+    assert.equal(secondLink, 'design-S', 'a second link to the same file stays the same design');
     assert.notEqual(linkedCopy, 'design-S', 'a link to a different file gets an id of its own');
-    const plainCopy = folder('/P/C/Copy.tfs', 'Copy');
     assert.notEqual(plainCopy, 'design-S');
-    assert.deepEqual(written, [{ file: '/P/C/Copy.tfs', id: plainCopy }],
-        'only the plain file is rewritten; a link would be replaced by the write');
+    assert.deepEqual(written, [{ file: '/P/B/Other.tfs', id: linkedCopy }, { file: '/P/C/Copy.tfs', id: plainCopy }],
+        'each new id is written, a link\'s into the file behind it');
+    assert.equal(records[3].mtime, 2, 'and the row takes the time that write left on the file');
 }
 
 console.log('Copied design ids passed.');

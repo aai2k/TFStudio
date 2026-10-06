@@ -9,22 +9,29 @@
 //
 // CommonJS, Electron-free (deps via ctx).
 const { writeRendererSettings } = require('../settingsFile');
-const { giveCopiesTheirOwnIds } = require('../copiedDesignIds');
+const { settleDesignIds, settleOpenedDesign } = require('../copiedDesignIds');
+const { decodeText, safeName: safeFileName, isWindowsDeviceName, windowsRefusesFolderName } = require('../paths');
+
+const DESIGN_EXT = '.tfs';
+
+// The answer when the file a row addresses by name now holds another design.
+// A code rather than a sentence: the renderer words it.
+const NOT_THIS_DESIGN = 'not-this-design';
 
 function register(ipcMain, ctx) {
   ipcMain.handle('load-settings', async () => handleLoadSettings(ctx));
   ipcMain.handle('save-settings', async (event, settings) => handleSaveSettings(ctx, settings));
   ipcMain.handle('theme:import-vscode', async () => handleImportVscodeTheme(ctx));
-  ipcMain.handle('load-folders', async () => handleLoadFolders(ctx));
-  ipcMain.handle('save-design', async (event, folderId, design) => handleSaveDesign(ctx, folderId, design));
-  ipcMain.handle('import-tfs', async () => handleImportTfs(ctx));
+  ipcMain.handle('load-folders', async (event, lastSeen) => handleLoadFolders(ctx, lastSeen));
+  ipcMain.handle('save-design', async (event, folderId, design, expectedMtime) => handleSaveDesign(ctx, folderId, design, expectedMtime));
+  ipcMain.handle('import-tfs', async (event, rows) => handleImportTfs(ctx, rows));
   ipcMain.handle('open-file:take', async () => ctx.openFile.take());
-  ipcMain.handle('open-tfs-path', async (event, filePath) => handleOpenTfsPath(ctx, filePath));
+  ipcMain.handle('open-tfs-path', async (event, filePath, rows) => handleOpenTfsPath(ctx, filePath, rows));
   ipcMain.handle('import-design-files', async () => handleImportDesignFiles(ctx));
   ipcMain.handle('pick-macleod-database', async () => handlePickMacleodDatabase(ctx));
-  ipcMain.handle('delete-item', async (event, folderId, itemName) => handleDeleteItem(ctx, folderId, itemName));
-  ipcMain.handle('rename-item', async (event, folderId, oldName, newName) => handleRenameItem(ctx, folderId, oldName, newName));
-  ipcMain.handle('move-item', async (event, fromFolderId, toFolderId, itemName) => handleMoveItem(ctx, fromFolderId, toFolderId, itemName));
+  ipcMain.handle('delete-item', async (event, folderId, itemName, designId) => handleDeleteItem(ctx, folderId, itemName, designId));
+  ipcMain.handle('rename-item', async (event, folderId, oldName, newName, ...row) => handleRenameItem(ctx, folderId, { oldName, newName }, ...row));
+  ipcMain.handle('move-item', async (event, fromFolderId, toFolderId, itemName, designId) => handleMoveItem(ctx, fromFolderId, toFolderId, itemName, designId));
   ipcMain.handle('create-folder', async (event, folderId) => handleCreateFolder(ctx, folderId));
   ipcMain.handle('rename-folder', async (event, oldId, newId) => handleRenameFolder(ctx, oldId, newId));
   ipcMain.handle('delete-folder', async (event, folderId) => handleDeleteFolder(ctx, folderId));
@@ -80,62 +87,72 @@ async function handleImportVscodeTheme(ctx) {
   }
 }
 
-// Load one .tfs file into `items`, de-duping by design.id against files already
-// seen in this folder. Mutates `items` and `seenIds` (design.id -> { file, mtime }
-// of the file currently kept) in place. A file left out because it could not be
-// read, parsed or validated is added to `ctx.unread`.
-function loadDesignFile(ctx, folderPath, tfsFile, items, seenIds) {
-  const { fs, path, log } = ctx;
+// The design a .tfs holds, whatever encoding wrote it: Notepad's UTF-8 with a
+// byte order mark and the UTF-16 that PowerShell 5.1 writes read as the same
+// JSON as the app's own files.
+function parseDesignFile(ctx, filePath) {
+  return JSON.parse(decodeText(ctx.fs.readFileSync(filePath)));
+}
+
+// The id a design file holds, or null when it holds none or cannot be read.
+function fileDesignId(ctx, filePath) {
   try {
-    const fullPath = path.join(folderPath, tfsFile);
-    const stat = fs.statSync(fullPath);
-    const content = fs.readFileSync(fullPath, 'utf-8');
-    const design = JSON.parse(content);
-    if (!design || !design.id) {
-      log(`Skipping ${tfsFile}: missing design.id`);
-      ctx.unread.push(fullPath);
-      return;
-    }
+    const id = parseDesignFile(ctx, filePath)?.id;
+    return typeof id === 'string' ? id : null;
+  } catch (_) {
+    return null;
+  }
+}
+
+// Whether the file a row addresses by name now holds some other design: one
+// renamed, replaced or copied over outside the app since the tree was read.
+// A call that names no design is not checked.
+function holdsOtherDesign(ctx, filePath, designId) {
+  return typeof designId === 'string' && fileDesignId(ctx, filePath) !== designId;
+}
+
+// Whether a design's own name leads to the file it was read from. The app
+// writes every design to safeName(name).tfs, so a design it saved always
+// matches; a file renamed or copied outside the app does not, and neither
+// does one whose name is missing or is not text.
+function namedAfterFile(name, baseName) {
+  return typeof name === 'string' && name !== '' && safeFileName(name) === baseName;
+}
+
+// One .tfs file as a record for settleDesignIds, or null when it cannot be
+// read or drawn; such a file is added to `ctx.unread` by its place under
+// Projects ('Archive/AR.tfs').
+//
+// Rows are addressed on disk by name, so a design whose own name would lead to
+// another file is named after its file instead: a colleague's AR kept beside
+// yours as 'AR (2).tfs' shows as 'AR (2)', and every delete, rename and move
+// reaches the file the row came from. The file is not rewritten here; its next
+// save writes the name.
+function loadDesignFile(ctx, folderId, folderPath, tfsFile) {
+  const { fs, path, log } = ctx;
+  const location = `${folderId}/${tfsFile}`;
+  try {
+    const file = path.join(folderPath, tfsFile);
+    const mtime = fs.statSync(file).mtimeMs;
+    const design = parseDesignFile(ctx, file);
     // A design the renderer cannot draw is left out of the tree, the same way a
     // file that will not parse is, so one bad file cannot take the whole
     // workspace down when it is clicked. See validateDesign.
     const invalid = validateDesign(design);
     if (invalid) {
       log(`Skipping ${tfsFile}: ${invalid}`);
-      ctx.unread.push(fullPath);
-      return;
+      ctx.unread.push(location);
+      return null;
     }
     dropWizardWorstCaseSampling(design);
-    // De-dupe by design.id: keep the most-recently-modified file, remove the rest.
-    // This recovers from prior rename bugs where save-design left stale .tfs files behind.
-    const prev = seenIds.get(design.id);
-    if (prev) {
-      const losePath = stat.mtimeMs > prev.mtime ? prev.file : fullPath;
-      // MP10: do NOT delete during a READ. A user's manual
-      // "design (backup).tfs" copy shares the id and would be silently
-      // destroyed (and on an mtime tie the victim is arbitrary). Move the
-      // duplicate aside to .bak — non-destructive (recoverable) and no
-      // longer loaded since it isn't .tfs. save-design still de-dupes real
-      // stale files at save time.
-      try {
-        const bak = losePath + '.bak';
-        try { fs.unlinkSync(bak); } catch (_) {}   // replace a prior .bak
-        fs.renameSync(losePath, bak);
-        log(`Set aside duplicate design file (id=${design.id}): ${path.basename(losePath)} → .bak`);
-      } catch (e) { log(`Failed to set aside duplicate ${losePath}: ${e.message}`); }
-      if (losePath === prev.file) {
-        // Replace the previously-kept entry
-        const idx = items.findIndex(it => it.id === design.id);
-        if (idx >= 0) items[idx] = { id: design.id, name: design.name, design, mtime: stat.mtimeMs };
-        seenIds.set(design.id, { file: fullPath, mtime: stat.mtimeMs });
-      }
-      return;
-    }
-    seenIds.set(design.id, { file: fullPath, mtime: stat.mtimeMs });
-    items.push({ id: design.id, name: design.name, design, mtime: stat.mtimeMs });
+    const baseName = tfsFile.slice(0, -DESIGN_EXT.length);
+    const named = namedAfterFile(design.name, baseName);
+    if (!named) design.name = baseName;
+    return { file, location, named, mtime, design };
   } catch (err) {
     log(`Error loading ${tfsFile}: ${err.message}`);
-    ctx.unread.push(path.join(folderPath, tfsFile));
+    ctx.unread.push(location);
+    return null;
   }
 }
 
@@ -147,30 +164,27 @@ function loadDesignFile(ctx, folderPath, tfsFile, items, seenIds) {
 //
 // A directory symlink reports as a link rather than a directory, so a link
 // pointing back up the tree is left alone instead of being walked forever.
-// Files and directories that could not be read are added to `ctx.unread`.
+// Files and directories that could not be read are added to `ctx.unread`, a
+// directory with a '/' after its name.
 function collectFolders(ctx, dirPath, folderId, folderName, folders) {
   const { fs, path, log } = ctx;
   let entries = [];
   try { entries = fs.readdirSync(dirPath, { withFileTypes: true }); }
   catch (err) {
     log(`load-folders: ${dirPath}: ${err.message}`);
-    ctx.unread.push(dirPath);
+    ctx.unread.push(`${folderId}/`);
   }
 
-  const items = [];
-  const seenIds = new Map(); // design.id -> { file, mtime } of file kept
   // A symlinked design counts: someone keeping a shared design under version
   // control and linking it into a project folder still sees it in the tree.
-  const tfsFiles = entries
-    .filter(e => (e.isFile() || e.isSymbolicLink()) && e.name.endsWith('.tfs'))
-    .map(e => e.name).sort();
-  for (const tfsFile of tfsFiles) {
-    loadDesignFile(ctx, dirPath, tfsFile, items, seenIds);
-  }
-  giveCopiesTheirOwnIds(ctx, items, seenIds);
+  const records = entries
+    .filter(e => (e.isFile() || e.isSymbolicLink()) && e.name.endsWith(DESIGN_EXT))
+    .map(e => e.name).sort()
+    .map(tfsFile => loadDesignFile(ctx, folderId, dirPath, tfsFile))
+    .filter(Boolean);
   // The top level opens, the levels below it start closed: a deep tree would
   // otherwise fill the panel with every folder it holds on every launch.
-  folders.push({ id: folderId, name: folderName, expanded: !folderId.includes('/'), items });
+  folders.push({ id: folderId, name: folderName, expanded: !folderId.includes('/'), records });
 
   const subDirs = entries.filter(e => e.isDirectory()).sort((a, b) => a.name.localeCompare(b.name));
   for (const subDir of subDirs) {
@@ -178,14 +192,31 @@ function collectFolders(ctx, dirPath, folderId, folderName, folders) {
   }
 }
 
+// A folder as the renderer takes it, each design as { id, name, design, mtime }.
+function treeFolder({ records, ...folder }) {
+  return {
+    ...folder,
+    items: records.map(({ design, mtime }) => ({ id: design.id, name: design.name, design, mtime })),
+  };
+}
+
 // ── Load all projects / designs ────────────────────────────────────────────
 // Returns the whole tree as a flat list of folders, each with the designs it
 // holds directly; a folder's place in the tree is carried by its id. Items
-// include the full design object (from .tfs files). `unreadable` counts the
-// files and folders left out because they could not be read: a design missing
-// from the tree is only known to be gone when it is zero.
-function handleLoadFolders(ctx) {
+// include the full design object (from .tfs files). `unreadFiles` names, by
+// their place under Projects, the files and folders left out because they
+// could not be read, and `unreadable` counts them: a design missing from the
+// tree is only known to be gone when it is zero.
+//
+// `lastSeen` maps a design id to where the renderer last saw it
+// ('Archive/AR.tfs'); of two files holding one id, the one there keeps it.
+//
+// `fallback` is set while the configured data folder cannot be used and the
+// tree comes from the default one instead: a design missing here may well be
+// on the drive that is not attached.
+function handleLoadFolders(ctx, lastSeen) {
   const { fs, path, log, projectsDir } = ctx;
+  const fallback = !!ctx.userPaths?.rejected;
   try {
     const entries = fs.readdirSync(projectsDir, { withFileTypes: true });
     const folderDirs = entries.filter(e => e.isDirectory()).sort((a, b) => a.name.localeCompare(b.name));
@@ -193,16 +224,23 @@ function handleLoadFolders(ctx) {
     if (folderDirs.length === 0) {
       const defaultFolderPath = path.join(projectsDir, 'My Designs');
       fs.mkdirSync(defaultFolderPath, { recursive: true });
-      return { success: true, folders: [{ id: 'My Designs', name: 'My Designs', expanded: true, items: [] }], unreadable: 0 };
+      return {
+        success: true, folders: [{ id: 'My Designs', name: 'My Designs', expanded: true, items: [] }],
+        unreadable: 0, unreadFiles: [], fallback,
+      };
     }
 
     const folders = [];
-    const load = { ...ctx, unread: [], treeIds: new Map() };
+    const load = { ...ctx, unread: [] };
     for (const folderDir of folderDirs) {
       collectFolders(load, path.join(projectsDir, folderDir.name), folderDir.name, folderDir.name, folders);
     }
+    settleDesignIds(load, folders.flatMap(folder => folder.records), lastSeen);
 
-    return { success: true, folders, unreadable: load.unread.length };
+    return {
+      success: true, folders: folders.map(treeFolder),
+      unreadable: load.unread.length, unreadFiles: load.unread, fallback,
+    };
   } catch (error) {
     log(`load-folders error: ${error.message}`);
     return { success: false, error: error.message };
@@ -232,60 +270,64 @@ function serializeDesign(design) {
   return JSON.stringify({ tfs_version: TFS_VERSION, ...rest }, null, 2);
 }
 
-// The directory a design goes in, created if it is missing, and null when the
-// path above it is gone. Only the one folder is created: building the levels
-// above it as well would resurrect a folder deleted or renamed elsewhere and
-// hide the design inside it.
-function designFolderPath(ctx, folderId) {
-  const { fs, path, projectsDir, safeSegments, safeFilePath } = ctx;
-  const folderPath = safeFilePath(projectsDir, ...safeSegments(folderId));
-  if (fs.existsSync(folderPath)) return folderPath;
-  if (!fs.existsSync(path.dirname(folderPath))) return null;
-  fs.mkdirSync(folderPath);
-  return folderPath;
+// The file's modification time, or undefined when it cannot be read. Asked
+// after a write that has already succeeded, so a failure here does not fail
+// the write; the renderer then has no time to compare the next save against
+// and that save writes without the check.
+function fileMtime(ctx, filePath) {
+  try {
+    return ctx.fs.statSync(filePath).mtimeMs;
+  } catch (_) {
+    return undefined;
+  }
+}
+
+// Why a save must not write `filePath`, as { error, mtime? }, or null when it
+// may. A file holding another design, or one the app cannot read, is never
+// written over: the renderer keeps names unique per folder, so this only fires
+// when the disk changed under it. A file another program wrote since
+// `expectedMtime` is refused with 'changed-on-disk' and the time it has now,
+// for the renderer to ask whether to overwrite. A new file under a Windows
+// device name is refused; one an older build already wrote under such a name
+// still saves.
+function saveRefusal(ctx, filePath, design, expectedMtime) {
+  const { fs, path, log } = ctx;
+  const fileName = path.basename(filePath);
+  if (!fs.existsSync(filePath)) {
+    return isWindowsDeviceName(fileName) ? { error: 'name-not-allowed' } : null;
+  }
+  const occupant = fileDesignId(ctx, filePath);
+  if (occupant !== design.id) {
+    log(`save-design: refused to overwrite ${fileName} (holds id=${occupant}, saving id=${design.id})`);
+    return {
+      error: occupant === null
+        ? `"${fileName}" could not be read as a design, so it is not written over.`
+        : `Another design is already saved as "${fileName}".`,
+    };
+  }
+  if (!Number.isFinite(expectedMtime)) return null;
+  const mtime = fs.statSync(filePath).mtimeMs;
+  return mtime === expectedMtime ? null : { error: 'changed-on-disk', mtime };
 }
 
 // ── Save design as .tfs file ───────────────────────────────────────────────
-// The .tfs file is plain JSON readable with any text editor.
-function handleSaveDesign(ctx, folderId, design) {
-  const { fs, path, log, safeName, safeFilePath, writeFileAtomic, readJsonSafe } = ctx;
+// The .tfs file is plain JSON readable with any text editor. Answers with the
+// file's new modification time. `expectedMtime`, the time the file had when
+// the renderer last read or wrote it, is optional; see saveRefusal.
+//
+// A folder the tree still shows but that was renamed or deleted outside the
+// app is made again, levels above it included, so the work being saved lands
+// on disk; the next start shows it there.
+function handleSaveDesign(ctx, folderId, design, expectedMtime) {
+  const { fs, log, projectsDir, safeName, safeSegments, safeFilePath, writeFileAtomic } = ctx;
   try {
-    const folderPath = designFolderPath(ctx, folderId);
-    if (!folderPath) return { success: false, error: 'Folder does not exist' };
-    const fileName = safeName(design.name) + '.tfs';
-    const filePath = safeFilePath(folderPath, fileName);
-
-    // Refuse to write over a file that holds a different design. Design names
-    // are kept unique in the renderer, so this only fires if two names still
-    // reach one filename — writing anyway would destroy the other design.
-    if (design.id && fs.existsSync(filePath)) {
-      const occupant = readJsonSafe(filePath);
-      if (occupant && occupant.id && occupant.id !== design.id) {
-        log(`save-design: refused to overwrite ${fileName} (holds id=${occupant.id}, saving id=${design.id})`);
-        return { success: false, error: `Another design is already saved as "${fileName}".` };
-      }
-    }
-
+    const folderPath = safeFilePath(projectsDir, ...safeSegments(folderId));
+    const filePath = safeFilePath(folderPath, safeName(design.name) + DESIGN_EXT);
+    const refusal = saveRefusal(ctx, filePath, design, expectedMtime);
+    if (refusal) return { success: false, ...refusal };
+    fs.mkdirSync(folderPath, { recursive: true });
     writeFileAtomic(filePath, serializeDesign(design), 'utf-8');
-
-    // Remove any stale .tfs files in the same folder carrying the same design.id
-    // (e.g. left over after a local rename that bypassed rename-item).
-    if (design.id) {
-      try {
-        const others = fs.readdirSync(folderPath).filter(f => f.endsWith('.tfs') && f !== fileName);
-        for (const f of others) {
-          const fp = path.join(folderPath, f);
-          try {
-            const other = JSON.parse(fs.readFileSync(fp, 'utf-8'));
-            if (other && other.id === design.id) {
-              fs.unlinkSync(fp);
-              log(`save-design: removed stale duplicate ${f} (same id=${design.id})`);
-            }
-          } catch (_) { /* ignore unparseable files */ }
-        }
-      } catch (_) { /* ignore scan errors */ }
-    }
-    return { success: true };
+    return { success: true, mtime: fileMtime(ctx, filePath) };
   } catch (error) {
     log(`save-design error: ${error.message}`);
     return { success: false, error: error.message };
@@ -344,10 +386,10 @@ function dropWizardWorstCaseSampling(design) {
 }
 
 function readDesignFile(ctx, filePath) {
-  const { fs, path } = ctx;
+  const { path } = ctx;
   let design;
   try {
-    design = JSON.parse(fs.readFileSync(filePath, 'utf-8'));
+    design = parseDesignFile(ctx, filePath);
   } catch (err) {
     return { success: false, error: `Could not read design: ${err.message}` };
   }
@@ -358,12 +400,13 @@ function readDesignFile(ctx, filePath) {
   return { success: true, design, fileName: path.basename(filePath, path.extname(filePath)) };
 }
 
-// ── Open / import an external .tfs design file ─────────────────────────────
-// Shows a native file picker and returns the parsed design (raw JSON). The
-// renderer assigns a fresh id + collision-free name and persists it into the
-// chosen project folder via the normal save path (addItemFromDesign).
-async function handleImportTfs(ctx) {
-  const { log, dialog, getMainWindow } = ctx;
+// ── Open / import a .tfs design file through File > Open ────────────────────
+// Shows a native file picker and answers as open-tfs-path does for the file
+// picked, with its path: a design in the Projects tree is shown where it is,
+// and one from anywhere else is imported by the renderer under a fresh id and
+// a collision-free name through the normal save path (addItemFromDesign).
+async function handleImportTfs(ctx, rows) {
+  const { dialog, getMainWindow } = ctx;
   const result = await dialog.showOpenDialog(getMainWindow(), {
     title: 'Open Design (.tfs)',
     filters: [{ name: 'TFStudio Design', extensions: ['tfs'] }],
@@ -372,9 +415,8 @@ async function handleImportTfs(ctx) {
   if (result.canceled || result.filePaths.length === 0) {
     return { success: false, canceled: true };
   }
-  const read = readDesignFile(ctx, result.filePaths[0]);
-  if (!read.success) log(`import-tfs: ${result.filePaths[0]}: ${read.error}`);
-  return read;
+  const filePath = result.filePaths[0];
+  return { ...handleOpenTfsPath(ctx, filePath, rows), filePath };
 }
 
 // The project folder a file sits directly in, named the way every
@@ -391,23 +433,55 @@ function projectFolderIdFor(ctx, filePath) {
   return segments.length ? segments.join('/') : null;
 }
 
+// `fullPath` with each segment below the Projects folder spelled as its
+// directory lists it. A path typed in another case reaches the same file on
+// Windows, while the tree names folders and files by their spelling on disk.
+// Only the case of each name is taken from the listing; a linked file is not
+// followed.
+function spelledAsOnDisk(ctx, fullPath) {
+  const { fs, path, projectsDir } = ctx;
+  const root = path.resolve(projectsDir);
+  const relative = path.relative(root, fullPath);
+  if (!relative || relative.startsWith('..') || path.isAbsolute(relative)) return fullPath;
+  let current = root;
+  for (const segment of relative.split(/[\\/]/)) {
+    let entries = [];
+    try { entries = fs.readdirSync(current); } catch (_) { /* kept as typed */ }
+    const spelled = entries.includes(segment) ? segment
+      : entries.find(entry => entry.toLowerCase() === segment.toLowerCase()) ?? segment;
+    current = path.join(current, spelled);
+  }
+  return current;
+}
+
 // ── Open a .tfs by path (a double-click in the file manager) ────────────────
 // Returns the design and, when the file lives in the Projects tree, the folder
 // holding it. A design already in the tree is the one the renderer has loaded,
 // so it is shown rather than copied; a design from anywhere else is imported,
 // which leaves the original file alone.
-function handleOpenTfsPath(ctx, filePath) {
+//
+// A file in the tree is matched to its row by where it is. It is named after
+// its file the way the loader names it, and a copy of a design another row
+// shows, put there while the app runs, gets an id of its own written into it
+// (settleOpenedDesign); `rows` maps each design id the renderer shows to the
+// place of its row's file ('Archive/AR.tfs').
+function handleOpenTfsPath(ctx, filePath, rows) {
   const { path, log } = ctx;
   if (typeof filePath !== 'string' || !filePath) {
     return { success: false, error: 'No design file was named.' };
   }
-  const fullPath = path.resolve(filePath);
+  const fullPath = spelledAsOnDisk(ctx, path.resolve(filePath));
   const read = readDesignFile(ctx, fullPath);
   if (!read.success) {
     log(`open-tfs-path: ${fullPath}: ${read.error}`);
     return read;
   }
-  return { ...read, folderId: projectFolderIdFor(ctx, fullPath) };
+  const folderId = projectFolderIdFor(ctx, fullPath);
+  if (!folderId) return { ...read, folderId };
+  const { design, fileName } = read;
+  if (!namedAfterFile(design.name, fileName)) design.name = fileName;
+  settleOpenedDesign(ctx, { file: fullPath, location: `${folderId}/${path.basename(fullPath)}`, design }, rows);
+  return { ...read, folderId, mtime: fileMtime(ctx, fullPath) };
 }
 
 // ── Pick design files from other coating programs ──────────────────────────
@@ -533,47 +607,75 @@ async function handlePickMacleodDatabase(ctx) {
 }
 
 // ── Delete a .tfs file ─────────────────────────────────────────────────────
-function handleDeleteItem(ctx, folderId, itemName) {
+// `designId`, when given, is the design the row shows; a file that now holds
+// another one is left alone.
+function handleDeleteItem(ctx, folderId, itemName, designId) {
   const { fs, projectsDir, safeName, safeSegments, safeFilePath } = ctx;
   try {
-    const filePath = safeFilePath(projectsDir, ...safeSegments(folderId), safeName(itemName) + '.tfs');
-    if (fs.existsSync(filePath)) fs.unlinkSync(filePath);
+    const filePath = safeFilePath(projectsDir, ...safeSegments(folderId), safeName(itemName) + DESIGN_EXT);
+    if (!fs.existsSync(filePath)) return { success: true };
+    if (holdsOtherDesign(ctx, filePath, designId)) return { success: false, error: NOT_THIS_DESIGN };
+    fs.unlinkSync(filePath);
     return { success: true };
   } catch (error) {
     return { success: false, error: error.message };
   }
 }
 
+// Whether `newPath` is a file or folder other than `oldPath`. A spelling that
+// differs only in case reaches the same entry on a case-insensitive file
+// system, whose directory then lists only the old spelling; on a
+// case-sensitive one a second entry under the new spelling is listed as it is.
+function takenByAnother(ctx, oldPath, newPath) {
+  const { fs, path } = ctx;
+  if (!fs.existsSync(newPath)) return false;
+  if (oldPath.toLowerCase() !== newPath.toLowerCase()) return true;
+  return fs.readdirSync(path.dirname(newPath)).includes(path.basename(newPath));
+}
+
+function renameItemRefusal(ctx, oldPath, newPath, designId) {
+  const { fs, path } = ctx;
+  if (!fs.existsSync(oldPath)) return 'File not found';
+  if (holdsOtherDesign(ctx, oldPath, designId)) return NOT_THIS_DESIGN;
+  if (oldPath === newPath) return null;
+  if (isWindowsDeviceName(path.basename(newPath))) return 'name-not-allowed';
+  return takenByAnother(ctx, oldPath, newPath) ? 'A file with that name already exists' : null;
+}
+
 // ── Rename a .tfs file (updates name field inside too) ────────────────────
-function handleRenameItem(ctx, folderId, oldName, newName) {
+// Answers with the file's new modification time. `designId`, the design the
+// row shows, is checked as delete-item checks it. A file changed on disk since
+// `expectedMtime`, the time the renderer last read or wrote it, is renamed all
+// the same, but the answer keeps `expectedMtime`: the next save then still
+// finds the file changed and asks before writing over it.
+function handleRenameItem(ctx, folderId, { oldName, newName }, designId, expectedMtime) {
   const { fs, projectsDir, safeName, safeSegments, safeFilePath, writeFileAtomic } = ctx;
   try {
     const folderSegments = safeSegments(folderId);
-    const oldPath = safeFilePath(projectsDir, ...folderSegments, safeName(oldName) + '.tfs');
-    const newPath = safeFilePath(projectsDir, ...folderSegments, safeName(newName) + '.tfs');
-    if (!fs.existsSync(oldPath)) return { success: false, error: 'File not found' };
-    const content = fs.readFileSync(oldPath, 'utf-8');
-    const design = JSON.parse(content);
+    const oldPath = safeFilePath(projectsDir, ...folderSegments, safeName(oldName) + DESIGN_EXT);
+    const newPath = safeFilePath(projectsDir, ...folderSegments, safeName(newName) + DESIGN_EXT);
+    const refusal = renameItemRefusal(ctx, oldPath, newPath, designId);
+    if (refusal) return { success: false, error: refusal };
+    const changedOnDisk = Number.isFinite(expectedMtime) && fileMtime(ctx, oldPath) !== expectedMtime;
+    const design = parseDesignFile(ctx, oldPath);
     design.name = newName;
-    const isCaseOnlyRename = oldPath.toLowerCase() === newPath.toLowerCase() && oldPath !== newPath;
-    if (!isCaseOnlyRename && fs.existsSync(newPath)) {
-      return { success: false, error: 'A file with that name already exists' };
-    }
     // A rename does not re-embed materials, so the file keeps the format
     // version it already carries; the literal only covers files written before
     // the key existed.
-    const newJson = JSON.stringify({ tfs_version: '1.0', ...design }, null, 2);
-    if (isCaseOnlyRename) {
-      // On case-insensitive filesystems (NTFS/HFS+) a direct write to newPath
-      // would clobber oldPath (same inode), so we rename via a temp file.
-      const tmpPath = oldPath + '.tmp_rename_' + Date.now();
-      fs.writeFileSync(tmpPath, newJson, 'utf-8');
-      fs.renameSync(tmpPath, newPath);
-    } else {
-      writeFileAtomic(newPath, newJson, 'utf-8');
-      if (oldPath !== newPath) fs.unlinkSync(oldPath);
+    const text = JSON.stringify({ tfs_version: '1.0', ...design }, null, 2);
+    // One plain rename comes first, so a name the file system refuses leaves the
+    // file as it was: on a case-insensitive file system it changes only the
+    // case, on a case-sensitive one it leaves nothing behind under the old
+    // spelling. The new name then goes into the file, through a link to its
+    // target. A write that fails puts the old file name back.
+    if (oldPath !== newPath) fs.renameSync(oldPath, newPath);
+    try {
+      writeFileAtomic(newPath, text, 'utf-8');
+    } catch (error) {
+      if (oldPath !== newPath) fs.renameSync(newPath, oldPath);
+      throw error;
     }
-    return { success: true };
+    return { success: true, mtime: changedOnDisk ? expectedMtime : fileMtime(ctx, newPath) };
   } catch (error) {
     return { success: false, error: error.message };
   }
@@ -583,24 +685,27 @@ function handleRenameItem(ctx, folderId, oldName, newName) {
 // The design keeps its id and its name; only the folder it sits in changes.
 // Both folders are under Projects, so this is always a same-volume rename.
 // A target that already holds that filename is refused rather than written
-// over: the two designs are different files and one would be lost.
-function moveRefusal(fs, oldPath, targetDir, newPath) {
+// over: the two designs are different files and one would be lost. A target
+// folder gone from disk is made again, as a save into it is.
+function moveRefusal(ctx, oldPath, newPath, designId) {
+  const { fs } = ctx;
   if (!fs.existsSync(oldPath)) return 'File not found';
-  if (!fs.existsSync(targetDir)) return 'Target folder does not exist';
+  if (holdsOtherDesign(ctx, oldPath, designId)) return NOT_THIS_DESIGN;
   if (fs.existsSync(newPath)) return 'A design with that name already exists in the target folder';
   return null;
 }
 
-function handleMoveItem(ctx, fromFolderId, toFolderId, itemName) {
+function handleMoveItem(ctx, fromFolderId, toFolderId, itemName, designId) {
   const { fs, projectsDir, safeName, safeSegments, safeFilePath } = ctx;
   try {
-    const fileName = safeName(itemName) + '.tfs';
+    const fileName = safeName(itemName) + DESIGN_EXT;
     const oldPath = safeFilePath(projectsDir, ...safeSegments(fromFolderId), fileName);
     const targetDir = safeFilePath(projectsDir, ...safeSegments(toFolderId));
     const newPath = safeFilePath(targetDir, fileName);
     if (oldPath !== newPath) {
-      const refusal = moveRefusal(fs, oldPath, targetDir, newPath);
+      const refusal = moveRefusal(ctx, oldPath, newPath, designId);
       if (refusal) return { success: false, error: refusal };
+      fs.mkdirSync(targetDir, { recursive: true });
       fs.renameSync(oldPath, newPath);
     }
     return { success: true };
@@ -637,11 +742,16 @@ function isInside(path, parent, child) {
   return rel !== '' && !rel.startsWith('..') && !path.isAbsolute(rel);
 }
 
+// A new folder name Windows cannot open is refused with 'name-not-allowed' for
+// the renderer to word. Only the folder being made is checked: the levels
+// above it already exist, and one an older build made under such a name must
+// stay usable.
 function handleCreateFolder(ctx, folderId) {
-  const { fs, projectsDir, safeSegments, safeFilePath } = ctx;
+  const { fs, path, projectsDir, safeSegments, safeFilePath } = ctx;
   let folderPath = '';
   try {
     folderPath = safeFilePath(projectsDir, ...safeSegments(folderId));
+    if (windowsRefusesFolderName(path.basename(folderPath))) return { success: false, error: 'name-not-allowed' };
     if (fs.existsSync(folderPath)) return { success: false, error: 'Folder already exists' };
     fs.mkdirSync(folderPath, { recursive: true });
     return { success: true };
@@ -652,39 +762,32 @@ function handleCreateFolder(ctx, folderId) {
 
 // Why a folder rename cannot go ahead, or null when it can. A folder cannot be
 // moved into itself or into anything below it: the rename would carry its own
-// destination away with it.
-function renameFolderRefusal(ctx, oldPath, newPath, isCaseOnlyRename) {
+// destination away with it. A new name Windows cannot open is refused, while a
+// folder that already has one still moves under its own name.
+function renameFolderRefusal(ctx, oldPath, newPath) {
   const { fs, path } = ctx;
   if (!fs.existsSync(oldPath)) return 'Folder does not exist';
   if (isInside(path, oldPath, newPath)) return 'Target folder is inside the folder being moved';
-  if (!isCaseOnlyRename && fs.existsSync(newPath)) return 'Target folder name already exists';
+  const leaf = path.basename(newPath);
+  if (leaf !== path.basename(oldPath) && windowsRefusesFolderName(leaf)) return 'name-not-allowed';
+  if (takenByAnother(ctx, oldPath, newPath)) return 'Target folder name already exists';
   return null;
 }
 
 // Rename a project folder, and move one. Both are a directory rename, a move
 // being a rename whose target sits under a different parent, so the two share
-// one set of guards instead of each carrying its own.
+// one set of guards instead of each carrying its own. A rename that changes
+// only the case is one plain rename too, which a case-insensitive file system
+// carries out as a change of case.
 function handleRenameFolder(ctx, oldId, newId) {
   const { fs, projectsDir, safeSegments, safeFilePath } = ctx;
   let newPath = '';
   try {
     const oldPath = safeFilePath(projectsDir, ...safeSegments(oldId));
     newPath = safeFilePath(projectsDir, ...safeSegments(newId));
-    const isCaseOnlyRename = oldPath.toLowerCase() === newPath.toLowerCase() && oldPath !== newPath;
-    const refusal = renameFolderRefusal(ctx, oldPath, newPath, isCaseOnlyRename);
+    const refusal = renameFolderRefusal(ctx, oldPath, newPath);
     if (refusal) return { success: false, error: refusal };
-    if (isCaseOnlyRename) {
-      const tmpPath = oldPath + '.tmp_rename_' + Date.now();
-      fs.renameSync(oldPath, tmpPath);
-      try {
-        fs.renameSync(tmpPath, newPath);
-      } catch (error) {
-        try { fs.renameSync(tmpPath, oldPath); } catch (_) {}
-        throw error;
-      }
-    } else {
-      fs.renameSync(oldPath, newPath);
-    }
+    fs.renameSync(oldPath, newPath);
     return { success: true };
   } catch (error) {
     const failure = folderWriteError(error, newPath);
@@ -698,14 +801,54 @@ function handleRenameFolder(ctx, oldId, newId) {
   }
 }
 
-// Deletes the folder and everything below it, subfolders included.
-function handleDeleteFolder(ctx, folderId) {
+function isDesignFile(ctx, filePath) {
+  if (!filePath.endsWith(DESIGN_EXT)) return false;
+  try {
+    return validateDesign(parseDesignFile(ctx, filePath)) === null;
+  } catch (_) {
+    return false;
+  }
+}
+
+// Deletes the designs below a folder and every folder left empty, and answers
+// with the number of other files kept: a measured spectrum, notes, or a .tfs
+// the app could not read are not the user's designs to lose.
+function deleteDesignsBelow(ctx, dirPath) {
+  const { fs, path } = ctx;
+  let left = 0;
+  for (const entry of fs.readdirSync(dirPath, { withFileTypes: true })) {
+    const entryPath = path.join(dirPath, entry.name);
+    if (entry.isDirectory()) left += deleteDesignsBelow(ctx, entryPath);
+    else if (isDesignFile(ctx, entryPath)) fs.unlinkSync(entryPath);
+    else left++;
+  }
+  if (left === 0) fs.rmdirSync(dirPath);
+  return left;
+}
+
+async function movedToTrash(ctx, folderPath) {
+  if (!ctx.shell?.trashItem) return false;
+  try {
+    await ctx.shell.trashItem(folderPath);
+    return true;
+  } catch (err) {
+    ctx.log(`delete-folder: ${folderPath} could not go to the Recycle Bin: ${err.message}`);
+    return false;
+  }
+}
+
+// Deletes the folder and everything below it, subfolders included, by moving
+// it to the Recycle Bin, where it can be restored. Where there is no bin to
+// move it to, a Linux desktop without a trash among them, only the designs are
+// deleted and `filesLeft` counts the other files kept in place, for the
+// renderer to mention.
+async function handleDeleteFolder(ctx, folderId) {
   const { fs, projectsDir, safeSegments, safeFilePath } = ctx;
   try {
     const folderPath = safeFilePath(projectsDir, ...safeSegments(folderId));
     if (!fs.existsSync(folderPath)) return { success: false, error: 'Folder does not exist' };
-    fs.rmSync(folderPath, { recursive: true, force: true });
-    return { success: true };
+    if (await movedToTrash(ctx, folderPath)) return { success: true };
+    return { success: true, filesLeft: deleteDesignsBelow(ctx, folderPath) };
   } catch (error) {
     return { success: false, error: error.message };
   }

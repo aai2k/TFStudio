@@ -15,11 +15,13 @@ const DESIGN_EXT = '.tfs';
 
 // The first design path in `argv`, made absolute, or null when the launch named
 // none. Switches are skipped so a value such as --log-file=old.tfs cannot be
-// mistaken for a design.
-function designFileFromArgv(argv) {
+// mistaken for a design. A relative path is resolved against
+// `workingDirectory`, the folder the launch ran in, which for a second launch
+// handed over to the running copy is not this process's own.
+function designFileFromArgv(argv, workingDirectory) {
   for (const arg of (argv || []).slice(1)) {
     if (typeof arg !== 'string' || arg.startsWith('-')) continue;
-    if (arg.toLowerCase().endsWith(DESIGN_EXT)) return path.resolve(arg);
+    if (arg.toLowerCase().endsWith(DESIGN_EXT)) return path.resolve(workingDirectory || process.cwd(), arg);
   }
   return null;
 }

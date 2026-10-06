@@ -45,6 +45,11 @@ ok(joinFolderId(null, '2026') === '2026', 'and stands alone at the top level');
 ok(joinFolderId('Archive', 'Q3/rework') === 'Archive/Q3_rework',
   'a separator typed into a name is not a level of nesting');
 ok(folderSegment('a\\b/c') === 'a_b_c', 'both separators are replaced in a name');
+// The id is the folder's name on disk, so it names the same folder after a
+// restart, when the tree is read back from disk.
+ok(joinFolderId('Archive', 'Q3: tests') === 'Archive/Q3_ tests',
+  'a character a filename cannot hold is replaced as the main process replaces it');
+ok(folderSegment('a//b') === 'a__b', 'one for one, as on disk');
 
 ok(isFolderWithin('Archive/2026', 'Archive'), 'a subfolder is within its parent');
 ok(isFolderWithin('Archive', 'Archive'), 'and a folder is within itself');
@@ -208,12 +213,13 @@ const dirExists = (...parts) => fs.existsSync(path.join(projectsDir, ...parts));
   const file = path.join(projectsDir, 'Archive', '2026', 'Q3', 'Beamsplitter.tfs');
   ok(fs.existsSync(file), 'as a .tfs file at that path');
 
-  // A save into a folder deleted or renamed elsewhere must not rebuild the path
-  // it names and hide the design in it.
+  // A save into a folder deleted or renamed elsewhere writes the folder path
+  // again, so the work being saved lands on disk; the next start shows it there.
   const orphaned = await call('save-design', 'Archive/Gone/Q4', design);
-  ok(!orphaned.success, 'a save whose parent folder is gone is refused');
-  ok(!fs.existsSync(path.join(projectsDir, 'Archive', 'Gone')),
-    'and no level of the missing path is recreated');
+  ok(orphaned.success, 'a save whose parent folder is gone still writes the design');
+  ok(fs.existsSync(path.join(projectsDir, 'Archive', 'Gone', 'Q4', 'Beamsplitter.tfs')),
+    'into the folder path it names');
+  fs.rmSync(path.join(projectsDir, 'Archive', 'Gone'), { recursive: true });
 
   const loaded = await call('load-folders');
   const ids = loaded.folders.map(f => f.id);
@@ -366,6 +372,14 @@ fs.rmSync(TMP, { recursive: true, force: true });
     'a design in a folder with no record of its own still gets the levels above it');
   ok(byId.get('Warehouse/2027/Q1/draft').items.map(i => i.name).join() === 'Orphan',
     'and the design itself is there to be seen');
+
+  // A save and a rename answer with a time, as the desktop's do: the row keeps
+  // it, and a design saved a moment ago sorts as the newest.
+  const before = Date.now();
+  const saved = await win.electronAPI.saveDesign('Warehouse', design('Fresh'));
+  ok(saved.success && saved.mtime >= before, 'a demo save answers with the time it stamped');
+  const renamed = await win.electronAPI.renameItem('Warehouse', 'Fresh', 'Fresh 2');
+  ok(renamed.success && renamed.mtime >= before, 'and so does a demo rename');
 }
 
 // ── The rows the explorer renders ────────────────────────────────────────────

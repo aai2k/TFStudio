@@ -12,6 +12,7 @@
 import { uniqueDesignName } from '../utils/io/designNaming.js';
 import { copyDesignWithFreshIds } from '../utils/io/designFiles.js';
 import { DEFAULT_DESIGN_IMPORT_UNITS } from '../utils/io/designImport/designFileImport.js';
+import { designFileLocations } from '../components/panels/projectExplorerModel.js';
 
 const { useState, useEffect, useRef, useCallback } = React;
 
@@ -30,23 +31,18 @@ async function importCopy(a, incoming, fileName) {
     return design.id;
 }
 
-async function openFromFile(a) {
-    if (!window.electronAPI?.importTfs) return;
-    const res = await window.electronAPI.importTfs();
-    if (!res?.success || !res.design) return;
-    await importCopy(a, res.design, res.fileName);
-}
-
 /**
- * Open a .tfs the file manager handed over. A design inside the Projects tree
- * is added to the tree first if it was put there after the tree was read, and
- * nothing is written: the .tfs is already where it belongs. A repeat
- * double-click on an outside file shows the copy already made instead of making
- * a second one.
+ * Show the design in the .tfs at `filePath`, as open-tfs-path and import-tfs
+ * answer for it. The main process is handed where every row's file is, and
+ * matches a file inside the Projects tree to its row by that: the row's own
+ * file comes back with the row's id and is selected, and a file that is no
+ * row's, put there after the tree was read, comes back with an id and a name
+ * of its own and is added as a row; it is already where it belongs, so no save
+ * follows. A repeat open of an outside file shows the copy already made
+ * instead of making a second one.
  */
-async function openFromPath(a, filePath) {
-    if (!filePath || !window.electronAPI?.openTfsPath) return;
-    const res = await window.electronAPI.openTfsPath(filePath);
+async function showOpened(a, res, filePath) {
+    if (res?.canceled) return;
     if (!res?.success) {
         a.setMessageNotification({
             type: 'error',
@@ -54,18 +50,35 @@ async function openFromPath(a, filePath) {
         });
         return;
     }
-    if (res.folderId && res.design.id) {
-        if (a.selectDesignInTree(res.design.id)) return;
-        const folder = a.foldersRef.current.find(f => f.id === res.folderId);
-        if (folder) { a.commitNewDesign(res.design, folder); return; }
-        // The folder is on disk but not in the tree either, so there is nowhere
-        // to show the design in place; it is imported like any other outside
-        // design.
+    // A folder that is on disk but not in the tree has nowhere to show the
+    // design in place, so the design is imported like any other outside one.
+    const folder = res.folderId && a.foldersRef.current.find(f => f.id === res.folderId);
+    if (folder) {
+        if (!a.selectDesignInTree(res.design.id)) a.commitNewDesign(res.design, folder, res.mtime);
+        return;
     }
-    const alreadyImported = a.openedFileDesignsRef.current.get(filePath);
+    // A folder whose name changed case on disk while the app runs is not in the
+    // tree under that spelling. The main process keeps a row's id only for the
+    // row's own file, so the id still finds it.
+    if (res.folderId && a.selectDesignInTree(res.design.id)) return;
+    // The web demo's picker names no path, so its imports are not remembered.
+    const alreadyImported = filePath && a.openedFileDesignsRef.current.get(filePath);
     if (alreadyImported && a.selectDesignInTree(alreadyImported)) return;
     const designId = await importCopy(a, res.design, res.fileName);
-    if (designId) a.openedFileDesignsRef.current.set(filePath, designId);
+    if (designId && filePath) a.openedFileDesignsRef.current.set(filePath, designId);
+}
+
+async function openFromFile(a) {
+    if (!window.electronAPI?.importTfs) return;
+    const res = await window.electronAPI.importTfs(designFileLocations(a.foldersRef.current));
+    await showOpened(a, res, res?.filePath);
+}
+
+// A .tfs the file manager handed over.
+async function openFromPath(a, filePath) {
+    if (!filePath || !window.electronAPI?.openTfsPath) return;
+    const res = await window.electronAPI.openTfsPath(filePath, designFileLocations(a.foldersRef.current));
+    await showOpened(a, res, filePath);
 }
 
 // ── Import: designs from TFCalc / Essential Macleod files ────────────────────

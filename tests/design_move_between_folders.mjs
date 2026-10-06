@@ -135,10 +135,12 @@ fs.writeFileSync(source, JSON.stringify(design, null, 2), 'utf-8');
 }
 
 {
+  // A target folder renamed or deleted elsewhere is written again, as a save
+  // into it is, so the design lands instead of staying behind.
   const result = await move('Archive', 'No Such Folder', 'AR VIS');
-  ok(!result.success, 'a target folder that does not exist is refused');
-  ok(result.error === 'Target folder does not exist', `naming the reason, got: ${result.error}`);
-  ok(fs.existsSync(target), 'and the design stays where it was');
+  ok(result.success, `a move into a folder gone from disk lands, got error: ${result.error}`);
+  ok(fs.existsSync(path.join(projectsDir, 'No Such Folder', 'AR VIS.tfs')), 'in the folder written again');
+  fs.renameSync(path.join(projectsDir, 'No Such Folder', 'AR VIS.tfs'), target);
 }
 
 {
