@@ -167,6 +167,18 @@ function renderCatalogPicker(s) {
     ];
 }
 
+// The target catalog already holds this page in another form, or another
+// material under its id: the add waits for the user's answer.
+function renderConflictChoice(s) {
+    const { c, rii, addMsg, conflict, doAdd, setPhase } = s;
+    return [
+        h('span', { key: 'msg', style: { flex: 1, minWidth: 0, fontSize: 12, color: '#e6a23c' } }, addMsg),
+        h(ActionButton, { key: 'replace', c, label: rii.replace, onClick: () => doAdd(conflict.catId, 'replace') }),
+        h(ActionButton, { key: 'keep', c, label: rii.keepBoth, onClick: () => doAdd(conflict.catId, 'keep') }),
+        h(ActionButton, { key: 'cancel', c, label: rii.cancel, onClick: () => setPhase('idle') }),
+    ];
+}
+
 function renderActionBar(s) {
     const { c, rii, phase, addMsg, handleAddClick } = s;
     return h('div', {
@@ -178,6 +190,7 @@ function renderActionBar(s) {
         phase === 'ok'    && h('span', { style: { fontSize: 12, color: '#58d68d' } }, addMsg),
         phase === 'error' && h('span', { style: { fontSize: 12, color: '#ec7063' } }, addMsg),
         phase === 'picking' && renderCatalogPicker(s),
+        phase === 'conflict' && renderConflictChoice(s),
         (phase === 'idle' || phase === 'ok') && h('div', { style: { marginLeft: 'auto' } },
             h(ActionButton, { c, label: rii.addToCatalog, onClick: handleAddClick }))
     );

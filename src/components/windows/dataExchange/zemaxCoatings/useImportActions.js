@@ -1,6 +1,8 @@
 import { getNKById } from '../../../../utils/materials/catalogManager.js';
+import { makeGetNK } from '../../../../utils/materials/catalogManager/dispersion.js';
 import { coatToTfLayers, parseZemaxCoating } from '../../../../utils/io/zemaxCoatingFile.js';
-import { applyImportedLayers, registerMaterials } from './model.js';
+import { applyImportedLayers } from './model.js';
+import { buildMaterialRegistration, registerMaterials } from './catalogImport.js';
 
 const { useCallback } = React;
 
@@ -39,13 +41,17 @@ function importSelectedCoating({ z, flash, doc, selCoating, fileName, filePath, 
         return;
     }
 
+    // The layers use the materials the catalog holds, edits included; a relative
+    // thickness is converted with the index the file gives, as Zemax converts it.
     const neededNames = new Set(coating.layers.map((layer) => layer.material.toUpperCase()));
-    const { catName, nameMap } = registerMaterials(doc.materials, fileName, neededNames, filePath);
+    const { catName, nameMap, fileRecords } = registerMaterials(doc.materials, fileName, neededNames, filePath);
     const resolveId = (zemaxName) => nameMap[zemaxName.toUpperCase()] || (/^AIR$/i.test(zemaxName) ? 'Air' : null);
     const { layers, warnings } = coatToTfLayers(coating, {
         refWavelengthUm: refNm / 1000,
         materialId: resolveId,
         realIndex: (zemaxName, wavelengthNm) => {
+            const record = fileRecords[zemaxName.toUpperCase()];
+            if (record) return makeGetNK(record)(wavelengthNm)[0];
             const id = resolveId(zemaxName);
             return id ? getNKById(id, wavelengthNm)[0] : 0;
         },
@@ -59,15 +65,30 @@ function importSelectedCoating({ z, flash, doc, selCoating, fileName, filePath, 
     flash('success', z.importedCoating(coating.name, layers.length) + (catName ? '' : '') + (warnings.length ? ` (${z.warningsN(warnings.length)})` : ''));
 }
 
-function importSelectedMaterials({ z, flash, doc, selMats, fileName, filePath }, all) {
+// A material the catalog holds in a form that differs from the file's, most
+// often after an edit in the Material Editor, is replaced only when the user
+// says so; Cancel imports nothing.
+function importSelectedMaterials({ z, flash, doc, selMats, fileName, filePath, setInputDialog }, all) {
     if (!doc?.materials?.length) return;
     const onlyNames = all ? null : selMats;
     if (!all && (!onlyNames || onlyNames.size === 0)) {
         flash('error', z.noSelection);
         return;
     }
-    const { catName, count } = registerMaterials(doc.materials, fileName, all ? null : onlyNames, filePath);
-    flash('success', z.importedMaterials(count, catName));
+    const commit = () => {
+        const { catName, count } = registerMaterials(doc.materials, fileName, onlyNames, filePath, { replaceChanged: true });
+        flash('success', z.importedMaterials(count, catName));
+    };
+    const { changed, catName } = buildMaterialRegistration(doc.materials, fileName, onlyNames, filePath);
+    if (changed.length === 0) { commit(); return; }
+    setInputDialog({
+        confirm: true, danger: true,
+        title: z.replaceTitle,
+        message: z.replaceChanged(catName, changed.join(', ')),
+        confirmLabel: z.replaceButton,
+        onConfirm: () => { setInputDialog(null); commit(); },
+        onCancel: () => setInputDialog(null),
+    });
 }
 
 export function useLoadAction(args) {
@@ -80,6 +101,6 @@ export function useCoatingImportAction(args) {
 }
 
 export function useMaterialImportAction(args) {
-    const { doc, selMats, fileName, filePath, z } = args;
-    return useCallback((all) => importSelectedMaterials(args, all), [doc, selMats, fileName, filePath, z]);
+    const { doc, selMats, fileName, filePath, setInputDialog, z } = args;
+    return useCallback((all) => importSelectedMaterials(args, all), [doc, selMats, fileName, filePath, setInputDialog, z]);
 }

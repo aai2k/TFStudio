@@ -123,8 +123,11 @@ export function MaterialImportDialog({ fileImport, setFileImport, catalogs, onCo
     const parsed = useMemo(() => parseMaterialFiles(files, units), [files, units]);
     const [excluded, setExcluded] = useState(() => new Set());
     const [current, setCurrent] = useState(null);
-    // Imports land in a user catalog unless the user points them elsewhere.
-    const [target, setTarget] = useState(() => catalogs.find(cat => cat.source === 'user')?.id || '__new__');
+    // Imports land in a user catalog or a new one: materials in an AGF or library
+    // catalog could not be edited or deleted, and an AGF catalog is rebuilt
+    // from its file.
+    const userCatalogs = catalogs.filter(cat => cat.source === 'user');
+    const [target, setTarget] = useState(() => userCatalogs[0]?.id || '__new__');
     const [newName, setNewName] = useState(me.importedCatalogDefault);
     const [pickError, setPickError] = useState(null);
     const [sampled, setSampled] = useState([]);
@@ -189,7 +192,7 @@ export function MaterialImportDialog({ fileImport, setFileImport, catalogs, onCo
         h('div', { style: { marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 8 } },
             h('span', { style: { fontSize: 11, color: c.textDim } }, me.importInto),
             h('select', { value: target, onChange: e => setTarget(e.target.value), style: fieldStyle(c) },
-                catalogs.filter(cat => cat.id !== 'builtin').map(cat => h('option', { key: cat.id, value: cat.id }, cat.name)),
+                userCatalogs.map(cat => h('option', { key: cat.id, value: cat.id }, cat.name)),
                 h('option', { value: '__new__' }, me.importTargetNew)
             ),
             target === '__new__' && h('input', {

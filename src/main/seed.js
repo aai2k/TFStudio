@@ -6,7 +6,7 @@
 const fs = require('fs');
 const path = require('path');
 const { log } = require('./logger');
-const { readJsonSafe } = require('./paths');
+const { readJsonSafe, writeFileAtomic } = require('./paths');
 const { unzipEntries } = require('./zip');
 
 // Bump to force a re-copy of the bundled AGF / coating-substrate catalogs on next
@@ -22,6 +22,29 @@ function resolveSeedDir(isPackaged, srcDir) {
   return isPackaged
     ? path.join(process.resourcesPath, 'materials-seed')
     : path.resolve(srcDir, '..', 'build', 'seed');
+}
+
+// The .agf files in Materials\agf whose catalog the user deleted, listed by file
+// name in Materials\agf-removed.json. The AGF scan and the seed leave a listed
+// file out, so a deleted catalog stays deleted while its file is still there;
+// importing the file from that folder takes it off the list again. Names are
+// compared without case, as Windows compares file names.
+const REMOVED_AGF_LIST = 'agf-removed.json';
+
+function removedAgfFiles(materialsDir) {
+  const list = readJsonSafe(path.join(materialsDir, REMOVED_AGF_LIST));
+  return new Set((Array.isArray(list) ? list : []).map(name => String(name).toLowerCase()));
+}
+
+// Add `fileNames` to the list (removed = true) or take them off it.
+function setAgfFilesRemoved(materialsDir, fileNames, removed) {
+  const listPath = path.join(materialsDir, REMOVED_AGF_LIST);
+  const list = readJsonSafe(listPath);
+  const names = Array.isArray(list) ? list.map(String) : [];
+  const wanted = new Set(fileNames.map(name => name.toLowerCase()));
+  const next = [...names.filter(name => !wanted.has(name.toLowerCase())), ...(removed ? fileNames : [])];
+  if (JSON.stringify(next) === JSON.stringify(names)) return;
+  writeFileAtomic(listPath, JSON.stringify(next, null, 2), 'utf-8');
 }
 
 // Remove bundled-catalog files in `to` that share a seed catalog's id but not
@@ -57,7 +80,10 @@ function seedCatalogSource(seedDir, materialsDir, sub, target, fresh) {
   if (!fs.existsSync(from)) return;
   const to = path.join(materialsDir, target);
   fs.mkdirSync(to, { recursive: true });
-  const seedFiles = fs.readdirSync(from);
+  // An .agf whose catalog the user deleted is not copied back, nor refreshed on
+  // a version bump (see removedAgfFiles).
+  const removed = target === 'agf' ? removedAgfFiles(materialsDir) : new Set();
+  const seedFiles = fs.readdirSync(from).filter(f => !removed.has(f.toLowerCase()));
   // On a version bump, remove any stale bundled-catalog files left from an
   // earlier seed under a different filename (matched by catalog id), so a
   // renamed catalog never appears twice. User-imported catalogs (other ids)
@@ -136,4 +162,4 @@ async function seedRiiMirror(seedDir, materialsDir) {
   log(`Seeded RefractiveIndex.info mirror (${seedM?.materialCount ?? '?'} materials, ${seedM?.lastUpdated ?? '?'})`);
 }
 
-module.exports = { SEED_VERSION, seedBundledMaterials };
+module.exports = { SEED_VERSION, seedBundledMaterials, removedAgfFiles, setAgfFilesRemoved };

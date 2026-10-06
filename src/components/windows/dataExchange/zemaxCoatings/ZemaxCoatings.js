@@ -16,7 +16,7 @@ import { ZemaxLayout } from './ZemaxLayout.js';
 
 const { createElement: h, useState } = React;
 
-export function ZemaxCoatings({ c, t }) {
+export function ZemaxCoatings({ c, t, setInputDialog }) {
     const z = t.zemaxCoatings;
     const { design, updateDesign, checkpoint } = useDesign();
     const missingMaterialIds = useUnresolvedMaterials(design);
@@ -47,7 +47,7 @@ export function ZemaxCoatings({ c, t }) {
     const importCoating = useCoatingImportAction({
         ...shared, checkpoint, updateDesign,
     });
-    const importMaterials = useMaterialImportAction(shared);
+    const importMaterials = useMaterialImportAction({ ...shared, setInputDialog });
     const exportArgs = {
         z, flash, design, gStart, gEnd, gStep, scope, coatName, thMode,
         refNm, preview, setPreview,

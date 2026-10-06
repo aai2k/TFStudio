@@ -49,6 +49,16 @@ function formulaData(mat) {
     };
 }
 
+// The id a page's material gets: the page's path in the database, which no
+// other page has, with every character other than letters, digits, '-' and '_'
+// made '_' ('main/TiO2/nk/Devore-o.yml' gives 'main_TiO2_nk_Devore-o'). Names
+// would not do: the n(α) and n(β) pages of one book differ only in a Greek
+// letter. A page with no path falls back to its book and page names.
+function entryId(mat, pageName, bookName) {
+    if (mat.dataPath) return String(mat.dataPath).replace(/\.ya?ml$/i, '').replace(/[^\w-]+/g, '_');
+    return (bookName + '_' + pageName).replace(/\s+/g, '_').replace(/[^\w-]/g, '');
+}
+
 /**
  * Convert a fetched RII material to a catalogManager-compatible entry.
  * The entry can be added to a catalog with source='refractiveindex'.
@@ -62,10 +72,8 @@ export function riiToMaterialEntry(mat, pageName, bookName) {
     const samples = sampleMaterial(mat);
     if (samples.length === 0) return null;
 
-    const id = (bookName + '_' + pageName).replace(/\s+/g, '_').replace(/[^\w-]/g, '');
-
     return {
-        id,
+        id: entryId(mat, pageName, bookName),
         name: bookName + ' (' + pageName + ')',
         ...(mat.tableNK ? tableData(samples) : formulaData(mat)),
         rangeDeclared: true,    // the page's own range, not a fallback

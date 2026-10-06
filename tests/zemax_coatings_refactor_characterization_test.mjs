@@ -9,46 +9,42 @@ import {
 shimBrowserGlobals();
 await loadApp();
 
-const [{ ZemaxCoatings }, model, importHooks, exportHooks] = await Promise.all([
+const [{ ZemaxCoatings }, model, importer, importHooks, exportHooks] = await Promise.all([
     import('../src/components/windows/dataExchange/zemaxCoatings/ZemaxCoatings.js'),
     import('../src/components/windows/dataExchange/zemaxCoatings/model.js'),
+    import('../src/components/windows/dataExchange/zemaxCoatings/catalogImport.js'),
     import('../src/components/windows/dataExchange/zemaxCoatings/useImportActions.js'),
     import('../src/components/windows/dataExchange/zemaxCoatings/useExportActions.js'),
 ]);
 
-assert.deepEqual(model.catalogIdFor('My coating.DAT'), {
-    id: 'zemax_my_coating', name: 'Zemax My coating',
-});
+{
+    const fresh = importer.catalogIdFor('My coating.DAT');
+    assert.match(fresh.id, /^zemax_my_coating_[0-9a-f]{8}$/, 'a new import: the base name plus a random part');
+    assert.equal(fresh.name, 'Zemax My coating');
+    assert.equal(fresh.existing, null);
+}
 
 // Vendor libraries are all called COATING.DAT. Two of them must not land on one
 // catalog id, or importing the second wipes the first's materials.
 {
-    const registry = {
-        zemax_coating: { id: 'zemax_coating', sourceFile: 'C:\\vendorA\\COATING.DAT' },
-        zemax_coating_2: { id: 'zemax_coating_2', sourceFile: 'C:\\vendorB\\COATING.DAT' },
-        zemax_legacy: { id: 'zemax_legacy' },
-    };
-    const lookup = (id) => registry[id] || null;
+    const catalogs = [
+        { id: 'zemax_coating', name: 'Zemax COATING', sourceFile: 'C:\\vendorA\\COATING.DAT' },
+        { id: 'zemax_coating_2', name: 'Zemax COATING (2)', sourceFile: 'C:\\vendorB\\COATING.DAT' },
+        { id: 'zemax_legacy', name: 'Zemax legacy' },
+    ];
 
-    assert.deepEqual(model.catalogIdFor('COATING.DAT', 'C:\\vendorA\\COATING.DAT', lookup),
-        { id: 'zemax_coating', name: 'Zemax COATING' },
+    assert.equal(importer.catalogIdFor('COATING.DAT', 'C:\\vendorA\\COATING.DAT', catalogs).id, 'zemax_coating',
         're-importing the same file refreshes its own catalog');
-    assert.deepEqual(model.catalogIdFor('COATING.DAT', 'C:\\vendorB\\COATING.DAT', lookup),
-        { id: 'zemax_coating_2', name: 'Zemax COATING (2)' },
+    assert.equal(importer.catalogIdFor('COATING.DAT', 'C:\\vendorB\\COATING.DAT', catalogs).id, 'zemax_coating_2',
         'the second vendor file keeps its own id');
-    assert.deepEqual(model.catalogIdFor('COATING.DAT', 'C:\\vendorC\\COATING.DAT', lookup),
-        { id: 'zemax_coating_3', name: 'Zemax COATING (3)' },
-        'a third file takes the next free id');
-    assert.deepEqual(model.catalogIdFor('legacy.dat', 'C:\\any\\legacy.dat', lookup),
-        { id: 'zemax_legacy_2', name: 'Zemax legacy (2)' },
+    assert.match(importer.catalogIdFor('COATING.DAT', 'C:\\vendorC\\COATING.DAT', catalogs).id, /^zemax_coating_[0-9a-f]{8}$/,
+        'a third file gets an id of its own');
+    assert.notEqual(importer.catalogIdFor('legacy.dat', 'C:\\any\\legacy.dat', catalogs).id, 'zemax_legacy',
         'a catalog with no recorded origin is not taken over');
-    assert.deepEqual(model.catalogIdFor('fresh.dat', 'C:\\any\\fresh.dat', lookup),
-        { id: 'zemax_fresh', name: 'Zemax fresh' },
-        'an unused id is used as-is');
 }
 
 assert.equal(
-    model.buildMaterialRegistration([{ name: 'H', points: [[0.55, 2, 0]] }],
+    importer.buildMaterialRegistration([{ name: 'H', points: [[0.55, 2, 0]] }],
         'origin.dat', null, 'C:\\lib\\origin.dat').cat.sourceFile,
     'C:\\lib\\origin.dat',
     'the catalog records the file it came from');
@@ -58,15 +54,16 @@ const materials = [
     { name: 'A B', points: [[0.4, 2.0, -0.01]] },
     { name: 'A-B', points: [[0.4, 2.2, -0.03]] },
 ];
-const registration = model.buildMaterialRegistration(materials, 'mix.dat');
+const registration = importer.buildMaterialRegistration(materials, 'mix.dat');
+const mixId = registration.catId;
 assert.deepEqual(Object.keys(registration.cat.materials), ['a_b', 'a_b_2', 'a_b_3']);
-assert.equal(registration.nameMap['A-B'], 'zemax_mix:a_b_3');
-assert.equal(registration.nameMap['A B'], 'zemax_mix:a_b_2');
+assert.equal(registration.nameMap['A-B'], `${mixId}:a_b_3`);
+assert.equal(registration.nameMap['A B'], `${mixId}:a_b_2`);
 assert.deepEqual(registration.cat.materials.a_b.tabData, [[400, 1.4, 0], [600, 1.6, 0.02]]);
 
-const selected = model.buildMaterialRegistration(materials, 'mix.dat', new Set(['A B']));
+const selected = importer.buildMaterialRegistration(materials, 'mix.dat', new Set(['A B']));
 assert.deepEqual(Object.keys(selected.cat.materials), ['a_b']);
-assert.equal(selected.nameMap['A B'], 'zemax_mix:a_b');
+assert.equal(selected.nameMap['A B'], `${selected.catId}:a_b`);
 
 const names = { first: 'A-B', second: 'A B' };
 const resolveName = model.makeZemaxNameResolver((id) => names[id]);
@@ -123,9 +120,9 @@ renderToStaticMarkup(React.createElement(ImportProbe));
 importCoating();
 assert.equal(importEvents[0], 'checkpoint');
 assert.equal(importEvents[1][0], 'update');
-assert.deepEqual(importEvents[1][1].frontLayers.map(layer => [layer.material, layer.thickness]), [
-    ['zemax_guard:h', 100],
-]);
+const [guardLayer] = importEvents[1][1].frontLayers;
+assert.match(guardLayer.material, /^zemax_guard_[0-9a-f]{8}:h$/);
+assert.equal(guardLayer.thickness, 100);
 
 let savePreview;
 const saveEvents = [];

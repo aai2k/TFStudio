@@ -31,6 +31,8 @@ export function useRIIBrowser({ c, t, onAdded }) {
     const [phase,          setPhase]          = useState('idle');
     const [addMsg,         setAddMsg]         = useState('');
     const [targetCatId,    setTargetCatId]    = useState('');
+    // The catalog an add is waiting on Replace / Keep both for (see addRiiMaterial).
+    const [conflict,       setConflict]       = useState(null);
     const [dbStatus,       setDbStatus]       = useState(null);
     const [updating,       setUpdating]       = useState(false);
     const [updateMsg,      setUpdateMsg]      = useState('');
@@ -61,10 +63,10 @@ export function useRIIBrowser({ c, t, onAdded }) {
     }, []);
 
     // Context bundle passed to the plain action/effect functions.
-    const ctx = { rii, mat, selected, onAdded, setPhase, setAddMsg, setUpdating, setUpdateMsg, setDbStatus, setCatalogLoading, setCatalogTree, setTargetCatId };
+    const ctx = { rii, mat, selected, onAdded, setPhase, setAddMsg, setConflict, setUpdating, setUpdateMsg, setDbStatus, setCatalogLoading, setCatalogTree, setTargetCatId };
 
     const handleUpdate = () => updateRiiDatabase(ctx);
-    const doAdd = (catId) => addRiiMaterial(catId, ctx);
+    const doAdd = (catId, choice) => addRiiMaterial(catId, ctx, choice);
     const handleAddClick = () => startAddFlow({ ...ctx, doAdd });
 
     const userCatalogs = getCatalogs().filter(cat => cat.source === 'user');
@@ -75,7 +77,7 @@ export function useRIIBrowser({ c, t, onAdded }) {
         c, rii, me: t.materialEditor, sampleTab, setSampleTab,
         catalogTree, loadErr, catalogLoading, query, setQuery, results,
         expandedShelves, expandedBooks, toggleShelf, toggleBook,
-        selected, mat, matLoading, matErr, phase, addMsg, targetCatId, setTargetCatId,
+        selected, mat, matLoading, matErr, phase, addMsg, conflict, targetCatId, setTargetCatId,
         dbStatus, updating, updateMsg, handleUpdate,
         wavelengthLabel: t.spectralAxis.nm, handleSelectResult, handleAddClick, doAdd, setPhase,
         userCatalogs, browsing, showNoResults,
