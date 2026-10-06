@@ -49,8 +49,7 @@ both apply, the other reading 20 °C.
 The bow goes as one over its square, so it is the strongest lever in the
 window. **Substrate ⌀** is the diameter, needed only for the centre deflection.
 
-All four are saved with the design, so the same file prints the same table on
-any machine.
+All four are saved with the design. Each film's constants come from its material's catalog on this computer, or from the copy the design carries where no catalog here holds the material, or where that copy came from another computer's catalog of the same ID with other n,k. A copy with the catalog's n,k counts as the catalog's material, and its constants are the catalog's.
 
 ## How a film's stress is built
 

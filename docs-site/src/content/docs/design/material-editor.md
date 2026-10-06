@@ -17,6 +17,7 @@ Materials are grouped into catalogs by source:
 | **AGF**          | Zemax `.agf` files placed in your TFStudio data folder's `Materials` subfolder. | Via the file      |
 | **User**         | Materials and catalogs you create inside TFStudio.                      | Yes               |
 | **RefractiveIndex** | Materials you import from the refractiveindex.info database.          | Yes               |
+| **This design**  | The materials the open design uses. One that came inside a design file and that no catalog here holds is listed only here. | Read-only; **Copy to my catalog…** |
 
 The left panel holds a catalog selector, a search box, and the material list;
 the right panel shows the selected material on two pages, **n & k** and
@@ -25,6 +26,10 @@ dispersion formula, tabulated data, and an n/k chart); user and imported
 materials open in an editable form. The name, id, colour and wavelength range
 stay above the two pages, since they identify the material whichever page is
 open.
+
+## Materials inside a design
+
+A design refers to each material by its catalog and ID, and its file also keeps a copy of every non-built-in material it uses. A catalog you create gets an ID of its own, so a catalog of the same name on another computer is a different catalog. While a catalog on this computer holds a material under that catalog and ID, the design computes with it: an edit here changes every design that uses the material, and the design's copy is updated when the design is saved. The copy is used only where no catalog here holds the material: in a design from another computer, after the material or its catalog was deleted, or when a catalog here has a different material under the same ID. Such a material is listed under **This design**, read-only. **Copy to my catalog…** makes an editable material of it under a new ID; the design keeps its copy until you pick the new material for its layers. Where a catalog here has a different material under the same ID, that catalog's material is not offered for the design's layers, since a layer given that ID would compute with the design's copy; to use it, copy it to your catalog and pick the copy. A deleted material's ID is never given to a new material in its catalog, so a design that kept the deleted one keeps computing with it.
 
 ## Settings
 
