@@ -3,7 +3,8 @@
  *
  * Every design with unsaved edits or undo history is saved here with its
  * undo/redo stacks, so an app restart keeps unsaved edits and keeps Ctrl+Z
- * working. The .tfs files on disk are the last explicit save; the session is what
+ * working. So is a design whose material copies its file does not have yet
+ * (see sessionEntryFor). The .tfs files on disk are the last explicit save; the session is what
  * the user was working on.
  *
  * Each design is its own entry, rewritten only when that design changes. An

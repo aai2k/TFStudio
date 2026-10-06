@@ -16,8 +16,14 @@ import { updateDirtyDesigns } from '../utils/io/projectPersistence.js';
 import { sessionEntryFor } from '../utils/io/sessionMerge.js';
 import { writeSessionEntry, MAX_HISTORY } from '../utils/io/appSession.js';
 import { appendDistinctSnapshot } from '../utils/history.js';
+import { CATALOGS_CHANGED } from '../utils/materials/catalogManager.js';
+import { keepRemovedMaterials } from '../utils/materials/keepRemovedMaterials.js';
+import { followedDesigns, followsBeyondFile } from '../utils/materials/catalogStamps.js';
 
 const { useState, useEffect, useRef, useCallback } = React;
+
+const SESSION_DEBOUNCE_MS = 500;
+const SESSION_MAX_WAIT_MS = 2000;
 
 // The design's stacks, created empty the first time it is edited.
 function historyFor(s, id) {
@@ -76,14 +82,27 @@ function applyDesignChange(s, id, newDesign, opts) {
     s.scheduleSessionSave(id);
 }
 
+// The snapshot `target` as it becomes the present. Two things in a snapshot are
+// not part of the timeline: the name belongs to the file, which a rename has
+// already changed, and the material copies are a backup that only grows (the
+// present's copy of an id wins, being the later one).
+function asPresent(present, target) {
+    if (!present) return target;
+    const materials = present.materials || target.materials
+        ? { ...(target.materials || {}), ...(present.materials || {}) }
+        : undefined;
+    return { ...target, name: present.name, ...(materials ? { materials } : {}) };
+}
+
 // Make `target` the present and leave the stacks as `stacks` describes them.
 // Undo, redo and a jump differ only in where they cut the timeline.
 function moveHistory(s, id, target, stacks) {
     const hist = s.historyRef.current[id];
     hist.past   = stacks.past;
     hist.future = stacks.future;
-    s.setDesigns(d => ({ ...d, [id]: target }));
-    s.recomputeDirty(id, target);
+    const present = asPresent(s.designsRef.current[id], target);
+    s.setDesigns(d => ({ ...d, [id]: present }));
+    s.recomputeDirty(id, present);
     s.bumpHistory();
     s.scheduleSessionSave(id);
 }
@@ -138,6 +157,41 @@ function writeDueEntries(r) {
     }
 }
 
+// Listen for `type` on the window while mounted.
+function useWindowListener(type, handler) {
+    useEffect(() => {
+        window.addEventListener(type, handler);
+        return () => window.removeEventListener(type, handler);
+    }, [type, handler]);
+}
+
+// A catalog change that took materials away: each open design that uses one
+// keeps its definition as its own copy, written into its session entry now and
+// into its file at its next save. No undo step: the design itself has not
+// changed.
+function keepRemovedFromEvent(r, event) {
+    const removed = event?.detail?.removed;
+    const { changed } = removed ? keepRemovedMaterials(r.designsRef.current, removed) : { changed: [] };
+    if (changed.length === 0) return;
+    r.setDesigns(prev => keepRemovedMaterials(prev, removed).designs);
+    changed.forEach(id => r.scheduleSessionSave(id));
+}
+
+// Catalogs loaded or changed: a copy from another computer's catalog with the
+// n,k of the catalog holding its id here takes this catalog's stamp in every
+// open design (followedDesigns), so the design follows a later edit of it. No
+// undo step: what the design computes is unchanged. The file gets the stamp at
+// the next save. Until then each load stamps the copy again, so the session
+// keeps it only for a design whose file would no longer follow the catalog
+// (followsBeyondFile): one whose followed material has been edited since.
+function followCatalogsFromEvent(r) {
+    const followed = followedDesigns(r.designsRef.current);
+    if (followed.changed.length) r.setDesigns(prev => followedDesigns(prev).designs);
+    Object.keys(followed.designs)
+        .filter(id => followsBeyondFile(followed.designs[id], r.diskDesignsRef.current[id]))
+        .forEach(id => r.scheduleSessionSave(id));
+}
+
 /**
  * `onSessionFull` is called when the storage refuses a design's working copy,
  * so its unsaved edits will not be there after a restart. It is called once,
@@ -157,6 +211,7 @@ export function useDesignStore({ onSessionFull } = {}) {
     const historyRef      = useRef({});   // { [id]: { past: [...], future: [...] } }
     const diskDesignsRef  = useRef({});   // last-saved-to-disk snapshot per id (dirty baseline)
     const sessionTimerRef = useRef(null); // debounce for session save
+    const sessionWaitRef  = useRef(0);    // when the oldest change not yet written came in
     const sessionDueRef   = useRef(new Set()); // designs changed since the last session save
     const sessionFullRef  = useRef(false);     // the last working copy written was refused
     const onSessionFullRef = useRef(onSessionFull);
@@ -170,13 +225,26 @@ export function useDesignStore({ onSessionFull } = {}) {
     // the designs named since the last save are written; the others' entries
     // are already current. A design is named again when its file is saved or
     // renamed, since its entry records which file it started from.
+    const flushSession = useCallback(() => {
+        clearTimeout(sessionTimerRef.current);
+        sessionWaitRef.current = 0;
+        writeDueEntries({ sessionDueRef, designsRef, historyRef, diskDesignsRef, sessionFullRef, onSessionFullRef });
+    }, []);
     const scheduleSessionSave = useCallback((id) => {
         if (id) sessionDueRef.current.add(id);
         clearTimeout(sessionTimerRef.current);
-        sessionTimerRef.current = setTimeout(() => writeDueEntries({
-            sessionDueRef, designsRef, historyRef, diskDesignsRef, sessionFullRef, onSessionFullRef,
-        }), 500);
-    }, []);
+        // Each change restarts the wait, but a stream of them (an optimizer's
+        // previews) must not put the write off for good: what is due is written
+        // at the latest SESSION_MAX_WAIT_MS after the oldest change came in.
+        const now = Date.now();
+        if (!sessionWaitRef.current) sessionWaitRef.current = now;
+        const wait = Math.min(SESSION_DEBOUNCE_MS, Math.max(0, sessionWaitRef.current + SESSION_MAX_WAIT_MS - now));
+        sessionTimerRef.current = setTimeout(flushSession, wait);
+    }, [flushSession]);
+
+    // Closing the window, or reloading it, writes what is still due.
+    useWindowListener('pagehide', flushSession);
+    useWindowListener('beforeunload', flushSession);
 
     // Designs gone from the project tree leave the store, their history and the
     // session with them; otherwise a deleted design would stay in the session
@@ -194,6 +262,19 @@ export function useDesignStore({ onSessionFull } = {}) {
         });
         bumpHistory();
     }, [bumpHistory]);
+
+    // A material or catalog deleted in the Material Editor stays what the open
+    // designs that use it compute with (see keepRemovedFromEvent), and copies
+    // matching a catalog take its stamp whenever catalogs load or change (see
+    // followCatalogsFromEvent).
+    const followCatalogs = useCallback(
+        () => followCatalogsFromEvent({ designsRef, diskDesignsRef, setDesigns, scheduleSessionSave }), [scheduleSessionSave]);
+    const onCatalogsChanged = useCallback(event => {
+        keepRemovedFromEvent({ designsRef, setDesigns, scheduleSessionSave }, event);
+        followCatalogs();
+    }, [scheduleSessionSave, followCatalogs]);
+    useWindowListener(CATALOGS_CHANGED, onCatalogsChanged);
+    useWindowListener('catalogs-loaded', followCatalogs);
 
     // Dirty = working design differs (canonically) from the last disk save.
     // Re-evaluated on every change so that undoing back to the saved state
@@ -260,6 +341,6 @@ export function useDesignStore({ onSessionFull } = {}) {
         historyRef, historyView,
         handleDesignChange, pushCheckpoint: pushCheckpointFor,
         undo, redo, jumpToHistory,
-        scheduleSessionSave, dropDesigns,
+        scheduleSessionSave, flushSession, dropDesigns,
     };
 }

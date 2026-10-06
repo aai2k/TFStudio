@@ -187,7 +187,7 @@ for (const action of ['browse', 'reset']) {
             d: design('d', 'Preview'), e: design('e', 'E'),
         } },
         diskDesignsRef: { current: {} },
-        scheduleSessionSave: () => {}, setDirtyDesigns: () => {},
+        scheduleSessionSave: () => {}, setDirtyDesigns: () => {}, setDesigns: () => {},
     };
     const tree = {
         foldersRef: { current: [

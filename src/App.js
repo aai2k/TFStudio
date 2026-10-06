@@ -16,6 +16,7 @@ import { DesignProvider } from './state/DesignContext.js';
 import { AnalysisSettingsProvider } from './state/AnalysisSettingsContext.js';
 import { UpdateProvider } from './components/ui/UpdateContext.js';
 import { loadCatalogsFromDisk } from './utils/materials/catalogStartup.js';
+import { useCatalogSaveFailures } from './utils/materials/useCatalogSaveFailures.js';
 import { useAppSettings } from './hooks/useAppSettings.js';
 import { useDesignStore } from './hooks/useDesignStore.js';
 import { useWorkspaceLayout } from './hooks/useWorkspaceLayout.js';
@@ -61,13 +62,17 @@ export const App = () => {
     });
 
     useEffect(() => { loadCatalogsFromDisk(); }, []);
+    useCatalogSaveFailures(t, setMessageNotification);
 
     // Main-process directory getters switch immediately after a successful
     // Settings change. The whole data folder moves at once, so both registries
     // are reloaded in the same interaction and every following command refers
-    // to the new root.
+    // to the new root. A move goes into an empty folder after every design was
+    // saved, so the designs are the ones already open: their undo history comes
+    // back from the session, and the selected design stays selected, its id
+    // being the same.
     const handleUserPathChanged = async () => {
-        await project.loadFoldersFromDisk({ restoreSession: false, restoreLayout: false });
+        await project.loadFoldersFromDisk({ restoreLayout: false });
         await loadCatalogsFromDisk();
     };
 

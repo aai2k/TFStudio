@@ -7,21 +7,42 @@
 import { MAX_HISTORY, writeSessionEntry, clearLegacySession } from './appSession.js';
 import { designsEqual, designFingerprint } from './projectPersistence.js';
 
+// The material copies a design carries, in a form that compares equal for
+// equal content.
+function copiesKey(design) {
+  const materials = design?.materials || {};
+  return JSON.stringify(Object.keys(materials).sort().map(id => [id, materials[id]]));
+}
+
+/** Whether two designs carry the same material copies. */
+export function sameMaterialCopies(a, b) {
+  return copiesKey(a) === copiesKey(b);
+}
+
 /**
  * What the session keeps for one design: its working copy, its undo/redo
  * stacks and the fingerprint of its file. Null, meaning no entry, for a design
  * that matches its file and has no undo history, since the file alone restores
- * it.
+ * it. A design whose material copies differ from its file's keeps an entry: a
+ * copy kept when its catalog was deleted lives only here until the next save.
  */
 export function sessionEntryFor(design, history, diskDesign) {
   if (!design) return null;
   const hasHistory = !!(history && (history.past?.length || history.future?.length));
-  if (!hasHistory && designsEqual(design, diskDesign)) return null;
+  if (!hasHistory && designsEqual(design, diskDesign) && sameMaterialCopies(design, diskDesign)) return null;
   return {
     design,
     history: { past: history?.past || [], future: history?.future || [] },
     base: designFingerprint(diskDesign),
   };
+}
+
+// A working copy carries the material copies its file has as well as its own:
+// a session written before working copies kept them would otherwise restore a
+// design that has lost the backups its file holds. Its own copy of an id wins.
+function withFileCopies(working, diskDesign) {
+  if (!diskDesign?.materials) return working;
+  return { ...working, materials: { ...diskDesign.materials, ...(working.materials || {}) } };
 }
 
 /**
@@ -62,9 +83,9 @@ export function mergeSessionOverDisk(diskDesigns, entries, { dropMissing = false
       designs[id] = diskDesign;
       return;
     }
-    const workingDesign = entry.design.name === diskDesign.name
+    const workingDesign = withFileCopies(entry.design.name === diskDesign.name
       ? entry.design
-      : { ...entry.design, name: diskDesign.name };
+      : { ...entry.design, name: diskDesign.name }, diskDesign);
     const fileChanged = entry.base != null && entry.base !== designFingerprint(diskDesign);
     if (!fileChanged) {
       designs[id] = workingDesign;

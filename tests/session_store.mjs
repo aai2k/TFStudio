@@ -40,6 +40,15 @@ function fakeStorage(quota = Infinity) {
 let storage = fakeStorage();
 globalThis.localStorage = storage;
 const useStorage = (s) => { storage = s; globalThis.localStorage = s; };
+// The store listens on the window: for its close, to write what is due, and
+// for catalog changes.
+globalThis.window = globalThis;
+if (typeof globalThis.addEventListener !== 'function') {
+    const events = new EventTarget();
+    globalThis.addEventListener = events.addEventListener.bind(events);
+    globalThis.removeEventListener = events.removeEventListener.bind(events);
+    globalThis.dispatchEvent = events.dispatchEvent.bind(events);
+}
 
 // ── Just enough React to run useDesignStore: state, refs, and effects run after
 // each render, the way React runs them after it commits.

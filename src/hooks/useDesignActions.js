@@ -10,10 +10,12 @@
  */
 
 import { makeDefaultDesign } from '../state/DesignContext.js';
-import { designFileKey, uniqueDesignName } from '../utils/io/designNaming.js';
+import { designFileKey, isUnusableDesignName, uniqueDesignName } from '../utils/io/designNaming.js';
 import { writeDesignFile, copyDesignWithFreshIds } from '../utils/io/designFiles.js';
+import { embedDesignMaterials } from '../utils/materials/designMaterials.js';
 import { updateDirtyDesigns } from '../utils/io/projectPersistence.js';
-import { updateExplorerItemMtime } from '../components/panels/projectExplorerModel.js';
+import { sameMaterialCopies } from '../utils/io/sessionMerge.js';
+import { rowFileFailure, updateExplorerItemMtime } from '../components/panels/projectExplorerModel.js';
 
 const { useRef, useCallback } = React;
 
@@ -25,9 +27,62 @@ function writeIfPossible(folderId, design) {
         : null;
 }
 
+// The material copies a save wrote, put on the design in the store without an
+// undo step. The design then keeps the definitions its file has: a catalog
+// deleted later costs it nothing, and its next save writes them again. A save
+// that changed no copy leaves the design object as it was, so windows that
+// recompute on a new design (a running surface sweep) carry on.
+function keepCopies(a, id, fileDesign) {
+    a.setDesigns(prev => {
+        const current = prev[id];
+        if (!current || sameMaterialCopies(current, fileDesign)) return prev;
+        // eslint-disable-next-line no-unused-vars
+        const { materials, ...rest } = current;
+        return { ...prev, [id]: fileDesign.materials ? { ...rest, materials: fileDesign.materials } : rest };
+    });
+}
+
+// The file changed on disk since it was read or written here: by another copy
+// of TFStudio, another computer sharing the folder, or an editor. Overwrite
+// only when the user says so.
+function askOverwrite(a, id, design) {
+    const text = a.t.dialogs.changedOnDisk;
+    a.setInputDialog({
+        confirm: true, danger: true,
+        title: text.title,
+        message: text.message(a.designsRef.current[id]?.name || id),
+        confirmLabel: text.overwrite,
+        onConfirm: () => { a.setInputDialog(null); saveToDisk(a, id, design, { overwrite: true }); },
+        onCancel: () => a.setInputDialog(null),
+    });
+}
+
+// The time a write left on a row's file, in the tree the next save reads at
+// once as well as in the state the explorer renders from. A write the main
+// process could not read the time of leaves none, and the next save writes
+// without the check.
+function setRowMtime(a, id, mtime) {
+    a.foldersRef.current = updateExplorerItemMtime(a.foldersRef.current, id, mtime);
+    a.setFolders(current => updateExplorerItemMtime(current, id, mtime));
+}
+
 // ── Explicit save to disk (Ctrl+S / File > Save) ──────────────────────────────
-function saveToDisk(a, id, design) {
-    const targetId     = id     ?? a.activeDesignId;
+// One save of a design at a time: a second Ctrl+S while the first is still
+// writing waits for it, whatever its outcome, and is checked against the time
+// that write left.
+function saveToDisk(a, id, design, options) {
+    const targetId = id ?? a.activeDesignId;
+    const before = a.savesInFlight.get(targetId);
+    const run = before
+        ? before.catch(() => {}).then(() => writeToDisk(a, targetId, design, options))
+        : Promise.resolve(writeToDisk(a, targetId, design, options));
+    a.savesInFlight.set(targetId, run);
+    const settle = () => { if (a.savesInFlight.get(targetId) === run) a.savesInFlight.delete(targetId); };
+    run.then(settle, settle);
+    return run;
+}
+
+function writeToDisk(a, targetId, design, { overwrite = false } = {}) {
     const targetDesign = design ?? a.designsRef.current[targetId];
     if (!targetId || !targetDesign) return;
     if (!window.electronAPI?.saveDesign) return;   // no disk to write to
@@ -39,17 +94,23 @@ function saveToDisk(a, id, design) {
         a.setMessageNotification({ type: 'error', message: a.t.dialogs.persistenceFailed });
         return;
     }
-    const savedSnapshot = JSON.parse(JSON.stringify(targetDesign));
+    const savedSnapshot = embedDesignMaterials(JSON.parse(JSON.stringify(targetDesign)));
+    const known = folder.items.find(i => i.id === targetId)?.mtime;
     return a.persistChange(
-        () => writeDesignFile(folder.id, savedSnapshot),
-        () => {
+        () => writeDesignFile(folder.id, savedSnapshot, overwrite ? undefined : known),
+        (result) => {
             a.diskDesignsRef.current[targetId] = savedSnapshot;
+            keepCopies(a, targetId, savedSnapshot);
             a.scheduleSessionSave(targetId);
-            a.setFolders(current => updateExplorerItemMtime(current, targetId, Date.now()));
+            setRowMtime(a, targetId, result?.mtime);
             a.setDirtyDesigns(d => updateDirtyDesigns(
                 d, targetId, a.designsRef.current[targetId], savedSnapshot));
         },
-        a.t.dialogs.saveAs.saveFailed,
+        (error) => {
+            if (error !== 'changed-on-disk') return a.t.dialogs.saveAs.saveFailed;
+            askOverwrite(a, targetId, design);
+            return false;
+        },
     );
 }
 
@@ -68,6 +129,9 @@ async function saveUnsaved(a) {
     for (const id of unsavedInFolders(a)) {
         if (!(await saveToDisk(a, id))) failed.push(a.designsRef.current[id]?.name || id);
     }
+    // What follows a save-all (a data folder move) reloads the designs from the
+    // session, so it has to hold their undo history now, not half a second later.
+    a.flushSession?.();
     return failed;
 }
 
@@ -81,11 +145,11 @@ function addDesign(a, overrideFolder) {
     const taken  = a.existingDesignNames(targetFolder.id);
     const n      = taken.length + 1;
     const name   = uniqueDesignName(`Design ${n}`, taken, (_, k) => `Design ${n + k - 1}`);
-    const design = makeDefaultDesign(name);
+    const design = embedDesignMaterials(makeDefaultDesign(name));
 
     return a.persistChange(
         writeIfPossible(targetFolder.id, design),
-        () => a.commitNewDesign(design, targetFolder),
+        (result) => a.commitNewDesign(design, targetFolder, result?.mtime),
     );
 }
 
@@ -95,11 +159,12 @@ function addDesignFrom(a, incoming, overrideFolder) {
     const targetFolder = overrideFolder || a.selectedFolder;
     if (!targetFolder || !incoming) return;
     const name   = uniqueDesignName(incoming.name, a.existingDesignNames(targetFolder.id), (b, k) => `${b} (${k})`);
-    const design = name === incoming.name ? incoming : { ...incoming, name };
+    // Created with the material copies its file gets, like any saved design.
+    const design = embedDesignMaterials(name === incoming.name ? incoming : { ...incoming, name });
 
     return a.persistChange(
         writeIfPossible(targetFolder.id, design),
-        () => a.commitNewDesign(design, targetFolder),
+        (result) => a.commitNewDesign(design, targetFolder, result?.mtime),
     );
 }
 
@@ -115,19 +180,21 @@ function duplicateDesign(a, item, folder) {
     if (!src) return;
     const newName = uniqueDesignName(
         `${item.name} (copy)`, a.existingDesignNames(folder.id), (b, k) => `${b} ${k}`);
-    const clone = copyDesignWithFreshIds(deepCopy(src), newName);
+    const clone = embedDesignMaterials(copyDesignWithFreshIds(deepCopy(src), newName));
     return a.persistChange(
         writeIfPossible(folder.id, clone),
-        () => a.commitNewDesign(clone, folder),
+        (result) => a.commitNewDesign(clone, folder, result?.mtime),
     );
 }
 
-// Save As refuses a name that is empty, or that is already a file in this
-// folder: the name decides the filename, so the copy would land on it.
+// Save As refuses a name that is empty, that is already a file in this
+// folder (the name decides the filename, so the copy would land on it), or
+// that Windows cannot use for a file.
 function saveAsValidator(sa, takenKeys) {
     return (nm) => {
         if (!nm?.trim()) return sa.empty;
         if (takenKeys.has(designFileKey(nm.trim()))) return sa.exists;
+        if (isUnusableDesignName(nm.trim())) return sa.unusable;
         return '';
     };
 }
@@ -148,10 +215,10 @@ function askSaveAs(a) {
         defaultValue: uniqueDesignName(`${src.name} (copy)`, inFolder, (b, k) => `${b} ${k}`),
         validate: saveAsValidator(sa, new Set(inFolder.map(designFileKey))),
         onConfirm: async (nm) => {
-            const clone = copyDesignWithFreshIds(deepCopy(src), nm.trim());
+            const clone = embedDesignMaterials(copyDesignWithFreshIds(deepCopy(src), nm.trim()));
             const saved = await a.persistChange(
                 writeIfPossible(folder.id, clone),
-                () => a.commitNewDesign(clone, folder),
+                (result) => a.commitNewDesign(clone, folder, result?.mtime),
                 sa.saveFailed,
             );
             if (saved) a.setInputDialog(null);
@@ -184,19 +251,28 @@ function renameDesign(a, folderId, itemId, newName) {
         a.setMessageNotification({ type: 'error', message: a.t.dialogs.saveAs.exists });
         return false;
     }
+    if (isUnusableDesignName(newName)) {
+        a.setMessageNotification({ type: 'error', message: a.t.dialogs.saveAs.unusable });
+        return false;
+    }
     const oldName = item.name;
-    const updated = { ...item, name: newName };
+    const onDisk = !!window.electronAPI?.renameItem;
     return a.persistChange(
-        window.electronAPI?.renameItem
-            ? () => window.electronAPI.renameItem(folder.id, oldName, newName)
-            : null,
-        () => {
-            a.setFolders(prev => prev.map(f => f.id === folderId
+        onDisk ? () => window.electronAPI.renameItem(folder.id, oldName, newName, itemId, item.mtime) : null,
+        (result) => {
+            // The rename rewrites the file, so the time it answers with is the
+            // file's from now on; with no disk there is no file to time.
+            const updated = { ...item, name: newName, mtime: onDisk ? result?.mtime : item.mtime };
+            const withRow = folders => folders.map(f => f.id === folderId
                 ? { ...f, items: f.items.map(i => i.id === itemId ? updated : i) }
-                : f));
+                : f);
+            a.foldersRef.current = withRow(a.foldersRef.current);
+            a.setFolders(withRow);
             a.setSelectedItem(prev => (prev?.id === itemId ? updated : prev));
+            a.setSelectedItems(prev => prev.map(i => (i.id === itemId ? updated : i)));
             renameInStore(a, itemId, newName);
         },
+        (error) => rowFileFailure(a.t, error, oldName),
     );
 }
 
@@ -205,7 +281,12 @@ export function useDesignActions({ store, tree, persistChange, setInputDialog, s
     // and the app's own notifications. Refreshed every render and read at call
     // time, so the actions never need rebuilding and never go stale.
     const a = useRef({});
-    a.current = { ...store, ...tree, persistChange, setInputDialog, setMessageNotification, t };
+    // The save of each design still writing, by id; see saveToDisk.
+    const savesInFlight = useRef(new Map());
+    a.current = {
+        ...store, ...tree, persistChange, setInputDialog, setMessageNotification, t,
+        savesInFlight: savesInFlight.current,
+    };
 
     const addItemFromDesign = useCallback(
         (incoming, folder) => addDesignFrom(a.current, incoming, folder), []);
