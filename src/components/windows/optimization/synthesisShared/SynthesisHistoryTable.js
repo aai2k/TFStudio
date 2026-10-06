@@ -1,8 +1,9 @@
+import { DesignContext } from '../../../../state/DesignContext.js';
 import { matFriendlyName } from './materialNames.js';
 import { matColorAlpha } from './materialColors.js';
 import { runSeparatorIds } from './runBlocks.js';
 
-const { createElement: h } = React;   // React is a window global (never imported)
+const { createElement: h, useContext } = React;   // React is a window global (never imported)
 
 // ── Shared synthesis history table ──────────────────────────────────────────────
 // Needle's GenerationsTable and GE's CyclesTable ~identical: same th/td/
@@ -45,17 +46,18 @@ function dMFContent(dMF, c) {
         : h('span', { style: { color: '#ef5350' } }, `+${dMF.toFixed(5)}`);
 }
 
-function materialContent(mat, c) {
+function materialContent(mat, design, c) {
     if (!mat) return '—';
+    const name = matFriendlyName(mat, design);
     return h('span', {
-        title: matFriendlyName(mat),
+        title: name,
         style: {
             display: 'inline-block', maxWidth: 92, verticalAlign: 'middle',
             overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
             padding: '1px 5px', borderRadius: 3, fontSize: 10,
-            background: matColorAlpha(mat), color: c.text
+            background: matColorAlpha(mat, design), color: c.text
         }
-    }, matFriendlyName(mat));
+    }, name);
 }
 
 function headerRow({ labels, showSide, typeColumn, c }) {
@@ -93,7 +95,7 @@ function separatorRows(row, { separatorIds, labels, colCount, c }) {
         }, marks.join(' · ')))];
 }
 
-function historyRow(row, { bestMF, showSide, typeColumn, labels, onRestore, c }) {
+function historyRow(row, { bestMF, showSide, typeColumn, labels, onRestore, design, c }) {
     const isBest = Math.abs(row.mf - bestMF) < 1e-12;
     return h('tr', {
         key: row.id,
@@ -110,7 +112,7 @@ function historyRow(row, { bestMF, showSide, typeColumn, labels, onRestore, c })
         td(row.tot != null ? row.tot.toFixed(0) : '—', { color: c.textDim }),
         td(row.tMs != null ? `${(row.tMs / 1000).toFixed(1)}s` : '—', { color: c.textDim }),
         td(dMFContent(row.dMF, c)),
-        td(materialContent(row.insertMat, c)),
+        td(materialContent(row.insertMat, design, c)),
         h('td', { style: { padding: '2px 5px' } },
             h('button', {
                 onClick: () => onRestore(row),
@@ -126,6 +128,10 @@ function historyRow(row, { bestMF, showSide, typeColumn, labels, onRestore, c })
 }
 
 export function SynthesisHistoryTable({ rows, bestMF, onRestore, showSide, c, labels, typeColumn = null }) {
+    // The inserted materials are named and coloured as the open design resolves
+    // them. Read directly rather than through useDesign(), which throws outside
+    // a design provider.
+    const design = useContext(DesignContext)?.design || null;
     // Both the empty state and the table sit inside the flex:1 scroll container
     // (matches Needle's original; GE's bare empty-div is normalized to the same —
     // visually identical italic message).
@@ -140,7 +146,7 @@ export function SynthesisHistoryTable({ rows, bestMF, onRestore, showSide, c, la
     const display = [...rows].reverse();
     const separatorIds = runSeparatorIds(display);
     const colCount = 8 + (showSide ? 1 : 0) + (typeColumn ? 1 : 0);
-    const rowOpts = { bestMF, showSide, typeColumn, labels, onRestore, c };
+    const rowOpts = { bestMF, showSide, typeColumn, labels, onRestore, design, c };
 
     return h('div', { style: { flex: 1, overflow: 'auto' } },
         h('table', { style: { borderCollapse: 'collapse', width: '100%' } },

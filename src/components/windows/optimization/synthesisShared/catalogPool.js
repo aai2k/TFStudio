@@ -1,5 +1,7 @@
 import { getCatalogs, getMaterialById } from '../../../../utils/materials/catalogManager.js';
 import { DESIGN_CATALOG_ID, buildDesignCatalog } from '../../../../utils/materials/designCatalog.js';
+import { conflictingIds } from '../../../../utils/materials/designMaterials.js';
+import { isHerpinMaterial } from '../../../../utils/materials/herpinMaterial.js';
 import { matDisplayName } from './materialNames.js';
 
 // Above this many candidate materials the pool panel warns that scans may be slow.
@@ -42,10 +44,17 @@ export function poolCatalogs(design, designName = '') {
     return designCatalog ? [designCatalog, ...getCatalogs()] : getCatalogs();
 }
 
-/** Materials of a catalog eligible for the pool, as { key, fullId, name } rows. */
+/**
+ * Materials of a catalog eligible for the pool, as { key, fullId, name } rows.
+ *
+ * A Herpin equivalent layer's material is left out. It is a layer material of
+ * its design, so the design catalog lists it, but its constant index stands in
+ * for the collapsed group only at the wavelength it was computed at and at
+ * normal incidence: as a film of its own it is not a coating material at all.
+ */
 export function poolMatEntries(cat) {
     return Object.entries(cat.materials || {})
-        .filter(([key]) => !isAirLike(key))
+        .filter(([key, mat]) => !isAirLike(key) && !isHerpinMaterial(fullMatId(cat, key), mat))
         .map(([key, mat]) => ({
             key,
             fullId: fullMatId(cat, key),
@@ -99,13 +108,17 @@ function poolMaterialEntry(cat, matKey, fullId, excluded, verbose) {
 // ── Candidate material pool from the selected catalogs ───────────────────────────
 // Skips Air/Vacuum and anything with n < 1.05 at 550 nm (can't act as a film).
 // A material reachable through both the design catalog and its own catalog is
-// one candidate, not two, so a scan never evaluates the same film twice.
+// one candidate, not two, so a scan never evaluates the same film twice. A
+// catalog material under an id the design computes with its own copy from
+// another catalog (conflictingIds) is not a candidate: a layer inserted under
+// that id would compute with the copy, not with the material scanned.
 // `verbose` mirrors NeedleVariation's original pool diagnostics; GE passes false.
 export function getPoolMaterials(selectedCatalogIds,
                                  { verbose = false, excluded = null, design = null } = {}) {
     const result = [];
     const seen = new Set();
     const allCats = poolCatalogs(design);
+    const conflicts = conflictingIds(design);
     if (verbose) {
         console.log(`[NeedlePool] selected IDs: [${[...selectedCatalogIds].join(', ')}]`,
             '  available:', allCats.map(c => `${c.id}(${Object.keys(c.materials || {}).length})`).join(', '));
@@ -114,7 +127,7 @@ export function getPoolMaterials(selectedCatalogIds,
         if (!selectedCatalogIds.has(cat.id)) continue;
         for (const { key, fullId } of poolMatEntries(cat)) {
             const canonical = canonicalId(fullId);
-            if (seen.has(canonical)) continue;
+            if (seen.has(canonical) || (cat.id !== DESIGN_CATALOG_ID && conflicts.has(fullId))) continue;
             const entry = poolMaterialEntry(cat, key, fullId, excluded, verbose);
             if (entry) { seen.add(canonical); result.push(entry); }
         }

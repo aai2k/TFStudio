@@ -9,7 +9,7 @@ import {
     scanNeedlesPFunction, insertNeedle, insertNeedleIntra, mirrorLayers, withDesignSampleCounts,
 } from '../../../../utils/physics/optimizer.js';
 import { DEFAULT_REFINE_METHOD } from '../../../../utils/optimizers/index.js';
-import { matDisplayName, matColor, withoutPPEF } from '../synthesisShared/synthesisHelpers.js';
+import { matFriendlyName, matColor, withoutPPEF } from '../synthesisShared/synthesisHelpers.js';
 import { refineOffThread } from '../synthesisShared/workerRefine.js';
 
 // Which layer array a side maps to.
@@ -113,8 +113,9 @@ export function runNeedleScan({ operands, design, resolveMat, candidateMats, del
 }
 
 // Build renderer-neutral P-function material curves, layer boundaries
-// and material bands from a completed scan result.
-export function buildPlotData(scan) {
+// and material bands from a completed scan result. Materials are named and
+// coloured as `design` resolves them.
+export function buildPlotData(scan, design = null) {
     if (!scan) return { materials: [], boundaries: [], bands: [], totalZ: 1 };
     const zb = scan.zb;
     const totalZ = zb[zb.length - 1] || 1;
@@ -130,21 +131,21 @@ export function buildPlotData(scan) {
     for (const [matId, cands] of byMat) {
         cands.sort((a, b) => a.z - b.z);
         materials.push({
-            materialId: matId, name: matDisplayName(matId), color: matColor(matId),
+            materialId: matId, name: matFriendlyName(matId, design), color: matColor(matId, design),
             xs: cands.map(cc => cc.z), ys: cands.map(cc => cc.grad), cands,
         });
     }
     materials.sort((a, b) => (a.name < b.name ? -1 : 1));
 
     const bands = (scan.layers || []).map((l, k) => ({
-        z0: zb[k], z1: zb[k + 1], color: matColor(l.material), k, materialId: l.material,
+        z0: zb[k], z1: zb[k + 1], color: matColor(l.material, design), k, materialId: l.material,
     }));
     return { materials, boundaries: zb, bands, totalZ };
 }
 
 // Selection → host geometry (intra-layer split or gap neighbours) + initial
 // thickness range for the slider.
-export function resolveHostInfo(selected, scan, dMin, tn) {
+export function resolveHostInfo(selected, scan, dMin, tn, design = null) {
     if (!selected || !scan) return null;
     if (selected.intra) {
         const layers = scan.layers;
@@ -159,10 +160,11 @@ export function resolveHostInfo(selected, scan, dMin, tn) {
     }
     // gap → describe neighbours
     const layers = scan.layers, p = selected.pos, N = layers.length;
+    const name = index => matFriendlyName(layers[index]?.material, design);
     let gapLabel;
-    if (p === 0)      gapLabel = tn.gapIncident(matDisplayName(layers[0]?.material) || '—');
-    else if (p === N) gapLabel = tn.gapSubstrate(matDisplayName(layers[N - 1]?.material) || '—');
-    else              gapLabel = tn.gapBetween(p, matDisplayName(layers[p - 1]?.material), p + 1, matDisplayName(layers[p]?.material));
+    if (p === 0)      gapLabel = tn.gapIncident(name(0) || '—');
+    else if (p === N) gapLabel = tn.gapSubstrate(name(N - 1) || '—');
+    else              gapLabel = tn.gapBetween(p, name(p - 1), p + 1, name(p));
     return { gapLabel, hostThickness: 0 };
 }
 

@@ -8,8 +8,11 @@
 import {
   evaluateSpectrum, evaluateSpectrumBack, evaluateSpectrumTotal,
 } from '../../physics/thinFilmMath.js';
-import { resolveEvalMode } from '../../physics/optimizer.js';
+import { coneAverageResult, makeConeSpec, resolveEvalMode } from '../../physics/optimizer.js';
 import { designMaterialLookup } from '../../materials/designMaterials.js';
+
+// Every array a spectrum carries, averaged over the cone like the windows do.
+const CONE_KEYS = ['T', 'R', 'A', 'Ts', 'Rs', 'Tp', 'Rp', 'As', 'Ap'];
 
 // ── Material resolution ─────────────────────────────────────────────────────
 // Mirrors the helper used by every analysis window so the report sees the same
@@ -49,6 +52,9 @@ export function designEvalMode(design) {
 // ── Spectrum sweep (per-AOI series) ─────────────────────────────────────────
 // Returns { lambda:[…], series:[{ theta, R,T,A, Rs,Ts,As, Rp,Tp,Ap }] }.
 // Shape is identical to OpticalEvaluation's so a section can reuse the curves.
+// With a cone set on the design, each angle is the cone axis and its spectrum
+// is the average over the cone, as Optical Evaluation, Integral Values and
+// Color Evaluation compute it; without one it is the collimated spectrum.
 export function buildSpectrum(design, opts = {}) {
   const {
     lambdaStart = 400, lambdaEnd = 800, lambdaStep = 2, pol = 'avg',
@@ -66,14 +72,18 @@ export function buildSpectrum(design, opts = {}) {
   const front   = frontLayersWithMat(design, resolve);
   const back    = backLayersWithMat(design, resolve);
 
+  const coneSpec = makeConeSpec(design.cone || {});
+  const evaluateAt = (theta) => {
+    const p = { lambdaStart, lambdaEnd, lambdaStep, theta, polarization: pol };
+    if (evalMode === 'back')  return evaluateSpectrumBack(p, exitMat, subMat, back);
+    if (evalMode === 'total') return evaluateSpectrumTotal(p, incMat, subMat, exitMat, front, back, subThk);
+    return evaluateSpectrum(p, incMat, subMat, front);
+  };
+
   const series = [];
   let lambda = null;
   for (const theta of (thetas?.length ? thetas : [0])) {
-    const p = { lambdaStart, lambdaEnd, lambdaStep, theta, polarization: pol };
-    let r;
-    if (evalMode === 'back')        r = evaluateSpectrumBack(p, exitMat, subMat, back);
-    else if (evalMode === 'total')  r = evaluateSpectrumTotal(p, incMat, subMat, exitMat, front, back, subThk);
-    else                            r = evaluateSpectrum(p, incMat, subMat, front);
+    const r = coneAverageResult(coneSpec, theta, evaluateAt, CONE_KEYS);
     if (!lambda) lambda = r.lambda;
     series.push({
       theta,

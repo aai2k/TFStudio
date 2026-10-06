@@ -2,10 +2,12 @@ import { useDesign } from '../../../../state/DesignContext.js';
 import { resolveColor } from '../../../../utils/materials/catalogManager.js';
 import { designMaterialLookup } from '../../../../utils/materials/designMaterials.js';
 import { MaterialHasNoIndexError } from '../../../../utils/materials/materialIndexAt.js';
+import { useCatalogRevision } from '../../../../utils/materials/useCatalogRevision.js';
 import {
     assignChips, autoChipLambdas, buildMonitorWorksheet,
 } from '../../../../utils/monitoring/monoSim.js';
 import { matName } from '../wizardShared.js';
+import { usableChipGlass } from './chipGlass.js';
 import { monitorWorksheetSession } from './sessionState.js';
 import { useWindowSession } from '../../windowSession.js';
 
@@ -46,7 +48,13 @@ export function useMonitorWorksheet() {
     const { design } = useDesign();
     const [session, setField, patch] = useWindowSession(monitorWorksheetSession, design);
     const stepCount = design?.frontLayers?.length || 0;
-    const resolveMat = useMemo(() => designMaterialLookup(design), [design]);
+    // The chip glass is not a design material, so an edit to its catalog
+    // reaches this window only through the catalog revision.
+    const catalogRevision = useCatalogRevision();
+    const resolveMat = useMemo(() => designMaterialLookup(design), [design, catalogRevision]);
+    const chipGlass = useMemo(
+        () => usableChipGlass(design, session.chipMaterial),
+        [design, session.chipMaterial, catalogRevision]);
 
     const chipByStep = useMemo(
         () => planForSteps(session.chipByStep, stepCount) || assignChips(stepCount, session.layersPerChip),
@@ -59,14 +67,14 @@ export function useMonitorWorksheet() {
         char: session.char,
         theta: session.theta,
         pol: session.polarization,
-        chipMaterial: session.chipMaterial,
+        chipMaterial: chipGlass.chipMaterial,
         witnessRatio: session.witnessRatio,
         signalErrorPct: session.signalErrorPct,
         absSignalErrorPct: session.absSignalErrorPct,
         maxTerminationErrPct: session.maxTerminationErrPct,
         chipByStep,
         lambdaByStep,
-    }), [session.char, session.theta, session.polarization, session.chipMaterial,
+    }), [session.char, session.theta, session.polarization, chipGlass.chipMaterial,
          session.witnessRatio, session.signalErrorPct, session.absSignalErrorPct,
          session.maxTerminationErrPct, chipByStep, lambdaByStep]);
 
@@ -121,6 +129,7 @@ export function useMonitorWorksheet() {
         matColorMap: materials.colors, matNames: materials.names,
         rows: result.rows, xEnd: result.xEnd,
         error: result.error || null,
+        chipGlassMissing: chipGlass.missing,
         poorCount: result.rows.filter(row => row.poor).length,
         session, setField,
         setLayersPerChip, setChipForStep, setLambdaForStep, autoLambda, resetPlan,

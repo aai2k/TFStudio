@@ -34,7 +34,7 @@ export function phaseSeedDls(ctx, S) {
     { const o = dls.mfOpticalAt(dls.thicknesses); ctx.setOmf(o); ctx.setOmfBest(o); }
 
     const thicksStr = dls.thicknesses.map(t => t.toFixed(1)).join(', ');
-    const seedNames = (seedDesign[S.LK] || []).map(l => matFriendlyName(l.material)).join(', ');
+    const seedNames = (seedDesign[S.LK] || []).map(l => matFriendlyName(l.material, seedDesign)).join(', ');
     console.log(`[GE Seed] ${seedNames} → DLS ${S.seedIter} iters, MF=${dls.mf.toFixed(6)} thicknesses=[${thicksStr}]`);
     console.log('');
 

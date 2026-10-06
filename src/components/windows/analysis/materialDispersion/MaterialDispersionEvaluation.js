@@ -5,22 +5,21 @@ import { ExportMenu, useCsvExport } from '../../../ui/ExportMenu.js';
 import { materialCoverageBands } from '../../../ui/chartOptions.js';
 import { csvFromRows, ResultsGrid, ResultsSection } from '../../../ui/ResultsSection.js';
 import { ChoiceGroup, NumInput, RangeField } from '../chrome/controls.js';
-import { AnalysisWindow, ControlRow, PlotArea } from '../chrome/layout.js';
+import { AnalysisWindow, CenteredMessage, ControlRow, PlotArea } from '../chrome/layout.js';
 import { NoticeBadge, SettingRow, SettingsMenu } from '../chrome/popover.js';
 import { GDChart } from '../gdGddEvaluation/GDChart.js';
 import { knotGrid, knotSteps, sampleKnots, stepAtKnots } from '../knots.js';
 import { chromaticDispersionCoefficient } from '../../../../utils/physics/thinFilmMath.js';
 import { toSignificantFigures } from '../../../../utils/math/significantFigures.js';
-import { getMaterialById } from '../../../../utils/materials/catalogManager.js';
 import {
     materialKnotWavelengths, materialPropagationDispersion,
 } from '../../../../utils/materials/materialDispersion.js';
-import { resolveDesignMaterial } from '../../../../utils/materials/designMaterials.js';
 import { uncoveredMaterialRegions } from '../../../../utils/materials/materialRange.js';
 import { useMaterialsRangeNotice } from '../../../materials/MaterialRangeNotice.js';
 import { useAnalysisColors } from '../../../../state/AnalysisSettingsContext.js';
 import { useDesign } from '../../../../state/DesignContext.js';
 import { materialDispersionSession } from './sessionState.js';
+import { useDispersionMaterial } from './useDispersionMaterial.js';
 import { useWindowSession } from '../../windowSession.js';
 
 const { createElement: h, useCallback, useMemo } = React;
@@ -226,19 +225,13 @@ function tableModel(spectrum, text, lambdaAxis, outsideLabel) {
 
 export function MaterialDispersionEvaluation({ c, t }) {
     const footerText = t.gdgdd || {};
-    // The picker offers the open design's own materials, including definitions
-    // that travelled inside a .tfs and exist in no local catalog, so the id is
-    // resolved against the design before the registry.
     const { design } = useDesign();
     const [session, setField, patchSession] = useWindowSession(materialDispersionSession, design);
     const {
         materialId, thicknessMm, thicknessUnit, quantity, start, end, showTable,
     } = session;
     const curve = useAnalysisColors('materialDispersion');
-    const resolved = resolveDesignMaterial(design, materialId);
-    const material = resolved.status === 'missing'
-        ? getMaterialById(materialId)
-        : resolved.material;
+    const { material, missing } = useDispersionMaterial(design, materialId);
     const spectrum = useMemo(
         () => buildSpectrum(material, start, end, thicknessMm),
         [material, start, end, thicknessMm],
@@ -283,19 +276,23 @@ export function MaterialDispersionEvaluation({ c, t }) {
         });
     }
 
+    // A material deleted from its catalog since it was picked has nothing to
+    // plot; the window says so rather than leaving the plot empty.
     return h(AnalysisWindow, { c },
         h(Controls, { state, c, t, notices }),
-        h(PlotArea, null, plotData && h(GDChart, {
-            data: plotData,
-            materialBands,
-            meta: {
-                label: t.gdgdd[quantityMeta.tr],
-                unit: quantityMeta.unit,
-                color: curve.curve,
-                dp: quantityMeta.digits,
-            },
-            showRef: false, c,
-        })),
+        h(PlotArea, null, missing
+            ? h(CenteredMessage, { c, message: t.materialResolution.pickedMissing(materialId) })
+            : plotData && h(GDChart, {
+                data: plotData,
+                materialBands,
+                meta: {
+                    label: t.gdgdd[quantityMeta.tr],
+                    unit: quantityMeta.unit,
+                    color: curve.curve,
+                    dp: quantityMeta.digits,
+                },
+                showRef: false, c,
+            })),
         h(ResultsSection, {
             c, label: t.dataTable.results, count: table.rows.length,
             countLabel: t.dataTable.rowCount,

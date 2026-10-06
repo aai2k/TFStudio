@@ -19,7 +19,7 @@ import { CharacterizationChart } from './charts.js';
 import { CharacterizationControls, ViewTabs } from './CharacterizationControls.js';
 import { buildCharacterizedDesign } from './resultDesign.js';
 import {
-    characterizationNotices, constantsCsv, resultColumns, resultRows,
+    characterizationErrorText, characterizationNotices, constantsCsv, resultColumns, resultRows,
 } from './resultsModel.js';
 import { newSaveDialogState, SaveMaterialDialog } from './SaveMaterialDialog.js';
 import {
@@ -111,9 +111,7 @@ function ChartBody({ c, nk, state, lambdaAxis }) {
     }
     if (!result) return h(CenteredMessage, { c, message: nk.notRunYet });
     if (result.error) {
-        return h(CenteredMessage, {
-            c, message: nk.errors[result.error] || result.message || result.error,
-        });
+        return h(CenteredMessage, { c, message: characterizationErrorText(result, nk) });
     }
     return h(CharacterizationChart, {
         result, c, view: view.view, showPointwise: view.showPointwise,

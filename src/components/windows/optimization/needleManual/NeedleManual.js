@@ -99,7 +99,7 @@ export function NeedleManual({ c, theme, t }) {
                             : h(PFunctionPlot, {
                                 materials: s.plotData.materials, boundaries: s.plotData.boundaries,
                                 bands: s.plotData.bands, totalZ: s.plotData.totalZ,
-                                selected: s.selected, onPick: s.handlePick, c, theme, tn,
+                                selected: s.selected, onPick: s.handlePick, design: s.design, c, theme, tn,
                             })
                     )
                 ),
@@ -113,7 +113,7 @@ export function NeedleManual({ c, theme, t }) {
                         predictedOMF: s.predictedOMF, omf0: s.omfNow,
                         evaluationBusy: s.predictedOMFBusy,
                         onDNew: s.setDNew, onApply: s.handleApply, onStop: s.stop,
-                        busy: s.busy, refining: s.refining, c, t,
+                        busy: s.busy, refining: s.refining, design: s.design, c, t,
                     })
                 )
             )

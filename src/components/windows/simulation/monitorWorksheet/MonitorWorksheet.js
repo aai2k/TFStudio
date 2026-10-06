@@ -24,12 +24,16 @@ const { createElement: h } = React;
 
 const SPLIT_CHILDREN = [{ id: 'worksheet-table' }, { id: 'worksheet-chart' }];
 
-// A material with no index at a wavelength the worksheet needs is named in the
-// user's language; any other failure shows its own message.
-function errorLabel(error, mw, resolveMat) {
+// A material with no index at a wavelength the worksheet needs, or one that
+// resolves nowhere, is named in the user's language; any other failure shows
+// its own message.
+function errorLabel(error, t, resolveMat) {
     if (!error) return null;
     if (error.code === 'MATERIAL_HAS_NO_INDEX') {
-        return mw.noIndex(matName(resolveMat, error.materialId), error.lambdaNm);
+        return t.monitorWorksheet.noIndex(matName(resolveMat, error.materialId), error.lambdaNm);
+    }
+    if (error.code === 'UNRESOLVED_DESIGN_MATERIAL') {
+        return t.materialResolution.rowMissing(error.materialId);
     }
     return error.message || String(error);
 }
@@ -38,7 +42,7 @@ export function MonitorWorksheet({ c, t }) {
     const state = useMonitorWorksheet();
     const { design, rows, poorCount } = state;
     const mw = t.monitorWorksheet;
-    const error = errorLabel(state.error, mw, state.resolveMat);
+    const error = errorLabel(state.error, t, state.resolveMat);
     const dt = t.dataTable;
     const columns = worksheetColumns({
         t, c, matColorMap: state.matColorMap,
@@ -57,6 +61,13 @@ export function MonitorWorksheet({ c, t }) {
         h(WorksheetControls, {
             c, t, state,
             trailing: [
+                state.chipGlassMissing && h(NoticeBadge, {
+                    key: 'chip-glass', c, label: t.analysisChrome.notices,
+                    notices: [{
+                        label: t.materialResolution.chipGlassMissing(state.chipGlassMissing),
+                        tone: 'error',
+                    }],
+                }),
                 poorCount > 0 && h(NoticeBadge, {
                     key: 'poor', c, label: mw.poorLabel,
                     notices: [{ label: mw.poorCount(poorCount), detail: mw.poorDetail }],

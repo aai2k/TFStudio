@@ -37,6 +37,29 @@ export function defaultSweepRange(param, offsetUnit = 'nm') {
     return { ...range };
 }
 
+/**
+ * The sweep the design can run.
+ *
+ * The parameter is kept per design and a material parameter names its
+ * material by id. Once that material is replaced, no layer uses it, the
+ * parameter selector has no such option and shows its first one, and a run
+ * would perturb nothing. Such a parameter falls back to that first option,
+ * with its default range, so the selector and the run agree. A sweep that is
+ * still valid is returned as it is.
+ */
+export function sweepForDesign(sweep, uniqueMats) {
+    const material = /^mat:(.+):[^:]+$/.exec(sweep.param);
+    if (!material || uniqueMats.some(({ id }) => id === material[1])) return sweep;
+    const param = 'globalThicknessScale';
+    return { ...sweep, param, ...defaultSweepRange(param) };
+}
+
+/** The store patch that puts a stale sweep right and drops its result; empty when `stored` is valid. */
+export function staleSweepPatch(stored, uniqueMats) {
+    const sweep = sweepForDesign(stored.sweep, uniqueMats);
+    return sweep === stored.sweep ? {} : { sweep, sweepResult: null };
+}
+
 export function systematicDeviationDefaults() {
     return {
         dev: emptyDeviation(),

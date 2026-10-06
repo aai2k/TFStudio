@@ -8,7 +8,7 @@ import { buildBoundaryGuides, buildLayerLabels, buildZoneBands } from './plotSha
 
 const { createElement: h, useEffect, useRef } = React;
 
-export function PFunctionPlot({ materials, boundaries, bands, totalZ, selected, onPick, c, tn }) {
+export function PFunctionPlot({ materials, boundaries, bands, totalZ, selected, onPick, design, c, tn }) {
     const divRef = useRef(null);
     const chartRef = useRef(null);
     const pickRef = useRef(onPick);
@@ -30,7 +30,7 @@ export function PFunctionPlot({ materials, boundaries, bands, totalZ, selected, 
                 ]),
             };
             const guides = buildBoundaryGuides(
-                boundaries, selected, c.border || '#3a3a3a', selected ? matColor(selected.materialId) : c.border,
+                boundaries, selected, c.border || '#3a3a3a', selected ? matColor(selected.materialId, design) : c.border,
             );
             series[0].markLine = {
                 silent: true, symbol: 'none', label: { show: false },
@@ -55,7 +55,7 @@ export function PFunctionPlot({ materials, boundaries, bands, totalZ, selected, 
                 symbol: 'circle', symbolSize: 11, silent: true,
             });
             marker.itemStyle.color = 'transparent';
-            marker.itemStyle.borderColor = matColor(selected.materialId);
+            marker.itemStyle.borderColor = matColor(selected.materialId, design);
             marker.itemStyle.borderWidth = 2.5;
             series.push(marker);
         }

@@ -15,9 +15,12 @@ import { useSpectra } from './useSpectra.js';
 const { createElement: h, useCallback, useMemo } = React;
 
 /** What the spectrum on screen needs qualifying with. */
-function buildNotices({ sp, setup, deposition, chipMode, rangeNotice }) {
+export function buildNotices({ sp, t, setup, deposition, chipMode, rangeNotice, chipGlassMissing }) {
     const notices = [];
     if (rangeNotice) notices.push(rangeNotice);
+    if (chipMode && chipGlassMissing) {
+        notices.push({ label: t.materialResolution.chipGlassMissing(chipGlassMissing), tone: 'error' });
+    }
     if (!chipMode && setup.secondSurface === 'coated' && deposition.otherDep.length === 0) {
         notices.push({ label: sp.hintNoOtherLayers });
     }
@@ -87,7 +90,10 @@ export function ProcessSimulator({ c, t }) {
     return h(AnalysisWindow, { c },
         h(ProcessControls, {
             c, t, sp, setup, deposition, save, chipMode,
-            notices: buildNotices({ sp, setup, deposition, chipMode, rangeNotice }),
+            notices: buildNotices({
+                sp, t, setup, deposition, chipMode, rangeNotice,
+                chipGlassMissing: chips.chipGlassMissing,
+            }),
         }),
         save.progress && h(ProgressHairline, { c, progress: save.progress }),
         h('div', { style: { display: 'flex', flex: 1, minHeight: 0, overflow: 'hidden' } },

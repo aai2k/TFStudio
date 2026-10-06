@@ -10,6 +10,7 @@
 import { sessionDefaults } from '../../../constants/analysisDefaults.js';
 import { assignChips, buildMonitorWorksheet } from '../../monitoring/monoSim.js';
 import { designMaterialLookup } from '../../materials/designMaterials.js';
+import { usableChipGlass } from '../../../components/windows/simulation/monitorWorksheet/chipGlass.js';
 import { materialName } from './engines.js';
 
 // A chip plan entered by hand only holds while it still has one entry per
@@ -29,7 +30,9 @@ function planForSteps(plan, stepCount) {
 export function computeWorksheet(design, monitor) {
   const v = { ...sessionDefaults('monitorWorksheet'), ...(monitor || {}) };
   const stepCount = design?.frontLayers?.length || 0;
-  const chipGlass = v.chipMaterial ? materialName(design, v.chipMaterial) : materialName(design, design?.substrate?.material);
+  // A chip glass that resolves nowhere gives way to the substrate, as it does in the window.
+  const { chipMaterial } = usableChipGlass(design, v.chipMaterial);
+  const chipGlass = materialName(design, chipMaterial || design?.substrate?.material);
   const settings = {
     char: v.char, theta: v.theta, pol: v.polarization, chipGlass, witnessRatio: v.witnessRatio,
     signalErrorPct: v.signalErrorPct, absSignalErrorPct: v.absSignalErrorPct, maxTerminationErrPct: v.maxTerminationErrPct,
@@ -37,7 +40,7 @@ export function computeWorksheet(design, monitor) {
   if (!stepCount) return { rows: [], chips: [], settings };
   const resolveMat = designMaterialLookup(design);
   const out = buildMonitorWorksheet(design, resolveMat, {
-    char: v.char, theta: v.theta, pol: v.polarization, chipMaterial: v.chipMaterial || null,
+    char: v.char, theta: v.theta, pol: v.polarization, chipMaterial,
     witnessRatio: v.witnessRatio,
     chipByStep: planForSteps(v.chipByStep, stepCount) || assignChips(stepCount, v.layersPerChip),
     lambdaByStep: planForSteps(v.lambdaByStep, stepCount),

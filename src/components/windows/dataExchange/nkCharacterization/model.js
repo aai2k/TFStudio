@@ -101,13 +101,35 @@ export function thicknessSettingNm(design, settings) {
         : defaultThicknessNm(design);
 }
 
+// The materials the witness is computed with: the medium in front of it, its
+// glass, and the medium behind it.
+function sampleMaterialIds(design, settings) {
+    return {
+        incident: design?.incidentMedium || 'Air',
+        substrate: settings.substrateId || design?.substrate?.material || 'BK7',
+        exit: design?.exitMedium || 'Air',
+    };
+}
+
+/**
+ * The witness materials that resolve nowhere: a glass picked from a catalog
+ * deleted since, or a design substrate or medium that is missing. Fitted with
+ * Air in their place, the run would return n, k and thickness for a
+ * free-standing film, and the window would offer to save that as a material.
+ */
+export function unresolvedSampleMaterials(design, settings) {
+    const ids = new Set(Object.values(sampleMaterialIds(design, settings)));
+    return [...ids].filter(id => resolveDesignMaterial(design, id).status === 'missing');
+}
+
 export function sampleFor(design, settings) {
     const resolve = id => resolveDesignMaterial(design, id).material;
-    const substrateId = settings.substrateId || design?.substrate?.material || 'BK7';
+    const ids = sampleMaterialIds(design, settings);
+    const substrateId = ids.substrate;
     return {
-        incident: resolve(design?.incidentMedium || 'Air'),
+        incident: resolve(ids.incident),
         substrate: resolve(substrateId),
-        exit: resolve(design?.exitMedium || 'Air'),
+        exit: resolve(ids.exit),
         substrateThicknessMm: Number(settings.substrateThicknessMm) > 0
             ? Number(settings.substrateThicknessMm)
             : (design?.substrate?.thickness ?? 1.0),
@@ -153,6 +175,8 @@ export function characterizationRequest(design, settings) {
     if (measurementMode === 'ellipsometry' && chosen.length < 2) {
         return { error: 'ellipsometryPair' };
     }
+    const materialIds = unresolvedSampleMaterials(design, settings);
+    if (materialIds.length > 0) return { error: 'materialMissing', materialIds };
 
     const range = [Number(settings.lambdaStart), Number(settings.lambdaEnd)];
     const channels = chosen.map(curve => channelOf(curve, settings));

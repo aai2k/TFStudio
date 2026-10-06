@@ -1,5 +1,5 @@
-import { getMaterialById, resolveColor } from '../../../../utils/materials/catalogManager.js';
-import { matDisplayName } from './materialNames.js';
+import { resolveColor } from '../../../../utils/materials/catalogManager.js';
+import { displayedMaterial, matDisplayName } from './materialNames.js';
 
 // ── Shared "blocking warning" badge ─────────────────────────────────────────────
 // Used by every optimizer/synthesis window (Refinement, Needle, Gradual
@@ -36,10 +36,11 @@ function hslToHex(hDeg, s, l) {
 // THE material's display color — the SAME one shown in the Material Editor and
 // Design Editor: the user-chosen `color`, else an index-derived `ndColor(nd)`.
 // Synthesis history/pool now share this so a material looks identical everywhere.
-// Falls back to the old built-in palette / id-hash only for a material that is
-// no longer in any catalog (can't resolve a real color).
-export function matColor(id) {
-    const mat = getMaterialById(id);
+// With `design`, a material the design carries has the colour the design
+// gives it. Falls back to the old built-in palette / id-hash only for a
+// material that resolves nowhere (can't resolve a real color).
+export function matColor(id, design = null) {
+    const mat = displayedMaterial(id, design);
     if (mat) return resolveColor(mat);
     const name = matDisplayName(id);
     if (MAT_COLORS[name]) return MAT_COLORS[name];
@@ -52,8 +53,8 @@ export function matColor(id) {
 // Must accept ANY CSS color the editor can produce — hex (#rgb / #rrggbb), the
 // hsl() that ndColor returns, or a named color — so it parses to rgba/hsla with
 // the given alpha instead of the old (fragile, hex-only) `${color}44` trick.
-export function matColorAlpha(id, alpha = 0.27) {
-    const color = matColor(id);
+export function matColorAlpha(id, design = null, alpha = 0.27) {
+    const color = matColor(id, design);
     let m = /^#([0-9a-f]{3})$/i.exec(color);
     if (m) {
         const [r, g, b] = [...m[1]].map(ch => parseInt(ch + ch, 16));

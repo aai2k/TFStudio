@@ -112,10 +112,16 @@ export function resultRows(result, nk) {
     return rows;
 }
 
+/** What stopped a run, in the user's language, naming any material that is missing. */
+export function characterizationErrorText(result, nk) {
+    if (result.error === 'materialMissing') return nk.materialMissing(result.materialIds.join(', '));
+    return nk.errors[result.error] || result.message || result.error;
+}
+
 /** Warnings and errors, as the notice badge takes them. */
 export function characterizationNotices(result, nk, stale) {
     if (!result) return [];
-    if (result.error) return [{ label: nk.errors[result.error] || result.error, tone: 'error' }];
+    if (result.error) return [{ label: characterizationErrorText(result, nk), tone: 'error' }];
     const notices = result.diagnostics.warnings.map(warning => ({
         label: nk.warnings[warning.code] || warning.code,
         tone: 'error',

@@ -1,4 +1,6 @@
 import { assignChips } from '../../../../utils/monitoring/monoSim.js';
+import { useCatalogRevision } from '../../../../utils/materials/useCatalogRevision.js';
+import { usableChipGlass } from '../../simulation/monitorWorksheet/chipGlass.js';
 import { monitorWorksheetSession } from '../../simulation/monitorWorksheet/sessionState.js';
 import { planForSteps } from '../../simulation/monitorWorksheet/useMonitorWorksheet.js';
 import { useWindowSession } from '../../windowSession.js';
@@ -14,9 +16,15 @@ const { useCallback, useMemo } = React;
  * included, which is how the worksheet indexes its plan. A plan of another
  * length belongs to another stack and gives way to the plain division by chip
  * size. `plan` is null while `enabled` is off, so the part is modelled instead.
+ * A chip glass that no longer resolves gives way to the design substrate in the
+ * plan and is reported as `chipGlassMissing`.
  */
 export function useChipPlan(design, stepCount, enabled) {
     const [session, setField, patch] = useWindowSession(monitorWorksheetSession, design);
+    const catalogRevision = useCatalogRevision();
+    const chipGlass = useMemo(
+        () => usableChipGlass(design, session.chipMaterial),
+        [design, session.chipMaterial, catalogRevision]);
 
     const chipByStep = useMemo(
         () => planForSteps(session.chipByStep, stepCount) || assignChips(stepCount, session.layersPerChip),
@@ -36,14 +44,17 @@ export function useChipPlan(design, stepCount, enabled) {
     const setChipMaterial = useCallback(value => setField('chipMaterial', value), [setField]);
     const setWitnessRatio = useCallback(value => setField('witnessRatio', value), [setField]);
 
+    // A new chipGlass object after a catalog edit makes a new plan, so the
+    // deposition model built from it resolves the glass again.
     const plan = useMemo(() => (enabled ? {
         chipByStep,
-        chipMaterial: session.chipMaterial,
+        chipMaterial: chipGlass.chipMaterial,
         witnessRatio: session.witnessRatio,
-    } : null), [enabled, chipByStep, session.chipMaterial, session.witnessRatio]);
+    } : null), [enabled, chipByStep, chipGlass, session.witnessRatio]);
 
     return {
         plan,
+        chipGlassMissing: enabled ? chipGlass.missing : null,
         layersPerChip: session.layersPerChip,
         chipMaterial: session.chipMaterial,
         witnessRatio: session.witnessRatio,

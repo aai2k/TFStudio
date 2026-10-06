@@ -1,3 +1,4 @@
+import { DesignContext } from '../../../../state/DesignContext.js';
 import { Checkbox } from '../../../ui/Checkbox.js';
 import { WARN_BADGE_STYLE, matColor } from './materialColors.js';
 import { POOL_WARN_COUNT, poolMatEntries as matEntries } from './catalogPool.js';
@@ -6,7 +7,7 @@ import { useWindowSession } from '../../windowSession.js';
 
 const EMPTY_EXPANDED = new Set();
 
-const { createElement: h } = React;   // React is a window global (never imported)
+const { createElement: h, useContext } = React;   // React is a window global (never imported)
 
 function MiniBtn({ label, onClick, running, c }) {
     return h('button', {
@@ -22,7 +23,7 @@ function MiniBtn({ label, onClick, running, c }) {
 
 // One material checkbox row inside an expanded catalog, with the same color
 // swatch the Material Editor shows for it.
-function PoolMaterialRow({ m, matOn, running, c, onToggle }) {
+function PoolMaterialRow({ m, matOn, running, design, c, onToggle }) {
     return h('label', {
         style: {
             display: 'flex', alignItems: 'center', gap: 6, padding: '1px 0', minWidth: 0,
@@ -32,7 +33,7 @@ function PoolMaterialRow({ m, matOn, running, c, onToggle }) {
         h(Checkbox, { c, checked: matOn, disabled: running, onChange: () => !running && onToggle() }),
         h('span', { style: {
             width: 9, height: 9, borderRadius: '50%', flexShrink: 0,
-            background: matColor(m.fullId), opacity: matOn ? 1 : 0.4,
+            background: matColor(m.fullId, design), opacity: matOn ? 1 : 0.4,
         } }),
         h('span', {
             style: { color: matOn ? c.text : c.textDim, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' },
@@ -44,7 +45,7 @@ function PoolMaterialRow({ m, matOn, running, c, onToggle }) {
 // One catalog row: expand toggle (when per-material picking is wired), the
 // catalog checkbox (indeterminate when only some materials are active) and, when
 // open, the per-material sub-list.
-function CatalogRow({ cat, selectedCats, excluded, isOpen, canPickMat, running, c, onToggleCat, onToggleMat, onToggleExpand }) {
+function CatalogRow({ cat, selectedCats, excluded, isOpen, canPickMat, running, design, c, onToggleCat, onToggleMat, onToggleExpand }) {
     const mats      = matEntries(cat);
     const total     = mats.length;
     const exclCount = mats.reduce((n, m) => n + (excluded.has(m.fullId) ? 1 : 0), 0);
@@ -86,7 +87,7 @@ function CatalogRow({ cat, selectedCats, excluded, isOpen, canPickMat, running, 
         isOpen && h('div', { style: { paddingLeft: 18 } },
             total
                 ? mats.map(m => h(PoolMaterialRow, {
-                    key: m.fullId, m, running, c,
+                    key: m.fullId, m, running, design, c,
                     matOn: checked && !excluded.has(m.fullId),
                     onToggle: () => onToggleMat(cat.id, m.fullId, mats.map(x => x.fullId)),
                   }))
@@ -103,6 +104,10 @@ export function MaterialPoolPanel({ sessionKey, catalogs, selectedCats, onToggle
                                     onSelectAllCats, onClearCats,
                                     excludedMats, onToggleMat, running, c, labels, warnLabel }) {
     const [session, setField] = useWindowSession(synthesisSidebarSession, null);
+    // Swatches are coloured as the open design resolves its materials. Read
+    // directly rather than through useDesign(), which throws outside a design
+    // provider.
+    const design = useContext(DesignContext)?.design || null;
     const expanded = session.poolExpanded[sessionKey] || EMPTY_EXPANDED;
     const excluded   = excludedMats || new Set();
     const canPickMat = typeof onToggleMat === 'function';   // gracefully no-op if a window hasn't wired it
@@ -137,7 +142,7 @@ export function MaterialPoolPanel({ sessionKey, catalogs, selectedCats, onToggle
             style: { ...WARN_BADGE_STYLE, display: 'block', whiteSpace: 'normal', marginBottom: 5, lineHeight: 1.3 },
         }, warnLabel(selectedCount)),
         catalogs.map(cat => h(CatalogRow, {
-            key: cat.id, cat, selectedCats, excluded, canPickMat, running, c,
+            key: cat.id, cat, selectedCats, excluded, canPickMat, running, design, c,
             isOpen: canPickMat && expanded.has(cat.id),
             onToggleCat, onToggleMat, onToggleExpand: toggleExpand,
         }))

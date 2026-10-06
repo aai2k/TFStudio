@@ -12,9 +12,9 @@ import {
 } from '../../../../utils/physics/systematicDeviations.js';
 import { systematicDeviationsSession } from './sessionState.js';
 import { useWindowSession } from '../../windowSession.js';
-import { sweepParamKind } from './model.js';
+import { staleSweepPatch, sweepForDesign, sweepParamKind } from './model.js';
 
-const { useCallback, useMemo, useState } = React;
+const { useCallback, useEffect, useMemo, useState } = React;
 
 function computeSpectrum(design, params, deviation, evalMode) {
     if (!design?.frontLayers) return { s: null, error: null };
@@ -55,13 +55,30 @@ export function sweepBaseDeviation(sweep) {
     return base;
 }
 
+// The sweep and its result as the design can use them. A swept material the
+// design no longer uses is reset in the store, and the result swept on it
+// dropped, so the selector, the run and the plot agree. The store is checked
+// again when writing: for one render after a design switch `session` still
+// holds the previous design's values, and those must not be written over the
+// new design's.
+function useDesignSweep(session, uniqueMats, patch) {
+    const sweep = useMemo(() => sweepForDesign(session.sweep, uniqueMats), [session.sweep, uniqueMats]);
+    const stale = sweep !== session.sweep;
+    useEffect(() => {
+        if (stale) patch(stored => staleSweepPatch(stored, uniqueMats));
+    }, [stale, uniqueMats, patch]);
+    return { sweep, sweepResult: stale ? null : session.sweepResult };
+}
+
 export function useSystematicDeviations() {
     const { design, evalMode } = useDesign();
-    const [session, setField] = useWindowSession(systematicDeviationsSession, design);
+    const [session, setField, patch] = useWindowSession(systematicDeviationsSession, design);
     const {
         mode, channel, showBaseline, lambdaStart, lambdaEnd, lambdaStep,
-        aoi, pol, sweep, sweepChannel, sweepResult, showEditor, showTable,
+        aoi, pol, sweepChannel, showEditor, showTable,
     } = session;
+    const uniqueMats = useMemo(() => enumerateUniqueMaterials(design), [design]);
+    const { sweep, sweepResult } = useDesignSweep(session, uniqueMats, patch);
     // Memoised so the fallback is one stable object: a fresh one per render would
     // invalidate every memo below it on every render.
     const dev = useMemo(() => session.dev || emptyDeviation(), [session.dev]);
@@ -88,7 +105,6 @@ export function useSystematicDeviations() {
     const params = useMemo(() => ({
         lambdaStart, lambdaEnd, lambdaStep, theta: aoi, polarization: pol,
     }), [lambdaStart, lambdaEnd, lambdaStep, aoi, pol]);
-    const uniqueMats = useMemo(() => enumerateUniqueMaterials(design), [design]);
     const specDev = useMemo(() => specDesign(design, dev), [design, dev]);
     const baselineM = useMemo(
         () => computeSpectrum(design, params, emptyDeviation(), evalMode),

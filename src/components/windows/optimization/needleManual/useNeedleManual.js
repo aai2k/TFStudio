@@ -20,7 +20,7 @@ import {
 } from '../../../../utils/physics/optimizer.js';
 import {
     countPoolMaterials, POOL_MAX_SYNC,
-    useCatSelection, materialLookup, matDisplayName, getPoolMaterials,
+    useCatSelection, materialLookup, matFriendlyName, getPoolMaterials,
 } from '../synthesisShared/synthesisHelpers.js';
 import {
     candidateDepth, insertForSelection, runNeedleScan, buildPlotData,
@@ -127,9 +127,10 @@ function useNeedleWorkflow({ design, resolveMat, effSide, operands, selectedCats
         });
     }, [design, resolveMat, operands, selectedCats, excludedMats, deltaNm, nIntra, requestedSide, effSide, tn, t]);
 
-    const plotData = useMemo(() => buildPlotData(scan), [scan]);
+    const plotData = useMemo(() => buildPlotData(scan, design), [scan, design]);
 
-    const hostInfo = useMemo(() => resolveHostInfo(selected, scan, dMin, tn), [selected, scan, dMin, tn]);
+    const hostInfo = useMemo(
+        () => resolveHostInfo(selected, scan, dMin, tn, design), [selected, scan, dMin, tn, design]);
     const dRange   = useMemo(() => resolveDRange(selected, hostInfo, dMin), [selected, hostInfo, dMin]);
 
     const handlePick = useCallback((cand) => {
@@ -241,7 +242,7 @@ function startRefine(ctx, inserted, finish) {
         runRef.current = null;
         setRefining(false);
         if (!out) return;
-        const name = matDisplayName(selected.materialId);
+        const name = matFriendlyName(selected.materialId, design);
         finish(out.mfBest == null ? tn.inserted(name) : tn.insertedRefined(name, out.mfBest.toFixed(6)));
     });
 }
@@ -259,7 +260,7 @@ function runHandleApply(ctx) {
 
     if (!refineAfter) {
         commitInsertion(inserted, updateDesign);
-        finish(tn.inserted(matDisplayName(selected.materialId)));
+        finish(tn.inserted(matFriendlyName(selected.materialId, design)));
         return;
     }
     startRefine(ctx, inserted, finish);

@@ -1,25 +1,26 @@
 // Insertion preview panel: picked geometry, predicted optical merit, and the
 // Apply button, with Stop beside it while the refine after Apply runs.
 
-import { matDisplayName, matColor } from '../synthesisShared/synthesisHelpers.js';
+import { matFriendlyName, matColor } from '../synthesisShared/synthesisHelpers.js';
 
 const { createElement: h } = React;
 
-export function PreviewPanel({ selected, hostInfo, dNew, dRange, predictedOMF, omf0, evaluationBusy, onDNew, onApply, onStop, busy, refining, c, t }) {
+// Materials are named and coloured as `design` resolves them.
+export function PreviewPanel({ selected, hostInfo, dNew, dRange, predictedOMF, omf0, evaluationBusy, onDNew, onApply, onStop, busy, refining, design, c, t }) {
     const tn = t.needleManual;
     if (!selected) {
         return h('div', { style: { padding: '12px 12px', color: c.textDim, fontSize: 12, fontStyle: 'italic' } }, tn.clickHint);
     }
 
-    const name  = matDisplayName(selected.materialId);
+    const name  = matFriendlyName(selected.materialId, design);
     const geom = selected.intra
-        ? tn.geomIntra(name, selected.layerK + 1, matDisplayName(hostInfo.hostMat),
+        ? tn.geomIntra(name, selected.layerK + 1, matFriendlyName(hostInfo.hostMat, design),
             hostInfo.d1.toFixed(1), dNew.toFixed(1), hostInfo.d2.toFixed(1))
         : tn.geomGap(name, selected.z.toFixed(1), hostInfo.gapLabel);
 
     return h('div', { style: { padding: '8px 12px', display: 'flex', flexDirection: 'column', gap: 7 } },
         h('div', { style: { display: 'flex', alignItems: 'center', gap: 8 } },
-            h('span', { style: { width: 12, height: 12, borderRadius: 2, background: matColor(selected.materialId), display: 'inline-block' } }),
+            h('span', { style: { width: 12, height: 12, borderRadius: 2, background: matColor(selected.materialId, design), display: 'inline-block' } }),
             h('span', { style: { fontSize: 13, fontWeight: 700, color: c.text } }, name),
             h('span', { style: { fontSize: 11, color: c.textDim } }, `z = ${selected.z.toFixed(1)} nm`),
         ),
