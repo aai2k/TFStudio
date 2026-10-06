@@ -5,9 +5,11 @@
  * All tool windows call useDesign() to read/write the currently active design.
  */
 
-const { createContext, useContext, useState, useCallback, useEffect, useRef } = React;
+const { createContext, useContext, useState, useCallback, useEffect, useMemo, useRef } = React;
 
 import { resolveEvalMode, mirrorLayers } from '../utils/physics/optimizer.js';
+import { designMaterialIds, isBuiltinId, withHerpinRecords } from '../utils/materials/designMaterials.js';
+import { useCatalogRevision } from '../utils/materials/useCatalogRevision.js';
 import { useAnalysisDefaults, useAnalysisSettings } from './AnalysisSettingsContext.js';
 
 // ── Default design factory ─────────────────────────────────────────────────────
@@ -105,6 +107,22 @@ export function useDesign() {
     return ctx;
 }
 
+/**
+ * The design as windows receive it: the same object until a catalog changes,
+ * then a copy, when the design uses a material a catalog can hold.
+ *
+ * A window computes from material data but keys its memos on the design, and
+ * a catalog edit leaves the design as it was, so without this the window keeps
+ * the old n,k (and any lookup it memoized) until the design itself is edited.
+ * The copy is only what windows see: the store, the undo history and the
+ * unsaved state keep the stored object.
+ */
+function useCatalogFollowing(stored, catalogRevision) {
+    return useMemo(() => (
+        catalogRevision > 0 && designMaterialIds(stored).some(id => !isBuiltinId(id)) ? { ...stored } : stored
+    ), [stored, catalogRevision]);
+}
+
 // ── Provider ───────────────────────────────────────────────────────────────────
 //
 // Props:
@@ -162,7 +180,11 @@ export function DesignProvider({ children, activeDesignId, designs, folders, onD
     // The design the explorer has selected, and the placeholder shown instead
     // while it has none.
     const activeDesign = _activeId != null ? _designs[_activeId] : null;
-    const design = activeDesign || fallbackRef.current;
+    const catalogRevision = useCatalogRevision();
+    // A Herpin layer's material, which older files lack, is put back here, where
+    // every window reads the design (see withHerpinRecords).
+    const repaired = useMemo(() => withHerpinRecords(activeDesign || fallbackRef.current), [activeDesign]);
+    const design = useCatalogFollowing(repaired, catalogRevision);
 
     // Evaluation mode is DERIVED from the active design (surfaceMode + mfEvalMode),
     // not an independently-toggled state. This is the single source of truth that
@@ -277,6 +299,9 @@ export function DesignProvider({ children, activeDesignId, designs, folders, onD
             // Every open design, the project folders they sit in, and which one
             // is active, for a window that reports on several designs at once.
             designs: _designs,
+            // Changes whenever a catalog does; a window that computes from
+            // several designs at once takes it as a dependency.
+            catalogRevision,
             folders: folders || null,
             activeDesignId: _activeId,
             // Whether `design` is a real design rather than the placeholder.

@@ -58,9 +58,8 @@
  * by family, come from `entryProperties.js`.
  */
 import {
-    designMaterialIds, designMaterialLookup, isBuiltinId, resolveDesignMaterial,
+    designMaterialIds, designMaterialLookup, isBuiltinId, savedMaterialRecord,
 } from '../materials/designMaterials.js';
-import { stripGetNK } from '../materials/catalogManager/persistence.js';
 import { designRangeCoverage } from '../materials/materialRange.js';
 import { evaluateSpectrum } from '../physics/thinFilmMath.js';
 import { aggregateVerdict, evaluateQualifiers, makeQualifier } from '../synthesis/qualifiers.js';
@@ -396,8 +395,8 @@ export function entryFromDesign(design, side, meta = {}) {
     const materials = {};
     for (const id of new Set([incidentMedium, substrate, ...layers.map(layer => layer.material)])) {
         if (!id || isBuiltinId(id)) continue;
-        const { material, status } = resolveDesignMaterial(design, id);
-        if (status !== 'missing') materials[id] = stripGetNK(material);
+        const record = savedMaterialRecord(design, id);
+        if (record) materials[id] = record;
     }
 
     return makeCoatingEntry({

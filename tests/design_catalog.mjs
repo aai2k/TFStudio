@@ -2,9 +2,9 @@
  * Design-scoped material catalog (Material Editor browsing surface).
  *
  * Covers that a design's embedded definitions are inspectable without being
- * registered globally, and that the local-catalog comparison distinguishes a
- * material the recipient does not have from one they have under the same id
- * with different n,k.
+ * registered globally, that a local catalog holding the same id is the
+ * material the design uses, and that only a material no catalog here holds
+ * carries the notice that the design is computed from its own copy.
  */
 import assert from 'node:assert/strict';
 import { renderToStaticMarkup } from 'react-dom/server';
@@ -19,14 +19,16 @@ const [
     { initCatalogs, getMaterialById },
     {
         DESIGN_CATALOG_ID, buildDesignCatalog, searchDesignCatalog,
-        designSelectionTarget, designMaterialConflict,
+        designSelectionTarget,
     },
+    { resolveDesignMaterial },
     { MaterialEditor },
     { renderReadOnlyMaterial },
     { poolCatalogs, getPoolMaterials, countPoolMaterials },
 ] = await Promise.all([
     import('../src/utils/materials/catalogManager.js'),
     import('../src/utils/materials/designCatalog.js'),
+    import('../src/utils/materials/designMaterials.js'),
     import('../src/components/windows/design/materialEditor/MaterialEditor.js'),
     import('../src/components/windows/design/materialEditor/materialEditorReadOnly.js'),
     import('../src/components/windows/optimization/synthesisShared/catalogPool.js'),
@@ -55,8 +57,8 @@ const design = {
     },
 };
 
-// A local catalog that holds one of the two ids, with different n,k — the case
-// the notice has to distinguish.
+// A local catalog that holds one of the two ids, with different n,k: the design
+// uses the catalog's.
 initCatalogs({
     user_hr: {
         id: 'user_hr', name: 'House recipes', source: 'user',
@@ -81,8 +83,8 @@ assert.deepEqual(Object.keys(catalog.materials).sort(),
 // Entries are usable materials: the read-only chart samples them through getNK.
 assert.deepEqual(catalog.materials[FILM].getNK(550), [2.2, 0]);
 
-// Embedded definitions win over a local catalog entry of the same id.
-assert.deepEqual(catalog.materials[SHARED].getNK(550), [1.9, 0]);
+// A local catalog entry of the same id wins over the design's copy.
+assert.deepEqual(catalog.materials[SHARED].getNK(550), [1.75, 0]);
 assert.deepEqual(getMaterialById(SHARED).getNK(550), [1.75, 0]);
 
 // Membership follows the design's references, not a stored block: a design gains
@@ -121,23 +123,12 @@ assert.equal(designSelectionTarget(catalog, 'user_hr:Shared'), null);
 assert.equal(designSelectionTarget(catalog, `${DESIGN_CATALOG_ID}:user_hr:Gone`), null);
 assert.equal(designSelectionTarget(null, `${DESIGN_CATALOG_ID}:${FILM}`), null);
 
-// ── Local-catalog comparison ────────────────────────────────────────────────
-assert.equal(designMaterialConflict(design, FILM), 'absent');
-assert.equal(designMaterialConflict(design, SHARED), 'differs');
-assert.equal(designMaterialConflict(design, 'builtin:SiO2'), null);
-
-// Same dispersion data under the same id is agreement, not a conflict; a
-// differing display name alone must not be reported as one.
-const agreed = {
-    ...design,
-    materials: {
-        [SHARED]: {
-            id: 'Shared', name: 'Renamed locally', formulaNum: -1,
-            tabData: [[400, 1.75, 0], [800, 1.75, 0]],
-        },
-    },
-};
-assert.equal(designMaterialConflict(agreed, SHARED), 'same');
+// ── Which materials only the design carries ─────────────────────────────────
+// The notice below is for these: the design computes with its own copy because
+// no catalog here holds the id.
+assert.equal(resolveDesignMaterial(design, FILM).status, 'embedded');
+assert.equal(resolveDesignMaterial(design, SHARED).status, 'catalog');
+assert.equal(resolveDesignMaterial(design, 'builtin:SiO2').status, 'catalog');
 
 // ── Material Editor surface ─────────────────────────────────────────────────
 const c = makeTheme();
@@ -158,17 +149,17 @@ const mixed = renderToStaticMarkup(withDesign(
 assert.match(mixed, /This design \(3\)/);
 assert.match(mixed, /SiO2/, 'a built-in layer material appears in the design catalog');
 
-// The provenance notice states which definition produced the design's spectrum.
-const panel = (designConflict) => renderToStaticMarkup(renderReadOnlyMaterial({
-    selectedMat: catalog.materials[SHARED], sampledTable: [],
+// The notice says the design is computed from its own copy.
+const panel = (designOnly) => renderToStaticMarkup(renderReadOnlyMaterial({
+    selectedMat: catalog.materials[FILM], sampledTable: [],
     chartRef: { current: null }, openCopyPicker: () => {},
-    designConflict, me: t.materialEditor, t, c,
+    designOnly, me: t.materialEditor, t, c,
 }));
-assert.match(panel('differs'), /different n,k data/);
-assert.match(panel('absent'), /travels with the design/);
-assert.match(panel('same'), /matches the copy in your catalogs/);
-assert.doesNotMatch(panel(null), /travels with the design/,
-    'registry materials carry no design-provenance notice');
+assert.match(panel(true), /No catalog on this computer holds this material, so the design is computed with the copy it carries/);
+assert.match(panel({ conflict: 'Lab' }), /The catalog &quot;Lab&quot; on this computer holds another material under this ID/,
+    'a copy from another catalog of the same id says which catalog holds another material');
+assert.doesNotMatch(panel(false), /travels with the design/,
+    'a material a catalog holds carries no notice');
 
 // ── Synthesis material pool ─────────────────────────────────────────────────
 // The pool decides which films a needle/GE scan may insert, so what it offers

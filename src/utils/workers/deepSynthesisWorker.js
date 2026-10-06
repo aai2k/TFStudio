@@ -63,9 +63,10 @@ function runnerFor(pool) {
 // band samples than the run's grid holds, the run moves to a grid for it, with
 // material tables sampled here. source: the launch design with its non-built-in
 // materials embedded, and the pool's non-built-in materials as records;
-// built-in materials resolve by id. A material the design embeds wins over a
-// pool record of the same id, as it does in the window. The window gets the
-// new tables to rescore the best design it recorded.
+// built-in materials resolve by id. The window resolves both the same way, a
+// catalog first and then the design's copy, so the design's record and a pool
+// record of one id hold the same data. The window gets the new tables to
+// rescore the best design it recorded.
 function makeRegrid(current, source) {
     const lookup = designMaterialLookup({ ...source.design, materials: { ...source.pool, ...source.design.materials } });
     const poolLookup = designMaterialLookup({ materials: source.pool });

@@ -1,4 +1,5 @@
 import { resolveColor } from '../../../../utils/materials/catalogManager.js';
+import { useCatalogRevision } from '../../../../utils/materials/useCatalogRevision.js';
 import { resolveEvalMode } from '../../../../utils/physics/optimizer.js';
 import { resolveMaterial } from './units.js';
 
@@ -91,6 +92,9 @@ function lightDirection(design, de) {
 }
 
 export const StackDiagram = React.memo(function StackDiagram({ design, c, t }) {
+    // Redrawn when a material is recoloured: the memo compares the design,
+    // which a catalog edit leaves as it was.
+    useCatalogRevision();
     const de = t.designEditor;
     const subMat = resolveMaterial(design.substrate.material, design.materials);
     const front = design.frontLayers || [];

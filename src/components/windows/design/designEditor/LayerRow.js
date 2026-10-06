@@ -46,7 +46,9 @@ function StepArrow({ delta, enabled, title, onStep, c }) {
 // and `layer` keeps a stable object reference, so untouched rows are skipped
 // entirely — and scrolling, which changes no props, never re-renders any row.
 // `designMaterials` is the design's `materials` block rather than the design
-// itself for the same reason: it changes only when a definition does.
+// itself for the same reason. A layer's material can also change in its
+// catalog, which touches neither; `catalogRevision` changes then, so the
+// optical-thickness cells are worked out again with the new index.
 export const LayerRow = React.memo(function LayerRow({ layer, index, isSelected, onSelect, c,
     onMaterialChange, onThicknessChange, onThicknessStep, onLockToggle, onRemove,
     onMoveStep, canMoveUp, canMoveDown,

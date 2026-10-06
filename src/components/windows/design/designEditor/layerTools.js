@@ -1,4 +1,5 @@
 import { designMaterialLookup } from '../../../../utils/materials/designMaterials.js';
+import { herpinMaterialRecord } from '../../../../utils/materials/herpinMaterial.js';
 import {
     buildEvalContext, calcMF, evaluateOperands, mirrorLayers,
 } from '../../../../utils/physics/optimizer.js';
@@ -188,13 +189,7 @@ export function herpinCollapsePreview(design, side, selectedIds, referenceWavele
             originalLayers,
         },
     };
-    const material = {
-        id: materialId,
-        name: `Herpin E=${equivalentIndex.toFixed(6)} @ ${lambda} nm`,
-        color: '#8b5cf6', group: 'Herpin', formulaNum: -1,
-        coefficients: [], kTable: [],
-        tabData: [[1, equivalentIndex, 0], [10000000, equivalentIndex, 0]],
-    };
+    const material = herpinMaterialRecord(materialId, equivalentIndex, lambda);
     const nextLayers = [...layers.slice(0, first), equivalentLayer, ...layers.slice(last + 1)];
     const next = withSideLayers(design, side, nextLayers, {
         materials: { ...(design.materials || {}), [materialId]: material },

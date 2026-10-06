@@ -95,17 +95,17 @@ function normalizedRange(evaluated) {
 /**
  * Which of a design's materials do not cover an evaluated wavelength range.
  *
- * Materials are resolved through the design's own embedded definitions first,
- * the same precedence evaluation uses, so a travelling design is checked
- * against the data it actually computes with. Unresolved materials are skipped
- * — a missing material is already reported, and blocks calculation anyway.
+ * Materials are resolved the way evaluation resolves them, a catalog here first
+ * and then the design's own copy, so the check reads the data the design
+ * actually computes with. Unresolved materials are skipped: a missing material
+ * is already reported, and blocks calculation anyway.
  *
  * @param   {object} design
  * @param   {[number, number]} evaluated `[fromNm, toNm]`, either order
  * @returns {{ offenders: {id: string, name: string, rangeNm: [number, number],
  *                         heldFlat: boolean}[],
  *             covered: [number, number]|null }}
- *          `covered` is the span every declared material covers — the range
+ *          `covered` is the span every declared material covers: the range
  *          over which no value is clamped or extrapolated.
  */
 export function designRangeCoverage(design, evaluated) {

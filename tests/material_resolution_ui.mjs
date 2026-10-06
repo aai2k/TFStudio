@@ -12,7 +12,7 @@ const [
     { ToolContent },
     { DesignEditor },
     { MissingMaterialsBanner },
-    { collectMaterials, replaceMaterialReferences },
+    { collectMaterials, replaceMaterialReferences, ReplaceMaterialsDialog },
     { MaterialPicker },
     { SpectralMonitor },
     { MaterialResolutionModalGuard },
@@ -147,5 +147,23 @@ assert.equal(repaired.frontLayers[0].material, 'builtin:Air');
 assert.equal(repaired.backLayers[0].material, 'builtin:SiO2');
 assert.equal(repaired.frontLayers[0].thickness, 100,
     'replacement preserves physical layer data');
+
+// A material the design computes with its own copy from another catalog of the
+// same id: the From cell shows that copy, colour included, not the catalog's.
+{
+    const X = { id: 'X', name: 'Ta2O5 (lab)', color: '#0a0b0c', formulaNum: -1, tabData: [[400, 2.1, 0], [800, 2.0, 0]] };
+    initCatalogs({ lab: { id: 'lab', uid: 'stamp-here', name: 'Lab', source: 'user', materials: { X } } });
+    const received = {
+        ...broken, incidentMedium: 'builtin:Air', exitMedium: 'builtin:Air', substrate: { material: 'builtin:BK7', thickness: 1 },
+        frontLayers: [{ id: 'f1', material: 'lab:X', thickness: 60 }], backLayers: [],
+        materials: { 'lab:X': { ...X, name: 'Ta2O5 their lab', color: '#0d0e0f', tabData: [[400, 2.3, 0], [800, 2.2, 0]], catalogUid: 'stamp-there' } },
+    };
+    const html = renderToStaticMarkup(withDesign(React.createElement(ReplaceMaterialsDialog, {
+        design: received, updateDesign: () => {}, c, t, onClose: () => {},
+    }), received));
+    assert.ok(html.includes('Ta2O5 their lab'), 'the copy is named');
+    assert.ok(!html.includes('#0a0b0c') && !/rgb\(10, 11, 12\)/.test(html), 'and the catalog material\'s colour is nowhere');
+    initCatalogs({});
+}
 
 console.log('PASS: material_resolution_ui');

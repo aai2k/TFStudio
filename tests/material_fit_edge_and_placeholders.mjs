@@ -208,18 +208,22 @@ assert.throws(() => designMaterialLookup(design)('user_bad:F14'),
     error => error instanceof UnresolvedDesignMaterialError && error.materialId === 'user_bad:F14',
     'and a calculation refuses it instead of computing n = 1.5');
 
-// A definition a design carries is judged the same way, and is not traded for a
-// catalog entry of the same id, which would be some other material.
+// A definition a design carries is a backup, read only when no catalog holds
+// the id, and it is judged the same way.
 {
     const carried = {
         ...design,
         frontLayers: [{ id: 'a', material: 'user_bad:GOOD', thickness: 100 }],
         materials: { 'user_bad:GOOD': BAD_CATALOG.materials.F14 },
     };
+    assert.equal(resolveDesignMaterial(carried, 'user_bad:GOOD').status, 'catalog',
+        'a catalog entry of the same id comes before the definition the design carries');
+    initCatalogs({});
     assert.equal(resolveDesignMaterial(carried, 'user_bad:GOOD').status, 'missing',
-        'an embedded definition with no evaluator is missing');
+        'with no catalog holding the id, an embedded definition with no evaluator is missing');
     assert.deepEqual(embedDesignMaterials(carried).materials['user_bad:GOOD'], BAD_CATALOG.materials.F14,
         'and saving the design keeps it as the author wrote it');
+    initCatalogs({ user_bad: BAD_CATALOG });
 }
 
 // ── AGF: a formula number that is not a Zemax formula is an import error ─────

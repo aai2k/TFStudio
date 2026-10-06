@@ -1,13 +1,14 @@
 import { entryDesign } from '../../../../utils/coatingLibrary/entryModel.js';
 import { resolveDesignMaterial } from '../../../../utils/materials/designMaterials.js';
 import { materialLabel, resolveColor } from '../../../../utils/materials/catalogManager.js';
+import { useCatalogRevision } from '../../../../utils/materials/useCatalogRevision.js';
 
 const { createElement: h, useMemo } = React;
 
 /**
  * Display color of every material an entry uses, resolved the way the entry
- * is evaluated (embedded definitions first) and colored the way the Design
- * Editor colors materials.
+ * is evaluated (a catalog here first, then the definitions the entry carries)
+ * and colored the way the Design Editor colors materials.
  */
 export function entryMaterialColors(entry) {
     const design = entryDesign(entry);
@@ -26,7 +27,9 @@ export function entryMaterialColors(entry) {
  * thin layer next to a thick one stays visible.
  */
 export function StackStrip({ entry, c, height = 6 }) {
-    const colors = useMemo(() => entryMaterialColors(entry), [entry]);
+    // Recoloured when a catalog holding one of the materials changes.
+    const catalogRevision = useCatalogRevision();
+    const colors = useMemo(() => entryMaterialColors(entry), [entry, catalogRevision]);
     return h('div', {
         style: {
             display: 'flex', height, width: '100%', borderRadius: 2, overflow: 'hidden',

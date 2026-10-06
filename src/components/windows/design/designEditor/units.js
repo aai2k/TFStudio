@@ -1,13 +1,13 @@
 import { resolveDesignMaterial } from '../../../../utils/materials/designMaterials.js';
 import { parseNumberStrict } from '../../../../utils/misc/numberParsing.js';
 
-// Material an id stands for in the Design Editor, resolved the way the
-// design is computed: the design's own `materials` block first (definitions
-// that travel inside the design, such as those of an imported or received
-// file), then the catalogs. `designMaterials` is that block; callers with no
-// design at hand pass nothing and get the catalogs alone. Null for an id that
-// resolves nowhere, so a missing material is reported rather than shown as
-// air; an empty id is air.
+// Material an id stands for in the Design Editor, resolved the way the design
+// is computed: the catalogs first, then the design's own `materials` block
+// (definitions that travel inside the design, used for an id no catalog here
+// holds, such as those of an imported or received file). `designMaterials` is
+// that block; callers with no design at hand pass nothing and get the catalogs
+// alone. Null for an id that resolves nowhere, so a missing material is
+// reported rather than shown as air; an empty id is air.
 export function resolveMaterial(id, designMaterials) {
     const { material, status } = resolveDesignMaterial({ materials: designMaterials }, id);
     return status === 'missing' ? null : material;

@@ -75,4 +75,22 @@ assert.deepEqual(packed.layers, entry.layers);
 assert.ok(!('materials' in packed), 'null fields are left out');
 assert.deepEqual(makeCoatingEntry(packed).bands, entry.bands, 'the packed record reads back as the same entry');
 
+// A coating saved with a user material, sent after that material was edited in
+// its catalog, carries the material as it is now: the library computes it with
+// the catalog, and the file must compute the same elsewhere.
+{
+    const { initCatalogs } = await import('../src/utils/materials/catalogManager.js');
+    const film = n => ({ id: 'Film', name: 'Film', formulaNum: -1, tabData: [[400, n, 0], [800, n, 0]] });
+    const saved = makeCoatingEntry({
+        ...entry, layers: [{ material: 'user_lab:Film', thickness: 80 }],
+        materials: { 'user_lab:Film': film(2.0) },
+    });
+    initCatalogs({ user_lab: { id: 'user_lab', name: 'Lab', source: 'user', materials: { Film: film(2.3) } } });
+    const sent = JSON.parse(packText(saved)).materials['user_lab:Film'];
+    assert.deepEqual(sent.tabData, film(2.3).tabData, 'the packed file carries the catalog\'s current n,k');
+    initCatalogs({});
+    assert.deepEqual(JSON.parse(packText(saved)).materials['user_lab:Film'].tabData, film(2.0).tabData,
+        'with no catalog holding it, the entry\'s own copy is sent');
+}
+
 console.log('coating_library_share: all checks passed');

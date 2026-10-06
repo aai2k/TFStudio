@@ -29,7 +29,7 @@ import { interpK, makeGetNK } from '../src/utils/materials/catalogManager/disper
 import { normalizeCatalogMaterials } from '../src/utils/materials/catalogManager/persistence.js';
 import { initCatalogs, createUserCatalog, copyMaterialToCatalog } from '../src/utils/materials/catalogManager.js';
 import { resolveDesignMaterial, designMaterialLookup } from '../src/utils/materials/designMaterials.js';
-import { dispersionFingerprint } from '../src/utils/materials/designCatalog.js';
+import { dispersionFingerprint } from '../src/utils/materials/catalogStamps.js';
 import { parseMacleodFile } from '../src/utils/materials/macleodParser.js';
 import { parseTFCalcFile } from '../src/utils/materials/tfcalcParser.js';
 import { buildNKFromDraft, draftToMaterial, materialToDraft } from '../src/components/windows/design/materialEditor/materialDraft.js';
@@ -152,6 +152,15 @@ assert.equal(embedded.material.interp, LINEAR_INTERPOLATION, 'an embedded record
 assert.deepEqual(embedded.material.getNK(450), [1.65, 0.02], 'and is sampled by it');
 assert.notEqual(dispersionFingerprint({ ...record, interp: 'linear' }), dispersionFingerprint(record),
     'the same table under two rules is two different materials');
+{
+    // An active fit replaces the table inside its range, so it is part of what
+    // the material computes; an inactive one is not.
+    const fit = { active: true, rangeNm: [400, 700], n: { kind: 'cauchy', A: 1.6, B: 0, C: 0 } };
+    assert.notEqual(dispersionFingerprint({ ...record, dispersionFit: fit }), dispersionFingerprint(record),
+        'the same table with and without an active fit is two different materials');
+    assert.equal(dispersionFingerprint({ ...record, dispersionFit: { ...fit, active: false } }), dispersionFingerprint(record),
+        'an inactive fit changes nothing');
+}
 
 // ── 4. What the importers stamp ──────────────────────────────────────────────
 const macleodTable = '<?xml version="1.0"?>\r\n<EssentialMacleodMaterial Name="Glass" NType="1" KType="1" TType="-1"><NKPoints><NKPoint W="700" n="1.513" k="0"/><NKPoint W="300" n="1.553" k="0"/><NKPoint W="500" n="1.521" k="0"/></NKPoints><Cauchy Max="0" Min="0"><Parameter N="0" A="1"/></Cauchy><Sellmeier Max="0" Min="0"><Parameter N="0" A="0" B="0"/></Sellmeier><KPoints><KPoint W="100" k="0"/><KPoint W="1000" k="0"/></KPoints><KCauchy><Parameter N="0" A="0"/></KCauchy><KExp><Parameter A="0" B="0"/></KExp><Notes></Notes></EssentialMacleodMaterial>\r\n';

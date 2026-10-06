@@ -18,6 +18,7 @@ import { useLayerStep } from './useLayerStep.js';
 import { useLayerRowEdits } from './useLayerRowEdits.js';
 import { useThicknessStep } from './useThicknessStep.js';
 import { resolveDesignMaterial } from '../../../../utils/materials/designMaterials.js';
+import { useCatalogRevision } from '../../../../utils/materials/useCatalogRevision.js';
 import { expandHerpinLayer, isHerpinLayer } from './layerTools.js';
 import {
     HerpinDialog, PerturbDialog, QuantizeDialog, localizedHerpinError,
@@ -321,6 +322,7 @@ export function LayerList({ layers, side, design, updateDesign, missingMaterialI
     // props are unchanged (e.g. selection only re-renders the 2 affected rows).
     // No virtualization: a coating is a static list while you scroll, so we mount
     // it once rather than churning rows in/out of a viewport window.
+    const catalogRevision = useCatalogRevision();
     const rowEls = useMemo(() => {
         const dl = reversed ? [...layers].reverse() : layers;
         return dl.map((layer, di) => h(LayerRow, {
@@ -348,10 +350,10 @@ export function LayerList({ layers, side, design, updateDesign, missingMaterialI
             onContextMenu: openContextMenu,
             onPointerDownDrag,
             dropPosition: dropIndicator?.id === layer.id ? dropIndicator.position : null,
-            refLambda, designMaterials: design.materials, t,
+            refLambda, designMaterials: design.materials, catalogRevision, t,
         }));
     }, [layers, reversed, selectedId, selectedIds, activeUnit, editRequest,
-        dropIndicator, missingMaterialIds, refLambda, design.materials, c, t,
+        dropIndicator, missingMaterialIds, refLambda, design.materials, catalogRevision, c, t,
         selectAndFocus, onMaterialChangeRow, onThicknessChangeRow, onThicknessStepRow,
         onLockToggleRow, onRemoveRow, onMoveStepRow,
         activateCell, navigateCell, finishCellEditing, openContextMenu, onPointerDownDrag]);

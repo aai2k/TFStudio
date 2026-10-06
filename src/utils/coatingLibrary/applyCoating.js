@@ -6,8 +6,8 @@
  * its own invariants (layer ids, the mirrored back stack in symmetric mode).
  */
 import { mirrorLayers } from '../physics/optimizer.js';
-import { dispersionFingerprint } from '../materials/designCatalog.js';
-import { designMaterialIds, resolveDesignMaterial } from '../materials/designMaterials.js';
+import { designMaterialIds, resolveDesignMaterial, savedMaterialRecord } from '../materials/designMaterials.js';
+import { catalogServes, dispersionFingerprint } from '../materials/catalogStamps.js';
 
 function freshLayers(entry) {
     const stamp = `${Date.now().toString(36)}${Math.random().toString(36).slice(2, 6)}`;
@@ -29,11 +29,13 @@ function promoteSurfaceMode(patch, design) {
 /**
  * Definitions the entry brings along, merged with what the design already has.
  *
- * The design's existing meaning of an id always wins: an id the design embeds
- * or already uses from a local catalog keeps that definition, and the entry's
- * definition is reported as a clash when its dispersion differs. An id new to
- * the design, or one the design uses but cannot resolve, takes the entry's
- * definition so the coating computes as it was saved.
+ * An id a catalog here serves for the entry's definition and for the design
+ * (see catalogServes) computes with that catalog, in the library and in the
+ * design alike, so it is not merged and never clashes. For any other id the material the design
+ * already computes with wins, its own copy or the catalog's, and the entry's
+ * definition is reported as a clash when its dispersion differs. An id the
+ * design does not use yet takes the entry's definition, so the coating
+ * computes as it was saved.
  *
  * @returns {{ materials: object|null, clashes: string[] }}
  */
@@ -42,24 +44,15 @@ export function mergeEntryMaterials(design, entry) {
     const ids = Object.keys(incoming);
     if (ids.length === 0) return { materials: null, clashes: [] };
 
-    const used = new Set(designMaterialIds(design));
     const merged = { ...(design.materials || {}) };
+    const used = new Set(designMaterialIds(design));
     const clashes = [];
     for (const id of ids) {
         const record = incoming[id];
-        const embedded = merged[id];
-        if (embedded) {
-            if (dispersionFingerprint(embedded) !== dispersionFingerprint(record)) clashes.push(id);
-            continue;
-        }
-        if (used.has(id)) {
-            const { material, status } = resolveDesignMaterial(design, id);
-            if (status === 'catalog' && dispersionFingerprint(material) !== dispersionFingerprint(record)) {
-                clashes.push(id);
-                continue;
-            }
-        }
-        merged[id] = record;
+        if (catalogServes(record, id) && !resolveDesignMaterial(design, id).conflict) continue;
+        const own = merged[id] || used.has(id) ? savedMaterialRecord(design, id) : null;
+        if (!own) merged[id] = record;
+        else if (dispersionFingerprint(own) !== dispersionFingerprint(record)) clashes.push(id);
     }
     return { materials: merged, clashes };
 }

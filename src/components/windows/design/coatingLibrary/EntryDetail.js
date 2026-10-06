@@ -5,6 +5,7 @@ import {
 import { entryMetrics } from '../../../../utils/coatingLibrary/entryProperties.js';
 import { validateEntry } from '../../../../utils/coatingLibrary/validateEntry.js';
 import { qualifierSummary } from '../../../../utils/synthesis/qualifiers.js';
+import { useCatalogRevision } from '../../../../utils/materials/useCatalogRevision.js';
 import { PreviewPlot } from './PreviewPlot.js';
 import { StackStrip, entryMaterialColors } from './StackStrip.js';
 import { Chip, KeyValue, SectionTitle, TAG_GROUP_COLORS, TypeBadge, angleText, percent } from './ui.js';
@@ -27,8 +28,8 @@ const cellStyle = (c, align = 'left') => ({
 
 // Substrate at the top, layer 1 next, the incident medium at the bottom: the
 // same orientation as the Design Editor.
-function StackTable({ entry, c, ts }) {
-    const colors = useMemo(() => entryMaterialColors(entry), [entry]);
+function StackTable({ entry, catalogRevision, c, ts }) {
+    const colors = useMemo(() => entryMaterialColors(entry), [entry, catalogRevision]);
     return h('table', { style: { borderCollapse: 'collapse', width: '100%', maxWidth: 420 } },
         h('thead', null, h('tr', null,
             h('th', { style: { ...cellStyle(c, 'right'), color: c.textDim, fontWeight: 500 } }, ts.layerNo),
@@ -125,9 +126,13 @@ function SpecList({ spec, c, ts, summaries }) {
 }
 
 export function EntryDetail({ entry, c, ts, summaries, lambdaAxis }) {
-    const problems = useMemo(() => validateEntry(entry), [entry]);
+    // A material the entry uses computes from its catalog when one holds it, so
+    // a catalog edit changes the checks, the numbers and the colours while the
+    // entry stays the same.
+    const catalogRevision = useCatalogRevision();
+    const problems = useMemo(() => validateEntry(entry), [entry, catalogRevision]);
     const metrics = useMemo(() => (problems.length ? { error: problems[0] } : entryMetrics(entry)), [entry, problems]);
-    const spec = useMemo(() => entrySpecResults(entry), [entry]);
+    const spec = useMemo(() => entrySpecResults(entry), [entry, catalogRevision]);
     const pol = ts.pols[entry.polarization] || entry.polarization;
 
     return h('div', { style: { padding: '10px 14px 18px' } },
@@ -158,7 +163,7 @@ export function EntryDetail({ entry, c, ts, summaries, lambdaAxis }) {
         h('div', { style: { display: 'flex', flexWrap: 'wrap', gap: '0 40px' } },
             h('div', null,
                 h(SectionTitle, { c }, ts.stackHeading),
-                h(StackTable, { entry, c, ts })),
+                h(StackTable, { entry, catalogRevision, c, ts })),
             h('div', { style: { minWidth: 260, flex: 1 } },
                 h(SectionTitle, { c }, `${ts.propertiesHeading} · ${angleText(entry, ts)}`),
                 h(Properties, { entry, metrics, c, ts }),

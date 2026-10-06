@@ -6,7 +6,9 @@
  * catalog on this machine holds. The stack diagram, the OT/QW/FW columns,
  * optical-unit entry, the λ₀ rescale and the substrate k warning must read
  * those definitions, not fall back to air; and an id that resolves nowhere
- * must show as nothing rather than as air.
+ * must show as nothing rather than as air. A catalog here that holds the same
+ * id gives the whole material, colour included; the copy is read only when
+ * none does.
  *
  * Run: node tests/design_editor_embedded_materials.mjs
  */
@@ -76,5 +78,43 @@ assert.ok(render(true).includes(`background-color:${highColor}`), 'the layer blo
 assert.ok(!render(false).includes(`background-color:${highColor}`), 'without the block the same layer has no material colour');
 assert.ok(render(true).includes(`background-color:${c.border}`) === false || render(true).split(`background-color:${c.border}`).length <= 2,
     'the fallback colour is not painted on the embedded layer');
+
+// ── Colour from the catalog ─────────────────────────────────────────────────
+// A design saved since 1.4.1 carries a copy of each user material, colour
+// included. Recolouring the material in the Material Editor changes the
+// catalog, not the copy, and the layers must take the new colour: in the stack
+// diagram, in the layer's picker, and in the picker's list of the design's own
+// materials, which is where a new layer of it is picked from.
+const { initCatalogs } = await import('../src/utils/materials/catalogManager.js');
+const { MaterialPicker, designEntries } = await import('../src/components/ui/MaterialPicker.js');
+const { DesignContext } = await loadApp();
+const GREEN = '#2e9d3a';
+const YELLOW = '#e6b800';
+const copy = { ...high, id: 'H', name: 'H', color: GREEN };
+const saved = {
+    ...makeSampleDesign(),
+    referenceWavelength: lam0,
+    frontLayers: [{ id: 'l1', material: 'user_lab:H', thickness: d, locked: false }],
+    materials: { 'user_lab:H': copy },
+};
+const shown = () => {
+    const diagram = renderToStaticMarkup(React.createElement(StackDiagram, { design: saved, c, t }));
+    const picker = renderToStaticMarkup(React.createElement(DesignContext.Provider, { value: { design: saved } },
+        React.createElement(MaterialPicker, { value: 'user_lab:H', onChange: () => {}, c, t })));
+    const listed = designEntries(saved).find(entry => entry.id === 'user_lab:H');
+    return { diagram, picker, listed: resolveColor(listed.material) };
+};
+
+initCatalogs({ user_lab: { id: 'user_lab', name: 'Lab', source: 'user', materials: { H: { ...copy, color: YELLOW } } } });
+const recoloured = shown();
+assert.ok(recoloured.diagram.includes(`background-color:${YELLOW}`) && !recoloured.diagram.includes(GREEN),
+    'the layer block takes the catalog colour, not the one in the design\'s copy');
+assert.ok(recoloured.picker.includes(YELLOW) && !recoloured.picker.includes(GREEN), 'so does the layer\'s picker');
+assert.equal(recoloured.listed, YELLOW, 'and the design\'s own entry in the picker list');
+
+initCatalogs({});
+const received = shown();
+assert.ok(received.diagram.includes(`background-color:${GREEN}`) && received.picker.includes(GREEN),
+    'with no catalog holding the material, the copy keeps its colour');
 
 console.log('PASS: design_editor_embedded_materials');

@@ -25,12 +25,15 @@
  * editing); this file re-exports the public API from a single stable path.
  */
 
-export { initCatalogs, getCatalogs, getCatalog, addCatalog, removeCatalog } from './catalogManager/lifecycle.js';
+export { initCatalogs, getCatalogs, getCatalog, addCatalog, removeCatalog, stampCatalogs } from './catalogManager/lifecycle.js';
 export { getMaterialById, getNKById, searchMaterials, normalizeId, materialLabel } from './catalogManager/materialLookup.js';
 export {
+    catalogNameTaken,
+    freeCatalogName,
     createUserCatalog,
     renameUserCatalog,
     generateMaterialId,
+    materialIdTaken,
     saveUserMaterial,
     copyMaterialToCatalog,
     duplicateCatalog,
@@ -38,4 +41,4 @@ export {
     removeUserMaterial,
 } from './catalogManager/userCatalogs.js';
 export { ndColor, resolveColor, materialAutoColor } from './catalogManager/colors.js';
-export { CATALOGS_CHANGED } from './catalogManager/persistence.js';
+export { CATALOGS_CHANGED, notifyCatalogsChanged } from './catalogManager/persistence.js';

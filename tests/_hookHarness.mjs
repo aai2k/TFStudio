@@ -82,6 +82,12 @@ export function makeHookRuntime() {
         },
         /** The effects this render would have scheduled. */
         pendingEffects: () => [...effects],
+        /** Forget every slot, as if the component were mounted afresh. */
+        reset() {
+            slots.length = 0;
+            effects.length = 0;
+            cursor = 0;
+        },
     };
 }
 

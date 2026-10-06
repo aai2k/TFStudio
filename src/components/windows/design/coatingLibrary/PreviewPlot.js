@@ -1,4 +1,5 @@
 import { entrySpectrum } from '../../../../utils/coatingLibrary/entryModel.js';
+import { useCatalogRevision } from '../../../../utils/materials/useCatalogRevision.js';
 import { disposeChart, drawChart, useChartTeardown } from '../../../ui/plotSurface.js';
 import {
     axisTooltip, cartesianOption, dimmedBandSeries, horizontalLegend, lineSeries, valueAxis,
@@ -51,7 +52,10 @@ export function buildPreviewOption(spectrum, entry, c, ts, lambdaAxis) {
 export function PreviewPlot({ entry, c, ts, lambdaAxis, height = 240 }) {
     const divRef = useRef(null);
     const chartRef = useRef(null);
-    const spectrum = useMemo(() => entrySpectrum(entry), [entry]);
+    // A material the entry uses computes from its catalog when one holds it, so
+    // a catalog edit changes the spectrum while the entry stays the same.
+    const catalogRevision = useCatalogRevision();
+    const spectrum = useMemo(() => entrySpectrum(entry), [entry, catalogRevision]);
     useEffect(() => {
         if (spectrum.error) disposeChart(divRef.current, chartRef);
         else drawChart(divRef.current, chartRef, buildPreviewOption(spectrum, entry, c, ts, lambdaAxis));

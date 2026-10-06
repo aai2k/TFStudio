@@ -7,7 +7,8 @@
  * data included.
  */
 import { materialLabel } from '../materials/catalogManager.js';
-import { bandsText, slugify } from './entryModel.js';
+import { embedDesignMaterials } from '../materials/designMaterials.js';
+import { bandsText, entryDesign, slugify } from './entryModel.js';
 
 export const REPO_URL = 'https://github.com/aai2k/TFStudio';
 /** Discussions category whose form (.github/DISCUSSION_TEMPLATE/<category>.yml) the query fields below fill. */
@@ -75,9 +76,14 @@ export function mailUrl(entry) {
     return `mailto:${CONTRIBUTE_EMAIL}?subject=${encode(subject)}${body ? `&body=${encode(body)}` : ''}`;
 }
 
-/** The entry as the JSON a .tfsc file holds, ready to be written for sending. */
+/**
+ * The entry as the JSON a .tfsc file holds, ready to be written for sending.
+ * Its materials are written the way a design save writes them, so a material
+ * edited in a catalog since the coating was saved is sent as it is now.
+ */
 export function packText(entry) {
-    const record = Object.fromEntries(Object.entries(entry).filter(([, value]) => value != null));
+    const materials = embedDesignMaterials(entryDesign(entry)).materials;
+    const record = Object.fromEntries(Object.entries({ ...entry, materials }).filter(([, value]) => value != null));
     return JSON.stringify(record, null, 2);
 }
 

@@ -20,7 +20,8 @@ import { validateEntry } from '../src/utils/coatingLibrary/validateEntry.js';
 import { applyCoatingPatch, mergeEntryMaterials } from '../src/utils/coatingLibrary/applyCoating.js';
 import { filterEntries, substratesOf, tagCounts } from '../src/utils/coatingLibrary/filter.js';
 import { evaluateSpectrum } from '../src/utils/physics/thinFilmMath.js';
-import { designMaterialLookup } from '../src/utils/materials/designMaterials.js';
+import { designMaterialLookup, resolveDesignMaterial } from '../src/utils/materials/designMaterials.js';
+import { initCatalogs } from '../src/utils/materials/catalogManager.js';
 
 const near = (a, b, tol) => Math.abs(a - b) <= tol;
 
@@ -213,6 +214,41 @@ const source = {
     assert.equal(mergeEntryMaterials(fresh, bbar).materials, null, 'nothing to merge for a built-in-only coating');
     assert.equal(applyCoatingPatch(fresh, bbar).patch.materials, undefined);
     assert.ok(applyCoatingPatch(fresh, withLab).patch.materials['lab:TiO2lab']);
+
+    // A catalog here that holds the id is what both the design and the
+    // library's preview compute with, so neither copy matters and nothing
+    // clashes.
+    initCatalogs({ lab: { id: 'lab', name: 'Lab', source: 'user', materials: { TiO2lab: { ...LAB_TIO2_OTHER } } } });
+    merged = mergeEntryMaterials(differs, withLab);
+    assert.deepEqual(merged.clashes, [], 'an id a catalog holds never clashes');
+    assert.deepEqual(merged.materials['lab:TiO2lab'].tabData, LAB_TIO2_OTHER.tabData, 'and is left as the design had it');
+    assert.deepEqual(mergeEntryMaterials(unresolved, withLab).clashes, []);
+
+    // An entry saved on another computer, whose catalog of the same id holds
+    // other n,k, brings its own definition into the design, which then
+    // computes with what the library's preview showed.
+    initCatalogs({ lab: { id: 'lab', uid: 'bbbb', name: 'Lab', source: 'user', materials: { TiO2lab: { ...LAB_TIO2_OTHER } } } });
+    const foreign = { ...withLab, materials: { 'lab:TiO2lab': { ...LAB_TIO2, catalogUid: 'aaaa' } } };
+    merged = mergeEntryMaterials(fresh, foreign);
+    assert.deepEqual(merged.clashes, []);
+    assert.deepEqual(merged.materials['lab:TiO2lab'].tabData, LAB_TIO2.tabData, 'a definition from another catalog is merged');
+    const applied = { ...fresh, ...applyCoatingPatch(fresh, foreign).patch };
+    assert.equal(resolveDesignMaterial(applied, 'lab:TiO2lab').status, 'embedded', 'and the design computes with it');
+    const usesLocal = { frontLayers: [{ id: 'a', material: 'lab:TiO2lab', thickness: 50 }], backLayers: [] };
+    assert.deepEqual(mergeEntryMaterials(usesLocal, foreign).clashes, ['lab:TiO2lab'],
+        'a design computing with the local catalog keeps it, and the clash is reported');
+    const sameData = { ...withLab, materials: { 'lab:TiO2lab': { ...LAB_TIO2_OTHER, catalogUid: 'aaaa' } } };
+    assert.equal(mergeEntryMaterials(fresh, sameData).materials['lab:TiO2lab'], undefined,
+        'the same n,k under another stamp is the catalog\'s material');
+
+    // The other way round: the design computes the id with its own copy from
+    // another catalog, and the entry was saved here from the local catalog. The
+    // design's copy stays, so the entry's layers would not compute as saved.
+    const local = { ...withLab, materials: { 'lab:TiO2lab': { ...LAB_TIO2_OTHER, catalogUid: 'bbbb' } } };
+    const receivedDesign = { ...usesLocal, materials: { 'lab:TiO2lab': { ...LAB_TIO2, catalogUid: 'aaaa' } } };
+    assert.deepEqual(mergeEntryMaterials(receivedDesign, local).clashes, ['lab:TiO2lab'],
+        'a design computing with its own copy from another catalog reports the clash');
+    initCatalogs({});
 }
 
 // ── Validation ────────────────────────────────────────────────────────────────

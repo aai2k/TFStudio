@@ -17,7 +17,7 @@ await loadApp();
 const [
     { listCells, cellTops, visibleWindow, scrollTopFor, overlayEl, dropPositionFrom },
     { PickerTabs, scrollTabIntoView, stripEdges, pagedOffset, fadeMask, keepSearchFocus },
-    { designEntries, rowIsCurrent, currentGroupOf },
+    { designEntries, rowIsCurrent, currentGroupOf, catalogRows },
     { initCatalogs },
 ] = await Promise.all([
     import('../src/components/ui/PickerDropdown.js'),
@@ -176,8 +176,9 @@ const design = {
     ],
     backLayers: [],
     // Travelling designs carry the definition of every material outside the
-    // built-in library, and that definition is what the design was computed
-    // with, so the picker must be able to assign it to another layer.
+    // built-in library. Where no catalog here holds the id, that definition is
+    // what the design is computed with, so the picker must be able to assign
+    // it to another layer.
     materials: {
         'lab:Ta2O5_run7': {
             id: 'Ta2O5_run7', name: 'Ta2O5 (run 7)',
@@ -194,8 +195,19 @@ assert.ok(!ids.includes('gone:Nb2O5'),
 
 const embedded = designEntries(design, '').find(entry => entry.id === 'lab:Ta2O5_run7');
 assert.equal(embedded.status, 'embedded',
-    'the embedded definition is preferred over the local catalogs');
+    'with no catalog holding the id, the design\'s copy is used');
 assert.equal(embedded.material.name, 'Ta2O5 (run 7)');
+
+// A catalog here that holds the same id is the material the design uses: the
+// picker lists it by its catalog and opens on that catalog.
+initCatalogs({ lab: { id: 'lab', name: 'Lab', source: 'user', materials: {
+    Ta2O5_run7: { id: 'Ta2O5_run7', name: 'Ta2O5 (lab)', formulaNum: -1, tabData: [[400, 2.1, 0], [800, 2.0, 0]] },
+} } });
+const held = designEntries(design, '').find(entry => entry.id === 'lab:Ta2O5_run7');
+assert.equal(held.status, 'catalog', 'a catalog holding the id comes before the design\'s copy');
+assert.equal(held.material.name, 'Ta2O5 (lab)');
+assert.equal(currentGroupOf(design, 'lab:Ta2O5_run7'), 'lab');
+initCatalogs({});
 
 assert.deepEqual(designEntries(design, 'ta2o5').map(entry => entry.id), ['lab:Ta2O5_run7'],
     'the search box filters the design group by id and name');
@@ -223,6 +235,35 @@ assert.ok(!rowIsCurrent(designRow, args),
 const embeddedRow = { id: 'lab:Ta2O5_run7', matId: 'Ta2O5_run7', catalogId: 'lab', group: 'design' };
 assert.ok(rowIsCurrent(embeddedRow, { value: 'lab:Ta2O5_run7', resolvedId: 'lab:Ta2O5_run7', inCatalog: false }),
     'a material no catalog holds is marked in the design group');
+
+// ── A copy from another catalog of the same id ───────────────────────────────
+// The design computes with its own copy, so the picker opens on the design
+// group and marks that row. The catalog's row under that id is another
+// material, which a layer picking the id would not get, so it is not offered.
+{
+    initCatalogs({ lab: { id: 'lab', uid: 'stamp-here', name: 'Lab', source: 'user', materials: {
+        Ta2O5_run7: { id: 'Ta2O5_run7', name: 'Ta2O5 (lab)', formulaNum: -1, tabData: [[400, 2.1, 0], [800, 2.0, 0]] },
+    } } });
+    const received = {
+        ...design,
+        materials: { 'lab:Ta2O5_run7': { ...design.materials['lab:Ta2O5_run7'], catalogUid: 'stamp-there' } },
+    };
+    assert.equal(currentGroupOf(received, 'lab:Ta2O5_run7'), 'design', 'the picker opens on the design group');
+    const stamped = { value: 'lab:Ta2O5_run7', resolvedId: 'lab:Ta2O5_run7', inCatalog: false };
+    assert.ok(rowIsCurrent(embeddedRow, stamped), 'the design\'s row is marked');
+    assert.ok(!rowIsCurrent({ ...embeddedRow, group: 'lab' }, stamped), 'the catalog\'s row is not');
+
+    assert.deepEqual(catalogRows(received, '', 'lab').map(row => row.id), [],
+        'the catalog\'s row under that id is not offered');
+    const carriedOnly = { ...received, frontLayers: received.frontLayers.filter(l => l.material !== 'lab:Ta2O5_run7') };
+    assert.deepEqual(catalogRows(carriedOnly, '', 'lab').map(row => row.id), [],
+        'nor while no layer uses the id but the design still carries the copy');
+    assert.deepEqual(catalogRows(design, '', 'lab').map(row => row.id), ['lab:Ta2O5_run7'],
+        'while for a design whose copy follows the catalog it is');
+    assert.deepEqual(catalogRows(null, '', 'lab').map(row => row.id), ['lab:Ta2O5_run7'],
+        'and so it is for a picker outside a design');
+    initCatalogs({});
+}
 
 // ── A picker opened low in the window sits against its trigger ───────────────
 //

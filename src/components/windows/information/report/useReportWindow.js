@@ -181,11 +181,12 @@ function attempt(fn) {
 // The page: numbers gathered once per design and block list, then composed.
 // A failure in either step is the window's error rather than React's: a design
 // chosen for a comparison whose material no catalog resolves throws from the
-// data layer.
-function useDocument({ chosen, blocks, external, lang, tr, branding, doc, paper, meta }) {
+// data layer. A catalog change gathers again: the designs compared beside the
+// active one are not handed out afresh when a material they use changes.
+function useDocument({ chosen, blocks, external, lang, tr, branding, doc, paper, meta, catalogRevision }) {
     const gathered = useMemo(
         () => attempt(() => chosen.map(d => ({ design: d, data: gatherDesignData(d, blocks, external) }))),
-        [chosen, blocks, external]);
+        [chosen, blocks, external, catalogRevision]);
     const items = gathered.value || [];
     const composed = useMemo(() => (gathered.error
         ? { value: '', error: gathered.error }
@@ -223,8 +224,8 @@ export function useReportWindow({ t }) {
     const meta = useMemo(() => ({ appName: 'TFStudio', version, generatedAt: doc.date }), [version, doc.date]);
     const external = useExternalResults(chosen);
     const inputs = useSettled(useMemo(
-        () => ({ chosen, blocks, external, lang, tr, branding, doc, paper: state.paper, meta }),
-        [chosen, blocks, external, lang, tr, branding, doc, state.paper, meta]), preview);
+        () => ({ chosen, blocks, external, lang, tr, branding, doc, paper: state.paper, meta, catalogRevision: designCtx.catalogRevision }),
+        [chosen, blocks, external, lang, tr, branding, doc, state.paper, meta, designCtx.catalogRevision]), preview);
     const { items, html, error } = useDocument(inputs);
 
     const setDoc = useCallback((key, value) => patch({ doc: { ...state.doc, [key]: value } }), [patch, state.doc]);

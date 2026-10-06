@@ -9,7 +9,8 @@
 
 import { getCatalogs, getMaterialById, searchMaterials, materialLabel, resolveColor } from '../../utils/materials/catalogManager.js';
 import { DESIGN_CATALOG_ID } from '../../utils/materials/designCatalog.js';
-import { designMaterialIds, resolveDesignMaterial } from '../../utils/materials/designMaterials.js';
+import { conflictingIds, designMaterialIds, resolveDesignMaterial } from '../../utils/materials/designMaterials.js';
+import { useCatalogRevision } from '../../utils/materials/useCatalogRevision.js';
 import { DesignContext } from '../../state/DesignContext.js';
 import { PickerDropdown } from './PickerDropdown.js';
 
@@ -21,9 +22,8 @@ const { createElement: h, useContext } = React;
  *
  * They come first because a design's own materials are the likely choice for its
  * next layer, and because a material embedded in a travelling .tfs has no local
- * catalog to be found in. Ids are matched against the design's `materials` block
- * before the catalogs, so an embedded definition wins over a local material of
- * the same name — the same precedence the spectrum is computed with.
+ * catalog to be found in. An id resolves the way the spectrum is computed: a
+ * catalog here first, then the copy the design carries.
  */
 export function designEntries(design, query) {
     if (!design) return [];
@@ -62,16 +62,25 @@ function designRows(design, query, designLabel) {
     }));
 }
 
-function catalogRows(query, groupId) {
-    return searchMaterials(query, groupId).map(({ catalogId, catalogName, material }) => ({
-        id: `${catalogId}:${material.id}`,
-        matId: material.id,
-        catalogId,
-        group: catalogId,
-        label: material.name || material.id,
-        color: resolveColor(material),
-        badge: catalogId !== 'builtin' ? catalogName : null,
-    }));
+/**
+ * The catalog rows matching `query`. A catalog material under an id the design
+ * computes with a copy of its own from another catalog (see conflictingIds) is
+ * left out: picking that id gives a layer the design's copy, not the material
+ * the row shows.
+ */
+export function catalogRows(design, query, groupId) {
+    const foreign = conflictingIds(design);
+    return searchMaterials(query, groupId)
+        .map(({ catalogId, catalogName, material }) => ({
+            id: `${catalogId}:${material.id}`,
+            matId: material.id,
+            catalogId,
+            group: catalogId,
+            label: material.name || material.id,
+            color: resolveColor(material),
+            badge: catalogId !== 'builtin' ? catalogName : null,
+        }))
+        .filter(row => !foreign.has(row.id));
 }
 
 /**
@@ -79,27 +88,29 @@ function catalogRows(query, groupId) {
  *
  * A material the design already uses is listed twice, in the design group and in
  * the catalog it came from. The catalog row takes the mark, so the picker opens
- * on where the material actually comes from; the design group keeps it only for a
- * definition that travelled inside the file and has no catalog on this machine.
+ * on where the material actually comes from; the design group keeps it for a
+ * definition the design computes with itself: one that travelled inside the
+ * file and has no catalog here, or one from another catalog of the same id.
  */
 export function rowIsCurrent(item, { value, resolvedId, inCatalog }) {
     const matches = resolvedId === item.id
         || (resolvedId === `builtin:${item.matId}` && item.catalogId === 'builtin')
         || (value === item.matId && item.catalogId === 'builtin');
     if (!matches) return false;
-    return item.group !== DESIGN_CATALOG_ID || !inCatalog;
+    return (item.group === DESIGN_CATALOG_ID) === !inCatalog;
 }
 
 /**
  * The catalog tab the picker opens on: the one holding the current material, or
- * the design group when only the design carries its definition. `all` when the id
- * resolves nowhere, which leaves the list showing everything there is to pick.
+ * the design group when the design computes with its own copy. `all` when the
+ * id resolves nowhere, which leaves the list showing everything there is to pick.
  */
 export function currentGroupOf(design, resolvedId) {
-    if (getMaterialById(resolvedId)) {
+    const { status } = resolveDesignMaterial(design, resolvedId);
+    if (status === 'catalog') {
         return resolvedId.includes(':') ? resolvedId.slice(0, resolvedId.indexOf(':')) : 'builtin';
     }
-    return resolveDesignMaterial(design, resolvedId).status === 'embedded' ? DESIGN_CATALOG_ID : 'all';
+    return status === 'embedded' ? DESIGN_CATALOG_ID : 'all';
 }
 
 /**
@@ -118,10 +129,13 @@ export function MaterialPicker({ value, onChange, c, t, compact, catalogsOnly })
     // by windows that do not sit under a design provider.
     const context = useContext(DesignContext);
     const design = catalogsOnly ? null : (context?.design || null);
+    // The trigger's colour, and its name for a catalog material, come from the
+    // catalogs, which can change while the value stays the same.
+    useCatalogRevision();
 
     const resolvedId = value || 'builtin:Air';
     const { dotColor, label } = triggerAppearance(design, resolvedId);
-    const inCatalog = getMaterialById(resolvedId) != null;
+    const inCatalog = resolveDesignMaterial(design, resolvedId).status === 'catalog';
     const designIds = new Set(designMaterialIds(design));
     // Catalog filter tabs, resolved fresh so newly-scanned catalogs appear.
     const groups = [
@@ -132,7 +146,7 @@ export function MaterialPicker({ value, onChange, c, t, compact, catalogsOnly })
     const search = (query, groupId) => [
         ...(groupId && groupId !== DESIGN_CATALOG_ID
             ? [] : designRows(design, query, mp.designCatalog)),
-        ...(groupId === DESIGN_CATALOG_ID ? [] : catalogRows(query, groupId)),
+        ...(groupId === DESIGN_CATALOG_ID ? [] : catalogRows(design, query, groupId)),
     ];
 
     return h(PickerDropdown, {

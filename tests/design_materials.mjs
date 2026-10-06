@@ -8,6 +8,7 @@
  */
 import assert from 'node:assert/strict';
 import { initCatalogs } from '../src/utils/materials/catalogManager.js';
+import { catalogServes } from '../src/utils/materials/catalogStamps.js';
 import {
     designMaterialIds,
     designMaterialLookup,
@@ -26,7 +27,7 @@ const AUTHOR_CATALOG = {
     materials: {
         // Sellmeier-1 (formula 2) coefficients for fused silica (Malitson 1965).
         SiO2fit: {
-            id: 'SiO2fit', name: 'Silica (lab fit)', formulaNum: 2,
+            id: 'SiO2fit', name: 'Silica (lab fit)', formulaNum: 2, color: '#2e9d3a',
             coefficients: [0.6961663, 0.0684043 ** 2, 0.4079426, 0.1162414 ** 2,
                 0.8974794, 9.896161 ** 2],
             kTable: [],
@@ -167,30 +168,43 @@ assert.ok(
     Math.max(...substituted.T.map((t, i) => Math.abs(t - authored.T[i]))) > 0.01,
     'air substitution must not be mistaken for a correct result');
 
-// ── Precedence: the design wins over a local catalog sharing its ids ──────────
+// ── Precedence: a catalog here wins, the design's copy is the backup ──────────
+// The material edited in the Material Editor: same id, new n,k and colour. A
+// design read from its file carries the old definition and must follow the
+// edit, and its next save must carry the new one.
 
-const localCatalog = {
+const editedCatalog = {
     ...AUTHOR_CATALOG,
     materials: {
         ...AUTHOR_CATALOG.materials,
-        // Same id, different data — a divergent local copy.
         SiO2fit: {
-            id: 'SiO2fit', name: 'Silica (local)', formulaNum: 2,
-            coefficients: [0.7, 0.005, 0.4, 0.014, 0.9, 98], kTable: [],
+            id: 'SiO2fit', name: 'Silica (edited)', formulaNum: 2, color: '#e6b800',
+            coefficients: [1.0, 0.01, 0, 0, 0, 0], kTable: [],
         },
     },
 };
-initCatalogs({ user_lab: localCatalog });
+initCatalogs({ user_lab: editedCatalog });
 
 const { material, status } = resolveDesignMaterial(received, 'user_lab:SiO2fit');
-assert.equal(status, 'embedded');
-assert.equal(material.name, 'Silica (lab fit)', 'the design carries its author\'s definition');
-assert.deepEqual(spectrumOf(received).T, authored.T,
-    'a divergent local catalog cannot change what the file computes');
+assert.equal(status, 'catalog');
+assert.equal(material.name, 'Silica (edited)', 'the catalog material is used, not the copy in the file');
+assert.equal(material.color, '#e6b800', 'in the catalog\'s colour');
+const edited = spectrumOf(received);
+assert.deepEqual(edited.T, spectrumOf(design).T,
+    'the file computes exactly as the same design without a copy');
+assert.ok(Math.max(...edited.T.map((t, i) => Math.abs(t - authored.T[i]))) > 1e-3,
+    'and the edit shows in its result');
 
-// Re-saving keeps the embedded definition rather than adopting the local one.
-assert.equal(
-    embedDesignMaterials(received).materials['user_lab:SiO2fit'].name, 'Silica (lab fit)');
+const resaved = embedDesignMaterials(received).materials['user_lab:SiO2fit'];
+assert.equal(resaved.name, 'Silica (edited)', 'a save replaces the backup with the catalog\'s definition');
+assert.deepEqual(resaved.coefficients, editedCatalog.materials.SiO2fit.coefficients);
+
+initCatalogs({});
+const backup = resolveDesignMaterial(received, 'user_lab:SiO2fit');
+assert.equal(backup.status, 'embedded');
+assert.equal(backup.material.name, 'Silica (lab fit)',
+    'with no catalog holding the id, the design computes with the definition it carries');
+assert.equal(backup.material.color, '#2e9d3a', 'in the colour it was saved with');
 
 // ── A material missing everywhere has nothing to embed ────────────────────────
 
@@ -203,5 +217,30 @@ const broken = {
 assert.deepEqual(unresolvedMaterials(broken), ['user_gone:Ta2O5']);
 assert.ok(!('materials' in embedDesignMaterials(broken)),
     'a design whose materials were never on this machine cannot embed them');
+
+// ── A copy from another catalog of the same id ───────────────────────────────
+// Two computers can each have a catalog with one id. A copy stamped by the
+// other one is the design's own when its n,k differ, and the catalog's when
+// they are the same, as for a glass of an AGF file every installation has.
+{
+    const lab = AUTHOR_CATALOG.materials.SiO2fit;
+    initCatalogs({ user_lab: { ...AUTHOR_CATALOG, uid: 'stamp-here' } });
+    const carrying = record => ({ ...design, materials: { 'user_lab:SiO2fit': record } });
+    const otherData = { ...lab, coefficients: lab.coefficients.map(x => x * 1.01), catalogUid: 'stamp-there' };
+
+    const foreign = resolveDesignMaterial(carrying(otherData), 'user_lab:SiO2fit');
+    assert.equal(foreign.status, 'embedded', 'other n,k from another catalog: the design computes with its own copy');
+    assert.equal(foreign.conflict, true, 'and is told that a catalog here holds another material under the id');
+    assert.equal(catalogServes(otherData, 'user_lab:SiO2fit'), false);
+
+    const sameData = resolveDesignMaterial(carrying({ ...lab, catalogUid: 'stamp-there' }), 'user_lab:SiO2fit');
+    assert.equal(sameData.status, 'catalog', 'the same n,k under another stamp follows the catalog');
+    assert.equal(sameData.conflict, undefined);
+
+    const unstamped = resolveDesignMaterial(carrying({ ...otherData, catalogUid: undefined }), 'user_lab:SiO2fit');
+    assert.equal(unstamped.status, 'catalog', 'a copy written before stamps follows the catalog');
+    assert.equal(catalogServes(null, 'user_lab:SiO2fit'), true, 'as does a design with no copy');
+    initCatalogs({});
+}
 
 console.log('PASS: design_materials');

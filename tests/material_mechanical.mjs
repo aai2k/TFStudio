@@ -227,7 +227,7 @@ const bk7 = {
 };
 const readOnly = (mat, detailTab) => renderToStaticMarkup(renderReadOnlyMaterial({
     selectedMat: mat, sampledTable: [], chartRef: { current: null },
-    openCopyPicker() {}, designConflict: null, detailTab, setDetailTab() {}, me: mel, t, c,
+    openCopyPicker() {}, designOnly: false, detailTab, setDetailTab() {}, me: mel, t, c,
 }));
 
 const bk7Mechanical = readOnly(bk7, 'mechanical');
