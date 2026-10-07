@@ -139,13 +139,23 @@ const view = dispatchAnalysisEvaluation('pulseAnalysis', { design, request });
 
 // ── GDD target and session ───────────────────────────────────────────────────
 {
-    ok(designGddTarget(design.meritOperands, 'R') === -32, 'reflection target is the mean of the enabled GDD targets');
-    ok(designGddTarget(design.meritOperands, 'T') === 5, 'transmission reads the transmission targets');
-    ok(designGddTarget([], 'R') === null, 'no target, no value');
-    const state = pulseSession.normalize
-        ? pulseSession.normalize({ side: 'whole', target: 'R' })
-        : null;
-    if (state) ok(state.target === 'T', 'Whole part is transmission only');
+    const front = { side: 'front', surfaceMode: 'front_only' };
+    ok(designGddTarget(design.meritOperands, { ...front, target: 'R' }) === -32,
+        'reflection target is the mean of the enabled GDD targets');
+    ok(designGddTarget(design.meritOperands, { ...front, target: 'T' }) === 5, 'transmission reads the transmission targets');
+    ok(designGddTarget([], { ...front, target: 'R' }) === null, 'no target, no value');
+    ok(designGddTarget(design.meritOperands, { side: 'back', surfaceMode: 'front_only', target: 'R' }) === null,
+        'the side the merit function does not score has no target');
+    ok(designGddTarget(design.meritOperands, { side: 'back', surfaceMode: 'back_only', target: 'R' }) === -32,
+        'a back-only design scores the back side');
+    ok(designGddTarget(design.meritOperands, { side: 'whole', surfaceMode: 'front_only', target: 'T' }) === null,
+        'no target describes the whole part');
+    const copy = 'pulse-test-copy';
+    pulseSession.read(design, copy);
+    ok(pulseSession.write(design, { side: 'whole', target: 'R' }, copy).target === 'T',
+        'Whole part is transmission only');
+    ok(pulseSession.write(design, { side: 'front', target: 'R' }, copy).target === 'R',
+        'a coating side keeps reflection');
 }
 
 if (fails) {

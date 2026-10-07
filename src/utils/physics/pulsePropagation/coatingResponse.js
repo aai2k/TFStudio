@@ -72,11 +72,17 @@ function wholePartTransmittanceScale(design, { polarization, thetaDeg }) {
     const ratio = admittanceRatio({
         incident, medium: resolve(design.exitMedium), polarization, thetaDeg,
     });
+    const exit = resolve(design.exitMedium);
     const thicknessMm = design.substrate?.thickness ?? 1;
     const sinTheta0 = Math.sin(thetaDeg * Math.PI / 180);
     return (wavelengthNm) => {
         const n0 = incident.getNK(wavelengthNm);
         const ns = substrate.getNK(wavelengthNm);
+        // Past the critical angle into the substrate, or out of it into the
+        // exit medium, the light is totally reflected; across a substrate
+        // millimetres thick nothing tunnels through.
+        const invariant = n0[0] * sinTheta0;
+        if (invariant >= ns[0] || invariant >= exit.getNK(wavelengthNm)[0]) return 0;
         const { cosThetaSub } = substrateRay(n0, ns, sinTheta0);
         return ratio(wavelengthNm) * substratePass(ns[1], thicknessMm, wavelengthNm, cosThetaSub);
     };

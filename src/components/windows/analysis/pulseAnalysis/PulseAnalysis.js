@@ -108,13 +108,16 @@ export function PulseAnalysis({ c, t }) {
         wavelengthAxis: text.axes.wavelength, spectralAxis: text.axes.spectral, gddAxis: text.axes.gdd,
     }), [text]);
 
-    const table = shown?.valid ? resultsTable(shown, text) : EMPTY_TABLE;
+    const blank = blankReason({ analysis, evaluation, shown, text });
+    // The table, the readout and the export describe what the plot shows, so
+    // they empty with it.
+    const table = !blank && shown?.valid ? resultsTable(shown, text) : EMPTY_TABLE;
     const csv = useCsvExport(
         () => csvFromRows(table.columns, table.rows),
         () => `${(design?.name || 'design').replace(/[^\w.-]+/g, '_')}_pulse.csv`,
     );
-    const notices = [rangeNotice, ...runNotices({ shown, side: session.side, text })].filter(Boolean);
-    const blank = blankReason({ analysis, evaluation, shown, text });
+    const notices = [rangeNotice, ...runNotices({ shown: blank ? null : shown, side: session.side, text })]
+        .filter(Boolean);
 
     return h(AnalysisWindow, { c },
         h(PulseControls, { c, t, text, analysis, notices, busy }),

@@ -40,7 +40,7 @@ import { fftInPlace } from './fft.js';
 import {
     inputTimeExtent, pulseProblem, pulseSpectrumModel, wavelengthFromOmega as wavelengthAt,
 } from './pulseSpectrum.js';
-import { pulseMetrics } from './metrics.js';
+import { analyticDelay, pulseMetrics } from './metrics.js';
 import {
     bandIndices, checkedPoint, cutEnergy, flatPhase, inputBand, missingResponse, outputBand,
     referenceDelay, sampleBand, transferPower,
@@ -55,8 +55,14 @@ const SPECTRAL_FLOOR = 1e-12;
 // the width above can carry is about a third of that FWHM, so it still spans
 // more than a dozen samples and the drawn curve needs no interpolation.
 const SAMPLES_PER_DURATION = 48;
-// First time window, in units of the input pulse's own extent.
-const INITIAL_WINDOW_PER_EXTENT = 16;
+// The most of the transform's span in frequency the band may take. Past the
+// whole span two band samples would share one slot and one would be lost; the
+// half left empty keeps the drawn curve smooth. A measured spectrum file often
+// runs far beyond its line, and this is what sizes the step for it.
+const BAND_SHARE = 0.5;
+// First time window, in units of the input pulse's full extent; the window is
+// then doubled until the pulse fits inside the guard band.
+const INITIAL_WINDOW_PER_EXTENT = 4;
 // The outer eighth of the window on each side is the guard band: energy there
 // is energy about to wrap round from the other end. A share of the energy
 // below NEGLIGIBLE_ENERGY changes no drawn curve and no reported digit. It is
@@ -64,8 +70,14 @@ const INITIAL_WINDOW_PER_EXTENT = 16;
 // the most that may fall where the response has no value.
 const GUARD_FRACTION = 0.125;
 const NEGLIGIBLE_ENERGY = 1e-8;
-// Largest transform. Its window is about 4800 transform-limited durations, 0.2 ns
-// for a 10 fs pulse, and its working arrays take some tens of MB.
+// A pulse folded back into the window by a whole number of windows leaves the
+// guard band empty, but it moves the transformed pulse's centroid away from the
+// delay the analytic group delay gives. Unfolded, the two agree to about 1e-6
+// of the pulse duration, or 1e-4 where a material table ends inside the band;
+// a fold moves them apart by a sizeable part of it.
+const DELAY_AGREEMENT = 1e-3;
+// Largest transform. Its window is about 22 000 transform-limited durations,
+// 0.2 ns for a 10 fs pulse, and its working arrays take some tens of MB.
 export const DEFAULT_MAX_POINTS = 2 ** 20;
 
 function nextPowerOfTwo(value) {
@@ -81,8 +93,8 @@ function bandToIntensity(band, points) {
     const im = new Float64Array(points);
     for (let index = 0; index < band.re.length; index++) {
         const slot = (index + band.first + points) % points;
-        re[slot] = band.re[index];
-        im[slot] = band.im[index];
+        re[slot] += band.re[index];
+        im[slot] += band.im[index];
     }
     // A(t_m) = Σ_j Ã_j exp(−2πi·j·m/n): the exp(−iωt) convention.
     fftInPlace(re, im, -1);
@@ -115,6 +127,23 @@ function averageIntensity(intensities) {
     return result;
 }
 
+/** Total of a sampled intensity and its centroid in samples from the window's middle. */
+function centroidInSamples(intensity) {
+    let total = 0;
+    let moment = 0;
+    for (let index = 0; index < intensity.length; index++) {
+        total += intensity[index];
+        moment += intensity[index] * (index - intensity.length / 2);
+    }
+    return { total, centroid: moment / total };
+}
+
+/** Whether a level holds the whole pulse: nothing at its edges, nothing folded in. */
+function fits({ model }, level) {
+    return level.guard <= NEGLIGIBLE_ENERGY
+        && Math.abs(level.delayMismatchFs) <= DELAY_AGREEMENT * model.resolutionFs;
+}
+
 /** One evaluation of every signal on a grid of `points` samples. */
 function evaluateLevel(context, points, previous) {
     const { model, responses, passes, dt } = context;
@@ -126,13 +155,19 @@ function evaluateLevel(context, points, previous) {
     const outputs = values.map(channel => outputBand({ input, points: channel, passes, step, delay }));
     const inputIntensity = bandToIntensity(input, points);
     const channelIntensities = outputs.map(band => bandToIntensity(band, points));
-    return {
+    const outputIntensity = averageIntensity(channelIntensities);
+    const level = {
         points, step, first: indices.first, values, input, outputs, delay,
-        inputIntensity,
-        outputIntensity: averageIntensity(channelIntensities),
+        inputIntensity, outputIntensity,
         guard: Math.max(guardEnergy(inputIntensity), ...channelIntensities.map(guardEnergy)),
         missing: missingResponse(input, values),
     };
+    const before = centroidInSamples(inputIntensity);
+    const after = centroidInSamples(outputIntensity);
+    level.outputEnergy = after.total;
+    level.delayMismatchFs = analyticDelay({ model, passes, level })
+        - (delay + (after.centroid - before.centroid) * dt);
+    return level;
 }
 
 /**
@@ -152,28 +187,46 @@ export function propagatePulse({ pulse, responses, passes = 1, maxPoints = DEFAU
     const problem = pulseProblem(pulse);
     if (problem) return { valid: false, reason: problem };
     const model = pulseSpectrumModel(pulse, SPECTRAL_FLOOR);
-    const dt = model.resolutionFs / SAMPLES_PER_DURATION;
+    const dt = Math.min(
+        model.resolutionFs / SAMPLES_PER_DURATION,
+        2 * Math.PI * BAND_SHARE / (model.high - model.low),
+    );
     const context = { model, responses, passes, dt };
 
-    let points = nextPowerOfTwo(INITIAL_WINDOW_PER_EXTENT * inputTimeExtent(model) / dt);
-    const step = 2 * Math.PI / (points * dt);
+    const start = startLevel(context, maxPoints);
+    if (start.refused) return start.refused;
+    let { level } = start;
+    while (!fits(context, level) && level.points * 2 <= maxPoints) {
+        level = evaluateLevel(context, level.points * 2, level);
+    }
+    return assembleResult(context, level, fits(context, level));
+}
+
+/** The first evaluation, or why the pulse is refused before or at it. */
+function startLevel(context, maxPoints) {
+    // Refused before anything is sampled: a pulse that cannot fit the largest
+    // transform at the start would only grow from there.
+    const points = nextPowerOfTwo(INITIAL_WINDOW_PER_EXTENT * inputTimeExtent(context.model) / context.dt);
+    if (!(points <= maxPoints)) return { refused: { valid: false, reason: 'tooLarge' } };
+    const step = 2 * Math.PI / (points * context.dt);
     const removed = cutEnergy(context, step, bandIndices(context, step));
     if (removed > NEGLIGIBLE_ENERGY) {
-        return { valid: false, reason: 'spectrumReachesZeroFrequency', removedEnergy: removed };
+        return { refused: { valid: false, reason: 'spectrumReachesZeroFrequency', removedEnergy: removed } };
     }
+    const level = evaluateLevel(context, points, null);
+    return { level, refused: levelRefusal(level) };
+}
 
-    let level = evaluateLevel(context, points, null);
+function levelRefusal(level) {
     if (level.missing.energy > NEGLIGIBLE_ENERGY) {
         return { valid: false, reason: 'responseUnavailable', detail: level.missing.reason };
     }
-    while (level.guard > NEGLIGIBLE_ENERGY && points * 2 <= maxPoints) {
-        points *= 2;
-        level = evaluateLevel(context, points, level);
-    }
-    return assembleResult(context, level);
+    // Nothing comes out at all, as behind total internal reflection: there is
+    // no pulse to describe, and every number would be noise.
+    return level.outputEnergy > 0 ? null : { valid: false, reason: 'noOutput' };
 }
 
-function assembleResult(context, level) {
+function assembleResult(context, level, converged) {
     const { model, responses, passes, dt } = context;
     const { points, step, first } = level;
     const time = Float64Array.from({ length: points }, (_, index) => (index - points / 2) * dt);
@@ -190,8 +243,9 @@ function assembleResult(context, level) {
     const flpIntensity = bandToIntensity(flpBand, points);
     return {
         valid: true,
-        converged: level.guard <= NEGLIGIBLE_ENERGY,
+        converged,
         guardEnergy: level.guard,
+        delayMismatchFs: level.delayMismatchFs,
         missingEnergy: level.missing.energy,
         points,
         timeStepFs: dt,

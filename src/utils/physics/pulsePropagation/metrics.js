@@ -182,6 +182,12 @@ function phaseMeans({ model, passes, level }) {
     };
 }
 
+/** The delay `phaseMeans` gives: output centroid less input centroid, fs. */
+export function analyticDelay({ model, passes, level }) {
+    const phase = phaseMeans({ model, passes, level });
+    return phase.outputDelayFs - phase.inputDelayFs;
+}
+
 /** Peak intensity the bands would reach with a flat phase, on the same scale. */
 function transformLimitedPeak(bands) {
     let sum = 0;

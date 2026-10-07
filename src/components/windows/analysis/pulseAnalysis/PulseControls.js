@@ -117,7 +117,9 @@ function ChirpRows({ c, text, analysis }) {
             h(NumInput, { c, width: 72, step: 10, value: session.gdd, onChange: value => setField('gdd', value) }),
             h(ActionButton, {
                 c, label: text.fromTarget, disabled: gddTarget === null, onClick: fillGddFromTarget,
-                title: gddTarget === null ? text.noTargetTip : text.fromTargetTip(gddTarget, bounces),
+                title: gddTarget === null
+                    ? text.noTargetTip
+                    : text.fromTargetTip((-gddTarget * bounces).toFixed(1), gddTarget.toFixed(1), bounces),
             }),
         ),
         h(SettingRow, { key: 'tod', c, label: text.tod },

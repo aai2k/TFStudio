@@ -5,6 +5,7 @@ import { parseSpectrumTable, xToNm, X_UNITS } from '../../../../utils/io/spectru
 import { useLiveDesign } from '../../../../state/useLiveDesign.js';
 import { useWindowSession } from '../../windowSession.js';
 import { useAnalysisEvaluation } from '../useAnalysisEvaluation.js';
+import { meritTargetSide } from '../gdGddEvaluation/gdTargets.js';
 import { pulseFromSettings } from './pulseModel.js';
 import { pulseSession } from './sessionState.js';
 
@@ -22,9 +23,11 @@ function hasLayers(design, side) {
  * The mean GDD the merit function asks of this response, fs² per bounce, or
  * null when it asks for none. Every enabled GDD target for R, or for T, counts,
  * whatever polarization and angle it is scored at: the value is what the
- * coating was designed to give.
+ * coating was designed to give. The targets belong to the one side the merit
+ * function scores, so another side, or the whole part, has none.
  */
-export function designGddTarget(operands, target) {
+export function designGddTarget(operands, { target, side, surfaceMode }) {
+    if (side !== meritTargetSide(surfaceMode)) return null;
     const values = (operands || [])
         .filter(operand => operand?.enabled && GDD_TARGET_TYPES[target]?.has(operand.type))
         .map(operand => Number(operand.target))
@@ -105,7 +108,9 @@ export function usePulseAnalysis(design) {
     // A new request runs again even after Stop.
     useEffect(() => setStopped(false), [payload]);
     const evaluation = useAnalysisEvaluation(Boolean(payload) && !stopped, 'pulseAnalysis', payload);
-    const gddTarget = designGddTarget(liveDesign?.meritOperands, target);
+    const gddTarget = designGddTarget(liveDesign?.meritOperands, {
+        target, side, surfaceMode: liveDesign?.surfaceMode,
+    });
     const file = useSpectrumFile(patch);
 
     return {

@@ -253,12 +253,13 @@ function quarterWaveMirror(pairs) {
 }
 
 // ── 10. Gires-Tournois echoes ────────────────────────────────────────────────
-{
-    // 150 µm air spacer (round trip T ≈ 1 ps), front face R = 4%, ideal back
-    // mirror: H = (s + e^{iωT}) / (1 + s·e^{iωT}) in the exp(−iωt) convention.
-    const T = 2 * 150e3 / 299.792458;
-    const s = -0.2;
-    const gti = phaseResponse((d) => {
+/**
+ * A Gires-Tournois interferometer with a nondispersive spacer of round trip T,
+ * front-face coefficient s and an ideal back mirror:
+ * H = (s + e^{iωT}) / (1 + s·e^{iωT}) in the exp(−iωt) convention.
+ */
+function gtiResponse(T, s) {
+    return phaseResponse((d) => {
         const theta = (OMEGA0 + d) * T;
         const z = [Math.cos(theta), Math.sin(theta)];
         const phase = Math.atan2(z[1], s + z[0]) - Math.atan2(s * z[1], 1 + s * z[0]);
@@ -271,6 +272,12 @@ function quarterWaveMirror(pairs) {
             2 * s * T ** 3 * k * (Math.cos(theta) * q + 4 * s * Math.sin(theta) ** 2) / q ** 3,
         ];
     });
+}
+{
+    // 150 µm air spacer (round trip T ≈ 1 ps), front face R = 4%.
+    const T = 2 * 150e3 / 299.792458;
+    const s = -0.2;
+    const gti = gtiResponse(T, s);
     const result = propagatePulse({
         pulse: { shape: 'gaussian', centerWavelengthNm: LAMBDA0, durationFs: 100 }, responses: [gti],
     });
@@ -398,6 +405,76 @@ function quarterWaveMirror(pairs) {
     ok(rel(result.metrics.delayFs, carrierDelay) < 1e-6, `bare plate: pulse delay ${result.metrics.delayFs} equals ${carrierDelay}`);
     ok(rel(result.metrics.energyRatio, bare(LAMBDA0).re ** 2 + bare(LAMBDA0).im ** 2) < 1e-6,
         'bare plate: energy out is the two faces\' transmittance');
+}
+
+// ── 14. What the transform cannot hold is refused or sized to fit ────────────
+{
+    // A measured file far wider than its line: a 5 nm line read over 400-1100 nm.
+    // Its band is many times the span the line's own duration would set, and it
+    // must give what the same rows trimmed to five FWHM either side give.
+    const width = omegaWidthFromWavelengthWidth(LAMBDA0, 5);
+    const line = wavelengthNm => Math.exp(-4 * Math.LN2 * ((carrierOmega(wavelengthNm) - OMEGA0) / width) ** 2);
+    const rows = [];
+    for (let wavelengthNm = 400; wavelengthNm <= 1100; wavelengthNm += 0.5) rows.push(wavelengthNm);
+    const tableOf = list => ({ wavelengthNm: list, intensity: list.map(line) });
+    const wide = propagatePulse({ pulse: { shape: 'table', centerWavelengthNm: LAMBDA0, table: tableOf(rows) }, responses: [pureGdd(5000)] });
+    const trimmed = propagatePulse({
+        pulse: { shape: 'table', centerWavelengthNm: LAMBDA0, table: tableOf(rows.filter(value => Math.abs(value - LAMBDA0) <= 25)) },
+        responses: [pureGdd(5000)],
+    });
+    ok(wide.valid && wide.converged, 'a spectrum file wider than its line still fits');
+    // PCHIP through a line sampled ten times across its FWHM is itself about 1e-4
+    // off the Gaussian it samples, so the two files agree to that and no better.
+    ok(rel(wide.metrics.output.fwhmFs, trimmed.metrics.output.fwhmFs) < 1e-4,
+        `the wide file gives the trimmed file's pulse (${wide.metrics.output.fwhmFs} vs ${trimmed.metrics.output.fwhmFs} fs)`);
+
+    // A chirp too long for the largest transform is refused before anything runs.
+    const started = Date.now();
+    const long = propagatePulse({ pulse: { shape: 'gaussian', centerWavelengthNm: LAMBDA0, durationFs: 10, gddFs2: 1e6 }, responses: [unity] });
+    ok(!long.valid && long.reason === 'tooLarge', 'a chirp beyond the largest transform is refused');
+    const capped = propagatePulse({
+        pulse: { shape: 'gaussian', centerWavelengthNm: LAMBDA0, durationFs: 10, gddFs2: 2000 },
+        responses: [unity], maxPoints: 2 ** 14,
+    });
+    ok(!capped.valid || capped.points <= 2 ** 14, 'the largest transform asked for is the largest used');
+    // So is a super-Gaussian of so low an order that its wings never end.
+    const wings = propagatePulse({
+        pulse: { shape: 'superGaussian', centerWavelengthNm: LAMBDA0, bandwidthNm: 100, order: 0.1 },
+        responses: [unity],
+    });
+    ok(!wings.valid && wings.reason === 'tooLarge', 'a spectrum with endless wings is refused');
+    ok(Date.now() - started < 2000, `both refusals come at once (${Date.now() - started} ms)`);
+}
+
+// ── 15. Total internal reflection inside the part ────────────────────────────
+{
+    const stack = { material: 'TiO2', thickness: 80 };
+    const intoSubstrate = {
+        incidentMedium: 'Al2O3', exitMedium: 'Al2O3', substrate: { material: 'SiO2', thickness: 1 },
+        surfaceMode: 'front_only', frontLayers: [stack], backLayers: [stack],
+    };
+    const outOfSubstrate = {
+        incidentMedium: 'BK7', exitMedium: 'Air', substrate: { material: 'BK7', thickness: 1 },
+        surfaceMode: 'front_only', frontLayers: [stack], backLayers: [stack],
+    };
+    for (const [name, design, thetaDeg] of [['into the substrate', intoSubstrate, 70], ['out of the substrate', outOfSubstrate, 60]]) {
+        const [whole] = createCoatingResponses(design, { side: 'whole', polarization: 'p', thetaDeg });
+        const point = whole(LAMBDA0);
+        ok(point.re === 0 && point.im === 0, `whole part, TIR ${name}: nothing comes out`);
+        const result = propagatePulse({ pulse: { shape: 'gaussian', centerWavelengthNm: LAMBDA0, durationFs: 20 }, responses: [whole] });
+        ok(!result.valid && result.reason === 'noOutput', `whole part, TIR ${name}: refused, not drawn from noise`);
+    }
+}
+
+// ── 16. An echo folded onto the pulse by a whole window is caught ────────────
+{
+    // 100 fs pulses sample every 100/48 fs; a round trip of 2048 samples puts
+    // the second echo exactly one window of 4096 samples after the first.
+    const T = 2048 * 100 / 48;
+    const result = propagatePulse({ pulse: { shape: 'gaussian', centerWavelengthNm: LAMBDA0, durationFs: 100 }, responses: [gtiResponse(T, -0.2)] });
+    ok(result.converged, `folded GTI converges once the window grows (${result.points} points)`);
+    ok(rel(result.metrics.delayFs, T) < 1e-6, `folded GTI: delay ${result.metrics.delayFs} equals the round trip ${T}`);
+    ok(Math.abs(result.delayMismatchFs) < 1e-3, `folded GTI: analytic delay and centroid agree (${result.delayMismatchFs} fs)`);
 }
 
 // ── Misc: passes, polarization average, short pulses ─────────────────────────
