@@ -222,6 +222,34 @@ export const ANALYSIS_DEFAULTS = {
     booleans: { showRef: true, showTargets: true, showTable: false, yAuto: true },
   },
 
+  pulseAnalysis: {
+    // The Fourier-limited pulse, the chirped input, the output, and the
+    // coating's GDD on the spectrum view.
+    colors: { flp: '#4fc3f7', input: '#9e9e9e', output: '#ffb74d', gdd: '#ef5350' },
+    numbers: {
+      centerWavelength: { def: 800, ...LAMBDA },
+      // Transform-limited intensity FWHM of a Gaussian or sech² pulse, fs.
+      duration: { def: 10, positive: true, step: 1 },
+      // Spectral intensity FWHM of a super-Gaussian, nm.
+      bandwidth: { def: 100, positive: true, step: 5 },
+      theta: AOI,
+    },
+    enums: {
+      shape: {
+        def: 'gaussian', options: ['gaussian', 'sech2', 'superGaussian'],
+        labelsAt: 'pulseAnalysis.shapes',
+      },
+      target: { def: 'R', options: ['R', 'T'] },
+      pol: POL,
+      domain: { def: 'time', options: ['time', 'spectrum'], labelsAt: 'pulseAnalysis.domains' },
+      timeAxis: {
+        def: 'removed', options: ['removed', 'absolute'],
+        labelsAt: 'pulseAnalysis.timeAxes',
+      },
+    },
+    booleans: { showTable: false },
+  },
+
   materialDispersion: {
     colors: { curve: '#4fc3f7' },
     numbers: {

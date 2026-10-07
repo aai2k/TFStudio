@@ -1,7 +1,8 @@
-/** Off-renderer evaluation for cone-aware live display consumers. */
+/** Off-renderer evaluation for cone-aware live display consumers and pulse analysis. */
 import { computeOpticalSpectrum } from '../../components/windows/analysis/opticalEvaluation/spectrum.js';
 import { computeSpectrumForMode } from '../../components/windows/analysis/integralValues/spectrum.js';
 import { computeColorReport } from '../../components/windows/analysis/colorEvaluation/colorModel.js';
+import { computePulseAnalysis } from '../../components/windows/analysis/pulseAnalysis/pulseModel.js';
 import { designMaterialLookup, unresolvedMaterials } from '../materials/designMaterials.js';
 import { computeMonitors } from '../physics/statusMonitorEvaluation.js';
 import {
@@ -67,6 +68,8 @@ export function dispatchAnalysisEvaluation(operation, payload) {
                 before: meritScore(design, payload.operands || []),
                 after: meritScore(payload.candidateDesign, payload.operands || []),
             };
+        case 'pulseAnalysis':
+            return computePulseAnalysis(design, payload.request);
         case 'meritTimeline':
             return (payload.designs || []).map(timelineMerit);
         default:

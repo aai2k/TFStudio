@@ -52,7 +52,7 @@ function ok(condition, message) {
 
 // ── Registry shape ──────────────────────────────────────────────────────────
 {
-  ok(ANALYSIS_WINDOW_IDS.length === 20, 'registry covers the twenty windows with settings');
+  ok(ANALYSIS_WINDOW_IDS.length === 21, 'registry covers the twenty-one windows with settings');
   ok(ANALYSIS_WINDOW_IDS.includes('report'), 'the Report window declares the paper and language it opens with');
   ok(ANALYSIS_WINDOW_IDS[0] === 'opticalEvaluation', 'Optical Evaluation leads the rail');
   ok(!ANALYSIS_WINDOW_IDS.includes('shared'),
@@ -368,7 +368,7 @@ function ok(condition, message) {
     'opticalEvaluation', 'gdGddEvaluation', 'materialDispersion', 'eFieldEvaluation',
     'refractiveIndexProfiler', 'layerThicknesses', 'ellipsometryEvaluation', 'admittanceDiagram',
     'layerSensitivity', 'roughnessScattering', 'inhomogeneities',
-    'systematicDeviations', 'integralValues', 'colorEvaluation', 'errorAnalysis',
+    'systematicDeviations', 'integralValues', 'colorEvaluation', 'errorAnalysis', 'pulseAnalysis',
   ];
   for (const id of windows) {
     const source = readFileSync(join(stateDir, id, 'sessionState.js'), 'utf8');

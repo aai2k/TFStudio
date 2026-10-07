@@ -13,7 +13,11 @@ import {
     evaluateSubstratePropagation,
 } from './stackEvaluator.js';
 
-function sideDefinition(design, side) {
+/**
+ * The layers one side presents to light arriving from outside, in the order
+ * it meets them, with the medium it arrives from and the substrate behind.
+ */
+export function sideDefinition(design, side) {
     if (side === 'back') {
         return {
             layers: [...(design.backLayers || [])].reverse(),
@@ -30,41 +34,57 @@ function sideDefinition(design, side) {
 
 /** Incoherent front coating + substrate transit + back coating transmission. */
 export function evaluateTotalTransmissionDispersion(design, options) {
-    const { wavelengthNm, polarization = 's', thetaDeg = 0 } = options;
+    const { wavelengthNm, ...rest } = options;
+    return createTotalTransmissionDispersionEvaluator(design, rest)(wavelengthNm);
+}
+
+/**
+ * Prepare the front coating, the substrate transit and the back coating once
+ * for repeated wavelength evaluation of the single-pass transmission through
+ * the whole part. The returned evaluator takes a wavelength.
+ */
+export function createTotalTransmissionDispersionEvaluator(design, options = {}) {
+    const { polarization = 's', thetaDeg = 0 } = options;
     const resolveMaterial = designMaterialLookup(design);
     const incidentMaterial = resolveMaterial(design.incidentMedium);
     const substrateMaterial = resolveMaterial(design.substrate?.material);
     const exitMaterial = resolveMaterial(design.exitMedium);
-    const front = evaluateStackPhaseDispersion({
-        wavelengthNm,
-        target: 'T',
-        polarization,
-        thetaDeg,
-        incidentMaterial,
-        substrateMaterial,
-        layers: (design.frontLayers || []).map(layer => ({
-            material: resolveMaterial(layer.material), thicknessNm: layer.thickness,
-        })),
-    });
-    const substrate = evaluateSubstratePropagation({
-        wavelengthNm,
-        thicknessMm: design.substrate?.thickness ?? 1,
-        thetaDeg,
-        incidentMaterial,
-        substrateMaterial,
-    });
-    const back = evaluateStackPhaseDispersion({
-        wavelengthNm,
-        target: 'T',
-        polarization,
-        thetaDeg,
-        incidentMaterial: substrateMaterial,
-        substrateMaterial: exitMaterial,
-        referenceIncidentMaterial: incidentMaterial,
-        layers: (design.backLayers || []).map(layer => ({
-            material: resolveMaterial(layer.material), thicknessNm: layer.thickness,
-        })),
-    });
+    const resolveLayers = layers => (layers || []).map(layer => ({
+        material: resolveMaterial(layer.material), thicknessNm: layer.thickness,
+    }));
+    const frontLayers = resolveLayers(design.frontLayers);
+    const backLayers = resolveLayers(design.backLayers);
+    return wavelengthNm => composeTotalTransmission(wavelengthNm, {
+        front: evaluateStackPhaseDispersion({
+            wavelengthNm,
+            target: 'T',
+            polarization,
+            thetaDeg,
+            incidentMaterial,
+            substrateMaterial,
+            layers: frontLayers,
+        }),
+        substrate: evaluateSubstratePropagation({
+            wavelengthNm,
+            thicknessMm: design.substrate?.thickness ?? 1,
+            thetaDeg,
+            incidentMaterial,
+            substrateMaterial,
+        }),
+        back: evaluateStackPhaseDispersion({
+            wavelengthNm,
+            target: 'T',
+            polarization,
+            thetaDeg,
+            incidentMaterial: substrateMaterial,
+            substrateMaterial: exitMaterial,
+            referenceIncidentMaterial: incidentMaterial,
+            layers: backLayers,
+        }),
+    }, substrateMaterial);
+}
+
+function composeTotalTransmission(wavelengthNm, { front, substrate, back }, substrateMaterial) {
     const components = { front, substrate, back };
     const componentList = Object.values(components);
     const outsideRange = componentList.find(component => component.outsideRange)?.outsideRange

@@ -93,6 +93,7 @@ export default defineConfig({
             { label: 'Electric Field',     translations: { 'zh-CN': '电场' },       slug: 'analysis/efield' },
             { label: 'Ellipsometry',       translations: { 'zh-CN': '椭偏仪' },     slug: 'analysis/ellipsometry' },
             { label: 'GD / GDD',           slug: 'analysis/gd-gdd' },
+            { label: 'Pulse Analysis',     translations: { 'zh-CN': '脉冲分析' },   slug: 'analysis/pulse-analysis' },
             { label: 'Material Dispersion', translations: { 'zh-CN': '材料色散' },  slug: 'analysis/material-dispersion' },
             { label: 'RI Profile',         translations: { 'zh-CN': '折射率分布' }, slug: 'analysis/refractive-index-profile' },
             { label: 'Layer Thicknesses',  translations: { 'zh-CN': '膜层厚度' },   slug: 'analysis/layer-thicknesses' },
