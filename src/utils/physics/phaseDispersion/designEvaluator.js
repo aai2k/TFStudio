@@ -32,7 +32,7 @@ export function sideDefinition(design, side) {
     };
 }
 
-/** Incoherent front coating + substrate transit + back coating transmission. */
+/** Single-pass transmission through the front coating, the substrate and the back coating. */
 export function evaluateTotalTransmissionDispersion(design, options) {
     const { wavelengthNm, ...rest } = options;
     return createTotalTransmissionDispersionEvaluator(design, rest)(wavelengthNm);

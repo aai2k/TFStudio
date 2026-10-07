@@ -18,8 +18,10 @@ const { computePulseAnalysis, pulseFromSettings } =
     await import('../src/components/windows/analysis/pulseAnalysis/pulseModel.js');
 const { buildPulseChartOption } = await import('../src/components/windows/analysis/pulseAnalysis/chartModel.js');
 const { readoutParts, resultsTable } = await import('../src/components/windows/analysis/pulseAnalysis/viewModel.js');
-const { readPulseSpectrum, designGddTarget } =
+const { readPulseSpectrum, designGddTarget, gddFromTarget } =
     await import('../src/components/windows/analysis/pulseAnalysis/usePulseAnalysis.js');
+const { gddAxisRange } = await import('../src/components/windows/analysis/pulseAnalysis/chartModel.js');
+const { pulseProblem, carrierOmega, wavelengthFromOmega } = await import('../src/utils/physics/pulsePropagation.js');
 const { pulseSession } = await import('../src/components/windows/analysis/pulseAnalysis/sessionState.js');
 const { dispatchAnalysisEvaluation } = await import('../src/utils/workers/analysisEvaluationWorker.js');
 const { csvFromRows } = await import('../src/components/ui/ResultsSection.js');
@@ -30,7 +32,9 @@ const ok = (condition, message) => { if (!condition) { console.error('FAIL:', me
 const rel = (a, b) => Math.abs(a - b) / Math.max(1e-300, Math.abs(b));
 
 // Macleod, Thin-Film Optical Filters, 5th ed., Table 11.1: a 23-layer chirped
-// reflector, optical thicknesses in waves at 700 nm, layer 1 next to air.
+// reflector, optical thicknesses in waves at 700 nm, layer 1 next to air. The
+// book gives no indices; 2.4468 and 1.4553 are TFStudio's own TiO2 and SiO2 at
+// 700 nm, and BK7 stands for the book's glass.
 const OT = [0.048, 0.239, 0.336, 0.208, 0.231, 0.197, 0.225, 0.292, 0.292, 0.287, 0.279, 0.288,
     0.282, 0.285, 0.275, 0.291, 0.306, 0.324, 0.362, 0.320, 0.355, 0.323, 0.273];
 const design = {
@@ -57,24 +61,52 @@ const view = dispatchAnalysisEvaluation('pulseAnalysis', { design, request });
 {
     ok(view.valid && view.converged, 'the chirped mirror run is valid and fits its window');
     ok(view.chirped, 'a typed GDD makes the input differ from its FLP');
+    // The sampled maximum sits at most half a sample from the true peak.
     const flpPeak = Math.max(...view.time.flp.y);
-    ok(rel(flpPeak, 1) < 1e-3, `the FLP curve peaks at 1 (${flpPeak})`);
+    ok(rel(flpPeak, 1) < 3e-4, `the FLP curve peaks at 1 (${flpPeak})`);
     for (const key of ['flp', 'input', 'output']) {
-        ok(view.time[key].t.length <= 4000 && view.time[key].t.length === view.time[key].y.length,
-            `${key} curve is thinned to at most 4000 points (${view.time[key].t.length})`);
+        ok(view.time[key].x.length <= 4000 && view.time[key].x.length === view.time[key].y.length,
+            `${key} curve is thinned to at most 4000 points (${view.time[key].x.length})`);
     }
-    const outputPeakAt = view.time.output.t[view.time.output.y.indexOf(Math.max(...view.time.output.y))];
+    // The peak and the centroid of a pulse with a tail on one side differ by a
+    // fraction of its width, here about half a femtosecond.
+    const outputPeakAt = view.time.output.x[view.time.output.y.indexOf(Math.max(...view.time.output.y))];
     ok(Math.abs(outputPeakAt - view.metrics.delayFs) < 3, `the output curve sits at its delay (${outputPeakAt} fs vs ${view.metrics.delayFs} fs)`);
-    ok(view.metrics.outputFwhmFs < view.metrics.inputFwhmFs, 'four bounces recompress the chirped input');
-    ok(Math.max(...view.spectrum.input) === 1, 'the input spectrum peaks at 1');
-    ok(Math.max(...view.spectrum.output) < 1, 'the output spectrum shows the reflectance lost');
+    const oneBounce = computePulseAnalysis(design, { ...request, passes: 1 });
+    ok(view.metrics.outputFwhmFs < oneBounce.metrics.outputFwhmFs && oneBounce.metrics.outputFwhmFs < view.metrics.inputFwhmFs,
+        `each bounce recompresses the chirped input further (${view.metrics.inputFwhmFs}, ${oneBounce.metrics.outputFwhmFs}, ${view.metrics.outputFwhmFs} fs)`);
+    ok(Math.max(...view.spectrum.input.y) === 1, 'the input spectrum peaks at 1');
+    ok(Math.max(...view.spectrum.output.y) < 1, 'the output spectrum shows the reflectance lost');
     ok(view.spectrum.bandNm[0] < 820 && view.spectrum.bandNm[1] > 820, 'the drawn band holds the carrier');
-    ok(view.spectrum.compensatingGddFs2.every(value => value === -140), 'the compensating GDD is minus the typed GDD');
+    ok(view.spectrum.compensatingGddFs2.y.every(value => value === -140), 'the compensating GDD is minus the typed GDD');
     ok(view.echoDelayFs === null, 'only Whole part reports an echo');
-    ok(JSON.parse(JSON.stringify(view)).valid, 'the result survives a structured clone');
+    ok(structuredClone(view).valid, 'the result survives a structured clone');
+    // The GDD axis is ranged on the bulk of the curve, so it holds the coating's
+    // GDD near the carrier however far the reflection minima throw the rest.
+    const range = gddAxisRange(view);
+    const near = view.spectrum.coatingGddFs2.x.findIndex(wavelength => wavelength <= 820);
+    const atCarrier = view.spectrum.coatingGddFs2.y[near];
+    ok(range && atCarrier >= range.range[0] && atCarrier <= range.range[1], `the GDD axis holds the GDD at the carrier (${atCarrier} fs²)`);
 }
 
-// Whole part reports the substrate echo; an empty side reports why it is blank.
+// Thinning keeps a narrow peak: a 100 µm layer sends echoes back every 1.7 ps,
+// so the output curve has far more samples than are drawn, and its drawn peak
+// must still be the readout's, to the half sample the readout looks between.
+{
+    const thick = {
+        ...design, frontLayers: [{ material: 'TiO2', thickness: 1e5 }], meritOperands: [],
+    };
+    const ringing = computePulseAnalysis(thick, {
+        pulse: pulseFromSettings({ ...settings, duration: 5, gdd: 0 }),
+        side: 'front', target: 'R', polarization: 's', thetaDeg: 0, passes: 1,
+    });
+    const drawnPeak = Math.max(...ringing.time.output.y);
+    ok(ringing.valid && rel(drawnPeak, ringing.metrics.peakVsFlp) < 3e-4,
+        `the drawn output peak is the readout's (${drawnPeak} vs ${ringing.metrics.peakVsFlp})`);
+}
+
+// Whole part reports the substrate echo; a pulse too short for its carrier is
+// refused with words for why.
 {
     const whole = computePulseAnalysis(design, { ...request, side: 'whole', target: 'T', passes: 1, pulse: { ...request.pulse, gddFs2: 0 } });
     ok(whole.valid && whole.echoDelayFs > 9000, `Whole part: echo of 1 mm BK7 after ${whole.echoDelayFs} fs`);
@@ -127,14 +159,41 @@ const view = dispatchAnalysisEvaluation('pulseAnalysis', { design, request });
     const spectrum = readPulseSpectrum(`Wavelength (nm)\tIntensity\tPhase\n${rows.join('\n')}`, 'measured.txt');
     ok(spectrum && spectrum.rows === 101, 'a three-column table reads in full');
     ok(spectrum.table.phaseRad.length === 101, 'the third column is the phase');
-    ok(Math.abs(spectrum.centerWavelengthNm - 800) < 2, `the carrier is the spectrum's centroid (${spectrum.centerWavelengthNm} nm)`);
     const fromFile = computePulseAnalysis(design, {
         ...request, passes: 1,
         pulse: pulseFromSettings({ ...settings, source: 'file', spectrumFile: spectrum, centerWavelength: spectrum.centerWavelengthNm, gdd: 0 }),
     });
-    ok(fromFile.valid && fromFile.chirped, 'a file spectrum with a phase runs and counts as chirped');
+    ok(fromFile.valid && fromFile.chirped, 'a file spectrum with a curved phase runs and counts as chirped');
+    // A phase linear in frequency only moves the pulse in time.
+    const linearRows = rows.map(row => row.split('\t').slice(0, 2).concat(
+        (0.3 + 25 * (carrierOmega(Number(row.split('\t')[0])) - carrierOmega(800))).toFixed(9)).join('\t'));
+    const linear = readPulseSpectrum(`Wavelength (nm)\tIntensity\tPhase\n${linearRows.join('\n')}`, 'linear.txt');
+    const fromLinear = computePulseAnalysis(design, {
+        ...request, passes: 1,
+        pulse: pulseFromSettings({ ...settings, source: 'file', spectrumFile: linear, centerWavelength: linear.centerWavelengthNm, gdd: 0 }),
+    });
+    ok(fromLinear.valid && !fromLinear.chirped, 'a phase linear in frequency is not a chirp');
     ok(readPulseSpectrum('no numbers here', 'bad.txt') === null, 'a file with no table is refused');
-    ok(pulseFromSettings({ ...settings, source: 'file' }).shape === 'table', 'File with nothing loaded asks for a file');
+    ok(pulseProblem(pulseFromSettings({ ...settings, source: 'file' })) === 'table', 'File with nothing loaded asks for a file');
+}
+
+// A spectrum symmetric in frequency about 800 nm, written as a spectrometer
+// records it: per unit wavelength, I_λ = I_ω·|dω/dλ| ∝ I_ω/λ², on rows even in
+// wavelength. Read back per unit frequency, its centroid in frequency is 800 nm.
+// Against wavenumber the same light is per unit frequency as it stands. The
+// carrier is rounded to 0.01 nm.
+{
+    const omegaC = carrierOmega(800);
+    const perFrequency = wavelength => Math.exp(-(((carrierOmega(wavelength) - omegaC) / 0.08) ** 2));
+    const even = [];
+    for (let wavelength = 650; wavelength <= 1000; wavelength += 0.5) even.push(wavelength);
+    const nm = readPulseSpectrum(
+        `Wavelength (nm)\tIntensity\n${even.map(w => `${w}\t${perFrequency(w) / (w * w)}`).join('\n')}`, 'nm.txt');
+    ok(Math.abs(nm.centerWavelengthNm - 800) <= 0.01, `per unit wavelength: carrier ${nm.centerWavelengthNm} nm is 800 nm`);
+    const cm = readPulseSpectrum(
+        `Wavenumber (cm-1)\tIntensity\n${even.map(w => `${1e7 / w}\t${perFrequency(w)}`).join('\n')}`, 'cm.txt');
+    ok(Math.abs(cm.centerWavelengthNm - 800) <= 0.01, `per unit wavenumber: carrier ${cm.centerWavelengthNm} nm is 800 nm`);
+    ok(Math.abs(wavelengthFromOmega(omegaC) - 800) < 1e-12, 'the carrier conversions are inverse');
 }
 
 // ── GDD target and session ───────────────────────────────────────────────────
@@ -150,6 +209,8 @@ const view = dispatchAnalysisEvaluation('pulseAnalysis', { design, request });
         'a back-only design scores the back side');
     ok(designGddTarget(design.meritOperands, { side: 'whole', surfaceMode: 'front_only', target: 'T' }) === null,
         'no target describes the whole part');
+    // Four bounces of a −32 fs² mirror remove +128 fs² of input chirp.
+    ok(gddFromTarget(-32, 4) === 128, 'From target sets the chirp the bounces remove');
     const copy = 'pulse-test-copy';
     pulseSession.read(design, copy);
     ok(pulseSession.write(design, { side: 'whole', target: 'R' }, copy).target === 'T',

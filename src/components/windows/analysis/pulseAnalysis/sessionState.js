@@ -9,8 +9,9 @@ function preferredSide(design) {
 
 export const pulseSession = createWindowSession({
     ...sessionDefaults('pulseAnalysis'),
-    // Front and Back are one coating, as in the GD/GDD window; Whole part is
-    // the front coating, the substrate and the back coating, in transmission.
+    // Front and Back each show one coating on its own, as in the GD/GDD window;
+    // Whole part is the front coating, the substrate and the back coating, in
+    // transmission.
     side: 'front',
     // Super-Gaussian order; 2 is the Gaussian.
     order: 2,

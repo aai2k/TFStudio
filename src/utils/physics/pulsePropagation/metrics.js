@@ -11,11 +11,16 @@
  * Definitions:
  *   FWHM        distance between the outermost half-maximum crossings of the
  *               intensity, so a satellite above half the peak counts
- *   RMS width   square root of the second central moment of the intensity
+ *   RMS width   square root of the second central moment of the intensity; it
+ *               weights the far wings by t², so it holds only as well as the
+ *               time window holds the whole pulse
  *   delay       shift of the intensity centroid from input to output
  *   peak ratio  output peak intensity over input peak intensity, losses included
  *   TL ratio    output peak over the peak the same output spectrum would reach
- *               with a flat phase; 1 when nothing is left to compress
+ *               with a flat phase, each polarization channel flattened on its
+ *               own; 1 when the phase is flat. With s and p averaged, a delay
+ *               between them lowers it too, and no compressor common to both
+ *               removes that
  *   TBP         intensity FWHM in time times intensity FWHM in frequency (Hz)
  *   residual GDD and TOD
  *               the output's GDD and TOD averaged over its spectrum, weighted by
@@ -148,12 +153,14 @@ function spectralWidth({ omega, carrier, samples, evaluate }) {
 
 /**
  * Delay and mean GDD and TOD of the output, from the analytic derivatives of
- * its total spectral phase: the input's own polynomial plus N times the
- * response's GD, GDD and TOD. Each is a mean over the spectrum weighted by its
- * intensity. For the delay this is exact rather than a convention: t·A(t) and
- * −i·dÃ/dω are a Fourier pair, so by Parseval's theorem the intensity centroid
- * is ∫|Ã|²·(dΦ/dω) dω / ∫|Ã|² dω for any spectrum. Channels are pooled by the
- * energy each carries, as their intensities are.
+ * its total spectral phase: the input's own phase plus N times the response's
+ * GD, GDD and TOD. Each is a mean over the spectrum weighted by its intensity,
+ * summed over the band's samples. For the delay this is exact rather than a
+ * convention: t·A(t) and −i·dÃ/dω are a Fourier pair, so by Parseval's theorem
+ * the intensity centroid is ∫|Ã|²·(dΦ/dω) dω / ∫|Ã|² dω for any spectrum. The
+ * sum meets the integral to the step's first order where the group delay jumps,
+ * as it does where a material table ends inside the band. Channels are pooled
+ * by the energy each carries, as their intensities are.
  */
 function phaseMeans({ model, passes, level }) {
     const totals = { weight: 0, gdFs: 0, gddFs2: 0, todFs3: 0 };

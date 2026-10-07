@@ -19,6 +19,7 @@ import { AnalysisWindow, CenteredMessage, PlotArea } from '../chrome/layout.js';
 import { PulseChart } from './PulseChart.js';
 import { PulseControls } from './PulseControls.js';
 import { usePulseAnalysis } from './usePulseAnalysis.js';
+import { gddAxisRange } from './chartModel.js';
 import { readoutParts, resultsTable } from './viewModel.js';
 
 const { createElement: h, useEffect, useMemo, useState } = React;
@@ -47,16 +48,13 @@ function blankReason({ analysis, evaluation, shown, text }) {
     return reason ? reason[1]() : null;
 }
 
-function runNotices({ shown, side, text }) {
+function runNotices({ shown, session, text }) {
     if (!shown?.valid) return [];
     const notices = [];
-    if (!shown.converged) {
-        notices.push({
-            label: text.unconverged,
-            detail: text.unconvergedHint((100 * shown.guardEnergy).toPrecision(2)),
-        });
-    }
-    if (side === 'whole' && Number.isFinite(shown.echoDelayFs)) {
+    if (!shown.converged) notices.push({ label: text.unconverged, detail: text.unconvergedHint });
+    const gdd = session.domain === 'spectrum' ? gddAxisRange(shown) : null;
+    if (gdd?.outside) notices.push({ label: text.gddOffScale(gdd.outside), detail: text.gddOffScaleHint });
+    if (session.side === 'whole' && Number.isFinite(shown.echoDelayFs)) {
         notices.push({ label: text.wholeEcho, detail: text.wholeEchoHint((shown.echoDelayFs / 1000).toPrecision(3)) });
     }
     return notices;
@@ -103,10 +101,12 @@ export function PulseAnalysis({ c, t }) {
     const labels = useMemo(() => ({
         flp: text.legend.flp, input: text.legend.input, output: text.legend.output,
         inputSpectrum: text.legend.inputSpectrum, outputSpectrum: text.legend.outputSpectrum,
-        coatingGdd: text.legend.coatingGdd, compensatingGdd: text.legend.compensatingGdd,
+        // Through the whole part the curve is the part's GDD, substrate included.
+        coatingGdd: session.side === 'whole' ? text.legend.partGdd : text.legend.coatingGdd,
+        compensatingGdd: text.legend.compensatingGdd,
         timeAxis: text.axes.time, intensityAxis: text.axes.intensity,
         wavelengthAxis: text.axes.wavelength, spectralAxis: text.axes.spectral, gddAxis: text.axes.gdd,
-    }), [text]);
+    }), [text, session.side]);
 
     const blank = blankReason({ analysis, evaluation, shown, text });
     // The table, the readout and the export describe what the plot shows, so
@@ -116,7 +116,7 @@ export function PulseAnalysis({ c, t }) {
         () => csvFromRows(table.columns, table.rows),
         () => `${(design?.name || 'design').replace(/[^\w.-]+/g, '_')}_pulse.csv`,
     );
-    const notices = [rangeNotice, ...runNotices({ shown: blank ? null : shown, side: session.side, text })]
+    const notices = [rangeNotice, ...runNotices({ shown: blank ? null : shown, session, text })]
         .filter(Boolean);
 
     return h(AnalysisWindow, { c },

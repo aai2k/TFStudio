@@ -223,8 +223,9 @@ export const ANALYSIS_DEFAULTS = {
   },
 
   pulseAnalysis: {
-    // The Fourier-limited pulse, the chirped input, the output, and the
-    // coating's GDD on the spectrum view.
+    // The Fourier-limited pulse and the input spectrum; the chirped input and
+    // the GDD that undoes it; the output pulse and its spectrum; the response's
+    // GDD on the spectrum view.
     colors: { flp: '#4fc3f7', input: '#9e9e9e', output: '#ffb74d', gdd: '#ef5350' },
     numbers: {
       centerWavelength: { def: 800, ...LAMBDA },

@@ -6,6 +6,7 @@ import { NoticeBadge, SettingDivider, SettingRow, SettingsMenu } from '../chrome
 import {
     transformLimitedOmegaWidth, wavelengthWidthFromOmegaWidth,
 } from '../../../../utils/physics/pulsePropagation.js';
+import { gddFromTarget } from './usePulseAnalysis.js';
 
 const { createElement: h } = React;
 
@@ -99,8 +100,8 @@ function FileSpectrumRow({ c, text, analysis }) {
     const { session, canPick, loadSpectrum, fileError } = analysis;
     const file = session.spectrumFile;
     let status = file ? text.fileRows(file.name, file.rows) : text.noFile;
-    if (fileError === 'parse') status = text.fileParseError;
-    else if (fileError) status = text.fileReadError(fileError);
+    if (fileError?.parse) status = text.fileParseError;
+    else if (fileError) status = text.fileReadError(fileError.reason);
     return h(SettingRow, { c, label: text.file, wrap: true },
         h(ActionButton, {
             c, label: text.loadFile, title: text.loadFileTip, disabled: !canPick, onClick: loadSpectrum,
@@ -119,7 +120,7 @@ function ChirpRows({ c, text, analysis }) {
                 c, label: text.fromTarget, disabled: gddTarget === null, onClick: fillGddFromTarget,
                 title: gddTarget === null
                     ? text.noTargetTip
-                    : text.fromTargetTip((-gddTarget * bounces).toFixed(1), gddTarget.toFixed(1), bounces),
+                    : text.fromTargetTip(gddFromTarget(gddTarget, bounces).toFixed(1), gddTarget.toFixed(1), bounces),
             }),
         ),
         h(SettingRow, { key: 'tod', c, label: text.tod },

@@ -19,14 +19,17 @@
  *   sech2          |Ã(Δω)| = sech(π T0 Δω / 2),  τ = 2 ln(1 + √2) · T0
  *   superGaussian  |Ã(Δω)|² = exp(−ln2 · |2Δω/W|^p), W the intensity FWHM in
  *                  angular frequency and p the order; p = 2 is the Gaussian
- *   table          intensity and, optionally, phase read against wavelength,
- *                  interpolated in ω, zero outside the table
+ *   table          spectral intensity per unit frequency and, optionally, phase,
+ *                  read against wavelength, interpolated in ω, zero outside
+ *                  the table
  *
  * The Gaussian pair is Macleod, Thin-Film Optical Filters, 5th ed., Eqs. 11.7
  * and 11.8, with τ = 2√(ln2)·μ and τ·Δω = 4 ln2 (p. 416). The sech pair is
- * ∫ sech(t/T0) e^{iΔωt} dt = π T0 sech(π T0 Δω / 2) (Kärtner, Ultrafast Optics,
- * MIT 6.977 notes, §2.8, Table 2.2). The products of intensity FWHM in time
- * and in frequency are 2 ln2 / π ≈ 0.441 and 4 ln²(1 + √2) / π² ≈ 0.315.
+ * ∫ sech(t/T0) e^{iΔωt} dt = π T0 sech(π T0 Δω / 2), the hyperbolic secant
+ * being its own Fourier transform; the sech² intensity FWHM 1.7627·T0 and the
+ * product 0.315 are in Kärtner, Ultrafast Optics, MIT 6.977 notes, §2.8,
+ * Table 2.2. The products of intensity FWHM in time and in frequency are
+ * 2 ln2 / π ≈ 0.441 and 4 ln²(1 + √2) / π² ≈ 0.315.
  *
  * A super-Gaussian's width is entered as a FWHM in wavelength. Its profile is
  * symmetric in frequency, so the half-maximum points sit at ω0 ± W/2 and the
@@ -35,8 +38,11 @@
  * A table's phase is in rad with the same convention as the transfer matrix:
  * the group delay it carries is +dφ/dω. It is interpolated by a not-a-knot
  * cubic spline, which reads a phase that is a GDD and a TOD back exactly, and
- * its derivatives are the spline's own. The intensity is interpolated by PCHIP,
- * the rule tabulated materials use, which never overshoots below zero.
+ * its derivatives are the spline's own. Its value and slope at the carrier are
+ * removed, as the typed phase has none: they set only the pulse's phase and
+ * time origin, which a measured phase leaves arbitrary. The intensity is
+ * interpolated by PCHIP, the rule tabulated materials use, which never
+ * overshoots below zero.
  */
 
 import { C_NM_PER_FS } from '../../../tmmcore.js';
@@ -54,11 +60,21 @@ export function wavelengthFromOmega(omega) {
     return 2 * Math.PI * C_NM_PER_FS / omega;
 }
 
-/** Intensity FWHM in angular frequency, rad/fs, of a profile symmetric in ω. */
+/**
+ * Intensity FWHM in angular frequency, rad/fs, of a profile symmetric in ω: the
+ * positive root W of Δλ = 2πc·(1/(ω0 − W/2) − 1/(ω0 + W/2)), written as
+ * 4ω0² / (k + √(k² + 4ω0²)) with k = 4πc/Δλ so no digits cancel.
+ */
 export function omegaWidthFromWavelengthWidth(centerWavelengthNm, widthNm) {
     const omega0 = carrierOmega(centerWavelengthNm);
     const k = 4 * Math.PI * C_NM_PER_FS / widthNm;
-    return -k + Math.sqrt(k * k + 4 * omega0 * omega0);
+    return 4 * omega0 * omega0 / (k + Math.sqrt(k * k + 4 * omega0 * omega0));
+}
+
+function largest(values) {
+    let peak = -Infinity;
+    for (const value of values) if (value > peak) peak = value;
+    return peak;
 }
 
 /** Intensity FWHM in wavelength, nm, of a profile symmetric in ω. */
@@ -109,7 +125,7 @@ function superGaussianModel(pulse, floor) {
 
 /** Half-maximum width of sampled (x, y) points, by straight lines between them. */
 function sampledHalfWidth(xs, ys) {
-    const peak = Math.max(...ys);
+    const peak = largest(ys);
     const above = ys.map(y => y >= peak / 2);
     const first = above.indexOf(true);
     const last = above.lastIndexOf(true);
@@ -121,28 +137,78 @@ function sampledHalfWidth(xs, ys) {
     return crossing(last, last + 1) - crossing(first, first - 1);
 }
 
-function tableModel(pulse) {
-    const omega0 = carrierOmega(pulse.centerWavelengthNm);
-    const rows = pulse.table.wavelengthNm
+/** A phase spline less its value and slope at Δω = 0, with derivatives to match. */
+function aboutCarrier(spline) {
+    const { value, derivatives: [slope] } = spline.derivativesAt(0);
+    const phase = deltaOmega => spline(deltaOmega) - value - slope * deltaOmega;
+    phase.derivativesAt = (deltaOmega) => {
+        const point = spline.derivativesAt(deltaOmega);
+        return {
+            value: point.value - value - slope * deltaOmega,
+            derivatives: [point.derivatives[0] - slope, point.derivatives[1], point.derivatives[2]],
+        };
+    };
+    return phase;
+}
+
+/** Index range of the rows at or above `level`, one more row on each side. */
+function rowsAbove(rows, level) {
+    let first = 0;
+    while (first < rows.length - 1 && rows[first].intensity < level) first++;
+    let last = rows.length - 1;
+    while (last > first && rows[last].intensity < level) last--;
+    return [Math.max(0, first - 1), Math.min(rows.length - 1, last + 1)];
+}
+
+/**
+ * The rows of a spectrum table the model reads: positive wavelength, finite
+ * phase and intensity not below zero, in order of rising ω, the first of any
+ * rows that share an ω.
+ */
+function tableRows(table) {
+    return table.wavelengthNm
         .map((wavelengthNm, index) => ({
-            omega: carrierOmega(wavelengthNm) - omega0,
-            intensity: pulse.table.intensity[index],
-            phase: pulse.table.phaseRad?.[index] ?? 0,
+            omega: wavelengthNm > 0 ? carrierOmega(wavelengthNm) : NaN,
+            intensity: table.intensity[index],
+            phase: table.phaseRad?.[index] ?? 0,
         }))
         .filter(row => Number.isFinite(row.omega) && row.intensity >= 0 && Number.isFinite(row.phase))
         .sort((left, right) => left.omega - right.omega)
         .filter((row, index, sorted) => index === 0 || row.omega > sorted[index - 1].omega);
+}
+
+/**
+ * Centroid in angular frequency, rad/fs, of a spectrum table, ∫ω·I dω / ∫I dω,
+ * by the trapezoid rule over the rows the model reads; NaN when it carries no
+ * light.
+ */
+export function spectrumCentroidOmega(table) {
+    const rows = tableRows(table);
+    let weight = 0;
+    let moment = 0;
+    for (let index = 1; index < rows.length; index++) {
+        const [left, right] = [rows[index - 1], rows[index]];
+        const width = right.omega - left.omega;
+        weight += width * (left.intensity + right.intensity) / 2;
+        moment += width * (left.omega * left.intensity + right.omega * right.intensity) / 2;
+    }
+    return weight > 0 ? moment / weight : NaN;
+}
+
+function tableModel(pulse, floor) {
+    const omega0 = carrierOmega(pulse.centerWavelengthNm);
+    const rows = tableRows(pulse.table).map(row => ({ ...row, omega: row.omega - omega0 }));
     if (rows.length < 2) throw new Error('A pulse spectrum needs at least two rows');
-    const peak = Math.max(...rows.map(row => row.intensity));
+    const peak = largest(rows.map(row => row.intensity));
     if (!(peak > 0)) throw new Error('A pulse spectrum needs a positive intensity');
     const intensity = createPchipInterpolator(rows.map(row => [row.omega, row.intensity / peak]));
-    const phase = createNotAKnotSpline(rows.map(row => [row.omega, row.phase]));
-    const low = rows[0].omega;
-    const high = rows[rows.length - 1].omega;
-    const inside = deltaOmega => deltaOmega >= low && deltaOmega <= high;
+    const inside = deltaOmega => deltaOmega >= rows[0].omega && deltaOmega <= rows[rows.length - 1].omega;
+    const [first, last] = rowsAbove(rows, floor * peak);
+    const low = rows[first].omega;
+    const high = rows[last].omega;
     return {
         amplitude: deltaOmega => inside(deltaOmega) ? Math.sqrt(Math.max(0, intensity(deltaOmega))) : 0,
-        tablePhase: phase,
+        tablePhase: aboutCarrier(createNotAKnotSpline(rows.map(row => [row.omega, row.phase]))),
         low, high,
         resolutionFs: 4 * Math.LN2 / sampledHalfWidth(
             rows.map(row => row.omega), rows.map(row => row.intensity)),
@@ -153,7 +219,7 @@ function shapeModel(pulse, floor) {
     if (pulse.shape === 'gaussian') return gaussianModel(pulse.durationFs, floor);
     if (pulse.shape === 'sech2') return sech2Model(pulse.durationFs, floor);
     if (pulse.shape === 'superGaussian') return superGaussianModel(pulse, floor);
-    if (pulse.shape === 'table') return tableModel(pulse);
+    if (pulse.shape === 'table') return tableModel(pulse, floor);
     throw new Error(`Unknown pulse shape: ${pulse.shape}`);
 }
 
@@ -174,8 +240,8 @@ export function pulseProblem(pulse) {
 /**
  * The spectrum of a pulse: amplitude, phase and phase derivatives as functions
  * of Δω, the band [low, high] outside which the intensity is below `floor` of
- * its peak (the whole table for a table), and the transform-limited duration
- * that sizes the time step.
+ * its peak (for a table, out to the row beyond the last one above it), and the
+ * transform-limited duration that sizes the time step.
  */
 export function pulseSpectrumModel(pulse, floor) {
     const model = shapeModel(pulse, floor);
@@ -202,12 +268,12 @@ export function pulseSpectrumModel(pulse, floor) {
 }
 
 /**
- * A rough length for the input pulse in time: its transform-limited duration
- * plus the spread in arrival time its own phase puts across the band. Used
- * only to size the first time window, which is then grown until the result
- * fits.
+ * A rough span of time about t = 0 that the input pulse covers: its
+ * transform-limited duration plus twice the larger group delay its own phase
+ * gives at the band's edges. Used only to size the first time window, which is
+ * then grown until the result fits.
  */
 export function inputTimeExtent(model) {
-    const ends = [model.low, model.high].map(deltaOmega => model.phaseDerivatives(deltaOmega).gdFs);
-    return model.resolutionFs + Math.abs(ends[1] - ends[0]) + Math.max(...ends.map(Math.abs));
+    const [low, high] = [model.low, model.high].map(deltaOmega => Math.abs(model.phaseDerivatives(deltaOmega).gdFs));
+    return model.resolutionFs + 2 * Math.max(low, high);
 }

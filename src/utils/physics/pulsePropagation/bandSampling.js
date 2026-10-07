@@ -12,6 +12,11 @@
 import { wavelengthFromOmega as wavelengthAt } from './pulseSpectrum.js';
 
 const NO_VALUE = { valid: false, re: 0, im: 0 };
+// Simpson intervals for each piece of the zero-frequency share. A piece is a
+// few spectral widths long, or one carrier frequency, so this puts dozens of
+// intervals across the spectrum's width, and the rule's error falls as the
+// fourth power of the interval.
+const SHARE_INTERVALS = 4096;
 
 function complexPower(point, power) {
     const magnitude = Math.hypot(point.re, point.im) ** power;
@@ -28,21 +33,28 @@ export function transferPower(point, passes) {
  * band, except that the low edge stops short of zero frequency.
  */
 export function bandIndices({ model }, step) {
-    const lowest = Math.ceil(model.low / step);
     const lowestPositive = Math.floor(-model.omega0 / step) + 1;
-    return { first: Math.max(lowest, lowestPositive), last: Math.floor(model.high / step), lowest };
+    return { first: Math.max(Math.ceil(model.low / step), lowestPositive), last: Math.floor(model.high / step) };
 }
 
-/** Share of the input spectral energy the zero-frequency cut removes. */
-export function cutEnergy({ model }, step, { first, last, lowest }) {
-    let removed = 0;
-    let total = 0;
-    for (let j = lowest; j <= last; j++) {
-        const power = model.amplitude(j * step) ** 2;
-        total += power;
-        if (j < first) removed += power;
-    }
-    return total > 0 ? removed / total : 0;
+function simpson(f, from, to, intervals) {
+    const h = (to - from) / intervals;
+    let sum = f(from) + f(to);
+    for (let k = 1; k < intervals; k++) sum += (k % 2 ? 4 : 2) * f(from + k * h);
+    return sum * h / 3;
+}
+
+/**
+ * Share of the input spectral energy at or below zero frequency, Δω ≤ −ω0. The
+ * part above is split at the carrier, where a model spectrum peaks.
+ */
+export function zeroFrequencyShare(model) {
+    const zero = -model.omega0;
+    if (!(model.low < zero)) return 0;
+    const power = deltaOmega => model.amplitude(deltaOmega) ** 2;
+    const below = simpson(power, model.low, zero, SHARE_INTERVALS);
+    const above = simpson(power, zero, 0, SHARE_INTERVALS) + simpson(power, 0, model.high, SHARE_INTERVALS);
+    return below / (below + above);
 }
 
 export function checkedPoint(point) {

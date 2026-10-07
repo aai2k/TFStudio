@@ -3,9 +3,9 @@
  *
  * The output spectrum is the input spectrum times the coating's full complex
  * coefficient, raised to the number of passes, and the output pulse is its
- * Fourier transform. GD and GDD are the second-order expansion of that same
- * coefficient's phase (Macleod, Thin-Film Optical Filters, 5th ed., §11,
- * Eq. 11.17); nothing here truncates it.
+ * Fourier transform. GD, GDD and TOD are the first terms of the Taylor
+ * expansion of that same coefficient's phase (Macleod, Thin-Film Optical
+ * Filters, 5th ed., Ch. 11, Eq. 11.17); nothing here truncates it.
  *
  * Layout:
  *   pulseSpectrum.js    input pulse spectra: Gaussian, sech², super-Gaussian or
@@ -25,7 +25,7 @@
  */
 
 export {
-    carrierOmega, wavelengthFromOmega, pulseProblem,
+    carrierOmega, wavelengthFromOmega, pulseProblem, spectrumCentroidOmega,
     omegaWidthFromWavelengthWidth, wavelengthWidthFromOmegaWidth, transformLimitedOmegaWidth,
 } from './pulsePropagation/pulseSpectrum.js';
 export { createCoatingResponses } from './pulsePropagation/coatingResponse.js';

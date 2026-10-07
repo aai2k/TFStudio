@@ -2,8 +2,7 @@
  * The readout under the plot and the Results table, from the worker's numbers.
  *
  * Durations carry four significant figures, trailing zeros kept so 15.00 and
- * 15.42 read alike: a femtosecond pulse is read to the hundredth, and from a
- * picosecond up to the whole femtosecond, and neither needs more.
+ * 15.42 read alike, and whole femtoseconds from a picosecond up.
  */
 
 const finite = value => Number.isFinite(value);

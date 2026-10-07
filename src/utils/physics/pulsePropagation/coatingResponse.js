@@ -47,6 +47,10 @@ function admittanceRatio({ incident, medium, polarization, thetaDeg }) {
     return (wavelengthNm) => {
         const n0 = incident.getNK(wavelengthNm);
         const nm = medium.getNK(wavelengthNm);
+        // Past the critical angle into a lossless medium the transmitted wave
+        // is evanescent and carries no power: Re η is zero, and only rounding
+        // in the complex cosine would make it otherwise.
+        if (n0[1] === 0 && nm[1] === 0 && n0[0] * sinTheta0[0] >= nm[0]) return 0;
         const eta0 = admittance(n0, incidentCosTheta(n0, sinTheta0, cosTheta0), polarization);
         const etaM = admittance(nm, snellCosTheta(n0, sinTheta0, nm, cosTheta0), polarization);
         return Math.max(0, etaM[0]) / eta0[0];
