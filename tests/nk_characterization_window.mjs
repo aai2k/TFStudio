@@ -21,7 +21,7 @@ await loadApp();
 await initWasmForTest();
 
 const [
-    { NkCharacterization },
+    { NkCharacterization, SaveAction },
     { CurvePicker, SampleSettingsContent },
     model,
     resultsModel,
@@ -466,6 +466,37 @@ assert.ok(Math.abs(result.thicknessNm - 420) < 0.5,
     assert.ok(html.includes(rows[0].n.toFixed(5)), 'and the values that will be stored');
     assert.ok(html.includes(nk.save) && html.includes(nk.saveAndOpen),
         'saving and saving into a design are both offered');
+}
+
+// ── Pressing Save opens the dialog ───────────────────────────────────────────
+//
+// The dialog is built only after the press, so rendering the window never
+// reaches it. The press is made during the first render, and React draws the
+// component again with the dialog open, as it would after a click.
+{
+    function* elements(node) {
+        if (Array.isArray(node)) { for (const child of node) yield* elements(child); return; }
+        if (!node || typeof node !== 'object' || !node.props) return;
+        yield node;
+        yield* elements(node.props.children);
+    }
+    let pressed = false;
+    function PressedSave(props) {
+        const tree = SaveAction(props);
+        if (!pressed) {
+            pressed = true;
+            [...elements(tree)].find(element => element.props.label === nk.save).props.onClick();
+        }
+        return tree;
+    }
+    const state = {
+        design, settings: settingsWithCurves, chosen: model.characterizableCurves(design), result,
+    };
+    const html = renderToStaticMarkup(React.createElement(PressedSave, {
+        c, nk, state, lambdaAxis: t.spectralAxis.lambdaShort, onCreateDesign: () => {},
+    }));
+    assert.ok(html.includes(nk.previewTitle) && html.includes(nk.saveAndOpen),
+        'Save opens the dialog with the material it is about to write');
 }
 
 // ── An unusable selection reports why ─────────────────────────────────────────

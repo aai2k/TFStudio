@@ -37,7 +37,7 @@ const { createElement: h, useState } = React;
  * layer at until it has been saved. Once it has, the design can still be built
  * from the same save rather than from a second copy of the material.
  */
-export function SaveAction({ c, nk, state, onCreateDesign }) {
+export function SaveAction({ c, nk, state, lambdaAxis, onCreateDesign }) {
     const [saved, setSaved] = useState(null);
     const [dialog, setDialog] = useState(null);
     const catalogs = userCatalogs();
@@ -87,8 +87,7 @@ export function SaveAction({ c, nk, state, onCreateDesign }) {
             }),
         ),
         dialog && h(SaveMaterialDialog, {
-            c, nk, catalogs, dialog,
-            lambdaAxis: t.spectralAxis.lambdaShort,
+            c, nk, catalogs, dialog, lambdaAxis,
             result: state.result,
             onChange: change,
             onSave: store,
@@ -156,7 +155,7 @@ export function NkCharacterization({ c, t, onCreateDesign }) {
             actions: solved && h('div', {
                 style: { display: 'flex', alignItems: 'center', gap: 8 },
             },
-                h(SaveAction, { c, nk, state, onCreateDesign }),
+                h(SaveAction, { c, nk, state, lambdaAxis: t.spectralAxis.lambdaShort, onCreateDesign }),
                 h(ExportMenu, {
                     c, enabled: rows.length > 0, ...csv,
                     labels: {
