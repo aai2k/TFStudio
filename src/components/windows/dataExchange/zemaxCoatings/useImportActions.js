@@ -40,8 +40,14 @@ async function loadCoatingFile({ z, flash, clear, setLoading, setFile }) {
 /** What the conversion noted, as a count to put after a report. */
 export const warningsSuffix = (z, warnings) => (warnings.length ? ` (${z.warningsN(warnings.length)})` : '');
 
+// With no design selected the window has a placeholder that nothing keeps, so
+// nothing is registered or written.
 function importSelectedCoating(args) {
-    const { z, flash, checkpoint, updateDesign } = args;
+    const { z, flash, checkpoint, updateDesign, hasActiveDesign } = args;
+    if (hasActiveDesign === false) {
+        flash('error', z.importNoDesign);
+        return;
+    }
     const converted = convertSelectedCoating(args, { write: true });
     if (converted.error) {
         flash('error', converted.error);
@@ -95,8 +101,9 @@ export function useLoadAction(args) {
 }
 
 export function useCoatingImportAction(args) {
-    const { doc, selCoating, fileName, filePath, refNm, checkpoint, updateDesign, z } = args;
-    return useCallback(() => importSelectedCoating(args), [doc, selCoating, fileName, filePath, refNm, checkpoint, updateDesign, z]);
+    const { doc, selCoating, fileName, filePath, refNm, checkpoint, updateDesign, hasActiveDesign, z } = args;
+    return useCallback(() => importSelectedCoating(args),
+        [doc, selCoating, fileName, filePath, refNm, checkpoint, updateDesign, hasActiveDesign, z]);
 }
 
 /** Open the Save Coating dialog on the selected COAT, or report why it cannot be saved. */

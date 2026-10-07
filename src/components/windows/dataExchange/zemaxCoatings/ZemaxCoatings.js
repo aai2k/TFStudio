@@ -35,7 +35,7 @@ function repeatedNameNotices(z, doc) {
 
 export function ZemaxCoatings({ c, t, setInputDialog }) {
     const z = t.zemaxCoatings;
-    const { design, updateDesign, checkpoint } = useDesign();
+    const { design, updateDesign, checkpoint, hasActiveDesign } = useDesign();
     const missingMaterialIds = useUnresolvedMaterials(design);
     const [session, setField, patch] = useWindowSession(zemaxCoatingsSession, design);
     const [loading, setLoading] = useState(false);
@@ -50,7 +50,7 @@ export function ZemaxCoatings({ c, t, setInputDialog }) {
     const { doc, fileName, filePath, selCoating, selRows } = session;
     const shared = { z, flash, doc, fileName, filePath, selCoating, selRows, refNm };
     const onLoad = useLoadAction({ z, flash, clear, setLoading, setFile: patch });
-    const importCoating = useCoatingImportAction({ ...shared, checkpoint, updateDesign });
+    const importCoating = useCoatingImportAction({ ...shared, checkpoint, updateDesign, hasActiveDesign });
     const saveToLibrary = useLibraryAction({ ...shared, design, setLibraryCoating });
     const importMaterials = useMaterialImportAction({ ...shared, setInputDialog });
     const exportArgs = { ...session, z, flash, design, gStart, gEnd, gStep, refNm, setPreview: setters.setPreview };
@@ -59,7 +59,7 @@ export function ZemaxCoatings({ c, t, setInputDialog }) {
     const onLibrarySaved = name => flash('success', t.coatingLibrary.saveDialog.saved(name) + warningsSuffix(z, library.warnings));
 
     return h(ZemaxLayout, {
-        ...session, ...setters, c, t, z, design, loading, status, missingMaterialIds,
+        ...session, ...setters, c, t, z, design, hasActiveDesign, loading, status, missingMaterialIds,
         notices: repeatedNameNotices(z, doc), refNm, setRefNm, gStart, setGStart, gEnd, setGEnd, gStep, setGStep,
         onLoad, importCoating, saveToLibrary, importMaterials, onGenerate, onSave,
         library, closeLibrary: () => setLibraryCoating(null), onLibrarySaved,

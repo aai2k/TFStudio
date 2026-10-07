@@ -9,9 +9,10 @@
  * writer's notes in the notice badge there. The Import tab opens the file in
  * its panel, sums up what the file sets there, and beside it shows the stack,
  * incident side first, with the layers CODE V holds fixed locked; it offers the
- * stack to the front and the back coating, the back off in Symmetric mode, and
- * to the Coating Library. Wavelengths are shown as short as the float32 CODE V
- * holds them in allows. The Export tab holds its options in a panel section
+ * stack to the front and the back coating, the back off in Symmetric mode and
+ * both off with no design selected, and to the Coating Library. Wavelengths
+ * are shown as short as the float32 CODE V holds them in allows. The Export
+ * tab holds its options in a panel section
  * above the preview, and is blocked while the design has a material this
  * computer cannot resolve, as the Zemax window's is.
  *
@@ -20,10 +21,10 @@
 import assert from 'node:assert/strict';
 import { existsSync, readFileSync } from 'node:fs';
 import { renderToStaticMarkup } from 'react-dom/server';
-import { loadApp, makeLocale, makeSampleDesign, makeTheme, shimBrowserGlobals, withDesign } from './_uiShim.mjs';
+import { loadApp, makeDesignCtx, makeLocale, makeSampleDesign, makeTheme, shimBrowserGlobals, withDesign } from './_uiShim.mjs';
 
 shimBrowserGlobals();
-await loadApp();
+const { DesignContext } = await loadApp();
 
 const [
     { CodevCoatings }, { tabNotices }, { ImportTab }, { ExportTab }, { codevCoatingsSession },
@@ -90,9 +91,13 @@ const stack = {
     warnings: [{ kind: 'unknownCommand', command: 'MAN', line: 26 }],
 };
 const renderImport = (design, shown = stack) => renderToStaticMarkup(React.createElement(ImportTab, {
-    c, z, stack: shown, design, fileName: 'silver.seq', loading: false, onLoad: noop, importCoating: noop,
-    saveToLibrary: noop, panelWidth: null, setPanelWidth: noop,
+    c, z, stack: shown, design, hasActiveDesign: true, fileName: 'silver.seq', loading: false, onLoad: noop,
+    importCoating: noop, saveToLibrary: noop, panelWidth: null, setPanelWidth: noop,
 }));
+// The buttons with these labels, each as [label, off].
+const buttons = (markup, labels = [z.importToFront, z.importToBack]) => [...markup.matchAll(/<button([^>]*)>([^<]*)<\/button>/g)]
+    .filter(([, , label]) => labels.includes(label))
+    .map(([, attrs, label]) => [label, /\sdisabled/.test(attrs)]);
 {
     const html = renderImport(makeSampleDesign());
     const shown = text(html);
@@ -107,10 +112,8 @@ const renderImport = (design, shown = stack) => renderToStaticMarkup(React.creat
     assert.deepEqual(rows.map(row => row.includes('<svg')), [false, true, false], 'only the code 100 layer is locked');
 
     // Both import buttons are live, unless the back mirrors the front.
-    const buttons = (markup) => [...markup.matchAll(/<button([^>]*)>([^<]*)<\/button>/g)]
-        .filter(([, , label]) => label === z.importToFront || label === z.importToBack)
-        .map(([, attrs, label]) => [label, /\sdisabled/.test(attrs)]);
     assert.deepEqual(buttons(html), [[z.importToFront, false], [z.importToBack, false]]);
+    assert.ok(!html.includes(attr(z.importNoDesign)), 'with a design open nothing asks for one');
     const symmetric = renderImport({ ...makeSampleDesign(), surfaceMode: 'symmetric' });
     assert.deepEqual(buttons(symmetric), [[z.importToFront, false], [z.importToBack, true]],
         'in Symmetric mode the back coating is the mirror of the front');
@@ -120,6 +123,22 @@ const renderImport = (design, shown = stack) => renderToStaticMarkup(React.creat
 
 // A stack with no title is headed by its file name.
 assert.ok(text(renderImport(makeSampleDesign(), { ...stack, title: '' })).includes('silver.seq'));
+
+// With no design selected there is nothing to import into: both import buttons
+// are off and say why, while the file still opens and the stack can still go
+// to the Coating Library, which takes its media from the file.
+{
+    codevCoatingsSession.reset();
+    codevCoatingsSession.write(null, { stack, fileName: 'silver.seq', filePath: 'C:\\silver.seq' });
+    const value = { ...makeDesignCtx(makeSampleDesign()), hasActiveDesign: false };
+    const html = renderToStaticMarkup(React.createElement(DesignContext.Provider, { value },
+        React.createElement(CodevCoatings, { c, t })));
+    assert.deepEqual(buttons(html), [[z.importToFront, true], [z.importToBack, true]]);
+    assert.equal(html.split(`<span title="${attr(z.importNoDesign)}"><button`).length - 1, 2,
+        'each import button says a design is needed');
+    assert.deepEqual(buttons(html, [z.openBtn, z.saveToLibrary]), [[z.openBtn, false], [z.saveToLibrary, false]]);
+    codevCoatingsSession.reset();
+}
 
 // WLG wavelengths are float32 sums in µm; they are shown as short as that allows.
 {
@@ -148,6 +167,7 @@ assert.ok(text(renderImport(makeSampleDesign(), { ...stack, title: '' })).includ
     const html = renderWindow(t);
     assert.ok(html.includes(`title="${t.analysisChrome.notices}"`), 'a file with a note raises the notice badge');
     assert.ok(text(html).includes('Silver Reflector'), 'beside the stack read');
+    assert.deepEqual(buttons(html), [[z.importToFront, false], [z.importToBack, false]], 'a design open, both imports are on');
     codevCoatingsSession.reset();
 }
 

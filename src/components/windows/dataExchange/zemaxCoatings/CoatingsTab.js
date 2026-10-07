@@ -61,10 +61,17 @@ function coatingLayerRow(layer, index, { c, z, materialsByName, refNm }) {
     );
 }
 
+// With no design selected there is nothing to import into.
+function ImportButton({ c, z, hasActiveDesign, importCoating }) {
+    const noDesign = hasActiveDesign === false;
+    return h('span', { title: noDesign ? z.importNoDesign : undefined },
+        h(ActionButton, { c, label: z.importToFront, onClick: importCoating, disabled: noDesign }));
+}
+
 // The selected COAT, its layers as the file lists them, and what can be done
 // with it. A layer naming a material the file defines more than once is
 // converted with the last record of that name, as the import does.
-function CoatingDetail({ c, z, doc, selected, refNm, importCoating, saveToLibrary }) {
+function CoatingDetail({ c, z, doc, selected, refNm, hasActiveDesign, importCoating, saveToLibrary }) {
     if (!selected) return h(CenteredMessage, { c, message: z.selectCoating });
     if (selected.type !== 'layers') return h(CenteredMessage, { c, message: z.importNotStack });
     const materialsByName = {};
@@ -72,7 +79,7 @@ function CoatingDetail({ c, z, doc, selected, refNm, importCoating, saveToLibrar
     return h(React.Fragment, null,
         h('div', { style: { display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' } },
             h('div', { style: { fontWeight: 600, fontSize: 12, marginRight: 'auto' } }, selected.name),
-            h(ActionButton, { c, label: z.importToFront, onClick: importCoating }),
+            h(ImportButton, { c, z, hasActiveDesign, importCoating }),
             h(ActionButton, { c, label: z.saveToLibrary, title: z.saveToLibraryTip, onClick: saveToLibrary }),
         ),
         h(EditorGroupTitle, { c }, z.layersHeader),

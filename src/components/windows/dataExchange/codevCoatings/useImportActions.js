@@ -40,9 +40,14 @@ async function loadCodevFile({ z, flash, clear, setLoading, setFile }) {
 // there; the file's INC and SUB are not registered unless a layer uses them too.
 // The report adds what the conversion noted, and is then a warning, which stays
 // until the next action rather than clearing itself; what the reader noted is
-// in the window's notices already.
-function importStack({ z, flash, stack, fileName, filePath, checkpoint, updateDesign }, side) {
+// in the window's notices already. With no design selected the window has a
+// placeholder that nothing keeps, so nothing is registered or written.
+function importStack({ z, flash, stack, fileName, filePath, checkpoint, updateDesign, hasActiveDesign }, side) {
     if (!stack) return;
+    if (hasActiveDesign === false) {
+        flash('error', z.importNoDesign);
+        return;
+    }
     const converted = convertStack(z, stack, fileName);
     if (converted.error) {
         flash('error', converted.error);
@@ -81,8 +86,9 @@ export function useLoadAction(args) {
 
 /** The import as a function of the side, 'front' or 'back'. */
 export function useImportAction(args) {
-    const { stack, fileName, filePath, checkpoint, updateDesign, z } = args;
-    return useCallback((side) => importStack(args, side), [stack, fileName, filePath, checkpoint, updateDesign, z]);
+    const { stack, fileName, filePath, checkpoint, updateDesign, hasActiveDesign, z } = args;
+    return useCallback((side) => importStack(args, side),
+        [stack, fileName, filePath, checkpoint, updateDesign, hasActiveDesign, z]);
 }
 
 /** Open the Save Coating dialog on the stack read, or report why it cannot be saved. */

@@ -62,21 +62,30 @@ function LayersTable({ c, z, layers }) {
     );
 }
 
-// In Symmetric mode the design replaces any back coating written to it with the
-// mirror of the front, so layers imported to the back would not stay there.
-function BackButton({ c, z, design, importCoating }) {
-    const mirrored = design?.surfaceMode === 'symmetric';
-    return h('span', { title: mirrored ? z.importBackSymmetric : undefined },
-        h(ActionButton, { c, label: z.importToBack, onClick: () => importCoating('back'), disabled: mirrored }));
+// Why an import button is off, or undefined while it is on. With no design
+// selected there is nothing to import into. In Symmetric mode the design
+// replaces any back coating written to it with the mirror of the front, so
+// layers imported to the back would not stay there.
+function offReason(z, side, design, hasActiveDesign) {
+    if (hasActiveDesign === false) return z.importNoDesign;
+    if (side === 'back' && design?.surfaceMode === 'symmetric') return z.importBackSymmetric;
+    return undefined;
+}
+
+function ImportButton({ c, z, side, label, design, hasActiveDesign, importCoating }) {
+    const reason = offReason(z, side, design, hasActiveDesign);
+    return h('span', { title: reason },
+        h(ActionButton, { c, label, onClick: () => importCoating(side), disabled: reason != null }));
 }
 
 // The stack read, its layers as the file lists them, and what can be done with it.
-function StackView({ c, z, stack, fileName, design, importCoating, saveToLibrary }) {
+function StackView({ c, z, stack, fileName, design, hasActiveDesign, importCoating, saveToLibrary }) {
+    const importProps = { c, z, design, hasActiveDesign, importCoating };
     return h(React.Fragment, null,
         h('div', { style: { display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' } },
             h('div', { style: { fontWeight: 600, fontSize: 12, marginRight: 'auto' } }, stack.title || fileName),
-            h(ActionButton, { c, label: z.importToFront, onClick: () => importCoating('front') }),
-            h(BackButton, { c, z, design, importCoating }),
+            h(ImportButton, { ...importProps, side: 'front', label: z.importToFront }),
+            h(ImportButton, { ...importProps, side: 'back', label: z.importToBack }),
             h(ActionButton, { c, label: z.saveToLibrary, title: z.saveToLibraryTip, onClick: saveToLibrary }),
         ),
         h(EditorGroupTitle, { c }, z.layersHeader(stack.layers.length)),

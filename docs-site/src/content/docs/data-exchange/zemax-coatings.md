@@ -14,7 +14,7 @@ The **Zemax Coatings** window reads and writes Zemax OpticStudio `COATING.DAT` f
 
 **Coatings tab**: the panel lists every coating record in the file with its type and layer count. Select a layer stack to see its layers on the right. Only `COAT` layer stacks import; the ideal, table and encrypted records are listed with a lock.
 
-- **Import → front coating** loads the stack as the front coating of the active design. Its `MATE` materials are registered into a `Zemax <file>` catalog so the design resolves its materials immediately.
+- **Import → front coating** loads the stack as the front coating of the active design. Its `MATE` materials are registered into a `Zemax <file>` catalog so the design resolves its materials immediately. With no design selected there is nothing to import into, so the button is off, while **Save to Coating Library…** stays on and puts the coating between air and BK7.
 - **Save to Coating Library…** saves the stack into My coatings, through the same dialog as **Save current coating…** in the Coating Library: give it a name, a type and a use note, and set the band, angle and polarization it is meant for. A `COAT` record names no incident medium or substrate, so the saved coating takes those of the active design. Its layers are the ones **Import → front coating** would put on the design, with relative thicknesses converted at the reference wavelength, which is stored with the coating. Its materials are embedded in it, so it works on a computer that never loaded the file. Saving adds nothing to your material catalogs.
 
 **Materials tab**: lists every `MATE` record, one row each. Tick the ones you want and use **Import selected** or **Import all** to add them to a catalog without touching the design.

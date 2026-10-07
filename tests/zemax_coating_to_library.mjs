@@ -10,6 +10,10 @@
  * the records it carries, and once the file has been imported it names the
  * very materials the import put in the catalog.
  *
+ * With no design selected the window has a placeholder design that nothing
+ * keeps. The import then refuses and writes nothing, while the coating saved
+ * lies between the placeholder's built-in media and is as sound.
+ *
  * Run: node tests/zemax_coating_to_library.mjs
  */
 import assert from 'node:assert/strict';
@@ -47,6 +51,7 @@ const { makeCoatingEntry } = await import('../src/utils/coatingLibrary/entryMode
 const { validateEntry } = await import('../src/utils/coatingLibrary/validateEntry.js');
 const { applyCoatingPatch } = await import('../src/utils/coatingLibrary/applyCoating.js');
 const { designMaterialLookup, resolveDesignMaterial } = await import('../src/utils/materials/designMaterials.js');
+const { makeDefaultDesign } = await import('../src/state/DesignContext.js');
 
 const c = makeTheme();
 const t = makeLocale('en');
@@ -70,12 +75,12 @@ const design = {
 const windowArgs = { z, doc, selCoating: 0, refNm: 550, ...FILE };
 
 // The coating the window hands the dialog, and the warnings it would report.
-function libraryCoating() {
+function libraryCoating(active = design) {
     let opened = null;
     const flashes = [];
     actions.runtime.reset();
     const saveToLibrary = actions.runtime.render(() => useLibraryAction({
-        ...windowArgs, design, flash: (type, message) => flashes.push([type, message]),
+        ...windowArgs, design: active, flash: (type, message) => flashes.push([type, message]),
         setLibraryCoating: (value) => { opened = value; },
     }));
     saveToLibrary();
@@ -123,9 +128,31 @@ async function saveThroughDialog(coating) {
 }
 
 const pairs = (layers) => layers.map(({ material, thickness }) => [material, thickness]);
+// The n,k of each front layer of a design, at three wavelengths.
+const nk = (d) => {
+    const lookup = designMaterialLookup(d);
+    return d.frontLayers.map(layer => [400, 550, 900].map(lambda => lookup(layer.material).getNK(lambda)));
+};
+const catalogs = () => cm.getCatalogs().map(cat => [cat.id, Object.keys(cat.materials).sort()]);
+
+cm.initCatalogs({});
+
+// ── With no design selected the import writes nothing ────────────────────────
+// It says why, and makes no catalog, no undo step and no layers.
+{
+    const before = catalogs();
+    const events = [];
+    actions.runtime.reset();
+    actions.runtime.render(() => useCoatingImportAction({
+        ...windowArgs, hasActiveDesign: false,
+        flash: (type, message) => events.push(['flash', type, message]),
+        checkpoint: () => events.push(['checkpoint']), updateDesign: (p) => events.push(['update', p]),
+    }))();
+    assert.deepEqual(events, [['flash', 'error', z.importNoDesign]], 'refused, and only that');
+    assert.deepEqual(catalogs(), before, 'no catalog is made or changed');
+}
 
 // ── A file never imported: nothing is written, the entry carries its records ─
-cm.initCatalogs({});
 let firstEntry;
 {
     const opened = libraryCoating();
@@ -154,6 +181,25 @@ let firstEntry;
     assert.deepEqual(validateEntry(entry), [], 'the entry is sound');
 }
 
+// With no design selected the window has the placeholder design. Its media are
+// built in, so the entry carries only its layers' records, and it applies as
+// the stack the entry saved with a design does.
+{
+    const { coating } = libraryCoating(makeDefaultDesign());
+    const entry = makeCoatingEntry((await saveThroughDialog(coating)).record);
+    assert.deepEqual([entry.incidentMedium, entry.substrate], ['Air', 'BK7'], 'air and BK7, as the help page says');
+    assert.deepEqual(Object.keys(entry.materials).sort(), [...new Set(entry.layers.map(layer => layer.material))].sort(),
+        'no record for a built-in medium');
+    assert.deepEqual(validateEntry(entry), [], 'the entry is sound');
+    const { patch, clashes } = applyCoatingPatch(design, entry, { side: 'front' });
+    assert.deepEqual(clashes, []);
+    const applied = { ...design, ...patch };
+    const reference = { ...design, ...applyCoatingPatch(design, firstEntry, { side: 'front' }).patch };
+    assert.deepEqual(applied.frontLayers.map(layer => layer.thickness), reference.frontLayers.map(layer => layer.thickness),
+        'the same thicknesses, incident side first');
+    assert.deepEqual(nk(applied), nk(reference), 'and the same n,k layer by layer');
+}
+
 // It applies to a design here, where no catalog holds its materials, as the
 // stack the import makes, computed with the file's data.
 let importedLayers;
@@ -164,17 +210,13 @@ let importedLayers;
     const updates = [];
     actions.runtime.reset();
     const importCoating = actions.runtime.render(() => useCoatingImportAction({
-        ...windowArgs, flash: () => {}, checkpoint: () => {}, updateDesign: (p) => updates.push(p),
+        ...windowArgs, hasActiveDesign: true, flash: () => {}, checkpoint: () => {}, updateDesign: (p) => updates.push(p),
     }));
     importCoating();
     importedLayers = updates[0].frontLayers;
     const imported = { ...design, frontLayers: importedLayers };
     assert.deepEqual(applied.frontLayers.map(layer => layer.thickness), importedLayers.map(layer => layer.thickness),
         'the same thicknesses, incident side first');
-    const nk = (d) => {
-        const lookup = designMaterialLookup(d);
-        return d.frontLayers.map(layer => [400, 550, 900].map(lambda => lookup(layer.material).getNK(lambda)));
-    };
     assert.deepEqual(nk(applied), nk(imported), 'and the same n,k layer by layer');
     for (const layer of applied.frontLayers) {
         assert.equal(resolveDesignMaterial(applied, layer.material).status, 'embedded', 'from the records the entry carries');

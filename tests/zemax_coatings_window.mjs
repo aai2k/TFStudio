@@ -5,19 +5,20 @@
  * The tabs, the reference wavelength and the report of the last action sit in
  * one control row, as in Measured Spectra. Both import tabs carry the panel
  * that opens the file; the Coatings tab offers the selected stack to the front
- * coating and to the Coating Library; the Materials tab selects records; the
- * Export tab holds its options in a panel section above the preview. A file
- * that defines a material name twice raises a notice in the control row.
+ * coating, off with no design selected, and to the Coating Library; the
+ * Materials tab selects records; the Export tab holds its options in a panel
+ * section above the preview. A file that defines a material name twice raises
+ * a notice in the control row.
  *
  * Run: node tests/zemax_coatings_window.mjs
  */
 import assert from 'node:assert/strict';
 import { existsSync } from 'node:fs';
 import { renderToStaticMarkup } from 'react-dom/server';
-import { loadApp, makeLocale, makeTheme, shimBrowserGlobals, withDesign } from './_uiShim.mjs';
+import { loadApp, makeDesignCtx, makeLocale, makeTheme, shimBrowserGlobals, withDesign } from './_uiShim.mjs';
 
 shimBrowserGlobals();
-await loadApp();
+const { DesignContext } = await loadApp();
 
 const [{ ZemaxCoatings }, { zemaxCoatingsSession }, { WINDOW_REGISTRY }, { parseZemaxCoating }] = await Promise.all([
     import('../src/components/windows/dataExchange/zemaxCoatings/ZemaxCoatings.js'),
@@ -29,6 +30,15 @@ const [{ ZemaxCoatings }, { zemaxCoatingsSession }, { WINDOW_REGISTRY }, { parse
 const c = makeTheme();
 const text = (html) => html.replace(/<[^>]+>/g, ' ').replace(/&#x27;/g, "'").replace(/&quot;/g, '"').replace(/&amp;/g, '&');
 const render = (t) => renderToStaticMarkup(withDesign(React.createElement(ZemaxCoatings, { c, t, setInputDialog: () => {} })));
+// The window as it is with no design selected in the explorer.
+const renderNoDesign = (t) => renderToStaticMarkup(React.createElement(DesignContext.Provider,
+    { value: { ...makeDesignCtx(), hasActiveDesign: false } },
+    React.createElement(ZemaxCoatings, { c, t, setInputDialog: () => {} })));
+const attr = (value) => value.replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/'/g, '&#x27;');
+// The buttons with these labels, each as [label, off].
+const buttons = (markup, labels) => [...markup.matchAll(/<button([^>]*)>([^<]*)<\/button>/g)]
+    .filter(([, , label]) => labels.includes(label))
+    .map(([, attrs, label]) => [label, /\sdisabled/.test(attrs)]);
 
 // ── Registered, with a help page in both documentation languages ─────────────
 {
@@ -79,6 +89,8 @@ const load = (patch) => {
         assert.ok(shown.includes(part), `the Coatings tab shows ${part}`);
     }
     assert.ok(html.includes(`title="${z.saveToLibraryTip}"`), 'the library button says where the media come from');
+    assert.deepEqual(buttons(html, [z.importToFront]), [[z.importToFront, false]], 'a design open, the import is on');
+    assert.ok(!html.includes(attr(z.importNoDesign)), 'and nothing asks for one');
     assert.ok(shown.includes('100.00 nm'), 'an absolute thickness is shown in nm');
     // d = T·λ₀/n₀ at 550 nm, n₀ interpolated in each TIO2 table.
     const thickness = (n0) => `${(0.25 * 550 / n0).toFixed(2)} nm`;
@@ -98,6 +110,20 @@ const load = (patch) => {
     const checked = [...html.matchAll(/<input type="checkbox"([^>]*)>/g)].map(([, attrs]) => /checked/.test(attrs));
     assert.deepEqual(checked, [false, true, false], 'the selection is the second TIO2 row alone');
     assert.ok(html.includes(`title="${t.analysisChrome.notices}"`), 'the repeated name raises a notice');
+}
+
+// With no design selected there is nothing to import into: the import to the
+// front coating is off and says why. The file still opens, the stack can still
+// go to the Coating Library, and materials still go into a catalog.
+{
+    load({ tab: 'coatings' });
+    const coatings = renderNoDesign(t);
+    assert.deepEqual(buttons(coatings, [z.importToFront, z.saveToLibrary, z.loadBtn]),
+        [[z.loadBtn, false], [z.importToFront, true], [z.saveToLibrary, false]]);
+    assert.ok(coatings.includes(`<span title="${attr(z.importNoDesign)}"><button`), 'the import says a design is needed');
+    load({ tab: 'materials', selRows: new Set([1]) });
+    assert.deepEqual(buttons(renderNoDesign(t), [z.importSelected, z.importAll]),
+        [[z.importSelected, false], [z.importAll, false]]);
 }
 
 // Export: the options in a panel section, the preview under them.

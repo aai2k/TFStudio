@@ -10,8 +10,9 @@
  * indices, go into a user catalog named after the file, the way a Zemax
  * COATING.DAT import registers its materials: the same file goes back into its
  * own catalog, a material already there is used as it is (edits included), and
- * another file of the same name gets a catalog of its own. A reader error comes
- * out as the locale's sentence.
+ * another file of the same name gets a catalog of its own. With no design
+ * selected the import is refused and writes nothing. A reader error comes out
+ * as the locale's sentence.
  *
  * Run: node tests/codev_coatings_window_import.mjs
  */
@@ -59,12 +60,12 @@ const SEQ = [
 
 const FILE = 'C:\\coatings\\ar.seq';
 
-function importOnce(stack, { filePath = FILE, fileName = 'ar.seq', side = 'front' } = {}) {
+function importOnce(stack, { filePath = FILE, fileName = 'ar.seq', side = 'front', hasActiveDesign = true } = {}) {
     const events = [];
     runtime.reset();
     const run = runtime.render(() => useImportAction({
         z, flash: (type, message) => events.push(['flash', type, message]),
-        stack, fileName, filePath,
+        stack, fileName, filePath, hasActiveDesign,
         checkpoint: () => events.push(['checkpoint']),
         updateDesign: (patch) => events.push(['update', patch]),
     }));
@@ -166,6 +167,20 @@ const patch = first[1][1];
 {
     const other = importOnce(parseCodevSeq(SEQ), { filePath: 'D:\\vendor\\ar.seq' })[1][1];
     assert.notEqual(catalogOf(other.frontLayers[0].material), catalogOf(patch.frontLayers[0].material));
+}
+
+// ── With no design selected there is nothing to import into ──────────────────
+// The window then has a placeholder design that nothing keeps. The import says
+// so and writes nothing: no catalog, no undo step, no layers.
+{
+    const catalogs = () => cm.getCatalogs().map(cat => [cat.id, Object.keys(cat.materials).sort()]);
+    const before = catalogs();
+    for (const side of ['front', 'back']) {
+        const events = importOnce(parseCodevSeq(SEQ),
+            { filePath: 'C:\\coatings\\never.seq', fileName: 'never.seq', side, hasActiveDesign: false });
+        assert.deepEqual(events, [['flash', 'error', z.importNoDesign]], `${side}: refused, and only that`);
+    }
+    assert.deepEqual(catalogs(), before, 'no catalog is made or changed');
 }
 
 // ── Opening a file: by extension, with reader errors in the locale ────────────

@@ -23,7 +23,7 @@ const SETTERS = {
 
 export function CodevCoatings({ c, t }) {
     const z = t.codevCoatings;
-    const { design, updateDesign, checkpoint } = useDesign();
+    const { design, updateDesign, checkpoint, hasActiveDesign } = useDesign();
     const missingMaterialIds = useUnresolvedMaterials(design);
     const [session, setField, patch] = useWindowSession(codevCoatingsSession, design);
     const [loading, setLoading] = useState(false);
@@ -36,7 +36,7 @@ export function CodevCoatings({ c, t }) {
 
     const file = { z, flash, stack: session.stack, fileName: session.fileName, filePath: session.filePath };
     const onLoad = useLoadAction({ z, flash, clear, setLoading, setFile: patch });
-    const importCoating = useImportAction({ ...file, checkpoint, updateDesign });
+    const importCoating = useImportAction({ ...file, checkpoint, updateDesign, hasActiveDesign });
     const saveToLibrary = useLibraryAction({ ...file, setLibrary });
     const exportArgs = {
         ...session, z, flash, design, gStart, gEnd, gStep,
@@ -47,7 +47,7 @@ export function CodevCoatings({ c, t }) {
     const onLibrarySaved = name => flash('success', t.coatingLibrary.saveDialog.saved(name));
 
     return h(CodevLayout, {
-        ...session, ...setters, c, t, z, design, loading, status, missingMaterialIds,
+        ...session, ...setters, c, t, z, design, hasActiveDesign, loading, status, missingMaterialIds,
         gStart, setGStart, gEnd, setGEnd, gStep, setGStep,
         onLoad, importCoating, saveToLibrary, onGenerate, onSave,
         library, closeLibrary: () => setLibrary(null), onLibrarySaved,
