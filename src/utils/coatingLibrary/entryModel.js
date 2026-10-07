@@ -410,3 +410,32 @@ export function entryFromDesign(design, side, meta = {}) {
         created: meta.created || new Date().toISOString(),
     });
 }
+
+/**
+ * An entry built from a coating that is not a design side, such as one read
+ * from another program's file. The coating is taken as the front of a design
+ * of its own and goes through entryFromDesign, so its layers are stored in
+ * deposition order and its materials embedded the same way.
+ *
+ * @param {object} coating
+ *   name
+ *   layers                [{ material, thickness }], incident side first, thickness in nm
+ *   materials             { id: record } for the ids no built-in serves; a catalog
+ *                         here that holds an id comes first, as in a design
+ *   incidentMedium, substrate   material ids
+ *   referenceWavelength   nm, optional
+ *   source                where the coating came from, shown under Source
+ * @param {object} meta   as entryFromDesign takes it; its `source` wins over the coating's
+ */
+export function entryFromCoating(coating, meta = {}) {
+    const design = {
+        name: coating.name,
+        incidentMedium: coating.incidentMedium,
+        substrate: { material: coating.substrate },
+        referenceWavelength: coating.referenceWavelength,
+        frontLayers: coating.layers,
+        backLayers: [],
+        ...(coating.materials ? { materials: coating.materials } : {}),
+    };
+    return entryFromDesign(design, 'front', { ...meta, source: meta.source || coating.source });
+}

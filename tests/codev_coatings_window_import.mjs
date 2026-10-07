@@ -148,15 +148,16 @@ const patch = first[1][1];
     assert.ok(Math.abs(nAt(h, 550)[0] - 2.45) < 1e-9, 'an edit made in the Material Editor stays');
 }
 
-// The status line adds what the conversion noted, not what the reader noted:
-// that is on the tab already.
+// The report adds what the conversion noted, not what the reader noted: that
+// is in the window's notices already. A report with a note is a warning, which
+// stays up rather than clearing itself.
 {
     const text = SEQ.replace("COA 95 0 'L'", "COA 95 5 'L'").replace('ANG 0', 'ANG 0\r\nFOO 1');
     const coupled = parseCodevSeq(text);
     assert.ok(coupled.warnings.some(w => w.kind === 'unknownCommand'), 'the reader noted FOO');
     const events = importOnce(coupled, { filePath: 'C:\\coatings\\coupled.seq', fileName: 'coupled.seq' });
     const [, type, message] = events.at(-1);
-    assert.equal(type, 'success');
+    assert.equal(type, 'warning');
     assert.equal(message, `${z.importedFront(3, 'CODE V coupled')} ${z.warnCoupledLayers(1)}`);
     assert.equal(events[1][1].frontLayers[1].locked, false, 'a coupled layer comes in free');
 }
@@ -174,8 +175,8 @@ async function load(result) {
     runtime.reset();
     const run = runtime.render(() => useLoadAction({
         z, flash: (type, message) => events.push(['flash', type, message]),
+        clear: () => events.push(['clear']),
         setLoading: (value) => events.push(['loading', value]),
-        setStatus: () => {},
         setFile: (file) => events.push(['file', file]),
     }));
     await run();
@@ -183,6 +184,7 @@ async function load(result) {
 }
 {
     const events = await load({ success: true, text: SEQ, fileName: 'ar.seq', filePath: FILE });
+    assert.deepEqual(events.slice(0, 2), [['loading', true], ['clear']], 'opening a file takes the last report down');
     const file = events.find(e => e[0] === 'file')[1];
     assert.equal(file.fileName, 'ar.seq');
     assert.equal(file.filePath, FILE);

@@ -9,6 +9,8 @@
  * back reversed (backLayers run substrate side first), with the exit medium as
  * INC. Every material is resolved through the design, a locked layer is frozen
  * (code 100), and what the writer reports comes out as the locale's sentence.
+ * An angle of incidence is taken anywhere from 0 up to, not including, 90
+ * degrees, decimals included; any other entry leaves the angles as they were.
  *
  * Run: node tests/codev_coatings_window.mjs
  */
@@ -150,7 +152,13 @@ const coa = (text) => command(text, 'COA').map(line => {
     assert.equal(resampled.to, CODEV_LIMITS.micPoints);
     assert.equal(messages.warningText(z, resampled), z.warnResampled(resampled.material, 31, 21));
     assert.equal(messages.warningText(z, { kind: 'unknownCommand', command: 'MAN', line: 12 }), z.warnUnknownCommand('MAN', 12));
-    assert.equal(messages.warningText(z, { kind: 'extraValues', command: 'WL', line: 3, count: 20, limit: 21 }), z.warnExtraValues('WL', 3, 20, 21));
+    for (const command of ['WL', 'MWL', 'EXT']) {
+        assert.equal(messages.warningText(z, { kind: 'extraValues', command, line: 3, count: 20, limit: 21 }),
+            z.warnExtraValues(command, 3, 20, 21), `extra values on one ${command} command`);
+    }
+    assert.equal(messages.warningText(z, { kind: 'extraValues', command: 'SiO2', line: 9, count: 2, limit: 21 }),
+        z.warnExtraMicValues('SiO2', 9, 2, 21), 'extra values on a MIC material line name the material');
+    assert.equal(messages.warningText(z, { kind: 'decimalComma', line: 5 }), z.warnDecimalComma(5));
     assert.equal(messages.warningText(z, { kind: 'refOutsideTable', label: 'Ag' }), z.warnRefOutsideTable('Ag'));
     assert.equal(messages.warningText(z, { kind: 'coupledLayers', count: 4 }), z.warnCoupledLayers(4));
     assert.equal(messages.warningText(z, { kind: 'somethingNew' }), z.warnOther('somethingNew'));
@@ -236,6 +244,64 @@ for (const [a, b, step] of [[400, 700, 50], [400, 800, 10], [400, 403, 0.03], [7
     window.electronAPI = { codevSaveCoatingFile: async () => ({ success: false, error: 'disk full' }) };
     await save();
     assert.deepEqual(flashes.at(-1), ['error', z.errSave('disk full')]);
+}
+
+// ── The angle field: 0 up to, not including, 90 degrees ──────────────────────
+// Its hooks run on a harness of their own, drawn with React's createElement.
+const angleRuntime = makeHookRuntime();
+const realReact = globalThis.React;
+globalThis.React = { ...realReact, ...angleRuntime.React };
+const { AnglesField, angleAccepted } = await import('../src/components/windows/dataExchange/codevCoatings/AnglesField.js');
+const { NumInput } = await import('../src/components/windows/analysis/chrome/controls.js');
+globalThis.React = realReact;
+const theme = { field: '#111', text: '#eee', textDim: '#999', border: '#333', bg: '#000', panel: '#111', accent: '#39f' };
+
+// The field drawn as React would draw it: each angle's input, and the key its
+// NumInput is mounted under.
+function drawAngles(anglesDeg, setAnglesDeg) {
+    const fields = [];
+    const expand = (node) => {
+        if (Array.isArray(node)) return node.map(expand);
+        if (!node || typeof node !== 'object') return node;
+        if (node.type === NumInput) fields.push({ key: node.key });
+        if (typeof node.type === 'function') return expand(node.type(node.props));
+        if (node.type === 'input') fields.at(-1).input = node;
+        return { ...node, props: { ...node.props, children: expand(node.props.children) } };
+    };
+    angleRuntime.render(() => expand(realReact.createElement(AnglesField, { c: theme, z, anglesDeg, setAnglesDeg })));
+    return fields;
+}
+
+// Type `text` into the first of the angles 10 and 30 and leave the field.
+function typeAngle(text) {
+    const calls = [];
+    const set = (next) => calls.push(next);
+    angleRuntime.reset();
+    drawAngles([10, 30], set)[0].input.props.onChange({ target: { value: text } });
+    const before = drawAngles([10, 30], set)[0];
+    before.input.props.onBlur();
+    return { calls, keyBefore: before.key, keyAfter: drawAngles([10, 30], set)[0].key };
+}
+
+for (const [text, angle] of [['89.5', 89.5], ['89.999', 89.999], ['45.25', 45.25], ['0', 0], ['22,5', 22.5]]) {
+    const { calls, keyBefore, keyAfter } = typeAngle(text);
+    assert.deepEqual(calls, [[angle, 30]], `${text} is taken as typed`);
+    assert.equal(keyAfter, keyBefore, `${text}: the field stays as it is`);
+}
+for (const text of ['90', '90.5', '120', '-1']) {
+    const { calls, keyBefore, keyAfter } = typeAngle(text);
+    assert.deepEqual(calls, [], `${text} is refused`);
+    assert.notEqual(keyAfter, keyBefore, `${text}: the field is mounted afresh, showing the angle it holds`);
+}
+{
+    const calls = [];
+    angleRuntime.reset();
+    const [field] = drawAngles([89.5], (next) => calls.push(next));
+    field.input.props.onKeyDown({ key: 'ArrowUp', preventDefault() {} });
+    assert.deepEqual(calls, [], 'the arrow key does not step past 90 either');
+}
+for (const [deg, taken] of [[0, true], [89.9999, true], [90, false], [-0.5, false], [NaN, false]]) {
+    assert.equal(angleAccepted(deg), taken, `an angle of ${deg} is ${taken ? 'taken' : 'refused'}`);
 }
 
 console.log('PASS: codev_coatings_window');

@@ -1,7 +1,6 @@
-import {
-    codevStackToDesign, CodevParseError, parseCodevMul, parseCodevSeq,
-} from '../../../../utils/io/codevCoatingFile.js';
+import { CodevParseError, parseCodevMul, parseCodevSeq } from '../../../../utils/io/codevCoatingFile.js';
 import { registerCodevMaterials } from './catalogImport.js';
+import { convertStack, libraryCoating } from './fileStack.js';
 import { parseErrorText, warningText } from './messages.js';
 
 const { useCallback } = React;
@@ -19,9 +18,9 @@ function readPicked(result, { z, flash, setFile }) {
     flash('success', z.loadedFile(fileName, stack.layers.length));
 }
 
-async function loadCodevFile({ z, flash, setLoading, setStatus, setFile }) {
+async function loadCodevFile({ z, flash, clear, setLoading, setFile }) {
     setLoading(true);
-    setStatus(null);
+    clear();
     try {
         const result = await window.electronAPI.codevPickCoatingFile();
         if (result?.success) readPicked(result, { z, flash, setFile });
@@ -39,17 +38,14 @@ async function loadCodevFile({ z, flash, setLoading, setStatus, setFile }) {
 // file's incident medium faces the exit side. The materials the layers use are
 // registered first, in the catalog named after the file, and Undo leaves them
 // there; the file's INC and SUB are not registered unless a layer uses them too.
-// The status line adds what the conversion noted; what the reader noted is on
-// the tab already.
+// The report adds what the conversion noted, and is then a warning, which stays
+// until the next action rather than clearing itself; what the reader noted is
+// in the window's notices already.
 function importStack({ z, flash, stack, fileName, filePath, checkpoint, updateDesign }, side) {
     if (!stack) return;
-    let converted;
-    try {
-        converted = codevStackToDesign(stack, { sourceName: fileName });
-    } catch (err) {
-        const message = readFailure(z, err);
-        if (message === null) throw err;
-        flash('error', message);
+    const converted = convertStack(z, stack, fileName);
+    if (converted.error) {
+        flash('error', converted.error);
         return;
     }
     const used = new Set(converted.layers.map(layer => layer.materialKey));
@@ -65,7 +61,18 @@ function importStack({ z, flash, stack, fileName, filePath, checkpoint, updateDe
         .filter(warning => !stack.warnings.includes(warning))
         .map(warning => warningText(z, warning));
     const imported = back ? z.importedBack : z.importedFront;
-    flash('success', [imported(layers.length, catName), ...notes].join(' '));
+    flash(notes.length ? 'warning' : 'success', [imported(layers.length, catName), ...notes].join(' '));
+}
+
+// The Save Coating dialog opens on the stack, or the report says why it cannot.
+function openLibraryDialog({ stack, flash, setLibrary, ...args }) {
+    if (!stack) return;
+    const built = libraryCoating({ stack, ...args });
+    if (built.error) {
+        flash('error', built.error);
+        return;
+    }
+    setLibrary(built.coating);
 }
 
 export function useLoadAction(args) {
@@ -76,4 +83,10 @@ export function useLoadAction(args) {
 export function useImportAction(args) {
     const { stack, fileName, filePath, checkpoint, updateDesign, z } = args;
     return useCallback((side) => importStack(args, side), [stack, fileName, filePath, checkpoint, updateDesign, z]);
+}
+
+/** Open the Save Coating dialog on the stack read, or report why it cannot be saved. */
+export function useLibraryAction(args) {
+    const { stack, fileName, filePath, z } = args;
+    return useCallback(() => openLibraryDialog(args), [stack, fileName, filePath, z]);
 }

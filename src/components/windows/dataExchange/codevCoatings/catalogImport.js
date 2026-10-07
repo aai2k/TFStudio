@@ -51,19 +51,23 @@ function heldId(existing, material) {
 }
 
 /**
- * Put the materials of one import into the file's catalog.
+ * What an import of these materials writes to the file's catalog, without
+ * writing it.
  *
  * A material the catalog already holds under the same name is kept as it is,
  * edits made in the Material Editor included, and the coating is built with
  * it; any other is added under an id the catalog never gave out (see
- * materialIdTaken). Nothing else of the catalog is touched.
+ * materialIdTaken). Nothing else of the catalog is touched. A file never
+ * imported gets the catalog a first import would make, whose random part (see
+ * catalogIdFor) is drawn anew on each call.
  *
  * @param {Array<{ key: string, material: Object }>} materials  as codevStackToDesign returns them
  * @param {string} fileName
  * @param {string} [filePath]
- * @returns {{ catName: string, idOf: Object<string, string> }}  each key's `catalogId:materialId`
+ * @returns {{ cat: Object, idOf: Object<string, string> }}  the catalog as it
+ *   would be written, and each key's `catalogId:materialId`
  */
-export function registerCodevMaterials(materials, fileName, filePath) {
+export function codevRegistration(materials, fileName, filePath) {
     const { id: catId, name, existing } = catalogIdFor(fileName, filePath);
     const held = { ...(existing?.materials || {}) };
     const idOf = {};
@@ -78,5 +82,16 @@ export function registerCodevMaterials(materials, fileName, filePath) {
     const cat = existing
         ? { ...existing, materials: held }
         : { id: catId, name, source: 'user', sourceFile: filePath || null, materials: held };
+    return { cat, idOf };
+}
+
+/**
+ * Put the materials of one import into the file's catalog, as
+ * codevRegistration describes.
+ *
+ * @returns {{ catName: string, idOf: Object<string, string> }}  each key's `catalogId:materialId`
+ */
+export function registerCodevMaterials(materials, fileName, filePath) {
+    const { cat, idOf } = codevRegistration(materials, fileName, filePath);
     return { catName: addCatalog(cat).name, idOf };
 }

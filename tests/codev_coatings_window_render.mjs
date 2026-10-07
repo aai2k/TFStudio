@@ -4,10 +4,16 @@
  *
  * The window is reached from the Data Exchange group beside Zemax Coatings and
  * its help button opens a page that exists in both documentation languages.
- * The Import tab shows a stack read from a file, incident side first, with the
- * layers CODE V holds fixed locked, and offers it to the front and the back
- * coating, the back off in Symmetric mode; the Export tab is blocked while the design
- * has a material this computer cannot resolve, as the Zemax window's is.
+ * It is built from the shared Data Exchange chrome: the Import and Export tabs
+ * and the report of the last action in one control row, the reader's or the
+ * writer's notes in the notice badge there. The Import tab opens the file in
+ * its panel, sums up what the file sets there, and beside it shows the stack,
+ * incident side first, with the layers CODE V holds fixed locked; it offers the
+ * stack to the front and the back coating, the back off in Symmetric mode, and
+ * to the Coating Library. Wavelengths are shown as short as the float32 CODE V
+ * holds them in allows. The Export tab holds its options in a panel section
+ * above the preview, and is blocked while the design has a material this
+ * computer cannot resolve, as the Zemax window's is.
  *
  * Run: node tests/codev_coatings_window_render.mjs
  */
@@ -19,13 +25,19 @@ import { loadApp, makeLocale, makeSampleDesign, makeTheme, shimBrowserGlobals, w
 shimBrowserGlobals();
 await loadApp();
 
-const [{ CodevCoatings }, { ImportTab }, { ExportTab }, { WINDOW_REGISTRY }, { makeTabs, ICONS }, { warningText }] = await Promise.all([
+const [
+    { CodevCoatings }, { tabNotices }, { ImportTab }, { ExportTab }, { codevCoatingsSession },
+    { WINDOW_REGISTRY }, { makeTabs, ICONS }, { warningText }, { parseCodevSeq },
+] = await Promise.all([
     import('../src/components/windows/dataExchange/codevCoatings/CodevCoatings.js'),
+    import('../src/components/windows/dataExchange/codevCoatings/CodevLayout.js'),
     import('../src/components/windows/dataExchange/codevCoatings/ImportTab.js'),
     import('../src/components/windows/dataExchange/codevCoatings/ExportTab.js'),
+    import('../src/components/windows/dataExchange/codevCoatings/sessionState.js'),
     import('../src/components/docking/windowRegistry.js'),
     import('../src/components/Toolbar.js'),
     import('../src/components/windows/dataExchange/codevCoatings/messages.js'),
+    import('../src/utils/io/codevCoatingFile.js'),
 ]);
 
 const c = makeTheme();
@@ -33,6 +45,8 @@ const t = makeLocale('en');
 const z = t.codevCoatings;
 const noop = () => {};
 const text = (html) => html.replace(/<[^>]+>/g, ' ').replace(/&#x27;/g, "'").replace(/&quot;/g, '"').replace(/&amp;/g, '&');
+const attr = (value) => value.replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/'/g, '&#x27;');
+const renderWindow = (tl) => renderToStaticMarkup(withDesign(React.createElement(CodevCoatings, { c, t: tl })));
 
 // ── Registered, on the ribbon beside Zemax Coatings, with a help page ─────────
 {
@@ -50,38 +64,44 @@ const text = (html) => html.replace(/<[^>]+>/g, ' ').replace(/&#x27;/g, "'").rep
     }
 }
 
-// ── The window renders in every language, on the Import tab, empty ───────────
+// ── Every language, no file: the control row and the file panel ──────────────
 for (const code of ['en', 'ru', 'zh', 'it']) {
+    codevCoatingsSession.reset();
     const tl = makeLocale(code);
-    const html = renderToStaticMarkup(withDesign(React.createElement(CodevCoatings, { c, t: tl })));
-    for (const key of ['title', 'tabImport', 'tabExport', 'openBtn', 'noFile']) {
+    const html = renderWindow(tl);
+    for (const key of ['tabImport', 'tabExport', 'fileTitle', 'openBtn', 'fileHint', 'noFile']) {
         assert.ok(text(html).includes(tl.codevCoatings[key]), `${code}: ${key} is shown`);
     }
+    assert.ok(html.includes('tfs-spectrum-import-layout'), `${code}: the Import tab is an import layout, panel and stack`);
+    assert.equal((html.match(/aria-pressed="true"/g) || []).length, 1, `${code}: one tab is active`);
+    assert.ok(!html.includes(`title="${tl.analysisChrome.notices}"`), `${code}: no file, no notices`);
 }
 
 // ── Import tab: what was read, incident side first ────────────────────────────
+const stack = {
+    title: 'Silver Reflector', refNm: 550, wavelengthsNm: [400, 750, 1000], anglesDeg: [0, 20],
+    incident: { n: 1, k: 0 }, substrate: { n: 1.5, k: 0 },
+    layers: [
+        { thicknessNm: 95, code: 0, index: { label: 'SiO2' } },
+        { thicknessNm: 400, code: 100, index: { label: 'Silver' } },
+        { thicknessNm: 12.5, code: 0, index: { n: 2.75, k: 4.46 } },
+    ],
+    mic: {},
+    warnings: [{ kind: 'unknownCommand', command: 'MAN', line: 26 }],
+};
+const renderImport = (design, shown = stack) => renderToStaticMarkup(React.createElement(ImportTab, {
+    c, z, stack: shown, design, fileName: 'silver.seq', loading: false, onLoad: noop, importCoating: noop,
+    saveToLibrary: noop, panelWidth: null, setPanelWidth: noop,
+}));
 {
-    const stack = {
-        title: 'Silver Reflector', refNm: 550, wavelengthsNm: [400, 750, 1000], anglesDeg: [0, 20],
-        incident: { n: 1, k: 0 }, substrate: { n: 1.5, k: 0 },
-        layers: [
-            { thicknessNm: 95, code: 0, index: { label: 'SiO2' } },
-            { thicknessNm: 400, code: 100, index: { label: 'Silver' } },
-            { thicknessNm: 12.5, code: 0, index: { n: 2.75, k: 4.46 } },
-        ],
-        mic: {},
-        warnings: [{ kind: 'unknownCommand', command: 'MAN', line: 26 }],
-    };
-    const renderImport = (design) => renderToStaticMarkup(React.createElement(ImportTab, {
-        c, z, stack, design, fileName: 'silver.seq', loading: false, onLoad: noop, importCoating: noop,
-    }));
     const html = renderImport(makeSampleDesign());
     const shown = text(html);
-    for (const part of ['Silver Reflector', 'silver.seq', z.wavelengthsValue(3, 400, 1000), '0°, 20°', '550 nm',
-        z.summaryIncident, z.summarySubstrate, z.layersHeader(3), z.importToFront, z.importToBack,
-        warningText(z, stack.warnings[0]), 'n 2.75, k 4.46', 'n 1.5']) {
+    for (const part of ['Silver Reflector', 'silver.seq', z.fileTitle, z.openBtn, z.wavelengthsValue(3, 400, 1000), '0°, 20°', '550 nm',
+        z.summaryIncident, z.summarySubstrate, z.layersHeader(3), z.importToFront, z.importToBack, z.saveToLibrary,
+        'n 2.75, k 4.46', 'n 1.5']) {
         assert.ok(shown.includes(part), `the Import tab shows ${part}`);
     }
+    assert.ok(html.includes(`title="${attr(z.saveToLibraryTip)}"`), 'the library button says where the media come from');
     const rows = [...html.matchAll(/<tr>(.*?)<\/tr>/g)].map(m => m[1]).filter(row => row.includes('95.00') || row.includes('400.00') || row.includes('12.50'));
     assert.deepEqual(rows.map(row => (row.match(/>(\d+\.\d\d)</) || [])[1]), ['95.00', '400.00', '12.50'], 'layers in file order');
     assert.deepEqual(rows.map(row => row.includes('<svg')), [false, true, false], 'only the code 100 layer is locked');
@@ -94,8 +114,41 @@ for (const code of ['en', 'ru', 'zh', 'it']) {
     const symmetric = renderImport({ ...makeSampleDesign(), surfaceMode: 'symmetric' });
     assert.deepEqual(buttons(symmetric), [[z.importToFront, false], [z.importToBack, true]],
         'in Symmetric mode the back coating is the mirror of the front');
-    assert.ok(symmetric.includes(`title="${z.importBackSymmetric}"`), 'and the back button says so');
-    assert.ok(!html.includes(`title="${z.importBackSymmetric}"`), 'which it does not say otherwise');
+    assert.ok(symmetric.includes(`title="${attr(z.importBackSymmetric)}"`), 'and the back button says so');
+    assert.ok(!html.includes(`title="${attr(z.importBackSymmetric)}"`), 'which it does not say otherwise');
+}
+
+// A stack with no title is headed by its file name.
+assert.ok(text(renderImport(makeSampleDesign(), { ...stack, title: '' })).includes('silver.seq'));
+
+// WLG wavelengths are float32 sums in µm; they are shown as short as that allows.
+{
+    const wlg = parseCodevSeq(['MUL', 'MDA', 'PHT Y', 'WLG 400 700 10', 'COA 100 0 1.46', 'SUB 1.52', 'MEX'].join('\r\n'));
+    const [first, last] = [wlg.wavelengthsNm[0], wlg.wavelengthsNm.at(-1)];
+    assert.notEqual(first, 400, 'the first WLG wavelength is not 400 to the last digit');
+    const shown = text(renderImport(makeSampleDesign(), wlg));
+    assert.ok(!shown.includes(String(first)), `${first} is not shown in full`);
+    const range = /31, 400 to ([\d.]+) nm/.exec(shown);
+    assert.ok(range, `the range is shown from 400: ${shown}`);
+    assert.ok(Math.abs(Number(range[1]) - last) <= last * 2 ** -23, `and to ${range[1]}, the last of them as a float32 holds it`);
+    assert.ok(range[1].replace('.', '').length <= 9, 'with no more digits than a float32 carries');
+}
+
+// ── The notices: the reader's on the Import tab, the writer's on Export ──────
+{
+    const exportWarnings = [{ kind: 'mediumAbsorbs', role: 'substrate', material: 'Ag' }];
+    assert.deepEqual(tabNotices({ z, tab: 'import', stack, exportWarnings }),
+        [{ label: warningText(z, stack.warnings[0]), tone: 'warning' }]);
+    assert.deepEqual(tabNotices({ z, tab: 'export', stack, exportWarnings }),
+        [{ label: warningText(z, exportWarnings[0]), tone: 'warning' }]);
+    assert.deepEqual(tabNotices({ z, tab: 'import', stack: null, exportWarnings }), [], 'no file, no notices');
+
+    codevCoatingsSession.reset();
+    codevCoatingsSession.write(null, { stack, fileName: 'silver.seq', filePath: 'C:\\silver.seq' });
+    const html = renderWindow(t);
+    assert.ok(html.includes(`title="${t.analysisChrome.notices}"`), 'a file with a note raises the notice badge');
+    assert.ok(text(html).includes('Silver Reflector'), 'beside the stack read');
+    codevCoatingsSession.reset();
 }
 
 // ── Export tab: blocked by a missing material, otherwise the settings ─────────
@@ -111,8 +164,8 @@ for (const code of ['en', 'ru', 'zh', 'it']) {
     assert.ok(!text(blocked).includes(z.generate), 'and there is nothing to generate');
 
     const open = text(renderToStaticMarkup(React.createElement(ExportTab, { ...props, missingMaterialIds: [] })));
-    for (const part of [z.exportHint(2), z.sideFront, z.sideBack, z.titleField, z.saveName, z.refWavelength,
-        z.wavelengthCount(31), z.angles, z.generate, z.saveBtn]) {
+    for (const part of [z.exportTitle, z.exportHint(2), z.side, z.sideFront, z.sideBack, z.titleField, z.saveName, z.refWavelength,
+        z.wavelengths, z.step, z.wavelengthCount(31), z.angles, z.generate, z.saveBtn, z.preview]) {
         assert.ok(open.includes(part), `the Export tab shows ${part}`);
     }
 

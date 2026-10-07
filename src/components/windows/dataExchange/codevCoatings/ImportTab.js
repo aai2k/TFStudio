@@ -1,6 +1,9 @@
+import { ActionButton } from '../../analysis/chrome/controls.js';
+import { CenteredMessage, EditorGroupTitle } from '../../analysis/chrome/layout.js';
+import { ImportPage, PanelSection } from '../chrome/panel.js';
 import { LockIcon } from '../../../ui/LockIcon.js';
-import { Btn, Label, td, th } from '../zemaxCoatings/ui.js';
-import { WarningList } from './parts.js';
+import { td, th } from '../zemaxCoatings/ui.js';
+import { fileNumber } from './fileStack.js';
 
 const { createElement: h } = React;
 
@@ -10,9 +13,11 @@ const indexText = (index) => {
     return index.k > 0 ? `n ${index.n}, k ${index.k}` : `n ${index.n}`;
 };
 
-const rangeText = (z, wavelengthsNm) => (wavelengthsNm.length
-    ? z.wavelengthsValue(wavelengthsNm.length, Math.min(...wavelengthsNm), Math.max(...wavelengthsNm))
-    : '');
+const rangeText = (z, wavelengthsNm) => {
+    if (!wavelengthsNm.length) return '';
+    const shown = wavelengthsNm.map(fileNumber);
+    return z.wavelengthsValue(shown.length, Math.min(...shown), Math.max(...shown));
+};
 
 function SummaryRow({ c, label, value }) {
     return h('tr', null,
@@ -21,17 +26,18 @@ function SummaryRow({ c, label, value }) {
     );
 }
 
+// What the file sets around its layers.
 function StackSummary({ c, z, stack }) {
     const rows = [
-        [z.summaryTitle, stack.title],
         [z.summaryIncident, indexText(stack.incident)],
         [z.summarySubstrate, indexText(stack.substrate)],
         [z.summaryWavelengths, rangeText(z, stack.wavelengthsNm)],
         [z.summaryAngles, stack.anglesDeg.map(angle => `${angle}°`).join(', ')],
-        [z.summaryRef, `${stack.refNm} nm`],
+        [z.summaryRef, `${fileNumber(stack.refNm)} nm`],
     ];
-    return h('table', { style: { borderCollapse: 'collapse' } },
-        h('tbody', null, rows.map(([label, value]) => h(SummaryRow, { key: label, c, label, value }))));
+    return h(PanelSection, { c },
+        h('table', { style: { borderCollapse: 'collapse' } },
+            h('tbody', null, rows.map(([label, value]) => h(SummaryRow, { key: label, c, label, value })))));
 }
 
 function layerRow(layer, index, c) {
@@ -61,31 +67,35 @@ function LayersTable({ c, z, layers }) {
 function BackButton({ c, z, design, importCoating }) {
     const mirrored = design?.surfaceMode === 'symmetric';
     return h('span', { title: mirrored ? z.importBackSymmetric : undefined },
-        h(Btn, { onClick: () => importCoating('back'), c, primary: true, disabled: mirrored }, z.importToBack));
+        h(ActionButton, { c, label: z.importToBack, onClick: () => importCoating('back'), disabled: mirrored }));
 }
 
-function StackView({ c, z, stack, design, importCoating }) {
-    return h('div', { style: { display: 'flex', flexDirection: 'column', gap: 10 } },
-        h(StackSummary, { c, z, stack }),
-        h(WarningList, { c, z, warnings: stack.warnings }),
-        h('div', { style: { display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' } },
-            h(Label, { c }, z.layersHeader(stack.layers.length)),
-            h('div', { style: { flex: 1 } }),
-            h(Btn, { onClick: () => importCoating('front'), c, primary: true }, z.importToFront),
+// The stack read, its layers as the file lists them, and what can be done with it.
+function StackView({ c, z, stack, fileName, design, importCoating, saveToLibrary }) {
+    return h(React.Fragment, null,
+        h('div', { style: { display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' } },
+            h('div', { style: { fontWeight: 600, fontSize: 12, marginRight: 'auto' } }, stack.title || fileName),
+            h(ActionButton, { c, label: z.importToFront, onClick: () => importCoating('front') }),
             h(BackButton, { c, z, design, importCoating }),
+            h(ActionButton, { c, label: z.saveToLibrary, title: z.saveToLibraryTip, onClick: saveToLibrary }),
         ),
+        h(EditorGroupTitle, { c }, z.layersHeader(stack.layers.length)),
         h(LayersTable, { c, z, layers: stack.layers }),
     );
 }
 
-export function ImportTab({ c, z, stack, design, fileName, loading, onLoad, importCoating }) {
-    return h('div', { style: { display: 'flex', flexDirection: 'column', gap: 12 } },
-        h('div', { style: { display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' } },
-            h(Btn, { onClick: onLoad, c, primary: true, disabled: loading }, loading ? z.loading : z.openBtn),
-            fileName ? h('span', { style: { fontSize: 11, color: c.textDim } }, fileName) : null,
-        ),
-        stack
-            ? h(StackView, { c, z, stack, design, importCoating })
-            : h('div', { style: { color: c.textDim, fontSize: 12, padding: 20, textAlign: 'center' } }, z.noFile),
-    );
+/**
+ * The panel that opens the file and sums up what it sets, on the left; the
+ * layers it holds and their actions, on the right.
+ */
+export function ImportTab(props) {
+    const { c, z, stack, loading, onLoad, fileName, panelWidth, setPanelWidth } = props;
+    return h(ImportPage, {
+        c, panelWidth, onPanelWidthChange: setPanelWidth,
+        file: {
+            title: z.fileTitle, label: loading ? z.loading : z.openBtn,
+            onImport: onLoad, loading, fileName, hint: z.fileHint,
+        },
+        section: stack && h(StackSummary, { c, z, stack }),
+    }, stack ? h(StackView, props) : h(CenteredMessage, { c, message: z.noFile }));
 }

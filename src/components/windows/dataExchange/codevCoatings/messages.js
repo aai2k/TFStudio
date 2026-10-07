@@ -21,9 +21,16 @@ const EXPORT_ERRORS = {
     noIndex: (z, d) => z.errNoIndex(d.material),
 };
 
+// The commands an extraValues warning names by themselves; any other name is
+// the label of a MIC entry, whose values sit on a line of their own.
+const VALUE_COMMANDS = new Set(['WL', 'MWL', 'EXT']);
+
 const WARNINGS = {
     unknownCommand: (z, w) => z.warnUnknownCommand(w.command, w.line),
-    extraValues: (z, w) => z.warnExtraValues(w.command, w.line, w.count, w.limit),
+    extraValues: (z, w) => (VALUE_COMMANDS.has(w.command)
+        ? z.warnExtraValues(w.command, w.line, w.count, w.limit)
+        : z.warnExtraMicValues(w.command, w.line, w.count, w.limit)),
+    decimalComma: (z, w) => z.warnDecimalComma(w.line),
     refOutsideTable: (z, w) => z.warnRefOutsideTable(w.label),
     coupledLayers: (z, w) => z.warnCoupledLayers(w.count),
     resampled: (z, w) => z.warnResampled(w.material, w.from, w.to),

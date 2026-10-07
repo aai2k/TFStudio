@@ -1,5 +1,7 @@
 import { evalParamsSession } from '../../../../state/evalParamsSession.js';
-import { COATING_TYPES, POLARIZATIONS, entryFromDesign } from '../../../../utils/coatingLibrary/entryModel.js';
+import {
+    COATING_TYPES, POLARIZATIONS, entryFromCoating, entryFromDesign,
+} from '../../../../utils/coatingLibrary/entryModel.js';
 import { validateEntry } from '../../../../utils/coatingLibrary/validateEntry.js';
 import { saveUserCoating } from '../../../../utils/coatingLibrary/userCoatings.js';
 import { FONT, Segmented, buttonStyle, failReason, inputStyle } from './ui.js';
@@ -12,36 +14,64 @@ function Row({ label, c, children }) {
         children);
 }
 
+// What the fields open with. The band and angle are the coating's own when it
+// states them; otherwise the band is the one Optical Evaluation was last set
+// to, read once, and the angle is 0°. The fields are the user's from then on.
+function initialFields(design, side, coating) {
+    const evalParams = evalParamsSession.peek(null);
+    const band = coating?.band || [evalParams?.lambdaStart ?? 400, evalParams?.lambdaEnd ?? 700];
+    return {
+        name: coating ? coating.name : `${design.name} ${side}`,
+        bandStart: String(band[0]), bandEnd: String(band[1]),
+        aoi: String(coating?.aoi ?? 0),
+    };
+}
+
+const sideLayers = (design, side) => (side === 'back' ? design.backLayers : design.frontLayers) || [];
+
+// How many layers are saved: the coating's, or those of the chosen side of the
+// design, with the picker for the side.
+function StackRow({ coating, design, side, setSide, c, ts }) {
+    const sd = ts.saveDialog;
+    const count = (coating ? coating.layers : sideLayers(design, side)).length;
+    return h(Row, { label: sd.side, c },
+        !coating && h(Segmented, {
+            value: side, onChange: setSide, c,
+            options: [['front', sd.front], ['back', sd.back]],
+        }),
+        h('span', { style: { color: c.textDim } }, ts.layersShort(count)));
+}
+
 /**
- * Save one side of the active design into My coatings. Opened from the Design
- * Editor's Tools menu and from the Coating Library window.
+ * Save a coating into My coatings. Opened from the Design Editor's Tools menu
+ * and the Coating Library window on one side of the active design (`design`,
+ * `side`), and from a coating import window on a coating read from a file
+ * (`coating`, the shape entryFromCoating takes, plus optional `band` [from, to]
+ * in nm and `aoi` in degrees that the fields open with).
  */
-export function SaveCoatingDialog({ design, side: initialSide = 'front', c, t, onClose, onSaved }) {
+export function SaveCoatingDialog({ design, side: initialSide = 'front', coating = null, c, t, onClose, onSaved }) {
     const ts = t.coatingLibrary;
     const sd = ts.saveDialog;
-    // The band Optical Evaluation was last set to, as the band this coating is
-    // offered over. Read once: it seeds the fields below, which the user owns.
-    const evalParams = useMemo(() => evalParamsSession.peek(null), []);
+    const initial = useMemo(() => initialFields(design, initialSide, coating), []);
     const [side, setSide] = useState(initialSide);
-    const [name, setName] = useState(`${design.name} ${initialSide}`);
+    const [name, setName] = useState(initial.name);
     const [type, setType] = useState('other');
     const [use, setUse] = useState('');
-    const [bandStart, setBandStart] = useState(String(evalParams?.lambdaStart ?? 400));
-    const [bandEnd, setBandEnd] = useState(String(evalParams?.lambdaEnd ?? 700));
-    const [aoi, setAoi] = useState('0');
+    const [bandStart, setBandStart] = useState(initial.bandStart);
+    const [bandEnd, setBandEnd] = useState(initial.bandEnd);
+    const [aoi, setAoi] = useState(initial.aoi);
     const [polarization, setPolarization] = useState('avg');
     const [problems, setProblems] = useState([]);
     const [busy, setBusy] = useState(false);
 
-    const layerCount = (side === 'back' ? design.backLayers : design.frontLayers)?.length || 0;
-
     async function save() {
         if (!name.trim()) { setProblems([sd.nameRequired]); return; }
-        if (layerCount === 0) { setProblems([sd.emptyStack]); return; }
-        const entry = entryFromDesign(design, side, {
+        if (!coating && sideLayers(design, side).length === 0) { setProblems([sd.emptyStack]); return; }
+        const meta = {
             name: name.trim(), type, use: use.trim(),
             band: [Number(bandStart), Number(bandEnd)], aoi: Number(aoi), polarization,
-        });
+        };
+        const entry = coating ? entryFromCoating(coating, meta) : entryFromDesign(design, side, meta);
         const found = validateEntry(entry);
         if (found.length > 0) { setProblems(found); return; }
         setBusy(true);
@@ -70,10 +100,7 @@ export function SaveCoatingDialog({ design, side: initialSide = 'front', c, t, o
         },
     },
         h('h2', { style: { margin: '0 0 14px', fontSize: 17 } }, sd.title),
-        h(Row, { label: sd.side, c }, h(Segmented, {
-            value: side, onChange: setSide, c,
-            options: [['front', sd.front], ['back', sd.back]],
-        }), h('span', { style: { color: c.textDim } }, ts.layersShort(layerCount))),
+        h(StackRow, { coating, design, side, setSide, c, ts }),
         h(Row, { label: sd.name, c }, h('input', {
             value: name, onChange: event => setName(event.target.value), style: inputStyle(c, 260), autoFocus: true,
         })),
