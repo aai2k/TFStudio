@@ -55,8 +55,10 @@ function wl(stack, args, line, warnings) {
 
 // WLG min max step: equally spaced wavelengths, both ends included. Each is
 // min + i·step, rounded to 12 digits, so no rounding error builds up along it.
-// CODE V itself adds the step to a float32 in µm point after point; the .mul
-// of its DWDM sample shows the drift, 1.1e-6 relative after 50 steps.
+// The WLG wavelengths CODE V stores in a .mul drift: to the 10 digits written
+// they are a float32 in µm with the step added point after point. The last of
+// the DWDM sample's 51 sits 1.7e-3 nm above 1557 nm (1.1e-6 relative), and
+// the last of WLG 400 800 10 saved by CODE V 11.2 3.5e-4 nm below 800 nm.
 function wlg(stack, args, line) {
     const [min, max, step] = numbersOf(args.slice(0, 3), line);
     if (!(step > 0)) throw new CodevParseError('badNumber', { line, text: args[2]?.text ?? '' });

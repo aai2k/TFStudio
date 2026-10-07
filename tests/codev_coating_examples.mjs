@@ -8,15 +8,16 @@
  *  Example 2: 7-layer quarter-wave stack from a GRO group, at 0° and 30°.
  *  Example 3: Al mirror under a half wave of SiO2, with the phase table.
  *
- * R and T agree to one unit in the sixth decimal CODE V prints; CODE V
- * computes in single precision. Phase: CODE V's reflection phase of s is the
- * phase in Macleod's convention, which TFStudio reports; its p phase is 180°
- * from that, the p sign convention in which r_p = −r_s at normal incidence
- * (Macleod has r_p = r_s there). Example 3 prints phases at normal incidence
- * only, so the 180° is confirmed there. Its transmission phases are not
- * compared: the transmitted amplitude through 10 waves of Al is near 1e-220,
- * CODE V prints its phase at three wavelengths and "----" at two, and the
- * printed values differ from TFStudio's.
+ * R and T agree to one unit in the sixth decimal CODE V prints; CODE V's
+ * numbers are single precision (its .mul files hold float32 values). Phase:
+ * CODE V's reflection phase of s is the phase in Macleod's convention, which
+ * TFStudio reports; its p phase is 180° from that, the p sign convention in
+ * which r_p = −r_s at normal incidence (Macleod has r_p = r_s there).
+ * Example 3 prints phases at normal incidence only, so the 180° is confirmed
+ * there. Its transmission phases are not compared: the transmitted amplitude
+ * through 10 waves of Al is near 1e-220, CODE V prints its phase at three
+ * wavelengths and "----" at two, and the printed values differ from
+ * TFStudio's.
  *
  * Run: node tests/codev_coating_examples.mjs
  */

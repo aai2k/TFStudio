@@ -43,9 +43,12 @@
  *  • The .mul is not described in the help; codevCoating/mulRecord.js gives
  *    the layout read from CODE V's sample coatings. It stores every thickness
  *    in waves of REF, so it is read back with the n(REF) stored beside it.
- *  • Between MWL points CODE V computes n by rules given in
- *    codevCoating/micIndex.js; a PHT N layer of a MIC material uses them for
- *    n(REF). Imported MIC materials are read with TFStudio's interpolation.
+ *  • n and k of a MIC table between and past its MWL points follow the rules
+ *    in codevCoating/micIndex.js, read off CODE V 11.2 listings. A PHT N
+ *    layer of a MIC material takes n(REF) from them, and an imported MIC
+ *    material is tabulated from them, densely enough that TFStudio's straight
+ *    lines between its rows stay within half a unit in the sixth decimal of
+ *    CODE V's n.
  *
  * ── What the reader returns ─────────────────────────────────────────────────
  *
@@ -62,8 +65,9 @@
  * know inside MDA, or MCH (stack changes it does not apply); extraValues
  * {command, line, count, limit} for the values past the 21st of one WL
  * command, which CODE V ignores and so does the reader; refOutsideTable
- * {label} when a PHT N layer's MIC table does not reach REF and its end value
- * is used; coupledLayers {count} from codevStackToDesign. Errors are
+ * {label} when a PHT N layer's MIC table does not reach REF, where CODE V too
+ * warns that the index "is being extrapolated"; coupledLayers {count} from
+ * codevStackToDesign. Errors are
  * CodevParseError, kinds listed in codevCoating/parseError.js.
  */
 

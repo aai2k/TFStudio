@@ -120,7 +120,19 @@ const seq = (...lines) => lines.join('\n');
         'MUL', 'MDA', 'MIC', 'MWL 400 500', "'M' 2.0 1.9", 'END', "COA 0.25 100 'M'", "COA 0.5 100 'M'", 'SUB 1.5', 'WL 600',
     ));
     equal(stack.warnings, [{ kind: 'refOutsideTable', label: 'M' }], 'REF past a MIC table is reported once per material');
-    near(stack.layers[0].thicknessNm, 0.25 * 600 / 1.9, 1e-12, 'and the end value is used');
+    // CODE V 11.2 held the end values of a 2-point table (MWL 450 650) from
+    // 380 to 425 nm and from 675 to 750 nm.
+    near(stack.layers[0].thicknessNm, 0.25 * 600 / 1.9, 1e-12, 'a 2-point table holds its end value there');
+}
+{
+    // CODE V 11.2 printed n 1.743750 at 700 nm for this table, with "Index for
+    // material X is being extrapolated": the parabola through its three points.
+    const stack = parseCodevSeq(seq(
+        'MUL', 'MDA', 'MIC', 'MWL 450 550 650', "'X' 1.9 1.8 1.75", "EXT 'X' 0.1 0.2 0.25", 'END',
+        "COA 0.25 100 'X'", 'SUB 1.52', 'WL 700',
+    ));
+    equal(stack.warnings, [{ kind: 'refOutsideTable', label: 'X' }], 'REF past a 3-point table is reported');
+    near(stack.layers[0].thicknessNm, 0.25 * 700 / 1.74375, 1e-9, 'and n there is extrapolated as CODE V does');
 }
 {
     // CODE V 11.2 listing of a 41-value WL command: it kept 400 to 600 nm and
@@ -154,18 +166,24 @@ fails('MUL\nMDA\nCOA 1 100 1.38\nSUB 1.5', 'missingCommand', { command: 'WL' }, 
 // The MIC tables of four CODE V sample coatings (REFL_SILVER_400nm_1000nm,
 // REFL_GOLD_550nm_1000nm, REFL_AL_450nm_700nm, REFL_ALSIO_450nm_700nm; data
 // from Palik) and the n CODE V stored for them at the analysis wavelengths.
-// CODE V computes in float32: at an MWL point it is 3 float32 steps off the
-// table (Al at 700 nm), so the tolerance is 4e-7, relative.
+// The k of each table is part of it: the metals, whose k is many times n,
+// take the spline, and SiO, whose k/n stays below 0.1, the Hartmann curve.
+// The stored n is a float32, and at an MWL point it is 3 float32 steps off
+// the table (Al at 700 nm), so the tolerance is 4e-7, relative.
 {
-    const table = (mwl, n) => mwl.map((lam, i) => [lam, n[i], 0]);
+    const table = (mwl, n, k) => mwl.map((lam, i) => [lam, n[i], k[i]]);
     const cases = [
-        [table([400, 459.2, 495.9, 563.6, 652.6, 774.9, 885.6, 1033], [0.173, 0.144, 0.130, 0.120, 0.140, 0.143, 0.163, 0.226]),
+        [table([400, 459.2, 495.9, 563.6, 652.6, 774.9, 885.6, 1033], [0.173, 0.144, 0.130, 0.120, 0.140, 0.143, 0.163, 0.226],
+            [1.950, 2.560, 2.880, 3.45, 4.150, 5.090, 5.950, 6.99]),
             { 750: 0.1428141594, 1000: 0.2086311132 }, 'silver'],
-        [table([495.9, 563.6, 652.6, 774.9, 885.6, 1033], [0.916, 0.306, 0.166, 0.174, 0.210, 0.272]),
+        [table([495.9, 563.6, 652.6, 774.9, 885.6, 1033], [0.916, 0.306, 0.166, 0.174, 0.210, 0.272],
+            [1.840, 2.88, 3.15, 4.86, 5.88, 7.07]),
             { 550: 0.3852337301, 750: 0.1707715690, 1000: 0.2577517629 }, 'gold'],
-        [table([400, 500, 550, 600, 700, 750], [0.490, 0.769, 0.958, 1.200, 1.830, 2.40]),
+        [table([400, 500, 550, 600, 700, 750], [0.490, 0.769, 0.958, 1.200, 1.830, 2.40],
+            [4.860, 6.080, 6.690, 7.260, 8.310, 8.620]),
             { 450: 0.6156912446, 700: 1.830000639 }, 'aluminium'],
-        [table([387.5, 442.8, 563.6, 619.9, 774.9], [2.144, 2.085, 1.994, 1.969, 1.929]),
+        [table([387.5, 442.8, 563.6, 619.9, 774.9], [2.144, 2.085, 1.994, 1.969, 1.929],
+            [0.171, 0.084, 0.022, 0.012, 0.002]),
             { 450: 2.078301290, 550: 2.002352376, 700: 1.944684386 }, 'SiO'],
     ];
     for (const [rows, stored, name] of cases) {
