@@ -54,6 +54,7 @@ import { DesignCleaner } from '../windows/optimization/designCleaner/DesignClean
 import { HistoryWindow } from '../windows/edit/HistoryWindow.js';
 import { ProcessSimulator } from '../windows/dataExchange/processSimulator/ProcessSimulator.js';
 import { ZemaxCoatings } from '../windows/dataExchange/zemaxCoatings/ZemaxCoatings.js';
+import { CodevCoatings } from '../windows/dataExchange/codevCoatings/CodevCoatings.js';
 import { SpectrumExchange } from '../windows/dataExchange/spectrumExchange/SpectrumExchange.js';
 import { MeasuredEllipsometry } from '../windows/dataExchange/measuredEllipsometry/MeasuredEllipsometry.js';
 import { Variator } from '../windows/optimization/variator/Variator.js';
@@ -116,6 +117,7 @@ export const WINDOW_REGISTRY = {
   // ── Data Exchange ──────────────────────────────────────────────────────────────
   'process-sim':     { component: ProcessSimulator,  title: 'Process Exporter',   label: 'Process Exporter: scrub through deposition + export .res files', help: 'simulation/process-simulator', theme: true, requiresResolvedMaterials: true },
   'zemax-coatings':  { component: ZemaxCoatings,     title: 'Zemax Coatings',     label: 'Zemax Coatings: import / export COATING.DAT (materials + coatings)', help: 'data-exchange/zemax-coatings', theme: true, dialog: true },
+  'codev-coatings':  { component: CodevCoatings,     title: 'CODE V Coatings',    label: 'CODE V Coatings: import / export CODE V MUL coatings (.seq, .mul)', help: 'data-exchange/codev-coatings', theme: true },
   'spectrum-exchange': { component: SpectrumExchange, title: 'Measured Spectra',   label: 'Measured Spectra: import measured R/T/A spectra (CSV/TXT/ASCII/JCAMP-DX) as overlays; export design or measured spectra to CSV/JCAMP-DX', help: 'data-exchange/measured-spectra', theme: true },
   'measured-ellipsometry': { component: MeasuredEllipsometry, title: 'Measured Ellipsometry', label: 'Measured Ellipsometry: import measured Ψ/Δ from a spectroscopic ellipsometer; export measured or calculated Ψ/Δ to CSV', help: 'data-exchange/measured-ellipsometry', theme: true },
   'nk-characterization': { component: NkCharacterization, title: 'n,k Characterization', label: 'n,k Characterization: derive the n, k and thickness of a film from a measured R/T spectrum or a measured Ψ/Δ pair', help: 'data-exchange/nk-characterization', theme: true, dialog: true, createDesign: true },

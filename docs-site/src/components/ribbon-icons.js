@@ -227,5 +227,16 @@ export const ICONS = {
                        P('M14 5 L11.5 7 L14 9', 1.2),
                      ]),
 
+  // CODE V Coatings: a lens with a coating on its front surface, and the
+  // two-way arrow of Zemax Coatings.
+  'codev-coatings': I([
+                       P('M7.5 2.5 Q2 10 7.5 17.5', 1.3),
+                       P('M7.5 2.5 Q13 10 7.5 17.5', 1.3),
+                       P('M5.8 3.2 Q-1 10 5.8 16.8', 1),
+                       L(12.8, 10, 18, 10, 1.4),
+                       P('M15.5 7.5 L18.3 10 L15.5 12.5', 1.4),
+                       P('M15.3 5 L12.8 7 L15.3 9', 1.2),
+                     ]),
+
   'help-docs':       I([ C(10,10,8), P('M7.5 7.8q0-2 2.5-2t2.5 2q0 1.5-2.5 2.5v1', 1.5), Cf(10,14.7,0.7) ]),
 };

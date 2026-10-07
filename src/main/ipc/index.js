@@ -16,6 +16,7 @@ const report = require('./report');
 const processFiles = require('./process');
 const rii = require('./rii');
 const zemax = require('./zemax');
+const codev = require('./codev');
 const spectrum = require('./spectrum');
 const paths = require('./paths');
 const preferences = require('./preferences');
@@ -35,6 +36,7 @@ function registerAllIpc(ipcMain, ctx) {
   processFiles.register(ipcMain, ctx);
   rii.register(ipcMain, ctx);
   zemax.register(ipcMain, ctx);
+  codev.register(ipcMain, ctx);
   spectrum.register(ipcMain, ctx);
   paths.register(ipcMain, ctx);
   preferences.register(ipcMain, ctx);

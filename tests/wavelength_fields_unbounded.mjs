@@ -277,6 +277,7 @@ const WINDOW_FIELDS = {
         ['setup.lambdaStart', 'setup.lambdaEnd', 'setup.lambdaStep', 'setup.exportStep'],
     'dataExchange/zemaxCoatings/ZemaxLayout.js': ['refNm'],
     'dataExchange/zemaxCoatings/ExportTab.js': ['gStart', 'gEnd', 'gStep'],
+    'dataExchange/codevCoatings/ExportTab.js': ['refNm', 'gStart', 'gEnd', 'gStep'],
     'dataExchange/nkCharacterization/CharacterizationControls.js':
         ['Number(settings.lambdaStart) || 0', 'Number(settings.lambdaEnd) || 0'],
     'information/report/BlockSettings.js': ['on ? s.tableStep : 10', 's.lambdaStep', 's.step'],

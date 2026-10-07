@@ -470,6 +470,8 @@
     saveProcessFiles:     () => Promise.resolve(fail('directory export is unavailable in the web demo')),
     zemaxPickCoatingFile: () => pickText('.dat,.DAT'),
     zemaxSaveCoatingFile: (text, suggestedName) => saveText(text, suggestedName || 'COATING.DAT', 'text/plain;charset=utf-8'),
+    codevPickCoatingFile: () => pickText('.seq,.mul,.SEQ,.MUL'),
+    codevSaveCoatingFile: (text, suggestedName) => saveText(text, suggestedName || 'coating.seq', 'text/plain;charset=utf-8'),
     spectrumPickFile:     () => pickText('.csv,.txt,.asc,.prn,.dx,.jdx,.dat,.tsv'),
     spectrumSaveFile:     (text, suggestedName) => saveText(text, suggestedName || 'spectrum.csv', 'text/csv;charset=utf-8'),
 

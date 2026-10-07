@@ -364,6 +364,17 @@ export const ICONS = {
                           P('M15 7.5 L17.8 10 L15 12.5', 1.4),
                           P('M14 5 L11.5 7 L14 9', 1.2),
                       ]),
+
+    // CODE V coatings: a lens with a coating on its front surface, and the same
+    // two-way arrow as Zemax Coatings (import/export MUL coatings).
+    'codev-coatings': I([
+                          P('M7.5 2.5 Q2 10 7.5 17.5', 1.3),
+                          P('M7.5 2.5 Q13 10 7.5 17.5', 1.3),
+                          P('M5.8 3.2 Q-1 10 5.8 16.8', 1),
+                          L(12.8, 10, 18, 10, 1.4),
+                          P('M15.5 7.5 L18.3 10 L15.5 12.5', 1.4),
+                          P('M15.3 5 L12.8 7 L15.3 9', 1.2),
+                      ]),
 };
 
 // ── Per-family signature colors (the "colorful" ribbon mode) ──────
@@ -400,7 +411,8 @@ const TOOL_GROUP = {
     'variator': 'optimization', 'design-cleaner': 'optimization', 'filter-design': 'optimization',
     'bbm-simulator': 'simulation', 'mono-simulator': 'simulation', 'monitor-worksheet': 'simulation',
     'process-sim': 'simulation',
-    'zemax-coatings': 'data-exchange', 'spectrum-exchange': 'data-exchange', 'measured-ellipsometry': 'data-exchange',
+    'zemax-coatings': 'data-exchange', 'codev-coatings': 'data-exchange',
+    'spectrum-exchange': 'data-exchange', 'measured-ellipsometry': 'data-exchange',
     'nk-characterization': 'data-exchange',
     'report-gen': 'information', 'help-docs': 'information',
     'welcome': 'information', 'tutorials': 'information',
@@ -459,7 +471,7 @@ export function makeTabs(t) {
             key: 'production', label: tb.tabs.production, groups: [
                 grp('monitoring', ['bbm-simulator', 'mono-simulator', 'monitor-worksheet', 'process-sim']),
                 grp('measured',   ['spectrum-exchange', 'measured-ellipsometry', 'nk-characterization']),
-                grp('exchange',   ['zemax-coatings', 'report-gen']),
+                grp('exchange',   ['zemax-coatings', 'codev-coatings', 'report-gen']),
             ]
         },
         {
