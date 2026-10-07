@@ -126,5 +126,5 @@ saying so.
 ## References
 
 - H. A. Macleod, *Thin-Film Optical Filters*, 5th ed., Ch. 11, Eq. 11.17.
-- J. Birge and F. X. Kärtner, "Efficient analytic computation of higher-order dispersion from optical interferometers," *Applied Optics* **45**, 1478-1483 (2006), [doi:10.1364/AO.45.001478](https://doi.org/10.1364/AO.45.001478).
+- J. R. Birge and F. X. Kärtner, "Efficient analytic computation of dispersion from multilayer structures," *Applied Optics* **45**, 1478-1483 (2006), [doi:10.1364/AO.45.001478](https://doi.org/10.1364/AO.45.001478).
 - S. Diddams and J.-C. Diels, *Journal of the Optical Society of America B* **13**, 1120 (1996).
