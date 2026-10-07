@@ -1,14 +1,15 @@
-import { getNKById } from '../../../../utils/materials/catalogManager.js';
-import { makeGetNK } from '../../../../utils/materials/catalogManager/dispersion.js';
-import { coatToTfLayers, parseZemaxCoating } from '../../../../utils/io/zemaxCoatingFile.js';
+import { parseZemaxCoating } from '../../../../utils/io/zemaxCoatingFile.js';
 import { applyImportedLayers } from './model.js';
 import { buildMaterialRegistration, registerMaterials } from './catalogImport.js';
+import { convertSelectedCoating, libraryCoating } from './coatingLayers.js';
 
 const { useCallback } = React;
 
-async function loadCoatingFile({ z, flash, setLoading, setStatus, setDoc, setFileName, setFilePath, setSelCoating, setSelMats }) {
+// A new file replaces the old one, with its first layer stack selected on the
+// Coatings tab and no row checked on the Materials tab.
+async function loadCoatingFile({ z, flash, clear, setLoading, setFile }) {
     setLoading(true);
-    setStatus(null);
+    clear();
     try {
         const result = await window.electronAPI.zemaxPickCoatingFile();
         if (!result?.success) {
@@ -22,11 +23,13 @@ async function loadCoatingFile({ z, flash, setLoading, setStatus, setDoc, setFil
             setLoading(false);
             return;
         }
-        setDoc(parsed);
-        setFileName(result.fileName || 'COATING.DAT');
-        setFilePath(result.filePath || '');
-        setSelCoating(parsed.coatings.findIndex((coating) => coating.type === 'layers'));
-        setSelMats(new Set());
+        setFile({
+            doc: parsed,
+            fileName: result.fileName || 'COATING.DAT',
+            filePath: result.filePath || '',
+            selCoating: parsed.coatings.findIndex((coating) => coating.type === 'layers'),
+            selRows: new Set(),
+        });
         flash('success', z.loadedFile(result.fileName || ''));
     } catch (error) {
         flash('error', z.errLoad(error.message));
@@ -34,52 +37,48 @@ async function loadCoatingFile({ z, flash, setLoading, setStatus, setDoc, setFil
     setLoading(false);
 }
 
-function importSelectedCoating({ z, flash, doc, selCoating, fileName, filePath, refNm, checkpoint, updateDesign }) {
-    const coating = doc?.coatings?.[selCoating];
-    if (!coating || coating.type !== 'layers') {
-        flash('error', z.importNotStack);
+/** What the conversion noted, as a count to put after a report. */
+export const warningsSuffix = (z, warnings) => (warnings.length ? ` (${z.warningsN(warnings.length)})` : '');
+
+function importSelectedCoating(args) {
+    const { z, flash, checkpoint, updateDesign } = args;
+    const converted = convertSelectedCoating(args, { write: true });
+    if (converted.error) {
+        flash('error', converted.error);
         return;
     }
-
-    // The layers use the materials the catalog holds, edits included; a relative
-    // thickness is converted with the index the file gives, as Zemax converts it.
-    const neededNames = new Set(coating.layers.map((layer) => layer.material.toUpperCase()));
-    const { catName, nameMap, fileRecords } = registerMaterials(doc.materials, fileName, neededNames, filePath);
-    const resolveId = (zemaxName) => nameMap[zemaxName.toUpperCase()] || (/^AIR$/i.test(zemaxName) ? 'Air' : null);
-    const { layers, warnings } = coatToTfLayers(coating, {
-        refWavelengthUm: refNm / 1000,
-        materialId: resolveId,
-        realIndex: (zemaxName, wavelengthNm) => {
-            const record = fileRecords[zemaxName.toUpperCase()];
-            if (record) return makeGetNK(record)(wavelengthNm)[0];
-            const id = resolveId(zemaxName);
-            return id ? getNKById(id, wavelengthNm)[0] : 0;
-        },
-    });
-    if (!layers.length) {
-        flash('error', warnings[0] || z.importNotStack);
-        return;
-    }
-
+    const { coating, layers, warnings, registration } = converted;
     applyImportedLayers(layers, checkpoint, updateDesign);
-    flash('success', z.importedCoating(coating.name, layers.length) + (catName ? '' : '') + (warnings.length ? ` (${z.warningsN(warnings.length)})` : ''));
+    flash('success', z.importedCoating(coating.name, layers.length, registration.catName) + warningsSuffix(z, warnings));
+}
+
+// The dialog opens on the coating; what the conversion noted is reported once
+// the coating is saved.
+function openLibraryDialog(args) {
+    const built = libraryCoating(args);
+    if (built.error) {
+        args.flash('error', built.error);
+        return;
+    }
+    args.setLibraryCoating(built);
 }
 
 // A material the catalog holds in a form that differs from the file's, most
 // often after an edit in the Material Editor, is replaced only when the user
-// says so; Cancel imports nothing.
-function importSelectedMaterials({ z, flash, doc, selMats, fileName, filePath, setInputDialog }, all) {
+// says so; Cancel imports nothing. The selection is a set of rows of the
+// Materials tab, so each record of a repeated name is imported on its own.
+function importSelectedMaterials({ z, flash, doc, selRows, fileName, filePath, setInputDialog }, all) {
     if (!doc?.materials?.length) return;
-    const onlyNames = all ? null : selMats;
-    if (!all && (!onlyNames || onlyNames.size === 0)) {
+    const rows = all ? null : selRows;
+    if (!all && (!rows || rows.size === 0)) {
         flash('error', z.noSelection);
         return;
     }
     const commit = () => {
-        const { catName, count } = registerMaterials(doc.materials, fileName, onlyNames, filePath, { replaceChanged: true });
+        const { catName, count } = registerMaterials(doc.materials, fileName, rows, filePath, { replaceChanged: true });
         flash('success', z.importedMaterials(count, catName));
     };
-    const { changed, catName } = buildMaterialRegistration(doc.materials, fileName, onlyNames, filePath);
+    const { changed, catName } = buildMaterialRegistration(doc.materials, fileName, rows, filePath);
     if (changed.length === 0) { commit(); return; }
     setInputDialog({
         confirm: true, danger: true,
@@ -100,7 +99,13 @@ export function useCoatingImportAction(args) {
     return useCallback(() => importSelectedCoating(args), [doc, selCoating, fileName, filePath, refNm, checkpoint, updateDesign, z]);
 }
 
+/** Open the Save Coating dialog on the selected COAT, or report why it cannot be saved. */
+export function useLibraryAction(args) {
+    const { doc, selCoating, fileName, filePath, refNm, design, z } = args;
+    return useCallback(() => openLibraryDialog(args), [doc, selCoating, fileName, filePath, refNm, design, z]);
+}
+
 export function useMaterialImportAction(args) {
-    const { doc, selMats, fileName, filePath, setInputDialog, z } = args;
-    return useCallback((all) => importSelectedMaterials(args, all), [doc, selMats, fileName, filePath, setInputDialog, z]);
+    const { doc, selRows, fileName, filePath, setInputDialog, z } = args;
+    return useCallback((all) => importSelectedMaterials(args, all), [doc, selRows, fileName, filePath, setInputDialog, z]);
 }

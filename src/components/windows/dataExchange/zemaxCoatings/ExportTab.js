@@ -1,75 +1,62 @@
-import { Btn, Label, Num, Seg } from './ui.js';
+import {
+    ActionButton, ChoiceGroup, FieldLabel, NumInput, RangeField,
+} from '../../analysis/chrome/controls.js';
+import {
+    FilePreview, InlineRow, PanelSection, TextInput,
+} from '../chrome/panel.js';
 
 const { createElement: h } = React;
 
-function ExportOptions({ c, z, thMode, setThMode, scope, setScope, coatName, setCoatName }) {
-    return h('div', { style: { display: 'flex', flexWrap: 'wrap', gap: 16, alignItems: 'center' } },
-        h('div', { style: { display: 'flex', flexDirection: 'column', gap: 4 } },
-            h(Label, { c }, z.thicknessMode),
-            h('div', { style: { display: 'flex' } },
-                h(Seg, { active: thMode === 'absolute', onClick: () => setThMode('absolute'), c, position: 'first' }, z.thicknessAbs),
-                h(Seg, { active: thMode === 'relative', onClick: () => setThMode('relative'), c, position: 'last' }, z.thicknessRel),
-            ),
-        ),
-        h('div', { style: { display: 'flex', flexDirection: 'column', gap: 4 } },
-            h(Label, { c }, z.materialScope),
-            h('div', { style: { display: 'flex' } },
-                h(Seg, { active: scope === 'used', onClick: () => setScope('used'), c, position: 'first' }, z.scopeUsed),
-                h(Seg, { active: scope === 'all', onClick: () => setScope('all'), c, position: 'last' }, z.scopeAll),
-            ),
-        ),
-        h('div', { style: { display: 'flex', flexDirection: 'column', gap: 4 } },
-            h(Label, { c }, z.coatingName),
-            h('input', {
-                value: coatName, onChange: (event) => setCoatName(event.target.value),
-                style: { height: 24, width: 180, background: c.bg, color: c.text, border: `1px solid ${c.border}`, borderRadius: 3, fontSize: 11, padding: '0 6px', outline: 'none' },
+function ExportOptions(props) {
+    const {
+        c, z, design, thMode, setThMode, scope, setScope, coatName, setCoatName, refNm,
+        gStart, setGStart, gEnd, setGEnd, gStep, setGStep, preview, onGenerate, onSave,
+    } = props;
+    return h(PanelSection, { c, title: z.exportTitle },
+        h('div', { style: { fontSize: 11, color: c.textDim } }, z.frontLayerCount((design.frontLayers || []).length)),
+        h(InlineRow, { c, label: z.thicknessMode },
+            h(ChoiceGroup, {
+                c, activeId: thMode, onSelect: setThMode,
+                items: [{ id: 'absolute', label: z.thicknessAbs }, { id: 'relative', label: z.thicknessRel }],
             }),
         ),
-    );
-}
-
-function SampleGrid({ c, z, gStart, setGStart, gEnd, setGEnd, gStep, setGStep }) {
-    return h('div', { style: { display: 'flex', alignItems: 'center', gap: 8 } },
-        h(Label, { c }, z.sampleGrid),
-        h(Label, { c }, z.from), h(Num, { value: gStart, onChange: setGStart, positive: true, step: 10, c, width: 64 }),
-        h(Label, { c }, z.to), h(Num, { value: gEnd, onChange: setGEnd, positive: true, step: 10, c, width: 64 }),
-        h(Label, { c }, z.step), h(Num, { value: gStep, onChange: setGStep, positive: true, step: 5, c, width: 56 }),
+        h('div', { style: { fontSize: 10.5, color: c.textDim, lineHeight: 1.45 } },
+            thMode === 'absolute' ? z.thicknessAbsHint : `${z.thicknessRelHint}  (λ₀ = ${refNm} nm)`),
+        h(InlineRow, { c, label: z.materialScope },
+            h(ChoiceGroup, {
+                c, activeId: scope, onSelect: setScope,
+                items: [{ id: 'used', label: z.scopeUsed }, { id: 'all', label: z.scopeAll }],
+            }),
+        ),
+        h(InlineRow, { c, label: z.coatingName },
+            h(TextInput, { c, value: coatName, onChange: setCoatName, width: 200 }),
+        ),
+        h(InlineRow, { c, label: z.sampleGrid },
+            h(RangeField, {
+                c,
+                from: { value: gStart, onChange: setGStart, positive: true, step: 10 },
+                to: { value: gEnd, onChange: setGEnd, positive: true, step: 10 },
+            }),
+            h(FieldLabel, { c }, z.step),
+            h(NumInput, { value: gStep, onChange: setGStep, positive: true, step: 5, c, width: 56 }),
+        ),
+        h(InlineRow, { c },
+            h(ActionButton, { c, label: z.generate, onClick: onGenerate }),
+            h(ActionButton, { c, label: z.saveBtn, onClick: onSave, disabled: !preview }),
+        ),
     );
 }
 
 export function ExportTab(props) {
-    const {
-        c, z, design, thMode, gStart, gEnd, gStep, scope, coatName,
-        preview, onGenerate, onSave, refNm, missingMaterialIds,
-    } = props;
-    const layerCount = (design.frontLayers || []).length;
+    const { c, z, missingMaterialIds, preview } = props;
     if (missingMaterialIds.length > 0) {
-        return h('div', {
-            role: 'alert',
-            style: { color: c.error, fontSize: 11.5, lineHeight: 1.5 },
-        }, z.exportBlocked(missingMaterialIds.join(', ')));
+        return h(PanelSection, { c, title: z.exportTitle },
+            h('div', { role: 'alert', style: { color: c.error, fontSize: 11.5, lineHeight: 1.5 } },
+                z.exportBlocked(missingMaterialIds.join(', '))),
+        );
     }
-    return h('div', { style: { display: 'flex', flexDirection: 'column', gap: 10, height: '100%' } },
-        h('div', { style: { fontSize: 12, fontWeight: 600 } }, z.exportTitle),
-        h('div', { style: { fontSize: 10.5, color: c.textDim } }, `${layerCount} front-coating layer${layerCount === 1 ? '' : 's'}`),
+    return h('div', { style: { flex: 1, minHeight: 0, overflow: 'auto', display: 'flex', flexDirection: 'column' } },
         h(ExportOptions, props),
-        h(SampleGrid, props),
-        h('div', { style: { fontSize: 10.5, color: c.textDim } },
-            thMode === 'absolute' ? z.thicknessAbsHint : `${z.thicknessRelHint}  (λ₀ = ${refNm} nm)`),
-        h('div', { style: { display: 'flex', gap: 8 } },
-            h(Btn, { onClick: onGenerate, c, primary: true }, z.generate),
-            h(Btn, { onClick: onSave, c, disabled: !preview }, z.saveBtn),
-        ),
-        h('div', { style: { flex: 1, display: 'flex', flexDirection: 'column', minHeight: 120 } },
-            h(Label, { c }, z.preview),
-            h('textarea', {
-                value: preview, readOnly: true, spellCheck: false,
-                style: {
-                    flex: 1, marginTop: 4, width: '100%', resize: 'none',
-                    background: c.bg, color: c.text, border: `1px solid ${c.border}`, borderRadius: 4,
-                    fontFamily: 'ui-monospace, Consolas, monospace', fontSize: 10.5, padding: 8, outline: 'none', whiteSpace: 'pre',
-                },
-            }),
-        ),
+        h(FilePreview, { c, title: z.preview, text: preview }),
     );
 }

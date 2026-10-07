@@ -1,6 +1,10 @@
+import { ActionButton } from '../../analysis/chrome/controls.js';
+import { CenteredMessage, EditorGroupTitle } from '../../analysis/chrome/layout.js';
+import { PanelSection } from '../chrome/panel.js';
 import { LockIcon } from '../../../ui/LockIcon.js';
+import { ImportPage } from './ImportPage.js';
 import { coatLayerThkNm } from './model.js';
-import { Btn, td, th } from './ui.js';
+import { td, th } from './ui.js';
 
 const { createElement: h } = React;
 
@@ -23,36 +27,56 @@ function coatingListRow(coating, index, { c, z, selCoating, setSelCoating }) {
     },
         h('td', { style: { ...td(c), display: 'flex', alignItems: 'center', gap: 5 } },
             importable ? null : h('span', { style: { display: 'inline-flex', color: c.textDim }, title: z.notImportable }, h(LockIcon, { locked: true, size: 11 })),
-            h('span', null, coating.name || '—'),
+            h('span', null, coating.name),
         ),
         h('td', { style: { ...td(c), color: c.textDim } }, coatingTypeLabel(z, coating.type)),
         h('td', { style: { ...td(c), textAlign: 'right', color: c.textDim } }, importable ? coating.layers.length : ''),
     );
 }
 
+function CoatingList({ c, z, doc, selCoating, setSelCoating }) {
+    return h(PanelSection, { c, title: z.tabCoatings },
+        h('table', { style: { width: '100%', borderCollapse: 'collapse' } },
+            h('thead', null, h('tr', null,
+                h('th', { style: th(c) }, z.colName),
+                h('th', { style: th(c) }, z.colType),
+                h('th', { style: { ...th(c), textAlign: 'right' } }, z.colLayers),
+            )),
+            h('tbody', null, doc.coatings.map((coating, index) => coatingListRow(coating, index, { c, z, selCoating, setSelCoating }))),
+        ),
+    );
+}
+
+// A relative thickness for which the file's MATE tables give no index at λ₀
+// shows as "?".
 function coatingLayerRow(layer, index, { c, z, materialsByName, refNm }) {
     const thickness = coatLayerThkNm(layer, materialsByName, refNm);
     return h('tr', { key: index },
         h('td', { style: { ...td(c), color: c.textDim } }, index + 1),
         h('td', { style: td(c) }, layer.material),
         h('td', { style: { ...td(c), textAlign: 'right', fontVariantNumeric: 'tabular-nums' } },
-            Number.isFinite(thickness) ? `${thickness.toFixed(2)} nm` : '—'),
+            Number.isFinite(thickness) ? `${thickness.toFixed(2)} nm` : '?'),
         h('td', { style: { ...td(c), color: c.textDim } },
             layer.isAbsolute ? `${layer.thickness} ${z.modeAbs}` : `${layer.thickness} ${z.modeRel}`),
     );
 }
 
-function coatingDetail(selected, { c, z, materialsByName, refNm, importCoating }) {
-    if (!selected) return h('div', { style: { color: c.textDim, fontSize: 12, padding: 12 } }, z.selectCoating);
-    if (selected.type !== 'layers') return h('div', { style: { color: c.textDim, fontSize: 12, padding: 12 } }, z.importNotStack);
-    return [
-        h('div', { key: 'h', style: { display: 'flex', alignItems: 'center', gap: 10 } },
-            h('div', { style: { fontWeight: 600, fontSize: 12 } }, selected.name),
-            h('div', { style: { flex: 1 } }),
-            h(Btn, { onClick: importCoating, c, primary: true }, z.importToFront),
+// The selected COAT, its layers as the file lists them, and what can be done
+// with it. A layer naming a material the file defines more than once is
+// converted with the last record of that name, as the import does.
+function CoatingDetail({ c, z, doc, selected, refNm, importCoating, saveToLibrary }) {
+    if (!selected) return h(CenteredMessage, { c, message: z.selectCoating });
+    if (selected.type !== 'layers') return h(CenteredMessage, { c, message: z.importNotStack });
+    const materialsByName = {};
+    for (const material of doc.materials) materialsByName[material.name.toUpperCase()] = material;
+    return h(React.Fragment, null,
+        h('div', { style: { display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' } },
+            h('div', { style: { fontWeight: 600, fontSize: 12, marginRight: 'auto' } }, selected.name),
+            h(ActionButton, { c, label: z.importToFront, onClick: importCoating }),
+            h(ActionButton, { c, label: z.saveToLibrary, title: z.saveToLibraryTip, onClick: saveToLibrary }),
         ),
-        h('div', { key: 'lh', style: { fontSize: 10, color: c.textDim, textTransform: 'uppercase', letterSpacing: '0.4px' } }, z.layersHeader),
-        h('table', { key: 'lt', style: { width: '100%', borderCollapse: 'collapse' } },
+        h(EditorGroupTitle, { c }, z.layersHeader),
+        h('table', { style: { width: '100%', borderCollapse: 'collapse' } },
             h('thead', null, h('tr', null,
                 h('th', { style: { ...th(c), width: 30 } }, '#'),
                 h('th', { style: th(c) }, z.colMaterial),
@@ -61,31 +85,19 @@ function coatingDetail(selected, { c, z, materialsByName, refNm, importCoating }
             )),
             h('tbody', null, selected.layers.map((layer, index) => coatingLayerRow(layer, index, { c, z, materialsByName, refNm }))),
         ),
-        h('div', { key: 'note', style: { fontSize: 10.5, color: c.textDim, marginTop: 4 } }, z.importNotStack),
-    ];
+        h('div', { style: { fontSize: 10.5, color: c.textDim } }, z.importNotStack),
+    );
 }
 
-export function CoatingsTab({ c, z, doc, selCoating, setSelCoating, refNm, importCoating }) {
-    if (!doc) return h('div', { style: { color: c.textDim, fontSize: 12, padding: 20, textAlign: 'center' } }, z.noFile);
-    if (!doc.coatings.length) return h('div', { style: { color: c.textDim, fontSize: 12, padding: 20, textAlign: 'center' } }, z.noCoatings);
+function coatingsBody(props) {
+    const { c, z, doc, selCoating } = props;
+    if (!doc) return h(CenteredMessage, { c, message: z.noFile });
+    if (!doc.coatings.length) return h(CenteredMessage, { c, message: z.noCoatings });
+    return h(CoatingDetail, { ...props, selected: doc.coatings[selCoating] });
+}
 
-    const selected = doc.coatings[selCoating];
-    const materialsByName = {};
-    for (const material of doc.materials) materialsByName[material.name.toUpperCase()] = material;
-
-    return h('div', { style: { display: 'flex', gap: 12, height: '100%' } },
-        h('div', { style: { flex: '0 0 300px', overflow: 'auto', border: `1px solid ${c.border}`, borderRadius: 4 } },
-            h('table', { style: { width: '100%', borderCollapse: 'collapse' } },
-                h('thead', null, h('tr', null,
-                    h('th', { style: th(c) }, z.colName),
-                    h('th', { style: th(c) }, z.colType),
-                    h('th', { style: { ...th(c), textAlign: 'right' } }, z.colLayers),
-                )),
-                h('tbody', null, doc.coatings.map((coating, index) => coatingListRow(coating, index, { c, z, selCoating, setSelCoating }))),
-            ),
-        ),
-        h('div', { style: { flex: 1, overflow: 'auto', display: 'flex', flexDirection: 'column', gap: 8 } },
-            coatingDetail(selected, { c, z, materialsByName, refNm, importCoating }),
-        ),
-    );
+export function CoatingsTab(props) {
+    const hasCoatings = props.doc?.coatings.length > 0;
+    return h(ImportPage, { ...props, section: hasCoatings ? h(CoatingList, props) : null },
+        coatingsBody(props));
 }
