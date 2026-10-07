@@ -4,13 +4,17 @@
  *
  *  1. Syntax: comments, ";", "&" continuation, double-quoted strings, command
  *     words read by their first three letters, any case.
- *  2. MDA: PHT Y and N, REF and ANG and INC defaults, WLG, GRO replay, MIC
- *     with MWL changing between materials and EXT defaulting to 0, a label
- *     used before its MIC, commands of other sub-options passed over.
- *  3. Warnings and errors, each with its values.
+ *  2. MDA: PHT Y and N, REF and ANG and INC defaults, WLG as CODE V builds
+ *     it, GRO replay, MIC with MWL changing between materials and EXT
+ *     defaulting to 0, a label used before its MIC, commands of other
+ *     sub-options passed over.
+ *  3. Warnings and errors, each with its values: among them the 21 values
+ *     one WL, MWL, 'label' or EXT command keeps, and Essential Macleod's
+ *     export with decimal commas.
  *  4. n between MIC points as CODE V computes it, against the n CODE V stored
  *     in the .mul files of its sample coatings.
- *  5. A .mul written in the layout the samples show, read back.
+ *  5. A .mul written in the layout the samples show, read back; a format
+ *     number the reader does not know.
  *  6. codevStackToDesign: one material per MIC label and per distinct index.
  *
  * Run: node tests/codev_coating_parse.mjs
@@ -72,17 +76,23 @@ const seq = (...lines) => lines.join('\n');
     equal(stack.layers.map(layer => layer.index.n), [2.3, 1.38, 2.3, 1.38, 2.3, 1.38, 2.3], 'seven layers, the group three times');
     near(stack.layers[0].thicknessNm, 0.25 * 550 / 2.3, 1e-12, 'PHT N by default: d = T·REF/n');
     near(stack.layers[1].thicknessNm, 0.25 * 550 / 1.38, 1e-12, 'PHT N for a group layer');
-    equal(stack.wavelengthsNm, [400, 450, 500, 550, 600, 650, 700, 750], 'WLG includes both ends');
+    stack.wavelengthsNm.forEach((lam, i) => near(lam, 400 + 50 * i, 1e-4, `WLG point ${i + 1} of 8, both ends included`));
+    equal(stack.wavelengthsNm.length, 8, 'WLG 400 750 50 gives 8 wavelengths');
     equal(stack.anglesDeg, [0, 30], 'ANG');
     equal(stack.incident, { n: 1, k: 0 }, 'INC defaults to 1.00');
     equal(stack.warnings, [], 'STL, MAN, MPL, RFL and GO pass without a warning');
 }
 {
+    // CODE V's DWDM sample coating, WLG 1547 1557 .2: its .mul stores these
+    // wavelengths in µm, to 10 digits, a float32 running sum that ends
+    // 1.7e-3 nm above 1557 nm.
     const stack = parseCodevSeq(seq('MUL', 'MDA', 'WLG 1547 1557 .2', 'COA .25 100 2.05', 'SUB 1.52'));
     equal(stack.wavelengthsNm.length, 51, 'WLG 1547 1557 0.2 gives 51 wavelengths');
-    equal([stack.wavelengthsNm[1], stack.wavelengthsNm[25], stack.wavelengthsNm[50]], [1547.2, 1552, 1557],
-        'each WLG point is min + i·step, with no rounding carried along');
-    equal(stack.refNm, 1552, 'REF defaults to the central wavelength');
+    const stored = { 0: 1.547000051, 1: 1.547200084, 25: 1.552000880, 49: 1.556801677, 50: 1.557001710 };
+    for (const [i, um] of Object.entries(stored)) {
+        near(stack.wavelengthsNm[i] / 1000, um, 5e-10, `WLG point ${+i + 1} as CODE V builds it`);
+    }
+    equal(stack.refNm, stack.wavelengthsNm[25], 'REF defaults to the central wavelength');
     equal(stack.anglesDeg, [0], 'ANG defaults to 0');
 }
 {
@@ -151,12 +161,53 @@ const seq = (...lines) => lines.join('\n');
     equal(two.wavelengthsNm, values, 'two WL commands of 21 and 20 give all 41');
     equal(two.warnings, [], 'with no warning');
 }
+{
+    // Essential Macleod's CODE V export as it writes it on a machine set to a
+    // decimal-comma locale: lower-case commands, "pht yes", WLG, GO and SAVE
+    // with a double-quoted name inside MDA, every decimal a comma, MIC lines
+    // longer than the 21 values CODE V 11.2 reads of each, and SUB naming a
+    // MIC entry whose EXT is near 1e-8, which CODE V 11.2 took without a word.
+    const mwl = Array.from({ length: 23 }, (_, i) => (400 + 3.03 * i).toFixed(2));
+    const line = (head, values) => `${head}  ${values.join('   ').replace(/\./g, ',')}`;
+    const text = seq(
+        '! Exported from Essential Macleod v11.9.605, 07.10.2026 12:32:36', '', 'mul', 'mda',
+        "tit 'Opaque Al mirror'", 'wlg 400 460 20', 'ref 550', 'pht yes', '', 'mic',
+        line('mwl', mwl),
+        line("'Al'", mwl.map(lam => (0.4 + 0.002 * (lam - 400)).toFixed(6))),
+        line("EXT 'Al'", mwl.map(lam => (4.45 + 0.011 * (lam - 400)).toFixed(6))),
+        line("'Glass'", mwl.map(() => '1.53085008566268')),
+        line("EXT 'Glass'", mwl.map(() => '1.15110099230264E-08')),
+        'end', '', "coa  1000  100 'Al'", "sub 'Glass'", 'inc 1.0', '', 'go', 'save "al_mirror.mul"', 'mex',
+    );
+    const stack = parseCodevSeq(text);
+    const extra = (command, at) => ({ kind: 'extraValues', command, line: at, count: 2, limit: 21 });
+    equal(stack.warnings, [{ kind: 'decimalComma', line: 11 }, extra('MWL', 11), extra('Al', 12), extra('EXT', 13),
+        extra('Glass', 14), extra('EXT', 15)], 'decimal commas noted once, at their first line; each MIC line keeps 21 values');
+    equal(stack.mic.Al.length, 21, 'the Al table holds the 21 points CODE V reads');
+    equal([stack.mic.Al[1], stack.mic.Al[20]], [[403.03, 0.40606, 4.48333], [460.6, 0.5212, 5.1166]],
+        'a comma between digits is a decimal point');
+    equal(stack.mic.Glass[0], [400, 1.53085008566268, 1.15110099230264e-8], 'in a number with an exponent too');
+    equal([stack.title, stack.wavelengthsNm.length, stack.refNm, stack.layers[0].thicknessNm, stack.substrate],
+        ['Opaque Al mirror', 4, 550, 1000, { label: 'Glass' }], 'lower-case commands, "pht yes", GO and SAVE');
+    const dots = parseCodevSeq(text.replace(/(\d),(\d)/g, '$1.$2'));
+    equal(dots.warnings, stack.warnings.slice(1), 'the same file with decimal points has no decimalComma');
+    equal({ ...dots, warnings: [] }, { ...stack, warnings: [] }, 'and the same stack');
+
+    const titled = parseCodevSeq(seq('MUL', 'MDA', 'TIT Mirror 1,5', 'WL 550', 'COA 0,25 100 1,38', 'SUB 1,52'));
+    equal(titled.title, 'Mirror 1,5', 'a title keeps its commas');
+    equal(titled.warnings, [{ kind: 'decimalComma', line: 5 }], 'and is not a value with a decimal comma');
+    near(titled.layers[0].thicknessNm, 0.25 * 550 / 1.38, 1e-12, 'PHT N with decimal commas');
+}
+fails('MUL\nMDA\nWL 400,500,600\nCOA 1 100 1.38\nSUB 1.5', 'badNumber', { line: 3, text: '400,500,600' },
+    'two commas in one value are not a decimal');
+fails('MUL\nMDA\nWL 400, 500\nCOA 1 100 1.38\nSUB 1.5', 'badNumber', { line: 3, text: '400,' },
+    'a comma after a value is not read as a list');
 fails('COA 0.25 100 1.38\nSUB 1.5', 'noStack', null, 'commands outside MUL are not a stack');
 fails('MUL\nMDA\nWL 550\nSUB 1.5', 'noStack', null, 'MDA without COA');
 fails("MUL\nMDA\nWL 550\nCOA 'B'\nSUB 1.5", 'unknownGroup', { label: 'B' }, 'COA names an undefined group');
 fails("MUL\nMDA\nWL 550\nCOA 1 100 'Q'\nSUB 1.5", 'unknownMaterial', { label: 'Q' }, 'COA names a label the MIC lacks');
 fails("MUL\nMDA\nMIC\nMWL 400\nEXT 'Q' 1\nEND", 'unknownMaterial', { label: 'Q' }, 'EXT before its material');
-fails('MUL\nMDA\nWL 550\nCOA 1,5 100 1.38\nSUB 1.5', 'badNumber', { line: 4, text: '1,5' }, 'a thickness that is not a number');
+fails('MUL\nMDA\nWL 550\nCOA 1x5 100 1.38\nSUB 1.5', 'badNumber', { line: 4, text: '1x5' }, 'a thickness that is not a number');
 fails('MUL\nMDA\nWL 550\nCOA 1 100\nSUB 1.5', 'badNumber', { line: 4, text: '' }, 'COA without an index');
 fails("MUL\nMDA\nMIC\nMWL 400 500\n'M' 2.0\nEND\nWL 550\nCOA 1 100 'M'\nSUB 1.5", 'micMismatch', { label: 'M', line: 5 }, 'fewer n than MWL points');
 fails('MUL\nMDA\nWL 550\nCOA 1 100 1.38', 'missingCommand', { command: 'SUB' }, 'no SUB');
@@ -244,6 +295,9 @@ fails('MUL\nMDA\nCOA 1 100 1.38\nSUB 1.5', 'missingCommand', { command: 'WL' }, 
     equal(stack.mic, { Ti: [[450, 2.4, 0.02], [650, 2.2, 0.01]] }, 'MIC table in nm');
     checks++;
     assert.throws(() => parseCodevMul('MUL\nMDA\n'), (err) => err.kind === 'notMul', 'command text is not a .mul');
+    checks++;
+    assert.throws(() => parseCodevMul([i10(7) + g20('0.0000000000E+00'), ...rows.slice(1)].join('\r\n')),
+        (err) => err.kind === 'notMul', 'a format number other than 5 and 6, whose layout is not known');
     equal([fortranReal('0.6133314552-153'), fortranReal('1.5D+02'), fortranReal('-0.25E-01')], [0.6133314552e-153, 150, -0.025],
         'a Fortran real without its E, with D, and with E');
 }

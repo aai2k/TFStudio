@@ -2,6 +2,7 @@
  * CODE V 11.2 against TFStudio, from the numbers CODE V printed.
  *
  * tests/reference/codev/ holds .seq files TFStudio wrote and CODE V 11.2 ran,
+ * the .mul files CODE V saved from them (read in codev_coating_samples.mjs),
  * and codev_11_2.json the tables CODE V printed for them, frozen from the
  * listings of the owner's runs by tests/reference/gen_codev_coating.mjs.
  *

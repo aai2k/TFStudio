@@ -53,7 +53,8 @@ function flush(commands, current) {
  * commands on one line, "&" at the end of a line continues the command on the
  * next, and "!" starts a comment that runs to the end of the line. A string is
  * enclosed in single quotes; double quotes are read the same way, as some
- * CODE V sample files write TIT with them.
+ * CODE V sample files write TIT with them and Essential Macleod's CODE V
+ * export writes its SAV file name with them.
  *
  * @param {string} text
  * @returns {Array<{line:number, tokens:Array<{text:string, quoted:boolean}>}>}

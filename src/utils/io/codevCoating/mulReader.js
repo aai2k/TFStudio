@@ -27,8 +27,10 @@ export function shortestNear(x, relTol) {
     return x;
 }
 
-// Ten-character label fields after a ten-character count, going on to the
-// next lines when one line does not hold them all.
+// Ten-character label fields after a ten-character count. A list that does
+// not fit on one 80-column line goes on over the next lines, each with the
+// count field left blank (tfs_agmir.mul, saved by CODE V 11.2: 7 of its 8
+// labels on the first line, the 8th on the next).
 function readLabels(nextLine) {
     const line = nextLine();
     const count = Number(line.slice(0, 10));
@@ -36,7 +38,7 @@ function readLabels(nextLine) {
     const labels = [];
     let rest = line.slice(10);
     while (labels.length < count) {
-        if (!rest.trim()) rest = nextLine();
+        if (!rest.trim()) rest = nextLine().slice(10);
         labels.push(rest.slice(0, 10).trim());
         rest = rest.slice(10);
     }

@@ -11,9 +11,14 @@ import { CodevParseError } from './parseError.js';
  *
  * The link integers at the same positions: at the start p of a group, the
  * number of MWL points and the position of its first label word; one past
- * that label word, the start of the next group, 0 after the last. Every
- * sample group holds one material; more than one is read as materials
- * following each other in the group, which no sample shows.
+ * each label word, the position the next material starts at, 0 after the
+ * last. That is the next label word of the same group, whose own link is 0,
+ * or the start of the next group, whose link is its point count; either way
+ * it follows straight on, and the last material ends at `sampledStart`. A
+ * group holds the materials entered after one MWL command: the format 5
+ * samples have one to a group, and CODE V 11.2 kept the four materials
+ * TFStudio wrote under one MWL in one group, and a repeated MWL command, with
+ * the same wavelengths, as a group of its own.
  */
 
 const notMul = () => new CodevParseError('notMul');
@@ -21,19 +26,28 @@ const at = (list, position) => list[position - 1];
 const span = (list, position, count) => list.slice(position - 1, position - 1 + count);
 const nm = (um) => Number((um * 1000).toPrecision(12));
 
-function readGroup(record, start, end, tables) {
+// Where the material whose label word is at `word` hands on: the position
+// its link names, checked against where the material ends.
+function nextMaterial(record, word, points) {
+    const next = at(record.micLinks, word + 1);
+    if (word + 2 * points + 1 !== (next || record.sampledStart)) throw notMul();
+    return next;
+}
+
+// The materials of the group that starts at `start`, as [λ_nm, n, k] rows
+// added to `tables`. Returns the start of the next group, or 0 after the last.
+function readGroup(record, start, tables) {
     const points = at(record.micLinks, start);
-    const first = at(record.micLinks, start + 1);
-    if (!(points > 0) || first !== start + points) throw notMul();
+    let word = at(record.micLinks, start + 1);
+    if (!(points > 0) || word !== start + points) throw notMul();
     const mwl = span(record.micBlock, start, points).map(nm);
-    const next = at(record.micLinks, first + 1);
-    const stop = next > 0 ? next : end;
-    for (let word = first; word < stop; word += 2 * points + 1) {
+    for (;;) {
         const n = span(record.micBlock, word + 1, points);
         const k = span(record.micBlock, word + 1 + points, points);
         tables.push(mwl.map((lam, i) => [lam, n[i], k[i]]));
+        word = nextMaterial(record, word, points);
+        if (word === 0 || at(record.micLinks, word) > 0) return word;
     }
-    return next;
 }
 
 /**
@@ -44,9 +58,8 @@ function readGroup(record, start, end, tables) {
 export function readMulMic(record) {
     const { sampledStart, micBlock, micLabels, wavelengthsUm } = record;
     const tableRows = [];
-    for (let start = 1; start > 0 && start < sampledStart;) {
-        start = readGroup(record, start, sampledStart, tableRows);
-    }
+    let start = sampledStart > 1 ? 1 : 0;
+    while (start > 0) start = readGroup(record, start, tableRows);
     const stride = 2 * wavelengthsUm.length + 1;
     const blocks = (micBlock.length - sampledStart) / stride;
     if (!Number.isInteger(blocks) || micLabels.length !== tableRows.length + blocks) throw notMul();

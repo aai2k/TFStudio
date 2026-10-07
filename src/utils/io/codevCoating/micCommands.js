@@ -1,32 +1,33 @@
 import { CodevParseError } from './parseError.js';
 import { commandName } from './tokens.js';
-import { findLabel, numbersOf } from './seqValues.js';
+import { findLabel, keptValues } from './seqValues.js';
 
 /**
  * One command inside MIC ... END, the Multilayer Index Catalog. MWL sets the
  * wavelengths (nm) for the entries that follow it; 'label' n... adds an entry
  * with n at those wavelengths; EXT 'label' k... gives its extinction
  * coefficients, 0 when absent; END closes the catalog. Anything else is
- * reported as an unknown command.
+ * reported as an unknown command. MWL, 'label' and EXT keep their first 21
+ * values, as CODE V 11.2 does (keptValues).
  */
 export function micCommand(stack, tokens, line, warnings) {
     const [head, ...args] = tokens;
     if (head.quoted) {
-        stack.micEntries.set(head.text, { mwl: stack.mwl, n: numbersOf(args, line), k: null, line });
+        stack.micEntries.set(head.text, { mwl: stack.mwl, n: keptValues(args, head.text, line, warnings), k: null, line });
         return;
     }
     const name = commandName(head);
-    if (name === 'MWL') stack.mwl = numbersOf(args, line);
-    else if (name === 'EXT') setExtinction(stack, args, line);
+    if (name === 'MWL') stack.mwl = keptValues(args, 'MWL', line, warnings);
+    else if (name === 'EXT') setExtinction(stack, args, line, warnings);
     else if (name === 'END') stack.micOpen = false;
     else warnings.push({ kind: 'unknownCommand', command: head.text, line });
 }
 
-function setExtinction(stack, args, line) {
+function setExtinction(stack, args, line, warnings) {
     const label = args[0]?.text ?? '';
     const key = findLabel(stack.micEntries, label);
     if (key === undefined) throw new CodevParseError('unknownMaterial', { label });
-    Object.assign(stack.micEntries.get(key), { k: numbersOf(args.slice(1), line), kLine: line });
+    Object.assign(stack.micEntries.get(key), { k: keptValues(args.slice(1), 'EXT', line, warnings), kLine: line });
 }
 
 /**

@@ -1,14 +1,16 @@
 /**
  * Freeze CODE V 11.2 results into codev/: the .seq files TFStudio wrote and
- * CODE V ran, and codev_11_2.json with the numbers CODE V printed for them.
+ * CODE V ran, the .mul files CODE V saved from them, and codev_11_2.json with
+ * the numbers CODE V printed for them.
  *
  * The source is runs of CODE V 11.2 (CODE V PC, 07-Oct-26) on the owner's
  * work PC, each a command file and the listing it wrote with OUT T:
  *
- *   run_checks.seq   codev_checks.lis    four TFStudio exports, SAV, RES, MPR, MAN
+ *   run_checks.seq   codev_checks.lis    five TFStudio exports, SAV, RES, MPR, MAN
  *   run_checks2.seq  codev_checks2.lis   a TFStudio export with 41 wavelengths in
- *                                        two WL commands, MPR and MAN; a 3-point
- *                                        MIC table narrower than WL, MPR and MAN
+ *                                        two WL commands, MPR and MAN; the same
+ *                                        stack with WLG, MPR; a 3-point MIC
+ *                                        table narrower than WL, MPR and MAN
  *   run_checks4.seq  codev_checks4.lis   MIC probe tables of 2 to 5 points, MPR
  *   run_checks5.seq  codev_checks5.lis   MIC probe tables that differ in k, and
  *                                        the Ta2O5 table of tfs_ar4, MPR
@@ -17,6 +19,9 @@
  *
  * Written to codev/:
  *   <name>.seq        the MUL ... MEX block of the command file, as CODE V ran it
+ *   <name>.mul        the .mul CODE V 11.2 saved from each TFStudio export
+ *                     (format 6), copied as it is; tfs_cr41.seq and
+ *                     tfs_cr41g.seq are written for their .mul files only
  *   codev_11_2.json   man:  MAN per .seq, rows [angle°, λ nm, Rs, Rp, Ts, Tp]
  *                     mic:  per MIC material, the table [λ nm, n, k] and the n
  *                           and k MPR printed at the analysis wavelengths
@@ -47,6 +52,16 @@ const FIXTURES = [
     ['mic_narrow', 'run_checks2.seq', '! ---- a MIC table narrower than the analysis wavelengths (may stop the run, so it is last)',
         'codev_checks2.lis', "MDA> TIT 'MIC narrower than WL'"],
 ];
+
+// TFStudio exports whose .mul is checked but whose MAN is not: tfs_cr41 is
+// tfs_cr41w with all 41 wavelengths in one WL command, of which CODE V kept
+// 21, and tfs_cr41g the same stack with WLG.
+const SEQ_ONLY = [
+    ['tfs_cr41', 'run_checks.seq', '! ---- tfs_cr41'],
+    ['tfs_cr41g', 'run_checks2.seq', '! ---- the same stack with WLG'],
+];
+// The .mul files CODE V 11.2 saved, in the listings folder.
+const SAVED_MUL = ['tfs_ar4', 'tfs_agmir', 'tfs_hr45', 'tfs_const', 'tfs_cr41', 'tfs_cr41w', 'tfs_cr41g'];
 
 // The probe runs of a command file: the first word of each title names one.
 const probeRuns = (seqFile, listing) => read(seqFile).split(/\r?\n/).filter(line => line.startsWith('TIT '))
@@ -91,6 +106,10 @@ for (const [name, seqFile, marker, listing, start] of FIXTURES) {
     fs.writeFileSync(path.join(OUT, `${name}.seq`), seqBlock(read(seqFile), marker), 'utf8');
     man[name] = manRows(listingRun(read(listing), start));
 }
+for (const [name, seqFile, marker] of SEQ_ONLY) {
+    fs.writeFileSync(path.join(OUT, `${name}.seq`), seqBlock(read(seqFile), marker), 'utf8');
+}
+for (const name of SAVED_MUL) fs.copyFileSync(path.join(LISTINGS, `${name}.mul`), path.join(OUT, `${name}.mul`));
 const mic = MPR_RUNS.flatMap(([run, listing, start]) => micEntries(run, listingRun(read(listing), start)));
 
 fs.writeFileSync(path.join(OUT, 'codev_11_2.json'), JSON.stringify({
@@ -100,4 +119,5 @@ fs.writeFileSync(path.join(OUT, 'codev_11_2.json'), JSON.stringify({
     data: { man, mic },
 }, null, 1) + '\n', 'utf8');
 
-console.log(`wrote ${OUT}: ${FIXTURES.length} .seq files, ${Object.values(man).flat().length} MAN rows, ${mic.length} MIC materials`);
+console.log(`wrote ${OUT}: ${FIXTURES.length + SEQ_ONLY.length} .seq files, ${SAVED_MUL.length} .mul files, `
+    + `${Object.values(man).flat().length} MAN rows, ${mic.length} MIC materials`);

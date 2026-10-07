@@ -3,6 +3,7 @@ import { commandName, splitCommands } from './tokens.js';
 import { MDA_COMMANDS, newStack } from './mdaCommands.js';
 import { micCommand } from './micCommands.js';
 import { finishStack } from './stackFinish.js';
+import { hasDecimalComma } from './seqValues.js';
 
 // Sub-options of MUL. Each ends data entry (MDA); MCH alters the stack, which
 // this reader does not apply, so it is reported.
@@ -18,7 +19,16 @@ const NOT_STACK = new Set([
     'DLT', 'DLN', 'DIR', 'DEL', 'COP', 'REN',
 ]);
 
+// The first line of the stack where a value has a decimal comma, which
+// numberOf reads as a point and CODE V does not read at all; noted once per
+// file. TIT is text and is passed over.
+function noteDecimalComma(tokens, line, warnings) {
+    if (commandName(tokens[0]) === 'TIT' || warnings.some(w => w.kind === 'decimalComma')) return;
+    if (tokens.some(token => !token.quoted && hasDecimalComma(token.text))) warnings.push({ kind: 'decimalComma', line });
+}
+
 function mdaCommand(stack, tokens, line, warnings) {
+    noteDecimalComma(tokens, line, warnings);
     if (stack.micOpen) return micCommand(stack, tokens, line, warnings);
     const name = commandName(tokens[0]);
     const handler = MDA_COMMANDS[name];

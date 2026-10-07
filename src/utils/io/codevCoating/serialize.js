@@ -6,11 +6,11 @@ import { pickMicRows } from './micPoints.js';
  * Limits of the CODE V MUL option, from the MDA sub-option page of the
  * Multilayer Design Reference Manual: COA up to 1000 layers, WL and WLG
  * together up to 100 wavelengths, ANG up to 5 angles, MWL up to 21 points,
- * TIT up to 80 characters. One WL command reads at most 21 values: CODE V
- * 11.2 ignores the rest with "Extra data ... ignored", so a longer list is
- * written as several WL commands.
+ * TIT up to 80 characters. One WL, MWL, 'label' n or EXT command reads at
+ * most 21 values: CODE V 11.2 ignores the rest with "Extra data ...
+ * ignored", so a longer wavelength list is written as several WL commands.
  */
-export const CODEV_LIMITS = { layers: 1000, wavelengths: 100, angles: 5, micPoints: 21, title: 80, valuesPerWl: 21 };
+export const CODEV_LIMITS = { layers: 1000, wavelengths: 100, angles: 5, micPoints: 21, title: 80, valuesPerCommand: 21 };
 
 /** A stack the MUL option cannot hold. `detail` carries the count and limit, or the material. */
 export class CodevExportError extends Error {
@@ -103,8 +103,8 @@ function micLines(catalog) {
 // The analysis wavelengths as WL commands of at most 21 values each.
 function wlLines(wavelengthsNm) {
     const lines = [];
-    for (let i = 0; i < wavelengthsNm.length; i += CODEV_LIMITS.valuesPerWl) {
-        const chunk = wavelengthsNm.slice(i, i + CODEV_LIMITS.valuesPerWl).map(w => fmtNum(w, WL));
+    for (let i = 0; i < wavelengthsNm.length; i += CODEV_LIMITS.valuesPerCommand) {
+        const chunk = wavelengthsNm.slice(i, i + CODEV_LIMITS.valuesPerCommand).map(w => fmtNum(w, WL));
         lines.push(...wrapValues('WL', chunk));
     }
     return lines;

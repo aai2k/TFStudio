@@ -3,16 +3,21 @@ import { mulReader } from './mulReader.js';
 
 /*
  * Layout of a .mul, the file CODE V's SAV writes. The help does not describe
- * it; this is what the 15 sample coatings CODE V ships with show, each saved
- * from a .seq that is also shipped. Fixed-width Fortran text: integers I10,
- * eight to a line, reals G20.10, four to a line, every block on a new line.
+ * it; this is what two sets of files show, each saved from a .seq that is
+ * also at hand: the 15 sample coatings CODE V ships with (format 5), and
+ * seven TFStudio exports saved by CODE V 11.2 (format 6, in
+ * tests/reference/codev). Fixed-width Fortran text: integers I10, eight to a
+ * line, reals G20.10, four to a line, every block on a new line.
  *
- *   line 1   format number (5) and a real (0.0)
+ *   line 1   format number (5 or 6) and a real (0.0)
  *   line 2   TIT, 80 characters
- *   line 3   date of the SAV
- *   5 ints   unknown, the same in every sample (0 9600 10233 1010 0)
- *   45 ints  counts, by position (0-based) in HEADER below; the rest unknown
- *   12 ints  unknown, zero in every sample
+ *   line 3   date of the SAV; format 6 adds PLAINTEXT
+ *   5 ints   unknown (0 9600 10233 1010 0 in every format 5 file)
+ *   45 ints  counts, by position (0-based) in HEADER below; the rest unknown.
+ *            Format 5 repeats the wavelength count at [4] and the angle
+ *            count at [42]. Format 6 has 1 at [4] in every file, and at [42]
+ *            a number from 0 to 5 that is not the angle count.
+ *   12 ints  unknown, zero in every file
  *   M ints   thickness code of each medium, incident medium first (COA code;
  *            the incident medium's is 0 in every sample, the substrate's 100
  *            in all but one, where it is 0)
@@ -42,35 +47,38 @@ import { mulReader } from './mulReader.js';
  * length, S the settings count.
  */
 const HEADER = {
-    wavelengths: 4, media: 16, wavelengthsAgain: 17, micLength: 18, settings: 22,
-    interfaces: 26, angles: 28, sampledStart: 35, anglesAgain: 42,
+    media: 16, wavelengths: 17, micLength: 18, settings: 22,
+    interfaces: 26, angles: 28, sampledStart: 35,
 };
+// The formats read, each with the counts it repeats elsewhere in the header.
+const REPEATS = { 5: { wavelengths: 4, angles: 42 }, 6: {} };
 const SETTING = { refUm: 6, firstAngle: 20 };
 const TARGET_BLOCKS = 4;
 
 const notMul = () => new CodevParseError('notMul');
 
-// The counts by name. Each count the samples repeat elsewhere in the header
+// The counts by name. Each count the format repeats elsewhere in the header
 // has to agree with its repeat, or the text is not a .mul.
-function counts(header) {
+function counts(header, repeats) {
     const c = Object.fromEntries(Object.entries(HEADER).map(([name, at]) => [name, header[at]]));
     const conditions = [
         c.wavelengths >= 1, c.media >= 3, c.micLength >= 1, c.angles >= 1, c.sampledStart >= 1,
-        c.settings > SETTING.firstAngle,
-        c.wavelengthsAgain === c.wavelengths, c.interfaces === c.media - 1, c.anglesAgain === c.angles,
+        c.settings > SETTING.firstAngle, c.interfaces === c.media - 1,
+        ...Object.entries(repeats).map(([name, at]) => header[at] === c[name]),
     ];
     if (!conditions.every(Boolean)) throw notMul();
     return c;
 }
 
 function readHead(reader) {
-    if (!/^\s*\d+\s+\S+\s*$/.test(reader.line())) throw notMul();
+    const format = /^\s*(\d+)\s+\S+\s*$/.exec(reader.line())?.[1];
+    if (!Object.hasOwn(REPEATS, format)) throw notMul();
     const title = reader.line().trimEnd();
     reader.line();
     reader.ints(5);
     const header = reader.ints(45);
     reader.ints(12);
-    return { title, ...counts(header) };
+    return { title, ...counts(header, REPEATS[format]) };
 }
 
 /**

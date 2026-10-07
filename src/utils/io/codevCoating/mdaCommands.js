@@ -1,6 +1,5 @@
 import { CodevParseError } from './parseError.js';
-import { findLabel, numberOf, numbersOf } from './seqValues.js';
-import { CODEV_LIMITS } from './serialize.js';
+import { findLabel, keptValues, numberOf, numbersOf } from './seqValues.js';
 
 /** The stack as MDA builds it; thicknesses stay in the units they were entered in. */
 export function newStack() {
@@ -43,27 +42,29 @@ function coa(stack, args, line) {
     });
 }
 
-// WL λ...: CODE V 11.2 reads the first 21 values of one WL command and
-// ignores the rest ("Extra data ... ignored"), so they are left out here too.
+// WL λ...: the first 21 values of one WL command, as CODE V 11.2 reads it.
 function wl(stack, args, line, warnings) {
-    const kept = args.slice(0, CODEV_LIMITS.valuesPerWl);
-    if (args.length > kept.length) {
-        warnings.push({ kind: 'extraValues', command: 'WL', line, count: args.length - kept.length, limit: kept.length });
-    }
-    stack.wavelengths.push(...numbersOf(kept, line));
+    stack.wavelengths.push(...keptValues(args, 'WL', line, warnings));
 }
 
-// WLG min max step: equally spaced wavelengths, both ends included. Each is
-// min + i·step, rounded to 12 digits, so no rounding error builds up along it.
-// The WLG wavelengths CODE V stores in a .mul drift: to the 10 digits written
-// they are a float32 in µm with the step added point after point. The last of
-// the DWDM sample's 51 sits 1.7e-3 nm above 1557 nm (1.1e-6 relative), and
-// the last of WLG 400 800 10 saved by CODE V 11.2 3.5e-4 nm below 800 nm.
+// WLG min max step: equally spaced wavelengths, both ends included, built as
+// CODE V builds them: min and step as float32 in µm, the step added point
+// after point in float32. The .mul files CODE V saved from WLG store exactly
+// that running sum, to the 10 digits written: the DWDM sample's (WLG 1547
+// 1557 .2), whose last point sits 1.7e-3 nm above 1557 nm, and one CODE V
+// 11.2 saved from WLG 400 800 10, whose last sits 3.5e-4 nm below 800 nm.
+// With them the DWDM sample matches the R and T CODE V 11.2 prints on the
+// steep edge of its passband to 8.8e-5; with min + i·step only to 2.1e-3.
 function wlg(stack, args, line) {
     const [min, max, step] = numbersOf(args.slice(0, 3), line);
     if (!(step > 0)) throw new CodevParseError('badNumber', { line, text: args[2]?.text ?? '' });
     const count = Math.floor((max - min) / step + 1e-9) + 1;
-    for (let i = 0; i < count; i++) stack.wavelengths.push(Number((min + i * step).toPrecision(12)));
+    const stepUm = Math.fround(step / 1000);
+    let um = Math.fround(min / 1000);
+    for (let i = 0; i < count; i++) {
+        stack.wavelengths.push(um * 1000);
+        um = Math.fround(um + stepUm);
+    }
 }
 
 function pht(stack, args) {

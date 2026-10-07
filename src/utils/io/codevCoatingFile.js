@@ -41,8 +41,11 @@
  *  • Extinction: CODE V takes k as a positive number; TFStudio's n + ik with
  *    k ≥ 0 uses it as it is.
  *  • The .mul is not described in the help; codevCoating/mulRecord.js gives
- *    the layout read from CODE V's sample coatings. It stores every thickness
- *    in waves of REF, so it is read back with the n(REF) stored beside it.
+ *    the layout read from CODE V's sample coatings (format 5) and from files
+ *    CODE V 11.2 saved (format 6). It stores every thickness in waves of REF,
+ *    so it is read back with the n(REF) stored beside it.
+ *  • WLG builds its wavelengths as CODE V does, a float32 running sum in µm
+ *    (codevCoating/mdaCommands.js), so they are not round numbers in nm.
  *  • n and k of a MIC table between and past its MWL points follow the rules
  *    in codevCoating/micIndex.js, read off CODE V 11.2 listings. A PHT N
  *    layer of a MIC material takes n(REF) from them, and an imported MIC
@@ -63,8 +66,11 @@
  *
  * Warnings: unknownCommand {command, line} for a command the reader does not
  * know inside MDA, or MCH (stack changes it does not apply); extraValues
- * {command, line, count, limit} for the values past the 21st of one WL
- * command, which CODE V ignores and so does the reader; refOutsideTable
+ * {command, line, count, limit} for the values past the 21st of one WL, MWL,
+ * 'label' n or EXT command (command 'WL', 'MWL', 'EXT' or the label), which
+ * CODE V ignores and so does the reader; decimalComma {line}, once, at the
+ * first line of the stack with a comma between two digits, which the reader
+ * takes for a decimal point and CODE V does not read at all; refOutsideTable
  * {label} when a PHT N layer's MIC table does not reach REF, where CODE V too
  * warns that the index "is being extrapolated"; coupledLayers {count} from
  * codevStackToDesign. Errors are

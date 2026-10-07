@@ -6,12 +6,13 @@
  * below are read off the n and k that CODE V 11.2 prints in MPR at the
  * analysis wavelengths, and reproduce them to the 6 decimals printed, past
  * the ends of a table included (CODE V warns there that the index "is being
- * extrapolated"). The listings: Cr, SiO2 and BK7 from 21-point tables at 41
- * wavelengths; the silver, gold, aluminium and SiO tables of CODE V's sample
- * coatings; a 16-point Ta2O5 table with a flat run; and probe tables of 2 to
- * 5 points with n from 1.15 to 4 falling, rising or steepening, and k absent,
- * small or large, rising, falling, constant or turning, sampled from 380 to
- * 750 nm.
+ * extrapolated"), except the three cases below. The listings: Cr, SiO2 and
+ * BK7 from 21-point tables at 41 wavelengths; the silver, gold, aluminium and
+ * SiO tables of CODE V's sample coatings; a 16-point Ta2O5 table with a flat
+ * run; probe tables of 2 to 5 points with n from 1.15 to 4 falling, rising
+ * or steepening, and k absent, small or large, rising, falling, constant or
+ * turning, sampled from 380 to 750 nm; and SiO2, glass and Al tables of 21
+ * points from 400 to 460.61 nm, sampled up to 700 nm.
  *
  *  - k: straight lines between MWL points; outside the table the end value.
  *  - Two points: n too is a straight line, its end value held outside.
@@ -47,6 +48,13 @@
  * Hartmann curve, where the formula is used as it stands. For a table that
  * steepens, the curve CODE V prints misses its own MWL points by up to 6e-6
  * (n 1.93 printed as 1.929998) and sits up to 2e-5 from the one computed here.
+ * Far past the end of a spline table CODE V's n leaves the spline computed
+ * here: for the Al table, 21 points 3.03 nm apart, CODE V prints n 3.0e-4
+ * higher at 700 nm, 240 nm past its end. Inferred: CODE V fits the spline in
+ * single precision. The same spline fitted to the MWL points in µm and n and
+ * k rounded to float32 meets CODE V's n there to 4.3e-7, and keeps every
+ * other listed spline table within 7.5e-7 of CODE V's n, as the fit to the
+ * values as entered does. The spline here is fitted to the values as entered.
  */
 
 const HARTMANN_POWER = 1.2;
