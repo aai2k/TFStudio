@@ -216,26 +216,22 @@ export const ICONS = {
                        Cf(15,6.2,0.9),
                      ]),
 
-  // Zemax Coatings — a data file (coating-layer lines) + bidirectional exchange arrow.
+  // Zemax Coatings: a file holding a table, as COATING.DAT is tables of
+  // materials and coatings.
   'zemax-coatings': I([
-                       R(2.5, 3, 8, 14, 1.2),
-                       L(4.5, 6.5, 8.5, 6.5, 1),
-                       L(4.5, 9, 8.5, 9, 1),
-                       L(4.5, 11.5, 8.5, 11.5, 1),
-                       L(11.5, 10, 17.5, 10, 1.4),
-                       P('M15 7.5 L17.8 10 L15 12.5', 1.4),
-                       P('M14 5 L11.5 7 L14 9', 1.2),
+                       P('M4.5 2.5H11.5L15.5 6.5V17.5H4.5Z'),
+                       P('M11.5 2.5V6.5H15.5', 1.2),
+                       P('M6.5 9H13.5V15.5H6.5Z', 1),
+                       P('M6.5 11.2H13.5M6.5 13.3H13.5M10 9V15.5', 0.9),
                      ]),
 
-  // CODE V Coatings: a lens with a coating on its front surface, and the
-  // two-way arrow of Zemax Coatings.
+  // CODE V Coatings: a file holding a command prompt, as a .seq is a CODE V
+  // command file.
   'codev-coatings': I([
-                       P('M7.5 2.5 Q2 10 7.5 17.5', 1.3),
-                       P('M7.5 2.5 Q13 10 7.5 17.5', 1.3),
-                       P('M5.8 3.2 Q-1 10 5.8 16.8', 1),
-                       L(12.8, 10, 18, 10, 1.4),
-                       P('M15.5 7.5 L18.3 10 L15.5 12.5', 1.4),
-                       P('M15.3 5 L12.8 7 L15.3 9', 1.2),
+                       P('M4.5 2.5H11.5L15.5 6.5V17.5H4.5Z'),
+                       P('M11.5 2.5V6.5H15.5', 1.2),
+                       P('M7 9.3L9.6 12L7 14.7'),
+                       P('M10.6 14.7H13.4'),
                      ]),
 
   'help-docs':       I([ C(10,10,8), P('M7.5 7.8q0-2 2.5-2t2.5 2q0 1.5-2.5 2.5v1', 1.5), Cf(10,14.7,0.7) ]),
