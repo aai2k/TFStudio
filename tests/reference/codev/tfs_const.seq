@@ -1,0 +1,25 @@
+! TFStudio constant indices, metal film at 60 deg
+! Written by TFStudio. Layers run from the incident medium to the substrate,
+! thicknesses are physical, in nm. SAV at the end writes the .mul file.
+MUL
+MDA
+PHT Y
+TIT 'TFStudio constant indices, metal film at 60 deg'
+MIC
+  MWL 400 425 450 475 500 525 550 575 &
+      600 625 650 675 700
+  'BK7' 1.530849 1.527827 1.52532 1.523211 1.521414 1.519868 1.518522 1.517341 &
+        1.516295 1.515361 1.51452 1.513759 1.513064
+END
+INC 1
+COA 58.5 0 2.35
+COA 99.6 0 1.38
+COA 12 100 2.75 4.46
+COA 99.6 0 1.38
+SUB 'BK7'
+WL 400 425 450 475 500 525 550 575 &
+   600 625 650 675 700
+REF 550
+ANG 0 60
+SAV tfs_const
+MEX

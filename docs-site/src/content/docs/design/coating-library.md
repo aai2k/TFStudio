@@ -89,13 +89,15 @@ layers are the outermost ones. The design's substrate and media are not changed;
 compare them with the substrate the entry was designed on before you rely on
 the numbers.
 
-Applying is one undoable edit: **Undo** brings the previous stack back.
+Applying is one undoable edit: **Undo** brings the previous stack back. With no design selected there is nothing to apply the coating to, so **Apply** is off.
 
 A material that a catalog on this computer holds is computed from that catalog, here and in the design. A coating can instead carry a copy from another computer's catalog of the same ID with other n,k: the library computes with that copy, and so does a design that does not use the ID yet. Whenever the coating brings a definition under an ID the design already computes with other data, the design keeps what it has and the window says so; the coating may then compute differently than it does in the library.
 
 ## Saving a coating
 
-**Save current coating…** in this window, or **Save coating to library…** in the Design Editor's Tools menu, saves the front or back stack of the active design into My coatings. Give it a name, a type and a short use note, and set the band, angle and polarization it is meant for. Non-built-in materials are embedded in the saved entry, so it stays usable when the catalog it came from is renamed or removed. While that catalog holds the material, the coating computes with the catalog's current data.
+**Save current coating…** in this window, or **Save coating to library…** in the Design Editor's Tools menu, saves the front or back stack of the active design into My coatings. Give it a name, a type and a short use note, and set the band, angle and polarization it is meant for. Non-built-in materials are embedded in the saved entry, so it stays usable when the catalog it came from is renamed or removed. While that catalog holds the material, the coating computes with the catalog's current data. With no design selected there is no stack to save, so **Save current coating…** is off.
+
+The [Zemax Coatings](/data-exchange/zemax-coatings/) and [CODE V Coatings](/data-exchange/codev-coatings/) windows save a coating read from a file through the same dialog, with the layers of the file instead of those of the design.
 
 Saved coatings are plain JSON files with the `.tfsc` extension in the Coatings
 folder (Settings, Data folder). Saving under an existing name replaces that

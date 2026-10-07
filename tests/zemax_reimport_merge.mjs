@@ -37,6 +37,8 @@ const z = getLocale('en').zemaxCoatings;
 const mate = (name, n) => ({ name, points: [[0.4, n + 0.02, 0], [0.55, n, 0], [0.8, n - 0.01, 0]] });
 const FILE = 'C:\\Zemax\\COATING.DAT';
 const all = [mate('TIO2', 2.35), mate('SIO2', 1.46), mate('MGF2', 1.38), mate('TA2O5', 2.1)];
+// The rows of `all` with these names: the Materials tab selects records by row.
+const rows = (...names) => new Set(names.map(name => all.findIndex(material => material.name === name)));
 const n550 = (id) => cm.getMaterialById(id).getNK(550)[0];
 const keys = (catId) => Object.keys(cm.getCatalog(catId).materials).sort();
 const lastWrite = (catId) => writes.filter(cat => cat.id === catId).at(-1);
@@ -61,7 +63,7 @@ const design = {
 };
 
 // A coating import from the same file that needs only SIO2 and MGF2.
-const coat = importer.registerMaterials(all, 'COATING.DAT', new Set(['SIO2', 'MGF2']), FILE);
+const coat = importer.registerMaterials(all, 'COATING.DAT', rows('SIO2', 'MGF2'), FILE);
 assert.equal(coat.catId, catId, 'the same path goes back into its own catalog');
 assert.deepEqual(keys(catId), ['mgf2', 'my_ito', 'sio2', 'ta2o5', 'tio2'], 'nothing else of the catalog is dropped');
 assert.deepEqual(Object.keys(lastWrite(catId).materials).sort(), ['mgf2', 'my_ito', 'sio2', 'ta2o5', 'tio2'], 'nor from its file');
@@ -73,16 +75,16 @@ for (const layer of design.frontLayers) {
 }
 
 // A coating import of a material the catalog holds in edited form uses the held one.
-const coatTio2 = importer.registerMaterials([mate('TIO2', 2.3)], 'COATING.DAT', new Set(['TIO2']), FILE);
+const coatTio2 = importer.registerMaterials([mate('TIO2', 2.3)], 'COATING.DAT', new Set([0]), FILE);
 assert.equal(coatTio2.nameMap.TIO2, `${catId}:tio2`);
 assert.equal(n550(`${catId}:tio2`), 2.45, 'a coating import does not overwrite a held material');
 
 // A materials import finds the changed one and replaces it only when asked to.
-const plan = importer.buildMaterialRegistration(all, 'COATING.DAT', new Set(['TIO2', 'TA2O5']), FILE);
+const plan = importer.buildMaterialRegistration(all, 'COATING.DAT', rows('TIO2', 'TA2O5'), FILE);
 assert.deepEqual(plan.changed, ['TIO2'], 'the edited material is named as changed');
-importer.registerMaterials(all, 'COATING.DAT', new Set(['TIO2', 'TA2O5']), FILE);
+importer.registerMaterials(all, 'COATING.DAT', rows('TIO2', 'TA2O5'), FILE);
 assert.equal(n550(`${catId}:tio2`), 2.45, 'without the go-ahead the held material stays');
-importer.registerMaterials(all, 'COATING.DAT', new Set(['TIO2', 'TA2O5']), FILE, { replaceChanged: true });
+importer.registerMaterials(all, 'COATING.DAT', rows('TIO2', 'TA2O5'), FILE, { replaceChanged: true });
 assert.equal(n550(`${catId}:tio2`), 2.35, 'with it the file data replaces the held material');
 assert.deepEqual(keys(catId), ['mgf2', 'my_ito', 'sio2', 'ta2o5', 'tio2'], 'under the same id');
 
@@ -93,7 +95,7 @@ cm.saveUserMaterial(catId, { ...cm.getCatalog(catId).materials.tio2, tabData: [[
     let dialog = null;
     const importMaterials = runtime.render(() => useMaterialImportAction({
         z, flash: (type, message) => flashes.push([type, message]), doc: { materials: all, coatings: [] },
-        selMats: new Set(['TIO2']), fileName: 'COATING.DAT', filePath: FILE, setInputDialog: (d) => { dialog = d; },
+        selRows: rows('TIO2'), fileName: 'COATING.DAT', filePath: FILE, setInputDialog: (d) => { dialog = d; },
     }));
     const before = writes.length;
     importMaterials(false);
@@ -113,8 +115,9 @@ cm.saveUserMaterial(catId, { ...cm.getCatalog(catId).materials.tio2, tabData: [[
 {
     cm.saveUserMaterial(catId, { ...cm.getCatalog(catId).materials.sio2, tabData: [[400, 1.5, 0], [550, 1.49, 0], [800, 1.48, 0]] });
     const updates = [];
+    const flashes = [];
     const importCoating = runtime.render(() => useCoatingImportAction({
-        z, flash: () => {}, doc: {
+        z, flash: (type, message) => flashes.push([type, message]), doc: {
             materials: all,
             coatings: [{ name: 'AR', type: 'layers', layers: [{ material: 'SIO2', thickness: 0.25, isAbsolute: false }] }],
         },
@@ -127,6 +130,9 @@ cm.saveUserMaterial(catId, { ...cm.getCatalog(catId).materials.tio2, tabData: [[
     assert.equal(n550(`${catId}:sio2`), 1.49, 'the held SIO2 is kept');
     // The thickness comes from the file's own index, as Zemax computes it.
     assert.ok(Math.abs(layer.thickness - 0.25 * 550 / 1.46) < 1e-9, `thickness from the file's n (${layer.thickness})`);
+    const [type, report] = flashes.at(-1);
+    assert.equal(type, 'success');
+    assert.ok(report.includes(`“${cm.getCatalog(catId).name}”`), `the report names the file's catalog: ${report}`);
 }
 
 // Another file of the same name is another catalog, with a name of its own.
@@ -141,7 +147,7 @@ cm.addCatalog({
     materials: { hfo2: { id: 'hfo2', name: 'HFO2', formulaNum: -1, tabData: [[400, 2.0, 0], [800, 1.95, 0]] } },
 });
 const oldUid = cm.getCatalog('zemax_coating').uid;
-const legacy = importer.registerMaterials(all, 'COATING.DAT', new Set(['SIO2']), 'E:\\old\\COATING.DAT');
+const legacy = importer.registerMaterials(all, 'COATING.DAT', rows('SIO2'), 'E:\\old\\COATING.DAT');
 assert.equal(legacy.catId, 'zemax_coating', 'an existing id is kept');
 assert.deepEqual(keys('zemax_coating'), ['hfo2', 'sio2']);
 assert.equal(cm.getCatalog('zemax_coating').uid, oldUid);

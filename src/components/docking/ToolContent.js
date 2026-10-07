@@ -12,6 +12,7 @@ import { ReplaceMaterialsDialog } from '../dialogs/ReplaceMaterialsDialog.js';
 import { InputDialog } from '../dialogs/InputDialog.js';
 import { MaterialCalculationBlocked } from '../materials/MissingMaterialsNotice.js';
 import { ErrorBoundary, WindowFailedPane } from '../ui/ErrorBoundary.js';
+import { AnalysisWindow, CenteredMessage } from '../windows/analysis/chrome/layout.js';
 import { WINDOW_REGISTRY, TOOL_LABELS, windowTitle } from './windowRegistry.js';
 
 const { createElement: h, useState } = React;
@@ -22,14 +23,25 @@ const { createElement: h, useState } = React;
 // `theme` also get `theme`; entries flagged `dialog` also get `setInputDialog`;
 // entries flagged `createDesign` also get `onCreateDesign`.
 // An id with no component (modal/wizard/stub) falls through to the placeholder.
+//
+// `hasActiveDesign` is false while no design is open. A window flagged
+// `requiresDesign` is then not mounted, so nothing of it computes from the
+// placeholder design the provider hands out meanwhile, and a request to open
+// or create a design is drawn instead. It mounts once a design is open, with
+// its controls as they were: they live in its session store. This comes before
+// the materials check, since with no design open there is no design to repair.
 
 export function ToolContent({ toolId, copyId = null, c, theme, t, setInputDialog, onCreateDesign,
-  missingMaterialIds = [], onReplaceMaterials }) {
+  hasActiveDesign = true, missingMaterialIds = [], onReplaceMaterials }) {
   // Every window, docked or torn off, is mounted here, so this is also where it
   // is told which of its open copies it is. Its session store keys the controls
   // on that, so two tabs of one tool hold two sets of them.
   const asCopy = body => h(WindowCopyProvider, { copyId }, body);
   const entry = WINDOW_REGISTRY[toolId];
+  if (entry?.requiresDesign && !hasActiveDesign) {
+    return asCopy(h(AnalysisWindow, { c },
+      h(CenteredMessage, { c, message: t.windowChrome.noDesign })));
+  }
   if (entry?.requiresResolvedMaterials && missingMaterialIds.length > 0) {
     return asCopy(h(MaterialCalculationBlocked, {
       ids: missingMaterialIds, c, t, onRepair: onReplaceMaterials,
@@ -69,12 +81,12 @@ export function ToolContent({ toolId, copyId = null, c, theme, t, setInputDialog
 // raised through one of those from a torn-off tool opens on the main window,
 // behind the tool that asked for it.
 export function FloatToolHost(props) {
-  const { design, updateDesign } = useDesign();
+  const { design, updateDesign, hasActiveDesign } = useDesign();
   const [inputDialog, setInputDialog] = useState(null);
   const [repairMaterials, setRepairMaterials] = useState(false);
   return h(React.Fragment, null,
     h(ToolContent, {
-      ...props, setInputDialog, onReplaceMaterials: () => setRepairMaterials(true),
+      ...props, hasActiveDesign, setInputDialog, onReplaceMaterials: () => setRepairMaterials(true),
     }),
     h(InputDialog, { inputDialog, c: props.c, t: props.t }),
     repairMaterials && h(ReplaceMaterialsDialog, {

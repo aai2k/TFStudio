@@ -56,7 +56,7 @@ section of the formats page.
 An opened file belongs to the design selected in the project explorer. Select
 another design and the window shows that design's curves and nothing of the
 file; come back and the file is where you left it. With no design selected
-there is nothing to import into, and the button is off.
+the window shows nothing but a request to open or create one.
 
 ### Configuring the columns
 

@@ -62,6 +62,8 @@ function generate(d, scope = 'used') {
     const { preview, flashes } = generate(design);
     assert.equal(flashes.at(-1)[0], 'success');
     const doc = parseZemaxCoating(preview);
+    assert.equal(flashes.at(-1)[1], z.generated(doc.materials.length, doc.coatings[0].layers.length),
+        'the report is the locale text, with the counts of MATE records and layers written');
     const byName = Object.fromEntries(doc.materials.map(m => [m.name, m]));
     const at = (name, um) => byName[name].points.find(p => Math.abs(p[0] - um) < 1e-9);
 

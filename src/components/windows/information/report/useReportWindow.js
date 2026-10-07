@@ -188,10 +188,12 @@ function useDocument({ chosen, blocks, external, lang, tr, branding, doc, paper,
         () => attempt(() => chosen.map(d => ({ design: d, data: gatherDesignData(d, blocks, external) }))),
         [chosen, blocks, external, catalogRevision]);
     const items = gathered.value || [];
-    const composed = useMemo(() => (gathered.error
-        ? { value: '', error: gathered.error }
-        : attempt(() => composeReport({ lang, tr, brand: branding, doc, paper, blocks, designs: items, meta }))),
-    [gathered.error, items, lang, tr, branding, doc, paper, blocks, meta]);
+    // No design to cover gives no page, rather than a cover over nothing.
+    const composed = useMemo(() => {
+        if (gathered.error) return { value: '', error: gathered.error };
+        if (!items.length) return { value: '', error: null };
+        return attempt(() => composeReport({ lang, tr, brand: branding, doc, paper, blocks, designs: items, meta }));
+    }, [gathered.error, items, lang, tr, branding, doc, paper, blocks, meta]);
     return { items, html: composed.value || '', error: composed.error };
 }
 
@@ -203,7 +205,10 @@ function documentLanguage(stored) {
 export function useReportWindow({ t }) {
     const W = t.report.window;
     const designCtx = useDesign();
-    const { design, preview } = useLiveDesign();
+    const { design: liveDesign, preview } = useLiveDesign();
+    // With no design open the provider hands out a placeholder nobody opened,
+    // so the current design is none and the report covers only picked designs.
+    const design = designCtx.hasActiveDesign ? liveDesign : null;
     const [state, setField, patch] = useWindowSession(reportSession, null);
     const branding = useBranding();
     const version = useAppVersion();

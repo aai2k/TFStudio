@@ -7,6 +7,7 @@
  */
 
 import { ActionButton, FieldLabel } from '../../analysis/chrome/controls.js';
+import { CenteredMessage, EditorGroupTitle, SidePanel } from '../../analysis/chrome/layout.js';
 import { startDividerDrag } from '../../../ui/dividerDrag.js';
 
 const { createElement: h, useCallback, useRef } = React;
@@ -124,6 +125,30 @@ export function ImportLayout({ c, panelWidth, onPanelWidthChange, children }) {
 }
 
 /**
+ * An import tab of a window that reads one file and lists what is in it: the
+ * file panel with the tab's own section under it on the left, the listing on
+ * the right.
+ *
+ *   file      props for ImportFilePanel
+ *   section   the tab's panel section, under the file panel
+ *   children  the right-hand side
+ */
+export function ImportPage({ c, file, section, panelWidth, onPanelWidthChange, children }) {
+    return h(ImportLayout, { c, panelWidth, onPanelWidthChange },
+        h(SidePanel, { c, width: '100%' },
+            h(ImportFilePanel, { c, ...file }),
+            section,
+        ),
+        h('div', {
+            style: {
+                flex: 1, minWidth: 0, minHeight: 0, overflow: 'auto', padding: 10,
+                display: 'flex', flexDirection: 'column', gap: 8,
+            },
+        }, children),
+    );
+}
+
+/**
  * A labelled field. The label column is wide enough for the longest of them,
  * "Angle of incidence", so the controls line up down the panel and no label
  * clips into its own input.
@@ -157,4 +182,50 @@ export function textInputStyle(c) {
         borderRadius: 3, padding: '0 5px', outline: 'none', fontSize: 11,
         fontFamily: FONT,
     };
+}
+
+/** A one-line text field `width` pixels wide at most. */
+export function TextInput({ c, value, onChange, width, maxLength }) {
+    return h('input', {
+        value, maxLength, onChange: (event) => onChange(event.target.value),
+        style: { ...textInputStyle(c), flex: `0 1 ${width}px` },
+    });
+}
+
+/** A file an export tab generated, in full, taking the height the options leave. */
+export function FilePreview({ c, title, text }) {
+    return h('div', { style: { flex: 1, minHeight: 160, display: 'flex', flexDirection: 'column', padding: '0 10px 10px' } },
+        h(EditorGroupTitle, { c }, title),
+        h('textarea', {
+            value: text, readOnly: true, spellCheck: false,
+            style: {
+                flex: 1, width: '100%', resize: 'none', boxSizing: 'border-box',
+                background: c.bg, color: c.text, border: `1px solid ${c.border}`, borderRadius: 4,
+                fontFamily: 'ui-monospace, Consolas, monospace', fontSize: 10.5, padding: 8, outline: 'none', whiteSpace: 'pre',
+            },
+        }),
+    );
+}
+
+/**
+ * An export tab that writes the open design into a coating file: the window's
+ * options with the generated file under them. With no design open there is no
+ * design to write, and while the design uses a material nothing here resolves
+ * the file would carry wrong n,k, so either is said in place of the options.
+ *
+ *   z         the window's strings: exportTitle, exportBlocked(ids), preview
+ *   children  the window's options
+ */
+export function CoatingExportPage({ c, t, z, hasActiveDesign = true, missingMaterialIds, preview, children }) {
+    if (!hasActiveDesign) return h(CenteredMessage, { c, message: t.windowChrome.noDesign });
+    if (missingMaterialIds.length > 0) {
+        return h(PanelSection, { c, title: z.exportTitle },
+            h('div', { role: 'alert', style: { color: c.error, fontSize: 11.5, lineHeight: 1.5 } },
+                z.exportBlocked(missingMaterialIds.join(', '))),
+        );
+    }
+    return h('div', { style: { flex: 1, minHeight: 0, overflow: 'auto', display: 'flex', flexDirection: 'column' } },
+        children,
+        h(FilePreview, { c, title: z.preview, text: preview }),
+    );
 }

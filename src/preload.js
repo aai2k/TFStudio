@@ -96,6 +96,9 @@ contextBridge.exposeInMainWorld('electronAPI', {
   // Zemax COATING.DAT import/export
   zemaxPickCoatingFile: () => ipcRenderer.invoke('zemax:pick-coating-file'),
   zemaxSaveCoatingFile: (text, suggestedName) => ipcRenderer.invoke('zemax:save-coating-file', text, suggestedName),
+  // CODE V MUL coating import (.seq, .mul) and export (.seq)
+  codevPickCoatingFile: () => ipcRenderer.invoke('codev:pick-coating-file'),
+  codevSaveCoatingFile: (text, suggestedName) => ipcRenderer.invoke('codev:save-coating-file', text, suggestedName),
   // Measured-spectrum text import/export
   spectrumPickFile: () => ipcRenderer.invoke('spectrum:pick-file'),
   spectrumSaveFile: (text, suggestedName) => ipcRenderer.invoke('spectrum:save-file', text, suggestedName),

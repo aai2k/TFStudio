@@ -123,55 +123,161 @@ function useCatalogFollowing(stored, catalogRevision) {
     ), [stored, catalogRevision]);
 }
 
-// ── Provider ───────────────────────────────────────────────────────────────────
-//
-// Props:
-//   activeDesignId  — which design is currently active (string)
-//   designs         — { [id]: designObject } external map owned by App
-//   onDesignChange  — (id, newDesign) => void   called whenever active design mutates
-//
-// When activeDesignId changes, the provider switches to that design (creating
-// a default one on first access).
+// ── Provider state ─────────────────────────────────────────────────────────────
 
-export function DesignProvider({ children, activeDesignId, designs, folders, onDesignChange, onCheckpoint, historyView, onJumpToHistory }) {
-    // Local fallback: if parent doesn't pass controlled props, manage state internally.
-    const [localDesigns, setLocalDesigns] = useState(() => {
+// The provider's own design, for a parent that passes no designs.
+function useLocalDesigns() {
+    const [designs, setDesigns] = useState(() => {
         const d = makeDefaultDesign();
         return { [d.id]: d };
     });
-    const [localActiveId, setLocalActiveId] = useState(() => {
-        const d = Object.values(localDesigns)[0];
-        return d.id;
-    });
+    const [activeId] = useState(() => Object.keys(designs)[0]);
+    return { designs, setDesigns, activeId };
+}
 
-    // Active-optimizer counter. Tool windows (Refinement / Needle / GE) call
-    // beginOptimization() on Run and endOptimization() on stop/finalize/unmount.
-    // Live-preview consumers (OpticalEvaluation) throttle their main-thread
-    // TMM + chart redraw while isOptimizing is true so worker progress
-    // messages don't saturate the UI thread.
+// Where the provider reads and writes designs, and which one is active: the
+// parent's, when it owns them, with `activeDesignId` null while none is open;
+// otherwise the provider's own.
+function useDesignSource({ activeDesignId, designs, onDesignChange }) {
+    const local = useLocalDesigns();
+    if (designs == null || onDesignChange == null) return { controlled: false, ...local };
+    const setDesigns = (updater, opts) => {
+        const next = typeof updater === 'function' ? updater(designs) : updater;
+        Object.entries(next).forEach(([id, d]) => {
+            if (designs[id] !== d) onDesignChange(id, d, opts);
+        });
+    };
+    return { controlled: true, designs, setDesigns, activeId: activeDesignId ?? null };
+}
+
+// Active-optimizer counter. Tool windows (Refinement / Needle / GE) call
+// beginOptimization() on Run and endOptimization() on stop/finalize/unmount.
+// Live-preview consumers (OpticalEvaluation) throttle their main-thread
+// TMM + chart redraw while isOptimizing is true so worker progress
+// messages don't saturate the UI thread.
+function useOptimizerCount() {
     const [optimizerActive, setOptimizerActive] = useState(0);
     const beginOptimization = useCallback(() => setOptimizerActive(c => c + 1), []);
     const endOptimization   = useCallback(() => setOptimizerActive(c => Math.max(0, c - 1)), []);
-    const isOptimizing = optimizerActive > 0;
+    return { isOptimizing: optimizerActive > 0, beginOptimization, endOptimization };
+}
+
+// Per-design "user edit" revision counter. Bumped ONLY on non-transient
+// writes (real user/tool edits), NOT on the transient live-preview stream a
+// long-running optimizer emits. Synthesis windows snapshot this at run start
+// and re-read the design if it changed, so a manual thickness edit between
+// runs is picked up instead of optimizing a stale cached stack (M12).
+function useEditRevisions(activeId) {
+    const seqRef = React.useRef({});
+    const getDesignRevision = useCallback(
+        (id) => seqRef.current[id ?? activeId] || 0, [activeId]);
+    const countEdit = useCallback((opts) => {
+        if (opts && opts.transient) return;
+        seqRef.current[activeId] = (seqRef.current[activeId] || 0) + 1;
+    }, [activeId]);
+    return { getDesignRevision, countEdit };
+}
+
+// What a write stores: the updater applied to `current`, with missing or
+// duplicate layer ids backfilled at this single chokepoint so every layer
+// producer (imports, wizards) is covered, and in symmetric mode the back stack
+// derived from the front. The backfill is a cheap no-op when ids are already
+// present and unique (the common path).
+function storedDesign(current, updater) {
+    const next = typeof updater === 'function' ? updater(current) : updater;
+    if (!next) return next;
+    const f = ensureLayerIds(next.frontLayers);
+    const b = ensureLayerIds(next.backLayers);
+    const withIds = f !== next.frontLayers || b !== next.backLayers ? { ...next, frontLayers: f, backLayers: b } : next;
+    return withSymmetricBack(current, withIds);
+}
+
+// The undo checkpoint and the History window's jump, for the active design.
+// The placeholder shown while no design is active has no history, so with no
+// active design both do nothing.
+function useHistoryActions({ hasTarget, activeId, onCheckpoint, onJumpToHistory }) {
+    // Push a single undo checkpoint for the active design (pre-run snapshot).
+    const checkpoint = useCallback(() => {
+        if (hasTarget && typeof onCheckpoint === 'function') onCheckpoint(activeId);
+    }, [hasTarget, onCheckpoint, activeId]);
+    const jumpToHistory = useCallback((index) => {
+        if (hasTarget && typeof onJumpToHistory === 'function') onJumpToHistory(index);
+    }, [hasTarget, onJumpToHistory]);
+    return { checkpoint, jumpToHistory };
+}
+
+// ── Layer operations (side = 'front' | 'back') ────────────────────────────────
+
+// Apply `edit` to one side's layers. An edit that hands back the same array
+// leaves the design as it was.
+function editLayers(setDesign, side, edit) {
+    const key = side === 'back' ? 'backLayers' : 'frontLayers';
+    setDesign(prev => {
+        const layers = edit(prev[key]);
+        return layers === prev[key] ? prev : { ...prev, [key]: layers };
+    });
+}
+
+// `layers` with one layer swapped with its neighbour above or below, or the
+// same array when there is none there.
+function movedLayers(layers, layerId, direction) {
+    const idx = layers.findIndex(l => l.id === layerId);
+    const target = direction === 'up' ? idx - 1 : idx + 1;
+    if (idx < 0 || target < 0 || target >= layers.length) return layers;
+    const out = [...layers];
+    [out[idx], out[target]] = [out[target], out[idx]];
+    return out;
+}
+
+// `layers` with a copy of one layer inserted below it, or the same array when
+// no layer has that id.
+function duplicatedLayers(layers, layerId) {
+    const idx = layers.findIndex(l => l.id === layerId);
+    if (idx < 0) return layers;
+    const out = [...layers];
+    out.splice(idx + 1, 0, { ...layers[idx], id: newLayerId() });
+    return out;
+}
+
+function useLayerOperations(setDesign) {
+    const removeLayer = useCallback((side, layerId) =>
+        editLayers(setDesign, side, layers => layers.filter(l => l.id !== layerId)), [setDesign]);
+    const updateLayer = useCallback((side, layerId, patch) =>
+        editLayers(setDesign, side, layers => layers.map(l => (l.id === layerId ? { ...l, ...patch } : l))), [setDesign]);
+    const moveLayer = useCallback((side, layerId, direction) =>
+        editLayers(setDesign, side, layers => movedLayers(layers, layerId, direction)), [setDesign]);
+    const duplicateLayer = useCallback((side, layerId) =>
+        editLayers(setDesign, side, layers => duplicatedLayers(layers, layerId)), [setDesign]);
+    return { removeLayer, updateLayer, moveLayer, duplicateLayer };
+}
+
+// ── Provider ───────────────────────────────────────────────────────────────────
+//
+// Props:
+//   activeDesignId:  which design is currently active (string), or null while
+//                    the explorer has none selected
+//   designs:         { [id]: designObject } external map owned by App
+//   onDesignChange:  (id, newDesign) => void, called whenever active design mutates
+//
+// When activeDesignId changes, the provider switches to that design (creating
+// a default one on first access).
+//
+// A parent that passes `designs` and `onDesignChange` owns the designs whether
+// or not one is active. With none active, windows get a placeholder design that
+// nothing keeps: every write to it is ignored and `hasActiveDesign` is false, so
+// an import or an edit has no design to land in until the user opens one. A
+// provider missing either keeps one design of its own and makes it active.
+
+export function DesignProvider({ children, activeDesignId, designs, folders, onDesignChange, onCheckpoint, historyView, onJumpToHistory }) {
+    const { controlled, designs: _designs, setDesigns: _setDesigns, activeId: _activeId } =
+        useDesignSource({ activeDesignId, designs, onDesignChange });
+    const { isOptimizing, beginOptimization, endOptimization } = useOptimizerCount();
 
     // Whether open windows follow a run as it proceeds (see useLiveDesign).
     // Off, they hold the design as it was when the run started and update once
     // when it stops; ordinary edits still redraw either way. One setting for
     // every window, so the switch reads the same wherever it is shown.
     const [liveUpdate, setLiveUpdate] = useState(true);
-
-    const controlled = activeDesignId != null && designs != null && onDesignChange != null;
-
-    const _designs       = controlled ? designs       : localDesigns;
-    const _activeId      = controlled ? activeDesignId : localActiveId;
-    const _setDesigns    = controlled
-        ? (updater, opts) => {
-            const next = typeof updater === 'function' ? updater(_designs) : updater;
-            Object.entries(next).forEach(([id, d]) => {
-                if (_designs[id] !== d) onDesignChange(id, d, opts);
-            });
-        }
-        : setLocalDesigns;
 
     // Stable fallback design when no item is selected yet
     const fallbackRef = React.useRef(null);
@@ -192,14 +298,7 @@ export function DesignProvider({ children, activeDesignId, designs, folders, onD
     // It is therefore per-design and persists with the project.
     const evalMode = resolveEvalMode(design);
 
-    // Per-design "user edit" revision counter. Bumped ONLY on non-transient
-    // writes (real user/tool edits), NOT on the transient live-preview stream a
-    // long-running optimizer emits. Synthesis windows snapshot this at run start
-    // and re-read the design if it changed, so a manual thickness edit between
-    // runs is picked up instead of optimizing a stale cached stack (M12).
-    const userEditSeqRef = React.useRef({});
-    const getDesignRevision = useCallback(
-        (id) => userEditSeqRef.current[id ?? _activeId] || 0, [_activeId]);
+    const { getDesignRevision, countEdit } = useEditRevisions(_activeId);
 
     const _setDesign = useCallback((updater, opts) => {
         // No active design (fresh install, nothing selected → the empty fallback
@@ -207,24 +306,12 @@ export function DesignProvider({ children, activeDesignId, designs, folders, onD
         // of creating a stray `designs[null]` entry the explorer never shows.
         // The user creates/selects a design first (the explorer invites it).
         if (_activeId == null) return;
-        if (!opts || !opts.transient) {
-            userEditSeqRef.current[_activeId] = (userEditSeqRef.current[_activeId] || 0) + 1;
-        }
-        _setDesigns(prev => {
-            const current = prev[_activeId] ?? makeDefaultDesign('New Design', _activeId);
-            let next      = typeof updater === 'function' ? updater(current) : updater;
-            // Backfill missing/duplicate layer ids at this single chokepoint so
-            // every layer producer (imports, wizards) is covered. Cheap no-op
-            // when ids are already present & unique (the common path).
-            if (next) {
-                const f = ensureLayerIds(next.frontLayers);
-                const b = ensureLayerIds(next.backLayers);
-                if (f !== next.frontLayers || b !== next.backLayers) next = { ...next, frontLayers: f, backLayers: b };
-                next = withSymmetricBack(current, next);
-            }
-            return { ...prev, [_activeId]: next };
-        }, opts);
-    }, [_activeId, _setDesigns]);
+        countEdit(opts);
+        _setDesigns(prev => ({
+            ...prev,
+            [_activeId]: storedDesign(prev[_activeId] ?? makeDefaultDesign('New Design', _activeId), updater),
+        }), opts);
+    }, [_activeId, _setDesigns, countEdit]);
 
     // ── Design-level updates ──────────────────────────────────────────────────
     //
@@ -237,61 +324,13 @@ export function DesignProvider({ children, activeDesignId, designs, folders, onD
         _setDesign(prev => ({ ...prev, ...patch }), opts),
     [_setDesign]);
 
-    // Push a single undo checkpoint for the active design (pre-run snapshot).
-    const checkpoint = useCallback(() => {
-        if (controlled && typeof onCheckpoint === 'function') onCheckpoint(_activeId);
-    }, [controlled, onCheckpoint, _activeId]);
-
+    const { checkpoint, jumpToHistory } = useHistoryActions({
+        hasTarget: controlled && _activeId != null, activeId: _activeId, onCheckpoint, onJumpToHistory,
+    });
     // Undo/redo timeline for the active design + jump-to-state (History window).
     const history = historyView || { entries: [], currentIndex: -1 };
-    const jumpToHistory = useCallback((index) => {
-        if (controlled && typeof onJumpToHistory === 'function') onJumpToHistory(index);
-    }, [controlled, onJumpToHistory]);
 
-    // ── Layer operations (side = 'front' | 'back') ────────────────────────────
-
-    const _layersKey = (side) => side === 'back' ? 'backLayers' : 'frontLayers';
-
-    const removeLayer = useCallback((side, layerId) => {
-        const key = _layersKey(side);
-        _setDesign(prev => ({
-            ...prev,
-            [key]: prev[key].filter(l => l.id !== layerId)
-        }));
-    }, [_setDesign]);
-
-    const updateLayer = useCallback((side, layerId, patch) => {
-        const key = _layersKey(side);
-        _setDesign(prev => ({
-            ...prev,
-            [key]: prev[key].map(l => l.id === layerId ? { ...l, ...patch } : l)
-        }));
-    }, [_setDesign]);
-
-    const moveLayer = useCallback((side, layerId, direction) => {
-        const key = _layersKey(side);
-        _setDesign(prev => {
-            const layers = [...prev[key]];
-            const idx = layers.findIndex(l => l.id === layerId);
-            if (idx < 0) return prev;
-            const target = direction === 'up' ? idx - 1 : idx + 1;
-            if (target < 0 || target >= layers.length) return prev;
-            [layers[idx], layers[target]] = [layers[target], layers[idx]];
-            return { ...prev, [key]: layers };
-        });
-    }, [_setDesign]);
-
-    const duplicateLayer = useCallback((side, layerId) => {
-        const key = _layersKey(side);
-        _setDesign(prev => {
-            const idx = prev[key].findIndex(l => l.id === layerId);
-            if (idx < 0) return prev;
-            const copy = { ...prev[key][idx], id: newLayerId() };
-            const layers = [...prev[key]];
-            layers.splice(idx + 1, 0, copy);
-            return { ...prev, [key]: layers };
-        });
-    }, [_setDesign]);
+    const { removeLayer, updateLayer, moveLayer, duplicateLayer } = useLayerOperations(_setDesign);
 
     return React.createElement(DesignContext.Provider, {
         value: {

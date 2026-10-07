@@ -61,7 +61,7 @@ assert.equal(registration.nameMap['A-B'], `${mixId}:a_b_3`);
 assert.equal(registration.nameMap['A B'], `${mixId}:a_b_2`);
 assert.deepEqual(registration.cat.materials.a_b.tabData, [[400, 1.4, 0], [600, 1.6, 0.02]]);
 
-const selected = importer.buildMaterialRegistration(materials, 'mix.dat', new Set(['A B']));
+const selected = importer.buildMaterialRegistration(materials, 'mix.dat', new Set([1]));
 assert.deepEqual(Object.keys(selected.cat.materials), ['a_b']);
 assert.equal(selected.nameMap['A B'], `${selected.catId}:a_b`);
 

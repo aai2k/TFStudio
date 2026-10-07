@@ -353,16 +353,22 @@ export const ICONS = {
                           Cf(14.6, 12.4, 0.9),
                       ]),
 
-    // Zemax coatings: a data file (page with stacked coating-layer lines) and a
-    // bidirectional exchange arrow (import/export COATING.DAT).
+    // Zemax Coatings: a file holding a table, as COATING.DAT is tables of
+    // materials and coatings.
     'zemax-coatings': I([
-                          R(2.5, 3, 8, 14, 1.2),
-                          L(4.5, 6.5, 8.5, 6.5, 1),
-                          L(4.5, 9, 8.5, 9, 1),
-                          L(4.5, 11.5, 8.5, 11.5, 1),
-                          L(11.5, 10, 17.5, 10, 1.4),
-                          P('M15 7.5 L17.8 10 L15 12.5', 1.4),
-                          P('M14 5 L11.5 7 L14 9', 1.2),
+                          P('M4.5 2.5H11.5L15.5 6.5V17.5H4.5Z'),
+                          P('M11.5 2.5V6.5H15.5', 1.2),
+                          P('M6.5 9H13.5V15.5H6.5Z', 1),
+                          P('M6.5 11.2H13.5M6.5 13.3H13.5M10 9V15.5', 0.9),
+                      ]),
+
+    // CODE V Coatings: a file holding a command prompt, as a .seq is a CODE V
+    // command file.
+    'codev-coatings': I([
+                          P('M4.5 2.5H11.5L15.5 6.5V17.5H4.5Z'),
+                          P('M11.5 2.5V6.5H15.5', 1.2),
+                          P('M7 9.3L9.6 12L7 14.7'),
+                          P('M10.6 14.7H13.4'),
                       ]),
 };
 
@@ -401,6 +407,7 @@ const TOOL_GROUP = {
     'bbm-simulator': 'simulation', 'mono-simulator': 'simulation', 'monitor-worksheet': 'simulation',
     'process-sim': 'simulation',
     'zemax-coatings': 'data-exchange', 'spectrum-exchange': 'data-exchange', 'measured-ellipsometry': 'data-exchange',
+    'codev-coatings': 'data-exchange',
     'nk-characterization': 'data-exchange',
     'report-gen': 'information', 'help-docs': 'information',
     'welcome': 'information', 'tutorials': 'information',
@@ -459,7 +466,7 @@ export function makeTabs(t) {
             key: 'production', label: tb.tabs.production, groups: [
                 grp('monitoring', ['bbm-simulator', 'mono-simulator', 'monitor-worksheet', 'process-sim']),
                 grp('measured',   ['spectrum-exchange', 'measured-ellipsometry', 'nk-characterization']),
-                grp('exchange',   ['zemax-coatings', 'report-gen']),
+                grp('exchange',   ['zemax-coatings', 'codev-coatings', 'report-gen']),
             ]
         },
         {

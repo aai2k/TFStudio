@@ -68,6 +68,7 @@ function renderNode(node, ctx) {
         c: ctx.c, theme: ctx.theme, t: ctx.t,
         setInputDialog: ctx.setInputDialog,
         onCreateDesign: ctx.onCreateDesign,
+        hasActiveDesign: ctx.hasActiveDesign,
         missingMaterialIds: ctx.missingMaterialIds,
         onReplaceMaterials: ctx.onReplaceMaterials,
       }),
@@ -82,7 +83,7 @@ function renderNode(node, ctx) {
 // ── DockingLayout ─────────────────────────────────────────────────────────────
 
 export function DockingLayout({ c, theme, toolRequests, onWindowListChange, layoutRequest, t, setInputDialog, locale, ribbonStyle = 'colorful', onCreateProject, onCreateDesign }) {
-  const { design, updateDesign } = useDesign();
+  const { design, updateDesign, hasActiveDesign } = useDesign();
   const missingMaterialIds = useUnresolvedMaterials(design);
   const [dragActive, setDragActive]   = useState(false);
   const [dragSrcGroupId, setDragSrcGroupId] = useState(null);
@@ -157,7 +158,7 @@ export function DockingLayout({ c, theme, toolRequests, onWindowListChange, layo
     c, theme, t, locale, ribbonStyle, setTree, setInputDialog, onCreateDesign,
     dragActive, dragSrcGroupId, dragInsertRef, dropTargetRef, forcedZone,
     handleTabClick, handleTabClose, handleTabDragStart, handleGroupFocus,
-    missingMaterialIds,
+    hasActiveDesign, missingMaterialIds,
     onReplaceMaterials: () => setReplaceMaterialsOpen(true),
   };
 

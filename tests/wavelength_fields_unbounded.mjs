@@ -92,12 +92,10 @@ const c = { field: '#111', text: '#eee', textDim: '#999', border: '#333', bg: '#
 // ── Fields that commit on blur ───────────────────────────────────────────────
 
 const { NumInput } = await import('../src/components/windows/analysis/chrome/controls.js');
-const { Num } = await import('../src/components/windows/dataExchange/zemaxCoatings/ui.js');
 const { NumberRow } = await import('../src/components/dialogs/settings/analysis/FieldRows.js');
 
 for (const [name, Component, props] of [
     ['analysis field', NumInput, { value: 400, positive: true, step: 10, c }],
-    ['Zemax Coatings field', Num, { value: 400, positive: true, step: 10, c }],
     ['Settings row', NumberRow, { value: 400, spec: { def: 400, positive: true, step: 10 }, c, label: 'λ' }],
 ]) {
     assert.deepEqual(enter(Component, props, '20').taken, [20], `${name}: 20 nm is taken as typed`);
@@ -277,6 +275,7 @@ const WINDOW_FIELDS = {
         ['setup.lambdaStart', 'setup.lambdaEnd', 'setup.lambdaStep', 'setup.exportStep'],
     'dataExchange/zemaxCoatings/ZemaxLayout.js': ['refNm'],
     'dataExchange/zemaxCoatings/ExportTab.js': ['gStart', 'gEnd', 'gStep'],
+    'dataExchange/codevCoatings/ExportTab.js': ['refNm', 'gStart', 'gEnd', 'gStep'],
     'dataExchange/nkCharacterization/CharacterizationControls.js':
         ['Number(settings.lambdaStart) || 0', 'Number(settings.lambdaEnd) || 0'],
     'information/report/BlockSettings.js': ['on ? s.tableStep : 10', 's.lambdaStep', 's.step'],

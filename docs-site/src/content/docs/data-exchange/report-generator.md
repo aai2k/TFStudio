@@ -30,7 +30,7 @@ The **Template** list holds three: Design record, the default, with everything i
 
 ## Several designs
 
-Pick more than one design under **Designs** and the report becomes a comparison. The designs are lettered A, B, C and listed with their full names in a key under the masthead; tables, plot legends and recipe headings refer to them by letter, so a long name never widens a column. Facts, verdicts, integral values and color render as one table with a column per design, six designs to a table, the spectrum block draws every design on one plot, and the recipes sit side by side. Blocks without a comparison form render once per design.
+Pick more than one design under **Designs** and the report becomes a comparison. The designs are lettered A, B, C and listed with their full names in a key under the masthead; tables, plot legends and recipe headings refer to them by letter, so a long name never widens a column. Facts, verdicts, integral values and color render as one table with a column per design, six designs to a table, the spectrum block draws every design on one plot, and the recipes sit side by side. Blocks without a comparison form render once per design. With no design open the report covers only the designs picked under **Designs**; with none picked there is no page, only a request to open or create a design.
 
 ## Export
 

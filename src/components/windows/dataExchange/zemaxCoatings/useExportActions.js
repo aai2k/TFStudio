@@ -65,7 +65,7 @@ function generatePreview(args) {
         return;
     }
     setPreview(built.text);
-    flash('success', `${built.materials.length} MATE · ${built.coating.layers.length} layers`);
+    flash('success', z.generated(built.materials.length, built.coating.layers.length));
 }
 
 async function savePreview({ z, flash, preview }) {
