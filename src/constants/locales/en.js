@@ -3655,6 +3655,7 @@ export default {
     sideFront: 'Front', sideBack: 'Back',
     modeReplace: 'Replace the stack', modeAppend: 'Add on top of the stack',
     apply: 'Apply',
+    applyNoDesign: 'No design selected. Open or create a design first.',
     applied: (n, side) => `${n} layers put on the ${side} coating. Undo restores the previous stack.`,
     clashes: (ids) => `Kept the design's own definition of ${ids}; the coating may compute differently than shown here.`,
     delete: 'Delete',

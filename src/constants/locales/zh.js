@@ -4055,6 +4055,7 @@ export default {
     sideFront: '前表面', sideBack: '后表面',
     modeReplace: '替换膜系', modeAppend: '叠加在膜系之上',
     apply: '应用',
+    applyNoDesign: '未选择设计。请先打开或创建设计。',
     applied: (n, side) => `已将 ${n} 层放到${side}镀膜上。撤销可恢复原膜系。`,
     clashes: (ids) => `保留了设计自身对 ${ids} 的定义；该镀膜的计算结果可能与此处显示的不同。`,
     delete: '删除',

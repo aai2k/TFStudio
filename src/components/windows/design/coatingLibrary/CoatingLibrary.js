@@ -102,8 +102,10 @@ function TagBar({ session, setField, tags, toggleTag, c, ts }) {
                 items.map(({ tag, count }) => tagChip(tag, count, false, toggleTag, c))))));
 }
 
-function ApplyBar({ session, setField, selected, onApply, onDelete, message, c, ts }) {
+function ApplyBar({ session, setField, selected, hasActiveDesign, onApply, onDelete, message, c, ts }) {
     const canApply = !!selected;
+    // With no design selected there is nothing to apply the coating to.
+    const noDesign = hasActiveDesign === false;
     return h('div', { style: barStyle(c, 'borderTop') },
         h('span', { style: { fontSize: 11, color: c.textDim } }, ts.applyHeading),
         h(Segmented, {
@@ -118,8 +120,8 @@ function ApplyBar({ session, setField, selected, onApply, onDelete, message, c, 
             h('option', { value: 'replace' }, ts.modeReplace),
             h('option', { value: 'append' }, ts.modeAppend)),
         h('button', {
-            onClick: onApply, disabled: !canApply,
-            style: buttonStyle(c, { primary: true, disabled: !canApply }),
+            onClick: onApply, disabled: !canApply || noDesign, title: noDesign ? ts.applyNoDesign : undefined,
+            style: buttonStyle(c, { primary: true, disabled: !canApply || noDesign }),
         }, ts.apply),
         session.source === 'user' && h('button', {
             onClick: onDelete, disabled: !canApply,
@@ -133,7 +135,7 @@ function ApplyBar({ session, setField, selected, onApply, onDelete, message, c, 
 export function CoatingLibrary({ c, t }) {
     const ts = t.coatingLibrary;
     const {
-        design, session, setField, entries, visible, tags, substrates, toggleTag, toggleType,
+        design, hasActiveDesign, session, setField, entries, visible, tags, substrates, toggleTag, toggleType,
         selected, message, setMessage, apply, remove,
     } = useCoatingLibrary(ts);
     const [saving, setSaving] = useState(false);
@@ -165,7 +167,7 @@ export function CoatingLibrary({ c, t }) {
                 selected
                     ? h(EntryDetail, { entry: selected, c, ts, summaries: t.specification.summaries, lambdaAxis: t.spectralAxis.lambdaShort })
                     : h('div', { style: { padding: 24, fontSize: 12, color: c.textDim, fontStyle: 'italic' } }, ts.selectHint))),
-        h(ApplyBar, { session, setField, selected, onApply: apply, onDelete: remove, message, c, ts }),
+        h(ApplyBar, { session, setField, selected, hasActiveDesign, onApply: apply, onDelete: remove, message, c, ts }),
         saving && h(SaveCoatingDialog, {
             design, c, t,
             onClose: () => setSaving(false),

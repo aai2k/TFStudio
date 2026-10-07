@@ -72,13 +72,17 @@ function caret(open) {
  * files anchored to its button, which flips above the bar at the foot of a
  * window rather than covering the controls it belongs to.
  */
-export function SavedMfMenu({ c, te, diskPresets, diskBusy, diskMsg, onSavePreset, onLoadDiskPreset, onDeleteDiskPreset }) {
+export function SavedMfMenu({
+    c, te, hasActiveDesign, diskPresets, diskBusy, diskMsg, onSavePreset, onLoadDiskPreset, onDeleteDiskPreset,
+}) {
     const [session, setField] = useWindowSession(meritPresetSession, null);
     const [open, setOpen] = useState(false);
     const [position, setPosition] = useState(null);
     const triggerRef = useRef(null);
     const dropRef = useRef(null);
     const mode = session.applyMode;
+    // With no design selected there is no table to load a file into.
+    const noDesign = hasActiveDesign === false;
     useDismiss(open, setOpen, dropRef, triggerRef);
 
     // The button toggles. Outside-click dismissal ignores it, so without this a
@@ -98,7 +102,10 @@ export function SavedMfMenu({ c, te, diskPresets, diskBusy, diskMsg, onSavePrese
 
     return h(React.Fragment, null,
         h('span', { ref: triggerRef, style: { display: 'inline-flex' } },
-            h(TblBtn, { label: loadLabel, onClick: toggle, disabled: diskBusy, title: te.diskTip, c })),
+            h(TblBtn, {
+                label: loadLabel, onClick: toggle, disabled: diskBusy || noDesign,
+                title: noDesign ? te.noDesign : te.diskTip, c,
+            })),
         h(TblBtn, { label: te.saveMf, onClick: onSavePreset, disabled: diskBusy, title: te.saveTip, c }),
         diskMsg && h('span', {
             title: diskMsg,

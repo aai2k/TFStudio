@@ -4101,6 +4101,7 @@ export default {
     modeReplace: 'Sostituisci lo stack',
     modeAppend: 'Aggiungi sopra lo stack',
     apply: 'Applica',
+    applyNoDesign: 'Nessun design selezionato. Apri o crea prima un design.',
     applied: (n, side) => `${n} strati applicati al rivestimento ${side}. Annulla ripristina lo stack precedente.`,
     clashes: (ids) => `È stata mantenuta la definizione propria del design per ${ids}; il rivestimento può risultare diverso da quanto mostrato qui.`,
     delete: 'Elimina',

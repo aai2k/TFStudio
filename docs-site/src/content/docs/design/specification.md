@@ -49,7 +49,7 @@ the peak-to-peak error).
 
 **Presets**: drop in a ready-made requirement set for a common coating type,
 either replacing or appending to the current list. You can also save the
-current list as your own reusable preset and load it back later.
+current list as your own reusable preset and load it back later. With no design selected there is nothing to put a preset into, so applying a built-in preset and loading a saved one are off.
 
 ## How to read it
 

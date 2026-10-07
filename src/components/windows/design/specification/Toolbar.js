@@ -6,7 +6,7 @@ import { btnStyle, selStyle } from './fields.js';
 const { createElement: h, useState } = React;
 
 export function Toolbar({
-    addQualifier, c, ts,
+    addQualifier, c, ts, hasActiveDesign,
     onApplyBuiltinPreset,
     diskPresets, diskBusy, diskMsg,
     onSavePreset, onLoadDiskPreset, onDeleteDiskPreset,
@@ -15,6 +15,11 @@ export function Toolbar({
     const [builtinSel, setBuiltinSel]     = useState('');
     const [diskSel,    setDiskSel]        = useState('');
     const [applyMode,  setApplyMode]      = useState('replace'); // 'replace' | 'append'
+    // With no design selected there is nothing to put a preset into.
+    const noDesign = hasActiveDesign === false;
+    const presetTitle = noDesign ? ts.noDesign : undefined;
+    const canApply = !!builtinSel && !noDesign;
+    const canLoad = !!diskSel && !noDesign;
 
     return h('div', {
         style: {
@@ -69,8 +74,8 @@ export function Toolbar({
         ),
         h('button', {
             onClick: () => { if (builtinSel) { onApplyBuiltinPreset(builtinSel, applyMode); setBuiltinSel(''); } },
-            disabled: !builtinSel,
-            style: { ...btnStyle(c), opacity: builtinSel ? 1 : 0.4, cursor: builtinSel ? 'pointer' : 'default' },
+            disabled: !canApply, title: presetTitle,
+            style: { ...btnStyle(c), opacity: canApply ? 1 : 0.4, cursor: canApply ? 'pointer' : 'default' },
         }, ts.apply || 'Apply'),
 
         // Divider
@@ -95,8 +100,8 @@ export function Toolbar({
         ),
         h('button', {
             onClick: () => { if (diskSel) { onLoadDiskPreset(diskSel, applyMode); } },
-            disabled: !diskSel || diskBusy,
-            style: { ...btnStyle(c), opacity: diskSel ? 1 : 0.4 },
+            disabled: !canLoad || diskBusy, title: presetTitle,
+            style: { ...btnStyle(c), opacity: canLoad ? 1 : 0.4 },
         }, ts.load || 'Load'),
         h('button', {
             onClick: () => { if (diskSel) onDeleteDiskPreset(diskSel); },

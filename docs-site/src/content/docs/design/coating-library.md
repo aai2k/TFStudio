@@ -89,7 +89,7 @@ layers are the outermost ones. The design's substrate and media are not changed;
 compare them with the substrate the entry was designed on before you rely on
 the numbers.
 
-Applying is one undoable edit: **Undo** brings the previous stack back.
+Applying is one undoable edit: **Undo** brings the previous stack back. With no design selected there is nothing to apply the coating to, so **Apply** is off.
 
 A material that a catalog on this computer holds is computed from that catalog, here and in the design. A coating can instead carry a copy from another computer's catalog of the same ID with other n,k: the library computes with that copy, and so does a design that does not use the ID yet. Whenever the coating brings a definition under an ID the design already computes with other data, the design keeps what it has and the window says so; the coating may then compute differently than it does in the library.
 

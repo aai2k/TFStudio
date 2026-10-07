@@ -11,11 +11,11 @@ import { useMeritRangeNotice } from '../../../materials/MaterialRangeNotice.js';
 const { createElement: h } = React;
 
 export function MeritFunctionEditor({ c, t, setInputDialog }) {
-    const { design, updateDesign, checkpoint } = useDesign();
+    const { design, updateDesign, checkpoint, hasActiveDesign } = useDesign();
     const te = t.meritFunctionEditor;
     const merit = useMeritOperands({ design, updateDesign, checkpoint, setInputDialog, te });
     const presets = useMeritPresets({
-        design, operands: merit.operands, setOperands: merit.setOperands,
+        design, hasActiveDesign, operands: merit.operands, setOperands: merit.setOperands,
         setSelectedId: merit.setSelectedId, checkpoint, setInputDialog, te, t,
     });
     const scopeNotice = phaseOperandScopeNotice(design, merit.operands, te);
@@ -34,7 +34,7 @@ export function MeritFunctionEditor({ c, t, setInputDialog }) {
         }
     },
         h(DMFWizard, {
-            design, onGenerate: merit.handleGenerate, operandCount: merit.operands.length,
+            design, hasActiveDesign, onGenerate: merit.handleGenerate, operandCount: merit.operands.length,
             mf: merit.mf, omf: merit.omf, busy: merit.evaluationBusy, c, t,
         }),
         h('div', { style: { flex: 1, overflow: 'hidden' } },
@@ -54,7 +54,7 @@ export function MeritFunctionEditor({ c, t, setInputDialog }) {
                 onClear: merit.handleClear,
                 onMoveUp: merit.handleMoveUp,
                 onMoveDown: merit.handleMoveDown,
-                toolbarStart: h(SavedMfMenu, { c, te, ...presets }),
+                toolbarStart: h(SavedMfMenu, { c, te, hasActiveDesign, ...presets }),
                 c, t
             })
         )

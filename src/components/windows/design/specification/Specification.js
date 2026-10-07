@@ -23,18 +23,20 @@ const { createElement: h } = React;
 export function Specification({ c, theme, t, setInputDialog }) {
     const ts = t.specification || {};
 
-    const { design, updateDesign, checkpoint } = useDesign();
+    const { design, updateDesign, checkpoint, hasActiveDesign } = useDesign();
     const integralPresets = useIntegralPresets();
     const {
         qualifiers, results, verdict, selectedId, containerRef, selectAndFocus,
         addQualifier, updateQualifier, removeQualifier,
-        writeQualifiers, qualifierKeyDown, generateMF, onApplyBuiltinPreset,
+        writeQualifiers, qualifierKeyDown, generateMF, onApplyBuiltinPreset: applyBuiltinPreset,
     } = useSpecificationState({ design, updateDesign, checkpoint });
 
     const {
         diskPresets, diskBusy, diskMsg,
-        onSavePreset, onLoadDiskPreset, onDeleteDiskPreset,
-    } = useDiskPresets({ qualifiers, writeQualifiers, checkpoint, design, ts, setInputDialog });
+        onApplyBuiltinPreset, onSavePreset, onLoadDiskPreset, onDeleteDiskPreset,
+    } = useDiskPresets({
+        qualifiers, writeQualifiers, checkpoint, design, hasActiveDesign, ts, setInputDialog, applyBuiltinPreset,
+    });
 
     if (!design) {
         return h('div', { style: { padding: 24, color: c.textDim, fontSize: 13 } }, ts.noDesign || 'No design selected.');
@@ -53,7 +55,7 @@ export function Specification({ c, theme, t, setInputDialog }) {
     },
         h(VerdictBar, { verdict, c, ts, qualifiers, generateMF, design, t }),
         h(Toolbar,    {
-            addQualifier, c, ts,
+            addQualifier, c, ts, hasActiveDesign,
             onApplyBuiltinPreset,
             diskPresets, diskBusy, diskMsg,
             onSavePreset, onLoadDiskPreset, onDeleteDiskPreset,

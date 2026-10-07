@@ -78,7 +78,7 @@ The synthesis tools leave the `PPEF` row out: its gradient comes from only the t
 
 The line under the boxes says how many rows the wizard will add and of which
 types. **Start at row** is where the block goes; **Generate** adds it. The form
-keeps its values while the window is closed and reopened.
+keeps its values while the window is closed and reopened. With no design selected there is no table to add the block to, so **Generate** is off and the line says so.
 
 ## The table
 
@@ -105,7 +105,7 @@ One row per operand. The table works like a spreadsheet:
   cells, cut, copy and paste of operands, insert, duplicate and delete.
 
 **Load MF** and **Save MF** in the table's bar load and save the whole table as
-a named merit function you can reuse in another design.
+a named merit function you can reuse in another design. With no design selected there is no table to load into, so **Load MF** is off.
 
 **Constraints**: minimum and maximum layer-thickness bounds (`MNT`/`MXT`) per
 layer or per material. A bound can be written to cover layers that synthesis

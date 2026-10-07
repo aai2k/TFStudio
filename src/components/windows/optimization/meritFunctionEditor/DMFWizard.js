@@ -331,25 +331,36 @@ function wizardResult(ctx) {
     return buildWizardResult({ tw, ...session, typeId, curveRows });
 }
 
+// What the line under the boxes says: why the block cannot be generated, or
+// how many rows of which types it adds.
+function lineMessage(tw, result, noDesignText) {
+    if (noDesignText) return noDesignText;
+    if (result.error) return tw.curveErrors[result.error];
+    const summary = blockSummary(result.block);
+    return tw.preview(summary.count, summary.types.join(', '));
+}
+
 // The line wraps in a narrow pane: the message breaks over lines and Start at
 // row with Generate moves under it, rather than running out of the window.
+// With no design selected there is no table to generate into.
 function bottomLine(ctx, startRow, setStartRow, onGenerate) {
     const { s, tw, c } = ctx;
     const result = wizardResult(ctx);
-    const summary = blockSummary(result.block);
-    const blocked = !!result.error;
+    const noDesign = ctx.hasActiveDesign === false;
+    const blocked = !!result.error || noDesign;
     return h('div', {
         style: { display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: '4px 8px', minHeight: CONTROL_H },
     },
         h('span', { style: { ...s.label, color: blocked ? c.error : s.label.color, whiteSpace: 'normal', flex: '1 1 160px' } },
-            blocked ? tw.curveErrors[result.error] : tw.preview(summary.count, summary.types.join(', '))),
-        result.error === 'noCurves'
+            lineMessage(tw, result, noDesign ? ctx.noDesignText : null)),
+        !noDesign && result.error === 'noCurves'
             && smallButton(c, tw.openMeasuredSpectra, () => requestTool('spectrum-exchange')),
         h('div', { style: { ...s.group, gap: 8, marginLeft: 'auto' } },
             h('span', { style: s.label, title: tw.startRowTip }, tw.startRow + ':'),
             numberInput(s, startRow, v => setStartRow(Math.max(1, Math.round(v) || 1)), 52, { min: 1, step: 1 }),
             h('button', {
-                onClick: () => onGenerate(result.block, result.curves), title: tw.willReplace, disabled: blocked,
+                onClick: () => onGenerate(result.block, result.curves), disabled: blocked,
+                title: noDesign ? ctx.noDesignText : tw.willReplace,
                 style: {
                     height: CONTROL_H, padding: '0 14px', fontSize: 11, border: 'none', borderRadius: 3,
                     background: c.accent, color: c.accentText, cursor: blocked ? 'default' : 'pointer',
@@ -400,7 +411,7 @@ function gainEditor(gainSource, tw, c, t) {
     });
 }
 
-export function DMFWizard({ design, onGenerate, operandCount, mf, omf, busy, c, t }) {
+export function DMFWizard({ design, hasActiveDesign, onGenerate, operandCount, mf, omf, busy, c, t }) {
     const te = t.meritFunctionEditor;
     const tw = te.wizard;
     const [session, setField, patch] = useWindowSession(meritWizardSession, null);
@@ -408,9 +419,15 @@ export function DMFWizard({ design, onGenerate, operandCount, mf, omf, busy, c, 
     const typeId = FILTER_TYPES[session.typeId] ? session.typeId : FILTER_CATEGORIES[0].types[0];
     const updateParam = (key, value) => setField('params', prev => paramsWithChange(typeId, prev, key, value));
     const gainSource = useGainSource(updateParam, tw);
-    const ctx = { s: styles(c), tw, c, session, setField, patch, typeId, updateParam, design, gainSource };
+    const ctx = {
+        s: styles(c), tw, c, session, setField, patch, typeId, updateParam, design, hasActiveDesign, gainSource,
+        noDesignText: te.noDesign,
+    };
 
+    // With no design selected the line under the boxes says so, and Start at
+    // row stays where it is.
     const generate = (block, curves) => {
+        if (hasActiveDesign === false) return;
         const rows = wizardGenerationRows(startRow, block.length);
         onGenerate(block, rows.startRow, curves);
         setStartRow(rows.nextStartRow);
