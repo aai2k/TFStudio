@@ -51,10 +51,6 @@ export function GradualEvolution({ c, theme, t }) {
     } = useGradualEvolution({ design, updateDesign, checkpoint, beginOptimization, endOptimization, getDesignRevision, t });
 
     // ── Render ────────────────────────────────────────────────────────────────
-    if (!design) {
-        return h('div', { style: { padding: 24, color: c.textDim, fontSize: 13 } }, tg.noDesign);
-    }
-
     const running   = phase !== 'idle';
     const bestMFVal = cyclesRef.current.filter(cy => cy.layers).length
         ? Math.min(...cyclesRef.current.filter(cy => cy.layers).map(cy => cy.mf))

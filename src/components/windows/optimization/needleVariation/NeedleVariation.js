@@ -20,10 +20,6 @@ export function NeedleVariation({ c, theme, t }) {
     const s = useNeedleVariation(t);
     const tn = s.tn;
 
-    if (!s.design) {
-        return h('div', { style: { padding: 24, color: c.textDim, fontSize: 13 } }, tn.noDesign);
-    }
-
     const catalogs = poolCatalogs(s.design, t.pool.designCatalog);
 
     return h(SynthesisShell, {

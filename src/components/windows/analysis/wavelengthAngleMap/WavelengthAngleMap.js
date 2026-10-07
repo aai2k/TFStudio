@@ -51,7 +51,6 @@ export function WavelengthAngleMap({ c, t }) {
     const rangeNotice = useMaterialRangeNotice(
         design, state.lambdaStart, state.lambdaEnd, t, fixRange);
 
-    if (!design) return h(CenteredMessage, { c, message: wam.noDesign });
     if (!hasLayersForMode(design, state.evalMode)) {
         return h(CenteredMessage, { c, message: wam.noLayers });
     }

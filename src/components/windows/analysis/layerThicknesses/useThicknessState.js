@@ -21,7 +21,7 @@ export function useThicknessState(design) {
     }, [availableSide, side]);
 
     const rows = useMemo(
-        () => (design ? computeThicknessRows(design, side, lambda) : []),
+        () => computeThicknessRows(design, side, lambda),
         [design, side, lambda],
     );
     const matColorMap = useMemo(

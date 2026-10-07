@@ -134,15 +134,6 @@ export function HistoryWindow({ c, theme, t }) {
             materialMissing: m.materialMissing, ref: d };
     }), [entries, coneActive, workerResult.data]);
 
-    if (!design) {
-        return h('div', {
-            style: {
-                flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center',
-                color: c.textDim, fontSize: 13, fontFamily: 'system-ui, -apple-system, sans-serif'
-            }
-        }, hw.noDesign);
-    }
-
     if (rows.length === 0) {
         return h('div', {
             style: {

@@ -39,13 +39,6 @@ export function Variator({ c, theme, t }) {
     const state = useVariator();
     const v = t.variator || {};   // tolerate missing locale: fall through to defaults
 
-    if (!state.design) {
-        return h('div', {
-            style: { flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center',
-                     color: c.textDim, fontSize: 13, fontFamily: 'system-ui, -apple-system, sans-serif' }
-        }, v.noDesign || 'No design selected. Open or create a design first.');
-    }
-
     const props = { ...state, c, theme, t, v };
 
     return h('div', {

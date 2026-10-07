@@ -93,7 +93,7 @@ function useCurveEdits({ design, updateDesign, checkpoint }) {
 }
 
 export function useMeasuredEllipsometry(mx, xLabel, fitText, ce) {
-    const { design, updateDesign, checkpoint, hasActiveDesign } = useDesign();
+    const { design, updateDesign, checkpoint } = useDesign();
     const missingMaterialIds = useUnresolvedMaterials(design);
     const [session, setField] = useSplitWindowSession(
         measuredEllipsometrySession, measuredEllipsometryView, design);
@@ -145,7 +145,7 @@ export function useMeasuredEllipsometry(mx, xLabel, fitText, ce) {
         [previewSource, xLabel]);
 
     return {
-        design, hasActiveDesign, curves, selectedCurve, missingMaterialIds,
+        design, curves, selectedCurve, missingMaterialIds,
         // Which face a curve belongs to matters only when there is a coating
         // on each face to tell apart.
         hasBackCoating: (design.backLayers || []).length > 0,

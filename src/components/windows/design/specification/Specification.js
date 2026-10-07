@@ -36,10 +36,6 @@ export function Specification({ c, theme, t, setInputDialog }) {
         onSavePreset, onLoadDiskPreset, onDeleteDiskPreset,
     } = useDiskPresets({ qualifiers, writeQualifiers, checkpoint, design, ts, setInputDialog });
 
-    if (!design) {
-        return h('div', { style: { padding: 24, color: c.textDim, fontSize: 13 } }, ts.noDesign || 'No design selected.');
-    }
-
     return h('div', {
         ref: containerRef,
         tabIndex: 0,

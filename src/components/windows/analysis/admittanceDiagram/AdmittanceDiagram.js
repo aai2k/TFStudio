@@ -42,8 +42,6 @@ export function AdmittanceDiagram({ c, theme, t }) {
         () => `${(design?.name || 'design').replace(/[^\w.-]+/g, '_')}_admittance.csv`,
     );
 
-    if (!design) return h(CenteredMessage, { c, message: ad.noDesign });
-
     return h(AnalysisWindow, { c },
         h(AdmittanceControls, { c, t, state, notices: [rangeNotice].filter(Boolean) }),
         h(PlotArea, null, plotBody({ state, ad, c, theme, t })),

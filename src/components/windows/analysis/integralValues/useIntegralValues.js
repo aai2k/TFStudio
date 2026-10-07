@@ -74,7 +74,6 @@ function applyEditorTable(context, table) {
 }
 
 function computeSpectrum(design, params, evalMode) {
-    if (!design) return null;
     try {
         return computeSpectrumForMode(design, params, evalMode);
     } catch (_) {

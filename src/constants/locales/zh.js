@@ -880,7 +880,6 @@ export default {
     'games':           '游戏',
   },
   monitorWorksheet: {
-    noDesign:   '未选择设计。',
     noLayers:   '设计中没有膜层。',
     noIndex:    (material, lambda) => `${material} 在 ${lambda} nm 处没有折射率，而监控工作表需要该处的折射率。`,
     layersPerChip:    '每片层数',
@@ -938,7 +937,6 @@ export default {
     import: '打开文件…',
     importing: '正在打开…',
     importHint: '载入椭偏仪写出的一对 Ψ 与 Δ 曲线（CSV / TXT / ASCII）。',
-    noDesign: '未选择设计。请先打开或创建设计。',
     aoiLabel: '入射角',
     aoiRequired: '正入射时任何薄膜的 Ψ 与 Δ 都相同。请填写椭偏仪实际使用的角度。',
     deltaConventionLabel: 'Δ 约定',
@@ -1004,7 +1002,6 @@ export default {
     tabExport: '导出',
     importTitle: '导入实测光谱',
     importHint: '载入实测 R/T/A 光谱（CSV / TXT / ASCII / JCAMP-DX）以叠加在光学评价上。',
-    noDesign: '未选择设计。请先打开或创建设计。',
     measurementAoiLabel: '入射角',
     polarizationLabel: '偏振',
     polAverage: '平均',
@@ -1840,7 +1837,6 @@ export default {
     validationMechanicalBound: (field, rule) => `${field}${rule}`,
   },
   nkCharacterization: {
-    noDesign: '未选择设计。',
     noCurves: '请先导入测量数据：R 与 T 在“实测光谱”中，Ψ 与 Δ 在“实测椭偏”中。',
     noPhotometry: '本设计中没有实测 R 或 T。请在“实测光谱”中导入光谱，或切回 Ψ / Δ。',
     noEllipsometry: '本设计中没有实测 Ψ 或 Δ。请在“实测椭偏”中导入一对曲线，或切回 T / R。',
@@ -1966,7 +1962,6 @@ export default {
     mfLabel: 'MF：',
     omfLabel: 'OMF：',
     omfTip: '光学评价 — 排除厚度约束 (MNT/MXT/TT)',
-    noDesign: '未选择设计。请先打开或创建设计。',
     noOperands: '无操作数。使用上方的向导，或下方的"+ 添加"。',
     evaluationError: '错误',
     residualSlack: '余量',
@@ -2568,7 +2563,6 @@ export default {
     omfLabel: 'OMF：',
     omfTip: '光学评价 — 排除厚度约束 (MNT/MXT/TT)',
     iterLabel: '迭代：',
-    noDesign: '未选择设计。请先打开或创建设计。',
     noOperands: '无操作数。打开评价函数编辑器设置目标。',
     multiStart: '多次启动',
     multiStartTip: '从 N 个扰动的起点运行 DLS 并保留最佳结果',
@@ -2674,7 +2668,6 @@ export default {
     omfLabel: 'OMF：',
     omfTip: '光学评价 — 排除厚度约束 (MNT/MXT/TT)',
     bestLabel: '最佳：',
-    noDesign: '未选择设计。请先打开或创建设计。',
     noOperands: '无操作数。打开评价函数编辑器设置目标。',
     noMaterials: '材料池中未选择材料。',
     noGens: '运行针法变异以查看各代。',
@@ -2744,7 +2737,6 @@ export default {
     omfLabel: 'OMF：',
     omfTip: '光学评价 — 排除厚度约束 (MNT/MXT/TT)',
     bestLabel: '最佳：',
-    noDesign: '未选择设计。请先打开或创建设计。',
     noOperands: '无操作数。打开评价函数编辑器设置目标。',
     noMaterials: '材料池中未选择材料（添加/分裂变异需要）。',
     materialPool: '材料池',
@@ -2824,7 +2816,6 @@ export default {
     clearHistory: '清除历史',
     runSeparator: (n) => `运行 ${n}`,
     runSeparatorSeed: (n, seed) => `运行 ${n} · 种子 ${seed}`,
-    noDesign: '未选择设计。请先打开或创建设计。',
     materialPool: '材料池',
     poolAll: '全部',
     poolClear: '清空',
@@ -2912,7 +2903,6 @@ export default {
   },
 
   needleManual: {
-    noDesign: '未选择设计。请先打开或创建设计。',
     noOperands: '无操作数。打开评价函数编辑器设置目标。',
     noMaterials: '材料池中未选择材料。',
     materialPool: '材料池',
@@ -2961,7 +2951,6 @@ export default {
     gapBetween: (a, ma, b, mb) => `在第 #${a} 层 (${ma}) 与第 #${b} 层 (${mb}) 之间`,
   },
   admittance: {
-    noDesign: '未选择设计。请先打开或创建设计。',
     noLayers: '当前设计中没有膜层。',
     noBackLayers: '当前设计中没有背面膜层。',
     calcError: (message) => `计算错误：${message}`,
@@ -2981,7 +2970,6 @@ export default {
     colMaterial: '材料',
   },
   eField: {
-    noDesign: '未选择设计。请先打开或创建设计。',
     noLayers: '设计中无膜层。添加膜层以查看场分布。',
     wavelength: '波长 (nm)',
     aoi: '入射角 (°)',
@@ -3028,7 +3016,6 @@ export default {
     axisRefFromDesignTip: '在设计的参考波长处度量光学厚度，使坐标轴与膜层表给出相同的数值。取消勾选可另行输入 λ₀。',
   },
   ellipsometry: {
-    noDesign: '未选择设计。请先打开或创建设计。',
     noLayers: '设计中无膜层。添加膜层以查看 Ψ 和 Δ。',
     mode: '模式',
     spectral: '光谱',
@@ -3054,7 +3041,6 @@ export default {
     deltaReversedTip: '符号相反的 Δ，用于采用另一种时间约定的数据或论文。两者的 Ψ 相同。',
   },
   gdgdd: {
-    noDesign: '未选择设计。请先打开或创建设计。',
     noLayers: '设计中无膜层。添加膜层以查看 GD / GDD。',
     side: '面',
     front: '正面',
@@ -3112,7 +3098,6 @@ export default {
     modelUnavailable: '不可用',
   },
   riProfile: {
-    noDesign: '未选择设计。请先打开或创建设计。',
     noLayers: '设计中无膜层。添加膜层以查看折射率分布。',
     wavelength: '波长 (nm)',
     quantity: '物理量',
@@ -3129,7 +3114,6 @@ export default {
     layersLabel: '膜层',
   },
   layerThicknesses: {
-    noDesign: '未选择设计。请先打开或创建设计。',
     noLayers: '设计中无膜层。添加膜层以查看厚度图。',
     wavelength: 'λ₀ (nm)',
     units: '单位',
@@ -3181,7 +3165,6 @@ export default {
     tabDisabledSymmetric: '背面镜像正面（对称）。请编辑正面镀膜。',
   },
   layerSensitivity: {
-    noDesign: '未选择设计。',
     noLayers: '设计中无膜层。',
     noOperands: '无评价函数操作数。请先定义目标（评价函数编辑器）。',
     modeRelative: '相对',
@@ -3204,7 +3187,6 @@ export default {
     scaleAbsoluteTip: '每层的原始 |ΔOMF|（对数刻度）。适合评估实际 OMF 影响大小。',
   },
   wavelengthAngleMap: {
-    noDesign: '未选择设计。',
     noLayers: '设计中无膜层。',
     channel: '物理量',
     polarization: '偏振',
@@ -3283,7 +3265,6 @@ export default {
     propK: '消光系数 k',
   },
   stressAnalysis: {
-    noDesign: '未选择设计。',
     noLayers: '设计中无膜层。',
     noStress: '本镀膜中没有材料给出本征应力，无法绘图。请在材料编辑器的「力学」选项卡中填写。',
     temperature: 'T',
@@ -3327,7 +3308,6 @@ export default {
   },
 
   roughnessScattering: {
-    noDesign: '未选择设计。',
     noLayers: '设计中无膜层。',
     computing: '计算中…',
     step: '步长',
@@ -3360,7 +3340,6 @@ export default {
     noticeOblique: '大尺度层是按正入射推导的；在此入射角下结果只是估算',
   },
   inhomogeneities: {
-    noDesign: '未选择设计。',
     noLayers: '设计中无膜层。',
     backModeUnsupported: '过渡层适用于正面镀膜 — 在背面模式下无效果。请在上方将"分析"切换为正面或整体。',
     noBackLayers: '此评价包含背面镀膜，但设计没有背面膜层。请在设计编辑器中添加背面镀膜以渐变其界面。',
@@ -3387,7 +3366,6 @@ export default {
     colGraded: '渐变 (%)',
   },
   systematicDeviations: {
-    noDesign: '未选择设计。',
     noLayers: '设计中无膜层。',
     offsetNoIndex: (material, lambda) => `${material} 在 λ₀ = ${lambda} nm 处没有折射率，因此以 OT、QW 或 FW 为单位的偏移无法换算为其膜层的厚度。`,
     noMaterials: '设计中无材料。',
@@ -3429,7 +3407,6 @@ export default {
     colParam: '参数',
   },
   errorAnalysis: {
-    noDesign: '未选择设计。',
     noLayers: '设计中无膜层。',
     colNominalSpectrum: '标称 (%)',
     colMean: '平均 (%)',
@@ -3815,7 +3792,6 @@ export default {
       uvRef: 'Flat (uniform) over 300–380 nm',
       nirRef: 'Flat (uniform) over 780–2500 nm',
     },
-    noDesign: '未选择设计。',
     noLayers: '设计中无膜层。',
     lambdaRange: 'λ',
     step: '步长',
@@ -4145,7 +4121,6 @@ export default {
     noFolder: '未选择项目文件夹 — 请先选取或创建一个',
   },
   designCleaner: {
-    noDesign: '未选择设计。',
     noLayers: '设计中无膜层。',
     minThickness: '移除 <',
     mergeAdjacent: '合并相邻同材料膜层',
@@ -4227,7 +4202,6 @@ export default {
       vCoat: 'V-coat AR @ 550 nm',
       vCoatDesc: '单波长 AR：R(550) ≤ 0.2 %，T(550) ≥ 99 %。',
     },
-    noDesign: '未选择设计。请先打开或创建设计。',
     add: '添加',
     addKindLabel: '添加：',
     remove: '移除',
@@ -4316,7 +4290,6 @@ export default {
     },
   },
   historyWin: {
-    noDesign: '未选择设计。请先打开或创建设计。',
     empty: '尚无历史。编辑设计或运行优化器。',
     title: '设计历史',
     summary: (total, pos) => `${total} 个状态 · 当前 #${pos}`,
@@ -4331,7 +4304,6 @@ export default {
     jumpTip: '点击将设计跳转到此状态',
   },
   variator: {
-    noDesign: '未选择设计。请先打开或创建设计。',
     title: '参数变化器',
     varied: '已修改',
     atBaseline: '基线',
@@ -4366,7 +4338,6 @@ export default {
     genAxis: '代数',
     geStepSeries: '渐变演化步',
     geStepLabel: '渐变演化步数：',
-    noDesign: '未选择设计。请先打开或创建设计。',
     noOperands: '无操作数。打开评价函数编辑器设置目标。',
     noMaterials: '材料池中未选择材料。',
     noGens: '运行渐变演化以查看循环。',

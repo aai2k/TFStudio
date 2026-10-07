@@ -133,7 +133,7 @@ function useGeRunState({ design, beginOptimization, endOptimization, getDesignRe
 
     // Update layer count display when not running
     useEffect(() => {
-        if (design && !runningRef.current) {
+        if (!runningRef.current) {
             setLayerCount((design[sideKeyFor(design)] || []).length);
         }
     }, [design]);

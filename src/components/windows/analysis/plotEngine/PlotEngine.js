@@ -13,7 +13,6 @@ import { PlotEngineView } from './PlotEngineView.js';
 const { createElement: h, useCallback, useMemo } = React;
 
 function unavailableMessage(design, pe) {
-    if (!design) return pe.noDesign;
     if (!design.frontLayers?.length && !design.backLayers?.length) return pe.noLayers;
     return null;
 }

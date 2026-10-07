@@ -83,7 +83,6 @@ function runComputeProfile(ctx) {
         requestedSide, effSide, resolveMat, tn, t,
         setStatusMsg, setScanBlocked, setScanning, setSelected, setScan,
     } = ctx;
-    if (!design) return;
     const ops = operands.filter(op => !isConstraint(op.type));   // synthesis = unconstrained
     if (ops.length === 0) { setStatusMsg(tn.noOperands); return; }
     const poolCount = countPoolMaterials(selectedCats, excludedMats, design);
@@ -173,7 +172,7 @@ function usePredictedOMF({ selected, scan, design, resolveMat, operands, dNew, r
     const [predictedOMF, setPredictedOMF] = useState(null);   // optical MF after insert
     const [omfNow,       setOmfNow]       = useState(null);   // optical MF of current design
     const inserted = useMemo(
-        () => selected && design ? insertForSelection(selected, design, dNew, requestedSide) : null,
+        () => selected ? insertForSelection(selected, design, dNew, requestedSide) : null,
         [selected, design, dNew, requestedSide],
     );
     const coneActive = !!inserted && operands.length > 0
@@ -185,7 +184,7 @@ function usePredictedOMF({ selected, scan, design, resolveMat, operands, dNew, r
     const workerResult = useAnalysisEvaluation(coneActive, 'meritPair', meritPayload);
 
     useEffect(() => {
-        if (!selected || !scan || !design || !inserted) {
+        if (!selected || !scan || !inserted) {
             setPredictedOMF(null); setOmfNow(null);
             return;
         }
@@ -252,7 +251,7 @@ function runHandleApply(ctx) {
         selected, design, busy, dNew, refineAfter, requestedSide, checkpoint, updateDesign, tn,
         setStatusMsg, setScan, setSelected,
     } = ctx;
-    if (!selected || !design || busy) return;
+    if (!selected || busy) return;
     checkpoint && checkpoint();   // one undo step covers insert (+ refine)
 
     const inserted = insertForSelection(selected, design, dNew, requestedSide);

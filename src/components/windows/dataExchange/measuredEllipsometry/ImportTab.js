@@ -131,30 +131,27 @@ function ImportedCurves({ controller, c, mx, ce }) {
 }
 
 export function ImportTab({ controller, c, mx, ce }) {
-    const { loading, onImport, fileName, preview, hasActiveDesign, panelWidth, setPanelWidth } = controller;
-    // With no design selected there is nothing to import into.
-    const noDesign = hasActiveDesign === false;
+    const { loading, onImport, fileName, preview, panelWidth, setPanelWidth } = controller;
     return h(ImportLayout, { c, panelWidth, onPanelWidthChange: setPanelWidth },
         h(SidePanel, { c, width: '100%' },
             h(ImportFilePanel, {
                 c, title: mx.importTitle, label: loading ? mx.importing : mx.import,
-                onImport, loading, disabled: noDesign, fileName: noDesign ? '' : fileName,
-                hint: noDesign ? mx.noDesign : mx.importHint,
+                onImport, loading, fileName, hint: mx.importHint,
                 extra: h(ActionButton, {
-                    c, label: ce.newCurve, title: ce.newCurveTip, disabled: noDesign,
+                    c, label: ce.newCurve, title: ce.newCurveTip,
                     onClick: controller.curveEditor.openNew,
                 }),
             }),
-            !noDesign && h(ConfigurePanel, { controller, c, mx }),
-            !noDesign && h(ImportedCurves, { controller, c, mx, ce }),
+            h(ConfigurePanel, { controller, c, mx }),
+            h(ImportedCurves, { controller, c, mx, ce }),
         ),
         h(PlotArea, null,
-            preview && !noDesign
+            preview
                 ? h(EllipsometryChart, {
                     data: preview, c, xLabel: preview.xLabel,
                     show: { psi: preview.psi.length > 0, delta: preview.delta.length > 0 },
                 })
-                : h(CenteredMessage, { c, message: noDesign ? mx.noDesign : mx.previewEmpty }),
+                : h(CenteredMessage, { c, message: mx.previewEmpty }),
         ),
     );
 }

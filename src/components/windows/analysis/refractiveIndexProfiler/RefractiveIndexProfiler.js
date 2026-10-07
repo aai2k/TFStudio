@@ -27,8 +27,6 @@ export function RefractiveIndexProfiler({ c, theme, t }) {
         () => `${(design?.name || 'design').replace(/[^\w.-]+/g, '_')}_index_profile.csv`,
     );
 
-    if (!design) return h(CenteredMessage, { c, message: rp.noDesign });
-
     return h(AnalysisWindow, { c },
         h(ProfilerControls, { c, t, rp, state, notices: [rangeNotice].filter(Boolean) }),
         h(PlotArea, null,

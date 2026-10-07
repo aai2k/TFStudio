@@ -33,8 +33,6 @@ export function EFieldEvaluation({ c, theme, t }) {
         () => `${(design?.name || 'design').replace(/[^\w.-]+/g, '_')}_efield.csv`,
     );
 
-    if (!design) return h(CenteredMessage, { c, message: ef.noDesign });
-
     return h(AnalysisWindow, { c },
         h(EFieldControls, { c, t, ef, state, notices: [rangeNotice].filter(Boolean) }),
         h(PlotArea, null,

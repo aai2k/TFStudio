@@ -201,7 +201,7 @@ export function useStructuralOptimizer({
     }, [running, beginOptimization, endOptimization]);
 
     useEffect(() => {
-        if (design && !runningRef.current) {
+        if (!runningRef.current) {
             setLayerCount((design[sideKeyFor(design)] || []).length);
         }
     }, [design]);

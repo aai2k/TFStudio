@@ -54,7 +54,6 @@ export function MonitorWorksheet({ c, t }) {
         () => `${(design?.name || 'design').replace(/[^\w.-]+/g, '_')}_monitor_worksheet.csv`,
     );
 
-    if (!design) return h(CenteredMessage, { c, message: mw.noDesign });
     if (!state.stepCount) return h(CenteredMessage, { c, message: mw.noLayers });
 
     return h(AnalysisWindow, { c },

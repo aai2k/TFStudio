@@ -37,7 +37,6 @@ export function StressAnalysis({ c, theme, t }) {
         () => `${(design?.name || 'design').replace(/[^\w.-]+/g, '_')}_stress.csv`,
     );
 
-    if (!design) return h(CenteredMessage, { c, message: sa.noDesign });
     if (!rows.length) return h(CenteredMessage, { c, message: sa.noLayers });
 
     const drawable = rows.some(row => row.stressMPa != null);

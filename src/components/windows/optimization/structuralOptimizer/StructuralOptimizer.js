@@ -26,8 +26,6 @@ export function StructuralOptimizer({ c, theme, t }) {
         design, updateDesign, checkpoint, beginOptimization, endOptimization, getDesignRevision, t,
     });
 
-    if (!design) return h('div', { style: { padding: 24, color: c.textDim, fontSize: 13 } }, ts.noDesign);
-
     const catalogs = poolCatalogs(design, t.pool.designCatalog);
     const showSideCol = (design?.surfaceMode || 'front_only') === 'both_independent';
 

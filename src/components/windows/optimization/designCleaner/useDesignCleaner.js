@@ -108,7 +108,7 @@ export function useDesignCleaner(dc) {
 
     // Thin-layer-only list (for the "what's currently sub-threshold" view —
     // the Thin Layer Removal mode)
-    const thinList = design ? listThinLayers(design, dMin) : [];
+    const thinList = listThinLayers(design, dMin);
 
     return {
         design, dMin, setDMin, mergeAdjacent, setMergeAdjacent,

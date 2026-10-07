@@ -31,8 +31,6 @@ export function DeepSynthesis({ c, t }) {
         design, updateDesign, checkpoint, beginOptimization, endOptimization, getDesignRevision, t,
     });
 
-    if (!design) return h('div', { style: { padding: 24, color: c.textDim, fontSize: 13 } }, td.noDesign);
-
     const { view, actions } = s;
     const showSide = (design.surfaceMode || 'front_only') === 'both_independent';
     const bestMF = view.mfBest ?? Infinity;

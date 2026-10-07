@@ -28,7 +28,6 @@ export function LayerSensitivity({ c, theme, t }) {
         () => `${(design?.name || 'design').replace(/[^\w.-]+/g, '_')}_sensitivity.csv`,
     );
 
-    if (!design) return h(CenteredMessage, { c, message: ls.noDesign });
     if (!sensHasLayers) return h(CenteredMessage, { c, message: ls.noLayers });
     if (!operands.length) return h(CenteredMessage, { c, message: ls.noOperands });
 

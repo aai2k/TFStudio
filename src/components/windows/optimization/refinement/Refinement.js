@@ -16,11 +16,6 @@ export function Refinement({ c, theme, t }) {
     const scopeNotice = phaseOperandScopeNotice(r.design, r.operands, t.meritFunctionEditor);
     const rangeNotice = useMeritRangeNotice(r.design, t);
 
-    if (!r.design) {
-        return h('div', { style: { padding: 24, color: c.textDim, fontSize: 13 } },
-            t.refinement.noDesign);
-    }
-
     return h('div', {
         style: {
             display: 'flex', flexDirection: 'column', height: '100%',

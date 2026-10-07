@@ -24,7 +24,6 @@ export function useProfilerState(design, rp) {
     }, [availableSide, side]);
 
     useEffect(() => {
-        if (!design) { setProfile(null); setRegions([]); return; }
         if (side === 'total') {
             const regs = computeTotalRegions(design, lambda, rp);
             setRegions(regs);

@@ -45,8 +45,6 @@ export function LayerThicknesses({ c, theme, t }) {
         () => `${(design?.name || 'design').replace(/[^\w.-]+/g, '_')}_layer_thicknesses.csv`,
     );
 
-    if (!design) return h(CenteredMessage, { c, message: lt.noDesign });
-
     const axis = AXIS_BY_UNIT[state.units] || AXIS_BY_UNIT.nm;
     return h(AnalysisWindow, { c },
         h(ThicknessControls, { c, t, lt, state, notices: [rangeNotice].filter(Boolean) }),

@@ -1,7 +1,7 @@
 import {
     ActionButton, CheckField, ChoiceGroup, NumInput, RangeField, SelectField,
 } from '../../analysis/chrome/controls.js';
-import { CenteredMessage, SidePanel } from '../../analysis/chrome/layout.js';
+import { SidePanel } from '../../analysis/chrome/layout.js';
 import { tablerIcon } from '../../../ui/tablerIcons.js';
 import { measuredCurveData, X_UNITS } from '../../../../utils/io/spectrumTable.js';
 import { curveTypedUnit } from '../curveEditor/units.js';
@@ -227,10 +227,8 @@ function ImportedCurves({ controller, c, sx, ce }) {
 }
 
 export function ImportTab({ controller, c, sx, t }) {
-    const { loading, onImport, fileName, hasActiveDesign } = controller;
+    const { loading, onImport, fileName } = controller;
     const ce = t.curveEditor;
-    // With no design selected there is nothing to import into.
-    const noDesign = hasActiveDesign === false;
     return h('div', {
         className: 'tfs-spectrum-import-container',
         style: { flex: 1, minHeight: 0, minWidth: 0 },
@@ -240,21 +238,18 @@ export function ImportTab({ controller, c, sx, t }) {
                 h(SidePanel, { c, width: '100%' },
                     h(ImportFilePanel, {
                         c, title: sx.importTitle, label: loading ? sx.importing : sx.import,
-                        onImport, loading, disabled: noDesign, fileName: noDesign ? '' : fileName,
-                        hint: noDesign ? sx.noDesign : sx.importHint,
+                        onImport, loading, fileName, hint: sx.importHint,
                         extra: h(ActionButton, {
-                            c, label: ce.newCurve, title: ce.newCurveTip, disabled: noDesign,
+                            c, label: ce.newCurve, title: ce.newCurveTip,
                             onClick: controller.curveEditor.openNew,
                         }),
                     }),
-                    !noDesign && h(ConfigurePanel, { controller, c, sx }),
-                    !noDesign && h(ImportedCurves, { controller, c, sx, ce }),
+                    h(ConfigurePanel, { controller, c, sx }),
+                    h(ImportedCurves, { controller, c, sx, ce }),
                 ),
             ),
             h('div', { className: 'tfs-spectrum-import-preview' },
-                noDesign
-                    ? h(CenteredMessage, { c, message: sx.noDesign })
-                    : h(SpectrumPreview, { controller, c, sx, t }),
+                h(SpectrumPreview, { controller, c, sx, t }),
             ),
         ),
     );

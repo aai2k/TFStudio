@@ -30,10 +30,6 @@ export function NeedleManual({ c, theme, t }) {
     const s = useNeedleManual(t);
     const tn = s.tn;
 
-    if (!s.design) {
-        return h('div', { style: { padding: 24, color: c.textDim, fontSize: 13 } }, tn.noDesign);
-    }
-
     const catalogs = s.catalogs;
 
     return h('div', {

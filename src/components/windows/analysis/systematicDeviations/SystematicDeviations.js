@@ -78,7 +78,6 @@ export function SystematicDeviations({ c, theme, t }) {
         () => `${(design?.name || 'design').replace(/[^\w.-]+/g, '_')}_deviations.csv`,
     );
 
-    if (!design) return h(CenteredMessage, { c, message: sd.noDesign });
     if (!design.frontLayers?.length && !design.backLayers?.length) {
         return h(CenteredMessage, { c, message: sd.noLayers });
     }

@@ -782,7 +782,6 @@ export default {
     'games':           'Игры',
   },
   monitorWorksheet: {
-    noDesign:   'Проект не выбран.',
     noLayers:   'В покрытии нет слоёв.',
     noIndex:    (material, lambda) => `У материала ${material} нет показателя преломления на длине волны ${lambda} нм, а листу мониторинга он там нужен.`,
     layersPerChip:    'Слоёв на свидетель',
@@ -840,7 +839,6 @@ export default {
     import:             'Открыть файл…',
     importing:          'Открытие…',
     importHint:         'Загрузите пару Ψ и Δ, записанную спектральным эллипсометром (CSV / TXT / ASCII).',
-    noDesign:           'Не выбран проект. Откройте или создайте проект.',
     aoiLabel:           'Угол падения',
     aoiRequired:        'При нормальном падении Ψ и Δ одинаковы для любой плёнки. Укажите угол, при котором работал эллипсометр.',
     deltaConventionLabel: 'Соглашение Δ',
@@ -906,7 +904,6 @@ export default {
     tabExport: 'Экспорт',
     importTitle: 'Импорт измеренного спектра',
     importHint: 'Загрузите измеренный спектр R/T/A (CSV / TXT / ASCII / JCAMP-DX) для наложения на график T/R/A.',
-    noDesign: 'Не выбран проект. Откройте или создайте проект.',
     measurementAoiLabel: 'Угол падения',
     polarizationLabel: 'Поляризация',
     polAverage: 'Средняя',
@@ -1674,7 +1671,6 @@ export default {
     validationMechanicalBound: (field, rule) => `${field} ${rule}`,
   },
   nkCharacterization: {
-    noDesign:            'Проект не выбран.',
     noCurves:            'Сначала импортируйте измерение: T и R в окне «Измеренные спектры», Ψ и Δ в окне «Измеренная эллипсометрия».',
     noPhotometry:        'В этом проекте нет измеренных R и T. Импортируйте спектр в окне «Измеренные спектры» или вернитесь к Ψ / Δ.',
     noEllipsometry:      'В этом проекте нет измеренных Ψ и Δ. Импортируйте пару в окне «Измеренная эллипсометрия» или вернитесь к T / R.',
@@ -1800,7 +1796,6 @@ export default {
     mfLabel:       'MF:',
     omfLabel:      'OMF:',
     omfTip:        'Оптическая MF — без ограничений по толщине (MNT/MXT/TT)',
-    noDesign:      'Не выбран проект. Откройте или создайте проект.',
     noOperands:    'Нет операндов. Используйте мастер выше или "+ Добавить".',
     evaluationError: 'Ошибка',
     residualSlack: 'Отклонение',
@@ -2123,7 +2118,6 @@ export default {
     omfLabel:  'OMF:',
     omfTip:    'Оптическая MF — без ограничений по толщине (MNT/MXT/TT)',
     iterLabel: 'Итер:',
-    noDesign:  'Не выбран проект. Откройте или создайте проект. ',
     noOperands:'Нет операндов. Откройте редактор MF для задания целей.',
     multiStart:   'Мульти-старт',
     multiStartTip:'Запуск ОНК из N возмущённых начальных точек, лучший результат сохраняется',
@@ -2227,7 +2221,6 @@ export default {
     layersLabel:  'Слои:',
     mfLabel:      'MF:',
     bestLabel:    'Лучш:',
-    noDesign:     'Не выбран проект.',
     noOperands:   'Нет операндов. Откройте редактор MF для задания целей.',
     noMaterials:  'Нет материалов в пуле.',
     noGens:       'Запустите игольную вариацию.',
@@ -2298,7 +2291,6 @@ export default {
     layersLabel:  'Слои:',
     mfLabel:      'MF:',
     bestLabel:    'Лучш:',
-    noDesign:     'Не выбран проект. Откройте или создайте проект.',
     noOperands:   'Нет операндов. Откройте редактор MF для задания целей.',
     noMaterials:  'Нет материалов в пуле (нужны для мутаций добавления / разделения).',
     materialPool: 'Пул материалов',
@@ -2373,7 +2365,6 @@ export default {
     clearHistory: 'Очистить историю',
     runSeparator: (n) => `Запуск ${n}`,
     runSeparatorSeed: (n, seed) => `Запуск ${n} · зерно ${seed}`,
-    noDesign:     'Не выбран проект. Откройте или создайте проект.',
     materialPool: 'Пул материалов',
     poolAll:      'Все',
     poolClear:    'Очистить',
@@ -2461,7 +2452,6 @@ export default {
   },
 
   needleManual: {
-    noDesign:     'Не выбран проект. Откройте или создайте проект. ',
     noOperands:   'Нет операндов. Откройте редактор MF для задания целей.',
     noMaterials:  'Нет материалов в пуле.',
     materialPool: 'Пул материалов',
@@ -2512,7 +2502,6 @@ export default {
   },
 
   admittance: {
-    noDesign:      'Не выбран проект. Откройте или создайте проект. ',
     noLayers:      'Нет слоёв в активном проекте.',
     noBackLayers:  'Нет слоёв на задней стороне активного проекта.',
     calcError:     (message) => `Ошибка расчёта: ${message}`,
@@ -2533,7 +2522,6 @@ export default {
   },
 
   eField: {
-    noDesign:      'Не выбран проект. Откройте или создайте проект. ',
     noLayers:      'Нет слоёв. Добавьте слои для отображения профиля поля.',
     wavelength:    'Длина волны (нм)',
     aoi:           'Угол падения (°)',
@@ -2581,7 +2569,6 @@ export default {
   },
 
   ellipsometry: {
-    noDesign:    'Не выбран проект. Откройте или создайте проект. ',
     noLayers:    'Нет слоёв. Добавьте слои для отображения Ψ и Δ.',
     mode:        'Режим',
     spectral:    'Спектральный',
@@ -2608,7 +2595,6 @@ export default {
   },
 
   gdgdd: {
-    noDesign:     'Не выбран проект. Откройте или создайте проект. ',
     noLayers:     'Нет слоёв. Добавьте слои для отображения ГЗ / ГГЗ.',
     side:         'Сторона',
     front:        'Передняя',
@@ -2667,7 +2653,6 @@ export default {
   },
 
   riProfile: {
-    noDesign:    'Не выбран проект. Откройте или создайте проект. ',
     noLayers:    'Нет слоёв. Добавьте слои для отображения профиля показателя.',
     wavelength:  'Длина волны (нм)',
     quantity:    'Величина',
@@ -2685,7 +2670,6 @@ export default {
   },
 
   layerThicknesses: {
-    noDesign:    'Не выбран проект. Откройте или создайте проект.',
     noLayers:    'Нет слоёв. Добавьте слои для отображения диаграммы толщин.',
     wavelength:  'λ₀ (нм)',
     units:       'Единицы',
@@ -2730,7 +2714,6 @@ export default {
   },
 
   layerSensitivity: {
-    noDesign:      'Проект не выбран.',
     noLayers:      'Нет слоёв в проекте.',
     noOperands:    'Нет операндов MF. Сначала задайте цели (Редактор MF).',
     modeRelative:  'Относит.',
@@ -2754,7 +2737,6 @@ export default {
   },
 
   wavelengthAngleMap: {
-    noDesign:      'Проект не выбран.',
     noLayers:      'Нет слоёв в проекте.',
     channel:       'Величина',
     polarization:  'Поляризация',
@@ -2835,7 +2817,6 @@ export default {
   },
 
   stressAnalysis: {
-    noDesign:       'Проект не выбран.',
     noLayers:       'Нет слоёв в проекте.',
     noStress:       'Ни один материал этого покрытия не имеет собственного напряжения, рисовать нечего. Задайте его на вкладке «Механика» в редакторе материалов.',
     temperature:            'T',
@@ -2879,7 +2860,6 @@ export default {
   },
 
   roughnessScattering: {
-    noDesign:       'Проект не выбран.',
     noLayers:       'Нет слоёв в проекте.',
     computing:      'Расчёт…',
     step:           'шаг',
@@ -2913,7 +2893,6 @@ export default {
   },
 
   inhomogeneities: {
-    noDesign:           'Проект не выбран.',
     noLayers:           'Нет слоёв в проекте.',
     backModeUnsupported:'Переходные слои применяются к переднему покрытию — в режиме Back они не действуют. Переключите «Анализ» на Front или Total выше.',
     step:               'шаг',
@@ -2941,7 +2920,6 @@ export default {
   },
 
   systematicDeviations: {
-    noDesign:        'Проект не выбран.',
     noLayers:        'Нет слоёв в проекте.',
     offsetNoIndex:   (material, lambda) => `У материала ${material} нет показателя преломления при λ₀ = ${lambda} нм, поэтому сдвиг в OT, QW или FW нельзя пересчитать в толщину его слоёв.`,
     noMaterials:     'Нет материалов в проекте.',
@@ -2984,7 +2962,6 @@ export default {
   },
 
   errorAnalysis: {
-    noDesign:      'Проект не выбран.',
     noLayers:      'Нет слоёв в проекте.',
     colNominalSpectrum: 'номинал (%)',
     colMean:       'среднее (%)',
@@ -3355,7 +3332,6 @@ export default {
       uvRef:    'Flat (uniform) over 300–380 nm',
       nirRef:   'Flat (uniform) over 780–2500 nm',
     },
-    noDesign:    'Проект не выбран.',
     noLayers:    'Нет слоёв в проекте.',
     lambdaRange: 'λ',
     step:        'шаг',
@@ -3701,7 +3677,6 @@ export default {
   },
 
   designCleaner: {
-    noDesign:      'Проект не выбран.',
     noLayers:      'Нет слоёв в проекте.',
     minThickness:  'Удалять < ',
     mergeAdjacent: 'объединить смежные одинак. матер.',
@@ -3787,7 +3762,6 @@ export default {
       vCoat:          'V-coat AR @ 550 нм',
       vCoatDesc:      'Одноволновое AR: R(550) ≤ 0,2 %, T(550) ≥ 99 %.',
     },
-    noDesign:       'Не выбран проект. Откройте или создайте проект. ',
     add:            'Добавить',
     addKindLabel:   'Добавить:',
     remove:         'Удалить',
@@ -3877,7 +3851,6 @@ export default {
   },
 
   historyWin: {
-    noDesign:  'Не выбран проект. Откройте или создайте проект. ',
     empty:     'История пуста. Измените проект или запустите оптимизатор.',
     title:     'История проекта',
     summary:   (total, pos) => `${total} состояний · текущее #${pos}`,
@@ -3893,7 +3866,6 @@ export default {
   },
 
   variator: {
-    noDesign:    'Не выбран проект. Откройте или создайте проект. ',
     title:       'Вариатор',
     varied:      'изменено',
     atBaseline:  'исходное',
@@ -3927,7 +3899,6 @@ export default {
     genAxis: 'Поколение',
     geStepSeries: 'Шаг ГЭ',
     geStepLabel:   'Шаги ГЭ:',
-    noDesign:      'Не выбран проект. Откройте или создайте проект. ',
     noOperands:    'Нет операндов. Откройте редактор MF для задания целей.',
     noMaterials:   'Нет материалов в пуле.',
     noGens:        'Запустите постепенную эволюцию.',

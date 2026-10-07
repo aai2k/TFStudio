@@ -9,7 +9,7 @@ import { useMaterialRangeNotice } from '../../../materials/MaterialRangeNotice.j
 import { csvFromRows } from '../../../ui/ResultsSection.js';
 import { materialCoverageBands } from '../../../ui/chartOptions.js';
 import { ExportMenu, useCsvExport } from '../../../ui/ExportMenu.js';
-import { AnalysisWindow, CenteredMessage } from '../chrome/layout.js';
+import { AnalysisWindow } from '../chrome/layout.js';
 import { GDControls } from './GDControls.js';
 import { GDResults } from './GDResults.js';
 import { GDTargetToolbar } from './GDTargetToolbar.js';
@@ -80,8 +80,6 @@ export function GDGDDEvaluation({ c, theme, t }) {
         () => csvFromRows(view.tableColumns, view.tableRows),
         () => `${(design?.name || 'design').replace(/[^\w.-]+/g, '_')}_dispersion.csv`,
     );
-
-    if (!design) return h(CenteredMessage, { c, message: text.noDesign });
 
     const notices = buildNotices({
         autoRange: state.yAuto ? view.autoRange : null, rangeNotice, text,

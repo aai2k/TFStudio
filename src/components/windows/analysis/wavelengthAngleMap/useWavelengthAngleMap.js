@@ -75,11 +75,6 @@ function useMapSweep(spec, design) {
         poolRef.current = null;
         try { running?.terminate(); } catch (_) {}
         setProgress(null);
-        if (!design) {
-            setResult(null);
-            setComputing(false);
-            return undefined;
-        }
         const timer = setTimeout(() => {
             // Small enough to run here finishes before a pool would have
             // started, and the timer above is what supersedes it.

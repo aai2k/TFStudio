@@ -10,7 +10,7 @@
 import assert from 'node:assert/strict';
 import { renderToStaticMarkup } from 'react-dom/server';
 import {
-    loadApp, makeDesignCtx, makeLocale, makeSampleDesign, makeTheme, shimBrowserGlobals, withDesign,
+    loadApp, makeLocale, makeSampleDesign, makeTheme, shimBrowserGlobals, withDesign,
 } from './_uiShim.mjs';
 import { initWasmForTest } from './_wasmInit.mjs';
 
@@ -26,7 +26,6 @@ const [
     { WINDOW_REGISTRY },
     { measuredEllipsometrySession, measuredEllipsometryView },
     { spectrumExchangeSession },
-    { DesignContext },
 ] = await Promise.all([
     import('../src/components/windows/dataExchange/measuredEllipsometry/MeasuredEllipsometry.js'),
     import('../src/components/windows/dataExchange/measuredEllipsometry/model.js'),
@@ -35,7 +34,6 @@ const [
     import('../src/components/docking/windowRegistry.js'),
     import('../src/components/windows/dataExchange/measuredEllipsometry/sessionState.js'),
     import('../src/components/windows/dataExchange/spectrumExchange/sessionState.js'),
-    import('../src/state/DesignContext.js'),
 ]);
 
 const c = makeTheme();
@@ -132,21 +130,6 @@ function photometric(quantity) {
         React.createElement(MeasuredEllipsometry, { c, t, theme: c }), twoSided));
     assert.ok(html.includes(mx.sideLabel), 'with a back coating the side is asked');
     measuredEllipsometrySession.reset(twoSided);
-}
-
-// ── With no design selected there is nothing to import into ──────────────────
-//
-// Without a design from the explorer the provider shows a placeholder that
-// nothing keeps. A file opened then used to look imported and vanish when a
-// design was selected.
-{
-    const mx = t.measuredEllipsometry;
-    const value = { ...makeDesignCtx(makeSampleDesign()), hasActiveDesign: false };
-    const html = renderToStaticMarkup(React.createElement(DesignContext.Provider, { value },
-        React.createElement(MeasuredEllipsometry, { c, t, theme: c })));
-    assert.ok(html.includes(mx.noDesign), 'the window says a design is needed');
-    assert.ok(!html.includes(mx.importHint), 'and does not invite an import');
-    assert.ok(/<button[^>]*disabled=""[^>]*>[^<]*Open file/.test(html), 'the file button is off');
 }
 
 // ── An opened file belongs to the design it was opened for ───────────────────

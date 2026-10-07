@@ -136,7 +136,6 @@ export function NkCharacterization({ c, t, onCreateDesign }) {
         () => `${(state.design?.name || 'film').replace(/[^\w.-]+/g, '_')}_nk.csv`,
     );
 
-    if (!state.design) return h(CenteredMessage, { c, message: nk.noDesign });
     if (state.anyCurves.length === 0) return h(CenteredMessage, { c, message: nk.noCurves });
 
     return h(AnalysisWindow, { c },

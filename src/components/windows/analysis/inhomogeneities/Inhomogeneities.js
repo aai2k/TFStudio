@@ -55,7 +55,6 @@ export function Inhomogeneities({ c, theme, t }) {
     const rangeNotice = useMaterialRangeNotice(
         design, state.lambdaStart, state.lambdaEnd, t, fixRange);
 
-    if (!design) return h(CenteredMessage, { c, message: ih.noDesign });
     if (!hasLayersForMode(design, evalMode)) {
         return h(CenteredMessage, { c, message: ih.noLayers });
     }

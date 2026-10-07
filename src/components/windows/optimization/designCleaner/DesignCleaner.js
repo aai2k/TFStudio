@@ -33,7 +33,6 @@ export function DesignCleaner({ c, theme, t }) {
     const state = useDesignCleaner(dc);
     const { design, ops, thinList, dMin } = state;
 
-    if (!design) return h(CleanerPlaceholder, { message: dc.noDesign, c });
     if (!design.frontLayers?.length && !design.backLayers?.length) {
         return h(CleanerPlaceholder, { message: dc.noLayers, c });
     }

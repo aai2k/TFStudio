@@ -32,7 +32,6 @@ function thicknessKey(design) {
 function useSessionReconcile({ design, session, patchSession, copyId, written }) {
     const seenIdRef = useRef(null);
     useEffect(() => {
-        if (!design) return;
         const switched = seenIdRef.current !== design.id;
         seenIdRef.current = design.id;
         const current = switched ? variatorSliderSession.read(design, copyId) : session;
@@ -57,7 +56,7 @@ function useThicknessSync({ design, updateDesign, session, copyId, written }) {
     const { baseline, dThkFront, dThkBack, dSubMm } = session;
     useEffect(() => {
         const current = designRef.current;
-        if (!current || variatorSliderSession.read(current, copyId).baseline !== baseline) return;
+        if (variatorSliderSession.read(current, copyId).baseline !== baseline) return;
         const patch = buildThicknessPatch(current, baseline, dThkFront, dThkBack, dSubMm);
         if (!patch) return;
         written.add(thicknessKey({ ...current, ...patch }));
@@ -116,7 +115,6 @@ function useSpectrumCompute({ design, params, evalMode, dN, dK, baseline }) {
     const [error, setError] = useState(null);
 
     const compute = useCallback(() => {
-        if (!design) return;
         try {
             const result = computeVariatorSpectrum({ design, params, evalMode, dN, dK, baseline });
             setData(result);
@@ -143,14 +141,10 @@ export function useVariator() {
     const setShowTargets  = value => setViewField('showTargets', value);
 
     const slider = useSliderSession(design, updateDesign, checkpoint);
-    const uniqueMats = useMemo(() => (design ? collectUniqueMaterials(design) : []), [design]);
+    const uniqueMats = useMemo(() => collectUniqueMaterials(design), [design]);
     const spectrum = useSpectrumCompute({
         design, params, evalMode, dN: slider.dN, dK: slider.dK, baseline: slider.baseline,
     });
-
-    if (!design) {
-        return { design: null };
-    }
 
     const { baseFrontById, baseBackById, baseSubMm } = buildBaseMaps(slider.baseline, design);
     const anyVaried = computeAnyVaried(slider.dThkFront, slider.dThkBack, slider.dSubMm, slider.dN, slider.dK);

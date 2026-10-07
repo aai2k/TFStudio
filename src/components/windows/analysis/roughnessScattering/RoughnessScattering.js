@@ -52,7 +52,6 @@ export function RoughnessScattering({ c, theme, t }) {
         () => `${(design?.name || 'design').replace(/[^\w.-]+/g, '_')}_scattering.csv`,
     );
 
-    if (!design) return h(CenteredMessage, { c, message: rs.noDesign });
     if (!design.frontLayers?.length) return h(CenteredMessage, { c, message: rs.noLayers });
 
     return h(AnalysisWindow, { c },

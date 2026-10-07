@@ -94,7 +94,7 @@ async function continueProcessSave(options, pick) {
 }
 
 async function startProcessSave(options) {
-    if (options.design && options.layerCount !== 0 && !options.saving) {
+    if (options.layerCount !== 0 && !options.saving) {
         options.setSaving(true);
         try {
             const pick = await window.electronAPI.pickProcessSaveDir();

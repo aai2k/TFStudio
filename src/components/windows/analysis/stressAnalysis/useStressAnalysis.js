@@ -23,7 +23,7 @@ export function useStressAnalysis() {
     // an edited constant has to reach the table without the design moving.
     const catalogRevision = useCatalogRevision();
     const result = useMemo(
-        () => (design ? computeStress(design, evalMode) : null),
+        () => computeStress(design, evalMode),
         [design, evalMode, catalogRevision],
     );
 

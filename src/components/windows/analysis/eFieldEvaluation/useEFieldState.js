@@ -21,7 +21,6 @@ export function useEFieldState(design) {
     const refLambda = axisRefFromDesign ? designRef : axisRefLambda;
 
     useEffect(() => {
-        if (!design) { setProfile(null); return; }
         const result = computeProfile(design, { lambda, theta, pol, side, refLambda });
         setProfile(result);
         if (result?.validLayers) setMatColorMap(buildMatColorMap(design, result.validLayers));
@@ -31,8 +30,8 @@ export function useEFieldState(design) {
     return {
         lambda, theta, pol, side, showTable, profile, matColorMap,
         // The box shows the λ₀ in force, so it never contradicts the axis title
-        // next to it; it falls back to its own stored value only while there is
-        // no design to read one from.
+        // next to it; it falls back to its own stored value only while the
+        // design carries no λ₀ to read.
         axisRefFromDesign, axisRefLambda: refLambda ?? axisRefLambda,
         // What the two axes read and which component of the field they read,
         // travelling together since every curve, cell and axis title needs

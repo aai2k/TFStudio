@@ -883,7 +883,6 @@ export default {
     'games':           'Giochi',
   },
   monitorWorksheet: {
-    noDesign: 'Nessun design selezionato.',
     noLayers: 'Nessuno strato nel design.',
     noIndex: (material, lambda) => `${material} non ha indice di rifrazione a ${lambda} nm, e il foglio di monitoraggio ne ha bisogno lì.`,
     layersPerChip: 'Strati per vetrino',
@@ -941,7 +940,6 @@ export default {
     import: 'Apri file…',
     importing: 'Apertura in corso…',
     importHint: 'Carica una coppia Ψ e Δ scritta da un ellissometro spettroscopico (CSV / TXT / ASCII).',
-    noDesign: 'Nessun design selezionato. Apri o crea prima un design.',
     aoiLabel: 'Angolo di incidenza',
     aoiRequired: "A incidenza normale Ψ e Δ sono uguali per qualsiasi film. Inserisci l'angolo usato dall'ellissometro.",
     deltaConventionLabel: 'Convenzione per Δ',
@@ -1007,7 +1005,6 @@ export default {
     tabExport: 'Esporta',
     importTitle: 'Importa uno spettro misurato',
     importHint: 'Carica uno spettro R/T/A misurato (CSV / TXT / ASCII / JCAMP-DX) da sovrapporre alla Valutazione ottica.',
-    noDesign: 'Nessun design selezionato. Apri o crea prima un design.',
     measurementAoiLabel: 'Angolo di incidenza',
     polarizationLabel: 'Polarizzazione',
     polAverage: 'Media',
@@ -1861,7 +1858,6 @@ export default {
     validationMechanicalBound: (field, rule) => `${field} ${rule}`,
   },
   nkCharacterization: {
-    noDesign: 'Nessun design selezionato.',
     noCurves: 'Importa prima una misura: R e T in Spettri misurati, Ψ e Δ in Ellissometria misurata.',
     noPhotometry: 'Questo design non contiene R o T misurate. Importa uno spettro in Spettri misurati, oppure torna a Ψ / Δ.',
     noEllipsometry: 'Questo design non contiene Ψ o Δ misurati. Importa una coppia in Ellissometria misurata, oppure torna a T / R.',
@@ -1987,7 +1983,6 @@ export default {
     mfLabel: 'MF:',
     omfLabel: 'OMF:',
     omfTip: 'Merito ottico, esclusi i vincoli di spessore (MNT/MXT/TT)',
-    noDesign: 'Nessun design selezionato. Apri o crea prima un design.',
     noOperands: 'Nessun operando. Usa la procedura guidata qui sopra, oppure "+ Aggiungi" qui sotto.',
     evaluationError: 'Errore',
     residualSlack: 'Margine',
@@ -2590,7 +2585,6 @@ export default {
     omfLabel: 'OMF:',
     omfTip: 'Merito ottico, esclusi i vincoli di spessore (MNT/MXT/TT)',
     iterLabel: 'Iteraz.:',
-    noDesign: 'Nessun design selezionato. Apri o crea prima un design.',
     noOperands: "Nessun operando. Apri l'Editor della funzione di merito per definire i target.",
     multiStart: 'Partenze multiple',
     multiStartTip: 'Esegue DLS da N punti di partenza perturbati e mantiene il risultato migliore',
@@ -2696,7 +2690,6 @@ export default {
     omfLabel: 'OMF:',
     omfTip: 'Merito ottico, esclusi i vincoli di spessore (MNT/MXT/TT)',
     bestLabel: 'Migliore:',
-    noDesign: 'Nessun design selezionato. Apri o crea prima un design.',
     noOperands: "Nessun operando. Apri l'Editor della funzione di merito per definire i target.",
     noMaterials: "Nessun materiale selezionato nell'insieme.",
     noGens: 'Avvia la variazione needle per vedere le generazioni.',
@@ -2766,7 +2759,6 @@ export default {
     omfLabel: 'OMF:',
     omfTip: 'Merito ottico, esclusi i vincoli di spessore (MNT/MXT/TT)',
     bestLabel: 'Migliore:',
-    noDesign: 'Nessun design selezionato. Apri o crea prima un design.',
     noOperands: "Nessun operando. Apri l'Editor della funzione di merito per definire i target.",
     noMaterials: "Nessun materiale selezionato nell'insieme (serve per le mutazioni di aggiunta e divisione).",
     materialPool: 'Insieme di materiali',
@@ -2846,7 +2838,6 @@ export default {
     clearHistory: 'Cancella la cronologia',
     runSeparator: (n) => `Esecuzione ${n}`,
     runSeparatorSeed: (n, seed) => `Esecuzione ${n} · seme ${seed}`,
-    noDesign: 'Nessun design selezionato. Apri o crea prima un design.',
     materialPool: 'Insieme di materiali',
     poolAll: 'Tutti',
     poolClear: 'Svuota',
@@ -2934,7 +2925,6 @@ export default {
   },
 
   needleManual: {
-    noDesign: 'Nessun design selezionato. Apri o crea prima un design.',
     noOperands: "Nessun operando. Apri l'Editor della funzione di merito per definire i target.",
     noMaterials: "Nessun materiale selezionato nell'insieme.",
     materialPool: 'Insieme di materiali',
@@ -2984,7 +2974,6 @@ export default {
     gapBetween: (a, ma, b, mb) => `tra lo strato #${a} (${ma}) e lo strato #${b} (${mb})`,
   },
   admittance: {
-    noDesign: 'Nessun design selezionato. Apri o crea prima un design.',
     noLayers: 'Nessuno strato nel design attivo.',
     noBackLayers: 'Nessuno strato sul lato posteriore del design attivo.',
     calcError: (message) => `Errore di calcolo: ${message}`,
@@ -3004,7 +2993,6 @@ export default {
     colMaterial: 'Materiale',
   },
   eField: {
-    noDesign: 'Nessun design selezionato. Apri o crea prima un design.',
     noLayers: 'Nessuno strato nel design. Aggiungi strati per vedere il profilo del campo.',
     wavelength: "Lunghezza d'onda (nm)",
     aoi: 'AOI (°)',
@@ -3051,7 +3039,6 @@ export default {
     axisRefFromDesignTip: "Misura lo spessore ottico alla lunghezza d'onda di riferimento del design, così l'asse e la tabella degli strati riportano gli stessi numeri. Deseleziona per indicare un'altra λ₀.",
   },
   ellipsometry: {
-    noDesign: 'Nessun design selezionato. Apri o crea prima un design.',
     noLayers: 'Nessuno strato nel design. Aggiungi strati per vedere Ψ e Δ.',
     mode: 'Modalità',
     spectral: 'Spettrale',
@@ -3077,7 +3064,6 @@ export default {
     deltaReversedTip: "Δ con il segno opposto, per dati o articoli scritti nell'altra convenzione temporale. Ψ non cambia in nessuno dei due casi.",
   },
   gdgdd: {
-    noDesign: 'Nessun design selezionato. Apri o crea prima un design.',
     noLayers: 'Nessuno strato nel design. Aggiungi strati per vedere GD / GDD.',
     side: 'Lato',
     front: 'Anteriore',
@@ -3135,7 +3121,6 @@ export default {
     modelUnavailable: 'Non disponibile',
   },
   riProfile: {
-    noDesign: 'Nessun design selezionato. Apri o crea prima un design.',
     noLayers: "Nessuno strato nel design. Aggiungi strati per vedere il profilo dell'indice.",
     wavelength: "Lunghezza d'onda (nm)",
     quantity: 'Grandezza',
@@ -3152,7 +3137,6 @@ export default {
     layersLabel: 'Strati',
   },
   layerThicknesses: {
-    noDesign: 'Nessun design selezionato. Apri o crea prima un design.',
     noLayers: 'Nessuno strato nel design. Aggiungi strati per vedere il diagramma degli spessori.',
     wavelength: 'λ₀ (nm)',
     units: 'Unità',
@@ -3204,7 +3188,6 @@ export default {
     tabDisabledSymmetric: "Il posteriore rispecchia l'anteriore (Simmetrico). Modifica il rivestimento anteriore.",
   },
   layerSensitivity: {
-    noDesign: 'Nessun design selezionato.',
     noLayers: 'Nessuno strato nel design.',
     noOperands: 'Nessun operando nella funzione di merito. Definisci prima i target (Editor della funzione di merito).',
     modeRelative: 'Relativo',
@@ -3227,7 +3210,6 @@ export default {
     scaleAbsoluteTip: "|ΔOMF| grezzo per strato (scala logaritmica). Utile per l'entità reale dell'impatto sull'OMF.",
   },
   wavelengthAngleMap: {
-    noDesign: 'Nessun design selezionato.',
     noLayers: 'Nessuno strato nel design.',
     channel: 'Grandezza',
     polarization: 'Polarizzazione',
@@ -3305,7 +3287,6 @@ export default {
     propK: 'Indice k',
   },
   stressAnalysis: {
-    noDesign: 'Nessun design selezionato.',
     noLayers: 'Nessuno strato nel design.',
     noStress: 'Nessun materiale di questo rivestimento dichiara uno stress intrinseco, quindi non c’è nulla da disegnare. Inseriscilo nella scheda Meccanica dell’editor dei materiali.',
     temperature: 'T',
@@ -3349,7 +3330,6 @@ export default {
   },
 
   roughnessScattering: {
-    noDesign: 'Nessun design selezionato.',
     noLayers: 'Nessuno strato nel design.',
     computing: 'Calcolo in corso…',
     step: 'passo',
@@ -3384,7 +3364,6 @@ export default {
     noticeOblique: 'Lo strato a lungo raggio è ricavato per incidenza normale; a questo angolo è una stima',
   },
   inhomogeneities: {
-    noDesign: 'Nessun design selezionato.',
     noLayers: 'Nessuno strato nel design.',
     backModeUnsupported: 'Gli interstrati riguardano il rivestimento anteriore e non hanno effetto in modalità Posteriore. Porta Analizza su Anteriore o Totale qui sopra.',
     noBackLayers: "Questa valutazione comprende il rivestimento posteriore, ma il design non ha strati posteriori. Aggiungi un rivestimento posteriore nell'Editor del design per graduarne le interfacce.",
@@ -3411,7 +3390,6 @@ export default {
     colGraded: 'graduato (%)',
   },
   systematicDeviations: {
-    noDesign: 'Nessun design selezionato.',
     noLayers: 'Nessuno strato nel design.',
     offsetNoIndex: (material, lambda) => `${material} non ha indice di rifrazione a λ₀ = ${lambda} nm, quindi uno scostamento in OT, QW o FW non si può convertire in uno spessore per i suoi strati.`,
     noMaterials: 'Nessun materiale nel design.',
@@ -3453,7 +3431,6 @@ export default {
     colParam: 'Parametro',
   },
   errorAnalysis: {
-    noDesign: 'Nessun design selezionato.',
     noLayers: 'Nessuno strato nel design.',
     colNominalSpectrum: 'nominale (%)',
     colMean: 'media (%)',
@@ -3839,7 +3816,6 @@ export default {
       uvRef: 'Flat (uniform) over 300–380 nm',
       nirRef: 'Flat (uniform) over 780–2500 nm',
     },
-    noDesign: 'Nessun design selezionato.',
     noLayers: 'Nessuno strato nel design.',
     lambdaRange: 'λ',
     step: 'passo',
@@ -4204,7 +4180,6 @@ export default {
     noFolder: 'Nessuna cartella di progetto selezionata. Scegline o creane prima una',
   },
   designCleaner: {
-    noDesign: 'Nessun design selezionato.',
     noLayers: 'Nessuno strato nel design.',
     minThickness: 'Rimuovi < ',
     mergeAdjacent: 'unisci gli adiacenti dello stesso materiale',
@@ -4286,7 +4261,6 @@ export default {
       vCoat: 'V-coat AR @ 550 nm',
       vCoatDesc: "AR a lunghezza d'onda singola: R(550) ≤ 0,2 %, T(550) ≥ 99 %.",
     },
-    noDesign: 'Nessun design selezionato. Apri o crea prima un design.',
     add: 'Aggiungi',
     addKindLabel: 'Aggiungi:',
     remove: 'Rimuovi',
@@ -4375,7 +4349,6 @@ export default {
     },
   },
   historyWin: {
-    noDesign: 'Nessun design selezionato. Apri o crea prima un design.',
     empty: "Nessuna cronologia. Modifica il design o avvia l'ottimizzatore.",
     title: 'Cronologia del design',
     summary: (total, pos) => `${total} stati · corrente #${pos}`,
@@ -4390,7 +4363,6 @@ export default {
     jumpTip: 'Clicca per portare il design a questo stato',
   },
   variator: {
-    noDesign: 'Nessun design selezionato. Apri o crea prima un design.',
     title: 'Variatore',
     varied: 'modificato',
     atBaseline: 'riferimento',
@@ -4425,7 +4397,6 @@ export default {
     genAxis: 'Generazione',
     geStepSeries: 'Passo GE',
     geStepLabel: 'Passi GE:',
-    noDesign: 'Nessun design selezionato. Apri o crea prima un design.',
     noOperands: "Nessun operando. Apri l'Editor della funzione di merito per definire i target.",
     noMaterials: "Nessun materiale selezionato nell'insieme.",
     noGens: "Avvia l'Evoluzione graduale per vedere i cicli.",

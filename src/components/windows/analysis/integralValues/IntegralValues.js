@@ -72,7 +72,6 @@ export function IntegralValues({ c, theme, t }) {
         () => `${(design?.name || 'design').replace(/[^\w.-]+/g, '_')}_integrals.csv`,
     );
 
-    if (!design) return h(CenteredMessage, { c, message: iv.noDesign });
     if (!hasLayersForMode(design, evalMode)) {
         return h(CenteredMessage, { c, message: iv.noLayers });
     }

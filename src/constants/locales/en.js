@@ -793,7 +793,6 @@ export default {
     'games':           'Games',
   },
   monitorWorksheet: {
-    noDesign:   'No design selected.',
     noLayers:   'No layers in design.',
     noIndex:    (material, lambda) => `${material} has no refractive index at ${lambda} nm, and the worksheet needs one there.`,
     layersPerChip:    'Layers per chip',
@@ -851,7 +850,6 @@ export default {
     import:             'Open file…',
     importing:          'Opening…',
     importHint:         'Load a Ψ and Δ pair written by a spectroscopic ellipsometer (CSV / TXT / ASCII).',
-    noDesign:           'No design selected. Open or create a design first.',
     aoiLabel:           'Angle of incidence',
     aoiRequired:        'At normal incidence Ψ and Δ are the same for every film. Enter the angle the ellipsometer used.',
     deltaConventionLabel: 'Δ convention',
@@ -917,7 +915,6 @@ export default {
     tabExport: 'Export',
     importTitle: 'Import measured spectrum',
     importHint: 'Load a measured R/T/A spectrum (CSV / TXT / ASCII / JCAMP-DX) to overlay on Optical Evaluation.',
-    noDesign: 'No design selected. Open or create a design first.',
     measurementAoiLabel: 'Angle of incidence',
     polarizationLabel: 'Polarization',
     polAverage: 'Average',
@@ -1703,7 +1700,6 @@ export default {
     validationMechanicalBound: (field, rule) => `${field} ${rule}`,
   },
   nkCharacterization: {
-    noDesign:            'No design selected.',
     noCurves:            'Import a measurement first: R and T in Measured Spectra, Ψ and Δ in Measured Ellipsometry.',
     noPhotometry:        'This design holds no measured R or T. Import a spectrum in Measured Spectra, or switch back to Ψ / Δ.',
     noEllipsometry:      'This design holds no measured Ψ or Δ. Import a pair in Measured Ellipsometry, or switch back to T / R.',
@@ -1829,7 +1825,6 @@ export default {
     mfLabel:       'MF:',
     omfLabel:      'OMF:',
     omfTip:        'Optical merit, excluding thickness constraints (MNT/MXT/TT)',
-    noDesign:      'No design selected. Open or create a design first.',
     noOperands:    'No operands. Use the wizard above, or "+ Add" below.',
     evaluationError: 'Error',
     residualSlack: 'Slack',
@@ -2159,7 +2154,6 @@ export default {
     omfLabel:      'OMF:',
     omfTip:        'Optical merit, excluding thickness constraints (MNT/MXT/TT)',
     iterLabel:     'Iter:',
-    noDesign:      'No design selected. Open or create a design first.',
     noOperands:    'No operands. Open Merit Function Editor to set up targets.',
     multiStart:    'Multi-start',
     multiStartTip: 'Run DLS from N perturbed starting points and keep best result',
@@ -2266,7 +2260,6 @@ export default {
     omfLabel:     'OMF:',
     omfTip:       'Optical merit, excluding thickness constraints (MNT/MXT/TT)',
     bestLabel:    'Best:',
-    noDesign:     'No design selected. Open or create a design first.',
     noOperands:   'No operands. Open Merit Function Editor to set up targets.',
     noMaterials:  'No materials selected in pool.',
     noGens:       'Run needle variation to see generations.',
@@ -2337,7 +2330,6 @@ export default {
     omfLabel:     'OMF:',
     omfTip:       'Optical merit, excluding thickness constraints (MNT/MXT/TT)',
     bestLabel:    'Best:',
-    noDesign:     'No design selected. Open or create a design first.',
     noOperands:   'No operands. Open Merit Function Editor to set up targets.',
     noMaterials:  'No materials selected in pool (needed for add / split mutations).',
     materialPool: 'Material Pool',
@@ -2410,7 +2402,6 @@ export default {
     clearHistory: 'Clear history',
     runSeparator: (n) => `Run ${n}`,
     runSeparatorSeed: (n, seed) => `Run ${n} · seed ${seed}`,
-    noDesign:     'No design selected. Open or create a design first.',
     materialPool: 'Material Pool',
     poolAll:      'All',
     poolClear:    'Clear',
@@ -2498,7 +2489,6 @@ export default {
   },
 
   needleManual: {
-    noDesign:     'No design selected. Open or create a design first.',
     noOperands:   'No operands. Open Merit Function Editor to set up targets.',
     noMaterials:  'No materials selected in pool.',
     materialPool: 'Material Pool',
@@ -2549,7 +2539,6 @@ export default {
   },
 
   admittance: {
-    noDesign:      'No design selected. Open or create a design first.',
     noLayers:      'No layers in active design.',
     noBackLayers:  'No back-side layers in active design.',
     calcError:     (message) => `Calculation error: ${message}`,
@@ -2570,7 +2559,6 @@ export default {
   },
 
   eField: {
-    noDesign:      'No design selected. Open or create a design first.',
     noLayers:      'No layers in design. Add layers to see the field profile.',
     wavelength:    'Wavelength (nm)',
     aoi:           'AOI (°)',
@@ -2623,7 +2611,6 @@ export default {
   },
 
   ellipsometry: {
-    noDesign:    'No design selected. Open or create a design first.',
     noLayers:    'No layers in design. Add layers to see Ψ and Δ.',
     mode:        'Mode',
     spectral:    'Spectral',
@@ -2650,7 +2637,6 @@ export default {
   },
 
   gdgdd: {
-    noDesign:     'No design selected. Open or create a design first.',
     noLayers:     'No layers in design. Add layers to see GD / GDD.',
     side:         'Side',
     front:        'Front',
@@ -2709,7 +2695,6 @@ export default {
   },
 
   riProfile: {
-    noDesign:    'No design selected. Open or create a design first.',
     noLayers:    'No layers in design. Add layers to see the index profile.',
     wavelength:  'Wavelength (nm)',
     quantity:    'Quantity',
@@ -2727,7 +2712,6 @@ export default {
   },
 
   layerThicknesses: {
-    noDesign:    'No design selected. Open or create a design first.',
     noLayers:    'No layers in design. Add layers to see the thickness diagram.',
     wavelength:  'λ₀ (nm)',
     units:       'Units',
@@ -2771,7 +2755,6 @@ export default {
   },
 
   layerSensitivity: {
-    noDesign:      'No design selected.',
     noLayers:      'No layers in design.',
     noOperands:    'No merit function operands. Define targets first (Merit Function Editor).',
     modeRelative:  'Relative',
@@ -2795,7 +2778,6 @@ export default {
   },
 
   wavelengthAngleMap: {
-    noDesign:      'No design selected.',
     noLayers:      'No layers in design.',
     channel:       'Quantity',
     polarization:  'Polarization',
@@ -2876,7 +2858,6 @@ export default {
   },
 
   stressAnalysis: {
-    noDesign:       'No design selected.',
     noLayers:       'No layers in design.',
     noStress:       'No material in this coating states an intrinsic stress, so there is nothing to draw. Enter one on the Mechanical tab of the Material Editor.',
     temperature:            'T',
@@ -2920,7 +2901,6 @@ export default {
   },
 
   roughnessScattering: {
-    noDesign:       'No design selected.',
     noLayers:       'No layers in design.',
     computing:      'Computing…',
     step:           'step',
@@ -2954,7 +2934,6 @@ export default {
   },
 
   inhomogeneities: {
-    noDesign:           'No design selected.',
     noLayers:           'No layers in design.',
     backModeUnsupported:'Interlayers apply to the front coating, so they have no effect in Back mode. Switch Analyze to Front or Total above.',
     noBackLayers:       'This evaluation includes the back coating, but the design has no back layers. Add a back coating in the Design Editor to grade its interfaces.',
@@ -2982,7 +2961,6 @@ export default {
   },
 
   systematicDeviations: {
-    noDesign:        'No design selected.',
     noLayers:        'No layers in design.',
     offsetNoIndex:   (material, lambda) => `${material} has no refractive index at λ₀ = ${lambda} nm, so an offset in OT, QW or FW cannot be converted to a thickness for its layers.`,
     noMaterials:     'No materials in design.',
@@ -3025,7 +3003,6 @@ export default {
   },
 
   errorAnalysis: {
-    noDesign:      'No design selected.',
     noLayers:      'No layers in design.',
     colNominalSpectrum: 'nominal (%)',
     colMean:       'mean (%)',
@@ -3410,7 +3387,6 @@ export default {
       uvRef:    'Flat (uniform) over 300–380 nm',
       nirRef:   'Flat (uniform) over 780–2500 nm',
     },
-    noDesign:    'No design selected.',
     noLayers:    'No layers in design.',
     lambdaRange: 'λ',
     step:        'step',
@@ -3753,7 +3729,6 @@ export default {
   },
 
   designCleaner: {
-    noDesign:      'No design selected.',
     noLayers:      'No layers in design.',
     minThickness:  'Remove < ',
     mergeAdjacent: 'merge same-material adjacent',
@@ -3842,7 +3817,6 @@ export default {
       vCoat:          'V-coat AR @ 550 nm',
       vCoatDesc:      'Single-wavelength AR: R(550) ≤ 0.2 %, T(550) ≥ 99 %.',
     },
-    noDesign:       'No design selected. Open or create a design first.',
     add:            'Add',
     addKindLabel:   'Add:',
     remove:         'Remove',
@@ -3932,7 +3906,6 @@ export default {
   },
 
   historyWin: {
-    noDesign:  'No design selected. Open or create a design first.',
     empty:     'No history yet. Edit the design or run the optimizer.',
     title:     'Design History',
     summary:   (total, pos) => `${total} states · current #${pos}`,
@@ -3948,7 +3921,6 @@ export default {
   },
 
   variator: {
-    noDesign:    'No design selected. Open or create a design first.',
     title:       'Variator',
     varied:      'modified',
     atBaseline:  'baseline',
@@ -3984,7 +3956,6 @@ export default {
     genAxis: 'Generation',
     geStepSeries: 'GE step',
     geStepLabel:   'GE steps:',
-    noDesign:      'No design selected. Open or create a design first.',
     noOperands:    'No operands. Open Merit Function Editor to set up targets.',
     noMaterials:   'No materials selected in pool.',
     noGens:        'Run Gradual Evolution to see cycles.',

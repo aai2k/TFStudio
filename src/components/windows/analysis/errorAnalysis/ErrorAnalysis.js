@@ -76,7 +76,6 @@ export function ErrorAnalysis({ c, t }) {
         () => `${(design?.name || 'design').replace(/[^\w.-]+/g, '_')}_montecarlo.csv`,
     );
 
-    if (!design) return h(CenteredMessage, { c, message: ea.noDesign });
     if (!hasPerturbableLayers(design, evalMode)) {
         return h(CenteredMessage, { c, message: ea.noLayers });
     }

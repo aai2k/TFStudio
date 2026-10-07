@@ -22,10 +22,6 @@ export function MeritFunctionEditor({ c, t, setInputDialog }) {
     const rangeNotice = useMeritRangeNotice(design, t);
     const stressNotices = stressOperandNotices(design, merit.operands, te);
 
-    if (!design) {
-        return h('div', { style: { padding: 24, color: c.textDim, fontSize: 13 } }, te.noDesign);
-    }
-
     return h('div', {
         style: {
             display: 'flex', flexDirection: 'column', height: '100%',

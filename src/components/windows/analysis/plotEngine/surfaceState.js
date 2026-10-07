@@ -90,7 +90,7 @@ function useSurfaceCompute(state, design) {
     }, [surfaceSpec, design]);
 
     const computeSurfaceNow = useCallback(() => {
-        if (!design || computing) return;
+        if (computing) return;
         setComputing(true);
         setProgress(null);
         const requestId = ++requestRef.current;

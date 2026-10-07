@@ -9,7 +9,7 @@ import {
 } from '../../../materials/MaterialRangeNotice.js';
 import { ExportMenu, useCsvExport } from '../../../ui/ExportMenu.js';
 import { csvFromRows } from '../../../ui/ResultsSection.js';
-import { AnalysisWindow, CenteredMessage } from '../chrome/layout.js';
+import { AnalysisWindow } from '../chrome/layout.js';
 import { EllipsometryControls } from './EllipsometryControls.js';
 import { buildEllipsometryTable, EllipsometryResults } from './EllipsometryResults.js';
 import { measuredEllipsometryOverlays, sideSummary } from './model.js';
@@ -44,8 +44,6 @@ export function EllipsometryEvaluation({ c, theme, t }) {
         () => csvFromRows(table.columns, table.rows),
         () => `${(design?.name || 'design').replace(/[^\w.-]+/g, '_')}_ellipsometry.csv`,
     );
-
-    if (!design) return h(CenteredMessage, { c, message: text.noDesign });
 
     const summary = sideSummary(design, state.side);
     const hasData = !!(summary.validLayers.length && state.data && state.data.x.length);

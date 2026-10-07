@@ -13,7 +13,6 @@ export function useEllipsometryEvaluation(design) {
     const [data, setData] = useState(null);
 
     useEffect(() => {
-        if (!design) { setData(null); return; }
         try {
             setData(computeEllipsometrySweep(design, {
                 mode, side, lambdaStart, lambdaEnd, lambdaStep, thetaDeg,

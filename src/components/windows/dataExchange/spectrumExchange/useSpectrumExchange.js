@@ -23,7 +23,7 @@ function previewCurveSwitches(curve) {
 }
 
 export function useSpectrumExchange(sx, ce) {
-    const { design, updateDesign, checkpoint, evalMode, hasActiveDesign } = useDesign();
+    const { design, updateDesign, checkpoint, evalMode } = useDesign();
     // The grid Optical Evaluation was last set to, as the export defaults. Read
     // once: these seed the fields below, which the user then owns.
     const evalParams = useMemo(() => evalParamsSession.peek(null), []);
@@ -167,7 +167,7 @@ export function useSpectrumExchange(sx, ce) {
     });
 
     return {
-        design, hasActiveDesign, tab, setTab, expSource, setExpSource, expFormat, setExpFormat,
+        design, tab, setTab, expSource, setExpSource, expFormat, setExpFormat,
         expXUnit, setExpXUnit, expYScale, setExpYScale,
         selectedExportCurves, setExportCurveSelected, selectAllExportCurves,
         parsed, fileName, colIdx, setColIdx, name, setName, loading, status,

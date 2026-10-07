@@ -111,7 +111,6 @@ export function useSpecificationState({ design, updateDesign, checkpoint }) {
 
     // Live evaluation
     const results = useMemo(() => {
-        if (!design) return [];
         try { return evaluateQualifiers(qualifiers, design, designMaterialLookup(design)); }
         catch { return qualifiers.map(() => ({ value: null, pass: null })); }
     }, [qualifiers, design]);

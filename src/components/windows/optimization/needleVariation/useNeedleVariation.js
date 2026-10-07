@@ -148,7 +148,7 @@ export function useNeedleVariation(t) {
     // Layer count display — read from whichever side is active for the current
     // surface mode (back for back_only, front otherwise).
     useEffect(() => {
-        if (design && !runningRef.current) {
+        if (!runningRef.current) {
             setLayerCount((design[sideKeyFor(design)] || []).length);
         }
     }, [design]);
