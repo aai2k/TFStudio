@@ -32,11 +32,16 @@ async function loadCodevFile({ z, flash, setLoading, setStatus, setFile }) {
     setLoading(false);
 }
 
-// The stack goes onto the front of the active design with the incident medium
-// and the substrate it was entered with, as one undo step. Its materials are
-// registered first, in the catalog named after the file. The status line adds
-// what the conversion noted; what the reader noted is on the tab already.
-function importStack({ z, flash, stack, fileName, filePath, design, checkpoint, updateDesign }) {
+// The layers of the stack replace one coating of the active design, as one undo
+// step; the design keeps its incident medium, exit medium and substrate. The
+// file lists the layers incident side first, the order frontLayers are kept in.
+// backLayers are kept substrate side first, so a back import is reversed: the
+// file's incident medium faces the exit side. The materials the layers use are
+// registered first, in the catalog named after the file, and Undo leaves them
+// there; the file's INC and SUB are not registered unless a layer uses them too.
+// The status line adds what the conversion noted; what the reader noted is on
+// the tab already.
+function importStack({ z, flash, stack, fileName, filePath, checkpoint, updateDesign }, side) {
     if (!stack) return;
     let converted;
     try {
@@ -47,26 +52,28 @@ function importStack({ z, flash, stack, fileName, filePath, design, checkpoint, 
         flash('error', message);
         return;
     }
-    const { catName, idOf } = registerCodevMaterials(converted.materials, fileName, filePath);
+    const used = new Set(converted.layers.map(layer => layer.materialKey));
+    const { catName, idOf } = registerCodevMaterials(
+        converted.materials.filter(({ key }) => used.has(key)), fileName, filePath);
+    const layers = converted.layers.map(layer => ({
+        material: idOf[layer.materialKey], thickness: layer.thickness, locked: layer.locked,
+    }));
+    const back = side === 'back';
     checkpoint();
-    updateDesign({
-        incidentMedium: idOf[converted.incidentKey],
-        substrate: { ...(design.substrate || {}), material: idOf[converted.substrateKey] },
-        frontLayers: converted.layers.map(layer => ({
-            material: idOf[layer.materialKey], thickness: layer.thickness, locked: layer.locked,
-        })),
-    });
+    updateDesign(back ? { backLayers: layers.reverse() } : { frontLayers: layers });
     const notes = converted.warnings
         .filter(warning => !stack.warnings.includes(warning))
         .map(warning => warningText(z, warning));
-    flash('success', [z.importedCoating(converted.layers.length, catName), ...notes].join(' '));
+    const imported = back ? z.importedBack : z.importedFront;
+    flash('success', [imported(layers.length, catName), ...notes].join(' '));
 }
 
 export function useLoadAction(args) {
     return useCallback(() => loadCodevFile(args), [args.z]);
 }
 
+/** The import as a function of the side, 'front' or 'back'. */
 export function useImportAction(args) {
-    const { stack, fileName, filePath, design, checkpoint, updateDesign, z } = args;
-    return useCallback(() => importStack(args), [stack, fileName, filePath, design, checkpoint, updateDesign, z]);
+    const { stack, fileName, filePath, checkpoint, updateDesign, z } = args;
+    return useCallback((side) => importStack(args, side), [stack, fileName, filePath, checkpoint, updateDesign, z]);
 }

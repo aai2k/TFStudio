@@ -5,7 +5,8 @@
  * The window is reached from the Data Exchange group beside Zemax Coatings and
  * its help button opens a page that exists in both documentation languages.
  * The Import tab shows a stack read from a file, incident side first, with the
- * layers CODE V holds fixed locked; the Export tab is blocked while the design
+ * layers CODE V holds fixed locked, and offers it to the front and the back
+ * coating, the back off in Symmetric mode; the Export tab is blocked while the design
  * has a material this computer cannot resolve, as the Zemax window's is.
  *
  * Run: node tests/codev_coatings_window_render.mjs
@@ -71,17 +72,30 @@ for (const code of ['en', 'ru', 'zh', 'it']) {
         mic: {},
         warnings: [{ kind: 'unknownCommand', command: 'MAN', line: 26 }],
     };
-    const html = renderToStaticMarkup(React.createElement(ImportTab, {
-        c, z, stack, fileName: 'silver.seq', loading: false, onLoad: noop, importCoating: noop,
+    const renderImport = (design) => renderToStaticMarkup(React.createElement(ImportTab, {
+        c, z, stack, design, fileName: 'silver.seq', loading: false, onLoad: noop, importCoating: noop,
     }));
+    const html = renderImport(makeSampleDesign());
     const shown = text(html);
     for (const part of ['Silver Reflector', 'silver.seq', z.wavelengthsValue(3, 400, 1000), '0°, 20°', '550 nm',
-        z.layersHeader(3), z.importToFront, z.importNote, warningText(z, stack.warnings[0]), 'n 2.75, k 4.46', 'n 1.5']) {
+        z.summaryIncident, z.summarySubstrate, z.layersHeader(3), z.importToFront, z.importToBack,
+        warningText(z, stack.warnings[0]), 'n 2.75, k 4.46', 'n 1.5']) {
         assert.ok(shown.includes(part), `the Import tab shows ${part}`);
     }
     const rows = [...html.matchAll(/<tr>(.*?)<\/tr>/g)].map(m => m[1]).filter(row => row.includes('95.00') || row.includes('400.00') || row.includes('12.50'));
     assert.deepEqual(rows.map(row => (row.match(/>(\d+\.\d\d)</) || [])[1]), ['95.00', '400.00', '12.50'], 'layers in file order');
     assert.deepEqual(rows.map(row => row.includes('<svg')), [false, true, false], 'only the code 100 layer is locked');
+
+    // Both import buttons are live, unless the back mirrors the front.
+    const buttons = (markup) => [...markup.matchAll(/<button([^>]*)>([^<]*)<\/button>/g)]
+        .filter(([, , label]) => label === z.importToFront || label === z.importToBack)
+        .map(([, attrs, label]) => [label, /\sdisabled/.test(attrs)]);
+    assert.deepEqual(buttons(html), [[z.importToFront, false], [z.importToBack, false]]);
+    const symmetric = renderImport({ ...makeSampleDesign(), surfaceMode: 'symmetric' });
+    assert.deepEqual(buttons(symmetric), [[z.importToFront, false], [z.importToBack, true]],
+        'in Symmetric mode the back coating is the mirror of the front');
+    assert.ok(symmetric.includes(`title="${z.importBackSymmetric}"`), 'and the back button says so');
+    assert.ok(!html.includes(`title="${z.importBackSymmetric}"`), 'which it does not say otherwise');
 }
 
 // ── Export tab: blocked by a missing material, otherwise the settings ─────────

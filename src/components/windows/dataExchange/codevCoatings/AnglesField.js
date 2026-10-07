@@ -19,8 +19,9 @@ function IconButton({ c, icon, title, onClick, disabled }) {
 /**
  * The angles of incidence for ANG, degrees in the incident medium. CODE V takes
  * up to five (CODEV_LIMITS.angles), and at least one is kept. A new angle starts
- * as a copy of the last one. Angles run 0 to 89 degrees, as in every angle field
- * of the program.
+ * as a copy of the last one. Angles run from 0 to 89 degrees, the last whole
+ * degree before 90: at 90 the light runs along the surface and never enters
+ * the coating.
  */
 export function AnglesField({ c, z, anglesDeg, setAnglesDeg }) {
     const setAt = (at, value) => setAnglesDeg(anglesDeg.map((angle, index) => (index === at ? value : angle)));

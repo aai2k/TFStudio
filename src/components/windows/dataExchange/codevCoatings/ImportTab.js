@@ -56,28 +56,36 @@ function LayersTable({ c, z, layers }) {
     );
 }
 
-function StackView({ c, z, stack, importCoating }) {
+// In Symmetric mode the design replaces any back coating written to it with the
+// mirror of the front, so layers imported to the back would not stay there.
+function BackButton({ c, z, design, importCoating }) {
+    const mirrored = design?.surfaceMode === 'symmetric';
+    return h('span', { title: mirrored ? z.importBackSymmetric : undefined },
+        h(Btn, { onClick: () => importCoating('back'), c, primary: true, disabled: mirrored }, z.importToBack));
+}
+
+function StackView({ c, z, stack, design, importCoating }) {
     return h('div', { style: { display: 'flex', flexDirection: 'column', gap: 10 } },
         h(StackSummary, { c, z, stack }),
         h(WarningList, { c, z, warnings: stack.warnings }),
-        h('div', { style: { display: 'flex', alignItems: 'center', gap: 10 } },
+        h('div', { style: { display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' } },
             h(Label, { c }, z.layersHeader(stack.layers.length)),
             h('div', { style: { flex: 1 } }),
-            h(Btn, { onClick: importCoating, c, primary: true }, z.importToFront),
+            h(Btn, { onClick: () => importCoating('front'), c, primary: true }, z.importToFront),
+            h(BackButton, { c, z, design, importCoating }),
         ),
-        h('div', { style: { fontSize: 10.5, color: c.textDim } }, z.importNote),
         h(LayersTable, { c, z, layers: stack.layers }),
     );
 }
 
-export function ImportTab({ c, z, stack, fileName, loading, onLoad, importCoating }) {
+export function ImportTab({ c, z, stack, design, fileName, loading, onLoad, importCoating }) {
     return h('div', { style: { display: 'flex', flexDirection: 'column', gap: 12 } },
         h('div', { style: { display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' } },
             h(Btn, { onClick: onLoad, c, primary: true, disabled: loading }, loading ? z.loading : z.openBtn),
             fileName ? h('span', { style: { fontSize: 11, color: c.textDim } }, fileName) : null,
         ),
         stack
-            ? h(StackView, { c, z, stack, importCoating })
+            ? h(StackView, { c, z, stack, design, importCoating })
             : h('div', { style: { color: c.textDim, fontSize: 12, padding: 20, textAlign: 'center' } }, z.noFile),
     );
 }

@@ -36,7 +36,7 @@ export function CodevCoatings({ c, t }) {
     const onLoad = useLoadAction({ z, flash, setLoading, setStatus, setFile: patch });
     const importCoating = useImportAction({
         z, flash, stack: session.stack, fileName: session.fileName, filePath: session.filePath,
-        design, checkpoint, updateDesign,
+        checkpoint, updateDesign,
     });
     const exportArgs = {
         ...session, z, flash, design, gStart, gEnd, gStep,
