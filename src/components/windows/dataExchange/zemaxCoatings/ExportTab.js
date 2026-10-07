@@ -2,7 +2,7 @@ import {
     ActionButton, ChoiceGroup, FieldLabel, NumInput, RangeField,
 } from '../../analysis/chrome/controls.js';
 import {
-    FilePreview, InlineRow, PanelSection, TextInput,
+    CoatingExportPage, InlineRow, PanelSection, TextInput,
 } from '../chrome/panel.js';
 
 const { createElement: h } = React;
@@ -48,15 +48,5 @@ function ExportOptions(props) {
 }
 
 export function ExportTab(props) {
-    const { c, z, missingMaterialIds, preview } = props;
-    if (missingMaterialIds.length > 0) {
-        return h(PanelSection, { c, title: z.exportTitle },
-            h('div', { role: 'alert', style: { color: c.error, fontSize: 11.5, lineHeight: 1.5 } },
-                z.exportBlocked(missingMaterialIds.join(', '))),
-        );
-    }
-    return h('div', { style: { flex: 1, minHeight: 0, overflow: 'auto', display: 'flex', flexDirection: 'column' } },
-        h(ExportOptions, props),
-        h(FilePreview, { c, title: z.preview, text: preview }),
-    );
+    return h(CoatingExportPage, props, h(ExportOptions, props));
 }

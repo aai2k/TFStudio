@@ -53,12 +53,14 @@ function formatMonitorValue(m, value, strings) {
     return `${value.toFixed(meta.decimals)}${unitSuffix(meta.unit, strings)}`;
 }
 
-function monitorScopeBadge(m, design) {
+function monitorScopeBadge(m, design, hasActiveDesign) {
     if (m.type === 'integral') return 'total';
     const meta = DIRECT_MONITOR_META[m.type];
     if (meta?.frontOnly) return 'front';
-    if (meta?.phase) return design.surfaceMode === 'back_only' ? 'back' : 'front';
-    return null;
+    // A phase is read on the side the design is evaluated from; with no design
+    // open there is no side to name.
+    if (!meta?.phase || !hasActiveDesign) return null;
+    return design.surfaceMode === 'back_only' ? 'back' : 'front';
 }
 
 function monitorLabel(m, strings = {}) {
@@ -95,6 +97,18 @@ function monitorLabel(m, strings = {}) {
     if (m.type === 'max') return `${qty}${strings.maxSuffix} ${m.lambdaStart}–${m.lambdaEnd} ${strings.units.nm}${aoiStr}`;
     // U+27E8/27E9 = ⟨ ⟩ mathematical angle brackets
     return `⟨${qty}⟩ ${m.lambdaStart}–${m.lambdaEnd} ${strings.units.nm}${aoiStr}`;
+}
+
+/**
+ * What each monitor reads on the design: nothing while no design is open, the
+ * design then being a placeholder nobody opened, nothing while a material it
+ * uses is unresolved, and nothing here while the cone response is computed in
+ * the worker.
+ */
+export function monitorValues({ monitors, design, hasActiveDesign, missingMaterialIds, coneActive }) {
+    if (!hasActiveDesign || missingMaterialIds.length > 0 || coneActive) return monitors.map(() => null);
+    const resolveMaterial = designMaterialLookup(design);
+    return monitors.map(m => computeMonitor(m, design, resolveMaterial));
 }
 
 function genId() { return Math.random().toString(36).slice(2, 9); }
@@ -307,7 +321,7 @@ function AddForm({ c, t, layerCount, onAdd, onCancel, initial, mode }) {
 // ── Main component ────────────────────────────────────────────────────────────
 
 export function SpectralMonitor({ c, t }) {
-    const { design, evalMode } = useDesign();
+    const { design, evalMode, hasActiveDesign } = useDesign();
     const monitorStrings = t.statusMonitors;
     const missingMaterialIds = useUnresolvedMaterials(design);
     const missingMaterialKey = missingMaterialIds.join('\u0000');
@@ -323,17 +337,8 @@ export function SpectralMonitor({ c, t }) {
 
     useEffect(() => {
         saveMonitors(monitors);
-        if (missingMaterialIds.length > 0) {
-            setValues(monitors.map(() => null));
-            return;
-        }
-        if (coneActive) {
-            setValues(monitors.map(() => null));
-            return;
-        }
-        const resolveMaterial = designMaterialLookup(design);
-        setValues(monitors.map(m => computeMonitor(m, design, resolveMaterial)));
-    }, [design, monitors, evalMode, missingMaterialKey, coneActive]);
+        setValues(monitorValues({ monitors, design, hasActiveDesign, missingMaterialIds, coneActive }));
+    }, [design, monitors, evalMode, missingMaterialKey, coneActive, hasActiveDesign]);
 
     useEffect(() => {
         if (!coneActive) return;
@@ -402,7 +407,8 @@ export function SpectralMonitor({ c, t }) {
             }
         },
             h('span', { style: { fontSize: 10, color: c.textDim, flexShrink: 0, letterSpacing: '0.03em' } }, monitorStrings.title),
-            h('span', {
+            // The side the open design is evaluated on; with none open, none.
+            hasActiveDesign && h('span', {
                 style: {
                     fontSize: 10, color: c.accent, flexShrink: 0,
                     padding: '0 5px', border: `1px solid ${c.accent}33`,
@@ -424,7 +430,7 @@ export function SpectralMonitor({ c, t }) {
             monitors.map((m, i) => {
                 const val = values[i];
                 const display = formatMonitorValue(m, val, monitorStrings);
-                const scopeBadge = monitorScopeBadge(m, design);
+                const scopeBadge = monitorScopeBadge(m, design, hasActiveDesign);
                 const isDropTarget = dragOverId === m.id;
                 return h('span', {
                     key: m.id,

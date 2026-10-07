@@ -7,8 +7,8 @@
  * that opens the file; the Coatings tab offers the selected stack to the front
  * coating, off with no design selected, and to the Coating Library; the
  * Materials tab selects records; the Export tab holds its options in a panel
- * section above the preview. A file that defines a material name twice raises
- * a notice in the control row.
+ * section above the preview, and with no design selected asks for one instead.
+ * A file that defines a material name twice raises a notice in the control row.
  *
  * Run: node tests/zemax_coatings_window.mjs
  */
@@ -124,6 +124,17 @@ const load = (patch) => {
     load({ tab: 'materials', selRows: new Set([1]) });
     assert.deepEqual(buttons(renderNoDesign(t), [z.importSelected, z.importAll]),
         [[z.importSelected, false], [z.importAll, false]]);
+
+    // And nothing to export: the Export tab asks for a design in place of its
+    // options and the preview, even a preview built while a design was open.
+    load({ tab: 'export', preview: 'MATE STALE' });
+    const exported = renderNoDesign(t);
+    const shown = text(exported);
+    assert.ok(shown.includes(t.windowChrome.noDesign), 'the Export tab asks for a design');
+    for (const part of [z.exportTitle, z.frontLayerCount(2), z.thicknessMode, z.generate, z.saveBtn, z.preview, 'MATE STALE']) {
+        assert.ok(!shown.includes(part), `and shows no ${part}`);
+    }
+    assert.ok(shown.includes(z.tabExport) && shown.includes(z.refWavelength), 'the tabs and λ₀ stay');
 }
 
 // Export: the options in a panel section, the preview under them.

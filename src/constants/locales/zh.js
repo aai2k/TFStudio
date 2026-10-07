@@ -825,6 +825,7 @@ export default {
   windowChrome: {
     help: '此窗口的帮助 (F1)',
     close: '关闭',
+    noDesign: '未选择设计。请先打开或创建设计。',
   },
   windowError: {
     paneTitle: (window) => `${window} 因错误已停止`,

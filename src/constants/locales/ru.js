@@ -727,6 +727,7 @@ export default {
   windowChrome: {
     help:  'Справка по этому окну (F1)',
     close: 'Закрыть',
+    noDesign: 'Не выбран проект. Откройте или создайте проект.',
   },
   windowError: {
     paneTitle: (window) => `Окно «${window}» остановлено из-за ошибки`,

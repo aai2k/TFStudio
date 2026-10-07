@@ -79,7 +79,7 @@ export function useMaterialEditor({ c, t, setInputDialog }) {
     const [fileImport,       setFileImport]       = useState(null);
 
     const me = t.materialEditor;
-    const { design, designs } = useDesign();
+    const { design, designs, hasActiveDesign } = useDesign();
     // The wavelengths the design is evaluated over, from whichever copy of
     // Optical Evaluation was changed last. A fit has to be right where the
     // coating is used, so this is the band the fit panel offers, and it follows
@@ -113,9 +113,11 @@ export function useMaterialEditor({ c, t, setInputDialog }) {
     // `catalogs` stays the registry list every catalog action works against;
     // `browseCatalogs` is the merged list used only where materials are listed.
     // Rebuilt on a catalog change too: an entry a catalog holds is that
-    // catalog's material, which a save here replaces.
+    // catalog's material, which a save here replaces. With no design open there
+    // is none: the placeholder shown then is nobody's design.
     const designCatalog = useMemo(
-        () => buildDesignCatalog(design, me.designCatalog), [design, me.designCatalog, catalogRevision]);
+        () => (hasActiveDesign === false ? null : buildDesignCatalog(design, me.designCatalog)),
+        [design, hasActiveDesign, me.designCatalog, catalogRevision]);
     // Listed first: what the open design is made of is the most likely reason to
     // be in this window.
     const browseCatalogs = designCatalog ? [designCatalog, ...catalogs] : catalogs;

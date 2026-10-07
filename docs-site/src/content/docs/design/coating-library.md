@@ -95,7 +95,7 @@ A material that a catalog on this computer holds is computed from that catalog, 
 
 ## Saving a coating
 
-**Save current coating…** in this window, or **Save coating to library…** in the Design Editor's Tools menu, saves the front or back stack of the active design into My coatings. Give it a name, a type and a short use note, and set the band, angle and polarization it is meant for. Non-built-in materials are embedded in the saved entry, so it stays usable when the catalog it came from is renamed or removed. While that catalog holds the material, the coating computes with the catalog's current data.
+**Save current coating…** in this window, or **Save coating to library…** in the Design Editor's Tools menu, saves the front or back stack of the active design into My coatings. Give it a name, a type and a short use note, and set the band, angle and polarization it is meant for. Non-built-in materials are embedded in the saved entry, so it stays usable when the catalog it came from is renamed or removed. While that catalog holds the material, the coating computes with the catalog's current data. With no design selected there is no stack to save, so **Save current coating…** is off.
 
 The [Zemax Coatings](/data-exchange/zemax-coatings/) and [CODE V Coatings](/data-exchange/codev-coatings/) windows save a coating read from a file through the same dialog, with the layers of the file instead of those of the design.
 

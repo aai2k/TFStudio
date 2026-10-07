@@ -7,7 +7,7 @@
  */
 
 import { ActionButton, FieldLabel } from '../../analysis/chrome/controls.js';
-import { EditorGroupTitle, SidePanel } from '../../analysis/chrome/layout.js';
+import { CenteredMessage, EditorGroupTitle, SidePanel } from '../../analysis/chrome/layout.js';
 import { startDividerDrag } from '../../../ui/dividerDrag.js';
 
 const { createElement: h, useCallback, useRef } = React;
@@ -204,5 +204,28 @@ export function FilePreview({ c, title, text }) {
                 fontFamily: 'ui-monospace, Consolas, monospace', fontSize: 10.5, padding: 8, outline: 'none', whiteSpace: 'pre',
             },
         }),
+    );
+}
+
+/**
+ * An export tab that writes the open design into a coating file: the window's
+ * options with the generated file under them. With no design open there is no
+ * design to write, and while the design uses a material nothing here resolves
+ * the file would carry wrong n,k, so either is said in place of the options.
+ *
+ *   z         the window's strings: exportTitle, exportBlocked(ids), preview
+ *   children  the window's options
+ */
+export function CoatingExportPage({ c, t, z, hasActiveDesign = true, missingMaterialIds, preview, children }) {
+    if (!hasActiveDesign) return h(CenteredMessage, { c, message: t.windowChrome.noDesign });
+    if (missingMaterialIds.length > 0) {
+        return h(PanelSection, { c, title: z.exportTitle },
+            h('div', { role: 'alert', style: { color: c.error, fontSize: 11.5, lineHeight: 1.5 } },
+                z.exportBlocked(missingMaterialIds.join(', '))),
+        );
+    }
+    return h('div', { style: { flex: 1, minHeight: 0, overflow: 'auto', display: 'flex', flexDirection: 'column' } },
+        children,
+        h(FilePreview, { c, title: z.preview, text: preview }),
     );
 }

@@ -828,6 +828,7 @@ export default {
   windowChrome: {
     help: 'Guida per questa finestra (F1)',
     close: 'Chiudi',
+    noDesign: 'Nessun design selezionato. Apri o crea prima un design.',
   },
   windowError: {
     paneTitle: (window) => `La finestra «${window}» si è arrestata per un errore`,

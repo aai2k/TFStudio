@@ -1,14 +1,15 @@
 /**
  * Report window: renders on the analysis frame with the rail, the page and the
  * export strip; a new block copies the settings its source window shows now.
+ * With no design open it reports only the designs picked for it.
  */
 
 import assert from 'node:assert/strict';
 import { renderToStaticMarkup } from 'react-dom/server';
-import { loadApp, makeLocale, makeSampleDesign, makeTheme, shimBrowserGlobals, withDesign } from './_uiShim.mjs';
+import { loadApp, makeDesignCtx, makeLocale, makeSampleDesign, makeTheme, shimBrowserGlobals, withDesign } from './_uiShim.mjs';
 
 shimBrowserGlobals();
-await loadApp();
+const { DesignContext } = await loadApp();
 
 // The source windows' stores register when their modules load, as they do in
 // the app through the window registry.
@@ -139,6 +140,41 @@ assert.ok(blockSummary(W, newBlock('layers', { columns: 2, groupPeriods: true })
   const changed = pageWith(611);
   assert.ok(changed.includes('&gt;611&lt;/td&gt;') && !changed.includes('&gt;523&lt;/td&gt;'),
     'and follows a change made in the window');
+}
+
+// ── No design open ───────────────────────────────────────────────────────────
+// The provider then hands out a placeholder nobody opened. There is no current
+// design, so there is no page and nothing to export; a design picked in the
+// Designs control is still reported, and the placeholder never is.
+{
+  const { reportSession } = await import('../src/components/windows/information/report/sessionState.js');
+  const { makeDefaultDesign } = await import('../src/state/DesignContext.js');
+  const placeholder = makeDefaultDesign();
+  const value = { ...makeDesignCtx(placeholder), hasActiveDesign: false, activeDesignId: null, designs: { [design.id]: design } };
+  const render = () => renderToStaticMarkup(React.createElement(DesignContext.Provider, { value },
+    React.createElement(ReportWindow, { c, t })));
+  // Whether the Export button in the bottom strip is off.
+  const exportOff = html => {
+    const start = html.lastIndexOf('<button', html.indexOf(`</svg>${W.export}<svg`));
+    return /\sdisabled=""/.test(html.slice(start, html.indexOf('>', start)));
+  };
+  const onByDefault = BUILTIN_TEMPLATES['design-record'].blocks.filter(b => b.on !== false).length;
+
+  reportSession.reset();
+  const current = render();
+  assert.ok(!current.includes('<iframe'), 'no design open: no page');
+  assert.ok(current.includes(t.windowChrome.noDesign), 'but the request to open or create a design');
+  assert.ok(current.includes(W.status(onByDefault, 0)), 'the strip counts no design');
+  assert.ok(exportOff(current), 'and Export is off');
+  assert.ok(!current.includes(placeholder.name), 'the placeholder is nowhere');
+
+  reportSession.write(null, { scope: 'selected', selectedIds: [design.id] });
+  const picked = render();
+  assert.ok(picked.includes('<iframe') && picked.includes('tf-page'), 'a picked design is reported with none open');
+  assert.ok(picked.includes(W.status(onByDefault, 1)), 'that one design alone');
+  assert.ok(!exportOff(picked), 'and can be exported');
+  assert.ok(!picked.includes(placeholder.name), 'the placeholder is not among the designs reported');
+  reportSession.reset();
 }
 
 console.log('report_window: ok');

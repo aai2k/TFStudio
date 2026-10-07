@@ -26,6 +26,8 @@ The **Zemax Coatings** window reads and writes Zemax OpticStudio `COATING.DAT` f
 - **Coating name**: the `COAT` record name.
 - **Material sampling grid**: the wavelength range and step at which each material's n,k is tabulated into its `MATE` record.
 
+With no design selected there is nothing to export, and the tab shows nothing but a request to open or create one.
+
 ## A name defined twice
 
 A file can define one material name in more than one `MATE` record. The window matches names without regard to case, so `SiO2` and `SIO2` count as one name. The Materials tab marks each such row with which record of the name it is, for example **2 of 2**, and a notice in the window's top row lists the names.

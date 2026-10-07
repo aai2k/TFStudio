@@ -26,7 +26,7 @@ The **CODE V Coatings** window moves a coating between TFStudio and CODE V. It r
 
 **Angles of incidence, ANG**: up to five angles in the incident medium, each from 0 up to but not including 90 degrees, decimals allowed. An entry outside that range goes back to the angle the field held. The plus button adds one, the cross removes one.
 
-**Generate preview** builds the file and shows it in full; **Save .seq** writes it. A design with a material that cannot be found on this computer cannot be exported until the material is replaced.
+**Generate preview** builds the file and shows it in full; **Save .seq** writes it. A design with a material that cannot be found on this computer cannot be exported until the material is replaced. With no design selected there is nothing to export, and the Export tab shows nothing but a request to open or create one.
 
 ## How to read it
 

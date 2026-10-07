@@ -737,6 +737,8 @@ export default {
   windowChrome: {
     help:  'Help for this window (F1)',
     close: 'Close',
+    // Drawn in place of a window that works on a design while none is open.
+    noDesign: 'No design selected. Open or create a design first.',
   },
   windowError: {
     paneTitle: (window) => `${window} stopped with an error`,

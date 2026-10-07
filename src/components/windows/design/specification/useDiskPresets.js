@@ -82,22 +82,8 @@ async function deletePresetFromDisk(name, { ts, setDiskMsg, setDiskBusy, refresh
     finally { setDiskBusy(false); }
 }
 
-// A preset, built in or saved, goes into the active design. With no design
-// selected the window has a placeholder that nothing keeps, so the preset is
-// refused and the bar says why.
-function refusedWithoutDesign(hasActiveDesign, ts, setDiskMsg) {
-    if (hasActiveDesign !== false) return false;
-    setDiskMsg(ts.noDesign);
-    return true;
-}
-
-// User-saved .tfsq presets (Documents\TFStudio\Qualifiers\), and the message
-// the preset bar shows after its last action. `applyBuiltinPreset` puts a
-// built-in preset into the design; it comes back as `onApplyBuiltinPreset`,
-// refused like a saved one while no design is selected.
-export function useDiskPresets({
-    qualifiers, writeQualifiers, checkpoint, design, hasActiveDesign, ts, setInputDialog, applyBuiltinPreset,
-}) {
+// User-saved .tfsq presets (Documents\TFStudio\Qualifiers\).
+export function useDiskPresets({ qualifiers, writeQualifiers, checkpoint, design, ts, setInputDialog }) {
     const [diskPresets, setDiskPresets] = useState([]);
     const [diskBusy, setDiskBusy]       = useState(false);
     const [diskMsg,  setDiskMsg]        = useState(null);
@@ -114,20 +100,13 @@ export function useDiskPresets({
         qualifiers, design, ts, setInputDialog, setDiskMsg, doSavePreset,
     }), [qualifiers, design, ts, setInputDialog, doSavePreset]);
 
-    const onLoadDiskPreset = useCallback((name, mode) => {
-        if (refusedWithoutDesign(hasActiveDesign, ts, setDiskMsg)) return undefined;
-        return loadPresetFromDisk(name, mode, {
-            qualifiers, writeQualifiers, checkpoint, ts, setDiskMsg, setDiskBusy,
-        });
-    }, [hasActiveDesign, qualifiers, writeQualifiers, checkpoint, ts]);
-
-    const onApplyBuiltinPreset = useCallback((presetId, mode) => {
-        if (!refusedWithoutDesign(hasActiveDesign, ts, setDiskMsg)) applyBuiltinPreset(presetId, mode);
-    }, [hasActiveDesign, applyBuiltinPreset, ts]);
+    const onLoadDiskPreset = useCallback((name, mode) => loadPresetFromDisk(name, mode, {
+        qualifiers, writeQualifiers, checkpoint, ts, setDiskMsg, setDiskBusy,
+    }), [qualifiers, writeQualifiers, checkpoint, ts]);
 
     const onDeleteDiskPreset = useCallback((name) => deletePresetFromDisk(name, {
         ts, setDiskMsg, setDiskBusy, refreshDiskPresets,
     }), [refreshDiskPresets, ts]);
 
-    return { diskPresets, diskBusy, diskMsg, onApplyBuiltinPreset, onSavePreset, onLoadDiskPreset, onDeleteDiskPreset };
+    return { diskPresets, diskBusy, diskMsg, onSavePreset, onLoadDiskPreset, onDeleteDiskPreset };
 }

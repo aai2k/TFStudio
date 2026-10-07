@@ -163,7 +163,9 @@ function buildWizardBody({ step, p, set, materialIds, layers, c, B, t, ctx, desi
 
 export function MonoWizard({ c, t, onClose }) {
     const B = t.monoSim;
-    const { design } = useDesign();
+    const { design: openDesign, hasActiveDesign } = useDesign();
+    // With no design open the provider hands out a placeholder nobody opened.
+    const design = hasActiveDesign ? openDesign : null;
     const [step, setStep] = useState(1);
     const [run, setRun] = useState(null);
 

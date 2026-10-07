@@ -48,15 +48,8 @@ function requestSavePreset(ctx) {
     }
 }
 
-// Read a saved merit function into the table. With no design selected the
-// window has a placeholder that nothing keeps, so there is no table to read it
-// into and the file is not read.
 async function loadPreset(ctx, name, mode) {
     if (!window.electronAPI?.loadMFPreset || !name) return;
-    if (ctx.hasActiveDesign === false) {
-        ctx.setDiskMsg(ctx.te.noDesign);
-        return;
-    }
     ctx.setDiskBusy(true);
     try {
         const result = await window.electronAPI.loadMFPreset(name);
@@ -119,7 +112,7 @@ export function useMeritPresets(options) {
     const onSavePreset = useCallback(() => requestSavePreset({ ...baseContext, doSavePreset }),
         [options.operands.length, options.design, options.setInputDialog, doSavePreset, options.te]);
     const onLoadDiskPreset = useCallback((name, mode) => loadPreset(baseContext, name, mode),
-        [options.setOperands, options.checkpoint, options.hasActiveDesign, options.te]);
+        [options.setOperands, options.checkpoint, options.te]);
     const doDeletePreset = useCallback((name) => deletePreset(baseContext, name), [refreshDiskPresets, options.te]);
     const onDeleteDiskPreset = useCallback((name) => requestDeletePreset({ ...baseContext, doDeletePreset }, name),
         [options.setInputDialog, doDeletePreset, options.te, options.t]);

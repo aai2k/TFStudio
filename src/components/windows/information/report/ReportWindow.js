@@ -12,7 +12,7 @@
  * window with a running header and footer.
  */
 
-import { AnalysisWindow, ControlRow } from '../../analysis/chrome/layout.js';
+import { AnalysisWindow, CenteredMessage, ControlRow } from '../../analysis/chrome/layout.js';
 import { Divider, FieldLabel, ChoiceGroup, SelectField } from '../../analysis/chrome/controls.js';
 import { availableLocales } from '../../../../constants/locales/index.js';
 import { PAPERS } from '../../../../utils/report/template.js';
@@ -38,6 +38,8 @@ export function ReportWindow({ c, t }) {
     const selectedIndex = r.blocks.findIndex(b => b.id === selectedId);
     const selected = selectedIndex >= 0 ? r.blocks[selectedIndex] : null;
     const onCount = r.blocks.filter(b => b.on).length;
+    // None only while no design is open and none is picked.
+    const hasDesigns = r.chosen.length > 0;
 
     return h(AnalysisWindow, { c },
         h(ControlRow, {
@@ -70,7 +72,9 @@ export function ReportWindow({ c, t }) {
                 onToggle: r.toggleBlock, onReorder: r.reorderBlock,
                 onToggleAdd: () => { setAddOpen(open => !open); setSelectedId(null); },
             }),
-            h(Preview, { c, W, html: r.html, error: r.error, paper: r.paper }),
+            hasDesigns
+                ? h(Preview, { c, W, html: r.html, error: r.error, paper: r.paper })
+                : h(CenteredMessage, { c, message: t.windowChrome.noDesign }),
             selected && h(BlockSettingsPanel, {
                 c, W, t, block: selected, index: selectedIndex, count: r.blocks.length, design: r.design,
                 onChange: r.setBlockSettings, onMove: r.moveBlock, onRemove: r.removeBlock,
@@ -79,7 +83,7 @@ export function ReportWindow({ c, t }) {
             addOpen && h(AddBlockMenu, { c, W, design: r.design, onAdd: r.addBlock, onClose: () => setAddOpen(false) }),
         ),
         h(ExportBar, {
-            c, W, summary: W.status(onCount, r.chosen.length), status: r.status, enabled: !!r.html && !r.error,
+            c, W, summary: W.status(onCount, r.chosen.length), status: r.status, enabled: hasDesigns && !!r.html && !r.error,
             onPdf: r.exportPdf, onHtml: r.exportHtml, onCopy: r.copyTables,
         }),
     );

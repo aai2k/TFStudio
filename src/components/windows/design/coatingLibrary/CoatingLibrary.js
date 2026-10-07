@@ -24,7 +24,8 @@ const barStyle = (c, edge) => ({
     padding: '6px 10px', background: c.panel, [edge]: `1px solid ${c.border}`,
 });
 
-function FilterBar({ session, setField, entries, visible, substrates, onSave, onShare, c, ts }) {
+// `saveOff` is why saving the current coating is off, or null while it is on.
+function FilterBar({ session, setField, entries, visible, substrates, saveOff, onSave, onShare, c, ts }) {
     const label = text => h('span', { style: { fontSize: 11, color: c.textDim } }, text);
     return h('div', { style: barStyle(c, 'borderBottom') },
         h(Segmented, {
@@ -60,7 +61,10 @@ function FilterBar({ session, setField, entries, visible, substrates, onSave, on
         }),
         label(ts.count(visible.length, entries.length)),
         h('span', { style: { flex: 1 } }),
-        h('button', { onClick: onSave, title: ts.saveCurrentTip, style: buttonStyle(c) }, ts.saveCurrent),
+        h('button', {
+            onClick: onSave, disabled: !!saveOff, title: saveOff || ts.saveCurrentTip,
+            style: buttonStyle(c, { disabled: !!saveOff }),
+        }, ts.saveCurrent),
         h('button', { onClick: onShare, title: ts.share.buttonTip, style: buttonStyle(c) }, ts.share.button));
 }
 
@@ -153,6 +157,9 @@ export function CoatingLibrary({ c, t }) {
     },
         h(FilterBar, {
             session, setField, entries, visible, substrates,
+            // The current coating is a side of the open design; with none open
+            // there is only the placeholder, which nobody opened.
+            saveOff: hasActiveDesign === false ? t.windowChrome.noDesign : null,
             onSave: () => setSaving(true), onShare: () => setSharing(true), c, ts,
         }),
         h(TagBar, { session, setField, tags, toggleTag, c, ts }),

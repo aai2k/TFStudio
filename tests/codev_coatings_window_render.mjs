@@ -14,7 +14,8 @@
  * are shown as short as the float32 CODE V holds them in allows. The Export
  * tab holds its options in a panel section
  * above the preview, and is blocked while the design has a material this
- * computer cannot resolve, as the Zemax window's is.
+ * computer cannot resolve, as the Zemax window's is. With no design selected it
+ * asks for one in place of all of that.
  *
  * Run: node tests/codev_coatings_window_render.mjs
  */
@@ -191,6 +192,29 @@ assert.ok(text(renderImport(makeSampleDesign(), { ...stack, title: '' })).includ
 
     const tooMany = text(renderToStaticMarkup(React.createElement(ExportTab, { ...props, gStep: 1, missingMaterialIds: [] })));
     assert.ok(tooMany.includes(z.errTooManyWavelengths(301, 100)), 'more than 100 wavelengths is refused on sight');
+}
+
+// ── Export tab, no design selected: a request for one, and nothing else ──────
+// Missing materials are not the reason given: with no design open there is no
+// design to repair.
+{
+    codevCoatingsSession.reset();
+    codevCoatingsSession.write(null, { tab: 'export' });
+    const value = { ...makeDesignCtx(makeSampleDesign()), hasActiveDesign: false };
+    const shown = text(renderToStaticMarkup(React.createElement(DesignContext.Provider, { value },
+        React.createElement(CodevCoatings, { c, t }))));
+    assert.ok(shown.includes(t.windowChrome.noDesign), 'the Export tab asks for a design');
+    for (const part of [z.exportTitle, z.exportHint(2), z.side, z.titleField, z.wavelengths, z.generate, z.saveBtn, z.preview]) {
+        assert.ok(!shown.includes(part), `and shows no ${part}`);
+    }
+    assert.ok(shown.includes(z.tabImport) && shown.includes(z.tabExport), 'the tabs stay');
+
+    const blocked = text(renderToStaticMarkup(React.createElement(ExportTab, {
+        c, t, z, hasActiveDesign: false, missingMaterialIds: ['user_gone_1:X'], preview: '',
+    })));
+    assert.ok(blocked.includes(t.windowChrome.noDesign) && !blocked.includes(z.exportBlocked('user_gone_1:X')),
+        'no design open comes before a missing material');
+    codevCoatingsSession.reset();
 }
 
 console.log('PASS: codev_coatings_window_render');

@@ -122,13 +122,17 @@ export function currentGroupOf(design, resolvedId) {
  * @param {boolean}  [catalogsOnly] hide the open design's own materials, for
  *                   callers that build a stack outside it and resolve ids
  *                   against the catalogs alone
+ *
+ * With no design open there are no design materials to list either: the
+ * placeholder the provider hands out then is nobody's design.
  */
 export function MaterialPicker({ value, onChange, c, t, compact, catalogsOnly }) {
     const mp = t.materialPicker;
     // Read directly rather than through useDesign(): the picker is also mounted
     // by windows that do not sit under a design provider.
     const context = useContext(DesignContext);
-    const design = catalogsOnly ? null : (context?.design || null);
+    const noDesign = catalogsOnly || context?.hasActiveDesign === false;
+    const design = noDesign ? null : (context?.design || null);
     // The trigger's colour, and its name for a catalog material, come from the
     // catalogs, which can change while the value stays the same.
     useCatalogRevision();
