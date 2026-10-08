@@ -20,11 +20,38 @@ The **Settings** panel holds the pulse and the geometry.
 
 **Spectrum**: **Model** builds the spectrum from a shape. **Table** uses a measured or typed spectrum that the design holds.
 
-**Shape**: **Gaussian** or **sech²**, set by **Duration**, the intensity FWHM of the transform-limited pulse in fs; the spectral width it implies is shown beside it. **Super-Gaussian** is set by its spectral **FWHM** in nm and an **Order**: 2 is a Gaussian, and a higher order flattens the top of the spectrum.
+**Shape** (model spectrum only): each shape is a spectrum symmetric in frequency about the centre wavelength, with no phase of its own, so before any GDD or TOD is typed the pulse is the shortest its spectrum allows. Below, Δω is the angular frequency less the carrier's, the spectral intensity is per unit frequency, and the time-bandwidth product is the FWHM in time times the FWHM in frequency ν = ω/2π.
 
-**Load file…** reads a text table into the [curve editor](/data-exchange/measured-spectra/#typing-a-curve-or-changing-its-points): wavelength in the first column, intensity in the second and, when present, the spectral phase in radians in the third. Check the columns and rows there, delete what is not the pulse, and **Apply**. **Edit…** opens the design's spectrum again, or an empty table to type or paste one into. The spectrum is kept with the design and saved in the project.
+| Shape | Set by | Spectral intensity | Transform-limited intensity in time | Time-bandwidth product |
+|---|---|---|---|---|
+| **Gaussian** | Duration τ | `exp(−τ²·Δω² / (4 ln2))` | `exp(−4 ln2 · t²/τ²)` | 0.441 |
+| **sech²** | Duration τ | `sech²(π·T₀·Δω / 2)` | `sech²(t/T₀)`, with τ = 1.763·T₀ | 0.315 |
+| **Super-Gaussian** | FWHM and Order p | `exp(−ln2 · (2·\|Δω\|/W)^p)` | no closed form | 0.441 at p = 2, rising with p |
 
-Wavelength can be in nm, µm, cm⁻¹ or eV. Against nm or µm the intensity is read as a spectrometer records it, per unit wavelength, and converted to intensity per unit frequency, which is what a pulse is built from; against cm⁻¹ or eV it is per unit frequency already. Every row is read as light with the phase given, so a spectrometer's dark baseline left in the table joins the pulse: delete those rows, or set the baseline to zero.
+**Duration** τ is the intensity FWHM of the transform-limited pulse in fs, and the spectral width it gives is shown beside it. A sech² pulse has more light in its wings than a Gaussian of the same duration, and a narrower spectrum.
+
+**FWHM** is the super-Gaussian's spectral intensity FWHM in nm, and W is the same width in angular frequency. The half-maximum points sit at equal frequency offsets either side of the carrier, so against wavelength the spectrum leans slightly towards the red. **Order** p is any number above zero: 2 is the Gaussian, a higher order gives a flatter top and steeper edges, and a lower one a sharper peak with wider wings. Above 2 the pulse gets side lobes in time, a few percent of its peak at high orders, as any flat-topped spectrum gives.
+
+**Table**: **Load file…** reads a text table into the [curve editor](/data-exchange/measured-spectra/#typing-a-curve-or-changing-its-points), where you check the columns and rows, delete what is not the pulse, and **Apply**. **Edit…** opens the design's spectrum again, or an empty table to type or paste one into. The spectrum is kept with the design and saved in the project. The file is read as the measured-spectrum importer reads a text table: any delimiter, a decimal point or comma, and header lines above the numbers ([Spectrum File Formats](/data-exchange/spectrum-file-formats/#delimited-text)).
+
+| Column | What it holds |
+|---|---|
+| Wavelength | nm, µm, cm⁻¹ or eV, read from the header, for example `Wavelength (nm)`, `Wavenumber (cm-1)` or `Energy (eV)`. Without a header the unit is told from the numbers, as for a measured spectrum; eV is read only from a header. Rows may come in any order. |
+| Intensity | Relative: only its shape counts. Against nm or µm it is per unit wavelength, as a spectrometer records it, and is converted to per unit frequency, which a pulse is built from; against cm⁻¹ or eV it is per unit frequency already. A negative value is marked in red and its row left out. |
+| Phase, optional | The spectral phase in rad, on every row or on none. |
+
+The wavelength is the first column, or a column headed Wavelength or Lambda when the first column does not run one way. Of the other columns the first is the intensity and the second the phase, in the order they stand, whatever their headers call them; any further column is ignored. A wavenumber column for visible or near-infrared light, around 12500 cm⁻¹ at 800 nm, is read as nanometres when there is no header: give it a header, or set the unit in the editor before **Apply**. A minimal file:
+
+```
+Wavelength (nm)	Intensity	Phase (rad)
+760	34.8	2.938
+780	462.5	0.620
+800	1000	0
+820	452.6	0.432
+840	53.3	1.416
+```
+
+**Apply** needs two rows with a wavelength above zero and an intensity not below zero, one of them above zero. Between rows the intensity is interpolated in frequency without overshoot and the phase by a smooth cubic; past the first and last rows there is no light. Every row is read as light with the phase given, so a spectrometer's dark baseline left in the table joins the pulse: delete those rows, or set the baseline to zero.
 
 The phase has the sign of GDD: a phase curving upward against frequency is a positive GDD, long wavelengths first. A phase written wrapped into a 2π range (−π to π, or 0 to 2π) is unwrapped; a phase whose values span more than 2π is read as written. Its value and slope at the centre wavelength only set where the pulse sits in time, and are left out. **Apply** sets the centre wavelength to the spectrum's centroid in frequency.
 
