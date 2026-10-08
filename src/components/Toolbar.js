@@ -141,6 +141,13 @@ export const ICONS = {
     'ellipsometry':   I([ P('M3 10q2-5 7 0t7 0'), P('M10 3v14',1.2), P('M3 10h14',1.2) ]),
     'gd-gdd':         I([ P('M2 14l3-4 3 2 3-5 3 3 2-4'), L(2,16,18,16) ]),
     'material-dispersion': I([ P('M2 15l4-7 4 4 4-8 4 5'), L(2,17,18,17), Cf(14,4,1) ]),
+
+    // Pulse Analysis: a pulse envelope with its carrier oscillating inside it.
+    'pulse-analysis': I([
+                          P('M2 16C6 16 7.5 4.5 10 4.5S14 16 18 16',1),
+                          P('M5.5 15.4L7 11.2L8.5 15.4L10 7.2L11.5 15.4L13 11.2L14.5 15.4',1.3),
+                          L(2,17.5,18,17.5,1),
+                      ]),
     'ri-profiler':    I([ R(2,4,4,12), R(6,4,4,12), R(10,4,4,12), R(14,4,4,12) ]),
 
     // Layer Thicknesses: bar chart of uneven heights on a baseline, unlike the
@@ -396,7 +403,7 @@ const TOOL_GROUP = {
     'specification': 'design', 'stack-formula': 'design',
     'preferences': 'information',
     'optical-eval': 'analysis', 'color-eval': 'analysis', 'admittance': 'analysis', 'efield': 'analysis',
-    'ellipsometry': 'analysis', 'gd-gdd': 'analysis', 'material-dispersion': 'analysis', 'ri-profiler': 'analysis', 'layer-thicknesses': 'analysis', 'integral-values': 'analysis',
+    'ellipsometry': 'analysis', 'gd-gdd': 'analysis', 'pulse-analysis': 'analysis', 'material-dispersion': 'analysis', 'ri-profiler': 'analysis', 'layer-thicknesses': 'analysis', 'integral-values': 'analysis',
     'plot-engine': 'analysis', 'error-analysis': 'analysis', 'sensitivity': 'analysis',
     'wavelength-angle-map': 'analysis',
     'inhomogeneities': 'analysis', 'systematic-dev': 'analysis', 'roughness': 'analysis',
@@ -451,7 +458,7 @@ export function makeTabs(t) {
             key: 'analysis', label: tb.tabs.analysis, groups: [
                 grp('general',   ['optical-eval', 'wavelength-angle-map', 'color-eval', 'integral-values',
                                   'admittance', 'efield', 'ri-profiler', 'layer-thicknesses', 'plot-engine']),
-                grp('phase',     ['gd-gdd', 'material-dispersion', 'ellipsometry']),
+                grp('phase',     ['gd-gdd', 'pulse-analysis', 'material-dispersion', 'ellipsometry']),
                 grp('tolerance', ['error-analysis', 'sensitivity', 'inhomogeneities', 'systematic-dev', 'roughness', 'stress']),
             ]
         },

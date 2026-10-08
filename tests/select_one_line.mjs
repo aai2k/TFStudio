@@ -33,6 +33,9 @@ assert.equal(select['white-space'], 'nowrap', 'the label never wraps');
 assert.equal(select.overflow, 'hidden', 'and nothing shows past the box');
 assert.equal(select.display, 'inline-grid', 'a grid, so the label column can shrink');
 assert.match(select['grid-template-columns'] || '', /^minmax\(0,\s*1fr\)\s+\d+px$/, 'label column with no minimum, then the chevron');
+// base-select's own 0.5em gap would sit between the two columns and take 5.5 px
+// from the label: a one-letter label in a narrow select showed as a sliver.
+assert.equal(select['column-gap'], '0', 'no gap between the label and the chevron');
 
 const icon = rule('select::picker-icon');
 assert.equal(icon['background-color'], 'inherit', 'the chevron sits on the field colour over the cut label');

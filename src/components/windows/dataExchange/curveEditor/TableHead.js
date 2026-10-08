@@ -23,9 +23,12 @@ const ROW_NUMBER_WIDTH = 46;
 const X_WIDTH = 80;
 // A label's width at the 11 px the controls are set in, a little over the
 // average character so that a short label is not cut, and what a select's
-// padding, border and chevron and a button's padding and border add to it.
+// and a button's padding and border add to it. A select adds its border, its
+// 5 px left padding and the chevron's 20 px column (styles.css), 27 px, and
+// 3 px more for a label of one wide letter, Ψ or A, which is wider than the
+// average character.
 const CHAR_WIDTH = 6.5;
-const SELECT_CHROME = 26;
+const SELECT_CHROME = 30;
 const BUTTON_CHROME = 20;
 // A heading's padding on each side, the gap between its controls, the colour
 // dot and the remove button.

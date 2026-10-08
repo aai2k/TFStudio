@@ -14,7 +14,9 @@ import { columnSeries, tidy, valueKey } from './curveTable.js';
 import { valueColumnName } from './editorLabels.js';
 import { valueProblem } from './units.js';
 
-const QUANTITY_COLOR = { T: '#2196f3', R: '#ef5350', A: '#66bb6a', PSI: '#4fc3f7', DEL: '#ff8a65', W: '#ab47bc' };
+const QUANTITY_COLOR = {
+    T: '#2196f3', R: '#ef5350', A: '#66bb6a', PSI: '#4fc3f7', DEL: '#ff8a65', W: '#ab47bc', I: '#4fc3f7', PHI: '#ffb74d',
+};
 const SPARE_COLORS = ['#ffb300', '#26a69a', '#ec407a', '#8d6e63', '#7e57c2'];
 
 /** A colour per value column: its quantity's, and a spare one for a second column of that quantity. */

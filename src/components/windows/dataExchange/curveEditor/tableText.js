@@ -167,8 +167,10 @@ const CSV_X_LABEL = {
     [X_UNITS.CM1]: 'Wavenumber (cm-1)',
     [X_UNITS.EV]: 'Photon energy (eV)',
 };
-const CSV_QUANTITY = { T: 'T', R: 'R', A: 'A', PSI: 'Psi', DEL: 'Delta', W: 'weight', G: 'gain_dB' };
-const CSV_UNIT = { '%': ' (%)', fraction: '', dB: ' (dB)', OD: ' (OD)', deg: ' (deg)', rel: '' };
+const CSV_QUANTITY = {
+    T: 'T', R: 'R', A: 'A', PSI: 'Psi', DEL: 'Delta', W: 'weight', G: 'gain_dB', I: 'intensity', PHI: 'phase',
+};
+const CSV_UNIT = { '%': ' (%)', fraction: '', dB: ' (dB)', OD: ' (OD)', deg: ' (deg)', rel: '', rad: ' (rad)' };
 
 /**
  * The table as CSV, its column names written the way the importers read them

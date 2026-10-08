@@ -1,7 +1,7 @@
 /**
  * What a curve editor table becomes when it is applied: curves on the design,
- * built by makeMeasuredCurve exactly as the importers build them, or an
- * Integral Values weighting table.
+ * built by makeMeasuredCurve exactly as the importers build them, an Integral
+ * Values weighting or gain table, or a Pulse Analysis spectrum.
  *
  * makeMeasuredCurve converts the wavelength unit to nm, percent to a fraction
  * and optical density, as absorbance, to transmittance, and sorts the points by
@@ -16,14 +16,45 @@ import { toStored, typedUnitField } from './units.js';
 const QUANTITY_SYMBOL = { T: 'T', R: 'R', A: 'A', PSI: 'Ψ', DEL: 'Δ' };
 
 /**
- * Why the table cannot be applied, or null. 'needTwoRows' is a weighting or a
- * gain with fewer than two complete rows, which have no span between them;
- * 'noPoints' a curve table in which no row has both a wavelength and a value.
+ * Why the table cannot be applied, or null, as the name of its message:
+ *   needTwoRows          a weighting or a gain with fewer than two complete
+ *                        rows, which have no span between them
+ *   needTwoSpectrumRows  a pulse spectrum with fewer than two rows Pulse
+ *                        Analysis reads: a wavelength above zero and an
+ *                        intensity not below zero
+ *   noSpectrumLight      a pulse spectrum whose intensity is zero on every row
+ *   phaseGaps            a pulse spectrum with a phase on some of its rows and
+ *                        not on others: a phase is given for every row or none
+ *   noPoints             a curve table in which no row has both a wavelength
+ *                        and a value
  */
 export function applyProblem(table) {
+    if (table.kind === 'pulse') return pulseProblem(table);
     const counts = table.columns.map((_, index) => columnSeries(table, index).x.length);
     if (isValueTable(table.kind)) return counts[0] >= 2 ? null : 'needTwoRows';
     return counts.some(count => count > 0) ? null : 'noPoints';
+}
+
+// The rows a pulse spectrum keeps: a wavelength and an intensity.
+const pulseRows = table => table.rows.filter(row => Number.isFinite(row[0]) && Number.isFinite(row[1]));
+
+function pulseProblem(table) {
+    const kept = pulseRows(table);
+    const read = kept.filter(row => row[0] > 0 && row[1] >= 0);
+    if (read.length < 2) return 'needTwoSpectrumRows';
+    if (!read.some(row => row[1] > 0)) return 'noSpectrumLight';
+    const phased = kept.filter(row => Number.isFinite(row[2])).length;
+    return phased === 0 || phased === kept.length ? null : 'phaseGaps';
+}
+
+/**
+ * A pulse spectrum table as Pulse Analysis keeps it on the design, in the units
+ * it was typed in: { xUnit, rows: [[x, intensity, phase]], source }, rows with
+ * a wavelength and an intensity only, in ascending x, a phase left out as null.
+ */
+export function pulseSpectrumFromTable(table) {
+    const rows = sortedRows(pulseRows(table)).map(row => [row[0], row[1], Number.isFinite(row[2]) ? row[2] : null]);
+    return { xUnit: table.xUnit, rows, ...(table.source ? { source: table.source } : {}) };
 }
 
 // Units makeMeasuredCurve has no flag for, converted to a fraction here; it

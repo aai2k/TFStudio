@@ -19,7 +19,7 @@ Any `λ, value` table, whatever the extension: `.csv`, `.txt`, `.asc`, `.dat`,
 | --- | --- |
 | Delimiter | Comma, semicolon, tab, or runs of spaces |
 | Decimal separator | Point or comma. `400,5;88,51` reads correctly |
-| Wavelength unit | Nanometres, micrometres, or wavenumber in cm⁻¹ |
+| Wavelength unit | Nanometres, micrometres, or wavenumber in cm⁻¹, from the header or, without one, from the numbers: mostly under 60 is µm, past 30000 is cm⁻¹, anything else nm. Photon energy in eV only from a header |
 | Quantity | Transmittance, reflectance, absorptance |
 | Y scale | Fraction, percentage, or absorbance |
 
@@ -42,8 +42,8 @@ layouts are read as intended:
 - **A commented-out header.** A leading `;`, `#` or `//` is a marker, not a
   column, whether it stands on its own or is written against the first name,
   as in `#ROIidx`.
-- **The wavelength column need not be first.** A column named Wavelength or
-  Lambda is the axis wherever it sits.
+- **The wavelength column need not be first.** When the first column does not
+  run one way, a column named Wavelength or Lambda is the axis wherever it sits.
 - **Quoted names.** `"Wavelength nm.","R%"` imports as reflectance.
 - **Either spelling of a percentage.** `%T` and `T%` both mean transmittance.
 

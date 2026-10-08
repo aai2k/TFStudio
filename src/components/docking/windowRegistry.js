@@ -50,6 +50,7 @@ import { EFieldEvaluation } from '../windows/analysis/eFieldEvaluation/EFieldEva
 import { EllipsometryEvaluation } from '../windows/analysis/ellipsometryEvaluation/EllipsometryEvaluation.js';
 import { GDGDDEvaluation } from '../windows/analysis/gdGddEvaluation/GDGDDEvaluation.js';
 import { MaterialDispersionEvaluation } from '../windows/analysis/materialDispersion/MaterialDispersionEvaluation.js';
+import { PulseAnalysis } from '../windows/analysis/pulseAnalysis/PulseAnalysis.js';
 import { RefractiveIndexProfiler } from '../windows/analysis/refractiveIndexProfiler/RefractiveIndexProfiler.js';
 import { LayerThicknesses } from '../windows/analysis/layerThicknesses/LayerThicknesses.js';
 import { LayerSensitivity } from '../windows/analysis/layerSensitivity/LayerSensitivity.js';
@@ -98,6 +99,7 @@ export const WINDOW_REGISTRY = {
   'efield':          { component: EFieldEvaluation,          title: 'Electric Field',              label: 'Electric Field: |E(z)|² vs depth',                                help: 'analysis/efield', theme: true, requiresDesign: true, requiresResolvedMaterials: true },
   'ellipsometry':    { component: EllipsometryEvaluation,    title: 'Ellipsometry',                label: 'Ellipsometry: Ψ(λ) and Δ(λ)',                                     help: 'analysis/ellipsometry', theme: true, requiresDesign: true, requiresResolvedMaterials: true },
   'gd-gdd':          { component: GDGDDEvaluation,           title: 'Group Delay / GDD',           label: 'Group Delay / GDD: dispersion',                                   help: 'analysis/gd-gdd', theme: true, requiresDesign: true, requiresResolvedMaterials: true },
+  'pulse-analysis':  { component: PulseAnalysis,             title: 'Pulse Analysis',              label: 'Pulse Analysis: an ultrashort pulse off or through the coating',  help: 'analysis/pulse-analysis', theme: true, requiresDesign: true, requiresResolvedMaterials: true },
   // Plots a material picked from the catalogs, not the design's stack.
   'material-dispersion': { component: MaterialDispersionEvaluation, title: 'Material Dispersion', label: 'Material Dispersion: bulk phase, GD, GDD, and TOD', help: 'analysis/material-dispersion', theme: true },
   'ri-profiler':     { component: RefractiveIndexProfiler,   title: 'RI Profiler',                 label: 'RI Profiler: n(z) and k(z)',                                      help: 'analysis/refractive-index-profile', theme: true, requiresDesign: true, requiresResolvedMaterials: true },

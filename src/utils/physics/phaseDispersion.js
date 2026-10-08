@@ -38,5 +38,5 @@ export {
 
 export {
     createDesignPhaseDispersionEvaluator, evaluateDesignPhaseDispersion,
-    evaluateTotalTransmissionDispersion,
+    createTotalTransmissionDispersionEvaluator, evaluateTotalTransmissionDispersion,
 } from './phaseDispersion/designEvaluator.js';

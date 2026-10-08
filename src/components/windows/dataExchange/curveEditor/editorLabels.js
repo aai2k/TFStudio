@@ -1,12 +1,12 @@
 /**
  * What the curve editor calls its quantities, units and columns. Symbols and
- * units (T, R, A, Ψ, Δ, %, dB, OD, °) are written as they are in every
- * language; only the words come from the locale.
+ * units (T, R, A, Ψ, Δ, I, φ, %, dB, OD, °, rad) are written as they are in
+ * every language; only the words come from the locale.
  */
 import { X_KEY, columnIndex } from './curveTable.js';
 
-const QUANTITY_SYMBOL = { T: 'T', R: 'R', A: 'A', PSI: 'Ψ', DEL: 'Δ' };
-const UNIT_SYMBOL = { gain: 'dB', '%': '%', fraction: '0-1', dB: 'dB', OD: 'OD', deg: '°' };
+const QUANTITY_SYMBOL = { T: 'T', R: 'R', A: 'A', PSI: 'Ψ', DEL: 'Δ', I: 'I', PHI: 'φ' };
+const UNIT_SYMBOL = { gain: 'dB', '%': '%', fraction: '0-1', dB: 'dB', OD: 'OD', deg: '°', rad: 'rad' };
 
 /** A unit as the editor names it: its symbol, or the locale's word for it. */
 export function unitName(ce, id) {
