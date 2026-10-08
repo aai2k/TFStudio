@@ -44,7 +44,7 @@ export function makeDefaultCurve(defaults = {}) {
         aoiFixed_deg:   0,
         rangeFrom: 400,
         rangeTo:   800,
-        rangeStep: 5,
+        rangeStep: 0.5,
         color,
         dash: 'solid',
         width: 2,

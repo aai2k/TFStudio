@@ -28,7 +28,7 @@ export const meritWizardSession = createWindowSession({
     aoiSteps: 3,
     pol: 'avg',
     targetMode: 'continuous',
-    stepNm: 1,
+    stepNm: 0.5,
     minEnabled: true,
     maxEnabled: true,
     minThick: 40,

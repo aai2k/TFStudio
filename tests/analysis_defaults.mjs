@@ -99,7 +99,7 @@ function ok(condition, message) {
   ok(resolved.booleans.yAuto === false, 'unstored boolean resolves to the factory value');
 
   ok(resolved.numbers.lambdaStart === 400 && resolved.numbers.lambdaEnd === 800
-    && resolved.numbers.lambdaStep === 2, 'the spectral range resolves to its factory values');
+    && resolved.numbers.lambdaStep === 0.5, 'the spectral range resolves to its factory values');
   ok(resolved.enums.spectralUnit === 'nm', 'the spectral unit defaults to nm');
   ok(resolved.lists.thetas.length === 1 && resolved.lists.thetas[0] === 0,
     'and the angle list to a single normal-incidence entry');
@@ -136,7 +136,7 @@ function ok(condition, message) {
   // Out of range falls back rather than clamping: a 0 nm step would hang a sweep.
   const badStep = resolveAnalysisSettings('opticalEvaluation',
     { opticalEvaluation: { numbers: { lambdaStep: 0 } } });
-  ok(badStep.numbers.lambdaStep === 2, 'an out-of-range step falls back to the default, not the minimum');
+  ok(badStep.numbers.lambdaStep === 0.5, 'an out-of-range step falls back to the default, not the minimum');
 
   // A wavelength and a step have no bound but zero.
   const far = resolveAnalysisSettings('opticalEvaluation',
@@ -145,7 +145,7 @@ function ok(condition, message) {
     'a stored range from 13.5 nm to 125 µm at 0.001 nm is used as stored');
   const negative = resolveAnalysisSettings('ellipsometryEvaluation',
     { ellipsometryEvaluation: { numbers: { lambdaStart: -400, lambdaStep: -2 } } });
-  ok(negative.numbers.lambdaStart === 400 && negative.numbers.lambdaStep === 2,
+  ok(negative.numbers.lambdaStart === 400 && negative.numbers.lambdaStep === 0.5,
     'a negative wavelength or step falls back to the default');
 
   // A list is all-or-nothing: one unusable angle and the shipped list is kept.
@@ -333,7 +333,7 @@ function ok(condition, message) {
 // the same declaration read twice.
 {
   const oe = sessionDefaults('opticalEvaluation');
-  ok(oe.lambdaStart === 400 && oe.lambdaEnd === 800 && oe.lambdaStep === 2,
+  ok(oe.lambdaStart === 400 && oe.lambdaEnd === 800 && oe.lambdaStep === 0.5,
     'the spectral range comes out of the registry');
   ok(oe.spectralUnit === 'nm', 'and so does the unit it is entered in');
   ok(Array.isArray(oe.thetas) && oe.thetas.length === 1 && oe.thetas[0] === 0,

@@ -133,7 +133,7 @@ export const ANALYSIS_DEFAULTS = {
     numbers: {
       lambdaStart: { def: 400, positive: true, step: 1 },
       lambdaEnd:   { def: 800, positive: true, step: 1 },
-      lambdaStep:  { def: 2,   positive: true, step: 0.1 },
+      lambdaStep:  { def: 0.5, positive: true, step: 0.1 },
       // Match the bounds enforced by Optical Evaluation's own axis controls.
       yMin: { def: 0,   min: -10, max: 200, step: 5 },
       yMax: { def: 100, min: -10, max: 200, step: 5 },
@@ -160,7 +160,7 @@ export const ANALYSIS_DEFAULTS = {
     // the field takes anything up to 89°.
     numbers: {
       ...lambdaRange(400, 800),
-      lambdaStep: { def: 2, positive: true, step: 0.5 },
+      lambdaStep: { def: 0.5, positive: true, step: 0.5 },
       angleStart: { def: 0, min: 0, max: 89, step: 5 },
       angleEnd: { def: 60, min: 0, max: 89, step: 5 },
       angleStep: { def: 1, min: 0.05, max: 45, step: 0.5 },
@@ -192,7 +192,7 @@ export const ANALYSIS_DEFAULTS = {
       theta: AOI,
       // Step of the spectrum the colour is integrated on, nm. A feature
       // narrower than the step is not seen, so it starts fine.
-      step: { def: 1, positive: true, step: 1 },
+      step: { def: 0.5, positive: true, step: 1 },
     },
     enums: {
       characteristic: { def: 'R', options: ['R', 'T'] },
@@ -269,7 +269,7 @@ export const ANALYSIS_DEFAULTS = {
     colors: { psi: '#4fc3f7', delta: '#ef5350' },
     numbers: {
       ...lambdaRange(400, 800),
-      lambdaStep: { def: 2, positive: true, step: 0.5 },
+      lambdaStep: { def: 0.5, positive: true, step: 0.5 },
       thetaDeg: { def: 65, min: 0, max: 89, step: 1 },
       angleStart: { def: 45, min: 0, max: 89, step: 1 },
       angleEnd: { def: 80, min: 0, max: 89, step: 1 },
@@ -367,7 +367,7 @@ export const ANALYSIS_DEFAULTS = {
     // integrals include solar-weighted ones, which need the whole AM1.5 range.
     numbers: {
       ...lambdaRange(300, 2500),
-      lambdaStep: { def: 5, positive: true, step: 0.5 },
+      lambdaStep: { def: 0.5, positive: true, step: 0.5 },
       theta: AOI,
     },
     enums: { polarization: POL },
@@ -430,7 +430,7 @@ export const ANALYSIS_DEFAULTS = {
     colors: { T: '#4fc3f7', R: '#ef5350', A: '#66bb6a' },
     numbers: {
       ...lambdaRange(400, 800),
-      lambdaStep: { def: 5, positive: true, step: 0.5 },
+      lambdaStep: { def: 0.5, positive: true, step: 0.5 },
       theta: AOI,
       nTrials: { def: 200, min: 1, max: 100000, step: 50 },
       corridorSigma: { def: 1.0, min: 0.1, max: 10, step: 0.5 },
@@ -458,7 +458,7 @@ export const ANALYSIS_DEFAULTS = {
     },
     numbers: {
       ...lambdaRange(400, 800),
-      lambdaStep: { def: 2, positive: true, step: 0.5 },
+      lambdaStep: { def: 0.5, positive: true, step: 0.5 },
       aoi: AOI,
     },
     booleans: { showEditor: true, showTable: false },
@@ -468,7 +468,7 @@ export const ANALYSIS_DEFAULTS = {
     colors: { T: '#4fc3f7', R: '#ef5350', A: '#66bb6a' },
     numbers: {
       ...lambdaRange(400, 800),
-      lambdaStep: { def: 5, positive: true, step: 0.5 },
+      lambdaStep: { def: 0.5, positive: true, step: 0.5 },
       aoi: { ...AOI, step: 5 },
     },
     enums: {
@@ -495,7 +495,7 @@ export const ANALYSIS_DEFAULTS = {
     },
     numbers: {
       ...lambdaRange(400, 800),
-      lambdaStep: { def: 2, positive: true, step: 0.5 },
+      lambdaStep: { def: 0.5, positive: true, step: 0.5 },
       aoi: AOI,
     },
     enums: { units: { def: 'ppm', options: ['ppm', 'frac'] } },

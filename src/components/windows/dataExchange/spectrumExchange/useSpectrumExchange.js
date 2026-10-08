@@ -154,7 +154,7 @@ export function useSpectrumExchange(sx, ce) {
     });
     const [dStart, setDStart] = useState(evalParams?.lambdaStart ?? 400);
     const [dEnd, setDEnd] = useState(evalParams?.lambdaEnd ?? 800);
-    const [dStep, setDStep] = useState(evalParams?.lambdaStep ?? 2);
+    const [dStep, setDStep] = useState(evalParams?.lambdaStep ?? 0.5);
     const [dAoi, setDAoi] = useState((evalParams?.thetas?.length ? evalParams.thetas : [0]).join(', '));
     const [dQ, setDQ] = useState({ T: true, R: true, A: true });
     const [dSP, setDSP] = useState(false);

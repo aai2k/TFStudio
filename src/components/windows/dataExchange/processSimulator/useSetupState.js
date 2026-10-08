@@ -20,7 +20,7 @@ export function useSetupState() {
     const [polarization, setPolarization] = useState(persisted.polarization || 'avg');
     const [lambdaStart, setLambdaStart] = useState(persisted.lambdaStart || 400);
     const [lambdaEnd, setLambdaEnd] = useState(persisted.lambdaEnd || 1100);
-    const [lambdaStep, setLambdaStep] = useState(persisted.lambdaStep || 2);
+    const [lambdaStep, setLambdaStep] = useState(persisted.lambdaStep || 0.5);
     const [exportStep, setExportStep] = useState(persisted.exportStep || 0.5);
     // What a save writes: format, file layout, header and number options.
     const [output, setOutput] = useState(() => persistedOutput(persisted));

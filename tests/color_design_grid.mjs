@@ -15,7 +15,7 @@
  *   - A response of 1 everywhere is the reference white of the same grid.
  *   - In the Color window and the report, Δλ is the step of the spectrum the
  *     colour is computed on, and every point of it is counted.
- *   - Both start from the same Δλ, 1 nm, taken from the analysis registry.
+ *   - Both start from the same Δλ, 0.5 nm, taken from the analysis registry.
  *
  * Run: node tests/color_design_grid.mjs
  */
@@ -128,13 +128,13 @@ check('the report colour block integrates every point of its Δλ grid', () => {
     }
 });
 
-check('the window and the report start at Δλ = 1 nm and agree', () => {
+check('the window and the report start at Δλ = 0.5 nm and agree', () => {
     const shipped = sessionDefaults('colorEvaluation');
     const block = withDefaults('color', {});
-    assert.equal(shipped.step, 1, 'the window ships a 1 nm grid');
+    assert.equal(shipped.step, 0.5, 'the window ships a 0.5 nm grid');
     assert.equal(block.step, shipped.step, 'a new report block starts from the window registry');
     const fromWindow = windowColor({ step: shipped.step }).XYZ;
-    assertXYZ(fromWindow, onGrid(1), 1e-9, 'window at its shipped Δλ');
+    assertXYZ(fromWindow, onGrid(0.5), 1e-9, 'window at its shipped Δλ');
     assertXYZ(computeColor(design, withDefaults('color', { characteristic: 'T' })).report.XYZ,
         fromWindow, 1e-9, 'report at its shipped Δλ');
 });

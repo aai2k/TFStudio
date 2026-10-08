@@ -79,11 +79,11 @@ const SETTINGS_DEFAULTS = {
   color:        () => pick(sessionDefaults('colorEvaluation'), COLOR_EVALUATION_KEYS),
   integrals:    () => ({ theta: 0, polarization: 'avg' }),
   gdGdd:        () => ({
-    lambdaStart: 400, lambdaEnd: 800, lambdaStep: 1, theta: 0, target: 'R', pol: 'avg', side: 'front',
+    lambdaStart: 400, lambdaEnd: 800, lambdaStep: 0.5, theta: 0, target: 'R', pol: 'avg', side: 'front',
     quantities: { phase: false, gd: true, gdd: true, cdc: false, tod: false }, plot: 'm', tableStep: 0,
   }),
   ellipsometry: () => ({
-    lambdaStart: 400, lambdaEnd: 800, lambdaStep: 5, thetas: [65],
+    lambdaStart: 400, lambdaEnd: 800, lambdaStep: 0.5, thetas: [65],
     showPsi: true, showDelta: true, plot: 'm', tableStep: 0,
   }),
   efield:       () => ({

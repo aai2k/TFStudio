@@ -20,10 +20,7 @@ zero and `T + R = 100 %`.
 
 ## Settings
 
-**Wavelength range and step**: the span and sampling resolution of the plot,
-in nanometres. The default is 400–800 nm. Use a step of 0.5 nm or finer near
-narrow features such as bandpass notches, where a coarse grid can skip over a
-deep dip.
+**Wavelength range and step**: the span and sampling resolution of the plot, in nanometres. The default is 400–800 nm in 0.5 nm steps. Go finer near narrow features such as bandpass notches, where a coarse grid can skip over a deep dip.
 
 **Axis units**: relabels the horizontal axis in nm, µm, cm⁻¹ (wavenumber),
 THz or eV. This is a display choice only: the underlying sampling always stays

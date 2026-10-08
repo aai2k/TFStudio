@@ -39,7 +39,7 @@ export const measuredEllipsometryView = createWindowSession({
     expXUnit: X_UNITS.NM,
     expStart: 300,
     expEnd: 900,
-    expStep: 5,
+    expStep: 0.5,
     expAoi: 70,
     // The sign the calculated export writes Δ in: the one the instrument's
     // software reads, which is a separate choice from the sign an opened file
