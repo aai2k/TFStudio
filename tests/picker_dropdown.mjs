@@ -384,4 +384,15 @@ assert.match(pickerSource, /!triggerRef\.current\?\.contains\(e\.target\)\) setO
 assert.match(pickerSource, /setCatFilter\('all'\);[\s\S]{0,120}setOpen\(true\);/,
     'opening always shows the full list; the current group is marked, never used as the filter');
 
+// ── The trigger carries the chevron a select has ─────────────────────────────
+{
+    const { renderToStaticMarkup } = await import('react-dom/server');
+    const { PickerDropdown } = await import('../src/components/ui/PickerDropdown.js');
+    const html = renderToStaticMarkup(React.createElement(PickerDropdown, {
+        value: 'i0', onChange: () => {}, c: makeTheme(), triggerLabel: 'SiO2', groups: [],
+    }));
+    assert.ok(html.includes('class="tf-caret"'), 'the closed picker shows the select chevron');
+    assert.ok(!html.includes('▾'), 'not a typed glyph');
+}
+
 console.log('PASS: picker_dropdown');

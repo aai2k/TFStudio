@@ -250,7 +250,8 @@ function triggerEl(s) {
     },
         triggerColor != null && h('span', { style: dotStyle(triggerColor) }),
         h('span', { style: { flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' } }, triggerLabel),
-        h('span', { style: { color: c.textDim, fontSize: 10, flexShrink: 0 } }, '▾')
+        // The chevron every select and menu button carries (styles.css).
+        h('span', { className: open ? 'tf-caret tf-caret-open' : 'tf-caret' })
     );
 }
 

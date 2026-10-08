@@ -71,7 +71,7 @@ assert.ok(html.includes(`</svg>${t.meritFunctionEditor.addOperand}</span></butto
 assert.ok(html.includes(`</svg>${t.meritFunctionEditor.deleteOperand}</span></button>`));
 // Type and Pol are text like every other value cell: no picker trigger or
 // dropdown sits in a row until the cell is being edited.
-assert.ok(!html.includes('▾'), 'no picker trigger in any row');
+assert.ok(!html.includes('▾') && !html.includes('tf-caret'), 'no picker trigger in any row');
 assert.match(html, />R<\/td>/, 'the type code is the cell text');
 assert.match(html, />avg<\/td>/, 'the polarization is the cell text');
 assert.match(html, />BLNK<\/td>/, 'a comment row shows its type as text too');
