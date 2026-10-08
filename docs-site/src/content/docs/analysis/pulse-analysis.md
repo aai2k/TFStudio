@@ -26,7 +26,7 @@ The **Settings** panel holds the pulse and the geometry.
 
 Wavelength can be in nm, µm, cm⁻¹ or eV. Against nm or µm the intensity is read as a spectrometer records it, per unit wavelength, and converted to intensity per unit frequency, which is what a pulse is built from; against cm⁻¹ or eV it is per unit frequency already. Every row is read as light with the phase given, so a spectrometer's dark baseline left in the table joins the pulse: delete those rows, or set the baseline to zero.
 
-The phase has the sign of GDD: a phase curving upward against frequency is a positive GDD, long wavelengths first. A phase written wrapped into one turn is unwrapped; a phase that spans more than a turn is read as written. Its value and slope at the centre wavelength only set where the pulse sits in time, and are left out. **Apply** sets the centre wavelength to the spectrum's centroid in frequency.
+The phase has the sign of GDD: a phase curving upward against frequency is a positive GDD, long wavelengths first. A phase written wrapped into a 2π range (−π to π, or 0 to 2π) is unwrapped; a phase whose values span more than 2π is read as written. Its value and slope at the centre wavelength only set where the pulse sits in time, and are left out. **Apply** sets the centre wavelength to the spectrum's centroid in frequency.
 
 **Centre λ**: the carrier wavelength. A model spectrum is centred on it. A spectrum from the design does not move with it: there it is the point the typed GDD and TOD and the spectrum's own phase are taken about, and the spectrum's centroid is shown beside it. Selecting another design with a spectrum moves it to that spectrum's centroid.
 
