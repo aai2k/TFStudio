@@ -13,6 +13,11 @@ const HOLD_REPEAT_MS = 50;
 const NOTCH_PX = 100;
 const LINE_PX = NOTCH_PX / 3;
 
+// Ticks within one wheel spin arrive tens of milliseconds apart, so a second
+// without one ends the scroll. The same pause ends a burst of thickness steps
+// (useThicknessStep.js).
+const SCROLL_GAP_MS = 1000;
+
 // Ctrl on Windows and Linux, Cmd on a Mac.
 const stepModifiers = event => ({
     shiftKey: event.shiftKey,
@@ -54,12 +59,36 @@ export function wheelTicks(travel, carry) {
     return { ticks, carry: ticks ? 0 : total };
 }
 
+const scrollLatches = new WeakMap();
+
+/**
+ * When the wheel last scrolled rather than stepped, per document. A wheel event
+ * no thickness cell took is left to scroll; a press anywhere ends that scroll,
+ * so a cell clicked straight after it steps at the next tick.
+ */
+function scrollLatch(doc) {
+    let latch = scrollLatches.get(doc);
+    if (!latch) {
+        const created = { lastScroll: -Infinity };
+        doc.addEventListener('wheel', event => {
+            if (!event.defaultPrevented) created.lastScroll = event.timeStamp;
+        }, { passive: true });
+        doc.addEventListener('pointerdown', () => { created.lastScroll = -Infinity; },
+            { capture: true, passive: true });
+        scrollLatches.set(doc, created);
+        latch = created;
+    }
+    return latch;
+}
+
 /**
  * Steps a thickness with the mouse wheel while the pointer is over the element
- * in `ref`, calling `onStep(ticks, modifiers)`. The listener is registered
- * directly, not through React, because React's wheel handlers are passive and
- * cannot call preventDefault, which is what stops the list scrolling, and
- * Ctrl+wheel zooming the page, under a step.
+ * in `ref`, calling `onStep(ticks, modifiers)`. A wheel still scrolling the
+ * list scrolls on when the element is carried under the pointer, and steps it
+ * only after a pause or a click. The listener is registered directly, not
+ * through React, because React's wheel handlers are passive and cannot call
+ * preventDefault, which is what stops the list scrolling, and Ctrl+wheel
+ * zooming the page, under a step.
  */
 export function useWheelStep(ref, enabled, onStep) {
     const onStepRef = useRef(onStep);
@@ -67,10 +96,12 @@ export function useWheelStep(ref, enabled, onStep) {
     useEffect(() => {
         const element = ref.current;
         if (!enabled || !element) return undefined;
+        const latch = scrollLatch(element.ownerDocument);
         let carry = 0;
         const handleWheel = event => {
             const travel = wheelTravel(event);
             if (!travel || editOpen(element)) return;
+            if (event.timeStamp - latch.lastScroll < SCROLL_GAP_MS) return;
             event.preventDefault();
             const result = wheelTicks(travel, carry);
             carry = result.carry;

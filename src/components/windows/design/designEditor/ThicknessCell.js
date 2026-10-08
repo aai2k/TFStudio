@@ -168,8 +168,9 @@ function useThicknessEdit({ locked, valueText, toNm, setHover,
 // material travels inside the design converts with that definition. An optical
 // unit of a material that resolves nowhere has no value to show and shows a
 // dash; typing into it commits nothing, and it has no arrows to step with.
-// `onStep(ticks, modifiers)` steps the value from the arrows and the wheel;
-// `stepTitles` holds the arrows' `up` and `down` tooltips.
+// `onStep(ticks, modifiers)` steps the value from the arrows, and from the wheel
+// while the cell is `active`; `stepTitles` holds the arrows' `up` and `down`
+// tooltips.
 export function ThicknessCell({ value_nm, onChange, locked, c, materialId, refLambda,
     unit, primary, active = false, editRequest = 0, editSeed = null,
     onActivate, onNavigate, onExit, designMaterials, onStep, stepTitles }) {
@@ -185,7 +186,10 @@ export function ThicknessCell({ value_nm, onChange, locked, c, materialId, refLa
         toNm: raw => thicknessEntryToNm(raw, materialId, refLambda, unit, designMaterials),
     });
     const steppable = hasValue && !locked && !!onStep;
-    useWheelStep(displayRef, steppable && !edit.editing, onStep);
+    // Only the active cell, the outlined one in the selected row, takes the
+    // wheel. Over any other the wheel scrolls the list, so scrolling past a
+    // column of thicknesses changes none of them.
+    useWheelStep(displayRef, steppable && active && !edit.editing, onStep);
 
     if (edit.editing) {
         return thicknessCellInput({ ...edit, onActivate, c });
