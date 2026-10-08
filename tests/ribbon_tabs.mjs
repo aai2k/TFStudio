@@ -213,6 +213,14 @@ assert.ok(!withoutHandler.includes(`title="${esc(t.toolbar.tooltips['save'])}"`)
 assert.equal((titleBar.match(/<button/g) || []).length, QUICK_ACCESS.length + 3,
     'an idle update badge must not render at all');
 
+// Refresh all is a fixed button of its own, beside quick access rather than in it.
+const withRefresh = renderToStaticMarkup(React.createElement(TitleBar, {
+    c, t, activeDesign: null, isDirty: false, onToolAction: () => {}, onRefreshAll: () => {},
+}));
+assert.ok(withRefresh.includes(`title="${esc(t.titleBar.refreshAll)}"`), 'the Refresh all button is missing');
+assert.equal((withRefresh.match(/<button/g) || []).length, QUICK_ACCESS.length + 4,
+    'Refresh all adds one button and takes nothing from quick access');
+
 // ── Ribbon search ─────────────────────────────────────────────────────────────
 
 // A tool is findable by name from any tab, and the hit says where it lives.

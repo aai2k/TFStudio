@@ -431,6 +431,9 @@ export default {
       oldStillThere: 'The previous data folder could not be removed. You can delete it manually later.',
     },
   },
+  titleBar: {
+    refreshAll: 'Refresh all: read the project and material folders again and recompute every open window',
+  },
   update: {
     availableTitle: 'A new version is available',
     versions: (current, latest) => `You have ${current}. The latest release is ${latest}.`,

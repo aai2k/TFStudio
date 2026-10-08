@@ -1,4 +1,5 @@
 import { computeSpectrum, computeStepSpectra } from './model.js';
+import { useRefreshRevision } from '../../../../state/refreshAll.js';
 
 const { useMemo } = React;
 
@@ -27,7 +28,11 @@ function spectrumMedia(deposition) {
 export function useSpectra(design, setup, deposition) {
     // The piece is read in air, so the design's media are not part of the
     // key; the chip plan and the chip glass are, since they change the stack.
+    // Refresh all is too: the materials may have been read again with other
+    // n,k under the same ids.
+    const refreshRevision = useRefreshRevision();
     const spectrumKey = useMemo(() => JSON.stringify({
+        refreshRevision,
         activeSide: setup.activeSide,
         secondSurface: setup.secondSurface,
         quantity: setup.quantity,
@@ -46,7 +51,7 @@ export function useSpectra(design, setup, deposition) {
     }), [setup.activeSide, setup.secondSurface, setup.quantity, setup.aoi,
         setup.polarization, setup.lambdaStart, setup.lambdaEnd, setup.lambdaStep,
         deposition.activeDep, deposition.otherDep, deposition.chips, deposition.substrateMat,
-        design, deposition.N]);
+        design, deposition.N, refreshRevision]);
 
     const common = {
         activeDep: deposition.activeDep,

@@ -426,6 +426,9 @@ export default {
       oldStillThere: '之前的数据文件夹无法删除，您可以稍后手动删除。',
     },
   },
+  titleBar: {
+    refreshAll: '全部刷新：重新读取项目和材料文件夹，并重新计算所有打开的窗口',
+  },
   update: {
     availableTitle: '有新版本可用',
     versions: (current, latest) => `您当前版本为 ${current}。最新发布版本为 ${latest}。`,

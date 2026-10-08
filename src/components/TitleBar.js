@@ -7,8 +7,9 @@ import { UpdateBadge } from './ui/UpdateBadge.js';
 import { useUpdate } from './ui/UpdateContext.js';
 import { ICONS } from './Toolbar.js';
 import { DEFAULT_QUICK_ACCESS } from './dialogs/settings/QuickAccessPane.js';
+import { tablerIcon } from './ui/tablerIcons.js';
 
-function QuickBtn({ id, title, c, onClick }) {
+function QuickBtn({ id, title, c, onClick, icon = ICONS[id] }) {
   const [hov, setHov] = React.useState(false);
   return React.createElement('button', {
     onClick, title,
@@ -22,10 +23,10 @@ function QuickBtn({ id, title, c, onClick }) {
       color: c.text, cursor: 'pointer', outline: 'none',
       transition: 'background-color 0.1s'
     }
-  }, ICONS[id]);
+  }, icon);
 }
 
-export function TitleBar({ c, activeDesign, isDirty, t, onToolAction, quickAccess }) {
+export function TitleBar({ c, activeDesign, isDirty, t, onToolAction, quickAccess, onRefreshAll }) {
   // Which tools sit here is a preference; the shipped list stands until the user
   // changes it. An empty list is a choice and is left empty.
   const quickTools = Array.isArray(quickAccess) ? quickAccess : DEFAULT_QUICK_ACCESS;
@@ -69,11 +70,23 @@ export function TitleBar({ c, activeDesign, isDirty, t, onToolAction, quickAcces
       userSelect: 'none'
     }
   },
-    // Left side - quick access, then the update indicator, which takes no room
-    // at all while there is nothing to report.
+    // Left side - Refresh all, which is not a ribbon tool and so stays put
+    // whatever quick access holds, then quick access, then the update
+    // indicator, which takes no room at all while there is nothing to report.
     React.createElement('div', {
       style: { height: '100%', display: 'flex', alignItems: 'center', gap: 1, paddingLeft: 6 }
     },
+      onRefreshAll && React.createElement('div', {
+        style: { display: 'flex', alignItems: 'center', WebkitAppRegion: 'no-drag' }
+      },
+        React.createElement(QuickBtn, {
+          id: 'refresh-all', c, title: t?.titleBar?.refreshAll,
+          icon: tablerIcon('refresh', 15), onClick: onRefreshAll,
+        }),
+        onToolAction && quickTools.length > 0 && React.createElement('div', {
+          style: { width: 1, height: 16, margin: '0 4px', backgroundColor: c.border }
+        })
+      ),
       onToolAction && React.createElement('div', {
         style: { display: 'flex', alignItems: 'center', gap: 1, WebkitAppRegion: 'no-drag' }
       },

@@ -6,6 +6,7 @@ import {
     buildGrid, generateZemaxCoating, tfLayersToCoat, tfMaterialToMate,
 } from '../../../../utils/io/zemaxCoatingFile.js';
 import { collectExportMaterialIds, makeZemaxNameResolver } from './model.js';
+import { useAfterRefreshAll } from '../../../../state/refreshAll.js';
 
 const { useCallback } = React;
 
@@ -81,6 +82,11 @@ async function savePreview({ z, flash, preview }) {
 
 export function useGenerateAction(args) {
     const { design, gStart, gEnd, gStep, scope, coatName, thMode, refNm, z } = args;
+    // A generated text on screen is generated again after Refresh all, from
+    // the files just read.
+    useAfterRefreshAll(() => {
+        if (args.preview) generatePreview(args);
+    });
     return useCallback(() => generatePreview(args), [design, gStart, gEnd, gStep, scope, coatName, thMode, refNm, z]);
 }
 

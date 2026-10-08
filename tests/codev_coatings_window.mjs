@@ -65,11 +65,20 @@ const BASE = {
 function generate(d, overrides = {}) {
     const out = { preview: null, warnings: null, flashes: [] };
     runtime.reset();
-    const run = runtime.render(() => useGenerateAction({
-        ...BASE, ...overrides, z, design: d,
-        flash: (type, message) => out.flashes.push([type, message]),
-        setExport: (preview, warnings) => { out.preview = preview; out.warnings = warnings; },
-    }));
+    // Hooks shared across windows read React when they run, so the harness
+    // stands in for React while it renders.
+    const real = globalThis.React;
+    globalThis.React = runtime.React;
+    let run;
+    try {
+        run = runtime.render(() => useGenerateAction({
+            ...BASE, ...overrides, z, design: d,
+            flash: (type, message) => out.flashes.push([type, message]),
+            setExport: (preview, warnings) => { out.preview = preview; out.warnings = warnings; },
+        }));
+    } finally {
+        globalThis.React = real;
+    }
     run();
     out.last = out.flashes.at(-1);
     return out;

@@ -106,6 +106,10 @@ const PATHS = {
         'M18 6l-12 12',
         'M6 6l12 12',
     ],
+    'refresh': [
+        'M20 11a8.1 8.1 0 0 0 -15.5 -2m-.5 -4v4h4',
+        'M4 13a8.1 8.1 0 0 0 15.5 2m.5 4v-4h-4',
+    ],
 };
 
 /** The icon called `name`, `size` px square, or null for a name not copied here. */

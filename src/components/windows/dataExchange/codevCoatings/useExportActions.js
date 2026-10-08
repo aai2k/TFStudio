@@ -2,6 +2,7 @@ import { CodevExportError, CODEV_LIMITS } from '../../../../utils/io/codevCoatin
 import { UnresolvedDesignMaterialError } from '../../../../utils/materials/designMaterials.js';
 import { analysisWavelengths, buildDesignSeq, sideStack } from './exportModel.js';
 import { exportErrorText } from './messages.js';
+import { useAfterRefreshAll } from '../../../../state/refreshAll.js';
 
 const { useCallback } = React;
 
@@ -53,6 +54,11 @@ async function savePreview({ z, flash, preview }) {
 
 export function useGenerateAction(args) {
     const { design, side, title, saveName, gStart, gEnd, gStep, anglesDeg, refNm, z } = args;
+    // A generated text on screen is generated again after Refresh all, from
+    // the files just read.
+    useAfterRefreshAll(() => {
+        if (args.preview) generatePreview(args);
+    });
     return useCallback(() => generatePreview(args),
         [design, side, title, saveName, gStart, gEnd, gStep, anglesDeg, refNm, z]);
 }

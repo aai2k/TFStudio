@@ -40,7 +40,7 @@ the catalog you have selected.
 
 **Add**: the button above the material list holds every way of getting a material in: **Blank material**, **From refractiveindex.info** and **From TFCalc, Macleod or OptiLayer files**. It is there whichever catalog is selected, and each of them adds to one of your own catalogs.
 
-**New catalog from Zemax AGF** (under **⋯**): load a Zemax `.agf` glass file as a new catalog. AGF files store internal transmittance versus wavelength; TFStudio converts that to `k(λ)` automatically. AGF files you place in your TFStudio data folder's `Materials` subfolder are also picked up automatically when the app starts. A glass whose dispersion formula number is not one TFStudio evaluates is left out of the catalog, and the import message names it. A file picked up at startup has no window to report in, so import it with **New catalog from Zemax AGF** to see which glasses were left out.
+**New catalog from Zemax AGF** (under **⋯**): load a Zemax `.agf` glass file as a new catalog. AGF files store internal transmittance versus wavelength; TFStudio converts that to `k(λ)` automatically. AGF files you place in your TFStudio data folder's `Materials\agf` subfolder are also picked up automatically when the app starts, or while it runs with **Refresh all**, the round-arrows button at the left of the title bar. A glass whose dispersion formula number is not one TFStudio evaluates is left out of the catalog, and the import message names it. A file picked up this way has no window to report in, so import it with **New catalog from Zemax AGF** to see which glasses were left out.
 
 **From TFCalc, Macleod or OptiLayer files** (under **Add**): load materials written by other coating programs, any mix of them in one pick:
 
@@ -205,9 +205,7 @@ zero `k` is non-absorbing across the plotted range. Its **Mechanical** page
 lists the constants the catalog stated and nothing else; a material that
 states none says so.
 
-Catalogs are saved to your TFStudio data folder's `Materials` subfolder and
-persist between sessions, so an imported or hand-built material is available
-the next time you open the app.
+Catalogs are saved to your TFStudio data folder's `Materials` subfolder and persist between sessions, so an imported or hand-built material is available the next time you open the app. A catalog file copied into the subfolder of its kind there (`user`, `agf` or `refractiveindex`) while the app is open shows after **Refresh all** in the title bar, which also reads the project folders again for design files added, changed or deleted outside TFStudio. Open windows stay open and compute again from what was read, including a Monte Carlo run, a Systematic Deviations result, a 3D surface or an export text already on screen; optimizer, synthesis and n,k fit runs are not repeated. Unsaved edits stay, unless their file was saved again since; then the file is loaded and Ctrl+Z brings the edits back.
 
 ## References
 

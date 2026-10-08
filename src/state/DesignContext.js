@@ -10,6 +10,7 @@ const { createContext, useContext, useState, useCallback, useEffect, useMemo, us
 import { resolveEvalMode, mirrorLayers } from '../utils/physics/optimizer.js';
 import { designMaterialIds, isBuiltinId, withHerpinRecords } from '../utils/materials/designMaterials.js';
 import { useCatalogRevision } from '../utils/materials/useCatalogRevision.js';
+import { REFRESH_ALL, useRefreshRevision } from './refreshAll.js';
 import { useAnalysisDefaults, useAnalysisSettings } from './AnalysisSettingsContext.js';
 
 // ── Default design factory ─────────────────────────────────────────────────────
@@ -123,6 +124,15 @@ function useCatalogFollowing(stored, catalogRevision) {
     ), [stored, catalogRevision]);
 }
 
+/**
+ * A copy after every Refresh all, whatever materials the design uses, so every
+ * window keyed on the design computes again against the files just read
+ * (refreshAll.js). Again only what windows see.
+ */
+function useRefreshFollowing(design, refreshRevision) {
+    return useMemo(() => (refreshRevision > 0 ? { ...design } : design), [design, refreshRevision]);
+}
+
 // ── Provider state ─────────────────────────────────────────────────────────────
 
 // The provider's own design, for a parent that passes no designs.
@@ -171,10 +181,18 @@ function useEditRevisions(activeId) {
     const seqRef = React.useRef({});
     const getDesignRevision = useCallback(
         (id) => seqRef.current[id ?? activeId] || 0, [activeId]);
+    const bump = useCallback(id => { seqRef.current[id] = (seqRef.current[id] || 0) + 1; }, []);
     const countEdit = useCallback((opts) => {
         if (opts && opts.transient) return;
-        seqRef.current[activeId] = (seqRef.current[activeId] || 0) + 1;
-    }, [activeId]);
+        bump(activeId);
+    }, [activeId, bump]);
+    // A design Refresh all replaced with what it read is an edit too, though
+    // it reaches the store without passing through here.
+    useEffect(() => {
+        const onRefresh = event => (event.detail?.changedIds || []).forEach(bump);
+        window.addEventListener(REFRESH_ALL, onRefresh);
+        return () => window.removeEventListener(REFRESH_ALL, onRefresh);
+    }, [bump]);
     return { getDesignRevision, countEdit };
 }
 
@@ -287,10 +305,11 @@ export function DesignProvider({ children, activeDesignId, designs, folders, onD
     // while it has none.
     const activeDesign = _activeId != null ? _designs[_activeId] : null;
     const catalogRevision = useCatalogRevision();
+    const refreshRevision = useRefreshRevision();
     // A Herpin layer's material, which older files lack, is put back here, where
     // every window reads the design (see withHerpinRecords).
     const repaired = useMemo(() => withHerpinRecords(activeDesign || fallbackRef.current), [activeDesign]);
-    const design = useCatalogFollowing(repaired, catalogRevision);
+    const design = useRefreshFollowing(useCatalogFollowing(repaired, catalogRevision), refreshRevision);
 
     // Evaluation mode is DERIVED from the active design (surfaceMode + mfEvalMode),
     // not an independently-toggled state. This is the single source of truth that

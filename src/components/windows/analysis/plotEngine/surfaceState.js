@@ -5,6 +5,7 @@ import { designMaterialLookup } from '../../../../utils/materials/designMaterial
 import { runSurfaceSweep } from './surfaceRunner.js';
 import { plotEngineSession } from './sessionState.js';
 import { useWindowSession } from '../../windowSession.js';
+import { useAfterRefreshAll } from '../../../../state/refreshAll.js';
 
 const { useState, useEffect, useMemo, useRef, useCallback } = React;
 
@@ -56,7 +57,7 @@ function patchSurfaceSpec(previous, patch, design) {
 }
 
 function useSurfaceCompute(state, design) {
-    const { surfaceSpec, setSurfaceResult } = state;
+    const { surfaceSpec, surfaceResult, setSurfaceResult } = state;
     const [computing, setComputing] = useState(false);
     const [progress, setProgress] = useState(null);
     const poolRef = useRef(null);
@@ -66,11 +67,17 @@ function useSurfaceCompute(state, design) {
         inputRef.current = { surfaceSpec, design };
     }
 
-    useEffect(() => {
+    // Abandons the sweep in flight: its workers stop, and whatever it would
+    // still report is no longer current.
+    const abandon = useCallback(() => {
         requestRef.current += 1;
         const pool = poolRef.current;
         poolRef.current = null;
         try { pool?.terminate(); } catch (_) {}
+    }, []);
+
+    useEffect(() => {
+        abandon();
         setComputing(false);
         setProgress(null);
     }, [surfaceSpec, design]);
@@ -89,8 +96,7 @@ function useSurfaceCompute(state, design) {
         }
     }, [surfaceSpec, design]);
 
-    const computeSurfaceNow = useCallback(() => {
-        if (computing) return;
+    const startSweep = useCallback(() => {
         setComputing(true);
         setProgress(null);
         const requestId = ++requestRef.current;
@@ -100,7 +106,21 @@ function useSurfaceCompute(state, design) {
             setComputing, computeMainThread,
             isCurrent: () => requestRef.current === requestId && inputRef.current === requestInput,
         });
-    }, [surfaceSpec, design, computing, computeMainThread]);
+    }, [surfaceSpec, design, computeMainThread]);
+
+    const computeSurfaceNow = useCallback(() => {
+        if (!computing) startSweep();
+    }, [computing, startSweep]);
+
+    // After Refresh all a surface on screen, or one being computed, is computed
+    // again against the files just read. The design changed in the same render,
+    // so the effect above has already ended a sweep in flight; `computing`
+    // still holds its value from before, which is why the guard is bypassed.
+    useAfterRefreshAll(() => {
+        if (!surfaceResult && !computing) return;
+        abandon();
+        startSweep();
+    });
 
     return { computing, progress, computeSurfaceNow };
 }

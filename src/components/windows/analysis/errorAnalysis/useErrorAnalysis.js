@@ -4,6 +4,7 @@ import { normalizeSeed, randomSeed } from '../../../../utils/physics/errorAnalys
 import { hasPerturbableLayers } from './trialModel.js';
 import { errorAnalysisSession } from './sessionState.js';
 import { useWindowSession } from '../../windowSession.js';
+import { useRefreshRevision } from '../../../../state/refreshAll.js';
 
 const { useCallback, useEffect, useMemo, useRef, useState } = React;
 
@@ -109,6 +110,10 @@ export function useErrorAnalysis({ design, evalMode }) {
         setRunning(false);
     }, []);
 
+    // Once a run has been made, it is made again when the design, the channel,
+    // the angle, the polarization or the surface changes, and after Refresh all
+    // has read the files again.
+    const refreshRevision = useRefreshRevision();
     const hasRunRef = useRef(!!result);
     const didMountRef = useRef(false);
     useEffect(() => {
@@ -117,7 +122,7 @@ export function useErrorAnalysis({ design, evalMode }) {
             return;
         }
         if (hasRunRef.current && !running) run();
-    }, [design?.id, char, params.theta, params.polarization, evalMode]); // eslint-disable-line react-hooks/exhaustive-deps
+    }, [design?.id, char, params.theta, params.polarization, evalMode, refreshRevision]); // eslint-disable-line react-hooks/exhaustive-deps
 
     const handleRun = useCallback(async () => {
         hasRunRef.current = true;

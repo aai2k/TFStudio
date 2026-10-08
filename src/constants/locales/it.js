@@ -429,6 +429,9 @@ export default {
       oldStillThere: 'Non è stato possibile rimuovere la cartella dei dati precedente. Puoi eliminarla a mano più avanti.',
     },
   },
+  titleBar: {
+    refreshAll: 'Aggiorna tutto: rilegge le cartelle dei design e dei materiali e ricalcola tutte le finestre aperte',
+  },
   update: {
     availableTitle: 'È disponibile una nuova versione',
     versions: (current, latest) => `Hai la ${current}. L'ultima release è la ${latest}.`,

@@ -2,10 +2,10 @@
  * The project tree the explorer draws, and everything the user does to it.
  *
  * This hook owns the folder list and the selection, reads both from disk at
- * startup, and hands the rest to the action hooks beside it: designs, deletion,
- * imports and folders. They all work through the same primitives kept here:
- * the names taken in a folder, putting a new design into the tree, and what a
- * deleted design leaves behind.
+ * startup and again on Refresh all (projectTreeLoad.js), and hands the rest to
+ * the action hooks beside it: designs, deletion, imports and folders. They all
+ * work through the same primitives kept here: the names taken in a folder,
+ * putting a new design into the tree, and what a deleted design leaves behind.
  *
  * The operations below take `p`: the tree's own state setters, plus the design
  * store they have to keep in step.
@@ -13,10 +13,8 @@
 
 import { folderDesignNames } from '../utils/io/designNaming.js';
 import { designFileLocations, idsLeavingTree, isFolderWithin, rehomedFolderId } from '../components/panels/projectExplorerModel.js';
-import { loadSession } from '../utils/io/appSession.js';
-import { parseFoldersResult } from '../utils/io/projectPersistence.js';
-import { mergeSessionOverDisk, storeMergedSession } from '../utils/io/sessionMerge.js';
-import { followedDesigns, withFollowedCopies } from '../utils/materials/catalogStamps.js';
+import { withFollowedCopies } from '../utils/materials/catalogStamps.js';
+import { LAST_SEEN_KEY, loadFolders, refreshFolders } from './projectTreeLoad.js';
 import { useProjectPersistence } from './useProjectPersistence.js';
 import { useDesignActions } from './useDesignActions.js';
 import { useProjectRemoval } from './useProjectRemoval.js';
@@ -24,29 +22,6 @@ import { useDesignImport } from './useDesignImport.js';
 import { useFolderActions } from './useFolderActions.js';
 
 const { useState, useEffect, useRef, useCallback } = React;
-
-// Where each design's file was when the tree was last seen. When two files
-// hold one id (a design copied outside the app), the loader gives the id to
-// the file at its recorded place, so the original keeps its unsaved work and
-// history and the copy is the one renumbered.
-const LAST_SEEN_KEY = 'tfstudio:design-locations';
-
-function lastSeenLocations() {
-    try { return JSON.parse(localStorage.getItem(LAST_SEEN_KEY)) || undefined; } catch (_) { return undefined; }
-}
-
-// The design names of the files the loader could not read, by folder. They are
-// taken: a new design under one of them would be refused, the file being
-// another's.
-function unreadNamesByFolder(files) {
-    const byFolder = {};
-    for (const file of files) {
-        if (!file.endsWith('.tfs')) continue;
-        const cut = file.lastIndexOf('/');
-        (byFolder[file.slice(0, cut)] ||= []).push(file.slice(cut + 1, -4));
-    }
-    return byFolder;
-}
 
 // Put a design into the tree and open it. The design store, the folder's item
 // list and the selection move together, and the disk baseline is set so a
@@ -105,84 +80,6 @@ function selectDesign(p, designId) {
         return true;
     }
     return false;
-}
-
-async function loadFolders(p, { restoreLayout = true } = {}) {
-    let diskDesigns   = {};
-    let loadedFolders = [];
-    // Every file in the Projects folder was read, so a design missing from it
-    // is gone rather than unread.
-    let readWhole     = false;
-    // The chosen data folder was unusable at startup (a drive not plugged in)
-    // and the app runs from the default one: the session's designs are on that
-    // drive, not gone.
-    let fallback      = false;
-    let unreadFiles   = [];
-
-    if (window.electronAPI?.loadFolders) {
-        const result = await window.electronAPI.loadFolders(lastSeenLocations());
-        if (result.success) {
-            ({ diskDesigns, loadedFolders } = parseFoldersResult(result));
-            readWhole = result.unreadable === 0;
-            fallback = result.fallback === true;
-            unreadFiles = result.unreadFiles || [];
-        }
-    }
-    p.fallbackRef.current = fallback;
-    p.unreadNamesRef.current = unreadNamesByFolder(unreadFiles);
-
-    if (loadedFolders.length === 0) {
-        loadedFolders = [{ id: 'My Designs', name: 'My Designs', expanded: true, items: [] }];
-        if (window.electronAPI?.createFolder) {
-            await window.electronAPI.createFolder('My Designs');
-        }
-    }
-
-    // Disk is the dirty baseline. The .tfs on disk is the last explicit save;
-    // an item is dirty iff the working copy differs from it CANONICALLY (key
-    // order and the tfs_version wrapper are ignored — that asymmetry was the
-    // cause of every file showing ● on startup).
-    p.diskDesignsRef.current = { ...diskDesigns };
-
-    // Merge session (unsaved working copies) over disk snapshots. A working copy
-    // wins while its file is the one it was edited from, since it has the latest
-    // edits even if the app was closed without saving; the undo/redo history
-    // comes with it so it survives a restart. A file saved since wins over it.
-    // Entries for designs with no file are removed only after a complete read
-    // that found designs: an empty result is more likely a Projects folder that
-    // is not there than one whose every design was deleted.
-    const session = loadSession();
-    const dropMissing = readWhole && !fallback && Object.keys(diskDesigns).length > 0;
-    const merged = mergeSessionOverDisk(diskDesigns, session?.entries || null, { dropMissing });
-    p.historyRef.current = merged.history;
-
-    // Copies that match a catalog loaded already take its stamp (followedDesigns);
-    // catalogs that load later do the same through the store. Each load does it
-    // again from the files, so nothing goes into the session for it.
-    p.setDesigns(followedDesigns(merged.initialDesigns).designs);
-    p.setDirtyDesigns(merged.initialDirty);
-    p.setFolders(loadedFolders);
-    const refused = session ? storeMergedSession(session, merged, diskDesigns) : [];
-    if (merged.replaced.length) {
-        const names = merged.replaced.map(id => merged.initialDesigns[id].name).join(', ');
-        p.setMessageNotification({ type: 'info', message: p.t.dialogs.savedElsewhere(names) });
-    }
-    if (unreadFiles.length) {
-        p.setMessageNotification({ type: 'error', message: p.t.dialogs.unreadDesignFiles(unreadFiles.join(', ')) });
-    }
-    // Shown last, over the notices above: unsaved work is at risk.
-    if (refused.length) p.setMessageNotification({ type: 'error', message: p.t.dialogs.sessionFull });
-
-    // Startup: select a project FOLDER as the default target for new designs,
-    // but do NOT auto-open any design. The workspace shows the empty-state
-    // ("Create a project…") until the user creates or picks a design.
-    p.setSelectedFolder(loadedFolders[0] || null);
-
-    // Restore a previously saved docking layout if there is one; otherwise the
-    // workspace stays empty (no preset) so the empty-state is shown.
-    if (restoreLayout) p.onRestoreLayout();
-
-    p.setFoldersLoaded(true);
 }
 
 /**
@@ -251,6 +148,9 @@ export function useProjectTree({
     useEffect(() => { foldersRef.current = folders; }, [folders]);
     const fallbackRef = useRef(false);
     const unreadNamesRef = useRef({});
+    // Whether a whole load of the tree is running, and how many have started,
+    // so a refresh never mixes its read with one (projectTreeLoad.js).
+    const loadRef = useRef({ busy: false, count: 0 });
 
     // Record where each design's file is, after every change to the tree, but
     // not while the app runs from the default folder in place of an unusable
@@ -270,10 +170,11 @@ export function useProjectTree({
     p.current = {
         foldersRef, setFolders, setSelectedFolder, setSelectedItem, setSelectedItems,
         setLastClickedItem, setFoldersLoaded, lastClickedItem, onRestoreLayout,
-        fallbackRef, unreadNamesRef,
+        fallbackRef, unreadNamesRef, loadRef, foldersLoaded,
         setDesigns: store.setDesigns, setDirtyDesigns: store.setDirtyDesigns,
         setActiveDesignId: store.setActiveDesignId, dropDesigns: store.dropDesigns,
         diskDesignsRef: store.diskDesignsRef, historyRef: store.historyRef,
+        designsRef: store.designsRef, flushSession: store.flushSession,
         setMessageNotification, t,
     };
 
@@ -309,7 +210,14 @@ export function useProjectTree({
     const commitNewDesign    = useCallback((design, folder, mtime) => commitDesign(p.current, design, folder, mtime), []);
     const evictDesigns       = useCallback((removedIds, isRemoved) => forgetDesigns(p.current, removedIds, isRemoved), []);
     const selectDesignInTree = useCallback((designId) => selectDesign(p.current, designId), []);
-    const loadFoldersFromDisk = useCallback((opts) => loadFolders(p.current, opts), []);
+    const loadFoldersFromDisk = useCallback(async (opts) => {
+        const load = loadRef.current;
+        load.busy = true;
+        load.count += 1;
+        try { await loadFolders(p.current, opts); } finally { load.busy = false; }
+    }, []);
+    const refreshFoldersFromDisk = useCallback(reloadCatalogs => refreshFolders(p.current,
+        (removedIds, isRemoved) => forgetDesigns(p.current, removedIds, isRemoved), reloadCatalogs), []);
     const handleItemClick = useCallback((item, folder, event, orderedItems) =>
         clickItem(p.current, { item, folder, event, orderedItems }), []);
     const toggleFolderExpanded = useCallback((folderId) =>
@@ -336,7 +244,7 @@ export function useProjectTree({
 
     return {
         folders, selectedFolder, selectedItem, selectedItems, setSelectedFolder, setSelectedItem,
-        handleItemClick, toggleFolderExpanded, loadFoldersFromDisk,
+        handleItemClick, toggleFolderExpanded, loadFoldersFromDisk, refreshFoldersFromDisk,
         ...designs, ...removal, ...imports, ...folderActions,
     };
 }

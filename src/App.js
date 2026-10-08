@@ -13,6 +13,7 @@ import { DockingLayout } from './components/docking/DockingLayout.js';
 import { AppModals } from './components/AppModals.js';
 import { SpectralMonitor } from './components/SpectralMonitor.js';
 import { DesignProvider } from './state/DesignContext.js';
+import { announceRefreshAll } from './state/refreshAll.js';
 import { AnalysisSettingsProvider } from './state/AnalysisSettingsContext.js';
 import { UpdateProvider } from './components/ui/UpdateContext.js';
 import { loadCatalogsFromDisk } from './utils/materials/catalogStartup.js';
@@ -25,7 +26,7 @@ import { useWelcomeAndTutorials } from './hooks/useWelcomeAndTutorials.js';
 import { useAppDialogs } from './hooks/useAppDialogs.js';
 import { useAppCommands } from './hooks/useAppCommands.js';
 
-const { createElement: h, useState, useEffect } = React;
+const { createElement: h, useState, useEffect, useRef } = React;
 
 export const App = () => {
     const [inputDialog, setInputDialog] = useState(null);
@@ -76,6 +77,25 @@ export const App = () => {
         await loadCatalogsFromDisk();
     };
 
+    // Refresh all: files put into the data folder outside the app show up
+    // without a restart, which would close every window, and every open window
+    // computes again from them (state/refreshAll.js). A press while one
+    // refresh is still reading is dropped rather than run over it.
+    const refreshing = useRef(false);
+    const refreshAll = async () => {
+        if (refreshing.current) return;
+        refreshing.current = true;
+        try {
+            // The catalogs are reloaded between the folder read and its merge,
+            // so the windows render once with both. Null while a whole load of
+            // the data folder runs; that load reads the catalogs itself.
+            const changedIds = await project.refreshFoldersFromDisk(loadCatalogsFromDisk);
+            if (changedIds) announceRefreshAll(changedIds);
+        } finally {
+            refreshing.current = false;
+        }
+    };
+
     // Empty-workspace "Create project" — create + open a design and arrange the
     // default Filter-Design layout.
     const createProjectFromEmpty = () => {
@@ -122,7 +142,7 @@ export const App = () => {
                 fontFamily: 'system-ui, -apple-system, sans-serif'
             }
         },
-            h(TitleBar,  { c, t, activeDesign, isDirty: isActiveDirty, onToolAction: handleToolAction, quickAccess }),
+            h(TitleBar,  { c, t, activeDesign, isDirty: isActiveDirty, onToolAction: handleToolAction, quickAccess, onRefreshAll: refreshAll }),
             h(Toolbar,   { c, t, onToolAction: handleToolAction, onMenuAction: handleMenuAction, devAllowed, ribbonStyle, gamesUnlocked }),
             h('div', { style: { display: 'flex', flex: 1, overflow: 'hidden' } },
                 h(ProjectExplorer, {

@@ -49,11 +49,20 @@ const design = {
 function generate(d, scope = 'used') {
     let preview = null;
     const flashes = [];
-    const run = runtime.render(() => useGenerateAction({
-        z, flash: (type, message) => flashes.push([type, message]), design: d,
-        gStart: 500, gEnd: 600, gStep: 50, scope, coatName: 'AR', thMode: 'relative', refNm: 550,
-        setPreview: (text) => { preview = text; },
-    }));
+    // Hooks shared across windows read React when they run, so the harness
+    // stands in for React while it renders.
+    const real = globalThis.React;
+    globalThis.React = runtime.React;
+    let run;
+    try {
+        run = runtime.render(() => useGenerateAction({
+            z, flash: (type, message) => flashes.push([type, message]), design: d,
+            gStart: 500, gEnd: 600, gStep: 50, scope, coatName: 'AR', thMode: 'relative', refNm: 550,
+            setPreview: (text) => { preview = text; },
+        }));
+    } finally {
+        globalThis.React = real;
+    }
     run();
     return { preview, flashes };
 }

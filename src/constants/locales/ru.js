@@ -428,6 +428,9 @@ export default {
       oldStillThere: 'Не удалось удалить прежнюю папку данных. Её можно удалить вручную позже.',
     },
   },
+  titleBar: {
+    refreshAll: 'Обновить всё: заново прочитать папки проектов и материалов и пересчитать все открытые окна',
+  },
   // TODO(ru-review): user drives RU terminology — confirm these.
   update: {
     availableTitle: 'Доступна новая версия',

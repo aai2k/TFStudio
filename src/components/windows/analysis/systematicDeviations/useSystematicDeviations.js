@@ -12,6 +12,7 @@ import {
 } from '../../../../utils/physics/systematicDeviations.js';
 import { systematicDeviationsSession } from './sessionState.js';
 import { useWindowSession } from '../../windowSession.js';
+import { useAfterRefreshAll } from '../../../../state/refreshAll.js';
 import { staleSweepPatch, sweepForDesign, sweepParamKind } from './model.js';
 
 const { useCallback, useEffect, useMemo, useState } = React;
@@ -134,6 +135,12 @@ export function useSystematicDeviations() {
             setSweepRunning(false);
         }, 0);
     }, [design, params, sweep, evalMode]);
+
+    // A sweep that has been run is run again after Refresh all, against the
+    // files just read.
+    useAfterRefreshAll(() => {
+        if (sweepResult && !sweepRunning) runSweep();
+    });
 
     const resetDeviation = useCallback(() => setDev(emptyDeviation()), []);
     const updateGlobal = useCallback((field, value) => {
