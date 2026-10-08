@@ -7,7 +7,7 @@
  *      even for a design of built-in materials only; the stored design is left
  *      as it was.
  *   3. The Process Exporter, whose spectra are keyed on a text key, computes
- *      them again.
+ *      them again, and does after a catalog edit too.
  *   4. Results a button produced are produced again when one is on screen: the
  *      Systematic Deviations sweep, the Error Analysis Monte Carlo after a run,
  *      the Plot Engine surface, and the CODE V and Zemax text. With none on
@@ -118,7 +118,14 @@ provided.set(DesignContext, { design, evalMode: 'front', hasActiveDesign: true }
     const before = spectra.out.baselineSpec;
     assert.ok(before?.values?.length, 'the exporter has a spectrum');
     assert.equal(spectra.render().baselineSpec, before, 'which a render alone does not compute again');
-    assert.notEqual(refresh(spectra).baselineSpec, before, 'a refresh computes it again');
+    const refreshed = refresh(spectra).baselineSpec;
+    assert.notEqual(refreshed, before, 'a refresh computes it again');
+
+    // A material edited in the Material Editor keeps its id, so the key built
+    // from ids and thicknesses alone never saw it.
+    const { notifyCatalogsChanged } = await import('../src/utils/materials/catalogManager/persistence.js');
+    notifyCatalogsChanged();
+    assert.notEqual(spectra.render().baselineSpec, refreshed, 'and so does a catalog edit');
 }
 
 // ── 4. Results a button produced ─────────────────────────────────────────────

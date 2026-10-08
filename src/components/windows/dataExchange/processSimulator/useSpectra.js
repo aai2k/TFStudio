@@ -1,5 +1,6 @@
 import { computeSpectrum, computeStepSpectra } from './model.js';
 import { useRefreshRevision } from '../../../../state/refreshAll.js';
+import { useCatalogRevision } from '../../../../utils/materials/useCatalogRevision.js';
 
 const { useMemo } = React;
 
@@ -28,10 +29,13 @@ function spectrumMedia(deposition) {
 export function useSpectra(design, setup, deposition) {
     // The piece is read in air, so the design's media are not part of the
     // key; the chip plan and the chip glass are, since they change the stack.
-    // Refresh all is too: the materials may have been read again with other
-    // n,k under the same ids.
+    // So are a catalog edit and Refresh all: either can give a material other
+    // n,k under the same id, and the finished-layer spectra must change with
+    // the live one.
+    const catalogRevision = useCatalogRevision();
     const refreshRevision = useRefreshRevision();
     const spectrumKey = useMemo(() => JSON.stringify({
+        catalogRevision,
         refreshRevision,
         activeSide: setup.activeSide,
         secondSurface: setup.secondSurface,
@@ -51,7 +55,7 @@ export function useSpectra(design, setup, deposition) {
     }), [setup.activeSide, setup.secondSurface, setup.quantity, setup.aoi,
         setup.polarization, setup.lambdaStart, setup.lambdaEnd, setup.lambdaStep,
         deposition.activeDep, deposition.otherDep, deposition.chips, deposition.substrateMat,
-        design, deposition.N, refreshRevision]);
+        design, deposition.N, catalogRevision, refreshRevision]);
 
     const common = {
         activeDep: deposition.activeDep,
