@@ -163,6 +163,34 @@ const draw = props => renderToStaticMarkup(withDesign(React.createElement(CurveE
     assert.deepEqual(columnSpan(layout, 4, 600), { left: 510, right: 600 }, '+ Column');
 }
 
+// ── The heading's selects leave their labels room ───────────────────────────
+// A select's label column is its width less its border, its left padding and
+// the chevron's column (styles.css). With less than that allowed, I, φ and T
+// were cut to a sliver.
+{
+    const { readFileSync } = await import('node:fs');
+    const { TableHead } = await import('../src/components/windows/dataExchange/curveEditor/TableHead.js');
+    const { SelectField } = await import('../src/components/windows/analysis/chrome/controls.js');
+    const css = readFileSync(new URL('../src/styles.css', import.meta.url), 'utf8');
+    const chevron = Number(/grid-template-columns:\s*minmax\(0,\s*1fr\)\s+(\d+)px/.exec(css)[1]);
+    for (const kind of ['spectrum', 'ellipsometry', 'weight', 'gain', 'pulse']) {
+        const table = emptyTable(kind);
+        const editor = { table, edit() {}, actions: { selectAll() {}, selectColumn() {} } };
+        const selects = elements(TableHead({ editor, labels: editorLabels(t, table), c, ce, headRef: null }))
+            .filter(node => node.type === SelectField);
+        for (const { props } of selects) {
+            const { style } = SelectField(props).props;
+            const padding = Number(/(\d+)px$/.exec(style.padding)[1]);
+            const room = props.width - 2 * parseFloat(style.border) - padding - chevron;
+            const longest = Math.max(...props.options.map(option => String(option.label).length));
+            // One letter takes up to about 10 px at 11 px; a word, the
+            // heading's own allowance per character.
+            assert.ok(room >= Math.max(10, 6.5 * longest),
+                `${kind}: a ${props.width} px select leaves ${room} px for "${props.options.map(o => o.label).join('/')}"`);
+        }
+    }
+}
+
 // ── The fill handle drawn ────────────────────────────────────────────────────
 {
     const { CurveGrid } = await import('../src/components/windows/dataExchange/curveEditor/CurveGrid.js');

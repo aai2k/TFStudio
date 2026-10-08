@@ -74,11 +74,15 @@ select option:checked {
        the chevron keeps a fixed column on the right, and the text past it is
        cut off under the chevron's patch of field colour. The chevron's column
        is the right edge, so no right padding is left for the cut label to
-       show in, whatever padding a component sets inline. */
+       show in, whatever padding a component sets inline. base-select also
+       sets a 0.5em gap between the select's parts, which in the grid would
+       sit between the label and the chevron and take that much from the
+       label; the chevron's column, wider than the chevron, spaces them. */
     select {
         background-image: none;
         padding-right: 0 !important;
         display: inline-grid;
+        column-gap: 0;
         grid-template-columns: minmax(0, 1fr) 20px;
         align-items: center;
         white-space: nowrap;
