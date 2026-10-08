@@ -16,6 +16,7 @@ import { csvFromRows, ResultsGrid, ResultsSection } from '../../../ui/ResultsSec
 import { materialCoverageBands } from '../../../ui/chartOptions.js';
 import { ExportMenu, useCsvExport } from '../../../ui/ExportMenu.js';
 import { AnalysisWindow, CenteredMessage, PlotArea } from '../chrome/layout.js';
+import { CurveEditor } from '../../dataExchange/curveEditor/CurveEditor.js';
 import { PulseChart } from './PulseChart.js';
 import { PulseControls } from './PulseControls.js';
 import { usePulseAnalysis } from './usePulseAnalysis.js';
@@ -58,6 +59,19 @@ function runNotices({ shown, session, text }) {
         notices.push({ label: text.wholeEcho, detail: text.wholeEchoHint((shown.echoDelayFs / 1000).toPrecision(3)) });
     }
     return notices;
+}
+
+// The design's pulse spectrum is typed, pasted or read from a file in the
+// shared curve editor, as intensity and phase against wavelength.
+function SpectrumEditor({ analysis, c, t }) {
+    return h(CurveEditor, {
+        title: t.curveEditor.titlePulse,
+        table: analysis.editorTable,
+        design: null,
+        onApply: analysis.applySpectrum,
+        onCancel: analysis.closeEditor,
+        c, t,
+    });
 }
 
 function Readout({ c, text, shown, busy }) {
@@ -144,5 +158,6 @@ export function PulseAnalysis({ c, t }) {
                 }),
             }, h(ResultsGrid, { columns: table.columns, rows: table.rows, c })),
         ),
+        analysis.editorTable && h(SpectrumEditor, { analysis, c, t }),
     );
 }

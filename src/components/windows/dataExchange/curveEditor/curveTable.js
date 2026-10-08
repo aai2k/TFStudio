@@ -3,12 +3,13 @@
  * columns, as typed.
  *
  *   {
- *     kind:    'spectrum' | 'ellipsometry' | 'weight' | 'gain'
+ *     kind:    'spectrum' | 'ellipsometry' | 'weight' | 'gain' | 'pulse'
  *     xUnit:   the wavelength column's unit, an X_UNITS id
  *     columns: [{ quantity, unit, name }], one per value column
  *     rows:    [[x, v0, v1, ...]], numbers, NaN for an empty cell
  *     fixed:   true when the columns cannot be added, removed or retyped:
- *              an existing curve, an Integral Values weighting or a gain
+ *              an existing curve, an Integral Values weighting, a gain or a
+ *              pulse spectrum
  *     source:  the file the table was read from, if it was
  *   }
  *
@@ -68,17 +69,22 @@ export function newColumn(kind, quantity = KIND_QUANTITIES[kind][0]) {
 }
 
 /**
- * A table of one plain value against wavelength that never becomes a curve on
- * the design: an Integral Values weighting, or a gain for the gain flattening
- * wizard. It has one fixed column and no design curve behind it.
+ * A table of plain values against wavelength that never becomes a curve on the
+ * design: an Integral Values weighting, a gain for the gain flattening wizard,
+ * or a Pulse Analysis spectrum. Its columns are fixed and no design curve
+ * stands behind them.
  */
 export function isValueTable(kind) {
-    return kind === 'weight' || kind === 'gain';
+    return kind === 'weight' || kind === 'gain' || kind === 'pulse';
 }
 
-/** An empty table for a new curve of `kind`; Ψ and Δ come as a pair. */
+// Kinds whose quantities come as a set: Ψ with Δ, and a pulse's intensity with
+// its phase.
+const PAIRED_KINDS = new Set(['ellipsometry', 'pulse']);
+
+/** An empty table for a new curve of `kind`; Ψ and Δ come as a pair, as do intensity and phase. */
 export function emptyTable(kind) {
-    const quantities = kind === 'ellipsometry' ? KIND_QUANTITIES.ellipsometry : [KIND_QUANTITIES[kind][0]];
+    const quantities = PAIRED_KINDS.has(kind) ? KIND_QUANTITIES[kind] : [KIND_QUANTITIES[kind][0]];
     const table = {
         kind, xUnit: X_UNITS.NM, columns: quantities.map(quantity => newColumn(kind, quantity)),
         rows: [], fixed: isValueTable(kind),
@@ -132,6 +138,18 @@ export function tableFromPoints(kind, points) {
 /** An Integral Values source or detector table, [[λ nm, weight]], as an editor table. */
 export function tableFromWeights(weights) {
     return tableFromPoints('weight', weights);
+}
+
+/**
+ * A Pulse Analysis spectrum as an editor table, as it was typed or read:
+ * { xUnit, rows: [[x, intensity, phase]], source }, a phase that was left out
+ * being NaN. With no rows it is an empty pulse table.
+ */
+export function tableFromPulseSpectrum(spectrum) {
+    const base = emptyTable('pulse');
+    if (!spectrum?.rows?.length) return base;
+    const rows = spectrum.rows.map(row => [0, 1, 2].map(at => (Number.isFinite(row[at]) ? Number(row[at]) : NaN)));
+    return { ...base, xUnit: spectrum.xUnit || X_UNITS.NM, rows, source: spectrum.source };
 }
 
 function withRows(table, rows) {

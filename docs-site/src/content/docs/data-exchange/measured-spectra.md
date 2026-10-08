@@ -80,6 +80,8 @@ removing it.
 
 A curve typed in dB, dB loss or optical density keeps that unit. **Edit** opens it in that unit again, and its card shows **Typed in dB**, **Typed in dB loss** or **Typed in OD** under **Source scale** in place of the Percent and Fraction choice, which would rescale such a curve wrongly.
 
+[Pulse Analysis](/analysis/pulse-analysis/) opens the same editor on a pulse spectrum, with two fixed columns: the intensity, and the spectral phase in radians, which may be left empty. A negative intensity is marked in red, and **Smooth…** and **Resample…** unwrap a phase written wrapped into one turn before working on it.
+
 ## Fitting the design to a measurement
 
 **Fit…** on a curve card turns that measurement into a merit-function target,

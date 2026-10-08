@@ -18,13 +18,17 @@ Pulse Analysis sends a short laser pulse off or through the coating and draws wh
 
 The **Settings** panel holds the pulse and the geometry.
 
-**Spectrum**: **Model** builds the spectrum from a shape. **File** reads a measured one.
+**Spectrum**: **Model** builds the spectrum from a shape. **Table** uses a measured or typed spectrum that the design holds.
 
 **Shape**: **Gaussian** or **sech²**, set by **Duration**, the intensity FWHM of the transform-limited pulse in fs; the spectral width it implies is shown beside it. **Super-Gaussian** is set by its spectral **FWHM** in nm and an **Order**: 2 is a Gaussian, and a higher order flattens the top of the spectrum.
 
-**Load spectrum**: a text table with wavelength in the first column and intensity in the second. A third column, when present, is the spectral phase in radians. Wavelength can be in nm, µm, cm⁻¹ or eV, as for measured spectra. Against nm or µm the intensity is read as a spectrometer records it, per unit wavelength, and converted to intensity per unit frequency, which is what a pulse is built from; against cm⁻¹ or eV it is per unit frequency already. The phase's value and slope at the centre wavelength only set where the pulse sits in time, and are left out. Every row is read as light with the phase given, so a spectrometer's dark baseline left in the file joins the pulse: cut the file to the line, or set the baseline to zero. Loading sets the centre wavelength to the spectrum's centre of gravity in frequency.
+**Load file…** reads a text table into the [curve editor](/data-exchange/measured-spectra/#typing-a-curve-or-changing-its-points): wavelength in the first column, intensity in the second and, when present, the spectral phase in radians in the third. Check the columns and rows there, delete what is not the pulse, and **Apply**. **Edit…** opens the design's spectrum again, or an empty table to type or paste one into. The spectrum is kept with the design and saved in the project.
 
-**Centre λ**: the carrier wavelength. GDD and TOD are taken about it.
+Wavelength can be in nm, µm, cm⁻¹ or eV. Against nm or µm the intensity is read as a spectrometer records it, per unit wavelength, and converted to intensity per unit frequency, which is what a pulse is built from; against cm⁻¹ or eV it is per unit frequency already. Every row is read as light with the phase given, so a spectrometer's dark baseline left in the table joins the pulse: delete those rows, or set the baseline to zero.
+
+The phase has the sign of GDD: a phase curving upward against frequency is a positive GDD, long wavelengths first. A phase written wrapped into one turn is unwrapped; a phase that spans more than a turn is read as written. Its value and slope at the centre wavelength only set where the pulse sits in time, and are left out. **Apply** sets the centre wavelength to the spectrum's centroid in frequency.
+
+**Centre λ**: the carrier wavelength. A model spectrum is centred on it. A spectrum from the design does not move with it: there it is the point the typed GDD and TOD and the spectrum's own phase are taken about, and the spectrum's centroid is shown beside it. Selecting another design with a spectrum moves it to that spectrum's centroid.
 
 **GDD, TOD**: the input pulse's own chirp, in fs² and fs³, added to whichever spectrum it has. Positive GDD is the chirp glass gives: the long wavelengths arrive first. **From target** sets GDD to the design's GDD target per bounce, times the number of bounces, with the sign reversed: the chirp the coating was designed to remove.
 

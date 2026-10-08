@@ -5,7 +5,8 @@
  *
  * Each case is checked against an answer from outside the propagation code: a
  * closed form, the transfer matrix, or a direct numerical integral. Where two
- * runs are compared instead, the case says so.
+ * runs are compared instead, the case says so. The analytic responses and the
+ * direct integral are in _pulseReference.mjs.
  *
  *   1. The FFT against a direct DFT, both signs, and a round trip.
  *   2. A flat unity response returns the input unchanged.
@@ -53,6 +54,9 @@ import {
 import { pulseSpectrumModel } from '../src/utils/physics/pulsePropagation/pulseSpectrum.js';
 import { tmm } from '../src/utils/physics/thinFilmMath.js';
 import { designMaterialLookup } from '../src/utils/materials/designMaterials.js';
+import {
+    LAMBDA0, OMEGA0, allPass, directFwhm, gtiResponse, phaseResponse, pureGdd, pureTod, quarterWaveMirror, unity,
+} from './_pulseReference.mjs';
 
 let fails = 0;
 const ok = (condition, message) => { if (!condition) { console.error('FAIL:', message); fails++; } };
@@ -90,77 +94,6 @@ const CUT = 1e-5;
     for (let k = 0; k < n; k++) worst = Math.max(worst, Math.hypot(fr[k] / n - re[k], fi[k] / n - im[k]));
     ok(worst < 1e-14, `FFT round trip (max error ${worst})`);
 }
-
-const LAMBDA0 = 800;
-const OMEGA0 = carrierOmega(LAMBDA0);
-const deltaOmegaOf = wavelengthNm => carrierOmega(wavelengthNm) - OMEGA0;
-
-/**
- * A unit-magnitude response exp(iψ(Δω)) with its analytic derivatives, given
- * as `derivatives(Δω) → [ψ, ψ', ψ'', ψ''']`.
- */
-const phaseResponse = derivatives => wavelengthNm => {
-    const [phase, gdFs, gddFs2, todFs3] = derivatives(deltaOmegaOf(wavelengthNm));
-    return { valid: true, re: Math.cos(phase), im: Math.sin(phase), gdFs, gddFs2, todFs3 };
-};
-const unity = phaseResponse(() => [0, 0, 0, 0]);
-const pureGdd = gdd => phaseResponse(d => [gdd * d * d / 2, gdd * d, gdd, 0]);
-const pureTod = tod => phaseResponse(d => [tod * d ** 3 / 6, tod * d * d / 2, tod * d, tod]);
-
-/**
- * Intensity FWHM of the pulse whose spectrum is a(Δω)·exp(iφ(Δω)) on [low, high],
- * from A(t) = ∫ Ã(Δω) exp(−iΔωt) dΔω by Simpson's rule at every time asked for:
- * no transform and no grid shared with the propagation code. The peak is looked
- * for within ±span.
- */
-function directFwhm({ amplitude, phase = () => 0, low, high, span, intervals = 4000 }) {
-    const h = (high - low) / intervals;
-    const nodes = Array.from({ length: intervals + 1 }, (_, k) => {
-        const deltaOmega = low + k * h;
-        const weight = (k === 0 || k === intervals ? 1 : (k % 2 ? 4 : 2)) * h / 3;
-        const a = amplitude(deltaOmega) * weight;
-        return { deltaOmega, re: a * Math.cos(phase(deltaOmega)), im: a * Math.sin(phase(deltaOmega)) };
-    });
-    const intensity = (t) => {
-        let re = 0, im = 0;
-        for (const node of nodes) {
-            const c = Math.cos(node.deltaOmega * t), s = Math.sin(node.deltaOmega * t);
-            re += node.re * c + node.im * s;
-            im += node.im * c - node.re * s;
-        }
-        return re * re + im * im;
-    };
-    const scan = Array.from({ length: 401 }, (_, k) => -span + k * span / 200);
-    const values = scan.map(intensity);
-    const top = values.indexOf(Math.max(...values));
-    let [a, b] = [scan[Math.max(0, top - 1)], scan[Math.min(400, top + 1)]];
-    const golden = (Math.sqrt(5) - 1) / 2;
-    for (let i = 0; i < 80; i++) {
-        const left = b - golden * (b - a), right = a + golden * (b - a);
-        if (intensity(left) < intensity(right)) a = left; else b = right;
-    }
-    const half = intensity((a + b) / 2) / 2;
-    const bisect = (inside, outside) => {
-        for (let i = 0; i < 60; i++) {
-            const middle = (inside + outside) / 2;
-            if (intensity(middle) >= half) inside = middle; else outside = middle;
-        }
-        return (inside + outside) / 2;
-    };
-    const first = values.findIndex(value => value >= half);
-    let last = values.length - 1;
-    while (values[last] < half) last--;
-    return bisect(scan[last], scan[last + 1]) - bisect(scan[first], scan[first - 1]);
-}
-
-// An all-pass resonance (γ + iΔ)/(γ − iΔ): |H| = 1, energy stored for ~1/γ.
-const RING_GAMMA = 2e-4;
-const allPass = phaseResponse((d) => {
-    const gamma = RING_GAMMA;
-    const q = gamma * gamma + d * d;
-    return [2 * Math.atan2(d, gamma), 2 * gamma / q, -4 * gamma * d / (q * q),
-        -4 * gamma * (gamma * gamma - 3 * d * d) / (q * q * q)];
-});
 
 // ── 2. Unity response ────────────────────────────────────────────────────────
 for (const shape of ['gaussian', 'sech2']) {
@@ -288,19 +221,6 @@ for (const shape of ['gaussian', 'sech2']) {
 }
 
 // ── 7. Analytic delay against the transformed pulse ──────────────────────────
-const N_H = 2.51660, N_L = 1.45991, QW0 = 760;
-function quarterWaveMirror(pairs) {
-    const frontLayers = [];
-    for (let i = 0; i < pairs; i++) {
-        frontLayers.push({ material: 'TiO2', thickness: QW0 / (4 * N_H) },
-            { material: 'SiO2', thickness: QW0 / (4 * N_L) });
-    }
-    frontLayers.push({ material: 'TiO2', thickness: QW0 / (4 * N_H) });
-    return {
-        incidentMedium: 'Air', substrate: { material: 'BK7', thickness: 1 }, exitMedium: 'Air',
-        surfaceMode: 'front_only', frontLayers, backLayers: [],
-    };
-}
 {
     // Every band ends inside the TiO2 table, which stops near 826 nm. Past a
     // table's end n holds its last value, and the kink that leaves in the phase
@@ -373,26 +293,6 @@ function quarterWaveMirror(pairs) {
 }
 
 // ── 10. Gires-Tournois echoes ────────────────────────────────────────────────
-/**
- * A Gires-Tournois interferometer with a nondispersive spacer of round trip T,
- * front-face coefficient s and an ideal back mirror:
- * H = (s + e^{iωT}) / (1 + s·e^{iωT}) in the exp(−iωt) convention.
- */
-function gtiResponse(T, s) {
-    return phaseResponse((d) => {
-        const theta = (OMEGA0 + d) * T;
-        const z = [Math.cos(theta), Math.sin(theta)];
-        const phase = Math.atan2(z[1], s + z[0]) - Math.atan2(s * z[1], 1 + s * z[0]);
-        const q = 1 + s * s + 2 * s * Math.cos(theta);
-        const k = 1 - s * s;
-        return [
-            phase,
-            T * k / q,
-            2 * s * T * T * k * Math.sin(theta) / (q * q),
-            2 * s * T ** 3 * k * (Math.cos(theta) * q + 4 * s * Math.sin(theta) ** 2) / q ** 3,
-        ];
-    });
-}
 {
     // 150 µm air spacer (round trip T ≈ 1 ps), front face R = 4%.
     const T = 2 * 150e3 / 299.792458;
@@ -519,6 +419,26 @@ function gtiResponse(T, s) {
         pulse: { shape: 'table', centerWavelengthNm: LAMBDA0, table: phaseTable(d => 2000 * d ** 3 / 6) }, responses: [unity],
     }).metrics;
     ok(rel(todRead.output.residual.todFs3, 2000) < 1e-9, `cut table: TOD ${todRead.output.residual.todFs3} reads back as 2000 fs³`);
+    // A phase that spans many turns is read as written, though a large time
+    // origin makes it step by 3.6 to 8.8 rad between rows even in wavelength, as a
+    // spectrometer writes them: not taken for a wrapped phase, it gives the
+    // same pulse and GDD as without that origin.
+    const evenNm = Array.from({ length: 701 }, (_, index) => 659 + index * 0.5);
+    const evenTable = phase => ({
+        wavelengthNm: evenNm,
+        intensity: evenNm.map(nm => Math.exp(-4 * Math.LN2 * ((carrierOmega(nm) - OMEGA0) / width) ** 2)),
+        phaseRad: evenNm.map(nm => phase(carrierOmega(nm) - OMEGA0)),
+    });
+    const evenRun = phase => propagatePulse({
+        pulse: { shape: 'table', centerWavelengthNm: LAMBDA0, table: evenTable(phase) }, responses: [unity],
+    }).metrics;
+    const steepTable = evenTable(d => 150 * d * d / 2 + 4000 * d).phaseRad;
+    const steepest = Math.min(...steepTable.slice(1).map((value, at) => Math.abs(value - steepTable[at])));
+    const [plain, steep] = [d => 150 * d * d / 2, d => 150 * d * d / 2 + 4000 * d].map(evenRun);
+    ok(steepest > Math.PI, `the steep phase steps by ${steepest.toFixed(1)} rad or more a row`);
+    ok(rel(steep.output.residual.gddFs2, 150) < 1e-9, `a steep phase reads back ${steep.output.residual.gddFs2} fs²`);
+    ok(rel(steep.input.fwhmFs, plain.input.fwhmFs) < 1e-9,
+        `a steep phase gives the same input pulse (${steep.input.fwhmFs} vs ${plain.input.fwhmFs} fs)`);
 
     // A phase's value and slope at the carrier only set its origin in time:
     // a constant and a linear phase leave the pulse the Fourier-limited one.
@@ -729,6 +649,35 @@ function gtiResponse(T, s) {
     }).metrics.energyRatio;
     const [avg, s, p] = ['avg', 's', 'p'].map(energy);
     ok(rel(avg, (s + p) / 2) < 1e-12, `avg at 45°: energy out ${avg} is the mean of s ${s} and p ${p}`);
+
+    // The spectra evaluated at any wavelength, which the spectrum view draws,
+    // are the band's own samples where the two meet.
+    const responses = createCoatingResponses(design, { target: 'R', polarization: 'avg', thetaDeg: 45 });
+    const run = propagatePulse({ pulse: { ...centred, gddFs2: 80 }, responses, passes: 2 });
+    const { band } = run;
+    let worst = 0;
+    for (const index of [0, Math.floor(band.omega.length / 3), Math.floor(band.omega.length / 2)]) {
+        const at = run.spectrumAt(band.wavelengthNm[index]);
+        const input = band.input.re[index] ** 2 + band.input.im[index] ** 2;
+        const output = band.outputs.reduce((sum, out) => sum + out.re[index] ** 2 + out.im[index] ** 2, 0) / band.outputs.length;
+        const gdd = 2 * band.responses.reduce((sum, channel) => sum + channel[index].gddFs2, 0) / band.responses.length;
+        worst = Math.max(worst, rel(at.input, input), rel(at.output, output), rel(at.responseGddFs2, gdd),
+            rel(at.inputGddFs2, band.inputGddFs2[index]));
+    }
+    ok(worst < 1e-12, `spectra evaluated at a band sample's wavelength are that sample (${worst})`);
+    // Between two samples they are evaluated there, not read off a neighbour.
+    const model = pulseSpectrumModel({ ...centred, gddFs2: 80 }, 1e-12);
+    const middle = Math.floor(band.omega.length / 2);
+    const between = (band.omega[middle] + band.omega[middle + 1]) / 2;
+    const wavelengthNm = wavelengthFromOmega(between);
+    const at = run.spectrumAt(wavelengthNm);
+    const input = model.amplitude(between - model.omega0) ** 2;
+    const transfer = responses.map(response => response(wavelengthNm))
+        .reduce((sum, point) => sum + (point.re ** 2 + point.im ** 2) ** 2, 0) / responses.length;
+    const gdd = 2 * responses.reduce((sum, response) => sum + response(wavelengthNm).gddFs2, 0) / responses.length;
+    const offSample = Math.max(rel(at.input, input), rel(at.output, input * transfer), rel(at.responseGddFs2, gdd),
+        rel(at.inputGddFs2, model.phaseDerivatives(between - model.omega0).gddFs2));
+    ok(offSample < 1e-12, `spectra between two band samples are evaluated there (${offSample})`);
 
     const tooShort = propagatePulse({
         pulse: { shape: 'sech2', centerWavelengthNm: 3000, durationFs: 2 }, responses: [unity],

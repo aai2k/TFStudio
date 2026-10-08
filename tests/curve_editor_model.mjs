@@ -9,7 +9,8 @@ import {
     fromStored, toStored, unitsFor, valueProblem, xProblem,
 } from '../src/components/windows/dataExchange/curveEditor/units.js';
 import {
-    addColumn, clearCells, deleteRows, emptyTable, insertRows, setCells, tableFromCurve, tableFromWeights,
+    addColumn, clearCells, deleteRows, emptyTable, insertRows, setCells, tableFromCurve, tableFromPulseSpectrum,
+    tableFromWeights,
 } from '../src/components/windows/dataExchange/curveEditor/curveTable.js';
 import {
     pasteIntoTable, readPastedText, tableCsv, tableFromText,
@@ -19,7 +20,7 @@ import {
     resamplePlan, resampleTable, smoothCells, smoothingSide, smoothingWindow,
 } from '../src/components/windows/dataExchange/curveEditor/curveOps.js';
 import {
-    applyProblem, curvesFromTable, editedCurve, pointsFromTable,
+    applyProblem, curvesFromTable, editedCurve, pointsFromTable, pulseSpectrumFromTable,
 } from '../src/components/windows/dataExchange/curveEditor/curveApply.js';
 import {
     blockFitOptions, curveBlocks, rebuiltMeritOperands,
@@ -619,6 +620,77 @@ const table = (rows, columns = [{ quantity: 'T', unit: '%', name: '' }], kind = 
     const refused = rebuiltMeritOperands(psiDesign, { ...psi, aoi: 0 }, 'ellipsometry');
     assert.equal(refused.kept, 1);
     assert.equal(refused.meritOperands[0], psiBlock);
+}
+
+// ── Pulse Analysis spectra ───────────────────────────────────────────────────
+{
+    // A file's second column is the intensity and its third the phase in rad,
+    // whatever its header calls them.
+    const text = 'Wavelength (nm)\tCounts (%)\tPhase\n790\t20\t0.1\n800\t80\t0.2\n810\t30\t0.3\n';
+    const read = tableFromText(text, emptyTable('pulse'), 'pulse.txt').table;
+    assert.deepEqual(read.columns.map(column => [column.quantity, column.unit]), [['I', 'rel'], ['PHI', 'rad']]);
+    assert.ok(read.fixed);
+    assert.deepEqual(read.rows[1], [800, 80, 0.2]);
+    assert.equal(read.source, 'pulse.txt');
+    // A two-column file leaves the phase empty.
+    const bare = tableFromText('790 20\n800 80\n810 30\n', emptyTable('pulse'), '').table;
+    assert.ok(bare.rows.every(row => Number.isNaN(row[2])));
+
+    // Apply keeps the rows as typed, in ascending wavelength, a missing phase as
+    // null, and Edit opens them as they were.
+    const spectrum = pulseSpectrumFromTable({ ...read, rows: [read.rows[2], read.rows[0], read.rows[1]] });
+    assert.deepEqual(spectrum, { xUnit: 'nm', rows: [[790, 20, 0.1], [800, 80, 0.2], [810, 30, 0.3]], source: 'pulse.txt' });
+    assert.deepEqual(tableFromPulseSpectrum(spectrum).rows, read.rows);
+    const unphased = pulseSpectrumFromTable(bare);
+    assert.ok(unphased.rows.every(row => row[2] === null));
+    assert.ok(Number.isNaN(tableFromPulseSpectrum(JSON.parse(JSON.stringify(unphased))).rows[0][2]));
+    assert.equal(tableFromPulseSpectrum(null).rows.length, emptyTable('pulse').rows.length);
+    // A row without an intensity is left out, and the unit it was typed in stays.
+    assert.equal(pulseSpectrumFromTable({ ...read, rows: [...read.rows, [820, NaN, 0.4]] }).rows.length, 3);
+    assert.equal(tableFromPulseSpectrum({ xUnit: 'cm-1', rows: [[12500, 1, null], [12600, 2, null]] }).xUnit, 'cm-1');
+
+    // Two rows Pulse Analysis reads, light in one of them, and a phase on every
+    // row or on none.
+    assert.equal(applyProblem(read), null);
+    assert.equal(applyProblem(bare), null);
+    assert.equal(applyProblem({ ...read, rows: read.rows.slice(0, 1) }), 'needTwoSpectrumRows');
+    assert.equal(applyProblem({ ...read, rows: [[0, 1, 0], [800, 1, 0]] }), 'needTwoSpectrumRows');
+    assert.equal(applyProblem({ ...read, rows: [[790, -1, 0], [800, 1, 0]] }), 'needTwoSpectrumRows');
+    assert.equal(applyProblem({ ...read, rows: [[790, 0, 0], [800, 0, 0]] }), 'noSpectrumLight');
+    assert.equal(applyProblem(setCells(read, [{ rowIdx: 1, colKey: 'v1', value: NaN }])), 'phaseGaps');
+    assert.ok(en.curveEditor.needTwoSpectrumRows && en.curveEditor.noSpectrumLight && en.curveEditor.phaseGaps);
+
+    // A negative intensity has no light; a phase has no range.
+    assert.equal(valueProblem('I', 'rel', -0.1), 'below');
+    assert.equal(valueProblem('I', 'rel', 5), null);
+    assert.equal(valueProblem('PHI', 'rad', -40), null);
+
+    // A phase wrapped into one turn is resampled and smoothed unwrapped: a
+    // straight line in rad stays one across the jump.
+    const slope = 1.3;
+    const rows = Array.from({ length: 21 }, (_, index) => {
+        const unwrapped = slope * index;
+        return [500 + index, 1, Math.atan2(Math.sin(unwrapped), Math.cos(unwrapped))];
+    });
+    const wrapped = { ...emptyTable('pulse'), rows };
+    // Resampled values keep six significant digits, 5e-5 at the 26 rad this
+    // line reaches.
+    const resampled = resampleTable(wrapped, 0.5).table;
+    resampled.rows.forEach(row => assert.ok(Math.abs(row[2] - rows[0][2] - slope * (row[0] - 500)) < 1e-4));
+    const smoothed = smoothCells(wrapped, [{ rowIdx: 0, colKey: 'v1' }], { window: 5, order: 2 }).table;
+    smoothed.rows.forEach((row, index) => assert.ok(Math.abs(row[2] - rows[index][2]) < 1e-5));
+
+    // A phase spanning many turns is not wrapped, and is taken as written
+    // however far it steps between rows: here 4 rad a row, to 80 rad.
+    const steep = { ...emptyTable('pulse'), rows: rows.map(row => [row[0], 1, 4 * (row[0] - 500)]) };
+    resampleTable(steep, 0.5).table.rows.forEach(row => assert.ok(Math.abs(row[2] - 4 * (row[0] - 500)) < 1e-3));
+    smoothCells(steep, [{ rowIdx: 0, colKey: 'v1' }], { window: 5, order: 2 }).table.rows
+        .forEach((row, index) => assert.ok(Math.abs(row[2] - steep.rows[index][2]) < 1e-4));
+
+    // The CSV names the columns so they read back as intensity and phase.
+    const csv = tableCsv(read);
+    assert.ok(csv.split('\n')[0].includes('phase (rad)'));
+    assert.deepEqual(tableFromText(csv, emptyTable('pulse'), '').table.rows, read.rows);
 }
 
 console.log('PASS: curve_editor_model');

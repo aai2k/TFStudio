@@ -36,7 +36,8 @@
  * wavelength width converts to W exactly: Δλ = 2πc·(1/(ω0 − W/2) − 1/(ω0 + W/2)).
  *
  * A table's phase is in rad with the same convention as the transfer matrix:
- * the group delay it carries is +dφ/dω. It is interpolated by a not-a-knot
+ * the group delay it carries is +dφ/dω. Written wrapped into one turn, it is
+ * unwrapped (utils/math/unwrapPhase.js). It is interpolated by a not-a-knot
  * cubic spline, which reads a phase that is a GDD and a TOD back exactly, and
  * its derivatives are the spline's own. Its value and slope at the carrier are
  * removed, as the typed phase has none: they set only the pulse's phase and
@@ -47,6 +48,7 @@
 
 import { C_NM_PER_FS } from '../../../tmmcore.js';
 import { createPchipInterpolator } from '../../materials/pchip.js';
+import { unwrappedPhase } from '../../math/unwrapPhase.js';
 import { createNotAKnotSpline } from './notAKnotSpline.js';
 
 const SECH2_FWHM_PER_T0 = 2 * Math.log(1 + Math.SQRT2);
@@ -163,18 +165,22 @@ function rowsAbove(rows, level) {
 /**
  * The rows of a spectrum table the model reads: positive wavelength, finite
  * phase and intensity not below zero, in order of rising ω, the first of any
- * rows that share an ω.
+ * rows that share an ω, the phase unwrapped along them when it is written
+ * wrapped, since a spline through a wrapped phase's jumps would read them as
+ * steep group delays. A table with a phase drops a row whose phase is missing.
  */
 function tableRows(table) {
-    return table.wavelengthNm
+    const rows = table.wavelengthNm
         .map((wavelengthNm, index) => ({
             omega: wavelengthNm > 0 ? carrierOmega(wavelengthNm) : NaN,
             intensity: table.intensity[index],
-            phase: table.phaseRad?.[index] ?? 0,
+            phase: table.phaseRad ? table.phaseRad[index] : 0,
         }))
         .filter(row => Number.isFinite(row.omega) && row.intensity >= 0 && Number.isFinite(row.phase))
         .sort((left, right) => left.omega - right.omega)
         .filter((row, index, sorted) => index === 0 || row.omega > sorted[index - 1].omega);
+    const phase = unwrappedPhase(rows.map(row => row.phase));
+    return rows.map((row, index) => ({ ...row, phase: phase[index] }));
 }
 
 /**
@@ -223,12 +229,19 @@ function shapeModel(pulse, floor) {
     throw new Error(`Unknown pulse shape: ${pulse.shape}`);
 }
 
+// Whether a table holds two rows the model reads and light in at least one.
+function readableTable(table) {
+    if (!table?.wavelengthNm) return false;
+    const rows = tableRows(table);
+    return rows.length >= 2 && rows.some(row => row.intensity > 0);
+}
+
 // What each shape needs before it can be modelled, as [problem, satisfied].
 const SHAPE_NEEDS = {
     gaussian: [['duration', pulse => pulse.durationFs > 0]],
     sech2: [['duration', pulse => pulse.durationFs > 0]],
     superGaussian: [['bandwidth', pulse => pulse.bandwidthNm > 0], ['order', pulse => pulse.order > 0]],
-    table: [['table', pulse => pulse.table?.wavelengthNm?.length >= 2]],
+    table: [['table', pulse => readableTable(pulse.table)]],
 };
 
 /** Why a pulse cannot be modelled, or null. */

@@ -96,17 +96,41 @@ function ModelSpectrumRows({ c, text, session, setField }) {
     ];
 }
 
+function spectrumStatus(text, spectrum, fileError) {
+    if (fileError?.parse) return text.fileParseError;
+    if (fileError) return text.fileReadError(fileError.reason);
+    if (!spectrum?.rows?.length) return text.noFile;
+    return spectrum.source ? text.fileRows(spectrum.source, spectrum.rows.length) : text.typedRows(spectrum.rows.length);
+}
+
 function FileSpectrumRow({ c, text, analysis }) {
-    const { session, canPick, loadSpectrum, fileError } = analysis;
-    const file = session.spectrumFile;
-    let status = file ? text.fileRows(file.name, file.rows) : text.noFile;
-    if (fileError?.parse) status = text.fileParseError;
-    else if (fileError) status = text.fileReadError(fileError.reason);
+    const { spectrum, canPick, loadSpectrum, editSpectrum, fileError } = analysis;
     return h(SettingRow, { c, label: text.file, wrap: true },
         h(ActionButton, {
             c, label: text.loadFile, title: text.loadFileTip, disabled: !canPick, onClick: loadSpectrum,
         }),
-        h('span', { style: { ...dimText(c), whiteSpace: 'normal' } }, status),
+        h(ActionButton, { c, label: text.editSpectrum, title: text.editSpectrumTip, onClick: editSpectrum }),
+        h('span', { style: { ...dimText(c), whiteSpace: 'normal' } }, spectrumStatus(text, spectrum, fileError)),
+    );
+}
+
+/**
+ * The carrier. A model spectrum sits on it; a spectrum from the design does
+ * not move with it, and it is only where the typed GDD and TOD and the
+ * spectrum's own phase are taken about, so the spectrum's centroid is shown
+ * beside it.
+ */
+function CentreRow({ c, text, analysis }) {
+    const { session, setField, spectrumCentre } = analysis;
+    const fromFile = session.source === 'file';
+    return h(SettingRow, { c, label: text.center },
+        h(NumInput, {
+            c, width: 72, positive: true, step: 10, value: session.centerWavelength,
+            title: fromFile ? text.centerTipFile : text.centerTip,
+            onChange: value => setField('centerWavelength', value),
+        }),
+        fromFile && Number.isFinite(spectrumCentre)
+            && h('span', { style: dimText(c) }, text.centroid(spectrumCentre.toFixed(2))),
     );
 }
 
@@ -171,12 +195,7 @@ function PulseSetup({ c, t, text, analysis }) {
         session.source === 'file'
             ? h(FileSpectrumRow, { c, text, analysis })
             : h(ModelSpectrumRows, { c, text, session, setField }),
-        h(SettingRow, { c, label: text.center },
-            h(NumInput, {
-                c, width: 72, positive: true, step: 10, value: session.centerWavelength,
-                title: text.centerTip, onChange: value => setField('centerWavelength', value),
-            }),
-        ),
+        h(CentreRow, { c, text, analysis }),
         h(SettingDivider, { c }),
         h(ChirpRows, { c, text, analysis }),
         h(SettingDivider, { c }),

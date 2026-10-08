@@ -10,7 +10,10 @@
  * took away.
  */
 
-import { createCoatingResponses, propagatePulse } from '../../../../utils/physics/pulsePropagation.js';
+import {
+    createCoatingResponses, propagatePulse, spectrumCentroidOmega, wavelengthFromOmega,
+} from '../../../../utils/physics/pulsePropagation.js';
+import { X_UNITS, xToNm } from '../../../../utils/io/spectrumTable.js';
 import { evaluateSubstratePropagation } from '../../../../utils/physics/phaseDispersion.js';
 import { designMaterialLookup } from '../../../../utils/materials/designMaterials.js';
 
@@ -28,8 +31,55 @@ const TIME_FLOOR = 1e-4;
 // so a narrow peak keeps its height and fast fringes keep their envelope; the
 // readout is computed on the full set.
 const MAX_DRAWN_POINTS = 4000;
+// Fewest frequencies the spectrum view is drawn on. A short pulse has a short
+// time window and so a coarse step in frequency, a few dozen samples across
+// its band, which drawn with straight lines between them look like a polygon.
+// With fewer transform samples than this across the drawn band, the view is
+// evaluated afresh on the transform's step divided by a whole number, so every
+// transform sample is kept and nothing is drawn coarser than the transform.
+// Six hundred is about one per pixel of the plot. Each is a fresh evaluation
+// of the spectrum and the response, not an interpolation.
+const SPECTRUM_POINTS = 600;
+const EMPTY_CURVE = { x: [], y: [] };
 
-/** The pulse the core reads, from the window's settings. */
+// Units of the first column against which an intensity is per unit wavelength,
+// as a spectrometer records it. Wavenumber and photon energy are proportional
+// to frequency, so an intensity against either is per unit frequency already.
+const WAVELENGTH_UNITS = new Set([X_UNITS.NM, X_UNITS.UM]);
+
+/**
+ * A spectrum kept on the design, { xUnit, rows: [[x, intensity, phase]] } as
+ * it was typed or read, as the pulse code reads a table: wavelength in nm,
+ * intensity per unit frequency, phase in rad or none. Against wavelength the
+ * intensity is per unit wavelength and becomes per unit frequency by
+ * |dλ/dω| = λ²/2πc, the constant dropping out with the normalisation.
+ * Undefined when there is no spectrum.
+ */
+export function spectrumTable(spectrum) {
+    if (!spectrum?.rows?.length) return undefined;
+    const xUnit = spectrum.xUnit || X_UNITS.NM;
+    const wavelengthNm = spectrum.rows.map(row => xToNm(row[0], xUnit));
+    const perWavelength = WAVELENGTH_UNITS.has(xUnit);
+    const phased = spectrum.rows.some(row => Number.isFinite(row[2]));
+    return {
+        wavelengthNm,
+        intensity: spectrum.rows.map((row, index) => (perWavelength ? row[1] * wavelengthNm[index] ** 2 : row[1])),
+        phaseRad: phased ? spectrum.rows.map(row => row[2]) : undefined,
+    };
+}
+
+/** The centroid in frequency of a spectrum kept on the design, as a vacuum wavelength in nm, or NaN. */
+export function spectrumCentroidNm(spectrum) {
+    const table = spectrumTable(spectrum);
+    return table ? wavelengthFromOmega(spectrumCentroidOmega(table)) : NaN;
+}
+
+/** That centroid as the centre wavelength field takes it, to the hundredth of a nanometre. */
+export function spectrumCentreField(spectrum) {
+    return Math.round(spectrumCentroidNm(spectrum) * 100) / 100;
+}
+
+/** The pulse the core reads, from the window's settings and the design's spectrum. */
 export function pulseFromSettings(settings) {
     const fromFile = settings.source === 'file';
     return {
@@ -38,7 +88,7 @@ export function pulseFromSettings(settings) {
         durationFs: settings.duration,
         bandwidthNm: settings.bandwidth,
         order: settings.order,
-        table: fromFile ? settings.spectrumFile?.table : undefined,
+        table: fromFile ? spectrumTable(settings.spectrum) : undefined,
         gddFs2: settings.gdd || 0,
         todFs3: settings.tod || 0,
     };
@@ -100,27 +150,59 @@ function meanOverChannels(channels, index, read) {
     return count ? sum / count : NaN;
 }
 
-function spectrumCurves(band, passes) {
+/**
+ * The spectrum view's curves. The input spectrum is on its model's scale,
+ * which peaks at 1. Where the transform has fewer samples across the drawn band
+ * than SPECTRUM_POINTS, which happens for a short time window, the curves are
+ * evaluated afresh on a finer step; otherwise the transform's own samples are
+ * drawn, thinned.
+ */
+function spectrumCurves(result, passes) {
+    const { band } = result;
     const inputPower = Array.from(band.input.re, (re, index) => re * re + band.input.im[index] ** 2);
     const peak = largest(inputPower);
     const indices = [];
     inputPower.forEach((power, index) => { if (power >= DISPLAY_FLOOR * peak) indices.push(index); });
+    if (!indices.length) return { input: EMPTY_CURVE, output: EMPTY_CURVE, coatingGddFs2: EMPTY_CURVE, compensatingGddFs2: EMPTY_CURVE, bandNm: null };
+    const [first, last] = [indices[0], indices[indices.length - 1]];
+    // The band runs up in frequency, so down in wavelength.
+    const bandNm = [band.wavelengthNm[last], band.wavelengthNm[first]];
+    const steps = last - first;
+    if (steps > 0 && steps + 1 < SPECTRUM_POINTS) {
+        const intervals = Math.ceil((SPECTRUM_POINTS - 1) / steps) * steps;
+        return evaluatedCurves(result.spectrumAt, [band.omega[first], band.omega[last]], intervals, bandNm);
+    }
     const outputPower = Array.from(inputPower, (_, index) => meanOverChannels(band.outputs, index,
         (channel, at) => channel.re[at] ** 2 + channel.im[at] ** 2));
     const coatingGdd = Array.from(inputPower, (_, index) => meanOverChannels(band.responses, index,
         (channel, at) => (channel[at].valid ? passes * channel[at].gddFs2 : NaN)));
-    const wavelengths = indices.map(index => band.wavelengthNm[index]);
-    const normalized = value => value / peak;
     return {
-        input: curve(band.wavelengthNm, inputPower, indices, undefined, normalized),
-        output: curve(band.wavelengthNm, outputPower, indices, undefined, normalized),
+        input: curve(band.wavelengthNm, inputPower, indices),
+        output: curve(band.wavelengthNm, outputPower, indices),
         coatingGddFs2: curve(band.wavelengthNm, coatingGdd, indices),
+        compensatingGddFs2: curve(band.wavelengthNm, Array.from(band.inputGddFs2, value => -value), indices),
+        bandNm,
+    };
+}
+
+/**
+ * The spectrum view's curves evaluated at `intervals` + 1 frequencies even
+ * from `lowOmega` to `highOmega`, rad/fs, drawn against wavelength.
+ */
+function evaluatedCurves(spectrumAt, [lowOmega, highOmega], intervals, bandNm) {
+    const x = Array.from({ length: intervals + 1 },
+        (_, index) => wavelengthFromOmega(lowOmega + (highOmega - lowOmega) * index / intervals));
+    const points = x.map(spectrumAt);
+    const of = read => ({ x, y: points.map(read) });
+    return {
+        input: of(point => point.input),
+        output: of(point => point.output),
+        coatingGddFs2: of(point => point.responseGddFs2),
         // The GDD that would undo the input's own chirp, to read against the
         // response's: where the two lie on each other across the spectrum, the
         // net GDD is zero and the pulse comes out compressed.
-        compensatingGddFs2: curve(band.wavelengthNm, Array.from(band.inputGddFs2, value => -value), indices),
-        // The band runs up in frequency, so down in wavelength.
-        bandNm: wavelengths.length ? [wavelengths[wavelengths.length - 1], wavelengths[0]] : null,
+        compensatingGddFs2: of(point => -point.inputGddFs2),
+        bandNm,
     };
 }
 
@@ -192,7 +274,7 @@ export function computePulseAnalysis(design, request) {
             // At its absolute delay; the window subtracts the delay to overlay it.
             output: timeCurve(result.time, result.outputIntensity, scale, result.referenceDelayFs),
         },
-        spectrum: spectrumCurves(result.band, passes),
+        spectrum: spectrumCurves(result, passes),
         metrics: plainMetrics(metrics),
         echoDelayFs: side === 'whole' ? echoDelayFs(design, request, pulse.centerWavelengthNm) : null,
     };

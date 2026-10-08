@@ -5,21 +5,25 @@
  *
  * The physics is checked in pulse_propagation.mjs. This file checks the layer
  * above it: the worker operation, the scaling of the drawn curves, the chart
- * options for both views, the Results rows, the spectrum-file reader, the GDD
- * target the "From target" button reads, and the session rule that Whole part
- * is transmission only.
+ * options for both views, the Results rows, a spectrum from a file as the
+ * curve editor reads it and the design keeps it, the GDD target the "From
+ * target" button reads, and the session rule that Whole part is transmission
+ * only.
  */
 import './_uiShim.mjs';
 import { shimBrowserGlobals } from './_uiShim.mjs';
 
 shimBrowserGlobals();
 
-const { computePulseAnalysis, pulseFromSettings } =
+const { computePulseAnalysis, pulseFromSettings, spectrumCentreField, spectrumCentroidNm, spectrumTable } =
     await import('../src/components/windows/analysis/pulseAnalysis/pulseModel.js');
 const { buildPulseChartOption } = await import('../src/components/windows/analysis/pulseAnalysis/chartModel.js');
 const { readoutParts, resultsTable } = await import('../src/components/windows/analysis/pulseAnalysis/viewModel.js');
-const { readPulseSpectrum, designGddTarget, gddFromTarget } =
+const { designGddTarget, gddFromTarget } =
     await import('../src/components/windows/analysis/pulseAnalysis/usePulseAnalysis.js');
+const { emptyTable } = await import('../src/components/windows/dataExchange/curveEditor/curveTable.js');
+const { pulseSpectrumFromTable } = await import('../src/components/windows/dataExchange/curveEditor/curveApply.js');
+const { tableFromText } = await import('../src/components/windows/dataExchange/curveEditor/tableText.js');
 const { gddAxisRange } = await import('../src/components/windows/analysis/pulseAnalysis/chartModel.js');
 const { pulseProblem, carrierOmega, wavelengthFromOmega } = await import('../src/utils/physics/pulsePropagation.js');
 const { pulseSession } = await import('../src/components/windows/analysis/pulseAnalysis/sessionState.js');
@@ -52,9 +56,16 @@ const text = en.pulseAnalysis;
 
 const settings = {
     source: 'model', shape: 'gaussian', centerWavelength: 820, duration: 15, bandwidth: 100, order: 2,
-    gdd: 140, tod: 0, spectrumFile: null,
+    gdd: 140, tod: 0, spectrum: null,
 };
 const request = { pulse: pulseFromSettings(settings), side: 'front', target: 'R', polarization: 's', thetaDeg: 0, passes: 4 };
+
+// A file as Load file… takes it: read into a pulse table in the curve editor,
+// applied, and kept on the design; then used at its centroid, as Apply sets it.
+const spectrumFromText = (text, name) => pulseSpectrumFromTable(tableFromText(text, emptyTable('pulse'), name).table);
+const filePulse = spectrum => pulseFromSettings({
+    ...settings, source: 'file', spectrum, centerWavelength: spectrumCentroidNm(spectrum), gdd: 0,
+});
 
 // ── Worker result ────────────────────────────────────────────────────────────
 const view = dispatchAnalysisEvaluation('pulseAnalysis', { design, request });
@@ -75,8 +86,20 @@ const view = dispatchAnalysisEvaluation('pulseAnalysis', { design, request });
     const oneBounce = computePulseAnalysis(design, { ...request, passes: 1 });
     ok(view.metrics.outputFwhmFs < oneBounce.metrics.outputFwhmFs && oneBounce.metrics.outputFwhmFs < view.metrics.inputFwhmFs,
         `each bounce recompresses the chirped input further (${view.metrics.inputFwhmFs}, ${oneBounce.metrics.outputFwhmFs}, ${view.metrics.outputFwhmFs} fs)`);
-    ok(Math.max(...view.spectrum.input.y) === 1, 'the input spectrum peaks at 1');
-    ok(Math.max(...view.spectrum.output.y) < 1, 'the output spectrum shows the reflectance lost');
+    // A short pulse has few transform samples across its band, so the view is
+    // evaluated on the transform's step divided by a whole number: at least 600
+    // points, even in frequency, the carrier among them, where the input peaks
+    // at exactly 1.
+    const drawn = view.spectrum.input.x;
+    const omega = drawn.map(carrierOmega);
+    const steps = omega.slice(1).map((value, at) => value - omega[at]);
+    ok(drawn.length >= 600 && drawn.length < 1200 && steps.every(step => rel(step, steps[0]) < 1e-9),
+        `a short pulse's spectrum is evaluated on ${drawn.length} frequencies at an even step`);
+    const inputPeak = Math.max(...view.spectrum.input.y);
+    ok(rel(inputPeak, 1) < 1e-12, `the input spectrum peaks at 1 on a transform sample (${inputPeak})`);
+    const { input: drawnIn, output: drawnOut } = view.spectrum;
+    ok(drawnOut.y.every((value, at) => value <= drawnIn.y[at]) && Math.max(...drawnOut.y) < 0.999,
+        'the output spectrum shows the reflectance lost');
     ok(view.spectrum.bandNm[0] < 820 && view.spectrum.bandNm[1] > 820, 'the drawn band holds the carrier');
     ok(view.spectrum.compensatingGddFs2.y.every(value => value === -140), 'the compensating GDD is minus the typed GDD');
     ok(view.echoDelayFs === null, 'only Whole part reports an echo');
@@ -84,7 +107,8 @@ const view = dispatchAnalysisEvaluation('pulseAnalysis', { design, request });
     // The GDD axis is ranged on the bulk of the curve, so it holds the coating's
     // GDD near the carrier however far the reflection minima throw the rest.
     const range = gddAxisRange(view);
-    const near = view.spectrum.coatingGddFs2.x.findIndex(wavelength => wavelength <= 820);
+    const distance = view.spectrum.coatingGddFs2.x.map(wavelength => Math.abs(wavelength - 820));
+    const near = distance.indexOf(Math.min(...distance));
     const atCarrier = view.spectrum.coatingGddFs2.y[near];
     ok(range && atCarrier >= range.range[0] && atCarrier <= range.range[1], `the GDD axis holds the GDD at the carrier (${atCarrier} fs²)`);
 }
@@ -103,6 +127,11 @@ const view = dispatchAnalysisEvaluation('pulseAnalysis', { design, request });
     const drawnPeak = Math.max(...ringing.time.output.y);
     ok(ringing.valid && rel(drawnPeak, ringing.metrics.peakVsFlp) < 3e-4,
         `the drawn output peak is the readout's (${drawnPeak} vs ${ringing.metrics.peakVsFlp})`);
+    // The long window has more transform samples across the band than the view
+    // needs, so they are drawn as they are, thinned, and the input keeps its peak.
+    const spectrumIn = ringing.spectrum.input;
+    ok(spectrumIn.x.length > 1200 && Math.max(...spectrumIn.y) === 1,
+        `a long window's spectrum is its own ${spectrumIn.x.length} samples, peaking at 1`);
 }
 
 // Whole part reports the substrate echo; a pulse too short for its carrier is
@@ -156,43 +185,58 @@ const view = dispatchAnalysisEvaluation('pulseAnalysis', { design, request });
         const intensity = Math.exp(-(((wavelength - 800) / 30) ** 2));
         rows.push(`${wavelength}\t${intensity.toFixed(6)}\t${(0.001 * (wavelength - 800) ** 2).toFixed(6)}`);
     }
-    const spectrum = readPulseSpectrum(`Wavelength (nm)\tIntensity\tPhase\n${rows.join('\n')}`, 'measured.txt');
-    ok(spectrum && spectrum.rows === 101, 'a three-column table reads in full');
-    ok(spectrum.table.phaseRad.length === 101, 'the third column is the phase');
-    const fromFile = computePulseAnalysis(design, {
-        ...request, passes: 1,
-        pulse: pulseFromSettings({ ...settings, source: 'file', spectrumFile: spectrum, centerWavelength: spectrum.centerWavelengthNm, gdd: 0 }),
-    });
+    const spectrum = spectrumFromText(`Wavelength (nm)\tIntensity\tPhase\n${rows.join('\n')}`, 'measured.txt');
+    ok(spectrum.rows.length === 101 && spectrum.source === 'measured.txt', 'a three-column table reads in full');
+    ok(spectrumTable(spectrum).phaseRad.length === 101, 'the third column is the phase');
+    const fromFile = computePulseAnalysis(design, { ...request, passes: 1, pulse: filePulse(spectrum) });
     ok(fromFile.valid && fromFile.chirped, 'a file spectrum with a curved phase runs and counts as chirped');
     // A phase linear in frequency only moves the pulse in time.
     const linearRows = rows.map(row => row.split('\t').slice(0, 2).concat(
         (0.3 + 25 * (carrierOmega(Number(row.split('\t')[0])) - carrierOmega(800))).toFixed(9)).join('\t'));
-    const linear = readPulseSpectrum(`Wavelength (nm)\tIntensity\tPhase\n${linearRows.join('\n')}`, 'linear.txt');
-    const fromLinear = computePulseAnalysis(design, {
-        ...request, passes: 1,
-        pulse: pulseFromSettings({ ...settings, source: 'file', spectrumFile: linear, centerWavelength: linear.centerWavelengthNm, gdd: 0 }),
-    });
+    const linear = spectrumFromText(`Wavelength (nm)\tIntensity\tPhase\n${linearRows.join('\n')}`, 'linear.txt');
+    const fromLinear = computePulseAnalysis(design, { ...request, passes: 1, pulse: filePulse(linear) });
     ok(fromLinear.valid && !fromLinear.chirped, 'a phase linear in frequency is not a chirp');
-    ok(readPulseSpectrum('no numbers here', 'bad.txt') === null, 'a file with no table is refused');
-    ok(pulseProblem(pulseFromSettings({ ...settings, source: 'file' })) === 'table', 'File with nothing loaded asks for a file');
+    // The same phase written wrapped into one turn is the same pulse.
+    const wrappedRows = rows.map(row => {
+        const [wavelength, intensity, phase] = row.split('\t').map(Number);
+        return `${wavelength}\t${intensity}\t${Math.atan2(Math.sin(phase), Math.cos(phase))}`;
+    });
+    const wrapped = spectrumFromText(`Wavelength (nm)\tIntensity\tPhase\n${wrappedRows.join('\n')}`, 'wrapped.txt');
+    const fromWrapped = computePulseAnalysis(design, { ...request, passes: 1, pulse: filePulse(wrapped) });
+    ok(rel(fromWrapped.metrics.outputFwhmFs, fromFile.metrics.outputFwhmFs) < 1e-9,
+        `a wrapped phase is unwrapped (${fromWrapped.metrics.outputFwhmFs} vs ${fromFile.metrics.outputFwhmFs} fs)`);
+    ok(tableFromText('no numbers here', emptyTable('pulse'), 'bad.txt').error === 'parse', 'a file with no table is refused');
+    ok(pulseProblem(pulseFromSettings({ ...settings, source: 'file', spectrum: null })) === 'table',
+        'Table with no spectrum on the design asks for one');
+    // A spectrum the engine cannot model is named before it runs, not thrown.
+    const dark = { xUnit: 'nm', rows: [[790, 0, null], [800, 0, null]] };
+    const lone = { xUnit: 'nm', rows: [[0, 1, null], [800, 1, null]] };
+    ok([dark, lone].every(stored => pulseProblem(pulseFromSettings({ ...settings, source: 'file', spectrum: stored })) === 'table'),
+        'a spectrum with no light, or one row the model reads, asks for a usable one');
+    // A row whose phase is missing among phased rows is left out, not read as 0.
+    const gap = { ...spectrum, rows: spectrum.rows.map((row, at) => (at === 52 ? [row[0], row[1], null] : row)) };
+    const dropped = { ...spectrum, rows: spectrum.rows.filter((_, at) => at !== 52) };
+    const atGap = computePulseAnalysis(design, { ...request, passes: 1, pulse: { ...filePulse(gap), centerWavelengthNm: 800 } });
+    const atDropped = computePulseAnalysis(design, { ...request, passes: 1, pulse: { ...filePulse(dropped), centerWavelengthNm: 800 } });
+    ok(atGap.metrics.inputFwhmFs === atDropped.metrics.inputFwhmFs,
+        `a missing phase drops its row (${atGap.metrics.inputFwhmFs} vs ${atDropped.metrics.inputFwhmFs} fs)`);
 }
 
 // A spectrum symmetric in frequency about 800 nm, written as a spectrometer
 // records it: per unit wavelength, I_λ = I_ω·|dω/dλ| ∝ I_ω/λ², on rows even in
 // wavelength. Read back per unit frequency, its centroid in frequency is 800 nm.
-// Against wavenumber the same light is per unit frequency as it stands. The
-// carrier is rounded to 0.01 nm.
+// Against wavenumber the same light is per unit frequency as it stands.
 {
     const omegaC = carrierOmega(800);
     const perFrequency = wavelength => Math.exp(-(((carrierOmega(wavelength) - omegaC) / 0.08) ** 2));
     const even = [];
     for (let wavelength = 650; wavelength <= 1000; wavelength += 0.5) even.push(wavelength);
-    const nm = readPulseSpectrum(
-        `Wavelength (nm)\tIntensity\n${even.map(w => `${w}\t${perFrequency(w) / (w * w)}`).join('\n')}`, 'nm.txt');
-    ok(Math.abs(nm.centerWavelengthNm - 800) <= 0.01, `per unit wavelength: carrier ${nm.centerWavelengthNm} nm is 800 nm`);
-    const cm = readPulseSpectrum(
-        `Wavenumber (cm-1)\tIntensity\n${even.map(w => `${1e7 / w}\t${perFrequency(w)}`).join('\n')}`, 'cm.txt');
-    ok(Math.abs(cm.centerWavelengthNm - 800) <= 0.01, `per unit wavenumber: carrier ${cm.centerWavelengthNm} nm is 800 nm`);
+    const nm = spectrumCentroidNm(spectrumFromText(
+        `Wavelength (nm)\tIntensity\n${even.map(w => `${w}\t${perFrequency(w) / (w * w)}`).join('\n')}`, 'nm.txt'));
+    ok(Math.abs(nm - 800) <= 0.005, `per unit wavelength: centroid ${nm} nm is 800 nm`);
+    const cm = spectrumCentroidNm(spectrumFromText(
+        `Wavenumber (cm-1)\tIntensity\n${even.map(w => `${1e7 / w}\t${perFrequency(w)}`).join('\n')}`, 'cm.txt'));
+    ok(Math.abs(cm - 800) <= 0.005, `per unit wavenumber: centroid ${cm} nm is 800 nm`);
     ok(Math.abs(wavelengthFromOmega(omegaC) - 800) < 1e-12, 'the carrier conversions are inverse');
 }
 
@@ -217,6 +261,21 @@ const view = dispatchAnalysisEvaluation('pulseAnalysis', { design, request });
         'Whole part is transmission only');
     ok(pulseSession.write(design, { side: 'front', target: 'R' }, copy).target === 'R',
         'a coating side keeps reflection');
+
+    // The spectrum is the design's, so selecting another design with one moves
+    // the centre to that spectrum's centroid; a model spectrum keeps its centre.
+    const spectrum = spectrumFromText('790\t1\n800\t3\n812\t2\n', 'other.txt');
+    const plain = { ...design, id: 'pulse-plain' };
+    const holding = { ...design, id: 'pulse-holding', pulseSpectrum: spectrum };
+    const tableCopy = 'pulse-table-copy';
+    pulseSession.read(plain, tableCopy);
+    pulseSession.write(plain, { source: 'file', centerWavelength: 820 }, tableCopy);
+    const moved = pulseSession.read(holding, tableCopy).centerWavelength;
+    ok(moved === spectrumCentreField(spectrum) && moved !== 820, `Table: the centre follows the design's spectrum (${moved} nm)`);
+    const modelCopy = 'pulse-model-copy';
+    pulseSession.read(plain, modelCopy);
+    pulseSession.write(plain, { source: 'model', centerWavelength: 820 }, modelCopy);
+    ok(pulseSession.read(holding, modelCopy).centerWavelength === 820, 'Model: the centre stays');
 }
 
 if (fails) {

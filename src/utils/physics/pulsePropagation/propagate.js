@@ -41,7 +41,8 @@
 
 import { fftInPlace } from './fft.js';
 import {
-    inputTimeExtent, pulseProblem, pulseSpectrumModel, wavelengthFromOmega as wavelengthAt,
+    carrierOmega as carrierOmegaOf, inputTimeExtent, pulseProblem, pulseSpectrumModel,
+    wavelengthFromOmega as wavelengthAt,
 } from './pulseSpectrum.js';
 import { analyticDelay, pulseMetrics } from './metrics.js';
 import {
@@ -286,13 +287,7 @@ function assembleResult(context, level, converged) {
     const time = Float64Array.from({ length: points }, (_, index) => (index - points / 2) * dt);
     const omega = Float64Array.from({ length: level.input.re.length },
         (_, index) => model.omega0 + (index + first) * step);
-    const spectralAt = deltaOmega => {
-        const input = model.amplitude(deltaOmega) ** 2;
-        const wavelengthNm = wavelengthAt(model.omega0 + deltaOmega);
-        const transfer = responses.reduce((sum, response) =>
-            sum + transferPower(checkedPoint(response(wavelengthNm)), passes), 0) / responses.length;
-        return { input, output: input * transfer };
-    };
+    const spectralAt = deltaOmega => spectrumAt(context, wavelengthAt(model.omega0 + deltaOmega));
     const flpBand = flatPhase(level.input);
     const flpIntensity = bandToIntensity(flpBand, points);
     return {
@@ -322,5 +317,29 @@ function assembleResult(context, level, converged) {
             model, passes, level, time, omega, spectralAt,
             flp: { band: flpBand, intensity: flpIntensity },
         }),
+        spectrumAt: wavelengthNm => spectrumAt(context, wavelengthNm),
+    };
+}
+
+/**
+ * The spectra at any vacuum wavelength, evaluated there rather than read off
+ * the band's samples, on the band's scale: input and output spectral
+ * intensity, the output averaged over the channels as the intensities are;
+ * the response's GDD over all passes, averaged over the channels that have a
+ * value; and the input's own GDD.
+ */
+function spectrumAt({ model, responses, passes }, wavelengthNm) {
+    const deltaOmega = carrierOmegaOf(wavelengthNm) - model.omega0;
+    const input = model.amplitude(deltaOmega) ** 2;
+    const points = responses.map(response => checkedPoint(response(wavelengthNm)));
+    const transfer = points.reduce((sum, point) => sum + transferPower(point, passes), 0) / points.length;
+    const valid = points.filter(point => point.valid && Number.isFinite(point.gddFs2));
+    return {
+        input,
+        output: input * transfer,
+        responseGddFs2: valid.length
+            ? passes * valid.reduce((sum, point) => sum + point.gddFs2, 0) / valid.length
+            : NaN,
+        inputGddFs2: model.phaseDerivatives(deltaOmega).gddFs2,
     };
 }

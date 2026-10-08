@@ -16,9 +16,11 @@
  *   OD        optical density, -log10 T, for transmittance only (Ch. 5); the
  *             importers read it as absorbance
  *   deg       degrees, for Ψ and Δ
- *   rel       a relative weight, for an Integral Values source or detector
+ *   rel       a relative weight, for an Integral Values source or detector,
+ *             or a relative spectral intensity, for a Pulse Analysis spectrum
  *   gain      an amplifier gain in dB, for the gain flattening wizard, kept
  *             as typed: a gain is not a transmittance and has no fraction
+ *   rad       a spectral phase in radians, for a Pulse Analysis spectrum
  *
  * dB and density use the merit function's own readings (logReadings.js), so a
  * value typed here means what the same number means in a dB or OD merit row.
@@ -32,6 +34,8 @@ export const KIND_QUANTITIES = {
     ellipsometry: ['PSI', 'DEL'],
     weight: ['W'],
     gain: ['G'],
+    // A pulse spectrum: its intensity, then its phase, which may be left empty.
+    pulse: ['I', 'PHI'],
 };
 
 /** The wavelength units, the ones the two importers read. */
@@ -45,6 +49,8 @@ const QUANTITY_UNITS = {
     DEL: ['deg'],
     W: ['rel'],
     G: ['gain'],
+    I: ['rel'],
+    PHI: ['rad'],
 };
 
 /** The units a quantity can be typed in, the first being the default. */
@@ -69,6 +75,7 @@ const TO_STORED = {
     deg: identity,
     rel: identity,
     gain: identity,
+    rad: identity,
 };
 
 const FROM_STORED = {
@@ -80,6 +87,7 @@ const FROM_STORED = {
     deg: identity,
     rel: identity,
     gain: identity,
+    rad: identity,
 };
 
 // The units a curve keeps a note of after Apply. The design stores T, R and A
@@ -118,14 +126,16 @@ const PHOTOMETRIC = new Set(['T', 'R', 'A']);
 
 /**
  * Why a typed value lies outside its quantity's physical range, or null.
- * T, R and A cannot leave 0-100 %, and Ψ, an arctangent of a ratio of
- * magnitudes, cannot leave 0-90°. Δ is an angle and has no range to leave.
+ * T, R and A cannot leave 0-100 %, Ψ, an arctangent of a ratio of
+ * magnitudes, cannot leave 0-90°, and a spectral intensity cannot go below
+ * zero. Δ and a spectral phase are angles and have no range to leave.
  *   'above'  T, R or A above 100 %
- *   'below'  T, R or A below 0
+ *   'below'  T, R or A, or an intensity, below 0
  *   'psi'    Ψ outside 0-90°
  */
 export function valueProblem(quantity, unit, value) {
     if (!Number.isFinite(value)) return null;
+    if (quantity === 'I') return value < 0 ? 'below' : null;
     if (PHOTOMETRIC.has(quantity)) {
         const fraction = toStored(value, unit);
         if (fraction > 1) return 'above';

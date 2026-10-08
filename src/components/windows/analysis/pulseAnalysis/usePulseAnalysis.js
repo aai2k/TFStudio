@@ -1,12 +1,13 @@
-import {
-    pulseProblem, spectrumCentroidOmega, wavelengthFromOmega,
-} from '../../../../utils/physics/pulsePropagation.js';
-import { parseSpectrumTable, xToNm, X_UNITS } from '../../../../utils/io/spectrumTable.js';
+import { pulseProblem } from '../../../../utils/physics/pulsePropagation.js';
+import { useDesign } from '../../../../state/DesignContext.js';
 import { useLiveDesign } from '../../../../state/useLiveDesign.js';
 import { useWindowSession } from '../../windowSession.js';
 import { useAnalysisEvaluation } from '../useAnalysisEvaluation.js';
 import { meritTargetSide } from '../gdGddEvaluation/gdTargets.js';
-import { pulseFromSettings } from './pulseModel.js';
+import { emptyTable, tableFromPulseSpectrum } from '../../dataExchange/curveEditor/curveTable.js';
+import { pulseSpectrumFromTable } from '../../dataExchange/curveEditor/curveApply.js';
+import { tableFromText } from '../../dataExchange/curveEditor/tableText.js';
+import { pulseFromSettings, spectrumCentreField } from './pulseModel.js';
 import { pulseSession } from './sessionState.js';
 
 const { useCallback, useEffect, useMemo, useState } = React;
@@ -40,42 +41,17 @@ export function gddFromTarget(gddTarget, passes) {
     return -gddTarget * Math.max(1, Math.round(passes));
 }
 
-// Units of the first column against which an intensity is per unit wavelength,
-// as a spectrometer records it. Wavenumber and photon energy are proportional
-// to frequency, so an intensity against either is per unit frequency already.
-const WAVELENGTH_UNITS = new Set([X_UNITS.NM, X_UNITS.UM]);
-
 /**
- * A measured spectrum from file text: wavelength in the first column, in any
- * unit the spectrum reader detects; intensity in the next; phase in rad, when
- * there is a third. Against wavelength, the intensity is per unit wavelength,
- * as a spectrometer records it, and is turned into intensity per unit
- * frequency, the quantity the pulse is built from, by |dλ/dω| = λ²/2πc; the
- * constant drops out with the normalisation. The carrier returned is the
- * centroid in frequency of that spectrum, so the typed GDD and TOD expand
- * about the middle of the light.
+ * The design's pulse spectrum in the curve editor. Load file… reads a file
+ * into the editor, where its columns, units and rows are checked before
+ * Apply; Edit… opens what the design holds, or an empty table to type or paste
+ * into. Apply keeps the spectrum on the design, so it is saved with the
+ * project and undone as any other edit, and moves the centre wavelength to the
+ * spectrum's centroid in frequency, where a typed TOD adds the least GDD.
  */
-export function readPulseSpectrum(text, fileName) {
-    const parsed = parseSpectrumTable(text);
-    if (!parsed.ok || parsed.columns.length < 1) return null;
-    const unit = parsed.xUnit === X_UNITS.UNKNOWN ? X_UNITS.NM : parsed.xUnit;
-    const wavelengthNm = parsed.x.map(value => xToNm(value, unit));
-    const recorded = parsed.columns[0].values;
-    const intensity = WAVELENGTH_UNITS.has(unit)
-        ? recorded.map((value, index) => value * wavelengthNm[index] ** 2)
-        : recorded;
-    const table = { wavelengthNm, intensity, phaseRad: parsed.columns[1]?.values };
-    const centroid = spectrumCentroidOmega(table);
-    if (!(centroid > 0)) return null;
-    return {
-        name: fileName,
-        rows: wavelengthNm.length,
-        table,
-        centerWavelengthNm: Math.round(wavelengthFromOmega(centroid) * 100) / 100,
-    };
-}
-
-function useSpectrumFile(patch) {
+function useSpectrumEditor(patch) {
+    const { design, updateDesign, checkpoint } = useDesign();
+    const [editorTable, setEditorTable] = useState(null);
     const [fileError, setFileError] = useState(null);
     const canPick = typeof window !== 'undefined' && !!window.electronAPI?.spectrumPickFile;
     const loadSpectrum = useCallback(async () => {
@@ -85,14 +61,29 @@ function useSpectrumFile(patch) {
             if (!result?.canceled) setFileError({ reason: result?.error || '' });
             return;
         }
-        const spectrum = readPulseSpectrum(result.text, result.fileName || 'spectrum');
-        if (!spectrum) {
+        const read = tableFromText(result.text || '', emptyTable('pulse'), result.fileName || '');
+        if (read.error) {
             setFileError({ parse: true });
             return;
         }
-        patch({ source: 'file', spectrumFile: spectrum, centerWavelength: spectrum.centerWavelengthNm });
-    }, [patch]);
-    return { canPick, loadSpectrum, fileError };
+        setEditorTable(read.table);
+    }, []);
+    const editSpectrum = useCallback(() => {
+        setFileError(null);
+        setEditorTable(tableFromPulseSpectrum(design?.pulseSpectrum));
+    }, [design]);
+    const applySpectrum = useCallback((table) => {
+        const spectrum = pulseSpectrumFromTable(table);
+        checkpoint();
+        updateDesign({ pulseSpectrum: spectrum });
+        const centre = spectrumCentreField(spectrum);
+        patch({ source: 'file', ...(centre > 0 ? { centerWavelength: centre } : {}) });
+        setEditorTable(null);
+    }, [checkpoint, updateDesign, patch]);
+    return {
+        canPick, loadSpectrum, editSpectrum, applySpectrum, fileError, editorTable,
+        closeEditor: () => setEditorTable(null),
+    };
 }
 
 export function usePulseAnalysis(design) {
@@ -102,13 +93,15 @@ export function usePulseAnalysis(design) {
     const [session, setField, patch] = useWindowSession(pulseSession, design);
     const [stopped, setStopped] = useState(false);
     const {
-        source, shape, centerWavelength, duration, bandwidth, order, gdd, tod, spectrumFile,
+        source, shape, centerWavelength, duration, bandwidth, order, gdd, tod,
         side, target, pol, theta, passes,
     } = session;
+    const spectrum = liveDesign?.pulseSpectrum ?? null;
 
     const pulse = useMemo(() => pulseFromSettings({
-        source, shape, centerWavelength, duration, bandwidth, order, gdd, tod, spectrumFile,
-    }), [source, shape, centerWavelength, duration, bandwidth, order, gdd, tod, spectrumFile]);
+        source, shape, centerWavelength, duration, bandwidth, order, gdd, tod, spectrum,
+    }), [source, shape, centerWavelength, duration, bandwidth, order, gdd, tod, spectrum]);
+    const spectrumCentre = useMemo(() => spectrumCentreField(spectrum), [spectrum]);
     const problem = pulseProblem(pulse);
     const hasStack = hasLayers(liveDesign, side);
     const payload = useMemo(() => (hasStack && !problem ? {
@@ -122,7 +115,7 @@ export function usePulseAnalysis(design) {
     const gddTarget = designGddTarget(liveDesign?.meritOperands, {
         target, side, surfaceMode: liveDesign?.surfaceMode,
     });
-    const file = useSpectrumFile(patch);
+    const file = useSpectrumEditor(patch);
 
     return {
         session, setField, patch, pulse, problem, hasStack, payload,
@@ -131,6 +124,7 @@ export function usePulseAnalysis(design) {
         fillGddFromTarget: () => {
             if (gddTarget !== null) setField('gdd', gddFromTarget(gddTarget, passes));
         },
+        spectrum, spectrumCentre,
         ...file,
     };
 }

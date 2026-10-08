@@ -6,10 +6,14 @@
  * dialogs' own (measuredSampling.js, shape-preserving PCHIP), with Δ
  * interpolated as an unwrapped angle as its fit does (measuredEllipsometry/
  * fitModel.js). Smoothing is Savitzky-Golay (utils/math/savitzkyGolay.js).
+ * A pulse's spectral phase, in radians, is unwrapped in both when it is written
+ * wrapped into one turn (utils/math/unwrapPhase.js); resampled, it is kept
+ * unwrapped, as Pulse Analysis reads it.
  */
 import { sampleMeasuredCurve } from '../../../../utils/io/spectrumTable.js';
 import { savitzkyGolayProblem, smoothSavitzkyGolay } from '../../../../utils/math/savitzkyGolay.js';
 import { sampleDeltaCurve, unwrappedDegrees } from '../measuredEllipsometry/fitModel.js';
+import { unwrappedPhase } from '../../../../utils/math/unwrapPhase.js';
 import { X_KEY, columnIndex, columnSeries, setCells, tidy } from './curveTable.js';
 
 // Every row of a table is an array of its own, and a table of tens of millions
@@ -32,6 +36,9 @@ function sortedSeries(table, index) {
         rows: order.map(at => series.rows[at]),
     };
 }
+
+const samplePhaseCurve = (curve, options) => sampleMeasuredCurve({ ...curve, y: unwrappedPhase(curve.y) }, options);
+const SAMPLERS = { DEL: sampleDeltaCurve, PHI: samplePhaseCurve };
 
 // Grid points are whole multiples of the step, so a 1 nm grid lands on whole
 // nanometres whatever wavelength the first point was typed at.
@@ -66,7 +73,7 @@ export function resampleTable(table, step) {
     table.columns.forEach((column, index) => {
         const series = sortedSeries(table, index);
         if (series.x.length < 2) return;
-        const sample = column.quantity === 'DEL' ? sampleDeltaCurve : sampleMeasuredCurve;
+        const sample = SAMPLERS[column.quantity] || sampleMeasuredCurve;
         const sampled = sample({ x: series.x, y: series.y }, {
             mode: 'uniform', stepNm: step,
             rangeMin: firstMultiple(series.x[0], step) * step,
@@ -80,11 +87,14 @@ export function resampleTable(table, step) {
     return { table: { ...table, rows }, problem: null };
 }
 
-// Δ is smoothed as an unwrapped angle, and each point put back on the turn it
-// was written on, so a run crossing 360° is not pulled through 180°.
+// Δ and a spectral phase are smoothed as unwrapped angles, and each point put
+// back on the turn it was written on, so a run crossing a full turn is not
+// pulled through the half turn.
+const UNWRAP = { DEL: unwrappedDegrees, PHI: unwrappedPhase };
+
 function smoothedValues(series, quantity, window, order) {
-    if (quantity !== 'DEL') return smoothSavitzkyGolay(series.x, series.y, window, order);
-    const unwrapped = unwrappedDegrees(series.y);
+    if (!UNWRAP[quantity]) return smoothSavitzkyGolay(series.x, series.y, window, order);
+    const unwrapped = UNWRAP[quantity](series.y);
     const smoothed = smoothSavitzkyGolay(series.x, unwrapped, window, order);
     return smoothed.map((value, at) => value - (unwrapped[at] - series.y[at]));
 }
