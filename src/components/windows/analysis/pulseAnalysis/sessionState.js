@@ -23,6 +23,11 @@ export const pulseSession = createWindowSession({
     // 'model' draws the spectrum from the shape; 'file' uses the measured or
     // typed spectrum the design holds (design.pulseSpectrum).
     source: 'model',
+    // The last finished result and the run last stopped, each with the design
+    // and request it belongs to, so a remount shows them rather than running
+    // again (usePulseAnalysis.js).
+    result: null,
+    stoppedFor: null,
 }, {
     id: 'pulseAnalysis',
     savable: registryKeys('pulseAnalysis'),

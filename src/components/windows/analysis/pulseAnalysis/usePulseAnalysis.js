@@ -86,12 +86,40 @@ function useSpectrumEditor(patch) {
     };
 }
 
+/**
+ * The pulse evaluated in the worker, kept in the window's session with the
+ * design and the request it answers. A tab switch, a dock or a redock mounts
+ * the window afresh; a result kept for the same design and request is shown
+ * again rather than computed again, and a run stopped for them stays stopped.
+ * A new request runs even after Stop.
+ */
+function useKeptEvaluation(payload, session, patch) {
+    const requestKey = useMemo(() => (payload ? JSON.stringify(payload.request) : null), [payload]);
+    const design = payload?.design;
+    const answers = entry => Boolean(payload) && entry?.design === design && entry.requestKey === requestKey;
+    const kept = answers(session.result) ? session.result : null;
+    const stopped = answers(session.stoppedFor);
+    const evaluation = useAnalysisEvaluation(Boolean(payload) && !stopped && !kept, 'pulseAnalysis', payload);
+    const finished = evaluation.payload === payload ? evaluation.data : null;
+    useEffect(() => {
+        if (finished) patch({ result: { design, requestKey, data: finished } });
+    }, [finished, design, requestKey, patch]);
+    const stoppedElsewhere = Boolean(session.stoppedFor) && !stopped;
+    useEffect(() => {
+        if (stoppedElsewhere) patch({ stoppedFor: null });
+    }, [stoppedElsewhere, patch]);
+    return {
+        evaluation: kept ? { data: kept.data, error: null, busy: false } : evaluation,
+        stopped,
+        stop: () => patch({ stoppedFor: { design, requestKey } }),
+    };
+}
+
 export function usePulseAnalysis(design) {
     // Following the sampled design keeps an optimizer run from starting one
     // evaluation per progress message.
     const { design: liveDesign } = useLiveDesign();
     const [session, setField, patch] = useWindowSession(pulseSession, design);
-    const [stopped, setStopped] = useState(false);
     const {
         source, shape, centerWavelength, duration, bandwidth, order, gdd, tod,
         side, target, pol, theta, passes,
@@ -109,9 +137,7 @@ export function usePulseAnalysis(design) {
         request: { pulse, side, target, polarization: pol, thetaDeg: theta, passes: Math.max(1, Math.round(passes)) },
     } : null), [hasStack, problem, liveDesign, pulse, side, target, pol, theta, passes]);
 
-    // A new request runs again even after Stop.
-    useEffect(() => setStopped(false), [payload]);
-    const evaluation = useAnalysisEvaluation(Boolean(payload) && !stopped, 'pulseAnalysis', payload);
+    const run = useKeptEvaluation(payload, session, patch);
     const gddTarget = designGddTarget(liveDesign?.meritOperands, {
         target, side, surfaceMode: liveDesign?.surfaceMode,
     });
@@ -119,7 +145,7 @@ export function usePulseAnalysis(design) {
 
     return {
         session, setField, patch, pulse, problem, hasStack, payload,
-        evaluation, stopped, stop: () => setStopped(true),
+        ...run,
         gddTarget,
         fillGddFromTarget: () => {
             if (gddTarget !== null) setField('gdd', gddFromTarget(gddTarget, passes));

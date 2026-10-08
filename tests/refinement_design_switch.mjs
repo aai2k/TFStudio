@@ -18,6 +18,7 @@
  * Run: node tests/refinement_design_switch.mjs
  */
 import assert from 'node:assert/strict';
+import { makeEffectRuntime } from './_effectRuntime.mjs';
 
 const store = new Map();
 globalThis.localStorage = {
@@ -56,64 +57,7 @@ class ScriptedWorker {
 }
 globalThis.Worker = ScriptedWorker;
 
-function fakeReact() {
-    let slots = [];
-    let cursor = 0;
-    let pending = [];
-    let dirty = false;
-    const same = (a, b) => a && b && a.length === b.length && a.every((v, i) => Object.is(v, b[i]));
-    const slot = make => {
-        const i = cursor++;
-        if (slots.length <= i) slots[i] = make();
-        return slots[i];
-    };
-    return {
-        createContext: value => ({ value, Provider: 'Provider' }),
-        useContext: context => context.value,
-        createElement: () => null,
-        useState(initial) {
-            const s = slot(() => ({ value: typeof initial === 'function' ? initial() : initial }));
-            return [s.value, next => {
-                s.value = typeof next === 'function' ? next(s.value) : next;
-                dirty = true;
-            }];
-        },
-        useRef: initial => slot(() => ({ current: initial })),
-        useMemo(fn, deps) {
-            const s = slot(() => ({}));
-            if (!same(s.deps, deps)) { s.value = fn(); s.deps = deps; }
-            return s.value;
-        },
-        useCallback(fn, deps) {
-            const s = slot(() => ({}));
-            if (!same(s.deps, deps)) { s.value = fn; s.deps = deps; }
-            return s.value;
-        },
-        useEffect(fn, deps) {
-            const s = slot(() => ({}));
-            if (deps && same(s.deps, deps)) return;
-            s.deps = deps;
-            pending.push(() => { s.cleanup?.(); s.cleanup = fn(); });
-        },
-        run(render) {
-            let renders = 0;
-            do {
-                dirty = false;
-                cursor = 0;
-                pending = [];
-                render();
-                pending.splice(0).forEach(effect => effect());
-                assert.ok(++renders < 30, 'the window settles');
-            } while (dirty);
-        },
-        unmount() {
-            slots.forEach(s => s?.cleanup?.());
-            slots = [];
-        },
-    };
-}
-
-const R = fakeReact();
+const R = makeEffectRuntime();
 globalThis.React = R;
 
 const { DesignContext } = await import('../src/state/DesignContext.js');
