@@ -60,7 +60,9 @@ const pick = (values, keys) => Object.fromEntries(keys.map(key => [key, values[k
 // settings, read from the analysis registry so the two never disagree; the
 // curve map is the one that window opens with.
 const OPTICAL_EVALUATION_KEYS = ['lambdaStart', 'lambdaEnd', 'lambdaStep', 'thetas', 'spectralUnit', 'yScale', 'yAuto', 'yMin', 'yMax'];
-const ALL_CURVES_OFF = { T: false, R: false, A: false, Ts: false, Rs: false, Tp: false, Rp: false };
+const ALL_CURVES_OFF = {
+  T: false, R: false, A: false, Ts: false, Rs: false, As: false, Tp: false, Rp: false, Ap: false,
+};
 // The color block starts from the Color Evaluation window's shipped settings the same way.
 const COLOR_EVALUATION_KEYS = ['characteristic', 'pol', 'theta', 'observer', 'illuminant', 'step'];
 

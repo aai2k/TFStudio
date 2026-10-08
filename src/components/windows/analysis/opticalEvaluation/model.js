@@ -25,8 +25,10 @@ const CURVE_SHAPES = [
     { key: 'A',  dash: 'solid',  group: 'avg' },
     { key: 'Ts', dash: 'dotted', group: 's' },
     { key: 'Rs', dash: 'dotted', group: 's' },
+    { key: 'As', dash: 'dotted', group: 's' },
     { key: 'Tp', dash: 'dashed', group: 'p' },
     { key: 'Rp', dash: 'dashed', group: 'p' },
+    { key: 'Ap', dash: 'dashed', group: 'p' },
 ];
 
 export function buildCurves(colors = ANALYSIS_DEFAULTS.opticalEvaluation.colors) {
@@ -62,7 +64,7 @@ export const CURVE_BY_KEY = Object.fromEntries(CURVES.map(curve => [curve.key, c
 export const CURVE_GROUPS = [
     { q: 'T', members: [{ pol: 'avg', key: 'T' }, { pol: 's', key: 'Ts' }, { pol: 'p', key: 'Tp' }] },
     { q: 'R', members: [{ pol: 'avg', key: 'R' }, { pol: 's', key: 'Rs' }, { pol: 'p', key: 'Rp' }] },
-    { q: 'A', members: [{ pol: 'avg', key: 'A' }] },
+    { q: 'A', members: [{ pol: 'avg', key: 'A' }, { pol: 's', key: 'As' }, { pol: 'p', key: 'Ap' }] },
 ];
 
 export const AOI_MAX = 6;

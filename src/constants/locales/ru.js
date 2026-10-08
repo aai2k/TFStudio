@@ -1435,7 +1435,9 @@ export default {
     step: 'шаг',
     axisUnit: 'Ось',
     curves: 'Кривые',
-    curveLabels: { T: 'T ср.', R: 'R ср.', A: 'A ср.', Ts: 'T (s)', Rs: 'R (s)', Tp: 'T (p)', Rp: 'R (p)' },
+    curveLabels: {
+      T: 'T ср.', R: 'R ср.', A: 'A ср.', Ts: 'T (s)', Rs: 'R (s)', As: 'A (s)', Tp: 'T (p)', Rp: 'R (p)', Ap: 'A (p)',
+    },
     polAvg: 'ср.',
     polSShort: 's',
     polPShort: 'p',

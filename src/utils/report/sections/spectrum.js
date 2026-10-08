@@ -23,8 +23,10 @@ export const CURVES = [
   { key: 'A',  color: '#2e7d32' },
   { key: 'Ts', color: '#64b5f6' },
   { key: 'Rs', color: '#ef9a9a' },
+  { key: 'As', color: '#81c784' },
   { key: 'Tp', color: '#0d47a1' },
   { key: 'Rp', color: '#8e0000' },
+  { key: 'Ap', color: '#1b5e20' },
 ];
 
 // Solid for the first angle, dashed for the rest.

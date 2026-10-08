@@ -1464,7 +1464,9 @@ export default {
     step: 'step',
     axisUnit: 'Axis',
     curves: 'Curves',
-    curveLabels: { T: 'T avg', R: 'R avg', A: 'A avg', Ts: 'T (s)', Rs: 'R (s)', Tp: 'T (p)', Rp: 'R (p)' },
+    curveLabels: {
+      T: 'T avg', R: 'R avg', A: 'A avg', Ts: 'T (s)', Rs: 'R (s)', As: 'A (s)', Tp: 'T (p)', Rp: 'R (p)', Ap: 'A (p)',
+    },
     polAvg: 'avg',
     polSShort: 's',
     polPShort: 'p',

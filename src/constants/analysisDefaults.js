@@ -123,9 +123,9 @@ export const EVAL_PARAM_KEYS = [
 export const ANALYSIS_DEFAULTS = {
   opticalEvaluation: {
     colors: {
-      T:  '#2196f3', R:  '#ef5350', A: '#66bb6a',
-      Ts: '#64b5f6', Rs: '#ef9a9a',
-      Tp: '#1565c0', Rp: '#c62828',
+      T:  '#2196f3', R:  '#ef5350', A:  '#66bb6a',
+      Ts: '#64b5f6', Rs: '#ef9a9a', As: '#a5d6a7',
+      Tp: '#1565c0', Rp: '#c62828', Ap: '#2e7d32',
     },
     // The spectral range is stored in nanometres because the physics engine
     // always works in vacuum wavelength; the unit below is a display choice

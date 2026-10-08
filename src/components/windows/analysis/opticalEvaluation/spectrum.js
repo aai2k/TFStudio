@@ -46,8 +46,8 @@ export function computeOpticalSpectrum(design, params, evalMode) {
         series.push({
             theta,
             T: result.T, R: result.R, A: result.A,
-            Ts: result.Ts, Rs: result.Rs,
-            Tp: result.Tp, Rp: result.Rp
+            Ts: result.Ts, Rs: result.Rs, As: result.As,
+            Tp: result.Tp, Rp: result.Rp, Ap: result.Ap,
         });
     }
     return { lambda: lambda || [], series };

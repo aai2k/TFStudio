@@ -35,7 +35,9 @@ const design = makeSampleDesign();
   assert.equal(s.lambdaStart, 400, 'the spectrum block starts from the evaluation grid');
   assert.equal(s.lambdaEnd, 800);
   assert.deepEqual(s.thetas, [0]);
-  assert.deepEqual(s.curves, { T: true, R: true, A: false, Ts: false, Rs: false, Tp: false, Rp: false }, 'the curves follow the window');
+  assert.deepEqual(s.curves, {
+    T: true, R: true, A: false, Ts: false, Rs: false, As: false, Tp: false, Rp: false, Ap: false,
+  }, 'the curves follow the window');
   assert.equal(s.yScale, 'percent');
   assert.equal(s.spectralUnit, 'nm');
 

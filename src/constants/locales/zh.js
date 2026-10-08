@@ -1602,7 +1602,9 @@ export default {
     step: '步长',
     axisUnit: '轴',
     curves: '曲线',
-    curveLabels: { T: 'T 平均', R: 'R 平均', A: 'A 平均', Ts: 'T (s)', Rs: 'R (s)', Tp: 'T (p)', Rp: 'R (p)' },
+    curveLabels: {
+      T: 'T 平均', R: 'R 平均', A: 'A 平均', Ts: 'T (s)', Rs: 'R (s)', As: 'A (s)', Tp: 'T (p)', Rp: 'R (p)', Ap: 'A (p)',
+    },
     polAvg: '平均',
     polSShort: 's',
     polPShort: 'p',

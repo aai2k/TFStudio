@@ -124,7 +124,9 @@ assert.equal(layerColumnCount(5, false, 4), 4, 'an explicit column count wins ev
   assert.equal(t.blocks[2].settings.extended, true, 'the optical-columns option becomes the extended layer table');
   assert.equal(t.blocks[3].settings.table, true, 'the materials-table option carries over');
   const sp = withDefaults('spectrum', t.blocks[4].settings);
-  assert.deepEqual(sp.curves, { T: true, R: false, A: false, Ts: false, Rs: false, Tp: false, Rp: false });
+  assert.deepEqual(sp.curves, {
+    T: true, R: false, A: false, Ts: false, Rs: false, As: false, Tp: false, Rp: false, Ap: false,
+  });
   assert.equal(sp.tableStep, 10);
   assert.deepEqual(sp.thetas, [0, 45]);
   assert.equal(t.blocks[5].on, false);

@@ -10,7 +10,11 @@ import { deg, tt, blockTitle, errNote, wrap, note, DESIGN_COLORS } from './forma
 import { enabledCurves, stepIndices, stepTable, spectrumAxes, spectrumPlot } from './spectrum.js';
 
 // One line style per quantity; the design is told by its color.
-const CURVE_DASH = { T: null, R: '4 3', A: '1 3', Ts: '2 2', Rs: '6 2', Tp: '8 3 2 3', Rp: '8 3 2 3 2 3' };
+const CURVE_DASH = {
+  T: null, R: '4 3', A: '1 3',
+  Ts: '2 2', Rs: '6 2', As: '1 5',
+  Tp: '8 3 2 3', Rp: '8 3 2 3 2 3', Ap: '8 3 2 3 2 3 2 3',
+};
 
 /**
  * Index of the grid point nearest `lam`, or -1 when the grid does not carry

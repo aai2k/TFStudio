@@ -1619,7 +1619,9 @@ export default {
     step: 'passo',
     axisUnit: 'Asse',
     curves: 'Curve',
-    curveLabels: { T: 'T media', R: 'R media', A: 'A media', Ts: 'T (s)', Rs: 'R (s)', Tp: 'T (p)', Rp: 'R (p)' },
+    curveLabels: {
+      T: 'T media', R: 'R media', A: 'A media', Ts: 'T (s)', Rs: 'R (s)', As: 'A (s)', Tp: 'T (p)', Rp: 'R (p)', Ap: 'A (p)',
+    },
     polAvg: 'media',
     polSShort: 's',
     polPShort: 'p',
