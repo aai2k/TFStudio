@@ -70,8 +70,8 @@ export function useInhomogeneities() {
     const activeSides = activeDesignSides(design, evalMode);
     const hasBack = (design?.backLayers?.length || 0) > 0;
     const interfaces = useMemo(() => designInterfaces(design), [design]);
-    // Always averaged: the spectrum carries Ts/Tp and Rs/Rp alongside, so the
-    // curve switches pick a polarization without recomputing anything.
+    // Always averaged: the spectrum carries Ts/Tp, Rs/Rp and As/Ap alongside,
+    // so the curve switches pick a polarization without recomputing anything.
     const params = useMemo(() => ({
         lambdaStart, lambdaEnd, lambdaStep, theta: aoi, polarization: 'avg',
     }), [lambdaStart, lambdaEnd, lambdaStep, aoi]);

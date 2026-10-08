@@ -15,7 +15,9 @@ export const inhomogeneityViewSession = createWindowSession({
     ...sessionDefaults('inhomogeneities'),
     // A curve map is not a scalar, so the registry cannot hold it; the plot
     // colours for each of these curves are declared there instead.
-    showCurves: { T: true, R: true, A: true, Ts: false, Rs: false, Tp: false, Rp: false },
+    showCurves: {
+        T: true, R: true, A: true, Ts: false, Rs: false, As: false, Tp: false, Rp: false, Ap: false,
+    },
 }, {
     id: 'inhomogeneities',
     // Which curves are drawn is what you are looking at, not what the window

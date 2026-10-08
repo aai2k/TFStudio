@@ -3,7 +3,19 @@ import { axisTooltip, cartesianOption, lineSeries, valueAxis } from '../../../ui
 import { legendAbove, plotMargin } from '../chrome/plot.js';
 
 const DEFAULT_NAMES = { homogeneous: 'base', graded: 'graded' };
-export const OVERLAY_CURVES = ['T', 'Ts', 'Tp', 'R', 'Rs', 'Rp', 'A'];
+
+// Same shape as Optical Evaluation's: one pill per quantity, one button per
+// polarization inside it. Every polarization is already in the computed
+// spectrum, so switching one on costs nothing.
+export const CURVE_GROUPS = [
+    { q: 'T', members: [{ pol: 'avg', key: 'T' }, { pol: 's', key: 'Ts' }, { pol: 'p', key: 'Tp' }] },
+    { q: 'R', members: [{ pol: 'avg', key: 'R' }, { pol: 's', key: 'Rs' }, { pol: 'p', key: 'Rp' }] },
+    { q: 'A', members: [{ pol: 'avg', key: 'A' }, { pol: 's', key: 'As' }, { pol: 'p', key: 'Ap' }] },
+];
+
+// The curves in plot and table order, read off the switches so a switch never
+// exists without a curve to draw.
+export const OVERLAY_CURVES = CURVE_GROUPS.flatMap(group => group.members.map(member => member.key));
 export function enabledOverlayCurves(showCurves) { return OVERLAY_CURVES.filter(key => showCurves?.[key]); }
 
 export function buildOverlaySeries(baseline, perturbed, showCurves,

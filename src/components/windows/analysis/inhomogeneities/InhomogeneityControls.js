@@ -7,21 +7,13 @@ import {
 import { useAnalysisColors } from '../../../../state/AnalysisSettingsContext.js';
 import { ControlRow, EditorBody, EditorGroupTitle } from '../chrome/layout.js';
 import { NoticeBadge, SettingRow, SettingsMenu } from '../chrome/popover.js';
+import { CURVE_GROUPS } from './figure.js';
 
 const { createElement: h } = React;
 
 // One column set for the header and every row, so they stay aligned as the
 // window is resized. The interface name takes whatever width is left over.
 const COLUMNS = 'minmax(120px, 1fr) 70px 110px 60px 20px';
-
-// Same shape as Optical Evaluation's: one pill per quantity, one button per
-// polarization inside it. Every polarization is already in the computed
-// spectrum, so switching one on costs nothing.
-const CURVE_GROUPS = [
-    { q: 'T', members: [{ pol: 'avg', key: 'T' }, { pol: 's', key: 'Ts' }, { pol: 'p', key: 'Tp' }] },
-    { q: 'R', members: [{ pol: 'avg', key: 'R' }, { pol: 's', key: 'Rs' }, { pol: 'p', key: 'Rp' }] },
-    { q: 'A', members: [{ pol: 'avg', key: 'A' }] },
-];
 
 /**
  * Which curves are overlaid. The interlayers themselves are edited in the strip

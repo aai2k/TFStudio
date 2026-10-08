@@ -93,4 +93,44 @@ for (const mode of ['front', 'back', 'total']) {
     assert.notEqual(spectra.perturbed.T[0], spectra.baseline.T[0]);
 }
 
+// ── A (s) and A (p) ───────────────────────────────────────────────────────────
+// Every switch has a curve, a colour and a place in the table, so A gets s and
+// p beside the average the way T and R do.
+{
+    const { ANALYSIS_DEFAULTS } = await import('../src/constants/analysisDefaults.js');
+    const { overlayColumns } = await import('../src/components/windows/analysis/inhomogeneities/tableModel.js');
+    const colors = ANALYSIS_DEFAULTS.inhomogeneities.colors;
+    for (const { q, members } of figure.CURVE_GROUPS) {
+        assert.deepEqual(members.map(member => member.pol), ['avg', 's', 'p'], `${q} offers avg, s and p`);
+        for (const { key } of members) {
+            assert.ok(figure.OVERLAY_CURVES.includes(key), `${key} is drawn`);
+            assert.match(colors[key], /^#[0-9a-f]{6}$/, `${key} has a colour`);
+        }
+    }
+    const withA = { ...perturbed, As: [0.12], Ap: [0.18] };
+    const drawn = figure.buildOverlaySeries({ ...baseline, As: [0.08], Ap: [0.12] }, withA, { A: true, As: true, Ap: true });
+    assert.deepEqual(drawn.map(item => item.name),
+        ['A base', 'A graded', 'As base', 'As graded', 'Ap base', 'Ap graded']);
+    assert.deepEqual(drawn.filter((_, i) => i % 2).map(item => item.lineStyle.color), ['#66bb6a', '#a5d6a7', '#2e7d32']);
+    assert.deepEqual(overlayColumns(t, { As: true, Ap: true }).map(column => column.key).slice(-4),
+        ['As0', 'As', 'Ap0', 'Ap'], 'the table has a homogeneous and a graded column for each');
+
+    // A thin chromium film under silica at 45°: s and p absorb differently, and
+    // their mean is the A the window already drew.
+    const absorbing = {
+        ...makeSampleDesign(),
+        frontLayers: [{ id: 'c1', material: 'builtin:Cr', thickness: 8 }, { id: 'c2', material: 'builtin:SiO2', thickness: 95 }],
+        backLayers: [{ id: 'c3', material: 'builtin:Cr', thickness: 5 }],
+    };
+    const oblique = { lambdaStart: 500, lambdaEnd: 600, lambdaStep: 50, theta: 45, polarization: 'avg' };
+    for (const mode of ['front', 'back', 'total']) {
+        const { perturbed: spectrum } = model.computeInhomogeneitySpectra(absorbing, oblique, inh, mode);
+        assert.ok(spectrum.As && spectrum.Ap, `${mode}: the spectrum carries As and Ap`);
+        spectrum.A.forEach((value, i) => {
+            assert.ok(Math.abs((spectrum.As[i] + spectrum.Ap[i]) / 2 - value) < 1e-12, `${mode}: (As + Ap) / 2 = A`);
+            assert.ok(Math.abs(spectrum.As[i] - spectrum.Ap[i]) > 1e-4, `${mode}: s and p absorb differently`);
+        });
+    }
+}
+
 console.log('PASS: inhomogeneities_refactor_characterization');

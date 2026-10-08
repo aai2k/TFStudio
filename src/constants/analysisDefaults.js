@@ -453,8 +453,8 @@ export const ANALYSIS_DEFAULTS = {
   inhomogeneities: {
     colors: {
       T: '#4fc3f7', R: '#ef5350', A: '#66bb6a',
-      Ts: '#81d4fa', Rs: '#ef9a9a',
-      Tp: '#0288d1', Rp: '#c62828',
+      Ts: '#81d4fa', Rs: '#ef9a9a', As: '#a5d6a7',
+      Tp: '#0288d1', Rp: '#c62828', Ap: '#2e7d32',
     },
     numbers: {
       ...lambdaRange(400, 800),
