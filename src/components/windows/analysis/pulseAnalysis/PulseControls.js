@@ -116,9 +116,8 @@ function FileSpectrumRow({ c, text, analysis }) {
 
 /**
  * The carrier. A model spectrum sits on it; a spectrum from the design does
- * not move with it, and it is only where the typed GDD and TOD and the
- * spectrum's own phase are taken about, so the spectrum's centroid is shown
- * beside it.
+ * not move with it, and it is where the typed GDD and TOD and the spectrum's
+ * own phase are taken about, so the spectrum's centroid is shown beside it.
  */
 function CentreRow({ c, text, analysis }) {
     const { session, setField, spectrumCentre } = analysis;
